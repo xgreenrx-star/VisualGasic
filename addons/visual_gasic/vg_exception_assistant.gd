@@ -179,6 +179,7 @@ func show_error(file: String, line: int, message: String, code: int, variables: 
 	_last_code = code
 	_last_variables = variables.duplicate()
 	_file_label.text = file.get_file() if not file.is_empty() else "(unknown)"
+	_file_label.tooltip_text = file if not file.is_empty() else ""
 	_line_label.text = str(line)
 	_code_label.text = str(code)
 	_error_label.text = "[color=red][b]Runtime Error %d:[/b][/color]\n[color=white]%s[/color]" % [code, message]

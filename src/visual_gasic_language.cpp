@@ -47,6 +47,7 @@ bool VisualGasicLanguage::break_on_unhandled_error = true;
 
 // Set Next Statement state
 bool VisualGasicLanguage::next_statement_requested = false;
+String VisualGasicLanguage::next_statement_file;
 int VisualGasicLanguage::next_statement_line = 0;
 
 // Edit & Continue state
@@ -280,9 +281,16 @@ static bool vg_debug_message_handler(const String& p_message, const Array& p_dat
         return true;
     }
     else if (p_message == "set_next_statement" && p_data.size() >= 1) {
-        int line = p_data[0];
-        VisualGasicLanguage::set_next_statement(line);
-        UtilityFunctions::print("[VG Debug] C++ set_next_statement → line ", line);
+        if (p_data.size() >= 2) {
+            String file = p_data[0];
+            int line = p_data[1];
+            VisualGasicLanguage::set_next_statement_file_line(file, line);
+            UtilityFunctions::print("[VG Debug] C++ set_next_statement → ", file.get_file(), ":", line);
+        } else {
+            int line = p_data[0];
+            VisualGasicLanguage::set_next_statement(line);
+            UtilityFunctions::print("[VG Debug] C++ set_next_statement → line ", line);
+        }
         return true;
     }
     
@@ -3489,6 +3497,7 @@ void VisualGasicLanguage::_bind_methods() {
     
     // Set Next Statement (yellow-arrow drag)
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_set_next_statement", "line"), &VisualGasicLanguage::set_next_statement);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_set_next_statement_file_line", "file", "line"), &VisualGasicLanguage::set_next_statement_file_line);
     
     // Pause / Break request
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_request_break"), &VisualGasicLanguage::request_break);
@@ -4494,8 +4503,17 @@ void VisualGasicLanguage::set_break_on_error(bool enabled) {
 // ============================================================================
 
 void VisualGasicLanguage::set_next_statement(int line) {
+    set_next_statement_file_line(String(), line);
+}
+
+void VisualGasicLanguage::set_next_statement_file_line(const String &file, int line) {
     next_statement_requested = true;
+    next_statement_file = file;
     next_statement_line = line;
+}
+
+String VisualGasicLanguage::get_next_statement_file() {
+    return next_statement_file;
 }
 
 bool VisualGasicLanguage::is_next_statement_requested() {
@@ -4508,6 +4526,7 @@ int VisualGasicLanguage::get_next_statement_line() {
 
 void VisualGasicLanguage::clear_next_statement() {
     next_statement_requested = false;
+    next_statement_file = String();
     next_statement_line = 0;
 }
 

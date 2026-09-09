@@ -9,6 +9,7 @@
 #include "visual_gasic_tokenizer.h"
 #include "visual_gasic_parser.h" 
 #include "visual_gasic_bytecode.h"
+#include "vg_source_map.h"
 
 // Forward declaration for hot reload registry
 class VisualGasicLanguage;
@@ -19,6 +20,7 @@ class VisualGasicScript : public ScriptExtension {
 	GDCLASS(VisualGasicScript, ScriptExtension);
 
     String source_code;
+    Vector<VgSourceLineEntry> source_line_map;
     VisualGasicTokenizer tokenizer;
     VisualGasicParser parser;
     Ref<Script> base_script;
@@ -77,6 +79,9 @@ public:
     virtual TypedArray<Dictionary> _get_documentation() const override;
     bool has_reload_errors() const { return last_reload_had_error; }
     const Vector<VisualGasicParser::ParsingError>& get_parser_errors() const { return parser.errors; }
+    const Vector<VgSourceLineEntry> &get_source_line_map() const { return source_line_map; }
+    bool resolve_source_location(int merged_line, String &out_file, int &out_line) const;
+    int resolve_merged_line(const String &source_file, int source_line) const;
 
     // Tools
     void format_source_code();

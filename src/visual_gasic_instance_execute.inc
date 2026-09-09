@@ -12,13 +12,20 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
     // call (e.g. the caller's `Emu.Step()` call-site line), instead of the
     // actual failing line inside the method itself.
     if (stmt->line > 0) {
+        debug_state.merged_line = stmt->line;
         debug_state.current_line = stmt->line;
     }
     
     // Check for step debugging and breakpoints (for AST interpreter fallback when bytecode fails)
     if (stmt->line > 0 && script.is_valid()) {
         EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
-        String script_path = script->get_path();
+        
+        if (engine_debugger && engine_debugger->is_active()) {
+            resolve_debug_location(stmt->line);
+        }
+        String script_path = debug_state.current_file.is_empty() && script.is_valid()
+                ? script->get_path() : debug_state.current_file;
+        int src_line = debug_state.current_line;
         
         if (engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
             bool should_break = false;
@@ -50,11 +57,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             
             // Unified step-break handler: pause if ANY mechanism set should_break
             if (should_break) {
-                VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                VisualGasicLanguage::set_current_break_location(script_path, src_line);
                 
                 Array break_data;
                 break_data.push_back(script_path);
-                break_data.push_back(stmt->line);
+                break_data.push_back(src_line);
                 engine_debugger->send_message("visualgasic:break_hit", break_data);
                 
                 _send_variables_to_debugger(engine_debugger);
@@ -66,7 +73,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             
             // Check VGDebugHandler for breakpoints (using C++ check to avoid GDScript call during debug)
             if (!should_break) {
-                bool has_bp = VisualGasicLanguage::has_breakpoint(script_path, stmt->line);
+                bool has_bp = VisualGasicLanguage::has_breakpoint(script_path, src_line);
                 
                 if (has_bp) {
                     // Store breakpoint location before blocking (for editor query)
@@ -99,16 +106,16 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         context["function"] = current_sub->name;
                     }
                     
-                    if (debugger->should_break_at(script_path, stmt->line, context)) {
+                    if (debugger->should_break_at(script_path, src_line, context)) {
                         debug_state.debug_paused = true;
                         UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ",
-                            script_path, ":", stmt->line, "[/color]");
+                            script_path, ":", src_line, "[/color]");
                         
                         if (current_sub) {
                             debugger->record_execution_frame(
                                 current_sub->name,
                                 script_path,
-                                stmt->line,
+                                src_line,
                                 variables
                             );
                         }
@@ -126,11 +133,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             if (!should_break && VisualGasicLanguage::is_break_requested()) {
                 VisualGasicLanguage::clear_break_request();
                 
-                VisualGasicLanguage::set_current_break_location(script_path, stmt->line);
+                VisualGasicLanguage::set_current_break_location(script_path, src_line);
                 
                 Array break_data;
                 break_data.push_back(script_path);
-                break_data.push_back(stmt->line);
+                break_data.push_back(src_line);
                 engine_debugger->send_message("visualgasic:break_hit", break_data);
                 
                 _send_variables_to_debugger(engine_debugger);
@@ -148,11 +155,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             // VB6 Stop statement: pause execution like a breakpoint
             EngineDebugger* stop_dbg = EngineDebugger::get_singleton();
             if (stop_dbg && stop_dbg->is_active()) {
-                String stop_path;
-                if (script.is_valid()) {
-                    stop_path = script->get_path();
-                }
-                int stop_line = stmt->line;
+                resolve_debug_location(stmt->line);
+                String stop_path = debug_state.current_file;
+                int stop_line = debug_state.current_line;
                 VisualGasicLanguage::set_current_break_location(stop_path, stop_line);
                 Array break_data;
                 break_data.push_back(stop_path);

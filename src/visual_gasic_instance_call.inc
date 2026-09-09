@@ -1215,6 +1215,30 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     }
 }
 
+void VisualGasicInstance::resolve_debug_location(int merged_line) {
+    debug_state.merged_line = merged_line;
+    String src_file;
+    int src_line = merged_line;
+    if (script.is_valid()) {
+        script->resolve_source_location(merged_line, src_file, src_line);
+    }
+    if (src_file.is_empty() && script.is_valid()) {
+        src_file = script->get_path();
+    }
+    debug_state.current_line = src_line;
+    debug_state.current_file = src_file;
+}
+
+int VisualGasicInstance::resolve_merged_line_for_source(const String &source_file, int source_line) const {
+    if (script.is_valid() && !source_file.is_empty() && source_line > 0) {
+        const int merged = script->resolve_merged_line(source_file, source_line);
+        if (merged > 0) {
+            return merged;
+        }
+    }
+    return source_line;
+}
+
 void VisualGasicInstance::raise_error(String msg, int code, const String &source) {
     // Update Err Object — create if it doesn't exist yet (v3.2 fix)
     Dictionary err;
@@ -1227,30 +1251,38 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     err["Number"] = code;
     err["Description"] = msg;
     err["Source"] = source.is_empty() ? String("VisualGasic Runtime") : source;
-    variables["Err"] = err;
 
     if (error_state.has_error) return;
+    const int merged = debug_state.merged_line > 0 ? debug_state.merged_line : debug_state.current_line;
+    resolve_debug_location(merged);
     error_state.has_error = true;
     error_state.message = msg;
     error_state.code = code;
-    error_state.error_line = debug_state.current_line; // Capture line for Erl
+    error_state.error_line = debug_state.current_line;
+    error_state.error_file = debug_state.current_file;
+    err["Line"] = error_state.error_line;
+    if (!error_state.error_file.is_empty()) {
+        err["File"] = error_state.error_file;
+    }
+    variables["Err"] = err;
 
     // Always log runtime errors — even when an On Error handler is active.
     // On Error Resume Next / Goto suppresses the DIALOG but should never
     // hide errors from the developer's Output panel.
     String sub_name = current_sub ? String(current_sub->name) : String("(unknown)");
     String script_path = script.is_valid() ? script->get_path() : String("(unknown)");
+    String loc_file = error_state.error_file.is_empty() ? script_path : error_state.error_file;
     if (error_state.mode == ErrorState::NONE) {
         UtilityFunctions::printerr("[VG Runtime Error ", code, "] ", msg,
             " — Sub: ", sub_name,
-            " Line: ", debug_state.current_line,
-            " (", script_path, ")");
+            " Line: ", error_state.error_line,
+            " (", loc_file.get_file(), ")");
     } else {
         // Handled by On Error — log at lower severity so it's visible but not alarming
         UtilityFunctions::print("[VG Handled Error ", code, "] ", msg,
             " — Sub: ", sub_name,
-            " Line: ", debug_state.current_line,
-            " (handled by On Error)");
+            " Line: ", error_state.error_line,
+            " (", loc_file.get_file(), ", handled by On Error)");
     }
 }
 
@@ -1279,10 +1311,13 @@ void VisualGasicInstance::report_unhandled_error(const String &p_sub_name) {
     int err_code = error_state.code;
     String err_message = error_state.message;
     int err_line = error_state.error_line;
+    String err_file = error_state.error_file;
 
     UtilityFunctions::printerr(
         "Unhandled runtime error in '", p_sub_name, "': Error ",
-        err_code, ": ", err_message, " (Line ", err_line, ")");
+        err_code, ": ", err_message,
+        err_file.is_empty() ? String(" (Line ") + String::num_int64(err_line) + ")"
+                            : String(" (") + err_file.get_file() + ", line " + String::num_int64(err_line) + ")");
 
     // Clear now so the _OnError handler starts with a clean slate and so a
     // re-entrant error inside _OnError is reported directly (not recursed).
@@ -1310,7 +1345,10 @@ void VisualGasicInstance::report_unhandled_error(const String &p_sub_name) {
             UtilityFunctions::printerr(
                 "Unhandled runtime error inside _OnError: Error ",
                 error_state.code, ": ", error_state.message,
-                " (Line ", error_state.error_line, ")");
+                error_state.error_file.is_empty()
+                        ? String(" (Line ") + String::num_int64(error_state.error_line) + ")"
+                        : String(" (") + error_state.error_file.get_file() + ", line "
+                                  + String::num_int64(error_state.error_line) + ")");
             error_state.has_error = false;
             error_state.mode = ErrorState::NONE;
         }
@@ -1322,7 +1360,11 @@ void VisualGasicInstance::report_unhandled_error(const String &p_sub_name) {
     if (!handled_by_user) {
         String dlg = "Run-time error '" + String::num_int64(err_code) + "':\n\n" + err_message;
         if (err_line > 0) {
-            dlg += "\n\nLine: " + String::num_int64(err_line);
+            if (!err_file.is_empty()) {
+                dlg += "\n\n" + err_file.get_file() + ", line " + String::num_int64(err_line);
+            } else {
+                dlg += "\n\nLine: " + String::num_int64(err_line);
+            }
         }
         VisualGasicBuiltins::native_msgbox(dlg, "VisualGasic", 0);
     }

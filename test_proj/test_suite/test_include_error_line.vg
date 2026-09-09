@@ -1,0 +1,12 @@
+' Regression: runtime errors in included files report the included file/line, not merged line.
+Include "inc_error_line.vg"
+
+Sub _Ready()
+	On Error Resume Next
+	Call IncErrorLineSub()
+	If Err.Number = 9 And Erl() = 3 Then
+		Print "PASS: include_error_line"
+	Else
+		Print "FAIL: include_error_line: Err=" & Err.Number & " Erl=" & Erl()
+	End If
+End Sub

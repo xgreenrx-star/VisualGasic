@@ -7156,47 +7156,37 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 int line_number = (line_hi << 8) | line_lo;
 
-                // Update the current line for runtime error messages.  This is a
-                // cheap int store and is the ONLY OP_DEBUG_LINE work needed when no
-                // debugger is attached (error reporting reads current_line/current_file).
+                // Store merged line for raise_error() → resolve_debug_location().
+                debug_state.merged_line = line_number;
                 debug_state.current_line = line_number;
 
-                // Part O2/Q: pointer-guarded script-path cache.  script->get_path()
-                // (a fresh String heap alloc) runs at most once per script instead of
-                // once per statement, and debug_state.current_file is refreshed for
-                // error messages only when the owning script actually changes — no
-                // per-statement String assignment on the hot path.
                 if (script.is_valid() && _debug_script_path_owner != script.ptr()) {
                     _debug_script_path = script->get_path();
                     _debug_script_path_owner = script.ptr();
-                    debug_state.current_file = _debug_script_path;
                 }
 
-                // ── Part Q: one is_active() gate for ALL debugger machinery ──
-                // Set-Next-Statement, step mode, breakpoints, watchpoints, pause
-                // handling, per-statement stack-frame line tracking and the
-                // current_file String assignment are only observable while a
-                // debugger is attached.  Gating them behind a single is_active()
-                // probe means a normal shipped/headless run pays just the int store
-                // above per statement — no String assignments, no update_stack_frame_line
-                // / get_step_mode / is_next_statement_requested cross-TU calls — while
-                // in-editor debugging keeps full fidelity below.  Mirrors Part O
-                // (which gated the per-call debug-stack push/pop the same way).
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 if (!engine_debugger || !engine_debugger->is_active()) {
                     break;
                 }
 
-                // Debugger attached — resolve the cached path for the checks below.
-                String script_path = _debug_script_path;
+                // Debugger attached — map merged line to the original Include file.
+                resolve_debug_location(line_number);
+                String script_path = debug_state.current_file.is_empty() ? _debug_script_path : debug_state.current_file;
+                const int src_line = debug_state.current_line;
                 debug_state.current_file = script_path;
+                debug_state.current_line = src_line;
 
                 // ── Set Next Statement (early check) ──
                 // If a set_next_statement message arrived between
                 // instructions (after the previous vg_debug_wait
                 // returned), catch it NOW before executing this line.
                 if (VisualGasicLanguage::is_next_statement_requested()) {
-                    int sns_target = VisualGasicLanguage::get_next_statement_line();
+                    const String sns_file = VisualGasicLanguage::get_next_statement_file();
+                    const int sns_src_line = VisualGasicLanguage::get_next_statement_line();
+                    const int sns_target = sns_file.is_empty()
+                            ? sns_src_line
+                            : resolve_merged_line_for_source(sns_file, sns_src_line);
                     if (sns_target != line_number) {
                         VisualGasicLanguage::clear_next_statement();
                         // Scan bytecode for the target OP_DEBUG_LINE
@@ -7218,7 +7208,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 // Update the current stack frame line for Godot debugger
-                VisualGasicLanguage::update_stack_frame_line(line_number);
+                VisualGasicLanguage::update_stack_frame_line(src_line);
 
                 // Check for step debugging using both our custom step mode AND Godot's built-in stepping
                 bool should_break = false;
@@ -7251,11 +7241,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Unified step-break handler: pause if ANY mechanism set should_break
                 // (Godot's lines_left/depth OR our custom step mode)
                 if (should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
-                    VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                    VisualGasicLanguage::set_current_break_location(script_path, src_line);
                     
                     Array break_data;
                     break_data.push_back(script_path);
-                    break_data.push_back(line_number);
+                    break_data.push_back(src_line);
                     engine_debugger->send_message("visualgasic:break_hit", break_data);
                     
                     _send_variables_to_debugger(engine_debugger);
@@ -7268,12 +7258,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Check for breakpoints using Godot's EngineDebugger
                 if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
                     // First check Godot's built-in breakpoint system
-                    bool godot_bp = engine_debugger->is_breakpoint(line_number, StringName(script_path));
+                    bool godot_bp = engine_debugger->is_breakpoint(src_line, StringName(script_path));
                     bool has_bp = godot_bp;
                     
                     // Also check our C++ breakpoint storage (loaded from JSON file)
                     if (!has_bp) {
-                        has_bp = VisualGasicLanguage::has_breakpoint(script_path, line_number);
+                        has_bp = VisualGasicLanguage::has_breakpoint(script_path, src_line);
                     }
                     
                     if (has_bp) {
@@ -7306,16 +7296,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         context["function"] = current_sub->name;
                     }
                     
-                    if (debugger->should_break_at(script_path, line_number, context)) {
+                    if (debugger->should_break_at(script_path, src_line, context)) {
                         debug_state.debug_paused = true;
                         UtilityFunctions::print_rich("[color=cyan][VG Debug] Conditional breakpoint at ", 
-                            script_path, ":", line_number, "[/color]");
+                            script_path, ":", src_line, "[/color]");
                         
                         if (current_sub) {
                             debugger->record_execution_frame(
                                 current_sub->name,
                                 script_path,
-                                line_number,
+                                src_line,
                                 variables
                             );
                         }
@@ -7323,7 +7313,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Send enhanced break data with reason
                         Array cond_break_data;
                         cond_break_data.push_back(script_path);
-                        cond_break_data.push_back(line_number);
+                        cond_break_data.push_back(src_line);
                         engine_debugger->send_message("visualgasic:break_hit", cond_break_data);
                         
                         _send_variables_to_debugger(engine_debugger);
@@ -7378,11 +7368,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     && VisualGasicLanguage::is_break_requested()) {
                     VisualGasicLanguage::clear_break_request();
                     
-                    VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                    VisualGasicLanguage::set_current_break_location(script_path, src_line);
                     
                     Array break_data;
                     break_data.push_back(script_path);
-                    break_data.push_back(line_number);
+                    break_data.push_back(src_line);
                     engine_debugger->send_message("visualgasic:break_hit", break_data);
                     
                     _send_variables_to_debugger(engine_debugger);
@@ -7397,7 +7387,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 //    chunk for the first OP_DEBUG_LINE that encodes the target line
                 //    and redirect vm.ip there. ──
                 if (VisualGasicLanguage::is_next_statement_requested()) {
-                    int target_line = VisualGasicLanguage::get_next_statement_line();
+                    const String sns_file = VisualGasicLanguage::get_next_statement_file();
+                    const int sns_src_line = VisualGasicLanguage::get_next_statement_line();
+                    const int target_line = sns_file.is_empty()
+                            ? sns_src_line
+                            : resolve_merged_line_for_source(sns_file, sns_src_line);
                     VisualGasicLanguage::clear_next_statement();
                     
                     // Scan bytecode for OP_DEBUG_LINE with matching line number
@@ -7424,13 +7418,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                     if (!found_target) {
-                        UtilityFunctions::print("[VG Debug] Set Next Statement: line ", target_line, " not found in bytecode — ignoring");
+                        UtilityFunctions::print("[VG Debug] Set Next Statement: line ", target_line,
+                            sns_file.is_empty() ? "" : String(" (") + sns_file.get_file() + ":" + String::num_int64(sns_src_line) + ")",
+                            " not found in bytecode — ignoring");
                         // Notify the editor so it can snap the yellow arrow back
                         EngineDebugger* sns_dbg = EngineDebugger::get_singleton();
                         if (sns_dbg && sns_dbg->is_active()) {
                             Array fail_data;
-                            fail_data.push_back(target_line);
-                            fail_data.push_back(debug_state.current_line);  // actual executing line
+                            fail_data.push_back(sns_src_line > 0 ? sns_src_line : target_line);
+                            fail_data.push_back(src_line > 0 ? src_line : debug_state.current_line);
                             sns_dbg->send_message("visualgasic:set_next_statement_failed", fail_data);
                         }
                     }

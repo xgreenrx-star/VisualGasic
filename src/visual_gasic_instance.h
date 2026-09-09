@@ -278,6 +278,7 @@ class VisualGasicInstance {
         String message;
         int code; // Added
         int error_line = 0; // Line number where error occurred (Erl)
+        String error_file;  // Source file for error_line (Include-aware)
     } error_state;
 
     // Re-entrancy guard for the synthetic _OnError callback.  Set while the
@@ -295,6 +296,7 @@ class VisualGasicInstance {
     
     // Debug state for breakpoint support
     struct DebugState {
+        int merged_line = 0; // Pre-Include-expansion line (bytecode/AST)
         int current_line = 0;
         String current_file;
         bool debug_paused = false;
@@ -383,6 +385,8 @@ class VisualGasicInstance {
     Variant _evaluate_expression_impl(ExpressionNode* expr);
     void _execute_statement_impl(Statement* stmt);
     void raise_error(String msg, int code = 5, const String &source = "");
+    void resolve_debug_location(int merged_line);
+    int resolve_merged_line_for_source(const String &source_file, int source_line) const;
 
     // Central handler for an unhandled runtime error surfacing from an event
     // Sub.  Logs the error, fires a synthetic _OnError() callback (if the form
@@ -451,6 +455,7 @@ public:
     const Dictionary &get_builtin_constants() const { return builtin_constants; }
     Dictionary &get_open_files() { return open_files; }
     int get_error_line() const { return error_state.error_line; }
+    String get_error_file() const { return error_state.error_file; }
     Variant call_method_by_name(const String &p_name, const Array &p_args);
 
     // Immediate Window: parse and execute a single VB statement on this instance
@@ -461,6 +466,7 @@ public:
         error_state.message = "";
         error_state.code = 0;
         error_state.error_line = 0;
+        error_state.error_file = "";
         error_state.mode = ErrorState::NONE;
     }
     

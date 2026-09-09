@@ -1,4 +1,5 @@
 #include "visual_gasic_script.h"
+#include "vg_source_map.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_instance.h"
 #include "visual_gasic_compiler.h"
@@ -527,39 +528,12 @@ String VisualGasicScript::_get_source_code() const {
 
 #include <godot_cpp/classes/file_access.hpp>
 
-// Helper to resolve includes
-String resolve_includes(const String& path, const String& code, int depth = 0) {
-    if (depth > 10) return code; // Prevent infinite recursion
+bool VisualGasicScript::resolve_source_location(int merged_line, String &out_file, int &out_line) const {
+    return vg_resolve_source_location(source_line_map, get_path(), merged_line, out_file, out_line);
+}
 
-    String result = "";
-    PackedStringArray lines = code.split("\n");
-    
-    for(int i=0; i<lines.size(); i++) {
-        String line = lines[i].strip_edges();
-        if (line.begins_with("Include ")) {
-             String file_name = line.substr(8).strip_edges().replace("\"", "");
-             UtilityFunctions::print("Including file: ", file_name, " (from ", path, ")");
-             
-             String full_path = file_name;
-             if (!full_path.contains("://")) {
-                  String base_dir = path.get_base_dir();
-                  if (!base_dir.is_empty()) {
-                      full_path = base_dir.path_join(file_name);
-                  }
-             }
-             
-             if (FileAccess::file_exists(full_path)) {
-                 String content = FileAccess::get_file_as_string(full_path);
-                 result += resolve_includes(full_path, content, depth + 1) + "\n";
-             } else {
-                 UtilityFunctions::print("Include Error: File not found ", full_path);
-                 result += "' Missing Include: " + full_path + "\n";
-             }
-        } else {
-             result += lines[i] + "\n";
-        }
-    }
-    return result;
+int VisualGasicScript::resolve_merged_line(const String &source_file, int source_line) const {
+    return vg_resolve_merged_line(source_line_map, source_file, source_line);
 }
 
 void VisualGasicScript::_set_source_code(const String &p_code) {
@@ -597,7 +571,9 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     format_source_code();
     
     // Reload logic: Validate tokens
-    String processed_code = resolve_includes(get_path(), source_code);
+    VgIncludeResolveResult resolved = vg_resolve_includes_with_map(get_path(), source_code);
+    source_line_map = resolved.line_map;
+    String processed_code = resolved.code;
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
     // Scan ALL tokens for errors (not just the last — error tokens in the middle
     // can cause the parser to enter an invalid state and crash)
@@ -644,7 +620,16 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     
     if (parser.errors.size() > 0) {
          for (int i = 0; i < parser.errors.size(); i++) {
-             UtilityFunctions::print("[VG] Parser Error: ", parser.errors[i].message, " at line ", parser.errors[i].line);
+             String err_file;
+             int err_line = parser.errors[i].line;
+             resolve_source_location(parser.errors[i].line, err_file, err_line);
+             if (!err_file.is_empty()) {
+                 UtilityFunctions::print("[VG] Parser Error: ", parser.errors[i].message,
+                     " at ", err_file.get_file(), " line ", err_line,
+                     " (merged line ", parser.errors[i].line, ")");
+             } else {
+                 UtilityFunctions::print("[VG] Parser Error: ", parser.errors[i].message, " at line ", parser.errors[i].line);
+             }
          }
          // Continue with partially-parsed AST (VB6-style: errors in one Sub
          // should not prevent other Subs from running).  Mark that we had

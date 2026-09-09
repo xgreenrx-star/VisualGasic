@@ -1,4 +1,10 @@
-' GravenDev.vg — playtest cheat overlay (dev_menu action: F1 or `)
+' GravenDev.vg — playtest dev terminal (F1 or `); pauses gameplay while open
+
+Const DEV_TERM_LOG_MAX As Integer = 40
+Const DEV_TERM_LINE_H As Single = 28
+Const DEV_TERM_FONT As Integer = 16
+Const DEV_TERM_PAD_X As Single = 36
+Const DEV_TERM_PAD_Y As Single = 36
 
 ' Handler: InitDevMenu — reset dev toggles on boot
 Sub InitDevMenu()
@@ -8,6 +14,23 @@ Sub InitDevMenu()
 	devDragCoastMul = 1.0
 	devGodMode = False
 	devLightsOn = False
+	devTermInput = ""
+	devTermLogCount = 0
+End Sub
+
+' Handler: DevTermPushLine — append scrollback line
+Sub DevTermPushLine(msg As String)
+	Dim i As Integer
+	If devTermLogCount < DEV_TERM_LOG_MAX Then
+		devTermLog(devTermLogCount) = msg
+		devTermLogCount = devTermLogCount + 1
+	Else
+		For i = 0 To DEV_TERM_LOG_MAX - 2
+			devTermLog(i) = devTermLog(i + 1)
+		Next i
+		devTermLog(DEV_TERM_LOG_MAX - 1) = msg
+	End If
+	needRedraw = True
 End Sub
 
 ' Handler: DevResetTweaks — restore physics multipliers to 1.0
@@ -28,153 +51,280 @@ Sub DevWarpRoom(targetId As Integer)
 	podVY = 0
 	statusText = GetRoomHint()
 	needRedraw = True
-	Print "DEV warp -> Room " & Str(targetId)
 End Sub
 
-' Handler: DevApplyCheats — room puzzle flags + pulse/heat shortcuts
-Sub DevApplyCheats()
-	If Input.IsKeyJustPressed(KEY_C) Then
+' Handler: DevTermStatus — print current tweak percentages
+Sub DevTermStatus()
+	Dim thrustPct As Integer
+	Dim gravPct As Integer
+	Dim dragPct As Integer
+	thrustPct = Int(devThrustMul * 100)
+	gravPct = Int(devGScaleMul * 100)
+	dragPct = Int(devDragCoastMul * 100)
+	Call DevTermPushLine("status: thrust " & Str(thrustPct) & "%  gravity " & Str(gravPct) & "%  drag " & Str(dragPct) & "%")
+	If devGodMode Then
+		Call DevTermPushLine("god mode ON")
+	Else
+		Call DevTermPushLine("god mode OFF")
+	End If
+End Sub
+
+' Handler: DevTermHelp — command reference
+Sub DevTermHelp()
+	Call DevTermPushLine("commands:")
+	Call DevTermPushLine("  help              list commands")
+	Call DevTermPushLine("  close / exit      close terminal (F1)")
+	Call DevTermPushLine("  warp <1-8>        jump to room")
+	Call DevTermPushLine("  plate / orbit     satisfy puzzle flags")
+	Call DevTermPushLine("  heat / pulse      fill heat / fire sonar")
+	Call DevTermPushLine("  god / lights      toggle god mode / lights")
+	Call DevTermPushLine("  mass              toggle mass debug crosses")
+	Call DevTermPushLine("  reset             restore physics tweaks")
+	Call DevTermPushLine("  status            show tweak percentages")
+	Call DevTermPushLine("  thrust+ / thrust- adjust thrust multiplier")
+	Call DevTermPushLine("  gravity+ / -      adjust gravity multiplier")
+	Call DevTermPushLine("  drag+ / drag-     adjust coast drag")
+End Sub
+
+' Handler: DevTermExecute — parse and run one command line
+Sub DevTermExecute(raw As String)
+	Dim cmd As String
+	Dim parts() As String
+	Dim n As Integer
+	cmd = LCase(Trim(raw))
+	If cmd = "" Then Exit Sub
+	Call DevTermPushLine("> " & raw)
+	If cmd = "help" Or cmd = "?" Then
+		Call DevTermHelp()
+		Exit Sub
+	End If
+	If cmd = "close" Or cmd = "exit" Or cmd = "quit" Then
+		devMenuOpen = False
+		devTermInput = ""
+		Call DevTermPushLine("terminal closed — gameplay resumes")
+		needRedraw = True
+		Exit Sub
+	End If
+	If cmd = "status" Then
+		Call DevTermStatus()
+		Exit Sub
+	End If
+	If cmd = "reset" Then
+		Call DevResetTweaks()
+		statusText = "DEV: tweaks reset"
+		Call DevTermPushLine("ok — tweaks reset")
+		Exit Sub
+	End If
+	If cmd = "plate" Then
 		plateSatisfied = True
 		statusText = "DEV: floor plate satisfied"
-		needRedraw = True
+		Call DevTermPushLine("ok — plate satisfied")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_O) Then
+	If cmd = "orbit" Then
 		orbitComplete = True
 		statusText = "DEV: orbit gate open"
-		needRedraw = True
+		Call DevTermPushLine("ok — orbit gate open")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_H) Then
+	If cmd = "heat" Then
 		podHeat = HEAT_MAX
 		heatStress = 0
 		statusText = "DEV: heat tank full"
-		needRedraw = True
+		Call DevTermPushLine("ok — heat full")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_S) Then
+	If cmd = "pulse" Then
 		Call PulseActivate()
 		statusText = "DEV: pulse fired"
-		needRedraw = True
+		Call DevTermPushLine("ok — pulse fired")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_N) Then
+	If cmd = "god" Then
 		devGodMode = Not devGodMode
 		If devGodMode Then
 			statusText = "DEV: god mode ON"
+			Call DevTermPushLine("ok — god mode ON")
 		Else
 			statusText = "DEV: god mode OFF"
+			Call DevTermPushLine("ok — god mode OFF")
 		End If
-		needRedraw = True
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_L) Then
+	If cmd = "lights" Then
 		devLightsOn = Not devLightsOn
 		If devLightsOn Then
 			statusText = "DEV: lights ON"
+			Call DevTermPushLine("ok — lights ON")
 		Else
 			statusText = "DEV: lights OFF"
+			Call DevTermPushLine("ok — lights OFF")
 		End If
-		needRedraw = True
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_B) Then
+	If cmd = "mass" Then
 		showMassDebug = Not showMassDebug
-		needRedraw = True
+		Call DevTermPushLine("ok — mass debug " & IIf(showMassDebug, "ON", "OFF"))
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_0) Then
-		Call DevResetTweaks()
-		statusText = "DEV: tweaks reset"
-	End If
-End Sub
-
-' Handler: DevAdjustTweaks — [ ] thrust, - = gravity, , . drag coast
-Sub DevAdjustTweaks()
-	If Input.IsKeyJustPressed(KEY_BRACKETRIGHT) Then
+	If cmd = "thrust+" Or cmd = "thrustup" Then
 		devThrustMul = devThrustMul * 1.12
 		If devThrustMul > 4.0 Then devThrustMul = 4.0
-		needRedraw = True
+		Call DevTermPushLine("ok — thrust " & Str(Int(devThrustMul * 100)) & "%")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_BRACKETLEFT) Then
+	If cmd = "thrust-" Or cmd = "thrustdown" Then
 		devThrustMul = devThrustMul / 1.12
 		If devThrustMul < 0.25 Then devThrustMul = 0.25
-		needRedraw = True
+		Call DevTermPushLine("ok — thrust " & Str(Int(devThrustMul * 100)) & "%")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_EQUAL) Then
+	If cmd = "gravity+" Or cmd = "grav+" Then
 		devGScaleMul = devGScaleMul * 1.12
 		If devGScaleMul > 4.0 Then devGScaleMul = 4.0
-		needRedraw = True
+		Call DevTermPushLine("ok — gravity " & Str(Int(devGScaleMul * 100)) & "%")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_MINUS) Then
+	If cmd = "gravity-" Or cmd = "grav-" Then
 		devGScaleMul = devGScaleMul / 1.12
 		If devGScaleMul < 0.25 Then devGScaleMul = 0.25
-		needRedraw = True
+		Call DevTermPushLine("ok — gravity " & Str(Int(devGScaleMul * 100)) & "%")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_PERIOD) Then
+	If cmd = "drag+" Then
 		devDragCoastMul = devDragCoastMul * 1.05
 		If devDragCoastMul > 1.5 Then devDragCoastMul = 1.5
-		needRedraw = True
+		Call DevTermPushLine("ok — drag " & Str(Int(devDragCoastMul * 100)) & "%")
+		Exit Sub
 	End If
-	If Input.IsKeyJustPressed(KEY_COMMA) Then
+	If cmd = "drag-" Then
 		devDragCoastMul = devDragCoastMul / 1.05
 		If devDragCoastMul < 0.5 Then devDragCoastMul = 0.5
+		Call DevTermPushLine("ok — drag " & Str(Int(devDragCoastMul * 100)) & "%")
+		Exit Sub
+	End If
+	parts = Split(cmd, " ")
+	If UBound(parts) >= 1 Then
+		If parts(0) = "warp" Or parts(0) = "room" Then
+			n = Val(parts(1))
+			If n >= 1 And n <= 8 Then
+				Call DevWarpRoom(n)
+				Call DevTermPushLine("ok — room " & Str(n))
+			Else
+				Call DevTermPushLine("error — room must be 1-8")
+			End If
+			Exit Sub
+		End If
+	End If
+	Call DevTermPushLine("unknown command — type help")
+End Sub
+
+' Handler: DevTerminalInput — keyboard line editor (_Input while terminal open)
+Sub DevTerminalInput(ev As Variant)
+	Dim keycode As Integer
+	Dim ch As String
+	If Not devMenuOpen Then Exit Sub
+	If Not ev Is InputEventKey Then Exit Sub
+	If Not ev.pressed Then Exit Sub
+	keycode = ev.keycode
+	If keycode = KEY_ENTER Or keycode = KEY_KP_ENTER Then
+		Call DevTermExecute(devTermInput)
+		devTermInput = ""
+		GetViewport().SetInputAsHandled()
+		Exit Sub
+	End If
+	If keycode = KEY_BACKSPACE Or keycode = KEY_DELETE Then
+		If Len(devTermInput) > 0 Then
+			devTermInput = Left(devTermInput, Len(devTermInput) - 1)
+			needRedraw = True
+		End If
+		GetViewport().SetInputAsHandled()
+		Exit Sub
+	End If
+	If keycode = KEY_ESCAPE Then
+		devMenuOpen = False
+		devTermInput = ""
+		Call DevTermPushLine("terminal closed — gameplay resumes")
 		needRedraw = True
+		GetViewport().SetInputAsHandled()
+		Exit Sub
+	End If
+	If ev.unicode > 32 And ev.unicode < 127 Then
+		ch = Chr(ev.unicode)
+		If Len(devTermInput) < 48 Then
+			devTermInput = devTermInput & ch
+			needRedraw = True
+		End If
+		GetViewport().SetInputAsHandled()
 	End If
 End Sub
 
-' Handler: ProcessDevInput — dev_menu toggles overlay; keys only while open
+' Handler: ProcessDevInput — F1/` toggles terminal; gameplay pauses while open
 Sub ProcessDevInput()
 	If Input.IsActionJustPressed("dev_menu") Then
 		devMenuOpen = Not devMenuOpen
 		needRedraw = True
 		If devMenuOpen Then
-			Print "DEV menu open — 1-8 warp rooms, F1/` close"
+			podVX = 0
+			podVY = 0
+			devTermInput = ""
+			Call DevTermPushLine("GRAVEN dev terminal — gameplay paused")
+			Call DevTermPushLine("type help for commands")
+			Print "DEV terminal open — type help"
 		Else
-			Print "DEV menu closed"
+			devTermInput = ""
+			Print "DEV terminal closed"
 		End If
-		Exit Sub
 	End If
-	If Not devMenuOpen Then Exit Sub
-	If Input.IsKeyJustPressed(KEY_1) Then Call DevWarpRoom(1)
-	If Input.IsKeyJustPressed(KEY_2) Then Call DevWarpRoom(2)
-	If Input.IsKeyJustPressed(KEY_3) Then Call DevWarpRoom(3)
-	If Input.IsKeyJustPressed(KEY_4) Then Call DevWarpRoom(4)
-	If Input.IsKeyJustPressed(KEY_5) Then Call DevWarpRoom(5)
-	If Input.IsKeyJustPressed(KEY_6) Then Call DevWarpRoom(6)
-	If Input.IsKeyJustPressed(KEY_7) Then Call DevWarpRoom(7)
-	If Input.IsKeyJustPressed(KEY_8) Then Call DevWarpRoom(8)
-	Call DevApplyCheats()
-	Call DevAdjustTweaks()
 End Sub
 
-' Handler: DevBlocksGameplay — true while overlay consumes input
+' Handler: DevBlocksGameplay — true while terminal open (freezes simulation)
 Function DevBlocksGameplay() As Boolean
 	DevBlocksGameplay = devMenuOpen
 End Function
 
-' Handler: DrawDevHint — small hint when menu closed
+' Handler: DrawDevHint — small hint when terminal closed
 Sub DrawDevHint()
 	If devMenuOpen Then Exit Sub
-	DrawString "F1 dev menu", GAME_W - 120, 8, HudCol(0.91, 0.96, 1, 0.75), 14
+	DrawString "F1 dev terminal", GAME_W - 138, 8, HudCol(0.91, 0.96, 1, 0.75), 14
 End Sub
 
-' Handler: DrawDevOverlay — semi-transparent cheat panel
+' Handler: DrawDevOverlay — scrollback terminal panel
 Sub DrawDevOverlay()
+	Dim panelX As Single
+	Dim panelY As Single
+	Dim panelW As Single
+	Dim panelH As Single
+	Dim logTop As Single
+	Dim logBottom As Single
+	Dim promptY As Single
+	Dim i As Integer
+	Dim startIdx As Integer
+	Dim visible As Integer
+	Dim lineY As Single
+	Dim promptText As String
 	If Not devMenuOpen Then Exit Sub
-	Dim thrustPct As Integer
-	Dim gravPct As Integer
-	Dim dragPct As Integer
-	Dim y As Single
-	thrustPct = Int(devThrustMul * 100)
-	gravPct = Int(devGScaleMul * 100)
-	dragPct = Int(devDragCoastMul * 100)
-	DrawRect 0, 0, GAME_W, GAME_H, 0, 0, 0, 0.45
-	y = 40
-	DrawString "DEV MENU — F1/` close", 24, y, HudCol(0.91, 0.96, 1, 1.0), 20
-	y = y + 28
-	DrawString "1-8 warp rooms", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
-	y = y + 22
-	DrawString "C plate  O orbit  H heat  S pulse", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
-	y = y + 22
-	DrawString "N god mode  L lights  B mass dbg  0 reset", 24, y, HudCol(0.91, 0.96, 1, 0.9), 16
-	y = y + 22
-	DrawString "[ ] thrust " & Str(thrustPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
-	y = y + 22
-	DrawString "- = gravity " & Str(gravPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
-	y = y + 22
-	DrawString ", . drag coast " & Str(dragPct) & "%", 24, y, HudCol(GLOW_R, GLOW_G, GLOW_B, 0.95), 16
+	panelX = DEV_TERM_PAD_X
+	panelY = DEV_TERM_PAD_Y
+	panelW = GAME_W - DEV_TERM_PAD_X * 2
+	panelH = GAME_H - DEV_TERM_PAD_Y * 2
+	DrawRect 0, 0, GAME_W, GAME_H, 0, 0, 0, 0.5
+	DrawRect panelX, panelY, panelW, panelH, 0.03, 0.06, 0.09, 0.94
+	DrawRect panelX, panelY, panelW, 4, GLOW_R * 0.5, GLOW_G * 0.5, GLOW_B * 0.5, 1.0
+	DrawString "GRAVEN DEV TERMINAL", panelX + 14, panelY + 14, HudCol(0.91, 0.96, 1, 1.0), 18
+	DrawString "F1 close — gameplay paused", panelX + 14, panelY + 38, HudCol(0.65, 0.78, 0.72, 0.85), 14
+	logTop = panelY + 64
+	promptY = panelY + panelH - 36
+	logBottom = promptY - DEV_TERM_LINE_H
+	visible = Int((logBottom - logTop) / DEV_TERM_LINE_H)
+	If visible < 1 Then visible = 1
+	startIdx = devTermLogCount - visible
+	If startIdx < 0 Then startIdx = 0
+	lineY = logTop
+	For i = startIdx To devTermLogCount - 1
+		DrawString devTermLog(i), panelX + 14, lineY, HudCol(0.78, 0.94, 0.86, 0.95), DEV_TERM_FONT
+		lineY = lineY + DEV_TERM_LINE_H
+	Next i
+	promptText = "> " & devTermInput & "_"
+	DrawString promptText, panelX + 14, promptY, HudCol(GLOW_R, GLOW_G, GLOW_B, 1.0), DEV_TERM_FONT
 End Sub

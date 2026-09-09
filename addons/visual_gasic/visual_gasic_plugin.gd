@@ -9098,8 +9098,11 @@ func _clear_executing_line_indicator() -> void:
 ## Called when the user drags the yellow arrow to a new line (Set Next Statement).
 func _on_set_next_statement(target_line_1based: int) -> void:
 	if debugger_plugin and debugger_plugin.is_session_active():
-		print("VisualGasic: Set Next Statement → line ", target_line_1based)
-		debugger_plugin.set_next_statement(target_line_1based)
+		var script_path := ""
+		if is_instance_valid(_embedded_code_editor):
+			script_path = _embedded_code_editor.get_file_path()
+		print("VisualGasic: Set Next Statement → ", script_path.get_file() if not script_path.is_empty() else "(root)", ":", target_line_1based)
+		debugger_plugin.set_next_statement(target_line_1based, script_path)
 	else:
 		push_warning("VisualGasic: Set Next Statement — no active debug session")
 
@@ -9185,9 +9188,13 @@ func _on_run_to_cursor_break_hit(file: String, line: int) -> void:
 # =============================================================================
 
 var _last_error_variables: Dictionary = {}
+var _last_error_file: String = ""
+var _last_error_line: int = 0
 
 func _on_error_break_received(file: String, line: int, message: String, code: int) -> void:
 	## Show the Exception Assistant popup when an unhandled runtime error breaks.
+	_last_error_file = file
+	_last_error_line = line
 	print("VisualGasic: Exception Assistant → %s:%d — Error %d: %s" % [file.get_file(), line, code, message])
 	# Collect current variables from the Data Tips cache (they're sent with the break)
 	_last_error_variables.clear()
@@ -9207,9 +9214,10 @@ func _on_error_break_received(file: String, line: int, message: String, code: in
 		_ai_help_panel.set_error_context(file, line, message, _last_error_variables)
 
 func _on_exception_debug() -> void:
-	## User chose Debug — stay paused to inspect state.
-	print("VisualGasic: Exception Assistant → Debug (staying paused)")
-	# Nothing to do — already paused in vg_debug_wait()
+	## User chose Debug — navigate to the error site in the VG code editor.
+	print("VisualGasic: Exception Assistant → Debug (navigating to error site)")
+	if not _last_error_file.is_empty() and _last_error_line > 0:
+		_on_debug_break_navigate(_last_error_file, _last_error_line)
 
 func _on_exception_continue() -> void:
 	## User chose Continue — resume execution past the error.

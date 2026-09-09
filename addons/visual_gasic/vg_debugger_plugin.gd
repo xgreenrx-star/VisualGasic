@@ -585,14 +585,17 @@ func set_conditional_breakpoint(script_path: String, line: int, condition: Strin
 # SET NEXT STATEMENT — VB6-style "move the yellow arrow"
 # ============================================================================
 
-func set_next_statement(line: int) -> void:
+func set_next_statement(line: int, script_path: String = "") -> void:
 	"""Set Next Statement: move execution point to a new line (1-based).
-	   Only works while paused at a breakpoint or step.
-	   Sends the command to the running game which will jump the bytecode VM's
-	   instruction pointer to the target line when execution resumes."""
+	   script_path is the .vg file shown in the editor (required when using Include).
+	   Only works while paused at a breakpoint or step."""
 	if _active_session:
-		print("[VG Debugger Plugin] Set Next Statement → line ", line)
-		_active_session.send_message("visualgasic:set_next_statement", [line])
+		if script_path.is_empty():
+			print("[VG Debugger Plugin] Set Next Statement → line ", line)
+			_active_session.send_message("visualgasic:set_next_statement", [line])
+		else:
+			print("[VG Debugger Plugin] Set Next Statement → ", script_path.get_file(), ":", line)
+			_active_session.send_message("visualgasic:set_next_statement", [script_path, line])
 
 # ============================================================================
 # TRACEPOINTS (LOG POINTS) — breakpoints that log instead of pausing

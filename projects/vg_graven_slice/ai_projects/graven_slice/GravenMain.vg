@@ -2,7 +2,7 @@
 ' Kenney refs when downloaded: 1-Bit Pack OR Abstract Platformer OR Pattern Pack (# tiles);
 '   Space Shooter Redux playerShip1_blue.png (Sprite2D, rotate with podAngle)
 ' Modules: GravenPulse.vg (sonar/shader), GravenRooms.vg (maps/transitions),
-'   GravenObjects.vg (crate, orbit, heat, skiff, end card), GravenDev.vg (dev overlay)
+'   GravenObjects.vg (crate, orbit, heat, skiff, end card), GravenDev.vg (dev terminal)
 
 Option Explicit
 
@@ -65,13 +65,16 @@ Dim podHeat As Single
 Dim gameWon As Boolean
 Dim endFade As Single
 
-' State — dev overlay (GravenPulse/Objects/Dev read these)
+' State — dev terminal (GravenPulse/Objects/Dev read these)
 Dim devMenuOpen As Boolean
 Dim devThrustMul As Single
 Dim devGScaleMul As Single
 Dim devDragCoastMul As Single
 Dim devGodMode As Boolean
 Dim devLightsOn As Boolean
+Dim devTermInput As String
+Dim devTermLogCount As Integer
+Dim devTermLog(39) As String
 
 Include "GravenPulse.vg"
 Include "GravenRooms.vg"
@@ -131,7 +134,7 @@ Sub _Ready()
 	Call InitPulseNodes()
 	Call LoadRoom(1)
 	QueueRedraw()
-	Print "GRAVEN — W thrust, Q/E rotate, Space Pulse, F1 dev menu, R7 heat, R8 skiff"
+	Print "GRAVEN — W thrust, Q/E rotate, Space Pulse, F1 dev terminal, R7 heat, R8 skiff"
 End Sub
 
 ' Handler: GravityAccel — inverse-square pull toward room mass nodes (pod)
@@ -393,8 +396,14 @@ Sub _Process(delta As Single)
 		Exit Sub
 	End If
 
-	' Input — rotate, debug crosses
+	' Input — rotate, dev terminal toggle
 	Call ProcessInputPhase()
+
+	If DevBlocksGameplay() Then
+		Call UpdatePostShader()
+		QueueRedraw()
+		Exit Sub
+	End If
 
 	' Pulse — sonar tick (R5 dark pool)
 	Call TryStartPulse()
@@ -451,4 +460,10 @@ Sub _Draw()
 	Call DrawEndCard()
 	Call DrawDevHint()
 	Call DrawDevOverlay()
+End Sub
+
+' Handler: _Input — dev terminal keyboard when F1 panel is open
+Sub _Input(ev As Variant)
+	If Not devMenuOpen Then Exit Sub
+	Call DevTerminalInput(ev)
 End Sub

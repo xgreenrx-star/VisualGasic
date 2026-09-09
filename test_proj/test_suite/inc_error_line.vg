@@ -1,0 +1,4 @@
+Sub IncErrorLineSub()
+	Dim arr(0) As Integer
+	arr(1) = 99
+End Sub

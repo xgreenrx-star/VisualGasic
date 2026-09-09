@@ -198,7 +198,9 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		
 		# Set Next Statement — VB6-style "move the yellow arrow" to change execution point
 		"set_next_statement":
-			if data.size() >= 1:
+			if data.size() >= 2:
+				_set_next_statement(int(data[1]), str(data[0]))
+			elif data.size() >= 1:
 				_set_next_statement(int(data[0]))
 			return true
 		
@@ -375,12 +377,15 @@ func _debug_step_out() -> void:
 	if ClassDB.class_exists(&"VisualGasicLanguage"):
 		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_step_out")
 
-func _set_next_statement(line: int) -> void:
+func _set_next_statement(line: int, script_path: String = "") -> void:
 	## Set Next Statement — VB6-style 'move the yellow arrow' to change execution point.
-	## Tells the C++ VM to jump to the specified source line when it resumes.
-	## Uses ClassDB.class_call_static to avoid parse-time errors with older .so builds.
-	if ClassDB.class_exists(&"VisualGasicLanguage"):
+	## script_path is the editor file (needed for Include sub-modules).
+	if not ClassDB.class_exists(&"VisualGasicLanguage"):
+		return
+	if script_path.is_empty():
 		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_set_next_statement", line)
+	else:
+		ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_set_next_statement_file_line", script_path, line)
 
 func _send_debug_state() -> void:
 	## Send the current debug state to the editor.

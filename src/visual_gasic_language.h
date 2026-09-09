@@ -78,6 +78,7 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     
     // Set Next Statement state
     static bool next_statement_requested;
+    static String next_statement_file;
     static int next_statement_line;
     
     // Edit & Continue state
@@ -258,6 +259,8 @@ public:
     
     // Set Next Statement (yellow-arrow drag)
     static void set_next_statement(int line);
+    static void set_next_statement_file_line(const String &file, int line);
+    static String get_next_statement_file();
     static bool is_next_statement_requested();
     static int get_next_statement_line();
     static void clear_next_statement();
