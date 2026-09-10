@@ -1,9 +1,55 @@
 #include "vg_source_map.h"
 
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 namespace {
+
+bool vg_path_exists(const String &path) {
+	if (path.is_empty()) {
+		return false;
+	}
+	if (FileAccess::file_exists(path)) {
+		return true;
+	}
+	ResourceLoader *loader = ResourceLoader::get_singleton();
+	if (loader && path.begins_with("res://") && loader->exists(path)) {
+		return true;
+	}
+	return false;
+}
+
+String vg_read_text_file(const String &path) {
+	if (path.is_empty()) {
+		return String();
+	}
+	if (FileAccess::file_exists(path)) {
+		return FileAccess::get_file_as_string(path);
+	}
+	Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
+	if (file.is_valid()) {
+		return file->get_as_text();
+	}
+	return String();
+}
+
+String vg_resolve_include_path(const String &host_path, const String &file_name) {
+	String full_path = file_name;
+	if (full_path.contains("://")) {
+		return full_path;
+	}
+	String base_dir = host_path.get_base_dir();
+	if (!base_dir.is_empty()) {
+		return base_dir.path_join(file_name);
+	}
+	// Fallback: host path missing (CACHE_MODE_IGNORE load) — try res:// + filename.
+	ResourceLoader *loader = ResourceLoader::get_singleton();
+	if (loader && loader->exists("res://" + file_name)) {
+		return "res://" + file_name;
+	}
+	return file_name;
+}
 
 void append_merged_line(VgIncludeResolveResult &result, const String &file, int src_line, const String &line_text) {
 	VgSourceLineEntry entry;
@@ -32,17 +78,16 @@ VgIncludeResolveResult vg_resolve_includes_with_map(const String &path, const St
 		String trimmed = lines[i].strip_edges();
 		if (trimmed.begins_with("Include ")) {
 			String file_name = trimmed.substr(8).strip_edges().replace("\"", "");
-			String full_path = file_name;
-			if (!full_path.contains("://")) {
-				String base_dir = path.get_base_dir();
-				if (!base_dir.is_empty()) {
-					full_path = base_dir.path_join(file_name);
-				}
-			}
+			String full_path = vg_resolve_include_path(path, file_name);
 
-			if (FileAccess::file_exists(full_path)) {
-				String content = FileAccess::get_file_as_string(full_path);
-				UtilityFunctions::print("Including file: ", file_name, " (from ", path, ")");
+			if (vg_path_exists(full_path)) {
+				String content = vg_read_text_file(full_path);
+				if (content.is_empty() && !file_name.is_empty()) {
+					UtilityFunctions::print("Include Error: Could not read ", full_path, " (host ", path, ")");
+					append_merged_line(result, path, src_line, "' Missing Include: " + full_path);
+					continue;
+				}
+				UtilityFunctions::print("Including file: ", file_name, " (from ", path, " -> ", full_path, ")");
 				VgIncludeResolveResult included = vg_resolve_includes_with_map(full_path, content, depth + 1);
 				result.code += included.code;
 				for (int j = 0; j < included.line_map.size(); j++) {
@@ -55,7 +100,7 @@ VgIncludeResolveResult vg_resolve_includes_with_map(const String &path, const St
 				synthetic.line = src_line;
 				result.line_map.push_back(synthetic);
 			} else {
-				UtilityFunctions::print("Include Error: File not found ", full_path);
+				UtilityFunctions::print("Include Error: File not found ", full_path, " (host ", path, ")");
 				append_merged_line(result, path, src_line, "' Missing Include: " + full_path);
 			}
 		} else {

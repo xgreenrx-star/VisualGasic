@@ -213,7 +213,11 @@ func _capture_one(ctrl_name: String) -> void:
 	if now - data["last_capture"] < MIN_CAPTURE_INTERVAL:
 		return
 
-	var img: Image = vp.get_texture().get_image()
+	# The headless dummy renderer has no backing texture, so the readback errors out.
+	var vp_tex := vp.get_texture()
+	if vp_tex == null or DisplayServer.get_name() == "headless":
+		return
+	var img: Image = vp_tex.get_image()
 	if img == null or img.is_empty():
 		return
 

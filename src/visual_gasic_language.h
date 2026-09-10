@@ -8,6 +8,7 @@
 #include <set>
 #include <mutex>
 #include <memory>
+#include <string>
 
 using namespace godot;
 
@@ -78,7 +79,7 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     
     // Set Next Statement state
     static bool next_statement_requested;
-    static String next_statement_file;
+    static std::string next_statement_file;
     static int next_statement_line;
     
     // Edit & Continue state

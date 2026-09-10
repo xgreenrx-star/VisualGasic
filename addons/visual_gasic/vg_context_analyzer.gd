@@ -138,12 +138,13 @@ static func _build_outline(lines: PackedStringArray) -> Array:
 			seen_labels[name] = true
 			outline.append({"kind": "vector", "label": name, "line": i})
 			continue
-		if not Resolver.is_sprite_label(name):
-			continue
 		if not _label_followed_by_data(lines, i):
 			continue
 		seen_labels[name] = true
-		outline.append({"kind": "sprite", "label": name, "line": i})
+		# Any label followed by Data rows is a navigable landmark; sprite blocks
+		# get their own kind so the rail can show the pixel preview.
+		var kind := "sprite" if Resolver.is_sprite_label(name) else "data"
+		outline.append({"kind": kind, "label": name, "line": i})
 	return outline
 
 

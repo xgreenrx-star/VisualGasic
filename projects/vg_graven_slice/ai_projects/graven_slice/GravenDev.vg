@@ -124,6 +124,7 @@ Sub DevTermExecute(raw As String)
 	If cmd = "orbit" Then
 		orbitComplete = True
 		statusText = "DEV: orbit gate open"
+		Call RebuildVectorCave()
 		Call DevTermPushLine("ok — orbit gate open")
 		Exit Sub
 	End If
@@ -160,6 +161,19 @@ Sub DevTermExecute(raw As String)
 			statusText = "DEV: lights OFF"
 			Call DevTermPushLine("ok — lights OFF")
 		End If
+		needRedraw = True
+		Exit Sub
+	End If
+	If cmd = "vector" Or cmd = "vector on" Then
+		useVectorArt = True
+		Call DevTermPushLine("ok — VGVectorCanvas2D + *Vector Data ON")
+		needRedraw = True
+		Exit Sub
+	End If
+	If cmd = "vector off" Or cmd = "greybox" Then
+		useVectorArt = False
+		Call DevTermPushLine("ok — greybox DrawRect art ON")
+		needRedraw = True
 		Exit Sub
 	End If
 	If cmd = "mass" Then

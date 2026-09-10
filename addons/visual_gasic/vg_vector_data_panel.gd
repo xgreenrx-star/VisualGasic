@@ -12,6 +12,7 @@ var _code_edit: CodeEdit
 var _section: Dictionary = {}
 var _shapes: Array = []
 var _canvas: Control
+var _canvas_clip: PanelContainer
 var _status: Label
 var _hint: Label
 var _debounce: Timer
@@ -36,14 +37,22 @@ func _ready() -> void:
 	_hint.add_theme_color_override("font_color", Color(0.35, 0.35, 0.5))
 	add_child(_hint)
 
+	_canvas_clip = PanelContainer.new()
+	_canvas_clip.name = "VectorCanvasClip"
+	_canvas_clip.clip_contents = true
+	_canvas_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_canvas_clip.custom_minimum_size = Vector2(0, 160)
+	add_child(_canvas_clip)
+
 	_canvas = CanvasScript.new()
 	_canvas.name = "VectorCanvas"
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.custom_minimum_size = Vector2(0, 160)
 	_canvas.visible = false
 	if _canvas.has_signal("shapes_edited"):
 		_canvas.shapes_edited.connect(_on_shapes_edited)
-	add_child(_canvas)
+	_canvas_clip.add_child(_canvas)
 
 	_debounce = Timer.new()
 	_debounce.one_shot = true
@@ -63,6 +72,7 @@ func clear_section() -> void:
 	if _canvas.has_method("clear_model"):
 		_canvas.clear_model()
 	_canvas.visible = false
+	_canvas_clip.visible = false
 	_status.text = "Move the caret into a *Vector: Data block."
 
 
@@ -114,6 +124,7 @@ func _load_section(sec: Dictionary, fingerprint: String = "") -> void:
 	if _canvas.has_method("set_model"):
 		_canvas.set_model(vw, vh, step, _shapes)
 	_canvas.visible = true
+	_canvas_clip.visible = true
 	_update_status_line()
 
 

@@ -315,7 +315,7 @@
 	if (method == "AddChild" && call_args.size() == 1) {
 	     Object *obj = call_args[0];
 	     Node *child = Object::cast_to<Node>(obj);
-	     if (child && owner) {
+	     if (child && owner && child->get_parent() == nullptr) {
 	          Node *parent = Object::cast_to<Node>(owner);
 	          if (parent) {
 	               parent->add_child(child);

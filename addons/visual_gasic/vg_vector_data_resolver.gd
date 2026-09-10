@@ -188,7 +188,8 @@ static func _parse_shape_tokens(tokens: PackedStringArray) -> Dictionary:
 		return {}
 	var typ := tokens[0].strip_edges().to_upper()
 	if typ in ["LINE", "RECT"]:
-		if tokens.size() < 11:
+		# TYPE + x1,y1,x2,y2 + r,g,b,a + width — see format_shape_line().
+		if tokens.size() < 10:
 			return {}
 		var pts := PackedVector2Array([
 			Vector2(float(tokens[1]), float(tokens[2])),

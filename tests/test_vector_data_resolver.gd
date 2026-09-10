@@ -7,6 +7,7 @@ const Resolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd"
 const Sync := preload("res://addons/visual_gasic/vg_vector_data_sync.gd")
 const Highlight := preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const Vgv := preload("res://addons/visual_gasic/vg_vgv_resolver.gd")
+const CanvasScript := preload("res://addons/visual_gasic/vg_vector_edit_canvas.gd")
 
 var _failed := 0
 var _passed := 0
@@ -18,6 +19,22 @@ Data POLYLINE, 3, 44, 20, 60, 32, 44, 44, 255, 200, 80, 255, 2
 
 NoteData:
 Data \"C4\", 261.63
+"""
+
+const POD_FIXTURE := """PodCapsuleVector:
+Data 48, 28, 2
+Data RECT, 8, 8, 32, 20, 56, 82, 107, 255, 0
+Data RECT, 26, 8, 42, 20, 56, 82, 107, 255, 0
+Data RECT, 30, 10, 40, 18, 61, 204, 255, 255, 0
+Data LINE, 2, 14, 10, 14, 61, 204, 255, 160, 2
+"""
+
+const SKIFF_FIXTURE := """SkiffVector:
+Data 72, 28, 2
+Data RECT, 0, 10, 72, 26, 232, 245, 255, 191, 0
+Data RECT, 18, 4, 54, 16, 61, 204, 255, 140, 0
+Data LINE, 58, 14, 68, 14, 61, 204, 255, 230, 255, 2
+Data POLYLINE, 3, 68, 14, 72, 12, 72, 16, 61, 204, 255, 200, 255, 1.5
 """
 
 const VGV_SAMPLE := """VGV1
@@ -43,6 +60,9 @@ func _init() -> void:
 	_test_native_highlight()
 	_test_vgv_roundtrip()
 	_test_sync_add_shape()
+	_test_skiff_wide_block()
+	_test_pod_capsule_tokens()
+	_test_canvas_refit_on_resize()
 	_finish()
 
 
@@ -120,6 +140,51 @@ func _test_sync_add_shape() -> void:
 	var sec2 := Resolver.resolve_at_line(ce.text, 2)
 	_check("three shapes after add", (sec2.get("shapes", []) as Array).size() == 3)
 	ce.free()
+
+
+func _test_pod_capsule_tokens() -> void:
+	print("-- resolver: PodCapsuleVector stroke widths --")
+	var sec := Resolver.resolve_at_line(POD_FIXTURE, 2)
+	_check("pod resolves", not sec.is_empty())
+	var shapes: Array = sec.get("shapes", [])
+	_check("pod four shapes", shapes.size() == 4)
+	if shapes.size() >= 4:
+		_check("pod hull filled", is_equal_approx(float(shapes[0].get("stroke_w", 1.0)), 0.0))
+		_check("pod cockpit filled", is_equal_approx(float(shapes[2].get("stroke_w", 1.0)), 0.0))
+		_check("pod thrust stroke 2", is_equal_approx(float(shapes[3].get("stroke_w", 0.0)), 2.0))
+
+
+func _test_skiff_wide_block() -> void:
+	print("-- resolver: wide SkiffVector block --")
+	var sec := Resolver.resolve_at_line(SKIFF_FIXTURE, 2)
+	_check("skiff resolves", not sec.is_empty())
+	_check("skiff 72x28", sec.get("view_w", 0) == 72 and sec.get("view_h", 0) == 28)
+	var shapes: Array = sec.get("shapes", [])
+	_check("skiff four shapes", shapes.size() == 4)
+	if shapes.size() >= 2:
+		_check("skiff hull rects", str(shapes[0].get("type", "")).to_upper() == "RECT")
+		_check("skiff fill rects", float(shapes[0].get("stroke_w", 1.0)) == 0.0)
+
+
+func _test_canvas_refit_on_resize() -> void:
+	print("-- canvas: refit wide block after resize --")
+	var sec := Resolver.resolve_at_line(SKIFF_FIXTURE, 2)
+	var shapes: Array = sec.get("shapes", [])
+	var canvas: Control = CanvasScript.new()
+	canvas.size = Vector2(1200, 800)
+	canvas.set_model(int(sec.get("view_w", 72)), int(sec.get("view_h", 28)), int(sec.get("grid_step", 2)), shapes)
+	canvas._refit_if_auto()
+	var big_zoom: float = canvas.debug_fit_state().get("zoom", 0.0)
+	canvas.size = Vector2(240, 160)
+	canvas._on_resized()
+	var state: Dictionary = canvas.debug_fit_state()
+	var zoom: float = state.get("zoom", 0.0)
+	var doc_size: Vector2 = state.get("doc_size", Vector2.ZERO)
+	_check("canvas shrinks zoom after resize", zoom < big_zoom)
+	_check("canvas zoom sane for rail", zoom >= 1.5 and zoom <= 4.5)
+	_check("canvas doc fits width", doc_size.x <= 240.0 + 1.0)
+	_check("canvas doc fits height", doc_size.y <= 160.0 + 1.0)
+	canvas.free()
 
 
 func _test_vgv_roundtrip() -> void:

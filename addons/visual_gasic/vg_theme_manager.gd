@@ -609,6 +609,13 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 	var fold_color := Color(0.75, 0.75, 0.75, 0.85) if is_dark else Color(0.4, 0.4, 0.4, 0.85)
 	code_edit.add_theme_color_override("code_folding_color", fold_color)
 	
+	# Background panel — CodeEdit draws the normal StyleBox beneath text; without
+	# this override the parent IDE theme can leave the editor solid black.
+	var bg_sb := StyleBoxFlat.new()
+	bg_sb.bg_color = theme.background_color
+	bg_sb.set_border_width_all(0)
+	code_edit.add_theme_stylebox_override("normal", bg_sb)
+
 	# Background and text
 	code_edit.add_theme_color_override("background_color", theme.background_color)
 	code_edit.add_theme_color_override("font_color", theme.text_color)
@@ -659,34 +666,6 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 		var scroll_track := StyleBoxFlat.new()
 		scroll_track.bg_color = Color(0.88, 0.87, 0.84)
 
-		# Method 1: Theme on CodeEdit
-		var scroll_theme := Theme.new()
-		for sb_type in ["VScrollBar", "HScrollBar", "ScrollBar"]:
-			scroll_theme.set_stylebox("grabber", sb_type, scroll_grabber)
-			scroll_theme.set_stylebox("grabber_highlight", sb_type, scroll_grabber_hl)
-			scroll_theme.set_stylebox("grabber_pressed", sb_type, scroll_grabber_pr)
-			scroll_theme.set_stylebox("scroll", sb_type, scroll_track)
-
-		# Code completion popup styles (so the popup is visible on light bg)
-		var popup_bg := StyleBoxFlat.new()
-		popup_bg.bg_color = Color(1.0, 1.0, 0.94)
-		popup_bg.border_color = Color(0.55, 0.55, 0.5)
-		popup_bg.set_border_width_all(1)
-		popup_bg.set_corner_radius_all(2)
-		popup_bg.content_margin_left = 4
-		popup_bg.content_margin_right = 4
-		popup_bg.content_margin_top = 4
-		popup_bg.content_margin_bottom = 4
-		for popup_type in ["PopupPanel", "PopupMenu", "Panel"]:
-			scroll_theme.set_stylebox("panel", popup_type, popup_bg)
-		scroll_theme.set_color("font_color", "PopupMenu", Color(0.1, 0.1, 0.1))
-		scroll_theme.set_color("font_hovered_color", "PopupMenu", Color(1, 1, 1))
-		var hover_sb := StyleBoxFlat.new()
-		hover_sb.bg_color = Color(0.2, 0.4, 0.8)
-		hover_sb.set_corner_radius_all(2)
-		scroll_theme.set_stylebox("hover", "PopupMenu", hover_sb)
-		scroll_theme.set_stylebox("selected", "PopupMenu", hover_sb)
-
 		# CodeEdit-specific completion colors
 		code_edit.add_theme_color_override("code_completion_background_color", Color(1.0, 1.0, 0.94))
 		code_edit.add_theme_color_override("code_completion_selected_color", Color(0.2, 0.4, 0.8, 0.4))
@@ -694,9 +673,7 @@ static func apply_to_code_edit(code_edit: CodeEdit) -> void:
 		code_edit.add_theme_color_override("code_completion_scroll_color", Color(0.55, 0.55, 0.5))
 		code_edit.add_theme_color_override("code_completion_scroll_hovered_color", Color(0.3, 0.3, 0.28))
 
-		code_edit.theme = scroll_theme
-
-		# Method 2: Per-node overrides on actual scrollbar nodes
+		# Method 2: Per-node overrides on actual scrollbar nodes (avoid code_edit.theme = …)
 		var vbar = code_edit.get_v_scroll_bar()
 		var hbar = code_edit.get_h_scroll_bar()
 		for bar in [vbar, hbar]:

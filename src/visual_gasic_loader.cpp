@@ -37,10 +37,10 @@ Variant VisualGasicFormatLoader::_load(const String &p_path, const String &p_ori
 	script->set_source_code(source);
 	f->close();
 
-	// Set the resource path BEFORE reload so the parser/debugger know
-	// which file this script belongs to (needed for breakpoints, error
-	// reporting, and the empty-path warning).
+	// Set the resource path BEFORE reload so Include resolution, breakpoints,
+	// and error reporting know which directory hosts relative Include lines.
 	script->set_path(p_path);
+	script->include_host_path_hint = p_path;
 
 	// Reload with error handling to prevent crashes from malformed code
 	Error err = script->reload(false);

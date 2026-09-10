@@ -23,6 +23,7 @@ VG_ONLY=0
 # Data-only .vg fixtures (no Sub _Ready); tested via GDScript harnesses instead.
 SKIP_FILES=(
     test_sprite_data_resolver.vg
+    test_vector_data_resolver.vg
 )
 
 while [[ $# -gt 0 ]]; do

@@ -37,6 +37,7 @@ class VisualGasicScript : public ScriptExtension {
     std::list<CompiledEntry> bytecode_cache;
 
 public:
+    String include_host_path_hint; // format loader: path for Include when get_path() is empty
     ModuleNode *ast_root = nullptr;
     BytecodeChunk bytecode; // For now single chunk for main module
     bool has_bytecode = false;

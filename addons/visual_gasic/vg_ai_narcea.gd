@@ -373,9 +373,15 @@ Reference project (separate Godot project — open its project.godot directly):
 
 VGVectorCanvas2D (procedural vector demos — no bitmap sprites):
   Dim canvas As Variant = CreateNode(\"VGVectorCanvas2D\")
-  canvas.DrawRect(x, y, w, h, r, g, b, a)   ' or DrawPolyline, DrawPlasmaCells
-  canvas.ExecuteQueuedCommands()               ' flush after batching draws
-  See projects/demoscene_intro/demo.vg and projects/vg_beta_showcase/tour.vg.
+  AddChild(canvas)
+  ' Queue Draw* from _Process (or _Ready). The node flushes in its own _draw.
+  Call canvas.Clear()
+  Call canvas.DrawLine(Vector2(0, 0), Vector2(40, 20), 2, Color(1, 1, 1, 1))
+  Call canvas.DrawRect(Rect2(0, 0, 32, 32), 0, col, True, col)
+  ' Do NOT call canvas.ExecuteQueuedCommands() from the parent — that is the
+  ' child's _draw and raises \"Drawing is only allowed inside _draw\".
+  ' Do NOT call parent DrawCircle/DrawString from _Process — same error.
+  See storm.vg (per-frame game layer) and GravenVector.vg (cached cave layer).
 
 SubViewport / portal embed (multi-scene showcase director):
   When a .vg script runs inside a portal SubViewport, do NOT ChangeScene —
@@ -1355,6 +1361,34 @@ static func canvas_sprite_perf_prompt_extra() -> String:
 	return CANVAS_SPRITE_PERF_POLICY
 
 
+## Prompt fragment: VGVectorCanvas2D games (Graven / Storm / Thrust lessons).
+const VECTOR_CANVAS_POLICY := (
+	" VECTOR CANVAS (VGVectorCanvas2D + *Vector: Data blocks): "
+	+ "CreateNode(\"VGVectorCanvas2D\") + AddChild once in _Ready. Queue canvas.Draw* from "
+	+ "_Process; the canvas flushes itself in _draw. NEVER parent.ExecuteQueuedCommands, "
+	+ "and NEVER parent DrawCircle/DrawString/DrawLine from _Process (\"Drawing is only allowed inside _draw\"). "
+	+ "Split layers like Storm: static cave/grid on one canvas rebuilt on room load only; "
+	+ "pod/bullets on a second canvas cleared each frame. Restamping every tile every _Process "
+	+ "(40×22 DrawRect in VG bytecode) drops the game to a handful of FPS — motion then looks "
+	+ "like 5 FPS even when physics is correct. "
+	+ "*Vector: Data rows use bare tokens: Data RECT, x1, y1, x2, y2, R, G, B, A, strokeW "
+	+ "and Data POLYLINE, pointCount, x1, y1, …, R, G, B, A, strokeW. Cache DataToArray once "
+	+ "in _Ready. Count trailing color/width fields carefully — an extra token makes strokeW "
+	+ "read as 255 and draws a huge blob. strokeW=0 means filled RECT. "
+	+ "Thrust-style motion: angle += rot*delta, v += a*delta, pos += v*delta. Do NOT multiply "
+	+ "velocity by 0.92 every frame (that constant is a 60 FPS tick factor; at 5–20 FPS it "
+	+ "kills speed each hitch). Use light per-second drag (v *= 1 - k*delta) or none. "
+	+ "Hold-to-rotate, not 90° taps. Slide collision (MTV / axis damp) not bounce-both-axes. "
+	+ "HUD gizmos (gravity needle) belong on a HUD CanvasLayer canvas, not attached to the ship. "
+	+ "Reference: demos/2D_Games/Thrust/thrust.vg, projects/vg_beta_showcase/storm.vg, "
+	+ "projects/vg_graven_slice/ai_projects/graven_slice/GravenVector.vg."
+)
+
+
+static func vector_canvas_prompt_extra() -> String:
+	return VECTOR_CANVAS_POLICY
+
+
 ## Prompt fragment: 3D CharacterBody3D games (Squash-the-Creeps style).
 const PURE_3D_GAME_POLICY := (
 	" PURE 3D GAME RULES (Node3D / CharacterBody3D — NOT GDScript in .vg): "
@@ -1387,6 +1421,8 @@ const SLIM_KNOWLEDGE := """
 - AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
 - Canvas _Draw games with *Sprite: Data blocks — cache DataToArray in _Ready; draw from cached
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
+- VGVectorCanvas2D: queue Draw* from _Process; cache static layers (cave) on room load;
+  Thrust-style v += a*delta (not v *= 0.92 per frame). See GravenVector.vg / storm.vg.
 - Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
@@ -1470,6 +1506,7 @@ CODE QUALITY — ALWAYS:
   * For event handlers always follow the naming convention:
     Sub controlName_Event() — never manually Connect unless necessary.
   * Canvas _Draw games: cache DataToArray(\"*Sprite\") tapes at load; conditional QueueRedraw.
+  * VGVectorCanvas2D games: cache static cave/grid; feed the moving layer from _Process.
 
 ANSWERS:
   * Prefer a short working code example over a prose description.
@@ -1511,6 +1548,9 @@ COMMON MISTAKES TO AVOID:
   * 2D _Draw + *Sprite games: NEVER call DataToArray inside _Draw or per-frame
     Draw* helpers — cache each section once in _Ready (LoadSprites). NEVER
     QueueRedraw every _Process unconditionally. See canvas sprite perf policy.
+  * VGVectorCanvas2D: do not restamp the whole tile cave every frame; do not
+    ExecuteQueuedCommands on the parent; do not use 0.92-per-frame drag.
+    See vector canvas policy / GravenVector.vg.
   * Do NOT rely on `And`/`Or` short-circuiting a guard condition (e.g.
     `a > 0 And arr(a-1) > 0`) — VG always evaluates both sides; use nested
     If/ElseIf instead when the right side is only safe when the left is true.

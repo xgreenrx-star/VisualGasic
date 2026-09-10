@@ -1,0 +1,377 @@
+' GravenVector.vg — inline *Vector: Data blocks rendered via VGVectorCanvas2D
+' Edit art in Context Rail → Vector data while caret is inside a block below.
+
+Option Explicit
+
+Dim canvasCave As Variant
+Dim canvasWorld As Variant
+Dim canvasHud As Variant
+Dim podVectorRaw As Variant
+Dim caveTileVectorRaw As Variant
+Dim exitVectorRaw As Variant
+Dim skiffVectorRaw As Variant
+
+' Handler: InitGravenVector — static cave canvas + cheap per-frame pod canvas
+Sub InitGravenVector()
+	useVectorArt = True
+	If canvasCave = Null Then
+		Set canvasCave = CreateNode("VGVectorCanvas2D")
+		canvasCave.ZIndex = -1
+	End If
+	If canvasWorld = Null Then
+		Set canvasWorld = CreateNode("VGVectorCanvas2D")
+		canvasWorld.ZIndex = 1
+	End If
+	If canvasHud = Null Then
+		Set canvasHud = CreateNode("VGVectorCanvas2D")
+	End If
+	If Not canvasCave.IsInsideTree() Then
+		AddChild(canvasCave)
+	End If
+	If Not canvasWorld.IsInsideTree() Then
+		AddChild(canvasWorld)
+	End If
+	If Not canvasHud.IsInsideTree() Then
+		If GetNode("HUD") <> Null Then
+			GetNode("HUD").AddChild(canvasHud)
+		Else
+			AddChild(canvasHud)
+		End If
+	End If
+	podVectorRaw = DataToArray("PodCapsuleVector")
+	caveTileVectorRaw = DataToArray("CaveTileVector")
+	exitVectorRaw = DataToArray("ExitMarkerVector")
+	skiffVectorRaw = DataToArray("SkiffVector")
+	Print "GRAVEN vector art — cave cached; pod layer per frame"
+End Sub
+
+' Handler: GetVectorAmbient — match Lit() dimming for R5 dark pool
+Function GetVectorAmbient() As Single
+	If roomDark And Not devLightsOn Then
+		GetVectorAmbient = GetAmbientMul()
+	Else
+		GetVectorAmbient = 1.0
+	End If
+End Function
+
+' Handler: VectorColor — RGBA 0..255 from Data rows → Godot Color
+Function VectorColor(r As Single, g As Single, b As Single, a As Single, amb As Single) As Variant
+	VectorColor = Color(r / 255.0 * amb, g / 255.0 * amb, b / 255.0 * amb, a / 255.0)
+End Function
+
+' Handler: VTransformX — local shape coord → world X (rotate + scale + offset)
+Function VTransformX(lx As Single, ly As Single, ox As Single, oy As Single, angleDeg As Single, scale As Single) As Single
+	Dim rad As Single
+	Dim ca As Single
+	Dim sa As Single
+	rad = Deg2Rad(angleDeg)
+	ca = Cos(rad)
+	sa = Sin(rad)
+	VTransformX = ox + (lx * scale * ca - ly * scale * sa)
+End Function
+
+' Handler: VTransformY — local shape coord → world Y
+Function VTransformY(lx As Single, ly As Single, ox As Single, oy As Single, angleDeg As Single, scale As Single) As Single
+	Dim rad As Single
+	Dim ca As Single
+	Dim sa As Single
+	rad = Deg2Rad(angleDeg)
+	ca = Cos(rad)
+	sa = Sin(rad)
+	VTransformY = oy + (lx * scale * sa + ly * scale * ca)
+End Function
+
+' Handler: DrawVectorBlock — walk cached DataToArray tape → canvas Draw* calls
+Sub DrawVectorBlock(canvas As Variant, raw As Variant, ox As Single, oy As Single, angleDeg As Single, scale As Single)
+	Dim i As Integer
+	Dim n As Integer
+	Dim typ As String
+	Dim amb As Single
+	Dim col As Variant
+	Dim x1 As Single
+	Dim y1 As Single
+	Dim x2 As Single
+	Dim y2 As Single
+	Dim sw As Single
+	Dim r As Single
+	Dim g As Single
+	Dim b As Single
+	Dim a As Single
+	Dim wx1 As Single
+	Dim wy1 As Single
+	Dim wx2 As Single
+	Dim wy2 As Single
+	Dim rx As Single
+	Dim ry As Single
+	Dim rw As Single
+	Dim rh As Single
+	Dim pi As Integer
+	Dim lx As Single
+	Dim ly As Single
+	Dim pts() As Vector2
+	Dim ti As Integer
+
+	If canvas = Null Then Exit Sub
+	If raw = Null Then Exit Sub
+	If UBound(raw) < 2 Then Exit Sub
+	amb = GetVectorAmbient()
+	i = 3
+	Do While i < = UBound(raw)
+		typ = UCase(Str(raw(i)))
+		If typ = "LINE" Then
+			If i + 9 > UBound(raw) Then Exit Do
+			x1 = CSng(raw(i + 1))
+			y1 = CSng(raw(i + 2))
+			x2 = CSng(raw(i + 3))
+			y2 = CSng(raw(i + 4))
+			r = CSng(raw(i + 5))
+			g = CSng(raw(i + 6))
+			b = CSng(raw(i + 7))
+			a = CSng(raw(i + 8))
+			sw = CSng(raw(i + 9))
+			col = VectorColor(r, g, b, a, amb)
+			wx1 = VTransformX(x1, y1, ox, oy, angleDeg, scale)
+			wy1 = VTransformY(x1, y1, ox, oy, angleDeg, scale)
+			wx2 = VTransformX(x2, y2, ox, oy, angleDeg, scale)
+			wy2 = VTransformY(x2, y2, ox, oy, angleDeg, scale)
+			Call canvas.DrawLine(Vector2(wx1, wy1), Vector2(wx2, wy2), sw, col)
+			i = i + 10
+		ElseIf typ = "RECT" Then
+			If i + 9 > UBound(raw) Then Exit Do
+			x1 = CSng(raw(i + 1))
+			y1 = CSng(raw(i + 2))
+			x2 = CSng(raw(i + 3))
+			y2 = CSng(raw(i + 4))
+			r = CSng(raw(i + 5))
+			g = CSng(raw(i + 6))
+			b = CSng(raw(i + 7))
+			a = CSng(raw(i + 8))
+			sw = CSng(raw(i + 9))
+			col = VectorColor(r, g, b, a, amb)
+			rx = VTransformX(x1, y1, ox, oy, angleDeg, scale)
+			ry = VTransformY(x1, y1, ox, oy, angleDeg, scale)
+			rw = VTransformX(x2, y1, ox, oy, angleDeg, scale) - rx
+			rh = VTransformY(x1, y2, ox, oy, angleDeg, scale) - ry
+			If Abs(angleDeg) > 0.01 Then
+				Call canvas.DrawRect(Rect2(VTransformX(x1, y1, ox, oy, angleDeg, scale), VTransformY(x1, y1, ox, oy, angleDeg, scale), Abs(x2 - x1) * scale, Abs(y2 - y1) * scale), sw, col, True, col)
+			Else
+				If x2 < x1 Then
+					rx = VTransformX(x2, y1, ox, oy, angleDeg, scale)
+					rw = (x1 - x2) * scale
+				End If
+				If y2 < y1 Then
+					ry = VTransformY(x1, y2, ox, oy, angleDeg, scale)
+					rh = (y1 - y2) * scale
+				End If
+				If sw < = 0.01 Then
+					Call canvas.DrawRect(Rect2(rx, ry, rw, rh), 0, col, True, col)
+				Else
+					Call canvas.DrawRect(Rect2(rx, ry, rw, rh), sw, col, True, col)
+				End If
+			End If
+			i = i + 10
+		ElseIf typ = "POLYLINE" Then
+			If i + 1 > UBound(raw) Then Exit Do
+			n = Int(raw(i + 1))
+			ti = i + 2
+			If n < 2 Or ti + n * 2 + 5 > UBound(raw) Then Exit Do
+			ReDim pts(n - 1)
+			For pi = 0 To n - 1
+				lx = CSng(raw(ti))
+				ly = CSng(raw(ti + 1))
+				pts(pi) = Vector2(VTransformX(lx, ly, ox, oy, angleDeg, scale), VTransformY(lx, ly, ox, oy, angleDeg, scale))
+				ti = ti + 2
+			Next pi
+			r = CSng(raw(ti))
+			g = CSng(raw(ti + 1))
+			b = CSng(raw(ti + 2))
+			a = CSng(raw(ti + 3))
+			sw = CSng(raw(ti + 4))
+			col = VectorColor(r, g, b, a, amb)
+			Call canvas.DrawPolyline(pts, sw, col, False, Color(0, 0, 0, 0), False)
+			i = ti + 5
+		Else
+			i = i + 1
+		End If
+	Loop
+End Sub
+
+' Handler: DrawVectorCaveTiles — fill # cells; stroke only faces that touch air
+Sub DrawVectorCaveTiles()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim stone As Variant
+	Dim hi As Variant
+	Dim lo As Variant
+	If Not useVectorArt Then Exit Sub
+	If canvasCave = Null Then Exit Sub
+	stone = Lit(0.30, 0.40, 0.52, 1.0)
+	hi = Lit(0.48, 0.62, 0.76, 0.85)
+	lo = Lit(0.10, 0.16, 0.22, 0.90)
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsSolidTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				Call canvasCave.DrawRect(Rect2(px, py, TILE, TILE), 0, stone, True, stone)
+				If Not IsSolidTile(tx, ty - 1) Then
+					Call canvasCave.DrawLine(Vector2(px, py + 1), Vector2(px + TILE, py + 1), 1.5, hi)
+				End If
+				If Not IsSolidTile(tx - 1, ty) Then
+					Call canvasCave.DrawLine(Vector2(px + 1, py), Vector2(px + 1, py + TILE), 1.5, hi)
+				End If
+				If Not IsSolidTile(tx + 1, ty) Then
+					Call canvasCave.DrawLine(Vector2(px + TILE - 1, py), Vector2(px + TILE - 1, py + TILE), 1.5, lo)
+				End If
+				If Not IsSolidTile(tx, ty + 1) Then
+					Call canvasCave.DrawLine(Vector2(px, py + TILE - 1), Vector2(px + TILE, py + TILE - 1), 1.5, lo)
+				End If
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: DrawVectorExitMarkers — doorway glow on each E tile (not a 32px stamp)
+Sub DrawVectorExitMarkers()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim px As Single
+	Dim py As Single
+	If Not useVectorArt Then Exit Sub
+	If canvasCave = Null Then Exit Sub
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsExitTile(tx, ty) Then
+				px = tx * TILE
+				py = ty * TILE
+				Call canvasCave.DrawRect(Rect2(px - 10, py - 36, TILE + 20, TILE + 40), 0, Lit(0.15, 0.55, 0.85, 0.22), True, Lit(0.15, 0.55, 0.85, 0.22))
+				Call canvasCave.DrawRect(Rect2(px - 2, py - 28, TILE + 4, TILE + 28), 2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.95), False, Color(0, 0, 0, 0))
+				Call canvasCave.DrawText(Vector2(px + 2, py - 8), "EXIT", Lit(1.0, 1.0, 1.0, 1.0))
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: DrawVectorPod — filled capsule (same silhouette as greybox DrawPodCapsule)
+Sub DrawVectorPod()
+	Dim rad As Single
+	Dim fx As Single
+	Dim fy As Single
+	Dim stone As Variant
+	Dim glow As Variant
+	If Not useVectorArt Then Exit Sub
+	If gameWon Then Exit Sub
+	rad = Deg2Rad(podAngle)
+	fx = Cos(rad)
+	fy = Sin(rad)
+	stone = Lit(0.22, 0.32, 0.42, 1.0)
+	glow = Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
+	Call canvasWorld.DrawCircle(Vector2(podX - fx * 8, podY - fy * 8), POD_R - 3, stone, True, stone)
+	Call canvasWorld.DrawCircle(Vector2(podX + fx * 4, podY + fy * 4), POD_R - 1, stone, True, stone)
+	Call canvasWorld.DrawCircle(Vector2(podX + fx * 10, podY + fy * 10), POD_R - 5, glow, True, glow)
+	Call canvasWorld.DrawLine(Vector2(podX - fx * 14, podY - fy * 14), Vector2(podX - fx * 22, podY - fy * 22), 2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+End Sub
+
+' Handler: DrawVectorSkiff — skiff goal art in Room 8
+Sub DrawVectorSkiff()
+	If Not useVectorArt Then Exit Sub
+	If roomId < > 8 Then Exit Sub
+	Call canvasWorld.DrawCircle(Vector2(SKIFF_X, SKIFF_Y), SKIFF_R + 8, Lit(0.91, 0.96, 1, 0.12))
+	Call DrawVectorBlock(canvasWorld, skiffVectorRaw, SKIFF_X - 36, SKIFF_Y - 14, 0, 1)
+End Sub
+
+' Handler: RebuildVectorCave — stamp walls/exits once (Thrust/storm: do not rebuild static art per frame)
+Sub RebuildVectorCave()
+	If Not useVectorArt Then Exit Sub
+	If canvasCave = Null Then Exit Sub
+	Call canvasCave.Clear()
+	Call canvasCave.DrawRect(Rect2(0, 0, GAME_W, GAME_H), 0, Color(0, 0, 0, 0), True, Lit(VOID_R, VOID_G, VOID_B, 1.0))
+	Call DrawVectorCaveTiles()
+	Call DrawVectorExitMarkers()
+End Sub
+
+' Handler: DrawVectorWorld — pod/masses only; cave stays on canvasCave
+Sub DrawVectorWorld()
+	Dim i As Integer
+	Dim mx As Single
+	Dim my As Single
+	If Not useVectorArt Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	Call canvasWorld.Clear()
+	For i = 0 To massCount - 1
+		mx = massX(i)
+		my = massY(i)
+		Call canvasWorld.DrawCircle(Vector2(mx, my), 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35))
+	Next i
+	Call DrawVectorSkiff()
+	Call DrawVectorPod()
+	Call DrawGravityHud()
+End Sub
+
+' Handler: DrawGravityHud — pull compass on HUD layer (not attached to the pod)
+Sub DrawGravityHud()
+	Dim cx As Single
+	Dim cy As Single
+	Dim rr As Single
+	Dim nlen As Single
+	Dim mag As Single
+	Dim nx As Single
+	Dim ny As Single
+	Dim amber As Variant
+	Dim ring As Variant
+	If canvasHud = Null Then Exit Sub
+	If gameWon Then
+		Call canvasHud.Clear()
+		Exit Sub
+	End If
+	cx = GAME_W - 56
+	cy = 64
+	rr = 22
+	nlen = Sqr(gravAX * gravAX + gravAY * gravAY)
+	amber = Color(1.0, 0.69, 0.125, 0.95)
+	ring = Color(0.91, 0.96, 1.0, 0.45)
+	Call canvasHud.Clear()
+	Call canvasHud.DrawCircle(Vector2(cx, cy), rr + 2, Color(0.08, 0.1, 0.14, 0.72), True, Color(0.08, 0.1, 0.14, 0.72))
+	Call canvasHud.DrawCircle(Vector2(cx, cy), rr, ring, False, Color(0, 0, 0, 0))
+	Call canvasHud.DrawText(Vector2(cx - 4, cy + rr + 14), "G", Color(1.0, 0.69, 0.125, 0.85))
+	If nlen < 0.01 Then Exit Sub
+	mag = nlen / G_MAX
+	If mag > 1 Then mag = 1
+	If mag < 0.22 Then mag = 0.22
+	nx = gravAX / nlen
+	ny = gravAY / nlen
+	Call canvasHud.DrawLine(Vector2(cx, cy), Vector2(cx + nx * (rr - 3) * mag, cy + ny * (rr - 3) * mag), 2.5, amber)
+	Call canvasHud.DrawCircle(Vector2(cx + nx * (rr - 5) * mag, cy + ny * (rr - 5) * mag), 3, amber, True, amber)
+End Sub
+
+' --- Inline vector art (Context Rail → Vector data) -------------------------
+' Label names must end with Vector. Edit shapes here; runtime reads via DataToArray.
+
+CaveTileVector:
+Data 32, 32, 4
+Data RECT, 0, 0, 32, 32, 76, 102, 133, 255, 0
+Data LINE, 1, 1, 31, 1, 122, 158, 194, 220, 1.5
+Data LINE, 1, 1, 1, 31, 122, 158, 194, 220, 1.5
+Data LINE, 31, 1, 31, 31, 26, 41, 56, 230, 1.5
+Data LINE, 1, 31, 31, 31, 26, 41, 56, 230, 1.5
+
+PodCapsuleVector:
+Data 48, 28, 2
+Data RECT, 8, 8, 32, 20, 56, 82, 107, 255, 0
+Data RECT, 26, 8, 42, 20, 56, 82, 107, 255, 0
+Data RECT, 30, 10, 40, 18, 61, 204, 255, 255, 0
+Data LINE, 2, 14, 10, 14, 61, 204, 255, 160, 2
+
+ExitMarkerVector:
+Data 32, 48, 4
+Data RECT, 4, 4, 28, 44, 38, 140, 217, 70, 0
+Data RECT, 8, 8, 24, 40, 61, 204, 255, 0, 2
+
+SkiffVector:
+Data 72, 28, 2
+Data RECT, 0, 10, 72, 26, 232, 245, 255, 191, 0
+Data RECT, 18, 4, 54, 16, 61, 204, 255, 140, 0
+Data LINE, 58, 14, 68, 14, 61, 204, 255, 230, 2
+Data POLYLINE, 3, 68, 14, 72, 12, 72, 16, 61, 204, 255, 200, 1.5

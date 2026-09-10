@@ -1,0 +1,28 @@
+' Regression: labeled vector Data blocks store bare shape tokens (RECT/LINE/POLYLINE).
+Option Explicit
+
+Sub _Ready()
+	Dim raw As Variant
+	Dim typ As String
+	raw = DataToArray("CaveTileVector")
+	If UBound(raw) < 3 Then
+		Print "FAIL: datatoarray_vector_count: ubound=" & Str(UBound(raw))
+		Exit Sub
+	End If
+	typ = UCase(Str(raw(3)))
+	If typ = "RECT" Then
+		Print "PASS: datatoarray_vector_rect_token"
+	Else
+		Print "FAIL: datatoarray_vector_rect_token: got '" & typ & "'"
+	End If
+	If UCase(Str(raw(13))) = "LINE" Then
+		Print "PASS: datatoarray_vector_line_token"
+	Else
+		Print "FAIL: datatoarray_vector_line_token: got '" & Str(raw(13)) & "'"
+	End If
+End Sub
+
+CaveTileVector:
+Data 32, 32, 4
+Data RECT, 0, 0, 32, 32, 51, 71, 92, 255, 0
+Data LINE, 1, 1, 30, 1, 77, 102, 128, 140, 1

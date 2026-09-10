@@ -539,7 +539,9 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
             Object *child_obj = Object::cast_to<Object>(p_args[0]);
             if (child_obj) {
                 Node *child = Object::cast_to<Node>(child_obj);
-                if (child) parent->add_child(child);
+                if (child && child->get_parent() == nullptr) {
+                    parent->add_child(child);
+                }
             }
         }
         return true;

@@ -19,13 +19,17 @@ var _selected := Vector2i(-1, -1)
 var _dragging := false
 var _panning := false
 var _last_mouse := Vector2.ZERO
+var _user_view_override := false
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_CLICK
 	custom_minimum_size = Vector2(160, 120)
-	resized.connect(func(): queue_redraw())
+	# Without clipping, grid/shape draw calls can bleed into the Context Rail
+	# when layout assigns a transient oversized size before the deferred refit.
+	clip_contents = true
+	resized.connect(_on_resized)
 	draw.connect(_on_draw)
 	gui_input.connect(_on_gui_input)
 
@@ -35,6 +39,22 @@ func set_model(vw: int, vh: int, step: int, model_shapes: Array) -> void:
 	view_h = maxi(1, vh)
 	grid_step = maxi(0, step)
 	shapes = _duplicate_shapes(model_shapes)
+	_user_view_override = false
+	_fit_view()
+	queue_redraw()
+	# Context-rail layout often assigns final width/height after set_model().
+	call_deferred("_refit_if_auto")
+
+
+func _on_resized() -> void:
+	if not _user_view_override:
+		_fit_view()
+	queue_redraw()
+
+
+func _refit_if_auto() -> void:
+	if _user_view_override:
+		return
 	_fit_view()
 	queue_redraw()
 
@@ -57,7 +77,13 @@ func _fit_view() -> void:
 	if avail.x < 8.0 or avail.y < 8.0:
 		return
 	_zoom = clampf(minf(avail.x / float(view_w), avail.y / float(view_h)), MIN_ZOOM, MAX_ZOOM)
-	_pan = Vector2(pad, pad)
+	var doc_size := Vector2(view_w, view_h) * _zoom
+	_pan = (size - doc_size) * 0.5
+
+
+## Headless tests: fit zoom for a wide block inside a typical context-rail canvas.
+func debug_fit_state() -> Dictionary:
+	return {"zoom": _zoom, "pan": _pan, "size": size, "doc_size": Vector2(view_w, view_h) * _zoom}
 
 
 func _duplicate_shapes(src: Array) -> Array:
@@ -103,31 +129,44 @@ func _on_draw() -> void:
 	if shapes.is_empty() and view_w <= 0:
 		return
 	var doc := Rect2(_world_to_screen(Vector2.ZERO), Vector2(view_w, view_h) * _zoom)
+	var clip := doc.intersection(Rect2(Vector2.ZERO, size))
+	if clip.size.x <= 0.0 or clip.size.y <= 0.0:
+		return
 	draw_rect(doc, Color(0.92, 0.93, 0.95))
 	draw_rect(doc, Color(0.35, 0.38, 0.42), false, 1.0)
 	if grid_step > 0:
 		var col := Color(0.78, 0.80, 0.84, 0.55)
 		for x in range(0, view_w + 1, grid_step):
 			var sx := _world_to_screen(Vector2(x, 0)).x
-			draw_line(Vector2(sx, doc.position.y), Vector2(sx, doc.end.y), col, 1.0)
+			if sx < clip.position.x - 1.0 or sx > clip.end.x + 1.0:
+				continue
+			draw_line(Vector2(sx, clip.position.y), Vector2(sx, clip.end.y), col, 1.0)
 		for y in range(0, view_h + 1, grid_step):
 			var sy := _world_to_screen(Vector2(0, y)).y
-			draw_line(Vector2(doc.position.x, sy), Vector2(doc.end.x, sy), col, 1.0)
+			if sy < clip.position.y - 1.0 or sy > clip.end.y + 1.0:
+				continue
+			draw_line(Vector2(clip.position.x, sy), Vector2(clip.end.x, sy), col, 1.0)
 	for si in shapes.size():
-		_draw_shape(shapes[si], si)
+		_draw_shape(shapes[si], si, clip)
 
 
-func _draw_shape(shape: Dictionary, shape_idx: int) -> void:
+func _draw_shape(shape: Dictionary, shape_idx: int, clip: Rect2 = Rect2()) -> void:
 	var typ: String = str(shape.get("type", "LINE")).to_upper()
 	var pts: PackedVector2Array = shape.get("points", PackedVector2Array())
 	if pts.is_empty():
 		return
 	var col := _stroke_color(shape)
-	var w := maxf(1.0, float(shape.get("stroke_w", 1.0)) * _zoom)
+	var stroke_w := float(shape.get("stroke_w", 1.0))
+	var w := maxf(1.0, stroke_w * _zoom)
 	if typ == "RECT" and pts.size() >= 2:
 		var a := _world_to_screen(pts[0])
 		var b := _world_to_screen(pts[1])
-		draw_rect(Rect2(a, b - a), col, false, w)
+		var tl := Vector2(minf(a.x, b.x), minf(a.y, b.y))
+		var rect := Rect2(tl, Vector2(absf(b.x - a.x), absf(b.y - a.y)))
+		if stroke_w <= 0.0:
+			draw_rect(rect, col, true)
+		else:
+			draw_rect(rect, col, false, w)
 	elif typ == "LINE" and pts.size() >= 2:
 		draw_line(_world_to_screen(pts[0]), _world_to_screen(pts[1]), col, w)
 	else:
@@ -136,6 +175,8 @@ func _draw_shape(shape: Dictionary, shape_idx: int) -> void:
 	for pi in pts.size():
 		var sel := shape_idx == _selected.x and pi == _selected.y
 		var hp := _world_to_screen(pts[pi])
+		if clip.size.x > 0.0 and clip.size.y > 0.0 and not clip.has_point(hp):
+			continue
 		draw_circle(hp, HANDLE_R if sel else HANDLE_R - 1.5, Color(0.95, 0.95, 1.0) if sel else Color(1, 1, 1))
 		draw_arc(hp, HANDLE_R if sel else HANDLE_R - 1.5, 0, TAU, 16, Color(0.1, 0.1, 0.45), 1.5)
 
@@ -157,16 +198,20 @@ func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP and mb.pressed:
+			_user_view_override = true
 			_zoom = clampf(_zoom * 1.1, MIN_ZOOM, MAX_ZOOM)
 			queue_redraw()
 			accept_event()
 			return
 		if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN and mb.pressed:
+			_user_view_override = true
 			_zoom = clampf(_zoom / 1.1, MIN_ZOOM, MAX_ZOOM)
 			queue_redraw()
 			accept_event()
 			return
 		if mb.button_index == MOUSE_BUTTON_MIDDLE:
+			if mb.pressed:
+				_user_view_override = true
 			_panning = mb.pressed
 			_last_mouse = mb.position
 			accept_event()

@@ -247,6 +247,7 @@ Sub LoadRoom(newId As Integer)
 	If roomLabel <> Null Then
 		roomLabel.Caption = GetRoomCaption()
 	End If
+	Call RebuildVectorCave()
 	needRedraw = True
 End Sub
 

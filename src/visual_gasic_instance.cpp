@@ -1632,12 +1632,34 @@ void VisualGasicInstance::build_data_flat_cache() {
     }
 }
 
+static String _data_expr_identifier_name(ExpressionNode *expr) {
+    if (expr && expr->type == ExpressionNode::VARIABLE) {
+        return static_cast<VariableNode *>(expr)->name;
+    }
+    return String();
+}
+
 Variant VisualGasicInstance::get_data_value_at(int index) {
     if (index >= 0 && index < data_flat_valid.size() && data_flat_valid[index]) {
         return data_flat_cache[index];
     }
     if (index >= 0 && index < data_segments.size() && data_segments[index]) {
-        return evaluate_expression(data_segments[index]);
+        ExpressionNode *expr = data_segments[index];
+        Variant value = evaluate_expression(expr);
+        // Vector Data blocks use bare shape tokens (RECT, LINE, POLYLINE). These are
+        // identifiers in the AST, not quoted strings. When undefined, evaluate_expression
+        // returns NIL and DrawVectorBlock would skip every shape — black world.
+        if (value.get_type() == Variant::NIL) {
+            String name = _data_expr_identifier_name(expr);
+            if (!name.is_empty()) {
+                if (name.nocasecmp_to("Nothing") != 0 &&
+                        name.nocasecmp_to("Null") != 0 &&
+                        name.nocasecmp_to("Empty") != 0) {
+                    return name;
+                }
+            }
+        }
+        return value;
     }
     return Variant();
 }

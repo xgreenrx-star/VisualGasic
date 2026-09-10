@@ -7,6 +7,7 @@ const CanvasScript := preload("res://addons/visual_gasic/vg_vector_edit_canvas.g
 
 var _info: Label
 var _canvas: Control
+var _canvas_clip: PanelContainer
 var _save_btn: Button
 var _abs_path: String = ""
 var _model: Dictionary = {}
@@ -22,14 +23,23 @@ func _ready() -> void:
 	_info.text = "Open a .vgv DataFile to edit vector shapes."
 	add_child(_info)
 
+	_canvas_clip = PanelContainer.new()
+	_canvas_clip.name = "VgvCanvasClip"
+	_canvas_clip.clip_contents = true
+	_canvas_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_canvas_clip.custom_minimum_size = Vector2(0, 160)
+	_canvas_clip.visible = false
+	add_child(_canvas_clip)
+
 	_canvas = CanvasScript.new()
 	_canvas.name = "VgvCanvas"
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.custom_minimum_size = Vector2(0, 160)
 	_canvas.visible = false
 	if _canvas.has_signal("shapes_edited"):
 		_canvas.shapes_edited.connect(_on_shapes_edited)
-	add_child(_canvas)
+	_canvas_clip.add_child(_canvas)
 
 	_save_btn = Button.new()
 	_save_btn.text = "Save .vgv"
@@ -50,6 +60,7 @@ func clear_preview() -> void:
 	if _canvas.has_method("clear_model"):
 		_canvas.clear_model()
 	_canvas.visible = false
+	_canvas_clip.visible = false
 	_save_btn.visible = false
 	_info.text = "Open a .vgv DataFile to edit vector shapes."
 
@@ -63,6 +74,7 @@ func show_vgv_ref(ref: Dictionary) -> void:
 	if model.is_empty():
 		_info.text = "Could not parse .vgv:\n" + abs_path.get_file()
 		_canvas.visible = false
+		_canvas_clip.visible = false
 		_save_btn.visible = false
 		return
 	_abs_path = abs_path
@@ -74,6 +86,7 @@ func show_vgv_ref(ref: Dictionary) -> void:
 	if _canvas.has_method("set_model"):
 		_canvas.set_model(vw, vh, int(model.get("grid_step", 8)), shapes)
 	_canvas.visible = true
+	_canvas_clip.visible = true
 	_save_btn.visible = true
 
 

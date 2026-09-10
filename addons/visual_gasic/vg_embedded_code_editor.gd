@@ -281,8 +281,9 @@ func _build_ui() -> void:
 	call_deferred("_update_context_rail")
 
 	# Apply theme AFTER add_child so VGCodeEdit._ready() has already run.
-	call_deferred("_apply_vb6_theme")
+	# Scrollbar styling first, then code colors/stylebox (must run last).
 	call_deferred("_apply_scrollbar_theme")
+	call_deferred("_apply_vb6_theme")
 	call_deferred("_start_log_tailing")
 
 
@@ -755,6 +756,10 @@ func _validate_via_script_resource() -> bool:
 	if not script:
 		_apply_validation_results([{"line": 1, "column": 0, "message": "Cannot load script: " + _vg_path}], [])
 		return false
+
+	# CACHE_MODE_IGNORE leaves resource_path empty — Include lines fail without this.
+	if script.has_method("take_over_path"):
+		script.take_over_path(_vg_path)
 
 	# Script.reload() returns an Error enum — non-OK means parse failure
 	var err: int = script.reload()
@@ -1236,7 +1241,8 @@ func _apply_scrollbar_theme() -> void:
 	_code_edit.add_theme_color_override("code_completion_scroll_color", Color(0.55, 0.55, 0.5))
 	_code_edit.add_theme_color_override("code_completion_scroll_hovered_color", Color(0.3, 0.3, 0.28))
 
-	_code_edit.theme = t
+	# Do not assign _code_edit.theme here — a partial Theme wipes CodeEdit font/background
+	# overrides and leaves the editor black. Per-node scrollbar overrides below are enough.
 
 	# ── Method 2: Per-node overrides on the actual scrollbar nodes ──
 	var vbar = _code_edit.get_v_scroll_bar()

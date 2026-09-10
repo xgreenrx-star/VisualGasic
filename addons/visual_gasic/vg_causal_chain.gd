@@ -136,8 +136,9 @@ func generate(text: String, root: Array = []) -> String:
 		return ""
 
 	# Prefer C++ AST walker when the extension is loaded.
-	if ClassDB.class_exists("VisualGasicLanguage"):
-		var ast_result: Dictionary = VisualGasicLanguage.vg_analyze_causal_graph(text, root)
+	if ClassDB.class_exists(&"VisualGasicLanguage"):
+		var ast_result: Dictionary = ClassDB.class_call_static(
+			&"VisualGasicLanguage", &"vg_analyze_causal_graph", text, root)
 		if ast_result.get("ok", false):
 			var ast_report := String(ast_result.get("report", ""))
 			if _ast_report_usable(ast_report):

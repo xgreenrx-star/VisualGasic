@@ -1,4 +1,5 @@
 #include "visual_gasic_language.h"
+#include "vg_source_map.h"
 #include "visual_gasic_causal_graph.h"
 #include "visual_gasic_bracket_completion.h"
 #include "visual_gasic_snippets.h"
@@ -46,8 +47,12 @@ bool VisualGasicLanguage::breakpoints_loaded = false;
 bool VisualGasicLanguage::break_on_unhandled_error = true;
 
 // Set Next Statement state
+// next_statement_file is std::string, not godot::String: a namespace-scope
+// godot::String runs its constructor during dlopen, before the GDExtension
+// interface pointers exist, and jumps through a null builtin-constructor
+// pointer (SIGSEGV before Godot can load the library at all).
 bool VisualGasicLanguage::next_statement_requested = false;
-String VisualGasicLanguage::next_statement_file;
+std::string VisualGasicLanguage::next_statement_file;
 int VisualGasicLanguage::next_statement_line = 0;
 
 // Edit & Continue state
@@ -484,8 +489,10 @@ Dictionary VisualGasicLanguage::_validate(const String &p_script, const String &
     result["functions"] = Array();
     
     if (p_validate_errors) {
+        VgIncludeResolveResult resolved = vg_resolve_includes_with_map(p_path, p_script);
+        String processed_code = resolved.code;
         VisualGasicTokenizer tokenizer;
-        Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(p_script);
+        Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
         if (tokenizer.has_error) {
              Dictionary err;
              err["line"] = tokenizer.error_line;
@@ -4508,12 +4515,12 @@ void VisualGasicLanguage::set_next_statement(int line) {
 
 void VisualGasicLanguage::set_next_statement_file_line(const String &file, int line) {
     next_statement_requested = true;
-    next_statement_file = file;
+    next_statement_file = file.utf8().get_data();
     next_statement_line = line;
 }
 
 String VisualGasicLanguage::get_next_statement_file() {
-    return next_statement_file;
+    return String(next_statement_file.c_str());
 }
 
 bool VisualGasicLanguage::is_next_statement_requested() {
@@ -4526,7 +4533,7 @@ int VisualGasicLanguage::get_next_statement_line() {
 
 void VisualGasicLanguage::clear_next_statement() {
     next_statement_requested = false;
-    next_statement_file = String();
+    next_statement_file.clear();
     next_statement_line = 0;
 }
 

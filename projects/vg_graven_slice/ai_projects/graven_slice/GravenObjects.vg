@@ -134,6 +134,7 @@ Sub UpdateOrbit(delta As Single)
 	If orbitAngle >= ORBIT_DEG_NEED And Not orbitComplete Then
 		orbitComplete = True
 		statusText = GetRoomHint()
+		Call RebuildVectorCave()
 		needRedraw = True
 	End If
 End Sub
@@ -743,6 +744,7 @@ End Sub
 
 ' Handler: DrawRoom8Scene — skiff goal at (1100, 400)
 Sub DrawRoom8Scene()
+	If useVectorArt Then Exit Sub
 	DrawCircle SKIFF_X, SKIFF_Y, SKIFF_R + 8, Lit(0.91, 0.96, 1, 0.12)
 	DrawRect SKIFF_X - 36, SKIFF_Y - 14, 72, 28, Lit(0.91, 0.96, 1, 0.75)
 	DrawRect SKIFF_X - 28, SKIFF_Y - 8, 56, 16, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)

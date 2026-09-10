@@ -34,7 +34,7 @@ Data LINE, x1, y1, x2, y2, R, G, B, A, strokeW
 Data RECT, x1, y1, x2, y2, R, G, B, A, strokeW
 ```
 
-Top-left `(x1,y1)`, bottom-right `(x2,y2)`.
+Top-left `(x1,y1)`, bottom-right `(x2,y2)`. In the IDE preview, `strokeW = 0` draws a **filled** rectangle (hull panels); any positive width draws an outline.
 
 ### POLYLINE
 

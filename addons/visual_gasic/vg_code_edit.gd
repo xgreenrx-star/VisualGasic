@@ -2709,13 +2709,13 @@ func _draw_vector_data_block_highlights(first_visible: int, last_visible: int) -
 	_draw_labeled_data_block_highlights(_vector_block_ranges, _vector_active_label, _VectorHighlight, first_visible, last_visible)
 
 
-func _draw_labeled_data_block_highlights(block_ranges: Array, active_label: String, highlight, first_visible: int, last_visible: int) -> void:
+func _draw_labeled_data_block_highlights(block_ranges: Array, active_label: String, highlight: RefCounted, first_visible: int, last_visible: int) -> void:
 	if block_ranges.is_empty() or _features_overlay == null:
 		return
 	var row_height := get_line_height()
 	var from_x := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
 	var to_x := size.x
-	var colors := highlight.overlay_colors(self)
+	var colors: Dictionary = highlight.overlay_colors(self)
 	for block in block_ranges:
 		var start: int = block.get("label_line", -1)
 		var end: int = block.get("end_line", -1)

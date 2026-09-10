@@ -571,7 +571,15 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     format_source_code();
     
     // Reload logic: Validate tokens
-    VgIncludeResolveResult resolved = vg_resolve_includes_with_map(get_path(), source_code);
+    String include_host_path = get_path();
+    if (include_host_path.is_empty()) {
+        include_host_path = include_host_path_hint;
+    }
+    if (include_host_path.is_empty()) {
+        UtilityFunctions::print("[VG] WARNING: Include resolution with empty script path (source length: ",
+                source_code.length(), ")");
+    }
+    VgIncludeResolveResult resolved = vg_resolve_includes_with_map(include_host_path, source_code);
     source_line_map = resolved.line_map;
     String processed_code = resolved.code;
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);

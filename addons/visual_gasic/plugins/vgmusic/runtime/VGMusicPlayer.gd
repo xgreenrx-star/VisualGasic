@@ -40,15 +40,14 @@ class_name VGMusicPlayer extends Node
 ## higher latency.  2048 is a safe default for most targets.
 @export_range(512, 8192, 512) var buffer_size: int = 2048
 
-# Internal state.
-var _driver: SiONDriver = null
+# Internal state (SiONDriver when GDSiON GDExtension is loaded).
+var _driver: Node = null
 var _mml_data: String = ""
 var _playing: bool = false
 
 
 func _ready() -> void:
-	_driver = SiONDriver.create(buffer_size)
-	add_child(_driver)
+	_init_driver()
 
 	if mml_file != "":
 		_load_mml(mml_file)
@@ -118,6 +117,18 @@ func set_bpm(bpm: float) -> void:
 
 
 # ─── Internals ───────────────────────────────────────────────────
+
+func _init_driver() -> void:
+	if not ClassDB.class_exists(&"SiONDriver"):
+		push_warning("VGMusicPlayer: GDSiON extension not loaded — MML playback unavailable.")
+		return
+	if not ClassDB.class_has_method(&"SiONDriver", &"create"):
+		push_warning("VGMusicPlayer: SiONDriver.create() missing.")
+		return
+	_driver = ClassDB.class_call_static(&"SiONDriver", &"create", buffer_size)
+	if _driver:
+		add_child(_driver)
+
 
 func _load_mml(path: String) -> bool:
 	if not FileAccess.file_exists(path):
