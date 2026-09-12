@@ -233,19 +233,19 @@ Sub DevTermExecute(raw As String)
 		Exit Sub
 	End If
 	parts = Split(cmd, " ")
-	If UBound(parts) > = 1 Thenqeeqeqee
-	If parts(0) = "warp" Orq parts(0) = "room" Then
-		n = Val(parts(1))qq
-		If n > = 1 And n < = 8 Theneeee
-		Call DevWarpRoom(n)
-		Call DevTermPushLine("ok w— room " & Str(n))
-	Else
-		Call DevTermPushLine("error — room must be 1-8")
+	If UBound(parts) >= 1 Then
+		If parts(0) = "warp" Or parts(0) = "room" Then
+			n = Val(parts(1))
+			If n >= 1 And n <= 8 Then
+				Call DevWarpRoom(n)
+				Call DevTermPushLine("ok — room " & Str(n))
+			Else
+				Call DevTermPushLine("error — room must be 1-8")
+			End If
+			Exit Sub
+		End If
 	End If
-	Exit Sub
-End If
-End If
-Call DevTermPushLine("unknown command — type help")
+	Call DevTermPushLine("unknown command — type help")
 End Sub
 
 ' Handler: DevTerminalInput — keyboard line editor (_Input while terminal open)
@@ -278,7 +278,7 @@ Sub DevTerminalInput(ev As Variant)
 		GetViewport().SetInputAsHandled()
 		Exit Sub
 	End If
-	If keycode = KEY_SPACE Or (ev.unicode > = 32 And ev.unicode < 127) Then
+	If keycode = KEY_SPACE Or (ev.unicode >= 32 And ev.unicode < 127) Then
 		If keycode = KEY_SPACE Then
 			ch = " "
 		Else
