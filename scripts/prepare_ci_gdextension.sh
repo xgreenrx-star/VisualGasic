@@ -96,6 +96,8 @@ if command -v ldd >/dev/null 2>&1; then
 	fi
 fi
 
+bash "$ROOT/scripts/fix_linux_editor_gdextension.sh" || true
+
 echo "==> Layout OK"
 ls -la addons/visual_gasic/bin/
 echo "==> OK: $(readlink -f "addons/visual_gasic/bin/$SO_NAME")"

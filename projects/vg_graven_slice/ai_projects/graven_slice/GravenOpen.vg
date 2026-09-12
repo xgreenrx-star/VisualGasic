@@ -1,0 +1,474 @@
+' GravenOpen.vg — open-world graph, black holes, challenge rooms, survey logs
+
+Const BH_S_MIN As Single = 4.5
+Const BH_G_MAX As Single = 3800
+Const BH_HORIZON_BASE As Single = 16
+Const BH_HORIZON_MUL As Single = 5.2
+
+Dim challengeHorizon As Boolean
+Dim logCount As Integer
+Dim logTX(3) As Integer
+Dim logTY(3) As Integer
+Dim logActive As Integer
+Dim openInited As Boolean
+
+' Handler: InitOpenWorld — persistent challenge / log / horizon-seed flags
+Sub InitOpenWorld()
+	If openInited Then Exit Sub
+	challengeHorizon = False
+	seedLooseR16 = True
+	logActive = -1
+	logCount = 0
+	openInited = True
+End Sub
+
+' Handler: ResetOpenWorld — replay wipe
+Sub ResetOpenWorld()
+	openInited = False
+	Call InitOpenWorld()
+End Sub
+
+' Handler: CacheLogTiles — L terminals (not scanned in _Process)
+Sub CacheLogTiles()
+	Dim tx As Integer
+	Dim ty As Integer
+	logCount = 0
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			If IsLogTile(tx, ty) Then
+				If logCount < 4 Then
+					logTX(logCount) = tx
+					logTY(logCount) = ty
+					logCount = logCount + 1
+				End If
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: IsLogTile — survey terminal marker
+Function IsLogTile(tx As Integer, ty As Integer) As Boolean
+	If tx < 0 Or tx >= COLS Or ty < 0 Or ty >= ROWS Then
+		IsLogTile = False
+		Exit Function
+	End If
+	IsLogTile = (tileChar(tx, ty) = "L")
+End Function
+
+' Handler: ChallengeOpen — G tiles are solid until the room is beaten
+Function ChallengeOpen() As Boolean
+	Select Case roomId
+		Case 6
+			ChallengeOpen = orbitComplete
+		Case 16
+			ChallengeOpen = challengeHorizon
+		Case Else
+			ChallengeOpen = True
+	End Select
+End Function
+
+' Handler: IsBlackHole — supermass (S >= BH_S_MIN) is a killing well
+Function IsBlackHole(i As Integer) As Boolean
+	If i < 0 Or i >= massCount Then
+		IsBlackHole = False
+		Exit Function
+	End If
+	IsBlackHole = (massS(i) >= BH_S_MIN)
+End Function
+
+' Handler: HoleHorizon — event-horizon radius in pixels
+Function HoleHorizon(i As Integer) As Single
+	If Not IsBlackHole(i) Then
+		HoleHorizon = 0
+		Exit Function
+	End If
+	HoleHorizon = BH_HORIZON_BASE + massS(i) * BH_HORIZON_MUL
+End Function
+
+' Handler: SeedR16X — fragment parked on the accretion rim (not inside)
+Function SeedR16X() As Single
+	SeedR16X = 640 + HoleHorizon(0) + 50
+End Function
+
+Function SeedR16Y() As Single
+	SeedR16Y = 360
+End Function
+
+' Handler: ApplyBlackHoleGravity — uncapped (BH_G_MAX) pull; skip self
+Sub ApplyBlackHoleGravity(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim pull As Single
+	Dim cap As Single
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			If IsBlackHole(i) Then
+				dx = massX(i) - px
+				dy = massY(i) - py
+				distSq = dx * dx + dy * dy
+				If distSq < 8 Then distSq = 8
+				dist = Sqr(distSq)
+				pull = G_SCALE * devGScaleMul * massS(i) / distSq
+				cap = BH_G_MAX
+				If massS(i) < 7 Then cap = 2600
+				If pull > cap Then pull = cap
+				ax = ax + (dx / dist) * pull
+				ay = ay + (dy / dist) * pull
+			End If
+		End If
+	Next i
+End Sub
+
+' Handler: CheckBlackHoleDeath — crossing the horizon kills (god mode skips)
+Sub CheckBlackHoleDeath()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim hz As Single
+	If devGodMode Then Exit Sub
+	For i = 0 To massCount - 1
+		If IsBlackHole(i) Then
+			If MassIsLive(i) Then
+				dx = podX - massX(i)
+				dy = podY - massY(i)
+				hz = HoleHorizon(i)
+				If dx * dx + dy * dy <= hz * hz Then
+					statusText = "The horizon took the hull"
+					Call RespawnPod()
+					Exit Sub
+				End If
+			End If
+		End If
+	Next i
+End Sub
+
+' Handler: ApplyHoleShaderParams — lensing + accretion uniforms
+Sub ApplyHoleShaderParams()
+	Dim i As Integer
+	Dim best As Integer
+	Dim bestD As Single
+	Dim d As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim str As Single
+	If postMaterial = Null Then Exit Sub
+	best = -1
+	bestD = 999999999
+	For i = 0 To massCount - 1
+		If IsBlackHole(i) Then
+			dx = podX - massX(i)
+			dy = podY - massY(i)
+			d = dx * dx + dy * dy
+			If d < bestD Then
+				bestD = d
+				best = i
+			End If
+		End If
+	Next i
+	If best < 0 Then
+		Shader.Param postMaterial, "hole_uv", Vector2(-1, -1)
+		Shader.Param postMaterial, "hole_str", 0
+		Shader.Param postMaterial, "hole_rad", 0.04
+		Exit Sub
+	End If
+	str = 0.55
+	If massS(best) >= 7 Then str = 1
+	Shader.Param postMaterial, "hole_uv", Vector2(massX(best) / GAME_W, massY(best) / GAME_H)
+	Shader.Param postMaterial, "hole_str", str
+	Shader.Param postMaterial, "hole_rad", HoleHorizon(best) / GAME_W
+End Sub
+
+' Handler: TryLogInteract — F on an L tile (R4 uses the crate terminal)
+Function TryLogInteract() As Boolean
+	Dim i As Integer
+	Dim tx As Single
+	Dim ty As Single
+	Dim dx As Single
+	Dim dy As Single
+	TryLogInteract = False
+	If roomId = 4 Then Exit Function
+	If logCount <= 0 Then Exit Function
+	For i = 0 To logCount - 1
+		tx = logTX(i) * TILE + 16
+		ty = logTY(i) * TILE + 16
+		dx = podX - tx
+		dy = podY - ty
+		If dx * dx + dy * dy <= 58 * 58 Then
+			logActive = i
+			terminalOpen = True
+			terminalTimer = 8.0
+			needRedraw = True
+			TryLogInteract = True
+			Exit Function
+		End If
+	Next i
+End Function
+
+' Handler: GetLogTitle — survey header for the open overlay
+Function GetLogTitle() As String
+	Select Case roomId
+		Case 4
+			GetLogTitle = "MASSWELL SURVEY — LOG 7"
+		Case 14
+			GetLogTitle = "MASSWELL SURVEY — LOG 14"
+		Case 15
+			GetLogTitle = "MASSWELL SURVEY — LOG 15"
+		Case 17
+			Select Case logActive
+				Case 0
+					GetLogTitle = "MASSWELL SURVEY — LOG 21"
+				Case 1
+					GetLogTitle = "MASSWELL SURVEY — LOG 22"
+				Case Else
+					GetLogTitle = "MASSWELL SURVEY — LOG 23"
+			End Select
+		Case Else
+			GetLogTitle = "MASSWELL SURVEY"
+	End Select
+End Function
+
+' Handler: GetLogBody — clue text (player chooses a direction)
+Function GetLogBody() As String
+	Select Case roomId
+		Case 4
+			GetLogBody = "Don't trust the floor. Trust the needle."
+		Case 14
+			GetLogBody = "Academy was the hallway. Now you choose. North eats light."
+		Case 15
+			GetLogBody = "A lesser mouth. Skirt the rim. Do not kiss it."
+		Case 17
+			Select Case logActive
+				Case 0
+					GetLogBody = "Two sockets launch the skiff. Extra seeds are optional until they aren't."
+				Case 1
+					GetLogBody = "North of the crossroads: take the fragment on the ring, never the dark."
+				Case Else
+					GetLogBody = "East of steal is the world. SW of hub tows. NE lasers. Chen out."
+			End Select
+		Case Else
+			GetLogBody = ""
+	End Select
+End Function
+
+' Handler: TryOpenTransition — non-star doors (crossroads, horizon, archive)
+Sub TryOpenTransition()
+	If doorLock > 0 Then Exit Sub
+	If roomId = 9 Then
+		If PodOnExitTile(37, 10) Then
+			enterFrom = 1
+			Call WarpThroughExit(14)
+		End If
+		Exit Sub
+	End If
+	If roomId = 11 Then
+		If PodOnExitTile(37, 10) Then
+			enterFrom = 3
+			Call WarpThroughExit(16)
+		End If
+		Exit Sub
+	End If
+	If roomId = 14 Then
+		If PodOnExitTile(1, 10) Then
+			enterFrom = 2
+			Call WarpThroughExit(9)
+			Exit Sub
+		End If
+		If PodOnExitTile(37, 10) Then
+			enterFrom = 1
+			Call WarpThroughExit(17)
+			Exit Sub
+		End If
+		If PodOnExitTile(18, 1) Then
+			enterFrom = 4
+			Call WarpThroughExit(16)
+			Exit Sub
+		End If
+		If PodOnExitTile(18, 20) Then
+			enterFrom = 3
+			Call WarpThroughExit(15)
+		End If
+		Exit Sub
+	End If
+	If roomId = 15 Then
+		If PodOnExitTile(18, 1) Then
+			enterFrom = 4
+			Call WarpThroughExit(14)
+		End If
+		Exit Sub
+	End If
+	If roomId = 16 Then
+		If PodOnExitTile(18, 20) Then
+			enterFrom = 3
+			Call WarpThroughExit(14)
+			Exit Sub
+		End If
+		If challengeHorizon Then
+			If PodOnExitTile(18, 1) Then
+				enterFrom = 2
+				Call WarpThroughExit(11)
+			End If
+		End If
+		Exit Sub
+	End If
+	If roomId = 17 Then
+		If PodOnExitTile(1, 10) Then
+			enterFrom = 2
+			Call WarpThroughExit(14)
+		End If
+	End If
+End Sub
+
+' Handler: ApplyOpenSpawn — door-aware spawns for R9/R11/R14–R17
+Sub ApplyOpenSpawn()
+	If enterFrom = 0 Then Exit Sub
+	Select Case roomId
+		Case 9
+			If enterFrom = 2 Then
+				podX = 1060
+				podY = 368
+			End If
+		Case 11
+			If enterFrom = 2 Then
+				podX = 1060
+				podY = 368
+			End If
+		Case 14
+			Select Case enterFrom
+				Case 1
+					podX = 220
+					podY = 368
+				Case 2
+					podX = 1060
+					podY = 368
+				Case 3
+					podX = 640
+					podY = 200
+				Case 4
+					podX = 640
+					podY = 500
+			End Select
+		Case 15
+			If enterFrom = 3 Then
+				podX = 640
+				podY = 120
+			End If
+		Case 16
+			Select Case enterFrom
+				Case 3
+					podX = 640
+					podY = 140
+				Case 4
+					podX = 640
+					podY = 520
+			End Select
+		Case 17
+			If enterFrom = 1 Then
+				podX = 220
+				podY = 368
+			End If
+	End Select
+End Sub
+
+' Handler: DrawBlackHole — event horizon + accretion (shader does the lens)
+Sub DrawBlackHole(mx As Single, my As Single, i As Integer)
+	Dim hz As Single
+	Dim disk As Variant
+	Dim core As Variant
+	If canvasWorld = Null Then Exit Sub
+	hz = HoleHorizon(i)
+	disk = Color(1.0, 0.42, 0.12, 0.55)
+	core = Color(0.02, 0.01, 0.04, 1.0)
+	Call canvasWorld.DrawCircle(Vector2(mx, my), hz + 22, Color(1.0, 0.35, 0.08, 0.12), True, Color(1.0, 0.35, 0.08, 0.12))
+	Call canvasWorld.DrawArc(Vector2(mx, my), hz + 10, juiceTime * 0.7, juiceTime * 0.7 + 4.2, 28, 3.2, disk, False, Color(0, 0, 0, 0))
+	Call canvasWorld.DrawArc(Vector2(mx, my), hz + 16, -juiceTime * 0.45, -juiceTime * 0.45 + 5.0, 24, 2.0, Color(1.0, 0.7, 0.25, 0.45), False, Color(0, 0, 0, 0))
+	Call canvasWorld.DrawCircle(Vector2(mx, my), hz, core, True, core)
+	Call canvasWorld.DrawArc(Vector2(mx, my), hz + 1, 0, 6.28318, 32, 2.0, Color(1.0, 0.85, 0.4, 0.8), False, Color(0, 0, 0, 0))
+End Sub
+
+' Handler: DrawLogMarkers — small consoles on L tiles (world, not cave — logs persist)
+Sub DrawLogMarkers()
+	Dim i As Integer
+	Dim px As Single
+	Dim py As Single
+	If canvasWorld = Null Then Exit Sub
+	If logCount <= 0 Then Exit Sub
+	For i = 0 To logCount - 1
+		px = logTX(i) * TILE + 16
+		py = logTY(i) * TILE + 16
+		Call canvasWorld.DrawRect(Rect2(px - 12, py - 2, 24, 12), 0, Lit(STONE_R, STONE_G, STONE_B, 0.95), True, Lit(STONE_R, STONE_G, STONE_B, 0.95))
+		Call canvasWorld.DrawRect(Rect2(px - 10, py - 14, 20, 14), 0, Lit(0.16, 0.2, 0.26, 0.95), True, Lit(0.16, 0.2, 0.26, 0.95))
+		Call canvasWorld.DrawRect(Rect2(px - 7, py - 11, 14, 8), 0, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5))
+	Next i
+End Sub
+
+' Handler: DrawLogHud — overlay + F hint (R4 Chen log + open-world L tiles)
+Sub DrawLogHud()
+	Dim i As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim dx As Single
+	Dim dy As Single
+	If Not useVectorArt Then Exit Sub
+	If canvasHud = Null Then Exit Sub
+	If terminalOpen Then
+		If roomId = 4 Or logActive >= 0 Then
+			Call canvasHud.DrawRect(Rect2(80, 188, 760, 140), 0, Lit(VOID_R, VOID_G, VOID_B, 0.92), True, Lit(VOID_R, VOID_G, VOID_B, 0.92))
+			Call canvasHud.DrawText(Vector2(100, 208), GetLogTitle(), Lit(0.91, 0.96, 1, 1.0))
+			Call canvasHud.DrawText(Vector2(100, 244), GetLogBody(), Lit(0.91, 0.96, 1, 0.9))
+			Call canvasHud.DrawText(Vector2(100, 280), "— Chen", Lit(GLOW_R, GLOW_G, GLOW_B, 0.95))
+		End If
+		Exit Sub
+	End If
+	If roomId = 4 Then
+		px = 4 * TILE + 16
+		py = 12 * TILE + 16
+		If Abs(podX - px) < 56 And Abs(podY - py) < 56 Then
+			Call canvasHud.DrawText(Vector2(px - 48, py - 36), "Press F — terminal", Lit(0.91, 0.96, 1, 0.6))
+		End If
+		Exit Sub
+	End If
+	For i = 0 To logCount - 1
+		px = logTX(i) * TILE + 16
+		py = logTY(i) * TILE + 16
+		dx = podX - px
+		dy = podY - py
+		If dx * dx + dy * dy <= 58 * 58 Then
+			Call canvasHud.DrawText(Vector2(px - 40, py - 36), "Press F — log", Lit(0.91, 0.96, 1, 0.6))
+			Exit Sub
+		End If
+	Next i
+End Sub
+
+' Handler: DrawOpenHud — compass in the crossroads / horizon warning
+Sub DrawOpenHud()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim dist As Single
+	Dim hz As Single
+	If canvasHud = Null Then Exit Sub
+	If roomId = 14 Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "N HORIZON   E ARCHIVE   S FIELD   W STEAL", Color(0.85, 0.78, 1.0, 0.85))
+	End If
+	If roomId = 16 Then
+		If challengeHorizon Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "HORIZON beaten — north gate open", Color(GLOW_R, GLOW_G, GLOW_B, 0.9))
+		Else
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "CHALLENGE — take the rim seed. South is retreat", Color(1.0, 0.45, 0.2, 0.9))
+		End If
+	End If
+	For i = 0 To massCount - 1
+		If IsBlackHole(i) Then
+			dx = podX - massX(i)
+			dy = podY - massY(i)
+			dist = Sqr(dx * dx + dy * dy)
+			hz = HoleHorizon(i)
+			If dist < hz * 2.4 Then
+				Call canvasHud.DrawTextCentered(Vector2(GAME_W * 0.5, 72), "HORIZON", Color(1.0, 0.35, 0.12, 0.95))
+			End If
+		End If
+	Next i
+End Sub

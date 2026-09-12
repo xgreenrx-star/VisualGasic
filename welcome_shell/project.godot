@@ -13,7 +13,7 @@ config_version=5
 config/name="VisualGasic Welcome"
 config/description="Replaces Godot's Project Manager with a VG-branded picker."
 run/main_scene="res://welcome.tscn"
-config/features=PackedStringArray("4.6", "Forward Plus")
+config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 
 [display]

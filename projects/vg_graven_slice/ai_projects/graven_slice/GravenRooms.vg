@@ -1,5 +1,54 @@
 ' GravenRooms.vg — room tile maps, mass tables, spawn/exit transitions (R2 mass physics fix)
 
+Dim exitCount As Integer
+Dim exitTX(7) As Integer
+Dim exitTY(7) As Integer
+Dim spikeCount As Integer
+Dim spikeTX(47) As Integer
+Dim spikeTY(47) As Integer
+Dim gateCount As Integer
+Dim gateTX(15) As Integer
+Dim gateTY(15) As Integer
+
+' Handler: CacheRoomMarkers — E / S / G lists so gameplay never scans 40×22
+Sub CacheRoomMarkers()
+	Dim tx As Integer
+	Dim ty As Integer
+	Dim ch As String
+	exitCount = 0
+	spikeCount = 0
+	gateCount = 0
+	For ty = 0 To ROWS - 1
+		For tx = 0 To COLS - 1
+			ch = tileChar(tx, ty)
+			If ch = "E" Then
+				If exitCount < 8 Then
+					exitTX(exitCount) = tx
+					exitTY(exitCount) = ty
+					exitCount = exitCount + 1
+				End If
+			ElseIf ch = "S" Then
+				If spikeCount < 48 Then
+					spikeTX(spikeCount) = tx
+					spikeTY(spikeCount) = ty
+					spikeCount = spikeCount + 1
+				End If
+			ElseIf ch = "G" Then
+				If gateCount < 16 Then
+					gateTX(gateCount) = tx
+					gateTY(gateCount) = ty
+					gateCount = gateCount + 1
+				End If
+			End If
+		Next tx
+	Next ty
+End Sub
+
+' Handler: CacheExitTiles — kept for older Call sites
+Sub CacheExitTiles()
+	Call CacheRoomMarkers()
+End Sub
+
 ' Handler: LoadRoomTiles — parse ASCII Data rows into tileChar grid for roomId
 Sub LoadRoomTiles()
 	Dim ty As Integer
@@ -7,29 +56,54 @@ Sub LoadRoomTiles()
 	For ty = 0 To ROWS - 1
 		Call ClearRoomRow(ty)
 	Next ty
-	If roomId = 1 Then
-		Restore R1Map
-	ElseIf roomId = 2 Then
-		Restore R2Map
-	ElseIf roomId = 3 Then
-		Restore R3Map
-	ElseIf roomId = 4 Then
-		Restore R4Map
-	ElseIf roomId = 5 Then
-		Restore R5Map
-	ElseIf roomId = 6 Then
-		Restore R6Map
-	ElseIf roomId = 7 Then
-		Restore R7Map
-	ElseIf roomId = 8 Then
-		Restore R8Map
-	Else
-		Exit Sub
-	End If
+	If roomId < 1 Or roomId > 17 Then Exit Sub
+	Restore "R" + CStr(roomId) + "Map"
 	For ty = 0 To ROWS - 1
 		Read row
 		Call ParseRoomRow(row, ty)
 	Next ty
+	Call CacheRoomMarkers()
+	Call CacheLogTiles()
+End Sub
+
+' Handler: ApplyExitShaderParams — watery mouths on E tiles (hub has five)
+Sub ApplyExitShaderParams()
+	Dim n As Integer
+	Dim uv As Variant
+	If postMaterial = Null Then Exit Sub
+	n = exitCount
+	If n > 5 Then n = 5
+	Shader.Param postMaterial, "exit_count", n
+	If n > 0 Then
+		uv = Vector2((exitTX(0) * TILE + 16) / GAME_W, (exitTY(0) * TILE + 16) / GAME_H)
+		Shader.Param postMaterial, "exit_uv0", uv
+	Else
+		Shader.Param postMaterial, "exit_uv0", Vector2(-1, -1)
+	End If
+	If n > 1 Then
+		uv = Vector2((exitTX(1) * TILE + 16) / GAME_W, (exitTY(1) * TILE + 16) / GAME_H)
+		Shader.Param postMaterial, "exit_uv1", uv
+	Else
+		Shader.Param postMaterial, "exit_uv1", Vector2(-1, -1)
+	End If
+	If n > 2 Then
+		uv = Vector2((exitTX(2) * TILE + 16) / GAME_W, (exitTY(2) * TILE + 16) / GAME_H)
+		Shader.Param postMaterial, "exit_uv2", uv
+	Else
+		Shader.Param postMaterial, "exit_uv2", Vector2(-1, -1)
+	End If
+	If n > 3 Then
+		uv = Vector2((exitTX(3) * TILE + 16) / GAME_W, (exitTY(3) * TILE + 16) / GAME_H)
+		Shader.Param postMaterial, "exit_uv3", uv
+	Else
+		Shader.Param postMaterial, "exit_uv3", Vector2(-1, -1)
+	End If
+	If n > 4 Then
+		uv = Vector2((exitTX(4) * TILE + 16) / GAME_W, (exitTY(4) * TILE + 16) / GAME_H)
+		Shader.Param postMaterial, "exit_uv4", uv
+	Else
+		Shader.Param postMaterial, "exit_uv4", Vector2(-1, -1)
+	End If
 End Sub
 
 ' Handler: ClearRoomRow — fill one row with air markers
@@ -66,8 +140,8 @@ Function IsSolidTile(tx As Integer, ty As Integer) As Boolean
 		IsSolidTile = True
 		Exit Function
 	End If
-	' Gate tiles stay solid until orbitComplete (R6 east exit)
-	If ch = "G" And Not orbitComplete Then
+	' Gate tiles stay solid until the room's challenge is beaten
+	If ch = "G" And Not ChallengeOpen() Then
 		IsSolidTile = True
 		Exit Function
 	End If
@@ -95,51 +169,97 @@ End Function
 ' Handler: LoadRoomMasses — inverse-square sources per BLUEPRINT.md
 Sub LoadRoomMasses()
 	massCount = 0
-	If roomId = 1 Then
-		massCount = 1
-		massX(0) = 640
-		massY(0) = 780
-		massS(0) = 2.0
-	ElseIf roomId = 2 Then
-		' R2 Bend — M1 loft pulls into ceiling channel (BLUEPRINT 0.6 / 1.8)
-		massCount = 2
-		massX(0) = 640
-		massY(0) = 780
-		massS(0) = 0.8
-		massX(1) = 1040
-		massY(1) = 320
-		massS(1) = 2.2
-	ElseIf roomId = 3 Then
-		massCount = 1
-		massX(0) = 640
-		massY(0) = -60
-		massS(0) = 0.85
-	ElseIf roomId = 4 Then
-		massCount = 1
-		massX(0) = 640
-		massY(0) = 780
-		massS(0) = 1.0
-	ElseIf roomId = 5 Then
-		massCount = 2
-		massX(0) = 200
-		massY(0) = 400
-		massS(0) = 1.4
-		massX(1) = 1080
-		massY(1) = 400
-		massS(1) = 1.4
-	ElseIf roomId = 6 Then
-		massCount = 1
-		massX(0) = 640
-		massY(0) = 352
-		massS(0) = 2.5
-	ElseIf roomId = 7 Then
-		massCount = 1
-		massX(0) = 640
-		massY(0) = 780
-		massS(0) = 1.2
-	ElseIf roomId = 8 Then
-		massCount = 0
-	End If
+	Select Case roomId
+		Case 1
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 780
+			massS(0) = 2.0
+		Case 2
+			' R2 Bend — M1 loft pulls into ceiling channel (BLUEPRINT 0.6 / 1.8)
+			massCount = 2
+			massX(0) = 640
+			massY(0) = 780
+			massS(0) = 0.8
+			massX(1) = 1040
+			massY(1) = 320
+			massS(1) = 2.2
+		Case 3
+			massCount = 1
+			massX(0) = 640
+			massY(0) = -60
+			massS(0) = 0.85
+		Case 4
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 780
+			massS(0) = 1.0
+		Case 5
+			massCount = 2
+			massX(0) = 200
+			massY(0) = 400
+			massS(0) = 1.4
+			massX(1) = 1080
+			massY(1) = 400
+			massS(1) = 1.4
+		Case 6
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 352
+			massS(0) = 2.5
+		Case 7
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 780
+			massS(0) = 1.2
+		Case 8
+			massCount = 0
+		Case 9
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 240
+			massS(0) = 1.8
+		Case 10
+			massCount = 2
+			massX(0) = 280
+			massY(0) = 520
+			massS(0) = 2.0
+			massX(1) = 1000
+			massY(1) = 200
+			massS(1) = 2.0
+		Case 11
+			massCount = 1
+			massX(0) = 400
+			massY(0) = 360
+			massS(0) = 2.2
+		Case 12
+			massCount = 1
+			massX(0) = 520
+			massY(0) = 400
+			massS(0) = 1.4
+		Case 13
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 500
+			massS(0) = 1.1
+		Case 14
+			massCount = 1
+			massX(0) = 1000
+			massY(0) = 140
+			massS(0) = 5.0
+		Case 15
+			massCount = 1
+			massX(0) = 600
+			massY(0) = 240
+			massS(0) = 5.2
+		Case 16
+			massCount = 1
+			massX(0) = 640
+			massY(0) = 360
+			massS(0) = 8.6
+		Case 17
+			massCount = 0
+	End Select
 End Sub
 
 ' Handler: ResetPodSpawn — pixel spawn from BLUEPRINT markers / tables
@@ -147,84 +267,200 @@ Sub ResetPodSpawn()
 	podVX = 0
 	podVY = 0
 	podAngle = 0
-	If roomId = 1 Then
-		podX = 272
-		podY = 560
-	ElseIf roomId = 2 Then
-		podX = 48
-		podY = 560
-	ElseIf roomId = 3 Then
-		podX = 112
-		podY = 560
-	ElseIf roomId = 4 Then
-		podX = 144
-		podY = 496
-	ElseIf roomId = 5 Then
-		podX = 144
-		podY = 528
-	ElseIf roomId = 6 Then
-		podX = 80
-		podY = 560
-	ElseIf roomId = 7 Then
-		podX = 48
-		podY = 368
-	ElseIf roomId = 8 Then
-		podX = 48
-		podY = 496
-	Else
-		podX = 64
-		podY = 560
-	End If
+	Select Case roomId
+		Case 1
+			podX = 272
+			podY = 560
+		Case 2
+			podX = 48
+			podY = 560
+		Case 3
+			podX = 112
+			podY = 560
+		Case 4
+			podX = 144
+			podY = 496
+		Case 5
+			podX = 144
+			podY = 528
+		Case 6
+			podX = 80
+			podY = 560
+		Case 7
+			podX = 48
+			podY = 368
+		Case 8
+			podX = 220
+			podY = 368
+		Case 9
+			podX = 220
+			podY = 368
+		Case 10
+			podX = 220
+			podY = 200
+		Case 11
+			podX = 220
+			podY = 500
+		Case 12
+			podX = 220
+			podY = 80
+		Case 13
+			podX = 220
+			podY = 500
+		Case 14
+			podX = 220
+			podY = 368
+		Case 15
+			podX = 640
+			podY = 120
+		Case 16
+			podX = 640
+			podY = 520
+		Case 17
+			podX = 220
+			podY = 368
+		Case Else
+			podX = 64
+			podY = 560
+	End Select
 End Sub
+
+' Handler: GetRoomStinger — short vector title for the room-enter sting
+Function GetRoomStinger() As String
+	Select Case roomId
+		Case 1
+			GetRoomStinger = "AIRLOCK"
+		Case 2
+			GetRoomStinger = "BEND"
+		Case 3
+			GetRoomStinger = "SHELF"
+		Case 4
+			GetRoomStinger = "CRATE"
+		Case 5
+			GetRoomStinger = "DARK POOL"
+		Case 6
+			GetRoomStinger = "ORBIT"
+		Case 7
+			GetRoomStinger = "HEAT RUN"
+		Case 8
+			GetRoomStinger = "CORE HUB"
+		Case 9
+			GetRoomStinger = "STEAL"
+		Case 10
+			GetRoomStinger = "PHASE"
+		Case 11
+			GetRoomStinger = "WARP"
+		Case 12
+			GetRoomStinger = "TOW"
+		Case 13
+			GetRoomStinger = "LASER"
+		Case 14
+			GetRoomStinger = "CROSSROADS"
+		Case 15
+			GetRoomStinger = "FIELD"
+		Case 16
+			GetRoomStinger = "HORIZON"
+		Case 17
+			GetRoomStinger = "ARCHIVE"
+		Case Else
+			GetRoomStinger = "GRAVEN"
+	End Select
+End Function
 
 ' Handler: GetRoomCaption — HUD title string
 Function GetRoomCaption() As String
-	If roomId = 1 Then
-		GetRoomCaption = "GRAVEN — Room 1 Airlock"
-	ElseIf roomId = 2 Then
-		GetRoomCaption = "GRAVEN — Room 2 Bend"
-	ElseIf roomId = 3 Then
-		GetRoomCaption = "GRAVEN — Room 3 Shelf"
-	ElseIf roomId = 4 Then
-		GetRoomCaption = "GRAVEN — Room 4 Crate"
-	ElseIf roomId = 5 Then
-		GetRoomCaption = "GRAVEN — Room 5 Dark pool"
-	ElseIf roomId = 6 Then
-		GetRoomCaption = "GRAVEN — Room 6 Orbit"
-	ElseIf roomId = 7 Then
-		GetRoomCaption = "GRAVEN — Room 7 Heat run"
-	ElseIf roomId = 8 Then
-		GetRoomCaption = "GRAVEN — Room 8 Skiff"
-	Else
-		GetRoomCaption = "GRAVEN"
-	End If
+	Select Case roomId
+		Case 1
+			GetRoomCaption = "GRAVEN — Room 1 Airlock"
+		Case 2
+			GetRoomCaption = "GRAVEN — Room 2 Bend"
+		Case 3
+			GetRoomCaption = "GRAVEN — Room 3 Shelf"
+		Case 4
+			GetRoomCaption = "GRAVEN — Room 4 Crate"
+		Case 5
+			GetRoomCaption = "GRAVEN — Room 5 Dark pool"
+		Case 6
+			GetRoomCaption = "GRAVEN — Room 6 Orbit"
+		Case 7
+			GetRoomCaption = "GRAVEN — Room 7 Heat run"
+		Case 8
+			GetRoomCaption = "GRAVEN — Core Hub"
+		Case 9
+			GetRoomCaption = "GRAVEN — Steal the well"
+		Case 10
+			GetRoomCaption = "GRAVEN — Phase lock"
+		Case 11
+			GetRoomCaption = "GRAVEN — Warp bubble"
+		Case 12
+			GetRoomCaption = "GRAVEN — Tow the ring"
+		Case 13
+			GetRoomCaption = "GRAVEN — Laser sluice"
+		Case 14
+			GetRoomCaption = "GRAVEN — Crossroads"
+		Case 15
+			GetRoomCaption = "GRAVEN — Singularity field"
+		Case 16
+			GetRoomCaption = "GRAVEN — Horizon"
+		Case 17
+			GetRoomCaption = "GRAVEN — Archive"
+		Case Else
+			GetRoomCaption = "GRAVEN"
+	End Select
 End Function
 
 ' Handler: GetRoomHint — status bar blurb
 Function GetRoomHint() As String
-	If roomId = 1 Then
-		GetRoomHint = "Fly east along the floor — glowing exit leads to Room 2"
-	ElseIf roomId = 2 Then
-		GetRoomHint = "Curve into the ceiling channel — fly into the EXIT glow"
-	ElseIf roomId = 3 Then
-		GetRoomHint = "Floor alcove — thrust UP the left ramp, east along shelf to EXIT"
-	ElseIf roomId = 4 Then
-		GetRoomHint = "Push crate onto floor plate (F at terminal for log)"
-	ElseIf roomId = 5 Then
-		GetRoomHint = "Space — Pulse sonar; cross spikes to east exit"
-	ElseIf roomId = 6 Then
-		If orbitComplete Then
-			GetRoomHint = "Orbit gate open — exit east"
-		Else
-			GetRoomHint = "Orbit the mass (80–200 px) — 540° opens east gate"
-		End If
-	ElseIf roomId = 7 Then
-		GetRoomHint = "Manage heat — thrust drains suit; hot zone ×1.8 drain"
-	ElseIf roomId = 8 Then
-		GetRoomHint = "Reach the skiff — escape the masswell"
-	Else
-		GetRoomHint = ""
-	End If
+	Select Case roomId
+		Case 1
+			GetRoomHint = "Fly east along the floor — glowing exit leads to Room 2"
+		Case 2
+			GetRoomHint = "Curve into the ceiling channel — fly into the EXIT glow"
+		Case 3
+			GetRoomHint = "Floor alcove — thrust UP the left ramp, east along shelf to EXIT"
+		Case 4
+			GetRoomHint = "Push crate onto floor plate (F at terminal for log)"
+		Case 5
+			GetRoomHint = "Pulse wakes a hidden well — slip spikes, fly the mouth east"
+		Case 6
+			If orbitComplete Then
+				GetRoomHint = "Orbit gate open — exit east"
+			Else
+				GetRoomHint = "Orbit the mass (80–200 px) — 540° opens east gate"
+			End If
+		Case 7
+			GetRoomHint = "Amber band cooks the suit — coast through, recharge on the sides"
+		Case 8
+			If HubBalanced() Then
+				GetRoomHint = "Core balanced — fly the skiff"
+			Else
+				GetRoomHint = "Choose: E steal (opens the world) / S phase / N warp / SW tow / NE lasers"
+			End If
+		Case 9
+			GetRoomHint = "F steals the well — west hub, east the world"
+		Case 10
+			GetRoomHint = "Wells are tori — Pulse snaps which ring pulls; grab the east seed"
+		Case 11
+			GetRoomHint = "Time crawls near the well — take the magenta seed west"
+		Case 12
+			GetRoomHint = "F hooks the gold ring — it hangs toward the well. Haul it to the east dock"
+		Case 13
+			GetRoomHint = "Lasers kill — slip the gaps, grab the seed, west home"
+		Case 14
+			GetRoomHint = "N horizon (challenge) / E archive / S field / W steal"
+		Case 15
+			GetRoomHint = "Skirt the lesser mouth — F log in the west alcove"
+		Case 16
+			If challengeHorizon Then
+				GetRoomHint = "Gate open — north to warp, south to crossroads"
+			Else
+				GetRoomHint = "Take the rim seed without kissing the dark — south retreats"
+			End If
+		Case 17
+			GetRoomHint = "Three logs. West back to the crossroads"
+		Case Else
+			GetRoomHint = ""
+	End Select
 End Function
 
 ' Handler: LoadRoom — swap tiles, masses, entities, beacon saves
@@ -236,7 +472,10 @@ Sub LoadRoom(newId As Integer)
 	Call InitPulseForRoom()
 	Call InitOrbitForRoom()
 	Call InitHeatForRoom()
+	Call InitTowForRoom()
 	Call ResetPodSpawn()
+	Call ApplyEnterSpawn()
+	doorLock = 0.55
 	statusText = GetRoomHint()
 	If roomId = 4 Then
 		Call SetBeaconCheckpointAt(4, 144, 496)
@@ -244,58 +483,73 @@ Sub LoadRoom(newId As Integer)
 	If roomId = 6 Then
 		Call SetBeaconCheckpointAt(6, 3 * TILE + 16, 2 * TILE + 16)
 	End If
+	If roomId = 8 Then
+		Call SetBeaconCheckpointAt(8, 220, 368)
+	End If
 	If roomLabel <> Null Then
 		roomLabel.Caption = GetRoomCaption()
 	End If
 	Call RebuildVectorCave()
+	Call JuiceOnRoomLoad()
 	needRedraw = True
+End Sub
+
+' Handler: WarpThroughExit — LoadRoom plus a 1s carry-over screen warp
+Sub WarpThroughExit(newId As Integer)
+	warpFromExit = True
+	Call LoadRoom(newId)
 End Sub
 
 ' Handler: PodInZone — pod circle overlaps exit trigger (not center-point only)
 Function PodInZone(zx As Single, zy As Single, zw As Single, zh As Single) As Boolean
-	PodInZone = CircleRectOverlap(podX, podY, POD_R + 4, zx, zy, zw, zh)
+	PodInZone = CircleRectOverlap(podX, podY, POD_R + 1, zx, zy, zw, zh)
+End Function
+
+' Handler: PodOnExitTile — must overlap the E cell itself (not a 80px pad)
+Function PodOnExitTile(tx As Integer, ty As Integer) As Boolean
+	PodOnExitTile = PodInZone(tx * TILE + 8, ty * TILE + 8, TILE - 16, TILE - 16)
 End Function
 
 ' Handler: PodNearExitMarker — overlap any E tile in current room map
 Function PodNearExitMarker() As Boolean
-	Dim tx As Integer
-	Dim ty As Integer
-	For ty = 0 To ROWS - 1
-		For tx = 0 To COLS - 1
-			If IsExitTile(tx, ty) Then
-				If PodInZone(tx * TILE - 24, ty * TILE - 24, TILE + 48, TILE + 48) Then
-					PodNearExitMarker = True
-					Exit Function
-				End If
-			End If
-		Next tx
-	Next ty
+	Dim i As Integer
+	For i = 0 To exitCount - 1
+		If PodOnExitTile(exitTX(i), exitTY(i)) Then
+			PodNearExitMarker = True
+			Exit Function
+		End If
+	Next i
 	PodNearExitMarker = False
 End Function
 
 ' Handler: TryRoomTransition — E tiles + special south/gate exits
 Sub TryRoomTransition()
-	If roomId = 1 Or roomId = 2 Or roomId = 3 Or roomId = 5 Then
-		If PodNearExitMarker() Then
-			Call LoadRoom(roomId + 1)
-		End If
-	ElseIf roomId = 4 Then
-		If plateSatisfied Then
-			If PodInZone(18 * TILE, 20 * TILE, 4 * TILE, 3 * TILE) Then
-				Call LoadRoom(5)
+	If doorLock > 0 Then Exit Sub
+	Select Case roomId
+		Case 1, 2, 3, 5
+			If PodNearExitMarker() Then
+				Call WarpThroughExit(roomId + 1)
 			End If
-		End If
-	ElseIf roomId = 6 Then
-		If orbitComplete Then
-			If PodInZone(37 * TILE, 16 * TILE, 3 * TILE, 4 * TILE) Then
-				Call LoadRoom(7)
+		Case 4
+			If plateSatisfied Then
+				If PodInZone(19 * TILE + 8, 20 * TILE + 8, TILE, TILE - 8) Then
+					Call WarpThroughExit(5)
+				End If
 			End If
-		End If
-	ElseIf roomId = 7 Then
-		If PodInZone(37 * TILE, 10 * TILE, 3 * TILE, 9 * TILE) Then
-			Call LoadRoom(8)
-		End If
-	End If
+		Case 6
+			If orbitComplete Then
+				If PodInZone(37 * TILE, 17 * TILE, TILE * 2, TILE * 2) Then
+					Call WarpThroughExit(7)
+				End If
+			End If
+		Case 7
+			If PodNearExitMarker() Then
+				enterFrom = 1
+				Call WarpThroughExit(8)
+			End If
+		Case Else
+			Call TrySliceCTransition()
+	End Select
 End Sub
 
 ' Handler: IsExitTile — E marker from ASCII maps (transition target hint)
@@ -318,10 +572,8 @@ Sub DrawExitMarkers()
 			If IsExitTile(tx, ty) Then
 				px = tx * TILE
 				py = ty * TILE
-				DrawRect px - 14, py - 18, TILE + 32, TILE + 36, Color(GLOW_R, GLOW_G, GLOW_B, 0.28)
-				DrawRect px - 6, py - 8, TILE + 16, TILE + 16, Color(GLOW_R, GLOW_G, GLOW_B, 0.5)
-				DrawRect px, py, TILE, TILE, Color(0.35, 0.82, 1.0, 0.95)
-				DrawString "EXIT", px + 3, py + 21, Color(1.0, 1.0, 1.0, 1.0), 13
+				DrawRect px + 6, py + 6, TILE - 12, TILE - 12, Color(0.2, 0.7, 0.95, 0.55)
+				DrawString "E", px + 10, py + 8, Color(1.0, 1.0, 1.0, 0.95), 13
 			End If
 		Next tx
 	Next ty
@@ -463,10 +715,10 @@ Data "#...#..................................#"
 Data "#...#..................................#"
 Data "#...#..................................#"
 Data "#...#..................................#"
-Data "#...#..................................#"
-Data "#...#..................................#"
+Data "#...#................................###"
+Data "#...#................................GG#"
 Data "#...#................................GE#"
-Data "#...#..................................#"
+Data "#...#................................###"
 Data "#...#..................................#"
 Data "########################################"
 
@@ -489,13 +741,207 @@ Data "#...............#.....#................#"
 Data "#...............#.....#................#"
 Data "#...............#.....#................#"
 Data "#...............#.....#................#"
-Data "#...............#.....E................#"
+Data "#.....................E................#"
 Data "#...............#######................#"
 Data "#......................................#"
 Data "########################################"
 
 R8Map:
 Data "########################################"
+Data "#.................E....................#"
+Data "#......................................#"
+Data "#...............................E......#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data ".P.....................................#"
+Data ".......................................#"
+Data ".......................................#"
+Data ".......................................#"
+Data ".......................................#"
+Data ".......................................#"
+Data ".......................................#"
+Data ".....................................E.#"
+Data "#......................................#"
+Data "#..E..............E....................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+
+R9Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#............###########...............#"
+Data "#............#.........#...............#"
+Data "#............#.........#...............#"
+Data "#............#.........#...............#"
+Data "#............#####.#####...............#"
+Data "#......................................#"
+Data "#E...................................E.#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+
+R10Map:
+Data "########################################"
+Data "#E.....................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#.....................##############...#"
+Data "#.....................#................#"
+Data "#.....................#............E...#"
+Data "#.....................#................#"
+Data "#.....................#................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+
+R11Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#....................................E.#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#E.....................................#"
+Data "#......................................#"
+Data "########################################"
+
+R12Map:
+Data "########################################"
+Data "#E......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#.......################################"
+Data "#................................#######"
+Data "#................................#######"
+Data "#................................#######"
+Data "#................................#######"
+Data "#................................#######"
+Data "#......................................#"
+Data "#####..................................#"
+Data "####################...................#"
+Data "####################...................#"
+Data "####################...................#"
+Data "########################################"
+Data "########################################"
+Data "########################################"
+
+R13Map:
+Data "########################################"
+Data "#......................................#"
+Data "#......................................#"
+Data "#..##################################..#"
+Data "#......................................#"
+Data "#..##################################..#"
+Data "#......................................#"
+Data "#..##########..........##############..#"
+Data "#......................................#"
+Data "#..##############..........##########..#"
+Data "#......................................#"
+Data "#..##################################..#"
+Data "#......................................#"
+Data "#..##################################..#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#E.....................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+
+R14Map:
+Data "########################################"
+Data "#.................E....................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#..L...................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#E...................................E.#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#.................E....................#"
+Data "########################################"
+
+R15Map:
+Data "########################################"
+Data "#.................E....................#"
+Data "#......................................#"
+Data "#.........##################...........#"
+Data "#.........#................#...........#"
+Data "#.........#................#...........#"
+Data "#.........#................#...........#"
+Data "#L........#................#...........#"
+Data "#.........#............................#"
+Data "#.........#................#...........#"
+Data "#.........#................#...........#"
+Data "#.........##################...........#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "########################################"
+
+R16Map:
+Data "########################################"
+Data "#.................E....................#"
+Data "#................GGG...................#"
 Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"
@@ -510,7 +956,29 @@ Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"
-Data "#P.....................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#.................E....................#"
+Data "########################################"
+
+R17Map:
+Data "########################################"
+Data "#......................................#"
+Data "#..L..............L...............L....#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#E.....................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
+Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"

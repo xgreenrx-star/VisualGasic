@@ -18,6 +18,10 @@ config/name="VisualGasic Demo"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+driver/enable_input=true
+
 [autoload]
 
 VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
@@ -30,7 +34,3 @@ project/assembly_name="VisualGasic Demo"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
-
-[audio]
-
-driver/enable_input=true

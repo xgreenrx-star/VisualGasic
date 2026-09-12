@@ -1,141 +1,147 @@
-
+#!/usr/bin/env bash
 # vg-ide — VisualGasic IDE launcher
 #
-# Skips Godot's Project Manager. On launch:
-#   1. If a project path is provided as an arg, opens that.
-#   2. Else, by default, opens the VG Welcome shell so the user can pick
-#      a recent project, browse, or ask Narcea to scaffold a new one.
-#   3. With --last (or VG_OPEN_LAST=1), reopens the most-recent project
-#      directly without showing the welcome window.
+# Skips Godot's Project Manager.
+#   ./vg-ide                         → VG Welcome project picker (no GDExtension)
+#   ./vg-ide --last                  → most-recent VG project (direct IDE)
+#   ./vg-ide --welcome               → same as default (welcome picker)
+#   ./vg-ide /path/to/project        → open that project in the IDE
 #
-# This script is intentionally tiny and dependency-free (POSIX sh + awk).
+# Env:
+#   VG_GODOT=/path/to/godot          override Godot binary
+#   VG_OPEN_LAST=1                   same as --last
+#   VG_WELCOME=1                     same as --welcome
+#   VG_WELCOME_ICONS=1               enable project thumbnails in welcome shell
 
-set -e
+set -euo pipefail
 
 OPEN_LAST=0
+OPEN_WELCOME=0
 ARGS=()
 for a in "$@"; do
-    case "$a" in
-        --last|-l) OPEN_LAST=1 ;;
-        *) ARGS+=("$a") ;;
-    esac
+	case "$a" in
+		--last|-l) OPEN_LAST=1 ;;
+		--welcome|-w) OPEN_WELCOME=1 ;;
+		*) ARGS+=("$a") ;;
+	esac
 done
 [[ "${VG_OPEN_LAST:-0}" == "1" ]] && OPEN_LAST=1
+[[ "${VG_WELCOME:-0}" == "1" ]] && OPEN_WELCOME=1
 set -- "${ARGS[@]}"
 
-# ── Locate the Godot binary ─────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT_BIN="${VG_GODOT:-}"
 
 if [[ -z "$GODOT_BIN" ]]; then
-    UNAME_S="$(uname -s)"
-    case "$UNAME_S" in
-        Darwin*)
-            # macOS: prefer .app bundles (sibling, /Applications, install dirs).
-            for cand in "$SCRIPT_DIR/Godot.app/Contents/MacOS/Godot" \
-                        "$SCRIPT_DIR/Godot_v4.6.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
-                        "$SCRIPT_DIR/Godot_v4.5.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
-                        "/Applications/Godot.app/Contents/MacOS/Godot" \
-                        "$HOME/Applications/Godot.app/Contents/MacOS/Godot" \
-                        "/opt/visual_gasic/Godot.app/Contents/MacOS/Godot" \
-                        "$HOME/.local/share/visual_gasic/Godot.app/Contents/MacOS/Godot"; do
-                if [[ -x "$cand" ]]; then
-                    GODOT_BIN="$cand"
-                    break
-                fi
-            done
-            ;;
-        *)
-            # Linux / *BSD.
-            for cand in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
-                        "$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
-                        "$SCRIPT_DIR/godot" \
-                        "/opt/visual_gasic/godot" \
-                        "$HOME/.local/share/visual_gasic/godot"; do
-                if [[ -x "$cand" ]]; then
-                    GODOT_BIN="$cand"
-                    break
-                fi
-            done
-            ;;
-    esac
+	UNAME_S="$(uname -s)"
+	case "$UNAME_S" in
+		Darwin*)
+			for cand in "$SCRIPT_DIR/Godot.app/Contents/MacOS/Godot" \
+				"$SCRIPT_DIR/Godot_v4.6.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+				"$SCRIPT_DIR/Godot_v4.5.1-stable_macos.universal/Godot.app/Contents/MacOS/Godot" \
+				"/Applications/Godot.app/Contents/MacOS/Godot" \
+				"$HOME/Applications/Godot.app/Contents/MacOS/Godot" \
+				"/opt/visual_gasic/Godot.app/Contents/MacOS/Godot" \
+				"$HOME/.local/share/visual_gasic/Godot.app/Contents/MacOS/Godot"; do
+				if [[ -x "$cand" ]]; then
+					GODOT_BIN="$cand"
+					break
+				fi
+			done
+			;;
+		*)
+			for cand in "$SCRIPT_DIR/Godot_v4.6.1-stable_linux.x86_64" \
+				"$SCRIPT_DIR/Godot_v4.5.1-stable_linux.x86_64" \
+				"$SCRIPT_DIR/godot" \
+				"/opt/visual_gasic/godot" \
+				"$HOME/.local/share/visual_gasic/godot"; do
+				if [[ -x "$cand" ]]; then
+					GODOT_BIN="$cand"
+					break
+				fi
+			done
+			;;
+	esac
 fi
 
 if [[ -z "$GODOT_BIN" ]]; then
-    # Last resort — anything named `godot` on PATH.
-    if command -v godot >/dev/null 2>&1; then
-        GODOT_BIN="$(command -v godot)"
-    fi
+	if command -v godot >/dev/null 2>&1; then
+		GODOT_BIN="$(command -v godot)"
+	fi
 fi
 
 if [[ -z "$GODOT_BIN" || ! -x "$GODOT_BIN" ]]; then
-    echo "vg-ide: could not locate the Godot binary." >&2
-    echo "        Set VG_GODOT=/path/to/godot, or place the binary next to this script." >&2
-    exit 1
+	echo "vg-ide: could not locate the Godot binary." >&2
+	echo "        Set VG_GODOT=/path/to/godot, or place the binary next to this script." >&2
+	exit 1
 fi
 
-# ── Recent-projects config ──────────────────────────────────────────────────
+# Ensure Linux editor GDExtension slot is loadable (see scripts/fix_linux_editor_gdextension.sh).
+if [[ -x "$SCRIPT_DIR/scripts/fix_linux_editor_gdextension.sh" ]]; then
+	bash "$SCRIPT_DIR/scripts/fix_linux_editor_gdextension.sh" || true
+fi
+
+# DRI_PRIME=1 with a single GPU triggers Mesa/Godot warnings and sporadic SIGSEGV.
+if [[ "${DRI_PRIME:-}" == "1" ]]; then
+	unset DRI_PRIME
+fi
+
 case "$(uname -s)" in
-    Darwin*) RECENT_CFG="$HOME/Library/Application Support/VisualGasic/recent_projects.cfg" ;;
-    *)       RECENT_CFG="${XDG_CONFIG_HOME:-$HOME/.config}/visual_gasic/recent_projects.cfg" ;;
+	Darwin*) RECENT_CFG="$HOME/Library/Application Support/VisualGasic/recent_projects.cfg" ;;
+	*)       RECENT_CFG="${XDG_CONFIG_HOME:-$HOME/.config}/visual_gasic/recent_projects.cfg" ;;
 esac
 
-# Pull the first `path = "..."` value out of the [recent]/projects array.
 read_first_recent() {
-    [[ -f "$RECENT_CFG" ]] || return 1
-    awk '
-        /"path"[[:space:]]*:[[:space:]]*"/ {
-            sub(/^[^"]*"path"[[:space:]]*:[[:space:]]*"/, "")
-            sub(/".*$/, "")
-            print
-            exit
-        }
-    ' "$RECENT_CFG"
+	[[ -f "$RECENT_CFG" ]] || return 1
+	awk '
+		/"path"[[:space:]]*:[[:space:]]*"/ {
+			sub(/^[^"]*"path"[[:space:]]*:[[:space:]]*"/, "")
+			sub(/".*$/, "")
+			print
+			exit
+		}
+	' "$RECENT_CFG"
 }
 
-# ── Welcome-shell location (needed for the cover-window behaviour) ──────────
 WELCOME_DIR=""
 for cand in "$SCRIPT_DIR/welcome_shell" \
-            "/opt/visual_gasic/welcome_shell" \
-            "$HOME/.local/share/visual_gasic/welcome_shell"; do
-    if [[ -f "$cand/project.godot" ]]; then
-        WELCOME_DIR="$cand"
-        break
-    fi
+	"/opt/visual_gasic/welcome_shell" \
+	"$HOME/.local/share/visual_gasic/welcome_shell"; do
+	if [[ -f "$cand/project.godot" ]]; then
+		WELCOME_DIR="$cand"
+		break
+	fi
 done
 
-# ── Dispatch ────────────────────────────────────────────────────────────────
+launch_editor() {
+	local project_dir="$1"
+	shift
+	exec "$GODOT_BIN" --path "$project_dir" --editor "$@"
+}
+
+# Explicit project path → open IDE directly (skip welcome shell; it SIGSEGVs on some Linux/Mesa setups).
 if [[ "$#" -gt 0 && -d "$1" && -f "$1/project.godot" ]]; then
-    if [[ -n "$WELCOME_DIR" ]]; then
-        # Route through the welcome shell so its fullscreen cover hides the
-        # Godot editor during load (same behaviour as opening from the list).
-        exec "$GODOT_BIN" --path "$WELCOME_DIR" -- --open "$(realpath "$1")"
-    else
-        exec "$GODOT_BIN" --path "$1" --editor "${@:2}"
-    fi
+	launch_editor "$(realpath "$1")" "${@:2}"
 fi
 
-# --last / VG_OPEN_LAST=1 → jump straight into the most-recent project.
+# --last → open most-recent project directly (loads GDExtension + IDE).
 if [[ "$OPEN_LAST" == "1" ]]; then
-    LAST="$(read_first_recent || true)"
-    if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
-        if [[ -n "$WELCOME_DIR" ]]; then
-            exec "$GODOT_BIN" --path "$WELCOME_DIR" -- --open "$LAST"
-        else
-            exec "$GODOT_BIN" --path "$LAST" --editor "$@"
-        fi
-    fi
-    echo "vg-ide: --last requested but no usable recent project found." >&2
+	LAST="$(read_first_recent || true)"
+	if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
+		launch_editor "$LAST" "$@"
+	fi
+	echo "vg-ide: --last requested but no usable recent project found." >&2
+	exit 1
 fi
 
-# Default: open the bundled Welcome shell.
+# Default: welcome shell (pure GDScript — avoids GDExtension SIGSEGV on some Linux setups).
 if [[ -n "$WELCOME_DIR" ]]; then
-    exec "$GODOT_BIN" --path "$WELCOME_DIR" "$@"
+	exec "$GODOT_BIN" --path "$WELCOME_DIR" "$@"
 fi
 
-# Last-resort fallbacks: most-recent project, then bare Godot PM.
 LAST="$(read_first_recent || true)"
 if [[ -n "$LAST" && -f "$LAST/project.godot" ]]; then
-    exec "$GODOT_BIN" --path "$LAST" --editor "$@"
+	launch_editor "$LAST" "$@"
 fi
+
 exec "$GODOT_BIN" "$@"

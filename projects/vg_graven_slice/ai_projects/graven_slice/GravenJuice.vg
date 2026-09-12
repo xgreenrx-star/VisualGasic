@@ -1,0 +1,509 @@
+' GravenJuice.vg — Pass 1 feel: plume, trail, scrape sparks, death flash, title, tones
+
+Option Explicit
+
+Const TRAIL_N As Integer = 12
+Const SPARK_N As Integer = 16
+Const TITLE_TIME As Single = 1.35
+Const TRAIL_MIN_DIST As Single = 7
+
+Dim podThrusting As Boolean
+Dim juiceTime As Single
+Dim titleTimer As Single
+Dim deathFlash As Single
+Dim thrustSfxCd As Single
+Dim scrapeSfxCd As Single
+Dim scrapeSparkCd As Single
+Dim wasThrusting As Boolean
+Dim trailX(11) As Single
+Dim trailY(11) As Single
+Dim trailHead As Integer
+Dim lastTrailX As Single
+Dim lastTrailY As Single
+Dim sparkX(15) As Single
+Dim sparkY(15) As Single
+Dim sparkVX(15) As Single
+Dim sparkVY(15) As Single
+Dim sparkLife(15) As Single
+Dim sparkHead As Integer
+
+' Handler: InitJuice — hide persistent room label; stinger owns the title
+Sub InitJuice()
+	Dim i As Integer
+	juiceTime = 0
+	titleTimer = 0
+	deathFlash = 0
+	thrustSfxCd = 0
+	scrapeSfxCd = 0
+	scrapeSparkCd = 0
+	sparkHead = 0
+	podThrusting = False
+	wasThrusting = False
+	If roomLabel <> Null Then
+		roomLabel.Visible = False
+	End If
+	Call JuiceResetTrail()
+	exitProx = 0
+	warpFlash = 0
+	warpFromExit = False
+	echoCount = 0
+	hymnSfxCd = 0
+	exitSfxCd = 0
+	For i = 0 To 17
+		echoTaken(i) = False
+	Next i
+End Sub
+
+' Handler: JuiceResetTrail — park trail stamps on the current pod
+Sub JuiceResetTrail()
+	Dim i As Integer
+	For i = 0 To TRAIL_N - 1
+		trailX(i) = podX
+		trailY(i) = podY
+	Next i
+	trailHead = 0
+	lastTrailX = podX
+	lastTrailY = podY
+End Sub
+
+' Handler: JuiceOnRoomLoad — title stinger + clean trail at spawn
+Sub JuiceOnRoomLoad()
+	titleTimer = TITLE_TIME
+	needRedraw = True
+	Call JuiceResetTrail()
+	If roomLabel <> Null Then
+		roomLabel.Visible = False
+	End If
+	If warpFromExit Then
+		warpFlash = 1
+		warpFromExit = False
+		PlayTone 92, 200, 2
+		PlayTone 156, 140, 3
+		PlayTone 48, 260, 3
+	Else
+		warpFlash = 0
+	End If
+End Sub
+
+' Handler: JuiceOnDeath — flash, scrape burst, descending tone
+Sub JuiceOnDeath()
+	deathFlash = 1
+	needRedraw = True
+	Call JuiceSpawnSparks(podX, podY, 8)
+	PlayTone 86, 240, 2
+	PlayTone 210, 160, 3
+End Sub
+
+' Handler: JuiceOnPulse — sonar ping
+Sub JuiceOnPulse()
+	PlayTone 980, 110, 0
+End Sub
+
+' Handler: JuiceOnBeacon — new checkpoint chime (first save only)
+Sub JuiceOnBeacon()
+	PlayTone 523, 120, 0
+	PlayTone 784, 160, 0
+End Sub
+
+' Handler: JuiceOnInteractOk — F found a target
+Sub JuiceOnInteractOk()
+	PlayTone 660, 70, 0
+	PlayTone 880, 110, 0
+End Sub
+
+' Handler: JuiceOnInteractFail — F with nothing in range
+Sub JuiceOnInteractFail()
+	PlayTone 196, 90, 3
+	PlayTone 140, 140, 3
+End Sub
+
+' Handler: JuiceOnScrape — sparks + grit when the hull is pushed out of rock
+Sub JuiceOnScrape(px As Single, py As Single, spd As Single)
+	Dim n As Integer
+	If spd < 36 Then Exit Sub
+	If scrapeSparkCd <= 0 Then
+		n = 2
+		If spd > 90 Then n = 3
+		If spd > 160 Then n = 4
+		Call JuiceSpawnSparks(px, py, n)
+		scrapeSparkCd = 0.08
+	End If
+	If scrapeSfxCd > 0 Then Exit Sub
+	scrapeSfxCd = 0.14
+	PlayTone 140 + spd * 0.4, 36, 3
+End Sub
+
+' Handler: JuiceSpawnSparks — ring-buffer particles (cap SPARK_N)
+Sub JuiceSpawnSparks(px As Single, py As Single, n As Integer)
+	Dim k As Integer
+	Dim i As Integer
+	Dim ang As Single
+	Dim spd As Single
+	For k = 1 To n
+		i = sparkHead
+		ang = Rnd() * 6.28318
+		spd = 50 + Rnd() * 110
+		sparkX(i) = px
+		sparkY(i) = py
+		sparkVX(i) = Cos(ang) * spd
+		sparkVY(i) = Sin(ang) * spd
+		sparkLife(i) = 0.16 + Rnd() * 0.22
+		sparkHead = sparkHead + 1
+		If sparkHead >= SPARK_N Then sparkHead = 0
+	Next k
+End Sub
+
+' Handler: UpdateJuice — trail sample, spark integrate, timers, thrust hiss
+Sub UpdateJuice(delta As Single)
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	juiceTime = juiceTime + delta
+	If titleTimer > 0 Then
+		titleTimer = titleTimer - delta
+		If titleTimer < 0 Then titleTimer = 0
+	End If
+	If deathFlash > 0 Then
+		deathFlash = deathFlash - delta * 3.4
+		If deathFlash < 0 Then deathFlash = 0
+	End If
+	If scrapeSfxCd > 0 Then scrapeSfxCd = scrapeSfxCd - delta
+	If scrapeSparkCd > 0 Then scrapeSparkCd = scrapeSparkCd - delta
+	If podThrusting And Not wasThrusting Then
+		PlayTone 60, 90, 3
+	End If
+	wasThrusting = podThrusting
+	dx = podX - lastTrailX
+	dy = podY - lastTrailY
+	If dx * dx + dy * dy >= TRAIL_MIN_DIST * TRAIL_MIN_DIST Then
+		trailX(trailHead) = podX
+		trailY(trailHead) = podY
+		trailHead = trailHead + 1
+		If trailHead >= TRAIL_N Then trailHead = 0
+		lastTrailX = podX
+		lastTrailY = podY
+	End If
+	For i = 0 To SPARK_N - 1
+		If sparkLife(i) > 0 Then
+			sparkLife(i) = sparkLife(i) - delta
+			sparkX(i) = sparkX(i) + sparkVX(i) * delta
+			sparkY(i) = sparkY(i) + sparkVY(i) * delta
+			sparkVX(i) = sparkVX(i) * 0.92
+			sparkVY(i) = sparkVY(i) * 0.92
+		End If
+	Next i
+	If warpFlash > 0 Then
+		warpFlash = warpFlash - delta
+		If warpFlash < 0 Then warpFlash = 0
+	End If
+	If hymnSfxCd > 0 Then hymnSfxCd = hymnSfxCd - delta
+	If exitSfxCd > 0 Then exitSfxCd = exitSfxCd - delta
+	Call UpdateExitProximity()
+	Call UpdateWellHymn()
+End Sub
+
+' Handler: UpdateExitProximity — nearest E mouth (idle wibble stays at 1%)
+Sub UpdateExitProximity()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim d As Single
+	Dim best As Single
+	best = 9999
+	For i = 0 To exitCount - 1
+		dx = podX - (exitTX(i) * TILE + 16)
+		dy = podY - (exitTY(i) * TILE + 16)
+		d = Sqr(dx * dx + dy * dy)
+		If d < best Then best = d
+	Next i
+	If roomId = 6 And orbitComplete Then
+		dx = podX - (37 * TILE + TILE)
+		dy = podY - (17 * TILE + TILE)
+		d = Sqr(dx * dx + dy * dy)
+		If d < best Then best = d
+	End If
+	exitProx = 0
+	If best < 210 Then
+		exitProx = 1.0 - best / 210.0
+		If exitProx < 0 Then exitProx = 0
+	End If
+End Sub
+
+' Handler: UpdateWellHymn — nearest live well hums (the needle has a voice)
+Sub UpdateWellHymn()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	Dim d As Single
+	Dim best As Single
+	Dim hz As Single
+	If massCount <= 0 Then Exit Sub
+	If hymnSfxCd > 0 Then Exit Sub
+	best = 9999
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			dx = podX - massX(i)
+			dy = podY - massY(i)
+			d = Sqr(dx * dx + dy * dy)
+			If d < best Then best = d
+		End If
+	Next i
+	If best > 220 Then Exit Sub
+	hymnSfxCd = 0.42
+	hz = 70 + (220 - best) * 0.9
+	If hz > 240 Then hz = 240
+	PlayTone hz, 55, 3
+End Sub
+
+' Handler: TryGrantEcho — Pulse near a well once per room; Chen answers
+Sub TryGrantEcho()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dy As Single
+	If roomId < 1 Or roomId > 17 Then Exit Sub
+	If echoTaken(roomId) Then Exit Sub
+	If roomId = 5 Then
+		dx = podX - 640
+		dy = podY - 168
+		If dx * dx + dy * dy <= 110 * 110 Then
+			echoTaken(roomId) = True
+			echoCount = echoCount + 1
+			statusText = GetEchoWhisper()
+			PlayTone 392, 90, 0
+			PlayTone 523, 140, 0
+			PlayTone 784, 180, 0
+			Exit Sub
+		End If
+	End If
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			dx = podX - massX(i)
+			dy = podY - massY(i)
+			If dx * dx + dy * dy <= 110 * 110 Then
+				echoTaken(roomId) = True
+				echoCount = echoCount + 1
+				statusText = GetEchoWhisper()
+				PlayTone 392, 90, 0
+				PlayTone 523, 140, 0
+				PlayTone 784, 180, 0
+				Exit Sub
+			End If
+		End If
+	Next i
+End Sub
+
+' Handler: GetEchoWhisper — mystery radio, one new line per echo
+Function GetEchoWhisper() As String
+	Select Case echoCount
+		Case Is <= 1
+			GetEchoWhisper = "Echo 1 — The mouths remember your shape."
+		Case 2
+			GetEchoWhisper = "Echo 2 — Three wells sang. I only heard two."
+		Case 3
+			GetEchoWhisper = "Echo 3 — If the needle lies, pulse until it confesses."
+		Case 4
+			GetEchoWhisper = "Echo 4 — East of steal the dark learns your name."
+		Case 5
+			GetEchoWhisper = "Echo 5 — Don't dock what you cannot leave."
+		Case Else
+			GetEchoWhisper = "Echo " & Str(echoCount) & " — Chen out. The needle still twitches."
+	End Select
+End Function
+
+' Handler: DrawJuiceBehind — motion trail + thrust plume (under the pod)
+Sub DrawJuiceBehind()
+	Dim i As Integer
+	Dim idx As Integer
+	Dim a As Single
+	Dim rad As Single
+	Dim fx As Single
+	Dim fy As Single
+	Dim px As Single
+	Dim py As Single
+	Dim flicker As Single
+	Dim col As Variant
+	If canvasWorld = Null Then Exit Sub
+	For i = 0 To TRAIL_N - 1
+		idx = trailHead + i
+		If idx >= TRAIL_N Then idx = idx - TRAIL_N
+		a = (i + 1) / TRAIL_N
+		a = a * a * 0.38
+		If a > 0.03 Then
+			col = Color(GLOW_R, GLOW_G, GLOW_B, a)
+			Call canvasWorld.DrawCircle(Vector2(trailX(idx), trailY(idx)), 2.2 + a * 3, col, True, col)
+		End If
+	Next i
+	If Not podThrusting Then Exit Sub
+	rad = Deg2Rad(podAngle)
+	fx = Cos(rad)
+	fy = Sin(rad)
+	flicker = 0.7 + (juiceTime - Int(juiceTime / 0.08) * 0.08) * 4
+	If flicker > 1 Then flicker = 1
+	For i = 0 To 3
+		px = podX - fx * (16 + i * 7)
+		py = podY - fy * (16 + i * 7)
+		a = (0.85 - i * 0.18) * flicker
+		col = Color(1.0, 0.72 + i * 0.04, 0.28, a)
+		Call canvasWorld.DrawCircle(Vector2(px, py), 5.5 - i * 0.9, col, True, col)
+	Next i
+	col = Color(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	Call canvasWorld.DrawLine(Vector2(podX - fx * 12, podY - fy * 12), Vector2(podX - fx * 28, podY - fy * 28), 2.2, col)
+End Sub
+
+' Handler: DrawJuiceFront — scrape / death sparks over the hull
+Sub DrawJuiceFront()
+	Dim i As Integer
+	Dim a As Single
+	Dim col As Variant
+	If canvasWorld = Null Then Exit Sub
+	For i = 0 To SPARK_N - 1
+		If sparkLife(i) > 0 Then
+			a = sparkLife(i) / 0.38
+			If a > 1 Then a = 1
+			col = Color(1.0, 0.78, 0.35, a)
+			Call canvasWorld.DrawCircle(Vector2(sparkX(i), sparkY(i)), 1.6 + a, col, True, col)
+		End If
+	Next i
+End Sub
+
+' Handler: DrawExitMouths — living door: rings that breathe with proximity
+Sub DrawExitMouths()
+	Dim i As Integer
+	Dim cx As Single
+	Dim cy As Single
+	Dim a As Single
+	Dim r As Single
+	Dim col As Variant
+	If canvasWorld = Null Then Exit Sub
+	a = 0.32 + warpFlash * 0.45
+	For i = 0 To exitCount - 1
+		cx = exitTX(i) * TILE + 16
+		cy = exitTY(i) * TILE + 16
+		r = 10 + Sin(juiceTime * 3.4 + i) * 1.2
+		col = Color(GLOW_R, GLOW_G, GLOW_B, a)
+		Call canvasWorld.DrawArc(Vector2(cx, cy), r, 0, 6.28318, 18, 1.6, col, False, Color(0, 0, 0, 0))
+	Next i
+End Sub
+
+' Handler: DrawWellMotes — three sparks orbit each live well
+Sub DrawWellMotes()
+	Dim i As Integer
+	Dim k As Integer
+	Dim ang As Single
+	Dim rr As Single
+	Dim col As Variant
+	If canvasWorld = Null Then Exit Sub
+	col = Color(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			If Not IsBlackHole(i) Then
+				For k = 0 To 2
+					ang = juiceTime * (1.1 + k * 0.37) + i * 1.7 + k * 2.1
+					rr = 18 + k * 9
+					Call canvasWorld.DrawCircle(Vector2(massX(i) + Cos(ang) * rr, massY(i) + Sin(ang) * rr), 2.1, col, True, col)
+				Next k
+			End If
+		End If
+	Next i
+End Sub
+
+' Handler: DrawPhantomWell — R5 hidden well, only while sonar is up
+Sub DrawPhantomWell()
+	Dim col As Variant
+	If roomId <> 5 Then Exit Sub
+	If Not IsPulseActive() Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	col = Color(0.85, 0.45, 1.0, 0.7)
+	Call canvasWorld.DrawCircle(Vector2(640, 168), 10, col, True, col)
+	Call canvasWorld.DrawArc(Vector2(640, 168), 26, 0, 6.28318, 20, 1.5, Color(0.85, 0.45, 1.0, 0.45), False, Color(0, 0, 0, 0))
+	Call canvasWorld.DrawArc(Vector2(640, 168), 42, juiceTime * 3, juiceTime * 3 + 3.5, 14, 1.2, Color(0.85, 0.45, 1.0, 0.3), False, Color(0, 0, 0, 0))
+End Sub
+
+' Handler: DrawJuiceHud — flash, stinger, live HUD (heat / orbit / pulse / hint)
+Sub DrawJuiceHud()
+	Dim a As Single
+	Dim titleCol As Variant
+	Dim barW As Single
+	Dim barH As Single
+	Dim barX As Single
+	Dim barY As Single
+	Dim fillW As Single
+	Dim pct As Single
+	Dim fill As Variant
+	If canvasHud = Null Then Exit Sub
+	If deathFlash > 0.02 Then
+		a = deathFlash * 0.42
+		Call canvasHud.DrawRect(Rect2(0, 0, GAME_W, GAME_H), 0, Color(1, 0.82, 0.62, a), True, Color(1, 0.82, 0.62, a))
+	End If
+	If titleTimer > 0 Then
+		a = titleTimer / 0.35
+		If a > 1 Then a = 1
+		If titleTimer > TITLE_TIME - 0.2 Then
+			a = (TITLE_TIME - titleTimer) / 0.2
+		End If
+		If a < 0 Then a = 0
+		titleCol = Color(0.91, 0.96, 1.0, a)
+		Call canvasHud.DrawTextCentered(Vector2(GAME_W * 0.5, 56), GetRoomStinger(), titleCol)
+		Call canvasHud.DrawText(Vector2(24, GAME_H - 28), GetRoomHint(), Color(GLOW_R, GLOW_G, GLOW_B, a * 0.75))
+	Else
+		If statusText <> "" Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 24), statusText, Color(0.91, 0.96, 1.0, 0.7))
+		End If
+	End If
+	If roomId = 7 Then
+		barW = 200
+		barH = 12
+		barX = (GAME_W - barW) * 0.5
+		barY = 44
+		pct = podHeat / HEAT_MAX
+		If pct < 0 Then pct = 0
+		If pct > 1 Then pct = 1
+		fillW = barW * pct
+		Call canvasHud.DrawRect(Rect2(barX - 2, barY - 2, barW + 4, barH + 4), 0, Color(0.1, 0.14, 0.18, 0.85), True, Color(0.1, 0.14, 0.18, 0.85))
+		Call canvasHud.DrawRect(Rect2(barX, barY, barW, barH), 0, Color(0.04, 0.05, 0.08, 0.9), True, Color(0.04, 0.05, 0.08, 0.9))
+		If fillW > 0 Then
+			If pct < 0.25 Then
+				fill = Color(HAZARD_R, HAZARD_G, HAZARD_B, 0.9)
+			Else
+				fill = Color(GLOW_R, GLOW_G, GLOW_B, 0.85)
+			End If
+			Call canvasHud.DrawRect(Rect2(barX, barY, fillW, barH), 0, fill, True, fill)
+		End If
+		If PodInHeatZone() Then
+			Call canvasHud.DrawTextCentered(Vector2(GAME_W * 0.5, 72), "HEAT", Color(HAZARD_R, HAZARD_G, HAZARD_B, 0.85))
+		Else
+			Call canvasHud.DrawTextCentered(Vector2(GAME_W * 0.5, 72), "COOL", Color(GLOW_R, GLOW_G, GLOW_B, 0.7))
+		End If
+	End If
+	If roomId = 6 And Not orbitComplete Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 72), "Orbit " & Str(Int(orbitAngle)) & " / 540 deg", Color(GLOW_R, GLOW_G, GLOW_B, 0.7))
+	End If
+	If roomDark Then
+		If IsPulseActive() Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 48), "PULSE ACTIVE", Color(GLOW_R, GLOW_G, GLOW_B, 1.0))
+		ElseIf pulseCooldown > 0 Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 48), "Pulse recharge", Color(0.91, 0.96, 1.0, 0.85))
+		Else
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 48), "Space — Pulse sonar", Color(GLOW_R, GLOW_G, GLOW_B, 0.95))
+		End If
+	End If
+	If echoCount > 0 Then
+		Call canvasHud.DrawText(Vector2(16, 88), "ECHO " & Str(echoCount), Color(0.75, 0.55, 1.0, 0.8))
+	End If
+	Call DrawLogHud()
+	Call DrawSliceCHud()
+	Call DrawOpenHud()
+End Sub
+
+' Handler: DrawJuiceHeatZone — visible amber column (R7); world canvas, not parent _Draw
+Sub DrawJuiceHeatZone()
+	Dim px As Single
+	Dim zw As Single
+	Dim wash As Variant
+	If roomId <> 7 Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	px = HEAT_ZONE_TX0 * TILE
+	zw = (HEAT_ZONE_TX1 - HEAT_ZONE_TX0 + 1) * TILE
+	wash = Color(HAZARD_R, HAZARD_G, HAZARD_B, 0.1)
+	Call canvasWorld.DrawRect(Rect2(px, 0, zw, GAME_H), 0, wash, True, wash)
+End Sub

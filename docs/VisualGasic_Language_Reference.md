@@ -10651,15 +10651,39 @@ Resets the drawing transform to identity (no translation, rotation, or scale). A
 
 **Syntax**
 
-    Restore [labelName]
+    Restore
+    Restore labelName
+    Restore stringExpression
 
 **Parameters**
 
-- `labelName`
+- `labelName` — a Data label written as a bare identifier (`Restore R12Map`). Case-insensitive.
+- `stringExpression` — a string that evaluates to a label name (`Restore "R" + CStr(roomId) + "Map"`). Use [CStr](#cstr) when building a name from a number (`Str` adds a leading space).
 
 **Description**
 
 Resets the Data read pointer to the beginning, or to a named data section.
+
+- `Restore` with no argument moves the pointer to the first `Data` value.
+- `Restore labelName` is the VB6 form. The identifier names a **Data label**, not a variable.
+- `Restore stringExpression` looks up that name at run time. Use a string expression when the label name is built from values (for example `"R" + CStr(roomId) + "Map"`).
+
+**Label vs variable**
+
+A bare identifier after `Restore` is always resolved as a Data label at compile time, even when a variable with the same name exists. The variable’s value is never read.
+
+    Dim label1 As Integer
+    label1 = 2          ' variable — ignored by Restore label1
+
+    label1:
+    Data 10, 20, 30
+
+    Restore label1      ' jumps to the label1: Data section, not "2"
+    Read x              ' x = 10
+
+If no Data label matches the bare name, Visual Gasic raises runtime error 5 (`Restore label not found: …`) and stops — it does not fall back to a variable. Use `On Error` or `Try` to handle a missing label.
+
+To use a variable’s **value** as part of a label name, build a string expression (for example `Restore "Room" + CStr(roomId) + "Map"`). That looks up the label whose name equals the expression result (for example `"Room12Map"`), not the variable’s identifier.
 
 **Example**
 
@@ -10671,7 +10695,12 @@ Resets the Data read pointer to the beginning, or to a named data section.
     Restore data_section2
     Read c, d  ' Reads "Second", 2
 
-**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read)
+    Dim id As Integer
+    id = 2
+    Restore "data_section" + CStr(id)
+    Read e, f  ' Also reads "Second", 2
+
+**See Also** — [Open](#open), [Close](#close), [Line Input](#line-input), [Data](#data), [Read](#read), [CStr](#cstr)
 
 ---
 

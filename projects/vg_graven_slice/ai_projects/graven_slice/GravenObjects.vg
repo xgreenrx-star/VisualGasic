@@ -54,9 +54,14 @@ End Sub
 
 ' Handler: SetBeaconCheckpointAt — save respawn room + pixel coords
 Sub SetBeaconCheckpointAt(br As Integer, bx As Single, by As Single)
+	Dim wasNew As Boolean
+	wasNew = (beaconRoom <> br)
 	beaconRoom = br
 	beaconX = bx
 	beaconY = by
+	If wasNew Then
+		Call JuiceOnBeacon()
+	End If
 End Sub
 
 ' Handler: PodInHeatZone — R7 corridor tx 10–30 drains ×1.8
@@ -69,23 +74,26 @@ End Function
 ' Handler: UpdateHeat — idle + thrust drain; empty heat = beacon respawn (R7 only)
 Sub UpdateHeat(delta As Single, thrusting As Boolean)
 	Dim drain As Single
-	Dim mul As Single
-	Dim heatBefore As Single
 	If roomId <> 7 Then
 		heatStress = 0
 		Exit Sub
 	End If
-	heatBefore = podHeat
-	drain = HEAT_IDLE
-	If thrusting Then
-		drain = drain + HEAT_THRUST_R7
+	If PodInHeatZone() Then
+		drain = HEAT_IDLE
+		If thrusting Then
+			drain = drain + HEAT_THRUST_R7
+		End If
+		podHeat = podHeat - drain * HEAT_ZONE_MUL * delta
+	Else
+		If thrusting Then
+			podHeat = podHeat - HEAT_THRUST * 0.2 * delta
+		Else
+			podHeat = podHeat + HEAT_RECHARGE * delta
+		End If
 	End If
-	mul = 1.0
-	If PodInHeatZone() Then mul = HEAT_ZONE_MUL
-	podHeat = podHeat - drain * mul * delta
 	If podHeat < 0 Then podHeat = 0
+	If podHeat > HEAT_MAX Then podHeat = HEAT_MAX
 	heatStress = 1.0 - (podHeat / HEAT_MAX)
-	If Abs(podHeat - heatBefore) > 0.08 Then needRedraw = True
 	If podHeat <= 0 Then
 		Call RespawnPod()
 		podHeat = HEAT_MAX
@@ -123,7 +131,6 @@ Sub UpdateOrbit(delta As Single)
 			degAdd = Abs(dAng) * 57.2958
 			If degAdd > 0.02 Then
 				orbitAngle = orbitAngle + degAdd
-				needRedraw = True
 			End If
 		End If
 		lastOrbitRad = ang
@@ -134,7 +141,6 @@ Sub UpdateOrbit(delta As Single)
 	If orbitAngle >= ORBIT_DEG_NEED And Not orbitComplete Then
 		orbitComplete = True
 		statusText = GetRoomHint()
-		Call RebuildVectorCave()
 		needRedraw = True
 	End If
 End Sub
@@ -205,10 +211,10 @@ Sub ResolveBodyTileOverlap(ByRef cx As Single, ByRef cy As Single, cr As Single,
 		If penR < minPen Then minPen = penR: nx = -1: ny = 0
 		If penU < minPen Then minPen = penU: nx = 0: ny = 1
 		If penD < minPen Then minPen = penD: nx = 0: ny = -1
-		pen = minPen + 0.5
+		pen = minPen + 0.04
 	Else
 		dist = Sqr(distSq)
-		pen = cr - dist + 0.5
+		pen = cr - dist + 0.04
 		nx = dx / dist
 		ny = dy / dist
 	End If
@@ -335,6 +341,7 @@ Sub CheckSkiffWin()
 	Dim hitR As Single
 	If roomId <> 8 Then Exit Sub
 	If gameWon Then Exit Sub
+	If Not HubBalanced() Then Exit Sub
 	dx = podX - SKIFF_X
 	dy = podY - SKIFF_Y
 	distSq = dx * dx + dy * dy
@@ -367,6 +374,7 @@ Sub TryReplay()
 		beaconRoom = 0
 		podHeat = HEAT_MAX
 		heatStress = 0
+		Call ResetSliceC()
 		Call LoadRoom(1)
 	End If
 End Sub
@@ -493,22 +501,23 @@ Sub UpdatePlateState()
 End Sub
 
 ' Handler: TryTerminalInteract — F near tile T (4,12) shows log overlay
-Sub TryTerminalInteract()
+Function TryTerminalInteract() As Boolean
 	Dim tx As Single
 	Dim ty As Single
 	Dim dx As Single
 	Dim dy As Single
-	If roomId <> 4 Then Exit Sub
-	If Not Input.IsActionJustPressed("interact") Then Exit Sub
+	TryTerminalInteract = False
+	If roomId <> 4 Then Exit Function
 	tx = 4 * TILE + 16
 	ty = 12 * TILE + 16
 	dx = podX - tx
 	dy = podY - ty
-	If dx * dx + dy * dy > 64 * 64 Then Exit Sub
+	If dx * dx + dy * dy > 64 * 64 Then Exit Function
 	terminalOpen = True
 	terminalTimer = 6.0
 	needRedraw = True
-End Sub
+	TryTerminalInteract = True
+End Function
 
 ' Handler: UpdateTerminal — auto-hide log after timer
 Sub UpdateTerminal(delta As Single)
@@ -530,6 +539,7 @@ End Sub
 
 ' Handler: RespawnPod — last beacon (R4/R6) or current room spawn
 Sub RespawnPod()
+	Call JuiceOnDeath()
 	If beaconRoom >= 4 Then
 		Call LoadRoom(beaconRoom)
 		podX = beaconX
@@ -539,6 +549,8 @@ Sub RespawnPod()
 	End If
 	podVX = 0
 	podVY = 0
+	Call ResetTowOnDeath()
+	Call JuiceResetTrail()
 	needRedraw = True
 End Sub
 
@@ -577,30 +589,42 @@ Sub DrawHeatBar()
 	End If
 End Sub
 
-' Handler: DrawGateTiles — G cells visible as closed gate or open glow
+' Handler: DrawGateTiles — greybox door from gate cache
 Sub DrawGateTiles()
-	Dim tx As Integer
-	Dim ty As Integer
-	Dim px As Single
-	Dim py As Single
-	If roomId <> 6 Then Exit Sub
-	For ty = 0 To ROWS - 1
-		For tx = 0 To COLS - 1
-			If IsGateTile(tx, ty) Then
-				px = tx * TILE
-				py = ty * TILE
-				If orbitComplete Then
-					DrawRect px + 4, py + 4, TILE - 8, TILE - 8, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
-				Else
-					DrawRect px, py, TILE, TILE, Lit(STONE_R, STONE_G, STONE_B, 0.95)
-					DrawRect px + 6, py + 6, TILE - 12, TILE - 12, Lit(0.91, 0.96, 1, 0.25)
-				End If
-			End If
-		Next tx
-	Next ty
+	Dim i As Integer
+	Dim minTX As Integer
+	Dim minTY As Integer
+	Dim maxTX As Integer
+	Dim maxTY As Integer
+	Dim x As Single
+	Dim y As Single
+	Dim w As Single
+	Dim h As Single
+	If useVectorArt Then Exit Sub
+	If gateCount <= 0 Then Exit Sub
+	minTX = gateTX(0)
+	minTY = gateTY(0)
+	maxTX = minTX
+	maxTY = minTY
+	For i = 1 To gateCount - 1
+		If gateTX(i) < minTX Then minTX = gateTX(i)
+		If gateTY(i) < minTY Then minTY = gateTY(i)
+		If gateTX(i) > maxTX Then maxTX = gateTX(i)
+		If gateTY(i) > maxTY Then maxTY = gateTY(i)
+	Next i
+	x = minTX * TILE
+	y = minTY * TILE
+	w = (maxTX - minTX + 1) * TILE
+	h = (maxTY - minTY + 1) * TILE
+	If ChallengeOpen() Then
+		DrawRect x + 3, y + 3, w - 6, h - 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.2)
+	Else
+		DrawRect x, y, w, h, Lit(STONE_R, STONE_G, STONE_B, 0.96)
+		DrawRect x + 6, y + 6, w - 12, h - 12, Lit(0.91, 0.96, 1, 0.25)
+	End If
 End Sub
 
-' Handler: DrawSpikes — R5 hazards; high contrast during Pulse for screenshots
+' Handler: DrawSpikes — R5 hazards; invisible until sonar (vector path matches)
 Sub DrawSpikes()
 	Dim tx As Integer
 	Dim ty As Integer
@@ -609,30 +633,42 @@ Sub DrawSpikes()
 	Dim spikeAlpha As Single
 	Dim i As Integer
 	Dim pulseOn As Boolean
+	Dim revealR As Single
+	Dim cx As Single
+	Dim cy As Single
+	Dim dx As Single
+	Dim dy As Single
 	If roomId <> 5 Then Exit Sub
-	pulseOn = IsPulseActive()
-	If pulseOn Then
-		spikeAlpha = 1.0
-	ElseIf roomDark Then
-		spikeAlpha = 0.08
-	Else
-		spikeAlpha = 0.7
+	If useVectorArt Then
+		Call DrawVectorSpikes()
+		Exit Sub
 	End If
-	For ty = 0 To ROWS - 1
-		For tx = 0 To COLS - 1
-			If IsSpikeTile(tx, ty) Then
-				px = tx * TILE
-				py = ty * TILE
-				If pulseOn Then
-					DrawRect px + 2, py + 1, TILE - 4, TILE - 2, Lit(0.91, 0.96, 1, 0.35)
-				End If
-				DrawRect px + 4, py + 2, TILE - 8, TILE - 4, Lit(HAZARD_R, HAZARD_G, HAZARD_B, spikeAlpha)
-				For i = 0 To 2
-					DrawLine px + 8 + i * 8, py + 6, px + 12 + i * 8, py + TILE - 6, Lit(HAZARD_R, HAZARD_G, HAZARD_B, spikeAlpha)
-				Next i
+	pulseOn = IsPulseActive()
+	If Not pulseOn And Not devLightsOn Then Exit Sub
+	spikeAlpha = 1.0
+	If pulseOn Then
+		If pulseTimer < 0.45 Then
+			spikeAlpha = pulseTimer / 0.45
+			If spikeAlpha < 0 Then spikeAlpha = 0
+		End If
+		revealR = 48 + GetPulsePhase() * 420
+	Else
+		revealR = 9999
+	End If
+	For i = 0 To spikeCount - 1
+		px = spikeTX(i) * TILE
+		py = spikeTY(i) * TILE
+		cx = px + TILE * 0.5
+		cy = py + TILE * 0.5
+		dx = cx - podX
+		dy = cy - podY
+		If dx * dx + dy * dy <= revealR * revealR Then
+			If pulseOn Then
+				DrawRect px + 2, py + 1, TILE - 4, TILE - 2, Lit(0.91, 0.96, 1, 0.35 * spikeAlpha)
 			End If
-		Next tx
-	Next ty
+			DrawRect px + 4, py + 2, TILE - 8, TILE - 4, Lit(HAZARD_R, HAZARD_G, HAZARD_B, spikeAlpha)
+		End If
+	Next i
 End Sub
 
 ' Handler: DrawOrbitHud — orbit progress ring + percent in R6
@@ -647,10 +683,12 @@ Sub DrawOrbitHud()
 	my = massY(0)
 	pct = orbitAngle / ORBIT_DEG_NEED
 	If pct > 1 Then pct = 1
-	DrawArc mx, my, ORBIT_R_MIN, 0, 6.28318, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.12), 1
-	DrawArc mx, my, ORBIT_R_MAX, 0, 6.28318, 64, Lit(GLOW_R, GLOW_G, GLOW_B, 0.08), 1
-	If orbitInBand Then
-		DrawArc mx, my, (ORBIT_R_MIN + ORBIT_R_MAX) * 0.5, 0, pct * 6.28318, 32, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45), 2
+	If Not useVectorArt Then
+		DrawArc mx, my, ORBIT_R_MIN, 0, 6.28318, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.12), 1
+		DrawArc mx, my, ORBIT_R_MAX, 0, 6.28318, 64, Lit(GLOW_R, GLOW_G, GLOW_B, 0.08), 1
+		If orbitInBand Then
+			DrawArc mx, my, (ORBIT_R_MIN + ORBIT_R_MAX) * 0.5, 0, pct * 6.28318, 32, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45), 2
+		End If
 	End If
 	progText = "Orbit " & Str(Int(orbitAngle)) & " / 540 deg"
 	DrawString progText, 16, GAME_H - 72, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7), 14
@@ -683,20 +721,62 @@ Sub DrawRoom4Scene()
 	Dim by As Single
 	Dim tx As Single
 	Dim ty As Single
+	Dim pts() As Vector2
 	bx = 6 * TILE + 16
 	by = 10 * TILE + 16
-	DrawCircle bx, by, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
-	DrawCircle bx, by, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
 	px = PLATE_TX * TILE + 16
 	py = PLATE_TY * TILE + 16
+	tx = 4 * TILE + 16
+	ty = 12 * TILE + 16
+	If useVectorArt Then
+		If canvasWorld = Null Then Exit Sub
+		Call canvasWorld.DrawCircle(Vector2(bx, by), 12, Lit(GLOW_R, GLOW_G, GLOW_B, 0.22), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.22))
+		Call canvasWorld.DrawCircle(Vector2(bx, by), 5, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0), True, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0))
+		Call canvasWorld.DrawArc(Vector2(bx, by), 9, 0, 6.28318, 16, 1.4, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7), False, Color(0, 0, 0, 0))
+		ReDim pts(3)
+		If plateSatisfied Then
+			pts(0) = Vector2(px, py - 12)
+			pts(1) = Vector2(px + 16, py)
+			pts(2) = Vector2(px, py + 8)
+			pts(3) = Vector2(px - 16, py)
+			Call canvasWorld.DrawPolygon(pts, 0, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+		Else
+			pts(0) = Vector2(px, py - 14)
+			pts(1) = Vector2(px + 18, py)
+			pts(2) = Vector2(px, py + 10)
+			pts(3) = Vector2(px - 18, py)
+			Call canvasWorld.DrawPolygon(pts, 0, Lit(STONE_R, STONE_G, STONE_B, 0.95), True, Lit(STONE_R, STONE_G, STONE_B, 0.95))
+			Call canvasWorld.DrawPolyline(pts, 1.5, Lit(0.91, 0.96, 1, 0.45), False, Color(0, 0, 0, 0), True)
+		End If
+		Call canvasWorld.DrawRect(Rect2(tx - 16, ty - 2, 32, 14), 0, Lit(STONE_R, STONE_G, STONE_B, 0.95), True, Lit(STONE_R, STONE_G, STONE_B, 0.95))
+		Call canvasWorld.DrawRect(Rect2(tx - 14, ty - 18, 28, 18), 0, Lit(0.18, 0.22, 0.28, 0.95), True, Lit(0.18, 0.22, 0.28, 0.95))
+		Call canvasWorld.DrawRect(Rect2(tx - 10, ty - 14, 20, 10), 0, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+		Call canvasWorld.DrawLine(Vector2(tx - 8, ty + 8), Vector2(tx + 8, ty + 8), 2, Lit(0.91, 0.96, 1, 0.4))
+		If plateSatisfied Then
+			Call canvasWorld.DrawRect(Rect2(608, 656, 64, 32), 0, Lit(GLOW_R, GLOW_G, GLOW_B, 0.28), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.28))
+		Else
+			Call canvasWorld.DrawRect(Rect2(608, 656, 64, 32), 0, Lit(STONE_R, STONE_G, STONE_B, 0.55), True, Lit(STONE_R, STONE_G, STONE_B, 0.55))
+		End If
+		If crateActive Then
+			Call canvasWorld.DrawRect(Rect2(crateX - CRATE_R, crateY - CRATE_R, CRATE_R * 2, CRATE_R * 2), 0, Lit(0.72, 0.58, 0.38, 1.0), True, Lit(0.72, 0.58, 0.38, 1.0))
+			Call canvasWorld.DrawRect(Rect2(crateX - CRATE_R + 3, crateY - CRATE_R + 3, CRATE_R * 2 - 6, CRATE_R * 2 - 6), 0, Lit(0.42, 0.32, 0.2, 1.0), True, Lit(0.42, 0.32, 0.2, 1.0))
+			Call canvasWorld.DrawLine(Vector2(crateX - CRATE_R + 2, crateY - CRATE_R + 2), Vector2(crateX + CRATE_R - 2, crateY + CRATE_R - 2), 2, Lit(0.91, 0.8, 0.45, 0.7))
+			Call canvasWorld.DrawLine(Vector2(crateX + CRATE_R - 2, crateY - CRATE_R + 2), Vector2(crateX - CRATE_R + 2, crateY + CRATE_R - 2), 2, Lit(0.91, 0.8, 0.45, 0.7))
+			Call canvasWorld.DrawCircle(Vector2(crateX - CRATE_R + 4, crateY - CRATE_R + 4), 1.6, Lit(0.91, 0.96, 1, 0.8), True, Lit(0.91, 0.96, 1, 0.8))
+			Call canvasWorld.DrawCircle(Vector2(crateX + CRATE_R - 4, crateY - CRATE_R + 4), 1.6, Lit(0.91, 0.96, 1, 0.8), True, Lit(0.91, 0.96, 1, 0.8))
+			Call canvasWorld.DrawCircle(Vector2(crateX - CRATE_R + 4, crateY + CRATE_R - 4), 1.6, Lit(0.91, 0.96, 1, 0.8), True, Lit(0.91, 0.96, 1, 0.8))
+			Call canvasWorld.DrawCircle(Vector2(crateX + CRATE_R - 4, crateY + CRATE_R - 4), 1.6, Lit(0.91, 0.96, 1, 0.8), True, Lit(0.91, 0.96, 1, 0.8))
+		End If
+		Exit Sub
+	End If
+	DrawCircle bx, by, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
+	DrawCircle bx, by, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
 	If plateSatisfied Then
 		DrawRect px - 20, py - 8, 40, 16, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
 	Else
 		DrawRect px - 20, py - 8, 40, 16, Lit(STONE_R, STONE_G, STONE_B, 0.95)
 		DrawRect px - 16, py - 4, 32, 8, Lit(0.91, 0.96, 1, 0.25)
 	End If
-	tx = 4 * TILE + 16
-	ty = 12 * TILE + 16
 	DrawRect tx - 10, ty - 10, 20, 20, Lit(0.91, 0.96, 1, 0.2)
 	DrawRect tx - 6, ty - 6, 12, 12, Lit(STONE_R, STONE_G, STONE_B, 0.85)
 	If plateSatisfied Then
@@ -720,8 +800,36 @@ Sub DrawRoom4Scene()
 	End If
 End Sub
 
+' Handler: DrawRoom4TerminalHud — log overlay + F hint on canvasHud (vector path)
+Sub DrawRoom4TerminalHud()
+	Dim tx As Single
+	Dim ty As Single
+	If roomId <> 4 Then Exit Sub
+	If Not useVectorArt Then Exit Sub
+	If canvasHud = Null Then Exit Sub
+	tx = 4 * TILE + 16
+	ty = 12 * TILE + 16
+	If terminalOpen Then
+		Call canvasHud.DrawRect(Rect2(80, 200, 720, 120), 0, Lit(VOID_R, VOID_G, VOID_B, 0.92), True, Lit(VOID_R, VOID_G, VOID_B, 0.92))
+		Call canvasHud.DrawText(Vector2(100, 220), "MASSWELL SURVEY — LOG 7", Lit(0.91, 0.96, 1, 1.0))
+		Call canvasHud.DrawText(Vector2(100, 252), "Don't trust the floor. Trust the needle.", Lit(0.91, 0.96, 1, 0.9))
+		Call canvasHud.DrawText(Vector2(100, 284), "— Chen", Lit(GLOW_R, GLOW_G, GLOW_B, 0.95))
+	Else
+		If Abs(podX - tx) < 56 And Abs(podY - ty) < 56 Then
+			Call canvasHud.DrawText(Vector2(tx - 48, ty - 36), "Press F — terminal", Lit(0.91, 0.96, 1, 0.6))
+		End If
+	End If
+End Sub
+
 ' Handler: DrawRoom5Scene — east exit glow while Pulse active
 Sub DrawRoom5Scene()
+	If useVectorArt Then
+		If canvasWorld = Null Then Exit Sub
+		If IsPulseActive() Then
+			Call canvasWorld.DrawRect(Rect2(1216, 512, 64, 48), 0, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45), True, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45))
+		End If
+		Exit Sub
+	End If
 	If IsPulseActive() Then
 		DrawRect 1216, 512, 64, 48, Lit(GLOW_R, GLOW_G, GLOW_B, 0.45)
 	End If
@@ -733,13 +841,18 @@ Sub DrawRoom6Scene()
 	Dim my As Single
 	mx = massX(0)
 	my = massY(0)
+	If useVectorArt Then
+		If canvasWorld = Null Then Exit Sub
+		Call canvasWorld.DrawCircle(Vector2(3 * TILE + 16, 2 * TILE + 16), 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5))
+		Call canvasWorld.DrawCircle(Vector2(3 * TILE + 16, 2 * TILE + 16), 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0))
+		Call canvasWorld.DrawCircle(Vector2(mx, my), 80, Lit(GLOW_R, GLOW_G, GLOW_B, 0.06))
+		Call canvasWorld.DrawCircle(Vector2(mx, my), 12, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+		Exit Sub
+	End If
 	DrawCircle 3 * TILE + 16, 2 * TILE + 16, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5)
 	DrawCircle 3 * TILE + 16, 2 * TILE + 16, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
 	DrawCircle mx, my, 80, Lit(GLOW_R, GLOW_G, GLOW_B, 0.06)
 	DrawCircle mx, my, 12, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55)
-	If orbitComplete Then
-		DrawRect 1216, 528, 64, 64, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
-	End If
 End Sub
 
 ' Handler: DrawRoom8Scene — skiff goal at (1100, 400)
@@ -754,13 +867,14 @@ End Sub
 ' Handler: DrawRoomObjects — dispatch per-room overlays (spikes + scene props)
 Sub DrawRoomObjects()
 	Call DrawSpikes()
-	If roomId = 4 Then
-		Call DrawRoom4Scene()
-	ElseIf roomId = 5 Then
-		Call DrawRoom5Scene()
-	ElseIf roomId = 6 Then
-		Call DrawRoom6Scene()
-	ElseIf roomId = 8 Then
-		Call DrawRoom8Scene()
-	End If
+	Select Case roomId
+		Case 4
+			Call DrawRoom4Scene()
+		Case 5
+			Call DrawRoom5Scene()
+		Case 6
+			Call DrawRoom6Scene()
+		Case 8
+			Call DrawRoom8Scene()
+	End Select
 End Sub

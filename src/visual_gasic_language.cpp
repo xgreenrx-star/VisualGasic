@@ -2467,6 +2467,24 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[/codeblock]\n"
       "[b]See Also[/b]\nSub, Function, Exit\n\n[url=ref:return]📖 VG Language Reference[/url]" },
 
+    { "restore",
+      "[b]Syntax[/b]\nRestore [labelName | stringExpression]\n\n"
+      "[b]Description[/b]\n"
+      "Moves the Data read pointer. "
+      "[code]Restore[/code] with no argument goes to the first Data value. "
+      "[code]Restore R12Map[/code] jumps to that Data label (VB6). "
+      "A bare identifier is always a label, not a variable — even if a variable with the same name exists "
+      "(for example [code]Restore label1[/code] ignores [code]label1 = 2[/code] and uses the [code]label1:[/code] Data section). "
+      "[code]Restore \"R\" + CStr(roomId) + \"Map\"[/code] builds the label name at run time from a string expression. "
+      "A missing label raises error 5 and stops the program unless On Error or Try handles it. "
+      "Use CStr (not Str) when building a name from a number — Str adds a leading space.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Restore Level1Data\n"
+      "Restore \"Level\" + CStr(levelNum) + \"Data\"\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nData, Read, CStr, Str\n\n[url=ref:restore]📖 VG Language Reference[/url]" },
+
     { "call",
       "[b]Syntax[/b]\nCall subName([arguments])\n\n"
       "[b]Description[/b]\n"

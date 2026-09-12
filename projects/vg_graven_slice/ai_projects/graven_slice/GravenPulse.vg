@@ -14,6 +14,9 @@ Dim roomDark As Boolean
 Dim postRect As Variant
 Dim postMaterial As Variant
 Dim pulseHudSec As Integer
+Dim shaderGX As Single
+Dim shaderGY As Single
+Dim shaderGReady As Boolean
 
 ' Handler: InitPulseNodes — cache PostFX ColorRect material for shader uniforms
 Sub InitPulseNodes()
@@ -29,6 +32,7 @@ End Sub
 Sub InitPulseForRoom()
 	roomDark = (roomId = 5)
 	pulseHudSec = -1
+	shaderGReady = False
 	If roomId <> 5 Then
 		pulseTimer = 0
 		pulseCooldown = 0
@@ -42,9 +46,17 @@ Sub TryStartPulse()
 	If pulseTimer > 0 Then Exit Sub
 	If pulseCooldown > 0 Then Exit Sub
 	If Not Input.IsActionJustPressed("pulse") Then Exit Sub
+	Call PulseActivate()
+End Sub
+
+' Handler: PulseActivate — start sonar; cave stays cached (shader + world rings reveal)
+Sub PulseActivate()
 	pulseTimer = PULSE_TIME
 	pulseCooldown = PULSE_CD
 	pulseHudSec = -1
+	Call JuiceOnPulse()
+	Call SliceCOnPulse()
+	Call TryGrantEcho()
 	needRedraw = True
 End Sub
 
@@ -56,7 +68,6 @@ Sub UpdatePulse(delta As Single)
 	If pulseTimer > 0 Then
 		pulseTimer = pulseTimer - delta
 		If pulseTimer < 0 Then pulseTimer = 0
-		needRedraw = True
 	End If
 	If pulseCooldown > 0 Then
 		pulseCooldown = pulseCooldown - delta
@@ -69,7 +80,9 @@ Sub UpdatePulse(delta As Single)
 			End If
 		End If
 	End If
-	If wasActive And pulseTimer <= 0 Then needRedraw = True
+	If wasActive And pulseTimer <= 0 Then
+		needRedraw = True
+	End If
 End Sub
 
 ' Handler: IsPulseActive — true while sonar reveal window is open
@@ -94,6 +107,8 @@ Function GetShaderAmbient() As Single
 		Else
 			GetShaderAmbient = SHADER_DARK
 		End If
+	ElseIf roomId >= 8 Then
+		GetShaderAmbient = 0.72
 	Else
 		GetShaderAmbient = AMBIENT_NORMAL
 	End If
@@ -142,10 +157,12 @@ Sub UpdatePostShader()
 	Dim mx As Single
 	Dim my As Single
 	If postMaterial = Null Then Exit Sub
+	Shader.Param postMaterial, "pulse_uv", Vector2(podX / GAME_W, podY / GAME_H)
 	If devMenuOpen Then
 		Shader.Param postMaterial, "ambient", 1.0
 		Shader.Param postMaterial, "pulse_phase", GetPulsePhase()
 		Shader.Param postMaterial, "heat_stress", heatStress
+		Shader.Param postMaterial, "hit_flash", deathFlash
 		Exit Sub
 	End If
 	bestI = 0
@@ -179,34 +196,46 @@ Sub UpdatePostShader()
 		gx = 0
 		gy = 1
 	End If
-	Shader.Param postMaterial, "gravity_vec", Vector2(gx, gy)
+	If Not shaderGReady Then
+		shaderGX = gx
+		shaderGY = gy
+		shaderGReady = True
+	Else
+		shaderGX = shaderGX * 0.78 + gx * 0.22
+		shaderGY = shaderGY * 0.78 + gy * 0.22
+	End If
+	Shader.Param postMaterial, "gravity_vec", Vector2(shaderGX, shaderGY)
 	Shader.Param postMaterial, "pulse_phase", GetPulsePhase()
 	Shader.Param postMaterial, "heat_stress", heatStress
 	Shader.Param postMaterial, "ambient", GetShaderAmbient()
+	Shader.Param postMaterial, "hit_flash", deathFlash
+	Shader.Param postMaterial, "room_tint", GetRoomTint()
+	Shader.Param postMaterial, "tint_amt", GetRoomTintAmt()
+	Shader.Param postMaterial, "fx_time", juiceTime
+	Shader.Param postMaterial, "exit_prox", exitProx
+	Shader.Param postMaterial, "warp_flash", warpFlash
+	Call ApplyExitShaderParams()
+	Call ApplyTowShaderParams()
+	Call ApplyHoleShaderParams()
 End Sub
 
-' Handler: DrawPulseRing — expanding sonar outline; boosted contrast in R5 dark
+' Handler: DrawPulseRing — parent _Draw path (greybox); vector games use DrawVectorPulse
 Sub DrawPulseRing()
 	Dim phase As Single
 	Dim ringR As Single
 	Dim alpha As Single
-	Dim lineW As Single
+	If useVectorArt Then Exit Sub
 	If Not IsPulseActive() Then Exit Sub
 	phase = GetPulsePhase()
 	ringR = 48 + phase * 380
 	alpha = 0.85 * (1.0 - phase * 0.65)
-	lineW = 2
 	If roomDark Then
 		alpha = alpha * 1.35
 		If alpha > 1.0 Then alpha = 1.0
-		lineW = 3
 	End If
-	DrawArc podX, podY, ringR, 0, 6.28318, 64, Lit(GLOW_R, GLOW_G, GLOW_B, alpha), lineW
-	If phase > 0.15 Then
-		DrawArc podX, podY, ringR * 0.55, 0, 6.28318, 48, Lit(GLOW_R, GLOW_G, GLOW_B, alpha * 0.55), lineW
-	End If
-	If roomDark Then
-		DrawCircle podX, podY, 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
+	DrawArc podX, podY, ringR, 0, 6.28318, 24, Lit(GLOW_R, GLOW_G, GLOW_B, alpha), 2
+	If phase > 0.2 Then
+		DrawArc podX, podY, ringR * 0.55, 0, 6.28318, 20, Lit(GLOW_R, GLOW_G, GLOW_B, alpha * 0.5), 2
 	End If
 End Sub
 

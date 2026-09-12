@@ -325,9 +325,10 @@ void VisualGasicLinter::collect_references_from_statements(const Vector<Statemen
                 break;
             }
             case STMT_RESTORE: {
-                // Label reference
                 const RestoreStatement* rs = static_cast<const RestoreStatement*>(stmt);
-                if (!rs->label_name.is_empty()) {
+                if (rs->label_expr) {
+                    collect_references_from_expression(rs->label_expr);
+                } else if (!rs->label_name.is_empty()) {
                     referenced_names.insert(rs->label_name.to_lower());
                 }
                 break;

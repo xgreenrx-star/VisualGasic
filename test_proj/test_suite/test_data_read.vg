@@ -84,6 +84,59 @@ Sub _Ready()
 	Else
 		Print "FAIL: restore_named_label: got " & check
 	End If
+
+	' --- Restore from a string literal ---
+	Restore "MixedData"
+	Dim mixName As String
+	Read mixName
+	If mixName = "Test" Then
+		Print "PASS: restore_string_literal"
+	Else
+		Print "FAIL: restore_string_literal: got " & mixName
+	End If
+
+	' --- Restore from a concatenated expression ---
+	Restore "Loop" + "Data"
+	Dim loopFirst As Integer
+	Read loopFirst
+	If loopFirst = 1 Then
+		Print "PASS: restore_string_concat"
+	Else
+		Print "FAIL: restore_string_concat: got " & CStr(loopFirst)
+	End If
+
+	' --- Restore from CStr-built name ---
+	Restore "Room" + CStr(12) + "Map"
+	Dim roomVal As Integer
+	Read roomVal
+	If roomVal = 99 Then
+		Print "PASS: restore_cstr_name"
+	Else
+		Print "FAIL: restore_cstr_name: got " & CStr(roomVal)
+	End If
+
+	' --- Bare Restore name is Data label, not variable (even when both exist) ---
+	Dim label1 As Integer
+	label1 = 2
+	Restore label1
+	Dim fromLabel As Integer
+	Read fromLabel
+	If fromLabel = 77 Then
+		Print "PASS: restore_label_beats_variable"
+	Else
+		Print "FAIL: restore_label_beats_variable: got " & CStr(fromLabel)
+	End If
+
+	' --- Missing label raises and can be caught ---
+	On Error Resume Next
+	Err.Clear
+	Restore "NoSuchLabel"
+	If Err.Number = 5 Then
+		Print "PASS: restore_missing_label"
+	Else
+		Print "FAIL: restore_missing_label: Err=" & CStr(Err.Number)
+	End If
+	On Error GoTo 0
 	
 	Print "TEST_COMPLETE"
 End Sub
@@ -99,3 +152,9 @@ Data "Test", 25, 3.14
 
 LoopData:
 Data 1, 2, 3, 4, 5
+
+Room12Map:
+Data 99
+
+label1:
+Data 77

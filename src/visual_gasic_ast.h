@@ -421,8 +421,12 @@ struct ClearDataStatement : public Statement {
 };
 
 struct RestoreStatement : public Statement {
-    String label_name; // Optional, empty if restoring to start
-    RestoreStatement() : Statement(STMT_RESTORE) {}
+    String label_name; // Bare identifier: Restore R12Map (VB6). Empty if start or expression.
+    ExpressionNode* label_expr; // Restore "R" + CStr(id) + "Map"
+    RestoreStatement() : Statement(STMT_RESTORE), label_expr(nullptr) {}
+    virtual ~RestoreStatement() {
+        if (label_expr) delete label_expr;
+    }
 };
 
 struct AssignmentStatement : public Statement {

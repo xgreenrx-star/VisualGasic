@@ -15,6 +15,8 @@ extends Control
 const RECENT_CFG_FILENAME := "recent_projects.cfg"
 const ICON_CACHE_MAX := 64
 
+var _icons_enabled: bool = OS.has_environment("VG_WELCOME_ICONS")
+
 @onready var _recent_list: ItemList = $HSplit/Left/RecentList
 @onready var _empty_label: Label = $HSplit/Left/Empty
 @onready var _search_edit: LineEdit = $FilterBar/SearchEdit
@@ -41,10 +43,6 @@ var _search_text: String = ""
 
 func _ready() -> void:
 	get_window().title = "VisualGasic — Welcome"
-	# Open fullscreen so the welcome takes the whole screen from the
-	# start — keeps focus, no flash of desktop, and matches the
-	# fullscreen cover we use during project launch.
-	get_window().mode = Window.MODE_FULLSCREEN
 	_recent_list.item_activated.connect(_on_item_activated)
 	_recent_list.item_selected.connect(_on_item_selected)
 	_search_edit.text_changed.connect(_on_search_changed)
@@ -64,13 +62,41 @@ func _ready() -> void:
 	if _open_idx >= 0 and _open_idx + 1 < _open_args.size():
 		var _proj: String = _open_args[_open_idx + 1]
 		if DirAccess.dir_exists_absolute(_proj) and FileAccess.file_exists(_proj + "/project.godot"):
+			call_deferred("_enter_fullscreen")
 			_launch_godot(_proj)
 			return
 
+	# Defer fullscreen + recent-list/icon hydration until after the first
+	# frame. Synchronous thumbnail upload during window init has triggered
+	# intermittent SIGSEGV on Linux/Mesa (Godot 4.6.1).
+	call_deferred("_boot_ui")
+
+
+func _enter_fullscreen() -> void:
+	# Maximized is far more stable than exclusive fullscreen on Linux/Mesa.
+	var win := get_window()
+	win.mode = Window.MODE_MAXIMIZED
+
+
+func _boot_ui() -> void:
+	_enter_fullscreen()
 	_load_recent()
 	_rebuild_tag_chips()
 	_apply_filter()
 	_clear_detail()
+	# Hydrate thumbnails on later frames (optional; off by default on Linux).
+	if _icons_enabled and not _filtered_indices.is_empty():
+		call_deferred("_hydrate_icons_deferred")
+
+
+func _hydrate_icons_deferred() -> void:
+	for list_idx in range(_filtered_indices.size()):
+		var entry: Dictionary = _recent[_filtered_indices[list_idx]]
+		var pth := str(entry.get("path", ""))
+		var tex := _icon_for(pth)
+		if tex != null:
+			_recent_list.set_item_icon(list_idx, tex)
+		await get_tree().process_frame
 
 
 ## If a previous welcome-shell run was killed mid-launch, a stale
@@ -231,15 +257,12 @@ func _render_list() -> void:
 		var pth := str(entry.get("path", ""))
 		var tag := str(entry.get("tag", ""))
 		var label := "%s\n[%s]  %s" % [nm, tag, pth]
-		var idx := _recent_list.add_item(label)
-		var tex := _icon_for(pth)
-		if tex != null:
-			_recent_list.set_item_icon(idx, tex)
+		_recent_list.add_item(label)
 	var anything := _filtered_indices.size() > 0
 	_recent_list.visible = anything
 	_empty_label.visible = not anything
 	if _recent.is_empty():
-		_empty_label.text = "No recent projects yet.\nClick + Create, 📂 Browse, or 🌿 Ask Narcea."
+		_empty_label.text = "No recent projects yet.\nClick + Create, Browse, or Ask Narcea."
 	elif not anything:
 		_empty_label.text = "No matches for current filter."
 	_open_btn.disabled = not anything
@@ -248,29 +271,23 @@ func _render_list() -> void:
 
 # ─── Icon loading ───────────────────────────────────────────────────────────
 func _icon_for(project_path: String) -> Texture2D:
+	if not _icons_enabled:
+		return null
 	if _icon_cache.has(project_path):
 		return _icon_cache[project_path]
 	var found: Texture2D = null
-	for fname in ["icon.svg", "icon.png", "icon.webp"]:
+	# Prefer raster icons; fall back to SVG via Image.load (safer than
+	# load_svg_from_string on some Linux/Mesa builds).
+	for fname in ["icon.png", "icon.webp", "icon.svg"]:
 		var p: String = project_path + "/" + fname
 		if not FileAccess.file_exists(p):
 			continue
-		if fname.ends_with(".svg"):
-			# Load SVG bytes via Image.load_svg_from_string for portability.
-			var f := FileAccess.open(p, FileAccess.READ)
-			if f == null:
-				continue
-			var src := f.get_as_text()
-			f.close()
-			var img := Image.new()
-			# Scale 0.5 keeps thumbnails small and fast to upload.
-			if img.load_svg_from_string(src, 0.5) == OK:
-				found = ImageTexture.create_from_image(img)
-		else:
-			var img2 := Image.new()
-			if img2.load(p) == OK:
-				img2.resize(64, 64, Image.INTERPOLATE_BILINEAR)
-				found = ImageTexture.create_from_image(img2)
+		var img := Image.new()
+		if img.load(p) != OK:
+			continue
+		if img.get_width() > 64 or img.get_height() > 64:
+			img.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+		found = ImageTexture.create_from_image(img)
 		if found != null:
 			break
 	if _icon_cache.size() >= ICON_CACHE_MAX:

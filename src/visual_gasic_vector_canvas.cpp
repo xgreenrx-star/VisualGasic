@@ -333,10 +333,12 @@ Array VGVectorCanvas2D::_arc_corner_points(const Vector2 &center, float radius, 
 void VGVectorCanvas2D::_queue_command(Dictionary command) {
 	command["command_id"] = _command_id_counter++;
 
+	// Source hints are for the tweak overlay only — do not latch the slow
+	// path just because a debug line was seen (that used to disable the
+	// fast path for the rest of the session after the first Draw*).
 	bool overlay_in_use = _group_stack.size() > 0
 			|| !_group_overrides.is_empty()
-			|| !_command_overrides.is_empty()
-			|| !_group_source_hints.is_empty();
+			|| !_command_overrides.is_empty();
 
 	if (!overlay_in_use) {
 		// Fast path: ~100% of frames in production games.
@@ -993,11 +995,13 @@ void VGVectorCanvas2D::_draw_text_command(const Dictionary &cmd) {
 	Vector2 position = t.xform((Vector2)cmd["position"]);
 
 	if (font_v.get_type() == Variant::NIL && !text.is_empty()) {
-		DrawVectorText(position, text, color, 1.0f, 2.0f, align);
+		// Stroke immediately. DrawVectorText queues commands — calling it
+		// from _draw grew the buffer every frame and forced a redraw loop.
+		_emit_vector_text(position, text, color, 1.0f, 2.0f, align, 2.0f, String(""), false);
 		return;
 	}
 	if (font_v.get_type() == Variant::STRING) {
-		DrawVectorText(position, text, color, 1.0f, 2.0f, align, 2.0f, (String)font_v);
+		_emit_vector_text(position, text, color, 1.0f, 2.0f, align, 2.0f, (String)font_v, false);
 		return;
 	}
 	Ref<Font> font;
@@ -1670,7 +1674,7 @@ void VGVectorCanvas2D::_queue_polyline_absolute(const PackedVector2Array &points
 	_queue_command(c);
 }
 
-void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name) {
+void VGVectorCanvas2D::_emit_vector_text(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name, bool queue) {
 	String upper_text = text.to_upper();
 	Dictionary font_map = _get_vector_font(font_name);
 
@@ -1718,11 +1722,19 @@ void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &tex
 						(real_t)((double)op.y * (double)scale));
 			}
 			if (pts.size() > 1) {
-				_queue_polyline_absolute(pts, width, color);
+				if (queue) {
+					_queue_polyline_absolute(pts, width, color);
+				} else {
+					draw_polyline(pts, color, width);
+				}
 			}
 		}
 		x_offset += (double)((real_t)g["width"]) * (double)scale + (double)spacing;
 	}
+}
+
+void VGVectorCanvas2D::DrawVectorText(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name) {
+	_emit_vector_text(position, text, color, scale, width, align, spacing, font_name, true);
 }
 
 void VGVectorCanvas2D::DrawVectorTextCentered(const Vector2 &position, const String &text, const Color &color, float scale, float width, float spacing, const String &font_name) {

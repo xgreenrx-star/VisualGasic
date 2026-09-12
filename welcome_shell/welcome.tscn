@@ -21,7 +21,7 @@ offset_bottom = 56.0
 
 [node name="Title" type="Label" parent="Header"]
 layout_mode = 2
-text = "🌿  VisualGasic"
+text = "VisualGasic"
 theme_override_font_sizes/font_size = 28
 
 [node name="Spacer" type="Control" parent="Header"]
@@ -45,7 +45,7 @@ theme_override_constants/separation = 8
 [node name="SearchEdit" type="LineEdit" parent="FilterBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-placeholder_text = "🔍 Search recent projects..."
+placeholder_text = "Search recent projects..."
 clear_button_enabled = true
 
 [node name="TagBar" type="HBoxContainer" parent="FilterBar"]
@@ -80,7 +80,6 @@ offset_left = 8.0
 offset_top = 36.0
 offset_right = -8.0
 offset_bottom = -8.0
-fixed_icon_size = Vector2i(48, 48)
 
 [node name="Empty" type="Label" parent="HSplit/Left"]
 anchor_left = 0.5
@@ -93,7 +92,7 @@ offset_right = 200.0
 offset_bottom = 28.0
 horizontal_alignment = 1
 vertical_alignment = 1
-text = "No recent projects yet.\nClick + Create, 📂 Browse, or 🌿 Ask Narcea."
+text = "No recent projects yet.\nClick + Create, Browse, or Ask Narcea."
 theme_override_colors/font_color = Color(0.55, 0.6, 0.7, 1)
 visible = false
 
@@ -158,15 +157,15 @@ text = "+  Create New Project…"
 
 [node name="NarceaBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2
-text = "🌿  Ask Narcea to Make a Project…"
+text = "Ask Narcea to Make a Project..."
 
 [node name="BrowseBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2
-text = "📂  Browse…"
+text = "Browse..."
 
 [node name="ForgetBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2
-text = "🗑  Forget Selected"
+text = "Forget Selected"
 
 [node name="QuitBtn" type="Button" parent="HSplit/Right/Buttons"]
 layout_mode = 2

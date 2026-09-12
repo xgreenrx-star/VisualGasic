@@ -811,15 +811,44 @@ func _draw_polyline_command(command: Dictionary) -> void:
 		else:
 			draw_polyline(points, command.color, command.width)
 
+func _stroke_vector_text_immediate(position: Vector2, text: String, color: Color, scale: float, width: float, align: String, spacing: float = 2.0, font_name: String = "") -> void:
+	var string_text = text.to_upper()
+	var font_map = _get_vector_font(font_name)
+	var total_width = 0.0
+	var glyphs = []
+	for i in range(string_text.length()):
+		var ch = string_text.substr(i, 1)
+		var glyph = font_map.get(ch, null)
+		if glyph == null:
+			glyph = {"width": 8.0, "strokes": []}
+		glyphs.append(glyph)
+		total_width += glyph.width * scale
+		if i < string_text.length() - 1:
+			total_width += spacing
+	if total_width > 0.0:
+		if align == "center":
+			position.x -= total_width * 0.5
+		elif align == "right":
+			position.x -= total_width
+	var x_offset = 0.0
+	for glyph in glyphs:
+		for stroke in glyph.strokes:
+			var points = PackedVector2Array()
+			for original_point in stroke:
+				points.append(position + Vector2(x_offset + original_point.x * scale, original_point.y * scale))
+			if points.size() > 1:
+				draw_polyline(points, color, width)
+		x_offset += glyph.width * scale + spacing
+
 func _draw_text_command(command: Dictionary) -> void:
 	if command.font == null and command.text != "":
 		var position = _transform_point(command.position, command.transform)
-		DrawVectorText(position, command.text, command.color, 1.0, 2.0, command.align)
+		_stroke_vector_text_immediate(position, command.text, command.color, 1.0, 2.0, command.align)
 		return
 
 	if typeof(command.font) == TYPE_STRING:
 		var position = _transform_point(command.position, command.transform)
-		DrawVectorText(position, command.text, command.color, 1.0, 2.0, command.align, 2.0, command.font)
+		_stroke_vector_text_immediate(position, command.text, command.color, 1.0, 2.0, command.align, 2.0, command.font)
 		return
 
 	var font = command.font if command.font != null else default_font

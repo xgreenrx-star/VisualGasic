@@ -8041,9 +8041,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_RESTORE: {
-            // Restore statement for DATA pointer - reset to beginning or to a label
+            // Restore — reset DATA pointer to start, a compile-time label, or a string expression
             RestoreStatement* s = (RestoreStatement*)stmt;
-            if (s->label_name.is_empty()) {
+            if (s->label_expr) {
+                compile_expression(s->label_expr);
+            } else if (s->label_name.is_empty()) {
                 // Restore to beginning - emit constant -1 to signal reset
                 emit_constant(Variant((int64_t)-1));
             } else {

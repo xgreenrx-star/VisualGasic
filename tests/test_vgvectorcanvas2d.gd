@@ -63,6 +63,22 @@ func _init():
 	else:
 		print("PASS: Clear emptied _commands")
 
+	# DrawText must not enqueue more commands when _draw strokes the glyphs.
+	# Queuing from _draw used to grow a static cave layer every frame.
+	var native = ClassDB.instantiate("VGVectorCanvas2D")
+	root.add_child(native)
+	native.DrawText(Vector2(8, 8), "EXIT", Color.WHITE)
+	var text_n: int = native._commands.size()
+	native.notification(CanvasItem.NOTIFICATION_DRAW)
+	native.notification(CanvasItem.NOTIFICATION_DRAW)
+	native.notification(CanvasItem.NOTIFICATION_DRAW)
+	if native._commands.size() != text_n:
+		print("FAIL: DrawText _draw leaked commands %d → %d" % [text_n, native._commands.size()])
+		ok = false
+	else:
+		print("PASS: DrawText _draw kept command count at %d" % text_n)
+	native.free()
+
 	# Free explicitly to avoid leak warnings in the report.
 	c.free()
 

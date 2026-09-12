@@ -96,6 +96,7 @@ private:
 	void _apply_override_to_command(Dictionary &command, const Dictionary &override_dict);
 	void _queue_command(Dictionary command);
 	void _queue_polyline_absolute(const PackedVector2Array &points, float width, const Color &color);
+	void _emit_vector_text(const Vector2 &position, const String &text, const Color &color, float scale, float width, const String &align, float spacing, const String &font_name, bool queue);
 
 	void _dispatch_command(const Dictionary &cmd, int t);
 	void _draw_line_command(const Dictionary &cmd);

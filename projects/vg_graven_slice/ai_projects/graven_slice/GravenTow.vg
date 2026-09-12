@@ -1,0 +1,439 @@
+' GravenTow.vg — Fleuch-style tow ring (R12) + laser sluice (R13)
+
+Const RING_R As Single = 20
+Const RING_S As Single = 1.45
+Const RING_MASS As Single = 3.2
+Const RING_VMAX As Single = 190
+Const RING_DRAG As Single = 0.16
+Const TOW_LEN As Single = 68
+Const TOW_K As Single = 78
+Const TOW_DAMP As Single = 7
+Const TOW_F_R As Single = 56
+Const TOW_PAD_R As Single = 30
+Const TOW_RING_X As Single = 144
+Const TOW_RING_Y As Single = 304
+Const LASER_N As Integer = 4
+Const LASER_BEAM_H As Single = 5
+Const LASER_EMIT_W As Single = 20
+Const LASER_EMIT_H As Single = 24
+
+Dim ringX As Single
+Dim ringY As Single
+Dim ringVX As Single
+Dim ringVY As Single
+Dim laserCount As Integer
+Dim laserX(3) As Single
+Dim laserY(3) As Single
+Dim laserW(3) As Single
+Dim laserH(3) As Single
+Dim gapX(3) As Single
+Dim gapY(3) As Single
+Dim gapW(3) As Single
+Dim gapH(3) As Single
+Dim towReleaseCd As Single
+
+' Handler: TowPadX — east dock in R12
+Function TowPadX() As Single
+	TowPadX = 36 * TILE + 16
+End Function
+
+Function TowPadY() As Single
+	TowPadY = 17 * TILE + 16
+End Function
+
+' Handler: InitTowForRoom — reset ring / lasers on room entry
+Sub InitTowForRoom()
+	towHooked = False
+	ringLive = False
+	laserCount = 0
+	Select Case roomId
+		Case 12
+			ringLive = True
+			If Not towParked Then
+				Call PlaceLooseRing()
+			End If
+		Case 13
+			laserCount = 4
+			Call PlaceLaser(0, 4, 4, 5)
+			Call PlaceLaser(1, 6, 28, 6)
+			Call PlaceLaser(2, 8, 12, 8)
+			Call PlaceLaser(3, 12, 4, 5)
+	End Select
+End Sub
+
+' Handler: PlaceLaser — thin beam on a tile row with a green safe window
+Sub PlaceLaser(i As Integer, rowTy As Integer, gapTx As Integer, gapTiles As Integer)
+	laserX(i) = 3 * TILE
+	laserW(i) = 34 * TILE
+	laserH(i) = LASER_BEAM_H
+	laserY(i) = rowTy * TILE + (TILE - LASER_BEAM_H) * 0.5
+	gapX(i) = gapTx * TILE
+	gapW(i) = gapTiles * TILE
+	gapH(i) = 14
+	gapY(i) = laserY(i) - (14 - LASER_BEAM_H) * 0.5
+End Sub
+
+' Handler: ResetTowOnDeath — drop the hook; park stays
+Sub ResetTowOnDeath()
+	towHooked = False
+	If roomId = 12 And ringLive And Not towParked Then
+		Call PlaceLooseRing()
+	End If
+End Sub
+
+' Handler: PlaceLooseRing — gold ring starts down the first shaft, not on the pod
+Sub PlaceLooseRing()
+	ringX = TOW_RING_X
+	ringY = TOW_RING_Y
+	ringVX = 0
+	ringVY = 0
+End Sub
+
+' Handler: ApplyTowGravity — the ring is a live well (pod/crate feel it; ring does not)
+Sub ApplyTowGravity(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim pull As Single
+	If roomId <> 12 Then Exit Sub
+	If Not ringLive Then Exit Sub
+	If towHooked Then Exit Sub
+	dx = ringX - px
+	dy = ringY - py
+	distSq = dx * dx + dy * dy
+	If distSq < 4 Then Exit Sub
+	If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
+	dist = Sqr(distSq)
+	pull = G_SCALE * devGScaleMul * RING_S / distSq
+	If pull > G_MAX Then pull = G_MAX
+	ax = ax + (dx / dist) * pull
+	ay = ay + (dy / dist) * pull
+End Sub
+
+' Handler: TryTowInteract — F releases anywhere, or hooks when next to the ring
+Function TryTowInteract() As Boolean
+	Dim dx As Single
+	Dim dy As Single
+	TryTowInteract = False
+	If roomId <> 12 Then Exit Function
+	If Not ringLive Then Exit Function
+	If towParked Then Exit Function
+	If towHooked Then
+		towHooked = False
+		towReleaseCd = 0.45
+		statusText = "Tow released"
+		TryTowInteract = True
+		Exit Function
+	End If
+	dx = podX - ringX
+	dy = podY - ringY
+	If dx * dx + dy * dy > TOW_F_R * TOW_F_R Then Exit Function
+	Call AttachTow()
+	TryTowInteract = True
+End Function
+
+' Handler: AttachTow — clasp the ring in place; slack until you haul
+Sub AttachTow()
+	towHooked = True
+	statusText = "Tow locked — the ring has mass. Drag it east."
+End Sub
+
+' Handler: UpdateTow — spring, ring physics, pad, lasers
+Sub UpdateTow(delta As Single)
+	If roomId = 13 Then
+		Call CheckLaserDeath()
+		Exit Sub
+	End If
+	If roomId <> 12 Then Exit Sub
+	If Not ringLive Then Exit Sub
+	If towReleaseCd > 0 Then
+		towReleaseCd = towReleaseCd - delta
+		If towReleaseCd < 0 Then towReleaseCd = 0
+	End If
+	Call IntegrateRing(delta)
+	Call UpdateTowPad()
+End Sub
+
+' Handler: IntegrateRing — well pull + tension-only rope (slack folds, no shove)
+Sub IntegrateRing(delta As Single)
+	Dim ax As Single
+	Dim ay As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dist As Single
+	Dim nx As Single
+	Dim ny As Single
+	Dim stretch As Single
+	Dim fx As Single
+	Dim fy As Single
+	Dim rvx As Single
+	Dim rvy As Single
+	Dim radial As Single
+	Dim taut As Boolean
+	Dim spd As Single
+	Dim damp As Single
+	Dim ox As Single
+	Dim oy As Single
+	Dim nlen As Single
+	Dim vn As Single
+	ax = 0
+	ay = 0
+	taut = False
+	Call GravityWellPullAt(ringX, ringY, ax, ay)
+	If towHooked Then
+		dx = ringX - podX
+		dy = ringY - podY
+		dist = Sqr(dx * dx + dy * dy)
+		If dist < 1 Then dist = 1
+		nx = dx / dist
+		ny = dy / dist
+		stretch = dist - TOW_LEN
+		If stretch > 0 Then
+			taut = True
+			fx = -TOW_K * stretch * nx
+			fy = -TOW_K * stretch * ny
+			rvx = ringVX - podVX
+			rvy = ringVY - podVY
+			radial = rvx * nx + rvy * ny
+			If radial > 0 Then
+				fx = fx - TOW_DAMP * radial * nx
+				fy = fy - TOW_DAMP * radial * ny
+			End If
+			ax = ax + fx / RING_MASS
+			ay = ay + fy / RING_MASS
+			podVX = podVX - fx * delta
+			podVY = podVY - fy * delta
+		End If
+	End If
+	ringVX = ringVX + ax * delta
+	ringVY = ringVY + ay * delta
+	damp = 1.0 - RING_DRAG * delta
+	If taut Then damp = 1.0 - (RING_DRAG + 0.28) * delta
+	If damp < 0.7 Then damp = 0.7
+	ringVX = ringVX * damp
+	ringVY = ringVY * damp
+	spd = Sqr(ringVX * ringVX + ringVY * ringVY)
+	If spd > RING_VMAX Then
+		ringVX = ringVX * (RING_VMAX / spd)
+		ringVY = ringVY * (RING_VMAX / spd)
+	End If
+	ringX = ringX + ringVX * delta
+	ringY = ringY + ringVY * delta
+	ox = ringX
+	oy = ringY
+	Call SeparateBodyFromTiles(ringX, ringY, RING_R)
+	dx = ringX - ox
+	dy = ringY - oy
+	If Abs(dx) > 0.0001 Or Abs(dy) > 0.0001 Then
+		nlen = Sqr(dx * dx + dy * dy)
+		If nlen > 0.0001 Then
+			nx = dx / nlen
+			ny = dy / nlen
+			vn = ringVX * nx + ringVY * ny
+			If vn < 0 Then
+				ringVX = ringVX - vn * nx
+				ringVY = ringVY - vn * ny
+			End If
+		End If
+	End If
+End Sub
+
+' Handler: UpdateTowPad — park the ring; grant a seed once
+Sub UpdateTowPad()
+	Dim dx As Single
+	Dim dy As Single
+	dx = ringX - TowPadX()
+	dy = ringY - TowPadY()
+	If dx * dx + dy * dy > TOW_PAD_R * TOW_PAD_R Then Exit Sub
+	If Not towParked Then
+		towParked = True
+		towHooked = False
+		ringVX = 0
+		ringVY = 0
+		ringX = TowPadX()
+		ringY = TowPadY()
+		If Not seedLooseR12 And Not seedHeld Then
+			seedLooseR12 = True
+		End If
+		statusText = "Ring docked — seed above the pad"
+		needRedraw = True
+	End If
+End Sub
+
+' Handler: CheckLaserDeath — AABB beam minus gap; god mode skips
+Sub CheckLaserDeath()
+	Dim i As Integer
+	If laserCount <= 0 Then Exit Sub
+	If devGodMode Then Exit Sub
+	For i = 0 To laserCount - 1
+		If CircleRectOverlap(podX, podY, POD_R - 2, laserX(i), laserY(i), laserW(i), laserH(i)) Then
+			If Not CircleRectOverlap(podX, podY, POD_R - 2, gapX(i), gapY(i), gapW(i), gapH(i)) Then
+				Call RespawnPod()
+				Exit Sub
+			End If
+		End If
+	Next i
+End Sub
+
+' Handler: ApplyTowShaderParams — laser AABBs as Color(xywh) UV
+Sub ApplyTowShaderParams()
+	Dim n As Integer
+	If postMaterial = Null Then Exit Sub
+	If roomId <> 13 Then
+		Shader.Param postMaterial, "laser_count", 0
+		Exit Sub
+	End If
+	n = laserCount
+	If n > 4 Then n = 4
+	Shader.Param postMaterial, "laser_count", n
+	If n > 0 Then
+		Shader.Param postMaterial, "laser0", Color(laserX(0) / GAME_W, laserY(0) / GAME_H, laserW(0) / GAME_W, laserH(0) / GAME_H)
+		Shader.Param postMaterial, "lgap0", Color(gapX(0) / GAME_W, gapY(0) / GAME_H, gapW(0) / GAME_W, gapH(0) / GAME_H)
+	End If
+	If n > 1 Then
+		Shader.Param postMaterial, "laser1", Color(laserX(1) / GAME_W, laserY(1) / GAME_H, laserW(1) / GAME_W, laserH(1) / GAME_H)
+		Shader.Param postMaterial, "lgap1", Color(gapX(1) / GAME_W, gapY(1) / GAME_H, gapW(1) / GAME_W, gapH(1) / GAME_H)
+	End If
+	If n > 2 Then
+		Shader.Param postMaterial, "laser2", Color(laserX(2) / GAME_W, laserY(2) / GAME_H, laserW(2) / GAME_W, laserH(2) / GAME_H)
+		Shader.Param postMaterial, "lgap2", Color(gapX(2) / GAME_W, gapY(2) / GAME_H, gapW(2) / GAME_W, gapH(2) / GAME_H)
+	End If
+	If n > 3 Then
+		Shader.Param postMaterial, "laser3", Color(laserX(3) / GAME_W, laserY(3) / GAME_H, laserW(3) / GAME_W, laserH(3) / GAME_H)
+		Shader.Param postMaterial, "lgap3", Color(gapX(3) / GAME_W, gapY(3) / GAME_H, gapW(3) / GAME_W, gapH(3) / GAME_H)
+	End If
+End Sub
+
+' Handler: TowNearPod — true if pod is inside radius of the ring
+Function TowNearPod(reach As Single) As Boolean
+	Dim dx As Single
+	Dim dy As Single
+	dx = podX - ringX
+	dy = podY - ringY
+	TowNearPod = (dx * dx + dy * dy) <= reach * reach
+End Function
+
+' Handler: DrawTowRope — 10-segment line from dart tail to clasp; sag when slack
+Sub DrawTowRope()
+	Dim rad As Single
+	Dim tx As Single
+	Dim ty As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dist As Single
+	Dim slack As Single
+	Dim sagAmt As Single
+	Dim prevX As Single
+	Dim prevY As Single
+	Dim x As Single
+	Dim y As Single
+	Dim t As Single
+	Dim i As Integer
+	Dim rope As Variant
+	If canvasWorld = Null Then Exit Sub
+	rad = Deg2Rad(podAngle)
+	tx = podX - Cos(rad) * 14
+	ty = podY - Sin(rad) * 14
+	dx = ringX - tx
+	dy = ringY - ty
+	dist = Sqr(dx * dx + dy * dy)
+	If dist < 1 Then dist = 1
+	slack = TOW_LEN + 12 - dist
+	If slack < 0 Then slack = 0
+	sagAmt = slack * 0.85
+	If sagAmt > 56 Then sagAmt = 56
+	If slack > 4 Then
+		rope = Lit(0.85, 0.78, 0.35, 0.8)
+	Else
+		rope = Lit(1.0, 0.82, 0.28, 0.95)
+	End If
+	prevX = tx
+	prevY = ty
+	For i = 1 To 10
+		t = i * 0.1
+		x = tx + dx * t
+		y = ty + dy * t + t * (1.0 - t) * 4.0 * sagAmt
+		Call canvasWorld.DrawLine(Vector2(prevX, prevY), Vector2(x, y), 2.2, rope)
+		prevX = x
+		prevY = y
+	Next i
+	Call canvasWorld.DrawCircle(Vector2(tx, ty), 2.4, rope, True, rope)
+	Call canvasWorld.DrawCircle(Vector2(ringX, ringY), 3.2, Lit(1.0, 0.85, 0.35, 0.95), True, Lit(1.0, 0.85, 0.35, 0.95))
+End Sub
+
+' Handler: DrawTowWorld — ring, bar, pad, laser gaps (shader paints the beams)
+Sub DrawTowWorld()
+	Dim i As Integer
+	Dim col As Variant
+	Dim pad As Variant
+	If canvasWorld = Null Then Exit Sub
+	If roomId = 12 Then
+		pad = Lit(GLOW_R, GLOW_G, GLOW_B, 0.22)
+		If towParked Then pad = Lit(GLOW_R, GLOW_G, GLOW_B, 0.45)
+		Call canvasWorld.DrawCircle(Vector2(TowPadX(), TowPadY()), TOW_PAD_R, pad, True, pad)
+		Call canvasWorld.DrawArc(Vector2(TowPadX(), TowPadY()), TOW_PAD_R - 4, 0, 6.28318, 20, 1.6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7), False, Color(0, 0, 0, 0))
+		If ringLive Then
+			If towHooked Then
+				Call DrawTowRope()
+			End If
+			col = Lit(0.95, 0.92, 0.55, 0.98)
+			Call canvasWorld.DrawCircle(Vector2(ringX, ringY), RING_R, Lit(0.22, 0.28, 0.18, 0.45), True, Lit(0.22, 0.28, 0.18, 0.45))
+			Call canvasWorld.DrawArc(Vector2(ringX, ringY), RING_R - 1, 0, 6.28318, 24, 3.2, col, False, Color(0, 0, 0, 0))
+			Call canvasWorld.DrawArc(Vector2(ringX, ringY), RING_R - 7, 0, 6.28318, 18, 2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7), False, Color(0, 0, 0, 0))
+			If Not towHooked And Not towParked Then
+				If TowNearPod(TOW_F_R) Then
+					Call canvasWorld.DrawText(Vector2(ringX - 36, ringY - 36), "F — hook", Lit(0.95, 0.92, 0.55, 0.95))
+				End If
+			End If
+		End If
+	End If
+	If roomId = 13 Then
+		For i = 0 To laserCount - 1
+			Call DrawLaserBeam(i)
+		Next i
+	End If
+End Sub
+
+' Handler: DrawLaserEmitter — wall box that fires / receives a beam
+Sub DrawLaserEmitter(ex As Single, cy As Single)
+	Dim housing As Variant
+	Dim core As Variant
+	Dim lens As Variant
+	housing = Lit(0.18, 0.12, 0.14, 1.0)
+	core = Lit(0.08, 0.06, 0.07, 1.0)
+	lens = Color(1.0, 0.22, 0.28, 0.95)
+	Call canvasWorld.DrawRect(Rect2(ex, cy - LASER_EMIT_H * 0.5, LASER_EMIT_W, LASER_EMIT_H), 0, housing, True, housing)
+	Call canvasWorld.DrawRect(Rect2(ex + 3, cy - 7, LASER_EMIT_W - 6, 14), 0, core, True, core)
+	Call canvasWorld.DrawCircle(Vector2(ex + LASER_EMIT_W * 0.5, cy), 4.5, lens, True, lens)
+	Call canvasWorld.DrawCircle(Vector2(ex + LASER_EMIT_W * 0.5, cy), 2.2, Color(1.0, 0.75, 0.55, 0.9), True, Color(1.0, 0.75, 0.55, 0.9))
+End Sub
+
+' Handler: DrawLaserBeam — thin red fence, green window, emitters on both walls
+Sub DrawLaserBeam(i As Integer)
+	Dim beam As Variant
+	Dim gapFill As Variant
+	Dim gapEdge As Variant
+	Dim leftW As Single
+	Dim rightX As Single
+	Dim rightW As Single
+	Dim cy As Single
+	beam = Color(1.0, 0.16, 0.22, 0.92)
+	gapFill = Color(0.12, 0.95, 0.42, 0.38)
+	gapEdge = Color(0.25, 1.0, 0.55, 0.95)
+	leftW = gapX(i) - laserX(i)
+	If leftW > 0 Then
+		Call canvasWorld.DrawRect(Rect2(laserX(i), laserY(i), leftW, laserH(i)), 0, beam, True, beam)
+	End If
+	rightX = gapX(i) + gapW(i)
+	rightW = laserX(i) + laserW(i) - rightX
+	If rightW > 0 Then
+		Call canvasWorld.DrawRect(Rect2(rightX, laserY(i), rightW, laserH(i)), 0, beam, True, beam)
+	End If
+	Call canvasWorld.DrawRect(Rect2(gapX(i), gapY(i), gapW(i), gapH(i)), 0, gapFill, True, gapFill)
+	Call canvasWorld.DrawRect(Rect2(gapX(i), gapY(i), gapW(i), gapH(i)), 1.6, gapEdge, False, Color(0, 0, 0, 0))
+	Call canvasWorld.DrawLine(Vector2(gapX(i) + 4, gapY(i) + gapH(i) * 0.5), Vector2(gapX(i) + gapW(i) - 4, gapY(i) + gapH(i) * 0.5), 1.2, gapEdge)
+	cy = laserY(i) + laserH(i) * 0.5
+	Call DrawLaserEmitter(laserX(i) - LASER_EMIT_W, cy)
+	Call DrawLaserEmitter(laserX(i) + laserW(i), cy)
+End Sub

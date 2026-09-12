@@ -16,7 +16,8 @@ Sub InitGravenVector()
 	useVectorArt = True
 	If canvasCave = Null Then
 		Set canvasCave = CreateNode("VGVectorCanvas2D")
-		canvasCave.ZIndex = -1
+		canvasCave.ZIndex = - 1
+		Call canvasCave.SetBatchMode(True)
 	End If
 	If canvasWorld = Null Then
 		Set canvasWorld = CreateNode("VGVectorCanvas2D")
@@ -32,7 +33,7 @@ Sub InitGravenVector()
 		AddChild(canvasWorld)
 	End If
 	If Not canvasHud.IsInsideTree() Then
-		If GetNode("HUD") <> Null Then
+		If GetNode("HUD") < > Null Then
 			GetNode("HUD").AddChild(canvasHud)
 		Else
 			AddChild(canvasHud)
@@ -118,7 +119,8 @@ Sub DrawVectorBlock(canvas As Variant, raw As Variant, ox As Single, oy As Singl
 	i = 3
 	Do While i < = UBound(raw)
 		typ = UCase(Str(raw(i)))
-		If typ = "LINE" Then
+		Select Case typ
+			Case "LINE"
 			If i + 9 > UBound(raw) Then Exit Do
 			x1 = CSng(raw(i + 1))
 			y1 = CSng(raw(i + 2))
@@ -136,7 +138,7 @@ Sub DrawVectorBlock(canvas As Variant, raw As Variant, ox As Single, oy As Singl
 			wy2 = VTransformY(x2, y2, ox, oy, angleDeg, scale)
 			Call canvas.DrawLine(Vector2(wx1, wy1), Vector2(wx2, wy2), sw, col)
 			i = i + 10
-		ElseIf typ = "RECT" Then
+			Case "RECT"
 			If i + 9 > UBound(raw) Then Exit Do
 			x1 = CSng(raw(i + 1))
 			y1 = CSng(raw(i + 2))
@@ -170,7 +172,7 @@ Sub DrawVectorBlock(canvas As Variant, raw As Variant, ox As Single, oy As Singl
 				End If
 			End If
 			i = i + 10
-		ElseIf typ = "POLYLINE" Then
+			Case "POLYLINE"
 			If i + 1 > UBound(raw) Then Exit Do
 			n = Int(raw(i + 1))
 			ti = i + 2
@@ -190,123 +192,278 @@ Sub DrawVectorBlock(canvas As Variant, raw As Variant, ox As Single, oy As Singl
 			col = VectorColor(r, g, b, a, amb)
 			Call canvas.DrawPolyline(pts, sw, col, False, Color(0, 0, 0, 0), False)
 			i = ti + 5
-		Else
+			Case Else
 			i = i + 1
-		End If
+		End Select
 	Loop
 End Sub
 
-' Handler: DrawVectorCaveTiles — fill # cells; stroke only faces that touch air
+' Handler: DrawVectorCaveTiles — merge solid runs into long rects (not 1 command/tile)
 Sub DrawVectorCaveTiles()
 	Dim tx As Integer
 	Dim ty As Integer
+	Dim tx1 As Integer
 	Dim px As Single
 	Dim py As Single
+	Dim rw As Single
 	Dim stone As Variant
-	Dim hi As Variant
-	Dim lo As Variant
 	If Not useVectorArt Then Exit Sub
 	If canvasCave = Null Then Exit Sub
-	stone = Lit(0.30, 0.40, 0.52, 1.0)
-	hi = Lit(0.48, 0.62, 0.76, 0.85)
-	lo = Lit(0.10, 0.16, 0.22, 0.90)
+	stone = GetRoomStone()
 	For ty = 0 To ROWS - 1
-		For tx = 0 To COLS - 1
-			If IsSolidTile(tx, ty) Then
+		tx = 0
+		While tx < COLS
+			If tileChar(tx, ty) < > "#" Then
+				tx = tx + 1
+			Else
+				tx1 = tx
+				While tx1 + 1 < COLS
+					If tileChar(tx1 + 1, ty) < > "#" Then Exit While
+					tx1 = tx1 + 1
+				Wend
 				px = tx * TILE
 				py = ty * TILE
-				Call canvasCave.DrawRect(Rect2(px, py, TILE, TILE), 0, stone, True, stone)
-				If Not IsSolidTile(tx, ty - 1) Then
-					Call canvasCave.DrawLine(Vector2(px, py + 1), Vector2(px + TILE, py + 1), 1.5, hi)
-				End If
-				If Not IsSolidTile(tx - 1, ty) Then
-					Call canvasCave.DrawLine(Vector2(px + 1, py), Vector2(px + 1, py + TILE), 1.5, hi)
-				End If
-				If Not IsSolidTile(tx + 1, ty) Then
-					Call canvasCave.DrawLine(Vector2(px + TILE - 1, py), Vector2(px + TILE - 1, py + TILE), 1.5, lo)
-				End If
-				If Not IsSolidTile(tx, ty + 1) Then
-					Call canvasCave.DrawLine(Vector2(px, py + TILE - 1), Vector2(px + TILE, py + TILE - 1), 1.5, lo)
-				End If
+				rw = (tx1 - tx + 1) * TILE
+				Call canvasCave.DrawRect(Rect2(px, py, rw, TILE), 0, stone, True, stone)
+				tx = tx1 + 1
 			End If
-		Next tx
+		Wend
 	Next ty
 End Sub
 
-' Handler: DrawVectorExitMarkers — doorway glow on each E tile (not a 32px stamp)
+' Handler: DrawVectorExitMarkers — small door frame; water shader sells the mouth
 Sub DrawVectorExitMarkers()
-	Dim tx As Integer
-	Dim ty As Integer
+	Dim i As Integer
 	Dim px As Single
 	Dim py As Single
 	If Not useVectorArt Then Exit Sub
 	If canvasCave = Null Then Exit Sub
-	For ty = 0 To ROWS - 1
-		For tx = 0 To COLS - 1
-			If IsExitTile(tx, ty) Then
-				px = tx * TILE
-				py = ty * TILE
-				Call canvasCave.DrawRect(Rect2(px - 10, py - 36, TILE + 20, TILE + 40), 0, Lit(0.15, 0.55, 0.85, 0.22), True, Lit(0.15, 0.55, 0.85, 0.22))
-				Call canvasCave.DrawRect(Rect2(px - 2, py - 28, TILE + 4, TILE + 28), 2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.95), False, Color(0, 0, 0, 0))
-				Call canvasCave.DrawText(Vector2(px + 2, py - 8), "EXIT", Lit(1.0, 1.0, 1.0, 1.0))
-			End If
-		Next tx
-	Next ty
+	For i = 0 To exitCount - 1
+		px = exitTX(i) * TILE
+		py = exitTY(i) * TILE
+		Call canvasCave.DrawRect(Rect2(px + 4, py + 4, TILE - 8, TILE - 8), 1.5, Color(GLOW_R, GLOW_G, GLOW_B, 0.85), False, Color(0, 0, 0, 0))
+	Next i
 End Sub
 
-' Handler: DrawVectorPod — filled capsule (same silhouette as greybox DrawPodCapsule)
+' Handler: DrawVectorPod — Fleuch-style dart: nose, swept fins, cockpit, rear hook
 Sub DrawVectorPod()
 	Dim rad As Single
 	Dim fx As Single
 	Dim fy As Single
-	Dim stone As Variant
+	Dim px As Single
+	Dim py As Single
+	Dim hull As Variant
+	Dim edge As Variant
 	Dim glow As Variant
+	Dim pts() As Vector2
 	If Not useVectorArt Then Exit Sub
 	If gameWon Then Exit Sub
 	rad = Deg2Rad(podAngle)
 	fx = Cos(rad)
 	fy = Sin(rad)
-	stone = Lit(0.22, 0.32, 0.42, 1.0)
+	px = - fy
+	py = fx
+	hull = Lit(0.16, 0.26, 0.36, 1.0)
+	edge = Lit(GLOW_R, GLOW_G, GLOW_B, 0.95)
 	glow = Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
-	Call canvasWorld.DrawCircle(Vector2(podX - fx * 8, podY - fy * 8), POD_R - 3, stone, True, stone)
-	Call canvasWorld.DrawCircle(Vector2(podX + fx * 4, podY + fy * 4), POD_R - 1, stone, True, stone)
-	Call canvasWorld.DrawCircle(Vector2(podX + fx * 10, podY + fy * 10), POD_R - 5, glow, True, glow)
-	Call canvasWorld.DrawLine(Vector2(podX - fx * 14, podY - fy * 14), Vector2(podX - fx * 22, podY - fy * 22), 2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+	ReDim pts(4)
+	pts(0) = Vector2(podX + fx * 14, podY + fy * 14)
+	pts(1) = Vector2(podX + px * 11 - fx * 3, podY + py * 11 - fy * 3)
+	pts(2) = Vector2(podX - fx * 10 + px * 3.5, podY - fy * 10 + py * 3.5)
+	pts(3) = Vector2(podX - fx * 10 - px * 3.5, podY - fy * 10 - py * 3.5)
+	pts(4) = Vector2(podX - px * 11 - fx * 3, podY - py * 11 - fy * 3)
+	Call canvasWorld.DrawPolygon(pts, 0, hull, True, hull)
+	Call canvasWorld.DrawPolyline(pts, 1.5, edge, False, Color(0, 0, 0, 0), True)
+	Call canvasWorld.DrawCircle(Vector2(podX + fx * 5, podY + fy * 5), 3.2, glow, True, glow)
+	Call canvasWorld.DrawLine(Vector2(podX + px * 11 - fx * 3, podY + py * 11 - fy * 3), Vector2(podX - fx * 8, podY - fy * 8), 1.4, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+	Call canvasWorld.DrawLine(Vector2(podX - px * 11 - fx * 3, podY - py * 11 - fy * 3), Vector2(podX - fx * 8, podY - fy * 8), 1.4, Lit(GLOW_R, GLOW_G, GLOW_B, 0.55))
+	Call canvasWorld.DrawCircle(Vector2(podX - fx * 11, podY - fy * 11), 2.4, Lit(1.0, 0.5, 0.18, 0.85), True, Lit(1.0, 0.5, 0.18, 0.85))
+	Call canvasWorld.DrawLine(Vector2(podX - fx * 12, podY - fy * 12), Vector2(podX - fx * 18, podY - fy * 18), 1.6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.4))
 End Sub
 
-' Handler: DrawVectorSkiff — skiff goal art in Room 8
+' Handler: DrawVectorSkiff — skiff goal art in Room 8 (dim until hub sockets balance)
 Sub DrawVectorSkiff()
 	If Not useVectorArt Then Exit Sub
 	If roomId < > 8 Then Exit Sub
-	Call canvasWorld.DrawCircle(Vector2(SKIFF_X, SKIFF_Y), SKIFF_R + 8, Lit(0.91, 0.96, 1, 0.12))
-	Call DrawVectorBlock(canvasWorld, skiffVectorRaw, SKIFF_X - 36, SKIFF_Y - 14, 0, 1)
+	If HubBalanced() Then
+		Call canvasWorld.DrawCircle(Vector2(SKIFF_X, SKIFF_Y), SKIFF_R + 8, Lit(0.91, 0.96, 1, 0.22))
+		Call DrawVectorBlock(canvasWorld, skiffVectorRaw, SKIFF_X - 36, SKIFF_Y - 14, 0, 1)
+	Else
+		Call canvasWorld.DrawCircle(Vector2(SKIFF_X, SKIFF_Y), SKIFF_R + 6, Lit(0.4, 0.45, 0.55, 0.2), True, Lit(0.4, 0.45, 0.55, 0.2))
+	End If
 End Sub
 
-' Handler: RebuildVectorCave — stamp walls/exits once (Thrust/storm: do not rebuild static art per frame)
+' Handler: DrawVectorSpikes — sonar-only teeth from the room spike cache
+Sub DrawVectorSpikes()
+	Dim i As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim k As Integer
+	Dim x0 As Single
+	Dim fill As Variant
+	Dim pts() As Vector2
+	Dim pulseOn As Boolean
+	Dim revealR As Single
+	Dim cx As Single
+	Dim cy As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim fade As Single
+	If spikeCount < = 0 Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	pulseOn = IsPulseActive()
+	If Not pulseOn And Not devLightsOn Then Exit Sub
+	fade = 1.0
+	If pulseOn Then
+		If pulseTimer < 0.45 Then
+			fade = pulseTimer / 0.45
+			If fade < 0 Then fade = 0
+		End If
+		revealR = 48 + GetPulsePhase() * 420
+	Else
+		revealR = 9999
+	End If
+	fill = Color(HAZARD_R, HAZARD_G, HAZARD_B, fade)
+	ReDim pts(2)
+	For i = 0 To spikeCount - 1
+		px = spikeTX(i) * TILE
+		py = spikeTY(i) * TILE
+		cx = px + TILE * 0.5
+		cy = py + TILE * 0.5
+		dx = cx - podX
+		dy = cy - podY
+		If dx * dx + dy * dy < = revealR * revealR Then
+			For k = 0 To 1
+				x0 = px + k * 16
+				pts(0) = Vector2(x0 + 1, py + TILE - 1)
+				pts(1) = Vector2(x0 + 8, py + 4)
+				pts(2) = Vector2(x0 + 15, py + TILE - 1)
+				Call canvasWorld.DrawPolygon(pts, 0, fill, True, fill)
+			Next k
+		End If
+	Next i
+End Sub
+
+' Handler: DrawVectorPulse — two expanding rings on the cheap per-frame canvas
+Sub DrawVectorPulse()
+	Dim phase As Single
+	Dim ringR As Single
+	Dim alpha As Single
+	Dim col As Variant
+	If canvasWorld = Null Then Exit Sub
+	If Not IsPulseActive() Then Exit Sub
+	phase = GetPulsePhase()
+	ringR = 48 + phase * 380
+	alpha = 0.9 * (1.0 - phase * 0.7)
+	If alpha < 0.08 Then Exit Sub
+	col = Color(GLOW_R, GLOW_G, GLOW_B, alpha)
+	Call canvasWorld.DrawArc(Vector2(podX, podY), ringR, 0, 6.28318, 28, 2.5, col, False, Color(0, 0, 0, 0))
+	If phase > 0.18 Then
+		Call canvasWorld.DrawArc(Vector2(podX, podY), ringR * 0.52, 0, 6.28318, 24, 2, Color(GLOW_R, GLOW_G, GLOW_B, alpha * 0.45), False, Color(0, 0, 0, 0))
+	End If
+End Sub
+
+' Handler: DrawVectorGates — sealed energy door, or open frame (world layer, not cave)
+Sub DrawVectorGates()
+	Dim i As Integer
+	Dim minTX As Integer
+	Dim minTY As Integer
+	Dim maxTX As Integer
+	Dim maxTY As Integer
+	Dim x As Single
+	Dim y As Single
+	Dim w As Single
+	Dim h As Single
+	Dim slab As Variant
+	Dim bar As Variant
+	Dim frame As Variant
+	Dim mouth As Variant
+	If gateCount < = 0 Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	minTX = gateTX(0)
+	minTY = gateTY(0)
+	maxTX = minTX
+	maxTY = minTY
+	For i = 1 To gateCount - 1
+		If gateTX(i) < minTX Then minTX = gateTX(i)
+		If gateTY(i) < minTY Then minTY = gateTY(i)
+		If gateTX(i) > maxTX Then maxTX = gateTX(i)
+		If gateTY(i) > maxTY Then maxTY = gateTY(i)
+	Next i
+	x = minTX * TILE
+	y = minTY * TILE
+	w = (maxTX - minTX + 1) * TILE
+	h = (maxTY - minTY + 1) * TILE
+	If ChallengeOpen() Then
+		frame = Color(GLOW_R, GLOW_G, GLOW_B, 0.95)
+		mouth = Color(GLOW_R, GLOW_G, GLOW_B, 0.18)
+		Call canvasWorld.DrawRect(Rect2(x + 3, y + 3, w - 6, h - 6), 0, mouth, True, mouth)
+		Call canvasWorld.DrawRect(Rect2(x + 2, y + 2, w - 4, h - 4), 2.2, frame, False, Color(0, 0, 0, 0))
+	Else
+		slab = Color(0.08, 0.12, 0.16, 0.96)
+		bar = Color(GLOW_R, GLOW_G, GLOW_B, 0.55)
+		Call canvasWorld.DrawRect(Rect2(x, y, w, h), 0, slab, True, slab)
+		Call canvasWorld.DrawRect(Rect2(x + 3, y + 3, w - 6, h - 6), 1.6, Color(0.91, 0.96, 1.0, 0.35), False, Color(0, 0, 0, 0))
+		Call canvasWorld.DrawLine(Vector2(x + w * 0.32, y + 6), Vector2(x + w * 0.32, y + h - 6), 2, bar)
+		Call canvasWorld.DrawLine(Vector2(x + w * 0.5, y + 6), Vector2(x + w * 0.5, y + h - 6), 2, bar)
+		Call canvasWorld.DrawLine(Vector2(x + w * 0.68, y + 6), Vector2(x + w * 0.68, y + h - 6), 2, bar)
+	End If
+End Sub
+
+' Handler: DrawVectorOrbit — R6 band rings on the per-frame world canvas
+Sub DrawVectorOrbit()
+	Dim mx As Single
+	Dim my As Single
+	Dim pct As Single
+	Dim band As Variant
+	Dim faint As Variant
+	If roomId < > 6 Then Exit Sub
+	If orbitComplete Then Exit Sub
+	If canvasWorld = Null Then Exit Sub
+	mx = massX(0)
+	my = massY(0)
+	pct = orbitAngle / ORBIT_DEG_NEED
+	If pct > 1 Then pct = 1
+	faint = Lit(GLOW_R, GLOW_G, GLOW_B, 0.12)
+	band = Lit(GLOW_R, GLOW_G, GLOW_B, 0.45)
+	Call canvasWorld.DrawArc(Vector2(mx, my), ORBIT_R_MIN, 0, 6.28318, 28, 1.2, faint, False, Color(0, 0, 0, 0))
+	Call canvasWorld.DrawArc(Vector2(mx, my), ORBIT_R_MAX, 0, 6.28318, 32, 1.2, Lit(GLOW_R, GLOW_G, GLOW_B, 0.08), False, Color(0, 0, 0, 0))
+	If orbitInBand Then
+		Call canvasWorld.DrawArc(Vector2(mx, my), (ORBIT_R_MIN + ORBIT_R_MAX) * 0.5, 0, pct * 6.28318, 24, 2, band, False, Color(0, 0, 0, 0))
+	End If
+End Sub
+
+' Handler: RebuildVectorCave — stamp walls/exits once (spikes live on world + pulse)
 Sub RebuildVectorCave()
 	If Not useVectorArt Then Exit Sub
 	If canvasCave = Null Then Exit Sub
 	Call canvasCave.Clear()
-	Call canvasCave.DrawRect(Rect2(0, 0, GAME_W, GAME_H), 0, Color(0, 0, 0, 0), True, Lit(VOID_R, VOID_G, VOID_B, 1.0))
+	Call canvasCave.DrawRect(Rect2(0, 0, GAME_W, GAME_H), 0, Color(0, 0, 0, 0), True, GetRoomVoid())
 	Call DrawVectorCaveTiles()
 	Call DrawVectorExitMarkers()
 End Sub
 
-' Handler: DrawVectorWorld — pod/masses only; cave stays on canvasCave
+' Handler: DrawVectorWorld — pod/masses/pulse only; cave stays on canvasCave
 Sub DrawVectorWorld()
-	Dim i As Integer
-	Dim mx As Single
-	Dim my As Single
 	If Not useVectorArt Then Exit Sub
 	If canvasWorld = Null Then Exit Sub
 	Call canvasWorld.Clear()
-	For i = 0 To massCount - 1
-		mx = massX(i)
-		my = massY(i)
-		Call canvasWorld.DrawCircle(Vector2(mx, my), 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35))
-	Next i
+	Call DrawSliceCBackdrop()
+	Call DrawSliceCWorld()
+	Call DrawLogMarkers()
 	Call DrawVectorSkiff()
+	Call DrawJuiceHeatZone()
+	Call DrawWellMotes()
+	Call DrawPhantomWell()
+	Call DrawExitMouths()
+	Call DrawJuiceBehind()
+	Call DrawRoomObjects()
+	Call DrawVectorGates()
+	Call DrawTowWorld()
 	Call DrawVectorPod()
+	Call DrawJuiceFront()
+	Call DrawVectorPulse()
+	Call DrawVectorOrbit()
 	Call DrawGravityHud()
 End Sub
 
@@ -336,6 +493,7 @@ Sub DrawGravityHud()
 	Call canvasHud.DrawCircle(Vector2(cx, cy), rr + 2, Color(0.08, 0.1, 0.14, 0.72), True, Color(0.08, 0.1, 0.14, 0.72))
 	Call canvasHud.DrawCircle(Vector2(cx, cy), rr, ring, False, Color(0, 0, 0, 0))
 	Call canvasHud.DrawText(Vector2(cx - 4, cy + rr + 14), "G", Color(1.0, 0.69, 0.125, 0.85))
+	Call DrawJuiceHud()
 	If nlen < 0.01 Then Exit Sub
 	mag = nlen / G_MAX
 	If mag > 1 Then mag = 1
@@ -352,26 +510,25 @@ End Sub
 CaveTileVector:
 Data 32, 32, 4
 Data RECT, 0, 0, 32, 32, 76, 102, 133, 255, 0
-Data LINE, 1, 1, 31, 1, 122, 158, 194, 220, 1.5
-Data LINE, 1, 1, 1, 31, 122, 158, 194, 220, 1.5
-Data LINE, 31, 1, 31, 31, 26, 41, 56, 230, 1.5
-Data LINE, 1, 31, 31, 31, 26, 41, 56, 230, 1.5
+Data Line, 1, 1, 31, 1, 122, 158, 194, 220, 1.5
+Data Line, 1, 1, 1, 31, 122, 158, 194, 220, 1.5
+Data Line, 31, 1, 31, 31, 26, 41, 56, 230, 1.5
+Data Line, 1, 31, 31, 31, 26, 41, 56, 230, 1.5
 
 PodCapsuleVector:
 Data 48, 28, 2
-Data RECT, 8, 8, 32, 20, 56, 82, 107, 255, 0
-Data RECT, 26, 8, 42, 20, 56, 82, 107, 255, 0
-Data RECT, 30, 10, 40, 18, 61, 204, 255, 255, 0
-Data LINE, 2, 14, 10, 14, 61, 204, 255, 160, 2
+Data POLYLINE, 5, 22, 0, 8, 12, - 12, 5, - 12, - 5, 8, - 12, 61, 204, 255, 230, 1.8
+Data RECT, 16, - 4, 26, 4, 61, 204, 255, 255, 0
+Data Line, - 12, 0, - 20, 0, 255, 128, 46, 200, 2
 
 ExitMarkerVector:
-Data 32, 48, 4
-Data RECT, 4, 4, 28, 44, 38, 140, 217, 70, 0
-Data RECT, 8, 8, 24, 40, 61, 204, 255, 0, 2
+Data 32, 32, 4
+Data RECT, 8, 8, 24, 24, 38, 140, 217, 90, 0
+Data RECT, 10, 10, 22, 22, 61, 204, 255, 0, 1.5
 
 SkiffVector:
 Data 72, 28, 2
 Data RECT, 0, 10, 72, 26, 232, 245, 255, 191, 0
 Data RECT, 18, 4, 54, 16, 61, 204, 255, 140, 0
-Data LINE, 58, 14, 68, 14, 61, 204, 255, 230, 2
+Data Line, 58, 14, 68, 14, 61, 204, 255, 230, 2
 Data POLYLINE, 3, 68, 14, 72, 12, 72, 16, 61, 204, 255, 200, 1.5

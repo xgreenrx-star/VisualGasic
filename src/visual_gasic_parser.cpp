@@ -4799,10 +4799,32 @@ ReadStatement* VisualGasicParser::parse_read() {
 RestoreStatement* VisualGasicParser::parse_restore() {
     advance(); // Eat Restore
     RestoreStatement* stmt = static_cast<RestoreStatement*>(register_node(new RestoreStatement()));
-    
+
+    // Restore                        → reset tape to start
+    // Restore R12Map                 → VB6 Data label (bare identifier; not a variable lookup)
+    // Restore "R" + CStr(id) + "Map" → evaluated string (missing label is a runtime error)
+    // If both label1: and Dim label1 exist, Restore label1 uses the label only.
+    if (check(VisualGasicTokenizer::TOKEN_NEWLINE) ||
+        check(VisualGasicTokenizer::TOKEN_EOF) ||
+        check(VisualGasicTokenizer::TOKEN_COLON) ||
+        check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+        return stmt;
+    }
+
     if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
-        stmt->label_name = peek().value;
-        advance();
+        VisualGasicTokenizer::TokenType next_type = peek(1).type;
+        if (next_type != VisualGasicTokenizer::TOKEN_OPERATOR &&
+            next_type != VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+            stmt->label_name = peek().value;
+            advance();
+            return stmt;
+        }
+    }
+
+    ExpressionNode* expr = parse_expression();
+    if (expr) {
+        stmt->label_expr = expr;
+        unregister_node(expr);
     }
     return stmt;
 }

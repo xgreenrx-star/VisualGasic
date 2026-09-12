@@ -2,7 +2,11 @@
 ' Kenney refs when downloaded: 1-Bit Pack OR Abstract Platformer OR Pattern Pack (# tiles);
 '   Space Shooter Redux playerShip1_blue.png (Sprite2D, rotate with podAngle)
 ' Modules: GravenPulse.vg (sonar/shader), GravenRooms.vg (maps/transitions),
-'   GravenObjects.vg (crate, orbit, heat, skiff, end card), GravenDev.vg (dev terminal)
+'   GravenObjects.vg (crate, orbit, heat, skiff, end card), GravenDev.vg (dev terminal),
+'   GravenVector.vg (canvases), GravenJuice.vg (plume/trail/scrape/title/tones),
+'   GravenSliceC.vg (seeds/sockets/phase), GravenTow.vg (tow ring + laser sluice),
+'   GravenOpen.vg (open world, black holes, challenge rooms, logs),
+'   GravenOpen.vg (open world, black holes, challenge rooms, logs)
 
 Option Explicit
 
@@ -19,10 +23,11 @@ Const DRAG As Single = 0.92
 Const DRAG_COAST As Single = 0.99
 Const DRAG_PER_SEC As Single = 0.18
 Const ROT_SPEED As Single = 160
-Const PHYS_DT_MAX As Single = 0.05
-Const G_SCALE As Single = 420000
+Const PHYS_DT_MAX As Single = 0.0333333
+Const PHYS_SUBSTEPS As Integer = 2
+Const G_SCALE As Single = 500000
 Const G_MIN_DIST As Single = 40
-Const G_MAX As Single = 1200
+Const G_MAX As Single = 1400
 Const POD_R As Single = 12
 Const CRATE_R As Single = 14
 Const CRATE_VMAX As Single = 180
@@ -32,8 +37,9 @@ Const CRATE_DRAG As Single = 0.88
 Const HEAT_MAX As Single = 100
 Const HEAT_IDLE As Single = 1.5
 Const HEAT_THRUST As Single = 8
-Const HEAT_THRUST_R7 As Single = 12
-Const HEAT_ZONE_MUL As Single = 1.8
+Const HEAT_THRUST_R7 As Single = 8
+Const HEAT_ZONE_MUL As Single = 1.55
+Const HEAT_RECHARGE As Single = 16
 Const HEAT_ZONE_TX0 As Integer = 10
 Const HEAT_ZONE_TX1 As Integer = 30
 
@@ -82,11 +88,32 @@ Dim devTermLog(39) As String
 ' Vector art toggle (GravenVector.vg sets True in InitGravenVector)
 Dim useVectorArt As Boolean
 
+' Door lock — set on LoadRoom so exit volumes cannot bounce the same frame
+Dim doorLock As Single
+
+' Tow / laser (GravenTow.vg) — declared here so Juice HUD can read them
+Dim towHooked As Boolean
+Dim ringLive As Boolean
+Dim towParked As Boolean
+
+' Show layer — exit wibble, room whoosh, well hymn, pulse echoes
+Dim exitProx As Single
+Dim warpFlash As Single
+Dim warpFromExit As Boolean
+Dim echoCount As Integer
+Dim echoTaken(17) As Boolean
+Dim hymnSfxCd As Single
+Dim exitSfxCd As Single
+
 Include "GravenPulse.vg"
 Include "GravenRooms.vg"
 Include "GravenObjects.vg"
 Include "GravenDev.vg"
 Include "GravenVector.vg"
+Include "GravenJuice.vg"
+Include "GravenSliceC.vg"
+Include "GravenTow.vg"
+Include "GravenOpen.vg"
 
 ' State — pod kinematics
 Dim podX As Single
@@ -140,9 +167,12 @@ Sub _Ready()
 	Call InitDevMenu()
 	Call InitPulseNodes()
 	Call InitGravenVector()
+	Call InitJuice()
+	Call InitSliceC()
+	Call InitOpenWorld()
 	Call LoadRoom(1)
 	QueueRedraw()
-	Print "GRAVEN — W thrust, hold Q/E to rotate, Space Pulse, F1 dev terminal, R7 heat, R8 skiff"
+	Print "GRAVEN — W thrust, Q/E rotate, Space Pulse, F interact (tone on hit/miss), F1 dev. Hub after heat."
 End Sub
 
 ' Handler: GravityAccel — inverse-square pull toward room mass nodes (pod)
@@ -150,8 +180,8 @@ Sub GravityAccel(px As Single, py As Single)
 	Call GravityAccelAt(px, py, gravAX, gravAY)
 End Sub
 
-' Handler: GravityAccelAt — shared gravity for pod and crate
-Sub GravityAccelAt(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
+' Handler: GravityWellPullAt — inverse-square wells only (no torus swirl)
+Sub GravityWellPullAt(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
 	Dim i As Integer
 	Dim dx As Single
 	Dim dy As Single
@@ -161,22 +191,51 @@ Sub GravityAccelAt(px As Single, py As Single, ByRef ax As Single, ByRef ay As S
 	Dim mx As Single
 	Dim my As Single
 	Dim ms As Single
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			If Not IsBlackHole(i) Then
+				mx = massX(i)
+				my = massY(i)
+				ms = massS(i)
+				dx = mx - px
+				dy = my - py
+				distSq = dx * dx + dy * dy
+				If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
+				dist = Sqr(distSq)
+				pull = G_SCALE * devGScaleMul * ms / distSq
+				If pull > G_MAX Then pull = G_MAX
+				ax = ax + (dx / dist) * pull
+				ay = ay + (dy / dist) * pull
+			End If
+		End If
+	Next i
+	If roomId = 5 Then
+		If IsPulseActive() Then
+			mx = 640
+			my = 168
+			ms = 2.15
+			dx = mx - px
+			dy = my - py
+			distSq = dx * dx + dy * dy
+			If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
+			dist = Sqr(distSq)
+			pull = G_SCALE * devGScaleMul * ms / distSq
+			If pull > G_MAX Then pull = G_MAX
+			ax = ax + (dx / dist) * pull
+			ay = ay + (dy / dist) * pull
+		End If
+	End If
+End Sub
+
+' Handler: GravityAccelAt — wells + torus + tow well + holes (pod / crate)
+Sub GravityAccelAt(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
 	ax = 0
 	ay = 0
-	For i = 0 To massCount - 1
-		mx = massX(i)
-		my = massY(i)
-		ms = massS(i)
-		dx = mx - px
-		dy = my - py
-		distSq = dx * dx + dy * dy
-		If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
-		dist = Sqr(distSq)
-		pull = G_SCALE * devGScaleMul * ms / distSq
-		If pull > G_MAX Then pull = G_MAX
-		ax = ax + (dx / dist) * pull
-		ay = ay + (dy / dist) * pull
-	Next i
+	Call GravityWellPullAt(px, py, ax, ay)
+	Call ApplySliceCGravity(px, py, ax, ay)
+	Call ApplyTorusDrag(px, py, ax, ay)
+	Call ApplyTowGravity(px, py, ax, ay)
+	Call ApplyBlackHoleGravity(px, py, ax, ay)
 End Sub
 
 ' Handler: CircleRectOverlap — circle vs axis-aligned rect; dist² not Sqr()
@@ -201,54 +260,35 @@ Function PodHitsSolid() As Boolean
 	PodHitsSolid = CircleHitsSolid(podX, podY, POD_R)
 End Function
 
-' Handler: DampPodVelocityIntoTiles — kill only the axis pressing into a wall
-Sub DampPodVelocityIntoTiles()
-	Dim tx As Integer
-	Dim ty As Integer
-	Dim tx0 As Integer
-	Dim ty0 As Integer
-	Dim tx1 As Integer
-	Dim ty1 As Integer
-	Dim px As Single
-	Dim py As Single
-	Dim cx As Single
-	Dim cy As Single
-	tx0 = Int((podX - POD_R) / TILE)
-	If tx0 < 0 Then tx0 = 0
-	ty0 = Int((podY - POD_R) / TILE)
-	If ty0 < 0 Then ty0 = 0
-	tx1 = Int((podX + POD_R) / TILE)
-	If tx1 >= COLS Then tx1 = COLS - 1
-	ty1 = Int((podY + POD_R) / TILE)
-	If ty1 >= ROWS Then ty1 = ROWS - 1
-	For ty = ty0 To ty1
-		For tx = tx0 To tx1
-			If IsSolidTile(tx, ty) Then
-				px = tx * TILE
-				py = ty * TILE
-				If CircleRectOverlap(podX, podY, POD_R + 0.75, px, py, TILE, TILE) Then
-					cx = px + TILE * 0.5
-					cy = py + TILE * 0.5
-					If podX < cx And podVX > 0 Then podVX = 0
-					If podX > cx And podVX < 0 Then podVX = 0
-					If podY < cy And podVY > 0 Then podVY = 0
-					If podY > cy And podVY < 0 Then podVY = 0
-				End If
-			End If
-		Next tx
-	Next ty
-End Sub
-
-' Handler: ResolvePodCollision — MTV slide (same solver as crate), not bounce-both-axes
+' Handler: ResolvePodCollision — MTV out, then drop only inward normal speed (keep slide)
 Sub ResolvePodCollision()
 	Dim ox As Single
 	Dim oy As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim nlen As Single
+	Dim nx As Single
+	Dim ny As Single
+	Dim vn As Single
+	Dim spd As Single
 	ox = podX
 	oy = podY
+	spd = Sqr(podVX * podVX + podVY * podVY)
 	Call SeparateBodyFromTiles(podX, podY, POD_R)
-	If Abs(podX - ox) > 0.001 Or Abs(podY - oy) > 0.001 Then
-		Call DampPodVelocityIntoTiles()
-		needRedraw = True
+	dx = podX - ox
+	dy = podY - oy
+	If Abs(dx) > 0.0001 Or Abs(dy) > 0.0001 Then
+		nlen = Sqr(dx * dx + dy * dy)
+		If nlen > 0.0001 Then
+			nx = dx / nlen
+			ny = dy / nlen
+			vn = podVX * nx + podVY * ny
+			If vn < 0 Then
+				podVX = podVX - vn * nx
+				podVY = podVY - vn * ny
+			End If
+		End If
+		Call JuiceOnScrape(podX, podY, spd)
 	End If
 End Sub
 
@@ -283,28 +323,24 @@ Sub DrawCaveTiles()
 	Next ty
 End Sub
 
-' Handler: DrawPodCapsule — greybox pod capsule along facing (#3dccff glow)
+' Handler: DrawPodCapsule — greybox dart (same silhouette as DrawVectorPod)
 Sub DrawPodCapsule()
 	Dim rad As Single
 	Dim fx As Single
 	Dim fy As Single
-	Dim bx As Single
-	Dim by As Single
-	Dim hullR As Single
-	Dim bodyLen As Single
+	Dim px As Single
+	Dim py As Single
 	rad = Deg2Rad(podAngle)
 	fx = Cos(rad)
 	fy = Sin(rad)
-	bodyLen = 14
-	bx = podX - fx * bodyLen * 0.5
-	by = podY - fy * bodyLen * 0.5
-	DrawRect bx - 4, by - 6, bodyLen + 8, 12, Lit(STONE_R, STONE_G, STONE_B, 1.0)
-	DrawRect bx, by - 4, bodyLen, 8, Lit(GLOW_R, GLOW_G, GLOW_B, 0.85)
-	hullR = POD_R
-	DrawCircle podX + fx * 10, podY + fy * 10, hullR - 2, Lit(STONE_R, STONE_G, STONE_B, 1.0)
-	DrawCircle podX + fx * 10, podY + fy * 10, hullR - 6, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
-	DrawCircle podX - fx * 8, podY - fy * 8, hullR - 4, Lit(STONE_R, STONE_G, STONE_B, 1.0)
-	DrawLine podX - fx * 14, podY - fy * 14, podX - fx * 20, podY - fy * 20, Lit(GLOW_R, GLOW_G, GLOW_B, 0.5)
+	px = -fy
+	py = fx
+	DrawCircle podX + fx * 12, podY + fy * 12, 4, Lit(GLOW_R, GLOW_G, GLOW_B, 1.0)
+	DrawCircle podX + fx * 4, podY + fy * 4, POD_R - 5, Lit(STONE_R, STONE_G, STONE_B, 1.0)
+	DrawCircle podX - fx * 8, podY - fy * 8, POD_R - 6, Lit(STONE_R, STONE_G, STONE_B, 1.0)
+	DrawLine podX + px * 10 - fx * 2, podY + py * 10 - fy * 2, podX - fx * 10, podY - fy * 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7)
+	DrawLine podX - px * 10 - fx * 2, podY - py * 10 - fy * 2, podX - fx * 10, podY - fy * 10, Lit(GLOW_R, GLOW_G, GLOW_B, 0.7)
+	DrawLine podX - fx * 12, podY - fy * 12, podX - fx * 20, podY - fy * 20, Lit(1.0, 0.55, 0.22, 0.7)
 End Sub
 
 ' Handler: DrawMassDebug — G key crosshairs on mass nodes (Prompt 2 debug)
@@ -335,30 +371,28 @@ Sub ProcessEndCardFrame(delta As Single)
 	End If
 End Sub
 
-' Handler: ProcessInputPhase — hold Q/E to spin; G shows mass debug
-Sub ProcessInputPhase(delta As Single)
-	Call ProcessDevInput()
+' Handler: ProcessLookPhase — hold Q/E to spin; G shows mass debug
+Sub ProcessLookPhase(delta As Single)
 	If DevBlocksGameplay() Then Exit Sub
 	showMassDebug = Input.IsKeyPressed(KEY_G)
 	If showMassDebug Then needRedraw = True
 	If Input.IsActionPressed("rotate_ccw") Then
 		podAngle = podAngle - ROT_SPEED * delta
-		needRedraw = True
 	End If
 	If Input.IsActionPressed("rotate_cw") Then
 		podAngle = podAngle + ROT_SPEED * delta
-		needRedraw = True
 	End If
 End Sub
 
 ' Handler: ProcessGravityPhase — Thrust-style: a*dt, v*dt, light viscous drag (not 0.92/frame)
-Sub ProcessGravityPhase(delta As Single, ByRef thrusting As Boolean, ByRef oldX As Single, ByRef oldY As Single)
+Sub ProcessGravityPhase(delta As Single, ByRef thrusting As Boolean)
 	Dim ax As Single
 	Dim ay As Single
 	Dim spd As Single
 	Dim rad As Single
 	Dim damp As Single
 	thrusting = Input.IsActionPressed("thrust")
+	podThrusting = thrusting
 	Call GravityAccel(podX, podY)
 	ax = gravAX
 	ay = gravAY
@@ -367,8 +401,6 @@ Sub ProcessGravityPhase(delta As Single, ByRef thrusting As Boolean, ByRef oldX 
 		ax = ax + Cos(rad) * THRUST * devThrustMul
 		ay = ay + Sin(rad) * THRUST * devThrustMul
 	End If
-	oldX = podX
-	oldY = podY
 	podVX = podVX + ax * delta
 	podVY = podVY + ay * delta
 	damp = 1.0 - DRAG_PER_SEC * delta
@@ -384,38 +416,62 @@ Sub ProcessGravityPhase(delta As Single, ByRef thrusting As Boolean, ByRef oldX 
 	podY = podY + podVY * delta
 End Sub
 
+' Handler: TryPlayerInteract — F once per press: success tone or fail tone
+Sub TryPlayerInteract()
+	If Not Input.IsActionJustPressed("interact") Then Exit Sub
+	If TryTerminalInteract() Then
+		Call JuiceOnInteractOk()
+		Exit Sub
+	End If
+	If TryLogInteract() Then
+		Call JuiceOnInteractOk()
+		Exit Sub
+	End If
+	If TryTowInteract() Then
+		Call JuiceOnInteractOk()
+		Exit Sub
+	End If
+	If TrySeedInteract() Then
+		Call JuiceOnInteractOk()
+		Exit Sub
+	End If
+	Call JuiceOnInteractFail()
+End Sub
+
 ' Handler: ProcessCollidePhase — collisions, objects, room transitions
 Sub ProcessCollidePhase(delta As Single, thrusting As Boolean)
 	Call ResolvePodCollision()
 	Call UpdateCrate(delta)
-	Call TryTerminalInteract()
 	Call UpdateTerminal(delta)
 	Call CheckSpikeDeath()
 	Call UpdateHeat(delta, thrusting)
 	Call UpdateOrbit(delta)
+	Call UpdateSliceC(delta)
+	Call UpdateTow(delta)
+	Call CheckBlackHoleDeath()
 	Call TryRoomTransition()
 	Call CheckSkiffWin()
 	Call CheckOutOfBoundsDeath()
 End Sub
 
-' Handler: FlushRedrawIfNeeded — queue _Draw only when visible state changed
-Sub FlushRedrawIfNeeded(oldX As Single, oldY As Single, thrusting As Boolean)
-	If Abs(podX - oldX) > 0.0001 Or Abs(podY - oldY) > 0.0001 Or thrusting Then
-		needRedraw = True
+' Handler: FlushRedrawIfNeeded — parent _Draw is HUD/props only; pod lives on canvasWorld
+Sub FlushRedrawIfNeeded()
+	If needRedraw Then
+		QueueRedraw()
+		needRedraw = False
 	End If
-	QueueRedraw()
-	needRedraw = False
 End Sub
 
 ' Handler: _Process — phased loop: Input, Gravity, Collide, Draw flag
 Sub _Process(delta As Single)
-	Dim oldX As Single
-	Dim oldY As Single
 	Dim thrusting As Boolean
 	Dim step As Single
+	Dim slice As Single
+	Dim i As Integer
 
-	step = delta
+	step = delta * GetDilateMul()
 	If step > PHYS_DT_MAX Then step = PHYS_DT_MAX
+	slice = step / PHYS_SUBSTEPS
 
 	If gameWon Then
 		Call ProcessEndCardFrame(delta)
@@ -425,8 +481,8 @@ Sub _Process(delta As Single)
 		Exit Sub
 	End If
 
-	' Input — rotate, dev terminal toggle
-	Call ProcessInputPhase(step)
+	' Input — dev terminal once per engine frame
+	Call ProcessDevInput()
 
 	If DevBlocksGameplay() Then
 		Call UpdatePostShader()
@@ -442,12 +498,15 @@ Sub _Process(delta As Single)
 	' Pulse — sonar tick (R5 dark pool)
 	Call TryStartPulse()
 	Call UpdatePulse(delta)
+	Call TryPlayerInteract()
 
-	' Gravity — thrust + inverse-square integration
-	Call ProcessGravityPhase(step, thrusting, oldX, oldY)
-
-	' Collide — tile bounce, crate, heat, orbit, exits
-	Call ProcessCollidePhase(step, thrusting)
+	' Gravity / collide — two half-steps so variable dt does not hitch
+	For i = 1 To PHYS_SUBSTEPS
+		Call ProcessLookPhase(slice)
+		Call ProcessGravityPhase(slice, thrusting)
+		Call ProcessCollidePhase(slice, thrusting)
+	Next i
+	Call UpdateJuice(step)
 
 	' Shader — post FX uniforms (not canvas; no QueueRedraw by itself)
 	Call UpdatePostShader()
@@ -460,8 +519,7 @@ Sub _Process(delta As Single)
 		Call DrawGravityHud()
 	End If
 
-	' Always present the current pose — stale _Draw is what made motion feel stepped.
-	Call FlushRedrawIfNeeded(oldX, oldY, thrusting)
+	Call FlushRedrawIfNeeded()
 End Sub
 
 ' Handler: _Draw — void bg, cave tiles, entities, pod, HUD, heat bar, end card
@@ -471,24 +529,28 @@ Sub _Draw()
 	Dim my As Single
 
 	If useVectorArt Then
-		' World layer rendered on canvasWorld in _Process — keep HUD overlays here only.
-	Else
-		DrawRect 0, 0, GAME_W, GAME_H, Lit(VOID_R, VOID_G, VOID_B, 1.0)
-		Call DrawCaveTiles()
-		Call DrawExitMarkers()
-		For i = 0 To massCount - 1
-			mx = massX(i)
-			my = massY(i)
-			DrawCircle mx, my, 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
-		Next i
-		If Not gameWon Then
-			Call DrawPodCapsule()
-		End If
+		Call DrawMassDebug()
+		Call DrawEndCard()
+		Call DrawDevHint()
+		Call DrawDevOverlay()
+		Exit Sub
+	End If
+	DrawRect 0, 0, GAME_W, GAME_H, Lit(VOID_R, VOID_G, VOID_B, 1.0)
+	Call DrawCaveTiles()
+	Call DrawExitMarkers()
+	For i = 0 To massCount - 1
+		mx = massX(i)
+		my = massY(i)
+		DrawCircle mx, my, 6, Lit(GLOW_R, GLOW_G, GLOW_B, 0.35)
+	Next i
+	If Not gameWon Then
+		Call DrawPodCapsule()
 	End If
 	Call DrawGateTiles()
 	Call DrawHeatZoneTint()
 	Call DrawMassDebug()
 	Call DrawRoomObjects()
+	Call DrawTowWorld()
 	Call DrawPulseRing()
 
 	DrawString statusText, 16, GAME_H - 24, Lit(0.91, 0.96, 1, 0.75), 16

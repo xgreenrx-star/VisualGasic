@@ -1,0 +1,877 @@
+' GravenSliceC.vg — portable mass seeds, hub sockets, phased wells, room FX
+
+Const SEED_S As Single = 1.35
+Const SOCKET_R As Single = 22
+Const SEED_PICK_R As Single = 36
+Const PHASE_PERIOD As Single = 3.2
+Const DILATE_R As Single = 140
+Const TORUS_R_IN As Single = 52
+Const TORUS_R_OUT As Single = 118
+Const TORUS_DRAG As Single = 240
+Const FX_GW As Integer = 10
+Const FX_GH As Integer = 6
+
+Dim seedHeld As Boolean
+Dim seedLooseR9 As Boolean
+Dim seedLooseR10 As Boolean
+Dim seedLooseR11 As Boolean
+Dim seedLooseR12 As Boolean
+Dim seedLooseR13 As Boolean
+Dim seedLooseR16 As Boolean
+Dim socketA As Boolean
+Dim socketB As Boolean
+Dim socketC As Boolean
+Dim wellPhase As Integer
+Dim phaseTimer As Single
+Dim enterFrom As Integer
+Dim sliceCInited As Boolean
+
+' Handler: InitSliceC — persistent seed/socket flags (not reset on room load)
+Sub InitSliceC()
+	If sliceCInited Then Exit Sub
+	seedHeld = False
+	seedLooseR9 = True
+	seedLooseR10 = True
+	seedLooseR11 = True
+	seedLooseR12 = False
+	seedLooseR13 = True
+	seedLooseR16 = True
+	socketA = False
+	socketB = False
+	socketC = False
+	wellPhase = 0
+	phaseTimer = 0
+	enterFrom = 0
+	doorLock = 0
+	sliceCInited = True
+End Sub
+
+' Handler: ResetSliceC — full replay wipe
+Sub ResetSliceC()
+	sliceCInited = False
+	Call InitSliceC()
+	Call ResetOpenWorld()
+End Sub
+
+' Handler: SocketAX — hub socket A (west alcove)
+Function SocketAX() As Single
+	SocketAX = 5 * TILE + 16
+End Function
+
+Function SocketAY() As Single
+	SocketAY = 4 * TILE + 16
+End Function
+
+Function SocketBX() As Single
+	SocketBX = 34 * TILE + 16
+End Function
+
+Function SocketBY() As Single
+	SocketBY = 4 * TILE + 16
+End Function
+
+Function SocketCX() As Single
+	SocketCX = 20 * TILE + 16
+End Function
+
+Function SocketCY() As Single
+	SocketCY = 17 * TILE + 16
+End Function
+
+Function SeedR10X() As Single
+	SeedR10X = 36 * TILE + 16
+End Function
+
+Function SeedR10Y() As Single
+	SeedR10Y = 8 * TILE + 16
+End Function
+
+Function SeedR11X() As Single
+	SeedR11X = 32 * TILE + 16
+End Function
+
+Function SeedR11Y() As Single
+	SeedR11Y = 6 * TILE + 16
+End Function
+
+Function SeedR12X() As Single
+	SeedR12X = 36 * TILE + 16
+End Function
+
+Function SeedR12Y() As Single
+	SeedR12Y = 17 * TILE + 16 - 36
+End Function
+
+Function SeedR13X() As Single
+	SeedR13X = 37 * TILE + 16
+End Function
+
+Function SeedR13Y() As Single
+	SeedR13Y = 1 * TILE + 16
+End Function
+
+' Handler: HubSocketCount — how many core sockets are filled
+Function HubSocketCount() As Integer
+	Dim n As Integer
+	n = 0
+	If socketA Then n = n + 1
+	If socketB Then n = n + 1
+	If socketC Then n = n + 1
+	HubSocketCount = n
+End Function
+
+' Handler: HubBalanced — two seeds in the hub unlocks the skiff
+Function HubBalanced() As Boolean
+	HubBalanced = (HubSocketCount() >= 2)
+End Function
+
+' Handler: MassIsLive — phased / stolen wells do not pull
+Function MassIsLive(i As Integer) As Boolean
+	If i < 0 Or i >= massCount Then
+		MassIsLive = False
+		Exit Function
+	End If
+	If roomId = 9 And Not seedLooseR9 And i = 0 Then
+		MassIsLive = False
+		Exit Function
+	End If
+	If roomId = 10 Then
+		If i = 0 Then
+			MassIsLive = (wellPhase = 0)
+			Exit Function
+		End If
+		If i = 1 Then
+			MassIsLive = (wellPhase = 1)
+			Exit Function
+		End If
+	End If
+	MassIsLive = True
+End Function
+
+' Handler: ApplySliceCGravity — carried seed + hub sockets (not self-pull on the pod)
+Sub ApplySliceCGravity(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim pull As Single
+	If seedHeld Then
+		If Abs(px - podX) > 3 Or Abs(py - podY) > 3 Then
+			dx = podX - px
+			dy = podY - py
+			distSq = dx * dx + dy * dy
+			If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
+			dist = Sqr(distSq)
+			pull = G_SCALE * devGScaleMul * SEED_S / distSq
+			If pull > G_MAX Then pull = G_MAX
+			ax = ax + (dx / dist) * pull
+			ay = ay + (dy / dist) * pull
+		End If
+	End If
+	If roomId <> 8 Then Exit Sub
+	If socketA Then Call AddWellPull(px, py, SocketAX(), SocketAY(), 1.5, ax, ay)
+	If socketB Then Call AddWellPull(px, py, SocketBX(), SocketBY(), 1.5, ax, ay)
+	If socketC Then Call AddWellPull(px, py, SocketCX(), SocketCY(), 1.5, ax, ay)
+End Sub
+
+' Handler: ApplyTorusDrag — frame-drag along a live well's ring (the torus is the well)
+Sub ApplyTorusDrag(px As Single, py As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim i As Integer
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			If Not IsBlackHole(i) Then
+				Call AddTorusDrag(px, py, massX(i), massY(i), ax, ay)
+			End If
+		End If
+	Next i
+	If roomId <> 8 Then Exit Sub
+	If socketA Then Call AddTorusDrag(px, py, SocketAX(), SocketAY(), ax, ay)
+	If socketB Then Call AddTorusDrag(px, py, SocketBX(), SocketBY(), ax, ay)
+	If socketC Then Call AddTorusDrag(px, py, SocketCX(), SocketCY(), ax, ay)
+End Sub
+
+' Handler: AddTorusDrag — sideways accel when inside the accretion ring
+Sub AddTorusDrag(px As Single, py As Single, mx As Single, my As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dist As Single
+	Dim band As Single
+	dx = px - mx
+	dy = py - my
+	dist = Sqr(dx * dx + dy * dy)
+	If dist < TORUS_R_IN Or dist > TORUS_R_OUT Then Exit Sub
+	If dist < 1 Then Exit Sub
+	band = 1.0 - Abs((dist - (TORUS_R_IN + TORUS_R_OUT) * 0.5) / ((TORUS_R_OUT - TORUS_R_IN) * 0.5))
+	If band < 0 Then band = 0
+	ax = ax + (-dy / dist) * TORUS_DRAG * band
+	ay = ay + (dx / dist) * TORUS_DRAG * band
+End Sub
+
+' Handler: AddWellPull — one inverse-square contribution
+Sub AddWellPull(px As Single, py As Single, mx As Single, my As Single, ms As Single, ByRef ax As Single, ByRef ay As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim distSq As Single
+	Dim dist As Single
+	Dim pull As Single
+	dx = mx - px
+	dy = my - py
+	distSq = dx * dx + dy * dy
+	If distSq < G_MIN_DIST * G_MIN_DIST Then distSq = G_MIN_DIST * G_MIN_DIST
+	dist = Sqr(distSq)
+	pull = G_SCALE * devGScaleMul * ms / distSq
+	If pull > G_MAX Then pull = G_MAX
+	ax = ax + (dx / dist) * pull
+	ay = ay + (dy / dist) * pull
+End Sub
+
+' Handler: NearestLiveWellDist — for dilation + living-well FX
+Function NearestLiveWellDist(px As Single, py As Single) As Single
+	Dim i As Integer
+	Dim best As Single
+	Dim d As Single
+	Dim dx As Single
+	Dim dy As Single
+	best = 99999
+	For i = 0 To massCount - 1
+		If MassIsLive(i) Then
+			dx = px - massX(i)
+			dy = py - massY(i)
+			d = Sqr(dx * dx + dy * dy)
+			If d < best Then best = d
+		End If
+	Next i
+	If roomId = 8 Then
+		If socketA Then
+			dx = px - SocketAX()
+			dy = py - SocketAY()
+			d = Sqr(dx * dx + dy * dy)
+			If d < best Then best = d
+		End If
+		If socketB Then
+			dx = px - SocketBX()
+			dy = py - SocketBY()
+			d = Sqr(dx * dx + dy * dy)
+			If d < best Then best = d
+		End If
+		If socketC Then
+			dx = px - SocketCX()
+			dy = py - SocketCY()
+			d = Sqr(dx * dx + dy * dy)
+			If d < best Then best = d
+		End If
+	End If
+	NearestLiveWellDist = best
+End Function
+
+' Handler: GetDilateMul — R11 time bubble around the live well
+Function GetDilateMul() As Single
+	Dim d As Single
+	Dim t As Single
+	If roomId <> 11 Then
+		GetDilateMul = 1
+		Exit Function
+	End If
+	d = NearestLiveWellDist(podX, podY)
+	If d >= DILATE_R Then
+		GetDilateMul = 1
+		Exit Function
+	End If
+	t = d / DILATE_R
+	GetDilateMul = 0.38 + t * 0.62
+End Function
+
+' Handler: SliceCOnPulse — Pulse snaps the R10 well phase
+Sub SliceCOnPulse()
+	If roomId <> 10 Then Exit Sub
+	wellPhase = 1 - wellPhase
+	phaseTimer = 0
+End Sub
+
+' Handler: UpdateSliceC — phase cycle + F interact
+Sub UpdateSliceC(delta As Single)
+	If doorLock > 0 Then
+		doorLock = doorLock - delta
+		If doorLock < 0 Then doorLock = 0
+	End If
+	If roomId = 10 Then
+		phaseTimer = phaseTimer + delta
+		If phaseTimer >= PHASE_PERIOD Then
+			phaseTimer = 0
+			wellPhase = 1 - wellPhase
+		End If
+	End If
+End Sub
+
+' Handler: NearXY — circle test for pick / socket
+Function NearXY(x As Single, y As Single, r As Single) As Boolean
+	Dim dx As Single
+	Dim dy As Single
+	dx = podX - x
+	dy = podY - y
+	NearXY = (dx * dx + dy * dy) <= (r * r)
+End Function
+
+' Handler: TrySeedInteract — F grab / socket a mass seed (dispatcher already ate the press)
+Function TrySeedInteract() As Boolean
+	TrySeedInteract = False
+	If roomId = 4 Then Exit Function
+	If seedHeld Then
+		If roomId = 8 Then
+			If Not socketA And NearXY(SocketAX(), SocketAY(), SOCKET_R + 16) Then
+				socketA = True
+				seedHeld = False
+				statusText = "West socket seated — the well takes"
+				TrySeedInteract = True
+				Exit Function
+			End If
+			If Not socketB And NearXY(SocketBX(), SocketBY(), SOCKET_R + 16) Then
+				socketB = True
+				seedHeld = False
+				statusText = "East socket seated — the well takes"
+				TrySeedInteract = True
+				Exit Function
+			End If
+			If Not socketC And NearXY(SocketCX(), SocketCY(), SOCKET_R + 16) Then
+				socketC = True
+				seedHeld = False
+				statusText = "South socket seated — the well takes"
+				TrySeedInteract = True
+				Exit Function
+			End If
+			statusText = "Carry the seed to a hollow socket"
+		End If
+		Exit Function
+	End If
+	If roomId = 8 Then
+		If socketA And NearXY(SocketAX(), SocketAY(), SOCKET_R + 16) Then
+			socketA = False
+			seedHeld = True
+			statusText = "Seed pulled — socket went dark"
+			TrySeedInteract = True
+			Exit Function
+		End If
+		If socketB And NearXY(SocketBX(), SocketBY(), SOCKET_R + 16) Then
+			socketB = False
+			seedHeld = True
+			statusText = "Seed pulled — socket went dark"
+			TrySeedInteract = True
+			Exit Function
+		End If
+		If socketC And NearXY(SocketCX(), SocketCY(), SOCKET_R + 16) Then
+			socketC = False
+			seedHeld = True
+			statusText = "Seed pulled — socket went dark"
+			TrySeedInteract = True
+			Exit Function
+		End If
+	End If
+	If roomId = 9 And seedLooseR9 Then
+		If massCount > 0 Then
+			If NearXY(massX(0), massY(0), SEED_PICK_R) Then
+				seedLooseR9 = False
+				seedHeld = True
+				statusText = "You stole the well — fly west before you fall"
+				TrySeedInteract = True
+			End If
+		End If
+		Exit Function
+	End If
+	If roomId = 10 And seedLooseR10 Then
+		If NearXY(SeedR10X(), SeedR10Y(), SEED_PICK_R) Then
+			seedLooseR10 = False
+			seedHeld = True
+			statusText = "Phase seed — take it home to a socket"
+			TrySeedInteract = True
+		End If
+		Exit Function
+	End If
+	If roomId = 11 And seedLooseR11 Then
+		If NearXY(SeedR11X(), SeedR11Y(), SEED_PICK_R) Then
+			seedLooseR11 = False
+			seedHeld = True
+			statusText = "Warp seed — the bubble stays, the fragment comes with you"
+			TrySeedInteract = True
+		End If
+		Exit Function
+	End If
+	If roomId = 12 And seedLooseR12 Then
+		If NearXY(SeedR12X(), SeedR12Y(), SEED_PICK_R) Then
+			seedLooseR12 = False
+			seedHeld = True
+			statusText = "Tow seed — the ring stays docked"
+			TrySeedInteract = True
+		End If
+		Exit Function
+	End If
+	If roomId = 13 And seedLooseR13 Then
+		If NearXY(SeedR13X(), SeedR13Y(), SEED_PICK_R) Then
+			seedLooseR13 = False
+			seedHeld = True
+			statusText = "Laser seed — west through the sluice"
+			TrySeedInteract = True
+		End If
+		Exit Function
+	End If
+	If roomId = 16 And seedLooseR16 Then
+		If NearXY(SeedR16X(), SeedR16Y(), SEED_PICK_R) Then
+			seedLooseR16 = False
+			seedHeld = True
+			challengeHorizon = True
+			statusText = "Horizon beaten — north gate open"
+			TrySeedInteract = True
+		End If
+	End If
+End Function
+
+' Handler: ApplyEnterSpawn — door-aware hub graph spawns (inside the room, not on the trigger)
+Sub ApplyEnterSpawn()
+	If enterFrom = 0 Then Exit Sub
+	Select Case roomId
+		Case 7
+			If enterFrom = 2 Then
+				podX = 960
+				podY = 400
+			End If
+		Case 8
+			Select Case enterFrom
+				Case 1
+					podX = 220
+					podY = 368
+				Case 2
+					podX = 1060
+					podY = 400
+				Case 3
+					podX = 640
+					podY = 200
+				Case 4
+					podX = 640
+					podY = 500
+				Case 5
+					podX = 180
+					podY = 540
+				Case 6
+					podX = 980
+					podY = 160
+			End Select
+		Case 9
+			If enterFrom = 1 Then
+				podX = 220
+				podY = 368
+			End If
+		Case 10
+			If enterFrom = 3 Then
+				podX = 220
+				podY = 200
+			End If
+		Case 11
+			If enterFrom = 4 Then
+				podX = 220
+				podY = 500
+			End If
+		Case 12
+			If enterFrom = 1 Then
+				podX = 220
+				podY = 80
+			End If
+		Case 13
+			If enterFrom = 1 Then
+				podX = 220
+				podY = 500
+			End If
+	End Select
+	Call ApplyOpenSpawn()
+	enterFrom = 0
+End Sub
+
+' Handler: TrySliceCTransition — hub graph (not the academy hallway)
+Sub TrySliceCTransition()
+	If doorLock > 0 Then Exit Sub
+	If roomId = 7 Then
+		Exit Sub
+	End If
+	If roomId = 8 Then
+		If PodInZone(0, 9 * TILE, 10, 8 * TILE) Then
+			enterFrom = 2
+			Call WarpThroughExit(7)
+			Exit Sub
+		End If
+		If PodOnExitTile(37, 16) Then
+			enterFrom = 1
+			Call WarpThroughExit(9)
+			Exit Sub
+		End If
+		If PodOnExitTile(18, 18) Then
+			enterFrom = 3
+			Call WarpThroughExit(10)
+			Exit Sub
+		End If
+		If PodOnExitTile(18, 1) Then
+			enterFrom = 4
+			Call WarpThroughExit(11)
+			Exit Sub
+		End If
+		If PodOnExitTile(3, 18) Then
+			enterFrom = 1
+			Call WarpThroughExit(12)
+			Exit Sub
+		End If
+		If PodOnExitTile(32, 3) Then
+			enterFrom = 1
+			Call WarpThroughExit(13)
+			Exit Sub
+		End If
+		Exit Sub
+	End If
+	If roomId = 9 Then
+		If PodOnExitTile(1, 10) Then
+			enterFrom = 2
+			Call WarpThroughExit(8)
+			Exit Sub
+		End If
+	End If
+	If roomId = 10 Then
+		If PodOnExitTile(1, 1) Then
+			enterFrom = 4
+			Call WarpThroughExit(8)
+		End If
+		Exit Sub
+	End If
+	If roomId = 11 Then
+		If PodOnExitTile(1, 19) Then
+			enterFrom = 3
+			Call WarpThroughExit(8)
+			Exit Sub
+		End If
+	End If
+	If roomId = 12 Then
+		If PodOnExitTile(1, 1) Then
+			enterFrom = 5
+			Call WarpThroughExit(8)
+		End If
+		Exit Sub
+	End If
+	If roomId = 13 Then
+		If PodOnExitTile(1, 17) Then
+			enterFrom = 6
+			Call WarpThroughExit(8)
+			Exit Sub
+		End If
+	End If
+	Call TryOpenTransition()
+End Sub
+
+' Handler: GetRoomVoid — per-room backdrop fill (not one black)
+Function GetRoomVoid() As Variant
+	Select Case roomId
+		Case 5
+			GetRoomVoid = Color(0.01, 0.02, 0.04, 1.0)
+		Case 6
+			GetRoomVoid = Color(0.02, 0.06, 0.08, 1.0)
+		Case 7
+			GetRoomVoid = Color(0.1, 0.04, 0.02, 1.0)
+		Case 8
+			GetRoomVoid = Color(0.04, 0.02, 0.1, 1.0)
+		Case 9
+			GetRoomVoid = Color(0.12, 0.02, 0.08, 1.0)
+		Case 10
+			If wellPhase = 0 Then
+				GetRoomVoid = Color(0.02, 0.08, 0.12, 1.0)
+			Else
+				GetRoomVoid = Color(0.1, 0.02, 0.12, 1.0)
+			End If
+		Case 11
+			GetRoomVoid = Color(0.06, 0.01, 0.12, 1.0)
+		Case 12
+			GetRoomVoid = Color(0.03, 0.06, 0.1, 1.0)
+		Case 13
+			GetRoomVoid = Color(0.08, 0.01, 0.04, 1.0)
+		Case 14
+			GetRoomVoid = Color(0.03, 0.02, 0.06, 1.0)
+		Case 15
+			GetRoomVoid = Color(0.05, 0.02, 0.02, 1.0)
+		Case 16
+			GetRoomVoid = Color(0.08, 0.02, 0.01, 1.0)
+		Case 17
+			GetRoomVoid = Color(0.04, 0.04, 0.07, 1.0)
+		Case Else
+			GetRoomVoid = Color(VOID_R, VOID_G, VOID_B, 1.0)
+	End Select
+End Function
+
+' Handler: GetRoomStone — cave fill tint per room
+Function GetRoomStone() As Variant
+	Select Case roomId
+		Case 6
+			GetRoomStone = Color(0.22, 0.36, 0.32, 1.0)
+		Case 7
+			GetRoomStone = Color(0.42, 0.28, 0.16, 1.0)
+		Case 8
+			GetRoomStone = Color(0.22, 0.16, 0.42, 1.0)
+		Case 9
+			GetRoomStone = Color(0.48, 0.16, 0.28, 1.0)
+		Case 10
+			If wellPhase = 0 Then
+				GetRoomStone = Color(0.16, 0.38, 0.48, 1.0)
+			Else
+				GetRoomStone = Color(0.42, 0.16, 0.48, 1.0)
+			End If
+		Case 11
+			GetRoomStone = Color(0.36, 0.12, 0.5, 1.0)
+		Case 12
+			GetRoomStone = Color(0.18, 0.32, 0.42, 1.0)
+		Case 13
+			GetRoomStone = Color(0.42, 0.12, 0.18, 1.0)
+		Case 14
+			GetRoomStone = Color(0.22, 0.18, 0.32, 1.0)
+		Case 15
+			GetRoomStone = Color(0.36, 0.14, 0.12, 1.0)
+		Case 16
+			GetRoomStone = Color(0.18, 0.08, 0.08, 1.0)
+		Case 17
+			GetRoomStone = Color(0.24, 0.26, 0.34, 1.0)
+		Case Else
+			GetRoomStone = Color(0.30, 0.40, 0.52, 1.0)
+	End Select
+End Function
+
+' Handler: GetRoomTint — post shader wash
+Function GetRoomTint() As Variant
+	Select Case roomId
+		Case 6
+			GetRoomTint = Vector3(0.25, 0.85, 0.7)
+		Case 7
+			GetRoomTint = Vector3(0.95, 0.45, 0.12)
+		Case 8
+			GetRoomTint = Vector3(0.55, 0.28, 0.95)
+		Case 9
+			GetRoomTint = Vector3(0.95, 0.22, 0.45)
+		Case 10
+			If wellPhase = 0 Then
+				GetRoomTint = Vector3(0.2, 0.75, 0.95)
+			Else
+				GetRoomTint = Vector3(0.85, 0.25, 0.95)
+			End If
+		Case 11
+			GetRoomTint = Vector3(0.7, 0.15, 1.0)
+		Case 12
+			GetRoomTint = Vector3(0.2, 0.7, 0.95)
+		Case 13
+			GetRoomTint = Vector3(0.95, 0.12, 0.28)
+		Case 14
+			GetRoomTint = Vector3(0.45, 0.3, 0.7)
+		Case 15
+			GetRoomTint = Vector3(0.85, 0.25, 0.12)
+		Case 16
+			GetRoomTint = Vector3(0.95, 0.2, 0.05)
+		Case 17
+			GetRoomTint = Vector3(0.4, 0.55, 0.75)
+		Case Else
+			GetRoomTint = Vector3(0.15, 0.35, 0.55)
+	End Select
+End Function
+
+Function GetRoomTintAmt() As Single
+	Select Case roomId
+		Case 6
+			GetRoomTintAmt = 0.12
+		Case 7
+			GetRoomTintAmt = 0.18
+		Case Is >= 8
+			GetRoomTintAmt = 0.28
+		Case Else
+			GetRoomTintAmt = 0.06
+	End Select
+End Function
+
+' Handler: DrawSliceCBackdrop — plasma / warp / stars (one C++ command each)
+Sub DrawSliceCBackdrop()
+	Dim spd As Single
+	Dim fade As Single
+	Dim pw As Single
+	Dim ph As Single
+	Dim i As Integer
+	Dim sx As Single
+	Dim sy As Single
+	If canvasWorld = Null Then Exit Sub
+	pw = GAME_W / FX_GW
+	ph = GAME_H / FX_GH
+	spd = juiceTime * 0.55
+	Select Case roomId
+		Case 6
+			For i = 0 To 11
+				sx = ((i * 97) Mod 37) * (GAME_W / 37)
+				sy = ((i * 53) Mod 19) * (GAME_H / 19)
+				Call canvasWorld.DrawCircle(Vector2(sx, sy), 1.4, Color(0.7, 0.85, 1.0, 0.28), True, Color(0.7, 0.85, 1.0, 0.28))
+			Next i
+		Case 7
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 0.8, 0.1, pw, ph, 1)
+		Case 8
+			fade = 0.16
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd, fade, pw, ph, 0)
+		Case 9
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 1.2, 0.2, pw, ph, 0)
+		Case 10
+			fade = 0.18
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd + wellPhase, fade, pw, ph, wellPhase)
+		Case 11
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 1.4, 0.22, pw, ph, 0)
+		Case 12
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 0.5, 0.1, pw, ph, 0)
+		Case 13
+			For i = 0 To 11
+				sx = ((i * 71) Mod 37) * (GAME_W / 37)
+				sy = ((i * 41) Mod 19) * (GAME_H / 19)
+				Call canvasWorld.DrawCircle(Vector2(sx, sy), 1.3, Color(1.0, 0.45, 0.4, 0.28), True, Color(1.0, 0.45, 0.4, 0.28))
+			Next i
+		Case 14
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 0.35, 0.1, pw, ph, 0)
+		Case 15
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 0.7, 0.14, pw, ph, 1)
+		Case 16
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 1.6, 0.22, pw, ph, 1)
+		Case 17
+			Call canvasWorld.DrawPlasmaCells(FX_GW, FX_GH, spd * 0.2, 0.06, pw, ph, 0)
+		Case Else
+			For i = 0 To 11
+				sx = ((i * 97) Mod 37) * (GAME_W / 37)
+				sy = ((i * 53) Mod 19) * (GAME_H / 19)
+				Call canvasWorld.DrawCircle(Vector2(sx, sy), 1.4, Color(0.7, 0.85, 1.0, 0.35), True, Color(0.7, 0.85, 1.0, 0.35))
+			Next i
+	End Select
+End Sub
+
+' Handler: DrawSliceCWell — torus IS the well (ring drag + inverse-square core)
+Sub DrawSliceCWell(mx As Single, my As Single, live As Boolean)
+	Dim col As Variant
+	Dim ring As Variant
+	Dim hue As Single
+	Dim fade As Single
+	Dim scl As Single
+	If canvasWorld = Null Then Exit Sub
+	If live Then
+		col = Lit(GLOW_R, GLOW_G, GLOW_B, 0.28)
+		ring = Lit(GLOW_R, GLOW_G, GLOW_B, 0.85)
+		fade = 0.62
+		scl = 0.28
+	Else
+		col = Color(0.4, 0.15, 0.45, 0.1)
+		ring = Color(0.5, 0.2, 0.55, 0.25)
+		fade = 0.14
+		scl = 0.2
+	End If
+	Select Case roomId
+		Case 9
+			hue = 0.82
+		Case 10
+			If wellPhase = 1 Then
+				hue = 0.62
+			Else
+				hue = 0.12
+			End If
+		Case 11
+			hue = 0.7
+		Case Else
+			hue = 0.12
+	End Select
+	Call canvasWorld.DrawTorusWireframe(juiceTime * 0.9, juiceTime * 0.38, hue, juiceTime, fade, mx, my, scl)
+	Call canvasWorld.DrawCircle(Vector2(mx, my), 8, ring, True, ring)
+	Call canvasWorld.DrawCircle(Vector2(mx, my), 16, col, True, col)
+End Sub
+
+' Handler: DrawSliceCWorld — wells, seeds, sockets (after backdrop, before pod)
+Sub DrawSliceCWorld()
+	Dim i As Integer
+	Dim live As Boolean
+	Dim seedCol As Variant
+	If canvasWorld = Null Then Exit Sub
+	For i = 0 To massCount - 1
+		live = MassIsLive(i)
+		If IsBlackHole(i) Then
+			Call DrawBlackHole(massX(i), massY(i), i)
+		Else
+			Call DrawSliceCWell(massX(i), massY(i), live)
+		End If
+	Next i
+	If roomId = 8 Then
+		Call DrawSliceCSocket(SocketAX(), SocketAY(), socketA, "A")
+		Call DrawSliceCSocket(SocketBX(), SocketBY(), socketB, "B")
+		Call DrawSliceCSocket(SocketCX(), SocketCY(), socketC, "C")
+	End If
+	seedCol = Lit(0.95, 0.55, 1.0, 0.95)
+	If roomId = 10 And seedLooseR10 Then
+		Call canvasWorld.DrawCircle(Vector2(SeedR10X(), SeedR10Y()), 10, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(SeedR10X(), SeedR10Y()), 16, Lit(0.8, 0.3, 1.0, 0.25), True, Lit(0.8, 0.3, 1.0, 0.25))
+	End If
+	If roomId = 11 And seedLooseR11 Then
+		Call canvasWorld.DrawCircle(Vector2(SeedR11X(), SeedR11Y()), 10, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(SeedR11X(), SeedR11Y()), 16, Lit(0.8, 0.3, 1.0, 0.25), True, Lit(0.8, 0.3, 1.0, 0.25))
+	End If
+	If roomId = 12 And seedLooseR12 Then
+		Call canvasWorld.DrawCircle(Vector2(SeedR12X(), SeedR12Y()), 10, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(SeedR12X(), SeedR12Y()), 16, Lit(0.8, 0.3, 1.0, 0.25), True, Lit(0.8, 0.3, 1.0, 0.25))
+	End If
+	If roomId = 13 And seedLooseR13 Then
+		Call canvasWorld.DrawCircle(Vector2(SeedR13X(), SeedR13Y()), 10, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(SeedR13X(), SeedR13Y()), 16, Lit(0.8, 0.3, 1.0, 0.25), True, Lit(0.8, 0.3, 1.0, 0.25))
+	End If
+	If roomId = 16 And seedLooseR16 Then
+		Call canvasWorld.DrawCircle(Vector2(SeedR16X(), SeedR16Y()), 10, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(SeedR16X(), SeedR16Y()), 16, Lit(1.0, 0.45, 0.15, 0.3), True, Lit(1.0, 0.45, 0.15, 0.3))
+	End If
+	If seedHeld Then
+		Call canvasWorld.DrawCircle(Vector2(podX + 16, podY - 14), 8, seedCol, True, seedCol)
+		Call canvasWorld.DrawCircle(Vector2(podX + 16, podY - 14), 14, Lit(0.9, 0.4, 1.0, 0.3), True, Lit(0.9, 0.4, 1.0, 0.3))
+	End If
+End Sub
+
+' Handler: DrawSliceCSocket — hollow or seated core well
+Sub DrawSliceCSocket(sx As Single, sy As Single, filled As Boolean, tag As String)
+	If canvasWorld = Null Then Exit Sub
+	If filled Then
+		Call DrawSliceCWell(sx, sy, True)
+	Else
+		Call canvasWorld.DrawTorusWireframe(juiceTime * 0.5, juiceTime * 0.25, 0.2, juiceTime, 0.18, sx, sy, 0.16)
+		Call canvasWorld.DrawCircle(Vector2(sx, sy), 20, Lit(0.7, 0.75, 1.0, 0.16), True, Lit(0.7, 0.75, 1.0, 0.16))
+		Call canvasWorld.DrawCircle(Vector2(sx, sy), 12, Lit(0.7, 0.75, 1.0, 0.28), True, Lit(0.7, 0.75, 1.0, 0.28))
+	End If
+	Call canvasWorld.DrawText(Vector2(sx - 4, sy + 26), tag, Lit(0.91, 0.96, 1.0, 0.7))
+End Sub
+
+' Handler: DrawSliceCHud — seed / phase / socket status
+Sub DrawSliceCHud()
+	Dim msg As String
+	If canvasHud = Null Then Exit Sub
+	If roomId < 8 Then
+		If seedHeld Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 96), "SEED — take it to a hub socket", Color(0.95, 0.55, 1.0, 0.85))
+		End If
+		Exit Sub
+	End If
+	msg = "Sockets " & Str(HubSocketCount()) & " / 2 to launch"
+	Call canvasHud.DrawText(Vector2(16, GAME_H - 96), msg, Color(0.85, 0.7, 1.0, 0.85))
+	If seedHeld Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 120), "Carrying a mass seed — F to seat", Color(0.95, 0.55, 1.0, 0.9))
+	End If
+	If roomId = 10 Then
+		If wellPhase = 0 Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "PHASE CYAN — Pulse to snap", Color(0.3, 0.85, 1.0, 0.9))
+		Else
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "PHASE MAGENTA — Pulse to snap", Color(0.9, 0.4, 1.0, 0.9))
+		End If
+	End If
+	If roomId = 11 Then
+		If GetDilateMul() < 0.95 Then
+			Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "TIME DILATES in the torus", Color(0.8, 0.5, 1.0, 0.9))
+		End If
+	End If
+	If roomId = 12 And towHooked Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "TOW — the ring has mass. Compensate", Color(0.55, 0.85, 1.0, 0.9))
+	End If
+	If roomId = 13 Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "LASERS — slip the green gaps", Color(1.0, 0.25, 0.35, 0.9))
+	End If
+	If roomId = 8 And HubBalanced() Then
+		Call canvasHud.DrawText(Vector2(16, GAME_H - 144), "Core balanced — the skiff will lift", Color(GLOW_R, GLOW_G, GLOW_B, 0.95))
+	End If
+End Sub

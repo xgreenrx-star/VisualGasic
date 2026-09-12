@@ -7038,20 +7038,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // -1 means reset to start, otherwise it's a label name to restore to
                 Variant restore_val = pop_value();
                 if (restore_val.get_type() == Variant::INT && (int64_t)restore_val == -1) {
-                    // Reset to beginning
                     data_pointer = 0;
-                } else if (restore_val.get_type() == Variant::STRING) {
-                    // Restore to label - labels stored lowercase in label_to_data_index
-                    String key = String(restore_val).to_lower();
-                    if (label_to_data_index.has(key)) {
-                        data_pointer = (int)label_to_data_index[key];
-                    } else {
-                        // Label not found - reset to beginning
-                        data_pointer = 0;
-                    }
+                    break;
+                }
+                String key = String(restore_val).to_lower();
+                if (label_to_data_index.has(key)) {
+                    data_pointer = (int)label_to_data_index[key];
                 } else {
-                    // Default: reset to beginning
-                    data_pointer = 0;
+                    raise_error("Restore label not found: " + String(restore_val), 5);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
                 }
                 break;
             }
