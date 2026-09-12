@@ -166,301 +166,90 @@ Function IsGateTile(tx As Integer, ty As Integer) As Boolean
 	IsGateTile = (tileChar(tx, ty) = "G")
 End Function
 
-' Handler: LoadRoomMasses — inverse-square sources per BLUEPRINT.md
+' Handler: LoadRoomMasses — count + triplets from R{n}Mass Data
 Sub LoadRoomMasses()
+	Dim i As Integer
 	massCount = 0
-	Select Case roomId
-		Case 1
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 780
-			massS(0) = 2.0
-		Case 2
-			' R2 Bend — M1 loft pulls into ceiling channel (BLUEPRINT 0.6 / 1.8)
-			massCount = 2
-			massX(0) = 640
-			massY(0) = 780
-			massS(0) = 0.8
-			massX(1) = 1040
-			massY(1) = 320
-			massS(1) = 2.2
-		Case 3
-			massCount = 1
-			massX(0) = 640
-			massY(0) = -60
-			massS(0) = 0.85
-		Case 4
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 780
-			massS(0) = 1.0
-		Case 5
-			massCount = 2
-			massX(0) = 200
-			massY(0) = 400
-			massS(0) = 1.4
-			massX(1) = 1080
-			massY(1) = 400
-			massS(1) = 1.4
-		Case 6
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 352
-			massS(0) = 2.5
-		Case 7
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 780
-			massS(0) = 1.2
-		Case 8
-			massCount = 0
-		Case 9
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 240
-			massS(0) = 1.8
-		Case 10
-			massCount = 2
-			massX(0) = 280
-			massY(0) = 520
-			massS(0) = 2.0
-			massX(1) = 1000
-			massY(1) = 200
-			massS(1) = 2.0
-		Case 11
-			massCount = 1
-			massX(0) = 400
-			massY(0) = 360
-			massS(0) = 2.2
-		Case 12
-			massCount = 1
-			massX(0) = 520
-			massY(0) = 400
-			massS(0) = 1.4
-		Case 13
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 500
-			massS(0) = 1.1
-		Case 14
-			massCount = 1
-			massX(0) = 1000
-			massY(0) = 140
-			massS(0) = 5.0
-		Case 15
-			massCount = 1
-			massX(0) = 600
-			massY(0) = 240
-			massS(0) = 5.2
-		Case 16
-			massCount = 1
-			massX(0) = 640
-			massY(0) = 360
-			massS(0) = 8.6
-		Case 17
-			massCount = 0
-	End Select
+	If roomId < 1 Or roomId > 17 Then Exit Sub
+	Restore "R" + CStr(roomId) + "Mass"
+	Read massCount
+	For i = 0 To massCount - 1
+		Read massX(i), massY(i), massS(i)
+	Next i
 End Sub
 
-' Handler: ResetPodSpawn — pixel spawn from BLUEPRINT markers / tables
+' Handler: ResetPodSpawn — pixel spawn from R{n}Spawn Data
 Sub ResetPodSpawn()
 	podVX = 0
 	podVY = 0
 	podAngle = 0
-	Select Case roomId
-		Case 1
-			podX = 272
-			podY = 560
-		Case 2
-			podX = 48
-			podY = 560
-		Case 3
-			podX = 112
-			podY = 560
-		Case 4
-			podX = 144
-			podY = 496
-		Case 5
-			podX = 144
-			podY = 528
-		Case 6
-			podX = 80
-			podY = 560
-		Case 7
-			podX = 48
-			podY = 368
-		Case 8
-			podX = 220
-			podY = 368
-		Case 9
-			podX = 220
-			podY = 368
-		Case 10
-			podX = 220
-			podY = 200
-		Case 11
-			podX = 220
-			podY = 500
-		Case 12
-			podX = 220
-			podY = 80
-		Case 13
-			podX = 220
-			podY = 500
-		Case 14
-			podX = 220
-			podY = 368
-		Case 15
-			podX = 640
-			podY = 120
-		Case 16
-			podX = 640
-			podY = 520
-		Case 17
-			podX = 220
-			podY = 368
-		Case Else
-			podX = 64
-			podY = 560
-	End Select
+	If roomId < 1 Or roomId > 17 Then
+		podX = 64
+		podY = 560
+		Exit Sub
+	End If
+	Restore "R" + CStr(roomId) + "Spawn"
+	Read podX, podY
 End Sub
 
 ' Handler: GetRoomStinger — short vector title for the room-enter sting
 Function GetRoomStinger() As String
-	Select Case roomId
-		Case 1
-			GetRoomStinger = "AIRLOCK"
-		Case 2
-			GetRoomStinger = "BEND"
-		Case 3
-			GetRoomStinger = "SHELF"
-		Case 4
-			GetRoomStinger = "CRATE"
-		Case 5
-			GetRoomStinger = "DARK POOL"
-		Case 6
-			GetRoomStinger = "ORBIT"
-		Case 7
-			GetRoomStinger = "HEAT RUN"
-		Case 8
-			GetRoomStinger = "CORE HUB"
-		Case 9
-			GetRoomStinger = "STEAL"
-		Case 10
-			GetRoomStinger = "PHASE"
-		Case 11
-			GetRoomStinger = "WARP"
-		Case 12
-			GetRoomStinger = "TOW"
-		Case 13
-			GetRoomStinger = "LASER"
-		Case 14
-			GetRoomStinger = "CROSSROADS"
-		Case 15
-			GetRoomStinger = "FIELD"
-		Case 16
-			GetRoomStinger = "HORIZON"
-		Case 17
-			GetRoomStinger = "ARCHIVE"
-		Case Else
-			GetRoomStinger = "GRAVEN"
-	End Select
+	Dim s As String
+	If roomId < 1 Or roomId > 17 Then
+		GetRoomStinger = "GRAVEN"
+		Exit Function
+	End If
+	Restore "R" + CStr(roomId) + "Stinger"
+	Read s
+	GetRoomStinger = s
 End Function
 
 ' Handler: GetRoomCaption — HUD title string
 Function GetRoomCaption() As String
-	Select Case roomId
-		Case 1
-			GetRoomCaption = "GRAVEN — Room 1 Airlock"
-		Case 2
-			GetRoomCaption = "GRAVEN — Room 2 Bend"
-		Case 3
-			GetRoomCaption = "GRAVEN — Room 3 Shelf"
-		Case 4
-			GetRoomCaption = "GRAVEN — Room 4 Crate"
-		Case 5
-			GetRoomCaption = "GRAVEN — Room 5 Dark pool"
-		Case 6
-			GetRoomCaption = "GRAVEN — Room 6 Orbit"
-		Case 7
-			GetRoomCaption = "GRAVEN — Room 7 Heat run"
-		Case 8
-			GetRoomCaption = "GRAVEN — Core Hub"
-		Case 9
-			GetRoomCaption = "GRAVEN — Steal the well"
-		Case 10
-			GetRoomCaption = "GRAVEN — Phase lock"
-		Case 11
-			GetRoomCaption = "GRAVEN — Warp bubble"
-		Case 12
-			GetRoomCaption = "GRAVEN — Tow the ring"
-		Case 13
-			GetRoomCaption = "GRAVEN — Laser sluice"
-		Case 14
-			GetRoomCaption = "GRAVEN — Crossroads"
-		Case 15
-			GetRoomCaption = "GRAVEN — Singularity field"
-		Case 16
-			GetRoomCaption = "GRAVEN — Horizon"
-		Case 17
-			GetRoomCaption = "GRAVEN — Archive"
-		Case Else
-			GetRoomCaption = "GRAVEN"
-	End Select
+	Dim s As String
+	If roomId < 1 Or roomId > 17 Then
+		GetRoomCaption = "GRAVEN"
+		Exit Function
+	End If
+	Restore "R" + CStr(roomId) + "Caption"
+	Read s
+	GetRoomCaption = s
 End Function
 
-' Handler: GetRoomHint — status bar blurb
+' Handler: GetRoomHint — status bar blurb (R6/R8/R16 stay conditional)
 Function GetRoomHint() As String
-	Select Case roomId
-		Case 1
-			GetRoomHint = "Fly east along the floor — glowing exit leads to Room 2"
-		Case 2
-			GetRoomHint = "Curve into the ceiling channel — fly into the EXIT glow"
-		Case 3
-			GetRoomHint = "Floor alcove — thrust UP the left ramp, east along shelf to EXIT"
-		Case 4
-			GetRoomHint = "Push crate onto floor plate (F at terminal for log)"
-		Case 5
-			GetRoomHint = "Pulse wakes a hidden well — slip spikes, fly the mouth east"
-		Case 6
-			If orbitComplete Then
-				GetRoomHint = "Orbit gate open — exit east"
-			Else
-				GetRoomHint = "Orbit the mass (80–200 px) — 540° opens east gate"
-			End If
-		Case 7
-			GetRoomHint = "Amber band cooks the suit — coast through, recharge on the sides"
-		Case 8
-			If HubBalanced() Then
-				GetRoomHint = "Core balanced — fly the skiff"
-			Else
-				GetRoomHint = "Choose: E steal (opens the world) / S phase / N warp / SW tow / NE lasers"
-			End If
-		Case 9
-			GetRoomHint = "F steals the well — west hub, east the world"
-		Case 10
-			GetRoomHint = "Wells are tori — Pulse snaps which ring pulls; grab the east seed"
-		Case 11
-			GetRoomHint = "Time crawls near the well — take the magenta seed west"
-		Case 12
-			GetRoomHint = "F hooks the gold ring — it hangs toward the well. Haul it to the east dock"
-		Case 13
-			GetRoomHint = "Lasers kill — slip the gaps, grab the seed, west home"
-		Case 14
-			GetRoomHint = "N horizon (challenge) / E archive / S field / W steal"
-		Case 15
-			GetRoomHint = "Skirt the lesser mouth — F log in the west alcove"
-		Case 16
-			If challengeHorizon Then
-				GetRoomHint = "Gate open — north to warp, south to crossroads"
-			Else
-				GetRoomHint = "Take the rim seed without kissing the dark — south retreats"
-			End If
-		Case 17
-			GetRoomHint = "Three logs. West back to the crossroads"
-		Case Else
-			GetRoomHint = ""
-	End Select
+	Dim hint As String
+	If roomId = 6 Then
+		If orbitComplete Then
+			GetRoomHint = "Orbit gate open — exit east"
+		Else
+			GetRoomHint = "Orbit the mass (80–200 px) — 540° opens east gate"
+		End If
+		Exit Function
+	End If
+	If roomId = 8 Then
+		If HubBalanced() Then
+			GetRoomHint = "Core balanced — fly the skiff"
+		Else
+			GetRoomHint = "Choose: E steal (opens the world) / S phase / N warp / SW tow / NE lasers"
+		End If
+		Exit Function
+	End If
+	If roomId = 16 Then
+		If challengeHorizon Then
+			GetRoomHint = "Gate open — north to warp, south to crossroads"
+		Else
+			GetRoomHint = "Take the rim seed without kissing the dark — south retreats"
+		End If
+		Exit Function
+	End If
+	If roomId < 1 Or roomId > 17 Then
+		GetRoomHint = ""
+		Exit Function
+	End If
+	Restore "R" + CStr(roomId) + "Hint"
+	Read hint
+	GetRoomHint = hint
 End Function
 
 ' Handler: LoadRoom — swap tiles, masses, entities, beacon saves
@@ -985,3 +774,192 @@ Data "#......................................#"
 Data "#......................................#"
 Data "#......................................#"
 Data "########################################"
+
+' --- Room metadata (Restore "R" + CStr(roomId) + suffix) ---
+
+R1Spawn:
+Data 272, 560
+R1Mass:
+Data 1, 640, 780, 2.0
+R1Stinger:
+Data "AIRLOCK"
+R1Caption:
+Data "GRAVEN — Room 1 Airlock"
+R1Hint:
+Data "Fly east along the floor — glowing exit leads to Room 2"
+
+R2Spawn:
+Data 48, 560
+R2Mass:
+Data 2, 640, 780, 0.8, 1040, 320, 2.2
+R2Stinger:
+Data "BEND"
+R2Caption:
+Data "GRAVEN — Room 2 Bend"
+R2Hint:
+Data "Curve into the ceiling channel — fly into the EXIT glow"
+
+R3Spawn:
+Data 112, 560
+R3Mass:
+Data 1, 640, -60, 0.85
+R3Stinger:
+Data "SHELF"
+R3Caption:
+Data "GRAVEN — Room 3 Shelf"
+R3Hint:
+Data "Floor alcove — thrust UP the left ramp, east along shelf to EXIT"
+
+R4Spawn:
+Data 144, 496
+R4Mass:
+Data 1, 640, 780, 1.0
+R4Stinger:
+Data "CRATE"
+R4Caption:
+Data "GRAVEN — Room 4 Crate"
+R4Hint:
+Data "Push crate onto floor plate (F at terminal for log)"
+
+R5Spawn:
+Data 144, 528
+R5Mass:
+Data 2, 200, 400, 1.4, 1080, 400, 1.4
+R5Stinger:
+Data "DARK POOL"
+R5Caption:
+Data "GRAVEN — Room 5 Dark pool"
+R5Hint:
+Data "Pulse wakes a hidden well — slip spikes, fly the mouth east"
+
+R6Spawn:
+Data 80, 560
+R6Mass:
+Data 1, 640, 352, 2.5
+R6Stinger:
+Data "ORBIT"
+R6Caption:
+Data "GRAVEN — Room 6 Orbit"
+R6Hint:
+Data "Orbit the mass (80–200 px) — 540° opens east gate"
+
+R7Spawn:
+Data 48, 368
+R7Mass:
+Data 1, 640, 780, 1.2
+R7Stinger:
+Data "HEAT RUN"
+R7Caption:
+Data "GRAVEN — Room 7 Heat run"
+R7Hint:
+Data "Amber band cooks the suit — coast through, recharge on the sides"
+
+R8Spawn:
+Data 220, 368
+R8Mass:
+Data 0
+R8Stinger:
+Data "CORE HUB"
+R8Caption:
+Data "GRAVEN — Core Hub"
+R8Hint:
+Data "Choose: E steal (opens the world) / S phase / N warp / SW tow / NE lasers"
+
+R9Spawn:
+Data 220, 368
+R9Mass:
+Data 1, 640, 240, 1.8
+R9Stinger:
+Data "STEAL"
+R9Caption:
+Data "GRAVEN — Steal the well"
+R9Hint:
+Data "F steals the well — west hub, east the world"
+
+R10Spawn:
+Data 220, 200
+R10Mass:
+Data 2, 280, 520, 2.0, 1000, 200, 2.0
+R10Stinger:
+Data "PHASE"
+R10Caption:
+Data "GRAVEN — Phase lock"
+R10Hint:
+Data "Wells are tori — Pulse snaps which ring pulls; grab the east seed"
+
+R11Spawn:
+Data 220, 500
+R11Mass:
+Data 1, 400, 360, 2.2
+R11Stinger:
+Data "WARP"
+R11Caption:
+Data "GRAVEN — Warp bubble"
+R11Hint:
+Data "Time crawls near the well — take the magenta seed west"
+
+R12Spawn:
+Data 220, 80
+R12Mass:
+Data 1, 520, 400, 1.4
+R12Stinger:
+Data "TOW"
+R12Caption:
+Data "GRAVEN — Tow the ring"
+R12Hint:
+Data "F hooks the gold ring — it hangs toward the well. Haul it to the east dock"
+
+R13Spawn:
+Data 220, 500
+R13Mass:
+Data 1, 640, 500, 1.1
+R13Stinger:
+Data "LASER"
+R13Caption:
+Data "GRAVEN — Laser sluice"
+R13Hint:
+Data "Lasers kill — slip the gaps, grab the seed, west home"
+
+R14Spawn:
+Data 220, 368
+R14Mass:
+Data 1, 1000, 140, 5.0
+R14Stinger:
+Data "CROSSROADS"
+R14Caption:
+Data "GRAVEN — Crossroads"
+R14Hint:
+Data "N horizon (challenge) / E archive / S field / W steal"
+
+R15Spawn:
+Data 640, 120
+R15Mass:
+Data 1, 600, 240, 5.2
+R15Stinger:
+Data "FIELD"
+R15Caption:
+Data "GRAVEN — Singularity field"
+R15Hint:
+Data "Skirt the lesser mouth — F log in the west alcove"
+
+R16Spawn:
+Data 640, 520
+R16Mass:
+Data 1, 640, 360, 8.6
+R16Stinger:
+Data "HORIZON"
+R16Caption:
+Data "GRAVEN — Horizon"
+R16Hint:
+Data "Take the rim seed without kissing the dark — south retreats"
+
+R17Spawn:
+Data 220, 368
+R17Mass:
+Data 0
+R17Stinger:
+Data "ARCHIVE"
+R17Caption:
+Data "GRAVEN — Archive"
+R17Hint:
+Data "Three logs. West back to the crossroads"

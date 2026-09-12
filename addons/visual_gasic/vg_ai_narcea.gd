@@ -902,6 +902,31 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
   LoadData \"user://wave.txt\"         ' RUNTIME: append text file values to DATA tape
   ' (distinct from Sub LoadData() — that is a user handler name, not this builtin)
 
+  ' Read / Restore — sequential DATA tape (VB6 + runtime string labels):
+  Restore                              ' reset read pointer to first Data value
+  Restore Level1Map                    ' bare identifier = Data LABEL (not a variable)
+  Restore \"R\" + CStr(roomId) + \"Map\" ' build label name at run time
+  Read x, y, row                       ' consume next values from current section
+
+  Restore rules (important):
+  - A bare name after Restore is ALWAYS a Data label, never a variable lookup —
+    even if Dim label1 exists, Restore label1 uses the label1: section only.
+  - To use a variable's VALUE in the label name, build a string expression
+    (Restore \"Room\" + CStr(n) + \"Map\"), not Restore variableName alone.
+  - Missing label → runtime error 5 (Restore label not found: …); use On Error or Try.
+  - Use CStr (not Str) when concatenating numbers into label names — Str adds a leading space.
+
+  Per-room / per-level tables: prefer labeled Data blocks + one Restore expression
+  instead of 17+ Case branches with inline literals. Canonical pattern (GravenRooms.vg):
+    If roomId < 1 Or roomId > 17 Then Exit Sub
+    Restore \"R\" + CStr(roomId) + \"Map\"
+    For ty = 0 To ROWS - 1
+        Read row
+    Next ty
+  Same suffix scheme for spawns, masses, HUD strings: \"Spawn\", \"Mass\", \"Stinger\",
+  \"Caption\", \"Hint\". Keep If/Select Case only when a branch depends on runtime state
+  (e.g. orbitComplete, HubBalanced()) — not for static per-id data.
+
   When to use what:
   - Small tables / inline pixel art (≤32×32): labeled Data or *Sprite: (Context Rail editor).
   - Large tilemaps (64×64+): DataFile + .vgd — do NOT paste thousands of Data rows inline.
@@ -1425,6 +1450,9 @@ const SLIM_KNOWLEDGE := """
   Thrust-style v += a*delta (not v *= 0.92 per frame). See GravenVector.vg / storm.vg.
 - Large level/tile data: labeled DataFile \"path\" (.vgd binary or CSV); use DataCount,
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
+- Restore: bare name = Data label (not variable); Restore \"R\" + CStr(roomId) + \"Map\"
+  for per-room tables; CStr not Str; missing label = error 5. See GravenRooms.vg.
+- Prefer Select Case over long ElseIf chains; use Restore+Data instead of Case-per-room literals.
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
@@ -1507,6 +1535,10 @@ CODE QUALITY — ALWAYS:
     Sub controlName_Event() — never manually Connect unless necessary.
   * Canvas _Draw games: cache DataToArray(\"*Sprite\") tapes at load; conditional QueueRedraw.
   * VGVectorCanvas2D games: cache static cave/grid; feed the moving layer from _Process.
+  * Control flow: prefer Select Case over long ElseIf chains when dispatching on one
+    scalar (roomId, KeyCode, typ, opcode). For per-id static data (maps, spawns,
+    lookup strings), use Restore \"Prefix\" + CStr(id) + \"Suffix\" + Read — not a
+    Case per room. Nested If inside a Case is fine when that branch is state-dependent.
 
 ANSWERS:
   * Prefer a short working code example over a prose description.
