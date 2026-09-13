@@ -394,7 +394,15 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         case STMT_RESTORE: {
              RestoreStatement* s = (RestoreStatement*)stmt;
-             if (s->label_name.is_empty()) {
+             if (s->label_expr) {
+                 Variant restore_val = evaluate_expression(s->label_expr);
+                 String key = String(restore_val).to_lower();
+                 if (label_to_data_index.has(key)) {
+                     data_pointer = (int)label_to_data_index[key];
+                 } else {
+                     raise_error("Restore label not found: " + String(restore_val), 5);
+                 }
+             } else if (s->label_name.is_empty()) {
                  data_pointer = 0;
              } else {
                  String key = s->label_name.to_lower();

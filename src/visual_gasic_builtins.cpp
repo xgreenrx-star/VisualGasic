@@ -7578,22 +7578,33 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
         }
         return false;
     }
-    // ── Audio/Tracker namespace forwarding ───────────────────────────────
-    // Handles calls like Tracker.Open(), Tracker.Fill(), Sound.Pause(),
-    // Sound.Resume(), SoundGen.*, Music.* etc. when invoked via the sentinel-
-    // dict path (OP_GET_GLOBAL → call_builtin_for_base_variant → here).
-    //
-    // call_builtin() recognises these as "namespace_method" keys (e.g.
-    // "tracker_open", "sound_pause"). We just forward with the prefix.
+    // ── Builtin namespace forwarding (Camera./Shader./Sound./Tracker./…) ──
+    // Handles Shader.Param, Camera.Follow, Sound.Play, etc. when the AST
+    // interpreter runs (bytecode compile fallback) or via the sentinel-dict
+    // path (OP_GET_GLOBAL → call_builtin_for_base_variant → here).
+    // Must stay in sync with detect_namespace_call() in the compiler.
     {
         String ns_lo = p_base_name.to_lower();
-        if (ns_lo == "tracker" || ns_lo == "sound" || ns_lo == "soundgen" || ns_lo == "music") {
-            String fwd_method = ns_lo + "_" + p_method.to_lower();
-            bool found = false;
-            Variant fwd_ret = call_builtin_expr_evaluated(instance, fwd_method, p_args, found);
-            if (found) {
-                r_ret = fwd_ret;
-                return true;
+        if (ns_lo == "bus") ns_lo = "speaker";
+        static const char *fwd_ns[] = {
+            "camera", "sound", "speaker",
+            "animation", "physics", "ray", "cell", "nav",
+            "screen", "joypad", "touch", "sensor", "permission", "gps", "steps",
+            "crypto", "theme", "js", "shader", "material",
+            "skeleton", "bone", "video",
+            "tracker", "music",
+            nullptr
+        };
+        for (int ni = 0; fwd_ns[ni]; ni++) {
+            if (ns_lo == fwd_ns[ni]) {
+                String fwd_method = ns_lo + "_" + p_method.to_lower();
+                bool found = false;
+                Variant fwd_ret = call_builtin_expr_evaluated(instance, fwd_method, p_args, found);
+                if (found) {
+                    r_ret = fwd_ret;
+                    return true;
+                }
+                break;
             }
         }
     }

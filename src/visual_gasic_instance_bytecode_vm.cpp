@@ -2154,7 +2154,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (val.get_type() == Variant::NIL) {
                     static const char *known_ns[] = {
                         "SoundGen", "Clipboard", "Debug", "RegExp", "Array",
-                        "Music", "Tracker", nullptr
+                        "Music", "Tracker",
+                        "Camera", "Sound", "Speaker", "Animation", "Physics",
+                        "Ray", "Cell", "Nav", "Screen", "Joypad", "Touch",
+                        "Sensor", "Permission", "Gps", "Steps",
+                        "Crypto", "Theme", "JS", "Shader", "Material",
+                        "Skeleton", "Bone", "Video",
+                        nullptr
                     };
                     for (int ni = 0; known_ns[ni]; ni++) {
                         if (name.nocasecmp_to(known_ns[ni]) == 0) {

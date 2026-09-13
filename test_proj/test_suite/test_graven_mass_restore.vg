@@ -1,0 +1,20 @@
+' Regression: Restore "R" + CStr(roomId) + "Mass" in an included Sub (AST path)
+Attribute VB_Name = "TestGravenMassRestore"
+
+Dim roomId As Integer
+Dim massCount As Integer
+Dim massX(3) As Single
+Dim massY(3) As Single
+Dim massS(3) As Single
+
+Include "../../projects/vg_graven_slice/ai_projects/graven_slice/GravenRooms.vg"
+
+Sub _Ready()
+	roomId = 6
+	Call LoadRoomMasses()
+	If massCount = 1 And massX(0) = 640 And massY(0) = 352 And massS(0) = 2.5 Then
+		Print "PASS: graven_mass_restore"
+	Else
+		Print "FAIL: graven_mass_restore count=" & CStr(massCount) & " x=" & CStr(massX(0)) & " y=" & CStr(massY(0))
+	End If
+End Sub

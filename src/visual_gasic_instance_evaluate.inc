@@ -368,6 +368,27 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  // Try PascalCase -> snake_case? Autoloads are usually PascalCase though.
              }
         }
+
+        // Builtin namespace sentinels — Shader, Camera, Sound, … (mirrors bytecode VM known_ns).
+        {
+            static const char *known_ns[] = {
+                "SoundGen", "Clipboard", "Debug", "RegExp", "Array",
+                "Music", "Tracker",
+                "Camera", "Sound", "Speaker", "Animation", "Physics",
+                "Ray", "Cell", "Nav", "Screen", "Joypad", "Touch",
+                "Sensor", "Permission", "Gps", "Steps",
+                "Crypto", "Theme", "JS", "Shader", "Material",
+                "Skeleton", "Bone", "Video",
+                nullptr
+            };
+            for (int ni = 0; known_ns[ni]; ni++) {
+                if (name.nocasecmp_to(known_ns[ni]) == 0) {
+                    Dictionary ns_dict;
+                    ns_dict["__vg_namespace"] = name;
+                    return ns_dict;
+                }
+            }
+        }
         
         return Variant();
     }

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0-beta1] - 2026-09-13
+
+**Key numbers:** GRAVEN v6 slice dev preview · Restore/Include/Shader engine fixes · **57** corpus examples · regression suite green.
+
+### 🚀 Added — GRAVEN v6 slice (developer preview)
+
+- **`projects/vg_graven_slice/`** — modular Thrust-style gravity explorer: pulse, tow, mass wells, 17-room graph, dev terminal (**F1**).
+- **Restore tables** — per-room spawn, mass, caption, and hint metadata via `LoadRoomMasses()`; Narcea docs teach the pattern.
+- **Vector canvas + Shader post-FX** — plasma, warp, palette cycling on the fast draw path.
+
+### 🛠 Fixed — Restore, Include, Shader, and Godot builtins
+
+- **AST `Restore` string expressions** — `Restore "R" + CStr(n) + "Mass"` evaluates `label_expr` on tree-walk path (fixes missing gravity wells in Room 6+).
+- **`Shader.Param` / builtin namespaces** — AST fallback dispatches `Shader` as a builtin namespace; pod movement no longer crashes.
+- **Relative `Include` resolution** — includes resolve relative to the including `.vg` file.
+- **Owner-relative Godot builtins** — `position`, `GlobalPosition`, etc. resolve against the control/node owner in cross-module helpers.
+- **Include error mapping** — errors in included modules report source file and line.
+
+### 🚀 Added — IDE
+
+- **Context Rail vector DATA editor** — inline `Data`/`Restore` blocks and `.vgv` sidecar panel.
+- **Reference audit gate** — command help and builtin catalog synced with compiler surface.
+
 ### 🚀 Added — Python bridge C2 typed msgpack protocol
 
 - **`vg_msgpack.cpp`** — binary encode/decode preserving `Variant::INT` / `FLOAT` on the PyBridge wire (M7 Phase 1).
@@ -29,6 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Optional Types** — [corpus/01_basics/06_optional_types.vg](corpus/01_basics/06_optional_types.vg) · Shows `Optional(String)` handling, null-coalescing patterns, and defensive `Nothing` checking.
 - **Advanced Exception Handling** — [corpus/01_basics/07_exception_patterns.vg](corpus/01_basics/07_exception_patterns.vg) · Multiple `Catch` blocks, nested `Try/Catch`, `Finally` cleanup, and real-world error recovery patterns.
 - Corpus now contains **57 total examples** across 10 categories, providing working reference implementations for all major language features.
+
+### ✅ Added — Regression coverage
+
+- **`test_graven_mass_restore.vg`** — dynamic `Restore` label via helper `Sub` on AST path.
+
+### 📋 Known notes
+
+- **GRAVEN is not showcase-ready** — grid-based room maps remain; vector-first layout and gameplay polish planned for a later v6 cut.
 
 ## [5.4.0-beta2] - 2026-09-05
 

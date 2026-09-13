@@ -381,6 +381,29 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("regexp");
     non_local_names.insert("music");
     non_local_names.insert("tracker");
+    non_local_names.insert("camera");
+    non_local_names.insert("sound");
+    non_local_names.insert("speaker");
+    non_local_names.insert("animation");
+    non_local_names.insert("physics");
+    non_local_names.insert("ray");
+    non_local_names.insert("cell");
+    non_local_names.insert("nav");
+    non_local_names.insert("screen");
+    non_local_names.insert("joypad");
+    non_local_names.insert("touch");
+    non_local_names.insert("sensor");
+    non_local_names.insert("permission");
+    non_local_names.insert("gps");
+    non_local_names.insert("steps");
+    non_local_names.insert("crypto");
+    non_local_names.insert("theme");
+    non_local_names.insert("js");
+    non_local_names.insert("shader");
+    non_local_names.insert("material");
+    non_local_names.insert("skeleton");
+    non_local_names.insert("bone");
+    non_local_names.insert("video");
     // "Array" sentinel omitted intentionally — Array is also a type keyword
     // and registering it as non-local causes issues with array-variable handling.
     // Godot engine singletons — must route through OP_GET_GLOBAL so the

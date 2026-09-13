@@ -41,9 +41,9 @@ Sub DevResetTweaks()
 	needRedraw = True
 End Sub
 
-' Handler: DevWarpRoom — jump to room 1–8 (playtest skip)
+' Handler: DevWarpRoom — jump to room 1–17 (playtest skip)
 Sub DevWarpRoom(targetId As Integer)
-	If targetId < 1 Or targetId > 8 Then Exit Sub
+	If targetId < 1 Or targetId > 17 Then Exit Sub
 	gameWon = False
 	endFade = 0
 	Call LoadRoom(targetId)
@@ -74,7 +74,7 @@ Sub DevTermHelp()
 	Call DevTermPushLine("commands:")
 	Call DevTermPushLine(" help list commands")
 	Call DevTermPushLine(" close / exit close terminal (F1)")
-	Call DevTermPushLine(" warp <1-8> jump to room")
+	Call DevTermPushLine(" warp <1-17> jump to room")
 	Call DevTermPushLine(" plate / orbit satisfy puzzle flags")
 	Call DevTermPushLine(" hub / seeds warp to core / fill sockets")
 	Call DevTermPushLine(" heat / pulse fill heat / fire sonar")
@@ -90,7 +90,7 @@ End Sub
 ' Handler: DevTermExecute — parse and run one command line
 Sub DevTermExecute(raw As String)
 	Dim cmd As String
-	Dim parts() As String
+	Dim parts As Variant
 	Dim n As Integer
 	cmd = LCase(Trim(raw))
 	If cmd = "" Then Exit Sub
@@ -236,11 +236,11 @@ Sub DevTermExecute(raw As String)
 	If UBound(parts) >= 1 Then
 		If parts(0) = "warp" Or parts(0) = "room" Then
 			n = Val(parts(1))
-			If n >= 1 And n <= 8 Then
+			If n >= 1 And n <= 17 Then
 				Call DevWarpRoom(n)
 				Call DevTermPushLine("ok — room " & Str(n))
 			Else
-				Call DevTermPushLine("error — room must be 1-8")
+				Call DevTermPushLine("error — room must be 1-17")
 			End If
 			Exit Sub
 		End If
