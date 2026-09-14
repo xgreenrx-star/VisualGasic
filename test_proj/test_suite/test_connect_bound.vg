@@ -1,0 +1,43 @@
+' Test: Connect with bound extra arguments (Godot Callable.bind equivalent)
+Attribute VB_Name = "TestConnectBound"
+
+Dim gotOffer As Integer
+Dim gotPlain As Integer
+
+Sub OnBuy(offer As Integer)
+	gotOffer = offer
+End Sub
+
+Sub OnPlain()
+	gotPlain = 1
+End Sub
+
+Sub _Ready()
+	gotOffer = 0
+	gotPlain = 0
+
+	Dim btn As Object
+	Set btn = ClassDB.Instantiate("Button")
+	Me.AddChild btn
+
+	Connect btn, "pressed", "OnBuy", 99
+	btn.emit_signal("pressed")
+	If gotOffer = 99 Then
+		Print "PASS: connect_bound_arg"
+	Else
+		Print "FAIL: connect_bound_arg: expected 99 got " & CStr(gotOffer)
+	End If
+
+	Dim btn2 As Object
+	Set btn2 = ClassDB.Instantiate("Button")
+	Me.AddChild btn2
+	Connect btn2, "pressed", "OnPlain"
+	btn2.emit_signal("pressed")
+	If gotPlain = 1 Then
+		Print "PASS: connect_unbound_still_works"
+	Else
+		Print "FAIL: connect_unbound_still_works"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

@@ -897,18 +897,30 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
              String name = args[args.size()-2];
              String event = args[args.size()-1];
              String sub_name;
-             
-             if (event.is_empty()) {
-                 sub_name = name; // Direct callback name
-             } else {
-                 sub_name = name + "_" + event; // e.g. "Timer1_Timer"
-             }
-             
+
              // Construct args for Sub
              // Everything BEFORE the last 2 args are the signal parameters
              Array sub_args;
              for(int i=0; i < args.size() - 2; i++) {
                  sub_args.push_back(args[i]);
+             }
+
+             if (event == "__vglambda") {
+                 Dictionary d = VisualGasicConnect::lookup_lambda(name.to_int());
+                 if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
+                     Variant lam_ret = invoke_lambda(d, sub_args);
+                     if (r_return) {
+                         *r_return = lam_ret;
+                     }
+                     r_error->error = GDEXTENSION_CALL_OK;
+                     return;
+                 }
+             }
+
+             if (event.is_empty()) {
+                 sub_name = name; // Direct callback name
+             } else {
+                 sub_name = name + "_" + event; // e.g. "Timer1_Timer"
              }
              
              // Special handling for MenuClick to support custom callbacks

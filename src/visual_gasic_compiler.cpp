@@ -1,4 +1,5 @@
 #include "visual_gasic_compiler.h"
+#include "vg_autoloads.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -421,6 +422,12 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     };
     for (const char **s = godot_singletons; *s; ++s) {
         non_local_names.insert(*s);
+    }
+    {
+        const HashSet<String> &als = VGAutoloads::names_lower();
+        for (const String &n : als) {
+            non_local_names.insert(n);
+        }
     }
 
     for (int i = 0; i < sub->parameters.size(); i++) {

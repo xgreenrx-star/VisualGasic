@@ -1,0 +1,24 @@
+' Test: project.godot autoloads resolve as VG global identifiers
+Attribute VB_Name = "TestAutoloadGlobal"
+
+Sub _Ready()
+	If VgTestAutoload Is Nothing Then
+		Print "FAIL: autoload_resolved: VgTestAutoload is Nothing"
+	Else
+		Print "PASS: autoload_resolved"
+	End If
+
+	If VgTestAutoload.ping_value = 42 Then
+		Print "PASS: autoload_property"
+	Else
+		Print "FAIL: autoload_property: expected 42 got " & CStr(VgTestAutoload.ping_value)
+	End If
+
+	If VgTestAutoload.ping() = 42 Then
+		Print "PASS: autoload_method"
+	Else
+		Print "FAIL: autoload_method: expected 42 got " & CStr(VgTestAutoload.ping())
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

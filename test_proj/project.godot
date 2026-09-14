@@ -12,6 +12,10 @@ config_version=5
 
 config/features=PackedStringArray("4.6")
 
+[autoload]
+
+VgTestAutoload="*res://vg_test_autoload.gd"
+
 [audio]
 
 driver/enable_input=true

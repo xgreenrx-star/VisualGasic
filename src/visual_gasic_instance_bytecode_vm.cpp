@@ -7,6 +7,8 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
+#include "vg_connect.h"
+#include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_jit_tier2.h"
@@ -2083,6 +2085,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Fallback to project-wide "Global Const"/"Global Dim" registry (v4.4.0)
                 if (val.get_type() == Variant::NIL && get_global_scope().has(name)) {
                     val = get_global_scope()[name];
+                }
+
+                // Project autoloads (e.g. GameManager) — /root/<Name> from project.godot
+                if (val.get_type() == Variant::NIL) {
+                    Node *al = VGAutoloads::get_node(name);
+                    if (al) {
+                        push_value(Variant(al));
+                        break;
+                    }
                 }
                 
                 // Owner form-name self-reference (e.g. "Form1" → the owning
@@ -4340,43 +4351,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     handled = true;
                 }
 
-                // Connect(source, signal, method) — 3-arg unqualified form
-                // Matches the AST interpreter's explicit Connect handler.
-                if (!handled && method.nocasecmp_to("Connect") == 0 && args.size() == 3) {
-                    Object *source = args[0];
-                    String sig = args[1];
-                    String target = args[2];
-                    if (source && owner) {
-                        if (source->has_signal(sig)) {
-                            Callable callable = Callable(owner, target);
-                            if (!source->is_connected(sig, callable)) {
-                                Error err = source->connect(sig, callable);
-                                call_ret = (int)err;
-                            } else {
-                                call_ret = (int64_t)0;
-                            }
-                        } else {
-                            UtilityFunctions::print("Runtime Warning: Signal '", sig, "' not found on object");
-                            call_ret = (int64_t)0;
-                        }
-                    } else {
-                        call_ret = (int64_t)0;
-                    }
+                // Connect / Disconnect — bound args + lambda handlers (see vg_connect.cpp).
+                if (!handled && method.nocasecmp_to("Connect") == 0 && args.size() >= 2) {
+                    call_ret = VisualGasicConnect::builtin_connect(this, args);
                     handled = true;
                 }
-                if (!handled && method.nocasecmp_to("Disconnect") == 0 && args.size() == 3) {
-                    Object *source = args[0];
-                    String sig = args[1];
-                    String target = args[2];
-                    if (source && owner) {
-                        Callable callable = Callable(owner, target);
-                        if (source->is_connected(sig, callable)) {
-                            source->disconnect(sig, callable);
-                        }
-                        call_ret = (int64_t)0;
-                    } else {
-                        call_ret = (int64_t)0;
-                    }
+                if (!handled && method.nocasecmp_to("Disconnect") == 0 && args.size() >= 2) {
+                    call_ret = VisualGasicConnect::builtin_disconnect(this, args);
                     handled = true;
                 }
 

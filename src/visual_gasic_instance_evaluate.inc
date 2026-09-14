@@ -325,6 +325,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (get_global_scope().has(name)) {
             return get_global_scope()[name];
         }
+        {
+            Node *al = VGAutoloads::get_node(name);
+            if (al) {
+                return al;
+            }
+        }
         
         // Debug
         // UtilityFunctions::print("Variable not found in map: ", name);

@@ -1,0 +1,38 @@
+' Test: RemoveAt / Array.RemoveAt
+Attribute VB_Name = "TestRemoveAt"
+
+Sub _Ready()
+	Dim a As Variant
+	a = Array(10, 20, 30, 40)
+	a = RemoveAt(a, 1)
+	If a(0) = 10 And a(1) = 30 And a(2) = 40 Then
+		Print "PASS: removeat_middle"
+	Else
+		Print "FAIL: removeat_middle"
+	End If
+
+	a = RemoveAt(a, 0)
+	If a(0) = 30 And a(1) = 40 Then
+		Print "PASS: removeat_first"
+	Else
+		Print "FAIL: removeat_first"
+	End If
+
+	a = Array.RemoveAt(a, -1)
+	If a(0) = 30 Then
+		Print "PASS: removeat_neg_index"
+	Else
+		Print "FAIL: removeat_neg_index"
+	End If
+
+	Dim b As Variant
+	b = Array(1, 2, 3)
+	b = RemoveAt(b, 99)
+	If b(0) = 1 And b(1) = 2 And b(2) = 3 Then
+		Print "PASS: removeat_oob_noop"
+	Else
+		Print "FAIL: removeat_oob_noop"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

@@ -598,6 +598,7 @@ namespace VisualGasicDebug {
     void set_whenever_active(int index, const String& section_name, bool active);
     void register_instance(VisualGasicInstance* instance);
     void unregister_instance(VisualGasicInstance* instance);
+    VisualGasicInstance* get_instance_for_owner(godot::Object *owner);
 }
 
 #endif // VISUAL_GASIC_INSTANCE_H

@@ -11,6 +11,8 @@ Quick reference for all builtin functions and features (122+).
   - [Array Search](#array-search)
   - [Array Transform](#array-transform)
   - [Array Generation](#array-generation)
+- [Signal Functions](#signal-functions)
+- [Autoload Globals](#autoload-globals)
 - [Dictionary Functions (5)](#dictionary-functions-5)
 - [Type Checking Functions (6)](#type-checking-functions-6)
 - [JSON Functions (2)](#json-functions-2)
@@ -116,6 +118,10 @@ PadRight("42", 5, "0")        ' "42000"
 Push(array, value)              ' Add element to end: Push([1,2], 3) → [1,2,3]
 Pop(array)                      ' Remove and return last element
 Slice(array, start, end)        ' Get subarray: Slice([1,2,3,4,5], 1, 3) → [2,3]
+RemoveAt(array, index)          ' Remove at index (neg. from end); returns the array
+                                ' Assign back: a = RemoveAt(a, i)
+                                ' Also: Array.RemoveAt(array, index)
+                                ' Out of range is a no-op
 ```
 
 ### Array Search
@@ -145,10 +151,40 @@ Dim arr = [1, 2, 3, 4, 5]
 Dim arr2 = Push(arr, 6)         ' [1,2,3,4,5,6]
 Dim last = Pop(arr2)            ' 6
 Dim sub = Slice(arr, 1, 3)      ' [2,3]
+Dim trimmed = RemoveAt(arr, 1)  ' [1,3,4,5]
 Dim idx = IndexOf(arr, 3)       ' 2
 Dim sorted = Sort([5,2,8,1])    ' [1,2,5,8]
 Dim unique = Unique([1,2,2,3])  ' [1,2,3]
 Dim flat = Flatten([[1,2],[3]]) ' [1,2,3]
+```
+
+---
+
+## Signal Functions
+
+```vb
+Connect(source, signal, handler [, bound...])
+Disconnect(source, signal, handler [, bound...])
+```
+
+`handler` is a method name (`String`), an inline `Lambda`, or a `Lambda` stored in a variable. Extra arguments after the handler are bound (Godot `Callable.bind`) and passed after the signal's own arguments.
+
+```vb
+Connect btn, "pressed", "OnBuy", offerIndex
+Connect timer, "timeout", Lambda() => Print("tick")
+Dim fn = Lambda() => HandlePress()
+Connect btn, "pressed", fn
+Disconnect btn, "pressed", "OnBuy", offerIndex
+```
+
+---
+
+## Autoload Globals
+
+Names registered in Project Settings → Autoload are VG globals. Use the autoload name as the identifier:
+
+```vb
+GameState.score = GameState.score + 100
 ```
 
 ---

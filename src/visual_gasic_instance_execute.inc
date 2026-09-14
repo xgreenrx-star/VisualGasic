@@ -912,17 +912,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          }
 
 
-                         if (s->method_name.nocasecmp_to("Connect") == 0 && call_args.size() == 2) {
-                             String signal = call_args[0];
-                             String target = call_args[1];
-                             if (owner) {
-                                 if (obj->has_signal(signal)) {
-                                     obj->connect(signal, Callable(owner, target));
-                                 } else {
-                                     UtilityFunctions::print("Runtime Warning: Signal '", signal, "' not found on object");
-                                 }
-                                 break;
-                             }
+                         if (s->method_name.nocasecmp_to("Connect") == 0 && call_args.size() >= 2) {
+                             VisualGasicConnect::builtin_object_connect(this, obj, call_args);
+                             break;
+                         }
+                         if (s->method_name.nocasecmp_to("Disconnect") == 0 && call_args.size() >= 2) {
+                             VisualGasicConnect::builtin_object_disconnect(this, obj, call_args);
+                             break;
                          }
 
                          // ── VB6 → Godot method alias translation ──
@@ -992,34 +988,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 }
             } else {            
                 // Built-ins (Helpers for Statements that look like calls)
-                if (s->method_name.nocasecmp_to("Connect") == 0 && call_args.size() == 3) {
-                     Object *obj = call_args[0];
-                     String signal_name = call_args[1];
-                     String target_method = call_args[2];
-                     
-                     if (obj && owner) {
-                          if (obj->has_signal(signal_name)) {
-                              Callable callable = Callable(owner, target_method);
-                              if (!obj->is_connected(signal_name, callable)) {
-                                   obj->connect(signal_name, callable);
-                              }
-                          } else {
-                              UtilityFunctions::print("Runtime Warning: Signal '", signal_name, "' not found on object");
-                          }
-                     }
+                if (s->method_name.nocasecmp_to("Connect") == 0 && call_args.size() >= 2) {
+                     VisualGasicConnect::builtin_connect(this, call_args);
                      break;
                 }
-                if (s->method_name.nocasecmp_to("Disconnect") == 0 && call_args.size() == 3) {
-                     Object *obj = call_args[0];
-                     String signal_name = call_args[1];
-                     String target_method = call_args[2];
-                     
-                     if (obj && owner) {
-                          Callable callable = Callable(owner, target_method);
-                          if (obj->is_connected(signal_name, callable)) {
-                              obj->disconnect(signal_name, callable);
-                          }
-                     }
+                if (s->method_name.nocasecmp_to("Disconnect") == 0 && call_args.size() >= 2) {
+                     VisualGasicConnect::builtin_disconnect(this, call_args);
                      break;
                 }
 

@@ -34,6 +34,8 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
+#include "vg_connect.h"
+#include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_timer.h"
@@ -153,6 +155,19 @@ void register_instance(VisualGasicInstance* instance) {
 void unregister_instance(VisualGasicInstance* instance) {
     std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
     vg_debug_active_instances.erase(instance);
+}
+
+VisualGasicInstance* get_instance_for_owner(godot::Object *owner) {
+    if (!owner) {
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+    for (auto* inst : vg_debug_active_instances) {
+        if (inst && inst->get_owner() == owner) {
+            return inst;
+        }
+    }
+    return nullptr;
 }
 
 Array get_all_instances() {

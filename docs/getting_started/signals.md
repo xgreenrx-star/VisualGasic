@@ -67,14 +67,19 @@ For standard Godot nodes (not VG controls), you can connect signals in two ways:
 
 ```vb
 Sub _Ready()
-    ' Connect a Godot node's signal to a handler
-    $Timer.Connect("timeout", Callable(self, "OnTimerDone"))
+    Connect timer, "timeout", "OnTimerDone"
+    Connect btn, "pressed", "OnBuy", offerIndex
+    Connect timer, "timeout", Lambda() => Print("tick")
+    Dim fn = Lambda() => HandlePress()
+    Connect btn, "pressed", fn
 End Sub
 
 Sub OnTimerDone()
     Print "Timer finished!"
 End Sub
 ```
+
+`Connect` takes a source node, signal name, and handler. The handler is a method name (`String`), an inline `Lambda`, or a `Lambda` stored in a variable. Extra arguments after the handler are bound and passed after the signal's own arguments.
 
 ## Next Steps
 

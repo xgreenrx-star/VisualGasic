@@ -2033,7 +2033,21 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Print colors(0)            ' \"Red\"\n"
       "Print UBound(colors) + 1   ' 3 (element count)\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nUBound, LBound, ReDim, IsArray\n\n[url=ref:array]📖 VG Language Reference[/url]" },
+      "[b]See Also[/b]\nUBound, LBound, ReDim, IsArray, RemoveAt\n\n[url=ref:array]📖 VG Language Reference[/url]" },
+
+    { "removeat",
+      "[b]Syntax[/b]\nRemoveAt(array, index)\nArray.RemoveAt(array, index)\n\n"
+      "[b]Description[/b]\n"
+      "Returns a new array with the element at [i]index[/i] removed. "
+      "Assign the result back: [code]a = RemoveAt(a, i)[/code]. "
+      "A negative index counts from the end. An out-of-range index is a no-op and returns the array unchanged.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim a = Array(10, 20, 30, 40)\n"
+      "a = RemoveAt(a, 1)           ' [10, 30, 40]\n"
+      "a = Array.RemoveAt(a, -1)    ' [10, 30]\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nArray, UBound, LBound, ReDim\n\n[url=ref:removeat]📖 VG Language Reference[/url]" },
 
     { "isarray",
       "[b]Syntax[/b]\nIsArray(value)\n\n"
@@ -2325,7 +2339,28 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "Dim result As Integer\n"
       "result = Add(3, 4)  ' result = 7\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nSub, Return, Dim\n\n[url=ref:function]📖 VG Language Reference[/url]" },
+      "[b]See Also[/b]\nSub, Return, Dim, Lambda\n\n[url=ref:function]📖 VG Language Reference[/url]" },
+
+    { "lambda",
+      "[b]Syntax[/b]\nLambda(params) expression\n"
+      "Lambda(params) => expression\n"
+      "Lambda(params)\n"
+      "    ' body\n"
+      "End Lambda\n\n"
+      "[b]Description[/b]\n"
+      "Creates an anonymous function (closure) that can be stored in a variable or passed as an argument. "
+      "[code]Fn(params)[/code] is shorthand for [code]Lambda(params)[/code]. "
+      "A [code]Lambda[/code] can be used as a [code]Connect[/code] handler, either inline or stored in a variable.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Dim double As Function = Lambda(x) x * 2\n"
+      "Print double(5)  ' 10\n"
+      "\n"
+      "Connect btn, \"pressed\", Lambda() => Print(\"clicked\")\n"
+      "Dim fn = Lambda() => HandlePress()\n"
+      "Connect btn, \"pressed\", fn\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nFunction, Sub, Connect\n\n[url=ref:lambda]📖 VG Language Reference[/url]" },
 
     { "if",
       "[b]Syntax[/b]\nIf condition Then\n"
@@ -2822,36 +2857,44 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit-signal]Godot Docs ↗[/url]" },
 
     { "connect",
-      "[b]Syntax[/b]\n[code]Connect(sourceNode As Node, signalName As String, handlerMethod As String) As Integer[/code]\n\n"
+      "[b]Syntax[/b]\n[code]Connect(sourceNode As Node, signalName As String, handler, [boundArgs...]) As Integer[/code]\n\n"
       "[b]Description[/b]\n"
-      "Connects [code]signalName[/code] on [code]sourceNode[/code] to a method named [code]handlerMethod[/code] "
-      "on the current node. Returns [code]0[/code] (OK) on success or a non-zero error code. "
-      "For connecting signals from other objects to this node's methods. "
-      "Equivalent to Godot's [code]Object.connect()[/code].\n\n"
+      "Connects [code]signalName[/code] on [code]sourceNode[/code] to a handler on the current node. "
+      "[code]handler[/code] may be a method name ([code]String[/code]), an inline [code]Lambda[/code], "
+      "a [code]Lambda[/code] stored in a variable, or a [code]Callable[/code]. "
+      "Extra arguments after the handler are bound and passed after the signal's own arguments "
+      "(Godot [code]Callable.bind[/code]). Returns [code]0[/code] (OK) on success.\n\n"
       "[b]Example[/b]\n"
       "[codeblock lang=vgbasic]"
-      "Dim timer As Timer = GetNode(\"CountdownTimer\")\n"
-      "Dim err As Integer = Connect(timer, \"timeout\", \"OnTimerDone\")\n"
-      "If err <> 0 Then Print \"Connect failed: \" & CStr(err)\n"
+      "Connect btn, \"pressed\", \"OnBuyWeapon\", offerIndex\n"
+      "Connect timer, \"timeout\", Lambda()\n"
+      "    Print \"fired\"\n"
+      "End Lambda\n"
+      "Dim fn = Lambda() => HandlePress()\n"
+      "Connect btn, \"pressed\", fn\n"
       "\n"
-      "Sub OnTimerDone()\n"
-      "    Print \"Time's up!\"\n"
+      "Sub OnBuyWeapon(offerIndex As Integer)\n"
+      "    Print \"Bought slot \" & CStr(offerIndex)\n"
       "End Sub\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nEmitSignal, Event, Disconnect\n\n"
+      "[b]See Also[/b]\nEmitSignal, Event, Disconnect, Lambda\n\n"
       "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect]Godot Docs ↗[/url]" },
 
     { "disconnect",
-      "[b]Syntax[/b]\n[code]Disconnect(sourceNode As Node, signalName As String, handlerMethod As String)[/code]\n\n"
+      "[b]Syntax[/b]\n[code]Disconnect(sourceNode As Node, signalName As String, handler, [boundArgs...])[/code]\n\n"
       "[b]Description[/b]\n"
       "Disconnects a previously connected signal. "
+      "[code]handler[/code] may be a method name ([code]String[/code]), an inline [code]Lambda[/code], "
+      "a [code]Lambda[/code] stored in a variable, or a [code]Callable[/code] — the same form used with [code]Connect[/code]. "
+      "Bound arguments must match the original [code]Connect[/code] call. "
       "Has no effect if the connection does not exist. "
       "Equivalent to Godot's [code]Object.disconnect()[/code].\n\n"
       "[b]Example[/b]\n"
       "[codeblock lang=vgbasic]"
-      "Disconnect(timer, \"timeout\", \"OnTimerDone\")\n"
+      "Disconnect timer, \"timeout\", \"OnTimerDone\"\n"
+      "Disconnect btn, \"pressed\", \"OnBuyWeapon\", offerIndex\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nConnect, EmitSignal\n\n"
+      "[b]See Also[/b]\nConnect, EmitSignal, Lambda\n\n"
       "[url=https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-disconnect]Godot Docs ↗[/url]" },
 
     // ── Group 1: Logical / Bitwise Operators ──────────────────────────────────

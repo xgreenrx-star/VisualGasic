@@ -2518,8 +2518,12 @@ Signal PlayerDied()
 Emit HealthChanged(currentHealth)
 Emit PlayerDied()
 
-' Connect signals
-Connect(player, "health_changed", "OnHealthChanged")
+' Connect signals — handler is a method name, inline Lambda, or stored Lambda
+Connect player, "health_changed", "OnHealthChanged"
+Connect btn, "pressed", "OnBuyWeapon", offerIndex
+Connect timer, "timeout", Lambda() => Print("fired")
+Dim fn = Lambda() => HandlePress()
+Connect btn, "pressed", fn
 
 ' Signal handler
 Sub OnHealthChanged(newHealth As Integer)
@@ -3955,7 +3959,7 @@ Creates and returns an array containing the specified values.
     Dim colors As Variant = Array("Red", "Green", "Blue")
     Print colors(0)  ' "Red"
 
-**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [ReDim](#redim), [LBound](#lbound), [UBound](#ubound)
+**See Also** — [Integer](#integer), [Long](#long), [Single](#single), [Double](#double), [String](#string), [Boolean](#boolean), [Variant](#variant), [ReDim](#redim), [LBound](#lbound), [UBound](#ubound), [RemoveAt](#removeat)
 
 ---
 
@@ -3980,6 +3984,27 @@ Marks a procedure as asynchronous, allowing the use of Await inside it.
     End Sub
 
 **See Also** — [Await](#await), [DoEvents](#doevents)
+
+---
+
+## Autoload
+
+**Purpose** — Project Settings autoload names are global identifiers in VG.
+
+**Syntax**
+
+    AutoloadName.member
+
+**Description**
+
+Names registered in Project Settings → Autoload (the `autoload/` keys in `project.godot`) resolve as globals. Use the autoload name as the identifier (for example `GameState`), not the script file name. Autoloads persist across `ChangeScene`.
+
+**Example**
+
+    GameState.score = GameState.score + 100
+    If GameState.lives <= 0 Then ChangeScene "res://GameOver.tscn"
+
+**See Also** — [Global](#global), [ChangeScene](#changescene)
 
 ---
 
@@ -5333,31 +5358,39 @@ Splits a Color into its Hue, Saturation, Value, Alpha components. Returns a Dict
 
 ---
 
-## connect
+## Connect
 
-**Purpose** — Connects a signal to a callback method.
+**Purpose** — Connects a Godot signal on a source node to a handler on the current node.
 
 **Syntax**
 
-    connect(signal_name As String, callable As Callable)
+    Connect(sourceNode As Node, signalName As String, handler [, boundArgs...]) As Integer
 
 **Parameters**
 
-- `signal_name`
-- `callable`
+- `sourceNode`
+- `signalName`
+- `handler` — method name (`String`), inline `Lambda`, stored `Lambda` variable, or `Callable`
+- `boundArgs` — optional extra arguments bound after the signal's own arguments (Godot `Callable.bind`)
 
 **Description**
 
-Connects a signal to a callback method. Use Godot 4 Callable syntax.
+Connects `signalName` on `sourceNode` to a handler on the current node. Returns `0` (OK) on success. Extra arguments after the handler are bound and passed after the signal's own arguments.
 
 **Example**
 
-    connect("body_entered", _on_body_entered)
-    timer.connect("timeout", _on_timeout)
+    Connect btn, "pressed", "OnBuyWeapon", offerIndex
+    Connect timer, "timeout", Lambda() => Print("fired")
+    Dim fn = Lambda() => HandlePress()
+    Connect btn, "pressed", fn
+
+    Sub OnBuyWeapon(offerIndex As Integer)
+        Print "Bought slot " & CStr(offerIndex)
+    End Sub
 
 **Godot Mapping** — [`Object.connect()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-connect)
 
-**See Also** — [emit_signal](#emit_signal)
+**See Also** — [Disconnect](#disconnect), [Lambda](#lambda), [emit_signal](#emit_signal)
 
 ---
 
@@ -6081,6 +6114,36 @@ Declares a local variable with an optional type and initial value. Variables dec
 
 ---
 
+## Disconnect
+
+**Purpose** — Disconnects a previously connected signal.
+
+**Syntax**
+
+    Disconnect(sourceNode As Node, signalName As String, handler [, boundArgs...])
+
+**Parameters**
+
+- `sourceNode`
+- `signalName`
+- `handler` — same form used with `Connect` (method name, `Lambda`, or `Callable`)
+- `boundArgs` — must match the bound arguments used with `Connect`
+
+**Description**
+
+Disconnects a previously connected signal. Has no effect if the connection does not exist. Bound arguments must match the original `Connect` call so the same `Callable` is identified.
+
+**Example**
+
+    Disconnect timer, "timeout", "OnTimerDone"
+    Disconnect btn, "pressed", "OnBuyWeapon", offerIndex
+
+**Godot Mapping** — [`Object.disconnect()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-disconnect)
+
+**See Also** — [Connect](#connect), [Lambda](#lambda), [emit_signal](#emit_signal)
+
+---
+
 ## Do
 
 **Purpose** — Repeats a block while or until a condition is met.
@@ -6546,7 +6609,7 @@ Emits the given signal, optionally passing arguments to connected callbacks.
 
 **Godot Mapping** — [`Object.emit_signal()`](https://docs.godotengine.org/en/stable/classes/class_object.html#class-object-method-emit_signal)
 
-**See Also** — [connect](#connect)
+**See Also** — [Connect](#connect)
 
 ---
 
@@ -8471,13 +8534,14 @@ Reads a JavaScript value by path (e.g. "window.location.href"). Shortcut for JS.
 **Syntax**
 
     Lambda(params) expression
+    Lambda(params) => expression
     Lambda(params)
         statements
     End Lambda
 
 **Description**
 
-Creates an anonymous function (closure) that can be stored in a variable or passed as an argument.
+Creates an anonymous function (closure) that can be stored in a variable or passed as an argument. `Fn(params)` is shorthand for `Lambda(params)`. A `Lambda` can be used as a `Connect` handler, either inline or stored in a variable.
 
 **Example**
 
@@ -8489,7 +8553,11 @@ Creates an anonymous function (closure) that can be stored in a variable or pass
     End Lambda
     greet("World")
 
-**See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional)
+    Connect btn, "pressed", Lambda() => Print("clicked")
+    Dim fn = Lambda() => HandlePress()
+    Connect btn, "pressed", fn
+
+**See Also** — [Connect](#connect), [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [ByVal](#byval), [Optional](#optional)
 
 ---
 
@@ -10564,7 +10632,35 @@ Resizes a dynamic array. Use Preserve to keep existing data when resizing.
     scores(0) = 100
     ReDim Preserve scores(20)  ' Keeps old data
 
-**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [Type](#type), [Array](#array), [LBound](#lbound), [UBound](#ubound)
+**See Also** — [Dim](#dim), [Private](#private), [Public](#public), [Global](#global), [Static](#static), [Const](#const), [Type](#type), [Array](#array), [LBound](#lbound), [UBound](#ubound), [RemoveAt](#removeat)
+
+---
+
+## RemoveAt
+
+**Purpose** — Returns an array with the element at the given index removed.
+
+**Syntax**
+
+    RemoveAt(array, index)
+    Array.RemoveAt(array, index)
+
+**Parameters**
+
+- `array`
+- `index` — zero-based; a negative index counts from the end
+
+**Description**
+
+Returns a new array with the element at `index` removed. Assign the result back (`a = RemoveAt(a, i)`). An out-of-range index is a no-op and returns the array unchanged.
+
+**Example**
+
+    Dim a = Array(10, 20, 30, 40)
+    a = RemoveAt(a, 1)           ' [10, 30, 40]
+    a = Array.RemoveAt(a, -1)    ' [10, 30]
+
+**See Also** — [Array](#array), [ReDim](#redim), [UBound](#ubound), [LBound](#lbound)
 
 ---
 
@@ -14521,6 +14617,7 @@ This index lists command-reference entries grouped by first letter.
 - [Animation.Stop](#animationstop)
 - [Array](#array)
 - [Async](#async)
+- [Autoload](#autoload)
 - [Await](#await)
 - [AllocFillI64](#allocfilli64)
 - [AllocFillI64Sum](#allocfilli64sum)
@@ -14570,7 +14667,7 @@ This index lists command-reference entries grouped by first letter.
 - [CLS](#cls)
 - [ColorFromHSV](#colorfromhsv)
 - [ColorToHSV](#colortohsv)
-- [connect](#connect)
+- [Connect](#connect)
 - [Const](#const)
 - [Continue](#continue)
 - [Cos](#cos)
@@ -14599,6 +14696,7 @@ This index lists command-reference entries grouped by first letter.
 - [Data](#data)
 - [delta](#delta)
 - [Dim](#dim)
+- [Disconnect](#disconnect)
 - [Do](#do)
 - [DoEvents](#doevents)
 - [Double](#double)
@@ -14822,6 +14920,7 @@ This index lists command-reference entries grouped by first letter.
 - [Ray.Target](#raytarget)
 - [Read](#read)
 - [ReDim](#redim)
+- [RemoveAt](#removeat)
 - [remove_child](#remove_child)
 - [Replace](#replace)
 - [ResetDrawTransform](#resetdrawtransform)

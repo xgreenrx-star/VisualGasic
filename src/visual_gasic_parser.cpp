@@ -2107,8 +2107,11 @@ ExpressionNode* VisualGasicParser::parse_factor() {
         String kv = peek().value;
         if (kv.nocasecmp_to("Lambda") == 0 || kv.nocasecmp_to("Fn") == 0 ||
             kv.nocasecmp_to("Function") == 0 || kv.nocasecmp_to("Sub") == 0) {
-            // For Function/Sub as lambda, verify '(' follows to distinguish from declarations
-            bool needs_paren_check = (kv.nocasecmp_to("Function") == 0 || kv.nocasecmp_to("Sub") == 0);
+            // Fn/Function/Sub as lambda require '(' so a variable named `fn`
+            // (Connect src, "sig", fn) is not parsed as a block lambda that
+            // swallows the rest of the enclosing Sub.
+            bool needs_paren_check = (kv.nocasecmp_to("Function") == 0 || kv.nocasecmp_to("Sub") == 0
+                || kv.nocasecmp_to("Fn") == 0);
             if (!needs_paren_check || (current_pos + 1 < tokens.size() && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
                 ExpressionNode* lam = parse_lambda();
                 if (lam) return lam;
@@ -6017,64 +6020,52 @@ ExpressionNode* VisualGasicParser::parse_lambda() {
     }
     
     // Determine style: arrow (inline expression) vs block (multi-statement)
-    // Arrow if: => present, OR no newline follows (inline expression body)
-    // Block if: newline follows with no => (expects End Function / End Sub)
-    bool has_arrow = (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == "=") &&
-                     (current_pos + 1 < tokens.size() && tokens[current_pos + 1].value == ">");
+    // Arrow if: => present (one token or '=' '>'), OR no newline follows
+    // Block if: newline follows with no => (expects End Lambda / End Function / End Sub)
+    bool has_arrow = false;
+    if (check(VisualGasicTokenizer::TOKEN_OPERATOR)) {
+        String op = peek().value;
+        if (op == "=>") {
+            has_arrow = true;
+        } else if (op == "=" && current_pos + 1 < tokens.size() && tokens[current_pos + 1].value == ">") {
+            has_arrow = true;
+        }
+    }
     bool has_newline = check(VisualGasicTokenizer::TOKEN_NEWLINE);
     bool is_arrow_style = has_arrow || !has_newline;
     lam->is_arrow = is_arrow_style;
-    
+
     if (is_arrow_style) {
-        // Arrow/inline syntax: any keyword with => expr, or inline expr without =>
-        // Consume => if present
         if (has_arrow) {
-            advance(); // Eat =
-            advance(); // Eat >
+            if (peek().value == "=>") {
+                advance();
+            } else {
+                advance(); // Eat =
+                advance(); // Eat >
+            }
         }
-        
+
         lam->body_expression = parse_expression();
         if (lam->body_expression) unregister_node(lam->body_expression);
-    } else if (is_sub_lambda) {
-        // Block Sub lambda: Sub(params) ... End Sub  (newline already confirmed)
-        while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
-        while (!is_at_end()) {
-            if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
-                if (current_pos + 1 < tokens.size()) {
-                    String next_val = tokens[current_pos + 1].value;
-                    if (next_val.nocasecmp_to("Sub") == 0) {
-                        advance(); // Eat End
-                        advance(); // Eat Sub
-                        break;
-                    }
-                }
-            }
-            Statement* s = parse_statement();
-            if (s) { lam->body_statements.push_back(s); unregister_node(s); }
-            else {
-                if (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
-                else if (!is_at_end()) advance();
-            }
-        }
-        lam->is_arrow = false;
     } else {
-        // Block syntax: Function(params) ... End Function
-        // Skip optional newline
+        // Block: Lambda/Fn ... End Lambda|End Fn|End Function
+        //        Sub(...) ... End Sub (also accepts End Lambda)
         while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
-        
-        // Parse body until End Function
         while (!is_at_end()) {
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("End") == 0) {
                 if (current_pos + 1 < tokens.size()) {
                     String next_val = tokens[current_pos + 1].value;
-                    if (next_val.nocasecmp_to("Function") == 0) {
-                        advance(); // Eat End
-                        advance(); // Eat Function
+                    bool end_ok = next_val.nocasecmp_to("Lambda") == 0
+                        || next_val.nocasecmp_to("Fn") == 0
+                        || next_val.nocasecmp_to("Function") == 0
+                        || (is_sub_lambda && next_val.nocasecmp_to("Sub") == 0);
+                    if (end_ok) {
+                        advance();
+                        advance();
                         break;
                     }
                 }
             }
-            
             Statement* s = parse_statement();
             if (s) { lam->body_statements.push_back(s); unregister_node(s); }
             else {
@@ -6082,7 +6073,6 @@ ExpressionNode* VisualGasicParser::parse_lambda() {
                 else if (!is_at_end()) advance();
             }
         }
-        
         lam->is_arrow = false;
     }
     

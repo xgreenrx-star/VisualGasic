@@ -1,0 +1,80 @@
+' Test: Connect a Lambda (and Lambda + bound arg) as a signal handler
+Attribute VB_Name = "TestConnectLambda"
+
+Dim lambdaHits As Integer
+Dim lambdaBound As Integer
+Dim blockHits As Integer
+Dim storedHits As Integer
+
+Function BumpHits() As Integer
+	lambdaHits = lambdaHits + 1
+	BumpHits = lambdaHits
+End Function
+
+Function TakeBound(v As Integer) As Integer
+	lambdaBound = v
+	TakeBound = v
+End Function
+
+Function BumpStored() As Integer
+	storedHits = storedHits + 1
+	BumpStored = storedHits
+End Function
+
+Sub _Ready()
+	lambdaHits = 0
+	lambdaBound = 0
+	blockHits = 0
+
+	Dim btn As Object
+	Set btn = ClassDB.Instantiate("Button")
+	Me.AddChild btn
+	Connect btn, "pressed", Lambda() => BumpHits()
+	btn.emit_signal("pressed")
+	btn.emit_signal("pressed")
+	If lambdaHits = 2 Then
+		Print "PASS: connect_lambda"
+	Else
+		Print "FAIL: connect_lambda: expected 2 got " & CStr(lambdaHits)
+	End If
+
+	Dim btn2 As Object
+	Set btn2 = ClassDB.Instantiate("Button")
+	Me.AddChild btn2
+	Connect btn2, "pressed", Lambda(v) => TakeBound(v), 7
+	btn2.emit_signal("pressed")
+	If lambdaBound = 7 Then
+		Print "PASS: connect_lambda_bound"
+	Else
+		Print "FAIL: connect_lambda_bound: expected 7 got " & CStr(lambdaBound)
+	End If
+
+	Dim btn3 As Object
+	Set btn3 = ClassDB.Instantiate("Button")
+	Me.AddChild btn3
+	Connect btn3, "pressed", Lambda()
+		blockHits = blockHits + 1
+	End Lambda
+	btn3.emit_signal("pressed")
+	If blockHits = 1 Then
+		Print "PASS: connect_lambda_block"
+	Else
+		Print "FAIL: connect_lambda_block: expected 1 got " & CStr(blockHits)
+	End If
+
+	storedHits = 0
+	Dim btn4 As Object
+	Set btn4 = ClassDB.Instantiate("Button")
+	Me.AddChild btn4
+	Dim fn As Variant
+	fn = Lambda() => BumpStored()
+	Connect btn4, "pressed", fn
+	btn4.emit_signal("pressed")
+	If storedHits = 1 Then
+		Print "PASS: connect_lambda_stored"
+	Else
+		Print "FAIL: connect_lambda_stored: expected 1 got " & CStr(storedHits)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

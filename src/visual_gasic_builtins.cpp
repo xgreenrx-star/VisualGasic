@@ -1,4 +1,5 @@
 #include "visual_gasic_builtins.h"
+#include "vg_connect.h"
 #include "vg_godot_owner_builtins.h"
 #include "vg_input_edge.h"
 #include <cstring>
@@ -489,6 +490,17 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     if (!instance) return false;
 
     if (VGGodotOwnerBuiltins::try_call(instance, p_method, p_args, r_found, r_ret)) {
+        return true;
+    }
+
+    if (p_method.nocasecmp_to("Connect") == 0) {
+        r_found = true;
+        r_ret = VisualGasicConnect::builtin_connect(instance, p_args);
+        return true;
+    }
+    if (p_method.nocasecmp_to("Disconnect") == 0) {
+        r_found = true;
+        r_ret = VisualGasicConnect::builtin_disconnect(instance, p_args);
         return true;
     }
 
@@ -993,6 +1005,27 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     Variant _owner_ret;
     if (VGGodotOwnerBuiltins::try_call(instance, p_method, p_args, r_handled, _owner_ret)) {
         return _owner_ret;
+    }
+    if (p_method.nocasecmp_to("Connect") == 0) {
+        r_handled = true;
+        return VisualGasicConnect::builtin_connect(instance, p_args);
+    }
+    if (p_method.nocasecmp_to("Disconnect") == 0) {
+        r_handled = true;
+        return VisualGasicConnect::builtin_disconnect(instance, p_args);
+    }
+    if (p_method.nocasecmp_to("RemoveAt") == 0 && p_args.size() == 2 && p_args[0].get_type() == Variant::ARRAY) {
+        r_handled = true;
+        Array arr = p_args[0];
+        int64_t idx = (int64_t)p_args[1];
+        int size = arr.size();
+        if (idx < 0) {
+            idx += size;
+        }
+        if (idx >= 0 && idx < size) {
+            arr.remove_at((int)idx);
+        }
+        return arr;
     }
 
     String lowercase_name = p_method;
@@ -7259,6 +7292,19 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
             r_ret = arr;
             return true;
         }
+        if (p_method.nocasecmp_to("RemoveAt") == 0 && p_args.size() >= 2) {
+            Array arr = p_args[0];
+            int64_t idx = (int64_t)p_args[1];
+            int size = arr.size();
+            if (idx < 0) {
+                idx += size;
+            }
+            if (idx >= 0 && idx < size) {
+                arr.remove_at((int)idx);
+            }
+            r_ret = arr;
+            return true;
+        }
         if (p_method.nocasecmp_to("Transpose") == 0 && p_args.size() >= 1) {
             Array grid = p_args[0];
             if (grid.size() == 0) { r_ret = Array(); return true; }
@@ -7673,44 +7719,13 @@ bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &
         }
     }
 
-    // Connect helper: Connect(signal, target_method) on the object
+    // Connect helper: obj.Connect(signal, handler[, bound...])
     if (p_method.nocasecmp_to("Connect") == 0) {
-        if (p_args.size() == 2) {
-            String signal = p_args[0];
-            String method = p_args[1];
-            if (instance->get_owner()) {
-                Error err = obj->connect(signal, Callable(instance->get_owner(), method));
-                r_ret = (int)err;
-                return true;
-            }
-            r_ret = 0;
-            return true;
-        } else if (p_args.size() == 3) {
-            Object *source = p_args[0];
-            String signal = p_args[1];
-            String method = p_args[2];
-            if (source) {
-                Error err = source->connect(signal, Callable(instance->get_owner(), method));
-                r_ret = (int)err;
-                return true;
-            }
-            r_ret = 0;
-            return true;
-        }
+        r_ret = VisualGasicConnect::builtin_object_connect(instance, obj, p_args);
+        return true;
     }
-    if (p_method.nocasecmp_to("Disconnect") == 0 && p_args.size() == 3) {
-        Object *source = p_args[0];
-        String signal = p_args[1];
-        String method = p_args[2];
-        if (source && instance->get_owner()) {
-            Callable callable = Callable(instance->get_owner(), method);
-            if (source->is_connected(signal, callable)) {
-                source->disconnect(signal, callable);
-            }
-            r_ret = 0;
-            return true;
-        }
-        r_ret = 0;
+    if (p_method.nocasecmp_to("Disconnect") == 0) {
+        r_ret = VisualGasicConnect::builtin_object_disconnect(instance, obj, p_args);
         return true;
     }
 

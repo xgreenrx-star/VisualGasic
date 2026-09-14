@@ -57,8 +57,15 @@ Random / input:
                               ' KEY_RIGHT KEY_SPACE KEY_ESCAPE etc.
 Event handlers auto-wire by name: Sub btnOK_Click(), Sub Timer1_Timer(),
 Sub Form_Load(), Sub Form_KeyDown(KeyCode As Integer, Shift As Integer).
-Manual wiring: Connect sourceNode, "signal_name", "HandlerName"
-  (e.g. Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped").
+Manual wiring: Connect sourceNode, "signal_name", handler [, boundArgs...]
+  handler is a method name String, an inline Lambda, or a Lambda stored in a
+  variable. Extra args after the handler are bound (Godot Callable.bind) and
+  passed after the signal's own arguments.
+  Connect GetTree.GetRoot, "files_dropped", "OnFilesDropped"
+  Connect btn, "pressed", "OnBuyWeapon", offerIndex
+  Connect timer, "timeout", Lambda() => Print("fired")
+  Dim fn = Lambda() => HandlePress()
+  Connect btn, "pressed", fn
   NOTE: there is no ConnectSignal, HasMember, PropertyGet, ArrayLen, or Pow()
   builtin — these are commonly hallucinated by LLMs. Use Connect(),
   IsArray()/UBound() (VB6-style, UBound returns highest index not count),
@@ -514,6 +521,10 @@ LAMBDA — anonymous functions
       Print "Hello, " & name
   End Lambda
 
+  Connect btn, "pressed", Lambda() => Print("clicked")
+  Dim fn = Lambda() => HandlePress()
+  Connect btn, "pressed", fn
+
 DOEVENT — yield to event loop (keeps UI responsive)
   For i = 1 To 10000
       ProcessItem(i)
@@ -721,6 +732,7 @@ USAGE from any form:
 RULES:
   * The autoload file MUST be a flat module (no Class/Inherits wrapper).
   * The name in the project-spec becomes the global accessor (GameState, not game_state).
+  * Autoload names resolve as VG globals at runtime (GameState.score).
   * Autoloads persist across ChangeScene — that is their main purpose.
   * Do not put large assets (images, audio) in autoloads; only data.
 
@@ -940,6 +952,8 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
   ReDim Preserve scores(19)          ' resize keeping existing data
   Print UBound(scores)               ' last valid index
   Print LBound(scores)               ' always 0 in VG
+  scores = RemoveAt(scores, 0)       ' drop index; assign back (returns the array)
+  scores = Array.RemoveAt(scores, -1)  ' negative index from the end; OOB is a no-op
 
   ' Type conversions: CStr CInt CSng CDbl CBool CLng
   ' Math: Abs Sqr Int Fix Mod Sin Cos Tan Atan2 Log Exp
