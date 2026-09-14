@@ -20,6 +20,8 @@ scripts/run_compile_benchmarks.sh        | tee demo/benchmarks/compile/bench_out
 scripts/benchmark_regression_check.sh      # fails if VG loses to GD (5% slack)
 ```
 
+**Native JIT:** off by default. These runners do not set `VG_JIT`. Optional Tier 2/3 (`VG_JIT=2` / `VG_JIT=3`, Linux/macOS only) is documented in [docs/manual/performance.md](docs/manual/performance.md#native-jit-optional-off-by-default).
+
 ### Benchmark tiers
 
 | Tier | Suite | CI gate? | Purpose |

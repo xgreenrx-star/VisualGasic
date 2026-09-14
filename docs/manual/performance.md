@@ -15,6 +15,65 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Date: **2026-08-25** (compute + draw refresh)
 - Canonical published table: **[BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)**
 
+## Native JIT (optional, off by default)
+
+Visual Gasic has **two** performance layers. Most published wins (compute, draw, gameplay) come from the first; you do not need JIT for shipping games.
+
+| Layer | What it is | Default? | Portable? |
+|-------|------------|:--------:|:---------:|
+| **Bytecode VM + compile fusions** | Optimizer + specialized opcodes (`OP_PACKED_HP_STATE_TICK`, draw grid loops, closed-form loops, packed I64 locals, …) | **Yes** | **Yes** — Linux, Windows, macOS, Android, Web |
+| **Native JIT (Tier 0.5 / 2 / 3)** | Optional x86-64 machine code for hot numeric bodies (`mmap` + `mprotect`) | **No** | **Partial** — see platform table below |
+
+**Published benchmarks** (`scripts/run_compute_benchmarks.sh`, `run_draw_benchmarks.sh`, `run_gameplay_benchmarks.sh`) do **not** set `VG_JIT`. They measure the portable bytecode path.
+
+### `VG_JIT` environment variable
+
+Set on the **Godot process** before launch (shell, desktop shortcut, CI job). There is no Project Settings toggle.
+
+| Value | Effect |
+|-------|--------|
+| *(unset)* or `VG_JIT=0` | **Default.** Native JIT off; bytecode VM only. Use this for cross-platform shipping. |
+| `VG_JIT=1` | Tier 0.5 hot-loop JIT (experimental; Linux only). |
+| `VG_JIT=2` | Tier 2 per-function native compile (Linux only). |
+| `VG_JIT=3` | Tier 3 call-graph fusion (Linux + macOS). Requires Tier 2 infrastructure; enables profiling + inlining. |
+
+**Linux example:**
+
+```bash
+export VG_JIT=0          # explicit off (same as default)
+godot --path my_project
+
+export VG_JIT=2          # opt-in Tier 2 (experiments / profiling only)
+godot --path my_project
+```
+
+**Windows example (PowerShell):**
+
+```powershell
+$env:VG_JIT = "0"
+.\Godot_v4.6.1-stable_win64.exe --path my_project
+```
+
+If JIT cannot compile a function (unsupported opcode, wrong platform, body too large), execution **falls back to the bytecode VM** — semantics stay the same; only speed differs.
+
+### Platform support
+
+| Tier | Linux | macOS | Windows | Android / Web |
+|------|:-----:|:-----:|:-------:|:-------------:|
+| Bytecode VM + fusions | ✅ | ✅ | ✅ | ✅ |
+| Tier 0.5 (loop) | ✅ | ❌ | ❌ | ❌ |
+| Tier 2 (function body) | ✅ | ❌ | ❌ | ❌ |
+| Tier 3 (call graph) | ✅ | ✅ | ❌ | ❌ |
+
+Tier 2/3 cover a **narrow** subset of bytecode (mostly numeric control flow). Strings, Variants, Godot interop, and most gameplay shapes stay on the interpreter even when JIT is enabled.
+
+### When to use native JIT
+
+- **Leave unset** for normal development, releases, and parity across platforms.
+- **`VG_JIT=2` or `3`** only for local experiments on Linux (or macOS for Tier 3) when profiling tight numeric loops — not required for the published benchmark numbers.
+
+JIT validation scripts live under `demo/benchmarks/jit_*.vg` and `demo/test_suites/test_jit_*.gd`.
+
 ## Compile / reload time (VG vs GDScript)
 
 Separate from runtime microbenchmarks. Measures median **`Script.reload()`** time (parse + compile; VG includes optimizer passes).
@@ -86,7 +145,7 @@ scripts/run_gameplay_benchmarks.sh
 | Arithmetic | 0.23× (C++ faster by 4.4×) | C++ |
 | ArraySum | 0.24× (C++ faster by 4.1×) | C++ |
 
-**Key insight:** VG beats native C++ on high-level operations (string manipulation 5.9×, interop 39.6×, allocations 2.5×) where bytecode VM efficiency and JIT shine, while C++ dominates on tight numeric loops (Arithmetic 4.4×, ArraySum 4.1×) where raw CPU throughput matters. VG wins 3/11 head-to-head; adds 2 GDScript-only benchmarks for total 5/11 advantage over traditional languages combined.
+**Key insight:** VG beats native C++ on high-level operations (string manipulation 5.9×, interop 39.6×, allocations 2.5×) where the **bytecode VM and compile fusions** shine (native JIT is off by default — see [Native JIT](#native-jit-optional-off-by-default)), while C++ dominates on tight numeric loops (Arithmetic 4.4×, ArraySum 4.1×) where raw CPU throughput matters. VG wins 3/11 head-to-head; adds 2 GDScript-only benchmarks for total 5/11 advantage over traditional languages combined.
 
 ### Recent Improvements (Jul 2026)
 
