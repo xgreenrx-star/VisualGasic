@@ -25,6 +25,16 @@ scripts/run_compile_benchmarks.sh
 
 **Sept 2026 (Linux, Godot 4.6.1 headless):** GDScript reload is **~1.6–1.9× faster** than VG across hello (~4 lines), `bench.vg` (~340 lines), and a ~1800-line synthetic script. Normal iteration is fine; very large files are where VG compile cost is most visible. Full table: [compile README](../../demo/benchmarks/compile/README.md).
 
+## Gameplay realism (Tier B + C, informational)
+
+Loop/call/gameplay shapes beyond Tier A microbench — **not** a CI regression gate.
+
+```bash
+scripts/run_gameplay_benchmarks.sh
+```
+
+**Sept 14 2026 highlights:** **IntegerLoop** ~65× · **NodePropertyChurn** ~170× · **FloatLoop** ~7× · **EntityThink / BatchNearest / FrameSlice** ~3–8× via native packed-I64 scans · **`For Each`** array/dict scans ~4–5×. Local calls ≈ GDScript parity. Runner tags: *representative* / *optimization-target*. Full table: [BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md#gameplay-realism-benchmarks-tier-b--c).
+
 ## Latest Results (elapsed time in microseconds, lower is faster)
 
 **12 compute benchmarks faster than GDScript.** Draw suite: **9/9 workloads faster than GDScript** (Aug 2026 grid-loop fusion + FunctionCall inlining). Checksums verified on static workloads.

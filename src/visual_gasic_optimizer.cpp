@@ -27,7 +27,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ABS: case OP_SGN: case OP_LEN:
         case OP_EQUAL: case OP_NOT_EQUAL: case OP_GREATER: case OP_LESS:
         case OP_GREATER_EQUAL: case OP_LESS_EQUAL:
-        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64:
+        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64: case OP_LESS_I64:
         case OP_NOT: case OP_AND: case OP_OR: case OP_XOR:
         case OP_RETURN: case OP_RETURN_VALUE:
         case OP_PRINT: case OP_DEBUG_PRINT:
@@ -60,6 +60,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_GET_LOCAL: case OP_SET_LOCAL:                         // [OP] [SLOT_IDX]
         case OP_INC_LOCAL_I64:                                        // [OP] [LOCAL_SLOT]
         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:      // [OP] [LOCAL_SLOT]
+        case OP_ADD_LOCAL_F64_STACK: case OP_SUB_LOCAL_F64_STACK:
+        case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
         case OP_BRANCH_SUM:                                            // [OP] [FLAG_SLOT]
         // M5: MemoryBuffer opcodes — all 2-byte (opcode + slot)
         case OP_BUF_ALLOC: case OP_BUF_FREE:
@@ -112,6 +114,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_NEW_OBJECT:                                           // [OP] [CLASS_LO] [CLASS_HI] [ARG_COUNT]
         case OP_RAISE_EVENT:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:     // [OP] [LOCAL_SLOT] [CONST_LO] [CONST_HI]
+        case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST:
         case OP_STRING_REPEAT_OUTER:                                  // [OP] [SLOT] [LIT_LO] [LIT_HI]
         case OP_SET_DICT_GLOBAL:                                      // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_PARALLEL_FOR_BEGIN:                                   // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
@@ -130,6 +133,10 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ACCUM_I64_MULADD_CONST:                               // [OP] [S_SLOT] [J_SLOT] [K_LO] [K_HI]
             return 5;
 
+        // 5-byte instructions (opcode + 4 local slots; tag=255 unused)
+        case OP_PACKED_HP_STATE_TICK:                                 // [OP] [HP] [STATE] [SUM] [TAG]
+            return 5;
+
         // 6-byte instructions (opcode + 1 const-pool [2] + 1 flag byte + 1 dest [2])
         case OP_BYREF_LOAD:                                           // [OP] [PNAME_LO] [PNAME_HI] [IS_GLOBAL] [DEST_LO] [DEST_HI]
             return 6;
@@ -137,6 +144,10 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 6-byte instructions (opcode + 1 const-pool [2] + 3 bytes)
         case OP_TASK_RUN_BEGIN:                                       // [OP] [NAME_LO] [NAME_HI] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]
             return 6;
+
+        // 7-byte instructions (opcode + 6 local slots)
+        case OP_PACKED_NEAREST_I64:                                   // [OP] [PX] [PY] [TX] [TY] [BEST] [BESTIDX]
+            return 7;
 
         // 8-byte instructions (opcode + 3 local + 1 const-pool [2] + 2 local)
         case OP_ALLOC_FILL_REPEAT_I64:                                // [OP] [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]

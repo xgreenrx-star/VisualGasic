@@ -1,0 +1,94 @@
+Running gameplay realism benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+=== Visual Gasic Gameplay Realism Benchmarks ===
+Tier B: script-local loops and calls · Tier C: engine-adjacent gameplay shapes
+Categories: representative (typical frame work) · optimization-target (tracked VM gaps)
+Metric: elapsed microseconds (lower is faster) · us/op when ops count is fixed
+IMPORTANT: geometric mean mixes unlike workloads — use median + per-test rows for game-speed claims.
+
+Warmup...
+
+=== IntegerLoop [B · representative] ===
+GDScript: { "elapsed_us": 4563, "checksum": 14999150000, "ops": 100000 }
+VisualGasic: { "elapsed_us": 70, "checksum": 14999150000, "ops": 100000 }
+VisualGasic vs GDScript: 65.1857142857143x
+GDScript us/op: 0.04563
+VisualGasic us/op: 0.0007
+
+=== FloatLoop [B · representative] ===
+GDScript: { "elapsed_us": 2850, "checksum": 100000, "ops": 100000 }
+VisualGasic: { "elapsed_us": 412, "checksum": 100000, "ops": 100000 }
+VisualGasic vs GDScript: 6.91747572815534x
+GDScript us/op: 0.0285
+VisualGasic us/op: 0.00412
+
+=== LocalCalls [B · representative] ===
+GDScript: { "elapsed_us": 21296, "checksum": 100000, "ops": 100000 }
+VisualGasic: { "elapsed_us": 22211, "checksum": 100000, "ops": 100000 }
+VisualGasic vs GDScript: 0.95880419611904x
+GDScript us/op: 0.21296
+VisualGasic us/op: 0.22211
+
+=== CallChain [B · optimization-target] ===
+GDScript: { "elapsed_us": 92747, "checksum": 100000, "ops": 100000 }
+VisualGasic: { "elapsed_us": 36540, "checksum": 100000, "ops": 100000 }
+VisualGasic vs GDScript: 2.53823207443897x
+GDScript us/op: 0.92747
+VisualGasic us/op: 0.3654
+
+=== NodePropertyChurn [C · representative] ===
+GDScript: { "elapsed_us": 111457, "checksum": 589000, "ops": 100000 }
+VisualGasic: { "elapsed_us": 656, "checksum": 589000, "ops": 100000 }
+VisualGasic vs GDScript: 169.903963414634x
+GDScript us/op: 1.11457
+VisualGasic us/op: 0.00656
+
+=== ArrayIterate [C · optimization-target] ===
+GDScript: { "elapsed_us": 2809, "checksum": 243000, "ops": 32000 }
+VisualGasic: { "elapsed_us": 710, "checksum": 243000, "ops": 32000 }
+VisualGasic vs GDScript: 3.95633802816901x
+GDScript us/op: 0.08778125
+VisualGasic us/op: 0.0221875
+
+=== DictionaryScan [C · optimization-target] ===
+GDScript: { "elapsed_us": 8666, "checksum": 3024000, "ops": 32000 }
+VisualGasic: { "elapsed_us": 1734, "checksum": 3024000, "ops": 32000 }
+VisualGasic vs GDScript: 4.99769319492503x
+GDScript us/op: 0.2708125
+VisualGasic us/op: 0.0541875
+
+=== EntityThink [C · representative] ===
+GDScript: { "elapsed_us": 4571, "checksum": 1322532, "ops": 32000 }
+VisualGasic: { "elapsed_us": 1495, "checksum": 1322532, "ops": 32000 }
+VisualGasic vs GDScript: 3.05752508361204x
+GDScript us/op: 0.14284375
+VisualGasic us/op: 0.04671875
+
+=== BatchNearest [C · representative] ===
+GDScript: { "elapsed_us": 7633, "checksum": 59585753, "ops": 32000 }
+VisualGasic: { "elapsed_us": 2648, "checksum": 59585753, "ops": 32000 }
+VisualGasic vs GDScript: 2.88255287009063x
+GDScript us/op: 0.23853125
+VisualGasic us/op: 0.08275
+
+=== FrameSlice [C · representative] ===
+GDScript: { "elapsed_us": 9774, "checksum": 1322532, "ops": 32000 }
+VisualGasic: { "elapsed_us": 1256, "checksum": 1322532, "ops": 32000 }
+VisualGasic vs GDScript: 7.78184713375796x
+GDScript us/op: 0.3054375
+VisualGasic us/op: 0.03925
+
+=== Summary (VG vs GDScript speedup; >1 = VG faster) ===
+Representative gameplay — median: 6.91747572815534x · geom mean: 9.06705429403532x
+Optimization targets — median: 3.95633802816901x · geom mean: 3.68862724684165x
+Tier B  — geometric mean: 5.75559639147043x · median: 4.72785390129716x
+Tier C  — geometric mean: 7.82977741765828x · median: 4.47701561154702x
+Combined — geometric mean: 6.92286372017587x · median: 4.47701561154702x
+Use median + per-test rows for claims; geometric mean mixes unlike workloads.
+Use Tier A compute/draw + representative Tier C (FrameSlice, EntityThink, NodePropertyChurn) for shipping claims.
+Note: Tier B/C are informational — not part of CI regression gate (Tier A + draw gate releases).
+Gameplay benchmarks finished.

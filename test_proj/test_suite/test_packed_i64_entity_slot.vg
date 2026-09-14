@@ -1,0 +1,32 @@
+Option Explicit
+
+' Regression: Long array slot get/set must write in-place (no CoW miss).
+' Mirrors EntityThink's hp(i) / state(i) pattern.
+
+Sub _Ready()
+	Dim hp(0) As Long
+	Dim state(0) As Long
+	Dim i As Long
+	Dim n As Long
+	n = 8
+	ReDim hp(n - 1)
+	ReDim state(n - 1)
+	For i = 0 To n - 1 Step 1
+		hp(i) = 100 + i
+		state(i) = i Mod 4
+	Next i
+	For i = 0 To n - 1 Step 1
+		If state(i) = 0 Then
+			hp(i) = hp(i) - 1
+		ElseIf state(i) = 1 Then
+			hp(i) = hp(i) + 2
+		Else
+			state(i) = (state(i) + 1) Mod 4
+		End If
+	Next i
+	If hp(0) = 99 And hp(1) = 103 And state(2) = 3 And state(3) = 0 Then
+		Print "PASS: packed i64 entity slot"
+	Else
+		Print "FAIL: packed i64 entity slot hp0=" & CStr(hp(0)) & " hp1=" & CStr(hp(1)) & " st2=" & CStr(state(2)) & " st3=" & CStr(state(3))
+	End If
+End Sub

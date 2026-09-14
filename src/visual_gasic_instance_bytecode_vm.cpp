@@ -958,6 +958,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             sync_local(slot, Variant(value));
         }
     };
+    auto sync_local_f64 = [&](int slot, double value) {
+        if (slot < 0 || slot >= locals.size()) return;
+        typed_f64_locals[slot] = value;
+        locals.write[slot] = Variant(value);
+        if (slot < chunk->local_types.size() && chunk->local_types[slot] == 2) {
+            if (needs_var_sync && !isolated_locals) {
+                String name = get_local_name(slot);
+                if (!name.is_empty() && !builtin_constants.has(name)) {
+                    variables[name] = Variant(value);
+                }
+            }
+        } else {
+            sync_local(slot, Variant(value));
+        }
+    };
 
     auto to_bool = [&](const Variant &value) -> bool {
         switch (value.get_type()) {
@@ -1134,6 +1149,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_GET_LOCAL: case OP_SET_LOCAL:
                     case OP_INC_LOCAL_I64:
                     case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
+                    case OP_ADD_LOCAL_F64_STACK: case OP_SUB_LOCAL_F64_STACK:
+                    case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
                     case OP_BRANCH_SUM:
                     case OP_GET_ARRAY: case OP_SET_ARRAY:
                     case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
@@ -1199,6 +1216,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_CALL:
                     case OP_METHOD_CALL:
                     case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
+                    case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST:
                     case OP_STRING_REPEAT_OUTER:
                     case OP_SET_DICT_GLOBAL:
                     case OP_NEW_OBJECT:
@@ -1240,6 +1258,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // OP_ALLOC_FILL_REPEAT_I64: 3 slots + lit_const(2) + 2 slots = 7 bytes
                     case OP_ALLOC_FILL_REPEAT_I64:
                         scan_ip += 7; break;
+                    case OP_PACKED_HP_STATE_TICK: // hp, state, sum, tag
+                        scan_ip += 4; break;
+                    case OP_PACKED_NEAREST_I64: // px, py, tx, ty, best, bestidx
+                        scan_ip += 6; break;
                     default:
                         // 1-byte opcodes (no operands) — nothing to skip
                         break;
@@ -1663,6 +1685,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_DRAW_POLYLINE_GRID_LOOP]     = &&vg_op_draw_polyline_grid_loop;
         dispatch_table[OP_DRAW_RECT_OFFSET_LOOP]       = &&vg_op_draw_rect_offset_loop;
         dispatch_table[OP_VECTOR_UNIFORM_RECT_GRID_LOOP] = &&vg_op_vector_uniform_rect_grid_loop;
+        dispatch_table[OP_ADD_LOCAL_F64_STACK]  = &&vg_op_add_local_f64_stack;
+        dispatch_table[OP_SUB_LOCAL_F64_STACK]  = &&vg_op_sub_local_f64_stack;
+        dispatch_table[OP_ADD_LOCAL_F64_CONST]  = &&vg_op_add_local_f64_const;
+        dispatch_table[OP_SUB_LOCAL_F64_CONST]  = &&vg_op_sub_local_f64_const;
+        dispatch_table[OP_GET_ARRAY_I64_LOCAL]  = &&vg_op_get_array_i64_local;
+        dispatch_table[OP_SET_ARRAY_I64_LOCAL]  = &&vg_op_set_array_i64_local;
+        dispatch_table[OP_LESS_I64]             = &&vg_op_less_i64;
+        dispatch_table[OP_PACKED_HP_STATE_TICK] = &&vg_op_packed_hp_state_tick;
+        dispatch_table[OP_PACKED_NEAREST_I64]   = &&vg_op_packed_nearest_i64;
         dispatch_table_init = true;
     }
 
@@ -2971,6 +3002,99 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 sync_local_i64(slot, base + 1);
                 break;
             }
+            VG_CASE(vg_op_add_local_f64_stack, OP_ADD_LOCAL_F64_STACK): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                double delta = to_double(pop_value());
+                sync_local_f64(slot, read_local_f64(slot) + delta);
+                break;
+            }
+            VG_CASE(vg_op_sub_local_f64_stack, OP_SUB_LOCAL_F64_STACK): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                double delta = to_double(pop_value());
+                sync_local_f64(slot, read_local_f64(slot) - delta);
+                break;
+            }
+            VG_CASE(vg_op_add_local_f64_const, OP_ADD_LOCAL_F64_CONST): {
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int idx = read_const_index();
+                sync_local_f64(slot, read_local_f64(slot) + to_double(read_constant(idx)));
+                break;
+            }
+            VG_CASE(vg_op_sub_local_f64_const, OP_SUB_LOCAL_F64_CONST): {
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int idx = read_const_index();
+                sync_local_f64(slot, read_local_f64(slot) - to_double(read_constant(idx)));
+                break;
+            }
+            VG_CASE(vg_op_get_array_i64_local, OP_GET_ARRAY_I64_LOCAL): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
+                int64_t idx = to_int(pop_value());
+                Variant &arr_v = locals.write[slot];
+                if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array *arr = VariantInternal::get_int64_array(&arr_v);
+                    if (idx < 0 || idx >= arr->size()) {
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(Variant((int64_t)0))) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value((int64_t)(*arr)[(int)idx]);
+                } else if (arr_v.get_type() == Variant::ARRAY) {
+                    Array *arr = VariantInternal::get_array(&arr_v);
+                    if (idx < 0 || idx >= arr->size()) {
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(Variant((int64_t)0))) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(to_int((*arr)[(int)idx]));
+                } else {
+                    raise_error("Fast i64 array base is not an array");
+                    if (try_recover_error(Variant((int64_t)0))) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_set_array_i64_local, OP_SET_ARRAY_I64_LOCAL): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(2) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
+                int64_t value = to_int(pop_value());
+                int64_t idx = to_int(pop_value());
+                Variant &arr_v = locals.write[slot];
+                if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array *arr = VariantInternal::get_int64_array(&arr_v);
+                    if (idx < 0 || idx >= arr->size()) {
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(Variant(), false)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    (*arr)[(int)idx] = value;
+                } else if (arr_v.get_type() == Variant::ARRAY) {
+                    Array *arr = VariantInternal::get_array(&arr_v);
+                    if (idx < 0 || idx >= arr->size()) {
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(Variant(), false)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    (*arr)[(int)idx] = Variant(value);
+                } else {
+                    raise_error("Fast i64 array assignment base is not an array");
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
             VG_CASE(vg_op_accum_i64_muladd_const, OP_ACCUM_I64_MULADD_CONST): {
                 // [OP] [S_SLOT] [J_SLOT] [K_CONST(2)]
                 // locals[s] += locals[j] * K
@@ -3115,6 +3239,118 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     vm.stack.pop_back();
                     push_value(a <= b);
                 } else { success = false; goto cleanup; }
+                break;
+            }
+            VG_CASE(vg_op_less_i64, OP_LESS_I64): {
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                if (vm.stack.size() >= 2) {
+                    const Variant &bv = vm.stack[vm.stack.size() - 1];
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
+                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(a < b);
+                } else { success = false; goto cleanup; }
+                break;
+            }
+            VG_CASE(vg_op_packed_hp_state_tick, OP_PACKED_HP_STATE_TICK): {
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                uint8_t hp_slot = code[vm.ip++];
+                uint8_t st_slot = code[vm.ip++];
+                uint8_t sum_slot = code[vm.ip++];
+                uint8_t tag_slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t n = to_int(pop_value());
+                if (n < 0) n = 0;
+                if (hp_slot >= locals.size() || st_slot >= locals.size() || sum_slot >= locals.size()) {
+                    success = false; goto cleanup;
+                }
+                if (locals[hp_slot].get_type() != Variant::PACKED_INT64_ARRAY ||
+                        locals[st_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                    raise_error("OP_PACKED_HP_STATE_TICK requires PackedInt64Array locals");
+                    success = false; goto cleanup;
+                }
+                PackedInt64Array *hp = VariantInternal::get_int64_array(&locals.write[hp_slot]);
+                PackedInt64Array *st = VariantInternal::get_int64_array(&locals.write[st_slot]);
+                PackedInt64Array *tag = nullptr;
+                if (tag_slot != 255) {
+                    if (tag_slot >= locals.size() || locals[tag_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                        success = false; goto cleanup;
+                    }
+                    tag = VariantInternal::get_int64_array(&locals.write[tag_slot]);
+                }
+                int64_t hn = hp->size();
+                int64_t sn = st->size();
+                int64_t tn = tag ? tag->size() : n;
+                if (n > hn) n = hn;
+                if (n > sn) n = sn;
+                if (tag && n > tn) n = tn;
+                int64_t *hpw = hp->ptrw();
+                int64_t *stw = st->ptrw();
+                int64_t *tagw = tag ? tag->ptrw() : nullptr;
+                int64_t sum = read_local_i64(sum_slot);
+                for (int64_t i = 0; i < n; i++) {
+                    int64_t state = stw[i];
+                    int64_t h = hpw[i];
+                    if (state == 0) {
+                        h -= 1;
+                    } else if (state == 1) {
+                        h += 2;
+                    } else {
+                        state = (state + 1) % 4;
+                    }
+                    hpw[i] = h;
+                    stw[i] = state;
+                    int64_t tagged = h + state;
+                    if (tagw) {
+                        tagw[i] = tagged;
+                    }
+                    sum += tagged;
+                }
+                sync_local_i64(sum_slot, sum);
+                break;
+            }
+            VG_CASE(vg_op_packed_nearest_i64, OP_PACKED_NEAREST_I64): {
+                if (vm.ip + 5 >= code_size) { success = false; goto cleanup; }
+                uint8_t px_slot = code[vm.ip++];
+                uint8_t py_slot = code[vm.ip++];
+                uint8_t tx_slot = code[vm.ip++];
+                uint8_t ty_slot = code[vm.ip++];
+                uint8_t best_slot = code[vm.ip++];
+                uint8_t bidx_slot = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t n = to_int(pop_value());
+                if (n < 0) n = 0;
+                if (px_slot >= locals.size() || py_slot >= locals.size()) {
+                    success = false; goto cleanup;
+                }
+                if (locals[px_slot].get_type() != Variant::PACKED_INT64_ARRAY ||
+                        locals[py_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                    raise_error("OP_PACKED_NEAREST_I64 requires PackedInt64Array locals");
+                    success = false; goto cleanup;
+                }
+                PackedInt64Array *px = VariantInternal::get_int64_array(&locals.write[px_slot]);
+                PackedInt64Array *py = VariantInternal::get_int64_array(&locals.write[py_slot]);
+                if (n > px->size()) n = px->size();
+                if (n > py->size()) n = py->size();
+                const int64_t *pxr = px->ptrw();
+                const int64_t *pyr = py->ptrw();
+                int64_t tx = read_local_i64(tx_slot);
+                int64_t ty = read_local_i64(ty_slot);
+                int64_t best = read_local_i64(best_slot);
+                int64_t best_idx = read_local_i64(bidx_slot);
+                for (int64_t i = 0; i < n; i++) {
+                    int64_t dx = pxr[i] - tx;
+                    int64_t dy = pyr[i] - ty;
+                    int64_t d = dx * dx + dy * dy;
+                    if (d < best) {
+                        best = d;
+                        best_idx = i;
+                    }
+                }
+                sync_local_i64(best_slot, best);
+                sync_local_i64(bidx_slot, best_idx);
                 break;
             }
             VG_CASE(vg_op_not, OP_NOT): {
@@ -4405,15 +4641,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (length < 0) {
                     length = 0;
                 }
-                Array arr;
-                arr.resize(length);
                 if (op == OP_NEW_ARRAY_I64) {
-                    // Array::fill() is a single GDExtension call that zero-fills
-                    // all elements in one shot — ~100× faster than a per-element
-                    // Variant assignment loop for large arrays (>= 1000 elements).
-                    if (length > 0) arr.fill((int64_t)0);
+                    PackedInt64Array arr;
+                    arr.resize((int)length);
+                    push_value(arr);
+                } else {
+                    Array arr;
+                    arr.resize(length);
+                    push_value(arr);
                 }
-                push_value(arr);
                 break;
             }
             VG_CASE(vg_op_new_dict, OP_NEW_DICT): {
@@ -4562,6 +4798,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant index_var = pop_value();
                 Variant base = pop_value();
+                if (base.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array arr = base;
+                    int64_t idx = to_int(index_var);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_FAST_UNCHECKED) {
+                            push_value(Variant((int64_t)0));
+                            break;
+                        }
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(Variant())) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(Variant((int64_t)arr[(int)idx]));
+                    break;
+                }
                 if (base.get_type() == Variant::PACKED_STRING_ARRAY) {
                     // Convert PackedStringArray to Array for uniform handling
                     PackedStringArray psa = base;
@@ -4753,6 +5005,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant value = pop_value();
                 Variant index_var = pop_value();
                 Variant base = pop_value();
+                int64_t idx = to_int(index_var);
+                if (base.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array arr = base;
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_SET_ARRAY_FAST_UNCHECKED) {
+                            push_value(base);
+                            break;
+                        }
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    arr[(int)idx] = to_int(value);
+                    push_value(arr);
+                    break;
+                }
                 if (base.get_type() != Variant::ARRAY) {
                     raise_error("Fast array assignment base is not an array");
                     if (try_recover_error(base)) break;
@@ -4760,7 +5029,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 Array *arr_ptr = VariantInternal::get_array(&base);
-                int64_t idx = to_int(index_var);
                 if (idx < 0 || idx >= arr_ptr->size()) {
                     if (op == OP_SET_ARRAY_FAST_UNCHECKED) {
                         push_value(base);
@@ -4952,7 +5220,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant arr_var = pop_value();
                 int64_t sum = 0;
-                if (arr_var.get_type() == Variant::ARRAY) {
+                if (arr_var.get_type() == Variant::PACKED_INT64_ARRAY) {
+                    PackedInt64Array arr = arr_var;
+                    const int count = arr.size();
+                    for (int i = 0; i < count; i++) {
+                        sum += arr[i];
+                    }
+                } else if (arr_var.get_type() == Variant::ARRAY) {
                     const Array *arr_ptr = VariantInternal::get_array(&arr_var);
                     int count = arr_ptr->size();
                     for (int i = 0; i < count; i++) {

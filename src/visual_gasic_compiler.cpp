@@ -2420,6 +2420,231 @@ bool VisualGasicCompiler::is_nested_array_sum(ForStatement* outer, String &sum_v
     return true;
 }
 
+static bool _vg_for_from_zero_step_one(const ForStatement *f) {
+    if (!f || !f->from_val || f->from_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *from_lit = (LiteralNode *)f->from_val;
+    const Variant &fv = from_lit->value;
+    bool from_zero = false;
+    switch (fv.get_type()) {
+        case Variant::INT: from_zero = ((int64_t)fv == 0); break;
+        case Variant::BOOL: from_zero = !((bool)fv); break;
+        case Variant::FLOAT: from_zero = Math::is_zero_approx((double)fv); break;
+        default: break;
+    }
+    if (!from_zero) {
+        return false;
+    }
+    if (!f->step_val) {
+        return true;
+    }
+    if (f->step_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *step_lit = (LiteralNode *)f->step_val;
+    const Variant &sv = step_lit->value;
+    switch (sv.get_type()) {
+        case Variant::INT: return ((int64_t)sv == 1);
+        case Variant::BOOL: return (bool)sv;
+        case Variant::FLOAT: return Math::is_equal_approx((double)sv, 1.0);
+        default: return false;
+    }
+}
+
+static bool _vg_expr_is_cint_var(ExpressionNode *expr, const String &var_name) {
+    if (!expr) {
+        return false;
+    }
+    if (expr->type == ExpressionNode::VARIABLE) {
+        return ((VariableNode *)expr)->name.to_lower() == var_name;
+    }
+    if (expr->type != ExpressionNode::EXPRESSION_CALL) {
+        return false;
+    }
+    CallExpression *call = (CallExpression *)expr;
+    if (call->base_object || call->method_name.to_lower() != "cint" || call->arguments.size() != 1) {
+        return false;
+    }
+    if (call->arguments[0]->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    return ((VariableNode *)call->arguments[0])->name.to_lower() == var_name;
+}
+
+bool VisualGasicCompiler::is_nested_foreach_array_sum(ForStatement* outer, String &sum_var, String &arr_var, String &iter_var) const {
+    if (!_vg_for_from_zero_step_one(outer)) {
+        return false;
+    }
+    ForEachStatement *inner = nullptr;
+    for (int i = 0; i < outer->body.size(); i++) {
+        Statement *stmt = outer->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type == STMT_FOR_EACH) {
+            if (inner) {
+                return false;
+            }
+            inner = (ForEachStatement *)stmt;
+            continue;
+        }
+        return false;
+    }
+    if (!inner || !inner->collection || inner->collection->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    arr_var = ((VariableNode *)inner->collection)->name;
+    String arr_key = arr_var.to_lower();
+    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) {
+        return false;
+    }
+    AssignmentStatement *as = nullptr;
+    for (int i = 0; i < inner->body.size(); i++) {
+        Statement *stmt = inner->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type != STMT_ASSIGNMENT) {
+            return false;
+        }
+        if (as) {
+            return false;
+        }
+        as = (AssignmentStatement *)stmt;
+    }
+    if (!as || !as->target || !as->value || as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (as->value->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *b = (BinaryOpNode *)as->value;
+    if (b->op != "+" || !b->left || b->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    VariableNode *sum_node = (VariableNode *)as->target;
+    if (((VariableNode *)b->left)->name.to_lower() != sum_node->name.to_lower()) {
+        return false;
+    }
+    String item_var = inner->variable_name.to_lower();
+    if (!_vg_expr_is_cint_var(b->right, item_var) &&
+            !(b->right->type == ExpressionNode::VARIABLE &&
+              ((VariableNode *)b->right)->name.to_lower() == item_var)) {
+        return false;
+    }
+    sum_var = sum_node->name;
+    iter_var = outer->variable_name;
+    return true;
+}
+
+bool VisualGasicCompiler::is_nested_foreach_dict_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const {
+    if (!_vg_for_from_zero_step_one(outer)) {
+        return false;
+    }
+    ForEachStatement *inner = nullptr;
+    for (int i = 0; i < outer->body.size(); i++) {
+        Statement *stmt = outer->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type == STMT_FOR_EACH) {
+            if (inner) {
+                return false;
+            }
+            inner = (ForEachStatement *)stmt;
+            continue;
+        }
+        return false;
+    }
+    if (!inner || !inner->collection || inner->collection->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    keys_var = ((VariableNode *)inner->collection)->name;
+    AssignmentStatement *as = nullptr;
+    for (int i = 0; i < inner->body.size(); i++) {
+        Statement *stmt = inner->body[i];
+        if (!stmt) {
+            continue;
+        }
+        if (stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type != STMT_ASSIGNMENT) {
+            return false;
+        }
+        if (as) {
+            return false;
+        }
+        as = (AssignmentStatement *)stmt;
+    }
+    if (!as || !as->target || !as->value || as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (as->value->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *b = (BinaryOpNode *)as->value;
+    if (b->op != "+" || !b->left || b->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    VariableNode *sum_node = (VariableNode *)as->target;
+    if (((VariableNode *)b->left)->name.to_lower() != sum_node->name.to_lower()) {
+        return false;
+    }
+    String key_var = inner->variable_name.to_lower();
+    ExpressionNode *lookup = b->right;
+    if (lookup->type == ExpressionNode::EXPRESSION_CALL &&
+            ((CallExpression *)lookup)->method_name.to_lower() == "cint" &&
+            ((CallExpression *)lookup)->arguments.size() == 1) {
+        lookup = ((CallExpression *)lookup)->arguments[0];
+    }
+    String detected_dict;
+    String detected_key;
+    if (lookup->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)lookup;
+        if (call->base_object || call->arguments.size() != 1) {
+            return false;
+        }
+        if (call->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        detected_dict = call->method_name;
+        detected_key = ((VariableNode *)call->arguments[0])->name.to_lower();
+    } else if (lookup->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode *)lookup;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE || aa->indices.size() != 1) {
+            return false;
+        }
+        if (aa->indices[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        detected_dict = ((VariableNode *)aa->base)->name;
+        detected_key = ((VariableNode *)aa->indices[0])->name.to_lower();
+    } else {
+        return false;
+    }
+    if (detected_key != key_var) {
+        return false;
+    }
+    if (detected_dict.to_lower() == keys_var.to_lower()) {
+        return false;
+    }
+    sum_var = sum_node->name;
+    dict_var = detected_dict;
+    iter_var = outer->variable_name;
+    return true;
+}
+
 bool VisualGasicCompiler::is_nested_arith_loop(ForStatement* outer, String &sum_var, int64_t &k, int64_t &c) const {
     if (!outer || outer->body.size() != 1) return false;
     if (!outer->from_val || outer->from_val->type != ExpressionNode::LITERAL) return false;
@@ -2620,6 +2845,616 @@ bool VisualGasicCompiler::is_simple_arith_loop(ForStatement* f, String &sum_var,
     sum_var = s->name;
     k = k_val;
     c = c_val;
+    return true;
+}
+
+bool VisualGasicCompiler::is_simple_f64_accum_loop(ForStatement* f, String &acc_var, double &delta) const {
+    if (!_vg_for_from_zero_step_one(f) || !f->body.size()) {
+        return false;
+    }
+    AssignmentStatement *as = nullptr;
+    for (int i = 0; i < f->body.size(); i++) {
+        Statement *stmt = f->body[i];
+        if (!stmt || stmt->type == STMT_LABEL || stmt->type == STMT_PASS) {
+            continue;
+        }
+        if (stmt->type != STMT_ASSIGNMENT || as) {
+            return false;
+        }
+        as = (AssignmentStatement *)stmt;
+    }
+    if (!as || !as->target || !as->value || as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    VariableNode *v = (VariableNode *)as->target;
+    if (get_local_type(v->name) != VT_FLOAT) {
+        return false;
+    }
+    if (as->value->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *b = (BinaryOpNode *)as->value;
+    if (b->op != "+" || !b->left || b->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)b->left)->name.nocasecmp_to(v->name) != 0) {
+        return false;
+    }
+    double d = 0.0;
+    if (!try_constant_f64(b->right, d)) {
+        return false;
+    }
+    acc_var = v->name;
+    delta = d;
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_get_array_i64_local(const String &arr_name, ExpressionNode *index) {
+    if (!index || !is_fast_array_var(arr_name)) {
+        return false;
+    }
+    String key = arr_name.to_lower();
+    if (!array_types.has(key) || array_types[key] != VT_INT) {
+        return false;
+    }
+    int slot = get_or_add_local(arr_name, VT_UNKNOWN);
+    if (slot < 0) {
+        return false;
+    }
+    compile_expression(index);
+    emit_bytes(OP_GET_ARRAY_I64_LOCAL, (uint8_t)slot);
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_set_array_i64_local(const String &arr_name, ExpressionNode *index, ExpressionNode *value) {
+    if (!index || !value || !is_fast_array_var(arr_name)) {
+        return false;
+    }
+    String key = arr_name.to_lower();
+    if (!array_types.has(key) || array_types[key] != VT_INT) {
+        return false;
+    }
+    int slot = get_or_add_local(arr_name, VT_UNKNOWN);
+    if (slot < 0) {
+        return false;
+    }
+    compile_expression(index);
+    compile_expression(value);
+    emit_bytes(OP_SET_ARRAY_I64_LOCAL, (uint8_t)slot);
+    return true;
+}
+
+static bool _vg_arr_index(ExpressionNode *e, String &arr, String &idx) {
+    if (!e) {
+        return false;
+    }
+    if (e->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode *)e;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE || aa->indices.size() != 1) {
+            return false;
+        }
+        if (aa->indices[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        arr = ((VariableNode *)aa->base)->name.to_lower();
+        idx = ((VariableNode *)aa->indices[0])->name.to_lower();
+        return true;
+    }
+    if (e->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *c = (CallExpression *)e;
+        if (c->base_object || c->arguments.size() != 1 || c->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        arr = c->method_name.to_lower();
+        idx = ((VariableNode *)c->arguments[0])->name.to_lower();
+        return true;
+    }
+    return false;
+}
+
+static bool _vg_is_arr_assign(Statement *stmt, String &arr, String &idx, ExpressionNode *&value) {
+    if (!stmt || stmt->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *as = (AssignmentStatement *)stmt;
+    if (!as->target || !as->value) {
+        return false;
+    }
+    if (!_vg_arr_index(as->target, arr, idx)) {
+        return false;
+    }
+    value = as->value;
+    return true;
+}
+
+static bool _vg_is_var_assign(Statement *stmt, String &name, ExpressionNode *&value) {
+    if (!stmt || stmt->type != STMT_ASSIGNMENT) {
+        return false;
+    }
+    AssignmentStatement *as = (AssignmentStatement *)stmt;
+    if (!as->target || !as->value || as->target->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    name = ((VariableNode *)as->target)->name.to_lower();
+    value = as->value;
+    return true;
+}
+
+static bool _vg_eq_lit_zero_or_one(ExpressionNode *cond, const String &lhs_arr_or_var, const String &loop_var, bool lhs_is_array, int64_t expect) {
+    if (!cond || cond->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *b = (BinaryOpNode *)cond;
+    if (b->op != "=") {
+        return false;
+    }
+    String arr, idx;
+    if (lhs_is_array) {
+        if (!_vg_arr_index(b->left, arr, idx) || arr != lhs_arr_or_var || idx != loop_var) {
+            return false;
+        }
+    } else {
+        if (!b->left || b->left->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)b->left)->name.to_lower() != lhs_arr_or_var) {
+            return false;
+        }
+    }
+    int64_t lit = 0;
+    if (!b->right) {
+        return false;
+    }
+    // try_const needs compiler; accept LITERAL here
+    if (b->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    Variant v = ((LiteralNode *)b->right)->value;
+    if (v.get_type() == Variant::INT) {
+        lit = (int64_t)v;
+    } else if (v.get_type() == Variant::FLOAT) {
+        lit = (int64_t)((double)v);
+    } else {
+        return false;
+    }
+    return lit == expect;
+}
+
+static bool _vg_arr_delta(ExpressionNode *val, const String &arr, const String &idx, int64_t expect_delta) {
+    if (!val || val->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *b = (BinaryOpNode *)val;
+    String a, i;
+    if (!_vg_arr_index(b->left, a, i) || a != arr || i != idx) {
+        return false;
+    }
+    if (b->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    int64_t lit = 0;
+    Variant v = ((LiteralNode *)b->right)->value;
+    if (v.get_type() == Variant::INT) {
+        lit = (int64_t)v;
+    } else {
+        return false;
+    }
+    if (b->op == "+") {
+        return lit == expect_delta;
+    }
+    if (b->op == "-") {
+        return (-lit) == expect_delta;
+    }
+    return false;
+}
+
+static bool _vg_mod_inc(ExpressionNode *val, const String &arr, const String &idx, int64_t modn) {
+    // (arr(i) + 1) Mod modn
+    if (!val || val->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *mod = (BinaryOpNode *)val;
+    if (mod->op.nocasecmp_to("Mod") != 0 && mod->op != "%") {
+        return false;
+    }
+    if (!mod->right || mod->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    Variant mv = ((LiteralNode *)mod->right)->value;
+    int64_t m = (mv.get_type() == Variant::INT) ? (int64_t)mv : 0;
+    if (m != modn) {
+        return false;
+    }
+    if (!mod->left || mod->left->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    return _vg_arr_delta(mod->left, arr, idx, 1);
+}
+
+static bool _vg_mod_inc_var(ExpressionNode *val, const String &var, int64_t modn) {
+    if (!val || val->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *mod = (BinaryOpNode *)val;
+    if (mod->op.nocasecmp_to("Mod") != 0 && mod->op != "%") {
+        return false;
+    }
+    if (!mod->right || mod->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    Variant mv = ((LiteralNode *)mod->right)->value;
+    int64_t m = (mv.get_type() == Variant::INT) ? (int64_t)mv : 0;
+    if (m != modn || !mod->left || mod->left->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *add = (BinaryOpNode *)mod->left;
+    if (add->op != "+" || !add->left || add->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)add->left)->name.to_lower() != var) {
+        return false;
+    }
+    if (!add->right || add->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    Variant av = ((LiteralNode *)add->right)->value;
+    return (av.get_type() == Variant::INT) && ((int64_t)av == 1);
+}
+
+bool VisualGasicCompiler::try_compile_packed_hp_state_for(ForStatement *f) {
+    if (!kEnableLoopFusions || !_vg_for_from_zero_step_one(f) || !f->to_val) {
+        return false;
+    }
+    const String loop = f->variable_name.to_lower();
+
+    auto emit_loop_end = [&]() {
+        int loop_slot = get_or_add_local(loop, VT_INT);
+        if (loop_slot < 0) {
+            return;
+        }
+        compile_expression(f->to_val);
+        emit_constant(Variant((int64_t)1));
+        emit_byte(OP_ADD_I64);
+        emit_bytes(OP_SET_LOCAL, (uint8_t)loop_slot);
+    };
+
+    auto emit_tick = [&](const String &hp_n, const String &st_n, const String &sum_n, const String &tag_n) -> bool {
+        if (!array_types.has(hp_n) || array_types[hp_n] != VT_INT) {
+            return false;
+        }
+        if (!array_types.has(st_n) || array_types[st_n] != VT_INT) {
+            return false;
+        }
+        int hp_slot = get_or_add_local(hp_n, VT_UNKNOWN);
+        int st_slot = get_or_add_local(st_n, VT_UNKNOWN);
+        int sum_slot = get_or_add_local(sum_n, VT_INT);
+        int tg_slot = 255;
+        if (!tag_n.is_empty()) {
+            if (!array_types.has(tag_n) || array_types[tag_n] != VT_INT) {
+                return false;
+            }
+            tg_slot = get_or_add_local(tag_n, VT_UNKNOWN);
+            if (tg_slot < 0 || tg_slot > 254) {
+                return false;
+            }
+        }
+        if (hp_slot < 0 || st_slot < 0 || sum_slot < 0) {
+            return false;
+        }
+        compile_expression(f->to_val);
+        emit_constant(Variant((int64_t)1));
+        emit_byte(OP_ADD_I64);
+        emit_byte(OP_PACKED_HP_STATE_TICK);
+        emit_byte((uint8_t)hp_slot);
+        emit_byte((uint8_t)st_slot);
+        emit_byte((uint8_t)sum_slot);
+        emit_byte((uint8_t)(tag_n.is_empty() ? 255 : tg_slot));
+        emit_loop_end();
+        return true;
+    };
+
+    // EntityThink: If state(i)=0 / ElseIf =1 / Else mod; sum += hp(i)+state(i)
+    if (f->body.size() == 2 && f->body[0] && f->body[0]->type == STMT_IF) {
+        IfStatement *outer_if = (IfStatement *)f->body[0];
+        String cond_arr, cond_idx;
+        if (outer_if->condition && outer_if->condition->type == ExpressionNode::BINARY_OP) {
+            _vg_arr_index(((BinaryOpNode *)outer_if->condition)->left, cond_arr, cond_idx);
+        }
+        if (cond_arr.is_empty() || cond_idx != loop || !_vg_eq_lit_zero_or_one(outer_if->condition, cond_arr, loop, true, 0)) {
+            goto try_frameslice;
+        }
+        if (outer_if->then_branch.size() != 1) {
+            goto try_frameslice;
+        }
+        String hp_arr, hp_idx;
+        ExpressionNode *then_val = nullptr;
+        if (!_vg_is_arr_assign(outer_if->then_branch[0], hp_arr, hp_idx, then_val) || hp_idx != loop) {
+            goto try_frameslice;
+        }
+        if (!_vg_arr_delta(then_val, hp_arr, loop, -1)) {
+            goto try_frameslice;
+        }
+        if (outer_if->else_branch.size() != 1 || outer_if->else_branch[0]->type != STMT_IF) {
+            goto try_frameslice;
+        }
+        IfStatement *inner_if = (IfStatement *)outer_if->else_branch[0];
+        if (!_vg_eq_lit_zero_or_one(inner_if->condition, cond_arr, loop, true, 1)) {
+            goto try_frameslice;
+        }
+        if (inner_if->then_branch.size() != 1) {
+            goto try_frameslice;
+        }
+        String hp2, idx2;
+        ExpressionNode *then2 = nullptr;
+        if (!_vg_is_arr_assign(inner_if->then_branch[0], hp2, idx2, then2) || hp2 != hp_arr || idx2 != loop) {
+            goto try_frameslice;
+        }
+        if (!_vg_arr_delta(then2, hp_arr, loop, 2)) {
+            goto try_frameslice;
+        }
+        if (inner_if->else_branch.size() != 1) {
+            goto try_frameslice;
+        }
+        String st2, idx3;
+        ExpressionNode *else_val = nullptr;
+        if (!_vg_is_arr_assign(inner_if->else_branch[0], st2, idx3, else_val) || st2 != cond_arr || idx3 != loop) {
+            goto try_frameslice;
+        }
+        if (!_vg_mod_inc(else_val, cond_arr, loop, 4)) {
+            goto try_frameslice;
+        }
+        String sum_name;
+        ExpressionNode *sum_val = nullptr;
+        if (!_vg_is_var_assign(f->body[1], sum_name, sum_val) || !sum_val || sum_val->type != ExpressionNode::BINARY_OP) {
+            goto try_frameslice;
+        }
+        // sum + hp(i) + state(i)  or  (sum + hp(i)) + state(i)
+        BinaryOpNode *add = (BinaryOpNode *)sum_val;
+        if (add->op != "+") {
+            goto try_frameslice;
+        }
+        if (emit_tick(hp_arr, cond_arr, sum_name, String())) {
+            return true;
+        }
+    }
+
+try_frameslice:
+    // FrameSlice: h=hp(i); st=state(i); If st=0 ...; hp(i)=h; state(i)=st; tag(i)=h+st; sum+=tag(i)
+    if (f->body.size() < 6) {
+        return false;
+    }
+    String h_name, st_name;
+    ExpressionNode *h_from = nullptr;
+    ExpressionNode *st_from = nullptr;
+    if (!_vg_is_var_assign(f->body[0], h_name, h_from) || !_vg_is_var_assign(f->body[1], st_name, st_from)) {
+        return false;
+    }
+    String hp_arr, hp_idx, st_arr, st_idx;
+    if (!_vg_arr_index(h_from, hp_arr, hp_idx) || hp_idx != loop) {
+        return false;
+    }
+    if (!_vg_arr_index(st_from, st_arr, st_idx) || st_idx != loop) {
+        return false;
+    }
+    if (!f->body[2] || f->body[2]->type != STMT_IF) {
+        return false;
+    }
+    IfStatement *ifs = (IfStatement *)f->body[2];
+    if (!_vg_eq_lit_zero_or_one(ifs->condition, st_name, loop, false, 0)) {
+        return false;
+    }
+    String dummy;
+    ExpressionNode *v0 = nullptr;
+    if (ifs->then_branch.size() != 1 || !_vg_is_var_assign(ifs->then_branch[0], dummy, v0) || dummy != h_name) {
+        return false;
+    }
+    if (!v0 || v0->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *hsub = (BinaryOpNode *)v0;
+    if (hsub->op != "-" || !hsub->left || hsub->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)hsub->left)->name.to_lower() != h_name) {
+        return false;
+    }
+    if (!hsub->right || hsub->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    {
+        Variant hv = ((LiteralNode *)hsub->right)->value;
+        if (!(hv.get_type() == Variant::INT && (int64_t)hv == 1)) {
+            return false;
+        }
+    }
+    if (ifs->else_branch.size() != 1 || ifs->else_branch[0]->type != STMT_IF) {
+        return false;
+    }
+    IfStatement *ifs2 = (IfStatement *)ifs->else_branch[0];
+    if (!_vg_eq_lit_zero_or_one(ifs2->condition, st_name, loop, false, 1)) {
+        return false;
+    }
+    ExpressionNode *v1 = nullptr;
+    if (ifs2->then_branch.size() != 1 || !_vg_is_var_assign(ifs2->then_branch[0], dummy, v1) || dummy != h_name) {
+        return false;
+    }
+    if (!v1 || v1->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *hadd = (BinaryOpNode *)v1;
+    if (hadd->op != "+" || !hadd->left || hadd->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)hadd->left)->name.to_lower() != h_name) {
+        return false;
+    }
+    if (!hadd->right || hadd->right->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    {
+        Variant av = ((LiteralNode *)hadd->right)->value;
+        if (!(av.get_type() == Variant::INT && (int64_t)av == 2)) {
+            return false;
+        }
+    }
+    if (ifs2->else_branch.size() != 1) {
+        return false;
+    }
+    ExpressionNode *v2 = nullptr;
+    if (!_vg_is_var_assign(ifs2->else_branch[0], dummy, v2) || dummy != st_name) {
+        return false;
+    }
+    if (!_vg_mod_inc_var(v2, st_name, 4)) {
+        return false;
+    }
+    String tag_n;
+    ExpressionNode *unused = nullptr;
+    String hp_back, st_back, tag_back, idx;
+    if (f->body.size() != 7) {
+        return false;
+    }
+    if (!_vg_is_arr_assign(f->body[3], hp_back, idx, unused) || hp_back != hp_arr || idx != loop) {
+        return false;
+    }
+    if (!_vg_is_arr_assign(f->body[4], st_back, idx, unused) || st_back != st_arr || idx != loop) {
+        return false;
+    }
+    if (!_vg_is_arr_assign(f->body[5], tag_back, idx, unused) || idx != loop) {
+        return false;
+    }
+    String sum_n;
+    if (!_vg_is_var_assign(f->body[6], sum_n, unused)) {
+        return false;
+    }
+    return emit_tick(hp_arr, st_arr, sum_n, tag_back);
+}
+
+bool VisualGasicCompiler::try_compile_packed_nearest_for(ForStatement *f) {
+    if (!kEnableLoopFusions || !_vg_for_from_zero_step_one(f) || !f->to_val) {
+        return false;
+    }
+    if (f->body.size() != 2) {
+        return false;
+    }
+    const String loop = f->variable_name.to_lower();
+    String d_name;
+    ExpressionNode *d_val = nullptr;
+    if (!_vg_is_var_assign(f->body[0], d_name, d_val) || !d_val || d_val->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *sumsq = (BinaryOpNode *)d_val;
+    if (sumsq->op != "+" || !sumsq->left || !sumsq->right) {
+        return false;
+    }
+    auto parse_sq = [&](ExpressionNode *e, String &arr, String &scalar) -> bool {
+        if (!e || e->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *mul = (BinaryOpNode *)e;
+        if (mul->op != "*") {
+            return false;
+        }
+        // (arr(i) - scalar) * (arr(i) - scalar)
+        auto parse_sub = [&](ExpressionNode *s, String &a, String &sc) -> bool {
+            if (!s || s->type != ExpressionNode::BINARY_OP) {
+                return false;
+            }
+            BinaryOpNode *sub = (BinaryOpNode *)s;
+            if (sub->op != "-") {
+                return false;
+            }
+            String idx;
+            if (!_vg_arr_index(sub->left, a, idx) || idx != loop) {
+                return false;
+            }
+            if (!sub->right || sub->right->type != ExpressionNode::VARIABLE) {
+                return false;
+            }
+            sc = ((VariableNode *)sub->right)->name.to_lower();
+            return true;
+        };
+        String a1, s1, a2, s2;
+        if (!parse_sub(mul->left, a1, s1) || !parse_sub(mul->right, a2, s2)) {
+            return false;
+        }
+        if (a1 != a2 || s1 != s2) {
+            return false;
+        }
+        arr = a1;
+        scalar = s1;
+        return true;
+    };
+    String px, tx, py, ty;
+    if (!parse_sq(sumsq->left, px, tx) || !parse_sq(sumsq->right, py, ty)) {
+        return false;
+    }
+    if (!f->body[1] || f->body[1]->type != STMT_IF) {
+        return false;
+    }
+    IfStatement *ifs = (IfStatement *)f->body[1];
+    if (!ifs->condition || ifs->condition->type != ExpressionNode::BINARY_OP) {
+        return false;
+    }
+    BinaryOpNode *lt = (BinaryOpNode *)ifs->condition;
+    if (lt->op != "<" || !lt->left || lt->left->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (((VariableNode *)lt->left)->name.to_lower() != d_name) {
+        return false;
+    }
+    if (!lt->right || lt->right->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    String best = ((VariableNode *)lt->right)->name.to_lower();
+    if (ifs->then_branch.size() != 2 || !ifs->else_branch.is_empty()) {
+        return false;
+    }
+    String best_as, bestidx;
+    ExpressionNode *bv = nullptr;
+    ExpressionNode *iv = nullptr;
+    if (!_vg_is_var_assign(ifs->then_branch[0], best_as, bv) || best_as != best) {
+        return false;
+    }
+    if (!bv || bv->type != ExpressionNode::VARIABLE || ((VariableNode *)bv)->name.to_lower() != d_name) {
+        return false;
+    }
+    if (!_vg_is_var_assign(ifs->then_branch[1], bestidx, iv)) {
+        return false;
+    }
+    if (!iv || iv->type != ExpressionNode::VARIABLE || ((VariableNode *)iv)->name.to_lower() != loop) {
+        return false;
+    }
+    if (!array_types.has(px) || array_types[px] != VT_INT || !array_types.has(py) || array_types[py] != VT_INT) {
+        return false;
+    }
+    int px_s = get_or_add_local(px, VT_UNKNOWN);
+    int py_s = get_or_add_local(py, VT_UNKNOWN);
+    int tx_s = get_or_add_local(tx, VT_INT);
+    int ty_s = get_or_add_local(ty, VT_INT);
+    int best_s = get_or_add_local(best, VT_INT);
+    int bidx_s = get_or_add_local(bestidx, VT_INT);
+    if (px_s < 0 || py_s < 0 || tx_s < 0 || ty_s < 0 || best_s < 0 || bidx_s < 0) {
+        return false;
+    }
+    compile_expression(f->to_val);
+    emit_constant(Variant((int64_t)1));
+    emit_byte(OP_ADD_I64);
+    emit_byte(OP_PACKED_NEAREST_I64);
+    emit_byte((uint8_t)px_s);
+    emit_byte((uint8_t)py_s);
+    emit_byte((uint8_t)tx_s);
+    emit_byte((uint8_t)ty_s);
+    emit_byte((uint8_t)best_s);
+    emit_byte((uint8_t)bidx_s);
+    {
+        int loop_slot = get_or_add_local(loop, VT_INT);
+        if (loop_slot >= 0) {
+            compile_expression(f->to_val);
+            emit_constant(Variant((int64_t)1));
+            emit_byte(OP_ADD_I64);
+            emit_bytes(OP_SET_LOCAL, (uint8_t)loop_slot);
+        }
+    }
     return true;
 }
 
@@ -3707,11 +4542,29 @@ bool VisualGasicCompiler::try_parse_trivial_i64_call_delta(SubDefinition *sub, i
     if (((VariableNode *)as->target)->name.nocasecmp_to(sub->name) != 0) {
         return false;
     }
+    const String param_name = sub->parameters[0].name.to_lower();
+    // Delegation: FunctionName = Callee(single_param)
+    if (as->value->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)as->value;
+        if (call->base_object || call->arguments.size() != 1) {
+            return false;
+        }
+        if (call->arguments[0]->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)call->arguments[0])->name.to_lower() != param_name) {
+            return false;
+        }
+        SubDefinition *callee = find_sub_by_name(call->method_name);
+        if (!callee) {
+            return false;
+        }
+        return try_parse_trivial_i64_call_delta(callee, r_delta);
+    }
     if (as->value->type != ExpressionNode::BINARY_OP) {
         return false;
     }
     BinaryOpNode *bin = (BinaryOpNode *)as->value;
-    const String param_name = sub->parameters[0].name.to_lower();
     int64_t delta = 0;
     if (bin->op == "+") {
         if (bin->left && bin->left->type == ExpressionNode::VARIABLE &&
@@ -4956,6 +5809,14 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
         }
         return VT_UNKNOWN;
     }
+    if (expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression* call = (CallExpression*)expr;
+        if (!call->base_object && call->arguments.size() == 1) {
+            String key = call->method_name.to_lower();
+            if (array_types.has(key)) return array_types[key];
+        }
+        return VT_UNKNOWN;
+    }
     return VT_UNKNOWN;
 }
 
@@ -5466,7 +6327,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_expression(s->array_sizes[0]);
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
-                emit_byte(OP_NEW_ARRAY);
+                {
+                    String key = s->variable_name.to_lower();
+                    bool int_array = array_types.has(key) && array_types[key] == VT_INT;
+                    emit_byte(int_array ? OP_NEW_ARRAY_I64 : OP_NEW_ARRAY);
+                }
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -5661,6 +6526,20 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_byte((uint8_t)slot);
                         break;
                     }
+                    if (slot >= 0 && get_local_type(v->name) == VT_FLOAT) {
+                        double c = 0.0;
+                        if (b->right && try_constant_f64(b->right, c)) {
+                            int idx = current_chunk->add_constant(Variant(c));
+                            emit_byte(b->op == "+" ? OP_ADD_LOCAL_F64_CONST : OP_SUB_LOCAL_F64_CONST);
+                            emit_byte((uint8_t)slot);
+                            emit_const_index(idx);
+                            break;
+                        }
+                        compile_expression(b->right);
+                        emit_byte(b->op == "+" ? OP_ADD_LOCAL_F64_STACK : OP_SUB_LOCAL_F64_STACK);
+                        emit_byte((uint8_t)slot);
+                        break;
+                    }
                  }
              }
              if (s->target && s->target->type == ExpressionNode::VARIABLE &&
@@ -5760,6 +6639,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                      break;
                  }
                  VariableNode* v = (VariableNode*)aa->base;
+                 if (try_emit_set_array_i64_local(v->name, aa->indices[0], s->value)) {
+                     break;
+                 }
                  // ── Sole-owner VGDict path: dict(key) = value via bracket syntax ──
                  if (is_sole_owner_dict_var(v->name)) {
                      int slot = get_or_add_local(v->name, VT_UNKNOWN);
@@ -5839,6 +6721,9 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  bool fast_array = is_fast_array_var(call->method_name);
                  bool fast_dict = is_dictionary_var(call->method_name);
                  bool trusted_dict = fast_dict && is_trusted_dictionary_var(call->method_name);
+                 if (try_emit_set_array_i64_local(call->method_name, call->arguments[0], s->value)) {
+                     break;
+                 }
                  
                  if (trusted_dict || fast_dict) {
                      // Emit key and value only - don't load the dictionary variable
@@ -6115,6 +7000,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 compile_ok = false;
                 break;
             }
+            if (try_compile_packed_hp_state_for(f)) {
+                break;
+            }
+            if (try_compile_packed_nearest_for(f)) {
+                break;
+            }
 
             auto classify_integral_variant = [&](const Variant &value, int64_t &out) -> bool {
                 switch (value.get_type()) {
@@ -6329,6 +7220,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_const_index(idx);
                     }
                     break;
+                }
+            }
+            {
+                String f64_acc;
+                double f64_delta = 0.0;
+                if (kEnableLoopFusions && is_simple_f64_accum_loop(f, f64_acc, f64_delta) && f->to_val) {
+                    int acc_slot = get_or_add_local(f64_acc, VT_FLOAT);
+                    if (acc_slot >= 0 && get_local_type(f64_acc) == VT_FLOAT) {
+                        // f += (to_val + 1) * delta  for For i = 0 To to_val Step 1
+                        compile_expression(f->to_val);
+                        emit_constant(Variant((int64_t)1));
+                        emit_byte(OP_ADD_I64);
+                        emit_constant(Variant(f64_delta));
+                        emit_byte(OP_MUL_F64);
+                        emit_byte(OP_ADD_LOCAL_F64_STACK);
+                        emit_byte((uint8_t)acc_slot);
+                        break;
+                    }
                 }
             }
             if (kEnableLoopFusions && is_nested_arith_loop(f, sum_var, arith_k, arith_c)) {
@@ -6594,6 +7503,66 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     emit_const_index(idx);
                 }
                 break;
+            }
+            if (kEnableLoopFusions && is_nested_foreach_array_sum(f, sum_var, arr_var, iter_var)) {
+                VariableNode arr_node;
+                arr_node.name = arr_var;
+                compile_expression(&arr_node);
+                emit_byte(OP_SUM_ARRAY_I64);
+
+                compile_expression(f->to_val);
+                emit_constant(Variant((int64_t)1));
+                emit_byte(OP_ADD_I64);
+                emit_byte(OP_MUL_I64);
+
+                VariableNode sum_node;
+                sum_node.name = sum_var;
+                compile_expression(&sum_node);
+                emit_byte(OP_ADD_I64);
+
+                int slot = get_or_add_local(sum_var, VT_INT);
+                if (slot >= 0) {
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                } else {
+                    int idx = current_chunk->add_constant(sum_var);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(idx);
+                }
+                break;
+            }
+            {
+                String fed_sum, fed_dict, fed_keys, fed_iter;
+                if (kEnableLoopFusions && is_nested_foreach_dict_sum(f, fed_sum, fed_dict, fed_keys, fed_iter)) {
+                    int dict_slot = get_or_add_local(fed_dict, VT_UNKNOWN);
+                    if (is_sole_owner_dict_var(fed_dict) && dict_slot >= 0 && dict_slot < 16) {
+                        emit_bytes(OP_SUM_VGDICT_ALL_I64, (uint8_t)dict_slot);
+                    } else {
+                        VariableNode dict_node;
+                        dict_node.name = fed_dict;
+                        compile_expression(&dict_node);
+                        emit_byte(OP_SUM_DICT_I64);
+                    }
+
+                    compile_expression(f->to_val);
+                    emit_constant(Variant((int64_t)1));
+                    emit_byte(OP_ADD_I64);
+                    emit_byte(OP_MUL_I64);
+
+                    VariableNode sum_node;
+                    sum_node.name = fed_sum;
+                    compile_expression(&sum_node);
+                    emit_byte(OP_ADD_I64);
+
+                    int slot = get_or_add_local(fed_sum, VT_INT);
+                    if (slot >= 0) {
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                    } else {
+                        int idx = current_chunk->add_constant(fed_sum);
+                        emit_byte(OP_SET_GLOBAL);
+                        emit_const_index(idx);
+                    }
+                    break;
+                }
             }
 
             String dict_var;
@@ -7162,7 +8131,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
                 String key = s->variable_name.to_lower();
-                emit_byte(OP_NEW_ARRAY);
+                bool int_array = array_types.has(key) && array_types[key] == VT_INT;
+                emit_byte(int_array ? OP_NEW_ARRAY_I64 : OP_NEW_ARRAY);
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -8241,15 +9211,25 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 break;
             }
 
+            // Fast path: For Each over a local Long/String array skips dict-keys
+            // conversion and uses OP_GET_ARRAY_FAST in the loop body.
+            bool foreach_fast_array = false;
+            if (s->collection->type == ExpressionNode::VARIABLE) {
+                String coll_name = ((VariableNode *)s->collection)->name;
+                if (is_fast_array_var(coll_name) && !is_dictionary_var(coll_name)) {
+                    foreach_fast_array = true;
+                }
+            }
+
             // Compile the collection expression.
             compile_expression(s->collection);
 
-            // If the collection is a Dictionary we need its keys() array.
-            // We can't know the type statically, so emit OP_DICT_KEYS_CALL
-            // which will convert dict→keys at runtime (passes arrays through).
-            emit_byte(OP_DICT_KEYS_CALL);
+            if (!foreach_fast_array) {
+                // Dictionary → keys(); arrays pass through unchanged.
+                emit_byte(OP_DICT_KEYS_CALL);
+            }
 
-            // Store the (possibly converted) array in coll_slot.
+            // Store the array in coll_slot.
             emit_bytes(OP_SET_LOCAL, (uint8_t)coll_slot);
 
             // Initialise index = 0
@@ -8271,10 +9251,10 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             emit_byte(OP_GREATER_EQUAL);  // idx >= len → done
             int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
 
-            // var = coll(idx)  →  push coll, push idx, OP_GET_ARRAY 1
+            // var = coll(idx)
             emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
             emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
-            emit_byte(OP_GET_ARRAY);
+            emit_byte(foreach_fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY);
             emit_byte(1);
             if (var_slot >= 0) {
                 emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
@@ -8926,7 +9906,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     if (lt == VT_INT && rt == VT_INT) emit_byte(OP_EQUAL_I64);
                     else emit_byte(OP_EQUAL);
                 }
-                else if (b->op == "<") emit_byte(OP_LESS);
+                else if (b->op == "<") {
+                    if (lt == VT_INT && rt == VT_INT) emit_byte(OP_LESS_I64);
+                    else emit_byte(OP_LESS);
+                }
                 else if (b->op == ">") emit_byte(OP_GREATER);
                 else if (b->op == "<=") {
                     if (lt == VT_INT && rt == VT_INT) emit_byte(OP_LESS_EQUAL_I64);
@@ -9018,7 +10001,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 if (lt == VT_INT && rt == VT_INT) emit_byte(OP_EQUAL_I64);
                 else emit_byte(OP_EQUAL);
             }
-            else if (b->op == "<") emit_byte(OP_LESS);
+            else if (b->op == "<") {
+                if (lt == VT_INT && rt == VT_INT) emit_byte(OP_LESS_I64);
+                else emit_byte(OP_LESS);
+            }
             else if (b->op == ">") emit_byte(OP_GREATER);
             else if (b->op == "<=") {
                 if (lt == VT_INT && rt == VT_INT) emit_byte(OP_LESS_EQUAL_I64);
@@ -9300,6 +10286,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     break;
                 }
             }
+            if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                    try_emit_get_array_i64_local(((VariableNode*)aa->base)->name, aa->indices[0])) {
+                break;
+            }
             compile_expression(aa->base);
             compile_expression(aa->indices[0]);
             bool unchecked = false;
@@ -9486,6 +10476,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                          emit_bytes(OP_BUF_READ8, (uint8_t)bslot);
                          break;
                      }
+                 }
+                 if (try_emit_get_array_i64_local(call->method_name, call->arguments[0])) {
+                     break;
                  }
                  VariableNode tmp;
                  tmp.name = call->method_name;

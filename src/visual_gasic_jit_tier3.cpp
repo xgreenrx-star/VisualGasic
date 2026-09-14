@@ -176,12 +176,13 @@ static int opcode_size(uint8_t op) {
         case OP_DUP: case OP_NEW_DICT: case OP_THROW:
         case OP_ADD_I64: case OP_SUB_I64: case OP_MUL_I64:
         case OP_ADD_F64: case OP_SUB_F64: case OP_MUL_F64: case OP_DIV_F64:
-        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64:
+        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64: case OP_LESS_I64:
         case OP_STOP: case OP_LIKE: case OP_LEN: case OP_ABS: case OP_SGN:
             return 1;
         // 2-byte opcodes
         case OP_GET_LOCAL: case OP_SET_LOCAL:
         case OP_INC_LOCAL_I64:
+        case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
             return 2;
         // 3-byte opcodes
         case OP_CONSTANT: case OP_CONSTANT_LONG:
@@ -193,6 +194,10 @@ static int opcode_size(uint8_t op) {
         // 4-byte opcodes
         case OP_CALL:
             return 4;
+        case OP_PACKED_HP_STATE_TICK:
+            return 5;
+        case OP_PACKED_NEAREST_I64:
+            return 7;
         default:
             return 1; // conservative — bail will catch unsupported ops
     }

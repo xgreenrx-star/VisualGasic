@@ -17,6 +17,7 @@ This directory contains `.vg` scripts designed to measure and profile VisualGasi
 | `parallel.vg` | Multi-threaded workload benchmark (requires Thread support) |
 | `jit_*.vg` | JIT-specific optimizations: `jit_simple.vg`, `jit_intonly.vg`, `jit_loop.vg`, `jit_simple2.vg` |
 | `draw/` | **CanvasItem draw benchmarks** — VG vs GDScript vs C++ (`run_draw_benchmarks.gd`, live scene) |
+| `gameplay/` | **Gameplay realism (Tier B/C)** — loops, calls, entity ticks, node property churn |
 | `bench_output.txt` | Sample results from previous benchmark run (reference) |
 
 ## Running Benchmarks
@@ -26,7 +27,8 @@ From repo root (after `scons platform=linux target=editor`):
 ```bash
 scripts/run_compute_benchmarks.sh
 scripts/run_draw_benchmarks.sh
-scripts/benchmark_regression_check.sh   # CI-style: fail if VG loses to GD
+scripts/run_gameplay_benchmarks.sh      # Tier B/C informational
+scripts/benchmark_regression_check.sh   # CI-style: fail if VG loses to GD (Tier A + draw)
 ```
 
 Or open a `.vg` benchmark in Godot and run via the script debugger.

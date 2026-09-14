@@ -127,9 +127,16 @@ private:
     bool is_interop_loop(ForStatement* outer, String &sum_var, String &literal_value, ForStatement* &inner_out) const;
     bool is_nested_array_dict_sum(ForStatement* outer, String &sum_var, String &arr_var, String &dict_var, String &iter_var) const;
     bool is_nested_array_sum(ForStatement* outer, String &sum_var, String &arr_var, String &iter_var) const;
+    bool is_nested_foreach_array_sum(ForStatement* outer, String &sum_var, String &arr_var, String &iter_var) const;
+    bool is_nested_foreach_dict_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;
     bool is_nested_arith_loop(ForStatement* outer, String &sum_var, int64_t &k, int64_t &c) const;
     bool is_nested_inc_loop(ForStatement *outer, String &r_var, int64_t &r_delta) const;
     bool is_simple_arith_loop(ForStatement* f, String &sum_var, int64_t &k, int64_t &c) const;
+    bool is_simple_f64_accum_loop(ForStatement* f, String &acc_var, double &delta) const;
+    bool try_emit_get_array_i64_local(const String &arr_name, ExpressionNode *index);
+    bool try_emit_set_array_i64_local(const String &arr_name, ExpressionNode *index, ExpressionNode *value);
+    bool try_compile_packed_hp_state_for(ForStatement *f);
+    bool try_compile_packed_nearest_for(ForStatement *f);
     bool is_nested_branch_loop(ForStatement* outer, String &sum_var, String &flag_var) const;
     bool is_nested_string_concat(ForStatement* outer, String &target_name, String &literal_value, ForStatement* &inner_out) const;
     bool is_nested_dict_keys_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;

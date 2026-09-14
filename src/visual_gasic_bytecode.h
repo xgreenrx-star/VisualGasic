@@ -320,6 +320,22 @@ enum OpCode {
     OP_GET_BLOCK_LOCAL,  // [OP] [FRAME u8] [OFFSET u8] — read block local (0 = innermost)
     OP_SET_BLOCK_LOCAL,  // [OP] [FRAME u8] [OFFSET u8] — write block local
 
+    // Typed Double local fast paths (FloatLoop / f += const)
+    OP_ADD_LOCAL_F64_STACK,  // [OP] [LOCAL_SLOT] — pop f64 delta, add to typed local
+    OP_SUB_LOCAL_F64_STACK,
+    OP_ADD_LOCAL_F64_CONST,  // [OP] [LOCAL_SLOT] [CONST_IDX u16]
+    OP_SUB_LOCAL_F64_CONST,
+
+    // In-place Long array access on a local slot (PackedInt64Array or Array).
+    // Avoids GET_LOCAL + CoW copy on every hp(i) / hp(i) = … in entity loops.
+    OP_GET_ARRAY_I64_LOCAL,  // [OP] [ARR_SLOT] — pop idx, push i64
+    OP_SET_ARRAY_I64_LOCAL,  // [OP] [ARR_SLOT] — pop value, pop idx (in-place)
+    OP_LESS_I64,             // pop b, pop a, push (a < b) as bool
+    // Native inner-loop scans over PackedInt64Array locals (entity ticks / nearest).
+    // Stack: count i64 (iteration count, from 0).
+    OP_PACKED_HP_STATE_TICK, // [hp][state][sum][tag] tag=255 means unused
+    OP_PACKED_NEAREST_I64,   // [px][py][tx][ty][best][bestidx]
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

@@ -288,3 +288,235 @@ Function BenchBuffer(ByVal iterations As Long, ByVal size As Long) As Long
     
     BenchBuffer = s
 End Function
+
+' --- Gameplay realism (Tier B/C) — paired with benchmarks/gameplay/run_gameplay_benchmarks.gd ---
+
+Function BenchGpCallLeaf(ByVal x As Long) As Long
+	BenchGpCallLeaf = x + 1
+End Function
+
+Function BenchGpCallMid(ByVal x As Long) As Long
+	BenchGpCallMid = BenchGpCallLeaf(x)
+End Function
+
+Function BenchGpCallRoot(ByVal x As Long) As Long
+	BenchGpCallRoot = BenchGpCallMid(x)
+End Function
+
+Function BenchIntegerLoop(ByVal ops As Long) As Long
+	Dim i As Long
+	Dim s As Long
+	For i = 0 To ops - 1 Step 1
+		s = s + (i * 3) - 7
+	Next i
+	BenchIntegerLoop = s
+End Function
+
+Function BenchFloatLoop(ByVal ops As Long) As Long
+	Dim i As Long
+	Dim f As Double
+	Dim s As Long
+	For i = 0 To ops - 1 Step 1
+		f = f + 0.001
+	Next i
+	s = CLng(f * 1000.0)
+	BenchFloatLoop = s
+End Function
+
+Function BenchLocalCalls(ByVal ops As Long) As Long
+	Dim i As Long
+	Dim s As Long
+	For i = 0 To ops - 1 Step 1
+		s = BenchGpCallLeaf(s)
+	Next i
+	BenchLocalCalls = s
+End Function
+
+Function BenchCallChain(ByVal ops As Long) As Long
+	Dim i As Long
+	Dim s As Long
+	For i = 0 To ops - 1 Step 1
+		s = BenchGpCallRoot(s)
+	Next i
+	BenchCallChain = s
+End Function
+
+Function BenchNodePropertyChurn(ByVal outer As Long, ByVal inner As Long) As Long
+	Dim i As Long
+	Dim j As Long
+	Dim node As Node
+	Dim checksum As Long
+	Dim prefix As String
+	If outer <= 0 Or inner <= 0 Then
+		BenchNodePropertyChurn = 0
+		Exit Function
+	End If
+	prefix = "gp_"
+	Set node = CreateNode("Node")
+	For i = 0 To outer - 1 Step 1
+		For j = 0 To inner - 1 Step 1
+			node.Name = prefix & CStr(j)
+			checksum = checksum + Len(node.Name)
+		Next j
+	Next i
+	BenchNodePropertyChurn = checksum
+End Function
+
+Function BenchArrayIterate(ByVal ticks As Long, ByVal size As Long) As Long
+	Dim arr(0) As Long
+	Dim i As Long
+	Dim t As Long
+	Dim sum As Long
+	Dim item As Variant
+	If ticks <= 0 Or size <= 0 Then
+		BenchArrayIterate = 0
+		Exit Function
+	End If
+	ReDim arr(size - 1)
+	For i = 0 To size - 1 Step 1
+		arr(i) = i Mod 17
+	Next i
+	For t = 0 To ticks - 1 Step 1
+		For Each item In arr
+			sum = sum + CInt(item)
+		Next item
+	Next t
+	BenchArrayIterate = sum
+End Function
+
+Function BenchDictionaryScan(ByVal ticks As Long, ByVal size As Long) As Long
+	Dim dict As Dictionary
+	Dim keys(0) As String
+	Dim i As Long
+	Dim t As Long
+	Dim sum As Long
+	Dim k As Variant
+	If ticks <= 0 Or size <= 0 Then
+		BenchDictionaryScan = 0
+		Exit Function
+	End If
+	ReDim keys(size - 1)
+	Set dict = New Dictionary
+	For i = 0 To size - 1 Step 1
+		keys(i) = "k" & CStr(i)
+		dict(keys(i)) = i * 3
+	Next i
+	For t = 0 To ticks - 1 Step 1
+		For Each k In keys
+			sum = sum + CInt(dict(k))
+		Next k
+	Next t
+	BenchDictionaryScan = sum
+End Function
+
+Function BenchEntityThink(ByVal ticks As Long, ByVal entities As Long) As Long
+	Dim hp(0) As Long
+	Dim state(0) As Long
+	Dim i As Long
+	Dim t As Long
+	Dim sum As Long
+	If ticks <= 0 Or entities <= 0 Then
+		BenchEntityThink = 0
+		Exit Function
+	End If
+	ReDim hp(entities - 1)
+	ReDim state(entities - 1)
+	For i = 0 To entities - 1 Step 1
+		hp(i) = 100 + (i Mod 7)
+		state(i) = i Mod 4
+	Next i
+	For t = 0 To ticks - 1 Step 1
+		For i = 0 To entities - 1 Step 1
+			If state(i) = 0 Then
+				hp(i) = hp(i) - 1
+			ElseIf state(i) = 1 Then
+				hp(i) = hp(i) + 2
+			Else
+				state(i) = (state(i) + 1) Mod 4
+			End If
+			sum = sum + hp(i) + state(i)
+		Next i
+	Next t
+	BenchEntityThink = sum
+End Function
+
+Function BenchBatchNearest(ByVal ticks As Long, ByVal entities As Long) As Long
+	Dim px(0) As Long
+	Dim py(0) As Long
+	Dim i As Long
+	Dim t As Long
+	Dim sum As Long
+	Dim tx As Long
+	Dim ty As Long
+	Dim best As Long
+	Dim d As Long
+	Dim bestIdx As Long
+	If ticks <= 0 Or entities <= 0 Then
+		BenchBatchNearest = 0
+		Exit Function
+	End If
+	ReDim px(entities - 1)
+	ReDim py(entities - 1)
+	For i = 0 To entities - 1 Step 1
+		px(i) = (i Mod 16) * 10
+		py(i) = (i Mod 13) * 8
+	Next i
+	tx = 80
+	ty = 52
+	For t = 0 To ticks - 1 Step 1
+		bestIdx = -1
+		best = 2147483647
+		For i = 0 To entities - 1 Step 1
+			d = (px(i) - tx) * (px(i) - tx) + (py(i) - ty) * (py(i) - ty)
+			If d < best Then
+				best = d
+				bestIdx = i
+			End If
+		Next i
+		sum = sum + bestIdx + best
+		tx = tx + 1
+		ty = ty - 1
+	Next t
+	BenchBatchNearest = sum
+End Function
+
+Function BenchFrameSlice(ByVal frames As Long, ByVal entities As Long) As Long
+	Dim hp(0) As Long
+	Dim state(0) As Long
+	Dim tag(0) As Long
+	Dim i As Long
+	Dim t As Long
+	Dim sum As Long
+	Dim h As Long
+	Dim st As Long
+	If frames <= 0 Or entities <= 0 Then
+		BenchFrameSlice = 0
+		Exit Function
+	End If
+	ReDim hp(entities - 1)
+	ReDim state(entities - 1)
+	ReDim tag(entities - 1)
+	For i = 0 To entities - 1 Step 1
+		hp(i) = 100 + (i Mod 7)
+		state(i) = i Mod 4
+		tag(i) = 0
+	Next i
+	For t = 0 To frames - 1 Step 1
+		For i = 0 To entities - 1 Step 1
+			h = hp(i)
+			st = state(i)
+			If st = 0 Then
+				h = h - 1
+			ElseIf st = 1 Then
+				h = h + 2
+			Else
+				st = (st + 1) Mod 4
+			End If
+			hp(i) = h
+			state(i) = st
+			tag(i) = h + st
+			sum = sum + tag(i)
+		Next i
+	Next t
+	BenchFrameSlice = sum
+End Function

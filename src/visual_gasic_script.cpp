@@ -97,6 +97,15 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_ADD_LOCAL_I64_CONST);
         OP_NAME_CASE(OP_SUB_LOCAL_I64_CONST);
         OP_NAME_CASE(OP_INC_LOCAL_I64);
+        OP_NAME_CASE(OP_ADD_LOCAL_F64_STACK);
+        OP_NAME_CASE(OP_SUB_LOCAL_F64_STACK);
+        OP_NAME_CASE(OP_ADD_LOCAL_F64_CONST);
+        OP_NAME_CASE(OP_SUB_LOCAL_F64_CONST);
+        OP_NAME_CASE(OP_GET_ARRAY_I64_LOCAL);
+        OP_NAME_CASE(OP_SET_ARRAY_I64_LOCAL);
+        OP_NAME_CASE(OP_LESS_I64);
+        OP_NAME_CASE(OP_PACKED_HP_STATE_TICK);
+        OP_NAME_CASE(OP_PACKED_NEAREST_I64);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);
         OP_NAME_CASE(OP_SUM_ARRAY_I64);
@@ -191,7 +200,11 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_LOCAL:
         case OP_ADD_LOCAL_I64_STACK:
         case OP_SUB_LOCAL_I64_STACK:
+        case OP_ADD_LOCAL_F64_STACK:
+        case OP_SUB_LOCAL_F64_STACK:
         case OP_INC_LOCAL_I64:
+        case OP_GET_ARRAY_I64_LOCAL:
+        case OP_SET_ARRAY_I64_LOCAL:
         case OP_BRANCH_SUM:
         case OP_GET_ARRAY:
         case OP_SET_ARRAY:
@@ -278,6 +291,8 @@ int opcode_operand_length(uint8_t op) {
         case OP_RAISE_EVENT:
         case OP_ADD_LOCAL_I64_CONST:
         case OP_SUB_LOCAL_I64_CONST:
+        case OP_ADD_LOCAL_F64_CONST:
+        case OP_SUB_LOCAL_F64_CONST:
         case OP_STRING_REPEAT_OUTER:
         case OP_INTEROP_SET_NAME_LEN:
         case OP_SET_DICT_GLOBAL:
@@ -295,6 +310,10 @@ int opcode_operand_length(uint8_t op) {
         // 7-byte operand: 3 local + const16 + 2 local
         case OP_ALLOC_FILL_REPEAT_I64:
             return 7;
+        case OP_PACKED_HP_STATE_TICK:
+            return 4;
+        case OP_PACKED_NEAREST_I64:
+            return 6;
         default:
             return 0;
     }
@@ -338,14 +357,42 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_SET_LOCAL:
         case OP_ADD_LOCAL_I64_STACK:
         case OP_SUB_LOCAL_I64_STACK:
+        case OP_ADD_LOCAL_F64_STACK:
+        case OP_SUB_LOCAL_F64_STACK:
         case OP_INC_LOCAL_I64:
+        case OP_GET_ARRAY_I64_LOCAL:
+        case OP_SET_ARRAY_I64_LOCAL:
         case OP_BRANCH_SUM:
             if (operands.size() >= 1) {
                 return describe_local_slot(chunk, int(operands[0]));
             }
             break;
+        case OP_PACKED_HP_STATE_TICK:
+            if (operands.size() >= 4) {
+                int tag = int(operands[3]);
+                String tag_s = (tag == 255) ? String("tag=<none>") : describe_local_slot(chunk, tag);
+                return vformat("%s, %s, %s, %s",
+                    describe_local_slot(chunk, int(operands[0])),
+                    describe_local_slot(chunk, int(operands[1])),
+                    describe_local_slot(chunk, int(operands[2])),
+                    tag_s);
+            }
+            break;
+        case OP_PACKED_NEAREST_I64:
+            if (operands.size() >= 6) {
+                return vformat("%s, %s, %s, %s, %s, %s",
+                    describe_local_slot(chunk, int(operands[0])),
+                    describe_local_slot(chunk, int(operands[1])),
+                    describe_local_slot(chunk, int(operands[2])),
+                    describe_local_slot(chunk, int(operands[3])),
+                    describe_local_slot(chunk, int(operands[4])),
+                    describe_local_slot(chunk, int(operands[5])));
+            }
+            break;
         case OP_ADD_LOCAL_I64_CONST:
         case OP_SUB_LOCAL_I64_CONST:
+        case OP_ADD_LOCAL_F64_CONST:
+        case OP_SUB_LOCAL_F64_CONST:
             // [LOCAL_SLOT] [CONST_LO] [CONST_HI]
             if (operands.size() >= 3) {
                 int cidx = (int(operands[2]) << 8) | int(operands[1]);
