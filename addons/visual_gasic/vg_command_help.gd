@@ -557,13 +557,18 @@ static func _build_db() -> void:
 	# =========================================================================
 	_add("Data",
 		"Data value1, value2, value3, ...\nData \"string\", 42, 3.14",
-		"Stores inline data values that can be read sequentially with Read. Labeled sections (LabelName:) group rows; *Sprite: blocks use a 4-value header row (w, h, transparentIdx, paletteId) plus h pixel rows — see Sprite Data.",
+		"Stores inline data values that can be read sequentially with Read. Labeled sections (LabelName:) group rows. Special block labels: *Sprite: (pixel art — see Sprite Data), *Vector: (LINE/RECT/POLYLINE — see Vector Data). ASCII map rows (e.g. \"###...\") are valid string Data values for tile rooms.",
 		"Data \"Sword\", 10, 50\nData \"Shield\", 5, 30\nData \"Potion\", 0, 15\n\nDim itemName As String, atk As Integer, cost As Integer\nRead itemName, atk, cost", 5686)
 
 	_add("Sprite Data",
 		"LabelSprite:\nData w, h, transparentIdx, paletteId\nData …  ' h rows × w palette indices (0–15)",
 		"Inline pixel-art format for labeled *Sprite: Data blocks. Header: width, height, transparent palette index, palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA). Then exactly h Data rows with w indices each. Editable in Context Rail. Max 32×32 inline.",
 		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 0, 1, 1, 0, 0, 0, 0\nData 0, 1, 2, 2, 1, 0, 0, 0\n\nDim raw As Variant\nraw = DataToArray(\"PlayerSprite\")\n' raw(0)=w raw(1)=h raw(2)=trans raw(3)=palette\n' raw(4)+ = pixels row-major", 5770)
+
+	_add("Vector Data",
+		"LabelVector:\nData viewW, viewH, gridStep\nData LINE, x1, y1, x2, y2, R, G, B, A, strokeW\nData POLYLINE, pointCount, x1, y1, …, R, G, B, A, strokeW",
+		"Inline vector-art format for labels ending in Vector (e.g. ShipOutlineVector:). Header: viewW, viewH, gridStep (0 = no snap). Shape rows: LINE, RECT, or POLYLINE plus coordinates and stroke color/width. Editable in Context Rail → Vector data (drag points, Shift+click append, right-click remove). Max 32 shapes / 32 points per polyline inline; larger art uses DataFile \"path.vgv\".",
+		"ArrowVector:\nData 64, 64, 4\nData LINE, 4, 32, 60, 32, 255, 255, 255, 255, 2\nData POLYLINE, 3, 44, 20, 60, 32, 44, 44, 255, 200, 80, 255, 2\n\nDim raw As Variant\nraw = DataToArray(\"ArrowVector\")", 5785)
 
 	_add("DataToArray",
 		"DataToArray()\nDataToArray(\"sectionLabel\")\nDataToArray(count)",
@@ -576,9 +581,9 @@ static func _build_db() -> void:
 		"Data 100, 200, 300\n\nDim x As Integer, y As Integer, z As Integer\nRead x, y, z\nPrint x  ' 100\n\n' Typed read\nRead score As Integer", 10243)
 
 	_add("Restore",
-		"Restore [labelName]",
-		"Resets the Data read pointer to the beginning, or to a named data section.",
-		"Data \"First\", 1\ndata_section2:\nData \"Second\", 2\n\nRead a, b\nRestore data_section2\nRead c, d  ' Reads \"Second\", 2", 10375)
+		"Restore\nRestore labelName\nRestore stringExpression",
+		"Resets the Data read pointer to the first Data value, a compile-time label, or a runtime-built label name. Bare Restore labelName always names a Data label (not a variable). Use Restore \"Prefix\" + CStr(id) + \"Suffix\" when the section name is built at run time — use CStr for numbers (Str adds a leading space). Missing label → runtime error 5.",
+		"Data \"First\", 1\ndata_section2:\nData \"Second\", 2\n\nRead a, b\nRestore data_section2\nRead c, d  ' \"Second\", 2\n\nDim roomId As Integer\nroomId = 6\nRestore \"R\" + CStr(roomId) + \"Map\"\nDim row As String\nRead row  ' first map row for room 6", 10375)
 
 	_add("DataFile",
 		"DataFile \"path\"",
@@ -2691,7 +2696,7 @@ static func _build_see_also() -> void:
 		# Image I/O
 		["LoadImage", "LoadPicture", "SaveImage", "RGB"],
 		# File I/O
-		["Open", "Close", "Line Input", "Data", "Read", "Restore", "DataToArray", "Sprite Data",
+		["Open", "Close", "Line Input", "Data", "Read", "Restore", "DataToArray", "Sprite Data", "Vector Data",
 			"DataFile", "DataBuffer", "LoadData", "DataCount", "PeekData", "SetDataPointer",
 			"DataLabels", "DataPointer", "DataRemain", "DataSectionCount", "DataSectionName", "DataSectionRemain"],
 		# OOP
