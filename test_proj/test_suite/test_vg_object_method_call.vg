@@ -1,0 +1,43 @@
+' Regression: OP_METHOD_CALL on a Godot Object with an attached VG script
+' must dispatch to that script's Sub/Function (snake_case or PascalCase).
+' Repro: Brotato Bullet.vg enemy.take_hit(damage) → Enemy.vg Sub TakeHit.
+Attribute VB_Name = "TestVgObjectMethodCall"
+
+Sub _Ready()
+	Dim target As Object
+	Set target = ClassDB.Instantiate("Node2D")
+	target.name = "MethodTarget"
+
+	Dim scr As Object
+	Set scr = Load("res://test_suite/inc_vg_method_target.vg")
+	target.set_script(scr)
+	AddChild target
+
+	' GDScript-style snake_case on a VG PascalCase Sub
+	Dim doubled As Integer
+	doubled = target.take_hit(21)
+	If doubled = 42 Then
+		Print "PASS: vg_object_method_snake_case"
+	Else
+		Print "FAIL: vg_object_method_snake_case: got " & Str(doubled)
+	End If
+
+	' Direct PascalCase should also work
+	Dim doubled2 As Integer
+	doubled2 = target.TakeHit(10)
+	If doubled2 = 20 Then
+		Print "PASS: vg_object_method_pascal_case"
+	Else
+		Print "FAIL: vg_object_method_pascal_case: got " & Str(doubled2)
+	End If
+
+	Dim lbl As String
+	lbl = target.get_label()
+	If lbl = "target_ok" Then
+		Print "PASS: vg_object_method_snake_no_args"
+	Else
+		Print "FAIL: vg_object_method_snake_no_args: got " & lbl
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

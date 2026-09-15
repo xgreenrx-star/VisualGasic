@@ -562,6 +562,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                   }
              }
              if (obj) {
+                 Variant native_val;
+                 if (try_native_node_property_get(obj, prop_name, native_val)) {
+                     return native_val;
+                 }
                  Variant val = obj->get(prop_name);
                  if (val.get_type() != Variant::NIL) return val;
                  
@@ -651,6 +655,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  Dictionary dict = container;
                  Variant key = evaluate_expression(aa->indices[i]);
                  container = dict.get(key, Variant());
+             }
+             return container;
+         }
+
+         if (base.get_type() == Variant::INT || base.get_type() == Variant::OBJECT) {
+             Variant container = base;
+             for (int i = 0; i < aa->indices.size(); i++) {
+                 Variant key = evaluate_expression(aa->indices[i]);
+                 Variant next;
+                 if (!try_variant_subscript_get(container, key, next)) {
+                     raise_error("Unsupported array base type");
+                     return Variant();
+                 }
+                 container = next;
              }
              return container;
          }
@@ -953,21 +971,19 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         
         // GetNode("path") - Godot node path lookup
         if (call->method_name.nocasecmp_to("GetNode") == 0 && call_args.size() == 1) {
-            String path = call_args[0];
-            // When called with a base object (e.g. child.GetNode("Camera")),
-            // resolve relative to the base object, not the owner
-            Node *resolve_from = nullptr;
+            Variant base;
             if (call->base_object) {
-                Variant base = evaluate_expression(call->base_object);
-                if (base.get_type() == Variant::OBJECT) {
-                    resolve_from = Object::cast_to<Node>(base);
+                base = evaluate_expression(call->base_object);
+            }
+            Variant gn_ret;
+            if (VGGodotOwnerBuiltins::try_resolve_node_on_base(this, base, call->method_name, call_args, gn_ret)) {
+                return gn_ret;
+            }
+            if (!call->base_object && owner) {
+                Node *resolve_from = Object::cast_to<Node>(owner);
+                if (resolve_from && resolve_from->is_inside_tree()) {
+                    return resolve_from->get_node_or_null(NodePath(String(call_args[0])));
                 }
-            }
-            if (!resolve_from && owner) {
-                resolve_from = Object::cast_to<Node>(owner);
-            }
-            if (resolve_from && resolve_from->is_inside_tree()) {
-                return resolve_from->get_node_or_null(NodePath(path));
             }
             return Variant();
         }
@@ -1177,7 +1193,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 }
             }
 
-            // Fallback: object method call (try direct, snake_case, or callp fallback)
+            // Fallback: object method call (try direct, snake_case, VG script, or callp fallback)
             if (base.get_type() == Variant::OBJECT) {
                 Object* obj = base;
                 if (obj) {
@@ -1187,6 +1203,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     String snake = call->method_name.to_snake_case();
                     if (obj->has_method(snake)) {
                         return obj->callv(snake, call_args);
+                    }
+                    Variant vg_ret;
+                    if (try_call_vg_owner_method(obj, call->method_name, call_args, vg_ret)) {
+                        return vg_ret;
                     }
                 }
             }
@@ -1226,6 +1246,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      return res;
                  }
              }
+
+            if (call_args.size() == 1) {
+                Variant indexed;
+                if (try_property_index_get(base, call->method_name, call_args[0], indexed)) {
+                    return indexed;
+                }
+            }
 
             // If we got here, the base_object was evaluated but the method
             // could not be dispatched — either base was Nil (null object

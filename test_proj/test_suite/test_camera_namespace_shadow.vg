@@ -1,0 +1,22 @@
+' Regression: module-level Dim camera As Object must shadow the Camera namespace
+' so camera.LookAt(...) compiles to OP_METHOD_CALL (Godot look_at), not camera_lookat.
+Attribute VB_Name = "TestCameraNamespaceShadow"
+
+Dim camera As Object
+
+Sub _Ready()
+	Dim camNode As Object
+	Set camNode = ClassDB.Instantiate("Node3D")
+	camNode.name = "CamNode"
+	AddChild camNode
+	Set camera = camNode
+
+	camera.LookAt(Vector3(0, 0, -5), Vector3(0, 1, 0))
+	Print "PASS: module_camera_lookat_method_call"
+
+	' Bare Camera.* namespace must still resolve to builtins when not shadowed.
+	Camera.Shake 0.01, 0.5
+	Print "PASS: camera_namespace_builtin"
+
+	Print "TEST_COMPLETE"
+End Sub

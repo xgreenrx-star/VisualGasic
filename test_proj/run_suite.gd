@@ -42,8 +42,19 @@ func _init():
 		quit()
 		return
 	
-	# Create test node and attach script
-	var test_node = Node.new()
+	# Honor Extends (CharacterBody2D / Node2D / …) so Me is the real owner type.
+	# A plain Node owner makes Me.global_position NIL and hides Enemy.vg bugs.
+	var test_node: Node = null
+	var base_type: StringName = &"Node"
+	if script is Script:
+		var bt: StringName = script.get_instance_base_type()
+		if bt != StringName() and ClassDB.class_exists(bt) and ClassDB.can_instantiate(bt):
+			base_type = bt
+	var inst = ClassDB.instantiate(base_type)
+	if inst is Node:
+		test_node = inst
+	else:
+		test_node = Node.new()
 	test_node.name = "TestNode"
 	test_node.set_script(script)
 	root.add_child(test_node)

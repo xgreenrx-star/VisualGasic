@@ -1,0 +1,70 @@
+' Boss shooter projectile on XZ plane
+Extends Area3D
+
+Const ARENA_MIN As Single = -36.0
+Const ARENA_MAX As Single = 36.0
+Const PLAYER_CACHE_INTERVAL As Single = 0.25
+
+Dim velocityVec As Object
+Dim damage As Single
+Dim lifetime As Single
+Dim hitRadius As Single
+Dim done As Boolean
+Dim cachedPlayer As Object
+Dim playerLookupTimer As Single
+
+Sub _Ready()
+	hitRadius = 1.0
+	playerLookupTimer = 0.0
+	Me.AddToGroup("enemy_bullets")
+	Connect Me, "body_entered", "OnBodyEntered"
+End Sub
+
+Sub Setup(dir As Object, speed As Single, pDamage As Single, col As Color)
+	velocityVec = Vector3(dir.x, 0.0, dir.z).normalized() * speed * 0.05
+	damage = pDamage
+	lifetime = 3.0
+	done = False
+	Dim mesh As Object
+	mesh = GetNode("MeshInstance3D")
+	If Not mesh Is Nothing Then
+		mesh.cast_shadow = 0
+		mesh.modulate = col
+	End If
+End Sub
+
+Sub RefreshPlayerCache(delta As Single)
+	playerLookupTimer = playerLookupTimer - delta
+	If playerLookupTimer <= 0 Then
+		playerLookupTimer = PLAYER_CACHE_INTERVAL
+		Set cachedPlayer = GetTree().get_first_node_in_group("player")
+	End If
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	If done Then Exit Sub
+	Call RefreshPlayerCache(delta)
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + velocityVec * delta
+	lifetime = lifetime - delta
+	If lifetime <= 0 Or pos.x < ARENA_MIN Or pos.x > ARENA_MAX Or pos.z < ARENA_MIN Or pos.z > ARENA_MAX Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	If Not cachedPlayer Is Nothing Then
+		If Me.global_position.distance_to(cachedPlayer.global_position) < hitRadius Then
+			cachedPlayer.TakeDamage(damage)
+			done = True
+			Me.queue_free()
+		End If
+	End If
+End Sub
+
+Sub OnBodyEntered(body As Object)
+	If body.is_in_group("player") And Not done Then
+		body.TakeDamage(damage)
+		done = True
+		Me.queue_free()
+	End If
+End Sub

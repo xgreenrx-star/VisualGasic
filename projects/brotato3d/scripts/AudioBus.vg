@@ -1,0 +1,74 @@
+' AudioBus — autoload. Plays sfx from assets/sfx/*.mp3 when present.
+Extends Node
+
+Const POOL_SIZE As Integer = 10
+Const SFX_DIR As String = "res://assets/sfx/"
+
+Dim _players As Variant
+Dim _streams As Object
+Dim _nextPlayer As Integer
+
+Sub _Ready()
+	Me.process_mode = 3
+	_nextPlayer = 0
+	Set _streams = New Dictionary
+	_players = Array()
+	Dim i As Integer
+	For i = 0 To POOL_SIZE - 1
+		Dim p As Object
+		Set p = ClassDB.Instantiate("AudioStreamPlayer")
+		p.process_mode = 3
+		Me.add_child(p)
+		_players.append(p)
+	Next i
+	Call PreloadAllSfx
+End Sub
+
+Sub PreloadAllSfx()
+	Call EnsureSfx("pistol_fire")
+	Call EnsureSfx("shotgun_fire")
+	Call EnsureSfx("sniper_fire")
+	Call EnsureSfx("smg_fire")
+	Call EnsureSfx("flamer_fire")
+	Call EnsureSfx("minigun_fire")
+	Call EnsureSfx("enemy_hit")
+	Call EnsureSfx("enemy_die")
+	Call EnsureSfx("player_hurt")
+	Call EnsureSfx("boss_die")
+	Call EnsureSfx("level_up")
+	Call EnsureSfx("combine")
+	Call EnsureSfx("buy")
+End Sub
+
+Sub Play(id As String)
+	Call EnsureSfx(id)
+	If Not _streams(id) Is Nothing Then
+		Dim stream As Object
+		stream = _streams(id)
+		If stream Is Nothing Then Exit Sub
+		Dim p As Object
+		p = _players(_nextPlayer)
+		_nextPlayer = (_nextPlayer + 1) Mod POOL_SIZE
+		p.stream = stream
+		p.play()
+	End If
+End Sub
+
+Function LoadSfx(id As String) As Object
+	Dim path As String
+	path = SFX_DIR & id & ".mp3"
+	If ResourceLoader.exists(path) Then
+		Dim s As Object
+		s = Load(path)
+		If Not s Is Nothing Then
+			_streams(id) = s
+		End If
+	End If
+	LoadSfx = _streams(id)
+End Function
+
+Sub EnsureSfx(id As String)
+	If _streams(id) Is Nothing Then
+		Call LoadSfx(id)
+	End If
+End Sub

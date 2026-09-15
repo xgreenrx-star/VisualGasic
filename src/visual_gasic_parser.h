@@ -125,6 +125,7 @@ private:
     ExpressionNode* parse_exponentiation(); // ** (Power)
     ExpressionNode* parse_unary();
     ExpressionNode* parse_factor();     // ( ) Lit Var Call unary-
+    ExpressionNode* parse_postfix_chain(ExpressionNode* left); // .member, (args), [index] after any primary
     ExpressionNode* parse_lambda();     // Lambda(x) => expr or Function(x) ... End Function
 
     // Parser-owned allocations tracking: register nodes created during

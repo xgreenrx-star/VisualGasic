@@ -506,6 +506,11 @@ public:
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);
+    // Native Node2D/Node3D/CanvasItem property access. Object::get on a
+    // VG-scripted node can return NIL for engine properties (script instance
+    // get() shadows ClassDB). Used by OP_GET_MEMBER / Me.global_position.
+    bool try_native_node_property_get(Object *obj, const String &member, Variant &out) const;
+    bool try_native_node_property_set(Object *obj, const String &member, const Variant &value);
     const GDExtensionPropertyInfo *get_property_list(uint32_t *r_count);
     void free_property_list(const GDExtensionPropertyInfo *p_list, uint32_t p_count);
     Variant::Type get_property_type(const StringName &p_name, bool *r_is_valid);
@@ -526,7 +531,16 @@ public:
     Variant instantiate_class(const String& class_name, const Array& args);
     bool get_object_member(int obj_id, const String& member_name, Variant &r_ret);
     void set_object_member(int obj_id, const String& member_name, const Variant& value);
+    // Subscript read/write for Array, Dictionary, VG class instances (int object id),
+    // VGMemoryBuffer, VGScriptingDict, and other Object-backed dict-like values.
+    bool try_variant_subscript_get(const Variant &base, const Variant &key, Variant &r_out) const;
+    bool try_variant_subscript_set(Variant &base, const Variant &key, const Variant &value, Variant &r_updated);
+    // Parser emits OP_METHOD_CALL for obj.prop(i). If prop is not a method, index the property.
+    bool try_property_index_get(const Variant &base, const String &prop, const Variant &key, Variant &r_out);
     Variant call_object_method(int obj_id, const String& method_name, const Array& args);
+    // Dispatch obj.Method(args) to a VG Sub/Function on another node's VisualGasicInstance
+    // (e.g. Bullet.vg calling enemy.take_hit on an Enemy.vg CharacterBody2D).
+    static bool try_call_vg_owner_method(Object *obj, const String &method, const Array &args, Variant &r_ret);
     void register_class(ClassDefinition* cls);
     void execute_class_method(ClassDefinition* cls, SubDefinition* method, int obj_id, const Array& args, Variant& r_ret);
     bool is_property_accessor(const String& prop_name, PropertyDefinition::PropertyType& type);

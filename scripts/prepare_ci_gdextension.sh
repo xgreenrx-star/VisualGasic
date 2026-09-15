@@ -27,9 +27,63 @@ materialize_bin() {
 	cp -f "$SO" "$dir/$SO_NAME"
 }
 
+materialize_vgmusic_bins() {
+	local dest="$1"
+	local vgmusic_src="$ROOT/demos/addons/visual_gasic/plugins/vgmusic/bin"
+	[[ -d "$vgmusic_src" ]] || return 0
+	mkdir -p "$dest/plugins/vgmusic/bin"
+	local copied=0
+	for so in "$vgmusic_src"/*.so; do
+		[[ -f "$so" ]] || continue
+		cp -f "$so" "$dest/plugins/vgmusic/bin/"
+		copied=1
+	done
+	if [[ "$copied" == 1 ]]; then
+		echo "==> Materialized vgmusic bins: $dest/plugins/vgmusic/bin"
+	fi
+}
+
+materialize_icon_import() {
+	local dest="$1"
+	local import_src="$ROOT/demos/addons/visual_gasic/icon.png.import"
+	if [[ -f "$import_src" && -f "$dest/icon.png" && ! -f "$dest/icon.png.import" ]]; then
+		cp -f "$import_src" "$dest/icon.png.import"
+		echo "==> Seeded icon.png.import: $dest"
+	fi
+}
+
+resolve_addon_src() {
+	# demos/ is the stable git-tracked source; repo addons/ may be seeded ephemerally.
+	if [[ -d "$ROOT/demos/addons/visual_gasic" ]]; then
+		printf '%s\n' "$ROOT/demos/addons/visual_gasic"
+	elif [[ -d "$ROOT/addons/visual_gasic" ]]; then
+		printf '%s\n' "$ROOT/addons/visual_gasic"
+	elif [[ -d "$ROOT/projects/addons/visual_gasic" ]]; then
+		printf '%s\n' "$ROOT/projects/addons/visual_gasic"
+	else
+		echo "ERROR: no visual_gasic addon source under addons/, demos/, or projects/" >&2
+		exit 1
+	fi
+}
+
 materialize_addon_tree() {
 	local dest="$1"
-	local src="$ROOT/addons/visual_gasic"
+	local src repo_addon resolved_dest resolved_repo
+	src="$(resolve_addon_src)"
+	repo_addon="$ROOT/addons/visual_gasic"
+	if [[ -e "$dest" ]]; then
+		resolved_dest="$(readlink -f "$dest" 2>/dev/null || true)"
+	fi
+	if [[ -d "$repo_addon" ]]; then
+		resolved_repo="$(readlink -f "$repo_addon")"
+	fi
+	# Some projects symlink addons/ → ../../addons; never rm -rf the repo canonical tree.
+	if [[ -n "${resolved_dest:-}" && -n "${resolved_repo:-}" && "$resolved_dest" == "$resolved_repo" && "$dest" != "$repo_addon" ]]; then
+		echo "==> Skip symlinked dest (repo addon): $dest"
+		materialize_bin "$repo_addon/bin"
+		materialize_vgmusic_bins "$repo_addon"
+		return 0
+	fi
 	if [[ -L "$dest" || -e "$dest" ]]; then
 		echo "==> Replacing addon tree: $dest"
 		rm -rf "$dest"
@@ -37,6 +91,8 @@ materialize_addon_tree() {
 	mkdir -p "$(dirname "$dest")"
 	cp -aL "$src" "$dest"
 	materialize_bin "$dest/bin"
+	materialize_vgmusic_bins "$dest"
+	materialize_icon_import "$dest"
 }
 
 # Godot 4.6 headless loads GDExtensions from .godot/extension_list.cfg, not by
@@ -45,13 +101,24 @@ materialize_addon_tree() {
 ensure_extension_list() {
 	local project_dir="$1"
 	mkdir -p "$project_dir/.godot"
-	printf '%s\n' 'res://addons/visual_gasic/visual_gasic.gdextension' \
-		>"$project_dir/.godot/extension_list.cfg"
+	local extfile="$project_dir/.godot/extension_list.cfg"
+	{
+		printf '%s\n' 'res://addons/visual_gasic/visual_gasic.gdextension'
+		local vgmusic_so="$project_dir/addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.template_debug.x86_64.so"
+		if [[ -f "$vgmusic_so" ]]; then
+			printf '%s\n' 'res://addons/visual_gasic/plugins/vgmusic/libgdsion.gdextension'
+		fi
+	} >"$extfile"
 }
 
 # Materialize the canonical repo addon first, then mirror into every project that
 # loads the extension in CI or headless smoke runs.
-materialize_bin "addons/visual_gasic/bin"
+if [[ ! -d "$ROOT/addons/visual_gasic" ]]; then
+	echo "==> Seeding repo addon from $(resolve_addon_src)"
+	materialize_addon_tree "addons/visual_gasic"
+else
+	materialize_bin "addons/visual_gasic/bin"
+fi
 materialize_addon_tree "test_proj/addons/visual_gasic"
 materialize_addon_tree "demo/addons/visual_gasic"
 
@@ -63,7 +130,7 @@ while IFS= read -r project_dir; do
 		continue
 	fi
 	materialize_addon_tree "$project_dir/addons/visual_gasic"
-done < <(find "$ROOT" -mindepth 1 -maxdepth 2 -type d \( -path "$ROOT/projects" -o -path "$ROOT/demos" -o -path "$ROOT/demo" -o -path "$ROOT/test_proj" \) -print)
+done < <(find "$ROOT/projects" "$ROOT/demos" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null || true)
 
 ensure_extension_list "$ROOT/test_proj"
 ensure_extension_list "$ROOT/demo"

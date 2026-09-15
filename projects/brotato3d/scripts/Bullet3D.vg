@@ -1,0 +1,88 @@
+' Bullet3D — lightweight Node3D projectile (manual hit test, no Area3D physics)
+Import "CombatCache3D.vg"
+Extends Node3D
+
+Const HIT_RADIUS As Single = 0.75
+
+Dim bulletVelocity As Object
+Dim damage As Single
+Dim pierce As Integer
+Dim hits As Integer
+Dim lifetime As Single
+Dim hitEnemies As Variant
+Dim bulletColor As Color
+
+Sub _Ready()
+	hitEnemies = Array()
+	Me.AddToGroup("bullets")
+End Sub
+
+Sub SetupExtended(p As Object)
+	damage = p("damage")
+	pierce = Max(1, Int(p("pierce")))
+	lifetime = p("lifetime")
+	If lifetime <= 0 Then lifetime = 1.8
+	Dim dir As Object
+	dir = p("dir")
+	If dir Is Nothing Then dir = Vector3(1, 0, 0)
+	Dim spd As Single
+	spd = p("speed")
+	If spd <= 0 Then spd = 26.0
+	bulletVelocity = Vector3(dir.x, 0.0, dir.z).normalized() * spd
+	Dim col As Color
+	col = p("color")
+	If col Is Nothing Then col = Color(1.0, 0.9, 0.3)
+	bulletColor = col
+	Dim mesh As Object
+	mesh = GetNode("MeshInstance3D")
+	If Not mesh Is Nothing Then
+		mesh.cast_shadow = 0
+		mesh.modulate = col
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + bulletVelocity * delta
+	lifetime = lifetime - delta
+	If lifetime <= 0 Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	Call CheckHits()
+End Sub
+
+Function ArrayContains(arr As Variant, val As Object) As Boolean
+	Dim i As Integer
+	For i = 0 To UBound(arr)
+		If arr(i) Is val Then
+			ArrayContains = True
+			Exit Function
+		End If
+	Next i
+	ArrayContains = False
+End Function
+
+Sub CheckHits()
+	Dim enemies As Variant
+	enemies = GameManager.combat_live_enemies
+	Dim i As Integer
+	For i = 0 To UBound(enemies)
+		Dim body As Object
+		Set body = enemies(i)
+		If body Is Nothing Then GoTo NextE
+		If ArrayContains(hitEnemies, body) Then GoTo NextE
+		If Me.global_position.distance_to(body.global_position) < HIT_RADIUS Then
+			hitEnemies.append(body)
+			body.TakeHit(damage)
+			GameManager.player_stats("total_damage") = GameManager.player_stats("total_damage") + damage
+			hits = hits + 1
+			If hits >= pierce Then
+				Me.queue_free()
+				Exit Sub
+			End If
+		End If
+NextE:
+	Next i
+End Sub

@@ -1,28 +1,29 @@
 // Shared AST/bytecode expr compat — from evaluate.inc Godot integration block
-	if (method == "Load" && call_args.size() == 1) {
-	     return ResourceLoader::get_singleton()->load(call_args[0]);
+	if (method.nocasecmp_to("Load") == 0 && call_args.size() == 1) {
+	     r_found = true; return ResourceLoader::get_singleton()->load(call_args[0]);
 	}
-	if (method == "LoadTexture" && call_args.size() == 1) {
-	     return ResourceLoader::get_singleton()->load(call_args[0]);
+	if (method.nocasecmp_to("LoadTexture") == 0 && call_args.size() == 1) {
+	     r_found = true; return ResourceLoader::get_singleton()->load(call_args[0]);
 	}
-	if (method == "LoadTexture3D" && call_args.size() == 1) {
-	     return ResourceLoader::get_singleton()->load(call_args[0]);
+	if (method.nocasecmp_to("LoadTexture3D") == 0 && call_args.size() == 1) {
+	     r_found = true; return ResourceLoader::get_singleton()->load(call_args[0]);
 	}
-	if (method == "LoadSprite" && call_args.size() == 1) {
+	if (method.nocasecmp_to("LoadSprite") == 0 && call_args.size() == 1) {
+	     r_found = true;
 	     Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(call_args[0]);
 	     if (tex.is_valid()) {
 	          Sprite2D *s = memnew(Sprite2D);
 	          s->set_texture(tex);
-	          return s;
+	          r_found = true; return s;
 	     }
-	     return Variant(); 
+	     r_found = true; return Variant(); 
 	}
 
 	if (method == "CreateMSComm") {
 	     MSComm *comm = memnew(MSComm);
 	     // MSComm is now RefCounted, so we don't add to tree.
 	     // It is managed by the variable (Variant) holding the Ref.
-	     return Ref<MSComm>(comm);
+	     r_found = true; return Ref<MSComm>(comm);
 	}
 
 	if (method == "CreateSprite" && call_args.size() == 1) {
@@ -30,7 +31,7 @@
 	     Ref<Texture2D> tex = arg;
 	     Sprite2D *s = memnew(Sprite2D);
 	     if (tex.is_valid()) s->set_texture(tex);
-	     return s;
+	     r_found = true; return s;
 	}
 
 	if (method == "CreateProgressBar") {
@@ -55,7 +56,7 @@
 	              dynamic_nodes.push_back(pb->get_instance_id());
 	         }
 	     }
-	     return pb;
+	     r_found = true; return pb;
 	}
 
 	if (method == "CreateSlider") {
@@ -79,7 +80,7 @@
 	              dynamic_nodes.push_back(s->get_instance_id());
 	         }
 	     }
-	     return s;
+	     r_found = true; return s;
 	}
 
 	if (method == "CreateListView") {
@@ -100,7 +101,7 @@
 	              dynamic_nodes.push_back(il->get_instance_id());
 	         }
 	     }
-	     return il;
+	     r_found = true; return il;
 	}
 
 	if (method == "CreateFlexGrid") {
@@ -138,7 +139,7 @@
 	              dynamic_nodes.push_back(t->get_instance_id());
 	         }
 	     }
-	     return t;
+	     r_found = true; return t;
 	}
 
 
@@ -157,19 +158,19 @@
 	              dynamic_nodes.push_back(l->get_instance_id());
 	         }
 	     }
-	     return l;
+	     r_found = true; return l;
 	}
 
 	if (method.nocasecmp_to("GetAxis") == 0 && call_args.size() == 2) {
 	     String neg = call_args[0];
 	     String pos = call_args[1];
-	     return Input::get_singleton()->get_axis(neg, pos);
+	     r_found = true; return Input::get_singleton()->get_axis(neg, pos);
 	}
 
 	if (method.nocasecmp_to("GetJoyAxis") == 0 && call_args.size() == 2) {
 	     int device = call_args[0];
 	     int axis = call_args[1];
-	     return Input::get_singleton()->get_joy_axis(device, (JoyAxis)axis);
+	     r_found = true; return Input::get_singleton()->get_joy_axis(device, (JoyAxis)axis);
 	}
 
 	if (method == "CreateParticles2D" && call_args.size() >= 1) {
@@ -196,7 +197,7 @@
 	              dynamic_nodes.push_back(p->get_instance_id());
 	         }
 	     }
-	     return p;
+	     r_found = true; return p;
 	}
 
 	if (method == "CreateParticles3D" && call_args.size() >= 1) {
@@ -223,7 +224,7 @@
 	              dynamic_nodes.push_back(p->get_instance_id());
 	         }
 	     }
-	     return p;
+	     r_found = true; return p;
 	}
 
 	if (method == "CreateMultiMeshInstance3D" && call_args.size() >= 1) {
@@ -249,7 +250,7 @@
 	              dynamic_nodes.push_back(m->get_instance_id());
 	         }
 	     }
-	     return m;
+	     r_found = true; return m;
 	}
 
 	if (method == "CreateTextureRect" && call_args.size() >= 1) {
@@ -275,7 +276,7 @@
 	              dynamic_nodes.push_back(tr->get_instance_id());
 	         }
 	     }
-	     return tr;
+	     r_found = true; return tr;
 	}
 
 	if (method == "CreateSprite3D" && call_args.size() >= 1) {
@@ -301,16 +302,16 @@
 	              dynamic_nodes.push_back(s->get_instance_id());
 	         }
 	     }
-	     return s;
+	     r_found = true; return s;
 	}
 
 	if (method == "CreateNode" && call_args.size() == 1) {
 	     String type = call_args[0];
 	     if (ClassDB::class_exists(type) && ClassDB::can_instantiate(type)) {
 	          Variant res = ClassDB::instantiate(type);
-	          return res;
+	          r_found = true; return res;
 	     }
-	     return Variant();
+	     r_found = true; return Variant();
 	}
 	if (method == "AddChild" && call_args.size() == 1) {
 	     Object *obj = call_args[0];
@@ -321,7 +322,7 @@
 	               parent->add_child(child);
 	          }
 	     }
-	     return Variant();
+	     r_found = true; return Variant();
 	}
 
 	if (method == "Instantiate" && call_args.size() == 1) {
@@ -335,13 +336,13 @@
 	     }
 	     
 	     if (scene.is_valid()) {
-	          return scene->instantiate();
+	          r_found = true; return scene->instantiate();
 	     }
-	     return Variant(); 
+	     r_found = true; return Variant(); 
 	}
 
 	if (method == "LoadShader" && call_args.size() == 1) {
-	     return ResourceLoader::get_singleton()->load(call_args[0]);
+	     r_found = true; return ResourceLoader::get_singleton()->load(call_args[0]);
 	}
 	
 	if (method == "CompileShader" && call_args.size() == 1) {
@@ -349,7 +350,7 @@
 	     Ref<Shader> shader;
 	     shader.instantiate();
 	     shader->set_code(code);
-	     return shader;
+	     r_found = true; return shader;
 	}
 	
 	if (method == "GetDelta" && call_args.size() == 0) {
@@ -357,37 +358,37 @@
 	         Node *n = Object::cast_to<Node>(owner);
 	         if (n) return n->get_process_delta_time();
 	     }
-	     return 0.0;
+	     r_found = true; return 0.0;
 	}
 
 	// Input Handling
 	if (method == "IsActionPressed" && call_args.size() == 1) {
 	    String action = call_args[0];
-	    return Input::get_singleton()->is_action_pressed(action);
+	    r_found = true; return Input::get_singleton()->is_action_pressed(action);
 	}
 	if (method == "IsActionJustPressed" && call_args.size() == 1) {
 	    String action = call_args[0];
-	    return Input::get_singleton()->is_action_just_pressed(action);
+	    r_found = true; return Input::get_singleton()->is_action_just_pressed(action);
 	}
 	if (method == "IsActionJustReleased" && call_args.size() == 1) {
 	    String action = call_args[0];
-	    return Input::get_singleton()->is_action_just_released(action);
+	    r_found = true; return Input::get_singleton()->is_action_just_released(action);
 	}
 	if (method == "IsKeyPressed" && call_args.size() == 1) {
 	    int key = call_args[0];
-	    return Input::get_singleton()->is_key_pressed((Key)key);
+	    r_found = true; return Input::get_singleton()->is_key_pressed((Key)key);
 	}
 	if (method == "IsKeyJustPressed" && call_args.size() == 1) {
 	    int key = call_args[0];
-	    return VGInputEdge::is_key_just_pressed((Key)key);
+	    r_found = true; return VGInputEdge::is_key_just_pressed((Key)key);
 	}
 	if (method == "IsKeyJustReleased" && call_args.size() == 1) {
 	    int key = call_args[0];
-	    return VGInputEdge::is_key_just_released((Key)key);
+	    r_found = true; return VGInputEdge::is_key_just_released((Key)key);
 	}
 	if (method == "IsMouseButtonPressed" && call_args.size() == 1) {
 	    int btn = call_args[0];
-	    return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
+	    r_found = true; return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
 	}
 	if (method == "GetMousePosition" && call_args.size() == 0) {
 	     if (owner) {
@@ -397,12 +398,12 @@
 	              if (vp) return vp->get_mouse_position();
 	         }
 	     }
-	     return DisplayServer::get_singleton()->mouse_get_position();
+	     r_found = true; return DisplayServer::get_singleton()->mouse_get_position();
 	}
 	
 	// Factory for Vector2
 	if (method.nocasecmp_to("Vector2") == 0 && call_args.size() == 2) {
-	     return Vector2(call_args[0], call_args[1]);
+	     r_found = true; return Vector2(call_args[0], call_args[1]);
 	}
 
 	if (method.nocasecmp_to("TweenProperty") == 0 && call_args.size() == 4) {
@@ -416,10 +417,10 @@
 	          if (n) {
 	               Ref<Tween> t = n->create_tween();
 	               t->tween_property(obj, NodePath(prop), final_val, duration);
-	               return t;
+	               r_found = true; return t;
 	          }
 	     }
-	     return Variant();
+	     r_found = true; return Variant();
 	}
 
 	if (method == "CreateFileDialog" || method == "CreateCommonDialog") {
@@ -437,20 +438,20 @@
 	              fd->call_deferred("popup_centered");
 	         }
 	     }
-	     return fd;
+	     r_found = true; return fd;
 	}
 
 	if (method == "HasCollided" && call_args.size() == 1) {
 	     Object *obj = call_args[0];
 	     CharacterBody2D *cb2d = Object::cast_to<CharacterBody2D>(obj);
 	     if (cb2d) {
-	         return cb2d->get_slide_collision_count() > 0;
+	         r_found = true; return cb2d->get_slide_collision_count() > 0;
 	     }
 	     CharacterBody3D *cb3d = Object::cast_to<CharacterBody3D>(obj);
 	     if (cb3d) {
-	         return cb3d->get_slide_collision_count() > 0;
+	         r_found = true; return cb3d->get_slide_collision_count() > 0;
 	     }
-	     return false;
+	     r_found = true; return false;
 	}
 
 	if (method == "GetCollider" && call_args.size() == 1) {
@@ -465,7 +466,7 @@
 	         Ref<KinematicCollision3D> col = cb3d->get_slide_collision(0);
 	         if (col.is_valid()) return col->get_collider();
 	     }
-	     return Variant();
+	     r_found = true; return Variant();
 	}
 
 	if (method == "CreateTrigger" && call_args.size() >= 4) {
@@ -494,7 +495,7 @@
 	              area->connect("body_entered", Callable(owner, "_OnSignal").bind(name, "Collision"));
 	          }
 	     }
-	     return area;
+	     r_found = true; return area;
 	}
 
 	if (method == "CreateTimer" && call_args.size() >= 1) {
@@ -543,7 +544,7 @@
 	              // No need to call start() manually.
 	          }
 	     }
-	     return t;
+	     r_found = true; return t;
 	}
 	
 	if (method == "CreateMenu" && call_args.size() >= 1) {
@@ -581,11 +582,11 @@
 	                 dynamic_nodes.push_back(mb->get_instance_id());
 	                 
 	                 // Return the PopupMenu so we can add items
-	                 return mb->get_popup();
+	                 r_found = true; return mb->get_popup();
 	             }
 	         }
 	     }
-	     return Variant();
+	     r_found = true; return Variant();
 	}
 
 	if (method == "CreateActor2D" && call_args.size() >= 3) {
@@ -627,7 +628,7 @@
 	             dynamic_nodes.push_back(body->get_instance_id());
 	         }
 	     }
-	     return body;
+	     r_found = true; return body;
 	}
 	
 	if (method == "CreateText" && call_args.size() >= 1) {
@@ -649,7 +650,7 @@
 	             dynamic_nodes.push_back(l->get_instance_id());
 	         }
 	     }
-	     return l;
+	     r_found = true; return l;
 	}
 
 	// --- NEW PRO FEATURES ---
@@ -669,7 +670,7 @@
 	            dynamic_nodes.push_back(l->get_instance_id());
 	        }
 	    }
-	    return l;
+	    r_found = true; return l;
 	}
 
 	if (method.nocasecmp_to("CreateButton") == 0 && call_args.size() >= 3) {
@@ -695,7 +696,7 @@
 	             dynamic_nodes.push_back(b->get_instance_id());
 	         }
 	     }
-	     return b;
+	     r_found = true; return b;
 	}
 
 	if (method.nocasecmp_to("CreateInput") == 0 && call_args.size() >= 3) {
@@ -721,7 +722,7 @@
 	             dynamic_nodes.push_back(le->get_instance_id());
 	         }
 	     }
-	     return le;
+	     r_found = true; return le;
 	}
 
 	if (method.nocasecmp_to("GetKey") == 0 && call_args.size() == 1) {
@@ -732,7 +733,7 @@
 	        String k = call_args[0];
 	        key = (Key)OS::get_singleton()->find_keycode_from_string(k);
 	    }
-	    return Input::get_singleton()->is_key_pressed(key);
+	    r_found = true; return Input::get_singleton()->is_key_pressed(key);
 	}
 	if (method.nocasecmp_to("IsKeyDown") == 0 && call_args.size() == 1) {
 	    Key key = Key::KEY_NONE;
@@ -742,25 +743,25 @@
 	        String k = call_args[0];
 	        key = (Key)OS::get_singleton()->find_keycode_from_string(k);
 	    }
-	    return Input::get_singleton()->is_key_pressed(key);
+	    r_found = true; return Input::get_singleton()->is_key_pressed(key);
 	}
 	if (method.nocasecmp_to("IsMouseButtonDown") == 0 && call_args.size() == 1) {
 	    int btn = call_args[0];
-	    return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
+	    r_found = true; return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
 	}
 	if (method.nocasecmp_to("GetMouseX") == 0) {
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().x;
 	    }
-	    return 0.0;
+	    r_found = true; return 0.0;
 	}
 	if (method.nocasecmp_to("GetMouseY") == 0) {
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().y;
 	    }
-	    return 0.0;
+	    r_found = true; return 0.0;
 	}
 
 	if (method.nocasecmp_to("IsOnFloor") == 0 && call_args.size() == 1) {
@@ -769,7 +770,7 @@
 	    if (cb2) return cb2->is_on_floor();
 	    CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
 	    if (cb3) return cb3->is_on_floor();
-	    return false;
+	    r_found = true; return false;
 	}
 	if (method.nocasecmp_to("GetCollisionCount") == 0 && call_args.size() == 1) {
 	    Object *o = call_args[0];
@@ -777,15 +778,15 @@
 	    if (cb2) return cb2->get_slide_collision_count();
 	    CharacterBody3D *cb3 = Object::cast_to<CharacterBody3D>(o);
 	    if (cb3) return cb3->get_slide_collision_count();
-	    return 0;
+	    r_found = true; return 0;
 	}
 
 	if (method == "GetAxis" && call_args.size() == 2) {
-	     return Input::get_singleton()->get_axis(call_args[0], call_args[1]);
+	     r_found = true; return Input::get_singleton()->get_axis(call_args[0], call_args[1]);
 	}
 	
 	if (method == "GetJoyAxis" && call_args.size() == 2) {
-	     return Input::get_singleton()->get_joy_axis(call_args[0], (JoyAxis)(int)call_args[1]);
+	     r_found = true; return Input::get_singleton()->get_joy_axis(call_args[0], (JoyAxis)(int)call_args[1]);
 	}
 
 	if (method == "GetMousePos" && call_args.size() == 0) {
@@ -803,7 +804,7 @@
 	               if (vp) return vp->get_mouse_position();
 	          }
 	     }
-	     return Vector2(0,0);
+	     r_found = true; return Vector2(0,0);
 	}
 	if (method == "GetGlobalMousePos" && call_args.size() == 0) {
 	     if (owner) {
@@ -811,7 +812,7 @@
 	          if (ci && ci->get_viewport()) return ci->get_global_mouse_position();
 	     }
 	     // Or display server
-	     return DisplayServer::get_singleton()->mouse_get_position(); 
+	     r_found = true; return DisplayServer::get_singleton()->mouse_get_position(); 
 	}
 	
 	// ============================================
@@ -820,10 +821,10 @@
 	
 	// Whenever system functions
 	if (method.nocasecmp_to("ActiveWheneverCount") == 0 && call_args.size() == 0) {
-	    return get_active_whenever_count();
+	    r_found = true; return get_active_whenever_count();
 	}
 	if (method.nocasecmp_to("WheneverStatus") == 0 && call_args.size() == 0) {
-	    return get_whenever_status();
+	    r_found = true; return get_whenever_status();
 	}
 	
 	// Keyboard input functions
@@ -831,7 +832,7 @@
 	    // Return last key pressed (empty string if none)
 	    // Check Input for any key by scanning common keys
 	    // For now, just return empty - real implementation would track last key
-	    return String("");
+	    r_found = true; return String("");
 	}
 	
 	// Mouse input functions
@@ -841,20 +842,20 @@
 	    if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_LEFT)) state |= 1;
 	    if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)) state |= 2;
 	    if (Input::get_singleton()->is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE)) state |= 4;
-	    return state;
+	    r_found = true; return state;
 	}
 	if (method.nocasecmp_to("MouseX") == 0 && call_args.size() == 0) {
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().x;
 	    }
-	    return 0.0;
+	    r_found = true; return 0.0;
 	}
 	if (method.nocasecmp_to("MouseY") == 0 && call_args.size() == 0) {
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().y;
 	    }
-	    return 0.0;
+	    r_found = true; return 0.0;
 	}
 

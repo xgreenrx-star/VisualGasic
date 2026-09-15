@@ -1,0 +1,10 @@
+' Helper for test_vg_object_method_call.vg — target node script
+Attribute VB_Name = "VGMethodTarget"
+
+Function TakeHit(dmg As Integer) As Integer
+	Return dmg * 2
+End Function
+
+Function GetLabel() As String
+	Return "target_ok"
+End Function

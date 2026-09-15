@@ -976,15 +976,52 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                          break;
                                      }
                                  }
+                                 {
+                                     Variant vg_ret;
+                                     if (try_call_vg_owner_method(obj, s->method_name, call_args, vg_ret)) {
+                                         break;
+                                     }
+                                 }
                                  raise_error("Object does not have method " + s->method_name);
                              }
                          }
                     } else {
                         raise_error("Method call on null Object");
                     }
+                } else if (base.get_type() == Variant::NIL) {
+                    raise_error("Method call on Null object: ." + s->method_name, 91);
                 } else {
-                    // UtilityFunctions::print("Debug: Base type: ", base.get_type());
-                    raise_error("Method call base is not an Object");
+                    // Array / Dictionary / Vector2 / Color / String / Packed* /
+                    // Callable / RID are not Variant::OBJECT. GDScript still
+                    // allows arr.append(x), dict.has(k), v.normalized(), etc.
+                    // Without this, AST CallStatement raised Runtime Error 5
+                    // (Bullet.vg Hit: hitEnemies.append(enemy)).
+                    String method_to_call;
+                    if (base.has_method(s->method_name)) {
+                        method_to_call = s->method_name;
+                    } else {
+                        String snake = s->method_name.to_snake_case();
+                        if (base.has_method(snake)) {
+                            method_to_call = snake;
+                        }
+                    }
+                    if (!method_to_call.is_empty()) {
+                        GDExtensionCallError err;
+                        Variant res;
+                        Vector<Variant> args_store;
+                        args_store.resize(call_args.size());
+                        Variant *args_w = args_store.ptrw();
+                        Vector<const Variant *> arg_ptrs;
+                        arg_ptrs.resize(call_args.size());
+                        const Variant **ptrs_w = arg_ptrs.ptrw();
+                        for (int i = 0; i < call_args.size(); i++) {
+                            args_w[i] = call_args[i];
+                            ptrs_w[i] = &args_w[i];
+                        }
+                        base.callp(method_to_call, ptrs_w, call_args.size(), res, err);
+                    } else {
+                        raise_error("Method call base is not an Object");
+                    }
                 }
             } else {            
                 // Built-ins (Helpers for Statements that look like calls)
@@ -3018,4 +3055,71 @@ static String godot_snake_to_vg_pascal(const String& method) {
         }
     }
     return result;
+}
+
+// Convert GDScript-style snake_case user method names to VG PascalCase.
+// e.g. "take_hit" → "TakeHit", "update_health_bar" → "UpdateHealthBar"
+static String vg_snake_to_pascal_method(const String &method) {
+    if (method.find("_") < 0) {
+        return method;
+    }
+    String result;
+    bool cap_next = true;
+    for (int i = 0; i < method.length(); i++) {
+        char32_t c = method[i];
+        if (c == '_') {
+            cap_next = true;
+        } else {
+            if (cap_next) {
+                if (c >= 'a' && c <= 'z') {
+                    c = c - 'a' + 'A';
+                }
+                cap_next = false;
+            }
+            result += String::chr(c);
+        }
+    }
+    return result;
+}
+
+bool VisualGasicInstance::try_call_vg_owner_method(Object *obj, const String &method, const Array &args, Variant &r_ret) {
+    if (!obj) {
+        return false;
+    }
+    VisualGasicInstance *target = VisualGasicDebug::get_instance_for_owner(obj);
+    if (!target) {
+        return false;
+    }
+
+    bool found = false;
+    r_ret = target->call_internal(method, args, found);
+    if (found) {
+        return true;
+    }
+
+    String pascal = vg_snake_to_pascal_method(method);
+    if (pascal != method) {
+        r_ret = target->call_internal(pascal, args, found);
+        if (found) {
+            return true;
+        }
+    }
+
+    String vg_virtual = godot_snake_to_vg_pascal(method);
+    if (vg_virtual != method) {
+        r_ret = target->call_internal(vg_virtual, args, found);
+        if (found) {
+            return true;
+        }
+    }
+
+    String snake = method.to_snake_case();
+    if (snake != method) {
+        r_ret = target->call_internal(snake, args, found);
+        if (found) {
+            return true;
+        }
+    }
+
+    return false;
 }

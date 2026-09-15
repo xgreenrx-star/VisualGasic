@@ -7657,6 +7657,67 @@ bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String 
     return false;
 }
 
+// GDScript-style methods on non-Object Variants (Array.append, Vector2.normalized,
+// Dictionary.has, String.to_upper, Packed*Array, Color, Callable, RID, …).
+// AST CallStatement used to reject these with Runtime Error 5 because the base
+// is not Variant::OBJECT (Bullet.vg Hit: hitEnemies.append(enemy)).
+static bool try_call_godot_variant_method(Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret) {
+    if (p_base.get_type() == Variant::NIL || p_base.get_type() == Variant::OBJECT) {
+        return false;
+    }
+    String method_to_call;
+    if (p_base.has_method(p_method)) {
+        method_to_call = p_method;
+    } else {
+        String snake = p_method.to_snake_case();
+        if (snake != p_method && p_base.has_method(snake)) {
+            method_to_call = snake;
+        }
+    }
+    if (method_to_call.is_empty()) {
+        return false;
+    }
+    GDExtensionCallError err;
+    memset(&err, 0, sizeof(err));
+    Variant res;
+    Vector<Variant> args_store;
+    args_store.resize(p_args.size());
+    Variant *args_w = args_store.ptrw();
+    Vector<const Variant *> arg_ptrs;
+    arg_ptrs.resize(p_args.size());
+    const Variant **ptrs_w = arg_ptrs.ptrw();
+    for (int i = 0; i < p_args.size(); i++) {
+        args_w[i] = p_args[i];
+        ptrs_w[i] = &args_w[i];
+    }
+    p_base.callp(method_to_call, ptrs_w, p_args.size(), res, err);
+    r_ret = res;
+    return true;
+}
+
+static bool call_array_instance_method(Array &arr, const String &p_method, const Array &p_args, Variant &r_ret) {
+    if (p_method.nocasecmp_to("append") == 0 || p_method.nocasecmp_to("push_back") == 0) {
+        if (p_args.size() >= 1) {
+            arr.append(p_args[0]);
+        }
+        r_ret = Variant();
+        return true;
+    }
+    if (p_method.nocasecmp_to("has") == 0 && p_args.size() >= 1) {
+        bool found = false;
+        const Variant &needle = p_args[0];
+        for (int i = 0; i < arr.size(); i++) {
+            if (arr[i] == needle) {
+                found = true;
+                break;
+            }
+        }
+        r_ret = found;
+        return true;
+    }
+    return false;
+}
+
 bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret) {
     // Only handle object-specific parts here; object is optional for composite handler.
     if (p_base.get_type() != Variant::OBJECT) return false;
@@ -7867,7 +7928,37 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
             r_ret = Variant();
             return true;
         }
+        // Godot Dictionary.has(key) (VB6 Exists is handled above)
+        if (p_method.nocasecmp_to("has") == 0 && p_args.size() >= 1) {
+            r_ret = d.has(p_args[0]);
+            return true;
+        }
+        {
+            Variant mutable_base = p_base;
+            if (try_call_godot_variant_method(mutable_base, p_method, p_args, r_ret)) {
+                return true;
+            }
+        }
         return false;
+    }
+
+    if (p_base.get_type() == Variant::ARRAY) {
+        Array arr = p_base;
+        if (call_array_instance_method(arr, p_method, p_args, r_ret)) {
+            return true;
+        }
+        Variant mutable_base = p_base;
+        if (try_call_godot_variant_method(mutable_base, p_method, p_args, r_ret)) {
+            return true;
+        }
+        return false;
+    }
+
+    {
+        Variant mutable_base = p_base;
+        if (try_call_godot_variant_method(mutable_base, p_method, p_args, r_ret)) {
+            return true;
+        }
     }
 
     // Delegate to object handler for object types

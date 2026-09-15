@@ -34,6 +34,7 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
+#include "vg_godot_owner_builtins.h"
 #include "vg_connect.h"
 #include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
@@ -103,6 +104,7 @@
 #include <godot_cpp/classes/kinematic_collision3d.hpp>
 #include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/node2d.hpp>
+#include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/box_mesh.hpp>
 #include <godot_cpp/classes/sphere_mesh.hpp>
@@ -2161,6 +2163,207 @@ bool VisualGasicInstance::get(const StringName &p_name, Variant &r_ret) {
     if (builtin_constants.has(p_name)) {
         r_ret = builtin_constants[p_name];
         return true;
+    }
+    return false;
+}
+
+static String vg_normalize_node_prop_key(const String &member) {
+    return member.to_lower().replace("_", "");
+}
+
+bool VisualGasicInstance::try_native_node_property_get(Object *obj, const String &member, Variant &out) const {
+    if (!obj) {
+        return false;
+    }
+    const String m = vg_normalize_node_prop_key(member);
+
+    if (SceneTree *tree = Object::cast_to<SceneTree>(obj)) {
+        if (m == "currentscene") {
+            Node *cs = tree->get_current_scene();
+            // Play-current-scene / editor run often leaves current_scene unset even
+            // though nodes are under root. Walk up to the direct child of root.
+            if (!cs && owner) {
+                Node *n = Object::cast_to<Node>(owner);
+                Object *root = tree->get_root();
+                if (n && root) {
+                    while (n->get_parent() && (Object *)n->get_parent() != root) {
+                        n = n->get_parent();
+                    }
+                    if (n->get_parent() && (Object *)n->get_parent() == root) {
+                        cs = n;
+                    }
+                }
+            }
+            out = cs;
+            return true;
+        }
+        if (m == "root") {
+            out = tree->get_root();
+            return true;
+        }
+        if (m == "paused") {
+            out = tree->is_paused();
+            return true;
+        }
+        return false;
+    }
+
+    if (Node2D *n2 = Object::cast_to<Node2D>(obj)) {
+        if (m == "globalposition") {
+            out = n2->get_global_position();
+            return true;
+        }
+        if (m == "position") {
+            out = n2->get_position();
+            return true;
+        }
+        if (m == "globalrotation") {
+            out = n2->get_global_rotation();
+            return true;
+        }
+        if (m == "rotation") {
+            out = n2->get_rotation();
+            return true;
+        }
+        if (m == "scale") {
+            out = n2->get_scale();
+            return true;
+        }
+        if (m == "velocity") {
+            if (CharacterBody2D *cb = Object::cast_to<CharacterBody2D>(obj)) {
+                out = cb->get_velocity();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (Node3D *n3 = Object::cast_to<Node3D>(obj)) {
+        if (m == "globalposition") {
+            out = n3->get_global_position();
+            return true;
+        }
+        if (m == "position") {
+            out = n3->get_position();
+            return true;
+        }
+        if (m == "globalrotation") {
+            out = n3->get_global_rotation();
+            return true;
+        }
+        if (m == "rotation") {
+            out = n3->get_rotation();
+            return true;
+        }
+        if (m == "scale") {
+            out = n3->get_scale();
+            return true;
+        }
+        if (m == "velocity") {
+            if (CharacterBody3D *cb = Object::cast_to<CharacterBody3D>(obj)) {
+                out = cb->get_velocity();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (Control *ctrl = Object::cast_to<Control>(obj)) {
+        if (m == "globalposition") {
+            out = ctrl->get_global_position();
+            return true;
+        }
+        if (m == "position") {
+            out = ctrl->get_position();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool VisualGasicInstance::try_native_node_property_set(Object *obj, const String &member, const Variant &value) {
+    if (!obj) {
+        return false;
+    }
+    const String m = vg_normalize_node_prop_key(member);
+
+    if (SceneTree *tree = Object::cast_to<SceneTree>(obj)) {
+        if (m == "paused") {
+            tree->set_pause((bool)value);
+            return true;
+        }
+        return false;
+    }
+
+    if (Node2D *n2 = Object::cast_to<Node2D>(obj)) {
+        if (m == "globalposition") {
+            n2->set_global_position(value);
+            return true;
+        }
+        if (m == "position") {
+            n2->set_position(value);
+            return true;
+        }
+        if (m == "globalrotation") {
+            n2->set_global_rotation((double)value);
+            return true;
+        }
+        if (m == "rotation") {
+            n2->set_rotation((double)value);
+            return true;
+        }
+        if (m == "scale") {
+            n2->set_scale(value);
+            return true;
+        }
+        if (m == "velocity") {
+            if (CharacterBody2D *cb = Object::cast_to<CharacterBody2D>(obj)) {
+                cb->set_velocity(value);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (Node3D *n3 = Object::cast_to<Node3D>(obj)) {
+        if (m == "globalposition") {
+            n3->set_global_position(value);
+            return true;
+        }
+        if (m == "position") {
+            n3->set_position(value);
+            return true;
+        }
+        if (m == "globalrotation") {
+            n3->set_global_rotation(value);
+            return true;
+        }
+        if (m == "rotation") {
+            n3->set_rotation(value);
+            return true;
+        }
+        if (m == "scale") {
+            n3->set_scale(value);
+            return true;
+        }
+        if (m == "velocity") {
+            if (CharacterBody3D *cb = Object::cast_to<CharacterBody3D>(obj)) {
+                cb->set_velocity(value);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    if (Control *ctrl = Object::cast_to<Control>(obj)) {
+        if (m == "globalposition") {
+            ctrl->set_global_position(value);
+            return true;
+        }
+        if (m == "position") {
+            ctrl->set_position(value);
+            return true;
+        }
     }
     return false;
 }

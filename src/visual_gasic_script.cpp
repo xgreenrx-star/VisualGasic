@@ -758,6 +758,18 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     // while VG subs use PascalCase ("_UnhandledInput").  nocasecmp_to fails
     // for multi-word names because the underscores differ.
     // Convert snake_case → PascalCase and try again.
+    auto try_pascal_alias = [&](const String &pascal) -> bool {
+        if (pascal == method_str) {
+            return false;
+        }
+        for (int i = 0; i < ast_root->subs.size(); i++) {
+            if (ast_root->subs[i]->name.nocasecmp_to(pascal) == 0) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     if (method_str.begins_with("_") && method_str.length() >= 2 && method_str.find("_", 1) >= 0) {
         String pascal = "_";
         bool cap_next = true;
@@ -773,11 +785,32 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
                 pascal += String::chr(c);
             }
         }
-        for(int i=0; i<ast_root->subs.size(); i++) {
-            if (ast_root->subs[i]->name.nocasecmp_to(pascal) == 0) return true;
+        if (try_pascal_alias(pascal)) {
+            return true;
         }
     }
-    
+
+    // GDScript interop: roll_shop_weapons → RollShopWeapons
+    if (method_str.find("_") >= 0) {
+        String pascal;
+        bool cap_next = true;
+        for (int i = 0; i < method_str.length(); i++) {
+            char32_t c = method_str[i];
+            if (c == '_') {
+                cap_next = true;
+            } else {
+                if (cap_next) {
+                    if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
+                    cap_next = false;
+                }
+                pascal += String::chr(c);
+            }
+        }
+        if (try_pascal_alias(pascal)) {
+            return true;
+        }
+    }
+
     return false;
 }
 

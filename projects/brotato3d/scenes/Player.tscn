@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3 uid="uid://brotato3d_player"]
+
+[ext_resource type="Script" path="res://scripts/Player3D.vg" id="1"]
+[ext_resource type="PackedScene" uid="uid://dgu6rh68bt8rs" path="res://assets/models/kenney_blocky/glb/character-a.glb" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.45
+height = 1.4
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_layer = 1
+collision_mask = 4
+floor_stop_on_slope = false
+script = ExtResource("1")
+
+[node name="Pivot" type="Node3D" parent="."]
+
+[node name="Model" parent="Pivot" instance=ExtResource("2")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot"]
+projection = 1
+size = 22.0
+near = 0.05
+far = 200.0
+current = true

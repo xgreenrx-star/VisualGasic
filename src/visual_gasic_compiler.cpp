@@ -5858,11 +5858,18 @@ String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) cons
             lo != "soundgen" && lo != "music" && lo != "tracker") {
             return String();
         }
-        // Not shadowed by a known variable.
+        // Not shadowed by a known variable (local/param/array/dict or module-level Dim).
         String orig_lo = p_name.to_lower();
         if (local_slots.has(orig_lo) || param_vars.has(orig_lo) ||
             array_vars.has(orig_lo) || dictionary_vars.has(orig_lo)) {
             return String();
+        }
+        if (current_module) {
+            for (int vi = 0; vi < current_module->variables.size(); vi++) {
+                if (current_module->variables[vi]->name.to_lower() == orig_lo) {
+                    return String();
+                }
+            }
         }
         return lo;
     };
@@ -10612,6 +10619,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              if (expr_target_func && try_emit_inline_trivial_user_call(call, expr_target_func)) {
                  emit_byref_writebacks(expr_target_func, call->arguments);
                  break;
+             }
+             // Mis-parse recovery: a param/local identifier must not become a
+             // zero-arg OP_CALL (Err 35 "Sub or Function not defined: defId").
+             if (!call->base_object && call->arguments.size() == 0 &&
+                     (param_vars.has(call_name) || local_slots.has(call_name))) {
+                 int slot = get_or_add_local(call->method_name, VT_UNKNOWN);
+                 if (slot >= 0) {
+                     emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
+                     break;
+                 }
              }
              // Push args
              for(int i=0; i<call->arguments.size(); i++) {

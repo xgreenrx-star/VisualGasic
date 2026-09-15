@@ -1202,6 +1202,15 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         ret = call_internal(String(p_method), args, found);
     }
 
+    // GDScript callers (e.g. Shop.gd on a VG autoload) use snake_case for
+    // user subs/functions: roll_shop_weapons → RollShopWeapons.
+    if (!found) {
+        String user_pascal = vg_snake_to_pascal_method(String(p_method));
+        if (user_pascal != String(p_method)) {
+            ret = call_internal(user_pascal, args, found);
+        }
+    }
+
     if (found) {
         if (r_return) *r_return = ret;
         r_error->error = GDEXTENSION_CALL_OK;

@@ -7,6 +7,7 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
+#include "vg_godot_owner_builtins.h"
 #include "vg_connect.h"
 #include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
@@ -182,6 +183,7 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
 #include <godot_cpp/variant/basis.hpp>
 #include <godot_cpp/variant/vector4.hpp>
 #include <godot_cpp/core/object.hpp>
+#include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
 #include <godot_cpp/godot.hpp>
 
@@ -4742,20 +4744,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     result = dict.get(indices[0], Variant());
-                } else if (base.get_type() == Variant::OBJECT && arg_count == 1) {
-                    // v4.4.0: module-level/global MemoryBuffer vars stay as a real
-                    // VGMemoryBuffer Object (only local-slot buffer vars use the
-                    // PackedByteArray fast path) — support buf(offset) reads on it too.
-                    Object *obj = base;
-                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
-                    if (mb) {
-                        result = Variant((int64_t)mb->peek_byte((int64_t)to_int(indices[0])));
-                    } else {
-                        raise_error("Unsupported array base type");
-                        if (try_recover_error(Variant())) break;
-                        success = false;
-                        goto cleanup;
-                    }
+                } else if (arg_count == 1 && try_variant_subscript_get(base, indices[0], result)) {
+                    // INT object-id, Object-backed dicts, and other helper types
+                } else if (base.get_type() == Variant::NIL) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
                 } else {
                     raise_error("Unsupported array base type");
                     if (try_recover_error(Variant())) break;
@@ -4945,18 +4940,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         updated = arr;
                     }
                 } else if (base.get_type() == Variant::OBJECT && arg_count == 1) {
-                    // v4.4.0: module-level/global MemoryBuffer vars (see OP_GET_ARRAY
-                    // comment above) — support buf(offset) = value writes on it too.
-                    Object *obj = base;
-                    VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
-                    if (mb) {
-                        mb->poke_byte((int64_t)to_int(indices[0]), (int)to_int(value));
-                        // The Object is reference-counted; no need to push a modified
-                        // copy back onto the stack the way value-type arrays require —
-                        // but the caller always expects a value after this opcode, so
-                        // just push the (unchanged) base back.
-                        updated = base;
-                    } else {
+                    if (!try_variant_subscript_set(updated, indices[0], value, updated)) {
+                        raise_error("Unsupported array assignment base");
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                } else if (base.get_type() == Variant::INT && arg_count == 1) {
+                    if (!try_variant_subscript_set(updated, indices[0], value, updated)) {
                         raise_error("Unsupported array assignment base");
                         if (try_recover_error(base)) break;
                         success = false;
@@ -5354,7 +5345,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (base.get_type() == Variant::INT) {
                     int obj_id = (int)base;
                     if (object_instances.has(obj_id)) {
-                        get_object_member(obj_id, cache.primary_string, result);
+                        if (get_object_member(obj_id, cache.primary_string, result)) {
+                            push_value(result);
+                            break;
+                        }
+                        // Me compiled as a class object-id still needs Node2D
+                        // engine properties (global_position) from the owner.
+                        if (obj_id == current_object_id && owner &&
+                            try_native_node_property_get(owner, cache.primary_string, result)) {
+                            push_value(result);
+                            break;
+                        }
                         push_value(result);
                         break;
                     }
@@ -5494,6 +5495,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
+                        // Node2D/Node3D engine properties (global_position, …)
+                        // must not go through Object::get — a VG script instance
+                        // get() can return NIL and shadow ClassDB.
+                        if (try_native_node_property_get(obj, cache.primary_string, result)) {
+                            push_value(result);
+                            break;
+                        }
                         // VB6 Property Aliasing for common properties (READ)
                         String prop_name = cache.primary_string;
                         bool handled = false;
@@ -6130,8 +6138,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         
                         StringName class_name = StringName(obj->get_class());
                         MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
+                        auto read_engine_prop = [&](const StringName &name) -> Variant {
+                            Variant value;
+                            if (try_native_node_property_get(obj, String(name), value)) {
+                                return value;
+                            }
+                            value = obj->get(name);
+                            if (value.get_type() != Variant::NIL) {
+                                return value;
+                            }
+                            return ClassDB::class_get_property(obj, name);
+                        };
                         auto try_primary = [&]() -> bool {
-                            Variant value = obj->get(cache.primary_name);
+                            Variant value = read_engine_prop(cache.primary_name);
                             if (value.get_type() != Variant::NIL) {
                                 result = value;
                                 *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
@@ -6143,7 +6162,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             if (!ensure_snake_case(cache)) {
                                 return false;
                             }
-                            Variant value = obj->get(cache.snake_name);
+                            Variant value = read_engine_prop(cache.snake_name);
                             if (value.get_type() != Variant::NIL) {
                                 result = value;
                                 *class_pref = MemberNameCacheEntry::AccessPreference::SNAKE;
@@ -6306,6 +6325,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (base.get_type() == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
+                        if (try_native_node_property_set(obj, cache.primary_string, value)) {
+                            push_value(base);
+                            break;
+                        }
                         // VB6 Property Aliasing for common properties
                         String prop_name = cache.primary_string;
                         String godot_prop;
@@ -7750,8 +7773,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant call_ret;
                 bool handled = false;
 
+                // GetNode/GetNodeOrNull on explicit base (Brotato: current_scene.GetNode("GameObjects")).
+                // Must run before owner-relative dispatch_builtin_call fallback.
+                if (VGGodotOwnerBuiltins::try_resolve_node_on_base(this, base, method, args, call_ret)) {
+                    handled = true;
+                }
+
                 // --- Check builtin-for-base-variable dispatchers ---
-                {
+                if (!handled) {
                     Variant br;
                     if (VisualGasicBuiltins::call_builtin_for_base_variant(this, base, method, args, br)) {
                         call_ret = br;
@@ -7779,6 +7808,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             String snake = method.to_snake_case();
                             if (obj->has_method(snake)) {
                                 call_ret = obj->callv(snake, args);
+                                handled = true;
+                            } else if (try_call_vg_owner_method(obj, method, args, call_ret)) {
                                 handled = true;
                             }
                         }
@@ -7815,9 +7846,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
 
+                // obj.prop(i) parses as OP_METHOD_CALL. Public arrays/dicts are
+                // properties, not methods — index the property instead of
+                // returning Nil (which later crashes as Runtime Error 5).
+                if (!handled && arg_count == 1) {
+                    if (try_property_index_get(base, method, args[0], call_ret)) {
+                        handled = true;
+                    }
+                }
+
                 if (!handled) {
                     // Method call on Null / Nothing — raise error
-                    if (base.get_type() == Variant::NIL) {
+                    const bool base_is_null = base.get_type() == Variant::NIL ||
+                            (base.get_type() == Variant::OBJECT && !Object::cast_to<Object>(base));
+                    if (base_is_null) {
                         raise_error("Method call on Null object: ." + method, 91);
                         if (try_recover_error(Variant())) { VG_BREAK; }
                         success = false;

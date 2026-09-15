@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
+#include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -216,7 +217,20 @@ bool VGGodotOwnerBuiltins::try_call(VisualGasicInstance *instance, const String 
 	}
 	if ((M("getcurrentscene") || M("get_current_scene")) && tree) {
 		r_handled = true;
-		r_ret = tree->get_current_scene();
+		Node *cs = tree->get_current_scene();
+		if (!cs && node) {
+			Node *n = node;
+			Object *root = tree->get_root();
+			if (root) {
+				while (n->get_parent() && (Object *)n->get_parent() != root) {
+					n = n->get_parent();
+				}
+				if (n->get_parent() && (Object *)n->get_parent() == root) {
+					cs = n;
+				}
+			}
+		}
+		r_ret = cs;
 		return true;
 	}
 	if ((M("reloadcurrentscene") || M("reload_current_scene")) && tree) {
@@ -391,4 +405,61 @@ bool VGGodotOwnerBuiltins::try_call(VisualGasicInstance *instance, const String 
 
 #undef M
 	return false;
+}
+
+bool VGGodotOwnerBuiltins::try_resolve_node_on_base(VisualGasicInstance *instance, const Variant &p_base, const String &p_method, const Array &p_args, Variant &r_ret) {
+	r_ret = Variant();
+	if (p_args.is_empty()) {
+		return false;
+	}
+	const CharString _utf8 = p_method.to_lower().utf8();
+	const char *m = _utf8.get_data() ? _utf8.get_data() : "";
+	if (std::strcmp(m, "getnode") != 0 && std::strcmp(m, "get_node") != 0 &&
+			std::strcmp(m, "getnodeornull") != 0 && std::strcmp(m, "get_node_or_null") != 0) {
+		return false;
+	}
+	const String path = String(p_args[0]);
+	Node *resolve_from = Object::cast_to<Node>(p_base);
+	if (resolve_from && resolve_from->is_inside_tree()) {
+		r_ret = resolve_from->get_node_or_null(NodePath(path));
+		return true;
+	}
+	// current_scene was null — walk owner ancestors (Bullet/Enemy under GameObjects).
+	if (instance) {
+		Node *owner_n = Object::cast_to<Node>(instance->get_owner());
+		if (owner_n) {
+			if (!path.contains("/")) {
+				for (Node *n = owner_n; n; n = n->get_parent()) {
+					if (n->get_name() == path) {
+						r_ret = n;
+						return true;
+					}
+				}
+			}
+			if (owner_n->is_inside_tree()) {
+				SceneTree *tree = owner_n->get_tree();
+				if (tree) {
+					Node *cs = tree->get_current_scene();
+					if (!cs) {
+						Object *root = tree->get_root();
+						Node *n = owner_n;
+						while (n && n->get_parent() && (Object *)n->get_parent() != root) {
+							n = n->get_parent();
+						}
+						if (n && n->get_parent() && (Object *)n->get_parent() == root) {
+							cs = n;
+						}
+					}
+					if (cs && cs->is_inside_tree()) {
+						r_ret = cs->get_node_or_null(NodePath(path));
+						if (r_ret.get_type() != Variant::NIL) {
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+	r_ret = Variant();
+	return true;
 }

@@ -214,6 +214,12 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
                 }
             }
             if (obj) {
+                if (ctx.instance) {
+                    Variant native_val;
+                    if (ctx.instance->try_native_node_property_get(obj, prop_name, native_val)) {
+                        return native_val;
+                    }
+                }
                 Variant val = obj->get(prop_name);
                 if (val.get_type() != Variant::NIL) return val;
                 String snake = prop_name.to_snake_case();

@@ -1,0 +1,34 @@
+' Shared combat frame data — stored on GameManager so every VG script instance sees the same snapshot.
+Attribute VB_Name = "CombatCache3D"
+
+Sub ResetCombatCache()
+	GameManager.combat_live_enemies = Array()
+	GameManager.combat_frame = 0
+	GameManager.combat_mob_count = 0
+End Sub
+
+Sub BeginCombatFrame(enemies As Variant)
+	GameManager.combat_frame = GameManager.combat_frame + 1
+	GameManager.combat_live_enemies = enemies
+	If UBound(enemies) < 0 Then
+		GameManager.combat_mob_count = 0
+	Else
+		GameManager.combat_mob_count = UBound(enemies) + 1
+	End If
+End Sub
+
+Function ShouldUpdateMob(instanceId As Integer, isBoss As Boolean) As Boolean
+	If isBoss Then
+		ShouldUpdateMob = True
+		Exit Function
+	End If
+	If GameManager.combat_mob_count <= 28 Then
+		ShouldUpdateMob = True
+		Exit Function
+	End If
+	ShouldUpdateMob = ((GameManager.combat_frame And 1) = (instanceId And 1))
+End Function
+
+Function AnimEnabled() As Boolean
+	AnimEnabled = (GameManager.combat_mob_count <= 18)
+End Function

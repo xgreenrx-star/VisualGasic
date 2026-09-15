@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3 uid="uid://brotato3d_float_text"]
+
+[ext_resource type="Script" path="res://scripts/FloatText3D.vg" id="1"]
+
+[node name="FloatText3D" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Label3D" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+billboard = 1
+text = "0"
+font_size = 48
+outline_size = 8
+modulate = Color(1, 1, 0, 1)

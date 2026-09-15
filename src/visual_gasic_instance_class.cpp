@@ -1,5 +1,7 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
+#include "visual_gasic_com_interop.h"
+#include "visual_gasic_memory_buffer.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #ifdef _WIN32
@@ -200,6 +202,147 @@ Variant VisualGasicInstance::instantiate_class(const String& class_name, const A
     
     // Return object ID wrapped in Variant
     return obj_id;
+}
+
+bool VisualGasicInstance::try_variant_subscript_get(const Variant &base, const Variant &key, Variant &r_out) const {
+    if (base.get_type() == Variant::ARRAY) {
+        Array arr = base;
+        int idx = (int)(int64_t)key;
+        if (idx < 0 || idx >= arr.size()) {
+            return false;
+        }
+        r_out = arr[idx];
+        return true;
+    }
+    if (base.get_type() == Variant::DICTIONARY) {
+        r_out = ((Dictionary)base).get(key, Variant());
+        return true;
+    }
+    if (base.get_type() == Variant::INT) {
+        int obj_id = (int)base;
+        if (object_instances.has(obj_id)) {
+            Dictionary obj_data = object_instances[obj_id];
+            r_out = obj_data.get(key, Variant());
+            return true;
+        }
+        return false;
+    }
+    if (base.get_type() == Variant::OBJECT) {
+        Object *obj = base;
+        if (!obj) {
+            r_out = Variant();
+            return true;
+        }
+        if (VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj)) {
+            r_out = Variant((int64_t)mb->peek_byte((int64_t)(int64_t)key));
+            return true;
+        }
+        if (VGScriptingDict *sd = Object::cast_to<VGScriptingDict>(obj)) {
+            r_out = sd->get_item(String(key));
+            return true;
+        }
+        String key_str = String(key);
+        Variant got = obj->get(key_str);
+        if (got.get_type() != Variant::NIL) {
+            r_out = got;
+            return true;
+        }
+        String snake = key_str.to_snake_case();
+        if (snake != key_str) {
+            got = obj->get(snake);
+            if (got.get_type() != Variant::NIL) {
+                r_out = got;
+                return true;
+            }
+        }
+        if (obj->has_method("get_item")) {
+            r_out = obj->call("get_item", key);
+            return true;
+        }
+        if (obj->has_method("Item")) {
+            r_out = obj->call("Item", key);
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+bool VisualGasicInstance::try_property_index_get(const Variant &base, const String &prop, const Variant &key, Variant &r_out) {
+    Variant container;
+    bool got = false;
+    if (base.get_type() == Variant::OBJECT) {
+        Object *obj = base;
+        if (!obj) {
+            return false;
+        }
+        container = obj->get(prop);
+        if (container.get_type() == Variant::NIL) {
+            String snake = prop.to_snake_case();
+            if (snake != prop) {
+                container = obj->get(snake);
+            }
+        }
+        got = container.get_type() != Variant::NIL;
+    } else if (base.get_type() == Variant::INT) {
+        got = get_object_member((int)base, prop, container);
+        if (!got) {
+            String snake = prop.to_snake_case();
+            if (snake != prop) {
+                got = get_object_member((int)base, snake, container);
+            }
+        }
+    }
+    if (!got) {
+        return false;
+    }
+    return try_variant_subscript_get(container, key, r_out);
+}
+
+bool VisualGasicInstance::try_variant_subscript_set(Variant &base, const Variant &key, const Variant &value, Variant &r_updated) {
+    if (base.get_type() == Variant::DICTIONARY) {
+        Dictionary dict = base;
+        dict[key] = value;
+        r_updated = dict;
+        return true;
+    }
+    if (base.get_type() == Variant::INT) {
+        int obj_id = (int)base;
+        if (object_instances.has(obj_id)) {
+            Dictionary obj_data = object_instances[obj_id];
+            obj_data[key] = value;
+            object_instances[obj_id] = obj_data;
+            r_updated = (int64_t)obj_id;
+            return true;
+        }
+        return false;
+    }
+    if (base.get_type() == Variant::OBJECT) {
+        Object *obj = base;
+        if (!obj) {
+            return false;
+        }
+        if (VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj)) {
+            mb->poke_byte((int64_t)(int64_t)key, (int)(int64_t)value);
+            r_updated = base;
+            return true;
+        }
+        if (VGScriptingDict *sd = Object::cast_to<VGScriptingDict>(obj)) {
+            sd->set_item(String(key), value);
+            r_updated = base;
+            return true;
+        }
+        String key_str = String(key);
+        if (obj->has_method("set_item")) {
+            obj->call("set_item", key, value);
+            r_updated = base;
+            return true;
+        }
+        obj->set(key_str, value);
+        r_updated = base;
+        return true;
+    }
+    return false;
 }
 
 bool VisualGasicInstance::get_object_member(int obj_id, const String& member_name, Variant &r_ret) {
