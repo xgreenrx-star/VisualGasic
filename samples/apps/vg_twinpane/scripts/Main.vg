@@ -1,0 +1,208 @@
+' =============================================================================
+' Main.vg — TwinPane form logic (the "code-behind" for scenes/Main.tscn)
+' =============================================================================
+' This is a classic VB6-style form module. The visual layout (buttons, list
+' boxes, path fields) lives in Main.tscn / TwinPane.tscn; all behavior lives
+' here. Control names in the .tscn (btnUp, lstLeft, txtLeftPath, …) become
+' variables you can use directly — the VG runtime wires them at load time.
+'
+' Pattern worth copying for your own apps:
+'   • Form_Load()        — one-time startup
+'   • ControlName_Click  — button / list click handlers (auto-connected)
+'   • ControlName_KeyPress — TextBox Enter (wired from Godot text_submitted)
+'   • Import modules     — split helpers into Pane.vg, FileOps.vg, etc.
+'
+' Run scene: res://scenes/Main.tscn  (see project.godot run/main_scene)
+' =============================================================================
+Import "Pane.vg"
+Import "FileOps.vg"
+
+' --- State: which folder each pane is showing, and which pane is "active" ---
+' activePane decides where Up / Copy / Move / Delete operate.
+Dim leftPath As String
+Dim rightPath As String
+Dim activePane As String
+
+' Form_Load runs once when the form opens (like VB6 Form_Load).
+Sub Form_Load()
+	activePane = "left"
+	leftPath = DefaultRoot()
+	rightPath = DefaultRoot()
+	Call RefreshBoth()
+End Sub
+
+' Pick a sensible starting directory — usually the user's home folder.
+Function DefaultRoot() As String
+	Dim home As String
+	home = VGSystem.GetEnv("HOME")
+	If home = "" Then home = "/tmp"
+	DefaultRoot = home
+End Function
+
+' Refresh both panes and update the status bar. Call this after any navigation
+' or file operation so the UI stays in sync.
+Sub RefreshBoth()
+	Call RefreshList(lstLeft, leftPath, txtLeftPath)
+	Call RefreshList(lstRight, rightPath, txtRightPath)
+	Call SetStatus("Ready — " + leftPath + " | " + rightPath)
+End Sub
+
+Sub SetStatus(msg As String)
+	StatusBar.Text = msg
+End Sub
+
+Sub btnRefresh_Click()
+	Call RefreshBoth()
+End Sub
+
+' Up goes to the parent of the *active* pane's current path.
+Sub btnUp_Click()
+	If activePane = "left" Then
+		leftPath = ParentDir(leftPath)
+	Else
+		rightPath = ParentDir(rightPath)
+	End If
+	Call RefreshBoth()
+End Sub
+
+' Strip the last path segment. "/home/foo/bar" → "/home/foo", "/home" → "/".
+Function ParentDir(path As String) As String
+	Dim p As Integer
+	p = InStrRev(path, "/")
+	If p <= 1 Then
+		ParentDir = "/"
+	Else
+		ParentDir = Left(path, p - 1)
+	End If
+End Function
+
+' Clicking a list marks that pane as active (so Copy/Move know the source).
+Sub lstLeft_Click(index As Integer)
+	activePane = "left"
+End Sub
+
+Sub lstRight_Click(index As Integer)
+	activePane = "right"
+End Sub
+
+' Double-click a folder row to open it. index comes from the ListBox DblClick
+' event — pass it through so we don't rely on selection state alone.
+Sub lstLeft_DblClick(index As Integer)
+	activePane = "left"
+	Call OpenSelected(lstLeft, leftPath, index)
+	Call RefreshBoth()
+End Sub
+
+Sub lstRight_DblClick(index As Integer)
+	activePane = "right"
+	Call OpenSelected(lstRight, rightPath, index)
+	Call RefreshBoth()
+End Sub
+
+' TextBox Enter: VG maps LineEdit text_submitted → KeyPress with the full text.
+' Edit a path, press Enter, and that pane navigates there.
+Sub txtLeftPath_KeyPress(pathText As String)
+	activePane = "left"
+	Call NavigateFromPathBox(leftPath, pathText, lstLeft, txtLeftPath)
+End Sub
+
+Sub txtRightPath_KeyPress(pathText As String)
+	activePane = "right"
+	Call NavigateFromPathBox(rightPath, pathText, lstRight, txtRightPath)
+End Sub
+
+' Shared navigation from a path text box. Validates before changing leftPath/rightPath.
+Sub NavigateFromPathBox(ByRef panePath As String, pathText As String, lst As Object, txtPath As Object)
+	Dim p As String
+	p = Trim(pathText)
+	If p = "" Then
+		Call SetStatus("Enter a folder path")
+		txtPath.Text = panePath
+		Exit Sub
+	End If
+	If Not DirExists(p) Then
+		Call SetStatus("Not a directory: " + p)
+		txtPath.Text = panePath
+		Exit Sub
+	End If
+	panePath = p
+	Call RefreshList(lst, panePath, txtPath)
+	Call SetStatus("Ready — " + leftPath + " | " + rightPath)
+End Sub
+
+' --- File ops: active pane = source, other pane = destination ---
+
+' Returns a Dictionary describing src_list, src_dir, dst_dir for copy/move.
+Function ActivePaths() As Object
+	Dim d As Object
+	Set d = New Dictionary
+	If activePane = "left" Then
+		d("src_list") = lstLeft
+		d("src_dir") = leftPath
+		d("dst_dir") = rightPath
+	Else
+		d("src_list") = lstRight
+		d("src_dir") = rightPath
+		d("dst_dir") = leftPath
+	End If
+	Set ActivePaths = d
+End Function
+
+' Full filesystem path of the selected row in the active pane's list.
+Function SelectedSourcePath() As String
+	Dim ctx As Object
+	Set ctx = ActivePaths()
+	SelectedSourcePath = SelectedFullPath(ctx("src_list"), ctx("src_dir"))
+End Function
+
+Sub btnCopy_Click()
+	Dim src As String
+	src = SelectedSourcePath()
+	If src = "" Then Exit Sub
+	Dim ctx As Object
+	Set ctx = ActivePaths()
+	If CopyEntry(src, ctx("dst_dir")) Then
+		Call SetStatus("Copied: " + src)
+		Call RefreshBoth()
+	Else
+		Call SetStatus("Copy failed: " + src)
+	End If
+End Sub
+
+Sub btnMove_Click()
+	Dim src As String
+	src = SelectedSourcePath()
+	If src = "" Then Exit Sub
+	Dim ctx As Object
+	Set ctx = ActivePaths()
+	If MoveEntry(src, ctx("dst_dir")) Then
+		Call SetStatus("Moved: " + src)
+		Call RefreshBoth()
+	Else
+		Call SetStatus("Move failed: " + src)
+	End If
+End Sub
+
+Sub btnDelete_Click()
+	Dim src As String
+	src = SelectedSourcePath()
+	If src = "" Then Exit Sub
+	If DeleteEntry(src) Then
+		Call SetStatus("Deleted: " + src)
+		Call RefreshBoth()
+	Else
+		Call SetStatus("Delete failed: " + src)
+	End If
+End Sub
+
+Sub btnTrash_Click()
+	Dim src As String
+	src = SelectedSourcePath()
+	If src = "" Then Exit Sub
+	If TrashEntry(src) Then
+		Call SetStatus("Sent to trash: " + src)
+		Call RefreshBoth()
+	Else
+		Call SetStatus("Trash failed: " + src)
+	End If
+End Sub

@@ -1,0 +1,7 @@
+Sub _Ready()
+    Print "Starting test..."
+    Dim v
+    v = Vector2i(10, 20)
+    Print "Created Vector2i"
+    Print v.ToString()
+End Sub

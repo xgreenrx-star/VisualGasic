@@ -1,0 +1,13 @@
+Sub _Ready()
+    Dim r As Rect2
+    r = Rect2(1.5, 2.5, 3.5, 4.5)
+    
+    Print "Test: Direct Rect2 construction"
+    Print "r = " & r.ToString()
+    
+    If r.position.x = 1.5 And r.size.x = 3.5 Then
+        Print "PASS: rect2_direct"
+    Else
+        Print "FAIL: rect2_direct"
+    End If
+End Sub

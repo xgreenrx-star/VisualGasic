@@ -611,6 +611,13 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     
     // Register with language hot reload tracker (idempotent — set insert)
     VisualGasicLanguage::register_script(this);
+
+    // ResourceLoader may re-enter reload() for an already-parsed script resource
+    // (e.g. many spawns loading the same .vg). Hot reload uses p_keep_state=true
+    // after _set_source_code() and must always re-parse.
+    if (ast_root && !p_keep_state && !last_reload_had_error) {
+        return OK;
+    }
     
     last_reload_had_error = false;
     clear_bytecode_cache();
@@ -660,7 +667,7 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
             f->close();
             UtilityFunctions::print("[VG] Saved crash script to /tmp/vg_crash_script.vg");
         }
-    } else {
+    } else if (OS::get_singleton()->has_environment("VG_VERBOSE_INIT")) {
         UtilityFunctions::print("[VG] Parsing: ", path);
     }
     
@@ -671,7 +678,9 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     }
     
     ast_root = parser.parse(tokens);
-    UtilityFunctions::print("[VG] Parse completed, errors: ", parser.errors.size());
+    if (OS::get_singleton()->has_environment("VG_VERBOSE_INIT")) {
+        UtilityFunctions::print("[VG] Parse completed, errors: ", parser.errors.size());
+    }
     
     if (parser.errors.size() > 0) {
          for (int i = 0; i < parser.errors.size(); i++) {
@@ -890,8 +899,44 @@ Variant VisualGasicScript::_get_property_default_value(const StringName &p_prope
 void VisualGasicScript::_update_exports() {
 }
 
+static String vg_godot_virtual_method_name(const String &vg_name) {
+    // Godot Control virtuals use snake_case (_get_drag_data); VG uses _GetDragData.
+    if (!vg_name.begins_with("_") || vg_name.length() < 2) {
+        return vg_name;
+    }
+    if (vg_name.find("_", 1) < 0) {
+        return vg_name.to_lower();
+    }
+    String snake = "_";
+    for (int i = 1; i < vg_name.length(); i++) {
+        char32_t c = vg_name[i];
+        if (c >= 'A' && c <= 'Z') {
+            if (snake.length() > 1) {
+                snake += "_";
+            }
+            snake += String::chr(c - 'A' + 'a');
+        } else {
+            snake += String::chr(c);
+        }
+    }
+    return snake;
+}
+
 TypedArray<Dictionary> VisualGasicScript::_get_script_method_list() const {
-    return TypedArray<Dictionary>();
+    TypedArray<Dictionary> methods;
+    if (!ast_root) {
+        return methods;
+    }
+    for (int i = 0; i < ast_root->subs.size(); i++) {
+        SubDefinition *sub = ast_root->subs[i];
+        if (!sub) {
+            continue;
+        }
+        Dictionary entry;
+        entry["name"] = vg_godot_virtual_method_name(sub->name);
+        methods.push_back(entry);
+    }
+    return methods;
 }
 
 TypedArray<Dictionary> VisualGasicScript::_get_script_property_list() const {
@@ -967,7 +1012,7 @@ void VisualGasicScript::clear_bytecode_cache() {
     has_bytecode = false;
 }
 
-BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars) {
+BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars, const Vector<ModuleNode*>* import_modules) {
     if (!ast_root || entry_point.is_empty()) {
         return nullptr;
     }
@@ -984,6 +1029,9 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, co
     }
 
     VisualGasicCompiler compiler;
+    if (import_modules) {
+        compiler.import_modules = *import_modules;
+    }
     BytecodeChunk compiled_chunk;
     compiled_chunk.code.clear();
     compiled_chunk.constants.clear();

@@ -1,0 +1,265 @@
+# VisualGasic Demos
+
+Complete, working demo programs written in VisualGasic. Each demo is a full Godot project showcasing various language features and capabilities.
+
+**Location:** `samples/demos/` (repo root). Legacy symlink: `demos/` → here.
+
+## Quick Start
+
+```bash
+# From repo root — symlink addons into every demo project
+scripts/sync_addons.sh convert
+
+# Then open any folder under samples/demos/ in Godot 4.6.1+
+```
+
+## Available Demos
+
+### 🎮 2D Games
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Pong/** | Classic Pong game | Basic game loop, input, collision, drawing |
+| **Pong_Advanced/** | Enhanced Pong with power-ups | **Whenever** system, DATA statements, reactive programming |
+| **Space_Shooter/** | Vertical scrolling shooter | **Parallel For**, **Lambda**, pattern matching, arrays |
+| **Snake/** | Classic Snake with levels | DATA for level layouts, **Whenever** for achievements |
+
+### 🖼️ Graphics
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Screensaver/** | Retro-style screensaver | DrawRect, DrawLine, DrawCircle, DrawString, Color functions |
+| **Screen_Space_Shaders/** | 11 full-screen 2D shader effects | ShaderMaterial, ResourceLoader, Select Case, animated _Draw scene |
+| **Sky_Shaders/** | Volumetric clouds + physical sky (3D) | MeshInstance3D, StandardMaterial3D, _Input mouselook, shader parameters |
+| **Graphics/VGPaint/** | MS Paint clone | 640×480 canvas, 9 tools, 28-color palette, Bresenham lines, flood fill, .VGP format |
+| **Graphics/VGVector/** | Vector graphics editor + animation | 7 tools, animation timeline (120 frames), **.VGV format**, onion skinning, polygons |
+| **Graphics/VGMovie/** | .VGV vector animation player | Play/Pause/Stop/Loop, timeline scrubber, zoom/fit, coordinate-based rendering |
+
+### 🔊 Audio
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Piano/** | Interactive piano keyboard | **PlayTone** for audio, DATA for note frequencies, recording |
+| **Audio/VGMusic/** | Live coding music synthesizer | **PlayTone** synthesis, Strudel-style English commands, multi-layer, visualizer, .VGS format |
+
+### 🖥️ UI
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Calculator/** | Four-function calculator | UI layout, event handling, string formatting |
+| **TodoApp/** | Full todo list application | **File I/O**, **Lambda** filtering, **Whenever** reactive stats |
+| **StyledForm/** | Font/Color/Border showcase | **FontName**, **BackColor**, **ForeColor**, **BorderStyle**, **ShapeColor** sub-resources |
+
+### 💾 Data and Files
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **HighScores/** | High score management | DATA/Read/Restore, LoadData, DataFile, sorting |
+
+### ⚡ Threading
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **ParallelDemo/** | Parallel processing showcase | **Parallel For**, **Task.Run**, **Await**, Lock/Unlock |
+| **demo_async_tasks/** | Async task runner | **VGTask**, **VGTaskRunner**, background work, cancellation |
+
+### 🔧 Utilities
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **FFI/** | Load native C libraries | **NativeLibrary** load .so/.dll, call C functions, **NativeStruct** |
+| **Crypto/** | Cryptography & encoding | **VGCrypto** MD5/SHA/AES, Base64, UUID, HMAC |
+| **XML/** | XML processing | **VGXml** parse, XPath queries, save/load |
+| **ZIP/** | ZIP archive management | **VGZip** create, read, extract archives |
+| **PackageManager/** | Dependency management | **VisualGasicPackage** install, registries, versioning |
+
+### 💾 Data and Files
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **HighScores/** | High score management | DATA/Read/Restore, LoadData, DataFile, sorting |
+| **ODBC/** | Database connectivity | **VGOdbc** connect, query, parameterized SQL, transactions |
+
+### 🖥️ System Integration
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **System/SystemInfo/** | OS and hardware info | **VGSystem** hostname, CPU, RAM, disk, uptime, env, locale |
+| **System/SignalHandler/** | Unix signal handling | **VGSignalHandler** SIGINT, SIGTERM, atexit, custom signals |
+| **System/FilePermissions/** | File permission management | **VGFilePermissions** chmod, chown, symlinks, locking, GetAttr/SetAttr |
+| **System/MemoryBuffer/** | Raw memory operations | **VGMemoryBuffer** Peek/Poke, hex dump, copy, search, FFI, binary structs |
+| **System/IPC/** | Inter-process communication | **VGIPC** named pipes, shared memory, domain sockets |
+
+### 🌐 Networking
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Networking/TCP/** | TCP/UDP socket programming | **WinSock** client/server, DNS, chat protocol patterns |
+| **Networking/HTTP/** | HTTP requests | **VGHttpRequest** GET, POST, headers, JSON, REST API |
+| **Networking/VGTerminal/** | ANSI BBS terminal client | **WinSock** TCP, ANSI parser state machine, 80×24 buffer, session logging, bookmarks |
+
+### 🚀 Advanced
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Advanced/ECS/** | Entity Component System | **VisualGasicECS** entities, components, systems, queries, profiling |
+| **Advanced/GPU/** | GPU computing and SIMD | **VisualGasicGPU** vector math, dot product, parallel map/reduce, matrices |
+| **Advanced/Threading/** | Multi-threading | **Thread**, **Mutex**, parallel sum, producer/consumer pattern |
+
+### 📚 Language Features
+
+| Demo | Description | Features Demonstrated |
+|------|-------------|----------------------|
+| **Language/OOP/** | Object-oriented programming | Class, Inherits, Overrides, Property Get/Let, polymorphism |
+| **Language/ErrorHandling/** | Error handling patterns | On Error, Try/Catch/Finally, Err object, nested handlers |
+| **Language/Functional/** | Functional programming | Lambda, Map, Filter, Reduce, Any, All, Find, chaining |
+| **Language/SelectCase/** | Select Case patterns | Multi-value, ranges (To), comparisons (Is), nested, Select Case True |
+| **Language/DateTime/** | Date and time functions | Now, DateAdd, DateDiff, DatePart, Format, Timer stopwatch |
+| **Language/FileIO/** | File input/output | Open/Close, Print#, Write#, Line Input, EOF, ReadAllText, config files |
+| **Language/Strings/** | String processing | Len, Mid, InStr, Split/Join, Replace, Asc/Chr, Format, word counter |
+| **Language/Collections/** | Collections and arrays | Arrays, ReDim Preserve, Dictionary, For Each, nested collections |
+| **Language/JSON/** | JSON handling | JsonParse, JsonStringify, nested objects, round-trip, config loader |
+| **Language/Math/** | Mathematical functions | Abs, Sqr, Trig, Log, Rnd, Round, quadratic formula, distance |
+| **Language/Loops/** | Loop constructs | For/Next, For Each, Do While/Until, While/Wend, nested, Exit |
+
+### Whenever System (Reactive Programming)
+```vb
+Whenever Section GameLogic
+    Whenever score Changes
+        UpdateDisplay
+    End Whenever
+    
+    Whenever health Becomes 0
+        GameOver
+    End Whenever
+    
+    Whenever enemies Exceeds 10
+        IncreaseDifficulty
+    End Whenever
+End Whenever Section
+```
+
+### Parallel Processing
+```vb
+' Distribute work across CPU cores
+Parallel For i As Integer = 0 To 1000
+    ProcessItem i
+Next
+
+' Async task execution
+Task.Run Sub()
+    DoBackgroundWork
+End Sub
+
+' Await for results
+Dim result = Await Task.Run(Function() CalculateValue())
+```
+
+### DATA Statements
+```vb
+LevelData:
+Data "Level 1", 100, 5
+Data "Level 2", 200, 8
+Data "END", 0, 0
+
+Restore LevelData
+Read levelName, targetScore, enemies
+```
+
+### Lambda Expressions
+```vb
+Dim squared = Lambda(x) x * x
+Dim filtered = items.Where(Lambda(i) i.Active)
+```
+
+### File I/O
+```vb
+Open "user://save.dat" For Output As #1
+Print #1, playerName
+Print #1, score
+Close #1
+```
+
+## Folder Structure
+
+```
+demos/
+├── 2D_Games/
+│   ├── Pong/
+│   ├── Pong_Advanced/
+│   ├── Space_Shooter/
+│   └── Snake/
+├── 3D_Games/          (coming soon)
+├── Graphics/
+│   ├── Screensaver/
+│   ├── Screen_Space_Shaders/
+│   ├── Sky_Shaders/
+│   ├── VGPaint/
+│   ├── VGVector/
+│   └── VGMovie/
+├── Audio/
+│   ├── Piano/
+│   └── VGMusic/
+├── UI/
+│   ├── Calculator/
+│   └── TodoApp/
+├── Data_and_Files/
+│   ├── HighScores/
+│   └── ODBC/
+├── Threading/
+│   ├── ParallelDemo/
+│   └── demo_async_tasks/
+├── Utilities/
+│   ├── FFI/
+│   ├── Crypto/
+│   ├── XML/
+│   ├── ZIP/
+│   └── PackageManager/
+├── System/
+│   ├── SystemInfo/
+│   ├── SignalHandler/
+│   ├── FilePermissions/
+│   ├── MemoryBuffer/
+│   └── IPC/
+├── Networking/
+│   ├── TCP/
+│   ├── HTTP/
+│   └── VGTerminal/
+├── Advanced/
+│   ├── ECS/
+│   ├── GPU/
+│   └── Threading/
+├── Language/
+│   ├── OOP/
+│   ├── ErrorHandling/
+│   ├── Functional/
+│   ├── SelectCase/
+│   ├── DateTime/
+│   ├── FileIO/
+│   ├── Strings/
+│   ├── Collections/
+│   ├── JSON/
+│   ├── Math/
+│   └── Loops/
+├── setup_symlinks.sh
+└── README.md
+```
+
+## Requirements
+
+- Godot 4.6.1+
+- VisualGasic addon (automatically linked via setup script)
+
+## How to Run a Demo
+
+1. Run `./setup_symlinks.sh` once to configure all projects
+2. Open any demo folder in Godot 4.6.1+
+3. Press F5 to run
+
+## Contributing
+
+Want to add a demo? See [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines. Demos must be:
+- Complete, working programs (not snippets)
+- Well-commented with explanations
+- Include a README explaining what features are demonstrated
+- Use pure VisualGasic (no GDScript mixing)

@@ -234,6 +234,14 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["FormatCurrency"] = "FormatCurrency(expression As Double[, numDigits As Integer][, leadingDigit][, parens][, groupDigits]) As String";
     (*parameter_hints)["FormatPercent"] = "FormatPercent(expression As Double[, numDigits As Integer][, leadingDigit][, parens][, groupDigits]) As String";
     (*parameter_hints)["FileDateTime"] = "FileDateTime(pathname As String) As String  ' Returns file last-modified date/time";
+    (*parameter_hints)["CopyFolder"] = "CopyFolder(source As String, destination As String) As Boolean  ' Recursively copies a folder tree";
+    (*parameter_hints)["MoveFolder"] = "MoveFolder(source As String, destination As String) As Boolean  ' Moves a folder tree (rename, else copy+delete)";
+    (*parameter_hints)["DeleteFolder"] = "DeleteFolder(path As String) As Boolean  ' Recursively deletes a folder and its contents";
+    (*parameter_hints)["SendToTrash"] = "SendToTrash(path As String) As Boolean  ' Moves a file or folder to the OS recycle bin/trash";
+    (*parameter_hints)["ListFiles"] = "ListFiles(path As String[, pattern As String]) As Variant  ' Array of file names in a folder (optional wildcard)";
+    (*parameter_hints)["ListFolders"] = "ListFolders(path As String[, pattern As String]) As Variant  ' Array of subfolder names (optional wildcard)";
+    (*parameter_hints)["ListFilesRecursive"] = "ListFilesRecursive(path As String[, pattern As String]) As Variant  ' Array of full file paths, searched recursively";
+    (*parameter_hints)["BuildPath"] = "BuildPath(path As String, name As String) As String  ' Joins a path segment onto a base path";
     (*parameter_hints)["TextWidth"] = "TextWidth(text As String[, fontSize As Integer]) As Long  ' Returns text width in pixels";
     (*parameter_hints)["TextHeight"] = "TextHeight(text As String[, fontSize As Integer]) As Long  ' Returns text height in pixels";
     (*parameter_hints)["Input$"] = "Input$(n As Integer, fileNumber As Integer) As String  ' Reads n characters from file";

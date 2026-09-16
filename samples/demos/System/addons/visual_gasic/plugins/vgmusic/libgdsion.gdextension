@@ -1,0 +1,16 @@
+[configuration]
+
+compatibility_minimum = "4.3"
+entry_symbol = "gdsion_library_init"
+
+[libraries]
+
+; Only Linux binaries are currently built and shipped (see bin/). Entries for
+; other platforms are intentionally omitted rather than pointing at files that
+; don't exist -- Godot simply skips loading this GDExtension on platforms with
+; no matching entry, instead of erroring on a missing library file. Add entries
+; back here only once the corresponding binary has actually been built and
+; committed to bin/.
+linux.debug.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.template_release.x86_64.so"
+

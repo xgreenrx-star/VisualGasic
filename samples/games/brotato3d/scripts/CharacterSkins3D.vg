@@ -1,0 +1,53 @@
+' =============================================================================
+' CharacterSkins3D.vg — Kenney blocky character textures at runtime
+' =============================================================================
+' GLTF imports often leave PNG paths broken. We load texture-*.png from
+' GameManager (cached) and walk the model tree applying StandardMaterial3D.
+'
+' FaceMoveDirection: Kenney models face +Z; LookAt target is *behind* move
+' dir so the character runs "forward" visually.
+' =============================================================================
+Attribute VB_Name = "CharacterSkins3D"
+
+Const SHADOW_OFF As Integer = 0
+
+Sub ApplyKenneySkin(root As Object, skinId As String)
+	If root Is Nothing Then Exit Sub
+	Dim mat As Object
+	Set mat = GameManager.GetKenneyMaterial(skinId)
+	If mat Is Nothing Then Exit Sub
+	Call ApplyMatRecursive(root, mat)
+End Sub
+
+Sub ApplyMatRecursive(node As Object, mat As Object)
+	If node Is Nothing Then Exit Sub
+	Dim cls As String
+	cls = node.get_class()
+	If cls = "MeshInstance3D" Then
+		node.cast_shadow = SHADOW_OFF
+		Dim surfCount As Integer
+		surfCount = 1
+		Dim mesh As Object
+		mesh = node.mesh
+		If Not mesh Is Nothing Then
+			surfCount = mesh.get_surface_count()
+		End If
+		If surfCount <= 0 Then surfCount = 1
+		Dim i As Integer
+		For i = 0 To surfCount - 1
+			node.set_surface_override_material(i, mat)
+		Next i
+	End If
+	Dim c As Integer
+	For c = 0 To node.get_child_count() - 1
+		Call ApplyMatRecursive(node.get_child(c), mat)
+	Next c
+End Sub
+
+Sub FaceMoveDirection(pivot As Object, pos As Object, dirX As Single, dirZ As Single)
+	If pivot Is Nothing Then Exit Sub
+	If pos Is Nothing Then Exit Sub
+	Dim target As Vector3
+	target = pos - Vector3(dirX, 0, dirZ)
+	pivot.LookAt(target, Vector3(0, 1, 0))
+End Sub

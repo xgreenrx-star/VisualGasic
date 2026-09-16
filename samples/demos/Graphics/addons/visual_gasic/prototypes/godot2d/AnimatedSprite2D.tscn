@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://vg_godot2d_anim_sprite2d"]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D"]

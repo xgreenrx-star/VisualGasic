@@ -1,0 +1,8 @@
+This directory (`plugins/_disabled.gdsfx/`) is an original, but incomplete and
+disabled, component of VisualGasic (https://github.com/xgreenrx-star/VisualGasic).
+It has no `plugin.cfg`, so Godot never discovers or loads it as a plugin — see
+`README.disabled.md` for why. It is superseded by `../vgsfx/` and kept only
+for reference.
+
+Licensed under the GNU General Public License v3.0 — see the full license
+text at the root of the addon: ../../LICENSE

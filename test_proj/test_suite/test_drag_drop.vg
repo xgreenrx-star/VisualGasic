@@ -1,0 +1,68 @@
+' Regression: Godot Control drag-drop virtuals dispatch to VG subs.
+' MAX_FRAMES: 30
+Extends Control
+
+Dim dropHandled As Boolean
+
+Sub _Ready()
+	dropHandled = False
+
+	If Me.has_method("_get_drag_data") Then
+		Print "PASS: has_method_get_drag_data"
+	Else
+		Print "FAIL: has_method_get_drag_data"
+	End If
+
+	If Me.has_method("_can_drop_data") Then
+		Print "PASS: has_method_can_drop_data"
+	Else
+		Print "FAIL: has_method_can_drop_data"
+	End If
+
+	If Me.has_method("_drop_data") Then
+		Print "PASS: has_method_drop_data"
+	Else
+		Print "FAIL: has_method_drop_data"
+	End If
+
+	Dim payload As Object
+	payload = Me.call("_get_drag_data", Vector2(10, 10))
+	If payload Is Nothing Then
+		Print "FAIL: get_drag_data_nil"
+	Else
+		Print "PASS: get_drag_data_payload"
+	End If
+
+	Dim ok As Boolean
+	ok = Me.call("_can_drop_data", Vector2(5, 5), payload)
+	If ok Then
+		Print "PASS: can_drop_data_true"
+	Else
+		Print "FAIL: can_drop_data_false"
+	End If
+
+	Me.call("_drop_data", Vector2(5, 5), payload)
+	If dropHandled Then
+		Print "PASS: drop_data_handler"
+	Else
+		Print "FAIL: drop_data_handler"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Function _GetDragData(at As Object) As Object
+	Dim d As Object
+	Set d = New Dictionary
+	d("kind") = "test"
+	d("at_x") = at.x
+	Set _GetDragData = d
+End Function
+
+Function _CanDropData(at As Object, data As Object) As Boolean
+	_CanDropData = True
+End Function
+
+Sub _DropData(at As Object, data As Object)
+	dropHandled = True
+End Sub

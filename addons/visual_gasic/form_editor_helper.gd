@@ -666,12 +666,17 @@ static func _build_vb6_classic_theme(p_default_font_size: int = 12) -> Theme:
 
 	# ── ItemList (ListBox) ──
 	t.set_stylebox("panel", "ItemList", _sunken.call(win_bg))
-	t.set_color("font_color",          "ItemList", win_text)
-	t.set_color("font_selected_color", "ItemList", title_text)
+	t.set_color("font_color",                  "ItemList", win_text)
+	t.set_color("font_selected_color",         "ItemList", title_text)
+	t.set_color("font_hovered_color",          "ItemList", win_text)
+	t.set_color("font_hovered_selected_color", "ItemList", title_text)
 	var il_sel = StyleBoxFlat.new()
 	il_sel.bg_color = title_bg; il_sel.set_content_margin_all(2)
-	t.set_stylebox("selected",       "ItemList", il_sel)
-	t.set_stylebox("selected_focus", "ItemList", il_sel)
+	t.set_stylebox("selected",                "ItemList", il_sel)
+	t.set_stylebox("selected_focus",          "ItemList", il_sel)
+	t.set_stylebox("hovered",                 "ItemList", StyleBoxEmpty.new())
+	t.set_stylebox("hovered_selected",        "ItemList", il_sel)
+	t.set_stylebox("hovered_selected_focus",  "ItemList", il_sel)
 
 	# ── Tree (TreeView) ──
 	t.set_stylebox("panel", "Tree", _sunken.call(win_bg))

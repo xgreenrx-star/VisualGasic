@@ -1,0 +1,25 @@
+' =============================================================================
+' TwinPane.vg — Form Designer stub (NOT the running app logic)
+' =============================================================================
+' TwinPane.tscn points here so the Form Designer has a script slot. When you
+' press F5, project.godot runs scenes/Main.tscn with scripts/Main.vg instead.
+'
+' Workflow:
+'   1. Edit layout in Form Designer on TwinPane.tscn
+'   2. Copy/sync control changes to scenes/Main.tscn when ready to run
+'   3. Put all real logic in scripts/Main.vg (+ Pane.vg, FileOps.vg)
+'
+' You can delete these empty handlers or merge Main.vg onto this form later.
+' =============================================================================
+
+Private Sub Form_Load()
+End Sub
+
+Private Sub Form_Activate()
+End Sub
+
+Private Sub Form_Resize()
+End Sub
+
+Private Sub Form_Unload(Cancel As Integer)
+End Sub

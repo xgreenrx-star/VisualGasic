@@ -74,7 +74,7 @@ scripts/sync_addons.sh restore   # inverse, for packaging
 ```
 
 CI runs `sync_addons.sh check` on every push. Do not commit a real-directory
-addon copy under `demos/`, `examples/`, `game_projects/`, or `test_proj/`.
+addon copy under `samples/`, `engine_lab/`, or `test_proj/`.
 
 ## Corpus Examples
 

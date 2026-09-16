@@ -1,0 +1,255 @@
+[gd_scene load_steps=8 format=3 uid="uid://cnarcea_movie_demo_main"]
+
+[ext_resource type="Script" path="res://narcea_movie_director.gd" id="1_dir"]
+[ext_resource type="Script" path="res://narcea_movie_ui.gd" id="2_ui"]
+[ext_resource type="Script" path="res://narcea_movie_embed.gd" id="3_emb"]
+[ext_resource type="Script" path="res://narcea_movie_title.gd" id="4_title"]
+[ext_resource type="Script" path="res://narcea_movie_code_view.gd" id="5_code"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_preview"]
+bg_color = Color(0.05, 0.06, 0.09, 0.72)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_code"]
+bg_color = Color(0.05, 0.06, 0.09, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.18, 0.22, 0.3, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="Main" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dir")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.08, 0.09, 0.12, 1)
+
+[node name="Layout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="UIPanel" type="PanelContainer" parent="Layout"]
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.46
+script = ExtResource("2_ui")
+
+[node name="RootVBox" type="VBoxContainer" parent="Layout/UIPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="Chrome" type="VBoxContainer" parent="Layout/UIPanel/RootVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ProviderRow" type="HBoxContainer" parent="Layout/UIPanel/RootVBox/Chrome"]
+layout_mode = 2
+
+[node name="Provider" type="Label" parent="Layout/UIPanel/RootVBox/Chrome/ProviderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 18
+text = "⬡ Cursor (Composer)"
+
+[node name="Segment" type="Label" parent="Layout/UIPanel/RootVBox/Chrome/ProviderRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 16
+text = "Segment"
+
+[node name="Status" type="Label" parent="Layout/UIPanel/RootVBox/Chrome"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.7, 0.78, 1)
+text = "Ready"
+
+[node name="RefsRow" type="HBoxContainer" parent="Layout/UIPanel/RootVBox/Chrome"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ApplyBtn" type="Button" parent="Layout/UIPanel/RootVBox/Chrome"]
+visible = false
+layout_mode = 2
+text = "Apply"
+
+[node name="Body" type="VBoxContainer" parent="Layout/UIPanel/RootVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="PromptBlock" type="VBoxContainer" parent="Layout/UIPanel/RootVBox/Body"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PromptTitle" type="Label" parent="Layout/UIPanel/RootVBox/Body/PromptBlock"]
+layout_mode = 2
+text = "Prompt"
+
+[node name="PromptText" type="RichTextLabel" parent="Layout/UIPanel/RootVBox/Body/PromptBlock"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_active = true
+
+[node name="ResponseBlock" type="VBoxContainer" parent="Layout/UIPanel/RootVBox/Body"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ResponseTitle" type="Label" parent="Layout/UIPanel/RootVBox/Body/ResponseBlock"]
+layout_mode = 2
+text = "Narcea / Cursor"
+
+[node name="ResponseText" type="RichTextLabel" parent="Layout/UIPanel/RootVBox/Body/ResponseBlock"]
+custom_minimum_size = Vector2(0, 220)
+layout_mode = 2
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_active = true
+
+[node name="PreviewPane" type="PanelContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.54
+
+[node name="PreviewVBox" type="VBoxContainer" parent="Layout/PreviewPane"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="SubViewportContainer" type="SubViewportContainer" parent="Layout/PreviewPane/PreviewVBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="Layout/PreviewPane/PreviewVBox/SubViewportContainer"]
+handle_input_locally = false
+size = Vector2i(640, 480)
+render_target_update_mode = 4
+script = ExtResource("3_emb")
+
+[node name="CodePreview" type="PanelContainer" parent="Layout/PreviewPane/PreviewVBox"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_code")
+script = ExtResource("5_code")
+
+[node name="VBox" type="VBoxContainer" parent="Layout/PreviewPane/PreviewVBox/CodePreview"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="Header" type="HBoxContainer" parent="Layout/PreviewPane/PreviewVBox/CodePreview/VBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="Layout/PreviewPane/PreviewVBox/CodePreview/VBox/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "Generated code"
+
+[node name="PathLabel" type="Label" parent="Layout/PreviewPane/PreviewVBox/CodePreview/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.68, 0.74, 0.82, 1)
+theme_override_font_sizes/font_size = 12
+text = "generated/example.vg"
+
+[node name="CodeEdit" type="CodeEdit" parent="Layout/PreviewPane/PreviewVBox/CodePreview/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_horizontal = 3
+
+[node name="Disclaimer" type="PanelContainer" parent="Layout/PreviewPane/PreviewVBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_preview")
+
+[node name="DisclaimerLabel" type="Label" parent="Layout/PreviewPane/PreviewVBox/Disclaimer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.84, 0.92, 1)
+theme_override_font_sizes/font_size = 13
+text = "Concept demo — real output from Cursor prompts (not a live IDE recording)"
+horizontal_alignment = 1
+
+[node name="TitleCard" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.04, 0.05, 0.08, 0.88)
+script = ExtResource("4_title")
+
+[node name="Center" type="CenterContainer" parent="TitleCard"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBox" type="VBoxContainer" parent="TitleCard/Center"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Headline" type="Label" parent="TitleCard/Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.88, 1, 1)
+theme_override_font_sizes/font_size = 42
+text = "NARCEA × CURSOR"
+horizontal_alignment = 1
+
+[node name="Subline" type="Label" parent="TitleCard/Center/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.78, 0.82, 0.9, 1)
+theme_override_font_sizes/font_size = 22
+text = "Describe it in plain English. Narcea builds it."
+horizontal_alignment = 1
+
+[node name="Body" type="RichTextLabel" parent="TitleCard/Center/VBox"]
+custom_minimum_size = Vector2(920, 0)
+layout_mode = 2
+theme_override_colors/default_color = Color(0.82, 0.86, 0.92, 1)
+theme_override_font_sizes/normal_font_size = 17
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+autowrap_mode = 3
+text = ""

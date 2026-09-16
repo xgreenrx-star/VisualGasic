@@ -1,0 +1,215 @@
+' demo_python_bridge.vg
+' VisualGasic v6.0 — Python Bridge Demo (Tier A out-of-process worker)
+'
+' Prerequisites:
+'   - Python 3 installed and on PATH
+'   - VG compiled with default settings (python=1 not required for Tier A)
+'
+' Run with: Godot --headless -s path/to/demo_python_bridge.vg
+'   or paste into any VG script and call Main()
+'
+' Reference: docs/python_bridge_v6_minimal_spec.md
+
+Sub Main()
+    Print "=== Python Bridge Demo (v6.0 Tier A) ==="
+    Print ""
+
+    ' ================================================================
+    ' 1. Create bridge and initialize
+    ' ================================================================
+    Print "--- 1. Initialize Bridge ---"
+
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+
+    Dim ok As Boolean
+    ok = bridge.InitializeBridge()
+    If Not ok Then
+        Print "  FAIL: " & bridge.GetStatus()
+        Exit Sub
+    End If
+    Print "  Status: " & bridge.GetStatus()
+
+    ' ================================================================
+    ' 2. PyImport and PyCall — Python stdlib "math"
+    ' ================================================================
+    Print ""
+    Print "--- 2. Python stdlib: math module ---"
+
+    Dim mathMod As Variant
+    mathMod = bridge.PyImport("math")
+
+    If IsEmpty(mathMod) Then
+        Print "  FAIL: Could not import math module"
+        bridge.shutdown()
+        Exit Sub
+    End If
+    Print "  Imported: math"
+
+    ' Call sqrt
+    Dim result As Variant
+    result = bridge.PyCall(mathMod, "sqrt", Array(144.0))
+    Print "  math.sqrt(144)  = " & CStr(result)
+
+    result = bridge.PyCall(mathMod, "sqrt", Array(25.0))
+    Print "  math.sqrt(25)   = " & CStr(result)
+
+    ' Call multiple functions in sequence
+    result = bridge.PyCall(mathMod, "sin", Array(3.14159265 / 2))
+    Print "  math.sin(pi/2)  = " & CStr(result)
+
+    result = bridge.PyCall(mathMod, "cos", Array(0.0))
+    Print "  math.cos(0)     = " & CStr(result)
+
+    result = bridge.PyCall(mathMod, "pow", Array(2.0, 10.0))
+    Print "  math.pow(2, 10) = " & CStr(result)
+
+    result = bridge.PyCall(mathMod, "floor", Array(4.7))
+    Print "  math.floor(4.7) = " & CStr(result)
+
+    result = bridge.PyCall(mathMod, "ceil", Array(4.3))
+    Print "  math.ceil(4.3)  = " & CStr(result)
+
+    ' ================================================================
+    ' 3. PyImport — "json" module for serialisation
+    ' ================================================================
+    Print ""
+    Print "--- 3. Python stdlib: json module ---"
+
+    Dim jsonMod As Variant
+    jsonMod = bridge.PyImport("json")
+
+    If IsEmpty(jsonMod) Then
+        Print "  FAIL: Could not import json module"
+        bridge.shutdown()
+        Exit Sub
+    Else
+        ' Use a simple VG Array so the JSON round-trip is unambiguous.
+        Dim arrData As Variant
+        arrData = Array("Alice", 30, True)
+
+        Dim jsonStr As Variant
+        jsonStr = bridge.PyCall(jsonMod, "dumps", Array(arrData))
+        Print "  json.dumps(data) = " & CStr(jsonStr)
+
+        Dim parsed As Variant
+        parsed = bridge.PyCall(jsonMod, "loads", Array(jsonStr))
+        Print "  json.loads(...)  = (Array of " & CStr(parsed.size()) & " items)"
+    End If
+
+    ' ================================================================
+    ' 4. numpy: array creation and math
+    ' ================================================================
+    Print ""
+    Print "--- 4. numpy: arrays and math ---"
+
+    Dim npMod As Variant
+    npMod = bridge.PyImport("numpy")
+
+    If IsEmpty(npMod) Then
+        Print "  SKIP: numpy not installed (try: pip install numpy)"
+    Else
+        ' array([1, 2, 3])
+        Dim arr1 As Variant
+        arr1 = bridge.PyCall(npMod, "array", Array(Array(1, 2, 3)))
+        Print "  numpy.array = " & CStr(arr1)
+
+        ' numpy.dot([1,2,3], [4,5,6])
+        Dim dotResult As Variant
+        dotResult = bridge.PyCall(npMod, "dot", Array(Array(1, 2, 3), Array(4, 5, 6)))
+        Print "  numpy.dot     = " & CStr(dotResult) & "  (expected: 32)"
+
+        ' numpy.sum() — takes float array, returns scalar
+        Dim sumResult As Variant
+        sumResult = bridge.PyCall(npMod, "sum", Array(Array(1.0, 2.0, 3.0, 4.0, 5.0)))
+        Print "  numpy.sum      = " & CStr(sumResult) & "  (expected: 15)"
+
+        ' numpy.linalg.norm([3,4])
+        Dim linAlgMod As Variant
+        linAlgMod = bridge.PyImport("numpy.linalg")
+        Dim normResult As Variant
+        If Not IsEmpty(linAlgMod) Then
+            normResult = bridge.PyCall(linAlgMod, "norm", Array(Array(3.0, 4.0)))
+            Print "  numpy.linalg.norm = " & CStr(normResult) & "  (expected: 5.0)"
+        End If
+
+        ' 2D array
+        Dim arr2d As Variant
+        arr2d = bridge.PyCall(npMod, "array", Array(Array(Array(1, 2), Array(3, 4))))
+        Print "  numpy 2D array = " & CStr(arr2d)
+
+        ' numpy.float32 scalar
+        Dim f32 As Variant
+        f32 = bridge.PyCall(npMod, "float32", Array(3.14159))
+        Print "  numpy.float32  = " & CStr(f32)
+
+        ' Integer shape args (numpy.zeros, eye) require Python int, not float.
+        ' With vg/python/use_typed_protocol=true (msgpack C2), bare Array(5) works.
+        ' On the JSON-default path, use Array(CInt(5)) instead — see demo_python_typed_protocol.vg.
+        Dim zerosArr As Variant
+        zerosArr = bridge.PyCall(npMod, "zeros", Array(5))
+        If IsEmpty(zerosArr) Then
+            zerosArr = bridge.PyCall(npMod, "zeros", Array(CInt(5)))
+            Print "  numpy.zeros(5) via CInt fallback = " & CStr(zerosArr)
+        Else
+            Print "  numpy.zeros(5) = " & CStr(zerosArr)
+        End If
+    End If
+
+    ' ================================================================
+    ' 5. Error handling — bad module
+    ' ================================================================
+    Print ""
+    Print "--- 5. Error Handling ---"
+
+    Dim badMod As Variant
+    badMod = bridge.PyImport("nonexistent_module_xyz")
+    If IsEmpty(badMod) Then
+        Print "  PASS: Import of bad module returned empty (error expected)"
+    Else
+        Print "  WARN: Import of bad module unexpectedly succeeded"
+    End If
+
+    ' Error with bad method call
+    Dim badResult As Variant
+    badResult = bridge.PyCall(mathMod, "nonexistent_function", Array(42))
+    If IsEmpty(badResult) Then
+        Print "  PASS: Call of bad method returned empty (error expected)"
+    Else
+        Print "  WARN: Call of bad method unexpectedly returned " & CStr(badResult)
+    End If
+
+    ' ================================================================
+    ' 6. PyProcessBuffer — bulk data lane
+    '    The worker accepts a trailing binary blob for the method call,
+    '    so byte-heavy payloads are not forced through a JSON-only path.
+    ' ================================================================
+    Print ""
+    Print "--- 6. PyProcessBuffer (bulk data) ---"
+
+    ' Build a PackedByteArray from a string
+    Dim bufStr As String
+    bufStr = "Hello from VisualGasic!"
+
+    Dim buffer
+    buffer = bufStr.to_utf8_buffer()
+
+    Dim bufResult As Variant
+    bufResult = bridge.PyProcessBuffer(jsonMod, "dumps", buffer)
+    If Not IsEmpty(bufResult) Then
+        Print "  Buffer processed as JSON byte array: " & CStr(bufResult)
+    Else
+        Print "  Buffer process failed"
+    End If
+
+    ' ================================================================
+    ' 7. Clean shutdown
+    ' ================================================================
+    Print ""
+    Print "--- 7. Shutdown ---"
+
+    bridge.shutdown()
+    Print "  Bridge shut down cleanly."
+    Print ""
+    Print "=== Python Bridge Demo Complete ==="
+End Sub

@@ -1,0 +1,155 @@
+' Player projectile — distance overlap fallback + body_entered
+Import "VfxHelpers.vg"
+Extends Area2D
+
+Const TEX_PISTOL As String = "res://assets/sprites/bullet.png"
+Const TEX_SHOTGUN As String = "res://assets/sprites/bullet_shotgun.png"
+Const TEX_SNIPER As String = "res://assets/sprites/bullet_sniper.png"
+Const TEX_SMG As String = "res://assets/sprites/bullet_smg.png"
+
+Dim bulletScene As Object
+Dim bulletVelocity As Object
+Dim damage As Single
+Dim pierce As Integer
+Dim hits As Integer
+Dim bulletSpeed As Single
+Dim lifetime As Single
+Dim pattern As String
+Dim hitRadius As Single
+Dim hitEnemies As Variant
+Dim trailTimer As Single
+Dim bulletColor As Color
+Dim trailVel As Object
+
+Sub _Ready()
+	Set bulletScene = GameManager.CachedScene("res://scenes/HitParticle.tscn")
+	hitEnemies = Array()
+	Connect Me, "body_entered", "OnBodyEntered"
+End Sub
+
+Sub Setup(direction As Object, pDamage As Single, pPierce As Integer)
+	Dim p As Object
+	Set p = New Dictionary
+	p("dir") = direction
+	p("damage") = pDamage
+	p("pierce") = pPierce
+	Call SetupExtended(p)
+End Sub
+
+Sub SetupExtended(p As Object)
+	damage = p("damage")
+	pierce = Max(1, Int(p("pierce")))
+	bulletSpeed = p("speed")
+	If bulletSpeed <= 0 Then bulletSpeed = 520.0
+	lifetime = p("lifetime")
+	If lifetime <= 0 Then lifetime = 1.8
+	pattern = CStr(p("pattern"))
+	If pattern = "" Then pattern = "single"
+	Dim dir As Object
+	dir = p("dir")
+	If dir Is Nothing Then dir = Vector2(1, 0)
+	bulletVelocity = dir.normalized() * bulletSpeed
+	Dim col As Color
+	col = p("color")
+	If col Is Nothing Then col = Color(1.0, 0.9, 0.3)
+	bulletColor = col
+	trailVel = bulletVelocity * -0.15
+	trailTimer = 0.0
+	Dim sprite As Object
+	sprite = GetNode("Sprite")
+	If Not sprite Is Nothing Then
+		Select Case pattern
+			Case "sniper"
+				sprite.texture = GameManager.CachedTex(TEX_SNIPER)
+				sprite.scale = Vector2(1.0, 1.5)
+				hitRadius = 28.0
+			Case "shotgun"
+				sprite.texture = GameManager.CachedTex(TEX_SHOTGUN)
+				sprite.scale = Vector2(1.5, 1.5)
+				hitRadius = 18.0
+			Case "smg"
+				sprite.texture = GameManager.CachedTex(TEX_SMG)
+				sprite.scale = Vector2(1.1, 1.1)
+				hitRadius = 16.0
+			Case Else
+				sprite.texture = GameManager.CachedTex(TEX_PISTOL)
+				sprite.scale = Vector2(1.5, 1.5)
+				hitRadius = 22.0
+		End Select
+		sprite.modulate = col
+		If pattern = "sniper" Then
+			Me.rotation = bulletVelocity.angle() + 1.5707963
+		End If
+	End If
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	trailTimer = trailTimer - delta
+	If trailTimer <= 0 Then
+		trailTimer = 0.024
+		Call SpawnTrail()
+	End If
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + bulletVelocity * delta
+	lifetime = lifetime - delta
+	If lifetime <= 0 Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	Dim enemies As Variant
+	enemies = GetTree().get_nodes_in_group("enemies")
+	Dim i As Integer
+	For i = 0 To UBound(enemies)
+		Dim node As Object
+		Set node = enemies(i)
+		If node Is Nothing Then GoTo NextEnemy
+		If ArrayContains(hitEnemies, node) Then GoTo NextEnemy
+		If Me.global_position.distance_to(node.global_position) < hitRadius Then
+			Call Hit(node)
+			If hits >= pierce Then
+				Me.queue_free()
+				Exit Sub
+			End If
+		End If
+NextEnemy:
+	Next i
+End Sub
+
+Function ArrayContains(arr As Variant, val As Object) As Boolean
+	Dim i As Integer
+	For i = 0 To UBound(arr)
+		If arr(i) Is val Then
+			ArrayContains = True
+			Exit Function
+		End If
+	Next i
+	ArrayContains = False
+End Function
+
+Sub OnBodyEntered(body As Object)
+	If body.is_in_group("enemies") And Not ArrayContains(hitEnemies, body) Then
+		Call Hit(body)
+		If hits >= pierce Then
+			Me.queue_free()
+		End If
+	End If
+End Sub
+
+Sub SpawnTrail()
+	Dim parent As Object
+	Set parent = GetParent()
+	If parent Is Nothing Then Exit Sub
+	Dim trailCol As Color
+	trailCol = bulletColor
+	trailCol.a = 0.55
+	Call SpawnFade(parent, Me.global_position, trailCol, 3.0 + Rnd() * 2.0, 0.14, trailVel)
+End Sub
+
+Sub Hit(enemy As Object)
+	hitEnemies.append(enemy)
+	enemy.take_hit(damage)
+	GameManager.player_stats("total_damage") = GameManager.player_stats("total_damage") + damage
+	hits = hits + 1
+	AudioBus.Play("enemy_hit")
+End Sub

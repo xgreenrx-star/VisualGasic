@@ -1,0 +1,3 @@
+Sub Main()
+    Print "hi"
+End Sub

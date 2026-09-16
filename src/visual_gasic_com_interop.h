@@ -73,6 +73,8 @@ public:
     bool delete_file(const String &p_path, bool p_force = false);
     bool create_folder(const String &p_path);
     bool delete_folder(const String &p_path, bool p_force = false);
+    bool copy_folder(const String &p_source, const String &p_dest, bool p_overwrite = true);
+    bool move_folder(const String &p_source, const String &p_dest);
     bool move_file(const String &p_source, const String &p_dest);
     Dictionary get_file(const String &p_path);  // Returns file info dict
     int64_t get_file_size(const String &p_path);

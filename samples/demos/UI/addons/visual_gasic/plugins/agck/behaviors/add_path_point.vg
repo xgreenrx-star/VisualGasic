@@ -1,0 +1,10 @@
+' Called by level script to set waypoints for this actor
+Sub AddPathPoint(px As Single, py As Single)
+    If PathCount < 20 Then
+        PathX(PathCount) = px
+        PathY(PathCount) = py
+        PathCount = PathCount + 1
+        HasPath = True
+    End If
+End Sub
+

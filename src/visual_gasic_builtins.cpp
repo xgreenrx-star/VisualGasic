@@ -456,6 +456,132 @@ Variant builtin_cbool(const Variant &v) {
 
 Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
 
+// ───────────────────────────────────────────────────────────────────────────
+// Recursive file-system helpers (v6.x) — back the CopyFolder / MoveFolder /
+// DeleteFolder / SendToTrash / ListFiles / ListFolders / ListFilesRecursive
+// builtins.  These operate on the path AS GIVEN so they work with absolute OS
+// paths ("/home/u/x", "C:\\x"), and with res:// / user:// URIs alike.  Hidden
+// entries ARE included (a file manager must copy/move/delete dotfiles too).
+// ───────────────────────────────────────────────────────────────────────────
+
+// Recursively copy the directory tree rooted at p_src into p_dst, creating
+// p_dst (and parents) if needed.  Returns OK, or the first error encountered.
+static Error _vg_copy_folder_recursive(const String &p_src, const String &p_dst) {
+    Ref<DirAccess> src_dir = DirAccess::open(p_src);
+    if (src_dir.is_null()) return ERR_FILE_NOT_FOUND;
+
+    if (!DirAccess::dir_exists_absolute(p_dst)) {
+        Error mk = DirAccess::make_dir_recursive_absolute(p_dst);
+        if (mk != OK) return mk;
+    }
+
+    src_dir->set_include_navigational(false);
+    src_dir->set_include_hidden(true);
+    src_dir->list_dir_begin();
+    String name = src_dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            String from = p_src.path_join(name);
+            String to = p_dst.path_join(name);
+            if (src_dir->current_is_dir()) {
+                Error e = _vg_copy_folder_recursive(from, to);
+                if (e != OK) { src_dir->list_dir_end(); return e; }
+            } else {
+                Error e = DirAccess::copy_absolute(from, to);
+                if (e != OK) { src_dir->list_dir_end(); return e; }
+            }
+        }
+        name = src_dir->get_next();
+    }
+    src_dir->list_dir_end();
+    return OK;
+}
+
+// Recursively delete the directory tree rooted at p_path (including p_path).
+static Error _vg_delete_folder_recursive(const String &p_path) {
+    Ref<DirAccess> dir = DirAccess::open(p_path);
+    if (dir.is_null()) return ERR_FILE_NOT_FOUND;
+
+    dir->set_include_navigational(false);
+    dir->set_include_hidden(true);
+    dir->list_dir_begin();
+    String name = dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            String full = p_path.path_join(name);
+            if (dir->current_is_dir()) {
+                Error e = _vg_delete_folder_recursive(full);
+                if (e != OK) { dir->list_dir_end(); return e; }
+            } else {
+                Error e = DirAccess::remove_absolute(full);
+                if (e != OK) { dir->list_dir_end(); return e; }
+            }
+        }
+        name = dir->get_next();
+    }
+    dir->list_dir_end();
+    return DirAccess::remove_absolute(p_path);
+}
+
+// Move a folder: try an atomic rename first (same filesystem), then fall back
+// to recursive copy + recursive delete (cross-device move).
+static Error _vg_move_folder(const String &p_src, const String &p_dst) {
+    if (DirAccess::rename_absolute(p_src, p_dst) == OK) return OK;
+    Error e = _vg_copy_folder_recursive(p_src, p_dst);
+    if (e != OK) return e;
+    return _vg_delete_folder_recursive(p_src);
+}
+
+// Return a sorted Array of the bare entry names directly under p_path.
+// p_want_dirs / p_want_files select which kinds are included; an optional
+// wildcard pattern (VB Dir-style, e.g. "*.txt") filters case-insensitively.
+static Array _vg_list_entries(const String &p_path, bool p_want_dirs, bool p_want_files, const String &p_pattern) {
+    Array out;
+    Ref<DirAccess> dir = DirAccess::open(p_path);
+    if (dir.is_null()) return out;
+
+    dir->set_include_navigational(false);
+    dir->set_include_hidden(true);
+    dir->list_dir_begin();
+    String name = dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            bool is_dir = dir->current_is_dir();
+            if ((is_dir && p_want_dirs) || (!is_dir && p_want_files)) {
+                if (p_pattern.is_empty() || name.matchn(p_pattern)) out.push_back(name);
+            }
+        }
+        name = dir->get_next();
+    }
+    dir->list_dir_end();
+    out.sort();
+    return out;
+}
+
+// Append the full paths of every file under p_path (recursively) to r_out,
+// filtered by an optional VB Dir-style wildcard pattern on the file name.
+static void _vg_list_files_recursive(const String &p_path, const String &p_pattern, Array &r_out) {
+    Ref<DirAccess> dir = DirAccess::open(p_path);
+    if (dir.is_null()) return;
+
+    dir->set_include_navigational(false);
+    dir->set_include_hidden(true);
+    dir->list_dir_begin();
+    String name = dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            String full = p_path.path_join(name);
+            if (dir->current_is_dir()) {
+                _vg_list_files_recursive(full, p_pattern, r_out);
+            } else if (p_pattern.is_empty() || name.matchn(p_pattern)) {
+                r_out.push_back(full);
+            }
+        }
+        name = dir->get_next();
+    }
+    dir->list_dir_end();
+}
+
 // ── PrintForm (v3.5.0) ── VB6 PrintForm statement ──
 // In VB6 this prints the current form to the default printer.
 // In Godot we capture the viewport to an image and save it as PNG.
@@ -6338,6 +6464,63 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         }
         return Variant();
     }
+
+    // ── Recursive folder operations (v6.x) ──────────────────────────────────
+    // All operate on the path AS GIVEN (absolute OS path, res:// or user://).
+    // Each returns a Boolean success flag so VG code can branch on the result.
+
+    // CopyFolder(source, destination) — recursively copy a directory tree.
+    if (METHOD_IS("copyfolder") && args.size() >= 2) {
+        r_handled = true;
+        return _vg_copy_folder_recursive(String(args[0]), String(args[1])) == OK;
+    }
+    // MoveFolder(source, destination) — move a directory tree (rename, else copy+delete).
+    if (METHOD_IS("movefolder") && args.size() >= 2) {
+        r_handled = true;
+        return _vg_move_folder(String(args[0]), String(args[1])) == OK;
+    }
+    // DeleteFolder(path) — recursively delete a directory tree (VB6 FSO.DeleteFolder).
+    if (METHOD_IS("deletefolder") && args.size() >= 1) {
+        r_handled = true;
+        return _vg_delete_folder_recursive(String(args[0])) == OK;
+    }
+    // SendToTrash(path) — move a file/folder to the OS recycle bin/trash.
+    // Cross-platform via OS::move_to_trash (needs an absolute OS path, so
+    // res:// / user:// URIs are globalized first).
+    if (METHOD_IS("sendtotrash") && args.size() >= 1) {
+        r_handled = true;
+        String p = String(args[0]);
+        if (p.begins_with("res://") || p.begins_with("user://")) {
+            p = ProjectSettings::get_singleton()->globalize_path(p);
+        }
+        return OS::get_singleton()->move_to_trash(p) == OK;
+    }
+    // ListFiles(path[, pattern]) — Array of file names (not folders), sorted.
+    if (METHOD_IS("listfiles") && args.size() >= 1) {
+        r_handled = true;
+        String pattern = (args.size() >= 2) ? String(args[1]) : String();
+        return _vg_list_entries(String(args[0]), false, true, pattern);
+    }
+    // ListFolders(path[, pattern]) — Array of subfolder names, sorted.
+    if (METHOD_IS("listfolders") && args.size() >= 1) {
+        r_handled = true;
+        String pattern = (args.size() >= 2) ? String(args[1]) : String();
+        return _vg_list_entries(String(args[0]), true, false, pattern);
+    }
+    // ListFilesRecursive(path[, pattern]) — Array of full file paths, recursive.
+    if (METHOD_IS("listfilesrecursive") && args.size() >= 1) {
+        r_handled = true;
+        String pattern = (args.size() >= 2) ? String(args[1]) : String();
+        Array out;
+        _vg_list_files_recursive(String(args[0]), pattern, out);
+        return out;
+    }
+    // BuildPath(path, name) — join a path segment (VB6 FSO.BuildPath).
+    if (METHOD_IS("buildpath") && args.size() >= 2) {
+        r_handled = true;
+        return String(args[0]).path_join(String(args[1]));
+    }
+
     if (METHOD_IS("beep")) {
         r_handled = true;
         UtilityFunctions::print("[VG] Beep");
@@ -7802,6 +7985,14 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
         if (d.has("__vg_namespace")) {
             String ns = String(d["__vg_namespace"]);
             return call_builtin_for_base_variable(instance, ns, p_method, p_args, r_ret);
+        }
+
+        // ── ClassDB static type sentinel (VGSystem.GetEnv, ClassDB.Instantiate, …) ──
+        if (d.has("__vg_classdb")) {
+            String cls = String(d["__vg_classdb"]);
+            if (vg_try_classdb_static_method(cls, p_method, p_args, r_ret)) {
+                return true;
+            }
         }
 
         // ── StringBuilder dispatch ──

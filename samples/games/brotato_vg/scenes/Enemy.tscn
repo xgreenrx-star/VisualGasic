@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3 uid="uid://enemy"]
+
+[ext_resource type="Script" uid="uid://b0e55a22kflxa" path="res://scripts/Enemy.vg" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_fast.png" id="2"]
+
+[node name="Enemy" type="CharacterBody2D" groups=["enemies"]]
+script = ExtResource("1")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")
+scale = Vector2(2.2, 2.2)
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+
+[node name="HealthBar" type="ProgressBar" parent="."]
+offset_left = -18.0
+offset_top = -26.0
+offset_right = 18.0
+offset_bottom = -20.0
+min_value = 0.0
+max_value = 100.0
+value = 100.0
+show_percentage = false

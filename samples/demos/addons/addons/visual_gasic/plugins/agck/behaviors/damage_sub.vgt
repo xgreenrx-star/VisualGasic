@@ -1,0 +1,7 @@
+' Called when this actor takes damage
+Sub TakeDamage(amount As Integer)
+{{INVINCIBLE_GUARD}}    CurrentHP = CurrentHP - amount
+{{HIT_SFX}}{{PLAYER_HIT_ANIM}}{{PLAYER_INVINCIBLE}}    If CurrentHP <= 0 Then
+{{DEATH_SFX}}{{PLAYER_RESET_VIS}}{{DEATH_BLOCK}}    End If
+End Sub
+

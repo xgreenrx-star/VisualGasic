@@ -2,6 +2,7 @@
 #include "visual_gasic_language.h"
 #include "visual_gasic_com_interop.h"
 #include "visual_gasic_memory_buffer.h"
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #ifdef _WIN32
@@ -525,10 +526,20 @@ Variant VisualGasicInstance::call_object_method(int obj_id, const String& method
     return Variant();
 }
 
+static bool vg_verbose_init_logs_class() {
+	static int cached = -1;
+	if (cached < 0) {
+		cached = OS::get_singleton()->has_environment("VG_VERBOSE_INIT") ? 1 : 0;
+	}
+	return cached == 1;
+}
+
 void VisualGasicInstance::register_class(ClassDefinition* cls) {
     if (cls && !cls->name.is_empty()) {
         class_registry[cls->name] = (int64_t)cls; // Store pointer as int64
-        UtilityFunctions::print("Registered class: ", cls->name);
+        if (vg_verbose_init_logs_class()) {
+            UtilityFunctions::print("Registered class: ", cls->name);
+        }
     }
 }
 

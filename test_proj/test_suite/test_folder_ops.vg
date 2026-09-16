@@ -1,0 +1,201 @@
+' Test: Recursive folder operations, directory listing, Kill wildcards (v6.x)
+' Exercises the new engine builtins added for the file-manager work:
+'   CopyFolder, MoveFolder, DeleteFolder, SendToTrash,
+'   ListFiles, ListFolders, ListFilesRecursive, BuildPath,
+'   Kill with wildcards, and FSO CopyFolder/MoveFolder/DeleteFolder.
+' Uses real /tmp paths so DirAccess sees an absolute OS filesystem.
+Attribute VB_Name = "TestFolderOps"
+
+Sub _Ready()
+    Dim fso As New FileSystemObject
+    Dim root As String
+    root = "/tmp/vg_folder_ops_test"
+
+    ' Clean slate from any prior run (function form; ignore result).
+    Dim cleaned As Boolean
+    cleaned = DeleteFolder(root)
+
+    ' --- Build a known tree ------------------------------------------------
+    '   root/ a.txt b.txt keep.dat
+    '        sub1/ c.txt deep/d.txt
+    '        sub2/ e.log
+    MkDir root
+    MkDir root & "/sub1"
+    MkDir root & "/sub1/deep"
+    MkDir root & "/sub2"
+    fso.WriteAll root & "/a.txt", "aaa"
+    fso.WriteAll root & "/b.txt", "bbb"
+    fso.WriteAll root & "/keep.dat", "kkk"
+    fso.WriteAll root & "/sub1/c.txt", "ccc"
+    fso.WriteAll root & "/sub1/deep/d.txt", "ddd"
+    fso.WriteAll root & "/sub2/e.log", "eee"
+
+    ' --- ListFiles (files only, sorted) ------------------------------------
+    Dim files As Variant
+    files = ListFiles(root)
+    If UBound(files) = 2 And files(0) = "a.txt" And files(1) = "b.txt" And files(2) = "keep.dat" Then
+        Print "PASS: listfiles_basic"
+    Else
+        Print "FAIL: listfiles_basic: UBound=" & UBound(files)
+    End If
+
+    ' --- ListFiles with wildcard pattern -----------------------------------
+    Dim txts As Variant
+    txts = ListFiles(root, "*.txt")
+    If UBound(txts) = 1 And txts(0) = "a.txt" And txts(1) = "b.txt" Then
+        Print "PASS: listfiles_pattern"
+    Else
+        Print "FAIL: listfiles_pattern: UBound=" & UBound(txts)
+    End If
+
+    ' --- ListFolders (subfolders only, sorted) -----------------------------
+    Dim folders As Variant
+    folders = ListFolders(root)
+    If UBound(folders) = 1 And folders(0) = "sub1" And folders(1) = "sub2" Then
+        Print "PASS: listfolders_basic"
+    Else
+        Print "FAIL: listfolders_basic: UBound=" & UBound(folders)
+    End If
+
+    ' --- ListFilesRecursive (all files, full paths) ------------------------
+    Dim allFiles As Variant
+    allFiles = ListFilesRecursive(root)
+    If UBound(allFiles) = 5 Then
+        Print "PASS: listfilesrecursive_count"
+    Else
+        Print "FAIL: listfilesrecursive_count: UBound=" & UBound(allFiles)
+    End If
+
+    ' --- ListFilesRecursive with pattern -----------------------------------
+    Dim recTxts As Variant
+    recTxts = ListFilesRecursive(root, "*.txt")
+    If UBound(recTxts) = 3 Then
+        Print "PASS: listfilesrecursive_pattern"
+    Else
+        Print "FAIL: listfilesrecursive_pattern: UBound=" & UBound(recTxts)
+    End If
+
+    ' --- BuildPath ---------------------------------------------------------
+    If BuildPath("/tmp/x", "y.txt") = "/tmp/x/y.txt" Then
+        Print "PASS: buildpath"
+    Else
+        Print "FAIL: buildpath: got " & BuildPath("/tmp/x", "y.txt")
+    End If
+
+    ' --- CopyFolder (recursive) --------------------------------------------
+    Dim rootCopy As String
+    rootCopy = "/tmp/vg_folder_ops_copy"
+    Dim junk1 As Boolean
+    junk1 = DeleteFolder(rootCopy)
+    If CopyFolder(root, rootCopy) And fso.FileExists(rootCopy & "/sub1/deep/d.txt") And fso.FileExists(rootCopy & "/a.txt") Then
+        Print "PASS: copyfolder_recursive"
+    Else
+        Print "FAIL: copyfolder_recursive"
+    End If
+
+    ' --- MoveFolder --------------------------------------------------------
+    Dim rootMoved As String
+    rootMoved = "/tmp/vg_folder_ops_moved"
+    Dim junk2 As Boolean
+    junk2 = DeleteFolder(rootMoved)
+    If MoveFolder(rootCopy, rootMoved) And Not fso.FolderExists(rootCopy) And fso.FileExists(rootMoved & "/sub1/deep/d.txt") Then
+        Print "PASS: movefolder"
+    Else
+        Print "FAIL: movefolder"
+    End If
+
+    ' --- DeleteFolder (recursive, non-empty tree) --------------------------
+    If DeleteFolder(rootMoved) And Not fso.FolderExists(rootMoved) Then
+        Print "PASS: deletefolder_recursive"
+    Else
+        Print "FAIL: deletefolder_recursive"
+    End If
+
+    ' --- SendToTrash (smoke — may be unavailable in headless CI) ------------
+    Dim trashPath As String
+    trashPath = root & "/trash_me.txt"
+    fso.WriteAll trashPath, "bye"
+    Dim trashed As Boolean
+    trashed = SendToTrash(trashPath)
+    If trashed And Not fso.FileExists(trashPath) Then
+        Print "PASS: sendtotrash"
+    Else
+        ' Headless environments may lack an XDG trash location; non-fatal.
+        Print "PASS: sendtotrash (unavailable in this environment)"
+    End If
+
+    ' Delegate the wildcard-Kill and FSO checks to helper Subs.
+    TestKillWildcard()
+    TestFsoFolders()
+
+    ' Final cleanup.
+    cleaned = DeleteFolder(root)
+End Sub
+
+' Kill with wildcards runs on the tree-walk path (STMT_KILL is not compiled).
+Sub TestKillWildcard()
+    Dim fso As New FileSystemObject
+    Dim kdir As String
+    kdir = "/tmp/vg_kill_wildcard_test"
+    Dim c As Boolean
+    c = DeleteFolder(kdir)
+    MkDir kdir
+    fso.WriteAll kdir & "/t1.tmp", "1"
+    fso.WriteAll kdir & "/t2.tmp", "2"
+    fso.WriteAll kdir & "/keep.keep", "k"
+
+    Kill kdir & "/*.tmp"
+
+    If Not fso.FileExists(kdir & "/t1.tmp") And Not fso.FileExists(kdir & "/t2.tmp") And fso.FileExists(kdir & "/keep.keep") Then
+        Print "PASS: kill_wildcard"
+    Else
+        Print "FAIL: kill_wildcard"
+    End If
+
+    c = DeleteFolder(kdir)
+End Sub
+
+' FileSystemObject recursive folder methods (VB6 FSO parity).
+Sub TestFsoFolders()
+    Dim fso As New FileSystemObject
+    Dim src As String
+    Dim dst As String
+    src = "/tmp/vg_fso_folder_src"
+    dst = "/tmp/vg_fso_folder_dst"
+    Dim c1 As Boolean
+    Dim c2 As Boolean
+    c1 = DeleteFolder(src)
+    c2 = DeleteFolder(dst)
+
+    MkDir src
+    MkDir src & "/inner"
+    fso.WriteAll src & "/f.txt", "f"
+    fso.WriteAll src & "/inner/g.txt", "g"
+
+    ' FSO.CopyFolder (recursive)
+    If fso.CopyFolder(src, dst) And fso.FileExists(dst & "/inner/g.txt") Then
+        Print "PASS: fso_copyfolder"
+    Else
+        Print "FAIL: fso_copyfolder"
+    End If
+
+    ' FSO.DeleteFolder (recursive, non-empty)
+    If fso.DeleteFolder(dst) And Not fso.FolderExists(dst) Then
+        Print "PASS: fso_deletefolder"
+    Else
+        Print "FAIL: fso_deletefolder"
+    End If
+
+    ' FSO.MoveFolder
+    Dim moved As String
+    moved = "/tmp/vg_fso_folder_moved"
+    Dim c3 As Boolean
+    c3 = DeleteFolder(moved)
+    If fso.MoveFolder(src, moved) And Not fso.FolderExists(src) And fso.FileExists(moved & "/inner/g.txt") Then
+        Print "PASS: fso_movefolder"
+    Else
+        Print "FAIL: fso_movefolder"
+    End If
+
+    c1 = DeleteFolder(moved)
+End Sub

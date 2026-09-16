@@ -1,0 +1,28 @@
+' Regression: ClassName.StaticMethod() on ClassDB types (VGSystem, System alias)
+Extends Node
+
+Sub _Ready()
+	Dim pathEnv As String
+	pathEnv = VGSystem.GetEnv("PATH")
+	If Len(pathEnv) > 0 Then
+		Print "PASS: vgsystem_static_getenv"
+	Else
+		Print "FAIL: vgsystem_static_getenv empty"
+	End If
+
+	Dim pathEnv2 As String
+	pathEnv2 = System.GetEnv("PATH")
+	If Len(pathEnv2) > 0 Then
+		Print "PASS: system_alias_static_getenv"
+	Else
+		Print "FAIL: system_alias_static_getenv empty"
+	End If
+
+	Dim path As String
+	path = Environ("PATH")
+	If Len(path) > 0 Then
+		Print "PASS: environ_builtin_still_works"
+	Else
+		Print "FAIL: environ_builtin_still_works empty"
+	End If
+End Sub

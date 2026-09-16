@@ -1,0 +1,13 @@
+Sub _Ready()
+    Dim v As Vector2
+    v = Vector2(10.5, 20.5)
+    
+    Print "Test: Vector2 assignment"
+    Print "v = " & v.ToString()
+    
+    If v.x = 10.5 And v.y = 20.5 Then
+        Print "PASS: simple assign"
+    Else
+        Print "FAIL: simple assign: v.x=" & v.x & " v.y=" & v.y
+    End If
+End Sub

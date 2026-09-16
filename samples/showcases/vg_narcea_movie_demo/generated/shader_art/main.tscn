@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://shader_art_movie_main"]
+
+[ext_resource type="Script" path="res://generated/shader_art/shader_art_manager.gd" id="1"]
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1")

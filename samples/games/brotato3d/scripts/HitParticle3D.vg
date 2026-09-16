@@ -1,0 +1,30 @@
+' =============================================================================
+' HitParticle3D.vg — one-shot death/hit burst (spawns VFX blobs then exits)
+' =============================================================================
+' Enemy3D.Die instantiates this when mob count allows. SetColor before the
+' first frame if you want tint to match the enemy. _Ready does all the work.
+' =============================================================================
+Import "VfxHelpers3D.vg"
+Extends Node3D
+
+Dim tintColor As Color
+
+Sub _Ready()
+	If tintColor.a <= 0 Then tintColor = Color(1.0, 0.9, 0.3, 1.0)
+	Dim parent As Object
+	Set parent = GetParent()
+	If parent Is Nothing Then Exit Sub
+	Dim pos As Object
+	pos = Me.global_position
+	Dim i As Integer
+	For i = 0 To 2
+		Dim vel As Object
+		vel = Vector3(Rnd() * 2 - 1, 0.4 + Rnd() * 0.6, Rnd() * 2 - 1).normalized() * (3.0 + Rnd() * 4.0)
+		Call SpawnFade3D(parent, pos, tintColor, 0.1 + Rnd() * 0.06, 0.45 + Rnd() * 0.15, vel)
+	Next i
+	Me.queue_free()
+End Sub
+
+Sub SetColor(c As Color)
+	tintColor = c
+End Sub

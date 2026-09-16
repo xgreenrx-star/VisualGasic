@@ -176,7 +176,7 @@ cp -r examples "$STAGING/" 2>/dev/null || true
 cp -r demos "$STAGING/" 2>/dev/null || true
 cp -r tutorials "$STAGING/" 2>/dev/null || true
 mkdir -p "$STAGING/projects"
-[[ -d projects/vg_beta_showcase ]] && cp -r projects/vg_beta_showcase "$STAGING/projects/"
+[[ -d samples/showcases/vg_beta_showcase ]] && cp -r samples/showcases/vg_beta_showcase "$STAGING/samples/showcases/"
 
 # Clean caches and dev artifacts
 find "$STAGING" -name "*.uid" -delete 2>/dev/null || true

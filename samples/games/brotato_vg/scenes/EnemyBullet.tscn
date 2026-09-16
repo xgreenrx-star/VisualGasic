@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://enemybullet"]
+
+[ext_resource type="Script" uid="uid://ciomj8k83abn3" path="res://scripts/EnemyBullet.vg" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_bullet.png" id="2"]
+
+[node name="EnemyBullet" type="Node2D" groups=["enemy_bullets"]]
+script = ExtResource("1")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")

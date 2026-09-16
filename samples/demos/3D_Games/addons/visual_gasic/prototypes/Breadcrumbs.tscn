@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/Breadcrumbs.gd" id="1"]
+
+[node name="Breadcrumbs" type="HBoxContainer"]
+custom_minimum_size = Vector2(160, 18)
+offset_right = 160.0
+offset_bottom = 18.0
+script = ExtResource("1")

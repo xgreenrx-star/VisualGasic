@@ -38,6 +38,7 @@ class VisualGasicInstance {
     Vector<Variant>* debug_bc_locals = nullptr;
     BytecodeChunk*   debug_bc_chunk  = nullptr;
 
+public:
     // Multi-module compilation (v4.3.0) — imported module ASTs for cross-file calls
     // Per-module bytecode cache entry (v4.4.0) — mirrors VisualGasicScript::CompiledEntry
     // so cross-module Sub/Function calls can be bytecode-compiled instead of always
@@ -51,9 +52,10 @@ class VisualGasicInstance {
     struct ImportedModule {
         String module_name;         // Base filename without extension
         String full_path;           // Resolved absolute path
-        ModuleNode* ast = nullptr;  // Parsed AST (owned by parser, cleaned up below)
-        VisualGasicParser* parser = nullptr; // Keep alive so AST nodes aren't freed
+        ModuleNode* ast = nullptr;  // Parsed AST (process-wide cache or owned parser)
+        VisualGasicParser* parser = nullptr; // Non-null only when not using shared cache
         VisualGasicTokenizer* tokenizer = nullptr;
+        bool ast_is_shared = false; // true → AST owned by global import cache
         // Heap-allocated (lazily, on first bytecode compile) rather than embedded by
         // value: imported_modules is a godot::Vector<ImportedModule>, and Vector's
         // CowData grows via raw realloc() (see cowdata.hpp _realloc) which moves bytes
@@ -68,6 +70,7 @@ class VisualGasicInstance {
     };
     Vector<ImportedModule> imported_modules;
 
+private:
     // ── call_internal() call-site resolution cache (v6.0 perf, Jul 2026) ──
     // Resolving a bare Sub/Function call by name used to re-scan every
     // module-level Sub (twice) plus re-run the bytecode-chunk lookup on
@@ -590,6 +593,7 @@ public:
     // entry_point within a specific imported module's own AST, analogous to
     // VisualGasicScript::get_bytecode_for() but scoped to that module.
     BytecodeChunk* get_bytecode_for_import(ImportedModule& mod, const String& entry_point);
+    BytecodeChunk* get_bytecode_for_sub(const String& entry_point);
     // Cross-module MemoryBuffer support (v4.4.0): lazily computed, cached union of
     // every "X = New MemoryBuffer(...)" variable name found across the main
     // script's AST *and* every imported module's AST. A Sub compiled out of one
@@ -603,6 +607,11 @@ public:
 };
 
 // Debug registry for Immediate Window runtime access
+// ClassDB type sentinels + static dispatch (VGSystem.GetEnv, ClassDB.Instantiate, …)
+String vg_resolve_classdb_alias(const String &p_name);
+Variant vg_classdb_type_sentinel(const String &p_name);
+bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret);
+
 namespace VisualGasicDebug {
     Array get_all_instances();
     VisualGasicInstance* get_instance_by_index(int index);

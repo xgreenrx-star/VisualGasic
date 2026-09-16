@@ -1,0 +1,246 @@
+' =============================================================================
+' WaveManager3D.vg — spawn timer, wave duration, boss waves
+' =============================================================================
+' Node on main scene with two Godot Timer children (SpawnTimer, WaveTimer).
+' Emits wave_ended when the wave timer fires (except boss waves wait for kill).
+' Spawn flow: warning ring → finished signal → enemy instantiate at that pos.
+'
+' Offscreen spawn positions are relative to player + fixed view half-size so
+' enemies appear just outside the camera frustum, not inside the arena center.
+' =============================================================================
+Extends Node
+
+Event wave_ended()
+
+Const BOSS_WAVES As String = "5,10,15,20"
+Const ARENA_MIN_X As Single = -32.0
+Const ARENA_MAX_X As Single = 32.0
+Const ARENA_MIN_Z As Single = -32.0
+Const ARENA_MAX_Z As Single = 32.0
+Const VIEW_HALF As Single = 24.0
+Const SPAWN_MARGIN As Single = 8.0
+Const MAX_LIVE_ENEMIES As Integer = 48
+
+Dim spawnTimer As Object
+Dim waveTimer As Object
+Dim bossSpawned As Boolean
+Dim enemyTypes As Variant
+Dim enemyScene As Object
+Dim warnScene As Object
+
+Sub _Ready()
+	spawnTimer = GetNode("SpawnTimer")
+	waveTimer = GetNode("WaveTimer")
+	Connect GameManager, "boss_killed", "OnBossKilled"
+	Connect spawnTimer, "timeout", "_on_spawn_timer_timeout"
+	Connect waveTimer, "timeout", "_on_wave_timer_timeout"
+	Set enemyScene = GameManager.CachedScene("res://scenes/Enemy3D.tscn")
+	Set warnScene = GameManager.CachedScene("res://scenes/SpawnWarning3D.tscn")
+	Call InitEnemyTypes
+End Sub
+
+' Table of normal enemy archetypes — scaled by wave in SpawnAfterWarning.
+Sub InitEnemyTypes()
+	enemyTypes = Array()
+	Call AddEnemyType(18, 5, 65, 8, 3, 2, "character-b", Color(1.0, 0.55, 0.55))
+	Call AddEnemyType(10, 2, 115, 5, 2, 1, "character-c", Color(0.55, 0.85, 1.0))
+	Call AddEnemyType(45, 9, 38, 14, 5, 4, "character-d", Color(0.55, 1.0, 0.55))
+	Call AddEnemyType(110, 22, 44, 18, 14, 10, "character-e", Color(1.0, 0.85, 0.35))
+End Sub
+
+Sub AddEnemyType(baseHp As Integer, hpPerWave As Integer, spd As Integer, dmg As Integer, xp As Integer, mat As Integer, skin As String, tint As Color)
+	Dim t As Object
+	Set t = New Dictionary
+	t("base_hp") = baseHp
+	t("hp_per_wave") = hpPerWave
+	t("speed") = spd
+	t("damage") = dmg
+	t("xp") = xp
+	t("mat") = mat
+	t("skin") = skin
+	t("tint") = tint
+	enemyTypes.append(t)
+End Sub
+
+Sub StartWave()
+	bossSpawned = False
+	spawnTimer.wait_time = GameManager.GetSpawnInterval()
+	spawnTimer.start()
+	waveTimer.wait_time = GameManager.GetWaveDuration()
+	waveTimer.start()
+	' Boss appears mid-wave (or quickly on wave 20).
+	If IsBossWave(GameManager.wave) Then
+		Dim delay As Single
+		If GameManager.wave = 20 Then delay = 0.5 Else delay = GameManager.GetWaveDuration() * 0.5
+		Dim timer As Object
+		timer = GetTree().create_timer(delay)
+		Connect timer, "timeout", "TrySpawnBoss"
+	End If
+End Sub
+
+Sub StopWave()
+	spawnTimer.stop()
+	waveTimer.stop()
+End Sub
+
+Function IsBossWave(w As Integer) As Boolean
+	IsBossWave = (w = 5 Or w = 10 Or w = 15 Or w = 20)
+End Function
+
+Sub _on_spawn_timer_timeout()
+	If UBound(GetTree().get_nodes_in_group("enemies")) >= MAX_LIVE_ENEMIES Then Exit Sub
+	Dim count As Integer
+	count = 1 + Int(GameManager.wave / 6.0)
+	If count > 3 Then count = 3
+	Dim i As Integer
+	For i = 0 To count - 1
+		If UBound(GetTree().get_nodes_in_group("enemies")) >= MAX_LIVE_ENEMIES Then Exit Sub
+		Call PrepareSpawn()
+	Next i
+End Sub
+
+' Boss waves: timer keeps running until boss dies (OnBossKilled ends wave).
+Sub _on_wave_timer_timeout()
+	If IsBossWave(GameManager.wave) Then
+		waveTimer.start()
+		Exit Sub
+	End If
+	Call StopWave()
+	RaiseEvent wave_ended()
+End Sub
+
+Sub PrepareSpawn()
+	If UBound(GetTree().get_nodes_in_group("enemies")) >= MAX_LIVE_ENEMIES Then Exit Sub
+	Dim pos As Object
+	pos = RandomOffscreenPos()
+	Dim warning As Object
+	Set warning = warnScene.instantiate()
+	GetParent().GetNode("GameObjects").add_child(warning)
+	warning.global_position = pos
+	Dim avail As Variant
+	If GameManager.wave >= 5 Then
+		avail = enemyTypes
+	Else
+		avail = Array(enemyTypes(0), enemyTypes(1), enemyTypes(2))
+	End If
+	Dim t As Object
+	Set t = avail(Int(Rnd() * (UBound(avail) + 1)))
+	Connect warning, "finished", "SpawnAfterWarning", pos, t
+End Sub
+
+Sub SpawnAfterWarning(pos As Object, t As Object)
+	If GameManager.game_state <> "fight" Then Exit Sub
+	Dim enemy As Object
+	Set enemy = enemyScene.instantiate()
+	GetParent().GetNode("GameObjects").add_child(enemy)
+	Dim hp As Single
+	hp = t("base_hp") + t("hp_per_wave") * GameManager.wave
+	enemy.Setup(hp, t("speed") + GameManager.wave * 2.0, t("damage"), t("xp"), t("mat"))
+	enemy.ApplySkin CStr(t("skin")), t("tint")
+	enemy.global_position = pos
+End Sub
+
+Sub TrySpawnBoss()
+	If bossSpawned Or GameManager.game_state <> "fight" Then Exit Sub
+	bossSpawned = True
+	Dim def As Object
+	Set def = FindBossDef(GameManager.wave)
+	If def Is Nothing Then Exit Sub
+	Dim pos As Object
+	pos = RandomOffscreenPos()
+	Dim warning As Object
+	Set warning = warnScene.instantiate()
+	warning.SetBig()
+	GetParent().GetNode("GameObjects").add_child(warning)
+	warning.global_position = pos
+	Connect warning, "finished", "SpawnBossAfterWarning", pos, def
+End Sub
+
+Sub SpawnBossAfterWarning(pos As Object, def As Object)
+	If GameManager.game_state <> "fight" Then Exit Sub
+	Dim enemy As Object
+	Set enemy = enemyScene.instantiate()
+	GetParent().GetNode("GameObjects").add_child(enemy)
+	Dim baseT As Object
+	Set baseT = enemyTypes(0)
+	Dim hp As Single
+	hp = baseT("base_hp") * def("hp_mult") + GameManager.wave * 40.0
+	enemy.SetupBoss(hp, def("speed"), baseT("damage") * def("dmg_mult"), def("xp"), def("mat"), CStr(def("ability")))
+	enemy.ApplySkin CStr(def("skin")), def("color")
+	enemy.global_position = pos
+End Sub
+
+Function FindBossDef(w As Integer) As Object
+	If w = 5 Then
+		Set FindBossDef = BossDef("dash", 20.0, 1.6, 70.0, 40, 25, Color(1.0, 0.4, 0.4), "character-f")
+	ElseIf w = 10 Then
+		Set FindBossDef = BossDef("shoot", 35.0, 1.7, 50.0, 60, 35, Color(0.6, 0.4, 1.0), "character-g")
+	ElseIf w = 15 Then
+		Set FindBossDef = BossDef("summon", 55.0, 1.9, 55.0, 90, 50, Color(1.0, 0.6, 0.2), "character-h")
+	ElseIf w = 20 Then
+		Set FindBossDef = BossDef("dash", 100.0, 2.4, 95.0, 150, 80, Color(0.95, 0.1, 0.1), "character-i")
+	Else
+		Set FindBossDef = Nothing
+	End If
+End Function
+
+Function BossDef(ability As String, hpMult As Single, dmgMult As Single, spd As Single, xp As Integer, mat As Integer, col As Color, skin As String) As Object
+	Dim d As Object
+	Set d = New Dictionary
+	d("ability") = ability
+	d("hp_mult") = hpMult
+	d("dmg_mult") = dmgMult
+	d("speed") = spd
+	d("xp") = xp
+	d("mat") = mat
+	d("color") = col
+	d("skin") = skin
+	Set BossDef = d
+End Function
+
+Sub OnBossKilled(ability As String)
+	If GameManager.game_state <> "fight" Then Exit Sub
+	If GameManager.wave = 20 Then
+		Call StopWave()
+		GameManager.EmitGameWon()
+	ElseIf IsBossWave(GameManager.wave) Then
+		Call StopWave()
+		RaiseEvent wave_ended()
+	End If
+End Sub
+
+' Pick a point outside the camera view but inside arena bounds.
+Function RandomOffscreenPos() As Object
+	Dim playerPos As Object
+	playerPos = Vector3(0, 0, 0)
+	Dim player As Object
+	Set player = GetTree().get_first_node_in_group("player")
+	If Not player Is Nothing Then playerPos = player.global_position
+	Dim camLeft As Single
+	Dim camRight As Single
+	Dim camTop As Single
+	Dim camBottom As Single
+	camLeft = playerPos.x - VIEW_HALF - SPAWN_MARGIN
+	camRight = playerPos.x + VIEW_HALF + SPAWN_MARGIN
+	camTop = playerPos.z - VIEW_HALF - SPAWN_MARGIN
+	camBottom = playerPos.z + VIEW_HALF + SPAWN_MARGIN
+	Dim ax1 As Single: ax1 = ARENA_MIN_X + 2
+	Dim ax2 As Single: ax2 = ARENA_MAX_X - 2
+	Dim az1 As Single: az1 = ARENA_MIN_Z + 2
+	Dim az2 As Single: az2 = ARENA_MAX_Z - 2
+	Dim side As Integer
+	side = Int(Rnd() * 4)
+	Dim x As Single
+	Dim z As Single
+	Select Case side
+		Case 0: x = RndRange(Max(ax1, camLeft - SPAWN_MARGIN * 2), Min(ax2, camLeft)): z = RndRange(az1, az2)
+		Case 1: x = RndRange(Max(ax1, camRight), Min(ax2, camRight + SPAWN_MARGIN * 2)): z = RndRange(az1, az2)
+		Case 2: x = RndRange(ax1, ax2): z = RndRange(Max(az1, camTop - SPAWN_MARGIN * 2), Min(az2, camTop))
+		Case Else: x = RndRange(ax1, ax2): z = RndRange(Max(az1, camBottom), Min(az2, camBottom + SPAWN_MARGIN * 2))
+	End Select
+	RandomOffscreenPos = Vector3(x, 0.05, z)
+End Function
+
+Function RndRange(a As Single, b As Single) As Single
+	If b < a Then RndRange = a Else RndRange = a + Rnd() * (b - a)
+End Function

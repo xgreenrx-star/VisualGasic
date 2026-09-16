@@ -1,0 +1,9 @@
+Building a Kenney-styled platformer from the Godot First 2D Game tutorial patterns.
+
+**generated/platformer/assets/kenney/** — CC0 sprites (grass, brick, alienGreen, coinGold, slimeGreen) from kenney.nl.
+
+**game.vg** — ASCII level loader, tile collision, coins (+100 score), patrolling slime, autopilot jumps at gaps/walls, `LoadPicture` + `DrawTextureRect`.
+
+**main.tscn** — Node2D + game.vg.
+
+Apply to preview — player should run, jump platforms, and collect coins.

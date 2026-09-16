@@ -1,0 +1,31 @@
+' Floating damage numbers
+Extends Node2D
+
+Dim label As Object
+Dim velY As Single
+Dim lifetime As Single
+
+Sub _Ready()
+	label = GetNode("Label")
+	velY = -60.0
+	lifetime = 0.9
+End Sub
+
+Sub Setup(text As String, col As Color)
+	label.Caption = text
+	Me.modulate = col
+End Sub
+
+Sub _Process(delta As Single)
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = Vector2(pos.x, pos.y + velY * delta)
+	lifetime = lifetime - delta
+	Dim a As Single
+	a = lifetime / 0.9
+	If a < 0 Then a = 0
+	Me.modulate.a = a
+	If lifetime <= 0 Then
+		Me.queue_free()
+	End If
+End Sub

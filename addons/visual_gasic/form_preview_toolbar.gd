@@ -424,7 +424,10 @@ func _save_breakpoints_for_preview() -> void:
 					var lines_array: Array = []
 					for line_idx in bp_lines:
 						lines_array.append(line_idx + 1)  # 0-based → 1-based
-					breakpoints[vg_path] = lines_array
+					var norm_path := vg_path
+					if _editor_plugin.has_method("normalize_vg_script_path"):
+						norm_path = _editor_plugin.normalize_vg_script_path(vg_path)
+					breakpoints[norm_path] = lines_array
 
 	# Source 2: Debugger plugin (polls ScriptEditor — rarely has .vg entries
 	# but merge them in just in case)

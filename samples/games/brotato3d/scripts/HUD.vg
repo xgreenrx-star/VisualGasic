@@ -1,0 +1,41 @@
+' =============================================================================
+' HUD.vg — combat overlay (HP, XP, wave timer, materials)
+' =============================================================================
+' CanvasLayer on the main scene. Main.vg calls UpdateHud each frame during
+' "fight" state with seconds left in the wave. Control names match the .tscn
+' (Caption on labels, max_value/value on progress bars — VB6-style aliases).
+' =============================================================================
+Extends CanvasLayer
+
+Dim hpBar As Object
+Dim hpLabel As Object
+Dim xpBar As Object
+Dim levelLabel As Object
+Dim matsLabel As Object
+Dim waveLabel As Object
+Dim timerLabel As Object
+
+Sub _Ready()
+	hpBar = GetNode("TopBar/HPSection/HPBar")
+	hpLabel = GetNode("TopBar/HPSection/HPLabel")
+	xpBar = GetNode("TopBar/XPSection/XPBar")
+	levelLabel = GetNode("TopBar/XPSection/LevelLabel")
+	matsLabel = GetNode("TopBar/MatsLabel")
+	waveLabel = GetNode("TopBar/WaveLabel")
+	timerLabel = GetNode("TopBar/TimerLabel")
+End Sub
+
+' Pull everything from GameManager.player_stats — single source of truth.
+Sub UpdateHud(timeLeft As Single)
+	Dim s As Object
+	Set s = GameManager.player_stats
+	hpBar.max_value = s("max_hp")
+	hpBar.value = s("hp")
+	hpLabel.Caption = CStr(Int(s("hp"))) & " / " & CStr(Int(s("max_hp")))
+	xpBar.max_value = s("xp_next")
+	xpBar.value = s("xp")
+	levelLabel.Caption = "Lv " & CStr(Int(s("level")))
+	matsLabel.Caption = "Mat: " & CStr(Int(s("materials")))
+	waveLabel.Caption = "Wave " & CStr(GameManager.wave) & " / " & CStr(GameManager.TOTAL_WAVES)
+	timerLabel.Caption = CStr(Int(timeLeft)) & "s"
+End Sub

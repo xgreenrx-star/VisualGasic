@@ -1,0 +1,29 @@
+Brotato 3D — keyboard controls
+================================
+
+Movement
+  W / Up arrow     Move forward (world +Z)
+  S / Down arrow   Move back
+  A / Left arrow   Move left
+  D / Right arrow  Move right
+
+Combat
+  (none)           Weapons auto-fire at the nearest enemy in range
+
+Camera — free look (default)
+  Q                Orbit yaw left
+  E                Orbit yaw right
+  R                Pitch up (zoom angle)
+  F                Pitch down
+
+Camera — chase mode (press C to toggle)
+  C                Toggle chase / free look
+  (in chase)       Camera yaw follows your movement direction
+  Q E R F          Disabled in chase mode (pitch locked)
+
+Other
+  Esc              Pause / resume
+
+Notes
+  - Start on the title screen: pick a character, then Start game.
+  - Shop between waves: click items, then Continue.

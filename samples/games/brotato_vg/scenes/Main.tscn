@@ -1,0 +1,409 @@
+[gd_scene format=3 uid="uid://main"]
+
+[ext_resource type="Script" uid="uid://dirjov0ewx3wc" path="res://scripts/Main.vg" id="1"]
+[ext_resource type="Script" uid="uid://bohaegwsvrn4v" path="res://scripts/Player.vg" id="2"]
+[ext_resource type="Script" uid="uid://bl5sbs2a2uisi" path="res://scripts/WaveManager.vg" id="3"]
+[ext_resource type="Script" uid="uid://dvse5sw43x56g" path="res://scripts/HUD.vg" id="4"]
+[ext_resource type="Script" uid="uid://ejekd4xhav6h" path="res://scripts/Shop.gd" id="5"]
+[ext_resource type="Texture2D" uid="uid://btw04mcsjy7du" path="res://assets/sprites/player.png" id="6"]
+[ext_resource type="Texture2D" uid="uid://2dp37pxuhydp" path="res://assets/tiles/floor.png" id="7"]
+
+[node name="Main" type="Node2D" unique_id=1128006639]
+script = ExtResource("1")
+
+[node name="ArenaBg" type="ColorRect" parent="." unique_id=468528048]
+offset_left = -10.0
+offset_top = -260.0
+offset_right = 1290.0
+offset_bottom = 1040.0
+color = Color(0.14, 0.12, 0.16, 1)
+
+[node name="Arena" type="Sprite2D" parent="." unique_id=1643295914]
+modulate = Color(1.15, 1.1, 1.05, 1)
+texture_repeat = 2
+position = Vector2(640, 390)
+texture = ExtResource("7")
+region_enabled = true
+region_rect = Rect2(0, 0, 1300, 1300)
+
+[node name="GameObjects" type="Node2D" parent="." unique_id=1121767264]
+
+[node name="Player" type="CharacterBody2D" parent="GameObjects" unique_id=1916216485 groups=["player"]]
+position = Vector2(640, 390)
+script = ExtResource("2")
+
+[node name="Sprite" type="Sprite2D" parent="GameObjects/Player" unique_id=216603484]
+scale = Vector2(2.8, 2.8)
+texture = ExtResource("6")
+
+[node name="Collision" type="CollisionShape2D" parent="GameObjects/Player" unique_id=1349136790]
+
+[node name="AttackTimer" type="Timer" parent="GameObjects/Player" unique_id=894439569]
+wait_time = 0.833
+
+[node name="RangeIndicator" type="Node2D" parent="GameObjects/Player" unique_id=1684629708]
+
+[node name="Camera2D" type="Camera2D" parent="GameObjects/Player" unique_id=2094712765]
+limit_left = -10
+limit_top = -260
+limit_right = 1290
+limit_bottom = 1040
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="WaveManager" type="Node" parent="." unique_id=1833284443]
+script = ExtResource("3")
+
+[node name="SpawnTimer" type="Timer" parent="WaveManager" unique_id=1779930514]
+wait_time = 1.2
+
+[node name="WaveTimer" type="Timer" parent="WaveManager" unique_id=1726957977]
+wait_time = 20.0
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1341456484]
+script = ExtResource("4")
+
+[node name="TopBar" type="HBoxContainer" parent="HUD" unique_id=1672147345]
+custom_minimum_size = Vector2(0, 44)
+anchors_preset = 10
+anchor_right = 1.0
+
+[node name="HPSection" type="HBoxContainer" parent="HUD/TopBar" unique_id=1487805771]
+layout_mode = 2
+
+[node name="HPLabelPrefix" type="Label" parent="HUD/TopBar/HPSection" unique_id=1890071802]
+layout_mode = 2
+text = "HP"
+
+[node name="HPBar" type="ProgressBar" parent="HUD/TopBar/HPSection" unique_id=1646190692]
+custom_minimum_size = Vector2(160, 18)
+layout_mode = 2
+value = 100.0
+
+[node name="HPLabel" type="Label" parent="HUD/TopBar/HPSection" unique_id=1373721867]
+layout_mode = 2
+text = "100 / 100"
+
+[node name="XPSection" type="HBoxContainer" parent="HUD/TopBar" unique_id=1320011483]
+layout_mode = 2
+
+[node name="XPLabelPrefix" type="Label" parent="HUD/TopBar/XPSection" unique_id=1357866010]
+layout_mode = 2
+text = "XP"
+
+[node name="XPBar" type="ProgressBar" parent="HUD/TopBar/XPSection" unique_id=1370769930]
+custom_minimum_size = Vector2(140, 18)
+layout_mode = 2
+
+[node name="LevelLabel" type="Label" parent="HUD/TopBar/XPSection" unique_id=1636724276]
+layout_mode = 2
+text = "Lv 1"
+
+[node name="MatsLabel" type="Label" parent="HUD/TopBar" unique_id=83418572]
+layout_mode = 2
+text = "Mat: 0"
+
+[node name="WaveLabel" type="Label" parent="HUD/TopBar" unique_id=1703018479]
+layout_mode = 2
+size_flags_horizontal = 8
+text = "Wave 1 / 20"
+
+[node name="TimerLabel" type="Label" parent="HUD/TopBar" unique_id=1815421402]
+layout_mode = 2
+text = "20s"
+
+[node name="Shop" type="CanvasLayer" parent="." unique_id=2137480255]
+script = ExtResource("5")
+
+[node name="Panel" type="PanelContainer" parent="Shop" unique_id=1071535127]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="Shop/Panel" unique_id=617031452]
+layout_mode = 2
+
+[node name="WaveLabel" type="Label" parent="Shop/Panel/VBox" unique_id=1670724285]
+layout_mode = 2
+theme_type_variation = &"headline"
+text = "Wave 1 cleared!"
+horizontal_alignment = 1
+
+[node name="MatsLabel" type="Label" parent="Shop/Panel/VBox" unique_id=1985353611]
+layout_mode = 2
+text = "Materials: 0"
+horizontal_alignment = 1
+
+[node name="Tabs" type="HBoxContainer" parent="Shop/Panel/VBox" unique_id=893789615]
+layout_mode = 2
+alignment = 1
+
+[node name="TabWeaponBtn" type="Button" parent="Shop/Panel/VBox/Tabs" unique_id=924064]
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+text = "Weapons"
+
+[node name="TabBodyBtn" type="Button" parent="Shop/Panel/VBox/Tabs" unique_id=2077387536]
+custom_minimum_size = Vector2(220, 44)
+layout_mode = 2
+text = "Body upgrades"
+
+[node name="TabItemBtn" type="Button" parent="Shop/Panel/VBox/Tabs" unique_id=63339776]
+custom_minimum_size = Vector2(200, 44)
+layout_mode = 2
+text = "Items"
+
+[node name="Content" type="Control" parent="Shop/Panel/VBox" unique_id=1614837920]
+custom_minimum_size = Vector2(0, 480)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BodySection" type="ScrollContainer" parent="Shop/Panel/VBox/Content" unique_id=1890040570]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="BodyGrid" type="GridContainer" parent="Shop/Panel/VBox/Content/BodySection" unique_id=30478996]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="ItemSection" type="ScrollContainer" parent="Shop/Panel/VBox/Content" unique_id=2073839568]
+visible = false
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ItemGrid" type="GridContainer" parent="Shop/Panel/VBox/Content/ItemSection" unique_id=1480529494]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="WeaponSection" type="ScrollContainer" parent="Shop/Panel/VBox/Content" unique_id=35694785]
+visible = false
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="WeaponVBox" type="VBoxContainer" parent="Shop/Panel/VBox/Content/WeaponSection" unique_id=677292907]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SlotsLabel" type="Label" parent="Shop/Panel/VBox/Content/WeaponSection/WeaponVBox" unique_id=549580698]
+layout_mode = 2
+text = "Your weapons (0/6)"
+
+[node name="SlotsGrid" type="GridContainer" parent="Shop/Panel/VBox/Content/WeaponSection/WeaponVBox" unique_id=1720846844]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 6
+
+[node name="ShopWeaponsLabel" type="Label" parent="Shop/Panel/VBox/Content/WeaponSection/WeaponVBox" unique_id=1557865591]
+layout_mode = 2
+text = "Available to buy:"
+
+[node name="ShopWeaponsGrid" type="GridContainer" parent="Shop/Panel/VBox/Content/WeaponSection/WeaponVBox" unique_id=58748297]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="Footer" type="HBoxContainer" parent="Shop/Panel/VBox" unique_id=1102109033]
+layout_mode = 2
+alignment = 1
+
+[node name="ContinueBtn" type="Button" parent="Shop/Panel/VBox/Footer" unique_id=1837200320]
+layout_mode = 2
+text = "Next wave"
+
+[node name="TitleScreen" type="CanvasLayer" parent="." unique_id=254889075]
+
+[node name="Panel" type="PanelContainer" parent="TitleScreen" unique_id=1930495409]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="TitleScreen/Panel" unique_id=9558495]
+layout_mode = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="TitleScreen/Panel/VBox" unique_id=1482663395]
+layout_mode = 2
+theme_type_variation = &"headline"
+text = "BROTATO MINI"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="TitleScreen/Panel/VBox" unique_id=690172868]
+layout_mode = 2
+text = "roguelite arena · 20 waves of survival"
+horizontal_alignment = 1
+
+[node name="CharLabel" type="Label" parent="TitleScreen/Panel/VBox" unique_id=880793925]
+layout_mode = 2
+text = "Choose a character"
+horizontal_alignment = 1
+
+[node name="CharScroll" type="ScrollContainer" parent="TitleScreen/Panel/VBox" unique_id=1720184597]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CharGrid" type="GridContainer" parent="TitleScreen/Panel/VBox/CharScroll" unique_id=2053559479]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 4
+
+[node name="StartBtn" type="Button" parent="TitleScreen/Panel/VBox" unique_id=1879735374]
+layout_mode = 2
+text = "Start game"
+
+[node name="Controls" type="Label" parent="TitleScreen/Panel/VBox" unique_id=1151299392]
+layout_mode = 2
+text = "WASD / Arrow keys — move
+Auto-fire at nearest enemy"
+horizontal_alignment = 1
+
+[node name="GameOverScreen" type="CanvasLayer" parent="." unique_id=375154852]
+
+[node name="Panel" type="PanelContainer" parent="GameOverScreen" unique_id=163882028]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="GameOverScreen/Panel" unique_id=393584166]
+layout_mode = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="GameOverScreen/Panel/VBox" unique_id=189811925]
+layout_mode = 2
+theme_type_variation = &"headline"
+text = "GAME OVER"
+horizontal_alignment = 1
+
+[node name="WaveLabel" type="Label" parent="GameOverScreen/Panel/VBox" unique_id=2068647653]
+layout_mode = 2
+text = "Reached wave 1"
+horizontal_alignment = 1
+
+[node name="Stats" type="GridContainer" parent="GameOverScreen/Panel/VBox" unique_id=201678461]
+layout_mode = 2
+columns = 2
+
+[node name="KillsLbl" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=2042867811]
+layout_mode = 2
+text = "Kills"
+
+[node name="KillsVal" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=724694339]
+layout_mode = 2
+text = "0"
+
+[node name="DmgLbl" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=1396139768]
+layout_mode = 2
+text = "Damage"
+
+[node name="DmgVal" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=1790711709]
+layout_mode = 2
+text = "0"
+
+[node name="MatsLbl" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=2042504301]
+layout_mode = 2
+text = "Materials"
+
+[node name="MatsVal" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=1323499453]
+layout_mode = 2
+text = "0"
+
+[node name="LvlLbl" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=1985555587]
+layout_mode = 2
+text = "Level"
+
+[node name="LvlVal" type="Label" parent="GameOverScreen/Panel/VBox/Stats" unique_id=1781819311]
+layout_mode = 2
+text = "1"
+
+[node name="RestartBtn" type="Button" parent="GameOverScreen/Panel/VBox" unique_id=1030991598]
+layout_mode = 2
+text = "Play again"
+
+[node name="WinScreen" type="CanvasLayer" parent="." unique_id=1053795633]
+
+[node name="Panel" type="PanelContainer" parent="WinScreen" unique_id=1608266892]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="WinScreen/Panel" unique_id=1621508766]
+layout_mode = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="WinScreen/Panel/VBox" unique_id=87262971]
+layout_mode = 2
+theme_type_variation = &"headline"
+text = "VICTORY!"
+horizontal_alignment = 1
+
+[node name="Sub" type="Label" parent="WinScreen/Panel/VBox" unique_id=4006730]
+layout_mode = 2
+text = "All 20 waves cleared!"
+horizontal_alignment = 1
+
+[node name="Stats" type="GridContainer" parent="WinScreen/Panel/VBox" unique_id=29102222]
+layout_mode = 2
+columns = 2
+
+[node name="KillsLbl" type="Label" parent="WinScreen/Panel/VBox/Stats" unique_id=1176731446]
+layout_mode = 2
+text = "Kills"
+
+[node name="KillsVal" type="Label" parent="WinScreen/Panel/VBox/Stats" unique_id=789810374]
+layout_mode = 2
+text = "0"
+
+[node name="DmgLbl" type="Label" parent="WinScreen/Panel/VBox/Stats" unique_id=1445228108]
+layout_mode = 2
+text = "Damage"
+
+[node name="DmgVal" type="Label" parent="WinScreen/Panel/VBox/Stats" unique_id=1602168540]
+layout_mode = 2
+text = "0"
+
+[node name="RestartBtn" type="Button" parent="WinScreen/Panel/VBox" unique_id=1444828876]
+layout_mode = 2
+text = "Play again"
+
+[node name="PauseScreen" type="CanvasLayer" parent="." unique_id=1388454044]
+process_mode = 3
+visible = false
+
+[node name="Panel" type="PanelContainer" parent="PauseScreen" unique_id=1488619583]
+process_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="VBox" type="VBoxContainer" parent="PauseScreen/Panel" unique_id=783075795]
+process_mode = 3
+layout_mode = 2
+alignment = 1
+
+[node name="Title" type="Label" parent="PauseScreen/Panel/VBox" unique_id=37614968]
+layout_mode = 2
+theme_type_variation = &"headline"
+text = "PAUSED"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="PauseScreen/Panel/VBox" unique_id=1731682506]
+layout_mode = 2
+text = "Esc — resume"
+horizontal_alignment = 1
+
+[node name="ResumeBtn" type="Button" parent="PauseScreen/Panel/VBox" unique_id=1760064937]
+process_mode = 3
+layout_mode = 2
+text = "Resume"
+
+[connection signal="timeout" from="WaveManager/SpawnTimer" to="WaveManager" method="_on_spawn_timer_timeout"]
+[connection signal="timeout" from="WaveManager/WaveTimer" to="WaveManager" method="_on_wave_timer_timeout"]
+[connection signal="pressed" from="Shop/Panel/VBox/Tabs/TabWeaponBtn" to="Shop" method="_on_tab_weapon"]
+[connection signal="pressed" from="Shop/Panel/VBox/Tabs/TabBodyBtn" to="Shop" method="_on_tab_body"]
+[connection signal="pressed" from="Shop/Panel/VBox/Tabs/TabItemBtn" to="Shop" method="_on_tab_item"]
+[connection signal="pressed" from="Shop/Panel/VBox/Footer/ContinueBtn" to="Shop" method="_on_continue_pressed"]

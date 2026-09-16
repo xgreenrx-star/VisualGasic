@@ -457,7 +457,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     auto* rc = static_cast<ResolverCtx*>(ctx);
                     String gname = String(name.c_str());
                     if (rc->self->script.is_valid()) {
-                        return rc->self->script->get_bytecode_for(gname, &rc->self->get_global_buffer_var_names());
+                        return rc->self->get_bytecode_for_sub(gname);
                     }
                     return nullptr;
                 };
@@ -2214,6 +2214,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             break;
                         }
                     }
+                }
+
+                if (val.get_type() == Variant::NIL) {
+                    val = vg_classdb_type_sentinel(name);
                 }
 
                 push_value(val);
@@ -4383,6 +4387,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                || path.begins_with("/")
                                || (path.length() >= 2 && path[1] == ':');
                     if (!is_abs) path = "user://" + path;
+
+                    // VB6 Kill supports wildcards (* and ?) in the file-name
+                    // portion and deletes every matching FILE (never a folder).
+                    // Mirror the AST interpreter's STMT_KILL wildcard handler.
+                    String kfname = path.get_file();
+                    if (kfname.find("*") != -1 || kfname.find("?") != -1) {
+                        String base_dir = path.get_base_dir();
+                        if (base_dir.is_empty()) base_dir = ".";
+                        Ref<DirAccess> kdir = DirAccess::open(base_dir);
+                        if (kdir.is_null()) {
+                            raise_error("Path not found: " + base_dir, 76);
+                        } else {
+                            kdir->set_include_navigational(false);
+                            kdir->set_include_hidden(true);
+                            int removed = 0;
+                            Error last_err = Error::OK;
+                            kdir->list_dir_begin();
+                            String entry = kdir->get_next();
+                            while (!entry.is_empty()) {
+                                if (entry != "." && entry != ".." && !kdir->current_is_dir() && entry.matchn(kfname)) {
+                                    Error e = DirAccess::remove_absolute(base_dir.path_join(entry));
+                                    if (e != Error::OK) last_err = e; else removed++;
+                                }
+                                entry = kdir->get_next();
+                            }
+                            kdir->list_dir_end();
+                            if (removed == 0) {
+                                raise_error("File not found: " + path, 53);
+                            } else if (last_err != Error::OK) {
+                                raise_error("Kill Failed (Error " + String::num(last_err) + "): " + path, 53);
+                            }
+                        }
+                        call_ret = Variant();
+                        handled = true;
+                    } else {
                     Error err = DirAccess::remove_absolute(path);
                     if (err != Error::OK) {
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
@@ -4401,6 +4440,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     call_ret = Variant();
                     handled = true;
+                    }
                 }
 
                 }  // end special-case engine-method cascade gate

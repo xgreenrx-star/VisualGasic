@@ -1,0 +1,14 @@
+' FrmCounter - Interactive Counter
+Option Explicit
+
+Dim m_Count As Integer
+
+Sub Form_Load()
+    m_Count = 0
+    lblCount.Caption = "Count: " & m_Count
+End Sub
+
+Sub btnIncrement_Click()
+    m_Count = m_Count + 1
+    lblCount.Caption = "Count: " & m_Count
+End Sub

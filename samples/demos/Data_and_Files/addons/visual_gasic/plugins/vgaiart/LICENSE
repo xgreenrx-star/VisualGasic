@@ -1,0 +1,11 @@
+This directory (`plugins/vgaiart/`) is an original component of VisualGasic
+(https://github.com/xgreenrx-star/VisualGasic), authored by the VisualGasic
+project. It is not a separate or third-party plugin.
+
+This plugin calls free, hosted third-party HTTP image-generation services
+(Pollinations, Hugging Face Inference API, or a user-run Automatic1111
+instance) — see `backends/` and `README.md` for details. No third-party code
+is vendored; only HTTP calls are made to services the user selects.
+
+Licensed under the GNU General Public License v3.0 — see the full license
+text at the root of the addon: ../../LICENSE

@@ -1,0 +1,193 @@
+' demo_python_game_dev.vg
+' VisualGasic v6.0 - Python Bridge Game Development Examples
+'
+' Practical game-development use cases for Python from VG:
+'   - Math helpers for physics & game calculations
+'   - Vector math via numpy
+'   - JSON game config serialization
+'   - AI helper (random selection with weighted bias)
+'   - Seeded RNG for reproducible procedural content
+'
+' Run: godot --headless --path demo -s test_suites/run_vg.gd -- demos/Utilities/PythonBridge/demo_python_game_dev.vg
+
+Sub Main()
+    Print "=== Python Bridge: Game Development Examples ==="
+    Print ""
+    
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+    
+    If Not bridge.InitializeBridge() Then
+        Print "FAIL: " & bridge.GetStatus()
+        Exit Sub
+    End If
+    Print "Bridge ready."
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' 1. Math for Physics & Game Calculations
+    ' ----------------------------------------------------------------
+    Print "--- 1. Physics & Game Math ---"
+    
+    Dim mathMod As Variant
+    mathMod = bridge.PyImport("math")
+    
+    ' Angle between two vectors using acos
+    Dim ax
+    ax = 1.0
+    Dim ay
+    ay = 0.0
+    Dim bx
+    bx = 0.0
+    Dim by
+    by = 1.0
+    Dim dotProd
+    dotProd = ax * bx + ay * by
+    
+    Dim magA
+    magA = bridge.PyCall(mathMod, "sqrt", Array(ax*ax + ay*ay))
+    Dim magB
+    magB = bridge.PyCall(mathMod, "sqrt", Array(bx*bx + by*by))
+    Dim angleRad
+    angleRad = bridge.PyCall(mathMod, "acos", Array(dotProd / (magA * magB)))
+    Dim angleDeg
+    angleDeg = bridge.PyCall(mathMod, "degrees", Array(angleRad))
+    Print "  Angle between (1,0) and (0,1): " & CStr(CInt(angleDeg)) & " degrees"
+    
+    ' hypot for distance
+    Dim dist
+    dist = bridge.PyCall(mathMod, "hypot", Array(3.0, 4.0))
+    Print "  hypot(3,4) = " & CStr(CInt(dist)) & "  (expected: 5)"
+    
+    ' fabs
+    Dim absVal
+    absVal = bridge.PyCall(mathMod, "fabs", Array(-5.0))
+    Print "  fabs(-5) = " & CStr(CInt(absVal)) & "  (expected: 5)"
+    
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' 2. numpy: Vector Math & Linear Algebra
+    ' ----------------------------------------------------------------
+    Print "--- 2. numpy: Vector Math ---"
+    
+    Dim npMod As Variant
+    npMod = bridge.PyImport("numpy")
+    
+    If IsEmpty(npMod) Then
+        Print "  SKIP: numpy not installed (try: pip install numpy)"
+    Else
+        ' Dot product
+        Dim vec1
+        vec1 = Array(1.0, 2.0, 3.0)
+        Dim vec2
+        vec2 = Array(4.0, 5.0, 6.0)
+        Dim dotResult
+        dotResult = bridge.PyCall(npMod, "dot", Array(vec1, vec2))
+        Print "  dot([1,2,3],[4,5,6]) = " & CStr(CInt(dotResult)) & "  (expected: 32)"
+        
+        ' Vector norm
+        Dim linAlgMod
+        linAlgMod = bridge.PyImport("numpy.linalg")
+        Dim normResult
+        normResult = bridge.PyCall(linAlgMod, "norm", Array(vec1))
+        Print "  norm([1,2,3]) = " & CStr(normResult)
+        
+        ' Create array from VG data
+        Dim arr
+        arr = bridge.PyCall(npMod, "array", Array(Array(10.0, 50.0, 30.0, 80.0, 20.0)))
+        Print "  array = " & CStr(arr)
+        
+        ' Sum
+        Dim sumResult
+        sumResult = bridge.PyCall(npMod, "sum", Array(Array(1.0, 2.0, 3.0, 4.0, 5.0)))
+        Print "  sum = " & CStr(CInt(sumResult)) & "  (expected: 15)"
+    End If
+    
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' 3. JSON Game Config
+    ' ----------------------------------------------------------------
+    Print "--- 3. Game Config (json) ---"
+    
+    Dim jsonMod As Variant
+    jsonMod = bridge.PyImport("json")
+    
+    If IsEmpty(jsonMod) Then
+        Print "  FAIL: Could not import json"
+        bridge.shutdown()
+        Exit Sub
+    End If
+    
+    ' Build a game config and serialize
+    Dim configData
+    configData = Array( _
+        Array("title", "My RPG"), _
+        Array("version", 1.0), _
+        Array("max_players", 4.0), _
+        Array("starting_hp", 100.0), _
+        Array("starting_gold", 50.0) _
+    )
+    
+    Dim jsonStr
+    jsonStr = bridge.PyCall(jsonMod, "dumps", Array(configData))
+    Print "  Config: " & CStr(jsonStr)
+    
+    ' Parse back
+    Dim parsed
+    parsed = bridge.PyCall(jsonMod, "loads", Array(jsonStr))
+    Print "  Parsed (" & CStr(parsed.size()) & " items)"
+    
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' 4. AI State Machine Transitions
+    ' ----------------------------------------------------------------
+    Print "--- 4. AI State Transitions ---"
+    
+    Dim transitions
+    transitions = Array( _
+        Array("idle", "patrol"), _
+        Array("patrol", "chase"), _
+        Array("chase", "attack"), _
+        Array("attack", "chase"), _
+        Array("chase", "flee"), _
+        Array("flee", "idle"), _
+        Array("any", "dead") _
+    )
+    
+    Dim transJson
+    transJson = bridge.PyCall(jsonMod, "dumps", Array(transitions))
+    Print "  " & CStr(transitions.size()) & " transitions serialized"
+    
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' 5. Seeded Random Generation
+    ' ----------------------------------------------------------------
+    Print "--- 5. Seeded Random Generation ---"
+    
+    Dim pyRandom
+    pyRandom = bridge.PyImport("random")
+    
+    If Not IsEmpty(pyRandom) Then
+        ' Seed the RNG for reproducible content
+        bridge.PyCall pyRandom, "seed", Array(42.0)
+        
+        ' Random choice from item list
+        Dim items
+        items = Array("sword", "shield", "potion", "ring", "staff")
+        Dim chosen
+        chosen = bridge.PyCall(pyRandom, "choice", Array(items))
+        Print "  Item (seed=42): " & CStr(chosen)
+    End If
+    
+    Print ""
+    
+    ' ----------------------------------------------------------------
+    ' Cleanup
+    ' ----------------------------------------------------------------
+    bridge.shutdown()
+    Print "=== Game Dev Demo Complete ==="
+End Sub

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a6cd4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a4494;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded rect -->
+  <rect x="8" y="8" width="240" height="240" rx="32" ry="32" fill="url(#bg)" stroke="#1a3474" stroke-width="4"/>
+  <!-- VG text -->
+  <text x="128" y="148" font-family="Arial,Helvetica,sans-serif" font-size="110" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">VG</text>
+  <!-- Subtitle -->
+  <text x="128" y="210" font-family="Arial,Helvetica,sans-serif" font-size="24" fill="#b8ccff" text-anchor="middle">Visual Gasic</text>
+</svg>

@@ -87,7 +87,7 @@ public:
     // Tools
     void format_source_code();
     void clear_bytecode_cache();
-    BytecodeChunk *get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars = nullptr);
+    BytecodeChunk *get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars = nullptr, const Vector<ModuleNode*>* import_modules = nullptr);
     Dictionary debug_dump_bytecode(const String &entry_point);
 };
 

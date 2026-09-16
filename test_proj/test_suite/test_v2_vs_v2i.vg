@@ -1,0 +1,14 @@
+Sub _Ready()
+    ' Test both Vector2 and Vector2i with floats
+    Print "Creating Vector2 with floats..."
+    Dim v2 As Vector2
+    v2 = Vector2(10.5, 20.5)
+    Print "v2 created: " & v2.ToString()
+    
+    Print "Creating Vector2i with ints..."
+    Dim v2i As Vector2i
+    v2i = Vector2i(10, 20)
+    Print "v2i created: " & v2i.ToString()
+    
+    Print "PASS: both created"
+End Sub

@@ -1,0 +1,41 @@
+' =============================================================================
+' FloatText3D.vg — damage numbers that rise and fade (Label3D in world space)
+' =============================================================================
+' Spawned deferred from Enemy3D.TakeHit (never sync add_child from bullet hit
+' path — that re-enters the scene tree and can deadlock). Group: "float_text".
+' =============================================================================
+Extends Node3D
+
+Dim label As Object
+Dim velY As Single
+Dim lifetime As Single
+
+Sub _Ready()
+	label = GetNode("Label3D")
+	velY = 2.5
+	lifetime = 0.9
+	Me.AddToGroup("float_text")
+End Sub
+
+Sub Setup(text As String, col As Color)
+	If Not label Is Nothing Then
+		label.text = text
+		label.modulate = col
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + Vector3(0, velY * delta, 0)
+	lifetime = lifetime - delta
+	If Not label Is Nothing Then
+		Dim a As Single
+		a = lifetime / 0.9
+		If a < 0 Then a = 0
+		Dim c As Color
+		c = label.modulate
+		label.modulate = Color(c.r, c.g, c.b, a)
+	End If
+	If lifetime <= 0 Then Me.queue_free()
+End Sub

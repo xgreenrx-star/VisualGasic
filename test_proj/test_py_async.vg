@@ -1,0 +1,83 @@
+' test_py_async.vg
+' Godot smoke test for the Python bridge's async task contract.
+'
+' This file is mirrored into the project root so the bundled Godot test harness
+' can execute it via res://test_py_async.vg.
+
+Sub Main()
+    Print "=== Python Bridge Async / Batch / Error Tracking Demo ==="
+    Print ""
+
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+
+    If Not bridge.InitializeBridge() Then
+        Print "FAIL: " & bridge.GetStatus()
+        Exit Sub
+    End If
+    Print "Status: " & bridge.GetStatus()
+
+    Dim mathMod As Variant
+    mathMod = bridge.PyImport("math")
+
+    Print ""
+    Print "--- PyCallAsync ---"
+    Dim pyTask As Variant
+    pyTask = bridge.PyCallAsync(mathMod, "sqrt", Array(256.0))
+    Print "Task type: " & TypeName(pyTask)
+
+    Dim waitCount As Integer
+    waitCount = 0
+    Do While pyTask.IsRunning
+        waitCount = waitCount + 1
+        If waitCount > 100 Then Exit Do
+    Loop
+
+    If pyTask.IsComplete Then
+        Print "Async sqrt(256) = " & CStr(pyTask.Result)
+    ElseIf pyTask.IsFailed Then
+        Print "Async failed: " & pyTask.Error
+    End If
+
+    Print ""
+    Print "--- PyCallMany (Batch Calls) ---"
+    Dim calls As Variant
+    calls = Array( _
+        Array(mathMod, "sqrt", Array(9.0)), _
+        Array(mathMod, "sqrt", Array(16.0)), _
+        Array(mathMod, "pow", Array(2.0, 8.0)) _
+    )
+
+    Dim results As Variant
+    results = bridge.PyCallMany(calls)
+    Print "Batch results (" & CStr(results.size()) & ")"
+    Print "  [0] sqrt(9)  = " & CStr(results[0])
+    Print "  [1] sqrt(16) = " & CStr(results[1])
+    Print "  [2] pow(2,8) = " & CStr(results[2])
+
+    Print ""
+    Print "--- PyLastError ---"
+    Dim err As Variant
+    err = bridge.PyLastError()
+    Print "Last error: " & CStr(err)
+
+    Dim badResult As Variant
+    badResult = bridge.PyCall(mathMod, "nonexistent", Array(42))
+    err = bridge.PyLastError()
+    Print "After bad call - error type: " & TypeName(err)
+    Print "Error msg: " & CStr(err)
+
+    Print ""
+    Print "--- PyEnvInfo ---"
+    Dim env As Variant
+    env = bridge.PyEnvInfo()
+    Print "Python version: " & CStr(env["version"])
+    Print "Worker PID: " & CStr(env["pid"])
+    Print "Uptime ms: " & CStr(env["uptime_ms"])
+    Print "Call count: " & CStr(env["call_count"])
+    Print "Modules loaded: " & CStr(env["modules_loaded"])
+
+    bridge.shutdown()
+    Print ""
+    Print "=== Demo Complete ==="
+End Sub

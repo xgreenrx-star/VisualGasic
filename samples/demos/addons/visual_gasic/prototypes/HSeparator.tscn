@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="HSeparator" type="HSeparator"]
+custom_minimum_size = Vector2(150, 4)
+offset_right = 150.0
+offset_bottom = 4.0

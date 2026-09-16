@@ -9,7 +9,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="$ROOT/Godot_v4.6.1-stable_linux.x86_64"
-HOST_PROJECT="$ROOT/projects/vg_narcea_test"
+HOST_PROJECT="$ROOT/samples/internal/vg_narcea_test"
 TEST_SCRIPT="$ROOT/tests/test_narcea_golden_spec.gd"
 TIMEOUT="${NARCEA_GOLDEN_TIMEOUT:-90}"
 TIER="A"

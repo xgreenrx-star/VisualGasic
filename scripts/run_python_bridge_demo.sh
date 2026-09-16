@@ -8,11 +8,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 NAME="${1:-demo_python_bridge.vg}"
-SRC="$ROOT/demos/Utilities/PythonBridge/$NAME"
+SRC="$ROOT/samples/demos/Utilities/PythonBridge/$NAME"
 if [[ ! -f "$SRC" ]]; then
 	echo "ERROR: demo not found: $SRC" >&2
 	echo "Available:" >&2
-	ls -1 "$ROOT/demos/Utilities/PythonBridge/"*.vg 2>/dev/null | xargs -n1 basename >&2
+	ls -1 "$ROOT/samples/demos/Utilities/PythonBridge/"*.vg 2>/dev/null | xargs -n1 basename >&2
 	exit 1
 fi
 

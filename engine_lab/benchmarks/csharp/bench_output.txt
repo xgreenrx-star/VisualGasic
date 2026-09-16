@@ -1,0 +1,136 @@
+Godot Engine v4.6.1.stable.mono.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+C# benchmarks: enabled
+Warmup...
+[VG] Parsing: res://bench.vg
+[VG] Parse completed, errors: 0
+Running benchmarks...
+
+=== Arithmetic ===
+GDScript: { "elapsed_us": 11277, "checksum": 298300000 }
+VisualGasic: { "elapsed_us": 74, "checksum": 298300000 }
+C++: { "elapsed_us": 126, "checksum": 298300000 }
+C#: { "elapsed_us": 447, "checksum": 298300000 }
+VisualGasic vs GDScript: 0.0065620289084x
+C++ vs GDScript: 0.01117318435754x
+C# vs GDScript: 0.03963820164937x
+VisualGasic vs C#: 0.165548098434x
+Fastest: VisualGasic
+
+=== ArraySum ===
+GDScript: { "elapsed_us": 9389, "checksum": 99900000 }
+VisualGasic: { "elapsed_us": 299, "checksum": 99900000 }
+C++: { "elapsed_us": 122, "checksum": 99900000 }
+C#: { "elapsed_us": 1074, "checksum": 99900000 }
+VisualGasic vs GDScript: 0.03184577697305x
+C++ vs GDScript: 0.01299392906593x
+C# vs GDScript: 0.11438917882629x
+VisualGasic vs C#: 0.27839851024209x
+Fastest: C++
+
+=== StringConcat ===
+GDScript: { "elapsed_us": 10730, "checksum": 400 }
+VisualGasic: { "elapsed_us": 201, "checksum": 400 }
+C++: { "elapsed_us": 1043, "checksum": 400 }
+C#: { "elapsed_us": 10831, "checksum": 400 }
+VisualGasic vs GDScript: 0.01873252562908x
+C++ vs GDScript: 0.09720410065238x
+C# vs GDScript: 1.009412861137x
+VisualGasic vs C#: 0.01855784322777x
+Fastest: VisualGasic
+
+=== Branching ===
+GDScript: { "elapsed_us": 14798, "checksum": -100000 }
+VisualGasic: { "elapsed_us": 210, "checksum": -100000 }
+C++: { "elapsed_us": 108, "checksum": -100000 }
+C#: { "elapsed_us": 975, "checksum": -100000 }
+VisualGasic vs GDScript: 0.01419110690634x
+C++ vs GDScript: 0.00729828355183x
+C# vs GDScript: 0.06588728206514x
+VisualGasic vs C#: 0.21538461538462x
+Fastest: C++
+
+=== FunctionCall ===
+GDScript: { "elapsed_us": 10229, "checksum": 50000 }
+VisualGasic: { "elapsed_us": 162, "checksum": 50000 }
+C#: { "elapsed_us": 518, "checksum": 50000 }
+VisualGasic vs GDScript: 0.01583732525174x
+C# vs GDScript: 0.05064033629876x
+VisualGasic vs C#: 0.31274131274131x
+Fastest: VisualGasic
+
+=== ArrayDict ===
+GDScript: { "elapsed_us": 23822, "checksum": 49152000 }
+VisualGasic: { "elapsed_us": 5859, "checksum": 49152000 }
+C++: { "elapsed_us": 7388, "checksum": 49152000 }
+C#: { "elapsed_us": 136052, "checksum": 49152000 }
+VisualGasic vs GDScript: 0.24594912265973x
+C++ vs GDScript: 0.31013349005121x
+C# vs GDScript: 5.71119133574007x
+VisualGasic vs C#: 0.04306441654661x
+Fastest: VisualGasic
+
+=== DictFastGet ===
+GDScript: { "elapsed_us": 58841, "checksum": 52326400 }
+VisualGasic: { "elapsed_us": 3732, "checksum": 52326400 }
+C#: { "elapsed_us": 236745, "checksum": 52326400 }
+VisualGasic vs GDScript: 0.06342516272667x
+C# vs GDScript: 4.02347002940127x
+VisualGasic vs C#: 0.01576379648989x
+Fastest: VisualGasic
+
+=== DictFastSet ===
+GDScript: { "elapsed_us": 18163, "checksum": 93184000 }
+VisualGasic: { "elapsed_us": 2055, "checksum": 93184000 }
+C#: { "elapsed_us": 192105, "checksum": 93184000 }
+VisualGasic vs GDScript: 0.11314210207565x
+C# vs GDScript: 10.5767219071739x
+VisualGasic vs C#: 0.01069727492777x
+Fastest: VisualGasic
+
+=== Interop ===
+GDScript: { "elapsed_us": 10822, "checksum": 166200 }
+VisualGasic: { "elapsed_us": 242, "checksum": 166200 }
+C++: { "elapsed_us": 8151, "checksum": 166200 }
+C#: { "elapsed_us": 44650, "checksum": 166200 }
+VisualGasic vs GDScript: 0.02236185547958x
+C++ vs GDScript: 0.75318795047126x
+C# vs GDScript: 4.12585474034374x
+VisualGasic vs C#: 0.00541993281075x
+Fastest: VisualGasic
+
+=== Allocations ===
+GDScript: { "elapsed_us": 6290, "checksum": 13440000 }
+VisualGasic: { "elapsed_us": 232, "checksum": 13440000 }
+C++: { "elapsed_us": 447, "checksum": 13440000 }
+C#: { "elapsed_us": 11251, "checksum": 13440000 }
+VisualGasic vs GDScript: 0.0368839427663x
+C++ vs GDScript: 0.07106518282989x
+C# vs GDScript: 1.78871224165342x
+VisualGasic vs C#: 0.02062038929873x
+Fastest: VisualGasic
+
+=== AllocationsFast ===
+GDScript: { "elapsed_us": 7582, "checksum": 655360 }
+VisualGasic: { "elapsed_us": 823, "checksum": 655360 }
+C++: { "elapsed_us": 139, "checksum": 655360 }
+C#: { "elapsed_us": 1435, "checksum": 655360 }
+VisualGasic vs GDScript: 0.10854655763651x
+C++ vs GDScript: 0.01833289369559x
+C# vs GDScript: 0.18926404642575x
+VisualGasic vs C#: 0.57351916376307x
+Fastest: C++
+
+=== FileIO ===
+GDScript: { "elapsed_us": 759, "checksum": 2048 }
+VisualGasic: { "elapsed_us": 466, "checksum": 2048 }
+C++: { "elapsed_us": 310, "checksum": 2048 }
+C#: { "elapsed_us": 2477, "checksum": 2048 }
+VisualGasic vs GDScript: 0.61396574440053x
+C++ vs GDScript: 0.40843214756258x
+C# vs GDScript: 3.2635046113307x
+VisualGasic vs C#: 0.1881308033912x
+Fastest: C++
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2641)

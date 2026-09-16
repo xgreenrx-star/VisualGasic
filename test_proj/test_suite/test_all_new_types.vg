@@ -1,0 +1,15 @@
+Sub _Ready()
+    Dim v2 As Vector2
+    v2 = New Vector2(10.5, 20.5)
+    Print v2.ToString()
+    
+    Dim v3 As Vector3
+    v3 = New Vector3(1.5, 2.5, 3.5)
+    Print v3.ToString()
+    
+    Dim r2 As Rect2
+    r2 = New Rect2(0.5, 1.5, 10.5, 20.5)
+    Print r2.ToString()
+    
+    Print "PASS: all_new_types_work"
+End Sub

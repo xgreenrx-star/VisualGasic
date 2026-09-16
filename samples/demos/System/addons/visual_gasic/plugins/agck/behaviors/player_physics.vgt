@@ -1,0 +1,129 @@
+Sub _PhysicsProcess(delta As Single)
+    ' Read current velocity from CharacterBody2D
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+
+    ' Ladder detection — reset module-scoped flag each frame
+    on_ladder = False
+    Dim ladders As Variant = GetTree().GetNodesInGroup("ladder")
+    Dim half_sq As Single = {{HALF_SQ}}
+    Dim full_sq As Single = {{FULL_SQ}}
+    Dim hx As Single = Me.position.x
+    Dim hy As Single = Me.position.y
+    If ladders <> Nothing Then
+        Dim li As Integer
+        For li = 0 To ladders.size() - 1
+            Dim lnode As Variant = ladders.Get(li)
+            If lnode <> Nothing Then
+                Dim ldx As Single = lnode.global_position.x - hx
+                Dim ldy As Single = lnode.global_position.y - hy
+                Dim ldx2 As Single = ldx * ldx
+                Dim ldy2 As Single = ldy * ldy
+                If ldx2 < half_sq Then
+                    If ldy2 < full_sq Then
+                        on_ladder = True
+                    End If
+                End If
+            End If
+        Next
+    End If
+
+    Dim climb_speed As Single = {{CLIMB_SPEED}}
+    If on_ladder Then
+        ' On ladder — suppress gravity, climb with up/down
+        If Input.IsActionPressed("ui_up") Then
+            vy = -climb_speed
+        ElseIf Input.IsActionPressed("ui_down") Then
+            vy = climb_speed
+        Else
+            vy = 0
+        End If
+    Else
+        ' Apply gravity normally
+        vy = vy + Gravity * delta
+    End If
+
+    ' Horizontal movement
+    ' Hold Shift / pad-X to run (Mario-style sprint). The run
+    ' multiplier kicks Speed up to a sprint top speed; without it
+    ' the player walks at the configured base Speed.
+    Dim run_mult As Single = 1.0
+    If InputMap.HasAction("agck_run") And Input.IsActionPressed("agck_run") Then
+        run_mult = {{RUN_MULTIPLIER}}
+    End If
+    If Input.IsActionPressed("ui_left") Then
+        vx = -Speed * run_mult
+    ElseIf Input.IsActionPressed("ui_right") Then
+        vx = Speed * run_mult
+    Else
+        vx = 0
+    End If
+
+    ' Jumping (disabled while climbing a ladder).
+    ' ── Coyote time + jump buffer (Tier-1 platformer feel) ──
+    ' Coyote: keep CoyoteTimer = 0.1s while on the floor; otherwise
+    ' tick it down. The player can jump as long as it's > 0, even
+    ' if they've already walked off the ledge.
+    ' Jump buffer: when the player presses jump, set
+    ' JumpBufferTimer = 0.1s. The actual jump fires the next frame
+    ' the player is grounded (or in coyote window), forgiving
+    ' early presses while still falling.
+    If IsOnFloor(Me) Then
+        CoyoteTimer = {{COYOTE_TIME}}
+    Else
+        CoyoteTimer = CoyoteTimer - delta
+        If CoyoteTimer < 0 Then CoyoteTimer = 0
+    End If
+    If Input.IsActionJustPressed("ui_accept") Then
+        JumpBufferTimer = {{JUMP_BUFFER_TIME}}
+    Else
+        JumpBufferTimer = JumpBufferTimer - delta
+        If JumpBufferTimer < 0 Then JumpBufferTimer = 0
+    End If
+    If JumpBufferTimer > 0 And CoyoteTimer > 0 And Not on_ladder Then
+        vy = -{{JUMP_VELOCITY}}
+        JumpBufferTimer = 0
+        CoyoteTimer = 0
+{{JUMP_SFX}}    End If
+    ' Variable jump height — releasing jump mid-rise cuts vy in
+    ' half. Short tap = small hop, hold = full jump. Match for
+    ' Mario / Celeste / Hollow Knight feel.
+    If Input.IsActionJustReleased("ui_accept") And vy < 0 Then
+        vy = vy * {{VARIABLE_JUMP_CUT}}
+    End If
+
+    ' Write velocity back and move
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+
+    ' Invincibility timer — blink and restore after damage
+    If IsInvincible Then
+        InvincibleTimer = InvincibleTimer - delta
+        If InvincibleTimer <= 0 Then
+            IsInvincible = False
+            Me.visible = True
+            Me.modulate = Color(1, 1, 1, 1)
+        Else
+            ' Blink effect
+            Me.visible = Not Me.visible
+        End If
+    End If
+
+    ' Fall-off-map detection
+    If Me.GlobalPosition.Y > {{KILL_Y}} Then
+        Dim main As Node2D = GetTree().CurrentScene
+        If main <> Nothing And main.HasMethod("LoseLife") Then
+            main.LoseLife()
+        End If
+    End If
+End Sub
+
+' Called by Powerup actors (mushroom, star) when picked up.
+Sub Powerup()
+    If Not IsPowered Then
+        IsPowered = True
+        MaxHP = MaxHP + 50
+    End If
+    CurrentHP = MaxHP
+End Sub
+

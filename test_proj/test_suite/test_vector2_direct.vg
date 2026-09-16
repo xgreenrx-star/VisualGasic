@@ -1,0 +1,13 @@
+Sub _Ready()
+    Dim v As Vector2
+    v = Vector2(10.5, 20.5)
+    
+    Print "Test: Direct Vector2 construction"
+    Print "v = " & v.ToString()
+    
+    If v.x = 10.5 And v.y = 20.5 Then
+        Print "PASS: vector2_direct"
+    Else
+        Print "FAIL: vector2_direct: v.x=" & v.x & " v.y=" & v.y
+    End If
+End Sub

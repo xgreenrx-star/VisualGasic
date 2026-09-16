@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/Badge.gd" id="1"]
+
+[node name="Badge" type="Control"]
+custom_minimum_size = Vector2(22, 22)
+offset_right = 22.0
+offset_bottom = 22.0
+script = ExtResource("1")

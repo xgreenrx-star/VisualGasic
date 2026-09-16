@@ -1,0 +1,9 @@
+Scaffolding a shader-on-shapes reel matching the Beta Showcase spectacle.
+
+**generated/shader_art/shaders/** — `synth_grid.gdshader`, `chrome_metaball.gdshader`, `fault_cube.gdshader` on a plane, sphere, and cube.
+
+**shader_art_manager.gd** — orbiting camera, 6s per scene: synth grid → liquid chrome → fault cube.
+
+**main.tscn** — Node3D root for F5 / SubViewport preview.
+
+You code the art — shaders + simple shapes, no bitmap sprites. Apply to preview.

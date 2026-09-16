@@ -72,7 +72,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 
 **Carried from 5.4.0-beta1:**
 - **12/12 compute + 9/9 draw** — full published benchmark suite faster than GDScript
-- **VG Beta Showcase** — `projects/vg_beta_showcase/` (~6 min tour) · [Watch on YouTube](https://youtu.be/FUw8zgbn_tU)
+- **VG Beta Showcase** — `samples/showcases/vg_beta_showcase/` (~6 min tour) · [Watch on YouTube](https://youtu.be/FUw8zgbn_tU)
 
 **Shipping next:**
 - **20 proven working examples** — every file in the repo compiles and runs correctly, no exceptions
@@ -135,11 +135,11 @@ Visual Gasic is built to be **readable and fast**. Published numbers are reprodu
 
 **Reproduce:** `scons platform=linux target=editor` then `scripts/benchmark_regression_check.sh` (fails if VG loses to GDScript).
 
-Canonical tables and methodology: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** · [Performance guide](docs/manual/performance.md) · [Draw suite](demo/benchmarks/draw/README.md)
+Canonical tables and methodology: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** · [Performance guide](docs/manual/performance.md) · [Draw suite](engine_lab/benchmarks/draw/README.md)
 
 #### Compute microbenchmarks (12 tests — all faster than GDScript)
 
-From [`demo/bench.vg`](demo/bench.vg) via `scripts/run_compute_benchmarks.sh` · [`demo/benchmarks/bench_output.txt`](demo/benchmarks/bench_output.txt)
+From [`engine_lab/bench.vg`](engine_lab/bench.vg) via `scripts/run_compute_benchmarks.sh` · [`engine_lab/benchmarks/bench_output.txt`](engine_lab/benchmarks/bench_output.txt)
 
 | Test | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
 |------|-------------:|------------------:|---------:|---------------:|
@@ -158,7 +158,7 @@ From [`demo/bench.vg`](demo/bench.vg) via `scripts/run_compute_benchmarks.sh` ·
 
 #### Canvas draw benchmarks (9 workloads — all faster than GDScript)
 
-From [`demo/benchmarks/draw/`](demo/benchmarks/draw/) via `scripts/run_draw_benchmarks.sh` · metric: µs inside `_Draw`
+From [`engine_lab/benchmarks/draw/`](engine_lab/benchmarks/draw/) via `scripts/run_draw_benchmarks.sh` · metric: µs inside `_Draw`
 
 | Workload | GDScript (µs) | Visual Gasic (µs) | C++ (µs) | VG vs GDScript |
 |----------|-------------:|------------------:|---------:|---------------:|
@@ -358,9 +358,14 @@ VisualGasic/
 │   ├── reference/              # API and syntax references
 │   ├── guides/                 # Getting started and tutorials
 │   └── development/            # Implementation status and TODOs
-├── demo/                        # Godot test project
-├── demos/                       # Example VisualGasic projects (2D, 3D, UI, Audio, Mobile, …)
-├── examples/                    # Example VisualGasic projects
+├── engine_lab/                  # Benchmarks, fuzz, engine harness (symlink: demo/)
+├── samples/                     # Games, apps, showcases, feature demos
+│   ├── games/                   # Playable game ports (Brotato, Asteroids, …)
+│   ├── apps/                    # Utility apps (TwinPane, UI tools, …)
+│   ├── showcases/               # Beta showcase, Narcea movie demo, …
+│   ├── demos/                   # Small feature demos by topic (symlink: demos/)
+│   └── internal/                # Narcea test harness, AGCK tests
+├── projects/                    # Compatibility symlinks → samples/*
 ├── tests/                       # Test suite
 ├── godot-cpp/                   # Godot C++ bindings (submodule)
 └── addons/visual_gasic/         # Godot plugin files
@@ -505,7 +510,7 @@ VisualGasic ships with **13 playable demo projects** — open any of them in God
 | High Scores | Data | File I/O with DATA/READ statements |
 | Parallel Demo | Threading | Async/Await and Parallel For demonstration |
 
-See the [demos/](demos/) directory for source code.
+See [samples/demos/](samples/demos/) for source code (legacy symlink: [demos/](demos/)).
 
 ## 📖 **Documentation**
 

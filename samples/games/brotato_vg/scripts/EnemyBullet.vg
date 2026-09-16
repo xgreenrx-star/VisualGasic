@@ -1,0 +1,52 @@
+' Boss shooter projectile
+Extends Node2D
+
+Const ARENA_MIN_X As Single = -60.0
+Const ARENA_MAX_X As Single = 1340.0
+Const ARENA_MIN_Y As Single = -310.0
+Const ARENA_MAX_Y As Single = 1090.0
+
+Dim velocityVec As Object
+Dim damage As Single
+Dim lifetime As Single
+Dim hitRadius As Single
+Dim done As Boolean
+
+Sub Setup(dir As Object, speed As Single, pDamage As Single, col As Color)
+	velocityVec = dir.normalized() * speed
+	damage = pDamage
+	lifetime = 3.0
+	hitRadius = 24.0
+	done = False
+	Dim sprite As Object
+	sprite = GetNode("Sprite")
+	If Not sprite Is Nothing Then
+		sprite.modulate = col
+		sprite.scale = Vector2(1.6, 1.6)
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	If done Then Exit Sub
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + velocityVec * delta
+	lifetime = lifetime - delta
+	If lifetime <= 0 Or pos.x < ARENA_MIN_X Or pos.x > ARENA_MAX_X Or pos.y < ARENA_MIN_Y Or pos.y > ARENA_MAX_Y Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	Dim players As Variant
+	players = GetTree().get_nodes_in_group("player")
+	If UBound(players) >= 0 Then
+		Dim p As Object
+		Set p = players(0)
+		If Not p Is Nothing Then
+			If Me.global_position.distance_to(p.global_position) < hitRadius Then
+				p.take_damage(damage)
+				done = True
+				Me.queue_free()
+			End If
+		End If
+	End If
+End Sub

@@ -81,11 +81,11 @@ tree_hash() {
 # */addons/visual_gasic that has a sibling project.godot and is not excluded.
 find_copies() {
     local roots=(
-        "$REPO_ROOT/demo"
-        "$REPO_ROOT/demos"
-        "$REPO_ROOT/examples"
-        "$REPO_ROOT/game_projects"
+        "$REPO_ROOT/engine_lab"
+        "$REPO_ROOT/samples"
         "$REPO_ROOT/test_proj"
+        # Legacy compat symlinks (projects/*, demo, demos) — skip if absent.
+        "$REPO_ROOT/projects"
     )
     local extra
     for extra in "${EXTRA_INCLUDES[@]}"; do roots+=("$extra"); done
@@ -177,13 +177,28 @@ cmd_check() {
 
 convert_one() {
     local copy="$1" canonical_hash="$2"
-    [ -L "$copy" ] && return 0
-    local h
-    h="$(tree_hash "$copy")"
-    if [ "$h" != "$canonical_hash" ] && [ "$FORCE" -ne 1 ]; then
-        printf "%sskip (drift):%s %s — reconcile first, or re-run with --force\n" \
-            "$C_YELLOW" "$C_OFF" "${copy#$REPO_ROOT/}"
-        return 1
+    if [ -L "$copy" ]; then
+        local resolved
+        resolved="$(readlink -f "$copy" || true)"
+        if [ "$resolved" = "$(readlink -f "$CANONICAL")" ]; then
+            return 0
+        fi
+        # Stale relative link (e.g. after projects/ -> samples/ move) — relink.
+        if [ "$DRY_RUN" -eq 1 ]; then
+            local target
+            target="$(rel_link_target "$copy")"
+            printf "%swould relink:%s %s -> %s\n" "$C_GREEN" "$C_OFF" "${copy#$REPO_ROOT/}" "$target"
+            return 0
+        fi
+        rm "$copy"
+    elif [ -d "$copy" ]; then
+        local h
+        h="$(tree_hash "$copy")"
+        if [ "$h" != "$canonical_hash" ] && [ "$FORCE" -ne 1 ]; then
+            printf "%sskip (drift):%s %s — reconcile first, or re-run with --force\n" \
+                "$C_YELLOW" "$C_OFF" "${copy#$REPO_ROOT/}"
+            return 1
+        fi
     fi
     local target
     target="$(rel_link_target "$copy")"
@@ -196,6 +211,32 @@ convert_one() {
     printf "%slinked:%s %s -> %s\n" "$C_GREEN" "$C_OFF" "${copy#$REPO_ROOT/}" "$target"
 }
 
+find_projects_missing_addon() {
+    local roots=(
+        "$REPO_ROOT/engine_lab"
+        "$REPO_ROOT/samples"
+        "$REPO_ROOT/test_proj"
+        "$REPO_ROOT/projects"
+    )
+    local root pg proj copy
+    for root in "${roots[@]}"; do
+        [ -d "$root" ] || continue
+        while IFS= read -r -d '' pg; do
+            proj="$(dirname "$pg")"
+            copy="$proj/addons/visual_gasic"
+            is_excluded "$copy" && continue
+            [ "$copy" = "$CANONICAL" ] && continue
+            if [ -L "$copy" ]; then
+                resolved="$(readlink -f "$copy" || true)"
+                [ "$resolved" = "$(readlink -f "$CANONICAL")" ] && continue
+            elif [ -d "$copy" ]; then
+                continue
+            fi
+            printf "%s\n" "$copy"
+        done < <(find "$root" -maxdepth 6 -name project.godot -print0 2>/dev/null)
+    done
+}
+
 cmd_convert() {
     local canonical_hash copy
     canonical_hash="$(tree_hash "$CANONICAL")"
@@ -203,6 +244,10 @@ cmd_convert() {
         [ -z "$copy" ] && continue
         convert_one "$copy" "$canonical_hash" || true
     done < <(find_copies)
+    while IFS= read -r copy; do
+        [ -z "$copy" ] && continue
+        convert_one "$copy" "$canonical_hash" || true
+    done < <(find_projects_missing_addon)
 }
 
 cmd_restore() {

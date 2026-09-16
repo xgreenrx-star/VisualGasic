@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://bullet"]
+
+[ext_resource type="Script" uid="uid://b36dxavoh222s" path="res://scripts/Bullet.vg" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/bullet.png" id="2"]
+
+[node name="Bullet" type="Area2D"]
+script = ExtResource("1")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2")
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+
+[connection signal="body_entered" from="." to="." method="_on_body_entered"]

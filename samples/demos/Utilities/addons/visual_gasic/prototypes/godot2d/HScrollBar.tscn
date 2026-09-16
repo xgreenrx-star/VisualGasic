@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="HScrollBar" type="HScrollBar"]
+custom_minimum_size = Vector2(120, 16)

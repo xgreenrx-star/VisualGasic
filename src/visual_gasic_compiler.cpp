@@ -1,5 +1,6 @@
 #include "visual_gasic_compiler.h"
 #include "vg_autoloads.h"
+#include "vg_classdb_globals.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -256,6 +257,39 @@ void VisualGasicCompiler::emit_loop(int loop_start) {
     emit_byte(offset & 0xFF);
 }
 
+static SubDefinition* _resolve_sub_in_module(ModuleNode* module, const String& method_name, int arg_count) {
+    if (!module) {
+        return nullptr;
+    }
+    SubDefinition* first_match = nullptr;
+    for (int i = 0; i < module->subs.size(); i++) {
+        if (module->subs[i]->name.nocasecmp_to(method_name) != 0) {
+            continue;
+        }
+        if (!first_match) {
+            first_match = module->subs[i];
+        }
+        if (module->subs[i]->parameters.size() == arg_count) {
+            return module->subs[i];
+        }
+    }
+    return first_match;
+}
+
+SubDefinition* VisualGasicCompiler::resolve_call_target(const String &method_name, int arg_count) const {
+    SubDefinition* found = _resolve_sub_in_module(current_module, method_name, arg_count);
+    if (found) {
+        return found;
+    }
+    for (int m = 0; m < import_modules.size(); m++) {
+        found = _resolve_sub_in_module(import_modules[m], method_name, arg_count);
+        if (found) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
 bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk, const HashSet<String>* extra_buffer_vars) {
     current_chunk = chunk;
     current_module = module;
@@ -423,6 +457,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     for (const char **s = godot_singletons; *s; ++s) {
         non_local_names.insert(*s);
     }
+    vg_register_classdb_non_local_names(non_local_names);
     {
         const HashSet<String> &als = VGAutoloads::names_lower();
         for (const String &n : als) {
@@ -6960,33 +6995,19 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Check if calling a function with ByRef parameters AND variable arguments
             // that could be written back (requires interpreter for write-back)
             // Also check for ParamArray which needs interpreter
-            SubDefinition* target_func = nullptr;
-            if (current_module) {
-                SubDefinition* first_match_func = nullptr;
-                for (int i = 0; i < current_module->subs.size(); i++) {
-                    if (current_module->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
-                        if (!first_match_func) first_match_func = current_module->subs[i];
-                        // Overload resolution: prefer exact param count match
-                        if (current_module->subs[i]->parameters.size() == (int)s->arguments.size()) {
-                            target_func = current_module->subs[i];
-                            break;
-                        }
+            SubDefinition* target_func = resolve_call_target(s->method_name, s->arguments.size());
+            if (target_func) {
+                for (int j = 0; j < target_func->parameters.size(); j++) {
+                    // ParamArray still requires the interpreter (the fast
+                    // path can't marshal a variadic trailing array).
+                    if (target_func->parameters[j].is_param_array) {
+                        compile_ok = false;
+                        break;
                     }
-                }
-                if (!target_func) target_func = first_match_func;
-                if (target_func) {
-                        for (int j = 0; j < target_func->parameters.size(); j++) {
-                            // ParamArray still requires the interpreter (the fast
-                            // path can't marshal a variadic trailing array).
-                            if (target_func->parameters[j].is_param_array) {
-                                compile_ok = false;
-                                break;
-                            }
-                            // NOTE: ByRef params with variable arguments no longer
-                            // force the interpreter — they are handled by emitting
-                            // OP_BYREF_LOAD write-back opcodes after the call (see
-                            // emit_byref_writebacks below).
-                        }
+                    // NOTE: ByRef params with variable arguments no longer
+                    // force the interpreter — they are handled by emitting
+                    // OP_BYREF_LOAD write-back opcodes after the call (see
+                    // emit_byref_writebacks below).
                 }
             }
             if (!compile_ok) break;
@@ -10595,25 +10616,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  break;
              }
 
-             // Resolve the target Sub (same module) so ByRef params bound to a
-             // simple variable argument get written back after the call. In
-             // expression context the write-backs run immediately after OP_CALL
-             // and leave the return value on the stack (each OP_BYREF_LOAD + store
-             // pair is net-zero), so the enclosing expression is unaffected.
-             SubDefinition* expr_target_func = nullptr;
-             if (current_module) {
-                 SubDefinition* first_match_func = nullptr;
-                 for (int i = 0; i < current_module->subs.size(); i++) {
-                     if (current_module->subs[i]->name.nocasecmp_to(call->method_name) == 0) {
-                         if (!first_match_func) first_match_func = current_module->subs[i];
-                         if (current_module->subs[i]->parameters.size() == (int)call->arguments.size()) {
-                             expr_target_func = current_module->subs[i];
-                             break;
-                         }
-                     }
-                 }
-                 if (!expr_target_func) expr_target_func = first_match_func;
-             }
+             // Resolve the target Sub (this module or an Import) so ByRef params
+             // bound to a simple variable argument get written back after the call.
+             SubDefinition* expr_target_func = resolve_call_target(call->method_name, call->arguments.size());
              // Inline trivial fast-call helpers (e.g. x+1) at the call site —
              // eliminates OP_CALL/call_internal overhead in hot loops.
              if (expr_target_func && try_emit_inline_trivial_user_call(call, expr_target_func)) {

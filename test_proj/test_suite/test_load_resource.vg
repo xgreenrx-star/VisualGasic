@@ -1,0 +1,42 @@
+' Regression: Load("res://...") in expression/assignment context must resolve
+' via dispatch_expr_compat_call (AST interpreter + call_builtin_expr_evaluated).
+' Repro: Brotato Bullet.vg Hit / Enemy.vg Die — particleScene = Load("res://scenes/HitParticle.tscn")
+Attribute VB_Name = "TestLoadResource"
+
+Sub _Ready()
+	Dim scr As Object
+	scr = Load("res://test_suite/inc_vg_method_target.vg")
+	If scr Is Nothing Then
+		Print "FAIL: load_vg_script: Load returned Nothing"
+	Else
+		Print "PASS: load_vg_script"
+	End If
+
+	Dim sceneRes As Object
+	sceneRes = Load("res://addons/visual_gasic/prototypes/godot2d/Node2D.tscn")
+	If sceneRes Is Nothing Then
+		Print "FAIL: load_packed_scene: Load returned Nothing"
+	Else
+		Dim node As Object
+		Set node = sceneRes.instantiate()
+		If node Is Nothing Then
+			Print "FAIL: load_packed_scene: instantiate returned Nothing"
+		Else
+			Print "PASS: load_packed_scene"
+			node.queue_free()
+		End If
+	End If
+
+	' Match Brotato combat pattern: Dim + Load inside If block.
+	If Not scr Is Nothing Then
+		Dim innerScene As Object
+		innerScene = Load("res://addons/visual_gasic/prototypes/godot2d/Node2D.tscn")
+		If innerScene Is Nothing Then
+			Print "FAIL: load_in_if_block: Load returned Nothing"
+		Else
+			Print "PASS: load_in_if_block"
+		End If
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

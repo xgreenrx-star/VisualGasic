@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[node name="ListView" type="ItemList"]
+offset_right = 200.0
+offset_bottom = 150.0
+icon_mode = 0
+max_columns = 0
+same_column_width = true

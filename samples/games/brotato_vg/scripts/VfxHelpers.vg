@@ -1,0 +1,61 @@
+' Shared juice spawners — muzzle flash, sparkles, hit pops
+Attribute VB_Name = "VfxHelpers"
+
+Const FADE_SCENE As String = "res://scenes/FadeRect.tscn"
+
+Sub SpawnFade(parent As Object, pos As Object, col As Color, halfSize As Single, life As Single, vel As Object)
+	If parent Is Nothing Then Exit Sub
+	Dim scene As Object
+	Set scene = GameManager.CachedScene(FADE_SCENE)
+	If scene Is Nothing Then Exit Sub
+	Dim fx As Object
+	Set fx = scene.instantiate()
+	parent.add_child(fx)
+	fx.global_position = pos
+	fx.SetupMotion(col, halfSize, life, vel)
+End Sub
+
+Sub SpawnMuzzleFlash(parent As Object, pos As Object, dir As Object, col As Color)
+	Dim i As Integer
+	For i = 0 To 5
+		Dim spread As Single
+		spread = (Rnd() - 0.5) * 0.9
+		Dim vel As Object
+		vel = dir.rotated(spread) * (120.0 + Rnd() * 80.0)
+		Dim flashCol As Color
+		flashCol = Color(1.0, 0.95, 0.7, 1.0)
+		If i Mod 2 = 0 Then flashCol = col
+		Call SpawnFade(parent, pos, flashCol, 5.0 + Rnd() * 4.0, 0.07 + Rnd() * 0.04, vel)
+	Next i
+	Call SpawnFade(parent, pos, Color(1.0, 1.0, 1.0, 0.9), 10.0, 0.05, Vector2(0, 0))
+End Sub
+
+Sub SpawnHitPop(parent As Object, pos As Object)
+	Call SpawnFade(parent, pos, Color(1.0, 0.95, 0.35, 1.0), 7.0, 0.1, Vector2(0, 0))
+	Dim i As Integer
+	For i = 0 To 2
+		Dim vel As Object
+		vel = Vector2(Rnd() * 2 - 1, Rnd() * 2 - 1).normalized() * (40.0 + Rnd() * 30.0)
+		Call SpawnFade(parent, pos, Color(1.0, 0.5, 0.2, 1.0), 3.0, 0.12, vel)
+	Next i
+End Sub
+
+Sub SpawnPickupSparkle(parent As Object, pos As Object, toward As Object)
+	Dim dir As Object
+	dir = (toward - pos).normalized()
+	Dim vel As Object
+	vel = dir * (60.0 + Rnd() * 40.0) + Vector2(Rnd() * 2 - 1, Rnd() * 2 - 1) * 20.0
+	Call SpawnFade(parent, pos, Color(0.55, 1.0, 0.45, 1.0), 2.5 + Rnd() * 2.0, 0.18, vel)
+End Sub
+
+Sub SpawnPickupBurst(parent As Object, pos As Object)
+	Dim i As Integer
+	For i = 0 To 7
+		Dim ang As Single
+		ang = 6.2831853 * i / 8.0 + Rnd() * 0.4
+		Dim vel As Object
+		vel = Vector2(Cos(ang), Sin(ang)) * (80.0 + Rnd() * 60.0)
+		Call SpawnFade(parent, pos, Color(0.45, 1.0, 0.35, 1.0), 3.0 + Rnd() * 2.0, 0.22, vel)
+	Next i
+	Call SpawnFade(parent, pos, Color(1.0, 1.0, 0.7, 0.8), 8.0, 0.1, Vector2(0, 0))
+End Sub

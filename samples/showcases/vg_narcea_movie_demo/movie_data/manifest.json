@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "title": {
+    "headline": "NARCEA × CURSOR",
+    "subline": "Describe it in plain English. Narcea builds it.",
+    "provider": "⬡ Cursor (Composer)",
+    "duration_sec": 5.0
+  },
+  "segments": [
+    {
+      "id": "calculator",
+      "label": "VB6 Calculator Form",
+      "prompt_file": "prompts/calculator.txt",
+      "transcript_file": "transcripts/calculator.txt",
+      "references": [
+        {
+          "label": "Wikipedia — Calculator",
+          "url": "https://en.wikipedia.org/wiki/Calculator"
+        }
+      ],
+      "demo_scene": "res://generated/calculator/main.tscn",
+      "code_file": "res://generated/calculator/calc.vg",
+      "code_scroll_sec": 6.0,
+      "prompt_chars_per_sec": 42.0,
+      "stream_chars_per_sec": 280.0,
+      "apply_hold_sec": 1.2,
+      "demo_duration_sec": 12.0
+    },
+    {
+      "id": "shader_art",
+      "label": "Shader Art Reel",
+      "prompt_file": "prompts/shader_art.txt",
+      "transcript_file": "transcripts/shader_art.txt",
+      "references": [
+        {
+          "label": "Godot — Shaders",
+          "url": "https://docs.godotengine.org/en/stable/tutorials/shaders/index.html"
+        },
+        {
+          "label": "Beta Showcase (YouTube)",
+          "url": "https://youtu.be/FUw8zgbn_tU"
+        }
+      ],
+      "demo_scene": "res://generated/shader_art/main.tscn",
+      "code_file": "res://generated/shader_art/shader_art_manager.gd",
+      "code_scroll_sec": 5.0,
+      "prompt_chars_per_sec": 34.0,
+      "stream_chars_per_sec": 250.0,
+      "apply_hold_sec": 1.2,
+      "demo_duration_sec": 16.0
+    },
+    {
+      "id": "platformer",
+      "label": "2D Platformer (Kenney)",
+      "prompt_file": "prompts/platformer.txt",
+      "transcript_file": "transcripts/platformer.txt",
+      "references": [
+        {
+          "label": "Godot — First 2D Game",
+          "url": "https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html"
+        },
+        {
+          "label": "Kenney — Platformer Pack",
+          "url": "https://kenney.nl/assets/platformer-pack-redux"
+        }
+      ],
+      "demo_scene": "res://generated/platformer/main.tscn",
+      "code_file": "res://generated/platformer/game.vg",
+      "code_scroll_sec": 7.0,
+      "prompt_chars_per_sec": 38.0,
+      "stream_chars_per_sec": 260.0,
+      "apply_hold_sec": 1.2,
+      "demo_duration_sec": 11.0
+    },
+    {
+      "id": "doom_maze",
+      "label": "DOOM-style Maze",
+      "prompt_file": "prompts/doom_maze.txt",
+      "transcript_file": "transcripts/doom_maze.txt",
+      "references": [
+        {
+          "label": "Wikipedia — Doom (1993)",
+          "url": "https://en.wikipedia.org/wiki/Doom_(1993_video_game)"
+        },
+        {
+          "label": "Kenney — Retro Medieval Kit",
+          "url": "https://kenney.nl/assets/retro-medieval-kit"
+        }
+      ],
+      "demo_scene": "res://generated/doom_maze/main.tscn",
+      "code_file": "res://generated/doom_maze/maze.vg",
+      "code_scroll_sec": 4.0,
+      "prompt_chars_per_sec": 36.0,
+      "stream_chars_per_sec": 240.0,
+      "apply_hold_sec": 1.4,
+      "demo_duration_sec": 16.0
+    }
+  ],
+  "end": {
+    "headline": "DEMONSTRATION ONLY",
+    "subline": "VG 5.4.0-beta1 release demo & this video — Narcea + Cursor",
+    "body": "[center][color=#b8d4ff]This video is just a demonstration.[/color]\n\nBoth the [b]VG 5.4.0-beta1 release demo[/b] (Beta Showcase) and [b]this Narcea × Cursor movie[/b] were built using [b]Narcea[/b] and [b]Cursor[/b] — real AI-assisted VG development, not a live IDE recording.\n\nThe next version of [b]Visual Gasic[/b] is due in [b]October[/b] with a refined Narcea AI agent and more auditing tools — including visual auditing preview and more.\n\nEverything is coded in [b]VG script[/b]. Built on Godot, VG can run on [b]Windows[/b], [b]macOS[/b], [b]Linux[/b], [b]Android[/b], and [b]HTML5 (web)[/b]. Cross-platform testing is still pending; the build platform is [b]Linux[/b].\n\n[color=#7ee8a0][b]Beta testers welcome — your help ships VG on every platform.[/b][/color]\n\n[b]Find Visual Gasic[/b]\n[url=https://xgreenrx-star.github.io/VisualGasic/]xgreenrx-star.github.io/VisualGasic[/url]\n[url=https://github.com/xgreenrx-star/VisualGasic]github.com/xgreenrx-star/VisualGasic[/url]\n[url=https://www.facebook.com/profile.php?id=61590509923862]Facebook — Visual Gasic[/url]\n\n[b]Support[/b]\n[url=https://patreon.com/visualgasic]patreon.com/visualgasic[/url]\n[url=https://github.com/sponsors/xgreenrx-star]github.com/sponsors/xgreenrx-star[/url][/center]",
+    "panel_text": "[b]Built with Narcea + Cursor:[/b] the VG 5.4.0-beta1 release demo (Beta Showcase) and this concept movie.\n\n[b]Next:[/b] VG in October — refined Narcea + visual auditing preview.\n\n[b]Platforms:[/b] Windows · macOS · Linux · Android · HTML5 (testing pending; built on Linux)\n\n[b]Find us[/b]\n• Website: [url=https://xgreenrx-star.github.io/VisualGasic/]xgreenrx-star.github.io/VisualGasic[/url]\n• GitHub: [url=https://github.com/xgreenrx-star/VisualGasic]github.com/xgreenrx-star/VisualGasic[/url]\n• Facebook: [url=https://www.facebook.com/profile.php?id=61590509923862]Visual Gasic on Facebook[/url]\n\n[b]Support & beta testing[/b]\n• Patreon: [url=https://patreon.com/visualgasic]patreon.com/visualgasic[/url]\n• GitHub Sponsors: [url=https://github.com/sponsors/xgreenrx-star]github.com/sponsors/xgreenrx-star[/url]\n\nWe welcome beta testers and sponsors — thank you for supporting open-source VG.",
+    "duration_sec": 24.0
+  }
+}

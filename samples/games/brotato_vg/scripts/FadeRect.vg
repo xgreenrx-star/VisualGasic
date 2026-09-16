@@ -1,0 +1,41 @@
+' Short-lived ColorRect blob — trails, muzzle flash, pickup sparkles
+Extends Node2D
+
+Dim rect As Object
+Dim lifetime As Single
+Dim maxLife As Single
+Dim velocity As Object
+
+Sub _Ready()
+	rect = GetNode("Rect")
+End Sub
+
+Sub Setup(col As Color, halfSize As Single, life As Single)
+	Call SetupMotion(col, halfSize, life, Vector2(0, 0))
+End Sub
+
+Sub SetupMotion(col As Color, halfSize As Single, life As Single, vel As Object)
+	lifetime = life
+	maxLife = life
+	velocity = vel
+	If Not rect Is Nothing Then
+		rect.offset_left = -halfSize
+		rect.offset_top = -halfSize
+		rect.offset_right = halfSize
+		rect.offset_bottom = halfSize
+		rect.color = col
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	If lifetime <= 0 Then Exit Sub
+	lifetime = lifetime - delta
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + velocity * delta
+	Dim a As Single
+	a = lifetime / maxLife
+	If a < 0 Then a = 0
+	Me.modulate = Color(1.0, 1.0, 1.0, a)
+	If lifetime <= 0 Then Me.queue_free()
+End Sub

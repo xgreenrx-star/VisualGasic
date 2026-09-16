@@ -1,0 +1,7 @@
+I'll scaffold a VB6 calculator form in generated/calculator/.
+
+**CalcForm.vg** — display label `lblDisplay`, digit buttons `btn0`…`btn9`, operators `btnAdd`, `btnSub`, `btnMul`, `btnDiv`, `btnEquals`, `btnClear`. `Form_Load` resets display to "0". Each click handler appends digits or runs `Calculate()`.
+
+**main.tscn** — loads CalcForm for F5 run.
+
+Using Wikipedia calculator UX patterns for button layout. Ready to Apply → open in Godot and press Run.

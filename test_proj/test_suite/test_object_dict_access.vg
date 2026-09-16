@@ -1,0 +1,57 @@
+' Regression: Object-typed variable holding Dictionary supports key subscript weapon("def_id")
+' Mirrors GameManager.GetWeaponEffectiveStats(weapon As Object) in brotato_vg
+' Me.bag(i) mirrors Player.vg: GameManager.player_weapons(i) (OP_METHOD_CALL → property index)
+Attribute VB_Name = "TestObjectDictAccess"
+
+Public bag As Variant
+
+Sub _Ready()
+	Dim w As Object
+	Set w = New Dictionary
+	w("def_id") = "pistol"
+	w("tier") = 2
+
+	If CStr(w("def_id")) = "pistol" And Int(w("tier")) = 2 Then
+		Print "PASS: object_dict_local_subscript"
+	Else
+		Print "FAIL: object_dict_local_subscript"
+	End If
+
+	If LookupDefId(w) = "pistol" Then
+		Print "PASS: object_dict_param_subscript"
+	Else
+		Print "FAIL: object_dict_param_subscript"
+	End If
+
+	Dim arr As Variant
+	arr = Array()
+	Call AddWeaponEntry(arr, "shotgun", 3)
+
+	If LookupDefId(arr(0)) = "shotgun" And Int(arr(0)("tier")) = 3 Then
+		Print "PASS: object_dict_array_param_subscript"
+	Else
+		Print "FAIL: object_dict_array_param_subscript"
+	End If
+
+	bag = Array()
+	Call AddWeaponEntry(bag, "rifle", 1)
+	Dim from_me As Object
+	Set from_me = Me.bag(0)
+	If LookupDefId(from_me) = "rifle" And Int(from_me("tier")) = 1 Then
+		Print "PASS: object_dict_me_prop_subscript"
+	Else
+		Print "FAIL: object_dict_me_prop_subscript"
+	End If
+End Sub
+
+Function LookupDefId(weapon As Object) As String
+	LookupDefId = CStr(weapon("def_id"))
+End Function
+
+Sub AddWeaponEntry(arr As Variant, defId As String, tier As Integer)
+	Dim w As Object
+	Set w = New Dictionary
+	w("def_id") = defId
+	w("tier") = tier
+	arr.append(w)
+End Sub

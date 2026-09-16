@@ -1,0 +1,19 @@
+Sub _Ready()
+    ' This test directly uses Vector2i constructor
+    ' without going through helper functions, to test
+    ' the bytecode VM path
+    
+    Dim v As Vector2i
+    v = Vector2i(10, 20)
+    
+    Print "Test: Vector2i via bytecode VM"
+    Print "v.ToString() = " & v.ToString()
+    Print "v.x = " & v.x
+    Print "v.y = " & v.y
+    
+    If v.x = 10 And v.y = 20 Then
+        Print "PASS: vector2i_bytecode"
+    Else
+        Print "FAIL: vector2i_bytecode"
+    End If
+End Sub

@@ -2654,6 +2654,41 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_KILL: {
             KillStatement* s = (KillStatement*)stmt;
             String path = evaluate_expression(s->path);
+
+            // VB6 Kill supports wildcards (* and ?) in the file-name portion
+            // and deletes every matching FILE (never a directory). Detect a
+            // wildcard in the last path component and enumerate its folder.
+            String kfname = path.get_file();
+            if (kfname.find("*") != -1 || kfname.find("?") != -1) {
+                String base_dir = path.get_base_dir();
+                if (base_dir.is_empty()) base_dir = ".";
+                Ref<DirAccess> kdir = DirAccess::open(base_dir);
+                if (kdir.is_null()) {
+                    raise_error("Path not found: " + base_dir, 76);
+                    break;
+                }
+                kdir->set_include_navigational(false);
+                kdir->set_include_hidden(true);
+                int removed = 0;
+                Error last_err = Error::OK;
+                kdir->list_dir_begin();
+                String entry = kdir->get_next();
+                while (!entry.is_empty()) {
+                    if (entry != "." && entry != ".." && !kdir->current_is_dir() && entry.matchn(kfname)) {
+                        Error e = DirAccess::remove_absolute(base_dir.path_join(entry));
+                        if (e != Error::OK) last_err = e; else removed++;
+                    }
+                    entry = kdir->get_next();
+                }
+                kdir->list_dir_end();
+                if (removed == 0) {
+                    raise_error("File not found: " + path, 53);
+                } else if (last_err != Error::OK) {
+                    raise_error("Kill Failed (Error " + String::num(last_err) + "): " + path, 53);
+                }
+                break;
+            }
+
             Error err = DirAccess::remove_absolute(path);
             if (err != Error::OK) {
                 // Godot's DirAccess::remove_absolute can fail on symlinks

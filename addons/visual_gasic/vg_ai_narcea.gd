@@ -167,7 +167,7 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
   * Patrol enemy CHARACTERBODY2D scripts MUST use `SetVelocity Me, vx, vy`
     + `MoveAndSlide Me` + `Me.IsOnWall()` for wall reversal.  NEVER use
     `MoveAndCollide()` with `<> Nothing`.  See
-    demos/2D_Games/Platformer_Godot/enemy/enemy.vg for the canonical
+    samples/demos/2D_Games/Platformer_Godot/enemy/enemy.vg for the canonical
     patrol pattern:
       Sub _PhysicsProcess(delta As Single)
           vx = Me.velocity.x
@@ -204,7 +204,7 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
     tree yet — guard with If Not GetNode(...) Is Nothing Then ... End If.
   * Sub btnFoo_Click runs on the editor's main thread.  Long work blocks
     the IDE; use a Task or Timer for anything > 50 ms.
-  * Don't edit canonical addons/ files inside game_projects/ symlinks —
+  * Don't edit canonical addons/ files inside samples/ symlinks —
     they all point at addons/visual_gasic/.  scripts/sync_addons.sh
     check verifies this in CI.
   * NEVER name a Sub/Function the same as a reserved keyword (Sub, Function,
@@ -374,7 +374,7 @@ The handler name is always: Sub <controlName>_<Event>()
 
 === Beta showcase & vector canvas (5.4.0-beta1; language M5 in 5.4.0-beta2) ===
 Reference project (separate Godot project — open its project.godot directly):
-  projects/vg_beta_showcase/   README.md + ARCHITECTURE.md for full flow
+  samples/showcases/vg_beta_showcase/   README.md + ARCHITECTURE.md for full flow
   F5 from tour_main.tscn — Backrooms hub → shader reel → About VG → Squash
   tease → Neon Runner → Vector Storm → end card.  Space skips segments.
 
@@ -396,7 +396,7 @@ SubViewport / portal embed (multi-scene showcase director):
     If GetViewport().GetClass() = \"SubViewport\" Then ...  ' stay in place
   GDScript managers set meta vg_portal_embedded on the scene root; expose
   set_showcase_frozen(bool) / reset_for_portal() for zoom-in lifecycle.
-  Pattern: projects/vg_beta_showcase/backrooms_transition_manager.gd +
+  Pattern: samples/showcases/vg_beta_showcase/backrooms_transition_manager.gd +
   ARCHITECTURE.md \"Portal embedding contract\".
 
 Movie Maker capture (frame-perfect promo video):
@@ -735,6 +735,10 @@ RULES:
   * Autoload names resolve as VG globals at runtime (GameState.score).
   * Autoloads persist across ChangeScene — that is their main purpose.
   * Do not put large assets (images, audio) in autoloads; only data.
+  * Import "Helper.vg" module-level Dim/Public vars are per-script-instance —
+    each .vg on its own node gets its own copy.  NOT shared between Player.vg
+    and Bullet3D.vg on different nodes.  Cross-node snapshots (enemy lists,
+    wave combat cache) belong on an autoload: GameManager.combat_live_enemies.
 
 === Save and load game state ===
 Use ConfigFile for all persistent data (high scores, settings, progress).
@@ -803,6 +807,11 @@ Use the VB6 name — Godot property names are NOT directly accessible.
   Camera.Position(x, y)              Camera.Rotation(degrees)
   Camera.FOV(degrees)                ' 3D only
   Camera.MakeCurrent()               ' activate Camera2D/3D
+  ' Module-level Dim camera As Object SHADOWS the Camera.* namespace (fixed
+  ' Sep 2026): camera.LookAt(...) is a Godot Node3D method call, NOT
+  ' Camera.*.  Use Camera.Shake only when you mean the VG builtin namespace.
+  ' Godot LookAt(target, up) uses GLOBAL coords — Vector3(0,0,0) is world
+  ' origin, not parent-local.  Aim at pivot.global_position to frame the player.
 
   Sound.Play(\"sfx_name\", vol%)       ' vol 0..100
   Sound.Stop(\"sfx_name\")             Sound.Pause(\"sfx_name\")
@@ -1032,7 +1041,7 @@ Integer args on the wire (range, numpy.zeros, numpy.eye):
   * FIX (shipped): Project Settings → Vg → Python → Use Typed Protocol
     (`vg/python/use_typed_protocol = true`) — msgpack preserves Variant::INT.
   * JSON fallback workaround: Array(CInt(0), CInt(5)) when setting is off.
-  * Demo: demos/Utilities/PythonBridge/demo_python_bridge.vg
+  * Demo: samples/demos/Utilities/PythonBridge/demo_python_bridge.vg
   * Docs: docs/SYSTEM_INTEGRATION.md §17, test_py_msgpack_typed.vg
 
 Do NOT hallucinate PyBridge methods — use InitializeBridge, PyImport, PyCall,
@@ -1069,7 +1078,7 @@ In-workspace learning material (always cite by path when relevant):
                              shader, tilemap, joypad, screen sensor
   corpus/01-10_*/          — basics, control flow, strings, arrays,
                              dicts, classes, file I/O, math, state machines
-  demos/                   — runnable demo projects for each plugin
+  samples/demos/           — runnable demo projects for each plugin
   addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md
 
 === Form-spec output (Build-form button) ===
@@ -1333,7 +1342,7 @@ const COLLISION_2D_POLICY := (
 	+ "Copy parallel-array slots into scalar locals before passing to Subs that MODIFY ByRef params "
 	+ "(arr(i) write-back is supported; plain reads like CirclesHit(arr(i), ...) work either way). "
 	+ "In CheckCollisions, do not Exit Sub on respawn invuln before bullet-vs-world tests. "
-	+ "Reference: demos/2D_Games/Space_Shooter/space_shooter.vg (Collides Lambda)."
+	+ "Reference: samples/demos/2D_Games/Space_Shooter/space_shooter.vg (Collides Lambda)."
 )
 
 
@@ -1348,7 +1357,7 @@ const PLATFORMER_CANVAS_POLICY := (
 	+ "NEVER read Screen.Width or Screen.Height at _Ready — on Node2D canvas games they are often 0, "
 	+ "which places the floor off-screen and the player falls forever. "
 	+ "Use fixed playfield constants instead: Const GAME_W = 800, Const GAME_H = 600 "
-	+ "(same pattern as projects/vg_narcea_test/ai_projects/asteroids_demo/Game.vg). "
+	+ "(same pattern as samples/internal/vg_narcea_test/ai_projects/asteroids_demo/Game.vg). "
 	+ "FIRST SCAFFOLD MUST include a full-width floor rect plus at least two ledges, "
 	+ "and spawn the player standing ON the floor: py = floorTopY - playerHeight (not mid-air). "
 	+ "Platform collision is AABB rect-vs-rect (overlap on X while feet cross platform top while falling), "
@@ -1363,7 +1372,7 @@ const PLATFORMER_CANVAS_POLICY := (
 	+ "Copy parallel-array slots (platX(i), platY(i)) into scalar locals before overlap tests. "
 	+ "If a Godot CharacterBody2D doc was attached, translate ideas to manual canvas physics — "
 	+ "do not emit CharacterBody2D nodes for basic-shape platformers. "
-	+ "Reference: demos/2D_Games/Platformer/platformer.vg (gravity/jump/AABB); "
+	+ "Reference: samples/demos/2D_Games/Platformer/platformer.vg (gravity/jump/AABB); "
 	+ "asteroids_demo/Game.vg (fixed W/H canvas loop)."
 )
 
@@ -1419,8 +1428,8 @@ const VECTOR_CANVAS_POLICY := (
 	+ "kills speed each hitch). Use light per-second drag (v *= 1 - k*delta) or none. "
 	+ "Hold-to-rotate, not 90° taps. Slide collision (MTV / axis damp) not bounce-both-axes. "
 	+ "HUD gizmos (gravity needle) belong on a HUD CanvasLayer canvas, not attached to the ship. "
-	+ "Reference: demos/2D_Games/Thrust/thrust.vg, projects/vg_beta_showcase/storm.vg, "
-	+ "projects/vg_graven_slice/ai_projects/graven_slice/GravenVector.vg."
+	+ "Reference: samples/demos/2D_Games/Thrust/thrust.vg, samples/showcases/vg_beta_showcase/storm.vg, "
+	+ "samples/games/vg_graven_slice/ai_projects/graven_slice/GravenVector.vg."
 )
 
 
@@ -1434,7 +1443,7 @@ const PURE_3D_GAME_POLICY := (
 	+ "Emit vg-project-spec with Main.tscn + .vg under res://ai_projects/<name>/. "
 	+ "Player and mobs on CharacterBody3D; movement in Sub _PhysicsProcess(delta), not _Process. "
 	+ "NEVER use GDScript preload() — it is not a VG builtin. Cache scenes with "
-	+ "Load(\"res://ai_projects/<name>/Mob.tscn\") in _Ready (see demos/3D_Games/Squash_The_Creeps/main.vg). "
+	+ "Load(\"res://ai_projects/<name>/Mob.tscn\") in _Ready (see samples/demos/3D_Games/Squash_The_Creeps/main.vg). "
 	+ "ChangeScene must use full res:// paths (e.g. res://ai_projects/<name>/Main.tscn), not bare Main.tscn. "
 	+ "FIRST SCAFFOLD MUST include: StaticBody3D floor with mesh + collision, DirectionalLight3D, "
 	+ "Camera3D, player CharacterBody3D on the floor, mob PackedScene with groups=[\"mob\"], "
@@ -1442,7 +1451,11 @@ const PURE_3D_GAME_POLICY := (
 	+ "Use IsOnFloor / MoveAndSlide on the body; stomp via slide collision normals (up = squash). "
 	+ "NEVER assign dir = posA - posB on Vector3/Object positions — subtraction returns Nothing in VG. "
 	+ "Compute chase direction with scalars: dx = target.x - Me.x, dz = target.z - Me.z, then normalize. "
-	+ "Reference: demos/3D_Games/Squash_The_Creeps/ (player.vg, main.vg, mob.vg)."
+	+ "Godot Node3D.LookAt(target, up): target is global; Kenney GLBs face +Z but LookAt aims -Z "
+	+ "at target — face movement with target = pos - Vector3(dirX, 0, dirZ), not pos + dir. "
+	+ "Object method calls on VG scripts: enemy.TakeHit(dmg) or enemy.take_hit(dmg) both work. "
+	+ "Shared combat/enemy snapshots: store on autoload (GameManager), not Import module Dim. "
+	+ "Reference: samples/demos/3D_Games/Squash_The_Creeps/; stress-test: samples/games/brotato3d/ (CONTROLS.txt)."
 )
 
 
@@ -1470,9 +1483,11 @@ const SLIM_KNOWLEDGE := """
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
-- Beta showcase tour: projects/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
-- Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, demos/, tutorials/ for examples.
+- Beta showcase tour: samples/showcases/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
+- Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, samples/demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
+- 3D: Dim camera shadows Camera.*; LookAt is global coords; Import Dim not shared — use autoload.
+- Brotato3D reference port: samples/games/brotato3d/ (Player3D.vg, CombatCache3D on GameManager).
 """
 
 const SLIM_POLICY := """
@@ -1559,7 +1574,7 @@ ANSWERS:
   * When the user asks a 'how do I' question, cite the matching tutorial
     inline (e.g. 'see tutorials/camera_tutorial.vg').
   * Suggest the next obvious step proactively but in ONE short sentence.
-  * Never invent VG syntax — if unsure, say so and point to corpus/ or demos/.
+  * Never invent VG syntax — if unsure, say so and point to corpus/ or samples/demos/.
 
 VG OVER VB6 — favour modern VG idioms:
   * Whenever … End Whenever instead of polling in a timer loop.
@@ -1590,7 +1605,7 @@ COMMON MISTAKES TO AVOID:
   * 2D _Draw game collision: use circle-vs-circle (sum of radii + toroidal
     wrap).  NEVER |dx|<R And |dy|<R (square hitbox).  ByRef write-back to
     arr(i) is supported; reading arr(i) as a call argument always worked.
-    See demos/2D_Games/Space_Shooter/.
+    See samples/demos/2D_Games/Space_Shooter/.
   * 2D _Draw + *Sprite games: NEVER call DataToArray inside _Draw or per-frame
     Draw* helpers — cache each section once in _Ready (LoadSprites). NEVER
     QueueRedraw every _Process unconditionally. See canvas sprite perf policy.

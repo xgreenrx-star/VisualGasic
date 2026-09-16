@@ -18,6 +18,7 @@
 #include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/callable_method_pointer.hpp>
@@ -281,7 +282,9 @@ static bool vg_debug_message_handler(const String& p_message, const Array& p_dat
         return true;
     }
     else if (p_message == "set_breakpoints") {
-        // Forward to GDScript handler to update its breakpoint storage
+        if (p_data.size() >= 1 && p_data[0].get_type() == Variant::DICTIONARY) {
+            VisualGasicLanguage::apply_breakpoints_from_dict(p_data[0]);
+        }
         forward_to_gdscript_handler(p_message, p_data);
         return true;
     }
@@ -1266,6 +1269,14 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("Sleep");
     keywords.push_back("Randomize");
     keywords.push_back("MkDir");
+    keywords.push_back("CopyFolder");
+    keywords.push_back("MoveFolder");
+    keywords.push_back("DeleteFolder");
+    keywords.push_back("SendToTrash");
+    keywords.push_back("ListFiles");
+    keywords.push_back("ListFolders");
+    keywords.push_back("ListFilesRecursive");
+    keywords.push_back("BuildPath");
     keywords.push_back("MsgBox");
     keywords.push_back("SaveSetting");
     keywords.push_back("GetSetting");
@@ -4162,6 +4173,47 @@ int VisualGasicLanguage::get_break_line() {
 }
 
 // Breakpoint management (C++ side - avoid GDScript calls during debug)
+String VisualGasicLanguage::normalize_breakpoint_script_path(const String& path) {
+    if (path.is_empty()) {
+        return path;
+    }
+    if (path.begins_with("res://")) {
+        return path;
+    }
+    String abs = path.replace("\\", "/");
+    String project_root = ProjectSettings::get_singleton()->globalize_path("res://").replace("\\", "/");
+    if (!project_root.ends_with("/")) {
+        project_root += "/";
+    }
+    if (abs.begins_with(project_root)) {
+        return "res://" + abs.substr(project_root.length());
+    }
+    return path;
+}
+
+void VisualGasicLanguage::apply_breakpoints_from_dict(const Dictionary& dict) {
+    breakpoints.clear();
+    breakpoints_loaded = true;
+    Array keys = dict.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        String script_path = normalize_breakpoint_script_path(keys[i]);
+        Variant lines_var = dict[script_path];
+        if (lines_var.get_type() != Variant::ARRAY) {
+            lines_var = dict[keys[i]];
+        }
+        if (lines_var.get_type() != Variant::ARRAY) {
+            continue;
+        }
+        Array lines_arr = lines_var;
+        std::vector<int> lines;
+        for (int j = 0; j < lines_arr.size(); j++) {
+            lines.push_back((int)lines_arr[j]);
+        }
+        std::string key = script_path.utf8().get_data();
+        breakpoints[key] = lines;
+    }
+}
+
 void VisualGasicLanguage::load_breakpoints_from_file() {
     breakpoints.clear();
     breakpoints_loaded = true;  // Mark as loaded even if file doesn't exist
@@ -4191,24 +4243,7 @@ void VisualGasicLanguage::load_breakpoints_from_file() {
         return;
     }
     
-    Dictionary dict = data;
-    Array keys = dict.keys();
-    for (int i = 0; i < keys.size(); i++) {
-        String script_path = keys[i];
-        Variant lines_var = dict[script_path];
-        if (lines_var.get_type() != Variant::ARRAY) {
-            continue;
-        }
-        
-        Array lines_arr = lines_var;
-        std::vector<int> lines;
-        for (int j = 0; j < lines_arr.size(); j++) {
-            lines.push_back((int)lines_arr[j]);
-        }
-        
-        std::string key = script_path.utf8().get_data();
-        breakpoints[key] = lines;
-    }
+    apply_breakpoints_from_dict(data);
 }
 
 bool VisualGasicLanguage::has_breakpoint(const String& script_path, int line) {
@@ -4226,8 +4261,13 @@ bool VisualGasicLanguage::has_breakpoint(const String& script_path, int line) {
         }
     }
     
-    std::string key = script_path.utf8().get_data();
+    String normalized = normalize_breakpoint_script_path(script_path);
+    std::string key = normalized.utf8().get_data();
     auto it = breakpoints.find(key);
+    if (it == breakpoints.end() && normalized != script_path) {
+        key = script_path.utf8().get_data();
+        it = breakpoints.find(key);
+    }
     if (it == breakpoints.end()) {
         return false;
     }

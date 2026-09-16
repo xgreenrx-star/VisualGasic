@@ -395,6 +395,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 }
             }
         }
+
+        {
+            Variant class_sentinel = vg_classdb_type_sentinel(name);
+            if (class_sentinel.get_type() != Variant::NIL) {
+                return class_sentinel;
+            }
+        }
         
         return Variant();
     }
@@ -1036,6 +1043,15 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                         }
                     }
                     return Variant();
+                }
+                {
+                    const String resolved_class = vg_resolve_classdb_alias(var_name);
+                    if (!resolved_class.is_empty()) {
+                        Variant static_ret;
+                        if (vg_try_classdb_static_method(resolved_class, call->method_name, call_args, static_ret)) {
+                            return static_ret;
+                        }
+                    }
                 }
                 // ── Enum.Parse / Enum.Values / Enum.ToString / Enum.HasFlag ──
                 {

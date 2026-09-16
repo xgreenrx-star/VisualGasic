@@ -1,0 +1,54 @@
+' Regression: Load scene, instantiate, add_child via current_scene.GetNode chain.
+' Repro: Brotato Bullet.vg Hit / Enemy.vg Die — GetTree().current_scene.GetNode("GameObjects").add_child(...)
+' MAX_FRAMES: 30
+Attribute VB_Name = "TestAddChildScene"
+
+Sub _Ready()
+	' Me is already in the tree (run_suite attaches the script before _Ready).
+	Dim go As Object
+	Set go = CreateNode("Node2D")
+	go.name = "GameObjects"
+	AddChild go
+
+	Dim csProp As Object
+	Set csProp = GetTree().current_scene
+	Dim csMeth As Object
+	Set csMeth = GetTree().get_current_scene()
+	If csProp Is Nothing And csMeth Is Nothing Then
+		Print "FAIL: current_scene property and get_current_scene both null"
+		Exit Sub
+	ElseIf csProp Is Nothing Then
+		Print "FAIL: current_scene property null but get_current_scene works"
+		Exit Sub
+	Else
+		Print "PASS: current_scene property"
+	End If
+
+	Dim holder As Object
+	holder = csProp.GetNode("GameObjects")
+	If holder Is Nothing Then
+		Print "FAIL: current_scene.GetNode(GameObjects) returned null"
+		Exit Sub
+	Else
+		Print "PASS: current_scene_getnode_gameobjects"
+	End If
+
+	Dim sceneRes As Object
+	sceneRes = Load("res://addons/visual_gasic/prototypes/godot2d/Node2D.tscn")
+	If sceneRes Is Nothing Then
+		Print "FAIL: load_scene_for_add_child"
+		Exit Sub
+	End If
+
+	Dim inst As Object
+	Set inst = sceneRes.instantiate()
+	inst.name = "SpawnedFx"
+	GetTree().current_scene.GetNode("GameObjects").add_child(inst)
+	If inst.GetParent() Is Nothing Then
+		Print "FAIL: add_child via current_scene chain — no parent"
+	Else
+		Print "PASS: add_child_via_current_scene"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

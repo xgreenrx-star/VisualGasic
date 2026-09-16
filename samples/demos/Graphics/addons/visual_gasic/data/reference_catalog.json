@@ -1,0 +1,212 @@
+{
+  "version": 2,
+  "entries": [
+    {
+      "id": "pacman",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Pac-Man",
+      "keywords": ["pac-man", "pacman", "packman"],
+      "url": "https://en.wikipedia.org/wiki/Pac-Man",
+      "priority": 20
+    },
+    {
+      "id": "joust",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Joust",
+      "keywords": ["joust"],
+      "url": "https://en.wikipedia.org/wiki/Joust_(video_game)",
+      "priority": 20
+    },
+    {
+      "id": "thrust",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Thrust",
+      "keywords": ["thrust"],
+      "url": "https://en.wikipedia.org/wiki/Thrust_(video_game)",
+      "priority": 20
+    },
+    {
+      "id": "pong",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Pong",
+      "keywords": ["pong"],
+      "url": "https://en.wikipedia.org/wiki/Pong",
+      "priority": 20
+    },
+    {
+      "id": "asteroids",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Asteroids",
+      "keywords": ["asteroids", "asteroid"],
+      "url": "https://en.wikipedia.org/wiki/Asteroids_(video_game)",
+      "priority": 20
+    },
+    {
+      "id": "space_invaders",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Space Invaders",
+      "keywords": ["space invaders", "spaceinvaders"],
+      "url": "https://en.wikipedia.org/wiki/Space_Invaders",
+      "priority": 20
+    },
+    {
+      "id": "breakout",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Breakout",
+      "keywords": ["breakout", "arkanoid"],
+      "url": "https://en.wikipedia.org/wiki/Breakout_(video_game)",
+      "priority": 20
+    },
+    {
+      "id": "frogger",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Frogger",
+      "keywords": ["frogger"],
+      "url": "https://en.wikipedia.org/wiki/Frogger",
+      "priority": 20
+    },
+    {
+      "id": "defender",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Defender",
+      "keywords": ["defender"],
+      "url": "https://en.wikipedia.org/wiki/Defender_(1981_video_game)",
+      "priority": 20
+    },
+    {
+      "id": "tempest",
+      "kind": "classic_game",
+      "source": "wikipedia",
+      "label": "Tempest",
+      "keywords": ["tempest"],
+      "url": "https://en.wikipedia.org/wiki/Tempest_(video_game)",
+      "priority": 20
+    },
+    {
+      "id": "godot_first_2d",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "Your first 2D game (Godot)",
+      "keywords": [
+        "top-down", "top down", "dodge the creeps", "arcade 2d",
+        "2d arcade", "simple 2d game", "first 2d game"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html",
+      "priority": 12
+    },
+    {
+      "id": "godot_2d_movement",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "2D movement (Godot)",
+      "keywords": [
+        "2d movement", "top-down movement", "8-direction", "eight direction",
+        "grid movement", "rpg movement", "character movement 2d"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/tutorials/2d/2d_movement.html",
+      "priority": 11
+    },
+    {
+      "id": "godot_platformer",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "2D platformer tutorial (Godot)",
+      "keywords": [
+        "platformer", "platform game", "side scroller", "side-scroller",
+        "side scrolling", "jump game", "double jump", "metroidvania"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html",
+      "priority": 13
+    },
+    {
+      "id": "vg_canvas_platformer",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "Canvas platformer (_Draw + AABB, not CharacterBody2D)",
+      "keywords": [
+        "platformer", "side scroller", "jump game", "basic shapes", "drawrect",
+        "draw rect", "canvas game", "node2d", "blue hat", "wasd"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html",
+      "priority": 15
+    },
+    {
+      "id": "godot_tilemap",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "TileMap levels (Godot)",
+      "keywords": ["tilemap", "tile map", "tile-based", "level tiles"],
+      "url": "https://docs.godotengine.org/en/stable/tutorials/2d/using_tilemaps.html",
+      "priority": 10
+    },
+    {
+      "id": "godot_2d_physics",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "2D physics & collisions (Godot)",
+      "keywords": [
+        "2d physics", "collision layers", "hitbox", "area2d",
+        "shooter", "shoot em up", "shmup", "bullet hell", "space shooter"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/tutorials/physics/physics_introduction.html",
+      "priority": 11
+    },
+    {
+      "id": "godot_first_3d",
+      "kind": "template_3d",
+      "source": "godot_docs",
+      "label": "Your first 3D game (Godot)",
+      "keywords": [
+        "3d game", "first 3d", "3d beginner", "3d template",
+        "basic 3d", "starter 3d"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/getting_started/first_3d_game/index.html",
+      "priority": 14
+    },
+    {
+      "id": "godot_character_3d",
+      "kind": "template_3d",
+      "source": "godot_docs",
+      "label": "3D character / CharacterBody3D (Godot)",
+      "keywords": [
+        "characterbody3d", "3d character", "third person", "3d platformer",
+        "3d movement", "walk on floor 3d"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/classes/class_characterbody3d.html",
+      "priority": 13
+    },
+    {
+      "id": "godot_fps_3d",
+      "kind": "template_3d",
+      "source": "godot_docs",
+      "label": "3D FPS-style controls (Godot first 3D game)",
+      "keywords": [
+        "fps", "first person", "first-person", "first person shooter",
+        "3d shooter", "mouse look"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/getting_started/first_3d_game/player_movement_code.html",
+      "priority": 15
+    },
+    {
+      "id": "godot_input",
+      "kind": "genre_2d",
+      "source": "godot_docs",
+      "label": "Input & controls (Godot)",
+      "keywords": [
+        "input map", "keyboard controls", "gamepad", "controller input",
+        "input actions"
+      ],
+      "url": "https://docs.godotengine.org/en/stable/tutorials/inputs/index.html",
+      "priority": 8
+    }
+  ]
+}

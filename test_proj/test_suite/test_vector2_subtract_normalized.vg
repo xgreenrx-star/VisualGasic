@@ -1,0 +1,100 @@
+' Regression: Vector2 subtract and (v1 - v2).normalized()
+' Enemy.vg SeekPlayer: dir = (player.global_position - Me.global_position).normalized()
+' Must Extends CharacterBody2D so Me.global_position is a real Node2D property.
+Extends CharacterBody2D
+Option Explicit
+
+Sub _Ready()
+	Dim v1 As Variant
+	Dim v2 As Variant
+	Dim d As Variant
+	v1 = Vector2(10.0, 0.0)
+	v2 = Vector2(0.0, 0.0)
+	d = v1 - v2
+	If d Is Nothing Then
+		Print "FAIL: Vector2 subtract returned Nothing"
+		Return
+	End If
+	If Abs(d.x - 10.0) > 0.001 Or Abs(d.y) > 0.001 Then
+		Print "FAIL: Vector2 subtract components"
+		Return
+	End If
+	Print "PASS: vector2 subtract"
+
+	Dim n As Variant
+	n = (v1 - v2).normalized()
+	If n Is Nothing Then
+		Print "FAIL: (v1 - v2).normalized() returned Nothing"
+		Return
+	End If
+	If Abs(n.x - 1.0) > 0.001 Or Abs(n.y) > 0.001 Then
+		Print "FAIL: paren subtract normalized components"
+		Return
+	End If
+	Print "PASS: paren subtract method chain"
+
+	Dim n2 As Variant
+	n2 = v1.normalized()
+	If n2 Is Nothing Then
+		Print "FAIL: v1.normalized() returned Nothing"
+		Return
+	End If
+	If Abs(n2.x - 1.0) > 0.001 Or Abs(n2.y) > 0.001 Then
+		Print "FAIL: vector2 method call components"
+		Return
+	End If
+	Print "PASS: vector2 method call"
+
+	Dim px As Variant
+	px = (v1 - v2).x
+	If Abs(px - 10.0) > 0.001 Then
+		Print "FAIL: (v1 - v2).x member after paren"
+		Return
+	End If
+	Print "PASS: paren subtract member access"
+
+	' Enemy.vg SeekPlayer exact shape: Me is this CharacterBody2D.
+	Dim player As Object
+	Set player = ClassDB.Instantiate("CharacterBody2D")
+	player.Name = "Player"
+	player.Set "global_position", Vector2(30.0, 40.0)
+	Me.AddChild player
+
+	Me.global_position = Vector2(0.0, 0.0)
+
+	Dim gp As Variant
+	gp = player.global_position
+	If gp Is Nothing Then
+		Print "FAIL: Node2D.global_position returned Nothing"
+		Return
+	End If
+	If Abs(gp.x - 30.0) > 0.01 Or Abs(gp.y - 40.0) > 0.01 Then
+		Print "FAIL: global_position components"
+		Return
+	End If
+	Print "PASS: node2d global_position"
+
+	Dim meGp As Variant
+	meGp = Me.global_position
+	If meGp Is Nothing Then
+		Print "FAIL: Me.global_position returned Nothing"
+		Return
+	End If
+	If Abs(meGp.x) > 0.01 Or Abs(meGp.y) > 0.01 Then
+		Print "FAIL: Me.global_position components"
+		Return
+	End If
+	Print "PASS: Me.global_position"
+
+	Dim dir As Variant
+	dir = (player.global_position - Me.global_position).normalized()
+	If dir Is Nothing Then
+		Print "FAIL: (player.global_position - Me.global_position).normalized() returned Nothing"
+		Return
+	End If
+	If Abs(dir.x - 0.6) > 0.01 Or Abs(dir.y - 0.8) > 0.01 Then
+		Print "FAIL: seek-player Me.global_position normalized components"
+		Return
+	End If
+	Print "PASS: property minus Me.global_position method chain"
+End Sub

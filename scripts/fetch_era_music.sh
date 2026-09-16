@@ -14,7 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOUNDS="$ROOT/game_projects/AGCK_Tests/build/BLUE_SCREEN/sounds"
+SOUNDS="$ROOT/samples/internal/AGCK_Tests/build/BLUE_SCREEN/sounds"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 

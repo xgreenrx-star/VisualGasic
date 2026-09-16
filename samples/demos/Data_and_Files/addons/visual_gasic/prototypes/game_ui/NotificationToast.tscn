@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/prototypes/game_ui/NotificationToast.gd" id="1_toast"]
+
+[node name="NotificationToast" type="PanelContainer"]
+custom_minimum_size = Vector2(250, 40)
+offset_right = 250.0
+offset_bottom = 40.0
+script = ExtResource("1_toast")

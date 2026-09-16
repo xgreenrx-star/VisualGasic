@@ -1,0 +1,333 @@
+' =============================================================================
+' Player3D.vg — Kenney character, top-down move, auto-aim shooting, camera
+' =============================================================================
+' CharacterBody3D on scenes/Player3D.tscn. Group: "player".
+' Movement is XZ only (arena survivor style). Weapons auto-fire at nearest
+' enemy in range — no click-to-shoot. Stats come from GameManager.player_stats.
+' =============================================================================
+Import "VfxHelpers3D.vg"
+Import "CharacterSkins3D.vg"
+Import "CombatCache3D.vg"
+Extends CharacterBody3D
+
+Const BULLET_SCENE_PATH As String = "res://scenes/Bullet3D.tscn"
+' Weapon range/cooldown from GameManager are tuned for 2D-ish numbers — scale down for 3D units.
+Const RANGE_SCALE As Single = 0.12
+Const SPEED_SCALE As Single = 0.06
+Const HALF_X As Single = 0.5
+Const HALF_Z As Single = 0.5
+Const ARENA_MIN_X As Single = -32.0
+Const ARENA_MAX_X As Single = 32.0
+Const ARENA_MIN_Z As Single = -32.0
+Const ARENA_MAX_Z As Single = 32.0
+Const MAX_BULLETS As Integer = 55
+Const ENEMY_CACHE_INTERVAL As Single = 0.12
+Const CAM_DIST As Single = 22.803508
+Const CAM_PITCH_DEF As Single = 0.902555
+Const CAM_PITCH_MIN As Single = 0.45
+Const CAM_PITCH_MAX As Single = 1.15
+Const CAM_YAW_SPEED As Single = 1.35
+Const CAM_PITCH_SPEED As Single = 0.85
+Const CAM_CHASE_LERP As Single = 6.0
+
+Dim pivot As Object
+Dim animPlayer As Object
+Dim modelRoot As Object
+Dim cameraPivot As Object
+Dim camera As Object
+Dim camYaw As Single
+Dim camPitch As Single
+Dim camFreeLook As Boolean
+Dim lastMoveX As Single
+Dim lastMoveZ As Single
+Dim weaponCooldowns As Variant
+Dim bulletScene As Object
+Dim isDead As Boolean
+Dim cachedEnemies As Variant
+Dim cachedBullets As Variant
+Dim enemyCacheTimer As Single
+Dim liveBulletCount As Integer
+
+Sub _Ready()
+	pivot = GetNode("Pivot")
+	modelRoot = GetNode("Pivot/Model")
+	animPlayer = GetNode("Pivot/Model/AnimationPlayer")
+	isDead = False
+	enemyCacheTimer = 0.0
+	liveBulletCount = 0
+	cachedEnemies = Array()
+	cachedBullets = Array()
+	Set bulletScene = GameManager.CachedScene(BULLET_SCENE_PATH)
+	Call ApplyKenneySkin(modelRoot, "character-a")
+	Call SyncStats()
+	cameraPivot = GetNode("CameraPivot")
+	camera = GetNode("CameraPivot/Camera3D")
+	camYaw = 0.0
+	camPitch = CAM_PITCH_DEF
+	camFreeLook = True
+	lastMoveX = 0.0
+	lastMoveZ = 0.0
+	Call ApplyCamera()
+	If Not camera Is Nothing Then
+		camera.make_current()
+	End If
+End Sub
+
+Sub ApplyCamera()
+	If camera Is Nothing Then Exit Sub
+	If Not cameraPivot Is Nothing Then
+		cameraPivot.rotation = Vector3(0, camYaw, 0)
+	End If
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(camPitch)
+	sp = Sin(camPitch)
+	camera.position = Vector3(0, CAM_DIST * sp, CAM_DIST * cp)
+	If Not cameraPivot Is Nothing Then
+		camera.LookAt(cameraPivot.global_position, Vector3(0, 1, 0))
+	Else
+		camera.LookAt(Me.global_position, Vector3(0, 1, 0))
+	End If
+End Sub
+
+Function LerpAngle(fromRad As Single, toRad As Single, t As Single) As Single
+	Dim diff As Single
+	diff = toRad - fromRad
+	Do While diff > 3.14159265
+		diff = diff - 6.2831853
+	Loop
+	Do While diff < -3.14159265
+		diff = diff + 6.2831853
+	Loop
+	LerpAngle = fromRad + diff * t
+End Function
+
+' cam_toggle: free look vs chase-cam behind movement direction.
+Sub HandleCamera(delta As Single)
+	If IsActionJustPressed("cam_toggle") Then
+		camFreeLook = Not camFreeLook
+	End If
+	If camFreeLook Then
+		If IsActionPressed("cam_yaw_left") Then camYaw = camYaw - CAM_YAW_SPEED * delta
+		If IsActionPressed("cam_yaw_right") Then camYaw = camYaw + CAM_YAW_SPEED * delta
+	Else
+		Dim moveLen As Single
+		moveLen = Sqr(lastMoveX * lastMoveX + lastMoveZ * lastMoveZ)
+		If moveLen > 0.001 Then
+			Dim targetYaw As Single
+			targetYaw = Atan2(lastMoveX, lastMoveZ) + 3.14159265
+			camYaw = LerpAngle(camYaw, targetYaw, CAM_CHASE_LERP * delta)
+		End If
+	End If
+	If camFreeLook Then
+		If IsActionPressed("cam_pitch_up") Then camPitch = camPitch + CAM_PITCH_SPEED * delta
+		If IsActionPressed("cam_pitch_down") Then camPitch = camPitch - CAM_PITCH_SPEED * delta
+		camPitch = Clamp(camPitch, CAM_PITCH_MIN, CAM_PITCH_MAX)
+	End If
+	Call ApplyCamera()
+End Sub
+
+' Reset cooldown array when weapon loadout changes (shop).
+Sub SyncStats()
+	isDead = False
+	weaponCooldowns = Array()
+	Dim i As Integer
+	For i = 0 To UBound(GameManager.player_weapons)
+		weaponCooldowns.append(0.0)
+	Next i
+End Sub
+
+' Shared with CombatCache3D — updates GameManager.combat_mob_count for AI LOD.
+Sub RefreshEnemyCache(delta As Single)
+	enemyCacheTimer = enemyCacheTimer - delta
+	If enemyCacheTimer <= 0 Then
+		enemyCacheTimer = ENEMY_CACHE_INTERVAL
+		cachedEnemies = GetTree().get_nodes_in_group("enemies")
+		Call BeginCombatFrame(cachedEnemies)
+	End If
+	cachedBullets = GetTree().get_nodes_in_group("bullets")
+	liveBulletCount = UBound(cachedBullets) + 1
+	If liveBulletCount < 0 Then liveBulletCount = 0
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	If GameManager.game_state <> "fight" Or isDead Then
+		SetVelocity Me, 0.0, 0.0, 0.0
+		Exit Sub
+	End If
+	If UBound(weaponCooldowns) <> UBound(GameManager.player_weapons) Then
+		Call SyncStats()
+	End If
+	Call RefreshEnemyCache(delta)
+	Call HandleCamera(delta)
+	Call HandleMovement(delta)
+	Call HandleShooting(delta)
+End Sub
+
+Sub HandleMovement(delta As Single)
+	Dim dirX As Single
+	Dim dirZ As Single
+	dirX = Input.GetAxis("move_left", "move_right")
+	dirZ = Input.GetAxis("move_forward", "move_back")
+	Dim len As Single
+	len = Sqr(dirX * dirX + dirZ * dirZ)
+	If len > 0.001 Then
+		dirX = dirX / len
+		dirZ = dirZ / len
+		lastMoveX = dirX
+		lastMoveZ = dirZ
+	End If
+	Dim spd As Single
+	spd = GameManager.player_stats("speed") * 0.04
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + Vector3(dirX * spd * delta, 0.0, dirZ * spd * delta)
+	Call ClampToArena()
+	If len > 0.001 Then
+		Call FaceMoveDirection(pivot, Me.global_position, dirX, dirZ)
+	End If
+	Call UpdateAnimation(len > 0.001)
+End Sub
+
+Sub ClampToArena()
+	Dim pos As Object
+	pos = Me.global_position
+	Dim x As Single
+	Dim z As Single
+	x = Clamp(pos.x, ARENA_MIN_X + HALF_X, ARENA_MAX_X - HALF_X)
+	z = Clamp(pos.z, ARENA_MIN_Z + HALF_Z, ARENA_MAX_Z - HALF_Z)
+	Me.global_position = Vector3(x, pos.y, z)
+End Sub
+
+Sub UpdateAnimation(moving As Boolean)
+	If animPlayer Is Nothing Then Exit Sub
+	If moving Then
+		If Not animPlayer.is_playing() Then
+			Animation.Play animPlayer, "walk"
+		End If
+	Else
+		If animPlayer.is_playing() Then
+			animPlayer.stop()
+		End If
+	End If
+End Sub
+
+' Each owned weapon slot ticks its cooldown and fires independently.
+Sub HandleShooting(delta As Single)
+	Dim i As Integer
+	For i = 0 To UBound(GameManager.player_weapons)
+		weaponCooldowns(i) = weaponCooldowns(i) - delta
+		If weaponCooldowns(i) > 0 Then GoTo NextWeapon
+		Dim weapon As Object
+		Set weapon = GameManager.player_weapons(i)
+		Dim eff As Object
+		Set eff = GameManager.GetWeaponEffectiveStats(weapon)
+		If eff Is Nothing Then
+			weaponCooldowns(i) = 0.5
+			GoTo NextWeapon
+		End If
+		Dim target As Object
+		Set target = FindNearestEnemyWithin(eff("range") * RANGE_SCALE)
+		If target Is Nothing Then
+			weaponCooldowns(i) = 0.1
+			GoTo NextWeapon
+		End If
+		Call FireWeapon(eff, target)
+		weaponCooldowns(i) = eff("cooldown")
+NextWeapon:
+	Next i
+End Sub
+
+Function FindNearestEnemyWithin(r As Single) As Object
+	Dim best As Object
+	Set best = Nothing
+	Dim bestDist As Single
+	bestDist = r
+	Dim i As Integer
+	For i = 0 To UBound(cachedEnemies)
+		Dim node As Object
+		Set node = cachedEnemies(i)
+		If node Is Nothing Then GoTo NextE
+		Dim d As Single
+		d = Me.global_position.distance_to(node.global_position)
+		If d < bestDist Then
+			bestDist = d
+			Set best = node
+		End If
+NextE:
+	Next i
+	Set FindNearestEnemyWithin = best
+End Function
+
+Sub FireWeapon(eff As Object, target As Object)
+	Dim baseDir As Object
+	baseDir = (target.global_position - Me.global_position).normalized()
+	Dim count As Integer
+	count = Int(eff("bullet_count"))
+	Dim spread As Single
+	spread = Deg2Rad(eff("spread_deg"))
+	If count <= 1 Then
+		Dim jitter As Single
+		jitter = (Rnd() - 0.5) * spread
+		Call SpawnBullet(RotateDirY(baseDir, jitter), eff)
+	Else
+		Dim j As Integer
+		For j = 0 To count - 1
+			Dim t As Single
+			t = j / (count - 1) - 0.5
+			Call SpawnBullet(RotateDirY(baseDir, t * spread), eff)
+		Next j
+	End If
+	AudioBus.Play(CStr(eff("def_id")) & "_fire")
+	GameManager.EmitRequestShake 2.5
+End Sub
+
+Sub SpawnBullet(dir As Object, eff As Object)
+	If bulletScene Is Nothing Then Exit Sub
+	If liveBulletCount >= MAX_BULLETS Then Exit Sub
+	Dim bullet As Object
+	Set bullet = bulletScene.instantiate()
+	Dim p As Object
+	Set p = New Dictionary
+	p("dir") = dir
+	p("damage") = eff("damage")
+	p("pierce") = eff("pierce")
+	p("speed") = eff("bullet_speed") * SPEED_SCALE
+	p("lifetime") = eff("bullet_lifetime")
+	p("color") = eff("color")
+	bullet.SetupExtended(p)
+	GetParent().add_child(bullet)
+	bullet.global_position = Me.global_position + Vector3(0, 0.8, 0)
+End Sub
+
+Sub TakeDamage(amount As Single)
+	If isDead Or GameManager.game_state <> "fight" Then Exit Sub
+	If Rnd() < GameManager.player_stats("dodge") Then Exit Sub
+	Dim armor As Integer
+	armor = Int(GameManager.player_stats("armor"))
+	Dim actual As Single
+	actual = Max(amount - armor, 1.0)
+	GameManager.player_stats("hp") = GameManager.player_stats("hp") - actual
+	GameManager.EmitRequestShake 7.0
+	AudioBus.Play("player_hurt")
+	If GameManager.player_stats("hp") <= 0 Then
+		GameManager.player_stats("hp") = 0
+		isDead = True
+		GameManager.EmitPlayerDied()
+	End If
+End Sub
+
+Function RotateDirY(dir As Object, angle As Single) As Object
+	Dim c As Single
+	Dim s As Single
+	c = Cos(angle)
+	s = Sin(angle)
+	RotateDirY = Vector3(dir.x * c - dir.z * s, 0.0, dir.x * s + dir.z * c)
+End Function
+
+Sub Heal(amount As Single)
+	Dim hp As Single
+	hp = GameManager.player_stats("hp") + amount
+	If hp > GameManager.player_stats("max_hp") Then hp = GameManager.player_stats("max_hp")
+	GameManager.player_stats("hp") = hp
+End Sub

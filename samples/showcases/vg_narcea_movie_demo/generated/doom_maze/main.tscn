@@ -1,0 +1,86 @@
+[gd_scene load_steps=4 format=3 uid="uid://doom_maze_main"]
+
+[ext_resource type="Script" path="res://generated/doom_maze/maze.vg" id="1_maze"]
+
+[sub_resource type="Environment" id="Environment_doom"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.04, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.25, 0.2, 0.18, 1)
+ambient_light_energy = 0.35
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.35, 0.32, 0.28, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.15, 0.14, 0.12, 1)
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_doom")
+
+[node name="World" type="Node3D" parent="."]
+
+[node name="Floor" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+use_collision = true
+size = Vector3(24, 1, 24)
+material = SubResource("StandardMaterial3D_floor")
+
+[node name="WallN" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -11)
+use_collision = true
+size = Vector3(24, 4, 1)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="WallS" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 11)
+use_collision = true
+size = Vector3(24, 4, 1)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="WallW" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -11, 2, 0)
+use_collision = true
+size = Vector3(1, 4, 24)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="WallE" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 2, 0)
+use_collision = true
+size = Vector3(1, 4, 24)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="PillarA" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.5, 4)
+use_collision = true
+size = Vector3(2, 3, 2)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="PillarB" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 1.5, -3)
+use_collision = true
+size = Vector3(2, 3, 8)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="PillarC" type="CSGBox3D" parent="World"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1.5, -6)
+use_collision = true
+size = Vector3(8, 3, 2)
+material = SubResource("StandardMaterial3D_wall")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 8)
+script = ExtResource("1_maze")
+
+[node name="Camera3D" type="Camera3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+current = true
+fov = 78.0
+
+[node name="OmniLight3D" type="OmniLight3D" parent="Player/Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+light_color = Color(1, 0.75, 0.45, 1)
+light_energy = 2.2
+omni_range = 14.0

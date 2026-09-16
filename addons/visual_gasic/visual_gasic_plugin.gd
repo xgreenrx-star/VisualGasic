@@ -2229,6 +2229,20 @@ func _exit_tree():
 # DEBUGGER BREAKPOINTS — called by form_preview_toolbar to persist breakpoints
 # =============================================================================
 
+func normalize_vg_script_path(path: String) -> String:
+	if path.is_empty() or path.begins_with("res://"):
+		return path
+	var abs_path := path.replace("\\", "/")
+	var project_root := ProjectSettings.globalize_path("res://").replace("\\", "/")
+	if not project_root.ends_with("/"):
+		project_root += "/"
+	if abs_path.begins_with(project_root):
+		return "res://" + abs_path.substr(project_root.length())
+	return path
+
+func vg_script_paths_equal(a: String, b: String) -> bool:
+	return normalize_vg_script_path(a) == normalize_vg_script_path(b)
+
 ## Returns the current breakpoint dictionary from ALL sources:
 ## 1. The embedded VG code editor (primary — where users actually set breakpoints)
 ## 2. The debugger plugin (ScriptEditor polling — fallback)
@@ -2238,7 +2252,7 @@ func get_debugger_breakpoints() -> Dictionary:
 
 	# Source 1: Embedded VG code editor (0-based → 1-based conversion)
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path") and _embedded_code_editor.has_method("get_code_edit"):
-		var vg_path: String = _embedded_code_editor.get_file_path()
+		var vg_path: String = normalize_vg_script_path(_embedded_code_editor.get_file_path())
 		var code_edit = _embedded_code_editor.get_code_edit()
 		if not vg_path.is_empty() and code_edit:
 			var bp_lines = code_edit.get_breakpointed_lines()
@@ -3843,14 +3857,19 @@ func _build_vb6_scene_theme() -> Theme:
 	# ── ItemList (ListBox) ──
 	var il_sb = _make_sunken.call(win_bg)
 	t.set_stylebox("panel", "ItemList", il_sb)
-	t.set_color("font_color",          "ItemList", win_text)
-	t.set_color("font_selected_color", "ItemList", title_text)
+	t.set_color("font_color",                  "ItemList", win_text)
+	t.set_color("font_selected_color",         "ItemList", title_text)
+	t.set_color("font_hovered_color",          "ItemList", win_text)
+	t.set_color("font_hovered_selected_color", "ItemList", title_text)
 
 	var il_sel = StyleBoxFlat.new()
 	il_sel.bg_color = title_bg
 	il_sel.set_content_margin_all(2)
-	t.set_stylebox("selected",       "ItemList", il_sel)
-	t.set_stylebox("selected_focus", "ItemList", il_sel)
+	t.set_stylebox("selected",               "ItemList", il_sel)
+	t.set_stylebox("selected_focus",         "ItemList", il_sel)
+	t.set_stylebox("hovered",                "ItemList", StyleBoxEmpty.new())
+	t.set_stylebox("hovered_selected",       "ItemList", il_sel)
+	t.set_stylebox("hovered_selected_focus", "ItemList", il_sel)
 
 	# ── Tree (TreeView) ──
 	var tree_sb = _make_sunken.call(win_bg)
@@ -8997,11 +9016,11 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 		return
 
 	# If we're already showing code for a different file, save first
-	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != file:
+	if _embedded_code_editor.is_dirty() and not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
 		_embedded_code_editor.save_file()
 
-	# Load the file (only reloads if path changed)
-	if _embedded_code_editor.get_file_path() != file:
+	# Load only when switching files — res:// vs absolute must not reload (VB6 keeps breakpoints)
+	if not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
 		_embedded_code_editor.load_file(file)
 		_feed_control_names_to_editor()
 
@@ -9139,6 +9158,7 @@ func _on_data_tips_debug_ended() -> void:
 
 var _run_to_cursor_file: String = ""
 var _run_to_cursor_line: int = -1
+var _run_to_cursor_added_temp: bool = false
 
 func _on_run_to_cursor(target_line_1based: int) -> void:
 	if not debugger_plugin or not debugger_plugin.is_session_active():
@@ -9152,14 +9172,16 @@ func _on_run_to_cursor(target_line_1based: int) -> void:
 		push_warning("VisualGasic: Run to Cursor — no script file")
 		return
 	# Remember the temp breakpoint so we can remove it when hit
-	_run_to_cursor_file = script_path
+	_run_to_cursor_file = normalize_vg_script_path(script_path)
 	_run_to_cursor_line = target_line_1based
-	# Inject a temporary breakpoint at the target line
-	if not debugger_plugin._breakpoints.has(script_path):
-		debugger_plugin._breakpoints[script_path] = []
-	var bp_list: Array = debugger_plugin._breakpoints[script_path]
+	_run_to_cursor_added_temp = false
+	# Inject a temporary breakpoint at the target line (only if not already set)
+	if not debugger_plugin._breakpoints.has(_run_to_cursor_file):
+		debugger_plugin._breakpoints[_run_to_cursor_file] = []
+	var bp_list: Array = debugger_plugin._breakpoints[_run_to_cursor_file]
 	if target_line_1based not in bp_list:
 		bp_list.append(target_line_1based)
+		_run_to_cursor_added_temp = true
 	# Sync to game and continue execution
 	debugger_plugin._sync_breakpoints_to_game()
 	debugger_plugin.debug_continue()
@@ -9167,13 +9189,14 @@ func _on_run_to_cursor(target_line_1based: int) -> void:
 
 func _on_run_to_cursor_break_hit(file: String, line: int) -> void:
 	## Check if this break was from our Run-to-Cursor temp breakpoint.
-	if _run_to_cursor_line > 0 and file == _run_to_cursor_file and line == _run_to_cursor_line:
-		# Remove the temp breakpoint
+	if _run_to_cursor_line <= 0 or not vg_script_paths_equal(file, _run_to_cursor_file) or line != _run_to_cursor_line:
+		return
+	# Remove only a breakpoint we injected for Run-to-Cursor — never a user F9 breakpoint (VB6)
+	if _run_to_cursor_added_temp:
 		if debugger_plugin._breakpoints.has(_run_to_cursor_file):
 			var bp_list: Array = debugger_plugin._breakpoints[_run_to_cursor_file]
 			bp_list.erase(_run_to_cursor_line)
 			debugger_plugin._sync_breakpoints_to_game()
-		# Also remove from the CodeEdit gutter if visible
 		if is_instance_valid(_embedded_code_editor):
 			var code_edit = _embedded_code_editor.get_code_edit()
 			if code_edit:
@@ -9182,8 +9205,9 @@ func _on_run_to_cursor_break_hit(file: String, line: int) -> void:
 					and code_edit.is_line_breakpointed(zero_line):
 					code_edit.set_line_as_breakpoint(zero_line, false)
 		print("VisualGasic: Run to Cursor → hit, temp breakpoint removed")
-		_run_to_cursor_file = ""
-		_run_to_cursor_line = -1
+	_run_to_cursor_file = ""
+	_run_to_cursor_line = -1
+	_run_to_cursor_added_temp = false
 
 # =============================================================================
 # EXCEPTION ASSISTANT — VB6-style unhandled error popup

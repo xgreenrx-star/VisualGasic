@@ -1,0 +1,111 @@
+[gd_scene load_steps=8 format=3 uid="uid://vg_twinpane_main"]
+
+[ext_resource type="Theme" path="res://themes/VB6Theme.tres" id="1_theme"]
+[ext_resource type="Script" path="res://scripts/Main.vg" id="2_main"]
+[ext_resource type="Script" path="res://addons/visual_gasic/form_editor_helper.gd" id="3_helper"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Button.tscn" id="4_btn"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/Label.tscn" id="5_lbl"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/LineEdit.tscn" id="6_txt"]
+[ext_resource type="PackedScene" path="res://addons/visual_gasic/prototypes/ItemList.tscn" id="7_lst"]
+
+[node name="TwinPane" type="Window"]
+title = "VG TwinPane"
+initial_position = 1
+size = Vector2i(1024, 640)
+theme = ExtResource("1_theme")
+script = ExtResource("2_main")
+
+[node name="_FormBackground" type="Panel" parent="."]
+offset_right = 1024.0
+offset_bottom = 640.0
+mouse_filter = 2
+script = ExtResource("3_helper")
+
+[node name="btnUp" parent="." instance=ExtResource("4_btn")]
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 83.0
+offset_bottom = 31.0
+text = "Up"
+
+[node name="btnRefresh" parent="." instance=ExtResource("4_btn")]
+offset_left = 92.0
+offset_top = 8.0
+offset_right = 167.0
+offset_bottom = 31.0
+text = "Refresh"
+
+[node name="btnCopy" parent="." instance=ExtResource("4_btn")]
+offset_left = 176.0
+offset_top = 8.0
+offset_right = 251.0
+offset_bottom = 31.0
+text = "Copy ->"
+
+[node name="btnMove" parent="." instance=ExtResource("4_btn")]
+offset_left = 260.0
+offset_top = 8.0
+offset_right = 335.0
+offset_bottom = 31.0
+text = "Move ->"
+
+[node name="btnDelete" parent="." instance=ExtResource("4_btn")]
+offset_left = 344.0
+offset_top = 8.0
+offset_right = 419.0
+offset_bottom = 31.0
+text = "Delete"
+
+[node name="btnTrash" parent="." instance=ExtResource("4_btn")]
+offset_left = 428.0
+offset_top = 8.0
+offset_right = 503.0
+offset_bottom = 31.0
+text = "Trash"
+
+[node name="lblLeft" parent="." instance=ExtResource("5_lbl")]
+offset_left = 8.0
+offset_top = 40.0
+offset_right = 48.0
+offset_bottom = 56.0
+text = "Left"
+
+[node name="txtLeftPath" parent="." instance=ExtResource("6_txt")]
+offset_left = 8.0
+offset_top = 58.0
+offset_right = 504.0
+offset_bottom = 82.0
+
+[node name="lstLeft" parent="." instance=ExtResource("7_lst")]
+offset_left = 8.0
+offset_top = 86.0
+offset_right = 504.0
+offset_bottom = 604.0
+select_mode = 1
+
+[node name="lblRight" parent="." instance=ExtResource("5_lbl")]
+offset_left = 520.0
+offset_top = 40.0
+offset_right = 568.0
+offset_bottom = 56.0
+text = "Right"
+
+[node name="txtRightPath" parent="." instance=ExtResource("6_txt")]
+offset_left = 520.0
+offset_top = 58.0
+offset_right = 1016.0
+offset_bottom = 82.0
+
+[node name="lstRight" parent="." instance=ExtResource("7_lst")]
+offset_left = 520.0
+offset_top = 86.0
+offset_right = 1016.0
+offset_bottom = 604.0
+select_mode = 1
+
+[node name="StatusBar" parent="." instance=ExtResource("5_lbl")]
+offset_left = 8.0
+offset_top = 612.0
+offset_right = 1016.0
+offset_bottom = 632.0
+text = "Ready"

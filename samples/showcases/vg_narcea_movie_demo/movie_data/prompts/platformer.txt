@@ -1,0 +1,5 @@
+Create a 2D platformer in Visual Gasic with Kenney Platformer Pack Redux graphics (CC0). Tile-based level with grass/brick platforms, jumping player alien, collectible gold coins, patrolling slime enemy, score HUD, and scrolling camera. Download sprites from https://kenney.nl/assets/platformer-pack-redux into generated/platformer/assets/kenney/. Save game.vg + main.tscn.
+
+References:
+https://docs.godotengine.org/en/stable/getting_started/first_2d_game/index.html
+https://kenney.nl/assets/platformer-pack-redux

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # record_vg_beta_showcase.sh — Frame-perfect capture via Godot Movie Maker.
 #
-# Same pipeline as projects/demoscene_intro ( --write-movie → AVI → optional MP4 ).
+# Same pipeline as samples/showcases/demoscene_intro ( --write-movie → AVI → optional MP4 ).
 # Plays tour → backrooms hub → all demos → end card, then quits automatically.
 #
 # Usage:
@@ -9,14 +9,14 @@
 #   GODOT=/path/to/godot scripts/record_vg_beta_showcase.sh
 #
 # Output:
-#   projects/vg_beta_showcase/vg_beta_showcase.avi
+#   samples/showcases/vg_beta_showcase/vg_beta_showcase.avi
 #   vg_beta_showcase.mp4  (repo root, when ffmpeg is installed)
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
-PROJECT="$ROOT/projects/vg_beta_showcase"
+PROJECT="$ROOT/samples/showcases/vg_beta_showcase"
 AVI="$PROJECT/vg_beta_showcase.avi"
 MP4="$ROOT/vg_beta_showcase.mp4"
 

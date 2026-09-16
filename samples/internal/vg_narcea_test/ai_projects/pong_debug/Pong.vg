@@ -1,0 +1,11 @@
+' Pong
+Sub _Ready()
+    Print "ready"
+End Sub
+
+Sub _Process(delta As Single)
+End Sub
+
+Sub _Draw()
+    DrawRect 0, 0, 20, 20, Color.White
+End Sub

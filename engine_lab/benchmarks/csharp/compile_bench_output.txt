@@ -1,0 +1,20 @@
+Building demo C# project...
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.63
+Demo C# build OK.
+=== Visual Gasic C# Compile Benchmarks ===
+Metric: median incremental dotnet build (microseconds, lower is faster)
+Note: C# uses MSBuild assembly compile — not comparable 1:1 to VG/GD Script.reload()
+
+=== HelloWorld (hello.cs touch) ===
+  C# incremental build: { "elapsed_us": 1119787 }
+
+=== BenchCompute (BenchCompute.cs touch) ===
+  C# incremental build: { "elapsed_us": 960133 }
+
+C# compile benchmarks finished.
+Compare VG/GD script reload with: scripts/run_compile_benchmarks.sh

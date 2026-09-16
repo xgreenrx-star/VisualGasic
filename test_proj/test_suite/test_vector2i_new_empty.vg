@@ -1,0 +1,10 @@
+Sub _Ready()
+    Dim v As Vector2i
+    v = New Vector2i()
+    Print v.ToString()
+    If v.x = 0 And v.y = 0 Then
+        Print "PASS: new_vector2i_empty"
+    Else
+        Print "FAIL: new_vector2i_empty"
+    End If
+End Sub

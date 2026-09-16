@@ -1,0 +1,100 @@
+[gd_scene load_steps=8 format=3 uid="uid://dciyoa2wkbtfp"]
+
+[ext_resource type="Theme" uid="uid://dkb62tku7dpgs" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/theme/instruments/instrument_theme_gray.tres" id="1_0bvov"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/note_map/NoteMap.gd" id="1_opxc8"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/note_map/NoteMapGutter.gd" id="2_3knao"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/note_map/NoteMapScrollbar.gd" id="3_gs7e5"]
+[ext_resource type="Texture2D" uid="uid://cbvbbfa1ojixi" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/arrow_up_small.png" id="6_5b2uk"]
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/views/note_map/NoteMapOverlay.gd" id="6_20i0e"]
+[ext_resource type="Texture2D" uid="uid://n8jw4gat8tg7" path="res://addons/visual_gasic/plugins/vgmusic/bosca/assets/icons/arrow_down_small.png" id="7_oqrjh"]
+
+[node name="NoteMap" type="Control"]
+auto_translate_mode = 1
+clip_contents = true
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_vertical = 3
+mouse_default_cursor_shape = 2
+theme = ExtResource("1_0bvov")
+script = ExtResource("1_opxc8")
+
+[node name="NoteMapGutter" type="Control" parent="."]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(50, 0)
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+grow_vertical = 2
+script = ExtResource("2_3knao")
+
+[node name="NoteMapScrollbar" type="Control" parent="."]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(36, 0)
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 2
+script = ExtResource("3_gs7e5")
+
+[node name="NoteMapOverlay" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6_20i0e")
+
+[node name="NoteMapScrollButtons" type="Control" parent="."]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(36, 0)
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -36.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="UpButton" type="Button" parent="NoteMapScrollButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 20.0
+grow_horizontal = 2
+focus_mode = 0
+theme_type_variation = &"ScrollbarButton"
+icon = ExtResource("6_5b2uk")
+icon_alignment = 1
+expand_icon = true
+
+[node name="DownButton" type="Button" parent="NoteMapScrollButtons"]
+unique_name_in_owner = true
+auto_translate_mode = 1
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -22.0
+grow_horizontal = 2
+grow_vertical = 0
+focus_mode = 0
+theme_type_variation = &"ScrollbarButton"
+icon = ExtResource("7_oqrjh")
+icon_alignment = 1
+expand_icon = true

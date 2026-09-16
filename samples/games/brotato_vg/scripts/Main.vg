@@ -1,0 +1,256 @@
+' Main — title, combat loop, game over / win screens
+Extends Node2D
+
+Const ARENA_LEFT As Single = -10.0
+Const ARENA_TOP As Single = -260.0
+Const ARENA_WIDTH As Single = 1300.0
+Const ARENA_HEIGHT As Single = 1300.0
+Const SHAKE_DECAY As Single = 7.5
+Const SHAKE_MAX As Single = 26.0
+
+Dim player As Object
+Dim waveManager As Object
+Dim hud As Object
+Dim shop As Object
+Dim titleScreen As Object
+Dim gameoverScreen As Object
+Dim winScreen As Object
+Dim pauseScreen As Object
+
+Dim waveTimerRef As Single
+Dim shakeAmount As Single
+
+Sub _Ready()
+	GetTree().set_current_scene(Me)
+	player = GetNode("GameObjects/Player")
+	waveManager = GetNode("WaveManager")
+	hud = GetNode("HUD")
+	shop = GetNode("Shop")
+	titleScreen = GetNode("TitleScreen")
+	gameoverScreen = GetNode("GameOverScreen")
+	winScreen = GetNode("WinScreen")
+	pauseScreen = GetNode("PauseScreen")
+
+	Dim startBtn As Object
+	startBtn = titleScreen.GetNode("Panel/VBox/StartBtn")
+	Dim restartBtn As Object
+	restartBtn = gameoverScreen.GetNode("Panel/VBox/RestartBtn")
+	Dim winBtn As Object
+	winBtn = winScreen.GetNode("Panel/VBox/RestartBtn")
+	Dim contBtn As Object
+	contBtn = shop.GetNode("Panel/VBox/Footer/ContinueBtn")
+	Dim resumeBtn As Object
+	resumeBtn = pauseScreen.GetNode("Panel/VBox/ResumeBtn")
+
+	Connect startBtn, "pressed", "start_game"
+	Connect restartBtn, "pressed", "start_game"
+	Connect winBtn, "pressed", "start_game"
+	Connect contBtn, "pressed", "OnShopContinue"
+	Connect resumeBtn, "pressed", "TogglePause"
+
+	Connect GameManager, "player_died", "OnPlayerDied"
+	Connect GameManager, "game_won", "ShowWin"
+	Connect GameManager, "request_shake", "OnRequestShake"
+	Connect waveManager, "wave_ended", "OnWaveEnded"
+
+	Call BuildCharacterGrid()
+	Call ShowTitle()
+End Sub
+
+Sub _Process(delta As Single)
+	If GameManager.game_state = "fight" Then
+		waveTimerRef = waveTimerRef - delta
+		If waveTimerRef < 0 Then waveTimerRef = 0
+		hud.UpdateHud(waveTimerRef)
+	End If
+	Call UpdateShake(delta)
+End Sub
+
+Sub _UnhandledInput(event As Object)
+	If Input.IsActionJustPressed("ui_cancel") Then
+		If GameManager.game_state = "fight" Then
+			Call TogglePause()
+		ElseIf GetTree().paused Then
+			Call TogglePause()
+		End If
+	End If
+End Sub
+
+Sub TogglePause()
+	Dim newState As Boolean
+	newState = Not GetTree().paused
+	GetTree().paused = newState
+	pauseScreen.Visible = newState
+End Sub
+
+Sub OnRequestShake(amount As Single)
+	If amount > shakeAmount Then shakeAmount = amount
+	If shakeAmount > SHAKE_MAX Then shakeAmount = SHAKE_MAX
+End Sub
+
+Sub UpdateShake(delta As Single)
+	If player Is Nothing Then Exit Sub
+	Dim cam As Object
+	cam = player.GetNode("Camera2D")
+	If cam Is Nothing Then Exit Sub
+	If shakeAmount > 0.05 Then
+		cam.offset = Vector2(Rnd() * 2 - 1, Rnd() * 2 - 1) * shakeAmount
+		shakeAmount = shakeAmount - SHAKE_DECAY * delta
+		If shakeAmount < 0 Then shakeAmount = 0
+	Else
+		cam.offset = Vector2(0, 0)
+	End If
+End Sub
+
+Sub start_game()
+	If GetTree().paused Then
+		GetTree().paused = False
+		pauseScreen.Visible = False
+	End If
+	GameManager.Reset()
+	Call StartWave()
+End Sub
+
+Sub StartWave()
+	GameManager.game_state = "fight"
+	waveTimerRef = GameManager.GetWaveDuration()
+	Call ClearGroup("enemies")
+	Call ClearGroup("bosses")
+	Call ClearGroup("drops")
+	Call ClearGroup("enemy_bullets")
+	Dim center As Object
+	center = Vector2(ARENA_LEFT + ARENA_WIDTH * 0.5, ARENA_TOP + ARENA_HEIGHT * 0.5)
+	player.global_position = center
+	player.SyncStats()
+	Dim ch As Object
+	Set ch = GameManager.GetSelectedCharacter()
+	player.SetCharacterTint(ch("tint"))
+	Dim rect As Object
+	rect = Rect2(Vector2(ARENA_LEFT, ARENA_TOP), Vector2(ARENA_WIDTH, ARENA_HEIGHT))
+	waveManager.StartWave(rect)
+	titleScreen.hide()
+	gameoverScreen.hide()
+	winScreen.hide()
+	shop.hide()
+	pauseScreen.hide()
+	hud.show()
+End Sub
+
+Sub ClearGroup(groupName As String)
+	Dim nodes As Variant
+	nodes = GetTree().get_nodes_in_group(groupName)
+	Dim i As Integer
+	For i = 0 To UBound(nodes)
+		nodes(i).queue_free()
+	Next i
+End Sub
+
+Sub OnWaveEnded()
+	GameManager.game_state = "shop"
+	shop.open_shop()
+End Sub
+
+Sub OnShopContinue()
+	GameManager.wave = GameManager.wave + 1
+	If GameManager.wave > GameManager.TOTAL_WAVES Then
+		Call ShowWin()
+		Exit Sub
+	End If
+	GameManager.EmitWaveChanged(GameManager.wave)
+	Call StartWave()
+End Sub
+
+Sub OnPlayerDied()
+	GameManager.game_state = "gameover"
+	waveManager.StopWave()
+	gameoverScreen.GetNode("Panel/VBox/WaveLabel").Caption = "Reached wave " & CStr(GameManager.wave)
+	gameoverScreen.GetNode("Panel/VBox/Stats/KillsVal").Caption = CStr(GameManager.player_stats("total_kills"))
+	gameoverScreen.GetNode("Panel/VBox/Stats/DmgVal").Caption = CStr(Int(GameManager.player_stats("total_damage")))
+	gameoverScreen.GetNode("Panel/VBox/Stats/MatsVal").Caption = CStr(GameManager.player_stats("materials"))
+	gameoverScreen.GetNode("Panel/VBox/Stats/LvlVal").Caption = CStr(GameManager.player_stats("level"))
+	hud.hide()
+	gameoverScreen.show()
+End Sub
+
+Sub ShowTitle()
+	hud.hide()
+	shop.hide()
+	gameoverScreen.hide()
+	winScreen.hide()
+	pauseScreen.hide()
+	titleScreen.show()
+End Sub
+
+Sub ShowWin()
+	GameManager.game_state = "win"
+	waveManager.StopWave()
+	winScreen.GetNode("Panel/VBox/Stats/KillsVal").Caption = CStr(GameManager.player_stats("total_kills"))
+	winScreen.GetNode("Panel/VBox/Stats/DmgVal").Caption = CStr(Int(GameManager.player_stats("total_damage")))
+	hud.hide()
+	winScreen.show()
+End Sub
+
+Sub BuildCharacterGrid()
+	Dim grid As Object
+	grid = titleScreen.GetNode("Panel/VBox/CharScroll/CharGrid")
+	If grid Is Nothing Then Exit Sub
+	Dim c As Object
+	For Each c In grid.get_children()
+		c.queue_free()
+	Next c
+	Dim i As Integer
+	For i = 0 To GameManager.CHARACTER_COUNT - 1
+		grid.add_child(MakeCharacterCard(GameManager.CharacterIdAt(i), GameManager.CharacterNameAt(i), GameManager.CharacterDescAt(i), GameManager.CharacterTintAt(i)))
+	Next i
+	Call RefreshCharacterSelection()
+End Sub
+
+Function MakeCharacterCard(charId As String, charName As String, charDesc As String, charTint As Color) As Object
+	Dim card As Object
+	Set card = ClassDB.Instantiate("Button")
+	card.name = "CharCard_" & charId
+	card.custom_minimum_size = Vector2(235, 185)
+	Dim vbox As Object
+	Set vbox = ClassDB.Instantiate("VBoxContainer")
+	vbox.alignment = 1
+	Dim swatch As Object
+	Set swatch = ClassDB.Instantiate("ColorRect")
+	swatch.color = charTint
+	swatch.custom_minimum_size = Vector2(30, 30)
+	Dim nameLbl As Object
+	Set nameLbl = ClassDB.Instantiate("Label")
+	nameLbl.Caption = charName
+	nameLbl.horizontal_alignment = 1
+	Dim descLbl As Object
+	Set descLbl = ClassDB.Instantiate("Label")
+	descLbl.Caption = charDesc
+	descLbl.horizontal_alignment = 1
+	vbox.add_child(swatch)
+	vbox.add_child(nameLbl)
+	vbox.add_child(descLbl)
+	card.add_child(vbox)
+	Connect card, "pressed", "OnCharacterSelected", charId
+	Set MakeCharacterCard = card
+End Function
+
+Sub OnCharacterSelected(charId As String)
+	GameManager.selected_character = charId
+	Call RefreshCharacterSelection()
+	AudioBus.Play("buy")
+End Sub
+
+Sub RefreshCharacterSelection()
+	Dim grid As Object
+	grid = titleScreen.GetNode("Panel/VBox/CharScroll/CharGrid")
+	If grid Is Nothing Then Exit Sub
+	Dim card As Object
+	For Each card In grid.get_children()
+		Dim cid As String
+		cid = Mid(card.name, Len("CharCard_") + 1)
+		If cid = GameManager.selected_character Then
+			card.modulate = Color(1.0, 0.85, 0.4)
+		Else
+			card.modulate = Color.White
+		End If
+	Next card
+End Sub

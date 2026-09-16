@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="ColorRect" type="ColorRect"]
+custom_minimum_size = Vector2(64, 64)

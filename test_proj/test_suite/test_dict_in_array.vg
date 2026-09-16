@@ -1,0 +1,57 @@
+' Regression: Dictionary stored in Godot Array, chained subscript arr(i)("key")
+' Mirrors GameManager.GetWeaponDef: CStr(WEAPON_DEFS(i)("id")) = defId
+Attribute VB_Name = "TestDictInArray"
+
+Sub _Ready()
+	Dim defs As Variant
+	Dim i As Integer
+	Dim found As Boolean
+	Dim idVal As String
+
+	defs = Array()
+	Call AddDef(defs, "pistol", "Pistol")
+	Call AddDef(defs, "shotgun", "Shotgun")
+
+	found = False
+	For i = 0 To UBound(defs)
+		idVal = CStr(defs(i)("id"))
+		If idVal = "shotgun" Then
+			If CStr(defs(i)("name")) = "Shotgun" Then
+				found = True
+			End If
+		End If
+	Next i
+
+	If found Then
+		Print "PASS: dict_in_array_lookup"
+	Else
+		Print "FAIL: dict_in_array_lookup"
+	End If
+
+	If LookupDef(defs, "pistol") Then
+		Print "PASS: dict_in_array_func_param"
+	Else
+		Print "FAIL: dict_in_array_func_param"
+	End If
+End Sub
+
+Sub AddDef(defs As Variant, defId As String, nm As String)
+	Dim d As Object
+	Set d = New Dictionary
+	d("id") = defId
+	d("name") = nm
+	defs.append(d)
+End Sub
+
+Function LookupDef(defs As Variant, defId As String) As Boolean
+	Dim i As Integer
+	Dim idVal As String
+	LookupDef = False
+	For i = 0 To UBound(defs)
+		idVal = CStr(defs(i)("id"))
+		If idVal = defId Then
+			LookupDef = True
+			Return
+		End If
+	Next i
+End Function

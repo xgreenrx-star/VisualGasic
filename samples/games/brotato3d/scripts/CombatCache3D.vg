@@ -1,0 +1,67 @@
+' =============================================================================
+' CombatCache3D.vg — shared combat snapshot on GameManager (import module)
+' =============================================================================
+' Every enemy/bullet/player script imports this. We stash live enemy count and
+' a per-frame snapshot on the GameManager autoload so all VG instances see the
+' same numbers — local Dim vars in each script would NOT stay in sync.
+'
+' Also home for DistXZ(): top-down game, hit tests ignore Y (bullets fly at
+' y≈0.8, enemies sit on the ground at y≈0).
+' =============================================================================
+Attribute VB_Name = "CombatCache3D"
+
+Sub ResetCombatCache()
+	GameManager.combat_live_enemies = Array()
+	GameManager.combat_frame = 0
+	GameManager.combat_mob_count = 0
+End Sub
+
+' Player calls this ~8×/sec when refreshing enemy cache. Copies the group list
+' and bumps combat_frame so enemies can stagger AI updates at high mob counts.
+Sub BeginCombatFrame(enemies As Variant)
+	GameManager.combat_frame = GameManager.combat_frame + 1
+	Dim snap As Variant
+	snap = Array()
+	Dim i As Integer
+	For i = 0 To UBound(enemies)
+		snap.append(enemies(i))
+	Next i
+	GameManager.combat_live_enemies = snap
+	If UBound(snap) < 0 Then
+		GameManager.combat_mob_count = 0
+	Else
+		GameManager.combat_mob_count = UBound(snap) + 1
+	End If
+End Sub
+
+' Performance knob: when >28 normal enemies, only half update seek AI each frame
+' (bosses always full rate). Spreads CPU cost without freezing the sim.
+Function ShouldUpdateMob(instanceId As Integer, isBoss As Boolean) As Boolean
+	If isBoss Then
+		ShouldUpdateMob = True
+		Exit Function
+	End If
+	If GameManager.combat_mob_count <= 28 Then
+		ShouldUpdateMob = True
+		Exit Function
+	End If
+	ShouldUpdateMob = ((GameManager.combat_frame And 1) = (instanceId And 1))
+End Function
+
+' Walk animations cost too — skip when horde is huge.
+Function AnimEnabled() As Boolean
+	AnimEnabled = (GameManager.combat_mob_count <= 18)
+End Function
+
+' Horizontal distance only — use for bullet hits and boss shots in this game.
+Function DistXZ(a As Object, b As Object) As Single
+	Dim pa As Object
+	Dim pb As Object
+	Dim dx As Single
+	Dim dz As Single
+	pa = a.global_position
+	pb = b.global_position
+	dx = pa.x - pb.x
+	dz = pa.z - pb.z
+	DistXZ = Sqr(dx * dx + dz * dz)
+End Function

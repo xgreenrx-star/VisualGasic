@@ -1,0 +1,42 @@
+[gd_scene load_steps=4 format=3 uid="uid://bbbxnaw4cute2"]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/ItemDock.gd" id="1_cdtng"]
+[ext_resource type="PackedScene" uid="uid://bgyn67pa8s3kd" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/DeleteArea.tscn" id="2_gogr1"]
+[ext_resource type="PackedScene" uid="uid://71sw1mddco3" path="res://addons/visual_gasic/plugins/vgmusic/bosca/gui/widgets/SquishyButton.tscn" id="3_g3e56"]
+
+[node name="ItemDock" type="Control"]
+auto_translate_mode = 1
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cdtng")
+
+[node name="DeleteArea" parent="." instance=ExtResource("2_gogr1")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_right = -16.0
+offset_bottom = 0.0
+
+[node name="AddItem" parent="." instance=ExtResource("3_g3e56")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -84.0
+offset_top = -36.0
+offset_right = 84.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "ADD ITEM"

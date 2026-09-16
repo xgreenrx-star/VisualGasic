@@ -1,0 +1,96 @@
+' =============================================================================
+' Drop3D.vg — material pickup (magnet + collect on XZ plane)
+' =============================================================================
+' Enemies spawn these on death (see Enemy3D.SpawnDrops). When the player is
+' within ATTRACT_RADIUS the drop slides toward them; COLLECT_RADIUS grants +1
+' material and a sparkle burst. Group: "drops" — capped in Enemy3D.
+' =============================================================================
+Import "VfxHelpers3D.vg"
+Extends Area3D
+
+Const ATTRACT_RADIUS As Single = 8.0
+Const COLLECT_RADIUS As Single = 1.2
+Const MAGNET_SPEED As Single = 14.0
+
+Dim lifetime As Single
+Dim pulseTime As Single
+Dim sparkleTimer As Single
+Dim meshNode As Object
+Dim mat As Object
+Dim cachedPlayer As Object
+Dim playerLookupTimer As Single
+
+Sub _Ready()
+	lifetime = 9.0
+	pulseTime = Rnd() * 6.2831853
+	playerLookupTimer = 0.0
+	meshNode = GetNode("MeshInstance3D")
+	If Not meshNode Is Nothing Then
+		Dim srcMat As Object
+		srcMat = meshNode.get_active_material(0)
+		If Not srcMat Is Nothing Then
+			Set mat = srcMat.duplicate()
+			meshNode.set_surface_override_material(0, mat)
+		End If
+	End If
+End Sub
+
+Sub RefreshPlayerCache(delta As Single)
+	playerLookupTimer = playerLookupTimer - delta
+	If playerLookupTimer <= 0 Then
+		playerLookupTimer = 0.35
+		Set cachedPlayer = GetTree().get_first_node_in_group("player")
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	pulseTime = pulseTime + delta * 6.0
+	If Not mat Is Nothing Then
+		Dim glow As Single
+		glow = 0.78 + 0.22 * Sin(pulseTime)
+		mat.emission_energy_multiplier = glow * 1.5
+	End If
+	lifetime = lifetime - delta
+	If lifetime <= 0 Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	Call RefreshPlayerCache(delta)
+	Dim player As Object
+	Set player = cachedPlayer
+	If player Is Nothing Then Exit Sub
+	Dim dist As Single
+	dist = Me.global_position.distance_to(player.global_position)
+	If dist < ATTRACT_RADIUS Then
+		Dim dx As Single
+		Dim dz As Single
+		dx = player.global_position.x - Me.global_position.x
+		dz = player.global_position.z - Me.global_position.z
+		Dim dirLen As Single
+		dirLen = Sqr(dx * dx + dz * dz)
+		If dirLen < 0.001 Then Exit Sub
+		dx = dx / dirLen
+		dz = dz / dirLen
+		Dim pos As Object
+		pos = Me.global_position
+		Dim spd As Single
+		spd = MAGNET_SPEED * delta
+		If dist < spd Then spd = dist
+		Me.global_position = pos + Vector3(dx * spd, 0, dz * spd)
+		sparkleTimer = sparkleTimer - delta
+		If sparkleTimer <= 0 Then
+			sparkleTimer = 0.15
+			Dim parent As Object
+			Set parent = GetParent()
+			If Not parent Is Nothing Then Call SpawnPickupSparkle3D(parent, Me.global_position, player.global_position)
+		End If
+	End If
+	If dist < COLLECT_RADIUS Then
+		GameManager.player_stats("materials") = Int(GameManager.player_stats("materials")) + 1
+		Dim burstParent As Object
+		Set burstParent = GetParent()
+		If Not burstParent Is Nothing Then Call SpawnPickupBurst3D(burstParent, Me.global_position)
+		GameManager.EmitRequestShake 1.5
+		Me.queue_free()
+	End If
+End Sub

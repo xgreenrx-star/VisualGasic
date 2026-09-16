@@ -1,0 +1,4 @@
+[gd_scene format=3]
+
+[node name="LinkButton" type="LinkButton"]
+text = "Link"

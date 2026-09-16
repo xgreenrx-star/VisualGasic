@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Materialize GDExtension libraries for headless Godot in CI and local runs.
-# Fresh clones keep addons/visual_gasic/bin as a symlink → ../../demo/bin (gitignored).
+# Fresh clones keep addons/visual_gasic/bin as a symlink → ../../engine_lab/bin (gitignored).
 # GitHub Actions is especially sensitive to nested symlinks inside the copied addon
 # tree: cp -a preserves symlinks, which leaves bin/ as a broken link even when the
 # real library exists elsewhere. We must replace the addon tree with a real, mounted
@@ -10,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-SO="${VG_GDEXTENSION_SO:-demo/bin/libvisualgasic.linux.editor.x86_64.so}"
+SO="${VG_GDEXTENSION_SO:-engine_lab/bin/libvisualgasic.linux.editor.x86_64.so}"
 SO_NAME="$(basename "$SO")"
 
 if [[ ! -f "$SO" ]]; then
@@ -29,7 +29,7 @@ materialize_bin() {
 
 materialize_vgmusic_bins() {
 	local dest="$1"
-	local vgmusic_src="$ROOT/demos/addons/visual_gasic/plugins/vgmusic/bin"
+	local vgmusic_src="$ROOT/samples/demos/addons/visual_gasic/plugins/vgmusic/bin"
 	[[ -d "$vgmusic_src" ]] || return 0
 	mkdir -p "$dest/plugins/vgmusic/bin"
 	local copied=0
@@ -45,7 +45,7 @@ materialize_vgmusic_bins() {
 
 materialize_icon_import() {
 	local dest="$1"
-	local import_src="$ROOT/demos/addons/visual_gasic/icon.png.import"
+	local import_src="$ROOT/samples/demos/addons/visual_gasic/icon.png.import"
 	if [[ -f "$import_src" && -f "$dest/icon.png" && ! -f "$dest/icon.png.import" ]]; then
 		cp -f "$import_src" "$dest/icon.png.import"
 		echo "==> Seeded icon.png.import: $dest"
@@ -53,15 +53,13 @@ materialize_icon_import() {
 }
 
 resolve_addon_src() {
-	# demos/ is the stable git-tracked source; repo addons/ may be seeded ephemerally.
-	if [[ -d "$ROOT/demos/addons/visual_gasic" ]]; then
-		printf '%s\n' "$ROOT/demos/addons/visual_gasic"
-	elif [[ -d "$ROOT/addons/visual_gasic" ]]; then
+	# Canonical addon at repo root; samples/demos may carry a symlinked copy.
+	if [[ -d "$ROOT/addons/visual_gasic" ]]; then
 		printf '%s\n' "$ROOT/addons/visual_gasic"
-	elif [[ -d "$ROOT/projects/addons/visual_gasic" ]]; then
-		printf '%s\n' "$ROOT/projects/addons/visual_gasic"
+	elif [[ -d "$ROOT/samples/demos/addons/visual_gasic" ]]; then
+		printf '%s\n' "$ROOT/samples/demos/addons/visual_gasic"
 	else
-		echo "ERROR: no visual_gasic addon source under addons/, demos/, or projects/" >&2
+		echo "ERROR: no visual_gasic addon under addons/ or samples/demos/" >&2
 		exit 1
 	fi
 }
@@ -120,34 +118,30 @@ else
 	materialize_bin "addons/visual_gasic/bin"
 fi
 materialize_addon_tree "test_proj/addons/visual_gasic"
-materialize_addon_tree "demo/addons/visual_gasic"
+materialize_addon_tree "engine_lab/addons/visual_gasic"
 
-# Also refresh project copies that are not under demo/test_proj but still load the
-# extension in automation or local game-project smoke runs.
-while IFS= read -r project_dir; do
-	[[ -n "$project_dir" ]] || continue
-	if [[ "$project_dir" == "$ROOT/addons" ]]; then
-		continue
-	fi
-	materialize_addon_tree "$project_dir/addons/visual_gasic"
-done < <(find "$ROOT/projects" "$ROOT/demos" -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null || true)
+# Refresh sample projects used in CI / smoke runs.
+while IFS= read -r project_godot; do
+	proj_dir="$(dirname "$project_godot")"
+	materialize_addon_tree "$proj_dir/addons/visual_gasic"
+done < <(find "$ROOT/samples" "$ROOT/engine_lab" -maxdepth 4 -name project.godot -print 2>/dev/null || true)
 
 ensure_extension_list "$ROOT/test_proj"
-ensure_extension_list "$ROOT/demo"
+ensure_extension_list "$ROOT/engine_lab"
 while IFS= read -r project_godot; do
 	ensure_extension_list "$(dirname "$project_godot")"
-done < <(find "$ROOT/test_proj" "$ROOT/demo" "$ROOT/demos" "$ROOT/projects" \
-	-maxdepth 3 -name project.godot -print 2>/dev/null || true)
+done < <(find "$ROOT/test_proj" "$ROOT/engine_lab" "$ROOT/samples" \
+	-maxdepth 5 -name project.godot -print 2>/dev/null || true)
 
 for check in \
 	"test_proj/.godot/extension_list.cfg" \
-	"demo/.godot/extension_list.cfg" \
+	"engine_lab/.godot/extension_list.cfg" \
 	"addons/visual_gasic/visual_gasic.gdextension" \
 	"addons/visual_gasic/bin/$SO_NAME" \
 	"test_proj/addons/visual_gasic/visual_gasic.gdextension" \
 	"test_proj/addons/visual_gasic/bin/$SO_NAME" \
-	"demo/addons/visual_gasic/visual_gasic.gdextension" \
-	"demo/addons/visual_gasic/bin/$SO_NAME"; do
+	"engine_lab/addons/visual_gasic/visual_gasic.gdextension" \
+	"engine_lab/addons/visual_gasic/bin/$SO_NAME"; do
 	if [[ ! -f "$check" ]]; then
 		echo "ERROR: missing $check after prepare" >&2
 		exit 1

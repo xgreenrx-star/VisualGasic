@@ -8,7 +8,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="$ROOT/Godot_v4.6.1-stable_linux.x86_64"
-HOST="$ROOT/projects/vg_narcea_test"
+HOST="$ROOT/samples/internal/vg_narcea_test"
 SCRIPT="$ROOT/tests/test_narcea_live_suite.gd"
 METRICS="$ROOT/tests/narcea_golden/metrics/narcea_suite_runs.csv"
 

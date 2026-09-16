@@ -1,0 +1,63 @@
+' Material drop — attracts to player
+Import "VfxHelpers.vg"
+Extends RigidBody2D
+
+Const ATTRACT_RADIUS As Single = 140.0
+Const ATTRACT_FORCE As Single = 350.0
+
+Dim lifetime As Single
+Dim pulseTime As Single
+Dim coinRect As Object
+Dim sparkleTimer As Single
+Dim magnetizing As Boolean
+
+Sub _Ready()
+	lifetime = 9.0
+	pulseTime = Rnd() * 6.2831853
+	coinRect = GetNode("Sprite")
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	pulseTime = pulseTime + delta * 6.0
+	If Not coinRect Is Nothing Then
+		Dim glow As Single
+		glow = 0.78 + 0.22 * Sin(pulseTime)
+		coinRect.color = Color(0.55 * glow, 0.95 * glow, 0.45 * glow, 1.0)
+	End If
+	lifetime = lifetime - delta
+	If lifetime <= 0 Then
+		Me.queue_free()
+		Exit Sub
+	End If
+	Dim players As Variant
+	players = GetTree().get_nodes_in_group("player")
+	If UBound(players) < 0 Then Exit Sub
+	Dim player As Object
+	Set player = players(0)
+	If player Is Nothing Then Exit Sub
+	Dim dist As Single
+	dist = Me.global_position.distance_to(player.global_position)
+	If dist < ATTRACT_RADIUS Then
+		Dim dir As Object
+		dir = (player.global_position - Me.global_position).normalized()
+		Me.apply_central_force(dir * ATTRACT_FORCE)
+		magnetizing = True
+		sparkleTimer = sparkleTimer - delta
+		If sparkleTimer <= 0 Then
+			sparkleTimer = 0.06
+			Dim parent As Object
+			Set parent = GetParent()
+			If Not parent Is Nothing Then Call SpawnPickupSparkle(parent, Me.global_position, player.global_position)
+		End If
+	Else
+		magnetizing = False
+	End If
+	If dist < 22.0 Then
+		GameManager.player_stats("materials") = Int(GameManager.player_stats("materials")) + 1
+		Dim burstParent As Object
+		Set burstParent = GetParent()
+		If Not burstParent Is Nothing Then Call SpawnPickupBurst(burstParent, Me.global_position)
+		GameManager.EmitRequestShake 1.5
+		Me.queue_free()
+	End If
+End Sub

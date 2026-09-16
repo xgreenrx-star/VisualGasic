@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="MaskedEdit" type="LineEdit"]
+offset_right = 120.0
+offset_bottom = 24.0
+placeholder_text = "(___) ___-____"

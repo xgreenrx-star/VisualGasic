@@ -1,0 +1,440 @@
+' Narnea movie — compact 2D platformer (one-way ^ platforms + Kenney art)
+Attribute VB_Name = "PlatformerMovie"
+
+Const W As Integer = 640
+Const H As Integer = 480
+Const TILE As Integer = 32
+Const GRAV As Single = 2000.0
+Const JUMP As Single = -700.0
+Const SPEED As Single = 340.0
+Const MAX_W As Integer = 28
+Const MAX_H As Integer = 14
+Const MAX_COINS As Integer = 12
+Const MAX_ENEM As Integer = 4
+
+Dim px As Single
+Dim py As Single
+Dim vx As Single
+Dim vy As Single
+Dim on_ground As Boolean
+Dim cam_x As Single
+Dim score As Integer
+Dim anim_t As Single
+Dim movie_mode As Boolean
+Dim autopilot As Boolean
+Dim demo_done As Boolean
+Dim pw As Integer
+Dim ph As Integer
+Dim lvl_w As Integer
+Dim lvl_h As Integer
+Dim level_end_x As Single
+Dim coin_n As Integer
+Dim en_n As Integer
+
+Dim grid(MAX_W, MAX_H) As String
+Dim coin_x(MAX_COINS) As Single
+Dim coin_y(MAX_COINS) As Single
+Dim coin_on(MAX_COINS) As Boolean
+Dim en_x(MAX_ENEM) As Single
+Dim en_y(MAX_ENEM) As Single
+Dim en_vx(MAX_ENEM) As Single
+Dim en_on(MAX_ENEM) As Boolean
+
+Dim tex_grass As Variant
+Dim tex_brick As Variant
+Dim tex_coin As Variant
+Dim tex_slime As Variant
+Dim tex_slime_mv As Variant
+Dim tex_player_stand As Variant
+Dim tex_player_walk1 As Variant
+Dim tex_player_walk2 As Variant
+Dim tex_player_jump As Variant
+
+Sub _Ready()
+	pw = 28
+	ph = 36
+	movie_mode = OS.has_feature("movie")
+	autopilot = movie_mode
+	If GetViewport().GetClass() = "SubViewport" Then autopilot = True
+	tex_grass = LoadPicture("res://generated/platformer/assets/kenney/grass.png")
+	tex_brick = LoadPicture("res://generated/platformer/assets/kenney/brickBrown.png")
+	tex_coin = LoadPicture("res://generated/platformer/assets/kenney/coinGold.png")
+	tex_slime = LoadPicture("res://generated/platformer/assets/kenney/slimeGreen.png")
+	tex_slime_mv = LoadPicture("res://generated/platformer/assets/kenney/slimeGreen_move.png")
+	tex_player_stand = LoadPicture("res://generated/platformer/assets/kenney/alienGreen_stand.png")
+	tex_player_walk1 = LoadPicture("res://generated/platformer/assets/kenney/alienGreen_walk1.png")
+	tex_player_walk2 = LoadPicture("res://generated/platformer/assets/kenney/alienGreen_walk2.png")
+	tex_player_jump = LoadPicture("res://generated/platformer/assets/kenney/alienGreen_jump.png")
+	Call LoadLevel()
+	Set_Process(True)
+	QueueRedraw()
+End Sub
+
+Sub LoadLevel()
+	Dim row As Integer
+	Dim col As Integer
+	Dim row_str As String
+	Dim ch As String
+	Dim max_col As Integer
+	coin_n = 0
+	en_n = 0
+	max_col = 0
+	Restore LevelData
+	Read lvl_w
+	Read lvl_h
+	For row = 0 To lvl_h - 1
+		Read row_str
+		For col = 0 To lvl_w - 1
+			If col < Len(row_str) Then
+				ch = Mid(row_str, col + 1, 1)
+			Else
+				ch = "."
+			End If
+			Select Case ch
+				Case "P"
+					px = col * TILE
+					py = row * TILE - ph
+					grid(col, row) = "#"
+				Case "C"
+					If coin_n < MAX_COINS Then
+						coin_x(coin_n) = col * TILE + 16.0
+						coin_y(coin_n) = row * TILE + 16.0
+						coin_on(coin_n) = True
+						coin_n = coin_n + 1
+					End If
+					grid(col, row) = "."
+				Case "E"
+					If en_n < MAX_ENEM Then
+						en_x(en_n) = col * TILE
+						en_y(en_n) = row * TILE - 28.0
+						en_vx(en_n) = 70.0
+						en_on(en_n) = True
+						en_n = en_n + 1
+					End If
+					grid(col, row) = "."
+				Case "#", "=", "^"
+					grid(col, row) = ch
+					If col > max_col Then max_col = col
+				Case Else
+					grid(col, row) = ch
+			End Select
+		Next col
+	Next row
+	level_end_x = (max_col + 2) * TILE
+	vx = 0.0
+	vy = 0.0
+	on_ground = False
+	score = 0
+	demo_done = False
+	cam_x = 0.0
+End Sub
+
+Function TileAt(col As Integer, row As Integer) As String
+	If col < 0 Or row < 0 Or col >= lvl_w Or row >= lvl_h Then
+		TileAt = "#"
+		Exit Function
+	End If
+	TileAt = grid(col, row)
+End Function
+
+Function IsWall(col As Integer, row As Integer) As Boolean
+	Dim t As String
+	t = TileAt(col, row)
+	IsWall = (t = "#" Or t = "=")
+End Function
+
+Function IsOneWay(col As Integer, row As Integer) As Boolean
+	IsOneWay = (TileAt(col, row) = "^")
+End Function
+
+Function IsLandable(col As Integer, row As Integer) As Boolean
+	Dim t As String
+	t = TileAt(col, row)
+	IsLandable = (t = "#" Or t = "=" Or t = "^")
+End Function
+
+Sub ResolveHorizontal()
+	Dim tleft As Integer
+	Dim tright As Integer
+	Dim ttop As Integer
+	Dim tbot As Integer
+	Dim row As Integer
+	Dim col As Integer
+	tleft = Int(px / TILE)
+	tright = Int((px + pw - 0.01) / TILE)
+	ttop = Int(py / TILE)
+	tbot = Int((py + ph - 0.01) / TILE)
+	For row = ttop To tbot
+		For col = tleft To tright
+			If IsWall(col, row) Then
+				If vx > 0.0 Then px = col * TILE - pw - 0.01
+				If vx < 0.0 Then px = (col + 1) * TILE + 0.01
+				vx = 0.0
+			End If
+		Next col
+	Next row
+End Sub
+
+Sub ResolveVertical()
+	on_ground = False
+	Dim tleft As Integer
+	Dim tright As Integer
+	Dim row As Integer
+	Dim col As Integer
+	Dim foot As Single
+	Dim top_y As Single
+	tleft = Int(px / TILE)
+	tright = Int((px + pw - 0.01) / TILE)
+	If vy >= 0.0 Then
+		foot = py + ph
+		row = Int((foot - 0.01) / TILE)
+		For col = tleft To tright
+			top_y = row * TILE
+			If IsWall(col, row) Then
+				py = top_y - ph
+				vy = 0.0
+				on_ground = True
+			ElseIf IsOneWay(col, row) Then
+				' Only land when falling onto the top surface (pass through when rising)
+				If vy > 0.0 And py + ph > top_y + 2.0 And py < top_y + TILE Then
+					py = top_y - ph
+					vy = 0.0
+					on_ground = True
+				End If
+			End If
+		Next col
+	Else
+		row = Int(py / TILE)
+		For col = tleft To tright
+			If IsWall(col, row) Then
+				py = (row + 1) * TILE
+				vy = 0.0
+			End If
+		Next col
+	End If
+End Sub
+
+Function NeedJump() As Boolean
+	Dim ahead_col As Integer
+	Dim body_row As Integer
+	Dim stand_row As Integer
+	If Not on_ground Then
+		NeedJump = False
+		Exit Function
+	End If
+	' Tile row under feet (foot at y=R*TILE → stand_row=R)
+	stand_row = Int((py + ph) / TILE)
+	ahead_col = Int((px + pw + 8.0) / TILE)
+	body_row = Int((py + ph * 0.55) / TILE)
+	If IsWall(ahead_col, body_row) Or IsWall(ahead_col, body_row - 1) Then
+		NeedJump = True
+		Exit Function
+	End If
+	If IsOneWay(ahead_col, body_row) Or IsOneWay(ahead_col, body_row - 1) Then
+		NeedJump = True
+		Exit Function
+	End If
+	' Step up to the next platform row
+	If IsLandable(ahead_col, stand_row - 1) Or IsLandable(ahead_col + 1, stand_row - 1) Then
+		NeedJump = True
+		Exit Function
+	End If
+	' Pit / missing floor at current height
+	If Not IsLandable(ahead_col, stand_row) And Not IsLandable(ahead_col + 1, stand_row) Then
+		NeedJump = True
+		Exit Function
+	End If
+	NeedJump = False
+End Function
+
+Sub _Process(delta As Single)
+	anim_t = anim_t + delta
+	If demo_done Then
+		vx = 0.0
+		vy = vy + GRAV * delta
+		If vy > 900.0 Then vy = 900.0
+		py = py + vy * delta
+		Call ResolveVertical()
+	ElseIf autopilot Then
+		vx = SPEED
+		If on_ground And NeedJump() Then vy = JUMP
+		If px >= level_end_x Then
+			demo_done = True
+			vx = 0.0
+		End If
+	Else
+		vx = 0.0
+		If IsActionPressed("ui_right") Then vx = vx + SPEED
+		If IsActionPressed("ui_left") Then vx = vx - SPEED
+		If IsActionJustPressed("ui_accept") And on_ground Then vy = JUMP
+	End If
+	If Not demo_done Or vy <> 0.0 Then
+		vy = vy + GRAV * delta
+		If vy > 900.0 Then vy = 900.0
+		px = px + vx * delta
+		Call ResolveHorizontal()
+		py = py + vy * delta
+		Call ResolveVertical()
+	End If
+	Call UpdateEnemies(delta)
+	Call CollectCoins()
+	cam_x = px - W * 0.38
+	If cam_x < 0.0 Then cam_x = 0.0
+	Dim max_cam As Single
+	max_cam = level_end_x - W * 0.55
+	If max_cam < 0.0 Then max_cam = 0.0
+	If cam_x > max_cam Then cam_x = max_cam
+	QueueRedraw()
+End Sub
+
+Sub UpdateEnemies(delta As Single)
+	Dim i As Integer
+	For i = 0 To en_n - 1
+		If en_on(i) Then
+			en_x(i) = en_x(i) + en_vx(i) * delta
+			If en_x(i) < TILE Then en_vx(i) = 70.0
+			If en_x(i) > level_end_x - 40.0 Then en_vx(i) = -70.0
+		End If
+	Next i
+End Sub
+
+Sub CollectCoins()
+	Dim i As Integer
+	For i = 0 To coin_n - 1
+		If coin_on(i) Then
+			If Abs(px + pw * 0.5 - coin_x(i)) < 22.0 And Abs(py + ph * 0.5 - coin_y(i)) < 26.0 Then
+				coin_on(i) = False
+				score = score + 100
+			End If
+		End If
+	Next i
+End Sub
+
+Sub DrawSky()
+	DrawRect Rect2(0, 0, W, H), Color(0.45, 0.72, 0.95, 1.0), True
+	DrawRect Rect2(-cam_x * 0.12, H - 96, W + 64, 96), Color(0.38, 0.68, 0.32, 1.0), True
+End Sub
+
+Sub DrawTiles()
+	Dim row As Integer
+	Dim col As Integer
+	Dim sx As Single
+	Dim sy As Single
+	Dim c0 As Integer
+	Dim c1 As Integer
+	Dim t As String
+	c0 = Int((cam_x - TILE) / TILE)
+	c1 = Int((cam_x + W + TILE) / TILE)
+	If c0 < 0 Then c0 = 0
+	If c1 >= lvl_w Then c1 = lvl_w - 1
+	For row = 0 To lvl_h - 1
+		For col = c0 To c1
+			t = grid(col, row)
+			sx = col * TILE - cam_x
+			sy = row * TILE
+			If t = "#" Then
+				DrawRect Rect2(sx, sy, TILE, TILE), Color(0.28, 0.52, 0.22, 1.0), True
+				If Not (tex_grass Is Nothing) Then
+					DrawTextureRect tex_grass, Rect2(sx, sy, TILE, TILE), False
+				End If
+			ElseIf t = "=" Then
+				DrawRect Rect2(sx, sy, TILE, TILE), Color(0.55, 0.38, 0.24, 1.0), True
+				If Not (tex_brick Is Nothing) Then
+					DrawTextureRect tex_brick, Rect2(sx, sy, TILE, TILE), False
+				End If
+			ElseIf t = "^" Then
+				DrawRect Rect2(sx, sy, TILE, 8), Color(0.35, 0.72, 0.38, 1.0), True
+				DrawRect Rect2(sx + 2, sy + 2, TILE - 4, 4), Color(0.5, 0.9, 0.55, 1.0), True
+			End If
+		Next col
+	Next row
+End Sub
+
+Sub DrawCoins()
+	Dim i As Integer
+	Dim bob As Single
+	Dim sx As Single
+	For i = 0 To coin_n - 1
+		If coin_on(i) Then
+			bob = Sin(anim_t * 8.0 + i) * 3.0
+			sx = coin_x(i) - cam_x - 12.0
+			DrawCircle Vector2(sx + 12.0, coin_y(i) + bob), 9.0, Color(1.0, 0.85, 0.15, 1.0)
+			If Not (tex_coin Is Nothing) Then
+				DrawTextureRect tex_coin, Rect2(sx, coin_y(i) + bob - 12.0, 24.0, 24.0), False
+			End If
+		End If
+	Next i
+End Sub
+
+Sub DrawEnemies()
+	Dim i As Integer
+	Dim sx As Single
+	Dim etex As Variant
+	For i = 0 To en_n - 1
+		If en_on(i) Then
+			sx = en_x(i) - cam_x
+			If Int(anim_t * 10.0) Mod 2 = 0 Then
+				etex = tex_slime
+			Else
+				etex = tex_slime_mv
+			End If
+			If Not (etex Is Nothing) Then
+				DrawTextureRect etex, Rect2(sx, en_y(i), 28.0, 28.0), False
+			End If
+		End If
+	Next i
+End Sub
+
+Sub DrawPlayer()
+	Dim sx As Single
+	Dim ptex As Variant
+	sx = px - cam_x
+	If Not on_ground Then
+		ptex = tex_player_jump
+	ElseIf Abs(vx) > 20.0 Then
+		If Int(anim_t * 12.0) Mod 2 = 0 Then
+			ptex = tex_player_walk1
+		Else
+			ptex = tex_player_walk2
+		End If
+	Else
+		ptex = tex_player_stand
+	End If
+	If Not (ptex Is Nothing) Then
+		DrawTextureRect ptex, Rect2(sx - 8.0, py - 12.0, 44.0, 52.0), False
+	Else
+		DrawRect Rect2(sx, py, pw, ph), Color(1.0, 0.45, 0.15, 1.0), True
+	End If
+End Sub
+
+Sub DrawHud()
+	DrawRect Rect2(8, 8, 160, 30), Color(0, 0, 0, 0.55), True
+	DrawString "Score " & Str(score), 16, 12, Color(1, 1, 1, 1), 18
+End Sub
+
+Sub _Draw()
+	Call DrawSky()
+	Call DrawTiles()
+	Call DrawCoins()
+	Call DrawEnemies()
+	Call DrawPlayer()
+	Call DrawHud()
+End Sub
+
+' ^ = one-way platform (jump up through, land on top). # = solid ground.
+LevelData:
+Data 24, 14
+Data "........................"
+Data "........................"
+Data "........................"
+Data "....................C..."
+Data "........................"
+Data "........................"
+Data "........................"
+Data "................^^^^...."
+Data ".............^^^^......."
+Data "..........^^^^.........."
+Data ".......^^^^............."
+Data "....^^^^................"
+Data "........................"
+Data "#P######################"

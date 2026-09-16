@@ -1,0 +1,5 @@
+Build a creative shader reel in Visual Gasic style — like the Beta Showcase. Animate three Godot spatial shaders on basic meshes: synth grid plane, liquid chrome sphere, fault cube. Wire main.tscn with a manager script and copy shaders from the release demo patterns. Save to generated/shader_art/.
+
+References:
+https://docs.godotengine.org/en/stable/tutorials/shaders/index.html
+https://youtu.be/FUw8zgbn_tU

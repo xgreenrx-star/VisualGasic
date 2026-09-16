@@ -1,0 +1,43 @@
+' Brotato spawn pattern: node under GameObjects uses GetParent().add_child(...)
+' MAX_FRAMES: 30
+Attribute VB_Name = "TestSpawnGetParent"
+
+Sub _Ready()
+	Dim go As Object
+	Set go = CreateNode("Node2D")
+	go.name = "GameObjects"
+	AddChild go
+
+	Dim child As Object
+	Set child = CreateNode("Node2D")
+	go.add_child(child)
+
+	Dim sceneRes As Object
+	sceneRes = Load("res://addons/visual_gasic/prototypes/godot2d/Node2D.tscn")
+	If sceneRes Is Nothing Then
+		Print "FAIL: load_spawn_scene"
+		Exit Sub
+	End If
+
+	Dim inst As Object
+	Set inst = sceneRes.instantiate()
+	inst.name = "SpawnedFx"
+
+	' Simulate Bullet/Enemy: owner is child under GameObjects; spawn via GetParent().
+	Call SpawnFromChild(child, inst)
+
+	If inst.GetParent() Is Nothing Then
+		Print "FAIL: getparent_add_child no parent"
+	ElseIf inst.GetParent().name <> "GameObjects" Then
+		Print "FAIL: getparent_add_child wrong parent"
+	Else
+		Print "PASS: getparent_add_child"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub SpawnFromChild(child As Object, inst As Object)
+	' Run on child's script instance would use GetParent(); test the same call shape.
+	child.GetParent().add_child(inst)
+End Sub

@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="ColorPickerButton" type="ColorPickerButton"]
+custom_minimum_size = Vector2(80, 24)
+offset_right = 80.0
+offset_bottom = 24.0
+text = "Color"

@@ -111,16 +111,19 @@ func AddItem(item_text: String, index: int = -1) -> void:
 	else:
 		add_item(item_text)
 		_new_index = item_count - 1
+	call_deferred("_apply_vb6_scrollbar_theme")
 
 ## RemoveItem index — Remove the item at the given index.
 func RemoveItem(index: int) -> void:
 	if index >= 0 and index < item_count:
 		remove_item(index)
+		call_deferred("_apply_vb6_scrollbar_theme")
 
 ## Clear — Remove all items and reset.
 func Clear() -> void:
 	clear()
 	_new_index = -1
+	call_deferred("_apply_vb6_scrollbar_theme")
 
 ## SetFocus — Give keyboard focus to this control.
 func SetFocus() -> void:
@@ -161,6 +164,10 @@ func Selected(index: int) -> bool:
 # Construction
 # =============================================================================
 
+func _enter_tree() -> void:
+	_apply_vb6_hover_theme()
+	_apply_vb6_scrollbar_theme()
+
 func _ready() -> void:
 	if not Engine.is_editor_hint():
 		if not item_clicked.is_connected(_on_item_clicked):
@@ -168,6 +175,45 @@ func _ready() -> void:
 		if not item_activated.is_connected(_on_item_activated):
 			item_activated.connect(_on_item_activated)
 	_load_design_time_list()
+
+## Godot 4.6+ ItemList hover uses font_hovered_color (default ~white). On VB6 white
+## ListBox background that is unreadable; VB6 only highlights the selected row (navy).
+func _apply_vb6_hover_theme() -> void:
+	add_theme_color_override("font_hovered_color", Color(0, 0, 0, 1))
+	add_theme_color_override("font_hovered_selected_color", Color(1, 1, 1, 1))
+	add_theme_stylebox_override("hovered", StyleBoxEmpty.new())
+	var sel := get_theme_stylebox("selected")
+	if sel:
+		add_theme_stylebox_override("hovered_selected", sel)
+		add_theme_stylebox_override("hovered_selected_focus", sel)
+
+## VB6 ListBox shows a vertical scrollbar when items overflow. ItemList scrolls
+## internally but the editor/default theme grabber is often invisible — style it.
+func _apply_vb6_scrollbar_theme() -> void:
+	var vbar := get_v_scroll_bar()
+	if vbar == null:
+		return
+	var scrollbar_bg := Color(0.87, 0.87, 0.87)
+	var btn_face := Color(0.83, 0.83, 0.83)
+	var btn_shadow := Color(0.50, 0.50, 0.50)
+	var track := StyleBoxFlat.new()
+	track.bg_color = scrollbar_bg
+	track.set_content_margin_all(0)
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = btn_face
+	grab.border_color = btn_shadow
+	grab.set_border_width_all(1)
+	grab.set_corner_radius_all(0)
+	grab.content_margin_left = 2
+	grab.content_margin_right = 2
+	grab.content_margin_top = 2
+	grab.content_margin_bottom = 2
+	vbar.add_theme_stylebox_override("scroll", track)
+	vbar.add_theme_stylebox_override("scroll_focus", track)
+	vbar.add_theme_stylebox_override("grabber", grab)
+	vbar.add_theme_stylebox_override("grabber_highlight", grab)
+	vbar.add_theme_stylebox_override("grabber_pressed", grab)
+	vbar.custom_minimum_size.x = 12
 
 func _load_design_time_list() -> void:
 	if DesignTimeList.is_empty():

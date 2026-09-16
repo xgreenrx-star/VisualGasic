@@ -1,0 +1,13 @@
+Sub _Ready()
+    Dim v As Vector2
+    v = Vector2(10, 20)
+    
+    Print "Test: Vector2 with integer args"
+    Print "v = " & v.ToString()
+    
+    If v.x = 10 And v.y = 20 Then
+        Print "PASS: vector2_int_args"
+    Else
+        Print "FAIL: vector2_int_args: v.x=" & v.x & " v.y=" & v.y
+    End If
+End Sub

@@ -1,0 +1,3 @@
+[gd_scene format=3 uid="uid://vg_godot3d_dirlight"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D"]

@@ -10,9 +10,9 @@ cd "$ROOT"
 
 [[ "$(uname -s)" == "Linux" ]] || exit 0
 
-EDITOR_SO="demo/bin/libvisualgasic.linux.editor.x86_64.so"
-RELEASE_SO="demo/bin/libvisualgasic.linux.template_release.x86_64.so"
-DEBUG_SO="demo/bin/libvisualgasic.linux.template_debug.x86_64.so"
+EDITOR_SO="engine_lab/bin/libvisualgasic.linux.editor.x86_64.so"
+RELEASE_SO="engine_lab/bin/libvisualgasic.linux.template_release.x86_64.so"
+DEBUG_SO="engine_lab/bin/libvisualgasic.linux.template_debug.x86_64.so"
 
 [[ -f "$RELEASE_SO" ]] || exit 0
 
@@ -43,7 +43,7 @@ install_bin_dir() {
 }
 
 install_bin_dir "addons/visual_gasic/bin"
-install_bin_dir "demo/bin"
+install_bin_dir "engine_lab/bin"
 
 while IFS= read -r bin_dir; do
 	[[ -n "$bin_dir" ]] || continue

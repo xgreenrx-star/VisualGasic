@@ -1,0 +1,5 @@
+Build a first-person DOOM-style maze demo in Visual Gasic: CharacterBody3D player, mouse-look camera, WASD movement, simple blockout maze walls, red muzzle-flash when firing. Autopilot-friendly for showcase recording. Use Kenney retro medieval textures if helpful. Save to generated/doom_maze/ with maze.vg and main.tscn.
+
+References:
+https://en.wikipedia.org/wiki/Doom_(1993_video_game)
+https://kenney.nl/assets/retro-medieval-kit

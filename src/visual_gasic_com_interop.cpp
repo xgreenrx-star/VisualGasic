@@ -22,10 +22,70 @@
 
 using namespace godot;
 
+// ---------------------------------------------------------------------------
+// Recursive directory helpers backing FSO.DeleteFolder / CopyFolder /
+// MoveFolder. Godot's DirAccess::remove only deletes empty directories, so
+// VB6 FSO's recursive semantics need an explicit tree walk. Hidden entries
+// are included so dotfiles are copied/deleted too.
+// ---------------------------------------------------------------------------
+static Error _vgfso_copy_folder_recursive(const String &p_src, const String &p_dst) {
+    Ref<DirAccess> src_dir = DirAccess::open(p_src);
+    if (src_dir.is_null()) return ERR_FILE_NOT_FOUND;
+    if (!DirAccess::dir_exists_absolute(p_dst)) {
+        Error mk = DirAccess::make_dir_recursive_absolute(p_dst);
+        if (mk != OK) return mk;
+    }
+    src_dir->set_include_navigational(false);
+    src_dir->set_include_hidden(true);
+    src_dir->list_dir_begin();
+    String name = src_dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            String from = p_src.path_join(name);
+            String to = p_dst.path_join(name);
+            if (src_dir->current_is_dir()) {
+                Error e = _vgfso_copy_folder_recursive(from, to);
+                if (e != OK) { src_dir->list_dir_end(); return e; }
+            } else {
+                Error e = DirAccess::copy_absolute(from, to);
+                if (e != OK) { src_dir->list_dir_end(); return e; }
+            }
+        }
+        name = src_dir->get_next();
+    }
+    src_dir->list_dir_end();
+    return OK;
+}
+
+static Error _vgfso_delete_folder_recursive(const String &p_path) {
+    Ref<DirAccess> dir = DirAccess::open(p_path);
+    if (dir.is_null()) return ERR_FILE_NOT_FOUND;
+    dir->set_include_navigational(false);
+    dir->set_include_hidden(true);
+    dir->list_dir_begin();
+    String name = dir->get_next();
+    while (!name.is_empty()) {
+        if (name != "." && name != "..") {
+            String full = p_path.path_join(name);
+            if (dir->current_is_dir()) {
+                Error e = _vgfso_delete_folder_recursive(full);
+                if (e != OK) { dir->list_dir_end(); return e; }
+            } else {
+                Error e = DirAccess::remove_absolute(full);
+                if (e != OK) { dir->list_dir_end(); return e; }
+            }
+        }
+        name = dir->get_next();
+    }
+    dir->list_dir_end();
+    return DirAccess::remove_absolute(p_path);
+}
+
+
+
 // ===========================================================================
 // VGComObject — Base class for COM-like late-bound objects
 // ===========================================================================
-
 void VGComObject::_bind_methods() {
     ClassDB::bind_method(D_METHOD("invoke", "method", "args"), &VGComObject::invoke);
     ClassDB::bind_method(D_METHOD("set_property", "name", "value"), &VGComObject::set_property);
@@ -69,6 +129,8 @@ void VGFileSystemObject::_bind_methods() {
     ClassDB::bind_method(D_METHOD("delete_file", "path", "force"), &VGFileSystemObject::delete_file, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("create_folder", "path"), &VGFileSystemObject::create_folder);
     ClassDB::bind_method(D_METHOD("delete_folder", "path", "force"), &VGFileSystemObject::delete_folder, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("copy_folder", "source", "dest", "overwrite"), &VGFileSystemObject::copy_folder, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("move_folder", "source", "dest"), &VGFileSystemObject::move_folder);
     ClassDB::bind_method(D_METHOD("move_file", "source", "dest"), &VGFileSystemObject::move_file);
     ClassDB::bind_method(D_METHOD("get_file", "path"), &VGFileSystemObject::get_file);
     ClassDB::bind_method(D_METHOD("get_file_size", "path"), &VGFileSystemObject::get_file_size);
@@ -87,6 +149,8 @@ void VGFileSystemObject::_bind_methods() {
     ClassDB::bind_method(D_METHOD("DeleteFile", "path", "force"), &VGFileSystemObject::delete_file, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("CreateFolder", "path"), &VGFileSystemObject::create_folder);
     ClassDB::bind_method(D_METHOD("DeleteFolder", "path", "force"), &VGFileSystemObject::delete_folder, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("CopyFolder", "source", "dest", "overwrite"), &VGFileSystemObject::copy_folder, DEFVAL(true));
+    ClassDB::bind_method(D_METHOD("MoveFolder", "source", "dest"), &VGFileSystemObject::move_folder);
     ClassDB::bind_method(D_METHOD("MoveFile", "source", "dest"), &VGFileSystemObject::move_file);
     ClassDB::bind_method(D_METHOD("GetFile", "path"), &VGFileSystemObject::get_file);
     ClassDB::bind_method(D_METHOD("GetFileSize", "path"), &VGFileSystemObject::get_file_size);
@@ -145,9 +209,18 @@ bool VGFileSystemObject::create_folder(const String &p_path) {
 }
 
 bool VGFileSystemObject::delete_folder(const String &p_path, bool p_force) {
-    Ref<DirAccess> dir = DirAccess::open(p_path.get_base_dir());
-    if (!dir.is_valid()) return false;
-    return dir->remove(p_path.get_file()) == OK;
+    return _vgfso_delete_folder_recursive(p_path) == OK;
+}
+
+bool VGFileSystemObject::copy_folder(const String &p_source, const String &p_dest, bool p_overwrite) {
+    if (!p_overwrite && DirAccess::dir_exists_absolute(p_dest)) return false;
+    return _vgfso_copy_folder_recursive(p_source, p_dest) == OK;
+}
+
+bool VGFileSystemObject::move_folder(const String &p_source, const String &p_dest) {
+    if (DirAccess::rename_absolute(p_source, p_dest) == OK) return true;
+    if (_vgfso_copy_folder_recursive(p_source, p_dest) != OK) return false;
+    return _vgfso_delete_folder_recursive(p_source) == OK;
 }
 
 bool VGFileSystemObject::move_file(const String &p_source, const String &p_dest) {

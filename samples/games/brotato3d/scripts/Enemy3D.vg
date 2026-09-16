@@ -1,0 +1,369 @@
+' =============================================================================
+' Enemy3D.vg — seek player, contact damage, boss AI, drops, death juice
+' =============================================================================
+' Node3D on scenes/Enemy3D.tscn. Normal enemies: group "enemies". Bosses also
+' "bosses". WaveManager calls Setup / SetupBoss + ApplySkin after instantiate.
+'
+' Performance notes (copy these patterns in horde games):
+'   • ShouldUpdateMob — half of mobs skip seek AI when count > 28
+'   • ShowDamageNumber — deferred via create_timer(0) to avoid tree re-entry deadlock
+'   • Spawn caps on float text, drops, hit particles at high mob counts
+' =============================================================================
+Import "VfxHelpers3D.vg"
+Import "CharacterSkins3D.vg"
+Import "CombatCache3D.vg"
+Extends Node3D
+
+Const ARENA_MIN_X As Single = -32.0
+Const ARENA_MAX_X As Single = 32.0
+Const ARENA_MIN_Z As Single = -32.0
+Const ARENA_MAX_Z As Single = 32.0
+Const HALF_E As Single = 0.45
+Const HALF_BOSS As Single = 0.9
+Const DAMAGE_INTERVAL As Single = 0.5
+Const DASH_DURATION As Single = 0.45
+Const HIT_FLASH_TIME As Single = 0.12
+Const FLOAT_TEXT_PATH As String = "res://scenes/FloatText3D.tscn"
+Const DROP_PATH As String = "res://scenes/Drop3D.tscn"
+Const HIT_PARTICLE_PATH As String = "res://scenes/HitParticle3D.tscn"
+Const ENEMY_SCENE_PATH As String = "res://scenes/Enemy3D.tscn"
+Const ENEMY_BULLET_PATH As String = "res://scenes/EnemyBullet3D.tscn"
+Const MAX_FLOAT_TEXT_MOBS As Integer = 22
+Const MAX_LIVE_DROPS As Integer = 36
+
+Dim _ftScene As Object
+Dim _dropScene As Object
+Dim _particleScene As Object
+Dim _enemyScene As Object
+Dim _enemyBulletScene As Object
+
+Dim hp As Single
+Dim maxHp As Single
+Dim speed As Single
+Dim damage As Single
+Dim xpReward As Integer
+Dim matReward As Integer
+Dim damageTimer As Single
+Dim isDying As Boolean
+Dim isBoss As Boolean
+Dim bossAbility As String
+Dim abilityTimer As Single
+Dim dashing As Boolean
+Dim dashTarget As Object
+Dim dashElapsed As Single
+Public origColor As Color
+
+Dim pivot As Object
+Dim modelRoot As Object
+Dim animPlayer As Object
+Dim flashTimer As Single
+Dim baseScale As Object
+Dim cachedPlayer As Object
+Dim playerLookupTimer As Single
+Dim instanceId As Integer
+
+Sub _Ready()
+	instanceId = Me.get_instance_id()
+	pivot = GetNode("Pivot")
+	modelRoot = GetNode("Pivot/Model")
+	animPlayer = GetNode("Pivot/Model/AnimationPlayer")
+	origColor = Color.White
+	baseScale = Vector3(1, 1, 1)
+	playerLookupTimer = 0.0
+End Sub
+
+' Lazy-load scenes once per enemy instance — GameManager.CachedScene avoids reload stutter.
+Sub EnsureScenes()
+	If _ftScene Is Nothing Then Set _ftScene = GameManager.CachedScene(FLOAT_TEXT_PATH)
+	If _dropScene Is Nothing Then Set _dropScene = GameManager.CachedScene(DROP_PATH)
+	If _particleScene Is Nothing Then Set _particleScene = GameManager.CachedScene(HIT_PARTICLE_PATH)
+	If _enemyScene Is Nothing Then Set _enemyScene = GameManager.CachedScene(ENEMY_SCENE_PATH)
+	If _enemyBulletScene Is Nothing Then Set _enemyBulletScene = GameManager.CachedScene(ENEMY_BULLET_PATH)
+End Sub
+
+Sub Setup(pHp As Single, pSpeed As Single, pDamage As Single, pXp As Integer, pMat As Integer)
+	hp = pHp
+	maxHp = pHp
+	speed = pSpeed * 0.035
+	damage = pDamage
+	xpReward = pXp
+	matReward = pMat
+End Sub
+
+Sub SetupBoss(pHp As Single, pSpeed As Single, pDamage As Single, pXp As Integer, pMat As Integer, ability As String)
+	Call Setup(pHp, pSpeed, pDamage, pXp, pMat)
+	isBoss = True
+	bossAbility = ability
+	abilityTimer = 2.5
+	Me.AddToGroup("bosses")
+	baseScale = Vector3(2.2, 2.2, 2.2)
+	If Not modelRoot Is Nothing Then
+		modelRoot.scale = baseScale
+	End If
+End Sub
+
+Sub ApplySkin(glbName As String, tint As Color)
+	origColor = tint
+	If modelRoot Is Nothing Then Exit Sub
+	Call ApplyKenneySkin(modelRoot, glbName)
+	If isBoss Then
+		baseScale = Vector3(2.2, 2.2, 2.2)
+		modelRoot.scale = baseScale
+	Else
+		baseScale = Vector3(1, 1, 1)
+		modelRoot.scale = baseScale
+	End If
+End Sub
+
+Sub _Process(delta As Single)
+	If GameManager.game_state <> "fight" Or isDying Then Exit Sub
+	If Not ShouldUpdateMob(instanceId, isBoss) Then
+		Call CheckPlayerContact(delta)
+		Exit Sub
+	End If
+	If dashing Then
+		Call UpdateDash(delta)
+	Else
+		Call SeekPlayer(delta)
+	End If
+	Call ClampToArena()
+	Call CheckPlayerContact(delta)
+	If isBoss And Not dashing Then Call BossAi(delta)
+	Call UpdateHitFlash(delta)
+End Sub
+
+Sub RefreshPlayerCache(delta As Single)
+	playerLookupTimer = playerLookupTimer - delta
+	If playerLookupTimer <= 0 Then
+		playerLookupTimer = 0.3
+		Set cachedPlayer = GetTree().get_first_node_in_group("player")
+	End If
+End Sub
+
+Sub SeekPlayer(delta As Single)
+	Call RefreshPlayerCache(delta)
+	Dim player As Object
+	Set player = cachedPlayer
+	If player Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Dim pos As Object
+	pos = Me.global_position
+	Me.global_position = pos + Vector3(dir.x * speed * delta, 0.0, dir.z * speed * delta)
+	If Abs(dir.x) > 0.001 Or Abs(dir.z) > 0.001 Then
+		Call FaceMoveDirection(pivot, Me.global_position, dir.x, dir.z)
+	End If
+	If AnimEnabled() And Not animPlayer Is Nothing Then
+		If Not animPlayer.is_playing() Then Animation.Play animPlayer, "walk"
+	End If
+End Sub
+
+Sub ClampToArena()
+	Dim pos As Object
+	pos = Me.global_position
+	Dim half As Single
+	If isBoss Then half = HALF_BOSS Else half = HALF_E
+	Dim x As Single
+	Dim z As Single
+	x = Clamp(pos.x, ARENA_MIN_X + half, ARENA_MAX_X - half)
+	z = Clamp(pos.z, ARENA_MIN_Z + half, ARENA_MAX_Z - half)
+	Me.global_position = Vector3(x, pos.y, z)
+End Sub
+
+' Melee-style damage when overlapping player (3D distance — player Y is closer than bullets).
+Sub CheckPlayerContact(delta As Single)
+	If dashing Then Exit Sub
+	Call RefreshPlayerCache(delta)
+	Dim player As Object
+	Set player = cachedPlayer
+	If player Is Nothing Then Exit Sub
+	Dim contactDist As Single
+	If isBoss Then contactDist = 2.2 Else contactDist = 1.1
+	If Me.global_position.distance_to(player.global_position) < contactDist Then
+		damageTimer = damageTimer + delta
+		If damageTimer >= DAMAGE_INTERVAL Then
+			damageTimer = 0.0
+			player.TakeDamage(damage)
+		End If
+	Else
+		damageTimer = 0.0
+	End If
+End Sub
+
+Sub TakeHit(dmg As Single)
+	If isDying Then Exit Sub
+	hp = hp - dmg
+	If isBoss Or GameManager.combat_mob_count <= MAX_FLOAT_TEXT_MOBS Then
+		Call ShowDamageNumber(dmg)
+	End If
+	Dim ls As Single
+	ls = GameManager.player_stats("lifesteal")
+	If ls > 0 Then
+		If cachedPlayer Is Nothing Then Set cachedPlayer = GetTree().get_first_node_in_group("player")
+		If Not cachedPlayer Is Nothing Then cachedPlayer.Heal(dmg * ls)
+	End If
+	If Not modelRoot Is Nothing Then
+		modelRoot.scale = baseScale * 1.15
+		flashTimer = HIT_FLASH_TIME
+	End If
+	If hp <= 0 Then Call Die()
+End Sub
+
+' CRITICAL: defer spawn — sync add_child from Bullet3D.CheckHits can deadlock Godot main loop.
+Sub ShowDamageNumber(dmg As Single)
+	If UBound(GetTree().get_nodes_in_group("float_text")) >= 28 Then Exit Sub
+	Dim t As Object
+	t = GetTree().create_timer(0.0)
+	Connect t, "timeout", "DoShowDamageNumber", dmg
+End Sub
+
+Sub DoShowDamageNumber(dmg As Single)
+	If isDying Then Exit Sub
+	Call EnsureScenes()
+	If _ftScene Is Nothing Then Exit Sub
+	If UBound(GetTree().get_nodes_in_group("float_text")) >= 28 Then Exit Sub
+	Dim ft As Object
+	Set ft = _ftScene.instantiate()
+	ft.Setup(CStr(Int(dmg)), Color.Yellow)
+	GetParent().add_child(ft)
+	ft.global_position = Me.global_position + Vector3(0, 1.2, 0)
+End Sub
+
+Sub UpdateHitFlash(delta As Single)
+	If flashTimer > 0 Then
+		flashTimer = flashTimer - delta
+		If flashTimer <= 0 And Not modelRoot Is Nothing Then
+			modelRoot.scale = baseScale
+		End If
+	End If
+End Sub
+
+Sub Die()
+	If isDying Then Exit Sub
+	isDying = True
+	GameManager.player_stats("total_kills") = Int(GameManager.player_stats("total_kills")) + 1
+	Dim matMult As Single
+	matMult = 1.0 + GameManager.player_stats("materials_pct")
+	GameManager.player_stats("materials") = Int(GameManager.player_stats("materials")) + Int(matReward * matMult + 0.5)
+	GameManager.AddXp(xpReward)
+	Call SpawnDrops()
+	If isBoss Or GameManager.combat_mob_count < 35 Then
+		Call EnsureScenes()
+		If Not _particleScene Is Nothing Then
+			Dim particle As Object
+			Set particle = _particleScene.instantiate()
+			particle.SetColor(origColor)
+			GetParent().add_child(particle)
+			particle.global_position = Me.global_position + Vector3(0, 0.6, 0)
+		End If
+	End If
+	If isBoss Then
+		GameManager.EmitBossKilled(bossAbility)
+		GameManager.EmitRequestShake(18.0)
+		AudioBus.Play("boss_die")
+	Else
+		GameManager.EmitRequestShake(2.8)
+		AudioBus.Play("enemy_die")
+	End If
+	Me.queue_free()
+End Sub
+
+Sub SpawnDrops()
+	Call EnsureScenes()
+	If _dropScene Is Nothing Then Exit Sub
+	Dim liveDrops As Integer
+	liveDrops = UBound(GetTree().get_nodes_in_group("drops")) + 1
+	If liveDrops >= MAX_LIVE_DROPS Then Exit Sub
+	Dim cap As Integer
+	cap = matReward
+	If cap > 6 Then cap = 6
+	If liveDrops + cap > MAX_LIVE_DROPS Then cap = MAX_LIVE_DROPS - liveDrops
+	If cap <= 0 Then Exit Sub
+	Dim i As Integer
+	For i = 0 To cap - 1
+		Dim drop As Object
+		Set drop = _dropScene.instantiate()
+		GetParent().add_child(drop)
+		drop.global_position = Me.global_position + Vector3(Rnd() * 2 - 1, 0.2, Rnd() * 2 - 1)
+	Next i
+End Sub
+
+' Boss abilities rotate on abilityTimer — dash, shoot fan, summon minions.
+Sub BossAi(delta As Single)
+	abilityTimer = abilityTimer - delta
+	If abilityTimer > 0 Then Exit Sub
+	Select Case bossAbility
+		Case "dash": Call BossDash(): abilityTimer = 3.5
+		Case "shoot": Call BossShoot(): abilityTimer = 2.0
+		Case "summon": Call BossSummon(): abilityTimer = 5.5
+		Case Else: abilityTimer = 5.0
+	End Select
+End Sub
+
+Sub BossDash()
+	Dim player As Object
+	Set player = cachedPlayer
+	If player Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Dim dist As Single
+	dist = Me.global_position.distance_to(player.global_position) + 4.0
+	dashTarget = Me.global_position + Vector3(dir.x * dist, 0, dir.z * dist)
+	Dim tx As Single
+	Dim tz As Single
+	tx = Clamp(dashTarget.x, ARENA_MIN_X + HALF_BOSS, ARENA_MAX_X - HALF_BOSS)
+	tz = Clamp(dashTarget.z, ARENA_MIN_Z + HALF_BOSS, ARENA_MAX_Z - HALF_BOSS)
+	dashTarget = Vector3(tx, Me.global_position.y, tz)
+	dashing = True
+	dashElapsed = 0.0
+	If Not animPlayer Is Nothing Then Animation.Play animPlayer, "sprint"
+End Sub
+
+Sub UpdateDash(delta As Single)
+	dashElapsed = dashElapsed + delta
+	Dim t As Single
+	t = dashElapsed / DASH_DURATION
+	If t > 1 Then t = 1
+	Me.global_position = Me.global_position.lerp(dashTarget, t * 0.4)
+	If t >= 1 Then
+		dashing = False
+	End If
+End Sub
+
+Sub BossShoot()
+	Dim player As Object
+	Set player = cachedPlayer
+	If player Is Nothing Then Exit Sub
+	Call EnsureScenes()
+	If _enemyBulletScene Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Dim i As Integer
+	For i = 0 To 2
+		Dim angle As Single
+		angle = Deg2Rad(20.0) * (i - 1.0)
+		Dim bullet As Object
+		Set bullet = _enemyBulletScene.instantiate()
+		GetParent().add_child(bullet)
+		bullet.global_position = Me.global_position + Vector3(0, 0.8, 0)
+		bullet.Setup(RotateDirY(dir, angle), 320.0, damage * 0.8, Color(0.85, 0.3, 1.0))
+	Next i
+End Sub
+
+Sub BossSummon()
+	Call EnsureScenes()
+	If _enemyScene Is Nothing Then Exit Sub
+	Dim i As Integer
+	For i = 0 To 2
+		Dim minion As Object
+		Set minion = _enemyScene.instantiate()
+		GetParent().add_child(minion)
+		Dim angle As Single
+		angle = 6.2831853 * i / 3.0
+		minion.global_position = Me.global_position + Vector3(Cos(angle) * 3.0, 0.05, Sin(angle) * 3.0)
+		Dim w As Single
+		w = GameManager.wave
+		minion.Setup(10.0 + 2.0 * w, 130.0, 5.0, 2, 1)
+		minion.ApplySkin("character-j", Color(0.67, 0.53, 1.0))
+	Next i
+End Sub

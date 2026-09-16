@@ -1,0 +1,15 @@
+Sub _PhysicsProcess(delta As Single)
+    vx = Me.velocity.x
+    vy = Me.velocity.y
+    ' Gravity pulls the powerup down until it lands on a platform
+    vy = vy + Gravity * delta
+    ' Slow horizontal patrol so the mushroom "walks" off the block
+    vx = PatrolSpeed * Direction
+    SetVelocity Me, vx, vy
+    MoveAndSlide Me
+    ' Reverse at walls so the mushroom never gets stuck in a corner
+    If IsOnWall(Me) Then
+        Direction = -Direction
+    End If
+End Sub
+

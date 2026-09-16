@@ -1,0 +1,86 @@
+' =============================================================================
+' Pane.vg — one directory listing pane (ListBox + path field helpers)
+' =============================================================================
+' Imported by Main.vg. Keeps list/path logic out of the form so you can reuse
+' RefreshList, OpenSelected, etc. in other file-manager-style apps.
+'
+' List rows use a simple convention:
+'   "[DIR] foldername"  — subdirectory (double-click to enter)
+'   "filename.txt"      — plain file
+' =============================================================================
+Attribute VB_Name = "Pane"
+
+' Fill a ListBox from dirPath and mirror the path into the TextBox above it.
+' Uses VG builtins ListFolders / ListFiles / DirExists / BuildPath.
+Sub RefreshList(lst As Object, dirPath As String, txtPath As Object)
+	If lst Is Nothing Then Exit Sub
+	lst.clear()
+	If Not txtPath Is Nothing Then txtPath.Text = dirPath
+	If dirPath = "" Or Not DirExists(dirPath) Then Exit Sub
+
+	Dim folders As Variant
+	Dim files As Variant
+	folders = ListFolders(dirPath)
+	files = ListFiles(dirPath)
+
+	' Folders first — feels like most file managers.
+	Dim i As Integer
+	If UBound(folders) >= 0 Then
+		For i = 0 To UBound(folders)
+			lst.add_item("[DIR] " + CStr(folders(i)))
+		Next i
+	End If
+	If UBound(files) >= 0 Then
+		For i = 0 To UBound(files)
+			lst.add_item(CStr(files(i)))
+		Next i
+	End If
+End Sub
+
+' Turn the selected list row into a full path: currentDir + row label.
+Function SelectedFullPath(lst As Object, dirPath As String) As String
+	SelectedFullPath = ""
+	If lst Is Nothing Then Exit Function
+	Dim sel As Variant
+	sel = lst.get_selected_items()
+	If UBound(sel) < 0 Then Exit Function
+	Dim idx As Integer
+	idx = sel(0)
+	If idx < 0 Then Exit Function
+	Dim label As String
+	label = CStr(lst.get_item_text(idx))
+	If Left(label, 6) = "[DIR] " Then
+		label = Mid(label, 7)
+	End If
+	SelectedFullPath = BuildPath(dirPath, label)
+End Function
+
+' True if list row idx is a folder (has the [DIR] prefix).
+Function IsDirEntry(lst As Object, idx As Integer) As Boolean
+	IsDirEntry = False
+	If lst Is Nothing Then Exit Function
+	If idx < 0 Then Exit Function
+	Dim label As String
+	label = CStr(lst.get_item_text(idx))
+	IsDirEntry = (Left(label, 6) = "[DIR] ")
+End Function
+
+' Enter a folder from a double-click. Updates dirPath in place (ByRef).
+' selIndex >= 0 uses that row; otherwise falls back to current selection.
+Sub OpenSelected(lst As Object, ByRef dirPath As String, selIndex As Integer)
+	If lst Is Nothing Then Exit Sub
+	Dim idx As Integer
+	If selIndex >= 0 Then
+		idx = selIndex
+	Else
+		Dim sel As Variant
+		sel = lst.get_selected_items()
+		If UBound(sel) < 0 Then Exit Sub
+		idx = sel(0)
+	End If
+	If Not IsDirEntry(lst, idx) Then Exit Sub
+	Dim label As String
+	label = CStr(lst.get_item_text(idx))
+	label = Mid(label, 7)
+	dirPath = BuildPath(dirPath, label)
+End Sub

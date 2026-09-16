@@ -36,6 +36,12 @@ public:
     static void scan_module_for_buffer_vars(ModuleNode* module, HashSet<String>& out);
     static void scan_stmt_for_buffer_vars(Statement* stmt, HashSet<String>& out);
 
+    // Imported module ASTs (same compilation unit) — used to emit ByRef write-back
+    // for calls like Main → Pane.OpenSelected(ByRef path).
+    Vector<ModuleNode*> import_modules;
+
+    SubDefinition* resolve_call_target(const String &method_name, int arg_count) const;
+
 private:
     BytecodeChunk* current_chunk;
     int current_line;

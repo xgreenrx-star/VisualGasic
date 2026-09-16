@@ -1,0 +1,296 @@
+' asteroids_demo — Node2D Asteroids with reliable circle collisions
+Option Explicit
+
+Const PI As Single = 3.14159265
+Const W As Single = 640
+Const H As Single = 360
+Const MAX_AST As Integer = 20
+Const MAX_BUL As Integer = 10
+Const SHIP_R As Single = 10
+
+Dim shipX As Single
+Dim shipY As Single
+Dim shipA As Single
+Dim shipVX As Single
+Dim shipVY As Single
+Dim shipInv As Single
+Dim lives As Integer
+Dim score As Integer
+Dim level As Integer
+Dim shootCd As Single
+Dim gameOver As Boolean
+
+Dim astOn(MAX_AST - 1) As Boolean
+Dim astX(MAX_AST - 1) As Single
+Dim astY(MAX_AST - 1) As Single
+Dim astVX(MAX_AST - 1) As Single
+Dim astVY(MAX_AST - 1) As Single
+Dim astSize(MAX_AST - 1) As Integer
+
+Dim bulOn(MAX_BUL - 1) As Boolean
+Dim bulX(MAX_BUL - 1) As Single
+Dim bulY(MAX_BUL - 1) As Single
+Dim bulVX(MAX_BUL - 1) As Single
+Dim bulVY(MAX_BUL - 1) As Single
+Dim bulLife(MAX_BUL - 1) As Single
+
+Sub _Ready()
+	Randomize()
+	Call ResetGame()
+End Sub
+
+Sub ResetGame()
+	score = 0
+	level = 1
+	lives = 3
+	gameOver = False
+	shipX = W * 0.5
+	shipY = H * 0.5
+	shipA = - PI * 0.5
+	shipVX = 0
+	shipVY = 0
+	shipInv = 0
+	shootCd = 0
+	Dim i As Integer
+	For i = 0 To MAX_AST - 1
+		astOn(i) = False
+	Next
+	For i = 0 To MAX_BUL - 1
+		bulOn(i) = False
+	Next
+	Call SpawnWave()
+End Sub
+
+Function AstRadius(size As Integer) As Single
+	AstRadius = 8 + size * 7
+End Function
+
+Function ToroidalDistSq(x1 As Single, y1 As Single, x2 As Single, y2 As Single) As Single
+	Dim dx As Single
+	dx = Abs(x2 - x1)
+	If dx > W * 0.5 Then dx = W - dx
+	Dim dy As Single
+	dy = Abs(y2 - y1)
+	If dy > H * 0.5 Then dy = H - dy
+	ToroidalDistSq = dx * dx + dy * dy
+End Function
+
+Function CirclesHit(x1 As Single, y1 As Single, r1 As Single, x2 As Single, y2 As Single, r2 As Single) As Boolean
+	Dim reach As Single
+	reach = r1 + r2
+	CirclesHit = ToroidalDistSq(x1, y1, x2, y2) < reach * reach
+End Function
+
+Sub WrapInPlace(ByRef x As Single, ByRef y As Single)
+	If x < 0 Then x = x + W
+	If x > = W Then x = x - W
+	If y < 0 Then y = y + H
+	If y > = H Then y = y - H
+End Sub
+
+
+Sub SpawnWave()
+	Dim count As Integer
+	count = 4 + level
+	If count > 10 Then count = 10
+	Dim spawned As Integer
+	spawned = 0
+	Dim i As Integer
+	For i = 0 To MAX_AST - 1
+		If spawned > = count Then Exit For
+		If Not astOn(i) Then
+			Dim ax As Single
+			Dim ay As Single
+			ax = Rnd() * W
+			ay = Rnd() * H
+			If ToroidalDistSq(ax, ay, shipX, shipY) < 120 * 120 Then
+				i = i - 1
+			Else
+				astOn(i) = True
+				astX(i) = ax
+				astY(i) = ay
+				astSize(i) = 3
+				Dim spd As Single
+				spd = 40 + Rnd() * 50
+				Dim ang As Single
+				ang = Rnd() * PI * 2
+				astVX(i) = Cos(ang) * spd
+				astVY(i) = Sin(ang) * spd
+				spawned = spawned + 1
+			End If
+		End If
+	Next
+End Sub
+
+Sub SplitAsteroid(index As Integer, hitX As Single, hitY As Single)
+	Dim size As Integer
+	size = astSize(index)
+	score = score + (4 - size) * 25
+	astOn(index) = False
+	If size < = 1 Then Exit Sub
+	Dim n As Integer
+	For n = 0 To 1
+		Dim i As Integer
+		For i = 0 To MAX_AST - 1
+			If Not astOn(i) Then
+				astOn(i) = True
+				astX(i) = hitX
+				astY(i) = hitY
+				astSize(i) = size - 1
+				Dim ang As Single
+				ang = Rnd() * PI * 2
+				Dim spd As Single
+				spd = 60 + size * 15
+				astVX(i) = Cos(ang) * spd
+				astVY(i) = Sin(ang) * spd
+				Exit For
+			End If
+		Next
+	Next
+End Sub
+
+Sub HitShip()
+	lives = lives - 1
+	shipInv = 2.5
+	shipVX = 0
+	shipVY = 0
+	shipX = W * 0.5
+	shipY = H * 0.5
+	If lives < = 0 Then
+		gameOver = True
+	End If
+End Sub
+
+Sub FireBullet()
+	Dim i As Integer
+	For i = 0 To MAX_BUL - 1
+		If Not bulOn(i) Then
+			bulOn(i) = True
+			bulX(i) = shipX + Cos(shipA) * 14
+			bulY(i) = shipY + Sin(shipA) * 14
+			bulVX(i) = Cos(shipA) * 320 + shipVX
+			bulVY(i) = Sin(shipA) * 320 + shipVY
+			bulLife(i) = 1.2
+			Exit Sub
+		End If
+	Next
+End Sub
+
+Sub _Process(delta As Single)
+	If gameOver Then
+		If Input.IsActionJustPressed("ui_accept") Then Call ResetGame()
+		QueueRedraw
+		Exit Sub
+	End If
+
+	If shipInv > 0 Then shipInv = shipInv - delta
+	If shootCd > 0 Then shootCd = shootCd - delta
+
+	If Input.IsKeyPressed(KEY_LEFT) Then shipA = shipA - 3.5 * delta
+	If Input.IsKeyPressed(KEY_RIGHT) Then shipA = shipA + 3.5 * delta
+	If Input.IsKeyPressed(KEY_UP) Then
+		shipVX = shipVX + Cos(shipA) * 180 * delta
+		shipVY = shipVY + Sin(shipA) * 180 * delta
+	End If
+	If Input.IsKeyPressed(KEY_SPACE) And shootCd < = 0 Then
+		Call FireBullet()
+		shootCd = 0.18
+	End If
+
+	shipVX = shipVX * 0.992
+	shipVY = shipVY * 0.992
+	Dim spd As Single
+	spd = Sqr(shipVX * shipVX + shipVY * shipVY)
+	If spd > 260 Then
+		shipVX = shipVX * 260 / spd
+		shipVY = shipVY * 260 / spd
+	End If
+	shipX = shipX + shipVX * delta
+	shipY = shipY + shipVY * delta
+	Call WrapInPlace(shipX, shipY)
+
+	Dim i As Integer
+	For i = 0 To MAX_AST - 1
+		If astOn(i) Then
+			astX(i) = astX(i) + astVX(i) * delta
+			astY(i) = astY(i) + astVY(i) * delta
+			Call WrapInPlace(astX(i), astY(i))
+		End If
+	Next
+
+	For i = 0 To MAX_BUL - 1
+		If bulOn(i) Then
+			bulLife(i) = bulLife(i) - delta
+			If bulLife(i) < = 0 Then
+				bulOn(i) = False
+			Else
+				bulX(i) = bulX(i) + bulVX(i) * delta
+				bulY(i) = bulY(i) + bulVY(i) * delta
+				Call WrapInPlace(bulX(i), bulY(i))
+				Dim j As Integer
+				For j = 0 To MAX_AST - 1
+					If astOn(j) Then
+						If CirclesHit(bulX(i), bulY(i), 3, astX(j), astY(j), AstRadius(astSize(j))) Then
+							Call SplitAsteroid(j, bulX(i), bulY(i))
+							bulOn(i) = False
+							Exit For
+						End If
+					End If
+				Next
+			End If
+		End If
+	Next
+
+	If shipInv < = 0 Then
+		For i = 0 To MAX_AST - 1
+			If astOn(i) Then
+				If CirclesHit(shipX, shipY, SHIP_R, astX(i), astY(i), AstRadius(astSize(i))) Then
+					Call HitShip()
+					Exit For
+				End If
+			End If
+		Next
+	End If
+
+	Dim left As Integer
+	left = 0
+	For i = 0 To MAX_AST - 1
+		If astOn(i) Then left = left + 1
+	Next
+	If left = 0 Then
+		level = level + 1
+		Call SpawnWave()
+	End If
+
+	QueueRedraw
+End Sub
+
+Sub _Draw()
+	DrawRect(Rect2(0, 0, W, H), Color(0.02, 0.02, 0.08))
+	Dim i As Integer
+	For i = 0 To MAX_AST - 1
+		If astOn(i) Then
+			DrawCircle(Vector2(astX(i), astY(i)), AstRadius(astSize(i)), Color(0.65, 0.65, 0.7))
+		End If
+	Next
+	For i = 0 To MAX_BUL - 1
+		If bulOn(i) Then
+			DrawCircle(Vector2(bulX(i), bulY(i)), 3, Color(1, 1, 0.2))
+		End If
+	Next
+	If shipInv < = 0 Or CInt(shipInv * 12) Mod 2 = 0 Then
+		Dim tip As Vector2
+		Dim leftPt As Vector2
+		Dim rightPt As Vector2
+		tip = Vector2(shipX + Cos(shipA) * 14, shipY + Sin(shipA) * 14)
+		leftPt = Vector2(shipX + Cos(shipA + 2.4) * 10, shipY + Sin(shipA + 2.4) * 10)
+		rightPt = Vector2(shipX + Cos(shipA - 2.4) * 10, shipY + Sin(shipA - 2.4) * 10)
+		DrawLine(tip, leftPt, Color(0.2, 1, 0.35), 2)
+		DrawLine(leftPt, rightPt, Color(0.2, 1, 0.35), 2)
+		DrawLine(rightPt, tip, Color(0.2, 1, 0.35), 2)
+	End If
+	DrawString("Score: " & CStr(score) & " Lives: " & CStr(lives) & " Lvl: " & CStr(level), 12, 24, Color(0.85, 0.9, 1))
+	If gameOver Then
+		DrawString("GAME OVER — Space to restart", 170, H * 0.5, Color(1, 0.4, 0.4))
+	End If
+End Sub

@@ -1,0 +1,79 @@
+' =============================================================================
+' FileOps.vg — copy, move, delete, trash (VG filesystem builtins)
+' =============================================================================
+' Thin wrappers around Visual Gasic file I/O: FileCopy, CopyFolder, Kill,
+' SendToTrash, etc. Main.vg calls these after the user picks a source in the
+' active pane and a destination in the other pane.
+'
+' Tip: always check FileExists / DirExists before operating — VG won't throw
+' VB6-style trappable errors for missing paths; you get False back instead.
+' =============================================================================
+Attribute VB_Name = "FileOps"
+
+' Last path segment: "/home/user/foo.txt" → "foo.txt"
+Function BaseName(path As String) As String
+	Dim p As Integer
+	p = InStrRev(path, "/")
+	If p <= 0 Then
+		BaseName = path
+	Else
+		BaseName = Mid(path, p + 1)
+	End If
+End Function
+
+' Copy file or folder into destDir (same basename). Returns success/fail.
+Function CopyEntry(srcPath As String, destDir As String) As Boolean
+	If Not FileExists(srcPath) And Not DirExists(srcPath) Then
+		CopyEntry = False
+		Exit Function
+	End If
+	Dim dest As String
+	dest = BuildPath(destDir, BaseName(srcPath))
+	If DirExists(srcPath) Then
+		CopyEntry = CopyFolder(srcPath, dest)
+	Else
+		FileCopy srcPath, dest
+		CopyEntry = FileExists(dest)
+	End If
+End Function
+
+Function MoveEntry(srcPath As String, destDir As String) As Boolean
+	If Not FileExists(srcPath) And Not DirExists(srcPath) Then
+		MoveEntry = False
+		Exit Function
+	End If
+	Dim dest As String
+	dest = BuildPath(destDir, BaseName(srcPath))
+	If DirExists(srcPath) Then
+		MoveEntry = MoveFolder(srcPath, dest)
+	Else
+		' Files: copy then delete — VG has no single "rename across dirs" call.
+		FileCopy srcPath, dest
+		If FileExists(dest) Then
+			Kill srcPath
+			MoveEntry = True
+		Else
+			MoveEntry = False
+		End If
+	End If
+End Function
+
+Function DeleteEntry(path As String) As Boolean
+	If path = "" Then
+		DeleteEntry = False
+		Exit Function
+	End If
+	If DirExists(path) Then
+		DeleteEntry = DeleteFolder(path)
+	ElseIf FileExists(path) Then
+		Kill path
+		DeleteEntry = Not FileExists(path)
+	Else
+		DeleteEntry = False
+	End If
+End Function
+
+' Desktop-style trash (platform SendToTrash builtin when available).
+Function TrashEntry(path As String) As Boolean
+	TrashEntry = SendToTrash(path)
+End Function

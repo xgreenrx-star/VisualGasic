@@ -1,0 +1,14 @@
+' frmCounter - Simple counter form script
+Option Explicit
+
+Dim count As Integer = 0
+
+Sub Form_Load()
+    count = 0
+    lblCount.Caption = "Count: " & count
+End Sub
+
+Sub btnIncrement_Click()
+    count = count + 1
+    lblCount.Caption = "Count: " & count
+End Sub

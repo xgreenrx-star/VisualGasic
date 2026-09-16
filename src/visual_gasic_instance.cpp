@@ -147,6 +147,208 @@ static std::set<VisualGasicInstance*> vg_debug_active_instances;
 // Thread-local import stack for circular import detection (v4.3.0)
 thread_local Vector<String> VisualGasicInstance::import_stack;
 
+static bool vg_verbose_init_logs() {
+	static int cached = -1;
+	if (cached < 0) {
+		cached = OS::get_singleton()->has_environment("VG_VERBOSE_INIT") ? 1 : 0;
+	}
+	return cached == 1;
+}
+
+String vg_resolve_classdb_alias(const String &p_name) {
+	if (p_name.nocasecmp_to("Process") == 0) return "VGProcess";
+	if (p_name.nocasecmp_to("Database") == 0) return "VGDatabase";
+	if (p_name.nocasecmp_to("FileSystemWatcher") == 0) return "VGFileWatcher";
+	if (p_name.nocasecmp_to("CommonDialog") == 0) return "VGCommonDialog";
+	if (p_name.nocasecmp_to("WinSock") == 0 || p_name.nocasecmp_to("Socket") == 0) return "VGSocket";
+	if (p_name.nocasecmp_to("SysTray") == 0) return "VGSysTray";
+	if (p_name.nocasecmp_to("Settings") == 0) return "VGSettings";
+	if (p_name.nocasecmp_to("FileSystemObject") == 0) return "VGFileSystemObject";
+	if (p_name.nocasecmp_to("ScriptingDictionary") == 0) return "VGScriptingDict";
+	if (p_name.nocasecmp_to("WScriptShell") == 0) return "VGWScriptShell";
+	if (p_name.nocasecmp_to("ComObject") == 0) return "VGComObject";
+	if (p_name.nocasecmp_to("HttpRequest") == 0 || p_name.nocasecmp_to("XMLHTTP") == 0) return "VGHttpRequest";
+	if (p_name.nocasecmp_to("Collection") == 0) return "VGCollection";
+	if (p_name.nocasecmp_to("RegExp") == 0) return "VGRegEx";
+	if (p_name.nocasecmp_to("Timer") == 0 || p_name.nocasecmp_to("VBTimer") == 0) return "VGTimer";
+	if (p_name.nocasecmp_to("NativeLibrary") == 0) return "VGNativeLibrary";
+	if (p_name.nocasecmp_to("NativeStruct") == 0) return "VGNativeStruct";
+	if (p_name.nocasecmp_to("Odbc") == 0) return "VGOdbc";
+	if (p_name.nocasecmp_to("Crypto") == 0) return "VGCrypto";
+	if (p_name.nocasecmp_to("Xml") == 0) return "VGXml";
+	if (p_name.nocasecmp_to("Zip") == 0) return "VGZip";
+	if (p_name.nocasecmp_to("Task") == 0) return "VGTask";
+	if (p_name.nocasecmp_to("TaskRunner") == 0) return "VGTaskRunner";
+	if (p_name.nocasecmp_to("System") == 0) return "VGSystem";
+	if (p_name.nocasecmp_to("SignalHandler") == 0) return "VGSignalHandler";
+	if (p_name.nocasecmp_to("FilePermissions") == 0) return "VGFilePermissions";
+	if (p_name.nocasecmp_to("MemoryBuffer") == 0) return "VGMemoryBuffer";
+	if (p_name.nocasecmp_to("IPC") == 0) return "VGIPC";
+	if (p_name.nocasecmp_to("AndroidBridge") == 0) return "VGAndroidBridge";
+	if (p_name.nocasecmp_to("Gpu") == 0 || p_name.nocasecmp_to("VGGpu") == 0) return "VisualGasicGPU";
+	if (p_name.nocasecmp_to("ECS") == 0 || p_name.nocasecmp_to("VGEcs") == 0) return "VisualGasicECS";
+	if (p_name.nocasecmp_to("Recordset") == 0 || p_name.nocasecmp_to("ADODB.Recordset") == 0) return "VGRecordset";
+	if (p_name.begins_with("VG") && ClassDB::class_exists(p_name)) return p_name;
+	if (ClassDB::class_exists(p_name)) return p_name;
+	return String();
+}
+
+Variant vg_classdb_type_sentinel(const String &p_name) {
+	const String resolved = vg_resolve_classdb_alias(p_name);
+	if (resolved.is_empty()) {
+		return Variant();
+	}
+	Dictionary d;
+	d["__vg_classdb"] = resolved;
+	return d;
+}
+
+static Variant vg_classdb_call_static_unpacked(const String &p_class, const String &p_method, const Array &p_args) {
+	const int n = p_args.size();
+	switch (n) {
+		case 0: return ClassDB::class_call_static(p_class, p_method);
+		case 1: return ClassDB::class_call_static(p_class, p_method, p_args[0]);
+		case 2: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1]);
+		case 3: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2]);
+		case 4: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2], p_args[3]);
+		case 5: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4]);
+		case 6: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5]);
+		case 7: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5], p_args[6]);
+		case 8: return ClassDB::class_call_static(p_class, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5], p_args[6], p_args[7]);
+		default: return Variant();
+	}
+}
+
+bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret) {
+	if (p_class.is_empty()) {
+		return false;
+	}
+	if (Engine::get_singleton()->has_singleton(p_class)) {
+		Object *singleton = Engine::get_singleton()->get_singleton(p_class);
+		if (singleton) {
+			if (singleton->has_method(p_method)) {
+				r_ret = singleton->callv(p_method, p_args);
+				return true;
+			}
+			const String snake = p_method.to_snake_case();
+			if (singleton->has_method(snake)) {
+				r_ret = singleton->callv(snake, p_args);
+				return true;
+			}
+		}
+	}
+	if (ClassDB::get_method(p_class, p_method) != nullptr) {
+		r_ret = vg_classdb_call_static_unpacked(p_class, p_method, p_args);
+		return true;
+	}
+	const String snake = p_method.to_snake_case();
+	if (ClassDB::get_method(p_class, snake) != nullptr) {
+		r_ret = vg_classdb_call_static_unpacked(p_class, snake, p_args);
+		return true;
+	}
+	return false;
+}
+
+// Process-wide cache: Import "Foo.vg" must not re-tokenize/re-parse on every
+// VisualGasicInstance (bullet/enemy/VFX spawn). Previously each spawn paid a
+// full parse of every imported file — hundreds of parses per wave → editor freeze.
+struct VgSharedImportEntry {
+	ModuleNode *ast = nullptr;
+	VisualGasicParser *parser = nullptr;
+	VisualGasicTokenizer *tokenizer = nullptr;
+	// Process-wide bytecode for imported subs — must not recompile per spawn.
+	std::list<VisualGasicInstance::ModuleBytecodeEntry> *bytecode_cache = nullptr;
+};
+static HashMap<String, VgSharedImportEntry> g_vg_shared_import_asts;
+static std::mutex g_vg_shared_import_asts_mutex;
+
+static void vg_build_import_label_maps(ModuleNode *import_ast) {
+	if (!import_ast) {
+		return;
+	}
+	for (int si2 = 0; si2 < import_ast->subs.size(); si2++) {
+		SubDefinition *sub2 = import_ast->subs[si2];
+		for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
+			if (sub2->statements[j2]->type == STMT_LABEL) {
+				LabelStatement *lbl2 = (LabelStatement *)sub2->statements[j2];
+				sub2->label_map[lbl2->name] = j2;
+			}
+		}
+	}
+	for (int cdi2 = 0; cdi2 < import_ast->class_defs.size(); cdi2++) {
+		ClassDefinition *cls2 = import_ast->class_defs[cdi2];
+		if (!cls2) {
+			continue;
+		}
+		for (int mi2 = 0; mi2 < cls2->methods.size(); mi2++) {
+			SubDefinition *sub2 = cls2->methods[mi2];
+			if (!sub2) {
+				continue;
+			}
+			for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
+				if (sub2->statements[j2]->type == STMT_LABEL) {
+					LabelStatement *lbl2 = (LabelStatement *)sub2->statements[j2];
+					sub2->label_map[lbl2->name] = j2;
+				}
+			}
+		}
+	}
+}
+
+// Per-main-script import wiring cache: after the first VisualGasicInstance of
+// e.g. Enemy3D.vg completes import setup, later spawns clone the wiring instead
+// of re-running execute_statement / evaluate_expression for every import.
+struct VgScriptImportWiring {
+	bool ready = false;
+	Vector<VisualGasicInstance::ImportedModule> modules;
+	Dictionary module_registry;
+	Dictionary class_registry;
+};
+static HashMap<String, VgScriptImportWiring> g_script_import_wiring;
+static std::mutex g_script_import_wiring_mutex;
+
+static ModuleNode *vg_acquire_shared_import_ast(const String &full_path, bool &r_shared) {
+	r_shared = false;
+	{
+		std::lock_guard<std::mutex> lock(g_vg_shared_import_asts_mutex);
+		if (g_vg_shared_import_asts.has(full_path)) {
+			r_shared = true;
+			return g_vg_shared_import_asts[full_path].ast;
+		}
+	}
+	if (!FileAccess::file_exists(full_path)) {
+		return nullptr;
+	}
+	VisualGasicTokenizer *import_tok = new VisualGasicTokenizer();
+	Vector<VisualGasicTokenizer::Token> import_tokens = import_tok->tokenize(
+			FileAccess::get_file_as_string(full_path));
+	VisualGasicParser *import_parser = new VisualGasicParser();
+	ModuleNode *import_ast = import_parser->parse(import_tokens);
+	if (!import_ast || import_parser->errors.size() > 0) {
+		delete import_parser;
+		delete import_tok;
+		return nullptr;
+	}
+	vg_build_import_label_maps(import_ast);
+	VgSharedImportEntry entry;
+	entry.ast = import_ast;
+	entry.parser = import_parser;
+	entry.tokenizer = import_tok;
+	{
+		std::lock_guard<std::mutex> lock(g_vg_shared_import_asts_mutex);
+		if (g_vg_shared_import_asts.has(full_path)) {
+			// Lost race — another thread/instance cached first.
+			delete import_parser;
+			delete import_tok;
+			r_shared = true;
+			return g_vg_shared_import_asts[full_path].ast;
+		}
+		g_vg_shared_import_asts[full_path] = entry;
+	}
+	r_shared = true;
+	return import_ast;
+}
+
 namespace VisualGasicDebug {
 
 void register_instance(VisualGasicInstance* instance) {
@@ -1176,7 +1378,9 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                      get_global_scope()[v->name] = variables[v->name];
                  }
                  
-                 UtilityFunctions::print("Initialized Global Var: ", v->name);
+                 if (vg_verbose_init_logs()) {
+                     UtilityFunctions::print("Initialized Global Var: ", v->name);
+                 }
             }
             
             // Initialize constants FIRST so that array Dim sizes
@@ -1302,6 +1506,29 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             // public variables/constants in module_registry for dot-access.
             // Circular import detection via thread-local import_stack.
             String this_path = vs->get_path();
+            bool import_wiring_applied = false;
+            if (!this_path.is_empty()) {
+                std::lock_guard<std::mutex> lock(g_script_import_wiring_mutex);
+                if (g_script_import_wiring.has(this_path) && g_script_import_wiring[this_path].ready) {
+                    const VgScriptImportWiring &wiring = g_script_import_wiring[this_path];
+                    for (int wi = 0; wi < wiring.modules.size(); wi++) {
+                        imported_modules.push_back(wiring.modules[wi]);
+                    }
+                    Array reg_keys = wiring.module_registry.keys();
+                    for (int wi = 0; wi < reg_keys.size(); wi++) {
+                        Variant key = reg_keys[wi];
+                        module_registry[key] = wiring.module_registry[key];
+                    }
+                    Array cls_keys = wiring.class_registry.keys();
+                    for (int wi = 0; wi < cls_keys.size(); wi++) {
+                        Variant key = cls_keys[wi];
+                        class_registry[key] = wiring.class_registry[key];
+                    }
+                    import_wiring_applied = true;
+                }
+            }
+
+            if (!import_wiring_applied) {
             import_stack.push_back(this_path);
             
             for (int ii = 0; ii < vs->ast_root->imports.size(); ii++) {
@@ -1326,46 +1553,12 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     continue;
                 }
                 
-                if (FileAccess::file_exists(full_path)) {
-                    // Allocate on heap so AST nodes survive past this scope
-                    VisualGasicTokenizer* import_tok = new VisualGasicTokenizer();
-                    Vector<VisualGasicTokenizer::Token> import_tokens = import_tok->tokenize(
-                        FileAccess::get_file_as_string(full_path));
-                    VisualGasicParser* import_parser = new VisualGasicParser();
-                    ModuleNode* import_ast = import_parser->parse(import_tokens);
+                {
+                    bool import_shared = false;
+                    ModuleNode* import_ast = vg_acquire_shared_import_ast(full_path, import_shared);
                     
-                    if (import_ast && import_parser->errors.size() == 0) {
+                    if (import_ast) {
                         String mod_name = full_path.get_file().get_basename();
-
-                        // Scan Labels — imported files are parsed independently
-                        // (never routed through VisualGasicScript::reload()), so
-                        // GoTo/GoSub/Label targets in module-level Subs AND in
-                        // Class methods defined in an imported .vg file must be
-                        // resolved here too, or every GoTo inside them fails at
-                        // runtime with "Label not found".
-                        for (int si2 = 0; si2 < import_ast->subs.size(); si2++) {
-                            SubDefinition* sub2 = import_ast->subs[si2];
-                            for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
-                                if (sub2->statements[j2]->type == STMT_LABEL) {
-                                    LabelStatement* lbl2 = (LabelStatement*)sub2->statements[j2];
-                                    sub2->label_map[lbl2->name] = j2;
-                                }
-                            }
-                        }
-                        for (int cdi2 = 0; cdi2 < import_ast->class_defs.size(); cdi2++) {
-                            ClassDefinition* cls2 = import_ast->class_defs[cdi2];
-                            if (!cls2) continue;
-                            for (int mi2 = 0; mi2 < cls2->methods.size(); mi2++) {
-                                SubDefinition* sub2 = cls2->methods[mi2];
-                                if (!sub2) continue;
-                                for (int j2 = 0; j2 < sub2->statements.size(); j2++) {
-                                    if (sub2->statements[j2]->type == STMT_LABEL) {
-                                        LabelStatement* lbl2 = (LabelStatement*)sub2->statements[j2];
-                                        sub2->label_map[lbl2->name] = j2;
-                                    }
-                                }
-                            }
-                        }
 
                         // Initialize the imported module's own module-level
                         // globals/consts/array-Dims into THIS instance's shared
@@ -1414,8 +1607,9 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                         im.module_name = mod_name;
                         im.full_path = full_path;
                         im.ast = import_ast;
-                        im.parser = import_parser;
-                        im.tokenizer = import_tok;
+                        im.ast_is_shared = import_shared;
+                        im.parser = nullptr;
+                        im.tokenizer = nullptr;
                         imported_modules.push_back(im);
                         
                         // Also populate module_registry for backward compat
@@ -1466,9 +1660,11 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                         }
                         
                         module_registry[mod_name] = mod_dict;
-                        UtilityFunctions::print("[VG] Imported module: ", mod_name, " (", 
-                            import_ast->subs.size(), " subs, ",
-                            import_ast->variables.size(), " vars) from ", full_path);
+                        if (vg_verbose_init_logs()) {
+                            UtilityFunctions::print("[VG] Imported module: ", mod_name, " (",
+                                import_ast->subs.size(), " subs, ",
+                                import_ast->variables.size(), " vars) from ", full_path);
+                        }
 
                         // Register the imported module's Class definitions (v4.4.0)
                         // so `New ClassName` works for classes defined in a
@@ -1478,12 +1674,8 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                             register_class(import_ast->class_defs[cdi]);
                         }
                     } else {
-                        // Parse failed — clean up
-                        delete import_parser;
-                        delete import_tok;
+                        UtilityFunctions::print("[VG] Import Error: Could not parse: ", full_path);
                     }
-                } else {
-                    UtilityFunctions::print("[VG] Import Error: File not found: ", full_path);
                 }
             }
             
@@ -1491,6 +1683,21 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             if (import_stack.size() > 0) {
                 import_stack.remove_at(import_stack.size() - 1);
             }
+
+            if (!this_path.is_empty()) {
+                VgScriptImportWiring wiring;
+                wiring.ready = true;
+                for (int wi = 0; wi < imported_modules.size(); wi++) {
+                    VisualGasicInstance::ImportedModule copy = imported_modules[wi];
+                    copy.bytecode_cache = nullptr;
+                    wiring.modules.push_back(copy);
+                }
+                wiring.module_registry = module_registry.duplicate(true);
+                wiring.class_registry = class_registry.duplicate(true);
+                std::lock_guard<std::mutex> lock(g_script_import_wiring_mutex);
+                g_script_import_wiring[this_path] = wiring;
+            }
+            } // !import_wiring_applied
         }
     }
 
@@ -1519,7 +1726,9 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
              }
 
              if (has_process) {
-                 UtilityFunctions::print("VisualGasic: Enabling Process for ", node->get_name());
+                 if (vg_verbose_init_logs()) {
+                     UtilityFunctions::print("VisualGasic: Enabling Process for ", node->get_name());
+                 }
                  node->set_process(true);
              }
              
@@ -1891,11 +2100,16 @@ VisualGasicInstance::~VisualGasicInstance() {
         if (runtime_data_nodes[i]) delete runtime_data_nodes[i];
     }
     
-    // Clean up imported module ASTs (v4.3.0)
+    // Clean up imported module ASTs (v4.3.0) — shared ASTs live in g_vg_shared_import_asts.
     for (int i = 0; i < imported_modules.size(); i++) {
-        if (imported_modules[i].parser) delete imported_modules[i].parser;
-        if (imported_modules[i].tokenizer) delete imported_modules[i].tokenizer;
-        if (imported_modules[i].bytecode_cache) delete imported_modules[i].bytecode_cache;
+        if (!imported_modules[i].ast_is_shared) {
+            if (imported_modules[i].parser) delete imported_modules[i].parser;
+            if (imported_modules[i].tokenizer) delete imported_modules[i].tokenizer;
+        }
+        // Shared import bytecode lives in g_vg_shared_import_asts.
+        if (imported_modules[i].bytecode_cache && !imported_modules[i].ast_is_shared) {
+            delete imported_modules[i].bytecode_cache;
+        }
     }
     imported_modules.clear();
 }
@@ -1995,16 +2209,43 @@ const HashSet<String>& VisualGasicInstance::get_global_buffer_var_names() {
     return _global_buffer_var_names;
 }
 
+BytecodeChunk* VisualGasicInstance::get_bytecode_for_sub(const String& entry_point) {
+    if (!script.is_valid() || entry_point.is_empty()) {
+        return nullptr;
+    }
+    Vector<ModuleNode*> import_asts;
+    for (int m = 0; m < imported_modules.size(); m++) {
+        if (imported_modules[m].ast) {
+            import_asts.push_back(imported_modules[m].ast);
+        }
+    }
+    return script->get_bytecode_for(entry_point, &get_global_buffer_var_names(), &import_asts);
+}
+
 BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod, const String& entry_point) {
     if (!mod.ast || entry_point.is_empty()) {
         return nullptr;
     }
-    if (!mod.bytecode_cache) {
-        mod.bytecode_cache = new std::list<ModuleBytecodeEntry>();
+    std::list<ModuleBytecodeEntry> *cache_list = mod.bytecode_cache;
+    if (mod.ast_is_shared && !mod.full_path.is_empty()) {
+        std::lock_guard<std::mutex> lock(g_vg_shared_import_asts_mutex);
+        if (g_vg_shared_import_asts.has(mod.full_path)) {
+            VgSharedImportEntry &shared = g_vg_shared_import_asts[mod.full_path];
+            if (!shared.bytecode_cache) {
+                shared.bytecode_cache = new std::list<ModuleBytecodeEntry>();
+            }
+            cache_list = shared.bytecode_cache;
+        }
+    }
+    if (!cache_list) {
+        if (!mod.bytecode_cache) {
+            mod.bytecode_cache = new std::list<ModuleBytecodeEntry>();
+        }
+        cache_list = mod.bytecode_cache;
     }
 
     String key = entry_point.to_lower();
-    for (ModuleBytecodeEntry &entry : *mod.bytecode_cache) {
+    for (ModuleBytecodeEntry &entry : *cache_list) {
         if (entry.name_lower == key) {
             if (entry.compile_failed) return nullptr;
             return &entry.chunk;
@@ -2035,7 +2276,7 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
         fail_entry.original_name = entry_point;
         fail_entry.name_lower = key;
         fail_entry.compile_failed = true;
-        mod.bytecode_cache->push_back(fail_entry);
+        cache_list->push_back(fail_entry);
         return nullptr;
     }
 
@@ -2045,9 +2286,9 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
     entry.original_name = entry_point;
     entry.name_lower = key;
     entry.chunk = compiled_chunk;
-    mod.bytecode_cache->push_back(entry);
+    cache_list->push_back(entry);
 
-    return &mod.bytecode_cache->back().chunk;
+    return &cache_list->back().chunk;
 }
 
 Variant VisualGasicInstance::evaluate_expression_for_builtins(ExpressionNode* expr) {

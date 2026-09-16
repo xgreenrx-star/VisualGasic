@@ -1,0 +1,7 @@
+Building a DOOM-inspired first-person maze slice.
+
+**generated/doom_maze/maze.vg** — CharacterBody3D script: WASD move, mouse look, wall collision against CSG maze, `Input.is_action_pressed("vg_fire")` triggers muzzle flash overlay. `movie_mode` enables autopilot path through the labyrinth.
+
+**main.tscn** — SubViewport-ready 3D scene with blockout walls and flickering point lights.
+
+Kenney retro-medieval reference noted for wall palette. Apply → walk the maze in preview.

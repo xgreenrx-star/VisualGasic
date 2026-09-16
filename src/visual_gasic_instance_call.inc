@@ -144,7 +144,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             if (bytecode_key.is_empty()) bytecode_key = func->name;
             _new_entry.bytecode_key = bytecode_key;
             chunk_for_locals = owning_module ? get_bytecode_for_import(*owning_module, bytecode_key)
-                                              : (script.is_valid() ? script->get_bytecode_for(bytecode_key, &get_global_buffer_var_names()) : nullptr);
+                                              : get_bytecode_for_sub(bytecode_key);
             _new_entry.chunk_for_locals = chunk_for_locals;
         }
         _call_resolution_cache[_res_key] = _new_entry;

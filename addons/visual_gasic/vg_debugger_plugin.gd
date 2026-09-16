@@ -379,9 +379,12 @@ func _poll_breakpoints_from_editor() -> void:
 		if line not in new_breakpoints[path]:
 			new_breakpoints[path].append(line)
 	
-	# Check if breakpoints changed OR if we have breakpoints and should re-sync
-	# Re-sync periodically because game might not be ready on first sync
-	if new_breakpoints != _breakpoints or not new_breakpoints.is_empty():
+	# ScriptEditor.get_breakpoints() does not track embedded VG CodeEdit gutters.
+	# Never wipe a live breakpoint set with an empty poll (VB6: breakpoints persist after hit).
+	new_breakpoints = _normalize_breakpoint_dict(new_breakpoints)
+	if new_breakpoints.is_empty() and not _breakpoints.is_empty():
+		return
+	if new_breakpoints != _breakpoints:
 		_breakpoints = new_breakpoints
 		_sync_breakpoints_to_game()
 
@@ -427,11 +430,35 @@ func _sync_breakpoints_to_game() -> void:
 	if _active_session:
 		_active_session.send_message("visualgasic:set_breakpoints", [_breakpoints])
 
+static func normalize_vg_script_path(path: String) -> String:
+	if path.is_empty() or path.begins_with("res://"):
+		return path
+	var abs_path := path.replace("\\", "/")
+	var project_root := ProjectSettings.globalize_path("res://").replace("\\", "/")
+	if not project_root.ends_with("/"):
+		project_root += "/"
+	if abs_path.begins_with(project_root):
+		return "res://" + abs_path.substr(project_root.length())
+	return path
+
+func _normalize_breakpoint_dict(raw: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for path in raw:
+		var norm := normalize_vg_script_path(str(path))
+		if not out.has(norm):
+			out[norm] = []
+		for line in raw[path]:
+			var ln := int(line)
+			if ln not in out[norm]:
+				out[norm].append(ln)
+	return out
+
 func _save_breakpoints_to_file() -> void:
 	"""Save breakpoints to a file so game can load them at startup."""
+	var normalized := _normalize_breakpoint_dict(_breakpoints)
 	var file = FileAccess.open("res://.vg_breakpoints.json", FileAccess.WRITE)
 	if file:
-		file.store_string(JSON.stringify(_breakpoints))
+		file.store_string(JSON.stringify(normalized, "\t"))
 		file.close()
 
 func request_instances() -> void:

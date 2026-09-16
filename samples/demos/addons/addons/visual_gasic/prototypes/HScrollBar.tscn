@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/visual_gasic/vg_scroll_bar.gd" id="1"]
+
+[node name="HScrollBar" type="HScrollBar"]
+offset_right = 200.0
+offset_bottom = 20.0
+max_value = 100.0
+step = 1.0
+page = 10.0
+script = ExtResource("1")

@@ -1,0 +1,326 @@
+' Enemy — seek player, contact damage, boss abilities
+Import "VfxHelpers.vg"
+Extends CharacterBody2D
+
+Const ARENA_MIN_X As Single = -10.0
+Const ARENA_MAX_X As Single = 1290.0
+Const ARENA_MIN_Y As Single = -260.0
+Const ARENA_MAX_Y As Single = 1040.0
+Const HALF_E_X As Single = 16.0
+Const HALF_E_Y As Single = 16.0
+Const HALF_BOSS_X As Single = 40.0
+Const HALF_BOSS_Y As Single = 40.0
+Const DAMAGE_INTERVAL As Single = 0.5
+Const DASH_DURATION As Single = 0.45
+Const HIT_FLASH_TIME As Single = 0.12
+Const HIT_SCALE_PUNCH As Single = 1.22
+
+Dim hp As Single
+Dim maxHp As Single
+Dim speed As Single
+Dim damage As Single
+Dim xpReward As Integer
+Dim matReward As Integer
+Dim damageTimer As Single
+Dim isDying As Boolean
+Public origColor As Color
+
+Dim isBoss As Boolean
+Dim bossAbility As String
+Dim abilityTimer As Single
+Dim dashing As Boolean
+Dim dashTarget As Object
+Dim dashElapsed As Single
+
+Dim healthBar As Object
+Dim sprite As Object
+Dim flashTimer As Single
+Dim origScale As Object
+Dim flashScaleTimer As Single
+Dim _particleScene As Object
+Dim _dropScene As Object
+Dim _ftScene As Object
+Dim _enemyScene As Object
+Dim _enemyBulletScene As Object
+
+Sub _Ready()
+	sprite = GetNode("Sprite")
+	healthBar = GetNode("HealthBar")
+	If Not sprite Is Nothing Then
+		origColor = sprite.modulate
+		origScale = sprite.scale
+	End If
+End Sub
+
+Sub Setup(pHp As Single, pSpeed As Single, pDamage As Single, pXp As Integer, pMat As Integer)
+	hp = pHp
+	maxHp = pHp
+	speed = pSpeed
+	damage = pDamage
+	xpReward = pXp
+	matReward = pMat
+	Call UpdateHealthBar()
+End Sub
+
+Sub SetupBoss(pHp As Single, pSpeed As Single, pDamage As Single, pXp As Integer, pMat As Integer, ability As String)
+	Call Setup(pHp, pSpeed, pDamage, pXp, pMat)
+	isBoss = True
+	bossAbility = ability
+	abilityTimer = 2.5
+	Me.AddToGroup("bosses")
+	If Not sprite Is Nothing Then
+		sprite.scale = Vector2(3.5, 3.5)
+		origScale = sprite.scale
+	End If
+	If Not healthBar Is Nothing Then
+		healthBar.offset_left = -40
+		healthBar.offset_right = 40
+		healthBar.offset_top = -50
+		healthBar.offset_bottom = -44
+	End If
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	If GameManager.game_state <> "fight" Or isDying Then
+		Me.Velocity = Vector2(0, 0)
+		Exit Sub
+	End If
+	If dashing Then
+		Call UpdateDash(delta)
+	Else
+		Call SeekPlayer()
+	End If
+	Call ClampToArena()
+	Call CheckPlayerContact(delta)
+	If isBoss And Not dashing Then Call BossAi(delta)
+	Call UpdateHitFlash(delta)
+End Sub
+
+Sub SeekPlayer()
+	Dim player As Object
+	Set player = GetTree().get_first_node_in_group("player")
+	If player Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Me.Velocity = dir * speed
+	MoveAndSlide()
+End Sub
+
+Sub ClampToArena()
+	Dim pos As Object
+	pos = Me.global_position
+	Dim hx As Single
+	Dim hy As Single
+	If isBoss Then hx = HALF_BOSS_X: hy = HALF_BOSS_Y Else hx = HALF_E_X: hy = HALF_E_Y
+	Dim x As Single
+	Dim y As Single
+	x = Clamp(pos.x, ARENA_MIN_X + hx, ARENA_MAX_X - hx)
+	y = Clamp(pos.y, ARENA_MIN_Y + hy, ARENA_MAX_Y - hy)
+	Me.global_position = Vector2(x, y)
+End Sub
+
+Sub CheckPlayerContact(delta As Single)
+	Dim player As Object
+	Set player = GetTree().get_first_node_in_group("player")
+	If player Is Nothing Then Exit Sub
+	Dim contactDist As Single
+	If isBoss Then contactDist = 60.0 Else contactDist = 30.0
+	If Me.global_position.distance_to(player.global_position) < contactDist Then
+		damageTimer = damageTimer + delta
+		If damageTimer >= DAMAGE_INTERVAL Then
+			damageTimer = 0.0
+			player.take_damage(damage)
+		End If
+	Else
+		damageTimer = 0.0
+	End If
+End Sub
+
+Sub TakeHit(dmg As Single)
+	If isDying Then Exit Sub
+	hp = hp - dmg
+	Call UpdateHealthBar()
+	Call ShowDamageNumber(dmg)
+	Dim ls As Single
+	ls = GameManager.player_stats("lifesteal")
+	If ls > 0 Then
+		Dim player As Object
+		Set player = GetTree().get_first_node_in_group("player")
+		If Not player Is Nothing Then player.heal(dmg * ls)
+	End If
+	If Not sprite Is Nothing Then
+		sprite.modulate = Color(1.0, 0.92, 0.25)
+		flashTimer = HIT_FLASH_TIME
+		flashScaleTimer = HIT_FLASH_TIME
+		sprite.scale = origScale * HIT_SCALE_PUNCH
+	End If
+	Dim parent As Object
+	Set parent = GetParent()
+	If Not parent Is Nothing Then Call SpawnHitPop(parent, Me.global_position)
+	If hp <= 0 Then Call Die()
+End Sub
+
+Sub UpdateHitFlash(delta As Single)
+	If flashTimer > 0 Then
+		flashTimer = flashTimer - delta
+		If flashTimer <= 0 Then Call RestoreSpriteColor()
+	End If
+	If flashScaleTimer > 0 And Not sprite Is Nothing Then
+		flashScaleTimer = flashScaleTimer - delta
+		Dim t As Single
+		t = flashScaleTimer / HIT_FLASH_TIME
+		If t < 0 Then t = 0
+		sprite.scale = origScale * (1.0 + (HIT_SCALE_PUNCH - 1.0) * t)
+	End If
+End Sub
+
+Sub RestoreSpriteColor()
+	If isDying Or sprite Is Nothing Then Exit Sub
+	If dashing Then
+		sprite.modulate = Color(1.0, 0.7, 0.0)
+	Else
+		sprite.modulate = origColor
+	End If
+	If Not origScale Is Nothing Then sprite.scale = origScale
+End Sub
+
+Sub Die()
+	If isDying Then Exit Sub
+	isDying = True
+	GameManager.player_stats("total_kills") = Int(GameManager.player_stats("total_kills")) + 1
+	Dim matMult As Single
+	matMult = 1.0 + GameManager.player_stats("materials_pct")
+	GameManager.player_stats("materials") = Int(GameManager.player_stats("materials")) + Int(matReward * matMult + 0.5)
+	GameManager.AddXp(xpReward)
+	Call SpawnDrops()
+	Call EnsureScenes()
+	Dim particle As Object
+	Set particle = _particleScene.instantiate()
+	GetParent().add_child(particle)
+	particle.global_position = Me.global_position
+	particle.SetColor(origColor)
+	If isBoss Then
+		GameManager.EmitBossKilled(bossAbility)
+		GameManager.EmitRequestShake(18.0)
+		AudioBus.Play("boss_die")
+	Else
+		GameManager.EmitRequestShake(2.8)
+		AudioBus.Play("enemy_die")
+	End If
+	Me.queue_free()
+End Sub
+
+Sub EnsureScenes()
+	If _particleScene Is Nothing Then Set _particleScene = GameManager.CachedScene("res://scenes/HitParticle.tscn")
+	If _dropScene Is Nothing Then Set _dropScene = GameManager.CachedScene("res://scenes/Drop.tscn")
+	If _ftScene Is Nothing Then Set _ftScene = GameManager.CachedScene("res://scenes/FloatText.tscn")
+	If _enemyScene Is Nothing Then Set _enemyScene = GameManager.CachedScene("res://scenes/Enemy.tscn")
+	If _enemyBulletScene Is Nothing Then Set _enemyBulletScene = GameManager.CachedScene("res://scenes/EnemyBullet.tscn")
+End Sub
+
+Sub SpawnDrops()
+	Call EnsureScenes()
+	Dim i As Integer
+	For i = 0 To matReward - 1
+		Dim drop As Object
+		Set drop = _dropScene.instantiate()
+		GetParent().add_child(drop)
+		drop.global_position = Me.global_position + Vector2(Rnd() * 40 - 20, Rnd() * 40 - 20)
+	Next i
+End Sub
+
+Sub ShowDamageNumber(dmg As Single)
+	Call EnsureScenes()
+	Dim ft As Object
+	Set ft = _ftScene.instantiate()
+	GetParent().add_child(ft)
+	ft.global_position = Me.global_position + Vector2(0, -30)
+	ft.Setup(CStr(Int(dmg)), Color.Yellow)
+End Sub
+
+Sub UpdateHealthBar()
+	If healthBar Is Nothing Then Exit Sub
+	healthBar.value = (hp / maxHp) * 100.0
+	healthBar.Visible = isBoss Or hp < maxHp
+End Sub
+
+Sub BossAi(delta As Single)
+	abilityTimer = abilityTimer - delta
+	If abilityTimer > 0 Then Exit Sub
+	Select Case bossAbility
+		Case "dash": Call BossDash(): abilityTimer = 3.5
+		Case "shoot": Call BossShoot(): abilityTimer = 2.0
+		Case "summon": Call BossSummon(): abilityTimer = 5.5
+		Case Else: abilityTimer = 5.0
+	End Select
+End Sub
+
+Sub BossDash()
+	Dim player As Object
+	Set player = GetTree().get_first_node_in_group("player")
+	If player Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Dim dist As Single
+	dist = Me.global_position.distance_to(player.global_position) + 60.0
+	dashTarget = Me.global_position + dir * dist
+	Dim tx As Single
+	Dim ty As Single
+	tx = Clamp(dashTarget.x, ARENA_MIN_X + HALF_BOSS_X, ARENA_MAX_X - HALF_BOSS_X)
+	ty = Clamp(dashTarget.y, ARENA_MIN_Y + HALF_BOSS_Y, ARENA_MAX_Y - HALF_BOSS_Y)
+	dashTarget = Vector2(tx, ty)
+	dashing = True
+	dashElapsed = 0.0
+	If Not sprite Is Nothing Then sprite.modulate = Color(1.0, 0.7, 0.0)
+End Sub
+
+Sub UpdateDash(delta As Single)
+	dashElapsed = dashElapsed + delta
+	Dim t As Single
+	t = dashElapsed / DASH_DURATION
+	If t > 1 Then t = 1
+	Me.global_position = Me.global_position.lerp(dashTarget, t * 0.4)
+	Me.Velocity = Vector2(0, 0)
+	If t >= 1 Then
+		dashing = False
+		Call RestoreSpriteColor()
+	End If
+End Sub
+
+Sub BossShoot()
+	Dim player As Object
+	Set player = GetTree().get_first_node_in_group("player")
+	If player Is Nothing Then Exit Sub
+	Dim dir As Object
+	dir = (player.global_position - Me.global_position).normalized()
+	Dim i As Integer
+	Call EnsureScenes()
+	For i = 0 To 2
+		Dim angle As Single
+		angle = Deg2Rad(20.0) * (i - 1.0)
+		Dim bullet As Object
+		Set bullet = _enemyBulletScene.instantiate()
+		GetParent().add_child(bullet)
+		bullet.global_position = Me.global_position
+		bullet.Setup(dir.rotated(angle), 320.0, damage * 0.8)
+	Next i
+End Sub
+
+Sub BossSummon()
+	Call EnsureScenes()
+	Dim i As Integer
+	For i = 0 To 2
+		Dim minion As Object
+		Set minion = _enemyScene.instantiate()
+		GetParent().add_child(minion)
+		Dim angle As Single
+		angle = 6.2831853 * i / 3.0
+		minion.global_position = Me.global_position + Vector2(Cos(angle), Sin(angle)) * 80.0
+		Dim w As Single
+		w = GameManager.wave
+		minion.Setup(10.0 + 2.0 * w, 130.0, 5.0, 2, 1)
+		Dim s As Object
+		s = minion.GetNode("Sprite")
+		If Not s Is Nothing Then s.modulate = Color(0.67, 0.53, 1.0)
+	Next i
+End Sub

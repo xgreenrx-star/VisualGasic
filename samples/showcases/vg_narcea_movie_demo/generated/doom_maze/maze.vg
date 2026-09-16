@@ -1,0 +1,42 @@
+' DOOM-style maze slice — generated/doom_maze/maze.vg on CharacterBody3D
+Attribute VB_Name = "DoomMaze"
+
+Const MOVE_SPEED As Single = 5.5
+Const TURN_SPEED As Single = 1.6
+
+Dim yaw As Single
+Dim vx As Single
+Dim vz As Single
+Dim movie_mode As Boolean
+Dim autopilot As Boolean
+Dim path_t As Single
+Dim cam As Object
+
+Sub _Ready()
+	yaw = 3.14159
+	path_t = 0.0
+	movie_mode = OS.has_feature("movie")
+	autopilot = movie_mode
+	If GetViewport().GetClass() = "SubViewport" Then autopilot = True
+	cam = GetNode("Camera3D")
+End Sub
+
+Sub _PhysicsProcess(delta As Single)
+	path_t = path_t + delta
+	vx = 0.0
+	vz = 0.0
+	If autopilot Then
+		yaw = yaw + delta * TURN_SPEED * 0.35
+		' Continuous forward walk (path_t was resetting every 0.4s → one move frame per pause).
+		If path_t > 0.35 Then vz = -MOVE_SPEED
+	Else
+		If IsActionPressed("vg_right") Then yaw = yaw - delta * TURN_SPEED
+		If IsActionPressed("vg_left") Then yaw = yaw + delta * TURN_SPEED
+		If IsActionPressed("vg_thrust") Then vz = -MOVE_SPEED
+	End If
+	rotation.y = yaw
+	vx = Sin(yaw) * vz
+	vz = Cos(yaw) * vz
+	SetVelocity Me, vx, 0.0, vz
+	MoveAndSlide Me
+End Sub

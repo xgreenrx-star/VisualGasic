@@ -221,8 +221,10 @@ public:
     
     // Breakpoint management (C++ side - avoid GDScript calls during debug)
     static void load_breakpoints_from_file();
+    static void apply_breakpoints_from_dict(const Dictionary& dict);
     static bool has_breakpoint(const String& script_path, int line);
     static void clear_breakpoints();
+    static String normalize_breakpoint_script_path(const String& path);
     
     // Data breakpoints (watchpoints) - break when variable value changes
     static void add_watchpoint(const String& variable_name);

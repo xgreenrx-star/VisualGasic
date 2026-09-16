@@ -1,0 +1,3 @@
+Build a VB6-style calculator form app in Visual Gasic. Four-function calculator with a display label and a 4×5 button grid (+, −, ×, ÷, digits, Clear, equals). Use Form_Load and btn_Click handlers. Save under generated/calculator/ as CalcForm.vg and wire a runnable main.tscn.
+
+Reference: https://en.wikipedia.org/wiki/Calculator

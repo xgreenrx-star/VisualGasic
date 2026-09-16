@@ -1,0 +1,66 @@
+' Regression: Array.append / Array.has as statements on a Variant member
+' Exact shape of Bullet.vg Hit line 128: hitEnemies.append(enemy)
+' Used to raise [VG Runtime Error 5] Method call base is not an Object
+Attribute VB_Name = "TestArrayVariantMethods"
+
+Dim hitEnemies As Variant
+
+Sub _Ready()
+	hitEnemies = Array()
+	Dim enemy As Object
+	Set enemy = New Dictionary
+	enemy("id") = "e1"
+
+	Call Hit(enemy)
+
+	If UBound(hitEnemies) = 0 Then
+		Print "PASS: hit_append_count"
+	Else
+		Print "FAIL: hit_append_count: expected 0, got " & CStr(UBound(hitEnemies))
+	End If
+
+	If hitEnemies(0) Is enemy Then
+		Print "PASS: hit_append_identity"
+	Else
+		Print "FAIL: hit_append_identity"
+	End If
+
+	If hitEnemies.has(enemy) Then
+		Print "PASS: hit_array_has"
+	Else
+		Print "FAIL: hit_array_has"
+	End If
+
+	Dim other As Object
+	Set other = New Dictionary
+	other("id") = "e2"
+	If Not hitEnemies.has(other) Then
+		Print "PASS: hit_array_has_miss"
+	Else
+		Print "FAIL: hit_array_has_miss"
+	End If
+
+	Dim stats As Object
+	Set stats = New Dictionary
+	stats("total_damage") = 10
+	If stats.has("total_damage") And Not stats.has("missing") Then
+		Print "PASS: dict_has"
+	Else
+		Print "FAIL: dict_has"
+	End If
+
+	Dim dir As Object
+	dir = Vector2(3, 4)
+	dir = dir.normalized()
+	If Abs(dir.x - 0.6) < 0.001 And Abs(dir.y - 0.8) < 0.001 Then
+		Print "PASS: vector2_normalized"
+	Else
+		Print "FAIL: vector2_normalized"
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub Hit(enemy As Object)
+	hitEnemies.append(enemy)
+End Sub

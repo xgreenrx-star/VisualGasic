@@ -1,0 +1,13 @@
+Sub _Ready()
+    Dim c As Color
+    c = Color(1, 0, 0, 1)
+    
+    Print "Test: Direct Color construction"
+    Print "c = " & c.ToString()
+    
+    If c.r = 1 And c.g = 0 And c.b = 0 Then
+        Print "PASS: color_direct"
+    Else
+        Print "FAIL: color_direct"
+    End If
+End Sub

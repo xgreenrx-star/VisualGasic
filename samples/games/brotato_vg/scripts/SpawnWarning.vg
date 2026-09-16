@@ -1,0 +1,78 @@
+' Blinking spawn indicator before enemy appears — polished rings + crosshair
+Extends Node2D
+
+Const BLINK_HZ As Single = 8.0
+Const PI2 As Single = 6.2831853
+
+Event finished()
+
+Dim duration As Single
+Dim radius As Single
+Dim elapsed As Single
+Dim alpha As Single
+Dim done As Boolean
+
+Sub _Ready()
+	duration = 0.85
+	radius = 22.0
+	elapsed = 0.0
+	alpha = 0.0
+	done = False
+End Sub
+
+Sub SetBig()
+	duration = 1.5
+	radius = 60.0
+End Sub
+
+Sub _Draw()
+	Dim t As Single
+	t = elapsed / duration
+	If t > 1 Then t = 1
+	Dim pulse As Single
+	pulse = Abs(Sin(elapsed * BLINK_HZ * 3.14159265))
+	Dim expandR As Single
+	expandR = radius * (0.55 + t * 0.55)
+	Dim outerR As Single
+	outerR = radius * (1.05 + pulse * 0.25 + t * 0.15)
+
+	' Expanding outer warning ring
+	DrawArc Vector2(0, 0), outerR, 0.0, PI2, 48, Color(1.0, 0.25, 0.25, alpha * 0.55), 3.0
+	DrawArc Vector2(0, 0), outerR + 6.0, 0.0, PI2, 48, Color(1.0, 0.45, 0.35, alpha * 0.25), 1.5
+
+	' Inner fill + core ring
+	DrawCircle Vector2(0, 0), expandR * 0.55, Color(1.0, 0.12, 0.12, alpha * 0.35)
+	DrawArc Vector2(0, 0), expandR, 0.0, PI2, 40, Color(1.0, 0.55, 0.4, alpha * 0.95), 2.5
+
+	' Crosshair spokes
+	Dim spokeLen As Single
+	spokeLen = outerR + 8.0
+	Dim spokeA As Single
+	spokeA = alpha * (0.45 + pulse * 0.35)
+	DrawLine Vector2(-spokeLen, 0), Vector2(-radius * 0.35, 0), 2.0, Color(1.0, 0.35, 0.35, spokeA)
+	DrawLine Vector2(spokeLen, 0), Vector2(radius * 0.35, 0), 2.0, Color(1.0, 0.35, 0.35, spokeA)
+	DrawLine Vector2(0, -spokeLen), Vector2(0, -radius * 0.35), 2.0, Color(1.0, 0.35, 0.35, spokeA)
+	DrawLine Vector2(0, spokeLen), Vector2(0, radius * 0.35), 2.0, Color(1.0, 0.35, 0.35, spokeA)
+
+	' Corner ticks
+	Dim tick As Single
+	tick = outerR * 0.72
+	DrawLine Vector2(-tick, -tick), Vector2(-tick + 8, -tick), 2.0, Color(1.0, 0.5, 0.4, spokeA)
+	DrawLine Vector2(tick, -tick), Vector2(tick - 8, -tick), 2.0, Color(1.0, 0.5, 0.4, spokeA)
+	DrawLine Vector2(-tick, tick), Vector2(-tick + 8, tick), 2.0, Color(1.0, 0.5, 0.4, spokeA)
+	DrawLine Vector2(tick, tick), Vector2(tick - 8, tick), 2.0, Color(1.0, 0.5, 0.4, spokeA)
+End Sub
+
+Sub _Process(delta As Single)
+	If done Then Exit Sub
+	elapsed = elapsed + delta
+	Dim t As Single
+	t = elapsed / duration
+	alpha = Abs(Sin(elapsed * BLINK_HZ * 3.14159265)) * (0.4 + t * 0.55)
+	QueueRedraw
+	If elapsed >= duration Then
+		done = True
+		RaiseEvent finished()
+		Me.queue_free()
+	End If
+End Sub

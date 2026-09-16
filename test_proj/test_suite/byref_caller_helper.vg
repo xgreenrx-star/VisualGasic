@@ -1,0 +1,5 @@
+Attribute VB_Name = "ByRefCallerHelper"
+
+Sub BumpPath(ByRef path As String)
+	path = path + "/child"
+End Sub

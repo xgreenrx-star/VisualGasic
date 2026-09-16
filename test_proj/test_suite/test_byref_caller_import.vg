@@ -1,0 +1,14 @@
+' Caller module invokes imported Sub with ByRef — write-back must reach caller globals.
+Import "byref_caller_helper.vg"
+Attribute VB_Name = "TestByRefCallerImport"
+
+Sub _Ready()
+	Dim path As String
+	path = "/tmp/vg_byref_caller"
+	Call BumpPath(path)
+	If path = "/tmp/vg_byref_caller/child" Then
+		Print "PASS: byref_caller_import_path"
+	Else
+		Print "FAIL: byref_caller_import_path: got " + path
+	End If
+End Sub

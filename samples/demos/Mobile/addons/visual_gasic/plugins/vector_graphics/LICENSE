@@ -1,0 +1,6 @@
+This directory (`plugins/vector_graphics/`) is an original component of
+VisualGasic (https://github.com/xgreenrx-star/VisualGasic), authored by the
+VisualGasic project. It is not a separate or third-party plugin.
+
+Licensed under the GNU General Public License v3.0 — see the full license
+text at the root of the addon: ../../LICENSE

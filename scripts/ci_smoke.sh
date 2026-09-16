@@ -7,7 +7,7 @@
 #
 # Usage:
 #   scripts/ci_smoke.sh                  # quick: just test_proj
-#   scripts/ci_smoke.sh --all            # exhaustive: every project.godot under demo*/, examples/, game_projects/
+#   scripts/ci_smoke.sh --all            # exhaustive: test_proj + samples/ + engine_lab/
 #   scripts/ci_smoke.sh path/to/proj ... # specific projects
 #
 # Exit codes:
@@ -36,8 +36,8 @@ case "${1:-}" in
 	--all)
 		while IFS= read -r -d '' f; do
 			projects+=("$(dirname "$f")")
-		done < <(find "$ROOT/test_proj" "$ROOT/demo" "$ROOT/demos" "$ROOT/examples" "$ROOT/game_projects" \
-			-maxdepth 4 -name project.godot -print0 2>/dev/null)
+		done < <(find "$ROOT/test_proj" "$ROOT/engine_lab" "$ROOT/samples" \
+			-maxdepth 5 -name project.godot -print0 2>/dev/null)
 		;;
 	"" )
 		projects=("$ROOT/test_proj")

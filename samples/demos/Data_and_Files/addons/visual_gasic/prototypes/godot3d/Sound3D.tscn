@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://sound3d_proto"]
+
+[node name="Sound3D" type="AudioStreamPlayer3D"]
+unit_size = 10.0
