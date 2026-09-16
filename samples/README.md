@@ -50,7 +50,7 @@ scripts/ci_smoke.sh samples/apps/vg_twinpane
 |---------|-------------|
 | [vg_twinpane](apps/vg_twinpane/) | Dual-pane file manager (Form Designer sample) |
 | [vector_dashboard](apps/vector_dashboard/) | Vector dashboard UI |
-| [VG_UI_TOOLS](apps/VG_UI_TOOLS/) | VB6-style control gallery |
+| [VG_UI_TOOLS](demos/UI/VG_UI_TOOLS/) | VB6-style control gallery |
 
 ## Showcases
 
