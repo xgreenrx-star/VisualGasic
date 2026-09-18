@@ -412,6 +412,14 @@ var _attach_image_btn: Button
 var _image_attached_row: HBoxContainer
 var _image_attached_label: Label
 var _pending_image_b64: String = ""
+var _narcea_live_capture = null
+var _live_capture_cb: CheckBox = null
+var _live_capture_banner: PanelContainer = null
+var _live_capture_banner_label: Label = null
+var _live_refresh_btn: Button = null
+var _live_explain_btn: Button = null
+var _live_drive_cb: CheckBox = null
+var _live_attach_vision_next: bool = false
 var _abort_agent_btn: Button = null   # Phase 6b — shown during multi-hop agent runs
 var _models_btn: Button
 var _model_picker: AcceptDialog
@@ -1630,6 +1638,19 @@ func _setup_ui() -> void:
 	toolbar_vbox.add_theme_constant_override("separation", 2)
 	main_vbox.add_child(toolbar_vbox)
 
+	_live_capture_banner = PanelContainer.new()
+	_live_capture_banner.visible = false
+	var banner_sb := StyleBoxFlat.new()
+	banner_sb.bg_color = Color(0.45, 0.22, 0.08, 0.92)
+	banner_sb.set_content_margin_all(6)
+	_live_capture_banner.add_theme_stylebox_override("panel", banner_sb)
+	_live_capture_banner_label = Label.new()
+	_live_capture_banner_label.text = "Narcea live capture: viewport snapshots and debug variables are stored locally for this session."
+	_live_capture_banner_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_live_capture_banner_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+	_live_capture_banner.add_child(_live_capture_banner_label)
+	main_vbox.add_child(_live_capture_banner)
+
 	# Row 1: provider/model/status + config controls
 	var toolbar := HBoxContainer.new()
 	toolbar.add_theme_constant_override("separation", 6)
@@ -1808,6 +1829,35 @@ func _setup_ui() -> void:
 	_validate_btn.pressed.connect(_on_validate_project)
 	_style_toolbar_light_button(_validate_btn)
 	toolbar2.add_child(_validate_btn)
+
+	toolbar2.add_child(_make_separator())
+
+	_live_capture_cb = CheckBox.new()
+	_live_capture_cb.text = "Live debug capture (this run)"
+	_live_capture_cb.tooltip_text = "Requires Project Settings → Vg → Narcea → live_debug_capture. Stores viewport snapshots locally until the game stops."
+	_live_capture_cb.disabled = not bool(ProjectSettings.get_setting("vg/narcea/live_debug_capture", false))
+	_live_capture_cb.toggled.connect(_on_live_capture_run_toggled)
+	toolbar2.add_child(_live_capture_cb)
+
+	_live_refresh_btn = Button.new()
+	_live_refresh_btn.text = "Refresh snapshot"
+	_live_refresh_btn.tooltip_text = "Capture the game viewport now (debugger must be active)"
+	_live_refresh_btn.pressed.connect(_on_live_refresh_snapshot)
+	_style_toolbar_light_button(_live_refresh_btn)
+	toolbar2.add_child(_live_refresh_btn)
+
+	_live_explain_btn = Button.new()
+	_live_explain_btn.text = "Explain screen"
+	_live_explain_btn.tooltip_text = "Ask Narcea to explain the latest breakpoint snapshot + debug context"
+	_live_explain_btn.pressed.connect(_on_live_explain_screen)
+	_style_toolbar_light_button(_live_explain_btn)
+	toolbar2.add_child(_live_explain_btn)
+
+	_live_drive_cb = CheckBox.new()
+	_live_drive_cb.text = "Drive (paused)"
+	_live_drive_cb.tooltip_text = "Allow Narcea/MCP to inject pointer/keyboard into VG controls while paused (experimental)"
+	_live_drive_cb.toggled.connect(_on_live_drive_toggled)
+	toolbar2.add_child(_live_drive_cb)
 
 	toolbar2.add_child(_make_separator())
 	_toolbar3_advanced = HBoxContainer.new()
@@ -3281,6 +3331,7 @@ func _finish_send(display_prompt: String) -> void:
 			if not _last_build_intent.is_empty():
 				_ensure_narcea_for_build(false)
 				_api_prompt_override = _build_hardened_prompt(display_prompt, _last_build_intent)
+	_maybe_attach_live_snapshot_for_vision()
 	_send_query(display_prompt)
 
 func _sync_cursor_ready_from_health() -> bool:
@@ -6320,9 +6371,137 @@ func _get_active_system_prompt() -> String:
 	# VG IDE context (open file, control catalog, tutorials) for every persona —
 	# personas differ in voice/style, not in project knowledge.
 	var vg_ctx := _narcea_context_block(slim_cursor)
+	var live_ctx := _live_debug_context_for_prompt()
+	if not live_ctx.is_empty():
+		vg_ctx += live_ctx
 	if prefix.is_empty() and vg_ctx.is_empty():
 		return _base_system_prompt
 	return prefix + vg_ctx + _base_system_prompt
+
+
+func bind_narcea_live_capture(capture) -> void:
+	_narcea_live_capture = capture
+	if _narcea_live_capture == null:
+		return
+	if _narcea_live_capture.has_signal("banner_visible_changed") \
+			and not _narcea_live_capture.banner_visible_changed.is_connected(_on_live_banner_visible):
+		_narcea_live_capture.banner_visible_changed.connect(_on_live_banner_visible)
+	if _narcea_live_capture.has_signal("session_run_enabled_changed") \
+			and not _narcea_live_capture.session_run_enabled_changed.is_connected(_on_live_run_enabled_changed):
+		_narcea_live_capture.session_run_enabled_changed.connect(_on_live_run_enabled_changed)
+	if is_instance_valid(_live_capture_cb):
+		_live_capture_cb.button_pressed = _narcea_live_capture.session_run_enabled
+		_live_capture_cb.disabled = not _narcea_live_capture.project_capture_allowed()
+	_on_live_banner_visible(_narcea_live_capture.session_run_enabled and _narcea_live_capture.project_capture_allowed())
+
+
+func _live_debug_context_for_prompt() -> String:
+	if _narcea_live_capture == null or not _narcea_live_capture.session_run_enabled:
+		return ""
+	if _narcea_live_capture.session.entry_count() <= 0:
+		return ""
+	return "\n\n" + _narcea_live_capture.session.format_for_narcea(2, true) + "\n"
+
+
+func _on_live_banner_visible(visible: bool) -> void:
+	if is_instance_valid(_live_capture_banner):
+		_live_capture_banner.visible = visible
+
+
+func _on_live_run_enabled_changed(enabled: bool) -> void:
+	if is_instance_valid(_live_capture_cb) and _live_capture_cb.button_pressed != enabled:
+		_live_capture_cb.button_pressed = enabled
+
+
+func _on_live_capture_run_toggled(on: bool) -> void:
+	if _narcea_live_capture == null:
+		return
+	if on and not _narcea_live_capture.project_capture_allowed():
+		if is_instance_valid(_live_capture_cb):
+			_live_capture_cb.button_pressed = false
+		_append_system("[color=yellow]Enable Project Settings → Vg → Narcea → live_debug_capture first.[/color]\n")
+		return
+	if on and not bool(ProjectSettings.get_setting("vg/narcea/live_debug_capture_consent", false)):
+		_show_live_capture_consent_dialog()
+		return
+	_narcea_live_capture.session_run_enabled = on
+	if on:
+		_narcea_live_capture.notify_game_started()
+	else:
+		_narcea_live_capture.purge_all()
+
+
+func _show_live_capture_consent_dialog() -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "Narcea live debug capture"
+	dlg.dialog_text = (
+		"While enabled for this run, Visual Gasic will store locally on your machine:\n"
+		+ "• Downscaled PNG snapshots of the game viewport\n"
+		+ "• Debugger stack frames and local variables\n"
+		+ "• Optional UI control layout (read-only)\n\n"
+		+ "Data is removed when the game stops, you click Clear capture, or you disable this run.\n"
+		+ "Sending chat to a cloud provider may include snapshot text or images if your model supports vision."
+	)
+	dlg.ok_button_text = "Enable for this run"
+	var skip := CheckBox.new()
+	skip.text = "Don't ask again this project"
+	dlg.add_child(skip)
+	dlg.confirmed.connect(func() -> void:
+		if skip.button_pressed:
+			ProjectSettings.set_setting("vg/narcea/live_debug_capture_consent", true)
+			ProjectSettings.save()
+		if _narcea_live_capture:
+			_narcea_live_capture.session_run_enabled = true
+			_narcea_live_capture.notify_game_started()
+		if is_instance_valid(_live_capture_cb):
+			_live_capture_cb.button_pressed = true
+		dlg.queue_free())
+	dlg.canceled.connect(func() -> void:
+		if is_instance_valid(_live_capture_cb):
+			_live_capture_cb.button_pressed = false
+		dlg.queue_free())
+	var host: Node = EditorInterface.get_base_control() if Engine.is_editor_hint() else self
+	host.add_child(dlg)
+	dlg.popup_centered()
+
+
+func _on_live_refresh_snapshot() -> void:
+	if _narcea_live_capture:
+		_narcea_live_capture.refresh_snapshot_manual()
+
+
+func _on_live_explain_screen() -> void:
+	if _narcea_live_capture == null:
+		return
+	var prompt: String = _narcea_live_capture.explain_screen_prompt()
+	_live_attach_vision_next = true
+	if _input:
+		_input.text = prompt
+	_on_send()
+
+
+func _on_live_drive_toggled(on: bool) -> void:
+	if _narcea_live_capture:
+		_narcea_live_capture.drive_mode_enabled = on
+	ProjectSettings.set_setting("vg/narcea/live_debug_capture_drive_mode", on)
+
+
+func _maybe_attach_live_snapshot_for_vision() -> void:
+	if not _live_attach_vision_next:
+		return
+	_live_attach_vision_next = false
+	if _narcea_live_capture == null or AIProviders == null:
+		return
+	if not AIProviders.provider_supports_vision(_provider_id, _current_model):
+		return
+	if not _pending_image_b64.is_empty():
+		return
+	var latest: Dictionary = _narcea_live_capture.session.get_latest()
+	if latest.is_empty():
+		return
+	var b64: String = _narcea_live_capture.session.get_png_base64(int(latest.get("id", 0)))
+	if not b64.is_empty():
+		_pending_image_b64 = b64
 
 ## Lazy-instantiate the Narcea context provider and ask it for a system-
 ## prompt block.  Cached on the panel so the tutorial walk only happens

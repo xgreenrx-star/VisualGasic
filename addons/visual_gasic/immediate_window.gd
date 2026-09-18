@@ -48,6 +48,9 @@ var _auto_refresh_enabled: bool = true
 var _is_editing: bool = false  # Track if user is currently editing a cell
 var _whenever_sections: Array = []  # Cached Whenever sections from remote
 var _debug_status_label: Label = null  # Shows current debug state (paused at line X)
+var _live_capture = null
+var _capture_status_chip: Label = null
+var _capture_clear_btn: Button = null
 var _right_tabs: TabContainer = null  # Right panel tabs (Vars, Watch, Props, Whenever)
 var _vars_label: Label = null  # Label showing variable count
 
@@ -128,6 +131,24 @@ func _on_auto_refresh_toggled(enabled: bool):
 		_auto_refresh_timer.start()
 	elif not enabled and _auto_refresh_timer:
 		_auto_refresh_timer.stop()
+
+func set_narcea_live_capture(capture) -> void:
+	_live_capture = capture
+	if _live_capture and _live_capture.has_signal("capture_status_changed"):
+		if not _live_capture.capture_status_changed.is_connected(_on_live_capture_status):
+			_live_capture.capture_status_changed.connect(_on_live_capture_status)
+		_on_live_capture_status("Capture: OFF")
+
+
+func _on_live_capture_status(text: String) -> void:
+	if is_instance_valid(_capture_status_chip):
+		_capture_status_chip.text = text
+
+
+func _on_live_capture_clear_pressed() -> void:
+	if _live_capture:
+		_live_capture.purge_all()
+
 
 func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 	_debugger_plugin = plugin
@@ -327,6 +348,18 @@ func _setup_ui():
 	_btn_stop.pressed.connect(_on_debug_stop)
 	_btn_stop.disabled = true
 	debug_toolbar.add_child(_btn_stop)
+
+	var cap_sep := VSeparator.new()
+	debug_toolbar.add_child(cap_sep)
+	_capture_status_chip = Label.new()
+	_capture_status_chip.text = "Capture: OFF"
+	_capture_status_chip.tooltip_text = "Narcea live debug capture (Project Settings → Vg → Narcea)"
+	debug_toolbar.add_child(_capture_status_chip)
+	_capture_clear_btn = Button.new()
+	_capture_clear_btn.text = "Clear capture"
+	_capture_clear_btn.tooltip_text = "Delete local viewport snapshots for this session (does not stop the game)"
+	_capture_clear_btn.pressed.connect(_on_live_capture_clear_pressed)
+	debug_toolbar.add_child(_capture_clear_btn)
 	
 	# Set Next Statement hint label
 	var sns_label = Label.new()

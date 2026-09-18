@@ -62,6 +62,46 @@ const TOOLBOX_TAB_GAME_UI := 3
 ## Default false — use Godot's native 2D/3D viewports.
 const SETTING_USE_SIMPLE_SCENE_EDITORS := "vg/scene_editors/simple_2d_3d"
 const LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS := "vg/use_simple_scene_editors"
+## When true, opening .vg on Godot's Script screen uses the full VG Code Editor in a float.
+## Godot main-screen tab label (legacy shell) / toolbar workspace toggle label.
+const VGASIC_MAIN_SCREEN := "VGasic"
+const VG_UI_FORMS_MAIN_SCREEN := VGASIC_MAIN_SCREEN
+const SETTING_FLOATING_VG_CODE_EDITOR := "vg/editor/floating_vg_code_editor_on_script"
+## When true, VG floating panels are not clamped to the inner editor rect (multi-monitor friendly).
+const SETTING_FLOAT_EXTENDED_BOUNDS := "vg/editor/floating_panels_allow_extended_bounds"
+const ES_CODE_FLOAT_X := "visual_gasic/code_float/window_x"
+const ES_CODE_FLOAT_Y := "visual_gasic/code_float/window_y"
+const ES_CODE_FLOAT_W := "visual_gasic/code_float/window_w"
+const ES_CODE_FLOAT_H := "visual_gasic/code_float/window_h"
+const ES_CODE_FLOAT_USER := "visual_gasic/code_float/user_customized"
+const ES_WORKSPACE_USER := "visual_gasic/workspace/user_customized"
+const ES_WS_HELP_X := "visual_gasic/workspace/help_x"
+const ES_WS_HELP_Y := "visual_gasic/workspace/help_y"
+const ES_WS_HELP_W := "visual_gasic/workspace/help_w"
+const ES_WS_HELP_H := "visual_gasic/workspace/help_h"
+const ES_WS_TOOLBOX_X := "visual_gasic/workspace/toolbox_x"
+const ES_WS_TOOLBOX_Y := "visual_gasic/workspace/toolbox_y"
+const ES_WS_TOOLBOX_W := "visual_gasic/workspace/toolbox_w"
+const ES_WS_TOOLBOX_H := "visual_gasic/workspace/toolbox_h"
+const ES_WS_PROPS_X := "visual_gasic/workspace/props_x"
+const ES_WS_PROPS_Y := "visual_gasic/workspace/props_y"
+const ES_WS_PROPS_W := "visual_gasic/workspace/props_w"
+const ES_WS_PROPS_H := "visual_gasic/workspace/props_h"
+const ES_WS_CODE_X := "visual_gasic/workspace/code_x"
+const ES_WS_CODE_Y := "visual_gasic/workspace/code_y"
+const ES_WS_CODE_W := "visual_gasic/workspace/code_w"
+const ES_WS_CODE_H := "visual_gasic/workspace/code_h"
+const ES_WS_EXPLORER_X := "visual_gasic/workspace/explorer_x"
+const ES_WS_EXPLORER_Y := "visual_gasic/workspace/explorer_y"
+const ES_WS_EXPLORER_W := "visual_gasic/workspace/explorer_w"
+const ES_WS_EXPLORER_H := "visual_gasic/workspace/explorer_h"
+## Baked default workspace (user Save VG Window Layout template, editor base coords).
+const DEFAULT_WS_REF := Rect2(7.0, 77.0, 1914.0, 904.0)
+const DEFAULT_WS_HELP := Rect2(7.0, 77.0, 297.0, 902.0)
+const DEFAULT_WS_CODE := Rect2(303.0, 77.0, 1064.0, 655.0)
+const DEFAULT_WS_EXPLORER := Rect2(1367.1832, 77.0, 283.81677, 354.0)
+const DEFAULT_WS_TOOLBOX := Rect2(1367.0, 430.0, 282.0, 550.0)
+const DEFAULT_WS_PROPS := Rect2(1649.0, 77.0, 272.0, 904.0)
 
 ## The main toolbox container in the left dock
 var toolbox
@@ -105,6 +145,8 @@ const _VGTOOLS_TOGGLE_TWEAK_OVERLAY_ID := 131
 const _VGTOOLS_NARCEA_ID := 132
 const _VGTOOLS_SNIPPET_BROWSER_ID := 140
 const _VGTOOLS_THEME_PICKER_ID := 141
+const _VGTOOLS_SAVE_WORKSPACE_LAYOUT_ID := 142
+const _VGTOOLS_RESET_WORKSPACE_LAYOUT_ID := 143
 
 ## Context menu for script editor rename refactoring
 var _script_context_menu: PopupMenu
@@ -253,9 +295,19 @@ var _ui_forms_adapter = null   # ui_forms_viewport_adapter.gd instance
 var _ui_forms_armed_type: String = ""
 
 ## Three 2D toolbar buttons for VG control placement and wiring.
-var _vg_ctrl_btn: Button = null    ## "Add VG Control" — open floating Toolbox
-var _vg_props_btn: Button = null   ## "VG Properties"  — open floating Properties
-var _vg_panels_btn: Button = null  ## "VG Panels" — Immediate, Output, AI Pair, …
+var _vg_canvas_tools_menu: MenuButton = null
+var _vg_props_btn: Button = null   ## unused; kept for cleanup compat
+var _vg_project_explorer_btn: Button = null
+var _vg_code_editor_btn: Button = null
+var _vg_ui_forms_toggle_btn: Button = null
+var _vg_tools_menu_btn: MenuButton = null
+const _VG_MENU_CODE := 1
+const _VG_MENU_CTRL := 2
+const _VG_MENU_PROPS := 3
+const _VG_MENU_PROJECT := 4
+const _VG_MENU_WIRE := 5
+var _vg_project_explorer_window: PanelContainer = null
+var _project_explorer_stow: Dictionary = {}
 var _wire_event_btn: Button = null ## "Wire Event"     — create VB6 event stub
 ## Prototype .tscn path while armed VG placement is active; "" when idle.
 var _vg_ctrl_armed_path: String = ""
@@ -269,6 +321,13 @@ var _ui_forms_props_window: PanelContainer = null
 var _vg_help_window: PanelContainer = null
 var _vg_help_btn: Button = null
 var _vg_help_toolbar_btn: Button = null
+## Floating host for the embedded code editor on Godot Script/2D/3D screens.
+var _vg_code_editor_float: PanelContainer = null
+var _vg_code_float_layout_hooked: bool = false
+var _vg_workspace_session_active: bool = false
+## False until editor startup finishes — blocks script-tab sync from auto-opening floats.
+var _vg_editor_startup_complete: bool = false
+var _embedded_assist_caret_hooked: CodeEdit = null
 var _float_assist: Dictionary = {}
 var _native_assist_connected: CodeEdit = null
 var _native_sprite_lines: Array = []
@@ -302,6 +361,7 @@ var _package_browser = null
 
 ## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
+var _narcea_live_capture = null
 var _vg_bottom_float: PanelContainer = null
 var _narcea_toolbar_btn: Button = null
 
@@ -417,6 +477,8 @@ func _enter_tree():
 	)
 
 	_ensure_scene_editor_project_settings()
+	_ensure_vg_editor_project_settings()
+	_register_narcea_live_project_settings()
 	_register_python_project_settings()
 
 	if not ProjectSettings.settings_changed.is_connected(_on_vg_project_settings_changed):
@@ -444,6 +506,18 @@ func _enter_tree():
 	_register_editor_setting(_es, "visual_gasic/narcea/window_y", -1.0, TYPE_FLOAT)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_w", 520.0, TYPE_FLOAT)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_h", 640.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_CODE_FLOAT_X, -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_CODE_FLOAT_Y, -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_CODE_FLOAT_W, 900.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_CODE_FLOAT_H, 560.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_CODE_FLOAT_USER, false, TYPE_BOOL)
+	_register_editor_setting(_es, ES_WORKSPACE_USER, false, TYPE_BOOL)
+	for key in [ES_WS_HELP_X, ES_WS_HELP_Y, ES_WS_HELP_W, ES_WS_HELP_H,
+			ES_WS_TOOLBOX_X, ES_WS_TOOLBOX_Y, ES_WS_TOOLBOX_W, ES_WS_TOOLBOX_H,
+			ES_WS_PROPS_X, ES_WS_PROPS_Y, ES_WS_PROPS_W, ES_WS_PROPS_H,
+			ES_WS_CODE_X, ES_WS_CODE_Y, ES_WS_CODE_W, ES_WS_CODE_H,
+			ES_WS_EXPLORER_X, ES_WS_EXPLORER_Y, ES_WS_EXPLORER_W, ES_WS_EXPLORER_H]:
+		_register_editor_setting(_es, key, -1.0, TYPE_FLOAT)
 
 	# Import Plugin
 	import_plugin = preload("res://addons/visual_gasic/frm_import_plugin.gd").new()
@@ -456,6 +530,7 @@ func _enter_tree():
 		add_debugger_plugin(debugger_plugin)
 		if debugger_plugin.has_signal("tweak_ai_edit_requested"):
 			debugger_plugin.tweak_ai_edit_requested.connect(_on_tweak_ai_edit_requested)
+		_ensure_narcea_live_capture()
 	
 	# Add autoload for game-side debug handler
 	if not ProjectSettings.has_setting("autoload/VGDebugHandler"):
@@ -468,6 +543,8 @@ func _enter_tree():
 		# Pass the debugger plugin reference
 		if immediate_window.has_method("set_debugger_plugin"):
 			immediate_window.set_debugger_plugin(debugger_plugin)
+		if is_instance_valid(_narcea_live_capture) and immediate_window.has_method("set_narcea_live_capture"):
+			immediate_window.set_narcea_live_capture(_narcea_live_capture)
 		# Don't add to bottom panel — will be embedded in the code editor's
 		# tabbed bottom panel via set_immediate_window() once the editor exists.
 		add_child(immediate_window)  # Keep in scene tree for _ready()
@@ -1300,6 +1377,7 @@ func _enter_tree():
 	# Add "🧩 Add Control" to Godot's native 2D canvas toolbar so UI Forms
 	# is accessible without the VG IDE panel being open.
 	call_deferred("_setup_ui_forms_toolbar_button")
+	call_deferred("_vg_on_editor_startup")
 
 # =============================================================================
 # DOCK MANAGEMENT — called by layout manager on mode toggle
@@ -1433,10 +1511,13 @@ func undock_vg_toolbars():
 ## NOTE: Godot calls _has_main_screen() BEFORE _enter_tree(), so we cannot
 ## rely on _form_designer being set.  Use a ClassDB check instead.
 func _has_main_screen() -> bool:
-	return ClassDB.class_exists(&"VisualGasicFormDesigner")
+	if not ClassDB.class_exists(&"VisualGasicFormDesigner"):
+		return false
+	# Default v6 path: workspace is toolbar-only (no duplicate main-screen tab).
+	return _use_legacy_vg_ide_main_screen()
 
 func _get_plugin_name() -> String:
-	return "Visual Gasic IDE"
+	return VG_UI_FORMS_MAIN_SCREEN
 
 ## Force the VG IDE main screen on the very first open of a brand-new
 ## VG project (i.e. one created by the bootstrap installer or "New Project").
@@ -1445,8 +1526,8 @@ func _get_plugin_name() -> String:
 ## whatever main screen the user last had active (Godot persists this in
 ## editor_layout.cfg → selected_main_editor_idx).
 func _select_vg_main_screen_on_first_run() -> void:
-	if not _has_main_screen():
-		return  # C++ FormDesigner unavailable — nothing to switch to.
+	if _use_legacy_vg_ide_main_screen() and not ClassDB.class_exists(&"VisualGasicFormDesigner"):
+		return
 	var first_run_completed := false
 	if ProjectSettings.has_setting("vg/first_run_completed"):
 		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
@@ -1467,9 +1548,122 @@ func _select_vg_main_screen_on_first_run() -> void:
 	get_tree().process_frame.connect(_do_select_vg_main_screen, CONNECT_ONE_SHOT)
 
 func _do_select_vg_main_screen() -> void:
-	if not _has_main_screen():
+	_activate_vg_ui_forms_workspace()
+
+
+func _activate_vg_ui_forms_workspace() -> void:
+	## Opens the default VGasic floating workspace — never the legacy Alpha shell.
+	if not _vg_workspace_session_active:
+		call_deferred("_open_vg_script_workspace_default")
+	_sync_vg_ui_forms_toggle_button(true)
+
+
+func _legacy_vg_ide_shell_is_active() -> bool:
+	return _use_legacy_vg_ide_main_screen() and is_instance_valid(_ide_layout) and _ide_layout.visible
+
+
+func _prepare_embedded_vg_file(vg_path: String, feed_controls: bool = false) -> void:
+	if not is_instance_valid(_embedded_code_editor) or vg_path.is_empty():
 		return
-	EditorInterface.set_main_screen_editor(_get_plugin_name())
+	if _embedded_code_editor.is_dirty() and not vg_script_paths_equal(_embedded_code_editor.get_file_path(), vg_path):
+		_embedded_code_editor.save_file()
+	if not vg_script_paths_equal(_embedded_code_editor.get_file_path(), vg_path):
+		_embedded_code_editor.load_file(vg_path)
+		if feed_controls:
+			_feed_control_names_to_editor()
+		else:
+			_embedded_code_editor.set_control_names([])
+
+
+func _open_vg_script_in_editor(vg_path: String, line: int = -1, activate_vgasic: bool = true) -> void:
+	if not is_instance_valid(_embedded_code_editor) or vg_path.is_empty():
+		return
+	if activate_vgasic:
+		_activate_vg_ui_forms_workspace()
+	if _legacy_vg_ide_shell_is_active():
+		_prepare_embedded_vg_file(vg_path, false)
+		_show_code_view()
+		if line >= 0 and _embedded_code_editor.has_method("navigate_to_line"):
+			_embedded_code_editor.call_deferred("navigate_to_line", line)
+	else:
+		_open_floating_vg_code_editor(vg_path, line)
+
+
+func _open_vg_script_for_debug_automation(vg_path: String, line: int) -> void:
+	## Breakpoints / errors — always VGasic workspace, not the experimental shell.
+	_activate_vg_ui_forms_workspace()
+	_open_floating_vg_code_editor(vg_path, line if line > 0 else -1)
+	_apply_embedded_debug_caret(vg_path, line)
+	print("VisualGasic: Debug break → VGasic workspace at ", vg_path.get_file(), " line ", line)
+
+
+func _apply_embedded_debug_caret(file: String, line: int) -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+	if code_edit == null or line <= 0:
+		return
+	var zero_line := line - 1
+	code_edit.set_caret_line(zero_line)
+	code_edit.set_caret_column(0)
+	code_edit.center_viewport_to_caret()
+	code_edit.grab_focus()
+	if code_edit.has_method("set_debug_paused"):
+		code_edit.set_debug_paused(true)
+		code_edit.set_executing_line(zero_line)
+	if _data_tips and "_data_tips_ref" in code_edit:
+		code_edit._data_tips_ref = _data_tips
+	if code_edit.has_signal("set_next_statement_requested") \
+			and not code_edit.set_next_statement_requested.is_connected(_on_set_next_statement):
+		code_edit.set_next_statement_requested.connect(_on_set_next_statement)
+	if code_edit.has_signal("run_to_cursor_requested") \
+			and not code_edit.run_to_cursor_requested.is_connected(_on_run_to_cursor):
+		code_edit.run_to_cursor_requested.connect(_on_run_to_cursor)
+	if code_edit.has_signal("tracepoint_set") \
+			and not code_edit.tracepoint_set.is_connected(_on_tracepoint_set):
+		code_edit.tracepoint_set.connect(_on_tracepoint_set)
+	if code_edit.has_signal("edit_and_continue_requested") \
+			and not code_edit.edit_and_continue_requested.is_connected(_on_edit_and_continue):
+		code_edit.edit_and_continue_requested.connect(_on_edit_and_continue)
+	if code_edit.has_signal("pin_inline_value_requested") \
+			and not code_edit.pin_inline_value_requested.is_connected(_on_pin_inline_value):
+		code_edit.pin_inline_value_requested.connect(_on_pin_inline_value)
+	_connect_code_edit_debug_step_signals(code_edit)
+	if code_edit.has_method("load_bookmarks"):
+		code_edit.load_bookmarks(file)
+
+
+func _ensure_experimental_ide_banner(show_banner: bool) -> void:
+	if not is_instance_valid(_ide_layout) or not _use_legacy_vg_ide_main_screen():
+		return
+	var banner: Control = _ide_layout.get_node_or_null("ExperimentalIdeBanner") as Control
+	if show_banner:
+		if banner == null:
+			var panel := PanelContainer.new()
+			panel.name = "ExperimentalIdeBanner"
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.92, 0.72, 0.18, 0.42)
+			sb.border_color = Color(0.65, 0.45, 0.05)
+			sb.set_border_width_all(1)
+			sb.content_margin_left = 10
+			sb.content_margin_right = 10
+			sb.content_margin_top = 5
+			sb.content_margin_bottom = 5
+			panel.add_theme_stylebox_override("panel", sb)
+			var lbl := Label.new()
+			lbl.text = "EXPERIMENTAL - Legacy Alpha VG IDE shell. For daily editing use the toolbar VGasic workspace."
+			lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			panel.add_child(lbl)
+			_ide_layout.add_child(panel)
+			var menu_row := _ide_layout.get_node_or_null("MenuBarRow")
+			if menu_row:
+				_ide_layout.move_child(panel, menu_row.get_index() + 1)
+			banner = panel
+		if banner:
+			banner.visible = true
+	else:
+		if banner:
+			banner.visible = false
 
 func _get_plugin_icon() -> Texture2D:
 	var theme = get_editor_interface().get_base_control().get_theme()
@@ -1482,13 +1676,42 @@ func _get_plugin_icon() -> Texture2D:
 			return icon
 	return null
 
+func _use_legacy_vg_ide_main_screen() -> bool:
+	return bool(ProjectSettings.get_setting("vg/enable_experimental_plugins", false))
+
+
 func _make_visible(p_visible: bool) -> void:
+	if _use_legacy_vg_ide_main_screen():
+		_make_visible_legacy_vg_ide_screen(p_visible)
+		return
+	if p_visible:
+		_editing_external_scene = false
+		if is_instance_valid(_ide_layout):
+			_ide_layout.visible = false
+		if _vg_plugin_manager and _vg_plugin_manager.has_method("rescan_plugin_settings"):
+			_vg_plugin_manager.rescan_plugin_settings()
+		if _vg_plugin_manager and _vg_plugin_manager._pending_activate_plugin != "":
+			var pid: String = _vg_plugin_manager._pending_activate_plugin
+			_vg_plugin_manager._pending_activate_plugin = ""
+			call_deferred("_deferred_activate_plugin", pid)
+		else:
+			call_deferred("_open_vg_script_workspace_default")
+		_sync_vg_ui_forms_toggle_button(true)
+	else:
+		_hide_vg_script_workspace()
+		_sync_vg_ui_forms_toggle_button(false)
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+
+
+func _make_visible_legacy_vg_ide_screen(p_visible: bool) -> void:
 	# Clear external scene editing flag when Form Designer is explicitly activated
 	if p_visible:
 		_editing_external_scene = false
 	# Show/hide the entire VB6 IDE layout (Toolbox + Canvas + Properties)
 	if _ide_layout:
 		_ide_layout.visible = p_visible
+		_ensure_experimental_ide_banner(p_visible)
 	elif _form_designer:
 		_form_designer.visible = p_visible
 	# Hide Godot's own docks & bottom panel to maximize VB6 IDE experience
@@ -1979,18 +2202,38 @@ func _exit_tree():
 		get_tree().node_added.disconnect(_on_node_added_for_help_links)
 
 	# Remove UI Forms toolbar buttons
-	if is_instance_valid(_vg_ctrl_btn):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
-		_vg_ctrl_btn.queue_free()
-		_vg_ctrl_btn = null
+	if is_instance_valid(_vg_ui_forms_toggle_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_ui_forms_toggle_btn)
+		_vg_ui_forms_toggle_btn.queue_free()
+		_vg_ui_forms_toggle_btn = null
+	if is_instance_valid(_vg_tools_menu_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_tools_menu_btn)
+		_vg_tools_menu_btn.queue_free()
+		_vg_tools_menu_btn = null
+	if is_instance_valid(_vg_canvas_tools_menu):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_canvas_tools_menu)
+		_vg_canvas_tools_menu.queue_free()
+		_vg_canvas_tools_menu = null
+	if is_instance_valid(_vg_code_editor_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_code_editor_btn)
+		_vg_code_editor_btn.queue_free()
+		_vg_code_editor_btn = null
 	if is_instance_valid(_vg_props_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
 		_vg_props_btn.queue_free()
 		_vg_props_btn = null
-	if is_instance_valid(_vg_panels_btn):
-		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
-		_vg_panels_btn.queue_free()
-		_vg_panels_btn = null
+	if is_instance_valid(_vg_code_editor_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_code_editor_btn)
+		_vg_code_editor_btn.queue_free()
+		_vg_code_editor_btn = null
+	if is_instance_valid(_vg_project_explorer_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_project_explorer_btn)
+		_vg_project_explorer_btn.queue_free()
+		_vg_project_explorer_btn = null
+	if is_instance_valid(_vg_project_explorer_window):
+		_restore_project_explorer_from_float()
+		_vg_project_explorer_window.queue_free()
+		_vg_project_explorer_window = null
 	if is_instance_valid(_wire_event_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
 		_wire_event_btn.queue_free()
@@ -2004,6 +2247,10 @@ func _exit_tree():
 	if is_instance_valid(_ui_forms_props_window):
 		_ui_forms_props_window.queue_free()
 		_ui_forms_props_window = null
+	if is_instance_valid(_vg_code_editor_float):
+		_restore_embedded_code_editor_to_ide_mount(true)
+		_vg_code_editor_float.queue_free()
+		_vg_code_editor_float = null
 	if is_instance_valid(_vg_help_window):
 		_vg_help_window.queue_free()
 		_vg_help_window = null
@@ -2053,6 +2300,9 @@ func _exit_tree():
 		_vg_plugin_manager = null
 	
 	get_editor_interface().get_base_control().remove_meta("visual_gasic_plugin_instance")
+
+	if is_instance_valid(_narcea_live_capture):
+		_narcea_live_capture.clear_run_session()
 	
 	remove_import_plugin(import_plugin)
 	import_plugin = null
@@ -2250,17 +2500,11 @@ func vg_script_paths_equal(a: String, b: String) -> bool:
 func get_debugger_breakpoints() -> Dictionary:
 	var result: Dictionary = {}
 
-	# Source 1: Embedded VG code editor (0-based → 1-based conversion)
-	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path") and _embedded_code_editor.has_method("get_code_edit"):
-		var vg_path: String = normalize_vg_script_path(_embedded_code_editor.get_file_path())
-		var code_edit = _embedded_code_editor.get_code_edit()
-		if not vg_path.is_empty() and code_edit:
-			var bp_lines = code_edit.get_breakpointed_lines()
-			if not bp_lines.is_empty():
-				var lines_array: Array = []
-				for line_idx in bp_lines:
-					lines_array.append(line_idx + 1)  # 0-based → 1-based
-				result[vg_path] = lines_array
+	# Source 1: Embedded VG code editor — all files with breakpoints this session
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_all_debug_breakpoints"):
+		var all_bps: Dictionary = _embedded_code_editor.get_all_debug_breakpoints()
+		for path in all_bps:
+			result[normalize_vg_script_path(str(path))] = all_bps[path]
 
 	# Source 2: Debugger plugin (ScriptEditor polling)
 	if debugger_plugin and is_instance_valid(debugger_plugin):
@@ -2283,6 +2527,16 @@ func get_debugger_breakpoints() -> Dictionary:
 func _input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+
+	var _focused := get_viewport().gui_get_focus_owner()
+	var _typing := _focused is LineEdit or _focused is TextEdit or _focused is CodeEdit
+
+	# ── Ctrl+Shift+E  →  Toggle floating VG Code Editor (Script tab) ──
+	if event.keycode == KEY_E and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
+		if not _typing:
+			_on_toggle_vg_code_editor_pressed()
+			get_viewport().set_input_as_handled()
+			return
 
 	# ── Ctrl+Shift+N  →  Narcea AI Pair (works in Godot IDE and VG IDE mode) ──
 	if event.keycode == KEY_N and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
@@ -2333,8 +2587,6 @@ func _input(event: InputEvent) -> void:
 
 	# Skip the rest of these VB6 shortcuts if a text editor is focused —
 	# F4 / Ctrl+R / Ctrl+G should not steal keystrokes from a typing user.
-	var _focused = get_viewport().gui_get_focus_owner()
-	var _typing := _focused is LineEdit or _focused is TextEdit or _focused is CodeEdit
 
 	# ── F4  →  Properties Window (VB6) ──
 	if event.keycode == KEY_F4 and not event.ctrl_pressed and not event.alt_pressed and not event.shift_pressed and not _typing:
@@ -3342,7 +3594,7 @@ End Sub
 func _on_form_designer_pressed():
 	# Switch to our main screen tab (C++ Form Designer)
 	if _form_designer:
-		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+		EditorInterface.set_main_screen_editor(_get_plugin_name())
 	else:
 		push_warning("VisualGasic: C++ FormDesigner not available — rebuild the editor library with 'scons target=editor platform=linux'")
 		EditorInterface.set_main_screen_editor("2D")
@@ -3355,6 +3607,10 @@ func _on_form_designer_pressed():
 ## Opens a .tscn form file in the C++ Form Designer.
 ## Called from Project Explorer or when double-clicking a .tscn in FileSystem.
 func open_form_in_designer(tscn_path: String) -> void:
+	if not _use_legacy_vg_ide_main_screen():
+		get_editor_interface().open_scene_from_path(tscn_path)
+		get_editor_interface().set_main_screen_editor("2D")
+		return
 	if not _form_designer:
 		push_warning("VisualGasic: Form Designer not available")
 		return
@@ -3366,8 +3622,8 @@ func open_form_in_designer(tscn_path: String) -> void:
 		EditorInterface.open_scene_from_path(tscn_path)
 	_form_designer.open_form(tscn_path)
 	_fixup_form_size_from_tscn(tscn_path)
-	EditorInterface.set_main_screen_editor("Visual Gasic IDE")
-	print("VisualGasic: Opened '", tscn_path, "' in Visual Gasic IDE")
+	get_editor_interface().set_main_screen_editor(_get_plugin_name())
+	print("VisualGasic: Opened '", tscn_path, "' in ", _get_plugin_name())
 	# Apply VB6 theme to the live scene tree immediately
 	_apply_vb6_theme_to_scene_root()
 	# Populate Properties panel with form-level properties (VB6 behaviour)
@@ -9051,49 +9307,42 @@ func _deferred_switch_to_vg_code_view(file: String, line: int) -> void:
 	if not is_inside_tree():
 		return
 	_switching_to_code_editor = true
-	EditorInterface.set_main_screen_editor(_get_plugin_name())
-	_show_code_view()
+	_open_vg_script_for_debug_automation(file, line)
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_immediate"):
+		_embedded_code_editor.focus_immediate()
+	_switching_to_code_editor = false
 
-	# Navigate to the breakpoint line (1-based → 0-based for CodeEdit)
-	if is_instance_valid(_embedded_code_editor):
-		var code_edit = _embedded_code_editor.get_code_edit()
-		if code_edit and line > 0:
-			var zero_line := line - 1
-			code_edit.set_caret_line(zero_line)
-			code_edit.set_caret_column(0)
-			code_edit.center_viewport_to_caret()
-			code_edit.grab_focus()
-			# VB6-style yellow arrow: mark the executing line
-			if code_edit.has_method("set_debug_paused"):
-				code_edit.set_debug_paused(true)
-				code_edit.set_executing_line(zero_line)
-			# Pass Data Tips reference to code editor for hover-to-inspect
-			if _data_tips and "_data_tips_ref" in code_edit:
-				code_edit._data_tips_ref = _data_tips
-			# Connect set_next_statement signal (only once)
-			if code_edit.has_signal("set_next_statement_requested") \
-				and not code_edit.set_next_statement_requested.is_connected(_on_set_next_statement):
-				code_edit.set_next_statement_requested.connect(_on_set_next_statement)
-			# Connect run_to_cursor signal (only once)
-			if code_edit.has_signal("run_to_cursor_requested") \
-				and not code_edit.run_to_cursor_requested.is_connected(_on_run_to_cursor):
-				code_edit.run_to_cursor_requested.connect(_on_run_to_cursor)
-			# Connect tracepoint signal (only once)
-			if code_edit.has_signal("tracepoint_set") \
-				and not code_edit.tracepoint_set.is_connected(_on_tracepoint_set):
-				code_edit.tracepoint_set.connect(_on_tracepoint_set)
-			# Connect Edit & Continue signal (only once)
-			if code_edit.has_signal("edit_and_continue_requested") \
-				and not code_edit.edit_and_continue_requested.is_connected(_on_edit_and_continue):
-				code_edit.edit_and_continue_requested.connect(_on_edit_and_continue)
-			# Connect Pinned Inline Values signal (only once)
-			if code_edit.has_signal("pin_inline_value_requested") \
-				and not code_edit.pin_inline_value_requested.is_connected(_on_pin_inline_value):
-				code_edit.pin_inline_value_requested.connect(_on_pin_inline_value)
-			# Load bookmarks for this file (only once per file load)
-			if code_edit.has_method("load_bookmarks"):
-				code_edit.load_bookmarks(file)
-			print("VisualGasic: Debug break → navigated to ", file.get_file(), " line ", line)
+func _connect_code_edit_debug_step_signals(code_edit: CodeEdit) -> void:
+	if not is_instance_valid(code_edit):
+		return
+	if code_edit.has_signal("debug_continue_requested") \
+			and not code_edit.debug_continue_requested.is_connected(_on_code_edit_debug_continue):
+		code_edit.debug_continue_requested.connect(_on_code_edit_debug_continue)
+	if code_edit.has_signal("debug_step_over_requested") \
+			and not code_edit.debug_step_over_requested.is_connected(_on_code_edit_debug_step_over):
+		code_edit.debug_step_over_requested.connect(_on_code_edit_debug_step_over)
+	if code_edit.has_signal("debug_step_into_requested") \
+			and not code_edit.debug_step_into_requested.is_connected(_on_code_edit_debug_step_into):
+		code_edit.debug_step_into_requested.connect(_on_code_edit_debug_step_into)
+	if code_edit.has_signal("debug_step_out_requested") \
+			and not code_edit.debug_step_out_requested.is_connected(_on_code_edit_debug_step_out):
+		code_edit.debug_step_out_requested.connect(_on_code_edit_debug_step_out)
+
+func _on_code_edit_debug_continue() -> void:
+	if is_instance_valid(immediate_window) and immediate_window.has_method("_on_debug_continue"):
+		immediate_window._on_debug_continue()
+
+func _on_code_edit_debug_step_over() -> void:
+	if is_instance_valid(immediate_window) and immediate_window.has_method("_on_debug_step_over"):
+		immediate_window._on_debug_step_over()
+
+func _on_code_edit_debug_step_into() -> void:
+	if is_instance_valid(immediate_window) and immediate_window.has_method("_on_debug_step_into"):
+		immediate_window._on_debug_step_into()
+
+func _on_code_edit_debug_step_out() -> void:
+	if is_instance_valid(immediate_window) and immediate_window.has_method("_on_debug_step_out"):
+		immediate_window._on_debug_step_out()
 
 ## Called when the game continues from a breakpoint.
 func _on_debug_continued_for_controls_inspector() -> void:
@@ -9459,8 +9708,7 @@ func _open_in_embedded_editor(vg_path: String, sub_name: String, params: String 
 	# Ensure the event handler stub exists and navigate to it
 	_embedded_code_editor.ensure_event_handler(sub_name, params)
 
-	# Switch to code view
-	_show_code_view()
+	_open_vg_script_in_editor(vg_path, -1, true)
 
 	# Push vg path to Code Navigator so both dropdowns work inside the VG IDE
 	# (the file isn't open in Godot's native script editor, so the navigator
@@ -9472,17 +9720,8 @@ func _open_in_embedded_editor(vg_path: String, sub_name: String, params: String 
 
 ## Opens a standalone .vg module file in the embedded code editor (no form needed).
 ## Called from the Project Explorer when double-clicking a module or clicking View Code.
-func open_module_in_embedded_editor(vg_path: String) -> void:
-	if not is_instance_valid(_embedded_code_editor):
-		return
-	# Save current work if switching files
-	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != vg_path:
-		_embedded_code_editor.save_file()
-	if _embedded_code_editor.get_file_path() != vg_path:
-		_embedded_code_editor.load_file(vg_path)
-		# No form → clear control names (module has no form controls)
-		_embedded_code_editor.set_control_names([])
-	_show_code_view()
+func open_module_in_embedded_editor(vg_path: String, line: int = -1) -> void:
+	_open_vg_script_in_editor(vg_path, line, true)
 
 ## Feed the current form's control names and form name to the embedded code editor.
 func _feed_control_names_to_editor() -> void:
@@ -9620,6 +9859,28 @@ func _embed_ide_bottom_panels() -> void:
 	call_deferred("_sync_bottom_panel_mount")
 
 
+func get_narcea_live_capture():
+	return _narcea_live_capture
+
+
+func _ensure_narcea_live_capture() -> void:
+	if is_instance_valid(_narcea_live_capture):
+		return
+	var script := load("res://addons/visual_gasic/vg_narcea_live_capture.gd")
+	if script == null:
+		push_warning("VisualGasic: vg_narcea_live_capture.gd missing")
+		return
+	_narcea_live_capture = script.new()
+	_narcea_live_capture.name = "VGNarceaLiveCapture"
+	add_child(_narcea_live_capture)
+	if debugger_plugin:
+		_narcea_live_capture.setup(debugger_plugin, self)
+	if is_instance_valid(_ai_help_panel) and _ai_help_panel.has_method("bind_narcea_live_capture"):
+		_ai_help_panel.bind_narcea_live_capture(_narcea_live_capture)
+	if is_instance_valid(immediate_window) and immediate_window.has_method("set_narcea_live_capture"):
+		immediate_window.set_narcea_live_capture(_narcea_live_capture)
+
+
 func _ensure_ai_help_panel() -> void:
 	if is_instance_valid(_ai_help_panel):
 		return
@@ -9634,6 +9895,8 @@ func _ensure_ai_help_panel() -> void:
 		return
 	add_child(_ai_help_panel)
 	_ai_help_panel.visible = false
+	if is_instance_valid(_narcea_live_capture) and _ai_help_panel.has_method("bind_narcea_live_capture"):
+		_ai_help_panel.bind_narcea_live_capture(_narcea_live_capture)
 	print("VisualGasic: AI Help panel created")
 
 
@@ -9715,10 +9978,7 @@ func _set_form_designer_widgets_visible(show_form_widgets: bool) -> void:
 func _on_file_browser_open_requested(path: String) -> void:
 	var ext := path.get_extension().to_lower()
 	if ext == "vg" or ext == "gd":
-		# Open in the VG code editor
-		_show_code_view()
-		if is_instance_valid(_embedded_code_editor):
-			_embedded_code_editor.load_file(path)
+		_open_vg_script_in_editor(path, -1, true)
 	elif ext == "tscn" or ext == "scn":
 		# Open scene in the form designer / 3D editor via Godot's editor interface
 		get_editor_interface().open_scene_from_path(path)
@@ -9831,6 +10091,8 @@ func _start_mcp_server() -> void:
 	_vg_mcp_server = McpCls.new()
 	_vg_mcp_server.name = "VGMcpServer"
 	add_child(_vg_mcp_server)
+	if is_instance_valid(_narcea_live_capture):
+		_vg_mcp_server.narcea_live_capture = _narcea_live_capture
 	_vg_mcp_server.start_server()
 func _on_browser_dashboard() -> void:
 	if _vg_dashboard_server == null:
@@ -9879,6 +10141,11 @@ func _set_code_context_rail_in_toolbox(toolbox_panel: Control, show_rail: bool) 
 
 ## Switch the center panel from form canvas to code editor.
 func _show_code_view() -> void:
+	if not _use_legacy_vg_ide_main_screen():
+		return
+	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+		_vg_code_editor_float.visible = false
+	_restore_embedded_code_editor_to_ide_mount(false)
 	if _showing_code_view:
 		# Already in code view — just make sure the right panel is visible
 		# (Working Nodes may have hidden it on its way out).
@@ -10066,6 +10333,7 @@ func _use_simple_scene_editors() -> bool:
 
 func _on_vg_project_settings_changed() -> void:
 	_refresh_scene_view_button_tooltips()
+	call_deferred("_sync_floating_vg_code_editor_from_script_tab")
 
 func _refresh_scene_view_button_tooltips() -> void:
 	if not is_instance_valid(_view_2d_btn) or not is_instance_valid(_view_3d_btn):
@@ -10904,6 +11172,27 @@ func _ensure_scene_editor_project_settings() -> void:
 		ProjectSettings.set_setting(LEGACY_SETTING_USE_SIMPLE_SCENE_EDITORS, null)
 	_register_project_setting(SETTING_USE_SIMPLE_SCENE_EDITORS, false, TYPE_BOOL)
 
+func _ensure_vg_editor_project_settings() -> void:
+	# When true, VG Tools / menu can show the script-tab float; never auto-opens on editor launch.
+	_register_project_setting(SETTING_FLOATING_VG_CODE_EDITOR, false, TYPE_BOOL)
+	_register_project_setting(SETTING_FLOAT_EXTENDED_BOUNDS, true, TYPE_BOOL)
+	if not ProjectSettings.has_setting("vg/editor/context_rail_enabled"):
+		_register_project_setting("vg/editor/context_rail_enabled", true, TYPE_BOOL)
+	if not ProjectSettings.has_setting("vg/editor/context_rail_width"):
+		_register_project_setting("vg/editor/context_rail_width", 260, TYPE_INT, PROPERTY_HINT_RANGE, "160,480")
+
+
+func _register_narcea_live_project_settings() -> void:
+	_register_project_setting("vg/narcea/live_debug_capture", false, TYPE_BOOL)
+	_register_project_setting("vg/narcea/live_debug_capture_max_frames", 32, TYPE_INT, PROPERTY_HINT_RANGE, "4,128")
+	_register_project_setting("vg/narcea/live_debug_capture_max_png_width", 960, TYPE_INT, PROPERTY_HINT_RANGE, "320,1920")
+	_register_project_setting("vg/narcea/live_debug_capture_while_running", false, TYPE_BOOL)
+	_register_project_setting("vg/narcea/live_debug_capture_ui_tree", true, TYPE_BOOL)
+	_register_project_setting("vg/narcea/live_debug_capture_consent", false, TYPE_BOOL)
+	_register_project_setting("vg/narcea/live_debug_capture_audio", false, TYPE_BOOL)
+	_register_project_setting("vg/narcea/live_debug_capture_audio_ms", 250, TYPE_INT, PROPERTY_HINT_RANGE, "50,500")
+	_register_project_setting("vg/narcea/live_debug_capture_drive_mode", false, TYPE_BOOL)
+
 ## Document Python bridge Tier B toggle (registered in C++; add_property_info here for editor UI).
 func _register_python_project_settings() -> void:
 	const KEY := "vg/python/embedded_enabled"
@@ -11073,6 +11362,25 @@ func _on_toggle_tweak_overlay() -> void:
 		push_warning("VisualGasic: Cannot toggle tweak overlay — debugger plugin unavailable or no active session.")
 
 ## Save floating bottom-panels window size and position to EditorSettings.
+func _floating_panels_allow_extended_bounds() -> bool:
+	return bool(ProjectSettings.get_setting(SETTING_FLOAT_EXTENDED_BOUNDS, true))
+
+
+func _clamp_vg_floating_panel(panel: Control) -> void:
+	if not is_instance_valid(panel):
+		return
+	if _floating_panels_allow_extended_bounds():
+		return
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		return
+	var rect := base.get_rect()
+	var pos := panel.position
+	pos.x = clampf(pos.x, 0.0, maxf(0.0, rect.size.x - 80.0))
+	pos.y = clampf(pos.y, 0.0, maxf(0.0, rect.size.y - 40.0))
+	panel.position = pos
+
+
 func _save_vg_bottom_float_geometry() -> void:
 	if not is_instance_valid(_vg_bottom_float):
 		return
@@ -11162,16 +11470,584 @@ func _ensure_vg_bottom_float_window() -> void:
 
 
 func _clamp_vg_bottom_float_to_editor() -> void:
-	if not is_instance_valid(_vg_bottom_float):
+	_clamp_vg_floating_panel(_vg_bottom_float)
+
+
+func _code_float_user_customized() -> bool:
+	var es := get_editor_interface().get_editor_settings()
+	if not es.has_setting(ES_CODE_FLOAT_USER):
+		return false
+	return bool(es.get_setting(ES_CODE_FLOAT_USER))
+
+
+func _mark_vg_code_float_user_customized() -> void:
+	var es := get_editor_interface().get_editor_settings()
+	es.set_setting(ES_CODE_FLOAT_USER, true)
+
+
+func _save_vg_code_float_geometry() -> void:
+	if not is_instance_valid(_vg_code_editor_float):
+		return
+	var es := get_editor_interface().get_editor_settings()
+	es.set_setting(ES_CODE_FLOAT_X, _vg_code_editor_float.position.x)
+	es.set_setting(ES_CODE_FLOAT_Y, _vg_code_editor_float.position.y)
+	es.set_setting(ES_CODE_FLOAT_W, _vg_code_editor_float.size.x)
+	es.set_setting(ES_CODE_FLOAT_H, _vg_code_editor_float.size.y)
+	_mark_vg_code_float_user_customized()
+
+
+func _active_native_script_code_edit() -> CodeEdit:
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		return _current_code_edit
+	var script_editor := get_editor_interface().get_script_editor()
+	if script_editor == null:
+		return null
+	var current_editor = script_editor.get_current_editor()
+	if current_editor == null:
+		return null
+	return current_editor.get_base_editor() as CodeEdit
+
+
+## Right-hand script column (code + nav), excluding the script file list split pane.
+func _find_script_editor_code_column(code_edit: CodeEdit) -> Control:
+	if code_edit == null or not is_instance_valid(code_edit):
+		return null
+	var script_editor := get_editor_interface().get_script_editor()
+	var best: Control = null
+	var node: Node = code_edit
+	while node and node != script_editor:
+		var parent := node.get_parent()
+		if parent is HSplitContainer and node is Control:
+			best = node as Control
+		node = parent
+	if best:
+		return best
+	# Fallback: expand a few levels so we include VB6 navigator + CodeEdit stack.
+	var fallback: Control = code_edit
+	for _i in 4:
+		var p := fallback.get_parent()
+		if p == null or p == script_editor:
+			break
+		if p is Control:
+			fallback = p as Control
+	return fallback
+
+
+func _get_script_code_viewport_global_rect() -> Rect2:
+	var script_editor := get_editor_interface().get_script_editor()
+	if script_editor == null:
+		return Rect2()
+	var code_edit := _active_native_script_code_edit()
+	if code_edit and is_instance_valid(code_edit) and code_edit.is_visible_in_tree():
+		var column := _find_script_editor_code_column(code_edit)
+		if column and is_instance_valid(column):
+			return column.get_global_rect()
+	if script_editor is Control:
+		return (script_editor as Control).get_global_rect()
+	return Rect2()
+
+
+func _global_rect_to_base_local(grect: Rect2) -> Rect2:
+	var base := get_editor_interface().get_base_control()
+	if base == null or grect.size.x < 1.0 or grect.size.y < 1.0:
+		return Rect2()
+	var inv := base.get_global_transform().affine_inverse()
+	var p0: Vector2 = inv * grect.position
+	var p1: Vector2 = inv * (grect.position + grect.size)
+	return Rect2(p0, p1 - p0)
+
+
+func _hook_vg_code_float_layout_refresh() -> void:
+	if _vg_code_float_layout_hooked:
 		return
 	var base := get_editor_interface().get_base_control()
 	if base == null:
 		return
-	var rect := base.get_rect()
-	var pos := _vg_bottom_float.position
-	pos.x = clampf(pos.x, 0.0, maxf(0.0, rect.size.x - 80.0))
-	pos.y = clampf(pos.y, 0.0, maxf(0.0, rect.size.y - 40.0))
-	_vg_bottom_float.position = pos
+	if not base.resized.is_connected(_on_editor_layout_changed_for_code_float):
+		base.resized.connect(_on_editor_layout_changed_for_code_float)
+	_vg_code_float_layout_hooked = true
+
+
+func _on_editor_layout_changed_for_code_float() -> void:
+	if _vg_workspace_session_active:
+		if not _workspace_user_customized():
+			_apply_vg_script_workspace_default_layout()
+		return
+	if not is_instance_valid(_vg_code_editor_float) or not _vg_code_editor_float.visible:
+		return
+	if _code_float_user_customized():
+		return
+	_layout_vg_code_float_over_script()
+
+
+func _should_use_floating_vg_code_editor() -> bool:
+	if not bool(ProjectSettings.get_setting(SETTING_FLOATING_VG_CODE_EDITOR, false)):
+		return false
+	if is_instance_valid(_ide_layout) and _ide_layout.visible:
+		return false
+	return true
+
+
+func _get_ece_ide_mount() -> Control:
+	if not is_instance_valid(_ide_layout):
+		return null
+	return _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack") as Control
+
+
+func _reparent_embedded_code_editor_to(parent: Control) -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(parent):
+		return
+	if _embedded_code_editor.get_parent() == parent:
+		return
+	if _embedded_code_editor.get_parent():
+		_embedded_code_editor.get_parent().remove_child(_embedded_code_editor)
+	parent.add_child(_embedded_code_editor)
+	_embedded_code_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_embedded_code_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+
+func _restore_embedded_code_editor_to_ide_mount(hide: bool = true) -> void:
+	var mount := _get_ece_ide_mount()
+	if mount:
+		_reparent_embedded_code_editor_to(mount)
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = not hide or _showing_code_view
+
+
+func _layout_vg_code_float_over_script() -> void:
+	if not is_instance_valid(_vg_code_editor_float):
+		return
+	if _vg_workspace_session_active:
+		return
+	if _code_float_user_customized():
+		var es := get_editor_interface().get_editor_settings()
+		if es.has_setting(ES_CODE_FLOAT_X):
+			_vg_code_editor_float.position.x = float(es.get_setting(ES_CODE_FLOAT_X))
+		if es.has_setting(ES_CODE_FLOAT_Y):
+			_vg_code_editor_float.position.y = float(es.get_setting(ES_CODE_FLOAT_Y))
+		if es.has_setting(ES_CODE_FLOAT_W):
+			var sw := float(es.get_setting(ES_CODE_FLOAT_W))
+			if sw >= 320.0:
+				_vg_code_editor_float.size.x = sw
+		if es.has_setting(ES_CODE_FLOAT_H):
+			var sh := float(es.get_setting(ES_CODE_FLOAT_H))
+			if sh >= 240.0:
+				_vg_code_editor_float.size.y = sh
+		return
+	var viewport_global := _get_script_code_viewport_global_rect()
+	var local := _global_rect_to_base_local(viewport_global)
+	if local.size.x < 80.0 or local.size.y < 80.0:
+		_vg_code_editor_float.position = Vector2(120, 80)
+		return
+	# Flush with the native code column (script list stays visible on the left).
+	const INSET := 1.0
+	_vg_code_editor_float.position = local.position + Vector2(INSET, INSET)
+	_vg_code_editor_float.size = Vector2(
+		maxf(320.0, local.size.x - INSET * 2.0),
+		maxf(240.0, local.size.y - INSET * 2.0)
+	)
+
+
+func _ensure_vg_code_editor_float_window() -> void:
+	if is_instance_valid(_vg_code_editor_float):
+		return
+	var es := get_editor_interface().get_editor_settings()
+	var saved_w: float = 900.0
+	var saved_h: float = 560.0
+	if es.has_setting(ES_CODE_FLOAT_W):
+		saved_w = float(es.get_setting(ES_CODE_FLOAT_W))
+	if es.has_setting(ES_CODE_FLOAT_H):
+		saved_h = float(es.get_setting(ES_CODE_FLOAT_H))
+	if saved_w < 320.0:
+		saved_w = 900.0
+	if saved_h < 240.0:
+		saved_h = 560.0
+	_vg_code_editor_float = _create_floating_panel("VG Code Editor", Vector2(saved_w, saved_h))
+	_vg_code_editor_float.set_meta(
+		"_geom_save_callable",
+		Callable(self, "_save_vg_workspace_geometry") if _vg_workspace_session_active
+		else Callable(self, "_save_vg_code_float_geometry")
+	)
+	var content: Control = _vg_code_editor_float.get_meta("_content")
+	if content:
+		content.custom_minimum_size = Vector2(320, 240)
+	_vg_code_editor_float.visibility_changed.connect(func():
+		if is_instance_valid(_vg_code_editor_float) and not _vg_code_editor_float.visible:
+			if _vg_code_editor_float.get_meta("_skip_geom_save", false):
+				_vg_code_editor_float.set_meta("_skip_geom_save", false)
+			elif _code_float_user_customized():
+				_save_vg_code_float_geometry()
+			_restore_embedded_code_editor_to_ide_mount(true)
+			_sync_bottom_panel_mount()
+	)
+	get_editor_interface().get_base_control().add_child(_vg_code_editor_float)
+	_vg_code_editor_float.visible = false
+	_layout_vg_code_float_over_script()
+	_clamp_vg_floating_panel(_vg_code_editor_float)
+
+
+func _open_floating_vg_code_editor(vg_path: String, line: int = -1) -> void:
+	if not is_instance_valid(_embedded_code_editor) or vg_path.is_empty():
+		return
+	if _embedded_code_editor.is_dirty() and _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.save_file()
+	if _embedded_code_editor.get_file_path() != vg_path:
+		_embedded_code_editor.load_file(vg_path)
+		_embedded_code_editor.set_control_names([])
+	_ensure_vg_code_editor_float_window()
+	var content: Control = _vg_code_editor_float.get_meta("_content")
+	_reparent_embedded_code_editor_to(content)
+	_embedded_code_editor.visible = true
+	_hook_vg_code_float_layout_refresh()
+	_layout_vg_code_float_over_script()
+	_clamp_vg_floating_panel(_vg_code_editor_float)
+	_vg_code_editor_float.visible = true
+	_vg_code_editor_float.move_to_front()
+	_sync_vg_code_editor_toggle_buttons()
+	_sync_bottom_panel_mount()
+	if _vg_workspace_session_active:
+		_vg_code_editor_float.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
+		_hook_embedded_vg_help_assist()
+		if not _workspace_user_customized():
+			call_deferred("_apply_vg_script_workspace_default_layout")
+			get_tree().create_timer(0.12).timeout.connect(func():
+				if _vg_workspace_session_active and not _workspace_user_customized():
+					_apply_vg_script_workspace_default_layout()
+			)
+	else:
+		call_deferred("_layout_vg_code_float_over_script")
+		get_tree().create_timer(0.12).timeout.connect(func():
+			if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+				if not _code_float_user_customized():
+					_layout_vg_code_float_over_script()
+		)
+	call_deferred("_poll_dual_editor_stale")
+	if line >= 0 and _embedded_code_editor.has_method("navigate_to_line"):
+		_embedded_code_editor.call_deferred("navigate_to_line", line)
+	var nav_fce = _get_navigator()
+	if nav_fce and nav_fce.has_method("set_override_vg_path"):
+		nav_fce.set_override_vg_path(vg_path)
+		nav_fce.refresh_objects()
+
+
+func _hide_floating_vg_code_editor() -> void:
+	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+		_vg_code_editor_float.set_meta("_skip_geom_save", true)
+		_vg_code_editor_float.visible = false
+	else:
+		_restore_embedded_code_editor_to_ide_mount(true)
+	_sync_vg_code_editor_toggle_buttons()
+
+
+func _vg_on_editor_startup() -> void:
+	## Godot restores Script + last .vg; do not auto-show VG panels until the user toggles VGasic.
+	if not _vg_workspace_session_active:
+		if is_instance_valid(_vg_code_editor_float):
+			_vg_code_editor_float.visible = false
+		if is_instance_valid(_vg_help_window):
+			_vg_help_window.visible = false
+		if is_instance_valid(_ui_forms_toolbox_window):
+			_ui_forms_toolbox_window.visible = false
+		if is_instance_valid(_ui_forms_props_window):
+			_ui_forms_props_window.visible = false
+		if is_instance_valid(_vg_project_explorer_window):
+			_vg_project_explorer_window.visible = false
+			_restore_project_explorer_from_float()
+		_sync_vg_ui_forms_toggle_button(false)
+	_vg_editor_startup_complete = true
+
+
+func _sync_floating_vg_code_editor_from_script_tab() -> void:
+	if not _vg_editor_startup_complete:
+		return
+	if _vg_workspace_session_active:
+		return
+	if not _should_use_floating_vg_code_editor():
+		return
+	if not is_instance_valid(_vg_code_editor_float) or not _vg_code_editor_float.visible:
+		return
+	if _current_main_screen != "Script":
+		_hide_floating_vg_code_editor()
+		return
+	var script_path := _current_script_vg_path()
+	if script_path.is_empty():
+		_hide_floating_vg_code_editor()
+		return
+	if is_instance_valid(_embedded_code_editor) and not vg_script_paths_equal(_embedded_code_editor.get_file_path(), script_path):
+		_open_floating_vg_code_editor(script_path)
+
+
+func _get_godot_script_workspace_rect() -> Rect2:
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		return Rect2()
+	var inv := base.get_global_transform().affine_inverse()
+	var work := Rect2()
+	var main_screen := get_editor_interface().get_editor_main_screen()
+	if main_screen != null and main_screen is Control:
+		var g_main := (main_screen as Control).get_global_rect()
+		var p0: Vector2 = inv * g_main.position
+		var p1: Vector2 = inv * (g_main.position + g_main.size)
+		work = Rect2(p0, p1 - p0)
+	if work.size.x < 400.0 or work.size.y < 200.0:
+		var ems := _find_node_by_class_recursive(base, "EditorMainScreen", 14)
+		if ems is Control:
+			var g_ems := (ems as Control).get_global_rect()
+			var q0: Vector2 = inv * g_ems.position
+			var q1: Vector2 = inv * (g_ems.position + g_ems.size)
+			var alt := Rect2(q0, q1 - q0)
+			if alt.size.x * alt.size.y > work.size.x * work.size.y:
+				work = alt
+	var bp := _find_bottom_panel(base)
+	if bp and bp is Control:
+		var bp_top: Vector2 = inv * (bp as Control).get_global_rect().position
+		if bp_top.y > work.position.y + 100.0:
+			work.size.y = bp_top.y - work.position.y - 3.0
+	const PAD := 3.0
+	work.position += Vector2(PAD, PAD)
+	work.size -= Vector2(PAD * 2.0, PAD * 2.0)
+	return work
+
+
+func _workspace_user_customized() -> bool:
+	var es := get_editor_interface().get_editor_settings()
+	if not es.has_setting(ES_WORKSPACE_USER):
+		return false
+	return bool(es.get_setting(ES_WORKSPACE_USER))
+
+
+func _mark_vg_workspace_user_customized() -> void:
+	get_editor_interface().get_editor_settings().set_setting(ES_WORKSPACE_USER, true)
+
+
+func _save_vg_workspace_geometry() -> void:
+	var es := get_editor_interface().get_editor_settings()
+	if is_instance_valid(_vg_help_window):
+		es.set_setting(ES_WS_HELP_X, _vg_help_window.position.x)
+		es.set_setting(ES_WS_HELP_Y, _vg_help_window.position.y)
+		es.set_setting(ES_WS_HELP_W, _vg_help_window.size.x)
+		es.set_setting(ES_WS_HELP_H, _vg_help_window.size.y)
+	if is_instance_valid(_ui_forms_toolbox_window):
+		es.set_setting(ES_WS_TOOLBOX_X, _ui_forms_toolbox_window.position.x)
+		es.set_setting(ES_WS_TOOLBOX_Y, _ui_forms_toolbox_window.position.y)
+		es.set_setting(ES_WS_TOOLBOX_W, _ui_forms_toolbox_window.size.x)
+		es.set_setting(ES_WS_TOOLBOX_H, _ui_forms_toolbox_window.size.y)
+	if is_instance_valid(_ui_forms_props_window):
+		es.set_setting(ES_WS_PROPS_X, _ui_forms_props_window.position.x)
+		es.set_setting(ES_WS_PROPS_Y, _ui_forms_props_window.position.y)
+		es.set_setting(ES_WS_PROPS_W, _ui_forms_props_window.size.x)
+		es.set_setting(ES_WS_PROPS_H, _ui_forms_props_window.size.y)
+	if is_instance_valid(_vg_code_editor_float):
+		es.set_setting(ES_WS_CODE_X, _vg_code_editor_float.position.x)
+		es.set_setting(ES_WS_CODE_Y, _vg_code_editor_float.position.y)
+		es.set_setting(ES_WS_CODE_W, _vg_code_editor_float.size.x)
+		es.set_setting(ES_WS_CODE_H, _vg_code_editor_float.size.y)
+	if is_instance_valid(_vg_project_explorer_window):
+		es.set_setting(ES_WS_EXPLORER_X, _vg_project_explorer_window.position.x)
+		es.set_setting(ES_WS_EXPLORER_Y, _vg_project_explorer_window.position.y)
+		es.set_setting(ES_WS_EXPLORER_W, _vg_project_explorer_window.size.x)
+		es.set_setting(ES_WS_EXPLORER_H, _vg_project_explorer_window.size.y)
+	_mark_vg_workspace_user_customized()
+
+
+func _apply_panel_rect_from_settings(panel: Control, px: String, py: String, pw: String, ph: String) -> bool:
+	if not is_instance_valid(panel):
+		return false
+	var es := get_editor_interface().get_editor_settings()
+	if not es.has_setting(px) or not es.has_setting(py):
+		return false
+	var x := float(es.get_setting(px))
+	var y := float(es.get_setting(py))
+	if x < 0.0 or y < 0.0:
+		return false
+	panel.position = Vector2(x, y)
+	if es.has_setting(pw):
+		var w := float(es.get_setting(pw))
+		if w >= 120.0:
+			panel.size.x = w
+	if es.has_setting(ph):
+		var h := float(es.get_setting(ph))
+		if h >= 100.0:
+			panel.size.y = h
+	return true
+
+
+func _scale_baked_ws_rect(baked: Rect2, work: Rect2) -> Rect2:
+	var sx := work.size.x / DEFAULT_WS_REF.size.x
+	var sy := work.size.y / DEFAULT_WS_REF.size.y
+	var pos := work.position + Vector2(
+		(baked.position.x - DEFAULT_WS_REF.position.x) * sx,
+		(baked.position.y - DEFAULT_WS_REF.position.y) * sy
+	)
+	return Rect2(pos, Vector2(baked.size.x * sx, baked.size.y * sy))
+
+
+func _apply_baked_panel_rect(panel: Control, baked: Rect2, work: Rect2) -> void:
+	if not is_instance_valid(panel):
+		return
+	var r := _scale_baked_ws_rect(baked, work)
+	panel.position = r.position
+	panel.size = r.size
+
+
+func _apply_vg_script_workspace_default_layout() -> void:
+	var work := _get_godot_script_workspace_rect()
+	if work.size.x < 400.0 or work.size.y < 200.0:
+		push_warning("VisualGasic: workspace rect too small (%s) — retry deferred" % str(work.size))
+		return
+	_apply_baked_panel_rect(_vg_help_window, DEFAULT_WS_HELP, work)
+	_apply_baked_panel_rect(_vg_code_editor_float, DEFAULT_WS_CODE, work)
+	_apply_baked_panel_rect(_vg_project_explorer_window, DEFAULT_WS_EXPLORER, work)
+	_apply_baked_panel_rect(_ui_forms_toolbox_window, DEFAULT_WS_TOOLBOX, work)
+	_apply_baked_panel_rect(_ui_forms_props_window, DEFAULT_WS_PROPS, work)
+	for panel in [_vg_help_window, _vg_code_editor_float, _vg_project_explorer_window, _ui_forms_toolbox_window, _ui_forms_props_window]:
+		if is_instance_valid(panel):
+			panel.move_to_front()
+
+
+func _apply_vg_workspace_geometry() -> void:
+	if _workspace_user_customized():
+		var all := true
+		all = _apply_panel_rect_from_settings(_vg_help_window, ES_WS_HELP_X, ES_WS_HELP_Y, ES_WS_HELP_W, ES_WS_HELP_H) and all
+		all = _apply_panel_rect_from_settings(_vg_code_editor_float, ES_WS_CODE_X, ES_WS_CODE_Y, ES_WS_CODE_W, ES_WS_CODE_H) and all
+		all = _apply_panel_rect_from_settings(_ui_forms_toolbox_window, ES_WS_TOOLBOX_X, ES_WS_TOOLBOX_Y, ES_WS_TOOLBOX_W, ES_WS_TOOLBOX_H) and all
+		all = _apply_panel_rect_from_settings(_ui_forms_props_window, ES_WS_PROPS_X, ES_WS_PROPS_Y, ES_WS_PROPS_W, ES_WS_PROPS_H) and all
+		var work := _get_godot_script_workspace_rect()
+		if not _apply_panel_rect_from_settings(_vg_project_explorer_window, ES_WS_EXPLORER_X, ES_WS_EXPLORER_Y, ES_WS_EXPLORER_W, ES_WS_EXPLORER_H):
+			_apply_baked_panel_rect(_vg_project_explorer_window, DEFAULT_WS_EXPLORER, work)
+		if all:
+			return
+	_apply_vg_script_workspace_default_layout()
+
+
+func _ensure_vg_help_window_for_workspace() -> void:
+	_ensure_float_assist()
+	if not is_instance_valid(_vg_help_window):
+		_vg_help_window = _create_floating_panel("VG Help", Vector2(200, 520))
+		_vg_help_window.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
+		var content: VBoxContainer = _vg_help_window.get_meta("_content")
+		if _float_assist.has("root") and content.get_child_count() == 0:
+			content.add_child(_float_assist["root"])
+		get_editor_interface().get_base_control().add_child(_vg_help_window)
+	_vg_help_window.visible = true
+	_vg_help_window.move_to_front()
+
+
+func _show_vg_toolbox_window() -> void:
+	if is_instance_valid(_ui_forms_toolbox_window):
+		_ui_forms_toolbox_window.visible = true
+		_ui_forms_toolbox_window.move_to_front()
+		return
+	_ui_forms_show_toolbox_window()
+
+
+func _show_vg_props_window() -> void:
+	if is_instance_valid(_ui_forms_props_window):
+		_ui_forms_props_window.visible = true
+		_ui_forms_props_refresh()
+		_ui_forms_props_window.move_to_front()
+		return
+	_ui_forms_show_props_window()
+
+
+func _open_vg_script_workspace_default() -> void:
+	_vg_workspace_session_active = true
+	call_deferred("_open_vg_script_workspace_deferred")
+
+
+func _open_vg_script_workspace_deferred() -> void:
+	var vg_path := _current_script_vg_path()
+	if vg_path.is_empty():
+		vg_path = _find_first_project_vg_path()
+	_ensure_vg_help_window_for_workspace()
+	_show_vg_project_explorer_for_workspace()
+	_show_vg_toolbox_window()
+	_show_vg_props_window()
+	if not vg_path.is_empty():
+		_open_floating_vg_code_editor(vg_path)
+	elif is_instance_valid(_embedded_code_editor):
+		var cur: String = str(_embedded_code_editor.get_file_path())
+		if not cur.is_empty():
+			_open_floating_vg_code_editor(cur)
+	if is_instance_valid(_vg_code_editor_float):
+		_vg_code_editor_float.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
+	_hook_embedded_vg_help_assist()
+	if _workspace_user_customized():
+		_apply_vg_workspace_geometry()
+	else:
+		_apply_vg_script_workspace_default_layout()
+	call_deferred("_apply_vg_workspace_geometry_after_layout")
+	get_tree().create_timer(0.2).timeout.connect(func():
+		if _vg_workspace_session_active:
+			_apply_vg_workspace_geometry_after_layout()
+			_refresh_vg_help_from_embedded_editor()
+	)
+	get_tree().create_timer(0.45).timeout.connect(func():
+		if _vg_workspace_session_active:
+			_apply_vg_workspace_geometry_after_layout()
+			_refresh_vg_help_from_embedded_editor()
+	)
+
+
+func _apply_vg_workspace_geometry_after_layout() -> void:
+	if _workspace_user_customized():
+		_apply_vg_workspace_geometry()
+	else:
+		_apply_vg_script_workspace_default_layout()
+
+
+func _find_first_project_vg_path() -> String:
+	return _find_first_vg_in_project()
+
+
+func _hide_vg_script_workspace() -> void:
+	_vg_workspace_session_active = false
+	_sync_vg_ui_forms_toggle_button(false)
+	if is_instance_valid(_vg_help_window):
+		_vg_help_window.visible = false
+	_hide_floating_vg_code_editor()
+	if is_instance_valid(_ui_forms_toolbox_window):
+		_ui_forms_toolbox_window.visible = false
+	if is_instance_valid(_ui_forms_props_window):
+		_ui_forms_props_window.visible = false
+	if is_instance_valid(_vg_project_explorer_window):
+		_vg_project_explorer_window.visible = false
+		_restore_project_explorer_from_float()
+	_sync_vg_code_editor_toggle_buttons()
+
+
+func _reset_vg_workspace_layout() -> void:
+	var es := get_editor_interface().get_editor_settings()
+	es.set_setting(ES_WORKSPACE_USER, false)
+	_apply_vg_script_workspace_default_layout()
+	_flash_status_message("VG window layout reset to default")
+
+
+func _hook_embedded_vg_help_assist() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var ce: CodeEdit = _embedded_code_editor.get_code_edit()
+	if ce == null:
+		return
+	if _embedded_assist_caret_hooked and is_instance_valid(_embedded_assist_caret_hooked):
+		if _embedded_assist_caret_hooked.caret_changed.is_connected(_on_embedded_vg_help_caret):
+			_embedded_assist_caret_hooked.caret_changed.disconnect(_on_embedded_vg_help_caret)
+	_embedded_assist_caret_hooked = ce
+	if not ce.caret_changed.is_connected(_on_embedded_vg_help_caret):
+		ce.caret_changed.connect(_on_embedded_vg_help_caret)
+	_refresh_vg_help_from_embedded_editor()
+
+
+func _on_embedded_vg_help_caret() -> void:
+	call_deferred("_refresh_vg_help_from_embedded_editor")
+
+
+func _refresh_vg_help_from_embedded_editor() -> void:
+	if not is_instance_valid(_vg_help_window) or not _vg_help_window.visible:
+		return
+	var ce := _get_vg_assist_code_edit()
+	if ce:
+		_update_native_editor_assist(ce)
 
 
 func _show_vg_bottom_float_window(focus_ai_pair: bool = false) -> void:
@@ -11466,12 +12342,14 @@ func _create_new_form(form_name: String):
 		timer.queue_free()
 		# Open the scene in the editor
 		get_editor_interface().open_scene_from_path(scene_path)
-		# Switch to Visual Gasic IDE
-		EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+		if _use_legacy_vg_ide_main_screen():
+			EditorInterface.set_main_screen_editor(_get_plugin_name())
+		else:
+			_activate_vg_ui_forms_workspace()
 		# Refresh Project Explorer
 		if is_instance_valid(_project_explorer) and _project_explorer.has_method("refresh"):
 			_project_explorer.refresh()
-		print("VisualGasic: Opened form '%s' in Visual Gasic IDE" % form_name)
+		print("VisualGasic: Opened form '%s'" % form_name)
 	)
 	get_editor_interface().get_base_control().add_child(timer)
 	timer.start()
@@ -12480,7 +13358,14 @@ func open_grid_editor(ref: Dictionary) -> void:
 
 
 func _on_grid_editor_back_to_code() -> void:
-	_show_code_view()
+	if _legacy_vg_ide_shell_is_active():
+		_show_code_view()
+	else:
+		var p: String = ""
+		if is_instance_valid(_embedded_code_editor):
+			p = str(_embedded_code_editor.get_file_path())
+		if not p.is_empty():
+			_open_vg_script_in_editor(p, -1, true)
 	_refresh_datafile_sidecar()
 
 
@@ -12498,16 +13383,7 @@ func _on_grid_editor_goto_source(file: String, line: int) -> void:
 		var proj := ProjectSettings.globalize_path("res://")
 		if res_path.begins_with(proj):
 			res_path = "res://" + res_path.substr(proj.length())
-	_show_code_view()
-	var cur: String = _embedded_code_editor.get_file_path().replace("\\", "/")
-	if cur != res_path:
-		_embedded_code_editor.load_file(res_path)
-	var code_edit = _embedded_code_editor.get_code_edit()
-	if code_edit and line >= 0:
-		code_edit.set_caret_line(line)
-		code_edit.set_caret_column(0)
-		if code_edit.has_method("center_viewport_to_caret"):
-			code_edit.center_viewport_to_caret()
+	_open_vg_script_in_editor(res_path, line if line >= 0 else -1, true)
 
 
 func _on_grid_source_fixes_applied(files: PackedStringArray) -> void:
@@ -12933,6 +13809,13 @@ func _deferred_scroll_to_caret(code_edit: CodeEdit) -> void:
 ## @param screen_name: Name of the screen ("2D", "3D", "Script", etc.)
 func _on_main_screen_changed(screen_name: String):
 	_current_main_screen = screen_name
+	if _use_legacy_vg_ide_main_screen():
+		if _vg_workspace_session_active and screen_name != _get_plugin_name():
+			_hide_vg_script_workspace()
+		elif screen_name == _get_plugin_name():
+			_sync_vg_ui_forms_toggle_button(true)
+		elif not _vg_workspace_session_active:
+			_sync_vg_ui_forms_toggle_button(false)
 	# ── Handle pending Form Designer → Godot reload ──
 	# _make_visible(false) saved the .tscn but couldn't reload because
 	# Godot was mid-scene-transition (is_changing_scene() == true).
@@ -12964,7 +13847,7 @@ func _on_main_screen_changed(screen_name: String):
 				tabs.current_tab = TOOLBOX_TAB_GODOT_3D
 			elif screen_name == "2D":
 				tabs.current_tab = TOOLBOX_TAB_GODOT_2D
-			elif screen_name == "VisualGasic" or screen_name == "VB6":
+			elif screen_name == _get_plugin_name() or screen_name == "VisualGasic" or screen_name == "VB6":
 				tabs.current_tab = TOOLBOX_TAB_VG_FORMS
 	
 	# Update Code Navigator on Screen Change (e.g. entering Script view)
@@ -12980,6 +13863,7 @@ func _on_main_screen_changed(screen_name: String):
 		_project_explorer.refresh()
 
 	call_deferred("_sync_bottom_panel_mount")
+	call_deferred("_sync_floating_vg_code_editor_from_script_tab")
 
 	# Throttle live previews when Form Designer is not the active screen
 	if _live_preview_mgr:
@@ -13725,6 +14609,9 @@ func _setup_vgasic_tools_menu() -> void:
 	_vgasic_tools_menu.add_separator()
 	_vgasic_tools_menu.add_item("VG: Snippet Browser", _VGTOOLS_SNIPPET_BROWSER_ID)
 	_vgasic_tools_menu.add_item("VG: Theme Picker", _VGTOOLS_THEME_PICKER_ID)
+	_vgasic_tools_menu.add_separator()
+	_vgasic_tools_menu.add_item("Save VG Window Layout", _VGTOOLS_SAVE_WORKSPACE_LAYOUT_ID)
+	_vgasic_tools_menu.add_item("Reset VG Window Layout to Default", _VGTOOLS_RESET_WORKSPACE_LAYOUT_ID)
 	_vgasic_tools_menu.id_pressed.connect(_on_vgasic_tools_menu_pressed)
 
 func _on_vgasic_tools_menu_pressed(id: int) -> void:
@@ -13763,6 +14650,11 @@ func _on_vgasic_tools_menu_pressed(id: int) -> void:
 			_on_open_snippet_browser()
 		_VGTOOLS_THEME_PICKER_ID:
 			_on_open_theme_picker()
+		_VGTOOLS_SAVE_WORKSPACE_LAYOUT_ID:
+			_save_vg_workspace_geometry()
+			_flash_status_message("VG window layout saved")
+		_VGTOOLS_RESET_WORKSPACE_LAYOUT_ID:
+			_reset_vg_workspace_layout()
 
 ## Injects VGasic Tools as a submenu directly in Godot's Project dropdown, below Tools.
 func _inject_vgasic_into_project_menu() -> void:
@@ -13896,7 +14788,10 @@ func _check_script_editor_for_vg():
 		_code_navigator.visible = true
 	
 	if code_edit == _current_code_edit:
-		_update_native_editor_assist(code_edit)
+		if _vg_assist_prefers_embedded_code_editor():
+			_refresh_vg_help_from_embedded_editor()
+		else:
+			_update_native_editor_assist(code_edit)
 		return
 	
 	# New CodeEdit — clear any VG IDE override so the native editor path wins.
@@ -13935,8 +14830,12 @@ func _check_script_editor_for_vg():
 		_code_navigator.refresh_objects()
 		get_tree().create_timer(0.3).timeout.connect(_code_navigator.refresh_objects)
 
-	_update_native_editor_assist(code_edit)
+	if _vg_assist_prefers_embedded_code_editor():
+		_refresh_vg_help_from_embedded_editor()
+	else:
+		_update_native_editor_assist(code_edit)
 	call_deferred("_poll_dual_editor_stale")
+	call_deferred("_sync_floating_vg_code_editor_from_script_tab")
 	# Godot's script editor uses the ScriptLanguageExtension's built-in
 	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).
 	# Assigning a CodeHighlighter conflicts with this and causes crash.
@@ -14637,56 +15536,197 @@ func _open_command_palette(initial_query: String = "") -> void:
 # UI FORMS — Godot native 2D toolbar button + control picker
 # =============================================================================
 
+func _sync_vg_ui_forms_toggle_button(on: bool) -> void:
+	if is_instance_valid(_vg_ui_forms_toggle_btn):
+		_vg_ui_forms_toggle_btn.set_pressed_no_signal(on)
+
+
+func _on_vg_ui_forms_toggle_toggled(pressed: bool) -> void:
+	if pressed:
+		if not _vg_workspace_session_active:
+			_activate_vg_ui_forms_workspace()
+		else:
+			call_deferred("_apply_vg_workspace_geometry_after_layout")
+	else:
+		if _vg_workspace_session_active:
+			_hide_vg_script_workspace()
+		if _use_legacy_vg_ide_main_screen():
+			get_editor_interface().set_main_screen_editor("Script")
+
+
+func _on_vg_tools_menu_id_pressed(id: int) -> void:
+	match id:
+		_VG_MENU_CODE:
+			_on_toggle_vg_code_editor_pressed()
+		_VG_MENU_CTRL:
+			_on_vg_ctrl_btn_pressed()
+		_VG_MENU_PROPS:
+			_on_vg_props_btn_pressed()
+		_VG_MENU_PROJECT:
+			_toggle_vg_project_explorer_window()
+		_VG_MENU_WIRE:
+			_on_wire_event_btn_pressed()
+
+
+func _sync_vg_code_editor_toggle_buttons() -> void:
+	pass
+
+
+func _current_script_vg_path() -> String:
+	var script_editor := get_editor_interface().get_script_editor()
+	if script_editor == null:
+		return ""
+	var current_script = script_editor.get_current_script()
+	if current_script == null:
+		return ""
+	var path := str(current_script.resource_path)
+	if path.ends_with(".vg"):
+		return path
+	return ""
+
+
+func _on_toggle_vg_code_editor_pressed() -> void:
+	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+		_hide_floating_vg_code_editor()
+		return
+	var vg_path := _current_script_vg_path()
+	if vg_path.is_empty():
+		_flash_status_message("Open a .vg file in the Script editor to use the VG Code Editor")
+		return
+	_open_floating_vg_code_editor(vg_path)
+
+
+func _stash_project_explorer_from_current_parent() -> void:
+	if not is_instance_valid(_project_explorer):
+		return
+	var parent: Node = _project_explorer.get_parent()
+	if parent == null:
+		return
+	_project_explorer_stow = {
+		"parent": parent,
+		"visible": _project_explorer.visible,
+	}
+	parent.remove_child(_project_explorer)
+
+
+func _restore_project_explorer_from_float() -> void:
+	if not is_instance_valid(_project_explorer):
+		_project_explorer_stow.clear()
+		return
+	if _project_explorer.get_parent():
+		_project_explorer.get_parent().remove_child(_project_explorer)
+	var parent: Node = _project_explorer_stow.get("parent", null)
+	if is_instance_valid(parent):
+		parent.add_child(_project_explorer)
+		_project_explorer.visible = bool(_project_explorer_stow.get("visible", false))
+	elif not _project_explorer.get_parent():
+		add_child(_project_explorer)
+		_project_explorer.visible = false
+	_project_explorer_stow.clear()
+
+
+func _ensure_vg_project_explorer_float_window() -> bool:
+	if not is_instance_valid(_project_explorer):
+		return false
+	if not is_instance_valid(_vg_project_explorer_window):
+		_vg_project_explorer_window = _create_floating_panel("Project Explorer", Vector2(320, 520))
+		get_editor_interface().get_base_control().add_child(_vg_project_explorer_window)
+		_vg_project_explorer_window.position = Vector2(40, 80)
+		_vg_project_explorer_window.visibility_changed.connect(func():
+			if not is_instance_valid(_vg_project_explorer_window) or _vg_project_explorer_window.visible:
+				return
+			if _vg_workspace_session_active:
+				return
+			_restore_project_explorer_from_float()
+		)
+	return true
+
+
+func _mount_project_explorer_in_float_window() -> void:
+	if not is_instance_valid(_vg_project_explorer_window) or not is_instance_valid(_project_explorer):
+		return
+	var content: Control = _vg_project_explorer_window.get_meta("_content")
+	if _project_explorer.get_parent() != content:
+		_stash_project_explorer_from_current_parent()
+		content.add_child(_project_explorer)
+	_project_explorer.visible = true
+	_project_explorer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_project_explorer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _project_explorer.has_method("refresh"):
+		_project_explorer.refresh()
+
+
+func _show_vg_project_explorer_for_workspace() -> void:
+	if not _ensure_vg_project_explorer_float_window():
+		return
+	_vg_project_explorer_window.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
+	_mount_project_explorer_in_float_window()
+	_vg_project_explorer_window.visible = true
+	_vg_project_explorer_window.move_to_front()
+	_clamp_vg_floating_panel(_vg_project_explorer_window)
+
+
+func _toggle_vg_project_explorer_window() -> void:
+	if is_instance_valid(_vg_project_explorer_window) and _vg_project_explorer_window.visible:
+		_vg_project_explorer_window.visible = false
+		if not _vg_workspace_session_active:
+			_restore_project_explorer_from_float()
+		return
+	if not _ensure_vg_project_explorer_float_window():
+		_flash_status_message("VG Project Explorer is not available")
+		return
+	_mount_project_explorer_in_float_window()
+	_vg_project_explorer_window.visible = true
+	_vg_project_explorer_window.move_to_front()
+	_clamp_vg_floating_panel(_vg_project_explorer_window)
+
+
 func _setup_ui_forms_toolbar_button() -> void:
-	if is_instance_valid(_vg_ctrl_btn):
+	if is_instance_valid(_vg_ui_forms_toggle_btn):
 		return
 
-	# ── Add VG Control ───────────────────────────────────────────────────────
-	_vg_ctrl_btn = Button.new()
-	_vg_ctrl_btn.text = "🖼 Add VG Control"
-	_vg_ctrl_btn.tooltip_text = "Open VG Toolbox to place controls on the 2D canvas"
-	_vg_ctrl_btn.flat = true
-	_vg_ctrl_btn.pressed.connect(_on_vg_ctrl_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_ctrl_btn)
+	_vg_ui_forms_toggle_btn = Button.new()
+	_vg_ui_forms_toggle_btn.text = VGASIC_MAIN_SCREEN
+	_vg_ui_forms_toggle_btn.tooltip_text = "Toggle VGasic workspace (Help, Code, Project Explorer, Toolbox, Properties)"
+	_vg_ui_forms_toggle_btn.flat = true
+	_vg_ui_forms_toggle_btn.toggle_mode = true
+	_vg_ui_forms_toggle_btn.toggled.connect(_on_vg_ui_forms_toggle_toggled)
+	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_ui_forms_toggle_btn)
 
-	# ── VG Properties ────────────────────────────────────────────────────────
-	_vg_props_btn = Button.new()
-	_vg_props_btn.text = "📋 VG Properties"
-	_vg_props_btn.tooltip_text = "Open VG Properties window"
-	_vg_props_btn.flat = true
-	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
+	_vg_tools_menu_btn = MenuButton.new()
+	_vg_tools_menu_btn.text = "VG Tools ▾"
+	_vg_tools_menu_btn.tooltip_text = "VG Code, Toolbox, Properties, Project Explorer, Wire Event"
+	_vg_tools_menu_btn.flat = true
+	var tools_popup := _vg_tools_menu_btn.get_popup()
+	tools_popup.add_item("VG Code Editor (Ctrl+Shift+E)", _VG_MENU_CODE)
+	tools_popup.add_item("Add VG Control — Toolbox", _VG_MENU_CTRL)
+	tools_popup.add_item("VG Properties", _VG_MENU_PROPS)
+	tools_popup.add_item("VG Project Explorer", _VG_MENU_PROJECT)
+	tools_popup.add_separator()
+	tools_popup.add_item("Wire Event", _VG_MENU_WIRE)
+	tools_popup.id_pressed.connect(_on_vg_tools_menu_id_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_tools_menu_btn)
 
-	# ── VG Panels (Immediate, Output, AI Pair, …) ─────────────────────────────
-	_vg_panels_btn = Button.new()
-	_vg_panels_btn.text = "📊 VG Panels"
-	_vg_panels_btn.tooltip_text = "Open Visual Gasic bottom panels (Immediate, Output, AI Pair, …)"
-	_vg_panels_btn.flat = true
-	_vg_panels_btn.pressed.connect(_on_vg_panels_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
+	_vg_canvas_tools_menu = MenuButton.new()
+	_vg_canvas_tools_menu.text = "VG Tools ▾"
+	_vg_canvas_tools_menu.flat = true
+	var canvas_popup := _vg_canvas_tools_menu.get_popup()
+	canvas_popup.add_item("VG Code Editor", _VG_MENU_CODE)
+	canvas_popup.add_item("Add VG Control", _VG_MENU_CTRL)
+	canvas_popup.add_item("VG Properties", _VG_MENU_PROPS)
+	canvas_popup.add_item("VG Project Explorer", _VG_MENU_PROJECT)
+	canvas_popup.add_item("Wire Event", _VG_MENU_WIRE)
+	canvas_popup.id_pressed.connect(_on_vg_tools_menu_id_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_canvas_tools_menu)
 
-	# ── VG Help (Command Help + Sprite Data — floating, like Properties) ────
-	_vg_help_btn = Button.new()
-	_vg_help_btn.text = "❓ VG Help"
-	_vg_help_btn.tooltip_text = "Open VG Help window (keyword docs + sprite Data editor)"
-	_vg_help_btn.flat = true
-	_vg_help_btn.pressed.connect(_on_vg_help_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_help_btn)
-	_vg_help_toolbar_btn = Button.new()
-	_vg_help_toolbar_btn.text = _vg_help_btn.text
-	_vg_help_toolbar_btn.tooltip_text = _vg_help_btn.tooltip_text
-	_vg_help_toolbar_btn.flat = true
-	_vg_help_toolbar_btn.pressed.connect(_on_vg_help_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _vg_help_toolbar_btn)
-
-	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
+	# ── Narcea AI — injected into main screen tab row next to VG UI Forms ──
 	_narcea_toolbar_btn = Button.new()
 	_narcea_toolbar_btn.text = "🤖 Narcea AI"
 	_narcea_toolbar_btn.tooltip_text = "Open Narcea AI Pair panel (Ctrl+Shift+N)"
 	_narcea_toolbar_btn.flat = true
 	_narcea_toolbar_btn.pressed.connect(_on_toggle_narcea_panel)
 	# Find the "Visual Gasic IDE" tab button and insert Narcea right after it
-	var vg_ide_btn := _find_button_in_editor_tree(get_editor_interface().get_base_control(), "Visual Gasic IDE")
+	var vg_ide_btn := _find_button_in_editor_tree(get_editor_interface().get_base_control(), _get_plugin_name())
 	if vg_ide_btn and is_instance_valid(vg_ide_btn.get_parent()):
 		var tab_parent := vg_ide_btn.get_parent()
 		tab_parent.add_child(_narcea_toolbar_btn)
@@ -14695,15 +15735,7 @@ func _setup_ui_forms_toolbar_button() -> void:
 		# Fallback: add to the top toolbar if tree search failed
 		add_control_to_container(EditorPlugin.CONTAINER_TOOLBAR, _narcea_toolbar_btn)
 
-	# ── Wire Event ───────────────────────────────────────────────────────────
-	_wire_event_btn = Button.new()
-	_wire_event_btn.text = "⚡ Wire Event"
-	_wire_event_btn.tooltip_text = "Create VB6 event stub for selected control"
-	_wire_event_btn.flat = true
-	_wire_event_btn.pressed.connect(_on_wire_event_btn_pressed)
-	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _wire_event_btn)
-
-	# Now that Wire Event is the last VG button, append a button for every
+	# Now that VG toolbar is compact, append a button for every
 	# enabled plugin so they appear to the right of the VG toolbar group.
 	if _vg_plugin_manager and _vg_plugin_manager.has_method("setup_canvas_toolbar_buttons"):
 		_vg_plugin_manager.setup_canvas_toolbar_buttons()
@@ -14770,8 +15802,6 @@ func _on_vg_ctrl_btn_pressed() -> void:
 
 func _vg_ctrl_disarm() -> void:
 	_vg_ctrl_armed_path = ""
-	if is_instance_valid(_vg_ctrl_btn):
-		_vg_ctrl_btn.text = "🖼 Add VG Control"
 
 
 # ─── VG Properties ───────────────────────────────────────────────────────────
@@ -14783,6 +15813,9 @@ func _on_vg_props_btn_pressed() -> void:
 func _on_vg_help_btn_pressed() -> void:
 	_ensure_float_assist()
 	if is_instance_valid(_vg_help_window):
+		if _vg_help_window.visible:
+			_vg_help_window.visible = false
+			return
 		_vg_help_window.visible = true
 		if _current_code_edit and is_instance_valid(_current_code_edit):
 			_update_native_editor_assist(_current_code_edit)
@@ -14896,20 +15929,57 @@ func _open_native_sprite_data_editor() -> void:
 
 
 func _on_native_script_caret_moved() -> void:
+	if _vg_assist_prefers_embedded_code_editor():
+		return
 	if _current_code_edit and is_instance_valid(_current_code_edit):
 		_update_native_editor_assist(_current_code_edit)
 
 
+func _vg_assist_prefers_embedded_code_editor() -> bool:
+	if not is_instance_valid(_embedded_code_editor):
+		return false
+	if _vg_workspace_session_active:
+		return true
+	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+		return true
+	return false
+
+
+func _get_vg_assist_code_edit() -> CodeEdit:
+	if _vg_assist_prefers_embedded_code_editor() and is_instance_valid(_embedded_code_editor):
+		var ce: CodeEdit = _embedded_code_editor.get_code_edit()
+		if ce and is_instance_valid(ce):
+			return ce
+	if _current_code_edit and is_instance_valid(_current_code_edit):
+		return _current_code_edit
+	return null
+
+
+func _resolve_vg_assist_script_path(fallback_code_edit: CodeEdit) -> String:
+	if _vg_assist_prefers_embedded_code_editor() and is_instance_valid(_embedded_code_editor):
+		var emb: String = ""
+		if _embedded_code_editor.has_method("get_file_path"):
+			emb = str(_embedded_code_editor.get_file_path())
+		if not emb.is_empty():
+			return emb
+	var se := get_editor_interface().get_script_editor()
+	if se and se.get_current_script():
+		return str(se.get_current_script().resource_path)
+	if fallback_code_edit and is_instance_valid(fallback_code_edit):
+		return str(fallback_code_edit.get_meta("vg_script_path", ""))
+	return ""
+
+
 func _update_native_editor_assist(code_edit: CodeEdit) -> void:
+	var active := _get_vg_assist_code_edit()
+	if active:
+		code_edit = active
 	if code_edit == null:
 		return
 	_ensure_float_assist()
 	if _float_assist.is_empty():
 		return
-	var script_path := ""
-	var se := get_editor_interface().get_script_editor()
-	if se and se.get_current_script():
-		script_path = se.get_current_script().resource_path
+	var script_path := _resolve_vg_assist_script_path(code_edit)
 	var is_vg := script_path.ends_with(".vg")
 	var help_label: RichTextLabel = _float_assist.get("help_label")
 	var help_scroll: ScrollContainer = _float_assist.get("help_scroll")
@@ -15150,7 +16220,7 @@ func _on_vg_panels_btn_pressed() -> void:
 			if bp is Control:
 				(bp as Control).visible = true
 		return
-	_show_vg_bottom_float_window(false)
+	_toggle_vg_bottom_float_window(false)
 
 
 # ─── Wire Event ──────────────────────────────────────────────────────────────
@@ -15352,6 +16422,10 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 				title_panel.accept_event()
 			else:
 				title_panel.set_meta("_dragging", false)
+				if panel.has_meta("_geom_save_callable"):
+					var save_cb: Callable = panel.get_meta("_geom_save_callable")
+					if save_cb.is_valid():
+						save_cb.call()
 		elif event is InputEventMouseMotion and title_panel.get_meta("_dragging"):
 			panel.position = event.global_position - title_panel.get_meta("_drag_offset")
 			title_panel.accept_event()
@@ -15377,6 +16451,10 @@ func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContaine
 				resize_handle.accept_event()
 			else:
 				resize_handle.set_meta("_resizing", false)
+				if panel.has_meta("_geom_save_callable"):
+					var save_cb: Callable = panel.get_meta("_geom_save_callable")
+					if save_cb.is_valid():
+						save_cb.call()
 		elif event is InputEventMouseMotion and resize_handle.get_meta("_resizing"):
 			var new_size = event.global_position - panel.position + Vector2(4, 4)
 			new_size.x = maxf(new_size.x, 200.0)
@@ -15405,10 +16483,14 @@ func _find_button_in_editor_tree(node: Node, text: String) -> Button:
 
 func _ui_forms_show_toolbox_window() -> void:
 	if is_instance_valid(_ui_forms_toolbox_window):
-		_ui_forms_toolbox_window.visible = true
+		if _ui_forms_toolbox_window.visible:
+			_ui_forms_toolbox_window.visible = false
+		else:
+			_ui_forms_toolbox_window.visible = true
 		return
 
 	_ui_forms_toolbox_window = _create_floating_panel("Toolbox", Vector2(280, 560))
+	_ui_forms_toolbox_window.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
 
 	# Use the same C++ VisualGasicToolbox + VB6 restyling as the IDE
 	var content_area = _ui_forms_toolbox_window.get_meta("_content")
@@ -15602,11 +16684,15 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 
 func _ui_forms_show_props_window() -> void:
 	if is_instance_valid(_ui_forms_props_window):
-		_ui_forms_props_window.visible = true
-		_ui_forms_props_refresh()
+		if _ui_forms_props_window.visible:
+			_ui_forms_props_window.visible = false
+		else:
+			_ui_forms_props_window.visible = true
+			_ui_forms_props_refresh()
 		return
 
 	_ui_forms_props_window = _create_floating_panel("Properties", Vector2(300, 700))
+	_ui_forms_props_window.set_meta("_geom_save_callable", Callable(self, "_save_vg_workspace_geometry"))
 
 	var content_area = _ui_forms_props_window.get_meta("_content")
 	var inspector_script = load("res://addons/visual_gasic/simple_inspector.gd")

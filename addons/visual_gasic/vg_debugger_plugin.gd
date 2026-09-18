@@ -22,6 +22,9 @@ signal call_stack_received(stack: Array)
 signal stack_level_locals_received(level: int, locals: Dictionary)
 signal error_break_received(file: String, line: int, message: String, code: int)
 signal set_next_statement_failed(requested_line: int, actual_line: int)
+signal capture_frame_received(payload: Dictionary)
+signal ui_tree_received(tree: Array)
+signal capture_audio_received(payload: Dictionary)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -261,6 +264,21 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				var actual = int(data[1])
 				print("[VG Debugger Plugin] Set Next Statement FAILED: line ", requested, " not in current procedure, actual=", actual)
 				set_next_statement_failed.emit(requested, actual)
+			return true
+
+		"capture_frame_reply":
+			if data.size() >= 1 and typeof(data[0]) == TYPE_DICTIONARY:
+				capture_frame_received.emit(data[0])
+			return true
+
+		"ui_tree":
+			if data.size() >= 1:
+				ui_tree_received.emit(data[0] if data[0] is Array else [])
+			return true
+
+		"capture_audio_reply":
+			if data.size() >= 1 and typeof(data[0]) == TYPE_DICTIONARY:
+				capture_audio_received.emit(data[0])
 			return true
 	
 	return false
@@ -663,6 +681,31 @@ func request_stack_level_locals(level: int) -> void:
 	"""Request local variables for a specific stack frame level (0 = top/current)."""
 	if _active_session:
 		_active_session.send_message("visualgasic:get_stack_level_locals", [level])
+
+
+func request_capture_frame(max_png_width: int = 960) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:capture_frame", [max_png_width])
+
+
+func request_ui_tree(instance_id: int = 0) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:get_ui_tree", [instance_id])
+
+
+func request_audio_chunk(duration_ms: int = 250) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:capture_audio_chunk", [duration_ms])
+
+
+func send_inject_pointer(viewport_x: int, viewport_y: int, pressed: bool) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:inject_pointer", [viewport_x, viewport_y, pressed])
+
+
+func send_inject_unicode(text: String) -> void:
+	if _active_session:
+		_active_session.send_message("visualgasic:inject_unicode", [text])
 
 # ============================================================================
 # NAVIGATION HELPER

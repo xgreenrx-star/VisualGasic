@@ -46,6 +46,7 @@ var _started: bool = false
 # Optional reference to a VGAiTools instance for richer tool execution.
 # Set externally by the panel after creation if desired.
 var ai_tools = null
+var narcea_live_capture = null
 
 # ─── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -327,6 +328,23 @@ func _tool_definitions() -> Array:
 				"properties": {},
 			},
 		},
+		{
+			"name": "narcea_live_list_snapshots",
+			"description": "List local Narcea live debug snapshots (metadata only, loopback read-only).",
+			"inputSchema": {"type": "object", "properties": {}},
+		},
+		{
+			"name": "narcea_live_get_snapshot",
+			"description": "Fetch one live debug snapshot by id (optional PNG base64).",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"id": {"type": "integer"},
+					"include_png_b64": {"type": "boolean"},
+				},
+				"required": ["id"],
+			},
+		},
 	]
 
 # ─── Tool execution ───────────────────────────────────────────────────────────
@@ -345,8 +363,35 @@ func _invoke_tool(tool_name: String, args: Dictionary) -> Dictionary:
 			return _tool_apply_diff(args)
 		"run_benchmark":
 			return _tool_run_benchmark()
+		"narcea_live_list_snapshots":
+			return _tool_narcea_live_list()
+		"narcea_live_get_snapshot":
+			return _tool_narcea_live_get(args)
 		_:
 			return {"error": "Unknown tool: " + tool_name}
+
+
+func _tool_narcea_live_list() -> Dictionary:
+	if narcea_live_capture == null or narcea_live_capture.session == null:
+		return {"output": "[]"}
+	return {"output": JSON.stringify(narcea_live_capture.session.list_summaries())}
+
+
+func _tool_narcea_live_get(args: Dictionary) -> Dictionary:
+	if narcea_live_capture == null or narcea_live_capture.session == null:
+		return {"error": "Narcea live capture not available"}
+	var entry_id := int(args.get("id", -1))
+	var entry: Dictionary = narcea_live_capture.session.get_by_id(entry_id)
+	if entry.is_empty():
+		return {"error": "Snapshot id not found: %d" % entry_id}
+	var out := {
+		"id": entry.get("id", 0),
+		"ts": entry.get("ts", 0),
+		"meta": entry.get("meta", {}),
+	}
+	if bool(args.get("include_png_b64", false)):
+		out["png_b64"] = narcea_live_capture.session.get_png_base64(entry_id)
+	return {"output": JSON.stringify(out)}
 
 func _tool_read_file(args: Dictionary) -> Dictionary:
 	var path: String = str(args.get("path", ""))

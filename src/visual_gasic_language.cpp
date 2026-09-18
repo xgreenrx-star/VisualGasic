@@ -257,7 +257,33 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
         handler->call("_set_breakpoints", p_data[0]);
         return true;
     }
-    
+    else if (p_message == "get_call_stack") {
+        Array stack = VisualGasicLanguage::get_call_stack_array();
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        if (debugger) {
+            Array msg_data;
+            msg_data.push_back(stack);
+            debugger->send_message("visualgasic:call_stack", msg_data);
+        }
+        return true;
+    }
+    else if (p_message == "get_stack_level_locals" && p_data.size() >= 1) {
+        int level = p_data[0];
+        Dictionary locals = VisualGasicLanguage::get_stack_locals_by_level(level);
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        if (debugger) {
+            Array msg_data;
+            msg_data.push_back(level);
+            msg_data.push_back(locals);
+            debugger->send_message("visualgasic:stack_level_locals", msg_data);
+        }
+        return true;
+    }
+
+    if (handler->has_method("_on_debugger_message")) {
+        return (bool)handler->call("_on_debugger_message", p_message, p_data);
+    }
+
     return false;
 }
 

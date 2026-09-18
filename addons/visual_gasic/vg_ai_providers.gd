@@ -1017,3 +1017,20 @@ static func extract_response_text(provider_id: String, raw_body: String) -> Stri
 static func request_url(provider_info: ProviderInfo, req: Dictionary) -> String:
 	var scheme := "https" if provider_info.use_tls else "http"
 	return scheme + "://" + provider_info.api_host + str(req.get("path", ""))
+
+
+## True when the active provider/model can accept PNG attachments in chat.
+static func provider_supports_vision(provider_id: String, model: String) -> bool:
+	if provider_id == "ollama":
+		var m := model.to_lower()
+		return m.contains("llava") or m.contains("vision") or m.contains("gemma3")
+	if provider_id in ["openai", "deepseek", "qwen", "codeium", "amazonq"]:
+		var ml := model.to_lower()
+		return ml.contains("gpt-4o") or ml.contains("gpt-4-turbo") or ml.contains("vision") or ml.contains("gemini")
+	if provider_id == "claude":
+		return true
+	if provider_id == "gemini":
+		return true
+	if provider_id == "cursor":
+		return false
+	return false

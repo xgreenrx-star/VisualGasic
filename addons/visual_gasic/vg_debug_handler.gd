@@ -19,6 +19,9 @@ var _tweak_overlay: Node = null
 var _tweak_override_history: Array = []
 var _tweak_redo_stack: Array = []
 var _tweak_saved_overrides: Dictionary = {}
+var _audio_record_effect: AudioEffectRecord = null
+var _audio_record_bus: int = -1
+var _audio_record_slot: int = -1
 
 func _ready() -> void:
 	# Load breakpoints from file FIRST - before any scripts run
@@ -252,6 +255,37 @@ func _on_debugger_message(message: String, data: Array) -> bool:
 		"edit_and_continue":
 			if data.size() >= 2:
 				_apply_edit_and_continue(data[0], data[1])
+			return true
+
+		"capture_frame":
+			var max_w := 960
+			if data.size() >= 1:
+				max_w = int(data[0])
+			_capture_viewport_frame(max_w)
+			return true
+
+		"get_ui_tree":
+			if data.size() >= 1:
+				_send_ui_tree(int(data[0]))
+			else:
+				_send_ui_tree(0)
+			return true
+
+		"inject_pointer":
+			if data.size() >= 3:
+				_inject_pointer(int(data[0]), int(data[1]), bool(data[2]))
+			return true
+
+		"inject_unicode":
+			if data.size() >= 1:
+				_inject_unicode(str(data[0]))
+			return true
+
+		"capture_audio_chunk":
+			var ms := 250
+			if data.size() >= 1:
+				ms = int(data[0])
+			_capture_audio_chunk(ms)
 			return true
 	
 	return false
@@ -985,6 +1019,133 @@ func _collect_vector_canvas_targets(node: Node, out: Array) -> void:
 	for child in node.get_children():
 		if child is Node:
 			_collect_vector_canvas_targets(child, out)
+
+func _capture_viewport_frame(max_width: int) -> void:
+	var payload := {"png_b64": "", "w": 0, "h": 0, "ms": Time.get_ticks_msec()}
+	if not EngineDebugger.is_active():
+		EngineDebugger.send_message("visualgasic:capture_frame_reply", [payload])
+		return
+	var vp := get_viewport()
+	if vp == null:
+		EngineDebugger.send_message("visualgasic:capture_frame_reply", [payload])
+		return
+	var tex: ViewportTexture = vp.get_texture()
+	if tex == null:
+		EngineDebugger.send_message("visualgasic:capture_frame_reply", [payload])
+		return
+	var img: Image = tex.get_image()
+	if img == null or img.is_empty():
+		EngineDebugger.send_message("visualgasic:capture_frame_reply", [payload])
+		return
+	if max_width > 0 and img.get_width() > max_width:
+		var nh := int(float(img.get_height()) * float(max_width) / float(img.get_width()))
+		img = img.duplicate()
+		img.resize(max_width, maxi(1, nh), Image.INTERPOLATE_BILINEAR)
+	payload["w"] = img.get_width()
+	payload["h"] = img.get_height()
+	payload["png_b64"] = Marshalls.raw_to_base64(img.save_png_to_buffer())
+	EngineDebugger.send_message("visualgasic:capture_frame_reply", [payload])
+
+
+func _send_ui_tree(instance_id: int) -> void:
+	var flat: Array = []
+	var inst = _get_instance_flexible(instance_id)
+	var root_node: Node = inst if inst is Node else get_tree().get_root()
+	if root_node:
+		_collect_ui_tree_flat(root_node, flat)
+	EngineDebugger.send_message("visualgasic:ui_tree", [flat])
+
+
+func _collect_ui_tree_flat(node: Node, out: Array, depth: int = 0) -> void:
+	if depth > 24:
+		return
+	if node is Control:
+		var c := node as Control
+		var caption := ""
+		if c is BaseButton or c is Label or c is LineEdit:
+			caption = c.text if "text" in c else ""
+		out.append({
+			"name": c.name,
+			"type": c.get_class(),
+			"caption": caption,
+			"left": int(c.position.x),
+			"top": int(c.position.y),
+			"width": int(c.size.x),
+			"height": int(c.size.y),
+			"visible": c.visible,
+		})
+	for child in node.get_children():
+		if child is Node:
+			_collect_ui_tree_flat(child, out, depth + 1)
+
+
+func _inject_pointer(viewport_x: int, viewport_y: int, pressed: bool) -> void:
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = pressed
+	ev.position = Vector2(viewport_x, viewport_y)
+	ev.global_position = Vector2(viewport_x, viewport_y)
+	vp.push_input(ev)
+
+
+func _inject_unicode(text: String) -> void:
+	if text.is_empty():
+		return
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var focus := vp.gui_get_focus_owner()
+	if focus == null or not (focus is LineEdit or focus is TextEdit):
+		push_warning("[VG Debug] inject_unicode: no focused LineEdit/TextEdit")
+		return
+	for ch in text:
+		var ev := InputEventKey.new()
+		ev.unicode = ch.unicode_at(0)
+		ev.pressed = true
+		vp.push_input(ev)
+		ev = InputEventKey.new()
+		ev.unicode = ch.unicode_at(0)
+		ev.pressed = false
+		vp.push_input(ev)
+
+
+func _capture_audio_chunk(duration_ms: int) -> void:
+	var payload := {"ok": false, "error": "audio capture disabled", "duration_ms": duration_ms, "wav_b64": ""}
+	if not bool(ProjectSettings.get_setting("vg/narcea/live_debug_capture_audio", false)):
+		EngineDebugger.send_message("visualgasic:capture_audio_reply", [payload])
+		return
+	var bus_idx := AudioServer.get_bus_index("Master")
+	if bus_idx < 0:
+		payload["error"] = "Master bus not found"
+		EngineDebugger.send_message("visualgasic:capture_audio_reply", [payload])
+		return
+	_finish_audio_capture()
+	_audio_record_effect = AudioEffectRecord.new()
+	_audio_record_bus = bus_idx
+	_audio_record_slot = AudioServer.get_bus_effect_count(bus_idx)
+	AudioServer.add_bus_effect(bus_idx, _audio_record_effect, _audio_record_slot)
+	var wait_sec := float(mini(duration_ms, 500)) / 1000.0
+	get_tree().create_timer(wait_sec).timeout.connect(_finish_audio_capture, CONNECT_ONE_SHOT)
+
+
+func _finish_audio_capture() -> void:
+	var payload := {"ok": false, "error": "no recording", "duration_ms": 0, "wav_b64": ""}
+	if _audio_record_effect != null and _audio_record_bus >= 0 and _audio_record_slot >= 0:
+		var recording: AudioStreamWAV = _audio_record_effect.get_recording()
+		AudioServer.remove_bus_effect(_audio_record_bus, _audio_record_slot)
+		if recording != null:
+			payload["ok"] = true
+			payload["error"] = ""
+			payload["wav_b64"] = Marshalls.raw_to_base64(recording.get_data())
+	_audio_record_effect = null
+	_audio_record_bus = -1
+	_audio_record_slot = -1
+	if EngineDebugger.is_active():
+		EngineDebugger.send_message("visualgasic:capture_audio_reply", [payload])
+
 
 func _collect_controls(node: Node, out: Array) -> void:
 	## Recursively collect child controls with their properties.

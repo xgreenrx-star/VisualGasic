@@ -2,6 +2,20 @@
 
 VisualGasic extends the Godot Editor with several tools designed to make Visual Basic 6 developers feel at home. These tools can be accessed via the **Project > Tools** menu or the **VisualGasic Toolbox**.
 
+> **Scope:** The **Visual Gasic IDE** main screen and **legacy Form Designer** are **experimental Alpha** and **not** required for v6.0. See **[VG_IDE_ALPHA.md](VG_IDE_ALPHA.md)**. Day-to-day `.vg` work uses Godot’s **Script** editor plus optional floating VG panels.
+
+### VG toolbar (Script / 2D / 3D)
+
+These controls live on Godot’s **top toolbar** (same row as Play) **and** on the **2D/3D canvas menu bar** (easy to miss on the Script tab):
+
+| Button | Action |
+|--------|--------|
+| **📝 VG Code** | Show/hide floating VG Code Editor over the Script tab (**Ctrl+Shift+E**) |
+| **🖼 Add VG Control** | Toggle floating **Toolbox** |
+| **📋 VG Properties** | Toggle floating **Properties** |
+| **📁 VG Project** | Toggle floating **Project Explorer** (Forms / Modules) |
+Click **VGasic** (toolbar toggle) to open the default workspace over the center editor: **VG Help** · **VG Code Editor** · **Project Explorer** · **Toolbox** · **Properties**. Use **Narcea AI Pair** (**Ctrl+Shift+N**) for AI — the old **VG Panels** button is removed. Drag/resizing is remembered via **Project → VGasic Tools → Save VG Window Layout** (or **Reset … to Default**).
+
 ---
 
 ## Plugin Activation (v5.3.0+)
@@ -38,6 +52,14 @@ To use Visual Gasic's experimental embedded 2D/3D viewports instead:
 This is separate from sub-plugins such as **Vg 3d** under **Vg → Plugins** — those
 load optional VG IDE modules, not the main 2D/3D viewport routing.
 
+### Floating VG Code Editor (Script tab)
+
+**Project → Project Settings → Vg → Editor → Floating Vg Code Editor On Script** (`vg/editor/floating_vg_code_editor_on_script`)
+
+When enabled, the **VG Tools → VG Code Editor** action (or an already-open float) can overlay the Script tab code column; the editor **does not** auto-open this panel on project load. When visible, the panel **auto-fits the native script code column** (right of the script list, above the bottom debugger) and **tracks editor resize** until you drag or resize it yourself. Custom geometry is stored under **Editor Settings → visual_gasic/code_float/**; set **`user_customized`** to **false** there to restore auto-fit.
+
+**Multi-monitor:** **Floating Panels Allow Extended Bounds** (`vg/editor/floating_panels_allow_extended_bounds`, default **On**) stops clamping floats to the inner editor rectangle so panels can sit at the edge of a wide or multi-monitor layout (they still move with the Godot editor window).
+
 ---
 
 ## Narcea AI Pair + Cursor
@@ -52,6 +74,8 @@ load optional VG IDE modules, not the main 2D/3D viewport routing.
 Enable it in Cursor → Settings → Tools & MCP.
 
 See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the full plan.
+
+**Narcea Live Debug Capture:** [spec](../development/NARCEA_LIVE_DEBUG_CAPTURE.md) — enable under Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in AI Pair. Local viewport snapshots, UI tree, stack/locals; purged on stop. **Immediate** tab shows **Capture** status + **Clear capture**.
 
 ---
 
@@ -216,25 +240,28 @@ Automatic code formatting for .vg files.
 *   **Format Selection**: Format only selected code
 
 ### Find All References
-**Location**: Right-click on identifier
+**Location**: Code editor — right-click or **Ctrl+Shift+F**
 
-Show all usages of a variable, Sub, or Function.
+Show all usages of a variable, Sub, or Function. See also **[CODE_EDITOR.md — Find All References](CODE_EDITOR.md#find-all-references)**.
+
 *   **Results Panel**: Tree view with file:line listings
 *   **Click to Navigate**: Jump to any reference
-*   **Filter by Type**: Declaration, Read, Write, Call
 *   **Search All .vg Files**: Workspace-wide search
 
-### Go to Definition
-**Location**: Ctrl+Click or F12 on identifier
+### Call Hierarchy
+**Location**: Code editor — right-click or **Ctrl+Shift+H**
 
-Navigate to Sub/Function/Variable declarations.
-*   **Ctrl+Click**: Hold Ctrl and click an identifier to jump to its definition
-*   **F12 Key**: Alternative keyboard shortcut
-*   **Context Menu**: Right-click → Go To Definition for the word under the caret
-*   **Cross-File**: Works across all .vg files
-*   **Symbol Types**: Sub, Function, Property, Enum, Type (UDT), Variable, Const, Label
-*   **Symbol Validation**: Hovering with Ctrl highlights recognized symbols as clickable links
-*   **Viewport Centering**: The editor scrolls to center the definition after navigation
+List callers of the Sub/Function under the caret. Documented in **[CODE_EDITOR.md — Call Hierarchy](CODE_EDITOR.md#call-hierarchy)**.
+
+### Go to Definition
+**Location**: Code editor — Ctrl+Click, or right-click context menu
+
+Navigate to where a symbol is declared. Full details (symbol kinds, Import modules, caret vs click behavior): **[CODE_EDITOR.md — Go To Definition](CODE_EDITOR.md#go-to-definition)**.
+
+*   **Ctrl+Click**: Hold Ctrl and click an identifier (Ctrl+hover underlines recognized symbols)
+*   **Context Menu**: Place caret on identifier → right-click → **Go To Definition**
+*   **Cross-File**: Opens imported modules and other `.vg` files when needed
+*   **Symbol Types**: Sub, Function, Property, Enum, Type, Variable, Const, Label
 
 ### Form Preview Toolbar
 **Location**: `2D Canvas Editor Toolbar`
