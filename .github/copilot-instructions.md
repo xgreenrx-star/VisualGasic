@@ -22,7 +22,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Language:** VB6-style BASIC (`VisualGasic` / `.vg` files), tokenizer/parser/AST/VM in C++
 - **Runtime:** Godot 4.6.1 plugin via GDExtension (`.gdextension`)
 - **Primary IDE:** Godot's native Script editor — VG extends it with autocomplete, Code Navigator, dot-completion
-- **VG custom IDE shell:** standalone IDE window/layout, Form Designer, embedded code editor — **MOTHBALLED until post-v6.0 stable**; only active when `vg/enable_experimental_plugins = true`
+- **VG custom IDE shell / legacy Form Designer:** **experimental Alpha** — **not** on the v6.0 EOY critical path; mothballed unless `vg/enable_experimental_plugins = true`. User-facing status: `docs/manual/VG_IDE_ALPHA.md` (standalone Form Designer repo extraction is **planned**, not shipped yet).
 - **Godot IDE integration (active scope):** Toolbox panel, Properties window, Immediate window, Narcea AI Pair, Code Navigator, autocomplete, dot-completion — these are docked inside Godot's editor and are **in scope for all milestones**
 - **Focus until v6.0:** VG Script language quality + Godot IDE integration. Do NOT expand the VG standalone IDE shell.
 - **AI providers:** `addons/visual_gasic/vg_ai_providers.gd` — Ollama, OpenAI, Claude, Gemini
@@ -80,6 +80,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Python bridge C2 typed msgpack** — `vg/python/use_typed_protocol` (default `false`); msgpack wire preserves int/float. Test: `test_py_msgpack_typed.vg`. JSON remains default for compat.
 - **C++ causal-graph API** — `VisualGasicLanguage.vg_analyze_causal_graph(code, roots)`; `vg_causal_chain.gd` prefers C++ then regex fallback. IDE: Code Navigator **Show Causal Chain** button.
 - **Tagged-stack VM prototype** — `scons tagged_stack=1`, `VG_TAGGED_STACK`, selftest via `VG_STACKVALUE_SELFTEST=1`. **NOT pursued for shipping** (~6% arith win, net loss on realistic workloads). See `docs/vm_tagged_stack_migration.md`.
+- **Narcea Live Debug Capture** — opt-in local viewport/stack/locals/UI tree while debugging (`vg/narcea/live_debug_capture*`, AI Pair per-run checkbox). Knowledge in `vg_ai_narcea.gd`; spec `docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md`.
 
 ## Recent fixes (Jun 30, 2026)
 

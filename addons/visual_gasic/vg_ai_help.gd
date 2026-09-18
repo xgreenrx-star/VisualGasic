@@ -6389,6 +6389,14 @@ func bind_narcea_live_capture(capture) -> void:
 	if _narcea_live_capture.has_signal("session_run_enabled_changed") \
 			and not _narcea_live_capture.session_run_enabled_changed.is_connected(_on_live_run_enabled_changed):
 		_narcea_live_capture.session_run_enabled_changed.connect(_on_live_run_enabled_changed)
+	var live_sess = _narcea_live_capture.session
+	if live_sess != null:
+		if live_sess.has_signal("entry_added") \
+				and not live_sess.entry_added.is_connected(_on_live_capture_invalidate_narcea_cache):
+			live_sess.entry_added.connect(_on_live_capture_invalidate_narcea_cache)
+		if live_sess.has_signal("session_purged") \
+				and not live_sess.session_purged.is_connected(_on_live_capture_invalidate_narcea_cache):
+			live_sess.session_purged.connect(_on_live_capture_invalidate_narcea_cache)
 	if is_instance_valid(_live_capture_cb):
 		_live_capture_cb.button_pressed = _narcea_live_capture.session_run_enabled
 		_live_capture_cb.disabled = not _narcea_live_capture.project_capture_allowed()
@@ -6411,6 +6419,11 @@ func _on_live_banner_visible(visible: bool) -> void:
 func _on_live_run_enabled_changed(enabled: bool) -> void:
 	if is_instance_valid(_live_capture_cb) and _live_capture_cb.button_pressed != enabled:
 		_live_capture_cb.button_pressed = enabled
+	_on_live_capture_invalidate_narcea_cache()
+
+
+func _on_live_capture_invalidate_narcea_cache(_arg: Variant = null) -> void:
+	_narcea_ctx_cache = ""
 
 
 func _on_live_capture_run_toggled(on: bool) -> void:

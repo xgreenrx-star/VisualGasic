@@ -1064,6 +1064,41 @@ or VGCausalChain.new().generate(text, roots). C++ AST preferred; regex fallback.
 Narcea policy: remind the user to open Show Causal Chain after large Apply blocks
 so they can audit AI output before pressing Run. Visual graph panel is v6.1+.
 
+=== Narcea Live Debug Capture (runtime, opt-in) ===
+Gives you read-only \"eyes\" on the RUNNING game while debugging — NOT the editor
+chrome. Distinct from Show Causal Chain (static AST) and from the Call Stack tab alone.
+
+Enable:
+  1. Project Settings → Vg → Narcea → live_debug_capture = true
+  2. AI Pair → checkbox **Live debug capture (this run)** (+ consent once)
+  3. F5 run → breakpoint or **Refresh snapshot**
+
+What the IDE stores locally (RAM / user://vg_narcea_live_session/, wiped on stop):
+  * Downscaled PNG of the game viewport (max width from project setting)
+  * Break file:line, call stack, top-frame locals, optional flat UI tree
+    (Caption, Left, Top, Width, Height, Visible — VB6-style names)
+  * Optional short Master-bus audio chunk if live_debug_capture_audio is on
+
+Prompt injection:
+  * When capture is ON and snapshots exist, the system prompt may include
+    a block \"=== Live debug (local session) ===\" — treat it as ground truth
+    for \"what is on screen\" and runtime variable values at the break.
+  * **Explain screen** may attach the latest PNG to vision-capable providers
+    (OpenAI/Claude/Gemini/etc.); Ollama only if the model supports vision.
+
+UI: orange banner while active; Immediate tab **Capture: ON (N frames)** + Clear.
+MCP (loopback :8766): narcea_live_list_snapshots, narcea_live_get_snapshot (read-only).
+
+Narcea policy at a debug break:
+  * Prefer explaining UI/state using Live debug metadata before guessing.
+  * Do NOT claim you can see the screen if no Live debug block is present.
+  * Cloud chat may send snapshot text/images to the provider — remind user if asked.
+  * **Drive (paused)** allows inject_pointer/inject_unicode into VG controls only
+    while paused — you cannot drive from chat unless the user enabled Drive mode;
+    do not hallucinate remote click/type tools in vg-tool blocks.
+
+Spec: docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md
+
 === Online resources ===
 Godot 4 class reference — VG controls wrap Godot nodes; look here for
 property names, method signatures, and signal names:
@@ -1483,6 +1518,8 @@ const SLIM_KNOWLEDGE := """
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
+- Live debug capture: Project Settings `vg/narcea/live_debug_capture` + AI Pair per-run checkbox;
+  local viewport/stack/locals/UI tree in prompt; purged on stop. See NARCEA_LIVE_DEBUG_CAPTURE.md.
 - Beta showcase tour: samples/showcases/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, samples/demos/, tutorials/ for examples.
 - VG MCP tools (read_file, write_file, find_in_files) when Godot + plugin are running.
@@ -1536,6 +1573,9 @@ CAPABILITIES — be honest (v6.0):
     find_in_files, emit vg-*-spec blocks, validate syntax, explain errors.
   * CAN: point users to **Show Causal Chain** (Code Navigator) to audit static
     event→Sub→Call flow on AI-generated .vg before Run.
+  * CAN (when enabled): use **Live debug capture** snapshots in the prompt
+    (=== Live debug === block) to explain the game viewport, control layout,
+    stack, and locals at a breakpoint — never invent screen content without it.
   * CAN (when attached): use user-provided HTTPS reference pages injected
     above (Wikipedia, game wikis, docs) — treat them as ground truth for
     mechanics, setting, and gameplay when building clones.
@@ -1902,6 +1942,10 @@ func _active_context_block(plugin: Object) -> String:
 	if not run_out.is_empty():
 		lines.append("Last run output:\n%s" % run_out)
 
+	var live_cap := _detect_live_debug_capture(plugin)
+	if not live_cap.is_empty():
+		lines.append(live_cap)
+
 	# Only emit the block if we found at least one signal beyond the header.
 	if lines.size() <= 1:
 		return ""
@@ -1935,6 +1979,37 @@ func _detect_run_output(plugin: Object) -> String:
 	if session == null or not session.has_method("get_recent_output"):
 		return ""
 	return session.get_recent_output(20)
+
+
+func _detect_live_debug_capture(plugin: Object) -> String:
+	if plugin == null or not is_instance_valid(plugin):
+		return ""
+	if not plugin.has_method("get_narcea_live_capture"):
+		return ""
+	var cap = plugin.call("get_narcea_live_capture")
+	if cap == null:
+		return ""
+	if not cap.project_capture_allowed():
+		return ""
+	var lines: PackedStringArray = PackedStringArray()
+	if cap.session_run_enabled:
+		var n: int = cap.session.entry_count() if cap.session else 0
+		lines.append(
+			"Narcea live debug capture: ON for this run (%d local snapshot(s); "
+			% n
+			+ "check === Live debug === in prompt if present)."
+		)
+		if n > 0 and cap.has_method("explain_screen_prompt"):
+			lines.append(
+				"Latest break context includes viewport metadata + stack/locals; "
+				+ "user may have used Explain screen (vision PNG on supported models)."
+			)
+	else:
+		lines.append(
+			"Narcea live debug capture: allowed by project but OFF for this run "
+			+ "(user must enable AI Pair checkbox)."
+		)
+	return "\n".join(lines)
 
 
 ## Read up to ~120 lines / 4 KB of the currently-open .vg file and embed
