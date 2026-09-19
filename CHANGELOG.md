@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0-beta2.1] - 2026-09-19
+
+**Patch:** GDScript-only editor hotfix — same GDExtension binaries as **5.5.0-beta2**.
+
+### 🛠 Fixed — VG code editor (addon)
+
+- **VG Help** — Floating assist panel now shows **Dim**/Const/Sub/Function types and scope (not only built-in keywords); **Go to Definition** links in help.
+- **Find / Replace** — **Ctrl+F**, **Ctrl+H**, **F3** / **Shift+F3**, and context menu; find bar stays mounted in the floating VG Code Editor.
+- **Import / Go To Definition** — Shared module resolution for cross-file navigation (GDScript addon only).
+
 ## [5.5.0-beta2] - 2026-09-19
 
 **Key numbers:** Narcea Live Debug Capture (A–D) · `samples/` repo layout · Brotato3D sample · **171** `.vg` test files · **1010/1020** assertions on release runner.

@@ -4,17 +4,17 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current status (v5.4.0-beta2)
+## Current status (v5.5.0-beta2.1)
 
 | Field | Value |
 |-------|--------|
-| **Version submitted** | 5.4.0-beta2 |
+| **Version submitted** | 5.5.0-beta2.1 (pending submit) |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.4.0-beta2.zip` |
-| **Listing state** | **Live** — update pending moderator approval for 5.4.0-beta2 |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.5.0-beta2.1.zip` |
+| **Listing state** | **Live** (store) — submit version update for moderator approval |
 
-Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.4.0-beta2.md`](../../ASSET_LIBRARY_CHANGELOG_5.4.0-beta2.md) (plain text — paste into Godot Asset Library).
+Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.5.0-beta2.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.5.0-beta2.1.md) (**Markdown** for store.godotengine.org — `-` lists, `**bold**`, `` `code` ``; do **not** use BBCode or `•`).
 
 User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
 
@@ -44,8 +44,8 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic_AssetLibrary_v5.4.0-beta2.zip` |
-| **Version** | 5.4.0-beta2 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta2.1/VisualGasic_AssetLibrary_v5.5.0-beta2.1.zip` |
+| **Version** | 5.5.0-beta2.1 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
