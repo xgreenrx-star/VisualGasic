@@ -6,13 +6,15 @@ Scripted **Narcea panel** + **preview pane** (640×480, full frame visible). Dis
 
 ```bash
 # Preview in editor (Space = play movie, Esc = quit)
-# Open projects/vg_narcea_movie_demo/project.godot → F5
+# Open samples/showcases/vg_narcea_movie_demo/project.godot → F5
 
-# Record frame-perfect video (~2–3 min)
+# Record frame-perfect video (~2–3 min) — outputs stay local (not in git)
 scripts/record_narcea_movie_demo.sh
-# → projects/vg_narcea_movie_demo/vg_narcea_movie.avi
-# → vg_narcea_movie.mp4 (repo root, when ffmpeg installed)
+# → samples/showcases/vg_narcea_movie_demo/vg_narcea_movie.avi
+# → vg_narcea_movie.mp4 (repo root, when ffmpeg installed; gitignored)
 ```
+
+Pre-rendered showcase **AVI/MP4** files are **not** stored in the repository (size). Record locally with the script above, or watch the [Beta Showcase on YouTube](https://youtu.be/FUw8zgbn_tU) for similar reel content.
 
 ## Segments
 

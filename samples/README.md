@@ -27,6 +27,7 @@ scripts/sync_addons.sh check     # CI drift guard
 # Open any sample in Godot 4.6.1+ with Visual Gasic enabled, then F5.
 scripts/ci_smoke.sh samples/games/brotato3d
 scripts/ci_smoke.sh samples/apps/vg_twinpane
+scripts/ci_smoke.sh samples/apps/vg_hex_editor
 ```
 
 ## Games
@@ -49,6 +50,7 @@ scripts/ci_smoke.sh samples/apps/vg_twinpane
 | Project | Description |
 |---------|-------------|
 | [vg_twinpane](apps/vg_twinpane/) | Dual-pane file manager (Form Designer sample) |
+| [vg_hex_editor](apps/vg_hex_editor/) | Binary hex editor (Form + custom `_Draw` canvas) |
 | [vector_dashboard](apps/vector_dashboard/) | Vector dashboard UI |
 | [VG_UI_TOOLS](demos/UI/VG_UI_TOOLS/) | VB6-style control gallery |
 
@@ -56,9 +58,11 @@ scripts/ci_smoke.sh samples/apps/vg_twinpane
 
 | Project | Description |
 |---------|-------------|
-| [vg_beta_showcase](showcases/vg_beta_showcase/) | Beta feature tour (~6 min) |
+| [vg_beta_showcase](showcases/vg_beta_showcase/) | Beta feature tour (~6 min) — [YouTube](https://youtu.be/FUw8zgbn_tU); run F5 in-editor or `scripts/record_beta_showcase.sh` for local AVI |
 | [demoscene_intro](showcases/demoscene_intro/) | Demoscene-style intro |
-| [vg_narcea_movie_demo](showcases/vg_narcea_movie_demo/) | Narcea-generated movie reel |
+| [vg_narcea_movie_demo](showcases/vg_narcea_movie_demo/) | Narcea-generated movie reel — record with `scripts/record_narcea_movie_demo.sh` |
+
+Large **`.avi` / `.mp4`** showcase outputs are **gitignored**; clone the repo and record locally, or use the linked YouTube tours.
 
 ## Feature demos
 

@@ -1,4 +1,4 @@
-# Narcea Live Debug Capture — design spec (Phase A)
+# Narcea Live Debug Capture — design & implementation
 
 **Status:** Implemented (Phases A–D baseline)  
 **Target:** **5.5.0-beta3** / current main  
@@ -218,4 +218,4 @@ Not available for raw 3D viewport picking without VG control mapping.
 
 ## Version note
 
-Next public beta is **5.5.0-beta2** (VGasic workspace, debugger routing, IDE polish). **Narcea Live Debug Capture Phase A** is **not** required for that tag.
+**Phases A–D (baseline)** shipped on current main. Enable via Project Settings → **Vg → Narcea** and the AI Pair per-run checkbox; see [ide_tools.md](../manual/ide_tools.md#ai-help-panel) and [debugging.md](../manual/debugging.md#narcea-live-debug-capture-opt-in).

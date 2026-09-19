@@ -1743,10 +1743,11 @@ The refactoring is smart:
 | Shortcut | Action |
 |----------|--------|
 | F5 | Preview Form |
-| F12 | Go to Definition |
 | Ctrl+Click | Go to Definition |
+| Right-click → Go To Definition | Go to Definition (caret on symbol) |
 | Ctrl+R | Rename Refactoring |
 | Ctrl+Shift+F | Find All References |
+| Ctrl+Shift+H | Call Hierarchy |
 | Ctrl+Space | Trigger IntelliSense |
 | Ctrl+. | Quick Actions |
 

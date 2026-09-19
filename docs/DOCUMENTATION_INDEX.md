@@ -28,12 +28,15 @@
 - [VB6_FEATURES_IMPLEMENTATION.md](reference/VB6_FEATURES_IMPLEMENTATION.md) - VB6 feature compatibility
 
 ### Editor Features
+- [VG_IDE_ALPHA.md](manual/VG_IDE_ALPHA.md) - **VG IDE shell & Form Designer — experimental Alpha** (scope vs v6.0, enable flags, floating code editor)
+- [CODE_EDITOR.md](manual/CODE_EDITOR.md) - **Code Editor Manual** (right-click context menu, Go To Definition, Find References, File path submenu, Surround With — canonical match for `vg_code_edit.gd`)
 - [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes, **Profiler / Controls / Packages / AI Help** bottom-dock panels)
 - [ide_tools.md#causal-chain-static-analysis-v54](manual/ide_tools.md#causal-chain-static-analysis-v54) - **Causal Chain** — static event→Sub→Call report (Code Navigator button, Context Rail preview, C++ AST API)
 - [ide_tools.md#profiler-panel](manual/ide_tools.md#profiler-panel) - **Profiler Panel** — bytecode-level hot-path timing, counters, JSON export (C++ `VisualGasicProfiler` bridge)
 - [ide_tools.md#controls-panel-controls-inspector](manual/ide_tools.md#controls-panel-controls-inspector) - **Controls Panel** — VB6-style live inspector for form controls at breakpoints
 - [ide_tools.md#packages-panel-vg-packages](manual/ide_tools.md#packages-panel-vg-packages) - **VG Packages Panel** — install, remove, and search VG packages (pip/npm for VG)
 - [ide_tools.md#ai-help-panel](manual/ide_tools.md#ai-help-panel) - **AI Help Panel** — in-editor AI assistant (Ollama / OpenAI / Claude / Gemini) with VG-aware prompt, Explain Error / Explain Code / Translate presets
+- [NARCEA_LIVE_DEBUG_CAPTURE.md](development/NARCEA_LIVE_DEBUG_CAPTURE.md) - **Narcea Live Debug Capture** — opt-in viewport snapshots + debug JSON for AI Pair (implemented; privacy, MCP, phases A–D)
 - [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)
 - [SPRITE_EDITOR_MANUAL.md](manual/SPRITE_EDITOR_MANUAL.md) - **Sprite Editor Manual** (19 drawing tools, 9 retro palettes, layers with blend modes, animation frames with tags, system clipboard, selection transforms, gradient, outline, reference layers, tiled preview)
 - [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)
@@ -123,6 +126,7 @@
 | Call Stack Panel | Visual call stack display | Debugger > Call Stack |
 | Breakpoint Conditions | Conditional breakpoints, hit counts, tracepoints | Right-click breakpoint gutter |
 | Immediate Window | Interactive REPL for debugging | Bottom Panel |
+| Narcea Live Debug Capture | Opt-in viewport/UI-tree snapshots for AI while debugging | Project Settings → Vg → Narcea; AI Pair per-run checkbox — [guide](development/NARCEA_LIVE_DEBUG_CAPTURE.md) |
 
 ### 3D Game Development Tools
 | Tool | Description | Location |
@@ -150,7 +154,7 @@
 | Snippet Manager | 40+ built-in code snippets | IntelliSense suggestions |
 | Code Formatter | Auto-indent, keyword capitalization | Tools menu |
 | Find All References | Show all usages of a symbol | Right-click identifier |
-| Go to Definition | Jump to declaration (Ctrl+Click/F12) | Any identifier |
+| Go to Definition | Jump to declaration (Ctrl+Click; right-click menu) | Any identifier — see [CODE_EDITOR.md](manual/CODE_EDITOR.md) |
 | Rename Refactoring | Scope-aware renaming (Ctrl+R) | Any identifier |
 | Move Lines Up/Down | Shift selected line(s) (Alt+Up/Down) | Code editor |
 | Duplicate Lines | Copy current line(s) below (Ctrl+Shift+D) | Code editor |

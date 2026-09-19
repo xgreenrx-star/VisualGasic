@@ -52,6 +52,8 @@ Remove these symlinks after downstream docs and CI no longer reference them.
 | Path | Notes |
 |------|-------|
 | `archive/examples_mirror/` | Old accidental full-repo copy under `examples/` — do not use |
+| `scratch/showcase-videos/` | Optional local copies of recorded showcase AVIs (gitignored via `/scratch/`) |
+| `samples/showcases/**/*.avi`, `**/*.mp4` | Record with `scripts/record_*.sh`; not committed |
 | `Godot_v4.*` binaries | Download locally; gitignored |
 | `.godot/` | Per-project editor cache |
 

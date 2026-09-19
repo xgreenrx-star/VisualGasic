@@ -75,7 +75,7 @@ Enable it in Cursor → Settings → Tools & MCP.
 
 See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the full plan.
 
-**Narcea Live Debug Capture:** [spec](../development/NARCEA_LIVE_DEBUG_CAPTURE.md) — enable under Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in AI Pair. Local viewport snapshots, UI tree, stack/locals; purged on stop. **Immediate** tab shows **Capture** status + **Clear capture**.
+**Narcea Live Debug Capture:** [guide](../development/NARCEA_LIVE_DEBUG_CAPTURE.md) — enable under Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in AI Pair. Local viewport snapshots, UI tree, stack/locals; purged on stop. **Immediate** tab shows **Capture** status + **Clear capture**.
 
 ---
 

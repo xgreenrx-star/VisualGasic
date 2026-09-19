@@ -2,14 +2,12 @@
 
 ## Creating a Script
 
-### In the VisualGasic IDE
+### In Godot (primary path)
 
-The VisualGasic IDE is the primary way to write code:
-
-1. Open your project in Godot with the VisualGasic addon installed.
-2. Open the **VG IDE** from the editor.
-3. Use **File → New** or the Form Designer to create a new `.vg` file.
-4. The code editor provides syntax highlighting, IntelliSense, auto-indent, multi-caret editing (`Ctrl+D`), Ctrl+Click Go To Definition, and line manipulation shortcuts (`Alt+Up/Down` to move lines, `Ctrl+Shift+D` to duplicate, `Ctrl+Shift+K` to delete).
+1. Open your project in Godot with the Visual Gasic addon enabled.
+2. Create or open `.vg` files from the **Script** editor, **Code Navigator**, or **VGasic** toolbar workspace (floating panels). The experimental standalone VB6 shell is optional — see [VG IDE Alpha](../manual/VG_IDE_ALPHA.md).
+3. For menu-style UIs, use **UI Forms** (2D viewport) or the legacy Form Designer when experimental plugins are on.
+4. The code editor provides syntax highlighting, IntelliSense, auto-indent, multi-caret editing (`Ctrl+D`), **Go To Definition** (Ctrl+Click or right-click menu), and line manipulation shortcuts (`Alt+Up/Down` to move lines, `Ctrl+Shift+D` to duplicate, `Ctrl+Shift+K` to delete). See [CODE_EDITOR.md](../manual/CODE_EDITOR.md) for the full context menu and navigation guide.
 
 ### Attaching to a Node
 

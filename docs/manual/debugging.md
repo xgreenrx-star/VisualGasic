@@ -6,7 +6,7 @@ VisualGasic provides a full VB6-style debugging experience: **Run**, **Break**, 
 
 ## Debug Toolbar
 
-The **Debug toolbar** is located in the Immediate Window panel at the bottom of the IDE:
+The **Debug toolbar** is on the **Immediate** tab in the bottom panel (not AI Pair / Output):
 
 ```
 Debug: ▶ Continue  ⏸ Break  ⏩ Step Over  ⬇ Step Into  ⬆ Step Out  ■ Stop
@@ -15,6 +15,19 @@ Debug: ▶ Continue  ⏸ Break  ⏩ Step Over  ⬇ Step Into  ⬆ Step Out  ■ 
 ![Debug Toolbar](../screenshots/ide_debug_toolbar.png)
 
 *The debug toolbar with all six controls. Buttons enable/disable based on the current debug state.*
+
+When a breakpoint hits, the IDE switches to the **Immediate** tab automatically so these controls are visible.
+
+### Step shortcuts while paused (code editor or Immediate tab)
+
+| Key | Action |
+|-----|--------|
+| **F5** | Continue |
+| **F10** | Step Over |
+| **F11** | Step Into |
+| **Shift+F11** | Step Out |
+| **Ctrl+F10** | Run to Cursor |
+| **Ctrl+Shift+F10** | Set Next Statement |
 
 ### Button States
 
@@ -287,6 +300,23 @@ The debugger will pause whenever `player_health` is modified by any code path.
 | **F11** | Step Into |
 | **Shift+F11** | Step Out |
 | **Ctrl+G** | Go To Line |
+
+---
+
+## Narcea Live Debug Capture (opt-in)
+
+While a debug session is active, **Narcea** can attach **local-only** context (viewport PNG, flat UI tree, stack/locals JSON) to AI prompts — nothing is uploaded unless you send chat to a cloud provider.
+
+| Step | Action |
+|------|--------|
+| 1 | **Project Settings → Vg → Narcea** — turn on **Live debug capture** (`vg/narcea/live_debug_capture`) |
+| 2 | Start the game with debugging (F5 / Preview+Debug) |
+| 3 | **AI Pair** — enable **Live debug capture (this run)** (consent dialog on first use) |
+| 4 | Break or trigger capture — use **Explain screen**, **Refresh snapshot**, or MCP `narcea_live_*` tools |
+
+Data lives in editor RAM (optional spill under `user://vg_narcea_live_session/`). **Stop** the game or click **Clear capture** on the **Immediate** tab to purge. Vision PNGs are sent only when the selected provider supports images.
+
+Full design, settings, and acceptance criteria: [NARCEA_LIVE_DEBUG_CAPTURE.md](../development/NARCEA_LIVE_DEBUG_CAPTURE.md). AI Pair overview: [ide_tools.md](ide_tools.md#ai-help-panel).
 
 ---
 

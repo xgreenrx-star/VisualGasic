@@ -212,7 +212,9 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 | Shortcut | Action |
 |----------|--------|
 | **Ctrl+G** | **Go To Line** — opens a dialog to jump to any line number |
-| **Ctrl+Click** / **F12** | **Go to Definition** — jump to the declaration of a Sub, Function, variable, Enum, Type, or label |
+| **Ctrl+Click** | **Go to Definition** — jump to the declaration of a Sub, Function, variable, Enum, Type, or label |
+| **Ctrl+Shift+F** | **Find All References** — list every use of the symbol under the caret |
+| **Ctrl+Shift+H** | **Call Hierarchy** — list callers of the Sub/Function under the caret |
 | **Ctrl+Shift+]** | **Go to Matching Block** — jump between `If`↔`End If`, `Sub`↔`End Sub`, `For`↔`Next`, etc. |
 | **Alt+Shift+Up** | **Expand Selection** — progressively widen selection (word → line → block → procedure → all) |
 | **Alt+Shift+Down** | **Shrink Selection** — reverse the last expand step |
@@ -250,31 +252,15 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 
 ### Context Menu (Right-Click)
 
-Right-click in the code editor to access these actions:
+Right-click in the code editor for the full menu (clipboard, navigation, line edits, **Surround With**, **File…** path actions, view toggles).
 
-| Menu Item | Shortcut | Action |
-|-----------|----------|--------|
-| Cut | Ctrl+X | Cut selected text |
-| Copy | Ctrl+C | Copy selected text |
-| Paste | Ctrl+V | Paste from clipboard |
-| Select All | Ctrl+A | Select all code |
-| Fix Indentation | Ctrl+Shift+I | Re-indent selected lines using VB6 block rules |
-| Comment/Uncomment | Ctrl+' | Toggle comment prefix |
-| Go To Line… | Ctrl+G | Jump to a line number |
-| Go To Definition | Ctrl+Click | Navigate to symbol declaration |
-| Toggle Breakpoint | F9 | Set or remove breakpoint |
-| Toggle Bookmark | Ctrl+B | Set or remove bookmark |
-| Move Lines Up | Alt+Up | Shift line(s) up |
-| Move Lines Down | Alt+Down | Shift line(s) down |
-| Duplicate Lines | Ctrl+Shift+D | Copy line(s) below |
-| Delete Lines | Ctrl+Shift+K | Remove entire line(s) |
-| Fold All Procedures | — | Collapse all Sub/Function bodies |
-| Unfold All | — | Expand all folded regions |
-| Sort Lines | — | Alphabetically sort the selected lines |
-| Surround With ▶ | — | Wrap selection in If, For, Sub, Try, With, or Select Case block |
-| Word Wrap ✓ | — | Toggle word wrapping at the editor boundary |
-| Show Whitespace ✓ | — | Toggle visible spaces and tab characters |
-| Minimap ✓ | — | Toggle the code minimap on the right edge |
+**Canonical list:** [CODE_EDITOR.md — Right-click context menu](CODE_EDITOR.md#right-click-context-menu) (kept in sync with `vg_code_edit.gd`).
+
+Quick reminders:
+
+- **Go To Definition** uses the **caret** position — click the identifier first, then right-click (or use **Ctrl+Click** at the symbol).
+- **Find All References** / **Call Hierarchy** — also on the menu; shortcuts **Ctrl+Shift+F** / **Ctrl+Shift+H**.
+- **Edit Sprite Data as Image…** and **File "…"** appear only in the right context (sprite block or path literal).
 
 ### Go To Line Dialog
 
