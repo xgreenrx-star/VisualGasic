@@ -1,21 +1,31 @@
 # VisualGasic 5.5.0-beta2 Release Notes
 
-**Release Date:** September 2026  
-**Status:** Beta (Pre-release)  
-**Milestone:** M7 — Narcea Live Debug Capture, `samples/` layout, Godot-game wiring  
+**Release Date:** September 19, 2026  
+**Status:** Public beta  
 **Previous Release:** [5.5.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta1)  
-**Target Engine:** Godot 4.6.1  
-**Platforms:** Linux x86_64, Windows x86_64 (desktop)
+**Requires:** Godot **4.6.1+** (Mono not required)  
+**Platforms:** Linux and Windows GDExtension binaries in the Asset Library zip
 
 ---
 
 ## Overview
 
-VisualGasic **5.5.0-beta2** is the **Narcea + packaging** beta: opt-in **Live Debug Capture** gives AI Pair local viewport snapshots and debugger context while you pause, the repository **reorganizes** all user Godot projects under **`samples/`** (with `engine_lab/` for harnesses and legacy symlinks for old paths), and the language/runtime picks up **Connect**, **lambda handlers**, **RemoveAt**, and **autoload** patterns games need on Godot 4.6.
+**VisualGasic** is a VB6-style language (`.vg`) and Godot editor addon: readable event handlers, a debugger, and an in-editor AI assistant (**Narcea**). This beta is for anyone already on Godot who wants clearer game logic and better tooling without leaving the engine.
 
-**Speed (unchanged release gate + new gameplay rows):** Tier A still **12/12 compute** and **9/9 draw** faster than GDScript; **September 2026 gameplay realism** adds packed **I64 entity scans** — e.g. **IntegerLoop ~65×**, **NodePropertyChurn ~170×**, **FrameSlice ~7.8×** vs GDScript on the published Linux snapshot ([BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)).
+### Highlights in 5.5.0-beta2
 
-This cut also lands **`samples/games/brotato3d/`** — a 3D Brotato-style arena port — and documents the **Godot-first** editor story (VGasic floating workspace, experimental legacy Form Designer under [VG IDE Alpha](docs/manual/VG_IDE_ALPHA.md)).
+- **Narcea Live Debug Capture (opt-in)** — While you debug, Narcea can use **local** screenshots and variable context to explain what’s on screen. Nothing is uploaded unless you send chat to a cloud AI provider. Data is cleared when you stop the game.
+- **Real Godot games in VG** — `Connect`, lambda handlers, `RemoveAt`, and autoload globals work the way modern Godot projects expect. New sample: **`samples/games/brotato3d/`** (3D arena roguelite).
+- **Cleaner repo layout** — Sample projects live under **`samples/`** (`games`, `apps`, `demos`, `showcases`). Old `projects/` paths are symlinks for now; see [REPO_LAYOUT.md](docs/REPO_LAYOUT.md).
+- **Speed** — Still **12/12** compute and **9/9** draw benchmarks ahead of GDScript, plus new **gameplay-style** numbers (e.g. tight loops and entity updates up to **~65×** on published Linux tests). Tables: [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
+
+### Install (60 seconds)
+
+1. Download **`VisualGasic_AssetLibrary_v5.5.0-beta2.zip`** below (or from Asset Library when approved).
+2. Unzip into your project’s `addons/visual_gasic/` (or import via Godot AssetLib).
+3. **Project → Project Settings → Plugins** → enable **VisualGasic**.
+
+Try a sample: open `samples/games/brotato3d/project.godot` or `samples/showcases/vg_beta_showcase/project.godot` → **F5**.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md#550-beta2---2026-09-19)
 
