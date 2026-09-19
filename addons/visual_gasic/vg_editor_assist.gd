@@ -3,6 +3,7 @@ extends RefCounted
 ## Shared caret-driven updates for Command Help + sprite Data panel (VG IDE + Godot editor).
 
 const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
+const VGUserSymbolHelp = preload("res://addons/visual_gasic/vg_user_symbol_help.gd")
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
 
@@ -34,7 +35,12 @@ static func get_keyword_at_cursor(code_edit: CodeEdit) -> String:
 	return word
 
 
-static func render_command_help(help_label: RichTextLabel, keyword: String, scroll: ScrollContainer = null) -> void:
+static func render_command_help(
+	help_label: RichTextLabel,
+	keyword: String,
+	scroll: ScrollContainer = null,
+	source_text: String = "",
+) -> void:
 	if help_label == null:
 		return
 	if scroll:
@@ -44,6 +50,9 @@ static func render_command_help(help_label: RichTextLabel, keyword: String, scro
 		help_label.append_text("[color=#555555][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
 		return
 	var entry: Dictionary = VGCommandHelp.lookup(keyword)
+	var is_builtin := not entry.is_empty()
+	if entry.is_empty() and not source_text.is_empty():
+		entry = VGUserSymbolHelp.lookup(keyword, source_text)
 	if entry.is_empty():
 		help_label.append_text("[color=#555555][i]No documentation for \"%s\"[/i][/color]" % keyword)
 		return
@@ -53,7 +62,74 @@ static func render_command_help(help_label: RichTextLabel, keyword: String, scro
 		help_label.append_text("[b][color=#00006B]Syntax[/color][/b]\n")
 		help_label.append_text("[color=#333333][code]%s[/code][/color]\n\n" % syntax_text)
 	help_label.append_text("[b][color=#00006B]Description[/color][/b]\n")
-	help_label.append_text("[color=#222222]%s[/color]\n" % entry.get("desc", ""))
+	var desc: String = str(entry.get("desc", ""))
+	if is_builtin:
+		desc = VGCommandHelp.linkify_cross_references(desc)
+	help_label.append_text("[color=#222222]%s[/color]\n" % desc)
+	_append_user_symbol_help_extras(help_label, entry, keyword, is_builtin)
+
+
+static func _append_user_symbol_help_extras(
+	help_label: RichTextLabel,
+	entry: Dictionary,
+	keyword: String,
+	is_builtin: bool,
+) -> void:
+	var symbol_kind: String = entry.get("symbol_kind", "")
+	if symbol_kind.is_empty():
+		if is_builtin:
+			var see_also: Array = VGCommandHelp.get_see_also(keyword)
+			if not see_also.is_empty():
+				help_label.append_text("\n[b][color=#00006B]See Also[/color][/b]\n")
+				help_label.append_text("[color=#333333]👉 %s[/color]\n" % ", ".join(see_also))
+		return
+
+	var kind_labels := {
+		"sub": "Subroutine",
+		"function": "Function",
+		"variable": "Variable",
+		"const": "Constant",
+		"type": "Type",
+	}
+	var kind_label: String = kind_labels.get(symbol_kind, symbol_kind.capitalize())
+	help_label.append_text("\n[color=#555555]🏷️ User-Defined %s[/color]\n" % kind_label)
+	var def_line: int = entry.get("defined_on_line", 0)
+	if def_line > 0:
+		help_label.append_text(
+			"[color=#555555]📍 [/color][url=goto:%d][color=#0000CC][b]Go to Definition (line %d)[/b][/color][/url]\n"
+			% [def_line, def_line]
+		)
+
+	var comment: String = entry.get("comment", "")
+	if not comment.is_empty():
+		help_label.append_text("\n[b][color=#00006B]Developer Note[/color][/b]\n")
+		help_label.append_text("[color=#336633]💬 %s[/color]\n" % comment)
+
+	var scope_info: String = entry.get("scope_info", "")
+	if not scope_info.is_empty():
+		help_label.append_text("\n[color=#555555]📌 Scope: [b]%s[/b][/color]\n" % scope_info)
+
+	var type_members: Array = entry.get("type_members", [])
+	if not type_members.is_empty():
+		help_label.append_text("\n[b][color=#00006B]Members[/color][/b]\n")
+		for member in type_members:
+			help_label.append_text("[color=#333333]  • [code]%s[/code][/color]\n" % str(member))
+
+	_append_line_link_list(help_label, "🔍 Used on lines", entry.get("used_on_lines", []), "#0000CC")
+	_append_line_link_list(help_label, "✏️ Modified on lines", entry.get("modified_on_lines", []), "#CC6600")
+	_append_line_link_list(help_label, "📞 Called from lines", entry.get("called_from_lines", []), "#0000CC")
+
+
+static func _append_line_link_list(help_label: RichTextLabel, title: String, lines: Array, color_hex: String) -> void:
+	if lines.is_empty():
+		return
+	help_label.append_text("\n[color=#555555]%s: " % title)
+	for ui in lines.size():
+		if ui > 0:
+			help_label.append_text(", ")
+		var ln: int = lines[ui]
+		help_label.append_text("[url=goto:%d][color=%s]%d[/color][/url]" % [ln, color_hex, ln])
+	help_label.append_text("[/color]\n")
 
 
 static func update_sprite_panel(sprite_panel: Control, code_edit: CodeEdit) -> void:
@@ -87,7 +163,7 @@ static func caret_assist_update(
 	var keyword := get_keyword_at_cursor(code_edit)
 	if keyword != state.get("last_keyword", ""):
 		state["last_keyword"] = keyword
-		render_command_help(help_label, keyword, help_scroll)
+		render_command_help(help_label, keyword, help_scroll, code_edit.text)
 	update_sprite_panel(sprite_panel, code_edit)
 	update_vector_panel(vector_panel, code_edit)
 	var sec := Resolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())

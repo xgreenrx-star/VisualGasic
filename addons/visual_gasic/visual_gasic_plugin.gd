@@ -1128,6 +1128,10 @@ func _enter_tree():
 				_embedded_code_editor.stale_banner_dismissed.connect(_on_embedded_stale_banner_dismissed)
 			if _embedded_code_editor.has_signal("buffer_edited"):
 				_embedded_code_editor.buffer_edited.connect(_on_embedded_buffer_edited)
+			if _embedded_code_editor.has_signal("find_in_file_requested"):
+				_embedded_code_editor.find_in_file_requested.connect(_on_find_in_file_requested)
+			if _embedded_code_editor.has_signal("find_in_file_nav_requested"):
+				_embedded_code_editor.find_in_file_nav_requested.connect(_on_find_in_file_nav_requested)
 			center_stack.add_child(_embedded_code_editor)
 			# Register with VGPluginRegistry so .vg / .gd opens can be routed
 			# through registry.open_asset() generically (file-browser dbl-click,
@@ -7346,11 +7350,23 @@ func _create_default_export_preset(preset_name: String, output_path: String) -> 
 # EDIT MENU HELPERS — Code editor operations
 # =============================================================================
 
-## Returns the active CodeEdit from the embedded code editor, or null.
+## Returns the active VG CodeEdit (embedded / floating workspace), or null.
 func _get_active_code_edit() -> CodeEdit:
-	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.visible:
-		return _embedded_code_editor.get_code_edit()
-	return null
+	return _get_vg_assist_code_edit()
+
+
+func _on_find_in_file_requested(show_replace: bool) -> void:
+	_show_find_replace_bar(show_replace)
+
+
+func _on_find_in_file_nav_requested(advance: bool) -> void:
+	if not _find_bar_visible():
+		_on_find_in_file_requested(false)
+		return
+	if advance:
+		_on_find_next()
+	else:
+		_on_find_prev()
 
 ## The Find/Replace bar widget (created once, reused)
 var _find_replace_bar: VBoxContainer = null
@@ -7364,17 +7380,7 @@ func _show_find_replace_bar(show_replace: bool) -> void:
 		return
 	if not is_instance_valid(_find_replace_bar):
 		_create_find_replace_bar()
-	if not _find_replace_bar.get_parent():
-		# Insert above the main split (between nav bar and code area)
-		if is_instance_valid(_embedded_code_editor):
-			var split_idx = _embedded_code_editor.get_child_count()
-			for i in _embedded_code_editor.get_child_count():
-				var child = _embedded_code_editor.get_child(i)
-				if child is VSplitContainer or child.name == "MainSplit":
-					split_idx = i
-					break
-			_embedded_code_editor.add_child(_find_replace_bar)
-			_embedded_code_editor.move_child(_find_replace_bar, split_idx)
+	_mount_find_replace_bar()
 	_find_replace_bar.visible = true
 	_replace_input.visible = show_replace
 	if _replace_input.get_parent() and _replace_input.get_parent().has_method("get_child"):
@@ -7395,10 +7401,34 @@ func _show_find_replace_bar(show_replace: bool) -> void:
 	_find_input.grab_focus()
 	_find_input.select_all()
 
+func _mount_find_replace_bar() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_find_replace_bar):
+		return
+	if _find_replace_bar.get_parent() == _embedded_code_editor:
+		return
+	if _find_replace_bar.get_parent():
+		_find_replace_bar.get_parent().remove_child(_find_replace_bar)
+	var split_idx: int = _embedded_code_editor.get_child_count()
+	for i in _embedded_code_editor.get_child_count():
+		var child = _embedded_code_editor.get_child(i)
+		if child is VSplitContainer or child.name == "MainSplit":
+			split_idx = i
+			break
+	_embedded_code_editor.add_child(_find_replace_bar)
+	_embedded_code_editor.move_child(_find_replace_bar, split_idx)
+
+
 func _create_find_replace_bar() -> void:
 	_find_replace_bar = VBoxContainer.new()
 	_find_replace_bar.name = "FindReplaceBar"
-	_find_replace_bar.custom_minimum_size.y = 0
+	_find_replace_bar.custom_minimum_size = Vector2(0, 36)
+	var bar_bg := StyleBoxFlat.new()
+	bar_bg.bg_color = Color(0.92, 0.91, 0.88)
+	bar_bg.content_margin_left = 4
+	bar_bg.content_margin_right = 4
+	bar_bg.content_margin_top = 2
+	bar_bg.content_margin_bottom = 2
+	_find_replace_bar.add_theme_stylebox_override("panel", bar_bg)
 	
 	# Find row
 	var find_row = HBoxContainer.new()
@@ -7451,6 +7481,17 @@ func _create_find_replace_bar() -> void:
 	
 	# Enter key triggers find next
 	_find_input.text_submitted.connect(func(_t): _on_find_next())
+	_find_input.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_find_replace_bar.visible = false
+			var ce := _get_active_code_edit()
+			if ce:
+				ce.grab_focus()
+	)
+
+
+func _find_bar_visible() -> bool:
+	return is_instance_valid(_find_replace_bar) and _find_replace_bar.visible
 
 func _on_find_next() -> void:
 	var ce = _get_active_code_edit()
@@ -16764,6 +16805,17 @@ func _on_help_link_meta_clicked(meta: Variant) -> void:
 	# EditorHelpBit::_meta_clicked → OS.shell_open. We only need to handle
 	# the "ref:LINE" scheme that Godot silently ignores.
 	var url := str(meta)
+	if url.begins_with("goto:"):
+		var line_str := url.substr(5)
+		if line_str.is_valid_int():
+			var target_line := line_str.to_int() - 1
+			var code_edit := _get_vg_assist_code_edit()
+			if code_edit and target_line >= 0 and target_line < code_edit.get_line_count():
+				code_edit.set_caret_line(target_line)
+				code_edit.set_caret_column(0)
+				code_edit.center_viewport_to_caret()
+				code_edit.grab_focus()
+		return
 	if url.begins_with("ref:"):
 		_open_vg_language_reference(url.substr(4))
 

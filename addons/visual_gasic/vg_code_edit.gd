@@ -21,11 +21,17 @@ signal set_next_statement_requested(line: int)  ## Emitted when user drags the y
 signal run_to_cursor_requested(line: int)       ## Emitted for Run to Cursor (Ctrl+F10)
 signal tracepoint_set(line: int, message: String) ## Emitted when user sets/changes a tracepoint log message
 signal edit_and_continue_requested()             ## Emitted for Edit & Continue (Ctrl+Shift+Enter)
+signal debug_continue_requested()                ## F5 while paused
+signal debug_step_over_requested()               ## F10 while paused
+signal debug_step_into_requested()               ## F11 while paused
+signal debug_step_out_requested()                ## Shift+F11 while paused
 signal pin_inline_value_requested(line: int, variable: String) ## Emitted when user pins an inline value
 signal bookmark_toggled(line: int, enabled: bool)              ## Emitted when user toggles a bookmark
-signal go_to_definition_requested(symbol: String, line: int)   ## Emitted for Ctrl+Click Go To Definition
+signal go_to_definition_requested(symbol: String, line: int, file_path: String)   ## Cross-file Go To Definition (file_path empty = same file)
 signal find_references_requested(symbol: String)               ## Emitted for Find All References (Ctrl+Shift+F)
 signal find_callers_requested(symbol: String)                  ## Emitted for Call Hierarchy (Ctrl+Shift+H)
+signal find_in_file_requested(show_replace: bool)              ## In-file Find (false) or Replace (true) — Ctrl+F / Ctrl+H
+signal find_in_file_nav_requested(advance: bool)             ## F3 (true) / Shift+F3 (false) — next/prev match
 signal edit_sprite_data_requested()                            ## Emitted from context menu in a *Sprite Data block
 signal file_path_action(action: int, ref: Dictionary)          ## Open-path context menu (see vg_open_path_resolver.gd)
 
@@ -42,6 +48,7 @@ var _known_enums: Dictionary = {}                ## Enum name → Array[String] 
 var _known_udts: Dictionary = {}                 ## Type name → Array[Dictionary] of {name, type} fields
 var _known_functions: Dictionary = {}            ## Function name (lower) → return type (String)
 var _imported_modules: Array[Dictionary] = []    ## [{name, path, subs, variables, constants}]
+var _current_vg_path: String = ""                ## Loaded .vg path — used to resolve Import paths
 var _form_name: String = ""                       ## Current form name (e.g. "Form1") — treated like Me
 var _completion_active: bool = false
 var _last_word: String = ""
@@ -397,6 +404,8 @@ enum ContextMenuItem {
 	COMMENT_TOGGLE,
 	COMMENT_BLOCK,
 	GOTO_LINE,
+	FIND_IN_FILE,
+	REPLACE_IN_FILE,
 	GOTO_DEFINITION,
 	FIND_REFERENCES,
 	FIND_CALLERS,
@@ -435,6 +444,8 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Wrap in Comment Block", ContextMenuItem.COMMENT_BLOCK)
 	_context_menu.add_separator()
 	_context_menu.add_item("Go To Line...           Ctrl+G", ContextMenuItem.GOTO_LINE)
+	_context_menu.add_item("Find...                 Ctrl+F", ContextMenuItem.FIND_IN_FILE)
+	_context_menu.add_item("Replace...              Ctrl+H", ContextMenuItem.REPLACE_IN_FILE)
 	_context_menu.add_item("Go To Definition     Ctrl+Click", ContextMenuItem.GOTO_DEFINITION)
 	_context_menu.add_item("Find All References  Ctrl+Shift+F", ContextMenuItem.FIND_REFERENCES)
 	_context_menu.add_item("Call Hierarchy       Ctrl+Shift+H", ContextMenuItem.FIND_CALLERS)
@@ -503,6 +514,10 @@ func _on_context_menu_item(id: int) -> void:
 			wrap_comment_block()
 		ContextMenuItem.GOTO_LINE:
 			_show_goto_line_dialog()
+		ContextMenuItem.FIND_IN_FILE:
+			find_in_file_requested.emit(false)
+		ContextMenuItem.REPLACE_IN_FILE:
+			find_in_file_requested.emit(true)
 		ContextMenuItem.TOGGLE_BREAKPOINT:
 			toggle_breakpoint(get_caret_line())
 		ContextMenuItem.TOGGLE_BOOKMARK:
@@ -2067,57 +2082,18 @@ func get_known_variables() -> Array[String]:
 func set_imported_modules(modules: Array[Dictionary]) -> void:
 	_imported_modules = modules
 
+## Path of the .vg file shown in this editor (for Import resolution and Go To Definition).
+func set_current_vg_path(path: String) -> void:
+	_current_vg_path = path
+
+func get_current_vg_path() -> String:
+	return _current_vg_path
+
 ## Scans Import directives in the current file and parses the referenced .vg
 ## files to extract their public symbols for Module. dot-completion.
 func _scan_imported_modules(lines: PackedStringArray) -> void:
 	_imported_modules.clear()
-	var import_re := RegEx.new()
-	import_re.compile("(?i)^\\s*Import\\s+(?:\"([^\"]+)\"|([\\w]+))")
-	
-	for line_text in lines:
-		var m := import_re.search(line_text)
-		if not m:
-			continue
-		var import_path := m.get_string(1)  # Import "path/module.vg"
-		var import_name := m.get_string(2)  # Import ModuleName
-		
-		# Determine the module name and the file path to parse
-		var mod_name := ""
-		var mod_path := ""
-		if not import_path.is_empty():
-			mod_path = import_path
-			mod_name = import_path.get_file().get_basename()
-		elif not import_name.is_empty():
-			mod_name = import_name
-			mod_path = import_name + ".vg"
-		
-		if mod_name.is_empty():
-			continue
-		
-		# Try to resolve the path relative to res://
-		var try_paths: Array[String] = [
-			"res://" + mod_path,
-			"res://" + mod_path.get_file(),
-		]
-		# If the current file has a path, also try relative to it
-		# (but we don't have direct access to file path in CodeEdit, so use res://)
-		
-		var resolved_path := ""
-		for tp in try_paths:
-			if FileAccess.file_exists(tp):
-				resolved_path = tp
-				break
-		
-		if resolved_path.is_empty():
-			# Even without the file, still register the module name so
-			# at least it shows up as a recognizable identifier
-			_imported_modules.append({"name": mod_name, "subs": [], "variables": [], "constants": []})
-			continue
-		
-		# Parse the imported file to extract public symbols
-		var mod_info := _parse_module_symbols(resolved_path, mod_name)
-		_imported_modules.append(mod_info)
-	
+	_imported_modules.assign(VGGoToDefinition.parse_imports("\n".join(lines), _current_vg_path))
 	# Also scan for Module...End Module blocks within the current file
 	var in_module := false
 	var current_mod_name := ""
@@ -2168,46 +2144,9 @@ func _scan_imported_modules(lines: PackedStringArray) -> void:
 				var dm := dim_re.search(stripped)
 				if dm:
 					mod_vars.append(dm.get_string(1))
-
 ## Parses a .vg module file and extracts its public Subs, Functions, Variables, and Constants.
 func _parse_module_symbols(file_path: String, mod_name: String) -> Dictionary:
-	var result := {"name": mod_name, "path": file_path, "subs": [], "variables": [], "constants": []}
-	
-	var f := FileAccess.open(file_path, FileAccess.READ)
-	if not f:
-		return result
-	var content := f.get_as_text()
-	f.close()
-	
-	# Extract public Sub/Function names
-	var sub_re := RegEx.new()
-	sub_re.compile("(?i)(?:Public\\s+)?(?:Sub|Function)\\s+(\\w+)")
-	for m in sub_re.search_all(content):
-		var name := m.get_string(1)
-		if name not in result["subs"]:
-			result["subs"].append(name)
-	
-	# Extract public variables (Public x As Type, or Dim at module level)
-	var var_re := RegEx.new()
-	var_re.compile("(?i)Public\\s+(\\w+)(?:\\s+As\\s+\\w+)?")
-	for m in var_re.search_all(content):
-		var name := m.get_string(1)
-		# Skip if it's a Sub/Function/Const/Enum/Type keyword
-		var lower := name.to_lower()
-		if lower in ["sub", "function", "const", "enum", "type", "property", "module", "class"]:
-			continue
-		if name not in result["variables"]:
-			result["variables"].append(name)
-	
-	# Extract constants
-	var const_re := RegEx.new()
-	const_re.compile("(?i)(?:Public\\s+)?Const\\s+(\\w+)")
-	for m in const_re.search_all(content):
-		var name := m.get_string(1)
-		if name not in result["constants"]:
-			result["constants"].append(name)
-	
-	return result
+	return VGGoToDefinition.parse_module_file(file_path, mod_name)
 
 # =============================================================================
 # BRACKET MATCHING
@@ -2306,6 +2245,22 @@ func _gui_input(event: InputEvent) -> void:
 				if event.ctrl_pressed and not event.shift_pressed:
 					_show_goto_line_dialog()
 					accept_event()
+			KEY_F:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					find_in_file_requested.emit(false)
+					accept_event()
+			KEY_H:
+				if event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+					find_in_file_requested.emit(true)
+					accept_event()
+			KEY_F3:
+				if not event.ctrl_pressed and not event.alt_pressed:
+					find_in_file_nav_requested.emit(not event.shift_pressed)
+					accept_event()
+			KEY_F5:
+				if _is_debug_paused and not event.ctrl_pressed and not event.shift_pressed:
+					debug_continue_requested.emit()
+					accept_event()
 			KEY_F9:
 				if not event.ctrl_pressed and not event.shift_pressed:
 					toggle_breakpoint(get_caret_line())
@@ -2314,27 +2269,37 @@ func _gui_input(event: InputEvent) -> void:
 					set_conditional_breakpoint(get_caret_line())
 					accept_event()
 			KEY_F10:
-				if event.ctrl_pressed and event.shift_pressed and _is_debug_paused:
-					# Ctrl+Shift+F10 = Set Next Statement (VB6 shortcut)
-					var target_line_0 := get_caret_line()
-					var exec_range := _get_enclosing_procedure_range(_executing_line)
-					var target_range := _get_enclosing_procedure_range(target_line_0)
-					if exec_range != target_range:
-						push_warning("Set Next Statement: can only move within the current procedure.")
-					else:
-						var target := target_line_0 + 1  # 1-based
-						set_executing_line(target_line_0)
-						set_next_statement_requested.emit(target)
-					accept_event()
-				elif event.ctrl_pressed and not event.shift_pressed and _is_debug_paused:
-					# Ctrl+F10 = Run to Cursor
-					var target := get_caret_line() + 1  # 1-based
-					run_to_cursor_requested.emit(target)
-					accept_event()
+				if _is_debug_paused:
+					if event.ctrl_pressed and event.shift_pressed:
+						# Ctrl+Shift+F10 = Set Next Statement (VB6 shortcut)
+						var target_line_0 := get_caret_line()
+						var exec_range := _get_enclosing_procedure_range(_executing_line)
+						var target_range := _get_enclosing_procedure_range(target_line_0)
+						if exec_range != target_range:
+							push_warning("Set Next Statement: can only move within the current procedure.")
+						else:
+							var target := target_line_0 + 1  # 1-based
+							set_executing_line(target_line_0)
+							set_next_statement_requested.emit(target)
+						accept_event()
+					elif event.ctrl_pressed and not event.shift_pressed:
+						# Ctrl+F10 = Run to Cursor
+						var target := get_caret_line() + 1  # 1-based
+						run_to_cursor_requested.emit(target)
+						accept_event()
+					elif not event.ctrl_pressed and not event.shift_pressed:
+						debug_step_over_requested.emit()
+						accept_event()
 			KEY_F11:
 				if event.ctrl_pressed and event.shift_pressed:
 					# Ctrl+Shift+F11 = Set/Edit Tracepoint (Log Point)
 					set_tracepoint(get_caret_line())
+					accept_event()
+				elif _is_debug_paused and not event.ctrl_pressed:
+					if event.shift_pressed:
+						debug_step_out_requested.emit()
+					else:
+						debug_step_into_requested.emit()
 					accept_event()
 			KEY_ENTER:
 				if event.ctrl_pressed and event.shift_pressed and _is_debug_paused:
@@ -2693,10 +2658,7 @@ func _update_file_path_link_cursor(at: Vector2) -> void:
 		))
 	_file_path_hover = hover
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if not hover.is_empty() else Control.CURSOR_IBEAM
-	if not hover.is_empty():
-		tooltip_text = "Right-click for file actions"
-	elif tooltip_text == "Right-click for file actions":
-		tooltip_text = ""
+	tooltip_text = "Right-click for file actions" if not hover.is_empty() else ""
 	if changed and _features_overlay:
 		_features_overlay.queue_redraw()
 
@@ -3789,16 +3751,31 @@ func _on_symbol_validate(symbol: String) -> void:
 		if label_re.search(get_line(i)):
 			set_symbol_lookup_word_as_valid(true)
 			return
+	# Imported module public symbols (unqualified or Module.Member)
+	var ctx := _get_symbol_context_at_caret()
+	var mod_prefix := str(ctx.get("module_prefix", ""))
+	var lookup_sym := symbol
+	if mod_prefix.is_empty() and not str(ctx.get("symbol", "")).is_empty():
+		lookup_sym = str(ctx["symbol"])
+		mod_prefix = str(ctx.get("module_prefix", ""))
+	var imported := VGGoToDefinition.find_in_imports(lookup_sym, _imported_modules, mod_prefix)
+	if imported.found:
+		set_symbol_lookup_word_as_valid(true)
+		return
 	set_symbol_lookup_word_as_valid(false)
 
 ## Called when user Ctrl+Clicks on a validated symbol — navigate to its definition.
 func _on_symbol_lookup(symbol: String, line: int, column: int) -> void:
-	_go_to_definition(symbol)
+	var ctx := _get_symbol_context_at_line_col(line, column)
+	if not str(ctx.get("symbol", "")).is_empty():
+		_go_to_definition(str(ctx["symbol"]), str(ctx.get("module_prefix", "")))
+	else:
+		_go_to_definition(symbol)
 
 ## Navigate to the definition of a symbol (Sub/Function, variable, enum, label).
-func _go_to_definition(symbol: String) -> void:
+func _go_to_definition(symbol: String, module_prefix: String = "") -> void:
 	var sym_lower := symbol.to_lower()
-	# 1) Check procedures (Sub/Function/Property declarations)
+	# 1) Check procedures (Sub/Function/Property declarations) in current file
 	var proc_re := RegEx.new()
 	proc_re.compile("(?i)^\\s*(?:Public\\s+|Private\\s+|Static\\s+|Friend\\s+)?(?:Sub|Function|Property)\\s+" + symbol + "\\b")
 	for i in range(get_line_count()):
@@ -3806,7 +3783,7 @@ func _go_to_definition(symbol: String) -> void:
 			set_caret_line(i)
 			set_caret_column(get_line(i).to_lower().find(sym_lower))
 			center_viewport_to_caret()
-			go_to_definition_requested.emit(symbol, i)
+			go_to_definition_requested.emit(symbol, i, "")
 			return
 	# 2) Check variable declarations (Dim, Public, Private, Const)
 	var var_re := RegEx.new()
@@ -3816,7 +3793,7 @@ func _go_to_definition(symbol: String) -> void:
 			set_caret_line(i)
 			set_caret_column(get_line(i).to_lower().find(sym_lower))
 			center_viewport_to_caret()
-			go_to_definition_requested.emit(symbol, i)
+			go_to_definition_requested.emit(symbol, i, "")
 			return
 	# 3) Check Enum / Type blocks
 	var block_re := RegEx.new()
@@ -3826,7 +3803,7 @@ func _go_to_definition(symbol: String) -> void:
 			set_caret_line(i)
 			set_caret_column(get_line(i).to_lower().find(sym_lower))
 			center_viewport_to_caret()
-			go_to_definition_requested.emit(symbol, i)
+			go_to_definition_requested.emit(symbol, i, "")
 			return
 	# 4) Check labels (ErrorHandler:)
 	var label_re := RegEx.new()
@@ -3836,16 +3813,77 @@ func _go_to_definition(symbol: String) -> void:
 			set_caret_line(i)
 			set_caret_column(0)
 			center_viewport_to_caret()
-			go_to_definition_requested.emit(symbol, i)
+			go_to_definition_requested.emit(symbol, i, "")
 			return
-	# Not found — push a warning
+	# 5) Imported module symbols
+	var imported := VGGoToDefinition.find_in_imports(symbol, _imported_modules, module_prefix)
+	if imported.found and not imported.file_path.is_empty():
+		var target_line := imported.line - 1
+		if imported.file_path == _current_vg_path or _current_vg_path.is_empty():
+			set_caret_line(target_line)
+			set_caret_column(0)
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, target_line, "")
+		else:
+			go_to_definition_requested.emit(symbol, target_line, imported.file_path)
+		return
+	# 6) Workspace fallback
+	var found := VGGoToDefinition.find_definition(symbol, _current_vg_path)
+	if found.found and not found.file_path.is_empty():
+		var target_line := found.line - 1
+		if found.file_path == _current_vg_path or _current_vg_path.is_empty():
+			set_caret_line(target_line)
+			set_caret_column(0)
+			center_viewport_to_caret()
+			go_to_definition_requested.emit(symbol, target_line, "")
+		else:
+			go_to_definition_requested.emit(symbol, target_line, found.file_path)
+		return
 	push_warning("Go To Definition: could not find declaration for '%s'" % symbol)
 
 ## Go To Definition for the word currently under the caret (context menu version).
 func _go_to_definition_at_caret() -> void:
-	var word := _get_word_under_caret()
-	if not word.is_empty():
-		_go_to_definition(word)
+	var ctx := _get_symbol_context_at_caret()
+	var sym := str(ctx.get("symbol", ""))
+	if sym.is_empty():
+		return
+	_go_to_definition(sym, str(ctx.get("module_prefix", "")))
+
+func _get_symbol_context_at_caret() -> Dictionary:
+	return _get_symbol_context_at_line_col(get_caret_line(), get_caret_column())
+
+func _get_symbol_context_at_line_col(line: int, column: int) -> Dictionary:
+	var result := {"symbol": "", "module_prefix": ""}
+	if line < 0 or line >= get_line_count():
+		return result
+	var line_text := get_line(line)
+	if line_text.is_empty():
+		return result
+	var col := clampi(column, 0, line_text.length())
+	# Expand to word under column
+	var start := col
+	while start > 0 and _is_word_char(line_text[start - 1]):
+		start -= 1
+	var end_pos := col
+	while end_pos < line_text.length() and _is_word_char(line_text[end_pos]):
+		end_pos += 1
+	if start >= end_pos:
+		return result
+	result["symbol"] = line_text.substr(start, end_pos - start)
+	# Module.Member — caret may be on either side of the dot
+	if start > 0 and line_text[start - 1] == ".":
+		var mod_start := start - 1
+		while mod_start > 0 and _is_word_char(line_text[mod_start - 1]):
+			mod_start -= 1
+		result["module_prefix"] = line_text.substr(mod_start, start - 1 - mod_start)
+	elif end_pos < line_text.length() and line_text[end_pos] == ".":
+		var member_end := end_pos + 1
+		while member_end < line_text.length() and _is_word_char(line_text[member_end]):
+			member_end += 1
+		if member_end > end_pos + 1:
+			result["symbol"] = line_text.substr(end_pos + 1, member_end - end_pos - 1)
+			result["module_prefix"] = line_text.substr(start, end_pos - start)
+	return result
 
 # =============================================================================
 # FEATURE #9: WORD WRAP TOGGLE

@@ -35,6 +35,8 @@ signal file_path_open_external_requested(path: String)
 signal dual_editor_refresh_requested()  ## user asked to reload from the other editor
 signal stale_banner_dismissed(path: String)
 signal buffer_edited(path: String)  ## user edited text (not peer refresh / load)
+signal find_in_file_requested(show_replace: bool)  ## Ctrl+F / Ctrl+H — in-file find bar
+signal find_in_file_nav_requested(advance: bool)   ## F3 / Shift+F3 — next/prev match
 
 # =============================================================================
 # STATE
@@ -94,6 +96,7 @@ var _main_split: VSplitContainer = null
 var _bottom_panel: Control = null           # outer container (plain Control — NOT PanelContainer)
 var _bottom_tabs: TabContainer = null      # tab switcher
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
+var _breakpoints_by_file: Dictionary = {}  # script path -> Array of 0-based breakpoint lines
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
 var _console_text: RichTextLabel = null    # System Console tab: system log
 
@@ -243,6 +246,16 @@ func _build_ui() -> void:
 		_code_edit.edit_sprite_data_requested.connect(_on_edit_sprite_data_requested)
 	if _code_edit.has_signal("file_path_action"):
 		_code_edit.file_path_action.connect(_on_file_path_action)
+	if _code_edit.has_signal("go_to_definition_requested"):
+		_code_edit.go_to_definition_requested.connect(_on_go_to_definition_requested)
+	if _code_edit.has_signal("find_in_file_requested"):
+		_code_edit.find_in_file_requested.connect(func(show_replace: bool) -> void:
+			find_in_file_requested.emit(show_replace)
+		)
+	if _code_edit.has_signal("find_in_file_nav_requested"):
+		_code_edit.find_in_file_nav_requested.connect(func(advance: bool) -> void:
+			find_in_file_nav_requested.emit(advance)
+		)
 	VGTheme.hook_text_edit(_code_edit)
 
 	# ── Context rail (audit sidecar) — plugin reparents into ToolboxPanel during Code view ──
@@ -1464,11 +1477,50 @@ func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary
 ## case-insensitive match in the same directory and reuse that file if one
 ## exists. This prevents accidental ghost duplicates when one caller passes
 ## the canonical-cased path and another passes a lowercased variant.
+func _stash_breakpoints_for_path(path: String) -> void:
+	if path.is_empty() or not is_instance_valid(_code_edit):
+		return
+	var lines: PackedInt32Array = _code_edit.get_breakpointed_lines()
+	if lines.is_empty():
+		_breakpoints_by_file.erase(path)
+	else:
+		_breakpoints_by_file[path] = Array(lines)
+
+
+func _restore_breakpoints_for_path(path: String) -> void:
+	if not is_instance_valid(_code_edit):
+		return
+	for line_idx in _code_edit.get_breakpointed_lines():
+		_code_edit.set_line_as_breakpoint(line_idx, false)
+	if _breakpoints_by_file.has(path):
+		for line_idx in _breakpoints_by_file[path]:
+			_code_edit.set_line_as_breakpoint(int(line_idx), true)
+
+
+## All breakpoints across every file opened in this session (for debug run export).
+func get_all_debug_breakpoints() -> Dictionary:
+	var result: Dictionary = {}
+	if not _vg_path.is_empty() and is_instance_valid(_code_edit):
+		_stash_breakpoints_for_path(_vg_path)
+	for path in _breakpoints_by_file:
+		var lines: Array = _breakpoints_by_file[path]
+		if lines.is_empty():
+			continue
+		var one_based: Array = []
+		for line_idx in lines:
+			one_based.append(int(line_idx) + 1)
+		result[path] = one_based
+	return result
+
+
 func load_file(path: String) -> void:
 	if not FileAccess.file_exists(path):
 		var canonical := _find_case_insensitive_match(path)
 		if not canonical.is_empty():
 			path = canonical
+
+	if not _vg_path.is_empty() and _vg_path != path:
+		_stash_breakpoints_for_path(_vg_path)
 
 	_vg_path = path
 
@@ -1500,7 +1552,10 @@ func load_file(path: String) -> void:
 		if not _code_edit:
 			push_warning("VG Code Editor: _code_edit not yet initialized, deferring load")
 			return
+		if _code_edit.has_method("set_current_vg_path"):
+			_code_edit.set_current_vg_path(path)
 		_code_edit.text = content
+		_restore_breakpoints_for_path(path)
 		_dirty = false
 		set_dual_editor_stale(false)
 		_rebuild_proc_list()
@@ -2169,6 +2224,7 @@ func _on_caret_moved() -> void:
 	_update_proc_selection()
 	_check_param_info()
 	_update_context_rail()
+	_update_command_help()
 
 func _update_context_rail() -> void:
 	if not is_instance_valid(_context_rail) or not _code_edit:
@@ -2218,6 +2274,22 @@ func _on_context_rail_grid_open(ref: Dictionary) -> void:
 	if ref.is_empty():
 		return
 	file_path_open_grid_editor_requested.emit(ref)
+
+
+func navigate_to_line(line: int) -> void:
+	if not _code_edit or line < 0:
+		return
+	_code_edit.set_caret_line(line)
+	_code_edit.set_caret_column(0)
+	_code_edit.center_viewport_to_caret()
+	_code_edit.grab_focus()
+
+
+func _on_go_to_definition_requested(symbol: String, line: int, file_path: String) -> void:
+	if file_path.is_empty() or file_path == _vg_path:
+		return
+	load_file(file_path)
+	navigate_to_line(line)
 
 
 func _on_file_path_action(action: int, ref: Dictionary) -> void:
@@ -2718,367 +2790,7 @@ func _lookup_godot_api(keyword: String) -> Dictionary:
 func _lookup_user_symbol(keyword: String) -> Dictionary:
 	if not _code_edit or keyword.is_empty():
 		return {}
-	var kw_lower := keyword.to_lower()
-	var lines := _code_edit.text.split("\n")
-
-	# ── Pass 1: Variable declarations (Dim / Private / Public / Static / Global) ──
-	for i in lines.size():
-		var sline := lines[i].strip_edges()
-		var sl := sline.to_lower()
-
-		# Determine declaration keyword and offset
-		var decl_kw := ""
-		var offset := 0
-		if sl.begins_with("dim "):
-			decl_kw = "Dim"; offset = 4
-		elif sl.begins_with("private ") and not sl.begins_with("private sub ") and not sl.begins_with("private function ") and not sl.begins_with("private const "):
-			decl_kw = "Private"; offset = 8
-		elif sl.begins_with("public ") and not sl.begins_with("public sub ") and not sl.begins_with("public function ") and not sl.begins_with("public const "):
-			decl_kw = "Public"; offset = 7
-		elif sl.begins_with("static "):
-			decl_kw = "Static"; offset = 7
-		elif sl.begins_with("global "):
-			decl_kw = "Global"; offset = 7
-		else:
-			pass
-
-		if not decl_kw.is_empty():
-			var rest := sline.substr(offset).strip_edges()
-			# Extract variable name
-			var vname := ""
-			var ci := 0
-			while ci < rest.length() and (rest[ci].is_valid_identifier() or rest[ci] == "_"):
-				vname += rest[ci]
-				ci += 1
-			if vname.to_lower() == kw_lower:
-				# Extract type
-				var vtype := "Variant"
-				var after := rest.substr(ci).strip_edges()
-				# Handle array parens: Dim arr(10) As Integer
-				if after.begins_with("("):
-					var close := after.find(")")
-					if close >= 0:
-						after = after.substr(close + 1).strip_edges()
-						vtype = "Array"
-				if after.to_lower().begins_with("as "):
-					var tpart := after.substr(3).strip_edges()
-					if tpart.to_lower().begins_with("new "):
-						tpart = tpart.substr(4).strip_edges()
-					var tname := ""
-					for ti in tpart.length():
-						var tc := tpart[ti]
-						if tc.is_valid_identifier() or tc == "_" or tc == "*" or tc == " ":
-							tname += tc
-						else:
-							break
-					tname = tname.strip_edges()
-					if not tname.is_empty():
-						vtype = tname
-				# Check for initial value: = something
-				var init_val := ""
-				var eq_pos := rest.find("=")
-				if eq_pos >= 0:
-					init_val = rest.substr(eq_pos).strip_edges()
-					var cmt := init_val.find("'")
-					if cmt >= 0:
-						init_val = init_val.substr(0, cmt).strip_edges()
-				# ── NEW: Extract trailing comment (#1) ──
-				var comment := _extract_trailing_comment(sline)
-				# ── NEW: Scope indicator (#7) ──
-				var scope_info := _find_scope_for_line(lines, i)
-				# ── NEW: Usage scanning (#4) ──
-				var used_on := _scan_usages(lines, vname, i)
-				# ── NEW: Assignment tracking (#8) ──
-				var modified_on := _scan_assignments(lines, vname, i)
-
-				var scope := decl_kw
-				if decl_kw == "Dim":
-					scope = "Local variable"
-				elif decl_kw == "Private":
-					scope = "Private variable"
-				elif decl_kw == "Public":
-					scope = "Public variable"
-				elif decl_kw == "Global":
-					scope = "Global variable"
-				elif decl_kw == "Static":
-					scope = "Static variable"
-				var syntax_str := decl_kw + " " + vname + " As " + vtype
-				if not init_val.is_empty():
-					syntax_str += " " + init_val
-				var desc_str := scope + " declared on line " + str(i + 1) + ".\nType: " + vtype
-				if not init_val.is_empty():
-					desc_str += "\nInitial value: " + init_val.substr(2).strip_edges() if init_val.begins_with("= ") else "\nInitial value: " + init_val.substr(1).strip_edges()
-				return {
-					"keyword": vname + "  As " + vtype,
-					"syntax": syntax_str,
-					"desc": desc_str,
-					"code": "",
-					"ref_line": 0,
-					"symbol_kind": "variable",
-					"defined_on_line": i + 1,
-					"comment": comment,
-					"scope_info": scope_info,
-					"used_on_lines": used_on,
-					"modified_on_lines": modified_on,
-				}
-
-	# ── Pass 2: Const declarations ──
-	for i in lines.size():
-		var sline := lines[i].strip_edges()
-		var sl := sline.to_lower()
-
-		var const_offset := -1
-		var const_scope := ""
-		if sl.begins_with("const "):
-			const_offset = 6; const_scope = "Const"
-		elif sl.begins_with("public const "):
-			const_offset = 14; const_scope = "Public Const"
-		elif sl.begins_with("private const "):
-			const_offset = 15; const_scope = "Private Const"
-
-		if const_offset >= 0:
-			var rest := sline.substr(const_offset).strip_edges()
-			var cname := ""
-			var ci := 0
-			while ci < rest.length() and (rest[ci].is_valid_identifier() or rest[ci] == "_"):
-				cname += rest[ci]
-				ci += 1
-			if cname.to_lower() == kw_lower:
-				var after := rest.substr(ci).strip_edges()
-				var cmt := after.find("'")
-				if cmt >= 0:
-					after = after.substr(0, cmt).strip_edges()
-				var comment := _extract_trailing_comment(sline)
-				var scope_info := _find_scope_for_line(lines, i)
-				var used_on := _scan_usages(lines, cname, i)
-				return {
-					"keyword": cname + "  (Const)",
-					"syntax": const_scope + " " + cname + " " + after,
-					"desc": "Constant declared on line " + str(i + 1) + ".\nValue cannot be changed at runtime.",
-					"code": "",
-					"ref_line": 0,
-					"symbol_kind": "const",
-					"defined_on_line": i + 1,
-					"comment": comment,
-					"scope_info": scope_info,
-					"used_on_lines": used_on,
-				}
-
-	# ── Pass 3: Sub / Function definitions ──
-	var rx := RegEx.new()
-	rx.compile("(?i)^\\s*(?:(Public|Private|Static)\\s+)?(?:(Sub|Function))\\s+" + keyword.replace("(", "\\(") + "\\s*\\(([^)]*)\\)(.*)")
-	for i in lines.size():
-		var m := rx.search(lines[i])
-		if m:
-			var scope := m.get_string(1) if not m.get_string(1).is_empty() else "Public"
-			var kind := m.get_string(2)  # Sub or Function
-			var params := m.get_string(3).strip_edges()
-			var trailer := m.get_string(4).strip_edges()
-			var ret_type := ""
-			if kind.to_lower() == "function":
-				var tl := trailer.to_lower()
-				var as_pos := tl.find("as ")
-				if as_pos >= 0:
-					ret_type = trailer.substr(as_pos + 3).strip_edges()
-					var cmt := ret_type.find("'")
-					if cmt >= 0:
-						ret_type = ret_type.substr(0, cmt).strip_edges()
-			var comment := _extract_trailing_comment(lines[i])
-			var called_from := _scan_callers(lines, keyword, i)
-			var syntax_str := scope + " " + kind + " " + keyword + "(" + params + ")"
-			if not ret_type.is_empty():
-				syntax_str += " As " + ret_type
-			var param_desc := ""
-			if not params.is_empty():
-				param_desc = "\nParameters: " + params
-			else:
-				param_desc = "\nParameters: (none)"
-			var desc_str := scope + " " + kind + " defined on line " + str(i + 1) + "." + param_desc
-			if not ret_type.is_empty():
-				desc_str += "\nReturns: " + ret_type
-			var title := keyword + "(" + params + ")"
-			if not ret_type.is_empty():
-				title += " As " + ret_type
-			return {
-				"keyword": title,
-				"syntax": syntax_str,
-				"desc": desc_str,
-				"code": "",
-				"ref_line": 0,
-				"symbol_kind": kind.to_lower(),
-				"defined_on_line": i + 1,
-				"comment": comment,
-				"called_from_lines": called_from,
-			}
-
-	# ── Pass 4: Type definitions ──
-	var type_rx := RegEx.new()
-	type_rx.compile("(?i)^\\s*(?:Public\\s+|Private\\s+)?Type\\s+" + keyword.replace("(", "\\(") + "\\s*$")
-	for i in lines.size():
-		if type_rx.search(lines[i]):
-			var comment := _extract_trailing_comment(lines[i])
-			var members := _scan_type_members(lines, i)
-			var used_on := _scan_usages(lines, keyword, i)
-			var scope_kw := "Public"
-			var sl := lines[i].strip_edges().to_lower()
-			if sl.begins_with("private"):
-				scope_kw = "Private"
-			return {
-				"keyword": keyword + "  (Type)",
-				"syntax": scope_kw + " Type " + keyword,
-				"desc": "User-defined Type declared on line " + str(i + 1) + ".",
-				"code": "",
-				"ref_line": 0,
-				"symbol_kind": "type",
-				"defined_on_line": i + 1,
-				"comment": comment,
-				"scope_info": "Module-level",
-				"used_on_lines": used_on,
-				"type_members": members,
-			}
-
-	return {}
-
-# =============================================================================
-# COMMAND HELP — HELPER FUNCTIONS
-# =============================================================================
-
-## Extracts the trailing comment from a line of code.
-## e.g. "Dim score As Integer  ' keeps track of points" → "keeps track of points"
-func _extract_trailing_comment(line: String) -> String:
-	# Skip lines that are purely comments (start with ')
-	var stripped := line.strip_edges()
-	if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
-		return ""
-	# Find the comment marker — be careful to skip ' inside string literals
-	var in_string := false
-	for ci in line.length():
-		var ch := line[ci]
-		if ch == '"':
-			in_string = not in_string
-		elif ch == "'" and not in_string:
-			var comment := line.substr(ci + 1).strip_edges()
-			if not comment.is_empty():
-				return comment
-			return ""
-	return ""
-
-## Determines the scope (module-level or local) for a given line.
-## Returns e.g. "Module-level", "Local to Sub UpdateScore", "Local to Function CalcTotal".
-func _find_scope_for_line(lines: PackedStringArray, line_idx: int) -> String:
-	var proc_rx := RegEx.new()
-	proc_rx.compile("(?i)^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function)\\s+(\\w+)")
-	var end_rx := RegEx.new()
-	end_rx.compile("(?i)^\\s*End\\s+(?:Sub|Function)")
-	# Walk backward to find enclosing Sub/Function
-	var inside_proc := ""
-	var depth := 0
-	for j in range(line_idx - 1, -1, -1):
-		var em := end_rx.search(lines[j])
-		if em:
-			depth += 1  # entering a closed procedure (going backward)
-		var pm := proc_rx.search(lines[j])
-		if pm:
-			if depth > 0:
-				depth -= 1  # this End matched a prior proc header
-			else:
-				inside_proc = pm.get_string(1)
-				# Determine Sub or Function
-				var kind_rx := RegEx.new()
-				kind_rx.compile("(?i)\\b(Sub|Function)\\b")
-				var km := kind_rx.search(lines[j])
-				if km:
-					return "Local to " + km.get_string(1) + " " + inside_proc
-				return "Local to " + inside_proc
-	return "Module-level"
-
-## Scans all lines for usage of a symbol (case-insensitive, word boundary).
-## Excludes the declaration line itself and pure comment lines.
-## Returns an Array of 1-based line numbers.
-func _scan_usages(lines: PackedStringArray, symbol: String, decl_line: int) -> Array:
-	var result: Array = []
-	var rx := RegEx.new()
-	rx.compile("(?i)\\b" + symbol.replace("(", "\\(").replace(")", "\\)") + "\\b")
-	for i in lines.size():
-		if i == decl_line:
-			continue
-		var stripped := lines[i].strip_edges()
-		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
-			continue
-		# Skip the declaration's own Sub/Function header and End Sub/Function
-		if rx.search(lines[i]):
-			result.append(i + 1)  # 1-based
-	return result
-
-## Scans for lines where a variable is assigned (appears on left side of =).
-## Excludes the declaration line, comments, and comparison contexts.
-## Returns an Array of 1-based line numbers.
-func _scan_assignments(lines: PackedStringArray, symbol: String, decl_line: int) -> Array:
-	var result: Array = []
-	var sym_lower := symbol.to_lower()
-	var assign_rx := RegEx.new()
-	# Match: symbol =, symbol(...)  =, symbol.member = (but not ==, <=, >=, <>)
-	assign_rx.compile("(?i)^[^']*\\b" + symbol.replace("(", "\\(").replace(")", "\\)") + "\\b[^=<>!]*=[^=]")
-	for i in lines.size():
-		if i == decl_line:
-			continue
-		var stripped := lines[i].strip_edges()
-		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
-			continue
-		# Also skip If/ElseIf/While/Until/Case lines (comparisons, not assignments)
-		var sl := stripped.to_lower()
-		if sl.begins_with("if ") or sl.begins_with("elseif ") or sl.begins_with("while ") \
-			or sl.begins_with("until ") or sl.begins_with("case ") or sl.begins_with("select ") \
-			or sl.begins_with("debug.print") or sl.begins_with("print ") \
-			or sl.begins_with("msgbox") or sl.begins_with("call "):
-			continue
-		# Skip Sub/Function/End lines
-		if sl.begins_with("sub ") or sl.begins_with("function ") or sl.begins_with("end ") \
-			or sl.begins_with("public sub") or sl.begins_with("private sub") \
-			or sl.begins_with("public function") or sl.begins_with("private function"):
-			continue
-		if assign_rx.search(lines[i]):
-			result.append(i + 1)  # 1-based
-	return result
-
-## Scans for lines that call a Sub or Function (excluding its own definition).
-## Returns an Array of 1-based line numbers.
-func _scan_callers(lines: PackedStringArray, proc_name: String, def_line: int) -> Array:
-	var result: Array = []
-	var call_rx := RegEx.new()
-	# Match the proc name followed by ( or space (for Sub calls without parens)
-	call_rx.compile("(?i)\\b" + proc_name.replace("(", "\\(").replace(")", "\\)") + "\\b")
-	var def_rx := RegEx.new()
-	def_rx.compile("(?i)^\\s*(?:(?:Public|Private|Static)\\s+)?(?:Sub|Function)\\s+" + proc_name.replace("(", "\\(") + "\\b")
-	var end_rx := RegEx.new()
-	end_rx.compile("(?i)^\\s*End\\s+(?:Sub|Function)")
-	for i in lines.size():
-		if i == def_line:
-			continue
-		var stripped := lines[i].strip_edges()
-		if stripped.begins_with("'") or stripped.to_lower().begins_with("rem "):
-			continue
-		# Skip the definition header and end lines
-		if def_rx.search(lines[i]):
-			continue
-		if call_rx.search(lines[i]):
-			result.append(i + 1)  # 1-based
-	return result
-
-## Scans a Type...End Type block starting at the given line for member fields.
-## Returns an Array of strings like "name As String", "age As Integer".
-func _scan_type_members(lines: PackedStringArray, type_line: int) -> Array:
-	var result: Array = []
-	var end_rx := RegEx.new()
-	end_rx.compile("(?i)^\\s*End\\s+Type")
-	for i in range(type_line + 1, lines.size()):
-		if end_rx.search(lines[i]):
-			break
-		var stripped := lines[i].strip_edges()
-		if stripped.is_empty() or stripped.begins_with("'"):
-			continue
-		result.append(stripped)
-	return result
+	return VGUserSymbolHelp.lookup(keyword, _code_edit.text)
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
@@ -3207,6 +2919,9 @@ func _find_user_proc_signature(func_name: String) -> String:
 	return ""
 
 func _show_param_popup(signature: String, arg_index: int) -> void:
+	if signature.is_empty():
+		_hide_param_popup()
+		return
 	if not _param_popup:
 		_param_popup = PopupPanel.new()
 		_param_popup.transparent_bg = false
@@ -3225,9 +2940,10 @@ func _show_param_popup(signature: String, arg_index: int) -> void:
 		_param_popup.add_child(_param_label)
 		add_child(_param_popup)
 	
-	# Bold the current parameter
-	var bbcode = _highlight_param_in_sig(signature, arg_index)
-	_param_label.text = ""
+	if not is_instance_valid(_param_label):
+		return
+	var bbcode: String = _highlight_param_in_sig(signature, arg_index)
+	_param_label.clear()
 	_param_label.append_text(bbcode)
 	
 	# Position below the caret
@@ -3289,6 +3005,14 @@ func _input(event: InputEvent) -> void:
 		elif event.ctrl_pressed and event.keycode == KEY_G and not event.alt_pressed and not event.shift_pressed:
 			_show_goto_line_dialog()
 			get_viewport().set_input_as_handled()
+		# Ctrl+F / Ctrl+H → in-file Find / Replace (VB6 Edit menu)
+		elif event.ctrl_pressed and not event.shift_pressed and not event.alt_pressed:
+			if event.keycode == KEY_F:
+				find_in_file_requested.emit(false)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_H:
+				find_in_file_requested.emit(true)
+				get_viewport().set_input_as_handled()
 		# Ctrl+Shift+F → Find All References (selection or symbol under caret)
 		elif event.ctrl_pressed and event.shift_pressed and event.keycode == KEY_F and not event.alt_pressed:
 			var fr_symbol := ""
