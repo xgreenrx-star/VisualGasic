@@ -134,3 +134,6 @@ projects/vg_beta_showcase/.cursor/
 projects/vg_beta_showcase/*.avi
 projects/vg_beta_showcase/*.mp4
 /vg_beta_showcase.mp4
+samples/showcases/**/*.avi
+samples/showcases/**/*.mp4
+/vg_narcea_movie.mp4
