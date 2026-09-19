@@ -11,7 +11,9 @@
 
 ## Overview
 
-VisualGasic **5.5.0-beta2** is the **Narcea + packaging** beta: opt-in **Live Debug Capture** gives AI Pair local viewport snapshots and debugger context while you pause, the repository moves user Godot projects under **`samples/`**, and the language/runtime picks up **Connect**, **lambda handlers**, **RemoveAt**, and **autoload** patterns games need on Godot 4.6.
+VisualGasic **5.5.0-beta2** is the **Narcea + packaging** beta: opt-in **Live Debug Capture** gives AI Pair local viewport snapshots and debugger context while you pause, the repository **reorganizes** all user Godot projects under **`samples/`** (with `engine_lab/` for harnesses and legacy symlinks for old paths), and the language/runtime picks up **Connect**, **lambda handlers**, **RemoveAt**, and **autoload** patterns games need on Godot 4.6.
+
+**Speed (unchanged release gate + new gameplay rows):** Tier A still **12/12 compute** and **9/9 draw** faster than GDScript; **September 2026 gameplay realism** adds packed **I64 entity scans** — e.g. **IntegerLoop ~65×**, **NodePropertyChurn ~170×**, **FrameSlice ~7.8×** vs GDScript on the published Linux snapshot ([BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)).
 
 This cut also lands **`samples/games/brotato3d/`** — a 3D Brotato-style arena port — and documents the **Godot-first** editor story (VGasic floating workspace, experimental legacy Form Designer under [VG IDE Alpha](docs/manual/VG_IDE_ALPHA.md)).
 
@@ -65,12 +67,30 @@ Open samples/games/brotato3d/project.godot → F5
 - **Narcea system prompt** teaches capture semantics; vision gated by provider support.
 - Spec + QA: [docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md](docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md), `tests/test_vg_narcea_live_session.gd`.
 
-### Repository layout (`samples/` + `engine_lab/`)
+### Repository reorganization (`samples/` + `engine_lab/`)
 
-- User-facing Godot projects live under **`samples/{games,apps,demos,showcases,internal}/`**; legacy `projects/` and top-level `demos/` are compatibility symlinks.
-- Developer harness moved to **`engine_lab/`** (symlink `demo` → `engine_lab`).
-- Showcase **AVI/MP4** outputs are **gitignored** — watch [Beta Showcase on YouTube](https://youtu.be/FUw8zgbn_tU) or run `scripts/record_*.sh` locally.
-- Map: [docs/REPO_LAYOUT.md](docs/REPO_LAYOUT.md), [samples/README.md](samples/README.md).
+If you bookmarked old paths, update your clones:
+
+| Old path | New canonical path |
+|----------|-------------------|
+| `projects/<game\|app>` | `samples/games/<name>` or `samples/apps/<name>` |
+| `demos/...` | `samples/demos/...` |
+| `demo/` (harness) | `engine_lab/` (symlink `demo` → `engine_lab` kept for one cycle) |
+
+- **Showcases:** `samples/showcases/vg_beta_showcase/` — [YouTube tour](https://youtu.be/FUw8zgbn_tU); large **AVI/MP4** are **gitignored** (record with `scripts/record_*.sh` or keep copies under `scratch/showcase-videos/`).
+- **Map:** [docs/REPO_LAYOUT.md](docs/REPO_LAYOUT.md) · [samples/README.md](samples/README.md).
+
+### Performance & benchmarks (published numbers)
+
+Canonical table: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** (Sept 14, 2026 gameplay refresh · Aug 25, 2026 compute/draw baseline).
+
+| Suite | Headline |
+|-------|----------|
+| **Compute (Tier A)** | VG faster than GDScript on **12/12** microbenchmarks (**1.8×–139×**, checksums verified) |
+| **Draw (Tier C)** | VG faster on **9/9** `_draw` workloads (**1.3×–6.7×** static; moving rects **~5.8×**) |
+| **Gameplay realism (Tier B/C)** | **IntegerLoop ~65×** · **NodePropertyChurn ~170×** · **FloatLoop ~7×** · entity ticks / `For Each` scans **~3–8×** · local calls ≈ GDScript parity |
+
+Reproduce: `scripts/run_compute_benchmarks.sh`, `run_draw_benchmarks.sh`, `run_gameplay_benchmarks.sh` · CI gate: `scripts/benchmark_regression_check.sh` (Tier A only).
 
 ### Language & runtime (since 5.5.0-beta1)
 
@@ -90,8 +110,8 @@ Open samples/games/brotato3d/project.godot → F5
 
 - `./run_test_suite.sh --vg-only` — **171** files, **1010/1020** assertions passed on the release runner (see Known notes).
 - `tests/test_vg_narcea_live_session.gd` — headless live-session unit test.
-- GDExtension release build — **fresh Linux** editor/template `.so` (Sep 19); **Windows** `.dll` from last green cross-compile (bundled in Asset Library zip until local C++ WIP rebuilds Windows).
-- Asset Library zip — `release/v5.5.0-beta2/VisualGasic_AssetLibrary_v5.5.0-beta2.zip` (~25 MB, Linux + Windows binaries).
+- GDExtension release build — **fresh Linux + Windows** editor/template binaries (Sep 19; Windows cross-compile fixed — MinGW `pascal` macro rename).
+- Asset Library zip — `VisualGasic_AssetLibrary_v5.5.0-beta2.zip` (~25 MB, Linux + Windows).
 
 ---
 
@@ -111,7 +131,7 @@ Open samples/games/brotato3d/project.godot → F5
 - [x] `RELEASE_NOTES_v5.5.0-beta2.md` + CHANGELOG section
 - [x] Screenshots under `docs/screenshots/beta2_*.png`
 - [x] Build Linux/Windows GDExtension + Asset Library zip
-- [ ] Git tag `v5.5.0-beta2` + GitHub Pre-release (Latest)
+- [x] Git tag `v5.5.0-beta2` + GitHub Pre-release (**Latest**)
 
 ---
 

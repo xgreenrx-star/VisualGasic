@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [debugging.md](docs/manual/debugging.md#narcea-live-debug-capture-opt-in) live capture workflow; [REPO_LAYOUT.md](docs/REPO_LAYOUT.md) map.
 - Optional **VG_JIT** (`VG_JIT`) documented in [performance.md](docs/manual/performance.md).
 
+### 🛠 Fixed — Windows cross-compile
+
+- Renamed locals that collided with MinGW **`pascal`** macro in `visual_gasic_instance_execute.inc` / `visual_gasic_script.cpp` so Windows GDExtension builds succeed again.
+
 ### 📋 Known notes
 
 - `./run_test_suite.sh --vg-only` — three files may fail on some hosts (`test_for_each`, `test_ipc`, `test_type_conversion`).

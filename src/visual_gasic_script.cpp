@@ -767,12 +767,12 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     // while VG subs use PascalCase ("_UnhandledInput").  nocasecmp_to fails
     // for multi-word names because the underscores differ.
     // Convert snake_case → PascalCase and try again.
-    auto try_pascal_alias = [&](const String &pascal) -> bool {
-        if (pascal == method_str) {
+    auto try_pascal_alias = [&](const String &pascal_cand) -> bool {
+        if (pascal_cand == method_str) {
             return false;
         }
         for (int i = 0; i < ast_root->subs.size(); i++) {
-            if (ast_root->subs[i]->name.nocasecmp_to(pascal) == 0) {
+            if (ast_root->subs[i]->name.nocasecmp_to(pascal_cand) == 0) {
                 return true;
             }
         }
@@ -780,7 +780,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     };
 
     if (method_str.begins_with("_") && method_str.length() >= 2 && method_str.find("_", 1) >= 0) {
-        String pascal = "_";
+        String pascal_name = "_";
         bool cap_next = true;
         for (int i = 1; i < method_str.length(); i++) {
             char32_t c = method_str[i];
@@ -791,17 +791,17 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
                     if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
                     cap_next = false;
                 }
-                pascal += String::chr(c);
+                pascal_name += String::chr(c);
             }
         }
-        if (try_pascal_alias(pascal)) {
+        if (try_pascal_alias(pascal_name)) {
             return true;
         }
     }
 
     // GDScript interop: roll_shop_weapons → RollShopWeapons
     if (method_str.find("_") >= 0) {
-        String pascal;
+        String pascal_name;
         bool cap_next = true;
         for (int i = 0; i < method_str.length(); i++) {
             char32_t c = method_str[i];
@@ -812,10 +812,10 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
                     if (c >= 'a' && c <= 'z') c = c - 'a' + 'A';
                     cap_next = false;
                 }
-                pascal += String::chr(c);
+                pascal_name += String::chr(c);
             }
         }
-        if (try_pascal_alias(pascal)) {
+        if (try_pascal_alias(pascal_name)) {
             return true;
         }
     }

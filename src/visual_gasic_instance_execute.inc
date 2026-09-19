@@ -3132,9 +3132,9 @@ bool VisualGasicInstance::try_call_vg_owner_method(Object *obj, const String &me
         return true;
     }
 
-    String pascal = vg_snake_to_pascal_method(method);
-    if (pascal != method) {
-        r_ret = target->call_internal(pascal, args, found);
+    String pascal_method = vg_snake_to_pascal_method(method);
+    if (pascal_method != method) {
+        r_ret = target->call_internal(pascal_method, args, found);
         if (found) {
             return true;
         }
