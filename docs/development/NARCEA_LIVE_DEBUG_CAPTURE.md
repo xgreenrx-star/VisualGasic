@@ -1,7 +1,7 @@
 # Narcea Live Debug Capture — design & implementation
 
 **Status:** Implemented (Phases A–D baseline)  
-**Target:** **5.5.0-beta3** / current main  
+**Target:** **5.5.0-beta2** / current main  
 **Owner:** Visual Gasic editor + debugger + Narcea  
 **Related:** [TIER3_NARCEA_AGENT_DESIGN.md](TIER3_NARCEA_AGENT_DESIGN.md), [TODO_VG_DEBUGGING.md](TODO_VG_DEBUGGING.md), [ide_tools.md](../manual/ide_tools.md#ai-help-panel)
 

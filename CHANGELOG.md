@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0-beta2] - 2026-09-19
+
+**Key numbers:** Narcea Live Debug Capture (A–D) · `samples/` repo layout · Brotato3D sample · **171** `.vg` test files · **1010/1020** assertions on release runner.
+
+### 🚀 Added — Narcea Live Debug Capture
+
+- **Opt-in live capture** — viewport PNG, UI tree, stack/locals JSON over `visualgasic:` debugger channel; ring buffer + optional spill to `user://vg_narcea_live_session/`.
+- **AI Pair UI** — per-run checkbox, consent dialog, banner, **Explain screen**, **Refresh snapshot**, Drive mode (paused input inject).
+- **MCP** — `narcea_live_list_snapshots`, `narcea_live_get_snapshot`; Narcea system prompt + vision gating via `provider_supports_vision()`.
+- **`tests/test_vg_narcea_live_session.gd`** — headless session tests; manual QA in `tests/manual/narcea_live_capture.md`.
+
+### 🚀 Added — Repository layout & samples
+
+- **`samples/{games,apps,demos,showcases,internal}/`** — canonical Godot project tree; `projects/` and top-level `demos/` symlinks retained for compatibility.
+- **`engine_lab/`** — developer harness (formerly `demo/`); symlink `demo` → `engine_lab`.
+- **`samples/games/brotato3d/`** — 3D Brotato-style arena port (Kenney assets, modular `.vg`).
+- Showcase **AVI/MP4** gitignored; record locally or use YouTube tour links.
+
+### 🛠 Fixed / improved — Language & runtime
+
+- **Bound `Connect`**, **lambda handlers**, **`RemoveAt`**, **autoload globals** — first-class VG for Godot games.
+- **Module `Dim` namespace shadowing** — `Dim camera` vs `Camera.*` builtins; fixes 3D `LookAt` dispatch (`test_camera_namespace_shadow.vg`).
+- **Gameplay benchmarks** — packed entity scan fusion; Vector2Loop removed from published gameplay set.
+- **Command Help** — Restore string expressions and Vector Data documented.
+
+### 📚 Documentation
+
+- Godot-first [introduction](docs/getting_started/introduction.md), [VG_IDE_ALPHA.md](docs/manual/VG_IDE_ALPHA.md), [CODE_EDITOR.md](docs/manual/CODE_EDITOR.md).
+- [debugging.md](docs/manual/debugging.md#narcea-live-debug-capture-opt-in) live capture workflow; [REPO_LAYOUT.md](docs/REPO_LAYOUT.md) map.
+- Optional **VG_JIT** (`VG_JIT`) documented in [performance.md](docs/manual/performance.md).
+
+### 📋 Known notes
+
+- `./run_test_suite.sh --vg-only` — three files may fail on some hosts (`test_for_each`, `test_ipc`, `test_type_conversion`).
+
 ## [5.5.0-beta1] - 2026-09-13
 
 **Key numbers:** GRAVEN v6 slice dev preview · Restore/Include/Shader engine fixes · **57** corpus examples · regression suite green.

@@ -227,7 +227,9 @@
 
 ### Release Notes
 - [CHANGELOG.md](../CHANGELOG.md) - Full change log
-- [RELEASE_NOTES_v5.4.0-beta2.md](../RELEASE_NOTES_v5.4.0-beta2.md) - **v5.4.0-beta2 (latest)** — Buffer type, `Let` block scope, Narcea Tier A/B, Python typed msgpack, 916/916 tests
+- [RELEASE_NOTES_v5.5.0-beta2.md](../RELEASE_NOTES_v5.5.0-beta2.md) - **v5.5.0-beta2 (latest)** — Narcea Live Debug Capture, `samples/` layout, Brotato3D, Connect/lambda/autoload
+- [RELEASE_NOTES_v5.5.0-beta1.md](../RELEASE_NOTES_v5.5.0-beta1.md) - v5.5.0-beta1 — GRAVEN v6 slice preview, Restore/Include/Shader fixes
+- [RELEASE_NOTES_v5.4.0-beta2.md](../RELEASE_NOTES_v5.4.0-beta2.md) - v5.4.0-beta2 — Buffer type, `Let` block scope, Narcea Tier A/B, Python typed msgpack
 - [RELEASE_NOTES_v5.4.0-beta1.md](../RELEASE_NOTES_v5.4.0-beta1.md) - v5.4.0-beta1 — 12/12 compute + 9/9 draw, FunctionCall inlining, Beta Showcase, 891/891 tests
 - [RELEASE_NOTES_5.3.0-Beta7.md](../RELEASE_NOTES_5.3.0-Beta7.md) - v5.3.0-Beta7 — bracket indexing fix, CI `.vg` regression gate, ByRef array slots, Narcea scaffold hardening
 - [RELEASE_NOTES_v5.2.0-Beta4.md](../RELEASE_NOTES_v5.2.0-Beta4.md) - v5.2.0-Beta4 — call-overhead campaign, 6502 core, miscompilation fixes
