@@ -115,10 +115,12 @@
 #include <godot_cpp/classes/callback_tweener.hpp>
 #include <godot_cpp/classes/video_stream.hpp>
 // System-level class headers for built-in function dispatch
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
-#include "visual_gasic_settings.h"
 #include "visual_gasic_com_interop.h"
+#endif
+#include "visual_gasic_settings.h"
 #include "visual_gasic_timer.h"
 #include "visual_gasic_collection.h"
 #include <godot_cpp/classes/project_settings.hpp>
@@ -1062,8 +1064,13 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     // Shell() — VB6-style process launch, returns PID
     if (METHOD_IS("shell") && args.size() >= 1) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         int window_style = args.size() > 1 ? (int)args[1] : 1;
         return VGProcess::shell_execute(args[0], window_style);
+#else
+        UtilityFunctions::push_error("Shell() is not available in HTML5 export");
+        return Variant((int64_t)0);
+#endif
     }
 
     // GetSetting / SaveSetting / DeleteSetting — VB6 registry-style settings
@@ -1092,7 +1099,12 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     // CreateObject() — VB6 COM-style late-bound object creation
     if (METHOD_IS("createobject") && args.size() >= 1) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         return VGComInterop::create_object(args[0]);
+#else
+        UtilityFunctions::push_error("CreateObject() is not available in HTML5 export");
+        return Variant();
+#endif
     }
 
     // Environ() — VB6-style environment variable access
@@ -1116,7 +1128,11 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     // SQLite availability check
     if (METHOD_IS("issqliteavailable")) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         return VGDatabase::is_sqlite_available();
+#else
+        return false;
+#endif
     }
 
     // If not handled here, leave r_handled false so caller can fallback
@@ -7013,8 +7029,13 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // Shell() — VB6-style process launch, returns PID
     if (METHOD_IS("shell") && args.size() >= 1) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         int window_style = args.size() > 1 ? (int)args[1] : 1;
         return VGProcess::shell_execute(args[0], window_style);
+#else
+        UtilityFunctions::push_error("Shell() is not available in HTML5 export");
+        return Variant((int64_t)0);
+#endif
     }
 
     // GetSetting / SaveSetting / DeleteSetting — VB6 registry-style settings
@@ -7043,13 +7064,22 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // CreateObject() — VB6 COM-style late-bound object creation
     if (METHOD_IS("createobject") && args.size() >= 1) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         return VGComInterop::create_object(args[0]);
+#else
+        UtilityFunctions::push_error("CreateObject() is not available in HTML5 export");
+        return Variant();
+#endif
     }
 
     // SQLite availability check
     if (METHOD_IS("issqliteavailable")) {
         r_handled = true;
+#ifndef VG_WEB_BUILD
         return VGDatabase::is_sqlite_available();
+#else
+        return false;
+#endif
     }
 
     // ---- Environ(name) / Environ$(name) — read environment variable ----

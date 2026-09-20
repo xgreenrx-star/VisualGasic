@@ -1,0 +1,41 @@
+' Web Hello — HTML5 export smoke test (HTTP + _Draw UI)
+Attribute VB_Name = "WebHello"
+
+Const SCREEN_W As Integer = 640
+Const SCREEN_H As Integer = 400
+
+Dim headline As String
+Dim body As String
+
+Sub _Ready()
+	headline = "Visual Gasic · HTML5"
+	body = "Fetching Open-Meteo…"
+	Call LoadWeather
+End Sub
+
+Sub LoadWeather()
+	Dim url As String
+	url = "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current=temperature_2m,weather_code"
+
+	Dim http As New VGHttpRequest
+	http.Open "GET", url, False
+	http.Send ""
+
+	If http.Status = 200 Then
+		body = Left(http.ResponseText, 220)
+		If Len(body) = 220 Then
+			body = body & "…"
+		End If
+	Else
+		body = "HTTP " & CStr(http.Status) & " — " & http.StatusText
+	End If
+	QueueRedraw
+End Sub
+
+Sub _Draw()
+	DrawRect Rect2(0, 0, SCREEN_W, SCREEN_H), Color8(24, 28, 36), True
+	DrawString headline, 24, 28, Color8(180, 220, 255), 26
+	DrawString "Open-Meteo (NYC) via VGHttpRequest", 24, 62, Color8(140, 150, 170), 14
+	DrawString body, 24, 96, Color8(230, 235, 245), 13
+	DrawString "Rebuild WASM: bash scripts/build_web_gdextension.sh", 24, SCREEN_H - 36, Color8(100, 110, 130), 12
+End Sub

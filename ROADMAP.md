@@ -831,8 +831,8 @@ These features shipped between March 10–21, 2026:
 8. **✅ JIT Tier 3 (Call Graph Compilation)** *(Completed v4.3.0)*  
    Call graph profiling, inline candidate selection, callee IR lowering, fused compilation, x86-64 emission. Complete 5-tier JIT stack: Tier 0 → 0.5 → 1 → 2 → 3. 10 tests pass.
 
-9. **WebAssembly Export Validation** — *Not yet started*  
-   Ensure VisualGasic scripts work correctly in HTML5 exports.
+9. **WebAssembly Export Validation** — *In progress (v6.0)*  
+   WASM GDExtension ships in release zip; CI builds WASM + exports `samples/apps/web_hello`. See `docs/manual/PLATFORM_SUPPORT.md`.
 
 ### 📊 v4.0 Priority Matrix (Final Status)
 
@@ -846,7 +846,7 @@ These features shipped between March 10–21, 2026:
 | 6 | Migration Wizard v2 | ✅ Complete | v4.2.0 |
 | 7 | macOS Universal | ✅ Complete | v4.3.0 |
 | 8 | JIT Tier 3 | ✅ Complete | v4.3.0 |
-| 9 | WASM Validation | 🔲 Not started | — |
+| 9 | WASM Validation | 🟡 In progress | v6.0 CI + release zip |
 
 ---
 
@@ -885,7 +885,7 @@ Short, finishable list. **No new aspirational items.**
 | **Experimental Plugins setting** | Add `vg/enable_experimental_plugins` boolean in Godot Project Settings (VisualGasic category, default: `false`). When `false`, experimental plugins (UI Forms; others added later) are hidden from the toolbar and plugin manager. When `true` they appear at the user's own risk. Check this setting in `visual_gasic_plugin.gd` alongside the existing `vg/form_designer_enabled` check (~line 669). UI Forms is the first plugin behind this gate; Form Designer extraction deferred to v6.0+. | High |
 | **Installer polish** | `install.py/.sh/.ps1` improvements: (a) `--uninstall` that cleanly removes addon + `vg` CLI; (b) upgrade detection with overwrite warning; (c) Windows: auto-append `~\.local\bin` to user PATH via `setx`; (d) optional `--install-godot` that downloads + SHA-512-verifies the matching Godot binary; (e) optional `--activate-in <project>`; (f) optional desktop launcher. | Medium |
 | **Android / iOS validation** | Test and fix mobile platform builds. Stretch — not a 5.2 blocker. | Low |
-| **WebAssembly Export validation** | Ensure HTML5 export compatibility end-to-end. | Low |
+| **WebAssembly Export validation** | WASM in Asset Library zip; `build-web-gdextension` CI + `ci_web_export_smoke.sh`. | Medium (v6.0) |
 
 ---
 

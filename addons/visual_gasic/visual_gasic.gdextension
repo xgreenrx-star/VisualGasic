@@ -14,3 +14,5 @@ windows.release.x86_64 = "bin/libvisualgasic.windows.template_release.x86_64.dll
 macos.editor = "bin/libvisualgasic.macos.editor.framework"
 macos.debug = "bin/libvisualgasic.macos.template_debug.framework"
 macos.release = "bin/libvisualgasic.macos.template_release.framework"
+web.debug.wasm32 = "bin/libvisualgasic.web.template_debug.wasm32.nothreads.wasm"
+web.release.wasm32 = "bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm"

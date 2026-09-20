@@ -23,54 +23,72 @@
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_form_designer.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"
 #include "visual_gasic_fswatcher.h"
+#endif
 #include "visual_gasic_common_dialog.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_socket.h"
 #include "visual_gasic_systray.h"
+#endif
 #include "visual_gasic_settings.h"
 #include "visual_gasic_vector_canvas.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_com_interop.h"
+#endif
 #include "visual_gasic_http.h"
 #include "visual_gasic_collection.h"
 #include "visual_gasic_regex.h"
 #include "visual_gasic_timer.h"
 
 // v3.0 – system-integration features
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_ffi.h"
 #include "visual_gasic_odbc.h"
+#endif
 #include "visual_gasic_crypto.h"
 #include "visual_gasic_xml.h"
 #include "visual_gasic_zip.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_task.h"
 #include "visual_gasic_package.h"
+#endif
 
 // v4.3 – database controls
 #include "visual_gasic_recordset.h"
 
 // v3.1 – system-level programming
 #include "visual_gasic_system.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_signal_handler.h"
 #include "visual_gasic_file_permissions.h"
+#endif
 #include "visual_gasic_memory_buffer.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_ipc.h"
 #include "visual_gasic_android_bridge.h"
+#endif
 
 // v3.2 – GPU computing & ECS
 #include "visual_gasic_gpu.h"
 #include "visual_gasic_ecs.h"
 
+#ifndef VG_WEB_BUILD
 // v6.0 – Python integration bridge (PyImport / PyCallAsync)
 #include "python_bridge/visual_gasic_py_facade.h"
+#endif
 
 #ifdef VG_TAGGED_STACK
 void vg_stack_value_selftest();
 #endif
 
+#ifndef VG_WEB_BUILD
 // v6.1 – native emulator CPU cores (VGCpuCore family)
 #include "cpu_cores/visual_gasic_cpu_6502.h"
 #include "cpu_cores/visual_gasic_c64_machine.h"
+#endif
 
 // v3.2 – LSP integration (binding rework complete)
 #include "visual_gasic_lsp.h"
@@ -108,18 +126,24 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicVectorDrawBenchmark>();
 
         // System-level classes (v2.9.0)
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGProcess>();
         ClassDB::register_class<VGDatabase>();
         ClassDB::register_class<VGFileWatcher>();
+#endif
         ClassDB::register_class<VGCommonDialog>();
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGSocket>();
         ClassDB::register_class<VGSysTray>();
+#endif
         ClassDB::register_class<VGSettings>();
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGComObject>();
         ClassDB::register_class<VGFileSystemObject>();
         ClassDB::register_class<VGScriptingDict>();
         ClassDB::register_class<VGWScriptShell>();
         ClassDB::register_class<VGComInterop>();
+#endif
 
         // v2.10.0 classes
         ClassDB::register_class<VGHttpRequest>();
@@ -129,23 +153,31 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VGTimer>();
 
         // v3.0 – system-integration classes
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGNativeLibrary>();   // libffi: load .so/.dll, call C functions
         ClassDB::register_class<VGNativeStruct>();    // libffi: C struct layout helper
         ClassDB::register_class<VGOdbc>();            // ODBC database connectivity
+#endif
         ClassDB::register_class<VGCrypto>();          // Hashing, AES, Base64, HMAC
         ClassDB::register_class<VGXml>();             // XML read / write / XPath
         ClassDB::register_class<VGZip>();             // ZIP archive read / write
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGTask>();            // Single async task
         ClassDB::register_class<VGTaskRunner>();      // Parallel task runner
         ClassDB::register_class<VisualGasicPackage>();// Package manager
+#endif
 
         // v3.1 – system-level programming
         ClassDB::register_class<VGSystem>();           // Hostname, CPU, RAM, disk, OS, uptime, env
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGSignalHandler>();    // SIGINT/SIGTERM/SIGHUP + atexit
         ClassDB::register_class<VGFilePermissions>();  // chmod, chown, symlink, file locking
+#endif
         ClassDB::register_class<VGMemoryBuffer>();     // Raw Peek/Poke byte buffer
+#ifndef VG_WEB_BUILD
         ClassDB::register_class<VGIPC>();              // Named pipes, domain sockets, shared mem
         ClassDB::register_class<VGAndroidBridge>();    // JNI bridge for Android APIs
+#endif
 
         // v3.2 – GPU computing & ECS
         ClassDB::register_class<VisualGasicGPU>();      // SIMD vector math, CPU fallback
@@ -154,9 +186,12 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         // v3.2 – LSP integration
         ClassDB::register_class<VisualGasicLSP>();      // Language server: completions, hover, definitions
 
-        // v4.3 – database controls
+#ifndef VG_WEB_BUILD
+        // v4.3 – database controls (requires VGDatabase — desktop only)
         ClassDB::register_class<VGRecordset>();          // ADODB.Recordset-compatible cursor
+#endif
 
+#ifndef VG_WEB_BUILD
         // v6.0 – Python integration
         ClassDB::register_class<PyBridgeFacade>();        // PyImport / PyCallAsync bridge
         ClassDB::register_class<PyAsyncTask>();           // PyCallAsync task handle (Await duck-type)
@@ -164,6 +199,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         // v6.1 – native emulator CPU cores
         ClassDB::register_class<VGCpu6502>();             // Reentrant 6502/6510 core for emulator projects
         ClassDB::register_class<VGC64Machine>();          // Fully-native C64 (CPU+bus+VIC+CIA) for full-speed emulation
+#endif
 
         // Register project settings for Python integration
         if (!ProjectSettings::get_singleton()->has_setting("vg/python/embedded_enabled")) {
@@ -191,6 +227,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ResourceSaver::get_singleton()->add_resource_format_saver(visual_gasic_saver);
     }
     
+#ifndef VG_WEB_BUILD
     if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
         ClassDB::register_class<VisualGasicToolbox>();
         ClassDB::register_class<VisualGasicToolButton>();
@@ -200,6 +237,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         
         // EditorPlugins::add_by_type<VisualGasicEditorPlugin>();
     }
+#endif
 }
 
 void uninitialize_visual_gasic_module(ModuleInitializationLevel p_level) {

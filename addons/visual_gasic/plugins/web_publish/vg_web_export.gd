@@ -34,6 +34,55 @@ class WebConfig:
 	var description: String = ""                # Meta description for SEO/portals
 
 
+# ─── GDExtension / export readiness ─────────────────────────
+
+const WEB_WASM_RELEASE := "res://addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm"
+const WEB_WASM_DEBUG := "res://addons/visual_gasic/bin/libvisualgasic.web.template_debug.wasm32.nothreads.wasm"
+
+
+## Returns { ok: bool, error: String, release_path: String }.
+static func check_web_gdextension_ready() -> Dictionary:
+	if FileAccess.file_exists(WEB_WASM_RELEASE):
+		return {"ok": true, "error": "", "release_path": WEB_WASM_RELEASE}
+	var msg := (
+		"Missing Web GDExtension WASM.\n"
+		+ "Expected: addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm\n"
+		+ "From repo root run: bash scripts/build_web_gdextension.sh\n"
+		+ "Or install a VisualGasic release / Asset Library zip that includes Web binaries."
+	)
+	return {"ok": false, "error": msg, "release_path": ""}
+
+
+## Remove dev-only preload lines from visual_gasic_plugin.gd before HTML5 export.
+static func strip_dev_overlays_for_export(log_fn: Callable = Callable()) -> bool:
+	var plugin_path := "res://addons/visual_gasic/visual_gasic_plugin.gd"
+	if not FileAccess.file_exists(plugin_path):
+		return true
+	var f := FileAccess.open(plugin_path, FileAccess.READ)
+	if not f:
+		return false
+	var original := f.get_as_text()
+	f.close()
+	var updated := original
+	for frag in ["vg_tweak_overlay.gd", "vg_debug_handler.gd"]:
+		var regex := RegEx.new()
+		regex.compile('(?m)^\\s*[^#\\n]*preload\\s*\\(\\s*"[^"]*' + RegEx.escape(frag) + '"[^)]*\\).*\\n?')
+		updated = regex.sub(updated, "", true)
+	if updated != original:
+		var fw := FileAccess.open(plugin_path, FileAccess.WRITE)
+		if not fw:
+			return false
+		fw.store_string(updated)
+		fw.close()
+		_log(log_fn, "[color=#8f8]  ✓ Stripped dev overlay hooks for web export[/color]")
+	return true
+
+
+static func _editor_is_mono_godot() -> bool:
+	var exe := OS.get_executable_path().to_lower()
+	return exe.find("mono") >= 0
+
+
 # ─── Preset Generation ──────────────────────────────────────
 
 ## Creates or updates the export_presets.cfg to include an HTML5/Web preset.
@@ -701,6 +750,21 @@ static func publish_to_web(config: WebConfig, output_dir: String, run_export: bo
 	if not DirAccess.dir_exists_absolute(output_dir):
 		DirAccess.make_dir_recursive_absolute(output_dir)
 	_log(log_fn, "[color=#55ccff]🌐 Publishing to Web: " + output_dir + "[/color]")
+
+	var wasm_check := check_web_gdextension_ready()
+	if not wasm_check.get("ok", false):
+		_log(log_fn, "[color=#ff4444]✗ " + wasm_check.get("error", "Web GDExtension missing") + "[/color]")
+		result["error"] = wasm_check.get("error", "Web GDExtension missing")
+		return result
+	_log(log_fn, "[color=#8f8]  ✓ Web GDExtension WASM found[/color]")
+
+	if not strip_dev_overlays_for_export(log_fn):
+		_log(log_fn, "[color=#ffaa33]⚠ Could not strip dev overlay hooks (non-fatal)[/color]")
+
+	if run_export and _editor_is_mono_godot():
+		_log(log_fn, "[color=#ff4444]✗ Web export requires standard Godot (not Mono/C#). Install Godot 4.6+ without Mono.[/color]")
+		result["error"] = "Mono Godot cannot export HTML5 in Godot 4."
+		return result
 
 	# ── Step 2: Ensure export preset ──
 	if not ensure_web_export_preset():

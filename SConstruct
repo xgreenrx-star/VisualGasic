@@ -41,7 +41,39 @@ sources = Glob("src/*.cpp") + Glob("src/python_bridge/*.cpp") + Glob("src/cpu_co
 exclude_files = [
     # All LSP binding issues resolved — LspPosition replaced with int params (v3.2)
 ]
-sources = [s for s in sources if str(s) not in exclude_files]
+
+# HTML5 / Emscripten: reduced runtime (bytecode VM only; no fork/JIT/FFI/Python/native sockets).
+if env["platform"] == "web":
+    env.Append(CPPDEFINES=["VG_WEB_BUILD"])
+    _web_exclude_basenames = {
+        "visual_gasic_process.cpp",
+        "visual_gasic_jit_tier2.cpp",
+        "visual_gasic_jit_tier3.cpp",
+        "visual_gasic_odbc.cpp",
+        "visual_gasic_ffi.cpp",
+        "visual_gasic_com_interop.cpp",
+        "visual_gasic_systray.cpp",
+        "visual_gasic_ipc.cpp",
+        "visual_gasic_android_bridge.cpp",
+        "visual_gasic_task.cpp",
+        "visual_gasic_socket.cpp",
+        "visual_gasic_database.cpp",
+        "visual_gasic_fswatcher.cpp",
+        "visual_gasic_signal_handler.cpp",
+        "visual_gasic_file_permissions.cpp",
+        "visual_gasic_package_manager.cpp",
+        "visual_gasic_editor_plugin.cpp",
+        "visual_gasic_recordset.cpp",
+    }
+    sources = [
+        s for s in sources
+        if os.path.basename(str(s)) not in _web_exclude_basenames
+        and "/python_bridge/" not in str(s).replace("\\", "/")
+        and "/cpu_cores/" not in str(s).replace("\\", "/")
+    ]
+    print("Web build: {} source files (desktop-only TUs excluded)".format(len(sources)))
+else:
+    sources = [s for s in sources if str(s) not in exclude_files]
 
 # Detect MSVC vs GCC/Clang toolchain
 _cc = str(env.subst("$CC")).lower()
@@ -69,8 +101,8 @@ if "template_debug" in env.get("target", "").lower() or env.get("debug_build", F
         env.Append(LINKFLAGS=["/DEBUG"])
     else:
         env.Append(LINKFLAGS=["-g"])
-    # -rdynamic is Linux-only for backtrace symbol export
-    if env["platform"] != "windows":
+    # -rdynamic is Linux-only for backtrace symbol export (not used on web wasm)
+    if env["platform"] not in ("windows", "web"):
         env.Append(LINKFLAGS=["-rdynamic"])
     # Prevent automatic stripping of the produced shared library in debug builds.
     # Some toolchains or builders may run strip as a separate step; ensure STRIP is empty.

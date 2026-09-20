@@ -1,0 +1,79 @@
+name: Build web GDExtension
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - 'SConstruct'
+      - 'src/**'
+      - 'godot-cpp/**'
+      - 'scripts/build_web_gdextension.sh'
+      - 'scripts/setup_emsdk.sh'
+      - 'scripts/ci_web_export_smoke.sh'
+      - 'scripts/verify_web_gdextension.sh'
+      - 'samples/apps/web_hello/**'
+      - 'addons/visual_gasic/visual_gasic.gdextension'
+      - 'addons/visual_gasic/plugins/web_publish/**'
+      - '.github/workflows/build-web-gdextension.yml'
+
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y scons build-essential python3 git wget unzip
+
+      - name: Setup Emscripten
+        run: bash scripts/setup_emsdk.sh
+
+      - name: Build WASM (release + debug)
+        run: |
+          source thirdparty/emsdk/emsdk_env.sh
+          bash scripts/build_web_gdextension.sh template_release
+
+      - name: Verify Web GDExtension
+        run: bash scripts/verify_web_gdextension.sh
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: visualgasic-web-wasm
+          path: |
+            addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm
+            addons/visual_gasic/bin/libvisualgasic.web.template_debug.wasm32.nothreads.wasm
+          if-no-files-found: error
+
+  web-export-smoke:
+    needs: wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download WASM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: visualgasic-web-wasm
+          path: addons/visual_gasic/bin
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y python3 wget unzip
+
+      - name: HTML5 export smoke (web_hello)
+        env:
+          VG_SKIP_WEB_BUILD: "1"
+        run: |
+          chmod +x scripts/ci_web_export_smoke.sh scripts/verify_web_gdextension.sh
+          bash scripts/ci_web_export_smoke.sh

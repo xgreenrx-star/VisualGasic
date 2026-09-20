@@ -12,13 +12,15 @@
 #include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_jit_tier2.h"
 #include "visual_gasic_jit_tier3.h"
+#include "visual_gasic_task.h"
+#include "python_bridge/visual_gasic_py_facade.h"
+#endif
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
 #include "visual_gasic_memory_buffer.h"
-#include "visual_gasic_task.h"
-#include "python_bridge/visual_gasic_py_facade.h"
 #include <cmath>  // ::sin, ::cos, ::sqrt, ::tan, ::atan2, ::floor, ::ceil, ::exp, ::log
 
 namespace {
@@ -39,6 +41,7 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
     if (!obj) {
         return st;
     }
+#ifndef VG_WEB_BUILD
     Ref<PyAsyncTask> py_task = awaited;
     if (py_task.is_valid()) {
         st.recognized = true;
@@ -55,6 +58,7 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
         st.error = vg_task->get_error();
         return st;
     }
+#endif
     if (obj->has_method("get_is_complete") || obj->has_method("get_is_running")) {
         st.recognized = true;
         if (obj->has_method("get_is_complete")) {
@@ -428,7 +432,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
     // ── JIT Tier 2/3: attempt native execution for hot functions ──────────
-#ifdef __linux__
+#if defined(__linux__) && !defined(VG_WEB_BUILD)
     // Fast-call chunks (fast_params) seed params directly into local slots and
     // never place them in variables[]; the JIT marshaler reads params FROM
     // variables[], so it would read stale/empty values.  Skip JIT for them —
@@ -740,6 +744,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // don't clobber the outer frame's pointer on return.
     Vector<Variant>* prev_debug_bc_locals = debug_bc_locals;
     BytecodeChunk*   prev_debug_bc_chunk  = debug_bc_chunk;
+    String           prev_debug_bc_source_file = debug_bc_source_file;
     debug_bc_locals = &locals;
     debug_bc_chunk  = chunk;
 
@@ -1101,7 +1106,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // workers each run their own invocation on their own thread), so resolve it
     // once on the first OP_CALL and reuse the pointer.  Left null for leaf chunks
     // (no OP_CALL) so they never pay the TLS lookup at all.
+#ifndef VG_WEB_BUILD
     vgjit3::Tier3* _t3_cached = nullptr;
+#endif
     Variant result_snapshot;
     Variant explicit_return;
     bool has_explicit_return = false;
@@ -2174,6 +2181,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                     }
+                    if (val.get_type() == Variant::NIL) {
+                        Variant vb6_owner_prop;
+                        if (VisualGasicInstance::try_read_vb6_property(owner, name, vb6_owner_prop)) {
+                            val = vb6_owner_prop;
+                        }
+                    }
                 }
 
                 // If not found in variables, search for child control by name (VB6 style)
@@ -2426,6 +2439,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                         }
                                     }
                                 }
+                            }
+                        }
+                        if (val.get_type() == Variant::NIL) {
+                            Variant vb6_owner_prop;
+                            if (VisualGasicInstance::try_read_vb6_property(owner, local_name, vb6_owner_prop)) {
+                                val = vb6_owner_prop;
                             }
                         }
                     }
@@ -4050,6 +4069,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
+#ifndef VG_WEB_BUILD
                 {
                     if (!_t3_cached) _t3_cached = &vgjit3::thread_jit3();
                     vgjit3::Tier3& t3 = *_t3_cached;
@@ -4061,6 +4081,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
+#endif
 
                 bool handled = false;
                 Variant call_ret;
@@ -5592,17 +5613,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         // Size properties
                         else if (prop_name == "Width") {
-                            Control* ctrl = Object::cast_to<Control>(obj);
-                            if (ctrl) {
-                                result = ctrl->get_size().x;
+                            Window* win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = (double)win->get_size().x;
                                 handled = true;
+                            } else {
+                                Control* ctrl = Object::cast_to<Control>(obj);
+                                if (ctrl) {
+                                    result = ctrl->get_size().x;
+                                    handled = true;
+                                }
                             }
                         }
                         else if (prop_name == "Height") {
-                            Control* ctrl = Object::cast_to<Control>(obj);
-                            if (ctrl) {
-                                result = ctrl->get_size().y;
+                            Window* win = Object::cast_to<Window>(obj);
+                            if (win) {
+                                result = (double)win->get_size().y;
                                 handled = true;
+                            } else {
+                                Control* ctrl = Object::cast_to<Control>(obj);
+                                if (ctrl) {
+                                    result = ctrl->get_size().y;
+                                    handled = true;
+                                }
                             }
                         }
                         // Value property
@@ -7491,12 +7524,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     break;
                 }
 
-                // Debugger attached — map merged line to the original Include file.
-                resolve_debug_location(line_number);
-                String script_path = debug_state.current_file.is_empty() ? _debug_script_path : debug_state.current_file;
-                const int src_line = debug_state.current_line;
-                debug_state.current_file = script_path;
-                debug_state.current_line = src_line;
+                // Import modules use their own res:// path + source line numbers
+                // (not the host script's Include line map).
+                String script_path;
+                int src_line = line_number;
+                if (!debug_bc_source_file.is_empty()) {
+                    script_path = debug_bc_source_file;
+                    debug_state.current_file = script_path;
+                    debug_state.current_line = src_line;
+                } else {
+                    resolve_debug_location(line_number);
+                    script_path = debug_state.current_file.is_empty() ? _debug_script_path : debug_state.current_file;
+                    src_line = debug_state.current_line;
+                    debug_state.current_file = script_path;
+                    debug_state.current_line = src_line;
+                }
 
                 // ── Set Next Statement (early check) ──
                 // If a set_next_statement message arrived between
@@ -7589,12 +7631,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     
                     if (has_bp) {
                         // Store breakpoint location before blocking (for editor query)
-                        VisualGasicLanguage::set_current_break_location(script_path, line_number);
+                        VisualGasicLanguage::set_current_break_location(script_path, src_line);
                         
                         // Send break notification directly to editor via EngineDebugger
                         Array break_data;
                         break_data.push_back(script_path);
-                        break_data.push_back(line_number);
+                        break_data.push_back(src_line);
                         engine_debugger->send_message("visualgasic:break_hit", break_data);
                         
                         // Send current variables and call stack for inspection
@@ -9041,6 +9083,7 @@ cleanup:
     // Restore the outer frame's debug pointers (for nested calls).
     debug_bc_locals = prev_debug_bc_locals;
     debug_bc_chunk  = prev_debug_bc_chunk;
+    debug_bc_source_file = prev_debug_bc_source_file;
     
     // Pop debug stack frame (must match push above; skipped for parallel workers,
     // sub-range bodies, AND when no debugger was attached at entry — Part O).

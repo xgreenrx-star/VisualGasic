@@ -43,6 +43,11 @@ if [[ ! -f addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so
     exit 1
 fi
 
+if [[ ! -f addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm ]]; then
+    warn "Web WASM missing — run: bash scripts/build_web_gdextension.sh"
+    exit 1
+fi
+
 info "Building Asset Library zip ${ZIP_NAME}"
 
 rm -rf "$STAGING"

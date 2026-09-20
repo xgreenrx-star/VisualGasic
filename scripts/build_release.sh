@@ -19,6 +19,7 @@
 #   - scons, g++  (Linux build)
 #   - x86_64-w64-mingw32-g++  (Windows cross-compile, install: sudo apt install g++-mingw-w64-x86-64)
 #   - On macOS: Xcode command line tools (for macOS builds)
+#   - Emscripten (Web WASM): bash scripts/setup_emsdk.sh  (skip with VG_SKIP_WEB_BUILD=1)
 #
 
 set -e
@@ -49,12 +50,12 @@ step()    { echo -e "\n${BOLD}${YELLOW}[$1] $2${NC}"; }
 echo -e "${BOLD}${GREEN}"
 echo "  ╔══════════════════════════════════════════╗"
 echo "  ║  VisualGasic Release Builder v${VERSION}  ║"
-echo "  ║  Building for Linux, Windows, macOS      ║"
+echo "  ║  Linux, Windows, macOS, Web (WASM)       ║"
 echo "  ╚══════════════════════════════════════════╝"
 echo -e "${NC}"
 
 # ── Preflight checks ───────────────────────────────────────────────────────
-step "1/7" "Preflight checks..."
+step "1/8" "Preflight checks..."
 
 if [[ ! -f "SConstruct" ]]; then
     error "SConstruct not found. Run from the VisualGasic project root."
@@ -90,7 +91,7 @@ else
 fi
 
 # ── Build Linux ─────────────────────────────────────────────────────────────
-step "2/7" "Building Linux x86_64..."
+step "2/8" "Building Linux x86_64..."
 
 for target in editor template_debug template_release; do
     info "Building linux/$target..."
@@ -100,7 +101,7 @@ success "Linux builds complete"
 
 # ── Build Windows (cross-compile) ──────────────────────────────────────────
 if $HAS_MINGW; then
-    step "3/7" "Building Windows x86_64 (MinGW cross-compile)..."
+    step "3/8" "Building Windows x86_64 (MinGW cross-compile)..."
 
     for target in editor template_debug template_release; do
         info "Building windows/$target..."
@@ -108,12 +109,12 @@ if $HAS_MINGW; then
     done
     success "Windows builds complete"
 else
-    step "3/7" "Skipping Windows build (no MinGW)"
+    step "3/8" "Skipping Windows build (no MinGW)"
 fi
 
 # ── Build macOS (native only) ──────────────────────────────────────────────
 if $IS_MACOS; then
-    step "4/7" "Building macOS Universal (x86_64 + arm64)..."
+    step "4/8" "Building macOS Universal (x86_64 + arm64)..."
 
     for target in editor template_debug template_release; do
         info "Building macos/$target x86_64..."
@@ -130,11 +131,23 @@ if $IS_MACOS; then
     fi
     success "macOS builds complete"
 else
-    step "4/7" "Skipping macOS build (requires macOS host)"
+    step "4/8" "Skipping macOS build (requires macOS host)"
+fi
+
+# ── Build Web (WASM GDExtension) ───────────────────────────────────────────
+if [[ "${VG_SKIP_WEB_BUILD:-0}" == "1" ]]; then
+    step "5/8" "Skipping Web WASM build (VG_SKIP_WEB_BUILD=1)"
+else
+    step "5/8" "Building Web WASM GDExtension..."
+    if bash "$SCRIPT_DIR/setup_emsdk.sh" && source "$PROJECT_ROOT/thirdparty/emsdk/emsdk_env.sh" && bash "$SCRIPT_DIR/build_web_gdextension.sh" template_release; then
+        success "Web WASM builds complete"
+    else
+        warn "Web WASM build failed — Asset Library zip will fail until you run: bash scripts/build_web_gdextension.sh"
+    fi
 fi
 
 # ── Stage common files ──────────────────────────────────────────────────────
-step "5/7" "Staging release files..."
+step "6/8" "Staging release files..."
 
 STAGING="$RELEASE_DIR/staging"
 rm -rf "$STAGING"
@@ -211,14 +224,14 @@ find -L "$STAGING" -type f \( -name '*.template_debug.dev.*' -o -name '*.editor.
 success "Staging complete"
 
 # ── Portable platform zips (deprecated — skipped) ─────────────────────────
-step "6/7" "Skipping portable platform zips (discontinued)..."
+step "7/8" "Skipping portable platform zips (discontinued)..."
 
 warn "Portable platform zips are no longer built (GitHub 2 GB asset limit)."
 warn "  Publish: Asset Library zip, minimal addon zip, installers, offline bundles."
 rm -rf "$STAGING"
 
 # ── Godot Asset Library zip (addon-only, all platform binaries) ─────────────
-step "7/7" "Building Godot Asset Library zip..."
+step "8/8" "Building Godot Asset Library zip..."
 
 # build_asset_library_zip.sh requires bin/ to dereference to demo/bin with all targets.
 if [[ ! -L addons/visual_gasic/bin ]]; then
