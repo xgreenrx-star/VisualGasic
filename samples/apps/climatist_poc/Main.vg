@@ -1,0 +1,112 @@
+' Climatist POC — "Now" screen slice: current temp + 7-day hi/lo from Open-Meteo
+Attribute VB_Name = "ClimatistPocMain"
+
+Import "WeatherApi.vg"
+
+Const SCREEN_W As Integer = 720
+Const SCREEN_H As Integer = 480
+
+' Default: Berlin-ish coords from Open-Meteo docs (change to test other cities)
+Dim SiteLat As Single
+Dim SiteLon As Single
+
+Dim loadState As String
+Dim headline As String
+Dim detail1 As String
+Dim detail2 As String
+Dim detail3 As String
+Dim rawSnippet As String
+
+Sub _Ready()
+	SiteLat = 52.52
+	SiteLon = 13.41
+	loadState = "idle"
+	headline = "Climatist POC — Open-Meteo"
+	Call RefreshWeather
+End Sub
+
+Sub _Input(ev As InputEvent)
+	If ev.IsActionPressed("ui_accept") Or ev.IsActionPressed("ui_page_down") Then
+		Call RefreshWeather
+	End If
+End Sub
+
+Sub RefreshWeather()
+	loadState = "loading"
+	headline = "Fetching…"
+	detail1 = ""
+	detail2 = ""
+	detail3 = ""
+	rawSnippet = ""
+	QueueRedraw
+
+	Dim url As String
+	url = WeatherApi.BuildOpenMeteoForecastUrl(SiteLat, SiteLon)
+
+	Dim status As Integer
+	Dim statusText As String
+	Dim body As String
+	Call WeatherApi.HttpGet(url, status, statusText, body)
+
+	If status <> 200 Or Len(body) = 0 Then
+		loadState = "error"
+		headline = "HTTP " & CStr(status)
+		detail1 = statusText
+		detail2 = url
+		QueueRedraw
+		Exit Sub
+	End If
+
+	Dim tempStr As String
+	tempStr = WeatherApi.JsonNumberAfter(body, "temperature_2m")
+	Dim codeStr As String
+	codeStr = WeatherApi.JsonNumberAfter(body, "weather_code")
+	Dim humStr As String
+	humStr = WeatherApi.JsonNumberAfter(body, "relative_humidity_2m")
+
+	Dim wcode As Integer
+	wcode = 0
+	If Len(codeStr) > 0 Then wcode = CInt(CDbl(codeStr))
+
+	Dim tmax0 As String
+	tmax0 = WeatherApi.JsonNumberAfter(body, "temperature_2m_max")
+	Dim tmin0 As String
+	tmin0 = WeatherApi.JsonNumberAfter(body, "temperature_2m_min")
+	Dim pop0 As String
+	pop0 = WeatherApi.JsonNumberAfter(body, "precipitation_probability_max")
+
+	loadState = "ok"
+	headline = "Now — " & CStr(SiteLat) & ", " & CStr(SiteLon)
+	If Len(tempStr) > 0 Then
+		detail1 = "Current: " & tempStr & " °C — " & WeatherApi.WmoWeatherLabel(wcode)
+	Else
+		detail1 = "Current: (could not parse temperature_2m)"
+	End If
+	If Len(humStr) > 0 Then
+		detail2 = "Relative humidity: " & humStr & "%"
+	Else
+		detail2 = ""
+	End If
+	detail3 = "Today daily max/min: " & tmax0 & " / " & tmin0 & " °C — max precip chance " & pop0 & "%"
+	rawSnippet = Left(body, 180)
+	If Len(body) > 180 Then rawSnippet = rawSnippet & "…"
+	QueueRedraw
+End Sub
+
+Sub _Draw()
+	DrawRect Rect2(0, 0, SCREEN_W, SCREEN_H), Color8(18, 22, 30), True
+	DrawString headline, 20, 28, Color8(200, 220, 255), 22
+	DrawString "Source: Open-Meteo (direct GET, no proxy)", 20, 58, Color8(120, 130, 150), 13
+	If loadState = "loading" Then
+		DrawString "Loading…", 20, 100, Color8(255, 220, 120), 16
+	ElseIf loadState = "error" Then
+		DrawString detail1, 20, 100, Color8(255, 140, 140), 16
+		DrawString detail2, 20, 128, Color8(180, 180, 180), 12
+	Else
+		DrawString detail1, 20, 100, Color8(230, 240, 250), 17
+		If Len(detail2) > 0 Then DrawString detail2, 20, 132, Color8(200, 210, 220), 15
+		DrawString detail3, 20, 164, Color8(180, 200, 220), 14
+		DrawString rawSnippet, 20, 210, Color8(100, 110, 125), 11
+	End If
+	DrawString "Enter / PageDown — refresh   (full Climatist: scratch/James_Weather_Project.txt)", 20, SCREEN_H - 32, Color8(90, 100, 115), 11
+End Sub

@@ -1,0 +1,20 @@
+; Climatist POC — James weather side-project (Open-Meteo "Now" slice only)
+
+config_version=5
+
+[application]
+
+config/name="Climatist POC"
+config/description="VG proof: fetch and display Open-Meteo current weather (desktop; HTML5 when WASM shipped)"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.6", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=480
+window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")

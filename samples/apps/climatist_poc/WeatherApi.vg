@@ -1,0 +1,72 @@
+' Open-Meteo helpers for Climatist POC (direct client GET — James spec: per-user to source)
+Attribute VB_Name = "WeatherApi"
+
+' Naive JSON number extractor: finds "key": <number> in Open-Meteo responses.
+Function JsonNumberAfter(ByVal json As String, ByVal key As String) As String
+	Dim needle As String
+	needle = """" & key & """:"
+	Dim pos As Integer
+	pos = InStr(1, json, needle, 0)
+	If pos = 0 Then
+		JsonNumberAfter = ""
+		Exit Function
+	End If
+	pos = pos + Len(needle)
+	While pos <= Len(json) And Mid(json, pos, 1) = " "
+		pos = pos + 1
+	Wend
+	If pos <= Len(json) And Mid(json, pos, 1) = "[" Then
+		pos = pos + 1
+	End If
+	Dim buf As String
+	buf = ""
+	While pos <= Len(json)
+		Dim ch As String
+		ch = Mid(json, pos, 1)
+		If ch = "," Or ch = "}" Or ch = "]" Then Exit While
+		buf = buf & ch
+		pos = pos + 1
+	Wend
+	JsonNumberAfter = Trim(buf)
+End Function
+
+Function WmoWeatherLabel(ByVal code As Integer) As String
+	If code = 0 Then
+		WmoWeatherLabel = "Clear"
+	ElseIf code >= 1 And code <= 3 Then
+		WmoWeatherLabel = "Mainly clear / cloudy"
+	ElseIf code = 45 Or code = 48 Then
+		WmoWeatherLabel = "Fog"
+	ElseIf code >= 51 And code <= 67 Then
+		WmoWeatherLabel = "Rain / drizzle"
+	ElseIf code >= 71 And code <= 77 Then
+		WmoWeatherLabel = "Snow"
+	ElseIf code >= 80 And code <= 82 Then
+		WmoWeatherLabel = "Rain showers"
+	ElseIf code >= 95 Then
+		WmoWeatherLabel = "Thunderstorm"
+	Else
+		WmoWeatherLabel = "WMO code " & CStr(code)
+	End If
+End Function
+
+Function BuildOpenMeteoForecastUrl(ByVal lat As Single, ByVal lon As Single) As String
+	BuildOpenMeteoForecastUrl = "https://api.open-meteo.com/v1/forecast?latitude=" & CStr(lat) _
+		& "&longitude=" & CStr(lon) _
+		& "&current=temperature_2m,weather_code,relative_humidity_2m" _
+		& "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" _
+		& "&timezone=auto"
+End Function
+
+Function HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String) As String
+	Dim http As New VGHttpRequest
+	http.Open "GET", url, False
+	http.Send ""
+	outStatus = http.Status
+	outStatusText = http.StatusText
+	If outStatus = 200 Then
+		HttpGet = http.ResponseText
+	Else
+		HttpGet = ""
+	End If
+End Function
