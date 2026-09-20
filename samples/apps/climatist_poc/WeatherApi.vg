@@ -58,15 +58,15 @@ Function BuildOpenMeteoForecastUrl(ByVal lat As Single, ByVal lon As Single) As 
 		& "&timezone=auto"
 End Function
 
-Function HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String) As String
+Sub HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
 	Dim http As New VGHttpRequest
 	http.Open "GET", url, False
 	http.Send ""
 	outStatus = http.Status
 	outStatusText = http.StatusText
 	If outStatus = 200 Then
-		HttpGet = http.ResponseText
+		outBody = http.ResponseText
 	Else
-		HttpGet = ""
+		outBody = ""
 	End If
-End Function
+End Sub
