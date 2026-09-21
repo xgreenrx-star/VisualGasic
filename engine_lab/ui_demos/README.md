@@ -4,7 +4,7 @@ User interface and Godot IDE integration showcase.
 
 ## Overview
 
-Interactive demonstrations of VisualGasic IDE tooling, UI patterns, and Godot editor integration features: Code Navigator, autocomplete, dot-completion, Property inspector, and Narcea AI Pair.
+Interactive demonstrations of VisualGasic IDE tooling, UI patterns, and Godot editor integration features: Code Navigator, autocomplete, dot-completion, Property inspector, and Vibe Code.
 
 ## Demos
 
@@ -27,7 +27,7 @@ Interactive demonstrations of VisualGasic IDE tooling, UI patterns, and Godot ed
 - **Autocomplete** — Type and press Ctrl+Space for context-aware suggestions
 - **Dot-Completion** — After object name and dot, VisualGasic suggests available properties/methods
 - **Property Inspector** — Inspect class properties with type information
-- **Narcea AI Pair** — Press Ctrl+Shift+A (or via toolbar) to ask AI for code suggestions
+- **Vibe Code** — Press Ctrl+Shift+A (or via toolbar) to ask AI for code suggestions
 
 ## Notes
 

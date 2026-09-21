@@ -40,7 +40,7 @@ genuinely usable everyday workflow.
 - **Pluggable providers** — Ollama (local), OpenAI, Claude, and Gemini all
   shipped with the same VG-aware prompt scaffold. Switch providers from a
   single dropdown.
-- **Voice mode** — push-to-talk dictation into the AI Help panel, powered
+- **Voice mode** — push-to-talk dictation into the Vibe Code panel, powered
   by Whisper. `scripts/install_whisper.sh` / `.ps1` set up the model on
   first use.
 - **Narcea project scaffolder** — "Ask Narcea to Make a Project" on the

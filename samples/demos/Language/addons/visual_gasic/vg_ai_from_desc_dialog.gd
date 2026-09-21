@@ -3,7 +3,7 @@ extends ConfirmationDialog
 ## Form / code / project description entry — VB6-styled, fixed size.
 ##
 ## Use via EditorInterface.popup_dialog_centered() so Godot hosts the dialog
-## on the editor root (not inside the AI Pair dock, which stretches embedded
+## on the editor root (not inside the Vibe Code dock, which stretches embedded
 ## AcceptDialogs to full panel height).
 
 const PANEL_BG := Color(0.941, 0.929, 0.910)

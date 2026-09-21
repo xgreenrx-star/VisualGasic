@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # narcea_movie_generate.sh — Run real Cursor SDK generation for each movie segment.
 #
-# Requires: CURSOR_API_KEY (or AI Pair key in Godot EditorSettings), cursor-sdk venv.
+# Requires: CURSOR_API_KEY (or Vibe Code key in Godot EditorSettings), cursor-sdk venv.
 # Writes/updates generated/* and refreshes movie_data/transcripts/*.txt from streamed tokens.
 #
 # Usage:

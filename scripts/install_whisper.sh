@@ -119,5 +119,5 @@ EOF
 fi
 
 echo
-echo "Restart Godot — mic mode in AI Pair will now use local Whisper"
+echo "Restart Godot — mic mode in Vibe Code will now use local Whisper"
 echo "automatically (no API key, no network)."

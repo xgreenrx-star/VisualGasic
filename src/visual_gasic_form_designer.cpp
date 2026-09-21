@@ -4896,8 +4896,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     Vector<ExtRes> ext_resources;
     HashMap<String, int> path_to_idx; // scene_path → 1-based ext_resource ID
 
-    // The form script (VG script)
-    String vg_script_path = form_path.get_basename() + ".vg";
+    // The form script (VG script) — preserve a custom path from the opened .tscn
+    String vg_script_path = form_vg_script_path.is_empty()
+            ? form_path.get_basename() + ".vg"
+            : form_vg_script_path;
     {
         ExtRes er;
         er.type = "Script";
@@ -4946,6 +4948,23 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         if (sp.is_empty() || path_to_idx.has(sp)) continue;
         ExtRes er;
         er.type = "PackedScene";
+        er.path = sp;
+        int64_t uid_val = ResourceLoader::get_singleton()->get_resource_uid(sp);
+        if (uid_val >= 0) {
+            er.uid = ResourceUID::get_singleton()->id_to_text(uid_val);
+        }
+        ext_resources.push_back(er);
+        path_to_idx[sp] = next_id++;
+    }
+
+    // Per-control VG/GD scripts (e.g. HexCanvas.vg on a Panel)
+    for (int i = 0; i < controls.size(); i++) {
+        String sp = controls[i].script_path;
+        if (sp.is_empty() || path_to_idx.has(sp)) {
+            continue;
+        }
+        ExtRes er;
+        er.type = "Script";
         er.path = sp;
         int64_t uid_val = ResourceLoader::get_singleton()->get_resource_uid(sp);
         if (uid_val >= 0) {
@@ -5119,6 +5138,14 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
     sub_resources += make_stylebox("vb6_tree_focus", sys_window,
         2, 2, 2, 2, sys_3d_dark_shadow, sys_button_highlight, sys_button_highlight, sys_3d_dark_shadow, 0, 2);
 
+    // --- Window / dialog chrome (FileDialog, AcceptDialog popups) ---
+    sub_resources += make_stylebox("vb6_win_border", sys_active_title,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_3d_dark_shadow, 0, 4);
+    sub_resources += make_stylebox("vb6_win_unfocus", sys_inactive_title,
+        2, 2, 2, 2, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_3d_dark_shadow, sys_3d_dark_shadow, 0, 4);
+    sub_resources += make_stylebox("vb6_dialog_panel", color_form_bg,
+        1, 1, 1, 1, sys_button_shadow, sys_button_shadow, sys_button_shadow, sys_button_shadow, 0, 10);
+
     // =========================================================================
     // VB6 Classic Theme sub_resource — maps StyleBoxes to control types
     // =========================================================================
@@ -5224,8 +5251,19 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
     // -- Tree (TreeView) --
     theme_res += "Tree/colors/font_color = " + fmt_color(sys_window_text) + "\n";
+    theme_res += "Tree/colors/font_selected_color = " + fmt_color(sys_title_text) + "\n";
     theme_res += "Tree/styles/panel = SubResource(\"vb6_tree_panel\")\n";
     theme_res += "Tree/styles/focus = SubResource(\"vb6_tree_focus\")\n";
+
+    // -- Window / AcceptDialog / FileDialog (native popups created in code) --
+    theme_res += "Window/colors/title_color = " + fmt_color(sys_title_text) + "\n";
+    theme_res += "Window/colors/title_outline_modulate = " + fmt_color(Color(0, 0, 0, 0)) + "\n";
+    theme_res += "Window/styles/embedded_border = SubResource(\"vb6_win_border\")\n";
+    theme_res += "Window/styles/embedded_unfocused_border = SubResource(\"vb6_win_unfocus\")\n";
+    theme_res += "AcceptDialog/styles/panel = SubResource(\"vb6_dialog_panel\")\n";
+    theme_res += "FileDialog/colors/file_icon_color = " + fmt_color(Color(0.15f, 0.15f, 0.15f)) + "\n";
+    theme_res += "FileDialog/colors/folder_icon_color = " + fmt_color(Color(0.15f, 0.15f, 0.15f)) + "\n";
+    theme_res += "FileDialog/colors/file_disabled_color = " + fmt_color(Color(0.5f, 0.5f, 0.5f, 0.45f)) + "\n";
 
     // -- RichTextLabel --
     theme_res += "RichTextLabel/colors/default_color = " + fmt_color(sys_window_text) + "\n";
@@ -5485,6 +5523,26 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
         out += "offset_right = " + String::num_int64((int)(ctrl.rect.position.x + ctrl.rect.size.x)) + ".0\n";
         out += "offset_bottom = " + String::num_int64((int)(ctrl.rect.position.y + ctrl.rect.size.y)) + ".0\n";
 
+        // Bare Control nodes (custom draw panels) must stay in absolute position mode.
+        // Without layout_mode=0 Godot may treat them as full-rect anchors and cover
+        // the toolbar controls drawn earlier in the scene tree.
+        if (ctrl.type == "Control") {
+            bool has_layout_mode = false;
+            Array prop_keys = ctrl.properties.keys();
+            for (int pk = 0; pk < prop_keys.size(); pk++) {
+                if (String(prop_keys[pk]) == "layout_mode") {
+                    has_layout_mode = true;
+                    break;
+                }
+            }
+            if (!has_layout_mode) {
+                out += "layout_mode = 0\n";
+            }
+            if (!ctrl.script_path.is_empty() && !ctrl.properties.has("ClipContents")) {
+                out += "clip_contents = true\n";
+            }
+        }
+
         // Custom controls (scene_path NOT under prototypes/) get an empty Theme
         // to block VB6 theme inheritance, preserving their own scene-defined look
         if (has_custom_controls && !sp.is_empty() && !sp.begins_with(proto_prefix)) {
@@ -5497,6 +5555,10 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
             // Prototype-instanced controls: explicitly clear text so that any
             // default text baked into the prototype .tscn doesn't leak through.
             out += "text = \"\"\n";
+        }
+
+        if (!ctrl.script_path.is_empty() && path_to_idx.has(ctrl.script_path)) {
+            out += "script = ExtResource(\"" + String::num_int64(path_to_idx[ctrl.script_path]) + "\")\n";
         }
 
         // VB6 control array index (persisted as metadata)
@@ -5802,6 +5864,7 @@ String VisualGasicFormDesigner::_serialize_to_tscn() const {
 
 bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
     controls.clear();
+    form_vg_script_path = "";
     has_menu_bar = false;
     menu_bar_node_name = "";
     menu_child_raw_blocks.clear();
@@ -6059,7 +6122,20 @@ bool VisualGasicFormDesigner::_parse_tscn(const String &p_text) {
                     }
                 } else if (key == "title") {
                     // Skip, we already have form_name from node name
-                } else if (key == "script" || key == "mouse_filter" || key == "theme") {
+                } else if (key == "script") {
+                    // Resolve ExtResource("N") → path. Root .vg script may live outside scenes/.
+                    if (val.begins_with("ExtResource(\"") && val.ends_with("\")")) {
+                        String ext_id = val.substr(13, val.length() - 15);
+                        if (ext_id_to_type.has(ext_id) && ext_id_to_type[ext_id] == "Script" && ext_id_to_path.has(ext_id)) {
+                            String spath = ext_id_to_path[ext_id];
+                            if (is_root_node && spath.ends_with(".vg")) {
+                                form_vg_script_path = spath;
+                            } else if (!is_root_node) {
+                                current_item.script_path = spath;
+                            }
+                        }
+                    }
+                } else if (key == "mouse_filter" || key == "theme") {
                     // Internal / theme managed by serializer, skip
                 } else if (key == "theme_override_font_sizes/font_size") {
                     // Reverse-map back to VB6 FontSize (Godot px → VB6 pt)
@@ -6497,8 +6573,10 @@ bool VisualGasicFormDesigner::save_form_as(const String &p_tscn_path) {
     // Validate scene paths — fall back to prototype if custom file was deleted
     _validate_scene_paths();
 
-    // Ensure VG script file exists
-    String vg_path = form_path.get_basename() + ".vg";
+    // Ensure VG script file exists (sibling default, or preserved custom path)
+    String vg_path = form_vg_script_path.is_empty()
+            ? form_path.get_basename() + ".vg"
+            : form_vg_script_path;
     if (!FileAccess::file_exists(vg_path)) {
         Ref<FileAccess> vg_file = FileAccess::open(vg_path, FileAccess::WRITE);
         if (vg_file.is_valid()) {

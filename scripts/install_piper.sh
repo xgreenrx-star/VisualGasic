@@ -95,5 +95,5 @@ EOF
 fi
 
 echo
-echo "Restart Godot and switch any AI Pair persona — voice mode now uses"
+echo "Restart Godot and switch any Vibe Code persona — voice mode now uses"
 echo "Piper neural TTS automatically (no extra config needed)."

@@ -127,7 +127,7 @@ HUD (`_DrawHud`): add centered tagline when `showcase_attract`:
 
 ---
 
-## Narcea prompt (paste into AI Pair)
+## Narcea prompt (paste into Vibe Code)
 
 ```
 Build the VG 5.4.0-beta1 release showcase in projects/vg_beta_showcase/.

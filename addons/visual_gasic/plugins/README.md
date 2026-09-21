@@ -27,7 +27,7 @@ the same way a large IDE ships many built-in tools under one license.
 | Folder | What it is | Status | License |
 |---|---|---|---|
 | `agck/` | "AGCK"-style rapid game builder (level/actor/shader/sound editors) | Maintenance-only, not actively expanded | Original VG code — GPLv3 (root LICENSE) |
-| `form_designer/` | Legacy Form Designer plugin entrypoint | Legacy/frozen — superseded by `ui_forms/` going forward | Original VG code — GPLv3 (root LICENSE) |
+| `form_designer/` | Legacy Form Designer plugin entrypoint | **Alpha / experimental** — mothballed for v6.0; requires `vg/enable_experimental_plugins`; superseded by `ui_forms/` | Original VG code — GPLv3 (root LICENSE) |
 | `gdai/` | GDAI provider bridge plugin entrypoint | Work in progress | Original VG code — GPLv3 (root LICENSE) |
 | `ui_forms/` | Experimental 2D-viewport UI Forms designer | Experimental, active development | Original VG code — GPLv3 (root LICENSE) |
 | `vector_graphics/` | Vector canvas / shape drawing tools | Work in progress | Original VG code — GPLv3 (root LICENSE) |

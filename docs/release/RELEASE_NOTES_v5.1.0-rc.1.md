@@ -37,7 +37,7 @@ Recent AGCK polish in this RC:
 
 What AGCK emits is just `.vg` files plus normal Godot scenes. Open them, edit them by hand, run them with `▶ Play`. Exactly the same code path as anything else in the project.
 
-### Multi-Provider AI Help
+### Multi-Provider Vibe Code
 
 - **Providers**: OpenAI (GPT-4 / GPT-4o), Anthropic Claude, Google Gemini, and **Ollama** (local, no API key, no network).
 - **Speed options**: pick faster / cheaper models for autocomplete, larger ones for refactors.
@@ -56,7 +56,7 @@ We agree that today's AI integration, while useful, still feels mostly *bolted o
 - **Repair-on-error ("🩹 Fix with AI" button on the error dialog).** When VG raises a runtime error, click *🩹 Fix with AI* on the Exception Assistant — the model sees the error message, the offending source line, and a 20-line context window, and returns an actual diff (red strikethrough on doomed lines, green on new ones). One click to apply, one to reject, one to retry. Works with whichever provider you've configured (Ollama / OpenAI / Claude / Gemini). **This is the area we want the most feedback on** — acceptance-rate metrics will gate the rest of the roadmap.
 
 **🚧 Landing next in v5.1.x (rc.2):**
-- **🎙 Voice mode (push-to-talk).** A new microphone button in the AI Help panel turns it into a hands-free assistant. Hold the 🎙 key, talk, release — your speech is transcribed (OpenAI Whisper API or local `whisper.cpp`), the AI answers, and the reply is spoken back (OpenAI TTS or local `piper`). Voice queries share the same conversation history as typed ones, so the AI remembers what you asked five minutes ago whether you typed it or said it. Local-first by default: if `whisper.cpp` and `piper` are on your `PATH`, voice runs entirely offline. No wake word, no always-on listening — strict push-to-talk for privacy.
+- **🎙 Voice mode (push-to-talk).** A new microphone button in the Vibe Code panel turns it into a hands-free assistant. Hold the 🎙 key, talk, release — your speech is transcribed (OpenAI Whisper API or local `whisper.cpp`), the AI answers, and the reply is spoken back (OpenAI TTS or local `piper`). Voice queries share the same conversation history as typed ones, so the AI remembers what you asked five minutes ago whether you typed it or said it. Local-first by default: if `whisper.cpp` and `piper` are on your `PATH`, voice runs entirely offline. No wake word, no always-on listening — strict push-to-talk for privacy.
 
 **🔮 Planned for a future v5.x release (gated on Repair-on-error + Voice feedback):**
 - **Inline node generation (`Ctrl+K`).** Press `Ctrl+K` anywhere in the graph editor → small floating prompt → describe what you want (*"spawn enemy every 2s, faster after 30s"*) → AI generates real VG nodes wired into your graph at the cursor, ghost-previewed before commit. Not GDScript — actual graph nodes validated against the schema.

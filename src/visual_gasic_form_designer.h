@@ -349,6 +349,7 @@ private:
     // Form metadata
     String form_name = "Form1";
     String form_path;  // .tscn path (empty = unsaved)
+    String form_vg_script_path;  // .vg script bound to root (may differ from sibling default)
     Vector2i form_size = Vector2i(600, 400);
     bool dirty = false;
     WindowType window_type = WINDOW_GAME;

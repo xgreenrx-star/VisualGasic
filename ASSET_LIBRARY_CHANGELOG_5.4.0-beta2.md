@@ -23,7 +23,7 @@ Python bridge and async
 • PyCallAsync / Await improvements and demo suite
 • Causal-chain API for code navigation and Narcea
 
-Narcea AI Pair
+Vibe Code
 • Golden-path validation: Tier A form scaffold + Tier B platformer replay
 
 Reliability

@@ -49,7 +49,7 @@ Use these values when submitting updates:
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
-**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea AI pair, and 122+ built-in functions. **12/12 compute + 9/9 draw** vs GDScript (Aug 2026). GDExtension binaries for Linux, Windows, macOS, and **HTML5 (WASM)** included.
+**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea Vibe Code, and 122+ built-in functions. **12/12 compute + 9/9 draw** vs GDScript (Aug 2026). GDExtension binaries for Linux, Windows, macOS, and **HTML5 (WASM)** included.
 
 **Screenshots to include:**
 1. Code editor with `.vg` file and Command Help

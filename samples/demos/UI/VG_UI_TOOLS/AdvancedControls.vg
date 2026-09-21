@@ -29,6 +29,7 @@ Private Sub Form_Load()
     openDlg.FileMode = 0   ' FILE_MODE_OPEN_FILE
     openDlg.Access = 2     ' ACCESS_FILESYSTEM
     openDlg.Size = Vector2(600, 400)
+    openDlg.Theme = Me.Theme
     Me.AddChild(openDlg)
     Connect openDlg, "file_selected", "OnOpenFileSelected"
 
@@ -37,6 +38,7 @@ Private Sub Form_Load()
     saveDlg.FileMode = 2   ' FILE_MODE_SAVE_FILE
     saveDlg.Access = 2     ' ACCESS_FILESYSTEM
     saveDlg.Size = Vector2(600, 400)
+    saveDlg.Theme = Me.Theme
     Me.AddChild(saveDlg)
     Connect saveDlg, "file_selected", "OnSaveFileSelected"
 End Sub

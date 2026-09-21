@@ -1,0 +1,19 @@
+' Regression: bare Width/Height resolve via VB6 property aliases on the script owner.
+' Hex editor LayoutHexPanel uses form Width/Height; without this, pnlHexView was 0px wide
+' and clip_contents hid all _Draw output.
+' MAX_FRAMES: 5
+Extends Control
+
+Sub _Ready()
+	Width = 640
+	Height = 480
+	Dim w As Long
+	Dim h As Long
+	w = Width
+	h = Height
+	If w = 640 And h = 480 Then
+		Print "PASS: bare Width/Height on Control owner"
+	Else
+		Print "FAIL: bare Width/Height on Control owner: " & CStr(w) & "x" & CStr(h)
+	End If
+End Sub

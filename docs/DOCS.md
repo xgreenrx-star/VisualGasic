@@ -1,8 +1,8 @@
 # VisualGasic Documentation Hub
 
-**The complete documentation map for VisualGasic — a modern, event-driven BASIC language for the Godot Engine.**
+**The complete documentation map for Visual Gasic — a second language for Godot (game systems, UI, tools).**
 
-This page links to every documentation file in the project, organized by topic. Whether you're a new user, a VB6 veteran, or a contributor — start here.
+Public positioning: [`POSITIONING.md`](POSITIONING.md). This hub links every doc by topic — new users, VB6 migrators, and contributors start here.
 
 ---
 
@@ -13,6 +13,7 @@ This page links to every documentation file in the project, organized by topic. 
 | See working code examples | [Corpus: 57 Hand-Audited Examples](../corpus/README.md) — Hello World, Generics, Optional types, Exception handling, Classes, State Machines, and more |
 | Install VisualGasic | [Installation Guide](guides/INSTALLATION.md) (Asset Library, one-click installer, manual) |
 | Get running in 15 minutes | [Quick Start](getting_started/QUICK_START.md) |
+| See how we describe VG publicly | [Positioning (v6.0 storefront)](POSITIONING.md) |
 | Learn the basics | [Getting Started](#-getting-started) |
 | Port a VB6 project | [Importing VB6 Projects](guides/IMPORTING_VB6.md) |
 | Look up a function | [Built-in Functions Reference](reference/BUILTIN_FUNCTIONS_REFERENCE.md) |

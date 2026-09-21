@@ -23,7 +23,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Runtime:** Godot 4.6.1 plugin via GDExtension (`.gdextension`)
 - **Primary IDE:** Godot's native Script editor — VG extends it with autocomplete, Code Navigator, dot-completion
 - **VG custom IDE shell / legacy Form Designer:** **experimental Alpha** — **not** on the v6.0 EOY critical path; mothballed unless `vg/enable_experimental_plugins = true`. User-facing status: `docs/manual/VG_IDE_ALPHA.md` (standalone Form Designer repo extraction is **planned**, not shipped yet).
-- **Godot IDE integration (active scope):** Toolbox panel, Properties window, Immediate window, Narcea AI Pair, Code Navigator, autocomplete, dot-completion — these are docked inside Godot's editor and are **in scope for all milestones**
+- **Godot IDE integration (active scope):** Toolbox panel, Properties window, Immediate window, Narcea Vibe Code, Code Navigator, autocomplete, dot-completion — these are docked inside Godot's editor and are **in scope for all milestones**
 - **Focus until v6.0:** VG Script language quality + Godot IDE integration. Do NOT expand the VG standalone IDE shell.
 - **AI providers:** `addons/visual_gasic/vg_ai_providers.gd` — Ollama, OpenAI, Claude, Gemini
 - **Canonical Claude models (Anthropic direct API):** `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5` (verified 2026-06-29)
@@ -37,7 +37,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M2 | Aug 15 | ✅ DONE (Jun 30) | 44/44 corpus examples passing |
 | M3 | Aug 31 | ✅ DONE (Jul 1) | Code Navigator upgrade (#7) |
 | M4 | Sep 30 | ✅ DONE (Jul 1) | UI Forms experimental (#8–12) |
-| M5 | Oct 15 | 🔄 NEXT | Narcea AI pair (#13) |
+| M5 | Oct 15 | 🔄 NEXT | Narcea Vibe Code (#13) |
 | M6 | Oct 31 | ✅ **Partial** | Causal Chain text-mode (#14) — C++ `vg_analyze_causal_graph`, Code Navigator button, Context Rail preview, 8 headless fixtures |
 | M7 | Nov 15 | 🟡 **In progress** | Python Library Integration — Phase 2/3 done; **C2 typed msgpack shipped (opt-in)** via `vg/python/use_typed_protocol`; large-array binary lane still pending |
 | M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
@@ -80,7 +80,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **Python bridge C2 typed msgpack** — `vg/python/use_typed_protocol` (default `false`); msgpack wire preserves int/float. Test: `test_py_msgpack_typed.vg`. JSON remains default for compat.
 - **C++ causal-graph API** — `VisualGasicLanguage.vg_analyze_causal_graph(code, roots)`; `vg_causal_chain.gd` prefers C++ then regex fallback. IDE: Code Navigator **Show Causal Chain** button.
 - **Tagged-stack VM prototype** — `scons tagged_stack=1`, `VG_TAGGED_STACK`, selftest via `VG_STACKVALUE_SELFTEST=1`. **NOT pursued for shipping** (~6% arith win, net loss on realistic workloads). See `docs/vm_tagged_stack_migration.md`.
-- **Narcea Live Debug Capture** — opt-in local viewport/stack/locals/UI tree while debugging (`vg/narcea/live_debug_capture*`, AI Pair per-run checkbox). Knowledge in `vg_ai_narcea.gd`; spec `docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md`.
+- **Narcea Live Debug Capture** — opt-in local viewport/stack/locals/UI tree while debugging (`vg/narcea/live_debug_capture*`, Vibe Code per-run checkbox). Knowledge in `vg_ai_narcea.gd`; spec `docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md`.
 
 ## Recent fixes (Jun 30, 2026)
 

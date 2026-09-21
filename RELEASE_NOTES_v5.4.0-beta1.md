@@ -32,13 +32,13 @@ Full changelog: [CHANGELOG.md](CHANGELOG.md#540-beta1---2026-08-30) · Canonical
 
 Open `projects/vg_beta_showcase/` in Godot 4.6.1, press **F5**. **Space** skips segments; **ESC** quits. See [projects/vg_beta_showcase/README.md](projects/vg_beta_showcase/README.md) and [ARCHITECTURE.md](projects/vg_beta_showcase/ARCHITECTURE.md).
 
-### IDE — DataFile sidecar, context rail, AI Pair
+### IDE — DataFile sidecar, context rail, Vibe Code
 
-![Visual Gasic IDE with DataFile inspector, context rail, and AI Pair panel](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/docs/screenshots/Screenshot%20at%202026-08-25%2010-50-34.png)
+![Visual Gasic IDE with DataFile inspector, context rail, and Vibe Code panel](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/docs/screenshots/Screenshot%20at%202026-08-25%2010-50-34.png)
 
-Narcea AI Pair, `.vgd` DataFile preview, sprite Data editor, and multi-platform GDExtension binaries in one workspace.
+Vibe Code, `.vgd` DataFile preview, sprite Data editor, and multi-platform GDExtension binaries in one workspace.
 
-### Narcea AI Pair (Beta7 carry-forward)
+### Vibe Code (Beta7 carry-forward)
 
 ![Narcea End command and menu form scaffold](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/docs/screenshots/beta6_narcea_menu_form_end_command.png)
 

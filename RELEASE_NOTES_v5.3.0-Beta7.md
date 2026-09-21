@@ -37,10 +37,10 @@ VisualGasic 5.3.0-Beta7 is a **language correctness and CI hardening** release. 
 
 - **Reference offer on Send** — Narcea can attach Programmer's Reference entries to replies.
 - **User-assisted web references** — Phase 0+2 game-clone scaffolding with auditable sources.
-- **Canvas platformer / 3D prompts** — improved AI Pair scaffold templates.
+- **Canvas platformer / 3D prompts** — improved Vibe Code scaffold templates.
 - **Cursor SDK** — cross-platform venv bootstrap (Windows, PEP 668 Linux, macOS Python discovery).
 - **Visual AI audit** — agent run graphs via Working Nodes plugin.
-- **Windows AI Pair** — OS-aware paths and dashboard builds.
+- **Windows Vibe Code** — OS-aware paths and dashboard builds.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md#530-beta7---2026-08-21)
 

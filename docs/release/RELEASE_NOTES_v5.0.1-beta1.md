@@ -179,7 +179,7 @@ python install.py
 ### ✅ Recently Added (Beta 2)
 
 - **🌐 Publish to Web** — Flash-successor HTML5 export with preloader, fullscreen, context menu, embed code, portal pages, and quality/scale controls
-- **🤖 Multi-Provider AI Help** — OpenAI (GPT-4o), Anthropic Claude, Google Gemini cloud providers alongside local Ollama
+- **🤖 Multi-Provider Vibe Code** — OpenAI (GPT-4o), Anthropic Claude, Google Gemini cloud providers alongside local Ollama
 - **🎬 Live Control Animation** — @tool custom controls animate in real-time in the Form Designer via per-instance SubViewports
 - **🔌 WebSocket Controls** — WebSocketClient, WebSocketServer, Lobby, and Chat controls for multiplayer game networking
 

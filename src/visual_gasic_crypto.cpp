@@ -2,6 +2,7 @@
 // Uses Godot's built-in Crypto, HashingContext, AESContext, Marshalls
 
 #include "visual_gasic_crypto.h"
+#include <cstdio>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/hashing_context.hpp>
 #include <godot_cpp/classes/aes_context.hpp>
@@ -17,6 +18,8 @@ void VGCrypto::_bind_methods() {
     ClassDB::bind_static_method("VGCrypto", D_METHOD("md5_bytes", "data"), &VGCrypto::md5_bytes);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("sha1_bytes", "data"), &VGCrypto::sha1_bytes);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("sha256_bytes", "data"), &VGCrypto::sha256_bytes);
+    ClassDB::bind_static_method("VGCrypto", D_METHOD("crc32_string", "text"), &VGCrypto::crc32_string);
+    ClassDB::bind_static_method("VGCrypto", D_METHOD("crc32_hex", "data"), &VGCrypto::crc32_hex);
 
     // Encoding
     ClassDB::bind_static_method("VGCrypto", D_METHOD("base64_encode", "data"), &VGCrypto::base64_encode);
@@ -42,6 +45,9 @@ void VGCrypto::_bind_methods() {
     ClassDB::bind_static_method("VGCrypto", D_METHOD("MD5Bytes", "data"), &VGCrypto::md5_bytes);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("SHA1Bytes", "data"), &VGCrypto::sha1_bytes);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("SHA256Bytes", "data"), &VGCrypto::sha256_bytes);
+    ClassDB::bind_static_method("VGCrypto", D_METHOD("CRC32", "text"), &VGCrypto::crc32_string);
+    ClassDB::bind_static_method("VGCrypto", D_METHOD("CRC32Bytes", "data"), &VGCrypto::crc32_hex);
+    ClassDB::bind_static_method("VGCrypto", D_METHOD("crc32_bytes", "data"), &VGCrypto::crc32_hex);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("Base64Encode", "data"), &VGCrypto::base64_encode);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("Base64Decode", "base64"), &VGCrypto::base64_decode);
     ClassDB::bind_static_method("VGCrypto", D_METHOD("HexEncode", "data"), &VGCrypto::hex_encode);
@@ -112,6 +118,33 @@ PackedByteArray VGCrypto::sha1_bytes(const PackedByteArray &p_data) {
 
 PackedByteArray VGCrypto::sha256_bytes(const PackedByteArray &p_data) {
     return hash_bytes(HashingContext::HASH_SHA256, p_data);
+}
+
+static uint32_t crc32_ieee(const PackedByteArray &p_data) {
+    uint32_t crc = 0xFFFFFFFFu;
+    const uint8_t *p = p_data.ptr();
+    int n = p_data.size();
+    for (int i = 0; i < n; i++) {
+        crc ^= (uint32_t)p[i];
+        for (int b = 0; b < 8; b++) {
+            if (crc & 1u) {
+                crc = (crc >> 1) ^ 0xEDB88320u;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+String VGCrypto::crc32_hex(const PackedByteArray &p_data) {
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%08X", crc32_ieee(p_data));
+    return String(buf);
+}
+
+String VGCrypto::crc32_string(const String &p_text) {
+    return crc32_hex(p_text.to_utf8_buffer());
 }
 
 // ---------------------------------------------------------------------------

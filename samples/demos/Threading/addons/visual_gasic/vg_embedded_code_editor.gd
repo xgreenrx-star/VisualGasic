@@ -444,7 +444,7 @@ func _build_bottom_panel() -> void:
 	_bottom_tabs.add_theme_font_size_override("font_size", 11)
 	_bottom_tabs.add_theme_color_override("font_selected_color", Color(0.0, 0.0, 0.4))
 	_bottom_tabs.add_theme_color_override("font_unselected_color", Color(0.3, 0.3, 0.3))
-	# Allow many bottom tabs (AI Pair, Hex Editor, …) without losing the last ones off-screen.
+	# Allow many bottom tabs (Vibe Code, Hex Editor, …) without losing the last ones off-screen.
 	if "clip_tabs" in _bottom_tabs:
 		_bottom_tabs.clip_tabs = false
 	if "scroll_to_selected" in _bottom_tabs:
@@ -562,7 +562,7 @@ func set_immediate_window(window: Control) -> void:
 	_bottom_tabs.current_tab = 0
 
 ## Add an external panel as a new tab in the IDE's bottom TabContainer.
-## Used by the plugin to embed VG Profiler, VG Controls, VG Packages, AI Help, etc.
+## Used by the plugin to embed VG Profiler, VG Controls, VG Packages, Vibe Code, etc.
 func add_bottom_tab(title: String, panel: Control) -> void:
 	if not _bottom_tabs:
 		push_warning("add_bottom_tab: _bottom_tabs not ready yet")
@@ -582,7 +582,7 @@ func remove_bottom_tab(panel: Control) -> void:
 	if panel.get_parent() == _bottom_tabs:
 		_bottom_tabs.remove_child(panel)
 
-## Returns the outer bottom panel (Immediate, Output, AI Pair, … tabs).
+## Returns the outer bottom panel (Immediate, Output, Vibe Code, … tabs).
 func get_bottom_panel() -> Control:
 	return _bottom_panel
 
@@ -634,7 +634,7 @@ func focus_bottom_tab(panel: Control) -> void:
 			_bottom_tabs.current_tab = idx
 			return
 	for i in range(_bottom_tabs.get_tab_count()):
-		if _bottom_tabs.get_tab_title(i) == "AI Pair" and panel.name == "AI Pair":
+		if _bottom_tabs.get_tab_title(i) == "Vibe Code" and panel.name == "Vibe Code":
 			_bottom_tabs.current_tab = i
 			return
 	var idx := panel.get_index()

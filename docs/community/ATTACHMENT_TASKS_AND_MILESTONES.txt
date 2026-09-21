@@ -23,7 +23,7 @@ Acceptance criteria:
 Task B: Godot integration and AI workflow hardening
 Scope:
 - Improve in-editor reliability for core VG workflows in Godot.
-- Advance Narcea AI pair experience where it improves practical usability.
+- Advance Narcea Vibe Code experience where it improves practical usability.
 - Tighten navigation/help/diagnostic quality for day-to-day development.
 Deliverables:
 - Implemented reliability improvements in active Godot-integrated workflows.

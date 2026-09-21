@@ -345,6 +345,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              String snake = name.to_snake_case();
              ret = owner->get(snake);
              if (ret.get_type() != Variant::NIL) return ret;
+
+             // VB6 form/control aliases: bare Width, Height, Caption, … on the owner node
+             Variant vb6_owner_prop;
+             if (VisualGasicInstance::try_read_vb6_property(owner, name, vb6_owner_prop)) {
+                 return vb6_owner_prop;
+             }
              
              // Search for child controls by name (VB6 style - controls are accessible by name)
              Node* owner_node = Object::cast_to<Node>(owner);
@@ -542,7 +548,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              // VB6 Property Aliasing (Read) — shared helper handles all 62 aliases
              if (obj) {
                   Variant vb6_result;
-                  if (_vb6_read_property(obj, prop_name, vb6_result)) {
+                  if (VisualGasicInstance::try_read_vb6_property(obj, prop_name, vb6_result)) {
                       return vb6_result;
                   }
                   
@@ -1032,6 +1038,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 Variant br;
                 if (VisualGasicBuiltins::call_builtin_for_base_variable(this, var_name, call->method_name, call_args, br)) {
                     return br;
+                }
+                // Cross-module qualified call: ModuleName.SubName(args) (v4.3.0)
+                if (module_registry.has(var_name)) {
+                    SubDefinition* mod_sub = find_sub_in_module(var_name, call->method_name, call_args.size());
+                    if (mod_sub) {
+                        bool found = false;
+                        Variant ret = call_internal(mod_sub->name, call_args, found);
+                        if (found) {
+                            return ret;
+                        }
+                    }
                 }
                 // ClassName.new() — GDScript-style static constructor
                 // e.g. Label.new(), MeshInstance3D.new(), StandardMaterial3D.new()

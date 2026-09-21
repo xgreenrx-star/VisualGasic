@@ -776,4 +776,20 @@ static func _build_vb6_classic_theme(p_default_font_size: int = 12) -> Theme:
 	t.set_stylebox("panel", "TooltipPanel", tip)
 	t.set_color("font_color", "TooltipLabel", win_text)
 
+	# ── Popup dialogs (FileDialog, AcceptDialog, InputBox-style pickers) ──
+	# FileDialog is a Window subclass; without AcceptDialog panel styles it keeps
+	# Godot's default dark theme even when the parent form is VB6 gray.
+	var dlg_panel := StyleBoxFlat.new()
+	dlg_panel.bg_color = btn_face
+	dlg_panel.border_color = btn_shadow
+	dlg_panel.set_border_width_all(1)
+	dlg_panel.set_content_margin_all(8)
+	for dlg_type in ["AcceptDialog", "ConfirmationDialog"]:
+		t.set_stylebox("panel", dlg_type, dlg_panel)
+
+	# FileDialog-specific icon tints (Godot defaults assume a dark panel).
+	t.set_color("file_icon_color", "FileDialog", win_text)
+	t.set_color("folder_icon_color", "FileDialog", Color(0.55, 0.35, 0.05))
+	t.set_color("file_disabled_color", "FileDialog", disabled_text)
+
 	return t

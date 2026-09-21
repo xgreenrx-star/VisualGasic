@@ -25,7 +25,7 @@ func get_toolbar_color() -> Color:
 	return Color(0.42, 0.32, 0.55)  # muted purple — matches old builtin button
 
 func get_toolbar_tooltip() -> String:
-	return "Switch to the visual Form Designer (VB6 mode)"
+	return "Alpha: legacy Form Designer (experimental — enable vg/enable_experimental_plugins). Prefer UI Forms on the 2D screen."
 
 func _build_ui() -> void:
 	# The Form Designer canvas is owned by the host IDE plugin, not by this

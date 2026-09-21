@@ -1,6 +1,6 @@
 # GRAVEN — Narcea prompt sequence
 
-Copy-paste these into **AI Pair → Narcea** in order.  
+Copy-paste these into **Vibe Code → Narcea** in order.  
 **Project folder:** `projects/vg_graven_slice/`  
 **Design source of truth:** [`BLUEPRINT.md`](BLUEPRINT.md)
 

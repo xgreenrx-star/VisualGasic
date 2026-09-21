@@ -5,7 +5,7 @@
 **Audience:** VB6-era developer comfortable with readable BASIC-style code; Godot experience not required to start  
 
 **Recruiting:** Facebook collab post copy in [`FACEBOOK_COLLAB_POST.md`](FACEBOOK_COLLAB_POST.md).  
-**Narcea build prompts:** [`NARCEA_PROMPTS.md`](NARCEA_PROMPTS.md) (phased copy-paste for AI Pair).
+**Narcea build prompts:** [`NARCEA_PROMPTS.md`](NARCEA_PROMPTS.md) (phased copy-paste for Vibe Code).
 
 ---
 

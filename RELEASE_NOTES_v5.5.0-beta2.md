@@ -71,7 +71,7 @@ Open samples/games/brotato3d/project.godot → F5
 
 ### Narcea Live Debug Capture (Phases A–D baseline)
 
-- **Opt-in per run** — Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in AI Pair.
+- **Opt-in per run** — Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in Vibe Code.
 - **Local-only ring buffer** — viewport PNG (downscaled), flat UI tree, stack/locals JSON; purged on **Stop** or **Clear capture** (Immediate tab).
 - **Explain screen**, **Refresh snapshot**, optional **Drive mode** (paused input inject), MCP tools `narcea_live_list_snapshots` / `narcea_live_get_snapshot`.
 - **Narcea system prompt** teaches capture semantics; vision gated by provider support.

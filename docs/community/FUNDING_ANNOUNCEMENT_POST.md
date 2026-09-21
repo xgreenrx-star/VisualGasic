@@ -40,7 +40,7 @@ Funding supports development time, docs, examples, release work, and the AI tool
 
 VisualGasic is looking for funding.
 
-If you want to support an open-source language and toolchain built for human-readable AI-era code, here are the support links:
+If you want to support an open-source **second language for Godot** (games, tools, and in-editor Vibe Code), here are the support links:
 - GitHub Sponsors: https://github.com/sponsors/xgreenrx-star
 - Patreon: https://patreon.com/visualgasic
 

@@ -101,7 +101,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	_setup_ui()
-	# Match the configured provider + model from the AI Help panel preferences.
+	# Match the configured provider + model from the Vibe Code panel preferences.
 	_provider_id = AIProviders.load_preferred_provider()
 	_provider_info = AIProviders.find_provider(_provider_id)
 	if _provider_info == null:
@@ -245,7 +245,7 @@ func _send_repair_request() -> void:
 	# Force non-streaming for a clean single-blob response.
 	var api_key: String = AIProviders.load_api_key(_provider_id) if _provider_info and not _provider_info.is_local else ""
 	if _provider_info and not _provider_info.is_local and api_key.is_empty():
-		_show_error("No API key configured for %s.  Open the AI Help panel ⚙️ to set one." % _provider_info.display_name)
+		_show_error("No API key configured for %s.  Open the Vibe Code panel ⚙️ to set one." % _provider_info.display_name)
 		return
 
 	var req: Dictionary = AIProviders.build_request(_provider_id, _model, SYSTEM_PROMPT, [], prompt, api_key)

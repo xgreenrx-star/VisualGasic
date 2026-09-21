@@ -1900,7 +1900,12 @@ func _load_build_result(result: Dictionary) -> void:
 				_forward_build_log("[color=#8f8]  ✓ Opened Main.tscn in Scene Editor[/color]")
 			# Switch VG IDE to the 2D view so the user sees the 2D editor
 			if _host_plugin.has_method("_on_2d_view_pressed"):
-				EditorInterface.set_main_screen_editor("Visual Gasic IDE")
+				if _host_plugin.has_method("_use_legacy_vg_ide_main_screen") \
+						and _host_plugin._use_legacy_vg_ide_main_screen() \
+						and _host_plugin.has_method("_get_plugin_name"):
+					EditorInterface.set_main_screen_editor(_host_plugin._get_plugin_name())
+				else:
+					EditorInterface.set_main_screen_editor("2D")
 				_host_plugin._on_2d_view_pressed()
 		else:
 			EditorInterface.open_scene_from_path(main_tscn)

@@ -31,7 +31,7 @@ Full details: [RELEASE_NOTES_v5.5.0-beta1.md](https://github.com/xgreenrx-star/V
 - **[Godot Programming Manual v3.0.0](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md)** — Key Sections (links open in Code view and scroll/highlight the exact line):
   - [Chapter 1: Introduction](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L100)
   - [Chapter 40: Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3926) (M7)
-  - [Chapter 45: Narcea AI Pair](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103) (M5)
+  - [Chapter 45: Narcea Vibe Code](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103) (M5)
   - [Chapter 49: Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4232) (M6)
   - [Chapter 51: Exception Handling & Modern Syntax](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4303) (M8)
   - **Note:** GitHub shows `.md` files in rendered **Preview** by default, where line-number links don't scroll. The links above use `?plain=1` to force **Code** view, where `#L<N>` reliably jumps to and highlights that line. For general reading, use the **Table of Contents** at the top of the manual instead.

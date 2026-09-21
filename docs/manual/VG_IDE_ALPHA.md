@@ -8,7 +8,7 @@
 |--------|--------|
 | Godot **Script** editor + `.vg` tabs | **Supported** — autocomplete, Code Navigator, native Enter/indent, dual-buffer sync |
 | **UI Forms** (2D viewport placement) | **Experimental** — opt-in via `vg/plugins/ui_forms` |
-| Floating **VG Help**, **Properties**, **Toolbox**, **AI Pair** panels | **Supported** on Godot 2D/3D/Script screens |
+| Floating **VG Help**, **Properties**, **Toolbox**, **Vibe Code** panels | **Supported** on Godot 2D/3D/Script screens |
 | **Visual Gasic IDE** main screen + legacy **Form Designer** plugin | **Alpha** — `vg/enable_experimental_plugins` |
 
 Focus until **VG 6.0 stable** is **language quality** and **Godot editor integration** (Navigator, Narcea, debugging, scene editing). Do not expect the standalone VB6 shell or legacy form canvas to reach production parity by EOY.
@@ -44,7 +44,7 @@ When you prefer the full **VG Code Editor** (Context Rail, bottom tabs, VB6 nav 
 
 **Project → Project Settings → Vg → Editor → Floating Vg Code Editor On Script** (`vg/editor/floating_vg_code_editor_on_script`) = **On**
 
-Opening a `.vg` in the Script editor shows the embedded editor in a **floating panel** over the script area (same pattern as VG Help and AI Pair). Geometry is saved in **Editor Settings** under `visual_gasic/code_float/*`.
+Opening a `.vg` in the Script editor shows the embedded editor in a **floating panel** over the script area (same pattern as VG Help and Vibe Code). Geometry is saved in **Editor Settings** under `visual_gasic/code_float/*`.
 
 **Multi-monitor / free placement:** **Vg → Editor → Floating Panels Allow Extended Bounds** (`vg/editor/floating_panels_allow_extended_bounds`) = **On** (default) disables clamping VG floats to the inner editor rect so you can park panels at the edge of a large or multi-monitor desktop. Panels remain **children of the Godot editor window**; moving Godot to another display moves VG floats with it. Fully detached OS windows are a possible future step.
 

@@ -1,21 +1,23 @@
 # Hacker News submission
 
+**Hero copy:** use [`docs/POSITIONING.md`](../POSITIONING.md) for titles and lede. The manifesto is a long-form audit essay, not the storefront pitch.
+
 ## Title (pick one)
 
 Primary (recommended):
 
-> **Why the AI era needs BASIC again**
+> **Show HN: Visual Gasic — a second language for Godot (game systems + Vibe Code)**
 
-Alternates, in case the primary feels stale by the time you post:
+Alternates:
 
-- Show HN: VisualGasic — the language you read when you don't trust the AI
-- A defense of BASIC syntax in the age of LLM-generated code
-- The auditor-friendly programming language
+- Visual Gasic — game rules and tools on Godot, with a power layer GDScript doesn't ship
+- Show HN: Vibe Code inside Godot for `.vg` game logic (Narcea + Cursor handoff)
+- Why I keep GDScript for glue and use Visual Gasic for gameplay code
 
 ## URL field
 
 ```
-https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manifesto.md
+https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/POSITIONING.md
 ```
 
 ## Follow-up comment (post once results land)
@@ -129,7 +131,7 @@ Best windows for HN traction historically:
 |---|---|
 | "Just use Python with type hints." | The hints help, but block boundaries are still indent-based, which is the failure mode the auditor cares about most. |
 | "BASIC was always bad." | We're claiming a property of the *syntax* (explicit closers, point-of-use types, local semantics). The 1980s implementations being slow or buggy is a separate axis. |
-| "This is anti-AI." | Read the AI Pair section. The whole point is that the human's tool is the one that lets them keep up with an AI collaborator. |
+| "This is anti-AI." | Read the Vibe Code section. The whole point is that the human's tool is the one that lets them keep up with an AI collaborator. |
 | "Why not just write better prompts?" | Prompt quality is uncorrelated with output language. The audit cost is paid every time, regardless of prompt. |
 | "Where are the numbers?" | `bench/ai_correctness/REPORT.md` — Sonnet 4.5: VG/GDScript/Python 100%, TS 92%. qwen2.5-coder:7b: VG/Python 100%, TS 84%, GDScript 68%. N=25 per cell. |
 | "That's just two models." | Correct, and that's why the harness is in the repo: every per-attempt JSON is committed, anyone can re-run on gpt-4o or Gemini in 10 minutes. |

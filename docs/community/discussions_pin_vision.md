@@ -62,7 +62,7 @@ have them.
 - We are **not** trying to push BASIC into web backends or cloud infra. The
   thesis is specifically about **the read-and-verify step in the AI pipeline**.
 - We are **not** anti-AI. VisualGasic ships with deep AI integration —
-  see [AI Pair](../addons/visual_gasic/vg_ai_help.gd). The point is to make
+  see [Vibe Code](../addons/visual_gasic/vg_ai_help.gd). The point is to make
   the AI a more useful collaborator by giving the human a syntax they can
   audit at speed.
 
@@ -79,7 +79,7 @@ have them.
   **qwen2.5-coder:7b** (local) scores VG/Python 100%, TypeScript 84%, GDScript 68%. N=25.
   Full report at
   [`bench/ai_correctness/REPORT.md`](https://github.com/xgreenrx-star/VisualGasic/blob/main/bench/ai_correctness/REPORT.md).
-- **AI Pair panel** — the in-IDE "read-and-verify console for AI-generated
+- **Vibe Code panel** — the in-IDE "read-and-verify console for AI-generated
   code", with multiple personas (Bob, Skippy, Orac, HAL, default) and
   push-to-talk voice mode.
 

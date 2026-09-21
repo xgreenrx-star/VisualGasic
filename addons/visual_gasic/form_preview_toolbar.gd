@@ -410,24 +410,16 @@ func _save_breakpoints_for_preview() -> void:
 
 	var breakpoints: Dictionary = {}
 
-	# Source 1: Embedded VG code editor — this is where the user actually sets
-	# breakpoints (the red dots in the code view). CodeEdit line indices are
-	# 0-based; the parser/runtime uses 1-based, so we add 1.
+	# Source 1: Embedded VG code editor — breakpoints for every .vg file in the session
 	if "_embedded_code_editor" in _editor_plugin:
 		var ece = _editor_plugin._embedded_code_editor
-		if ece and is_instance_valid(ece) and ece.has_method("get_file_path") and ece.has_method("get_code_edit"):
-			var vg_path: String = ece.get_file_path()
-			var code_edit = ece.get_code_edit()
-			if not vg_path.is_empty() and code_edit:
-				var bp_lines = code_edit.get_breakpointed_lines()
-				if not bp_lines.is_empty():
-					var lines_array: Array = []
-					for line_idx in bp_lines:
-						lines_array.append(line_idx + 1)  # 0-based → 1-based
-					var norm_path := vg_path
-					if _editor_plugin.has_method("normalize_vg_script_path"):
-						norm_path = _editor_plugin.normalize_vg_script_path(vg_path)
-					breakpoints[norm_path] = lines_array
+		if ece and is_instance_valid(ece) and ece.has_method("get_all_debug_breakpoints"):
+			var all_bps: Dictionary = ece.get_all_debug_breakpoints()
+			for path in all_bps:
+				var norm_path := str(path)
+				if _editor_plugin.has_method("normalize_vg_script_path"):
+					norm_path = _editor_plugin.normalize_vg_script_path(str(path))
+				breakpoints[norm_path] = all_bps[path]
 
 	# Source 2: Debugger plugin (polls ScriptEditor — rarely has .vg entries
 	# but merge them in just in case)

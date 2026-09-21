@@ -1,6 +1,6 @@
 @tool
 extends Node
-## Voice I/O controller for the AI Help panel — Tier 2.5a.
+## Voice I/O controller for the Vibe Code panel — Tier 2.5a.
 ##
 ## Provides push-to-talk speech input (STT) and spoken AI replies (TTS).
 ## Mirrors the local-first, cloud-fallback design of vg_ai_providers.gd:
@@ -438,7 +438,7 @@ func diagnose() -> String:
 	if stt_backend == "off":
 		return "Speech-to-text is disabled — choose a backend in Voice Settings."
 	if stt_backend == "openai" and AIProviders.load_api_key("openai").is_empty():
-		return "OpenAI Whisper requires an OpenAI API key.  Open the AI Help panel ⚙️ button to set one."
+		return "OpenAI Whisper requires an OpenAI API key.  Open the Vibe Code panel ⚙️ button to set one."
 	if stt_backend == "whisper" and not _binary_exists(whisper_cpp_path):
 		return "whisper.cpp not found at [b]%s[/b].  Install it or update the path in Voice Settings." % whisper_cpp_path
 	return ""
@@ -879,7 +879,7 @@ func _stt_whisper_cpp(wav_bytes: PackedByteArray) -> void:
 func _speak_openai(text: String) -> void:
 	var key: String = AIProviders.load_api_key("openai")
 	if key.is_empty():
-		speech_failed.emit("OpenAI TTS requires an API key (⚙️ in AI Help panel).")
+		speech_failed.emit("OpenAI TTS requires an API key (⚙️ in Vibe Code).")
 		return
 	var body := JSON.stringify({
 		"model": OPENAI_TTS_MODEL,

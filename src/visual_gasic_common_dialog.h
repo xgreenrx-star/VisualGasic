@@ -11,10 +11,11 @@
 //       Print "Selected: "; dlg.FileName
 //   End If
 //
-//   dlg.ShowSave
-//   dlg.ShowColor
-//   dlg.ShowFont
-//   dlg.ShowPrinter
+// ShowOpen / ShowSave / ShowFolder / ShowColor block until the user dismisses
+// the dialog (VB6 semantics). Backends (in order):
+//   1. DisplayServer native file/color picker (Windows, macOS, Linux, Android)
+//   2. OS shell tools (PowerShell, osascript, zenity/kdialog)
+//   3. Godot FileDialog node (when a SceneTree is running)
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -23,6 +24,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/file_dialog.hpp>
 
 using namespace godot;
 
@@ -56,9 +58,24 @@ class VGCommonDialog : public RefCounted {
 
     // Internal completion tracking
     bool dialog_completed;
+    FileDialog *pending_fd = nullptr;
+
+    void _reset_file_result();
+    void _apply_file_result(bool p_ok, const PackedStringArray &p_paths, int p_filter_idx);
+    void _wait_for_dialog();
+    bool _show_display_server_file_dialog(DisplayServer::FileDialogMode p_mode);
+    bool _show_os_shell_file_dialog(DisplayServer::FileDialogMode p_mode);
+    bool _show_godot_file_dialog(DisplayServer::FileDialogMode p_mode);
+    void _show_file_dialog(DisplayServer::FileDialogMode p_mode);
+    bool _show_display_server_color_picker();
+    bool _show_os_shell_color_picker();
+
+    void _on_native_file_dialog(bool p_status, const PackedStringArray &p_paths, int p_filter_idx);
     void _on_file_selected(const String &p_path);
     void _on_files_selected(const PackedStringArray &p_paths);
     void _on_dir_selected(const String &p_path);
+    void _on_file_dialog_canceled();
+    void _on_color_picked(bool p_status, const Color &p_picked);
 
 protected:
     static void _bind_methods();

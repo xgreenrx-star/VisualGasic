@@ -18,6 +18,8 @@ Ensure `addons/visual_gasic` is linked (this sample uses `addons/visual_gasic â†
 
 Open `project.godot` in Godot 4.6+ with the Visual Gasic addon enabled.
 
+**Scene note:** `Main.vg` must live on a **Node2D** (or other `CanvasItem`) so `_Draw` / `QueueRedraw` target the canvas. Do not use the form-style **VGASIC** child `Node` pattern here â€” that layout is for UI forms, not canvas games.
+
 ## Export
 
 Install Web export templates, then:

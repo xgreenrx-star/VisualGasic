@@ -1,0 +1,34 @@
+' CRC-32 (IEEE 802.3) of "123456789" is CBF43926.
+' MAX_FRAMES: 8
+Sub _Ready()
+	Dim hex As String
+	hex = VGCrypto.CRC32("123456789")
+	If hex = "CBF43926" Then
+		Print "PASS: crc32_ieee_string"
+	Else
+		Print "FAIL: crc32_ieee_string got " & hex
+	End If
+
+	Dim empty As String
+	empty = VGCrypto.CRC32("")
+	If empty = "00000000" Then
+		Print "PASS: crc32_empty"
+	Else
+		Print "FAIL: crc32_empty got " & empty
+	End If
+
+	Dim buf As Variant
+	Set buf = New MemoryBuffer(1)
+	buf.Allocate 9
+	Dim i As Integer
+	For i = 0 To 8
+		buf.PokeByte i, 49 + i
+	Next i
+	Dim hexb As String
+	hexb = buf.CRC32()
+	If hexb = "CBF43926" Then
+		Print "PASS: crc32_bytes"
+	Else
+		Print "FAIL: crc32_bytes got " & hexb
+	End If
+End Sub

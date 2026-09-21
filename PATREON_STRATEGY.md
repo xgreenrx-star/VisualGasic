@@ -108,7 +108,7 @@ Thank you to [X] supporters! This month we:
 ✅ Designed NES emulator architecture (6502 CPU, PPU, APU)
 
 Next month (July):
-- M5 starts: Narcea AI Pair development
+- M5 starts: Vibe Code development
 - Begin NES emulator CPU decoder
 - v6.0 planning session with team
 

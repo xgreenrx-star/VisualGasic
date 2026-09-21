@@ -5,6 +5,20 @@ extends RefCounted
 const SpritePanelScript := preload("res://addons/visual_gasic/vg_sprite_data_panel.gd")
 const VectorPanelScript := preload("res://addons/visual_gasic/vg_vector_data_panel.gd")
 
+## Match floating VG panels (see visual_gasic_plugin _create_floating_panel).
+const PANEL_CREAM := Color("#F0EDE8")
+
+
+static func _cream_stylebox() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PANEL_CREAM
+	sb.set_border_width_all(0)
+	sb.content_margin_left = 4
+	sb.content_margin_right = 4
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	return sb
+
 
 static func create_panel() -> Dictionary:
 	var root := VBoxContainer.new()
@@ -15,13 +29,20 @@ static func create_panel() -> Dictionary:
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tab_panel_sb := _cream_stylebox()
+	tabs.add_theme_stylebox_override("panel", tab_panel_sb)
+	tabs.add_theme_stylebox_override("tabbar_background", tab_panel_sb)
 	root.add_child(tabs)
 
 	# --- Help tab ---
-	var help_box := VBoxContainer.new()
+	var help_box := PanelContainer.new()
 	help_box.name = "HelpTab"
+	help_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	help_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	help_box.add_theme_stylebox_override("panel", _cream_stylebox())
 	var help_scroll := ScrollContainer.new()
 	help_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	help_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	help_box.add_child(help_scroll)
 	var help_label := RichTextLabel.new()
@@ -32,13 +53,11 @@ static func create_panel() -> Dictionary:
 	help_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	help_label.add_theme_font_size_override("normal_font_size", 11)
 	help_label.add_theme_color_override("default_color", Color(0.1, 0.1, 0.1))
-	var help_sb := StyleBoxFlat.new()
-	help_sb.bg_color = Color(0.96, 0.95, 0.92)
+	help_label.add_theme_color_override("font_selected_color", Color(0.1, 0.1, 0.1))
+	var help_sb := _cream_stylebox()
 	help_sb.content_margin_left = 6
-	help_sb.content_margin_right = 4
-	help_sb.content_margin_top = 4
-	help_sb.content_margin_bottom = 4
 	help_label.add_theme_stylebox_override("normal", help_sb)
+	help_label.add_theme_stylebox_override("focus", help_sb)
 	help_label.text = ""
 	help_label.append_text("[color=#555555][i]Place the cursor on a keyword to see its documentation.[/i][/color]")
 	help_scroll.add_child(help_label)

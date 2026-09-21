@@ -44,11 +44,13 @@ public:
     static String md5_string(const String &p_text);
     static String sha1_string(const String &p_text);
     static String sha256_string(const String &p_text);
+    static String crc32_string(const String &p_text);
 
     // Hashing — returns raw bytes
     static PackedByteArray md5_bytes(const PackedByteArray &p_data);
     static PackedByteArray sha1_bytes(const PackedByteArray &p_data);
     static PackedByteArray sha256_bytes(const PackedByteArray &p_data);
+    static String crc32_hex(const PackedByteArray &p_data);
 
     // Encoding
     static String base64_encode(const PackedByteArray &p_data);

@@ -2253,6 +2253,11 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
     }
 
     VisualGasicCompiler compiler;
+    for (int m = 0; m < imported_modules.size(); m++) {
+        if (imported_modules[m].ast) {
+            compiler.import_modules.push_back(imported_modules[m].ast);
+        }
+    }
     BytecodeChunk compiled_chunk;
     compiled_chunk.code.clear();
     compiled_chunk.constants.clear();
@@ -2667,7 +2672,20 @@ Variant VisualGasicInstance::dispatch_expr_compat_call(const String &p_method, c
 CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
     if (_draw_ci_owner_cache != owner) {
         _draw_ci_owner_cache = owner;
-        _draw_ci_cache = owner ? Object::cast_to<CanvasItem>(owner) : nullptr;
+        _draw_ci_cache = nullptr;
+        if (owner) {
+            if (CanvasItem *ci = Object::cast_to<CanvasItem>(owner)) {
+                _draw_ci_cache = ci;
+            } else if (Node *n = Object::cast_to<Node>(owner)) {
+                // VGASIC helper (script on Node under Node2D/Control canvas root)
+                for (Node *walk = n; walk; walk = walk->get_parent()) {
+                    if (CanvasItem *pci = Object::cast_to<CanvasItem>(walk)) {
+                        _draw_ci_cache = pci;
+                        break;
+                    }
+                }
+            }
+        }
     }
     return _draw_ci_cache;
 }
@@ -4362,7 +4380,7 @@ static int _vb6_prop_id(const String& name) {
 
 // VB6 property READ alias resolution.
 // Returns true if the property was handled; result is set to the value.
-static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& result) {
+bool VisualGasicInstance::try_read_vb6_property(Object* obj, const String& prop_name, Variant& result) {
     if (!obj) return false;
     // O(1) fast-reject for unknown property names
     if (_vb6_prop_id(prop_name) < 0) return false;
@@ -4402,12 +4420,16 @@ static bool _vb6_read_property(Object* obj, const String& prop_name, Variant& re
         Node2D* n2d = Object::cast_to<Node2D>(obj);
         if (n2d) { result = n2d->get_position().y; return true; }
     }
-    // Size
+    // Size — Window (form) and Control (VB6 control on form)
     if (prop_name == "Width") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = (double)win->get_size().x; return true; }
         Control* ctrl = Object::cast_to<Control>(obj);
         if (ctrl) { result = ctrl->get_size().x; return true; }
     }
     if (prop_name == "Height") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) { result = (double)win->get_size().y; return true; }
         Control* ctrl = Object::cast_to<Control>(obj);
         if (ctrl) { result = ctrl->get_size().y; return true; }
     }
@@ -4839,12 +4861,24 @@ static bool _vb6_write_property(Object* obj, const String& prop_name, const Vari
         Node2D* n = Object::cast_to<Node2D>(obj);
         if (n) { n->set_position(Vector2(n->get_position().x, (double)value)); return true; }
     }
-    // Size
+    // Size — Window (form) and Control
     if (prop_name == "Width") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) {
+            Vector2i sz = win->get_size();
+            win->set_size(Vector2i((int)(double)value, sz.y));
+            return true;
+        }
         Control* c = Object::cast_to<Control>(obj);
         if (c) { c->set_size(Vector2((double)value, c->get_size().y)); return true; }
     }
     if (prop_name == "Height") {
+        Window* win = Object::cast_to<Window>(obj);
+        if (win) {
+            Vector2i sz = win->get_size();
+            win->set_size(Vector2i(sz.x, (int)(double)value));
+            return true;
+        }
         Control* c = Object::cast_to<Control>(obj);
         if (c) { c->set_size(Vector2(c->get_size().x, (double)value)); return true; }
     }
@@ -5260,6 +5294,68 @@ static bool _vb6_write_property(Object* obj, const String& prop_name, const Vari
 // Extracted for maintainability — 2435 lines
 // ============================================================================
 #include "visual_gasic_instance_execute.inc"
+
+// ============================================================================
+// Canvas _Draw for VGASIC helper nodes (script on Node under Node2D root)
+// ============================================================================
+#include "vg_canvas_draw_delegate.h"
+#include "visual_gasic_vector_canvas.h"
+#include <godot_cpp/classes/engine.hpp>
+
+void VisualGasicInstance::run_canvas_draw_handlers() {
+	if (Engine::get_singleton()->is_editor_hint()) {
+		return;
+	}
+	if (!script.is_valid()) {
+		return;
+	}
+	begin_draw_batch();
+	bool found = false;
+	Array args;
+	if (script->_has_method("_Draw")) {
+		call_internal("_Draw", args, found);
+	} else if (script->_has_method("OnDraw")) {
+		call_internal("OnDraw", args, found);
+	}
+	end_draw_batch_flush();
+	if (CanvasItem *ci = get_draw_canvas_item()) {
+		if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(ci)) {
+			vc->ExecuteQueuedCommands();
+		}
+	}
+}
+
+void VisualGasicInstance::ensure_canvas_draw_delegate_for_helper_script() {
+	if (!script.is_valid()) {
+		return;
+	}
+	if (!script->_has_method("_Draw") && !script->_has_method("OnDraw")) {
+		return;
+	}
+	CanvasItem *ci = get_draw_canvas_item();
+	if (!ci || owner == ci) {
+		return;
+	}
+	if (VGCanvasDrawDelegate *del = VGCanvasDrawDelegate::ensure_on(ci)) {
+		del->add_instance(this);
+		ci->queue_redraw();
+	}
+}
+
+void VisualGasicInstance::release_canvas_draw_delegate_for_helper_script() {
+	CanvasItem *ci = get_draw_canvas_item();
+	if (!ci) {
+		return;
+	}
+	Node *host = Object::cast_to<Node>(ci);
+	if (!host) {
+		return;
+	}
+	Node *del = host->get_node_or_null(NodePath(VGCanvasDrawDelegate::NODE_NAME));
+	if (VGCanvasDrawDelegate *d = Object::cast_to<VGCanvasDrawDelegate>(del)) {
+		d->remove_instance(this);
+	}
+}
 
 // ============================================================================
 // Method call dispatch (call_internal, call, notification, debug, etc.)

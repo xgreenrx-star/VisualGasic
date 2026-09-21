@@ -1,6 +1,6 @@
 # Cursor + Narcea integration roadmap
 
-Plan for pairing Visual Gasic AI Pair (Narcea) with [Cursor](https://cursor.com) Composer.
+Plan for pairing Visual Gasic Vibe Code (Narcea) with [Cursor](https://cursor.com) Composer.
 Tracks what shipped, what is next, and suggested priority.
 
 **Status key:** ✅ Done · 🔄 In progress · 📋 Planned
@@ -13,7 +13,7 @@ Tracks what shipped, what is next, and suggested priority.
 |------|---------|--------|-------------|
 | **0** | Narcea + Ollama / Gemini / DeepSeek | ✅ | Default; free/local; full VG prompt |
 | **1** | **↗ Cursor** handoff | ✅ | Full Cursor IDE + Composer; multi-file refactors |
-| **2** | **⬡ Cursor (Composer)** provider | ✅ | Composer inside Godot AI Pair panel |
+| **2** | **⬡ Cursor (Composer)** provider | ✅ | Composer inside Godot Vibe Code panel |
 
 ---
 

@@ -6,7 +6,7 @@ VisualGasic provides a full VB6-style debugging experience: **Run**, **Break**, 
 
 ## Debug Toolbar
 
-The **Debug toolbar** is on the **Immediate** tab in the bottom panel (not AI Pair / Output):
+The **Debug toolbar** is on the **Immediate** tab in the bottom panel (not Vibe Code / Output):
 
 ```
 Debug: ▶ Continue  ⏸ Break  ⏩ Step Over  ⬇ Step Into  ⬆ Step Out  ■ Stop
@@ -311,12 +311,12 @@ While a debug session is active, **Narcea** can attach **local-only** context (v
 |------|--------|
 | 1 | **Project Settings → Vg → Narcea** — turn on **Live debug capture** (`vg/narcea/live_debug_capture`) |
 | 2 | Start the game with debugging (F5 / Preview+Debug) |
-| 3 | **AI Pair** — enable **Live debug capture (this run)** (consent dialog on first use) |
+| 3 | **Vibe Code** — enable **Live debug capture (this run)** (consent dialog on first use) |
 | 4 | Break or trigger capture — use **Explain screen**, **Refresh snapshot**, or MCP `narcea_live_*` tools |
 
 Data lives in editor RAM (optional spill under `user://vg_narcea_live_session/`). **Stop** the game or click **Clear capture** on the **Immediate** tab to purge. Vision PNGs are sent only when the selected provider supports images.
 
-Full design, settings, and acceptance criteria: [NARCEA_LIVE_DEBUG_CAPTURE.md](../development/NARCEA_LIVE_DEBUG_CAPTURE.md). AI Pair overview: [ide_tools.md](ide_tools.md#ai-help-panel).
+Full design, settings, and acceptance criteria: [NARCEA_LIVE_DEBUG_CAPTURE.md](../development/NARCEA_LIVE_DEBUG_CAPTURE.md). Vibe Code overview: [ide_tools.md](ide_tools.md#ai-help-panel).
 
 ---
 

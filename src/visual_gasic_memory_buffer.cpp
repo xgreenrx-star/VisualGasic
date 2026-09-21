@@ -277,6 +277,21 @@ bool VGMemoryBuffer::load_from_file(const String &p_path) {
     return true;
 }
 
+bool VGMemoryBuffer::save_to_file(const String &p_path) {
+    if (!data || capacity <= 0) {
+        last_error = "Buffer is empty";
+        return false;
+    }
+    Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::WRITE);
+    if (!f.is_valid()) {
+        last_error = "Failed to open file for write: " + p_path;
+        return false;
+    }
+    f->store_buffer(to_byte_array());
+    f->close();
+    return true;
+}
+
 // ─── Search ────────────────────────────────────────────────────────────────
 
 int64_t VGMemoryBuffer::find_byte(uint8_t p_value, int64_t p_start) const {
@@ -312,12 +327,46 @@ String VGMemoryBuffer::hex_dump(int64_t p_offset, int64_t p_length) const {
     return result;
 }
 
+static uint32_t crc32_ieee_bytes(const uint8_t *p, int64_t n) {
+    uint32_t crc = 0xFFFFFFFFu;
+    for (int64_t i = 0; i < n; i++) {
+        crc ^= (uint32_t)p[i];
+        for (int b = 0; b < 8; b++) {
+            if (crc & 1u) {
+                crc = (crc >> 1) ^ 0xEDB88320u;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+String VGMemoryBuffer::crc32_hex() const {
+    if (!data || capacity <= 0) {
+        return "00000000";
+    }
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%08X", crc32_ieee_bytes(data, capacity));
+    return String(buf);
+}
+
+String VGMemoryBuffer::crc32_hex_range(int64_t p_offset, int64_t p_length) const {
+    if (!check_bounds(p_offset, p_length) || p_length <= 0) {
+        return "00000000";
+    }
+    char buf[9];
+    snprintf(buf, sizeof(buf), "%08X", crc32_ieee_bytes(data + p_offset, p_length));
+    return String(buf);
+}
+
 // ─── Godot Bindings ────────────────────────────────────────────────────────
 
 void VGMemoryBuffer::_bind_methods() {
     // Allocation
     ClassDB::bind_method(D_METHOD("Allocate", "size"),    &VGMemoryBuffer::allocate);
     ClassDB::bind_method(D_METHOD("LoadFromFile", "path"), &VGMemoryBuffer::load_from_file);
+    ClassDB::bind_method(D_METHOD("SaveToFile", "path"), &VGMemoryBuffer::save_to_file);
     ClassDB::bind_method(D_METHOD("Resize", "new_size"),  &VGMemoryBuffer::resize);
     ClassDB::bind_method(D_METHOD("Free"),                &VGMemoryBuffer::free_memory);
     ClassDB::bind_method(D_METHOD("get_is_allocated"),    &VGMemoryBuffer::is_allocated);
@@ -358,6 +407,8 @@ void VGMemoryBuffer::_bind_methods() {
     ClassDB::bind_method(D_METHOD("ToByteArray"),                         &VGMemoryBuffer::to_byte_array);
     ClassDB::bind_method(D_METHOD("ToByteArrayRange", "offset", "length"), &VGMemoryBuffer::to_byte_array_range);
     ClassDB::bind_method(D_METHOD("FromByteArray", "array"),              &VGMemoryBuffer::from_byte_array);
+    ClassDB::bind_method(D_METHOD("CRC32"),                               &VGMemoryBuffer::crc32_hex);
+    ClassDB::bind_method(D_METHOD("CRC32Range", "offset", "length"),      &VGMemoryBuffer::crc32_hex_range);
 
     // Search
     ClassDB::bind_method(D_METHOD("FindByte", "value", "start"),     &VGMemoryBuffer::find_byte);

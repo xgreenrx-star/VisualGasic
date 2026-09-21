@@ -52,7 +52,7 @@ Dim s As New Square()               ' Class defined in shapes.vg now works
 
 ### 🤖 New AI Provider
 
-DeepSeek joins Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q as a Narcea AI Pair provider.
+DeepSeek joins Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q as a Vibe Code provider.
 
 Full details, GDScript comparison, and complete changelog: [RELEASE_NOTES_5.3.0-Beta3.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta3.md)
 

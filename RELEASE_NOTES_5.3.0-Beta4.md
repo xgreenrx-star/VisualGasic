@@ -46,7 +46,7 @@ The opt-in native x86-64 JIT (`VG_JIT=2`/`VG_JIT=3`, off by default) previously 
 
 Ahead of the general call-overhead campaign, a focused round of VM-level caching specifically targeted the C64 emulator's hot paths: gating the `OP_CALL` special-case cascade and engine-call dispatch behind `HashSet` lookups, and memoizing the `OP_GET_GLOBAL` special-identifier test per bytecode constant. Measured **+47% cumulative** C64 throughput (~120.5k → 177k emulated cycles/20s) via interleaved, core-pinned A/B testing — general wins that benefit any VG program making calls or reading module-level variables, not just this one demo.
 
-### 🤖 Fixed — Narcea AI Pair Agent-Loop Bugs
+### 🤖 Fixed — Vibe Code Agent-Loop Bugs
 
 Fixed a `write_file` class-wrapper over-stripping bug and an agent-loop stall/nudge bug found via a new headless evaluation harness (`ai_projects/NarceaTrainingGround/`) that drives the real production AI panel end-to-end against DeepSeek. The harness itself surfaced a re-entrancy bug in the agent's response-continuation logic that was silently dropping mid-task context on every multi-hop turn — now fixed.
 
@@ -72,7 +72,7 @@ For context, Beta3 shipped:
 - Cross-module bytecode compilation for imported Subs
 - The `MemoryBuffer` buffer type, 3 new optimizer-hint opcodes, a `Global` keyword, cross-file class `Import`, and `Exit While`
 - A measured ~21–40% reduction in call/hot-path overhead (the campaign this release builds on and dramatically extends)
-- The DeepSeek AI provider for Narcea AI Pair
+- The DeepSeek AI provider for Vibe Code
 
 Full details in [CHANGELOG.md](CHANGELOG.md#530-beta3---2026-07-31).
 

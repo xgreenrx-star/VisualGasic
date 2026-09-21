@@ -466,7 +466,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     const bool debug_frames_active = _call_debugger && _call_debugger->is_active();
     if (debug_frames_active) {
         String file_path;
-        if (script.is_valid()) {
+        if (owning_module && !owning_module->full_path.is_empty()) {
+            file_path = VisualGasicLanguage::normalize_breakpoint_script_path(owning_module->full_path);
+        } else if (script.is_valid()) {
             if (_debug_script_path_owner != script.ptr()) {
                 _debug_script_path = script->get_path();
                 _debug_script_path_owner = script.ptr();
@@ -480,6 +482,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     bool used_bytecode = false;
     Variant bytecode_ret;
     if (chunk_for_locals) {
+        String prev_debug_bc_source_file = debug_bc_source_file;
+        if (owning_module && !owning_module->full_path.is_empty()) {
+            debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(owning_module->full_path);
+        } else {
+            debug_bc_source_file = String();
+        }
         // v2.5: No more variables.duplicate(true) deep copy!
         // execute_bytecode() now only flushes locals→variables on
         // success, so on failure the dictionary stays clean and the
@@ -487,6 +495,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
                                          use_fast_params ? fast_arg_values : nullptr, fast_arg_count,
                                          p_vm);
+        debug_bc_source_file = prev_debug_bc_source_file;
         if (!used_bytecode) {
             if (error_state.has_error) {
                 // Bytecode VM hit a runtime error (e.g. "Sub or Function not
@@ -1226,8 +1235,9 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
             String ml = String(p_method).to_lower();
             if (ml.find("input") >= 0) {
                 if (script->_has_method("_Draw") || script->_has_method("OnDraw")) {
-                    CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
-                    if (ci) ci->queue_redraw();
+                    if (CanvasItem *ci = get_draw_canvas_item()) {
+                        ci->queue_redraw();
+                    }
                 }
             }
         }
@@ -1783,6 +1793,8 @@ void VisualGasicInstance::notification(int32_t p_what) {
              Node* node = Object::cast_to<Node>(owner);
              if (node) _connect_vb_signals_recursive(node, this, node);
          }
+
+         ensure_canvas_draw_delegate_for_helper_script();
     }
     else if (p_what == Node::NOTIFICATION_EXIT_TREE) {
          // Skip in editor mode
@@ -1795,6 +1807,8 @@ void VisualGasicInstance::notification(int32_t p_what) {
              bool found;
              call_internal("Form_Unload", Array(), found);
          }
+
+         release_canvas_draw_delegate_for_helper_script();
     }
     else if (p_what == Node::NOTIFICATION_PROCESS) {
          // Skip _Process in editor mode
@@ -1816,8 +1830,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
              
              // Trigger redraw if script has a draw method
              if (owner && (script->_has_method("_Draw") || script->_has_method("OnDraw"))) {
-                 CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
-                 if (ci) ci->queue_redraw();
+                 if (CanvasItem *ci = get_draw_canvas_item()) {
+                     ci->queue_redraw();
+                 }
              }
          }
     }
@@ -1850,18 +1865,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
              return;
          }
          if (script.is_valid()) {
-             bool found;
-             Array args;
-             begin_draw_batch();
-             if (script->_has_method("_Draw")) {
-                 call_internal("_Draw", args, found);
-             } else if (script->_has_method("OnDraw")) {
-                 call_internal("OnDraw", args, found);
-             }
-             end_draw_batch_flush();
-             if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(owner)) {
-                 vc->ExecuteQueuedCommands();
-             }
+             run_canvas_draw_handlers();
          }
     }
 }

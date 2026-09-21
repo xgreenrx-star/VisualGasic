@@ -799,6 +799,27 @@ PATHS:
   * `CInt(x)` uses VB6-style rounding (`CInt(3.7)` → 4), not truncation.
   * Bracket indexing `arr[i]` works alongside VB6 `arr(i)` — both valid.
 
+=== Canvas .vg attachment (_Draw / QueueRedraw) ===
+For Node2D / Node3D arcade or canvas games, attach the .vg script to the
+scene ROOT (Node2D / Node3D), NOT to a nested VGASIC child Node.
+Draw builtins (QueueRedraw, DrawText, DrawRect, CLS, …) require a CanvasItem
+context; a plain Node script never receives NOTIFICATION_DRAW (blank/gray window).
+Godot Integration skips auto-VGASIC on canvas roots when the script uses _Draw.
+Legacy scenes may migrate the script onto the root — see visual_gasic_plugin.gd.
+Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
+
+=== HTTP / HTTPS (VGHttpRequest, Http.Get) ===
+Sync GET from game code:
+  Dim req As New VGHttpRequest
+  Dim body As String
+  If req.Get(\"https://host/path?query=1\", body) Then
+      ' parse body (JSON, CSV, …)
+  End If
+Port 443 uses TLS in the engine — do not add a manual Host: header (Godot sets it).
+Poll until has_response() before reading body/chunks (engine handles this).
+Async: Async Function … Await Http.Get(\"https://…\") End Function (see ASYNC block).
+HTML5 WASM export: samples/apps/web_hello/ proves Open-Meteo over HTTPS.
+
 === VG runtime namespaces (2D / 3D game scripts) ===
 These work inside .vg scripts attached to Node2D / Node3D scenes.
 Use the VB6 name — Godot property names are NOT directly accessible.
@@ -1070,7 +1091,7 @@ chrome. Distinct from Show Causal Chain (static AST) and from the Call Stack tab
 
 Enable:
   1. Project Settings → Vg → Narcea → live_debug_capture = true
-  2. AI Pair → checkbox **Live debug capture (this run)** (+ consent once)
+  2. Vibe Code → checkbox **Live debug capture (this run)** (+ consent once)
   3. F5 run → breakpoint or **Refresh snapshot**
 
 What the IDE stores locally (RAM / user://vg_narcea_live_session/, wiped on stop):
@@ -1506,6 +1527,8 @@ const SLIM_KNOWLEDGE := """
 - Events by name: Sub btnOK_Click(), Sub Form_Load(), Sub tmr_Timer() (Interval in ms).
 - Start new `.vg` modules with Option Explicit on line 1 (after optional header comment).
 - AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
+- Canvas games: attach .vg to Node2D/Node3D root — not nested VGASIC Node — for _Draw/QueueRedraw.
+- HTTPS: VGHttpRequest.Get / Http.Get use TLS on 443; no manual Host header. See samples/apps/web_hello/.
 - Canvas _Draw games with *Sprite: Data blocks — cache DataToArray in _Ready; draw from cached
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
 - VGVectorCanvas2D: queue Draw* from _Process; cache static layers (cave) on room load;
@@ -1518,7 +1541,7 @@ const SLIM_KNOWLEDGE := """
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
-- Live debug capture: Project Settings `vg/narcea/live_debug_capture` + AI Pair per-run checkbox;
+- Live debug capture: Project Settings `vg/narcea/live_debug_capture` + Vibe Code per-run checkbox;
   local viewport/stack/locals/UI tree in prompt; purged on stop. See NARCEA_LIVE_DEBUG_CAPTURE.md.
 - Beta showcase tour: samples/showcases/vg_beta_showcase/ (Backrooms hub + .vg demos); see ARCHITECTURE.md.
 - Follow `.cursor/rules/visual-gasic-godot.mdc`. Search corpus/, samples/demos/, tutorials/ for examples.
@@ -1531,7 +1554,7 @@ const SLIM_POLICY := """
 === Cursor + Narcea (slim) ===
 You have full repo access and project rules — do not repeat the full VG catalog here.
 Prefer editing files directly; use `.vg` syntax in `.vg` paths and GDScript only in `.gd` paths.
-For forms: use vg-form-spec + vg-code-spec flow when working inside Narcea AI Pair vg-tool blocks.
+For forms: use vg-form-spec + vg-code-spec flow when working inside Narcea Vibe Code vg-tool blocks.
 Keep answers concise; cite paths (res://…) when pointing at examples.
 """
 
@@ -2007,7 +2030,7 @@ func _detect_live_debug_capture(plugin: Object) -> String:
 	else:
 		lines.append(
 			"Narcea live debug capture: allowed by project but OFF for this run "
-			+ "(user must enable AI Pair checkbox)."
+			+ "(user must enable Vibe Code checkbox)."
 		)
 	return "\n".join(lines)
 

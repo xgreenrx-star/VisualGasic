@@ -1,0 +1,5 @@
+' Helper for test_imported_public_const.vg
+Attribute VB_Name = "ImportedConstLib"
+
+Public Const LIMIT_BYTES As Long = 16777216
+Public sharedFlag As Long

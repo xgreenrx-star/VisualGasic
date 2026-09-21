@@ -40,13 +40,13 @@ scripts/narcea_movie_generate.sh --segment platformer
 
 The agent runs with `cwd=<repo root>` and updates `generated/<segment>/` plus `movie_data/transcripts/<segment>.txt`.
 
-**Requires:** `cursor-sdk` in `~/.config/visual_gasic/vg_cursor_venv` (AI Pair ⚙️ installer).
+**Requires:** `cursor-sdk` in `~/.config/visual_gasic/vg_cursor_venv` (Vibe Code ⚙️ installer).
 
 ## Architecture
 
 - `main.tscn` — IDE screenshot background (`movie_data/assets/ide_background.png`) + preview + Narcea overlay
 - `narcea_movie_director.gd` — phase machine (title → prompt → refs → stream → apply → demo)
-- `narcea_movie_ui.gd` — prompt/response overlay on the AI Pair region
+- `narcea_movie_ui.gd` — prompt/response overlay on the Vibe Code region
 - `narcea_movie_embed.gd` — SubViewport loader for generated scenes
 - `movie_mode` = `OS.has_feature("movie")` — auto-starts and quits after end card
 

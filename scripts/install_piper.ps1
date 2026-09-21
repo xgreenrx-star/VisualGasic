@@ -88,5 +88,5 @@ piper_voice_path="$($PiperVoice -replace '\\','\\')"
 }
 
 Write-Host ""
-Write-Host "Restart Godot and switch any AI Pair persona -- voice mode now uses"
+Write-Host "Restart Godot and switch any Vibe Code persona -- voice mode now uses"
 Write-Host "Piper neural TTS automatically (no extra config needed)."

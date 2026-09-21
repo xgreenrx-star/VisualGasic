@@ -1,21 +1,23 @@
 # r/programming submission
 
+**Hero copy:** [`docs/POSITIONING.md`](../POSITIONING.md). Manifesto = optional deep read on auditing syntax.
+
 ## Title (pick one)
 
 Primary (recommended):
 
-> **Why the AI era needs BASIC again — a defense of verbose, auditor-friendly syntax**
+> **Visual Gasic — a second language for Godot (game systems, UI, tools + in-editor Vibe Code)**
 
 Alternates:
 
-- I think we picked the wrong programming language for the AI era
-- BASIC-family syntax, reconsidered: the language you read when you don't trust the AI
-- VisualGasic: a serious BASIC for game development, repositioned as "AI-readable BASIC"
+- I use GDScript for glue and Visual Gasic for game rules — here's why
+- Show-and-tell: `.vg` on Godot with benchmarks vs GDScript and Narcea Vibe Code in the IDE
+- Building games in VB6-style blocks on Godot 4.6 (without giving up the engine)
 
 ## URL field
 
 ```
-https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manifesto.md
+https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/POSITIONING.md
 ```
 
 (Or, if you want a longer-form post, use the **text** option and paste the

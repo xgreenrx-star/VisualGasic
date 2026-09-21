@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🚀 Added — Narcea Live Debug Capture
 
 - **Opt-in live capture** — viewport PNG, UI tree, stack/locals JSON over `visualgasic:` debugger channel; ring buffer + optional spill to `user://vg_narcea_live_session/`.
-- **AI Pair UI** — per-run checkbox, consent dialog, banner, **Explain screen**, **Refresh snapshot**, Drive mode (paused input inject).
+- **Vibe Code UI** — per-run checkbox, consent dialog, banner, **Explain screen**, **Refresh snapshot**, Drive mode (paused input inject).
 - **MCP** — `narcea_live_list_snapshots`, `narcea_live_get_snapshot`; Narcea system prompt + vision gating via `provider_supports_vision()`.
 - **`tests/test_vg_narcea_live_session.gd`** — headless session tests; manual QA in `tests/manual/narcea_live_capture.md`.
 
@@ -204,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reference offer on Send; user-assisted web references for game clones (Phase 0+2).
 - Canvas platformer / 3D scaffold prompts; Cursor SDK cross-platform venv bootstrap.
-- Visual AI audit agent run graphs via Working Nodes; Windows AI Pair path fixes.
+- Visual AI audit agent run graphs via Working Nodes; Windows Vibe Code path fixes.
 
 ## [5.3.0-Beta6] - 2026-08-18
 
@@ -274,7 +274,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Gated the `OP_CALL` 17-entry special-case cascade and engine-call dispatch behind `HashSet` lookups, and memoized the `OP_GET_GLOBAL` special-identifier test per bytecode constant. Measured **+47% cumulative** C64 emulator throughput via interleaved, core-pinned A/B testing — general wins for any call-heavy or global-variable-heavy VG program.
 
-### 🤖 Fixed — Narcea AI Pair Agent-Loop Bugs (Aug 4, 2026)
+### 🤖 Fixed — Narcea Vibe Code Agent-Loop Bugs (Aug 4, 2026)
 
 - Fixed a `write_file` class-wrapper over-stripping bug and an agent-loop stall/nudge bug, found via a new headless evaluation harness (`ai_projects/NarceaTrainingGround/`) driving the real production AI panel against DeepSeek. Also fixed a re-entrancy bug in the agent's response-continuation logic that was silently dropping mid-task context on every multi-hop turn.
 
@@ -354,7 +354,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed calls to `HasMember`/`PropertyGet`/`ArrayLen` — these are not real VG builtins and have been replaced with supported equivalents.
 - Added a **Load ROM...** button with a `FileDialog` picker.
 
-### 🤖 Added — Narcea AI Pair Progress (M5) and DeepSeek Provider
+### 🤖 Added — Narcea Vibe Code Progress (M5) and DeepSeek Provider
 
 - Continued M5 groundwork: new Narcea AI agent scaffolding.
 - DeepSeek AI provider added alongside the existing Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q providers.
@@ -393,16 +393,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🤖 Added — Codeium (Windsurf) and Amazon Q Developer AI Providers (Jul 13, 2026)
 
-Two new AI backends for the Narcea AI Pair / AI Help panel, alongside the existing Ollama, OpenAI, Claude, and Gemini providers.
+Two new AI backends for the Vibe Code panel, alongside the existing Ollama, OpenAI, Claude, and Gemini providers.
 
 ### 🐍 Added — Python Bridge and C++ FFI Demos (Jul 13, 2026)
 
 - `demos/Utilities/PythonBridge/demo_python_bridge.vg` — `PyImport`, `PyCall`, JSON serialization round-trip
 - `demos/Utilities/FFI/demo_ffi_cpp_lib.vg` — calling a custom C++ shared library (Vec2 math class) via C ABI wrappers
 
-### 🎨 Added — Narcea AI Pair Floating Window (Jul 5, 2026, M5 early progress)
+### 🎨 Added — Narcea Vibe Code Floating Window (Jul 5, 2026, M5 early progress)
 
-Narcea AI Pair is now a floating window (same pattern as the VG Toolbox/Properties windows), with position/size persisted across sessions and AI API keys migrated to `EditorSettings`.
+Narcea Vibe Code is now a floating window (same pattern as the VG Toolbox/Properties windows), with position/size persisted across sessions and AI API keys migrated to `EditorSettings`.
 
 ### 🎮 Added — Thrust Tribute Demo
 
@@ -539,7 +539,7 @@ Collapsible left panel, decluttered toolbar, Get Property output port, value
 ports (orange Math sockets), scene-node/property pickers, quick-add buttons,
 merged On Input nodes, invisible-caret fix, popup styling fixes.
 
-### 🤖 Improved — AI Pair
+### 🤖 Improved — Vibe Code
 Two-row toolbar (overflow fix), streaming performance pass, cross-plugin tools
 (WN/AGCK/Forms/2D/3D), IDE self-modification with addon backup, Claude
 max_tokens fix, real error message display.
@@ -622,7 +622,7 @@ this line.
 
 ### 🤖 AI
 
-- AI Help panel with 5 personas (general/coder/reviewer/gamedev/teacher)
+- Vibe Code panel with 5 personas (general/coder/reviewer/gamedev/teacher)
   and preset commands (*Explain Error*, *Explain Code*, *Translate*,
   *Generate Tests*).
 - Pluggable providers: Ollama (local), OpenAI, Claude, Gemini, all behind
@@ -752,7 +752,7 @@ Wired up in [`addons/visual_gasic/visual_gasic_plugin.gd::_register_extra_tools(
 - **`addons/visual_gasic/plugins/_disabled.gdsfx/`** — renamed from `plugins/gdsfx/` and added an empty `.gdignore` (the only reliable way to hide a directory from Godot's GDScript class scanner). Suppresses parse-error spam from the never-shipped `gdsfx_dsp.gd` / `gdsfx_pd.gd` / `gdsfx_pd_modules.gd` dependencies.
 
 ### 🌿 New — Narcea AI persona (stepping-stone agent mode)
-- **`🌿 Narcea` persona** ([`addons/visual_gasic/vg_ai_narcea.gd`](addons/visual_gasic/vg_ai_narcea.gd)) — VG-aware pair programmer that injects an active-context probe (current panel, open file), a baked-in VG knowledge block (control catalog, AGCK actor types, Working Nodes triggers, common gotchas, idioms), and the local tutorial index into the system prompt. Selectable from the AI Pair persona dropdown alongside Bob / Skippy / Orac / HAL.
+- **`🌿 Narcea` persona** ([`addons/visual_gasic/vg_ai_narcea.gd`](addons/visual_gasic/vg_ai_narcea.gd)) — VG-aware pair programmer that injects an active-context probe (current panel, open file), a baked-in VG knowledge block (control catalog, AGCK actor types, Working Nodes triggers, common gotchas, idioms), and the local tutorial index into the system prompt. Selectable from the Vibe Code persona dropdown alongside Bob / Skippy / Orac / HAL.
 - **🔨 Build form button** — when Narcea's reply contains a fenced ` ```vg-form-spec ``` ` JSON block, the toolbar button enables and one click materialises the form in the Form Designer via the bound `new_form` / `add_control` / `set_control_property` C++ API. Whitelist-validated control types / property keys keep the model from asking for arbitrary script execution. New module: [`addons/visual_gasic/vg_ai_form_spec.gd`](addons/visual_gasic/vg_ai_form_spec.gd).
 - **TTS now skips code** — fenced code blocks are summarised ("see the panel for N lines of VG code") instead of read aloud line-by-line; markdown emphasis, inline backticks and URLs are stripped before speech. New module: [`addons/visual_gasic/vg_ai_speech_filter.gd`](addons/visual_gasic/vg_ai_speech_filter.gd).
 - **⏹ Stop-Speaking button** — `vg_ai_voice.stop_speaking()` now also `OS.kill`s the system-TTS subprocess (espeak / SAPI), captured at `OS.create_process` time and emits `speech_finished` so the panel state stays consistent. Toolbar button auto-shows on `speech_started` and hides on `speech_finished`.
@@ -849,9 +849,9 @@ Wired up in [`addons/visual_gasic/visual_gasic_plugin.gd::_register_extra_tools(
 - `wn_runtime.vg` and visible scene generation so graphs can actually run.
 - Run Graph is now surfaced through the unified Play menu + F5 instead of a plugin-local button.
 
-### 🔧 Fixed — Profiler & AI Help
+### 🔧 Fixed — Profiler & Vibe Code
 - Profiler panel wired to the C++ `VisualGasicProfiler` singleton via static class methods (previously the button did nothing).
-- AI Help: speed options exposed, first-run model picker, general UI cleanup.
+- Vibe Code: speed options exposed, first-run model picker, general UI cleanup.
 
 ### 🛠️ Build & Housekeeping
 - `build_release.sh` now copies the full `addons/visual_gasic/plugins/` tree into staging and strips nested demo/example `bin/` directories to keep zip size sane.
@@ -950,9 +950,9 @@ Wired up in [`addons/visual_gasic/visual_gasic_plugin.gd::_register_extra_tools(
 - **Build tab web options panel** — Appears when target is "Web": preloader, quality, scale, colors, toggles, description field
 - **🌐 PUBLISH TO WEB button** — One-click pipeline: HTML wrapper → portal page → embed code
 
-#### Added — Multi-Provider AI Help
+#### Added — Multi-Provider Vibe Code
 - **Cloud AI providers**: OpenAI (GPT-4o/GPT-4o-mini), Anthropic Claude (Sonnet/Haiku), Google Gemini (Flash/Pro) alongside existing local Ollama
-- **Provider selector dropdown** in AI Help toolbar — switch between Local (Ollama) and Cloud providers
+- **Provider selector dropdown** in Vibe Code toolbar — switch between Local (Ollama) and Cloud providers
 - **API key settings dialog** (⚙️ button) — per-provider API key storage via `user://vg_ai_keys.cfg`
 - **Streaming responses** for all cloud providers (SSE/chunked for OpenAI/Gemini, SSE for Claude)
 - **Auto-detection**: Falls back to Ollama if no cloud API key is configured

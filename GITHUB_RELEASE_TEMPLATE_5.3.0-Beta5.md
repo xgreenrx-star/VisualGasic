@@ -33,7 +33,7 @@ Shared `vg_keyword_autocorrect.gd` capitalizes the full VB6 keyword set on line 
 | **Buffer Type** | Zero-overhead byte access for emulation/I/O |
 | **Optimizer Hints** | `@fast_loop`, `@accumulator`, `@simd_candidate` |
 | **Speed improvements** | Unboxed operand stack (3–4× call overhead target) |
-| **Narcea AI Pair** | Agent-loop fixes, end-to-end demo hardening |
+| **Vibe Code** | Agent-loop fixes, end-to-end demo hardening |
 
 Full details, GDScript comparison, and complete changelog: [RELEASE_NOTES_5.3.0-Beta5.md](https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_5.3.0-Beta5.md)
 

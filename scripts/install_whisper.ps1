@@ -1,4 +1,4 @@
-# Install whisper.cpp + a small English model for VG's AI Pair voice mode.
+# Install whisper.cpp + a small English model for VG's Vibe Code voice mode.
 #
 # Total download: ~85 MB (binary ~10 MB + ggml-tiny.en.bin ~75 MB).  Files
 # land in %LOCALAPPDATA%\VisualGasic\whisper\.  VG's voice cfg is updated
@@ -114,5 +114,5 @@ piper_voice_path=""
 }
 
 Write-Host ""
-Write-Host "Restart Godot — the mic button in AI Pair will now use local"
+Write-Host "Restart Godot — the mic button in Vibe Code will now use local"
 Write-Host "Whisper automatically (no OpenAI key, no network)."

@@ -342,7 +342,7 @@ Function OllamaPage
 
     ; Piper opt-in (~340 MB total: binary + 5 persona voice models).
     ${NSD_CreateCheckbox} 0 122u 100% 12u \
-        "Install Piper neural TTS so AI Pair voice replies sound natural (~400 MB)"
+        "Install Piper neural TTS so Vibe Code voice replies sound natural (~400 MB)"
     Pop $hCtlPiperEnable
     ${NSD_CreateLabel} 16u 136u 100% 24u \
         "Without Piper, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Piper voices match each persona (Bob, Skippy, Orac, HAL)."
@@ -353,7 +353,7 @@ Function OllamaPage
         "Install local Whisper STT so the mic button works without an OpenAI key (~85 MB)"
     Pop $hCtlWhisperEnable
     ${NSD_CreateLabel} 16u 176u 100% 24u \
-        "Without local Whisper, the mic button in AI Pair requires an OpenAI API key. whisper.cpp runs entirely on-device — no key, no network."
+        "Without local Whisper, the mic button in Vibe Code requires an OpenAI API key. whisper.cpp runs entirely on-device — no key, no network."
     Pop $0
 
     nsDialogs::Show

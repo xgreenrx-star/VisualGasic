@@ -9,7 +9,7 @@
 
 ## Summary
 
-Give **Narcea** (in-editor AI Pair) **read-only “eyes”** on a **locally running** VG game: viewport snapshots plus structured debug data over the existing **`visualgasic:`** debugger channel. Data stays **on the machine**, is **opt-in per debug session**, and is **wiped when the game stops** unless the user explicitly sends content to a cloud LLM via chat.
+Give **Narcea** (in-editor Vibe Code) **read-only “eyes”** on a **locally running** VG game: viewport snapshots plus structured debug data over the existing **`visualgasic:`** debugger channel. Data stays **on the machine**, is **opt-in per debug session**, and is **wiped when the game stops** unless the user explicitly sends content to a cloud LLM via chat.
 
 **Out of scope for Phase A:** synthetic click/type, continuous video, audio capture, cloud upload pipelines, OS-level automation.
 
@@ -212,10 +212,10 @@ Not available for raw 3D viewport picking without VG control mapping.
 
 ## Release notes blurb (for when Phase A ships)
 
-> **Narcea Live Debug Capture (opt-in):** While debugging, Narcea can use **local viewport snapshots** and **debugger variables** to help explain UI and runtime state. Data is stored **only on your machine** and is **removed when the game stops**. Enable under Project Settings → Vg → Narcea and per-run in the AI Pair panel.
+> **Narcea Live Debug Capture (opt-in):** While debugging, Narcea can use **local viewport snapshots** and **debugger variables** to help explain UI and runtime state. Data is stored **only on your machine** and is **removed when the game stops**. Enable under Project Settings → Vg → Narcea and per-run in the Vibe Code panel.
 
 ---
 
 ## Version note
 
-**Phases A–D (baseline)** shipped on current main. Enable via Project Settings → **Vg → Narcea** and the AI Pair per-run checkbox; see [ide_tools.md](../manual/ide_tools.md#ai-help-panel) and [debugging.md](../manual/debugging.md#narcea-live-debug-capture-opt-in).
+**Phases A–D (baseline)** shipped on current main. Enable via Project Settings → **Vg → Narcea** and the Vibe Code per-run checkbox; see [ide_tools.md](../manual/ide_tools.md#ai-help-panel) and [debugging.md](../manual/debugging.md#narcea-live-debug-capture-opt-in).

@@ -39,6 +39,7 @@
 #include "visual_gasic_com_interop.h"
 #endif
 #include "visual_gasic_http.h"
+#include "vg_canvas_draw_delegate.h"
 #include "visual_gasic_collection.h"
 #include "visual_gasic_regex.h"
 #include "visual_gasic_timer.h"
@@ -147,6 +148,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
 
         // v2.10.0 classes
         ClassDB::register_class<VGHttpRequest>();
+        ClassDB::register_class<VGCanvasDrawDelegate>();
         ClassDB::register_class<VGCollection>();
         ClassDB::register_class<VGRegEx>();
         ClassDB::register_class<VGRegExMatch>();

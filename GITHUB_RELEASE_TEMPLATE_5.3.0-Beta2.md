@@ -40,7 +40,7 @@ Fixed a bug where `result = DoubleAndReturn(val)` (expression-level ByRef call) 
 
 ### 🤖 New AI Providers
 
-Codeium (Windsurf) and Amazon Q Developer added to the Narcea AI Pair / AI Help panel.
+Codeium (Windsurf) and Amazon Q Developer added to the Vibe Code panel.
 
 ### 🐍 New Demos
 

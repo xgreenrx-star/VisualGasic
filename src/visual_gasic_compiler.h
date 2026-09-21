@@ -198,6 +198,9 @@ private:
     // "Camera"/"Sound"/"Bus" (not shadowed by a local/param/array/dict),
     // returns the lowercase namespace name; otherwise returns "".
     String detect_namespace_call(ExpressionNode* base_obj) const;
+    // Imported module qualified call: ModuleName.SubName — returns module name
+    // when base_obj is a bare identifier matching an Import basename (not shadowed).
+    String detect_imported_module_call(ExpressionNode* base_obj) const;
 };
 
 #endif

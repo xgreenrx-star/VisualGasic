@@ -34,7 +34,7 @@ Backrooms hub → shader reel → About VG → Squash the Creeps in pure .vg →
 • IDE: context rail sidecar, sprite Data editor, `.vgd` DataFile groundwork
 • Fixed: `CInt(3.7)` now returns 4 (VB6-style rounding)
 
-Visual Gasic is VB6-style BASIC for Godot 4.6 — a language designed so **you can read and audit AI-generated code line by line**, with a real IDE, debugger, and Narcea AI Pair built in.
+Visual Gasic is a **second language for Godot** — game rules, UI, and tools on plain control flow, with a real IDE, debugger, and **Vibe Code** (Narcea + your models) built in.
 
 📥 **Download (Linux & Windows):**
 https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta1

@@ -1479,7 +1479,7 @@ const SLIM_POLICY := """
 === Cursor + Narcea (slim) ===
 You have full repo access and project rules — do not repeat the full VG catalog here.
 Prefer editing files directly; use `.vg` syntax in `.vg` paths and GDScript only in `.gd` paths.
-For forms: use vg-form-spec + vg-code-spec flow when working inside Narcea AI Pair vg-tool blocks.
+For forms: use vg-form-spec + vg-code-spec flow when working inside Vibe Code vg-tool blocks.
 Keep answers concise; cite paths (res://…) when pointing at examples.
 """
 

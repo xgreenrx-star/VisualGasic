@@ -5,7 +5,7 @@
 **Pitch end card:** `Made in VG6 — game logic in readable BASIC`
 
 **External collaborators:** see [`PROPOSAL.md`](PROPOSAL.md) for the human-readable handoff brief (VB6 background, art ownership, timeline).  
-**Narcea / AI Pair:** phased prompts in [`NARCEA_PROMPTS.md`](NARCEA_PROMPTS.md).
+**Narcea / Vibe Code:** phased prompts in [`NARCEA_PROMPTS.md`](NARCEA_PROMPTS.md).
 
 Inspired by mass-gravity cavern explorers of the 1980s (not a remake).  
 **Status:** Blueprint — implementation follows Week 1–4 order below.

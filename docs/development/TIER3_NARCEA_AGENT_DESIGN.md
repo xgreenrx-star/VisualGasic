@@ -144,7 +144,7 @@ adherence improvement on local qwen2.5-coder:7b and ≥5 % on gpt-4o-mini.
   check on entry.
 * **Agent run graph (shipped):** at session end, `vg_ai_agent_graph.gd`
   writes `res://.narcea/agent_runs/<ts>.wnodes` — a Working Nodes
-  chain of hop notes + tool nodes.  Open via AI Pair **🧩** toolbar.
+  chain of hop notes + tool nodes.  Open via Vibe Code **🧩** toolbar.
 
 **Exit criteria:** screenshot review; no test regressions; agent graph
 opens in Working Nodes after a 2+ hop run.

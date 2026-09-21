@@ -19,8 +19,13 @@
 using namespace godot;
 using namespace VisualGasic;
 
+namespace godot {
+class VGCanvasDrawDelegate;
+}
+
 class VisualGasicInstance {
     friend class VisualGasicExpressionEvaluator;
+    friend class godot::VGCanvasDrawDelegate;
     Ref<VisualGasicScript> script;
     Object *owner;
     ModuleNode* cached_ast_root = nullptr; // Cached for enum/struct lookups
@@ -37,6 +42,7 @@ class VisualGasicInstance {
     // during execution (never stored across calls).
     Vector<Variant>* debug_bc_locals = nullptr;
     BytecodeChunk*   debug_bc_chunk  = nullptr;
+    String           debug_bc_source_file; // res:// path when executing Import module bytecode
 
 public:
     // Multi-module compilation (v4.3.0) — imported module ASTs for cross-file calls
@@ -347,6 +353,9 @@ private:
     int64_t run_vector_uniform_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
             float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add);
     CanvasItem *get_draw_canvas_item();
+    void run_canvas_draw_handlers();
+    void ensure_canvas_draw_delegate_for_helper_script();
+    void release_canvas_draw_delegate_for_helper_script();
     Object *_draw_ci_owner_cache = nullptr;
     CanvasItem *_draw_ci_cache = nullptr;
     int _draw_batch_depth = 0;
@@ -412,6 +421,9 @@ public:
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);
+
+    // VB6 control/form property aliases (Width, Height, Caption, …) on any Object owner.
+    static bool try_read_vb6_property(Object *obj, const String &prop_name, Variant &result);
 
     // File/Directory helpers exposed for builtins (refined names)
     Variant file_lof(int file_num);

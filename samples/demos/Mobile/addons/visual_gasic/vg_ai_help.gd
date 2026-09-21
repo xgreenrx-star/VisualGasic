@@ -1,6 +1,6 @@
 @tool
 extends MarginContainer
-## AI Pair panel — the human's read-and-verify console for AI-generated code.
+## Vibe Code panel — the human's read-and-verify console for AI-generated code.
 ## Talks to local Ollama or cloud providers (OpenAI, Claude, Gemini).
 ## Provides VisualGasic-aware code help, error explanations, and GDScript↔VG translation.
 
@@ -1636,7 +1636,7 @@ func _setup_ui() -> void:
 	toolbar_vbox.add_child(toolbar)
 
 	var title := Label.new()
-	title.text = "🤖 AI Pair"
+	title.text = "🤖 Vibe Code"
 	title.add_theme_font_size_override("font_size", 13)
 	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 	toolbar.add_child(title)
@@ -2060,7 +2060,7 @@ func _setup_ui() -> void:
 	_output.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chat_frame.add_child(_output)
 
-	_append_system("AI Pair is ready. Type a question below or use the quick actions.\n")
+	_append_system("Vibe Code is ready. Type a question below or use the quick actions.\n")
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
 	# --- Input row ---
@@ -4178,7 +4178,7 @@ func _activate_cursor_provider() -> void:
 		_status_label.text = "❌ Python 3 not found"
 		_append_provider_status_once(
 			"cursor:missing_python",
-			"[color=yellow]Install Python 3 to use Cursor (Composer) in AI Pair.[/color]\n"
+			"[color=yellow]Install Python 3 to use Cursor (Composer) in Vibe Code.[/color]\n"
 		)
 		return
 	if not CursorSession.cursor_sdk_available(python):

@@ -464,6 +464,13 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             non_local_names.insert(n);
         }
     }
+    // Layout property aliases — bare Width/Height/Left/Top in form/control code
+    // are VB6 owner properties, not implicit locals (see HexCanvas _Draw).
+    // Do not add names like "text" or "value" here — those are common Dim names.
+    non_local_names.insert("width");
+    non_local_names.insert("height");
+    non_local_names.insert("left");
+    non_local_names.insert("top");
 
     for (int i = 0; i < sub->parameters.size(); i++) {
         const String pkey = sub->parameters[i].name.to_lower();
@@ -557,6 +564,52 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         // so the compiler emits OP_GET_ARRAY instead of OP_CALL
         if (vtype == "array") {
             array_vars.insert(module->variables[i]->name.to_lower());
+        }
+    }
+
+    // Imported module Public/Dim/Const must resolve like VB6 standard-module
+    // symbols: OP_GET_GLOBAL, or inlined Const — never implicit nil locals.
+    // FileOps.LoadFileAtPath compiled `sz > MAX_FILE_BYTES` with MAX_FILE_BYTES
+    // as a local (ValB:<null>) because HexModel's Public Const was invisible
+    // when compiling the imported FileOps AST alone.
+    for (int im = 0; im < import_modules.size(); im++) {
+        ModuleNode *imp = import_modules[im];
+        if (!imp || imp == module) {
+            continue;
+        }
+        for (int ci = 0; ci < imp->constants.size(); ci++) {
+            ConstStatement *cs = imp->constants[ci];
+            if (!cs) {
+                continue;
+            }
+            String ckey = cs->name.to_lower();
+            if (!local_const_map.has(ckey) && cs->value && is_constant_expr(cs->value)) {
+                local_const_map[ckey] = eval_constant_expr(cs->value);
+            }
+            if (!(fast_params_ok && local_slots.has(ckey))) {
+                non_local_names.insert(ckey);
+            }
+        }
+        for (int vi = 0; vi < imp->variables.size(); vi++) {
+            VariableDefinition *mv = imp->variables[vi];
+            if (!mv) {
+                continue;
+            }
+            String gkey = mv->name.to_lower();
+            if (fast_params_ok && local_slots.has(gkey)) {
+                continue;
+            }
+            non_local_names.insert(gkey);
+            if (mv->array_sizes.size() > 0) {
+                array_vars.insert(gkey);
+            }
+            String vtype = mv->type.to_lower();
+            if (vtype == "dictionary") {
+                dictionary_vars.insert(gkey);
+            }
+            if (vtype == "array") {
+                array_vars.insert(gkey);
+            }
         }
     }
 
@@ -5871,6 +5924,29 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
 //
 // When a namespace match is found, the caller should compile the args and
 // emit OP_CALL to "<ns>_<lower_method>" instead of OP_METHOD_CALL.
+String VisualGasicCompiler::detect_imported_module_call(ExpressionNode* base_obj) const {
+    if (!base_obj || base_obj->type != ExpressionNode::VARIABLE || !current_module) {
+        return String();
+    }
+    String name = ((VariableNode *)base_obj)->name;
+    String lo = name.to_lower();
+    if (local_slots.has(lo) || param_vars.has(lo) || array_vars.has(lo) || dictionary_vars.has(lo)) {
+        return String();
+    }
+    for (int vi = 0; vi < current_module->variables.size(); vi++) {
+        if (current_module->variables[vi]->name.to_lower() == lo) {
+            return String();
+        }
+    }
+    for (int i = 0; i < current_module->imports.size(); i++) {
+        String mod_name = current_module->imports[i].get_file().get_basename();
+        if (mod_name.nocasecmp_to(name) == 0) {
+            return mod_name;
+        }
+    }
+    return String();
+}
+
 String VisualGasicCompiler::detect_namespace_call(ExpressionNode* base_obj) const {
     if (!base_obj) return String();
 
@@ -6978,6 +7054,24 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_byte(OP_POP); // discard return value (statement context)
                         break;
                     }
+                }
+                // Imported module: ModuleName.SubName(args) → flat OP_CALL (not OP_METHOD_CALL)
+                if (!detect_imported_module_call(s->base_object).is_empty()) {
+                    SubDefinition *target_func = resolve_call_target(s->method_name, s->arguments.size());
+                    if (try_emit_draw_call(s, target_func, true)) {
+                        emit_byref_writebacks(target_func, s->arguments);
+                        break;
+                    }
+                    for (int i = 0; i < s->arguments.size(); i++) {
+                        compile_expression(s->arguments[i]);
+                    }
+                    int idx = current_chunk->add_constant(s->method_name);
+                    emit_byte(OP_CALL);
+                    emit_const_index(idx);
+                    emit_byte((uint8_t)s->arguments.size());
+                    emit_byte(OP_POP);
+                    emit_byref_writebacks(target_func, s->arguments);
+                    break;
                 }
                 // Method call on object — compile base + args, emit OP_METHOD_CALL
                 compile_expression(s->base_object);
@@ -10464,6 +10558,17 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                          // Return value stays on stack (expression context)
                          break;
                      }
+                 }
+                 // Imported module: ModuleName.Func(args) → flat OP_CALL
+                 if (!detect_imported_module_call(call->base_object).is_empty()) {
+                     for (int i = 0; i < call->arguments.size(); i++) {
+                         compile_expression(call->arguments[i]);
+                     }
+                     int idx = current_chunk->add_constant(call->method_name);
+                     emit_byte(OP_CALL);
+                     emit_const_index(idx);
+                     emit_byte((uint8_t)call->arguments.size());
+                     break;
                  }
                  // Method call on object — compile base + args, emit OP_METHOD_CALL
                  compile_expression(call->base_object);

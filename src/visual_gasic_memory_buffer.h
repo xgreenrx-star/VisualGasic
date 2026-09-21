@@ -87,6 +87,8 @@ public:
     PackedByteArray to_byte_array() const;
     PackedByteArray to_byte_array_range(int64_t p_offset, int64_t p_length) const;
     void from_byte_array(const PackedByteArray &p_array);
+    String crc32_hex() const;
+    String crc32_hex_range(int64_t p_offset, int64_t p_length) const;
 
     // --- Search ---
     int64_t find_byte(uint8_t p_value, int64_t p_start = 0) const;
@@ -100,6 +102,7 @@ public:
     // existing contents/allocation. Returns false if the file can't be
     // opened. On success, get_size() reflects the file's byte length.
     bool load_from_file(const String &p_path);
+    bool save_to_file(const String &p_path);
 
     // --- Pointer (for FFI interop) ---
     int64_t get_pointer() const { return (int64_t)(uintptr_t)data; }

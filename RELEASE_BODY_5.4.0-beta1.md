@@ -10,7 +10,7 @@
 - **891/891** regression assertions · CI benchmark regression gate
 - **On the road to VG6** — 5.x betas now; **v6.0.0** stable targets January 2027
 
-![IDE — DataFile, context rail, AI Pair](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/docs/screenshots/Screenshot%20at%202026-08-25%2010-50-34.png)
+![IDE — DataFile, context rail, Vibe Code](https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/docs/screenshots/Screenshot%20at%202026-08-25%2010-50-34.png)
 
 ### Key numbers
 

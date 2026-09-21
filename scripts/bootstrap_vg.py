@@ -1009,7 +1009,7 @@ def configure_ai_keys(args, project_display_name: str) -> None:
     path = write_godot_ai_keys(project_display_name, keys)
     if path:
         ok(f"AI keys written to {path}")
-        print(f"    Edit or clear them later from the ⚙️  button in the VG AI Help panel.")
+        print(f"    Edit or clear them later from the ⚙️  button in the Vibe Code panel.")
     else:
         info("No AI keys provided — skipping. You can set them from the IDE anytime.")
 

@@ -37,7 +37,7 @@ No regressions — these Beta4 improvements remain in place:
 - **81.8% faster function calls** (5.50× call overhead reduction)
 - **Native 6502 CPU core** — C64 Emulator Turbo Mode boots to `READY.` at ~2.9× real hardware speed
 - **Three silent miscompilation bugs fixed** (`OP_JUMP_TABLE`, `CONST + VAR` arithmetic, `ByRef` write-back)
-- **Native JIT hang fix** and Narcea AI Pair agent-loop reliability fixes
+- **Native JIT hang fix** and Vibe Code agent-loop reliability fixes
 
 ---
 

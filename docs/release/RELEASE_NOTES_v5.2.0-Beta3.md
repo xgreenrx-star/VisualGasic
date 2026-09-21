@@ -250,7 +250,7 @@ the Vector Graphics plugin badge, and the live Immediate Window.
 > and keyboard shortcuts that are new this release, lives in
 > [docs/guides/TWEAK_OVERLAY.md](docs/guides/TWEAK_OVERLAY.md).
 
-Beta2 screenshots remain accurate for the Form Designer, AI Pair,
+Beta2 screenshots remain accurate for the Form Designer, Vibe Code,
 Hex Editor, VGMusic, Welcome shell, and Web Publish surfaces — see
 [RELEASE_NOTES_v5.2.0-Beta2.md](RELEASE_NOTES_v5.2.0-Beta2.md#-screenshots).
 

@@ -142,7 +142,7 @@ End Sub
 
 ## 3. AI: Set Up Narcea and Generate Code
 
-VG is built for AI-assisted development. Narcea is the built-in AI pair that generates VG code from plain English.
+VG is built for AI-assisted development. Narcea is the built-in Vibe Code that generates VG code from plain English.
 
 ### Get an API Key (3 minutes)
 
@@ -170,7 +170,7 @@ Narcea supports **OpenAI (ChatGPT)**, **Anthropic (Claude)**, **Google (Gemini)*
 ### Configure Narcea in VG
 
 1. **Open VisualGasic**
-2. **Toolbox panel** → Narcea AI Pair tab
+2. **Toolbox panel** → Narcea Vibe Code tab
 3. **Select provider**: OpenAI, Anthropic, Google, or Local Ollama
 4. **Paste your API key** (or leave blank for Ollama)
 5. **Save**
@@ -199,7 +199,7 @@ This is the VG pitch: **AI writes it, you understand it.** Unlike black-box AI t
 
 ### Next Steps
 
-- Explore the [Narcea AI Pair Guide](../manual/narcea_guide.md) (coming in v5.4)
+- Explore the [Narcea Vibe Code Guide](../manual/narcea_guide.md) (coming in v5.4)
 - Try more prompts: "Make a calculator", "Build a todo list", "Create a high score leaderboard"
 - Read [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md) when Narcea builds a Start/Exit menu that opens a canvas game
 - Read [the Immediate Window guide](../IMMEDIATE_WINDOW.md) to test code snippets in real-time
@@ -220,7 +220,7 @@ You now know:
 | 15 min | Explore the UI Toolkit demo | **demos/UI/VG_UI_TOOLS** |
 | 30 min | Build a calculator form | [Calculator Tutorial](../tutorials/calculator_form_designer.md) |
 | 1 hour | Extend the platformer (enemies, coins, lives) | [Your First 2D Game](../tutorials/your_first_2d_game.md) |
-| 2 hours | Prompt Narcea to build a full game menu system | Narcea Pair tab |
+| 2 hours | Prompt Narcea to build a full game menu system | Vibe Code tab |
 | Then | Read the full language reference | [VisualGasic Language Reference](../VisualGasic_Language_Reference.md) |
 
 ### Questions?

@@ -1,5 +1,10 @@
 ; Engine configuration file.
-; Visual Gasic HTML5 smoke sample — Open-Meteo HTTP demo.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -9,6 +14,10 @@ config/name="VG Web Hello"
 config/description="HTML5 sample: VGHttpRequest + canvas UI (Open-Meteo)"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[autoload]
+
+VGDebugHandler="*uid://bba4n02t2dx1g"
 
 [display]
 

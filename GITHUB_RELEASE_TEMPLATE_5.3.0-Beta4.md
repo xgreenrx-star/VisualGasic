@@ -36,7 +36,7 @@ A rigorously-measured campaign (`perf stat -e instructions:u`, two-point isolati
 
 `OP_CALL`/`OP_GET_GLOBAL` HashSet-gated caching specifically targeting the emulator's hot paths — general wins for any call-heavy or global-variable-heavy VG program.
 
-### 🤖 Narcea AI Pair Fixes
+### 🤖 Vibe Code Fixes
 
 Fixed a `write_file` over-stripping bug and an agent-loop re-entrancy bug (found via a new headless DeepSeek-backed eval harness) that was silently dropping mid-task context on every multi-hop turn.
 

@@ -1,0 +1,14 @@
+' test_qualified_module_call.vg — ModuleName.SubName must not compile as OP_METHOD_CALL
+' MAX_FRAMES: 5
+Import "test_math_lib.vg"
+
+Sub _Ready()
+	Dim v As Integer
+	Call test_math_lib.PrintBanner()
+	v = test_math_lib.GetFortyTwo()
+	If v = 42 Then
+		Print "PASS: qualified_module_call"
+	Else
+		Print "FAIL: qualified_module_call expected 42 got " & CStr(v)
+	End If
+End Sub

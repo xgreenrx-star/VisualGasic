@@ -47,7 +47,7 @@ Milestones are tracked in [ROADMAP.md](../ROADMAP.md) and mapped to releases in 
 | Version (planned) | Milestone | Focus |
 |-------------------|-----------|---------|
 | `5.4.0-beta1` | M4+ / pre-M5 | Context rail, literal convert, IDE sidecar |
-| `5.4.0-beta2` | M5 | Narcea AI pair, Buffer type, optimizer hints |
+| `5.4.0-beta2` | M5 | Narcea Vibe Code, Buffer type, optimizer hints |
 | `5.5.0-beta1` | M6–M7 | Causal chain teaser, Python bridge hardening |
 | `6.0.0-rc1` | M6–M8 | Language parity, C++ FFI, `Let` keyword |
 | `6.0.0-rc2` | M9 | Release readiness, installer smoke, docs |

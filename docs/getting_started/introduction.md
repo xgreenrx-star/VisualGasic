@@ -2,7 +2,7 @@
 
 ## What is VisualGasic?
 
-**VisualGasic** is a modern programming language and **Godot 4.6.1+ extension** with VB6-style `.vg` scripting, a JIT-compiled bytecode engine, and rich **editor integration** (Code Navigator, Narcea AI Pair, debugging). A **legacy Form Designer / standalone VG IDE layout** remains available as **experimental Alpha** — see [VG IDE Alpha](../manual/VG_IDE_ALPHA.md). For v6.0, the supported path is **Godot’s editor** plus optional **UI Forms** on the 2D viewport.
+**VisualGasic** is a modern programming language and **Godot 4.6.1+ extension** with VB6-style `.vg` scripting, a JIT-compiled bytecode engine, and rich **editor integration** (Code Navigator, Narcea Vibe Code, debugging). A **legacy Form Designer / standalone VG IDE layout** remains available as **experimental Alpha** — see [VG IDE Alpha](../manual/VG_IDE_ALPHA.md). For v6.0, the supported path is **Godot’s editor** plus optional **UI Forms** on the 2D viewport.
 
 > **VisualGasic is not a VB6 clone.** It is a modern, forward-looking language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. If you know VB6, you'll feel at home in minutes. If you're new to programming, you'll find VG one of the easiest languages to learn.
 
@@ -16,10 +16,10 @@
 
 VisualGasic extends **Godot 4.6.1+** instead of replacing it:
 
-- **VGasic workspace** — Floating **Code Navigator**, **Properties**, **Toolbox**, and **AI Pair (Narcea)** over the Script / 2D / 3D editors
+- **VGasic workspace** — Floating **Code Navigator**, **Properties**, **Toolbox**, and **Vibe Code (Narcea)** over the Script / 2D / 3D editors
 - **`.vg` code editor** — Syntax highlighting, IntelliSense (80+ function completions, 62+ VB6 property completions), snippets, Go To Definition — see [CODE_EDITOR.md](../manual/CODE_EDITOR.md)
 - **Immediate Window & debugger** — Breakpoints, Watch, Call Stack, Step Over/Into/Out, REPL while paused
-- **Narcea AI Pair** — VG-aware assistant; optional **Live Debug Capture** while a game is running (local-only snapshots)
+- **Narcea Vibe Code** — VG-aware assistant; optional **Live Debug Capture** while a game is running (local-only snapshots)
 - **Forms** — **UI Forms** on the 2D viewport (experimental) or the legacy **Form Designer** ([VG IDE Alpha](../manual/VG_IDE_ALPHA.md)); 40+ toolbox controls and VB6-style event handlers (`Sub btnPlay_Click()`)
 
 ### ⚡ Performance

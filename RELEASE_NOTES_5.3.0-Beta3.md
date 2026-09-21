@@ -70,7 +70,7 @@ Dim s As New Square()                     ' Class defined in shapes.vg now works
 
 ### 🤖 Added — DeepSeek AI Provider, Narcea Agent Progress (M5)
 
-DeepSeek joins Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q as a Narcea AI Pair provider. Continued groundwork on Narcea AI agent scaffolding (M5, due Oct 15).
+DeepSeek joins Ollama, OpenAI, Claude, Gemini, Codeium, and Amazon Q as a Vibe Code provider. Continued groundwork on Narcea AI agent scaffolding (M5, due Oct 15).
 
 ### 🛠 Fixed — Miscellaneous
 
@@ -93,7 +93,7 @@ For context, Beta2 shipped:
 - **Critical Python bridge int/float decode fix** — Godot's JSON parser was silently collapsing every number to float
 - **`IsNot` operator** — full VB.NET-style negated reference/type comparison
 - **ByRef write-back fix** — expression-level calls like `result = DoubleAndReturn(val)` now correctly update `val`
-- Two new AI providers (Codeium, Amazon Q), Python bridge + C++ FFI demos, Narcea AI Pair floating window, a *Thrust* (1986) tribute demo, and a documentation overhaul
+- Two new AI providers (Codeium, Amazon Q), Python bridge + C++ FFI demos, Vibe Code floating window, a *Thrust* (1986) tribute demo, and a documentation overhaul
 
 Full details in [CHANGELOG.md](CHANGELOG.md#530-beta2---2026-07-15).
 

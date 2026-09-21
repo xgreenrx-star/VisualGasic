@@ -282,9 +282,9 @@ echo "    cd /path/to/project"
 echo "    vg install"
 echo ""
 
-# ── Optional: Piper neural TTS for AI Pair voice mode ──────────────────────
+# ── Optional: Piper neural TTS for Vibe Code voice mode ──────────────────────
 if [[ -t 0 && -t 1 && "${VG_INSTALL_PIPER:-}" != "0" ]]; then
-    echo -e "  ${BOLD}Optional:${NC} natural-sounding voice for AI Pair (~340 MB download)"
+    echo -e "  ${BOLD}Optional:${NC} natural-sounding voice for Vibe Code (~340 MB download)"
     echo "    The default OS TTS (espeak / say) is robotic. Piper voices match"
     echo "    each persona (Bob = American, Skippy = British, Orac = Yorkshire, etc.)"
     echo ""
@@ -301,9 +301,9 @@ if [[ -t 0 && -t 1 && "${VG_INSTALL_PIPER:-}" != "0" ]]; then
     echo ""
 fi
 
-# ── Optional: local Whisper STT for AI Pair voice mode ────────────────────
+# ── Optional: local Whisper STT for Vibe Code voice mode ────────────────────
 if [[ -t 0 && -t 1 && "${VG_INSTALL_WHISPER:-}" != "0" ]]; then
-    echo -e "  ${BOLD}Optional:${NC} local speech-to-text for AI Pair (~150 MB download)"
+    echo -e "  ${BOLD}Optional:${NC} local speech-to-text for Vibe Code (~150 MB download)"
     echo "    Without this, the 🎙 mic button requires an OpenAI API key."
     echo "    whisper.cpp runs locally — no key, no network. Builds from source"
     echo "    (needs cmake + a C++ compiler, ~1 minute). Uses ggml-base.en."

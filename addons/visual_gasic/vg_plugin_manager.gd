@@ -687,8 +687,15 @@ func _on_canvas_plugins_menu_pressed(idx: int) -> void:
 	if plugin_id.is_empty():
 		return
 	_pending_activate_plugin = plugin_id
-	if _host_plugin and _host_plugin.has_method("_get_plugin_name"):
+	if _host_plugin and _host_plugin.has_method("_use_legacy_vg_ide_main_screen") \
+			and _host_plugin._use_legacy_vg_ide_main_screen() \
+			and _host_plugin.has_method("_get_plugin_name"):
 		EditorInterface.set_main_screen_editor(_host_plugin._get_plugin_name())
+	elif _host_plugin and _host_plugin.has_method("_activate_vg_ui_forms_workspace"):
+		_host_plugin._activate_vg_ui_forms_workspace()
+		if _host_plugin.has_method("_deferred_activate_plugin"):
+			_host_plugin.call_deferred("_deferred_activate_plugin", plugin_id)
+			_pending_activate_plugin = ""
 
 
 ## Called when ProjectSettings change (user toggled vg/plugins/* booleans).

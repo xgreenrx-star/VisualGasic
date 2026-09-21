@@ -78,7 +78,7 @@ Updated: September 2026
 45. [Python Function Calls from VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4018)
 46. [Working with NumPy Arrays](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4059)
 
-### Part XII: Narcea AI Pair Integration (M5 — NEW)
+### Part XII: Narcea Vibe Code Integration (M5 — NEW)
 47. [Introduction to Narcea](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103)
 48. [Configuring AI Providers](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4124)
 49. [AI-Assisted Code Generation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4162)
@@ -4103,7 +4103,7 @@ End Sub
 
 ## Chapter 45: Introduction to Narcea
 
-Narcea is VisualGasic's built-in **AI Pair Programmer** — an integrated coding assistant powered by Claude, GPT-4, Gemini, or Ollama.
+Narcea is VisualGasic's built-in **Vibe Code Programmer** — an integrated coding assistant powered by Claude, GPT-4, Gemini, or Ollama.
 
 ### What Narcea Does
 

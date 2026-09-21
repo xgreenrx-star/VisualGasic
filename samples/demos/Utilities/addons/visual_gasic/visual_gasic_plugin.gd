@@ -255,7 +255,7 @@ var _ui_forms_armed_type: String = ""
 ## Three 2D toolbar buttons for VG control placement and wiring.
 var _vg_ctrl_btn: Button = null    ## "Add VG Control" — open floating Toolbox
 var _vg_props_btn: Button = null   ## "VG Properties"  — open floating Properties
-var _vg_panels_btn: Button = null  ## "VG Panels" — Immediate, Output, AI Pair, …
+var _vg_panels_btn: Button = null  ## "VG Panels" — Immediate, Output, Vibe Code, …
 var _wire_event_btn: Button = null ## "Wire Event"     — create VB6 event stub
 ## Prototype .tscn path while armed VG placement is active; "" when idle.
 var _vg_ctrl_armed_path: String = ""
@@ -300,7 +300,7 @@ var _ai_repair_dialog = null
 ## Package Browser (v4.3.0) — Package Manager panel
 var _package_browser = null
 
-## AI Help Panel (v4.4.0) — local Ollama-powered code assistant
+## Vibe Code panel (v4.4.0) — local Ollama-powered code assistant
 var _ai_help_panel = null
 var _vg_bottom_float: PanelContainer = null
 var _narcea_toolbar_btn: Button = null
@@ -641,7 +641,7 @@ func _enter_tree():
 		_package_browser.visible = false
 		print("VisualGasic: Package Browser created (will embed in IDE)")
 	
-	# Create AI Help Panel — appears in Godot bottom panel by default (Godot IDE mode).
+	# Create Vibe Code panel — appears in Godot bottom panel by default (Godot IDE mode).
 	# In VG IDE mode it is re-parented into the embedded code editor's bottom tabs.
 	_ensure_ai_help_panel()
 	
@@ -1080,7 +1080,7 @@ func _enter_tree():
 				print("VisualGasic: Immediate Window embedding deferred")
 			# Wire Output and System Console tabs to live data sources
 			_wire_output_tabs.call_deferred()
-			# Embed VG panels (Profiler, Controls, Packages, AI Help) into IDE bottom tabs
+			# Embed VG panels (Profiler, Controls, Packages, Vibe Code) into IDE bottom tabs
 			_embed_ide_bottom_panels.call_deferred()
 
 		# ── Embedded 3D Scene Editor (hidden by default, replaces canvas on 3D View) ──
@@ -2131,7 +2131,7 @@ func _exit_tree():
 		_save_vg_bottom_float_geometry()
 		_vg_bottom_float.queue_free()
 		_vg_bottom_float = null
-	# Cleanup AI Help Panel (IDE bottom tab or plugin child)
+	# Cleanup Vibe Code panel (IDE bottom tab or plugin child)
 	if is_instance_valid(_ai_help_panel):
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("remove_bottom_tab"):
 			_embedded_code_editor.remove_bottom_tab(_ai_help_panel)
@@ -2270,7 +2270,7 @@ func _input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 
-	# ── Ctrl+Shift+N  →  Narcea AI Pair (works in Godot IDE and VG IDE mode) ──
+	# ── Ctrl+Shift+N  →  Vibe Code (works in Godot IDE and VG IDE mode) ──
 	if event.keycode == KEY_N and event.ctrl_pressed and event.shift_pressed and not event.alt_pressed:
 		_on_toggle_narcea_panel()
 		get_viewport().set_input_as_handled()
@@ -5518,7 +5518,7 @@ func _prefill_ai_help_panel(prompt: String) -> void:
 		input.set_text(prompt)
 	elif "text" in input:
 		input.text = prompt
-	# Surface the AI Pair tab so the user doesn't have to switch manually.
+	# Surface the Vibe Code tab so the user doesn't have to switch manually.
 	# Defer so layout has settled and any concurrent focus calls (immediate,
 	# output, etc.) don't immediately overwrite our selection.
 	_focus_ai_help_panel_deferred(panel)
@@ -5552,7 +5552,7 @@ func _focus_ai_help_panel_deferred(panel: Control) -> void:
 		var bt = _embedded_code_editor.get("_bottom_tabs")
 		if bt is TabContainer:
 			for i in range((bt as TabContainer).get_tab_count()):
-				if (bt as TabContainer).get_tab_title(i) == "AI Pair":
+				if (bt as TabContainer).get_tab_title(i) == "Vibe Code":
 					(bt as TabContainer).current_tab = i
 					(bt as TabContainer).call_deferred("set_current_tab", i)
 					return
@@ -9211,7 +9211,7 @@ func _on_error_break_received(file: String, line: int, message: String, code: in
 	# Log to the Errors tab so it persists after the popup is dismissed
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("log_runtime_error"):
 		_embedded_code_editor.log_runtime_error(file, line, message, code)
-	# Also update AI Help panel's error context silently
+	# Also update Vibe Code panel's error context silently
 	if is_instance_valid(_ai_help_panel):
 		_ai_help_panel.set_error_context(file, line, message, _last_error_variables)
 
@@ -9234,13 +9234,13 @@ func _on_exception_end() -> void:
 		debugger_plugin.debug_stop()
 
 func _on_exception_ask_ai(file: String, line: int, message: String, code: int, variables: Dictionary) -> void:
-	## User chose Ask AI — send error context to the AI Help panel.
+	## User chose Ask AI — send error context to the Vibe Code panel.
 	print("VisualGasic: Exception Assistant → Ask AI")
 	if is_instance_valid(_ai_help_panel):
 		_ai_help_panel.set_error_context(file, line, message, variables)
 		# Auto-trigger the "Explain Last Error" action
 		_ai_help_panel._on_explain_error()
-		# Switch to the AI Help tab in the IDE's bottom tabs
+		# Switch to the Vibe Code tab in the IDE's bottom tabs
 		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("focus_bottom_tab"):
 			_embedded_code_editor.focus_bottom_tab(_ai_help_panel)
 
@@ -9601,16 +9601,16 @@ func _ensure_ai_help_panel() -> void:
 		return
 	var ai_help_script = load("res://addons/visual_gasic/vg_ai_help.gd")
 	if ai_help_script == null:
-		push_error("VisualGasic: failed to load vg_ai_help.gd — AI Pair disabled")
+		push_error("VisualGasic: failed to load vg_ai_help.gd — Vibe Code disabled")
 		return
 	_ai_help_panel = ai_help_script.new()
 	if not is_instance_valid(_ai_help_panel):
-		push_error("VisualGasic: vg_ai_help.gd failed to instantiate — AI Pair disabled")
+		push_error("VisualGasic: vg_ai_help.gd failed to instantiate — Vibe Code disabled")
 		_ai_help_panel = null
 		return
 	add_child(_ai_help_panel)
 	_ai_help_panel.visible = false
-	print("VisualGasic: AI Help panel created")
+	print("VisualGasic: Vibe Code panel created")
 
 
 func _ai_pair_is_embedded() -> bool:
@@ -9632,8 +9632,8 @@ func _ensure_ai_pair_bottom_tab() -> void:
 		return
 	if _ai_pair_is_embedded():
 		return
-	_embedded_code_editor.add_bottom_tab("AI Pair", _ai_help_panel)
-	print("VisualGasic: AI Help embedded in IDE bottom tabs")
+	_embedded_code_editor.add_bottom_tab("Vibe Code", _ai_help_panel)
+	print("VisualGasic: Vibe Code embedded in IDE bottom tabs")
 
 ## Debug.Print output from running game → Output tab
 func _on_debug_print_to_output(text: String) -> void:
@@ -11184,18 +11184,18 @@ func _focus_ai_pair_in_bottom_panel() -> void:
 		_focus_ai_help_panel_deferred(_ai_help_panel)
 
 
-## Toggle Narcea AI Pair — VG IDE tab embeds in Code view; Godot 2D/3D/Script floats.
+## Toggle Vibe Code — VG IDE tab embeds in Code view; Godot 2D/3D/Script floats.
 ## Keyboard shortcut: Ctrl+Shift+N.
 func _on_toggle_narcea_panel() -> void:
 	_ensure_ai_help_panel()
 	if not is_instance_valid(_ai_help_panel):
-		push_warning("VisualGasic: AI Pair panel unavailable — check Errors for vg_ai_help.gd issues")
+		push_warning("VisualGasic: Vibe Code panel unavailable — check Errors for vg_ai_help.gd issues")
 		return
-	# VG IDE main screen: open Code view + embedded AI Pair tab (never float here).
+	# VG IDE main screen: open Code view + embedded Vibe Code tab (never float here).
 	if is_instance_valid(_ide_layout) and _ide_layout.visible:
 		_open_ai_pair_in_vg_ide()
 		return
-	# Godot native screens: floating bottom tabs (Immediate, Output, AI Pair, …).
+	# Godot native screens: floating bottom tabs (Immediate, Output, Vibe Code, …).
 	_toggle_vg_bottom_float_window(true)
 
 
@@ -13697,7 +13697,7 @@ func _setup_vgasic_tools_menu() -> void:
 	_vgasic_tools_menu.add_separator()
 	_vgasic_tools_menu.add_item("Toggle VG IDE Layout", _VGTOOLS_TOGGLE_VG_LAYOUT_ID)
 	_vgasic_tools_menu.add_item("Toggle Tweak Overlay", _VGTOOLS_TOGGLE_TWEAK_OVERLAY_ID)
-	_vgasic_tools_menu.add_item("Narcea AI Pair (Ctrl+Shift+N)", _VGTOOLS_NARCEA_ID)
+	_vgasic_tools_menu.add_item("Vibe Code (Ctrl+Shift+N)", _VGTOOLS_NARCEA_ID)
 	_vgasic_tools_menu.add_separator()
 	_vgasic_tools_menu.add_item("VG: Snippet Browser", _VGTOOLS_SNIPPET_BROWSER_ID)
 	_vgasic_tools_menu.add_item("VG: Theme Picker", _VGTOOLS_THEME_PICKER_ID)
@@ -14633,10 +14633,10 @@ func _setup_ui_forms_toolbar_button() -> void:
 	_vg_props_btn.pressed.connect(_on_vg_props_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_props_btn)
 
-	# ── VG Panels (Immediate, Output, AI Pair, …) ─────────────────────────────
+	# ── VG Panels (Immediate, Output, Vibe Code, …) ─────────────────────────────
 	_vg_panels_btn = Button.new()
 	_vg_panels_btn.text = "📊 VG Panels"
-	_vg_panels_btn.tooltip_text = "Open Visual Gasic bottom panels (Immediate, Output, AI Pair, …)"
+	_vg_panels_btn.tooltip_text = "Open Visual Gasic bottom panels (Immediate, Output, Vibe Code, …)"
 	_vg_panels_btn.flat = true
 	_vg_panels_btn.pressed.connect(_on_vg_panels_btn_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
@@ -14657,8 +14657,8 @@ func _setup_ui_forms_toolbar_button() -> void:
 
 	# ── Narcea AI — injected into main screen tab row next to Visual Gasic IDE ──
 	_narcea_toolbar_btn = Button.new()
-	_narcea_toolbar_btn.text = "🤖 Narcea AI"
-	_narcea_toolbar_btn.tooltip_text = "Open Narcea AI Pair panel (Ctrl+Shift+N)"
+	_narcea_toolbar_btn.text = "🤖 Vibe Code"
+	_narcea_toolbar_btn.tooltip_text = "Open Vibe Code panel (Ctrl+Shift+N)"
 	_narcea_toolbar_btn.flat = true
 	_narcea_toolbar_btn.pressed.connect(_on_toggle_narcea_panel)
 	# Find the "Visual Gasic IDE" tab button and insert Narcea right after it

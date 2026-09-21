@@ -1,5 +1,5 @@
 extends PanelContainer
-## Fake Narcea AI Pair panel for movie capture (not the real editor dock).
+## Fake Narcea Vibe Code panel for movie capture (not the real editor dock).
 
 @onready var _provider: Label = $RootVBox/Chrome/ProviderRow/Provider
 @onready var _segment_label: Label = $RootVBox/Chrome/ProviderRow/Segment

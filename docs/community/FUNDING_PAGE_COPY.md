@@ -1,10 +1,8 @@
 # Support VisualGasic
 
-VisualGasic is an independent open-source programming language and tooling project built around a simple idea: AI can write code faster than ever, but humans still need to read, audit, and trust what ships.
+Visual Gasic is an independent open-source **second language for Godot** — game systems, UI, and tools with a serious compiler/runtime, docs, examples, and in-editor **Vibe Code** (Narcea + cloud/local models).
 
-VisualGasic exists to make that review step easier.
-
-It brings VB6-style readable syntax, a serious compiler/runtime, Godot integration, documentation, examples, and an AI pair workflow into one project aimed at human-readable software in the AI era.
+Funding keeps that stack moving toward v6.0 stable: games and benchmarks as proof, not slogans about “readable AI-era BASIC.”
 
 ## Why funding matters
 
@@ -26,7 +24,7 @@ In plain terms: funding turns VisualGasic from a nights-and-weekends project int
 
 Current priority work includes:
 
-- Narcea AI pair inside the Godot workflow
+- Narcea Vibe Code inside the Godot workflow
 - Language stability and bug-fix hardening
 - More proven working examples
 - Documentation and onboarding cleanup

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Visual Gasic — Cursor SDK bridge for Narcea AI Pair (Tier 2).
+"""Visual Gasic — Cursor SDK bridge for Narcea Vibe Code (Tier 2).
 
 Reads a JSON request file, streams NDJSON events to stdout:
   {"type":"token","text":"..."}
   {"type":"done","status":"finished"|"error"|...}
   {"type":"error","message":"..."}
 
-Install: AI Pair → ⚙️ → Install cursor-sdk (venv)
+Install: Vibe Code → ⚙️ → Install cursor-sdk (venv)
   Windows:  py -3 -m venv <user_data>/vg_cursor_venv && Scripts\\pip install cursor-sdk
   Linux/mac: python3 -m venv <user_data>/vg_cursor_venv && bin/pip install cursor-sdk
 API key: Cursor Dashboard → Integrations (CURSOR_API_KEY)
@@ -85,7 +85,7 @@ def main() -> int:
         emit(
             {
                 "type": "error",
-                "message": "No Cursor API key. Set it in AI Pair → ⚙️ (visual_gasic/ai/cursor_key).",
+                "message": "No Cursor API key. Set it in Vibe Code → ⚙️ (visual_gasic/ai/cursor_key).",
             }
         )
         return 1

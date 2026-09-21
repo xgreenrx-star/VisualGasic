@@ -198,7 +198,7 @@ Features that need no menu action:
 | Topic | Document |
 |-------|----------|
 | Keyboard shortcut card | [IDE_SHORTCUTS.md](IDE_SHORTCUTS.md) |
-| IDE panels (Profiler, AI Pair, Watch, …) | [ide_tools.md](ide_tools.md) |
+| IDE panels (Profiler, Vibe Code, Watch, …) | [ide_tools.md](ide_tools.md) |
 | Breakpoints & debugging | [debugging.md](debugging.md) |
 | Sprite `Data` blocks | [SPRITE_EDITOR_MANUAL.md](SPRITE_EDITOR_MANUAL.md) |
 | Hex Editor for binary paths | [HEX_EDITOR_MANUAL.md](HEX_EDITOR_MANUAL.md) |

@@ -2,6 +2,8 @@
 
 *A manifesto for the post-prompting decade.*
 
+> **Note:** Public hero copy for Visual Gasic is **[POSITIONING.md](POSITIONING.md)** (game systems + Godot power layer). This essay is the **audit / AI** argument — useful for blog and debate, not the only storefront pitch.
+
 ---
 
 ## The argument in one paragraph
@@ -129,7 +131,7 @@ Concretely, VisualGasic's roadmap is:
    compatibility. Every language feature we add should be evaluated on
    "how fast can a human verify a sub written in this style?"
 
-2. **Lean into the read-audit loop in the IDE.** The AI Pair panel, the 🐛 Explain
+2. **Lean into the read-audit loop in the IDE.** The Vibe Code panel, the 🐛 Explain
    Last Error button, the 🔧 Fix-with-AI flow, the upcoming graph-aware authoring
    tools — these are auditing tools, and we will build them out aggressively.
 

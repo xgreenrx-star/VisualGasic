@@ -12,7 +12,7 @@ Use this script for **test runs** and the **recorded demo**. Prompts are word-fo
 
 1. Open `projects/vg_narcea_test` in Godot with Visual Gasic enabled.
 2. Delete any stale demo folder: `res://ai_projects/asteroids_demo/` (or rename for backup).
-3. AI Pair → pick **Gemini** (or your best provider from the matrix).
+3. Vibe Code → pick **Gemini** (or your best provider from the matrix).
 4. Optional: Project Settings → **vg/ai/allow_web_fetch** = on.
 
 ## Turn 1 — Create (video ~0:00–0:45)
@@ -27,7 +27,7 @@ Use this script for **test runs** and the **recorded demo**. Prompts are word-fo
 3. Wait for `vg-project-spec` → **Apply**.
 4. Click **▶ Run** — ship should thrust, shoot, and asteroids should move/split.
 
-**Pass criteria:** game window opens (not a blank editor), no immediate SCRIPT ERROR in AI Pair output.
+**Pass criteria:** game window opens (not a blank editor), no immediate SCRIPT ERROR in Vibe Code output.
 
 ## Turn 2 — Iterate (video ~0:45–1:30)
 
@@ -82,8 +82,8 @@ NARCEA_LIVE=1 NARCEA_LIVE_SKIP_API=0 NARCEA_SCENARIO=asteroids_2d \
 
 | File | Purpose |
 |------|---------|
-| [`prompts/asteroids_create.txt`](prompts/asteroids_create.txt) | Turn 1 — copy into AI Pair |
-| [`prompts/asteroids_iterate.txt`](prompts/asteroids_iterate.txt) | Turn 2 — copy into AI Pair |
+| [`prompts/asteroids_create.txt`](prompts/asteroids_create.txt) | Turn 1 — copy into Vibe Code |
+| [`prompts/asteroids_iterate.txt`](prompts/asteroids_iterate.txt) | Turn 2 — copy into Vibe Code |
 | [`rubrics/asteroids_2d.json`](rubrics/asteroids_2d.json) | Live suite rubric (turn 1) |
 | [`rubrics/asteroids_iterate.json`](rubrics/asteroids_iterate.json) | Multi-turn rubric |
 | [`../test_narcea_live_asteroids_iterate.gd`](../test_narcea_live_asteroids_iterate.gd) | Headless live dry-run |

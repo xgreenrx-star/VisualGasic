@@ -192,7 +192,7 @@ above the flames.
 ![Demoscene credits: "VISUAL GASIC" letters orbiting in helix formation, sine-wave scroller at bottom](docs/screenshots/v5.2.0-Beta4/demoscene_credits.png)
 
 Beta3 screenshots remain accurate for the Tweak Overlay, Form Designer,
-AI Pair, 2D Scene Editor, and all other surfaces — see
+Vibe Code, 2D Scene Editor, and all other surfaces — see
 [RELEASE_NOTES_v5.2.0-Beta3.md](RELEASE_NOTES_v5.2.0-Beta3.md#-screenshots).
 
 ---

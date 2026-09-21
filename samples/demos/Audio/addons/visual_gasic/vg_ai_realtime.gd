@@ -175,10 +175,10 @@ func diagnose() -> String:
 	match realtime_backend:
 		"openai_realtime":
 			if AIProviders.load_api_key("openai").is_empty():
-				return "OpenAI Realtime requires an OpenAI API key (⚙️ in AI Help panel)."
+				return "OpenAI Realtime requires an OpenAI API key (⚙️ in Vibe Code)."
 		"gemini_live":
 			if AIProviders.load_api_key("gemini").is_empty():
-				return "Gemini Live requires a Gemini API key (⚙️ in AI Help panel)."
+				return "Gemini Live requires a Gemini API key (⚙️ in Vibe Code)."
 	return ""
 
 ## Open a new realtime session.  Returns false and emits session_failed if the

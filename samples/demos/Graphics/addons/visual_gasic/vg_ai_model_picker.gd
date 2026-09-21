@@ -1,6 +1,6 @@
 @tool
 extends AcceptDialog
-## First-run model picker & downloader for the AI Help panel.
+## First-run model picker & downloader for the Vibe Code panel.
 ##
 ## Shows a curated list of Ollama models with hardware-aware recommendations
 ## (based on system RAM and CPU core count). Downloads the chosen model via
@@ -150,7 +150,7 @@ func _build_ui() -> void:
 	# Hide the built-in "OK" button — we have our own Close
 	get_ok_button().visible = false
 
-## Called by the AI Help panel to update which models are already installed.
+## Called by the Vibe Code panel to update which models are already installed.
 func set_installed_models(names: Array) -> void:
 	_installed_models = names
 	_populate_list()

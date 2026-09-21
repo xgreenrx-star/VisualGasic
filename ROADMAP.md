@@ -10,7 +10,7 @@
 - 📖 **v2.4–v5.0 Completed Features** (lines ~120–1000): Historical context — these are shipped
 - 🚀 **v6.0 In-Scope Features** (lines ~1000–1100): Core language/Godot integration for stable release
 - 🌌 **v7.0+ Out-of-Scope** (lines ~1100+): Explicitly mothballed until post-v6.0 stable
-- **VG Standalone IDE Shell**: Mothballed behind `vg/enable_experimental_plugins` — focus is Godot IDE integration only (Toolbox, Properties, Code Navigator, autocomplete, Narcea AI Pair)
+- **VG Standalone IDE Shell**: Mothballed behind `vg/enable_experimental_plugins` — focus is Godot IDE integration only (Toolbox, Properties, Code Navigator, autocomplete, Narcea Vibe Code)
 
 This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
 
@@ -526,11 +526,11 @@ Each feature has implementation notes that describe:
 ## 📝 Version History
 
 - **v5.3.0-Beta3** (2026-07-31) - C64 Emulator + GBA Emulator demos (real ROMs), cross-module bytecode compilation for imported Subs, MemoryBuffer global support, Buffer Type + Optimizer Hints (#4/#5), `Global` keyword, cross-file class `Import`, `Exit While`, ~21-40% call/hot-path overhead reduction, DeepSeek AI provider, 777/777 assertions, 54 corpus examples
-- **v5.3.0-Beta2** (2026-07-15) - Python bridge int/float decode fix, `IsNot` operator, ByRef write-back fix, Codeium/Amazon Q AI providers, Python/C++ FFI demos, Narcea AI Pair floating window, Thrust tribute demo
+- **v5.3.0-Beta2** (2026-07-15) - Python bridge int/float decode fix, `IsNot` operator, ByRef write-back fix, Codeium/Amazon Q AI providers, Python/C++ FFI demos, Narcea Vibe Code floating window, Thrust tribute demo
 - **v5.2.0-Beta4** (2026-05-11) - Android plugin (GPS/Steps/Sensor), Pass-6 namespace verbs (Camera.PanTo/Bounce, Crypto.Hex/Base64, Physics.GravityV2/V3, Ray.Cast2D/Cast3D, Joypad.Stick, Sensor.Magnetometer, Theme/Shader/Speaker.Bus…), 358-entry Command Help DB, AI correctness 100% on Claude Sonnet 4.5 and qwen2.5-coder:7b, Browser Dashboard (5 phases + headless + tray)
 - **v5.1.0-rc.2** - Release candidate 2 for v5.1.0 stable line
 - **v5.1.0-rc.1** - Release candidate 1; Fix-with-AI diff repair, AI voice mode (PTT)
-- **v5.1.0-Beta1** - VG Welcome launcher, first-run wizard, AGCK templates, 3D pipeline, Make EXE, Publish to Web, Live Control Animation, Multi-Provider AI Help, WebSocket Controls, cross-platform installers
+- **v5.1.0-Beta1** - VG Welcome launcher, first-run wizard, AGCK templates, 3D pipeline, Make EXE, Publish to Web, Live Control Animation, Multi-Provider Vibe Code, WebSocket Controls, cross-platform installers
 - **v4.2.0-beta4** - GDScript Parity: Export, Await, Import, ClassName, $NodeName + "Why VG" docs
 - **v4.1.0** - Property System Overhaul: 70+ runtime properties, Font/BackColor/ForeColor/BorderStyle sub-resources
 - **v4.0.0** - Game UI Form Designer: 7 Tier 1 animated controls (DialogPanel, InventoryGrid, StatBar, etc.)
@@ -852,7 +852,7 @@ These features shipped between March 10–21, 2026:
 
 ## 🚀 v5.0.1 Beta — shipped, rolled forward into v5.1
 
-The v5.0.1 Beta feature set is **complete and live in 5.1.0-Beta1**. Cross-platform installer, `vg` CLI, pre-built binaries (Linux/Windows/macOS), 3D asset import + properties + animation, Make EXE, Publish to Web, Live Control Animation, Multi-Provider AI Help (OpenAI / Claude / Gemini + Ollama), and WebSocket Controls all landed. See [`CHANGELOG.md`](CHANGELOG.md) for the per-feature receipts.
+The v5.0.1 Beta feature set is **complete and live in 5.1.0-Beta1**. Cross-platform installer, `vg` CLI, pre-built binaries (Linux/Windows/macOS), 3D asset import + properties + animation, Make EXE, Publish to Web, Live Control Animation, Multi-Provider Vibe Code (OpenAI / Claude / Gemini + Ollama), and WebSocket Controls all landed. See [`CHANGELOG.md`](CHANGELOG.md) for the per-feature receipts.
 
 Three items deliberately did **not** block v5.1 stable:
 
@@ -891,7 +891,7 @@ Short, finishable list. **No new aspirational items.**
 
 ## 🎯 AI Crash Positioning — Feature Priority (Jun 27 2026)
 
-> **Context**: When the trust collapse in AI-generated code arrives, VG's pitch is: human-readable, auditable, English-like code for Godot. VG is ironically *better* for AI generation than GDScript because it is simpler and more auditable. We need a working, usable VG before that window opens. Below is the explicit advance/mothball list.
+> **Context**: Public hero copy lives in [`docs/POSITIONING.md`](docs/POSITIONING.md): **second language for Godot** (game systems, UI, tools), with **Vibe Code** as in-editor assist—not the product headline. The advance/mothball list below still tracks shipping velocity before v6.0 stable.
 
 ### 🗓️ Milestone Timeline — Stable Target: January 1 2027
 
@@ -924,7 +924,7 @@ Short, finishable list. **No new aspirational items.**
 | **M2 — Corpus / examples proof** | August 15 2026 | ✅ **DONE** (Jun 30) — 44/44 corpus examples pass across basics, control flow, strings, arrays, dictionaries, classes, file I/O, math, state machines, and Godot integration. |
 | **M3 — Code Navigator upgrade** | August 31 2026 | ✅ **DONE** (Jul 1) — Object dropdown surfaces all scripts on all scene nodes; GDScript `func` definitions in Event dropdown; clicking navigates to correct line. |
 | **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
-| **M5 — Narcea AI pair** | October 15 2026 | ✅ **DONE (Sep 2026)** — Buffer type, optimizer hints, Narcea Tier A/B golden path, 8 AI providers (Ollama, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q, Cursor). See v5.4.0-beta2 in [`CHANGELOG.md`](CHANGELOG.md). |
+| **M5 — Narcea Vibe Code** | October 15 2026 | ✅ **DONE (Sep 2026)** — Buffer type, optimizer hints, Narcea Tier A/B golden path, 8 AI providers (Ollama, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q, Cursor). See v5.4.0-beta2 in [`CHANGELOG.md`](CHANGELOG.md). |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | ✅ **Teaser done (Sep 2026)** — C++ `VisualGasicLanguage.vg_analyze_causal_graph`, `vg_causal_chain.gd`, Code Navigator **Show Causal Chain** button, Context Rail preview, 8 headless fixtures. **Visual graph panel → v6.1+.** |
 | **M7 — Python Library Integration (Tier A)** | November 15 2026 | 🔄 **Core path done; close-out pending** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), demo suite, docs/Narcea/IntelliSense. **Remaining:** Windows e2e validation, worker hardening, numpy Phase 2 (opencv/torch/pandas), large-array binary lane (>100×100). |
 | **M7+ — Performance Optimizations (Phase 1)** | December 2026+ | (1) **~~Tagged Stack~~ — NOT PURSUED** (Sept 2026). (2) **Type-Tagged Locals** — highest ROI; research in M7, ship target v6.1. (3) **Packed Arrays** (v6.1). (4) **SIMD Hinting** (v7.0 research). |
@@ -1053,8 +1053,8 @@ Short, finishable list. **No new aspirational items.**
 | **UI Forms (experimental)** | Demonstrates VG for app/UI development. Differentiator from game-only tools. |
 | **Code Navigator enhancement** | Extend existing `code_navigator.gd` to surface ALL scene scripts in the Object dropdown — critical for UI Forms workflow where multiple nodes each have scripts. |
 | **Causal Chain Visualization (teaser in v6.0, full in v6.1)** | Static analysis of a VG form's AST produces a human-readable causal chain: every user action → every Sub it calls → every outcome it produces. The auditor reads the chain, not the code, to verify AI-generated output. Text-mode output for v6.0; visual panel for v6.1. |
-| **Language reference + 5 tutorials** | When AI crashes, humans read docs again. This is the moment docs matter. Includes: **First Program Tutorial (Manual vs. AI-Assisted)** — step-by-step beginners guide showing how to build the same simple form/game twice: once by typing VG code, once using Narcea AI pair. Side-by-side comparison, screenshots, workflow explained. Entry point for new developers deciding between manual VG coding and AI-assisted development. |
-| **AI-optimized language manual** (`VG_LANGUAGE_SPEC.md` or similar) | Condense the human-facing manuals (`docs/VisualGasic_Language_Reference.md`, `docs/BUILTINS.md`, corpus, etc.) into a dense, machine-parsable reference — syntax tables, builtin signatures, bytecode opcodes, common patterns, known gotchas — modeled on `.github/copilot-instructions.md`'s style (tables, no narrative). Lets Copilot/Narcea/any AI pair load VG's rules in far fewer tokens than scanning prose docs or inferring from source, and speeds up every future AI-assisted VG session. Low-risk, no code changes; ~2-4 hours to draft from existing docs. |
+| **Language reference + 5 tutorials** | When AI crashes, humans read docs again. This is the moment docs matter. Includes: **First Program Tutorial (Manual vs. AI-Assisted)** — step-by-step beginners guide showing how to build the same simple form/game twice: once by typing VG code, once using Narcea Vibe Code. Side-by-side comparison, screenshots, workflow explained. Entry point for new developers deciding between manual VG coding and AI-assisted development. |
+| **AI-optimized language manual** (`VG_LANGUAGE_SPEC.md` or similar) | Condense the human-facing manuals (`docs/VisualGasic_Language_Reference.md`, `docs/BUILTINS.md`, corpus, etc.) into a dense, machine-parsable reference — syntax tables, builtin signatures, bytecode opcodes, common patterns, known gotchas — modeled on `.github/copilot-instructions.md`'s style (tables, no narrative). Lets Copilot, Narcea, and Vibe Code load VG's rules in far fewer tokens than scanning prose docs or inferring from source, and speeds up every future AI-assisted VG session. Low-risk, no code changes; ~2-4 hours to draft from existing docs. |
 
 ### 🛑 MOTHBALL — defer until post-positioning
 
@@ -1063,7 +1063,7 @@ Short, finishable list. **No new aspirational items.**
 > The VG IDE shell remains in the codebase but only activates when `vg/enable_experimental_plugins = true` — users are not expected to use it before v6.0 stable.
 >
 > **This does NOT affect Godot IDE integration work**, which is the primary focus:
-> Toolbox panel, Properties window, Immediate window, Narcea AI Pair, Code Navigator, autocomplete,
+> Toolbox panel, Properties window, Immediate window, Narcea Vibe Code, Code Navigator, autocomplete,
 > dot-completion, and any future docked panels or tools that extend Godot's native editor are all
 > **active work and in scope for all milestones through v6.0**.
 >
@@ -1094,20 +1094,20 @@ Short, finishable list. **No new aspirational items.**
 
 The VG IDE is being **refactored to keep the text editor (more functional than Godot's native editor), properties, and everything else other than the 2D/3D viewport editors**. The custom 2D/3D viewport editors are being **removed entirely** since Godot's native 2D/3D editors already exist and are sufficient. This reduces scope while preserving VG's unique value-add (more functional text editor than Godot's native editor).
 
-**Dual-monitor goal (August 19, 2026):** Godot's native 2D/3D/Script editors stay on the primary monitor; VG panels (Immediate, Output, AI Pair, Toolbox, Properties) and optionally the full VG IDE shell can live on a second monitor **at the same time** — without forcing a main-screen tab switch.
+**Dual-monitor goal (August 19, 2026):** Godot's native 2D/3D/Script editors stay on the primary monitor; VG panels (Immediate, Output, Vibe Code, Toolbox, Properties) and optionally the full VG IDE shell can live on a second monitor **at the same time** — without forcing a main-screen tab switch.
 
 #### Shipped partial (pre-v6.0 stable — Godot IDE integration)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **In-viewport floating panels** | ✅ Shipped (v5.3.x) | Toolbox, Properties, and **Visual Gasic Panels** (Immediate, Output, System Console, Errors, Profiler, Controls, Packages, AI Pair, Hex Editor) use `_create_floating_panel()` — draggable `PanelContainer` overlays **inside** Godot's single editor window. Same-viewport design preserves C++ Toolbox drag-and-drop to the 2D canvas. **Limitation:** panels cannot be moved to a second monitor as OS windows. |
-| **Godot IDE vs VG IDE routing** | ✅ Shipped (v5.3.x) | On Godot 2D/3D/Script: bottom tabs float (📊 VG Panels / 🤖 Narcea AI). On VG IDE Code view: bottom tabs embed under the code editor. VG IDE tab + Narcea opens Code view + embedded AI Pair. |
+| **In-viewport floating panels** | ✅ Shipped (v5.3.x) | Toolbox, Properties, and **Visual Gasic Panels** (Immediate, Output, System Console, Errors, Profiler, Controls, Packages, Vibe Code, Hex Editor) use `_create_floating_panel()` — draggable `PanelContainer` overlays **inside** Godot's single editor window. Same-viewport design preserves C++ Toolbox drag-and-drop to the 2D canvas. **Limitation:** panels cannot be moved to a second monitor as OS windows. |
+| **Godot IDE vs VG IDE routing** | ✅ Shipped (v5.3.x) | On Godot 2D/3D/Script: bottom tabs float (📊 VG Panels / 🤖 Vibe Code). On VG IDE Code view: bottom tabs embed under the code editor. VG IDE tab + Narcea opens Code view + embedded Vibe Code. |
 
 #### v6.1–v6.2 Roadmap: True OS Windows & Multi-Monitor *(after v6.0 stable — Jan 2027)*
 
 | Feature | Timeline | Effort | Notes |
 |---------|----------|--------|-------|
-| **Phase A — Panels on monitor 2** | v6.1 | ~1 week | Replace in-viewport overlays with real Godot `Window` nodes (`popup_window`, `exclusive = false`) for **VG Panels** (AI Pair + bottom tabs), **Properties**, and optionally **Project Explorer**. Persist geometry + target screen via `EditorSettings` + `DisplayServer.screen_get_usable_rect()`. Patterns already exist (`ui_forms_control_picker.gd`, `vg_snippet_browser.gd`). |
+| **Phase A — Panels on monitor 2** | v6.1 | ~1 week | Replace in-viewport overlays with real Godot `Window` nodes (`popup_window`, `exclusive = false`) for **VG Panels** (Vibe Code + bottom tabs), **Properties**, and optionally **Project Explorer**. Persist geometry + target screen via `EditorSettings` + `DisplayServer.screen_get_usable_rect()`. Patterns already exist (`ui_forms_control_picker.gd`, `vg_snippet_browser.gd`). |
 | **Phase A — Monitor hotplug adaptation** | v6.1 | (included) | Before restoring window geometry, verify screen still exists (`DisplayServer.screen_get_list()`). Clamp off-screen positions to primary monitor; provide **Reset to Primary Screen** in preferences. |
 | **Phase A — Toolbox on monitor 2** | v6.1–v6.2 | ~3–7 days | **Harder:** C++ Toolbox drag-and-drop requires same viewport as 2D canvas. Options: (1) keep Toolbox in-viewport on primary monitor only, click-to-place when floated (partially shipped); (2) cross-window drag bridge via global `_vg_active_drag` meta + screen coord mapping (~L-size, fragile). |
 | **Phase B — VG IDE pop-out window** | v6.2 | ~2–4 weeks | Pop `_ide_layout` into a top-level `Window` so **Visual Gasic IDE** (form designer + code editor) can run on monitor 2 while Godot 2D/3D/Script stays on monitor 1 in the same process. Requires: reparent lifecycle, `_make_visible` across windows, scene/form sync, focus routing, bottom-panel embed vs float rules. Alternative: second Godot process + MCP/file sync (more powerful, ~L-size). |
@@ -1166,7 +1166,7 @@ Headless work shipped in **v5.3.0-Beta7+** (`95f44490`): Tier B manifest gate (o
 
 | Step | What to verify | How |
 |------|----------------|-----|
-| **1. Mutation → run → ingest E2E** | Edit → `play.run_main` → output in chat → Narcea auto-continues (fix or summary) without manual Send | AI Pair: Agent mode **All**, Approvals **Bypass** (first pass); prompt a `.vg` edit + run |
+| **1. Mutation → run → ingest E2E** | Edit → `play.run_main` → output in chat → Narcea auto-continues (fix or summary) without manual Send | Vibe Code: Agent mode **All**, Approvals **Bypass** (first pass); prompt a `.vg` edit + run |
 | **2. Tier C live scenarios** | Asteroids create/iterate, platformer scaffolds pass rubrics with real LLM | `NARCEA_LIVE=1 NARCEA_PROVIDER=… bash scripts/run_narcea_live_suite.sh` or `NARCEA_SCENARIO=asteroids_iterate` |
 | **3. Approval UI loop** | After **Apply selected** in the mutation dialog, agent loop continues (not silent stop) | Approvals **Ask** → multi-edit response → approve → confirm next hop |
 | **4. Record passing replay (optional)** | Expand Tier B beyond `fixture_counter` | `bash scripts/copy_narcea_transcript.sh "VG Narcea Test" <id>` → add manifest entry → `bash scripts/run_narcea_golden.sh --tier B` |
@@ -1448,7 +1448,7 @@ This contract should be documented before the v6.0 integration milestone that ex
 
 Items below are real but require non-trivial design / scoping. **Do not** start any of them until v5.2 is cut.
 
-**📌 IDE Focus**: All v6.0 work focuses on **Godot IDE integration only** (Toolbox, Properties, Code Navigator, Narcea AI Pair, autocomplete, dot-completion). The **VG standalone IDE shell** (separate editor window, form designer as primary surface) is **mothballed behind `vg/enable_experimental_plugins`** and will not ship as core until v7.0+ at earliest. Users should build games using Godot's native editor with VG script overlays.
+**📌 IDE Focus**: All v6.0 work focuses on **Godot IDE integration only** (Toolbox, Properties, Code Navigator, Narcea Vibe Code, autocomplete, dot-completion). The **VG standalone IDE shell** (separate editor window, form designer as primary surface) is **mothballed behind `vg/enable_experimental_plugins`** and will not ship as core until v7.0+ at earliest. Users should build games using Godot's native editor with VG script overlays.
 
 | Feature | Description | Priority | Rationale |
 |---------|-------------|----------|-----------|
@@ -1479,7 +1479,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 - `gdai_openai_provider.gd` (`GDAIOpenAIProvider`) — completions, chat, embeddings, image generation via OpenAI-compatible REST
 - `gdai_local_provider.gd` (`GDAILocalProvider`) — same interface, no image generation, for any local OpenAI-compatible endpoint
 - `gdai.gd` (`GDAI`) — static registry with `_provider_map = {"openai": ..., "local": ...}` only; **does NOT have entries for deepseek, qwen, codeium, amazonq, or ollama** (ollama isn't needed — it uses a different streaming path). `register_provider()` exists for dynamic registration. Since all are OpenAI-compatible, they'd use the `openai` script path anyway
-- ⚠️ **Minor gap:** If any consumer calls `GDAI.initialize({"provider": "deepseek"})` directly, it would fail because the provider map doesn't list deepseek. The AI Pair panel bypasses GDAI and uses Layer 1's `vg_ai_providers.gd`, so this only affects code that uses the raw `GDAI` class. Fix: add entries to `_provider_map` for deepseek, qwen, codeium, amazonq (all map to the same `gdai_openai_provider.gd` script). Est. 10 min.
+- ⚠️ **Minor gap:** If any consumer calls `GDAI.initialize({"provider": "deepseek"})` directly, it would fail because the provider map doesn't list deepseek. The Vibe Code panel bypasses GDAI and uses Layer 1's `vg_ai_providers.gd`, so this only affects code that uses the raw `GDAI` class. Fix: add entries to `_provider_map` for deepseek, qwen, codeium, amazonq (all map to the same `gdai_openai_provider.gd` script). Est. 10 min.
 - ✅ **Core GDAI HTTP layer works for all OpenAI-compatible endpoints**
 
 **Layer 3 — Native function-calling adapter (`vg_ai_function_calling.gd`):**
@@ -1490,7 +1490,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 - `assemble_fc_calls(fragments)` → `to_fenced_text(calls)` — converts native FC to fenced vg-tool blocks, processed by existing dispatch path unchanged
 - ✅ **All 7 cloud providers have full native FC support**
 
-**Layer 4 — AI Pair panel integration (`vg_ai_help.gd` + `visual_gasic_plugin.gd`):**
+**Layer 4 — Vibe Code panel integration (`vg_ai_help.gd` + `visual_gasic_plugin.gd`):**
 - `preferred_provider` enum in EditorSettings includes all 8: `"ollama,openai,claude,gemini,deepseek,qwen,codeium,amazonq"`
 - `_on_provider_selected()` switches provider, loads model dropdown from `ProviderInfo.models`, persists to EditorSettings
 - Cloud providers (all except ollama) skip ping/warmup and send directly via shared streaming HTTPClient path
@@ -1502,7 +1502,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 | Gap | Location | Impact | Estimate |
 |-----|----------|--------|----------|
-| 1. `GDAI._provider_map` incomplete | `gdai.gd` | Raw `GDAI` API calls with `provider="deepseek"/"qwen"/"codeium"/"amazonq"` fail silently. AI Pair panel unaffected. | ✅ **Done** — added 4 entries mapping to `gdai_openai_provider.gd` |
+| 1. `GDAI._provider_map` incomplete | `gdai.gd` | Raw `GDAI` API calls with `provider="deepseek"/"qwen"/"codeium"/"amazonq"` fail silently. Vibe Code panel unaffected. | ✅ **Done** — added 4 entries mapping to `gdai_openai_provider.gd` |
 | 2. Static model lists outdate | `vg_ai_providers.gd` `get_providers()` | Hardcoded model arrays go stale as APIs evolve. No way to refresh. | ✅ **Done** — `refresh_models(provider_id)` implemented: fetches live model list from `/v1/models` (OpenAI-compatible) or equivalent endpoint (Ollama `/api/tags`, Gemini `/v1beta/models`, Claude `/v1/models`), caches in EditorSettings. Includes `_load_cached_models()`/`_save_cached_models()` and auto-applies cached overrides in `get_providers()`. 103/103 tests pass including test 10. |
 | 3. Codeium default model unstable | `vg_ai_providers.gd` line 120 | `default_model = "windsurf-claude-3.5-sonnet"` — Codeium/Windsurf rebrands models frequently. This ID may be stale. | **15 min** — verify current Codeium API model IDs at codeium.com/profile |
 | 4. Amazon Q Bedrock model IDs stale | `vg_ai_providers.gd` line 137 | `default_model = "anthropic.claude-3-5-sonnet-20241022-v2:0"` — AWS Bedrock model IDs change with region and availability. | **15 min** — verify current Bedrock model IDs for the default region |
@@ -1513,7 +1513,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 - **OpenAI-compatible providers (deepseek, qwen, codeium, amazonq) share 100% of the code path** with `openai` in all three layers — no separate request body builder, no separate stream parser, no separate FC parser. A new OpenAI-compatible provider can be added in ~20 minutes (ProviderInfo entry + EditorSetting keys + enum entry + API key dialog URL).
 - **Claude and Gemini each have their own path** because their JSON schemas, auth headers, and SSE line formats differ fundamentally.
 - **Ollama is the only local provider** — uses `_build_ollama` and `_parse_ollama_line` (raw JSON lines, not SSE). No API key needed.
-- **The HG icon shows "AI Pair" not provider-specific branding** — the provider dropdown in the toolbar is the primary affordance. | High |
+- **The HG icon shows "Vibe Code" not provider-specific branding** — the provider dropdown in the toolbar is the primary affordance. | High |
 | **Godot Asset Library publish** | Package and submit VisualGasic to the official Asset Library. | High |
 | **Plugin Marketplace** | In-IDE package browsing and one-click install. Registry query (`query_registry()`) now implemented; publish HTTP upload also wired. Remaining: full browse/search UI in the Package Browser panel. | Medium |
 | **VGMusic startup errors (bosca/ visibility)** | When VGMusic is disabled, Godot 4.6 still compiles all `@tool` scripts in the `bosca/` subdirectory at startup before any `EditorPlugin` code runs. Because `Controller` is only registered as an autoload when the plugin is enabled, ~200 "Identifier not found: Controller" errors fire on every project open. Root cause confirmed: Godot does not respect `.gdignore` for compilation purposes; only dotdirs (`.dirname`) are fully skipped. The fix requires physically renaming `bosca/` → `.bosca.vgd` before Godot starts (e.g. from `vg-ide` launcher), but the welcome_shell path adds complexity. Approach explored and partially implemented — revert to `8acf7255` as stable baseline; implement as a dedicated sub-milestone before v6.0 stable. | High |
@@ -1534,7 +1534,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M2** | 44 corpus examples pass (all domains: basics, control flow, strings, arrays, dicts, classes, I/O, math, state machines, Godot) | Aug 15 | ✅ **DONE** (Jun 30) |
 | **M3** | Code Navigator upgrade (#7): multi-file symbol search, definition/reference indexing, call hierarchy | Aug 31 | ✅ **DONE** (Jul 1) |
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
-| **M5** | Narcea AI pair (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
+| **M5** | Narcea Vibe Code (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
 | **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Teaser done** (Sep 2026) — visual panel → v6.1 |
 | **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, numpy demos | Nov 15 | 🔄 **Close-out** — core Linux path ✅; Windows e2e, Phase 2 ecosystem (opencv/torch/pandas), large-array lane pending |
 | **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | 🔄 **Partial** — `Let` ✅ (beta2); FFI demo ✅; syntax + stress corpus pending |
@@ -1595,8 +1595,8 @@ Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasi
 | **TypeAlias Declarations** | Support `TypeAlias Point = Vector2i` and `TypeAlias RawAddr = Integer` for semantic type naming without struct boilerplate. Single-line, no `End`. Example: `Dim spawn As Point = Point(10, 20)`. Uses `TypeAlias` keyword (not `Type`) to avoid collision with existing `Type...End Type` struct blocks. | Low | Improves code semantics and readability; zero implementation risk; useful for domain-specific naming (physics, memory addresses, game coordinates); lightweight feature. |
 | **Partial Classes** | Allow splitting a class definition across multiple files: `Partial Class Form1` in `form1_ui.vg` and `Partial Class Form1` in `form1_logic.vg`. Compiler merges partial definitions before instantiation. Unambiguous syntax (no VB6 collision). | Medium | Reduces merge conflicts in large AI-generated forms; improves file organization for UI+logic separation; matches C#/VB.NET patterns; useful for substantial generated classes. |
 | **Generic Types** | Support parameterized types: `Dim items As List(Of String)`, `Dim map As Dictionary(Of String, Integer)`. Type-safe collections without code generation. Pairs with Tuples (v7.0) to enable library authors to write reusable, type-checked code. VG syntax mirrors VB.NET. | Medium | Enables ecosystem growth — libraries can ship generic containers and algorithms; eliminates untyped-collection friction; modern language feature; maintains type safety for cross-module code sharing. |
-| **Async/Await Consolidation** | Formalize structured concurrency: extend existing `PyCallAsync`/`Await` flow to general async patterns. Add `Async Function`/`Async Sub` declarations, `Await expression`, `Task(Of T)` type, cancellation tokens, timeout support. Pairs with Python Integration (M7) for truly asynchronous AI workflows. | Medium | Enables readable concurrent code without callback pyramids; pairs with Narcea (AI pair) for real-time multitasking; modern best practice (C#, Python, JavaScript). |
-| **Comprehensive Stack Traces + Actionable Error Messages** | Improve error reporting: include full call stack (Sub name + line number), module path, variable state at crash point, and AI-friendly suggestions ("Did you mean `IsNot`?", "Variable undefined; did you forget `Dim`?", "Type mismatch: expected `String`, got `Integer`"). IDE integration: errors link directly to problem lines. Color-coded severity (error/warning/info). | High | Debugging is 10× faster with full context; users spot mistakes instantly; AI pair learns from patterns in errors; reduces support burden; essential for production code quality. |
+| **Async/Await Consolidation** | Formalize structured concurrency: extend existing `PyCallAsync`/`Await` flow to general async patterns. Add `Async Function`/`Async Sub` declarations, `Await expression`, `Task(Of T)` type, cancellation tokens, timeout support. Pairs with Python Integration (M7) for truly asynchronous AI workflows. | Medium | Enables readable concurrent code without callback pyramids; pairs with Narcea (Vibe Code) for real-time multitasking; modern best practice (C#, Python, JavaScript). |
+| **Comprehensive Stack Traces + Actionable Error Messages** | Improve error reporting: include full call stack (Sub name + line number), module path, variable state at crash point, and AI-friendly suggestions ("Did you mean `IsNot`?", "Variable undefined; did you forget `Dim`?", "Type mismatch: expected `String`, got `Integer`"). IDE integration: errors link directly to problem lines. Color-coded severity (error/warning/info). | High | Debugging is 10× faster with full context; users spot mistakes instantly; Vibe Code learns from patterns in errors; reduces support burden; essential for production code quality. |
 | **Standard Library: Regex + JSON Native Support** | Expose native Regex + JSON as first-class VG builtins: `Dim pattern As Regex = Regex("^[0-9]+$")`, `If pattern.IsMatch(str) Then ...`. JSON: `Dim obj As JSONObject = JSON.Parse(str)`, `obj.Set("key", value)`. Wrappers around Godot's RegEx/JSON classes. Eliminates user FFI boilerplate for the two most common utility tasks. | High | Regex/JSON are 80% of utility function needs; users shouldn't need FFI for standard tasks; pairs with Python Integration (file I/O, data munging); improves developer experience dramatically. |
 | **VG3D — 3D Game Kit** | Full 3D game creation kit plugin. Voxel/grid-based level editor, built-in voxel model editor (MagicaVoxel-style), pre-built camera modes (FPS / TPS / top-down), CSG/primitive environments, actor system ported from AGCK, procedural 3D actor models, animation, build pipeline emitting Godot 3D scenes. | High | Expands VG beyond 2D; complements existing canvas workflows; attracts 3D game developers. |
 | **VGVR — VR Game Kit** | VR mode add-on for VG3D. OpenXR integration, hand/controller input mapping, VR camera rig, teleport / smooth locomotion presets. Requires VG3D as foundation. | Medium | Emerging VR market; works with existing VG3D actor/animation/input systems. |
@@ -1606,7 +1606,7 @@ Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasi
 | **Case Fallthrough (multi-label Case blocks)** | Allow multiple `Case` labels before one code block: `Case 1, 2, 3: ... statement ... : Case Else:`. Parser enhancement only; compiles to same opcode sequence (jump table or compare chain). Improves readability for shared handler logic (e.g., C64 emulator illegal NOP opcodes that share one 2-cycle implementation). Not idiomatic BASIC, but clean when needed. | Low | QoL improvement for emulators and tight dispatch tables; optional language polish; can be deferred if higher priorities consume budget. |
 | **Vextrex OS / narcean.com Website Launch** | **Genuinely great viral concept, deferred to post-v6.0 stable.** Complete narcean.com with fully interactive Vextrex OS — a GEOS-inspired vector desktop environment built entirely in VG, playable in browser. **Desktop Shell**: Icon grid, taskbar, draggable vector windows with minimize/close, app launcher. **Built-in Apps**: VexWrite (text editor), VexPaint (vector drawing tool with Bezier curves), Terminal (BASIC-style prompt), Vector Storm (embedded playable), DEMOscen Gallery (showcase runner), Downloads Manager (triggers real VG installer downloads), About VG (interactive tutorial). **Visual Aesthetic**: Monochrome phosphor green (CRT shader with scan lines, bloom/glow), pure vector rendering via VGVectorCanvas2D, fake 1987 boot sequence ("Vextrex OS v1.2 - Discovered Archive"). **Website Integration**: narcean.com gets "⚡ The Visual Gasic Initiative" prominent link → launches fullscreen Vextrex OS web player (Escape or "Shut Down" to exit). **Repo Strategy**: Separate `narcean/vextrex-os` repo for clean deployment, mirrored from VG development. **Narrative**: Present as "lost 1980s vector workstation" with retro manual PDF, easter eggs, hidden demos. **Estimate**: ~7-8 weeks (3wk core OS, 2wk apps, 1wk demo integration, website, 1wk polish). **Impact**: Demonstrates VG's web export, UI toolkit, vector rendering, and game engine capabilities in one self-documenting interactive experience. Shareable, viral-ready, establishes VG as serious platform. | Medium | Marketing differentiation; complements v6.0 stable release messaging; does not block core feature ship. |
 | **Java/Android Integration** | Java interop for Android plugins and ecosystems. Import tooling, runtime bridge, Android-first staging. | Medium | Mobile expansion; Android ecosystem access; pairs with VG Mobile Kit work. |
-| **Causal Chain Debugging (text-mode narrative)** | Structured debugging mode: trace execution flow as readable "causal chain" narrative—what happened, why, in what order. Pairs with Narcea AI pair (M5). AI-assisted test case generation, performance bottleneck identification. | Medium | Enables AI-assisted debugging; improves code comprehension; pairs with GBA/PS1 emulator and complex systems work. |
+| **Causal Chain Debugging (text-mode narrative)** | Structured debugging mode: trace execution flow as readable "causal chain" narrative—what happened, why, in what order. Pairs with Narcea Vibe Code (M5). AI-assisted test case generation, performance bottleneck identification. | Medium | Enables AI-assisted debugging; improves code comprehension; pairs with GBA/PS1 emulator and complex systems work. |
 | **Asset Streaming & Dynamic Loading** | Lazy-load resources (ROMs, sprite sheets, audio, voxel models). Per-asset memory budgets. Preload hints, streaming queues, asset lifecycle management. | Medium | Supports large game projects and mobile optimization; essential for emulator ROM loading and procedural asset generation from v7.0 3D kit. |
 | **Web Export + Publish Pipeline** | One-click "Publish" button: exports VG game to WebAssembly (browser) or native executables (Win/Mac/Linux/Mobile) with automatic asset bundling and code signing. Integrates Godot export system with VG toolchain. Ships with preset configs for itch.io, Steam, web. The feature that makes VG mainstream for indie shipping. | High | **100× reach multiplier.** Browser distribution unlocks millions of casual players. Removes friction from game publishing workflow. Positions VG as complete end-to-end solution: write game → ship to all platforms in 2 clicks. |
 | **JIT Compiler (Tier 2) — Performance Multiplier** | Hot-loop detection and tier-2 JIT: detects loops running N iterations, compiles specialized code, jumps in. Does NOT replace AST interpreter — complements it. Expected 10–100× speedup on performance-critical code (emulators, physics, procedural generation, audio DSP). Makes C64 emulator boot from "30+ minutes" to "5 seconds." Removes VG's performance ceiling for real-time applications. | High | **Removes blocking constraint on performance-critical uses.** Transforms VG from "indie toy" to "viable game engine for all use cases." Essential for emulator quality + physics/AI-heavy games. Current AST fallback unacceptable for production code. |
@@ -1676,7 +1676,7 @@ Users can build:
 | Project | Description | Demonstrates |
 |---------|-------------|--------------|
 | **Procedural 3D Voxel Generator** | VG + v7.0 VG3D kit. Uses numpy (shape manipulation), OpenGL compute shaders (performance), generates terrain/structures, exports to Godot scenes. | VG3D, Python integration, C++ perf paths |
-| **AI-Powered Game Level Designer** | VG + Narcea AI pair + causal chain debugging. Designer writes level constraints in VG, AI generates playable levels, causal chain shows reasoning, debugger helps refine. | Narcea integration, causal chain, AI workflows |
+| **AI-Powered Game Level Designer** | VG + Narcea Vibe Code + causal chain debugging. Designer writes level constraints in VG, AI generates playable levels, causal chain shows reasoning, debugger helps refine. | Narcea integration, causal chain, AI workflows |
 | **Cross-Platform Mobile Game** | VG + Java/Android integration + asset streaming. Multi-touch input, dynamic loading, local persistence. iOS via Godot's Vulkan layer. | Java interop, asset streaming, mobile optimization |
 
 | Project | Description | Scope | ETA | Status |
@@ -2218,7 +2218,7 @@ End Class
 #### ✅ **Phase 3: Async Queue (M5 blocker, ships Oct 2026)**
 **Status**: Prerequisite, lands before v6.0 stable  
 **Work**: VGTask-compatible async queue; `py_call_async()` returns immediately with task handle  
-**Impact**: 5–10% latency improvement (reduced lock contention); unblocks Narcea AI pair  
+**Impact**: 5–10% latency improvement (reduced lock contention); unblocks Narcea Vibe Code  
 **Acceptance**: 10 concurrent calls queue without blocking; Narcea integrates successfully
 
 #### 🔶 **Phase 4: Binary Protocol (v6.5, Week 1)**

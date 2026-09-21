@@ -1,7 +1,7 @@
 @tool
 extends RefCounted
 class_name VGCursorHandoff
-## Tier 1 — hand off Narcea / AI Pair context to Cursor (Composer).
+## Tier 1 — hand off Narcea / Vibe Code context to Cursor (Composer).
 ##
 ## Writes `.vg/cursor_handoff.md`, copies a Composer-ready prompt to the
 ## clipboard, and launches `cursor` on the project folder when the CLI exists.
@@ -165,7 +165,7 @@ static func _build_handoff_markdown(ctx: Dictionary) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	parts.append("# Visual Gasic → Cursor handoff")
 	parts.append("")
-	parts.append("Generated from **Narcea AI Pair** in Godot (%s)." % ctx.timestamp_utc)
+	parts.append("Generated from **Vibe Code** in Godot (%s)." % ctx.timestamp_utc)
 	parts.append("")
 	parts.append("## Quick start in Cursor")
 	parts.append("")
@@ -186,7 +186,7 @@ static func _build_handoff_markdown(ctx: Dictionary) -> String:
 		parts.append(str(ctx.task))
 	if not str(ctx.history_excerpt).is_empty():
 		parts.append("")
-		parts.append("## Recent AI Pair conversation")
+		parts.append("## Recent Vibe Code conversation")
 		parts.append("")
 		parts.append(str(ctx.history_excerpt))
 	if not str(ctx.narcea_context).is_empty():
@@ -203,7 +203,7 @@ static func _build_handoff_markdown(ctx: Dictionary) -> String:
 		parts.append("- Server key: **visual-gasic** — enable in Cursor → Settings → Tools & MCP")
 	parts.append("")
 	parts.append("---")
-	parts.append("*Re-run **Continue in Cursor** from AI Pair to refresh this file.*")
+	parts.append("*Re-run **Continue in Cursor** from Vibe Code to refresh this file.*")
 	return "\n".join(parts)
 
 
@@ -211,7 +211,7 @@ static func _build_composer_prompt(ctx: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	var task := str(ctx.get("task", "")).strip_edges()
 	var task_kind := _infer_task_kind(task)
-	lines.append("Continuing from Visual Gasic Narcea AI Pair (Godot editor).")
+	lines.append("Continuing from Visual Gasic Vibe Code (Godot editor).")
 	lines.append("Mode: %s" % task_kind)
 	lines.append("")
 	lines.append("Project: %s" % ctx.project_root)
@@ -229,7 +229,7 @@ static func _build_composer_prompt(ctx: Dictionary) -> String:
 	var last_asst := str(ctx.get("last_assistant_excerpt", "")).strip_edges()
 	if not last_asst.is_empty():
 		lines.append("")
-		lines.append("Last AI Pair reply (excerpt):")
+		lines.append("Last Vibe Code reply (excerpt):")
 		lines.append(last_asst)
 	lines.append("")
 	lines.append("Follow `.cursor/rules/visual-gasic-godot.mdc`. Use `.vg` syntax in `.vg` files.")

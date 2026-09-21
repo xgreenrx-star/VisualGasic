@@ -9,8 +9,8 @@ This repo is **Visual Gasic (VG)**: a VB6-style language (`.vg`) with a C++ toke
 
 ## Active product scope (until v6.0 stable)
 
-- **In scope:** Godot IDE integration — Toolbox, Properties, Code Navigator, Narcea AI Pair, autocomplete, Godot-native 2D/3D editors (default).
-- **Mothballed:** Standalone VG IDE shell / experimental Form Designer unless `vg/enable_experimental_plugins` is on.
+- **In scope:** Godot IDE integration — Toolbox, Properties, Code Navigator, Narcea Vibe Code, autocomplete, Godot-native 2D/3D editors (default).
+- **Alpha (not v6.0 core):** Standalone VG IDE shell / legacy Form Designer — experimental; see `docs/manual/VG_IDE_ALPHA.md`. Off unless `vg/enable_experimental_plugins` is on. Prefer Godot Script + floating VG panels (`vg/editor/floating_vg_code_editor_on_script`).
 
 ## Languages & style
 
@@ -48,7 +48,7 @@ Event handlers wire by name: `Sub btnOK_Click()`, `Sub Form_Load()`.
 | What | Where |
 |------|--------|
 | Main editor plugin | `addons/visual_gasic/visual_gasic_plugin.gd` |
-| AI Pair / Narcea panel | `addons/visual_gasic/vg_ai_help.gd` |
+| Vibe Code / Narcea panel | `addons/visual_gasic/vg_ai_help.gd` |
 | Narcea system prompt / VG knowledge | `addons/visual_gasic/vg_ai_narcea.gd` |
 | AI providers (Ollama, Claude, Gemini, …) | `addons/visual_gasic/vg_ai_providers.gd` |
 | MCP server (Cursor can call VG tools) | `addons/visual_gasic/vg_mcp_server.gd` — `127.0.0.1:8766` |
@@ -59,7 +59,7 @@ Event handlers wire by name: `Sub btnOK_Click()`, `Sub Form_Load()`.
 
 1. Open this repo in **Cursor**; rules in `.cursor/rules/` apply automatically.
 2. Run the project in **Godot** with Visual Gasic enabled — MCP starts on port **8766**.
-3. In **AI Pair**, click **↗ Cursor** (Tier 1 handoff) to write `.vg/cursor_handoff.md`, copy a Composer prompt, and open the project in Cursor.
+3. In **Vibe Code**, click **↗ Cursor** (Tier 1 handoff) to write `.vg/cursor_handoff.md`, copy a Composer prompt, and open the project in Cursor.
 4. Use **Narcea** inside Godot for in-IDE context; use **Cursor Composer** for multi-file refactors.
 
 ## When editing AI / Narcea

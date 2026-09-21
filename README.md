@@ -1,15 +1,17 @@
-# VisualGasic — The language you read when you don't trust the AI.
+# VisualGasic — Game systems and tools on Godot, with a power layer GDScript doesn't ship.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-5.5.0--beta2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
-> **For 50 years, programming languages have been optimized for the human writer. The next 50 years will be optimized for the human reader auditing AI output. That is a different job, and it wants a different language.**
+> **Keep GDScript for engine glue. Use Visual Gasic for game rules, UI-heavy flows, and in-editor tools** — with features GDScript doesn’t ship, JIT-backed performance, and **Vibe Code** (Narcea + your choice of model).
 >
-> VisualGasic is BASIC, redesigned for the AI era — a VB6-syntax language with a 5-tier JIT compiler, a full WYSIWYG IDE, and an AI Pair panel built in. It runs as a C++ GDExtension inside Godot 4.6.
+> Plain `Sub` / `If` / `Dim` control flow; VB6-*compatible* where porting helps. C++ GDExtension for Godot 4.6+.
 
-## 🧭 The thesis
+**Storefront positioning:** [docs/POSITIONING.md](docs/POSITIONING.md)
+
+## 🧭 The thesis (audit + AI — optional deep read)
 
 In 2026, working programmers spend more time **reviewing AI-generated code** than writing original code from scratch. The bottleneck has moved from authoring to **auditing**. Almost no language in mainstream use was designed for auditing.
 
@@ -44,7 +46,7 @@ BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 imp
 
 - **Performance.** Bytecode VM + 9-pass optimizer + grid-loop fusion for hot `_Draw` paths. Beats GDScript on **12/12 compute** and **9/9 draw** published tests — tables below. Regression gate: `scripts/benchmark_regression_check.sh`.
 - **Type safety.** `Dim ... As ...` is enforced, not decorative. Generics, optionals, unions, and a strict mode are first-class. The auditor sees a type and knows the runtime will hold the line.
-- **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus an AI Pair panel that runs locally against Ollama or against frontier models with your own key.
+- **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus a Vibe Code panel that runs locally against Ollama or against frontier models with your own key.
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
 - **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
 
@@ -64,7 +66,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 - Phantom button double-press on blocking async calls
 
 **Recently shipped (5.5.0-beta2):**
-- **Narcea Live Debug Capture** — opt-in viewport + debugger context for AI Pair while you debug (local-only, purged on stop)
+- **Narcea Live Debug Capture** — opt-in viewport + debugger context for Vibe Code while you debug (local-only, purged on stop)
 - **`samples/` layout** — games, apps, demos, and showcases under `samples/`; harness in `engine_lab/` (legacy `projects/` symlinks kept)
 - **Godot game wiring** — bound **Connect**, **lambda** handlers, **RemoveAt**, **autoload** globals; **Brotato3D** sample at `samples/games/brotato3d/`
 - **Gameplay benchmarks (Sept 2026)** — packed entity scans; published rows include **IntegerLoop ~65×**, **NodePropertyChurn ~170×** vs GDScript ([details](BENCHMARK_PUBLISHED_RESULTS.md))
@@ -120,8 +122,10 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 
 ## ⚡ What VisualGasic actually is
 
-- **🧠 An AI-readable language.** VB6/VB.NET-style syntax — verbose, explicit, no hidden control flow. Designed so a human can verify an AI-generated Sub in seconds, not minutes. Same syntax that pairs well with the AI when *it* is doing the writing.
-- **🤖 An AI Pair panel built into the IDE.** Push-to-talk voice mode, 5 personas (default + Bob / Skippy / Orac / HAL — drop a `vg_personas.json` to add your own), multi-provider (OpenAI / Claude / Gemini / **Ollama** local — free, no API key), and an Explain-Last-Error button that diagnoses runtime failures in your own VG code.
+- **🎮 Game systems on Godot.** AGCK, Working Nodes, demos — flagship proof is shipped games and tools, not syntax nostalgia.
+- **⚙️ Power layer.** Try/Catch, overloading, packages, ECS, system HTTP — [inventory vs GDScript](docs/guides/VG_ADVANTAGES_OVER_GDSCRIPT.md).
+- **📝 Plain control flow.** Explicit blocks and handler names for logic you can test; strong fit for **vibe coding** without claiming “easiest language” for every newcomer.
+- **🤖 Vibe Code in the IDE.** Narcea, Ollama/cloud providers, voice mode, Explain-Last-Error, Cursor handoff — accelerator, not the product headline.
 - **🎮 A real game maker.** 8 AGCK templates, 14 playable demos in the box, full 3D pipeline, sprite/animation/audio editors, one-click Make EXE. Or describe a game in plain English and let AGCK generate a runnable VG project from a template.
 - **🚀 Native-class speed.** Bytecode VM with loop fusion and native draw opcodes. **12/12 compute** and **9/9 canvas `_draw` benchmarks faster than GDScript** (Aug 2026). Full tables: [BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md).
 - **🧰 The IDE you actually want.** Code Editor + Immediate Window + Object Browser + Debugger + Profiler, all docked, all themed. Plus a plugin SDK with a process-wide signal bus and capability-based editor routing. Form Designer exists but has known bugs — the **UI Forms** replacement (2D viewport-based WYSIWYG) is in active development.
@@ -131,7 +135,7 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 
 ### ⚡ Performance
 
-Visual Gasic is built to be **readable and fast**. Published numbers are reproduced headlessly on Godot 4.6.1 (Linux x86_64, Aug 25 2026). Checksums verify identical work on static workloads.
+Visual Gasic is built to be **fast on published Godot workloads** with explicit game logic. Published numbers are reproduced headlessly on Godot 4.6.1 (Linux x86_64, Aug 25 2026). Checksums verify identical work on static workloads.
 
 **Reproduce:** `scons platform=linux target=editor` then `scripts/benchmark_regression_check.sh` (fails if VG loses to GDScript).
 

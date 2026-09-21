@@ -96,9 +96,9 @@ Working Nodes received the most attention this beta:
 
 ---
 
-## 🤖 AI Pair — improvements
+## 🤖 Vibe Code — improvements
 
-- **Two-row toolbar** — the AI Pair toolbar no longer overflows off-screen
+- **Two-row toolbar** — the Vibe Code toolbar no longer overflows off-screen
   on narrower IDE windows.
 - **Streaming performance pass** — lower latency between tokens; the panel
   no longer freezes during long responses.
@@ -227,11 +227,11 @@ All docs live in the repo and are kept up to date with the code.
 
 > ⚠️ VGMusic requires a restart to show correctly on first load — see Known Issues above.
 
-**AI Pair — Narcea building a Pong game live**  
-![AI Pair panel showing Narcea generating a Pong game with the game running in the viewport](docs/screenshots/Screenshot%20at%202026-05-18%2019-13-22.png)
+**Vibe Code — Narcea building a Pong game live**  
+![Vibe Code panel showing Narcea generating a Pong game with the game running in the viewport](docs/screenshots/Screenshot%20at%202026-05-18%2019-13-22.png)
 
-**AI Pair — code view + Narcea session**  
-![Code editor with Narcea conversation and AI Pair toolbar](docs/screenshots/Screenshot%20at%202026-05-18%2019-13-02.png)
+**Vibe Code — code view + Narcea session**  
+![Code editor with Narcea conversation and Vibe Code toolbar](docs/screenshots/Screenshot%20at%202026-05-18%2019-13-02.png)
 
 **Hex Editor**  
 ![Built-in hex editor showing binary file content with text view sidebar](docs/screenshots/Screenshot%20at%202026-05-18%2019-09-14.png)
@@ -242,8 +242,8 @@ All docs live in the repo and are kept up to date with the code.
 **Welcome shell — project launcher**  
 ![VisualGasic welcome shell with recent projects and Ask Narcea to Make a Project option](docs/screenshots/Screenshot%20at%202026-05-03%2020-38-10.png)
 
-**AGCK — Working Nodes + AI Pair**  
-![AGCK project with Working Nodes open and AI Pair panel at the bottom](docs/screenshots/Screenshot%20at%202026-05-01%2020-41-27.png)
+**AGCK — Working Nodes + Vibe Code**  
+![AGCK project with Working Nodes open and Vibe Code panel at the bottom](docs/screenshots/Screenshot%20at%202026-05-01%2020-41-27.png)
 
 **Web Publish plugin**  
 ![Web Publish plugin showing Form → HTML export with theme and layout options](docs/screenshots/Screenshot%20at%202026-04-29%2009-26-33.png)

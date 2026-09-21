@@ -66,7 +66,7 @@ static func strip_dev_overlays_for_export(log_fn: Callable = Callable()) -> bool
 	var updated := original
 	for frag in ["vg_tweak_overlay.gd", "vg_debug_handler.gd"]:
 		var regex := RegEx.new()
-		regex.compile('(?m)^\\s*[^#\\n]*preload\\s*\\(\\s*"[^"]*' + RegEx.escape(frag) + '"[^)]*\\).*\\n?')
+		regex.compile('(?m)^\\s*[^#\\n]*preload\\s*\\(\\s*"[^"]*' + _regex_escape_literal(frag) + '"[^)]*\\).*\\n?')
 		updated = regex.sub(updated, "", true)
 	if updated != original:
 		var fw := FileAccess.open(plugin_path, FileAccess.WRITE)
@@ -845,6 +845,18 @@ static func publish_to_web(config: WebConfig, output_dir: String, run_export: bo
 
 	result["ok"] = true
 	return result
+
+
+## Godot 4.x RegEx has no escape() — literal-safe fragment for compile().
+static func _regex_escape_literal(p_text: String) -> String:
+	const SPECIAL := "\\.^$|?*+()[]{}"
+	var out := ""
+	for i in p_text.length():
+		var ch := p_text.substr(i, 1)
+		if SPECIAL.find(ch) >= 0:
+			out += "\\"
+		out += ch
+	return out
 
 
 static func _log(fn: Callable, msg: String) -> void:

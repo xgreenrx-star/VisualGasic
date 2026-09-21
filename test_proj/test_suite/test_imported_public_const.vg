@@ -1,0 +1,20 @@
+' Imported Public Const must be usable in comparisons (not a nil local in bytecode).
+' MAX_FRAMES: 5
+Import "imported_const_lib.vg"
+
+Sub _Ready()
+	Dim sz As Long
+	sz = 17894246
+	If sz > LIMIT_BYTES Then
+		Print "PASS: imported Public Const comparison"
+	Else
+		Print "FAIL: imported Public Const comparison: LIMIT_BYTES did not resolve"
+	End If
+
+	sharedFlag = 7
+	If sharedFlag = 7 Then
+		Print "PASS: imported Public Dim write"
+	Else
+		Print "FAIL: imported Public Dim write"
+	End If
+End Sub

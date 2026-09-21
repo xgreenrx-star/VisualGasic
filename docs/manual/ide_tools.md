@@ -14,7 +14,7 @@ These controls live on Godot’s **top toolbar** (same row as Play) **and** on t
 | **🖼 Add VG Control** | Toggle floating **Toolbox** |
 | **📋 VG Properties** | Toggle floating **Properties** |
 | **📁 VG Project** | Toggle floating **Project Explorer** (Forms / Modules) |
-Click **VGasic** (toolbar toggle) to open the default workspace over the center editor: **VG Help** · **VG Code Editor** · **Project Explorer** · **Toolbox** · **Properties**. Use **Narcea AI Pair** (**Ctrl+Shift+N**) for AI — the old **VG Panels** button is removed. Drag/resizing is remembered via **Project → VGasic Tools → Save VG Window Layout** (or **Reset … to Default**).
+Click **VGasic** (toolbar toggle) to open the default workspace over the center editor: **VG Help** · **VG Code Editor** · **Project Explorer** · **Toolbox** · **Properties**. Use **Narcea Vibe Code** (**Ctrl+Shift+N**) for AI — the old **VG Panels** button is removed. Drag/resizing is remembered via **Project → VGasic Tools → Save VG Window Layout** (or **Reset … to Default**).
 
 ---
 
@@ -62,12 +62,12 @@ When enabled, the **VG Tools → VG Code Editor** action (or an already-open flo
 
 ---
 
-## Narcea AI Pair + Cursor
+## Narcea Vibe Code + Cursor
 
 | Goal | What to use |
 |------|-------------|
 | In-Godot help, VG-aware prompts (default) | **Narcea** + Ollama / Gemini / DeepSeek |
-| Composer inside the AI Pair panel | Provider **⬡ Cursor (Composer)** — needs API key + `pip install cursor-sdk` |
+| Composer inside the Vibe Code panel | Provider **⬡ Cursor (Composer)** — needs API key + `pip install cursor-sdk` |
 | Full Cursor IDE (diffs, native agent tools) | **↗ Cursor** handoff — opens project in Cursor + MCP auto-config |
 
 **MCP:** With Godot running, `.cursor/mcp.json` exposes **visual-gasic** at `http://127.0.0.1:8766/mcp`.
@@ -75,7 +75,7 @@ Enable it in Cursor → Settings → Tools & MCP.
 
 See [Cursor + Narcea roadmap](../development/CURSOR_NARCEA_ROADMAP.md) for the full plan.
 
-**Narcea Live Debug Capture:** [guide](../development/NARCEA_LIVE_DEBUG_CAPTURE.md) — enable under Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in AI Pair. Local viewport snapshots, UI tree, stack/locals; purged on stop. **Immediate** tab shows **Capture** status + **Clear capture**.
+**Narcea Live Debug Capture:** [guide](../development/NARCEA_LIVE_DEBUG_CAPTURE.md) — enable under Project Settings → **Vg → Narcea** (`live_debug_capture`), then **Live debug capture (this run)** in Vibe Code. Local viewport snapshots, UI tree, stack/locals; purged on stop. **Immediate** tab shows **Capture** status + **Clear capture**.
 
 ---
 
@@ -635,8 +635,8 @@ Editor front‑end for the VisualGasic package manager (C++ class `VisualGasicPa
 
 **Signals** (for plugin integration): `package_installed(pkg_name, version)`, `package_removed(pkg_name)`.
 
-### AI Help Panel
-**Location**: `Bottom Dock > AI Help`
+### Vibe Code panel
+**Location**: `Bottom Dock > Vibe Code`
 **Files**: [addons/visual_gasic/vg_ai_help.gd](../../addons/visual_gasic/vg_ai_help.gd), [addons/visual_gasic/vg_ai_providers.gd](../../addons/visual_gasic/vg_ai_providers.gd), [addons/visual_gasic/vg_ai_model_picker.gd](../../addons/visual_gasic/vg_ai_model_picker.gd)
 
 In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **local Ollama** (private, offline) and cloud providers **OpenAI**, **Claude**, and **Gemini**. Streams token‑by‑token responses into a RichTextLabel in the panel.
@@ -662,7 +662,7 @@ In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **lo
 | **Translate** | Converts between VG and GDScript — directional based on which pane the code came from |
 
 **How to use**:
-1. Open the AI Help panel. If you want local/offline: install Ollama (`curl -fsSL https://ollama.ai/install.sh | sh`) and pull a model (`ollama pull qwen2.5-coder:7b`). The panel pings `http://127.0.0.1:11434` on activation.
+1. Open the Vibe Code panel. If you want local/offline: install Ollama (`curl -fsSL https://ollama.ai/install.sh | sh`) and pull a model (`ollama pull qwen2.5-coder:7b`). The panel pings `http://127.0.0.1:11434` on activation.
 2. For cloud providers, click **API Key** and paste your key (stored in `user://vg_ai_keys.cfg`).
 3. Pick a model from the dropdown. Click **Models…** to browse everything installed.
 4. Type a question, or select code in the editor and click a preset button.

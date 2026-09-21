@@ -165,7 +165,7 @@ Scripted equivalent:
 ./VisualGasic-Installer-v5.4.0-beta2-x86_64.AppImage --no-gui --list-ollama-models
 ```
 
-Once installed, VisualGasic's AI Help panel can talk to the local Ollama instance with no API key.
+Once installed, Visual Gasic **Vibe Code** can talk to the local Ollama instance with no API key.
 
 ### Offline install (no internet)
 

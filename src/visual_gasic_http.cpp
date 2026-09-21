@@ -5,9 +5,24 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/json.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/tls_options.hpp>
 
 using namespace godot;
+
+namespace {
+
+bool _http_status_is_fatal(HTTPClient::Status p_status) {
+	return p_status == HTTPClient::STATUS_CANT_CONNECT || p_status == HTTPClient::STATUS_CANT_RESOLVE ||
+			p_status == HTTPClient::STATUS_CONNECTION_ERROR || p_status == HTTPClient::STATUS_DISCONNECTED ||
+			p_status == HTTPClient::STATUS_TLS_HANDSHAKE_ERROR;
+}
+
+void _http_pump(Ref<HTTPClient> p_client) {
+	p_client->poll();
+}
+
+} // namespace
 
 void VGHttpRequest::_bind_methods() {
     ClassDB::bind_method(D_METHOD("open", "method", "url", "async"), &VGHttpRequest::open, DEFVAL(false));
@@ -101,128 +116,153 @@ void VGHttpRequest::set_request_header(const String &p_header, const String &p_v
 }
 
 int VGHttpRequest::perform_request(const String &p_body) {
-    Ref<HTTPClient> client;
-    client.instantiate();
+	Ref<HTTPClient> client;
+	client.instantiate();
 
-    Error err;
-    if (use_ssl) {
-        Ref<TLSOptions> tls = TLSOptions::client_unsafe();
-        err = client->connect_to_host(host, port, tls);
-    } else {
-        err = client->connect_to_host(host, port);
-    }
+	OS *os = OS::get_singleton();
+	Time *tm = Time::get_singleton();
+	const int timeout_ms = 30000;
+	uint64_t deadline = tm ? tm->get_ticks_msec() + (uint64_t)timeout_ms : 0;
 
-    if (err != OK) {
-        UtilityFunctions::printerr("[VGHttpRequest] Connection error to " + host);
-        status_code = 0;
-        ready_state = 4;
-        return -1;
-    }
+	Error err = OK;
+	if (use_ssl || port == 443) {
+		Ref<TLSOptions> tls = TLSOptions::client();
+		err = client->connect_to_host(host, port, tls);
+	} else {
+		err = client->connect_to_host(host, port);
+	}
+	if (err != OK) {
+		UtilityFunctions::printerr("[VGHttpRequest] Connection error to " + host);
+		status_code = 0;
+		ready_state = 4;
+		return -1;
+	}
 
-    // Poll until connected (with timeout)
-    int timeout = 10000; // 10 seconds
-    int elapsed = 0;
-    while (client->get_status() == HTTPClient::STATUS_CONNECTING ||
-           client->get_status() == HTTPClient::STATUS_RESOLVING) {
-        client->poll();
-        OS::get_singleton()->delay_msec(50);
-        elapsed += 50;
-        if (elapsed > timeout) {
-            UtilityFunctions::printerr("[VGHttpRequest] Connection timeout to " + host);
-            status_code = 0;
-            ready_state = 4;
-            return -1;
-        }
-    }
+	while (true) {
+		HTTPClient::Status s = client->get_status();
+		if (s == HTTPClient::STATUS_CONNECTED) {
+			break;
+		}
+		if (_http_status_is_fatal(s)) {
+			UtilityFunctions::printerr("[VGHttpRequest] Failed to connect to " + host + " (status=" + String::num_int64((int64_t)s) + ")");
+			status_code = 0;
+			ready_state = 4;
+			return -1;
+		}
+		_http_pump(client);
+		if (tm && tm->get_ticks_msec() > deadline) {
+			UtilityFunctions::printerr("[VGHttpRequest] Connection timeout to " + host);
+			status_code = 0;
+			ready_state = 4;
+			return -1;
+		}
+		if (os) {
+			os->delay_msec(10);
+		}
+	}
 
-    if (client->get_status() != HTTPClient::STATUS_CONNECTED) {
-        UtilityFunctions::printerr("[VGHttpRequest] Failed to connect to " + host);
-        status_code = 0;
-        ready_state = 4;
-        return -1;
-    }
+	PackedStringArray headers;
+	// Do not set Host — HTTPClient sets it from connect_to_host(); a duplicate Host often yields HTTP 400.
+	if (!request_headers.has("User-Agent")) {
+		headers.push_back("User-Agent: VisualGasic-VGHttpRequest/1.0");
+	}
+	if (!request_headers.has("Accept")) {
+		headers.push_back("Accept: */*");
+	}
+	Array hkeys = request_headers.keys();
+	for (int i = 0; i < hkeys.size(); i++) {
+		String k = hkeys[i];
+		headers.push_back(k + String(": ") + String(request_headers[k]));
+	}
 
-    // Build headers
-    PackedStringArray headers;
-    headers.push_back(String("Host: ") + host);
-    Array hkeys = request_headers.keys();
-    for (int i = 0; i < hkeys.size(); i++) {
-        String k = hkeys[i];
-        headers.push_back(k + String(": ") + String(request_headers[k]));
-    }
+	if (!p_body.is_empty() && !request_headers.has("Content-Type")) {
+		headers.push_back("Content-Type: application/x-www-form-urlencoded");
+	}
 
-    if (!p_body.is_empty() && !request_headers.has("Content-Type")) {
-        headers.push_back("Content-Type: application/x-www-form-urlencoded");
-    }
+	HTTPClient::Method http_method = HTTPClient::METHOD_GET;
+	if (method == "POST") {
+		http_method = HTTPClient::METHOD_POST;
+	} else if (method == "PUT") {
+		http_method = HTTPClient::METHOD_PUT;
+	} else if (method == "DELETE") {
+		http_method = HTTPClient::METHOD_DELETE;
+	} else if (method == "HEAD") {
+		http_method = HTTPClient::METHOD_HEAD;
+	} else if (method == "PATCH") {
+		http_method = HTTPClient::METHOD_PATCH;
+	}
 
-    // Map method string to enum
-    HTTPClient::Method http_method = HTTPClient::METHOD_GET;
-    if (method == "POST") http_method = HTTPClient::METHOD_POST;
-    else if (method == "PUT") http_method = HTTPClient::METHOD_PUT;
-    else if (method == "DELETE") http_method = HTTPClient::METHOD_DELETE;
-    else if (method == "HEAD") http_method = HTTPClient::METHOD_HEAD;
-    else if (method == "PATCH") http_method = HTTPClient::METHOD_PATCH;
+	err = client->request(http_method, path, headers, p_body);
+	if (err != OK) {
+		UtilityFunctions::printerr("[VGHttpRequest] Request error");
+		status_code = 0;
+		ready_state = 4;
+		return -1;
+	}
 
-    err = client->request(http_method, path, headers, p_body);
-    if (err != OK) {
-        UtilityFunctions::printerr("[VGHttpRequest] Request error");
-        status_code = 0;
-        ready_state = 4;
-        return -1;
-    }
+	ready_state = 2;
 
-    ready_state = 2; // HEADERS_RECEIVED (waiting)
+	while (true) {
+		HTTPClient::Status s = client->get_status();
+		if (client->has_response() || s == HTTPClient::STATUS_BODY) {
+			break;
+		}
+		if (_http_status_is_fatal(s)) {
+			UtilityFunctions::printerr("[VGHttpRequest] No response from server (status=" + String::num_int64((int64_t)s) + ")");
+			status_code = 0;
+			ready_state = 4;
+			return -1;
+		}
+		_http_pump(client);
+		if (tm && tm->get_ticks_msec() > deadline) {
+			UtilityFunctions::printerr("[VGHttpRequest] Request timeout");
+			status_code = 0;
+			ready_state = 4;
+			return -1;
+		}
+		if (os) {
+			os->delay_msec(10);
+		}
+	}
 
-    // Poll until response
-    elapsed = 0;
-    while (client->get_status() == HTTPClient::STATUS_REQUESTING) {
-        client->poll();
-        OS::get_singleton()->delay_msec(50);
-        elapsed += 50;
-        if (elapsed > timeout) {
-            UtilityFunctions::printerr("[VGHttpRequest] Request timeout");
-            status_code = 0;
-            ready_state = 4;
-            return -1;
-        }
-    }
+	if (!client->has_response()) {
+		UtilityFunctions::printerr("[VGHttpRequest] No response from server");
+		status_code = 0;
+		ready_state = 4;
+		return -1;
+	}
 
-    if (!client->has_response()) {
-        UtilityFunctions::printerr("[VGHttpRequest] No response from server");
-        status_code = 0;
-        ready_state = 4;
-        return -1;
-    }
+	status_code = client->get_response_code();
+	ready_state = 3;
 
-    status_code = client->get_response_code();
-    ready_state = 3; // LOADING
+	response_headers = Dictionary();
+	PackedStringArray resp_hdrs = client->get_response_headers();
+	for (int i = 0; i < resp_hdrs.size(); i++) {
+		String h = resp_hdrs[i];
+		int colon = h.find(":");
+		if (colon >= 0) {
+			response_headers[h.substr(0, colon).strip_edges()] = h.substr(colon + 1).strip_edges();
+		}
+	}
 
-    // Read response headers
-    response_headers = Dictionary();
-    PackedStringArray resp_hdrs = client->get_response_headers();
-    for (int i = 0; i < resp_hdrs.size(); i++) {
-        String h = resp_hdrs[i];
-        int colon = h.find(":");
-        if (colon >= 0) {
-            response_headers[h.substr(0, colon).strip_edges()] = h.substr(colon + 1).strip_edges();
-        }
-    }
+	response_body = PackedByteArray();
+	while (client->get_status() == HTTPClient::STATUS_BODY) {
+		_http_pump(client);
+		PackedByteArray chunk = client->read_response_body_chunk();
+		if (chunk.size() > 0) {
+			response_body.append_array(chunk);
+		} else if (tm && tm->get_ticks_msec() > deadline) {
+			break;
+		}
+		if (os) {
+			os->delay_msec(5);
+		}
+	}
 
-    // Read body
-    response_body = PackedByteArray();
-    while (client->get_status() == HTTPClient::STATUS_BODY) {
-        client->poll();
-        PackedByteArray chunk = client->read_response_body_chunk();
-        if (chunk.size() > 0) {
-            response_body.append_array(chunk);
-        }
-        OS::get_singleton()->delay_msec(10);
-    }
+	response_text = response_body.get_string_from_utf8();
+	ready_state = 4;
 
-    response_text = response_body.get_string_from_utf8();
-    ready_state = 4; // DONE
-
-    return status_code;
+	return status_code;
 }
 
 int VGHttpRequest::send(const String &p_body) {

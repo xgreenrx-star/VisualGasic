@@ -271,6 +271,17 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
                     }
                     continue;
                 }
+                // VB6: Public Const Name [As Type] = expr  (not Dim Const ...)
+                if (next_val == "const") {
+                    advance(); // Eat Public/Private
+                    ConstStatement* c = parse_const();
+                    if (c) {
+                        c->is_global = pending_global;
+                        module->constants.push_back(c);
+                        unregister_node(c);
+                    }
+                    continue;
+                }
             }
             // Parse DimStatement logic but store as global VariableDefinition
              DimStatement* dim = parse_dim(); // Reuse parse_dim which handles Dim A As Integer

@@ -270,6 +270,7 @@ func refresh_objects():
 			if not sel_restored:
 				object_list.select(0)
 				_on_object_selected(0)
+			_add_import_modules_section()
 			_apply_pending_selection()
 			return
 		# No cache — fall back to (General)-only standalone module view
@@ -290,6 +291,7 @@ func refresh_objects():
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
 		if event_list.item_count > 0:
 			event_list.select(0)
+		_add_import_modules_section()
 		return
 
 	# Add (General) entry — VB6-style module-level declarations
@@ -352,9 +354,42 @@ func refresh_objects():
 		object_list.select(0)
 		_on_object_selected(0)
 
+	# Imported helper modules (VB6 Project Explorer → Modules)
+	_add_import_modules_section()
+
 	# Re-apply any pending programmatic selection (from Wire Event / double-click).
 	# This runs AFTER the normal selection-restore so it always wins.
 	_apply_pending_selection()
+
+func _add_import_modules_section() -> void:
+	var vg_path := _get_current_vg_path()
+	var vg_text := _get_current_vg_text()
+	if vg_text.is_empty():
+		return
+	var imports: Array = VGGoToDefinition.parse_imports(vg_text, vg_path)
+	if imports.is_empty():
+		return
+	# Skip if already added (refresh_objects clears object_list first)
+	var sep_idx: int = object_list.item_count
+	object_list.add_item("\u2500\u2500 Modules \u2500\u2500")
+	object_list.set_item_metadata(sep_idx, {"type": "separator"})
+	for mod_info in imports:
+		var mod_name := str(mod_info.get("name", ""))
+		if mod_name.is_empty():
+			continue
+		var label := mod_name
+		var mod_path := str(mod_info.get("path", ""))
+		if not mod_path.is_empty():
+			label += " (" + mod_path.get_file() + ")"
+		var midx: int = object_list.item_count
+		object_list.add_item(label)
+		object_list.set_item_metadata(midx, {
+			"type": "imported_module",
+			"name": mod_name,
+			"path": mod_path,
+			"public_subs": mod_info.get("public_subs", []),
+			"private_subs": mod_info.get("private_subs", []),
+		})
 
 func _add_node_filtered(node: Node, is_root: bool) -> void:
 	## Add a node to the Object dropdown if it is relevant.
@@ -613,6 +648,10 @@ func _apply_pending_selection() -> void:
 func _on_object_selected(idx):
 	event_list.clear()
 	var meta = object_list.get_item_metadata(idx)
+
+	if meta is Dictionary and meta.get("type", "") == "imported_module":
+		_populate_import_module_events(meta)
+		return
 	
 	# Handle (General) selection — VB6 shows (Declarations) + standalone procedures only.
 	# Control event handlers (Button1_Click, etc.) belong under their own object entry.
@@ -738,6 +777,12 @@ func _on_event_selected(idx):
 	var event_meta = event_list.get_item_metadata(idx)
 	var obj_meta = object_list.get_item_metadata(obj_idx)
 	
+	# --- Imported module procedure ---
+	if obj_meta is Dictionary and obj_meta.get("type", "") == "imported_module":
+		if event_meta and event_meta.get("type", "") == "imported_procedure":
+			_navigate_to_module_procedure(str(event_meta.get("path", "")), int(event_meta.get("line", 0)))
+		return
+
 	# --- (General) section ---
 	if obj_meta is String and obj_meta == "(General)":
 		if event_meta and event_meta.has("type"):
@@ -782,6 +827,58 @@ func _on_event_selected(idx):
 	if not node: return
 
 	_navigate_to_handler(node, event_name)
+
+func _populate_import_module_events(mod_meta: Dictionary) -> void:
+	event_list.clear()
+	var mod_path := str(mod_meta.get("path", ""))
+	if not mod_path.is_empty():
+		var open_idx: int = event_list.item_count
+		event_list.add_item("(Open Module)")
+		event_list.set_item_metadata(open_idx, {
+			"type": "imported_procedure",
+			"path": mod_path,
+			"line": 0,
+			"name": "(Open Module)",
+		})
+	for entry in mod_meta.get("public_subs", []):
+		var sname := str(entry.get("name", ""))
+		if sname.is_empty():
+			continue
+		var eidx: int = event_list.item_count
+		event_list.add_item(sname)
+		event_list.set_item_metadata(eidx, {
+			"type": "imported_procedure",
+			"path": mod_path,
+			"line": int(entry.get("line", 0)),
+			"name": sname,
+			"visibility": "public",
+		})
+	for entry in mod_meta.get("private_subs", []):
+		var pname := str(entry.get("name", ""))
+		if pname.is_empty():
+			continue
+		var pidx: int = event_list.item_count
+		event_list.add_item(pname + "  [Private]")
+		event_list.set_item_metadata(pidx, {
+			"type": "imported_procedure",
+			"path": mod_path,
+			"line": int(entry.get("line", 0)),
+			"name": pname,
+			"visibility": "private",
+		})
+		event_list.set_item_custom_color(pidx, COLOR_DIM)
+	if event_list.item_count > 0:
+		event_list.select(0)
+
+
+func _navigate_to_module_procedure(mod_path: String, line: int) -> void:
+	if mod_path.is_empty() or not editor_plugin:
+		return
+	if editor_plugin.has_method("open_module_in_embedded_editor"):
+		editor_plugin.open_module_in_embedded_editor(mod_path, line)
+		return
+	navigate_to_line(mod_path, line + 1)
+
 
 func _navigate_to_line_in_vg(line_number: int):
 	"""Navigate to a specific line in the current .vg file."""

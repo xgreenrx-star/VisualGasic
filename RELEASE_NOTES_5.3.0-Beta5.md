@@ -47,7 +47,7 @@ This beta lays groundwork while M5 work continues on the roadmap:
 | **Buffer Type** | `Dim mem As Buffer` with `BufRead`/`BufWrite` fast paths — 10–100× faster than `Array(As Byte)` for emulation and I/O |
 | **Optimizer Hints** | `@fast_loop`, `@accumulator`, `@simd_candidate` — user-tunable hot-path hints without waiting for compiler pattern-matching |
 | **Speed improvements** | Unboxed typed operand stack redesign (target: 3–4× call overhead reduction), additional VM fast paths |
-| **Narcea AI Pair** | Agent-loop reliability fixes, provider routing polish, end-to-end "describe a form → working VG code" demo |
+| **Vibe Code** | Agent-loop reliability fixes, provider routing polish, end-to-end "describe a form → working VG code" demo |
 
 Full timeline: [RELEASE_SCHEDULE.md](RELEASE_SCHEDULE.md) · roadmap: [ROADMAP.md](ROADMAP.md)
 
@@ -59,7 +59,7 @@ For context, Beta4 shipped:
 - **−81.8% function-call overhead** (45,785 → 8,323 instructions/call)
 - Native **6502/6510 CPU core** — C64 Emulator Turbo Mode boots to `READY.` at ~2.9× real hardware speed
 - Three silent miscompilation bugs fixed (`OP_JUMP_TABLE`, `CONST + VAR`, `ByRef` write-back)
-- Native JIT hang fix, Narcea AI Pair agent-loop fixes
+- Native JIT hang fix, Vibe Code agent-loop fixes
 
 Full details in [CHANGELOG.md](CHANGELOG.md#530-beta4---2026-08-07) and [RELEASE_NOTES_5.3.0-Beta4.md](RELEASE_NOTES_5.3.0-Beta4.md).
 

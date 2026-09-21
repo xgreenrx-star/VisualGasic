@@ -55,7 +55,7 @@ Distinct from the June 29 ByRef-recursion fix. When a `ByRef` function was calle
 
 ### 🤖 Added — Codeium (Windsurf) and Amazon Q Developer AI Providers (Jul 13)
 
-Two new AI backends for the Narcea AI Pair / AI Help panel, alongside the existing Ollama, OpenAI, Claude, and Gemini providers. Configure API keys in **EditorSettings → visual_gasic/ai/***.
+Two new AI backends for the Vibe Code panel, alongside the existing Ollama, OpenAI, Claude, and Gemini providers. Configure API keys in **EditorSettings → visual_gasic/ai/***.
 
 ### 🐍 Added — Python Bridge and C++ FFI Demos (Jul 13)
 
@@ -63,9 +63,9 @@ Two new AI backends for the Narcea AI Pair / AI Help panel, alongside the existi
 - [`demos/Utilities/FFI/demo_ffi_cpp_lib.vg`](demos/Utilities/FFI/demo_ffi_cpp_lib.vg) — calling a custom C++ shared library (Vec2 math class) via C ABI wrappers: create/destroy, get/set, length, dot product, scale, add, normalize, string representation. All 7 test sections pass on Linux.
 - Documentation: [`docs/SYSTEM_INTEGRATION.md`](docs/SYSTEM_INTEGRATION.md) §1, [`docs/VisualGasic_Language_Reference.md`](docs/VisualGasic_Language_Reference.md)
 
-### 🎨 Added — Narcea AI Pair Floating Window (Jul 5, M5 early progress)
+### 🎨 Added — Vibe Code Floating Window (Jul 5, M5 early progress)
 
-Narcea AI Pair is now a floating window (same pattern as the VG Toolbox/Properties windows):
+Vibe Code is now a floating window (same pattern as the VG Toolbox/Properties windows):
 - Opens via the 🤖 **Narcea AI** button next to the Visual Gasic IDE tab, `Ctrl+Shift+N`, or **Project → Tools** menu
 - Window position/size persisted across sessions, with a **Reset Size & Position** button
 - Resize handle supports both grow and shrink
@@ -207,7 +207,7 @@ Full setup guide: [docs/getting_started/installation.md](docs/getting_started/in
 - [Documentation Index](docs/DOCUMENTATION_INDEX.md) — full map of every manual
 - [Godot Programming Manual](docs/GODOT_PROGRAMMING_MANUAL.md) — includes GDScript quick reference and case studies
 - [System Integration Reference](docs/SYSTEM_INTEGRATION.md) — FFI, ODBC, Crypto, XML, ZIP, Async, Packages, Python bridge
-- [IDE Tools Guide](docs/manual/ide_tools.md) — Watch Window, Debugging, Profiler, Controls, Packages, AI Help panels
+- [IDE Tools Guide](docs/manual/ide_tools.md) — Watch Window, Debugging, Profiler, Controls, Packages, Vibe Code panels
 - [Migration Guide (from VB6/VBA)](docs/guides/MIGRATION_GUIDE.md)
 - [Release Schedule](RELEASE_SCHEDULE.md) — upcoming 5.4-beta (Oct 15), 6.0 stable (Jan 1, 2027)
 
