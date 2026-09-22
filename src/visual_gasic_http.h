@@ -62,6 +62,9 @@ private:
 
     void parse_url(const String &p_url);
     int perform_request(const String &p_body);
+#ifdef VG_WEB_BUILD
+    int perform_request_web(const String &p_body);
+#endif
 };
 
 } // namespace godot

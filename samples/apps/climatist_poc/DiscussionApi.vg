@@ -1,0 +1,148 @@
+' =============================================================================
+' DiscussionApi.vg — forecaster text for the Discussion screen
+' =============================================================================
+' James wanted three discussion products. This POC ships one:
+'
+'   NWS Area Forecast Discussion (AFD) — written by your local Weather Forecast
+'   Office. We find the office from lat/lon, list recent AFD products, download
+'   the newest, and show productText on screen.
+'
+' Not wired yet (Main.vg shows an honest "missing" block):
+'   CPC 6–14 day discussion, CPC monthly outlook discussion, fancy section parsing.
+'
+' All calls go to api.weather.gov with the User-Agent from WeatherApi (required
+' by NWS policy). Outside the continental US we explain that AFD is not available.
+' =============================================================================
+Attribute VB_Name = "DiscussionApi"
+
+Import "WeatherApi.vg"
+
+Sub MissingSourcesBlock(ByRef outBlock As String)
+	outBlock = "CPC 6–14 day prognostic discussion — not wired in POC." & Chr(10) _
+		& "CPC monthly outlook discussion — not wired in POC." & Chr(10) _
+		& "Section parsing (SYNOPSIS / DISCUSSION headers) — plain text for now."
+End Sub
+
+Sub FetchLocalNwsAfd(ByVal lat As Single, ByVal lon As Single, ByRef outStatus As Integer, ByRef outTitle As String, ByRef outBody As String, ByRef outError As String)
+	outStatus = 0
+	outTitle = ""
+	outBody = ""
+	outError = ""
+	If Not WeatherApi.IsConusUs(lat, lon) Then
+		outError = "NWS AFD is CONUS-only; outside the grid there is no local WFO product."
+		Exit Sub
+	End If
+
+	' Step A: /points tells us which Weather Forecast Office (WFO) covers this spot.
+	Dim ptsUrl As String
+	ptsUrl = "https://api.weather.gov/points/" & CStr(lat) & "," & CStr(lon)
+	Dim ptsBody As String
+	Dim ptsText As String
+	Dim ptsStatus As Integer
+	Call WeatherApi.HttpGetWithHeaders(ptsUrl, WeatherApi.NwsUserAgent(), ptsStatus, ptsText, ptsBody)
+	If ptsStatus <> 200 Or Len(ptsBody) = 0 Then
+		outError = "NWS /points failed HTTP " & CStr(ptsStatus) & " — " & ptsText
+		Exit Sub
+	End If
+
+	Dim pts As Object
+	Set pts = JsonParse(ptsBody)
+	If pts Is Nothing Then
+		outError = "NWS /points JSON parse failed"
+		Exit Sub
+	End If
+	Dim props As Object
+	Set props = pts("properties")
+	If props Is Nothing Then
+		outError = "NWS /points missing properties"
+		Exit Sub
+	End If
+	Dim wfo As String
+	wfo = CStr(props("forecastOffice"))
+	If Len(wfo) = 0 Then
+		outError = "NWS forecastOffice missing on /points"
+		Exit Sub
+	End If
+	' forecastOffice is a URL like …/offices/OKX — keep the short code at the end.
+	Dim slash As Integer
+	slash = InStrRev(wfo, "/")
+	If slash > 0 Then wfo = Mid(wfo, slash + 1)
+
+	' Step B: list AFD products for that office; graph[0] is the latest issuance.
+	Dim listUrl As String
+	listUrl = "https://api.weather.gov/products/types/AFD/locations/" & wfo
+	Dim listBody As String
+	Dim listText As String
+	Call WeatherApi.HttpGetWithHeaders(listUrl, WeatherApi.NwsUserAgent(), outStatus, listText, listBody)
+	If outStatus <> 200 Or Len(listBody) = 0 Then
+		outError = "NWS AFD list failed HTTP " & CStr(outStatus) & " — " & listText
+		Exit Sub
+	End If
+
+	Dim root As Object
+	Set root = JsonParse(listBody)
+	If root Is Nothing Then
+		outError = "NWS AFD list JSON parse failed"
+		Exit Sub
+	End If
+	Dim graph As Array
+	graph = root("@graph")
+	If graph Is Nothing Then
+		outError = "NWS AFD list missing @graph"
+		Exit Sub
+	End If
+	If UBound(graph) < 0 Then
+		outError = "NWS AFD list empty for WFO " & wfo
+		Exit Sub
+	End If
+
+	Dim prod0 As Object
+	Set prod0 = graph(0)
+	If prod0 Is Nothing Then
+		outError = "NWS AFD product entry invalid"
+		Exit Sub
+	End If
+	Dim prodUrl As String
+	prodUrl = CStr(prod0("id"))
+	If Len(prodUrl) = 0 Then
+		outError = "NWS AFD product id missing"
+		Exit Sub
+	End If
+
+	' Step C: fetch that product and read the plain-text body field.
+	Dim prodBody As String
+	Dim prodText As String
+	Call WeatherApi.HttpGetWithHeaders(prodUrl, WeatherApi.NwsUserAgent(), outStatus, prodText, prodBody)
+	If outStatus <> 200 Or Len(prodBody) = 0 Then
+		outError = "NWS AFD product failed HTTP " & CStr(outStatus) & " — " & prodText
+		Exit Sub
+	End If
+
+	Dim prod As Object
+	Set prod = JsonParse(prodBody)
+	If prod Is Nothing Then
+		outError = "NWS AFD product JSON parse failed"
+		Exit Sub
+	End If
+	Dim pProps As Object
+	Set pProps = prod("productText")
+	If pProps Is Nothing Then
+		Set pProps = prod("properties")
+	End If
+	If Not pProps Is Nothing Then
+		If pProps.Exists("productText") Then
+			outBody = CStr(pProps("productText"))
+		ElseIf pProps.Exists("description") Then
+			outBody = CStr(pProps("description"))
+		End If
+	End If
+	If Len(outBody) = 0 And prod.Exists("productText") Then
+		outBody = CStr(prod("productText"))
+	End If
+	If Len(outBody) = 0 Then
+		outError = "NWS AFD productText missing in response"
+		Exit Sub
+	End If
+
+	outTitle = "NWS Area Forecast Discussion — WFO " & wfo
+End Sub

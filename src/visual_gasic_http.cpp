@@ -7,10 +7,94 @@
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/tls_options.hpp>
+#include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/main_loop.hpp>
+
+#ifdef VG_WEB_BUILD
+#include <emscripten.h>
+#endif
 
 using namespace godot;
 
 namespace {
+
+#ifdef VG_WEB_BUILD
+// HTML5: sync HTTP via browser XHR in pure JS (no emscripten_sleep / Asyncify on the side module).
+EM_JS(int, vg_web_http_fetch_sync, (const char *p_method, const char *p_url, const char *p_body, const char *p_headers_json, char *p_out_body, int p_out_body_max, char *p_out_headers_json, int p_out_headers_max, int *p_out_status), {
+	var method = UTF8ToString(p_method);
+	var url = UTF8ToString(p_url);
+	var body = UTF8ToString(p_body);
+	var headers = {};
+	try {
+		headers = JSON.parse(UTF8ToString(p_headers_json || '{}'));
+	} catch (e) {
+		return 1;
+	}
+	if (!headers['Accept']) {
+		headers['Accept'] = '*/*';
+	}
+	// Browsers forbid setting User-Agent from XHR/fetch (unsafe header).
+	delete headers['User-Agent'];
+
+	var xhr = new XMLHttpRequest();
+	try {
+		xhr.open(method, url, false);
+	} catch (e) {
+		return 2;
+	}
+	for (var key in headers) {
+		if (Object.prototype.hasOwnProperty.call(headers, key)) {
+			xhr.setRequestHeader(key, headers[key]);
+		}
+	}
+	try {
+		if (method === 'GET' || method === 'HEAD') {
+			xhr.send(null);
+		} else {
+			xhr.send(body.length > 0 ? body : null);
+		}
+	} catch (e) {
+		return 2;
+	}
+
+	HEAP32[p_out_status >> 2] = xhr.status;
+	stringToUTF8(xhr.responseText ? xhr.responseText : "", p_out_body, p_out_body_max);
+
+	var responseHeaders = {};
+	var raw = xhr.getAllResponseHeaders();
+	if (raw) {
+		var lines = raw.trim().split('\n');
+		for (var i = 0; i < lines.length; i++) {
+			var line = lines[i];
+			if (line.length > 0 && line.charCodeAt(line.length - 1) === 13) {
+				line = line.substring(0, line.length - 1);
+			}
+			var idx = line.indexOf(':');
+			if (idx > 0) {
+				responseHeaders[line.substring(0, idx).trim()] = line.substring(idx + 1).trim();
+			}
+		}
+	}
+	stringToUTF8(JSON.stringify(responseHeaders), p_out_headers_json, p_out_headers_max);
+	return 0;
+});
+
+#endif // VG_WEB_BUILD
+
+void _http_wait_while_polling() {
+	// Keep Godot responsive during sync HTTP (VGHttpRequest / HttpGet in _Process).
+	DisplayServer *ds = DisplayServer::get_singleton();
+	MainLoop *ml = Engine::get_singleton() ? Engine::get_singleton()->get_main_loop() : nullptr;
+	if (ml) {
+		ml->call("_process", 0.016);
+	}
+	if (ds) {
+		ds->process_events();
+	} else if (OS *os = OS::get_singleton()) {
+		os->delay_msec(10);
+	}
+}
 
 bool _http_status_is_fatal(HTTPClient::Status p_status) {
 	return p_status == HTTPClient::STATUS_CANT_CONNECT || p_status == HTTPClient::STATUS_CANT_RESOLVE ||
@@ -115,11 +199,80 @@ void VGHttpRequest::set_request_header(const String &p_header, const String &p_v
     request_headers[p_header] = p_value;
 }
 
+#ifdef VG_WEB_BUILD
+int VGHttpRequest::perform_request_web(const String &p_body) {
+	const int kMaxBody = 1024 * 1024;
+	const int kMaxHeadersJson = 65536;
+
+	PackedByteArray body_buf;
+	body_buf.resize(kMaxBody);
+	PackedByteArray headers_buf;
+	headers_buf.resize(kMaxHeadersJson);
+
+	int status = 0;
+	CharString method_cs = method.utf8();
+	CharString url_cs = url.utf8();
+	CharString body_cs = p_body.utf8();
+
+	Dictionary hdrs = request_headers;
+	if (!hdrs.has("Accept")) {
+		hdrs["Accept"] = "*/*";
+	}
+	hdrs.erase("User-Agent");
+	String headers_json = JSON::stringify(hdrs);
+	CharString headers_cs = headers_json.utf8();
+
+	int err = vg_web_http_fetch_sync(
+			method_cs.get_data(),
+			url_cs.get_data(),
+			body_cs.get_data(),
+			headers_cs.get_data(),
+			reinterpret_cast<char *>(body_buf.ptrw()),
+			kMaxBody,
+			reinterpret_cast<char *>(headers_buf.ptrw()),
+			kMaxHeadersJson,
+			&status);
+
+	if (err != 0) {
+		UtilityFunctions::printerr("[VGHttpRequest] Web fetch failed (code=" + String::num_int64(err) + ")");
+		status_code = 0;
+		status_text = err == 2 ? "Network error or timeout" : "Invalid request headers";
+		ready_state = 4;
+		return -1;
+	}
+
+	status_code = status;
+	ready_state = 4;
+
+	int len = 0;
+	while (len < kMaxBody && body_buf[len] != 0) {
+		len++;
+	}
+	response_body = len > 0 ? body_buf.slice(0, len) : PackedByteArray();
+	response_text = response_body.get_string_from_utf8();
+
+	response_headers = Dictionary();
+	String resp_hdr_json = String::utf8(reinterpret_cast<const char *>(headers_buf.ptr()));
+	Ref<JSON> json;
+	json.instantiate();
+	if (json->parse(resp_hdr_json) == OK) {
+		Variant parsed = json->get_data();
+		if (parsed.get_type() == Variant::DICTIONARY) {
+			response_headers = parsed;
+		}
+	}
+
+	return status_code;
+}
+#endif
+
 int VGHttpRequest::perform_request(const String &p_body) {
+#ifdef VG_WEB_BUILD
+	return perform_request_web(p_body);
+#endif
 	Ref<HTTPClient> client;
 	client.instantiate();
 
-	OS *os = OS::get_singleton();
 	Time *tm = Time::get_singleton();
 	const int timeout_ms = 30000;
 	uint64_t deadline = tm ? tm->get_ticks_msec() + (uint64_t)timeout_ms : 0;
@@ -156,9 +309,7 @@ int VGHttpRequest::perform_request(const String &p_body) {
 			ready_state = 4;
 			return -1;
 		}
-		if (os) {
-			os->delay_msec(10);
-		}
+		_http_wait_while_polling();
 	}
 
 	PackedStringArray headers;
@@ -220,9 +371,7 @@ int VGHttpRequest::perform_request(const String &p_body) {
 			ready_state = 4;
 			return -1;
 		}
-		if (os) {
-			os->delay_msec(10);
-		}
+		_http_wait_while_polling();
 	}
 
 	if (!client->has_response()) {
@@ -254,9 +403,7 @@ int VGHttpRequest::perform_request(const String &p_body) {
 		} else if (tm && tm->get_ticks_msec() > deadline) {
 			break;
 		}
-		if (os) {
-			os->delay_msec(5);
-		}
+		_http_wait_while_polling();
 	}
 
 	response_text = response_body.get_string_from_utf8();
@@ -278,6 +425,9 @@ PackedByteArray VGHttpRequest::get_response_body() const { return response_body;
 int VGHttpRequest::get_status() const { return status_code; }
 
 String VGHttpRequest::get_status_text() const {
+	if (status_code == 0 && !status_text.is_empty()) {
+		return status_text;
+	}
     switch (status_code) {
         case 200: return "OK";
         case 201: return "Created";

@@ -1,8 +1,339 @@
-' Open-Meteo helpers for Climatist POC (direct client GET — James spec: per-user to source)
+' =============================================================================
+' WeatherApi.vg — download weather JSON and turn it into short text lines
+' =============================================================================
+' If you are new here: this module builds URLs, calls HttpGet, and parses JSON.
+' Main.vg calls these subs; it does not need to know URL formats.
+'
+' Rules we follow (James spec):
+'   • Requests go straight from your machine to Open-Meteo / NWS — no middle server.
+'   • When something fails, we return an error string instead of making up numbers.
+'
+' Now screen uses:
+'   Open-Meteo forecast API — current temp, next hours, seven-day strip.
+'   NWS api.weather.gov — 12-hour rain chance periods (US only; different from hourly %).
+'
+' NWS wants a real User-Agent header (NwsUserAgent). Desktop sends it; browser exports
+' may not — then NWS calls can fail and we say so on screen.
+' =============================================================================
 Attribute VB_Name = "WeatherApi"
 
-' Naive JSON number extractor: finds "key": <number> in Open-Meteo responses.
+' Required by NWS API policy: https://www.weather.gov/documentation/services-web-api
+Private Const NWS_USER_AGENT As String = "ClimatistPOC/1.0 (VisualGasic sample; contact via VisualGasic repo)"
+
+Function NwsUserAgent() As String
+	NwsUserAgent = NWS_USER_AGENT
+End Function
+
+' --- Region helpers (James: HRRR headline inside CONUS, ECMWF elsewhere) ---------
+
+Function IsConusUs(ByVal lat As Single, ByVal lon As Single) As Boolean
+	' Rough CONUS bounding box for model + NWS grid eligibility (not exact borders).
+	If lat < 24.0 Or lat > 50.0 Then
+		IsConusUs = False
+		Exit Function
+	End If
+	If lon < -125.0 Or lon > -66.0 Then
+		IsConusUs = False
+		Exit Function
+	End If
+	IsConusUs = True
+End Function
+
+Function HeadlineModelName(ByVal lat As Single, ByVal lon As Single) As String
+	' Human-readable label shown on Now — must match BuildOpenMeteoNowUrl model= param.
+	If IsConusUs(lat, lon) Then
+		HeadlineModelName = "Open-Meteo NCEP HRRR CONUS (headline hours 0–18)"
+	Else
+		HeadlineModelName = "Open-Meteo ECMWF IFS (headline beyond CONUS / default)"
+	End If
+End Function
+
+Function BuildOpenMeteoNowUrl(ByVal lat As Single, ByVal lon As Single) As String
+	' Single forecast request for the whole Now strip (current + hourly + daily).
+	Dim modelParam As String
+	If IsConusUs(lat, lon) Then
+		' Open-Meteo model id (2026): ncep_hrrr_conus — not legacy hrrr_conus (HTTP 400).
+		modelParam = "&models=ncep_hrrr_conus"
+	Else
+		modelParam = "&models=ecmwf_ifs"
+	End If
+	BuildOpenMeteoNowUrl = "https://api.open-meteo.com/v1/forecast?latitude=" & CStr(lat) _
+		& "&longitude=" & CStr(lon) _
+		& modelParam _
+		& "&current=temperature_2m,weather_code,relative_humidity_2m" _
+		& "&hourly=temperature_2m,precipitation_probability" _
+		& "&forecast_hours=6" _
+		& "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" _
+		& "&forecast_days=7" _
+		& "&timezone=auto"
+End Function
+
+Function WmoWeatherLabel(ByVal code As Integer) As String
+	' WMO weather_code → short text for current conditions line.
+	If code = 0 Then
+		WmoWeatherLabel = "Clear"
+	ElseIf code >= 1 And code <= 3 Then
+		WmoWeatherLabel = "Mainly clear / cloudy"
+	ElseIf code = 45 Or code = 48 Then
+		WmoWeatherLabel = "Fog"
+	ElseIf code >= 51 And code <= 67 Then
+		WmoWeatherLabel = "Rain / drizzle"
+	ElseIf code >= 71 And code <= 77 Then
+		WmoWeatherLabel = "Snow"
+	ElseIf code >= 80 And code <= 82 Then
+		WmoWeatherLabel = "Rain showers"
+	ElseIf code >= 95 Then
+		WmoWeatherLabel = "Thunderstorm"
+	Else
+		WmoWeatherLabel = "WMO code " & CStr(code)
+	End If
+End Function
+
+' --- HTTP (sync VGHttpRequest — web uses browser XHR under the hood) ------------
+
+Sub HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	Call HttpGetWithHeaders(url, "", outStatus, outStatusText, outBody)
+End Sub
+
+Sub HttpGetWithHeaders(ByVal url As String, ByVal userAgent As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	Dim http As New VGHttpRequest
+	http.Open "GET", url, False
+	http.SetRequestHeader "Accept", "application/json"
+	If Len(userAgent) > 0 Then
+		http.SetRequestHeader "User-Agent", userAgent
+	End If
+	http.Send ""
+	outStatus = http.Status
+	outStatusText = http.StatusText
+	If outStatus = 200 Then
+		outBody = http.ResponseText
+	Else
+		outBody = ""
+	End If
+End Sub
+
+' --- NWS 12-hour period PoP (James: distinct from Open-Meteo hourly %) ----------
+
+Function PopValueFromPeriod(ByVal period As Object) As Integer
+	' NWS encodes PoP as {"probabilityOfPrecipitation":{"value":40}} or null.
+	If period Is Nothing Then
+		PopValueFromPeriod = -1
+		Exit Function
+	End If
+	Dim popObj As Object
+	Set popObj = period("probabilityOfPrecipitation")
+	If popObj Is Nothing Then
+		PopValueFromPeriod = -1
+		Exit Function
+	End If
+	If popObj.Exists("value") Then
+		Dim v As Variant
+		v = popObj("value")
+		If IsNull(v) Then
+			PopValueFromPeriod = -1
+		Else
+			PopValueFromPeriod = CInt(CDbl(v))
+		End If
+	Else
+		PopValueFromPeriod = -1
+	End If
+End Function
+
+Sub FetchNwsTwelveHourRain(ByVal lat As Single, ByVal lon As Single, ByRef outStatus As Integer, ByRef outSummary As String, ByRef outDetail As String)
+	' Two-step NWS flow: /points → properties.forecast URL → periods[].
+	' outSummary = one-line section title; outDetail = multiline period list.
+	outSummary = ""
+	outDetail = ""
+	outStatus = 0
+	If Not IsConusUs(lat, lon) Then
+		outSummary = "NWS 12-hour PoP: not applicable outside CONUS grid"
+		outDetail = "Use Open-Meteo hourly % for rain likelihood here."
+		outStatus = 200
+		Exit Sub
+	End If
+
+	Dim ptsUrl As String
+	ptsUrl = "https://api.weather.gov/points/" & CStr(lat) & "," & CStr(lon)
+	Dim ptsBody As String
+	Dim ptsStatus As Integer
+	Dim ptsText As String
+	Call HttpGetWithHeaders(ptsUrl, NWS_USER_AGENT, ptsStatus, ptsText, ptsBody)
+	If ptsStatus <> 200 Or Len(ptsBody) = 0 Then
+		outStatus = ptsStatus
+		outSummary = "NWS points lookup failed (HTTP " & CStr(ptsStatus) & ")"
+		outDetail = ptsText
+		Exit Sub
+	End If
+
+	Dim pts As Object
+	Set pts = JsonParse(ptsBody)
+	If pts Is Nothing Then
+		outStatus = 0
+		outSummary = "NWS points JSON parse failed"
+		Exit Sub
+	End If
+	Dim props As Object
+	Set props = pts("properties")
+	If props Is Nothing Then
+		outStatus = 0
+		outSummary = "NWS points response missing properties"
+		Exit Sub
+	End If
+	Dim fcUrl As String
+	fcUrl = CStr(props("forecast"))
+	If Len(fcUrl) = 0 Then
+		outStatus = 0
+		outSummary = "NWS forecast URL missing"
+		Exit Sub
+	End If
+
+	Dim fcBody As String
+	Dim fcStatus As Integer
+	Dim fcText As String
+	Call HttpGetWithHeaders(fcUrl, NWS_USER_AGENT, fcStatus, fcText, fcBody)
+	outStatus = fcStatus
+	If fcStatus <> 200 Or Len(fcBody) = 0 Then
+		outSummary = "NWS forecast failed (HTTP " & CStr(fcStatus) & ")"
+		outDetail = fcText
+		Exit Sub
+	End If
+
+	Dim fc As Object
+	Set fc = JsonParse(fcBody)
+	If fc Is Nothing Then
+		outSummary = "NWS forecast JSON parse failed"
+		Exit Sub
+	End If
+	Dim fcProps As Object
+	Set fcProps = fc("properties")
+	If fcProps Is Nothing Then
+		outSummary = "NWS forecast missing properties"
+		Exit Sub
+	End If
+	Dim periods As Array
+	periods = fcProps("periods")
+	Dim n As Integer
+	n = UBound(periods) + 1
+	If n = 0 Then
+		outSummary = "NWS forecast has no periods"
+		Exit Sub
+	End If
+
+	outSummary = "NWS official grid — 12-hour period PoP (not hourly %):"
+	Dim lines As String
+	lines = ""
+	Dim i As Integer
+	Dim maxShow As Integer
+	maxShow = 7
+	If n < maxShow Then maxShow = n
+	For i = 0 To maxShow - 1
+		Dim p As Object
+		Set p = periods(i)
+		Dim pop As Integer
+		pop = PopValueFromPeriod(p)
+		Dim popStr As String
+		If pop < 0 Then
+			popStr = "—"
+		Else
+			popStr = CStr(pop) & "%"
+		End If
+		If Len(lines) > 0 Then lines = lines & Chr(10)
+		lines = lines & CStr(p("name")) & ": PoP " & popStr
+	Next i
+	outDetail = lines
+End Sub
+
+' --- Open-Meteo JSON → display strings for Now ---------------------------------
+
+Function JsonDailyNum(ByVal v As Variant) As String
+	If IsNull(v) Then
+		JsonDailyNum = "n/a"
+	Else
+		JsonDailyNum = CStr(v)
+	End If
+End Function
+
+Sub ParseOpenMeteoNow(ByVal body As String, ByRef outCurrent As String, ByRef outHourly6 As String, ByRef outDaily7 As String)
+	' Expects JSON from BuildOpenMeteoNowUrl. Uses JsonParse (not string scraping).
+	outCurrent = ""
+	outHourly6 = ""
+	outDaily7 = ""
+	If Len(body) = 0 Then Exit Sub
+	Dim root As Object
+	Set root = JsonParse(body)
+	If root Is Nothing Then Exit Sub
+
+	Dim cur As Object
+	Set cur = root("current")
+	If Not cur Is Nothing Then
+		Dim t As Variant
+		Dim wc As Variant
+		t = cur("temperature_2m")
+		wc = cur("weather_code")
+		outCurrent = CStr(t) & " °C — " & WmoWeatherLabel(CInt(CDbl(wc)))
+	End If
+
+	Dim hourly As Object
+	Set hourly = root("hourly")
+	If Not hourly Is Nothing Then
+		Dim times As Array
+		Dim temps As Array
+		Dim pops As Array
+		times = hourly("time")
+		temps = hourly("temperature_2m")
+		pops = hourly("precipitation_probability")
+		Dim hn As Integer
+		hn = UBound(times) + 1
+		Dim shown As Integer
+		shown = 0
+		Dim h As Integer
+		For h = 0 To hn - 1
+			If shown >= 6 Then Exit For
+			Dim ts As String
+			ts = CStr(times(h))
+			If Len(ts) >= 16 Then ts = Mid(ts, 12, 5)
+			If Len(outHourly6) > 0 Then outHourly6 = outHourly6 & "   "
+			outHourly6 = outHourly6 & ts & " " & CStr(temps(h)) & "°/" & CStr(pops(h)) & "%"
+			shown = shown + 1
+		Next h
+	End If
+
+	Dim daily As Object
+	Set daily = root("daily")
+	If Not daily Is Nothing Then
+		Dim dTimes As Array
+		Dim dMax As Array
+		Dim dMin As Array
+		Dim dPop As Array
+		dTimes = daily("time")
+		dMax = daily("temperature_2m_max")
+		dMin = daily("temperature_2m_min")
+		dPop = daily("precipitation_probability_max")
+		Dim dn As Integer
+		dn = UBound(dTimes) + 1
+		Dim d As Integer
+		Dim dShow As Integer
+		dShow = 0
+		For d = 0 To dn - 1
+			If dShow >= 7 Then Exit For
+			Dim dayLabel As String
+			dayLabel = CStr(dTimes(d))
+			If Len(dayLabel) >= 10 Then dayLabel = Mid(dayLabel, 6, 5)
+			If Len(outDaily7) > 0 Then outDaily7 = outDaily7 & Chr(10)
+			outDaily7 = outDaily7 & dayLabel & "  hi " & JsonDailyNum(dMax(d)) & "°  lo " & JsonDailyNum(dMin(d)) & "°  max precip " & JsonDailyNum(dPop(d)) & "%"
+			dShow = dShow + 1
+		Next d
+	End If
+End Sub
+
+' --- Legacy / debug --------------------------------------------------------------
+
+Function BuildOpenMeteoForecastUrl(ByVal lat As Single, ByVal lon As Single) As String
+	BuildOpenMeteoForecastUrl = BuildOpenMeteoNowUrl(lat, lon)
+End Function
+
 Function JsonNumberAfter(ByVal json As String, ByVal key As String) As String
+	' Tiny string scanner — kept for ad-hoc tests; prefer JsonParse for new code.
 	Dim needle As String
 	needle = """" & key & """:"
 	Dim pos As Integer
@@ -29,44 +360,3 @@ Function JsonNumberAfter(ByVal json As String, ByVal key As String) As String
 	Wend
 	JsonNumberAfter = Trim(buf)
 End Function
-
-Function WmoWeatherLabel(ByVal code As Integer) As String
-	If code = 0 Then
-		WmoWeatherLabel = "Clear"
-	ElseIf code >= 1 And code <= 3 Then
-		WmoWeatherLabel = "Mainly clear / cloudy"
-	ElseIf code = 45 Or code = 48 Then
-		WmoWeatherLabel = "Fog"
-	ElseIf code >= 51 And code <= 67 Then
-		WmoWeatherLabel = "Rain / drizzle"
-	ElseIf code >= 71 And code <= 77 Then
-		WmoWeatherLabel = "Snow"
-	ElseIf code >= 80 And code <= 82 Then
-		WmoWeatherLabel = "Rain showers"
-	ElseIf code >= 95 Then
-		WmoWeatherLabel = "Thunderstorm"
-	Else
-		WmoWeatherLabel = "WMO code " & CStr(code)
-	End If
-End Function
-
-Function BuildOpenMeteoForecastUrl(ByVal lat As Single, ByVal lon As Single) As String
-	BuildOpenMeteoForecastUrl = "https://api.open-meteo.com/v1/forecast?latitude=" & CStr(lat) _
-		& "&longitude=" & CStr(lon) _
-		& "&current=temperature_2m,weather_code,relative_humidity_2m" _
-		& "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max" _
-		& "&timezone=auto"
-End Function
-
-Sub HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
-	Dim http As New VGHttpRequest
-	http.Open "GET", url, False
-	http.Send ""
-	outStatus = http.Status
-	outStatusText = http.StatusText
-	If outStatus = 200 Then
-		outBody = http.ResponseText
-	Else
-		outBody = ""
-	End If
-End Sub

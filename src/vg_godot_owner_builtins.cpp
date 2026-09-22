@@ -283,6 +283,20 @@ bool VGGodotOwnerBuiltins::try_call(VisualGasicInstance *instance, const String 
 			return true;
 		}
 	}
+	if (M("setprocessinput") || M("set_process_input")) {
+		if (p_args.size() >= 1) {
+			r_handled = true;
+			node->set_process_input((bool)p_args[0]);
+			return true;
+		}
+	}
+	if (M("setprocessunhandledinput") || M("set_process_unhandled_input")) {
+		if (p_args.size() >= 1) {
+			r_handled = true;
+			node->set_process_unhandled_input((bool)p_args[0]);
+			return true;
+		}
+	}
 	if (M("emitsignal") || M("emit_signal")) {
 		if (p_args.size() >= 1) {
 			r_handled = true;

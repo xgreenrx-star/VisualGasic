@@ -1,112 +1,693 @@
-' Climatist POC — "Now" screen slice: current temp + 7-day hi/lo from Open-Meteo
+' =============================================================================
+' Main.vg — what you see on screen (Climatist proof-of-concept)
+' =============================================================================
+' This file is the "front desk" of the app. It does not talk to weather servers
+' by itself; it calls helper modules and then draws text with _Draw.
+'
+' Four screens (see activeScreen below):
+'   Now        — today's weather from Open-Meteo + NWS rain periods (US only)
+'   Pattern    — last 30 days vs the 1991–2020 "normal" at this map cell
+'   Discussion — forecaster write-up from your local NWS office (US only)
+'   Settings   — latitude/longitude saved on your machine (user://)
+'
+' Why Pattern loading is split into small steps:
+'   Each HTTP call would freeze the whole Godot window if we did all 30+ requests
+'   at once. Instead, a Timer (InputPoll in Main.tscn) wakes up PatternLoadTick
+'   every quarter-second. You see progress text while downloads run.
+'
+' Bottom bar: five Godot Buttons created in EnsureNavUi (Now / Pattern / Discuss /
+' Settings / Refresh). Keys: 1–4 jump screens; P or Tab cycles; R refreshes.
+'
+' James full spec: scratch/James_Weather_Project.txt
+' Not built yet here: Detail, Record, learning/confidence loops.
+' =============================================================================
 Attribute VB_Name = "ClimatistPocMain"
 
 Import "WeatherApi.vg"
+Import "ClimatistStore.vg"
+Import "PatternApi.vg"
+Import "DiscussionApi.vg"
 
-Const SCREEN_W As Integer = 720
-Const SCREEN_H As Integer = 480
+Const SCREEN_W As Integer = 960
+Const SCREEN_H As Integer = 720
+Const NAV_Y As Integer = 676
+Const NAV_H As Integer = 44
 
-' Default: Berlin-ish coords from Open-Meteo docs (change to test other cities)
+Const SCREEN_NOW As Integer = 0
+Const SCREEN_PATTERN As Integer = 1
+Const SCREEN_DISCUSSION As Integer = 2
+Const SCREEN_SETTINGS As Integer = 3
+
 Dim SiteLat As Single
 Dim SiteLon As Single
 
+Dim activeScreen As Integer
 Dim loadState As String
-Dim headline As String
-Dim detail1 As String
-Dim detail2 As String
-Dim detail3 As String
-Dim rawSnippet As String
+Dim patternLoadState As String
+
+Dim modelLabel As String
+Dim currentLine As String
+Dim hourlyLine As String
+Dim dailyBlock As String
+Dim nwsSummary As String
+Dim nwsDetail As String
+Dim lastError As String
+
+Dim patternTempBlock As String
+Dim patternSoilLine As String
+Dim patternMissingBlock As String
+Dim patternError As String
+Dim patternGridCaption As String
+
+Dim logPreview As String
+
+' --- Pattern load state (see PatternLoadTick) ---------------------------------
+' patternLoadStep: 0=idle, 1=download recent 30 days, 2=one year at a time 1991–2020,
+'                  3=merge JSON into human-readable text (chunked so UI stays alive)
+Dim patternLoadStep As Integer
+Dim patternAwaitFrame As Boolean   ' wait one timer tick so "Pattern" screen paints first
+Dim patternLoadBusy As Boolean     ' true while HttpGet runs (avoids double-fetch)
+Dim patternRecentBody As String
+Dim patternClimTimes()
+Dim patternClimTemps()
+Dim patternClimCount As Integer
+Dim patternClimYear As Integer
+Dim patternClimWaitTicks As Integer
+Dim patternClim429Retries As Integer
+Dim patternRecentStart As String
+Dim patternRecentEnd As String
+Dim patternMdSum As Array          ' running sums for "normal" temp per calendar day (Aug 1, etc.)
+Dim patternMdCnt As Array          ' how many years contributed to each calendar day
+Dim patternMergeIdx As Integer     ' how far step 3 has read through patternClimCount
+Dim patternMergePhase As Integer   ' 0=index days, 1=build final paragraph
+Dim patternLoadPulse As Integer    ' ticks up while loading — animates "Working..." dots
+
+Dim discussionLoadState As String  ' idle | loading | ok | error (same idea as loadState)
+Dim discussionTitle As String
+Dim discussionAfdBody As String
+Dim discussionMissingBlock As String
+Dim discussionError As String
 
 Sub _Ready()
-	SiteLat = 52.52
-	SiteLon = 13.41
+	activeScreen = SCREEN_NOW
 	loadState = "idle"
-	headline = "Climatist POC — Open-Meteo"
+	patternLoadState = "idle"
+	discussionLoadState = "idle"
+	patternGridCaption = PatternApi.GridCellCaption()
+	Call ClimatistStore.LoadSettings(SiteLat, SiteLon)
+	logPreview = ClimatistStore.LogSummaryText()
+	Me.set_process(True)
+	Me.set_process_input(True)
+	Call EnsureNavUi
+	Dim poll As Object
+	Set poll = GetNode("InputPoll")
+	Connect poll, "timeout", "InputPoll_Fire"
 	Call RefreshWeather
 End Sub
 
-Sub _Input(ev As InputEvent)
-	If ev.IsActionPressed("ui_accept") Or ev.IsActionPressed("ui_page_down") Then
+Sub InputPoll_Fire()
+	If patternLoadState = "loading" Then patternLoadPulse = patternLoadPulse + 1
+	Call PatternLoadTick
+	Call PollNavigationInput
+End Sub
+
+Sub EnsureNavUi()
+	' Godot often saves Main.tscn without nav buttons. We create them here so clicks
+	' always work (Connect wires pressed → NavNow_Click, etc.).
+	Dim nav As Object
+	Set nav = Me.get_node_or_null("Nav")
+	If Not nav Is Nothing Then Exit Sub
+
+	Set nav = CreateNode("CanvasLayer")
+	nav.name = "Nav"
+	AddChild nav
+
+	Dim vp As Object
+	Set vp = GetViewportRect()
+	Dim vpW As Integer
+	Dim vpH As Integer
+	vpW = CInt(vp.Size.x)
+	vpH = CInt(vp.Size.y)
+	If vpW < 320 Then vpW = SCREEN_W
+	If vpH < 240 Then vpH = SCREEN_H
+	Dim barH As Integer
+	barH = 44
+	Dim btnW As Integer
+	btnW = vpW \ 5
+	Dim topY As Integer
+	topY = vpH - barH
+
+	Call AttachNavButton(nav, "NavNow", "Now", 0, topY, btnW, barH, "NavNow_Click")
+	Call AttachNavButton(nav, "NavPattern", "Pattern", btnW, topY, btnW, barH, "NavPattern_Click")
+	Call AttachNavButton(nav, "NavDiscuss", "Discuss", btnW * 2, topY, btnW, barH, "NavDiscuss_Click")
+	Call AttachNavButton(nav, "NavSettings", "Settings", btnW * 3, topY, btnW, barH, "NavSettings_Click")
+	Call AttachNavButton(nav, "NavRefresh", "Refresh", btnW * 4, topY, btnW, barH, "NavRefresh_Click")
+End Sub
+
+Sub AttachNavButton(ByVal parent As Object, ByVal nodeName As String, ByVal caption As String, ByVal x As Integer, ByVal y As Integer, ByVal w As Integer, ByVal h As Integer, ByVal handler As String)
+	Dim b As Object
+	Set b = CreateNode("Button")
+	b.name = nodeName
+	b.Caption = caption
+	b.Left = x
+	b.Top = y
+	b.Width = w
+	b.Height = h
+	parent.AddChild b
+	Connect b, "pressed", handler
+End Sub
+
+Sub NavNow_Click()
+	Call GoToScreen(SCREEN_NOW)
+End Sub
+
+Sub NavPattern_Click()
+	activeScreen = SCREEN_PATTERN
+	Call BeginPatternLoad
+End Sub
+
+Sub NavDiscuss_Click()
+	Call GoToScreen(SCREEN_DISCUSSION)
+End Sub
+
+Sub NavSettings_Click()
+	Call GoToScreen(SCREEN_SETTINGS)
+End Sub
+
+Sub NavRefresh_Click()
+	Call RefreshActiveScreen
+End Sub
+
+Sub _Process(delta As Single)
+	Call PollNavigationInput
+End Sub
+
+Sub _Input(ev As Variant)
+	If ev Is InputEventMouseButton Then
+		If ev.pressed And ev.button_index = 1 Then
+			Call HandleNavClick(CInt(ev.position.x), CInt(ev.position.y))
+		End If
+	ElseIf ev Is InputEventKey Then
+		If ev.pressed And Not ev.echo Then
+			Call HandleKeyDown(ev.keycode)
+		End If
+	End If
+End Sub
+
+Sub PollNavigationInput()
+	If IsKeyJustPressed(KEY_P) Or IsActionJustPressed("ui_tab") Or IsActionJustPressed("ui_home") Then
+		Call CycleScreen
+	End If
+	If IsActionJustPressed("ui_cancel") Or IsKeyJustPressed(KEY_ESCAPE) Then
+		If activeScreen = SCREEN_SETTINGS Then
+			activeScreen = SCREEN_NOW
+			QueueRedraw
+		End If
+	End If
+	If IsKeyJustPressed(KEY_R) Or IsActionJustPressed("ui_accept") Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then
+		Call RefreshActiveScreen
+	End If
+	If IsActionJustPressed("ui_page_down") Or IsKeyJustPressed(KEY_PAGEDOWN) Then
+		If activeScreen = SCREEN_SETTINGS Then
+			Call ClimatistStore.ExportLogBackup("user://climatist_fetch_backup.txt")
+			logPreview = ClimatistStore.LogSummaryText() & Chr(10) & "(Backup written: user://climatist_fetch_backup.txt)"
+			QueueRedraw
+		Else
+			Call RefreshActiveScreen
+		End If
+	End If
+	If activeScreen = SCREEN_SETTINGS Then
+		Call SettingsInputActions
+	End If
+End Sub
+
+Sub HandleKeyDown(ByVal keycode As Integer)
+	Select Case keycode
+		Case KEY_1
+			Call GoToScreen(SCREEN_NOW)
+		Case KEY_2
+			Call GoToScreen(SCREEN_PATTERN)
+		Case KEY_3
+			Call GoToScreen(SCREEN_DISCUSSION)
+		Case KEY_4
+			Call GoToScreen(SCREEN_SETTINGS)
+		Case KEY_TAB
+			Call CycleScreen
+		Case KEY_ESCAPE
+			If activeScreen = SCREEN_SETTINGS Then
+				activeScreen = SCREEN_NOW
+				QueueRedraw
+			End If
+		Case KEY_ENTER, KEY_KP_ENTER, KEY_SPACE
+			Call RefreshActiveScreen
+		Case KEY_R
+			Call RefreshActiveScreen
+		Case KEY_P
+			Call CycleScreen
+		Case KEY_LEFT
+			If activeScreen = SCREEN_SETTINGS Then SiteLon = SiteLon - 0.05: QueueRedraw
+		Case KEY_RIGHT
+			If activeScreen = SCREEN_SETTINGS Then SiteLon = SiteLon + 0.05: QueueRedraw
+		Case KEY_UP
+			If activeScreen = SCREEN_SETTINGS Then SiteLat = SiteLat + 0.05: QueueRedraw
+		Case KEY_DOWN
+			If activeScreen = SCREEN_SETTINGS Then SiteLat = SiteLat - 0.05: QueueRedraw
+	End Select
+End Sub
+
+Sub HandleNavClick(ByVal x As Integer, ByVal y As Integer)
+	' Map viewport pixels → logical 960×720 (canvas_items stretch).
+	Dim vp As Object
+	Set vp = GetViewportRect()
+	Dim vpW As Single
+	Dim vpH As Single
+	vpW = vp.Size.x
+	vpH = vp.Size.y
+	If vpW < 1.0 Then vpW = CSng(SCREEN_W)
+	If vpH < 1.0 Then vpH = CSng(SCREEN_H)
+	Dim lx As Integer
+	Dim ly As Integer
+	lx = CInt(CSng(x) * CSng(SCREEN_W) / vpW)
+	ly = CInt(CSng(y) * CSng(SCREEN_H) / vpH)
+	If ly < NAV_Y Then Exit Sub
+	Dim zone As Integer
+	zone = lx * 5 \ SCREEN_W
+	If zone = 0 Then
+		Call GoToScreen(SCREEN_NOW)
+	ElseIf zone = 1 Then
+		Call GoToScreen(SCREEN_PATTERN)
+	ElseIf zone = 2 Then
+		Call GoToScreen(SCREEN_DISCUSSION)
+	ElseIf zone = 3 Then
+		Call GoToScreen(SCREEN_SETTINGS)
+	Else
+		Call RefreshActiveScreen
+	End If
+End Sub
+
+Sub GoToScreen(ByVal screenId As Integer)
+	If screenId <> SCREEN_PATTERN Then patternLoadStep = 0
+	activeScreen = screenId
+	If activeScreen = SCREEN_PATTERN Then
+		Call BeginPatternLoad
+	ElseIf activeScreen = SCREEN_DISCUSSION Then
+		Call RefreshDiscussion
+	Else
+		QueueRedraw
+	End If
+End Sub
+
+Sub RefreshActiveScreen()
+	If activeScreen = SCREEN_SETTINGS Then
+		Call ClimatistStore.SaveSettings(SiteLat, SiteLon)
+		logPreview = ClimatistStore.LogSummaryText()
+		activeScreen = SCREEN_NOW
+		patternLoadState = "idle"
+		Call RefreshWeather
+	ElseIf activeScreen = SCREEN_PATTERN Then
+		Call RefreshPattern
+	ElseIf activeScreen = SCREEN_DISCUSSION Then
+		Call RefreshDiscussion
+	Else
 		Call RefreshWeather
 	End If
 End Sub
 
+Sub CycleScreen()
+	activeScreen = activeScreen + 1
+	If activeScreen > SCREEN_SETTINGS Then activeScreen = SCREEN_NOW
+	If activeScreen = SCREEN_PATTERN And (patternLoadState = "idle" Or patternLoadState = "error") Then
+		Call BeginPatternLoad
+	ElseIf activeScreen = SCREEN_DISCUSSION And (discussionLoadState = "idle" Or discussionLoadState = "error") Then
+		Call RefreshDiscussion
+	Else
+		QueueRedraw
+	End If
+End Sub
+
+Sub SettingsInputActions()
+	Dim step As Single
+	step = 0.05
+	If IsActionJustPressed("ui_left") Then SiteLon = SiteLon - step
+	If IsActionJustPressed("ui_right") Then SiteLon = SiteLon + step
+	If IsActionJustPressed("ui_up") Then SiteLat = SiteLat + step
+	If IsActionJustPressed("ui_down") Then SiteLat = SiteLat - step
+	If IsActionJustPressed("ui_accept") Then
+		Call ClimatistStore.SaveSettings(SiteLat, SiteLon)
+		logPreview = ClimatistStore.LogSummaryText()
+		activeScreen = SCREEN_NOW
+		patternLoadState = "idle"
+		Call RefreshWeather
+	End If
+	If IsActionJustPressed("ui_page_down") Then
+		Call ClimatistStore.ExportLogBackup("user://climatist_fetch_backup.txt")
+		logPreview = ClimatistStore.LogSummaryText() & Chr(10) & "(Backup written: user://climatist_fetch_backup.txt)"
+	End If
+	QueueRedraw
+End Sub
+
 Sub RefreshWeather()
 	loadState = "loading"
-	headline = "Fetching…"
-	detail1 = ""
-	detail2 = ""
-	detail3 = ""
-	rawSnippet = ""
+	lastError = ""
+	modelLabel = WeatherApi.HeadlineModelName(SiteLat, SiteLon)
+	currentLine = ""
+	hourlyLine = ""
+	dailyBlock = ""
+	nwsSummary = ""
+	nwsDetail = ""
 	QueueRedraw
 
-	Dim url As String
-	url = WeatherApi.BuildOpenMeteoForecastUrl(SiteLat, SiteLon)
+	Dim omUrl As String
+	omUrl = WeatherApi.BuildOpenMeteoNowUrl(SiteLat, SiteLon)
+	Dim omStatus As Integer
+	Dim omText As String
+	Dim omBody As String
+	Call WeatherApi.HttpGet(omUrl, omStatus, omText, omBody)
+	Call ClimatistStore.LogFetch("open-meteo", omUrl, omStatus, Len(omBody))
 
-	Dim status As Integer
-	Dim statusText As String
-	Dim body As String
-	Call WeatherApi.HttpGet(url, status, statusText, body)
-
-	If status <> 200 Or Len(body) = 0 Then
+	If omStatus <> 200 Or Len(omBody) = 0 Then
 		loadState = "error"
-		headline = "HTTP " & CStr(status)
-		detail1 = statusText
-		detail2 = url
+		lastError = "Open-Meteo HTTP " & CStr(omStatus) & " — " & omText
 		QueueRedraw
 		Exit Sub
 	End If
 
-	Dim tempStr As String
-	tempStr = WeatherApi.JsonNumberAfter(body, "temperature_2m")
-	Dim codeStr As String
-	codeStr = WeatherApi.JsonNumberAfter(body, "weather_code")
-	Dim humStr As String
-	humStr = WeatherApi.JsonNumberAfter(body, "relative_humidity_2m")
+	Call WeatherApi.ParseOpenMeteoNow(omBody, currentLine, hourlyLine, dailyBlock)
+	If Len(hourlyLine) = 0 Then hourlyLine = "(no hourly series parsed)"
+	If Len(dailyBlock) = 0 Then dailyBlock = "(no daily series parsed)"
 
-	Dim wcode As Integer
-	wcode = 0
-	If Len(codeStr) > 0 Then wcode = CInt(CDbl(codeStr))
-
-	Dim tmax0 As String
-	tmax0 = WeatherApi.JsonNumberAfter(body, "temperature_2m_max")
-	Dim tmin0 As String
-	tmin0 = WeatherApi.JsonNumberAfter(body, "temperature_2m_min")
-	Dim pop0 As String
-	pop0 = WeatherApi.JsonNumberAfter(body, "precipitation_probability_max")
+	Dim nwsStatus As Integer
+	Call WeatherApi.FetchNwsTwelveHourRain(SiteLat, SiteLon, nwsStatus, nwsSummary, nwsDetail)
+	Call ClimatistStore.LogFetch("nws", "api.weather.gov", nwsStatus, Len(nwsDetail))
 
 	loadState = "ok"
-	headline = "Now — " & CStr(SiteLat) & ", " & CStr(SiteLon)
-	If Len(tempStr) > 0 Then
-		detail1 = "Current: " & tempStr & " °C — " & WeatherApi.WmoWeatherLabel(wcode)
-	Else
-		detail1 = "Current: (could not parse temperature_2m)"
-	End If
-	If Len(humStr) > 0 Then
-		detail2 = "Relative humidity: " & humStr & "%"
-	Else
-		detail2 = ""
-	End If
-	detail3 = "Today daily max/min: " & tmax0 & " / " & tmin0 & " °C — max precip chance " & pop0 & "%"
-	rawSnippet = Left(body, 180)
-	If Len(body) > 180 Then rawSnippet = rawSnippet & "…"
+	logPreview = ClimatistStore.LogSummaryText()
 	QueueRedraw
 End Sub
 
-Sub _Draw()
-	DrawRect Rect2(0, 0, SCREEN_W, SCREEN_H), Color8(18, 22, 30), True
-	DrawString headline, 20, 28, Color8(200, 220, 255), 22
-	DrawString "Source: Open-Meteo (direct GET, no proxy)", 20, 58, Color8(120, 130, 150), 13
-	If loadState = "loading" Then
-		DrawString "Loading…", 20, 100, Color8(255, 220, 120), 16
-	ElseIf loadState = "error" Then
-		DrawString detail1, 20, 100, Color8(255, 140, 140), 16
-		DrawString detail2, 20, 128, Color8(180, 180, 180), 12
-	Else
-		DrawString detail1, 20, 100, Color8(230, 240, 250), 17
-		If Len(detail2) > 0 Then DrawString detail2, 20, 132, Color8(200, 210, 220), 15
-		DrawString detail3, 20, 164, Color8(180, 200, 220), 14
-		DrawString rawSnippet, 20, 210, Color8(100, 110, 125), 11
+Sub BeginPatternLoad()
+	' Start (or restart) the whole Pattern pipeline. Safe to call every time user taps Pattern.
+	patternLoadState = "loading"
+	patternLoadStep = 0
+	patternAwaitFrame = True
+	patternLoadBusy = False
+	patternRecentBody = ""
+	patternClimYear = PatternApi.ClimStartYear()
+	patternClimCount = 0
+	patternClimWaitTicks = 0
+	patternClim429Retries = 0
+	patternMergeIdx = 0
+	patternMergePhase = 0
+	patternLoadPulse = 0
+	Call PatternApi.ResetMdTempBuckets(patternMdSum, patternMdCnt)
+	patternRecentStart = ""
+	patternRecentEnd = ""
+	patternError = ""
+	patternTempBlock = ""
+	patternSoilLine = ""
+	Call PatternApi.MissingSourcesBlock(patternMissingBlock)
+	QueueRedraw
+End Sub
+
+Sub RefreshPattern()
+	Call BeginPatternLoad
+End Sub
+
+Sub PatternLoadTick()
+	' Called from InputPoll timer — one bite of work per call, not a big loop.
+	If patternLoadBusy Then Exit Sub
+	If patternAwaitFrame Then
+		patternAwaitFrame = False
+		patternLoadStep = 1
+		QueueRedraw
+		Exit Sub
 	End If
-	DrawString "Enter / PageDown — refresh   (full Climatist: scratch/James_Weather_Project.txt)", 20, SCREEN_H - 32, Color8(90, 100, 115), 11
+	If patternLoadStep = 0 Then Exit Sub
+
+	If patternLoadStep = 1 Then
+		Call PatternApi.RecentWindowDates(patternRecentStart, patternRecentEnd)
+		Dim url As String
+		url = PatternApi.BuildArchiveDailyUrl(SiteLat, SiteLon, patternRecentStart, patternRecentEnd)
+		Dim st As Integer
+		Dim stText As String
+		patternLoadBusy = True
+		Call WeatherApi.HttpGet(url, st, stText, patternRecentBody)
+		patternLoadBusy = False
+		Call ClimatistStore.LogFetch("pattern-archive-recent", url, st, Len(patternRecentBody))
+		If st <> 200 Or Len(patternRecentBody) = 0 Then
+			patternLoadState = "error"
+			patternError = "Open-Meteo archive (recent) HTTP " & CStr(st) & " — " & stText
+			patternLoadStep = 0
+			QueueRedraw
+			Exit Sub
+		End If
+		patternLoadStep = 2
+		patternClimYear = PatternApi.ClimStartYear()
+		QueueRedraw
+		Exit Sub
+	End If
+
+	' Step 2: download the same calendar window (e.g. Aug 1–Aug 30) for each year 1991…2020.
+	' We pause between years so Open-Meteo does not return HTTP 429 (too many requests).
+	If patternLoadStep = 2 Then
+		If patternClimYear > PatternApi.ClimEndYear() Then
+			patternLoadStep = 3
+			QueueRedraw
+			Exit Sub
+		End If
+		If patternClimWaitTicks > 0 Then
+			patternClimWaitTicks = patternClimWaitTicks - 1
+			QueueRedraw
+			Exit Sub
+		End If
+		Dim yStart As String
+		Dim yEnd As String
+		Call PatternApi.ClimYearWindowDates(patternClimYear, patternRecentStart, patternRecentEnd, yStart, yEnd)
+		Dim url2 As String
+		url2 = PatternApi.BuildArchiveTempOnlyUrl(SiteLat, SiteLon, yStart, yEnd)
+		Dim st2 As Integer
+		Dim stText2 As String
+		Dim yBody As String
+		patternLoadBusy = True
+		Call WeatherApi.HttpGet(url2, st2, stText2, yBody)
+		patternLoadBusy = False
+		Call ClimatistStore.LogFetch("pattern-archive-clim-" & CStr(patternClimYear), url2, st2, Len(yBody))
+		If st2 = 429 Or st2 = 0 Then
+			If patternClim429Retries < 5 Then
+				patternClim429Retries = patternClim429Retries + 1
+				patternClimWaitTicks = 40
+				QueueRedraw
+				Exit Sub
+			End If
+		End If
+		If st2 <> 200 Or Len(yBody) = 0 Then
+			patternLoadState = "error"
+			patternError = "Open-Meteo archive (year " & CStr(patternClimYear) & ") HTTP " & CStr(st2) & " — " & stText2 _
+				& " (429 = rate limit; wait and tap Pattern again)"
+			patternLoadStep = 0
+			QueueRedraw
+			Exit Sub
+		End If
+		patternClim429Retries = 0
+		Call PatternApi.AppendDailyTempSeries(yBody, patternClimTimes, patternClimTemps, patternClimCount)
+		patternClimYear = patternClimYear + 1
+		patternClimWaitTicks = 24
+		QueueRedraw
+		Exit Sub
+	End If
+
+	' Step 3: turn thousands of daily numbers into one "departure from normal" summary.
+	' Phase 0 walks climate days in chunks (progress % on screen). Phase 1 writes text.
+	If patternLoadStep = 3 Then
+		If patternMergePhase = 0 Then
+			Call PatternApi.AccumulateMdTempBucketsChunk(patternClimTimes, patternClimTemps, patternClimCount, patternMergeIdx, 80, patternMdSum, patternMdCnt)
+			patternLoadPulse = patternLoadPulse + 1
+			If patternMergeIdx >= patternClimCount Then patternMergePhase = 1
+			QueueRedraw
+			Exit Sub
+		End If
+		Call PatternApi.FinishPatternFromRecentBodyAndBuckets(patternRecentBody, patternMdSum, patternMdCnt, patternClimTimes, patternClimCount, False, patternTempBlock, patternSoilLine)
+		If Len(patternTempBlock) = 0 Then
+			patternLoadState = "error"
+			patternError = "Could not parse archive JSON for Pattern"
+		Else
+			patternLoadState = "ok"
+		End If
+		patternLoadStep = 0
+		patternMergePhase = 0
+		patternMergeIdx = 0
+		logPreview = ClimatistStore.LogSummaryText()
+		QueueRedraw
+	End If
+End Sub
+
+Sub RefreshDiscussion()
+	' Pull latest Area Forecast Discussion (AFD) from api.weather.gov for this lat/lon.
+	discussionLoadState = "loading"
+	discussionTitle = ""
+	discussionAfdBody = ""
+	discussionError = ""
+	Call DiscussionApi.MissingSourcesBlock(discussionMissingBlock)
+	QueueRedraw
+
+	Dim st As Integer
+	Call DiscussionApi.FetchLocalNwsAfd(SiteLat, SiteLon, st, discussionTitle, discussionAfdBody, discussionError)
+	Call ClimatistStore.LogFetch("nws-afd", "api.weather.gov AFD", st, Len(discussionAfdBody))
+	If Len(discussionError) > 0 Then
+		discussionLoadState = "error"
+	Else
+		discussionLoadState = "ok"
+	End If
+	logPreview = ClimatistStore.LogSummaryText()
+	QueueRedraw
+End Sub
+
+Sub DrawWrapped(ByVal text As String, ByVal x As Integer, ByVal y As Integer, ByVal maxW As Integer, ByVal lineH As Integer, ByVal col As Color, ByVal fontSize As Integer)
+	Dim lines As Variant
+	lines = Split(text, Chr(10))
+	Dim i As Integer
+	Dim n As Integer
+	n = UBound(lines) + 1
+	For i = 0 To n - 1
+		DrawString CStr(lines(i)), x, y + i * lineH, col, fontSize
+	Next i
+End Sub
+
+Sub _Draw()
+	DrawRect Rect2(0, 0, SCREEN_W, SCREEN_H), Color8(16, 20, 28), True
+	If activeScreen = SCREEN_SETTINGS Then
+		Call DrawSettings
+	ElseIf activeScreen = SCREEN_PATTERN Then
+		Call DrawPattern
+	ElseIf activeScreen = SCREEN_DISCUSSION Then
+		Call DrawDiscussion
+	Else
+		Call DrawNow
+	End If
+	Call DrawNavBar
+End Sub
+
+Sub DrawNavBar()
+	' Godot Buttons on CanvasLayer handle clicks; this line marks the content/nav split.
+	DrawLine 0, NAV_Y, SCREEN_W, NAV_Y, Color8(50, 58, 72), 1.0
+End Sub
+
+Sub DrawNow()
+	DrawString "Climatist POC — Now (Tab → Pattern)", 24, 24, Color8(200, 220, 255), 24
+	DrawString "Bottom row: Godot Now / Pattern / Settings / Refresh buttons", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
+
+	If loadState = "loading" Then
+		DrawString "Loading…", 24, 110, Color8(255, 220, 120), 18
+		Exit Sub
+	End If
+	If loadState = "error" Then
+		DrawString lastError, 24, 110, Color8(255, 140, 140), 15
+		Exit Sub
+	End If
+
+	DrawString "Headline temperature source:", 24, 108, Color8(130, 140, 160), 12
+	DrawString modelLabel, 24, 128, Color8(180, 200, 230), 13
+	DrawString "Current (2 m): " & currentLine, 24, 158, Color8(235, 240, 250), 17
+
+	DrawString "Next ~6 hours — Open-Meteo hourly temp / hourly precip % (not NWS 12 h):", 24, 198, Color8(130, 140, 160), 12
+	DrawString hourlyLine, 24, 218, Color8(210, 220, 235), 13
+
+	DrawString "Seven-day strip — daily max/min °C and max daily precip probability %:", 24, 258, Color8(130, 140, 160), 12
+	Call DrawWrapped(dailyBlock, 24, 278, SCREEN_W - 48, 18, Color8(200, 210, 225), 13)
+
+	DrawString nwsSummary, 24, 420, Color8(170, 190, 210), 13
+	Call DrawWrapped(nwsDetail, 24, 442, SCREEN_W - 48, 16, Color8(190, 200, 215), 12)
+
+	DrawString Left(logPreview, 900), 24, SCREEN_H - 88, Color8(90, 100, 115), 10
+End Sub
+
+Sub DrawPattern()
+	DrawString "Climatist POC — Pattern", 24, 24, Color8(200, 220, 255), 24
+	DrawString "P / Tab — next screen   R / Enter — refresh (2 archive requests)", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
+	DrawString patternGridCaption, 24, 94, Color8(120, 130, 150), 11
+
+	If patternLoadState = "loading" Then
+		If patternLoadStep <= 1 Then
+			DrawString "Step 1/3: recent 30-day archive…", 24, 120, Color8(255, 220, 120), 16
+		ElseIf patternLoadStep = 2 Then
+			Dim yrDone As Integer
+			yrDone = patternClimYear - PatternApi.ClimStartYear()
+			DrawString "Step 2/3: climatology year " & CStr(patternClimYear) & " (" & CStr(yrDone) & "/" & CStr(PatternApi.ClimYearCount()) & ")…", 24, 120, Color8(255, 220, 120), 15
+		ElseIf patternMergePhase = 0 Then
+			Dim pct As Integer
+			If patternClimCount > 0 Then
+				pct = (patternMergeIdx * 100) \ patternClimCount
+			Else
+				pct = 0
+			End If
+			DrawString "Step 3/3: indexing climate days " & CStr(pct) & "% (" & CStr(patternMergeIdx) & "/" & CStr(patternClimCount) & ")…", 24, 120, Color8(255, 220, 120), 14
+		Else
+			DrawString "Step 3/3: writing Pattern summary…", 24, 120, Color8(255, 220, 120), 16
+		End If
+		Dim dots As String
+		dots = "…"
+		If (patternLoadPulse Mod 3) = 0 Then dots = "."
+		If (patternLoadPulse Mod 3) = 1 Then dots = ".."
+		DrawString "Working" & dots & "  (timer keeps ticking while this runs)", 24, 150, Color8(140, 150, 170), 12
+		Exit Sub
+	End If
+	If patternLoadState = "error" Then
+		DrawString patternError, 24, 120, Color8(255, 140, 140), 15
+		Exit Sub
+	End If
+	If patternLoadState = "idle" Then
+		DrawString "Press Enter to load Pattern data.", 24, 120, Color8(180, 190, 210), 15
+		Exit Sub
+	End If
+
+	DrawString "Temperature vs 1991–2020 normal (ERA5 daily mean at grid cell):", 24, 118, Color8(130, 140, 160), 12
+	Call DrawWrapped(patternTempBlock, 24, 138, SCREEN_W - 48, 16, Color8(210, 220, 235), 13)
+
+	DrawString "Soil moisture (7–28 cm layer):", 24, 248, Color8(130, 140, 160), 12
+	Call DrawWrapped(patternSoilLine, 24, 268, SCREEN_W - 48, 16, Color8(200, 215, 230), 13)
+
+	DrawString "Sources not yet connected (shown as missing):", 24, 360, Color8(130, 140, 160), 12
+	Call DrawWrapped(patternMissingBlock, 24, 380, SCREEN_W - 48, 14, Color8(170, 175, 190), 12)
+
+	DrawString Left(logPreview, 900), 24, SCREEN_H - 88, Color8(90, 100, 115), 10
+End Sub
+
+Sub DrawDiscussion()
+	DrawString "Climatist POC — Discussion", 24, 24, Color8(200, 220, 255), 24
+	DrawString "3 = here   P / Tab — cycle screens   R / Enter — refresh AFD", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
+
+	If discussionLoadState = "loading" Then
+		DrawString "Loading NWS Area Forecast Discussion…", 24, 120, Color8(255, 220, 120), 16
+		Exit Sub
+	End If
+	If discussionLoadState = "error" Then
+		DrawString discussionError, 24, 120, Color8(255, 140, 140), 14
+		Exit Sub
+	End If
+
+	DrawString discussionTitle, 24, 110, Color8(180, 200, 230), 14
+	Call DrawWrapped(Left(discussionAfdBody, 12000), 24, 132, SCREEN_W - 48, 14, Color8(200, 210, 225), 12)
+
+	DrawString "Other discussion products (not wired):", 24, 520, Color8(130, 140, 160), 12
+	Call DrawWrapped(discussionMissingBlock, 24, 540, SCREEN_W - 48, 14, Color8(170, 175, 190), 12)
+	DrawString Left(logPreview, 900), 24, SCREEN_H - 88, Color8(90, 100, 115), 10
+End Sub
+
+Sub DrawSettings()
+	DrawString "Settings", 24, 24, Color8(200, 220, 255), 24
+	DrawString "Tab — cycle screens   Enter — save & refresh Now   Esc — back to Now", 24, 54, Color8(110, 120, 140), 12
+	DrawString "PageDown — export fetch log backup to user://climatist_fetch_backup.txt", 24, 74, Color8(110, 120, 140), 12
+
+	DrawString "Latitude:  " & CStr(SiteLat), 24, 120, Color8(230, 235, 245), 18
+	DrawString "Longitude: " & CStr(SiteLon), 24, 152, Color8(230, 235, 245), 18
+
+	DrawString "Defaults: NYC (40.7128, -74.006). Stored at user://climatist_settings.json", 24, 200, Color8(140, 150, 170), 13
+	DrawString "All fetches go direct to Open-Meteo / NWS (no proxy). NWS requires CONUS.", 24, 224, Color8(140, 150, 170), 13
+	DrawString "Pattern: 30 small archive requests (one per climatology year), not one 30-year blob.", 24, 248, Color8(140, 150, 170), 13
+	DrawString "HTML5: browser may block custom User-Agent; NWS can fail on web — desktop is reference.", 24, 272, Color8(140, 150, 170), 13
+
+	Call DrawWrapped(logPreview, 24, 320, SCREEN_W - 48, 14, Color8(100, 110, 125), 11)
 End Sub

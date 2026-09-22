@@ -1,0 +1,40 @@
+' Quick automated test: Pattern math only, no internet.
+' Run from repo root: scripts/run_climatist_headless.sh
+' Expect one line: PASS: climatist_pattern_parse
+Attribute VB_Name = "ClimatistTestPatternParse"
+
+Import "PatternApi.vg"
+
+Sub _Ready()
+	Dim recent As String
+	recent = "{""daily"":{""time"":[""2025-08-01"",""2025-08-02""],""temperature_2m_mean"":[20.0,22.0],""soil_moisture_7_to_28cm_mean"":[0.3,0.31]}}"
+
+	Dim climTimes()
+	Dim climTemps()
+	Dim cn As Integer
+	cn = 0
+
+	Dim yBody As String
+	yBody = "{""daily"":{""time"":[""1991-08-01"",""1991-08-02""],""temperature_2m_mean"":[18.0,19.0]}}"
+	Call PatternApi.AppendDailyTempSeries(yBody, climTimes, climTemps, cn)
+	yBody = "{""daily"":{""time"":[""1992-08-01""],""temperature_2m_mean"":[17.0]}}"
+	Call PatternApi.AppendDailyTempSeries(yBody, climTimes, climTemps, cn)
+
+	Dim tb As String
+	Dim sl As String
+	Call PatternApi.ParsePatternFromAccumulatedClim(recent, climTimes, climTemps, cn, False, tb, sl)
+
+	If cn <> 3 Then
+		Print "FAIL: climatist_pattern_parse: cn=" & CStr(cn)
+		Exit Sub
+	End If
+	If Len(tb) = 0 Or InStr(tb, "Departure") = 0 Then
+		Print "FAIL: climatist_pattern_parse: missing temp block"
+		Exit Sub
+	End If
+	If Len(sl) = 0 Or InStr(sl, "Soil moisture") = 0 Then
+		Print "FAIL: climatist_pattern_parse: missing soil line"
+		Exit Sub
+	End If
+	Print "PASS: climatist_pattern_parse"
+End Sub

@@ -55,6 +55,18 @@ Random / input:
   Rnd()                       ' returns 0..1 ; Randomize to seed
   Input.IsKeyPressed(KEY_W)   ' KEY_W KEY_S KEY_UP KEY_DOWN KEY_LEFT
                               ' KEY_RIGHT KEY_SPACE KEY_ESCAPE etc.
+  Input.IsActionJustPressed(\"ui_accept\")  ' project Input Map actions
+  Input.IsKeyJustPressed(KEY_P)             ' edge-trigger; use in _Process
+Canvas / Node2D games (no Form controls):
+  * Poll navigation in Sub _Process(delta) with IsActionJustPressed /
+    IsKeyJustPressed — reliable when Godot editor embeds the game view
+    (Tab/Enter often go to editor chrome, not _UnhandledInput).
+  * Do NOT use ev.IsActionPressed(\"ui_tab\") on InputEvent — that is not
+    wired like Input.IsActionJustPressed; use Input.* or IsKeyJustPressed.
+  * _UnhandledInput / _Input: ev As Variant, then `If ev Is InputEventKey`.
+    Reference: samples/showcases/vg_beta_showcase/tour.vg, calculator/calc.vg.
+  * Climatist POC pattern: P / Tab cycle screens, R / Enter refresh;
+    Me.set_process(True) in _Ready. See samples/apps/climatist_poc/Main.vg.
 Event handlers auto-wire by name: Sub btnOK_Click(), Sub Timer1_Timer(),
 Sub Form_Load(), Sub Form_KeyDown(KeyCode As Integer, Shift As Integer).
 Manual wiring: Connect sourceNode, "signal_name", handler [, boundArgs...]
@@ -807,6 +819,8 @@ context; a plain Node script never receives NOTIFICATION_DRAW (blank/gray window
 Godot Integration skips auto-VGASIC on canvas roots when the script uses _Draw.
 Legacy scenes may migrate the script onto the root — see visual_gasic_plugin.gd.
 Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
+Keyboard: poll in _Process; letter keys (P/R) when Tab/Enter are eaten by editor.
+Full app sample: samples/apps/climatist_poc/ (Now + Pattern + Discussion + Settings; not web_hello).
 
 === HTTP / HTTPS (VGHttpRequest, Http.Get) ===
 Sync GET from game code:
@@ -819,6 +833,19 @@ Port 443 uses TLS in the engine — do not add a manual Host: header (Godot sets
 Poll until has_response() before reading body/chunks (engine handles this).
 Async: Async Function … Await Http.Get(\"https://…\") End Function (see ASYNC block).
 HTML5 WASM export: samples/apps/web_hello/ proves Open-Meteo over HTTPS.
+  Serve with scripts/serve_web_export.py (COOP/COEP headers) — not plain
+  python -m http.server. Rebuild WASM after C++ changes; browser refresh alone
+  does NOT recompile .vg — export again with vg_make_web_export.sh.
+  web_hello ≠ climatist_poc: James weather POC runs from
+  samples/apps/climatist_poc/project.godot (F5), not the web_hello URL.
+Open-Meteo forecast model ids (2026): CONUS headline uses models=ncep_hrrr_conus
+  (legacy hrrr_conus → HTTP 400). Beyond CONUS: models=ecmwf_ifs.
+  Pattern archive: archive-api.open-meteo.com — one HTTP request per clim year (1991–2020),
+  merged in Main.vg PatternLoadTick (InputPoll timer ~0.25s; step 3 shows % progress).
+  Discussion: NWS AFD via DiscussionApi.vg (CONUS); CPC discussions labeled missing.
+  NWS api.weather.gov requires User-Agent (WeatherApi.NwsUserAgent); may fail HTML5.
+  Reference: WeatherApi.vg, PatternApi.vg, DiscussionApi.vg, Main.vg (novice comments).
+  Headless offline test: scripts/run_climatist_headless.sh → test_pattern_parse.vg.
 
 === VG runtime namespaces (2D / 3D game scripts) ===
 These work inside .vg scripts attached to Node2D / Node3D scenes.
@@ -1135,6 +1162,10 @@ In-workspace learning material (always cite by path when relevant):
   corpus/01-10_*/          — basics, control flow, strings, arrays,
                              dicts, classes, file I/O, math, state machines
   samples/demos/           — runnable demo projects for each plugin
+  samples/apps/web_hello/  — HTML5 export smoke (Open-Meteo GET, canvas _Draw)
+  samples/apps/climatist_poc/ — James weather POC (Now, Pattern, Discussion, Settings;
+                             Pattern load split across InputPoll; ClimatistStore user://;
+                             scratch/James_Weather_Project.txt; README for keys 1–4)
   addons/visual_gasic/plugins/working_nodes/WORKING_NODES_MANUAL.md
 
 === Form-spec output (Build-form button) ===
@@ -1529,6 +1560,8 @@ const SLIM_KNOWLEDGE := """
 - AI-written .vg must be auditable: `'` header, comment before each Sub, brief notes on state/logic.
 - Canvas games: attach .vg to Node2D/Node3D root — not nested VGASIC Node — for _Draw/QueueRedraw.
 - HTTPS: VGHttpRequest.Get / Http.Get use TLS on 443; no manual Host header. See samples/apps/web_hello/.
+- Canvas input: poll _Process with Input.IsActionJustPressed / IsKeyJustPressed; not ev.IsActionPressed on InputEvent. climatist: bottom Godot nav buttons (EnsureNavUi); P/Tab cycle 4 screens; Pattern uses timer PatternLoadTick not blocking _Process.
+- web_hello (browser) ≠ climatist_poc (Godot F5). Open-Meteo CONUS: models=ncep_hrrr_conus not hrrr_conus. Pattern HTTP 429: rate limit — Main.vg waits between years.
 - Canvas _Draw games with *Sprite: Data blocks — cache DataToArray in _Ready; draw from cached
   Variant arrays; QueueRedraw only when visuals change (not every _Process frame).
 - VGVectorCanvas2D: queue Draw* from _Process; cache static layers (cave) on room load;

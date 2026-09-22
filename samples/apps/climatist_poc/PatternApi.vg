@@ -1,0 +1,447 @@
+' =============================================================================
+' PatternApi.vg — math + URLs for the Pattern screen
+' =============================================================================
+' Plain English: we compare "how warm the last 30 days were" to "what those same
+' calendar days usually look like across 1991–2020" at this map square (~25 km).
+'
+' Data comes from Open-Meteo archive-api (ERA5 reanalysis). Main.vg downloads
+' JSON; this file parses it and builds the text blocks you read on screen.
+'
+' Still missing on purpose (listed on screen, not faked):
+'   US Drought Monitor, CPC outlook maps, ECMWF ensemble terciles — need other APIs.
+'
+' Key idea for "normal" temperature:
+'   For each day in the recent window (e.g. 2025-08-15), we average every
+'   1991-08-15, 1992-08-15, … 2020-08-15 from the downloaded archive. That is
+'   the normal for that calendar day. We bucket by month-day in mdSum/mdCnt arrays
+'   so we do not scan the whole history once per day (that was painfully slow).
+' =============================================================================
+Attribute VB_Name = "PatternApi"
+
+Import "WeatherApi.vg"
+Import "ClimatistStore.vg"
+
+Private Const CLIM_START_YEAR As Integer = 1991
+Private Const CLIM_END_YEAR As Integer = 2020
+Private Const PATTERN_DAYS As Integer = 30
+
+Function ClimStartYear() As Integer
+	ClimStartYear = CLIM_START_YEAR
+End Function
+
+Function ClimEndYear() As Integer
+	ClimEndYear = CLIM_END_YEAR
+End Function
+
+Function ClimYearCount() As Integer
+	ClimYearCount = CLIM_END_YEAR - CLIM_START_YEAR + 1
+End Function
+
+Function GridCellCaption() As String
+	GridCellCaption = "Open-Meteo ERA5 ~0.25° grid cell (~25 km); point sample at lat/lon"
+End Function
+
+Function BuildArchiveDailyUrl(ByVal lat As Single, ByVal lon As Single, ByVal startDate As String, ByVal endDate As String) As String
+	BuildArchiveDailyUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=" & CStr(lat) _
+		& "&longitude=" & CStr(lon) _
+		& "&start_date=" & startDate _
+		& "&end_date=" & endDate _
+		& "&daily=temperature_2m_mean,soil_moisture_7_to_28cm_mean" _
+		& "&timezone=auto"
+End Function
+
+Function BuildArchiveTempOnlyUrl(ByVal lat As Single, ByVal lon As Single, ByVal startDate As String, ByVal endDate As String) As String
+	' Same as BuildArchiveDailyUrl but temperature only — smaller download per year.
+	BuildArchiveTempOnlyUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=" & CStr(lat) _
+		& "&longitude=" & CStr(lon) _
+		& "&start_date=" & startDate _
+		& "&end_date=" & endDate _
+		& "&daily=temperature_2m_mean" _
+		& "&timezone=auto"
+End Function
+
+Sub RecentWindowDates(ByRef outStart As String, ByRef outEnd As String)
+	Dim endD As Variant
+	endD = Date()
+	Dim startD As Variant
+	startD = DateAdd("d", -(PATTERN_DAYS - 1), endD)
+	outEnd = Format(endD, "yyyy-mm-dd")
+	outStart = Format(startD, "yyyy-mm-dd")
+End Sub
+
+Sub ClimatologyWindowDates(ByVal recentStart As String, ByVal recentEnd As String, ByRef outStart As String, ByRef outEnd As String)
+	' Same calendar month-day each year, stacked 1991–2020 (ERA5 via Open-Meteo archive).
+	outStart = CStr(CLIM_START_YEAR) & Mid(recentStart, 5)
+	outEnd = CStr(CLIM_END_YEAR) & Mid(recentEnd, 5)
+End Sub
+
+Sub ClimYearWindowDates(ByVal year As Integer, ByVal recentStart As String, ByVal recentEnd As String, ByRef outStart As String, ByRef outEnd As String)
+	outStart = CStr(year) & Mid(recentStart, 5)
+	outEnd = CStr(year) & Mid(recentEnd, 5)
+End Sub
+
+Function MeanArray(ByVal arr As Array, ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	s = 0.0
+	If n <= 0 Then
+		MeanArray = 0.0
+		Exit Function
+	End If
+	For i = 0 To n - 1
+		s = s + CSng(CDbl(arr(i)))
+	Next i
+	MeanArray = s / CSng(n)
+End Function
+
+Function MonthDayKey(ByVal isoDate As String) As Integer
+	' Map yyyy-mm-dd → bucket key for month-day (Aug 22 → 8*32+22).
+	Dim md As String
+	md = Mid(isoDate, 6)
+	MonthDayKey = CInt(CDbl(Val(Mid(md, 1, 2))) * 32 + CDbl(Val(Mid(md, 4, 2))))
+End Function
+
+Function SoilWindowStats(ByVal climTimes As Array, ByVal climSoil As Array, ByVal climN As Integer, ByVal recentTimes As Array, ByVal recentN As Integer, ByVal recentSoilMean As Single, ByRef outClimMean As Single, ByRef outPercentile As Integer, ByRef outSampleN As Integer) As Boolean
+	' Percentile of recent window soil mean vs all same-calendar-day soil samples in clim series.
+	Dim bucket(400) As Integer
+	Dim b As Integer
+	For b = 0 To 400
+		bucket(b) = 0
+	Next b
+	Dim r As Integer
+	For r = 0 To recentN - 1
+		Dim key As Integer
+		key = MonthDayKey(CStr(recentTimes(r)))
+		If key >= 0 And key <= 400 Then bucket(key) = 1
+	Next r
+
+	Dim sumClim As Single
+	Dim cnt As Integer
+	Dim below As Integer
+	sumClim = 0.0
+	cnt = 0
+	below = 0
+	Dim j As Integer
+	For j = 0 To climN - 1
+		key = MonthDayKey(CStr(climTimes(j)))
+		If key >= 0 And key <= 400 Then
+			If bucket(key) = 1 Then
+				Dim v As Single
+				v = CSng(CDbl(climSoil(j)))
+				sumClim = sumClim + v
+				cnt = cnt + 1
+				If v < recentSoilMean Then below = below + 1
+			End If
+		End If
+	Next j
+	outSampleN = cnt
+	If cnt = 0 Then
+		outClimMean = 0.0
+		outPercentile = -1
+		SoilWindowStats = False
+	Else
+		outClimMean = sumClim / CSng(cnt)
+		outPercentile = CInt((CSng(below) / CSng(cnt)) * 100.0 + 0.5)
+		SoilWindowStats = True
+	End If
+End Function
+
+Function NormalForMonthDay(ByVal climTimes As Array, ByVal climTemps As Array, ByVal climN As Integer, ByVal monthDay As String) As Single
+	Dim s As Single
+	Dim c As Integer
+	s = 0.0
+	c = 0
+	Dim j As Integer
+	For j = 0 To climN - 1
+		If Mid(CStr(climTimes(j)), 6) = monthDay Then
+			s = s + CSng(CDbl(climTemps(j)))
+			c = c + 1
+		End If
+	Next j
+	If c = 0 Then
+		NormalForMonthDay = 0.0
+	Else
+		NormalForMonthDay = s / CSng(c)
+	End If
+End Function
+
+' Clear the month-day buckets before step 3 merge (see Main.vg patternMergePhase).
+Sub ResetMdTempBuckets(ByRef mdSum As Array, ByRef mdCnt As Array)
+	ReDim mdSum(400)
+	ReDim mdCnt(400)
+	Dim b As Integer
+	For b = 0 To 400
+		mdSum(b) = 0.0
+		mdCnt(b) = 0
+	Next b
+End Sub
+
+' Add the next chunk of climate days into mdSum/mdCnt (called many times from Main step 3).
+Sub AccumulateMdTempBucketsChunk(ByVal climTimes As Array, ByVal climTemps As Array, ByVal climN As Integer, ByRef startIdx As Integer, ByVal chunkSize As Integer, ByRef mdSum As Array, ByRef mdCnt As Array)
+	If chunkSize <= 0 Then Exit Sub
+	Dim endIdx As Integer
+	endIdx = startIdx + chunkSize
+	If endIdx > climN Then endIdx = climN
+	Dim j As Integer
+	For j = startIdx To endIdx - 1
+		Dim key As Integer
+		key = MonthDayKey(CStr(climTimes(j)))
+		If key >= 0 And key <= 400 Then
+			mdSum(key) = mdSum(key) + CSng(CDbl(climTemps(j)))
+			mdCnt(key) = mdCnt(key) + 1
+		End If
+	Next j
+	startIdx = endIdx
+End Sub
+
+Function MeanTempForMonthDayKey(ByVal key As Integer, ByVal mdSum As Array, ByVal mdCnt As Array) As Single
+	If key < 0 Or key > 400 Then
+		MeanTempForMonthDayKey = 0.0
+		Exit Function
+	End If
+	If mdCnt(key) <= 0 Then
+		MeanTempForMonthDayKey = 0.0
+	Else
+		MeanTempForMonthDayKey = mdSum(key) / CSng(mdCnt(key))
+	End If
+End Function
+
+' Parse one year of archive JSON and append daily time + temp arrays (grow with ReDim).
+Sub AppendDailyTempSeries(ByVal climBody As String, ByRef cTimes As Array, ByRef cTemps As Array, ByRef cn As Integer)
+	If Len(climBody) = 0 Then Exit Sub
+	Dim climRoot As Object
+	Set climRoot = JsonParse(climBody)
+	If climRoot Is Nothing Then Exit Sub
+	Dim cDaily As Object
+	Set cDaily = climRoot("daily")
+	If cDaily Is Nothing Then Exit Sub
+	Dim tArr As Array
+	Dim vArr As Array
+	tArr = cDaily("time")
+	vArr = cDaily("temperature_2m_mean")
+	If tArr Is Nothing Or vArr Is Nothing Then Exit Sub
+	Dim n As Integer
+	n = UBound(tArr) + 1
+	If n <= 0 Then Exit Sub
+	Dim base As Integer
+	base = cn
+	If base = 0 Then
+		ReDim cTimes(n - 1)
+		ReDim cTemps(n - 1)
+	Else
+		ReDim Preserve cTimes(base + n - 1)
+		ReDim Preserve cTemps(base + n - 1)
+	End If
+	Dim i As Integer
+	For i = 0 To n - 1
+		cTimes(base + i) = tArr(i)
+		cTemps(base + i) = vArr(i)
+	Next i
+	cn = base + n
+End Sub
+
+Sub ParsePatternFromAccumulatedClim(ByVal recentBody As String, ByRef cTimes As Array, ByRef cTemps As Array, ByVal cn As Integer, ByVal climIncludesSoil As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String)
+	outTempBlock = ""
+	outSoilLine = ""
+	If Len(recentBody) = 0 Or cn <= 0 Then Exit Sub
+
+	Dim recentRoot As Object
+	Set recentRoot = JsonParse(recentBody)
+	If recentRoot Is Nothing Then Exit Sub
+
+	Dim rDaily As Object
+	Set rDaily = recentRoot("daily")
+	If rDaily Is Nothing Then Exit Sub
+
+	Dim rTimes As Array
+	Dim rTemps As Array
+	Dim rSoil As Array
+	rTimes = rDaily("time")
+	rTemps = rDaily("temperature_2m_mean")
+	rSoil = rDaily("soil_moisture_7_to_28cm_mean")
+	Dim rn As Integer
+	rn = UBound(rTimes) + 1
+
+	Dim cSoil As Array
+	Dim climHasSoil As Boolean
+	climHasSoil = climIncludesSoil
+
+	Call FinishPatternParse(rTimes, rTemps, rSoil, rn, cTimes, cTemps, cSoil, cn, climHasSoil, outTempBlock, outSoilLine)
+End Sub
+
+Sub ParsePatternFromArchive(ByVal recentBody As String, ByVal climBody As String, ByVal climIncludesSoil As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String)
+	outTempBlock = ""
+	outSoilLine = ""
+	If Len(recentBody) = 0 Or Len(climBody) = 0 Then Exit Sub
+
+	Dim recentRoot As Object
+	Set recentRoot = JsonParse(recentBody)
+	Dim climRoot As Object
+	Set climRoot = JsonParse(climBody)
+	If recentRoot Is Nothing Or climRoot Is Nothing Then Exit Sub
+
+	Dim rDaily As Object
+	Set rDaily = recentRoot("daily")
+	Dim cDaily As Object
+	Set cDaily = climRoot("daily")
+	If rDaily Is Nothing Or cDaily Is Nothing Then Exit Sub
+
+	Dim rTimes As Array
+	Dim rTemps As Array
+	Dim rSoil As Array
+	rTimes = rDaily("time")
+	rTemps = rDaily("temperature_2m_mean")
+	rSoil = rDaily("soil_moisture_7_to_28cm_mean")
+	Dim rn As Integer
+	rn = UBound(rTimes) + 1
+
+	Dim cTimes As Array
+	Dim cTemps As Array
+	Dim cSoil As Array
+	cTimes = cDaily("time")
+	cTemps = cDaily("temperature_2m_mean")
+	Dim cn As Integer
+	cn = UBound(cTimes) + 1
+	Dim climHasSoil As Boolean
+	climHasSoil = climIncludesSoil
+	If climHasSoil Then
+		cSoil = cDaily("soil_moisture_7_to_28cm_mean")
+	End If
+
+	Call FinishPatternParse(rTimes, rTemps, rSoil, rn, cTimes, cTemps, cSoil, cn, climHasSoil, outTempBlock, outSoilLine)
+End Sub
+
+Sub FinishPatternParseFromBuckets(ByVal rTimes As Array, ByVal rTemps As Array, ByVal rSoil As Array, ByVal rn As Integer, ByVal mdSum As Array, ByVal mdCnt As Array, ByVal cTimes As Array, ByVal cSoil As Array, ByVal cn As Integer, ByVal climHasSoil As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String)
+
+	Dim recentMean As Single
+	recentMean = MeanArray(rTemps, rn)
+
+	Dim normSum As Single
+	normSum = 0.0
+	Dim r As Integer
+	For r = 0 To rn - 1
+		Dim key As Integer
+		key = MonthDayKey(CStr(rTimes(r)))
+		normSum = normSum + MeanTempForMonthDayKey(key, mdSum, mdCnt)
+	Next r
+	Dim normMean As Single
+	normMean = normSum / CSng(rn)
+	Dim depart As Single
+	depart = recentMean - normMean
+
+	Dim winStart As String
+	Dim winEnd As String
+	winStart = CStr(rTimes(0))
+	winEnd = CStr(rTimes(rn - 1))
+
+	outTempBlock = "Window " & winStart & " → " & winEnd & " (last " & CStr(rn) & " days)" & Chr(10) _
+		& "30-day mean 2 m temperature (ERA5 archive): " & Format(recentMean, "Fixed") & " °C" & Chr(10) _
+		& "1991–2020 normal for same calendar days (per-day mean across years): " & Format(normMean, "Fixed") & " °C" & Chr(10) _
+		& "Departure (recent mean minus normal mean): " & Format(depart, "Fixed") & " °C" & Chr(10) _
+		& "(Cell mean; not a single-station observation.)"
+
+	Dim recentSoilMean As Single
+	recentSoilMean = MeanArray(rSoil, rn)
+	If climHasSoil Then
+		Dim soilSampleN As Integer
+		Dim soilPct As Integer
+		Dim climSoilMean As Single
+		Call SoilWindowStats(cTimes, cSoil, cn, rTimes, rn, recentSoilMean, climSoilMean, soilPct, soilSampleN)
+		outSoilLine = "Soil moisture 7–28 cm (ERA5 daily mean): recent window mean " & Format(recentSoilMean, "Fixed") _
+			& " m³/m³; 1991–2020 same-window mean " & Format(climSoilMean, "Fixed") & " m³/m³" & Chr(10) _
+			& "Empirical percentile vs " & CStr(soilSampleN) & " same-calendar-day samples: "
+		If soilPct < 0 Then
+			outSoilLine = outSoilLine & "N/A"
+		Else
+			outSoilLine = outSoilLine & CStr(soilPct) & "th (values below recent mean; not calibrated probability)"
+		End If
+	Else
+		outSoilLine = "Soil moisture 7–28 cm: recent window mean " & Format(recentSoilMean, "Fixed") & " m³/m³" & Chr(10) _
+			& "1991–2020 soil climatology not loaded in this fetch (temp-only archive request for responsiveness)."
+	End If
+End Sub
+
+Sub FinishPatternParse(ByVal rTimes As Array, ByVal rTemps As Array, ByVal rSoil As Array, ByVal rn As Integer, ByVal cTimes As Array, ByVal cTemps As Array, ByVal cSoil As Array, ByVal cn As Integer, ByVal climHasSoil As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String)
+	Dim mdSum As Array
+	Dim mdCnt As Array
+	Call ResetMdTempBuckets(mdSum, mdCnt)
+	Dim idx As Integer
+	idx = 0
+	Call AccumulateMdTempBucketsChunk(cTimes, cTemps, cn, idx, cn, mdSum, mdCnt)
+	Call FinishPatternParseFromBuckets(rTimes, rTemps, rSoil, rn, mdSum, mdCnt, cTimes, cSoil, cn, climHasSoil, outTempBlock, outSoilLine)
+End Sub
+
+Sub FinishPatternFromRecentBodyAndBuckets(ByVal recentBody As String, ByVal mdSum As Array, ByVal mdCnt As Array, ByVal cTimes As Array, ByVal cn As Integer, ByVal climIncludesSoil As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String)
+	outTempBlock = ""
+	outSoilLine = ""
+	If Len(recentBody) = 0 Then Exit Sub
+	Dim recentRoot As Object
+	Set recentRoot = JsonParse(recentBody)
+	If recentRoot Is Nothing Then Exit Sub
+	Dim rDaily As Object
+	Set rDaily = recentRoot("daily")
+	If rDaily Is Nothing Then Exit Sub
+	Dim rTimes As Array
+	Dim rTemps As Array
+	Dim rSoil As Array
+	rTimes = rDaily("time")
+	rTemps = rDaily("temperature_2m_mean")
+	rSoil = rDaily("soil_moisture_7_to_28cm_mean")
+	Dim rn As Integer
+	rn = UBound(rTimes) + 1
+	Dim cSoil As Array
+	Dim climHasSoil As Boolean
+	climHasSoil = climIncludesSoil
+	Call FinishPatternParseFromBuckets(rTimes, rTemps, rSoil, rn, mdSum, mdCnt, cTimes, cSoil, cn, climHasSoil, outTempBlock, outSoilLine)
+End Sub
+
+Sub MissingSourcesBlock(ByRef outBlock As String)
+	outBlock = "US Drought Monitor — not wired in POC (ArcGIS endpoint TBD)." & Chr(10) _
+		& "CPC 6–10 / 8–14 / monthly / seasonal outlooks — not wired (NOAA MapServer path TBD)." & Chr(10) _
+		& "ECMWF IFS 51-member tercile counts — not wired (ensemble API TBD)." & Chr(10) _
+		& "Issue dates and polygon IDs will appear when those sources connect."
+End Sub
+
+Sub FetchPattern(ByVal lat As Single, ByVal lon As Single, ByRef outOk As Boolean, ByRef outTempBlock As String, ByRef outSoilLine As String, ByRef outMissing As String, ByRef outError As String)
+	outOk = False
+	outTempBlock = ""
+	outSoilLine = ""
+	outError = ""
+	Call MissingSourcesBlock(outMissing)
+
+	Dim rStart As String
+	Dim rEnd As String
+	Call RecentWindowDates(rStart, rEnd)
+	Dim cStart As String
+	Dim cEnd As String
+	Call ClimatologyWindowDates(rStart, rEnd, cStart, cEnd)
+
+	Dim recentUrl As String
+	recentUrl = BuildArchiveDailyUrl(lat, lon, rStart, rEnd)
+	Dim st As Integer
+	Dim stText As String
+	Dim body As String
+	Call WeatherApi.HttpGet(recentUrl, st, stText, body)
+	Call ClimatistStore.LogFetch("pattern-archive-recent", recentUrl, st, Len(body))
+	If st <> 200 Or Len(body) = 0 Then
+		outError = "Open-Meteo archive (recent) HTTP " & CStr(st) & " — " & stText
+		Exit Sub
+	End If
+
+	Dim climUrl As String
+	climUrl = BuildArchiveDailyUrl(lat, lon, cStart, cEnd)
+	Dim cBody As String
+	Call WeatherApi.HttpGet(climUrl, st, stText, cBody)
+	Call ClimatistStore.LogFetch("pattern-archive-clim", climUrl, st, Len(cBody))
+	If st <> 200 Or Len(cBody) = 0 Then
+		outError = "Open-Meteo archive (1991–2020 window) HTTP " & CStr(st) & " — " & stText
+		Exit Sub
+	End If
+
+	Call ParsePatternFromArchive(body, cBody, True, outTempBlock, outSoilLine)
+	If Len(outTempBlock) = 0 Then
+		outError = "Could not parse archive JSON for Pattern"
+		Exit Sub
+	End If
+	outOk = True
+End Sub

@@ -1,0 +1,113 @@
+' =============================================================================
+' ClimatistStore.vg — on-device settings + fetch audit trail
+' =============================================================================
+' Spec: scratch/James_Weather_Project.txt
+'   • "Your data stays on your device" — no accounts, no server-side log.
+'   • This module is a minimal precursor to the full Record screen ledger:
+'     we only log that a fetch happened (source, URL, HTTP status, byte count),
+'     not full forecast bodies (those would bloat user:// quickly).
+'
+' Files (Godot user:// — per-project, survives restarts):
+'   climatist_settings.json     — last saved lat/lon
+'   climatist_fetch_log.txt       — newline-delimited JSON rows, capped at MAX_LOG_LINES
+'   climatist_fetch_backup.txt  — optional export from Settings (PageDown)
+' =============================================================================
+Attribute VB_Name = "ClimatistStore"
+
+Private Const SETTINGS_PATH As String = "user://climatist_settings.json"
+Private Const LOG_PATH As String = "user://climatist_fetch_log.txt"
+Private Const MAX_LOG_LINES As Integer = 100
+
+Sub LoadSettings(ByRef outLat As Single, ByRef outLon As Single)
+	' Defaults: NYC (matches James commute-rain example latitude band).
+	outLat = 40.7128
+	outLon = -74.006
+	If Not FileExists(SETTINGS_PATH) Then Exit Sub
+	Dim raw As String
+	raw = ReadAllText(SETTINGS_PATH)
+	If Len(raw) = 0 Then Exit Sub
+	Dim doc As Object
+	Set doc = JsonParse(raw)
+	If doc Is Nothing Then Exit Sub
+	If doc.Exists("lat") Then outLat = CSng(CDbl(doc("lat")))
+	If doc.Exists("lon") Then outLon = CSng(CDbl(doc("lon")))
+End Sub
+
+Sub SaveSettings(ByVal lat As Single, ByVal lon As Single)
+	Dim doc As New Dictionary
+	doc("lat") = lat
+	doc("lon") = lon
+	WriteAllText SETTINGS_PATH, JsonStringify(doc)
+End Sub
+
+Sub LogFetch(ByVal source As String, ByVal url As String, ByVal status As Integer, ByVal byteLen As Integer)
+	' Append one JSON object per line. Trim from the front when over MAX_LOG_LINES.
+	Dim row As New Dictionary
+	row("t") = Format(Now(), "yyyy-mm-dd hh:nn:ss")
+	row("src") = source
+	row("url") = Left(url, 400)
+	row("status") = status
+	row("bytes") = byteLen
+	Dim line As String
+	line = JsonStringify(row)
+	Dim existing As String
+	existing = ""
+	If FileExists(LOG_PATH) Then existing = ReadAllText(LOG_PATH)
+	If Len(existing) > 0 Then existing = existing & Chr(10)
+	existing = existing & line
+	Dim lines As Variant
+	lines = Split(existing, Chr(10))
+	Dim n As Integer
+	n = UBound(lines) + 1
+	If n > MAX_LOG_LINES Then
+		Dim trimmed As String
+		trimmed = ""
+		Dim start As Integer
+		start = n - MAX_LOG_LINES
+		Dim i As Integer
+		For i = start To n - 1
+			If Len(trimmed) > 0 Then trimmed = trimmed & Chr(10)
+			trimmed = trimmed & CStr(lines(i))
+		Next i
+		existing = trimmed
+	End If
+	WriteAllText LOG_PATH, existing
+End Sub
+
+Function LogSummaryText() As String
+	' Short preview for Now/Settings footer (last 8 lines max).
+	If Not FileExists(LOG_PATH) Then
+		LogSummaryText = "No fetches logged on this device yet."
+		Exit Function
+	End If
+	Dim raw As String
+	raw = ReadAllText(LOG_PATH)
+	If Len(raw) = 0 Then
+		LogSummaryText = "No fetches logged on this device yet."
+		Exit Function
+	End If
+	Dim lines As Variant
+	lines = Split(raw, Chr(10))
+	Dim n As Integer
+	n = UBound(lines) + 1
+	Dim start As Integer
+	start = 0
+	If n > 8 Then start = n - 8
+	Dim out As String
+	out = "Fetch log (on device, last " & CStr(n) & "):"
+	Dim i As Integer
+	For i = start To n - 1
+		out = out & Chr(10) & CStr(lines(i))
+	Next i
+	LogSummaryText = out
+End Function
+
+Sub ExportLogBackup(ByVal destPath As String)
+	' James: backups are files you export yourself — manual copy for now.
+	If Len(destPath) = 0 Then Exit Sub
+	If FileExists(LOG_PATH) Then
+		WriteAllText destPath, ReadAllText(LOG_PATH)
+	Else
+		WriteAllText destPath, ""
+	End If
+End Sub

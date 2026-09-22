@@ -67,6 +67,8 @@ Event handlers wire by name: `Sub btnOK_Click()`, `Sub Form_Load()`.
 - Providers are OpenAI-compatible HTTP streams except Ollama (local) and **Cursor** (optional SDK subprocess — `pip install cursor-sdk`, API key in ⚙️).
 - **Cursor (Composer)** — Tier 2 embedded provider; use **↗ Cursor** for Tier 1 handoff to full Cursor IDE.
 - Narcea persona id: `"narcea"` — injects VG control catalog, AGCK, Working Nodes, and tutorial index into the system prompt.
+- Narcea knowledge for **canvas Node2D games**: poll `Input.IsActionJustPressed` / `IsKeyJustPressed` in `_Process` (not `ev.IsActionPressed` on `InputEvent`). **climatist_poc**: five nav buttons (`EnsureNavUi`), Pattern load on `InputPoll` timer (`PatternLoadTick`), screens Now/Pattern/Discussion/Settings. See `samples/apps/climatist_poc/Main.vg` (novice comments).
+- **web_hello** (HTML5 smoke at `build/web/web_hello`) ≠ **climatist_poc** (James weather POC — F5 `samples/apps/climatist_poc/`). Open-Meteo CONUS: `models=ncep_hrrr_conus` (not `hrrr_conus`).
 
 ## Docs to consult
 
