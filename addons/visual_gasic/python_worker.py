@@ -427,7 +427,13 @@ def handle_ping(request):
 
 
 def _make_json_safe(obj):
-    """Convert Python types to JSON-safe types recursively."""
+    """Convert Python / numpy / pandas / torch values to JSON-safe types.
+
+    Platform-independent: the worker runs the same code on Linux, macOS, and
+    Windows. Optional libraries are detected by duck typing so a missing
+    opencv/torch/pandas install degrades to a clear import error on PyCall,
+    not a crash inside this helper.
+    """
     if obj is None:
         return None
     if isinstance(obj, (bool, int, float, str)):
@@ -440,12 +446,37 @@ def _make_json_safe(obj):
         return list(obj)
     if isinstance(obj, dict):
         return {str(k): _make_json_safe(v) for k, v in obj.items()}
-    # For numpy types, try to convert to native Python type
+
+    mod = getattr(type(obj), "__module__", "") or ""
+    name = type(obj).__name__
+
+    # pandas DataFrame / Series (Phase 2) — records, not the default column dict.
+    if mod.startswith("pandas") and name == "DataFrame" and hasattr(obj, "to_dict"):
+        return _make_json_safe(obj.to_dict(orient="records"))
+    if mod.startswith("pandas") and name == "Series" and hasattr(obj, "to_dict"):
+        return _make_json_safe(obj.to_dict())
+
+    # torch Tensor — move off GPU/MPS before listing values.
+    if mod.startswith("torch") and hasattr(obj, "detach") and hasattr(obj, "tolist"):
+        cpu = obj.detach()
+        if hasattr(cpu, "cpu"):
+            cpu = cpu.cpu()
+        return _make_json_safe(cpu.tolist())
+
+    # numpy structured dtype → list of field dicts (opencv Mats are ndarrays and
+    # fall through to tolist below).
+    dtype = getattr(obj, "dtype", None)
+    names = getattr(dtype, "names", None) if dtype is not None else None
+    if names:
+        rows = []
+        for row in obj:
+            rows.append({n: _make_json_safe(row[n]) for n in names})
+        return rows
+
     if hasattr(obj, "tolist"):
         return _make_json_safe(obj.tolist())
     if hasattr(obj, "item"):
         return _make_json_safe(obj.item())
-    # Fallback: string representation
     return str(obj)
 
 

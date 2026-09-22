@@ -912,7 +912,7 @@ Short, finishable list. **No new aspirational items.**
 |-----------|--------|---------------------------|
 | **M5** | ✅ **DONE** | — (Narcea Tier A/B validated on `main`) |
 | **M6** | ✅ **Teaser done** | Visual panel explicitly v6.1+ |
-| **M7** | 🔄 **Close-out** | Windows e2e, worker hardening, numpy Phase 2 (opencv/torch/pandas), large-array binary lane, typed-protocol default-on decision |
+| **M7** | 🔄 **Close-out** | numpy JSON + interpreter/`PYTHONPATH` logic done (Linux verified when libs present). **Deferred testing:** Windows + macOS clean-VM smoke. Still open: large-array binary lane, typed-protocol default-on decision |
 | **M8** | 🔄 **Partial** | `Let` ✅; `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus |
 | **M9** | 🔄 **Pending** | Installer smoke (Linux + Windows), docs/corpus release gate (Asset Library ✅ live) |
 
@@ -926,7 +926,7 @@ Short, finishable list. **No new aspirational items.**
 | **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
 | **M5 — Narcea Vibe Code** | October 15 2026 | ✅ **DONE (Sep 2026)** — Buffer type, optimizer hints, Narcea Tier A/B golden path, 8 AI providers (Ollama, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q, Cursor). See v5.4.0-beta2 in [`CHANGELOG.md`](CHANGELOG.md). |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | ✅ **Teaser done (Sep 2026)** — C++ `VisualGasicLanguage.vg_analyze_causal_graph`, `vg_causal_chain.gd`, Code Navigator **Show Causal Chain** button, Context Rail preview, 8 headless fixtures. **Visual graph panel → v6.1+.** |
-| **M7 — Python Library Integration (Tier A)** | November 15 2026 | 🔄 **Core path done; close-out pending** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), demo suite, docs/Narcea/IntelliSense. **Remaining:** Windows e2e validation, worker hardening, numpy Phase 2 (opencv/torch/pandas), large-array binary lane (>100×100). |
+| **M7 — Python Library Integration (Tier A)** | November 15 2026 | 🔄 **Core path done** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), numpy/pandas/torch JSON helpers, interpreter + `PYTHONPATH` on Linux/macOS/Windows (logical). **Deferred:** Windows and macOS e2e smoke (no hosts here). **Still open:** large-array binary lane (>100×100), typed-protocol default-on. |
 | **M7+ — Performance Optimizations (Phase 1)** | December 2026+ | (1) **~~Tagged Stack~~ — NOT PURSUED** (Sept 2026). (2) **Type-Tagged Locals** — highest ROI; research in M7, ship target v6.1. (3) **Packed Arrays** (v6.1). (4) **SIMD Hinting** (v7.0 research). |
 
 #### numpy Support — Phased Plan (within M7 scope)
@@ -935,8 +935,8 @@ Short, finishable list. **No new aspirational items.**
 |-------|------|--------|------|
 | **0 — JSON-serializable numpy** | `numpy.array()`, `dot()`, `sum()`, `linalg.norm()`, `float32()`, scalars, small 2D arrays | ✅ **Done** (Jul 11) | All work via existing `_make_json_safe()` in `python_worker.py` (has `tolist()`/`item()` fallbacks). Demo tested with 5 operations. |
 | **1 — Type-fidelity binary protocol** | Typed msgpack wire (C2) preserving int/float/string/array distinction; eliminates float-only limitation on `Array()` args when `vg/python/use_typed_protocol = true`. Large-array PackedFloat64Array fast path still pending. | ✅ **C2 shipped (Sep 2026, opt-in)** | `vg_msgpack.cpp`, worker `--typed-protocol`, `test_py_msgpack_typed.vg`. Remaining: default-on decision, large-array binary lane (>100×100). |
-| **2 — Ecosystem expansion** | opencv (image load/process/return pixels), torch (tensor round-trip), pandas (DataFrame via JSON). Structured dtype support. | 🟡 **Not started** | ~3-5 days: (1) per-ecosystem handler patterns; (2) structured array support; (3) error quality; (4) example demos. |
-| **3 — Worker hardening** | venv detection, `PYTHONPATH` config, Windows e2e validation, timeout recovery. | 🟡 **Partial** | Windows `CreateProcess` launch shipped Jul 2026; **`Await` e2e Sep 2026**. Remaining: venv/`PYTHONPATH`, timeout recovery, clean-VM Windows smoke. |
+| **2 — Ecosystem expansion** | opencv Mats (numpy ndarrays), torch tensors, pandas DataFrame/Series, structured dtypes → JSON via `_make_json_safe`. | ✅ **Logical path done (Sep 2026)** | `python_worker.py` + `scripts/test_python_numpy_json_safe.py` (skips libs that are not installed). **OS e2e (Windows / macOS) deferred** — add to a later testing milestone; Linux is the current CI host. |
+| **3 — Worker hardening** | Interpreter selection + `PYTHONPATH` on Linux, macOS, and Windows. | ✅ **Logical path done (Sep 2026)** | `vg/python/executable` or `VG_PYTHON`; `vg/python/pythonpath` or `VG_PYTHONPATH`. Unix: `python3` then `python`. Windows: `py`, then `python`, then `python3`, and `--typed-protocol` matches Unix. **Clean-VM smoke on Windows and macOS deferred** (no test hosts in this repo yet). |
 
 **Current limitation**: Two separate int/float type-loss bugs in the Python bridge (discovered + fixed/documented Jul 15, 2026):
 1. ✅ **Decode-path int loss (FIXED)** — Worker sends correct Python int (e.g., `math.floor(5.7)` → `5`), but Godot's `JSON::parse_string()` collapsed every number to float. Fixed via custom `vg_json_parse_typed()` decoder in C++ that preserves int vs float semantics. Verified end-to-end via `demo/test_python_int_float.vg` — scalar int, negative int, nested dict/array, mixed types all round-trip correctly.

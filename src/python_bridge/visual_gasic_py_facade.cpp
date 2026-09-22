@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstring>
 #include <sstream>
+#include <string>
 #include <vector>
 #include <algorithm>
 
@@ -275,6 +276,27 @@ bool PyBridgeFacade::initialize_bridge() {
         auto_restart_ = (bool)ps->get_setting("vg/python/auto_restart");
     if (ps->has_setting("vg/python/use_typed_protocol"))
         use_typed_protocol_ = (bool)ps->get_setting("vg/python/use_typed_protocol");
+    if (ps->has_setting("vg/python/executable"))
+        python_executable_ = String(ps->get_setting("vg/python/executable"));
+    if (ps->has_setting("vg/python/pythonpath"))
+        pythonpath_extra_ = String(ps->get_setting("vg/python/pythonpath"));
+    OS *os = OS::get_singleton();
+    if (os) {
+        if (python_executable_.is_empty())
+            python_executable_ = os->get_environment("VG_PYTHON");
+        String env_pp = os->get_environment("VG_PYTHONPATH");
+        if (!env_pp.is_empty()) {
+            if (pythonpath_extra_.is_empty())
+                pythonpath_extra_ = env_pp;
+            else {
+#if defined(_WIN32)
+                pythonpath_extra_ = pythonpath_extra_ + String(";") + env_pp;
+#else
+                pythonpath_extra_ = pythonpath_extra_ + String(":") + env_pp;
+#endif
+            }
+        }
+    }
 
     bool embed = false;
     if (ps->has_setting("vg/python/embedded_enabled"))
@@ -322,6 +344,32 @@ bool PyBridgeFacade::initialize_bridge() {
     return false;
 }
 
+String PyBridgeFacade::configured_python_executable() const {
+    return python_executable_;
+}
+
+void PyBridgeFacade::apply_pythonpath_to_child() const {
+    if (pythonpath_extra_.is_empty())
+        return;
+#if defined(_WIN32)
+    const char *sep = ";";
+#else
+    const char *sep = ":";
+#endif
+    CharString extra = pythonpath_extra_.utf8();
+    const char *old = getenv("PYTHONPATH");
+    std::string merged = extra.get_data() ? extra.get_data() : "";
+    if (old && old[0]) {
+        merged += sep;
+        merged += old;
+    }
+#if defined(_WIN32)
+    _putenv_s("PYTHONPATH", merged.c_str());
+#else
+    setenv("PYTHONPATH", merged.c_str(), 1);
+#endif
+}
+
 bool PyBridgeFacade::is_available() {
 #if defined(__linux__) || defined(__APPLE__)
     FILE *fp = popen("python3 --version 2>/dev/null || python --version 2>/dev/null", "r");
@@ -331,7 +379,7 @@ bool PyBridgeFacade::is_available() {
     pclose(fp);
     return found;
 #elif defined(_WIN32)
-    FILE *fp = _popen("python --version 2>nul", "r");
+    FILE *fp = _popen("py -3 --version 2>nul || python --version 2>nul || python3 --version 2>nul", "r");
     if (!fp) return false;
     char buf[128];
     bool found = fgets(buf, sizeof(buf), fp) != nullptr;
@@ -387,10 +435,21 @@ bool PyBridgeFacade::launch_worker() {
         dup2(stdout_pipe[1], STDOUT_FILENO);
         ::close(stdin_pipe[0]);
         ::close(stdout_pipe[1]);
+        apply_pythonpath_to_child();
         CharString script_path = worker_script.utf8();
-        if (use_typed_protocol_) {
-            execlp("python3", "python3", script_path.get_data(), "--typed-protocol", nullptr);
-            execlp("python", "python", script_path.get_data(), "--typed-protocol", nullptr);
+        String preferred = configured_python_executable();
+        CharString pref = preferred.utf8();
+        const char *typed = use_typed_protocol_ ? "--typed-protocol" : nullptr;
+        if (!preferred.is_empty()) {
+            if (typed)
+                execlp(pref.get_data(), pref.get_data(), script_path.get_data(), typed, nullptr);
+            else
+                execlp(pref.get_data(), pref.get_data(), script_path.get_data(), nullptr);
+        }
+        // macOS and Linux: python3 first (Homebrew / distro), then python.
+        if (typed) {
+            execlp("python3", "python3", script_path.get_data(), typed, nullptr);
+            execlp("python", "python", script_path.get_data(), typed, nullptr);
         } else {
             execlp("python3", "python3", script_path.get_data(), nullptr);
             execlp("python", "python", script_path.get_data(), nullptr);
@@ -430,12 +489,26 @@ bool PyBridgeFacade::launch_worker_windows(const String &p_script_path) {
     SetHandleInformation(h_stdout_rd, HANDLE_FLAG_INHERIT, 0);
 
     CharString script_utf8 = p_script_path.utf8();
-    // Build command: python <script_path>
-    int wlen = MultiByteToWideChar(CP_UTF8, 0, script_utf8.get_data(), -1, NULL, 0);
-    wchar_t *cmdline = (wchar_t*)alloca((wlen + 10) * sizeof(wchar_t));
-    wcscpy(cmdline, L"python ");
-    MultiByteToWideChar(CP_UTF8, 0, script_utf8.get_data(), -1, cmdline + 7, wlen + 3);
+    // py launcher, then python / python3. Honor VG_PYTHON / vg/python/executable.
+    // --typed-protocol must match the Unix spawn path.
+    const char *candidates[4];
+    int n_cand = 0;
+    CharString pref = configured_python_executable().utf8();
+    if (pref.length() > 0)
+        candidates[n_cand++] = pref.get_data();
+    else {
+        candidates[n_cand++] = "py";
+        candidates[n_cand++] = "python";
+        candidates[n_cand++] = "python3";
+    }
 
+    std::string saved_pp;
+    const char *old_pp = getenv("PYTHONPATH");
+    if (old_pp)
+        saved_pp = old_pp;
+    apply_pythonpath_to_child();
+
+    BOOL created = FALSE;
     PROCESS_INFORMATION pi = {0};
     STARTUPINFOW si = {0};
     si.cb = sizeof(STARTUPINFOW);
@@ -444,7 +517,21 @@ bool PyBridgeFacade::launch_worker_windows(const String &p_script_path) {
     si.hStdOutput = h_stdout_wr;
     si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
-    BOOL created = CreateProcessW(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    for (int i = 0; i < n_cand && !created; i++) {
+        std::string cmd = std::string("\"") + candidates[i] + "\" \"" + script_utf8.get_data() + "\"";
+        if (use_typed_protocol_)
+            cmd += " --typed-protocol";
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, cmd.c_str(), -1, NULL, 0);
+        wchar_t *cmdline = (wchar_t *)alloca(wlen * sizeof(wchar_t));
+        MultiByteToWideChar(CP_UTF8, 0, cmd.c_str(), -1, cmdline, wlen);
+        ZeroMemory(&pi, sizeof(pi));
+        created = CreateProcessW(NULL, cmdline, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+    }
+
+    if (old_pp)
+        _putenv_s("PYTHONPATH", saved_pp.c_str());
+    else
+        _putenv_s("PYTHONPATH", "");
     CloseHandle(h_stdin_rd);
     CloseHandle(h_stdout_wr);
     if (!created) {

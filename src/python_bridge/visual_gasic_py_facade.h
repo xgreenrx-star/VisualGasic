@@ -170,6 +170,11 @@ private:
     int max_payload_bytes_;
     bool auto_restart_;
     bool use_typed_protocol_ = false;
+    String python_executable_;
+    String pythonpath_extra_;
+
+    String configured_python_executable() const;
+    void apply_pythonpath_to_child() const;
 
     // Request tracking
     std::mutex request_mutex;
