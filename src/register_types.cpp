@@ -22,7 +22,9 @@
 #include "visual_gasic_test_runner.h"
 #include "visual_gasic_immediate.h"
 #include "visual_gasic_debugger.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_form_designer.h"
+#endif
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_process.h"
 #include "visual_gasic_database.h"

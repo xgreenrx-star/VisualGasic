@@ -11,6 +11,8 @@ on:
       - 'scripts/build_web_gdextension.sh'
       - 'scripts/setup_emsdk.sh'
       - 'scripts/ci_web_export_smoke.sh'
+      - 'scripts/debug_web_hello_cdp.py'
+      - 'scripts/run_web_hello_headless.sh'
       - 'scripts/verify_web_gdextension.sh'
       - 'samples/apps/web_hello/**'
       - 'addons/visual_gasic/visual_gasic.gdextension'
@@ -69,7 +71,9 @@ jobs:
           path: addons/visual_gasic/bin
 
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y python3 wget unzip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-venv wget unzip chromium-browser
 
       - name: HTML5 export smoke (web_hello)
         env:

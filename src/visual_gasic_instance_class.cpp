@@ -1,6 +1,8 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_language.h"
+#ifndef VG_WEB_BUILD
 #include "visual_gasic_com_interop.h"
+#endif
 #include "visual_gasic_memory_buffer.h"
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -238,10 +240,12 @@ bool VisualGasicInstance::try_variant_subscript_get(const Variant &base, const V
             r_out = Variant((int64_t)mb->peek_byte((int64_t)(int64_t)key));
             return true;
         }
+#ifndef VG_WEB_BUILD
         if (VGScriptingDict *sd = Object::cast_to<VGScriptingDict>(obj)) {
             r_out = sd->get_item(String(key));
             return true;
         }
+#endif
         String key_str = String(key);
         Variant got = obj->get(key_str);
         if (got.get_type() != Variant::NIL) {
@@ -328,11 +332,13 @@ bool VisualGasicInstance::try_variant_subscript_set(Variant &base, const Variant
             r_updated = base;
             return true;
         }
+#ifndef VG_WEB_BUILD
         if (VGScriptingDict *sd = Object::cast_to<VGScriptingDict>(obj)) {
             sd->set_item(String(key), value);
             r_updated = base;
             return true;
         }
+#endif
         String key_str = String(key);
         if (obj->has_method("set_item")) {
             obj->call("set_item", key, value);

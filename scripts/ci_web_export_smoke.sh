@@ -60,6 +60,7 @@ else
 fi
 
 python3 "$ROOT/scripts/strip_tweak_overlay.py" --project "$PROJ_DIR" || true
+python3 "$ROOT/scripts/ensure_web_gdextension_export_preset.py" --project "$PROJ_DIR" || true
 
 EXPORT_HTML="$OUT_DIR/index.html"
 echo "Exporting $PROJ_DIR (Web) -> $EXPORT_HTML"
@@ -71,3 +72,19 @@ if [[ ! -f "$EXPORT_HTML" ]]; then
 fi
 
 echo "Web export smoke OK: $EXPORT_HTML ($(du -h "$EXPORT_HTML" | cut -f1))"
+
+if [[ "${VG_WEB_HEADLESS_VERIFY:-1}" == "1" ]]; then
+  echo "Headless browser verify (splash + Open-Meteo HTTP) ..."
+  VENV="$ROOT/scripts/.venv-web-debug"
+  if [[ ! -x "$VENV/bin/python3" ]]; then
+    python3 -m venv "$VENV"
+    "$VENV/bin/pip" install -q websocket-client
+  fi
+  EXPORT_DIR="$(dirname "$EXPORT_HTML")"
+  PORT="${VG_WEB_HEADLESS_PORT:-8877}"
+  WAIT_MS="${VG_WEB_HEADLESS_WAIT_MS:-180000}"
+  if ! "$VENV/bin/python3" "$ROOT/scripts/debug_web_hello_cdp.py" "$PORT" "$WAIT_MS" "$EXPORT_DIR"; then
+    echo "Headless web verify failed (Chrome required, or set VG_WEB_HEADLESS_VERIFY=0 to skip)." >&2
+    exit 1
+  fi
+fi

@@ -20,6 +20,10 @@
 '
 ' James full spec: scratch/James_Weather_Project.txt
 ' Not built yet here: Detail, Record, learning/confidence loops.
+'
+' HTML5 (browser): export with scripts/publish_climatist_web_to_website.sh — lives
+' on the site under /play/climatist/ (footer link, not the homepage hero).
+' Open-Meteo works in WASM; NWS AFD may fail without a custom User-Agent.
 ' =============================================================================
 Attribute VB_Name = "ClimatistPocMain"
 
@@ -32,6 +36,10 @@ Const SCREEN_W As Integer = 960
 Const SCREEN_H As Integer = 720
 Const NAV_Y As Integer = 676
 Const NAV_H As Integer = 44
+Const DISCUSSION_TEXT_TOP As Integer = 118
+Const DISCUSSION_TEXT_BOTTOM As Integer = 662
+Const DISCUSSION_LINE_H As Integer = 14
+Const DISCUSSION_SCROLL_STEP As Integer = 4
 
 Const SCREEN_NOW As Integer = 0
 Const SCREEN_PATTERN As Integer = 1
@@ -87,6 +95,10 @@ Dim discussionTitle As String
 Dim discussionAfdBody As String
 Dim discussionMissingBlock As String
 Dim discussionError As String
+' Discussion text is one long string; we only draw the slice that fits the viewport.
+Dim discussionScrollLine As Integer   ' first visible line (0 = top of AFD)
+Dim discussionLineCount As Integer    ' total wrapped lines (for scroll clamp + footer)
+Dim discussionScrollRepeat As Single  ' seconds since last line while ↑/↓ held (auto-repeat)
 
 Sub _Ready()
 	activeScreen = SCREEN_NOW
@@ -180,10 +192,18 @@ End Sub
 
 Sub _Process(delta As Single)
 	Call PollNavigationInput
+	Call PollDiscussionArrowScroll(delta)
 End Sub
 
 Sub _Input(ev As Variant)
 	If ev Is InputEventMouseButton Then
+		If activeScreen = SCREEN_DISCUSSION And ev.pressed Then
+			If ev.button_index = MOUSE_BUTTON_WHEEL_DOWN Then
+				Call DiscussionScrollBy(DISCUSSION_SCROLL_STEP)
+			ElseIf ev.button_index = MOUSE_BUTTON_WHEEL_UP Then
+				Call DiscussionScrollBy(-DISCUSSION_SCROLL_STEP)
+			End If
+		End If
 		If ev.pressed And ev.button_index = 1 Then
 			Call HandleNavClick(CInt(ev.position.x), CInt(ev.position.y))
 		End If
@@ -212,12 +232,18 @@ Sub PollNavigationInput()
 			Call ClimatistStore.ExportLogBackup("user://climatist_fetch_backup.txt")
 			logPreview = ClimatistStore.LogSummaryText() & Chr(10) & "(Backup written: user://climatist_fetch_backup.txt)"
 			QueueRedraw
+		ElseIf activeScreen = SCREEN_DISCUSSION Then
+			Call DiscussionScrollBy(DISCUSSION_SCROLL_STEP * 3)
 		Else
 			Call RefreshActiveScreen
 		End If
 	End If
 	If activeScreen = SCREEN_SETTINGS Then
 		Call SettingsInputActions
+	ElseIf activeScreen = SCREEN_DISCUSSION Then
+		If IsKeyJustPressed(KEY_PAGEUP) Or IsActionJustPressed("ui_page_up") Then
+			Call DiscussionScrollBy(-DISCUSSION_SCROLL_STEP * 3)
+		End If
 	End If
 End Sub
 
@@ -523,6 +549,8 @@ End Sub
 
 Sub RefreshDiscussion()
 	' Pull latest Area Forecast Discussion (AFD) from api.weather.gov for this lat/lon.
+	discussionScrollLine = 0
+	discussionLineCount = 0
 	discussionLoadState = "loading"
 	discussionTitle = ""
 	discussionAfdBody = ""
@@ -537,9 +565,71 @@ Sub RefreshDiscussion()
 		discussionLoadState = "error"
 	Else
 		discussionLoadState = "ok"
+		discussionLineCount = DiscussionCountLines(discussionAfdBody)
 	End If
 	logPreview = ClimatistStore.LogSummaryText()
 	QueueRedraw
+End Sub
+
+Function DiscussionCountLines(ByVal text As String) As Integer
+	If Len(text) = 0 Then
+		DiscussionCountLines = 0
+		Exit Function
+	End If
+	Dim lines As Variant
+	lines = Split(text, Chr(10))
+	DiscussionCountLines = UBound(lines) + 1
+End Function
+
+Function DiscussionMaxScrollLine() As Integer
+	Dim viewH As Integer
+	viewH = DISCUSSION_TEXT_BOTTOM - DISCUSSION_TEXT_TOP
+	Dim visibleLines As Integer
+	visibleLines = viewH \ DISCUSSION_LINE_H
+	If visibleLines < 1 Then visibleLines = 1
+	Dim maxScroll As Integer
+	maxScroll = discussionLineCount - visibleLines
+	If maxScroll < 0 Then maxScroll = 0
+	DiscussionMaxScrollLine = maxScroll
+End Function
+
+Sub DiscussionScrollBy(ByVal deltaLines As Integer)
+	If discussionLoadState <> "ok" Then Exit Sub
+	discussionScrollLine = discussionScrollLine + deltaLines
+	If discussionScrollLine < 0 Then discussionScrollLine = 0
+	Dim maxS As Integer
+	maxS = DiscussionMaxScrollLine()
+	If discussionScrollLine > maxS Then discussionScrollLine = maxS
+	QueueRedraw
+End Sub
+
+Sub PollDiscussionArrowScroll(ByVal delta As Single)
+	' Hold ↑/↓ to keep scrolling (IsKeyPressed + small delay between lines).
+	If activeScreen <> SCREEN_DISCUSSION Or discussionLoadState <> "ok" Then
+		discussionScrollRepeat = 0
+		Exit Sub
+	End If
+	Dim dir As Integer
+	dir = 0
+	If IsKeyPressed(KEY_UP) Then
+		dir = -1
+	ElseIf IsKeyPressed(KEY_DOWN) Then
+		dir = 1
+	End If
+	If dir = 0 Then
+		discussionScrollRepeat = 0
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_UP) Or IsKeyJustPressed(KEY_DOWN) Then
+		Call DiscussionScrollBy(dir)
+		discussionScrollRepeat = 0
+		Exit Sub
+	End If
+	discussionScrollRepeat = discussionScrollRepeat + delta
+	If discussionScrollRepeat >= 0.045 Then
+		discussionScrollRepeat = 0
+		Call DiscussionScrollBy(dir)
+	End If
 End Sub
 
 Sub DrawWrapped(ByVal text As String, ByVal x As Integer, ByVal y As Integer, ByVal maxW As Integer, ByVal lineH As Integer, ByVal col As Color, ByVal fontSize As Integer)
@@ -550,6 +640,23 @@ Sub DrawWrapped(ByVal text As String, ByVal x As Integer, ByVal y As Integer, By
 	n = UBound(lines) + 1
 	For i = 0 To n - 1
 		DrawString CStr(lines(i)), x, y + i * lineH, col, fontSize
+	Next i
+End Sub
+
+Sub DrawWrappedScroll(ByVal text As String, ByVal x As Integer, ByVal yTop As Integer, ByVal yBottom As Integer, ByVal firstLine As Integer, ByVal lineH As Integer, ByVal col As Color, ByVal fontSize As Integer)
+	' Only draw lines that fit between yTop and yBottom (AFD scroll viewport).
+	If Len(text) = 0 Then Exit Sub
+	Dim lines As Variant
+	lines = Split(text, Chr(10))
+	Dim n As Integer
+	n = UBound(lines) + 1
+	Dim i As Integer
+	Dim y As Integer
+	y = yTop
+	For i = firstLine To n - 1
+		If y + lineH > yBottom Then Exit Sub
+		DrawString CStr(lines(i)), x, y, col, fontSize
+		y = y + lineH
 	Next i
 End Sub
 
@@ -656,7 +763,7 @@ End Sub
 
 Sub DrawDiscussion()
 	DrawString "Climatist POC — Discussion", 24, 24, Color8(200, 220, 255), 24
-	DrawString "3 = here   P / Tab — cycle screens   R / Enter — refresh AFD", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Hold ↑↓ to scroll   PgUp/PgDn page   wheel   R refresh AFD", 24, 54, Color8(110, 120, 140), 12
 	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
 
 	If discussionLoadState = "loading" Then
@@ -668,12 +775,21 @@ Sub DrawDiscussion()
 		Exit Sub
 	End If
 
-	DrawString discussionTitle, 24, 110, Color8(180, 200, 230), 14
-	Call DrawWrapped(Left(discussionAfdBody, 12000), 24, 132, SCREEN_W - 48, 14, Color8(200, 210, 225), 12)
+	DrawString discussionTitle, 24, 98, Color8(180, 200, 230), 14
+	' Dark panel so long AFD text does not paint over the nav buttons.
+	DrawRect Rect2(16, DISCUSSION_TEXT_TOP - 6, SCREEN_W - 32, DISCUSSION_TEXT_BOTTOM - DISCUSSION_TEXT_TOP + 12), Color8(22, 28, 38), True
+	DrawLine 16, DISCUSSION_TEXT_TOP - 6, SCREEN_W - 16, DISCUSSION_TEXT_TOP - 6, Color8(55, 65, 80), 1.0
+	DrawLine 16, DISCUSSION_TEXT_BOTTOM + 6, SCREEN_W - 16, DISCUSSION_TEXT_BOTTOM + 6, Color8(55, 65, 80), 1.0
 
-	DrawString "Other discussion products (not wired):", 24, 520, Color8(130, 140, 160), 12
-	Call DrawWrapped(discussionMissingBlock, 24, 540, SCREEN_W - 48, 14, Color8(170, 175, 190), 12)
-	DrawString Left(logPreview, 900), 24, SCREEN_H - 88, Color8(90, 100, 115), 10
+	Call DrawWrappedScroll(discussionAfdBody, 24, DISCUSSION_TEXT_TOP, DISCUSSION_TEXT_BOTTOM, discussionScrollLine, DISCUSSION_LINE_H, Color8(200, 210, 225), 12)
+
+	Dim maxS As Integer
+	maxS = DiscussionMaxScrollLine()
+	If maxS > 0 Then
+		DrawString "Scroll: line " & CStr(discussionScrollLine + 1) & " / " & CStr(discussionLineCount) & "  (↑↓ PgUp/PgDn wheel)", 24, DISCUSSION_TEXT_BOTTOM + 14, Color8(100, 110, 130), 11
+	Else
+		DrawString "End of AFD (" & CStr(discussionLineCount) & " lines)", 24, DISCUSSION_TEXT_BOTTOM + 14, Color8(100, 110, 130), 11
+	End If
 End Sub
 
 Sub DrawSettings()

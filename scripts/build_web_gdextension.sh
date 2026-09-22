@@ -23,6 +23,16 @@ if ! command -v emcc >/dev/null 2>&1; then
   exit 1
 fi
 
+EMSCRIPTEN_VERSION="${EMSCRIPTEN_VERSION:-4.0.20}"
+EMCC_LINE="$(emcc --version | head -1)"
+if [[ "$EMCC_LINE" != *"${EMSCRIPTEN_VERSION}"* ]]; then
+  echo "error: GDExtension WASM must be built with Emscripten ${EMSCRIPTEN_VERSION} (Godot 4.6.1 web templates)." >&2
+  echo "  Current: ${EMCC_LINE}" >&2
+  echo "  Run: bash scripts/setup_emsdk.sh && source thirdparty/emsdk/emsdk_env.sh" >&2
+  exit 1
+fi
+echo "Using ${EMCC_LINE}"
+
 NPROC="$(nproc 2>/dev/null || echo 4)"
 echo "Building VisualGasic GDExtension for web ($TARGET, threads=$THREADS) ..."
 

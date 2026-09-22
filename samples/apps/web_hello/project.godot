@@ -15,19 +15,11 @@ config/description="HTML5 sample: VGHttpRequest + canvas UI (Open-Meteo)"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 
-[autoload]
-
-VGDebugHandler="*uid://bba4n02t2dx1g"
-
 [display]
 
 window/size/viewport_width=640
 window/size/viewport_height=400
 window/stretch/mode="canvas_items"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
 [rendering]
 

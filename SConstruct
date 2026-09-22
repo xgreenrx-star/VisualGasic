@@ -64,6 +64,7 @@ if env["platform"] == "web":
         "visual_gasic_package_manager.cpp",
         "visual_gasic_editor_plugin.cpp",
         "visual_gasic_recordset.cpp",
+        "visual_gasic_form_designer.cpp",
     }
     sources = [
         s for s in sources
@@ -72,6 +73,8 @@ if env["platform"] == "web":
         and "/cpu_cores/" not in str(s).replace("\\", "/")
     ]
     print("Web build: {} source files (desktop-only TUs excluded)".format(len(sources)))
+    # Do not enable ASYNCIFY on the GDExtension side module: it balloons WASM size (>8MB)
+    # and Godot's sync dlopen/loadDylibs can hang; yield via OS::delay_msec in the main module instead.
 else:
     sources = [s for s in sources if str(s) not in exclude_files]
 

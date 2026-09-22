@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'website/temporary-placeholder-site/**'
+      - 'samples/apps/climatist_poc/**'
+      - 'scripts/publish_climatist_web_to_website.sh'
+      - 'scripts/vg_make_web_export.sh'
+      - 'addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -26,6 +30,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Build Climatist HTML5 into site tree (optional)
+        continue-on-error: true
+        run: |
+          chmod +x scripts/publish_climatist_web_to_website.sh scripts/verify_web_gdextension.sh
+          if [[ -f addons/visual_gasic/bin/libvisualgasic.web.template_release.wasm32.nothreads.wasm ]]; then
+            VG_SKIP_WEB_BUILD=1 bash scripts/publish_climatist_web_to_website.sh
+          else
+            echo "WASM not in tree; skip Climatist web embed (commit play/climatist/ from local publish)."
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

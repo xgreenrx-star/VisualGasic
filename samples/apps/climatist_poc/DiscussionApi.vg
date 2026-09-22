@@ -12,10 +12,33 @@
 '
 ' All calls go to api.weather.gov with the User-Agent from WeatherApi (required
 ' by NWS policy). Outside the continental US we explain that AFD is not available.
+' In HTML5 the browser may block custom User-Agent — Discussion can show an error
+' even when desktop Godot works; that is expected, not a VG logic bug.
 ' =============================================================================
 Attribute VB_Name = "DiscussionApi"
 
 Import "WeatherApi.vg"
+
+Function NwsProductFetchUrl(ByVal prodEntry As Object) As String
+	' NWS @graph items: "id" is a UUID; "@id" is the real https://api.weather.gov/products/… URL.
+	NwsProductFetchUrl = ""
+	If prodEntry Is Nothing Then Exit Function
+	If prodEntry.Exists("@id") Then
+		Dim atId As String
+		atId = CStr(prodEntry("@id"))
+		If Len(atId) > 0 Then
+			NwsProductFetchUrl = atId
+			Exit Function
+		End If
+	End If
+	Dim pid As String
+	pid = CStr(prodEntry("id"))
+	If InStr(pid, "://") > 0 Then
+		NwsProductFetchUrl = pid
+	ElseIf Len(pid) > 0 Then
+		NwsProductFetchUrl = "https://api.weather.gov/products/" & pid
+	End If
+End Function
 
 Sub MissingSourcesBlock(ByRef outBlock As String)
 	outBlock = "CPC 6–14 day prognostic discussion — not wired in POC." & Chr(10) _
@@ -103,9 +126,9 @@ Sub FetchLocalNwsAfd(ByVal lat As Single, ByVal lon As Single, ByRef outStatus A
 		Exit Sub
 	End If
 	Dim prodUrl As String
-	prodUrl = CStr(prod0("id"))
+	prodUrl = NwsProductFetchUrl(prod0)
 	If Len(prodUrl) = 0 Then
-		outError = "NWS AFD product id missing"
+		outError = "NWS AFD product URL missing (@id / id)"
 		Exit Sub
 	End If
 

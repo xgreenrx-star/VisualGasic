@@ -15,8 +15,12 @@ Sub _Ready()
 	QueueRedraw
 End Sub
 
+Dim loadDelay As Single
+
 Sub _Process(delta As Single)
 	If weatherStarted Then Exit Sub
+	loadDelay = loadDelay + delta
+	If loadDelay < 0.25 Then Exit Sub
 	weatherStarted = True
 	Call LoadWeather
 End Sub
@@ -26,18 +30,21 @@ Sub LoadWeather()
 	url = "https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true&timezone=auto"
 
 	Dim http As New VGHttpRequest
-	http.Open "GET", url, False
-	http.Send ""
+	Dim data As Object
+	Set data = http.GetJson(url)
 
 	If http.Status = 200 Then
-		body = Left(http.ResponseText, 220)
-		If Len(body) = 220 Then
-			body = body & "…"
-		End If
+		Dim cw As Object
+		Set cw = data("current_weather")
+		Dim temp As Single
+		Dim wind As Single
+		temp = cw("temperature")
+		wind = cw("windspeed")
+		body = "NYC now: " & CStr(temp) & " °C, wind " & CStr(wind) & " km/h"
 	Else
 		body = "HTTP " & CStr(http.Status) & " — " & http.StatusText
 		If Len(http.ResponseText) > 0 Then
-			body = body & "  " & Left(http.ResponseText, 160)
+			body = body & "  " & Left(http.ResponseText, 120)
 		End If
 	End If
 	QueueRedraw

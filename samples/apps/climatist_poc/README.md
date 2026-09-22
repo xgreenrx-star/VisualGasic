@@ -37,9 +37,18 @@ After editing `.vg` files, run **F5** again so scripts recompile; the Now title 
 | **Enter** (Settings) | Save settings + refresh |
 | **Page Down** (Settings) | Backup fetch log to `user://climatist_fetch_backup.txt` |
 
-## Web
+## Web (secondary — on site under `/play/climatist/`)
 
-HTML5 export works with Web WASM and `VGHttpRequest` (see [WEB_EXPORT.md](../../../docs/manual/WEB_EXPORT.md)). NWS may be unreliable in the browser because custom `User-Agent` is restricted; desktop is the reference for NWS.
+From repo root (needs Emscripten + Godot 4.6 **non-Mono** export templates once):
+
+```bash
+bash scripts/publish_climatist_web_to_website.sh
+python3 scripts/serve_web_export.py website/temporary-placeholder-site/play/climatist
+```
+
+Open `http://127.0.0.1:8080/index.html`. Commit `website/temporary-placeholder-site/play/climatist/` when you want GitHub Pages to update.
+
+Open-Meteo (Now + Pattern) uses browser XHR. **NWS** (12 h rain + Discussion AFD) may fail in the browser; desktop F5 remains the reference. See [WEB_EXPORT.md](../../../docs/manual/WEB_EXPORT.md).
 
 ## Files
 

@@ -33,10 +33,15 @@ if [[ ! -f "$PROJ_DIR/$WASM" && ! -f "$ROOT/$WASM" ]]; then
 fi
 
 python3 "$ROOT/scripts/strip_tweak_overlay.py" --project "$PROJ_DIR"
+python3 "$ROOT/scripts/ensure_web_gdextension_export_preset.py" --project "$PROJ_DIR"
 
 mkdir -p "$OUT_DIR"
 NAME="$(basename "$PROJ_DIR")"
-DEST="$OUT_DIR/$NAME"
+# Godot resolves export_path relative to the project dir — use an absolute DEST.
+case "$OUT_DIR" in
+  /*) DEST="$OUT_DIR/$NAME" ;;
+  *) DEST="$ROOT/$OUT_DIR/$NAME" ;;
+esac
 rm -rf "$DEST"
 mkdir -p "$DEST"
 
@@ -44,3 +49,4 @@ echo "Exporting $PROJ_DIR preset=$PRESET -> $DEST"
 "$GODOT" --headless --path "$PROJ_DIR" --export-release "$PRESET" "$DEST/index.html"
 
 echo "Done: $DEST/index.html"
+echo "Serve (COOP/COEP required for GDExtension): python3 $ROOT/scripts/serve_web_export.py $DEST"

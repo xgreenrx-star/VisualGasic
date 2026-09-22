@@ -846,6 +846,8 @@ Open-Meteo forecast model ids (2026): CONUS headline uses models=ncep_hrrr_conus
   NWS api.weather.gov requires User-Agent (WeatherApi.NwsUserAgent); may fail HTML5.
   Reference: WeatherApi.vg, PatternApi.vg, DiscussionApi.vg, Main.vg (novice comments).
   Headless offline test: scripts/run_climatist_headless.sh → test_pattern_parse.vg.
+  HTML5 (non-prominent): scripts/publish_climatist_web_to_website.sh → site /play/climatist/;
+  NWS may fail in browser; Open-Meteo + Pattern archive usually work.
 
 === VG runtime namespaces (2D / 3D game scripts) ===
 These work inside .vg scripts attached to Node2D / Node3D scenes.

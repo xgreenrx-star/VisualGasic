@@ -28,6 +28,12 @@ Install Web export templates, then:
 bash scripts/vg_make_web_export.sh samples/apps/web_hello Web build/web
 ```
 
-Serve `build/web/web_hello/` over HTTP and open `index.html`.
+Serve with COOP/COEP headers (required for GDExtension WASM — plain `python3 -m http.server` can hang on the Godot splash):
+
+```bash
+python3 ../../../scripts/serve_web_export.py ../../../build/web/web_hello
+```
+
+Open `http://127.0.0.1:8080/index.html`.
 
 See [docs/manual/WEB_EXPORT.md](../../../docs/manual/WEB_EXPORT.md) for limitations (no `Shell`, no SQLite in WASM build, CORS, etc.).
