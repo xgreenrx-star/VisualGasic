@@ -23,6 +23,8 @@ rm -rf "$SITE_PLAY"
 mkdir -p "$SITE_PLAY"
 cp -a "$BUILD/climatist_poc/." "$SITE_PLAY/"
 
+python3 "$ROOT/scripts/patch_godot_web_github_pages.py" "$SITE_PLAY"
+
 echo "Published: $SITE_PLAY/index.html"
 echo "Local test: python3 $ROOT/scripts/serve_web_export.py $SITE_PLAY"
 echo "Pages URL path: /play/climatist/index.html (footer link on site)"

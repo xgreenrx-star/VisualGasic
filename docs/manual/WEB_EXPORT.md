@@ -64,6 +64,10 @@ python3 scripts/serve_web_export.py build/web/web_hello
 
 Plain `python3 -m http.server` often leaves the export stuck on the Godot splash. Opening `index.html` via `file://` usually fails for WASM.
 
+**GitHub Pages / hosts without custom headers:** enable **Progressive Web App** on the Web export preset (or run `scripts/patch_godot_web_github_pages.py` on the export folder). Without cross-origin isolation, the HTML **Godot logo splash** never dismisses even though WASM failed to start.
+
+**Hide the HTML loading splash:** Web export → **HTML → Export Icon** off (`html/export_icon=false`). That removes the Godot logo overlay in `index.html` (you still get a progress bar until the engine starts). In-engine boot splash is separate: Project → **Application → Boot Splash**.
+
 ## Sample
 
 `samples/apps/web_hello/` — minimal canvas UI + Open-Meteo HTTP GET (Climatist-style data fetch, browser-safe).

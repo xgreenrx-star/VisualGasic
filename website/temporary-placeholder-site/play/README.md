@@ -13,3 +13,5 @@ bash scripts/publish_climatist_web_to_website.sh
 ```
 
 Then commit the updated `play/climatist/` folder if you want GitHub Pages to serve the new build.
+
+**GitHub Pages:** static hosting does not send COOP/COEP headers, which GDExtension WASM needs. The publish script adds [coi-serviceworker](https://github.com/gzuidhof/coi-serviceworker) — the first visit may **reload once**, then the Godot load progress bar should run. Local testing with `scripts/serve_web_export.py` does not need the service worker.
