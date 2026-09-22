@@ -20,11 +20,13 @@ Visual Gasic port of **Now** + **Pattern** + **Discussion (POC)** from [`scratch
 
 **Rules:** direct GET to Open-Meteo and NWS (no proxy). Missing sources are shown as failed/missing, not invented.
 
+**Follow-up roadmap:** [`NEXT_STEPS.md`](NEXT_STEPS.md) (Pattern/CPC/USDM, Detail, Record, Settings — for the next contributor).
+
 ## Run
 
 Open **`samples/apps/climatist_poc/project.godot`** in Godot 4.6+ with Visual Gasic enabled. **F5** to run (not the repo root — that project has no `Main.vg` game).
 
-After editing `.vg` files, run **F5** again so scripts recompile; the Now title bar should read **“Now (Tab → Pattern)”**.
+After editing `.vg` files, run **F5** again so scripts recompile; the Now title bar should read **“Now (Tab, then Pattern)”** (ASCII on web).
 
 | Input | Action |
 |-------|--------|
