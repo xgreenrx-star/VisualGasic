@@ -53,6 +53,11 @@ class _InstallOptions:
         # Ollama (free local AI)
         self.with_ollama: bool = False
         self.ollama_model: str = ""
+        # Companion tools (Cursor MCP, Piper, Whisper)
+        self.with_cursor_mcp: bool = True
+        self.open_cursor_download: bool = False
+        self.with_piper: bool = False
+        self.with_whisper: bool = False
 
 
 # ── Worker thread that runs the install and streams log lines ───────────
@@ -151,6 +156,33 @@ class _InstallWorker(threading.Thread):
             except Exception as e:
                 q.put(("log", f"(Ollama setup failed: {e}; you can install it later from https://ollama.com)"))
 
+        class _CompanionArgs:
+            pass
+
+        comp = _CompanionArgs()
+        comp.with_cursor_mcp = o.with_cursor_mcp
+        comp.open_cursor_download = o.open_cursor_download
+        comp.with_piper = o.with_piper
+        comp.with_whisper = o.with_whisper
+        if comp.with_cursor_mcp:
+            q.put(("step", "Writing Cursor MCP config (.cursor/mcp.json)..."))
+        try:
+            bvg.configure_cursor_companion(comp, project_dir)
+        except Exception as e:
+            q.put(("log", f"(Cursor MCP setup failed: {e})"))
+        if comp.with_piper:
+            q.put(("step", "Installing Piper neural TTS (~340 MB)..."))
+            try:
+                bvg.configure_piper(comp)
+            except Exception as e:
+                q.put(("log", f"(Piper install failed: {e})"))
+        if comp.with_whisper:
+            q.put(("step", "Installing local Whisper STT..."))
+            try:
+                bvg.configure_whisper(comp)
+            except Exception as e:
+                q.put(("log", f"(Whisper install failed: {e})"))
+
         # Prime the project so the VG editor plugin activates on the very
         # first interactive launch. Without this pass, Godot opens the
         # editor before resources are imported and the VG dock/main-screen
@@ -191,8 +223,8 @@ class InstallerApp:
             self.opts.offline = offline
 
         root.title("VisualGasic Installer")
-        root.geometry("680x720")
-        root.minsize(620, 600)
+        root.geometry("680x820")
+        root.minsize(620, 680)
 
         self._build_layout()
         self._populate_godot_versions()
@@ -338,6 +370,38 @@ class InstallerApp:
         ).grid(row=1, column=0, columnspan=2, sticky="w",
                padx=self.PAD, pady=(2, 4))
 
+        # ── Companion tools (Cursor, Piper, Whisper) ─────────────────
+        comp_box = ttk.LabelFrame(parent, text="Companion tools (optional)")
+        comp_box.pack(fill="x", padx=self.PAD, pady=self.PAD)
+
+        self.cursor_mcp_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            comp_box,
+            text="Configure Cursor IDE MCP (.cursor/mcp.json for visual-gasic on port 8766)",
+            variable=self.cursor_mcp_var,
+        ).pack(anchor="w", padx=self.PAD, pady=2)
+
+        self.open_cursor_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            comp_box,
+            text="Open Cursor download page after install (install the Cursor app separately)",
+            variable=self.open_cursor_var,
+        ).pack(anchor="w", padx=self.PAD, pady=2)
+
+        self.piper_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            comp_box,
+            text="Install Piper neural TTS for natural Vibe Code voice (~340 MB)",
+            variable=self.piper_var,
+        ).pack(anchor="w", padx=self.PAD, pady=2)
+
+        self.whisper_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            comp_box,
+            text="Install local Whisper STT for the Vibe Code mic button (~85–150 MB)",
+            variable=self.whisper_var,
+        ).pack(anchor="w", padx=self.PAD, pady=2)
+
         # ── Options ───────────────────────────────────────────────────
         opt_box = ttk.LabelFrame(parent, text="Options")
         opt_box.pack(fill="x", padx=self.PAD, pady=self.PAD)
@@ -458,6 +522,11 @@ class InstallerApp:
                 (mid for mid, lbl in self._ollama_choices if lbl == chosen_label),
                 self._ollama_recommended,
             )
+
+        o.with_cursor_mcp = self.cursor_mcp_var.get()
+        o.open_cursor_download = self.open_cursor_var.get()
+        o.with_piper = self.piper_var.get()
+        o.with_whisper = self.whisper_var.get()
 
         return o
 

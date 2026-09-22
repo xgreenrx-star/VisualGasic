@@ -19,6 +19,22 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
+    {
+        const String _ffi_key = p_method.to_lower();
+        if (declared_functions.has(_ffi_key)) {
+            DeclareStatement* decl = (DeclareStatement*)(int64_t)declared_functions[_ffi_key];
+            if (decl) {
+                Array ffi_args;
+                ffi_args.resize(p_arg_count);
+                for (int _fi = 0; _fi < p_arg_count; _fi++) {
+                    ffi_args[_fi] = p_args[_fi];
+                }
+                r_found = true;
+                return call_ffi_function(decl, ffi_args);
+            }
+        }
+    }
+
     // Block runtime methods in editor mode
     if (Engine::get_singleton()->is_editor_hint()) {
         String method_lower = p_method.to_lower();

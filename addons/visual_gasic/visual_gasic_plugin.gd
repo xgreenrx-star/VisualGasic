@@ -428,10 +428,10 @@ func _enter_tree():
 	)
 
 	# When true, empty new projects show the project-type wizard on first open.
-	# Default false — open via Project → Project Setup Wizard… instead.
+	# Default true — Asset Library installs get the same plugin picker as installers.
 	_register_project_setting(
 		"vg/auto_show_project_wizard",
-		false,
+		true,
 		TYPE_BOOL
 	)
 
@@ -11110,9 +11110,9 @@ func _auto_open_formless_module() -> void:
 		first_run_completed = bool(ProjectSettings.get_setting("vg/first_run_completed", false))
 	if not first_run_completed and _project_is_empty_for_first_run():
 		_show_code_view()
-		var auto_wizard := false
+		var auto_wizard := true
 		if ProjectSettings.has_setting("vg/auto_show_project_wizard"):
-			auto_wizard = bool(ProjectSettings.get_setting("vg/auto_show_project_wizard", false))
+			auto_wizard = bool(ProjectSettings.get_setting("vg/auto_show_project_wizard", true))
 		if auto_wizard:
 			_show_first_run_dialog()
 			return  # Dialog re-invokes us after the choice is applied.

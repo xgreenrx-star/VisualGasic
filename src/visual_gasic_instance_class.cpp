@@ -1031,10 +1031,20 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
             break;
         }
         case 1: {
+            const bool p0_str = (decl->param_types.size() > 0 &&
+                decl->param_types[0].nocasecmp_to("String") == 0);
             if (returns_void) {
-                ((void(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                if (p0_str) {
+                    ((void(*)(const char*))func_ptr)(ffi_args[0].str);
+                } else {
+                    ((void(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                }
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                if (p0_str) {
+                    result = (int64_t)((int64_t(*)(const char*))func_ptr)(ffi_args[0].str);
+                } else {
+                    result = (int64_t)((int64_t(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                }
             } else if (returns_float) {
                 result = ((float(*)(int64_t))func_ptr)(ffi_args[0].i64);
             } else if (returns_double) {
@@ -1154,7 +1164,6 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
 
 void VisualGasicInstance::register_declare(DeclareStatement* decl) {
     if (decl && !decl->name.is_empty()) {
-        declared_functions[decl->name] = (int64_t)decl;
-        UtilityFunctions::print("Registered FFI function: ", decl->name, " from ", decl->lib_name);
+        declared_functions[decl->name.to_lower()] = (int64_t)decl;
     }
 }

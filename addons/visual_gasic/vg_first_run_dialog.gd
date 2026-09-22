@@ -3,10 +3,9 @@ extends AcceptDialog
 class_name VGFirstRunDialog
 ## Optional project-type picker + plugin chooser wizard.
 ##
-## Not shown automatically on new projects (v6+). Open from:
+## Shown automatically on empty new projects when
+## vg/auto_show_project_wizard is true (default). Also open from:
 ##   Project → Project Setup Wizard…
-## Or set Project Settings → vg/auto_show_project_wizard = true to restore
-## the old first-open popup behaviour.
 ##
 ## Step 1 — project type:
 ##   📝 Empty Code Project   — code editor first; Form Designer disabled
@@ -112,6 +111,7 @@ var _step1_panel: VBoxContainer = null
 var _step2_panel: VBoxContainer = null
 var _step2_heading: Label = null
 var _checkboxes: Dictionary = {}   # plugin_id → CheckBox
+var _cb_cursor_mcp: CheckBox = null
 
 
 func _init() -> void:
@@ -193,6 +193,25 @@ func _build_step2(root: VBoxContainer) -> void:
 
 	_step2_panel.add_child(HSeparator.new())
 
+	var companion := Label.new()
+	companion.text = "Cursor IDE & voice (optional):"
+	companion.add_theme_font_size_override("font_size", 14)
+	_step2_panel.add_child(companion)
+
+	_cb_cursor_mcp = CheckBox.new()
+	_cb_cursor_mcp.text = "↗ Configure Cursor MCP (.cursor/mcp.json — enable visual-gasic in Cursor while Godot runs)"
+	_cb_cursor_mcp.button_pressed = true
+	_cb_cursor_mcp.tooltip_text = "Same as the native installers. Ollama, Piper, and Whisper are installed from bootstrap/install.sh or Project → AI settings."
+	_step2_panel.add_child(_cb_cursor_mcp)
+
+	var companion_hint := Label.new()
+	companion_hint.text = "Piper (natural TTS) and Whisper (local mic STT) install via the VisualGasic bootstrap installer or install.sh — not bundled in the Asset Library addon."
+	companion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	companion_hint.add_theme_color_override("font_color", Color(0.72, 0.72, 0.76))
+	_step2_panel.add_child(companion_hint)
+
+	_step2_panel.add_child(HSeparator.new())
+
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 32)
@@ -265,7 +284,7 @@ func _on_type_pressed(kind: String) -> void:
 	_step1_panel.visible = false
 	_step2_panel.visible = true
 	# Resize to fit Step 2.
-	size = Vector2i(640, 340)
+	size = Vector2i(640, 420)
 
 
 func _on_back_pressed() -> void:
@@ -284,6 +303,12 @@ func _on_start_pressed() -> void:
 				plugins_on.append(plug["id"])
 			else:
 				plugins_off.append(plug["id"])
+	if _cb_cursor_mcp != null and _cb_cursor_mcp.button_pressed:
+		var mcp_script := load("res://addons/visual_gasic/vg_cursor_mcp_config.gd")
+		if mcp_script and mcp_script.has_method("ensure_project_mcp_config"):
+			var mcp_result: Dictionary = mcp_script.ensure_project_mcp_config()
+			if not bool(mcp_result.get("ok", false)):
+				push_warning("VGFirstRunDialog: " + str(mcp_result.get("message", "Cursor MCP config failed")))
 	project_type_chosen.emit(_chosen_kind, plugins_on, plugins_off)
 	hide()
 	queue_free()

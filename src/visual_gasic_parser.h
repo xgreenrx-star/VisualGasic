@@ -43,6 +43,7 @@ private:
     void error(const String& message);
     void synchronize(); // Error recovery: skip to next statement boundary
 
+    DeclareStatement* parse_declare(bool dllimport_prefix = false);
     SubDefinition* parse_sub();
     StructDefinition* parse_struct();
     EventDefinition* parse_event();

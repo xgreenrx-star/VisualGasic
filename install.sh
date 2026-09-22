@@ -321,5 +321,26 @@ if [[ -t 0 && -t 1 && "${VG_INSTALL_WHISPER:-}" != "0" ]]; then
     echo ""
 fi
 
+# ── Optional: Cursor IDE + MCP config hint ───────────────────────────────────
+if [[ -t 0 && -t 1 && "${VG_INSTALL_CURSOR_HINT:-}" != "0" ]]; then
+    echo -e "  ${BOLD}Optional:${NC} Cursor IDE + Visual Gasic MCP"
+    echo "    Pair Godot (Vibe Code / Narcea) with Cursor Composer:"
+    echo "      • Install Cursor from https://cursor.com/download"
+    echo "      • In each VG project: Project → Project Setup Wizard… → tick Cursor MCP"
+    echo "      • Or run: python3 scripts/bootstrap_vg.py --with-cursor-mcp (writes .cursor/mcp.json)"
+    echo ""
+    read -r -p "  Open Cursor download page in browser now? [y/N] " ans
+    if [[ "$ans" =~ ^[Yy]$ ]]; then
+        if command -v xdg-open >/dev/null 2>&1; then
+            xdg-open "https://cursor.com/download" 2>/dev/null || true
+        elif command -v open >/dev/null 2>&1; then
+            open "https://cursor.com/download" 2>/dev/null || true
+        else
+            info "Visit https://cursor.com/download"
+        fi
+    fi
+    echo ""
+fi
+
 echo "  Documentation: $REPO_URL"
 echo ""

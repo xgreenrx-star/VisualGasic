@@ -386,6 +386,19 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             continue;
         }
 
+        // Declare / DllImport FFI (M8)
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+            String kw_top = String(t.value).to_lower();
+            if (kw_top == "declare" || kw_top == "dllimport") {
+                DeclareStatement* decl = parse_declare(kw_top == "dllimport");
+                if (decl) {
+                    module->ffi_declares.push_back(decl);
+                    unregister_node(decl);
+                }
+                continue;
+            }
+        }
+
         // ClassName at module level (v4.2.0) — ClassName MyGlobalName
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("classname") == 0) {
             advance(); // Eat ClassName
@@ -483,6 +496,128 @@ void VisualGasicParser::unregister_node(ExpressionNode* p_node) {
 void VisualGasicParser::clear_tracked_nodes() {
     allocated_nodes.clear();
     allocated_expr_nodes.clear();
+}
+
+static bool _token_is_word(const VisualGasicTokenizer::Token &t, const char *word) {
+    return (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER ||
+            t.type == VisualGasicTokenizer::TOKEN_KEYWORD) &&
+           String(t.value).to_lower() == word;
+}
+
+DeclareStatement* VisualGasicParser::parse_declare(bool dllimport_prefix) {
+    if (dllimport_prefix) {
+        advance();
+    } else {
+        if (!_token_is_word(peek(), "declare")) {
+            error("Expected 'Declare'");
+            return nullptr;
+        }
+        advance();
+    }
+
+    if (!check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        error("Expected 'Function' or 'Sub' after Declare/DllImport");
+        return nullptr;
+    }
+    String kind = String(peek().value).to_lower();
+    bool is_function = (kind == "function");
+    bool is_sub = (kind == "sub");
+    if (!is_function && !is_sub) {
+        error("Expected 'Function' or 'Sub' after Declare/DllImport");
+        return nullptr;
+    }
+    advance();
+
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        error("Expected name after Declare Function/Sub");
+        return nullptr;
+    }
+    DeclareStatement* decl = static_cast<DeclareStatement*>(register_node(new DeclareStatement()));
+    decl->name = advance().value;
+
+    if (!_token_is_word(peek(), "lib")) {
+        error("Expected Lib \"...\" after Declare name");
+        return nullptr;
+    }
+    advance();
+    if (!check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
+        error("Expected string literal after Lib");
+        return nullptr;
+    }
+    decl->lib_name = advance().value;
+
+    while (_token_is_word(peek(), "alias") || _token_is_word(peek(), "cdecl")) {
+        if (_token_is_word(peek(), "alias")) {
+            advance();
+            if (!check(VisualGasicTokenizer::TOKEN_LITERAL_STRING)) {
+                error("Expected string literal after Alias");
+                return nullptr;
+            }
+            decl->alias_name = advance().value;
+        } else {
+            decl->use_cdecl = true;
+            advance();
+        }
+    }
+
+    if (!check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        error("Expected ( after Declare library clause");
+        return nullptr;
+    }
+    advance();
+    if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+        while (true) {
+            bool byval = true;
+            if (_token_is_word(peek(), "byval")) {
+                byval = true;
+                advance();
+            } else if (_token_is_word(peek(), "byref")) {
+                byval = false;
+                advance();
+            }
+            if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                error("Expected parameter name in Declare");
+                break;
+            }
+            String pname = advance().value;
+            String ptype;
+            if (_token_is_word(peek(), "as")) {
+                advance();
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) ||
+                    check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    ptype = advance().value;
+                }
+            }
+            decl->param_names.push_back(pname);
+            decl->param_types.push_back(ptype);
+            decl->param_byval.push_back(byval);
+            if (match(VisualGasicTokenizer::TOKEN_COMMA)) {
+                continue;
+            }
+            break;
+        }
+    }
+    if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+        error("Expected ) after Declare parameters");
+    }
+
+    if (is_function) {
+        if (_token_is_word(peek(), "as")) {
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) ||
+                check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                decl->return_type = advance().value;
+            } else {
+                error("Expected return type after As");
+            }
+        } else {
+            error("Declare Function requires As <Type>");
+        }
+    } else {
+        decl->return_type = "Sub";
+    }
+
+    return decl;
 }
 
 SubDefinition* VisualGasicParser::parse_sub() {

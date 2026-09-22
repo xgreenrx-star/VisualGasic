@@ -1,0 +1,12 @@
+' M8 — Declare Function parsing + libc strlen (Linux desktop smoke).
+
+Option Explicit
+
+Declare Function vg_strlen Lib "libc.so.6" (ByVal s As String) As Long
+
+Sub _Ready()
+    Dim n As Long
+    n = vg_strlen("hello")
+    Assert n = 5, "Declare strlen should return 5"
+    Print "PASS: declare_ffi_strlen"
+End Sub

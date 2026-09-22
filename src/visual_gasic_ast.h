@@ -864,6 +864,22 @@ struct ResumeWheneverStatement : public Statement {
     ResumeWheneverStatement() : Statement(STMT_RESUME_WHENEVER) {}
 };
 
+// FFI/DLL Support (Declare / DllImport) — before ModuleNode for complete type in dtor
+struct DeclareStatement : public Statement {
+    String name;
+    String lib_name;
+    String alias_name;
+    String return_type;
+    Vector<String> param_names;
+    Vector<String> param_types;
+    Vector<bool> param_byval;
+    bool use_cdecl;
+
+    DeclareStatement() : Statement(STMT_DECLARE) {
+        use_cdecl = false;
+    }
+};
+
 struct ModuleNode {
     bool option_explicit;
     bool option_compare_text;
@@ -877,6 +893,7 @@ struct ModuleNode {
     Vector<Statement*> global_statements; // For Data and Labels at module level
     Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
     Vector<ClassDefinition*> class_defs; // Class definitions
+    Vector<DeclareStatement*> ffi_declares; // Declare/DllImport (M8)
     Vector<String> implements_list;      // Implements interfaces (v3.5.0)
     Vector<String> imports;              // Import "path/module.vg" (v4.2.0)
     String class_name_vg;               // ClassName MyName — global registration (v4.2.0)
@@ -892,6 +909,7 @@ struct ModuleNode {
         for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
         for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
         for(int i=0; i<class_defs.size(); i++) if(class_defs[i]) delete class_defs[i];
+        for(int i=0; i<ffi_declares.size(); i++) if(ffi_declares[i]) delete ffi_declares[i];
         // Note: properties are managed separately to avoid incomplete type issues with forward declaration
     }
 };
@@ -1155,22 +1173,6 @@ struct ClassDefinition : public ASTNode {
         for (PropertyDefinition* p : properties) { if(p) delete p; }
         for (EventDefinition* e : events) { if(e) delete e; }
         // class_initialize and class_terminate are also in methods, so don't double-delete
-    }
-};
-
-// FFI/DLL Support
-struct DeclareStatement : public Statement {
-    String name;
-    String lib_name;
-    String alias_name;
-    String return_type;
-    Vector<String> param_names;
-    Vector<String> param_types;
-    Vector<bool> param_byval;  // True = ByVal, False = ByRef
-    bool use_cdecl;  // True = CDecl, False = StdCall (default for VB6)
-    
-    DeclareStatement() : Statement(STMT_DECLARE) {
-        use_cdecl = false;
     }
 };
 

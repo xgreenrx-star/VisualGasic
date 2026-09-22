@@ -67,6 +67,8 @@ Var InstallOllama
 Var OllamaModel
 Var InstallPiper
 Var InstallWhisper
+Var InstallCursorMcp
+Var OpenCursorDownload
 Var DetectedRamGB
 
 Var hCtlGodot
@@ -83,6 +85,8 @@ Var hCtlOllamaModel
 Var hCtlOllamaInfo
 Var hCtlPiperEnable
 Var hCtlWhisperEnable
+Var hCtlCursorMcp
+Var hCtlOpenCursor
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -115,6 +119,8 @@ Function .onInit
     StrCpy $OllamaModel ""
     StrCpy $InstallPiper "0"
     StrCpy $InstallWhisper "0"
+    StrCpy $InstallCursorMcp "1"
+    StrCpy $OpenCursorDownload "0"
     StrCpy $DetectedRamGB "0"
 FunctionEnd
 
@@ -227,7 +233,7 @@ Function AIKeysPage
     Pop $hCtlGemini
 
     ${NSD_CreateLabel} 0 90u 100% 24u \
-        "Ollama runs locally and needs no key — configure it from the IDE's AI Settings dialog after install."
+        "Cloud keys also work in Cursor IDE. Ollama runs locally — no key needed (see next page)."
     Pop $0
 
     nsDialogs::Show
@@ -356,6 +362,20 @@ Function OllamaPage
         "Without local Whisper, the mic button in Vibe Code requires an OpenAI API key. whisper.cpp runs entirely on-device — no key, no network."
     Pop $0
 
+    ; Cursor IDE pairing (MCP + optional download page).
+    ${NSD_CreateCheckbox} 0 204u 100% 12u \
+        "Write .cursor/mcp.json so Cursor can use Visual Gasic MCP (port 8766)"
+    Pop $hCtlCursorMcp
+    ${NSD_Check} $hCtlCursorMcp
+
+    ${NSD_CreateCheckbox} 0 218u 100% 12u \
+        "Open Cursor download page when install finishes (install Cursor separately)"
+    Pop $hCtlOpenCursor
+
+    ${NSD_CreateLabel} 16u 232u 100% 24u \
+        "Godot must be running with Visual Gasic enabled for MCP. The Project Setup Wizard in the IDE offers the same optional VG plugins as this installer."
+    Pop $0
+
     nsDialogs::Show
 FunctionEnd
 
@@ -399,6 +419,20 @@ Function OllamaPageLeave
     ${Else}
         StrCpy $InstallWhisper "0"
     ${EndIf}
+
+    ${NSD_GetState} $hCtlCursorMcp $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $InstallCursorMcp "1"
+    ${Else}
+        StrCpy $InstallCursorMcp "0"
+    ${EndIf}
+
+    ${NSD_GetState} $hCtlOpenCursor $0
+    ${If} $0 == ${BST_CHECKED}
+        StrCpy $OpenCursorDownload "1"
+    ${Else}
+        StrCpy $OpenCursorDownload "0"
+    ${EndIf}
 FunctionEnd
 
 ; ── Install ──────────────────────────────────────────────────────────────
@@ -441,6 +475,19 @@ Section "VisualGasic first-time installer" SecMain
         ${EndIf}
     ${EndIf}
 
+    ${If} $InstallCursorMcp == "1"
+        StrCpy $0 "$0 --with-cursor-mcp"
+    ${EndIf}
+    ${If} $OpenCursorDownload == "1"
+        StrCpy $0 "$0 --open-cursor-download"
+    ${EndIf}
+    ${If} $InstallPiper == "1"
+        StrCpy $0 "$0 --with-piper"
+    ${EndIf}
+    ${If} $InstallWhisper == "1"
+        StrCpy $0 "$0 --with-whisper"
+    ${EndIf}
+
     ; Small .cmd shim the user can re-run any time (uses defaults — for
     ; custom values they can re-run the .exe to get the wizard again).
     FileOpen $2 "$INSTDIR\run_installer.cmd" w
@@ -481,29 +528,11 @@ Section "VisualGasic first-time installer" SecMain
     ; the bundled install_piper.ps1 via PowerShell so users get a single
     ; supported download path on every Windows version.  Failures here
     ; are non-fatal — voice mode still works via SAPI fallback.
-    ${If} $InstallPiper == "1"
-        DetailPrint "Downloading Piper neural TTS + persona voices (~340 MB)..."
-        nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$INSTDIR\install_piper.ps1"'
-        Pop $3
-        ${If} $3 != 0
-            DetailPrint "Piper download failed (exit $3); voice mode will use SAPI fallback. You can re-run install_piper.ps1 later."
-        ${Else}
-            DetailPrint "Piper installed successfully."
-        ${EndIf}
-    ${EndIf}
+    ; Piper / Whisper / Cursor MCP are handled by bootstrap_vg.py via $0 flags.
 
-    ; Optional: download prebuilt whisper.cpp + tiny.en model.  Same
-    ; pattern as Piper above — failures are non-fatal (mic button just
-    ; falls back to requiring an OpenAI key).
-    ${If} $InstallWhisper == "1"
-        DetailPrint "Downloading local Whisper STT (~85 MB)..."
-        nsExec::ExecToLog 'powershell.exe -ExecutionPolicy Bypass -NoProfile -File "$INSTDIR\install_whisper.ps1"'
-        Pop $3
-        ${If} $3 != 0
-            DetailPrint "Whisper download failed (exit $3); mic mode will require an OpenAI key. You can re-run install_whisper.ps1 later."
-        ${Else}
-            DetailPrint "Whisper installed successfully."
-        ${EndIf}
+    ${If} $OpenCursorDownload == "1"
+        DetailPrint "Opening Cursor download page..."
+        ExecShell "open" "https://cursor.com/download"
     ${EndIf}
 
     ; Record the uninstaller location and run it from an uninstall context.

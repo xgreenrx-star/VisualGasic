@@ -1402,6 +1402,10 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     variables[ed->values[em].name] = ed->values[em].value;
                 }
             }
+
+            for (int di = 0; di < vs->ast_root->ffi_declares.size(); di++) {
+                register_declare(vs->ast_root->ffi_declares[di]);
+            }
             
             // Build struct prototypes BEFORE global Dims so that
             // `Dim particles(N) As Particle` can find the prototype.
@@ -1559,6 +1563,10 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     
                     if (import_ast) {
                         String mod_name = full_path.get_file().get_basename();
+
+                        for (int di2 = 0; di2 < import_ast->ffi_declares.size(); di2++) {
+                            register_declare(import_ast->ffi_declares[di2]);
+                        }
 
                         // Initialize the imported module's own module-level
                         // globals/consts/array-Dims into THIS instance's shared

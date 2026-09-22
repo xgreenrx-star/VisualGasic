@@ -639,6 +639,14 @@ PROJECT_GODOT_TEMPLATE = textwrap.dedent("""\
     ; inspector docked, code editor as main screen) on first open. The user
     ; can toggle this via Project > Tools > Toggle VG IDE Layout.
     layout/vb6_mode=true
+
+    [vg]
+
+    ; Show Project Setup Wizard on first open (optional VG plugins + Cursor MCP).
+    ; Asset Library installs get the same picker as the native installers.
+    auto_show_project_wizard=true
+    default_mode="code"
+    first_run_completed=false
     """)
 
 FORM1_TEMPLATE = textwrap.dedent('''\
@@ -1347,6 +1355,99 @@ def configure_ollama(args) -> None:
     pull_ollama_model(model_id)
 
 
+CURSOR_DOWNLOAD_URL = "https://cursor.com/download"
+MCP_SERVER_KEY = "visual-gasic"
+MCP_DEFAULT_PORT = 8766
+
+
+def write_cursor_mcp_config(project_dir: Path, port: int = MCP_DEFAULT_PORT) -> None:
+    """Merge visual-gasic MCP entry into project_dir/.cursor/mcp.json."""
+    cursor_dir = project_dir / ".cursor"
+    cursor_dir.mkdir(parents=True, exist_ok=True)
+    mcp_path = cursor_dir / "mcp.json"
+    url = f"http://127.0.0.1:{port}/mcp"
+    root_obj: dict = {"mcpServers": {}}
+    if mcp_path.exists():
+        try:
+            parsed = json.loads(mcp_path.read_text(encoding="utf-8"))
+            if isinstance(parsed, dict):
+                root_obj = parsed
+        except json.JSONDecodeError:
+            warn(f"Existing {mcp_path} is not valid JSON — overwriting MCP entry.")
+    servers = root_obj.get("mcpServers")
+    if not isinstance(servers, dict):
+        servers = {}
+    servers[MCP_SERVER_KEY] = {"url": url}
+    root_obj["mcpServers"] = servers
+    mcp_path.write_text(json.dumps(root_obj, indent="\t") + "\n", encoding="utf-8")
+
+
+def open_cursor_download_page() -> None:
+    import webbrowser
+
+    try:
+        webbrowser.open(CURSOR_DOWNLOAD_URL)
+    except Exception as exc:
+        warn(f"Could not open browser: {exc}. Visit {CURSOR_DOWNLOAD_URL} manually.")
+
+
+def configure_cursor_companion(args, project_dir: Path) -> None:
+    if getattr(args, "with_cursor_mcp", False):
+        write_cursor_mcp_config(project_dir)
+        ok(f"Cursor MCP config written: {project_dir / '.cursor' / 'mcp.json'}")
+        info("Enable **visual-gasic** in Cursor → Settings → Tools & MCP while Godot runs.")
+    if getattr(args, "open_cursor_download", False):
+        info("Opening Cursor download page…")
+        open_cursor_download_page()
+
+
+def _run_companion_script(script: Path, label: str) -> None:
+    if not script.is_file():
+        warn(f"{label} script missing ({script}); skip or install manually.")
+        return
+    system = platform.system()
+    if script.suffix.lower() == ".ps1":
+        cmd = [
+            "powershell.exe",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-NoProfile",
+            "-File",
+            str(script),
+        ]
+    else:
+        cmd = ["bash", str(script)]
+    info(f"Running {label} installer ({script.name})…")
+    try:
+        rc = subprocess.run(cmd, check=False).returncode
+        if rc != 0:
+            warn(f"{label} installer exited with code {rc}; you can re-run {script.name} later.")
+        else:
+            ok(f"{label} installed.")
+    except OSError as exc:
+        warn(f"{label} installer failed: {exc}")
+
+
+def configure_piper(args) -> None:
+    if not getattr(args, "with_piper", False):
+        return
+    root = Path(__file__).resolve().parent
+    if platform.system() == "Windows":
+        _run_companion_script(root / "install_piper.ps1", "Piper TTS")
+    else:
+        _run_companion_script(root / "install_piper.sh", "Piper TTS")
+
+
+def configure_whisper(args) -> None:
+    if not getattr(args, "with_whisper", False):
+        return
+    root = Path(__file__).resolve().parent
+    if platform.system() == "Windows":
+        _run_companion_script(root / "install_whisper.ps1", "Whisper STT")
+    else:
+        _run_companion_script(root / "install_whisper.sh", "Whisper STT")
+
+
 # ── Main flow ──────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -1411,6 +1512,32 @@ def main() -> int:
              "Default: auto-recommend based on detected RAM/VRAM.")
     ollama_group.add_argument("--list-ollama-models", action="store_true",
                               help="Print the curated Ollama model catalog and exit.")
+
+    companion = parser.add_argument_group(
+        "Companion tools (optional)",
+        "Cursor IDE pairing, Piper neural TTS, and local Whisper STT for Vibe Code. "
+        "Matches the Windows NSIS installer checkboxes.",
+    )
+    companion.add_argument(
+        "--with-cursor-mcp",
+        action="store_true",
+        help="Write .cursor/mcp.json in the scaffolded project for Cursor MCP.",
+    )
+    companion.add_argument(
+        "--open-cursor-download",
+        action="store_true",
+        help="Open https://cursor.com/download in the browser (Cursor app is installed separately).",
+    )
+    companion.add_argument(
+        "--with-piper",
+        action="store_true",
+        help="Download Piper TTS + persona voices (~340 MB on first run).",
+    )
+    companion.add_argument(
+        "--with-whisper",
+        action="store_true",
+        help="Download/build local whisper.cpp STT for Vibe Code mic (~85–150 MB).",
+    )
 
     gui_group = parser.add_argument_group("Graphical installer")
     gui_group.add_argument("--gui", action="store_true",
@@ -1506,6 +1633,11 @@ def main() -> int:
 
     # Step 5b — Optional Ollama install + model pull (off by default)
     configure_ollama(args)
+
+    # Step 5c — Cursor MCP, Piper, Whisper (off by default; GUI/NSIS opt-in)
+    configure_cursor_companion(args, project_dir)
+    configure_piper(args)
+    configure_whisper(args)
 
     # Step 6 — Prime the project: run Godot once headlessly so it imports
     # all .vg / .gd / .tscn files. This is what lets the VG editor plugin
