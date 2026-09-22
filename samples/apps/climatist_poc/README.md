@@ -59,7 +59,9 @@ Each `.vg` file starts with a header comment (James spec mapping, architecture, 
 
 | File | Role |
 |------|------|
+| `HttpUtil.vg` | Shared GET retry, same-day `user://` cache, generation token (`samples/stdlib/` links here) |
 | `WeatherApi.vg` | URLs, HTTP, Open-Meteo parse, NWS 12 h periods |
+| `fixtures/` | Offline JSON for `test_climatist_fixtures.vg` |
 | `PatternApi.vg` | ERA5 archive Pattern fetches + temp/soil math |
 | `ClimatistStore.vg` | `user://` settings + fetch audit log |
 | `DiscussionApi.vg` | NWS AFD fetch + CPC missing block |

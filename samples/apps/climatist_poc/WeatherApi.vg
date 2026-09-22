@@ -17,6 +17,8 @@
 ' =============================================================================
 Attribute VB_Name = "WeatherApi"
 
+Import "HttpUtil.vg"
+
 ' Required by NWS API policy: https://www.weather.gov/documentation/services-web-api
 Private Const NWS_USER_AGENT As String = "ClimatistPOC/1.0 (VisualGasic sample; contact via VisualGasic repo)"
 
@@ -96,21 +98,22 @@ Sub HttpGet(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText
 End Sub
 
 Sub HttpGetWithHeaders(ByVal url As String, ByVal userAgent As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
-	Dim http As New VGHttpRequest
-	http.Open "GET", url, False
-	http.SetRequestHeader "Accept", "application/json"
-	If Len(userAgent) > 0 Then
-		http.SetRequestHeader "User-Agent", userAgent
-	End If
-	http.Send ""
-	outStatus = http.Status
-	outStatusText = http.StatusText
-	If outStatus = 200 Then
-		outBody = http.ResponseText
-	Else
-		outBody = ""
-	End If
+	' Retries HTTP 0 / 429 / 5xx. See samples/stdlib/HttpUtil.vg.
+	Call HttpUtil.HttpFetch(url, userAgent, 4, outStatus, outStatusText, outBody)
 End Sub
+
+Sub HttpGetCached(ByVal url As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	' Same-day disk cache. Use for archive JSON that does not change during the day.
+	Call HttpUtil.HttpFetchCached(url, "", 1, outStatus, outStatusText, outBody)
+End Sub
+
+Sub HttpBumpGeneration()
+	Call HttpUtil.HttpBumpGeneration()
+End Sub
+
+Function HttpGeneration() As Integer
+	HttpGeneration = HttpUtil.HttpGeneration()
+End Function
 
 ' --- NWS 12-hour period PoP (James: distinct from Open-Meteo hourly %) ----------
 

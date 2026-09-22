@@ -1,0 +1,48 @@
+' Offline fixture test: NWS PoP object + ERA5 pattern departure.
+' JSON lives in fixtures/ (same shapes as Open-Meteo archive and NWS periods).
+' Expect: PASS: climatist_fixtures
+Attribute VB_Name = "ClimatistTestFixtures"
+
+Import "WeatherApi.vg"
+Import "PatternApi.vg"
+
+Sub _Ready()
+	Dim popPath As String
+	popPath = "res://fixtures/nws_period_pop.json"
+	If Not FileExists(popPath) Then
+		Print "FAIL: climatist_fixtures: missing " & popPath
+		Exit Sub
+	End If
+	Dim popDoc As Object
+	Set popDoc = JsonParse(ReadAllText(popPath))
+	If popDoc Is Nothing Then
+		Print "FAIL: climatist_fixtures: pop json"
+		Exit Sub
+	End If
+	If WeatherApi.PopValueFromPeriod(popDoc) <> 40 Then
+		Print "FAIL: climatist_fixtures: pop value"
+		Exit Sub
+	End If
+
+	Dim recent As String
+	recent = ReadAllText("res://fixtures/pattern_recent.json")
+	Dim climTimes()
+	Dim climTemps()
+	Dim cn As Integer
+	cn = 0
+	Call PatternApi.AppendDailyTempSeries(ReadAllText("res://fixtures/pattern_year_1991.json"), climTimes, climTemps, cn)
+	Call PatternApi.AppendDailyTempSeries(ReadAllText("res://fixtures/pattern_year_1992.json"), climTimes, climTemps, cn)
+	Dim tb As String
+	Dim sl As String
+	Call PatternApi.ParsePatternFromAccumulatedClim(recent, climTimes, climTemps, cn, False, tb, sl)
+	' recent mean 21.0; normals 17.5 and 19.0 -> 18.25; departure 2.75
+	If InStr(tb, "2.75") = 0 Then
+		Print "FAIL: climatist_fixtures: departure block=" & tb
+		Exit Sub
+	End If
+	If InStr(sl, "Soil moisture") = 0 Then
+		Print "FAIL: climatist_fixtures: soil"
+		Exit Sub
+	End If
+	Print "PASS: climatist_fixtures"
+End Sub

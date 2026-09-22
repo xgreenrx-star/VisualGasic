@@ -710,8 +710,8 @@ static func _build_db() -> void:
 
 	_add("Format",
 		"Format(expression, formatString)",
-		"Formats a number, date, or string according to the format pattern.",
-		"Print Format(1234.5, \"#,##0.00\")  ' \"1,234.50\"\nPrint Format(0.75, \"0%\")          ' \"75%\"", 7129)
+		"Formats numbers and dates. Named styles include Fixed, Standard, Currency, Percent (or \"%\"), and Short/Long Date. A pattern with a dot (e.g. \"0.00\") only sets decimal places; it does not add thousand separators — use Format(..., \"Standard\") or FormatCurrency for that.",
+		"Print Format(1234.5, \"Standard\")   ' \"1,234.50\"\nPrint Format(0.75, \"Percent\")        ' \"75.00%\"\nPrint Format(1234.5, \"0.00\")         ' \"1234.50\" (decimals only)", 7129)
 
 	_add("Val",
 		"Val(string)",
@@ -720,8 +720,8 @@ static func _build_db() -> void:
 
 	_add("Str",
 		"Str(number)",
-		"Converts a number to its string representation.",
-		"Dim s As String = Str(42)  ' \" 42\" (note leading space)\nPrint \"Score: \" & Str(score)", 12026)
+		"Converts a number to its string representation (same as CStr in VG — no VB6 leading space).",
+		"Dim s As String = Str(42)  ' \"42\"\nPrint \"Score: \" & Str(score)", 12026)
 
 	_add("CStr",
 		"CStr(expression)",
@@ -798,13 +798,13 @@ static func _build_db() -> void:
 
 	_add("Round",
 		"Round(number [, decimals])",
-		"Rounds a number to the specified number of decimal places.",
-		"Print Round(3.14159, 2)  ' 3.14\nPrint Round(2.5)         ' 2 (banker's rounding)", 10607)
+		"Rounds a number to the specified number of decimal places (half values round away from zero, not banker's rounding).",
+		"Print Round(3.14159, 2)  ' 3.14\nPrint Round(2.5)         ' 3", 10607)
 
 	_add("Rnd",
-		"Rnd([upperBound])",
-		"Returns a random floating-point number between 0 and 1 (or 0 and upperBound if specified).",
-		"Randomize\nDim r As Single = Rnd()      ' 0.0 to 1.0\nDim d As Integer = Int(Rnd(6)) + 1  ' Dice roll 1-6", 10581)
+		"Rnd([value])",
+		"Returns a random Single in [0, 1). The optional argument is not an upper bound (VB6-style reseed rules are not fully emulated); use RandRange for a bounded range.",
+		"Randomize\nDim r As Single = Rnd()  ' 0.0 to <1.0\nDim d As Integer = Int(RandRange(1, 7))  ' Dice 1-6 if you treat 7 as exclusive upper", 10581)
 
 	_add("Randomize",
 		"Randomize [seed]",
@@ -813,8 +813,8 @@ static func _build_db() -> void:
 
 	_add("RandRange",
 		"RandRange(min, max)",
-		"Returns a random number between min and max (inclusive).",
-		"Dim damage As Integer = RandRange(5, 20)\nDim x As Single = RandRange(0.0, 1.0)", 10080)
+		"Returns a random number in [min, max) — max is exclusive (min + Rnd() * (max - min)).",
+		"Dim damage As Integer = Int(RandRange(5, 21))  ' 5..20\nDim x As Single = RandRange(0.0, 1.0)", 10080)
 
 	_add("Lerp",
 		"Lerp(a, b, t)",
@@ -1812,9 +1812,9 @@ static func _build_db() -> void:
 		"If IsActionPressed(\"ui_accept\") Then\n    SelectMenuItem()\nEnd If", 8035)
 
 	_add("PlaySound",
-		"PlaySound(path [, volume] [, pitch])",
-		"Plays a sound effect from the specified resource path.",
-		"PlaySound \"res://sounds/explosion.wav\"\nPlaySound \"res://sounds/jump.ogg\", 0.8, 1.2", 9679)
+		"PlaySound(path [, volumePercent])",
+		"Plays a one-shot sound from a resource path. Optional volumePercent is 0–100 (default 100). Pitch is not supported.",
+		"PlaySound \"res://sounds/explosion.wav\"\nPlaySound \"res://sounds/jump.ogg\", 80", 9679)
 
 	_add("LoadForm",
 		"LoadForm formName",
@@ -1980,9 +1980,14 @@ static func _build_db() -> void:
 		"PSet 100, 50, Color(1, 0, 0)   ' Red pixel\nPSet 101, 50, RGB(0, 255, 0)   ' Green pixel", 9787)
 
 	_add("DrawString",
-		"DrawString font, position, text, color [, fontSize]",
-		"Draws text using a Godot Font object at the specified position. Use GetThemeDefaultFont() to get the default font.",
-		"Sub _Draw()\n    Dim f As Variant = GetThemeDefaultFont()\n    DrawString f, Vector2(10, 20), \"Hello World!\", Color.White\n    DrawString f, Vector2(10, 40), \"Score: \" & score, Color.Yellow\nEnd Sub", 6510)
+		"DrawString text, x, y, color [, fontSize]\nDrawString font, Vector2(x, y), text, color [, fontSize]  ' alternate; font arg is ignored",
+		"Draws text in _Draw() using the theme fallback font. Primary form is text then x,y (y is adjusted down by fontSize for baseline). Alternate form accepts a Font object first only as a type dispatch; that font is not used.",
+		"Sub _Draw()\n    DrawString \"Hello World!\", 10, 20, Color.White\n    DrawString \"Score: \" & score, 10, 40, Color.Yellow, 18\nEnd Sub", 6510)
+
+	_add("DrawText",
+		"DrawText position, text [, color]",
+		"Draws text at a Vector2 position with fixed 16px font. Not the same argument order as DrawString.",
+		"Sub _Draw()\n    DrawText Vector2(10, 20), \"Hello\", Color.White\nEnd Sub", 6510)
 
 	_add("DrawTexture",
 		"DrawTexture texture, x, y [, modulate]\nDrawTexture texture, Vector2(x, y) [, modulate]",
@@ -2026,8 +2031,8 @@ static func _build_db() -> void:
 
 	_add("CLS",
 		"CLS\nCLS()",
-		"Clears the screen/canvas. Removes all dynamically created child nodes and triggers a redraw. VB6 classic command.",
-		"CLS  ' Clear everything\n\n' Typical usage: clear before redrawing\nSub _Draw()\n    ' CLS is implicit in _Draw — each frame starts clean\n    DrawRect 0, 0, 640, 480, Color.Black   ' Background\n    DrawString GetThemeDefaultFont(), Vector2(10, 20), \"Game Over\", Color.White\nEnd Sub", 5553)
+		"VB6-style clear. In the AST interpreter, frees nodes VG added with AddChild (not canvas pixels). In bytecode-compiled scripts, only queues a redraw. For canvas games, redraw in _Draw() each frame instead of relying on CLS.",
+		"Sub _Draw()\n    DrawRect 0, 0, 640, 480, Color.Black\n    DrawString \"Game Over\", 10, 20, Color.White\nEnd Sub", 5553)
 
 	# =========================================================================
 	# IMAGE & TEXTURE MANIPULATION
@@ -2359,9 +2364,9 @@ static func _build_db() -> void:
 		"Disconnects a signal handler wired with Connect.",
 		"Disconnect timer, \"timeout\", \"OnTimerDone\"", 2195)
 	_add("MoveAndSlide",
-		"MoveAndSlide() As Boolean",
-		"Slides CharacterBody2D using velocity. Returns True if a collision occurred. Call from _PhysicsProcess.",
-		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += 980 * delta\n    MoveAndSlide()\nEnd Sub", 2123)
+		"MoveAndSlide([body])",
+		"On the script owner CharacterBody2D/3D, call with no args (uses owner velocity). Or pass a body: MoveAndSlide(player). When called on the owner with no args, returns True if on floor/wall/ceiling after the move.",
+		"Sub _PhysicsProcess(delta As Single)\n    velocity.y += 980 * delta\n    MoveAndSlide\nEnd Sub", 2123)
 
 	# PascalCase owner-relative globals (GODOT_FUNCTIONS_REFERENCE parity)
 	_add("GetNode",
@@ -2686,7 +2691,7 @@ static func _build_see_also() -> void:
 		# Drawing — shapes
 		["DrawLine", "DrawRect", "DrawCircle", "DrawArc", "DrawPixel", "DrawPolygon", "DrawPolyline", "PSet", "CLS", "QueueRedraw"],
 		# Drawing — text & images
-		["DrawString", "DrawTexture", "DrawTextureRect"],
+		["DrawString", "DrawText", "DrawTexture", "DrawTextureRect"],
 		# Drawing — transform
 		["SetDrawTransform", "ResetDrawTransform"],
 		# Image manipulation

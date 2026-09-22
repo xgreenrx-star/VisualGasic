@@ -171,10 +171,10 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["Print"] = "Print(value As Variant)";
     (*parameter_hints)["Input"] = "Input(prompt As String) As String";
     (*parameter_hints)["Format"] = "Format(value As Variant, formatString As String) As String";
-    (*parameter_hints)["RandRange"] = "RandRange(min As Double, max As Double) As Double";
+    (*parameter_hints)["RandRange"] = "RandRange(min As Double, max As Double) As Double  ' [min, max) max exclusive";
     (*parameter_hints)["Lerp"] = "Lerp(from As Double, to As Double, weight As Double) As Double";
     (*parameter_hints)["Clamp"] = "Clamp(value As Double, min As Double, max As Double) As Double";
-    (*parameter_hints)["DrawText"] = "DrawText(text As String, x As Double, y As Double, color As Color)";
+    (*parameter_hints)["DrawText"] = "DrawText(position As Vector2, text As String, [color As Color])";
     (*parameter_hints)["DrawString"] = "DrawString(text As String, x As Double, y As Double, color As Color, [fontSize As Integer])";
     (*parameter_hints)["DrawLine"] = "DrawLine(x1 As Double, y1 As Double, x2 As Double, y2 As Double, color As Color, [width As Double])";
     (*parameter_hints)["DrawRect"] = "DrawRect(x As Double, y As Double, width As Double, height As Double, color As Color, [filled As Boolean])";
@@ -262,7 +262,7 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["PPmt"] = "PPmt(rate As Double, per As Double, nper As Double, pv As Double[, fv As Double][, type As Integer]) As Double  ' Principal portion of payment";
     (*parameter_hints)["MIRR"] = "MIRR(values() As Double, financeRate As Double, reinvestRate As Double) As Double  ' Modified internal rate of return";
     (*parameter_hints)["RGB"] = "RGB(red As Integer, green As Integer, blue As Integer) As Color";
-    (*parameter_hints)["PlaySound"] = "PlaySound(soundPath As String, volume As Double)";
+    (*parameter_hints)["PlaySound"] = "PlaySound(soundPath As String, [volumePercent As Integer 0-100])";
     (*parameter_hints)["SetTitle"] = "SetTitle(title As String)";
     (*parameter_hints)["ChangeScene"] = "ChangeScene(scenePath As String)";
     (*parameter_hints)["Sleep"] = "Sleep(milliseconds As Integer)";

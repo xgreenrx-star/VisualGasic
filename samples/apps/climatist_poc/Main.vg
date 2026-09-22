@@ -89,6 +89,7 @@ Dim patternMdCnt As Array          ' how many years contributed to each calendar
 Dim patternMergeIdx As Integer     ' how far step 3 has read through patternClimCount
 Dim patternMergePhase As Integer   ' 0=index days, 1=build final paragraph
 Dim patternLoadPulse As Integer    ' ticks up while loading — animates "Working..." dots
+Dim patternEpoch As Integer        ' HttpUtil generation captured when Pattern load starts
 
 Dim discussionLoadState As String  ' idle | loading | ok | error (same idea as loadState)
 Dim discussionTitle As String
@@ -429,6 +430,8 @@ Sub BeginPatternLoad()
 	patternRecentStart = ""
 	patternRecentEnd = ""
 	patternError = ""
+	Call WeatherApi.HttpBumpGeneration()
+	patternEpoch = WeatherApi.HttpGeneration()
 	patternTempBlock = ""
 	patternSoilLine = ""
 	Call PatternApi.MissingSourcesBlock(patternMissingBlock)
@@ -457,8 +460,11 @@ Sub PatternLoadTick()
 		Dim st As Integer
 		Dim stText As String
 		patternLoadBusy = True
-		Call WeatherApi.HttpGet(url, st, stText, patternRecentBody)
+		Call WeatherApi.HttpGetCached(url, st, stText, patternRecentBody)
 		patternLoadBusy = False
+		Dim genNow As Integer
+		genNow = WeatherApi.HttpGeneration()
+		If genNow <> patternEpoch Then Exit Sub
 		Call ClimatistStore.LogFetch("pattern-archive-recent", url, st, Len(patternRecentBody))
 		If st <> 200 Or Len(patternRecentBody) = 0 Then
 			patternLoadState = "error"
@@ -495,8 +501,11 @@ Sub PatternLoadTick()
 		Dim stText2 As String
 		Dim yBody As String
 		patternLoadBusy = True
-		Call WeatherApi.HttpGet(url2, st2, stText2, yBody)
+		Call WeatherApi.HttpGetCached(url2, st2, stText2, yBody)
 		patternLoadBusy = False
+		Dim genNow2 As Integer
+		genNow2 = WeatherApi.HttpGeneration()
+		If genNow2 <> patternEpoch Then Exit Sub
 		Call ClimatistStore.LogFetch("pattern-archive-clim-" & CStr(patternClimYear), url2, st2, Len(yBody))
 		If st2 = 429 Or st2 = 0 Then
 			If patternClim429Retries < 5 Then

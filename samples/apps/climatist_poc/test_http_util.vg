@@ -1,0 +1,34 @@
+' Offline test: cache round-trip and generation token. No network.
+' Expect: PASS: climatist_http_util
+Attribute VB_Name = "ClimatistTestHttpUtil"
+
+Import "HttpUtil.vg"
+
+Sub _Ready()
+	Dim url As String
+	url = "https://example.test/archive?lat=1&lon=2"
+	Call HttpUtil.HttpCacheStore(url, "{""ok"":1}")
+	Dim body As String
+	body = HttpUtil.HttpCacheLoad(url, 1)
+	If Len(body) = 0 Then
+		Print "FAIL: climatist_http_util: cache miss"
+		Exit Sub
+	End If
+	If InStr(body, "ok") = 0 Then
+		Print "FAIL: climatist_http_util: bad body len=" & CStr(Len(body)) & " [" & body & "]"
+		Exit Sub
+	End If
+
+	Dim g0 As Integer
+	g0 = HttpUtil.HttpGeneration()
+	If Not HttpUtil.HttpResultIsCurrent(g0) Then
+		Print "FAIL: climatist_http_util: generation should match"
+		Exit Sub
+	End If
+	Call HttpUtil.HttpBumpGeneration()
+	If HttpUtil.HttpResultIsCurrent(g0) Then
+		Print "FAIL: climatist_http_util: stale generation still current"
+		Exit Sub
+	End If
+	Print "PASS: climatist_http_util"
+End Sub

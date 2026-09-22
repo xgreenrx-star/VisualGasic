@@ -1,0 +1,135 @@
+' =============================================================================
+' HttpUtil.vg — shared HTTP helpers for VG apps
+' =============================================================================
+' Copy or symlink this file into a Godot project (Import "HttpUtil.vg").
+'
+' HttpFetch          — GET with retries on HTTP 0, 429, and 5xx
+' HttpFetchCached    — same, plus a one-day (or N-day) body cache under user://
+' HttpBumpGeneration — call when the user changes location or restarts a load
+' HttpGeneration     — compare after a fetch; drop the body if it changed
+'
+' Cache files: user://vgcache_<key>.body and user://vgcache_<key>.day
+' Day stamp is yyyy-mm-dd from Now(), so a ttl of 1 day expires at midnight.
+' =============================================================================
+Attribute VB_Name = "HttpUtil"
+
+Dim httpGeneration As Integer
+
+Sub HttpBumpGeneration()
+	httpGeneration = httpGeneration + 1
+End Sub
+
+Function HttpGeneration() As Integer
+	HttpGeneration = httpGeneration
+End Function
+
+Function HttpResultIsCurrent(ByVal startedGen As Integer) As Boolean
+	HttpResultIsCurrent = (startedGen = httpGeneration)
+End Function
+
+Function HttpCacheKey(ByVal url As String) As String
+	Dim s As String
+	s = url
+	s = Replace(s, "https://", "")
+	s = Replace(s, "http://", "")
+	s = Replace(s, "/", "_")
+	s = Replace(s, "?", "_")
+	s = Replace(s, "&", "_")
+	s = Replace(s, "=", "_")
+	s = Replace(s, ":", "_")
+	s = Replace(s, "%", "_")
+	If Len(s) > 72 Then s = Right(s, 72)
+	HttpCacheKey = s
+End Function
+
+Function HttpCacheBodyPath(ByVal url As String) As String
+	HttpCacheBodyPath = "user://vgcache_" & HttpCacheKey(url) & ".body"
+End Function
+
+Function HttpCacheDayPath(ByVal url As String) As String
+	HttpCacheDayPath = "user://vgcache_" & HttpCacheKey(url) & ".day"
+End Function
+
+Function HttpTodayStamp() As String
+	HttpTodayStamp = Format(Now(), "yyyy-mm-dd")
+End Function
+
+Function HttpCacheLoad(ByVal url As String, ByVal ttlDays As Integer) As String
+	' Returns the cached body, or "" on miss. Same calendar day when ttlDays >= 1.
+	HttpCacheLoad = ""
+	If ttlDays <= 0 Then Exit Function
+	Dim dayPath As String
+	Dim bodyPath As String
+	dayPath = HttpCacheDayPath(url)
+	bodyPath = HttpCacheBodyPath(url)
+	If Not FileExists(dayPath) Then Exit Function
+	If Not FileExists(bodyPath) Then Exit Function
+	Dim savedDay As String
+	savedDay = Trim(ReadAllText(dayPath))
+	If Len(savedDay) < 10 Then Exit Function
+	If savedDay <> HttpTodayStamp() Then Exit Function
+	HttpCacheLoad = ReadAllText(bodyPath)
+End Function
+
+Sub HttpCacheStore(ByVal url As String, ByVal body As String)
+	If Len(body) = 0 Then Exit Sub
+	WriteAllText HttpCacheDayPath(url), HttpTodayStamp()
+	WriteAllText HttpCacheBodyPath(url), body
+End Sub
+
+Sub HttpFetchOnce(ByVal url As String, ByVal userAgent As String, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	Dim http As New VGHttpRequest
+	http.Open "GET", url, False
+	http.SetRequestHeader "Accept", "application/json"
+	If Len(userAgent) > 0 Then
+		http.SetRequestHeader "User-Agent", userAgent
+	End If
+	http.Send ""
+	outStatus = http.Status
+	outStatusText = http.StatusText
+	If outStatus = 200 Then
+		outBody = http.ResponseText
+	Else
+		outBody = ""
+	End If
+End Sub
+
+Function HttpShouldRetry(ByVal status As Integer) As Boolean
+	If status = 0 Or status = 429 Then
+		HttpShouldRetry = True
+	ElseIf status >= 500 And status <= 599 Then
+		HttpShouldRetry = True
+	Else
+		HttpShouldRetry = False
+	End If
+End Function
+
+Sub HttpFetch(ByVal url As String, ByVal userAgent As String, ByVal maxAttempts As Integer, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	If maxAttempts < 1 Then maxAttempts = 1
+	If maxAttempts > 6 Then maxAttempts = 6
+	Dim attempt As Integer
+	attempt = 1
+	Do
+		Call HttpFetchOnce(url, userAgent, outStatus, outStatusText, outBody)
+		If outStatus = 200 And Len(outBody) > 0 Then Exit Sub
+		If Not HttpShouldRetry(outStatus) Then Exit Sub
+		If attempt >= maxAttempts Then Exit Sub
+		Sleep 400
+		attempt = attempt + 1
+	Loop
+End Sub
+
+Sub HttpFetchCached(ByVal url As String, ByVal userAgent As String, ByVal ttlDays As Integer, ByRef outStatus As Integer, ByRef outStatusText As String, ByRef outBody As String)
+	Dim cached As String
+	cached = HttpCacheLoad(url, ttlDays)
+	If Len(cached) > 0 Then
+		outStatus = 200
+		outStatusText = "cache"
+		outBody = cached
+		Exit Sub
+	End If
+	Call HttpFetch(url, userAgent, 4, outStatus, outStatusText, outBody)
+	If outStatus = 200 And Len(outBody) > 0 Then
+		Call HttpCacheStore(url, outBody)
+	End If
+End Sub

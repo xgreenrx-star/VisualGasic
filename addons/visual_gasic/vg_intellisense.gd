@@ -1014,7 +1014,7 @@ const VB6_FORM_MEMBERS: Array[Dictionary] = [
 	{"text": "Hide", "kind": "method", "detail": "Hide() — Hide the form"},
 	{"text": "Refresh", "kind": "method", "detail": "Refresh() — Force repaint"},
 	{"text": "Print", "kind": "method", "detail": "Print(text As String) — Print text on form surface"},
-	{"text": "CLS", "kind": "method", "detail": "CLS() — Clear form drawing surface"},
+	{"text": "CLS", "kind": "method", "detail": "CLS() — Free dynamic nodes or queue redraw (see command help)"},
 	{"text": "Controls", "kind": "property", "detail": "Collection — All controls on the form"},
 ]
 
@@ -1488,7 +1488,7 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Space", "signature": "Space(n As Integer) As String", "description": "Creates string of n spaces"},
 	{"name": "Chr", "signature": "Chr(code As Integer) As String", "description": "Returns character from ASCII code"},
 	{"name": "Asc", "signature": "Asc(str As String) As Integer", "description": "Returns ASCII code of first character"},
-	{"name": "Format", "signature": "Format(value, formatStr As String) As String", "description": "Formats a value"},
+	{"name": "Format", "signature": "Format(value, formatStr As String) As String", "description": "Formats value; use Standard/Currency/Percent for grouping; dot patterns set decimals only"},
 	
 	# Math Functions
 	{"name": "Abs", "signature": "Abs(n As Double) As Double", "description": "Returns absolute value"},
@@ -1504,8 +1504,9 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "Deg2Rad", "signature": "Deg2Rad(degrees As Double) As Double", "description": "Converts degrees to radians"},
 	{"name": "Rad2Deg", "signature": "Rad2Deg(radians As Double) As Double", "description": "Converts radians to degrees"},
 	{"name": "Atn", "signature": "Atn(n As Double) As Double", "description": "Returns arctangent"},
-	{"name": "Rnd", "signature": "Rnd([seed]) As Double", "description": "Returns random number 0-1"},
-	{"name": "Round", "signature": "Round(n As Double, [decimals]) As Double", "description": "Rounds to nearest"},
+	{"name": "Rnd", "signature": "Rnd([value]) As Single", "description": "Random in [0, 1); arg is not an upper bound"},
+	{"name": "RandRange", "signature": "RandRange(min, max) As Double", "description": "Random in [min, max); max exclusive"},
+	{"name": "Round", "signature": "Round(n As Double, [decimals]) As Double", "description": "Rounds; .5 away from zero"},
 	{"name": "Min", "signature": "Min(a, b) As Variant", "description": "Returns minimum value"},
 	{"name": "Max", "signature": "Max(a, b) As Variant", "description": "Returns maximum value"},
 	{"name": "Clamp", "signature": "Clamp(value, min, max) As Variant", "description": "Clamps value to range"},
@@ -1518,7 +1519,7 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "CStr", "signature": "CStr(value) As String", "description": "Converts to String"},
 	{"name": "CBool", "signature": "CBool(value) As Boolean", "description": "Converts to Boolean"},
 	{"name": "Val", "signature": "Val(str As String) As Double", "description": "Converts string to number"},
-	{"name": "Str", "signature": "Str(n As Double) As String", "description": "Converts number to string"},
+	{"name": "Str", "signature": "Str(n As Double) As String", "description": "Number to string (same as CStr; no VB6 leading space)"},
 	{"name": "Hex", "signature": "Hex(n As Integer) As String", "description": "Converts to hexadecimal"},
 	{"name": "Oct", "signature": "Oct(n As Integer) As String", "description": "Converts to octal"},
 	
@@ -1576,7 +1577,9 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	# Drawing Commands — Primitives
 	{"name": "DrawPixel", "signature": "DrawPixel(x As Double, y As Double, color As Color)", "description": "Draws a single pixel at the given position"},
 	{"name": "PSet", "signature": "PSet(x As Double, y As Double, color As Color)", "description": "Draws a single pixel (VB6-style alias for DrawPixel)"},
-	{"name": "DrawString", "signature": "DrawString(font As Font, position As Vector2, text As String, color As Color, [fontSize As Integer])", "description": "Draws text using a font object at the specified position"},
+	{"name": "DrawString", "signature": "DrawString(text As String, x As Double, y As Double, color As Color, [fontSize As Integer])", "description": "Text in _Draw(); theme font; y adjusted by fontSize"},
+	{"name": "DrawText", "signature": "DrawText(position As Vector2, text As String, [color As Color])", "description": "Text at Vector2; fixed 16px; not DrawString alias"},
+	{"name": "PlaySound", "signature": "PlaySound(path As String, [volumePercent 0-100])", "description": "One-shot audio from res:// path"},
 	{"name": "DrawTexture", "signature": "DrawTexture(texture As Texture2D, x As Double, y As Double, [modulate As Color])", "description": "Draws a texture at a position. Use with CreateTexture or LoadPicture"},
 	{"name": "DrawTextureRect", "signature": "DrawTextureRect(texture As Texture2D, rect As Rect2, tile As Boolean, [modulate As Color])", "description": "Draws a texture stretched/tiled into a rectangle region"},
 	{"name": "DrawArc", "signature": "DrawArc(x As Double, y As Double, radius As Double, startAngle As Double, endAngle As Double, [pointCount As Integer], [color As Color], [width As Double])", "description": "Draws an arc (partial circle outline) between two angles in radians"},
@@ -1585,7 +1588,7 @@ const BUILTIN_FUNCTIONS: Array[Dictionary] = [
 	{"name": "SetDrawTransform", "signature": "SetDrawTransform(x As Double, y As Double, [rotation As Double], [scaleX As Double], [scaleY As Double])", "description": "Sets a 2D transform for all subsequent draw calls (translate, rotate, scale)"},
 	{"name": "ResetDrawTransform", "signature": "ResetDrawTransform()", "description": "Resets the draw transform back to identity (no translation/rotation/scale)"},
 	{"name": "QueueRedraw", "signature": "QueueRedraw()", "description": "Requests the node to redraw on the next frame. Call after changing visual state"},
-	{"name": "CLS", "signature": "CLS()", "description": "Clears the screen / canvas. Removes dynamic child nodes and triggers redraw"},
+	{"name": "CLS", "signature": "CLS()", "description": "Frees VG AddChild nodes (interpreter) or queue_redraw (bytecode); not pixel clear"},
 	
 	# Image Creation & Manipulation
 	{"name": "CreateImage", "signature": "CreateImage(width As Integer, height As Integer, [fillColor As Color]) As Image", "description": "Creates a new RGBA8 Image object. Size clamped to 1-4096. Use with SetImagePixel/GetImagePixel"},

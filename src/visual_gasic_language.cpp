@@ -3349,8 +3349,8 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
     { "drawstring",
       "[b]Syntax[/b]\n[b]DrawString[/b](text, x, y, color[, fontSize])\n\n"
       "[b]Description[/b]\n"
-      "Draws text at (x,y) using the default font. Wraps Godot's [code]draw_string()[/code]. "
-      "Call inside [code]_draw()[/code]. [code]DrawText[/code] is an alias.\n\n"
+      "Draws text at (x,y) using the theme fallback font. Wraps Godot's [code]draw_string()[/code]. "
+      "Call inside [code]_draw()[/code]. For [code]Vector2[/code] position use [code]DrawText[/code] instead.\n\n"
       "[b]Example[/b]\n"
       "[codeblock lang=vgbasic]"
       "Sub _draw()\n"
@@ -3360,10 +3360,17 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[b]See Also[/b]\nDrawLine, DrawRect, TextWidth, TextHeight\n\n[url=ref:drawstring]📖 VG Language Reference[/url]" },
 
     { "drawtext",
-      "[b]Syntax[/b]\n[b]DrawText[/b](text, x, y, color[, fontSize])\n\n"
+      "[b]Syntax[/b]\n[b]DrawText[/b](position As Vector2, text As String[, color])\n\n"
       "[b]Description[/b]\n"
-      "Alias for [code]DrawString[/code]. Draws text at (x,y) using the default font. "
+      "Draws text at a [code]Vector2[/code] using the default font at 16px. "
+      "Not an alias for [code]DrawString[/code] (different argument order). "
       "Call inside [code]_draw()[/code].\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _draw()\n"
+      "    DrawText(Vector2(10, 20), \"Hello\", Color(1,1,1))\n"
+      "End Sub\n"
+      "[/codeblock]\n"
       "[b]See Also[/b]\nDrawString, DrawLine, DrawRect\n\n[url=ref:drawstring]📖 VG Language Reference[/url]" },
 
     { "drawarc",

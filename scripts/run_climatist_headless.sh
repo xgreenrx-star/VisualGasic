@@ -40,6 +40,8 @@ run_vg_test() {
 
 echo "=== Climatist POC headless ==="
 run_vg_test "res://test_pattern_parse.vg" 60
+run_vg_test "res://test_http_util.vg" 60
+run_vg_test "res://test_climatist_fixtures.vg" 60
 
 echo "=== OK: climatist headless (offline parse) ==="
 echo "Tip: full Pattern HTTP (30 years) is not automated here — Open-Meteo rate-limits burst requests."
