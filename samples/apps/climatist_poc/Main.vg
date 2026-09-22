@@ -763,7 +763,7 @@ End Sub
 
 Sub DrawDiscussion()
 	DrawString "Climatist POC — Discussion", 24, 24, Color8(200, 220, 255), 24
-	DrawString "Hold ↑↓ to scroll   PgUp/PgDn page   wheel   R refresh AFD", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Scroll: hold Up/Down arrows, PgUp/PgDn, or mouse wheel.  R = refresh AFD", 24, 54, Color8(110, 120, 140), 12
 	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
 
 	If discussionLoadState = "loading" Then
@@ -786,7 +786,7 @@ Sub DrawDiscussion()
 	Dim maxS As Integer
 	maxS = DiscussionMaxScrollLine()
 	If maxS > 0 Then
-		DrawString "Scroll: line " & CStr(discussionScrollLine + 1) & " / " & CStr(discussionLineCount) & "  (↑↓ PgUp/PgDn wheel)", 24, DISCUSSION_TEXT_BOTTOM + 14, Color8(100, 110, 130), 11
+		DrawString "Scroll: line " & CStr(discussionScrollLine + 1) & " / " & CStr(discussionLineCount) & "  (arrows, PgUp/PgDn, wheel)", 24, DISCUSSION_TEXT_BOTTOM + 14, Color8(100, 110, 130), 11
 	Else
 		DrawString "End of AFD (" & CStr(discussionLineCount) & " lines)", 24, DISCUSSION_TEXT_BOTTOM + 14, Color8(100, 110, 130), 11
 	End If

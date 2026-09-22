@@ -94,8 +94,7 @@ body {
 #status-hint { max-width: 32rem; }
 #status { background-color: #000; }
 </style>
-		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
-<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+		<link rel="manifest" href="index.manifest.json">
 
 	</head>
 	<body>
@@ -113,12 +112,12 @@ body {
 			<div id="status-notice"></div>
 		</div>
 		<script>window.coi = Object.assign({ quiet: true }, window.coi || {});</script>
-
-
 		<script src="coi-serviceworker.js"></script>
+
+
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":382024,"index.wasm":1509558},"focusCanvas":true,"gdextensionLibs":["libvisualgasic.web.template_release.wasm32.nothreads.wasm"],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":382280,"index.wasm":1509558},"focusCanvas":true,"gdextensionLibs":["libvisualgasic.web.template_release.wasm32.nothreads.wasm"],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 
