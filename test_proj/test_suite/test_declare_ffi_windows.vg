@@ -1,0 +1,15 @@
+' M8 — Windows Declare: ucrtbase strlen (Cdecl) + kernel32 lstrlenA (stdcall default).
+
+Option Explicit
+
+Declare Function vg_strlen Lib "ucrtbase.dll" Cdecl Alias "strlen" (ByVal s As String) As Long
+Declare Function vg_lstrlen Lib "kernel32.dll" Alias "lstrlenA" (ByVal s As String) As Long
+
+Sub _Ready()
+    Dim n As Long
+    n = vg_strlen("hello")
+    Assert n = 5, "Cdecl strlen should return 5"
+    n = vg_lstrlen("hello")
+    Assert n = 5, "stdcall lstrlenA should return 5"
+    Print "PASS: declare_ffi_windows"
+End Sub

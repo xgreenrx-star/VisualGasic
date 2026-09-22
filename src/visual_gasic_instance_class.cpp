@@ -873,10 +873,9 @@ void* VisualGasicInstance::load_library(const String& lib_name) {
     // Try to load the library
     String lib_path = lib_name;
     
-    // On Linux, add .so extension if not present
+    // On Linux, add lib*.so only when the name has no .so soname suffix (e.g. libc.so.6 stays as-is).
     #ifdef __linux__
-        if (!lib_path.ends_with(".so") && !lib_path.ends_with(".so.0")) {
-            // Try common patterns
+        if (!lib_path.contains(".so")) {
             if (!lib_path.begins_with("lib")) {
                 lib_path = "lib" + lib_path;
             }
@@ -890,6 +889,9 @@ void* VisualGasicInstance::load_library(const String& lib_name) {
     
 #ifdef _WIN32
     HMODULE handle = LoadLibraryA(lib_path.utf8().get_data());
+    if (!handle && lib_path != lib_name) {
+        handle = LoadLibraryA(lib_name.utf8().get_data());
+    }
     if (!handle) {
         UtilityFunctions::print("Error loading library '", lib_name, "': Windows error ", (int64_t)GetLastError());
         return nullptr;
@@ -1015,18 +1017,27 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
     bool returns_float = ret_type.nocasecmp_to("Single") == 0;
     bool returns_double = ret_type.nocasecmp_to("Double") == 0;
     bool returns_string = ret_type.nocasecmp_to("String") == 0;
+
+#if defined(_WIN32)
+    const bool vg_ffi_use_cdecl = decl->use_cdecl;
+#define VG_FFI_CAST(R, ARGS) \
+    (vg_ffi_use_cdecl ? reinterpret_cast<R(__cdecl*) ARGS>(func_ptr) \
+                      : reinterpret_cast<R(__stdcall*) ARGS>(func_ptr))
+#else
+#define VG_FFI_CAST(R, ARGS) reinterpret_cast<R(*) ARGS>(func_ptr)
+#endif
     
     // Call with appropriate signature based on parameter count
     switch (args.size()) {
         case 0: {
             if (returns_void) {
-                ((void(*)())func_ptr)();
+                (VG_FFI_CAST(void, (void)))();
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)())func_ptr)();
+                result = (int64_t)(VG_FFI_CAST(int64_t, (void)))();
             } else if (returns_float) {
-                result = ((float(*)())func_ptr)();
+                result = (VG_FFI_CAST(float, (void)))();
             } else if (returns_double) {
-                result = ((double(*)())func_ptr)();
+                result = (VG_FFI_CAST(double, (void)))();
             }
             break;
         }
@@ -1035,129 +1046,131 @@ Variant VisualGasicInstance::call_ffi_function(DeclareStatement* decl, const Arr
                 decl->param_types[0].nocasecmp_to("String") == 0);
             if (returns_void) {
                 if (p0_str) {
-                    ((void(*)(const char*))func_ptr)(ffi_args[0].str);
+                    (VG_FFI_CAST(void, (const char*)))(ffi_args[0].str);
                 } else {
-                    ((void(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                    (VG_FFI_CAST(void, (int64_t)))(ffi_args[0].i64);
                 }
             } else if (returns_int) {
                 if (p0_str) {
-                    result = (int64_t)((int64_t(*)(const char*))func_ptr)(ffi_args[0].str);
+                    result = (int64_t)(VG_FFI_CAST(int64_t, (const char*)))(ffi_args[0].str);
                 } else {
-                    result = (int64_t)((int64_t(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                    result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t)))(ffi_args[0].i64);
                 }
             } else if (returns_float) {
-                result = ((float(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                result = (VG_FFI_CAST(float, (int64_t)))(ffi_args[0].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t))func_ptr)(ffi_args[0].i64);
+                result = (VG_FFI_CAST(double, (int64_t)))(ffi_args[0].i64);
             }
             break;
         }
         case 2: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 3: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 4: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 5: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 6: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 7: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
         case 8: {
             if (returns_void) {
-                ((void(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                (VG_FFI_CAST(void, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
             } else if (returns_int) {
-                result = (int64_t)((int64_t(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                result = (int64_t)(VG_FFI_CAST(int64_t, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
             } else if (returns_float) {
-                result = ((float(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                result = (VG_FFI_CAST(float, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
             } else if (returns_double) {
-                result = ((double(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                result = (VG_FFI_CAST(double, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
             } else if (returns_string) {
-                const char* ret = ((const char*(*)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t))func_ptr)(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
+                const char* ret = (VG_FFI_CAST(const char*, (int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t)))(ffi_args[0].i64, ffi_args[1].i64, ffi_args[2].i64, ffi_args[3].i64, ffi_args[4].i64, ffi_args[5].i64, ffi_args[6].i64, ffi_args[7].i64);
                 result = ret ? String(ret) : String();
             }
             break;
         }
     }
+
+#undef VG_FFI_CAST
     
     return result;
 }

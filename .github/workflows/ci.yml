@@ -55,6 +55,15 @@ jobs:
           echo "$out" | tail -20
           echo "$out" | grep -q "^PASS:"
 
+      - name: M8 FFI smoke (Linux Declare / libc)
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+        run: |
+          chmod +x ./run_test_suite.sh
+          ./run_test_suite.sh test_declare_ffi.vg
+
       - name: Run VisualGasic test suite (.vg)
         timeout-minutes: 15
         env:

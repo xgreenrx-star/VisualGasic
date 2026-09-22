@@ -63,6 +63,10 @@ grep -q 'parse_declare' "$ROOT/src/visual_gasic_parser.cpp" \
   || fail "parser missing parse_declare (M8 Declare/DllImport)"
 grep -q 'ffi_declares' "$ROOT/src/visual_gasic_ast.h" \
   || fail "AST missing ffi_declares"
+grep -q 'VG_FFI_CAST' "$ROOT/src/visual_gasic_instance_class.cpp" \
+  || fail "FFI runtime missing cdecl/stdcall (VG_FFI_CAST)"
+grep -q 'PLATFORM_SKIP_FILES' "$ROOT/run_test_suite.sh" \
+  || fail "run_test_suite.sh missing platform FFI skips"
 ok "M8 Declare/DllImport parser wiring"
 
 for f in install_piper.sh install_whisper.sh install_piper.ps1 install_whisper.ps1; do
@@ -73,9 +77,11 @@ ok "Piper/Whisper install scripts present"
 if [[ "${1:-}" == "--ffi" ]]; then
   echo ""
   echo "=== M8 FFI smoke (NativeLibrary in test_v3_features) ==="
-  if [[ -x "$ROOT/scripts/run_test_suite.sh" ]]; then
-    bash "$ROOT/scripts/run_test_suite.sh" test_v3_features.vg 2>&1 | tail -20
-    ok "test_v3_features.vg (includes FFI section)"
+  if [[ -x "$ROOT/run_test_suite.sh" ]]; then
+    ffi_out=$(bash "$ROOT/run_test_suite.sh" test_declare_ffi.vg 2>&1) || true
+    echo "$ffi_out" | tail -20
+    echo "$ffi_out" | grep -q '^PASS:' || fail "test_declare_ffi.vg did not PASS"
+    ok "test_declare_ffi.vg (M8 libc FFI)"
   else
     echo "installer_smoke: skip FFI run (run_test_suite.sh not found or headless Godot unavailable)"
   fi

@@ -26,6 +26,20 @@ SKIP_FILES=(
     test_vector_data_resolver.vg
 )
 
+# Platform-specific FFI smoke tests (libc vs kernel32/ucrtbase).
+PLATFORM_SKIP_FILES=()
+case "$(uname -s)" in
+    Linux)
+        PLATFORM_SKIP_FILES+=(test_declare_ffi_windows.vg)
+        ;;
+    MINGW*|MSYS*|CYGWIN*|Windows_NT)
+        PLATFORM_SKIP_FILES+=(test_declare_ffi.vg)
+        ;;
+    *)
+        PLATFORM_SKIP_FILES+=(test_declare_ffi.vg test_declare_ffi_windows.vg)
+        ;;
+esac
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --vg-only)
@@ -130,8 +144,18 @@ for vg_file in "${TEST_FILES[@]}"; do
             break
         fi
     done
+    for s in "${PLATFORM_SKIP_FILES[@]}"; do
+        if [[ "$fname" == "$s" ]]; then
+            skip=1
+            break
+        fi
+    done
     if [[ "$skip" -eq 1 ]]; then
-        echo -e "  ${CYAN}SKIP${NC} $fname  ${CYAN}(fixture — GDScript harness)${NC}"
+        if [[ "$fname" == test_declare_ffi* ]]; then
+            echo -e "  ${CYAN}SKIP${NC} $fname  ${CYAN}(platform FFI — $(uname -s))${NC}"
+        else
+            echo -e "  ${CYAN}SKIP${NC} $fname  ${CYAN}(fixture — GDScript harness)${NC}"
+        fi
         continue
     fi
     TOTAL_FILES=$((TOTAL_FILES + 1))
