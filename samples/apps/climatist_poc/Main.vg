@@ -680,12 +680,12 @@ Sub DrawNavBar()
 End Sub
 
 Sub DrawNow()
-	DrawString "Climatist POC — Now (Tab → Pattern)", 24, 24, Color8(200, 220, 255), 24
+	DrawString "Climatist POC - Now (Tab, then Pattern)", 24, 24, Color8(200, 220, 255), 24
 	DrawString "Bottom row: Godot Now / Pattern / Settings / Refresh buttons", 24, 54, Color8(110, 120, 140), 12
 	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
 
 	If loadState = "loading" Then
-		DrawString "Loading…", 24, 110, Color8(255, 220, 120), 18
+		DrawString "Loading...", 24, 110, Color8(255, 220, 120), 18
 		Exit Sub
 	End If
 	If loadState = "error" Then
@@ -697,10 +697,10 @@ Sub DrawNow()
 	DrawString modelLabel, 24, 128, Color8(180, 200, 230), 13
 	DrawString "Current (2 m): " & currentLine, 24, 158, Color8(235, 240, 250), 17
 
-	DrawString "Next ~6 hours — Open-Meteo hourly temp / hourly precip % (not NWS 12 h):", 24, 198, Color8(130, 140, 160), 12
+	DrawString "Next ~6 hours - Open-Meteo hourly temp / hourly precip % (not NWS 12 h):", 24, 198, Color8(130, 140, 160), 12
 	DrawString hourlyLine, 24, 218, Color8(210, 220, 235), 13
 
-	DrawString "Seven-day strip — daily max/min °C and max daily precip probability %:", 24, 258, Color8(130, 140, 160), 12
+	DrawString "Seven-day strip - daily max/min deg C and max daily precip probability %:", 24, 258, Color8(130, 140, 160), 12
 	Call DrawWrapped(dailyBlock, 24, 278, SCREEN_W - 48, 18, Color8(200, 210, 225), 13)
 
 	DrawString nwsSummary, 24, 420, Color8(170, 190, 210), 13
@@ -710,18 +710,18 @@ Sub DrawNow()
 End Sub
 
 Sub DrawPattern()
-	DrawString "Climatist POC — Pattern", 24, 24, Color8(200, 220, 255), 24
-	DrawString "P / Tab — next screen   R / Enter — refresh (2 archive requests)", 24, 54, Color8(110, 120, 140), 12
+	DrawString "Climatist POC - Pattern", 24, 24, Color8(200, 220, 255), 24
+	DrawString "P / Tab - next screen   R / Enter - refresh (2 archive requests)", 24, 54, Color8(110, 120, 140), 12
 	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
 	DrawString patternGridCaption, 24, 94, Color8(120, 130, 150), 11
 
 	If patternLoadState = "loading" Then
 		If patternLoadStep <= 1 Then
-			DrawString "Step 1/3: recent 30-day archive…", 24, 120, Color8(255, 220, 120), 16
+			DrawString "Step 1/3: recent 30-day archive...", 24, 120, Color8(255, 220, 120), 16
 		ElseIf patternLoadStep = 2 Then
 			Dim yrDone As Integer
 			yrDone = patternClimYear - PatternApi.ClimStartYear()
-			DrawString "Step 2/3: climatology year " & CStr(patternClimYear) & " (" & CStr(yrDone) & "/" & CStr(PatternApi.ClimYearCount()) & ")…", 24, 120, Color8(255, 220, 120), 15
+			DrawString "Step 2/3: climatology year " & CStr(patternClimYear) & " (" & CStr(yrDone) & "/" & CStr(PatternApi.ClimYearCount()) & ")...", 24, 120, Color8(255, 220, 120), 15
 		ElseIf patternMergePhase = 0 Then
 			Dim pct As Integer
 			If patternClimCount > 0 Then
@@ -729,12 +729,12 @@ Sub DrawPattern()
 			Else
 				pct = 0
 			End If
-			DrawString "Step 3/3: indexing climate days " & CStr(pct) & "% (" & CStr(patternMergeIdx) & "/" & CStr(patternClimCount) & ")…", 24, 120, Color8(255, 220, 120), 14
+			DrawString "Step 3/3: indexing climate days " & CStr(pct) & "% (" & CStr(patternMergeIdx) & "/" & CStr(patternClimCount) & ")...", 24, 120, Color8(255, 220, 120), 14
 		Else
-			DrawString "Step 3/3: writing Pattern summary…", 24, 120, Color8(255, 220, 120), 16
+			DrawString "Step 3/3: writing Pattern summary...", 24, 120, Color8(255, 220, 120), 16
 		End If
 		Dim dots As String
-		dots = "…"
+		dots = "..."
 		If (patternLoadPulse Mod 3) = 0 Then dots = "."
 		If (patternLoadPulse Mod 3) = 1 Then dots = ".."
 		DrawString "Working" & dots & "  (timer keeps ticking while this runs)", 24, 150, Color8(140, 150, 170), 12
@@ -762,12 +762,12 @@ Sub DrawPattern()
 End Sub
 
 Sub DrawDiscussion()
-	DrawString "Climatist POC — Discussion", 24, 24, Color8(200, 220, 255), 24
+	DrawString "Climatist POC - Discussion", 24, 24, Color8(200, 220, 255), 24
 	DrawString "Scroll: hold Up/Down arrows, PgUp/PgDn, or mouse wheel.  R = refresh AFD", 24, 54, Color8(110, 120, 140), 12
 	DrawString "Location: " & CStr(SiteLat) & ", " & CStr(SiteLon), 24, 74, Color8(150, 160, 180), 13
 
 	If discussionLoadState = "loading" Then
-		DrawString "Loading NWS Area Forecast Discussion…", 24, 120, Color8(255, 220, 120), 16
+		DrawString "Loading NWS Area Forecast Discussion...", 24, 120, Color8(255, 220, 120), 16
 		Exit Sub
 	End If
 	If discussionLoadState = "error" Then
@@ -794,8 +794,8 @@ End Sub
 
 Sub DrawSettings()
 	DrawString "Settings", 24, 24, Color8(200, 220, 255), 24
-	DrawString "Tab — cycle screens   Enter — save & refresh Now   Esc — back to Now", 24, 54, Color8(110, 120, 140), 12
-	DrawString "PageDown — export fetch log backup to user://climatist_fetch_backup.txt", 24, 74, Color8(110, 120, 140), 12
+	DrawString "Tab - cycle screens   Enter - save and refresh Now   Esc - back to Now", 24, 54, Color8(110, 120, 140), 12
+	DrawString "PageDown - export fetch log backup to user://climatist_fetch_backup.txt", 24, 74, Color8(110, 120, 140), 12
 
 	DrawString "Latitude:  " & CStr(SiteLat), 24, 120, Color8(230, 235, 245), 18
 	DrawString "Longitude: " & CStr(SiteLon), 24, 152, Color8(230, 235, 245), 18
@@ -803,7 +803,7 @@ Sub DrawSettings()
 	DrawString "Defaults: NYC (40.7128, -74.006). Stored at user://climatist_settings.json", 24, 200, Color8(140, 150, 170), 13
 	DrawString "All fetches go direct to Open-Meteo / NWS (no proxy). NWS requires CONUS.", 24, 224, Color8(140, 150, 170), 13
 	DrawString "Pattern: 30 small archive requests (one per climatology year), not one 30-year blob.", 24, 248, Color8(140, 150, 170), 13
-	DrawString "HTML5: browser may block custom User-Agent; NWS can fail on web — desktop is reference.", 24, 272, Color8(140, 150, 170), 13
+	DrawString "HTML5: browser may block custom User-Agent; NWS can fail on web - desktop is reference.", 24, 272, Color8(140, 150, 170), 13
 
 	Call DrawWrapped(logPreview, 24, 320, SCREEN_W - 48, 14, Color8(100, 110, 125), 11)
 End Sub

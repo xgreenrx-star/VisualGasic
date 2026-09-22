@@ -107,7 +107,7 @@ body {
 		</noscript>
 
 		<div id="status">
-		<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">Loading Climatist… first visit downloads ~45&nbsp;MB of WASM; later loads use cache.</p>
+		<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">Loading Climatist... About 45&nbsp;MB of engine + VM WASM on first visit. On a slow connection this can take several minutes; watch the progress bar below. Later visits use the browser cache and start much faster.</p>
 <progress id="status-progress"></progress>
 			<div id="status-notice"></div>
 		</div>
@@ -117,7 +117,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":382280,"index.wasm":1509558},"focusCanvas":true,"gdextensionLibs":["libvisualgasic.web.template_release.wasm32.nothreads.wasm"],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":188900,"index.wasm":1509558},"focusCanvas":true,"gdextensionLibs":["libvisualgasic.web.template_release.wasm32.nothreads.wasm"],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

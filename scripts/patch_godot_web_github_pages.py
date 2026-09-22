@@ -21,9 +21,18 @@ SPLASH_IMG_RE = re.compile(
     r"\s*<img id=\"status-splash\"[^>]*>\s*",
     re.MULTILINE,
 )
+LOADING_HINT_HTML = (
+    "Loading Climatist... About 45&nbsp;MB of engine + VM WASM on first visit. "
+    "On a slow connection this can take several minutes; watch the progress bar below. "
+    "Later visits use the browser cache and start much faster."
+)
 SPLASH_HINT = (
-    '\n\t\t<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">'
-    "Loading Climatist… first visit downloads ~45&nbsp;MB of WASM; later loads use cache.</p>\n"
+    f'\n\t\t<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">'
+    f"{LOADING_HINT_HTML}</p>\n"
+)
+STATUS_HINT_RE = re.compile(
+    r'<p id="status-hint"[^>]*>.*?</p>',
+    re.DOTALL,
 )
 
 EXTRA_CSS = """
@@ -82,12 +91,25 @@ def _inject_coi(text: str) -> tuple[str, bool]:
     return text, changed
 
 
+def _update_loading_hint(text: str) -> tuple[str, bool]:
+    new_p = (
+        f'<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">'
+        f"{LOADING_HINT_HTML}</p>"
+    )
+    if STATUS_HINT_RE.search(text):
+        updated, n = STATUS_HINT_RE.subn(new_p, text, count=1)
+        return updated, n > 0 and updated != text
+    return text, False
+
+
 def patch_index(html_path: Path) -> bool:
     text = html_path.read_text(encoding="utf-8")
     any_changed = False
     text, c = _inject_css(text)
     any_changed |= c
     text, c = _strip_splash_img(text)
+    any_changed |= c
+    text, c = _update_loading_hint(text)
     any_changed |= c
     text, c = _inject_coi(text)
     any_changed |= c
