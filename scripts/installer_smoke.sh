@@ -67,6 +67,10 @@ grep -q 'VG_FFI_CAST' "$ROOT/src/visual_gasic_instance_class.cpp" \
   || fail "FFI runtime missing cdecl/stdcall (VG_FFI_CAST)"
 grep -q 'PLATFORM_SKIP_FILES' "$ROOT/run_test_suite.sh" \
   || fail "run_test_suite.sh missing platform FFI skips"
+[[ -f "$ROOT/test_proj/test_suite/test_optional_chaining.vg" ]] \
+  || fail "missing test_optional_chaining.vg (M8 ?.)"
+[[ -f "$ROOT/scripts/prepare_ci_gdextension_windows.sh" ]] \
+  || fail "missing prepare_ci_gdextension_windows.sh"
 ok "M8 Declare/DllImport parser wiring"
 
 for f in install_piper.sh install_whisper.sh install_piper.ps1 install_whisper.ps1; do

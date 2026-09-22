@@ -64,6 +64,18 @@ jobs:
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi.vg
 
+      - name: M8 language parity (Let, lambda, optional ?.)
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
+        run: |
+          chmod +x ./run_test_suite.sh
+          for t in test_let_block_scope.vg test_lambda.vg test_optional_chaining.vg; do
+            ./run_test_suite.sh "$t"
+          done
+
       - name: Run VisualGasic test suite (.vg)
         timeout-minutes: 15
         env:
@@ -209,6 +221,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          lfs: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -217,6 +230,34 @@ jobs:
 
       - name: Install SCons
         run: pip install scons
+
+      - name: Build (Windows editor, MSVC)
+        shell: pwsh
+        run: |
+          scons platform=windows target=editor "-j$($env:NUMBER_OF_PROCESSORS)"
+
+      - name: Prepare GDExtension for testing
+        shell: bash
+        run: |
+          chmod +x ./scripts/prepare_ci_gdextension_windows.sh
+          ./scripts/prepare_ci_gdextension_windows.sh
+
+      - name: Download Godot 4.6.1 (Windows)
+        shell: pwsh
+        run: |
+          $zip = "Godot_v4.6.1-stable_win64.exe.zip"
+          Invoke-WebRequest -Uri "https://github.com/godotengine/godot/releases/download/4.6.1-stable/$zip" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath . -Force
+          Get-ChildItem Godot_v4.6.1-stable_win64*.exe | Select-Object -ExpandProperty Name
+
+      - name: M8 FFI smoke (Windows Declare / ucrtbase + kernel32)
+        shell: bash
+        env:
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_win64_console.exe
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+        run: |
+          chmod +x ./run_test_suite.sh
+          ./run_test_suite.sh test_declare_ffi_windows.vg
 
       - name: Build (Windows template_debug, MSVC)
         shell: pwsh

@@ -1,0 +1,35 @@
+' M8 — optional member access (?.) short-circuits on Nothing/Nil.
+
+Option Explicit
+
+Sub _Ready()
+    Dim empty As Variant
+    Set empty = Nothing
+    If empty?.name Is Nothing Then
+        Print "PASS: optional_chain_nil_base"
+    Else
+        Print "FAIL: optional_chain_nil_base"
+    End If
+
+    Dim d As Variant
+    Set d = New Dictionary
+    d("name") = "alice"
+    d("tier") = 2
+
+    If d?.name = "alice" Then
+        If d?.tier = 2 Then
+            Print "PASS: optional_chain_dict_member"
+        Else
+            Print "FAIL: optional_chain_dict_member_tier"
+        End If
+    Else
+        Print "FAIL: optional_chain_dict_member_name"
+    End If
+
+    Set d = Nothing
+    If d?.name Is Nothing Then
+        Print "PASS: optional_chain_nothing_object"
+    Else
+        Print "FAIL: optional_chain_nothing_object"
+    End If
+End Sub

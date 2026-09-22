@@ -60,17 +60,33 @@ fi
 # Godot binary: GODOT env, then 4.6, then 4.5, then any Godot_v* in repo root
 GODOT="${GODOT:-}"
 if [[ -z "$GODOT" || ! -x "$GODOT" ]]; then
-    for candidate in \
-        "./Godot_v4.6.1-stable_linux.x86_64" \
-        "./Godot_v4.6-stable_linux.x86_64" \
-        "./Godot_v4.5.1-stable_linux.x86_64" \
-        ./Godot_v4.6*_linux.x86_64 \
-        ./Godot_v4.5*_linux.x86_64; do
-        if [[ -x "$candidate" ]]; then
-            GODOT="$candidate"
-            break
-        fi
-    done
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            for candidate in \
+                "./Godot_v4.6.1-stable_win64.exe" \
+                "./Godot_v4.6.1-stable_win64_console.exe" \
+                ./Godot_v4.6*_win64.exe \
+                ./Godot_v4.6*_win64_console.exe; do
+                if [[ -f "$candidate" ]]; then
+                    GODOT="$candidate"
+                    break
+                fi
+            done
+            ;;
+        *)
+            for candidate in \
+                "./Godot_v4.6.1-stable_linux.x86_64" \
+                "./Godot_v4.6-stable_linux.x86_64" \
+                "./Godot_v4.5.1-stable_linux.x86_64" \
+                ./Godot_v4.6*_linux.x86_64 \
+                ./Godot_v4.5*_linux.x86_64; do
+                if [[ -x "$candidate" ]]; then
+                    GODOT="$candidate"
+                    break
+                fi
+            done
+            ;;
+    esac
 fi
 
 # Writable Godot user data (avoids headless crashes when $HOME/user:// is not writable).
@@ -100,7 +116,18 @@ echo -e "${BOLD}╚════════════════════�
 echo ""
 
 # Check prerequisites
-if [ ! -x "$GODOT" ]; then
+_godot_ok=0
+if [[ -n "$GODOT" ]]; then
+    case "$(uname -s)" in
+        MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            [[ -f "$GODOT" ]] && _godot_ok=1
+            ;;
+        *)
+            [[ -x "$GODOT" ]] && _godot_ok=1
+            ;;
+    esac
+fi
+if [[ "$_godot_ok" -ne 1 ]]; then
     echo -e "${RED}ERROR: Godot binary not found at $GODOT${NC}"
     exit 1
 fi
