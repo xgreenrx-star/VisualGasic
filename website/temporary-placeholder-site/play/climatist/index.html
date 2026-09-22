@@ -89,7 +89,11 @@ body {
 	text-align: center;
 	z-index: 1;
 }
-		</style>
+		
+#status-splash { display: none !important; }
+#status-hint { max-width: 32rem; }
+#status { background-color: #000; }
+</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
 
@@ -104,10 +108,12 @@ body {
 		</noscript>
 
 		<div id="status">
-			<img id="status-splash" class="show-image--true fullsize--true use-filter--true" src="index.png" alt="">
-			<progress id="status-progress"></progress>
+		<p id="status-hint" style="margin:0 1.5rem;font:14px/1.4 sans-serif;color:#aaa;text-align:center">Loading Climatist… first visit downloads ~45&nbsp;MB of WASM; later loads use cache.</p>
+<progress id="status-progress"></progress>
 			<div id="status-notice"></div>
 		</div>
+		<script>window.coi = Object.assign({ quiet: true }, window.coi || {});</script>
+
 
 		<script src="coi-serviceworker.js"></script>
 		<script src="index.js"></script>
