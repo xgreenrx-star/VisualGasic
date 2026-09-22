@@ -5,6 +5,8 @@
 **Spec:** [`scratch/James_Weather_Project.txt`](../../../scratch/James_Weather_Project.txt)  
 **Architecture map:** [`README.md`](README.md) (file roles + James table)
 
+**Canonical product (JavaScript):** [github.com/Agent139/climatist](https://github.com/Agent139/climatist) — James’s full browser app (Detail, Record, CPC/USDM/terciles, IndexedDB, tests, `docs/DATA-CONTRACT.md`). This VG tree is a **parallel port/demo**; match behavior and URLs from that repo rather than re-probing from scratch.
+
 Rules for all new work: direct GET to public APIs (no proxy); missing sources stay **missing/failed on screen**, never invented. Fix VG engine bugs in `src/` + tests — no workarounds in `.vg`.
 
 ---

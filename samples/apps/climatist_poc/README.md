@@ -20,7 +20,8 @@ Visual Gasic port of **Now** + **Pattern** + **Discussion (POC)** from [`scratch
 
 **Rules:** direct GET to Open-Meteo and NWS (no proxy). Missing sources are shown as failed/missing, not invented.
 
-**Follow-up roadmap:** [`NEXT_STEPS.md`](NEXT_STEPS.md) (Pattern/CPC/USDM, Detail, Record, Settings — for the next contributor).
+**Follow-up roadmap:** [`NEXT_STEPS.md`](NEXT_STEPS.md) (Pattern/CPC/USDM, Detail, Record, Settings — for the next contributor).  
+**Reference implementation:** [Agent139/climatist](https://github.com/Agent139/climatist) (full JS app; use its `src/` and docs when extending the POC).
 
 ## Run
 
