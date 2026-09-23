@@ -1,0 +1,247 @@
+' Menus: splash → track → car → race → garage (upgrade loop).
+Option Explicit
+
+Import "res://scripts/Garage.vg"
+
+Const StateSplash As Integer = 0
+Const StateTrackSelect As Integer = 1
+Const StateCarSelect As Integer = 2
+Const StateRacing As Integer = 3
+Const StateGarage As Integer = 4
+
+Const TrackCount As Integer = 3
+Const CarCount As Integer = 3
+
+Dim game_state As Integer
+Dim splash_timer As Single
+Dim selected_track As Integer
+Dim selected_car As Integer
+Dim garage_menu As Integer
+Dim last_lap_time As Single
+Dim race_crashed As Boolean
+
+Dim track_name(2) As String
+Dim track_unlocked(2) As Boolean
+Dim car_name(2) As String
+Dim car_blurb(2) As String
+
+Sub InitGameFlow()
+	game_state = StateSplash
+	splash_timer = 0.0
+	selected_track = 0
+	selected_car = 0
+	garage_menu = 0
+	last_lap_time = 0.0
+	race_crashed = False
+	Call InitGarage()
+
+	track_name(0) = "Neon Ring"
+	track_name(1) = "Skyline City"
+	track_name(2) = "Coastal Loop"
+	track_unlocked(0) = True
+	track_unlocked(1) = False
+	track_unlocked(2) = False
+
+	car_name(0) = "Vector S"
+	car_blurb(0) = "Balanced coast and brake"
+	car_name(1) = "Vector R"
+	car_blurb(1) = "Fast, long coast, longer stop"
+	car_name(2) = "Vector G"
+	car_blurb(2) = "Grip, shortest stop"
+End Sub
+
+Function CurrentState() As Integer
+	CurrentState = game_state
+End Function
+
+Sub SetLastLapTime(ByVal t As Single)
+	last_lap_time = t
+End Sub
+
+Sub UpdateGameFlow(ByVal delta As Single)
+	If game_state = StateSplash Then
+		splash_timer = splash_timer + delta
+	End If
+End Sub
+
+Sub MenuConfirm()
+	If game_state = StateSplash Then
+		game_state = StateTrackSelect
+	ElseIf game_state = StateTrackSelect Then
+		If track_unlocked(selected_track) Then
+			game_state = StateCarSelect
+		End If
+	ElseIf game_state = StateCarSelect Then
+		race_crashed = False
+		game_state = StateRacing
+	ElseIf game_state = StateGarage Then
+		Call TryBuyUpgrade(garage_menu)
+		game_state = StateTrackSelect
+	End If
+End Sub
+
+Sub MenuBack()
+	If game_state = StateCarSelect Then
+		game_state = StateTrackSelect
+	ElseIf game_state = StateTrackSelect Then
+		game_state = StateSplash
+	ElseIf game_state = StateGarage Then
+		game_state = StateTrackSelect
+	End If
+End Sub
+
+Sub MenuUp()
+	If game_state = StateTrackSelect Then
+		selected_track = selected_track - 1
+		If selected_track < 0 Then selected_track = TrackCount - 1
+	ElseIf game_state = StateCarSelect Then
+		selected_car = selected_car - 1
+		If selected_car < 0 Then selected_car = CarCount - 1
+	ElseIf game_state = StateGarage Then
+		garage_menu = garage_menu - 1
+		If garage_menu < 0 Then garage_menu = 2
+	End If
+End Sub
+
+Sub MenuDown()
+	If game_state = StateTrackSelect Then
+		selected_track = selected_track + 1
+		If selected_track > = TrackCount Then selected_track = 0
+	ElseIf game_state = StateCarSelect Then
+		selected_car = selected_car + 1
+		If selected_car > = CarCount Then selected_car = 0
+	ElseIf game_state = StateGarage Then
+		garage_menu = garage_menu + 1
+		If garage_menu > 2 Then garage_menu = 0
+	End If
+End Sub
+
+Sub CrashToGarage()
+	race_crashed = True
+	game_state = StateGarage
+End Sub
+
+Function RaceWasCrash() As Boolean
+	RaceWasCrash = race_crashed
+End Function
+
+Sub FinishRaceToGarage()
+	Dim bonus As Single
+	bonus = 120.0 - last_lap_time
+	If bonus < 0.0 Then bonus = 0.0
+	Call AwardRaceCredits(180 + Int(bonus))
+	game_state = StateGarage
+End Sub
+
+Sub DrawMenuScreen(ByVal canvas As Object, ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal gameTime As Single)
+	Call canvas.Clear()
+	Call canvas_ui.Clear()
+
+	If game_state = StateSplash Then
+		Call _DrawSplash(canvas, canvas_ui, screenW, screenH, gameTime)
+	ElseIf game_state = StateTrackSelect Then
+		Call _DrawTrackSelect(canvas_ui, screenW, screenH)
+	ElseIf game_state = StateCarSelect Then
+		Call _DrawCarSelect(canvas_ui, screenW, screenH)
+	ElseIf game_state = StateGarage Then
+		Call _DrawGarage(canvas_ui, screenW, screenH)
+	End If
+End Sub
+
+Sub _DrawSplash(ByVal canvas As Object, ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal gameTime As Single)
+	Dim i As Integer
+	For i = 0 To 32
+		Dim sx As Single
+		Dim sy As Single
+		sx = (i * 61 Mod Int(screenW))
+		sy = (i * 43 Mod Int(screenH * 0.55))
+		Call canvas.DrawLine(Vector2(sx, sy), Vector2(sx + 2, sy), 1.0, Color8(120, 160, 255, 180))
+	Next
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, screenH * 0.38), "VECTOR FATHOM", Color8(120, 220, 255), 4.2, 3.2, 3.8, "")
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, screenH * 0.48), "NEON VECTOR RACING", Color8(255, 200, 120), 2.0, 1.7, 2.2, "")
+	Dim hint As String
+	If splash_timer > 1.2 Then
+		hint = "ENTER — START"
+	Else
+		hint = ""
+	End If
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, screenH * 0.62), hint, Color8(180, 210, 240), 1.6, 1.4, 2.0, "")
+End Sub
+
+Sub _DrawTrackSelect(ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single)
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, 48), "SELECT TRACK", Color8(150, 210, 255), 2.8, 2.2, 2.6, "")
+	Dim t As Integer
+	For t = 0 To TrackCount - 1
+		Dim label As String
+		label = track_name(t)
+		If Not track_unlocked(t) Then label = label & "  (LOCKED)"
+		Dim col As Color
+		If t = selected_track Then
+			col = Color8(255, 240, 140)
+		Else
+			col = Color8(100, 130, 170)
+		End If
+		Call canvas_ui.DrawVectorText(Vector2(80, 110 + t * 42), label, col, 1.8, 1.6, "left", 2.2, "")
+	Next
+	Call canvas_ui.DrawVectorText(Vector2(80, screenH - 56), "UP/DOWN — TRACK   ENTER — RACE   ESC — BACK", Color8(110, 130, 160), 1.2, 1.1, "left", 1.5, "")
+End Sub
+
+Sub _DrawCarSelect(ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single)
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, 48), "SELECT CAR", Color8(150, 210, 255), 2.8, 2.2, 2.6, "")
+	Dim c As Integer
+	For c = 0 To CarCount - 1
+		Dim col As Color
+		If c = selected_car Then
+			col = Color8(255, 240, 140)
+		Else
+			col = Color8(100, 130, 170)
+		End If
+		Call canvas_ui.DrawVectorText(Vector2(80, 110 + c * 48), car_name(c), col, 1.9, 1.7, "left", 2.3, "")
+		Call canvas_ui.DrawVectorText(Vector2(100, 132 + c * 48), car_blurb(c), Color8(130, 150, 180), 1.2, 1.1, "left", 1.5, "")
+	Next
+	Call canvas_ui.DrawVectorText(Vector2(80, screenH - 56), "UP/DOWN — CAR   ENTER — DRIVE   ESC — BACK", Color8(110, 130, 160), 1.2, 1.1, "left", 1.5, "")
+End Sub
+
+Sub _DrawGarage(ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single)
+	Dim title As String
+	title = "GARAGE"
+	If race_crashed Then title = "CRASH"
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, 40), title, Color8(150, 210, 255), 2.8, 2.2, 2.6, "")
+	Dim cred As String
+	cred = "CREDITS " & CStr(credits) & "   LAST LAP " & CStr(Int(last_lap_time * 10) / 10.0) & "s"
+	Call canvas_ui.DrawVectorTextCentered(Vector2(screenW * 0.5, 78), cred, Color8(255, 220, 140), 1.5, 1.3, 1.8, "")
+
+	Dim names(2) As String
+	names(0) = "ENGINE (speed, coast)"
+	names(1) = "TIRES (brakes)"
+	names(2) = "TURBO (boost)"
+	Dim lvls(2) As Integer
+	lvls(0) = up_engine
+	lvls(1) = up_tires
+	lvls(2) = up_turbo
+	Dim b As Integer
+	For b = 0 To 2
+		Dim col As Color
+		If b = garage_menu Then
+			col = Color8(255, 240, 140)
+		Else
+			col = Color8(100, 130, 170)
+		End If
+		Dim line As String
+		line = names(b) & "  LVL " & CStr(lvls(b)) & "   COST " & CStr(UpgradeCost(b))
+		Call canvas_ui.DrawVectorText(Vector2(70, 120 + b * 44), line, col, 1.6, 1.4, "left", 2.0, "")
+	Next
+	Call canvas_ui.DrawVectorText(Vector2(70, screenH - 56), "ENTER — BUY & CONTINUE   UP/DOWN — PICK   ESC — SKIP", Color8(110, 130, 160), 1.2, 1.1, "left", 1.5, "")
+End Sub
+
+Function SelectedTrackIndex() As Integer
+	SelectedTrackIndex = selected_track
+End Function
+
+Function SelectedCarIndex() As Integer
+	SelectedCarIndex = selected_car
+End Function
+
+Function SplashAutoAdvanceReady() As Boolean
+	SplashAutoAdvanceReady = splash_timer > 2.5
+End Function

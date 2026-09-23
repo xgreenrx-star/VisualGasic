@@ -1,0 +1,143 @@
+' 3D wire models. Edit the Data blocks at the bottom of VectorFathom.vg.
+' Axes: x = right, y = up, z = toward the camera (front of an oncoming car).
+' Each block is: vertex count, edge count, then x,y,z per vertex, then edge a,b pairs.
+Option Explicit
+
+Import "res://scripts/RoadProject.vg"
+
+Const ModelCar As Integer = 0
+Const ModelCactus As Integer = 1
+Const ModelSign As Integer = 2
+Const ModelMaxVerts As Integer = 24
+Const ModelMaxEdges As Integer = 32
+
+Dim wire_loaded As Boolean
+Dim mdl_nv(2) As Integer
+Dim mdl_ne(2) As Integer
+Dim mdl_x(2, 23) As Single
+Dim mdl_y(2, 23) As Single
+Dim mdl_z(2, 23) As Single
+Dim mdl_a(2, 31) As Integer
+Dim mdl_b(2, 31) As Integer
+
+Dim proj_x(23) As Single
+Dim proj_y(23) As Single
+Dim proj_ok(23) As Boolean
+
+Dim sc_dist(4) As Single
+Dim sc_lat(4) As Single
+Dim sc_model(4) As Integer
+Const SceneryCount As Integer = 5
+
+Sub InitWireModels()
+	If wire_loaded Then Exit Sub
+	' Restore + Read run from VectorFathom.vg (main script) — labels live there only.
+	wire_loaded = True
+
+	' A few roadside pieces. |lat| > 1 sits outside the rails.
+	sc_dist(0) = 52.0
+	sc_lat(0) = - 1.45
+	sc_model(0) = ModelCactus
+	sc_dist(1) = 78.0
+	sc_lat(1) = 1.55
+	sc_model(1) = ModelSign
+	sc_dist(2) = 145.0
+	sc_lat(2) = 1.5
+	sc_model(2) = ModelCactus
+	sc_dist(3) = 210.0
+	sc_lat(3) = - 1.6
+	sc_model(3) = ModelSign
+	sc_dist(4) = 280.0
+	sc_lat(4) = - 1.45
+	sc_model(4) = ModelCactus
+End Sub
+
+Sub ReadWireModelBlock(ByVal id As Integer)
+	Dim nv As Integer
+	Dim ne As Integer
+	Read nv, ne
+	If nv > ModelMaxVerts Then nv = ModelMaxVerts
+	If ne > ModelMaxEdges Then ne = ModelMaxEdges
+	mdl_nv(id) = nv
+	mdl_ne(id) = ne
+	Dim i As Integer
+	For i = 0 To nv - 1
+		Dim x As Single
+		Dim y As Single
+		Dim z As Single
+		Read x, y, z
+		mdl_x(id, i) = x
+		mdl_y(id, i) = y
+		mdl_z(id, i) = z
+	Next
+	For i = 0 To ne - 1
+		Dim a As Integer
+		Dim b As Integer
+		Read a, b
+		mdl_a(id, i) = a
+		mdl_b(id, i) = b
+	Next
+End Sub
+
+Sub DrawWireModel(ByVal canvas As Object, ByVal modelId As Integer, ByVal screenW As Single, ByVal horizonY As Single, ByVal screenH As Single, ByVal playerLat As Single, ByVal ahead As Single, ByVal roadLat As Single)
+	If Not wire_loaded Then Call InitWireModels()
+	If ahead < 8.0 Or ahead > ZFar Then Exit Sub
+
+	Dim baseX As Single
+	Call CenterlineAt(ahead, baseX)
+	baseX = baseX + roadLat * RoadHalfM
+
+	Dim clipY As Single
+	clipY = CockpitRoadClipY(screenH)
+	Dim nv As Integer
+	nv = mdl_nv(modelId)
+	Dim i As Integer
+	For i = 0 To nv - 1
+		Dim depth As Single
+		depth = ahead - mdl_z(modelId, i)
+		If depth < 1.2 Then
+			proj_ok(i) = False
+		Else
+			Dim sc As Single
+			Call ProjectWorld(screenW, horizonY, playerLat, baseX + mdl_x(modelId, i), mdl_y(modelId, i), depth, proj_x(i), proj_y(i), sc)
+			proj_ok(i) = True
+		End If
+	Next
+
+	Dim ne As Integer
+	ne = mdl_ne(modelId)
+	Dim col As Color
+	col = Color8(255, 255, 255)
+	For i = 0 To ne - 1
+		Dim a As Integer
+		Dim b As Integer
+		a = mdl_a(modelId, i)
+		b = mdl_b(modelId, i)
+		If proj_ok(a) And proj_ok(b) Then
+			Dim x0 As Single
+			Dim y0 As Single
+			Dim x1 As Single
+			Dim y1 As Single
+			x0 = proj_x(a)
+			y0 = proj_y(a)
+			x1 = proj_x(b)
+			y1 = proj_y(b)
+			Dim ok As Boolean
+			Call ClipBelow(x0, y0, x1, y1, clipY, ok)
+			If ok Then Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 1.5, col)
+		End If
+	Next
+End Sub
+
+Sub DrawRoadside(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal playerDist As Single, ByVal playerLat As Single, ByVal horizonY As Single)
+	If Not wire_loaded Then Call InitWireModels()
+	Dim i As Integer
+	For i = 0 To SceneryCount - 1
+		Dim ahead As Single
+		ahead = ForwardDistOnRing(playerDist, sc_dist(i))
+		' Far pieces first so nearer wireframes paint over them.
+		If ahead > 8.0 And ahead < ZFar Then
+			Call DrawWireModel(canvas, sc_model(i), screenW, horizonY, screenH, playerLat, ahead, sc_lat(i))
+		End If
+	Next
+End Sub

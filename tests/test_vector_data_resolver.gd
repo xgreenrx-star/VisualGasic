@@ -4,6 +4,7 @@ extends SceneTree
 ## Run: scripts/run_vector_data_tests.sh
 
 const Resolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 const Sync := preload("res://addons/visual_gasic/vg_vector_data_sync.gd")
 const Highlight := preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const Vgv := preload("res://addons/visual_gasic/vg_vgv_resolver.gd")
@@ -63,6 +64,7 @@ func _init() -> void:
 	_test_skiff_wide_block()
 	_test_pod_capsule_tokens()
 	_test_canvas_refit_on_resize()
+	_test_wire_model_block()
 	_finish()
 
 
@@ -200,6 +202,32 @@ func _test_vgv_roundtrip() -> void:
 	_check("vgv reserializes", text.begins_with("VGV1"))
 	var model2 := Vgv.parse_text(text)
 	_check("vgv roundtrip shapes", (model2.get("shapes", []) as Array).size() == 2)
+
+
+func _test_wire_model_block() -> void:
+	print("-- wire model Data preview resolver --")
+	var src := """CactusModel:
+Data 8, 7
+Data 0, 0, 0
+Data 0.04, 2.5, 0
+Data - 0.1, 1.35, 0
+Data - 1.05, 1.5, 0
+Data - 1.15, 2.35, 0
+Data 0.15, 1.15, 0
+Data 0.95, 1.3, 0
+Data 1.05, 2.15, 0
+Data 0, 1, 1, 2, 2, 3, 3, 4, 1, 5, 5, 6, 6, 7
+"""
+	var sec := WireResolver.resolve_at_line(src, 4)
+	_check("wire resolves on vertex line", not sec.is_empty())
+	_check("wire label", sec.get("label", "") == "CactusModel")
+	_check("wire 8 verts", int(sec.get("vert_count", 0)) == 8)
+	_check("wire 7 edges", int(sec.get("edge_count", 0)) == 7)
+	var verts: PackedVector3Array = sec.get("verts", PackedVector3Array())
+	_check("wire negative x parsed", verts.size() == 8 and verts[2].x < -0.05)
+	var vlines: PackedInt32Array = sec.get("vert_lines", PackedInt32Array())
+	_check("wire vertex owns its Data line", vlines.size() == 8 and int(vlines[2]) == 4)
+	_check("curve table is not a wire model", WireResolver.resolve_at_line("RoadCurveData:\nData 0, 1, 2, 4, 6, 8\n", 1).is_empty())
 
 
 func _check(label: String, cond: bool) -> void:

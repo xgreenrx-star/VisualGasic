@@ -96,6 +96,17 @@ def main() -> int:
         emit({"type": "error", "message": "Empty prompt."})
         return 1
 
+    raw_images = req.get("images") or []
+    image_payloads: list = []
+    if isinstance(raw_images, list):
+        for item in raw_images:
+            if isinstance(item, str) and item.strip():
+                image_payloads.append(item.strip())
+            elif isinstance(item, dict):
+                data = str(item.get("data", "")).strip()
+                if data:
+                    image_payloads.append(data)
+
     try:
         from cursor_sdk import Agent, LocalAgentOptions
     except ImportError:
@@ -115,7 +126,26 @@ def main() -> int:
             model=model,
             local=LocalAgentOptions(cwd=cwd),
         ) as agent:
-            run = agent.send(prompt)
+            if image_payloads:
+                try:
+                    from cursor_sdk import SDKImage, UserMessage
+
+                    sdk_images = [
+                        SDKImage.data_image(b64, "image/png") for b64 in image_payloads
+                    ]
+                    run = agent.send(UserMessage(text=prompt, images=sdk_images))
+                except Exception:
+                    run = agent.send(
+                        {
+                            "text": prompt,
+                            "images": [
+                                {"data": b64, "mime_type": "image/png"}
+                                for b64 in image_payloads
+                            ],
+                        }
+                    )
+            else:
+                run = agent.send(prompt)
             for message in run.messages():
                 msg_type = getattr(message, "type", "")
                 if msg_type != "assistant":

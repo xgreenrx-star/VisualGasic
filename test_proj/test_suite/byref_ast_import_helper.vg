@@ -1,0 +1,7 @@
+' Imported ByRef target for test_byref_ast_import.vg.
+Option Explicit
+
+Sub FillBox(ByRef x As Single, ByRef y As Single)
+	x = 40.0
+	y = 90.0
+End Sub

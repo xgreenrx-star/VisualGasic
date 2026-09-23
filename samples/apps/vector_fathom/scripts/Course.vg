@@ -1,0 +1,262 @@
+' Neon Ring — designed loop for Vector Fathom (extend seg_* tables for new tracks).
+Option Explicit
+
+Const CourseSegCount As Integer = 20
+Const CourseName As String = "Neon Ring"
+
+Const SegFlagTunnel As Integer = 1
+Const SegFlagChicane As Integer = 2
+Const SegFlagStartFinish As Integer = 4
+
+Dim seg_len(19) As Single
+Dim seg_curve(19) As Single
+Dim seg_hill(19) As Single
+Dim seg_half_w(19) As Single
+Dim seg_flags(19) As Integer
+
+Dim seg_start_dist(19) As Single
+Dim seg_start_heading(19) As Single
+Dim seg_start_x(19) As Single
+Dim seg_start_y(19) As Single
+Dim seg_end_x(19) As Single
+Dim seg_end_y(19) As Single
+Dim seg_end_heading(19) As Single
+
+Dim course_total_len As Single
+
+Sub InitNeonRingCourse()
+	Dim i As Integer
+	For i = 0 To CourseSegCount - 1
+		seg_len(i) = 0.0
+		seg_curve(i) = 0.0
+		seg_hill(i) = 0.0
+		seg_half_w(i) = 1.0
+		seg_flags(i) = 0
+	Next
+
+	' 0 — start / finish straight
+	seg_len(0) = 420.0
+	seg_curve(0) = 0.0
+	seg_hill(0) = 0.0
+	seg_half_w(0) = 1.05
+	seg_flags(0) = SegFlagStartFinish
+
+	' 1 — gentle sweeper right
+	seg_len(1) = 380.0
+	seg_curve(1) = 0.00085
+	seg_hill(1) = 0.08
+	seg_half_w(1) = 1.0
+
+	' 2 — short straight
+	seg_len(2) = 260.0
+	seg_curve(2) = 0.0
+	seg_hill(2) = 0.05
+	seg_half_w(2) = 1.0
+
+	' 3 — chicane (fast left-right)
+	seg_len(3) = 520.0
+	seg_curve(3) = - 0.0022
+	seg_hill(3) = 0.0
+	seg_half_w(3) = 0.92
+	seg_flags(3) = SegFlagChicane
+
+	' 4 — chicane return
+	seg_len(4) = 480.0
+	seg_curve(4) = 0.0024
+	seg_hill(4) = 0.0
+	seg_half_w(4) = 0.92
+	seg_flags(4) = SegFlagChicane
+
+	' 5 — climb
+	seg_len(5) = 440.0
+	seg_curve(5) = 0.00035
+	seg_hill(5) = 0.35
+	seg_half_w(5) = 1.0
+
+	' 6 — ridge straight
+	seg_len(6) = 320.0
+	seg_curve(6) = 0.0
+	seg_hill(6) = 0.12
+	seg_half_w(6) = 1.08
+
+	' 7 — long left sweeper
+	seg_len(7) = 560.0
+	seg_curve(7) = - 0.00095
+	seg_hill(7) = - 0.05
+	seg_half_w(7) = 1.05
+
+	' 8 — tunnel straight (shader-friendly dark stretch)
+	seg_len(8) = 360.0
+	seg_curve(8) = 0.0
+	seg_hill(8) = - 0.02
+	seg_half_w(8) = 0.88
+	seg_flags(8) = SegFlagTunnel
+
+	' 9 — exit kink
+	seg_len(9) = 220.0
+	seg_curve(9) = 0.0015
+	seg_hill(9) = - 0.08
+	seg_half_w(9) = 1.0
+
+	' 10 — dip
+	seg_len(10) = 400.0
+	seg_curve(10) = - 0.0004
+	seg_hill(10) = - 0.28
+	seg_half_w(10) = 1.0
+
+	' 11 — valley straight
+	seg_len(11) = 300.0
+	seg_curve(11) = 0.0
+	seg_hill(11) = - 0.06
+	seg_half_w(11) = 1.02
+
+	' 12 — hairpin approach
+	seg_len(12) = 280.0
+	seg_curve(12) = - 0.0018
+	seg_hill(12) = 0.04
+	seg_half_w(12) = 0.95
+
+	' 13 — hairpin
+	seg_len(13) = 240.0
+	seg_curve(13) = - 0.0032
+	seg_hill(13) = 0.02
+	seg_half_w(13) = 0.82
+
+	' 14 — hairpin exit
+	seg_len(14) = 260.0
+	seg_curve(14) = 0.0026
+	seg_hill(14) = 0.06
+	seg_half_w(14) = 0.9
+
+	' 15 — back straight
+	seg_len(15) = 520.0
+	seg_curve(15) = 0.0
+	seg_hill(15) = 0.1
+	seg_half_w(15) = 1.1
+
+	' 16 — wide carousel
+	seg_len(16) = 460.0
+	seg_curve(16) = 0.00075
+	seg_hill(16) = 0.0
+	seg_half_w(16) = 1.15
+
+	' 17 — tightening esses
+	seg_len(17) = 340.0
+	seg_curve(17) = - 0.0014
+	seg_hill(17) = - 0.04
+	seg_half_w(17) = 0.98
+
+	' 18 — esses return
+	seg_len(18) = 340.0
+	seg_curve(18) = 0.0012
+	seg_hill(18) = - 0.03
+	seg_half_w(18) = 0.98
+
+	' 19 — home straight
+	seg_len(19) = 380.0
+	seg_curve(19) = - 0.00025
+	seg_hill(19) = - 0.02
+	seg_half_w(19) = 1.05
+
+	course_total_len = 0.0
+	Dim hx As Single
+	Dim hy As Single
+	Dim hh As Single
+	hx = 0.0
+	hy = 0.0
+	hh = 0.0
+	For i = 0 To CourseSegCount - 1
+		seg_start_dist(i) = course_total_len
+		seg_start_heading(i) = hh
+		seg_start_x(i) = hx
+		seg_start_y(i) = hy
+		course_total_len = course_total_len + seg_len(i)
+		hh = hh + seg_curve(i) * seg_len(i)
+		hx = hx + Cos(hh) * seg_len(i)
+		hy = hy + Sin(hh) * seg_len(i)
+		seg_end_heading(i) = hh
+		seg_end_x(i) = hx
+		seg_end_y(i) = hy
+	Next
+End Sub
+
+Function CourseLength() As Single
+	CourseLength = course_total_len
+End Function
+
+Function WrapTrackDist(ByVal d As Single) As Single
+	If course_total_len < = 0.0 Then
+		WrapTrackDist = 0.0
+		Exit Function
+	End If
+	Do While d < 0.0
+		d = d + course_total_len
+	Loop
+	Do While d > = course_total_len
+		d = d - course_total_len
+	Loop
+	WrapTrackDist = d
+End Function
+
+Sub FindSegmentAt(ByVal dist As Single, ByRef segIdx As Integer, ByRef t As Single)
+	dist = WrapTrackDist(dist)
+	segIdx = 0
+	t = 0.0
+	Dim i As Integer
+	For i = 0 To CourseSegCount - 1
+		If dist < seg_start_dist(i) + seg_len(i) Then
+			segIdx = i
+			t = dist - seg_start_dist(i)
+			If t < 0.0 Then t = 0.0
+			Exit Sub
+		End If
+	Next
+	segIdx = CourseSegCount - 1
+	t = seg_len(segIdx)
+End Sub
+
+Sub QueryAtDist(ByVal dist As Single, ByRef outCurve As Single, ByRef outHill As Single, ByRef outHalfW As Single, ByRef outFlags As Integer)
+	Dim si As Integer
+	Dim tt As Single
+	Call FindSegmentAt(dist, si, tt)
+	outCurve = seg_curve(si)
+	outHill = seg_hill(si)
+	outHalfW = seg_half_w(si)
+	outFlags = seg_flags(si)
+End Sub
+
+Sub SampleTrack(ByVal dist As Single, ByRef outX As Single, ByRef outY As Single, ByRef outHeading As Single, ByRef outElev As Single)
+	dist = WrapTrackDist(dist)
+	Dim si As Integer
+	Dim tt As Single
+	Call FindSegmentAt(dist, si, tt)
+	outHeading = seg_start_heading(si) + seg_curve(si) * tt
+	Dim u As Single
+	If seg_len(si) > 0.001 Then
+		u = tt / seg_len(si)
+	Else
+		u = 0.0
+	End If
+	outX = seg_start_x(si) + (seg_end_x(si) - seg_start_x(si)) * u
+	outY = seg_start_y(si) + (seg_end_y(si) - seg_start_y(si)) * u
+	outElev = 0.0
+	Dim ei As Integer
+	For ei = 0 To si - 1
+		outElev = outElev + seg_hill(ei)
+	Next
+	outElev = outElev + seg_hill(si) * u
+End Sub
+
+Sub SampleTrackSimple(ByVal dist As Single, ByRef outX As Single, ByRef outY As Single, ByRef outHeading As Single)
+	Dim elev As Single
+	Call SampleTrack(dist, outX, outY, outHeading, elev)
+End Sub
+
+Function IsTunnelAt(ByVal dist As Single) As Boolean
+	Dim c As Single
+	Dim h As Single
+	Dim w As Single
+	Dim f As Integer
+	Call QueryAtDist(dist, c, h, w, f)
+	IsTunnelAt = (f And SegFlagTunnel) < > 0
+End Function

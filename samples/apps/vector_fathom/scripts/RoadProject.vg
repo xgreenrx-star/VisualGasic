@@ -1,0 +1,189 @@
+' Cockpit projection + editable RoadCurveData (Speed Freak–style segments).
+' Load once: InitCockpitRoadData() from main _Ready.
+Option Explicit
+
+Const DemoSegCount As Integer = 128
+Const MetersPerSeg As Single = 5.0
+' Visible road sits in the upper half (black gap above the hood), like Speed Freak.
+Const RoadSlices As Integer = 60
+Const RoadHalfM As Single = 9.0
+Const CamHeight As Single = 1.35
+Const CamFocal As Single = 1800.0
+Const ZNear As Single = 16.0
+Const ZFar As Single = 230.0
+Const CurveGain As Single = 1.15
+Const HoodTopY As Single = 54.0
+
+Dim demo_curve(127) As Single
+Dim demo_loaded As Boolean
+
+Dim road_slice_x(59) As Single
+Dim road_slice_z(59) As Single
+
+Sub InitCockpitRoadData()
+	If demo_loaded Then Exit Sub
+	Restore RoadCurveData
+	Dim i As Integer
+	For i = 0 To DemoSegCount - 1
+		Dim v As Single
+		Read v
+		demo_curve(i) = v / 100.0
+	Next
+	demo_loaded = True
+End Sub
+
+Function DemoSegCurve(ByVal segIdx As Integer) As Single
+	DemoSegCurve = demo_curve(segIdx Mod DemoSegCount)
+End Function
+
+Function SegIndexAtDist(ByVal trackDist As Single) As Integer
+	SegIndexAtDist = Int(WrapTrackDistForSeg(trackDist) / MetersPerSeg) Mod DemoSegCount
+End Function
+
+Function WrapTrackDistForSeg(ByVal d As Single) As Single
+	Dim total As Single
+	total = DemoSegCount * MetersPerSeg
+	If total < 1.0 Then
+		WrapTrackDistForSeg = 0.0
+		Exit Function
+	End If
+	Do While d < 0.0
+	 d = d + total
+	Loop
+	Do While d > = total
+	 d = d - total
+	Loop
+	WrapTrackDistForSeg = d
+End Function
+
+Function DemoTrackLength() As Single
+	DemoTrackLength = DemoSegCount * MetersPerSeg
+End Function
+
+' Meters ahead along the repeating demo ring from fromDist to toDist (both may be course odometer).
+Function ForwardDistOnRing(ByVal fromDist As Single, ByVal toDist As Single) As Single
+	Dim p As Single
+	Dim t As Single
+	p = WrapTrackDistForSeg(fromDist)
+	t = WrapTrackDistForSeg(toDist)
+	Dim a As Single
+	a = t - p
+	Dim total As Single
+	total = DemoTrackLength()
+	Do While a < 0.0
+		a = a + total
+	Loop
+	Do While a >= total
+		a = a - total
+	Loop
+	ForwardDistOnRing = a
+End Function
+
+Sub BuildRoadSliceTable(ByVal playerDist As Single)
+	If Not demo_loaded Then Call InitCockpitRoadData()
+	Dim x As Single
+	Dim heading As Single
+	x = 0.0
+	heading = 0.0
+	Dim n As Integer
+	Dim prevZ As Single
+	prevZ = ZNear
+	For n = 0 To RoadSlices - 1
+		Dim z As Single
+		z = ZNear + (ZFar - ZNear) * n / (RoadSlices - 1)
+		If n > 0 Then
+			Dim dz As Single
+			dz = z - prevZ
+			Dim segIdx As Integer
+			segIdx = SegIndexAtDist(playerDist + z)
+			Dim curv As Single
+			curv = DemoSegCurve(segIdx)
+			heading = heading + curv * CurveGain * (dz / MetersPerSeg)
+			x = x + Sin(heading) * dz
+		End If
+		prevZ = z
+		road_slice_x(n) = x
+		road_slice_z(n) = z
+	Next
+End Sub
+
+Function SliceZ(ByVal idx As Integer) As Single
+	SliceZ = road_slice_z(idx)
+End Function
+
+Function SliceX(ByVal idx As Integer) As Single
+	SliceX = road_slice_x(idx)
+End Function
+
+Sub CenterlineAt(ByVal z As Single, ByRef outX As Single)
+	If z <= road_slice_z(0) Then
+		outX = road_slice_x(0)
+		Exit Sub
+	End If
+	Dim i As Integer
+	For i = 1 To RoadSlices - 1
+		If z <= road_slice_z(i) Then
+			Dim span As Single
+			span = road_slice_z(i) - road_slice_z(i - 1)
+			Dim t As Single
+			If span < 0.001 Then
+				t = 0.0
+			Else
+				t = (z - road_slice_z(i - 1)) / span
+			End If
+			outX = road_slice_x(i - 1) + (road_slice_x(i) - road_slice_x(i - 1)) * t
+			Exit Sub
+		End If
+	Next
+	outX = road_slice_x(RoadSlices - 1)
+End Sub
+
+' worldX is meters right of the track centerline. worldY is meters above the road.
+' z is meters ahead of the camera. playerLat is -1..1 across the road half-width.
+Sub ProjectWorld(ByVal screenW As Single, ByVal horizonY As Single, ByVal playerLat As Single, ByVal worldX As Single, ByVal worldY As Single, ByVal z As Single, ByRef outSx As Single, ByRef outSy As Single, ByRef outScale As Single)
+	If z < 0.8 Then z = 0.8
+	outScale = CamFocal / z
+	Dim camX As Single
+	camX = playerLat * RoadHalfM
+	outSx = screenW * 0.5 + (worldX - camX) * outScale
+	outSy = horizonY + (CamHeight - worldY) * outScale
+End Sub
+
+Sub ClipBelow(ByRef x0 As Single, ByRef y0 As Single, ByRef x1 As Single, ByRef y1 As Single, ByVal clipY As Single, ByRef ok As Boolean)
+	If y0 > clipY And y1 > clipY Then
+		ok = False
+		Exit Sub
+	End If
+	Dim denom As Single
+	Dim t As Single
+	If y0 > clipY Then
+		denom = y0 - y1
+		If Abs(denom) < 0.001 Then
+			ok = False
+			Exit Sub
+		End If
+		t = (clipY - y1) / denom
+		x0 = x1 + (x0 - x1) * t
+		y0 = clipY
+	ElseIf y1 > clipY Then
+		denom = y1 - y0
+		If Abs(denom) < 0.001 Then
+			ok = False
+			Exit Sub
+		End If
+		t = (clipY - y0) / denom
+		x1 = x0 + (x1 - x0) * t
+		y1 = clipY
+	End If
+	ok = True
+End Sub
+
+Function CockpitHorizonY(ByVal screenH As Single) As Single
+	CockpitHorizonY = screenH * 0.30
+End Function
+
+Function CockpitRoadClipY(ByVal screenH As Single) As Single
+	CockpitRoadClipY = screenH - HoodTopY
+End Function
+
+' RoadCurveData and wire-model Data live in VectorFathom.vg (main script) for Restore.

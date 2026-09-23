@@ -5,14 +5,18 @@ extends VBoxContainer
 signal section_focused(section: Dictionary)
 
 const Resolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 const Sync := preload("res://addons/visual_gasic/vg_vector_data_sync.gd")
 const CanvasScript := preload("res://addons/visual_gasic/vg_vector_edit_canvas.gd")
+const WirePreviewScript := preload("res://addons/visual_gasic/vg_wire_model_preview.gd")
+const WireSync := preload("res://addons/visual_gasic/vg_wire_model_sync.gd")
 
 var _code_edit: CodeEdit
 var _section: Dictionary = {}
 var _shapes: Array = []
 var _canvas: Control
 var _canvas_clip: PanelContainer
+var _wire_preview: Control
 var _status: Label
 var _hint: Label
 var _debounce: Timer
@@ -24,7 +28,7 @@ func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	_status = Label.new()
-	_status.text = "Move the caret into a *Vector: Data block."
+	_status.text = "Move the caret into a *Vector: block or a 3D wire model (Data vertCount, edgeCount)."
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 10)
 	_status.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
@@ -54,6 +58,15 @@ func _ready() -> void:
 		_canvas.shapes_edited.connect(_on_shapes_edited)
 	_canvas_clip.add_child(_canvas)
 
+	_wire_preview = WirePreviewScript.new()
+	_wire_preview.name = "WireModelPreview"
+	_wire_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_wire_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_wire_preview.visible = false
+	if _wire_preview.has_signal("vertex_moved"):
+		_wire_preview.vertex_moved.connect(_on_wire_vertex_moved)
+	_canvas_clip.add_child(_wire_preview)
+
 	_debounce = Timer.new()
 	_debounce.one_shot = true
 	_debounce.wait_time = 0.15
@@ -71,18 +84,31 @@ func clear_section() -> void:
 	_shapes = []
 	if _canvas.has_method("clear_model"):
 		_canvas.clear_model()
+	if _wire_preview and _wire_preview.has_method("clear_model"):
+		_wire_preview.clear_model()
 	_canvas.visible = false
+	if _wire_preview:
+		_wire_preview.visible = false
 	_canvas_clip.visible = false
-	_status.text = "Move the caret into a *Vector: Data block."
+	_hint.text = "Drag points · Shift+click append · Right-click remove · Wheel zoom · Middle-drag pan"
+	_status.text = "Move the caret into a *Vector: block or a 3D wire model (Data vertCount, edgeCount)."
 
 
 func update_for_caret(source: String, caret_line: int) -> void:
-	if _code_edit != null and Sync.is_sync_guarded(_code_edit):
+	if _code_edit != null and (Sync.is_sync_guarded(_code_edit) or WireSync.is_sync_guarded(_code_edit)):
 		return
 	var sec := Resolver.resolve_at_line(source, caret_line)
 	if sec.is_empty():
-		if not _section.is_empty():
-			clear_section()
+		var wire := WireResolver.resolve_at_line(source, caret_line)
+		if wire.is_empty():
+			if not _section.is_empty():
+				clear_section()
+			return
+		var wfp := _data_fingerprint_for(wire, source)
+		if _sections_equal(wire, _section) and wfp == _data_fingerprint:
+			return
+		_load_wire(wire, wfp)
+		section_focused.emit(wire)
 		return
 	var fp := _data_fingerprint_for(sec, source)
 	if _sections_equal(sec, _section) and fp == _data_fingerprint:
@@ -114,10 +140,44 @@ func _data_fingerprint_for(sec: Dictionary, source: String) -> String:
 	return "|".join(parts)
 
 
+func _load_wire(sec: Dictionary, fingerprint: String) -> void:
+	_section = sec.duplicate(true)
+	_data_fingerprint = fingerprint
+	_shapes = []
+	_canvas.visible = false
+	if _canvas.has_method("clear_model"):
+		_canvas.clear_model()
+	_wire_preview.visible = true
+	_canvas_clip.visible = true
+	if _wire_preview.has_method("set_model"):
+		_wire_preview.set_model(
+			str(sec.get("label", "")),
+			sec.get("verts", PackedVector3Array()),
+			sec.get("edges", PackedInt32Array())
+		)
+	_hint.text = "Drag a point to move that vertex. Its Data line is rewritten."
+	_status.text = "%s  %d verts  %d edges" % [
+		sec.get("label", "?"),
+		int(sec.get("vert_count", 0)),
+		int(sec.get("edge_count", 0)),
+	]
+
+
+func _on_wire_vertex_moved(index: int, point: Vector3) -> void:
+	if _code_edit == null or str(_section.get("kind", "")) != "wire":
+		return
+	WireSync.apply_vertex(_code_edit, _section, index, point)
+
+
 func _load_section(sec: Dictionary, fingerprint: String = "") -> void:
 	_section = sec.duplicate(true)
 	_data_fingerprint = fingerprint
 	_shapes = (sec.get("shapes", []) as Array).duplicate(true)
+	if _wire_preview:
+		_wire_preview.visible = false
+		if _wire_preview.has_method("clear_model"):
+			_wire_preview.clear_model()
+	_hint.text = "Drag points · Shift+click append · Right-click remove · Wheel zoom · Middle-drag pan"
 	var vw: int = int(sec.get("view_w", 64))
 	var vh: int = int(sec.get("view_h", 64))
 	var step: int = int(sec.get("grid_step", 0))

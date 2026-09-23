@@ -1,0 +1,27 @@
+' AST caller must write back ByRef args to an imported Sub.
+' A 2D array store keeps this Sub on the interpreter (bytecode bails on
+' multi-index assignment), which is the path that dropped the write-back.
+Import "byref_ast_import_helper.vg"
+Option Explicit
+
+Dim grid(1, 1) As Single
+
+Sub _Ready()
+	grid(0, 0) = 1
+	Dim x As Single
+	Dim y As Single
+	x = 0.0
+	y = 0.0
+	Call FillBox(x, y)
+	If x = 40.0 And y = 90.0 Then
+		Print "PASS: byref_ast_import"
+	Else
+		Print "FAIL: byref_ast_import got " & CStr(x) & "," & CStr(y)
+	End If
+	Call FillBox(grid(0, 1), grid(1, 0))
+	If grid(0, 1) = 40.0 And grid(1, 0) = 90.0 Then
+		Print "PASS: byref_ast_import_slot"
+	Else
+		Print "FAIL: byref_ast_import_slot got " & CStr(grid(0, 1)) & "," & CStr(grid(1, 0))
+	End If
+End Sub

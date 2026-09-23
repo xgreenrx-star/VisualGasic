@@ -1,0 +1,419 @@
+' Vector Fathom — wireframe racer (cockpit + top-down) on the Neon Ring circuit.
+Option Explicit
+
+Import "res://scripts/Course.vg"
+Import "res://scripts/RoadProject.vg"
+Import "res://scripts/WireModels.vg"
+Import "res://scripts/RoadDraw.vg"
+Import "res://scripts/Entities.vg"
+Import "res://scripts/GameFlow.vg"
+Import "res://scripts/Garage.vg"
+
+Const ScreenW As Single = 960.0
+Const ScreenH As Single = 540.0
+
+Const ViewCockpit As Integer = 0
+Const ViewTopDown As Integer = 1
+
+Dim stat_max_speed As Single
+Dim stat_accel As Single
+Dim stat_steer As Single
+Dim stat_turbo As Single
+Dim stat_coast As Single
+Dim stat_brake As Single
+
+Const MinSpeed As Single = 0.0
+
+Dim canvas_bg As Object
+Dim canvas_road As Object
+Dim canvas_ent As Object
+Dim canvas_fx As Object
+Dim canvas_ui As Object
+
+Dim view_mode As Integer
+Dim player_dist As Single
+Dim player_lat As Single
+Dim player_speed As Single
+Dim lap_time As Single
+Dim game_time As Single
+Dim race_laps As Integer
+Dim race_lap_target As Integer
+
+Dim hud_speed As Integer
+Dim prev_player_dist As Single
+Dim lap_gate_armed As Boolean
+Dim fuel As Single
+Dim engine_rpm As Single
+
+Sub _Ready()
+	Print("VECTOR FATHOM — Neon Ring (HTML5 demo)")
+	Call InitNeonRingCourse()
+	Call InitCockpitRoadData()
+	Call LoadWireModelsFromMainData()
+	Call InitWireModels()
+	Call InitEntities()
+	Call InitGameFlow()
+
+	Set canvas_bg = CreateNode("VGVectorCanvas2D")
+	Set canvas_road = CreateNode("VGVectorCanvas2D")
+	Set canvas_ent = CreateNode("VGVectorCanvas2D")
+	Set canvas_fx = CreateNode("VGVectorCanvas2D")
+	Set canvas_ui = CreateNode("VGVectorCanvas2D")
+
+	AddChild(canvas_bg)
+	AddChild(canvas_road)
+	AddChild(canvas_ent)
+	AddChild(canvas_fx)
+	AddChild(canvas_ui)
+
+	canvas_fx.SetAdditiveBlend(True)
+
+	view_mode = ViewCockpit
+	player_dist = 40.0
+	player_lat = 0.0
+	player_speed = 0.0
+	lap_time = 0.0
+	game_time = 0.0
+	race_laps = 0
+	race_lap_target = 1
+	hud_speed = - 1
+	prev_player_dist = player_dist
+	lap_gate_armed = True
+	fuel = 1.0
+	engine_rpm = 800.0
+
+	Call _ApplySelectedCarStats()
+
+	Call SyncEntitiesToPlayer(player_dist)
+	Randomize()
+	Set_Process(True)
+End Sub
+
+Sub _ApplySelectedCarStats()
+	Call ApplyCarStats(SelectedCarIndex(), stat_max_speed, stat_accel, stat_steer, stat_turbo, stat_coast, stat_brake)
+End Sub
+
+' Wire-model Data labels are in this file — Restore here, then Read in WireModels.vg.
+Sub LoadWireModelsFromMainData()
+	Restore "CarOncoming"
+	Call ReadWireModelBlock(ModelCar)
+	Restore "CactusModel"
+	Call ReadWireModelBlock(ModelCactus)
+	Restore "SignModel"
+	Call ReadWireModelBlock(ModelSign)
+End Sub
+
+Sub _ResetRace()
+	player_dist = 40.0
+	player_lat = 0.0
+	player_speed = 0.0
+	lap_time = 0.0
+	race_laps = 0
+	view_mode = ViewCockpit
+	prev_player_dist = player_dist
+	lap_gate_armed = True
+	fuel = 1.0
+	engine_rpm = 800.0
+	Call SyncEntitiesToPlayer(player_dist)
+	Call _ApplySelectedCarStats()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	game_time = game_time + delta
+	Call UpdateGameFlow(delta)
+
+	If CurrentState() = StateRacing Then
+		lap_time = lap_time + delta
+		Call _ReadRaceInput(delta)
+		Call UpdateEntities(delta, game_time, player_dist)
+		If CarHitPlayer(player_dist, player_lat) Then
+			player_speed = 0.0
+			Call CrashToGarage()
+		Else
+			Call _CheckLap(delta)
+		End If
+	End If
+
+	Call _DrawFrame()
+End Sub
+
+Sub _CheckLap(ByVal delta As Single)
+	Dim len As Single
+	len = CourseLength()
+	If player_dist > 120.0 Then lap_gate_armed = True
+	If lap_gate_armed And prev_player_dist > len * 0.55 And player_dist < 100.0 Then
+		lap_gate_armed = False
+		race_laps = race_laps + 1
+		If race_laps > = race_lap_target Then
+			Call SetLastLapTime(lap_time)
+			Call FinishRaceToGarage()
+		End If
+	End If
+	prev_player_dist = player_dist
+End Sub
+
+Sub _ReadMenuInput()
+	If Input.IsActionJustPressed("ui_accept") Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then
+		Call MenuConfirm()
+		If CurrentState() = StateRacing Then
+			Call _ResetRace()
+		End If
+	End If
+	If Input.IsActionJustPressed("ui_cancel") Or IsKeyJustPressed(KEY_ESCAPE) Then
+		Call MenuBack()
+	End If
+	If IsKeyJustPressed(KEY_UP) Or Input.IsActionJustPressed("ui_up") Then Call MenuUp()
+	If IsKeyJustPressed(KEY_DOWN) Or Input.IsActionJustPressed("ui_down") Then Call MenuDown()
+	If CurrentState() = StateSplash And SplashAutoAdvanceReady() Then
+		Call MenuConfirm()
+	End If
+End Sub
+
+Sub _ReadRaceInput(ByVal delta As Single)
+	If Input.IsActionJustPressed("toggle_view") Or IsKeyJustPressed(KEY_V) Then
+		If view_mode = ViewCockpit Then
+			view_mode = ViewTopDown
+		Else
+			view_mode = ViewCockpit
+		End If
+	End If
+
+	Dim throttle As Single
+	Dim brake As Single
+	throttle = Input.GetActionStrength("throttle")
+	brake = Input.GetActionStrength("brake")
+	If throttle < 0.05 And brake < 0.05 Then
+		If Input.IsKeyPressed(KEY_UP) Or Input.IsKeyPressed(KEY_W) Then throttle = 1.0
+		If Input.IsKeyPressed(KEY_DOWN) Or Input.IsKeyPressed(KEY_S) Then brake = 1.0
+	End If
+	If fuel < = 0.0 Then throttle = 0.0
+
+	Dim burn As Single
+	burn = 0.006 + throttle * 0.035
+	If brake > 0.05 Then burn = 0.004
+	fuel = fuel - burn * delta
+	If fuel < 0.0 Then fuel = 0.0
+
+	Dim targetRpm As Single
+	targetRpm = 800.0 + throttle * 1700.0
+	If stat_max_speed > 1.0 Then
+		targetRpm = targetRpm + (player_speed / stat_max_speed) * 4300.0
+	End If
+	If targetRpm > 6800.0 Then targetRpm = 6800.0
+	engine_rpm = engine_rpm + (targetRpm - engine_rpm) * delta * 2.8
+	If engine_rpm < 700.0 Then engine_rpm = 700.0
+
+	' Lift off: stat_coast per second. Brake: stat_brake per second, faster than coast, still gradual.
+	' Brake wins if both are held. Neither rate zeroes speed in one frame.
+	If brake > 0.05 Then
+		player_speed = player_speed - stat_brake * brake * delta
+	ElseIf throttle > 0.05 Then
+		player_speed = player_speed + stat_accel * throttle * delta
+	Else
+		player_speed = player_speed - stat_coast * delta
+	End If
+	If player_speed > stat_max_speed Then player_speed = stat_max_speed
+	If player_speed < MinSpeed Then player_speed = MinSpeed
+
+	Dim steer As Single
+	steer = Input.GetActionStrength("steer_right") - Input.GetActionStrength("steer_left")
+	If Abs(steer) < 0.05 Then
+		If Input.IsKeyPressed(KEY_LEFT) Or Input.IsKeyPressed(KEY_A) Then steer = steer - 1.0
+		If Input.IsKeyPressed(KEY_RIGHT) Or Input.IsKeyPressed(KEY_D) Then steer = steer + 1.0
+	End If
+	If player_speed > 8.0 Then
+		player_lat = player_lat + steer * stat_steer * delta * (player_speed / stat_max_speed)
+	End If
+	If player_lat > 0.95 Then player_lat = 0.95
+	If player_lat < - 0.95 Then player_lat = - 0.95
+
+	player_dist = WrapTrackDist(player_dist + player_speed * delta)
+End Sub
+
+Sub _DrawFrame()
+	canvas_bg.Clear()
+	canvas_road.Clear()
+	canvas_ent.Clear()
+	canvas_fx.Clear()
+	canvas_ui.Clear()
+
+	If CurrentState() < > StateRacing Then
+		Call _ReadMenuInput()
+		Call DrawMenuScreen(canvas_bg, canvas_ui, ScreenW, ScreenH, game_time)
+		Exit Sub
+	End If
+
+	Dim inTunnel As Boolean
+	inTunnel = IsTunnelAt(player_dist)
+
+	If view_mode = ViewCockpit Then
+		Dim horizonY As Single
+		horizonY = CockpitHorizonY(ScreenH)
+		Call DrawCockpitSky(canvas_bg, ScreenW, ScreenH, horizonY, inTunnel, game_time)
+		Call DrawCockpitRoad(canvas_road, ScreenW, ScreenH, player_dist, player_lat, inTunnel, horizonY)
+		Call DrawCockpitDash(canvas_road, ScreenW, ScreenH)
+		Call DrawEntitiesCockpit(canvas_ent, ScreenW, ScreenH, player_dist, player_lat, horizonY)
+		Call DrawRoadside(canvas_ent, ScreenW, ScreenH, player_dist, player_lat, horizonY)
+	Else
+		Call DrawTopDownCourse(canvas_road, ScreenW, ScreenH, player_dist)
+	End If
+
+	Call _DrawHud()
+End Sub
+
+Sub _DrawHud()
+	Dim spd As Integer
+	spd = Int(player_speed * 0.55)
+	If spd < > hud_speed Then
+		hud_speed = spd
+	End If
+
+	Dim colHud As Color
+	colHud = Color8(255, 255, 255)
+	If view_mode = ViewCockpit Then
+		Call canvas_ui.DrawVectorText(Vector2(24, 22), "SCORE", colHud, 2.0, 1.8, "left", 2.2, "")
+		Dim scoreStr As String
+		scoreStr = CStr(Int(lap_time * 10) + hud_speed * 3)
+		While Len(scoreStr) < 6
+			scoreStr = "0" & scoreStr
+		Wend
+		Call canvas_ui.DrawVectorText(Vector2(24, 52), scoreStr, colHud, 2.4, 2.0, "left", 2.6, "")
+		Call canvas_ui.DrawVectorTextRightAligned(Vector2(ScreenW - 24, 22), "TIME", colHud, 2.0, 1.8, 2.2, "")
+		Dim timeLeft As Integer
+		timeLeft = 999 - Int(lap_time)
+		If timeLeft < 0 Then timeLeft = 0
+		Dim timeStr As String
+		timeStr = CStr(timeLeft)
+		While Len(timeStr) < 3
+			timeStr = "0" & timeStr
+		Wend
+		Call canvas_ui.DrawVectorTextRightAligned(Vector2(ScreenW - 24, 52), timeStr, colHud, 2.4, 2.0, 2.6, "")
+		Call _DrawDashGauges(colHud)
+	Else
+		Call canvas_ui.DrawVectorText(Vector2(14, 16), CourseName & " TOP DOWN", colHud, 1.5, 1.4, "left", 2.0, "")
+		Call canvas_ui.DrawVectorText(Vector2(14, 42), "SPD " & CStr(hud_speed) & " MPH V cockpit", colHud, 1.4, 1.3, "left", 1.8, "")
+	End If
+End Sub
+
+Sub _DrawDashGauges(ByVal colHud As Color)
+	Dim mph As Integer
+	mph = Int(player_speed * 0.55)
+	If mph < 0 Then mph = 0
+	Dim mphStr As String
+	mphStr = CStr(mph)
+	While Len(mphStr) < 3
+		mphStr = "0" & mphStr
+	Wend
+	Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenW * 0.5, ScreenH - 118), mphStr, colHud, 2.6, 2.2, 2.8, "")
+	Call canvas_ui.DrawVectorTextCentered(Vector2(ScreenW * 0.5, ScreenH - 86), "MPH", colHud, 1.3, 1.2, 1.6, "")
+
+	Dim baseX As Single
+	Dim baseY As Single
+	baseX = 36.0
+	baseY = ScreenH - 78.0
+	Call canvas_ui.DrawVectorText(Vector2(baseX, baseY - 22), "FUEL", colHud, 1.2, 1.1, "left", 1.4, "")
+	Dim seg As Integer
+	Dim filled As Integer
+	filled = Int(fuel * 10.0 + 0.001)
+	If filled > 10 Then filled = 10
+	For seg = 0 To 9
+		Dim x0 As Single
+		x0 = baseX + seg * 14.0
+		Dim c As Color
+		If seg < filled Then
+			c = colHud
+		Else
+			c = Color8(70, 70, 70)
+		End If
+		Call canvas_ui.DrawLine(Vector2(x0, baseY), Vector2(x0 + 8.0, baseY), 3.0, c)
+	Next
+
+	Dim tx As Single
+	Dim ty As Single
+	tx = ScreenW - 150.0
+	ty = ScreenH - 70.0
+	Call canvas_ui.DrawVectorText(Vector2(tx, ty - 36), "TACH", colHud, 1.2, 1.1, "left", 1.4, "")
+	Dim tick As Integer
+	For tick = 0 To 6
+		Dim ang As Single
+		ang = 3.4 - tick * 0.38
+		Dim inner As Single
+		inner = 28.0
+		Dim outer As Single
+		outer = 40.0
+		Call canvas_ui.DrawLine(Vector2(tx + 46 + Cos(ang) * inner, ty + Sin(ang) * inner), Vector2(tx + 46 + Cos(ang) * outer, ty + Sin(ang) * outer), 1.5, colHud)
+	Next
+	Dim needle As Single
+	needle = 3.4 - (engine_rpm / 6800.0) * 2.28
+	Call canvas_ui.DrawLine(Vector2(tx + 46, ty), Vector2(tx + 46 + Cos(needle) * 34.0, ty + Sin(needle) * 34.0), 1.5, colHud)
+	Dim rpmStr As String
+	rpmStr = CStr(Int(engine_rpm / 100.0) / 10.0)
+	Call canvas_ui.DrawVectorText(Vector2(tx + 28, ty + 18), rpmStr, colHud, 1.2, 1.1, "left", 1.4, "")
+End Sub
+
+' ---------------------------------------------------------------------------
+' DATA lives in this file. Restore only sees labels in the main script.
+' RoadCurveData: 128 integers. Positive bends right, negative left. /100 in code.
+' Wire models: vertex count, edge count, then x,y,z (x right, y up, z toward camera),
+' then edge pairs. Edit these numbers to change the car, cactus, and sign.
+' ---------------------------------------------------------------------------
+' Long straights, then one gentle right and one gentle left. Keep peaks small.
+RoadCurveData:
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 3
+Data 3, 3, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, - 1, - 2, - 2, - 3, - 3, - 3, - 3, - 3, - 3, - 2, - 2, - 1, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+' Oncoming wagon. 16 vertices, 23 edges.
+CarOncoming:
+Data 16, 23
+Data - 0.95, 0.12, - 2.05
+Data 0.95, 0.12, - 2.05
+Data 0.95, 0.12, 2.15
+Data - 0.95, 0.12, 2.15
+Data - 0.95, 0.78, - 2.05
+Data 0.95, 0.78, - 2.05
+Data 0.95, 0.78, 2.15
+Data - 0.95, 0.78, 2.15
+Data - 0.72, 0.78, - 1.15
+Data 0.72, 0.78, - 1.15
+Data 0.72, 0.78, 0.85
+Data - 0.72, 0.78, 0.85
+Data - 0.62, 1.42, - 0.95
+Data 0.62, 1.42, - 0.95
+Data 0.62, 1.42, 0.45
+Data - 0.62, 1.42, 0.45
+Data 0, 1, 1, 2, 2, 3, 3, 0
+Data 4, 5, 5, 6, 6, 7, 7, 4
+Data 0, 4, 1, 5, 2, 6, 3, 7
+Data 12, 13, 13, 14, 14, 15, 15, 12
+Data 8, 12, 9, 13, 10, 14, 11, 15
+Data 6, 10, 7, 11, 10, 11
+
+' Roadside cactus. 8 vertices, 7 edges.
+CactusModel:
+Data 8, 7
+Data 0, 0, 0
+Data 0.04, 2.5, 0
+Data - 0.1, 1.35, 0
+Data - 1.05, 1.5, 0
+Data - 1.15, 2.35, 0
+Data 0.15, 1.15, 0
+Data 0.95, 1.3, 0
+Data 1.05, 2.15, 0
+Data 0, 1, 1, 2, 2, 3, 3, 4, 1, 5, 5, 6, 6, 7
+
+' Horizon sign on a post. 6 vertices, 5 edges.
+SignModel:
+Data 6, 5
+Data 0, 0, 0
+Data 0, 2.5, 0
+Data - 0.85, 2.15, 0
+Data 0.85, 2.15, 0
+Data 0.85, 3.15, 0
+Data - 0.85, 3.15, 0
+Data 0, 1, 2, 3, 3, 4, 4, 5, 5, 2

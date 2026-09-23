@@ -2114,14 +2114,22 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 bool found = false;
                 call_internal(s->method_name, call_args, found);
                 
-                // Handle ByRef parameter write-back
-                if (found && script.is_valid() && script->ast_root) {
+                // Handle ByRef parameter write-back.
+                // Imported Subs are not in the caller script's AST. Looking
+                // only there dropped every ByRef write-back when the caller
+                // ran on the AST interpreter.
+                if (found) {
                     SubDefinition *called_func = nullptr;
-                    for (int i = 0; i < script->ast_root->subs.size(); i++) {
-                        if (script->ast_root->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
-                            called_func = script->ast_root->subs[i];
-                            break;
+                    if (script.is_valid() && script->ast_root) {
+                        for (int i = 0; i < script->ast_root->subs.size(); i++) {
+                            if (script->ast_root->subs[i]->name.nocasecmp_to(s->method_name) == 0) {
+                                called_func = script->ast_root->subs[i];
+                                break;
+                            }
                         }
+                    }
+                    if (!called_func) {
+                        called_func = find_imported_sub(s->method_name, (int)s->arguments.size(), nullptr);
                     }
                     
                     if (called_func) {

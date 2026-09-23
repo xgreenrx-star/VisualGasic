@@ -3,6 +3,7 @@ extends RefCounted
 ## Editor tint colors + native CodeEdit line backgrounds for vector Data blocks.
 
 const Resolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 
 const CLEAR := Color(0, 0, 0, 0)
 
@@ -52,8 +53,12 @@ static func paint_native_lines(code_edit: CodeEdit, source: String, caret_line: 
 		return painted
 	var colors := native_line_colors(code_edit)
 	var active := Resolver.resolve_at_line(source, caret_line)
+	if active.is_empty():
+		active = WireResolver.resolve_at_line(source, caret_line)
 	var active_label: String = active.get("label", "")
-	for block in Resolver.enumerate_blocks(source):
+	var blocks: Array = Resolver.enumerate_blocks(source)
+	blocks.append_array(WireResolver.enumerate_blocks(source))
+	for block in blocks:
 		var start: int = block["label_line"]
 		var end: int = block["end_line"]
 		var col: Color = colors["active"] if block.get("label", "") == active_label else colors["block"]

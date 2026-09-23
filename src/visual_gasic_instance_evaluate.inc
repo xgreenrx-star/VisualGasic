@@ -1738,13 +1738,18 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             // The correct post-call value is stashed in _last_byref_captures
             // (the same mechanism the STMT_CALL path in
             // visual_gasic_instance_execute.inc uses). Read from there.
-            if (script.is_valid() && script->ast_root) {
+            {
                 SubDefinition *called_func = nullptr;
-                for (int i = 0; i < script->ast_root->subs.size(); i++) {
-                    if (script->ast_root->subs[i]->name.nocasecmp_to(call->method_name) == 0) {
-                        called_func = script->ast_root->subs[i];
-                        break;
+                if (script.is_valid() && script->ast_root) {
+                    for (int i = 0; i < script->ast_root->subs.size(); i++) {
+                        if (script->ast_root->subs[i]->name.nocasecmp_to(call->method_name) == 0) {
+                            called_func = script->ast_root->subs[i];
+                            break;
+                        }
                     }
+                }
+                if (!called_func) {
+                    called_func = find_imported_sub(call->method_name, (int)call->arguments.size(), nullptr);
                 }
                 if (called_func) {
                     int max_params = called_func->parameters.size();

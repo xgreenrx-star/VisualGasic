@@ -4,6 +4,7 @@ extends RefCounted
 
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 const DataFileResolver := preload("res://addons/visual_gasic/vg_datafile_resolver.gd")
 const EditorAssist := preload("res://addons/visual_gasic/vg_editor_assist.gd")
 
@@ -78,12 +79,22 @@ static func analyze(source: String, caret_line: int) -> Dictionary:
 		out["region_detail"] = "Indexed pixel Data — edit below"
 
 	var vector := VectorResolver.resolve_at_line(source, caret_line)
+	if vector.is_empty():
+		vector = WireResolver.resolve_at_line(source, caret_line)
 	if not vector.is_empty():
 		out["vector"] = vector
 		if out["region_kind"] in ["module", "procedure"]:
 			out["region_kind"] = "vector_data"
-		out["region_title"] = "%s  (%d×%d)" % [vector.get("label", "Vector"), vector.get("view_w", 0), vector.get("view_h", 0)]
-		out["region_detail"] = "Coordinate vector Data — edit below"
+		if str(vector.get("kind", "")) == "wire":
+			out["region_title"] = "%s  (%d verts, %d edges)" % [
+				vector.get("label", "Wire"),
+				vector.get("vert_count", 0),
+				vector.get("edge_count", 0),
+			]
+			out["region_detail"] = "3D wire model — preview on the Vector tab"
+		else:
+			out["region_title"] = "%s  (%d×%d)" % [vector.get("label", "Vector"), vector.get("view_w", 0), vector.get("view_h", 0)]
+			out["region_detail"] = "Coordinate vector Data — edit below"
 
 	var datafile := DataFileResolver.resolve_at_line(source, caret_line)
 	if not datafile.is_empty():
@@ -135,6 +146,11 @@ static func _build_outline(lines: PackedStringArray) -> Array:
 		if VectorResolver.is_vector_label(name):
 			if not _label_followed_by_data(lines, i):
 				continue
+			seen_labels[name] = true
+			outline.append({"kind": "vector", "label": name, "line": i})
+			continue
+		var wire := WireResolver._parse_block(lines, i)
+		if not wire.is_empty():
 			seen_labels[name] = true
 			outline.append({"kind": "vector", "label": name, "line": i})
 			continue

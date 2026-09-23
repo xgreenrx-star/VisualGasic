@@ -4460,10 +4460,6 @@ func _send_cursor_query(prompt: String) -> void:
 	if api_key.is_empty():
 		_append_system("[color=yellow]No Cursor API key configured. Click ⚙️ to set one.[/color]\n")
 		return
-	if not _pending_image_b64.is_empty():
-		_append_system("[color=yellow]Cursor (Composer) does not support image attachments yet — sending text only.[/color]\n")
-		_clear_pending_image()
-
 	_ensure_cursor_session()
 	if _cursor_session == null:
 		_append_system("[color=red]Cursor session module failed to load.[/color]\n")
@@ -4497,6 +4493,9 @@ func _send_cursor_query(prompt: String) -> void:
 		"conversation_history": _conversation_history,
 		"user_prompt": prompt,
 	}
+	if not _pending_image_b64.is_empty():
+		request["images"] = [_pending_image_b64]
+		_clear_pending_image()
 	if not _cursor_session.start(request):
 		return
 

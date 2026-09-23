@@ -7510,22 +7510,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 int line_number = (line_hi << 8) | line_lo;
 
-                // Store merged line for raise_error() → resolve_debug_location().
+                // Keep merged line for Set Next Statement / breakpoint scans.
                 debug_state.merged_line = line_number;
-                debug_state.current_line = line_number;
 
                 if (script.is_valid() && _debug_script_path_owner != script.ptr()) {
                     _debug_script_path = script->get_path();
                     _debug_script_path_owner = script.ptr();
                 }
 
-                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
-                if (!engine_debugger || !engine_debugger->is_active()) {
-                    break;
-                }
-
                 // Import modules use their own res:// path + source line numbers
-                // (not the host script's Include line map).
+                // (not the host script's Include line map). Always update
+                // debug_state here — runtime errors use it even when Godot's
+                // debugger is not attached (see raise_error()).
                 String script_path;
                 int src_line = line_number;
                 if (!debug_bc_source_file.is_empty()) {
@@ -7538,6 +7534,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     src_line = debug_state.current_line;
                     debug_state.current_file = script_path;
                     debug_state.current_line = src_line;
+                }
+
+                EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
+                if (!engine_debugger || !engine_debugger->is_active()) {
+                    break;
                 }
 
                 // ── Set Next Statement (early check) ──

@@ -1,0 +1,187 @@
+' Cockpit pseudo-3D — Speed Freak rails + vertical center ticks (no horizontal rungs).
+Option Explicit
+
+Import "res://scripts/Course.vg"
+Import "res://scripts/RoadProject.vg"
+Import "res://scripts/WireModels.vg"
+Import "res://scripts/Entities.vg"
+
+Const ColWire As Color = Color8(255, 255, 255)
+Const ColWireDim As Color = Color8(180, 180, 180)
+
+Sub DrawCockpitSky(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal horizonY As Single, ByVal inTunnel As Boolean, ByVal gameTime As Single)
+End Sub
+
+Sub DrawCockpitRoad(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal playerDist As Single, ByVal playerLat As Single, ByVal inTunnel As Boolean, ByVal horizonY As Single)
+	Call BuildRoadSliceTable(playerDist)
+
+	Dim clipY As Single
+	clipY = CockpitRoadClipY(screenH)
+	' Keep the nearest rails from running into the hood — black gap, then the hood.
+	Dim roadFloor As Single
+	roadFloor = horizonY + (clipY - horizonY) * 0.72
+
+	Dim col As Color
+	col = ColWire
+	If inTunnel Then col = ColWireDim
+
+	Dim i As Integer
+	For i = 0 To RoadSlices - 2
+		Dim z0 As Single
+		Dim z1 As Single
+		Dim x0 As Single
+		Dim x1 As Single
+		z0 = SliceZ(i)
+		z1 = SliceZ(i + 1)
+		x0 = SliceX(i)
+		x1 = SliceX(i + 1)
+
+		Dim sc As Single
+		Dim lx0 As Single
+		Dim ly0 As Single
+		Dim lx1 As Single
+		Dim ly1 As Single
+		Call ProjectWorld(screenW, horizonY, playerLat, x0 - RoadHalfM, 0.0, z0, lx0, ly0, sc)
+		Call ProjectWorld(screenW, horizonY, playerLat, x1 - RoadHalfM, 0.0, z1, lx1, ly1, sc)
+		Dim ok As Boolean
+		Call ClipBelow(lx0, ly0, lx1, ly1, roadFloor, ok)
+		If ok Then Call canvas.DrawLine(Vector2(lx0, ly0), Vector2(lx1, ly1), 1.5, col)
+
+		Dim rx0 As Single
+		Dim ry0 As Single
+		Dim rx1 As Single
+		Dim ry1 As Single
+		Call ProjectWorld(screenW, horizonY, playerLat, x0 + RoadHalfM, 0.0, z0, rx0, ry0, sc)
+		Call ProjectWorld(screenW, horizonY, playerLat, x1 + RoadHalfM, 0.0, z1, rx1, ry1, sc)
+		Call ClipBelow(rx0, ry0, rx1, ry1, roadFloor, ok)
+		If ok Then Call canvas.DrawLine(Vector2(rx0, ry0), Vector2(rx1, ry1), 1.5, col)
+
+		' Center ticks along the road, only while the centerline is on screen.
+		If (i Mod 3) = 0 Then
+			Dim cx0 As Single
+			Dim cy0 As Single
+			Dim cx1 As Single
+			Dim cy1 As Single
+			Call ProjectWorld(screenW, horizonY, playerLat, x0, 0.0, z0, cx0, cy0, sc)
+			Call ProjectWorld(screenW, horizonY, playerLat, x1, 0.0, z1, cx1, cy1, sc)
+			If cx0 > 8.0 And cx0 < screenW - 8.0 And cy0 < roadFloor And cy0 > horizonY + 6.0 Then
+				Dim ax As Single
+				Dim ay As Single
+				Dim bx As Single
+				Dim by As Single
+				ax = cx0 + (cx1 - cx0) * 0.12
+				ay = cy0 + (cy1 - cy0) * 0.12
+				bx = cx0 + (cx1 - cx0) * 0.55
+				by = cy0 + (cy1 - cy0) * 0.55
+				Call ClipBelow(ax, ay, bx, by, roadFloor, ok)
+				If ok Then Call canvas.DrawLine(Vector2(ax, ay), Vector2(bx, by), 1.5, col)
+			End If
+		End If
+	Next
+End Sub
+
+Sub DrawCockpitDash(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single)
+	Dim hoodY As Single
+	Dim cx As Single
+	hoodY = screenH - HoodTopY
+	cx = screenW * 0.5
+	Call canvas.DrawLine(Vector2(cx - 46, hoodY), Vector2(cx + 46, hoodY), 1.5, ColWire)
+	Call canvas.DrawLine(Vector2(cx - 78, screenH - 2), Vector2(cx - 46, hoodY), 1.5, ColWire)
+	Call canvas.DrawLine(Vector2(cx + 78, screenH - 2), Vector2(cx + 46, hoodY), 1.5, ColWire)
+	Call canvas.DrawLine(Vector2(cx - 28, screenH - 2), Vector2(cx - 18, hoodY + 16), 1.5, ColWire)
+	Call canvas.DrawLine(Vector2(cx + 28, screenH - 2), Vector2(cx + 18, hoodY + 16), 1.5, ColWire)
+End Sub
+
+Sub DrawTopDownCourse(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal playerDist As Single)
+	Dim total As Single
+	total = CourseLength()
+	If total < 1.0 Then Exit Sub
+
+	Dim minX As Single
+	Dim maxX As Single
+	Dim minY As Single
+	Dim maxY As Single
+	minX = 9999999.0
+	maxX = - 9999999.0
+	minY = 9999999.0
+	maxY = - 9999999.0
+
+	Dim sampleStep As Single
+	sampleStep = 24.0
+	Dim d As Single
+	d = 0.0
+	Do While d < total
+		Dim wx As Single
+		Dim wy As Single
+		Dim wh As Single
+		Call SampleTrackSimple(d, wx, wy, wh)
+		If wx < minX Then minX = wx
+		If wx > maxX Then maxX = wx
+		If wy < minY Then minY = wy
+		If wy < maxY Then maxY = wy
+		d = d + sampleStep
+	Loop
+
+	Dim pad As Single
+	pad = 120.0
+	Dim spanX As Single
+	Dim spanY As Single
+	spanX = maxX - minX + pad * 2.0
+	spanY = maxY - minY + pad * 2.0
+	If spanX < 1.0 Then spanX = 1.0
+	If spanY < 1.0 Then spanY = 1.0
+	Dim scale As Single
+	scale = screenW * 0.78 / spanX
+	If spanY * scale > screenH * 0.72 Then
+		scale = screenH * 0.72 / spanY
+	End If
+	Dim ox As Single
+	Dim oy As Single
+	ox = screenW * 0.5 - (minX + maxX) * 0.5 * scale
+	oy = screenH * 0.52 - (minY + maxY) * 0.5 * scale
+
+	Dim leftPts(199) As Vector2
+	Dim rightPts(199) As Vector2
+	Dim n As Integer
+	n = 0
+	d = 0.0
+	Do While d < total And n < 200
+		Dim wx2 As Single
+		Dim wy2 As Single
+		Dim hd As Single
+		Call SampleTrackSimple(d, wx2, wy2, hd)
+		Dim c As Single
+		Dim h As Single
+		Dim hw As Single
+		Dim fl As Integer
+		Call QueryAtDist(d, c, h, hw, fl)
+		Dim halfTrack As Single
+		halfTrack = 380.0 * hw
+		leftPts(n) = Vector2(ox + (wx2 - Sin(hd) * halfTrack) * scale, oy + (wy2 + Cos(hd) * halfTrack) * scale)
+		rightPts(n) = Vector2(ox + (wx2 + Sin(hd) * halfTrack) * scale, oy + (wy2 - Cos(hd) * halfTrack) * scale)
+		n = n + 1
+		d = d + sampleStep
+	Loop
+
+	Dim i As Integer
+	For i = 0 To n - 2
+		Call canvas.DrawLine(leftPts(i), leftPts(i + 1), 1.5, ColWireDim)
+		Call canvas.DrawLine(rightPts(i), rightPts(i + 1), 1.5, ColWireDim)
+	Next
+
+	Dim px As Single
+	Dim py As Single
+	Dim ph As Single
+	Call SampleTrackSimple(playerDist, px, py, ph)
+	Dim plx As Single
+	Dim ply As Single
+	plx = ox + px * scale
+	ply = oy + py * scale
+	Dim tri(2) As Vector2
+	tri(0) = Vector2(plx + Cos(ph) * 14.0, ply + Sin(ph) * 14.0)
+	tri(1) = Vector2(plx - Sin(ph) * 10.0, ply + Cos(ph) * 10.0)
+	tri(2) = Vector2(plx + Sin(ph) * 10.0, ply - Cos(ph) * 10.0)
+	Call canvas.DrawPolyline(tri, 2.0, ColWire, False, Color8(0, 0, 0, 0), True)
+
+	Call DrawEntitiesTopDown(canvas, Vector2(ox, oy), scale)
+End Sub

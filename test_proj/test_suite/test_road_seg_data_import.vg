@@ -1,0 +1,23 @@
+' Regression: Restore + Read road curve DATA (128 values, no Out of Data).
+Option Explicit
+
+Import "res://../../samples/apps/vector_fathom/scripts/RoadProject.vg"
+
+Sub _Ready()
+	Call InitCockpitRoadData()
+	If DemoSegCurve(32) < 0.5 Then
+		Print "FAIL: road_seg curve32"
+		Exit Sub
+	End If
+	Print "PASS: road_seg_data_import"
+End Sub
+
+RoadCurveData:
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 12, 11, 10
+Data 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+Data 0, 0, - 1, - 2, - 3, - 4, - 5, - 6, - 7, - 8, - 9, - 10, - 11, - 12, - 12, - 11
+Data - 10, - 9, - 8, - 7, - 6, - 5, - 4, - 3, - 2, - 1, 0, 0, 0, 0, 0, 0
+Data 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0

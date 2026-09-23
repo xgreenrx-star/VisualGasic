@@ -6,6 +6,7 @@ const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
 const VGUserSymbolHelp = preload("res://addons/visual_gasic/vg_user_symbol_help.gd")
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 
 
 static func get_keyword_at_cursor(code_edit: CodeEdit) -> String:
@@ -169,4 +170,5 @@ static func caret_assist_update(
 	var sec := Resolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
 	state["in_sprite_block"] = not sec.is_empty()
 	var vsec := VectorResolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
-	state["in_vector_block"] = not vsec.is_empty()
+	var wsec := WireResolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
+	state["in_vector_block"] = not vsec.is_empty() or not wsec.is_empty()

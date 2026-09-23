@@ -1,0 +1,7 @@
+' Moved: editable road DATA now lives in RoadProject.vg (RoadCurveData: label).
+' This stub avoids broken imports if an old path still references this file.
+Option Explicit
+
+Sub RoadSegDataMovedNotice()
+	Print "Edit road curves in scripts/RoadProject.vg (RoadCurveData: Data ...)"
+End Sub

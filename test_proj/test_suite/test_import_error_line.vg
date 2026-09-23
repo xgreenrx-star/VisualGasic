@@ -1,0 +1,14 @@
+' Regression: runtime errors in Import modules report module file/line, not host merged line.
+Option Explicit
+
+Import "inc_import_error_line.vg"
+
+Sub _Ready()
+	On Error Resume Next
+	Call ImportErrorLineSub()
+	If Err.Number = 9 And Erl() = 3 Then
+		Print "PASS: import_error_line"
+	Else
+		Print "FAIL: import_error_line: Err=" & Err.Number & " Erl=" & Erl()
+	End If
+End Sub

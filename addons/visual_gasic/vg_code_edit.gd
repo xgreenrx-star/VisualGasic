@@ -66,6 +66,7 @@ var _file_path_hover: Dictionary = {}
 const _SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const _SpriteHighlight := preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
 const _VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+const _WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 const _VectorHighlight := preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const _OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
 const _OpenPathHighlight := preload("res://addons/visual_gasic/vg_open_path_highlight.gd")
@@ -2558,7 +2559,10 @@ func _refresh_sprite_data_highlights() -> void:
 	var sec := _SpriteResolver.resolve_at_line(get_text(), get_caret_line())
 	_sprite_active_label = str(sec.get("label", "")) if not sec.is_empty() else ""
 	_vector_block_ranges = _VectorResolver.enumerate_blocks(get_text())
+	_vector_block_ranges.append_array(_WireResolver.enumerate_blocks(get_text()))
 	var vsec := _VectorResolver.resolve_at_line(get_text(), get_caret_line())
+	if vsec.is_empty():
+		vsec = _WireResolver.resolve_at_line(get_text(), get_caret_line())
 	_vector_active_label = str(vsec.get("label", "")) if not vsec.is_empty() else ""
 	_file_path_ranges = _OpenPathResolver.enumerate_path_literals(text)
 	_string_literal_ranges = []

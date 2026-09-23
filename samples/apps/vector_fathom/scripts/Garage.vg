@@ -1,0 +1,89 @@
+' Between-race upgrades (engine / tires / turbo) — inspired by arcade career racers.
+Option Explicit
+
+Const UpgradeMaxLevel As Integer = 3
+
+Dim up_engine As Integer
+Dim up_tires As Integer
+Dim up_turbo As Integer
+Dim credits As Integer
+
+Sub InitGarage()
+	up_engine = 0
+	up_tires = 0
+	up_turbo = 0
+	credits = 0
+End Sub
+
+Sub AwardRaceCredits(ByVal finishBonus As Integer)
+	credits = credits + finishBonus
+End Sub
+
+Function UpgradeCost(ByVal branch As Integer) As Integer
+	Dim lvl As Integer
+	lvl = 0
+	If branch = 0 Then lvl = up_engine
+	If branch = 1 Then lvl = up_tires
+	If branch = 2 Then lvl = up_turbo
+	If lvl > = UpgradeMaxLevel Then
+		UpgradeCost = 0
+		Exit Function
+	End If
+	UpgradeCost = 120 + lvl * 90
+End Function
+
+Function TryBuyUpgrade(ByVal branch As Integer) As Boolean
+	Dim cost As Integer
+	cost = UpgradeCost(branch)
+	If cost < = 0 Then
+		TryBuyUpgrade = False
+		Exit Function
+	End If
+	If credits < cost Then
+		TryBuyUpgrade = False
+		Exit Function
+	End If
+	credits = credits - cost
+	If branch = 0 Then up_engine = up_engine + 1
+	If branch = 1 Then up_tires = up_tires + 1
+	If branch = 2 Then up_turbo = up_turbo + 1
+	TryBuyUpgrade = True
+End Function
+
+Sub ApplyCarStats(ByVal carIdx As Integer, ByRef outMaxSpeed As Single, ByRef outAccel As Single, ByRef outSteer As Single, ByRef outTurboBoost As Single, ByRef outCoast As Single, ByRef outBrake As Single)
+	Dim baseSpeed As Single
+	Dim baseAccel As Single
+	Dim baseSteer As Single
+	Dim baseCoast As Single
+	Dim baseBrake As Single
+	' Vector S — balanced roll-off and stop.
+	baseSpeed = 210.0
+	baseAccel = 95.0
+	baseSteer = 1.35
+	baseCoast = 26.0
+	baseBrake = 68.0
+	If carIdx = 1 Then
+		' Vector R — keeps rolling, takes longer to stop.
+		baseSpeed = 228.0
+		baseAccel = 88.0
+		baseSteer = 1.15
+		baseCoast = 16.0
+		baseBrake = 52.0
+	ElseIf carIdx = 2 Then
+		' Vector G — settles sooner, shortest stop.
+		baseSpeed = 198.0
+		baseAccel = 102.0
+		baseSteer = 1.55
+		baseCoast = 34.0
+		baseBrake = 92.0
+	End If
+	outMaxSpeed = baseSpeed + up_engine * 14.0
+	outAccel = baseAccel + up_engine * 8.0 + up_turbo * 6.0
+	outSteer = baseSteer + up_tires * 0.12
+	outTurboBoost = 1.0 + up_turbo * 0.15
+	' Engine: less drag when you lift (longer coast). Never zero.
+	outCoast = baseCoast - up_engine * 3.0
+	If outCoast < 12.0 Then outCoast = 12.0
+	' Tires: stronger brakes, still a distance, not a full stop in one frame.
+	outBrake = baseBrake + up_tires * 16.0
+End Sub

@@ -1,0 +1,139 @@
+' Oncoming traffic (Speed Freak–style wireframe). UFOs disabled for now.
+' Collision tuning later: jagged segment bounds (see Speed Freak crash frames).
+Option Explicit
+
+Import "res://scripts/Course.vg"
+Import "res://scripts/RoadProject.vg"
+Import "res://scripts/WireModels.vg"
+
+Const EntityMax As Integer = 6
+Const KindNone As Integer = 0
+Const KindCar As Integer = 1
+Const KindUfo As Integer = 2
+
+Dim ent_kind(5) As Integer
+Dim ent_track(5) As Single
+Dim ent_lateral(5) As Single
+Dim ent_speed(5) As Single
+Dim ent_phase(5) As Single
+
+Sub InitEntities()
+	Dim i As Integer
+	For i = 0 To EntityMax - 1
+		ent_kind(i) = KindNone
+	Next
+
+	' One oncoming car, left of center. Steer clear or you hit it.
+	Call _SpawnOncomingCar(0, 80.0, - 0.42, 34.0)
+End Sub
+
+Sub _SpawnOncomingCar(ByVal slot As Integer, ByVal aheadM As Single, ByVal lateral As Single, ByVal approachSpeed As Single)
+	ent_kind(slot) = KindCar
+	ent_lateral(slot) = lateral
+	ent_speed(slot) = approachSpeed
+	ent_phase(slot) = 0.0
+	ent_track(slot) = 0.0
+End Sub
+
+Function _AheadOf(ByVal entDist As Single, ByVal playerDist As Single) As Single
+	_AheadOf = ForwardDistOnRing(playerDist, entDist)
+End Function
+
+Sub SyncEntitiesToPlayer(ByVal playerDist As Single)
+	Dim ringP As Single
+	ringP = WrapTrackDistForSeg(playerDist)
+	ent_track(0) = WrapTrackDistForSeg(ringP + 80.0)
+End Sub
+
+Sub UpdateEntities(ByVal delta As Single, ByVal gameTime As Single, ByVal playerDist As Single)
+	Dim ringP As Single
+	ringP = WrapTrackDistForSeg(playerDist)
+	Dim i As Integer
+	For i = 0 To EntityMax - 1
+		If ent_kind(i) = KindCar Then
+			ent_track(i) = WrapTrackDistForSeg(ent_track(i) - ent_speed(i) * delta)
+			Dim ahead As Single
+			ahead = _AheadOf(ent_track(i), ringP)
+			If ahead > 200.0 Then
+				ent_track(i) = WrapTrackDistForSeg(ringP + 150.0)
+			End If
+		End If
+	Next
+End Sub
+
+' True when an oncoming car is passing through the player's lane.
+Function CarHitPlayer(ByVal playerDist As Single, ByVal playerLat As Single) As Boolean
+	Dim ringP As Single
+	ringP = WrapTrackDistForSeg(playerDist)
+	Dim i As Integer
+	For i = 0 To EntityMax - 1
+		If ent_kind(i) = KindCar Then
+			Dim ahead As Single
+			ahead = _AheadOf(ent_track(i), ringP)
+			If ahead < 16.0 Then
+				Dim gap As Single
+				gap = playerLat - ent_lateral(i)
+				If gap < 0.0 Then gap = - gap
+				If gap < 0.32 Then
+					CarHitPlayer = True
+					Exit Function
+				End If
+				If ahead < 6.0 Then
+					ent_track(i) = WrapTrackDistForSeg(ringP + 150.0)
+				End If
+			End If
+		End If
+	Next
+	CarHitPlayer = False
+End Function
+
+Sub DrawEntitiesTopDown(ByVal canvas As Object, ByVal origin As Vector2, ByVal scale As Single)
+	Dim i As Integer
+	For i = 0 To EntityMax - 1
+		If ent_kind(i) = KindCar Then
+			Call _DrawEntityTop(canvas, i, origin, scale)
+		End If
+	Next
+End Sub
+
+Sub _DrawEntityTop(ByVal canvas As Object, ByVal idx As Integer, ByVal origin As Vector2, ByVal scale As Single)
+	Dim wx As Single
+	Dim wy As Single
+	Dim wh As Single
+	Call SampleTrackSimple(ent_track(idx), wx, wy, wh)
+	Dim lat As Single
+	lat = ent_lateral(idx)
+	Dim px As Single
+	Dim py As Single
+	px = origin.x + (wx + Cos(wh + 1.570796) * lat * 420.0) * scale
+	py = origin.y + (wy + Sin(wh + 1.570796) * lat * 420.0) * scale
+	Call _DrawCarTop(canvas, px, py, wh + 3.14159265, 12.0, Color8(255, 255, 255))
+End Sub
+
+Sub _DrawCarTop(ByVal canvas As Object, ByVal px As Single, ByVal py As Single, ByVal heading As Single, ByVal size As Single, ByVal col As Color)
+	Dim pts(3) As Vector2
+	Dim c As Single
+	Dim s As Single
+	c = Cos(heading)
+	s = Sin(heading)
+	pts(0) = Vector2(px + c * size, py + s * size)
+	pts(1) = Vector2(px - s * size * 0.6, py + c * size * 0.6)
+	pts(2) = Vector2(px - c * size * 0.8, py - s * size * 0.8)
+	pts(3) = Vector2(px + s * size * 0.6, py - c * size * 0.6)
+	Call canvas.DrawPolyline(pts, 2.0, col, False, Color8(0, 0, 0, 0), True)
+End Sub
+
+Sub DrawEntitiesCockpit(ByVal canvas As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal playerDist As Single, ByVal playerLat As Single, ByVal horizonY As Single)
+	Dim i As Integer
+	For i = 0 To EntityMax - 1
+		If ent_kind(i) = KindCar Then
+			Call _DrawEntityCockpit(canvas, i, screenW, screenH, playerDist, playerLat, horizonY)
+		End If
+	Next
+End Sub
+
+Sub _DrawEntityCockpit(ByVal canvas As Object, ByVal idx As Integer, ByVal screenW As Single, ByVal screenH As Single, ByVal playerDist As Single, ByVal playerLat As Single, ByVal horizonY As Single)
+	Dim ahead As Single
+	ahead = _AheadOf(ent_track(idx), playerDist)
+	Call DrawWireModel(canvas, ModelCar, screenW, horizonY, screenH, playerLat, ahead, ent_lateral(idx))
+End Sub
