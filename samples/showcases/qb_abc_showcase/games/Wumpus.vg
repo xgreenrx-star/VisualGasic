@@ -1,0 +1,102 @@
+' Hunt the Wumpus — cave graph (Tier B)
+Option Explicit
+
+Dim wu_active As Boolean
+Dim wu_player As Integer
+Dim wu_wumpus As Integer
+Dim wu_pit1 As Integer
+Dim wu_pit2 As Integer
+Dim wu_arrows As Integer
+Dim wu_msg As String
+
+Sub Wumpus_Init()
+	wu_player = 1
+	wu_wumpus = 5 + Int(Rnd() * 15)
+	wu_pit1 = 8 + Int(Rnd() * 12)
+	wu_pit2 = 10 + Int(Rnd() * 12)
+	wu_arrows = 3
+	wu_msg = "Room " & CStr(wu_player) & ". M move to adj, S shoot arrow, Q quit"
+	wu_active = True
+End Sub
+
+Function Wumpus_Active() As Boolean
+	Wumpus_Active = wu_active
+End Function
+
+Sub Wumpus_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "WUMPUS  room:" & CStr(wu_player) & "  arrows:" & CStr(wu_arrows)
+	l2 = wu_msg
+End Sub
+
+Function Wumpus_Adj(r As Integer, slot As Integer) As Integer
+	Dim a As Integer
+	Dim b As Integer
+	Dim c As Integer
+	a = r - 1
+	If a < 1 Then a = 20
+	b = r + 1
+	If b > 20 Then b = 1
+	c = r + 10
+	If c > 20 Then c = c - 20
+	If slot = 1 Then Wumpus_Adj = a
+	If slot = 2 Then Wumpus_Adj = b
+	If slot = 3 Then Wumpus_Adj = c
+End Function
+
+Sub Wumpus_Move(slot As Integer)
+	Dim nr As Integer
+	nr = Wumpus_Adj(wu_player, slot)
+	If nr = wu_pit1 Or nr = wu_pit2 Then
+		wu_msg = "Fell in pit! Game over."
+		wu_active = False
+		Exit Sub
+	End If
+	If nr = wu_wumpus Then
+		wu_msg = "Wumpus ate you!"
+		wu_active = False
+		Exit Sub
+	End If
+	wu_player = nr
+	Call Wumpus_Sense
+End Sub
+
+Sub Wumpus_Sense()
+	wu_msg = "Room " & CStr(wu_player) & ". "
+	Dim i As Integer
+	For i = 1 To 3
+		Dim n As Integer
+		n = Wumpus_Adj(wu_player, i)
+		If n = wu_wumpus Then wu_msg = wu_msg & "Smell wumpus! "
+		If n = wu_pit1 Or n = wu_pit2 Then wu_msg = wu_msg & "Draft... "
+	Next i
+	wu_msg = wu_msg & "M+1/2/3 move, S shoot"
+End Sub
+
+Sub Wumpus_Shoot(slot As Integer)
+	If wu_arrows <= 0 Then
+		wu_msg = "No arrows."
+		Exit Sub
+	End If
+	wu_arrows = wu_arrows - 1
+	Dim nr As Integer
+	nr = Wumpus_Adj(wu_player, slot)
+	If nr = wu_wumpus Then
+		wu_msg = "You slayed the Wumpus!"
+		wu_active = False
+	Else
+		wu_msg = "Miss. Wumpus may move."
+		If Rnd() > 0.5 Then
+			wu_wumpus = Wumpus_Adj(wu_wumpus, 1 + Int(Rnd() * 3))
+		End If
+	End If
+End Sub
+
+Sub Wumpus_Key(ch As String)
+	Dim c As String
+	c = UCase(ch)
+	If c = "Q" Then wu_active = False
+	If c = "1" Then Call Wumpus_Move(1)
+	If c = "2" Then Call Wumpus_Move(2)
+	If c = "3" Then Call Wumpus_Move(3)
+	If c = "S" Then Call Wumpus_Shoot(1)
+End Sub

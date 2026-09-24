@@ -123,6 +123,7 @@ const STRING_COLOR := Color(0.6, 0.0, 0.0)         # dark red strings
 const NUMBER_COLOR := Color(0.0, 0.4, 0.4)         # teal numbers
 const TOOLBAR_BG := Color(0.92, 0.91, 0.87)        # slightly darker toolbar
 const BORDER_COLOR := Color(0.75, 0.74, 0.70)      # subtle border
+const FILE_LABEL_COLOR := Color(0.38, 0.26, 0.05)  # dark brown — readable on cream toolbar
 
 # =============================================================================
 # LIFECYCLE
@@ -164,7 +165,7 @@ func _build_ui() -> void:
 	_file_label.name = "FileLabel"
 	_file_label.text = "(General)"
 	_file_label.add_theme_font_size_override("font_size", 12)
-	_file_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.1))
+	_file_label.add_theme_color_override("font_color", FILE_LABEL_COLOR)
 	_file_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_file_label.custom_minimum_size.x = 120
 	_file_label.clip_text = true

@@ -42,6 +42,12 @@ var _breakpoints: Dictionary = {}
 # Timer to poll breakpoints from ScriptEditor (workaround for custom script languages)
 var _breakpoint_poll_timer: Timer = null
 
+## Visual Gasic main EditorPlugin — used to read VG Code Editor gutter breakpoints.
+var _vg_main_plugin: EditorPlugin = null
+
+func bind_vg_main_plugin(plugin: EditorPlugin) -> void:
+	_vg_main_plugin = plugin
+
 ## Emit debug_break_hit only if this file:line wasn't already emitted recently
 ## (within 500ms). Prevents duplicates from break_hit + debug_state arriving
 ## for the same pause event.
@@ -370,38 +376,28 @@ func _poll_breakpoints_from_editor() -> void:
 			debug_session_stopped.emit()
 			return
 	
-	var script_editor = EditorInterface.get_script_editor()
-	if not script_editor:
-		return
-	
-	# get_breakpoints() returns PackedStringArray of "res://path.gd:line" strings
-	var bp_strings = script_editor.get_breakpoints()
 	var new_breakpoints: Dictionary = {}
-	
-	for bp_str in bp_strings:
-		# Parse "res://path/script.vg:123" format
-		var colon_idx = bp_str.rfind(":")
-		if colon_idx == -1:
-			continue
-		
-		var path = bp_str.substr(0, colon_idx)
-		var line_str = bp_str.substr(colon_idx + 1)
-		
-		# Only track .vg scripts
-		if not path.ends_with(".vg"):
-			continue
-		
-		var line = int(line_str)
-		if not new_breakpoints.has(path):
-			new_breakpoints[path] = []
-		if line not in new_breakpoints[path]:
-			new_breakpoints[path].append(line)
-	
-	# ScriptEditor.get_breakpoints() does not track embedded VG CodeEdit gutters.
-	# Never wipe a live breakpoint set with an empty poll (VB6: breakpoints persist after hit).
-	new_breakpoints = _normalize_breakpoint_dict(new_breakpoints)
-	if new_breakpoints.is_empty() and not _breakpoints.is_empty():
-		return
+	# Primary: embedded VG Code Editor gutters (ScriptEditor never sees .vg breakpoints).
+	if is_instance_valid(_vg_main_plugin) and _vg_main_plugin.has_method("get_debugger_breakpoints"):
+		new_breakpoints = _normalize_breakpoint_dict(_vg_main_plugin.get_debugger_breakpoints())
+	else:
+		var script_editor = EditorInterface.get_script_editor()
+		if not script_editor:
+			return
+		var bp_strings = script_editor.get_breakpoints()
+		for bp_str in bp_strings:
+			var colon_idx = bp_str.rfind(":")
+			if colon_idx == -1:
+				continue
+			var path = bp_str.substr(0, colon_idx)
+			if not path.ends_with(".vg"):
+				continue
+			var line = int(bp_str.substr(colon_idx + 1))
+			if not new_breakpoints.has(path):
+				new_breakpoints[path] = []
+			if line not in new_breakpoints[path]:
+				new_breakpoints[path].append(line)
+		new_breakpoints = _normalize_breakpoint_dict(new_breakpoints)
 	if new_breakpoints != _breakpoints:
 		_breakpoints = new_breakpoints
 		_sync_breakpoints_to_game()

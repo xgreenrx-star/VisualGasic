@@ -1,0 +1,192 @@
+' Gorillas — QBasic / QB64 gallery style (Microsoft lineage, original VG)
+Option Explicit
+
+Dim go_active As Boolean
+Dim go_turn As Integer
+Dim go_angle As Single
+Dim go_power As Single
+Dim go_wind As Single
+Dim go_bld(39) As Integer
+Dim go_seg1 As Integer
+Dim go_seg2 As Integer
+Dim go_hp1 As Integer
+Dim go_hp2 As Integer
+Dim go_msg As String
+Dim go_state As Integer
+Dim go_fly_t As Single
+Dim go_fly_ox As Single
+Dim go_fly_oy As Single
+Dim go_fly_vx As Single
+Dim go_fly_vy As Single
+Dim go_fly_x As Single
+Dim go_fly_y As Single
+Dim go_expl_x As Single
+Dim go_expl_y As Single
+Dim go_expl_t As Single
+
+Sub Gorillas_Init()
+	Screen 13
+	Cls
+	go_turn = 1
+	go_angle = 45
+	go_power = 35
+	go_wind = (Rnd() - 0.5) * 3
+	go_hp1 = 100
+	go_hp2 = 100
+	go_state = 0
+	go_fly_t = 0
+	go_expl_t = 0
+	go_msg = "P1: A/D angle  W/S power  Space fire"
+	Dim i As Integer
+	For i = 0 To 39
+		go_bld(i) = 45 + Int(Rnd() * 75)
+	Next i
+	go_seg1 = 4
+	go_seg2 = 34
+	go_active = True
+	Call Gorillas_DrawScene
+End Sub
+
+Function Gorillas_Active() As Boolean
+	Gorillas_Active = go_active
+End Function
+
+Sub Gorillas_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "GORILLAS  P1:" & CStr(go_hp1) & "  P2:" & CStr(go_hp2) & "  wind:" & Format(go_wind, "0.0")
+	l2 = go_msg & "  ang=" & CStr(Int(go_angle)) & " pow=" & CStr(Int(go_power))
+End Sub
+
+Function Gorillas_Gx(seg As Integer) As Integer
+	Gorillas_Gx = seg * 8 + 4
+End Function
+
+Function Gorillas_Gy(seg As Integer) As Integer
+	Gorillas_Gy = 199 - go_bld(seg)
+End Function
+
+Sub Gorillas_AdjustAngle(d As Single)
+	If go_state <> 0 Then Exit Sub
+	go_angle = go_angle + d
+	If go_angle < 10 Then go_angle = 10
+	If go_angle > 80 Then go_angle = 80
+	Call Gorillas_DrawScene
+End Sub
+
+Sub Gorillas_AdjustPower(d As Single)
+	If go_state <> 0 Then Exit Sub
+	go_power = go_power + d
+	If go_power < 8 Then go_power = 8
+	If go_power > 55 Then go_power = 55
+	Call Gorillas_DrawScene
+End Sub
+
+Sub Gorillas_Fire()
+	If go_state <> 0 Then Exit Sub
+	Dim seg As Integer
+	seg = go_seg1
+	If go_turn = 2 Then seg = go_seg2
+	go_fly_ox = Gorillas_Gx(seg)
+	go_fly_oy = Gorillas_Gy(seg) - 12
+	Dim ang As Single
+	ang = go_angle * 3.14159265 / 180.0
+	If go_turn = 2 Then ang = 3.14159265 - ang
+	go_fly_vx = Cos(ang) * go_power * 0.18
+	go_fly_vy = -Sin(ang) * go_power * 0.18
+	go_fly_x = go_fly_ox
+	go_fly_y = go_fly_oy
+	go_fly_t = 0
+	go_state = 1
+	go_msg = "Banana in flight..."
+End Sub
+
+Sub Gorillas_DamageAt(x As Single, y As Single)
+	Dim seg As Integer
+	seg = Int(x / 8)
+	If seg < 0 Then seg = 0
+	If seg > 39 Then seg = 39
+	If y < Gorillas_Gy(seg) - 8 Then
+		go_bld(seg) = go_bld(seg) - 12
+		If go_bld(seg) < 20 Then go_bld(seg) = 20
+	End If
+	If Abs(x - Gorillas_Gx(go_seg1)) < 14 And Abs(y - Gorillas_Gy(go_seg1)) < 18 Then go_hp1 = go_hp1 - 30
+	If Abs(x - Gorillas_Gx(go_seg2)) < 14 And Abs(y - Gorillas_Gy(go_seg2)) < 18 Then go_hp2 = go_hp2 - 30
+End Sub
+
+Sub Gorillas_EndTurn()
+	If go_hp1 <= 0 Or go_hp2 <= 0 Then
+		go_active = False
+		If go_hp1 <= 0 Then go_msg = "Player 2 wins!" Else go_msg = "Player 1 wins!"
+		Exit Sub
+	End If
+	go_turn = 3 - go_turn
+	go_state = 0
+	If go_turn = 1 Then go_msg = "P1: A/D W/S Space" Else go_msg = "P2: A/D W/S Space"
+End Sub
+
+Sub Gorillas_Tick(delta As Single)
+	If Not go_active Then Exit Sub
+	If go_state = 1 Then
+		go_fly_t = go_fly_t + delta
+		Dim t As Single
+		t = go_fly_t
+		go_fly_x = go_fly_ox + go_fly_vx * t + go_wind * t * t * 0.4
+		go_fly_y = go_fly_oy + go_fly_vy * t + 4.5 * t * t
+		If go_fly_y >= 198 Or go_fly_x < -5 Or go_fly_x > 325 Or t > 8 Then
+			go_expl_x = go_fly_x
+			go_expl_y = go_fly_y
+			If go_expl_y > 198 Then go_expl_y = 198
+			Call Gorillas_DamageAt(go_expl_x, go_expl_y)
+			go_state = 2
+			go_expl_t = 0
+		End If
+		Call Gorillas_DrawScene
+	ElseIf go_state = 2 Then
+		go_expl_t = go_expl_t + delta
+		If go_expl_t > 0.45 Then
+			Call Gorillas_EndTurn
+			Call Gorillas_DrawScene
+		Else
+			Call Gorillas_DrawScene
+		End If
+	End If
+End Sub
+
+Sub Gorillas_DrawAim(seg As Integer)
+	Dim gx As Integer
+	Dim gy As Integer
+	gx = Gorillas_Gx(seg)
+	gy = Gorillas_Gy(seg) - 12
+	Dim ang As Single
+	ang = go_angle * 3.14159265 / 180.0
+	If go_turn = 2 Then ang = 3.14159265 - ang
+	Dim ex As Integer
+	Dim ey As Integer
+	ex = gx + Int(Cos(ang) * go_power)
+	ey = gy + Int(-Sin(ang) * go_power)
+	Line (gx, gy)-(ex, ey), 14
+End Sub
+
+Sub Gorillas_DrawScene()
+	Cls
+	Dim i As Integer
+	For i = 0 To 39
+		Dim x0 As Integer
+		Dim h As Integer
+		x0 = i * 8
+		h = go_bld(i)
+		Line (x0, 199)-(x0 + 7, 199 - h), 6 + (i Mod 4), BF
+	Next i
+	Circle (Gorillas_Gx(go_seg1), Gorillas_Gy(go_seg1) - 10), 9, 15
+	Circle (Gorillas_Gx(go_seg2), Gorillas_Gy(go_seg2) - 10), 9, 12
+	If go_state = 0 Then
+		If go_turn = 1 Then Call Gorillas_DrawAim(go_seg1) Else Call Gorillas_DrawAim(go_seg2)
+	ElseIf go_state = 1 Then
+		Circle (Int(go_fly_x), Int(go_fly_y)), 3, 14, , , F
+	ElseIf go_state = 2 Then
+		Dim r As Integer
+		r = Int(go_expl_t * 40)
+		If r < 3 Then r = 3
+		If r > 18 Then r = 18
+		Circle (Int(go_expl_x), Int(go_expl_y)), r, 4, , , F
+	End If
+End Sub

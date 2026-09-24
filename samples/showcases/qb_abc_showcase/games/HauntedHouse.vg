@@ -1,0 +1,82 @@
+' Haunted House — mini adventure (ABC lineage, Tier B)
+Option Explicit
+
+Dim hh_active As Boolean
+Dim hh_room As Integer
+Dim hh_hasKey As Boolean
+Dim hh_hasTorch As Boolean
+Dim hh_ghost As Boolean
+Dim hh_won As Boolean
+Dim hh_msg As String
+
+Sub Haunted_Init()
+	Screen 0
+	hh_room = 1
+	hh_hasKey = False
+	hh_hasTorch = False
+	hh_ghost = True
+	hh_won = False
+	hh_msg = "Foyer. N hall E library. Find key & torch, unlock attic."
+	hh_active = True
+End Sub
+
+Function Haunted_Active() As Boolean
+	Haunted_Active = hh_active And Not hh_won
+End Function
+
+Sub Haunted_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "HAUNTED HOUSE  room " & CStr(hh_room) & "  key:" & CStr(hh_hasKey) & " torch:" & CStr(hh_hasTorch)
+	l2 = hh_msg
+End Sub
+
+Sub Haunted_Cmd(ch As String)
+	Dim c As String
+	c = UCase(ch)
+	If c = "N" Then Call Haunted_Go(1)
+	If c = "S" Then Call Haunted_Go(2)
+	If c = "E" Then Call Haunted_Go(3)
+	If c = "W" Then Call Haunted_Go(4)
+	If c = "T" Then Call Haunted_Take
+	If c = "U" Then Call Haunted_Use
+	If c = "Q" Then hh_active = False
+End Sub
+
+Sub Haunted_Go(dir As Integer)
+	If hh_room = 1 And dir = 1 Then hh_room = 2: hh_msg = "Hall. W back. E dining."
+	If hh_room = 1 And dir = 3 Then hh_room = 3: hh_msg = "Library. Key on desk (T)."
+	If hh_room = 2 And dir = 2 Then hh_room = 1
+	If hh_room = 2 And dir = 3 Then hh_room = 4: hh_msg = "Dining. S hall. N attic door (locked)."
+	If hh_room = 3 And dir = 4 Then hh_room = 1
+	If hh_room = 4 And dir = 2 Then hh_room = 2
+	If hh_room = 4 And dir = 1 Then
+		If hh_hasKey And hh_hasTorch Then
+			hh_room = 5
+			hh_msg = "Attic! Ghost fled. You win."
+			hh_won = True
+			hh_active = False
+		Else
+			hh_msg = "Locked. Need key and lit torch."
+		End If
+	End If
+	If hh_room = 5 Then hh_won = True
+End Sub
+
+Sub Haunted_Take()
+	If hh_room = 3 And Not hh_hasKey Then
+		hh_hasKey = True
+		hh_msg = "Picked up rusty key."
+	End If
+	If hh_room = 2 And Not hh_hasTorch Then
+		hh_hasTorch = True
+		hh_msg = "Picked up torch."
+	End If
+End Sub
+
+Sub Haunted_Use()
+	If hh_hasTorch Then
+		hh_ghost = False
+		hh_msg = "Torch lit. Ghost avoids you."
+	Else
+		hh_msg = "Nothing to use."
+	End If
+End Sub

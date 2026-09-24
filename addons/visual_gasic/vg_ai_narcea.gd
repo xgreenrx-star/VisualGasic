@@ -818,8 +818,11 @@ Draw builtins (QueueRedraw, DrawText, DrawRect, CLS, …) require a CanvasItem
 context; a plain Node script never receives NOTIFICATION_DRAW (blank/gray window).
 Godot Integration skips auto-VGASIC on canvas roots when the script uses _Draw.
 Legacy scenes may migrate the script onto the root — see visual_gasic_plugin.gd.
+Colors: Color(r,g,b) = 0.0–1.0 floats; Color8(r,g,b) or RGB = 0–255 bytes (menus/HUD).
+Do not pass 255,255,255 to Color() — use Color8. docs/manual/colors.md
 Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
-Keyboard: poll in _Process; letter keys (P/R) when Tab/Enter are eaten by editor.
+Keyboard: _Input + ev.keycode for digit keys in embedded game view; also IsKeyJustPressed in _Process.
+QuickBASIC SCREEN/PSET/LINE/InKey$: docs/manual/qb_graphics_mode.md — showcase samples/showcases/qb_abc_showcase/
 Full app sample: samples/apps/climatist_poc/ (Now + Pattern + Discussion + Settings; not web_hello).
 
 === HTTP / HTTPS (VGHttpRequest, Http.Get) ===

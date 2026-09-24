@@ -1,0 +1,184 @@
+' Per-game titles, controls, and attribution for QB ABC Showcase
+Option Explicit
+
+Sub Meta_Title(mode As Integer, ByRef title As String)
+	Select Case mode
+		Case 1: title = "Bagels (Mastermind-style)"
+		Case 2: title = "Super Star Trek (short session)"
+		Case 3: title = "Space Invaders"
+		Case 4: title = "Breakout"
+		Case 5: title = "Lunar Lander"
+		Case 6: title = "Sokoban (mini level)"
+		Case 7: title = "Nibbles (snake)"
+		Case 12: title = "Gorillas (artillery)"
+		Case 13: title = "Haunted House (mini adventure)"
+		Case 14: title = "Hunt the Wumpus"
+		Case 15: title = "Blackjack"
+		Case 16: title = "Minesweeper (10×10)"
+		Case 17: title = "Tower of Hanoi"
+		Case 18: title = "Mini dungeon"
+		Case 19: title = "Super Star Trek — full session"
+		Case 20: title = "Jetpack Lite"
+		Case 21: title = "Defender Lite"
+		Case 22: title = "Sokoban (3 levels)"
+		Case 23: title = "Nibbles Full (walls)"
+		Case 25: title = "Tic Tac Toe"
+		Case 26: title = "Lights On (5×5)"
+		Case 27: title = "Conway Life (mini)"
+		Case 28: title = "Shooter (QB64 gallery)"
+		Case 29: title = "Platform (lite)"
+		Case 30: title = "QBricks"
+		Case 31: title = "Pipes puzzle (lite)"
+		Case 32: title = "FIRE demo"
+		Case 33: title = "Mandelbrot animator"
+		Case 34: title = "Matrix effect (lite)"
+		Case 35: title = "Particle fountain (lite)"
+		Case 36: title = "Relief 3D"
+		Case 37: title = "Torus wireframe"
+		Case 38: title = "Vector field"
+		Case 39: title = "Turtle / Koch flake"
+		Case 40: title = "American flag (static)"
+		Case 41: title = "Dialog demo box"
+		Case Else: title = "Unknown"
+	End Select
+End Sub
+
+Sub Meta_Credit(mode As Integer, ByRef credit As String)
+	Select Case mode
+		Case 1
+			credit = "Inspired by Bagels / Mastermind listings on the ABC shareware archive. James Hooker and similar ABC authors."
+		Case 2
+			credit = "Inspired by Super Star Trek (Ron Williams lineage) and classic Star Trek BASIC games from the ABC era."
+		Case 3
+			credit = "Inspired by Space Invaders clones from ABC (e.g. Alan Bruzzi, Kenneth Green listings)."
+		Case 4
+			credit = "Inspired by Breakout / Brick Out style games (John Wantland and ABC brick-breaker listings)."
+		Case 5
+			credit = "Inspired by Lunar Lander simulations (Chris Sequeria lineage and ABC lander games)."
+		Case 6
+			credit = "Inspired by Sokoban / box-pusher puzzles (David Joffe lineage; mini level only)."
+		Case 7
+			credit = "Inspired by Nibbles / snake (Microsoft QBasic sample, Jim Emptage; ABC had many snake clones)."
+		Case 12
+			credit = "Inspired by QBasic Gorillas and ABC artillery clones (angle + power + wind)."
+		Case 13
+			credit = "Inspired by Haunted House–style adventures from ABC text-game listings."
+		Case 14
+			credit = "Inspired by Hunt the Wumpus (Gregory Yob, 1972) and ABC graph-cave clones."
+		Case 15
+			credit = "Inspired by Blackjack / casino listings on ABC shareware archives."
+		Case 16
+			credit = "Inspired by Minesweeper-style grid puzzles (Windows era; many ABC logic games)."
+		Case 17
+			credit = "Classic Tower of Hanoi puzzle; ABC had several graphical Hanoi listings."
+		Case 18
+			credit = "Inspired by ASCII / tile roguelike and dungeon crawlers from ABC archives."
+		Case 19
+			credit = "Expanded Star Trek–style game (Ron Williams / mainframe lineage). Not CBS/IP; fan-style simulation."
+		Case 20
+			credit = "Inspired by Jetpack and cavern-flyer ABC / shareware clones."
+		Case 21
+			credit = "Inspired by Defender-style horizontal shooters (Williams arcade; ABC clones)."
+		Case 22
+			credit = "Inspired by Sokoban (David Joffe); three small levels."
+		Case 23
+			credit = "Inspired by Microsoft Nibbles (QBasic) with walls and faster tick."
+		Case 25
+			credit = "Inspired by Tic Tac Toe samples in the QB64.com gallery (Paul Meyer / classic listings). Original VG logic."
+		Case 26
+			credit = "Inspired by Fellippe Heitor's LightsOn in the QB64 sample pack. Original VG puzzle."
+		Case 27
+			credit = "Inspired by Conway's Game of Life (Luke / QB64 sample gallery). Original VG automaton."
+		Case 28
+			credit = "Inspired by QB64 Shooter sample (SCREEN 13 vertical shmup). Original VG."
+		Case 29
+			credit = "Inspired by Fellippe Heitor Platform sample on qb64.com. Original VG."
+		Case 30
+			credit = "Inspired by Microsoft QBricks / QB64 gallery. Original VG breakout grid."
+		Case 31
+			credit = "Inspired by Dav Pipes Puzzle on qb64.com. Original VG (no PNG assets)."
+		Case 32
+			credit = "Inspired by harixxx FIRE Demo on qb64.com. Original VG fire table."
+		Case 33
+			credit = "Inspired by Mandelbrot Animator (Microsoft/QB64 gallery). Original VG."
+		Case 34
+			credit = "Inspired by TylerDarko Matrix Effect. Lite SCREEN 13 columns."
+		Case 35
+			credit = "Inspired by bplus Particle Fountain. Throttled particle count."
+		Case 36
+			credit = "Inspired by Danilin Relief 3D sample. Original VG line scroll."
+		Case 37
+			credit = "Inspired by Microsoft Torus demo on qb64.com. Wireframe lite."
+		Case 38
+			credit = "Inspired by STxAxTIC Vector Field on qb64.com. Original VG."
+		Case 39
+			credit = "Inspired by triggered Turtle Graphics / Koch on qb64.com."
+		Case 40
+			credit = "Inspired by Vince waving flag sample; static variant (no _RGB warp)."
+		Case 41
+			credit = "Inspired by Abacus dialog demo (CH13). Text-mode panels on SCREEN 13."
+		Case Else
+			credit = ""
+	End Select
+End Sub
+
+Sub Meta_SourceNote(ByRef note As String)
+	note = "Original .BAS sources live on BasicGuru / ABC archives (basicguru.com). These VG files are new reimplementations for demo purposes—not copies of PostIt-encoded listings."
+End Sub
+
+Sub Meta_Disclaimer(ByRef line As String)
+	line = "Not affiliated with BasicGuru or original authors. Trademarks (Star Trek, Defender, etc.) belong to their owners."
+End Sub
+
+Sub Meta_ControlsLine1(mode As Integer, ByRef s As String)
+	Select Case mode
+		Case 1: s = "Keys: 0-9 type digits, Backspace, Enter submit guess"
+		Case 2: s = "Keys: L long scan, S shields, R phasers, P torpedo, T status, Q quit"
+		Case 3: s = "Keys: Left / Right move, Space fire"
+		Case 4: s = "Keys: Left / Right move paddle"
+		Case 5: s = "Keys: Up thrust, Left / Right steer"
+		Case 6: s = "Keys: Arrow keys move player"
+		Case 7: s = "Keys: Arrow keys steer snake"
+		Case 12: s = "A/D angle  W/S power  Space fire  (2-player turns)"
+		Case 13: s = "N S E W move  T take  U use torch  Q quit"
+		Case 14: s = "1/2/3 move to adjacent cave  S shoot  Q quit"
+		Case 15: s = "H hit  S stand"
+		Case 16: s = "Arrows move cursor  Space reveal  F flag"
+		Case 17: s = "1/2/3 pick peg  Space move disk to next peg"
+		Case 18: s = "Arrow keys move  reach green exit"
+		Case 19: s = "Type command + Enter: LRS W warp N map P T B Q (see HUD)"
+		Case 20: s = "Up thrust  Left / Right fly  collect gems  reach top"
+		Case 21: s = "Left / Right  Space fire"
+		Case 22: s = "Arrow keys push boxes onto green goals"
+		Case 23: s = "Arrow keys  avoid walls"
+		Case 25: s = "Arrows move cell  Space place X (vs simple AI)"
+		Case 26: s = "Arrows move  Space toggles cross pattern  R new board"
+		Case 27: s = "Space = one generation  R random  C clear"
+		Case 28: s = "Left / Right  Space fire  Esc menu"
+		Case 29: s = "Left / Right  Space jump"
+		Case 30: s = "Left / Right paddle"
+		Case 31: s = "Arrows  Space rotate tile at cursor"
+		Case 32: s = "Animated fire — Esc menu"
+		Case 33: s = "Space re-seed colors"
+		Case 34: s = "Rain animation — Esc menu"
+		Case 35: s = "Fountain animation — Esc menu"
+		Case 36: s = "Scrolling terrain — Esc menu"
+		Case 37: s = "Rotating torus — Esc menu"
+		Case 38: s = "Arrows move charge  Space respawn particles"
+		Case 39: s = "Space redraw Koch flake"
+		Case 40: s = "Static flag — Esc menu"
+		Case 41: s = "Space next dialog panel"
+		Case Else: s = ""
+	End Select
+End Sub
+
+Sub Meta_ControlsLine2(mode As Integer, ByRef s As String)
+	Select Case mode
+		Case 1, 13, 14, 19
+			s = "Text / command game — focus game window"
+		Case 2
+			s = "Text commands: type letter then Enter (or use key shortcuts above)"
+		Case Else
+			s = "Esc returns to menu anytime"
+	End Select
+End Sub

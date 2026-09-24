@@ -1216,6 +1216,8 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("DrawCircle");
     keywords.push_back("DrawPixel");
     keywords.push_back("PSet");
+    keywords.push_back("Paint");
+    keywords.push_back("Play");
     keywords.push_back("DrawTexture");
     keywords.push_back("DrawTextureRect");
     keywords.push_back("DrawArc");
@@ -1225,6 +1227,44 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("ResetDrawTransform");
     keywords.push_back("QueueRedraw");
     keywords.push_back("CLS");
+    keywords.push_back("SCREEN");
+    keywords.push_back("Palette");
+    keywords.push_back("PCopy");
+    keywords.push_back("Locate");
+    keywords.push_back("Sound");
+    keywords.push_back("Beep");
+    keywords.push_back("View");
+    keywords.push_back("Window");
+    keywords.push_back("Wait");
+    keywords.push_back("Scroll");
+    keywords.push_back("LoadPcx");
+    keywords.push_back("_NewImage");
+    keywords.push_back("_LoadImage");
+    keywords.push_back("_FreeImage");
+    keywords.push_back("_Dest");
+    keywords.push_back("_Source");
+    keywords.push_back("_PutImage");
+    keywords.push_back("_Display");
+    keywords.push_back("_Width");
+    keywords.push_back("_Height");
+    keywords.push_back("_DesktopWidth");
+    keywords.push_back("_DesktopHeight");
+    keywords.push_back("_RGB32");
+    keywords.push_back("_RGBA32");
+    keywords.push_back("_MouseX");
+    keywords.push_back("_MouseY");
+    keywords.push_back("_MouseButton");
+    keywords.push_back("_MouseInput");
+    keywords.push_back("_SndOpen");
+    keywords.push_back("_SndPlay");
+    keywords.push_back("_SndStop");
+    keywords.push_back("_SndClose");
+    keywords.push_back("_SndPlaying");
+    keywords.push_back("CsrLin");
+    keywords.push_back("PaletteColor");
+    keywords.push_back("Color8");
+    keywords.push_back("InKey$");
+    keywords.push_back("IsKeyJustPressed");
     keywords.push_back("CreateImage");
     keywords.push_back("CreateTexture");
     keywords.push_back("ImageToTexture");
@@ -3340,11 +3380,11 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "[b]Example[/b]\n"
       "[codeblock lang=vgbasic]"
       "Sub _draw()\n"
-      "    DrawRect(10, 10, 200, 100, Color(0,0,1))         ' Filled\n"
-      "    DrawRect(10, 10, 200, 100, Color(1,1,0), False)  ' Outline\n"
+      "    DrawRect(10, 10, 200, 100, Color8(0, 0, 255))         ' Filled (0-255)\n"
+      "    DrawRect(10, 10, 200, 100, Color(1,1,0), False)  ' Outline (0-1)\n"
       "End Sub\n"
       "[/codeblock]\n"
-      "[b]See Also[/b]\nDrawLine, DrawCircle, DrawArc\n\n[url=ref:drawrect]📖 VG Language Reference[/url]" },
+      "[b]See Also[/b]\nColor8, DrawLine, DrawCircle\n\n[url=ref:drawrect]📖 VG Language Reference[/url]" },
 
     { "drawstring",
       "[b]Syntax[/b]\n[b]DrawString[/b](text, x, y, color[, fontSize])\n\n"
@@ -3411,9 +3451,9 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
     { "cls",
       "[b]Syntax[/b]\n[b]CLS[/b]()\n\n"
       "[b]Description[/b]\n"
-      "Clears the canvas. Resets all drawn content so the next [code]_draw()[/code] call starts with a blank frame. "
-      "Equivalent to calling [code]QueueRedraw()[/code] and issuing no draw calls.\n\n"
-      "[b]See Also[/b]\nQueueRedraw, DrawLine, DrawRect\n\n[url=ref:cls]📖 VG Language Reference[/url]" },
+      "When QuickBASIC [code]SCREEN[/code] is active, clears the QB pixel buffer. "
+      "On canvas [code]Node2D[/code] games, redraw the background in [code]_Draw[/code] (use [code]Color8[/code] for 0–255 fills).\n\n"
+      "[b]See Also[/b]\nSCREEN, QueueRedraw, DrawRect\n\n[url=ref:cls]📖 VG Language Reference[/url]" },
 
     { "pset",
       "[b]Syntax[/b]\n[b]PSet[/b](x, y, color)\n\n"
@@ -3442,6 +3482,80 @@ static const VGBuiltinDoc VG_BUILTIN_DOCS[] = {
       "End Sub\n"
       "[/codeblock]\n"
       "[b]See Also[/b]\nDrawLine, DrawRect, CLS\n\n[url=ref:queueredraw]📖 VG Language Reference[/url]" },
+
+    { "color8",
+      "[b]Syntax[/b]\n[b]Color8[/b](red, green, blue[, alpha])\n\n"
+      "[b]Description[/b]\n"
+      "Creates a Godot [code]Color[/code] from [b]0–255[/b] byte channels (optional alpha 0–255). "
+      "Use for menus, HUD, and HTML-style palettes. Do not pass 0–255 values to [code]Color()[/code] — that uses 0.0–1.0 and can wash out to white.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "DrawRect(0, 0, 960, 600, Color8(12, 18, 32), True)\n"
+      "DrawString(\"Hi\", 24, 28, Color8(200, 220, 255), 24)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nColor, RGB, DrawRect\n\n[url=ref:color8]📖 VG Language Reference[/url]" },
+
+    { "color",
+      "[b]Syntax[/b]\n[b]Color[/b](red, green, blue[, alpha])\n\n"
+      "[b]Description[/b]\n"
+      "Godot-style color: each channel is a [b]float 0.0–1.0[/b]. "
+      "[code]Color(1,0,0)[/code] is red; [code]Color(255,255,255)[/code] is not byte-white — it saturates. Prefer [code]Color8[/code] for 0–255.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "DrawLine(0, 0, 100, 100, Color(1, 0, 0, 1), 2)\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nColor8, RGB\n\n[url=ref:color]📖 VG Language Reference[/url]" },
+
+    { "screen",
+      "[b]Syntax[/b]\n[b]SCREEN[/b] modeNumber\n[b]SCREEN[/b] 0\n\n"
+      "[b]Description[/b]\n"
+      "QuickBASIC graphics: opens a logical framebuffer (e.g. [code]13[/code] = 320×200×256) shown letterboxed. "
+      "Use [code]PSET (x,y), c[/code], [code]LINE[/code], [code]CIRCLE[/code], [code]PAINT[/code], [code]GET[/code]/[code]PUT[/code], [code]CLS[/code], [code]Point[/code], [code]InKey$[/code], [code]Play[/code]. "
+      "[code]Screen 0[/code] hides the QB overlay. [code]SCREEN _NewImage(w, h, 32)[/code] shows a 32-bit page (negative handle). Not [code]Screen.Width[/code] (monitor size).\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Screen 13\n"
+      "Cls\n"
+      "Line (0, 0)-(319, 199), 7, B\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nPSet, LINE, InKey$\n\n[url=ref:screen]📖 QB graphics manual[/url]" },
+
+    { "inkey$",
+      "[b]Syntax[/b]\n[i]k[/i] = [b]InKey$[/b]\n\n"
+      "[b]Description[/b]\n"
+      "One queued token from keyboard events on the script owner, or [code]\"\"[/code]. "
+      "Printable keys are one character. Extended keys (arrows, function keys) use the QBasic two-step pattern: "
+      "[code]Chr(0)[/code] on the first [code]InKey$[/code], then the scan byte on the next (72=Up, 75=Left, 77=Right, 80=Down).\n\n"
+      "[b]Godot Output — expected, harmless[/b]\n"
+      "While extended keys are polled, Godot may flood the Output panel with [i]Unexpected NUL character[/i]. "
+      "That is Godot's UTF-8 [code]String[/code] warning, not a Visual Gasic crash — input and gameplay are unaffected. "
+      "You can ignore those lines; VG maps [code]Chr(0)[/code] for QBasic compatibility.\n\n"
+      "Requires [code]_Input[/code] / [code]_UnhandledInput[/code] on the script owner so keys reach the engine. "
+      "For new menus, [code]IsKeyJustPressed[/code] or [code]_Input[/code] + [code]keycode[/code] is often clearer.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "k = InKey$\n"
+      "If k = Chr(0) Then\n"
+      "    k = InKey$\n"
+      "    sc = Asc(k)   ' arrow scan code\n"
+      "End If\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nChr, Asc, IsKeyJustPressed, SCREEN\n\n[url=ref:inkey]📖 VG Language Reference[/url]" },
+
+    { "iskeyjustpressed",
+      "[b]Syntax[/b]\n[b]IsKeyJustPressed[/b](keyCode) As Boolean\n\n"
+      "[b]Description[/b]\n"
+      "True on the frame a physical key goes down. Poll in [code]_Process[/code] or handle [code]keycode[/code] in [code]_Input[/code] (recommended when the editor embeds the game view). "
+      "Constants: [code]KEY_1[/code] … [code]KEY_9[/code], [code]KEY_SPACE[/code], etc.\n\n"
+      "[b]Example[/b]\n"
+      "[codeblock lang=vgbasic]"
+      "Sub _Input(ev As Variant)\n"
+      "    If ev Is InputEventKey And ev.pressed And Not ev.echo Then\n"
+      "        If ev.keycode = KEY_1 Then StartGame()\n"
+      "    End If\n"
+      "End Sub\n"
+      "[/codeblock]\n"
+      "[b]See Also[/b]\nInKey$, IsKeyPressed\n\n[url=ref:iskeyjustpressed]📖 VG Language Reference[/url]" },
 
     // ── Bonus: Godot/system helpers ───────────────────────────────────────────
     { "changescene",

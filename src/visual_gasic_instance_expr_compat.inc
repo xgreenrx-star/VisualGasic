@@ -827,12 +827,23 @@
 	    r_found = true; return get_whenever_status();
 	}
 	
-	// Keyboard input functions
-	if (method.nocasecmp_to("Inkey") == 0 && call_args.size() == 0) {
-	    // Return last key pressed (empty string if none)
-	    // Check Input for any key by scanning common keys
-	    // For now, just return empty - real implementation would track last key
+	// Keyboard input functions. INKEY$ / Point(x, y) read the QB screen buffer.
+	if ((method.nocasecmp_to("Inkey") == 0 || method.nocasecmp_to("Inkey$") == 0) && call_args.size() == 0) {
+	    Variant qb_ret;
+	    bool qb_handled = false;
+	    if (VGQbScreen::handle_expr(this, method, call_args, qb_ret, qb_handled) && qb_handled) {
+	        r_found = true;
+	        return qb_ret;
+	    }
 	    r_found = true; return String("");
+	}
+	if (method.nocasecmp_to("Point") == 0 && call_args.size() == 2) {
+	    Variant qb_ret;
+	    bool qb_handled = false;
+	    if (VGQbScreen::handle_expr(this, method, call_args, qb_ret, qb_handled) && qb_handled) {
+	        r_found = true;
+	        return qb_ret;
+	    }
 	}
 	
 	// Mouse input functions

@@ -1,0 +1,99 @@
+' Platform — inspired by Fellippe Heitor QB64 Platform sample (original VG)
+Option Explicit
+
+Dim qpl_active As Boolean
+Dim qpl_x As Single
+Dim qpl_y As Single
+Dim qpl_vy As Single
+Dim qpl_on As Boolean
+Dim qpl_cam As Single
+Dim qpl_tick As Single
+
+Sub Q64Platform_Init()
+	Screen 13
+	Cls
+	qpl_x = 40
+	qpl_y = 120
+	qpl_vy = 0
+	qpl_on = False
+	qpl_cam = 0
+	qpl_active = True
+	qpl_tick = 0
+	Call Q64Platform_Draw
+End Sub
+
+Function Q64Platform_Active() As Boolean
+	Q64Platform_Active = qpl_active
+End Function
+
+Sub Q64Platform_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Platform (rectangles lite)"
+	l2 = "Left/Right  Space jump  reach far right"
+End Sub
+
+Function Q64Platform_GroundY(wx As Single) As Single
+	Dim seg As Integer
+	seg = Int(wx / 80)
+	If seg Mod 2 = 0 Then
+		Q64Platform_GroundY = 150
+	Else
+		Q64Platform_GroundY = 120
+	End If
+End Function
+
+Sub Q64Platform_Tick(delta As Single)
+	If Not qpl_active Then Exit Sub
+	qpl_tick = qpl_tick + delta
+	If qpl_tick < 0.025 Then Exit Sub
+	qpl_tick = 0
+	Dim gy As Single
+	gy = Q64Platform_GroundY(qpl_x)
+	qpl_vy = qpl_vy + 0.5
+	qpl_y = qpl_y + qpl_vy
+	If qpl_y >= gy Then
+		qpl_y = gy
+		qpl_vy = 0
+		qpl_on = True
+	Else
+		qpl_on = False
+	End If
+	If qpl_y > 220 Then qpl_active = False
+	qpl_cam = qpl_x - 80
+	If qpl_cam < 0 Then qpl_cam = 0
+	If qpl_x > 520 Then qpl_active = False
+	Call Q64Platform_Draw
+End Sub
+
+Sub Q64Platform_Left()
+	qpl_x = qpl_x - 4
+End Sub
+
+Sub Q64Platform_Right()
+	qpl_x = qpl_x + 4
+End Sub
+
+Sub Q64Platform_Jump()
+	If qpl_on Then qpl_vy = -7
+End Sub
+
+Sub Q64Platform_Draw()
+	Cls
+	Dim wx As Integer
+	For wx = 0 To 400 Step 80
+		Dim sx As Integer
+		sx = wx - Int(qpl_cam)
+		Dim gy As Single
+		gy = Q64Platform_GroundY(wx)
+		If sx > -80 And sx < 340 Then
+			Line (sx, gy)-(sx + 70, 199), 6, BF
+		End If
+	Next wx
+	Dim px As Integer
+	px = Int(qpl_x - qpl_cam)
+	Line (px, Int(qpl_y))-(px + 14, Int(qpl_y) + 18), 15, BF
+	If qpl_x > 500 Then
+		Locate 10, 10
+		Color 10
+		Print "WIN!"
+	End If
+End Sub

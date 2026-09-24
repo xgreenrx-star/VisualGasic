@@ -15,6 +15,7 @@ This manual has two parts:
 - [Procedures and Functions](#procedures-and-functions)
 - [Object-Oriented Features](#object-oriented-features)
 - [VB6 Global Objects](#vb6-global-objects)
+- [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen)
 - [COM-Style Objects](#com-style-objects)
 - [System Integration](#system-integration)
 - [System-Level Programming](#system-level-programming)
@@ -1476,7 +1477,7 @@ Print "Application: " & App.Title & " v" & CStr(App.Major) & "." & CStr(App.Mino
 ```
 
 ### Screen Object
-The `Screen` object provides display information, mirroring VB6's `Screen` global.
+The `Screen` object provides display information, mirroring VB6's `Screen` global. These properties always refer to the **physical display / window**, not the QuickBASIC logical framebuffer created by the **`SCREEN`** statement (see [QuickBASIC Graphics Mode](#quickbasic-graphics-mode-screen)).
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -1558,6 +1559,56 @@ PrintForm
 ```
 
 The image is saved to `user://printform_output.png` in the Godot user data directory. A confirmation message is printed to the console.
+
+---
+
+## QuickBASIC Graphics Mode (SCREEN)
+
+Visual Gasic implements a subset of **Microsoft QuickBASIC** screen graphics as **engine builtins** (not IDE plugins). Use this layer when porting classic `.BAS` listings or teaching QBasic-style code. **`Import`** only adds Subs/Functions; it cannot add new statement keywords.
+
+**Full manual:** [docs/manual/qb_graphics_mode.md](manual/qb_graphics_mode.md)
+
+### Activation
+
+```vb
+Screen 13          ' 320×200, 256 colors — most common for retro games
+PSet (10, 10), 4
+Line (0, 0)-(319, 199), 15, B
+```
+
+The framebuffer is shown letterboxed in the Godot viewport (nearest-neighbor scale). The window size is unchanged. Until `SCREEN` runs, `Screen.Width` / `Screen.Height` still mean the monitor.
+
+### Modes
+
+| Mode | Size | Colors |
+|------|------|--------|
+| 0 | 640×400 | 16 |
+| 1 | 320×200 | 4 |
+| 2 | 640×200 | 2 |
+| 7, 8, 9 | 320×200 / 640×200 / 640×350 | 16 |
+| 12 | 640×480 | 16 |
+| 13 | 320×200 | 256 |
+
+### Commands (summary)
+
+| Syntax | Role |
+|--------|------|
+| `PSET (x, y) [, c]` | Set pixel (palette index). **Not** canvas `PSet x, y, Color(...)`. |
+| `LINE (x1,y1)-(x2,y2) [, c [, B \| BF]]` | Line or box. **Not** `Line Input`. |
+| `CIRCLE (x, y), r [, c]` | Circle outline |
+| `PAINT (x, y) [, c [, border]]` | Flood fill |
+| `GET (x1,y1)-(x2,y2), arr` | Snapshot to array (`arr(0)`=width, `arr(1)`=height, then pixels). **Not** `Get #`. |
+| `PUT (x, y), arr [, XOR \| PSET \| …]` | Blit array. **Not** `Put #`. |
+| `CLS` | Clears QB buffer when active |
+| `Point(x, y)` | Read pixel index (-1 off-screen) |
+| `InKey$` / `Inkey()` | One queued character or `""` |
+| `Play "T120 O3 C D E"` | MML via SiON (`Music.Play`); silent no-op if SiON absent |
+
+**Not implemented:** `DEF SEG`, `CALL ABSOLUTE`.
+
+### Regression test
+
+`test_proj/test_suite/test_qb_screen.vg` — run with `VG_TEST_SUITE_VG_ONLY=1 ./run_test_suite.sh test_qb_screen.vg`.
 
 ---
 
@@ -5286,6 +5337,8 @@ Closes one or more open files. Always close files when done to flush data to dis
 
 Clears the screen/canvas. Removes all dynamically created child nodes and triggers a redraw. VB6 classic command.
 
+When a [QuickBASIC `SCREEN` buffer](#quickbasic-graphics-mode-screen) is active, `CLS` clears that framebuffer to color 0 instead of only queueing a canvas redraw.
+
 **Example**
 
     CLS  ' Clear everything
@@ -6280,7 +6333,23 @@ Draws a filled circle at the specified center position with the given radius and
         DrawCircle Vector2(400, 300), 30, Color.Red      ' Godot-style
     End Sub
 
-**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw), [CIRCLE (QuickBASIC)](#circle-quickbasic)
+
+---
+
+## CIRCLE (QuickBASIC)
+
+**Purpose** — Draws a circle outline in the active `SCREEN` framebuffer.
+
+**Syntax**
+
+    CIRCLE (x, y), radius [, color]
+
+**Description**
+
+QuickBASIC parenthesized form. Not canvas [`DrawCircle`](#drawcircle). Requires [SCREEN](#screen-quickbasic).
+
+**See Also** — [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen), [LINE (QuickBASIC graphics)](#line-quickbasic-graphics), [PAINT (QuickBASIC)](#paint-quickbasic)
 
 ---
 
@@ -7160,6 +7229,22 @@ Returns the node at the given path relative to this node. Also available via the
 
 ---
 
+## GET (QuickBASIC graphics)
+
+**Purpose** — Copies a rectangle from the `SCREEN` buffer into an array.
+
+**Syntax**
+
+    GET (x1, y1)-(x2, y2), arrayVariable
+
+**Description**
+
+Array layout: `(0)` = width, `(1)` = height, `(2…)` = row-major palette indices. Not file [`Get #`](#open). Requires [SCREEN](#screen-quickbasic).
+
+**See Also** — [PUT (QuickBASIC graphics)](#put-quickbasic-graphics), [Point (QuickBASIC)](#point-quickbasic), [qb_graphics_mode.md](manual/qb_graphics_mode.md)
+
+---
+
 ## get_tree
 
 **Purpose** — Returns the SceneTree this node belongs to.
@@ -7691,6 +7776,38 @@ Specifies that a class inherits from a base class, gaining its fields, propertie
     End Class
 
 **See Also** — [Class](#class), [End Class](#end-class), [New](#new), [Set](#set), [Me](#me), [Implements](#implements), [Interface](#interface), [Property](#property)
+
+---
+
+## InKey$
+
+**Purpose** — Returns one queued keyboard character from the QuickBASIC input queue.
+
+**Syntax**
+
+    InKey$
+    Inkey()
+    InKey()
+
+**Description**
+
+Returns one queued token, or `""` if none. Keys are collected from `_Input` / `_UnhandledInput` (queue up to 64 tokens). Printable keys are a single character. Extended keys (arrows, etc.) follow QBasic: first return is `Chr(0)`, second is the scan byte (72=Up, 75=Left, 77=Right, 80=Down).
+
+**Godot Output (expected, harmless)** — While polling extended keys, Godot may log many **Unexpected NUL character** lines in the Output panel. That is a Godot UTF-8 string warning, not a Visual Gasic failure; gameplay and `InKey$` keep working. Safe to ignore.
+
+**Example**
+
+```vb
+k = InKey$
+If k = Chr(0) Then
+    k = InKey$
+    sc = Asc(k)
+End If
+```
+
+For new projects prefer [`IsKeyJustPressed`](#iskeyjustpressed).
+
+**See Also** — [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen), [Chr](#chr), [Asc](#asc), [IsKeyPressed](#iskeypressed)
 
 ---
 
@@ -8743,7 +8860,23 @@ Reads an entire line of text from a file (up to the newline character).
     Loop
     Close #1
 
-**See Also** — [Open](#open), [Close](#close), [Data](#data), [Read](#read), [Restore](#restore)
+**See Also** — [Open](#open), [Close](#close), [Data](#data), [Read](#read), [Restore](#restore), [LINE (QuickBASIC graphics)](#line-quickbasic-graphics)
+
+---
+
+## LINE (QuickBASIC graphics)
+
+**Purpose** — Draws a line or box in the active `SCREEN` framebuffer.
+
+**Syntax**
+
+    LINE (x1, y1)-(x2, y2) [, color] [, {B | BF}]
+
+**Description**
+
+QuickBASIC syntax only (parenthesized points). **`B`** = hollow box; **`BF`** = filled box. Not [`Line Input`](#line-input). Requires [SCREEN](#screen-quickbasic).
+
+**See Also** — [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen), [PSet](#pset), [CIRCLE (QuickBASIC)](#circle-quickbasic), [PAINT (QuickBASIC)](#paint-quickbasic)
 
 ---
 
@@ -9924,6 +10057,34 @@ Infinite plane defined by a normal vector and signed distance from origin. Used 
 
 ---
 
+## PAINT (QuickBASIC)
+
+**Purpose** — Flood-fills a region in the `SCREEN` buffer.
+
+**Syntax**
+
+    PAINT (x, y) [, fillColor [, borderColor]]
+
+**See Also** — [CIRCLE (QuickBASIC)](#circle-quickbasic), [LINE (QuickBASIC graphics)](#line-quickbasic-graphics), [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen)
+
+---
+
+## PLAY (QuickBASIC)
+
+**Purpose** — Plays a QuickBASIC-style note string via SiON MML.
+
+**Syntax**
+
+    PLAY mmlString
+
+**Description**
+
+Example: `Play "T120 O3 L4 C D E"`. Uses the same backend as `Music.Play` when **SiONDriver** is available; otherwise succeeds silently.
+
+**See Also** — [PlaySound](#playsound), [qb_graphics_mode.md](manual/qb_graphics_mode.md)
+
+---
+
 ## PlaySound
 
 **Purpose** — Plays a sound effect from the specified resource path.
@@ -9947,7 +10108,23 @@ Plays a sound effect from the specified resource path.
     PlaySound "res://sounds/explosion.wav"
     PlaySound "res://sounds/jump.ogg", 0.8, 1.2
 
-**See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [ChangeScene](#changescene), [CreateActor2D](#createactor2d)
+**See Also** — [IsActionPressed](#isactionpressed), [IsKeyPressed](#iskeypressed), [ChangeScene](#changescene), [CreateActor2D](#createactor2d), [PLAY (QuickBASIC)](#play-quickbasic)
+
+---
+
+## Point (QuickBASIC)
+
+**Purpose** — Returns the palette index at a pixel in the active `SCREEN` buffer.
+
+**Syntax**
+
+    Point(x, y)
+
+**Description**
+
+Returns **-1** if `(x, y)` is outside the buffer.
+
+**See Also** — [PSet](#pset), [GET (QuickBASIC graphics)](#get-quickbasic-graphics), [SCREEN (QuickBASIC)](#screen-quickbasic)
 
 ---
 
@@ -10048,14 +10225,35 @@ Declares a class property with Get (read) and Let/Set (write) accessors.
 
 **Description**
 
-Draws a single pixel (VB6-style name). Alias for DrawPixel.
+Draws a single pixel (VB6-style name). Alias for DrawPixel on the **canvas** during `_Draw`.
+
+QuickBASIC **`PSET (x, y), color`** (parentheses, palette index) writes the [SCREEN framebuffer](#quickbasic-graphics-mode-screen) and is a separate code path.
 
 **Example**
 
-    PSet 100, 50, Color(1, 0, 0)   ' Red pixel
-    PSet 101, 50, RGB(0, 255, 0)   ' Green pixel
+    PSet 100, 50, Color(1, 0, 0)   ' Red pixel (canvas)
+    PSet 101, 50, RGB(0, 255, 0)   ' Green pixel (canvas)
 
-**See Also** — [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [CLS](#cls), [QueueRedraw](#queueredraw)
+    Screen 13
+    PSet (50, 50), 15              ' QB buffer (palette index 15)
+
+**See Also** — [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen), [DrawLine](#drawline), [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## PUT (QuickBASIC graphics)
+
+**Purpose** — Blits an array produced by `GET` onto the `SCREEN` buffer.
+
+**Syntax**
+
+    PUT (x, y), arrayVariable [, {XOR | PSET | PRESET | AND | OR}]
+
+**Description**
+
+Default blit mode is **XOR**. Not file [`Put #`](#open). Requires [SCREEN](#screen-quickbasic).
+
+**See Also** — [GET (QuickBASIC graphics)](#get-quickbasic-graphics), [qb_graphics_mode.md](manual/qb_graphics_mode.md)
 
 ---
 
@@ -10831,6 +11029,50 @@ Returns from the current Sub or Function. In a Function, optionally provides the
 
 ---
 
+## Color
+
+**Purpose** — Builds a Godot `Color` from **normalized** floating-point channels (0.0–1.0).
+
+**Syntax**
+
+    Color(red, green, blue)
+    Color(red, green, blue, alpha)
+
+**Description**
+
+Matches Godot’s native color constructor. Use for shader-style values (e.g. `Color(1, 0, 0, 1)` for red). Do **not** pass 0–255 byte values here — `Color(255, 255, 255)` oversaturates and often appears as solid white on a 2D viewport. For byte RGB use [Color8](#color8) or [RGB](#rgb).
+
+**Example**
+
+    DrawRect 0, 0, 640, 480, Color(0.05, 0.07, 0.12), True
+    DrawLine 0, 0, 100, 100, Color(1, 0, 0, 1), 2
+
+**See Also** — [Color8](#color8), [RGB](#rgb), [DrawRect](#drawrect), [manual/colors.md](manual/colors.md)
+
+---
+
+## Color8
+
+**Purpose** — Builds a `Color` from **integer** red, green, blue (and optional alpha) in the **0–255** range.
+
+**Syntax**
+
+    Color8(red, green, blue)
+    Color8(red, green, blue, alpha)
+
+**Description**
+
+Each channel is divided by 255 before creating the Godot color. This is the usual choice for menus, HUD text, and ports from HTML/QBasic palettes. Same numeric range as [RGB](#rgb); `Color8` accepts an optional alpha byte.
+
+**Example**
+
+    DrawRect 0, 0, 960, 600, Color8(12, 18, 32), True
+    DrawString "Score: " & CStr(score), 12, 8, Color8(255, 255, 200), 16
+
+**See Also** — [Color](#color), [RGB](#rgb), [DrawString](#drawstring), [manual/colors.md](manual/colors.md)
+
+---
+
 ## RGB
 
 **Purpose** — Creates a Color from integer red, green, blue values (0-255).
@@ -11114,7 +11356,28 @@ Returns the screen width in pixels.
 
     If Screen.Width() < 600 Then SetMobileUI()
 
-**See Also** — [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen)
+**See Also** — [Screen.Height](#screenheight), [Screen.DPI](#screendpi), [Screen.Orientation](#screenorientation), [Screen.KeepOn](#screenkeepon), [Screen.FullScreen](#screenfullscreen), [Screen.IsFullScreen](#screenisfullscreen), [SCREEN (QuickBASIC)](#screen-quickbasic)
+
+---
+
+## SCREEN (QuickBASIC)
+
+**Purpose** — Opens a logical QuickBASIC-style framebuffer and displays it letterboxed in the viewport.
+
+**Syntax**
+
+    SCREEN modeNumber
+
+**Description**
+
+Creates an indexed-color pixel buffer (modes 0–13 and default). Does **not** change `Screen.Width` / `Screen.Height` (those remain the monitor). See [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen) and [qb_graphics_mode.md](manual/qb_graphics_mode.md).
+
+**Example**
+
+    Screen 13
+    PSet (160, 100), 15
+
+**See Also** — [PSet](#pset), [CLS](#cls), [Point (QuickBASIC)](#point-quickbasic), [LINE (QuickBASIC graphics)](#line-quickbasic-graphics), [GET (QuickBASIC graphics)](#get-quickbasic-graphics), [PUT (QuickBASIC graphics)](#put-quickbasic-graphics), [PLAY (QuickBASIC)](#play-quickbasic), [InKey$](#inkey)
 
 ---
 
@@ -14584,6 +14847,7 @@ This index lists command-reference entries grouped by first letter.
 - [Procedures and Functions](#procedures-and-functions)
 - [Object-Oriented Features](#object-oriented-features)
 - [VB6 Global Objects](#vb6-global-objects)
+- [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen)
 - [COM-Style Objects](#com-style-objects)
 - [System Integration](#system-integration)
 - [System-Level Programming](#system-level-programming)

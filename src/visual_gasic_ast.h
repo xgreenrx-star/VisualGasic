@@ -708,6 +708,7 @@ struct SubDefinition : public ASTNode {
     String return_type;
     Vector<Statement*> statements;
     Dictionary label_map; // Name -> Index in statements
+    String source_file; // Set for Import modules so runtime errors name this file
     
     // Per-call perf (v6.0): tri-state cache for "does this Sub declare any
     // top-level Static Dim locals?" (-1 unknown, 0 no, 1 yes). Computed once on

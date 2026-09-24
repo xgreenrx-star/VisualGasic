@@ -14,13 +14,16 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
     if (stmt->line > 0) {
         debug_state.merged_line = stmt->line;
         debug_state.current_line = stmt->line;
+        if (!debug_bc_source_file.is_empty()) {
+            debug_state.current_file = debug_bc_source_file;
+        }
     }
     
     // Check for step debugging and breakpoints (for AST interpreter fallback when bytecode fails)
     if (stmt->line > 0 && script.is_valid()) {
         EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
         
-        if (engine_debugger && engine_debugger->is_active()) {
+        if (engine_debugger && engine_debugger->is_active() && debug_bc_source_file.is_empty()) {
             resolve_debug_location(stmt->line);
         }
         String script_path = debug_state.current_file.is_empty() && script.is_valid()
@@ -206,8 +209,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 if (s->suppress_newline) {
                     // Print without trailing newline - use print_rich with no newline
                     UtilityFunctions::print_rich(output);
+                    VGQbScreen::note_console_print(this, output, false);
                 } else {
                     UtilityFunctions::print(output);
+                    VGQbScreen::note_console_print(this, output, true);
                 }
             }
             break;

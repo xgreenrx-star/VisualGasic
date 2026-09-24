@@ -1,0 +1,87 @@
+' FIRE demo — inspired by harixxx QB64 firedemo (original VG)
+Option Explicit
+
+Dim qf_active As Boolean
+Dim qf_buf(319, 199) As Integer
+Dim qf_tick As Single
+
+Sub Q64Fire_Init()
+	Screen 13
+	Cls
+	qf_active = True
+	qf_tick = 0
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 199
+		For x = 0 To 319
+			qf_buf(x, y) = 0
+		Next x
+	Next y
+	Call Q64Fire_DrawPalette
+	Call Q64Fire_Draw
+End Sub
+
+Function Q64Fire_Active() As Boolean
+	Q64Fire_Active = qf_active
+End Function
+
+Sub Q64Fire_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "FIRE demo (QB64 gallery / harixxx)"
+	l2 = "Classic palette fire — Esc = menu"
+End Sub
+
+Sub Q64Fire_DrawPalette()
+	Dim i As Integer
+	For i = 0 To 63
+		Palette i, i * 4, 0, 0
+	Next i
+	For i = 64 To 127
+		Palette i, 255, (i - 64) * 4, 0
+	Next i
+	For i = 128 To 191
+		Palette i, 255, 255, (i - 128) * 4
+	Next i
+	For i = 192 To 255
+		Palette i, 255, 255, 255
+	Next i
+End Sub
+
+Sub Q64Fire_Tick(delta As Single)
+	If Not qf_active Then Exit Sub
+	qf_tick = qf_tick + delta
+	If qf_tick < 0.04 Then Exit Sub
+	qf_tick = 0
+	Dim x As Integer
+	Dim y As Integer
+	For x = 1 To 318
+		Dim v As Integer
+		v = (qf_buf(x - 1, 199) + qf_buf(x, 199) + qf_buf(x + 1, 199)) \ 3
+		v = v - Int(Rnd() * 4)
+		If v < 0 Then v = 0
+		qf_buf(x, 199) = v
+	Next x
+	For y = 0 To 198
+		For x = 1 To 318
+			Dim s As Integer
+			s = (qf_buf(x - 1, y + 1) + qf_buf(x, y + 1) + qf_buf(x + 1, y + 1)) \ 3
+			s = s - Int(Rnd() * 2)
+			If s < 0 Then s = 0
+			qf_buf(x, y) = s
+		Next x
+	Next y
+	For x = 0 To 319
+		If Rnd() < 0.12 Then qf_buf(x, 199) = 255 Else qf_buf(x, 199) = qf_buf(x, 199) + 40
+		If qf_buf(x, 199) > 255 Then qf_buf(x, 199) = 255
+	Next x
+	Call Q64Fire_Draw
+End Sub
+
+Sub Q64Fire_Draw()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 199
+		For x = 0 To 319
+			PSet (x, y), qf_buf(x, y)
+		Next x
+	Next y
+End Sub

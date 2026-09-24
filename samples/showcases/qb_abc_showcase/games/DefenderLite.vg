@@ -1,0 +1,93 @@
+' Defender Lite — horizontal shooter (Tier C)
+Option Explicit
+
+Dim df_active As Boolean
+Dim df_px As Single
+Dim df_ex(6) As Single
+Dim df_ey(6) As Single
+Dim df_alive(6) As Integer
+Dim df_score As Integer
+Dim df_msg As String
+Dim df_tick As Single
+
+Sub Defender_Init()
+	Screen 13
+	Cls
+	df_px = 160
+	df_score = 0
+	df_tick = 0
+	Dim i As Integer
+	For i = 0 To 5
+		df_ex(i) = 40 + i * 45
+		df_ey(i) = 40 + (i Mod 3) * 30
+		df_alive(i) = 1
+	Next i
+	df_msg = "L/R move  Space fire"
+	df_active = True
+	Call Defender_Draw
+End Sub
+
+Function Defender_Active() As Boolean
+	Defender_Active = df_active
+End Function
+
+Sub Defender_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "DEFENDER  score:" & CStr(df_score)
+	l2 = df_msg
+End Sub
+
+Sub Defender_Tick(delta As Single)
+	If Not df_active Then Exit Sub
+	df_tick = df_tick + delta
+	Dim i As Integer
+	For i = 0 To 5
+		If df_alive(i) = 1 Then
+			df_ex(i) = df_ex(i) - 0.8 - i * 0.05
+			If df_ex(i) < -10 Then df_ex(i) = 320
+		End If
+	Next i
+	Call Defender_Draw
+End Sub
+
+Sub Defender_Left()
+	df_px = df_px - 8
+	If df_px < 10 Then df_px = 10
+End Sub
+
+Sub Defender_Right()
+	df_px = df_px + 8
+	If df_px > 300 Then df_px = 300
+End Sub
+
+Sub Defender_Fire()
+	Dim i As Integer
+	For i = 0 To 5
+		If df_alive(i) = 1 Then
+			If Abs(df_ex(i) - df_px) < 20 And df_ey(i) > 100 Then
+				df_alive(i) = 0
+				df_score = df_score + 100
+			End If
+		End If
+	Next i
+	Dim left As Integer
+	left = 0
+	For i = 0 To 5
+		If df_alive(i) = 1 Then left = left + 1
+	Next i
+	If left = 0 Then
+		df_msg = "Wave cleared!"
+		df_active = False
+	End If
+End Sub
+
+Sub Defender_Draw()
+	Cls
+	Line (0, 170)-(319, 199), 2, BF
+	Line (Int(df_px) - 8, 150)-(Int(df_px) + 8, 150), 15
+	Dim i As Integer
+	For i = 0 To 5
+		If df_alive(i) = 1 Then
+			Line (Int(df_ex(i)), Int(df_ey(i)))-(Int(df_ex(i)) + 10, Int(df_ey(i)) + 6), 12, BF
+		End If
+	Next i
+End Sub

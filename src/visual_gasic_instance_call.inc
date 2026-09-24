@@ -497,13 +497,35 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 
     bool used_bytecode = false;
     Variant bytecode_ret;
-    if (chunk_for_locals) {
-        String prev_debug_bc_source_file = debug_bc_source_file;
+    String prev_debug_bc_source_file = debug_bc_source_file;
+    {
+        String import_src;
         if (owning_module && !owning_module->full_path.is_empty()) {
-            debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(owning_module->full_path);
+            import_src = owning_module->full_path;
+        } else if (func) {
+            for (int mi = 0; mi < imported_modules.size() && import_src.is_empty(); mi++) {
+                ModuleNode *mast = imported_modules[mi].ast;
+                if (!mast) {
+                    continue;
+                }
+                for (int si = 0; si < mast->subs.size(); si++) {
+                    if (mast->subs[si] == func) {
+                        import_src = imported_modules[mi].full_path;
+                        break;
+                    }
+                }
+            }
+            if (import_src.is_empty() && !func->source_file.is_empty()) {
+                import_src = func->source_file;
+            }
+        }
+        if (!import_src.is_empty()) {
+            debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(import_src);
         } else {
             debug_bc_source_file = String();
         }
+    }
+    if (chunk_for_locals) {
         // v2.5: No more variables.duplicate(true) deep copy!
         // execute_bytecode() now only flushes locals→variables on
         // success, so on failure the dictionary stays clean and the
@@ -511,7 +533,6 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
                                          use_fast_params ? fast_arg_values : nullptr, fast_arg_count,
                                          p_vm);
-        debug_bc_source_file = prev_debug_bc_source_file;
         if (!used_bytecode) {
             if (error_state.has_error) {
                 // Bytecode VM hit a runtime error (e.g. "Sub or Function not
@@ -586,6 +607,8 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             }
         }
     }
+
+    debug_bc_source_file = prev_debug_bc_source_file;
     
     Variant ret = Variant();
     if (func->type == SubDefinition::TYPE_FUNCTION) {
@@ -911,6 +934,13 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // Adapter
     Array args;
     for(int i=0; i<p_argcount; i++) args.push_back(*p_args[i]);
+
+    {
+        String ml = String(p_method).to_lower();
+        if (args.size() > 0 && (ml == "_input" || ml == "_unhandled_input")) {
+            VGQbScreen::note_input(this, args[0]);
+        }
+    }
     
     // Intercept _OnSignal
     if (p_method == StringName("_OnSignal")) {
@@ -1300,8 +1330,17 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     err["Source"] = source.is_empty() ? String("VisualGasic Runtime") : source;
 
     if (error_state.has_error) return;
-    const int merged = debug_state.merged_line > 0 ? debug_state.merged_line : debug_state.current_line;
-    resolve_debug_location(merged);
+    // OP_DEBUG_LINE already mapped host Include lines into current_file/current_line.
+    // Import-module bytecode stores the module path in debug_bc_source_file and the
+    // module's own source line in current_line. Re-resolving that number through the
+    // HOST script's line map reports the wrong file (Main.vg:47 when Breakout.vg:47
+    // faulted). Only resolve when the location has not been set yet.
+    if (!debug_bc_source_file.is_empty()) {
+        debug_state.current_file = debug_bc_source_file;
+    } else if (debug_state.current_file.is_empty()) {
+        const int merged = debug_state.merged_line > 0 ? debug_state.merged_line : debug_state.current_line;
+        resolve_debug_location(merged);
+    }
     error_state.has_error = true;
     error_state.message = msg;
     error_state.code = code;
@@ -1827,6 +1866,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          release_canvas_draw_delegate_for_helper_script();
     }
     else if (p_what == Node::NOTIFICATION_PROCESS) {
+         VGQbScreen::present(this);
          // Skip _Process in editor mode
          if (Engine::get_singleton()->is_editor_hint()) {
              return;

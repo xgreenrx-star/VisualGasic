@@ -1,0 +1,83 @@
+' Nibbles — snake (Microsoft / Jim Emptage lineage)
+Option Explicit
+
+Dim nb_active As Boolean
+Dim nb_x(200) As Integer
+Dim nb_y(200) As Integer
+Dim nb_len As Integer
+Dim nb_dir As Integer
+Dim nb_tick As Single
+Dim nb_fx As Integer
+Dim nb_fy As Integer
+
+Sub Nibbles_Init()
+	Screen 13
+	Cls
+	nb_len = 4
+	nb_dir = 1
+	Dim i As Integer
+	For i = 0 To nb_len - 1
+		nb_x(i) = 80 - i * 6
+		nb_y(i) = 100
+	Next i
+	nb_fx = 40 + Int(Rnd() * 40) * 6
+	nb_fy = 40 + Int(Rnd() * 20) * 6
+	nb_tick = 0
+	nb_active = True
+	Call Nibbles_Draw
+End Sub
+
+Function Nibbles_Active() As Boolean
+	Nibbles_Active = nb_active
+End Function
+
+Sub Nibbles_Tick(delta As Single)
+	If Not nb_active Then Exit Sub
+	nb_tick = nb_tick + delta
+	If nb_tick < 0.12 Then Exit Sub
+	nb_tick = 0
+	Dim i As Integer
+	For i = nb_len - 1 To 1 Step -1
+		nb_x(i) = nb_x(i - 1)
+		nb_y(i) = nb_y(i - 1)
+	Next i
+	If nb_dir = 0 Then nb_y(0) = nb_y(0) - 6
+	If nb_dir = 1 Then nb_x(0) = nb_x(0) + 6
+	If nb_dir = 2 Then nb_y(0) = nb_y(0) + 6
+	If nb_dir = 3 Then nb_x(0) = nb_x(0) - 6
+	If nb_x(0) < 0 Or nb_x(0) > 310 Or nb_y(0) < 0 Or nb_y(0) > 190 Then
+		nb_active = False
+		Exit Sub
+	End If
+	If nb_x(0) = nb_fx And nb_y(0) = nb_fy Then
+		If nb_len < 199 Then nb_len = nb_len + 1
+		nb_fx = 20 + Int(Rnd() * 45) * 6
+		nb_fy = 20 + Int(Rnd() * 25) * 6
+	End If
+	Call Nibbles_Draw
+End Sub
+
+Sub Nibbles_Up()
+	nb_dir = 0
+End Sub
+
+Sub Nibbles_Down()
+	nb_dir = 2
+End Sub
+
+Sub Nibbles_Left()
+	nb_dir = 3
+End Sub
+
+Sub Nibbles_Right()
+	nb_dir = 1
+End Sub
+
+Sub Nibbles_Draw()
+	Cls
+	Dim i As Integer
+	For i = 0 To nb_len - 1
+		Line (nb_x(i), nb_y(i))-(nb_x(i) + 4, nb_y(i) + 4), 2, BF
+	Next i
+	Line (nb_fx, nb_fy)-(nb_fx + 4, nb_fy + 4), 4, BF
+End Sub

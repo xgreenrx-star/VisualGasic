@@ -5,6 +5,8 @@
 ##     VGTheme.style_popup(my_popup)
 extends RefCounted
 
+const _VGGodotCompat = preload("res://addons/visual_gasic/vg_godot_compat.gd")
+
 # ── Core: theme a PopupMenu (+ all child sub-menus) ──────────────────────
 
 ## Apply the VB6-light theme to a PopupMenu and every child PopupMenu.
@@ -78,13 +80,61 @@ static func hook_text_edit(te: TextEdit) -> void:
 		te.set_meta("_vg_ctx_hooked", true)
 		te.tree_entered.connect(func(): style_popup(te.get_menu()))
 
+# ── OptionButton: light chrome + dropdown (Godot editor theme is dark) ─
+
+## Style the closed control and its PopupMenu for cream/light toolbars.
+static func style_option_button(ob: OptionButton) -> void:
+	if not ob:
+		return
+	var text := Color(0.08, 0.08, 0.10)
+	ob.add_theme_color_override("font_color", text)
+	ob.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.45))
+	ob.add_theme_color_override("font_pressed_color", text)
+	ob.add_theme_color_override("font_focus_color", text)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	normal.border_color = Color(0.65, 0.64, 0.62, 1.0)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(2)
+	normal.content_margin_left = 6
+	normal.content_margin_right = 6
+	normal.content_margin_top = 2
+	normal.content_margin_bottom = 2
+	ob.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.97, 0.98, 1.0, 1.0)
+	hover.border_color = Color(0.35, 0.45, 0.70, 1.0)
+	ob.add_theme_stylebox_override("hover", hover)
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	pressed.border_color = Color(0.30, 0.50, 0.80, 1.0)
+	ob.add_theme_stylebox_override("pressed", pressed)
+	ob.add_theme_stylebox_override("focus", normal.duplicate())
+	var popup := ob.get_popup()
+	if popup:
+		style_popup(popup)
+
 # ── Convenience: theme an OptionButton's dropdown popup ──────────────────
 
-## Call once after creating an OptionButton. The dropdown will be themed
-## the first time the widget enters the scene tree.
+## Call once after creating an OptionButton. Applies light styling to the
+## control and dropdown; re-applies when the editor theme resets on popup.
 static func hook_option_button(ob: OptionButton) -> void:
 	if not ob:
 		return
+	style_option_button(ob)
 	if not ob.has_meta("_vg_ob_hooked"):
 		ob.set_meta("_vg_ob_hooked", true)
-		ob.tree_entered.connect(func(): style_popup(ob.get_popup()))
+		ob.tree_entered.connect(func():
+			if is_instance_valid(ob):
+				style_option_button(ob)
+		)
+		_VGGodotCompat.connect_popup_preshow(ob, func():
+			if is_instance_valid(ob):
+				style_option_button(ob)
+		)
+		var popup := ob.get_popup()
+		if popup:
+			popup.popup_hide.connect(func():
+				if is_instance_valid(ob):
+					style_option_button(ob)
+			)

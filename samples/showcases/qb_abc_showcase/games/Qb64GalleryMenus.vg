@@ -1,0 +1,50 @@
+' QB64.com gallery — category menus and skip list (no .BAS ports)
+Option Explicit
+
+Sub Q64_DrawMenuHub()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier Q — QB64.com sample gallery", 48, 36, Color8(140, 210, 255), 24
+	DrawString "Original Visual Gasic reimplementations (not copied .BAS).", 48, 72, Color8(190, 200, 210), 14
+	DrawString "G  Games (7)     D  Demos (9)     T  Tools (1)", 48, 120, Color8(255, 255, 255), 16
+	DrawString "S  Skipped samples (legal / engine limits)", 48, 152, Color8(255, 220, 160), 15
+	DrawString "Puzzles: Tic Tac Toe, Lights On, Life are under Games.", 48, 190, Color8(180, 190, 205), 13
+	DrawString "Esc = main menu", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub Q64_DrawMenuGames()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier Q — Games", 48, 36, Color8(140, 210, 255), 24
+	DrawString "1 Shooter   2 Platform   3 QBricks   4 Pipes puzzle", 48, 100, Color8(255, 255, 255), 15
+	DrawString "5 Tic Tac Toe   6 Lights On   7 Conway Life", 48, 128, Color8(255, 255, 255), 15
+	DrawString "Gorillas → Tier B key 1 (QBasic sample; fixed buildings + flight).", 48, 168, Color8(190, 200, 210), 13
+	DrawString "Esc = Q hub", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub Q64_DrawMenuDemos()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier Q — Demos", 48, 36, Color8(140, 210, 255), 24
+	DrawString "1 Fire   2 Mandelbrot   3 Matrix   4 Particle fountain", 48, 96, Color8(255, 255, 255), 14
+	DrawString "5 Relief 3D   6 Torus   7 Vector field   8 Turtle   9 Flag", 48, 122, Color8(255, 255, 255), 14
+	DrawString "Esc = Q hub", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub Q64_DrawMenuTools()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier Q — Tools / UI", 48, 36, Color8(140, 210, 255), 24
+	DrawString "1 Dialog demo box (text panels on SCREEN 13)", 48, 100, Color8(255, 255, 255), 15
+	DrawString "TUI framework sample skipped — needs Fellippe tui() API.", 48, 140, Color8(190, 200, 210), 13
+	DrawString "Esc = Q hub", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub Q64_DrawMenuSkipped()
+	DrawRect 0, 0, 960, 600, Color8(8, 12, 22), True
+	DrawString "Tier Q — Not ported (see docs/showcase/QB64_SAMPLES_AND_SHOWCASE.md)", 48, 32, Color8(255, 180, 140), 18
+	DrawString "gorillas — play Tier B → 1 (same Microsoft/QB64 game; VG rewrite).", 48, 80, Color8(220, 225, 235), 13
+	DrawString "frostbite — needs PNG/_PUTIMAGE + sound (engine roadmap; assets OK).", 48, 104, Color8(220, 225, 235), 13
+	DrawString "helicopter-rescue — needs large RGB surface + mouse/sound (engine roadmap).", 48, 128, Color8(220, 225, 235), 13
+	DrawString "tui — declarative text UI engine, not SCREEN 13 gameplay.", 48, 152, Color8(220, 225, 235), 13
+	DrawString "american-flag full — Vince warp uses per-pixel _RGB (lite static in Demos 9).", 48, 176, Color8(220, 225, 235), 13
+	DrawString "matrix-effect / particle-fountain full — 32-bit desktop alpha (lite demos included).", 48, 200, Color8(220, 225, 235), 13
+	DrawString "pipes-puzzle full — PNG + mouse (keyboard lite in Games 4).", 48, 224, Color8(220, 225, 235), 13
+	DrawString "Esc = Q hub", 48, 540, Color8(200, 200, 160), 14
+End Sub

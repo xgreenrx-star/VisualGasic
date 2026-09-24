@@ -1,0 +1,75 @@
+' Vector field — inspired by STxAxTIC QB64 sample (original VG)
+Option Explicit
+
+Dim qv_active As Boolean
+Dim qv_px(119) As Single
+Dim qv_py(119) As Single
+Dim qv_cx As Integer
+Dim qv_cy As Integer
+Dim qv_tick As Single
+
+Sub Q64VField_Init()
+	Screen 13
+	Cls
+	qv_active = True
+	qv_cx = 160
+	qv_cy = 100
+	qv_tick = 0
+	Dim i As Integer
+	For i = 0 To 119
+		qv_px(i) = Rnd() * 300 + 10
+		qv_py(i) = Rnd() * 180 + 10
+	Next i
+End Sub
+
+Function Q64VField_Active() As Boolean
+	Q64VField_Active = qv_active
+End Function
+
+Sub Q64VField_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Vector field particles"
+	l2 = "Arrows move charge  Space = respawn — Esc = menu"
+End Sub
+
+Sub Q64VField_MoveCharge(dx As Integer, dy As Integer)
+	qv_cx = qv_cx + dx * 8
+	qv_cy = qv_cy + dy * 8
+	If qv_cx < 20 Then qv_cx = 20
+	If qv_cx > 300 Then qv_cx = 300
+	If qv_cy < 20 Then qv_cy = 20
+	If qv_cy > 180 Then qv_cy = 180
+End Sub
+
+Sub Q64VField_Respawn()
+	Dim i As Integer
+	For i = 0 To 119
+		qv_px(i) = Rnd() * 300 + 10
+		qv_py(i) = Rnd() * 180 + 10
+	Next i
+End Sub
+
+Sub Q64VField_Tick(delta As Single)
+	qv_tick = qv_tick + delta
+	If qv_tick < 0.04 Then Exit Sub
+	qv_tick = 0
+	Line (0, 0)-(319, 199), 0, BF
+	Circle (qv_cx, qv_cy), 5, 4, , , 1
+	Dim i As Integer
+	For i = 0 To 119
+		Dim dx As Single
+		Dim dy As Single
+		dx = qv_px(i) - qv_cx
+		dy = qv_py(i) - qv_cy
+		Dim d2 As Single
+		d2 = dx * dx + dy * dy + 80
+		dx = dx / d2 * 40
+		dy = dy / d2 * 40
+		qv_px(i) = qv_px(i) + dx
+		qv_py(i) = qv_py(i) + dy
+		If qv_px(i) < 2 Or qv_px(i) > 317 Or qv_py(i) < 2 Or qv_py(i) > 197 Then
+			qv_px(i) = Rnd() * 300 + 10
+			qv_py(i) = Rnd() * 180 + 10
+		End If
+		PSet (Int(qv_px(i)), Int(qv_py(i))), 11
+	Next i
+End Sub

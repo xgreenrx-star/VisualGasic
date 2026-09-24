@@ -21,6 +21,7 @@
 #include "gasic_ai_controller.h"
 #include "visual_gasic_comm.h"
 #include "visual_gasic_memory_buffer.h"
+#include "visual_gasic_qb_screen.h"
 #include <cmath>  // ::sin, ::cos, ::sqrt, ::tan, ::atan2, ::floor, ::ceil, ::exp, ::log
 
 namespace {
@@ -4638,6 +4639,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant val = pop_value();
                 UtilityFunctions::print(val);
+                VGQbScreen::note_console_print(this, String(val), true);
                 if (owner) {
                     Node *owner_node = Object::cast_to<Node>(owner);
                     if (owner_node && owner_node->is_inside_tree()) {
@@ -7621,13 +7623,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Check for breakpoints using Godot's EngineDebugger
                 if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
-                    // First check Godot's built-in breakpoint system
-                    bool godot_bp = engine_debugger->is_breakpoint(src_line, StringName(script_path));
-                    bool has_bp = godot_bp;
-                    
-                    // Also check our C++ breakpoint storage (loaded from JSON file)
-                    if (!has_bp) {
-                        has_bp = VisualGasicLanguage::has_breakpoint(script_path, src_line);
+                    // .vg breakpoints live in VG JSON / set_breakpoints — Godot's Script
+                    // editor cache can keep a stale hit after the VG gutter is cleared.
+                    bool has_bp = VisualGasicLanguage::has_breakpoint(script_path, src_line);
+                    if (!has_bp && !script_path.ends_with(".vg")) {
+                        has_bp = engine_debugger->is_breakpoint(src_line, StringName(script_path));
                     }
                     
                     if (has_bp) {

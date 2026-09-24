@@ -1,0 +1,96 @@
+' Jetpack Lite — one cavern (Tier C)
+Option Explicit
+
+Dim jp_active As Boolean
+Dim jp_x As Single
+Dim jp_y As Single
+Dim jp_vx As Single
+Dim jp_vy As Single
+Dim jp_fuel As Integer
+Dim jp_gems As Integer
+Dim jp_got As Integer
+Dim jp_msg As String
+
+Sub Jetpack_Init()
+	Screen 13
+	Cls
+	jp_x = 40
+	jp_y = 160
+	jp_vx = 0
+	jp_vy = 0
+	jp_fuel = 200
+	jp_gems = 5
+	jp_got = 0
+	jp_msg = "Up thrust  L/R fly  collect gems  reach top"
+	jp_active = True
+	Call Jetpack_Draw
+End Sub
+
+Function Jetpack_Active() As Boolean
+	Jetpack_Active = jp_active
+End Function
+
+Sub Jetpack_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "JETPACK  fuel:" & CStr(jp_fuel) & "  gems:" & CStr(jp_got) & "/" & CStr(jp_gems)
+	l2 = jp_msg
+End Sub
+
+Sub Jetpack_Tick(delta As Single)
+	If Not jp_active Then Exit Sub
+	jp_vy = jp_vy + 0.06
+	jp_x = jp_x + jp_vx
+	jp_y = jp_y + jp_vy
+	If jp_x < 10 Then jp_x = 10: jp_vx = 0
+	If jp_x > 300 Then jp_x = 300: jp_vx = 0
+	If jp_y > 180 Then
+		jp_y = 180
+		jp_vy = 0
+	End If
+	If jp_y < 20 Then
+		jp_msg = "Top reached! Win."
+		jp_active = False
+	End If
+	If jp_fuel <= 0 And jp_vy > 0 Then jp_vy = jp_vy + 0.04
+	Call Jetpack_CheckGems
+	Call Jetpack_Draw
+End Sub
+
+Sub Jetpack_Thrust()
+	If jp_fuel > 0 Then
+		jp_fuel = jp_fuel - 2
+		jp_vy = jp_vy - 0.35
+	End If
+End Sub
+
+Sub Jetpack_Left()
+	jp_vx = jp_vx - 0.2
+End Sub
+
+Sub Jetpack_Right()
+	jp_vx = jp_vx + 0.2
+End Sub
+
+Sub Jetpack_CheckGems()
+	Dim i As Integer
+	For i = 1 To jp_gems
+		Dim gx As Single
+		Dim gy As Single
+		gx = 60 + i * 45
+		gy = 160 - i * 25
+		If Abs(jp_x - gx) < 10 And Abs(jp_y - gy) < 10 Then
+			jp_got = jp_got + 1
+		End If
+	Next i
+End Sub
+
+Sub Jetpack_Draw()
+	Cls
+	Line (0, 185)-(319, 199), 8, BF
+	Dim i As Integer
+	For i = 1 To jp_gems
+		If i > jp_got Then
+			Circle (60 + i * 45, 160 - i * 25), 4, 14
+		End If
+	Next i
+	Line (Int(jp_x) - 4, Int(jp_y))-(Int(jp_x) + 4, Int(jp_y) + 8), 15, BF
+End Sub

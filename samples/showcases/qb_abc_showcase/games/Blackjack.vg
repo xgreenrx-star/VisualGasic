@@ -1,0 +1,75 @@
+' Blackjack — casino card game (ABC lineage, Tier B)
+Option Explicit
+
+Dim bj_active As Boolean
+Dim bj_player As Integer
+Dim bj_dealer As Integer
+Dim bj_hidden As Integer
+Dim bj_done As Boolean
+Dim bj_msg As String
+
+Sub Blackjack_Init()
+	Screen 13
+	Cls
+	bj_player = Blackjack_DrawCard() + Blackjack_DrawCard()
+	bj_dealer = Blackjack_DrawCard()
+	bj_hidden = Blackjack_DrawCard()
+	bj_done = False
+	bj_msg = "H hit  S stand"
+	bj_active = True
+	Call Blackjack_Draw
+End Sub
+
+Function Blackjack_Active() As Boolean
+	Blackjack_Active = bj_active
+End Function
+
+Function Blackjack_DrawCard() As Integer
+	Blackjack_DrawCard = 2 + Int(Rnd() * 9)
+End Function
+
+Sub Blackjack_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "BLACKJACK  You:" & CStr(bj_player) & "  Dealer:" & CStr(bj_dealer)
+	If bj_done Then
+		l2 = bj_msg
+	Else
+		l2 = bj_msg & "  (+ hidden card)"
+	End If
+End Sub
+
+Sub Blackjack_Hit()
+	If bj_done Then Exit Sub
+	bj_player = bj_player + Blackjack_DrawCard()
+	If bj_player > 21 Then
+		bj_done = True
+		bj_active = False
+		bj_msg = "Bust! You lose."
+	End If
+	Call Blackjack_Draw
+End Sub
+
+Sub Blackjack_Stand()
+	If bj_done Then Exit Sub
+	bj_dealer = bj_dealer + bj_hidden
+	Do While bj_dealer < 17
+		bj_dealer = bj_dealer + Blackjack_DrawCard()
+	Loop
+	bj_done = True
+	If bj_dealer > 21 Or bj_player > bj_dealer Then
+		bj_msg = "You win!"
+	ElseIf bj_player = bj_dealer Then
+		bj_msg = "Push."
+	Else
+		bj_msg = "Dealer wins."
+	End If
+	bj_active = False
+	Call Blackjack_Draw
+End Sub
+
+Sub Blackjack_Draw()
+	Cls
+	Line (20, 40)-(100, 90), 15, B
+	Line (120, 40)-(200, 90), 12, B
+	Line (24, 64)-(24 + bj_player * 3, 72), 10, BF
+	Line (124, 64)-(124 + bj_dealer * 3, 72), 11, BF
+End Sub

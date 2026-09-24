@@ -1,0 +1,63 @@
+' Matrix rain — inspired by TylerDarko QB64 sample (original VG, no alpha)
+Option Explicit
+
+Dim qx_active As Boolean
+Dim qx_col(39) As Integer
+Dim qx_len(39) As Integer
+Dim qx_tick As Single
+
+Sub Q64Matrix_Init()
+	Screen 13
+	Cls
+	Palette 0, 0, 0, 0
+	Palette 2, 0, 180, 0
+	Palette 10, 0, 255, 40
+	Palette 15, 200, 255, 200
+	qx_active = True
+	Dim i As Integer
+	For i = 0 To 39
+		qx_col(i) = Int(Rnd() * 40)
+		qx_len(i) = 4 + Int(Rnd() * 14)
+	Next i
+	qx_tick = 0
+	Call Q64Matrix_Draw
+End Sub
+
+Function Q64Matrix_Active() As Boolean
+	Q64Matrix_Active = qx_active
+End Function
+
+Sub Q64Matrix_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Matrix effect (simplified)"
+	l2 = "Green columns on SCREEN 13 — Esc = menu"
+End Sub
+
+Sub Q64Matrix_Tick(delta As Single)
+	qx_tick = qx_tick + delta
+	If qx_tick < 0.05 Then Exit Sub
+	qx_tick = 0
+	Line (0, 0)-(319, 199), 0, BF
+	Dim i As Integer
+	For i = 0 To 39
+		qx_col(i) = qx_col(i) + 1
+		If qx_col(i) > 199 + qx_len(i) Then
+			qx_col(i) = -qx_len(i)
+			qx_len(i) = 4 + Int(Rnd() * 16)
+		End If
+		Dim j As Integer
+		For j = 0 To qx_len(i)
+			Dim yy As Integer
+			yy = qx_col(i) - j
+			If yy >= 0 And yy < 200 Then
+				Dim col As Integer
+				If j = 0 Then col = 15 Else If j < 3 Then col = 10 Else col = 2
+				PSet (8 + i * 8, yy), col
+				If j Mod 3 = 0 Then
+					Locate yy \ 14 + 1, i + 1
+					Color col
+					Print Chr(65 + Int(Rnd() * 26))
+				End If
+			End If
+		Next j
+	Next i
+End Sub

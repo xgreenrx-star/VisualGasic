@@ -475,6 +475,16 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                 current++;
             }
             String text = p_source_code.substr(start, current - start);
+            // BASIC string-type suffix: INKEY$ is one name. A $ that starts
+            // $NodeName (next char is a letter) stays a node path.
+            if (current < length && p_source_code[current] == '$') {
+                char32_t after = (current + 1 < length) ? p_source_code[current + 1] : 0;
+                bool name_cont = (after >= 'A' && after <= 'Z') || (after >= 'a' && after <= 'z') || after == '_' || after == '%';
+                if (!name_cont) {
+                    text += "$";
+                    current++;
+                }
+            }
             Token t;
             t.value = text;
             t.line = line;

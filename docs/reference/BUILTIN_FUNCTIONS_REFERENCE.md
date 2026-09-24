@@ -30,6 +30,7 @@ Quick reference for all builtin functions and features (122+).
 - [File System Statements (5)](#file-system-statements-5)
 - [Debugging Statements (1)](#debugging-statements-1)
 - [VB6 Global Objects (3)](#vb6-global-objects-3)
+- [QuickBASIC graphics (SCREEN)](#quickbasic-graphics-screen)
 - [COM-Style Objects (4)](#com-style-objects-4)
   - [VGCollection](#vgcollection)
   - [VGRegEx](#vgregex)
@@ -496,6 +497,30 @@ Err.Source                        ' Error source module
 Err.Clear                         ' Reset error state
 Err.Raise number, source, desc    ' Raise a runtime error
 ```
+
+---
+
+## QuickBASIC graphics (SCREEN)
+
+Engine builtins for classic QBasic-style indexed-color drawing (not IDE plugins). **`Screen.Width`** = monitor; **`SCREEN n`** = logical game buffer (letterboxed in viewport).
+
+| Statement / function | Notes |
+|---------------------|--------|
+| `SCREEN mode` | Modes 0,1,2,7,8,9,12,13 (13 = 320×200×256) |
+| `PSET (x,y) [, c]` | QB buffer; not canvas `PSet x, y, color` |
+| `LINE (x1,y1)-(x2,y2) [, c [, B\|BF]]` | Not `Line Input` |
+| `CIRCLE (x,y), r [, c]` | Outline only |
+| `PAINT (x,y) [, c [, border]]` | Flood fill |
+| `GET (x1,y1)-(x2,y2), arr` | `arr(0)`=w, `arr(1)`=h, then pixels; not `Get #` |
+| `PUT (x,y), arr [, XOR\|PSET\|…]` | Default XOR; not `Put #` |
+| `CLS` | Clears QB buffer when active |
+| `Point(x,y)` | Read index; -1 off-screen |
+| `InKey$` / `Inkey()` | One char or `""` |
+| `Play "…"` | SiON MML; silent if SiON missing |
+
+**Not implemented:** `DEF SEG`, `CALL ABSOLUTE`.
+
+Manual: [docs/manual/qb_graphics_mode.md](../manual/qb_graphics_mode.md) · Test: `test_qb_screen.vg`
 
 ---
 

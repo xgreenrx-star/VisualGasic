@@ -1,0 +1,100 @@
+' Tower of Hanoi — puzzle (Tier B)
+Option Explicit
+
+Dim hn_active As Boolean
+Dim hn_pegs(3, 8) As Integer
+Dim hn_top(3) As Integer
+Dim hn_sel As Integer
+Dim hn_moves As Integer
+Dim hn_msg As String
+
+Sub Hanoi_Init()
+	Screen 13
+	hn_sel = 0
+	hn_moves = 0
+	hn_top(1) = 4
+	hn_top(2) = 0
+	hn_top(3) = 0
+	hn_pegs(1, 1) = 4
+	hn_pegs(1, 2) = 3
+	hn_pegs(1, 3) = 2
+	hn_pegs(1, 4) = 1
+	hn_msg = "1/2/3 select peg  Space move disk"
+	hn_active = True
+	Call Hanoi_Draw
+End Sub
+
+Function Hanoi_Active() As Boolean
+	If Not hn_active Then
+		Hanoi_Active = False
+		Exit Function
+	End If
+	If hn_top(1) = 0 And hn_top(3) = 4 Then
+		hn_msg = "Solved in " & CStr(hn_moves) & " moves!"
+		hn_active = False
+	End If
+	Hanoi_Active = hn_active
+End Function
+
+Sub Hanoi_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "HANOI  moves:" & CStr(hn_moves) & "  sel peg:" & CStr(hn_sel)
+	l2 = hn_msg
+End Sub
+
+Sub Hanoi_SelectPeg(p As Integer)
+	hn_sel = p
+End Sub
+
+Sub Hanoi_TryMove()
+	If hn_sel < 1 Or hn_sel > 3 Then Exit Sub
+	Dim fromP As Integer
+	Dim toP As Integer
+	fromP = hn_sel
+	toP = hn_sel Mod 3 + 1
+	If hn_top(fromP) < 1 Then Exit Sub
+	Dim disk As Integer
+	disk = hn_pegs(fromP, hn_top(fromP))
+	If hn_top(toP) > 0 Then
+		If hn_pegs(toP, hn_top(toP)) < disk Then Exit Sub
+	End If
+	hn_top(toP) = hn_top(toP) + 1
+	hn_pegs(toP, hn_top(toP)) = disk
+	hn_top(fromP) = hn_top(fromP) - 1
+	hn_moves = hn_moves + 1
+	Call Hanoi_Draw
+End Sub
+
+Sub Hanoi_MoveAlternate(toP As Integer)
+	If hn_sel < 1 Then Exit Sub
+	Dim fromP As Integer
+	fromP = hn_sel
+	If hn_top(fromP) < 1 Then Exit Sub
+	Dim disk As Integer
+	disk = hn_pegs(fromP, hn_top(fromP))
+	If hn_top(toP) > 0 Then
+		If hn_pegs(toP, hn_top(toP)) < disk Then Exit Sub
+	End If
+	hn_top(toP) = hn_top(toP) + 1
+	hn_pegs(toP, hn_top(toP)) = disk
+	hn_top(fromP) = hn_top(fromP) - 1
+	hn_moves = hn_moves + 1
+	hn_sel = toP
+	Call Hanoi_Draw
+End Sub
+
+Sub Hanoi_Draw()
+	Cls
+	Line (40, 170)-(280, 170), 6
+	Dim p As Integer
+	For p = 1 To 3
+		Dim bx As Integer
+		bx = 50 + (p - 1) * 90
+		Line (bx + 40, 80)-(bx + 40, 170), 8
+		Dim i As Integer
+		For i = 1 To hn_top(p)
+			Dim w As Integer
+			w = hn_pegs(p, i) * 8
+			Line (bx + 40 - w, 170 - i * 14)-(bx + 40 + w, 170 - i * 14 + 10), 2 + hn_pegs(p, i), BF
+		Next i
+	Next p
+End Sub

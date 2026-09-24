@@ -1,0 +1,119 @@
+' Nibbles Full — walls + faster (Tier C)
+Option Explicit
+
+Dim nf_active As Boolean
+Dim nf_len As Integer
+Dim nf_x(128) As Integer
+Dim nf_y(128) As Integer
+Dim nf_dx As Integer
+Dim nf_dy As Integer
+Dim nf_foodx As Integer
+Dim nf_foody As Integer
+Dim nf_tick As Single
+Dim nf_msg As String
+Dim nf_wall(20, 15) As Integer
+
+Sub NibblesFull_Init()
+	Screen 13
+	nf_len = 4
+	nf_dx = 1
+	nf_dy = 0
+	Dim i As Integer
+	For i = 0 To nf_len - 1
+		nf_x(i) = 10 - i
+		nf_y(i) = 8
+	Next i
+	For i = 0 To 19
+		Dim j As Integer
+		For j = 0 To 14
+			nf_wall(i, j) = 0
+		Next j
+	Next i
+	For i = 2 To 17
+		nf_wall(i, 3) = 1
+		nf_wall(i, 11) = 1
+	Next i
+	Call NibblesFull_PlaceFood
+	nf_tick = 0
+	nf_msg = "Arrows turn  walls kill"
+	nf_active = True
+	Call NibblesFull_Draw
+End Sub
+
+Function NibblesFull_Active() As Boolean
+	NibblesFull_Active = nf_active
+End Function
+
+Sub NibblesFull_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "NIBBLES FULL  length " & CStr(nf_len)
+	l2 = nf_msg
+End Sub
+
+Sub NibblesFull_PlaceFood()
+	nf_foodx = 3 + Int(Rnd() * 14)
+	nf_foody = 2 + Int(Rnd() * 10)
+End Sub
+
+Sub NibblesFull_SetDir(dx As Integer, dy As Integer)
+	If nf_dx = -dx And nf_dy = -dy Then Exit Sub
+	nf_dx = dx
+	nf_dy = dy
+End Sub
+
+Sub NibblesFull_Tick(delta As Single)
+	If Not nf_active Then Exit Sub
+	nf_tick = nf_tick + delta
+	If nf_tick < 0.12 Then Exit Sub
+	nf_tick = 0
+	Dim i As Integer
+	For i = nf_len - 1 To 1 Step -1
+		nf_x(i) = nf_x(i - 1)
+		nf_y(i) = nf_y(i - 1)
+	Next i
+	nf_x(0) = nf_x(0) + nf_dx
+	nf_y(0) = nf_y(0) + nf_dy
+	If nf_x(0) < 0 Or nf_x(0) > 19 Or nf_y(0) < 0 Or nf_y(0) > 14 Then
+		nf_msg = "Hit border!"
+		nf_active = False
+		Call NibblesFull_Draw
+		Exit Sub
+	End If
+	If nf_wall(nf_x(0), nf_y(0)) = 1 Then
+		nf_msg = "Hit wall!"
+		nf_active = False
+		Call NibblesFull_Draw
+		Exit Sub
+	End If
+	For i = 1 To nf_len - 1
+		If nf_x(0) = nf_x(i) And nf_y(0) = nf_y(i) Then
+			nf_msg = "Bit self!"
+			nf_active = False
+			Call NibblesFull_Draw
+			Exit Sub
+		End If
+	Next i
+	If nf_x(0) = nf_foodx And nf_y(0) = nf_foody Then
+		nf_len = nf_len + 1
+		nf_x(nf_len - 1) = nf_x(nf_len - 2)
+		nf_y(nf_len - 1) = nf_y(nf_len - 2)
+		Call NibblesFull_PlaceFood
+	End If
+	Call NibblesFull_Draw
+End Sub
+
+Sub NibblesFull_Draw()
+	Cls
+	Dim i As Integer
+	Dim j As Integer
+	For i = 0 To 19
+		For j = 0 To 14
+			If nf_wall(i, j) = 1 Then
+				Line (20 + i * 14, 20 + j * 12)-(20 + i * 14 + 12, 20 + j * 12 + 10), 8, BF
+			End If
+		Next j
+	Next i
+	PSet (20 + nf_foodx * 14 + 6, 20 + nf_foody * 12 + 5), 4
+	For i = 0 To nf_len - 1
+		Line (20 + nf_x(i) * 14, 20 + nf_y(i) * 12)-(20 + nf_x(i) * 14 + 10, 20 + nf_y(i) * 12 + 8), 15, BF
+	Next i
+End Sub

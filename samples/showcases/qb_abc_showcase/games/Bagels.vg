@@ -1,0 +1,86 @@
+' Bagels — Mastermind-style number guessing (ABC / James Hooker lineage)
+Option Explicit
+
+Dim bag_secret As Integer
+Dim bag_guesses As Integer
+Dim bag_digits As Integer
+Dim bag_msg As String
+Dim bag_input As String
+Dim bag_active As Boolean
+
+Sub Bagels_Init()
+	bag_digits = 3
+	bag_guesses = 0
+	bag_secret = 100 + Int(Rnd() * 900)
+	bag_msg = "Guess the " & CStr(bag_digits) & "-digit number. Enter digits, Enter=submit."
+	bag_input = ""
+	bag_active = True
+End Sub
+
+Function Bagels_Active() As Boolean
+	Bagels_Active = bag_active
+End Function
+
+Sub Bagels_GetHud(ByRef line1 As String, ByRef line2 As String)
+	line1 = "BAGELS  guess #" & CStr(bag_guesses + 1)
+	line2 = bag_msg
+End Sub
+
+Sub Bagels_Key(ch As String)
+	If Not bag_active Then Exit Sub
+	If ch = Chr(27) Then
+		bag_active = False
+		Exit Sub
+	End If
+	If ch = Chr(13) Or ch = Chr(10) Then
+		Call Bagels_Submit
+		Exit Sub
+	End If
+	If ch >= "0" And ch <= "9" Then
+		If Len(bag_input) < bag_digits Then bag_input = bag_input & ch
+		bag_msg = "Typing: " & bag_input
+	End If
+	If ch = Chr(8) Or ch = Chr(127) Then
+		If Len(bag_input) > 0 Then bag_input = Left(bag_input, Len(bag_input) - 1)
+		bag_msg = "Typing: " & bag_input
+	End If
+End Sub
+
+Sub Bagels_Submit()
+	Dim g As Integer
+	g = CInt(Val(bag_input))
+	bag_guesses = bag_guesses + 1
+	bag_input = ""
+	If g = bag_secret Then
+		bag_msg = "CORRECT in " & CStr(bag_guesses) & " tries! Esc=menu"
+		bag_active = False
+		Exit Sub
+	End If
+	Dim pic As Integer
+	Dim ferm As Integer
+	pic = 0
+	ferm = 0
+	Dim s As String
+	Dim t As String
+	s = CStr(bag_secret)
+	t = CStr(g)
+	While Len(t) < bag_digits
+		t = "0" & t
+	Wend
+	Dim i As Integer
+	For i = 1 To bag_digits
+		Dim tc As String
+		Dim sc As String
+		tc = Mid(t, i, 1)
+		sc = Mid(s, i, 1)
+		If tc = sc Then
+			pic = pic + 1
+		Else
+			Dim j As Integer
+			For j = 1 To bag_digits
+				If Mid(s, j, 1) = tc Then ferm = ferm + 1
+			Next j
+		End If
+	Next i
+	bag_msg = "Pico=" & CStr(pic) & " Fermi=" & CStr(ferm) & "  (exact digit+place / digit only)"
+End Sub

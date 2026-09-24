@@ -1,0 +1,93 @@
+' Sokoban mini — David Joffe lineage (one tiny level)
+Option Explicit
+
+Dim sk_active As Boolean
+Dim sk_px As Integer
+Dim sk_py As Integer
+Dim sk_map(8, 8) As Integer
+Dim sk_won As Boolean
+
+Sub Sokoban_Init()
+	Screen 13
+	Cls
+	sk_px = 2
+	sk_py = 2
+	sk_won = False
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 8
+		For c = 0 To 8
+			sk_map(r, c) = 0
+		Next c
+	Next r
+	For c = 0 To 8
+		sk_map(0, c) = 1
+		sk_map(8, c) = 1
+		sk_map(c, 0) = 1
+		sk_map(c, 8) = 1
+	Next c
+	sk_map(4, 4) = 2
+	sk_map(5, 4) = 3
+	sk_map(6, 6) = 4
+	sk_active = True
+	Call Sokoban_Draw
+End Sub
+
+Function Sokoban_Active() As Boolean
+	Sokoban_Active = sk_active
+End Function
+
+Sub Sokoban_TryMove(dx As Integer, dy As Integer)
+	Dim nx As Integer
+	Dim ny As Integer
+	nx = sk_px + dx
+	ny = sk_py + dy
+	If sk_map(ny, nx) = 1 Then Exit Sub
+	If sk_map(ny, nx) = 3 Or sk_map(ny, nx) = 4 Then
+		Dim bx As Integer
+		Dim by As Integer
+		bx = nx + dx
+		by = ny + dy
+		If sk_map(by, bx) = 1 Or sk_map(by, bx) = 3 Or sk_map(by, bx) = 4 Then Exit Sub
+		If sk_map(ny, nx) = 3 Then sk_map(ny, nx) = 0
+		If sk_map(ny, nx) = 4 Then sk_map(ny, nx) = 2
+		If sk_map(by, bx) = 2 Then sk_map(by, bx) = 4 Else sk_map(by, bx) = 3
+	End If
+	sk_px = nx
+	sk_py = ny
+	If sk_map(6, 6) = 4 Then
+		sk_won = True
+		sk_active = False
+	End If
+	Call Sokoban_Draw
+End Sub
+
+Sub Sokoban_Draw()
+	Cls
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 8
+		For c = 0 To 8
+			Dim x As Integer
+			Dim y As Integer
+			x = 40 + c * 24
+			y = 30 + r * 18
+			If sk_map(r, c) = 1 Then
+				Line (x, y)-(x + 22, y + 16), 8, BF
+			End If
+			If sk_map(r, c) = 2 Then
+				Line (x + 4, y + 4)-(x + 18, y + 12), 6, BF
+			End If
+			If sk_map(r, c) = 3 Then
+				Line (x + 6, y + 4)-(x + 16, y + 12), 14, BF
+			End If
+			If sk_map(r, c) = 4 Then
+				Line (x + 4, y + 4)-(x + 18, y + 12), 6, BF
+				Line (x + 6, y + 4)-(x + 16, y + 12), 10, BF
+			End If
+		Next c
+	Next r
+	If sk_px >= 0 Then
+		Line (40 + sk_px * 24 + 8, 30 + sk_py * 18 + 4)-(40 + sk_px * 24 + 14, 30 + sk_py * 18 + 12), 15, BF
+	End If
+End Sub

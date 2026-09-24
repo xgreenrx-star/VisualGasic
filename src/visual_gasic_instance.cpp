@@ -30,6 +30,8 @@
 #include <godot_cpp/variant/variant_internal.hpp>
 
 #include "visual_gasic_instance.h"
+#include "visual_gasic_qb_screen.h"
+#include "vg_qb_string_bytes.h"
 #include "visual_gasic_vector_canvas.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
@@ -1298,7 +1300,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbLf"] = "\n";
     builtin_constants["vbCrLf"] = "\r\n";
     builtin_constants["vbNewLine"] = "\n";
-    builtin_constants["vbNullChar"] = "\0";
+    builtin_constants["vbNullChar"] = VGStringBytes::chr_qb(0);
     builtin_constants["vbBack"] = "\b";
     builtin_constants["vbFormFeed"] = "\f";
     builtin_constants["vbVerticalTab"] = "\v";
@@ -1611,6 +1613,12 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                         }
 
                         // Store the full AST for cross-module function calls
+                        for (int si_src = 0; si_src < import_ast->subs.size(); si_src++) {
+                            if (import_ast->subs[si_src] && import_ast->subs[si_src]->source_file.is_empty()) {
+                                import_ast->subs[si_src]->source_file = full_path;
+                            }
+                        }
+
                         ImportedModule im;
                         im.module_name = mod_name;
                         im.full_path = full_path;
@@ -2101,6 +2109,7 @@ void VisualGasicInstance::collect_data_from_block(const Vector<Statement*>& bloc
 }
 
 VisualGasicInstance::~VisualGasicInstance() {
+    VGQbScreen::dispose(this);
     // Unregister from debug system
     VisualGasicDebug::unregister_instance(this);
     
@@ -3153,6 +3162,23 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
 // CanvasItem draw builtins — shared by dispatch_builtin_call() and bytecode OP_CALL.
 bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found) {
     r_found = false;
+
+    // QuickBASIC CLS must clear the SCREEN buffer before the canvas CLS fallback
+    // (queue_redraw only). Bytecode calls builtins via dispatch_builtin_call →
+    // try_dispatch_draw_call first; without this, animated QB games smear every frame.
+    if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) {
+        Array qb_args;
+        for (int i = 0; i < p_arg_count; i++) {
+            qb_args.push_back(p_args[i]);
+        }
+        bool qb_found = false;
+        VGQbScreen::handle_statement(this, p_method, qb_args, qb_found);
+        if (qb_found) {
+            r_found = true;
+            return true;
+        }
+    }
+
     CanvasItem *ci = get_draw_canvas_item();
     if (!ci) {
         return false;

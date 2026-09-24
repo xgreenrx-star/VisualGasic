@@ -1797,9 +1797,9 @@ static func _build_db() -> void:
 		"If IsKeyPressed(\"space\") Then\n    Jump()\nEnd If\n\nIf IsKeyPressed(\"left\") Then x = x - speed\nIf IsKeyPressed(\"right\") Then x = x + speed", 8061)
 
 	_add("IsKeyJustPressed",
-		"Input.IsKeyJustPressed(keyCode) As Boolean",
-		"Returns True on the frame a keyboard key was first pressed (rising edge). Use KEY_* constants.",
-		"If Input.IsKeyJustPressed(KEY_SPACE) And Player.IsOnFloor() Then\n    Jump()\nEnd If", 8062)
+		"IsKeyJustPressed(keyCode) As Boolean\nInput.IsKeyJustPressed(keyCode) As Boolean",
+		"True on the frame a key goes down. Poll in _Process or handle ev.keycode in _Input (often more reliable in the embedded game view). Use KEY_1 … KEY_9, KEY_SPACE, etc.",
+		"Sub _Input(ev As Variant)\n    If ev Is InputEventKey And ev.pressed And Not ev.echo Then\n        If ev.keycode = KEY_1 Then StartGame()\n    End If\nEnd Sub\n\nIf IsKeyJustPressed(KEY_SPACE) Then Jump()", 8062)
 
 	_add("IsKeyJustReleased",
 		"Input.IsKeyJustReleased(keyCode) As Boolean",
@@ -1975,9 +1975,9 @@ static func _build_db() -> void:
 		"Sub _Draw()\n    DrawPixel 100, 50, Color(1, 0, 0)   ' Red pixel\n    PSet 101, 50, Color(0, 1, 0)         ' Green pixel (alias)\nEnd Sub\n\n' For heavy pixel work, use Image APIs:\nDim img = CreateImage(320, 240)\nSetImagePixel img, 100, 50, Color(1, 0, 0)", 6386)
 
 	_add("PSet",
-		"PSet x, y, color",
-		"Draws a single pixel (VB6-style name). Alias for DrawPixel.",
-		"PSet 100, 50, Color(1, 0, 0)   ' Red pixel\nPSet 101, 50, RGB(0, 255, 0)   ' Green pixel", 9787)
+		"PSet x, y, color   ' canvas _Draw\nPSET (x, y) [, c]   ' QuickBASIC SCREEN buffer",
+		"Canvas: single pixel in _Draw (alias for DrawPixel; use Color/Color8). QB: after SCREEN, PSET (x,y), paletteIndex writes to the 320×200 buffer — not a Godot Color.",
+		"PSet 100, 50, Color8(255, 0, 0)\n\nScreen 13\nPSet (10, 10), 4", 9787)
 
 	_add("DrawString",
 		"DrawString text, x, y, color [, fontSize]\nDrawString font, Vector2(x, y), text, color [, fontSize]  ' alternate; font arg is ignored",
@@ -2031,8 +2031,102 @@ static func _build_db() -> void:
 
 	_add("CLS",
 		"CLS\nCLS()",
-		"VB6-style clear. In the AST interpreter, frees nodes VG added with AddChild (not canvas pixels). In bytecode-compiled scripts, only queues a redraw. For canvas games, redraw in _Draw() each frame instead of relying on CLS.",
-		"Sub _Draw()\n    DrawRect 0, 0, 640, 480, Color.Black\n    DrawString \"Game Over\", 10, 20, Color.White\nEnd Sub", 5553)
+		"Clear: when QuickBASIC SCREEN is active, clears the QB pixel buffer. On a canvas Node2D game, redraw the background in _Draw() (or queue redraw) instead of relying on CLS alone.",
+		"Screen 13\nCls\nPSet (160, 100), 15\n\n' Canvas menu:\nSub _Draw()\n    DrawRect 0, 0, 640, 480, Color8(12, 18, 32), True\nEnd Sub", 5553)
+
+	# =========================================================================
+	# QUICKBASIC GRAPHICS (SCREEN buffer — engine builtins)
+	# Not Screen.Width (monitor). See docs/manual/qb_graphics_mode.md
+	# =========================================================================
+	_add("SCREEN",
+		"SCREEN modeNumber\nSCREEN 0   ' turn off QB overlay, return to canvas UI",
+		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). Shown letterboxed via a QbScreen sprite. Screen 0 hides the overlay. 32-bit pages use _RGB32 colors with PSET/LINE.",
+		"Screen 13\nCls\nLine (0, 0)-(319, 199), 7, B\nPSet (160, 100), 15\n\nSub ReturnToMenu()\n    Screen 0\n    QueueRedraw\nEnd Sub", 1590)
+
+	_add("LINE",
+		"LINE (x1, y1)-(x2, y2) [, c [, B|BF]]   ' QuickBASIC SCREEN\nLine Input #n, var   ' file I/O",
+		"Two meanings: (1) After SCREEN, draws in the QB buffer — B = box outline, BF = filled box. (2) Line Input reads a text line from an open file (#n).",
+		"Screen 13\nLine (0, 0)-(319, 199), 7, B\n\nOpen \"in.txt\" For Input As #1\nLine Input #1, title", 1600)
+
+	_add("CIRCLE",
+		"CIRCLE (x, y), radius [, c]   ' QuickBASIC SCREEN",
+		"Circle outline in the active SCREEN buffer (palette index). Distinct from DrawCircle in _Draw.",
+		"Screen 13\nCircle (160, 100), 40, 14", 1605)
+
+	_add("PAINT",
+		"PAINT (x, y) [, fillColor [, borderColor]]",
+		"Flood fill in the SCREEN buffer from (x, y).",
+		"Screen 13\nLine (20, 20)-(300, 180), 7, B\nPaint (160, 100), 4, 7", 1610)
+
+	_add("_NewImage",
+		"handle = _NewImage(width, height, 32)",
+		"QB64-style offscreen page. Returns a negative handle. SCREEN handle displays it. Colors are _RGB32. _FreeImage releases it.",
+		"img = _NewImage(640, 480, 32)\nScreen img\nPSet (10, 10), _RGB32(255, 0, 0)", 1640)
+	_add("_LoadImage",
+		"handle = _LoadImage(path)",
+		"PNG/JPG/WebP into a 32-bit page. Returns 0 if the file cannot be read.",
+		"spr = _LoadImage(\"res://art/ship.png\")\n_PutImage (0, 0), spr", 1641)
+	_add("_Dest",
+		"_Dest imageHandle\n_Source imageHandle",
+		"Draw target and Point source. 0 means the palette SCREEN buffer.",
+		"_Dest img", 1642)
+	_add("_PutImage",
+		"_PutImage (x, y), sourceHandle",
+		"1:1 copy of a page onto the current _Dest.",
+		"_PutImage (8, 8), spr", 1643)
+	_add("_Display",
+		"_Display",
+		"Presents the visual SCREEN page on the QbScreen sprite.",
+		"_Display", 1644)
+	_add("_FreeImage",
+		"_FreeImage imageHandle",
+		"Releases a page from _NewImage or _LoadImage.",
+		"_FreeImage img", 1645)
+	_add("_RGB32",
+		"c = _RGB32(r, g, b)\nc = _RGBA32(r, g, b, a)",
+		"32-bit color, channels 0–255, stored as &HAARRGGBB. Alpha defaults to 255.",
+		"PSet (1, 1), _RGBA32(255, 255, 0, 128)", 1646)
+	_add("_Width",
+		"w = _Width\nw = _Width(handle)\nh = _Height",
+		"Pixel size of the visible SCREEN or of a page handle.",
+		"Print _Width(img)", 1647)
+	_add("_DesktopWidth",
+		"w = _DesktopWidth\nh = _DesktopHeight",
+		"Primary monitor size in pixels. The QB buffer is still letterboxed in the Godot window.",
+		"img = _NewImage(_DesktopWidth, _DesktopHeight, 32)", 1648)
+	_add("_MouseX",
+		"x = _MouseX\ny = _MouseY\nb = _MouseButton(1)\nn = _MouseInput",
+		"Mouse in QB buffer coordinates. Button 1/2/3 returns -1 when down. _MouseInput is -1 once per new event.",
+		"If _MouseInput Then\n    PSet (_MouseX, _MouseY), 15\nEnd If", 1649)
+	_add("_SndOpen",
+		"h = _SndOpen(path)\n_SndPlay h\n_SndStop h\n_SndClose h\np = _SndPlaying(h)",
+		"File audio (WAV/OGG). Open returns 0 on failure. Playing is -1 while the sound is playing.",
+		"h = _SndOpen(\"res://audio/beep.wav\")\nIf h <> 0 Then _SndPlay h", 1650)
+
+	_add("GET (QB)",
+		"GET (x1, y1)-(x2, y2), arrayName",
+		"Copy a rectangle of SCREEN pixels into a VG array (arr(0)=width, arr(1)=height, then indices). Not Get # file I/O.",
+		"Dim spr() As Integer\nGet (0, 0)-(15, 15), spr", 1620)
+
+	_add("PUT (QB)",
+		"PUT (x, y), arrayName [, mode]",
+		"Blit a GET array to the SCREEN buffer. Optional mode: XOR (default), PSET, etc.",
+		"Put (50, 50), spr, PSET", 1630)
+
+	_add("InKey$",
+		"InKey$\nInkey()",
+		"Returns one queued token or \"\" (up to 64 queued). Printable keys are one char; extended keys use QBasic Chr(0) then scan byte (72=Up, 75=Left, 77=Right, 80=Down). Godot may spam Output with \"Unexpected NUL character\" while polling extended keys — expected, harmless, not a VG crash; ignore it. Requires _Input / _UnhandledInput on the owner. For new UIs prefer IsKeyJustPressed or _Input keycode.",
+		"Dim k As String\nk = InKey$\nIf k = Chr(0) Then\n    k = InKey$\n    sc = Asc(k)\nEnd If", 7794)
+
+	_add("PLAY (QB)",
+		"Play \"MML string\"",
+		"QuickBASIC-style PLAY string mapped to SiON MML (vgmusic). Silent no-op if SiON is unavailable.",
+		"Play \"T120 O3 L4 C D E F G\"", 1640)
+
+	_add("Point (QB)",
+		"Point(x, y)",
+		"Palette index at pixel in the SCREEN buffer, or -1 if off-screen / no buffer.",
+		"Dim c As Integer\nc = Point(10, 10)", 1645)
 
 	# =========================================================================
 	# IMAGE & TEXTURE MANIPULATION
@@ -2122,10 +2216,20 @@ static func _build_db() -> void:
 		"Loads an image file from the given resource path and returns a Texture2D for use with DrawTexture. The classic VB6-style way to load images.",
 		"Dim tex As Variant = LoadPicture(\"res://icon.png\")\nSub _Draw()\n    DrawTexture tex, 100, 100\nEnd Sub", 8621)
 
+	_add("Color",
+		"Color(red, green, blue [, alpha]) As Color",
+		"Godot-style color: channels are floats 0.0–1.0 (not 0–255). Color(255,255,255) oversaturates to white on 2D — use Color8 for byte RGB.",
+		"DrawRect 0, 0, 640, 480, Color(0.05, 0.07, 0.12), True\nDrawLine 0, 0, 100, 100, Color(1, 0, 0, 1), 2", 11018)
+
+	_add("Color8",
+		"Color8(red, green, blue [, alpha]) As Color",
+		"Byte RGB (0–255 per channel). Preferred for menus/HUD and HTML-style palettes. Same range as RGB(); Color8 adds optional alpha byte.",
+		"DrawRect 0, 0, 960, 600, Color8(12, 18, 32), True\nDrawString \"Hi\", 24, 28, Color8(200, 220, 255), 24", 11040)
+
 	_add("RGB",
 		"RGB(red, green, blue) As Color",
 		"Creates a Color from integer red, green, blue values (0-255). VB6-compatible function.",
-		"Dim c As Variant = RGB(255, 0, 0)  ' Red\nDrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue", 10529)
+		"Dim c As Variant = RGB(255, 0, 0)  ' Red\nDrawRect 0, 0, 100, 100, RGB(0, 128, 255)  ' Sky blue", 11065)
 
 	# =========================================================================
 	# GODOT API — common game-dev methods, properties, and callbacks
@@ -2721,7 +2825,11 @@ static func _build_see_also() -> void:
 		# Scope modifiers
 		["With", "End With", "Using"],
 		# Game
-		["IsActionPressed", "IsKeyPressed", "PlaySound", "ChangeScene", "CreateActor2D"],
+		["IsActionPressed", "IsKeyPressed", "IsKeyJustPressed", "PlaySound", "ChangeScene", "CreateActor2D"],
+		# Colors
+		["Color", "Color8", "RGB"],
+		# QuickBASIC SCREEN buffer
+		["SCREEN", "PSet", "LINE", "CIRCLE", "PAINT", "InKey$", "PLAY (QB)", "Point (QB)", "GET (QB)", "PUT (QB)", "_NewImage", "_RGB32", "_MouseX", "_SndOpen", "_DesktopWidth"],
 		# GoTo
 		["GoTo", "GoSub", "Return"],
 		# Godot — Movement / Physics

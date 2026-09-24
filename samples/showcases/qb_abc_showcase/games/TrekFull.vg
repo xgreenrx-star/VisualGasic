@@ -1,0 +1,102 @@
+' Super Star Trek — expanded sector (Tier C)
+Option Explicit
+
+Dim tf_active As Boolean
+Dim tf_energy As Single
+Dim tf_torps As Integer
+Dim tf_shields As Integer
+Dim tf_klingons As Integer
+Dim tf_stardate As Single
+Dim tf_bases As Integer
+Dim tf_q As Integer
+Dim tf_r As Integer
+Dim tf_map(8, 8) As Integer
+Dim tf_msg As String
+Dim tf_cmd As String
+
+Sub TrekFull_Init()
+	tf_energy = 3000
+	tf_torps = 10
+	tf_shields = 200
+	tf_klingons = 12
+	tf_stardate = 2200
+	tf_bases = 2
+	tf_q = 4
+	tf_r = 4
+	Dim i As Integer
+	Dim j As Integer
+	For i = 1 To 8
+		For j = 1 To 8
+			tf_map(i, j) = 0
+			If Rnd() < 0.08 Then tf_map(i, j) = 2
+			If Rnd() < 0.05 Then tf_map(i, j) = 1
+		Next j
+	Next i
+	tf_map(tf_q, tf_r) = 3
+	tf_msg = "W warp N nav LRS P phaser T torp B base map Q quit"
+	tf_cmd = ""
+	tf_active = True
+End Sub
+
+Function TrekFull_Active() As Boolean
+	TrekFull_Active = tf_active
+End Function
+
+Sub TrekFull_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "TREK FULL  " & CStr(tf_stardate) & "  K:" & CStr(tf_klingons) & "  E:" & CStr(Int(tf_energy))
+	l2 = tf_msg & "  sector " & CStr(tf_q) & "," & CStr(tf_r)
+End Sub
+
+Sub TrekFull_Key(ch As String)
+	If ch = Chr(27) Then
+		tf_active = False
+		Exit Sub
+	End If
+	If ch = Chr(13) Then
+		Call TrekFull_DoCmd
+		Exit Sub
+	End If
+	tf_cmd = tf_cmd & UCase(ch)
+End Sub
+
+Sub TrekFull_DoCmd()
+	Dim c As String
+	c = Left(tf_cmd, 1)
+	tf_cmd = ""
+	If c = "Q" Then tf_active = False
+	If c = "L" Then tf_msg = "LRS: " & CStr(tf_klingons) & " Klingons in galaxy."
+	If c = "P" And tf_klingons > 0 Then
+		tf_energy = tf_energy - 200
+		tf_klingons = tf_klingons - 1 + Int(Rnd() * 2)
+		If tf_klingons < 0 Then tf_klingons = 0
+		tf_msg = "Phasers fired."
+	End If
+	If c = "T" And tf_torps > 0 And tf_klingons > 0 Then
+		tf_torps = tf_torps - 1
+		tf_klingons = tf_klingons - 1
+		tf_msg = "Torpedo hit!"
+	End If
+	If c = "B" Then tf_msg = "Starbases remaining: " & CStr(tf_bases)
+	If c = "W" Then Call TrekFull_Warp
+	If c = "N" Then Call TrekFull_PrintMap
+	If tf_klingons <= 0 Then
+		tf_msg = "Mission complete!"
+		tf_active = False
+	End If
+	tf_stardate = tf_stardate + 0.5
+End Sub
+
+Sub TrekFull_Warp()
+	tf_q = 1 + Int(Rnd() * 8)
+	tf_r = 1 + Int(Rnd() * 8)
+	tf_energy = tf_energy - 50
+	tf_msg = "Warped to " & CStr(tf_q) & "," & CStr(tf_r)
+End Sub
+
+Sub TrekFull_PrintMap()
+	tf_msg = "Map row " & CStr(tf_q) & ": "
+	Dim j As Integer
+	For j = 1 To 8
+		tf_msg = tf_msg & CStr(tf_map(tf_q, j))
+	Next j
+End Sub

@@ -2482,6 +2482,10 @@ func _on_caret_changed() -> void:
 	# ── Sticky scroll: show enclosing procedure at top ──
 	_update_sticky_scroll(current_line)
 
+	# VB6 Data Tips — caret on identifier while paused
+	if _is_debug_paused and _data_tips_ref:
+		_data_tips_ref.check_caret(self)
+
 func _auto_capitalize_line(line_idx: int) -> void:
 	if line_idx < 0 or line_idx >= get_line_count():
 		return

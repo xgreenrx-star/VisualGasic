@@ -1,0 +1,107 @@
+' QBricks — inspired by Microsoft QBricks / QB64 sample (original VG)
+Option Explicit
+
+Dim qb_active As Boolean
+Dim qb_px As Integer
+Dim qb_bx As Single
+Dim qb_by As Single
+Dim qb_vx As Single
+Dim qb_vy As Single
+Dim qb_br(4, 9) As Integer
+Dim qb_score As Integer
+
+Sub Q64QBricks_Init()
+	Screen 13
+	Cls
+	qb_px = 140
+	qb_bx = 160
+	qb_by = 150
+	qb_vx = 2.2
+	qb_vy = -2.2
+	qb_score = 0
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 4
+		For c = 0 To 9
+			qb_br(r, c) = 1
+		Next c
+	Next r
+	qb_active = True
+	Call Q64QBricks_Draw
+End Sub
+
+Function Q64QBricks_Active() As Boolean
+	Q64QBricks_Active = qb_active
+End Function
+
+Sub Q64QBricks_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "QBricks (multi-row breakout)"
+	l2 = "Score " & CStr(qb_score) & "  Left/Right paddle"
+End Sub
+
+Sub Q64QBricks_Tick(delta As Single)
+	If Not qb_active Then Exit Sub
+	qb_bx = qb_bx + qb_vx
+	qb_by = qb_by + qb_vy
+	If qb_bx < 4 Or qb_bx > 316 Then qb_vx = -qb_vx
+	If qb_by < 24 Then qb_vy = Abs(qb_vy)
+	If qb_by > 190 Then
+		If qb_bx >= qb_px And qb_bx <= qb_px + 44 Then
+			qb_vy = -Abs(qb_vy)
+		Else
+			qb_active = False
+			Exit Sub
+		End If
+	End If
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 4
+		For c = 0 To 9
+			If qb_br(r, c) = 1 Then
+				Dim bx0 As Integer
+				Dim by0 As Integer
+				bx0 = 8 + c * 30
+				by0 = 28 + r * 14
+				If qb_bx >= bx0 And qb_bx <= bx0 + 26 And qb_by >= by0 And qb_by <= by0 + 10 Then
+					qb_br(r, c) = 0
+					qb_vy = Abs(qb_vy)
+					qb_score = qb_score + 10
+				End If
+			End If
+		Next c
+	Next r
+	Dim left As Integer
+	left = 0
+	For r = 0 To 4
+		For c = 0 To 9
+			If qb_br(r, c) = 1 Then left = left + 1
+		Next c
+	Next r
+	If left = 0 Then qb_active = False
+	Call Q64QBricks_Draw
+End Sub
+
+Sub Q64QBricks_Left()
+	qb_px = qb_px - 12
+	If qb_px < 4 Then qb_px = 4
+End Sub
+
+Sub Q64QBricks_Right()
+	qb_px = qb_px + 12
+	If qb_px > 276 Then qb_px = 276
+End Sub
+
+Sub Q64QBricks_Draw()
+	Cls
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 4
+		For c = 0 To 9
+			If qb_br(r, c) = 1 Then
+				Line (8 + c * 30, 28 + r * 14)-(8 + c * 30 + 26, 28 + r * 14 + 10), 9 + r, BF
+			End If
+		Next c
+	Next r
+	Line (qb_px, 188)-(qb_px + 44, 196), 15, BF
+	Circle (Int(qb_bx), Int(qb_by)), 2, 15, , , 1
+End Sub

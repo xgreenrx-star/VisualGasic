@@ -1,0 +1,271 @@
+' QuickBASIC framebuffer: SCREEN, PSET, LINE, CIRCLE, PAINT, GET/PUT, PLAY, INKEY$.
+' Point(x, y) reads the buffer back. Screen.Width stays the monitor size.
+Option Explicit
+
+Sub _Ready()
+	Screen 13
+	If Point(319, 199) = 0 And Point(320, 0) = -1 And Point(0, 200) = -1 Then
+		Print "PASS: qb_mode13"
+	Else
+		Print "FAIL: qb_mode13 " & CStr(Point(319, 199)) & "," & CStr(Point(320, 0)) & "," & CStr(Point(0, 200))
+	End If
+
+	PSet (5, 30), 15
+	If Point(5, 30) = 15 Then
+		Print "PASS: qb_pset"
+	Else
+		Print "FAIL: qb_pset " & CStr(Point(5, 30))
+	End If
+
+	Line (0, 0)-(4, 0), 4
+	If Point(2, 0) = 4 And Point(4, 0) = 4 Then
+		Print "PASS: qb_line"
+	Else
+		Print "FAIL: qb_line " & CStr(Point(2, 0))
+	End If
+
+	Line (1, 1)-(3, 3), 2, BF
+	If Point(2, 2) = 2 And Point(1, 1) = 2 Then
+		Print "PASS: qb_boxfill"
+	Else
+		Print "FAIL: qb_boxfill " & CStr(Point(2, 2))
+	End If
+
+	Line (40, 40)-(44, 44), 9, B
+	If Point(42, 40) = 9 And Point(42, 42) = 0 Then
+		Print "PASS: qb_box"
+	Else
+		Print "FAIL: qb_box " & CStr(Point(42, 40)) & "," & CStr(Point(42, 42))
+	End If
+
+	Circle (80, 40), 5, 14
+	If Point(80, 35) = 14 And Point(80, 40) = 0 Then
+		Print "PASS: qb_circle"
+	Else
+		Print "FAIL: qb_circle rim=" & CStr(Point(80, 35)) & " cen=" & CStr(Point(80, 40))
+	End If
+
+	Line (10, 10)-(20, 20), 14, B
+	Paint (15, 15), 1
+	If Point(15, 15) = 1 And Point(10, 10) = 14 And Point(8, 8) = 0 Then
+		Print "PASS: qb_paint"
+	Else
+		Print "FAIL: qb_paint cen=" & CStr(Point(15, 15)) & " rim=" & CStr(Point(10, 10)) & " out=" & CStr(Point(8, 8))
+	End If
+
+	Dim spr(0) As Integer
+	Get (0, 0)-(1, 0), spr
+	Put (30, 5), spr, PSET
+	If Point(30, 5) = 4 And Point(31, 5) = 4 Then
+		Print "PASS: qb_getput"
+	Else
+		Print "FAIL: qb_getput " & CStr(Point(30, 5)) & "," & CStr(Point(31, 5))
+	End If
+
+	Put (50, 5), spr
+	If Point(50, 5) = 4 Then
+		Put (50, 5), spr
+		If Point(50, 5) = 0 Then
+			Print "PASS: qb_put_xor"
+		Else
+			Print "FAIL: qb_put_xor second " & CStr(Point(50, 5))
+		End If
+	Else
+		Print "FAIL: qb_put_xor first " & CStr(Point(50, 5))
+	End If
+
+	Play "T120 O3 L4 C D E"
+	Print "PASS: qb_play"
+
+	Dim k As String
+	Dim k2 As String
+	k = InKey$
+	k2 = Inkey()
+	If k = "" And k2 = "" Then
+		Print "PASS: qb_inkey"
+	Else
+		Print "FAIL: qb_inkey [" & k & "] [" & k2 & "]"
+	End If
+
+	PSet (100, 50), 15
+	Cls
+	If Point(5, 30) = 0 And Point(15, 15) = 0 And Point(2, 0) = 0 And Point(100, 50) = 0 Then
+		Print "PASS: qb_cls"
+	Else
+		Print "FAIL: qb_cls"
+	End If
+
+	' Simulate per-frame redraw (Lunar Lander style): Cls must erase prior pixels.
+	PSet (50, 50), 15
+	Line (10, 10)-(20, 20), 15
+	Cls
+	Line (10, 10)-(20, 10), 14
+	If Point(50, 50) = 0 And Point(15, 10) = 14 And Point(15, 15) = 0 Then
+		Print "PASS: qb_cls_redraw"
+	Else
+		Print "FAIL: qb_cls_redraw ghost=" & CStr(Point(50, 50)) & " line=" & CStr(Point(15, 10)) & " diag=" & CStr(Point(15, 15))
+	End If
+
+	Dim sw As Integer
+	sw = Screen.Width
+	Print "PASS: qb_screen_width"
+
+	Cls
+	Palette 4, 4660
+	If PaletteColor(4) = 4660 Then
+		Print "PASS: qb_palette"
+	Else
+		Print "FAIL: qb_palette " & CStr(PaletteColor(4))
+	End If
+	Palette 5, 255, 128, 0
+	If PaletteColor(5) = 33023 Then
+		Print "PASS: qb_palette_rgb"
+	Else
+		Print "FAIL: qb_palette_rgb " & CStr(PaletteColor(5))
+	End If
+
+	Dim pal(1) As Integer
+	pal(0) = 10
+	pal(1) = 20
+	Palette Using pal
+	If PaletteColor(0) = 10 And PaletteColor(1) = 20 Then
+		Print "PASS: qb_palette_using"
+	Else
+		Print "FAIL: qb_palette_using " & CStr(PaletteColor(0)) & "," & CStr(PaletteColor(1))
+	End If
+	Palette
+
+	PSet (8, 120), 9
+	PCopy 0, 1
+	Screen 13, , 1, 0
+	PSet (9, 120), 2
+	Screen 13, , 0, 0
+	If Point(8, 120) = 9 And Point(9, 120) = 0 Then
+		PCopy 1, 0
+		If Point(9, 120) = 2 Then
+			Print "PASS: qb_pcopy"
+		Else
+			Print "FAIL: qb_pcopy after " & CStr(Point(9, 120))
+		End If
+	Else
+		Print "FAIL: qb_pcopy before " & CStr(Point(8, 120)) & "," & CStr(Point(9, 120))
+	End If
+
+	Circle (140, 140), 6, 12, , , F
+	If Point(140, 140) = 12 And Point(140, 134) = 12 Then
+		Print "PASS: qb_circle_fill"
+	Else
+		Print "FAIL: qb_circle_fill cen=" & CStr(Point(140, 140)) & " rim=" & CStr(Point(140, 134))
+	End If
+
+	Line (10, 160)-(20, 160), 3
+	Line -Step(0, 4), 3
+	If Point(20, 164) = 3 Then
+		Print "PASS: qb_line_step"
+	Else
+		Print "FAIL: qb_line_step " & CStr(Point(20, 164))
+	End If
+
+	Draw "BM40,170C5R6"
+	If Point(46, 170) = 5 And Point(40, 170) = 5 Then
+		Print "PASS: qb_draw"
+	Else
+		Print "FAIL: qb_draw " & CStr(Point(40, 170)) & "," & CStr(Point(46, 170))
+	End If
+
+	Locate 4, 6
+	If CsrLin() = 4 And Pos(0) = 6 Then
+		Print "PASS: qb_locate"
+	Else
+		Print "FAIL: qb_locate row=" & CStr(CsrLin()) & " col=" & CStr(Pos(0))
+	End If
+	Color 14, 1
+
+	View (0, 0)-(15, 15)
+	PSet (200, 180), 15
+	If Point(200, 180) = 0 Then
+		View
+		PSet (200, 180), 15
+		If Point(200, 180) = 15 Then
+			Print "PASS: qb_view"
+		Else
+			Print "FAIL: qb_view after reset"
+		End If
+	Else
+		Print "FAIL: qb_view clip " & CStr(Point(200, 180))
+	End If
+
+	Window Screen (0, 0)-(319, 199)
+	PSet (6, 7), 11
+	If Point(6, 7) = 11 Then
+		Print "PASS: qb_window"
+	Else
+		Print "FAIL: qb_window " & CStr(Point(6, 7))
+	End If
+	Window
+
+	PSet (70, 170), 7
+	Scroll 3, 0
+	If Point(73, 170) = 7 And Point(70, 170) = 0 Then
+		Print "PASS: qb_scroll"
+	Else
+		Print "FAIL: qb_scroll " & CStr(Point(73, 170)) & "," & CStr(Point(70, 170))
+	End If
+
+	Dim miss As Variant
+	miss = LoadPcx("res://test_suite/no_such_file.pcx")
+	Dim pic As Variant
+	pic = LoadPcx("res://test_suite/qb_tiny.pcx")
+	If pic(0) = 2 And pic(1) = 2 And pic(2) = 1 And pic(3) = 2 And pic(4) = 3 And pic(5) = 4 Then
+		Print "PASS: qb_loadpcx"
+	Else
+		Print "FAIL: qb_loadpcx"
+	End If
+
+	Sound 440, 1
+	Beep
+	Wait 1
+	Print "PASS: qb_sound_wait"
+
+	Dim img As Integer
+	img = _NewImage(80, 60, 32)
+	If img < 0 And _Width(img) = 80 And _Height(img) = 60 Then
+		Print "PASS: qb_newimage"
+	Else
+		Print "FAIL: qb_newimage " & CStr(img)
+	End If
+	Screen img
+	Dim red As Integer
+	red = _RGB32(255, 0, 0)
+	PSet (4, 5), red
+	If Point(4, 5) = red Then
+		Print "PASS: qb_rgb32"
+	Else
+		Print "FAIL: qb_rgb32 " & CStr(Point(4, 5)) & " vs " & CStr(red)
+	End If
+	Dim dw As Integer
+	Dim dh As Integer
+	dw = _DesktopWidth
+	dh = _DesktopHeight
+	If dw > 0 And dh > 0 Then
+		Print "PASS: qb_desktop"
+	Else
+		Print "FAIL: qb_desktop " & CStr(dw) & "x" & CStr(dh)
+	End If
+	Dim mx As Integer
+	mx = _MouseX
+	If _MouseButton(1) = 0 Or _MouseButton(1) = -1 Then
+		Print "PASS: qb_mouse"
+	Else
+		Print "FAIL: qb_mouse"
+	End If
+	Dim snd As Integer
+	snd = _SndOpen("res://test_suite/no_such_audio.wav")
+	If snd = 0 Then
+		Print "PASS: qb_sndopen_miss"
+	Else
+		Print "FAIL: qb_sndopen_miss " & CStr(snd)
+	End If
+	_FreeImage img
+	Screen 0
+End Sub

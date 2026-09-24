@@ -38,6 +38,16 @@ Standard flow control and declaration.
 | `IsKeyPressed(key)` | Check raw key input. |
 | `IsActionPressed(action)` | Check input map action. |
 
+### Colors (canvas `_Draw`)
+
+| Function | Description |
+| :--- | :--- |
+| `Color(r, g, b[, a])` | Godot color — channels **0.0–1.0** (not 0–255). |
+| `Color8(r, g, b[, a])` | Byte RGB **0–255** (menus, HUD, HTML palettes). |
+| `RGB(r, g, b)` | Same 0–255 range as `Color8` (VB6 name). |
+
+See [colors.md](colors.md).
+
 ### Drawing & Audio
 | Function | Description |
 | :--- | :--- |
@@ -47,6 +57,25 @@ Standard flow control and declaration.
 | `DrawCircle(x, y, r)` | Draw a circle. |
 | `PlaySound(path)` | Play a sound file. |
 | `PlayTone(hz, duration)` | Generate a synthetic tone. |
+
+### QuickBASIC graphics (after `SCREEN`)
+Engine builtins for classic `.BAS` ports. Full manual: [qb_graphics_mode.md](qb_graphics_mode.md).
+
+| Statement / function | Description |
+| :--- | :--- |
+| `SCREEN n` | Open logical framebuffer (e.g. 13 = 320×200×256). Letterboxed in viewport. |
+| `PSET (x, y) [, c]` | Set pixel in QB buffer (not the same as canvas `PSet x, y, color`). |
+| `LINE (x1,y1)-(x2,y2) [, c [, B\|BF]]` | Line or box; not `Line Input`. |
+| `CIRCLE (x, y), r [, c]` | Circle outline in QB buffer. |
+| `PAINT (x, y) [, c [, border]]` | Flood fill. |
+| `GET (x1,y1)-(x2,y2), arr` | Copy rectangle to array (`arr(0)`=w, `arr(1)`=h, then pixels). |
+| `PUT (x, y), arr [, XOR\|PSET\|…]` | Blit array; default XOR. |
+| `CLS` | Clears QB buffer when `SCREEN` is active. |
+| `Point(x, y)` | Read palette index at pixel (-1 if off-screen). |
+| `InKey$` / `Inkey()` | One queued character or `""`. |
+| `Play "…"` | QB note string → SiON MML (no-op if SiON missing). |
+
+`Screen.Width` / `Screen.Height` remain **monitor** size until you use `SCREEN` for game resolution. `Get #` / `Put #` file I/O unchanged.
 
 ### Utilities
 | Function | Description |
@@ -153,7 +182,7 @@ Hints are **comment-based directives** placed before a loop. They tell the optim
 | Object | Description |
 | :--- | :--- |
 | `App` | Application info: `App.Path`, `App.Title`, `App.Major`, etc. |
-| `Screen` | Display info: `Screen.Width`, `Screen.Height`. |
+| `Screen` | Display info: `Screen.Width`, `Screen.Height` (monitor). Use statement `SCREEN n` for QBasic framebuffer — see [qb_graphics_mode.md](qb_graphics_mode.md). |
 | `Err` | Error state: `Err.Number`, `Err.Description`, `Err.Source`, `Err.Raise`, `Err.Clear`. |
 
 ### COM-Style Objects

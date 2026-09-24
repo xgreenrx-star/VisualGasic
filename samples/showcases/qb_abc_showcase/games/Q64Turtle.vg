@@ -1,0 +1,78 @@
+' Turtle / Koch curve — inspired by triggered QB64 sample (original VG)
+Option Explicit
+
+Dim qtur_active As Boolean
+Dim qtur_msg As String
+
+Sub Q64Turtle_Init()
+	Screen 13
+	Cls
+	qtur_active = True
+	qtur_msg = "Koch snowflake (L-system)  Space = redraw"
+	Call Q64Turtle_DrawKoch
+End Sub
+
+Function Q64Turtle_Active() As Boolean
+	Q64Turtle_Active = qtur_active
+End Function
+
+Sub Q64Turtle_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Turtle graphics — Koch flake"
+	l2 = qtur_msg
+End Sub
+
+Sub Q64Turtle_Redraw()
+	Cls
+	Call Q64Turtle_DrawKoch
+End Sub
+
+Sub Q64Turtle_Fwd(ByRef x As Single, ByRef y As Single, ByRef a As Single, dist As Single)
+	Dim nx As Single
+	Dim ny As Single
+	nx = x + Cos(a) * dist
+	ny = y + Sin(a) * dist
+	Line (Int(x), Int(y))-(Int(nx), Int(ny)), 15
+	x = nx
+	y = ny
+End Sub
+
+Sub Q64Turtle_Koch(ByRef x As Single, ByRef y As Single, ByRef a As Single, dist As Single, depth As Integer)
+	If depth = 0 Then
+		Call Q64Turtle_Fwd(x, y, a, dist)
+		Exit Sub
+	End If
+	Dim d3 As Single
+	d3 = dist / 3
+	Call Q64Turtle_Koch(x, y, a, d3, depth - 1)
+	a = a - 1.047197
+	Call Q64Turtle_Koch(x, y, a, d3, depth - 1)
+	a = a + 2.094395
+	Call Q64Turtle_Koch(x, y, a, d3, depth - 1)
+	a = a - 1.047197
+	Call Q64Turtle_Koch(x, y, a, d3, depth - 1)
+End Sub
+
+Sub Q64Turtle_DrawKoch()
+	Dim x As Single
+	Dim y As Single
+	Dim a As Single
+	x = 80
+	y = 150
+	a = 0
+	Dim ox As Single
+	Dim oy As Single
+	ox = x
+	oy = y
+	Call Q64Turtle_Koch(x, y, a, 70, 3)
+	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
+	ox = x
+	oy = y
+	a = a + 2.094395
+	Call Q64Turtle_Koch(x, y, a, 70, 3)
+	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
+	ox = x
+	oy = y
+	a = a + 2.094395
+	Call Q64Turtle_Koch(x, y, a, 70, 3)
+	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
+End Sub

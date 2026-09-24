@@ -1,0 +1,100 @@
+' Mini dungeon roguelike — one floor (Tier B)
+Option Explicit
+
+Dim dg_active As Boolean
+Dim dg_w As Integer
+Dim dg_h As Integer
+Dim dg_px As Integer
+Dim dg_py As Integer
+Dim dg_map(12, 12) As Integer
+Dim dg_ex As Integer
+Dim dg_ey As Integer
+Dim dg_hp As Integer
+Dim dg_msg As String
+
+Sub Dungeon_Init()
+	Screen 13
+	dg_w = 12
+	dg_h = 12
+	dg_hp = 5
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To dg_h - 1
+		For x = 0 To dg_w - 1
+			If x = 0 Or y = 0 Or x = dg_w - 1 Or y = dg_h - 1 Then
+				dg_map(x, y) = 1
+			Else
+				dg_map(x, y) = 0
+			End If
+		Next x
+	Next y
+	dg_px = 2
+	dg_py = 2
+	dg_ex = 10
+	dg_ey = 10
+	dg_map(5, 3) = 2
+	dg_map(7, 6) = 2
+	dg_map(4, 8) = 2
+	dg_msg = "Reach exit E. Arrows move. Bump monsters."
+	dg_active = True
+	Call Dungeon_Draw
+End Sub
+
+Function Dungeon_Active() As Boolean
+	Dungeon_Active = dg_active
+End Function
+
+Sub Dungeon_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "DUNGEON  HP:" & CStr(dg_hp) & "  pos " & CStr(dg_px) & "," & CStr(dg_py)
+	l2 = dg_msg
+End Sub
+
+Sub Dungeon_TryMove(dx As Integer, dy As Integer)
+	Dim nx As Integer
+	Dim ny As Integer
+	nx = dg_px + dx
+	ny = dg_py + dy
+	If dg_map(nx, ny) = 1 Then Exit Sub
+	If dg_map(nx, ny) = 2 Then
+		dg_hp = dg_hp - 1
+		dg_map(nx, ny) = 0
+		dg_msg = "Fight! Monster down."
+		If dg_hp <= 0 Then
+			dg_msg = "You died."
+			dg_active = False
+			Call Dungeon_Draw
+			Exit Sub
+		End If
+	End If
+	dg_px = nx
+	dg_py = ny
+	If dg_px = dg_ex And dg_py = dg_ey Then
+		dg_msg = "Escaped! You win."
+		dg_active = False
+	End If
+	Call Dungeon_Draw
+End Sub
+
+Sub Dungeon_Draw()
+	Cls
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To dg_h - 1
+		For x = 0 To dg_w - 1
+			Dim sx As Integer
+			Dim sy As Integer
+			sx = 40 + x * 20
+			sy = 30 + y * 14
+			If dg_map(x, y) = 1 Then
+				Line (sx, sy)-(sx + 18, sy + 12), 8, BF
+			ElseIf x = dg_ex And y = dg_ey Then
+				Line (sx, sy)-(sx + 18, sy + 12), 2, BF
+			ElseIf dg_map(x, y) = 2 Then
+				Circle (sx + 9, sy + 6), 5, 14
+			Else
+				Line (sx, sy)-(sx + 18, sy + 12), 0, B
+			End If
+		Next x
+	Next y
+	Circle (40 + dg_px * 20 + 9, 30 + dg_py * 14 + 6), 4, 15
+End Sub

@@ -527,6 +527,8 @@ func _enter_tree():
 	var debugger_script = load("res://addons/visual_gasic/vg_debugger_plugin.gd")
 	if debugger_script:
 		debugger_plugin = debugger_script.new()
+		if debugger_plugin.has_method("bind_vg_main_plugin"):
+			debugger_plugin.bind_vg_main_plugin(self)
 		add_debugger_plugin(debugger_plugin)
 		if debugger_plugin.has_signal("tweak_ai_edit_requested"):
 			debugger_plugin.tweak_ai_edit_requested.connect(_on_tweak_ai_edit_requested)
@@ -1149,6 +1151,9 @@ func _enter_tree():
 				_embedded_code_editor
 			)
 			print("VisualGasic: Embedded Code Editor created")
+			call_deferred("_wire_data_tips_to_embedded_editor")
+			call_deferred("_wire_breakpoint_sync_to_code_edit")
+			call_deferred("_mirror_vg_breakpoints_to_godot_script_editor")
 			# Connect FileSystem browser → open files in code editor
 			if is_instance_valid(_vg_file_browser):
 				_vg_file_browser.file_open_requested.connect(_on_file_browser_open_requested)
@@ -1601,22 +1606,44 @@ func _open_vg_script_for_debug_automation(vg_path: String, line: int) -> void:
 	print("VisualGasic: Debug break → VGasic workspace at ", vg_path.get_file(), " line ", line)
 
 
+func _wire_data_tips_to_embedded_editor() -> void:
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_data_tips):
+		return
+	var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+	if code_edit == null:
+		return
+	if "_data_tips_ref" in code_edit:
+		code_edit._data_tips_ref = _data_tips
+
+func _wire_breakpoint_sync_to_code_edit() -> void:
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+	if code_edit == null:
+		return
+	if code_edit.has_signal("breakpoint_toggled") \
+			and not code_edit.breakpoint_toggled.is_connected(_on_vg_code_edit_breakpoint_toggled):
+		code_edit.breakpoint_toggled.connect(_on_vg_code_edit_breakpoint_toggled)
+
+func _on_vg_code_edit_breakpoint_toggled(_line: int) -> void:
+	sync_vg_breakpoints_to_runtime()
+
 func _apply_embedded_debug_caret(file: String, line: int) -> void:
 	if not is_instance_valid(_embedded_code_editor):
 		return
 	var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
 	if code_edit == null or line <= 0:
 		return
+	_wire_data_tips_to_embedded_editor()
 	var zero_line := line - 1
 	code_edit.set_caret_line(zero_line)
 	code_edit.set_caret_column(0)
 	code_edit.center_viewport_to_caret()
 	code_edit.grab_focus()
+	if code_edit.has_method("set_executing_line"):
+		code_edit.set_executing_line(zero_line)
 	if code_edit.has_method("set_debug_paused"):
 		code_edit.set_debug_paused(true)
-		code_edit.set_executing_line(zero_line)
-	if _data_tips and "_data_tips_ref" in code_edit:
-		code_edit._data_tips_ref = _data_tips
 	if code_edit.has_signal("set_next_statement_requested") \
 			and not code_edit.set_next_statement_requested.is_connected(_on_set_next_statement):
 		code_edit.set_next_statement_requested.connect(_on_set_next_statement)
@@ -2567,31 +2594,58 @@ func normalize_vg_script_path(path: String) -> String:
 func vg_script_paths_equal(a: String, b: String) -> bool:
 	return normalize_vg_script_path(a) == normalize_vg_script_path(b)
 
-## Returns the current breakpoint dictionary from ALL sources:
-## 1. The embedded VG code editor (primary — where users actually set breakpoints)
-## 2. The debugger plugin (ScriptEditor polling — fallback)
-## Key: script_path (String), Value: Array of line numbers (int, 1-based).
+## Breakpoints from the VG Code Editor gutter (1-based line numbers per res:// path).
 func get_debugger_breakpoints() -> Dictionary:
 	var result: Dictionary = {}
 
-	# Source 1: Embedded VG code editor — all files with breakpoints this session
 	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_all_debug_breakpoints"):
 		var all_bps: Dictionary = _embedded_code_editor.get_all_debug_breakpoints()
 		for path in all_bps:
 			result[normalize_vg_script_path(str(path))] = all_bps[path]
+		return result
 
-	# Source 2: Debugger plugin (ScriptEditor polling)
-	if debugger_plugin and is_instance_valid(debugger_plugin):
-		if "_breakpoints" in debugger_plugin:
-			for path in debugger_plugin._breakpoints:
-				if not result.has(path):
-					result[path] = debugger_plugin._breakpoints[path]
-				else:
-					for l in debugger_plugin._breakpoints[path]:
-						if l not in result[path]:
-							result[path].append(l)
+	if debugger_plugin and is_instance_valid(debugger_plugin) and "_breakpoints" in debugger_plugin:
+		for path in debugger_plugin._breakpoints:
+			result[normalize_vg_script_path(str(path))] = debugger_plugin._breakpoints[path].duplicate()
 
 	return result
+
+## Push gutter breakpoints to the game and res://.vg_breakpoints.json.
+func sync_vg_breakpoints_to_runtime() -> void:
+	if not is_instance_valid(debugger_plugin):
+		return
+	debugger_plugin._breakpoints = get_debugger_breakpoints()
+	debugger_plugin._sync_breakpoints_to_game()
+	_mirror_vg_breakpoints_to_godot_script_editor()
+
+## Godot's Script tab keeps its own breakpoint list (script_editor_cache.cfg).
+## That list is what EngineDebugger used to honor — keep it aligned with VG.
+func _mirror_vg_breakpoints_to_godot_script_editor() -> void:
+	var se := get_editor_interface().get_script_editor()
+	if se == null:
+		return
+	var vg_bps := get_debugger_breakpoints()
+	var current_script = se.get_current_script()
+	var current_editor = se.get_current_editor()
+	if current_script and current_editor and str(current_script.resource_path).ends_with(".vg"):
+		_apply_vg_bps_to_godot_code_edit(current_editor.get_base_editor(), current_script.resource_path, vg_bps)
+	if is_instance_valid(_current_code_edit) and current_script \
+			and str(current_script.resource_path).ends_with(".vg"):
+		_apply_vg_bps_to_godot_code_edit(_current_code_edit, current_script.resource_path, vg_bps)
+
+func _apply_vg_bps_to_godot_code_edit(code_edit: CodeEdit, path: String, vg_bps: Dictionary) -> void:
+	if code_edit == null:
+		return
+	var want: Array = vg_bps.get(normalize_vg_script_path(path), [])
+	var want_zero: Dictionary = {}
+	for ln in want:
+		want_zero[int(ln) - 1] = true
+	for line_idx in code_edit.get_breakpointed_lines():
+		if not want_zero.has(int(line_idx)):
+			code_edit.set_line_as_breakpoint(int(line_idx), false)
+	for zero_line in want_zero.keys():
+		if zero_line >= 0 and not code_edit.is_line_breakpointed(zero_line):
+			code_edit.set_line_as_breakpoint(zero_line, true)
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
 ## Uses _input() — the FIRST callback in Godot's input chain — so our
@@ -9505,6 +9559,11 @@ func _on_set_next_statement_failed(requested_line: int, actual_line: int) -> voi
 func _on_data_tips_variables_received(variables: Dictionary) -> void:
 	if is_instance_valid(_data_tips):
 		_data_tips.set_debug_variables(variables)
+	_wire_data_tips_to_embedded_editor()
+	if is_instance_valid(_embedded_code_editor):
+		var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+		if code_edit and code_edit.has_method("set_debug_paused"):
+			code_edit.set_debug_paused(true)
 	# Also update pinned inline values with the same data
 	_update_pinned_inline_values(variables)
 
@@ -9664,6 +9723,8 @@ func _on_ai_repair_applied(file: String, line_count_changed: int) -> void:
 # =============================================================================
 
 func _on_stack_level_locals_received(level: int, locals: Dictionary) -> void:
+	if level == 0 and is_instance_valid(_data_tips) and _data_tips.has_method("merge_debug_variables"):
+		_data_tips.merge_debug_variables(locals)
 	## Update the Immediate Window's variables panel with locals from a specific frame.
 	if is_instance_valid(immediate_window):
 		# Temporarily replace variables with this frame's locals

@@ -1,0 +1,37 @@
+' American flag — inspired by Vince QB64 sample (static; no per-pixel warp)
+Option Explicit
+
+Dim qfl_active As Boolean
+
+Sub Q64Flag_Init()
+	Screen 13
+	qfl_active = True
+	Call Q64Flag_Draw
+End Sub
+
+Function Q64Flag_Active() As Boolean
+	Q64Flag_Active = qfl_active
+End Function
+
+Sub Q64Flag_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "American flag (simplified)"
+	l2 = "Full Vince warp needs _RGB POINT — static stripes + canton"
+End Sub
+
+Sub Q64Flag_Tick(delta As Single)
+End Sub
+
+Sub Q64Flag_Draw()
+	Cls
+	Dim row As Integer
+	For row = 0 To 12
+		Dim col As Integer
+		If row Mod 2 = 0 Then col = 4 Else col = 15
+		Line (0, row * 15)-(319, row * 15 + 14), col, BF
+	Next row
+	Line (0, 0)-(128, 90), 1, BF
+	Dim s As Integer
+	For s = 0 To 20
+		PSet (10 + (s Mod 6) * 18, 8 + (s \ 6) * 16), 15
+	Next s
+End Sub

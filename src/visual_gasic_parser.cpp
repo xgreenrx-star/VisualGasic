@@ -895,6 +895,578 @@ EventDefinition* VisualGasicParser::parse_event() {
     return evt;
 }
 
+Statement* VisualGasicParser::try_parse_qb_graphics() {
+    VisualGasicTokenizer::Token t = peek();
+    if (t.type != VisualGasicTokenizer::TOKEN_IDENTIFIER && t.type != VisualGasicTokenizer::TOKEN_KEYWORD) {
+        return nullptr;
+    }
+    if (current_pos + 1 >= (int)tokens.size()) {
+        return nullptr;
+    }
+    String name = String(t.value).to_lower();
+    bool is_screen = name == "screen";
+    bool is_pset = name == "pset";
+    bool is_paint = name == "paint";
+    bool is_play = name == "play";
+    bool is_circle = name == "circle";
+    bool is_line = name == "line";
+    bool is_get = name == "get";
+    bool is_put = name == "put";
+    bool is_palette = name == "palette";
+    bool is_pcopy = name == "pcopy";
+    bool is_locate = name == "locate";
+    bool is_color = name == "color";
+    bool is_sound = name == "sound";
+    bool is_beep = name == "beep";
+    bool is_draw = name == "draw";
+    bool is_view = name == "view";
+    bool is_window = name == "window";
+    bool is_wait = name == "wait";
+    bool is_scroll = name == "scroll";
+    bool is_qb64s = name == "_dest" || name == "_source" || name == "_freeimage" || name == "_display"
+        || name == "_putimage" || name == "_sndplay" || name == "_sndstop" || name == "_sndclose";
+    if (is_qb64s) {
+        advance();
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = String(t.value);
+        if (name == "_display") {
+            return cs;
+        }
+        if (name == "_putimage") {
+            if (!match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                error("Expected ( after _PUTIMAGE");
+                return cs;
+            }
+            ExpressionNode* x = parse_expression();
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+            ExpressionNode* y = parse_expression();
+            if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                error("Expected )");
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+            ExpressionNode* src = parse_expression();
+            auto take = [&](ExpressionNode* e) {
+                if (!e) return;
+                unregister_node(e);
+                cs->arguments.push_back(e);
+            };
+            take(x); take(y); take(src);
+            return cs;
+        }
+        ExpressionNode* arg = parse_expression();
+        if (arg) {
+            unregister_node(arg);
+            cs->arguments.push_back(arg);
+        }
+        return cs;
+    }
+    if (!is_screen && !is_pset && !is_paint && !is_play && !is_circle && !is_line && !is_get && !is_put
+        && !is_palette && !is_pcopy && !is_locate && !is_color && !is_sound && !is_beep && !is_draw
+        && !is_view && !is_window && !is_wait && !is_scroll) {
+        return nullptr;
+    }
+
+    VisualGasicTokenizer::Token next = tokens[current_pos + 1];
+    auto is_op = [](const VisualGasicTokenizer::Token &tk, const char *op) {
+        return tk.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(tk.value) == op;
+    };
+    auto at_end = [&]() {
+        return check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF) || check(VisualGasicTokenizer::TOKEN_COLON);
+    };
+    auto is_box = [&]() {
+        if (peek().type != VisualGasicTokenizer::TOKEN_IDENTIFIER && peek().type != VisualGasicTokenizer::TOKEN_KEYWORD) {
+            return false;
+        }
+        String s = String(peek().value).to_lower();
+        return s == "b" || s == "bf";
+    };
+
+    // Keep existing forms: Screen.Width, Line Input, Get # / Put #, PSet x, y.
+    if (is_op(next, ".") || is_op(next, "=") || next.type == VisualGasicTokenizer::TOKEN_COLON) {
+        return nullptr;
+    }
+    if (is_line) {
+        bool line_step = (next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || next.type == VisualGasicTokenizer::TOKEN_KEYWORD)
+            && String(next.value).to_lower() == "step";
+        bool line_cont = is_op(next, "-");
+        if (!line_step && !line_cont && next.type != VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+            return nullptr;
+        }
+    }
+    if ((is_paint || is_circle || is_get || is_put) && next.type != VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+        return nullptr;
+    }
+    if (is_pset) {
+        bool step = (next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || next.type == VisualGasicTokenizer::TOKEN_KEYWORD)
+            && String(next.value).to_lower() == "step";
+        if (!step && next.type != VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+            return nullptr;
+        }
+    }
+    if (is_color && next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+        return nullptr;
+    }
+    if (is_draw) {
+        bool ok = next.type == VisualGasicTokenizer::TOKEN_LITERAL_STRING
+            || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER
+            || next.type == VisualGasicTokenizer::TOKEN_KEYWORD
+            || next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN;
+        if (!ok) {
+            return nullptr;
+        }
+    }
+    if (is_play) {
+        bool expr_start = next.type == VisualGasicTokenizer::TOKEN_LITERAL_STRING
+            || next.type == VisualGasicTokenizer::TOKEN_LITERAL_INTEGER
+            || next.type == VisualGasicTokenizer::TOKEN_LITERAL_FLOAT
+            || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER
+            || next.type == VisualGasicTokenizer::TOKEN_KEYWORD
+            || next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN
+            || is_op(next, "-");
+        if (!expr_start) {
+            return nullptr;
+        }
+    }
+    if (is_screen) {
+        bool expr_start = next.type == VisualGasicTokenizer::TOKEN_LITERAL_INTEGER
+            || next.type == VisualGasicTokenizer::TOKEN_LITERAL_FLOAT
+            || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER
+            || next.type == VisualGasicTokenizer::TOKEN_KEYWORD
+            || next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN
+            || is_op(next, "-");
+        if (!expr_start) {
+            return nullptr;
+        }
+    }
+
+    auto lit_int = [&](int v) -> ExpressionNode* {
+        LiteralNode* n = static_cast<LiteralNode*>(register_node(new LiteralNode()));
+        n->value = v;
+        return n;
+    };
+    auto lit_str = [&](const String &v) -> ExpressionNode* {
+        LiteralNode* n = static_cast<LiteralNode*>(register_node(new LiteralNode()));
+        n->value = v;
+        return n;
+    };
+    auto take = [&](CallStatement* cs, ExpressionNode* e) {
+        if (!e) return;
+        unregister_node(e);
+        cs->arguments.push_back(e);
+    };
+    auto drop = [&](ExpressionNode* e) {
+        if (!e) return;
+        unregister_node(e);
+        delete e;
+    };
+    auto parse_point = [&](ExpressionNode*& x, ExpressionNode*& y) -> bool {
+        if (!match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+            error("Expected (");
+            return false;
+        }
+        x = parse_expression();
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) advance();
+        y = parse_expression();
+        if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+            error("Expected )");
+            return false;
+        }
+        return x && y;
+    };
+
+    advance(); // command name
+
+    if (is_screen) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbScreen";
+        take(cs, parse_expression());
+        for (int slot = 0; slot < 3; slot++) {
+            if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                break;
+            }
+            advance();
+            if (at_end() || check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                take(cs, lit_int(-1));
+                continue;
+            }
+            take(cs, parse_expression());
+        }
+        return cs;
+    }
+
+    if (is_beep || is_wait) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = is_beep ? "QbBeep" : "QbWait";
+        while (!at_end() && !check(VisualGasicTokenizer::TOKEN_COMMENT)) {
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                continue;
+            }
+            drop(parse_expression());
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+            } else {
+                break;
+            }
+        }
+        return cs;
+    }
+
+    if (is_sound || is_pcopy || is_locate || is_color) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        if (is_sound) cs->method_name = "QbSound";
+        else if (is_pcopy) cs->method_name = "QbPCopy";
+        else if (is_locate) cs->method_name = "QbLocate";
+        else cs->method_name = "QbColor";
+        take(cs, parse_expression());
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            if (!at_end()) take(cs, parse_expression());
+        }
+        return cs;
+    }
+
+    if (is_palette) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        bool using_kw = (peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek().type == VisualGasicTokenizer::TOKEN_KEYWORD)
+            && String(peek().value).to_lower() == "using";
+        if (at_end()) {
+            cs->method_name = "QbPaletteReset";
+            return cs;
+        }
+        if (using_kw) {
+            advance();
+            cs->method_name = "QbPaletteUsing";
+            take(cs, parse_expression());
+            return cs;
+        }
+        cs->method_name = "QbPalette";
+        take(cs, parse_expression());
+        // PALETTE index, color&   or   PALETTE index, r, g, b
+        for (int extra = 0; extra < 3 && check(VisualGasicTokenizer::TOKEN_COMMA); extra++) {
+            advance();
+            if (at_end()) {
+                break;
+            }
+            take(cs, parse_expression());
+        }
+        return cs;
+    }
+
+    if (is_draw) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbDraw";
+        take(cs, parse_expression());
+        return cs;
+    }
+
+    if (is_scroll) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbScroll";
+        if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+            ExpressionNode* x1 = nullptr;
+            ExpressionNode* y1 = nullptr;
+            if (!parse_point(x1, y1)) {
+                drop(x1); drop(y1);
+                return nullptr;
+            }
+            if (!is_op(peek(), "-")) {
+                error("Expected -( after Scroll point");
+                drop(x1); drop(y1);
+                return nullptr;
+            }
+            advance();
+            ExpressionNode* x2 = nullptr;
+            ExpressionNode* y2 = nullptr;
+            if (!parse_point(x2, y2)) {
+                drop(x1); drop(y1); drop(x2); drop(y2);
+                return nullptr;
+            }
+            take(cs, x1); take(cs, y1); take(cs, x2); take(cs, y2);
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                take(cs, parse_expression());
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                take(cs, parse_expression());
+            }
+            return cs;
+        }
+        take(cs, parse_expression());
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            take(cs, parse_expression());
+        }
+        return cs;
+    }
+
+    if (is_view || is_window) {
+        bool screen_flag = false;
+        if ((peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek().type == VisualGasicTokenizer::TOKEN_KEYWORD)
+            && String(peek().value).to_lower() == "screen") {
+            screen_flag = true;
+            advance();
+        }
+        if (at_end()) {
+            CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+            cs->method_name = is_view ? "QbViewReset" : "QbWindowReset";
+            return cs;
+        }
+        ExpressionNode* x1 = nullptr;
+        ExpressionNode* y1 = nullptr;
+        if (!parse_point(x1, y1)) {
+            drop(x1); drop(y1);
+            return nullptr;
+        }
+        if (!is_op(peek(), "-")) {
+            error("Expected -( after point");
+            drop(x1); drop(y1);
+            return nullptr;
+        }
+        advance();
+        ExpressionNode* x2 = nullptr;
+        ExpressionNode* y2 = nullptr;
+        if (!parse_point(x2, y2)) {
+            drop(x1); drop(y1); drop(x2); drop(y2);
+            return nullptr;
+        }
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = is_view ? "QbView" : "QbWindow";
+        take(cs, x1); take(cs, y1); take(cs, x2); take(cs, y2);
+        if (is_window) {
+            take(cs, lit_int(screen_flag ? 1 : 0));
+        } else if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            if (!at_end() && !check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                take(cs, parse_expression());
+            } else {
+                take(cs, lit_int(-1));
+            }
+        }
+        return cs;
+    }
+
+    if (is_play) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbPlay";
+        take(cs, parse_expression());
+        return cs;
+    }
+
+    auto is_step_tok = [&]() {
+        return (peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek().type == VisualGasicTokenizer::TOKEN_KEYWORD)
+            && String(peek().value).to_lower() == "step";
+    };
+    bool step1 = false;
+    bool missing_start = false;
+    if ((is_pset || is_line) && is_step_tok()) {
+        step1 = true;
+        advance();
+    }
+    ExpressionNode* x1 = nullptr;
+    ExpressionNode* y1 = nullptr;
+    if (is_line && is_op(peek(), "-")) {
+        missing_start = true;
+        x1 = lit_int(0);
+        y1 = lit_int(0);
+        advance();
+    } else if (!parse_point(x1, y1)) {
+        drop(x1);
+        drop(y1);
+        return nullptr;
+    }
+
+    if (is_pset || is_paint) {
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = is_pset ? "QbPset" : "QbPaint";
+        take(cs, x1);
+        take(cs, y1);
+        ExpressionNode* color = nullptr;
+        ExpressionNode* border = nullptr;
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            if (!at_end()) color = parse_expression();
+            if (is_paint && check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                if (!at_end()) border = parse_expression();
+            }
+        }
+        take(cs, color ? color : lit_int(-1));
+        if (is_paint) take(cs, border ? border : lit_int(-1));
+        if (is_pset) take(cs, lit_int(step1 ? 1 : 0));
+        return cs;
+    }
+
+    if (is_circle) {
+        if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            error("Expected , after Circle point");
+            drop(x1);
+            drop(y1);
+            return nullptr;
+        }
+        advance();
+        ExpressionNode* radius = parse_expression();
+        ExpressionNode* color = nullptr;
+        ExpressionNode* start = nullptr;
+        ExpressionNode* endang = nullptr;
+        ExpressionNode* aspect = nullptr;
+        bool filled = false;
+        auto take_opt = [&](ExpressionNode*& slot) {
+            if (at_end()) return;
+            if ((peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek().type == VisualGasicTokenizer::TOKEN_KEYWORD)
+                && String(peek().value).to_lower() == "f") {
+                filled = true;
+                advance();
+                return;
+            }
+            if (!slot) slot = parse_expression();
+            else drop(parse_expression());
+        };
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            if (!at_end() && !check(VisualGasicTokenizer::TOKEN_COMMA)) color = parse_expression();
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                if (!check(VisualGasicTokenizer::TOKEN_COMMA)) take_opt(start);
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                if (!check(VisualGasicTokenizer::TOKEN_COMMA)) take_opt(endang);
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                if (!at_end()) take_opt(aspect);
+            }
+        }
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbCircle";
+        take(cs, x1);
+        take(cs, y1);
+        take(cs, radius);
+        take(cs, color ? color : lit_int(-1));
+        take(cs, start ? start : lit_int(-1000000000));
+        take(cs, endang ? endang : lit_int(-1000000000));
+        take(cs, aspect ? aspect : lit_int(0));
+        take(cs, lit_int(filled ? 1 : 0));
+        return cs;
+    }
+
+    // LINE / GET / PUT : (x1,y1)-(x2,y2) or PUT (x,y), array
+    if (is_line || is_get) {
+        if (!missing_start) {
+            if (!is_op(peek(), "-")) {
+                error("Expected -( after point");
+                drop(x1);
+                drop(y1);
+                return nullptr;
+            }
+            advance(); // -
+        }
+        bool step2 = false;
+        if (is_line && is_step_tok()) {
+            step2 = true;
+            advance();
+        }
+        ExpressionNode* x2 = nullptr;
+        ExpressionNode* y2 = nullptr;
+        if (!parse_point(x2, y2)) {
+            drop(x1); drop(y1); drop(x2); drop(y2);
+            return nullptr;
+        }
+        if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            // LINE color is optional. GET always needs the destination array.
+            if (is_line) {
+                CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+                cs->method_name = "QbLine";
+                take(cs, x1); take(cs, y1); take(cs, x2); take(cs, y2);
+                take(cs, lit_int(-1));
+                take(cs, lit_str(""));
+                int flags = (step1 ? 1 : 0) | (step2 ? 2 : 0) | (missing_start ? 4 : 0);
+                take(cs, lit_int(flags));
+                return cs;
+            }
+            error("Expected , array after Get");
+            drop(x1); drop(y1); drop(x2); drop(y2);
+            return nullptr;
+        }
+        advance(); // comma
+        if (is_get) {
+            ExpressionNode* dest = parse_expression();
+            if (!dest) {
+                drop(x1); drop(y1); drop(x2); drop(y2);
+                return nullptr;
+            }
+            AssignmentStatement* asg = static_cast<AssignmentStatement*>(register_node(new AssignmentStatement()));
+            unregister_node(dest);
+            asg->target = dest;
+            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+            call->method_name = "QbGet";
+            auto take_call = [&](ExpressionNode* e) {
+                if (!e) return;
+                unregister_node(e);
+                call->arguments.push_back(e);
+            };
+            take_call(x1); take_call(y1); take_call(x2); take_call(y2);
+            unregister_node(call);
+            asg->value = call;
+            return asg;
+        }
+        // LINE color and optional B/BF
+        ExpressionNode* color = nullptr;
+        String style = "";
+        if (is_box()) {
+            style = String(peek().value).to_upper();
+            advance();
+        } else if (!at_end()) {
+            color = parse_expression();
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                if (is_box()) {
+                    style = String(peek().value).to_upper();
+                    advance();
+                }
+            }
+        }
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbLine";
+        take(cs, x1); take(cs, y1); take(cs, x2); take(cs, y2);
+        take(cs, color ? color : lit_int(-1));
+        take(cs, lit_str(style));
+        int flags = (step1 ? 1 : 0) | (step2 ? 2 : 0) | (missing_start ? 4 : 0);
+        take(cs, lit_int(flags));
+        return cs;
+    }
+
+    if (is_put) {
+        if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            error("Expected , array after Put");
+            drop(x1);
+            drop(y1);
+            return nullptr;
+        }
+        advance();
+        ExpressionNode* src = parse_expression();
+        String action = "XOR";
+        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            advance();
+            if (peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek().type == VisualGasicTokenizer::TOKEN_KEYWORD) {
+                action = String(peek().value).to_upper();
+                advance();
+            }
+        }
+        CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
+        cs->method_name = "QbPut";
+        take(cs, x1);
+        take(cs, y1);
+        take(cs, src);
+        take(cs, lit_str(action));
+        return cs;
+    }
+
+    return nullptr;
+}
+
 Statement* VisualGasicParser::parse_statement() {
     // Bail early if too many errors — prevents cascade crashes
     if (error_count >= MAX_ERRORS) return nullptr;
@@ -944,6 +1516,12 @@ Statement* VisualGasicParser::parse_statement() {
         if (s) s->line = statement_line;
         return s;
     };
+
+    // QuickBASIC graphics. Declined forms fall through: Screen.Width,
+    // Line Input, and Get # / Put #.
+    if (Statement *qb = try_parse_qb_graphics()) {
+        return set_line(qb);
+    }
 
     // Only treat reserved words as statements when the tokenizer classified them as KEYWORD.
     // <Flags> attribute for Enum (statement-level)
@@ -1631,8 +2209,10 @@ Statement* VisualGasicParser::parse_statement() {
         }
         return set_line(parse_assignment_or_call());
     }
-    
-    current_pos++; // Skip unknown
+
+    // Do not consume the token here. Callers already skip one token when
+    // parse_statement returns null. Skipping here too ate the "(" of a leftover
+    // expression and turned the next name (often a loop variable) into a call.
     return nullptr;
 }
 
@@ -2533,6 +3113,17 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                  UtilityFunctions::print("Parser Error: Expected ) after function call arguments");
             }
+            left = call;
+        } else if (name.nocasecmp_to("Inkey$") == 0) {
+            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+            call->method_name = "Inkey";
+            left = call;
+        } else if (name.nocasecmp_to("_DesktopWidth") == 0 || name.nocasecmp_to("_DesktopHeight") == 0
+            || name.nocasecmp_to("_MouseX") == 0 || name.nocasecmp_to("_MouseY") == 0
+            || name.nocasecmp_to("_MouseInput") == 0 || name.nocasecmp_to("_Width") == 0
+            || name.nocasecmp_to("_Height") == 0) {
+            CallExpression* call = static_cast<CallExpression*>(register_node(new CallExpression()));
+            call->method_name = name;
             left = call;
         } else {
             // Variable

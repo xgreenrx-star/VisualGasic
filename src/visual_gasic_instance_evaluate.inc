@@ -207,7 +207,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (name.nocasecmp_to("vbLf") == 0) return String("\n");
         if (name.nocasecmp_to("vbTab") == 0) return String("\t");
         if (name.nocasecmp_to("vbNullString") == 0) return String("");
-        if (name.nocasecmp_to("vbNullChar") == 0) return String(String::chr(0));
+        if (name.nocasecmp_to("vbNullChar") == 0) return VGStringBytes::chr_qb(0);
         if (name.nocasecmp_to("vbNewLine") == 0) return String("\n");
         if (name.nocasecmp_to("vbBack") == 0) return String(String::chr(8));
         if (name.nocasecmp_to("vbFormFeed") == 0) return String(String::chr(12));
@@ -785,12 +785,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  return "";
              }
              if (func_name == "Asc" && call_args.size() == 1) {
-                 String s = call_args[0];
-                 if (s.length() > 0) return (int)s.unicode_at(0);
-                 return 0;
+                 return VGStringBytes::to_byte(String(call_args[0]));
              }
              if (func_name == "Chr" && call_args.size() == 1) {
-                 return String::chr((int)call_args[0]);
+                 return VGStringBytes::chr_qb((int)call_args[0]);
              }
              if (func_name == "Space" && call_args.size() == 1) {
                  int count = (int)call_args[0];

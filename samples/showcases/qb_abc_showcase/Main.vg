@@ -1,0 +1,1000 @@
+' QB ABC Showcase — launcher for classic-style demos
+Attribute VB_Name = "QbAbcShowcase"
+
+Import "games/Bagels.vg"
+Import "games/StarTrek.vg"
+Import "games/SpaceInvaders.vg"
+Import "games/Breakout.vg"
+Import "games/LunarLander.vg"
+Import "games/Sokoban.vg"
+Import "games/Nibbles.vg"
+Import "games/Gorillas.vg"
+Import "games/HauntedHouse.vg"
+Import "games/Wumpus.vg"
+Import "games/Blackjack.vg"
+Import "games/Minesweeper.vg"
+Import "games/Hanoi.vg"
+Import "games/Dungeon.vg"
+Import "games/TrekFull.vg"
+Import "games/JetpackLite.vg"
+Import "games/DefenderLite.vg"
+Import "games/SokobanFull.vg"
+Import "games/NibblesFull.vg"
+Import "games/TicTacToe.vg"
+Import "games/LightsOn.vg"
+Import "games/Life.vg"
+Import "games/Q64FireDemo.vg"
+Import "games/Q64Mandelbrot.vg"
+Import "games/Q64Matrix.vg"
+Import "games/Q64Particles.vg"
+Import "games/Q64Relief3D.vg"
+Import "games/Q64Torus.vg"
+Import "games/Q64VectorField.vg"
+Import "games/Q64Turtle.vg"
+Import "games/Q64Flag.vg"
+Import "games/Q64Shooter.vg"
+Import "games/Q64Platform.vg"
+Import "games/Q64QBricks.vg"
+Import "games/Q64Pipes.vg"
+Import "games/Q64DialogBox.vg"
+Import "games/Qb64GalleryMenus.vg"
+Import "games/ShowcaseMeta.vg"
+
+Option Explicit
+
+Const MODE_MENU As Integer = 0
+Const MODE_BAGELS As Integer = 1
+Const MODE_TREK As Integer = 2
+Const MODE_INVADERS As Integer = 3
+Const MODE_BREAKOUT As Integer = 4
+Const MODE_LANDER As Integer = 5
+Const MODE_SOKOBAN As Integer = 6
+Const MODE_NIBBLES As Integer = 7
+Const MODE_INTRO As Integer = 8
+Const MODE_ABOUT As Integer = 9
+Const MODE_MENU_B As Integer = 10
+Const MODE_MENU_C As Integer = 11
+Const MODE_GORILLAS As Integer = 12
+Const MODE_HAUNTED As Integer = 13
+Const MODE_WUMPUS As Integer = 14
+Const MODE_BLACKJACK As Integer = 15
+Const MODE_MINES As Integer = 16
+Const MODE_HANOI As Integer = 17
+Const MODE_DUNGEON As Integer = 18
+Const MODE_TREK_FULL As Integer = 19
+Const MODE_JETPACK As Integer = 20
+Const MODE_DEFENDER As Integer = 21
+Const MODE_SOKOBAN_FULL As Integer = 22
+Const MODE_NIBBLES_FULL As Integer = 23
+Const MODE_MENU_Q As Integer = 24
+Const MODE_TICTACTOE As Integer = 25
+Const MODE_LIGHTSON As Integer = 26
+Const MODE_LIFE As Integer = 27
+Const MODE_Q64_SHOOTER As Integer = 28
+Const MODE_Q64_PLATFORM As Integer = 29
+Const MODE_Q64_QBRICKS As Integer = 30
+Const MODE_Q64_PIPES As Integer = 31
+Const MODE_Q64_FIRE As Integer = 32
+Const MODE_Q64_MANDEL As Integer = 33
+Const MODE_Q64_MATRIX As Integer = 34
+Const MODE_Q64_PARTICLES As Integer = 35
+Const MODE_Q64_RELIEF As Integer = 36
+Const MODE_Q64_TORUS As Integer = 37
+Const MODE_Q64_VFIELD As Integer = 38
+Const MODE_Q64_TURTLE As Integer = 39
+Const MODE_Q64_FLAG As Integer = 40
+Const MODE_Q64_DIALOG As Integer = 41
+Const MODE_MENU_QG As Integer = 42
+Const MODE_MENU_QD As Integer = 43
+Const MODE_MENU_QTOOLS As Integer = 44
+Const MODE_MENU_QSKIP As Integer = 45
+
+Dim curMode As Integer
+Dim pendingMode As Integer
+Dim menuReturn As Integer
+Dim hud1 As String
+Dim hud2 As String
+Dim statusLine As String
+Dim introTitle As String
+Dim introCredit As String
+Dim introCtrl1 As String
+Dim introCtrl2 As String
+Dim introSource As String
+Dim introDisclaimer As String
+
+Sub _Ready()
+	Randomize
+	curMode = MODE_MENU
+	pendingMode = 0
+	statusLine = "1-7 demos  B/C/Q tiers  8 = About"
+	menuReturn = MODE_MENU
+	QueueRedraw
+End Sub
+
+Sub _Draw()
+	If curMode = MODE_MENU Then
+		Call DrawMenu
+	ElseIf curMode = MODE_MENU_B Then
+		Call DrawMenuB
+	ElseIf curMode = MODE_MENU_C Then
+		Call DrawMenuC
+	ElseIf curMode = MODE_MENU_Q Then
+		Call DrawMenuQ
+	ElseIf curMode = MODE_MENU_QG Then
+		Call Q64_DrawMenuGames
+	ElseIf curMode = MODE_MENU_QD Then
+		Call Q64_DrawMenuDemos
+	ElseIf curMode = MODE_MENU_QTOOLS Then
+		Call Q64_DrawMenuTools
+	ElseIf curMode = MODE_MENU_QSKIP Then
+		Call Q64_DrawMenuSkipped
+	ElseIf curMode = MODE_INTRO Then
+		Call DrawIntro
+	ElseIf curMode = MODE_ABOUT Then
+		Call DrawAbout
+	Else
+		Call DrawHud
+	End If
+End Sub
+
+Sub DrawMenu()
+	Dim src As String
+	Dim disc As String
+	Call Meta_SourceNote(src)
+	Call Meta_Disclaimer(disc)
+	DrawRect 0, 0, 960, 600, Color8(12, 18, 32), True
+	DrawString "Visual Gasic — QB ABC Showcase", 48, 36, Color8(120, 200, 255), 28
+	DrawString "Classic-style games (simple demos + QB SCREEN layer)", 48, 72, Color8(200, 210, 220), 16
+	DrawString "1  Bagels (Mastermind)     5  Lunar Lander", 48, 120, Color8(255, 255, 255), 16
+	DrawString "2  Super Star Trek         6  Sokoban (mini)", 48, 148, Color8(255, 255, 255), 16
+	DrawString "3  Space Invaders          7  Nibbles (snake)", 48, 176, Color8(255, 255, 255), 16
+	DrawString "4  Breakout", 48, 204, Color8(255, 255, 255), 16
+	DrawString "B  Tier B (7)   C  Tier C (5)   Q  QB64 gallery (games/demos/tools)", 48, 238, Color8(180, 220, 255), 15
+	DrawString "8  About", 48, 262, Color8(180, 220, 255), 15
+	DrawString statusLine, 48, 286, Color8(180, 220, 180), 14
+	DrawString Left(src, 92), 48, 480, Color8(130, 140, 155), 11
+	DrawString Left(disc, 92), 48, 498, Color8(130, 140, 155), 11
+	DrawString "Tier lists: docs/showcase/QB_ABC_COMPLEX_CANDIDATES.md", 48, 524, Color8(110, 120, 135), 11
+End Sub
+
+Sub DrawMenuB()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier B — moderate ABC-style ports", 48, 36, Color8(140, 210, 255), 24
+	DrawString "1 Gorillas   2 Haunted House   3 Hunt the Wumpus", 48, 100, Color8(255, 255, 255), 15
+	DrawString "4 Blackjack  5 Minesweeper     6 Tower of Hanoi", 48, 128, Color8(255, 255, 255), 15
+	DrawString "7 Mini dungeon", 48, 156, Color8(255, 255, 255), 15
+	DrawString "Esc = main menu", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub DrawMenuQ()
+	Call Q64_DrawMenuHub
+End Sub
+
+Sub DrawMenuC()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier C — expanded ports", 48, 36, Color8(140, 210, 255), 24
+	DrawString "1 Star Trek (full session)", 48, 100, Color8(255, 255, 255), 15
+	DrawString "2 Jetpack Lite   3 Defender Lite", 48, 128, Color8(255, 255, 255), 15
+	DrawString "4 Sokoban (3 levels)   5 Nibbles Full", 48, 156, Color8(255, 255, 255), 15
+	DrawString "Esc = main menu", 48, 540, Color8(200, 200, 160), 14
+End Sub
+
+Sub DrawIntro()
+	DrawRect 0, 0, 960, 600, Color8(8, 12, 22), True
+	DrawRect 32, 32, 896, 536, Color8(22, 28, 42), True
+	DrawRect 32, 32, 896, 4, Color8(80, 140, 220), True
+	DrawString introTitle, 56, 52, Color8(140, 210, 255), 26
+	DrawString "Controls", 56, 100, Color8(200, 210, 180), 16
+	DrawString introCtrl1, 56, 126, Color8(255, 255, 255), 15
+	DrawString introCtrl2, 56, 148, Color8(220, 220, 220), 14
+	DrawString "Credit / inspiration", 56, 188, Color8(200, 210, 180), 16
+	DrawString Left(introCredit, 105), 56, 214, Color8(230, 230, 230), 13
+	DrawString "Source", 56, 272, Color8(200, 210, 180), 16
+	DrawString Left(introSource, 100), 56, 298, Color8(190, 200, 210), 12
+	DrawString Left(introDisclaimer, 100), 56, 330, Color8(170, 180, 195), 12
+	DrawString "Enter or Space = start game     Esc = back to menu", 56, 540, Color8(255, 220, 140), 15
+End Sub
+
+Sub DrawAbout()
+	Dim src As String
+	Dim disc As String
+	Call Meta_SourceNote(src)
+	Call Meta_Disclaimer(disc)
+	DrawRect 0, 0, 960, 600, Color8(8, 12, 22), True
+	DrawString "About this showcase", 48, 40, Color8(140, 210, 255), 26
+	DrawString "Games 1-7 are small Visual Gasic reimplementations inspired by titles", 48, 88, Color8(220, 225, 235), 14
+	DrawString "from the ABC shareware collection (BasicGuru). Each game shows an intro", 48, 108, Color8(220, 225, 235), 14
+	DrawString "with controls and author lineage before you play.", 48, 128, Color8(220, 225, 235), 14
+	DrawString "Archive:", 48, 168, Color8(200, 210, 180), 15
+	DrawString "https://basicguru.com/abc/games.htm", 48, 190, Color8(160, 200, 255), 14
+	DrawString Left(src, 95), 48, 220, Color8(190, 200, 210), 12
+	DrawString Left(disc, 95), 48, 250, Color8(190, 200, 210), 12
+	DrawString "Tier Q (Q): QB64.com gallery — G games, D demos, T tools, S skipped list.", 48, 300, Color8(200, 210, 180), 15
+	DrawString "docs/showcase/QB64_SAMPLES_AND_SHOWCASE.md — licensing / inspiration notes", 48, 322, Color8(180, 190, 205), 13
+	DrawString "docs/showcase/QB_ABC_COMPLEX_CANDIDATES.md — future flagship ports", 48, 344, Color8(180, 190, 205), 13
+	DrawString "Esc or 8 = return to menu", 48, 540, Color8(255, 220, 140), 15
+End Sub
+
+Sub DrawHud()
+	DrawRect 0, 0, 960, 56, Color8(0, 0, 0, 180), True
+	DrawString hud1, 12, 8, Color8(255, 255, 200), 14
+	DrawString hud2, 12, 30, Color8(200, 200, 200), 13
+	DrawString "Esc = menu", 12, 580, Color8(160, 160, 160), 12
+End Sub
+
+Sub _Process(delta As Single)
+	If curMode = MODE_MENU Then
+		Call PollMenu
+	ElseIf curMode = MODE_MENU_B Then
+		Call PollMenuB
+	ElseIf curMode = MODE_MENU_C Then
+		Call PollMenuC
+	ElseIf curMode = MODE_MENU_Q Then
+		Call PollMenuQ
+	ElseIf curMode = MODE_MENU_QG Then
+		Call PollMenuQG
+	ElseIf curMode = MODE_MENU_QD Then
+		Call PollMenuQD
+	ElseIf curMode = MODE_MENU_QTOOLS Then
+		Call PollMenuQTools
+	ElseIf curMode = MODE_MENU_QSKIP Then
+		Call PollMenuQSkip
+	ElseIf curMode = MODE_INTRO Then
+		Call PollIntro
+	ElseIf curMode = MODE_ABOUT Then
+		Call PollAbout
+	Else
+		Call PollGame(delta)
+	End If
+End Sub
+
+Sub _Input(ev As Variant)
+	If ev Is InputEventKey Then
+		If Not ev.pressed Or ev.echo Then Exit Sub
+		If curMode = MODE_MENU Then
+			Call HandleMenuKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_B Then
+			Call HandleMenuBKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_C Then
+			Call HandleMenuCKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_Q Then
+			Call HandleMenuQKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_QG Then
+			Call HandleMenuQGKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_QD Then
+			Call HandleMenuQDKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_QTOOLS Then
+			Call HandleMenuQToolsKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_QSKIP Then
+			Call HandleMenuQSkipKey(ev.keycode)
+		ElseIf curMode = MODE_INTRO Then
+			Call HandleIntroKey(ev.keycode)
+		ElseIf curMode = MODE_ABOUT Then
+			If ev.keycode = KEY_ESCAPE Or ev.keycode = KEY_8 Then
+				curMode = MODE_MENU
+				QueueRedraw
+			End If
+		Else
+			Call HandleGameKey(ev.keycode)
+		End If
+	End If
+End Sub
+
+Sub HandleGameKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		Call ReturnToMenu
+		Exit Sub
+	End If
+	Select Case curMode
+		Case MODE_BAGELS, MODE_TREK, MODE_TREK_FULL, MODE_HAUNTED, MODE_WUMPUS
+			Call HandleTextKeycode(keycode)
+		Case MODE_INVADERS
+			If keycode = KEY_LEFT Then Call Invaders_KeyLeft
+			If keycode = KEY_RIGHT Then Call Invaders_KeyRight
+			If keycode = KEY_SPACE Then Call Invaders_Fire
+		Case MODE_BREAKOUT
+			If keycode = KEY_LEFT Then Call Breakout_KeyLeft
+			If keycode = KEY_RIGHT Then Call Breakout_KeyRight
+		Case MODE_LANDER
+			If keycode = KEY_UP Then Call Lander_Thrust
+			If keycode = KEY_LEFT Then Call Lander_Left
+			If keycode = KEY_RIGHT Then Call Lander_Right
+		Case MODE_SOKOBAN, MODE_SOKOBAN_FULL
+			If keycode = KEY_UP Then Call SokobanArrow(0, -1)
+			If keycode = KEY_DOWN Then Call SokobanArrow(0, 1)
+			If keycode = KEY_LEFT Then Call SokobanArrow(-1, 0)
+			If keycode = KEY_RIGHT Then Call SokobanArrow(1, 0)
+		Case MODE_NIBBLES
+			If keycode = KEY_UP Then Call Nibbles_Up
+			If keycode = KEY_DOWN Then Call Nibbles_Down
+			If keycode = KEY_LEFT Then Call Nibbles_Left
+			If keycode = KEY_RIGHT Then Call Nibbles_Right
+		Case MODE_NIBBLES_FULL
+			If keycode = KEY_UP Then Call NibblesFull_SetDir(0, -1)
+			If keycode = KEY_DOWN Then Call NibblesFull_SetDir(0, 1)
+			If keycode = KEY_LEFT Then Call NibblesFull_SetDir(-1, 0)
+			If keycode = KEY_RIGHT Then Call NibblesFull_SetDir(1, 0)
+		Case MODE_GORILLAS
+			If keycode = KEY_A Then Call Gorillas_AdjustAngle(-2)
+			If keycode = KEY_D Then Call Gorillas_AdjustAngle(2)
+			If keycode = KEY_W Then Call Gorillas_AdjustPower(2)
+			If keycode = KEY_S Then Call Gorillas_AdjustPower(-2)
+			If keycode = KEY_SPACE Then Call Gorillas_Fire
+		Case MODE_BLACKJACK
+			If keycode = KEY_H Then Call Blackjack_Hit
+			If keycode = KEY_S Then Call Blackjack_Stand
+		Case MODE_MINES
+			If keycode = KEY_UP Then Call Mines_Move(0, -1)
+			If keycode = KEY_DOWN Then Call Mines_Move(0, 1)
+			If keycode = KEY_LEFT Then Call Mines_Move(-1, 0)
+			If keycode = KEY_RIGHT Then Call Mines_Move(1, 0)
+			If keycode = KEY_SPACE Then Call Mines_RevealCursor
+			If keycode = KEY_F Then Call Mines_Flag
+			Call Mines_Draw
+		Case MODE_HANOI
+			If keycode = KEY_1 Then Call Hanoi_SelectPeg(1)
+			If keycode = KEY_2 Then Call Hanoi_SelectPeg(2)
+			If keycode = KEY_3 Then Call Hanoi_SelectPeg(3)
+			If keycode = KEY_SPACE Then Call Hanoi_TryMove
+		Case MODE_DUNGEON
+			If keycode = KEY_UP Then Call Dungeon_TryMove(0, -1)
+			If keycode = KEY_DOWN Then Call Dungeon_TryMove(0, 1)
+			If keycode = KEY_LEFT Then Call Dungeon_TryMove(-1, 0)
+			If keycode = KEY_RIGHT Then Call Dungeon_TryMove(1, 0)
+		Case MODE_JETPACK
+			If keycode = KEY_UP Then Call Jetpack_Thrust
+			If keycode = KEY_LEFT Then Call Jetpack_Left
+			If keycode = KEY_RIGHT Then Call Jetpack_Right
+		Case MODE_DEFENDER
+			If keycode = KEY_LEFT Then Call Defender_Left
+			If keycode = KEY_RIGHT Then Call Defender_Right
+			If keycode = KEY_SPACE Then Call Defender_Fire
+		Case MODE_TICTACTOE
+			If keycode = KEY_LEFT Then Call Ttt_MoveCursor(-1)
+			If keycode = KEY_RIGHT Then Call Ttt_MoveCursor(1)
+			If keycode = KEY_UP Then Call Ttt_MoveCursor(-3)
+			If keycode = KEY_DOWN Then Call Ttt_MoveCursor(3)
+			If keycode = KEY_SPACE Then Call Ttt_TryPlace
+		Case MODE_LIGHTSON
+			If keycode = KEY_LEFT Then Call Lights_Move(-1, 0)
+			If keycode = KEY_RIGHT Then Call Lights_Move(1, 0)
+			If keycode = KEY_UP Then Call Lights_Move(0, -1)
+			If keycode = KEY_DOWN Then Call Lights_Move(0, 1)
+			If keycode = KEY_SPACE Then Call Lights_Press
+			If keycode = KEY_R Then Call Lights_Reset
+		Case MODE_LIFE
+			If keycode = KEY_SPACE Then Call Life_Step
+			If keycode = KEY_R Then
+				Call Life_Randomize
+				Call Life_Draw
+			End If
+			If keycode = KEY_C Then
+				Call Life_Clear
+				Call Life_Draw
+			End If
+		Case MODE_Q64_SHOOTER
+			If keycode = KEY_LEFT Then Call Q64Shooter_Left
+			If keycode = KEY_RIGHT Then Call Q64Shooter_Right
+			If keycode = KEY_SPACE Then Call Q64Shooter_Fire
+		Case MODE_Q64_PLATFORM
+			If keycode = KEY_LEFT Then Call Q64Platform_Left
+			If keycode = KEY_RIGHT Then Call Q64Platform_Right
+			If keycode = KEY_SPACE Then Call Q64Platform_Jump
+		Case MODE_Q64_QBRICKS
+			If keycode = KEY_LEFT Then Call Q64QBricks_Left
+			If keycode = KEY_RIGHT Then Call Q64QBricks_Right
+		Case MODE_Q64_PIPES
+			If keycode = KEY_LEFT Then Call Q64Pipes_Move(-1, 0)
+			If keycode = KEY_RIGHT Then Call Q64Pipes_Move(1, 0)
+			If keycode = KEY_UP Then Call Q64Pipes_Move(0, -1)
+			If keycode = KEY_DOWN Then Call Q64Pipes_Move(0, 1)
+			If keycode = KEY_SPACE Then Call Q64Pipes_Rotate
+		Case MODE_Q64_MANDEL
+			If keycode = KEY_SPACE Then Call Q64Mandel_KeyReseed
+		Case MODE_Q64_VFIELD
+			If keycode = KEY_LEFT Then Call Q64VField_MoveCharge(-1, 0)
+			If keycode = KEY_RIGHT Then Call Q64VField_MoveCharge(1, 0)
+			If keycode = KEY_UP Then Call Q64VField_MoveCharge(0, -1)
+			If keycode = KEY_DOWN Then Call Q64VField_MoveCharge(0, 1)
+			If keycode = KEY_SPACE Then Call Q64VField_Respawn
+		Case MODE_Q64_TURTLE
+			If keycode = KEY_SPACE Then Call Q64Turtle_Redraw
+		Case MODE_Q64_DIALOG
+			If keycode = KEY_SPACE Then Call Q64Dialog_Advance
+	End Select
+	Call RefreshHud
+End Sub
+
+Sub SokobanArrow(dx As Integer, dy As Integer)
+	If curMode = MODE_SOKOBAN Then Call Sokoban_TryMove(dx, dy)
+	If curMode = MODE_SOKOBAN_FULL Then Call SokobanFull_TryMove(dx, dy)
+End Sub
+
+Sub HandleTextKeycode(keycode As Integer)
+	Dim ch As String
+	ch = KeycodeToChar(keycode)
+	If Len(ch) = 0 Then Exit Sub
+	If curMode = MODE_BAGELS Then Call Bagels_Key(ch)
+	If curMode = MODE_TREK Then Call Trek_Key(ch)
+	If curMode = MODE_TREK_FULL Then Call TrekFull_Key(ch)
+	If curMode = MODE_HAUNTED Then Call Haunted_Cmd(ch)
+	If curMode = MODE_WUMPUS Then Call Wumpus_Key(ch)
+End Sub
+
+Function KeycodeToChar(keycode As Integer) As String
+	If keycode = KEY_ENTER Or keycode = KEY_KP_ENTER Then
+		KeycodeToChar = Chr(13)
+		Exit Function
+	End If
+	If keycode = KEY_BACKSPACE Then
+		KeycodeToChar = Chr(8)
+		Exit Function
+	End If
+	If keycode >= KEY_0 And keycode <= KEY_9 Then
+		KeycodeToChar = Chr(48 + (keycode - KEY_0))
+		Exit Function
+	End If
+	If keycode >= KEY_A And keycode <= KEY_Z Then
+		KeycodeToChar = Chr(65 + (keycode - KEY_A))
+		Exit Function
+	End If
+	KeycodeToChar = ""
+End Function
+
+Sub HandleIntroKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = menuReturn
+		If curMode = 0 Then curMode = MODE_MENU
+		pendingMode = 0
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_ENTER Or keycode = KEY_KP_ENTER Or keycode = KEY_SPACE Then
+		Call LaunchPendingGame
+	End If
+End Sub
+
+Sub PollIntro()
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = menuReturn
+		If curMode = 0 Then curMode = MODE_MENU
+		pendingMode = 0
+		QueueRedraw
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then
+		Call LaunchPendingGame
+	End If
+End Sub
+
+Sub PollAbout()
+	If IsKeyJustPressed(KEY_ESCAPE) Or IsKeyJustPressed(KEY_8) Then
+		curMode = MODE_MENU
+		QueueRedraw
+	End If
+End Sub
+
+Sub HandleMenuKey(keycode As Integer)
+	Select Case keycode
+		Case KEY_1
+			Call StartGame(MODE_BAGELS)
+		Case KEY_2
+			Call StartGame(MODE_TREK)
+		Case KEY_3
+			Call StartGame(MODE_INVADERS)
+		Case KEY_4
+			Call StartGame(MODE_BREAKOUT)
+		Case KEY_5
+			Call StartGame(MODE_LANDER)
+		Case KEY_6
+			Call StartGame(MODE_SOKOBAN)
+		Case KEY_7
+			Call StartGame(MODE_NIBBLES)
+		Case KEY_8
+			curMode = MODE_ABOUT
+			QueueRedraw
+		Case KEY_B
+			curMode = MODE_MENU_B
+			QueueRedraw
+		Case KEY_C
+			curMode = MODE_MENU_C
+			QueueRedraw
+		Case KEY_Q
+			curMode = MODE_MENU_Q
+			QueueRedraw
+	End Select
+End Sub
+
+Sub HandleMenuQKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_G Then
+		curMode = MODE_MENU_QG
+		QueueRedraw
+	End If
+	If keycode = KEY_D Then
+		curMode = MODE_MENU_QD
+		QueueRedraw
+	End If
+	If keycode = KEY_T Then
+		curMode = MODE_MENU_QTOOLS
+		QueueRedraw
+	End If
+	If keycode = KEY_S Then
+		curMode = MODE_MENU_QSKIP
+		QueueRedraw
+	End If
+End Sub
+
+Sub HandleMenuQGKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU_Q
+		QueueRedraw
+		Exit Sub
+	End If
+	Select Case keycode
+		Case KEY_1: Call StartGameFromTier(MODE_Q64_SHOOTER, MODE_MENU_QG)
+		Case KEY_2: Call StartGameFromTier(MODE_Q64_PLATFORM, MODE_MENU_QG)
+		Case KEY_3: Call StartGameFromTier(MODE_Q64_QBRICKS, MODE_MENU_QG)
+		Case KEY_4: Call StartGameFromTier(MODE_Q64_PIPES, MODE_MENU_QG)
+		Case KEY_5: Call StartGameFromTier(MODE_TICTACTOE, MODE_MENU_QG)
+		Case KEY_6: Call StartGameFromTier(MODE_LIGHTSON, MODE_MENU_QG)
+		Case KEY_7: Call StartGameFromTier(MODE_LIFE, MODE_MENU_QG)
+	End Select
+End Sub
+
+Sub HandleMenuQDKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU_Q
+		QueueRedraw
+		Exit Sub
+	End If
+	Select Case keycode
+		Case KEY_1: Call StartGameFromTier(MODE_Q64_FIRE, MODE_MENU_QD)
+		Case KEY_2: Call StartGameFromTier(MODE_Q64_MANDEL, MODE_MENU_QD)
+		Case KEY_3: Call StartGameFromTier(MODE_Q64_MATRIX, MODE_MENU_QD)
+		Case KEY_4: Call StartGameFromTier(MODE_Q64_PARTICLES, MODE_MENU_QD)
+		Case KEY_5: Call StartGameFromTier(MODE_Q64_RELIEF, MODE_MENU_QD)
+		Case KEY_6: Call StartGameFromTier(MODE_Q64_TORUS, MODE_MENU_QD)
+		Case KEY_7: Call StartGameFromTier(MODE_Q64_VFIELD, MODE_MENU_QD)
+		Case KEY_8: Call StartGameFromTier(MODE_Q64_TURTLE, MODE_MENU_QD)
+		Case KEY_9: Call StartGameFromTier(MODE_Q64_FLAG, MODE_MENU_QD)
+	End Select
+End Sub
+
+Sub HandleMenuQToolsKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU_Q
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_1 Then Call StartGameFromTier(MODE_Q64_DIALOG, MODE_MENU_QTOOLS)
+End Sub
+
+Sub HandleMenuQSkipKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU_Q
+		QueueRedraw
+	End If
+End Sub
+
+Sub HandleMenuBKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	Select Case keycode
+		Case KEY_1: Call StartGameFromTier(MODE_GORILLAS, MODE_MENU_B)
+		Case KEY_2: Call StartGameFromTier(MODE_HAUNTED, MODE_MENU_B)
+		Case KEY_3: Call StartGameFromTier(MODE_WUMPUS, MODE_MENU_B)
+		Case KEY_4: Call StartGameFromTier(MODE_BLACKJACK, MODE_MENU_B)
+		Case KEY_5: Call StartGameFromTier(MODE_MINES, MODE_MENU_B)
+		Case KEY_6: Call StartGameFromTier(MODE_HANOI, MODE_MENU_B)
+		Case KEY_7: Call StartGameFromTier(MODE_DUNGEON, MODE_MENU_B)
+	End Select
+End Sub
+
+Sub HandleMenuCKey(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	Select Case keycode
+		Case KEY_1: Call StartGameFromTier(MODE_TREK_FULL, MODE_MENU_C)
+		Case KEY_2: Call StartGameFromTier(MODE_JETPACK, MODE_MENU_C)
+		Case KEY_3: Call StartGameFromTier(MODE_DEFENDER, MODE_MENU_C)
+		Case KEY_4: Call StartGameFromTier(MODE_SOKOBAN_FULL, MODE_MENU_C)
+		Case KEY_5: Call StartGameFromTier(MODE_NIBBLES_FULL, MODE_MENU_C)
+	End Select
+End Sub
+
+Sub PollMenu()
+	If IsKeyJustPressed(KEY_1) Then Call StartGame(MODE_BAGELS)
+	If IsKeyJustPressed(KEY_2) Then Call StartGame(MODE_TREK)
+	If IsKeyJustPressed(KEY_3) Then Call StartGame(MODE_INVADERS)
+	If IsKeyJustPressed(KEY_4) Then Call StartGame(MODE_BREAKOUT)
+	If IsKeyJustPressed(KEY_5) Then Call StartGame(MODE_LANDER)
+	If IsKeyJustPressed(KEY_6) Then Call StartGame(MODE_SOKOBAN)
+	If IsKeyJustPressed(KEY_7) Then Call StartGame(MODE_NIBBLES)
+	If IsKeyJustPressed(KEY_8) Then
+		curMode = MODE_ABOUT
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_B) Then
+		curMode = MODE_MENU_B
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_C) Then
+		curMode = MODE_MENU_C
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_Q) Then
+		curMode = MODE_MENU_Q
+		QueueRedraw
+	End If
+End Sub
+
+Sub PollMenuQ()
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = MODE_MENU
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_G) Then curMode = MODE_MENU_QG: QueueRedraw
+	If IsKeyJustPressed(KEY_D) Then curMode = MODE_MENU_QD: QueueRedraw
+	If IsKeyJustPressed(KEY_T) Then curMode = MODE_MENU_QTOOLS: QueueRedraw
+	If IsKeyJustPressed(KEY_S) Then curMode = MODE_MENU_QSKIP: QueueRedraw
+End Sub
+
+Sub PollMenuQG()
+	If IsKeyJustPressed(KEY_ESCAPE) Then curMode = MODE_MENU_Q: QueueRedraw
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_Q64_SHOOTER, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_2) Then Call StartGameFromTier(MODE_Q64_PLATFORM, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_3) Then Call StartGameFromTier(MODE_Q64_QBRICKS, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_4) Then Call StartGameFromTier(MODE_Q64_PIPES, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_5) Then Call StartGameFromTier(MODE_TICTACTOE, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_6) Then Call StartGameFromTier(MODE_LIGHTSON, MODE_MENU_QG)
+	If IsKeyJustPressed(KEY_7) Then Call StartGameFromTier(MODE_LIFE, MODE_MENU_QG)
+End Sub
+
+Sub PollMenuQD()
+	If IsKeyJustPressed(KEY_ESCAPE) Then curMode = MODE_MENU_Q: QueueRedraw
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_Q64_FIRE, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_2) Then Call StartGameFromTier(MODE_Q64_MANDEL, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_3) Then Call StartGameFromTier(MODE_Q64_MATRIX, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_4) Then Call StartGameFromTier(MODE_Q64_PARTICLES, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_5) Then Call StartGameFromTier(MODE_Q64_RELIEF, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_6) Then Call StartGameFromTier(MODE_Q64_TORUS, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_7) Then Call StartGameFromTier(MODE_Q64_VFIELD, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_8) Then Call StartGameFromTier(MODE_Q64_TURTLE, MODE_MENU_QD)
+	If IsKeyJustPressed(KEY_9) Then Call StartGameFromTier(MODE_Q64_FLAG, MODE_MENU_QD)
+End Sub
+
+Sub PollMenuQTools()
+	If IsKeyJustPressed(KEY_ESCAPE) Then curMode = MODE_MENU_Q: QueueRedraw
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_Q64_DIALOG, MODE_MENU_QTOOLS)
+End Sub
+
+Sub PollMenuQSkip()
+	If IsKeyJustPressed(KEY_ESCAPE) Then curMode = MODE_MENU_Q: QueueRedraw
+End Sub
+
+Sub PollMenuB()
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = MODE_MENU
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_GORILLAS, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_2) Then Call StartGameFromTier(MODE_HAUNTED, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_3) Then Call StartGameFromTier(MODE_WUMPUS, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_4) Then Call StartGameFromTier(MODE_BLACKJACK, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_5) Then Call StartGameFromTier(MODE_MINES, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_6) Then Call StartGameFromTier(MODE_HANOI, MODE_MENU_B)
+	If IsKeyJustPressed(KEY_7) Then Call StartGameFromTier(MODE_DUNGEON, MODE_MENU_B)
+End Sub
+
+Sub PollMenuC()
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = MODE_MENU
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_TREK_FULL, MODE_MENU_C)
+	If IsKeyJustPressed(KEY_2) Then Call StartGameFromTier(MODE_JETPACK, MODE_MENU_C)
+	If IsKeyJustPressed(KEY_3) Then Call StartGameFromTier(MODE_DEFENDER, MODE_MENU_C)
+	If IsKeyJustPressed(KEY_4) Then Call StartGameFromTier(MODE_SOKOBAN_FULL, MODE_MENU_C)
+	If IsKeyJustPressed(KEY_5) Then Call StartGameFromTier(MODE_NIBBLES_FULL, MODE_MENU_C)
+End Sub
+
+Sub StartGame(mode As Integer)
+	menuReturn = MODE_MENU
+	Call BeginIntroForMode(mode)
+End Sub
+
+Sub StartGameFromTier(mode As Integer, returnMenu As Integer)
+	menuReturn = returnMenu
+	Call BeginIntroForMode(mode)
+End Sub
+
+Sub BeginIntroForMode(mode As Integer)
+	pendingMode = mode
+	Call Meta_Title(mode, introTitle)
+	Call Meta_Credit(mode, introCredit)
+	Call Meta_ControlsLine1(mode, introCtrl1)
+	Call Meta_ControlsLine2(mode, introCtrl2)
+	Call Meta_SourceNote(introSource)
+	Call Meta_Disclaimer(introDisclaimer)
+	curMode = MODE_INTRO
+	QueueRedraw
+End Sub
+
+Sub LaunchPendingGame()
+	Dim mode As Integer
+	mode = pendingMode
+	curMode = mode
+	statusLine = ""
+	Select Case mode
+		Case MODE_BAGELS: Call Bagels_Init
+		Case MODE_TREK: Call Trek_Init
+		Case MODE_INVADERS: Call Invaders_Init
+		Case MODE_BREAKOUT: Call Breakout_Init
+		Case MODE_LANDER: Call Lander_Init
+		Case MODE_SOKOBAN: Call Sokoban_Init
+		Case MODE_NIBBLES: Call Nibbles_Init
+		Case MODE_GORILLAS: Call Gorillas_Init
+		Case MODE_HAUNTED: Call Haunted_Init
+		Case MODE_WUMPUS: Call Wumpus_Init
+		Case MODE_BLACKJACK: Call Blackjack_Init
+		Case MODE_MINES: Call Mines_Init
+		Case MODE_HANOI: Call Hanoi_Init
+		Case MODE_DUNGEON: Call Dungeon_Init
+		Case MODE_TREK_FULL: Call TrekFull_Init
+		Case MODE_JETPACK: Call Jetpack_Init
+		Case MODE_DEFENDER: Call Defender_Init
+		Case MODE_SOKOBAN_FULL: Call SokobanFull_Init
+		Case MODE_NIBBLES_FULL: Call NibblesFull_Init
+		Case MODE_TICTACTOE: Call Ttt_Init
+		Case MODE_LIGHTSON: Call Lights_Init
+		Case MODE_LIFE: Call Life_Init
+		Case MODE_Q64_SHOOTER: Call Q64Shooter_Init
+		Case MODE_Q64_PLATFORM: Call Q64Platform_Init
+		Case MODE_Q64_QBRICKS: Call Q64QBricks_Init
+		Case MODE_Q64_PIPES: Call Q64Pipes_Init
+		Case MODE_Q64_FIRE: Call Q64Fire_Init
+		Case MODE_Q64_MANDEL: Call Q64Mandel_Init
+		Case MODE_Q64_MATRIX: Call Q64Matrix_Init
+		Case MODE_Q64_PARTICLES: Call Q64Particles_Init
+		Case MODE_Q64_RELIEF: Call Q64Relief_Init
+		Case MODE_Q64_TORUS: Call Q64Torus_Init
+		Case MODE_Q64_VFIELD: Call Q64VField_Init
+		Case MODE_Q64_TURTLE: Call Q64Turtle_Init
+		Case MODE_Q64_FLAG: Call Q64Flag_Init
+		Case MODE_Q64_DIALOG: Call Q64Dialog_Init
+		Case Else
+			curMode = menuReturn
+			If curMode = 0 Then curMode = MODE_MENU
+			QueueRedraw
+			Exit Sub
+	End Select
+	Call RefreshHud
+End Sub
+
+Sub ReturnToMenu()
+	Screen 0
+	pendingMode = 0
+	curMode = menuReturn
+	If curMode = 0 Then curMode = MODE_MENU
+	If curMode = MODE_MENU Then
+		statusLine = "1-7 demos  B/C/Q tiers  8 = About"
+	ElseIf curMode = MODE_MENU_B Then
+		statusLine = "Tier B — 1-7 pick game  Esc = main menu"
+	ElseIf curMode = MODE_MENU_C Then
+		statusLine = "Tier C — 1-5 pick game  Esc = main menu"
+	ElseIf curMode = MODE_MENU_Q Then
+		statusLine = "Tier Q hub — G/D/T/S  Esc = main menu"
+	ElseIf curMode = MODE_MENU_QG Or curMode = MODE_MENU_QD Or curMode = MODE_MENU_QTOOLS Then
+		statusLine = "Pick item  Esc = Q hub"
+	End If
+	QueueRedraw
+End Sub
+
+Sub PollGame(delta As Single)
+	Select Case curMode
+		Case MODE_BAGELS
+			If Not Bagels_Active() Then
+				statusLine = "Bagels finished — pick another game."
+				Call ReturnToMenu
+			End If
+		Case MODE_TREK
+			If Not Trek_Active() Then
+				statusLine = "Trek session ended."
+				Call ReturnToMenu
+			End If
+		Case MODE_INVADERS
+			Call Invaders_Tick(delta)
+			If Not Invaders_Active() Then
+				statusLine = "Invaders wave cleared (or game over)!"
+				Call ReturnToMenu
+			End If
+		Case MODE_BREAKOUT
+			Call Breakout_Tick(delta)
+			If Not Breakout_Active() Then
+				statusLine = "Breakout finished!"
+				Call ReturnToMenu
+			End If
+		Case MODE_LANDER
+			Call Lander_Tick(delta)
+			If Not Lander_Active() Then
+				statusLine = "Lander touchdown (or crash)!"
+				Call ReturnToMenu
+			End If
+		Case MODE_SOKOBAN
+			If Not Sokoban_Active() Then
+				statusLine = "Sokoban puzzle solved!"
+				Call ReturnToMenu
+			End If
+		Case MODE_NIBBLES
+			Call Nibbles_Tick(delta)
+			If Not Nibbles_Active() Then
+				statusLine = "Nibbles game over!"
+				Call ReturnToMenu
+			End If
+		Case MODE_GORILLAS
+			Call Gorillas_Tick(delta)
+			If Not Gorillas_Active() Then
+				statusLine = "Gorillas match over!"
+				Call ReturnToMenu
+			End If
+		Case MODE_HAUNTED
+			If Not Haunted_Active() Then
+				statusLine = "Haunted House — finished."
+				Call ReturnToMenu
+			End If
+		Case MODE_WUMPUS
+			If Not Wumpus_Active() Then
+				statusLine = "Hunt the Wumpus — game over."
+				Call ReturnToMenu
+			End If
+		Case MODE_BLACKJACK
+			If Not Blackjack_Active() Then
+				statusLine = "Blackjack hand finished."
+				Call ReturnToMenu
+			End If
+		Case MODE_MINES
+			Call Mines_Tick(delta)
+			If Not Mines_Active() Then
+				statusLine = "Minesweeper finished."
+				Call ReturnToMenu
+			End If
+		Case MODE_HANOI
+			If Not Hanoi_Active() Then
+				statusLine = "Tower of Hanoi solved!"
+				Call ReturnToMenu
+			End If
+		Case MODE_DUNGEON
+			If Not Dungeon_Active() Then
+				statusLine = "Dungeon cleared!"
+				Call ReturnToMenu
+			End If
+		Case MODE_TREK_FULL
+			If Not TrekFull_Active() Then
+				statusLine = "Star Trek mission ended."
+				Call ReturnToMenu
+			End If
+		Case MODE_JETPACK
+			Call Jetpack_Tick(delta)
+			If Not Jetpack_Active() Then
+				statusLine = "Jetpack run over!"
+				Call ReturnToMenu
+			End If
+		Case MODE_DEFENDER
+			Call Defender_Tick(delta)
+			If Not Defender_Active() Then
+				statusLine = "Defender wave ended."
+				Call ReturnToMenu
+			End If
+		Case MODE_SOKOBAN_FULL
+			If Not SokobanFull_Active() Then
+				statusLine = "Sokoban level complete!"
+				Call ReturnToMenu
+			End If
+		Case MODE_NIBBLES_FULL
+			Call NibblesFull_Tick(delta)
+			If Not NibblesFull_Active() Then
+				statusLine = "Nibbles (full) game over!"
+				Call ReturnToMenu
+			End If
+		Case MODE_TICTACTOE
+			If Not Ttt_Active() Then
+				statusLine = "Tic Tac Toe finished."
+				Call ReturnToMenu
+			End If
+		Case MODE_LIGHTSON
+			If Not Lights_Active() Then
+				statusLine = "Lights On solved!"
+				Call ReturnToMenu
+			End If
+		Case MODE_Q64_SHOOTER
+			Call Q64Shooter_Tick(delta)
+			If Not Q64Shooter_Active() Then
+				statusLine = "Shooter — game over or cleared."
+				Call ReturnToMenu
+			End If
+		Case MODE_Q64_PLATFORM
+			Call Q64Platform_Tick(delta)
+			If Not Q64Platform_Active() Then
+				statusLine = "Platform — finished."
+				Call ReturnToMenu
+			End If
+		Case MODE_Q64_QBRICKS
+			Call Q64QBricks_Tick(delta)
+			If Not Q64QBricks_Active() Then
+				statusLine = "QBricks — done."
+				Call ReturnToMenu
+			End If
+		Case MODE_Q64_PIPES
+			If Not Q64Pipes_Active() Then
+				statusLine = "Pipes puzzle solved!"
+				Call ReturnToMenu
+			End If
+		Case MODE_Q64_FIRE
+			Call Q64Fire_Tick(delta)
+		Case MODE_Q64_MANDEL
+			Call Q64Mandel_Tick(delta)
+		Case MODE_Q64_MATRIX
+			Call Q64Matrix_Tick(delta)
+		Case MODE_Q64_PARTICLES
+			Call Q64Particles_Tick(delta)
+		Case MODE_Q64_RELIEF
+			Call Q64Relief_Tick(delta)
+		Case MODE_Q64_TORUS
+			Call Q64Torus_Tick(delta)
+		Case MODE_Q64_VFIELD
+			Call Q64VField_Tick(delta)
+		Case MODE_Q64_FLAG
+			Call Q64Flag_Tick(delta)
+	End Select
+	Call RefreshHud
+End Sub
+
+Sub RefreshHud()
+	If curMode = MODE_BAGELS Then Call Bagels_GetHud(hud1, hud2)
+	If curMode = MODE_TREK Then Call Trek_GetHud(hud1, hud2)
+	If curMode = MODE_HAUNTED Then Call Haunted_GetHud(hud1, hud2)
+	If curMode = MODE_WUMPUS Then Call Wumpus_GetHud(hud1, hud2)
+	If curMode = MODE_TREK_FULL Then Call TrekFull_GetHud(hud1, hud2)
+	If curMode = MODE_GORILLAS Then Call Gorillas_GetHud(hud1, hud2)
+	If curMode = MODE_BLACKJACK Then Call Blackjack_GetHud(hud1, hud2)
+	If curMode = MODE_MINES Then Call Mines_GetHud(hud1, hud2)
+	If curMode = MODE_HANOI Then Call Hanoi_GetHud(hud1, hud2)
+	If curMode = MODE_DUNGEON Then Call Dungeon_GetHud(hud1, hud2)
+	If curMode = MODE_JETPACK Then Call Jetpack_GetHud(hud1, hud2)
+	If curMode = MODE_DEFENDER Then Call Defender_GetHud(hud1, hud2)
+	If curMode = MODE_SOKOBAN_FULL Then Call SokobanFull_GetHud(hud1, hud2)
+	If curMode = MODE_NIBBLES_FULL Then Call NibblesFull_GetHud(hud1, hud2)
+	If curMode = MODE_TICTACTOE Then Call Ttt_GetHud(hud1, hud2)
+	If curMode = MODE_LIGHTSON Then Call Lights_GetHud(hud1, hud2)
+	If curMode = MODE_LIFE Then Call Life_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_SHOOTER Then Call Q64Shooter_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_PLATFORM Then Call Q64Platform_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_QBRICKS Then Call Q64QBricks_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_PIPES Then Call Q64Pipes_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_FIRE Then Call Q64Fire_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_MANDEL Then Call Q64Mandel_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_MATRIX Then Call Q64Matrix_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_PARTICLES Then Call Q64Particles_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_RELIEF Then Call Q64Relief_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_TORUS Then Call Q64Torus_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_VFIELD Then Call Q64VField_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_TURTLE Then Call Q64Turtle_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_FLAG Then Call Q64Flag_GetHud(hud1, hud2)
+	If curMode = MODE_Q64_DIALOG Then Call Q64Dialog_GetHud(hud1, hud2)
+	If curMode >= MODE_INVADERS And curMode <= MODE_NIBBLES Then
+		hud1 = "QB SCREEN 13 — classic graphics mode"
+		hud2 = statusLine
+	End If
+	QueueRedraw
+End Sub

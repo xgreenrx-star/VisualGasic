@@ -1,0 +1,73 @@
+' Mandelbrot animator — inspired by Microsoft/QB64 sample (original VG)
+Option Explicit
+
+Dim qm_active As Boolean
+Dim qm_phase As Integer
+Dim qm_tick As Single
+
+Sub Q64Mandel_Init()
+	Screen 13
+	Cls
+	qm_active = True
+	qm_phase = 0
+	qm_tick = 0
+	Call Q64Mandel_Draw
+End Sub
+
+Function Q64Mandel_Active() As Boolean
+	Q64Mandel_Active = qm_active
+End Function
+
+Sub Q64Mandel_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Mandelbrot (320×200 scan)"
+	l2 = "Space = re-seed palette phase  Esc = menu"
+End Sub
+
+Sub Q64Mandel_Tick(delta As Single)
+	qm_tick = qm_tick + delta
+	If qm_tick < 0.12 Then Exit Sub
+	qm_tick = 0
+	qm_phase = (qm_phase + 1) Mod 64
+	Call Q64Mandel_Draw
+End Sub
+
+Sub Q64Mandel_KeyReseed()
+	qm_phase = Int(Rnd() * 64)
+	Call Q64Mandel_Draw
+End Sub
+
+Sub Q64Mandel_Draw()
+	Dim px As Integer
+	Dim py As Integer
+	For py = 0 To 199 Step 2
+		Dim y0 As Single
+		y0 = (py - 100) / 120.0
+		For px = 0 To 319 Step 2
+			Dim x0 As Single
+			x0 = (px - 160) / 120.0
+			Dim x As Single
+			Dim y As Single
+			x = 0
+			y = 0
+			Dim i As Integer
+			i = 0
+			Do While i < 32 And x * x + y * y < 4
+				Dim xt As Single
+				xt = x * x - y * y + x0
+				y = 2 * x * y + y0
+				x = xt
+				i = i + 1
+			Loop
+			Dim c As Integer
+			If i >= 32 Then
+				c = 0
+			Else
+				c = ((i + qm_phase) Mod 63) + 1
+			End If
+			PSet (px, py), c
+			PSet (px + 1, py), c
+			PSet (px, py + 1), c
+			PSet (px + 1, py + 1), c
+		Next px
+	Next py
+End Sub

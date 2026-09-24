@@ -1,0 +1,57 @@
+' Particle fountain — inspired by bplus QB64 sample (original VG, throttled)
+Option Explicit
+
+Dim qp_active As Boolean
+Dim qp_n As Integer
+Dim qp_x(199) As Single
+Dim qp_y(199) As Single
+Dim qp_vx(199) As Single
+Dim qp_vy(199) As Single
+Dim qp_tick As Single
+
+Sub Q64Particles_Init()
+	Screen 13
+	Cls
+	qp_active = True
+	qp_n = 120
+	Dim i As Integer
+	For i = 0 To qp_n - 1
+		Call Q64Particles_Spawn(i)
+	Next i
+	qp_tick = 0
+End Sub
+
+Function Q64Particles_Active() As Boolean
+	Q64Particles_Active = qp_active
+End Function
+
+Sub Q64Particles_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Particle fountain (lite)"
+	l2 = "Inspired by bplus — Esc = menu"
+End Sub
+
+Sub Q64Particles_Spawn(i As Integer)
+	qp_x(i) = 160 + (Rnd() - 0.5) * 8
+	qp_y(i) = 190
+	qp_vx(i) = (Rnd() - 0.5) * 2.5
+	qp_vy(i) = -3 - Rnd() * 4
+End Sub
+
+Sub Q64Particles_Tick(delta As Single)
+	qp_tick = qp_tick + delta
+	If qp_tick < 0.03 Then Exit Sub
+	qp_tick = 0
+	Line (0, 0)-(319, 199), 0, BF
+	Circle (160, 195), 6, 4, , , 1
+	Dim i As Integer
+	For i = 0 To qp_n - 1
+		qp_vy(i) = qp_vy(i) + 0.25
+		qp_x(i) = qp_x(i) + qp_vx(i)
+		qp_y(i) = qp_y(i) + qp_vy(i)
+		If qp_y(i) > 200 Or qp_x(i) < 0 Or qp_x(i) > 319 Then Call Q64Particles_Spawn(i)
+		Dim c As Integer
+		c = 9 + Int(Abs(qp_vy(i)))
+		If c > 15 Then c = 15
+		Circle (Int(qp_x(i)), Int(qp_y(i))), 1, c, , , 1
+	Next i
+End Sub

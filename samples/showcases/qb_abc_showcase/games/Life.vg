@@ -1,0 +1,118 @@
+' Conway Life (mini) — inspired by QB64 Life sample (original VG code)
+Option Explicit
+
+Dim lf_active As Boolean
+Dim lf_w As Integer
+Dim lf_h As Integer
+Dim lf_cell(39, 24) As Integer
+Dim lf_gen As Integer
+Dim lf_msg As String
+Dim lf_accum As Single
+
+Sub Life_Init()
+	Screen 13
+	lf_w = 40
+	lf_h = 25
+	lf_gen = 0
+	lf_accum = 0
+	Call Life_Randomize
+	lf_msg = "Space = step  R = random  C = clear  Esc = menu"
+	lf_active = True
+	Call Life_Draw
+End Sub
+
+Function Life_Active() As Boolean
+	Life_Active = lf_active
+End Function
+
+Sub Life_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Conway Life (40×25)"
+	l2 = lf_msg & "  gen=" & CStr(lf_gen)
+End Sub
+
+Sub Life_Randomize()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To lf_h - 1
+		For x = 0 To lf_w - 1
+			If Rnd() < 0.28 Then
+				lf_cell(x, y) = 1
+			Else
+				lf_cell(x, y) = 0
+			End If
+		Next x
+	Next y
+	lf_gen = 0
+End Sub
+
+Sub Life_Clear()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To lf_h - 1
+		For x = 0 To lf_w - 1
+			lf_cell(x, y) = 0
+		Next x
+	Next y
+	lf_gen = 0
+End Sub
+
+Function Life_CountNeighbors(x As Integer, y As Integer) As Integer
+	Dim n As Integer
+	n = 0
+	Dim dx As Integer
+	Dim dy As Integer
+	For dy = -1 To 1
+		For dx = -1 To 1
+			If dx <> 0 Or dy <> 0 Then
+				Dim tx As Integer
+				Dim ty As Integer
+				tx = x + dx
+				ty = y + dy
+				If tx >= 0 And ty >= 0 And tx < lf_w And ty < lf_h Then
+					If lf_cell(tx, ty) = 1 Then n = n + 1
+				End If
+			End If
+		Next dx
+	Next dy
+	Life_CountNeighbors = n
+End Function
+
+Sub Life_Step()
+	Dim x As Integer
+	Dim y As Integer
+	Dim nextc(39, 24) As Integer
+	For y = 0 To lf_h - 1
+		For x = 0 To lf_w - 1
+			Dim c As Integer
+			c = Life_CountNeighbors(x, y)
+			If lf_cell(x, y) = 1 Then
+				If c = 2 Or c = 3 Then nextc(x, y) = 1 Else nextc(x, y) = 0
+			Else
+				If c = 3 Then nextc(x, y) = 1 Else nextc(x, y) = 0
+			End If
+		Next x
+	Next y
+	For y = 0 To lf_h - 1
+		For x = 0 To lf_w - 1
+			lf_cell(x, y) = nextc(x, y)
+		Next x
+	Next y
+	lf_gen = lf_gen + 1
+	Call Life_Draw
+End Sub
+
+Sub Life_Draw()
+	Cls
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To lf_h - 1
+		For x = 0 To lf_w - 1
+			If lf_cell(x, y) = 1 Then
+				PSet (20 + x * 7, 20 + y * 7), 11
+			End If
+		Next x
+	Next y
+End Sub
+
+Sub Life_Tick(delta As Single)
+End Sub

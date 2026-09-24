@@ -4,16 +4,20 @@ extends Node
 ##
 ## When debugging is active and the user hovers over a variable name in the
 ## code editor, a tooltip popup appears showing the variable's current value,
-## just like VB6's Data Tips feature.
+## just like VB6's Data Tips feature. If hover is awkward, placing the caret
+## on an identifier shows the same tip immediately.
 
 # NOTE: No class_name here — loaded dynamically via load(), class_name causes
 # "hides a global script class" errors when multiple copies exist in the project.
+
+const HOVER_DELAY_SEC := 0.35
 
 var editor_plugin: EditorPlugin
 var _tip_popup: PopupPanel
 var _tip_label: RichTextLabel
 var _hover_timer: Timer
 var _last_hover_word: String = ""
+var _last_caret_word: String = ""
 var _is_debugging: bool = false
 var _debug_variables: Dictionary = {}  # variable_name -> value
 
@@ -49,7 +53,7 @@ func _init():
 	# Hover timer (delay before showing tip, like VB6)
 	_hover_timer = Timer.new()
 	_hover_timer.one_shot = true
-	_hover_timer.wait_time = 0.5
+	_hover_timer.wait_time = HOVER_DELAY_SEC
 	_hover_timer.timeout.connect(_on_hover_timeout)
 	add_child(_hover_timer)
 
@@ -65,15 +69,37 @@ func cleanup():
 	if is_instance_valid(_hover_timer):
 		_hover_timer.queue_free()
 
+func get_debug_variables() -> Dictionary:
+	return _debug_variables.duplicate()
+
 ## Called by the debugger when break is hit — provides current variables
 func set_debug_variables(variables: Dictionary):
 	_debug_variables = variables
+	_is_debugging = true
+	# Variables may arrive after the user already hovered / placed the caret.
+	if not _last_hover_word.is_empty() and _lookup_variable(_last_hover_word) != null:
+		if _hover_timer.is_stopped():
+			_show_tip(_last_hover_word, _lookup_variable(_last_hover_word))
+		else:
+			_hover_timer.start()
+	if not _last_caret_word.is_empty():
+		var cv = _lookup_variable(_last_caret_word)
+		if cv != null:
+			_show_tip(_last_caret_word, cv)
+
+## Merge frame locals (e.g. from call stack) into the data-tip lookup table.
+func merge_debug_variables(extra: Dictionary) -> void:
+	if extra.is_empty():
+		return
+	for k in extra.keys():
+		_debug_variables[k] = extra[k]
 	_is_debugging = true
 
 ## Called when debugging ends
 func clear_debug_state():
 	_is_debugging = false
 	_debug_variables.clear()
+	_last_caret_word = ""
 	hide_tip()
 
 ## Try to show a data tip for the word under the mouse in a CodeEdit
@@ -88,33 +114,48 @@ func check_hover(code_edit: CodeEdit, mouse_pos: Vector2):
 		hide_tip()
 		return
 	
-	# Get the word under the mouse cursor
-	var word = _get_word_at_mouse(code_edit, mouse_pos)
+	var word := _get_word_at_mouse(code_edit, mouse_pos)
 	if word.is_empty():
 		hide_tip()
 		return
 	
-	if word == _last_hover_word:
-		return  # Already showing or timer running for this word
+	if word != _last_hover_word:
+		_last_hover_word = word
+		_hover_timer.stop()
 	
-	_last_hover_word = word
-	
-	# Check if this variable exists in debug context (case-insensitive, VB6-style)
-	if _debug_variables.has(word) or _debug_variables.has(word.to_lower()):
-		_hover_timer.start()
-	else:
+	if _lookup_variable(word) == null:
 		hide_tip()
+		return
+	
+	if not _tip_popup.visible:
+		_hover_timer.start()
+
+## Caret on an identifier — show immediately (no hover delay).
+func check_caret(code_edit: CodeEdit):
+	if not _is_debugging or code_edit == null:
+		return
+	var word := ""
+	if code_edit.has_method("get_symbol_under_caret"):
+		word = code_edit.get_symbol_under_caret()
+	if word.is_empty():
+		_last_caret_word = ""
+		if _tip_popup.visible and _hover_timer.is_stopped():
+			hide_tip()
+		return
+	_last_caret_word = word
+	var value = _lookup_variable(word)
+	if value == null:
+		if _tip_popup.visible and _hover_timer.is_stopped():
+			hide_tip()
+		return
+	_hover_timer.stop()
+	_last_hover_word = word
+	_show_tip(word, value)
 
 func _on_hover_timeout():
 	if _last_hover_word.is_empty():
 		return
-	
-	var value = null
-	if _debug_variables.has(_last_hover_word):
-		value = _debug_variables[_last_hover_word]
-	elif _debug_variables.has(_last_hover_word.to_lower()):
-		value = _debug_variables[_last_hover_word.to_lower()]
-	
+	var value = _lookup_variable(_last_hover_word)
 	if value != null:
 		_show_tip(_last_hover_word, value)
 
@@ -134,34 +175,47 @@ func _show_tip(var_name: String, value):
 
 func hide_tip():
 	_last_hover_word = ""
+	if is_instance_valid(_hover_timer):
+		_hover_timer.stop()
 	if is_instance_valid(_tip_popup) and _tip_popup.visible:
 		_tip_popup.hide()
 
+func _lookup_variable(word: String):
+	if word.is_empty():
+		return null
+	if _debug_variables.has(word):
+		return _debug_variables[word]
+	var lower := word.to_lower()
+	for k in _debug_variables.keys():
+		if str(k).to_lower() == lower:
+			return _debug_variables[k]
+	return null
+
 func _get_word_at_mouse(code_edit: CodeEdit, mouse_pos: Vector2) -> String:
 	"""Extract the identifier word under the mouse position in a CodeEdit."""
-	var line_col = code_edit.get_line_column_at_pos(mouse_pos - code_edit.global_position)
-	var line_idx = line_col.y
-	var col_idx = line_col.x
+	# mouse_pos is local to the CodeEdit (from gui_input / _gui_input).
+	var line_col := code_edit.get_line_column_at_pos(mouse_pos)
+	var line_idx := line_col.y
+	var col_idx := line_col.x
 	
 	if line_idx < 0 or line_idx >= code_edit.get_line_count():
 		return ""
 	
-	var line = code_edit.get_line(line_idx)
+	var line := code_edit.get_line(line_idx)
 	if col_idx < 0 or col_idx >= line.length():
 		return ""
 	
-	# Find word boundaries
-	var start = col_idx
-	var end_pos = col_idx
-	
+	return _word_at_column(line, col_idx)
+
+func _word_at_column(line: String, col_idx: int) -> String:
+	var start := col_idx
+	var end_pos := col_idx
 	while start > 0 and _is_ident_char(line[start - 1]):
 		start -= 1
 	while end_pos < line.length() and _is_ident_char(line[end_pos]):
 		end_pos += 1
-	
 	if start == end_pos:
 		return ""
-	
 	return line.substr(start, end_pos - start)
 
 func _is_ident_char(c: String) -> bool:

@@ -1,4 +1,6 @@
 #include "visual_gasic_builtins.h"
+#include "visual_gasic_qb_screen.h"
+#include "vg_qb_string_bytes.h"
 #include "vg_connect.h"
 #include "vg_godot_owner_builtins.h"
 #include "vg_input_edge.h"
@@ -617,6 +619,10 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
 
     if (!instance) return false;
 
+    if (VGQbScreen::handle_statement(instance, p_method, p_args, r_found)) {
+        return true;
+    }
+
     if (VGGodotOwnerBuiltins::try_call(instance, p_method, p_args, r_found, r_ret)) {
         return true;
     }
@@ -807,8 +813,8 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     }
     if (name == "UCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_upper(); }
     if (name == "LCase" && args.size() == 1) { r_handled = true; return String(args[0]).to_lower(); }
-    if (name == "Asc" && args.size() == 1) { r_handled = true; String s = args[0]; if (s.length()>0) return (int)s.unicode_at(0); return 0; }
-    if (name == "Chr" && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
+    if (name == "Asc" && args.size() == 1) { r_handled = true; return VGStringBytes::to_byte(String(args[0])); }
+    if (name == "Chr" && args.size() == 1) { r_handled = true; return VGStringBytes::chr_qb((int)args[0]); }
     if (name == "Space" && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
     if (name == "String" && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
     if (name == "Str" && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
@@ -1155,6 +1161,14 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (p_method.nocasecmp_to("Disconnect") == 0) {
         r_handled = true;
         return VisualGasicConnect::builtin_disconnect(instance, p_args);
+    }
+    if (instance) {
+        Variant qb_ret;
+        bool qb_handled = false;
+        if (VGQbScreen::handle_expr(instance, p_method, p_args, qb_ret, qb_handled) && qb_handled) {
+            r_handled = true;
+            return qb_ret;
+        }
     }
     if (p_method.nocasecmp_to("RemoveAt") == 0 && p_args.size() == 2 && p_args[0].get_type() == Variant::ARRAY) {
         r_handled = true;
@@ -4162,8 +4176,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
     if (METHOD_IS("ucase") && args.size() == 1) { r_handled = true; return String(args[0]).to_upper(); }
     if (METHOD_IS("lcase") && args.size() == 1) { r_handled = true; return String(args[0]).to_lower(); }
-    if (METHOD_IS("asc") && args.size() == 1) { r_handled = true; String s = args[0]; if (s.length()>0) return (int)s.unicode_at(0); return 0; }
-    if (METHOD_IS("chr") && args.size() == 1) { r_handled = true; return String::chr((int)args[0]); }
+    if (METHOD_IS("asc") && args.size() == 1) { r_handled = true; return VGStringBytes::to_byte(String(args[0])); }
+    if (METHOD_IS("chr") && args.size() == 1) { r_handled = true; return VGStringBytes::chr_qb((int)args[0]); }
     if (METHOD_IS("space") && args.size() == 1) { r_handled = true; int n = (int)args[0]; String s=""; for(int i=0;i<n;i++) s += " "; return s; }
     if (METHOD_IS("string") && args.size() == 2) { r_handled = true; int n=(int)args[0]; String char_str = String(args[1]); String s=""; if (char_str.length()>0){ String c = char_str.substr(0,1); for(int i=0;i<n;i++) s+=c;} return s; }
     if (METHOD_IS("str") && args.size() == 1) { r_handled = true; return variant_to_cstr(args[0]); }
@@ -6205,15 +6219,13 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // ChrW(charcode) — Unicode character from code point (alias for Chr in VG, since Godot is Unicode)
     if (METHOD_IS("chrw") && args.size() == 1) {
         r_handled = true;
-        return String::chr((int)args[0]);
+        return VGStringBytes::chr_qb((int)args[0]);
     }
 
     // AscW(string) — Unicode code point of first character (alias for Asc in VG)
     if (METHOD_IS("ascw") && args.size() == 1) {
         r_handled = true;
-        String s = args[0];
-        if (s.length() > 0) return (int64_t)s.unicode_at(0);
-        return (int64_t)0;
+        return (int64_t)VGStringBytes::to_byte(String(args[0]));
     }
 
     // DateValue(datestring) — extracts the date portion from a date/time string

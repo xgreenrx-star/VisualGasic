@@ -1,0 +1,71 @@
+' Torus wireframe — inspired by Microsoft QB64 torus sample (original VG)
+Option Explicit
+
+Dim qt_active As Boolean
+Dim qt_ang As Single
+Dim qt_tick As Single
+
+Sub Q64Torus_Init()
+	Screen 13
+	Cls
+	qt_active = True
+	qt_ang = 0
+	qt_tick = 0
+	Call Q64Torus_Draw
+End Sub
+
+Function Q64Torus_Active() As Boolean
+	Q64Torus_Active = qt_active
+End Function
+
+Sub Q64Torus_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Torus 3D (wireframe lite)"
+	l2 = "Simplified from Microsoft torus demo — Esc = menu"
+End Sub
+
+Sub Q64Torus_Tick(delta As Single)
+	qt_tick = qt_tick + delta
+	If qt_tick < 0.05 Then Exit Sub
+	qt_tick = 0
+	qt_ang = qt_ang + 0.08
+	Call Q64Torus_Draw
+End Sub
+
+Sub Q64Torus_Project(x As Single, y As Single, z As Single, ByRef sx As Integer, ByRef sy As Integer)
+	Dim scale As Single
+	scale = 80 / (4 + z)
+	sx = 160 + Int(x * scale)
+	sy = 100 + Int(y * scale)
+End Sub
+
+Sub Q64Torus_Draw()
+	Cls
+	Dim R As Single
+	Dim r As Single
+	R = 2.2
+	r = 0.9
+	Dim u As Single
+	Dim lastx As Integer
+	Dim lasty As Integer
+	Dim first As Boolean
+	first = True
+	For u = 0 To 6.28 Step 0.35
+		Dim v As Single
+		For v = 0 To 6.28 Step 0.5
+			Dim cx As Single
+			Dim cy As Single
+			Dim cz As Single
+			cx = (R + r * Cos(v)) * Cos(u + qt_ang)
+			cy = (R + r * Cos(v)) * Sin(u + qt_ang)
+			cz = r * Sin(v)
+			Dim sx As Integer
+			Dim sy As Integer
+			Call Q64Torus_Project(cx, cy, cz, sx, sy)
+			If Not first Then Line (lastx, lasty)-(sx, sy), 12
+			lastx = sx
+			lasty = sy
+			first = False
+		Next v
+		first = True
+	Next u
+End Sub

@@ -50,6 +50,7 @@ private:
     ClassDefinition* parse_class();
     PropertyDefinition* parse_property();
     Statement* parse_statement();
+    Statement* try_parse_qb_graphics();
     
     // Detailed statement parsers
     DimStatement* parse_dim(bool block_scoped = false, bool keyword_already_eaten = false);

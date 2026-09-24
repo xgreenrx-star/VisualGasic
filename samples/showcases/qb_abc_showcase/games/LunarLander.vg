@@ -1,0 +1,94 @@
+' Lunar Lander — Chris Sequeria lineage
+Option Explicit
+
+Dim ll_active As Boolean
+Dim ll_x As Single
+Dim ll_y As Single
+Dim ll_vx As Single
+Dim ll_vy As Single
+Dim ll_fuel As Integer
+
+Sub Lander_Init()
+	Screen 13
+	Cls
+	ll_x = 160
+	ll_y = 40
+	ll_vx = 0
+	ll_vy = 0
+	ll_fuel = 100
+	ll_active = True
+	Call Lander_Draw
+End Sub
+
+Function Lander_Active() As Boolean
+	Lander_Active = ll_active
+End Function
+
+Sub Lander_Tick(delta As Single)
+	If Not ll_active Then Exit Sub
+	Call Lander_PollInkey
+	ll_vy = ll_vy + 0.08
+	ll_x = ll_x + ll_vx
+	ll_y = ll_y + ll_vy
+	If ll_y > 170 Then
+		If Abs(ll_vy) < 1.2 And ll_x > 120 And ll_x < 200 Then
+			ll_active = False
+		Else
+			ll_active = False
+		End If
+	End If
+	If ll_x < 10 Then ll_x = 10
+	If ll_x > 310 Then ll_x = 310
+	Call Lander_Draw
+End Sub
+
+Sub Lander_PollInkey()
+	' QBasic extended keys: Chr(0) prefix then scan code (72=Up, 75=Left, 77=Right).
+	Dim k As String
+	k = InKey$
+	While k <> ""
+		If k = Chr(0) Then
+			k = InKey$
+			If k <> "" Then
+				Dim sc As Integer
+				sc = Asc(k)
+				If sc = 72 Then Call Lander_Thrust
+				If sc = 75 Then Call Lander_Left
+				If sc = 77 Then Call Lander_Right
+			End If
+		ElseIf k = "w" Or k = "W" Then
+			Call Lander_Thrust
+		ElseIf k = "a" Or k = "A" Then
+			Call Lander_Left
+		ElseIf k = "d" Or k = "D" Then
+			Call Lander_Right
+		End If
+		k = InKey$
+	Wend
+End Sub
+
+Sub Lander_Thrust()
+	If ll_fuel > 0 Then
+		ll_fuel = ll_fuel - 1
+		ll_vy = ll_vy - 0.25
+	End If
+End Sub
+
+Sub Lander_Left()
+	ll_vx = ll_vx - 0.05
+End Sub
+
+Sub Lander_Right()
+	ll_vx = ll_vx + 0.05
+End Sub
+
+Sub Lander_Draw()
+	Cls
+	Line (0, 180)-(319, 180), 6
+	Line (120, 180)-(200, 180), 2
+	Line (120, 180)-(140, 170), 2
+	Line (200, 180)-(180, 170), 2
+	Line (ll_x - 6, ll_y)-(ll_x, ll_y + 10), 15
+	Line (ll_x + 6, ll_y)-(ll_x, ll_y + 10), 15
+	Line (ll_x, ll_y + 10)-(ll_x, ll_y + 14), 14
+End Sub

@@ -1,0 +1,12 @@
+' Headless companion: run_input_key_edge_inject.gd injects KEY_X.
+Attribute VB_Name = "TestInputKeyEdgePress"
+
+Dim saw_edge As Boolean
+
+Sub _Input(ev As Variant)
+	If ev Is InputEventKey Then
+		If ev.pressed And Not ev.echo And ev.keycode = KEY_X Then
+			saw_edge = True
+		End If
+	End If
+End Sub

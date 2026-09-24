@@ -1,0 +1,135 @@
+' Lights On (5×5) — inspired by QB64 LightsOn sample (original VG code)
+Option Explicit
+
+Dim lo_active As Boolean
+Dim lo_grid(4, 4) As Integer
+Dim lo_cx As Integer
+Dim lo_cy As Integer
+Dim lo_moves As Integer
+Dim lo_msg As String
+
+Sub Lights_Init()
+	Screen 13
+	lo_cx = 2
+	lo_cy = 2
+	lo_moves = 0
+	Call Lights_Scramble
+	lo_msg = "Space toggle  R = new puzzle  Esc = menu"
+	lo_active = True
+	Call Lights_Draw
+End Sub
+
+Function Lights_Active() As Boolean
+	Lights_Active = lo_active
+End Function
+
+Sub Lights_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Lights On — turn all cells dark"
+	l2 = lo_msg & "  moves=" & CStr(lo_moves)
+End Sub
+
+Sub Lights_Scramble()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 4
+		For x = 0 To 4
+			lo_grid(x, y) = 0
+		Next x
+	Next y
+	Dim n As Integer
+	For n = 1 To 12
+		x = Int(Rnd() * 5)
+		y = Int(Rnd() * 5)
+		Call Lights_ToggleAt(x, y)
+	Next n
+	lo_moves = 0
+End Sub
+
+Sub Lights_ToggleAt(x As Integer, y As Integer)
+	If x < 0 Or y < 0 Or x > 4 Or y > 4 Then Exit Sub
+	Dim dx As Integer
+	Dim dy As Integer
+	For dy = -1 To 1
+		For dx = -1 To 1
+			If Abs(dx) + Abs(dy) <= 1 Then
+				Dim tx As Integer
+				Dim ty As Integer
+				tx = x + dx
+				ty = y + dy
+				If tx >= 0 And ty >= 0 And tx <= 4 And ty <= 4 Then
+					lo_grid(tx, ty) = 1 - lo_grid(tx, ty)
+				End If
+			End If
+		Next dx
+	Next dy
+End Sub
+
+Sub Lights_Move(dx As Integer, dy As Integer)
+	If Not lo_active Then Exit Sub
+	lo_cx = lo_cx + dx
+	lo_cy = lo_cy + dy
+	If lo_cx < 0 Then lo_cx = 0
+	If lo_cy < 0 Then lo_cy = 0
+	If lo_cx > 4 Then lo_cx = 4
+	If lo_cy > 4 Then lo_cy = 4
+	Call Lights_Draw
+End Sub
+
+Sub Lights_Press()
+	If Not lo_active Then Exit Sub
+	Call Lights_ToggleAt(lo_cx, lo_cy)
+	lo_moves = lo_moves + 1
+	If Lights_AllOff() Then
+		lo_msg = "Solved in " & CStr(lo_moves) & " moves!"
+		lo_active = False
+	End If
+	Call Lights_Draw
+End Sub
+
+Sub Lights_Reset()
+	If Not lo_active Then
+		lo_active = True
+	End If
+	Call Lights_Scramble
+	lo_msg = "Space toggle  R = new puzzle"
+	Call Lights_Draw
+End Sub
+
+Function Lights_AllOff() As Boolean
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 4
+		For x = 0 To 4
+			If lo_grid(x, y) <> 0 Then
+				Lights_AllOff = False
+				Exit Function
+			End If
+		Next x
+	Next y
+	Lights_AllOff = True
+End Function
+
+Sub Lights_Draw()
+	Cls
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 4
+		For x = 0 To 4
+			Dim px As Integer
+			Dim py As Integer
+			px = 70 + x * 36
+			py = 50 + y * 28
+			If lo_grid(x, y) = 1 Then
+				Line (px, py)-(px + 30, py + 22), 14, BF
+			Else
+				Line (px, py)-(px + 30, py + 22), 8, B
+			End If
+			If x = lo_cx And y = lo_cy Then
+				Line (px - 2, py - 2)-(px + 32, py + 24), 15, B
+			End If
+		Next x
+	Next y
+End Sub
+
+Sub Lights_Tick(delta As Single)
+End Sub

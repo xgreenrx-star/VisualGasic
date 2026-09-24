@@ -1,0 +1,118 @@
+' Vertical shooter — inspired by QB64 Shooter sample (SCREEN 13 style, original VG)
+Option Explicit
+
+Dim qs_active As Boolean
+Dim qs_px As Integer
+Dim qs_ex(11) As Integer
+Dim qs_ey(11) As Integer
+Dim qs_eon(11) As Integer
+Dim qs_bx As Integer
+Dim qs_by As Integer
+Dim qs_bon As Boolean
+Dim qs_score As Integer
+Dim qs_tick As Single
+
+Sub Q64Shooter_Init()
+	Screen 13
+	Cls
+	qs_px = 152
+	qs_score = 0
+	qs_bon = False
+	Dim i As Integer
+	For i = 0 To 11
+		qs_eon(i) = 0
+	Next i
+	qs_active = True
+	qs_tick = 0
+	Call Q64Shooter_SpawnWave
+	Call Q64Shooter_Draw
+End Sub
+
+Function Q64Shooter_Active() As Boolean
+	Q64Shooter_Active = qs_active
+End Function
+
+Sub Q64Shooter_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Shooter (1945-style lite)"
+	l2 = "Score " & CStr(qs_score) & "  Left/Right  Space fire"
+End Sub
+
+Sub Q64Shooter_SpawnWave()
+	Dim i As Integer
+	For i = 0 To 11
+		If qs_eon(i) = 0 Then
+			qs_eon(i) = 1
+			qs_ex(i) = 20 + (i Mod 4) * 70
+			qs_ey(i) = -Int(Rnd() * 80) - 10
+		End If
+	Next i
+End Sub
+
+Sub Q64Shooter_Tick(delta As Single)
+	If Not qs_active Then Exit Sub
+	qs_tick = qs_tick + delta
+	If qs_tick < 0.03 Then Exit Sub
+	qs_tick = 0
+	Dim i As Integer
+	For i = 0 To 11
+		If qs_eon(i) = 1 Then
+			qs_ey(i) = qs_ey(i) + 2
+			If qs_ey(i) > 210 Then
+				qs_eon(i) = 0
+				qs_ex(i) = 20 + Int(Rnd() * 260)
+				qs_ey(i) = -10
+				qs_eon(i) = 1
+			End If
+			If qs_ey(i) > 175 And Abs(qs_ex(i) - qs_px) < 14 Then qs_active = False
+		End If
+	Next i
+	If qs_bon Then
+		qs_by = qs_by - 8
+		If qs_by < 0 Then qs_bon = False
+		For i = 0 To 11
+			If qs_eon(i) = 1 And Abs(qs_bx - qs_ex(i)) < 12 And Abs(qs_by - qs_ey(i)) < 10 Then
+				qs_eon(i) = 0
+				qs_bon = False
+				qs_score = qs_score + 100
+			End If
+		Next i
+	End If
+	Dim alive As Integer
+	alive = 0
+	For i = 0 To 11
+		If qs_eon(i) = 1 Then alive = alive + 1
+	Next i
+	If alive = 0 Then Call Q64Shooter_SpawnWave
+	Call Q64Shooter_Draw
+End Sub
+
+Sub Q64Shooter_Left()
+	qs_px = qs_px - 10
+	If qs_px < 4 Then qs_px = 4
+End Sub
+
+Sub Q64Shooter_Right()
+	qs_px = qs_px + 10
+	If qs_px > 300 Then qs_px = 300
+End Sub
+
+Sub Q64Shooter_Fire()
+	If Not qs_bon Then
+		qs_bon = True
+		qs_bx = qs_px + 4
+		qs_by = 175
+	End If
+End Sub
+
+Sub Q64Shooter_Draw()
+	Cls
+	Line (0, 180)-(319, 199), 3, BF
+	Line (qs_px, 178)-(qs_px + 16, 190), 15, BF
+	Dim i As Integer
+	For i = 0 To 11
+		If qs_eon(i) = 1 Then
+			Line (qs_ex(i), qs_ey(i))-(qs_ex(i) + 20, qs_ey(i) + 14), 4, BF
+		End If
+	Next i
+	If qs_bon Then PSet (qs_bx, qs_by), 14
+End Sub

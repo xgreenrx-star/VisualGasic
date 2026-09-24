@@ -1,0 +1,121 @@
+' Minesweeper mini — grid logic (Tier B)
+Option Explicit
+
+Dim ms_active As Boolean
+Dim ms_w As Integer
+Dim ms_h As Integer
+Dim ms_cx As Integer
+Dim ms_cy As Integer
+Dim ms_mines(11, 11) As Integer
+Dim ms_rev(11, 11) As Integer
+Dim ms_flag(11, 11) As Integer
+Dim ms_cellsLeft As Integer
+Dim ms_msg As String
+
+Sub Mines_Init()
+	Screen 13
+	ms_w = 10
+	ms_h = 10
+	ms_cx = 0
+	ms_cy = 0
+	ms_cellsLeft = ms_w * ms_h - 12
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To ms_h - 1
+		For x = 0 To ms_w - 1
+			ms_mines(x, y) = 0
+			ms_rev(x, y) = 0
+			ms_flag(x, y) = 0
+		Next x
+	Next y
+	Dim placed As Integer
+	placed = 0
+	Do While placed < 12
+		x = Int(Rnd() * ms_w)
+		y = Int(Rnd() * ms_h)
+		If ms_mines(x, y) = 0 Then
+			ms_mines(x, y) = 1
+			placed = placed + 1
+		End If
+	Loop
+	ms_msg = "Arrows move  Space reveal  F flag"
+	ms_active = True
+	Call Mines_Draw
+End Sub
+
+Function Mines_Active() As Boolean
+	Mines_Active = ms_active
+End Function
+
+Sub Mines_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "MINES  cells left " & CStr(ms_cellsLeft) & "  cursor " & CStr(ms_cx) & "," & CStr(ms_cy)
+	l2 = ms_msg
+End Sub
+
+Sub Mines_Reveal(x As Integer, y As Integer)
+	If x < 0 Or y < 0 Or x >= ms_w Or y >= ms_h Then Exit Sub
+	If ms_rev(x, y) = 1 Or ms_flag(x, y) = 1 Then Exit Sub
+	ms_rev(x, y) = 1
+	If ms_mines(x, y) = 1 Then
+		ms_msg = "BOOM! Game over."
+		ms_active = False
+		Exit Sub
+	End If
+	ms_cellsLeft = ms_cellsLeft - 1
+	If ms_cellsLeft <= 0 Then
+		ms_msg = "Cleared!"
+		ms_active = False
+	End If
+End Sub
+
+Sub Mines_Flag()
+	If ms_flag(ms_cx, ms_cy) = 1 Then
+		ms_flag(ms_cx, ms_cy) = 0
+	Else
+		ms_flag(ms_cx, ms_cy) = 1
+	End If
+End Sub
+
+Sub Mines_RevealCursor()
+	Call Mines_Reveal(ms_cx, ms_cy)
+End Sub
+
+Sub Mines_Move(dx As Integer, dy As Integer)
+	ms_cx = ms_cx + dx
+	ms_cy = ms_cy + dy
+	If ms_cx < 0 Then ms_cx = 0
+	If ms_cy < 0 Then ms_cy = 0
+	If ms_cx >= ms_w Then ms_cx = ms_w - 1
+	If ms_cy >= ms_h Then ms_cy = ms_h - 1
+End Sub
+
+Sub Mines_Draw()
+	Cls
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To ms_h - 1
+		For x = 0 To ms_w - 1
+			Dim px As Integer
+			Dim py As Integer
+			px = 20 + x * 28
+			py = 20 + y * 16
+			If ms_cx = x And ms_cy = y Then
+				Line (px, py)-(px + 26, py + 14), 7, B
+			End If
+			If ms_flag(x, y) = 1 Then
+				Line (px + 2, py + 2)-(px + 24, py + 12), 4, BF
+			ElseIf ms_rev(x, y) = 1 Then
+				If ms_mines(x, y) = 1 Then
+					Circle (px + 13, py + 7), 5, 14
+				Else
+					Line (px + 2, py + 2)-(px + 24, py + 12), 8, BF
+				End If
+			Else
+				Line (px + 2, py + 2)-(px + 24, py + 12), 6, B
+			End If
+		Next x
+	Next y
+End Sub
+
+Sub Mines_Tick(delta As Single)
+End Sub

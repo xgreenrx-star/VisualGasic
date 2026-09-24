@@ -1,0 +1,94 @@
+' Breakout — John Wantland lineage
+Option Explicit
+
+Dim br_active As Boolean
+Dim br_px As Integer
+Dim br_bx As Single
+Dim br_by As Single
+Dim br_vx As Single
+Dim br_vy As Single
+Dim br_brick(7) As Integer
+
+Sub Breakout_Init()
+	Screen 13
+	CLS
+	br_px = 200 '140
+	br_bx = 160
+	br_by = 120
+	br_vx = 2.5
+	br_vy = 2.5
+	Dim i As Integer
+	For i = 0 To 7
+		br_brick(i) = 1
+	Next i
+	br_active = True
+	Call Breakout_Draw
+End Sub
+
+Function Breakout_Active() As Boolean
+	Breakout_Active = br_active
+End Function
+
+Sub Breakout_Tick(delta As Single)
+	If Not br_active Then Exit Sub
+	br_bx = br_bx + br_vx
+	br_by = br_by + br_vy
+	If br_bx < 4 Then
+		br_bx = 4
+		br_vx = Abs(br_vx)
+	End If
+	If br_bx > 316 Then
+		br_bx = 316
+		br_vx = -Abs(br_vx)
+	End If
+	If br_by < 20 Then
+		br_by = 20
+		br_vy = Abs(br_vy)
+	End If
+	If br_by > 190 Then
+		If br_bx > = br_px And br_bx < = br_px + 40 Then
+			br_vy = - Abs(br_vy)
+		Else
+			br_active = False
+		End If
+	End If
+	Dim col As Integer
+	col = Int((br_bx - 20) / 35)
+	' And does not short-circuit, so the array read must be in its own If.
+	If col >= 0 And col <= 7 Then
+		If br_brick(col) = 1 And br_by < 55 Then
+			br_brick(col) = 0
+			br_vy = -br_vy
+		End If
+	End If
+	Dim win As Boolean
+	win = True
+	Dim i As Integer
+	For i = 0 To 7
+		If br_brick(i) = 1 Then win = False
+	Next i
+	If win Then br_active = False
+	Call Breakout_Draw
+End Sub
+
+Sub Breakout_KeyLeft()
+	br_px = br_px - 12
+	If br_px < 0 Then br_px = 0
+End Sub
+
+Sub Breakout_KeyRight()
+	br_px = br_px + 12
+	If br_px > 280 Then br_px = 280
+End Sub
+
+Sub Breakout_Draw()
+	CLS
+	Dim i As Integer
+	For i = 0 To 7
+		If br_brick(i) = 1 Then
+			Line (20 + i * 35, 24) - (20 + i * 35 + 30, 44), 3 + i, BF
+		End If
+	Next i
+	Line (br_px, 188) - (br_px + 40, 196), 15, BF
+	Circle (Int(br_bx), Int(br_by)), 3, 14
+End Sub

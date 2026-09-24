@@ -1,0 +1,106 @@
+' Super Star Trek — abbreviated command session (Ron Williams lineage)
+Option Explicit
+
+Dim tk_energy As Single
+Dim tk_torps As Integer
+Dim tk_shields As Integer
+Dim tk_klingons As Integer
+Dim tk_stardate As Single
+Dim tk_msg As String
+Dim tk_active As Boolean
+Dim tk_cmd As String
+
+Sub Trek_Init()
+	tk_energy = 3000.0
+	tk_torps = 10
+	tk_shields = 0
+	tk_klingons = 3 + Int(Rnd() * 4)
+	tk_stardate = 2200.0 + Rnd() * 50.0
+	tk_msg = "Commands: LRS S R P T Q  (long scan, shields, phasers, torpedo, quit)"
+	tk_cmd = ""
+	tk_active = True
+End Sub
+
+Function Trek_Active() As Boolean
+	Trek_Active = tk_active
+End Function
+
+Sub Trek_GetHud(ByRef line1 As String, ByRef line2 As String)
+	line1 = "STAR TREK  stardate " & CStr(tk_stardate) & "  Klingons:" & CStr(tk_klingons)
+	line2 = tk_msg
+End Sub
+
+Sub Trek_Key(ch As String)
+	If Not tk_active Then Exit Sub
+	If ch = Chr(27) Then
+		tk_active = False
+		Exit Sub
+	End If
+	If ch = Chr(13) Then
+		Call Trek_DoCmd
+		tk_cmd = ""
+		Exit Sub
+	End If
+	If ch = " " Then Exit Sub
+	tk_cmd = tk_cmd & UCase(ch)
+	tk_msg = "Cmd: " & tk_cmd
+End Sub
+
+Sub Trek_DoCmd()
+	Dim c As String
+	c = tk_cmd
+	If c = "Q" Or c = "QUIT" Then
+		tk_active = False
+		tk_msg = "Mission ended."
+		Exit Sub
+	End If
+	If c = "LRS" Or c = "S" Then
+		tk_stardate = tk_stardate + 0.1
+		tk_msg = "Long range: " & CStr(tk_klingons) & " Klingon groups detected."
+		Exit Sub
+	End If
+	If c = "R" Then
+		If tk_energy < 200 Then
+			tk_msg = "Insufficient energy for shields."
+			Exit Sub
+		End If
+		tk_energy = tk_energy - 200
+		tk_shields = tk_shields + 100
+		If tk_shields > 500 Then tk_shields = 500
+		tk_msg = "Shields now " & CStr(tk_shields)
+		Exit Sub
+	End If
+	If c = "P" Then
+		If tk_klingons <= 0 Then
+			tk_msg = "No enemies."
+			Exit Sub
+		End If
+		If tk_energy < 100 Then
+			tk_msg = "Insufficient energy."
+			Exit Sub
+		End If
+		tk_energy = tk_energy - 100
+		If Rnd() > 0.35 Then
+			tk_klingons = tk_klingons - 1
+			tk_msg = "Phasers destroyed a Klingon!"
+		Else
+			tk_msg = "Phasers missed."
+		End If
+		Exit Sub
+	End If
+	If c = "T" Then
+		If tk_torps <= 0 Then
+			tk_msg = "No torpedoes."
+			Exit Sub
+		End If
+		tk_torps = tk_torps - 1
+		If Rnd() > 0.25 Then
+			tk_klingons = tk_klingons - 1
+			tk_msg = "Torpedo hit!"
+		Else
+			tk_msg = "Torpedo missed."
+		End If
+		Exit Sub
+	End If
+	tk_msg = "Unknown command. Try LRS S R P T Q"
+End Sub

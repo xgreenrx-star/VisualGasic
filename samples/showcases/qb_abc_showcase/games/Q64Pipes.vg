@@ -1,0 +1,88 @@
+' Pipes puzzle — inspired by Dav QB64 sample (original VG, no PNG/mouse)
+Option Explicit
+
+Dim qpp_active As Boolean
+Dim qpp_grid(4, 4) As Integer
+Dim qpp_cx As Integer
+Dim qpp_cy As Integer
+Dim qpp_won As Boolean
+
+Sub Q64Pipes_Init()
+	Screen 13
+	Cls
+	qpp_cx = 2
+	qpp_cy = 2
+	qpp_won = False
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 4
+		For x = 0 To 4
+			qpp_grid(x, y) = Int(Rnd() * 4)
+		Next x
+	Next y
+	qpp_grid(0, 2) = 1
+	qpp_active = True
+	Call Q64Pipes_Draw
+End Sub
+
+Function Q64Pipes_Active() As Boolean
+	Q64Pipes_Active = qpp_active And Not qpp_won
+End Function
+
+Sub Q64Pipes_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Pipes puzzle (5×5 rotate)"
+	l2 = "Arrows move  Space rotate tile  connect left→right"
+End Sub
+
+Function Q64Pipes_Mask(t As Integer) As Integer
+	Select Case t Mod 4
+		Case 0: Q64Pipes_Mask = 5
+		Case 1: Q64Pipes_Mask = 10
+		Case 2: Q64Pipes_Mask = 3
+		Case Else: Q64Pipes_Mask = 12
+	End Select
+End Function
+
+Sub Q64Pipes_Rotate()
+	qpp_grid(qpp_cx, qpp_cy) = (qpp_grid(qpp_cx, qpp_cy) + 1) Mod 4
+	Call Q64Pipes_CheckWin
+	Call Q64Pipes_Draw
+End Sub
+
+Sub Q64Pipes_Move(dx As Integer, dy As Integer)
+	qpp_cx = qpp_cx + dx
+	qpp_cy = qpp_cy + dy
+	If qpp_cx < 0 Then qpp_cx = 0
+	If qpp_cy < 0 Then qpp_cy = 0
+	If qpp_cx > 4 Then qpp_cx = 4
+	If qpp_cy > 4 Then qpp_cy = 4
+	Call Q64Pipes_Draw
+End Sub
+
+Sub Q64Pipes_CheckWin()
+	If qpp_cx = 4 And qpp_cy = 2 Then
+		If (Q64Pipes_Mask(qpp_grid(4, 2)) And 8) <> 0 Then qpp_won = True
+	End If
+End Sub
+
+Sub Q64Pipes_Draw()
+	Cls
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To 4
+		For x = 0 To 4
+			Dim ox As Integer
+			Dim oy As Integer
+			ox = 60 + x * 40
+			oy = 40 + y * 32
+			Line (ox, oy)-(ox + 36, oy + 28), 1, B
+			Dim m As Integer
+			m = Q64Pipes_Mask(qpp_grid(x, y))
+			If m And 1 Then Line (ox + 18, oy + 14)-(ox + 18, oy + 28), 11
+			If m And 2 Then Line (ox + 18, oy)-(ox + 18, oy + 14), 11
+			If m And 4 Then Line (ox, oy + 14)-(ox + 18, oy + 14), 11
+			If m And 8 Then Line (ox + 18, oy + 14)-(ox + 36, oy + 14), 11
+		Next x
+	Next y
+	Line (60 + qpp_cx * 40, 40 + qpp_cy * 32)-(60 + qpp_cx * 40 + 36, 40 + qpp_cy * 32 + 28), 14, B
+End Sub

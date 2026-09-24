@@ -1,0 +1,62 @@
+' Dialog demo — inspired by Abacus QB64 CH13 dialog sample (original VG text boxes)
+Option Explicit
+
+Dim qd_active As Boolean
+Dim qd_step As Integer
+
+Sub Q64Dialog_Init()
+	Screen 13
+	Cls
+	qd_active = True
+	qd_step = 0
+	Call Q64Dialog_Draw
+End Sub
+
+Function Q64Dialog_Active() As Boolean
+	Q64Dialog_Active = qd_active
+End Function
+
+Sub Q64Dialog_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "Dialog demo box (text UI lite)"
+	l2 = "Space = next panel  Esc = menu"
+End Sub
+
+Sub Q64Dialog_Advance()
+	qd_step = qd_step + 1
+	If qd_step > 2 Then qd_step = 0
+	Call Q64Dialog_Draw
+End Sub
+
+Sub Q64Dialog_Draw()
+	Cls
+	Line (40, 30)-(280, 170), 7, B
+	Line (41, 31)-(279, 169), 0, BF
+	Locate 3, 6
+	Color 15
+	If qd_step = 0 Then
+		Print "Customer record"
+		Locate 5, 6
+		Color 7
+		Print "Name: ___Alice________"
+		Locate 7, 6
+		Print "ID:   1042"
+		Locate 10, 6
+		Color 10
+		Print "[ OK ]  [ Cancel ]"
+	ElseIf qd_step = 1 Then
+		Print "Confirm delete?"
+		Locate 6, 6
+		Color 12
+		Print "This cannot be undone."
+		Locate 10, 6
+		Color 15
+		Print "Y / N"
+	Else
+		Print "Help (F1 style)"
+		Locate 5, 6
+		Color 7
+		Print "Tab between fields."
+		Locate 7, 6
+		Print "Enter saves, Esc closes."
+	End If
+End Sub
