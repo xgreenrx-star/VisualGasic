@@ -2040,8 +2040,13 @@ static func _build_db() -> void:
 	# =========================================================================
 	_add("SCREEN",
 		"SCREEN modeNumber\nSCREEN 0   ' turn off QB overlay, return to canvas UI",
-		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). Shown letterboxed via a QbScreen sprite. Screen 0 hides the overlay. 32-bit pages use _RGB32 colors with PSET/LINE.",
+		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). Shown letterboxed via a QbScreen sprite. Screen 0 hides the overlay. 32-bit pages use _RGB32 colors with PSET/LINE. Classic profiles 100–199: docs/manual/classic_games_graphics.md",
 		"Screen 13\nCls\nLine (0, 0)-(319, 199), 7, B\nPSet (160, 100), 15\n\nSub ReturnToMenu()\n    Screen 0\n    QueueRedraw\nEnd Sub", 1590)
+
+	_add("ScreenMode",
+		"mode = ScreenMode()\nw = GfxWidth()\nh = GfxHeight()\nbottom = GfxPlayfieldBottom()",
+		"QuickBASIC buffer queries while a graphics SCREEN is active. ScreenMode is 0 when the overlay is hidden. Gfx* sizes are the logical framebuffer — not Screen.Width (monitor). GfxPlayfieldBottom is the max Y for game pixels on split modes 111/112.",
+		"Screen 111\nIf ScreenMode() = 111 Then\n    Print \"playfield rows 0-\"; CStr(GfxPlayfieldBottom())\nEnd If", 1585)
 
 	_add("LINE",
 		"LINE (x1, y1)-(x2, y2) [, c [, B|BF]]   ' QuickBASIC SCREEN\nLine Input #n, var   ' file I/O",
@@ -2829,7 +2834,7 @@ static func _build_see_also() -> void:
 		# Colors
 		["Color", "Color8", "RGB"],
 		# QuickBASIC SCREEN buffer
-		["SCREEN", "PSet", "LINE", "CIRCLE", "PAINT", "InKey$", "PLAY (QB)", "Point (QB)", "GET (QB)", "PUT (QB)", "_NewImage", "_RGB32", "_MouseX", "_SndOpen", "_DesktopWidth"],
+		["SCREEN", "ScreenMode", "PSet", "LINE", "CIRCLE", "PAINT", "InKey$", "PLAY (QB)", "Point (QB)", "GET (QB)", "PUT (QB)", "_NewImage", "_RGB32", "_MouseX", "_SndOpen", "_DesktopWidth"],
 		# GoTo
 		["GoTo", "GoSub", "Return"],
 		# Godot — Movement / Physics

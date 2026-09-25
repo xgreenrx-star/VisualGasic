@@ -57,6 +57,9 @@ Random / input:
                               ' KEY_RIGHT KEY_SPACE KEY_ESCAPE etc.
   Input.IsActionJustPressed(\"ui_accept\")  ' project Input Map actions
   Input.IsKeyJustPressed(KEY_P)             ' edge-trigger; use in _Process
+  GetMousePosition() / GetMouseX() / GetMouseY()  ' viewport coords for script owner
+  Input.IsMouseButtonPressed(1)             ' left mouse; NOT Input.GetMousePosition
+  ' GDScript uses get_viewport().get_mouse_position() — not Input.* for position
 Canvas / Node2D games (no Form controls):
   * Poll navigation in Sub _Process(delta) with IsActionJustPressed /
     IsKeyJustPressed — reliable when Godot editor embeds the game view
@@ -823,6 +826,9 @@ Do not pass 255,255,255 to Color() — use Color8. docs/manual/colors.md
 Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
 Keyboard: _Input + ev.keycode for digit keys in embedded game view; also IsKeyJustPressed in _Process.
 QuickBASIC SCREEN/PSET/LINE/InKey$: docs/manual/qb_graphics_mode.md — showcase samples/showcases/qb_abc_showcase/
+Classic SCREEN profiles (100–199): docs/manual/classic_games_graphics.md — porting: docs/manual/classic_porting_guide.md — showcase . menu = mode gallery
+Query buffer: ScreenMode(), GfxWidth(), GfxHeight(), GfxPlayfieldBottom() — not Screen.Width (monitor).
+Project Settings: vg/classic/enabled (Narcea retro lane), vg/classic/clip_playfield (split modes).
 Full app sample: samples/apps/climatist_poc/ (Now + Pattern + Discussion + Settings; not web_hello).
 
 === HTTP / HTTPS (VGHttpRequest, Http.Get) ===
@@ -898,7 +904,7 @@ Use the VB6 name — Godot property names are NOT directly accessible.
   Joypad.Button(pad, btn)            ' 0=A/Cross 1=B/Circle 2=X/Sq 3=Y/Tri
   Touch.Count                        Touch.Position(i) / .Pressure(i)
   Input.IsKeyPressed(KEY_W)          Input.IsMouseButtonPressed(1)
-  Input.MousePosition                ' returns Vector2
+  GetMousePosition()                 ' Vector2 — viewport; not Input.GetMousePosition
 
 === VG Classes and OOP ===
 Classes go in their own .vg file with a Class header (NOT a flat module).
@@ -1597,6 +1603,19 @@ Keep answers concise; cite paths (res://…) when pointing at examples.
 """
 
 
+func _classic_lane_block() -> String:
+	if not bool(ProjectSettings.get_setting("vg/classic/enabled", false)):
+		return ""
+	return """
+=== Classic QB / retro SCREEN lane (project opt-in) ===
+This project prefers the QuickBASIC framebuffer: Screen n, PSet, Line, Circle, InKey$.
+Do NOT default to canvas DrawRect / Node2D vector drawing for pixel games unless asked.
+Use GfxWidth()/GfxHeight() for logic size — never Screen.Width (monitor pixels).
+Split Atari-style modes 111/112: GfxPlayfieldBottom(), Print/Locate in the text band.
+Demos: qb_abc_showcase main menu . (period) — manuals: docs/manual/classic_games_graphics.md + docs/manual/classic_porting_guide.md
+"""
+
+
 # --- Public API ------------------------------------------------------------
 
 ## Build the Narcea-specific system-prompt block.
@@ -1619,6 +1638,9 @@ func build_context_block(plugin: Object = null) -> String:
 	if not active.is_empty():
 		tagged.append({"name": "active", "prio": 80, "text": active})
 	tagged.append({"name": "knowledge", "prio": 70, "text": KNOWLEDGE})
+	var classic := _classic_lane_block()
+	if not classic.is_empty():
+		tagged.append({"name": "classic_lane", "prio": 72, "text": classic})
 	var tut := _tutorial_block()
 	if not tut.is_empty():
 		tagged.append({"name": "tutorials", "prio": 30, "text": tut})

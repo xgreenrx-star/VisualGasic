@@ -460,6 +460,17 @@ func _enter_tree():
 	)
 
 	_register_project_setting(
+		"vg/classic/enabled",
+		false,
+		TYPE_BOOL
+	)
+	_register_project_setting(
+		"vg/classic/clip_playfield",
+		true,
+		TYPE_BOOL
+	)
+
+	_register_project_setting(
 		"vg/datafile/external_editor",
 		"",
 		TYPE_STRING,
