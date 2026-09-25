@@ -39,6 +39,8 @@ Import "games/Q64Pipes.vg"
 Import "games/Q64DialogBox.vg"
 Import "games/Qb64GalleryMenus.vg"
 Import "games/ShowcaseMeta.vg"
+Import "games/ClassicModeDemos.vg"
+Import "games/ClassicScreenModes.vg"
 
 Option Explicit
 
@@ -88,8 +90,13 @@ Const MODE_MENU_QG As Integer = 42
 Const MODE_MENU_QD As Integer = 43
 Const MODE_MENU_QTOOLS As Integer = 44
 Const MODE_MENU_QSKIP As Integer = 45
+Const MODE_MENU_CLASSIC As Integer = 46
+Const MODE_CLASSIC_DEMO As Integer = 47
 
 Dim curMode As Integer
+Dim classicMenuPage As Integer
+Dim classicScreenNum As Integer
+Dim classicAnimTick As Single
 Dim pendingMode As Integer
 Dim menuReturn As Integer
 Dim hud1 As String
@@ -108,6 +115,9 @@ Sub _Ready()
 	pendingMode = 0
 	statusLine = ""
 	menuReturn = MODE_MENU
+	classicMenuPage = 0
+	classicScreenNum = 0
+	classicAnimTick = 0
 	QueueRedraw
 End Sub
 
@@ -128,6 +138,8 @@ Sub _Draw()
 		Call Q64_DrawMenuTools
 	ElseIf curMode = MODE_MENU_QSKIP Then
 		Call Q64_DrawMenuSkipped
+	ElseIf curMode = MODE_MENU_CLASSIC Then
+		Call Classic_DrawMenu(classicMenuPage)
 	ElseIf curMode = MODE_INTRO Then
 		Call DrawIntro
 	ElseIf curMode = MODE_ABOUT Then
@@ -181,8 +193,9 @@ Sub DrawMenu()
 	Call MenuItem(2, 9, "Y Turtle")
 	Call MenuItem(2, 10, "Z Flag")
 	Call MenuItem(2, 11, "0 Dialog")
-	DrawString "Classic QBasic and QB64 listings, running in Visual Gasic.", 32, 520, Color8(160, 175, 195), 14
-	DrawString "F1 About Esc leaves a game and comes back here", 32, 548, Color8(255, 220, 140), 15
+	DrawString "Classic QBasic and QB64 listings, running in Visual Gasic.", 32, 504, Color8(160, 175, 195), 14
+	DrawString ". (period) Classic systems SCREEN modes — profiles & demos", 32, 526, Color8(180, 210, 255), 14
+	DrawString "F1 About   Esc leaves a game and returns here", 32, 552, Color8(255, 220, 140), 15
 End Sub
 
 Sub DrawMenuB()
@@ -260,6 +273,8 @@ Sub _Process(delta As Single)
 		Call PollMenuQTools
 	ElseIf curMode = MODE_MENU_QSKIP Then
 		Call PollMenuQSkip
+	ElseIf curMode = MODE_MENU_CLASSIC Then
+		Call PollMenuClassic
 	ElseIf curMode = MODE_INTRO Then
 		Call PollIntro
 	ElseIf curMode = MODE_ABOUT Then
@@ -288,6 +303,8 @@ Sub _Input(ev As Variant)
 			Call HandleMenuQToolsKey(ev.keycode)
 		ElseIf curMode = MODE_MENU_QSKIP Then
 			Call HandleMenuQSkipKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_CLASSIC Then
+			Call HandleMenuClassicKey(ev.keycode)
 		ElseIf curMode = MODE_INTRO Then
 			Call HandleIntroKey(ev.keycode)
 		ElseIf curMode = MODE_ABOUT Then
@@ -304,6 +321,9 @@ End Sub
 Sub HandleGameKey(keycode As Integer)
 	If keycode = KEY_ESCAPE Then
 		Call ReturnToMenu
+		Exit Sub
+	End If
+	If curMode = MODE_CLASSIC_DEMO Then
 		Exit Sub
 	End If
 	Select Case curMode
@@ -506,6 +526,12 @@ Sub HandleMenuKey(keycode As Integer)
 		QueueRedraw
 		Exit Sub
 	End If
+	If keycode = KEY_PERIOD Then
+		classicMenuPage = 0
+		curMode = MODE_MENU_CLASSIC
+		QueueRedraw
+		Exit Sub
+	End If
 	Call MenuPick(keycode)
 End Sub
 
@@ -664,6 +690,12 @@ Sub PollMenu()
 		QueueRedraw
 		Exit Sub
 	End If
+	If IsKeyJustPressed(KEY_PERIOD) Then
+		classicMenuPage = 0
+		curMode = MODE_MENU_CLASSIC
+		QueueRedraw
+		Exit Sub
+	End If
 	If IsKeyJustPressed(KEY_1) Then Call MenuPick(KEY_1)
 	If IsKeyJustPressed(KEY_2) Then Call MenuPick(KEY_2)
 	If IsKeyJustPressed(KEY_3) Then Call MenuPick(KEY_3)
@@ -758,6 +790,92 @@ Sub PollMenuB()
 	If IsKeyJustPressed(KEY_5) Then Call StartGameFromTier(MODE_MINES, MODE_MENU_B)
 	If IsKeyJustPressed(KEY_6) Then Call StartGameFromTier(MODE_HANOI, MODE_MENU_B)
 	If IsKeyJustPressed(KEY_7) Then Call StartGameFromTier(MODE_DUNGEON, MODE_MENU_B)
+End Sub
+
+Sub HandleMenuClassicKey(keycode As Integer)
+	Dim pick As Integer
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_LEFT Or keycode = KEY_BRACKETLEFT Then
+		classicMenuPage = classicMenuPage - 1
+		If classicMenuPage < 0 Then classicMenuPage = 2
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_RIGHT Or keycode = KEY_BRACKETRIGHT Then
+		classicMenuPage = classicMenuPage + 1
+		If classicMenuPage > 2 Then classicMenuPage = 0
+		QueueRedraw
+		Exit Sub
+	End If
+	pick = Classic_MenuPick(classicMenuPage, keycode)
+	If pick > 0 Then Call StartClassicDemo(pick)
+End Sub
+
+Sub PollMenuClassic()
+	Dim pick As Integer
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_LEFT) Or IsKeyJustPressed(KEY_BRACKETLEFT) Then
+		classicMenuPage = classicMenuPage - 1
+		If classicMenuPage < 0 Then classicMenuPage = 2
+		QueueRedraw
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_RIGHT) Or IsKeyJustPressed(KEY_BRACKETRIGHT) Then
+		classicMenuPage = classicMenuPage + 1
+		If classicMenuPage > 2 Then classicMenuPage = 0
+		QueueRedraw
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_1) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_1)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_2) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_2)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_3) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_3)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_4) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_4)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_5) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_5)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_6) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_6)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_7) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_7)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+	If IsKeyJustPressed(KEY_8) Then
+		pick = Classic_MenuPick(classicMenuPage, KEY_8)
+		If pick > 0 Then Call StartClassicDemo(pick)
+	End If
+End Sub
+
+Sub StartClassicDemo(ByVal screenMode As Integer)
+	menuReturn = MODE_MENU_CLASSIC
+	classicScreenNum = screenMode
+	classicAnimTick = 0
+	curMode = MODE_CLASSIC_DEMO
+	statusLine = ""
+	Call RunModeDemo(screenMode)
+	Call RefreshHud
 End Sub
 
 Sub PollMenuC()
@@ -860,6 +978,8 @@ Sub ReturnToMenu()
 		statusLine = "Tier Q hub — G/D/T/S Esc = main menu"
 	ElseIf curMode = MODE_MENU_QG Or curMode = MODE_MENU_QD Or curMode = MODE_MENU_QTOOLS Then
 		statusLine = "Pick item Esc = Q hub"
+	ElseIf curMode = MODE_MENU_CLASSIC Then
+		statusLine = "Classic SCREEN profiles — pick 1-8 / ← → pages Esc = main menu"
 	End If
 	QueueRedraw
 End Sub
@@ -994,6 +1114,8 @@ Sub PollGame(delta As Single)
 		Call Q64VField_Tick(delta)
 	Case MODE_Q64_FLAG
 		Call Q64Flag_Tick(delta)
+	Case MODE_CLASSIC_DEMO
+		Call Classic_TickAnim(delta, classicScreenNum, classicAnimTick)
 	End Select
 	Call RefreshHud
 End Sub
@@ -1030,6 +1152,7 @@ Sub RefreshHud()
 	If curMode = MODE_Q64_TURTLE Then Call Q64Turtle_GetHud(hud1, hud2)
 	If curMode = MODE_Q64_FLAG Then Call Q64Flag_GetHud(hud1, hud2)
 	If curMode = MODE_Q64_DIALOG Then Call Q64Dialog_GetHud(hud1, hud2)
+	If curMode = MODE_CLASSIC_DEMO Then Call Classic_FillHud(classicScreenNum, hud1, hud2)
 	If curMode > = MODE_INVADERS And curMode < = MODE_NIBBLES Then
 		hud1 = "QB SCREEN 13 — classic graphics mode"
 		If Len(statusLine) > 0 Then hud2 = statusLine

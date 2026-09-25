@@ -1,0 +1,32 @@
+; Engine configuration file.
+config_version=5
+
+[application]
+
+config/name="Classic SCREEN Modes"
+config/description="Visual demos for DOS and classic profile SCREEN numbers (100–199)."
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=600
+window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+
+[vg]
+
+classic/enabled=true
+classic/clip_playfield=true

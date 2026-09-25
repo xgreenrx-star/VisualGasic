@@ -1,0 +1,115 @@
+' Classic SYSTEM screen profile menu + demo launcher helpers for QB ABC Showcase.
+Attribute VB_Name = "ClassicScreenModes"
+
+Option Explicit
+
+Sub Classic_DrawMenu(ByVal page As Integer)
+	DrawRect 0, 0, 960, 600, Color8(6, 10, 18), True
+	DrawString "Classic systems — SCREEN mode gallery", 28, 18, Color8(130, 200, 255), 24
+	DrawString "What these are for: optional framebuffer sizes inspired by old PCs and", 28, 52, Color8(190, 200, 215), 13
+	DrawString "home computers — not hardware emulation. Test retro layouts, teach QBasic", 28, 68, Color8(190, 200, 215), 13
+	DrawString "SCREEN graphics, or prototype chunky-pixel games separate from canvas _Draw.", 28, 84, Color8(190, 200, 215), 13
+	DrawString "Query: ScreenMode()  GfxWidth()  GfxHeight()  GfxPlayfieldBottom()", 28, 108, Color8(140, 170, 200), 12
+	DrawString "Manual: docs/manual/classic_games_graphics.md", 28, 124, Color8(120, 150, 190), 12
+
+	If page = 0 Then
+		DrawString "Page 1 — PC / DOS (QuickBASIC & VGA)", 28, 152, Color8(255, 220, 140), 15
+		Call Classic_Line(0, "1", "SCREEN 1", "IBM PC CGA", "320x200, 4 colors — early PC games")
+		Call Classic_Line(1, "2", "SCREEN 2", "Monochrome text/gfx", "640x200, 2 colors — Hercules-style")
+		Call Classic_Line(2, "3", "SCREEN 7", "EGA", "320x200, 16 colors")
+		Call Classic_Line(3, "4", "SCREEN 8", "EGA wide", "640x200, 16 colors")
+		Call Classic_Line(4, "5", "SCREEN 9", "EGA hi", "640x350, 16 — Gorillas-class resolution")
+		Call Classic_Line(5, "6", "SCREEN 12", "VGA 16-color", "640x480 — Windows 3 era feel")
+		Call Classic_Line(6, "7", "SCREEN 13", "VGA 256", "320x200 — most ABC showcase games")
+		Call Classic_Line(7, "8", "SCREEN 14", "VGA tall", "320x240, 256 colors")
+	ElseIf page = 1 Then
+		DrawString "Page 2 — Tandy & Atari-inspired (profiles 100–112)", 28, 152, Color8(255, 220, 140), 15
+		Call Classic_Line(0, "1", "SCREEN 100", "Tandy / PCjr", "160x200, 16 — narrow shooter field")
+		Call Classic_Line(1, "2", "SCREEN 101", "Tandy 16-color", "320x200, 16")
+		Call Classic_Line(2, "3", "SCREEN 102", "CGA / Tandy wide", "640x200, 4 colors")
+		Call Classic_Line(3, "4", "SCREEN 110", "Atari 8-bit feel", "320x192 playfield (approx.)")
+		Call Classic_Line(4, "5", "SCREEN 111", "Atari split", "Gfx rows 0–159 + text band (Locate/Print)")
+		Call Classic_Line(5, "6", "SCREEN 112", "Atari split tight", "Gfx 0–175 + shorter text band")
+	Else
+		DrawString "Page 3 — CoCo, Apple, Commodore, Amiga-inspired", 28, 152, Color8(255, 220, 140), 15
+		Call Classic_Line(0, "1", "SCREEN 120", "TRS-80 Color Computer", "256x192, 16 colors")
+		Call Classic_Line(1, "2", "SCREEN 121", "CoCo semigraphics", "128x96, 4 — chunky blocks")
+		Call Classic_Line(2, "3", "SCREEN 130", "Apple II hi-res inspired", "280x192, 16 (no artifact colors)")
+		Call Classic_Line(3, "4", "SCREEN 131", "Apple II lo-res inspired", "140x192, 16")
+		Call Classic_Line(4, "5", "SCREEN 140", "Commodore feel", "320x200, 16 — C64-ish framing")
+		Call Classic_Line(5, "6", "SCREEN 150", "Amiga-ish chunky", "320x256, 256 — single buffer")
+	End If
+
+	DrawString "Esc = main showcase menu    ← → or [ ] = prev/next page", 28, 548, Color8(200, 200, 160), 13
+	DrawString "Page " & CStr(page + 1) & " of 3", 820, 548, Color8(160, 160, 140), 13
+End Sub
+
+Sub Classic_Line(ByVal row As Integer, ByVal keyLabel As String, ByVal modeLabel As String, ByVal systemLabel As String, ByVal desc As String)
+	Dim y As Single
+	y = 178 + row * 42
+	DrawString keyLabel & "  " & modeLabel, 36, y, Color8(255, 255, 255), 15
+	DrawString systemLabel, 200, y, Color8(180, 220, 255), 14
+	DrawString desc, 200, y + 18, Color8(170, 175, 185), 12
+End Sub
+
+Function Classic_MenuPick(ByVal page As Integer, ByVal keycode As Integer) As Integer
+	Classic_MenuPick = 0
+	If page = 0 Then
+		Select Case keycode
+		Case KEY_1: Classic_MenuPick = 1
+		Case KEY_2: Classic_MenuPick = 2
+		Case KEY_3: Classic_MenuPick = 7
+		Case KEY_4: Classic_MenuPick = 8
+		Case KEY_5: Classic_MenuPick = 9
+		Case KEY_6: Classic_MenuPick = 12
+		Case KEY_7: Classic_MenuPick = 13
+		Case KEY_8: Classic_MenuPick = 14
+		End Select
+	ElseIf page = 1 Then
+		Select Case keycode
+		Case KEY_1: Classic_MenuPick = 100
+		Case KEY_2: Classic_MenuPick = 101
+		Case KEY_3: Classic_MenuPick = 102
+		Case KEY_4: Classic_MenuPick = 110
+		Case KEY_5: Classic_MenuPick = 111
+		Case KEY_6: Classic_MenuPick = 112
+		End Select
+	Else
+		Select Case keycode
+		Case KEY_1: Classic_MenuPick = 120
+		Case KEY_2: Classic_MenuPick = 121
+		Case KEY_3: Classic_MenuPick = 130
+		Case KEY_4: Classic_MenuPick = 131
+		Case KEY_5: Classic_MenuPick = 140
+		Case KEY_6: Classic_MenuPick = 150
+		End Select
+	End If
+End Function
+
+Sub Classic_TickAnim(ByVal delta As Single, ByVal mode As Integer, ByRef animTick As Single)
+	Dim bottom As Integer
+	Dim sy As Integer
+	If mode = 13 Then
+		animTick = animTick + delta
+		If animTick > 0.05 Then
+			animTick = 0
+			PSet (Int(Rnd() * 318), 20 + Int(Rnd() * 170)), Int(Rnd() * 255) + 1
+		End If
+	ElseIf mode = 111 Then
+		animTick = animTick + delta
+		If animTick > 0.08 Then
+			animTick = 0
+			bottom = GfxPlayfieldBottom()
+			sy = Int(Rnd() * bottom)
+			PSet (Int(Rnd() * 318), sy), 15
+		End If
+	End If
+End Sub
+
+Sub Classic_FillHud(ByVal mode As Integer, ByRef h1 As String, ByRef h2 As String)
+	h1 = "Classic SCREEN " & CStr(mode) & " — Esc returns to classic menu"
+	h2 = "W=" & CStr(GfxWidth()) & " H=" & CStr(GfxHeight())
+	If GfxPlayfieldBottom() < GfxHeight() - 1 Then
+		h2 = h2 & "  playfield Y 0-" & CStr(GfxPlayfieldBottom())
+	End If
+End Sub

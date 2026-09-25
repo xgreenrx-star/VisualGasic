@@ -30,5 +30,6 @@ rendering_device/driver.windows="d3d12"
 
 [vg]
 
+classic/clip_playfield=true
 plugin_registry/defaults/asset_editor.test=""
 python/use_typed_protocol=true

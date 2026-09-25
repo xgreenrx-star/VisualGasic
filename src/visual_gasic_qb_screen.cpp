@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/audio_stream_player.hpp>
 #include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
@@ -88,6 +89,8 @@ struct QbState {
 	int mouse_y = 0;
 	int mouse_btn = 0;
 	bool mouse_new = false;
+	int split_gfx_bottom = -1;
+	bool clip_playfield = false;
 	Ref<Image> image;
 	Ref<ImageTexture> texture;
 	ObjectID sprite_id;
@@ -132,19 +135,40 @@ struct ModeInfo {
 	int w;
 	int h;
 	int colors;
+	int split_gfx_bottom; // Max Y for playfield; -1 = full height (see classic modes 111+)
 };
 
 ModeInfo mode_info(int mode) {
+	ModeInfo m;
+	m.split_gfx_bottom = -1;
 	switch (mode) {
-		case 0: return { 640, 400, 16 }; // 80x25 text cells at 8x16, as a pixel buffer
-		case 1: return { 320, 200, 4 };
-		case 2: return { 640, 200, 2 };
-		case 7: return { 320, 200, 16 };
-		case 8: return { 640, 200, 16 };
-		case 9: return { 640, 350, 16 };
-		case 12: return { 640, 480, 16 };
-		case 13: return { 320, 200, 256 };
-		default: return { 320, 200, 256 };
+		case 0: return { 640, 400, 16, -1 };
+		case 1: return { 320, 200, 4, -1 };
+		case 2: return { 640, 200, 2, -1 };
+		case 7: return { 320, 200, 16, -1 };
+		case 8: return { 640, 200, 16, -1 };
+		case 9: return { 640, 350, 16, -1 };
+		case 12: return { 640, 480, 16, -1 };
+		case 13: return { 320, 200, 256, -1 };
+		case 14: return { 320, 240, 256, -1 }; // VGA 320x240 (logical buffer)
+		// Classic profiles (100+): inspired resolutions, not hardware emulation.
+		case 100: return { 160, 200, 16, -1 }; // Tandy / PCjr 160x200x16
+		case 101: return { 320, 200, 16, -1 }; // Tandy 320x200x16
+		case 102: return { 640, 200, 4, -1 }; // CGA / Tandy 640x200x4
+		case 110: return { 320, 192, 256, -1 }; // Atari 8-bit ANTIC-ish playfield
+		case 111: return { 320, 200, 256, 159 }; // Atari-style split (gfx top, text band)
+		case 112: return { 320, 200, 256, 175 }; // 22-row gfx + 3-row text (24 line feel)
+		case 120: return { 256, 192, 16, -1 }; // CoCo 256x192x16
+		case 121: return { 128, 96, 4, -1 }; // CoCo semigraphics-ish
+		case 130: return { 280, 192, 16, -1 }; // Apple II hi-res inspired
+		case 131: return { 140, 192, 16, -1 }; // Apple II lo-res inspired (half width)
+		case 140: return { 320, 200, 16, -1 }; // Commodore 320x200x16
+		case 150: return { 320, 256, 256, -1 }; // Amiga-ish chunky (single buffer)
+		default:
+			if (mode >= 100 && mode < 200) {
+				return { 320, 200, 256, -1 };
+			}
+			return { 320, 200, 256, -1 };
 	}
 }
 
@@ -384,6 +408,22 @@ void bind_dest_size(QbState *s) {
 	}
 }
 
+bool gfx_playfield_clip(QbState *s, int y) {
+	return s && s->clip_playfield && s->split_gfx_bottom >= 0 && y > s->split_gfx_bottom;
+}
+
+void refresh_classic_project_settings(QbState *s) {
+	if (!s) {
+		return;
+	}
+	ProjectSettings *ps = ProjectSettings::get_singleton();
+	if (!ps) {
+		s->clip_playfield = false;
+		return;
+	}
+	s->clip_playfield = (bool)ps->get_setting("vg/classic/clip_playfield", true);
+}
+
 void put_px32(QbState *s, int x, int y, int64_t col) {
 	QbState::Surf *sf = find_surf(s, s->dest_id);
 	if (!sf || !sf->img.is_valid()) {
@@ -442,6 +482,20 @@ void put_px(QbState *s, int x, int y, int col) {
 		s->image->set_pixel(x, y, color_of(s, col));
 	}
 	s->dirty = true;
+}
+
+void put_px_gfx(QbState *s, int x, int y, int col) {
+	if (gfx_playfield_clip(s, y)) {
+		return;
+	}
+	put_px(s, x, y, col);
+}
+
+void put_px32_gfx(QbState *s, int x, int y, int64_t col) {
+	if (gfx_playfield_clip(s, y)) {
+		return;
+	}
+	put_px32(s, x, y, col);
 }
 
 int get_px(QbState *s, int x, int y) {
@@ -576,7 +630,7 @@ void draw_line(QbState *s, int x0, int y0, int x1, int y1, int col) {
 	int sy = y0 < y1 ? 1 : -1;
 	int err = dx + dy;
 	for (int guard = 0; guard < 200000; guard++) {
-		put_px(s, x0, y0, col);
+		put_px_gfx(s, x0, y0, col);
 		if (x0 == x1 && y0 == y1) {
 			break;
 		}
@@ -615,26 +669,49 @@ void draw_box(QbState *s, int x0, int y0, int x1, int y1, int col, bool filled) 
 	draw_line(s, x1, y0, x1, y1, col);
 }
 
+void apply_classic_mode_finish(QbState *s, int mode) {
+	if (!s) {
+		return;
+	}
+	s->split_gfx_bottom = mode_info(mode).split_gfx_bottom;
+	refresh_classic_project_settings(s);
+	if (s->split_gfx_bottom < 0) {
+		return;
+	}
+	int y0 = s->split_gfx_bottom + 1;
+	if (y0 >= s->height) {
+		return;
+	}
+	for (int y = y0; y < s->height; y++) {
+		for (int x = 0; x < s->width; x++) {
+			put_px(s, x, y, 0);
+		}
+	}
+	for (int x = 0; x < s->width; x++) {
+		put_px(s, x, y0, 14);
+	}
+}
+
 void draw_circle(QbState *s, int cx, int cy, int r, int col) {
 	if (r < 0) {
 		return;
 	}
 	if (r == 0) {
-		put_px(s, cx, cy, col);
+		put_px_gfx(s, cx, cy, col);
 		return;
 	}
 	int x = r;
 	int y = 0;
 	int err = 1 - x;
 	while (x >= y) {
-		put_px(s, cx + x, cy + y, col);
-		put_px(s, cx + y, cy + x, col);
-		put_px(s, cx - y, cy + x, col);
-		put_px(s, cx - x, cy + y, col);
-		put_px(s, cx - x, cy - y, col);
-		put_px(s, cx - y, cy - x, col);
-		put_px(s, cx + y, cy - x, col);
-		put_px(s, cx + x, cy - y, col);
+		put_px_gfx(s, cx + x, cy + y, col);
+		put_px_gfx(s, cx + y, cy + x, col);
+		put_px_gfx(s, cx - y, cy + x, col);
+		put_px_gfx(s, cx - x, cy + y, col);
+		put_px_gfx(s, cx - x, cy - y, col);
+		put_px_gfx(s, cx - y, cy - x, col);
+		put_px_gfx(s, cx + y, cy - x, col);
+		put_px_gfx(s, cx + x, cy - y, col);
 		y++;
 		if (err < 0) {
 			err += 2 * y + 1;
@@ -676,7 +753,7 @@ void flood(QbState *s, int x, int y, int paint, int border) {
 		} else if (c != seed) {
 			continue;
 		}
-		put_px(s, p.x, p.y, paint);
+		put_px_gfx(s, p.x, p.y, paint);
 		stack.push_back(Vector2i(p.x + 1, p.y));
 		stack.push_back(Vector2i(p.x - 1, p.y));
 		stack.push_back(Vector2i(p.x, p.y + 1));
@@ -727,6 +804,7 @@ void screen_mode(VisualGasicInstance *instance, int mode, int active_page, int v
 	if (!was_active) {
 		qb_clear_key_queue(s);
 	}
+	refresh_classic_project_settings(s);
 	s->mode = mode;
 	s->dest_id = 0;
 	s->source_id = 0;
@@ -753,6 +831,7 @@ void screen_mode(VisualGasicInstance *instance, int mode, int active_page, int v
 	clear_page(s, 0);
 	clear_page(s, 1);
 	clear_buffer(s);
+	apply_classic_mode_finish(s, mode);
 	Node *n = owner_node(instance);
 	if (n) {
 		n->set_process(true);
@@ -1060,7 +1139,7 @@ void draw_circle_ex(QbState *s, int cx, int cy, int rx, int ry, int col, double 
 		}
 		int x = cx + (int)Math::round(Math::cos(a) * (double)rx);
 		int y = cy - (int)Math::round(Math::sin(a) * (double)ry);
-		put_px(s, x, y, col);
+		put_px_gfx(s, x, y, col);
 	}
 	if (!full && pie_s) {
 		int x = cx + (int)Math::round(Math::cos(start) * (double)rx);
@@ -1494,6 +1573,8 @@ void screen_image(VisualGasicInstance *instance, int handle) {
 	ensure_palette();
 	s->active = true;
 	s->mode = 32;
+	s->split_gfx_bottom = -1;
+	refresh_classic_project_settings(s);
 	s->ncolors = 256;
 	s->dest_id = handle;
 	s->source_id = handle;
@@ -1689,7 +1770,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		}
 		if (m == "_putimage") {
 			putimage_at(s, arg_int(args, 0, 0), arg_int(args, 1, 0), arg_int(args, 2, 0));
-			upload(s, instance);
 			return true;
 		}
 		AudioStreamPlayer *pl = snd_player(s, arg_int(args, 0, 0));
@@ -1723,7 +1803,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 	if (m == "qbpalettereset") {
 		copy_default_pal(s);
 		sync_visual_image(s);
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbpalette" && args.size() >= 2) {
@@ -1735,7 +1814,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 			col = (int64_t)r | ((int64_t)g << 8) | ((int64_t)b << 16);
 		}
 		apply_palette_entry(s, arg_int(args, 0, 0), col);
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbpaletteusing" && args.size() >= 1) {
@@ -1756,7 +1834,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 				apply_palette_entry(s, i, arr[i]);
 			}
 		}
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbpcopy") {
@@ -1765,7 +1842,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		s->page[dst] = s->page[src];
 		if (dst == (s->visual_page & 1)) {
 			sync_visual_image(s);
-			upload(s, instance);
 		}
 		return true;
 	}
@@ -1794,7 +1870,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 	}
 	if (m == "qbdraw" && args.size() >= 1) {
 		draw_string(s, String(args[0]));
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbviewreset") {
@@ -1811,7 +1886,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 			int col = norm_color(s, arg_int(args, 4, -1));
 			draw_box(s, s->vx1, s->vy1, s->vx2, s->vy2, col, true);
 		}
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbwindowreset") {
@@ -1846,7 +1920,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 			dy = arg_int(args, 1, 0);
 		}
 		scroll_region(s, x0, y0, x1, y1, dx, dy);
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbpset" && args.size() >= 2) {
@@ -1855,11 +1928,10 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		resolve_pt(s, arg_f64(args, 0, 0), arg_f64(args, 1, 0), step, false, x, y);
 		if (dest_is_32(s)) {
 			int64_t col = (args.size() >= 3) ? (int64_t)args[2] : (int64_t)0xFFFFFFFF;
-			put_px32(s, x, y, col);
+			put_px32_gfx(s, x, y, col);
 		} else {
-			put_px(s, x, y, norm_color(s, arg_int(args, 2, -1)));
+			put_px_gfx(s, x, y, norm_color(s, arg_int(args, 2, -1)));
 		}
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbline" && args.size() >= 4) {
@@ -1876,7 +1948,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		} else {
 			draw_line(s, x0, y0, x1, y1, col);
 		}
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbcircle" && args.size() >= 3) {
@@ -1896,7 +1967,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		int cx, cy;
 		resolve_pt(s, arg_f64(args, 0, 0), arg_f64(args, 1, 0), false, false, cx, cy);
 		draw_circle_ex(s, cx, cy, rx, ry, col, start, end, filled);
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbpaint" && args.size() >= 2) {
@@ -1905,7 +1975,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		int x, y;
 		resolve_pt(s, arg_f64(args, 0, 0), arg_f64(args, 1, 0), false, false, x, y);
 		flood(s, x, y, col, border);
-		upload(s, instance);
 		return true;
 	}
 	if (m == "qbput" && args.size() >= 3 && args[2].get_type() == Variant::ARRAY) {
@@ -1913,7 +1982,6 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		int x, y;
 		resolve_pt(s, arg_f64(args, 0, 0), arg_f64(args, 1, 0), false, false, x, y);
 		blit_rect(s, x, y, args[2], action);
-		upload(s, instance);
 		return true;
 	}
 	return true;
@@ -1943,6 +2011,35 @@ bool handle_expr(VisualGasicInstance *instance, const String &method, const Arra
 			r_ret = get_px32(s, (int)args[0], (int)args[1]);
 		} else {
 			r_ret = (int64_t)get_px(s, (int)args[0], (int)args[1]);
+		}
+		return true;
+	}
+	if ((m == "screenmode" || m == "gfxwidth" || m == "gfxheight" || m == "gfxplayfieldbottom") && args.size() == 0) {
+		r_handled = true;
+		QbState *s = find_state(instance);
+		if (!s || !s->active) {
+			r_ret = (int64_t)0;
+			return true;
+		}
+		if (m == "screenmode") {
+			if (s->dest_id < 0) {
+				r_ret = (int64_t)s->dest_id;
+			} else {
+				r_ret = (int64_t)s->mode;
+			}
+		} else if (m == "gfxwidth") {
+			int w = s->disp_w > 0 ? s->disp_w : s->width;
+			r_ret = (int64_t)w;
+		} else if (m == "gfxheight") {
+			int h = s->disp_h > 0 ? s->disp_h : s->height;
+			r_ret = (int64_t)h;
+		} else {
+			if (s->split_gfx_bottom >= 0) {
+				r_ret = (int64_t)s->split_gfx_bottom;
+			} else {
+				int h = s->disp_h > 0 ? s->disp_h : s->height;
+				r_ret = (int64_t)(h > 0 ? h - 1 : 0);
+			}
 		}
 		return true;
 	}
@@ -2225,7 +2322,6 @@ void note_console_print(VisualGasicInstance *instance, const godot::String &text
 		return;
 	}
 	qb_print_text(s, text, newline);
-	upload(s, instance);
 }
 
 } // namespace VGQbScreen

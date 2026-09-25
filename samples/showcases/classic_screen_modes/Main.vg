@@ -1,0 +1,105 @@
+' Classic SCREEN mode gallery — one key per profile family.
+Attribute VB_Name = "ClassicScreenModes"
+
+Import "demos/ModeDemos.vg"
+
+Option Explicit
+
+Dim demoMode As Integer
+Dim animTick As Single
+
+Sub ShowMenu()
+	demoMode = 0
+	Screen 0
+	QueueRedraw
+End Sub
+
+Sub _Ready()
+	Randomize
+	demoMode = 0
+	Me.set_process(True)
+	ShowMenu
+End Sub
+
+Sub _Draw()
+	If demoMode <> 0 Then
+		Return
+	End If
+	Dim w As Single
+	Dim h As Single
+	w = 960.0
+	h = 600.0
+	DrawRect 0, 0, w, h, Color8(8, 12, 24), True
+	DrawString "Classic SCREEN mode demos", 24, 20, Color8(240, 248, 255), 28
+	DrawString "Pick a profile (Esc = menu when in a demo):", 24, 56, Color8(180, 200, 230), 18
+	DrawString "1=mode1 CGA   2=mode2 mono   7=EGA320   8=EGA640   9=EGA350", 24, 90, Color8(160, 180, 210), 16
+	DrawString "C=mode12 VGA16  3=mode13  4=mode14", 24, 112, Color8(160, 180, 210), 16
+	DrawString "Q=100 Tandy160  W=101  E=102 wide CGA", 24, 134, Color8(160, 180, 210), 16
+	DrawString "A=110 Atari  S=111 split  D=112 split", 24, 156, Color8(160, 180, 210), 16
+	DrawString "Z=120 CoCo  X=121 low  R=130 AppleHi  F=131 Lo", 24, 178, Color8(160, 180, 210), 16
+	DrawString "V=140 C64 feel  B=150 Amiga-ish", 24, 200, Color8(160, 180, 210), 16
+	DrawString "ScreenMode() / GfxWidth() / GfxPlayfieldBottom() — see manual", 24, 240, Color8(120, 160, 200), 14
+End Sub
+
+Sub LaunchDemo(ByVal mode As Integer)
+	demoMode = mode
+	RunModeDemo mode
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim bottom As Integer
+	Dim sy As Integer
+	If demoMode = 13 Then
+		animTick = animTick + delta
+		If animTick > 0.05 Then
+			animTick = 0
+			PSet (Int(Rnd() * 318), 20 + Int(Rnd() * 170)), Int(Rnd() * 255) + 1
+		End If
+	ElseIf demoMode = 111 Then
+		animTick = animTick + delta
+		If animTick > 0.08 Then
+			animTick = 0
+			bottom = GfxPlayfieldBottom()
+			sy = Int(Rnd() * bottom)
+			PSet (Int(Rnd() * 318), sy), 15
+		End If
+	End If
+End Sub
+
+Sub _Input(ByVal ev As Variant)
+	If Not ev Is InputEventKey Then
+		Return
+	End If
+	If Not ev.pressed Or ev.echo Then
+		Return
+	End If
+	If ev.keycode = KEY_ESCAPE Then
+		ShowMenu
+		Return
+	End If
+	If demoMode <> 0 Then
+		Return
+	End If
+	Select Case ev.keycode
+		Case KEY_1: LaunchDemo 1
+		Case KEY_2: LaunchDemo 2
+		Case KEY_3: LaunchDemo 13
+		Case KEY_4: LaunchDemo 14
+		Case KEY_7: LaunchDemo 7
+		Case KEY_8: LaunchDemo 8
+		Case KEY_9: LaunchDemo 9
+		Case KEY_C: LaunchDemo 12
+		Case KEY_Q: LaunchDemo 100
+		Case KEY_W: LaunchDemo 101
+		Case KEY_E: LaunchDemo 102
+		Case KEY_A: LaunchDemo 110
+		Case KEY_S: LaunchDemo 111
+		Case KEY_D: LaunchDemo 112
+		Case KEY_Z: LaunchDemo 120
+		Case KEY_X: LaunchDemo 121
+		Case KEY_R: LaunchDemo 130
+		Case KEY_F: LaunchDemo 131
+		Case KEY_V: LaunchDemo 140
+		Case KEY_B: LaunchDemo 150
+	End Select
+End Sub

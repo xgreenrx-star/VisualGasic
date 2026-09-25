@@ -2,7 +2,7 @@
 
 The [QB64 sample gallery](https://qb64.com/samples.html) lists hundreds of `.BAS` programs. **There is no single license** for the gallery. Visual Gasic ships **original** `.vg` reimplementations in `samples/showcases/qb_abc_showcase/` — not copied `.BAS` files.
 
-**Navigation:** main menu **Q** → hub (**G** games, **D** demos, **T** tools, **S** skipped list).
+**Navigation:** main menu **Q** → hub (**G** games, **D** demos, **T** tools, **S** skipped list). Main menu **`.`** → **Classic systems — SCREEN mode gallery** (3 pages: PC/DOS modes 1–14, Tandy/Atari profiles 100–112, CoCo/Apple/C64/Amiga 120–150). Source: `games/ClassicModeDemos.vg`, `games/ClassicScreenModes.vg`. Porting how-to: [Classic porting guide](../manual/classic_porting_guide.md).
 
 ## Your requested URLs (18)
 

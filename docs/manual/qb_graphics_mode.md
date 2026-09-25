@@ -26,6 +26,8 @@ When `SCREEN` is active, the buffer is shown as a **Sprite2D** child (`QbScreen`
 
 ## SCREEN modes
 
+### DOS / PC (QuickBASIC)
+
 | Mode | Size (pixels) | Colors | Notes |
 |------|---------------|--------|--------|
 | 0 | 640×400 | 16 | Text-sized buffer (80×25 cells at 8×16); `PRINT` still goes to the debug console |
@@ -36,8 +38,28 @@ When `SCREEN` is active, the buffer is shown as a **Sprite2D** child (`QbScreen`
 | 9 | 640×350 | 16 | EGA |
 | 12 | 640×480 | 16 | VGA |
 | 13 | 320×200 | 256 | Default for most ABC archive games |
+| 14 | 320×240 | 256 | VGA-style tall buffer |
 
-Unknown mode numbers default to **320×200, 256 colors** (mode 13 behavior).
+### Classic profiles (100–199)
+
+Extra modes for **retro feel** (Tandy, Atari layout, CoCo, Apple-inspired, C64-ish, Amiga-ish). Not hardware-accurate. Full table, split-screen behavior, and examples: **[Classic games graphics](classic_games_graphics.md)**. Demos: `samples/showcases/classic_screen_modes/`. Query active buffer: `ScreenMode()`, `GfxWidth()`, `GfxHeight()`, `GfxPlayfieldBottom()` (not `Screen.Width`).
+
+| Mode | Size | Colors | Summary |
+|------|------|--------|---------|
+| 100 | 160×200 | 16 | Tandy / PCjr |
+| 101 | 320×200 | 16 | Tandy |
+| 102 | 640×200 | 4 | CGA / Tandy wide |
+| 110 | 320×192 | 256 | Atari playfield (approx.) |
+| 111 | 320×200 | 256 | Atari-style **split** (gfx 0–159, text 160–199) |
+| 112 | 320×200 | 256 | Split gfx 0–175 |
+| 120 | 256×192 | 16 | Color Computer |
+| 121 | 128×96 | 4 | CoCo low / semigraphics feel |
+| 130 | 280×192 | 16 | Apple II hi-res inspired |
+| 131 | 140×192 | 16 | Apple II lo-res inspired |
+| 140 | 320×200 | 16 | Commodore-style |
+| 150 | 320×256 | 256 | Amiga-ish chunky buffer |
+
+Unknown modes in **100–199** default to 320×200×256 until assigned. Other unknown modes default to **mode 13** behavior.
 
 **32-bit pages (QB64-style):** `_NewImage` returns a **negative** handle (so it never collides with mode `13`). `SCREEN handle` displays that page. Colors on a 32-bit page are `_RGB32` / `_RGBA32` (`&HAARRGGBB`), not palette indexes.
 
@@ -251,16 +273,19 @@ Full list: [QB64-style layer — limits](qb64_compat_roadmap.md).
 
 ## Porting tips
 
+Full workflow: **[Classic porting guide](classic_porting_guide.md)** (SCREEN vs canvas, checklist, `VGMemoryBuffer`).
+
 1. Call **`SCREEN 13`** (or the mode the listing expects) before graphics.
-2. Replace **`DEF SEG` / `PEEK` / `POKE`** with VG variables or `MemoryBuffer` — not supported on the QB layer.
+2. Replace **`DEF SEG` / `PEEK` / `POKE`** with VG variables or **`VGMemoryBuffer`** — not supported on the QB layer.
 3. Use **`Point(x, y)`** in tests instead of screenshots.
-4. Keep **`Screen.Width`** for layout only when you mean the **monitor**; use fixed mode sizes (e.g. 320×200) for game logic after `SCREEN`.
+4. Keep **`Screen.Width`** for layout only when you mean the **monitor**; use **`GfxWidth()` / `GfxHeight()`** for game logic after `SCREEN`.
 5. Regression tests: `test_proj/test_suite/test_qb_screen.vg` (`VG_TEST_SUITE_VG_ONLY=1 ./run_test_suite.sh test_qb_screen.vg`).
 
 ---
 
 ## See also
 
+- [Classic games graphics — retro SCREEN profiles (isolated from modern VG)](classic_games_graphics.md)
 - [QB64-style layer — what is in, and what is left out](qb64_compat_roadmap.md)
 - [VisualGasic Language Reference — QuickBASIC Graphics Mode](../VisualGasic_Language_Reference.md#quickbasic-graphics-mode-screen)
 - [Builtin Functions Reference — QuickBASIC graphics](../reference/BUILTIN_FUNCTIONS_REFERENCE.md#quickbasic-graphics-screen)

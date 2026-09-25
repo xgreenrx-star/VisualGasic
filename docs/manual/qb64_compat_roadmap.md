@@ -6,6 +6,8 @@ The gaps below are **recorded on purpose**. They stay out of the QB layer unless
 
 Regression tests: `test_proj/test_suite/test_qb_screen.vg`.
 
+Porting workflow (SCREEN vs canvas, `PEEK`/`POKE` replacements): [Classic porting guide](classic_porting_guide.md).
+
 ## In the QB layer today
 
 | Area | Commands |

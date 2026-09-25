@@ -267,5 +267,49 @@ Sub _Ready()
 		Print "FAIL: qb_sndopen_miss " & CStr(snd)
 	End If
 	_FreeImage img
+	Screen 13
+
+	If ScreenMode() = 13 And GfxWidth() = 320 And GfxHeight() = 200 And GfxPlayfieldBottom() = 199 Then
+		Print "PASS: qb_screenmode13"
+	Else
+		Print "FAIL: qb_screenmode13 m=" & CStr(ScreenMode()) & " w=" & CStr(GfxWidth())
+	End If
+
+	Screen 100
+	If Point(159, 199) = 0 And Point(160, 0) = -1 And Point(0, 200) = -1 Then
+		Print "PASS: qb_mode100"
+	Else
+		Print "FAIL: qb_mode100 " & CStr(Point(159, 199)) & "," & CStr(Point(160, 0))
+	End If
+	If ScreenMode() = 100 And GfxWidth() = 160 And GfxHeight() = 200 Then
+		Print "PASS: qb_screenmode100"
+	Else
+		Print "FAIL: qb_screenmode100"
+	End If
+
+	Screen 111
+	If Point(319, 199) = 0 And Point(0, 159) = 0 And Point(0, 160) = 14 And Point(0, 161) = 0 Then
+		Print "PASS: qb_mode111_split"
+	Else
+		Print "FAIL: qb_mode111 " & CStr(Point(0, 159)) & "," & CStr(Point(0, 160)) & "," & CStr(Point(0, 161))
+	End If
+	If GfxPlayfieldBottom() = 159 Then
+		Print "PASS: qb_gfx_playfield_bottom"
+	Else
+		Print "FAIL: qb_gfx_playfield_bottom " & CStr(GfxPlayfieldBottom())
+	End If
+	PSet (10, 170), 12
+	If Point(10, 170) = 0 Then
+		Print "PASS: qb_clip_playfield"
+	Else
+		Print "FAIL: qb_clip_playfield " & CStr(Point(10, 170))
+	End If
+	Screen 13
+
 	Screen 0
+	If ScreenMode() = 0 Then
+		Print "PASS: qb_screenmode0"
+	Else
+		Print "FAIL: qb_screenmode0 " & CStr(ScreenMode())
+	End If
 End Sub

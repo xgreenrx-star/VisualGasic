@@ -59,3 +59,7 @@ See [docs/manual/WEB_EXPORT.md](../../../docs/manual/WEB_EXPORT.md).
 - **More opponents:** `_SpawnCar` / `_SpawnUfo` in `scripts/Entities.vg`.
 - **Career upgrades:** pattern similar to arcade titles (e.g. [Grand Prix Hero](https://sonsaur.com/g/grand-prix-hero) — engine / tires / turbo between races; [Super Arcade Racing](https://play.google.com/store/apps/details?id=com.outofthebit.superarcaderacing) — exhaust, brakes, tires, engine).
 - **Track variety (planned):** city skyline with wireframe buildings, coastal loops, night/day with sun and moon, tunnels and elevation — see locked entries in track select.
+
+## See also
+
+- **[Elite Wire Slice](../../games/elite_wire_slice/)** — minimal Elite-style combat view using `DrawRawWireMesh` (trader + asteroids, not Oolite/TNK ports).

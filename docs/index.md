@@ -26,8 +26,10 @@ The **Manual** explains engine concepts and Visual Gasic specific implementation
 ### Input
 *   [InputEvent](manual/input_event.md)
 
-### Classic BASIC (QBasic)
-*   [QuickBASIC graphics mode (SCREEN, PSET, LINE, GET/PUT, PLAY, INKEY$)](manual/qb_graphics_mode.md)
+### Classic games (optional — not the modern default)
+*   **[Classic games graphics](manual/classic_games_graphics.md)** — retro `SCREEN` profiles (100+), split playfield, examples; read this to keep classic work separate from Godot-first VG.
+*   **[Classic porting guide](manual/classic_porting_guide.md)** — when to use SCREEN vs canvas, `.BAS` → `.vg` checklist, `VGMemoryBuffer` instead of `PEEK`/`POKE`.
+*   [QuickBASIC graphics mode (SCREEN, PSET, LINE, GET/PUT, PLAY, INKEY$)](manual/qb_graphics_mode.md) — engine statement reference
 *   [ABC showcase sample + Facebook post draft](showcase/FACEBOOK_QB_CLASSIC_CODERS.md) — `samples/showcases/qb_abc_showcase/`
 *   [ABC complex game candidates (showcase roadmap)](showcase/QB_ABC_COMPLEX_CANDIDATES.md)
 

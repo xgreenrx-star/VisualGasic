@@ -857,8 +857,8 @@ End Sub
 ' UpdateCursor: Converts pixel mouse position to grid cell, validates placement,
 ' and detects if the cursor is hovering over an existing tower (for upgrade/sell).
 Sub UpdateCursor()
-	Dim mx As Single = Input.GetMousePosition().x
-	Dim my As Single = Input.GetMousePosition().y
+	Dim mx As Single = GetMouseX()
+	Dim my As Single = GetMouseY()
 
 	' Snap mouse to grid — integer division by CELL size
 	cursorGridX = Int(mx / CELL)

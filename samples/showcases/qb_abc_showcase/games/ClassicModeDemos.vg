@@ -1,0 +1,282 @@
+' Static + simple animated patterns for each SCREEN profile.
+' Inspired by classic BASIC type-in listings (original VG code, not line ports).
+Attribute VB_Name = "ClassicModeDemos"
+
+Option Explicit
+
+Sub DemoBanner(ByVal mode As Integer, ByVal title As String)
+	Dim w As Integer
+	Dim h As Integer
+	w = GfxWidth()
+	h = GfxHeight()
+	Line (0, 0)-(w - 1, 11), 15, BF
+	Color 0, 15
+	Locate 1, 2
+	Print "MODE "; CStr(mode); "  "; title;
+	Color 15, 0
+End Sub
+
+Sub DemoMode1()
+	Screen 1
+	Cls
+	DemoBanner 1, "CGA 320x200x4"
+	Line (0, 0)-(319, 199), 1, B
+	Line (10, 20)-(310, 180), 2, BF
+	Circle (160, 100), 50, 3
+	PSet (160, 100), 4
+End Sub
+
+Sub DemoMode2()
+	Screen 2
+	Cls
+	DemoBanner 2, "Mono 640x200"
+	Dim x As Integer
+	Dim y As Integer
+	For y = 16 To 190 Step 4
+		For x = 0 To 639 Step 8
+			If ((x + y) \ 8) Mod 2 = 0 Then
+				PSet (x, y), 1
+			End If
+		Next x
+	Next y
+	Line (0, 0)-(639, 199), 1, B
+End Sub
+
+Sub DemoMode7()
+	Screen 7
+	Cls
+	DemoBanner 7, "EGA 320x200x16"
+	Dim c As Integer
+	For c = 0 To 15
+		Line (c * 20, 30)-(c * 20 + 18, 170), c, BF
+	Next c
+End Sub
+
+Sub DemoMode8()
+	Screen 8
+	Cls
+	DemoBanner 8, "EGA 640x200x16"
+	Line (0, 100)-(639, 100), 14
+	Line (320, 20)-(320, 180), 13
+	Circle (320, 100), 60, 12
+	Circle (120, 100), 30, 11
+	Circle (520, 100), 30, 10
+End Sub
+
+Sub DemoMode9()
+	Screen 9
+	Cls
+	DemoBanner 9, "EGA 640x350"
+	Dim band As Integer
+	For band = 0 To 7
+		Line (0, 40 + band * 35)-(639, 74 + band * 35), band + 1, BF
+	Next band
+	Circle (320, 175), 80, 15
+End Sub
+
+Sub DemoMode12()
+	Screen 12
+	Cls
+	DemoBanner 12, "VGA 640x480x16"
+	Dim band As Integer
+	Line (0, 0)-(639, 479), 7, B
+	For band = 0 To 11
+		Line (20, 40 + band * 36)-(620, 72 + band * 36), band + 1, BF
+	Next band
+End Sub
+
+Sub DemoMode13()
+	Screen 13
+	Cls
+	DemoBanner 13, "VGA 320x200x256"
+	Dim i As Integer
+	Randomize
+	For i = 1 To 120
+		PSet (Int(Rnd() * 318), 20 + Int(Rnd() * 170)), Int(Rnd() * 255) + 1
+	Next i
+	Circle (160, 120), 35, 15
+	Line (160, 85)-(160, 155), 14
+	Line (125, 120)-(195, 120), 14
+End Sub
+
+Sub DemoMode14()
+	Screen 14
+	Cls
+	DemoBanner 14, "VGA 320x240x256"
+	Dim y As Integer
+	For y = 20 To 239
+		Line (0, y)-(319, y), 16 + (y Mod 240)
+	Next y
+	Circle (160, 140), 45, 15
+End Sub
+
+Sub DemoMode100()
+	Screen 100
+	Cls
+	DemoBanner 100, "Tandy 160x200"
+	Dim i As Integer
+	For i = 0 To 15
+		Line (i * 10, 30)-(i * 10 + 8, 190), i, BF
+	Next i
+	PSet (80, 100), 15
+End Sub
+
+Sub DemoMode101()
+	Screen 101
+	Cls
+	DemoBanner 101, "Tandy 320x200x16"
+	Line (10, 30)-(310, 190), 12, B
+	Paint (160, 100), 4, 12
+	Circle (80, 80), 25, 14
+	Circle (240, 120), 35, 11
+End Sub
+
+Sub DemoMode102()
+	Screen 102
+	Cls
+	DemoBanner 102, "CGA wide 640x200x4"
+	Line (0, 0)-(639, 199), 1, B
+	Line (0, 50)-(639, 50), 2
+	Line (0, 100)-(639, 100), 3
+	Line (0, 150)-(639, 150), 4
+End Sub
+
+Sub DemoMode110()
+	Screen 110
+	Cls
+	DemoBanner 110, "Atari playfield 320x192"
+	Dim x As Integer
+	For x = 0 To 319 Step 4
+		Line (x, 40)-(x, 180), 1 + ((x \ 4) Mod 15)
+	Next x
+	Circle (160, 110), 40, 15
+End Sub
+
+Sub DemoMode111()
+	Screen 111
+	Cls
+	Dim i As Integer
+	For i = 1 To 50
+		PSet (Int(Rnd() * 318), Int(Rnd() * 158)), 15
+	Next i
+	Line (20, 140)-(300, 140), 2
+	Circle (160, 90), 25, 14
+	Locate 21, 1
+	Color 15, 0
+	Print "111 split  Esc=menu  GfxBottom="; CStr(GfxPlayfieldBottom());
+End Sub
+
+Sub DemoMode112()
+	Screen 112
+	Cls
+	Line (0, 0)-(319, 175), 4, B
+	Paint (160, 90), 2, 4
+	Locate 23, 1
+	Color 14, 0
+	Print "112 tight split  bottom="; CStr(GfxPlayfieldBottom());
+End Sub
+
+Sub DemoMode120()
+	Screen 120
+	Cls
+	DemoBanner 120, "CoCo 256x192"
+	Dim band As Integer
+	Line (0, 0)-(255, 191), 8, B
+	For band = 0 To 7
+		Line (16, 24 + band * 20)-(240, 40 + band * 20), band + 1, BF
+	Next band
+End Sub
+
+Sub DemoMode121()
+	Screen 121
+	Cls
+	DemoBanner 121, "CoCo low 128x96"
+	Dim gx As Integer
+	Dim gy As Integer
+	For gy = 0 To 11
+		For gx = 0 To 15
+			If (gx + gy) Mod 2 = 0 Then
+				Line (gx * 8, 20 + gy * 6)-(gx * 8 + 6, 24 + gy * 6), 1 + ((gx + gy) Mod 4), BF
+			End If
+		Next gx
+	Next gy
+End Sub
+
+Sub DemoMode130()
+	Screen 130
+	Cls
+	DemoBanner 130, "Apple hi-res inspired"
+	Dim y As Integer
+	For y = 30 To 180 Step 3
+		If y Mod 6 = 0 Then
+			Line (20, y)-(260, y), 15
+		Else
+			Line (20, y)-(260, y), 0
+		End If
+	Next y
+	Circle (140, 110), 30, 12
+End Sub
+
+Sub DemoMode131()
+	Screen 131
+	Cls
+	DemoBanner 131, "Apple lo-res inspired"
+	Dim block As Integer
+	For block = 0 To 13
+		Line (block * 10, 40)-(block * 10 + 8, 170), 1 + (block Mod 15), BF
+	Next block
+End Sub
+
+Sub DemoMode140()
+	Screen 140
+	Cls
+	DemoBanner 140, "Commodore feel 320x200"
+	Line (0, 0)-(319, 199), 14, B
+	Line (10, 30)-(310, 190), 12, B
+	Paint (160, 100), 1, 12
+	Locate 22, 1
+	Color 15, 0
+	Print "PETSCII-style blocks (VG palette)";
+End Sub
+
+Sub DemoMode150()
+	Screen 150
+	Cls
+	DemoBanner 150, "Amiga-ish 320x256"
+	Dim y As Integer
+	For y = 20 To 255
+		Line (0, y)-(319, y), 32 + ((y * 3) Mod 224)
+	Next y
+	Circle (160, 150), 55, 15
+End Sub
+
+Sub RunModeDemo(ByVal mode As Integer)
+	Randomize
+	Select Case mode
+		Case 1: DemoMode1()
+		Case 2: DemoMode2()
+		Case 7: DemoMode7()
+		Case 8: DemoMode8()
+		Case 9: DemoMode9()
+		Case 12: DemoMode12()
+		Case 13: DemoMode13()
+		Case 14: DemoMode14()
+		Case 100: DemoMode100()
+		Case 101: DemoMode101()
+		Case 102: DemoMode102()
+		Case 110: DemoMode110()
+		Case 111: DemoMode111()
+		Case 112: DemoMode112()
+		Case 120: DemoMode120()
+		Case 121: DemoMode121()
+		Case 130: DemoMode130()
+		Case 131: DemoMode131()
+		Case 140: DemoMode140()
+		Case 150: DemoMode150()
+		Case Else
+			Screen 13
+			Cls
+			Locate 10, 10
+			Print "Unknown demo mode "; CStr(mode)
+	End Select
+End Sub
