@@ -30,7 +30,7 @@ End Sub
 
 Sub Q64Relief_Tick(delta As Single)
 	qr_tick = qr_tick + delta
-	If qr_tick < 0.04 Then Exit Sub
+	If qr_tick < 0.1 Then Exit Sub
 	qr_tick = 0
 	qr_off = qr_off + 1
 	If qr_off >= 4 Then
@@ -45,18 +45,28 @@ Sub Q64Relief_Tick(delta As Single)
 End Sub
 
 Sub Q64Relief_Draw()
+	' A height field drawn as stacked horizontal traces, back row first.
+	' The old draw was one diagonal per row, which read as a sheared sheet.
 	Cls
-	Dim row As Integer
-	For row = 0 To 79
-		Dim z As Integer
-		z = row
-		Dim h As Integer
-		h = qr_h(row)
-		Dim yb As Integer
-		yb = 180 - z
-		Dim x0 As Integer
-		x0 = 160 - z \ 2
-		Line (x0, yb)-(x0 + 40 + h, yb - h \ 2), 11
-		Line (x0 + 40 + h, yb)-(x0 + 80 + h, yb - h \ 2), 10
-	Next row
+	Dim depth As Integer
+	' Every other row and column. The full mesh was thousands of lines a frame.
+	For depth = 0 To 48 Step 2
+		Dim prevX As Integer
+		Dim prevY As Integer
+		prevX = -1
+		Dim col As Integer
+		For col = 0 To 79 Step 2
+			Dim hi As Integer
+			hi = qr_h((col + depth) Mod 80)
+			Dim x As Integer
+			Dim y As Integer
+			x = 16 + col * 3 + depth \ 3
+			y = 40 + depth * 3 - hi \ 2
+			Dim shade As Integer
+			If hi > 50 Then shade = 11 Else shade = 10
+			If prevX >= 0 Then Line (prevX, prevY)-(x, y), shade
+			prevX = x
+			prevY = y
+		Next col
+	Next depth
 End Sub

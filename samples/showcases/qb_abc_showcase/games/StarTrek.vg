@@ -19,6 +19,8 @@ Sub Trek_Init()
 	tk_msg = "Commands: LRS S R P T Q  (long scan, shields, phasers, torpedo, quit)"
 	tk_cmd = ""
 	tk_active = True
+	Screen 13
+	Call Trek_Draw
 End Sub
 
 Function Trek_Active() As Boolean
@@ -42,8 +44,12 @@ Sub Trek_Key(ch As String)
 		Exit Sub
 	End If
 	If ch = " " Then Exit Sub
-	tk_cmd = tk_cmd & UCase(ch)
-	tk_msg = "Cmd: " & tk_cmd
+	' One letter runs the order. Waiting for Enter left a black screen
+	' that looked like the game was ignoring the keyboard.
+	tk_cmd = UCase(ch)
+	Call Trek_DoCmd
+	tk_cmd = ""
+	Call Trek_Draw
 End Sub
 
 Sub Trek_DoCmd()
@@ -54,12 +60,12 @@ Sub Trek_DoCmd()
 		tk_msg = "Mission ended."
 		Exit Sub
 	End If
-	If c = "LRS" Or c = "S" Then
+	If c = "L" Or c = "LRS" Then
 		tk_stardate = tk_stardate + 0.1
 		tk_msg = "Long range: " & CStr(tk_klingons) & " Klingon groups detected."
 		Exit Sub
 	End If
-	If c = "R" Then
+	If c = "S" Or c = "R" Then
 		If tk_energy < 200 Then
 			tk_msg = "Insufficient energy for shields."
 			Exit Sub
@@ -70,7 +76,7 @@ Sub Trek_DoCmd()
 		tk_msg = "Shields now " & CStr(tk_shields)
 		Exit Sub
 	End If
-	If c = "P" Then
+	If c = "P" Or c = "H" Then
 		If tk_klingons <= 0 Then
 			tk_msg = "No enemies."
 			Exit Sub
@@ -102,5 +108,23 @@ Sub Trek_DoCmd()
 		End If
 		Exit Sub
 	End If
-	tk_msg = "Unknown command. Try LRS S R P T Q"
+	tk_msg = "Unknown command. Try L S R P T Q"
+End Sub
+
+Sub Trek_Draw()
+	Cls
+	Locate 2, 2
+	Print "SUPER STAR TREK";
+	Locate 4, 2
+	Print "Stardate " & CStr(Int(tk_stardate));
+	Locate 5, 2
+	Print "Energy " & CStr(Int(tk_energy)) & "  Torps " & CStr(tk_torps);
+	Locate 6, 2
+	Print "Shields " & CStr(tk_shields) & "  Klingons " & CStr(tk_klingons);
+	Locate 8, 2
+	Print "L long scan    S shields";
+	Locate 9, 2
+	Print "P phasers      T torpedo    Q quit";
+	Locate 13, 2
+	Print Left(tk_msg, 36);
 End Sub

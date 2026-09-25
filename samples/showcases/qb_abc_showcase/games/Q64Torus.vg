@@ -38,34 +38,59 @@ Sub Q64Torus_Project(x As Single, y As Single, z As Single, ByRef sx As Integer,
 	sy = 100 + Int(y * scale)
 End Sub
 
+Sub Q64Torus_Ring(u0 As Single, v0 As Single, du As Single, dv As Single, col As Integer)
+	' One closed ring. The previous draw chained every sample into the
+	' next ring, so the figure was a scribble instead of a torus.
+	Dim steps As Integer
+	steps = 24
+	Dim i As Integer
+	Dim px As Integer
+	Dim py As Integer
+	Dim fx As Integer
+	Dim fy As Integer
+	For i = 0 To steps
+		Dim u As Single
+		Dim v As Single
+		u = u0 + du * i
+		v = v0 + dv * i
+		Dim ca As Single
+		Dim sa As Single
+		ca = Cos(u)
+		sa = Sin(u)
+		Dim cx As Single
+		Dim cy As Single
+		Dim cz As Single
+		cx = (2.4 + 0.9 * Cos(v)) * ca
+		cy = 0.9 * Sin(v)
+		cz = (2.4 + 0.9 * Cos(v)) * sa
+		Dim rx As Single
+		Dim ry As Single
+		Dim rz As Single
+		rx = cx
+		ry = cy * Cos(qt_ang) - cz * Sin(qt_ang)
+		rz = cy * Sin(qt_ang) + cz * Cos(qt_ang)
+		Dim sx As Integer
+		Dim sy As Integer
+		Call Q64Torus_Project(rx, ry, rz, sx, sy)
+		If i = 0 Then
+			fx = sx
+			fy = sy
+		Else
+			Line (px, py)-(sx, sy), col
+		End If
+		px = sx
+		py = sy
+	Next i
+	Line (px, py)-(fx, fy), col
+End Sub
+
 Sub Q64Torus_Draw()
 	Cls
-	Dim R As Single
-	Dim r As Single
-	R = 2.2
-	r = 0.9
-	Dim u As Single
-	Dim lastx As Integer
-	Dim lasty As Integer
-	Dim first As Boolean
-	first = True
-	For u = 0 To 6.28 Step 0.35
-		Dim v As Single
-		For v = 0 To 6.28 Step 0.5
-			Dim cx As Single
-			Dim cy As Single
-			Dim cz As Single
-			cx = (R + r * Cos(v)) * Cos(u + qt_ang)
-			cy = (R + r * Cos(v)) * Sin(u + qt_ang)
-			cz = r * Sin(v)
-			Dim sx As Integer
-			Dim sy As Integer
-			Call Q64Torus_Project(cx, cy, cz, sx, sy)
-			If Not first Then Line (lastx, lasty)-(sx, sy), 12
-			lastx = sx
-			lasty = sy
-			first = False
-		Next v
-		first = True
-	Next u
+	Dim k As Integer
+	For k = 0 To 11
+		Call Q64Torus_Ring(k * 6.28318 / 12, 0, 0, 6.28318 / 24, 11)
+	Next k
+	For k = 0 To 7
+		Call Q64Torus_Ring(0, k * 6.28318 / 8, 6.28318 / 24, 0, 14)
+	Next k
 End Sub

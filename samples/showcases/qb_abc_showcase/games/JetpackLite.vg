@@ -10,6 +10,7 @@ Dim jp_fuel As Integer
 Dim jp_gems As Integer
 Dim jp_got As Integer
 Dim jp_msg As String
+Dim jp_boost As Single
 
 Sub Jetpack_Init()
 	Screen 13
@@ -37,7 +38,19 @@ End Sub
 
 Sub Jetpack_Tick(delta As Single)
 	If Not jp_active Then Exit Sub
-	jp_vy = jp_vy + 0.06
+	' Pixels per frame. Multiplying thrust by delta and then adding
+	' velocity without delta left Up unable to beat gravity.
+	jp_vy = jp_vy + 0.18
+	If jp_fuel > 0 And (IsKeyDown(KEY_UP) Or jp_boost > 0) Then
+		jp_vy = jp_vy - 0.72
+		jp_fuel = jp_fuel - 1
+		If jp_boost > 0 Then jp_boost = jp_boost - 1
+	End If
+	If jp_vy > 4 Then jp_vy = 4
+	If jp_vy < -3.2 Then jp_vy = -3.2
+	If IsKeyDown(KEY_LEFT) Then jp_vx = jp_vx - 0.12
+	If IsKeyDown(KEY_RIGHT) Then jp_vx = jp_vx + 0.12
+	jp_vx = jp_vx * 0.92
 	jp_x = jp_x + jp_vx
 	jp_y = jp_y + jp_vy
 	If jp_x < 10 Then jp_x = 10: jp_vx = 0
@@ -56,10 +69,7 @@ Sub Jetpack_Tick(delta As Single)
 End Sub
 
 Sub Jetpack_Thrust()
-	If jp_fuel > 0 Then
-		jp_fuel = jp_fuel - 2
-		jp_vy = jp_vy - 0.35
-	End If
+	If jp_fuel > 0 Then jp_boost = 12
 End Sub
 
 Sub Jetpack_Left()
@@ -93,4 +103,8 @@ Sub Jetpack_Draw()
 		End If
 	Next i
 	Line (Int(jp_x) - 4, Int(jp_y))-(Int(jp_x) + 4, Int(jp_y) + 8), 15, BF
+	If jp_boost > 0 Then
+		Line (Int(jp_x), Int(jp_y) + 8)-(Int(jp_x) - 3, Int(jp_y) + 16), 4
+		Line (Int(jp_x), Int(jp_y) + 8)-(Int(jp_x) + 3, Int(jp_y) + 16), 14
+	End If
 End Sub

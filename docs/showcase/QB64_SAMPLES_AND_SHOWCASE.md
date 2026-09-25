@@ -9,7 +9,7 @@ The [QB64 sample gallery](https://qb64.com/samples.html) lists hundreds of `.BAS
 | Sample | Category | Showcase | Notes |
 |--------|----------|----------|--------|
 | [fire-demo](https://qb64.com/samples/fire-demo/) | Demo | **D → 1** `Q64FireDemo.vg` | Palette fire table |
-| [gorillas](https://qb64.com/samples/gorillas/) | Game | **Tier B → 1** `Gorillas.vg` | Microsoft sample; not duplicated in Tier Q |
+| [gorillas](https://qb64.com/samples/gorillas/) | Game | **Tier B → 1** `Gorillas.vg` | Translation of Microsoft `GORILLA.BAS` (city windows, sun, gorilla draw, shot math). VG-only edits are marked in the file. |
 | [frostbite](https://qb64.com/samples/frostbite/) | Game | **Skipped (S)** | Large asset/`_PUTIMAGE`/audio port |
 | [mandelbrot-animator](https://qb64.com/samples/mandelbrot-animator/) | Demo | **D → 2** `Q64Mandelbrot.vg` | Lite scan + palette phase |
 | [matrix-effect](https://qb64.com/samples/matrix-effect/) | Demo | **D → 3** `Q64Matrix.vg` | No 32-bit alpha fade (lite columns) |

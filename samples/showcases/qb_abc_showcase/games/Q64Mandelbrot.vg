@@ -3,15 +3,14 @@ Option Explicit
 
 Dim qm_active As Boolean
 Dim qm_phase As Integer
-Dim qm_tick As Single
+Dim qm_y As Integer
 
 Sub Q64Mandel_Init()
 	Screen 13
 	Cls
 	qm_active = True
 	qm_phase = 0
-	qm_tick = 0
-	Call Q64Mandel_Draw
+	qm_y = 0
 End Sub
 
 Function Q64Mandel_Active() As Boolean
@@ -24,34 +23,37 @@ Sub Q64Mandel_GetHud(ByRef l1 As String, ByRef l2 As String)
 End Sub
 
 Sub Q64Mandel_Tick(delta As Single)
-	qm_tick = qm_tick + delta
-	If qm_tick < 0.12 Then Exit Sub
-	qm_tick = 0
-	qm_phase = (qm_phase + 1) Mod 64
-	Call Q64Mandel_Draw
+	' A few rows per frame. Redrawing the whole set every tick locked the editor.
+	If qm_y > 199 Then Exit Sub
+	Dim n As Integer
+	For n = 1 To 2
+		If qm_y <= 199 Then
+			Call Q64Mandel_Row(qm_y)
+			qm_y = qm_y + 2
+		End If
+	Next n
 End Sub
 
 Sub Q64Mandel_KeyReseed()
 	qm_phase = Int(Rnd() * 64)
-	Call Q64Mandel_Draw
+	qm_y = 0
+	Cls
 End Sub
 
-Sub Q64Mandel_Draw()
+Sub Q64Mandel_Row(py As Integer)
 	Dim px As Integer
-	Dim py As Integer
-	For py = 0 To 199 Step 2
-		Dim y0 As Single
-		y0 = (py - 100) / 120.0
-		For px = 0 To 319 Step 2
+	Dim y0 As Single
+	y0 = (py - 100) / 80.0
+	For px = 0 To 319 Step 2
 			Dim x0 As Single
-			x0 = (px - 160) / 120.0
+			x0 = (px - 160) / 80.0
 			Dim x As Single
 			Dim y As Single
 			x = 0
 			y = 0
 			Dim i As Integer
 			i = 0
-			Do While i < 32 And x * x + y * y < 4
+			Do While i < 16 And x * x + y * y < 4
 				Dim xt As Single
 				xt = x * x - y * y + x0
 				y = 2 * x * y + y0
@@ -59,7 +61,7 @@ Sub Q64Mandel_Draw()
 				i = i + 1
 			Loop
 			Dim c As Integer
-			If i >= 32 Then
+			If i >= 16 Then
 				c = 0
 			Else
 				c = ((i + qm_phase) Mod 63) + 1
@@ -69,5 +71,4 @@ Sub Q64Mandel_Draw()
 			PSet (px, py + 1), c
 			PSet (px + 1, py + 1), c
 		Next px
-	Next py
 End Sub

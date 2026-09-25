@@ -8,15 +8,21 @@ Dim wu_pit1 As Integer
 Dim wu_pit2 As Integer
 Dim wu_arrows As Integer
 Dim wu_msg As String
+Dim wu_aim As Integer
 
 Sub Wumpus_Init()
+	Screen 13
+	Cls
 	wu_player = 1
-	wu_wumpus = 5 + Int(Rnd() * 15)
-	wu_pit1 = 8 + Int(Rnd() * 12)
-	wu_pit2 = 10 + Int(Rnd() * 12)
-	wu_arrows = 3
-	wu_msg = "Room " & CStr(wu_player) & ". M move to adj, S shoot arrow, Q quit"
+	wu_wumpus = 8 + Int(Rnd() * 10)
+	wu_pit1 = 12
+	wu_pit2 = 17
+	' Keep hazards off the start room and its three tunnels.
+	If wu_wumpus < 4 Then wu_wumpus = 8
+	wu_arrows = 5
 	wu_active = True
+	Call Wumpus_Sense
+	Call Wumpus_Draw
 End Sub
 
 Function Wumpus_Active() As Boolean
@@ -58,6 +64,7 @@ Sub Wumpus_Move(slot As Integer)
 	End If
 	wu_player = nr
 	Call Wumpus_Sense
+	Call Wumpus_Draw
 End Sub
 
 Sub Wumpus_Sense()
@@ -69,7 +76,7 @@ Sub Wumpus_Sense()
 		If n = wu_wumpus Then wu_msg = wu_msg & "Smell wumpus! "
 		If n = wu_pit1 Or n = wu_pit2 Then wu_msg = wu_msg & "Draft... "
 	Next i
-	wu_msg = wu_msg & "M+1/2/3 move, S shoot"
+	wu_msg = wu_msg & "  1/2/3 move along a tunnel, S then 1/2/3 shoots"
 End Sub
 
 Sub Wumpus_Shoot(slot As Integer)
@@ -89,14 +96,53 @@ Sub Wumpus_Shoot(slot As Integer)
 			wu_wumpus = Wumpus_Adj(wu_wumpus, 1 + Int(Rnd() * 3))
 		End If
 	End If
+	Call Wumpus_Draw
 End Sub
 
 Sub Wumpus_Key(ch As String)
 	Dim c As String
 	c = UCase(ch)
-	If c = "Q" Then wu_active = False
-	If c = "1" Then Call Wumpus_Move(1)
-	If c = "2" Then Call Wumpus_Move(2)
-	If c = "3" Then Call Wumpus_Move(3)
-	If c = "S" Then Call Wumpus_Shoot(1)
+	If c = "Q" Then
+		wu_active = False
+		Exit Sub
+	End If
+	If c = "S" Then
+		wu_aim = 1
+		wu_msg = "Shoot: press 1, 2, or 3 for the tunnel."
+		Call Wumpus_Draw
+		Exit Sub
+	End If
+	If c = "1" Or c = "2" Or c = "3" Then
+		Dim slot As Integer
+		slot = Asc(c) - 48
+		If wu_aim = 1 Then
+			wu_aim = 0
+			Call Wumpus_Shoot(slot)
+		Else
+			Call Wumpus_Move(slot)
+		End If
+		Call Wumpus_Draw
+	End If
+End Sub
+
+Sub Wumpus_Draw()
+	Cls
+	' Twenty caves in a ring. You are the white room. Tunnels 1, 2, 3
+	' are the previous cave, the next cave, and the cave across.
+	Dim i As Integer
+	For i = 1 To 20
+		Dim ang As Single
+		ang = (i - 1) * 6.28318 / 20
+		Dim x As Integer
+		Dim y As Integer
+		x = 160 + Int(Cos(ang) * 70)
+		y = 100 + Int(Sin(ang) * 55)
+		Dim col As Integer
+		col = 1
+		If i = wu_player Then col = 15
+		Circle (x, y), 6, col
+		If i = wu_player Then Circle (x, y), 3, 15
+	Next i
+	Locate 2, 2
+	Print Left(wu_msg, 38);
 End Sub

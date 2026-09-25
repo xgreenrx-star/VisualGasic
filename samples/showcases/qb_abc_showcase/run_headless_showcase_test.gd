@@ -2,6 +2,7 @@ extends SceneTree
 
 const MODE_MENU := 0
 const MODE_INTRO := 8
+const MODE_ABOUT := 9
 const MODE_MENU_B := 10
 const MODE_MENU_C := 11
 const MODE_GORILLAS := 12
@@ -55,23 +56,27 @@ func _run() -> void:
 	await process_frame
 	if _mode() != MODE_MENU:
 		_fail("expected menu at start got " + str(_mode()))
-	_tap(KEY_B)
+	_tap(KEY_F1)
 	await process_frame
-	if _mode() != MODE_MENU_B:
-		_fail("KEY_B should open tier B menu got " + str(_mode()))
-	_tap(KEY_1)
+	if _mode() != MODE_ABOUT:
+		_fail("F1 should open About got " + str(_mode()))
+	_tap(KEY_ESCAPE)
+	await process_frame
+	if _mode() != MODE_MENU:
+		_fail("Esc from About should return to menu got " + str(_mode()))
+	_tap(KEY_8)
 	await process_frame
 	if _mode() != MODE_INTRO:
-		_fail("KEY_1 tier B should show intro got " + str(_mode()))
+		_fail("KEY_8 should show Gorillas intro got " + str(_mode()))
 	_tap(KEY_SPACE)
 	await process_frame
 	if _mode() != MODE_GORILLAS:
 		_fail("Space should launch Gorillas got " + str(_mode()))
 	_tap(KEY_ESCAPE)
 	await process_frame
-	if _mode() != MODE_MENU_B:
-		_fail("Esc from Gorillas should return to tier B got " + str(_mode()))
-	_tap(KEY_4)
+	if _mode() != MODE_MENU:
+		_fail("Esc from Gorillas should return to the menu got " + str(_mode()))
+	_tap(KEY_B)
 	await process_frame
 	if _mode() != MODE_INTRO:
 		_fail("Blackjack pick intro got " + str(_mode()))
@@ -83,7 +88,7 @@ func _run() -> void:
 	await process_frame
 	_tap(KEY_ESCAPE)
 	await process_frame
-	_tap(KEY_5)
+	_tap(KEY_C)
 	await process_frame
 	if _mode() != MODE_INTRO:
 		_fail("Mines intro got " + str(_mode()))
@@ -97,7 +102,7 @@ func _run() -> void:
 		_fail("Mines cursor should move right hud=" + _hud1())
 	_tap(KEY_ESCAPE)
 	await process_frame
-	_tap(KEY_6)
+	_tap(KEY_D)
 	await process_frame
 	if _mode() != MODE_INTRO:
 		_fail("Hanoi intro got " + str(_mode()))
@@ -111,7 +116,7 @@ func _run() -> void:
 		_fail("Hanoi peg 1 select hud=" + _hud1())
 	_tap(KEY_ESCAPE)
 	await process_frame
-	_tap(KEY_2)
+	_tap(KEY_9)
 	await process_frame
 	if _mode() != MODE_INTRO:
 		_fail("Haunted intro got " + str(_mode()))
@@ -125,15 +130,9 @@ func _run() -> void:
 		_fail("Haunted E should go to library hud=" + _hud1())
 	_tap(KEY_ESCAPE)
 	await process_frame
-	_tap(KEY_ESCAPE)
-	await process_frame
 	if _mode() != MODE_MENU:
-		_fail("Esc from tier B should reach main menu got " + str(_mode()))
-	_tap(KEY_C)
-	await process_frame
-	if _mode() != MODE_MENU_C:
-		_fail("KEY_C should open tier C menu got " + str(_mode()))
-	_tap(KEY_3)
+		_fail("Esc should reach the menu got " + str(_mode()))
+	_tap(KEY_H)
 	await process_frame
 	if _mode() != MODE_INTRO:
 		_fail("Defender intro got " + str(_mode()))

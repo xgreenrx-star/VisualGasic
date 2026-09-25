@@ -1,28 +1,37 @@
-' Nibbles — snake (Microsoft / Jim Emptage lineage)
+' Nibbles — translation of the look and rules of Microsoft NIBBLES.BAS (1990).
+' The original paints an 80x50 half-cell arena with LOCATE and CHR$(219/220/223),
+' eats a number (that many segments and points), and dies on walls or itself.
+' VG CHANGE: SCREEN 13 cells are 8x8 (40x25), one player, no sparkle intro.
+' Food is still a digit 1-9. The border is the same role as the original arena edge.
+
 Option Explicit
 
 Dim nb_active As Boolean
-Dim nb_x(200) As Integer
-Dim nb_y(200) As Integer
+Dim nb_x(80) As Integer
+Dim nb_y(80) As Integer
 Dim nb_len As Integer
 Dim nb_dir As Integer
 Dim nb_tick As Single
 Dim nb_fx As Integer
 Dim nb_fy As Integer
+Dim nb_fv As Integer
+Dim nb_score As Integer
+Dim nb_grow As Integer
 
 Sub Nibbles_Init()
 	Screen 13
 	Cls
-	nb_len = 4
+	nb_len = 5
 	nb_dir = 1
+	nb_score = 0
+	nb_grow = 0
+	nb_tick = 0
 	Dim i As Integer
 	For i = 0 To nb_len - 1
-		nb_x(i) = 80 - i * 6
-		nb_y(i) = 100
+		nb_x(i) = 20 - i
+		nb_y(i) = 12
 	Next i
-	nb_fx = 40 + Int(Rnd() * 40) * 6
-	nb_fy = 40 + Int(Rnd() * 20) * 6
-	nb_tick = 0
+	Call Nibbles_PlaceFood
 	nb_active = True
 	Call Nibbles_Draw
 End Sub
@@ -31,53 +40,98 @@ Function Nibbles_Active() As Boolean
 	Nibbles_Active = nb_active
 End Function
 
+Sub Nibbles_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "NIBBLES   score " & CStr(nb_score)
+	l2 = "Arrows   eat the number (it is how many links you grow)"
+End Sub
+
+Sub Nibbles_PlaceFood()
+	nb_fx = 2 + Int(Rnd() * 36)
+	nb_fy = 2 + Int(Rnd() * 20)
+	nb_fv = 1 + Int(Rnd() * 9)
+End Sub
+
 Sub Nibbles_Tick(delta As Single)
 	If Not nb_active Then Exit Sub
 	nb_tick = nb_tick + delta
 	If nb_tick < 0.12 Then Exit Sub
 	nb_tick = 0
+	Dim nx As Integer
+	Dim ny As Integer
+	nx = nb_x(0)
+	ny = nb_y(0)
+	If nb_dir = 1 Then nx = nx + 1
+	If nb_dir = 2 Then ny = ny + 1
+	If nb_dir = 3 Then nx = nx - 1
+	If nb_dir = 4 Then ny = ny - 1
+	' Original arena edge is fatal. Border cells are the wall.
+	If nx < 1 Or ny < 1 Or nx > 38 Or ny > 23 Then
+		nb_active = False
+		Exit Sub
+	End If
 	Dim i As Integer
+	For i = 0 To nb_len - 1
+		If nb_x(i) = nx And nb_y(i) = ny Then
+			nb_active = False
+			Exit Sub
+		End If
+	Next i
 	For i = nb_len - 1 To 1 Step -1
 		nb_x(i) = nb_x(i - 1)
 		nb_y(i) = nb_y(i - 1)
 	Next i
-	If nb_dir = 0 Then nb_y(0) = nb_y(0) - 6
-	If nb_dir = 1 Then nb_x(0) = nb_x(0) + 6
-	If nb_dir = 2 Then nb_y(0) = nb_y(0) + 6
-	If nb_dir = 3 Then nb_x(0) = nb_x(0) - 6
-	If nb_x(0) < 0 Or nb_x(0) > 310 Or nb_y(0) < 0 Or nb_y(0) > 190 Then
-		nb_active = False
-		Exit Sub
+	nb_x(0) = nx
+	nb_y(0) = ny
+	If nx = nb_fx And ny = nb_fy Then
+		nb_score = nb_score + nb_fv * 100
+		nb_grow = nb_grow + nb_fv
+		Call Nibbles_PlaceFood
 	End If
-	If nb_x(0) = nb_fx And nb_y(0) = nb_fy Then
-		If nb_len < 199 Then nb_len = nb_len + 1
-		nb_fx = 20 + Int(Rnd() * 45) * 6
-		nb_fy = 20 + Int(Rnd() * 25) * 6
+	If nb_grow > 0 And nb_len < 80 Then
+		nb_len = nb_len + 1
+		nb_x(nb_len - 1) = nb_x(nb_len - 2)
+		nb_y(nb_len - 1) = nb_y(nb_len - 2)
+		nb_grow = nb_grow - 1
 	End If
 	Call Nibbles_Draw
 End Sub
 
 Sub Nibbles_Up()
-	nb_dir = 0
+	If nb_dir <> 2 Then nb_dir = 4
 End Sub
 
 Sub Nibbles_Down()
-	nb_dir = 2
+	If nb_dir <> 4 Then nb_dir = 2
 End Sub
 
 Sub Nibbles_Left()
-	nb_dir = 3
+	If nb_dir <> 1 Then nb_dir = 3
 End Sub
 
 Sub Nibbles_Right()
-	nb_dir = 1
+	If nb_dir <> 3 Then nb_dir = 1
+End Sub
+
+Sub Nibbles_Cell(col As Integer, row As Integer, c As Integer)
+	Line ((col - 1) * 8, (row - 1) * 8)-((col - 1) * 8 + 7, (row - 1) * 8 + 7), c, BF
 End Sub
 
 Sub Nibbles_Draw()
 	Cls
 	Dim i As Integer
-	For i = 0 To nb_len - 1
-		Line (nb_x(i), nb_y(i))-(nb_x(i) + 4, nb_y(i) + 4), 2, BF
+	' Blue frame, the role of NIBBLES.BAS colorTable wall color.
+	For i = 1 To 40
+		Call Nibbles_Cell(i, 1, 1)
+		Call Nibbles_Cell(i, 25, 1)
 	Next i
-	Line (nb_fx, nb_fy)-(nb_fx + 4, nb_fy + 4), 4, BF
+	For i = 1 To 25
+		Call Nibbles_Cell(1, i, 1)
+		Call Nibbles_Cell(40, i, 1)
+	Next i
+	For i = 0 To nb_len - 1
+		Call Nibbles_Cell(nb_x(i) + 1, nb_y(i) + 1, 12)
+	Next i
+	Call Nibbles_Cell(nb_fx + 1, nb_fy + 1, 14)
+	Locate nb_fy + 1, nb_fx + 1
+	Print CStr(nb_fv);
 End Sub

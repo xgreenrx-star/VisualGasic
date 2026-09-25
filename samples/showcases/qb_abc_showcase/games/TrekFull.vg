@@ -33,9 +33,11 @@ Sub TrekFull_Init()
 		Next j
 	Next i
 	tf_map(tf_q, tf_r) = 3
-	tf_msg = "W warp N nav LRS P phaser T torp B base map Q quit"
+	tf_msg = "L scan  S shields  P phasers  T torpedo  W warp  Q quit"
 	tf_cmd = ""
 	tf_active = True
+	Screen 13
+	Call TrekFull_Draw
 End Sub
 
 Function TrekFull_Active() As Boolean
@@ -52,11 +54,10 @@ Sub TrekFull_Key(ch As String)
 		tf_active = False
 		Exit Sub
 	End If
-	If ch = Chr(13) Then
-		Call TrekFull_DoCmd
-		Exit Sub
-	End If
-	tf_cmd = tf_cmd & UCase(ch)
+	If ch = Chr(13) Or ch = " " Then Exit Sub
+	tf_cmd = UCase(ch)
+	Call TrekFull_DoCmd
+	Call TrekFull_Draw
 End Sub
 
 Sub TrekFull_DoCmd()
@@ -64,7 +65,12 @@ Sub TrekFull_DoCmd()
 	c = Left(tf_cmd, 1)
 	tf_cmd = ""
 	If c = "Q" Then tf_active = False
-	If c = "L" Then tf_msg = "LRS: " & CStr(tf_klingons) & " Klingons in galaxy."
+	If c = "L" Or c = "N" Then tf_msg = "Long range: " & CStr(tf_klingons) & " Klingons remain."
+	If c = "S" Then
+		tf_energy = tf_energy - 100
+		tf_shields = tf_shields + 50
+		tf_msg = "Shields at " & CStr(tf_shields)
+	End If
 	If c = "P" And tf_klingons > 0 Then
 		tf_energy = tf_energy - 200
 		tf_klingons = tf_klingons - 1 + Int(Rnd() * 2)
@@ -91,6 +97,33 @@ Sub TrekFull_Warp()
 	tf_r = 1 + Int(Rnd() * 8)
 	tf_energy = tf_energy - 50
 	tf_msg = "Warped to " & CStr(tf_q) & "," & CStr(tf_r)
+End Sub
+
+Sub TrekFull_Draw()
+	Cls
+	Dim row As Integer
+	Dim col As Integer
+	Locate 1, 2
+	Print "STAR TREK";
+	For row = 1 To 8
+		For col = 1 To 8
+			Dim gx As Integer
+			Dim gy As Integer
+			gx = 40 + col * 28
+			gy = 24 + row * 18
+			Dim cell As Integer
+			cell = tf_map(col, row)
+			Dim mark As Integer
+			mark = 8
+			If cell = 1 Then mark = 11
+			If cell = 2 Then mark = 4
+			If cell = 3 Then mark = 14
+			If col = tf_q And row = tf_r Then mark = 15
+			Line (gx, gy)-(gx + 18, gy + 12), mark, B
+		Next col
+	Next row
+	Locate 22, 2
+	Print Left(tf_msg, 38);
 End Sub
 
 Sub TrekFull_PrintMap()

@@ -1,4 +1,6 @@
-' Breakout — John Wantland lineage
+' Breakout — colored brick rows, the layout of the ABC brick-out listings
+' and of Microsoft QBRICKS (rows of bricks, paddle, ball).
+' VG CHANGE: one screen of bricks, no level DATA table, no two-player paddle.
 Option Explicit
 
 Dim br_active As Boolean
@@ -7,7 +9,7 @@ Dim br_bx As Single
 Dim br_by As Single
 Dim br_vx As Single
 Dim br_vy As Single
-Dim br_brick(7) As Integer
+Dim br_brick(5, 9) As Integer
 
 Sub Breakout_Init()
 	Screen 13
@@ -17,10 +19,13 @@ Sub Breakout_Init()
 	br_by = 120
 	br_vx = 2.5
 	br_vy = 2.5
-	Dim i As Integer
-	For i = 0 To 7
-		br_brick(i) = 1
-	Next i
+	Dim r As Integer
+	Dim c As Integer
+	For r = 0 To 5
+		For c = 0 To 9
+			br_brick(r, c) = 1
+		Next c
+	Next r
 	br_active = True
 	Call Breakout_Draw
 End Sub
@@ -52,21 +57,29 @@ Sub Breakout_Tick(delta As Single)
 			br_active = False
 		End If
 	End If
-	Dim col As Integer
-	col = Int((br_bx - 20) / 35)
-	' And does not short-circuit, so the array read must be in its own If.
-	If col >= 0 And col <= 7 Then
-		If br_brick(col) = 1 And br_by < 55 Then
-			br_brick(col) = 0
-			br_vy = -br_vy
-		End If
-	End If
+	Dim rr As Integer
+	Dim cc As Integer
+	For rr = 0 To 5
+		For cc = 0 To 9
+			If br_brick(rr, cc) = 1 Then
+				Dim x0 As Integer
+				Dim y0 As Integer
+				x0 = 8 + cc * 31
+				y0 = 16 + rr * 12
+				If br_bx >= x0 And br_bx <= x0 + 28 And br_by >= y0 And br_by <= y0 + 10 Then
+					br_brick(rr, cc) = 0
+					br_vy = -br_vy
+				End If
+			End If
+		Next cc
+	Next rr
 	Dim win As Boolean
 	win = True
-	Dim i As Integer
-	For i = 0 To 7
-		If br_brick(i) = 1 Then win = False
-	Next i
+	For rr = 0 To 5
+		For cc = 0 To 9
+			If br_brick(rr, cc) = 1 Then win = False
+		Next cc
+	Next rr
 	If win Then br_active = False
 	Call Breakout_Draw
 End Sub
@@ -83,12 +96,20 @@ End Sub
 
 Sub Breakout_Draw()
 	CLS
-	Dim i As Integer
-	For i = 0 To 7
-		If br_brick(i) = 1 Then
-			Line (20 + i * 35, 24) - (20 + i * 35 + 30, 44), 3 + i, BF
-		End If
-	Next i
-	Line (br_px, 188) - (br_px + 40, 196), 15, BF
+	Dim r As Integer
+	Dim c As Integer
+	' Row colors follow the usual breakout stack: red, orange, yellow, green, blue.
+	For r = 0 To 5
+		For c = 0 To 9
+			If br_brick(r, c) = 1 Then
+				Dim colr As Integer
+				If r < 2 Then colr = 4 Else If r < 4 Then colr = 14 Else colr = 2
+				If r = 2 Or r = 3 Then colr = 6
+				Line (8 + c * 31, 16 + r * 12)-(8 + c * 31 + 28, 16 + r * 12 + 10), colr, BF
+				Line (8 + c * 31, 16 + r * 12)-(8 + c * 31 + 28, 16 + r * 12), 15
+			End If
+		Next c
+	Next r
+	Line (br_px, 188)-(br_px + 40, 196), 15, BF
 	Circle (Int(br_bx), Int(br_by)), 3, 14
 End Sub

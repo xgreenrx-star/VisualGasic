@@ -16,11 +16,10 @@ Sub Q64Matrix_Init()
 	qx_active = True
 	Dim i As Integer
 	For i = 0 To 39
-		qx_col(i) = Int(Rnd() * 40)
-		qx_len(i) = 4 + Int(Rnd() * 14)
+		qx_col(i) = Int(Rnd() * 200)
+		qx_len(i) = 8 + Int(Rnd() * 18)
 	Next i
 	qx_tick = 0
-	Call Q64Matrix_Draw
 End Sub
 
 Function Q64Matrix_Active() As Boolean
@@ -34,30 +33,33 @@ End Sub
 
 Sub Q64Matrix_Tick(delta As Single)
 	qx_tick = qx_tick + delta
-	If qx_tick < 0.05 Then Exit Sub
+	If qx_tick < 0.08 Then Exit Sub
 	qx_tick = 0
-	Line (0, 0)-(319, 199), 0, BF
+	' Glyph cells, 8 pixels apart. A 2-pixel tick did not read as rain.
 	Dim i As Integer
 	For i = 0 To 39
-		qx_col(i) = qx_col(i) + 1
-		If qx_col(i) > 199 + qx_len(i) Then
-			qx_col(i) = -qx_len(i)
-			qx_len(i) = 4 + Int(Rnd() * 16)
+		qx_col(i) = qx_col(i) + 8
+		If qx_col(i) > 200 + qx_len(i) * 8 Then
+			qx_col(i) = 0
+			qx_len(i) = 8 + Int(Rnd() * 14)
 		End If
 		Dim j As Integer
 		For j = 0 To qx_len(i)
 			Dim yy As Integer
-			yy = qx_col(i) - j
-			If yy >= 0 And yy < 200 Then
+			yy = qx_col(i) - j * 8
+			If yy >= 0 And yy < 192 Then
 				Dim col As Integer
 				If j = 0 Then col = 15 Else If j < 3 Then col = 10 Else col = 2
-				PSet (8 + i * 8, yy), col
-				If j Mod 3 = 0 Then
-					Locate yy \ 14 + 1, i + 1
-					Color col
-					Print Chr(65 + Int(Rnd() * 26))
-				End If
+				PSet (i * 8 + 1, yy + 1), col
+				PSet (i * 8 + 4, yy + 2), col
+				PSet (i * 8 + 2, yy + 4), col
+				PSet (i * 8 + 5, yy + 6), col
 			End If
 		Next j
+		Dim tail As Integer
+		tail = qx_col(i) - (qx_len(i) + 1) * 8
+		If tail >= 0 And tail < 192 Then
+			Line (i * 8, tail)-(i * 8 + 6, tail + 7), 0, BF
+		End If
 	Next i
 End Sub

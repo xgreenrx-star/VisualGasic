@@ -1,13 +1,17 @@
-' Space Invaders — mode 13 (Alan Bruzzi / Kenneth Green lineage)
+' Space Invaders — formation, bunkers, and a cannon, in the style of the
+' ABC SCREEN 13 clones (rows that march, drop, and reverse at the edge).
+' VG CHANGE: one wave, no UFO, no invader shots. Shapes are drawn with LINE
+' so they read as invaders rather than green bars.
+
 Option Explicit
 
 Dim si_active As Boolean
 Dim si_px As Integer
 Dim si_dir As Integer
+Dim si_ox As Integer
+Dim si_oy As Integer
 Dim si_tick As Single
-Dim si_alx(4) As Integer
-Dim si_aly(4) As Integer
-Dim si_alive(4) As Integer
+Dim si_alive(31) As Integer
 Dim si_bx As Integer
 Dim si_by As Integer
 Dim si_bon As Boolean
@@ -15,14 +19,14 @@ Dim si_bon As Boolean
 Sub Invaders_Init()
 	Screen 13
 	Cls
-	si_px = 152
+	si_px = 148
 	si_dir = 1
+	si_ox = 16
+	si_oy = 24
 	si_tick = 0
 	si_bon = False
 	Dim i As Integer
-	For i = 0 To 4
-		si_alx(i) = 40 + i * 55
-		si_aly(i) = 30
+	For i = 0 To 31
 		si_alive(i) = 1
 	Next i
 	si_active = True
@@ -33,82 +37,119 @@ Function Invaders_Active() As Boolean
 	Invaders_Active = si_active
 End Function
 
+Function Invaders_X(i As Integer) As Integer
+	Invaders_X = si_ox + (i Mod 8) * 36
+End Function
+
+Function Invaders_Y(i As Integer) As Integer
+	Invaders_Y = si_oy + (i \ 8) * 18
+End Function
+
 Sub Invaders_Tick(delta As Single)
 	If Not si_active Then Exit Sub
 	si_tick = si_tick + delta
-	If si_tick < 0.35 Then Exit Sub
+	If si_tick < 0.35 Then
+		Call Invaders_Draw
+		Exit Sub
+	End If
 	si_tick = 0
-	Dim moved As Boolean
-	moved = False
+	si_ox = si_ox + si_dir * 4
+	Dim minX As Integer
+	Dim maxX As Integer
+	minX = 300
+	maxX = 0
 	Dim i As Integer
-	For i = 0 To 4
+	For i = 0 To 31
 		If si_alive(i) = 1 Then
-			si_alx(i) = si_alx(i) + si_dir * 6
-			moved = True
+			If Invaders_X(i) < minX Then minX = Invaders_X(i)
+			If Invaders_X(i) > maxX Then maxX = Invaders_X(i)
 		End If
 	Next i
-	If moved Then
-		If si_alx(0) < 10 Or si_alx(4) > 280 Then
-			si_dir = -si_dir
-			For i = 0 To 4
-				si_aly(i) = si_aly(i) + 8
-			Next i
-		End If
+	If minX < 4 Or maxX > 290 Then
+		si_dir = -si_dir
+		si_ox = si_ox + si_dir * 4
+		si_oy = si_oy + 6
 	End If
 	If si_bon Then
-		si_by = si_by - 10
+		si_by = si_by - 8
 		If si_by < 0 Then si_bon = False
-		Dim j As Integer
-		For j = 0 To 4
-			If si_alive(j) = 1 Then
-				If Abs(si_bx - si_alx(j)) < 14 And Abs(si_by - si_aly(j)) < 10 Then
-					si_alive(j) = 0
+		For i = 0 To 31
+			If si_alive(i) = 1 Then
+				If Abs(si_bx - Invaders_X(i) - 8) < 12 And Abs(si_by - Invaders_Y(i) - 4) < 8 Then
+					si_alive(i) = 0
 					si_bon = False
 				End If
 			End If
-		Next j
+		Next i
 	End If
 	Dim left As Integer
 	left = 0
-	For i = 0 To 4
-		If si_alive(i) = 1 Then left = left + 1
+	For i = 0 To 31
+		If si_alive(i) = 1 Then
+			left = left + 1
+			If Invaders_Y(i) > 160 Then si_active = False
+		End If
 	Next i
-	If left = 0 Then
-		si_active = False
-		Exit Sub
-	End If
-	For i = 0 To 4
-		If si_alive(i) = 1 And si_aly(i) > 170 Then si_active = False
-	Next i
+	If left = 0 Then si_active = False
 	Call Invaders_Draw
 End Sub
 
 Sub Invaders_KeyLeft()
-	If si_px > 4 Then si_px = si_px - 8
+	If si_px > 4 Then si_px = si_px - 6
 End Sub
 
 Sub Invaders_KeyRight()
-	If si_px < 300 Then si_px = si_px + 8
+	If si_px < 300 Then si_px = si_px + 6
 End Sub
 
 Sub Invaders_Fire()
 	If Not si_bon Then
 		si_bon = True
-		si_bx = si_px + 6
-		si_by = 175
+		si_bx = si_px + 8
+		si_by = 176
 	End If
+End Sub
+
+Sub Invaders_Alien(x As Integer, y As Integer, kind As Integer)
+	' Three classic silhouettes, one per row.
+	If kind = 0 Then
+		Line (x + 4, y)-(x + 12, y + 6), 10, BF
+		Line (x, y + 2)-(x + 16, y + 4), 10, BF
+		PSet (x + 5, y + 2), 0
+		PSet (x + 11, y + 2), 0
+	ElseIf kind = 1 Then
+		Line (x + 2, y + 2)-(x + 14, y + 8), 11, BF
+		Line (x, y + 4)-(x + 3, y + 8), 11, BF
+		Line (x + 13, y + 4)-(x + 16, y + 8), 11, BF
+		PSet (x + 5, y + 4), 0
+		PSet (x + 11, y + 4), 0
+	Else
+		Line (x + 3, y)-(x + 13, y + 8), 13, BF
+		Line (x + 6, y + 8)-(x + 8, y + 11), 13
+		Line (x + 8, y + 8)-(x + 10, y + 11), 13
+		PSet (x + 6, y + 3), 0
+		PSet (x + 10, y + 3), 0
+	End If
+End Sub
+
+Sub Invaders_Bunker(x As Integer)
+	Line (x, 150)-(x + 28, 162), 2, BF
+	Line (x + 8, 154)-(x + 20, 162), 0, BF
 End Sub
 
 Sub Invaders_Draw()
 	Cls
 	Dim i As Integer
-	For i = 0 To 4
+	For i = 0 To 31
 		If si_alive(i) = 1 Then
-			Line (si_alx(i), si_aly(i))-(si_alx(i) + 20, si_aly(i) + 10), 2, BF
+			Call Invaders_Alien(Invaders_X(i), Invaders_Y(i), i \ 8)
 		End If
 	Next i
-	Line (si_px, 185)-(si_px + 12, 195), 15, BF
-	If si_bon Then
-		PSet (si_bx, si_by), 14
-	End If
+	Call Invaders_Bunker(40)
+	Call Invaders_Bunker(146)
+	Call Invaders_Bunker(250)
+	' Cannon
+	Line (si_px, 186)-(si_px + 16, 194), 15, BF
+	Line (si_px + 6, 180)-(si_px + 10, 186), 15, BF
+	If si_bon Then Line (si_bx, si_by)-(si_bx, si_by + 4), 14
 End Sub

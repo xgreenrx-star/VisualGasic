@@ -67,9 +67,20 @@ Sub Blackjack_Stand()
 End Sub
 
 Sub Blackjack_Draw()
+	' Two hands of cards. Rank is the total, suit is a red or black pip.
 	Cls
-	Line (20, 40)-(100, 90), 15, B
-	Line (120, 40)-(200, 90), 12, B
-	Line (24, 64)-(24 + bj_player * 3, 72), 10, BF
-	Line (124, 64)-(124 + bj_dealer * 3, 72), 11, BF
+	Line (24, 36)-(110, 110), 15, BF
+	Line (24, 36)-(110, 110), 0, B
+	Line (130, 36)-(216, 110), 15, BF
+	Line (130, 36)-(216, 110), 0, B
+	Locate 6, 5
+	Print "YOU";
+	Locate 8, 5
+	Print CStr(bj_player);
+	Locate 6, 18
+	Print "DEALER";
+	Locate 8, 18
+	Print CStr(bj_dealer);
+	Circle (40, 90), 6, 4
+	Circle (150, 90), 6, 0
 End Sub

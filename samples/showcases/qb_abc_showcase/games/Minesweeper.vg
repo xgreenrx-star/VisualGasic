@@ -89,6 +89,27 @@ Sub Mines_Move(dx As Integer, dy As Integer)
 	If ms_cy >= ms_h Then ms_cy = ms_h - 1
 End Sub
 
+Function Mines_Count(x As Integer, y As Integer) As Integer
+	Dim n As Integer
+	Dim dx As Integer
+	Dim dy As Integer
+	n = 0
+	For dy = -1 To 1
+		For dx = -1 To 1
+			If dx <> 0 Or dy <> 0 Then
+				Dim xx As Integer
+				Dim yy As Integer
+				xx = x + dx
+				yy = y + dy
+				If xx >= 0 And yy >= 0 And xx < ms_w And yy < ms_h Then
+					If ms_mines(xx, yy) = 1 Then n = n + 1
+				End If
+			End If
+		Next dx
+	Next dy
+	Mines_Count = n
+End Function
+
 Sub Mines_Draw()
 	Cls
 	Dim x As Integer
@@ -106,9 +127,11 @@ Sub Mines_Draw()
 				Line (px + 2, py + 2)-(px + 24, py + 12), 4, BF
 			ElseIf ms_rev(x, y) = 1 Then
 				If ms_mines(x, y) = 1 Then
-					Circle (px + 13, py + 7), 5, 14
+					Circle (px + 13, py + 7), 5, 12
 				Else
-					Line (px + 2, py + 2)-(px + 24, py + 12), 8, BF
+					Line (px + 2, py + 2)-(px + 24, py + 12), 7, BF
+					Locate y + 2, x + 3
+					Print CStr(Mines_Count(x, y));
 				End If
 			Else
 				Line (px + 2, py + 2)-(px + 24, py + 12), 6, B

@@ -1,4 +1,7 @@
-' Dialog demo — inspired by Abacus QB64 CH13 dialog sample (original VG text boxes)
+' Dialog demo — reconstruction of the Abacus CH13 dialog-box sample.
+' This is not a line-by-line port. The original .BAS was not in the tree.
+' What you get is the same kind of screen: a titled box, a field, and
+' OK / Cancel, then a second panel. Space cycles the panels.
 Option Explicit
 
 Dim qd_active As Boolean
@@ -29,8 +32,11 @@ End Sub
 
 Sub Q64Dialog_Draw()
 	Cls
-	Line (40, 30)-(280, 170), 7, B
-	Line (41, 31)-(279, 169), 0, BF
+	' Shadow, frame, and a title bar. The field and buttons sit inside.
+	Line (48, 38)-(288, 178), 8, BF
+	Line (40, 30)-(280, 46), 1, BF
+	Line (40, 30)-(280, 170), 15, B
+	Line (41, 47)-(279, 169), 0, BF
 	Locate 3, 6
 	Color 15
 	If qd_step = 0 Then
@@ -42,7 +48,12 @@ Sub Q64Dialog_Draw()
 		Print "ID:   1042"
 		Locate 10, 6
 		Color 10
-		Print "[ OK ]  [ Cancel ]"
+		Line (56, 120)-(120, 140), 15, B
+		Line (140, 120)-(230, 140), 7, B
+		Locate 16, 9
+		Print "OK"
+		Locate 16, 20
+		Print "Cancel"
 	ElseIf qd_step = 1 Then
 		Print "Confirm delete?"
 		Locate 6, 6

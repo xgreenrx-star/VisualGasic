@@ -10,14 +10,15 @@ Dim hh_won As Boolean
 Dim hh_msg As String
 
 Sub Haunted_Init()
-	Screen 0
+	Screen 13
 	hh_room = 1
 	hh_hasKey = False
 	hh_hasTorch = False
 	hh_ghost = True
 	hh_won = False
-	hh_msg = "Foyer. N hall E library. Find key & torch, unlock attic."
+	hh_msg = "Foyer. N hall, E library. Find the key and the torch."
 	hh_active = True
+	Call Haunted_Draw
 End Sub
 
 Function Haunted_Active() As Boolean
@@ -38,45 +39,71 @@ Sub Haunted_Cmd(ch As String)
 	If c = "W" Then Call Haunted_Go(4)
 	If c = "T" Then Call Haunted_Take
 	If c = "U" Then Call Haunted_Use
-	If c = "Q" Then hh_active = False
+	If c = "Q" Then
+		hh_msg = "You leave the house."
+		hh_active = False
+	End If
+	Call Haunted_Draw
 End Sub
 
 Sub Haunted_Go(dir As Integer)
-	If hh_room = 1 And dir = 1 Then hh_room = 2: hh_msg = "Hall. W back. E dining."
-	If hh_room = 1 And dir = 3 Then hh_room = 3: hh_msg = "Library. Key on desk (T)."
-	If hh_room = 2 And dir = 2 Then hh_room = 1
-	If hh_room = 2 And dir = 3 Then hh_room = 4: hh_msg = "Dining. S hall. N attic door (locked)."
-	If hh_room = 3 And dir = 4 Then hh_room = 1
-	If hh_room = 4 And dir = 2 Then hh_room = 2
+	Dim prev As Integer
+	prev = hh_room
+	If hh_room = 1 And dir = 1 Then hh_room = 2: hh_msg = "Hall. Torch on the wall (T). W foyer. E dining."
+	If hh_room = 1 And dir = 3 Then hh_room = 3: hh_msg = "Library. Key on the desk (T). W foyer."
+	If hh_room = 2 And dir = 4 Then hh_room = 1: hh_msg = "Foyer. N hall, E library."
+	If hh_room = 2 And dir = 3 Then hh_room = 4: hh_msg = "Dining room. S hall. N attic door."
+	If hh_room = 3 And dir = 4 Then hh_room = 1: hh_msg = "Foyer. N hall, E library."
+	If hh_room = 4 And dir = 2 Then hh_room = 2: hh_msg = "Hall. Torch on the wall (T). W foyer. E dining."
 	If hh_room = 4 And dir = 1 Then
 		If hh_hasKey And hh_hasTorch Then
 			hh_room = 5
-			hh_msg = "Attic! Ghost fled. You win."
+			hh_msg = "Attic. The ghost is gone. You win."
 			hh_won = True
 			hh_active = False
 		Else
-			hh_msg = "Locked. Need key and lit torch."
+			hh_msg = "The attic door is locked. You need the key and a lit torch."
 		End If
 	End If
-	If hh_room = 5 Then hh_won = True
+	If hh_room = prev And hh_room <> 4 Then hh_msg = "No exit that way."
+	If hh_room = prev And hh_room = 4 And dir <> 1 Then hh_msg = "No exit that way."
 End Sub
 
 Sub Haunted_Take()
 	If hh_room = 3 And Not hh_hasKey Then
 		hh_hasKey = True
-		hh_msg = "Picked up rusty key."
-	End If
-	If hh_room = 2 And Not hh_hasTorch Then
+		hh_msg = "You take the rusty key."
+	ElseIf hh_room = 2 And Not hh_hasTorch Then
 		hh_hasTorch = True
-		hh_msg = "Picked up torch."
+		hh_msg = "You take the torch."
+	Else
+		hh_msg = "Nothing here to take."
 	End If
 End Sub
 
 Sub Haunted_Use()
 	If hh_hasTorch Then
 		hh_ghost = False
-		hh_msg = "Torch lit. Ghost avoids you."
+		hh_msg = "Torch lit. The ghost keeps its distance."
 	Else
-		hh_msg = "Nothing to use."
+		hh_msg = "You have nothing to use."
 	End If
+End Sub
+
+Sub Haunted_Draw()
+	Cls
+	Locate 2, 2
+	Print "HAUNTED HOUSE";
+	Locate 4, 2
+	Print Left(hh_msg, 38);
+	Locate 8, 2
+	Print "Arrows or N S E W";
+	Locate 9, 2
+	Print "T take    U light torch";
+	Locate 12, 2
+	If hh_hasKey Then Print "Key: yes";
+	If Not hh_hasKey Then Print "Key: no";
+	Locate 13, 2
+	If hh_hasTorch Then Print "Torch: yes";
+	If Not hh_hasTorch Then Print "Torch: no";
 End Sub

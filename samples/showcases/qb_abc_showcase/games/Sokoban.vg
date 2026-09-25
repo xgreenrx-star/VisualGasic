@@ -26,9 +26,11 @@ Sub Sokoban_Init()
 		sk_map(c, 0) = 1
 		sk_map(c, 8) = 1
 	Next c
+	' 1 wall, 2 empty goal, 3 box, 4 box on a goal.
+	' The goal starts empty. A box already on the goal made the
+	' first move look like a win and kicked you out.
 	sk_map(4, 4) = 2
-	sk_map(5, 4) = 3
-	sk_map(6, 6) = 4
+	sk_map(5, 5) = 3
 	sk_active = True
 	Call Sokoban_Draw
 End Sub
@@ -55,7 +57,19 @@ Sub Sokoban_TryMove(dx As Integer, dy As Integer)
 	End If
 	sk_px = nx
 	sk_py = ny
-	If sk_map(6, 6) = 4 Then
+	Dim boxes As Integer
+	Dim onGoal As Integer
+	boxes = 0
+	onGoal = 0
+	Dim rr As Integer
+	Dim cc As Integer
+	For rr = 0 To 8
+		For cc = 0 To 8
+			If sk_map(rr, cc) = 3 Then boxes = boxes + 1
+			If sk_map(rr, cc) = 4 Then onGoal = onGoal + 1
+		Next cc
+	Next rr
+	If boxes = 0 And onGoal > 0 Then
 		sk_won = True
 		sk_active = False
 	End If

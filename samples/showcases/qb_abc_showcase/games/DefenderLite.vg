@@ -1,28 +1,53 @@
-' Defender Lite — horizontal shooter (Tier C)
+' Defender Lite — ship, mountains, landers, humans (Williams layout, VG)
 Option Explicit
 
 Dim df_active As Boolean
 Dim df_px As Single
-Dim df_ex(6) As Single
-Dim df_ey(6) As Single
-Dim df_alive(6) As Integer
+Dim df_py As Single
+Dim df_ex(5) As Single
+Dim df_ey(5) As Single
+Dim df_alive(5) As Integer
+Dim df_hx(3) As Integer
+Dim df_carry(5) As Integer
+Dim df_h(40) As Integer
+Dim df_sx(3) As Single
+Dim df_sy(3) As Single
+Dim df_son(3) As Integer
+Dim df_starx(19) As Integer
+Dim df_stary(19) As Integer
 Dim df_score As Integer
 Dim df_msg As String
-Dim df_tick As Single
 
 Sub Defender_Init()
 	Screen 13
 	Cls
-	df_px = 160
+	df_px = 48
+	df_py = 90
 	df_score = 0
-	df_tick = 0
+	df_msg = "Arrows fly   Space fires"
 	Dim i As Integer
-	For i = 0 To 5
-		df_ex(i) = 40 + i * 45
-		df_ey(i) = 40 + (i Mod 3) * 30
-		df_alive(i) = 1
+	df_h(0) = 28
+	For i = 1 To 40
+		df_h(i) = df_h(i - 1) + Int(Rnd() * 17) - 8
+		If df_h(i) < 16 Then df_h(i) = 16
+		If df_h(i) > 52 Then df_h(i) = 52
 	Next i
-	df_msg = "L/R move  Space fire"
+	For i = 0 To 19
+		df_starx(i) = Int(Rnd() * 320)
+		df_stary(i) = 16 + Int(Rnd() * 140)
+	Next i
+	For i = 0 To 4
+		df_ex(i) = 70 + i * 48
+		df_ey(i) = 36 + (i Mod 3) * 28
+		df_alive(i) = 1
+		df_carry(i) = -1
+	Next i
+	For i = 0 To 3
+		df_hx(i) = 40 + i * 70
+		df_sx(i) = 0
+		df_sy(i) = 0
+		df_son(i) = 0
+	Next i
 	df_active = True
 	Call Defender_Draw
 End Sub
@@ -36,58 +61,187 @@ Sub Defender_GetHud(ByRef l1 As String, ByRef l2 As String)
 	l2 = df_msg
 End Sub
 
+Function Defender_Ground(x As Single) As Integer
+	Dim idx As Integer
+	idx = Int(x) \ 8
+	If idx < 0 Then idx = 0
+	If idx > 39 Then idx = 39
+	Defender_Ground = 198 - df_h(idx)
+End Function
+
 Sub Defender_Tick(delta As Single)
 	If Not df_active Then Exit Sub
-	df_tick = df_tick + delta
+	' Hold the arrow to fly. A tap still nudges through Defender_Up/Down/Left/Right.
+	If IsKeyDown(KEY_LEFT) Then df_px = df_px - 2.4
+	If IsKeyDown(KEY_RIGHT) Then df_px = df_px + 2.4
+	If IsKeyDown(KEY_UP) Then df_py = df_py - 2.4
+	If IsKeyDown(KEY_DOWN) Then df_py = df_py + 2.4
+	If df_px < 16 Then df_px = 16
+	If df_px > 280 Then df_px = 280
+	If df_py < 22 Then df_py = 22
+	Dim floorY As Integer
+	floorY = Defender_Ground(df_px) - 8
+	If df_py > floorY Then df_py = floorY
 	Dim i As Integer
-	For i = 0 To 5
+	For i = 0 To 4
 		If df_alive(i) = 1 Then
-			df_ex(i) = df_ex(i) - 0.8 - i * 0.05
-			If df_ex(i) < -10 Then df_ex(i) = 320
+			df_ex(i) = df_ex(i) - 0.7
+			If df_ex(i) < -12 Then df_ex(i) = 320
+			Dim gy As Integer
+			gy = Defender_Ground(df_ex(i))
+			If df_carry(i) < 0 Then
+				df_ey(i) = df_ey(i) + 0.25
+				If df_ey(i) > gy - 14 Then
+					df_carry(i) = i Mod 4
+					df_ey(i) = gy - 16
+				End If
+			Else
+				df_ey(i) = df_ey(i) - 0.45
+				If df_ey(i) < 20 Then
+					df_msg = "Lander escaped with a human."
+					df_alive(i) = 0
+				End If
+			End If
+			If Abs(df_ex(i) - df_px) < 12 And Abs(df_ey(i) - df_py) < 8 Then
+				df_msg = "Ship destroyed."
+				df_active = False
+			End If
 		End If
 	Next i
-	Call Defender_Draw
-End Sub
-
-Sub Defender_Left()
-	df_px = df_px - 8
-	If df_px < 10 Then df_px = 10
-End Sub
-
-Sub Defender_Right()
-	df_px = df_px + 8
-	If df_px > 300 Then df_px = 300
-End Sub
-
-Sub Defender_Fire()
-	Dim i As Integer
-	For i = 0 To 5
-		If df_alive(i) = 1 Then
-			If Abs(df_ex(i) - df_px) < 20 And df_ey(i) > 100 Then
-				df_alive(i) = 0
-				df_score = df_score + 100
-			End If
+	For i = 0 To 3
+		If df_son(i) = 1 Then
+			df_sx(i) = df_sx(i) + 7
+			If df_sx(i) > 319 Then df_son(i) = 0
+			Dim e As Integer
+			For e = 0 To 4
+				If df_son(i) = 1 And df_alive(e) = 1 Then
+					If Abs(df_sx(i) - df_ex(e)) < 12 And Abs(df_sy(i) - df_ey(e)) < 8 Then
+						df_alive(e) = 0
+						df_son(i) = 0
+						df_score = df_score + 150
+						If df_carry(e) >= 0 Then df_score = df_score + 250
+					End If
+				End If
+			Next e
 		End If
 	Next i
 	Dim left As Integer
 	left = 0
-	For i = 0 To 5
+	For i = 0 To 4
 		If df_alive(i) = 1 Then left = left + 1
 	Next i
-	If left = 0 Then
+	If left = 0 And df_active Then
 		df_msg = "Wave cleared!"
 		df_active = False
 	End If
+	Call Defender_Draw
+End Sub
+
+Sub Defender_Left()
+	df_px = df_px - 6
+	If df_px < 16 Then df_px = 16
+End Sub
+
+Sub Defender_Right()
+	df_px = df_px + 6
+	If df_px > 280 Then df_px = 280
+End Sub
+
+Sub Defender_Up()
+	df_py = df_py - 6
+	If df_py < 22 Then df_py = 22
+End Sub
+
+Sub Defender_Down()
+	df_py = df_py + 6
+	Dim floorY As Integer
+	floorY = Defender_Ground(df_px) - 8
+	If df_py > floorY Then df_py = floorY
+End Sub
+
+Sub Defender_Fire()
+	Dim i As Integer
+	For i = 0 To 3
+		If df_son(i) = 0 Then
+			df_son(i) = 1
+			df_sx(i) = df_px + 16
+			df_sy(i) = df_py
+			Exit Sub
+		End If
+	Next i
+End Sub
+
+Sub Defender_DrawShip(x As Integer, y As Integer)
+	' Wedge pointing right: nose, belly, tail fins. Not a flat dash.
+	Line (x - 14, y - 3)-(x + 14, y), 15
+	Line (x + 14, y)-(x - 14, y + 3), 15
+	Line (x - 14, y + 3)-(x - 14, y - 3), 15
+	Line (x - 10, y - 3)-(x - 16, y - 7), 15
+	Line (x - 10, y + 3)-(x - 16, y + 7), 15
+	PSet (x + 6, y), 14
+End Sub
+
+Sub Defender_DrawLander(x As Integer, y As Integer)
+	Line (x - 5, y - 2)-(x + 5, y + 2), 12, BF
+	Line (x - 3, y + 2)-(x - 6, y + 8), 12
+	Line (x + 3, y + 2)-(x + 6, y + 8), 12
+	PSet (x, y), 15
+End Sub
+
+Sub Defender_DrawHuman(x As Integer, y As Integer)
+	Line (x, y)-(x, y - 6), 15
+	Line (x - 2, y - 4)-(x + 2, y - 4), 15
+	PSet (x, y - 7), 15
 End Sub
 
 Sub Defender_Draw()
 	Cls
-	Line (0, 170)-(319, 199), 2, BF
-	Line (Int(df_px) - 8, 150)-(Int(df_px) + 8, 150), 15
 	Dim i As Integer
-	For i = 0 To 5
+	For i = 0 To 19
+		PSet (df_starx(i), df_stary(i)), 8
+	Next i
+	' Radar strip.
+	Line (0, 0)-(319, 10), 1, BF
+	Line (0, 10)-(319, 10), 9
+	For i = 0 To 4
 		If df_alive(i) = 1 Then
-			Line (Int(df_ex(i)), Int(df_ey(i)))-(Int(df_ex(i)) + 10, Int(df_ey(i)) + 6), 12, BF
+			PSet (Int(df_ex(i)), 3 + Int(df_ey(i) / 40)), 12
 		End If
 	Next i
+	PSet (Int(df_px), 5), 15
+	For i = 0 To 39
+		Dim x0 As Integer
+		Dim y0 As Integer
+		Dim y1 As Integer
+		x0 = i * 8
+		y0 = 199 - df_h(i)
+		y1 = 199 - df_h(i + 1)
+		Line (x0, y0)-(x0 + 8, 199), 2, BF
+		Line (x0, y0)-(x0 + 8, y1), 10
+	Next i
+	For i = 0 To 3
+		Dim taken As Integer
+		taken = 0
+		Dim e As Integer
+		For e = 0 To 4
+			If df_alive(e) = 1 And df_carry(e) = i Then taken = 1
+		Next e
+		If taken = 0 Then
+			Call Defender_DrawHuman(df_hx(i), Defender_Ground(df_hx(i)))
+		End If
+	Next i
+	For i = 0 To 4
+		If df_alive(i) = 1 Then
+			Call Defender_DrawLander(Int(df_ex(i)), Int(df_ey(i)))
+			If df_carry(i) >= 0 Then
+				Call Defender_DrawHuman(Int(df_ex(i)), Int(df_ey(i)) + 12)
+			End If
+		End If
+	Next i
+	For i = 0 To 3
+		If df_son(i) = 1 Then
+			Line (Int(df_sx(i)), Int(df_sy(i)))-(Int(df_sx(i)) + 8, Int(df_sy(i))), 14
+		End If
+	Next i
+	Call Defender_DrawShip(Int(df_px), Int(df_py))
 End Sub

@@ -102,18 +102,21 @@ Sub NibblesFull_Tick(delta As Single)
 End Sub
 
 Sub NibblesFull_Draw()
+	' NIBBLES.BAS level 2 is a wall across the middle. Same colors: blue wall, red snake, numbered snack.
 	Cls
 	Dim i As Integer
 	Dim j As Integer
 	For i = 0 To 19
 		For j = 0 To 14
 			If nf_wall(i, j) = 1 Then
-				Line (20 + i * 14, 20 + j * 12)-(20 + i * 14 + 12, 20 + j * 12 + 10), 8, BF
+				Line (20 + i * 14, 20 + j * 12)-(20 + i * 14 + 12, 20 + j * 12 + 10), 1, BF
 			End If
 		Next j
 	Next i
-	PSet (20 + nf_foodx * 14 + 6, 20 + nf_foody * 12 + 5), 4
+	Line (20 + nf_foodx * 14, 20 + nf_foody * 12)-(20 + nf_foodx * 14 + 12, 20 + nf_foody * 12 + 10), 14, BF
+	Locate 2 + nf_foody, 3 + nf_foodx
+	Print "5";
 	For i = 0 To nf_len - 1
-		Line (20 + nf_x(i) * 14, 20 + nf_y(i) * 12)-(20 + nf_x(i) * 14 + 10, 20 + nf_y(i) * 12 + 8), 15, BF
+		Line (20 + nf_x(i) * 14, 20 + nf_y(i) * 12)-(20 + nf_x(i) * 14 + 10, 20 + nf_y(i) * 12 + 8), 12, BF
 	Next i
 End Sub

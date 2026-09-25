@@ -1,4 +1,6 @@
-' QBricks — inspired by Microsoft QBricks / QB64 sample (original VG)
+' QBricks — Microsoft QBRICKS.BAS (1990): rows of bricks, a paddle, a ball.
+' VG CHANGE: one level, no DATA patterns, no special-brick music. One brick
+' is marked with a note-like mark (SPECIALCHAR in the original).
 Option Explicit
 
 Dim qb_active As Boolean
@@ -98,10 +100,22 @@ Sub Q64QBricks_Draw()
 	For r = 0 To 4
 		For c = 0 To 9
 			If qb_br(r, c) = 1 Then
-				Line (8 + c * 30, 28 + r * 14)-(8 + c * 30 + 26, 28 + r * 14 + 10), 9 + r, BF
+				Dim colr As Integer
+				colr = 9 + r
+				If r = 0 Then colr = 4
+				If r = 1 Then colr = 6
+				If r = 2 Then colr = 14
+				If r = 3 Then colr = 2
+				If r = 4 Then colr = 9
+				Line (8 + c * 30, 28 + r * 14)-(8 + c * 30 + 26, 28 + r * 14 + 10), colr, BF
+				Line (8 + c * 30, 28 + r * 14)-(8 + c * 30 + 26, 28 + r * 14), 15
 			End If
 		Next c
 	Next r
-	Line (qb_px, 188)-(qb_px + 44, 196), 15, BF
-	Circle (Int(qb_bx), Int(qb_by)), 2, 15, , , 1
+	' Special brick (QBRICKS prints CHR$(14), a note, on one block).
+	If qb_br(2, 5) = 1 Then
+		Line (8 + 5 * 30 + 10, 28 + 2 * 14 + 2)-(8 + 5 * 30 + 16, 28 + 2 * 14 + 8), 15, B
+	End If
+	Line (qb_px, 188)-(qb_px + 44, 194), 2, BF
+	Circle (Int(qb_bx), Int(qb_by)), 3, 12
 End Sub

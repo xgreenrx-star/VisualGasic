@@ -60,7 +60,7 @@ Sub Meta_Credit(mode As Integer, ByRef credit As String)
 		Case 7
 			credit = "Inspired by Nibbles / snake (Microsoft QBasic sample, Jim Emptage; ABC had many snake clones)."
 		Case 12
-			credit = "Inspired by QBasic Gorillas and ABC artillery clones (angle + power + wind)."
+			credit = "Microsoft QBasic GORILLA.BAS (1990), translated to VG. See the VG CHANGE notes at the top of Gorillas.vg."
 		Case 13
 			credit = "Inspired by Haunted House–style adventures from ABC text-game listings."
 		Case 14
@@ -139,8 +139,8 @@ Sub Meta_ControlsLine1(mode As Integer, ByRef s As String)
 		Case 5: s = "Keys: Up thrust, Left / Right steer"
 		Case 6: s = "Keys: Arrow keys move player"
 		Case 7: s = "Keys: Arrow keys steer snake"
-		Case 12: s = "A/D angle  W/S power  Space fire  (2-player turns)"
-		Case 13: s = "N S E W move  T take  U use torch  Q quit"
+		Case 12: s = "Type angle, Enter, type velocity, Enter (same as GORILLA.BAS GetNum)"
+		Case 13: s = "Arrows or N S E W move   T take   U light torch"
 		Case 14: s = "1/2/3 move to adjacent cave  S shoot  Q quit"
 		Case 15: s = "H hit  S stand"
 		Case 16: s = "Arrows move cursor  Space reveal  F flag"
@@ -148,7 +148,7 @@ Sub Meta_ControlsLine1(mode As Integer, ByRef s As String)
 		Case 18: s = "Arrow keys move  reach green exit"
 		Case 19: s = "Type command + Enter: LRS W warp N map P T B Q (see HUD)"
 		Case 20: s = "Up thrust  Left / Right fly  collect gems  reach top"
-		Case 21: s = "Left / Right  Space fire"
+		Case 21: s = "Arrows fly the ship   Space fires the laser"
 		Case 22: s = "Arrow keys push boxes onto green goals"
 		Case 23: s = "Arrow keys  avoid walls"
 		Case 25: s = "Arrows move cell  Space place X (vs simple AI)"

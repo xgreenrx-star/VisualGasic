@@ -42,22 +42,22 @@ Sub SokobanFull_LoadLevel()
 		sf_px = 2: sf_py = 2
 		sf_map(4, 3) = 2
 		sf_map(5, 3) = 3
-		sf_map(6, 4) = 4
+		sf_map(6, 4) = 2
 	End If
 	If sf_level = 2 Then
 		sf_px = 2: sf_py = 5
 		sf_map(3, 3) = 2
 		sf_map(5, 4) = 3
-		sf_map(7, 5) = 4
+		sf_map(7, 5) = 2
 		sf_map(4, 6) = 3
 	End If
 	If sf_level = 3 Then
 		sf_px = 1: sf_py = 1
 		sf_map(5, 2) = 2
 		sf_map(6, 3) = 3
-		sf_map(7, 4) = 4
+		sf_map(7, 4) = 2
 		sf_map(8, 5) = 3
-		sf_map(8, 4) = 4
+		sf_map(8, 4) = 2
 	End If
 	sf_msg = "Push boxes onto goals (green)."
 	Call SokobanFull_Draw
@@ -81,6 +81,7 @@ Sub SokobanFull_TryMove(dx As Integer, dy As Integer)
 	End If
 	sf_px = nx
 	sf_py = ny
+	' A level that already has every box on a goal must not end on the first step.
 	If SokobanFull_Won() Then
 		If sf_level >= 3 Then
 			sf_msg = "All levels done!"
@@ -93,6 +94,20 @@ Sub SokobanFull_TryMove(dx As Integer, dy As Integer)
 	Call SokobanFull_Draw
 End Sub
 
+Function SokobanFull_HasGoal() As Boolean
+	Dim y As Integer
+	Dim x As Integer
+	For y = 0 To 10
+		For x = 0 To 10
+			If sf_map(y, x) = 2 Or sf_map(y, x) = 4 Then
+				SokobanFull_HasGoal = True
+				Exit Function
+			End If
+		Next x
+	Next y
+	SokobanFull_HasGoal = False
+End Function
+
 Function SokobanFull_Won() As Boolean
 	Dim y As Integer
 	Dim x As Integer
@@ -104,7 +119,8 @@ Function SokobanFull_Won() As Boolean
 			End If
 		Next x
 	Next y
-	SokobanFull_Won = True
+	' No loose box is not a win until one box is actually sitting on a goal.
+	SokobanFull_Won = SokobanFull_HasGoal()
 End Function
 
 Sub SokobanFull_Draw()

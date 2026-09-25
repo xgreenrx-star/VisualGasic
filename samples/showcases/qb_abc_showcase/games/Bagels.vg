@@ -82,5 +82,18 @@ Sub Bagels_Submit()
 			Next j
 		End If
 	Next i
-	bag_msg = "Pico=" & CStr(pic) & " Fermi=" & CStr(ferm) & "  (exact digit+place / digit only)"
+	' Classic Bagels reply is the words, not a pair of counts.
+	' Pico = right digit, wrong place. Fermi = right digit and place. Bagels = nothing.
+	If pic = 0 And ferm = 0 Then
+		bag_msg = "Bagels"
+	Else
+		bag_msg = ""
+		Dim n As Integer
+		For n = 1 To pic
+			bag_msg = bag_msg & "Fermi "
+		Next n
+		For n = 1 To ferm
+			bag_msg = bag_msg & "Pico "
+		Next n
+	End If
 End Sub

@@ -2,23 +2,24 @@
 Option Explicit
 
 Dim qf_active As Boolean
-Dim qf_buf(319, 199) As Integer
-Dim qf_tick As Single
+' 160x100 flame, each cell drawn 2x2. Full 320x200 PSet crawled or froze.
+' 8x8 blocks washed the screen yellow and did not look like that fire.
+Dim qf_buf(159, 99) As Integer
+Dim qf_row As Integer
 
 Sub Q64Fire_Init()
 	Screen 13
 	Cls
 	qf_active = True
-	qf_tick = 0
+	qf_row = 99
 	Dim x As Integer
 	Dim y As Integer
-	For y = 0 To 199
-		For x = 0 To 319
+	For y = 0 To 99
+		For x = 0 To 159
 			qf_buf(x, y) = 0
 		Next x
 	Next y
 	Call Q64Fire_DrawPalette
-	Call Q64Fire_Draw
 End Sub
 
 Function Q64Fire_Active() As Boolean
@@ -32,7 +33,8 @@ End Sub
 
 Sub Q64Fire_DrawPalette()
 	Dim i As Integer
-	For i = 0 To 63
+	Palette 0, 0, 0, 0
+	For i = 1 To 63
 		Palette i, i * 4, 0, 0
 	Next i
 	For i = 64 To 127
@@ -48,40 +50,50 @@ End Sub
 
 Sub Q64Fire_Tick(delta As Single)
 	If Not qf_active Then Exit Sub
-	qf_tick = qf_tick + delta
-	If qf_tick < 0.04 Then Exit Sub
-	qf_tick = 0
+	Dim n As Integer
 	Dim x As Integer
 	Dim y As Integer
-	For x = 1 To 318
-		Dim v As Integer
-		v = (qf_buf(x - 1, 199) + qf_buf(x, 199) + qf_buf(x + 1, 199)) \ 3
-		v = v - Int(Rnd() * 4)
-		If v < 0 Then v = 0
-		qf_buf(x, 199) = v
-	Next x
-	For y = 0 To 198
-		For x = 1 To 318
-			Dim s As Integer
-			s = (qf_buf(x - 1, y + 1) + qf_buf(x, y + 1) + qf_buf(x + 1, y + 1)) \ 3
-			s = s - Int(Rnd() * 2)
-			If s < 0 Then s = 0
-			qf_buf(x, y) = s
-		Next x
-	Next y
-	For x = 0 To 319
-		If Rnd() < 0.12 Then qf_buf(x, 199) = 255 Else qf_buf(x, 199) = qf_buf(x, 199) + 40
-		If qf_buf(x, 199) > 255 Then qf_buf(x, 199) = 255
-	Next x
-	Call Q64Fire_Draw
-End Sub
-
-Sub Q64Fire_Draw()
-	Dim x As Integer
-	Dim y As Integer
-	For y = 0 To 199
-		For x = 0 To 319
-			PSet (x, y), qf_buf(x, y)
-		Next x
-	Next y
+	For n = 1 To 4
+		y = qf_row
+		Dim lit As Integer
+		Dim was As Integer
+		lit = 0
+		was = 0
+		If y = 99 Then
+			For x = 0 To 159
+				If qf_buf(x, 99) > 0 Then was = 1
+				If Rnd() < 0.4 Then
+					qf_buf(x, 99) = 200 + Int(Rnd() * 55)
+				Else
+					qf_buf(x, 99) = qf_buf(x, 99) \ 2
+				End If
+				If qf_buf(x, 99) > 0 Then lit = 1
+			Next x
+		Else
+			For x = 1 To 158
+				Dim s As Integer
+				If qf_buf(x, y) > 0 Then was = 1
+				s = (qf_buf(x - 1, y + 1) + qf_buf(x, y + 1) + qf_buf(x + 1, y + 1)) \ 3
+				s = s - 4 - Int(Rnd() * 6)
+				If s < 0 Then s = 0
+				qf_buf(x, y) = s
+				If s > 0 Then lit = 1
+			Next x
+		End If
+		' Black above the flame does not change. Skip the draw and
+		' start the next pass at the hot base.
+		If lit = 1 Or was = 1 Then
+			Dim py As Integer
+			py = y * 2
+			For x = 0 To 159
+				Line (x * 2, py)-(x * 2 + 1, py + 1), qf_buf(x, y), BF
+			Next x
+		End If
+		If lit = 0 And y <> 99 Then
+			qf_row = 99
+		Else
+			qf_row = y - 1
+			If qf_row < 0 Then qf_row = 99
+		End If
+	Next n
 End Sub

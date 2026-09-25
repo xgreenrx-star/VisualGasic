@@ -83,12 +83,25 @@ Sub Lander_Right()
 End Sub
 
 Sub Lander_Draw()
+	' Terrain is a polyline with a flat pad, the picture every lander listing draws.
 	Cls
-	Line (0, 180)-(319, 180), 6
-	Line (120, 180)-(200, 180), 2
-	Line (120, 180)-(140, 170), 2
-	Line (200, 180)-(180, 170), 2
-	Line (ll_x - 6, ll_y)-(ll_x, ll_y + 10), 15
-	Line (ll_x + 6, ll_y)-(ll_x, ll_y + 10), 15
-	Line (ll_x, ll_y + 10)-(ll_x, ll_y + 14), 14
+	Line (0, 150)-(40, 170), 6
+	Line (40, 170)-(70, 140), 6
+	Line (70, 140)-(110, 175), 6
+	Line (110, 175)-(120, 168), 6
+	Line (120, 168)-(200, 168), 10
+	Line (200, 168)-(210, 175), 6
+	Line (210, 175)-(250, 130), 6
+	Line (250, 130)-(290, 160), 6
+	Line (290, 160)-(319, 145), 6
+	' Lander body, legs, and flame when thrust is up (vy recently reduced shows as fuel burn).
+	Line (ll_x - 8, ll_y + 8)-(ll_x, ll_y), 15
+	Line (ll_x + 8, ll_y + 8)-(ll_x, ll_y), 15
+	Line (ll_x - 8, ll_y + 8)-(ll_x + 8, ll_y + 8), 15
+	Line (ll_x - 10, ll_y + 12)-(ll_x - 4, ll_y + 8), 7
+	Line (ll_x + 10, ll_y + 12)-(ll_x + 4, ll_y + 8), 7
+	If ll_vy < 0.4 Then
+		Line (ll_x, ll_y + 8)-(ll_x - 3, ll_y + 16), 4
+		Line (ll_x, ll_y + 8)-(ll_x + 3, ll_y + 16), 14
+	End If
 End Sub

@@ -56,23 +56,14 @@ Sub Q64Turtle_DrawKoch()
 	Dim x As Single
 	Dim y As Single
 	Dim a As Single
-	x = 80
-	y = 150
+	' Base sits under a point-up flake. Side 150 fits 320x200 with the
+	' point near the top. Turning +120 sent the other two sides off the bottom.
+	x = 85
+	y = 155
 	a = 0
-	Dim ox As Single
-	Dim oy As Single
-	ox = x
-	oy = y
-	Call Q64Turtle_Koch(x, y, a, 70, 3)
-	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
-	ox = x
-	oy = y
-	a = a + 2.094395
-	Call Q64Turtle_Koch(x, y, a, 70, 3)
-	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
-	ox = x
-	oy = y
-	a = a + 2.094395
-	Call Q64Turtle_Koch(x, y, a, 70, 3)
-	Line (Int(ox), Int(oy))-(Int(x), Int(y)), 15
+	Call Q64Turtle_Koch(x, y, a, 150, 3)
+	a = a - 2.094395
+	Call Q64Turtle_Koch(x, y, a, 150, 3)
+	a = a - 2.094395
+	Call Q64Turtle_Koch(x, y, a, 150, 3)
 End Sub

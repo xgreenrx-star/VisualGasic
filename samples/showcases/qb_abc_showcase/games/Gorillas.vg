@@ -1,50 +1,120 @@
-' Gorillas — QBasic / QB64 gallery style (Microsoft lineage, original VG)
+' Gorillas — translation of Microsoft QBasic GORILLA.BAS (Copyright (C) Microsoft Corporation 1990).
+' Source used: the QBasic sample (same listing QB64 hosts as gorillas.bas).
+' Subs follow that listing: MakeCityScape, PlaceGorillas, DrawGorilla, DoSun, DrawBan, PlotShot, DoShot, Scl.
+'
+' VG CHANGE (required):
+'   * No DEFINT A-Z, DEF SEG, PEEK/POKE, or GOSUB. Module-level Dim replaces DIM SHARED.
+'   * No blocking DO/Rest loops. PlotShot steps from Gorillas_Tick so Godot can show the frame.
+'     Each step still adds 0.1 to t, which is the original PlotShot increment.
+'   * PALETTE n, dac (0–63) is expanded to Palette n, r, g, b. VG's 2-argument Palette
+'     treats the second number as a packed color, not an EGA DAC index.
+'   * DrawBan does not PUT the DATA bit-plane bananas (LBan& …). VG Get/Put stores
+'     palette indexes (width, height, pixels). The four rotations are the same CASE 0–3.
+'   * UDT array parameter BCoor() is module-level so it lives across Tick.
+'   * Names, "play to N", and gravity prompts are skipped; defaults match the BAS
+'     (Player 1 / Player 2, 3 rounds, gravity 9.8). Angle and velocity still use the
+'     GetNum rules (digits, one dot, Enter, reject > 360).
+'   * MaxHeight is never assigned in GORILLA.BAS (DEFINT leaves it 0). Kept as 0.
+'   * MakeCityScape CASE 4 is unreachable because CASE 3 TO 5 matches first. Kept.
+'   * BACKGROUND in the outline LINE is an unset name (0 under DEFINT). Drawn as 0.
+
 Option Explicit
 
+Type XYPoint
+	XCoor As Integer
+	YCoor As Integer
+End Type
+
+Const SPEEDCONST As Integer = 500
+Const HITSELF As Integer = 1
+Const OBJECTCOLOR As Integer = 1
+Const WINDOWCOLOR As Integer = 14
+Const SUNATTR As Integer = 3
+Const SUNHAPPY As Integer = 0
+Const SUNSHOCK As Integer = -1
+Const RIGHTUP As Integer = 1
+Const LEFTUP As Integer = 2
+Const ARMSDOWN As Integer = 3
+
+Dim GorillaX(2) As Integer
+Dim GorillaY(2) As Integer
+Dim LastBuilding As Integer
+Dim pi As Single
+Dim gravity As Single
+Dim Wind As Integer
+Dim ScrHeight As Integer
+Dim ScrWidth As Integer
+Dim Mode As Integer
+Dim MaxCol As Integer
+Dim ExplosionColor As Integer
+Dim SunHt As Integer
+Dim GHeight As Integer
+Dim SunHit As Integer
+Dim MaxHeight As Integer
+
+Dim BCoor(30) As XYPoint
+' Parallel copies of the skyline corners. UDT field subtraction
+' (BCoor(n).XCoor - BCoor(m).XCoor) raised "invalid operation" and
+' skipped PUT, so the gorillas never appeared. These integers are
+' written in MakeCityScape and read in PlaceGorillas.
+Dim goBx(30) As Integer
+Dim goBy(30) As Integer
+Dim GorD(0) As Integer
+Dim GorL(0) As Integer
+Dim GorR(0) As Integer
+Dim spritesReady As Integer
+
+Dim TotalWins(2) As Integer
+Dim roundNum As Integer
+Dim numRounds As Integer
+Dim curPlayer As Integer
+Dim phase As Integer
+Dim entry As String
+Dim angleDeg As Single
+Dim velocity As Single
+Dim shotT As Single
+Dim shotX0 As Single
+Dim shotY0 As Single
+Dim shotVx As Single
+Dim shotVy As Single
+Dim shotPlayer As Integer
+Dim needErase As Integer
+Dim oldBanX As Single
+Dim oldBanY As Single
+Dim oldRot As Integer
+Dim impact As Integer
+Dim onScreen As Integer
+Dim pointVal As Integer
+Dim explX As Single
+Dim explY As Single
+Dim explR As Single
+Dim danceN As Integer
 Dim go_active As Boolean
-Dim go_turn As Integer
-Dim go_angle As Single
-Dim go_power As Single
-Dim go_wind As Single
-Dim go_bld(39) As Integer
-Dim go_seg1 As Integer
-Dim go_seg2 As Integer
-Dim go_hp1 As Integer
-Dim go_hp2 As Integer
 Dim go_msg As String
-Dim go_state As Integer
-Dim go_fly_t As Single
-Dim go_fly_ox As Single
-Dim go_fly_oy As Single
-Dim go_fly_vx As Single
-Dim go_fly_vy As Single
-Dim go_fly_x As Single
-Dim go_fly_y As Single
-Dim go_expl_x As Single
-Dim go_expl_y As Single
-Dim go_expl_t As Single
 
 Sub Gorillas_Init()
-	Screen 13
+	' InitVars in GORILLA.BAS picks mode 9 (EGA 640x350) when it works.
+	Mode = 9
+	Screen Mode
 	Cls
-	go_turn = 1
-	go_angle = 45
-	go_power = 35
-	go_wind = (Rnd() - 0.5) * 3
-	go_hp1 = 100
-	go_hp2 = 100
-	go_state = 0
-	go_fly_t = 0
-	go_expl_t = 0
-	go_msg = "P1: A/D angle  W/S power  Space fire"
-	Dim i As Integer
-	For i = 0 To 39
-		go_bld(i) = 45 + Int(Rnd() * 75)
-	Next i
-	go_seg1 = 4
-	go_seg2 = 34
+	pi = 4 * Atn(1)
+	ScrWidth = 640
+	ScrHeight = 350
+	GHeight = 25
+	SunHt = 39
+	MaxCol = 80
+	MaxHeight = 0
+	gravity = 9.8
+	numRounds = 3
+	roundNum = 1
+	TotalWins(1) = 0
+	TotalWins(2) = 0
+	curPlayer = 1
+	spritesReady = 0
 	go_active = True
-	Call Gorillas_DrawScene
+	Call SetScreen
+	Call CaptureGorillas
+	Call StartRound
 End Sub
 
 Function Gorillas_Active() As Boolean
@@ -52,141 +122,578 @@ Function Gorillas_Active() As Boolean
 End Function
 
 Sub Gorillas_GetHud(ByRef l1 As String, ByRef l2 As String)
-	l1 = "GORILLAS  P1:" & CStr(go_hp1) & "  P2:" & CStr(go_hp2) & "  wind:" & Format(go_wind, "0.0")
-	l2 = go_msg & "  ang=" & CStr(Int(go_angle)) & " pow=" & CStr(Int(go_power))
+	l1 = "GORILLAS  " & go_msg
+	l2 = "Angle/velocity then Enter   (Microsoft GORILLA.BAS)   wind " & CStr(Wind)
 End Sub
 
-Function Gorillas_Gx(seg As Integer) As Integer
-	Gorillas_Gx = seg * 8 + 4
-End Function
-
-Function Gorillas_Gy(seg As Integer) As Integer
-	Gorillas_Gy = 199 - go_bld(seg)
-End Function
-
+' Showcase used to call these. Classic input is Gorillas_OnKey.
 Sub Gorillas_AdjustAngle(d As Single)
-	If go_state <> 0 Then Exit Sub
-	go_angle = go_angle + d
-	If go_angle < 10 Then go_angle = 10
-	If go_angle > 80 Then go_angle = 80
-	Call Gorillas_DrawScene
 End Sub
 
 Sub Gorillas_AdjustPower(d As Single)
-	If go_state <> 0 Then Exit Sub
-	go_power = go_power + d
-	If go_power < 8 Then go_power = 8
-	If go_power > 55 Then go_power = 55
-	Call Gorillas_DrawScene
 End Sub
 
 Sub Gorillas_Fire()
-	If go_state <> 0 Then Exit Sub
-	Dim seg As Integer
-	seg = go_seg1
-	If go_turn = 2 Then seg = go_seg2
-	go_fly_ox = Gorillas_Gx(seg)
-	go_fly_oy = Gorillas_Gy(seg) - 12
-	Dim ang As Single
-	ang = go_angle * 3.14159265 / 180.0
-	If go_turn = 2 Then ang = 3.14159265 - ang
-	go_fly_vx = Cos(ang) * go_power * 0.18
-	go_fly_vy = -Sin(ang) * go_power * 0.18
-	go_fly_x = go_fly_ox
-	go_fly_y = go_fly_oy
-	go_fly_t = 0
-	go_state = 1
-	go_msg = "Banana in flight..."
 End Sub
 
-Sub Gorillas_DamageAt(x As Single, y As Single)
-	Dim seg As Integer
-	seg = Int(x / 8)
-	If seg < 0 Then seg = 0
-	If seg > 39 Then seg = 39
-	If y < Gorillas_Gy(seg) - 8 Then
-		go_bld(seg) = go_bld(seg) - 12
-		If go_bld(seg) < 20 Then go_bld(seg) = 20
-	End If
-	If Abs(x - Gorillas_Gx(go_seg1)) < 14 And Abs(y - Gorillas_Gy(go_seg1)) < 18 Then go_hp1 = go_hp1 - 30
-	If Abs(x - Gorillas_Gx(go_seg2)) < 14 And Abs(y - Gorillas_Gy(go_seg2)) < 18 Then go_hp2 = go_hp2 - 30
-End Sub
-
-Sub Gorillas_EndTurn()
-	If go_hp1 <= 0 Or go_hp2 <= 0 Then
+Sub Gorillas_OnKey(keycode As Integer)
+	Dim ch As String
+	If Not go_active Then Exit Sub
+	If phase = 9 Then
 		go_active = False
-		If go_hp1 <= 0 Then go_msg = "Player 2 wins!" Else go_msg = "Player 1 wins!"
 		Exit Sub
 	End If
-	go_turn = 3 - go_turn
-	go_state = 0
-	If go_turn = 1 Then go_msg = "P1: A/D W/S Space" Else go_msg = "P2: A/D W/S Space"
+	If phase <> 0 And phase <> 1 Then Exit Sub
+	If keycode = KEY_ENTER Or keycode = KEY_KP_ENTER Or keycode = KEY_SPACE Then
+		Call CommitEntry
+		Exit Sub
+	End If
+	If keycode = KEY_BACKSPACE Then
+		If Len(entry) > 0 Then entry = Left(entry, Len(entry) - 1)
+		Call ShowEntry
+		Exit Sub
+	End If
+	ch = ""
+	If keycode >= KEY_0 And keycode <= KEY_9 Then ch = Chr(48 + (keycode - KEY_0))
+	If keycode >= KEY_KP_0 And keycode <= KEY_KP_9 Then ch = Chr(48 + (keycode - KEY_KP_0))
+	If keycode = KEY_PERIOD Then
+		If InStr(entry, ".") = 0 Then ch = "."
+	End If
+	If Len(ch) = 0 Then
+		Beep
+		Exit Sub
+	End If
+	entry = entry & ch
+	Call ShowEntry
 End Sub
 
 Sub Gorillas_Tick(delta As Single)
-	If Not go_active Then Exit Sub
-	If go_state = 1 Then
-		go_fly_t = go_fly_t + delta
-		Dim t As Single
-		t = go_fly_t
-		go_fly_x = go_fly_ox + go_fly_vx * t + go_wind * t * t * 0.4
-		go_fly_y = go_fly_oy + go_fly_vy * t + 4.5 * t * t
-		If go_fly_y >= 198 Or go_fly_x < -5 Or go_fly_x > 325 Or t > 8 Then
-			go_expl_x = go_fly_x
-			go_expl_y = go_fly_y
-			If go_expl_y > 198 Then go_expl_y = 198
-			Call Gorillas_DamageAt(go_expl_x, go_expl_y)
-			go_state = 2
-			go_expl_t = 0
-		End If
-		Call Gorillas_DrawScene
-	ElseIf go_state = 2 Then
-		go_expl_t = go_expl_t + delta
-		If go_expl_t > 0.45 Then
-			Call Gorillas_EndTurn
-			Call Gorillas_DrawScene
-		Else
-			Call Gorillas_DrawScene
-		End If
-	End If
-End Sub
-
-Sub Gorillas_DrawAim(seg As Integer)
-	Dim gx As Integer
-	Dim gy As Integer
-	gx = Gorillas_Gx(seg)
-	gy = Gorillas_Gy(seg) - 12
-	Dim ang As Single
-	ang = go_angle * 3.14159265 / 180.0
-	If go_turn = 2 Then ang = 3.14159265 - ang
-	Dim ex As Integer
-	Dim ey As Integer
-	ex = gx + Int(Cos(ang) * go_power)
-	ey = gy + Int(-Sin(ang) * go_power)
-	Line (gx, gy)-(ex, ey), 14
-End Sub
-
-Sub Gorillas_DrawScene()
-	Cls
+	Dim steps As Integer
 	Dim i As Integer
-	For i = 0 To 39
-		Dim x0 As Integer
-		Dim h As Integer
-		x0 = i * 8
-		h = go_bld(i)
-		Line (x0, 199)-(x0 + 7, 199 - h), 6 + (i Mod 4), BF
-	Next i
-	Circle (Gorillas_Gx(go_seg1), Gorillas_Gy(go_seg1) - 10), 9, 15
-	Circle (Gorillas_Gx(go_seg2), Gorillas_Gy(go_seg2) - 10), 9, 12
-	If go_state = 0 Then
-		If go_turn = 1 Then Call Gorillas_DrawAim(go_seg1) Else Call Gorillas_DrawAim(go_seg2)
-	ElseIf go_state = 1 Then
-		Circle (Int(go_fly_x), Int(go_fly_y)), 3, 14, , , F
-	ElseIf go_state = 2 Then
-		Dim r As Integer
-		r = Int(go_expl_t * 40)
-		If r < 3 Then r = 3
-		If r > 18 Then r = 18
-		Circle (Int(go_expl_x), Int(go_expl_y)), r, 4, , , F
+	If Not go_active Then Exit Sub
+	If phase = 2 Then
+		steps = 1
+		If delta > 0.05 Then steps = 2
+		For i = 1 To steps
+			If phase = 2 Then Call PlotShotStep
+		Next i
+	ElseIf phase = 3 Then
+		Call ExplosionStep
+	ElseIf phase = 4 Then
+		Call DanceStep
 	End If
+End Sub
+
+Sub CommitEntry()
+	Dim v As Single
+	v = Val(entry)
+	If phase = 0 Then
+		If v > 360 Then
+			entry = ""
+			Call ShowEntry
+			Exit Sub
+		End If
+		angleDeg = v
+		phase = 1
+		entry = ""
+		Call ShowPrompts
+		Exit Sub
+	End If
+	velocity = v
+	entry = ""
+	Call ErasePrompts
+	If curPlayer = 2 Then angleDeg = 180 - angleDeg
+	SunHit = 0
+	Call BeginShot(GorillaX(curPlayer), GorillaY(curPlayer), angleDeg, velocity, curPlayer)
+End Sub
+
+Sub StartRound()
+	Cls
+	Call MakeCityScape
+	Call PlaceGorillas
+	Call DoSun(SUNHAPPY)
+	curPlayer = 1
+	phase = 0
+	entry = ""
+	go_msg = "Round " & CStr(roundNum) & " of " & CStr(numRounds)
+	Call ShowPrompts
+End Sub
+
+Sub ShowPrompts()
+	Dim col As Integer
+	If curPlayer = 1 Then col = 1 Else col = 66
+	Locate 1, 1
+	Print "Player 1"
+	Locate 1, 70
+	Print "Player 2"
+	Locate 1, 28
+	Print CStr(TotalWins(1)) & " >Score< " & CStr(TotalWins(2))
+	Locate 2, col
+	Print "Angle:"
+	Locate 3, col
+	Print "Velocity:"
+	Call ShowEntry
+End Sub
+
+Sub ShowEntry()
+	Dim col As Integer
+	Dim row As Integer
+	If curPlayer = 1 Then col = 1 Else col = 66
+	If phase = 0 Then row = 2 Else row = 3
+	If phase = 0 Then col = col + 7 Else col = col + 10
+	Locate row, col
+	Print entry & "_"
+End Sub
+
+Sub ErasePrompts()
+	Locate 1, 1
+	Print "                                        "
+	Locate 2, 1
+	Print "                                        "
+	Locate 3, 1
+	Print "                                        "
+	Locate 2, 60
+	Print "                    "
+	Locate 3, 60
+	Print "                    "
+End Sub
+
+' SetScreen from GORILLA.BAS, DAC values expanded (see file header).
+Sub SetScreen()
+	ExplosionColor = 2
+	Call ApplyDac(0, 1)
+	Call ApplyDac(1, 46)
+	Call ApplyDac(2, 44)
+	Call ApplyDac(3, 54)
+	Call ApplyDac(5, 7)
+	Call ApplyDac(6, 4)
+	Call ApplyDac(7, 3)
+	Call ApplyDac(9, 63)
+	Call ApplyDac(14, 62)
+End Sub
+
+Sub ApplyDac(idx As Integer, dac As Integer)
+	Dim r As Integer
+	Dim g As Integer
+	Dim b As Integer
+	' EGA DAC: bits 4–5 red, 2–3 green, 0–1 blue, each 0–3.
+	r = ((dac \ 16) And 3) * 85
+	g = ((dac \ 4) And 3) * 85
+	b = (dac And 3) * 85
+	Palette idx, r, g, b
+End Sub
+
+Function FnRan(x As Integer) As Integer
+	FnRan = Int(Rnd() * x) + 1
+End Function
+
+Function Scl(n As Single) As Integer
+	Dim v As Single
+	v = n
+	If v <> Int(v) Then
+		If Mode = 1 Then v = v - 1
+	End If
+	If Mode = 1 Then
+		Scl = Int(v / 2 + 0.6)
+	Else
+		Scl = Int(v + 0.5)
+	End If
+End Function
+
+Sub CaptureGorillas()
+	' GorillaIntro draws each pose and GET-s it. We do that on a clear screen
+	' before the city so PlaceGorillas can PUT the same sprites.
+	Cls
+	Call DrawGorilla(80, 40, ARMSDOWN)
+	Cls
+	Call DrawGorilla(80, 40, LEFTUP)
+	Cls
+	Call DrawGorilla(80, 40, RIGHTUP)
+	Cls
+	spritesReady = 1
+End Sub
+
+Sub MakeCityScape()
+	Dim x As Integer
+	Dim Slope As Integer
+	Dim NewHt As Integer
+	Dim BottomLine As Integer
+	Dim HtInc As Integer
+	Dim DefBWidth As Integer
+	Dim RandomHeight As Integer
+	Dim WWidth As Integer
+	Dim WHeight As Integer
+	Dim WDifV As Integer
+	Dim WDifh As Integer
+	Dim CurBuilding As Integer
+	Dim BWidth As Integer
+	Dim BHeight As Integer
+	Dim BuildingColor As Integer
+	Dim c As Integer
+	Dim i As Integer
+	Dim WinColr As Integer
+	Dim WindLine As Integer
+	Dim ArrowDir As Integer
+
+	x = 2
+	Slope = FnRan(6)
+	Select Case Slope
+		Case 1: NewHt = 15
+		Case 2: NewHt = 130
+		Case 3: NewHt = 15
+		Case 4: NewHt = 15
+		Case 5: NewHt = 15
+		Case 6: NewHt = 130
+		Case Else: NewHt = 15
+	End Select
+
+	' Mode 9 numbers from GORILLA.BAS (CGA branch omitted; we force mode 9).
+	BottomLine = 335
+	HtInc = 10
+	DefBWidth = 37
+	RandomHeight = 120
+	WWidth = 3
+	WHeight = 6
+	WDifV = 15
+	WDifh = 10
+
+	CurBuilding = 1
+	Do
+		Select Case Slope
+			Case 1
+				NewHt = NewHt + HtInc
+			Case 2
+				NewHt = NewHt - HtInc
+			Case 3
+				If x > ScrWidth \ 2 Then
+					NewHt = NewHt - 2 * HtInc
+				Else
+					NewHt = NewHt + 2 * HtInc
+				End If
+			Case 4
+				' GORILLA.BAS lists CASE 4 after CASE 3 TO 5, so 4 uses the V slope.
+				If x > ScrWidth \ 2 Then
+					NewHt = NewHt - 2 * HtInc
+				Else
+					NewHt = NewHt + 2 * HtInc
+				End If
+			Case 5
+				If x > ScrWidth \ 2 Then
+					NewHt = NewHt - 2 * HtInc
+				Else
+					NewHt = NewHt + 2 * HtInc
+				End If
+		End Select
+
+		BWidth = FnRan(DefBWidth) + DefBWidth
+		If x + BWidth > ScrWidth Then BWidth = ScrWidth - x - 2
+		BHeight = FnRan(RandomHeight) + NewHt
+		If BHeight < HtInc Then BHeight = HtInc
+		If BottomLine - BHeight <= MaxHeight + GHeight Then BHeight = MaxHeight + GHeight - 5
+
+		BCoor(CurBuilding).XCoor = x
+		BCoor(CurBuilding).YCoor = BottomLine - BHeight
+		goBx(CurBuilding) = x
+		goBy(CurBuilding) = BottomLine - BHeight
+
+		BuildingColor = FnRan(3) + 4
+		' Outline in background, then filled facade. Then a grid of windows.
+		Line (x - 1, BottomLine + 1)-(x + BWidth + 1, BottomLine - BHeight - 1), 0, B
+		Line (x, BottomLine)-(x + BWidth, BottomLine - BHeight), BuildingColor, BF
+
+		c = x + 3
+		Do
+			For i = BHeight - 3 To 7 Step -WDifV
+				If FnRan(4) = 1 Then
+					WinColr = 8
+				Else
+					WinColr = WINDOWCOLOR
+				End If
+				Line (c, BottomLine - i)-(c + WWidth, BottomLine - i + WHeight), WinColr, BF
+			Next i
+			c = c + WDifh
+		Loop Until c >= x + BWidth - 3
+
+		x = x + BWidth + 2
+		CurBuilding = CurBuilding + 1
+	Loop Until x > ScrWidth - HtInc
+
+	LastBuilding = CurBuilding - 1
+	Wind = FnRan(10) - 5
+	If FnRan(3) = 1 Then
+		If Wind > 0 Then
+			Wind = Wind + FnRan(10)
+		Else
+			Wind = Wind - FnRan(10)
+		End If
+	End If
+	If Wind <> 0 Then
+		WindLine = Wind * 3 * (ScrWidth \ 320)
+		Line (ScrWidth \ 2, ScrHeight - 5)-(ScrWidth \ 2 + WindLine, ScrHeight - 5), ExplosionColor
+		If Wind > 0 Then ArrowDir = -2 Else ArrowDir = 2
+		Line (ScrWidth \ 2 + WindLine, ScrHeight - 5)-(ScrWidth \ 2 + WindLine + ArrowDir, ScrHeight - 5 - 2), ExplosionColor
+		Line (ScrWidth \ 2 + WindLine, ScrHeight - 5)-(ScrWidth \ 2 + WindLine + ArrowDir, ScrHeight - 5 + 2), ExplosionColor
+	End If
+End Sub
+
+Sub PlaceGorillas()
+	Dim XAdj As Integer
+	Dim YAdj As Integer
+	Dim i As Integer
+	Dim BNum As Integer
+	Dim BWidth As Integer
+	XAdj = 14
+	YAdj = 30
+	For i = 1 To 2
+		If i = 1 Then BNum = FnRan(2) + 1 Else BNum = LastBuilding - FnRan(2)
+		If BNum < 1 Then BNum = 1
+		If BNum >= LastBuilding Then BNum = LastBuilding - 1
+		If BNum < 1 Then BNum = 1
+		BWidth = goBx(BNum + 1) - goBx(BNum)
+		If BWidth < 16 Then BWidth = 16
+		GorillaX(i) = goBx(BNum) + BWidth \ 2 - XAdj
+		GorillaY(i) = goBy(BNum) - YAdj
+		' Draw on the roof. PUT of the captured sprite was blank after the
+		' coordinate error above, so the ape is drawn here directly.
+		Call DrawGorilla(GorillaX(i), GorillaY(i), ARMSDOWN)
+	Next i
+End Sub
+
+Sub DrawGorilla(x As Integer, y As Integer, arms As Integer)
+	Dim i As Single
+	' Head, brow, nose, neck, body, legs — coordinates from GORILLA.BAS DrawGorilla.
+	Line (x - Scl(4), y)-(x + Scl(2.9), y + Scl(6)), OBJECTCOLOR, BF
+	Line (x - Scl(5), y + Scl(2))-(x + Scl(4), y + Scl(4)), OBJECTCOLOR, BF
+	Line (x - Scl(3), y + Scl(2))-(x + Scl(2), y + Scl(2)), 0
+	For i = -2 To -1
+		PSet (x + i, y + 4), 0
+		PSet (x + i + 3, y + 4), 0
+	Next i
+	Line (x - Scl(3), y + Scl(7))-(x + Scl(2), y + Scl(7)), OBJECTCOLOR
+	Line (x - Scl(8), y + Scl(8))-(x + Scl(6.9), y + Scl(14)), OBJECTCOLOR, BF
+	Line (x - Scl(6), y + Scl(15))-(x + Scl(4.9), y + Scl(20)), OBJECTCOLOR, BF
+	For i = 0 To 4
+		Circle (x + Scl(i), y + Scl(25)), Scl(10), OBJECTCOLOR, 3 * pi / 4, 9 * pi / 8
+		Circle (x + Scl(-6) + Scl(i - 0.1), y + Scl(25)), Scl(10), OBJECTCOLOR, 15 * pi / 8, pi / 4
+	Next i
+	Circle (x - Scl(4.9), y + Scl(10)), Scl(4.9), 0, 3 * pi / 2, 0
+	Circle (x + Scl(4.9), y + Scl(10)), Scl(4.9), 0, pi, 3 * pi / 2
+	For i = -5 To -1
+		Select Case arms
+			Case 1
+				Circle (x + Scl(i - 0.1), y + Scl(14)), Scl(9), OBJECTCOLOR, 3 * pi / 4, 5 * pi / 4
+				Circle (x + Scl(4.9) + Scl(i), y + Scl(4)), Scl(9), OBJECTCOLOR, 7 * pi / 4, pi / 4
+			Case 2
+				Circle (x + Scl(i - 0.1), y + Scl(4)), Scl(9), OBJECTCOLOR, 3 * pi / 4, 5 * pi / 4
+				Circle (x + Scl(4.9) + Scl(i), y + Scl(14)), Scl(9), OBJECTCOLOR, 7 * pi / 4, pi / 4
+			Case 3
+				Circle (x + Scl(i - 0.1), y + Scl(14)), Scl(9), OBJECTCOLOR, 3 * pi / 4, 5 * pi / 4
+				Circle (x + Scl(4.9) + Scl(i), y + Scl(14)), Scl(9), OBJECTCOLOR, 7 * pi / 4, pi / 4
+		End Select
+	Next i
+End Sub
+
+Sub DoSun(Mouth As Integer)
+	Dim x As Integer
+	Dim y As Integer
+	x = ScrWidth \ 2
+	y = Scl(25)
+	Line (x - Scl(22), y - Scl(18))-(x + Scl(22), y + Scl(18)), 0, BF
+	Circle (x, y), Scl(12), SUNATTR
+	Paint (x, y), SUNATTR
+	Line (x - Scl(20), y)-(x + Scl(20), y), SUNATTR
+	Line (x, y - Scl(15))-(x, y + Scl(15)), SUNATTR
+	Line (x - Scl(15), y - Scl(10))-(x + Scl(15), y + Scl(10)), SUNATTR
+	Line (x - Scl(15), y + Scl(10))-(x + Scl(15), y - Scl(10)), SUNATTR
+	Line (x - Scl(8), y - Scl(13))-(x + Scl(8), y + Scl(13)), SUNATTR
+	Line (x - Scl(8), y + Scl(13))-(x + Scl(8), y - Scl(13)), SUNATTR
+	Line (x - Scl(18), y - Scl(5))-(x + Scl(18), y + Scl(5)), SUNATTR
+	Line (x - Scl(18), y + Scl(5))-(x + Scl(18), y - Scl(5)), SUNATTR
+	If Mouth <> 0 Then
+		Circle (x, y + Scl(5)), Scl(2.9), 0
+		Paint (x, y + Scl(5)), 0
+	Else
+		Circle (x, y), Scl(8), 0, (210 * pi / 180), (330 * pi / 180)
+	End If
+	Circle (x - 3, y - 2), 1, 0
+	Circle (x + 3, y - 2), 1, 0
+	PSet (x - 3, y - 2), 0
+	PSet (x + 3, y - 2), 0
+End Sub
+
+' DrawBan selects rotation 0..3. VG draws those orientations; see file header.
+Sub DrawBan(xc As Single, yc As Single, r As Integer, bc As Integer)
+	Dim col As Integer
+	If bc <> 0 Then col = 14 Else col = 0
+	Select Case r
+		Case 0
+			Line (xc, yc)-(xc + 10, yc + 4), col
+			Line (xc + 10, yc + 4)-(xc + 6, yc + 8), col
+		Case 1
+			Line (xc, yc)-(xc + 4, yc - 10), col
+			Line (xc + 4, yc - 10)-(xc + 8, yc - 6), col
+		Case 2
+			Line (xc, yc)-(xc + 4, yc + 10), col
+			Line (xc + 4, yc + 10)-(xc + 8, yc + 6), col
+		Case Else
+			Line (xc, yc)-(xc - 10, yc + 4), col
+			Line (xc - 10, yc + 4)-(xc - 6, yc + 8), col
+	End Select
+End Sub
+
+Sub BeginShot(StartX As Integer, StartY As Integer, Angle As Single, vel As Single, PlayerNum As Integer)
+	Dim ang As Single
+	Dim adjust As Integer
+	shotPlayer = PlayerNum
+	ang = Angle / 180 * pi
+	shotVx = Cos(ang) * vel
+	shotVy = Sin(ang) * vel
+	shotT = 0
+	needErase = 0
+	impact = 0
+	onScreen = -1
+	pointVal = 0
+	' Arm pose is drawn in place. GET/PUT of GorL/GorR was an empty
+	' 1-element buffer, so the thrower vanished as soon as you fired.
+	If PlayerNum = 1 Then
+		Call DrawGorilla(StartX, StartY, LEFTUP)
+	Else
+		Call DrawGorilla(StartX, StartY, RIGHTUP)
+	End If
+	adjust = Scl(4)
+	shotX0 = StartX
+	shotY0 = StartY - adjust - 3
+	If PlayerNum = 2 Then shotX0 = shotX0 + Scl(25)
+	If vel < 2 Then
+		pointVal = OBJECTCOLOR
+		impact = -1
+		phase = 3
+		explX = StartX
+		explY = StartY
+		explR = 1
+		Exit Sub
+	End If
+	phase = 2
+	go_msg = "Banana in flight"
+End Sub
+
+Sub PlotShotStep()
+	Dim x As Single
+	Dim y As Single
+	Dim LookX As Integer
+	Dim LookY As Integer
+	Dim direction As Integer
+	Dim adjust As Integer
+	Dim rot As Integer
+	adjust = Scl(4)
+	If shotPlayer = 2 Then direction = Scl(4) Else direction = Scl(-4)
+	If needErase <> 0 Then
+		needErase = 0
+		Call DrawBan(oldBanX, oldBanY, oldRot, 0)
+	End If
+	x = shotX0 + (shotVx * shotT) + (0.5 * (Wind / 5) * shotT * shotT)
+	y = shotY0 + ((-1 * (shotVy * shotT)) + (0.5 * gravity * shotT * shotT)) * (ScrHeight / 350)
+	If x >= ScrWidth - Scl(10) Or x <= 3 Or y >= ScrHeight - 3 Then onScreen = 0
+	If onScreen <> 0 And y > 0 Then
+		LookY = 0
+		LookX = Scl(8 * (2 - shotPlayer))
+		Do
+			pointVal = Point(x + LookX, y + LookY)
+			If pointVal = 0 Then
+				impact = 0
+				If SunHit <> 0 Then
+					If Abs(ScrWidth \ 2 - x) > Scl(20) Or y > SunHt Then SunHit = 0
+				End If
+			ElseIf pointVal = SUNATTR And y < SunHt Then
+				If SunHit = 0 Then Call DoSun(SUNSHOCK)
+				SunHit = -1
+			Else
+				impact = -1
+			End If
+			LookX = LookX + direction
+			LookY = LookY + Scl(6)
+		Loop Until impact <> 0 Or LookX <> Scl(4)
+		If SunHit = 0 And impact = 0 Then
+			rot = Int(shotT * 10) Mod 4
+			Call DrawBan(x, y, rot, -1)
+			needErase = -1
+			oldRot = rot
+		End If
+		oldBanX = x
+		oldBanY = y
+	End If
+	shotT = shotT + 0.1
+	If impact <> 0 Or onScreen = 0 Then
+		If pointVal <> OBJECTCOLOR And impact <> 0 Then
+			explX = x + adjust
+			explY = y + adjust
+			explR = 1
+			phase = 3
+		ElseIf pointVal = OBJECTCOLOR Then
+			Call ScoreHit(shotPlayer)
+			phase = 4
+			danceN = 0
+		Else
+			Call NextThrow
+		End If
+	End If
+End Sub
+
+Sub ExplosionStep()
+	Dim radius As Single
+	radius = ScrHeight / 50
+	Circle (explX, explY), explR, ExplosionColor
+	explR = explR + 0.5
+	If explR > radius Then
+		Call ScoreHit(shotPlayer)
+		phase = 4
+		danceN = 0
+	End If
+End Sub
+
+Sub ScoreHit(tosser As Integer)
+	' DoShot passes TRUE (-1) into UpdateScores, which only special-cases HITSELF (1).
+	' A normal hit therefore increments the thrower's score. Same here.
+	If tosser >= 1 And tosser <= 2 Then
+		TotalWins(tosser) = TotalWins(tosser) + 1
+	End If
+End Sub
+
+Sub DanceStep()
+	Dim who As Integer
+	who = shotPlayer
+	If who < 1 Or who > 2 Then who = 1
+	danceN = danceN + 1
+	If danceN Mod 2 = 0 Then
+		Call DrawGorilla(GorillaX(who), GorillaY(who), LEFTUP)
+	Else
+		Call DrawGorilla(GorillaX(who), GorillaY(who), RIGHTUP)
+	End If
+	If danceN > 6 Then Call NextRound
+End Sub
+
+Sub NextThrow()
+	curPlayer = 3 - curPlayer
+	phase = 0
+	entry = ""
+	go_msg = "Player " & CStr(curPlayer) & " — angle, Enter, velocity, Enter"
+	Call ShowPrompts
+End Sub
+
+Sub NextRound()
+	If SunHit <> 0 Then Call DoSun(SUNHAPPY)
+	roundNum = roundNum + 1
+	If roundNum > numRounds Then
+		phase = 9
+		Cls
+		Locate 8, 30
+		Print "GAME OVER"
+		Locate 10, 30
+		Print "Player 1  " & CStr(TotalWins(1))
+		Locate 12, 30
+		Print "Player 2  " & CStr(TotalWins(2))
+		go_msg = "Game over — any key returns"
+		Exit Sub
+	End If
+	Call StartRound
 End Sub

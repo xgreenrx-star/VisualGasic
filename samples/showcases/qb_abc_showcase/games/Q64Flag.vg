@@ -1,11 +1,16 @@
-' American flag — inspired by Vince QB64 sample (static; no per-pixel warp)
+' American flag — Vince's QB64 waving-flag sample, reduced.
+' The original warps each pixel with a sine and _RGB. VG CHANGE: stripes are
+' shifted by a sine per row (same wave people recognize) without a per-pixel warp.
+
 Option Explicit
 
 Dim qfl_active As Boolean
+Dim qfl_t As Single
 
 Sub Q64Flag_Init()
 	Screen 13
 	qfl_active = True
+	qfl_t = 0
 	Call Q64Flag_Draw
 End Sub
 
@@ -14,24 +19,41 @@ Function Q64Flag_Active() As Boolean
 End Function
 
 Sub Q64Flag_GetHud(ByRef l1 As String, ByRef l2 As String)
-	l1 = "American flag (simplified)"
-	l2 = "Full Vince warp needs _RGB POINT — static stripes + canton"
+	l1 = "American flag"
+	l2 = "Waving stripes (Vince sample, row sine — not a full _RGB warp)"
 End Sub
 
 Sub Q64Flag_Tick(delta As Single)
+	qfl_t = qfl_t + delta
+	Call Q64Flag_Draw
 End Sub
 
 Sub Q64Flag_Draw()
 	Cls
-	Dim row As Integer
-	For row = 0 To 12
+	Dim y As Integer
+	For y = 10 To 170
+		Dim shift As Integer
+		shift = Int(Sin(qfl_t * 3 + y * 0.08) * 10)
+		Dim stripe As Integer
+		stripe = ((y - 10) \ 12) Mod 2
 		Dim col As Integer
-		If row Mod 2 = 0 Then col = 4 Else col = 15
-		Line (0, row * 15)-(319, row * 15 + 14), col, BF
-	Next row
-	Line (0, 0)-(128, 90), 1, BF
+		If stripe = 0 Then col = 4 Else col = 15
+		Line (30 + shift, y)-(290 + shift, y), col
+	Next y
+	Dim y2 As Integer
+	For y2 = 10 To 78
+		Dim sh As Integer
+		sh = Int(Sin(qfl_t * 3 + y2 * 0.08) * 10)
+		Line (30 + sh, y2)-(130 + sh, y2), 1
+	Next y2
 	Dim s As Integer
-	For s = 0 To 20
-		PSet (10 + (s Mod 6) * 18, 8 + (s \ 6) * 16), 15
+	For s = 0 To 23
+		Dim sx As Integer
+		Dim sy As Integer
+		sy = 16 + (s \ 6) * 12
+		sx = 40 + (s Mod 6) * 14 + Int(Sin(qfl_t * 3 + sy * 0.08) * 10)
+		PSet (sx, sy), 15
+		PSet (sx + 1, sy), 15
+		PSet (sx, sy + 1), 15
 	Next s
 End Sub
