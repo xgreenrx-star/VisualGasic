@@ -391,6 +391,7 @@
 	    r_found = true; return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
 	}
 	if (method == "GetMousePosition" && call_args.size() == 0) {
+	     r_found = true;
 	     if (owner) {
 	         Node *n = Object::cast_to<Node>(owner);
 	         if (n) {
@@ -398,7 +399,7 @@
 	              if (vp) return vp->get_mouse_position();
 	         }
 	     }
-	     r_found = true; return DisplayServer::get_singleton()->mouse_get_position();
+	     return DisplayServer::get_singleton()->mouse_get_position();
 	}
 	
 	// Factory for Vector2
@@ -750,18 +751,20 @@
 	    r_found = true; return Input::get_singleton()->is_mouse_button_pressed((MouseButton)btn);
 	}
 	if (method.nocasecmp_to("GetMouseX") == 0) {
+	    r_found = true;
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().x;
 	    }
-	    r_found = true; return 0.0;
+	    return 0.0;
 	}
 	if (method.nocasecmp_to("GetMouseY") == 0) {
+	    r_found = true;
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().y;
 	    }
-	    r_found = true; return 0.0;
+	    return 0.0;
 	}
 
 	if (method.nocasecmp_to("IsOnFloor") == 0 && call_args.size() == 1) {
@@ -793,6 +796,7 @@
 	     // Return global or viewport position?
 	     // Viewport makes most sense for Canvas
 	     // But we need a node context.
+	     r_found = true;
 	     if (owner) {
 	          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
 	          // Check viewport availability to prevent crashes in headless/unititialized state
@@ -804,15 +808,16 @@
 	               if (vp) return vp->get_mouse_position();
 	          }
 	     }
-	     r_found = true; return Vector2(0,0);
+	     return Vector2(0,0);
 	}
 	if (method == "GetGlobalMousePos" && call_args.size() == 0) {
+	     r_found = true;
 	     if (owner) {
 	          CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
 	          if (ci && ci->get_viewport()) return ci->get_global_mouse_position();
 	     }
 	     // Or display server
-	     r_found = true; return DisplayServer::get_singleton()->mouse_get_position(); 
+	     return DisplayServer::get_singleton()->mouse_get_position(); 
 	}
 	
 	// ============================================
@@ -856,17 +861,19 @@
 	    r_found = true; return state;
 	}
 	if (method.nocasecmp_to("MouseX") == 0 && call_args.size() == 0) {
+	    r_found = true;
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().x;
 	    }
-	    r_found = true; return 0.0;
+	    return 0.0;
 	}
 	if (method.nocasecmp_to("MouseY") == 0 && call_args.size() == 0) {
+	    r_found = true;
 	    if (owner) {
 	        Node *n = Object::cast_to<Node>(owner);
 	        if (n && n->get_viewport()) return n->get_viewport()->get_mouse_position().y;
 	    }
-	    r_found = true; return 0.0;
+	    return 0.0;
 	}
 

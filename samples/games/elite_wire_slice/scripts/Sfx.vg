@@ -1,0 +1,66 @@
+' Retro tones via PlayTone. Waveform 1 is square. At most four voices at once.
+Option Explicit
+
+Dim sfx_thrust_cd As Single
+
+Sub SfxTitle()
+	PlayTone 523, 90, 1
+	PlayTone 659, 110, 1
+	PlayTone 784, 160, 1
+End Sub
+
+Sub SfxConfirm()
+	PlayTone 880, 70, 1
+	PlayTone 1174, 90, 1
+End Sub
+
+Sub SfxLaser()
+	PlayTone 980, 45, 1
+End Sub
+
+Sub SfxMissile()
+	PlayTone 660, 40, 1
+	PlayTone 1320, 70, 1
+End Sub
+
+Sub SfxChip()
+	PlayTone 620, 40, 1
+	PlayTone 880, 55, 1
+End Sub
+
+Sub SfxBoom()
+	PlayTone 140, 90, 1
+	PlayTone 70, 140, 3
+End Sub
+
+Sub SfxHurt()
+	PlayTone 110, 80, 1
+	PlayTone 55, 100, 3
+End Sub
+
+Sub SfxDock()
+	PlayTone 392, 80, 1
+	PlayTone 523, 100, 1
+	PlayTone 784, 140, 1
+End Sub
+
+Sub SfxLaunch()
+	PlayTone 330, 70, 1
+	PlayTone 494, 110, 1
+End Sub
+
+Sub SfxJump()
+	PlayTone 740, 70, 1
+	PlayTone 494, 90, 1
+	PlayTone 247, 160, 1
+End Sub
+
+Sub SfxTick(ByVal delta As Single, ByVal thrusting As Boolean, ByVal spd As Single)
+	If sfx_thrust_cd > 0.0 Then sfx_thrust_cd = sfx_thrust_cd - delta
+	If Not thrusting Then Exit Sub
+	If sfx_thrust_cd > 0.0 Then Exit Sub
+	Dim hz As Single
+	hz = 48.0 + spd * 1.6
+	PlayTone hz, 36, 1
+	sfx_thrust_cd = 0.14
+End Sub

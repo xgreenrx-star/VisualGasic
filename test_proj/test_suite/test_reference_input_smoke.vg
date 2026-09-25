@@ -30,6 +30,12 @@ Sub _Ready()
 	axis = Input.GetAxis("ui_left", "ui_right")
 	Print "PASS: input_get_axis"
 
-	pos = Input.GetMousePosition()
-	Print "PASS: input_get_mouse_position"
+	pos = GetMousePosition()
+	Print "PASS: get_mouse_position"
+
+	Dim mx As Single
+	Dim my As Single
+	mx = GetMouseX()
+	my = GetMouseY()
+	Print "PASS: get_mouse_x_y"
 End Sub

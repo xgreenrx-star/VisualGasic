@@ -157,6 +157,54 @@ static bool vg_verbose_init_logs() {
 	return cached == 1;
 }
 
+// Module-level Dim defaults (must match STMT_DIM handling in execute.inc).
+static Variant vg_module_default_for_declared_type(const String &type_name) {
+	const String t = type_name.to_lower();
+	if (t == "integer" || t == "long" || t == "longlong") {
+		return (int64_t)0;
+	}
+	if (t == "single" || t == "double") {
+		return (double)0.0;
+	}
+	if (t == "string") {
+		return String();
+	}
+	if (t == "boolean") {
+		return false;
+	}
+	if (t == "dictionary") {
+		return Dictionary();
+	}
+	if (t == "packedbytearray") {
+		return PackedByteArray();
+	}
+	if (t == "packedint32array") {
+		return PackedInt32Array();
+	}
+	if (t == "packedint64array") {
+		return PackedInt64Array();
+	}
+	if (t == "packedfloat32array") {
+		return PackedFloat32Array();
+	}
+	if (t == "packedfloat64array") {
+		return PackedFloat64Array();
+	}
+	if (t == "packedstringarray") {
+		return PackedStringArray();
+	}
+	if (t == "packedvector2array") {
+		return PackedVector2Array();
+	}
+	if (t == "packedvector3array") {
+		return PackedVector3Array();
+	}
+	if (t == "packedcolorarray") {
+		return PackedColorArray();
+	}
+	return Variant();
+}
+
 String vg_resolve_classdb_alias(const String &p_name) {
 	if (p_name.nocasecmp_to("Process") == 0) return "VGProcess";
 	if (p_name.nocasecmp_to("Database") == 0) return "VGDatabase";
@@ -1359,13 +1407,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                      continue;
                  }
                  
-                 // Initialize to Correct Type
-                 String t = v->type.to_lower();
-                 if (t == "integer" || t == "long") variables[v->name] = (int)0;
-                 else if (t == "single" || t == "double") variables[v->name] = (float)0.0;
-                 else if (t == "string") variables[v->name] = "";
-                 else if (t == "boolean") variables[v->name] = false;
-                 else variables[v->name] = Variant(); // Init to Empty (Nil)
+                 variables[v->name] = vg_module_default_for_declared_type(v->type);
                  
                  // Track WithEvents variables for signal auto-wiring (v3.5.0)
                  if (v->is_with_events) {
@@ -1587,12 +1629,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                             VariableDefinition* v3 = import_ast->variables[vi3];
                             if (v3->array_sizes.size() > 0) continue; // handled by STMT_DIM below
                             if (variables.has(v3->name)) continue;
-                            String t3 = v3->type.to_lower();
-                            if (t3 == "integer" || t3 == "long") variables[v3->name] = (int)0;
-                            else if (t3 == "single" || t3 == "double") variables[v3->name] = (float)0.0;
-                            else if (t3 == "string") variables[v3->name] = "";
-                            else if (t3 == "boolean") variables[v3->name] = false;
-                            else variables[v3->name] = Variant();
+                            variables[v3->name] = vg_module_default_for_declared_type(v3->type);
                         }
                         for (int ci3 = 0; ci3 < import_ast->constants.size(); ci3++) {
                             ConstStatement* c3 = import_ast->constants[ci3];

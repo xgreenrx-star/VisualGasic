@@ -6,12 +6,17 @@
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/canvas_item_material.hpp>
+#include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string.hpp>
 
 #include <cmath>
 
 using namespace godot;
+
+namespace {
+void vg_draw_solid_segments(CanvasItem *item, const PackedVector2Array &pts, const PackedColorArray &cols, float width);
+}
 
 VGVectorCanvas2D::VGVectorCanvas2D() {
 	_transform_stack.append(Transform2D());
@@ -40,6 +45,8 @@ void VGVectorCanvas2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(CMD_PLASMA_CELLS);
 	BIND_ENUM_CONSTANT(CMD_TORUS_WIREFRAME);
 	BIND_ENUM_CONSTANT(CMD_FIRE_CELLS);
+	BIND_ENUM_CONSTANT(CMD_MULTILINE_COLORS);
+	BIND_ENUM_CONSTANT(CMD_RAW_WIRE_MESH);
 
 	// ---- Draw* (preserve VB-style PascalCase names) ----
 	ClassDB::bind_method(D_METHOD("DrawLine", "from", "to", "width", "color"),
@@ -66,6 +73,13 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("DrawLines", "segments", "width", "color"),
 			&VGVectorCanvas2D::DrawLines,
 			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)));
+	ClassDB::bind_method(D_METHOD("DrawLinesColored", "segments", "colors", "width"),
+			&VGVectorCanvas2D::DrawLinesColored,
+			DEFVAL(2.0f));
+	ClassDB::bind_method(D_METHOD("DrawRawWireMesh", "vertices", "edges", "rot_x", "rot_y", "rot_z", "cx", "cy", "scale", "z_depth", "width", "color", "edge_colors", "offset_x", "offset_y", "offset_z"),
+			&VGVectorCanvas2D::DrawRawWireMesh,
+			DEFVAL(2.0f), DEFVAL(Color(1, 1, 1, 1)), DEFVAL(PackedColorArray()),
+			DEFVAL(0.0f), DEFVAL(0.0f), DEFVAL(0.0f));
 	ClassDB::bind_method(D_METHOD("DrawRects", "rects_xywh", "colors", "fill"),
 			&VGVectorCanvas2D::DrawRects,
 			DEFVAL(true));
@@ -474,14 +488,20 @@ void VGVectorCanvas2D::_draw() {
 			} else {
 				// Flush accumulated lines before any non-line command.
 				for (auto &g : groups) {
-					if (g.pts.size() >= 2) draw_multiline(g.pts, g.color, g.width);
+					const int np = g.pts.size();
+					for (int li = 0; li + 1 < np; li += 2) {
+						draw_line(g.pts[li], g.pts[li + 1], g.color, (double)g.width);
+					}
 				}
 				groups.clear();
 				_dispatch_command(cmd, t);
 			}
 		}
 		for (auto &g : groups) {
-			if (g.pts.size() >= 2) draw_multiline(g.pts, g.color, g.width);
+			const int np = g.pts.size();
+			for (int li = 0; li + 1 < np; li += 2) {
+				draw_line(g.pts[li], g.pts[li + 1], g.color, (double)g.width);
+			}
 		}
 		return;
 	}
@@ -545,6 +565,12 @@ void VGVectorCanvas2D::_dispatch_command(const Dictionary &cmd, int t) {
 			break;
 		case CMD_FIRE_CELLS:
 			_draw_fire_cells_command(cmd);
+			break;
+		case CMD_MULTILINE_COLORS:
+			_draw_multiline_colors_command(cmd);
+			break;
+		case CMD_RAW_WIRE_MESH:
+			_draw_raw_wire_mesh_command(cmd);
 			break;
 		default:
 			break;
@@ -708,7 +734,7 @@ void VGVectorCanvas2D::_draw_torus_wireframe_command(const Dictionary &cmd) {
 			++seg;
 		}
 	}
-	draw_multiline_colors(pts, cols, 1.4f);
+	vg_draw_solid_segments(this, pts, cols, 1.4f);
 }
 
 void VGVectorCanvas2D::_draw_rounded_rect_command(const Dictionary &cmd) {
@@ -842,6 +868,289 @@ void VGVectorCanvas2D::_draw_multiline_command(const Dictionary &cmd) {
 		segments.resize(sz - 1);
 	}
 	draw_multiline(segments, color, (double)width);
+}
+
+namespace {
+bool vg_clip_segment(Vector2 &a, Vector2 &b, const Rect2 &rect);
+Rect2 vg_line_clip_rect(Node2D *node);
+void vg_draw_solid_segments(CanvasItem *item, const PackedVector2Array &pts, const PackedColorArray &cols, float width);
+}
+
+void VGVectorCanvas2D::_draw_multiline_colors_command(const Dictionary &cmd) {
+	Transform2D t = (Transform2D)cmd["transform"];
+	PackedVector2Array segments = _transform_points_packed((PackedVector2Array)cmd["segments"], t);
+	PackedColorArray colors = (PackedColorArray)cmd["colors"];
+	float width = (float)cmd["width"];
+	int sz = segments.size();
+	if (sz < 2 || colors.size() < 1) {
+		return;
+	}
+	if (sz & 1) {
+		segments.resize(sz - 1);
+		sz = segments.size();
+	}
+	int seg_count = sz / 2;
+	if (colors.size() < (uint32_t)seg_count) {
+		Color fill = Color(1, 1, 1, 1);
+		PackedColorArray padded;
+		padded.resize(seg_count);
+		for (int i = 0; i < seg_count; i++) {
+			padded[i] = (i < colors.size()) ? colors[i] : fill;
+		}
+		colors = padded;
+	}
+	Rect2 clip = vg_line_clip_rect(this);
+	PackedVector2Array kept;
+	PackedColorArray kept_cols;
+	for (int i = 0; i < seg_count; i++) {
+		Vector2 a = segments[i * 2];
+		Vector2 b = segments[i * 2 + 1];
+		if (!vg_clip_segment(a, b, clip)) {
+			continue;
+		}
+		kept.append(a);
+		kept.append(b);
+		kept_cols.append(colors[i]);
+	}
+	if (kept.size() < 2) {
+		return;
+	}
+	vg_draw_solid_segments(this, kept, kept_cols, width);
+}
+
+namespace {
+
+void vg_rotate_yxz(float &x, float &y, float &z, float rot_y, float rot_x, float rot_z) {
+	float cos_ry = ::cosf(rot_y);
+	float sin_ry = ::sinf(rot_y);
+	float xr = x * cos_ry + z * sin_ry;
+	float zr = -x * sin_ry + z * cos_ry;
+	float cos_rx = ::cosf(rot_x);
+	float sin_rx = ::sinf(rot_x);
+	float yr = y * cos_rx - zr * sin_rx;
+	float zf = y * sin_rx + zr * cos_rx;
+	float cos_rz = ::cosf(rot_z);
+	float sin_rz = ::sinf(rot_z);
+	x = xr * cos_rz - yr * sin_rz;
+	y = xr * sin_rz + yr * cos_rz;
+	z = zf;
+}
+
+// Keep line endpoints inside the view. The compatibility renderer smears
+// segments whose ends lie far off-screen back into the viewport as dashes
+// that stick in place while the camera pitches.
+int vg_clip_outcode(float x, float y, float xmin, float ymin, float xmax, float ymax) {
+	int c = 0;
+	if (x < xmin) {
+		c |= 1;
+	} else if (x > xmax) {
+		c |= 2;
+	}
+	if (y < ymin) {
+		c |= 4;
+	} else if (y > ymax) {
+		c |= 8;
+	}
+	return c;
+}
+
+bool vg_clip_segment(Vector2 &a, Vector2 &b, const Rect2 &rect) {
+	const float xmin = rect.position.x;
+	const float ymin = rect.position.y;
+	const float xmax = xmin + rect.size.x;
+	const float ymax = ymin + rect.size.y;
+	float x0 = a.x;
+	float y0 = a.y;
+	float x1 = b.x;
+	float y1 = b.y;
+	for (int n = 0; n < 12; n++) {
+		int c0 = vg_clip_outcode(x0, y0, xmin, ymin, xmax, ymax);
+		int c1 = vg_clip_outcode(x1, y1, xmin, ymin, xmax, ymax);
+		if ((c0 | c1) == 0) {
+			a = Vector2(x0, y0);
+			b = Vector2(x1, y1);
+			return true;
+		}
+		if (c0 & c1) {
+			return false;
+		}
+		int c = c0 ? c0 : c1;
+		float x = x0;
+		float y = y0;
+		if (c & 1) {
+			float dx = x1 - x0;
+			if (dx == 0.0f) {
+				return false;
+			}
+			y = y0 + (y1 - y0) * (xmin - x0) / dx;
+			x = xmin;
+		} else if (c & 2) {
+			float dx = x1 - x0;
+			if (dx == 0.0f) {
+				return false;
+			}
+			y = y0 + (y1 - y0) * (xmax - x0) / dx;
+			x = xmax;
+		} else if (c & 4) {
+			float dy = y1 - y0;
+			if (dy == 0.0f) {
+				return false;
+			}
+			x = x0 + (x1 - x0) * (ymin - y0) / dy;
+			y = ymin;
+		} else {
+			float dy = y1 - y0;
+			if (dy == 0.0f) {
+				return false;
+			}
+			x = x0 + (x1 - x0) * (ymax - y0) / dy;
+			y = ymax;
+		}
+		if (c == c0) {
+			x0 = x;
+			y0 = y;
+		} else {
+			x1 = x;
+			y1 = y;
+		}
+	}
+	return false;
+}
+
+Rect2 vg_line_clip_rect(Node2D *node) {
+	Rect2 view(0, 0, 4096, 4096);
+	if (!node) {
+		return view;
+	}
+	Viewport *vp = node->get_viewport();
+	if (vp) {
+		Rect2 vr = vp->get_visible_rect();
+		if (vr.size.x > 1.0f && vr.size.y > 1.0f) {
+			view = vr.grow(4.0f);
+		}
+	}
+	return view;
+}
+
+void vg_draw_solid_segments(CanvasItem *item, const PackedVector2Array &pts, const PackedColorArray &cols, float width) {
+	if (!item) {
+		return;
+	}
+	const int n = pts.size() / 2;
+	const float hw = width * 0.5f;
+	if (hw < 0.05f) {
+		return;
+	}
+	for (int i = 0; i < n; i++) {
+		Vector2 a = pts[i * 2];
+		Vector2 b = pts[i * 2 + 1];
+		Vector2 d = b - a;
+		float len = d.length();
+		if (len < 0.001f) {
+			continue;
+		}
+		Vector2 nrm(-d.y / len * hw, d.x / len * hw);
+		PackedVector2Array quad;
+		quad.resize(4);
+		quad.set(0, a - nrm);
+		quad.set(1, a + nrm);
+		quad.set(2, b + nrm);
+		quad.set(3, b - nrm);
+		Color c = (i < cols.size()) ? cols[i] : Color(1, 1, 1, 1);
+		PackedColorArray cc;
+		cc.resize(4);
+		cc.set(0, c);
+		cc.set(1, c);
+		cc.set(2, c);
+		cc.set(3, c);
+		item->draw_polygon(quad, cc);
+	}
+}
+
+} // namespace
+
+void VGVectorCanvas2D::_draw_raw_wire_mesh_command(const Dictionary &cmd) {
+	PackedVector3Array verts = (PackedVector3Array)cmd["vertices"];
+	PackedInt32Array edges = (PackedInt32Array)cmd["edges"];
+	if (verts.size() < 2 || edges.size() < 2) {
+		return;
+	}
+	float rot_x = (float)(double)cmd["rot_x"];
+	float rot_y = (float)(double)cmd["rot_y"];
+	float rot_z = (float)(double)cmd["rot_z"];
+	float cx = (float)(double)cmd["cx"];
+	float cy = (float)(double)cmd["cy"];
+	float scale = (float)(double)cmd["scale"];
+	float z_depth = (float)(double)cmd["z_depth"];
+	float width = (float)cmd["width"];
+	Color fallback = (Color)cmd["color"];
+	PackedColorArray edge_colors;
+	if (cmd.has("edge_colors")) {
+		edge_colors = (PackedColorArray)cmd["edge_colors"];
+	}
+	float offset_x = 0.0f;
+	float offset_y = 0.0f;
+	float offset_z = 0.0f;
+	if (cmd.has("offset_x")) {
+		offset_x = (float)(double)cmd["offset_x"];
+		offset_y = (float)(double)cmd["offset_y"];
+		offset_z = (float)(double)cmd["offset_z"];
+	}
+	const int edge_pairs = edges.size() / 2;
+	if (edge_pairs < 1) {
+		return;
+	}
+	PackedVector2Array pts;
+	pts.resize(edge_pairs * 2);
+	PackedColorArray cols;
+	cols.resize(edge_pairs);
+	Rect2 clip = vg_line_clip_rect(this);
+	int out_seg = 0;
+	for (int e = 0; e < edge_pairs; e++) {
+		int i0 = edges[e * 2];
+		int i1 = edges[e * 2 + 1];
+		if (i0 < 0 || i1 < 0 || i0 >= verts.size() || i1 >= verts.size()) {
+			continue;
+		}
+		Vector3 v0 = verts[i0];
+		Vector3 v1 = verts[i1];
+		float x0 = v0.x;
+		float y0 = v0.y;
+		float z0 = v0.z;
+		float x1 = v1.x;
+		float y1 = v1.y;
+		float z1 = v1.z;
+		vg_rotate_yxz(x0, y0, z0, rot_y, rot_x, rot_z);
+		vg_rotate_yxz(x1, y1, z1, rot_y, rot_x, rot_z);
+		x0 += offset_x;
+		y0 += offset_y;
+		z0 += offset_z;
+		x1 += offset_x;
+		y1 += offset_y;
+		z1 += offset_z;
+		float z0p = z0 + z_depth;
+		float z1p = z1 + z_depth;
+		if (z0p < 0.05f || z1p < 0.05f) {
+			continue;
+		}
+		Vector2 s0(x0 / z0p * scale + cx, -y0 / z0p * scale + cy);
+		Vector2 s1(x1 / z1p * scale + cx, -y1 / z1p * scale + cy);
+		if (!vg_clip_segment(s0, s1, clip)) {
+			continue;
+		}
+		pts[out_seg * 2] = s0;
+		pts[out_seg * 2 + 1] = s1;
+		cols[out_seg] = (e < edge_colors.size()) ? edge_colors[e] : fallback;
+		out_seg++;
+	}
+	if (out_seg < 1) {
+		return;
+	}
+	if (out_seg < edge_pairs) {
+		pts.resize(out_seg * 2);
+		cols.resize(out_seg);
+	}
+	vg_draw_solid_segments(this, pts, cols, width);
 }
 
 void VGVectorCanvas2D::_draw_sprite_lines_command(const Dictionary &cmd) {
@@ -1124,6 +1433,40 @@ void VGVectorCanvas2D::DrawLines(const PackedVector2Array &segments, float width
 	c["width"] = width;
 	c["color"] = color;
 	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawLinesColored(const PackedVector2Array &segments, const PackedColorArray &colors, float width) {
+	Dictionary c;
+	c["type"] = (int)CMD_MULTILINE_COLORS;
+	c["segments"] = segments;
+	c["colors"] = colors;
+	c["width"] = width;
+	c["transform"] = _get_current_transform();
+	_queue_command(c);
+}
+
+void VGVectorCanvas2D::DrawRawWireMesh(const PackedVector3Array &vertices, const PackedInt32Array &edges,
+		float rot_x, float rot_y, float rot_z, float cx, float cy, float scale, float z_depth,
+		float width, const Color &color, const PackedColorArray &edge_colors,
+		float offset_x, float offset_y, float offset_z) {
+	Dictionary c;
+	c["type"] = (int)CMD_RAW_WIRE_MESH;
+	c["vertices"] = vertices;
+	c["edges"] = edges;
+	c["rot_x"] = rot_x;
+	c["rot_y"] = rot_y;
+	c["rot_z"] = rot_z;
+	c["cx"] = cx;
+	c["cy"] = cy;
+	c["scale"] = scale;
+	c["z_depth"] = z_depth;
+	c["width"] = width;
+	c["color"] = color;
+	c["edge_colors"] = edge_colors;
+	c["offset_x"] = offset_x;
+	c["offset_y"] = offset_y;
+	c["offset_z"] = offset_z;
 	_queue_command(c);
 }
 

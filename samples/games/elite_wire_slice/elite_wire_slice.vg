@@ -1,0 +1,1815 @@
+' Elite Wire Slice — Visual Gasic demo (C64 / Archimedes Elite *inspired*, not a port).
+'
+' REVIEWERS: This sample is intentionally INCOMPLETE. It is a solid starting point for
+' wireframe flight + DrawRawWireMesh + a minimal trade loop, not a shippable game.
+' Known issues include drawing artifacts on some OpenGL compatibility paths (line
+' batching, solid segment quads, starfield), placeholder cockpit art, simplified
+' economy/docking vs real Elite, and no galactic chart / fuel / equipment.
+'
+' Future improvements (see README): filled polygons or shaded vector faces on meshes
+' for depth; better planet/station solids; scanner stalks; engine-side line batch
+' fixes; bitmap-style cockpit panels without copying copyrighted Archimedes/C64 art.
+'
+' Layout: front view uses ViewCY / DashY — world projects above the console strip.
+' Controls: W/S thrust, arrows yaw/pitch, Q/E roll (match Coriolis spin to dock).
+Option Explicit
+
+Import "res://scripts/EliteMeshes.vg"
+Import "res://scripts/Sfx.vg"
+
+Const ScreenW As Single = 960.0
+Const ScreenH As Single = 540.0
+Const ViewCY As Single = 200.0
+Const DashY As Single = 424.0
+Const RockCount As Integer = 6
+Const CargoMax As Integer = 20
+Const GoodCount As Integer = 8
+Const StarCount As Integer = 72
+Const ProjScale As Single = 420.0
+Const PI As Single = 3.14159265
+Const WIN_MODE_WINDOWED As Integer = 0
+Const WIN_MODE_FULLSCREEN As Integer = 3
+Const WIN_MODE_EXCLUSIVE As Integer = 4
+' ViewCY = crosshair / projection center in the front window. DashY = cockpit top edge.
+
+' Render targets (stacked in GameView) and UI font for cockpit labels.
+Dim canvas_stars As Object
+Dim canvas_world As Object
+Dim canvas_hud As Object
+Dim post_node As Object
+Dim hud_font As Object
+
+Dim star_x(StarCount - 1) As Single
+Dim star_y(StarCount - 1) As Single
+Dim star_z(StarCount - 1) As Single
+Dim star_c(StarCount - 1) As Color
+
+' Player ship state (world space; +Z is forward when yaw/pitch/roll = 0).
+Dim sim_time As Single
+Dim px As Single
+Dim py As Single
+Dim pz As Single
+Dim yaw As Single
+Dim pitch As Single
+Dim roll As Single
+Dim speed As Single
+Dim hit_flash As Single
+
+Dim rock_x(RockCount - 1) As Single
+Dim rock_y(RockCount - 1) As Single
+Dim rock_z(RockCount - 1) As Single
+Dim rock_spin(RockCount - 1) As Single
+Dim rock_phase(RockCount - 1) As Single
+Dim rock_size(RockCount - 1) As Single
+Dim rock_hits(RockCount - 1) As Integer
+Dim view_x(RockCount - 1) As Single
+Dim view_y(RockCount - 1) As Single
+Dim view_z(RockCount - 1) As Single
+Dim ord(RockCount - 1) As Integer
+
+' Vitals, hyperspace timer, station, cargo / market scratch.
+Dim energy As Single
+Dim shield As Single
+Dim jump_left As Single
+Dim jump_arm As Single
+Dim system_id As Integer
+Dim StationX As Single
+Dim StationY As Single
+Dim StationZ As Single
+Dim hold(GoodCount - 1) As Integer
+Dim mkt_qty(GoodCount - 1) As Integer
+Dim trade_i As Integer
+Dim dock_hint As String
+Dim laser_left As Single
+Dim laser_cool As Single
+Dim target_i As Integer
+Dim laser_x1 As Single
+Dim laser_y1 As Single
+Dim docked As Boolean
+Dim credits As Integer
+Dim st_spin As Single
+Dim st_vx As Single
+Dim st_vy As Single
+Dim st_vz As Single
+Dim en_alive As Boolean
+Dim en_x As Single
+Dim en_y As Single
+Dim en_z As Single
+Dim en_vx As Single
+Dim en_vy As Single
+Dim en_vz As Single
+Dim en_hits As Integer
+Dim en_respawn As Single
+Dim en_hit_cool As Single
+' Heavy fighter (second hostile tier, spawns later than pirate).
+Dim hv_alive As Boolean
+Dim hv_x As Single
+Dim hv_y As Single
+Dim hv_z As Single
+Dim hv_vx As Single
+Dim hv_vy As Single
+Dim hv_vz As Single
+Dim hv_hits As Integer
+Dim hv_respawn As Single
+Dim hv_hit_cool As Single
+Dim ms_on As Boolean
+Dim ms_x As Single
+Dim ms_y As Single
+Dim ms_z As Single
+Dim ms_vx As Single
+Dim ms_vy As Single
+Dim ms_vz As Single
+Dim ms_life As Single
+Dim ms_cool As Single
+Dim on_title As Boolean
+Dim on_help As Boolean
+Dim on_options As Boolean
+' Overlay modes pause flight updates but still draw.
+Dim help_arm As Single
+Dim opt_fullscreen As Boolean
+Dim opt_invert As Boolean
+Dim opt_sel As Integer
+Dim scan_x As Single
+Dim scan_y As Single
+Dim mouse_l_was As Boolean
+Dim mouse_r_was As Boolean
+Dim mouse_l_edge As Boolean
+Dim mouse_r_edge As Boolean
+Dim mouse_l_held As Boolean
+Dim boom_t As Single
+Dim boom_x As Single
+Dim boom_y As Single
+
+' --- Bootstrap: SubViewports, options, save, initial field ---
+
+Sub _Ready()
+	Print("Elite Wire Slice — title")
+	Call InitEliteMeshes()
+
+	Set canvas_stars = CreateNode("VGVectorCanvas2D")
+	Set canvas_world = CreateNode("VGVectorCanvas2D")
+	Set canvas_hud = CreateNode("VGVectorCanvas2D")
+	Dim game_view As Object
+	Set game_view = GetNode("GameView")
+	game_view.AddChild(canvas_stars)
+	game_view.AddChild(canvas_world)
+	game_view.AddChild(canvas_hud)
+	canvas_world.SetBatchMode(True)
+	Set hud_font = GetThemeDefaultFont()
+	Set post_node = GetNode("Display")
+	post_node.set("texture", game_view.get_texture())
+
+	px = 0.0
+	py = 0.0
+	pz = 0.0
+	yaw = 0.0
+	pitch = 0.0
+	roll = 0.0
+	speed = 6.0
+	hit_flash = 0.0
+	energy = 100.0
+	shield = 100.0
+	jump_left = 0.0
+	jump_arm = 0.0
+	system_id = 0
+	StationX = 0.0
+	StationY = 0.0
+	StationZ = 52.0
+	laser_left = 0.0
+	laser_cool = 0.0
+	target_i = - 1
+	docked = False
+	credits = 100
+	trade_i = 0
+	dock_hint = ""
+	st_spin = 0.0
+	sim_time = 0.0
+	on_title = True
+	on_help = False
+	on_options = False
+	help_arm = 0.0
+	opt_sel = 0
+	opt_invert = True
+	Call _LoadOptions()
+	Call _ApplyDisplayMode()
+	Call call_deferred("_ApplyDisplayMode")
+	Call _LoadGame()
+	Call _InitStars()
+	Call _InitRocks()
+	Call _ArmHostiles()
+	Call _StockMarket()
+	Call SfxTitle()
+	Set_Process(True)
+End Sub
+
+Sub _InitStars()
+	Randomize()
+	Dim i As Integer
+	For i = 0 To StarCount - 1
+		Dim az As Single
+		Dim el As Single
+		az = Rnd() * PI * 2.0
+		el = (Rnd() - 0.5) * PI
+		Dim shell As Single
+		shell = 70.0 + Rnd() * 40.0
+		star_x(i) = Cos(el) * Sin(az) * shell
+		star_y(i) = Sin(el) * shell
+		star_z(i) = Cos(el) * Cos(az) * shell
+		Dim b As Integer
+		b = 150 + Int(Rnd() * 105)
+		star_c(i) = Color8(b, b, b + 15)
+	Next
+End Sub
+
+Sub _InitRocks()
+	Dim i As Integer
+	For i = 0 To RockCount - 1
+		rock_spin(i) = 0.4 + Rnd() * 1.4
+		If Rnd() < 0.5 Then rock_spin(i) = - rock_spin(i)
+		rock_phase(i) = Rnd() * PI * 2.0
+		rock_size(i) = 0.7 + Rnd() * 0.9
+		Call _RespawnRock(i, 42.0 + Rnd() * 36.0)
+	Next
+End Sub
+
+Sub _RespawnRock(ByVal i As Integer, ByVal ahead As Single)
+	rock_x(i) = px + (Rnd() - 0.5) * 22.0
+	rock_y(i) = py + (Rnd() - 0.5) * 12.0
+	rock_z(i) = pz + ahead
+	rock_hits(i) = 0
+	Dim sdx As Single
+	Dim sdy As Single
+	Dim sdz As Single
+	sdx = rock_x(i) - StationX
+	sdy = rock_y(i) - StationY
+	sdz = rock_z(i) - StationZ
+	If sdx * sdx + sdy * sdy + sdz * sdz < 140.0 Then
+		rock_z(i) = rock_z(i) - 26.0
+	End If
+End Sub
+
+' --- Input edges for mouse fire / options (flight uses GetMouseX/Y in _PollFlight) ---
+
+Sub _ReadMouse()
+	Dim down As Boolean
+	down = Input.IsMouseButtonPressed(1)
+	mouse_l_edge = down And Not mouse_l_was
+	mouse_l_was = down
+	mouse_l_held = down
+	down = Input.IsMouseButtonPressed(2)
+	mouse_r_edge = down And Not mouse_r_was
+	mouse_r_was = down
+End Sub
+
+' --- Main loop: title / help / options overlays, then flight sim + full redraw each frame ---
+
+Sub _Process(ByVal delta As Single)
+	Call _ReadMouse()
+	sim_time = sim_time + delta
+	st_spin = st_spin + delta * 0.22
+	If help_arm > 0.0 Then help_arm = help_arm - delta
+	If on_options Then
+		If help_arm <= 0.0 Then Call _PollOptions()
+		Call _DrawOptions()
+		Exit Sub
+	End If
+	If on_help Then
+		If help_arm <= 0.0 Then
+			If IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Or IsKeyJustPressed(KEY_H) Or IsKeyJustPressed(KEY_ESCAPE) Then
+				on_help = False
+				help_arm = 0.3
+				Exit Sub
+			End If
+		End If
+		Call _DrawHelp()
+		Exit Sub
+	End If
+	If on_title Then
+		If help_arm <= 0.0 And IsKeyJustPressed(KEY_O) Then
+			on_options = True
+			opt_sel = 0
+			help_arm = 0.3
+			Call _DrawOptions()
+			Exit Sub
+		End If
+		If help_arm <= 0.0 And IsKeyJustPressed(KEY_H) Then
+			on_help = True
+			help_arm = 0.3
+			Call _DrawHelp()
+			Exit Sub
+		End If
+		If IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Or mouse_l_edge Then
+			on_title = False
+			yaw = 0.0
+			pitch = 0.0
+			roll = 0.0
+			Call SfxConfirm()
+			Call _DrawFrame()
+			Exit Sub
+		End If
+		Call _DrawTitle()
+		Exit Sub
+	End If
+	If help_arm <= 0.0 And jump_left <= 0.0 And IsKeyJustPressed(KEY_O) Then
+		on_options = True
+		opt_sel = 0
+		help_arm = 0.3
+		Call _DrawOptions()
+		Exit Sub
+	End If
+	If help_arm <= 0.0 And jump_left <= 0.0 And IsKeyJustPressed(KEY_H) Then
+		on_help = True
+		help_arm = 0.3
+		Call _DrawHelp()
+		Exit Sub
+	End If
+	If jump_arm > 0.0 Then jump_arm = jump_arm - delta
+	Call _PollFlight(delta)
+	If jump_left > 0.0 Then
+		jump_left = jump_left - delta
+		If jump_left <= 0.0 Then Call _Arrive()
+		Call _DrawFrame()
+		Exit Sub
+	End If
+	Call _UpdateStation()
+	If Not docked Then
+		Call _UpdatePirate(delta)
+		Call _UpdateHeavy(delta)
+		Call _UpdateMissile(delta)
+		Call _UpdateRocks()
+		Call _Mine()
+		If ms_cool > 0.0 Then ms_cool = ms_cool - delta
+		If laser_left > 0.0 Then laser_left = laser_left - delta
+		If laser_cool > 0.0 Then laser_cool = laser_cool - delta
+		If boom_t > 0.0 Then boom_t = boom_t - delta
+		energy = energy + 10.0 * delta
+		If energy > 100.0 Then energy = 100.0
+		shield = shield + 8.0 * delta
+		If shield > 100.0 Then shield = 100.0
+	End If
+	Call _DrawFrame()
+End Sub
+
+Sub _SyncPost()
+End Sub
+
+' --- Flight: keyboard + mouse (small dead zone in front window only). opt_invert = C64 stick. ---
+
+Sub _PollFlight(ByVal delta As Single)
+	If docked Then
+		Call _PollDock()
+		Exit Sub
+	End If
+	If jump_left <= 0.0 And jump_arm <= 0.0 And speed < 9.0 And credits >= 4 Then
+		If Input.IsKeyPressed(KEY_J) Then
+			credits = credits - 4
+			jump_left = 1.7
+			jump_arm = 0.5
+			Call SfxJump()
+			Exit Sub
+		End If
+	End If
+	Dim turn As Single
+	turn = 1.15 * delta
+	If Input.IsKeyPressed(KEY_LEFT) Then yaw = yaw - turn
+	If Input.IsKeyPressed(KEY_RIGHT) Then yaw = yaw + turn
+	Dim psign As Single
+	psign = 1.0
+	If Not opt_invert Then psign = - 1.0
+	If Input.IsKeyPressed(KEY_UP) Then pitch = pitch + turn * psign
+	If Input.IsKeyPressed(KEY_DOWN) Then pitch = pitch - turn * psign
+	If Input.IsKeyPressed(KEY_Q) Then roll = roll - turn * 1.4
+	If Input.IsKeyPressed(KEY_E) Then roll = roll + turn * 1.4
+	Do While roll > PI
+		roll = roll - PI * 2.0
+	Loop
+	Do While roll < - PI
+		roll = roll + PI * 2.0
+	Loop
+
+	Dim mx As Single
+	Dim my As Single
+	mx = GetMouseX()
+	my = GetMouseY()
+	If mx >= 0.0 And mx <= ScreenW And my >= 0.0 And my < DashY Then
+		Dim dx As Single
+		Dim dy As Single
+		Dim dead As Single
+		dead = 8.0
+		dx = mx - ScreenW * 0.5
+		dy = my - ViewCY
+		If dx > dead Then
+			yaw = yaw + (dx - dead) / 220.0 * 1.35 * delta
+		ElseIf dx < - dead Then
+			yaw = yaw + (dx + dead) / 220.0 * 1.35 * delta
+		End If
+		If dy > dead Then
+			pitch = pitch - (dy - dead) / 180.0 * 1.35 * delta * psign
+		ElseIf dy < - dead Then
+			pitch = pitch - (dy + dead) / 180.0 * 1.35 * delta * psign
+		End If
+	End If
+
+	If pitch > 1.2 Then pitch = 1.2
+	If pitch < - 1.2 Then pitch = - 1.2
+
+	If Input.IsKeyPressed(KEY_W) Then
+		speed = speed + 14.0 * delta
+	ElseIf Input.IsKeyPressed(KEY_S) Then
+		speed = speed - 18.0 * delta
+	Else
+		speed = speed - 2.5 * delta
+	End If
+	If speed < 0.0 Then speed = 0.0
+	If speed > 28.0 Then speed = 28.0
+
+	Dim fx As Single
+	Dim fy As Single
+	Dim fz As Single
+	fx = Sin(yaw)
+	fy = - Cos(yaw) * Sin(pitch)
+	fz = Cos(yaw) * Cos(pitch)
+	px = px + fx * speed * delta
+	py = py + fy * speed * delta
+	pz = pz + fz * speed * delta
+	If hit_flash > 0.0 Then hit_flash = hit_flash - delta
+	Call SfxTick(delta, Input.IsKeyPressed(KEY_W), speed)
+	If ms_cool <= 0.0 And Not ms_on And energy >= 6.0 Then
+		If Input.IsKeyPressed(KEY_M) Or mouse_r_edge Then Call _LaunchMissile()
+	End If
+End Sub
+
+' Inverse of the canvas Y-then-X-then-Z rotation, so world deltas land in view space.
+' --- Camera: Y-then-X-then-Z rotation; view +Z is ahead (matches EliteMeshes) ---
+
+Sub WorldToView(ByVal dx As Single, ByVal dy As Single, ByVal dz As Single, ByRef vx As Single, ByRef vy As Single, ByRef vz As Single)
+	Dim cr As Single
+	Dim sr As Single
+	cr = Cos(- roll)
+	sr = Sin(- roll)
+	Dim x1 As Single
+	Dim y1 As Single
+	x1 = dx * cr - dy * sr
+	y1 = dx * sr + dy * cr
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(- pitch)
+	sp = Sin(- pitch)
+	Dim y2 As Single
+	Dim z2 As Single
+	y2 = y1 * cp - dz * sp
+	z2 = y1 * sp + dz * cp
+	Dim cy As Single
+	Dim sy As Single
+	cy = Cos(- yaw)
+	sy = Sin(- yaw)
+	vx = x1 * cy + z2 * sy
+	vy = y2
+	vz = - x1 * sy + z2 * cy
+End Sub
+
+' --- Hyperspace: arm with fuel cells, jump to next system (hand-placed list) ---
+
+Sub _Launch()
+	docked = False
+	px = StationX
+	py = StationY
+	pz = StationZ - 16.0
+	yaw = 0.0
+	pitch = 0.0
+	roll = 0.0
+	speed = 6.0
+	energy = 100.0
+	shield = 100.0
+	Call SfxLaunch()
+End Sub
+
+Sub _ApplySystem()
+	If system_id < 0 Then system_id = 0
+	If system_id > 7 Then system_id = 0
+	If system_id = 1 Then
+		StationX = 22.0
+		StationY = - 6.0
+		StationZ = 46.0
+	ElseIf system_id = 2 Then
+		StationX = - 16.0
+		StationY = 9.0
+		StationZ = 58.0
+	ElseIf system_id = 3 Then
+		StationX = 10.0
+		StationY = 4.0
+		StationZ = 38.0
+	ElseIf system_id = 4 Then
+		StationX = - 24.0
+		StationY = - 4.0
+		StationZ = 50.0
+	ElseIf system_id = 5 Then
+		StationX = 8.0
+		StationY = 14.0
+		StationZ = 42.0
+	ElseIf system_id = 6 Then
+		StationX = 30.0
+		StationY = 2.0
+		StationZ = 64.0
+	ElseIf system_id = 7 Then
+		StationX = - 8.0
+		StationY = - 12.0
+		StationZ = 36.0
+	Else
+		StationX = 0.0
+		StationY = 0.0
+		StationZ = 52.0
+	End If
+	Call _StockMarket()
+End Sub
+
+' --- Persistence: v2 save = credits, system, 8 hold slots. Options = fullscreen + invert pitch ---
+
+Sub _SaveGame()
+	Dim body As String
+	Dim i As Integer
+	body = "v2" & Chr(10) & Str(credits) & Chr(10) & Str(system_id)
+	For i = 0 To GoodCount - 1
+		body = body & Chr(10) & Str(hold(i))
+	Next
+	WriteAllText "user://elite_wire_slice.txt", body
+End Sub
+
+Sub _LoadGame()
+	If Not FileExists("user://elite_wire_slice.txt") Then Exit Sub
+	Dim lines As Array
+	lines = ReadLines("user://elite_wire_slice.txt")
+	If UBound(lines) < 2 Then Exit Sub
+	Dim i As Integer
+	If Trim(lines(0)) = "v2" Then
+		If UBound(lines) < 2 + GoodCount Then Exit Sub
+		credits = Val(lines(1))
+		system_id = Val(lines(2))
+		For i = 0 To GoodCount - 1
+			hold(i) = Val(lines(3 + i))
+		Next
+	Else
+		credits = Val(lines(0))
+		system_id = Val(lines(1))
+		hold(2) = Val(lines(2))
+	End If
+	Call _ApplySystem()
+End Sub
+
+Sub _LoadOptions()
+	opt_fullscreen = False
+	opt_invert = True
+	If Not FileExists("user://elite_wire_slice_options.txt") Then Exit Sub
+	Dim lines As Array
+	lines = ReadLines("user://elite_wire_slice_options.txt")
+	If UBound(lines) < 0 Then Exit Sub
+	Dim line As String
+	line = Trim(lines(0))
+	If line = "1" Or line = "fullscreen=1" Or line = "true" Then opt_fullscreen = True
+	If UBound(lines) >= 1 Then
+		line = Trim(lines(1))
+		If line = "0" Then opt_invert = False
+	End If
+End Sub
+
+Sub _SaveOptions()
+	Dim flag As String
+	Dim inv As String
+	If opt_fullscreen Then
+		flag = "1"
+	Else
+		flag = "0"
+	End If
+	If opt_invert Then
+		inv = "1"
+	Else
+		inv = "0"
+	End If
+	WriteAllText "user://elite_wire_slice_options.txt", flag & Chr(10) & inv
+End Sub
+
+Sub _ApplyDisplayMode()
+	If DisplayServer.get_name() = "headless" Then Exit Sub
+	If opt_fullscreen Then
+		Screen.FullScreen True
+	Else
+		Screen.FullScreen False
+	End If
+	Dim vp As Object
+	Set vp = Me.GetViewport()
+	If vp = Null Then Exit Sub
+	Dim win As Object
+	Set win = vp.GetWindow()
+	If win = Null Then Exit Sub
+	If opt_fullscreen Then
+		win.mode = WIN_MODE_FULLSCREEN
+		If win.mode <> WIN_MODE_FULLSCREEN Then win.mode = WIN_MODE_EXCLUSIVE
+	Else
+		win.mode = WIN_MODE_WINDOWED
+	End If
+End Sub
+
+Sub _Arrive()
+	system_id = system_id + 1
+	If system_id > 7 Then system_id = 0
+	px = 0.0
+	py = 0.0
+	pz = 0.0
+	yaw = 0.0
+	pitch = 0.0
+	roll = 0.0
+	speed = 5.0
+	Call _ApplySystem()
+	Call _InitRocks()
+	Call _ArmHostiles()
+	Call _SaveGame()
+End Sub
+
+' --- Trade (C64-style hold): simplified 8 goods; not the full 17-good price table ---
+
+Sub _StockMarket()
+	Dim i As Integer
+	For i = 0 To GoodCount - 1
+		mkt_qty(i) = 6 + (system_id * 3 + i * 5) Mod 10
+	Next
+End Sub
+
+Function _GoodName(ByVal i As Integer) As String
+	If i = 0 Then
+		_GoodName = "FOOD"
+	ElseIf i = 1 Then
+		_GoodName = "TEXTILES"
+	ElseIf i = 2 Then
+		_GoodName = "MINERALS"
+	ElseIf i = 3 Then
+		_GoodName = "ALLOYS"
+	ElseIf i = 4 Then
+		_GoodName = "COMPUTERS"
+	ElseIf i = 5 Then
+		_GoodName = "LUXURIES"
+	ElseIf i = 6 Then
+		_GoodName = "GOLD"
+	Else
+		_GoodName = "GEMS"
+	End If
+End Function
+
+Function _GoodPrice(ByVal i As Integer) As Integer
+	Dim base As Integer
+	base = 8
+	If i = 1 Then base = 16
+	If i = 2 Then base = 18
+	If i = 3 Then base = 28
+	If i = 4 Then base = 52
+	If i = 5 Then base = 42
+	If i = 6 Then base = 70
+	If i = 7 Then base = 90
+	Dim wobble As Integer
+	wobble = (system_id * 5 + i * 7) Mod 17 - 8
+	_GoodPrice = base + wobble
+	If _GoodPrice < 4 Then _GoodPrice = 4
+End Function
+
+Function _HoldUsed() As Integer
+	Dim n As Integer
+	Dim i As Integer
+	n = 0
+	For i = 0 To GoodCount - 1
+		n = n + hold(i)
+	Next
+	_HoldUsed = n
+End Function
+
+' Docking gate: player roll within tolerance of station spin (see _UpdateStation).
+
+Function _RollMatches() As Boolean
+	Dim d As Single
+	d = roll - st_spin
+	Do While d > PI
+		d = d - PI * 2.0
+	Loop
+	Do While d < - PI
+		d = d + PI * 2.0
+	Loop
+	If d < 0.0 Then d = - d
+	If d > PI * 0.5 Then d = PI - d
+	_RollMatches = d < 0.4
+End Function
+
+' --- Hostiles: timers in sim_time; long gaps so early flight stays calm ---
+
+Sub _ArmHostiles()
+	en_alive = False
+	en_respawn = 24.0
+	hv_alive = False
+	hv_respawn = 42.0
+End Sub
+
+Sub _PollDock()
+	If IsKeyJustPressed(KEY_UP) Then trade_i = trade_i - 1
+	If IsKeyJustPressed(KEY_DOWN) Then trade_i = trade_i + 1
+	If trade_i < 0 Then trade_i = GoodCount - 1
+	If trade_i > GoodCount - 1 Then trade_i = 0
+	If IsKeyJustPressed(KEY_B) Then Call _BuyGood()
+	If IsKeyJustPressed(KEY_S) Then Call _SellGood()
+	If IsKeyJustPressed(KEY_L) Then Call _Launch()
+End Sub
+
+Sub _BuyGood()
+	Dim p As Integer
+	p = _GoodPrice(trade_i)
+	If credits < p Then Exit Sub
+	If _HoldUsed() >= CargoMax Then Exit Sub
+	If mkt_qty(trade_i) <= 0 Then Exit Sub
+	credits = credits - p
+	mkt_qty(trade_i) = mkt_qty(trade_i) - 1
+	hold(trade_i) = hold(trade_i) + 1
+	Call SfxConfirm()
+	Call _SaveGame()
+End Sub
+
+Sub _SellGood()
+	If hold(trade_i) <= 0 Then Exit Sub
+	Dim p As Integer
+	p = _GoodPrice(trade_i)
+	hold(trade_i) = hold(trade_i) - 1
+	mkt_qty(trade_i) = mkt_qty(trade_i) + 1
+	credits = credits + p
+	Call SfxChip()
+	Call _SaveGame()
+End Sub
+
+Sub _ScoopMinerals()
+	If _HoldUsed() >= CargoMax Then Exit Sub
+	hold(2) = hold(2) + 1
+End Sub
+
+' --- Docking: slow approach, slot aligned, roll matched to st_spin (Coriolis). No auto-sell. ---
+
+Sub _UpdateStation()
+	Call WorldToView(StationX - px, StationY - py, StationZ - pz, st_vx, st_vy, st_vz)
+	If docked Then Exit Sub
+	dock_hint = ""
+	If st_vz < 2.0 Or st_vz > 16.0 Then Exit Sub
+	If st_vx * st_vx + st_vy * st_vy > 36.0 Then Exit Sub
+	If st_vx * st_vx + st_vy * st_vy > 9.0 Then
+		dock_hint = "LINE UP ON THE SLOT"
+		Exit Sub
+	End If
+	If speed > 4.2 Then
+		dock_hint = "TOO FAST"
+		Exit Sub
+	End If
+	If Not _RollMatches() Then
+		dock_hint = "MATCH ROLL  Q AND E"
+		Exit Sub
+	End If
+	docked = True
+	speed = 0.0
+	trade_i = 0
+	energy = 100.0
+	shield = 100.0
+	dock_hint = ""
+	Call SfxDock()
+	Call _SaveGame()
+End Sub
+
+' --- Overlays: title, help, options (O) — block _PollFlight while visible ---
+
+Sub _DrawTitle()
+	Call _SyncPost()
+	canvas_stars.Clear()
+	canvas_world.Clear()
+	canvas_hud.Clear()
+	yaw = Sin(sim_time * 0.35) * 0.35
+	pitch = Sin(sim_time * 0.22) * 0.12
+	Call _DrawStars()
+
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ScreenH * 0.46
+	Dim ship_col As Color
+	ship_col = Color8(230, 245, 255)
+	Call DrawTraderShip(canvas_world, sim_time * 0.55, sim_time * 0.35, Sin(sim_time * 0.8) * 0.4, cx, cy, ProjScale * 0.85, ship_col, 0.0, 0.15, 4.2)
+
+	Dim orbit As Single
+	orbit = sim_time * 0.7
+	Dim rock_col As Color
+	rock_col = Color8(255, 196, 120)
+	Call DrawRock(canvas_world, orbit, orbit * 1.3, 0.4, cx, cy, ProjScale * 0.45, rock_col, Cos(orbit) * 5.5, Sin(orbit * 2.0) * 1.2, 7.5 + Sin(orbit) * 1.5)
+	Call DrawRock(canvas_world, - orbit, orbit * 0.6, 1.1, cx, cy, ProjScale * 0.28, rock_col, - Cos(orbit) * 4.0, 0.8, 9.0)
+	Call canvas_hud.DrawCircle(Vector2(cx, cy + 20.0), 108.0 + Sin(sim_time * 1.6) * 6.0, Color(0.35, 0.65, 0.9, 1.0), False, Color(0.0, 0.0, 0.0, 0.0))
+
+	Dim brand As Color
+	brand = Color(0.45, 0.82, 1.0, 1.0)
+	Call canvas_hud.DrawVectorTextFlip("NARCEAN TECHNOLOGIES", 78.0, 78.0, sim_time, brand, 1.55, 1.7, 36.0, 1.15, 0.42, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 148.0), "ELITE WIRE", Color(1.0, 0.92, 0.72, 1.0), 2.6, 2.2, 3.2, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 196.0), "MADE IN VISUAL GASIC (BASIC)", Color(0.55, 0.78, 0.95, 0.95), 1.05, 1.15, 1.6, "")
+
+	Dim blink As Single
+	blink = Sin(sim_time * 3.2)
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, ScreenH - 96.0), "H HELP    O OPTIONS", Color(0.55, 0.75, 0.9, 0.9), 1.15, 1.15, 1.8, "")
+	If blink > 0.0 Then
+		Call canvas_hud.DrawVectorTextCentered(Vector2(cx, ScreenH - 58.0), "PRESS SPACE", Color(0.75, 0.95, 1.0, 0.9), 1.35, 1.3, 2.0, "")
+	End If
+End Sub
+
+Sub _DrawHelp()
+	Call _SyncPost()
+	canvas_stars.Clear()
+	canvas_world.Clear()
+	canvas_hud.Clear()
+	Call _DrawStars()
+	Dim cx As Single
+	cx = ScreenW * 0.5
+	Dim ink As Color
+	ink = Color(0.75, 0.92, 1.0, 1.0)
+	Dim dimc As Color
+	dimc = Color(0.55, 0.72, 0.85, 1.0)
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 48.0), "KEYS", Color(1.0, 0.9, 0.65, 1.0), 2.4, 2.0, 3.0, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 110.0), "W THRUST    S BRAKE", ink, 1.35, 1.3, 2.0, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 148.0), "LEFT RIGHT  YAW", ink, 1.35, 1.3, 2.0, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 186.0), "UP DOWN  DIVE CLIMB IF FLIGHT STICK", ink, 1.15, 1.15, 1.6, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 224.0), "Q E  ROLL", ink, 1.35, 1.3, 2.0, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 256.0), "SPACE  LASER", ink, 1.2, 1.2, 1.8, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 288.0), "M  MISSILE", ink, 1.2, 1.2, 1.8, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 320.0), "J  HYPERSPACE   4 CREDITS", ink, 1.2, 1.2, 1.8, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 352.0), "DOCK  SLOW LEVEL  MATCH ROLL", dimc, 1.05, 1.05, 1.5, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 384.0), "MARKET  UP DOWN  B BUY  S SELL  L LAUNCH", ink, 0.95, 1.0, 1.4, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 416.0), "H HELP    O OPTIONS", ink, 1.15, 1.15, 1.7, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 448.0), "C64 ELITE  CORIOLIS AND 20T HOLD", dimc, 1.05, 1.05, 1.5, "")
+	Dim blink As Single
+	blink = Sin(sim_time * 3.2)
+	If blink > 0.0 Then
+		Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 490.0), "SPACE TO CLOSE", Color(0.85, 0.95, 1.0, 1.0), 1.25, 1.2, 1.8, "")
+	End If
+End Sub
+
+Sub _PollOptions()
+	If IsKeyJustPressed(KEY_ESCAPE) Or IsKeyJustPressed(KEY_O) Then
+		on_options = False
+		help_arm = 0.3
+		Exit Sub
+	End If
+	If IsKeyJustPressed(KEY_UP) Then opt_sel = opt_sel - 1
+	If IsKeyJustPressed(KEY_DOWN) Then opt_sel = opt_sel + 1
+	If opt_sel < 0 Then opt_sel = 1
+	If opt_sel > 1 Then opt_sel = 0
+	If IsKeyJustPressed(KEY_F) Or IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Or mouse_l_edge Then
+		If opt_sel = 0 Then
+			opt_fullscreen = Not opt_fullscreen
+			Call _ApplyDisplayMode()
+		Else
+			opt_invert = Not opt_invert
+		End If
+		Call _SaveOptions()
+		Call SfxConfirm()
+	End If
+End Sub
+
+Sub _DrawOptions()
+	Call _SyncPost()
+	canvas_stars.Clear()
+	canvas_world.Clear()
+	canvas_hud.Clear()
+	Call _DrawStars()
+	Dim cx As Single
+	cx = ScreenW * 0.5
+	Dim ink As Color
+	ink = Color(0.75, 0.92, 1.0, 1.0)
+	Dim dimc As Color
+	dimc = Color(0.55, 0.72, 0.85, 1.0)
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 52.0), "OPTIONS", Color(1.0, 0.9, 0.65, 1.0), 2.4, 2.0, 3.0, "")
+	Dim mark_fs As String
+	Dim mark_inv As String
+	mark_fs = "  "
+	mark_inv = "  "
+	If opt_sel = 0 Then mark_fs = "> "
+	If opt_sel = 1 Then mark_inv = "> "
+	Dim fs_line As String
+	If opt_fullscreen Then
+		fs_line = mark_fs & "FULLSCREEN:  ON"
+	Else
+		fs_line = mark_fs & "FULLSCREEN:  OFF"
+	End If
+	Dim inv_line As String
+	If opt_invert Then
+		inv_line = mark_inv & "STICK:  FLIGHT  UP DIVES"
+	Else
+		inv_line = mark_inv & "STICK:  CAMERA  UP CLIMBS"
+	End If
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 140.0), fs_line, ink, 1.25, 1.2, 1.8, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 188.0), inv_line, ink, 1.15, 1.15, 1.7, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 248.0), "UP DOWN SELECT    F OR CLICK TOGGLES", dimc, 1.05, 1.05, 1.5, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 292.0), "C64 STICK IS FLIGHT: FORWARD DIVES", dimc, 0.95, 1.0, 1.45, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(cx, 320.0), "O OR ESC BACK", ink, 1.25, 1.2, 1.8, "")
+End Sub
+
+' --- Render: three VGVectorCanvas2D layers cleared every frame (stars / world / HUD) ---
+
+Sub _DrawFrame()
+	Call _SyncPost()
+	canvas_stars.Clear()
+	canvas_world.Clear()
+	canvas_hud.Clear()
+	If jump_left > 0.0 Then
+		Call _DrawTunnel()
+	ElseIf docked Then
+		Call _DrawDockInterior()
+	Else
+		Call _DrawStars()
+		Call _DrawMoon()
+		Call _DrawShip()
+		Call _DrawThrust()
+		Call _DrawRocks()
+		Call _DrawPirate()
+		Call _DrawHeavy()
+		Call _DrawMissile()
+		Call _DrawStation()
+		Call _DrawBoom()
+		Call _DrawHud()
+	End If
+End Sub
+
+' World meshes: station+bay share st_spin; tunnel/dock are separate 2D-ish passes.
+
+Sub _DrawStation()
+	If st_vz < 0.8 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim body As Color
+	Dim bay As Color
+	body = Color8(150, 210, 255)
+	bay = Color8(190, 255, 210)
+	Call DrawStation(canvas_world, st_spin, cx, cy, ProjScale, body, bay, st_vx, st_vy, st_vz)
+End Sub
+
+Sub _DrawDockInterior()
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Dim wall As Color
+	wall = Color8(140, 200, 230)
+	Call _HudSeg(segs, cols, 120.0, 70.0, 840.0, 70.0, wall)
+	Call _HudSeg(segs, cols, 840.0, 70.0, 840.0, 470.0, wall)
+	Call _HudSeg(segs, cols, 840.0, 470.0, 120.0, 470.0, wall)
+	Call _HudSeg(segs, cols, 120.0, 470.0, 120.0, 70.0, wall)
+	Call canvas_world.DrawLinesColored(segs, cols, 1.8)
+	Dim ink As Color
+	ink = Color(0.75, 0.92, 1.0, 1.0)
+	Dim dimc As Color
+	dimc = Color(0.55, 0.75, 0.9, 1.0)
+	Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 48.0), "CORIOLIS MARKET", Color(1.0, 0.9, 0.65, 1.0), 1.8, 1.6, 2.2, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 82.0), "CR " & Str(credits) & "   HOLD " & Str(_HoldUsed()) & "/" & Str(CargoMax), ink, 1.15, 1.1, 1.6, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 112.0), "GOOD      PRICE  STOCK  HOLD", dimc, 1.0, 1.05, 1.5, "")
+	Dim i As Integer
+	For i = 0 To GoodCount - 1
+		Dim mark As String
+		If i = trade_i Then
+			mark = "> "
+		Else
+			mark = "  "
+		End If
+		Dim row As String
+		row = mark & _GoodName(i) & "   " & Str(_GoodPrice(i)) & "   " & Str(mkt_qty(i)) & "   " & Str(hold(i))
+		Dim rc As Color
+		If i = trade_i Then
+			rc = Color(1.0, 0.95, 0.7, 1.0)
+		Else
+			rc = ink
+		End If
+		Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 148.0 + i * 32.0), row, rc, 1.05, 1.05, 1.5, "")
+	Next
+	Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 430.0), "UP DOWN SELECT    B BUY    S SELL", dimc, 1.05, 1.05, 1.5, "")
+	Call canvas_hud.DrawVectorTextCentered(Vector2(480.0, 468.0), "L LAUNCH", Color(0.75, 0.95, 1.0, 1.0), 1.2, 1.15, 1.7, "")
+End Sub
+
+Sub _DrawTunnel()
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim i As Integer
+	For i = 0 To 23
+		Dim a As Single
+		a = i / 24.0 * PI * 2.0 + sim_time * 2.0
+		Dim reach As Single
+		reach = 40.0 + (1.7 - jump_left) * 220.0
+		Dim col As Color
+		col = Color8(80 + i * 6, 180, 255)
+		Call _HudSeg(segs, cols, cx, cy, cx + Cos(a) * reach, cy + Sin(a) * reach, col)
+	Next
+	Call canvas_world.DrawLinesColored(segs, cols, 1.5)
+End Sub
+
+Sub _Hurt(ByVal amount As Single)
+	hit_flash = 0.16
+	Call SfxHurt()
+	shield = shield - amount
+	If shield < 0.0 Then
+		shield = 0.0
+		speed = speed * 0.55
+	Else
+		speed = speed * 0.82
+	End If
+End Sub
+
+' Stars use DrawCircle per point (DrawLinesColored looked wrong on Mesa compat).
+
+Sub _DrawStars()
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim i As Integer
+	For i = 0 To StarCount - 1
+		Dim vx As Single
+		Dim vy As Single
+		Dim vz As Single
+		Call WorldToView(star_x(i) - px, star_y(i) - py, star_z(i) - pz, vx, vy, vz)
+		If vz > 1.0 Then
+			Dim sx As Single
+			Dim sy As Single
+			sx = vx / vz * ProjScale + cx
+			sy = - vy / vz * ProjScale + cy
+			If sx > - 20.0 And sx < ScreenW + 20.0 And sy > - 20.0 And sy < ScreenH + 20.0 Then
+				Call canvas_stars.DrawCircle(Vector2(sx, sy), 1.2, star_c(i), True, star_c(i))
+			End If
+		End If
+	Next
+End Sub
+
+Sub _DrawShip()
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim col As Color
+	If hit_flash > 0.0 Then
+		col = Color8(255, 80, 80)
+	Else
+		col = Color8(255, 255, 255)
+	End If
+	' Nose (+Z in the mesh) points away from the camera.
+	Call DrawTraderShip(canvas_world, pitch * 0.25, PI, roll, cx, cy, ProjScale, col, 0.0, - 0.35, 3.4)
+End Sub
+
+Sub _DrawThrust()
+	If speed < 1.0 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY + 58.0
+	Dim len As Single
+	len = 10.0 + speed * 2.4
+	Dim flick As Single
+	flick = 0.65 + Sin(sim_time * 28.0) * 0.35
+	Dim hot As Color
+	hot = Color(1.0, 0.72 * flick, 0.25 * flick, 1.0)
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Call _HudSeg(segs, cols, cx, cy, cx - 10.0, cy + len, hot)
+	Call _HudSeg(segs, cols, cx, cy, cx + 10.0, cy + len, hot)
+	Call _HudSeg(segs, cols, cx, cy, cx, cy + len * 1.25, Color(0.7, 0.95, 1.0, 1.0))
+	If speed > 16.0 Then
+		Dim i As Integer
+		For i = 0 To 3
+			Dim a As Single
+			a = i / 4.0 * PI * 2.0 + sim_time
+			Dim inner As Single
+			inner = 180.0
+			Dim outer As Single
+			outer = 210.0 + speed
+			Call _HudSeg(segs, cols, cx + Cos(a) * inner, cy + Sin(a) * inner * 0.55, cx + Cos(a) * outer, cy + Sin(a) * outer * 0.55, Color(0.35, 0.7, 1.0, 1.0))
+		Next
+	End If
+	Call canvas_world.DrawLinesColored(segs, cols, 1.6)
+End Sub
+
+Sub _DrawMoon()
+	Dim vx As Single
+	Dim vy As Single
+	Dim vz As Single
+	Call WorldToView(StationX + 36.0 - px, 16.0 - py, StationZ + 28.0 - pz, vx, vy, vz)
+	If vz < 4.0 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5 + vx / vz * ProjScale
+	cy = ViewCY - vy / vz * ProjScale
+	Dim rad As Single
+	rad = 280.0 / vz
+	If rad < 4.0 Then Exit Sub
+	If rad > 28.0 Then rad = 28.0
+	Dim glow As Color
+	glow = Color(0.55, 0.75, 0.95, 1.0)
+	Call canvas_stars.DrawCircle(Vector2(cx, cy), rad, glow, True, glow)
+End Sub
+
+Sub _DrawBoom()
+	If boom_t <= 0.0 Then Exit Sub
+	Dim k As Single
+	k = 1.0 - boom_t / 0.7
+	If k < 0.0 Then k = 0.0
+	Dim rad As Single
+	rad = 10.0 + k * 78.0
+	Dim c As Color
+	c = Color(1.0, 0.85 - k * 0.4, 0.35, 1.0)
+	Call canvas_world.DrawCircle(Vector2(boom_x, boom_y), rad, c, False, c)
+	Call canvas_world.DrawCircle(Vector2(boom_x, boom_y), rad * 0.55, Color(1.0, 1.0, 0.8, 1.0), False, c)
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Dim i As Integer
+	For i = 0 To 7
+		Dim a As Single
+		a = i / 8.0 * PI * 2.0 + k * 2.0
+		Call _HudSeg(segs, cols, boom_x + Cos(a) * rad * 0.4, boom_y + Sin(a) * rad * 0.4, boom_x + Cos(a) * rad * 1.35, boom_y + Sin(a) * rad * 1.35, c)
+	Next
+	Call canvas_world.DrawLinesColored(segs, cols, 1.5)
+End Sub
+
+Sub _StoreRockView(ByVal i As Integer)
+	Dim vx As Single
+	Dim vy As Single
+	Dim vz As Single
+	Call WorldToView(rock_x(i) - px, rock_y(i) - py, rock_z(i) - pz, vx, vy, vz)
+	view_x(i) = vx
+	view_y(i) = vy
+	view_z(i) = vz
+End Sub
+
+' --- Field: few rocks, delayed hostiles; view_* filled here for HUD + scanner ---
+
+Sub _UpdateRocks()
+	target_i = - 1
+	Dim best As Single
+	best = 0.05
+	Dim i As Integer
+	For i = 0 To RockCount - 1
+		Call _StoreRockView(i)
+		ord(i) = i
+		If view_z(i) < 0.8 Then
+			Call _RespawnRock(i, 28.0 + Rnd() * 18.0)
+			Call _StoreRockView(i)
+		Else
+			Dim near As Single
+			near = view_x(i) * view_x(i) + view_y(i) * view_y(i) + view_z(i) * view_z(i)
+			If near < 2.4 Then
+				Call _Hurt(24.0)
+				Call _RespawnRock(i, 30.0 + Rnd() * 16.0)
+				Call _StoreRockView(i)
+			ElseIf view_z(i) < 26.0 Then
+				Dim lat As Single
+				lat = (view_x(i) * view_x(i) + view_y(i) * view_y(i)) / (view_z(i) * view_z(i))
+				If lat < best Then
+					best = lat
+					target_i = i
+				End If
+			End If
+		End If
+	Next
+	If en_alive And en_vz > 1.2 And en_vz < 32.0 Then
+		Dim plat As Single
+		plat = (en_vx * en_vx + en_vy * en_vy) / (en_vz * en_vz)
+		If plat < best Then
+			best = plat
+			target_i = - 2
+		End If
+	End If
+	If hv_alive And hv_vz > 1.2 And hv_vz < 32.0 Then
+		Dim hlat As Single
+		hlat = (hv_vx * hv_vx + hv_vy * hv_vy) / (hv_vz * hv_vz)
+		If hlat < best Then
+			target_i = - 3
+		End If
+	End If
+End Sub
+
+' --- Combat: laser mining on rocks; pirate + heavy; one homing missile ---
+
+Sub _SpawnPirate()
+	en_alive = True
+	en_hits = 0
+	en_hit_cool = 0.0
+	en_respawn = 0.0
+	en_x = px + (Rnd() - 0.5) * 18.0
+	en_y = py + (Rnd() - 0.5) * 8.0
+	en_z = pz + 28.0 + Rnd() * 14.0
+	Dim sdx As Single
+	Dim sdy As Single
+	Dim sdz As Single
+	sdx = en_x - StationX
+	sdy = en_y - StationY
+	sdz = en_z - StationZ
+	If sdx * sdx + sdy * sdy + sdz * sdz < 160.0 Then
+		en_z = StationZ - 24.0
+	End If
+End Sub
+
+Sub _UpdatePirate(ByVal delta As Single)
+	If Not en_alive Then
+		en_respawn = en_respawn - delta
+		If en_respawn <= 0.0 Then Call _SpawnPirate()
+		Exit Sub
+	End If
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = px - en_x
+	dy = py - en_y
+	dz = pz - en_z
+	Dim dist As Single
+	dist = Sqr(dx * dx + dy * dy + dz * dz)
+	If dist < 0.35 Then dist = 0.35
+	' Stay in front of the player. Do not fly into the cockpit.
+	If dist < 14.0 Then
+		en_x = en_x - dx / dist * 12.0 * delta
+		en_y = en_y - dy / dist * 12.0 * delta
+		en_z = en_z - dz / dist * 12.0 * delta
+	ElseIf dist > 26.0 Then
+		en_x = en_x + dx / dist * 7.0 * delta
+		en_y = en_y + dy / dist * 7.0 * delta
+		en_z = en_z + dz / dist * 7.0 * delta
+	End If
+	en_x = en_x + Cos(sim_time * 1.1) * delta * 4.0
+	en_y = en_y + Sin(sim_time * 0.7) * delta * 2.0
+	If en_hit_cool > 0.0 Then en_hit_cool = en_hit_cool - delta
+	If dist < 4.2 And en_hit_cool <= 0.0 Then
+		Call _Hurt(16.0)
+		en_hit_cool = 1.8
+		en_x = en_x - dx / dist * 12.0
+		en_y = en_y - dy / dist * 12.0
+		en_z = en_z - dz / dist * 12.0
+	End If
+	Call WorldToView(en_x - px, en_y - py, en_z - pz, en_vx, en_vy, en_vz)
+End Sub
+
+Sub _DrawPirate()
+	If Not en_alive Then Exit Sub
+	If en_vz < 0.7 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim col As Color
+	If target_i = - 2 Then
+		col = Color8(255, 80, 80)
+	ElseIf en_hits > 0 Then
+		col = Color8(255, 120, 70)
+	Else
+		col = Color8(220, 60, 70)
+	End If
+	Call DrawTraderShip(canvas_world, 0.2, 0.0, Sin(sim_time * 0.8) * 0.3, cx, cy, ProjScale * 0.72, col, en_vx, en_vy, en_vz)
+End Sub
+
+Sub _SpawnHeavy()
+	hv_alive = True
+	hv_hits = 0
+	hv_hit_cool = 0.0
+	hv_respawn = 0.0
+	hv_x = px + (Rnd() - 0.5) * 16.0
+	hv_y = py + (Rnd() - 0.5) * 8.0
+	hv_z = pz + 34.0 + Rnd() * 12.0
+End Sub
+
+Sub _UpdateHeavy(ByVal delta As Single)
+	If Not hv_alive Then
+		hv_respawn = hv_respawn - delta
+		If hv_respawn <= 0.0 Then Call _SpawnHeavy()
+		Exit Sub
+	End If
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = px - hv_x
+	dy = py - hv_y
+	dz = pz - hv_z
+	Dim dist As Single
+	dist = Sqr(dx * dx + dy * dy + dz * dz)
+	If dist < 0.35 Then dist = 0.35
+	If dist < 16.0 Then
+		hv_x = hv_x - dx / dist * 9.0 * delta
+		hv_y = hv_y - dy / dist * 9.0 * delta
+		hv_z = hv_z - dz / dist * 9.0 * delta
+	ElseIf dist > 32.0 Then
+		hv_x = hv_x + dx / dist * 5.0 * delta
+		hv_y = hv_y + dy / dist * 5.0 * delta
+		hv_z = hv_z + dz / dist * 5.0 * delta
+	End If
+	hv_x = hv_x + Sin(sim_time * 0.45) * delta * 3.0
+	If hv_hit_cool > 0.0 Then hv_hit_cool = hv_hit_cool - delta
+	If dist < 5.0 And hv_hit_cool <= 0.0 Then
+		Call _Hurt(22.0)
+		hv_hit_cool = 2.0
+		hv_x = hv_x - dx / dist * 14.0
+		hv_y = hv_y - dy / dist * 14.0
+		hv_z = hv_z - dz / dist * 14.0
+	End If
+	Call WorldToView(hv_x - px, hv_y - py, hv_z - pz, hv_vx, hv_vy, hv_vz)
+End Sub
+
+Sub _DrawHeavy()
+	If Not hv_alive Then Exit Sub
+	If hv_vz < 0.7 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim col As Color
+	If target_i = - 3 Then
+		col = Color8(255, 210, 80)
+	ElseIf hv_hits > 0 Then
+		col = Color8(255, 150, 40)
+	Else
+		col = Color8(230, 110, 30)
+	End If
+	Call DrawTraderShip(canvas_world, 0.05, 0.4, Sin(sim_time * 0.35) * 0.15, cx, cy, ProjScale * 1.15, col, hv_vx, hv_vy, hv_vz)
+End Sub
+
+Sub _LaunchMissile()
+	Dim fx As Single
+	Dim fy As Single
+	Dim fz As Single
+	fx = Sin(yaw)
+	fy = - Cos(yaw) * Sin(pitch)
+	fz = Cos(yaw) * Cos(pitch)
+	ms_on = True
+	ms_life = 1.6
+	ms_cool = 0.55
+	energy = energy - 6.0
+	ms_x = px + fx * 2.2
+	ms_y = py + fy * 2.2
+	ms_z = pz + fz * 2.2
+	ms_vx = fx * 34.0
+	ms_vy = fy * 34.0
+	ms_vz = fz * 34.0
+	Call SfxMissile()
+End Sub
+
+Sub _MissileBoom()
+	Dim vx As Single
+	Dim vy As Single
+	Dim vz As Single
+	Call WorldToView(ms_x - px, ms_y - py, ms_z - pz, vx, vy, vz)
+	If vz > 0.4 Then
+		boom_x = ScreenW * 0.5 + vx / vz * ProjScale
+		boom_y = ViewCY - vy / vz * ProjScale
+		boom_t = 0.45
+	End If
+	ms_on = False
+	Call SfxChip()
+End Sub
+
+Sub _UpdateMissile(ByVal delta As Single)
+	If Not ms_on Then Exit Sub
+	ms_life = ms_life - delta
+	ms_x = ms_x + ms_vx * delta
+	ms_y = ms_y + ms_vy * delta
+	ms_z = ms_z + ms_vz * delta
+	If ms_life <= 0.0 Then
+		ms_on = False
+		Exit Sub
+	End If
+	If en_alive Then
+		Dim dx As Single
+		Dim dy As Single
+		Dim dz As Single
+		dx = ms_x - en_x
+		dy = ms_y - en_y
+		dz = ms_z - en_z
+		If dx * dx + dy * dy + dz * dz < 3.2 Then
+			en_hits = en_hits + 3
+			Call _MissileBoom()
+			If en_hits >= 4 Then Call _KillPirate()
+			Exit Sub
+		End If
+	End If
+	If hv_alive Then
+		Dim hx As Single
+		Dim hy As Single
+		Dim hz As Single
+		hx = ms_x - hv_x
+		hy = ms_y - hv_y
+		hz = ms_z - hv_z
+		If hx * hx + hy * hy + hz * hz < 4.5 Then
+			hv_hits = hv_hits + 3
+			Call _MissileBoom()
+			If hv_hits >= 7 Then Call _KillHeavy()
+		End If
+	End If
+End Sub
+
+Sub _DrawMissile()
+	If Not ms_on Then Exit Sub
+	Dim vx As Single
+	Dim vy As Single
+	Dim vz As Single
+	Call WorldToView(ms_x - px, ms_y - py, ms_z - pz, vx, vy, vz)
+	Dim bx As Single
+	Dim by As Single
+	Dim bz As Single
+	Call WorldToView(ms_x - ms_vx * 0.05 - px, ms_y - ms_vy * 0.05 - py, ms_z - ms_vz * 0.05 - pz, bx, by, bz)
+	If vz < 0.4 Or bz < 0.4 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Call _HudSeg(segs, cols, cx + bx / bz * ProjScale, cy - by / bz * ProjScale, cx + vx / vz * ProjScale, cy - vy / vz * ProjScale, Color8(180, 255, 140))
+	Call canvas_world.DrawLinesColored(segs, cols, 2.2)
+End Sub
+
+Sub _KillPirate()
+	credits = credits + 12
+	en_alive = False
+	en_respawn = 18.0
+	target_i = - 1
+	Call SfxBoom()
+	Call _SaveGame()
+End Sub
+
+Sub _KillHeavy()
+	credits = credits + 22
+	hv_alive = False
+	hv_respawn = 28.0
+	target_i = - 1
+	Call SfxBoom()
+	Call _SaveGame()
+End Sub
+
+' Laser hits on rocks (fragments) and hostiles; Sfx wired in Sfx.vg.
+
+Sub _Mine()
+	If laser_cool > 0.0 Then Exit Sub
+	If energy < 12.0 Then Exit Sub
+	If Not Input.IsKeyPressed(KEY_SPACE) And Not mouse_l_held Then Exit Sub
+	If target_i = - 2 Then
+		Call _MinePirate()
+		Exit Sub
+	End If
+	If target_i = - 3 Then
+		Call _MineHeavy()
+		Exit Sub
+	End If
+	If target_i < 0 Then Exit Sub
+	Dim i As Integer
+	i = target_i
+	energy = energy - 12.0
+	laser_cool = 0.16
+	laser_left = 0.1
+	Call SfxLaser()
+	laser_x1 = ScreenW * 0.5 + view_x(i) / view_z(i) * ProjScale
+	laser_y1 = ViewCY - view_y(i) / view_z(i) * ProjScale
+	rock_hits(i) = rock_hits(i) + 1
+	If rock_hits(i) >= 3 Then
+		boom_x = laser_x1
+		boom_y = laser_y1
+		boom_t = 0.45
+		Call SfxChip()
+		If rock_size(i) > 0.55 Then
+			rock_size(i) = rock_size(i) * 0.55
+			rock_hits(i) = 0
+		Else
+			Call _ScoopMinerals()
+			rock_size(i) = 0.65 + Rnd() * 0.7
+			Call _RespawnRock(i, 32.0 + Rnd() * 14.0)
+			Call _StoreRockView(i)
+			target_i = - 1
+		End If
+	End If
+End Sub
+
+Sub _MinePirate()
+	If en_vz < 0.8 Then Exit Sub
+	energy = energy - 12.0
+	laser_cool = 0.16
+	laser_left = 0.1
+	Call SfxLaser()
+	laser_x1 = ScreenW * 0.5 + en_vx / en_vz * ProjScale
+	laser_y1 = ViewCY - en_vy / en_vz * ProjScale
+	en_hits = en_hits + 1
+	If en_hits >= 4 Then
+		boom_x = laser_x1
+		boom_y = laser_y1
+		boom_t = 0.7
+		Call _KillPirate()
+	End If
+End Sub
+
+Sub _MineHeavy()
+	If hv_vz < 0.8 Then Exit Sub
+	energy = energy - 12.0
+	laser_cool = 0.16
+	laser_left = 0.1
+	Call SfxLaser()
+	laser_x1 = ScreenW * 0.5 + hv_vx / hv_vz * ProjScale
+	laser_y1 = ViewCY - hv_vy / hv_vz * ProjScale
+	hv_hits = hv_hits + 1
+	If hv_hits >= 7 Then
+		boom_x = laser_x1
+		boom_y = laser_y1
+		boom_t = 0.7
+		Call _KillHeavy()
+	End If
+End Sub
+
+Sub _DrawRocks()
+	Call _SortRocksFarFirst()
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim n As Integer
+	For n = 0 To RockCount - 1
+		Dim i As Integer
+		i = ord(n)
+		If view_z(i) > 0.6 Then
+			Dim ac As Color
+			If i = target_i Then
+				ac = Color8(255, 255, 170)
+			ElseIf rock_hits(i) > 0 Then
+				ac = Color8(255, 130, 60)
+			Else
+				ac = Color8(255, 196, 110)
+			End If
+			Dim spin As Single
+			spin = rock_phase(i) + sim_time * rock_spin(i)
+			Call DrawRock(canvas_world, spin * 0.7, spin, rock_phase(i), cx, cy, ProjScale * rock_size(i), ac, view_x(i), view_y(i), view_z(i))
+		End If
+	Next
+End Sub
+
+Sub _SortRocksFarFirst()
+	Dim a As Integer
+	For a = 0 To RockCount - 2
+		Dim b As Integer
+		For b = a + 1 To RockCount - 1
+			If view_z(ord(b)) > view_z(ord(a)) Then
+				Dim tmp As Integer
+				tmp = ord(a)
+				ord(a) = ord(b)
+				ord(b) = tmp
+			End If
+		Next
+	Next
+End Sub
+
+Sub _HudSeg(ByRef segs As PackedVector2Array, ByRef cols As PackedColorArray, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal col As Color)
+	segs.append(Vector2(x0, y0))
+	segs.append(Vector2(x1, y1))
+	cols.append(col)
+End Sub
+
+' --- In-flight overlay: crosshair + compass tick; bars live on cockpit console ---
+
+Sub _DrawHud()
+	Dim cx As Single
+	Dim cy As Single
+	cx = ScreenW * 0.5
+	cy = ViewCY
+	Dim segs As PackedVector2Array
+	Dim cols As PackedColorArray
+	Dim c As Color
+	c = Color8(80, 220, 255)
+	Dim frame As Color
+	frame = Color8(70, 130, 160)
+	Call _HudSeg(segs, cols, 16.0, 28.0, 16.0, 78.0, frame)
+	Call _HudSeg(segs, cols, 16.0, 28.0, 70.0, 28.0, frame)
+	Call _HudSeg(segs, cols, ScreenW - 16.0, 28.0, ScreenW - 16.0, 78.0, frame)
+	Call _HudSeg(segs, cols, ScreenW - 16.0, 28.0, ScreenW - 70.0, 28.0, frame)
+	Call _HudSeg(segs, cols, 16.0, ScreenH - 18.0, 16.0, ScreenH - 68.0, frame)
+	Call _HudSeg(segs, cols, 16.0, ScreenH - 18.0, 70.0, ScreenH - 18.0, frame)
+	Call _HudSeg(segs, cols, ScreenW - 16.0, ScreenH - 18.0, ScreenW - 16.0, ScreenH - 68.0, frame)
+	Call _HudSeg(segs, cols, ScreenW - 16.0, ScreenH - 18.0, ScreenW - 70.0, ScreenH - 18.0, frame)
+
+	Call _HudSeg(segs, cols, cx - 16.0, cy, cx - 5.0, cy, c)
+	Call _HudSeg(segs, cols, cx + 5.0, cy, cx + 16.0, cy, c)
+	Call _HudSeg(segs, cols, cx, cy - 16.0, cx, cy - 5.0, c)
+	Call _HudSeg(segs, cols, cx, cy + 5.0, cx, cy + 16.0, c)
+
+	Dim yaw_n As Single
+	yaw_n = yaw
+	Do While yaw_n > PI
+		yaw_n = yaw_n - PI * 2.0
+	Loop
+	Do While yaw_n < - PI
+		yaw_n = yaw_n + PI * 2.0
+	Loop
+	Call _HudSeg(segs, cols, cx - 90.0, 22.0, cx + 90.0, 22.0, frame)
+	Call _HudSeg(segs, cols, cx, 16.0, cx, 28.0, c)
+	Call _HudSeg(segs, cols, cx + yaw_n / PI * 80.0, 14.0, cx + yaw_n / PI * 80.0, 30.0, Color8(255, 220, 120))
+
+	Dim pip As Integer
+	Dim shown As Integer
+	shown = _HoldUsed()
+	If shown > CargoMax Then shown = CargoMax
+	For pip = 0 To shown - 1
+		Call _HudSeg(segs, cols, 24.0 + pip * 6.0, 40.0, 24.0 + pip * 6.0, 52.0, Color8(255, 210, 90))
+	Next
+	If dock_hint <> "" Then
+		Call canvas_hud.DrawVectorTextCentered(Vector2(cx, ViewCY + 72.0), dock_hint, Color(1.0, 0.9, 0.55, 1.0), 1.15, 1.1, 1.6, "")
+	End If
+
+	If laser_left > 0.0 Then
+		Call _HudSeg(segs, cols, cx, cy + 30.0, laser_x1, laser_y1, Color8(140, 255, 160))
+	End If
+	Call canvas_hud.DrawLinesColored(segs, cols, 1.6)
+	Call _DrawCockpit()
+	Call _DrawRadar()
+End Sub
+
+Sub _HudLabel(ByVal x As Single, ByVal y As Single, ByVal caption As String, ByVal col As Color)
+	Call canvas_hud.DrawText(Vector2(x, y), caption, col, hud_font)
+End Sub
+
+Sub _HBar(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal frac As Single, ByVal col As Color)
+	If frac < 0.0 Then frac = 0.0
+	If frac > 1.0 Then frac = 1.0
+	Dim track As Color
+	track = Color8(18, 20, 16)
+	Call canvas_hud.DrawRect(Rect2(x, y, w, 8.0), 0.0, track, True, track)
+	If frac > 0.02 Then
+		Call canvas_hud.DrawRect(Rect2(x + 1.0, y + 1.0, (w - 2.0) * frac, 6.0), 0.0, col, True, col)
+	End If
+End Sub
+
+' --- Cockpit console: filled rects/polygons + DrawText labels (Archimedes *layout*, original art).
+' Placeholder UI — expect visual rough edges; polish with textured panels or mesh shading later.
+
+Sub _DrawCockpit()
+	Dim shell As Color
+	shell = Color8(168, 160, 118)
+	Dim inset As Color
+	inset = Color8(42, 46, 38)
+	Dim edge As Color
+	edge = Color8(92, 86, 58)
+	Dim ink As Color
+	ink = Color8(28, 32, 24)
+	Call canvas_hud.DrawRect(Rect2(0.0, 0.0, ScreenW, 7.0), 0.0, shell, True, shell)
+	Call canvas_hud.DrawRect(Rect2(0.0, 0.0, 7.0, DashY), 0.0, shell, True, shell)
+	Call canvas_hud.DrawRect(Rect2(ScreenW - 7.0, 0.0, 7.0, DashY), 0.0, shell, True, shell)
+	Call canvas_hud.DrawRect(Rect2(0.0, DashY - 6.0, ScreenW, 6.0), 0.0, shell, True, shell)
+	Call canvas_hud.DrawRect(Rect2(0.0, DashY, ScreenW, ScreenH - DashY), 0.0, shell, True, shell)
+	Call canvas_hud.DrawRect(Rect2(12.0, DashY + 8.0, 228.0, 100.0), 0.0, inset, True, inset)
+	Call canvas_hud.DrawRect(Rect2(720.0, DashY + 8.0, 228.0, 100.0), 0.0, inset, True, inset)
+
+	Dim heat As Single
+	heat = 0.0
+	If laser_cool > 0.0 Then heat = laser_cool / 0.16
+	Dim alt As Single
+	alt = 0.0
+	If st_vz > 0.8 Then
+		alt = 1.0 - st_vz / 70.0
+		If alt < 0.0 Then alt = 0.0
+		If alt > 1.0 Then alt = 1.0
+	End If
+	Dim cr As Single
+	cr = credits / 200.0
+	If cr > 1.0 Then cr = 1.0
+	Call _HudLabel(20.0, DashY + 22.0, "FS", ink)
+	Call _HBar(48.0, DashY + 14.0, 180.0, shield / 100.0, Color8(220, 64, 64))
+	Call _HudLabel(20.0, DashY + 38.0, "EN", ink)
+	Call _HBar(48.0, DashY + 30.0, 180.0, energy / 100.0, Color8(64, 200, 96))
+	Call _HudLabel(20.0, DashY + 54.0, "CG", ink)
+	Call _HBar(48.0, DashY + 46.0, 180.0, _HoldUsed() / CargoMax, Color8(230, 190, 60))
+	Call _HudLabel(20.0, DashY + 70.0, "LT", ink)
+	Call _HBar(48.0, DashY + 62.0, 180.0, heat, Color8(80, 140, 230))
+	Call _HudLabel(20.0, DashY + 86.0, "AL", ink)
+	Call _HBar(48.0, DashY + 78.0, 180.0, alt, Color8(120, 190, 230))
+	Call _HudLabel(20.0, DashY + 102.0, "CR", ink)
+	Call _HBar(48.0, DashY + 94.0, 180.0, cr, Color8(230, 210, 120))
+
+	Call _HudLabel(730.0, DashY + 22.0, "SP", ink)
+	Call _HBar(758.0, DashY + 14.0, 176.0, speed / 28.0, Color8(140, 220, 210))
+	Call _HudLabel(730.0, DashY + 38.0, "RL", ink)
+	Call _HBar(758.0, DashY + 30.0, 176.0, 1.0, Color8(24, 28, 22))
+	Dim roll_n As Single
+	roll_n = roll / 1.2
+	If roll_n > 1.0 Then roll_n = 1.0
+	If roll_n < - 1.0 Then roll_n = - 1.0
+	Call canvas_hud.DrawRect(Rect2(844.0 + roll_n * 80.0, DashY + 29.0, 4.0, 10.0), 0.0, Color8(80, 200, 230), True, Color8(80, 200, 230))
+	Dim dock_f As Single
+	dock_f = 0.0
+	If st_vz > 2.0 And st_vz < 16.0 And st_vx * st_vx + st_vy * st_vy < 36.0 Then
+		dock_f = 0.35
+		If speed <= 4.2 Then dock_f = 0.65
+		If _RollMatches() And speed <= 4.2 And st_vx * st_vx + st_vy * st_vy < 9.0 Then dock_f = 1.0
+	End If
+	Call _HudLabel(730.0, DashY + 54.0, "DC", ink)
+	Call _HBar(758.0, DashY + 46.0, 176.0, dock_f, Color8(80, 210, 120))
+	Dim bank As Integer
+	Dim eBank As Single
+	eBank = energy / 25.0
+	For bank = 0 To 3
+		Dim bf As Single
+		bf = 0.0
+		If eBank > bank Then
+			bf = eBank - bank
+			If bf > 1.0 Then bf = 1.0
+		End If
+		Call _HudLabel(730.0, DashY + 72.0 + bank * 9.0, Str(bank + 1), ink)
+		Call _HBar(758.0, DashY + 64.0 + bank * 9.0, 176.0, bf, Color8(196, 72, 64))
+	Next
+
+	Dim cx As Single
+	Dim cy As Single
+	cx = 455.0
+	cy = DashY + 58.0
+	Dim pts As Array
+	pts = Array(Vector2(cx - 70.0, cy - 36.0), Vector2(cx + 70.0, cy - 36.0), Vector2(cx + 118.0, cy - 12.0), Vector2(cx + 118.0, cy + 12.0), Vector2(cx + 70.0, cy + 36.0), Vector2(cx - 70.0, cy + 36.0), Vector2(cx - 118.0, cy + 12.0), Vector2(cx - 118.0, cy - 12.0))
+	Call canvas_hud.DrawPolygon(pts, 2.0, edge, True, Color8(16, 18, 14))
+	Dim g As Integer
+	For g = - 1 To 1
+		Call canvas_hud.DrawLine(Vector2(cx - 100.0, cy + g * 12.0), Vector2(cx + 100.0, cy + g * 12.0), 1.0, Color8(120, 48, 42))
+	Next
+	Call canvas_hud.DrawLine(Vector2(cx, cy - 30.0), Vector2(cx, cy + 30.0), 1.0, Color8(120, 48, 42))
+	Call canvas_hud.DrawLine(Vector2(cx - 50.0, cy - 24.0), Vector2(cx + 50.0, cy + 24.0), 1.0, Color8(90, 36, 32))
+	Call canvas_hud.DrawLine(Vector2(cx - 50.0, cy + 24.0), Vector2(cx + 50.0, cy - 24.0), 1.0, Color8(90, 36, 32))
+	Call canvas_hud.DrawRect(Rect2(cx - 28.0, cy + 40.0, 56.0, 16.0), 1.5, ink, True, Color8(210, 200, 150))
+	Call _HudLabel(cx - 18.0, cy + 52.0, "SCAN", ink)
+
+	Call canvas_hud.DrawRect(Rect2(648.0, DashY + 18.0, 52.0, 52.0), 1.5, edge, True, Color8(8, 10, 8))
+	Call canvas_hud.DrawLine(Vector2(674.0, DashY + 22.0), Vector2(674.0, DashY + 66.0), 1.0, Color8(40, 120, 70))
+	Call canvas_hud.DrawLine(Vector2(652.0, DashY + 44.0), Vector2(696.0, DashY + 44.0), 1.0, Color8(40, 120, 70))
+	Call canvas_hud.DrawCircle(Vector2(674.0 + Sin(yaw) * 16.0, DashY + 44.0 - Cos(yaw) * 16.0), 2.2, Color8(80, 220, 140), True, Color8(80, 220, 140))
+End Sub
+
+Sub _ScanPlace(ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Dim nx As Single
+	Dim nz As Single
+	nx = vx / 48.0
+	nz = vz / 48.0
+	Dim rr As Single
+	rr = nx * nx + nz * nz
+	If rr > 1.0 Then
+		Dim mag As Single
+		mag = Sqr(rr)
+		nx = nx / mag
+		nz = nz / mag
+	End If
+	scan_x = 455.0 + nx * 96.0
+	scan_y = DashY + 58.0 - nz * 26.0 - vy / 48.0 * 10.0
+End Sub
+
+Sub _RadarClamp(ByVal rcx As Single, ByVal rcy As Single, ByVal rad As Single, ByRef bx As Single, ByRef by As Single)
+	Dim dx As Single
+	Dim dy As Single
+	dx = bx - rcx
+	dy = by - rcy
+	If dx * dx + dy * dy > rad * rad Then
+		Dim mag As Single
+		mag = Sqr(dx * dx + dy * dy)
+		bx = rcx + dx / mag * (rad - 1.5)
+		by = rcy + dy / mag * (rad - 1.5)
+	End If
+End Sub
+
+Sub _RadarBlipDot(ByVal bx As Single, ByVal by As Single, ByVal col As Color)
+	Call canvas_hud.DrawCircle(Vector2(bx, by), 1.6, col, True, col)
+End Sub
+
+' --- Scanner blips (3D-ish via _ScanPlace height); drawn after cockpit so they sit on the grid ---
+
+Sub _DrawRadar()
+	Dim ring As Color
+	ring = Color8(170, 240, 255)
+	Call canvas_hud.DrawLine(Vector2(453.0, DashY + 28.0), Vector2(457.0, DashY + 28.0), 1.0, ring)
+	Dim i As Integer
+	For i = 0 To RockCount - 1
+		If view_z(i) > 0.8 And view_z(i) < 48.0 Then
+			Call _ScanPlace(view_x(i), view_y(i), view_z(i))
+			Dim bc As Color
+			If i = target_i Then
+				bc = Color8(255, 255, 160)
+			Else
+				bc = Color8(255, 180, 90)
+			End If
+			Call _RadarBlipDot(scan_x, scan_y, bc)
+		End If
+	Next
+	If st_vz > 0.5 Then
+		Call _ScanPlace(st_vx, st_vy, st_vz)
+		Dim sc As Color
+		sc = Color8(140, 220, 255)
+		Call canvas_hud.DrawRect(Rect2(scan_x - 2.5, scan_y - 2.5, 5.0, 5.0), 1.0, sc, False, sc)
+	End If
+	If en_alive And en_vz > 0.5 Then
+		Call _ScanPlace(en_vx, en_vy, en_vz)
+		Dim ec As Color
+		ec = Color8(255, 70, 70)
+		Call canvas_hud.DrawLine(Vector2(scan_x - 3.0, scan_y - 3.0), Vector2(scan_x + 3.0, scan_y + 3.0), 1.2, ec)
+		Call canvas_hud.DrawLine(Vector2(scan_x - 3.0, scan_y + 3.0), Vector2(scan_x + 3.0, scan_y - 3.0), 1.2, ec)
+	End If
+	If hv_alive And hv_vz > 0.5 Then
+		Call _ScanPlace(hv_vx, hv_vy, hv_vz)
+		Dim hc As Color
+		hc = Color8(255, 150, 40)
+		Call canvas_hud.DrawLine(Vector2(scan_x - 3.0, scan_y - 3.0), Vector2(scan_x + 3.0, scan_y - 3.0), 1.2, hc)
+		Call canvas_hud.DrawLine(Vector2(scan_x + 3.0, scan_y - 3.0), Vector2(scan_x, scan_y + 3.0), 1.2, hc)
+		Call canvas_hud.DrawLine(Vector2(scan_x, scan_y + 3.0), Vector2(scan_x - 3.0, scan_y - 3.0), 1.2, hc)
+	End If
+End Sub

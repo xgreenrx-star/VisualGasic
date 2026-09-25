@@ -48,6 +48,8 @@ public:
         CMD_PLASMA_CELLS = 13,    // Compute+draw plasma grid in C++ — no VG loop needed
         CMD_TORUS_WIREFRAME = 14, // Compute+draw full torus wireframe in C++ — no VG loop needed
         CMD_FIRE_CELLS = 15,      // Compute+draw fire simulation colour pass in C++ — no VG loop needed
+        CMD_MULTILINE_COLORS = 16, // Batch line segments with per-segment colors (one GPU multiline)
+        CMD_RAW_WIRE_MESH = 17,   // 3D vertex list + edge indices → rotate, project, batch draw
     };
 private:
 	// Command buffer + bookkeeping. Stored as Array<Dictionary> so the
@@ -115,6 +117,8 @@ private:
 	void _draw_plasma_cells_command(const Dictionary &cmd);
 	void _draw_torus_wireframe_command(const Dictionary &cmd);
 	void _draw_fire_cells_command(const Dictionary &cmd);
+	void _draw_multiline_colors_command(const Dictionary &cmd);
+	void _draw_raw_wire_mesh_command(const Dictionary &cmd);
 
 	void _ensure_default_vector_font();
 	Dictionary _get_vector_font(const String &name);
@@ -138,6 +142,14 @@ public:
 	void DrawPolygon(const Array &points, float width = 2.0f, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0));
 	void DrawPolyline(const Array &points, float width = 2.0f, const Color &color = Color(1, 1, 1, 1), bool fill = false, const Color &fill_color = Color(1, 1, 1, 0), bool close = false);
 	void DrawLines(const PackedVector2Array &segments, float width = 2.0f, const Color &color = Color(1, 1, 1, 1));
+	// Flat pairs (x0,y0,x1,y1) per segment; colors.size() == segment count (or empty → skipped).
+	void DrawLinesColored(const PackedVector2Array &segments, const PackedColorArray &colors, float width = 2.0f);
+	// vertices + edge index pairs; rotation radians; z_depth added before perspective divide (Elite-style).
+	void DrawRawWireMesh(const PackedVector3Array &vertices, const PackedInt32Array &edges,
+			float rot_x, float rot_y, float rot_z, float cx, float cy, float scale, float z_depth,
+			float width = 2.0f, const Color &color = Color(1, 1, 1, 1),
+			const PackedColorArray &edge_colors = PackedColorArray(),
+			float offset_x = 0.0f, float offset_y = 0.0f, float offset_z = 0.0f);
 	// Batch rect drawing: rects_xywh is a flat PackedVector2Array where each pair (Vector2(x,y), Vector2(w,h)) is one rect.
 	// DrawRects: per-rect colors supplied in PackedColorArray (same count as rect count).
 	// DrawRectsUniform: all rects share one color.

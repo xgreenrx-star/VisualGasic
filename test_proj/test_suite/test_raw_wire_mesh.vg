@@ -1,0 +1,52 @@
+' Smoke: VGVectorCanvas2D DrawRawWireMesh + DrawLinesColored queue without error.
+Option Explicit
+
+Dim canvas As Object
+
+Sub _Ready()
+	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
+	canvas.SetBatchMode(True)
+
+	Dim verts As PackedVector3Array
+	verts.append(Vector3(-1, -1, 0))
+	verts.append(Vector3(1, -1, 0))
+	verts.append(Vector3(1, 1, 0))
+	verts.append(Vector3(-1, 1, 0))
+	verts.append(Vector3(0, 0, 1))
+
+	Dim edges As PackedInt32Array
+	edges.append(0)
+	edges.append(1)
+	edges.append(1)
+	edges.append(2)
+	edges.append(2)
+	edges.append(3)
+	edges.append(3)
+	edges.append(0)
+	edges.append(0)
+	edges.append(4)
+	edges.append(1)
+	edges.append(4)
+	edges.append(2)
+	edges.append(4)
+	edges.append(3)
+	edges.append(4)
+
+	Call canvas.DrawRawWireMesh(verts, edges, 0.2, 0.4, 0.0, 320.0, 240.0, 120.0, 4.0, 2.0, Color(1, 1, 1, 1))
+	Dim far_cols As PackedColorArray
+	' Far above the view — must clip instead of projecting into a smeared line.
+	Call canvas.DrawRawWireMesh(verts, edges, 0.0, 0.0, 0.0, 320.0, 240.0, 420.0, 0.5, 1.8, Color(0.6, 0.85, 1.0, 1.0), far_cols, 0.0, 48.0, 19.0)
+
+	Dim segs As PackedVector2Array
+	segs.append(Vector2(10, 10))
+	segs.append(Vector2(50, 50))
+	segs.append(Vector2(60, 10))
+	segs.append(Vector2(100, 40))
+	Dim cols As PackedColorArray
+	cols.append(Color(1, 0, 0, 1))
+	cols.append(Color(0, 1, 0, 1))
+	Call canvas.DrawLinesColored(segs, cols, 2.0)
+
+	Print "PASS: raw_wire_mesh_smoke"
+End Sub

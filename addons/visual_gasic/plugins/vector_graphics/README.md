@@ -61,6 +61,19 @@ Call vg.Render(canvas)
 - `SetVectorFont(canvas, name)`
 - `GetVectorFontNames(canvas)`
 - `DrawGauge(canvas, center, radius, progress, width, color, bg_color, start_angle, end_angle)`
+- `DrawLinesColored(canvas, segments, colors, width)` — flat `(x0,y0,x1,y1)` pairs; one color per segment; single GPU batch
+- `DrawRawWireMesh(canvas, vertices, edges, rot_x, rot_y, rot_z, cx, cy, scale, z_depth, width, color, edge_colors, offset_x, offset_y, offset_z)` — 3D wire model; `offset_*` is camera-space position after rotation
+
+### Wire mesh (3D → 2D batch)
+
+Use **`VGVectorCanvas2D`** (via `CreateNode("VGVectorCanvas2D")` or `vg.CreateVectorCanvas()`). **`DrawRawWireMesh`** rotates each vertex (yaw/pitch/roll), applies perspective `scale / (z + z_depth)`, and draws all edges in one **`draw_multiline_colors`** pass.
+
+- **`vertices`**: `PackedVector3Array` model space.
+- **`edges`**: `PackedInt32Array` — pairs of vertex indices `(i0, i1, i0, i1, …)`.
+- **`offset_x/y/z`**: camera-space translation of the mesh origin (default 0). Use this to place ships and rocks; keep `z_depth` as the near-plane pullback.
+- Project already in 2D? Use **`DrawLines`** or **`DrawLinesColored`** instead (same batch path as torus wireframe).
+
+**Samples:** [Elite Wire Slice](../../../samples/games/elite_wire_slice/) (`DrawRawWireMesh`), [Vector Fathom](../../../samples/apps/vector_fathom/) (cockpit wire + projection in `.vg`), [GravenVector.vg](../../../samples/games/vg_graven_slice/ai_projects/graven_slice/GravenVector.vg) (layered canvases).
 
 ## Vector Fonts
 

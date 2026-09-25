@@ -1,0 +1,194 @@
+' Wire meshes for Elite Wire Slice — original simplified geometry (not TNK/Oolite assets).
+' Axes: x = right, y = up, z = toward camera (nose positive z).
+'
+' DrawRawWireMesh projects edges only. For a stronger 3D read, a later pass could add
+' filled face polygons per mesh (engine or game-side) without copying Archimedes bitmaps.
+Option Explicit
+
+Dim ship_verts As PackedVector3Array
+Dim ship_edges As PackedInt32Array
+Dim rock_verts As PackedVector3Array
+Dim rock_edges As PackedInt32Array
+Dim station_verts As PackedVector3Array
+Dim station_edges As PackedInt32Array
+Dim bay_verts As PackedVector3Array
+Dim bay_edges As PackedInt32Array
+
+Dim meshes_ready As Boolean
+Dim blank_cols As PackedColorArray
+
+' One-time mesh build; Draw* subs project with caller yaw/pitch/roll/spin.
+
+Sub InitEliteMeshes()
+	If meshes_ready Then Exit Sub
+	meshes_ready = True
+	Call _BuildTraderShip()
+	Call _BuildRock()
+	Call _BuildStation()
+	Call _BuildBay()
+End Sub
+
+Sub _BuildTraderShip()
+	' Cobra-inspired kite: nose, cockpit box, wings, tail (16 verts).
+	ship_verts.append(Vector3(0.0, 0.0, 1.45))
+	ship_verts.append(Vector3(- 0.22, - 0.12, 0.75))
+	ship_verts.append(Vector3(0.22, - 0.12, 0.75))
+	ship_verts.append(Vector3(- 0.22, 0.12, 0.75))
+	ship_verts.append(Vector3(0.22, 0.12, 0.75))
+	ship_verts.append(Vector3(- 0.95, 0.0, - 0.15))
+	ship_verts.append(Vector3(0.95, 0.0, - 0.15))
+	ship_verts.append(Vector3(- 0.35, 0.0, - 0.55))
+	ship_verts.append(Vector3(0.35, 0.0, - 0.55))
+	ship_verts.append(Vector3(0.0, - 0.18, - 1.05))
+	ship_verts.append(Vector3(- 0.12, 0.08, 0.35))
+	ship_verts.append(Vector3(0.12, 0.08, 0.35))
+	ship_verts.append(Vector3(- 0.12, - 0.08, 0.35))
+	ship_verts.append(Vector3(0.12, - 0.08, 0.35))
+	ship_verts.append(Vector3(0.0, 0.22, 0.2))
+	ship_verts.append(Vector3(0.0, - 0.05, - 0.75))
+
+	Call _Edge(0, 1)
+	Call _Edge(0, 2)
+	Call _Edge(0, 3)
+	Call _Edge(0, 4)
+	Call _Edge(1, 2)
+	Call _Edge(3, 4)
+	Call _Edge(1, 3)
+	Call _Edge(2, 4)
+	Call _Edge(1, 13)
+	Call _Edge(2, 12)
+	Call _Edge(3, 10)
+	Call _Edge(4, 11)
+	Call _Edge(10, 11)
+	Call _Edge(11, 12)
+	Call _Edge(12, 13)
+	Call _Edge(10, 13)
+	Call _Edge(10, 14)
+	Call _Edge(11, 14)
+	Call _Edge(1, 5)
+	Call _Edge(2, 6)
+	Call _Edge(5, 7)
+	Call _Edge(6, 8)
+	Call _Edge(7, 9)
+	Call _Edge(8, 9)
+	Call _Edge(7, 8)
+	Call _Edge(5, 6)
+	Call _Edge(15, 7)
+	Call _Edge(15, 8)
+	Call _Edge(15, 9)
+End Sub
+
+Sub _BuildRock()
+	' Irregular octahedron-ish asteroid (8 verts).
+	rock_verts.append(Vector3(0.0, 0.85, 0.0))
+	rock_verts.append(Vector3(0.0, - 0.75, 0.0))
+	rock_verts.append(Vector3(0.72, 0.0, 0.35))
+	rock_verts.append(Vector3(- 0.68, 0.0, 0.28))
+	rock_verts.append(Vector3(0.0, 0.05, 0.78))
+	rock_verts.append(Vector3(0.0, - 0.05, - 0.72))
+	rock_verts.append(Vector3(0.55, 0.0, - 0.42))
+	rock_verts.append(Vector3(- 0.58, 0.0, - 0.38))
+
+	Call _RockEdge(0, 2)
+	Call _RockEdge(0, 3)
+	Call _RockEdge(0, 4)
+	Call _RockEdge(1, 2)
+	Call _RockEdge(1, 3)
+	Call _RockEdge(1, 5)
+	Call _RockEdge(2, 4)
+	Call _RockEdge(3, 4)
+	Call _RockEdge(2, 6)
+	Call _RockEdge(3, 7)
+	Call _RockEdge(5, 6)
+	Call _RockEdge(5, 7)
+	Call _RockEdge(6, 7)
+	Call _RockEdge(0, 6)
+	Call _RockEdge(0, 7)
+	Call _RockEdge(1, 6)
+	Call _RockEdge(1, 7)
+	Call _RockEdge(4, 5)
+End Sub
+
+Sub _BuildStation()
+	' Octahedron body. +Z faces the camera when the mesh is unrotated.
+	station_verts.append(Vector3(0.0, 5.2, 0.0))
+	station_verts.append(Vector3(0.0, - 5.2, 0.0))
+	station_verts.append(Vector3(5.2, 0.0, 0.0))
+	station_verts.append(Vector3(- 5.2, 0.0, 0.0))
+	station_verts.append(Vector3(0.0, 0.0, 5.2))
+	station_verts.append(Vector3(0.0, 0.0, - 5.2))
+	Call _StationEdge(0, 2)
+	Call _StationEdge(0, 3)
+	Call _StationEdge(0, 4)
+	Call _StationEdge(0, 5)
+	Call _StationEdge(1, 2)
+	Call _StationEdge(1, 3)
+	Call _StationEdge(1, 4)
+	Call _StationEdge(1, 5)
+	Call _StationEdge(2, 4)
+	Call _StationEdge(4, 3)
+	Call _StationEdge(3, 5)
+	Call _StationEdge(5, 2)
+End Sub
+
+Sub _BuildBay()
+	' Slot shares the body spin (C64 Coriolis: roll to match the letterbox).
+	bay_verts.append(Vector3(1.15, 1.45, 5.6))
+	bay_verts.append(Vector3(1.15, - 1.45, 5.6))
+	bay_verts.append(Vector3(- 1.15, - 1.45, 5.6))
+	bay_verts.append(Vector3(- 1.15, 1.45, 5.6))
+	bay_verts.append(Vector3(0.55, 0.75, 4.0))
+	bay_verts.append(Vector3(0.55, - 0.75, 4.0))
+	bay_verts.append(Vector3(- 0.55, - 0.75, 4.0))
+	bay_verts.append(Vector3(- 0.55, 0.75, 4.0))
+	Call _BayEdge(0, 1)
+	Call _BayEdge(1, 2)
+	Call _BayEdge(2, 3)
+	Call _BayEdge(3, 0)
+	Call _BayEdge(4, 5)
+	Call _BayEdge(5, 6)
+	Call _BayEdge(6, 7)
+	Call _BayEdge(7, 4)
+	Call _BayEdge(0, 4)
+	Call _BayEdge(1, 5)
+	Call _BayEdge(2, 6)
+	Call _BayEdge(3, 7)
+End Sub
+
+Sub _Edge(ByVal a As Integer, ByVal b As Integer)
+	ship_edges.append(a)
+	ship_edges.append(b)
+End Sub
+
+Sub _RockEdge(ByVal a As Integer, ByVal b As Integer)
+	rock_edges.append(a)
+	rock_edges.append(b)
+End Sub
+
+Sub _StationEdge(ByVal a As Integer, ByVal b As Integer)
+	station_edges.append(a)
+	station_edges.append(b)
+End Sub
+
+Sub _BayEdge(ByVal a As Integer, ByVal b As Integer)
+	bay_edges.append(a)
+	bay_edges.append(b)
+End Sub
+
+' Public draw API: rot_* = mesh spin; (ox,oy,oz) = world offset before camera transform.
+
+Sub DrawTraderShip(ByVal canvas As Object, ByVal rot_x As Single, ByVal rot_y As Single, ByVal rot_z As Single, ByVal cx As Single, ByVal cy As Single, ByVal scale As Single, ByVal col As Color, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single)
+	If Not meshes_ready Then Call InitEliteMeshes()
+	Call canvas.DrawRawWireMesh(ship_verts, ship_edges, rot_x, rot_y, rot_z, cx, cy, scale, 0.55, 2.0, col, blank_cols, ox, oy, oz)
+End Sub
+
+Sub DrawRock(ByVal canvas As Object, ByVal rot_x As Single, ByVal rot_y As Single, ByVal rot_z As Single, ByVal cx As Single, ByVal cy As Single, ByVal scale As Single, ByVal col As Color, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single)
+	If Not meshes_ready Then Call InitEliteMeshes()
+	Call canvas.DrawRawWireMesh(rock_verts, rock_edges, rot_x, rot_y, rot_z, cx, cy, scale, 0.45, 1.5, col, blank_cols, ox, oy, oz)
+End Sub
+
+Sub DrawStation(ByVal canvas As Object, ByVal spin As Single, ByVal cx As Single, ByVal cy As Single, ByVal scale As Single, ByVal body As Color, ByVal bay As Color, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single)
+	If Not meshes_ready Then Call InitEliteMeshes()
+	Call canvas.DrawRawWireMesh(station_verts, station_edges, 0.0, 0.0, spin, cx, cy, scale, 0.5, 1.8, body, blank_cols, ox, oy, oz)
+	Call canvas.DrawRawWireMesh(bay_verts, bay_edges, 0.0, 0.0, spin, cx, cy, scale, 0.5, 2.0, bay, blank_cols, ox, oy, oz)
+End Sub

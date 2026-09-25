@@ -957,6 +957,15 @@ func DrawTorusWireframe(rot_y: float, rot_x: float, hue_off: float, tt: float,
 		fade: float, cx: float, cy: float, scale: float = 1.0) -> void:
 	pass  # implemented in C++ parent VGVectorCanvas2D
 
+func DrawLinesColored(segments: PackedVector2Array, colors: PackedColorArray, width: float = 2.0) -> void:
+	pass  # C++ — batch 2D segments with per-line colors (draw_multiline_colors)
+
+func DrawRawWireMesh(vertices: PackedVector3Array, edges: PackedInt32Array,
+		rot_x: float, rot_y: float, rot_z: float, cx: float, cy: float, scale: float, z_depth: float,
+		width: float = 2.0, color: Color = Color(1,1,1,1), edge_colors: PackedColorArray = PackedColorArray(),
+		offset_x: float = 0.0, offset_y: float = 0.0, offset_z: float = 0.0) -> void:
+	pass  # C++ — rotate, camera-space offset, perspective project, batch wire edges
+
 func DrawSpriteLines(texture: Texture2D, segments: PackedVector2Array, width: float = 6.0, color: Color = Color(1,1,1,1)) -> void:
 	pass  # implemented in C++ parent VGVectorCanvas2D
 

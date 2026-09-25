@@ -205,6 +205,17 @@ static func DrawTorusWireframe(canvas: Node, rot_y: float, rot_x: float, hue_off
 	if canvas and canvas.has_method("DrawTorusWireframe"):
 		canvas.DrawTorusWireframe(rot_y, rot_x, hue_off, tt, fade, cx, cy, scale)
 
+static func DrawLinesColored(canvas: Node, segments: PackedVector2Array, colors: PackedColorArray, width: float = 2.0) -> void:
+	if canvas and canvas.has_method("DrawLinesColored"):
+		canvas.DrawLinesColored(segments, colors, width)
+
+static func DrawRawWireMesh(canvas: Node, vertices: PackedVector3Array, edges: PackedInt32Array,
+		rot_x: float, rot_y: float, rot_z: float, cx: float, cy: float, scale: float, z_depth: float,
+		width: float = 2.0, color: Color = Color(1,1,1,1), edge_colors: PackedColorArray = PackedColorArray(),
+		offset_x: float = 0.0, offset_y: float = 0.0, offset_z: float = 0.0) -> void:
+	if canvas and canvas.has_method("DrawRawWireMesh"):
+		canvas.DrawRawWireMesh(vertices, edges, rot_x, rot_y, rot_z, cx, cy, scale, z_depth, width, color, edge_colors, offset_x, offset_y, offset_z)
+
 static func DrawSpriteLines(canvas: Node, texture: Texture2D, segments: PackedVector2Array, width: float = 6.0, color: Color = Color(1,1,1,1)) -> void:
 	if canvas and canvas.has_method("DrawSpriteLines"):
 		canvas.DrawSpriteLines(texture, segments, width, color)

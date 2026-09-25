@@ -1,0 +1,13 @@
+' Regression: module-level Dim As Packed*Array must not be Nil before .Append
+Option Explicit
+
+Dim buf As PackedVector2Array
+
+Sub _Ready()
+	buf.append(Vector2(3.0, 4.0))
+	If buf.size() = 1 Then
+		Print "PASS: module_packed_dim"
+	Else
+		Print "FAIL: module_packed_dim size=" & Str(buf.size())
+	End If
+End Sub
