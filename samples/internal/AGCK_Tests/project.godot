@@ -22,8 +22,7 @@ driver/enable_input=true
 
 [autoload]
 
-VGDebugHandler="*uid://bba4n02t2dx1g"
-Controller="*res://addons/visual_gasic/plugins/vgmusic/bosca/globals/Controller.gd"
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [display]
 

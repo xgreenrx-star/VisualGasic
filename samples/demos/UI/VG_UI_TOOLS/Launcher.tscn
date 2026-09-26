@@ -429,7 +429,6 @@ title = "Launcher"
 position = Vector2i(10, 36)
 size = Vector2i(640, 620)
 theme = SubResource("vb6_theme")
-script = ExtResource("1")
 
 [node name="_FormBackground" type="Panel" parent="."]
 offset_right = 640.0
@@ -466,7 +465,7 @@ offset_left = 0.0
 offset_top = 0.0
 offset_right = 100.0
 offset_bottom = 16.0
-text = ""Click a demo below to open it. Every form has a ◀ Menu"
+text = "Click a demo below to open it. Every form has a ◀ Menu"
 theme_override_font_sizes/font_size = 15
 layout_mode = 2
 
@@ -587,4 +586,7 @@ text = "Pick any demo above to get started."
 theme_override_font_sizes/font_size = 14
 layout_mode = 2
 autowrap_mode = 3
+
+[node name="VGASIC" type="Node" parent="."]
+script = ExtResource("1")
 
