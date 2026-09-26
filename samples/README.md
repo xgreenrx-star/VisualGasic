@@ -42,6 +42,7 @@ scripts/ci_smoke.sh samples/apps/vg_hex_editor
 | [pong_ultimate](games/pong_ultimate/) | Pong variant |
 | [racing_3d](games/racing_3d/) | Simple 3D racing |
 | [vector_storm](games/vector_storm/) | Vector graphics shooter |
+| [elite_wire_slice](games/elite_wire_slice/) | Wireframe space demo (Elite-inspired, early) |
 | [zork](games/zork/) | Text adventure |
 | [vg_graven_slice](games/vg_graven_slice/) | GRAVEN action preview |
 
@@ -58,6 +59,8 @@ scripts/ci_smoke.sh samples/apps/vg_hex_editor
 
 | Project | Description |
 |---------|-------------|
+| [qb_abc_showcase](showcases/qb_abc_showcase/) | Retro game pack + screen gallery (main menu **`.`**) |
+| [classic_screen_modes](showcases/classic_screen_modes/) | Standalone SCREEN mode demos |
 | [vg_beta_showcase](showcases/vg_beta_showcase/) | Beta feature tour (~6 min) — [YouTube](https://youtu.be/FUw8zgbn_tU); run F5 in-editor or `scripts/record_beta_showcase.sh` for local AVI |
 | [demoscene_intro](showcases/demoscene_intro/) | Demoscene-style intro |
 | [vg_narcea_movie_demo](showcases/vg_narcea_movie_demo/) | Narcea-generated movie reel — record with `scripts/record_narcea_movie_demo.sh` |

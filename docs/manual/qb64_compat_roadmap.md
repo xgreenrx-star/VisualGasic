@@ -12,7 +12,7 @@ Porting workflow (SCREEN vs canvas, `PEEK`/`POKE` replacements): [Classic portin
 
 | Area | Commands |
 |------|----------|
-| Classic buffer | `SCREEN` 0–13, `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`/`PUT`, `PALETTE`, `PCOPY`, `VIEW`, `WINDOW`, `DRAW`, `LOCATE`/`PRINT` 8×8, `Point`, `InKey$`, `SOUND`/`BEEP`/`PLAY`, `LoadPcx` |
+| Classic buffer | `SCREEN` 0–14 and profiles **100–199** (see [classic_games_graphics.md](classic_games_graphics.md)), `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`/`PUT`, `PALETTE`, `PCOPY`, `VIEW`, `WINDOW`, `DRAW`, `LOCATE`/`PRINT` 8×8, `Point`, `InKey$`, `SOUND`/`BEEP`/`PLAY`, `LoadPcx`, `ScreenMode`, `GfxWidth`, `GfxHeight`, `GfxPlayfieldBottom` |
 | 32-bit pages | `_NewImage`, `SCREEN handle`, `_Dest`, `_Source`, `_PutImage (x, y), src`, `_Display`, `_FreeImage`, `_LoadImage`, `_RGB32`, `_RGBA32`, `_Width`, `_Height` |
 | Desktop size | `_DesktopWidth`, `_DesktopHeight` (monitor; if the OS reports 0×0, the Godot viewport, then 640×480). The buffer stays **letterboxed**. It does not resize the OS window. |
 | Mouse | `_MouseX`, `_MouseY`, `_MouseButton(1\|2\|3)`, `_MouseInput` in QB pixel space |

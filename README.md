@@ -1,7 +1,7 @@
 # VisualGasic — Game systems and tools on Godot, with a power layer GDScript doesn't ship.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.5.0--beta2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2)
+[![Version](https://img.shields.io/badge/version-5.5.0--beta3-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta3)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
 
@@ -65,11 +65,13 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 - Double-click ignores existing `.tscn` signal connections — directly undermines AI+VG workflow
 - Phantom button double-press on blocking async calls
 
-**Recently shipped (5.5.0-beta2):**
-- **Narcea Live Debug Capture** — opt-in viewport + debugger context for Vibe Code while you debug (local-only, purged on stop)
-- **`samples/` layout** — games, apps, demos, and showcases under `samples/`; harness in `engine_lab/` (legacy `projects/` symlinks kept)
-- **Godot game wiring** — bound **Connect**, **lambda** handlers, **RemoveAt**, **autoload** globals; **Brotato3D** sample at `samples/games/brotato3d/`
-- **Gameplay benchmarks (Sept 2026)** — packed entity scans; published rows include **IntegerLoop ~65×**, **NodePropertyChurn ~170×** vs GDScript ([details](BENCHMARK_PUBLISHED_RESULTS.md))
+**Recently shipped (5.5.0-beta3):**
+- **QB ABC showcase** — retro game pack + screen gallery (`samples/showcases/qb_abc_showcase/`, menu **`.`**)
+- **Classic pixel canvas** — extra SCREEN sizes, split playfields, porting docs; Narcea classic lane when enabled
+- **Elite Wire Slice** — wireframe space demo (`samples/games/elite_wire_slice/`)
+- **Vector canvas** — `DrawRawWireMesh`, mouse position fixes, batched line dispatch
+
+**Previous (5.5.0-beta2):** Narcea Live Debug Capture · `samples/` layout · Brotato3D · gameplay benchmark rows ([details](BENCHMARK_PUBLISHED_RESULTS.md))
 
 **Carried forward:**
 - **12/12 compute + 9/9 draw** — Tier A release gate still faster than GDScript
@@ -86,7 +88,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.5.0-beta2 — Current public beta** (on the road to **VG6** stable). Latest addon: [v5.5.0-beta2 Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2). See [release notes](RELEASE_NOTES_v5.5.0-beta2.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
+> 🚀 **v5.5.0-beta3 — Current public beta** (on the road to **VG6** stable). Latest addon: [v5.5.0-beta3 Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta3). See [release notes](RELEASE_NOTES_v5.5.0-beta3.md). [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md).
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -101,14 +103,14 @@ If the project matters to you, support helps move v6.0 forward faster. Current f
 
 ## 📥 Download & install
 
-**Latest engine build:** [v5.5.0-beta2](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2) **Asset Library zip** (BYO Godot 4.6.1+). One-shot installers below are still **v5.4.0-beta2** until the next installer cut — replace `addons/visual_gasic/` with the 5.5 zip after install.
+**Latest engine build:** [v5.5.0-beta3](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta3) **Asset Library zip** (BYO Godot 4.6.1+). One-shot installers below are still **v5.4.0-beta2** until the next installer cut — replace `addons/visual_gasic/` with the 5.5 zip after install.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
 | 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.4.0-beta2-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-v5.4.0-beta2-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
 | 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.4.0-beta2-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-v5.4.0-beta2-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
 | 🍏 **macOS (Intel & Apple Silicon)** | *not yet available* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.5.0-beta2**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta2/VisualGasic_AssetLibrary_v5.5.0-beta2.zip) · [v5.4 addon zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-v5.4.0-beta2.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. Portable platform zips are **no longer published**. |
+| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.5.0-beta3**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta3/VisualGasic_AssetLibrary_v5.5.0-beta3.zip) · [v5.4 addon zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-v5.4.0-beta2.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. Portable platform zips are **no longer published**. |
 | 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-Offline-v5.4.0-beta2-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-Installer-Offline-v5.4.0-beta2-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
@@ -604,9 +606,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.5.0-beta2` (Current Public Beta)
+**Current Version**: `v5.5.0-beta3` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.5.0-beta2 release notes](RELEASE_NOTES_v5.5.0-beta2.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.5.0-beta3 release notes](RELEASE_NOTES_v5.5.0-beta3.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)

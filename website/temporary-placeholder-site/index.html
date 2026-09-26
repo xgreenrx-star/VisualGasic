@@ -19,7 +19,7 @@
           published wins vs GDScript on compute and canvas benchmarks, and an in-editor <strong>Vibe Code</strong> panel (Narcea + Ollama or your API keys).
           Not retro branding &mdash; games and shipped demos are the proof. Install, docs, benchmarks, and showcases below.
         </p>
-        <p class="roadmap-strip">v5.5.0-beta2 shipped: Narcea Live Debug Capture, <code>samples/</code> repo layout, Brotato3D sample. Still true: 12/12 compute + 9/9 draw vs GDScript; Sept 2026 gameplay rows (IntegerLoop ~65×, NodePropertyChurn ~170×).</p>
+        <p class="roadmap-strip">v5.5.0-beta3: retro game showcase (Gorillas, Invaders, …), wireframe Elite sample, vector canvas fixes. Still true: 12/12 compute + 9/9 draw vs GDScript; Narcea + <code>samples/</code> layout from beta2.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">Try the Beta Showcase</a>
@@ -33,7 +33,7 @@
       <div class="hero-panel notice-card">
         <p class="notice-title">Status</p>
         <ul class="notice-list">
-            <li>✅ <strong>v5.5.0-beta2</strong> — Narcea Live Debug Capture · <code>samples/</code> layout · Brotato3D</li>
+            <li>✅ <strong>v5.5.0-beta3</strong> — QB ABC showcase · Elite Wire Slice · classic pixel canvas + docs</li>
             <li>✅ 12/12 compute + 9/9 draw vs GDScript · Sept 2026 gameplay benchmarks published</li>
             <li>✅ <strong>v5.4.0-beta2</strong> — Buffer type, Let block scope, Narcea Tier A/B</li>
             <li>✅ <strong><a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">VG Beta Showcase</a></strong> — <a href="https://youtu.be/FUw8zgbn_tU">watch on YouTube</a> or open <code>samples/showcases/vg_beta_showcase/</code> and press F5</li>
@@ -51,8 +51,8 @@
           <p class="section-kicker">Downloads</p>
           <h2>Installers, offline bundles, and manual install for the current beta</h2>
           <p>
-            Latest engine addon: <strong>v5.5.0-beta2 Asset Library zip</strong> (BYO Godot 4.6.1+). One-click installers below are still
-            v5.4.0-beta2 — swap in the 5.5 addon after install, or use the 5.5 zip directly. For air-gapped installs, use the offline bundle.
+            Latest engine addon: <strong>v5.5.0-beta3 Asset Library zip</strong> (BYO Godot 4.6.1+). One-click installers below are still
+            v5.4.0-beta2 — swap in the 5.5 addon after install, or use the beta3 zip directly. For air-gapped installs, use the offline bundle.
           </p>
           <p>
             <strong>Portable platform zips are no longer provided</strong> — they exceeded GitHub’s 2 GB limit. Bring your own Godot
@@ -85,7 +85,7 @@
           <article class="card download-card">
             <h3>Manual (BYO Godot)</h3>
             <p>Install Godot 4.6.1+, then add the addon from AssetLib or a release zip.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta2/VisualGasic_AssetLibrary_v5.5.0-beta2.zip">Asset Library Zip (v5.5.0-beta2)</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta3/VisualGasic_AssetLibrary_v5.5.0-beta3.zip">Asset Library Zip (v5.5.0-beta3)</a>
             <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-v5.4.0-beta2.zip">Minimal Addon Zip (v5.4.0-beta2)</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">AssetLib Listing</a>
           </article>
@@ -98,16 +98,16 @@
           <article class="card download-card">
             <h3>Godot Asset Library</h3>
             <p>Single-addon zip for in-editor AssetLib install.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta2/VisualGasic_AssetLibrary_v5.5.0-beta2.zip">Download Asset Library Zip (v5.5.0-beta2)</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta3/VisualGasic_AssetLibrary_v5.5.0-beta3.zip">Download Asset Library Zip (v5.5.0-beta3)</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">Store Listing</a>
           </article>
         </div>
         <div class="meta-links">
           <a href="https://youtu.be/FUw8zgbn_tU">Beta Showcase Video</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">Beta Showcase Demo</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2">Latest Release Page</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta3">Latest Release Page</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/releases">All Releases</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.5.0-beta2.md">5.5.0-beta2 Release Notes</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.5.0-beta3.md">5.5.0-beta3 Release Notes</a>
         </div>
       </section>
 
@@ -602,7 +602,7 @@ End Sub</pre>
       <section id="sponsor" class="section sponsor-section">
         <div class="sponsor-inner">
           <h2 class="sponsor-heading">Support Development</h2>
-          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.5.0-beta2 is the current public beta — sponsorship helps fund docs, examples, UI Forms, and the road to stable VG6 in 2027.</p>
+          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.5.0-beta3 is the current public beta — sponsorship helps fund docs, examples, UI Forms, and the road to stable VG6 in 2027.</p>
           <a class="button sponsor" href="https://github.com/sponsors/xgreenrx-star" target="_blank" rel="noopener">&#9829; Sponsor on GitHub</a>
         </div>
       </section>
@@ -612,7 +612,7 @@ End Sub</pre>
       <p>Visual Gasic &mdash; Narcean Technologies &mdash; GPL-3.0</p>
       <div class="footer-links">
         <a href="https://github.com/xgreenrx-star/VisualGasic">GitHub Repository</a>
-        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta2">Latest Release</a>
+        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.5.0-beta3">Latest Release</a>
         <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md">Documentation Hub</a>
         <a href="play/climatist/index.html">Climatist POC (browser experiment)</a>
       </div>

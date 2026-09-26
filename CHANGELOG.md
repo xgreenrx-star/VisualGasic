@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.5.0-beta3] - 2026-09-26
+
+**Key numbers:** QB ABC showcase + classic SCREEN gallery · **Elite Wire Slice** sample · rebuilt GDExtension (Linux/Windows/Web in Asset Library zip).
+
+### Added
+
+- **Classic pixel canvas** — SCREEN profiles **100–199**, split modes **111/112**, `ScreenMode()` / `GfxWidth()` / `GfxHeight()` / `GfxPlayfieldBottom()`; settings `vg/classic/enabled`, `vg/classic/clip_playfield`.
+- **Samples** — `samples/showcases/qb_abc_showcase/` (main menu **`.`** mode gallery), `samples/showcases/classic_screen_modes/`, `samples/games/elite_wire_slice/` (wireframe demo + README status for reviewers).
+- **Vector canvas** — `DrawRawWireMesh`, `DrawLinesColored` plugin docs; batched line fix; `GetMouseX`/`GetMouseY`/`GetMousePosition` expr compat.
+- **Narcea** — classic lane block when `vg/classic/enabled`; mouse API corrections; manuals: `classic_games_graphics.md`, `classic_porting_guide.md`, `colors.md`.
+- **Tests** — `test_qb_screen.vg` (extended), `test_raw_wire_mesh.vg`, `test_module_packed_dim.vg`, `test_reference_input_smoke.vg`.
+
+### Fixed
+
+- Module-level **Dim** defaults for imported `.vg` modules (packed arrays / meshes).
+- **Galactic Defender** — SCREEN notes aligned with classic lane.
+
+### Documentation
+
+- Facebook / community draft: `docs/showcase/FACEBOOK_QB_CLASSIC_CODERS.md`; updated `docs/index.md`, `qb_graphics_mode.md`, showcase index.
+
 ## [5.5.0-beta2.1] - 2026-09-19
 
 **Patch:** GDScript-only editor hotfix — same GDExtension binaries as **5.5.0-beta2**.
