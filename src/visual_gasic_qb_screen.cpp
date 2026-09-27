@@ -663,25 +663,49 @@ void upload(QbState *s, VisualGasicInstance *instance) {
 	s->dirty = false;
 }
 
+// QuickBASIC 3.0+ steps the minor axis a quarter pixel early (round half away
+// from zero of position+0.25). Textbook Bresenham leaves a one-pixel gap that
+// PAINT uses to escape outlines QB accidentally closes (issue #21).
+int qb_biased_axis(double v) {
+	double b = v + 0.25;
+	if (b >= 0.0) {
+		return (int)Math::floor(b + 0.5);
+	}
+	return (int)Math::ceil(b - 0.5);
+}
+
 void draw_line(QbState *s, int x0, int y0, int x1, int y1, int col) {
-	int dx = Math::abs(x1 - x0);
-	int sx = x0 < x1 ? 1 : -1;
-	int dy = -Math::abs(y1 - y0);
-	int sy = y0 < y1 ? 1 : -1;
-	int err = dx + dy;
-	for (int guard = 0; guard < 200000; guard++) {
+	int adx = Math::abs(x1 - x0);
+	int ady = Math::abs(y1 - y0);
+	if (adx == 0 && ady == 0) {
 		put_px_gfx(s, x0, y0, col);
-		if (x0 == x1 && y0 == y1) {
-			break;
+		return;
+	}
+	// Major axis is X when it is strictly longer; equal deltas follow Y, matching
+	// the QB64/QB split so 45-degree lines stay on the diagonal.
+	if (adx > ady) {
+		int sx = x1 >= x0 ? 1 : -1;
+		int x = x0;
+		int n = adx + 1;
+		if (n > 200000) {
+			n = 200000;
 		}
-		int e2 = 2 * err;
-		if (e2 >= dy) {
-			err += dy;
-			x0 += sx;
+		for (int i = 0; i < n; i++) {
+			double pos = (i == adx) ? (double)y1 : (double)y0 + (double)i * (double)(y1 - y0) / (double)adx;
+			put_px_gfx(s, x, qb_biased_axis(pos), col);
+			x += sx;
 		}
-		if (e2 <= dx) {
-			err += dx;
-			y0 += sy;
+	} else {
+		int sy = y1 >= y0 ? 1 : -1;
+		int y = y0;
+		int n = ady + 1;
+		if (n > 200000) {
+			n = 200000;
+		}
+		for (int i = 0; i < n; i++) {
+			double pos = (i == ady) ? (double)x1 : (double)x0 + (double)i * (double)(x1 - x0) / (double)ady;
+			put_px_gfx(s, qb_biased_axis(pos), y, col);
+			y += sy;
 		}
 	}
 }

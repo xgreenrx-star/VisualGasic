@@ -339,6 +339,44 @@ Sub _Ready()
 	End If
 	Screen 13
 
+	' QB 3.0+ quarter-pixel LINE bias (issue #21): 6 rows by 3 columns steps one pixel early.
+	Cls
+	Line (0, 0)-(2, 5), 15
+	If Point(0, 0) = 15 And Point(0, 1) = 0 And Point(1, 1) = 15 And Point(1, 3) = 15 And Point(2, 4) = 15 And Point(2, 5) = 15 Then
+		Print "PASS: qb_line_bias"
+	Else
+		Print "FAIL: qb_line_bias " & CStr(Point(0, 1)) & "," & CStr(Point(1, 1))
+	End If
+
+	' Same bias closes the accidental gap in this QBASIC logo outline so PAINT stays inside.
+	Cls
+	Line (68, 5)-(70, 10)
+	Line -(70, 70)
+	Line -(68, 75)
+	Line -(115, 75)
+	Line -(110, 70)
+	Line -(110, 60)
+	Line -(105, 70)
+	Line -(80, 70)
+	Line -(80, 42)
+	Line -(110, 42)
+	Line -(115, 43)
+	Line -(115, 38)
+	Line -(110, 40)
+	Line -(80, 40)
+	Line -(80, 15)
+	Line -(105, 15)
+	Line -(110, 25)
+	Line -(110, 10)
+	Line -(115, 5)
+	Line -(70, 5)
+	Paint (73, 40), 12
+	If Point(73, 40) = 12 And Point(0, 0) = 0 And Point(200, 100) = 0 And Point(69, 6) = 15 Then
+		Print "PASS: qb_line_bias_paint"
+	Else
+		Print "FAIL: qb_line_bias_paint in=" & CStr(Point(73, 40)) & " out=" & CStr(Point(0, 0)) & " far=" & CStr(Point(200, 100))
+	End If
+
 	Screen 0
 	If ScreenMode() = 0 Then
 		Print "PASS: qb_screenmode0"

@@ -131,6 +131,8 @@ LINE (x1, y1)-(x2, y2) [, color] [, {B | BF}]
 
 Color may be omitted (uses current color).
 
+Diagonal `LINE` and `DRAW` segments use QuickBASIC 3.0+ pixel placement: the minor axis steps a quarter pixel early. That is the raster ports expect, including outlines whose `PAINT` only stays inside because of that bias. Horizontal and vertical lines are unchanged.
+
 ### CIRCLE
 
 ```vb
