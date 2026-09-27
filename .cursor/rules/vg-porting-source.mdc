@@ -1,0 +1,14 @@
+---
+description: Porting external samples into Visual Gasic — copy source structure, do not rewrite
+globs: samples/**/*.vg, docs/showcase/**
+alwaysApply: false
+---
+
+# Porting = transliteration
+
+When the user asks to **port** BASIC-256 (`.kbs`), QB64, or other reference programs into `.vg`:
+
+1. **Copy structure from the source** — same `graphsize`/dimensions, variable names, loop bounds, subroutine names, and algorithm order. Only replace API shims (e.g. `refresh` → `_Display`, `graphsize` → `_NewImage` + `Screen`, `text`/`font` → `_TextAt` + `_TextHeight`).
+2. **Do not rewrite** as a “lite” 320×200 SCREEN 13 demo unless the user explicitly asks for a reduced version.
+3. **Credit** the upstream author in the file header and in `docs/showcase/` when applicable.
+4. If a VG API is missing for faithful ports, **extend the engine** (see `vg-no-workarounds.mdc`) rather than approximating behavior in game code.

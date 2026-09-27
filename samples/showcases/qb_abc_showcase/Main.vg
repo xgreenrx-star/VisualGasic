@@ -41,6 +41,11 @@ Import "games/Qb64GalleryMenus.vg"
 Import "games/ShowcaseMeta.vg"
 Import "games/ClassicModeDemos.vg"
 Import "games/ClassicScreenModes.vg"
+Import "games/B256GalleryMenus.vg"
+Import "games/B256Minsky.vg"
+Import "games/B256NonPeriodic.vg"
+Import "games/B256Swirl.vg"
+Import "games/B256Julia.vg"
 
 Option Explicit
 
@@ -92,6 +97,11 @@ Const MODE_MENU_QTOOLS As Integer = 44
 Const MODE_MENU_QSKIP As Integer = 45
 Const MODE_MENU_CLASSIC As Integer = 46
 Const MODE_CLASSIC_DEMO As Integer = 47
+Const MODE_MENU_B256 As Integer = 48
+Const MODE_B256_MINSKY As Integer = 49
+Const MODE_B256_NONPER As Integer = 50
+Const MODE_B256_SWIRL As Integer = 51
+Const MODE_B256_JULIA As Integer = 52
 
 Dim curMode As Integer
 Dim classicMenuPage As Integer
@@ -140,6 +150,8 @@ Sub _Draw()
 		Call Q64_DrawMenuSkipped
 	ElseIf curMode = MODE_MENU_CLASSIC Then
 		Call Classic_DrawMenu(classicMenuPage)
+	ElseIf curMode = MODE_MENU_B256 Then
+		Call B256_DrawMenuHub
 	ElseIf curMode = MODE_INTRO Then
 		Call DrawIntro
 	ElseIf curMode = MODE_ABOUT Then
@@ -195,7 +207,8 @@ Sub DrawMenu()
 	Call MenuItem(2, 11, "0 Dialog")
 	DrawString "Classic QBasic and QB64 listings, running in Visual Gasic.", 32, 504, Color8(160, 175, 195), 14
 	DrawString ". (period) Classic systems SCREEN modes — profiles & demos", 32, 526, Color8(180, 210, 255), 14
-	DrawString "F1 About   Esc leaves a game and returns here", 32, 552, Color8(255, 220, 140), 15
+	DrawString ", (comma) BASIC-256 sample gallery (oonap0oo/BASIC-256 ports)", 32, 548, Color8(180, 210, 255), 14
+	DrawString "F1 About   Esc leaves a game and returns here", 32, 572, Color8(255, 220, 140), 15
 End Sub
 
 Sub DrawMenuB()
@@ -244,7 +257,8 @@ Sub DrawAbout()
 	DrawString "the language are marked in that program's source.", 48, 156, Color8(230, 235, 240), 16
 	DrawString "Names such as Star Trek and Defender belong to their owners.", 48, 200, Color8(190, 200, 210), 15
 	DrawString "This showcase is not affiliated with those authors.", 48, 224, Color8(190, 200, 210), 15
-	DrawString "Visual Gasic on Facebook", 48, 280, Color8(200, 210, 180), 16
+	DrawString "BASIC-256 demos (, menu): ports from github.com/oonap0oo/BASIC-256 — see docs/showcase/BASIC256_SAMPLES.md", 48, 256, Color8(190, 200, 210), 13
+	DrawString "Visual Gasic on Facebook", 48, 300, Color8(200, 210, 180), 16
 	DrawString "https://www.facebook.com/VisualGasic/", 48, 308, Color8(140, 190, 255), 15
 	DrawString "Esc = menu", 48, 540, Color8(255, 220, 140), 15
 End Sub
@@ -275,6 +289,8 @@ Sub _Process(delta As Single)
 		Call PollMenuQSkip
 	ElseIf curMode = MODE_MENU_CLASSIC Then
 		Call PollMenuClassic
+	ElseIf curMode = MODE_MENU_B256 Then
+		Call PollMenuB256
 	ElseIf curMode = MODE_INTRO Then
 		Call PollIntro
 	ElseIf curMode = MODE_ABOUT Then
@@ -305,6 +321,8 @@ Sub _Input(ev As Variant)
 			Call HandleMenuQSkipKey(ev.keycode)
 		ElseIf curMode = MODE_MENU_CLASSIC Then
 			Call HandleMenuClassicKey(ev.keycode)
+		ElseIf curMode = MODE_MENU_B256 Then
+			Call HandleMenuB256Key(ev.keycode)
 		ElseIf curMode = MODE_INTRO Then
 			Call HandleIntroKey(ev.keycode)
 		ElseIf curMode = MODE_ABOUT Then
@@ -446,6 +464,8 @@ Sub HandleGameKey(keycode As Integer)
 		If keycode = KEY_SPACE Then Call Q64Turtle_Redraw
 	Case MODE_Q64_DIALOG
 		If keycode = KEY_SPACE Then Call Q64Dialog_Advance
+	Case MODE_B256_JULIA
+		If keycode = KEY_SPACE Then Call B256Julia_KeyRestart
 	End Select
 	Call RefreshHud
 End Sub
@@ -529,6 +549,11 @@ Sub HandleMenuKey(keycode As Integer)
 	If keycode = KEY_PERIOD Then
 		classicMenuPage = 0
 		curMode = MODE_MENU_CLASSIC
+		QueueRedraw
+		Exit Sub
+	End If
+	If keycode = KEY_COMMA Then
+		curMode = MODE_MENU_B256
 		QueueRedraw
 		Exit Sub
 	End If
@@ -643,6 +668,31 @@ Sub HandleMenuQToolsKey(keycode As Integer)
 		Exit Sub
 	End If
 	If keycode = KEY_1 Then Call StartGameFromTier(MODE_Q64_DIALOG, MODE_MENU_QTOOLS)
+End Sub
+
+Sub HandleMenuB256Key(keycode As Integer)
+	If keycode = KEY_ESCAPE Then
+		curMode = MODE_MENU
+		QueueRedraw
+		Exit Sub
+	End If
+	Select Case keycode
+	Case KEY_1: Call StartGameFromTier(MODE_B256_MINSKY, MODE_MENU_B256)
+	Case KEY_2: Call StartGameFromTier(MODE_B256_NONPER, MODE_MENU_B256)
+	Case KEY_3: Call StartGameFromTier(MODE_B256_SWIRL, MODE_MENU_B256)
+	Case KEY_4: Call StartGameFromTier(MODE_B256_JULIA, MODE_MENU_B256)
+	End Select
+End Sub
+
+Sub PollMenuB256()
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		curMode = MODE_MENU
+		QueueRedraw
+	End If
+	If IsKeyJustPressed(KEY_1) Then Call StartGameFromTier(MODE_B256_MINSKY, MODE_MENU_B256)
+	If IsKeyJustPressed(KEY_2) Then Call StartGameFromTier(MODE_B256_NONPER, MODE_MENU_B256)
+	If IsKeyJustPressed(KEY_3) Then Call StartGameFromTier(MODE_B256_SWIRL, MODE_MENU_B256)
+	If IsKeyJustPressed(KEY_4) Then Call StartGameFromTier(MODE_B256_JULIA, MODE_MENU_B256)
 End Sub
 
 Sub HandleMenuQSkipKey(keycode As Integer)
@@ -954,6 +1004,10 @@ Sub LaunchPendingGame()
 	Case MODE_Q64_TURTLE: Call Q64Turtle_Init
 	Case MODE_Q64_FLAG: Call Q64Flag_Init
 	Case MODE_Q64_DIALOG: Call Q64Dialog_Init
+	Case MODE_B256_MINSKY: Call B256Minsky_Init
+	Case MODE_B256_NONPER: Call B256NonPeriodic_Init
+	Case MODE_B256_SWIRL: Call B256Swirl_Init
+	Case MODE_B256_JULIA: Call B256Julia_Init
 	Case Else
 		curMode = menuReturn
 		If curMode = 0 Then curMode = MODE_MENU
@@ -980,6 +1034,8 @@ Sub ReturnToMenu()
 		statusLine = "Pick item Esc = Q hub"
 	ElseIf curMode = MODE_MENU_CLASSIC Then
 		statusLine = "Classic SCREEN profiles — pick 1-8 / ← → pages Esc = main menu"
+	ElseIf curMode = MODE_MENU_B256 Then
+		statusLine = "Tier B256 — pick 1-4 Esc = main menu"
 	End If
 	QueueRedraw
 End Sub
@@ -1116,6 +1172,14 @@ Sub PollGame(delta As Single)
 		Call Q64Flag_Tick(delta)
 	Case MODE_CLASSIC_DEMO
 		Call Classic_TickAnim(delta, classicScreenNum, classicAnimTick)
+	Case MODE_B256_MINSKY
+		Call B256Minsky_Tick(delta)
+	Case MODE_B256_NONPER
+		Call B256NonPeriodic_Tick(delta)
+	Case MODE_B256_SWIRL
+		Call B256Swirl_Tick(delta)
+	Case MODE_B256_JULIA
+		Call B256Julia_Tick(delta)
 	End Select
 	Call RefreshHud
 End Sub
@@ -1153,6 +1217,10 @@ Sub RefreshHud()
 	If curMode = MODE_Q64_FLAG Then Call Q64Flag_GetHud(hud1, hud2)
 	If curMode = MODE_Q64_DIALOG Then Call Q64Dialog_GetHud(hud1, hud2)
 	If curMode = MODE_CLASSIC_DEMO Then Call Classic_FillHud(classicScreenNum, hud1, hud2)
+	If curMode = MODE_B256_MINSKY Then Call B256Minsky_GetHud(hud1, hud2)
+	If curMode = MODE_B256_NONPER Then Call B256NonPeriodic_GetHud(hud1, hud2)
+	If curMode = MODE_B256_SWIRL Then Call B256Swirl_GetHud(hud1, hud2)
+	If curMode = MODE_B256_JULIA Then Call B256Julia_GetHud(hud1, hud2)
 	If curMode > = MODE_INVADERS And curMode < = MODE_NIBBLES Then
 		hud1 = "QB SCREEN 13 — classic graphics mode"
 		If Len(statusLine) > 0 Then hud2 = statusLine

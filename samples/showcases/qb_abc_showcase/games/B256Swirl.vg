@@ -1,0 +1,83 @@
+' Transliteration of swirl2.kbs — K Moerman 2026 (github.com/oonap0oo/BASIC-256)
+Option Explicit
+
+Const B256_SW_TAU As Single = 6.2831853
+
+Dim b256sw_active As Boolean
+Dim b256sw_img As Integer
+Dim b256sw_w As Integer
+Dim b256sw_hw As Integer
+Dim b256sw_r As Integer
+Dim b256sw_bg As Integer
+Dim b256sw_f As Single
+
+Sub B256Swirl_Init()
+	b256sw_active = True
+	If b256sw_img < 0 Then
+		_FreeImage b256sw_img
+		b256sw_img = 0
+	End If
+	b256sw_f = 0.0
+	b256sw_hw = 290
+	b256sw_w = 2 * b256sw_hw
+	b256sw_r = b256sw_hw - 20
+	b256sw_bg = _RGBA32(0, 0, 0, 8)
+	b256sw_img = _NewImage(b256sw_w, b256sw_w, 32)
+	Screen b256sw_img
+	Cls
+End Sub
+
+Function B256Swirl_Active() As Boolean
+	B256Swirl_Active = b256sw_active
+End Function
+
+Sub B256Swirl_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "swirl2.kbs (BASIC-256 port)"
+	l2 = "One refresh/frame — Esc = menu"
+End Sub
+
+Function B256Swirl_Pos(x As Single) As Single
+	B256Swirl_Pos = 0.5 * (x + Abs(x))
+End Function
+
+Sub B256Swirl_plot(x As Integer, y As Integer, pw As Integer, col As Integer)
+	Dim hw As Integer
+	hw = pw \ 2
+	Line (x - hw, y - hw)-(x + hw, y + hw), col, BF
+End Sub
+
+Sub B256Swirl_Tick(delta As Single)
+	If Not b256sw_active Then Exit Sub
+	If (Int(b256sw_f) And 3) = 0 Then
+		Line (0, 0)-(b256sw_w - 1, b256sw_w - 1), b256sw_bg, BF
+	End If
+	Dim t As Single
+	Dim u As Single
+	t = 0.005 * b256sw_f
+	u = t
+	Do While u < t + B256_SW_TAU
+		Dim q As Single
+		Dim p As Single
+		q = Sin(u)
+		p = Cos(u)
+		Dim pw As Integer
+		pw = 1 + 2 * Int(Abs(q))
+		Dim gv As Integer
+		gv = Int(255.0 * B256Swirl_Pos(p))
+		Dim col As Integer
+		col = _RGB32(Int(255.0 * B256Swirl_Pos(q)), gv, 255 - gv)
+		Dim v As Single
+		v = u
+		Do While v < u + B256_SW_TAU
+			Dim px As Integer
+			Dim py As Integer
+			px = Int(b256sw_hw + b256sw_r * q * Cos(v))
+			py = Int(b256sw_hw + b256sw_r * q * Sin(v))
+			Call B256Swirl_plot(px, py, pw, col)
+			v = v + 0.5 - 0.4 * Cos(v - t)
+		Loop
+		u = u + 0.5 + 0.4 * Sin(u - t)
+	Loop
+	b256sw_f = b256sw_f + 1.0
+	_Display
+End Sub

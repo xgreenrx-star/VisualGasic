@@ -21,6 +21,8 @@ scripts/run_qb_abc_headless.sh
 | **C** | Tier C menu (5 expanded games) |
 | **8** | About, sources, disclaimer |
 | **Esc** | Back (intro → submenu; in-game → submenu or main menu) |
+| **,** (comma) | **Tier B256** — BASIC-256 sample ports ([credit](../../../docs/showcase/BASIC256_SAMPLES.md)) |
+| **.** (period) | Classic **SCREEN** mode profiles & demos |
 
 ### Tier A (1–7)
 

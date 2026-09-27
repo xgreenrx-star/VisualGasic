@@ -1,0 +1,102 @@
+' Transliteration of julia.kbs — K Moerman 2026 (github.com/oonap0oo/BASIC-256)
+Option Explicit
+
+Dim b256j_active As Boolean
+Dim b256j_img As Integer
+Dim b256j_w As Integer
+Dim b256j_h As Integer
+Dim b256j_hw As Integer
+Dim b256j_hh As Integer
+Dim b256j_N As Integer
+Dim b256j_x As Integer
+Dim b256j_r(511) As Integer
+Dim b256j_g(511) As Integer
+Dim b256j_b(511) As Integer
+
+Sub B256Julia_Init()
+	b256j_active = True
+	If b256j_img < 0 Then
+		_FreeImage b256j_img
+		b256j_img = 0
+	End If
+	b256j_w = 600
+	b256j_h = 700
+	b256j_N = 512
+	b256j_hw = b256j_w \ 2
+	b256j_hh = b256j_h \ 2
+	Call B256Julia_calccolors()
+	b256j_img = _NewImage(b256j_w, b256j_h, 32)
+	Screen b256j_img
+	Cls
+	b256j_x = 0
+End Sub
+
+Function B256Julia_Active() As Boolean
+	B256Julia_Active = b256j_active
+End Function
+
+Sub B256Julia_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "julia.kbs (BASIC-256 port)"
+	l2 = "Column scan + refresh — Space = restart Esc = menu"
+End Sub
+
+Sub B256Julia_KeyRestart()
+	b256j_x = 0
+	Cls
+End Sub
+
+Sub B256Julia_calccolors()
+	Dim k As Integer
+	Dim c As Single
+	For k = 0 To b256j_N - 1
+		c = 255.0 * Sqr(k) / Sqr(b256j_N)
+		b256j_r(k) = (Int(c) Mod 32) * 8
+		b256j_g(k) = (Int(c) Mod 128) * 2
+		b256j_b(k) = (Int(c) Mod 64) * 4
+	Next k
+End Sub
+
+Sub B256Julia_Tick(delta As Single)
+	If Not b256j_active Then Exit Sub
+	If b256j_x > b256j_hw Then Exit Sub
+	Dim cols As Integer
+	Dim n As Integer
+	cols = 1
+	For n = 1 To cols
+		If b256j_x > b256j_hw Then Exit For
+		Call B256Julia_column(b256j_x)
+		b256j_x = b256j_x + 1
+	Next n
+End Sub
+
+Sub B256Julia_column(x As Integer)
+	Dim y As Integer
+	Dim cre As Single
+	Dim cim As Single
+	cre = 0.357
+	cim = 0.357
+	Dim zre_start As Single
+	zre_start = (x - b256j_hw) / b256j_hw
+	For y = 0 To b256j_h
+		Dim zre As Single
+		Dim zim As Single
+		Dim zre_sq As Single
+		Dim zim_sq As Single
+		Dim c As Integer
+		zre = zre_start
+		zim = (y - b256j_hh) / b256j_hh * 1.3
+		c = 0
+		Do
+			zre_sq = zre * zre
+			zim_sq = zim * zim
+			zim = 2.0 * zre * zim + cim
+			zre = zre_sq - zim_sq + cre
+			c = c + 1
+		Loop Until c > b256j_N - 2 Or (zre_sq + zim_sq) > 4.0
+		Dim col As Integer
+		col = _RGB32(b256j_r(c), b256j_g(c), b256j_b(c))
+		PSet (x, y), col
+		PSet (b256j_w - x, b256j_h - y), col
+	Next y
+	_Display
+End Sub

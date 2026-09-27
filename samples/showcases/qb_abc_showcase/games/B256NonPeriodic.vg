@@ -1,0 +1,57 @@
+' Transliteration of non-periodic.kbs — K Moerman 2026 (github.com/oonap0oo/BASIC-256)
+Option Explicit
+
+Const B256_NP_PI As Single = 3.14159265
+
+Dim b256np_active As Boolean
+Dim b256np_img As Integer
+Dim b256np_w As Integer
+Dim b256np_offset As Single
+Dim b256np_colbkg As Integer
+Dim b256np_white As Integer
+
+Sub B256NonPeriodic_Init()
+	b256np_active = True
+	If b256np_img < 0 Then
+		_FreeImage b256np_img
+		b256np_img = 0
+	End If
+	b256np_w = 500
+	b256np_img = _NewImage(b256np_w, b256np_w, 32)
+	Screen b256np_img
+	Cls
+	b256np_colbkg = _RGBA32(0, 0, 0, 30)
+	b256np_white = _RGB32(255, 255, 255)
+	b256np_offset = 1.0
+End Sub
+
+Function B256NonPeriodic_Active() As Boolean
+	B256NonPeriodic_Active = b256np_active
+End Function
+
+Sub B256NonPeriodic_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "non-periodic.kbs (BASIC-256 port)"
+	l2 = "while True loop — Esc = menu"
+End Sub
+
+Function B256NonPeriodic_F(x As Single) As Single
+	B256NonPeriodic_F = 250.0 + 110.0 * (Sin(B256_NP_PI * x) + Sin(4.5 * x))
+End Function
+
+Sub B256NonPeriodic_Tick(delta As Single)
+	If Not b256np_active Then Exit Sub
+	Dim dt As Single
+	Dim t1 As Single
+	Dim t2 As Single
+	dt = 0.03
+	Line (0, 0)-(b256np_w - 1, b256np_w - 1), b256np_colbkg, BF
+	t2 = b256np_offset
+	t1 = 0.0
+	Do While t1 <= 75.0
+		PSet (Int(B256NonPeriodic_F(t2)), Int(B256NonPeriodic_F(t1))), b256np_white
+		t1 = t1 + dt
+		t2 = t2 + dt
+	Loop
+	_Display
+	b256np_offset = b256np_offset + 0.0015
+End Sub

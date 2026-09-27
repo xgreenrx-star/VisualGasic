@@ -1,0 +1,120 @@
+' Transliteration of minsky.kbs — K Moerman 2026 (github.com/oonap0oo/BASIC-256)
+' BASIC-256 graphsize/fastgraphics/refresh → _NewImage + Screen + _Display
+Option Explicit
+
+Dim w As Integer
+Dim h As Integer
+Dim hw As Integer
+Dim hh As Integer
+Dim n As Integer
+Dim x As Integer
+Dim y As Integer
+
+Dim b256m_active As Boolean
+Dim b256m_done As Boolean
+Dim b256m_img As Integer
+
+Dim b256m_green As Integer
+Dim b256m_blue As Integer
+Dim b256m_red As Integer
+Dim b256m_yellow As Integer
+
+Sub B256Minsky_Init()
+	b256m_active = True
+	b256m_done = False
+	If b256m_img < 0 Then
+		_FreeImage b256m_img
+		b256m_img = 0
+	End If
+	w = 817
+	h = 700
+	hw = w \ 2
+	hh = h \ 2 + 50
+	b256m_green = _RGB32(0, 255, 0)
+	b256m_blue = _RGB32(0, 128, 255)
+	b256m_red = _RGB32(255, 0, 0)
+	b256m_yellow = _RGB32(255, 255, 0)
+	b256m_img = _NewImage(w + 350, h, 32)
+	Screen b256m_img
+	Cls
+	n = 0
+	x = 1024
+	y = 0
+	Call B256Minsky_plots(n, x, y)
+End Sub
+
+Function B256Minsky_Active() As Boolean
+	B256Minsky_Active = b256m_active
+End Function
+
+Sub B256Minsky_GetHud(ByRef l1 As String, ByRef l2 As String)
+	l1 = "minsky.kbs (BASIC-256 port)"
+	If b256m_done Then
+		l2 = "Finished — Esc = menu"
+	Else
+		l2 = "Running algorithm… Esc = menu"
+	End If
+End Sub
+
+Sub B256Minsky_Tick(delta As Single)
+	If Not b256m_active Or b256m_done Then Exit Sub
+	Dim batch As Integer
+	Dim i As Integer
+	batch = 2
+	For i = 1 To batch
+		x = x - y \ 32
+		y = y + x \ 16
+		x = x - y \ 32
+		n = n + 1
+		Call B256Minsky_plots(n, x, y)
+		If x = 1024 And y = 0 Then
+			Call B256Minsky_puttext(n)
+			b256m_done = True
+			Exit For
+		End If
+	Next i
+End Sub
+
+Sub B256Minsky_plots(n As Integer, xi As Integer, yi As Integer)
+	Dim px As Integer
+	Dim py As Integer
+	px = xi \ 4
+	py = yi \ 4
+	Call B256Minsky_rect(8 * n - 2, hh - px - 2, 4, 4, b256m_green)
+	Line (8 * n, hh - px)-(8 * n, hh), b256m_green
+	Call B256Minsky_rect(8 * n - 2, hh - py - 2, 4, 4, b256m_blue)
+	Line (8 * n, hh - py)-(8 * n, hh), b256m_blue
+	Call B256Minsky_rect(hw + px - 3, hh + py - 3, 6, 6, b256m_red)
+	Line (hw + px, hh + py)-(hw, hh), b256m_red
+	_Display
+End Sub
+
+Sub B256Minsky_rect(x1 As Integer, y1 As Integer, rw As Integer, rh As Integer, col As Integer)
+	Line (x1, y1)-(x1 + rw - 1, y1 + rh - 1), col, BF
+End Sub
+
+Sub B256Minsky_puttext(stepn As Integer)
+	Dim ytext As Integer
+	Dim xtext As Integer
+	Dim th17 As Integer
+	Dim th15 As Integer
+	th17 = _TextHeight(17)
+	th15 = _TextHeight(15)
+	Call _TextAt(20, 5, b256m_yellow, 17, "Minsky integer circle algorithm, " & CStr(stepn) & " steps to loop back to initial values")
+	Call _TextAt(20, 5 + th17, b256m_yellow, 17, "sin() and cos() using only addition, subtraction and integer division")
+	ytext = hh - th15 - 260
+	Call _TextAt(5, ytext, b256m_green, 15, "x(n)")
+	Call _TextAt(w \ 3 - 5, ytext, b256m_blue, 15, "y(n)")
+	Call _TextAt(w * 2 \ 3 - 15, ytext, b256m_red, 15, "y(x)")
+	xtext = w + 50
+	ytext = 200
+	Call _TextAt(xtext, ytext, b256m_yellow, 15, "x=1024: y=0: n=0")
+	Call _TextAt(xtext, ytext + th15, b256m_yellow, 15, "do")
+	Call _TextAt(xtext, ytext + 2 * th15, b256m_yellow, 15, "  x = x - y\32")
+	Call _TextAt(xtext, ytext + 3 * th15, b256m_yellow, 15, "  y = y + x\16")
+	Call _TextAt(xtext, ytext + 4 * th15, b256m_yellow, 15, "  x = x - y\32")
+	Call _TextAt(xtext, ytext + 5 * th15, b256m_yellow, 15, "  n++")
+	Call _TextAt(xtext, ytext + 6 * th15, b256m_yellow, 15, "  plot(n,x,y)")
+	Call _TextAt(xtext, ytext + 7 * th15, b256m_yellow, 15, "until x=1024 and y=0")
+	_Display
+End Sub

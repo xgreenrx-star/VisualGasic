@@ -1,0 +1,11 @@
+' BASIC-256 sample gallery menu (ports from oonap0oo/BASIC-256 — see docs/showcase/BASIC256_SAMPLES.md)
+Option Explicit
+
+Sub B256_DrawMenuHub()
+	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
+	DrawString "Tier B256 — BASIC-256 sample gallery", 48, 36, Color8(140, 210, 255), 24
+	DrawString "VG reimplementations (not copied .kbs). Credit: K Moerman / github.com/oonap0oo/BASIC-256", 48, 68, Color8(190, 200, 210), 13
+	DrawString "1 Minsky circle   2 Non-periodic plot   3 Swirl   4 Julia fractal", 48, 110, Color8(255, 255, 255), 15
+	DrawString "Skipped upstream: Barnsley fern, double pendulum, test256 (see BASIC256_SAMPLES.md)", 48, 148, Color8(255, 220, 160), 13
+	DrawString "Esc = main menu", 48, 540, Color8(200, 200, 160), 14
+End Sub

@@ -39,6 +39,10 @@ Sub Meta_Title(mode As Integer, ByRef title As String)
 		Case 39: title = "Turtle / Koch flake"
 		Case 40: title = "American flag (static)"
 		Case 41: title = "Dialog demo box"
+		Case 42: title = "Minsky integer circle"
+		Case 43: title = "Non-periodic plot"
+		Case 44: title = "Swirl (lite)"
+		Case 45: title = "Julia fractal (lite)"
 		Case Else: title = "Unknown"
 	End Select
 End Sub
@@ -117,6 +121,14 @@ Sub Meta_Credit(mode As Integer, ByRef credit As String)
 			credit = "Inspired by Vince waving flag sample; static variant (no _RGB warp)."
 		Case 41
 			credit = "Inspired by Abacus dialog demo (CH13). Text-mode panels on SCREEN 13."
+		Case 42
+			credit = "Algorithm from minsky.kbs by K Moerman (github.com/oonap0oo/BASIC-256). Circle via integer ops; blog.hrvoje.org drawing-circles. VG reimplementation."
+		Case 43
+			credit = "From non-periodic.kbs by K Moerman (github.com/oonap0oo/BASIC-256). VG reimplementation on SCREEN 13."
+		Case 44
+			credit = "From swirl2.kbs by K Moerman (github.com/oonap0oo/BASIC-256). Throttled lite port."
+		Case 45
+			credit = "From julia.kbs by K Moerman (github.com/oonap0oo/BASIC-256). Incremental half-width scan. VG reimplementation."
 		Case Else
 			credit = ""
 	End Select
@@ -168,6 +180,8 @@ Sub Meta_ControlsLine1(mode As Integer, ByRef s As String)
 		Case 39: s = "Space redraw Koch flake"
 		Case 40: s = "Static flag — Esc menu"
 		Case 41: s = "Space next dialog panel"
+		Case 42, 43, 44: s = "Watch the plot — Esc = menu"
+		Case 45: s = "Space restart Julia scan   Esc = menu"
 		Case Else: s = ""
 	End Select
 End Sub
