@@ -28,6 +28,7 @@
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <cmath>
+#include <cstring>
 
 using namespace godot;
 
@@ -464,6 +465,31 @@ void refresh_classic_project_settings(QbState *s) {
 	s->clip_playfield = (bool)ps->get_setting("vg/classic/clip_playfield", true);
 }
 
+void write_argb_px(uint8_t *px, uint32_t col) {
+	uint32_t a = (col >> 24) & 255;
+	uint8_t r = (uint8_t)((col >> 16) & 255);
+	uint8_t g = (uint8_t)((col >> 8) & 255);
+	uint8_t b = (uint8_t)(col & 255);
+	if (a == 0 && (col & 0x00FFFFFFu) != 0) {
+		a = 255;
+	}
+	if (a >= 255) {
+		px[0] = r;
+		px[1] = g;
+		px[2] = b;
+		px[3] = 255;
+		return;
+	}
+	if (a == 0) {
+		return;
+	}
+	uint32_t ia = 255 - a;
+	px[0] = (uint8_t)((px[0] * ia + r * a) / 255);
+	px[1] = (uint8_t)((px[1] * ia + g * a) / 255);
+	px[2] = (uint8_t)((px[2] * ia + b * a) / 255);
+	px[3] = (uint8_t)((px[3] * ia + a * a) / 255);
+}
+
 void put_px32(QbState *s, int x, int y, int64_t col) {
 	QbState::Surf *sf = find_surf(s, s->dest_id);
 	if (!sf || !sf->img.is_valid()) {
@@ -477,7 +503,13 @@ void put_px32(QbState *s, int x, int y, int64_t col) {
 	if (x < 0 || y < 0 || x >= sf->w || y >= sf->h) {
 		return;
 	}
-	sf->img->set_pixel(x, y, color_from_argb(col));
+	uint8_t *base = sf->img->ptrw();
+	if (!base) {
+		sf->img->set_pixel(x, y, color_from_argb(col));
+		s->dirty = true;
+		return;
+	}
+	write_argb_px(base + ((y * sf->w + x) << 2), (uint32_t)col);
 	s->dirty = true;
 }
 
@@ -517,10 +549,7 @@ void put_px(QbState *s, int x, int y, int col) {
 	if (i < 0 || i >= s->page[page].size()) {
 		return;
 	}
-	s->page[page].set(i, (uint8_t)col);
-	if (page == (s->visual_page & 1) && s->image.is_valid()) {
-		s->image->set_pixel(x, y, color_of(s, col));
-	}
+	s->page[page].ptrw()[i] = (uint8_t)col;
 	s->dirty = true;
 }
 
@@ -564,8 +593,8 @@ void clear_page(QbState *s, int page) {
 	page &= 1;
 	int n = s->width * s->height;
 	s->page[page].resize(n);
-	for (int i = 0; i < n; i++) {
-		s->page[page].set(i, 0);
+	if (n > 0) {
+		memset(s->page[page].ptrw(), 0, (size_t)n);
 	}
 }
 
@@ -576,9 +605,31 @@ void sync_visual_image(QbState *s) {
 	int page = s->visual_page & 1;
 	const PackedByteArray &px = s->page[page];
 	int n = s->width * s->height;
+	uint8_t *dst = s->image->ptrw();
+	if (!dst || px.size() < n) {
+		for (int i = 0; i < n; i++) {
+			int c = (i < px.size()) ? (int)px[i] : 0;
+			s->image->set_pixel(i % s->width, i / s->width, color_of(s, c));
+		}
+		s->dirty = true;
+		return;
+	}
+	uint8_t lut[256][4];
+	for (int i = 0; i < 256; i++) {
+		Color c = color_of(s, i);
+		lut[i][0] = (uint8_t)Math::round(c.r * 255.0f);
+		lut[i][1] = (uint8_t)Math::round(c.g * 255.0f);
+		lut[i][2] = (uint8_t)Math::round(c.b * 255.0f);
+		lut[i][3] = (uint8_t)Math::round(c.a * 255.0f);
+	}
+	const uint8_t *src = px.ptr();
 	for (int i = 0; i < n; i++) {
-		int c = (i < px.size()) ? (int)px[i] : 0;
-		s->image->set_pixel(i % s->width, i / s->width, color_of(s, c));
+		const uint8_t *c = lut[src[i]];
+		uint8_t *d = dst + (i << 2);
+		d[0] = c[0];
+		d[1] = c[1];
+		d[2] = c[2];
+		d[3] = c[3];
 	}
 	s->dirty = true;
 }
@@ -656,6 +707,10 @@ void upload(QbState *s, VisualGasicInstance *instance) {
 	if (!s || !s->dirty) {
 		return;
 	}
+	// Indexed modes keep a byte page. Expand it once per present, not per PSet.
+	if (!dest_is_32(s)) {
+		sync_visual_image(s);
+	}
 	if (s->texture.is_valid() && s->image.is_valid()) {
 		s->texture->update(s->image);
 	}
@@ -710,6 +765,95 @@ void draw_line(QbState *s, int x0, int y0, int x1, int y1, int col) {
 	}
 }
 
+void clip_box(QbState *s, int &x0, int &y0, int &x1, int &y1, int w, int h) {
+	if (s->view_on) {
+		if (x0 < s->vx1) {
+			x0 = s->vx1;
+		}
+		if (y0 < s->vy1) {
+			y0 = s->vy1;
+		}
+		if (x1 > s->vx2) {
+			x1 = s->vx2;
+		}
+		if (y1 > s->vy2) {
+			y1 = s->vy2;
+		}
+	}
+	if (x0 < 0) {
+		x0 = 0;
+	}
+	if (y0 < 0) {
+		y0 = 0;
+	}
+	if (x1 >= w) {
+		x1 = w - 1;
+	}
+	if (y1 >= h) {
+		y1 = h - 1;
+	}
+	if (s->clip_playfield && s->split_gfx_bottom >= 0 && y1 > s->split_gfx_bottom) {
+		y1 = s->split_gfx_bottom;
+	}
+}
+
+bool fill_box_fast(QbState *s, int x0, int y0, int x1, int y1, int col) {
+	if (!s) {
+		return false;
+	}
+	if (dest_is_32(s)) {
+		QbState::Surf *sf = find_surf(s, s->dest_id);
+		if (!sf || !sf->img.is_valid()) {
+			return false;
+		}
+		clip_box(s, x0, y0, x1, y1, sf->w, sf->h);
+		if (x0 > x1 || y0 > y1) {
+			return true;
+		}
+		uint32_t u = (uint32_t)col;
+		uint32_t a = (u >> 24) & 255;
+		if (a == 0 && (u & 0x00FFFFFFu) != 0) {
+			a = 255;
+		}
+		if (a >= 255) {
+			sf->img->fill_rect(Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1), color_from_argb((int64_t)u));
+			s->dirty = true;
+			return true;
+		}
+		uint8_t *base = sf->img->ptrw();
+		if (!base) {
+			return false;
+		}
+		int stride = sf->w << 2;
+		int span = x1 - x0 + 1;
+		for (int y = y0; y <= y1; y++) {
+			uint8_t *row = base + y * stride + (x0 << 2);
+			for (int x = 0; x < span; x++) {
+				write_argb_px(row + (x << 2), u);
+			}
+		}
+		s->dirty = true;
+		return true;
+	}
+	clip_box(s, x0, y0, x1, y1, s->width, s->height);
+	if (x0 > x1 || y0 > y1) {
+		return true;
+	}
+	int page = s->active_page & 1;
+	PackedByteArray &buf = s->page[page];
+	if (buf.size() < s->width * s->height) {
+		return false;
+	}
+	uint8_t *base = buf.ptrw();
+	int span = x1 - x0 + 1;
+	uint8_t b = (uint8_t)col;
+	for (int y = y0; y <= y1; y++) {
+		memset(base + y * s->width + x0, b, (size_t)span);
+	}
+	s->dirty = true;
+	return true;
+}
+
 void draw_box(QbState *s, int x0, int y0, int x1, int y1, int col, bool filled) {
 	if (x0 > x1) {
 		int t = x0;
@@ -722,6 +866,9 @@ void draw_box(QbState *s, int x0, int y0, int x1, int y1, int col, bool filled) 
 		y1 = t;
 	}
 	if (filled) {
+		if (fill_box_fast(s, x0, y0, x1, y1, col)) {
+			return;
+		}
 		for (int y = y0; y <= y1; y++) {
 			draw_line(s, x0, y, x1, y, col);
 		}
@@ -1251,6 +1398,67 @@ void draw_glyph(QbState *s, int x, int y, int ch, int fg, int bg) {
 	}
 }
 
+int qb_text_scale(int font_size) {
+	if (font_size < 1) {
+		font_size = 1;
+	}
+	return (font_size + 7) / 8;
+}
+
+int qb_text_height(int font_size) {
+	return qb_text_scale(font_size) * 8;
+}
+
+void draw_glyph_scaled_fg32(QbState *s, int x, int y, int ch, int64_t col, int scale) {
+	if (ch < 0 || ch > 127) {
+		ch = 63;
+	}
+	if (scale < 1) {
+		scale = 1;
+	}
+	const unsigned char *g = font8x8_basic[ch];
+	for (int row = 0; row < 8; row++) {
+		unsigned char bits = g[row];
+		for (int col_i = 0; col_i < 8; col_i++) {
+			if ((bits & (1 << col_i)) == 0) {
+				continue;
+			}
+			for (int dy = 0; dy < scale; dy++) {
+				for (int dx = 0; dx < scale; dx++) {
+					put_px32(s, x + col_i * scale + dx, y + row * scale + dy, col);
+				}
+			}
+		}
+	}
+}
+
+void qb_text_at(QbState *s, int x, int y, int64_t col, int font_size, const String &text) {
+	if (!s || !s->active || !dest_is_32(s)) {
+		return;
+	}
+	int scale = qb_text_scale(font_size);
+	int line_h = qb_text_height(font_size);
+	int cx = x;
+	int cy = y;
+	for (int i = 0; i < text.length(); i++) {
+		char32_t cp = text.unicode_at(i);
+		if (cp == 10) {
+			cy += line_h;
+			cx = x;
+			continue;
+		}
+		if (cp == 13) {
+			continue;
+		}
+		int ch = (int)cp;
+		if (ch < 32 || ch > 127) {
+			ch = 32;
+		}
+		draw_glyph_scaled_fg32(s, cx, cy, ch, col, scale);
+		cx += 8 * scale;
+	}
+}
+
 void qb_print_text(QbState *s, const String &text, bool newline) {
 	if (!s || !s->active) {
 		return;
@@ -1763,7 +1971,7 @@ void apply_palette_entry(QbState *s, int idx, int64_t color_long) {
 	s->pal[idx] = color_from_qb_long(color_long);
 	s->pal_raw[idx] = color_long;
 	s->pal_set[idx] = true;
-	sync_visual_image(s);
+	s->dirty = true;
 }
 
 } // namespace
@@ -1797,7 +2005,7 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		return true;
 	}
 	if (m != "qbscreen" && m != "qbpset" && m != "qbline" && m != "qbcircle" && m != "qbpaint" && m != "qbput" && m != "qbplay"
-		&& m != "_display" && m != "_dest" && m != "_source" && m != "_freeimage" && m != "_putimage"
+		&& m != "_display" && m != "_textat" && m != "_dest" && m != "_source" && m != "_freeimage" && m != "_putimage"
 		&& m != "_sndplay" && m != "_sndstop" && m != "_sndclose"
 		&& m != "qbpalette" && m != "qbpaletteusing" && m != "qbpalettereset" && m != "qbpcopy"
 		&& m != "qblocate" && m != "qbcolor" && m != "qbdraw" && m != "qbview" && m != "qbviewreset"
@@ -1824,8 +2032,20 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 				s->disp_w = sf->w;
 				s->disp_h = sf->h;
 			}
+			// Pixel writes already updated the image. GPU upload is once per frame in present().
 			s->dirty = true;
-			upload(s, instance);
+		}
+		r_found = true;
+		return true;
+	}
+	if (m == "_textat") {
+		QbState *s = find_state(instance);
+		if (s && s->active && args.size() >= 5) {
+			int px = arg_int(args, 0, 0);
+			int py = arg_int(args, 1, 0);
+			int64_t rgb = resolve_color_arg(s, args, 2, 0xFFFFFFFF);
+			int fs = arg_int(args, 3, 16);
+			qb_text_at(s, px, py, rgb, fs, String(args[4]));
 		}
 		r_found = true;
 		return true;
@@ -2157,6 +2377,11 @@ bool handle_expr(VisualGasicInstance *instance, const String &method, const Arra
 		r_handled = true;
 		int a = (m == "_rgba32") ? arg_int(args, 3, 255) : 255;
 		r_ret = qb_rgb32(arg_int(args, 0, 0), arg_int(args, 1, 0), arg_int(args, 2, 0), a);
+		return true;
+	}
+	if (m == "_textheight" && args.size() >= 1) {
+		r_handled = true;
+		r_ret = (int64_t)qb_text_height(arg_int(args, 0, 16));
 		return true;
 	}
 	if (m == "_desktopwidth" || m == "_desktopheight") {

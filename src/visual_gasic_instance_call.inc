@@ -1866,11 +1866,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
          release_canvas_draw_delegate_for_helper_script();
     }
     else if (p_what == Node::NOTIFICATION_PROCESS) {
-         VGQbScreen::present(this);
-         // Skip _Process in editor mode
-         if (Engine::get_singleton()->is_editor_hint()) {
-             return;
-         }
+         // Skip _Process in editor mode. QB present runs after _Process so one
+         // frame of PSet/LINE/_Display becomes a single texture upload.
+         if (!Engine::get_singleton()->is_editor_hint()) {
          if (script.is_valid() && script->_has_method("_Process")) {
              double delta = 0.0;
              if (owner) {
@@ -1891,6 +1889,8 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  }
              }
          }
+         }
+         VGQbScreen::present(this);
     }
     else if (p_what == Node::NOTIFICATION_PHYSICS_PROCESS) {
          // Skip _PhysicsProcess in editor mode

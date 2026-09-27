@@ -2,13 +2,46 @@
 // See visual_gasic_jit_tier2.h for design overview.
 
 #include "visual_gasic_jit_tier2.h"
+#include "visual_gasic_instance.h"
+#include "visual_gasic_builtins.h"
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <cmath>
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
 #include <unordered_set>
+#if VG_JIT_WIN64
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+#if VG_JIT_MACOS
+#include <pthread.h>
+#include <libkern/OSCacheControl.h>
+#ifndef MAP_JIT
+#define MAP_JIT 0x800
+#endif
+extern "C" void pthread_jit_write_protect_np(int enable) __attribute__((weak_import));
+#endif
 
 using namespace godot;
+
+Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &args, bool &handled) {
+    handled = false;
+    return call_internal(method, args, handled);
+}
+
+Variant VisualGasicInstance::jit_byref_capture(const String &name, bool &found) const {
+    found = false;
+    for (int i = 0; i < _last_byref_captures.size(); i++) {
+        if (_last_byref_captures[i].first == name) {
+            found = true;
+            return _last_byref_captures[i].second;
+        }
+    }
+    return Variant();
+}
 
 namespace vgjit2 {
 
@@ -17,10 +50,11 @@ namespace vgjit2 {
 // ═══════════════════════════════════════════════════════════════════
 
 CompiledFunc::~CompiledFunc() {
-#ifdef __linux__
-    if (code_mem) {
-        munmap(code_mem, code_size);
-    }
+    if (!code_mem) return;
+#if VG_JIT_WIN64
+    VirtualFree(code_mem, 0, MEM_RELEASE);
+#elif defined(__linux__) || defined(__APPLE__)
+    munmap(code_mem, code_size);
 #endif
 }
 
@@ -403,28 +437,109 @@ void CodeBuf::prologue(int spill_bytes) {
     // push rbp; mov rbp, rsp
     push_r(Reg::RBP);
     mov_rr(Reg::RBP, Reg::RSP);
-    // Save callee-saved registers we use: rbx, r12, r13, r14, r15
+    // Save callee-saved registers we use: rbx, r12, r13, r14, r15.
+    // Windows x64 also treats rdi as callee-saved. The locals pointer is
+    // copied into rdi after this prologue.
     push_r(Reg::RBX);
     push_r(Reg::R12);
     push_r(Reg::R13);
     push_r(Reg::R14);
     push_r(Reg::R15);
+#if VG_JIT_WIN64
+    push_r(Reg::RDI);
+#endif
     // Allocate spill area
     if (spill_bytes > 0) {
-        // sub rsp, spill_bytes (align to 16)
+#if VG_JIT_WIN64
+        // push rbp + 6 callee saves leaves rsp ≡ 0. Round the spill to 16.
         int aligned = (spill_bytes + 15) & ~15;
+#else
+        // After push rbp + 5 callee-saved pushes, rsp ≡ 8 (mod 16).
+        // Round the spill up to 16, then add 8 so rsp ≡ 0 before a host call.
+        int aligned = ((spill_bytes + 15) & ~15) + 8;
+#endif
         rex(true, false, false, false);
         emit(0x81); modrm(3, 5, 4); // sub rsp, imm32
         emit_i32(aligned);
     }
 }
 
+void CodeBuf::store_rbp_i64(int off, Reg src) {
+    int32_t disp = -off;
+    rex(true, needs_ext(src), false, false);
+    emit(0x89);
+    modrm(2, lo3(src), 5);
+    emit_i32(disp);
+}
+
+void CodeBuf::load_rbp_i64(Reg dst, int off) {
+    int32_t disp = -off;
+    rex(true, needs_ext(dst), false, false);
+    emit(0x8B);
+    modrm(2, lo3(dst), 5);
+    emit_i32(disp);
+}
+
+void CodeBuf::store_rbp_f64(int off, Reg xmm) {
+    int32_t disp = -off;
+    uint8_t x = (uint8_t)xmm - (uint8_t)Reg::XMM0;
+    emit(0xF2); emit(0x0F); emit(0x11);
+    modrm(2, x & 7, 5);
+    emit_i32(disp);
+}
+
+void CodeBuf::load_rbp_f64(Reg xmm, int off) {
+    int32_t disp = -off;
+    uint8_t x = (uint8_t)xmm - (uint8_t)Reg::XMM0;
+    emit(0xF2); emit(0x0F); emit(0x10);
+    modrm(2, x & 7, 5);
+    emit_i32(disp);
+}
+
+void CodeBuf::lea_rbp(Reg dst, int32_t disp) {
+    rex(true, needs_ext(dst), false, false);
+    emit(0x8D);
+    modrm(2, lo3(dst), 5);
+    emit_i32(disp);
+}
+
+void CodeBuf::call_abs(uint64_t addr, bool stack_arg5, Reg arg5) {
+#if VG_JIT_WIN64
+    // Microsoft x64: 32-byte shadow space, rsp 16-aligned at the call.
+    // A fifth integer argument sits at [rsp+32]. 48 bytes keeps alignment.
+    mov_ri64(Reg::R11, (int64_t)addr);
+    int shadow = stack_arg5 ? 48 : 32;
+    rex(true, false, false, false);
+    emit(0x83); modrm(3, 5, 4); emit((uint8_t)shadow); // sub rsp, shadow
+    if (stack_arg5 && arg5 != Reg::NONE) {
+        rex(true, needs_ext(arg5), false, false);
+        emit(0x89);
+        modrm(1, lo3(arg5), 4); // [rsp+disp8] via SIB
+        emit(0x24);
+        emit(32);
+    }
+    emit(0x41); emit(0xFF); emit(0xD3); // call r11
+    rex(true, false, false, false);
+    emit(0x83); modrm(3, 0, 4); emit((uint8_t)shadow); // add rsp, shadow
+#else
+    (void)stack_arg5;
+    (void)arg5;
+    mov_ri64(Reg::RAX, (int64_t)addr);
+    emit(0xFF);
+    emit(0xD0);
+#endif
+}
+
 void CodeBuf::epilogue() {
-    // Stack layout: old_rbp [rbp], rbx, r12, r13, r14, r15, [spill...]
-    // We need to skip the spill area first by restoring RSP to just below
-    // the callee-saved registers: lea rsp, [rbp - 40]  (5 regs * 8 = 40)
-    // REX.W LEA RSP, [RBP - 40]  → 48 8D 65 D8
+    // Skip the spill area and land on the callee-saved registers.
+#if VG_JIT_WIN64
+    // rbx, r12, r13, r14, r15, rdi → 48 bytes
+    emit(0x48); emit(0x8D); emit(0x65); emit((uint8_t)(int8_t)-48);
+    pop_r(Reg::RDI);
+#else
+    // rbx, r12, r13, r14, r15 → 40 bytes. 48 8D 65 D8
     emit(0x48); emit(0x8D); emit(0x65); emit((uint8_t)(int8_t)-40);
+#endif
     // Restore callee-saved (reverse order)
     pop_r(Reg::R15);
     pop_r(Reg::R14);
@@ -440,13 +555,18 @@ void CodeBuf::epilogue() {
 //  Bytecode → IR lowering
 // ═══════════════════════════════════════════════════════════════════
 
+// Last opcode lower_bytecode was looking at, so a silent bail can be logged.
+static int g_jit_lower_ip = -1;
+static int g_jit_lower_op = -1;
+
 // Helper to read a 16-bit value from bytecode
 static int read_u16(const uint8_t* code, int ip) {
     return ((int)code[ip] << 8) | (int)code[ip+1];
 }
 
 bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
-                           std::vector<std::pair<std::string, int>>& global_slots, int& total_slots) {
+                           std::vector<std::pair<std::string, int>>& global_slots, int& total_slots,
+                           std::vector<uint8_t>& slot_is_f64, void* inst, const std::string &fn_name) {
     const uint8_t* code = chunk->code.ptr();
     int size = chunk->code.size();
     int next_vreg = 0;
@@ -456,6 +576,10 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     
     // vreg → integer constant value (for constant-shift-count detection)
     std::unordered_map<int, int64_t> vreg_const_i64;
+    // vreg → global constant-pool index (array base or numeric global)
+    std::unordered_map<int, int> vreg_global_idx;
+    // vreg → string constant-pool index (only valid as a call argument)
+    std::unordered_map<int, int> vreg_str_pool;
     
     // Track the type of each vreg so generic comparisons use correct type
     std::vector<IRType> vreg_type_map;
@@ -471,6 +595,13 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     // Track the type of each local slot so LOAD_LOCAL inherits the correct type
     // when a local was previously stored from an F64 vreg.
     std::unordered_map<int, IRType> local_slot_type;
+    // Compiler type tags: 2 = Single/Double. Params are loaded before any store,
+    // so the slot must start as F64 or a float argument is cvtsi2sd'd as an int.
+    for (int si = 0; chunk && si < chunk->local_count && si < chunk->local_types.size(); si++) {
+        if (chunk->local_types[si] == 2) {
+            local_slot_type[si] = IRType::F64;
+        }
+    }
     
     // Virtual global→local slot mapping: globals get slots beyond local_count
     int base_locals = chunk->local_count;
@@ -518,14 +649,19 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_CALL_BUILTIN: case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
                         case OP_OPEN_FILE: case OP_INC_LOCAL_I64:
                         case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
+                        case OP_GET_ARRAY: case OP_SET_ARRAY:
+                        case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
+                        case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
+                        case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
+                        case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
+                        case OP_PUSH_SCOPE:
                             advance = 2; break;
                         // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
                         case OP_CONSTANT:
+                        case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
                         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                         case OP_GET_MEMBER: case OP_SET_MEMBER:
-                        case OP_GET_ARRAY: case OP_SET_ARRAY:
-                        case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
                         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
                         case OP_SET_DICT_LOCAL:
                         case OP_ITER_ARRAY: case OP_NEW_VGDICT:
@@ -556,6 +692,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                             advance = 5; break;
                         // 6-byte opcodes
                         case OP_TASK_RUN_BEGIN:
+                        case OP_BYREF_LOAD:
                             advance = 6; break;
                         // 8-byte opcodes
                         case OP_ALLOC_FILL_REPEAT_I64:
@@ -626,7 +763,10 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
                     ip += 3; break;
                 case OP_GET_LOCAL: case OP_SET_LOCAL:
+                case OP_PUSH_SCOPE:
                     ip += 2; break;
+                case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
+                    ip += 3; break;
                 case OP_CALL:
                     ip += 4; break;
                 case OP_CALL_BUILTIN:
@@ -635,12 +775,26 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ip += 3; break;
                 case OP_ACCUM_I64_MULADD_CONST:
                     ip += 5; break;
+                case OP_BYREF_LOAD:
+                    ip += 6; break;
                 default:
                     ip += 1; break;
             }
         }
     }
     
+    // Block-scoped Dims (Dim inside For/Do) are a side stack in the VM.
+    // Each static PUSH_SCOPE owns a fixed range of JIT slots, zeroed every entry.
+    struct BlockScope { int base; int count; };
+    std::vector<BlockScope> block_scopes;
+    auto block_slot = [&](int frame_from_top, int offset, int &slot_out) -> bool {
+        int idx = (int)block_scopes.size() - 1 - frame_from_top;
+        if (idx < 0 || idx >= (int)block_scopes.size()) return false;
+        if (offset < 0 || offset >= block_scopes[idx].count) return false;
+        slot_out = block_scopes[idx].base + offset;
+        return true;
+    };
+
     // Second pass: generate IR
     int ip = 0;
     while (ip < size) {
@@ -655,6 +809,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         }
         
         uint8_t op = code[ip];
+        g_jit_lower_ip = ip;
+        g_jit_lower_op = op;
         
         switch (op) {
             case OP_CONSTANT: {
@@ -683,6 +839,17 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         inst.bc_offset = ip;
                         ir.push_back(inst);
                         vstack.push_back(inst.dest);
+                    } else if (v.get_type() == Variant::STRING) {
+                        IRInst inst;
+                        inst.op = IROp::CONST_I64;
+                        inst.type = IRType::VOID;
+                        inst.dest = next_vreg++;
+                        set_vreg_type(inst.dest, IRType::VOID);
+                        inst.imm_i64 = idx;
+                        inst.bc_offset = ip;
+                        ir.push_back(inst);
+                        vstack.push_back(inst.dest);
+                        vreg_str_pool[inst.dest] = idx;
                     } else {
                         return false; // Non-numeric constant — bail
                     }
@@ -801,16 +968,30 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 }
                 IRType slot_type = IRType::I64;
                 auto stt = local_slot_type.find(vslot);
-                if (stt != local_slot_type.end()) slot_type = stt->second;
-                IRInst inst;
-                inst.op = IROp::LOAD_LOCAL;
-                inst.type = slot_type;
-                inst.dest = next_vreg++;
-                set_vreg_type(inst.dest, slot_type);
-                inst.local_slot = vslot;
-                inst.bc_offset = ip;
-                ir.push_back(inst);
-                vstack.push_back(inst.dest);
+                if (stt != local_slot_type.end()) {
+                    slot_type = stt->second;
+                } else if (inst && name_idx < chunk->constants.size()) {
+                    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(inst);
+                    Variant cv = chunk->constants[name_idx];
+                    String gname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                    if (vi->get_variables().has(gname)) {
+                        Variant gv = vi->get_variables()[gname];
+                        if (gv.get_type() == Variant::FLOAT) {
+                            slot_type = IRType::F64;
+                            local_slot_type[vslot] = IRType::F64;
+                        }
+                    }
+                }
+                IRInst ld;
+                ld.op = IROp::LOAD_LOCAL;
+                ld.type = slot_type;
+                ld.dest = next_vreg++;
+                set_vreg_type(ld.dest, slot_type);
+                ld.local_slot = vslot;
+                ld.bc_offset = ip;
+                ir.push_back(ld);
+                vstack.push_back(ld.dest);
+                vreg_global_idx[ld.dest] = name_idx;
                 ip += 3;
                 break;
             }
@@ -1111,6 +1292,19 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (vstack.size() < 2) return false;
                 int rhs = vstack.back(); vstack.pop_back();
                 int lhs = vstack.back(); vstack.pop_back();
+                auto force_i64 = [&](int v) -> int {
+                    if (get_vreg_type(v) == IRType::VOID) return -1;
+                    if (get_vreg_type(v) != IRType::F64) return v;
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = v; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    return conv;
+                };
+                lhs = force_i64(lhs);
+                rhs = force_i64(rhs);
+                if (lhs < 0 || rhs < 0) return false;
                 IRInst inst;
                 if (op == OP_ADD_I64) inst.op = IROp::ADD_I64;
                 else if (op == OP_SUB_I64) inst.op = IROp::SUB_I64;
@@ -1209,15 +1403,24 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             case OP_NEGATE: {
                 if (vstack.empty()) return false;
                 int src = vstack.back(); vstack.pop_back();
-                IRInst inst;
-                inst.op = IROp::NEG_I64;
-                inst.type = IRType::I64;
-                inst.dest = next_vreg++;
-                set_vreg_type(inst.dest, IRType::I64);
-                inst.src1 = src;
-                inst.bc_offset = ip;
-                ir.push_back(inst);
-                vstack.push_back(inst.dest);
+                if (get_vreg_type(src) == IRType::VOID) return false;
+                IRInst ninst;
+                if (get_vreg_type(src) == IRType::F64) {
+                    ninst.op = IROp::LIBM1;
+                    ninst.type = IRType::F64;
+                    ninst.imm_i64 = 6;
+                    ninst.dest = next_vreg++;
+                    set_vreg_type(ninst.dest, IRType::F64);
+                } else {
+                    ninst.op = IROp::NEG_I64;
+                    ninst.type = IRType::I64;
+                    ninst.dest = next_vreg++;
+                    set_vreg_type(ninst.dest, IRType::I64);
+                }
+                ninst.src1 = src;
+                ninst.bc_offset = ip;
+                ir.push_back(ninst);
+                vstack.push_back(ninst.dest);
                 ip += 1;
                 break;
             }
@@ -1482,16 +1685,33 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
-            // ── Bitwise AND / OR / XOR (integer only) ──
-            // VG's OP_AND/OP_OR/OP_XOR are bitwise when both operands are numeric
-            // and logical otherwise. We only compile the pure-integer case; any
-            // non-I64 operand bails so the interpreter can apply the float-coerce
-            // or logical-truthiness semantics correctly.
+            // ── Bitwise AND / OR / XOR ──
+            // The interpreter uses bitwise ops when both operands are numeric
+            // (float truncated to int64) and logical ops otherwise. JIT values
+            // are only I64 or F64, and booleans are 0/1, where bitwise and
+            // logical agree. A non-numeric vreg still bails.
             case OP_AND: case OP_OR: case OP_XOR: {
                 if (vstack.size() < 2) return false;
                 int rhs = vstack.back(); vstack.pop_back();
                 int lhs = vstack.back(); vstack.pop_back();
-                if (get_vreg_type(lhs) != IRType::I64 || get_vreg_type(rhs) != IRType::I64) return false;
+                auto to_i64 = [&](int v) -> int {
+                    IRType t = get_vreg_type(v);
+                    if (t == IRType::I64) return v;
+                    if (t != IRType::F64) return -1;
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv;
+                    cv.op = IROp::F64_TO_I64;
+                    cv.type = IRType::I64;
+                    cv.dest = conv;
+                    cv.src1 = v;
+                    cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    return conv;
+                };
+                lhs = to_i64(lhs);
+                rhs = to_i64(rhs);
+                if (lhs < 0 || rhs < 0) return false;
                 IRInst inst;
                 inst.type = IRType::I64;
                 inst.dest = next_vreg++;
@@ -1507,12 +1727,48 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 ip += 1;
                 break;
             }
-            
-            // OP_NOT is intentionally NOT compiled: VG's `Not` is logical and
-            // pushes a Boolean Variant (!to_bool(x)). Producing an int 0/1 in
-            // native code would be an observable divergence from the
-            // interpreter (e.g. `x = False` succeeds but `x = 0` does not), so
-            // it bails to the interpreter to keep results identical.
+
+            // Logical Not: !to_bool(x). Numeric 0 is false; any other number is
+            // true. The 0/1 result is written back as Boolean when the
+            // destination variable already is one.
+            case OP_NOT: {
+                if (vstack.empty()) return false;
+                int src = vstack.back(); vstack.pop_back();
+                IRType ty = get_vreg_type(src);
+                int zero = next_vreg++;
+                IRInst cz;
+                cz.dest = zero;
+                cz.bc_offset = ip;
+                IROp cmp;
+                if (ty == IRType::F64) {
+                    set_vreg_type(zero, IRType::F64);
+                    cz.op = IROp::CONST_F64;
+                    cz.type = IRType::F64;
+                    cz.imm_f64 = 0.0;
+                    cmp = IROp::EQ_F64;
+                } else if (ty == IRType::I64) {
+                    set_vreg_type(zero, IRType::I64);
+                    cz.op = IROp::CONST_I64;
+                    cz.type = IRType::I64;
+                    cz.imm_i64 = 0;
+                    cmp = IROp::EQ_I64;
+                } else {
+                    return false;
+                }
+                ir.push_back(cz);
+                IRInst inst;
+                inst.op = cmp;
+                inst.type = IRType::BOOL;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, IRType::I64);
+                inst.src1 = src;
+                inst.src2 = zero;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 1;
+                break;
+            }
             
             // ── Integer modulo / integer divide by a CONSTANT divisor ────
             // idiv clobbers RDX and can raise #DE (SIGFPE) on divide-by-zero
@@ -1573,14 +1829,324 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
-            default:
-                // Unsupported opcode — cannot JIT this function
+            case OP_DIVIDE: {
+                if (vstack.size() < 2) return false;
+                int rhs = vstack.back(); vstack.pop_back();
+                int lhs = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(lhs) == IRType::VOID || get_vreg_type(rhs) == IRType::VOID) return false;
+                auto force_f = [&](int v) -> int {
+                    if (get_vreg_type(v) == IRType::F64) return v;
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::F64);
+                    IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                    cv.dest = conv; cv.src1 = v; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    return conv;
+                };
+                lhs = force_f(lhs);
+                rhs = force_f(rhs);
+                IRInst dinst;
+                dinst.op = IROp::DIV_F64;
+                dinst.type = IRType::F64;
+                dinst.dest = next_vreg++;
+                set_vreg_type(dinst.dest, IRType::F64);
+                dinst.src1 = lhs;
+                dinst.src2 = rhs;
+                dinst.bc_offset = ip;
+                ir.push_back(dinst);
+                vstack.push_back(dinst.dest);
+                ip += 1;
+                break;
+            }
+
+            case OP_SIN: case OP_COS: case OP_SQRT: case OP_TAN: case OP_ABS: case OP_SGN: {
+                if (vstack.empty()) return false;
+                int src = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(src) == IRType::VOID) return false;
+                if (get_vreg_type(src) != IRType::F64 && op != OP_ABS && op != OP_SGN) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::F64);
+                    IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                    cv.dest = conv; cv.src1 = src; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    src = conv;
+                }
+                if (op == OP_ABS && get_vreg_type(src) != IRType::F64) {
+                    // Integer absolute value stays on the integer path via a host call
+                    // only when the value is float. Integer abs is a compare/neg below.
+                    IRInst ainst;
+                    ainst.op = IROp::LIBM1;
+                    ainst.imm_i64 = 4;
+                    ainst.type = IRType::I64;
+                    ainst.dest = next_vreg++;
+                    set_vreg_type(ainst.dest, IRType::I64);
+                    ainst.src1 = src;
+                    ainst.bc_offset = ip;
+                    ir.push_back(ainst);
+                    vstack.push_back(ainst.dest);
+                    ip += 1;
+                    break;
+                }
+                IRInst minst;
+                minst.op = IROp::LIBM1;
+                minst.type = (op == OP_SGN) ? IRType::I64 : IRType::F64;
+                minst.dest = next_vreg++;
+                set_vreg_type(minst.dest, minst.type);
+                minst.src1 = src;
+                minst.bc_offset = ip;
+                if (op == OP_SIN) minst.imm_i64 = 0;
+                else if (op == OP_COS) minst.imm_i64 = 1;
+                else if (op == OP_SQRT) minst.imm_i64 = 2;
+                else if (op == OP_TAN) minst.imm_i64 = 3;
+                else if (op == OP_ABS) minst.imm_i64 = 4;
+                else minst.imm_i64 = 5;
+                ir.push_back(minst);
+                vstack.push_back(minst.dest);
+                ip += 1;
+                break;
+            }
+
+            case OP_CALL: {
+                int name_idx = (code[ip + 2] << 8) | code[ip + 1];
+                int argc = code[ip + 3];
+                if (argc < 0 || argc > 8) return false;
+                // Direct recursion shares the function-name return slot across
+                // frames. Leave those bodies on the interpreter.
+                if (name_idx >= 0 && name_idx < chunk->constants.size()) {
+                    Variant cv = chunk->constants[name_idx];
+                    String cn = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                    CharString cs = cn.utf8();
+                    const char *got = cs.get_data();
+                    const char *want = fn_name.c_str();
+                    bool same = got && want && !fn_name.empty();
+                    if (same) {
+                        for (int i = 0;; i++) {
+                            unsigned char a = (unsigned char)got[i];
+                            unsigned char b = (unsigned char)want[i];
+                            if (a >= 'A' && a <= 'Z') a = (unsigned char)(a - 'A' + 'a');
+                            if (b >= 'A' && b <= 'Z') b = (unsigned char)(b - 'A' + 'a');
+                            if (a != b) { same = false; break; }
+                            if (a == 0) break;
+                        }
+                    }
+                    if (same) return false;
+                }
+                if ((int)vstack.size() < argc) return false;
+                IRInst cinst;
+                cinst.op = IROp::RUNTIME_CALL;
+                cinst.imm_i64 = name_idx;
+                cinst.call_n = (uint8_t)argc;
+                cinst.type = IRType::F64;
+                cinst.dest = next_vreg++;
+                set_vreg_type(cinst.dest, IRType::F64);
+                cinst.bc_offset = ip;
+                for (int a = argc - 1; a >= 0; a--) {
+                    int v = vstack.back(); vstack.pop_back();
+                    cinst.call_src[a] = v;
+                    auto sit = vreg_str_pool.find(v);
+                    if (sit != vreg_str_pool.end()) {
+                        cinst.call_kind[a] = 2;
+                        cinst.call_pool[a] = sit->second;
+                    } else if (get_vreg_type(v) == IRType::F64) {
+                        cinst.call_kind[a] = 1;
+                    } else if (get_vreg_type(v) == IRType::VOID) {
+                        return false;
+                    } else {
+                        cinst.call_kind[a] = 0;
+                    }
+                }
+                ir.push_back(cinst);
+                vstack.push_back(cinst.dest);
+                ip += 4;
+                break;
+            }
+
+            case OP_GET_ARRAY: case OP_GET_ARRAY_FAST:
+            case OP_GET_ARRAY_UNCHECKED: case OP_GET_ARRAY_FAST_UNCHECKED: {
+                int argc = code[ip + 1];
+                if (argc != 1 || vstack.size() < 2) return false;
+                int idx = vstack.back(); vstack.pop_back();
+                int base = vstack.back(); vstack.pop_back();
+                auto git = vreg_global_idx.find(base);
+                if (git == vreg_global_idx.end()) return false;
+                if (get_vreg_type(idx) == IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = idx; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    idx = conv;
+                }
+                IRInst ainst;
+                ainst.op = IROp::ARRAY_GET;
+                ainst.type = IRType::I64;
+                ainst.dest = next_vreg++;
+                set_vreg_type(ainst.dest, IRType::I64);
+                ainst.src1 = idx;
+                ainst.imm_i64 = git->second;
+                ainst.local_slot = -1;
+                ainst.bc_offset = ip;
+                ir.push_back(ainst);
+                vstack.push_back(ainst.dest);
+                ip += 2;
+                break;
+            }
+
+            case OP_GET_ARRAY_I64_LOCAL: {
+                int slot = code[ip + 1];
+                if (vstack.empty()) return false;
+                int idx = vstack.back(); vstack.pop_back();
+                if (get_vreg_type(idx) == IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = idx; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    idx = conv;
+                }
+                IRInst ainst;
+                ainst.op = IROp::ARRAY_GET;
+                ainst.type = IRType::I64;
+                ainst.dest = next_vreg++;
+                set_vreg_type(ainst.dest, IRType::I64);
+                ainst.src1 = idx;
+                ainst.imm_i64 = -1;
+                ainst.local_slot = slot;
+                ainst.bc_offset = ip;
+                ir.push_back(ainst);
+                vstack.push_back(ainst.dest);
+                ip += 2;
+                break;
+            }
+
+            case OP_PUSH_SCOPE: {
+                int count = code[ip + 1];
+                BlockScope sc;
+                sc.base = next_global_slot;
+                sc.count = count;
+                next_global_slot += count;
+                block_scopes.push_back(sc);
+                for (int s = 0; s < count; s++) {
+                    int z = next_vreg++;
+                    set_vreg_type(z, IRType::I64);
+                    IRInst cz;
+                    cz.op = IROp::CONST_I64;
+                    cz.type = IRType::I64;
+                    cz.dest = z;
+                    cz.imm_i64 = 0;
+                    cz.bc_offset = ip;
+                    ir.push_back(cz);
+                    IRInst st;
+                    st.op = IROp::STORE_LOCAL;
+                    st.src1 = z;
+                    st.local_slot = sc.base + s;
+                    st.bc_offset = ip;
+                    ir.push_back(st);
+                }
+                ip += 2;
+                break;
+            }
+            case OP_POP_SCOPE: {
+                if (block_scopes.empty()) return false;
+                block_scopes.pop_back();
+                ip += 1;
+                break;
+            }
+            case OP_GET_BLOCK_LOCAL: {
+                int frame = code[ip + 1];
+                int offset = code[ip + 2];
+                int slot = 0;
+                if (!block_slot(frame, offset, slot)) return false;
+                IRType slot_type = IRType::I64;
+                auto stt = local_slot_type.find(slot);
+                if (stt != local_slot_type.end()) slot_type = stt->second;
+                IRInst inst;
+                inst.op = IROp::LOAD_LOCAL;
+                inst.type = slot_type;
+                inst.dest = next_vreg++;
+                set_vreg_type(inst.dest, slot_type);
+                inst.local_slot = slot;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                vstack.push_back(inst.dest);
+                ip += 3;
+                break;
+            }
+            case OP_SET_BLOCK_LOCAL: {
+                int frame = code[ip + 1];
+                int offset = code[ip + 2];
+                if (vstack.empty()) return false;
+                int slot = 0;
+                if (!block_slot(frame, offset, slot)) return false;
+                int val = vstack.back(); vstack.pop_back();
+                if (i64_pinned_slots.count(slot) && get_vreg_type(val) == IRType::F64) {
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::I64);
+                    IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                    cv.dest = conv; cv.src1 = val; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    val = conv;
+                }
+                local_slot_type[slot] = get_vreg_type(val);
+                IRInst inst;
+                inst.op = IROp::STORE_LOCAL;
+                inst.src1 = val;
+                inst.local_slot = slot;
+                inst.bc_offset = ip;
+                ir.push_back(inst);
+                ip += 3;
+                break;
+            }
+
+            case OP_BYREF_LOAD: {
+                int name_idx = (code[ip + 2] << 8) | code[ip + 1];
+                int is_global = code[ip + 3];
+                int dest = (code[ip + 5] << 8) | code[ip + 4];
+                IRType ty = IRType::I64;
+                if (is_global) {
+                    auto git = global_const_to_slot.find(dest);
+                    if (git != global_const_to_slot.end()) {
+                        auto stt = local_slot_type.find(git->second);
+                        if (stt != local_slot_type.end()) ty = stt->second;
+                    }
+                } else {
+                    auto stt = local_slot_type.find(dest);
+                    if (stt != local_slot_type.end()) ty = stt->second;
+                }
+                IRInst binst;
+                binst.op = IROp::BYREF_LOAD;
+                binst.type = ty;
+                binst.dest = next_vreg++;
+                set_vreg_type(binst.dest, ty);
+                binst.imm_i64 = name_idx;
+                binst.call_kind[0] = (uint8_t)(is_global ? 1 : 0);
+                binst.call_pool[0] = dest;
+                binst.local_slot = is_global ? -1 : dest;
+                binst.bc_offset = ip;
+                ir.push_back(binst);
+                vstack.push_back(binst.dest);
+                ip += 6;
+                break;
+            }
+
+            default: {
+                const char *jit_log = std::getenv("VG_JIT_LOG");
+                if (jit_log && jit_log[0] == '1') {
+                    UtilityFunctions::print("[VG_JIT T2] bail opcode ", (int)op, " at ", ip);
+                }
                 return false;
+            }
         }
     }
     
     vreg_count = next_vreg;
     total_slots = next_global_slot; // local_count + virtual global count
+    slot_is_f64.assign(total_slots > 0 ? total_slots : 0, 0);
+    for (const auto &kv : local_slot_type) {
+        if (kv.first >= 0 && kv.first < (int)slot_is_f64.size() && kv.second == IRType::F64) {
+            slot_is_f64[kv.first] = 1;
+        }
+    }
     return true;
 }
 
@@ -1627,6 +2193,11 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
         }
         touch(inst.src1);
         touch(inst.src2);
+        for (int c = 0; c < (int)inst.call_n && c < 8; c++) {
+            if (inst.call_kind[c] != 2) {
+                touch(inst.call_src[c]);
+            }
+        }
     }
     
     // Remove unused vregs
@@ -1642,8 +2213,14 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     // Allocatable GP registers (avoid rax=scratch, rsp, rbp, rdi=locals ptr, rsi=local_count)
     std::vector<Reg> gp_pool = { Reg::RCX, Reg::RDX, Reg::RBX, Reg::R8, Reg::R9,
                                   Reg::R10, Reg::R11, Reg::R12, Reg::R13, Reg::R14, Reg::R15 };
+#if VG_JIT_WIN64
+    // XMM6 and XMM7 are callee-saved on Windows x64.
+    std::vector<Reg> fp_pool = { Reg::XMM0, Reg::XMM1, Reg::XMM2, Reg::XMM3,
+                                  Reg::XMM4, Reg::XMM5 };
+#else
     std::vector<Reg> fp_pool = { Reg::XMM0, Reg::XMM1, Reg::XMM2, Reg::XMM3,
                                   Reg::XMM4, Reg::XMM5, Reg::XMM6, Reg::XMM7 };
+#endif
     
     std::vector<bool> gp_used(gp_pool.size(), false);
     std::vector<bool> fp_used(fp_pool.size(), false);
@@ -1651,7 +2228,12 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     // Active intervals (currently live)
     std::vector<int> active_indices;  // indices into active_ranges
     
+#if VG_JIT_WIN64
+    // rbp-8 .. rbp-48 hold rbx, r12-r15, and rdi. Spills start underneath them.
+    int next_spill = 56;
+#else
     int next_spill = 8; // Start spill at rbp-8 (below saved regs)
+#endif
     
     for (int i = 0; i < (int)active_ranges.size(); i++) {
         LiveRange& cur = active_ranges[i];
@@ -1714,6 +2296,242 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  Host calls from native code (math, PSet/LINE, user Subs, arrays)
+// ═══════════════════════════════════════════════════════════════════
+
+static thread_local JitFrame g_jit_frame;
+
+JitFrame jit_swap_frame(JitFrame next) {
+    JitFrame prev = g_jit_frame;
+    g_jit_frame = next;
+    return prev;
+}
+
+bool jit_func_active(const CompiledFunc *fn) {
+    return fn && g_jit_frame.func == fn;
+}
+
+static bool jit_numeric_var(const Variant &v) {
+    Variant::Type t = v.get_type();
+    return t == Variant::NIL || t == Variant::INT || t == Variant::FLOAT || t == Variant::BOOL;
+}
+
+static void jit_sync_globals(bool to_vars) {
+    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
+    if (!vi || !g_jit_frame.func || !g_jit_frame.locals) {
+        return;
+    }
+    Dictionary &vars = vi->get_variables();
+    const CompiledFunc *fn = g_jit_frame.func;
+    for (const auto &gs : fn->global_slots) {
+        int slot = gs.second;
+        if (slot < 0) {
+            continue;
+        }
+        String name(gs.first.c_str());
+        bool is_f = slot < (int)fn->slot_is_f64.size() && fn->slot_is_f64[slot];
+        if (to_vars) {
+            if (vars.has(name) && !jit_numeric_var(vars[name])) {
+                continue;
+            }
+            // Keep Boolean variables boolean. Writing 0/1 as Integer makes
+            // `flag = True` fail after a JIT write-back.
+            if (vars.has(name) && vars[name].get_type() == Variant::BOOL) {
+                vars[name] = g_jit_frame.locals[slot] != 0;
+                continue;
+            }
+            if (is_f) {
+                double d = 0;
+                memcpy(&d, &g_jit_frame.locals[slot], 8);
+                vars[name] = d;
+            } else {
+                vars[name] = (int64_t)g_jit_frame.locals[slot];
+            }
+        } else if (vars.has(name)) {
+            Variant cur = vars[name];
+            if (cur.get_type() == Variant::FLOAT) {
+                double d = (double)cur;
+                memcpy(&g_jit_frame.locals[slot], &d, 8);
+            } else if (cur.get_type() == Variant::INT || cur.get_type() == Variant::BOOL) {
+                g_jit_frame.locals[slot] = (int64_t)cur;
+            }
+        }
+    }
+}
+
+static int64_t host_libm(int64_t which, int64_t bits, int64_t is_float, int64_t *flag_out) {
+    if (flag_out) {
+        *flag_out = 0;
+    }
+    if (which == 4 && !is_float) {
+        int64_t v = bits;
+        if (v < 0) {
+            v = -v;
+        }
+        return v;
+    }
+    double d = 0;
+    if (is_float) {
+        memcpy(&d, &bits, 8);
+    } else {
+        d = (double)bits;
+    }
+    if (which == 5) {
+        int64_t s = (d > 0.0) - (d < 0.0);
+        return s;
+    }
+    double r = d;
+    if (which == 0) r = ::sin(d);
+    else if (which == 1) r = ::cos(d);
+    else if (which == 2) r = ::sqrt(d);
+    else if (which == 3) r = ::tan(d);
+    else if (which == 4) r = ::fabs(d);
+    else if (which == 6) r = -d;
+    int64_t out = 0;
+    memcpy(&out, &r, 8);
+    if (flag_out) {
+        *flag_out = 1;
+    }
+    return out;
+}
+
+static int64_t host_call(int64_t name_ptr, int64_t argc, int64_t bits_ptr, int64_t kind_ptr, int64_t *flag_out) {
+    int64_t ret = 0;
+    if (flag_out) {
+        *flag_out = 0;
+    }
+    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
+    if (!vi || !name_ptr || argc < 0 || argc > 8) {
+        return ret;
+    }
+    JitFrame saved = g_jit_frame;
+    jit_sync_globals(true);
+    const int64_t *bits = reinterpret_cast<const int64_t *>(bits_ptr);
+    const int64_t *kinds = reinterpret_cast<const int64_t *>(kind_ptr);
+    Array args;
+    args.resize((int)argc);
+    for (int i = 0; i < (int)argc; i++) {
+        int kind = kinds ? (int)kinds[i] : 0;
+        if (kind == 2) {
+            const char *s = reinterpret_cast<const char *>(bits[i]);
+            args[i] = String(s ? s : "");
+        } else if (kind == 1) {
+            double d = 0;
+            memcpy(&d, &bits[i], 8);
+            args[i] = d;
+        } else {
+            args[i] = bits[i];
+        }
+    }
+    String method(reinterpret_cast<const char *>(name_ptr));
+    bool handled = false;
+    Variant r = VisualGasicBuiltins::call_builtin_expr_evaluated(vi, method, args, handled);
+    if (!handled) {
+        VisualGasicBuiltins::call_builtin(vi, method, args, r, handled);
+    }
+    if (!handled) {
+        r = vi->jit_invoke_call(method, args, handled);
+    }
+    g_jit_frame = saved;
+    jit_sync_globals(false);
+    if (!handled || r.get_type() == Variant::NIL) {
+        return ret;
+    }
+    if (r.get_type() == Variant::FLOAT) {
+        double d = (double)r;
+        memcpy(&ret, &d, 8);
+        if (flag_out) {
+            *flag_out = 1;
+        }
+        return ret;
+    }
+    if (r.get_type() == Variant::INT || r.get_type() == Variant::BOOL) {
+        ret = (int64_t)r;
+    }
+    return ret;
+}
+
+static int64_t host_array_get(int64_t name_ptr, int64_t index) {
+    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
+    if (!vi || !name_ptr) {
+        return 0;
+    }
+    String name(reinterpret_cast<const char *>(name_ptr));
+    Dictionary &vars = vi->get_variables();
+    if (!vars.has(name)) {
+        return 0;
+    }
+    Variant base = vars[name];
+    int idx = (int)index;
+    if (idx < 0) {
+        return 0;
+    }
+    if (base.get_type() == Variant::PACKED_INT64_ARRAY) {
+        PackedInt64Array a = base;
+        if (idx >= a.size()) return 0;
+        return (int64_t)a[idx];
+    }
+    if (base.get_type() == Variant::PACKED_INT32_ARRAY) {
+        PackedInt32Array a = base;
+        if (idx >= a.size()) return 0;
+        return (int64_t)a[idx];
+    }
+    if (base.get_type() == Variant::ARRAY) {
+        Array a = base;
+        if (idx >= a.size()) return 0;
+        Variant el = a[idx];
+        if (el.get_type() == Variant::FLOAT) {
+            return (int64_t)(double)el;
+        }
+        return (int64_t)el;
+    }
+    return 0;
+}
+
+static int64_t host_byref(int64_t name_ptr, int64_t is_global, int64_t dest, int64_t *flag_out) {
+    int64_t ret = 0;
+    if (flag_out) {
+        *flag_out = 0;
+    }
+    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
+    if (!vi || !name_ptr) {
+        return ret;
+    }
+    String pname(reinterpret_cast<const char *>(name_ptr));
+    bool found = false;
+    Variant result = vi->jit_byref_capture(pname, found);
+    if (!found) {
+        if (is_global && dest) {
+            String dname(reinterpret_cast<const char *>(dest));
+            if (vi->get_variables().has(dname)) {
+                result = vi->get_variables()[dname];
+            }
+        } else if (!is_global && g_jit_frame.locals && dest >= 0) {
+            CompiledFunc *fn = g_jit_frame.func;
+            int64_t bits = g_jit_frame.locals[dest];
+            if (fn && dest < (int64_t)fn->slot_is_f64.size() && fn->slot_is_f64[(size_t)dest]) {
+                if (flag_out) {
+                    *flag_out = 1;
+                }
+            }
+            return bits;
+        }
+    }
+    if (result.get_type() == Variant::FLOAT) {
+        double d = (double)result;
+        memcpy(&ret, &d, 8);
+        if (flag_out) {
+            *flag_out = 1;
+        }
+        return ret;
+    }
+    if (result.get_type() == Variant::INT || result.get_type() == Variant::BOOL) {
+        ret = (int64_t)result;
+    }
+    return ret;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  Native Code Generation
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1747,11 +2565,44 @@ static void store_result(CodeBuf& cb, const RegAlloc& alloc, int vreg, Reg src) 
     }
 }
 
+#if VG_JIT_WIN64
+static Reg host_arg_reg(int n) {
+    static const Reg r[4] = { Reg::RCX, Reg::RDX, Reg::R8, Reg::R9 };
+    return r[n];
+}
+#else
+static Reg host_arg_reg(int n) {
+    static const Reg r[6] = { Reg::RDI, Reg::RSI, Reg::RDX, Reg::RCX, Reg::R8, Reg::R9 };
+    return r[n];
+}
+#endif
+
+static void emit_host_imm(CodeBuf &cb, int n, int64_t imm) {
+    cb.mov_ri64(host_arg_reg(n), imm);
+}
+
+static void emit_host_reg(CodeBuf &cb, int n, Reg src) {
+    Reg dst = host_arg_reg(n);
+    if (src != dst) cb.mov_rr(dst, src);
+}
+
 CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& alloc,
                                   BytecodeChunk* chunk, const std::string& name) {
-#ifndef __linux__
+#if !VG_JIT_NATIVE
+    (void)ir; (void)alloc; (void)chunk; (void)name;
     return nullptr;
 #else
+    CompiledFunc *out_func = new CompiledFunc();
+    out_func->name = name;
+    if (chunk) {
+        for (int i = 0; i < chunk->local_names.size(); i++) {
+            out_func->local_names.push_back(std::string(String(chunk->local_names[i]).utf8().get_data()));
+        }
+    }
+    auto intern = [&](const String &s) -> const char * {
+        out_func->str_pool.push_back(std::string(s.utf8().get_data()));
+        return out_func->str_pool.back().c_str();
+    };
     CodeBuf cb;
     cb.reset();
     
@@ -1762,11 +2613,101 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     }
     for (int i = 0; i < max_label; i++) cb.new_label();
     
-    cb.prologue(alloc.spill_bytes);
-    // rdi = locals pointer (first parameter, System V ABI)
-    // rsi = local_count (second parameter)
+    bool needs_host = false;
+    for (const auto &probe : ir) {
+        if (probe.op == IROp::LIBM1 || probe.op == IROp::RUNTIME_CALL || probe.op == IROp::ARRAY_GET ||
+            probe.op == IROp::BYREF_LOAD) {
+            needs_host = true;
+            break;
+        }
+    }
+    int spill_bytes = alloc.spill_bytes;
+    if (needs_host && spill_bytes < 960) {
+        spill_bytes = 960;
+    }
+    cb.prologue(spill_bytes);
+#if VG_JIT_WIN64
+    // Microsoft x64 passes the locals pointer in rcx. The rest of the
+    // emitter addresses locals through rdi, matching the Linux body.
+    cb.mov_rr(Reg::RDI, Reg::RCX);
+#endif
+    // rdi = locals pointer. rsi (Linux) / rdx (Windows) = local_count, unused.
+
+    auto reg_live = [&](int ir_index, Reg r, int dest_vreg) {
+        for (const auto &range : alloc.ranges) {
+            if (range.vreg == dest_vreg) continue;
+            if (range.assigned != r) continue;
+            if (range.first_use <= ir_index && range.last_use >= ir_index) return true;
+        }
+        return false;
+    };
+    auto save_caller = [&](int ir_index, int dest_vreg) {
+        const Reg gps[] = { Reg::RCX, Reg::RDX, Reg::R8, Reg::R9, Reg::R10, Reg::R11 };
+        for (int i = 0; i < 6; i++) {
+            if (reg_live(ir_index, gps[i], dest_vreg)) {
+                cb.store_rbp_i64(520 + i * 8, gps[i]);
+            }
+        }
+        for (int i = 0; i < 8; i++) {
+            Reg xm = (Reg)((int)Reg::XMM0 + i);
+            if (reg_live(ir_index, xm, dest_vreg)) {
+                cb.store_rbp_f64(576 + i * 8, xm);
+            }
+        }
+    };
+    auto restore_caller = [&](int ir_index, int dest_vreg) {
+        const Reg gps[] = { Reg::RCX, Reg::RDX, Reg::R8, Reg::R9, Reg::R10, Reg::R11 };
+        for (int i = 0; i < 6; i++) {
+            if (reg_live(ir_index, gps[i], dest_vreg)) {
+                cb.load_rbp_i64(gps[i], 520 + i * 8);
+            }
+        }
+        for (int i = 0; i < 8; i++) {
+            Reg xm = (Reg)((int)Reg::XMM0 + i);
+            if (reg_live(ir_index, xm, dest_vreg)) {
+                cb.load_rbp_f64(xm, 576 + i * 8);
+            }
+        }
+    };
+    // Host return is in rax (bits) and rdx (is_float). XMM0 is scratch here:
+    // caller-saved values are already on the stack and restored afterwards.
+    auto finish_host_ret = [&](const IRInst &hin, int ir_index) {
+        bool want_f = hin.type == IRType::F64;
+        int isf_lab = cb.new_label();
+        int done_lab = cb.new_label();
+        cb.test_rr(Reg::RDX, Reg::RDX);
+        cb.jne_label(isf_lab);
+        if (want_f) {
+            cb.emit(0xF2); cb.rex(true, false, false, false);
+            cb.emit(0x0F); cb.emit(0x2A); cb.modrm(3, 0, 0);
+            cb.emit(0x66); cb.rex(true, false, false, false);
+            cb.emit(0x0F); cb.emit(0x7E); cb.modrm(3, 0, 0);
+        }
+        cb.jmp_label(done_lab);
+        cb.bind_label(isf_lab);
+        if (!want_f) {
+            cb.emit(0x66); cb.rex(true, false, false, false);
+            cb.emit(0x0F); cb.emit(0x6E); cb.modrm(3, 0, 0);
+            cb.emit(0xF2); cb.rex(true, false, false, false);
+            cb.emit(0x0F); cb.emit(0x2C); cb.modrm(3, 0, 0);
+        }
+        cb.bind_label(done_lab);
+        cb.store_rbp_i64(496, Reg::RAX);
+        cb.load_rbp_i64(Reg::RDI, 512);
+        restore_caller(ir_index, hin.dest);
+        cb.load_rbp_i64(Reg::RAX, 496);
+        Reg dst = alloc.reg_for(hin.dest);
+        if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+            uint8_t xi = (uint8_t)((uint8_t)dst - (uint8_t)Reg::XMM0);
+            cb.emit(0x66); cb.rex(true, false, false, false);
+            cb.emit(0x0F); cb.emit(0x6E); cb.modrm(3, xi, 0);
+        } else {
+            store_result(cb, alloc, hin.dest, Reg::RAX);
+        }
+    };
     
-    for (const auto& inst : ir) {
+    for (int ii = 0; ii < (int)ir.size(); ii++) {
+        const auto& inst = ir[ii];
         switch (inst.op) {
             case IROp::LABEL:
                 cb.bind_label(inst.label_id);
@@ -2203,6 +3144,151 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 break;
             }
             
+            case IROp::LIBM1: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                bool src_f = false;
+                for (const auto &range : alloc.ranges) {
+                    if (range.vreg == inst.src1 && range.type == IRType::F64) src_f = true;
+                }
+                if (src_f) {
+                    Reg xm = alloc.reg_for(inst.src1);
+                    if (xm == Reg::SPILL) {
+                        cb.load_spill(Reg::RAX, alloc.spill_for(inst.src1));
+                    } else if (xm >= Reg::XMM0 && xm <= Reg::XMM7) {
+                        uint8_t xi = (uint8_t)((uint8_t)xm - (uint8_t)Reg::XMM0);
+                        cb.emit(0x66); cb.rex(true, false, false, false);
+                        cb.emit(0x0F); cb.emit(0x7E);
+                        cb.modrm(3, xi, 0);
+                    }
+                } else {
+                    Reg gp = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                    if (gp != Reg::RAX) cb.mov_rr(Reg::RAX, gp);
+                }
+                emit_host_reg(cb, 1, Reg::RAX);
+                emit_host_imm(cb, 0, inst.imm_i64);
+                emit_host_imm(cb, 2, src_f ? 1 : 0);
+                cb.lea_rbp(host_arg_reg(3), -488);
+                cb.call_abs((uint64_t)&host_libm);
+                cb.load_rbp_i64(Reg::RDX, 488);
+                finish_host_ret(inst, ii);
+                break;
+            }
+            case IROp::RUNTIME_CALL: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                String mname;
+                if (chunk && inst.imm_i64 >= 0 && inst.imm_i64 < chunk->constants.size()) {
+                    Variant cv = chunk->constants[(int)inst.imm_i64];
+                    mname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                }
+                const char *np = intern(mname);
+                for (int a = 0; a < (int)inst.call_n; a++) {
+                    // Element 0 is the lowest address so a C pointer indexes +i.
+                    // Eight bits at rbp-864 and eight kinds at rbp-800, clear of
+                    // the XMM spill slots at rbp-576 .. rbp-632.
+                    int off = 864 - a * 8;
+                    int koff = 800 - a * 8;
+                    if (inst.call_kind[a] == 2) {
+                        String lit;
+                        int pidx = inst.call_pool[a];
+                        if (chunk && pidx >= 0 && pidx < chunk->constants.size()) {
+                            Variant cv = chunk->constants[pidx];
+                            lit = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                        }
+                        const char *sp = intern(lit);
+                        cb.mov_ri64(Reg::RAX, (int64_t)sp);
+                        cb.store_rbp_i64(off, Reg::RAX);
+                        cb.mov_ri64(Reg::RAX, 2);
+                        cb.store_rbp_i64(koff, Reg::RAX);
+                    } else if (inst.call_kind[a] == 1) {
+                        Reg xm = alloc.reg_for(inst.call_src[a]);
+                        if (xm < Reg::XMM0 || xm > Reg::XMM7) {
+                            if (alloc.reg_for(inst.call_src[a]) == Reg::SPILL) {
+                                cb.load_spill(Reg::RAX, alloc.spill_for(inst.call_src[a]));
+                            }
+                        } else {
+                            cb.emit(0x66); cb.rex(true, false, false, false);
+                            cb.emit(0x0F); cb.emit(0x7E);
+                            cb.modrm(3, (uint8_t)((uint8_t)xm - (uint8_t)Reg::XMM0) & 7, 0);
+                        }
+                        cb.store_rbp_i64(off, Reg::RAX);
+                        cb.mov_ri64(Reg::RAX, 1);
+                        cb.store_rbp_i64(koff, Reg::RAX);
+                    } else {
+                        Reg gp = get_or_load(cb, alloc, inst.call_src[a], Reg::RAX);
+                        if (gp != Reg::RAX) cb.mov_rr(Reg::RAX, gp);
+                        cb.store_rbp_i64(off, Reg::RAX);
+                        cb.mov_ri64(Reg::RAX, 0);
+                        cb.store_rbp_i64(koff, Reg::RAX);
+                    }
+                }
+                emit_host_imm(cb, 0, (int64_t)np);
+                emit_host_imm(cb, 1, (int64_t)inst.call_n);
+                cb.lea_rbp(host_arg_reg(2), -864);
+                cb.lea_rbp(host_arg_reg(3), -800);
+#if VG_JIT_WIN64
+                cb.lea_rbp(Reg::R10, -488);
+                cb.call_abs((uint64_t)&host_call, true, Reg::R10);
+#else
+                cb.lea_rbp(Reg::R8, -488);
+                cb.call_abs((uint64_t)&host_call);
+#endif
+                cb.load_rbp_i64(Reg::RDX, 488);
+                finish_host_ret(inst, ii);
+                break;
+            }
+            case IROp::ARRAY_GET: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                String aname;
+                if (inst.imm_i64 >= 0 && chunk && inst.imm_i64 < chunk->constants.size()) {
+                    Variant cv = chunk->constants[(int)inst.imm_i64];
+                    aname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                } else if (inst.local_slot >= 0 && inst.local_slot < (int)out_func->local_names.size()) {
+                    aname = String(out_func->local_names[inst.local_slot].c_str());
+                }
+                const char *ap = intern(aname);
+                Reg gp = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                emit_host_reg(cb, 1, gp);
+                emit_host_imm(cb, 0, (int64_t)ap);
+                cb.call_abs((uint64_t)&host_array_get);
+                cb.store_rbp_i64(496, Reg::RAX);
+                cb.load_rbp_i64(Reg::RDI, 512);
+                restore_caller(ii, inst.dest);
+                cb.load_rbp_i64(Reg::RAX, 496);
+                store_result(cb, alloc, inst.dest, Reg::RAX);
+                break;
+            }
+            case IROp::BYREF_LOAD: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                String pname;
+                if (chunk && inst.imm_i64 >= 0 && inst.imm_i64 < chunk->constants.size()) {
+                    Variant cv = chunk->constants[(int)inst.imm_i64];
+                    pname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                }
+                const char *pp = intern(pname);
+                emit_host_imm(cb, 0, (int64_t)pp);
+                emit_host_imm(cb, 1, inst.call_kind[0] ? 1 : 0);
+                if (inst.call_kind[0]) {
+                    String dname;
+                    int didx = inst.call_pool[0];
+                    if (chunk && didx >= 0 && didx < chunk->constants.size()) {
+                        Variant cv = chunk->constants[didx];
+                        dname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                    }
+                    const char *dp = intern(dname);
+                    emit_host_imm(cb, 2, (int64_t)dp);
+                } else {
+                    emit_host_imm(cb, 2, (int64_t)inst.local_slot);
+                }
+                cb.lea_rbp(host_arg_reg(3), -488);
+                cb.call_abs((uint64_t)&host_byref);
+                cb.load_rbp_i64(Reg::RDX, 488);
+                finish_host_ret(inst, ii);
+                break;
+            }
             case IROp::RET: {
                 cb.mov_ri32(Reg::RAX, 0); // return 0 (no value)
                 cb.epilogue();
@@ -2228,7 +3314,8 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     cb.epilogue();
     
     if (!cb.resolve()) {
-        return nullptr; // Label resolution failed
+        delete out_func;
+        return nullptr;
     }
     
     // Allocate executable memory
@@ -2236,24 +3323,80 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     size_t alloc_size = ((cb.code_size() + page_size - 1) / page_size) * page_size;
     if (alloc_size == 0) alloc_size = page_size;
     
+#if VG_JIT_WIN64
+    void* mem = VirtualAlloc(nullptr, alloc_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!mem) {
+        delete out_func;
+        return nullptr;
+    }
+    memcpy(mem, cb.code().data(), cb.code_size());
+    DWORD old_protect = 0;
+    if (!VirtualProtect(mem, alloc_size, PAGE_EXECUTE_READ, &old_protect)) {
+        VirtualFree(mem, 0, MEM_RELEASE);
+        delete out_func;
+        return nullptr;
+    }
+    FlushInstructionCache(GetCurrentProcess(), mem, alloc_size);
+    // Control Flow Guard rejects an indirect call into a page that was not
+    // registered. Harmless when CFG is off.
+    {
+        using SetTargetsFn = int (WINAPI *)(HANDLE, void*, SIZE_T, ULONG, void*);
+        auto set_targets = (SetTargetsFn)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetProcessValidCallTargets");
+        if (set_targets) {
+            struct CfgTarget { ULONG_PTR offset; ULONG_PTR flags; };
+            CfgTarget target;
+            target.offset = 0;
+            target.flags = 0x1; // CFG_CALL_TARGET_VALID
+            set_targets(GetCurrentProcess(), mem, alloc_size, 1, &target);
+        }
+    }
+#elif VG_JIT_MACOS
+    // MAP_JIT is the supported macOS path (hardened runtime + allow-jit).
+    // Intel Macs without that entitlement fall back to RW then RX.
+    void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
+    bool map_jit = mem != MAP_FAILED;
+    if (!map_jit) {
+        mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (mem == MAP_FAILED) {
+            delete out_func;
+            return nullptr;
+        }
+    }
+    if (map_jit && pthread_jit_write_protect_np) {
+        pthread_jit_write_protect_np(0);
+    }
+    memcpy(mem, cb.code().data(), cb.code_size());
+    if (map_jit && pthread_jit_write_protect_np) {
+        pthread_jit_write_protect_np(1);
+    } else if (!map_jit && mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
+        munmap(mem, alloc_size);
+        delete out_func;
+        return nullptr;
+    }
+    sys_icache_invalidate(mem, cb.code_size());
+#else
     void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mem == MAP_FAILED) return nullptr;
+    if (mem == MAP_FAILED) {
+        delete out_func;
+        return nullptr;
+    }
     
     memcpy(mem, cb.code().data(), cb.code_size());
     
     if (mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
         munmap(mem, alloc_size);
+        delete out_func;
         return nullptr;
     }
+#endif
     
-    CompiledFunc* func = new CompiledFunc();
-    func->code_mem = mem;
-    func->code_size = alloc_size;
-    func->fn = (CompiledFunc::FnPtr)mem;
-    func->name = name;
-    
-    return func;
+    out_func->code_mem = mem;
+    out_func->code_size = alloc_size;
+    out_func->fn = (CompiledFunc::FnPtr)mem;
+    return out_func;
 #endif
 }
 
@@ -2263,11 +3406,27 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
 
 Tier2::Tier2() {
     const char* env = std::getenv("VG_JIT");
+    // Default on for every x86-64 target this compiler can emit:
+    // Linux, Android x86-64, Windows x64, and macOS Intel.
+    // VG_JIT=0 keeps every function on the interpreter.
+    if (env && env[0] == '0' && env[1] == '\0') {
+        enabled_ = false;
+        return;
+    }
+#if VG_JIT_NATIVE
+    enabled_ = true;
+    tier_level_ = 2;
+    if (env && env[0] != '\0') {
+        int lvl = std::atoi(env);
+        if (lvl >= 1) tier_level_ = lvl;
+    }
+#else
     if (env && env[0] != '\0' && env[0] != '0') {
         enabled_ = true;
         tier_level_ = std::atoi(env);
         if (tier_level_ < 1) tier_level_ = 1;
     }
+#endif
 }
 
 Tier2::~Tier2() {
@@ -2281,18 +3440,23 @@ Tier2::HotInfo& Tier2::get_hotness(const std::string& name) {
     return hot_[name];
 }
 
-CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chunk) {
+CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst) {
     if (!enabled_ || tier_level_ < 2) return nullptr;
+    // Overloads share a name and must not share native code. The chunk
+    // pointer is stable for one compiled body, including recursive calls.
+    std::string cache_key = name;
+    cache_key.push_back('@');
+    cache_key += std::to_string(reinterpret_cast<uintptr_t>(chunk));
     
     // Check cache
-    auto cache_it = cache_.find(name);
+    auto cache_it = cache_.find(cache_key);
     if (cache_it != cache_.end()) {
         cache_it->second->exec_count++;
         return cache_it->second;
     }
     
     // Update hotness
-    HotInfo& hot = get_hotness(name);
+    HotInfo& hot = get_hotness(cache_key);
     hot.calls++;
     
     if (hot.tried) return nullptr;
@@ -2307,34 +3471,63 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     std::vector<IRInst> ir;
     int vreg_count = 0;
     std::vector<std::pair<std::string, int>> global_slots;
+    std::vector<uint8_t> slot_is_f64;
     int total_slots = 0;
     
-    UtilityFunctions::print("[VG_JIT T2] Attempting compile: '", String(name.c_str()), "' (", (int)chunk->code.size(), " bytes BC, ", chunk->local_count, " locals)");
+    const char *jit_log = std::getenv("VG_JIT_LOG");
+    if (jit_log && jit_log[0] == '1') {
+        UtilityFunctions::print("[VG_JIT T2] Attempting compile: '", String(name.c_str()), "' (", (int)chunk->code.size(), " bytes BC, ", chunk->local_count, " locals)");
+    }
     
-    if (!lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots)) {
+    if (!lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots, slot_is_f64, inst, name)) {
+        if (jit_log && jit_log[0] == '1') {
+            String extra;
+            if (g_jit_lower_op == (int)OP_CALL && chunk && g_jit_lower_ip >= 0 &&
+                g_jit_lower_ip + 3 < chunk->code.size()) {
+                int ni = (chunk->code[g_jit_lower_ip + 2] << 8) | chunk->code[g_jit_lower_ip + 1];
+                int argc = chunk->code[g_jit_lower_ip + 3];
+                String cn;
+                if (ni >= 0 && ni < chunk->constants.size()) {
+                    Variant cv = chunk->constants[ni];
+                    cn = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                }
+                extra = String(" call ") + cn + " argc " + String::num_int64(argc);
+            }
+            UtilityFunctions::print("[VG_JIT T2] lower failed '", String(name.c_str()),
+                                    "' ip ", g_jit_lower_ip, " op ", g_jit_lower_op, extra);
+        }
         hot.failed = true;
         return nullptr;
     }
     
     RegAlloc alloc;
     if (!alloc_regs(ir, vreg_count, alloc)) {
+        if (jit_log && jit_log[0] == '1') {
+            UtilityFunctions::print("[VG_JIT T2] regalloc failed '", String(name.c_str()), "'");
+        }
         hot.failed = true;
         return nullptr;
     }
     
     CompiledFunc* func = emit_native(ir, alloc, chunk, name);
     if (!func) {
+        if (jit_log && jit_log[0] == '1') {
+            UtilityFunctions::print("[VG_JIT T2] emit failed '", String(name.c_str()), "'");
+        }
         hot.failed = true;
         return nullptr;
     }
     
     func->global_slots = std::move(global_slots);
     func->total_slots = total_slots;
-    cache_[name] = func;
+    func->slot_is_f64 = std::move(slot_is_f64);
+    cache_[cache_key] = func;
     
-    UtilityFunctions::print("[VG_JIT T2] Compiled '", String(name.c_str()), "' → ",
-                            (int)func->code_size, " bytes native x86-64 (",
-                            (int)ir.size(), " IR ops, ", vreg_count, " vregs)");
+    if (jit_log && jit_log[0] == '1') {
+        UtilityFunctions::print("[VG_JIT T2] Compiled '", String(name.c_str()), "' → ",
+                                (int)func->code_size, " bytes native x86-64 (",
+                                (int)ir.size(), " IR ops, ", vreg_count, " vregs)");
+    }
     
     return func;
 }

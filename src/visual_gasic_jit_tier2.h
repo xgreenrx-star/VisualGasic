@@ -24,13 +24,41 @@
 #include "visual_gasic_bytecode.h"
 #include <cstdint>
 #include <cstddef>
+#include <deque>
 #include <vector>
 #include <string>
 #include <unordered_map>
 
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
+// Tier 2 emits x86-64 only. On by default for every OS that can run those
+// bytes: Linux x86-64, Android x86-64, Windows x64, and macOS Intel.
+// ARM, iOS, and HTML5 stay on the interpreter.
+#if defined(__x86_64__) || defined(_M_X64)
+#define VG_JIT_X64 1
+#else
+#define VG_JIT_X64 0
+#endif
+#if defined(_WIN32) && VG_JIT_X64
+#define VG_JIT_WIN64 1
+#else
+#define VG_JIT_WIN64 0
+#endif
+#if defined(__APPLE__) && VG_JIT_X64 && TARGET_OS_OSX
+#define VG_JIT_MACOS 1
+#else
+#define VG_JIT_MACOS 0
+#endif
+#if VG_JIT_X64 && !defined(VG_WEB_BUILD) && (defined(__linux__) || defined(_WIN32) || VG_JIT_MACOS)
+#define VG_JIT_NATIVE 1
+#else
+#define VG_JIT_NATIVE 0
 #endif
 
 namespace vgjit2 {
@@ -97,7 +125,21 @@ enum class IROp : uint8_t {
     RET_VALUE,       // return src1
     
     // No-op (placeholder for popped values)
-    NOP
+    NOP,
+
+    // Host calls. Caller-saved registers are spilled around these.
+    // LIBM1: dest(f64) = libm(imm_i64)(src1). 0 sin, 1 cos, 2 sqrt, 3 tan, 4 fabs, 5 sgn, 6 neg
+    LIBM1,
+    // RUNTIME_CALL: dest(f64 numeric) = host call. imm_i64 = constant-pool name index.
+    // call_n / call_src / call_kind / call_pool describe arguments.
+    RUNTIME_CALL,
+    // ARRAY_GET: dest(i64) = array(src1). imm_i64 >= 0 → global constant index.
+    // imm_i64 < 0 → local slot in local_slot.
+    ARRAY_GET,
+    // BYREF_LOAD: dest = post-call ByRef capture. imm_i64 = param-name const index.
+    // call_kind[0] = 1 if the destination is a global (call_pool[0] = its const index).
+    // local_slot is the destination local when call_kind[0] == 0.
+    BYREF_LOAD
 };
 
 struct IRInst {
@@ -111,6 +153,11 @@ struct IRInst {
     int     label_id  = -1;      // for jumps / LABEL
     int     local_slot = -1;     // for LOAD/STORE_LOCAL
     int     bc_offset = -1;      // original bytecode IP
+    // RUNTIME_CALL argument vregs (max 8: QbCircle). call_kind: 0 = i64, 1 = f64, 2 = string pool index.
+    int     call_src[8] = {};
+    int     call_pool[8] = {};
+    uint8_t call_kind[8] = {};
+    uint8_t call_n = 0;
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -211,7 +258,8 @@ public:
     void movsd_rr(Reg dst, Reg src);
     void ucomisd(Reg lhs, Reg rhs);  // compare floats → EFLAGS
     
-    // Memory [rdi + slot*8]  (locals array passed in rdi)
+    // Memory [rdi + slot*8]. Linux passes locals in rdi. Windows passes them
+    // in rcx; the prologue copies rcx to rdi after saving the incoming rdi.
     void load_local_i64(Reg dst, int slot);
     void store_local_i64(int slot, Reg src);
     void load_local_f64(Reg xmm, int slot);
@@ -229,6 +277,13 @@ public:
     // Prologue / Epilogue
     void prologue(int spill_bytes);
     void epilogue();
+    void store_rbp_i64(int off, Reg src);
+    void load_rbp_i64(Reg dst, int off);
+    void store_rbp_f64(int off, Reg xmm);
+    void load_rbp_f64(Reg xmm, int off);
+    void lea_rbp(Reg dst, int32_t disp);
+    // stack_arg5 is the Windows x64 fifth integer argument (ignored on Linux).
+    void call_abs(uint64_t addr, bool stack_arg5 = false, Reg arg5 = Reg::NONE);
     
     const std::vector<uint8_t>& code() const { return buf_; }
     size_t code_size() const { return buf_.size(); }
@@ -242,6 +297,7 @@ public:
 
 struct CompiledFunc {
     // ABI:  int64_t fn(int64_t *locals, int64_t local_count)
+    //  Linux: rdi/rsi. Windows x64: rcx/rdx. Return is rax on both.
     //  returns 0 = normal, 1 = value returned in locals[0]
     typedef int64_t (*FnPtr)(int64_t* locals, int64_t local_count);
     
@@ -256,6 +312,11 @@ struct CompiledFunc {
     // Each pair: (global_name, virtual_slot_index).
     std::vector<std::pair<std::string, int>> global_slots;
     int total_slots = 0; // local_count + number of virtual global slots
+    // 1 = slot holds an IEEE float bit pattern. Writeback must not cast it to int.
+    std::vector<uint8_t> slot_is_f64;
+    // Stable storage for string pointers embedded in native code.
+    std::deque<std::string> str_pool;
+    std::vector<std::string> local_names;
     
     ~CompiledFunc();
 };
@@ -266,9 +327,9 @@ struct CompiledFunc {
 
 class Tier2 {
 public:
-    static constexpr uint64_t HOT_THRESHOLD = 50;
-    static constexpr int      MAX_BC_SIZE   = 4096;
-    static constexpr size_t   MAX_CACHE     = 64;
+    static constexpr uint64_t HOT_THRESHOLD = 2;
+    static constexpr int      MAX_BC_SIZE   = 16384;
+    static constexpr size_t   MAX_CACHE     = 256;
     
     Tier2();
     ~Tier2();
@@ -276,7 +337,7 @@ public:
     bool enabled() const { return enabled_; }
     
     // Record a call; returns compiled fn if ready, else nullptr.
-    CompiledFunc* get_or_compile(const std::string& name, BytecodeChunk* chunk);
+    CompiledFunc* get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst);
     
     // Stats
     int  compiled_count() const { return (int)cache_.size(); }
@@ -298,7 +359,8 @@ private:
     
     // Pipeline
     bool lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
-                        std::vector<std::pair<std::string, int>>& global_slots, int& total_slots);
+                        std::vector<std::pair<std::string, int>>& global_slots, int& total_slots,
+                        std::vector<uint8_t>& slot_is_f64, void* inst, const std::string &fn_name);
     bool alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& out);
     CompiledFunc* emit_native(const std::vector<IRInst>& ir, const RegAlloc& alloc,
                               BytecodeChunk* chunk, const std::string& name);
@@ -306,6 +368,15 @@ private:
 
 // Per-thread JIT engine
 Tier2& thread_jit();
+
+// Active native frame. Host calls (PSet, user Subs) read this.
+struct JitFrame {
+    void* inst = nullptr;
+    CompiledFunc* func = nullptr;
+    int64_t* locals = nullptr;
+};
+JitFrame jit_swap_frame(JitFrame next);
+bool jit_func_active(const CompiledFunc *fn);
 
 } // namespace vgjit2
 

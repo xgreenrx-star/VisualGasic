@@ -418,6 +418,9 @@ public:
     Variant builtin_create_actor2d(const Array &p_args);
     // Godot integration expr builtins (LoadTexture, CreateSprite, GetDelta, …) — shared by AST + bytecode VM.
     Variant dispatch_expr_compat_call(const String &p_method, const Array &p_args, bool &r_found);
+    // JIT host calls into user Subs. Builtins stay on the public builtin dispatcher.
+    Variant jit_invoke_call(const String &method, const Array &args, bool &handled);
+    Variant jit_byref_capture(const String &name, bool &found) const;
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);
@@ -512,6 +515,14 @@ public:
     bool pattern_matches(Pattern* pattern, const Variant& value, Dictionary& captured_vars);
     AdvancedType* infer_type(const Variant& value);
     bool is_type_compatible(const AdvancedType* expected, const AdvancedType* actual);
+
+    // Separate function so its locals are not part of execute_bytecode's frame.
+    // Deep interpreted recursion (SumTo(350)) overflows if they are.
+    bool try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *func, Variant &r_ret,
+                          int p_ip_start, int p_ip_end,
+                          const Vector<Variant> *p_initial_locals,
+                          const Variant *p_fast_args, int p_fast_count,
+                          VMState *vm, size_t stack_base, int previous_ip);
 
     bool execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                           int p_ip_start = 0, int p_ip_end = -1,

@@ -924,12 +924,31 @@ Statement* VisualGasicParser::try_parse_qb_graphics() {
     bool is_wait = name == "wait";
     bool is_scroll = name == "scroll";
     bool is_qb64s = name == "_dest" || name == "_source" || name == "_freeimage" || name == "_display"
-        || name == "_putimage" || name == "_sndplay" || name == "_sndstop" || name == "_sndclose";
+        || name == "_textat" || name == "_putimage" || name == "_sndplay" || name == "_sndstop" || name == "_sndclose";
     if (is_qb64s) {
         advance();
         CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
         cs->method_name = String(t.value);
-        if (name == "_display") {
+        if (name == "_display" || name == "_textat") {
+            if (name == "_textat") {
+                if (!match(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                    error("Expected ( after _TEXTAT");
+                    return cs;
+                }
+                auto take = [&](ExpressionNode *e) {
+                    if (!e) {
+                        return;
+                    }
+                    unregister_node(e);
+                    cs->arguments.push_back(e);
+                };
+                do {
+                    take(parse_expression());
+                } while (match(VisualGasicTokenizer::TOKEN_COMMA));
+                if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    error("Expected ) after _TEXTAT arguments");
+                }
+            }
             return cs;
         }
         if (name == "_putimage") {

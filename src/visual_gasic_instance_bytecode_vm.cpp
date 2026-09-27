@@ -314,6 +314,247 @@ void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
     inst->task_results[d->task_name] = ok ? Variant("Task completed") : Variant("Task failed");
 }
 
+__attribute__((noinline))
+bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *func, Variant &r_ret,
+                                           int p_ip_start, int p_ip_end,
+                                           const Vector<Variant> *p_initial_locals,
+                                           const Variant *p_fast_args, int p_fast_count,
+                                           VMState *vm, size_t stack_base, int previous_ip) {
+    // ── JIT Tier 2/3: attempt native execution for hot functions ──────────
+#if VG_JIT_NATIVE
+    // Fast-call chunks pass params in p_fast_args, not variables[]. The JIT
+    // seeds those slots directly below. A fast chunk with no arg vector
+    // (parallel worker / sub-range) stays on the interpreter.
+    if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals
+        && !(chunk->fast_params && p_fast_args == nullptr)) {
+        std::string jit_name;
+        if (func->name.length() > 0) {
+            jit_name = std::string(func->name.utf8().get_data());
+        }
+        if (!jit_name.empty()) {
+            // ── Tier 3: record bytecode size for call-graph profiling ───
+            vgjit3::Tier3& t3 = vgjit3::thread_jit3();
+            if (t3.enabled()) {
+                t3.record_bytecode_size(jit_name, chunk->code.size());
+            }
+
+            // ── Tier 3: try fused call-graph compilation first ──────────
+            if (t3.enabled()) {
+                // Provide a chunk resolver that looks up compiled chunks
+                // from this script instance's function table.
+                struct ResolverCtx {
+                    VisualGasicInstance* self;
+                };
+                ResolverCtx rctx { this };
+                auto chunk_resolver = [](const std::string& name, void* ctx) -> BytecodeChunk* {
+                    auto* rc = static_cast<ResolverCtx*>(ctx);
+                    String gname = String(name.c_str());
+                    if (rc->self->script.is_valid()) {
+                        return rc->self->get_bytecode_for_sub(gname);
+                    }
+                    return nullptr;
+                };
+                vgjit2::CompiledFunc* fused = t3.get_or_compile(jit_name, chunk_resolver, &rctx);
+                if (fused && fused->fn) {
+                    int slot_count = fused->total_slots > 0 ? fused->total_slots : chunk->local_count;
+                    if (slot_count < 1) slot_count = 1;
+                    std::vector<int64_t> jit_locals(slot_count, 0);
+                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                        const String &lname = chunk->local_names[i];
+                        if (!lname.is_empty()) {
+                            Variant v;
+                            if (variables.has(lname)) v = variables[lname];
+                            else if (builtin_constants.has(lname)) v = builtin_constants[lname];
+                            if (v.get_type() == Variant::INT) jit_locals[i] = (int64_t)v;
+                            else if (v.get_type() == Variant::FLOAT) {
+                                double d = (double)v; memcpy(&jit_locals[i], &d, 8);
+                            }
+                        }
+                    }
+                    int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
+                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                        const String &lname = chunk->local_names[i];
+                        if (!lname.is_empty() && !builtin_constants.has(lname)) variables[lname] = Variant((int64_t)jit_locals[i]);
+                    }
+                    if (has_retval) {
+                        r_ret = Variant((int64_t)jit_locals[0]);
+                    } else {
+                        r_ret = Variant();
+                    }
+                    // Restore the shared thread-local VM state (ip/stack)
+                    // that this frame clobbered before returning to the
+                    // caller — otherwise the caller's vm.ip stays at
+                    // p_ip_start (0) and its interpreter loop restarts.
+                    vm->stack.resize(stack_base);
+                vm->ip = previous_ip;
+                    return true;
+                }
+            }
+
+            // ── Tier 2: per-function native compilation ─────────────────
+            vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk, this);
+            bool jit_numeric_args = true;
+            if (chunk->fast_params && p_fast_args) {
+                for (int i = 0; i < chunk->param_count && i < p_fast_count; i++) {
+                    Variant::Type t = p_fast_args[i].get_type();
+                    if (t != Variant::NIL && t != Variant::INT && t != Variant::FLOAT && t != Variant::BOOL) {
+                        jit_numeric_args = false;
+                        break;
+                    }
+                }
+            }
+            // A compiled body that calls itself (or is already on this thread's
+            // JIT stack) runs the interpreter for the inner frame. Nested
+            // native frames share the variables[] return name and were
+            // returning 0. The outer call stays native.
+            if (native && native->fn && jit_numeric_args && !vgjit2::jit_func_active(native)) {
+                // Marshal locals + virtual global slots into int64 array
+                int slot_count = native->total_slots > 0 ? native->total_slots : chunk->local_count;
+                if (slot_count < 1) slot_count = 1;
+                std::vector<int64_t> jit_locals(slot_count, 0);
+                auto pack_jit_slot = [&](int slot, const Variant &v) {
+                    if (slot < 0 || slot >= slot_count) return;
+                    if (v.get_type() == Variant::FLOAT) {
+                        double d = (double)v;
+                        memcpy(&jit_locals[slot], &d, 8);
+                    } else if (v.get_type() == Variant::BOOL) {
+                        jit_locals[slot] = (bool)v ? 1 : 0;
+                    } else if (v.get_type() == Variant::INT) {
+                        jit_locals[slot] = (int64_t)v;
+                    }
+                };
+                // Pre-populate real locals from variable values
+                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                    const String &lname = chunk->local_names[i];
+                    if (!lname.is_empty()) {
+                        Variant v;
+                        if (variables.has(lname)) v = variables[lname];
+                        else if (builtin_constants.has(lname)) v = builtin_constants[lname];
+                        pack_jit_slot(i, v);
+                    }
+                }
+                // Fast-call args live in p_fast_args, never in variables[].
+                if (chunk->fast_params && p_fast_args) {
+                    for (int i = 0; i < chunk->param_count && i < p_fast_count; i++) {
+                        pack_jit_slot(i, p_fast_args[i]);
+                    }
+                    if (chunk->return_slot >= 0 && p_fast_count > chunk->param_count) {
+                        pack_jit_slot(chunk->return_slot, p_fast_args[chunk->param_count]);
+                    }
+                }
+                // Pre-populate virtual global slots from variables dictionary
+                for (const auto& gs : native->global_slots) {
+                    String gname = String(gs.first.c_str());
+                    int slot = gs.second;
+                    if (slot >= 0 && slot < slot_count) {
+                        Variant v;
+                        if (variables.has(gname)) v = variables[gname];
+                        else if (builtin_constants.has(gname)) v = builtin_constants[gname];
+                        pack_jit_slot(slot, v);
+                    }
+                }
+                vgjit2::JitFrame prev_frame = vgjit2::jit_swap_frame({ this, native, jit_locals.data() });
+                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)slot_count);
+                vgjit2::jit_swap_frame(prev_frame);
+                auto slot_variant = [&](int slot) -> Variant {
+                    if (slot < 0 || slot >= slot_count) return Variant();
+                    bool is_f = slot < (int)native->slot_is_f64.size() && native->slot_is_f64[slot];
+                    if (is_f) {
+                        double d = 0;
+                        memcpy(&d, &jit_locals[slot], 8);
+                        return Variant(d);
+                    }
+                    return Variant((int64_t)jit_locals[slot]);
+                };
+                auto jit_write_slot = [&](const String &slot_name, int slot) {
+                    if (slot_name.is_empty() || builtin_constants.has(slot_name)) return;
+                    if (slot < 0 || slot >= slot_count) return;
+                    if (variables.has(slot_name)) {
+                        Variant::Type ot = variables[slot_name].get_type();
+                        if (ot == Variant::BOOL) {
+                            variables[slot_name] = jit_locals[slot] != 0;
+                            return;
+                        }
+                        if (ot != Variant::NIL && ot != Variant::INT && ot != Variant::FLOAT) {
+                            return;
+                        }
+                    }
+                    variables[slot_name] = slot_variant(slot);
+                };
+                // Fast-call param and return slots stay out of variables[],
+                // matching the interpreter. Other locals and numeric globals write back.
+                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                    if (chunk->fast_params && (i < chunk->param_count || i == chunk->return_slot)) continue;
+                    jit_write_slot(chunk->local_names[i], i);
+                }
+                for (const auto& gs : native->global_slots) {
+                    jit_write_slot(String(gs.first.c_str()), gs.second);
+                }
+                if (has_retval) {
+                    r_ret = slot_variant(0);
+                } else if (func->type == SubDefinition::TYPE_FUNCTION &&
+                           chunk->return_slot >= 0 && chunk->return_slot < slot_count) {
+                    r_ret = slot_variant(chunk->return_slot);
+                } else if (func->type == SubDefinition::TYPE_FUNCTION && variables.has(func->name)) {
+                    r_ret = variables[func->name];
+                } else {
+                    r_ret = Variant();
+                }
+                // Logical Not compiles to 0/1. A Boolean function must hand
+                // back a Boolean, or `result = False` fails.
+                if (func->return_type.nocasecmp_to("boolean") == 0 ||
+                    func->return_type.nocasecmp_to("bool") == 0) {
+                    if (r_ret.get_type() == Variant::INT || r_ret.get_type() == Variant::FLOAT) {
+                        r_ret = r_ret.booleanize();
+                    }
+                }
+                // ByRef write-back is emitted in the caller as OP_BYREF_LOAD, which
+                // reads _last_byref_captures. The interpreter records those on the
+                // way out; the JIT return must do the same or ByRef stops updating.
+                Vector<Pair<String, Variant>> bc_byref_captures;
+                for (int pi = 0; pi < func->parameters.size(); pi++) {
+                    if (!func->parameters[pi].is_by_ref) continue;
+                    const String &pname = func->parameters[pi].name;
+                    Variant captured;
+                    bool got = false;
+                    for (int s = 0; s < chunk->local_names.size() && s < slot_count; s++) {
+                        if (chunk->local_names[s].nocasecmp_to(pname) == 0) {
+                            captured = slot_variant(s);
+                            got = true;
+                            break;
+                        }
+                    }
+                    if (!got) {
+                        for (const auto &gs : native->global_slots) {
+                            if (String(gs.first.c_str()).nocasecmp_to(pname) == 0) {
+                                captured = slot_variant(gs.second);
+                                got = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!got && variables.has(pname)) {
+                        captured = variables[pname];
+                    }
+                    bc_byref_captures.push_back({pname, captured});
+                }
+                if (!bc_byref_captures.is_empty()) {
+                    _last_byref_captures = bc_byref_captures;
+                }
+                // Restore the shared thread-local VM state (ip/stack) this
+                // frame clobbered before returning to the caller — otherwise
+                // the caller's vm.ip stays at p_ip_start (0) and its
+                // interpreter loop restarts, hanging the process.
+                vm->stack.resize(stack_base);
+                vm->ip = previous_ip;
+                return true;
+            }
+        }
+    }
+#endif
+    return false;
+}
+
 bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant>* p_initial_locals,
@@ -432,162 +673,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         vm.ip = previous_ip;
     };
 
-    // ── JIT Tier 2/3: attempt native execution for hot functions ──────────
-#if defined(__linux__) && !defined(VG_WEB_BUILD)
-    // Fast-call chunks (fast_params) seed params directly into local slots and
-    // never place them in variables[]; the JIT marshaler reads params FROM
-    // variables[], so it would read stale/empty values.  Skip JIT for them —
-    // the interpreter fast-call path is what wins the benchmark anyway.
-    if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals && !chunk->fast_params) {
-        std::string jit_name;
-        if (func->name.length() > 0) {
-            jit_name = std::string(func->name.utf8().get_data());
-        }
-        if (!jit_name.empty()) {
-            // ── Tier 3: record bytecode size for call-graph profiling ───
-            vgjit3::Tier3& t3 = vgjit3::thread_jit3();
-            if (t3.enabled()) {
-                t3.record_bytecode_size(jit_name, chunk->code.size());
-            }
-
-            // ── Tier 3: try fused call-graph compilation first ──────────
-            if (t3.enabled()) {
-                // Provide a chunk resolver that looks up compiled chunks
-                // from this script instance's function table.
-                struct ResolverCtx {
-                    VisualGasicInstance* self;
-                };
-                ResolverCtx rctx { this };
-                auto chunk_resolver = [](const std::string& name, void* ctx) -> BytecodeChunk* {
-                    auto* rc = static_cast<ResolverCtx*>(ctx);
-                    String gname = String(name.c_str());
-                    if (rc->self->script.is_valid()) {
-                        return rc->self->get_bytecode_for_sub(gname);
-                    }
-                    return nullptr;
-                };
-                vgjit2::CompiledFunc* fused = t3.get_or_compile(jit_name, chunk_resolver, &rctx);
-                if (fused && fused->fn) {
-                    int slot_count = fused->total_slots > 0 ? fused->total_slots : chunk->local_count;
-                    if (slot_count < 1) slot_count = 1;
-                    std::vector<int64_t> jit_locals(slot_count, 0);
-                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                        const String &lname = chunk->local_names[i];
-                        if (!lname.is_empty()) {
-                            Variant v;
-                            if (variables.has(lname)) v = variables[lname];
-                            else if (builtin_constants.has(lname)) v = builtin_constants[lname];
-                            if (v.get_type() == Variant::INT) jit_locals[i] = (int64_t)v;
-                            else if (v.get_type() == Variant::FLOAT) {
-                                double d = (double)v; memcpy(&jit_locals[i], &d, 8);
-                            }
-                        }
-                    }
-                    int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
-                    for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                        const String &lname = chunk->local_names[i];
-                        if (!lname.is_empty() && !builtin_constants.has(lname)) variables[lname] = Variant((int64_t)jit_locals[i]);
-                    }
-                    if (has_retval) {
-                        r_ret = Variant((int64_t)jit_locals[0]);
-                    } else {
-                        r_ret = Variant();
-                    }
-                    // Restore the shared thread-local VM state (ip/stack)
-                    // that this frame clobbered before returning to the
-                    // caller — otherwise the caller's vm.ip stays at
-                    // p_ip_start (0) and its interpreter loop restarts.
-                    restore_vm();
-                    return true;
-                }
-            }
-
-            // ── Tier 2: per-function native compilation ─────────────────
-            vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk);
-            if (native && native->fn) {
-                // Marshal locals + virtual global slots into int64 array
-                int slot_count = native->total_slots > 0 ? native->total_slots : chunk->local_count;
-                if (slot_count < 1) slot_count = 1;
-                std::vector<int64_t> jit_locals(slot_count, 0);
-                // Pre-populate real locals from variable values
-                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                    const String &lname = chunk->local_names[i];
-                    if (!lname.is_empty()) {
-                        Variant v;
-                        if (variables.has(lname)) v = variables[lname];
-                        else if (builtin_constants.has(lname)) v = builtin_constants[lname];
-                        if (v.get_type() == Variant::INT) {
-                            jit_locals[i] = (int64_t)v;
-                        } else if (v.get_type() == Variant::FLOAT) {
-                            double d = (double)v;
-                            memcpy(&jit_locals[i], &d, 8);
-                        }
-                    }
-                }
-                // Pre-populate virtual global slots from variables dictionary
-                for (const auto& gs : native->global_slots) {
-                    String gname = String(gs.first.c_str());
-                    int slot = gs.second;
-                    if (slot >= 0 && slot < slot_count) {
-                        Variant v;
-                        if (variables.has(gname)) v = variables[gname];
-                        else if (builtin_constants.has(gname)) v = builtin_constants[gname];
-                        if (v.get_type() == Variant::INT) {
-                            jit_locals[slot] = (int64_t)v;
-                        } else if (v.get_type() == Variant::FLOAT) {
-                            double d = (double)v;
-                            memcpy(&jit_locals[slot], &d, 8);
-                        }
-                    }
-                }
-                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)slot_count);
-                // Sync real locals back to variables (skip built-in constants)
-                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                    const String &lname = chunk->local_names[i];
-                    if (!lname.is_empty() && !builtin_constants.has(lname)) {
-                        variables[lname] = Variant((int64_t)jit_locals[i]);
-                    }
-                }
-                // Sync virtual global slots back to variables (skip built-in constants)
-                for (const auto& gs : native->global_slots) {
-                    String gname = String(gs.first.c_str());
-                    int slot = gs.second;
-                    if (slot >= 0 && slot < slot_count && !builtin_constants.has(gname)) {
-                        variables[gname] = Variant((int64_t)jit_locals[slot]);
-                    }
-                }
-                if (has_retval) {
-                    r_ret = Variant((int64_t)jit_locals[0]);
-                } else {
-                    // VB6 convention: FunctionName = value sets return via
-                    // OP_SET_GLOBAL. Check if the function name has a global
-                    // slot and use that as the return value.
-                    bool found_ret = false;
-                    if (func) {
-                        std::string fn_name(func->name.utf8().get_data());
-                        for (const auto& gs : native->global_slots) {
-                            if (gs.first == fn_name) {
-                                int slot = gs.second;
-                                if (slot >= 0 && slot < slot_count) {
-                                    r_ret = Variant((int64_t)jit_locals[slot]);
-                                    found_ret = true;
-                                }
-                                break;
-                            }
-                        }
-                    }
-                    if (!found_ret) {
-                        r_ret = Variant();
-                    }
-                }
-                // Restore the shared thread-local VM state (ip/stack) this
-                // frame clobbered before returning to the caller — otherwise
-                // the caller's vm.ip stays at p_ip_start (0) and its
-                // interpreter loop restarts, hanging the process.
-                restore_vm();
-                return true;
-            }
-        }
+#if VG_JIT_NATIVE
+    if (try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
+                         p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
+        return true;
     }
 #endif
     // ── End JIT Tier 2 ────────────────────────────────────────────────

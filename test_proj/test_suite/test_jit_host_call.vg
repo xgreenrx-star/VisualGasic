@@ -1,0 +1,199 @@
+' JIT must compile Sin, a user call, and an array read without changing results.
+Option Explicit
+
+Dim JitCols(2) As Integer
+Dim Jr(8) As Integer
+Dim Jg(8) As Integer
+Dim Jb(8) As Integer
+
+Function JitHotSin(x As Single) As Single
+	JitHotSin = Sin(x) + Cos(x)
+End Function
+
+Function JitAdd(a As Integer, b As Integer) As Integer
+	a = a + 1
+	JitAdd = a + b
+End Function
+
+Function JitWrap(n As Integer) As Integer
+	JitWrap = JitAdd(n, 3)
+End Function
+
+Function JitCol(i As Integer) As Integer
+	JitCol = JitCols(i)
+End Function
+
+Function JitBlock(n As Integer) As Integer
+	Dim s As Integer
+	Dim i As Integer
+	s = 0
+	For i = 1 To n
+		Dim t As Integer
+		t = i
+		s = s + t
+	Next i
+	JitBlock = s
+End Function
+
+' Same shape as B256Julia_column: float Do-loop, Or, array reads, _RGB32, PSet.
+Function JitJuliaCol(x As Integer) As Integer
+	Dim y As Integer
+	Dim cre As Single
+	Dim cim As Single
+	Dim sumc As Integer
+	cre = 0.357
+	cim = 0.357
+	Dim zre_start As Single
+	zre_start = (x - 4) / 4
+	sumc = 0
+	For y = 0 To 4
+		Dim zre As Single
+		Dim zim As Single
+		Dim zre_sq As Single
+		Dim zim_sq As Single
+		Dim c As Integer
+		zre = zre_start
+		zim = (y - 2) / 2 * 1.3
+		c = 0
+		Do
+			zre_sq = zre * zre
+			zim_sq = zim * zim
+			zim = 2.0 * zre * zim + cim
+			zre = zre_sq - zim_sq + cre
+			c = c + 1
+		Loop Until c > 6 Or (zre_sq + zim_sq) > 4.0
+		Dim col As Integer
+		col = _RGB32(Jr(c), Jg(c), Jb(c))
+		PSet (x, y), col
+		sumc = sumc + c
+	Next y
+	_Display
+	JitJuliaCol = sumc
+End Function
+
+Dim swActive As Boolean
+Dim swF As Single
+
+Function JitNotRet(x As Boolean) As Boolean
+	JitNotRet = Not x
+End Function
+
+' Same shape as B256Swirl_Tick: Not, Int/And, Sin/Cos, nested Do, Line BF.
+Function JitSwirlTick() As Integer
+	If Not swActive Then
+		JitSwirlTick = -1
+		Exit Function
+	End If
+	If (Int(swF) And 3) = 0 Then
+		Line (0, 0)-(8, 8), 1, BF
+	End If
+	Dim t As Single
+	Dim u As Single
+	Dim n As Integer
+	t = 0.005 * swF
+	u = t
+	n = 0
+	Do While u < t + 1.0
+		Dim q As Single
+		q = Sin(u)
+		n = n + 1
+		u = u + 0.5 + 0.4 * Sin(u - t)
+	Loop
+	swF = swF + 1.0
+	_Display
+	JitSwirlTick = n
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim s As Single
+	Dim expect As Single
+	Dim n As Integer
+	Dim c As Integer
+	expect = Sin(1.0) + Cos(1.0)
+	s = 0
+	For i = 1 To 6
+		s = JitHotSin(1.0)
+	Next i
+	If Abs(s - expect) < 0.0001 Then
+		Print "PASS: jit_host_sin"
+	Else
+		Print "FAIL: jit_host_sin got " & s
+	End If
+	n = 0
+	For i = 1 To 6
+		n = JitWrap(10)
+	Next i
+	If n = 14 Then
+		Print "PASS: jit_host_call"
+	Else
+		Print "FAIL: jit_host_call got " & n
+	End If
+	Dim x As Integer
+	x = 10
+	n = 0
+	For i = 1 To 6
+		n = JitAdd(x, 3)
+	Next i
+	If x = 16 And n = 19 Then
+		Print "PASS: jit_byref"
+	Else
+		Print "FAIL: jit_byref x=" & x & " n=" & n
+	End If
+	JitCols(0) = 11
+	JitCols(1) = 22
+	c = 0
+	For i = 1 To 6
+		c = JitCol(1)
+	Next i
+	If c = 22 Then
+		Print "PASS: jit_host_array"
+	Else
+		Print "FAIL: jit_host_array got " & c
+	End If
+	n = 0
+	For i = 1 To 6
+		n = JitBlock(4)
+	Next i
+	If n = 10 Then
+		Print "PASS: jit_block_local"
+	Else
+		Print "FAIL: jit_block_local got " & n
+	End If
+	Screen 13
+	For i = 0 To 8
+		Jr(i) = i * 20
+		Jg(i) = i * 10
+		Jb(i) = 255 - i * 20
+	Next i
+	n = 0
+	For i = 1 To 6
+		n = JitJuliaCol(2)
+	Next i
+	If n > 0 Then
+		Print "PASS: jit_julia_col"
+	Else
+		Print "FAIL: jit_julia_col got " & n
+	End If
+	swActive = True
+	swF = 0
+	n = 0
+	For i = 1 To 6
+		n = JitSwirlTick()
+	Next i
+	If n > 0 Then
+		Print "PASS: jit_swirl_tick"
+	Else
+		Print "FAIL: jit_swirl_tick got " & n
+	End If
+	Dim bf As Boolean
+	bf = True
+	For i = 1 To 6
+		bf = JitNotRet(True)
+	Next i
+	If bf = False Then
+		Print "PASS: jit_not_bool"
+	Else
+		Print "FAIL: jit_not_bool"
+	End If
+End Sub

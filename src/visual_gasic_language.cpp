@@ -1245,6 +1245,8 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("_Source");
     keywords.push_back("_PutImage");
     keywords.push_back("_Display");
+    keywords.push_back("_TextAt");
+    keywords.push_back("_TextHeight");
     keywords.push_back("_Width");
     keywords.push_back("_Height");
     keywords.push_back("_DesktopWidth");
