@@ -392,6 +392,46 @@ bool dest_is_32(QbState *s) {
 	return sf && sf->bpp == 32 && sf->img.is_valid();
 }
 
+int64_t current_color_argb(QbState *s) {
+	if (!s) {
+		return (int64_t)0xFFFFFFFF;
+	}
+	if (dest_is_32(s)) {
+		return argb_from_color(color_of(s, s->color));
+	}
+	return (int64_t)(uint32_t)norm_color(s, -1);
+}
+
+int resolve_palette_color_arg(QbState *s, const Array &args, int idx, int fallback = -1) {
+	if (idx >= args.size()) {
+		return norm_color(s, fallback);
+	}
+	if (args[idx].get_type() == Variant::STRING) {
+		return norm_color(s, fallback);
+	}
+	return norm_color(s, arg_int(args, idx, fallback));
+}
+
+int64_t resolve_color_arg(QbState *s, const Array &args, int idx, int fallback = -1) {
+	if (!s) {
+		return (int64_t)0xFFFFFFFF;
+	}
+	if (dest_is_32(s)) {
+		if (idx >= args.size()) {
+			return current_color_argb(s);
+		}
+		if (args[idx].get_type() == Variant::STRING) {
+			return current_color_argb(s);
+		}
+		int64_t c = (int64_t)args[idx];
+		if (c < 0) {
+			return current_color_argb(s);
+		}
+		return c;
+	}
+	return (int64_t)(uint32_t)resolve_palette_color_arg(s, args, idx, fallback);
+}
+
 void bind_dest_size(QbState *s) {
 	if (!s) {
 		return;
@@ -728,32 +768,52 @@ void flood(QbState *s, int x, int y, int paint, int border) {
 		return;
 	}
 	if (border >= 0) {
-		if (seed == border || seed == paint) {
+		if (seed == border) {
 			return;
 		}
 	} else if (seed == paint) {
 		return;
 	}
+	int n = s->width * s->height;
+	if (n <= 0) {
+		return;
+	}
+	PackedByteArray visited;
+	visited.resize(n);
+	for (int i = 0; i < n; i++) {
+		visited.set(i, 0);
+	}
 	Vector<Vector2i> stack;
 	stack.push_back(Vector2i(x, y));
-	int guard = 0;
-	int limit = s->width * s->height + 8;
-	while (stack.size() > 0 && guard < limit) {
-		guard++;
+	while (stack.size() > 0) {
 		Vector2i p = stack[stack.size() - 1];
 		stack.remove_at(stack.size() - 1);
+		if (p.x < 0 || p.y < 0 || p.x >= s->width || p.y >= s->height) {
+			continue;
+		}
+		int vi = p.y * s->width + p.x;
+		if (vi < 0 || vi >= n || visited[vi]) {
+			continue;
+		}
 		int c = get_px(s, p.x, p.y);
 		if (c < 0) {
 			continue;
 		}
 		if (border >= 0) {
-			if (c == border || c == paint) {
+			if (c == border) {
 				continue;
 			}
-		} else if (c != seed) {
-			continue;
+			visited.set(vi, 1);
+			if (c != paint) {
+				put_px_gfx(s, p.x, p.y, paint);
+			}
+		} else {
+			if (c != seed) {
+				continue;
+			}
+			visited.set(vi, 1);
+			put_px_gfx(s, p.x, p.y, paint);
 		}
-		put_px_gfx(s, p.x, p.y, paint);
 		stack.push_back(Vector2i(p.x + 1, p.y));
 		stack.push_back(Vector2i(p.x - 1, p.y));
 		stack.push_back(Vector2i(p.x, p.y + 1));
@@ -1927,15 +1987,15 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		bool step = arg_int(args, 3, 0) != 0;
 		resolve_pt(s, arg_f64(args, 0, 0), arg_f64(args, 1, 0), step, false, x, y);
 		if (dest_is_32(s)) {
-			int64_t col = (args.size() >= 3) ? (int64_t)args[2] : (int64_t)0xFFFFFFFF;
+			int64_t col = resolve_color_arg(s, args, 2, -1);
 			put_px32_gfx(s, x, y, col);
 		} else {
-			put_px_gfx(s, x, y, norm_color(s, arg_int(args, 2, -1)));
+			put_px_gfx(s, x, y, resolve_palette_color_arg(s, args, 2, -1));
 		}
 		return true;
 	}
 	if (m == "qbline" && args.size() >= 4) {
-		int col = dest_is_32(s) ? (int)(uint32_t)((args.size() >= 5) ? (int64_t)args[4] : (int64_t)0xFFFFFFFF) : norm_color(s, arg_int(args, 4, -1));
+		int col = (int)(uint32_t)resolve_color_arg(s, args, 4, -1);
 		String style = args.size() >= 6 ? String(args[5]).to_upper() : String("");
 		int flags = arg_int(args, 6, 0);
 		int x0, y0, x1, y1;
@@ -1951,7 +2011,7 @@ bool handle_statement(VisualGasicInstance *instance, const String &method, const
 		return true;
 	}
 	if (m == "qbcircle" && args.size() >= 3) {
-		int col = norm_color(s, arg_int(args, 3, -1));
+		int col = (int)(uint32_t)resolve_color_arg(s, args, 3, -1);
 		double start = (args.size() >= 5) ? arg_f64(args, 4, -1.0e9) : -1.0e9;
 		double end = (args.size() >= 6) ? arg_f64(args, 5, -1.0e9) : -1.0e9;
 		double aspect = (args.size() >= 7) ? arg_f64(args, 6, 0) : 0;

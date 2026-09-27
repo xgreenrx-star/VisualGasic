@@ -8,6 +8,20 @@ The following are **not** implemented (DOS memory / native code / disk images): 
 
 ---
 
+## Godot project setup (classic `SCREEN` games)
+
+For QuickBASIC-style **`SCREEN` / `LINE` / `PAINT`** (not VB6 form controls), mirror **`samples/showcases/qb_abc_showcase/Main.tscn`**:
+
+1. Root scene: **`Node2D`** named `Main` (or your entry scene name).
+2. Attach **`Main.vg`** (same basename) **on that root** via `script = ExtResource(...)`.
+3. Do **not** rely on a nested **`VGASIC`** child for canvas games — the plugin keeps `.vg` on the **Node2D root** when the script uses `_Draw` / classic graphics. Godot’s scene saver may drop a script-only helper node you add by hand.
+4. Put shared code in **`Module1.vg`** (or similar) and `Import` it from `Main.vg`; the scene file only needs the one root script reference.
+5. Set **Project → Run → Main Scene** to your `.tscn`.
+
+Until `SCREEN` runs, use **`Screen 0`** (or no QB buffer) before drawing menu chrome with Godot canvas helpers (`DrawRect`, etc.) in `_Draw`.
+
+---
+
 ## How it differs from VB6 `Screen` and canvas drawing
 
 | Feature | QuickBASIC `SCREEN` | VB6-style |
