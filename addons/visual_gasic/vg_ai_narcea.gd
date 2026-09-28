@@ -1581,7 +1581,17 @@ const SLIM_KNOWLEDGE := """
   PeekData, DataBuffer — not megabytes of inline Data rows. User edits CSV/vgd in VG Grid Editor (Edit Grid… in Context Rail).
 - Restore: bare name = Data label (not variable); Restore \"R\" + CStr(roomId) + \"Map\"
   for per-room tables; CStr not Str; missing label = error 5. See GravenRooms.vg.
-- Prefer Select Case over long ElseIf chains; use Restore+Data instead of Case-per-room literals.
+- Default to Select Case (not long ElseIf) when one scalar drives branches (curMode, phase, page);
+  use Restore+Data instead of Case-per-room literals. See qb_abc_showcase/Main.vg hub dispatch.
+- Select Case layout (tabs): Select Case on its own indent; each Case one tab in; case body one
+  tab under Case; End Select aligned with Select Case. Example:
+  Select Case curMode
+  	Case MODE_MENU
+  		Call DrawMenu
+  End Select
+- Call to an imported Public Sub (Import "module.vg") — definition is in that module. Procedure
+  dropdown lists only the open file. Included dropdown lists imported modules; pick a module, then
+  the procedure, to open it. Ctrl+Click / Go To Definition on the Call name opens that file.
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
@@ -1687,10 +1697,14 @@ CODE QUALITY — ALWAYS:
     Sub controlName_Event() — never manually Connect unless necessary.
   * Canvas _Draw games: cache DataToArray(\"*Sprite\") tapes at load; conditional QueueRedraw.
   * VGVectorCanvas2D games: cache static cave/grid; feed the moving layer from _Process.
-  * Control flow: prefer Select Case over long ElseIf chains when dispatching on one
-    scalar (roomId, KeyCode, typ, opcode). For per-id static data (maps, spawns,
-    lookup strings), use Restore \"Prefix\" + CStr(id) + \"Suffix\" + Read — not a
-    Case per room. Nested If inside a Case is fine when that branch is state-dependent.
+  * Control flow: default to Select Case (not ElseIf ladders) when one scalar drives
+    branches (curMode, phase, page, keycode, opcode). Combine values in one Case line
+    when they share a body (e.g. Case MODE_A, MODE_B). Indent: Case one tab under
+    Select Case; statements one tab under Case; End Select aligned with Select Case.
+    For per-id static data (maps, spawns, lookup strings), use Restore \"Prefix\" +
+    CStr(id) + \"Suffix\" + Read — not a Case per room. Nested If inside a Case is fine
+    when that branch is state-dependent. Reserve If/ElseIf for short two-way tests or
+    unrelated conditions.
 
 ANSWERS:
   * Prefer a short working code example over a prose description.

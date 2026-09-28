@@ -80,6 +80,37 @@ static func hook_text_edit(te: TextEdit) -> void:
 		te.set_meta("_vg_ctx_hooked", true)
 		te.tree_entered.connect(func(): style_popup(te.get_menu()))
 
+## Cream toolbar toggle/button so it matches the Object and Procedure dropdowns.
+static func style_toolbar_button(btn: Button) -> void:
+	if not btn:
+		return
+	var text := Color(0.08, 0.08, 0.10)
+	btn.add_theme_color_override("font_color", text)
+	btn.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.45))
+	btn.add_theme_color_override("font_pressed_color", text)
+	btn.add_theme_color_override("font_hover_pressed_color", text)
+	btn.add_theme_color_override("font_focus_color", text)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(1.0, 1.0, 1.0, 1.0)
+	normal.border_color = Color(0.65, 0.64, 0.62, 1.0)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(2)
+	normal.content_margin_left = 8
+	normal.content_margin_right = 8
+	normal.content_margin_top = 2
+	normal.content_margin_bottom = 2
+	btn.add_theme_stylebox_override("normal", normal)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.97, 0.98, 1.0, 1.0)
+	hover.border_color = Color(0.35, 0.45, 0.70, 1.0)
+	btn.add_theme_stylebox_override("hover", hover)
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(0.86, 0.91, 0.98, 1.0)
+	pressed.border_color = Color(0.30, 0.50, 0.80, 1.0)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_stylebox_override("hover_pressed", pressed)
+	btn.add_theme_stylebox_override("focus", normal.duplicate())
+
 # ── OptionButton: light chrome + dropdown (Godot editor theme is dark) ─
 
 ## Style the closed control and its PopupMenu for cream/light toolbars.

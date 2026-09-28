@@ -1141,6 +1141,8 @@ func _enter_tree():
 				_embedded_code_editor.stale_banner_dismissed.connect(_on_embedded_stale_banner_dismissed)
 			if _embedded_code_editor.has_signal("buffer_edited"):
 				_embedded_code_editor.buffer_edited.connect(_on_embedded_buffer_edited)
+			if _embedded_code_editor.has_signal("file_loaded"):
+				_embedded_code_editor.file_loaded.connect(_on_embedded_file_loaded)
 			if _embedded_code_editor.has_signal("find_in_file_requested"):
 				_embedded_code_editor.find_in_file_requested.connect(_on_find_in_file_requested)
 			if _embedded_code_editor.has_signal("find_in_file_nav_requested"):
@@ -16217,6 +16219,11 @@ func _on_embedded_buffer_edited(path: String) -> void:
 	if path.ends_with(".vg"):
 		_dual_editor_bridge.note_modified(path, _DualEditorBridge.SIDE_EMBEDDED)
 	_poll_dual_editor_stale.call_deferred()
+
+
+func _on_embedded_file_loaded(path: String) -> void:
+	if is_instance_valid(_project_explorer) and _project_explorer.has_method("select_file"):
+		_project_explorer.select_file(path)
 
 
 func _on_embedded_stale_banner_dismissed(path: String) -> void:

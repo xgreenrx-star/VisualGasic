@@ -9,6 +9,14 @@ const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolv
 const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 
 
+static func _is_ident_char(c: String) -> bool:
+	if c.is_empty():
+		return false
+	if c >= "0" and c <= "9":
+		return true
+	return c.is_valid_identifier() or c == "_"
+
+
 static func get_keyword_at_cursor(code_edit: CodeEdit) -> String:
 	if code_edit == null:
 		return ""
@@ -19,9 +27,9 @@ static func get_keyword_at_cursor(code_edit: CodeEdit) -> String:
 		return ""
 	var word_start := col
 	var word_end := col
-	while word_start > 0 and (line_text[word_start - 1].is_valid_identifier() or line_text[word_start - 1] == "_"):
+	while word_start > 0 and _is_ident_char(line_text[word_start - 1]):
 		word_start -= 1
-	while word_end < line_text.length() and (line_text[word_end].is_valid_identifier() or line_text[word_end] == "_"):
+	while word_end < line_text.length() and _is_ident_char(line_text[word_end]):
 		word_end += 1
 	if word_start >= word_end:
 		return ""

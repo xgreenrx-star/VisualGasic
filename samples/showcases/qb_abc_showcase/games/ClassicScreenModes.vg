@@ -56,32 +56,32 @@ Function Classic_MenuPick(ByVal page As Integer, ByVal keycode As Integer) As In
 	Classic_MenuPick = 0
 	If page = 0 Then
 		Select Case keycode
-		Case KEY_1: Classic_MenuPick = 1
-		Case KEY_2: Classic_MenuPick = 2
-		Case KEY_3: Classic_MenuPick = 7
-		Case KEY_4: Classic_MenuPick = 8
-		Case KEY_5: Classic_MenuPick = 9
-		Case KEY_6: Classic_MenuPick = 12
-		Case KEY_7: Classic_MenuPick = 13
-		Case KEY_8: Classic_MenuPick = 14
+			Case KEY_1: Classic_MenuPick = 1
+			Case KEY_2: Classic_MenuPick = 2
+			Case KEY_3: Classic_MenuPick = 7
+			Case KEY_4: Classic_MenuPick = 8
+			Case KEY_5: Classic_MenuPick = 9
+			Case KEY_6: Classic_MenuPick = 12
+			Case KEY_7: Classic_MenuPick = 13
+			Case KEY_8: Classic_MenuPick = 14
 		End Select
 	ElseIf page = 1 Then
 		Select Case keycode
-		Case KEY_1: Classic_MenuPick = 100
-		Case KEY_2: Classic_MenuPick = 101
-		Case KEY_3: Classic_MenuPick = 102
-		Case KEY_4: Classic_MenuPick = 110
-		Case KEY_5: Classic_MenuPick = 111
-		Case KEY_6: Classic_MenuPick = 112
+			Case KEY_1: Classic_MenuPick = 100
+			Case KEY_2: Classic_MenuPick = 101
+			Case KEY_3: Classic_MenuPick = 102
+			Case KEY_4: Classic_MenuPick = 110
+			Case KEY_5: Classic_MenuPick = 111
+			Case KEY_6: Classic_MenuPick = 112
 		End Select
 	Else
 		Select Case keycode
-		Case KEY_1: Classic_MenuPick = 120
-		Case KEY_2: Classic_MenuPick = 121
-		Case KEY_3: Classic_MenuPick = 130
-		Case KEY_4: Classic_MenuPick = 131
-		Case KEY_5: Classic_MenuPick = 140
-		Case KEY_6: Classic_MenuPick = 150
+			Case KEY_1: Classic_MenuPick = 120
+			Case KEY_2: Classic_MenuPick = 121
+			Case KEY_3: Classic_MenuPick = 130
+			Case KEY_4: Classic_MenuPick = 131
+			Case KEY_5: Classic_MenuPick = 140
+			Case KEY_6: Classic_MenuPick = 150
 		End Select
 	End If
 End Function

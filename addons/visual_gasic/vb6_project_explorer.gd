@@ -36,6 +36,8 @@ var _show_folders: bool = true
 var _project_name: String = "Project1"
 var _context_menu: PopupMenu
 var _confirm_delete_dialog: ConfirmationDialog
+## Path of the .vg (or other file) the code editor currently has open.
+var _current_file_path: String = ""
 
 # =============================================================================
 # INITIALIZATION
@@ -276,6 +278,8 @@ func refresh():
 		_populate_flat(root, forms, components, modules, classes, resources)
 
 	root.set_collapsed(false)
+	if not _current_file_path.is_empty():
+		_select_tree_item(_current_file_path)
 
 ## Recursively scan a directory for project files.
 func _scan_directory(path: String, forms: Array[Dictionary], components: Array[Dictionary], modules: Array[Dictionary], classes: Array[Dictionary], resources: Array[Dictionary]):
@@ -677,8 +681,69 @@ func _on_item_selected():
 	var meta = item.get_metadata(0)
 	if not meta or not meta is Dictionary:
 		return
-	# Could preview the file in inspector, etc.
-	pass
+	if str(meta.get("type", "")) == "folder":
+		return
+	var file_path := str(meta.get("path", ""))
+	if not file_path.is_empty():
+		_current_file_path = _normalize_explorer_path(file_path)
+
+
+## Highlight the tree row for the file open in the code editor.
+func select_file(path: String) -> void:
+	var want := _normalize_explorer_path(path)
+	if want.is_empty():
+		return
+	_current_file_path = want
+	_select_tree_item(want)
+
+
+func _select_tree_item(path: String) -> void:
+	if not is_instance_valid(tree):
+		return
+	var root := tree.get_root()
+	if root == null:
+		return
+	var item := _find_item_by_path(root, path)
+	if item == null:
+		return
+	var parent := item.get_parent()
+	while parent:
+		parent.set_collapsed(false)
+		parent = parent.get_parent()
+	if tree.get_selected() != item:
+		item.select(0)
+	tree.scroll_to_item(item)
+
+
+func _find_item_by_path(item: TreeItem, want: String) -> TreeItem:
+	if item == null:
+		return null
+	var meta = item.get_metadata(0)
+	if meta is Dictionary:
+		var stored := _normalize_explorer_path(str(meta.get("path", "")))
+		if not stored.is_empty() and stored == want:
+			return item
+	var child := item.get_first_child()
+	while child:
+		var found := _find_item_by_path(child, want)
+		if found:
+			return found
+		child = child.get_next()
+	return null
+
+
+func _normalize_explorer_path(path: String) -> String:
+	var p := path.strip_edges().replace("\\", "/")
+	if p.is_empty():
+		return ""
+	if p.begins_with("res://") or p.begins_with("user://"):
+		return p
+	var project_root := ProjectSettings.globalize_path("res://").replace("\\", "/")
+	if project_root.ends_with("/"):
+		project_root = project_root.substr(0, project_root.length() - 1)
+	if p == project_root or p.begins_with(project_root + "/"):
+		return "res://" + p.substr(project_root.length()).trim_prefix("/")
+	return p
 
 ## Right-click on tree — show VB6-style context menu.
 func _on_tree_gui_input(event: InputEvent):

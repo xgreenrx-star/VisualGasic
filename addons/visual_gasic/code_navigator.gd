@@ -54,6 +54,7 @@ const EVENTS_FORM = ["Load", "Unload", "Click", "MouseDown", "MouseUp", "MouseMo
 
 # Dim colour for unimplemented event handlers (VB6 shows implemented in bold)
 const COLOR_DIM := Color(0.45, 0.45, 0.5)
+const COLOR_IMPORTED_PROC := Color(0.52, 0.78, 1.0)
 
 func _init():
 	name = "Code Navigator"
@@ -248,7 +249,11 @@ func refresh_objects():
 			object_list.set_item_metadata(gen_idx, "(General)")
 			# Add cached controls — format the label the same as the live tree walk
 			# ("Button1 (CommandButton)") using the VB6 dialect name.
-			for entry in _cached_controls:
+			var sorted_cache: Array = _cached_controls.duplicate()
+			sorted_cache.sort_custom(func(a, b):
+				return str(a.get("name", "")).to_lower() < str(b.get("name", "")).to_lower()
+			)
+			for entry in sorted_cache:
 				var oidx: int = object_list.item_count
 				object_list.add_item(VGIntelliSense.format_node_label(entry["name"], entry["class_name"]))
 				object_list.set_item_metadata(oidx, {"type": "cached_control", "name": entry["name"], "class_name": entry["class_name"]})
@@ -289,6 +294,7 @@ func refresh_objects():
 			var eidx: int = event_list.item_count
 			event_list.add_item(display)
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
+		_append_imported_public_procedures_for_general({})
 		if event_list.item_count > 0:
 			event_list.select(0)
 		_add_import_modules_section()
@@ -319,6 +325,7 @@ func refresh_objects():
 	var gd_nodes: Array = []
 	_collect_gd_script_nodes(root, gd_nodes)
 	if gd_nodes.size() > 0:
+		gd_nodes.sort_custom(func(a, b): return a.name.to_lower() < b.name.to_lower())
 		var sep_idx = object_list.item_count
 		object_list.add_item("\u2500\u2500 Scene Scripts \u2500\u2500")
 		object_list.set_item_metadata(sep_idx, {"type": "separator"})
@@ -373,7 +380,11 @@ func _add_import_modules_section() -> void:
 	var sep_idx: int = object_list.item_count
 	object_list.add_item("\u2500\u2500 Modules \u2500\u2500")
 	object_list.set_item_metadata(sep_idx, {"type": "separator"})
-	for mod_info in imports:
+	var sorted_imports: Array = imports.duplicate()
+	sorted_imports.sort_custom(func(a, b):
+		return str(a.get("name", "")).to_lower() < str(b.get("name", "")).to_lower()
+	)
+	for mod_info in sorted_imports:
 		var mod_name := str(mod_info.get("name", ""))
 		if mod_name.is_empty():
 			continue
@@ -417,12 +428,61 @@ func _add_node_filtered(node: Node, is_root: bool) -> void:
 	object_list.add_item(label)
 	object_list.set_item_metadata(idx, node)
 
-	# Walk children (one extra level for controls inside Panel/Frame containers)
+	if not is_root:
+		return
+	# Walk children (one level deep) — sorted for large forms
+	var children: Array = []
 	for i in node.get_child_count():
 		var child = node.get_child(i)
-		if not is_root:
-			return  # already one level deep — stop here
+		if _should_list_object_child(child):
+			children.append(child)
+	children.sort_custom(func(a, b): return a.name.to_lower() < b.name.to_lower())
+	for child in children:
 		_add_node_filtered(child, false)
+
+func _should_list_object_child(node: Node) -> bool:
+	if not node:
+		return false
+	var script = node.get_script()
+	var script_path: String = script.resource_path if script else ""
+	if script_path.ends_with(".vg"):
+		return false
+	return VGIntelliSense.is_relevant_node_class(node.get_class())
+
+func _append_imported_public_procedures_for_general(skip_names: Dictionary) -> void:
+	var vg_path := _get_current_vg_path()
+	var vg_text := _get_current_vg_text()
+	if vg_text.is_empty():
+		return
+	var imports: Array = VGGoToDefinition.parse_imports(vg_text, vg_path)
+	var merged: Array = []
+	for mod_info in imports:
+		var mod_name := str(mod_info.get("name", ""))
+		var mod_path := str(mod_info.get("path", ""))
+		for entry in mod_info.get("public_subs", []):
+			var sname := str(entry.get("name", ""))
+			if sname.is_empty():
+				continue
+			if skip_names.has(sname.to_lower()):
+				continue
+			merged.append({
+				"display": sname + "  [" + mod_name + "]",
+				"path": mod_path,
+				"line": int(entry.get("line", 0)),
+				"name": sname,
+			})
+	merged.sort_custom(func(a, b): return a["name"].to_lower() < b["name"].to_lower())
+	for item in merged:
+		var eidx: int = event_list.item_count
+		event_list.add_item(item["display"])
+		event_list.set_item_metadata(eidx, {
+			"type": "imported_procedure",
+			"path": item["path"],
+			"line": item["line"],
+			"name": item["name"],
+			"visibility": "public",
+		})
+		event_list.set_item_custom_color(eidx, COLOR_IMPORTED_PROC)
 
 func _get_current_vg_path() -> String:
 	"""Get the .vg file path for the current scene."""
@@ -675,6 +735,7 @@ func _on_object_selected(idx):
 		# Parse the .vg file — show only procedures that are NOT control event handlers
 		var text = _get_current_vg_text()
 		var procedures = _parse_procedures(text)
+		var local_names: Dictionary = {}
 		for proc in procedures:
 			# Check: does the name start with "<KnownObject>_"?
 			var pname_lower: String = proc["name"].to_lower()
@@ -685,12 +746,14 @@ func _on_object_selected(idx):
 					break
 			if is_event_handler:
 				continue
+			local_names[pname_lower] = true
 			var display = proc["name"]
 			if proc["kind"].begins_with("Property"):
 				display += " [" + proc["kind"] + "]"
 			var eidx = event_list.item_count
 			event_list.add_item(display)
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
+		_append_imported_public_procedures_for_general(local_names)
 		if event_list.item_count > 0:
 			event_list.select(0)
 		return
@@ -793,6 +856,9 @@ func _on_event_selected(idx):
 				# Navigate directly to the procedure's line
 				_navigate_to_line_in_vg(event_meta["line"])
 				return
+			elif event_meta["type"] == "imported_procedure":
+				_navigate_to_module_procedure(str(event_meta.get("path", "")), int(event_meta.get("line", 0)))
+				return
 		return
 	
 	# --- GD script func entry ---
@@ -840,7 +906,11 @@ func _populate_import_module_events(mod_meta: Dictionary) -> void:
 			"line": 0,
 			"name": "(Open Module)",
 		})
-	for entry in mod_meta.get("public_subs", []):
+	var public_subs: Array = mod_meta.get("public_subs", []).duplicate()
+	public_subs.sort_custom(func(a, b):
+		return str(a.get("name", "")).to_lower() < str(b.get("name", "")).to_lower()
+	)
+	for entry in public_subs:
 		var sname := str(entry.get("name", ""))
 		if sname.is_empty():
 			continue
@@ -853,7 +923,11 @@ func _populate_import_module_events(mod_meta: Dictionary) -> void:
 			"name": sname,
 			"visibility": "public",
 		})
-	for entry in mod_meta.get("private_subs", []):
+	var private_subs: Array = mod_meta.get("private_subs", []).duplicate()
+	private_subs.sort_custom(func(a, b):
+		return str(a.get("name", "")).to_lower() < str(b.get("name", "")).to_lower()
+	)
+	for entry in private_subs:
 		var pname := str(entry.get("name", ""))
 		if pname.is_empty():
 			continue

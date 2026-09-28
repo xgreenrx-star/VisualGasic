@@ -54,6 +54,8 @@ var _completion_active: bool = false
 var _last_word: String = ""
 var _prev_caret_line: int = -1  # Track line changes for auto-capitalize
 var _highlight_word: String = ""  # Word under cursor — all occurrences are highlighted
+var _context_click_line: int = -1
+var _context_click_col: int = -1
 var _highlight_scope: Vector2i = Vector2i(-1, -1)  # Scope range for scope-aware highlighting
 var _sprite_block_ranges: Array = []  # labeled *Sprite Data blocks for background tint
 var _sprite_active_label: String = ""
@@ -574,7 +576,7 @@ func get_file_ref_at_caret() -> Dictionary:
 
 
 func get_file_ref_at_pos(local_pos: Vector2) -> Dictionary:
-	var lc := get_line_column_at_pos(Vector2i(int(local_pos.x), int(local_pos.y)), true)
+	var lc := _line_column_at_pos(local_pos)
 	if lc.x < 0:
 		return {}
 	return _OpenPathResolver.resolve_at_caret(text, lc.x, lc.y)
@@ -670,6 +672,10 @@ func _short_file_label(ref: Dictionary) -> String:
 
 func _show_context_menu(at_position: Vector2) -> void:
 	# Do not move the caret — that scrolls the viewport and fights the menu.
+	# Remember the click so Go To Definition uses that word, not a stale caret.
+	var lc := _line_column_at_pos(at_position)
+	_context_click_line = lc.x
+	_context_click_col = lc.y
 	var file_ref := get_file_ref_at_pos(at_position)
 	if file_ref.is_empty():
 		file_ref = get_file_ref_at_caret()
@@ -1599,6 +1605,13 @@ func _get_word_at_position(line: String, column: int) -> String:
 	return line.substr(start, column - start)
 
 func _is_word_char(c: String) -> bool:
+	# A single digit is not a valid identifier (cannot start a name), but it is
+	# part of names like B256_DrawMenuHub. Stopping there made Go to Definition
+	# look up "_DrawMenuHub" and miss the imported Sub.
+	if c.is_empty():
+		return false
+	if c >= "0" and c <= "9":
+		return true
 	return c.is_valid_identifier() or c == "_"
 
 func _infer_type(var_name: String) -> String:
@@ -2649,7 +2662,7 @@ func _ref_matches_hover(ref: Dictionary) -> bool:
 func _update_file_path_link_cursor(at: Vector2) -> void:
 	if _arrow_dragging:
 		return
-	var lc := get_line_column_at_pos(Vector2i(int(at.x), int(at.y)), true)
+	var lc := _line_column_at_pos(at)
 	var hover: Dictionary = {}
 	if lc.x >= 0:
 		for ref in _file_path_ranges:
@@ -3729,6 +3742,12 @@ func load_bookmarks(file_path: String) -> void:
 
 ## Called when user hovers over a word with Ctrl held — validate it as a symbol.
 func _on_symbol_validate(symbol: String) -> void:
+	# Godot's lookup word splits on "_" and digits (B256_DrawMenuHub → B256).
+	# Resolve the full identifier under the mouse before searching.
+	var lc := _line_column_at_pos(get_local_mouse_position())
+	var resolved := _goto_symbol_at(lc.x, lc.y)
+	if not resolved.is_empty():
+		symbol = resolved
 	# Accept any word that matches a known Sub/Function, variable, enum, UDT,
 	# control name, or label in the current code.
 	var sym_lower := symbol.to_lower()
@@ -3759,14 +3778,9 @@ func _on_symbol_validate(symbol: String) -> void:
 		if label_re.search(get_line(i)):
 			set_symbol_lookup_word_as_valid(true)
 			return
-	# Imported module public symbols (unqualified or Module.Member)
-	var ctx := _get_symbol_context_at_caret()
-	var mod_prefix := str(ctx.get("module_prefix", ""))
-	var lookup_sym := symbol
-	if mod_prefix.is_empty() and not str(ctx.get("symbol", "")).is_empty():
-		lookup_sym = str(ctx["symbol"])
-		mod_prefix = str(ctx.get("module_prefix", ""))
-	var imported := VGGoToDefinition.find_in_imports(lookup_sym, _imported_modules, mod_prefix)
+	# Imported module public symbols — use the hovered word, not the caret.
+	_ensure_imports_scanned()
+	var imported := VGGoToDefinition.find_in_imports(symbol, _imported_modules)
 	if imported.found:
 		set_symbol_lookup_word_as_valid(true)
 		return
@@ -3774,6 +3788,10 @@ func _on_symbol_validate(symbol: String) -> void:
 
 ## Called when user Ctrl+Clicks on a validated symbol — navigate to its definition.
 func _on_symbol_lookup(symbol: String, line: int, column: int) -> void:
+	var resolved := _goto_symbol_at(line, column)
+	if not resolved.is_empty():
+		_go_to_definition(resolved)
+		return
 	var ctx := _get_symbol_context_at_line_col(line, column)
 	if not str(ctx.get("symbol", "")).is_empty():
 		_go_to_definition(str(ctx["symbol"]), str(ctx.get("module_prefix", "")))
@@ -3823,39 +3841,154 @@ func _go_to_definition(symbol: String, module_prefix: String = "") -> void:
 			center_viewport_to_caret()
 			go_to_definition_requested.emit(symbol, i, "")
 			return
-	# 5) Imported module symbols
-	var imported := VGGoToDefinition.find_in_imports(symbol, _imported_modules, module_prefix)
+	# 5) Imported module symbols (Module.Member or flat Import namespace)
+	var vg_path := _active_vg_path()
+	var imports: Array = VGGoToDefinition.parse_imports(get_text(), vg_path)
+	var imported := VGGoToDefinition.find_in_imports(symbol, imports, module_prefix)
 	if imported.found and not imported.file_path.is_empty():
 		var target_line := imported.line - 1
-		if imported.file_path == _current_vg_path or _current_vg_path.is_empty():
+		if not _current_vg_path.is_empty() and imported.file_path == _current_vg_path:
 			set_caret_line(target_line)
 			set_caret_column(0)
 			center_viewport_to_caret()
 			go_to_definition_requested.emit(symbol, target_line, "")
 		else:
-			go_to_definition_requested.emit(symbol, target_line, imported.file_path)
+			_reveal_imported_definition(symbol, target_line, imported.file_path)
 		return
 	# 6) Workspace fallback
 	var found := VGGoToDefinition.find_definition(symbol, _current_vg_path)
 	if found.found and not found.file_path.is_empty():
 		var target_line := found.line - 1
-		if found.file_path == _current_vg_path or _current_vg_path.is_empty():
+		if not _current_vg_path.is_empty() and found.file_path == _current_vg_path:
 			set_caret_line(target_line)
 			set_caret_column(0)
 			center_viewport_to_caret()
 			go_to_definition_requested.emit(symbol, target_line, "")
 		else:
-			go_to_definition_requested.emit(symbol, target_line, found.file_path)
+			_reveal_imported_definition(symbol, target_line, found.file_path)
 		return
-	push_warning("Go To Definition: could not find declaration for '%s'" % symbol)
+	push_warning("Go To Definition: could not find '%s' in this file or its Import modules (%s)" % [symbol, _active_vg_path()])
 
-## Go To Definition for the word currently under the caret (context menu version).
+## Go To Definition for the highlighted word, the right-click position, or the caret.
 func _go_to_definition_at_caret() -> void:
-	var ctx := _get_symbol_context_at_caret()
-	var sym := str(ctx.get("symbol", ""))
+	var line := get_caret_line()
+	var column := get_caret_column()
+	if _context_click_line >= 0 and _context_click_line < get_line_count():
+		line = _context_click_line
+		column = _context_click_col
+	_context_click_line = -1
+	var sym := ""
+	if line >= 0 and line < get_line_count():
+		sym = _goto_symbol_at(line, column)
+		if sym.is_empty():
+			sym = _call_target_on_line(get_line(line))
+	if sym.is_empty() and has_selection():
+		var selected := get_selected_text().strip_edges()
+		if _is_identifier(selected):
+			sym = selected
+	if sym.is_empty():
+		var ctx := _get_symbol_context_at_line_col(line, column)
+		sym = str(ctx.get("symbol", ""))
 	if sym.is_empty():
 		return
-	_go_to_definition(sym, str(ctx.get("module_prefix", "")))
+	_go_to_definition(sym, "")
+
+
+## Godot 4.6 get_line_column_at_pos returns x = column, y = line.
+## This returns Vector2i(line, column). (-1, -1) when the position is outside the text.
+func _line_column_at_pos(pos: Vector2) -> Vector2i:
+	var lc := get_line_column_at_pos(pos)
+	if lc.x < 0 and lc.y < 0:
+		return Vector2i(-1, -1)
+	return Vector2i(lc.y, lc.x)
+
+
+## Identifier under a click, including `Call ProcName` when the click is on Call or the name.
+func _goto_symbol_at(line: int, column: int) -> String:
+	if line < 0 or line >= get_line_count():
+		return ""
+	var line_text := get_line(line)
+	var call_re := RegEx.new()
+	call_re.compile("(?i)\\bCall\\s+([A-Za-z_][A-Za-z0-9_]*)")
+	var cm := call_re.search(line_text)
+	if cm and column >= cm.get_start() and column <= cm.get_end(1):
+		return cm.get_string(1)
+	return _identifier_at(line_text, column)
+
+
+## Open a definition that lives in another .vg file. The code editor cannot switch files itself.
+func _reveal_imported_definition(symbol: String, line: int, file_path: String) -> void:
+	var node: Node = get_parent()
+	while node:
+		if node.has_method("open_definition"):
+			node.call("open_definition", file_path, line)
+			return
+		node = node.get_parent()
+	go_to_definition_requested.emit(symbol, line, file_path)
+
+
+func _identifier_at(line_text: String, column: int) -> String:
+	if line_text.is_empty():
+		return ""
+	var col := clampi(column, 0, line_text.length())
+	var start := col
+	var end_pos := col
+	while start > 0 and _is_word_char(line_text[start - 1]):
+		start -= 1
+	while end_pos < line_text.length() and _is_word_char(line_text[end_pos]):
+		end_pos += 1
+	if start == end_pos and start > 0:
+		end_pos = start
+		while start > 0 and _is_word_char(line_text[start - 1]):
+			start -= 1
+	if start >= end_pos:
+		return ""
+	return line_text.substr(start, end_pos - start)
+
+
+func _call_target_on_line(line_text: String) -> String:
+	var call_re := RegEx.new()
+	call_re.compile("(?i)\\bCall\\s+([A-Za-z_][A-Za-z0-9_]*)")
+	var m := call_re.search(line_text)
+	if m:
+		return m.get_string(1)
+	return ""
+
+
+func _active_vg_path() -> String:
+	if not _current_vg_path.is_empty():
+		return _current_vg_path
+	var node: Node = self
+	while node:
+		if node.has_method("get_file_path"):
+			var path := str(node.call("get_file_path"))
+			if not path.is_empty():
+				_current_vg_path = path
+				return path
+		node = node.get_parent()
+	return ""
+
+func _is_identifier(text: String) -> bool:
+	if text.is_empty():
+		return false
+	var rx := RegEx.new()
+	rx.compile("^\\w+$")
+	return rx.search(text) != null
+
+func _ensure_imports_scanned() -> void:
+	if get_text().is_empty():
+		return
+	var unresolved := _imported_modules.is_empty()
+	if not unresolved:
+		for mod_info in _imported_modules:
+			if str(mod_info.get("name", "")).is_empty():
+				continue
+			if str(mod_info.get("path", "")).is_empty():
+				unresolved = true
+				break
+	if not unresolved:
+		return
+	_scan_imported_modules(get_text().split("\n"))
 
 func _get_symbol_context_at_caret() -> Dictionary:
 	return _get_symbol_context_at_line_col(get_caret_line(), get_caret_column())
@@ -3868,6 +4001,16 @@ func _get_symbol_context_at_line_col(line: int, column: int) -> Dictionary:
 	if line_text.is_empty():
 		return result
 	var col := clampi(column, 0, line_text.length())
+	# Call Target — Ctrl+Click / Go To Definition on `Call ProcName`
+	var call_re := RegEx.new()
+	call_re.compile("(?i)\\bCall\\s+(\\w+)")
+	var cm := call_re.search(line_text)
+	if cm:
+		var name_start := cm.get_start(1)
+		var name_end := cm.get_end(1)
+		if col >= name_start and col <= name_end:
+			result["symbol"] = cm.get_string(1)
+			return result
 	# Expand to word under column
 	var start := col
 	while start > 0 and _is_word_char(line_text[start - 1]):

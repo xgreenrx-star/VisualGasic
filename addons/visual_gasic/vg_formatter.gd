@@ -65,7 +65,7 @@ class FormatOptions:
 
 const INDENT_KEYWORDS: Array[String] = [
 	"Sub", "Function", "Property", "Class", "Type", "Enum",
-	"If", "ElseIf", "Else", "For", "While", "Do", "Select Case", "Case",
+	"If", "ElseIf", "Else", "For", "While", "Do", "Select Case",
 	"Try", "Catch", "Finally", "With", "Whenever"
 ]
 
@@ -76,7 +76,7 @@ const DEDENT_KEYWORDS: Array[String] = [
 ]
 
 const DEDENT_BEFORE_KEYWORDS: Array[String] = [
-	"ElseIf", "Else", "Case", "Catch", "Finally"
+	"ElseIf", "Else", "Catch", "Finally"
 ]
 
 const VB6_KEYWORDS_PROPER_CASE: Dictionary = {
@@ -183,6 +183,7 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 	var result_lines: Array[String] = []
 	var indent_level = 0
 	var blank_count = 0
+	var select_case_stack: Array[int] = []
 	
 	for i in range(lines.size()):
 		var line = lines[i]
@@ -197,18 +198,27 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		
 		blank_count = 0
 		
-		# Check for dedent before (ElseIf, Else, Case, Catch, Finally)
-		var stripped_upper = stripped.to_upper()
-		for keyword in DEDENT_BEFORE_KEYWORDS:
-			if stripped_upper.begins_with(keyword.to_upper()):
-				indent_level = maxi(0, indent_level - 1)
-				break
+		var stmt_upper := _vg_stmt_upper(stripped)
+		var is_select_case := stmt_upper.begins_with("SELECT CASE")
+		var is_case_line := _is_vg_case_line(stmt_upper)
+		var is_end_select := stmt_upper.begins_with("END SELECT")
 		
-		# Check for dedent (End statements)
-		for keyword in DEDENT_KEYWORDS:
-			if stripped_upper.begins_with(keyword.to_upper()):
-				indent_level = maxi(0, indent_level - 1)
-				break
+		if is_end_select and select_case_stack.size() > 0:
+			indent_level = select_case_stack.pop_back()
+		elif is_case_line and select_case_stack.size() > 0:
+			indent_level = select_case_stack[-1] + 1
+		else:
+			# Check for dedent before (ElseIf, Else, Catch, Finally)
+			for keyword in DEDENT_BEFORE_KEYWORDS:
+				if _stmt_starts_block(stmt_upper, keyword):
+					indent_level = maxi(0, indent_level - 1)
+					break
+			# Check for dedent (End statements) — End Select handled above
+			if not is_end_select:
+				for keyword in DEDENT_KEYWORDS:
+					if _stmt_starts_block(stmt_upper, keyword):
+						indent_level = maxi(0, indent_level - 1)
+						break
 		
 		# Apply formatting to the line
 		var formatted_line = _format_line(stripped, options)
@@ -223,17 +233,25 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		
 		result_lines.append(formatted_line)
 		
-		# Check for indent (Sub, If, For, etc.) - excluding single-line If
-		for keyword in INDENT_KEYWORDS:
-			if stripped_upper.begins_with(keyword.to_upper()):
-				# Special case: single-line If (If x Then y)
-				if keyword == "If" and "THEN" in stripped_upper:
-					var after_then = stripped_upper.split("THEN", true, 1)
-					if after_then.size() > 1 and not after_then[1].strip_edges().is_empty():
-						# Single-line If, don't indent
-						break
-				indent_level += 1
-				break
+		if is_select_case:
+			select_case_stack.append(indent_level)
+			indent_level += 1
+		elif is_case_line and select_case_stack.size() > 0:
+			indent_level = select_case_stack[-1] + 2
+		elif is_end_select:
+			pass
+		else:
+			# Check for indent (Sub, If, For, etc.) - excluding single-line If
+			for keyword in INDENT_KEYWORDS:
+				if _stmt_starts_block(stmt_upper, keyword):
+					# Special case: single-line If (If x Then y)
+					if keyword == "If" and "THEN" in stmt_upper:
+						var after_then = stmt_upper.split("THEN", true, 1)
+						if after_then.size() > 1 and not after_then[1].strip_edges().is_empty():
+							# Single-line If, don't indent
+							break
+					indent_level += 1
+					break
 	
 	var result = "\n".join(result_lines)
 	
@@ -242,6 +260,58 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		result += "\n"
 	
 	return result
+
+## Statement text for indent/keyword rules — ignore comments and string literals so
+## Import "…ShowcaseMeta.vg" does not look like a Case statement.
+static func _vg_stmt_upper(stripped: String) -> String:
+	if stripped.is_empty():
+		return ""
+	var probe := stripped
+	var comment_pos := _find_comment_start(probe)
+	if comment_pos >= 0:
+		probe = probe.substr(0, comment_pos).strip_edges()
+	if probe.is_empty():
+		return ""
+	if probe.begins_with("'") or probe.to_upper().begins_with("REM "):
+		return ""
+	var out := PackedStringArray()
+	var i := 0
+	while i < probe.length():
+		if probe[i] == '"':
+			var j := i + 1
+			while j < probe.length() and probe[j] != '"':
+				j += 1
+			if j < probe.length():
+				i = j + 1
+			else:
+				i = probe.length()
+		else:
+			out.append(probe[i])
+			i += 1
+	return String(out).strip_edges().to_upper()
+
+## True when stmt_upper starts a block keyword (avoids Randomize→Do, Format→For, etc.).
+static func _stmt_starts_block(stmt_upper: String, keyword: String) -> bool:
+	if stmt_upper.is_empty() or keyword.is_empty():
+		return false
+	var ku := keyword.to_upper()
+	if ku.contains(" "):
+		return stmt_upper.begins_with(ku)
+	if not stmt_upper.begins_with(ku):
+		return false
+	if stmt_upper.length() == ku.length():
+		return true
+	var next_c := stmt_upper[ku.length()]
+	return next_c == " " or next_c == "("
+
+static func _is_vg_case_line(stripped_upper: String) -> bool:
+	if stripped_upper.is_empty():
+		return false
+	if stripped_upper == "CASE ELSE":
+		return true
+	if stripped_upper.begins_with("CASE ELSE "):
+		return true
+	return stripped_upper.begins_with("CASE ")
 
 ## Formats a single line
 static func _format_line(line: String, options: FormatOptions) -> String:

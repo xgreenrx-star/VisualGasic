@@ -37,6 +37,7 @@ signal stale_banner_dismissed(path: String)
 signal buffer_edited(path: String)  ## user edited text (not peer refresh / load)
 signal find_in_file_requested(show_replace: bool)  ## Ctrl+F / Ctrl+H — in-file find bar
 signal find_in_file_nav_requested(advance: bool)   ## F3 / Shift+F3 — next/prev match
+signal file_loaded(path: String)  ## buffer switched to this .vg (Go to Definition, open, etc.)
 
 # =============================================================================
 # STATE
@@ -68,6 +69,11 @@ var _object_combo: OptionButton = null
 ## Procedure navigation: Event/Procedure dropdown
 var _proc_combo: OptionButton = null
 
+## When on, the Procedure dropdown lists Import-module procedures instead of this file.
+var _proc_scope_btn: Button = null
+var _show_imported_procs: bool = false
+var _included_proc_entries: Array = []
+
 ## Parsed procedure list: Array of { name: String, line: int }
 var _procedures: Array = []
 
@@ -88,6 +94,10 @@ var _context_rail: PanelContainer = null  # reparented into ToolboxPanel by plug
 
 const VGContextRail := preload("res://addons/visual_gasic/vg_context_rail.gd")
 const OpenPathResolver := preload("res://addons/visual_gasic/vg_open_path_resolver.gd")
+const VGGoToDefinition := preload("res://addons/visual_gasic/vg_goto_definition.gd")
+
+## Procedure dropdown: subs resolved via Import (not declared in this file).
+const COLOR_IMPORTED_PROC := Color(0.52, 0.78, 1.0)
 
 ## Main split: code editor (top) / bottom panel (bottom) — resizable like VB6
 var _main_split: VSplitContainer = null
@@ -207,6 +217,16 @@ func _build_ui() -> void:
 	_proc_combo.item_selected.connect(_on_proc_selected)
 	VGTheme.hook_option_button(_proc_combo)
 	nav_hbox.add_child(_proc_combo)
+
+	_proc_scope_btn = Button.new()
+	_proc_scope_btn.name = "ProcScopeToggle"
+	_proc_scope_btn.toggle_mode = true
+	_proc_scope_btn.text = "This file"
+	_proc_scope_btn.tooltip_text = "Procedure list: this file, or every procedure brought in by Import"
+	_proc_scope_btn.add_theme_font_size_override("font_size", 11)
+	_proc_scope_btn.toggled.connect(_on_proc_scope_toggled)
+	VGTheme.style_toolbar_button(_proc_scope_btn)
+	nav_hbox.add_child(_proc_scope_btn)
 
 	# Error count indicator (right-aligned in nav bar)
 	_error_count_label = Label.new()
@@ -1567,6 +1587,7 @@ func load_file(path: String) -> void:
 		# Validate code and display any errors
 		call_deferred("validate_code")
 		call_deferred("_update_context_rail")
+		file_loaded.emit(path)
 		# Update status
 		print("VG Code Editor: Loaded ", path)
 	else:
@@ -1772,21 +1793,22 @@ func _rebuild_proc_list() -> void:
 		var m := rx.search(lines[i])
 		if m:
 			_procedures.append({ "name": m.get_string(1), "line": i, "full": lines[i].strip_edges() })
+	_procedures.sort_custom(func(a, b):
+		return str(a.get("name", "")).to_lower() < str(b.get("name", "")).to_lower()
+	)
 
 	# Check which object is selected — show event-aware proc list if applicable
 	var selected_obj := ""
 	if _object_combo and _object_combo.selected >= 0:
 		selected_obj = _object_combo.get_item_text(_object_combo.selected)
 
-	if selected_obj != "" and selected_obj != "(General)":
+	_ensure_proc_scope_button()
+	if _show_imported_procs:
+		_fill_imported_proc_combo()
+	elif selected_obj != "" and selected_obj != "(General)":
 		_rebuild_event_list_for_object(selected_obj)
 	else:
-		# (General) — show all procedures, same as before
-		_proc_combo.clear()
-		_proc_combo.add_item("(Declarations)", 0)
-		for idx in _procedures.size():
-			var p = _procedures[idx]
-			_proc_combo.add_item(p["name"], idx + 1)
+		_fill_general_proc_combo()
 		_update_proc_selection()
 
 ## Rebuilds the procedure dropdown to show ALL available events for the given
@@ -1873,8 +1895,9 @@ func _rebuild_object_combo() -> void:
 	# Always add Form as an option (it's the form itself)
 	_object_combo.add_item("Form")
 
-	# Add form controls
-	for ctrl_name in _control_names:
+	var sorted_controls: Array[String] = _control_names.duplicate()
+	sorted_controls.sort_custom(func(a, b): return a.to_lower() < b.to_lower())
+	for ctrl_name in sorted_controls:
 		_object_combo.add_item(ctrl_name)
 
 ## Sets the list of form control names for the Object dropdown.
@@ -1935,14 +1958,8 @@ func _update_proc_selection() -> void:
 
 	var caret_line := _code_edit.get_caret_line()
 
-	# Find which procedure the caret is inside
-	var best_idx := -1
-	for i in _procedures.size():
-		if _procedures[i]["line"] <= caret_line:
-			best_idx = i
-
-	if best_idx >= 0:
-		var proc_name: String = _procedures[best_idx]["name"]
+	var proc_name := _procedure_name_at_line(caret_line)
+	if not proc_name.is_empty():
 
 		# Also update object combo to match
 		if "_" in proc_name:
@@ -1967,12 +1984,9 @@ func _update_proc_selection() -> void:
 		if selected_obj != "(General)":
 			_update_proc_selection_for_object(selected_obj)
 		else:
-			# General mode — +1 because item 0 is "(Declarations)".
-			# Guard against an empty/stale combo (race when loading a
-			# formless module before the proc list is rebuilt).
-			var target_idx := best_idx + 1
-			if _proc_combo.item_count > target_idx:
-				_proc_combo.select(target_idx)
+			var sel := _proc_combo_index_for_name(proc_name)
+			if sel >= 0:
+				_proc_combo.select(sel)
 			elif _proc_combo.item_count > 0:
 				_proc_combo.select(0)
 
@@ -1990,13 +2004,149 @@ func _update_proc_selection() -> void:
 			_proc_combo.select(0)
 		_update_index_map_for_current_object()
 
-## Rebuilds the proc combo for (General) — shows all procedures.
-func _rebuild_general_proc_list() -> void:
+func _canonical_vg_path(path: String) -> String:
+	var p := path.strip_edges()
+	if p.is_empty():
+		return ""
+	if p.begins_with("res://") or p.begins_with("user://"):
+		return p
+	if p.begins_with("/") and FileAccess.file_exists(p):
+		return p
+	return OpenPathResolver.normalize_project_path(p)
+
+
+func _parsed_imports_for_editor() -> Array:
+	if not _code_edit or _vg_path.is_empty():
+		return []
+	return VGGoToDefinition.parse_imports(_code_edit.text, _vg_path)
+
+
+func _ensure_proc_scope_button() -> void:
+	if is_instance_valid(_proc_scope_btn):
+		VGTheme.style_toolbar_button(_proc_scope_btn)
+		return
+	if not is_instance_valid(_proc_combo):
+		return
+	var hbox := _proc_combo.get_parent()
+	if hbox == null:
+		return
+	var old := hbox.get_node_or_null("IncludedCombo")
+	if old:
+		old.queue_free()
+	_proc_scope_btn = Button.new()
+	_proc_scope_btn.name = "ProcScopeToggle"
+	_proc_scope_btn.toggle_mode = true
+	_proc_scope_btn.button_pressed = _show_imported_procs
+	_proc_scope_btn.text = "Imports" if _show_imported_procs else "This file"
+	_proc_scope_btn.tooltip_text = "Procedure list: this file, or every procedure brought in by Import"
+	_proc_scope_btn.add_theme_font_size_override("font_size", 11)
+	_proc_scope_btn.toggled.connect(_on_proc_scope_toggled)
+	VGTheme.style_toolbar_button(_proc_scope_btn)
+	hbox.add_child(_proc_scope_btn)
+	hbox.move_child(_proc_scope_btn, _proc_combo.get_index() + 1)
+
+
+func _on_proc_scope_toggled(on: bool) -> void:
+	_show_imported_procs = on
+	if _proc_scope_btn:
+		_proc_scope_btn.text = "Imports" if on else "This file"
+	_rebuild_proc_list()
+
+
+func _fill_imported_proc_combo() -> void:
+	if not _proc_combo:
+		return
+	# The first add_item selects itself and would open that file mid-fill,
+	# which cleared the list down to a single row.
+	_proc_combo.set_block_signals(true)
+	_proc_combo.clear()
+	_included_proc_entries.clear()
+	var imports: Array = _parsed_imports_for_editor()
+	var rows: Array = []
+	for mod_info in imports:
+		var mod_name := str(mod_info.get("name", ""))
+		var mod_path := str(mod_info.get("path", ""))
+		if mod_name.is_empty() or mod_path.is_empty():
+			continue
+		for entry in mod_info.get("public_subs", []):
+			var sname := str(entry.get("name", ""))
+			if sname.is_empty():
+				continue
+			rows.append({
+				"name": sname,
+				"module": mod_name,
+				"path": mod_path,
+				"line": int(entry.get("line", 0)),
+			})
+	rows.sort_custom(func(a, b):
+		if str(a["name"]).to_lower() != str(b["name"]).to_lower():
+			return str(a["name"]).to_lower() < str(b["name"]).to_lower()
+		return str(a["module"]).to_lower() < str(b["module"]).to_lower()
+	)
+	if rows.is_empty():
+		_proc_combo.add_item("(no imported procedures)")
+		_proc_combo.set_block_signals(false)
+		return
+	_proc_combo.add_item("Imported (%d)" % rows.size())
+	_proc_combo.set_item_metadata(0, {"type": "header"})
+	for row in rows:
+		var item_idx: int = _proc_combo.item_count
+		_proc_combo.add_item(str(row["name"]) + "  —  " + str(row["module"]))
+		_proc_combo.set_item_metadata(item_idx, {
+			"type": "imported_procedure",
+			"name": row["name"],
+			"path": row["path"],
+			"line": row["line"],
+		})
+		_included_proc_entries.append(row)
+	var popup := _proc_combo.get_popup()
+	if popup:
+		for i in popup.item_count:
+			popup.set_item_custom_color(i, COLOR_IMPORTED_PROC)
+			var meta = _proc_combo.get_item_metadata(i)
+			if meta is Dictionary:
+				popup.set_item_tooltip(i, str(meta.get("path", "")))
+	if _proc_scope_btn:
+		_proc_scope_btn.tooltip_text = "Imported procedures: %d" % rows.size()
+	_proc_combo.set_block_signals(false)
+
+
+func _fill_general_proc_combo() -> void:
 	_proc_combo.clear()
 	_proc_combo.add_item("(Declarations)", 0)
-	for idx in _procedures.size():
-		var p = _procedures[idx]
-		_proc_combo.add_item(p["name"], idx + 1)
+	_proc_combo.set_item_metadata(0, {"type": "declarations"})
+	for p in _procedures:
+		var item_idx: int = _proc_combo.item_count
+		_proc_combo.add_item(p["name"])
+		_proc_combo.set_item_metadata(item_idx, {
+			"type": "procedure",
+			"name": p["name"],
+			"line": int(p["line"]),
+		})
+
+func _procedure_name_at_line(caret_line: int) -> String:
+	var best_line := -1
+	var best_name := ""
+	for p in _procedures:
+		var pline: int = int(p.get("line", -1))
+		if pline <= caret_line and pline > best_line:
+			best_line = pline
+			best_name = str(p.get("name", ""))
+	return best_name
+
+func _proc_combo_index_for_name(proc_name: String) -> int:
+	if proc_name.is_empty():
+		return -1
+	for i in _proc_combo.item_count:
+		var meta = _proc_combo.get_item_metadata(i)
+		if meta is Dictionary and meta.get("type", "") == "procedure":
+			if str(meta.get("name", "")) == proc_name:
+				return i
+	return -1
+
+## Rebuilds the proc combo for (General) — shows all procedures (A–Z).
+func _rebuild_general_proc_list() -> void:
+	_fill_general_proc_combo()
 
 ## Selects the matching event in the proc dropdown when in event-aware mode.
 func _update_proc_selection_for_object(obj_name: String) -> void:
@@ -2004,11 +2154,7 @@ func _update_proc_selection_for_object(obj_name: String) -> void:
 		return
 	var caret_line := _code_edit.get_caret_line()
 
-	# Find the procedure we're currently inside
-	var current_proc := ""
-	for i in _procedures.size():
-		if _procedures[i]["line"] <= caret_line:
-			current_proc = _procedures[i]["name"]
+	var current_proc := _procedure_name_at_line(caret_line)
 
 	if current_proc.is_empty():
 		# Not inside any proc — select first item
@@ -2037,10 +2183,29 @@ func _update_proc_selection_for_object(obj_name: String) -> void:
 		_proc_combo.select(0)
 
 func _on_proc_selected(index: int) -> void:
-	# Check if this is an event-aware item (has metadata)
 	var meta = _proc_combo.get_item_metadata(index) if index >= 0 and index < _proc_combo.item_count else null
 	if meta is Dictionary:
-		# Event-aware mode
+		match str(meta.get("type", "")):
+			"header":
+				return
+			"declarations":
+				_code_edit.set_caret_line(0)
+				_code_edit.set_caret_column(0)
+				_code_edit.center_viewport_to_caret()
+				_code_edit.grab_focus()
+				return
+			"procedure":
+				var pline: int = int(meta.get("line", 0))
+				_code_edit.set_caret_line(pline + 1)
+				_code_edit.set_caret_column(4)
+				_code_edit.center_viewport_to_caret()
+				_code_edit.grab_focus()
+				return
+			"imported_procedure":
+				_open_imported_procedure_at(str(meta.get("path", "")), int(meta.get("line", 0)))
+				return
+
+		# Event-aware mode (control object selected)
 		var full_name: String = meta.get("full_name", "")
 		var event_name: String = meta.get("event_name", "")
 		var is_implemented: bool = meta.get("implemented", false)
@@ -2067,23 +2232,6 @@ func _on_proc_selected(index: int) -> void:
 			# Rebuild to update the implemented status
 			_rebuild_proc_list()
 		return
-
-	# Legacy mode (General view)
-	if index == 0:
-		# (Declarations) — go to top of file
-		_code_edit.set_caret_line(0)
-		_code_edit.set_caret_column(0)
-		_code_edit.center_viewport_to_caret()
-		_code_edit.grab_focus()
-		return
-
-	var proc_idx := index - 1
-	if proc_idx >= 0 and proc_idx < _procedures.size():
-		var line: int = _procedures[proc_idx]["line"]
-		_code_edit.set_caret_line(line + 1)  # body line
-		_code_edit.set_caret_column(4)
-		_code_edit.center_viewport_to_caret()
-		_code_edit.grab_focus()
 
 ## Returns the VB6-style parameter string for a given event name.
 ## Used when generating Sub stubs for unimplemented events.
@@ -2286,11 +2434,34 @@ func navigate_to_line(line: int) -> void:
 	_code_edit.grab_focus()
 
 
-func _on_go_to_definition_requested(symbol: String, line: int, file_path: String) -> void:
-	if file_path.is_empty() or file_path == _vg_path:
+func open_definition(path: String, line: int) -> void:
+	_open_imported_procedure_at(path, line)
+	call_deferred("navigate_to_line", line)
+
+
+func _open_imported_procedure_at(path: String, line: int) -> void:
+	var target := _canonical_vg_path(path)
+	if target.is_empty() or not FileAccess.file_exists(target):
+		push_warning("VG Code Editor: cannot open imported module " + path)
 		return
-	load_file(file_path)
-	navigate_to_line(line)
+	var current := _canonical_vg_path(_vg_path)
+	if target != current:
+		load_file(target)
+	call_deferred("navigate_to_line", line)
+
+
+func _on_go_to_definition_requested(symbol: String, line: int, file_path: String) -> void:
+	if file_path.is_empty():
+		return
+	var target := _canonical_vg_path(file_path)
+	if target.is_empty():
+		return
+	var current := _canonical_vg_path(_vg_path)
+	if target == current:
+		call_deferred("navigate_to_line", line)
+		return
+	load_file(target)
+	call_deferred("navigate_to_line", line)
 
 
 func _on_file_path_action(action: int, ref: Dictionary) -> void:
@@ -2417,6 +2588,14 @@ func _create_missing_file(res_path: String) -> void:
 
 ## Returns the VB6 keyword at (or near) the caret, handling multi-word
 ## keywords like "Select Case", "End If", "For Each", "On Error", etc.
+func _is_ident_char(c: String) -> bool:
+	if c.is_empty():
+		return false
+	if c >= "0" and c <= "9":
+		return true
+	return c.is_valid_identifier() or c == "_"
+
+
 func _get_keyword_at_cursor() -> String:
 	if not _code_edit:
 		return ""
@@ -2429,9 +2608,9 @@ func _get_keyword_at_cursor() -> String:
 	# Find word boundaries around the caret
 	var word_start := col
 	var word_end := col
-	while word_start > 0 and (line_text[word_start - 1].is_valid_identifier() or line_text[word_start - 1] == "_"):
+	while word_start > 0 and _is_ident_char(line_text[word_start - 1]):
 		word_start -= 1
-	while word_end < line_text.length() and (line_text[word_end].is_valid_identifier() or line_text[word_end] == "_"):
+	while word_end < line_text.length() and _is_ident_char(line_text[word_end]):
 		word_end += 1
 	if word_start >= word_end:
 		return ""
@@ -2507,6 +2686,7 @@ func _get_keyword_at_cursor() -> String:
 
 ## Updates the Command Help panel with documentation for the keyword at cursor.
 func _update_command_help() -> void:
+	_ensure_proc_scope_button()
 	if not _help_label:
 		return
 	var keyword := _get_keyword_at_cursor()
@@ -2524,6 +2704,8 @@ func _update_command_help() -> void:
 	if entry.is_empty():
 		# ── Fallback 1: scan current script for user-declared symbols ──
 		var user_entry := _lookup_user_symbol(keyword)
+		if user_entry.is_empty():
+			user_entry = _lookup_imported_symbol(keyword)
 		if not user_entry.is_empty():
 			entry = user_entry
 		else:
@@ -2792,6 +2974,21 @@ func _lookup_user_symbol(keyword: String) -> Dictionary:
 	if not _code_edit or keyword.is_empty():
 		return {}
 	return VGUserSymbolHelp.lookup(keyword, _code_edit.text)
+
+
+func _lookup_imported_symbol(keyword: String) -> Dictionary:
+	if keyword.is_empty():
+		return {}
+	for entry in _included_proc_entries:
+		if str(entry.get("name", "")).nocasecmp_to(keyword) != 0:
+			continue
+		var path := str(entry.get("path", ""))
+		return {
+			"keyword": keyword,
+			"syntax": "Sub " + keyword + "()",
+			"description": "Imported procedure in " + path + ". Go to Definition or the Included dropdown opens that file.",
+		}
+	return {}
 
 # =============================================================================
 # PROCEDURE SEPARATOR LINES
