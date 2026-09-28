@@ -493,16 +493,18 @@ void write_argb_px(uint8_t *px, uint32_t col) {
 	px[0] = div255(px[0] * ia + (int)r * aa);
 	px[1] = div255(px[1] * ia + (int)g * aa);
 	px[2] = div255(px[2] * ia + (int)b * aa);
-	px[3] = div255(px[3] * ia + aa * aa);
+	// BASIC-256-style fade tints RGB only; the graph buffer stays an opaque surface.
+	px[3] = 255;
 }
 
 void blend_span32(uint8_t *row, int span, int ia, int sr, int sg, int sb, int sa) {
+	(void)sa;
 	for (int x = 0; x < span; x++) {
 		uint8_t *px = row + (x << 2);
 		px[0] = div255(px[0] * ia + sr);
 		px[1] = div255(px[1] * ia + sg);
 		px[2] = div255(px[2] * ia + sb);
-		px[3] = div255(px[3] * ia + sa);
+		px[3] = 255;
 	}
 }
 

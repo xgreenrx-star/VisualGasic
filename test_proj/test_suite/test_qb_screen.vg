@@ -279,8 +279,8 @@ Sub _Ready()
 	Dim fade As Integer
 	fade = _RGBA32(0, 0, 0, 8)
 	Line (4, 5)-(4, 5), fade, BF
-	' (255*247)/255 = 247 → &HF7F70000
-	If Point(4, 5) = &HF7F70000 Then
+	' (255*247)/255 = 247 on R; fade alpha tints RGB only → opaque &HFFF70000
+	If Point(4, 5) = &HFFF70000 Then
 		Print "PASS: qb_alpha_bf"
 	Else
 		Print "FAIL: qb_alpha_bf " & CStr(Point(4, 5))
