@@ -2,6 +2,7 @@
 Option Explicit
 
 Sub B256_DrawMenuHub()
+	Screen 0
 	DrawRect 0, 0, 960, 600, Color8(10, 16, 28), True
 	DrawString "Tier B256 — BASIC-256 sample gallery", 48, 36, Color8(140, 210, 255), 24
 	DrawString "VG reimplementations (not copied .kbs). Credit: K Moerman / github.com/oonap0oo/BASIC-256", 48, 68, Color8(190, 200, 210), 13

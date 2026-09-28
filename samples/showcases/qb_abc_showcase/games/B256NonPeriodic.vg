@@ -40,18 +40,27 @@ End Function
 
 Sub B256NonPeriodic_Tick(delta As Single)
 	If Not b256np_active Then Exit Sub
+	Dim t0 As Double
+	Dim steps As Integer
 	Dim dt As Single
-	Dim t1 As Single
-	Dim t2 As Single
+	t0 = Timer()
+	steps = 0
 	dt = 0.03
-	Line (0, 0)-(b256np_w - 1, b256np_w - 1), b256np_colbkg, BF
-	t2 = b256np_offset
-	t1 = 0.0
-	Do While t1 <= 75.0
-		PSet (Int(B256NonPeriodic_F(t2)), Int(B256NonPeriodic_F(t1))), b256np_white
-		t1 = t1 + dt
-		t2 = t2 + dt
+	Do
+		Dim t1 As Single
+		Dim t2 As Single
+		Line (0, 0)-(b256np_w - 1, b256np_w - 1), b256np_colbkg, BF
+		t2 = b256np_offset
+		t1 = 0.0
+		Do While t1 <= 75.0
+			PSet (Int(B256NonPeriodic_F(t2)), Int(B256NonPeriodic_F(t1))), b256np_white
+			t1 = t1 + dt
+			t2 = t2 + dt
+		Loop
+		_Display
+		b256np_offset = b256np_offset + 0.0015
+		steps = steps + 1
+		If steps >= 3 Then Exit Do
+		If Timer() - t0 >= 0.012 Then Exit Do
 	Loop
-	_Display
-	b256np_offset = b256np_offset + 0.0015
 End Sub

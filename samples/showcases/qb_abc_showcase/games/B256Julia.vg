@@ -37,7 +37,7 @@ End Function
 
 Sub B256Julia_GetHud(ByRef l1 As String, ByRef l2 As String)
 	l1 = "julia.kbs (BASIC-256 port)"
-	l2 = "Column scan + refresh — Space = restart Esc = menu"
+	l2 = "Column scan — Space = restart Esc = menu"
 End Sub
 
 Sub B256Julia_KeyRestart()
@@ -59,14 +59,18 @@ End Sub
 Sub B256Julia_Tick(delta As Single)
 	If Not b256j_active Then Exit Sub
 	If b256j_x > b256j_hw Then Exit Sub
-	Dim cols As Integer
+	' Several columns per frame, capped so a slow machine still yields to the editor.
+	Dim t0 As Double
 	Dim n As Integer
-	cols = 1
-	For n = 1 To cols
-		If b256j_x > b256j_hw Then Exit For
+	t0 = Timer()
+	n = 0
+	Do While b256j_x <= b256j_hw
 		Call B256Julia_column(b256j_x)
 		b256j_x = b256j_x + 1
-	Next n
+		n = n + 1
+		If n >= 24 Then Exit Do
+		If Timer() - t0 >= 0.012 Then Exit Do
+	Loop
 End Sub
 
 Sub B256Julia_column(x As Integer)

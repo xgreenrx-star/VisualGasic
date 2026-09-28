@@ -52,16 +52,17 @@ Sub B256Minsky_GetHud(ByRef l1 As String, ByRef l2 As String)
 	If b256m_done Then
 		l2 = "Finished — Esc = menu"
 	Else
-		l2 = "Running algorithm… Esc = menu"
+		l2 = "Drawing the circle… Esc = menu"
 	End If
 End Sub
 
 Sub B256Minsky_Tick(delta As Single)
 	If Not b256m_active Or b256m_done Then Exit Sub
-	Dim batch As Integer
+	Dim t0 As Double
 	Dim i As Integer
-	batch = 2
-	For i = 1 To batch
+	t0 = Timer()
+	i = 0
+	Do
 		x = x - y \ 32
 		y = y + x \ 16
 		x = x - y \ 32
@@ -70,9 +71,12 @@ Sub B256Minsky_Tick(delta As Single)
 		If x = 1024 And y = 0 Then
 			Call B256Minsky_puttext(n)
 			b256m_done = True
-			Exit For
+			Exit Do
 		End If
-	Next i
+		i = i + 1
+		If i >= 400 Then Exit Do
+		If Timer() - t0 >= 0.012 Then Exit Do
+	Loop
 End Sub
 
 Sub B256Minsky_plots(n As Integer, xi As Integer, yi As Integer)

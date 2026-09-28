@@ -465,6 +465,11 @@ void refresh_classic_project_settings(QbState *s) {
 	s->clip_playfield = (bool)ps->get_setting("vg/classic/clip_playfield", true);
 }
 
+// (v / 255) for v in 0..65025. Exact; avoids a div per channel.
+uint8_t div255(int v) {
+	return (uint8_t)((v + (v >> 8) + 1) >> 8);
+}
+
 void write_argb_px(uint8_t *px, uint32_t col) {
 	uint32_t a = (col >> 24) & 255;
 	uint8_t r = (uint8_t)((col >> 16) & 255);
@@ -483,11 +488,22 @@ void write_argb_px(uint8_t *px, uint32_t col) {
 	if (a == 0) {
 		return;
 	}
-	uint32_t ia = 255 - a;
-	px[0] = (uint8_t)((px[0] * ia + r * a) / 255);
-	px[1] = (uint8_t)((px[1] * ia + g * a) / 255);
-	px[2] = (uint8_t)((px[2] * ia + b * a) / 255);
-	px[3] = (uint8_t)((px[3] * ia + a * a) / 255);
+	int ia = 255 - (int)a;
+	int aa = (int)a;
+	px[0] = div255(px[0] * ia + (int)r * aa);
+	px[1] = div255(px[1] * ia + (int)g * aa);
+	px[2] = div255(px[2] * ia + (int)b * aa);
+	px[3] = div255(px[3] * ia + aa * aa);
+}
+
+void blend_span32(uint8_t *row, int span, int ia, int sr, int sg, int sb, int sa) {
+	for (int x = 0; x < span; x++) {
+		uint8_t *px = row + (x << 2);
+		px[0] = div255(px[0] * ia + sr);
+		px[1] = div255(px[1] * ia + sg);
+		px[2] = div255(px[2] * ia + sb);
+		px[3] = div255(px[3] * ia + sa);
+	}
 }
 
 void put_px32(QbState *s, int x, int y, int64_t col) {
@@ -659,7 +675,15 @@ void clear_buffer(QbState *s) {
 	s->dirty = true;
 }
 
+static void hide_sprite(QbState *s);
+
 void layout_sprite(QbState *s, VisualGasicInstance *instance) {
+	if (!s || !s->active) {
+		if (s) {
+			hide_sprite(s);
+		}
+		return;
+	}
 	Node *n = owner_node(instance);
 	if (!n || !s->texture.is_valid()) {
 		return;
@@ -704,7 +728,14 @@ void layout_sprite(QbState *s, VisualGasicInstance *instance) {
 }
 
 void upload(QbState *s, VisualGasicInstance *instance) {
-	if (!s || !s->dirty) {
+	if (!s) {
+		return;
+	}
+	if (!s->active) {
+		hide_sprite(s);
+		return;
+	}
+	if (!s->dirty) {
 		return;
 	}
 	// Indexed modes keep a byte page. Expand it once per present, not per PSet.
@@ -721,6 +752,8 @@ void upload(QbState *s, VisualGasicInstance *instance) {
 // QuickBASIC 3.0+ steps the minor axis a quarter pixel early (round half away
 // from zero of position+0.25). Textbook Bresenham leaves a one-pixel gap that
 // PAINT uses to escape outlines QB accidentally closes (issue #21).
+bool fill_box_fast(QbState *s, int x0, int y0, int x1, int y1, int col);
+
 int qb_biased_axis(double v) {
 	double b = v + 0.25;
 	if (b >= 0.0) {
@@ -735,6 +768,26 @@ void draw_line(QbState *s, int x0, int y0, int x1, int y1, int col) {
 	if (adx == 0 && ady == 0) {
 		put_px_gfx(s, x0, y0, col);
 		return;
+	}
+	// Axis-aligned strokes (Minsky stems, box edges) are solid spans.
+	if ((x0 == x1 || y0 == y1) && dest_is_32(s)) {
+		int xa = x0;
+		int ya = y0;
+		int xb = x1;
+		int yb = y1;
+		if (xa > xb) {
+			int t = xa;
+			xa = xb;
+			xb = t;
+		}
+		if (ya > yb) {
+			int t = ya;
+			ya = yb;
+			yb = t;
+		}
+		if (fill_box_fast(s, xa, ya, xb, yb, col)) {
+			return;
+		}
 	}
 	// Major axis is X when it is strictly longer; equal deltas follow Y, matching
 	// the QB64/QB split so 45-degree lines stay on the diagonal.
@@ -816,21 +869,52 @@ bool fill_box_fast(QbState *s, int x0, int y0, int x1, int y1, int col) {
 			a = 255;
 		}
 		if (a >= 255) {
+			int span = x1 - x0 + 1;
+			int rows = y1 - y0 + 1;
+			// Tiny boxes (swirl pen squares) are cheaper as raw stores than
+			// Image::fill_rect, which builds a Color and walks the rect in Variant code.
+			if (span * rows <= 64) {
+				uint8_t *base = sf->img->ptrw();
+				if (base) {
+					uint8_t pr = (uint8_t)((u >> 16) & 255);
+					uint8_t pg = (uint8_t)((u >> 8) & 255);
+					uint8_t pb = (uint8_t)(u & 255);
+					int stride = sf->w << 2;
+					for (int y = y0; y <= y1; y++) {
+						uint8_t *row = base + y * stride + (x0 << 2);
+						for (int x = 0; x < span; x++) {
+							uint8_t *px = row + (x << 2);
+							px[0] = pr;
+							px[1] = pg;
+							px[2] = pb;
+							px[3] = 255;
+						}
+					}
+					s->dirty = true;
+					return true;
+				}
+			}
 			sf->img->fill_rect(Rect2i(x0, y0, x1 - x0 + 1, y1 - y0 + 1), color_from_argb((int64_t)u));
 			s->dirty = true;
+			return true;
+		}
+		if (a == 0) {
 			return true;
 		}
 		uint8_t *base = sf->img->ptrw();
 		if (!base) {
 			return false;
 		}
+		int ia = 255 - (int)a;
+		int aa = (int)a;
+		int sr = (int)((u >> 16) & 255) * aa;
+		int sg = (int)((u >> 8) & 255) * aa;
+		int sb = (int)(u & 255) * aa;
+		int sa = aa * aa;
 		int stride = sf->w << 2;
 		int span = x1 - x0 + 1;
 		for (int y = y0; y <= y1; y++) {
-			uint8_t *row = base + y * stride + (x0 << 2);
-			for (int x = 0; x < span; x++) {
-				write_argb_px(row + (x << 2), u);
-			}
+			blend_span32(base + y * stride + (x0 << 2), span, ia, sr, sg, sb, sa);
 		}
 		s->dirty = true;
 		return true;
@@ -992,7 +1076,7 @@ void flood(QbState *s, int x, int y, int paint, int border) {
 	}
 }
 
-void hide_sprite(QbState *s) {
+static void hide_sprite(QbState *s) {
 	if (!s || !s->sprite_id.is_valid()) {
 		return;
 	}
@@ -1008,6 +1092,7 @@ void screen_mode(VisualGasicInstance *instance, int mode, int active_page, int v
 		QbState *s = find_state(instance);
 		if (s) {
 			s->active = false;
+			s->dirty = false;
 			qb_clear_key_queue(s);
 			hide_sprite(s);
 		}

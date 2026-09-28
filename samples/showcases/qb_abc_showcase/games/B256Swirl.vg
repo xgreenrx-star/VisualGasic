@@ -33,7 +33,7 @@ End Function
 
 Sub B256Swirl_GetHud(ByRef l1 As String, ByRef l2 As String)
 	l1 = "swirl2.kbs (BASIC-256 port)"
-	l2 = "One refresh/frame — Esc = menu"
+	l2 = "Esc = menu"
 End Sub
 
 Function B256Swirl_Pos(x As Single) As Single
@@ -48,36 +48,45 @@ End Sub
 
 Sub B256Swirl_Tick(delta As Single)
 	If Not b256sw_active Then Exit Sub
-	If (Int(b256sw_f) And 3) = 0 Then
-		Line (0, 0)-(b256sw_w - 1, b256sw_w - 1), b256sw_bg, BF
-	End If
-	Dim t As Single
-	Dim u As Single
-	t = 0.005 * b256sw_f
-	u = t
-	Do While u < t + B256_SW_TAU
-		Dim q As Single
-		Dim p As Single
-		q = Sin(u)
-		p = Cos(u)
-		Dim pw As Integer
-		pw = 1 + 2 * Int(Abs(q))
-		Dim gv As Integer
-		gv = Int(255.0 * B256Swirl_Pos(p))
-		Dim col As Integer
-		col = _RGB32(Int(255.0 * B256Swirl_Pos(q)), gv, 255 - gv)
-		Dim v As Single
-		v = u
-		Do While v < u + B256_SW_TAU
-			Dim px As Integer
-			Dim py As Integer
-			px = Int(b256sw_hw + b256sw_r * q * Cos(v))
-			py = Int(b256sw_hw + b256sw_r * q * Sin(v))
-			Call B256Swirl_plot(px, py, pw, col)
-			v = v + 0.5 - 0.4 * Cos(v - t)
+	Dim t0 As Double
+	Dim steps As Integer
+	t0 = Timer()
+	steps = 0
+	Do
+		If (Int(b256sw_f) And 3) = 0 Then
+			Line (0, 0)-(b256sw_w - 1, b256sw_w - 1), b256sw_bg, BF
+		End If
+		Dim t As Single
+		Dim u As Single
+		t = 0.005 * b256sw_f
+		u = t
+		Do While u < t + B256_SW_TAU
+			Dim q As Single
+			Dim p As Single
+			q = Sin(u)
+			p = Cos(u)
+			Dim pw As Integer
+			pw = 1 + 2 * Int(Abs(q))
+			Dim gv As Integer
+			gv = Int(255.0 * B256Swirl_Pos(p))
+			Dim col As Integer
+			col = _RGB32(Int(255.0 * B256Swirl_Pos(q)), gv, 255 - gv)
+			Dim v As Single
+			v = u
+			Do While v < u + B256_SW_TAU
+				Dim px As Integer
+				Dim py As Integer
+				px = Int(b256sw_hw + b256sw_r * q * Cos(v))
+				py = Int(b256sw_hw + b256sw_r * q * Sin(v))
+				Call B256Swirl_plot(px, py, pw, col)
+				v = v + 0.5 - 0.4 * Cos(v - t)
+			Loop
+			u = u + 0.5 + 0.4 * Sin(u - t)
 		Loop
-		u = u + 0.5 + 0.4 * Sin(u - t)
+		b256sw_f = b256sw_f + 1.0
+		_Display
+		steps = steps + 1
+		If steps >= 4 Then Exit Do
+		If Timer() - t0 >= 0.012 Then Exit Do
 	Loop
-	b256sw_f = b256sw_f + 1.0
-	_Display
 End Sub
