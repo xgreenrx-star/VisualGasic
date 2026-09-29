@@ -2985,8 +2985,6 @@ func _on_debug_break_hit(file: String, line: int) -> void:
 	_debug_session_active = true
 	_update_debug_status("⏸ Paused at %s:%d" % [file.get_file(), line])
 	set_debug_active(true, true)
-	if not _is_connected_to_remote() and _debugger_plugin and _debugger_plugin.is_session_active():
-		_refresh_running_instances()
 	_go_to_script_line(file, line)
 
 func _on_debug_print_received(text: String) -> void:
@@ -3006,9 +3004,7 @@ func _on_debug_state_received(state: Dictionary) -> void:
 
 func _go_to_script_line(file_path: String, line: int) -> void:
 	"""Navigate to a specific line in a script file in the editor."""
-	print("[VG Immediate] _go_to_script_line: ", file_path, " line ", line)
 	if file_path.is_empty() or line <= 0:
-		print("[VG Immediate] Invalid file_path or line")
 		return
 	
 	# .vg files are handled by the main plugin's _on_debug_break_navigate handler

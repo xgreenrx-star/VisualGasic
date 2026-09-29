@@ -9511,38 +9511,55 @@ func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
 var _debug_nav_queued := false
 var _debug_nav_file := ""
 var _debug_nav_line := 0
+var _debug_raise_queued := false
 
-func _debug_editor_already_showing(file: String) -> bool:
+func _debug_code_editor_is_open() -> bool:
 	if not is_instance_valid(_embedded_code_editor):
-		return false
-	if not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
 		return false
 	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
 		return true
 	return _embedded_code_editor.is_visible_in_tree()
 
-
-func _on_debug_break_navigate(file: String, line: int) -> void:
-	if not file.ends_with(".vg"):
+func _queue_debug_editor_raise() -> void:
+	# grab_focus() here re-enters the editor from the debugger callback and
+	# steals F11 from the code editor. Raise once, after this message returns,
+	# and only when the game window is actually covering the editor.
+	var editor_root := get_editor_interface().get_base_control()
+	var editor_window: Window = editor_root.get_window() if editor_root else null
+	if editor_window and editor_window.has_focus():
 		return
-	# The running game is its own window and stays in front after play starts.
-	# Raise the editor the same way a click on its title bar would, so the
-	# paused line is visible without that click.
+	if _debug_raise_queued:
+		return
+	_debug_raise_queued = true
+	_raise_debug_editor_window.call_deferred()
+
+func _raise_debug_editor_window() -> void:
+	_debug_raise_queued = false
 	var editor_root := get_editor_interface().get_base_control()
 	if editor_root:
 		var editor_window := editor_root.get_window()
 		if editor_window:
-			editor_window.grab_focus()
-			editor_window.move_to_foreground()
-	else:
-		DisplayServer.window_move_to_foreground()
+			if not editor_window.has_focus():
+				editor_window.move_to_foreground()
+			return
+	DisplayServer.window_move_to_foreground()
+
+func _on_debug_break_navigate(file: String, line: int) -> void:
+	if not file.ends_with(".vg"):
+		return
+	_queue_debug_editor_raise()
 	if not is_instance_valid(_embedded_code_editor):
 		return
 
-	# Same file, editor already up: move the arrow now. Rebuilding the
-	# floating workspace (and waiting out Godot's script-editor switch)
-	# on every F11 is what made stepping feel locked up.
-	if _debug_editor_already_showing(file):
+	# Editor already up: swap the buffer if the step crossed into another
+	# module, then move the arrow. Rebuilding the float, refreshing the
+	# navigator, and arming layout timers on every F11 stacked up while
+	# tracing _Input into PlayHandleKey until the editor stopped answering.
+	if _debug_code_editor_is_open():
+		if _embedded_code_editor.is_dirty() and not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
+			_embedded_code_editor.save_file()
+		if not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
+			_embedded_code_editor.load_file(file)
 		_apply_embedded_debug_caret(file, line, false)
 		return
 

@@ -73,9 +73,6 @@ func _emit_break_hit_deduped(file: String, line: int) -> void:
 	debug_break_hit.emit(file, line)
 
 func _has_capture(prefix: String) -> bool:
-	# Debug: Log all prefixes to see what's coming through
-	if prefix.begins_with("visual"):
-		print("[VG Debugger Plugin] _has_capture called with prefix: ", prefix)
 	return prefix == "visualgasic"
 
 func toggle_tweak_overlay() -> void:
@@ -735,7 +732,6 @@ func _navigate_to_script_line(file_path: String, line: int) -> void:
 	For .vg files, we skip Godot's Script editor — the main VisualGasic plugin
 	listens to the debug_break_hit signal and opens the embedded VG code editor.
 	For non-.vg scripts we fall back to Godot's built-in Script editor."""
-	print("[VG Debugger Plugin] Navigating to: ", file_path, " line ", line)
 	if file_path.is_empty() or line <= 0:
 		return
 
