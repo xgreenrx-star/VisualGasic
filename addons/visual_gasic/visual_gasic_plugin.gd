@@ -74,6 +74,12 @@ const ES_CODE_FLOAT_Y := "visual_gasic/code_float/window_y"
 const ES_CODE_FLOAT_W := "visual_gasic/code_float/window_w"
 const ES_CODE_FLOAT_H := "visual_gasic/code_float/window_h"
 const ES_CODE_FLOAT_USER := "visual_gasic/code_float/user_customized"
+const ES_PANELS_FLOAT_USER := "visual_gasic/panels/user_customized"
+const ES_PANELS_FLOAT_W := "visual_gasic/narcea/window_w"
+const ES_PANELS_FLOAT_H := "visual_gasic/narcea/window_h"
+const ES_PANELS_FLOAT_X := "visual_gasic/narcea/window_x"
+const ES_PANELS_FLOAT_Y := "visual_gasic/narcea/window_y"
+const VG_PANELS_FLOAT_TITLE := "VG Panels"
 const ES_WORKSPACE_USER := "visual_gasic/workspace/user_customized"
 const ES_WS_HELP_X := "visual_gasic/workspace/help_x"
 const ES_WS_HELP_Y := "visual_gasic/workspace/help_y"
@@ -153,6 +159,9 @@ var _script_context_menu: PopupMenu
 
 ## Currently active CodeEdit in the script editor (for .vg files)
 var _current_code_edit: CodeEdit
+## True while VG gutters are being copied onto Godot's Script tab so that
+## CodeEdit.breakpoint_toggled does not copy a clear back onto the VG editor.
+var _mirroring_vg_breakpoints: bool = false
 
 ## Timer to periodically check for .vg files in script editor
 var _script_editor_check_timer: Timer
@@ -363,7 +372,8 @@ var _package_browser = null
 var _ai_help_panel = null
 var _narcea_live_capture = null
 var _vg_bottom_float: PanelContainer = null
-var _narcea_toolbar_btn: Button = null
+var _narcea_toolbar_btn: Button = null  ## Top-bar "VG Panels" — opens debugger / bottom tabs float
+var _vg_panels_btn: Button = null
 
 ## Tip of the Day dialog (v3.5)
 var _tip_of_day_dialog: Window = null
@@ -515,8 +525,9 @@ func _enter_tree():
 	# Narcea window geometry (persists across sessions via EditorSettings)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_x", -1.0, TYPE_FLOAT)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_y", -1.0, TYPE_FLOAT)
-	_register_editor_setting(_es, "visual_gasic/narcea/window_w", 520.0, TYPE_FLOAT)
-	_register_editor_setting(_es, "visual_gasic/narcea/window_h", 640.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_PANELS_FLOAT_W, -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_PANELS_FLOAT_H, -1.0, TYPE_FLOAT)
+	_register_editor_setting(_es, ES_PANELS_FLOAT_USER, false, TYPE_BOOL)
 	_register_editor_setting(_es, ES_CODE_FLOAT_X, -1.0, TYPE_FLOAT)
 	_register_editor_setting(_es, ES_CODE_FLOAT_Y, -1.0, TYPE_FLOAT)
 	_register_editor_setting(_es, ES_CODE_FLOAT_W, 900.0, TYPE_FLOAT)
@@ -1639,9 +1650,42 @@ func _wire_breakpoint_sync_to_code_edit() -> void:
 		code_edit.breakpoint_toggled.connect(_on_vg_code_edit_breakpoint_toggled)
 
 func _on_vg_code_edit_breakpoint_toggled(_line: int) -> void:
+	if _mirroring_vg_breakpoints:
+		return
+	# A file switch emits this for lines from the previous buffer.
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("is_loading_file") \
+			and _embedded_code_editor.is_loading_file():
+		return
+	if is_instance_valid(_embedded_code_editor):
+		var vg_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+		if vg_edit and (_line < 0 or _line >= vg_edit.get_line_count()):
+			return
 	sync_vg_breakpoints_to_runtime()
 
-func _apply_embedded_debug_caret(file: String, line: int) -> void:
+func _on_native_vg_breakpoint_toggled(line: int) -> void:
+	## Godot's Script tab CodeEdit is a second gutter. Copy a *user* toggle
+	## into the VG editor. Ignore signals caused by mirroring VG → native,
+	## or a leftover Script-tab marker will immediately unset the VG gutter.
+	if _mirroring_vg_breakpoints:
+		return
+	if not is_instance_valid(_current_code_edit) or line < 0 or line >= _current_code_edit.get_line_count():
+		return
+	var enabled := _current_code_edit.is_line_breakpointed(line)
+	if is_instance_valid(_embedded_code_editor):
+		var se := get_editor_interface().get_script_editor()
+		var cur = se.get_current_script() if se else null
+		var native_path := str(cur.resource_path) if cur else ""
+		var vg_path := str(_embedded_code_editor.get_file_path())
+		var vg_edit: CodeEdit = _embedded_code_editor.get_code_edit()
+		if vg_edit and native_path.ends_with(".vg") and vg_script_paths_equal(native_path, vg_path) \
+				and vg_edit != _current_code_edit:
+			if line < vg_edit.get_line_count() and vg_edit.is_line_breakpointed(line) != enabled:
+				vg_edit.set_line_as_breakpoint(line, enabled)
+		elif native_path.ends_with(".vg") and _embedded_code_editor.has_method("set_stored_breakpoint"):
+			_embedded_code_editor.set_stored_breakpoint(native_path, line, enabled)
+	sync_vg_breakpoints_to_runtime()
+
+func _apply_embedded_debug_caret(file: String, line: int, take_focus: bool = true) -> void:
 	if not is_instance_valid(_embedded_code_editor):
 		return
 	var code_edit: CodeEdit = _embedded_code_editor.get_code_edit()
@@ -1649,10 +1693,17 @@ func _apply_embedded_debug_caret(file: String, line: int) -> void:
 		return
 	_wire_data_tips_to_embedded_editor()
 	var zero_line := line - 1
-	code_edit.set_caret_line(zero_line)
+	var line_count := code_edit.get_line_count()
+	if line_count <= 0:
+		return
+	zero_line = clampi(zero_line, 0, line_count - 1)
+	var first_visible := code_edit.get_first_visible_line()
+	var visible_count := maxi(code_edit.get_visible_line_count(), 1)
+	var on_screen := zero_line >= first_visible and zero_line < first_visible + visible_count
+	code_edit.set_caret_line(zero_line, not on_screen)
 	code_edit.set_caret_column(0)
-	code_edit.center_viewport_to_caret()
-	code_edit.grab_focus()
+	if take_focus and not code_edit.has_focus():
+		code_edit.grab_focus()
 	if code_edit.has_method("set_executing_line"):
 		code_edit.set_executing_line(zero_line)
 	if code_edit.has_method("set_debug_paused"):
@@ -1673,7 +1724,7 @@ func _apply_embedded_debug_caret(file: String, line: int) -> void:
 			and not code_edit.pin_inline_value_requested.is_connected(_on_pin_inline_value):
 		code_edit.pin_inline_value_requested.connect(_on_pin_inline_value)
 	_connect_code_edit_debug_step_signals(code_edit)
-	if code_edit.has_method("load_bookmarks"):
+	if take_focus and code_edit.has_method("load_bookmarks"):
 		code_edit.load_bookmarks(file)
 
 
@@ -2328,6 +2379,10 @@ func _exit_tree():
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_canvas_tools_menu)
 		_vg_canvas_tools_menu.queue_free()
 		_vg_canvas_tools_menu = null
+	if is_instance_valid(_vg_panels_btn):
+		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
+		_vg_panels_btn.queue_free()
+		_vg_panels_btn = null
 	if is_instance_valid(_vg_code_editor_btn):
 		remove_control_from_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_code_editor_btn)
 		_vg_code_editor_btn.queue_free()
@@ -2640,24 +2695,34 @@ func _mirror_vg_breakpoints_to_godot_script_editor() -> void:
 	var vg_bps := get_debugger_breakpoints()
 	var current_script = se.get_current_script()
 	var current_editor = se.get_current_editor()
+	_mirroring_vg_breakpoints = true
 	if current_script and current_editor and str(current_script.resource_path).ends_with(".vg"):
 		_apply_vg_bps_to_godot_code_edit(current_editor.get_base_editor(), current_script.resource_path, vg_bps)
 	if is_instance_valid(_current_code_edit) and current_script \
 			and str(current_script.resource_path).ends_with(".vg"):
 		_apply_vg_bps_to_godot_code_edit(_current_code_edit, current_script.resource_path, vg_bps)
+	_mirroring_vg_breakpoints = false
 
 func _apply_vg_bps_to_godot_code_edit(code_edit: CodeEdit, path: String, vg_bps: Dictionary) -> void:
 	if code_edit == null:
+		return
+	# Never rewrite the VG Code Editor gutter from a snapshot — that is how
+	# an empty/stale Script-tab list used to unset a breakpoint the user just set.
+	if code_edit.get_script() and str(code_edit.get_script().resource_path).ends_with("vg_code_edit.gd"):
 		return
 	var want: Array = vg_bps.get(normalize_vg_script_path(path), [])
 	var want_zero: Dictionary = {}
 	for ln in want:
 		want_zero[int(ln) - 1] = true
+	var line_count := code_edit.get_line_count()
 	for line_idx in code_edit.get_breakpointed_lines():
-		if not want_zero.has(int(line_idx)):
-			code_edit.set_line_as_breakpoint(int(line_idx), false)
+		var existing := int(line_idx)
+		if existing < 0 or existing >= line_count:
+			continue
+		if not want_zero.has(existing):
+			code_edit.set_line_as_breakpoint(existing, false)
 	for zero_line in want_zero.keys():
-		if zero_line >= 0 and not code_edit.is_line_breakpointed(zero_line):
+		if zero_line >= 0 and zero_line < line_count and not code_edit.is_line_breakpointed(zero_line):
 			code_edit.set_line_as_breakpoint(zero_line, true)
 
 ## Intercept keyboard shortcuts BEFORE Godot's editor consumes them.
@@ -9443,10 +9508,42 @@ func _on_debug_break_for_controls_inspector(_file: String, _line: int) -> void:
 
 ## Called when the debugger hits a breakpoint on a .vg script — navigate
 ## to the correct file and line in the embedded VG code editor.
+var _debug_nav_queued := false
+var _debug_nav_file := ""
+var _debug_nav_line := 0
+
+func _debug_editor_already_showing(file: String) -> bool:
+	if not is_instance_valid(_embedded_code_editor):
+		return false
+	if not vg_script_paths_equal(_embedded_code_editor.get_file_path(), file):
+		return false
+	if is_instance_valid(_vg_code_editor_float) and _vg_code_editor_float.visible:
+		return true
+	return _embedded_code_editor.is_visible_in_tree()
+
+
 func _on_debug_break_navigate(file: String, line: int) -> void:
 	if not file.ends_with(".vg"):
 		return
+	# The running game is its own window and stays in front after play starts.
+	# Raise the editor the same way a click on its title bar would, so the
+	# paused line is visible without that click.
+	var editor_root := get_editor_interface().get_base_control()
+	if editor_root:
+		var editor_window := editor_root.get_window()
+		if editor_window:
+			editor_window.grab_focus()
+			editor_window.move_to_foreground()
+	else:
+		DisplayServer.window_move_to_foreground()
 	if not is_instance_valid(_embedded_code_editor):
+		return
+
+	# Same file, editor already up: move the arrow now. Rebuilding the
+	# floating workspace (and waiting out Godot's script-editor switch)
+	# on every F11 is what made stepping feel locked up.
+	if _debug_editor_already_showing(file):
+		_apply_embedded_debug_caret(file, line, false)
 		return
 
 	# If we're already showing code for a different file, save first
@@ -9458,31 +9555,31 @@ func _on_debug_break_navigate(file: String, line: int) -> void:
 		_embedded_code_editor.load_file(file)
 		_feed_control_names_to_editor()
 
-	# Switch to the VG IDE main screen + code view.
-	# Set the guard flag so _make_visible(true) skips _sync_scene_to_form_designer().
-	# Without this, the sync may call save_form_as() via C++ FileAccess (which
-	# bypasses Godot's ResourceSaver) and trigger the "Files have been modified
-	# outside Godot" dialog.
-	#
-	# We use a short timer (NOT call_deferred) because Godot's C++ engine
-	# reacts to the break event at multiple points:
-	#   1. EditorDebuggerNode::_breaked() → selects Script editor (synchronous)
-	#   2. ScriptEditor::goto_line()      → selects Script editor (synchronous)
-	#   3. Various engine deferred calls that may also touch the main screen
-	# A call_deferred from GDScript is placed in the same deferred queue and
-	# can be overridden by later C++ deferred calls in the same frame.
-	# A timer fires in a FUTURE frame, after all engine-level processing for
-	# the current break event has fully settled.
+	# First stop in this file still waits one frame so Godot's debugger
+	# can finish selecting the Script editor before we pull the VG view
+	# forward. Later steps in the same file take the fast path above.
+	if _debug_nav_queued and vg_script_paths_equal(_debug_nav_file, file):
+		_debug_nav_line = line
+		return
+	_debug_nav_queued = true
+	_debug_nav_file = file
+	_debug_nav_line = line
 	_switching_to_code_editor = true
-	get_tree().create_timer(0.15).timeout.connect(
-		_deferred_switch_to_vg_code_view.bind(file, line)
-	)
+	get_tree().create_timer(0.05).timeout.connect(_flush_deferred_debug_nav, CONNECT_ONE_SHOT)
 
-## Timer-delayed helper: switch to VG IDE code view and navigate to the
-## breakpoint line.  Runs ~150ms after the break event, which is long enough
-## for all of Godot's built-in Script-editor switches to have completed.
+## First break in a file: open the VG code view after Godot's debugger
+## has finished selecting the Script editor. Later steps skip this.
+func _flush_deferred_debug_nav() -> void:
+	_debug_nav_queued = false
+	if _debug_nav_file.is_empty():
+		_switching_to_code_editor = false
+		return
+	_deferred_switch_to_vg_code_view(_debug_nav_file, _debug_nav_line)
+
+
 func _deferred_switch_to_vg_code_view(file: String, line: int) -> void:
 	if not is_inside_tree():
+		_switching_to_code_editor = false
 		return
 	_switching_to_code_editor = true
 	_open_vg_script_for_debug_automation(file, line)
@@ -11570,10 +11667,57 @@ func _save_vg_bottom_float_geometry() -> void:
 	if not is_instance_valid(_vg_bottom_float):
 		return
 	var es := get_editor_interface().get_editor_settings()
-	es.set_setting("visual_gasic/narcea/window_x", _vg_bottom_float.position.x)
-	es.set_setting("visual_gasic/narcea/window_y", _vg_bottom_float.position.y)
-	es.set_setting("visual_gasic/narcea/window_w", _vg_bottom_float.size.x)
-	es.set_setting("visual_gasic/narcea/window_h", _vg_bottom_float.size.y)
+	es.set_setting(ES_PANELS_FLOAT_X, _vg_bottom_float.position.x)
+	es.set_setting(ES_PANELS_FLOAT_Y, _vg_bottom_float.position.y)
+	es.set_setting(ES_PANELS_FLOAT_W, _vg_bottom_float.size.x)
+	es.set_setting(ES_PANELS_FLOAT_H, _vg_bottom_float.size.y)
+	_mark_vg_bottom_float_user_customized()
+
+
+func _mark_vg_bottom_float_user_customized() -> void:
+	var es := get_editor_interface().get_editor_settings()
+	es.set_setting(ES_PANELS_FLOAT_USER, true)
+
+
+func _vg_bottom_float_user_customized() -> bool:
+	var es := get_editor_interface().get_editor_settings()
+	if not es.has_setting(ES_PANELS_FLOAT_USER):
+		return false
+	return bool(es.get_setting(ES_PANELS_FLOAT_USER))
+
+
+## Large default for the floating Immediate / Output / debugger tab stack (~90% × ~86% of editor).
+func _vg_bottom_float_default_size() -> Vector2:
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		return Vector2(1280, 720)
+	var rect := base.get_rect().size
+	var w := clampf(rect.x * 0.90, 640.0, maxf(640.0, rect.x - 32.0))
+	var h := clampf(rect.y * 0.86, 320.0, maxf(320.0, rect.y - 56.0))
+	return Vector2(w, h)
+
+
+func _vg_bottom_float_default_position(panel_size: Vector2) -> Vector2:
+	var base := get_editor_interface().get_base_control()
+	if base == null:
+		return Vector2(48, 72)
+	var rect := base.get_rect().size
+	var x := maxf(16.0, (rect.x - panel_size.x) * 0.5)
+	var y := 64.0
+	return Vector2(x, y)
+
+
+func _resolve_vg_bottom_float_size(es: EditorSettings) -> Vector2:
+	var default_size := _vg_bottom_float_default_size()
+	if not es.has_setting(ES_PANELS_FLOAT_W) or not es.has_setting(ES_PANELS_FLOAT_H):
+		return default_size
+	var w := float(es.get_setting(ES_PANELS_FLOAT_W))
+	var h := float(es.get_setting(ES_PANELS_FLOAT_H))
+	if w < 200.0 or h < 150.0:
+		return default_size
+	if not _vg_bottom_float_user_customized() and w <= 720.0 and h <= 400.0:
+		return default_size
+	return Vector2(w, h)
 
 
 ## True when bottom tabs belong in the code-editor split (VG IDE Code view).
@@ -11620,23 +11764,16 @@ func _ensure_vg_bottom_float_window() -> void:
 	if is_instance_valid(_vg_bottom_float):
 		return
 	var es := get_editor_interface().get_editor_settings()
-	var saved_w: float = 720.0
-	var saved_h: float = 360.0
+	var resolved := _resolve_vg_bottom_float_size(es)
+	var saved_w: float = resolved.x
+	var saved_h: float = resolved.y
 	var saved_x: float = -1.0
 	var saved_y: float = -1.0
-	if es.has_setting("visual_gasic/narcea/window_w"):
-		saved_w = float(es.get_setting("visual_gasic/narcea/window_w"))
-	if es.has_setting("visual_gasic/narcea/window_h"):
-		saved_h = float(es.get_setting("visual_gasic/narcea/window_h"))
-	if es.has_setting("visual_gasic/narcea/window_x"):
-		saved_x = float(es.get_setting("visual_gasic/narcea/window_x"))
-	if es.has_setting("visual_gasic/narcea/window_y"):
-		saved_y = float(es.get_setting("visual_gasic/narcea/window_y"))
-	if saved_w < 200.0:
-		saved_w = 720.0
-	if saved_h < 150.0:
-		saved_h = 360.0
-	_vg_bottom_float = _create_floating_panel("Visual Gasic Panels", Vector2(saved_w, saved_h))
+	if es.has_setting(ES_PANELS_FLOAT_X):
+		saved_x = float(es.get_setting(ES_PANELS_FLOAT_X))
+	if es.has_setting(ES_PANELS_FLOAT_Y):
+		saved_y = float(es.get_setting(ES_PANELS_FLOAT_Y))
+	_vg_bottom_float = _create_floating_panel(VG_PANELS_FLOAT_TITLE, Vector2(saved_w, saved_h))
 	var content_area: Control = _vg_bottom_float.get_meta("_content")
 	if content_area:
 		content_area.custom_minimum_size = Vector2(400, 180)
@@ -11649,8 +11786,7 @@ func _ensure_vg_bottom_float_window() -> void:
 	if saved_x >= 0.0 and saved_y >= 0.0:
 		_vg_bottom_float.position = Vector2(saved_x, saved_y)
 	else:
-		var screen_size := get_editor_interface().get_base_control().get_rect().size
-		_vg_bottom_float.position = Vector2(80, maxf(60.0, screen_size.y - saved_h - 80.0))
+		_vg_bottom_float.position = _vg_bottom_float_default_position(Vector2(saved_w, saved_h))
 	_clamp_vg_bottom_float_to_editor()
 
 
@@ -15007,6 +15143,8 @@ func _check_script_editor_for_vg():
 				VGNativeEditorIndent.attach(code_edit)
 			# Disconnect any stale completion handler from prior plugin loads.
 			_disconnect_native_code_completion(code_edit)
+			if not code_edit.breakpoint_toggled.is_connected(_on_native_vg_breakpoint_toggled):
+				code_edit.breakpoint_toggled.connect(_on_native_vg_breakpoint_toggled)
 
 	# Refresh navigator for the new script.
 	# Schedule a second refresh 0.3s later in case the CodeEdit text buffer
@@ -15904,12 +16042,19 @@ func _setup_ui_forms_toolbar_button() -> void:
 	canvas_popup.id_pressed.connect(_on_vg_tools_menu_id_pressed)
 	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_canvas_tools_menu)
 
-	# ── Vibe Code — injected into main screen tab row next to VG UI Forms ──
+	_vg_panels_btn = Button.new()
+	_vg_panels_btn.text = "📊 VG Panels"
+	_vg_panels_btn.tooltip_text = "Open VG Panels (Immediate, Output, debugger, Vibe Code, …)"
+	_vg_panels_btn.flat = true
+	_vg_panels_btn.pressed.connect(_on_vg_panels_btn_pressed)
+	add_control_to_container(EditorPlugin.CONTAINER_CANVAS_EDITOR_MENU, _vg_panels_btn)
+
+	# ── VG Panels — injected into main screen tab row next to VG UI Forms ──
 	_narcea_toolbar_btn = Button.new()
-	_narcea_toolbar_btn.text = "🤖 Vibe Code"
-	_narcea_toolbar_btn.tooltip_text = "Open Narcea Vibe Code panel (Ctrl+Shift+N)"
+	_narcea_toolbar_btn.text = "📊 VG Panels"
+	_narcea_toolbar_btn.tooltip_text = "Open VG Panels (Immediate, Output, debugger, Vibe Code, …). Narcea: Ctrl+Shift+N"
 	_narcea_toolbar_btn.flat = true
-	_narcea_toolbar_btn.pressed.connect(_on_toggle_narcea_panel)
+	_narcea_toolbar_btn.pressed.connect(_on_vg_panels_btn_pressed)
 	# Find the "Visual Gasic IDE" tab button and insert Narcea right after it
 	var vg_ide_btn := _find_button_in_editor_tree(get_editor_interface().get_base_control(), _get_plugin_name())
 	if vg_ide_btn and is_instance_valid(vg_ide_btn.get_parent()):

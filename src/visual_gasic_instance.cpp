@@ -8,6 +8,7 @@
 #include <intrin.h>
 #endif
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/area2d.hpp>
 #include <godot_cpp/classes/collision_shape2d.hpp>
 #include <godot_cpp/classes/rectangle_shape2d.hpp>
@@ -39,12 +40,15 @@
 #include "vg_godot_owner_builtins.h"
 #include "vg_connect.h"
 #include "vg_autoloads.h"
+#include "vg_engine_builtins.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_timer.h"
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
+#include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/input_event_key.hpp>
 #include "vg_input_edge.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/godot.hpp>
@@ -1377,6 +1381,8 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
     builtin_constants["vbLet"] = 4;
     builtin_constants["vbSet"] = 8;
 
+    publish_shared_builtin_constants(builtin_constants);
+
     // Initialize Global Variables from Script
     if (script.is_valid()) {
         VisualGasicScript *vs = Object::cast_to<VisualGasicScript>(script.ptr());
@@ -2454,6 +2460,67 @@ bool VisualGasicInstance::set(const StringName &p_name, const Variant &p_value) 
     return false;
 }
 
+namespace {
+
+struct VGSharedBuiltinConstants {
+    Dictionary dict;
+    bool ready = false;
+};
+
+VGSharedBuiltinConstants &vg_shared_builtin_constants() {
+    // Function-local storage — must NOT be a class-static Dictionary (constructs at dlopen).
+    static VGSharedBuiltinConstants cache;
+    return cache;
+}
+
+} // namespace
+
+void VisualGasicInstance::publish_shared_builtin_constants(const Dictionary &p_constants) {
+    VGSharedBuiltinConstants &cache = vg_shared_builtin_constants();
+    if (!cache.ready) {
+        cache.dict = p_constants.duplicate(true);
+        cache.ready = true;
+        return;
+    }
+    Array keys = p_constants.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        const Variant &k = keys[i];
+        if (!cache.dict.has(k)) {
+            cache.dict[k] = p_constants[k];
+        }
+    }
+}
+
+Variant VisualGasicInstance::lookup_builtin_constant(const String &p_name) {
+    if (p_name.is_empty()) {
+        return Variant();
+    }
+    {
+        Variant engine_val;
+        if (vg_try_engine_builtin_constant(p_name, engine_val)) {
+            return engine_val;
+        }
+    }
+    VGSharedBuiltinConstants &cache = vg_shared_builtin_constants();
+    if (!cache.ready) {
+        Dictionary seed;
+        vg_populate_engine_key_builtin_constants(seed);
+        publish_shared_builtin_constants(seed);
+    }
+    if (cache.dict.has(p_name)) {
+        return cache.dict[p_name];
+    }
+    const String upper = p_name.to_upper();
+    Array keys = cache.dict.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        const String k = keys[i];
+        if (k.to_upper() == upper) {
+            return cache.dict[k];
+        }
+    }
+    return Variant();
+}
+
 bool VisualGasicInstance::get(const StringName &p_name, Variant &r_ret) {
     if (variables.has(p_name)) {
         r_ret = variables[p_name];
@@ -2476,6 +2543,35 @@ bool VisualGasicInstance::try_native_node_property_get(Object *obj, const String
         return false;
     }
     const String m = vg_normalize_node_prop_key(member);
+
+    // InputEventKey.keycode is often KEY_NONE (0) when only physical_keycode is
+    // set (Godot 4 Input Map default). Object::get("keycode") returns 0, not NIL,
+    // so the generic property path never falls through — VG games then compare
+    // ev.keycode to KEY_LEFT and never match.
+    if (InputEvent *ie = Object::cast_to<InputEvent>(obj)) {
+        if (m == "pressed") {
+            out = ie->is_pressed();
+            return true;
+        }
+        if (m == "echo") {
+            out = ie->is_echo();
+            return true;
+        }
+        if (InputEventKey *key = Object::cast_to<InputEventKey>(obj)) {
+            if (m == "keycode" || m == "key") {
+                Key kc = key->get_keycode();
+                if (kc == Key::KEY_NONE) {
+                    kc = key->get_physical_keycode();
+                }
+                out = (int)kc;
+                return true;
+            }
+            if (m == "physicalkeycode") {
+                out = (int)key->get_physical_keycode();
+                return true;
+            }
+        }
+    }
 
     if (SceneTree *tree = Object::cast_to<SceneTree>(obj)) {
         if (m == "currentscene") {
@@ -2723,6 +2819,52 @@ Variant VisualGasicInstance::dispatch_expr_compat_call(const String &p_method, c
     return Variant();
 }
 
+void VisualGasicInstance::safe_canvas_draw_rect(CanvasItem *ci, const Rect2 &rect, const Color &col, bool filled) {
+    if (!ci) {
+        return;
+    }
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawRect(rect, filled ? 0.0f : 1.0f, col, filled, filled ? col : Color(0, 0, 0, 0));
+        return;
+    }
+    RenderingServer *rs = RenderingServer::get_singleton();
+    RID id = ci->get_canvas_item();
+    if (filled) {
+        rs->canvas_item_add_rect(id, rect, col, false);
+    } else {
+        Vector2 p0 = rect.position;
+        Vector2 p1(p0.x + rect.size.x, p0.y);
+        Vector2 p2 = p0 + rect.size;
+        Vector2 p3(p0.x, p0.y + rect.size.y);
+        rs->canvas_item_add_line(id, p0, p1, col, 1.0, false);
+        rs->canvas_item_add_line(id, p1, p2, col, 1.0, false);
+        rs->canvas_item_add_line(id, p2, p3, col, 1.0, false);
+        rs->canvas_item_add_line(id, p3, p0, col, 1.0, false);
+    }
+}
+
+void VisualGasicInstance::safe_canvas_draw_line(CanvasItem *ci, const Vector2 &from, const Vector2 &to, const Color &col, float width) {
+    if (!ci) {
+        return;
+    }
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawLine(from, to, width, col);
+        return;
+    }
+    RenderingServer::get_singleton()->canvas_item_add_line(ci->get_canvas_item(), from, to, col, width, false);
+}
+
+void VisualGasicInstance::safe_canvas_draw_circle(CanvasItem *ci, const Vector2 &pos, float radius, const Color &col) {
+    if (!ci) {
+        return;
+    }
+    if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+        vc->DrawCircle(pos, radius, col);
+        return;
+    }
+    RenderingServer::get_singleton()->canvas_item_add_circle(ci->get_canvas_item(), pos, radius, col, false);
+}
+
 CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
     if (_draw_ci_owner_cache != owner) {
         _draw_ci_owner_cache = owner;
@@ -2788,7 +2930,7 @@ bool VisualGasicInstance::dispatch_draw_rect_f64(double p_x, double p_y, float p
         return true;
     }
     Rect2 rect((real_t)p_x, (real_t)p_y, (real_t)p_w, (real_t)p_h);
-    ci->draw_rect(rect, p_color, p_filled);
+    safe_canvas_draw_rect(ci,rect, p_color, p_filled);
     r_found = true;
     return true;
 }
@@ -2818,7 +2960,7 @@ bool VisualGasicInstance::dispatch_draw_line_f64(double p_x1, double p_y1, doubl
         r_found = true;
         return true;
     }
-    ci->draw_line(from, to, p_color, p_width);
+    safe_canvas_draw_line(ci,from, to, p_color, p_width);
     r_found = true;
     return true;
 }
@@ -2844,7 +2986,7 @@ bool VisualGasicInstance::dispatch_draw_circle_f64(double p_x, double p_y, float
         r_found = true;
         return true;
     }
-    ci->draw_circle(Vector2((real_t)p_x, (real_t)p_y), p_radius, p_color);
+    safe_canvas_draw_circle(ci,Vector2((real_t)p_x, (real_t)p_y), p_radius, p_color);
     r_found = true;
     return true;
 }
@@ -2901,15 +3043,15 @@ void VisualGasicInstance::end_draw_batch_flush() {
 
     for (int i = 0; i < _draw_batch_rects.size(); i++) {
         const VGDrawBatchRect &r = _draw_batch_rects[i];
-        ci->draw_rect(Rect2(r.x, r.y, r.w, r.h), r.color, r.filled);
+        safe_canvas_draw_rect(ci,Rect2(r.x, r.y, r.w, r.h), r.color, r.filled);
     }
     for (int i = 0; i < _draw_batch_lines.size(); i++) {
         const VGDrawBatchLine &l = _draw_batch_lines[i];
-        ci->draw_line(Vector2(l.x1, l.y1), Vector2(l.x2, l.y2), l.color, l.width);
+        safe_canvas_draw_line(ci,Vector2(l.x1, l.y1), Vector2(l.x2, l.y2), l.color, l.width);
     }
     for (int i = 0; i < _draw_batch_circles.size(); i++) {
         const VGDrawBatchCircle &c = _draw_batch_circles[i];
-        ci->draw_circle(Vector2(c.x, c.y), c.radius, c.color);
+        safe_canvas_draw_circle(ci,Vector2(c.x, c.y), c.radius, c.color);
     }
     for (int i = 0; i < _draw_batch_tex_rects.size(); i++) {
         const VGDrawBatchTexRect &t = _draw_batch_tex_rects[i];
@@ -2939,7 +3081,7 @@ int64_t VisualGasicInstance::run_draw_rect_grid_loop(int64_t p_count, int64_t p_
         int64_t row = i / p_cols;
         float x = (float)(col * p_cell);
         float y = (float)(row * p_cell);
-        ci->draw_rect(Rect2(x, y, p_w, p_h), p_color, p_filled);
+        safe_canvas_draw_rect(ci,Rect2(x, y, p_w, p_h), p_color, p_filled);
         cs += (int64_t)x + (int64_t)y + p_checksum_add;
     }
     return cs;
@@ -2960,7 +3102,7 @@ int64_t VisualGasicInstance::run_draw_line_grid_loop(int64_t p_count, int64_t p_
         int64_t row = i / p_cols;
         float x = (float)(col * p_cell);
         float y = (float)(row * p_cell);
-        ci->draw_line(Vector2(x, y), Vector2(x + p_x2_off, y + p_y2_off), p_color, p_width);
+        safe_canvas_draw_line(ci,Vector2(x, y), Vector2(x + p_x2_off, y + p_y2_off), p_color, p_width);
         cs += (int64_t)x + (int64_t)y + p_checksum_add;
     }
     return cs;
@@ -2981,7 +3123,7 @@ int64_t VisualGasicInstance::run_draw_circle_grid_loop(int64_t p_count, int64_t 
         int64_t row = i / p_cols;
         float x = (float)(col * p_cell);
         float y = (float)(row * p_cell);
-        ci->draw_circle(Vector2(x + p_ox, y + p_oy), p_radius, p_color);
+        safe_canvas_draw_circle(ci,Vector2(x + p_ox, y + p_oy), p_radius, p_color);
         cs += (int64_t)x + (int64_t)y + p_checksum_add;
     }
     return cs;
@@ -3087,7 +3229,7 @@ int64_t VisualGasicInstance::run_draw_rect_offset_loop(int64_t p_count, int64_t 
         float x = (float)(double)offsets[i];
         int64_t y_index = (i * (int64_t)p_y_mul) % (int64_t)p_y_mod;
         float y = (float)(y_index * p_cell);
-        ci->draw_rect(Rect2(x, y, p_w, p_h), p_color, p_filled);
+        safe_canvas_draw_rect(ci,Rect2(x, y, p_w, p_h), p_color, p_filled);
         cs += (int64_t)x + (int64_t)y + p_checksum_add;
     }
     return cs;
@@ -3119,7 +3261,6 @@ int64_t VisualGasicInstance::run_vector_uniform_rect_grid_loop(int64_t p_count, 
         cs += (int64_t)x + (int64_t)y + p_checksum_add;
     }
     vc->DrawRectsUniform(rects, p_color, p_filled);
-    vc->ExecuteQueuedCommands();
     return cs;
 }
 
@@ -3137,7 +3278,7 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
                 if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
                     vc->DrawRect((Rect2)p_args[0], 1.0f, col, filled, Color(0, 0, 0, 0));
                 } else {
-                    ci->draw_rect((Rect2)p_args[0], col, filled);
+                    safe_canvas_draw_rect(ci,(Rect2)p_args[0], col, filled);
                 }
                 r_found = true;
             } else if (p_arg_count >= 4) {
@@ -3147,7 +3288,7 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
                 if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
                     vc->DrawRect(rect, 1.0f, col, filled, Color(0, 0, 0, 0));
                 } else {
-                    ci->draw_rect(rect, col, filled);
+                    safe_canvas_draw_rect(ci,rect, col, filled);
                 }
                 r_found = true;
             }
@@ -3161,7 +3302,7 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
                 if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
                     vc->DrawLine(from, to, width, col);
                 } else {
-                    ci->draw_line(from, to, col, width);
+                    safe_canvas_draw_line(ci,from, to, col, width);
                 }
                 r_found = true;
             } else if (p_arg_count >= 2 && p_args[0].get_type() == Variant::VECTOR2) {
@@ -3170,7 +3311,7 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
                 if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
                     vc->DrawLine((Vector2)p_args[0], (Vector2)p_args[1], width, col);
                 } else {
-                    ci->draw_line((Vector2)p_args[0], (Vector2)p_args[1], col, width);
+                    safe_canvas_draw_line(ci,(Vector2)p_args[0], (Vector2)p_args[1], col, width);
                 }
                 r_found = true;
             }
@@ -3178,11 +3319,21 @@ bool VisualGasicInstance::dispatch_draw_kind(int p_kind, const Variant *p_args, 
         case 3: { // DrawCircle
             if (p_arg_count >= 3 && p_args[0].get_type() != Variant::VECTOR2) {
                 Color col = (p_arg_count > 3) ? Color(p_args[3]) : Color(1, 1, 1, 1);
-                ci->draw_circle(Vector2((float)p_args[0], (float)p_args[1]), (float)p_args[2], col);
+                Vector2 pos((float)p_args[0], (float)p_args[1]);
+                float radius = (float)p_args[2];
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawCircle(pos, radius, col);
+                } else {
+                    safe_canvas_draw_circle(ci,pos, radius, col);
+                }
                 r_found = true;
             } else if (p_arg_count >= 2 && p_args[0].get_type() == Variant::VECTOR2) {
                 Color col = (p_arg_count > 2) ? Color(p_args[2]) : Color(1, 1, 1, 1);
-                ci->draw_circle((Vector2)p_args[0], (float)p_args[1], col);
+                if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+                    vc->DrawCircle((Vector2)p_args[0], (float)p_args[1], col);
+                } else {
+                    safe_canvas_draw_circle(ci,(Vector2)p_args[0], (float)p_args[1], col);
+                }
                 r_found = true;
             }
         } break;
@@ -3256,17 +3407,33 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
     if (p_method.nocasecmp_to("DrawLine") == 0 && p_arg_count >= 2) {
         Color col = Color(1, 1, 1, 1);
         float width = 1.0;
+        if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+            if (p_args[0].get_type() == Variant::VECTOR2) {
+                Vector2 from = p_args[0];
+                Vector2 to = p_args[1];
+                if (p_arg_count > 2) col = p_args[2];
+                if (p_arg_count > 3) width = p_args[3];
+                vc->DrawLine(from, to, width, col);
+            } else if (p_arg_count >= 4) {
+                float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
+                if (p_arg_count > 4) col = p_args[4];
+                if (p_arg_count > 5) width = p_args[5];
+                vc->DrawLine(Vector2(x1, y1), Vector2(x2, y2), width, col);
+            }
+            r_found = true;
+            return true;
+        }
         if (p_args[0].get_type() == Variant::VECTOR2) {
             Vector2 from = p_args[0];
             Vector2 to = p_args[1];
             if (p_arg_count > 2) col = p_args[2];
             if (p_arg_count > 3) width = p_args[3];
-            ci->draw_line(from, to, col, width);
+            safe_canvas_draw_line(ci,from, to, col, width);
         } else if (p_arg_count >= 4) {
             float x1 = p_args[0], y1 = p_args[1], x2 = p_args[2], y2 = p_args[3];
             if (p_arg_count > 4) col = p_args[4];
             if (p_arg_count > 5) width = p_args[5];
-            ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), col, width);
+            safe_canvas_draw_line(ci,Vector2(x1, y1), Vector2(x2, y2), col, width);
         }
         r_found = true;
         return true;
@@ -3274,31 +3441,60 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
     if (p_method.nocasecmp_to("DrawRect") == 0 && p_arg_count >= 1) {
         Color col = Color(1, 1, 1, 1);
         bool filled = true;
+        if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+            if (p_args[0].get_type() == Variant::RECT2) {
+                Rect2 rect = p_args[0];
+                if (p_arg_count > 1) col = p_args[1];
+                if (p_arg_count > 2) filled = (bool)p_args[2];
+                vc->DrawRect(rect, 1.0f, col, filled, Color(0, 0, 0, 0));
+            } else if (p_arg_count >= 4) {
+                float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
+                if (p_arg_count > 4) col = p_args[4];
+                if (p_arg_count > 5) filled = (bool)p_args[5];
+                vc->DrawRect(Rect2(x, y, w, h), 1.0f, col, filled, Color(0, 0, 0, 0));
+            }
+            r_found = true;
+            return true;
+        }
         if (p_args[0].get_type() == Variant::RECT2) {
             Rect2 rect = p_args[0];
             if (p_arg_count > 1) col = p_args[1];
             if (p_arg_count > 2) filled = (bool)p_args[2];
-            ci->draw_rect(rect, col, filled);
+            safe_canvas_draw_rect(ci,rect, col, filled);
         } else if (p_arg_count >= 4) {
             float x = p_args[0], y = p_args[1], w = p_args[2], h = p_args[3];
             if (p_arg_count > 4) col = p_args[4];
             if (p_arg_count > 5) filled = (bool)p_args[5];
-            ci->draw_rect(Rect2(x, y, w, h), col, filled);
+            safe_canvas_draw_rect(ci,Rect2(x, y, w, h), col, filled);
         }
         r_found = true;
         return true;
     }
     if (p_method.nocasecmp_to("DrawCircle") == 0 && p_arg_count >= 2) {
         Color col = Color(1, 1, 1, 1);
+        if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>((Object *)ci)) {
+            if (p_args[0].get_type() == Variant::VECTOR2) {
+                Vector2 pos = p_args[0];
+                float radius = p_args[1];
+                if (p_arg_count > 2) col = p_args[2];
+                vc->DrawCircle(pos, radius, col);
+            } else if (p_arg_count >= 3) {
+                float x = p_args[0], y = p_args[1], radius = p_args[2];
+                if (p_arg_count > 3) col = p_args[3];
+                vc->DrawCircle(Vector2(x, y), radius, col);
+            }
+            r_found = true;
+            return true;
+        }
         if (p_args[0].get_type() == Variant::VECTOR2) {
             Vector2 pos = p_args[0];
             float radius = p_args[1];
             if (p_arg_count > 2) col = p_args[2];
-            ci->draw_circle(pos, radius, col);
+            safe_canvas_draw_circle(ci,pos, radius, col);
         } else if (p_arg_count >= 3) {
             float x = p_args[0], y = p_args[1], radius = p_args[2];
             if (p_arg_count > 3) col = p_args[3];
-            ci->draw_circle(Vector2(x, y), radius, col);
+            safe_canvas_draw_circle(ci,Vector2(x, y), radius, col);
         }
         r_found = true;
         return true;
@@ -3306,7 +3502,7 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
     if ((p_method.nocasecmp_to("DrawPixel") == 0 || p_method.nocasecmp_to("PSet") == 0) && p_arg_count >= 3) {
         float x = p_args[0], y = p_args[1];
         Color col = p_args[2];
-        ci->draw_rect(Rect2(x, y, 1, 1), col, true);
+        safe_canvas_draw_rect(ci,Rect2(x, y, 1, 1), col, true);
         r_found = true;
         return true;
     }
@@ -5391,7 +5587,7 @@ void VisualGasicInstance::run_canvas_draw_handlers() {
 	end_draw_batch_flush();
 	if (CanvasItem *ci = get_draw_canvas_item()) {
 		if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(ci)) {
-			vc->ExecuteQueuedCommands();
+			vc->queue_redraw();
 		}
 	}
 }

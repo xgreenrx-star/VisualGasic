@@ -45,6 +45,9 @@ public:
 private:
     BytecodeChunk* current_chunk;
     int current_line;
+    int last_emitted_debug_line;  // skip back-to-back OP_DEBUG_LINE for the same source line
+    // Exit Sub / Exit Function jump here so stepping lands on End Sub / End Function.
+    Vector<int> procedure_exit_jumps;
     bool compile_ok;
 
     HashMap<String, int> local_slots;
@@ -103,6 +106,8 @@ private:
     void emit_const_index(int idx);  // 2-byte LE constant pool index
     void emit_constant(const Variant& value);
     void emit_return();
+    void emit_debug_line(int line);
+    void emit_procedure_epilogue(int end_line);
     int emit_jump(uint8_t op);
     void patch_jump(int offset_pos);
     void emit_loop(int loop_start);

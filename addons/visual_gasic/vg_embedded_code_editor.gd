@@ -107,6 +107,7 @@ var _bottom_panel: Control = null           # outer container (plain Control —
 var _bottom_tabs: TabContainer = null      # tab switcher
 var _immediate_window_ref = null           # reference to the plugin's Immediate Window
 var _breakpoints_by_file: Dictionary = {}  # script path -> Array of 0-based breakpoint lines
+var _loading_file := false
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
 var _console_text: RichTextLabel = null    # System Console tab: system log
 
@@ -259,6 +260,8 @@ func _build_ui() -> void:
 
 	_code_edit.text_changed.connect(_on_code_changed)
 	_code_edit.caret_changed.connect(_on_caret_moved)
+	if _code_edit.has_signal("breakpoint_toggled"):
+		_code_edit.breakpoint_toggled.connect(_on_code_breakpoint_toggled)
 	if _code_edit.has_signal("find_references_requested"):
 		_code_edit.find_references_requested.connect(_show_find_references)
 	if _code_edit.has_signal("find_callers_requested"):
@@ -319,6 +322,7 @@ func _build_ui() -> void:
 	call_deferred("_apply_scrollbar_theme")
 	call_deferred("_apply_vb6_theme")
 	call_deferred("_start_log_tailing")
+	_load_persisted_breakpoints()
 
 
 func _build_stale_strip() -> void:
@@ -1498,24 +1502,108 @@ func _draw_radial_menu_map(size: Vector2, font: Font, fs: int, props: Dictionary
 ## case-insensitive match in the same directory and reuse that file if one
 ## exists. This prevents accidental ghost duplicates when one caller passes
 ## the canonical-cased path and another passes a lowercased variant.
+func _canonical_breakpoint_path(path: String) -> String:
+	if path.is_empty() or path.begins_with("res://"):
+		return path
+	var abs_path := path.replace("\\", "/")
+	var project_root := ProjectSettings.globalize_path("res://").replace("\\", "/")
+	if not project_root.ends_with("/"):
+		project_root += "/"
+	if abs_path.begins_with(project_root):
+		return "res://" + abs_path.substr(project_root.length())
+	return path
+
+
+func _erase_breakpoint_aliases(canon: String) -> void:
+	var to_erase: Array = []
+	for existing in _breakpoints_by_file.keys():
+		if _canonical_breakpoint_path(str(existing)) == canon:
+			to_erase.append(existing)
+	for existing in to_erase:
+		_breakpoints_by_file.erase(existing)
+
+
+func _load_persisted_breakpoints() -> void:
+	## Restore gutter markers from res://.vg_breakpoints.json (1-based lines).
+	if not FileAccess.file_exists("res://.vg_breakpoints.json"):
+		return
+	var file := FileAccess.open("res://.vg_breakpoints.json", FileAccess.READ)
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	for path in parsed:
+		var canon := _canonical_breakpoint_path(str(path))
+		var zero_based: Array = []
+		for ln in parsed[path]:
+			var one_based := int(ln)
+			if one_based > 0:
+				zero_based.append(one_based - 1)
+		_erase_breakpoint_aliases(canon)
+		if not zero_based.is_empty():
+			_breakpoints_by_file[canon] = zero_based
+
+
+func is_loading_file() -> bool:
+	return _loading_file
+
+
+func _on_code_breakpoint_toggled(line: int) -> void:
+	if _loading_file or _vg_path.is_empty() or not is_instance_valid(_code_edit):
+		return
+	if line < 0 or line >= _code_edit.get_line_count():
+		return
+	set_stored_breakpoint(_vg_path, line, _code_edit.is_line_breakpointed(line))
+
+
+func set_stored_breakpoint(path: String, zero_line: int, enabled: bool) -> void:
+	var canon := _canonical_breakpoint_path(path)
+	var lines: Array = []
+	for existing in _breakpoints_by_file.keys():
+		if _canonical_breakpoint_path(str(existing)) == canon:
+			for ln in _breakpoints_by_file[existing]:
+				var i := int(ln)
+				if i not in lines:
+					lines.append(i)
+	if enabled:
+		if zero_line not in lines:
+			lines.append(zero_line)
+	else:
+		lines.erase(zero_line)
+	_erase_breakpoint_aliases(canon)
+	if not lines.is_empty():
+		_breakpoints_by_file[canon] = lines
+	if is_instance_valid(_code_edit) and _canonical_breakpoint_path(_vg_path) == canon:
+		if zero_line < 0 or zero_line >= _code_edit.get_line_count():
+			return
+		if _code_edit.is_line_breakpointed(zero_line) != enabled:
+			_code_edit.set_line_as_breakpoint(zero_line, enabled)
+
+
 func _stash_breakpoints_for_path(path: String) -> void:
 	if path.is_empty() or not is_instance_valid(_code_edit):
 		return
+	var canon := _canonical_breakpoint_path(path)
+	_erase_breakpoint_aliases(canon)
 	var lines: PackedInt32Array = _code_edit.get_breakpointed_lines()
-	if lines.is_empty():
-		_breakpoints_by_file.erase(path)
-	else:
-		_breakpoints_by_file[path] = Array(lines)
+	if not lines.is_empty():
+		_breakpoints_by_file[canon] = Array(lines)
 
 
 func _restore_breakpoints_for_path(path: String) -> void:
 	if not is_instance_valid(_code_edit):
 		return
+	var canon := _canonical_breakpoint_path(path)
 	for line_idx in _code_edit.get_breakpointed_lines():
 		_code_edit.set_line_as_breakpoint(line_idx, false)
-	if _breakpoints_by_file.has(path):
-		for line_idx in _breakpoints_by_file[path]:
-			_code_edit.set_line_as_breakpoint(int(line_idx), true)
+	var stored: Array = _breakpoints_by_file.get(canon, [])
+	var line_count := _code_edit.get_line_count()
+	for line_idx in stored:
+		var zero_line := int(line_idx)
+		if zero_line >= 0 and zero_line < line_count:
+			_code_edit.set_line_as_breakpoint(zero_line, true)
 
 
 ## All breakpoints across every file opened in this session (for debug run export).
@@ -1530,7 +1618,13 @@ func get_all_debug_breakpoints() -> Dictionary:
 		var one_based: Array = []
 		for line_idx in lines:
 			one_based.append(int(line_idx) + 1)
-		result[path] = one_based
+		var canon := _canonical_breakpoint_path(str(path))
+		if result.has(canon):
+			for ln in one_based:
+				if ln not in result[canon]:
+					result[canon].append(ln)
+		else:
+			result[canon] = one_based
 	return result
 
 
@@ -1575,7 +1669,21 @@ func load_file(path: String) -> void:
 			return
 		if _code_edit.has_method("set_current_vg_path"):
 			_code_edit.set_current_vg_path(path)
+		# Drop the previous file's caret and gutter marks before the buffer
+		# shrinks. Godot otherwise reapplies those line numbers and prints
+		# "Index p_line = N is out of bounds".
+		_loading_file = true
+		if _code_edit.has_method("clear_executing_line"):
+			_code_edit.clear_executing_line()
+		if _code_edit.has_method("remove_secondary_carets"):
+			_code_edit.remove_secondary_carets()
+		if _code_edit.get_line_count() > 0:
+			_code_edit.set_caret_line(0)
+			_code_edit.set_caret_column(0)
+		if _code_edit.has_method("clear_breakpointed_lines"):
+			_code_edit.clear_breakpointed_lines()
 		_code_edit.text = content
+		_loading_file = false
 		_restore_breakpoints_for_path(path)
 		_dirty = false
 		set_dual_editor_stale(false)
@@ -2426,9 +2534,14 @@ func _on_context_rail_grid_open(ref: Dictionary) -> void:
 
 
 func navigate_to_line(line: int) -> void:
-	if not _code_edit or line < 0:
+	if not _code_edit or line <= 0:
 		return
-	_code_edit.set_caret_line(line)
+	var zero := line - 1
+	var max_line := _code_edit.get_line_count() - 1
+	if zero > max_line:
+		push_warning("VG Code Editor: debug line %d is past end of %s (%d lines)" % [line, _vg_path.get_file(), max_line + 1])
+		zero = maxi(0, max_line)
+	_code_edit.set_caret_line(zero)
 	_code_edit.set_caret_column(0)
 	_code_edit.center_viewport_to_caret()
 	_code_edit.grab_focus()

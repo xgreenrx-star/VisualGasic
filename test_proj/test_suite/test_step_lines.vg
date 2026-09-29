@@ -1,0 +1,17 @@
+' Headless step-into trace. Each executable line must pause once.
+Attribute VB_Name = "StepTrace"
+
+Sub Leaf()
+	Dim leaf_n As Integer
+	leaf_n = 1
+	leaf_n = 2
+End Sub
+
+Sub Main()
+	Dim n As Integer
+	n = 1
+	Call Leaf()
+	n = 2
+	If n = 2 Then n = 3
+	Print n
+End Sub

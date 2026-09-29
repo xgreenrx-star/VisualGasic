@@ -74,10 +74,10 @@ func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 				_debugger_plugin.stack_level_locals_received.connect(_on_stack_level_locals_received)
 
 func _on_debug_break_hit(file: String, line: int) -> void:
-	## When we hit a breakpoint, request the call stack
+	## The VM already pushed visualgasic:call_stack with this pause.
+	## Requesting it again waits on another debugger round trip per F11.
 	_status_label.text = "⏸ Paused at %s:%d" % [file.get_file(), line]
 	_status_label.add_theme_color_override("font_color", Color.YELLOW)
-	_refresh_stack()
 
 func _refresh_stack() -> void:
 	## Request call stack from the running game

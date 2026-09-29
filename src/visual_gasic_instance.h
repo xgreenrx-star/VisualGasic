@@ -353,6 +353,9 @@ private:
     int64_t run_vector_uniform_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
             float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add);
     CanvasItem *get_draw_canvas_item();
+    static void safe_canvas_draw_rect(CanvasItem *ci, const Rect2 &rect, const Color &col, bool filled);
+    static void safe_canvas_draw_line(CanvasItem *ci, const Vector2 &from, const Vector2 &to, const Color &col, float width);
+    static void safe_canvas_draw_circle(CanvasItem *ci, const Vector2 &pos, float radius, const Color &col);
     void run_canvas_draw_handlers();
     void ensure_canvas_draw_delegate_for_helper_script();
     void release_canvas_draw_delegate_for_helper_script();
@@ -392,6 +395,8 @@ private:
     void check_expression_conditions();  // For complex expression monitoring
 
     void execute_statement(Statement* stmt);
+    // Pause on End Sub / End Function / End Property when that line is not a body statement.
+    void debug_hit_procedure_end(int line);
     Variant evaluate_expression(ExpressionNode* expr);
     // Internal helper implementations moved out into separate translation units
     Variant _evaluate_expression_impl(ExpressionNode* expr);
@@ -471,6 +476,9 @@ public:
     // Accessors for builtins module (Err.Clear etc.)
     Dictionary &get_variables() { return variables; }
     const Dictionary &get_builtin_constants() const { return builtin_constants; }
+    /// Shared VG global constants (vbGreen, KEY_*, vbYesNo, …) for editor hover / tooling.
+    static Variant lookup_builtin_constant(const String &p_name);
+    static void publish_shared_builtin_constants(const Dictionary &p_constants);
     Dictionary &get_open_files() { return open_files; }
     int get_error_line() const { return error_state.error_line; }
     String get_error_file() const { return error_state.error_file; }
@@ -567,6 +575,8 @@ public:
     // Dispatch obj.Method(args) to a VG Sub/Function on another node's VisualGasicInstance
     // (e.g. Bullet.vg calling enemy.take_hit on an Enemy.vg CharacterBody2D).
     static bool try_call_vg_owner_method(Object *obj, const String &method, const Array &args, Variant &r_ret);
+    // canvas.DrawRect must queue — never CanvasItem.draw_rect outside _draw().
+    static bool try_vg_vector_canvas_call(Object *obj, const String &method, const Array &args, Variant &r_ret);
     void register_class(ClassDefinition* cls);
     void execute_class_method(ClassDefinition* cls, SubDefinition* method, int obj_id, const Array& args, Variant& r_ret);
     bool is_property_accessor(const String& prop_name, PropertyDefinition::PropertyType& type);
@@ -595,7 +605,7 @@ public:
     void set_step_mode(DebugState::StepMode mode) { debug_state.step_mode = mode; }
     DebugState::StepMode get_step_mode() const { return debug_state.step_mode; }
     Dictionary get_debug_locals() const;
-    Dictionary get_debug_globals() const { return variables; }
+    Dictionary get_debug_globals() const;
     bool is_builtin_constant(const String& key) const { return builtin_constants.has(key); }
     SubDefinition* get_current_sub() const { return current_sub; }
     void _send_variables_to_debugger(EngineDebugger* debugger);

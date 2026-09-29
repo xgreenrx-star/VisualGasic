@@ -40,6 +40,18 @@ bool VisualGasicLanguage::waiting_for_continue = false;
 std::string VisualGasicLanguage::current_break_file;
 int VisualGasicLanguage::current_break_line = 0;
 
+std::string VisualGasicLanguage::step_resume_file;
+int VisualGasicLanguage::step_resume_line = 0;
+int VisualGasicLanguage::step_resume_depth = -1;
+
+std::string VisualGasicLanguage::last_debug_wait_file;
+int VisualGasicLanguage::last_debug_wait_line = 0;
+int VisualGasicLanguage::last_debug_wait_depth = -1;
+
+bool VisualGasicLanguage::debug_trace_active = false;
+int VisualGasicLanguage::debug_autostep_remaining = 0;
+std::vector<int> VisualGasicLanguage::debug_trace_lines;
+
 // Breakpoints storage (loaded from JSON, checked in C++ to avoid GDScript calls during debug)
 std::map<std::string, std::vector<int>> VisualGasicLanguage::breakpoints;
 bool VisualGasicLanguage::breakpoints_loaded = false;
@@ -346,6 +358,15 @@ static bool vg_godot_debug_handler(const String& p_message, const Array& p_data)
     }
     else if (p_message == "continue") {
         VisualGasicLanguage::debug_continue();
+        return true;
+    }
+    else if (p_message == "step") {
+        // EditorDebuggerSession sends "step" (not "step_into") from the Step Into button.
+        VisualGasicLanguage::debug_step_into();
+        return true;
+    }
+    else if (p_message == "out") {
+        VisualGasicLanguage::debug_step_out();
         return true;
     }
     
@@ -3709,13 +3730,17 @@ void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_continue"), &VisualGasicLanguage::debug_continue);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_step_into"), &VisualGasicLanguage::debug_step_into);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_step_over"), &VisualGasicLanguage::debug_step_over);
-    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_step_out"), &VisualGasicLanguage::debug_step_out);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_begin_autostep", "max_pauses"), &VisualGasicLanguage::debug_begin_autostep);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_get_trace"), &VisualGasicLanguage::debug_get_trace);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_preview_value", "value"), &VisualGasicLanguage::debug_preview_value);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_step_mode"), &VisualGasicLanguage::get_step_mode_int);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_current_debug_line"), &VisualGasicLanguage::get_current_debug_line);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_current_debug_file"), &VisualGasicLanguage::get_current_debug_file);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_break_file"), &VisualGasicLanguage::get_break_file);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_get_break_line"), &VisualGasicLanguage::get_break_line);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_clear_breakpoints"), &VisualGasicLanguage::clear_breakpoints);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_has_breakpoint", "script_path", "line"), &VisualGasicLanguage::has_breakpoint);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_apply_breakpoints", "dict"), &VisualGasicLanguage::apply_breakpoints_from_dict);
     
     // Watchpoint (data breakpoint) methods
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_add_watchpoint", "variable_name"), &VisualGasicLanguage::add_watchpoint);
@@ -3735,6 +3760,7 @@ void VisualGasicLanguage::_bind_methods() {
     
     // Expression evaluation in debug context
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_expression", "expression"), &VisualGasicLanguage::evaluate_expression_in_context);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_lookup_builtin_constant", "name"), &VisualGasicLanguage::vg_lookup_builtin_constant);
     
     // Immediate Window evaluate — callable from GDScript when C++ manages the instance registry
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evaluate_immediate", "instance_index", "code"), &VisualGasicLanguage::evaluate_immediate_by_index);
@@ -3933,39 +3959,30 @@ String VisualGasicLanguage::_debug_get_stack_level_function(int32_t p_level) con
 }
 
 Dictionary VisualGasicLanguage::_debug_get_stack_level_locals(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
-    auto& stack = get_debug_stack();
-    if (p_level >= 0 && p_level < (int32_t)stack.size()) {
-        int idx = stack.size() - 1 - p_level;
-        VisualGasicInstance* instance = stack[idx].instance;
-        if (instance) {
-            return instance->get_debug_locals();
-        }
-    }
+    // Same reason as members: one Godot inspector rebuild per entry.
+    // The Immediate window receives locals in a single message instead.
+    (void)p_level;
+    (void)p_max_subitems;
+    (void)p_max_depth;
     return Dictionary();
 }
 
 Dictionary VisualGasicLanguage::_debug_get_stack_level_members(int32_t p_level, int32_t p_max_subitems, int32_t p_max_depth) {
-    // For VB6-style scripts, members are typically the same as globals
-    auto& stack = get_debug_stack();
-    if (p_level >= 0 && p_level < (int32_t)stack.size()) {
-        int idx = stack.size() - 1 - p_level;
-        VisualGasicInstance* instance = stack[idx].instance;
-        if (instance) {
-            return instance->get_debug_globals();
-        }
-    }
+    // Godot's debugger calls edit() once per returned variable. Members used
+    // to be the entire module table, so every F11 rebuilt the inspector
+    // hundreds of times. Locals go out as one visualgasic:variables_list.
+    (void)p_level;
+    (void)p_max_subitems;
+    (void)p_max_depth;
     return Dictionary();
 }
 
 void *VisualGasicLanguage::_debug_get_stack_level_instance(int32_t p_level) {
-    auto& stack = get_debug_stack();
-    if (p_level >= 0 && p_level < (int32_t)stack.size()) {
-        int idx = stack.size() - 1 - p_level;
-        VisualGasicInstance* instance = stack[idx].instance;
-        if (instance) {
-            return instance->get_owner();
-        }
-    }
+    // Do not hand Godot the live owner node. On every step the editor
+    // remote-inspects that object, and a scene root serializes the whole
+    // tree on the editor main thread — that is the multi-second freeze
+    // after F11. Locals and members already come back as shallow previews.
+    (void)p_level;
     return nullptr;
 }
 
@@ -4022,14 +4039,10 @@ void VisualGasicLanguage::_frame() {
 }
 
 Dictionary VisualGasicLanguage::_debug_get_globals(int32_t p_max_subitems, int32_t p_max_depth) {
-    // Return globals from the most recent stack frame's instance
-    auto& stack = get_debug_stack();
-    if (!stack.empty()) {
-        VisualGasicInstance* instance = stack.back().instance;
-        if (instance) {
-            return instance->get_debug_globals();
-        }
-    }
+    // Do not stream the module variable table through Godot's per-variable
+    // debugger protocol. That path froze the editor on every step.
+    (void)p_max_subitems;
+    (void)p_max_depth;
     return Dictionary();
 }
 
@@ -4144,6 +4157,9 @@ bool VisualGasicLanguage::_supports_documentation() const {
 // === Debug Call Stack Management ===
 
 void VisualGasicLanguage::push_stack_frame(const String& file, const String& function, int line, VisualGasicInstance* instance) {
+    // Match GDScriptLanguage::enter_function: step-over/step-out use depth
+    // so the next line inside a call is not treated as the step target.
+    adjust_debugger_call_depth(1);
     VGDebugStackFrame frame;
     frame.file = file;
     frame.function = function;
@@ -4153,6 +4169,7 @@ void VisualGasicLanguage::push_stack_frame(const String& file, const String& fun
 }
 
 void VisualGasicLanguage::pop_stack_frame() {
+    adjust_debugger_call_depth(-1);
     auto& stack = get_debug_stack();
     if (!stack.empty()) {
         stack.pop_back();
@@ -4162,6 +4179,19 @@ void VisualGasicLanguage::pop_stack_frame() {
 void VisualGasicLanguage::update_stack_frame_line(int line) {
     auto& stack = get_debug_stack();
     if (!stack.empty()) {
+        stack.back().line = line;
+    }
+}
+
+void VisualGasicLanguage::update_stack_frame_location(const String &file, int line) {
+    auto &stack = get_debug_stack();
+    if (stack.empty()) {
+        return;
+    }
+    if (!file.is_empty()) {
+        stack.back().file = file;
+    }
+    if (line > 0) {
         stack.back().line = line;
     }
 }
@@ -4184,28 +4214,177 @@ int VisualGasicLanguage::get_current_stack_depth() {
     return static_cast<int>(get_debug_stack().size());
 }
 
+void VisualGasicLanguage::clear_debug_wait_coalesce() {
+    last_debug_wait_file.clear();
+    last_debug_wait_line = 0;
+    last_debug_wait_depth = -1;
+}
+
+void VisualGasicLanguage::note_debug_wait_at(const String& file, int line, int depth) {
+    last_debug_wait_file = normalize_breakpoint_script_path(file).utf8().get_data();
+    last_debug_wait_line = line;
+    last_debug_wait_depth = depth;
+}
+
+bool VisualGasicLanguage::begin_debug_pause_at(const String& file, int line, int depth) {
+    return !should_skip_debug_wait_at(file, line, depth);
+}
+
+bool VisualGasicLanguage::is_debug_hook_active() {
+    if (debug_trace_active) {
+        return true;
+    }
+    EngineDebugger *debugger = EngineDebugger::get_singleton();
+    return debugger && debugger->is_active();
+}
+
+Variant VisualGasicLanguage::debug_preview_value(const Variant &value) {
+    // Godot's debugger walks every returned Variant on the editor main thread.
+    // Live Nodes and large arrays in that walk freeze the editor after each step.
+    switch (value.get_type()) {
+        case Variant::NIL:
+            return String("Nothing");
+        case Variant::OBJECT: {
+            Object *obj = value;
+            if (!obj) {
+                return String("Nothing");
+            }
+            return String("<") + obj->get_class() + String(">");
+        }
+        case Variant::ARRAY:
+            return String("[") + String::num_int64(Array(value).size()) + String(" items]");
+        case Variant::DICTIONARY:
+            return String("{") + String::num_int64(Dictionary(value).size()) + String(" keys}");
+        case Variant::PACKED_BYTE_ARRAY:
+        case Variant::PACKED_INT32_ARRAY:
+        case Variant::PACKED_INT64_ARRAY:
+        case Variant::PACKED_FLOAT32_ARRAY:
+        case Variant::PACKED_FLOAT64_ARRAY:
+        case Variant::PACKED_STRING_ARRAY:
+        case Variant::PACKED_VECTOR2_ARRAY:
+        case Variant::PACKED_VECTOR3_ARRAY:
+        case Variant::PACKED_COLOR_ARRAY:
+        case Variant::PACKED_VECTOR4_ARRAY: {
+            Variant copy = value;
+            return String("<packed ") + String::num_int64(int64_t(copy.call("size"))) + String(">");
+        }
+        case Variant::STRING: {
+            String text = value;
+            if (text.length() > 240) {
+                return text.substr(0, 240) + String("...");
+            }
+            return text;
+        }
+        default:
+            return value;
+    }
+}
+
+void VisualGasicLanguage::adjust_debugger_call_depth(int delta) {
+    EngineDebugger *debugger = EngineDebugger::get_singleton();
+    if (!debugger || !debugger->is_active()) {
+        return;
+    }
+    if (debugger->get_lines_left() <= 0 || debugger->get_depth() < 0) {
+        return;
+    }
+    debugger->set_depth(debugger->get_depth() + delta);
+}
+
+void VisualGasicLanguage::debug_begin_autostep(int max_pauses) {
+    debug_trace_lines.clear();
+    debug_trace_active = max_pauses > 0;
+    debug_autostep_remaining = max_pauses;
+    step_mode = debug_trace_active ? VG_STEP_INTO : VG_STEP_NONE;
+    clear_step_resume_anchor();
+    clear_debug_wait_coalesce();
+    current_break_file.clear();
+    current_break_line = 0;
+}
+
+PackedInt32Array VisualGasicLanguage::debug_get_trace() {
+    PackedInt32Array out;
+    out.resize((int)debug_trace_lines.size());
+    for (int i = 0; i < (int)debug_trace_lines.size(); i++) {
+        out.set(i, debug_trace_lines[i]);
+    }
+    return out;
+}
+
+bool VisualGasicLanguage::should_skip_debug_wait_at(const String& file, int line, int depth) {
+    if (line <= 0 || file.is_empty()) {
+        return false;
+    }
+    if (is_duplicate_step_checkpoint(file, line, depth)) {
+        return true;
+    }
+    if (last_debug_wait_line <= 0 || last_debug_wait_file.empty()) {
+        return false;
+    }
+    const String norm_file = normalize_breakpoint_script_path(file);
+    const String last_file = normalize_breakpoint_script_path(String(last_debug_wait_file.c_str()));
+    return norm_file == last_file && line == last_debug_wait_line && depth == last_debug_wait_depth;
+}
+
 void VisualGasicLanguage::debug_continue() {
     step_mode = VG_STEP_NONE;
     step_target_depth = 0;
     waiting_for_continue = false;  // Signal wait loop to exit
+    clear_step_resume_anchor();
+    clear_debug_wait_coalesce();
     // Clear breakpoint location so stack info returns normal line
     current_break_file.clear();
     current_break_line = 0;
 }
 
+void VisualGasicLanguage::arm_step_resume_anchor() {
+    if (current_break_line > 0 && !current_break_file.empty()) {
+        step_resume_file = current_break_file;
+        step_resume_line = current_break_line;
+        step_resume_depth = get_current_stack_depth();
+        return;
+    }
+    std::vector<VGDebugStackFrame>& stack = get_debug_stack();
+    if (!stack.empty()) {
+        step_resume_file = stack.back().file.utf8().get_data();
+        step_resume_line = stack.back().line;
+        step_resume_depth = static_cast<int>(stack.size());
+    } else {
+        clear_step_resume_anchor();
+    }
+}
+
+void VisualGasicLanguage::clear_step_resume_anchor() {
+    step_resume_file.clear();
+    step_resume_line = 0;
+    step_resume_depth = -1;
+}
+
+bool VisualGasicLanguage::is_duplicate_step_checkpoint(const String& file, int line, int depth) {
+    if (step_resume_line <= 0) {
+        return false;
+    }
+    const String norm_file = normalize_breakpoint_script_path(file);
+    const String resume_file = normalize_breakpoint_script_path(String(step_resume_file.c_str()));
+    return norm_file == resume_file && line == step_resume_line && depth == step_resume_depth;
+}
+
 void VisualGasicLanguage::debug_step_into() {
+    arm_step_resume_anchor();
     step_mode = VG_STEP_INTO;
     step_target_depth = 0;  // Not used for step into
     waiting_for_continue = false;  // Signal wait loop to exit
 }
 
 void VisualGasicLanguage::debug_step_over() {
+    arm_step_resume_anchor();
     step_mode = VG_STEP_OVER;
     step_target_depth = get_current_stack_depth();  // Break at same or shallower depth
     waiting_for_continue = false;  // Signal wait loop to exit
 }
 
 void VisualGasicLanguage::debug_step_out() {
+    arm_step_resume_anchor();
     step_mode = VG_STEP_OUT;
     step_target_depth = get_current_stack_depth() - 1;  // Break when we return to parent
     if (step_target_depth < 0) step_target_depth = 0;
@@ -4276,7 +4455,10 @@ int VisualGasicLanguage::get_step_mode_int() {
 }
 
 String VisualGasicLanguage::get_current_debug_file() {
-    auto& stack = get_debug_stack();
+    if (!current_break_file.empty()) {
+        return String(current_break_file.c_str());
+    }
+    auto &stack = get_debug_stack();
     if (!stack.empty()) {
         return stack.back().file;
     }
@@ -4284,7 +4466,10 @@ String VisualGasicLanguage::get_current_debug_file() {
 }
 
 int VisualGasicLanguage::get_current_debug_line() {
-    auto& stack = get_debug_stack();
+    if (current_break_line > 0) {
+        return current_break_line;
+    }
+    auto &stack = get_debug_stack();
     if (!stack.empty()) {
         return stack.back().line;
     }
@@ -4356,7 +4541,13 @@ void VisualGasicLanguage::apply_breakpoints_from_dict(const Dictionary& dict) {
         Array lines_arr = lines_var;
         std::vector<int> lines;
         for (int j = 0; j < lines_arr.size(); j++) {
-            lines.push_back((int)lines_arr[j]);
+            int ln = (int)lines_arr[j];
+            if (ln > 0) {
+                lines.push_back(ln);
+            }
+        }
+        if (lines.empty()) {
+            continue;
         }
         std::string key = script_path.utf8().get_data();
         breakpoints[key] = lines;
@@ -4432,7 +4623,9 @@ bool VisualGasicLanguage::has_breakpoint(const String& script_path, int line) {
 
 void VisualGasicLanguage::clear_breakpoints() {
     breakpoints.clear();
-    breakpoints_loaded = false;
+    // Keep loaded=true so the next has_breakpoint() does not re-read a stale
+    // res://.vg_breakpoints.json after the editor already sent an empty set.
+    breakpoints_loaded = true;
 }
 
 // ============================================================================
@@ -4577,6 +4770,10 @@ void VisualGasicLanguage::idle_break() {
 // EXPRESSION EVALUATION IN DEBUG CONTEXT
 // ============================================================================
 
+Variant VisualGasicLanguage::vg_lookup_builtin_constant(const String &p_name) {
+    return VisualGasicInstance::lookup_builtin_constant(p_name);
+}
+
 String VisualGasicLanguage::evaluate_expression_in_context(const String& expression) {
     // Get the current debug instance (top of stack)
     auto& stack = get_debug_stack();
@@ -4596,6 +4793,10 @@ String VisualGasicLanguage::evaluate_expression_in_context(const String& express
     // Try to get a variable value first (simple case)
     Variant result;
     if (instance->get(StringName(trimmed), result)) {
+        return String(result);
+    }
+    result = VisualGasicInstance::lookup_builtin_constant(trimmed);
+    if (result.get_type() != Variant::NIL) {
         return String(result);
     }
     
@@ -4724,23 +4925,53 @@ int VisualGasicLanguage::get_live_script_count() {
 // ============================================================================
 
 void VisualGasicLanguage::vg_debug_wait() {
+    const String wait_file = get_break_file();
+    const int wait_line = get_break_line();
+    const int wait_depth = get_current_stack_depth();
+    note_debug_wait_at(wait_file, wait_line, wait_depth);
+
+    if (debug_trace_active) {
+        debug_trace_lines.push_back(wait_line);
+        if (debug_autostep_remaining > 1) {
+            debug_autostep_remaining--;
+            debug_step_into();
+        } else {
+            debug_trace_active = false;
+            step_mode = VG_STEP_NONE;
+            clear_step_resume_anchor();
+        }
+        return;
+    }
+
     VisualGasicLanguage *lang = get_singleton();
     if (!lang) return;
-    
+
     EngineDebugger *debugger = EngineDebugger::get_singleton();
     if (!debugger || !debugger->is_active()) return;
-    
-    // Enter Godot's standard debug loop — this blocks until the user
-    // presses Continue / Step / etc. in the editor's debugger panel.
-    debugger->script_debug(lang, true, false);
-    
-    // Flush any messages that arrived during or just after script_debug().
-    // This is critical for Set Next Statement: the editor sends the
-    // set_next_statement message while we're blocked, and it may not be
-    // dispatched until we poll here.
-    if (debugger->is_active()) {
-        debugger->line_poll();
+
+    ensure_message_capture_registered();
+    (void)lang;
+
+    // Stay out of EngineDebugger::script_debug(). That call sends debug_enter,
+    // and the editor answers with stack and remote-inspect traffic. The game's
+    // debugger thread encodes each reply before it reads the next step. A reply
+    // that fails to encode, or that is larger than the 8 MiB peer buffer, is
+    // dropped with:
+    //   Condition "err != OK || size > out_buf.size() - 4" is true.
+    // The encode is the multi-second stall between F11 and the next line.
+    // Step / continue arrive as visualgasic:debug_step_* and debug_continue.
+    waiting_for_continue = true;
+    while (waiting_for_continue && debugger->is_active()) {
+        // line_poll reads the socket once every 2048 calls.
+        for (int i = 0; i < 2048; i++) {
+            debugger->line_poll();
+        }
+        if (!waiting_for_continue || get_step_mode() != VG_STEP_NONE) {
+            break;
+        }
+        OS::get_singleton()->delay_usec(1000);
     }
+    waiting_for_continue = false;
 }
 
 // ============================================================================

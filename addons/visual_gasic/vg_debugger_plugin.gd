@@ -47,14 +47,25 @@ var _vg_main_plugin: EditorPlugin = null
 
 func bind_vg_main_plugin(plugin: EditorPlugin) -> void:
 	_vg_main_plugin = plugin
+	_load_breakpoints_from_json_file()
 
-## Emit debug_break_hit only if this file:line wasn't already emitted recently
-## (within 500ms). Prevents duplicates from break_hit + debug_state arriving
-## for the same pause event.
+func _load_breakpoints_from_json_file() -> void:
+	if not FileAccess.file_exists("res://.vg_breakpoints.json"):
+		return
+	var file := FileAccess.open("res://.vg_breakpoints.json", FileAccess.READ)
+	if file == null:
+		return
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) == TYPE_DICTIONARY:
+		_breakpoints = _normalize_breakpoint_dict(parsed)
+
+## Collapse only the break_hit + stack-goto pair from a single pause.
+## A longer window hid the next real stop when it was the same source line
+## (loop body or the user stepping quickly) and looked like Step Into did nothing.
 func _emit_break_hit_deduped(file: String, line: int) -> void:
 	var now := Time.get_ticks_msec()
-	if file == _last_break_file and line == _last_break_line and (now - _last_break_time) < 500:
-		print("[VG Debugger Plugin] Skipping duplicate break_hit: ", file, ":", line)
+	if file == _last_break_file and line == _last_break_line and (now - _last_break_time) < 40:
 		return
 	_last_break_file = file
 	_last_break_line = line
@@ -102,10 +113,6 @@ func _goto_script_line(script: Script, line: int) -> void:
 		_emit_break_hit_deduped(script.resource_path, one_based_line)
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
-	# Debug: Log all messages to see what's coming through
-	if message.begins_with("visualgasic"):
-		print("[VG Debugger Plugin] _capture received: ", message, " data size: ", data.size())
-	
 	if not message.begins_with("visualgasic:"):
 		return false
 	
@@ -132,6 +139,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				EditorInterface.get_base_control().add_child(_breakpoint_poll_timer)
 			_breakpoint_poll_timer.start()
 			debug_session_started.emit()
+			_push_editor_breakpoints_to_game()
 	
 	var command = message.substr(12)  # Strip "visualgasic:"
 	
@@ -188,16 +196,13 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			var current_file = state.get("current_file", "")
 			var current_line = state.get("current_line", 0)
 			print("[VG Debugger Plugin] debug_state file: '", current_file, "' line: ", current_line)
-			if not current_file.is_empty() and current_line > 0:
-				print("[VG Debugger Plugin] Navigating from debug_state...")
-				_navigate_to_script_line(current_file, current_line)
-				_emit_break_hit_deduped(current_file, current_line)
+			# break_hit already navigates + updates Immediate; debug_state is status-only
+			# (emitting break_hit here duplicated "Paused at line N" on one VM checkpoint).
 			return true
 		
 		"break_hit":
 			# Received notification that a breakpoint or step was hit
 			if data.size() >= 2:
-				print("[VG Debugger Plugin] Received break_hit: ", data[0], ":", data[1])
 				# Navigate directly to the script line
 				_navigate_to_script_line(data[0], data[1])
 				_emit_break_hit_deduped(data[0], data[1])
@@ -313,8 +318,10 @@ func _setup_session(session_id: int) -> void:
 		# Notify listeners that a debug session is now active (enables Stop button etc.)
 		debug_session_started.emit()
 		
-		# Poll breakpoints from ScriptEditor immediately
-		_poll_breakpoints_from_editor()
+		# Always push current gutters so a cleared breakpoint overwrites stale JSON
+		# before the game's first line check. Do not go through _poll — that can
+		# treat a not-yet-active session as "gone".
+		_push_editor_breakpoints_to_game()
 		
 		# Start polling timer - Godot doesn't call _breakpoint_set_in_tree for custom languages
 		# Note: EditorDebuggerPlugin is RefCounted, not Node, so add timer to editor base
@@ -325,11 +332,9 @@ func _setup_session(session_id: int) -> void:
 			EditorInterface.get_base_control().add_child(_breakpoint_poll_timer)
 		_breakpoint_poll_timer.start()
 
-func _on_session_breaked(can_debug: bool) -> void:
-	"""Called when the remote game enters break state."""
-	# When we break, request the current debug state from the game
-	if _active_session:
-		_active_session.send_message("visualgasic:get_debug_state", [])
+func _on_session_breaked(_can_debug: bool) -> void:
+	## break_hit already carries the file and line.
+	pass
 
 func _on_session_continued() -> void:
 	"""Called when the remote game continues from break."""
@@ -375,7 +380,9 @@ func _poll_breakpoints_from_editor() -> void:
 			instances_updated.emit([])
 			debug_session_stopped.emit()
 			return
-	
+	_push_editor_breakpoints_to_game(false)
+
+func _push_editor_breakpoints_to_game(force_sync: bool = true) -> void:
 	var new_breakpoints: Dictionary = {}
 	# Primary: embedded VG Code Editor gutters (ScriptEditor never sees .vg breakpoints).
 	if is_instance_valid(_vg_main_plugin) and _vg_main_plugin.has_method("get_debugger_breakpoints"):
@@ -383,6 +390,9 @@ func _poll_breakpoints_from_editor() -> void:
 	else:
 		var script_editor = EditorInterface.get_script_editor()
 		if not script_editor:
+			if force_sync or not _breakpoints.is_empty():
+				_breakpoints = {}
+				_sync_breakpoints_to_game()
 			return
 		var bp_strings = script_editor.get_breakpoints()
 		for bp_str in bp_strings:
@@ -398,9 +408,10 @@ func _poll_breakpoints_from_editor() -> void:
 			if line not in new_breakpoints[path]:
 				new_breakpoints[path].append(line)
 		new_breakpoints = _normalize_breakpoint_dict(new_breakpoints)
-	if new_breakpoints != _breakpoints:
-		_breakpoints = new_breakpoints
-		_sync_breakpoints_to_game()
+	if not force_sync and _breakpoint_fingerprint(new_breakpoints) == _breakpoint_fingerprint(_breakpoints):
+		return
+	_breakpoints = new_breakpoints
+	_sync_breakpoints_to_game()
 
 # ============================================================================
 # BREAKPOINT HANDLING - Required for custom script debugging
@@ -454,6 +465,21 @@ static func normalize_vg_script_path(path: String) -> String:
 	if abs_path.begins_with(project_root):
 		return "res://" + abs_path.substr(project_root.length())
 	return path
+
+func _breakpoint_fingerprint(raw: Dictionary) -> String:
+	var keys: Array = raw.keys()
+	keys.sort()
+	var bits: PackedStringArray = PackedStringArray()
+	for k in keys:
+		var lines: Array = []
+		for ln in raw[k]:
+			lines.append(int(ln))
+		lines.sort()
+		var line_bits: PackedStringArray = PackedStringArray()
+		for ln in lines:
+			line_bits.append(str(ln))
+		bits.append(str(k) + "=" + ",".join(line_bits))
+	return ";".join(bits)
 
 func _normalize_breakpoint_dict(raw: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
@@ -534,9 +560,10 @@ func is_session_alive() -> bool:
 func debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
 	if _active_session:
-		# Set VG flags, then bare command to unblock script_debug()
+		# Unblocks the VM wait directly. Do not also send bare "continue":
+		# that command is only consumed inside Godot's script_debug loop,
+		# which VG no longer enters (it stalls the debugger thread).
 		_active_session.send_message("visualgasic:debug_continue", [])
-		_active_session.send_message("continue", [])
 
 func debug_break() -> void:
 	"""Request a pause at the next statement (VB6-style Break button)."""
@@ -553,26 +580,22 @@ func debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
 	if _active_session:
 		_active_session.send_message("visualgasic:debug_step_into", [])
-		_active_session.send_message("step", [])
 
 func debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
 	if _active_session:
 		_active_session.send_message("visualgasic:debug_step_over", [])
-		_active_session.send_message("next", [])
 
 func debug_step_out() -> void:
 	"""Step out of the current function."""
 	if _active_session:
 		_active_session.send_message("visualgasic:debug_step_out", [])
-		_active_session.send_message("out", [])
 
 func debug_stop() -> void:
 	"""Stop execution — terminate the running game process."""
-	# If paused in script_debug(), continue first so the game can exit cleanly
+	# Unblock a paused VM so the process can exit, then stop the scene.
 	if _active_session:
 		_active_session.send_message("visualgasic:debug_continue", [])
-		_active_session.send_message("continue", [])
 	# Then stop the running scene
 	EditorInterface.stop_playing_scene()
 

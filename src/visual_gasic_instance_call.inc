@@ -1,3 +1,12 @@
+void VisualGasicInstance::debug_hit_procedure_end(int line) {
+    if (line <= 0 || !VisualGasicLanguage::is_debug_hook_active()) {
+        return;
+    }
+    Statement end_marker(STMT_PASS);
+    end_marker.line = line;
+    execute_statement(&end_marker);
+}
+
 // Thin Array-based wrapper (kept for the ~15 cold callers: GUI event dispatch,
 // evaluate.inc, execute.inc, statement.cpp, the _Change handler).  It copies the
 // godot Array into a flat Variant buffer and forwards to the Variant* core.
@@ -478,12 +487,33 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // std::vector push_back per call on the hot path. pop_stack_frame guards an
     // empty stack, and runtime errors report via debug_state.current_line, so
     // gating is safe. push/pop share the SAME cached flag to stay balanced.
+    String import_src_for_debug;
+    if (owning_module && !owning_module->full_path.is_empty()) {
+        import_src_for_debug = owning_module->full_path;
+    } else if (func) {
+        for (int mi = 0; mi < imported_modules.size() && import_src_for_debug.is_empty(); mi++) {
+            ModuleNode *mast = imported_modules[mi].ast;
+            if (!mast) {
+                continue;
+            }
+            for (int si = 0; si < mast->subs.size(); si++) {
+                if (mast->subs[si] == func) {
+                    import_src_for_debug = imported_modules[mi].full_path;
+                    break;
+                }
+            }
+        }
+        if (import_src_for_debug.is_empty() && !func->source_file.is_empty()) {
+            import_src_for_debug = func->source_file;
+        }
+    }
+
     EngineDebugger *_call_debugger = EngineDebugger::get_singleton();
     const bool debug_frames_active = _call_debugger && _call_debugger->is_active();
     if (debug_frames_active) {
         String file_path;
-        if (owning_module && !owning_module->full_path.is_empty()) {
-            file_path = VisualGasicLanguage::normalize_breakpoint_script_path(owning_module->full_path);
+        if (!import_src_for_debug.is_empty()) {
+            file_path = VisualGasicLanguage::normalize_breakpoint_script_path(import_src_for_debug);
         } else if (script.is_valid()) {
             if (_debug_script_path_owner != script.ptr()) {
                 _debug_script_path = script->get_path();
@@ -498,32 +528,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     bool used_bytecode = false;
     Variant bytecode_ret;
     String prev_debug_bc_source_file = debug_bc_source_file;
-    {
-        String import_src;
-        if (owning_module && !owning_module->full_path.is_empty()) {
-            import_src = owning_module->full_path;
-        } else if (func) {
-            for (int mi = 0; mi < imported_modules.size() && import_src.is_empty(); mi++) {
-                ModuleNode *mast = imported_modules[mi].ast;
-                if (!mast) {
-                    continue;
-                }
-                for (int si = 0; si < mast->subs.size(); si++) {
-                    if (mast->subs[si] == func) {
-                        import_src = imported_modules[mi].full_path;
-                        break;
-                    }
-                }
-            }
-            if (import_src.is_empty() && !func->source_file.is_empty()) {
-                import_src = func->source_file;
-            }
-        }
-        if (!import_src.is_empty()) {
-            debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(import_src);
-        } else {
-            debug_bc_source_file = String();
-        }
+    if (!import_src_for_debug.is_empty()) {
+        debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(import_src_for_debug);
+    } else {
+        debug_bc_source_file = String();
     }
     if (chunk_for_locals) {
         // v2.5: No more variables.duplicate(true) deep copy!
@@ -606,6 +614,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 i = jump_target;
             }
         }
+        debug_hit_procedure_end(func->end_line);
     }
 
     debug_bc_source_file = prev_debug_bc_source_file;
@@ -2413,6 +2422,19 @@ void VisualGasicInstance::exit_scope(const String& scope_name) {
     }
 }
 
+Dictionary VisualGasicInstance::get_debug_globals() const {
+    Dictionary out;
+    Array keys = variables.keys();
+    for (int i = 0; i < keys.size(); i++) {
+        String key = keys[i];
+        if (key == "Err" || key == "__vg_Printer" || builtin_constants.has(key) || key.begins_with("__")) {
+            continue;
+        }
+        out[key] = VisualGasicLanguage::debug_preview_value(variables[key]);
+    }
+    return out;
+}
+
 Dictionary VisualGasicInstance::get_debug_locals() const {
     // Return current local variables for debugger.
     // Prefers the live bytecode locals vector (debug_bc_locals) since
@@ -2424,7 +2446,7 @@ Dictionary VisualGasicInstance::get_debug_locals() const {
         for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
             const String &name = debug_bc_chunk->local_names[i];
             if (!name.is_empty() && !name.begins_with("__") && !builtin_constants.has(name)) {
-                locals[name] = (*debug_bc_locals)[i];
+                locals[name] = VisualGasicLanguage::debug_preview_value((*debug_bc_locals)[i]);
             }
         }
         return locals;
@@ -2436,7 +2458,7 @@ Dictionary VisualGasicInstance::get_debug_locals() const {
         for (int i = 0; i < current_sub->parameters.size(); i++) {
             String param_name = current_sub->parameters[i].name;
             if (variables.has(param_name)) {
-                locals[param_name] = variables[param_name];
+                locals[param_name] = VisualGasicLanguage::debug_preview_value(variables[param_name]);
             }
         }
         // Include local variables declared with Dim in the function body
@@ -2445,7 +2467,7 @@ Dictionary VisualGasicInstance::get_debug_locals() const {
             if (s && s->type == STMT_DIM) {
                 DimStatement* dim = static_cast<DimStatement*>(s);
                 if (variables.has(dim->variable_name)) {
-                    locals[dim->variable_name] = variables[dim->variable_name];
+                    locals[dim->variable_name] = VisualGasicLanguage::debug_preview_value(variables[dim->variable_name]);
                 }
             }
         }
@@ -2564,49 +2586,9 @@ Variant VisualGasicInstance::invoke_lambda(const Dictionary& lambda_dict, const 
 }
 
 void VisualGasicInstance::_send_variables_to_debugger(EngineDebugger* debugger) {
-    // Send all script variables to the editor for inspection
     if (!debugger) return;
-    
-    Dictionary vars;
-    Array keys = variables.keys();
-    for (int i = 0; i < keys.size(); i++) {
-        String key = keys[i];
-        // Skip internal objects that aren't user variables
-        if (key != "Err" && key != "__vg_Printer" && !builtin_constants.has(key)) {
-            Variant val = variables[key];
-            // Convert complex types to string representation for display
-            if (val.get_type() == Variant::OBJECT) {
-                Object* obj = val;
-                if (obj) {
-                    vars[key] = String("<") + obj->get_class() + String(">");
-                } else {
-                    vars[key] = "Nothing";
-                }
-            } else {
-                vars[key] = val;
-            }
-        }
-    }
-
-    // Include bytecode locals from the current execution frame.
-    // These live on the stack, not in the variables dictionary.
-    if (debug_bc_locals && debug_bc_chunk) {
-        for (int i = 0; i < debug_bc_chunk->local_names.size() && i < debug_bc_locals->size(); i++) {
-            const String &name = debug_bc_chunk->local_names[i];
-            if (!name.is_empty() && !name.begins_with("__") && !builtin_constants.has(name) && !vars.has(name)) {
-                Variant val = (*debug_bc_locals)[i];
-                if (val.get_type() == Variant::OBJECT) {
-                    Object* obj = val;
-                    vars[name] = obj ? (String("<") + obj->get_class() + String(">")) : String("Nothing");
-                } else {
-                    vars[name] = val;
-                }
-            }
-        }
-    }
-    
     Array data;
-    data.push_back(vars);
+    data.push_back(get_debug_globals());
     debugger->send_message("visualgasic:variables_list", data);
 }
 

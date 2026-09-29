@@ -378,6 +378,12 @@ func _setup_auto_indent() -> void:
 
 	# ── Feature #4: Ctrl+Click Go To Definition ──
 	symbol_lookup_on_click = true
+	# Godot 4.6 native symbol tooltips use TooltipPanel (dark editor chrome).
+	# VG shows Data Tips instead (cream / black). Keep native hover off.
+	if "symbol_tooltip_on_hover" in self:
+		symbol_tooltip_on_hover = false
+	if has_method("set_tooltip_request_func"):
+		set_tooltip_request_func(_vg_native_tooltip_request)
 
 	# ── Feature #14: Highlight Current Line ──
 	highlight_current_line = true
@@ -974,6 +980,11 @@ func _connect_signals() -> void:
 	# Feature #4: Ctrl+Click Go To Definition
 	symbol_validate.connect(_on_symbol_validate)
 	symbol_lookup.connect(_on_symbol_lookup)
+	mouse_exited.connect(_on_code_edit_mouse_exited)
+
+func _on_code_edit_mouse_exited() -> void:
+	if _data_tips_ref and _data_tips_ref.has_method("hide_tip"):
+		_data_tips_ref.hide_tip()
 
 # =============================================================================
 # CODE COMPLETION
@@ -1972,6 +1983,18 @@ func _parse_variables() -> void:
 		var type_str := m.get_string(2)
 		if not type_str.is_empty():
 			_variable_types[var_name.to_lower()] = type_str
+
+	# Parameters: ByVal keycode As Integer
+	var param_regex := RegEx.new()
+	param_regex.compile("(?i)(?:ByVal|ByRef)\\s+(\\w+)(?:\\s+As\\s+(\\w+))?")
+	var param_matches := param_regex.search_all(text)
+	for pm in param_matches:
+		var pname = pm.get_string(1)
+		if pname not in _known_variables:
+			_known_variables.append(pname)
+		var ptype := pm.get_string(2)
+		if not ptype.is_empty():
+			_variable_types[pname.to_lower()] = ptype
 	
 	# Also catch "Set x = New Type" patterns for type inference
 	var set_regex := RegEx.new()
@@ -2161,6 +2184,15 @@ func _scan_imported_modules(lines: PackedStringArray) -> void:
 ## Parses a .vg module file and extracts its public Subs, Functions, Variables, and Constants.
 func _parse_module_symbols(file_path: String, mod_name: String) -> Dictionary:
 	return VGGoToDefinition.parse_module_file(file_path, mod_name)
+
+func _vg_native_tooltip_request(_at_pos: Variant) -> String:
+	# Empty string disables Godot's TooltipPanel. Data Tips owns identifier hover.
+	return ""
+
+func _make_custom_tooltip(for_text: String) -> Object:
+	if for_text.is_empty():
+		return null
+	return _VGTheme.make_tooltip_control(for_text)
 
 # =============================================================================
 # BRACKET MATCHING
@@ -2400,8 +2432,8 @@ func _gui_input(event: InputEvent) -> void:
 			# ── Feature #23: Expand / Shrink Selection (Alt+Shift+Up / Alt+Shift+Down) ──
 			# Note: Alt+Up without shift is Move Lines (feature #1)
 
-# ── Data Tips: forward mouse motion to VGDataTips for hover-to-inspect ──
-	if event is InputEventMouseMotion and _is_debug_paused and _data_tips_ref and not _arrow_dragging:
+# ── Data Tips: forward mouse motion to VGDataTips (cream overlay, not Godot tooltip)
+	if event is InputEventMouseMotion and _data_tips_ref and not _arrow_dragging:
 		var mm := event as InputEventMouseMotion
 		_data_tips_ref.check_hover(self, mm.position)
 
@@ -2462,13 +2494,10 @@ func _show_parameter_hint() -> void:
 	if func_name.is_empty():
 		return
 	
-	# Look up function signature
+	# Look up function signature — do not use Control.tooltip_text (Godot dark tooltip).
 	for func_info in VGIntelliSense.BUILTIN_FUNCTIONS:
 		if func_info["name"].to_lower() == func_name.to_lower():
-			# Show tooltip with signature
-			tooltip_text = func_info["signature"] + "\n" + func_info["description"]
 			return
-	
 	tooltip_text = ""
 
 # =============================================================================
@@ -2679,7 +2708,7 @@ func _update_file_path_link_cursor(at: Vector2) -> void:
 		))
 	_file_path_hover = hover
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if not hover.is_empty() else Control.CURSOR_IBEAM
-	tooltip_text = "Right-click for file actions" if not hover.is_empty() else ""
+	# Native tooltip_text retriggers on every mouse move; Data Tips overlay handles hover.
 	if changed and _features_overlay:
 		_features_overlay.queue_redraw()
 
@@ -3212,7 +3241,7 @@ func _on_arrow_overlay_draw() -> void:
 	# ── Dragging: ghost at original + solid at drag target ──
 	if _arrow_dragging and _arrow_drag_line >= 0:
 		# Ghost arrow at the original executing line (dimmed)
-		if _executing_line >= 0:
+		if _executing_line >= 0 and _executing_line < get_line_count():
 			var opos := get_pos_at_line_column(_executing_line, 0)
 			var oy := float(opos.y) - rh
 			if opos.y >= 0 and oy < size.y:
@@ -3228,7 +3257,7 @@ func _on_arrow_overlay_draw() -> void:
 				_draw_yellow_arrow_on(dy, rh, Color(1.0, 0.85, 0.0, 1.0))
 	
 	# ── Not dragging: solid arrow at executing line ──
-	elif _is_debug_paused and _executing_line >= 0:
+	elif _is_debug_paused and _executing_line >= 0 and _executing_line < get_line_count():
 		var epos := get_pos_at_line_column(_executing_line, 0)
 		var ey := float(epos.y) - rh
 		if epos.y >= 0 and ey < size.y:
@@ -3282,6 +3311,8 @@ func _get_line_at_y(y: float) -> int:
 
 ## Set the executing line indicator (0-based line index). Call with -1 to clear.
 func set_executing_line(line: int) -> void:
+	if line >= get_line_count():
+		line = -1
 	_executing_line = line
 	if line >= 0:
 		_ensure_arrow_overlay()
@@ -3382,9 +3413,11 @@ var _bp_condition_line: int = -1
 signal breakpoint_condition_set(line: int, condition: String)
 
 func _on_breakpoint_toggled(line: int) -> void:
-	# Emit for the debugger plugin to pick up
+	# Godot emits this with the old line number when a longer file is replaced
+	# by a shorter one. Touching that line raises TextEdit's out-of-bounds error.
+	if line < 0 or line >= get_line_count():
+		return
 	if not is_line_breakpointed(line):
-		# Breakpoint was removed — clean up condition
 		_breakpoint_conditions.erase(line)
 
 func toggle_breakpoint(line: int) -> void:

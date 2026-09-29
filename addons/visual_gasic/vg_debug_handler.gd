@@ -432,8 +432,14 @@ func _send_debug_state() -> void:
 	}
 	if ClassDB.class_exists(&"VisualGasicLanguage"):
 		state["step_mode"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_step_mode")
-		state["current_line"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_line")
-		state["current_file"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_file")
+		var break_file: String = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_break_file")
+		var break_line: int = int(ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_break_line"))
+		if not break_file.is_empty() and break_line > 0:
+			state["current_file"] = break_file
+			state["current_line"] = break_line
+		else:
+			state["current_line"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_line")
+			state["current_file"] = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_get_current_debug_file")
 	EngineDebugger.send_message("visualgasic:debug_state", [state])
 
 func has_breakpoint(script_path: String, line: int) -> bool:

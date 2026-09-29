@@ -9,8 +9,10 @@ var _repl: Object = null
 var _vg_repl: RefCounted = null  # VisualGasicImmediate instance
 var _history: Array[String] = []
 var _history_index: int = -1
-var _output_text: RichTextLabel
-var _input_field: CodeEdit
+## VB6-style single pane: scrollback + type anywhere (caret moves with arrow keys).
+var _console_field: CodeEdit
+var _input_field: CodeEdit  # same node as _console_field after _ready UI build
+var _bbcode_stripper: RegEx
 var _send_button: Button
 var _clear_button: Button
 var _variables: Dictionary = {}
@@ -57,6 +59,7 @@ var _vars_label: Label = null  # Label showing variable count
 # Debug session state — tracked locally from signals rather than polling
 # the debugger plugin, because is_session_active() can return false during break.
 var _debug_session_active: bool = false
+var _step_command_pending: bool = false
 
 # Debug toolbar buttons (stored for enable/disable based on debug state)
 var _btn_continue: Button = null
@@ -217,7 +220,11 @@ func _on_debug_session_stopped() -> void:
 func _on_debug_session_continued() -> void:
 	## Called when the game resumes from a breakpoint — only Stop is active
 	_debug_session_active = true
-	set_debug_active(true, false)
+	if _step_command_pending:
+		# Stepping: keep step controls enabled until the next break_hit.
+		set_debug_active(true, true)
+	else:
+		set_debug_active(true, false)
 
 func _on_debug_session_started() -> void:
 	## Called when a debug session begins — game is running, only Stop is active
@@ -270,6 +277,7 @@ func _setup_ui():
 	
 	_clear_button = Button.new()
 	_clear_button.text = "Clear"
+	_clear_button.tooltip_text = "Clear the Immediate window (:clear or Ctrl+L)"
 	_clear_button.pressed.connect(_on_clear_pressed)
 	toolbar.add_child(_clear_button)
 	
@@ -387,56 +395,40 @@ func _setup_ui():
 	status_panel.add_child(_debug_status_label)
 	debug_toolbar.add_child(status_panel)
 	
-	# Output area
-	_output_text = RichTextLabel.new()
-	_output_text.bbcode_enabled = true
-	_output_text.scroll_following = true
-	_output_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_output_text.custom_minimum_size = Vector2(0, 0)
-	_output_text.context_menu_enabled = true
-	_output_text.selection_enabled = true
-	console_vbox.add_child(_output_text)
-	# Style the built-in context menu so it's readable on dark backgrounds
-	_style_context_menu(_output_text.get_menu())
-	
-	# Input area with multi-line support
-	var input_container = VBoxContainer.new()
-	console_vbox.add_child(input_container)
-	
-	var input_label = Label.new()
-	input_label.text = "Input (Shift+Enter for new line, Enter to execute):"
-	input_container.add_child(input_label)
-	
-	var input_hbox = HBoxContainer.new()
-	input_container.add_child(input_hbox)
-	
-	_input_field = CodeEdit.new()
-	_input_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_input_field.custom_minimum_size = Vector2(0, 0)
-	_input_field.placeholder_text = "Type expression or statement... (Shift+Enter: new line, Enter: execute)"
-	_input_field.syntax_highlighter = _create_syntax_highlighter()
-	_input_field.gutters_draw_line_numbers = true
-	_input_field.auto_brace_completion_enabled = true
+	_bbcode_stripper = RegEx.new()
+	_bbcode_stripper.compile("\\[[^\\]]*\\]")
+
+	# VB6-style unified Immediate pane (output + input in one editor)
+	_console_field = CodeEdit.new()
+	_console_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_console_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_console_field.custom_minimum_size = Vector2(0, 120)
+	_console_field.syntax_highlighter = _create_syntax_highlighter()
+	_console_field.gutters_draw_line_numbers = true
+	_console_field.auto_brace_completion_enabled = true
+	_console_field.scroll_smooth = true
+	_console_field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	# Disable built-in code completion — it hijacks Enter to accept GDScript
 	# completions (e.g. replacing 'Prin' with 'print'), corrupting VB6 input.
 	# The Immediate Window has its own completion via Ctrl+Space instead.
-	_input_field.code_completion_enabled = false
-	_input_field.gui_input.connect(_on_input_gui_input)
-	input_hbox.add_child(_input_field)
-	# Style the CodeEdit's built-in context menu
-	_style_context_menu(_input_field.get_menu())
-	
+	_console_field.code_completion_enabled = false
+	_console_field.gui_input.connect(_on_input_gui_input)
+	console_vbox.add_child(_console_field)
+	_input_field = _console_field
+	_style_context_menu(_console_field.get_menu())
+
 	# Auto-complete popup — VB6-style IntelliSense for the Immediate Window
 	_auto_complete_popup = PopupMenu.new()
 	_auto_complete_popup.name = "ImmAutoComplete"
 	_auto_complete_popup.max_size = Vector2i(350, 300)
 	_auto_complete_popup.id_pressed.connect(_on_autocomplete_selected)
 	add_child(_auto_complete_popup)
-	
+
 	_send_button = Button.new()
-	_send_button.text = "Execute\n(Enter)"
+	_send_button.text = "Execute line"
+	_send_button.tooltip_text = "Run the line where the caret is (Enter)"
 	_send_button.pressed.connect(_on_send_pressed)
-	input_hbox.add_child(_send_button)
+	toolbar.add_child(_send_button)
 	
 	# Right side: Tabbed panels (Variables, Watch, Inspector)
 	_right_tabs = TabContainer.new()
@@ -703,7 +695,7 @@ func _show_welcome():
 func _show_help():
 	_append_output("\n[b]Available Commands:[/b]\n")
 	_append_output("  :help     - Show this help message\n")
-	_append_output("  :clear    - Clear output window\n")
+	_append_output("  :clear    - Clear Immediate window\n")
 	_append_output("  :vars     - List all variables\n")
 	_append_output("  :history  - Show command history\n")
 	_append_output("  :reset    - Reset console state\n")
@@ -723,12 +715,13 @@ func _show_help():
 	_append_output("  Dim x As Integer = 42\n")
 	_append_output("  x * 2\n")
 	_append_output("  Len(\"Hello World\")\n")
-	_append_output("\n[b]Shortcuts:[/b]\n")
-	_append_output("  Shift+Enter - New line without executing\n")
-	_append_output("  Enter - Execute code\n")
+	_append_output("\nShortcuts:\n")
+	_append_output("  Enter - Execute the line where the caret is\n")
+	_append_output("  Shift+Enter - Insert a new line (multi-line statements)\n")
+	_append_output("  Arrow keys - Move the caret anywhere in the scrollback (VB6-style)\n")
 	_append_output("  Ctrl+R - Repeat last command\n")
-	_append_output("  Ctrl+L - Clear output\n")
-	_append_output("  Up/Down - Navigate history\n\n")
+	_append_output("  Ctrl+L or :clear - Clear the window\n")
+	_append_output("  Up/Down (at end) - Command history\n\n")
 
 func _on_input_submitted(text: String):
 	_execute_input(text)
@@ -740,8 +733,8 @@ func _on_input_gui_input(event: InputEvent):
 				# Shift+Enter: new line (default behavior)
 				return
 			else:
-				# Enter alone: execute
-				_execute_input(_input_field.text)
+				# Enter alone: execute the line under the caret (VB6 Immediate)
+				_execute_caret_line()
 				accept_event()
 		elif event.keycode == KEY_R and event.ctrl_pressed:
 			_repeat_last()
@@ -771,7 +764,16 @@ func _on_input_gui_input(event: InputEvent):
 				accept_event()
 
 func _on_send_pressed():
-	_execute_input(_input_field.text)
+	_execute_caret_line()
+
+func _execute_caret_line() -> void:
+	if not is_instance_valid(_console_field):
+		return
+	var line_idx := _console_field.get_caret_line()
+	var line_text := _console_field.get_line(line_idx).strip_edges()
+	if line_text.begins_with(">"):
+		line_text = line_text.substr(1).strip_edges()
+	_execute_input(line_text)
 
 func _execute_input(input: String):
 	if input.strip_edges().is_empty():
@@ -788,7 +790,7 @@ func _execute_input(input: String):
 	# Process commands
 	if input.begins_with(":"):
 		_process_command(input)
-		_input_field.clear()
+		_focus_console_end()
 		_update_watch_expressions()
 		return
 	
@@ -801,7 +803,7 @@ func _execute_input(input: String):
 	_refresh_variables()
 	_update_watch_expressions()
 	
-	_input_field.clear()
+	_focus_console_end()
 
 func _process_command(cmd: String):
 	var parts = cmd.substr(1).split(" ", false, 1)
@@ -812,8 +814,7 @@ func _process_command(cmd: String):
 		"help":
 			_show_help()
 		"clear":
-			_output_text.clear()
-			_show_welcome()
+			_on_clear_pressed()
 		"vars":
 			_show_variables()
 		"history":
@@ -862,7 +863,8 @@ func _show_history():
 		_append_output("\n")
 
 func _reset_console():
-	_output_text.clear()
+	if is_instance_valid(_console_field):
+		_console_field.clear()
 	_history.clear()
 	_session_history.clear()
 	_history_index = -1
@@ -1028,11 +1030,35 @@ func _get_type_name(value: Variant) -> String:
 		TYPE_OBJECT: return VGIntelliSense.to_vb6_type_name(value.get_class()) if value != null else "Object"
 		_: return "Variant"
 
-func _append_output(text: String):
-	_output_text.append_text(text)
+func _strip_bbcode(text: String) -> String:
+	if _bbcode_stripper == null:
+		return text
+	return _bbcode_stripper.sub(text, "", true)
+
+func _append_output(text: String) -> void:
+	if not is_instance_valid(_console_field):
+		return
+	var plain := _strip_bbcode(text)
+	var vscroll := _console_field.get_v_scroll_bar()
+	var at_bottom := vscroll.max_value <= 0.0 or vscroll.value >= vscroll.max_value - 8.0
+	var last_line := maxi(_console_field.get_line_count() - 1, 0)
+	_console_field.set_caret_line(last_line)
+	_console_field.set_caret_column(_console_field.get_line(last_line).length())
+	_console_field.insert_text_at_caret(plain)
+	if at_bottom:
+		_focus_console_end()
+
+func _focus_console_end() -> void:
+	if not is_instance_valid(_console_field):
+		return
+	var last_line := maxi(_console_field.get_line_count() - 1, 0)
+	_console_field.set_caret_line(last_line)
+	_console_field.set_caret_column(_console_field.get_line(last_line).length())
+	_console_field.center_viewport_to_caret()
 
 func _on_clear_pressed():
-	_output_text.clear()
+	if is_instance_valid(_console_field):
+		_console_field.clear()
 	_show_welcome()
 
 func _input(event: InputEvent):
@@ -1077,24 +1103,39 @@ func _is_debug_session_paused() -> bool:
 		return true
 	return false
 
+func _set_immediate_draft(text: String) -> void:
+	if not is_instance_valid(_console_field):
+		return
+	_focus_console_end()
+	var last := maxi(_console_field.get_line_count() - 1, 0)
+	if _console_field.get_line(last).strip_edges().is_empty():
+		_console_field.set_line(last, text)
+	else:
+		_console_field.insert_text_at_caret("\n" + text)
+		last = _console_field.get_line_count() - 1
+	_console_field.set_caret_line(last)
+	_console_field.set_caret_column(_console_field.get_line(last).length())
+	_console_field.grab_focus()
+
 func _history_previous():
 	if _history.is_empty():
 		return
 	_history_index = max(0, _history_index - 1)
-	_input_field.text = _history[_history_index]
-	_input_field.set_caret_line(_input_field.get_line_count() - 1)
-	_input_field.set_caret_column(_input_field.get_line(_input_field.get_line_count() - 1).length())
+	var line_idx := _console_field.get_caret_line()
+	_console_field.set_line(line_idx, _history[_history_index])
+	_console_field.set_caret_column(_history[_history_index].length())
 
 func _history_next():
 	if _history.is_empty():
 		return
 	_history_index = min(_history.size(), _history_index + 1)
+	var line_idx := _console_field.get_caret_line()
 	if _history_index < _history.size():
-		_input_field.text = _history[_history_index]
+		_console_field.set_line(line_idx, _history[_history_index])
+		_console_field.set_caret_column(_history[_history_index].length())
 	else:
-		_input_field.text = ""
-	_input_field.set_caret_line(_input_field.get_line_count() - 1)
-	_input_field.set_caret_column(_input_field.get_line(_input_field.get_line_count() - 1).length())
+		_console_field.set_line(line_idx, "")
+		_console_field.set_caret_column(0)
 
 # === NEW FEATURES ===
 
@@ -1518,8 +1559,7 @@ func _on_var_context_menu_selected(id: int):
 	
 	match id:
 		0:  # Insert in Input
-			_input_field.text = var_name
-			_input_field.grab_focus()
+			_set_immediate_draft(var_name)
 		1:  # Go to Definition
 			_go_to_variable_definition(var_name)
 		2:  # Rename in Current Scope
@@ -2080,8 +2120,7 @@ func _on_watch_item_activated():
 	var selected = _watch_tree.get_selected()
 	if selected:
 		var expr = selected.get_text(0)
-		_input_field.text = expr
-		_input_field.grab_focus()
+		_set_immediate_draft(expr)
 
 func _edit_watch_condition(expr: String) -> void:
 	## Show a dialog to edit the condition for a watch expression.
@@ -2215,13 +2254,11 @@ func _on_inspector_item_activated():
 		if "obj" in meta and "prop" in meta:
 			# Copy property access to input
 			var obj_name = "obj" # Would need to track variable name
-			_input_field.text = obj_name + "." + meta["prop"]
-			_input_field.grab_focus()
+			_set_immediate_draft(obj_name + "." + meta["prop"])
 		elif "obj" in meta and "method" in meta:
 			# Insert method call
 			var obj_name = "obj"
-			_input_field.text = obj_name + "." + meta["method"] + "()"
-			_input_field.grab_focus()
+			_set_immediate_draft(obj_name + "." + meta["method"] + "()")
 		elif "obj" in meta:
 			# Inspect nested object
 			_inspect_object(meta["obj"])
@@ -2254,8 +2291,7 @@ func _filter_inspector(text: String):
 
 func _repeat_last():
 	if not _history.is_empty():
-		_input_field.text = _history[_history.size() - 1]
-		_input_field.grab_focus()
+		_set_immediate_draft(_history[_history.size() - 1])
 
 func _save_session():
 	var dialog = FileDialog.new()
@@ -2386,20 +2422,10 @@ func _on_remote_variable_received(var_name: String, value: Variant) -> void:
 		_append_output("[color=lime]" + var_name + " = " + str(value) + "[/color] [color=gray](remote)[/color]\n")
 
 func _on_remote_variables_received(variables: Dictionary) -> void:
-	"""Called when debugger receives all variables from an instance"""
-	# Update the session variables dictionary with remote variables
+	"""Called when debugger receives locals from the paused procedure."""
 	_variables = variables.duplicate()
-	
-	# Only print to output if not auto-refreshing (to avoid spam)
-	if not _auto_refresh_timer or not _auto_refresh_timer.time_left > 0 or not _auto_refresh_enabled:
-		if variables.is_empty():
-			_append_output("[color=gray]No variables found in instance[/color]\n")
-		else:
-			_append_output("[b]Remote Instance Variables:[/b]\n")
-			for key in variables.keys():
-				_append_output("  [color=lime]%s[/color] = %s\n" % [key, str(variables[key])])
-	
-	# Refresh the Variables panel tree
+	# The Variables tree is the view. Printing every name into the console
+	# on each step rewrites a highlighted CodeEdit and makes F11 unusable.
 	_update_variables_tree()
 	
 	# Also update watch expressions with the new variable values
@@ -2890,6 +2916,7 @@ func _parse_array_literal(inner: String) -> Array:
 
 func _on_debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
+	_step_command_pending = false
 	if _debugger_plugin and _debugger_plugin.is_session_active():
 		_debugger_plugin.debug_continue()
 		_update_debug_status("Running...")
@@ -2910,28 +2937,28 @@ func _on_debug_break() -> void:
 
 func _on_debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
+	_step_command_pending = true
 	if _debugger_plugin and _debugger_plugin.is_session_active():
 		_debugger_plugin.debug_step_over()
 		_update_debug_status("Stepping over...")
-		_append_output("[color=cyan]⤵ Step over[/color]\n")
 	else:
 		_append_output("[color=yellow]No active debug session[/color]\n")
 
 func _on_debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
+	_step_command_pending = true
 	if _debugger_plugin and _debugger_plugin.is_session_active():
 		_debugger_plugin.debug_step_into()
 		_update_debug_status("Stepping into...")
-		_append_output("[color=cyan]↓ Step into[/color]\n")
 	else:
 		_append_output("[color=yellow]No active debug session[/color]\n")
 
 func _on_debug_step_out() -> void:
 	"""Step out of the current function."""
+	_step_command_pending = true
 	if _debugger_plugin and _debugger_plugin.is_session_active():
 		_debugger_plugin.debug_step_out()
 		_update_debug_status("Stepping out...")
-		_append_output("[color=cyan]↑ Step out[/color]\n")
 	else:
 		_append_output("[color=yellow]No active debug session[/color]\n")
 
@@ -2954,18 +2981,12 @@ func _update_debug_status(status: String) -> void:
 
 func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit."""
+	_step_command_pending = false
 	_debug_session_active = true
 	_update_debug_status("⏸ Paused at %s:%d" % [file.get_file(), line])
-	_append_output("[color=yellow]⏸ Paused at %s line %d[/color]\n" % [file.get_file(), line])
-	# Enable all debug buttons — we are paused at a breakpoint
 	set_debug_active(true, true)
-	# Switch to Variables tab to show current state
-	if _right_tabs:
-		_right_tabs.current_tab = 0  # Vars tab
-	# Auto-connect to the remote debug session if not already connected
 	if not _is_connected_to_remote() and _debugger_plugin and _debugger_plugin.is_session_active():
 		_refresh_running_instances()
-	# Navigate to the line in the script editor
 	_go_to_script_line(file, line)
 
 func _on_debug_print_received(text: String) -> void:

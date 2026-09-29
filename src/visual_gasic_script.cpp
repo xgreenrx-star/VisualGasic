@@ -138,6 +138,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_RETURN_VALUE);
         OP_NAME_CASE(OP_PRINT);
         OP_NAME_CASE(OP_DEBUG_PRINT);
+        OP_NAME_CASE(OP_DEBUG_LINE);
         OP_NAME_CASE(OP_NEW_ARRAY);
         OP_NAME_CASE(OP_NEW_ARRAY_I64);
         OP_NAME_CASE(OP_NEW_DICT);

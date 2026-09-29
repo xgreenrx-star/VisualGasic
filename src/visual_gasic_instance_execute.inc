@@ -39,21 +39,23 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 int current_depth = VisualGasicLanguage::get_current_stack_depth();
                 int target_depth = VisualGasicLanguage::get_step_target_depth();
                 
+                bool step_wants_break = false;
                 switch (current_step_mode) {
                     case VG_STEP_INTO:
-                        should_break = true;
+                        step_wants_break = true;
                         break;
                     case VG_STEP_OVER:
-                        should_break = (current_depth <= target_depth);
+                        step_wants_break = (current_depth <= target_depth);
                         break;
                     case VG_STEP_OUT:
-                        should_break = (current_depth <= target_depth);
+                        step_wants_break = (current_depth <= target_depth);
                         break;
                     default:
                         break;
                 }
-                
-                if (should_break) {
+
+                if (step_wants_break) {
+                    should_break = true;
                     VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
                 }
             }
@@ -67,7 +69,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 break_data.push_back(src_line);
                 engine_debugger->send_message("visualgasic:break_hit", break_data);
                 
-                _send_variables_to_debugger(engine_debugger);
+                Array locals_msg;
+                locals_msg.push_back(get_debug_locals());
+                engine_debugger->send_message("visualgasic:variables_list", locals_msg);
                 _send_call_stack_to_debugger(engine_debugger);
                 engine_debugger->line_poll();
                 
@@ -964,6 +968,44 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                              resolved_method = "select_all";
                          }
 
+                         Variant vg_canvas_ret;
+                         if (try_vg_vector_canvas_call(obj, s->method_name, call_args, vg_canvas_ret)) {
+                             break;
+                         }
+                         {
+                             CanvasItem *ci_draw = Object::cast_to<CanvasItem>(obj);
+                             String ml = s->method_name.to_lower();
+                             if (ci_draw && (ml == "drawrect" || ml == "draw_rect") && call_args.size() >= 1 && call_args[0].get_type() == Variant::RECT2) {
+                                 bool fill = true;
+                                 Color col(1, 1, 1, 1);
+                                 if (call_args.size() >= 5) {
+                                     fill = (bool)call_args[3];
+                                     col = fill ? Color(call_args[4]) : Color(call_args[2]);
+                                 } else {
+                                     if (call_args.size() > 1) col = Color(call_args[1]);
+                                     if (call_args.size() > 2) fill = (bool)call_args[2];
+                                 }
+                                 safe_canvas_draw_rect(ci_draw, (Rect2)call_args[0], col, fill);
+                                 break;
+                             }
+                             if (ci_draw && (ml == "drawline" || ml == "draw_line") && call_args.size() >= 2 && call_args[0].get_type() == Variant::VECTOR2) {
+                                 float width = call_args.size() > 2 ? (float)call_args[2] : 2.0f;
+                                 Color col = call_args.size() > 3 ? Color(call_args[3]) : Color(1, 1, 1, 1);
+                                 safe_canvas_draw_line(ci_draw, (Vector2)call_args[0], (Vector2)call_args[1], col, width);
+                                 break;
+                             }
+                             if (ci_draw && (ml == "drawcircle" || ml == "draw_circle") && call_args.size() >= 2 && call_args[0].get_type() == Variant::VECTOR2) {
+                                 Color col = call_args.size() > 2 ? Color(call_args[2]) : Color(1, 1, 1, 1);
+                                 safe_canvas_draw_circle(ci_draw, (Vector2)call_args[0], (float)call_args[1], col);
+                                 break;
+                             }
+                         }
+
+                         String snake_skip = s->method_name.to_snake_case();
+                         if (snake_skip == "draw_rect" || snake_skip == "draw_line" || snake_skip == "draw_circle") {
+                             break;
+                         }
+
                          if (obj->has_method(resolved_method)) {
                              obj->callv(resolved_method, call_args);
                          } else if (obj->has_method(s->method_name)) {
@@ -1720,14 +1762,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                     Vector2 to = call_args[1];
                                     if (call_args.size() > 2) c = (Color)call_args[2];
                                     if (call_args.size() > 3) width = (float)call_args[3];
-                                    ci->draw_line(from, to, c, width);
+                                    safe_canvas_draw_line(ci,from, to, c, width);
                                } else if (call_args.size() >= 4) {
                                     // VG style: x1, y1, x2, y2[, color][, width]
                                     double x1 = call_args[0]; double y1 = call_args[1];
                                     double x2 = call_args[2]; double y2 = call_args[3];
                                     if (call_args.size() > 4) c = (Color)call_args[4];
                                     if (call_args.size() > 5) width = (float)call_args[5];
-                                    ci->draw_line(Vector2(x1, y1), Vector2(x2, y2), c, width);
+                                    safe_canvas_draw_line(ci,Vector2(x1, y1), Vector2(x2, y2), c, width);
                                }
                           }
                      }
@@ -1746,14 +1788,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                     Rect2 rect = call_args[0];
                                     if (call_args.size() > 1) c = (Color)call_args[1];
                                     if (call_args.size() > 2) filled = (bool)call_args[2];
-                                    ci->draw_rect(rect, c, filled);
+                                    safe_canvas_draw_rect(ci,rect, c, filled);
                                } else if (call_args.size() >= 4) {
                                     // VG style: x, y, w, h[, Color][, filled]
                                     double x = call_args[0]; double y = call_args[1];
                                     double w = call_args[2]; double h = call_args[3];
                                     if (call_args.size() > 4) c = (Color)call_args[4];
                                     if (call_args.size() > 5) filled = (bool)call_args[5];
-                                    ci->draw_rect(Rect2(x, y, w, h), c, filled);
+                                    safe_canvas_draw_rect(ci,Rect2(x, y, w, h), c, filled);
                                }
                           }
                      }
@@ -1771,13 +1813,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                                     Vector2 pos = call_args[0];
                                     float r = call_args[1];
                                     if (call_args.size() > 2) c = (Color)call_args[2];
-                                    ci->draw_circle(pos, r, c);
+                                    safe_canvas_draw_circle(ci,pos, r, c);
                                } else if (call_args.size() >= 3) {
                                     // VG style: x, y, radius[, Color]
                                     double x = call_args[0]; double y = call_args[1];
                                     float r = call_args[2];
                                     if (call_args.size() > 3) c = (Color)call_args[3];
-                                    ci->draw_circle(Vector2(x,y), r, c);
+                                    safe_canvas_draw_circle(ci,Vector2(x,y), r, c);
                                }
                           }
                      }
@@ -1791,7 +1833,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                           if (owner) {
                                CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
                                // draw_primitive needs arrays. simpler to use draw_rect 1x1
-                               if (ci) ci->draw_rect(Rect2(x, y, 1, 1), c, true);
+                               if (ci) safe_canvas_draw_rect(ci,Rect2(x, y, 1, 1), c, true);
                           }
                      }
                      break;
@@ -3170,4 +3212,16 @@ bool VisualGasicInstance::try_call_vg_owner_method(Object *obj, const String &me
     }
 
     return false;
+}
+
+bool VisualGasicInstance::try_vg_vector_canvas_call(Object *obj, const String &method, const Array &args, Variant &r_ret) {
+    VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(obj);
+    if (!vc) {
+        return false;
+    }
+    if (!vc->try_call_pascal_method(method, args)) {
+        return false;
+    }
+    r_ret = Variant();
+    return true;
 }

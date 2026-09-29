@@ -598,7 +598,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                      && _entry_debugger && _entry_debugger->is_active();
     if (debug_frames_active) {
         String debug_file;
-        if (script.is_valid()) {
+        if (!debug_bc_source_file.is_empty()) {
+            debug_file = debug_bc_source_file;
+        } else if (script.is_valid()) {
             if (_debug_script_path_owner != script.ptr()) {
                 _debug_script_path = script->get_path();
                 _debug_script_path_owner = script.ptr();
@@ -7628,7 +7630,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
-                if (!engine_debugger || !engine_debugger->is_active()) {
+                if (!VisualGasicLanguage::is_debug_hook_active()) {
                     break;
                 }
 
@@ -7662,51 +7664,72 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
 
-                // Update the current stack frame line for Godot debugger
-                VisualGasicLanguage::update_stack_frame_line(src_line);
+                // Keep stack frame file/line aligned with import-module source (Play.vg not Main.vg).
+                VisualGasicLanguage::update_stack_frame_location(script_path, src_line);
 
-                // Check for step debugging using both our custom step mode AND Godot's built-in stepping
+                // Godot's built-in step (F11/F10/Shift+F11) sets lines_left and depth,
+                // then returns from script_debug. This is the same check GDScript
+                // runs on OPCODE_LINE. Our own step mode covers headless traces.
                 bool should_break = false;
-                
-                // Check our custom step mode (set by IW buttons via visualgasic:debug_* messages)
+                if (engine_debugger && engine_debugger->is_active()) {
+                    int lines_left = engine_debugger->get_lines_left();
+                    if (lines_left > 0) {
+                        if (engine_debugger->get_depth() <= 0) {
+                            lines_left -= 1;
+                            engine_debugger->set_lines_left(lines_left);
+                        }
+                        if (lines_left <= 0) {
+                            should_break = true;
+                            VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
+                        }
+                    }
+                }
+
                 VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
-                if (current_step_mode != VG_STEP_NONE && engine_debugger && engine_debugger->is_active()) {
+                if (!should_break && current_step_mode != VG_STEP_NONE && VisualGasicLanguage::is_debug_hook_active()) {
                     int current_depth = VisualGasicLanguage::get_current_stack_depth();
                     int target_depth = VisualGasicLanguage::get_step_target_depth();
                     
+                    bool step_wants_break = false;
                     switch (current_step_mode) {
                         case VG_STEP_INTO:
-                            should_break = true;
+                            step_wants_break = true;
                             break;
                         case VG_STEP_OVER:
-                            should_break = (current_depth <= target_depth);
+                            step_wants_break = (current_depth <= target_depth);
                             break;
                         case VG_STEP_OUT:
-                            should_break = (current_depth <= target_depth);
+                            step_wants_break = (current_depth <= target_depth);
                             break;
                         default:
                             break;
                     }
-                    
-                    if (should_break) {
+
+                    if (step_wants_break) {
+                        should_break = true;
                         VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
                     }
                 }
                 
                 // Unified step-break handler: pause if ANY mechanism set should_break
                 // (Godot's lines_left/depth OR our custom step mode)
-                if (should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()) {
+                if (should_break && !script_path.is_empty()) {
                     VisualGasicLanguage::set_current_break_location(script_path, src_line);
-                    
-                    Array break_data;
-                    break_data.push_back(script_path);
-                    break_data.push_back(src_line);
-                    engine_debugger->send_message("visualgasic:break_hit", break_data);
-                    
-                    _send_variables_to_debugger(engine_debugger);
-                    _send_call_stack_to_debugger(engine_debugger);
-                    engine_debugger->line_poll();
-                    
+
+                    if (engine_debugger && engine_debugger->is_active()) {
+                        Array break_data;
+                        break_data.push_back(script_path);
+                        break_data.push_back(src_line);
+                        engine_debugger->send_message("visualgasic:break_hit", break_data);
+                        // One locals dictionary. Godot's own stack-var protocol
+                        // rebuilds the inspector once per entry, so those callbacks
+                        // stay empty.
+                        Array locals_msg;
+                        locals_msg.push_back(get_debug_locals());
+                        engine_debugger->send_message("visualgasic:variables_list", locals_msg);
+                        _send_call_stack_to_debugger(engine_debugger);
+                    }
+
                     VisualGasicLanguage::vg_debug_wait();
                 }
                 
@@ -7818,7 +7841,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Check for pause request (Break/Pause button) in bytecode path
                 if (!should_break && engine_debugger && engine_debugger->is_active() && !script_path.is_empty()
-                    && VisualGasicLanguage::is_break_requested()) {
+                    && VisualGasicLanguage::is_break_requested()
+                    && VisualGasicLanguage::begin_debug_pause_at(
+                            script_path, src_line, VisualGasicLanguage::get_current_stack_depth())) {
                     VisualGasicLanguage::clear_break_request();
                     
                     VisualGasicLanguage::set_current_break_location(script_path, src_line);
@@ -7973,12 +7998,45 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!handled && base.get_type() == Variant::OBJECT) {
                     Object* obj = Object::cast_to<Object>(base);
                     if (obj) {
-                        if (obj->has_method(method)) {
-                            call_ret = obj->callv(method, args);
+                        // DrawRect/DrawLine snake_case to CanvasItem.draw_* (illegal
+                        // outside _draw). Queue on VGVectorCanvas2D, else RS.
+                        if (try_vg_vector_canvas_call(obj, method, args, call_ret)) {
                             handled = true;
-                        } else {
+                        } else if (CanvasItem *ci = Object::cast_to<CanvasItem>(obj)) {
+                            String ml = method.to_lower();
+                            if ((ml == "drawrect" || ml == "draw_rect") && args.size() >= 1 && args[0].get_type() == Variant::RECT2) {
+                                bool fill = true;
+                                Color col(1, 1, 1, 1);
+                                if (args.size() >= 5) {
+                                    fill = (bool)args[3];
+                                    col = fill ? Color(args[4]) : Color(args[2]);
+                                } else {
+                                    if (args.size() > 1) col = Color(args[1]);
+                                    if (args.size() > 2) fill = (bool)args[2];
+                                }
+                                VisualGasicInstance::safe_canvas_draw_rect(ci, (Rect2)args[0], col, fill);
+                                handled = true;
+                            } else if ((ml == "drawline" || ml == "draw_line") && args.size() >= 2 && args[0].get_type() == Variant::VECTOR2) {
+                                Color col = args.size() > 2 ? Color(args[2]) : Color(1, 1, 1, 1);
+                                float width = args.size() > 3 ? (float)args[3] : 1.0f;
+                                VisualGasicInstance::safe_canvas_draw_line(ci, (Vector2)args[0], (Vector2)args[1], col, width);
+                                handled = true;
+                            } else if ((ml == "drawcircle" || ml == "draw_circle") && args.size() >= 2 && args[0].get_type() == Variant::VECTOR2) {
+                                Color col = args.size() > 2 ? Color(args[2]) : Color(1, 1, 1, 1);
+                                VisualGasicInstance::safe_canvas_draw_circle(ci, (Vector2)args[0], (float)args[1], col);
+                                handled = true;
+                            }
+                        }
+                        if (!handled && obj->has_method(method)) {
+                            String snake_check = method.to_snake_case();
+                            if (snake_check != "draw_rect" && snake_check != "draw_line" && snake_check != "draw_circle") {
+                                call_ret = obj->callv(method, args);
+                                handled = true;
+                            }
+                        }
+                        if (!handled) {
                             String snake = method.to_snake_case();
-                            if (obj->has_method(snake)) {
+                            if (snake != "draw_rect" && snake != "draw_line" && snake != "draw_circle" && obj->has_method(snake)) {
                                 call_ret = obj->callv(snake, args);
                                 handled = true;
                             } else if (try_call_vg_owner_method(obj, method, args, call_ret)) {

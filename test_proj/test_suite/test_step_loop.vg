@@ -1,0 +1,11 @@
+' Loop body must not pause twice on the same line in one iteration.
+Attribute VB_Name = "StepLoop"
+
+Sub Main()
+	Dim i As Integer
+	Dim n As Integer
+	For i = 1 To 3
+		n = n + 1
+	Next i
+	Print n
+End Sub

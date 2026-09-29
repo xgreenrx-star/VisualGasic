@@ -783,6 +783,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
            String end_type = next.value;
            
            if ((is_function && end_type == "Function") || (!is_function && end_type == "Sub")) {
+               sub->end_line = t.line;
                current_pos += 2; // Eat End Sub/Function
                break;
            }
@@ -5261,6 +5262,7 @@ PropertyDefinition* VisualGasicParser::parse_property() {
             String(t.value).nocasecmp_to("end") == 0) {
             VisualGasicTokenizer::Token next = peek(1);
             if (String(next.value).nocasecmp_to("property") == 0) {
+                prop->end_line = t.line;
                 current_pos += 2; // Eat End Property
                 break;
             }

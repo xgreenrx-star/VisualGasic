@@ -391,6 +391,7 @@ bool VisualGasicInstance::get_object_member(int obj_id, const String& member_nam
                     break;
                 }
             }
+            debug_hit_procedure_end(prop->end_line);
             
             // Get return value
             if (variables.has(member_name)) {
@@ -471,6 +472,7 @@ void VisualGasicInstance::set_object_member(int obj_id, const String& member_nam
                     break;
                 }
             }
+            debug_hit_procedure_end(prop->end_line);
             
             // Write back modified members from hierarchy
             Vector<ClassDefinition*> chain;

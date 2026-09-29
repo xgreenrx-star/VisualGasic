@@ -709,6 +709,7 @@ struct SubDefinition : public ASTNode {
     Vector<Statement*> statements;
     Dictionary label_map; // Name -> Index in statements
     String source_file; // Set for Import modules so runtime errors name this file
+    int end_line = 0; // Source line of End Sub / End Function (not a body statement)
     
     // Per-call perf (v6.0): tri-state cache for "does this Sub declare any
     // top-level Static Dim locals?" (-1 unknown, 0 no, 1 yes). Computed once on
@@ -1149,6 +1150,7 @@ struct PropertyDefinition : public ASTNode {
     String return_type;
     Vector<Parameter> parameters;
     Vector<Statement*> body;
+    int end_line = 0; // Source line of End Property
     
     PropertyDefinition() : property_type(PROP_GET) {}
     ~PropertyDefinition() {

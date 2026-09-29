@@ -58,6 +58,18 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     // Current breakpoint location (set before script_debug blocks)
     static std::string current_break_file;
     static int current_break_line;
+
+    // After Step Into/Over/Out: skip further OP_DEBUG_LINE hits at the same (file, line, depth)
+    // until execution reaches a new line or call depth (multiple checkpoints per source line).
+    static std::string step_resume_file;
+    static int step_resume_line;
+    static int step_resume_depth;
+
+    // Suppress back-to-back debug waits at the same (file, line, depth) — multiple
+    // OP_DEBUG_LINE checkpoints can share one source line.
+    static std::string last_debug_wait_file;
+    static int last_debug_wait_line;
+    static int last_debug_wait_depth;
     
     // Breakpoints storage (loaded from JSON file, checked in C++ to avoid GDScript call during debug)
     static std::map<std::string, std::vector<int>> breakpoints;
@@ -191,6 +203,7 @@ public:
     static void push_stack_frame(const String& file, const String& function, int line, VisualGasicInstance* instance);
     static void pop_stack_frame();
     static void update_stack_frame_line(int line);
+    static void update_stack_frame_location(const String &file, int line);
     static void set_debug_error(const String& error);
     static void clear_debug_error();
     
@@ -204,7 +217,24 @@ public:
     static void debug_step_into(); // Step to next line
     static void debug_step_over(); // Step over function calls
     static void debug_step_out();  // Step out of current function
-    
+    static void arm_step_resume_anchor();
+    static void clear_step_resume_anchor();
+    static bool is_duplicate_step_checkpoint(const String& file, int line, int depth);
+    static bool should_skip_debug_wait_at(const String& file, int line, int depth);
+    static void note_debug_wait_at(const String& file, int line, int depth);
+    static void clear_debug_wait_coalesce();
+    static bool begin_debug_pause_at(const String& file, int line, int depth);
+    static bool is_debug_hook_active();
+    static Variant debug_preview_value(const Variant &value);
+    static void adjust_debugger_call_depth(int delta);
+
+    // Headless step trace: pause on each source line and auto Step Into.
+    static bool debug_trace_active;
+    static int debug_autostep_remaining;
+    static std::vector<int> debug_trace_lines;
+    static void debug_begin_autostep(int max_pauses);
+    static PackedInt32Array debug_get_trace();
+
     // GDScript-accessible wrapper methods
     static int get_step_mode_int();
     static String get_current_debug_file();
@@ -240,6 +270,7 @@ public:
     
     // Expression evaluation in debug context
     static String evaluate_expression_in_context(const String& expression);
+    static Variant vg_lookup_builtin_constant(const String &p_name);
 
     // Immediate Window evaluate — callable from GDScript
     static Dictionary evaluate_immediate_by_index(int instance_index, const String& code);

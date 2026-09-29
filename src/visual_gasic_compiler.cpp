@@ -1,6 +1,7 @@
 #include "visual_gasic_compiler.h"
 #include "vg_autoloads.h"
 #include "vg_classdb_globals.h"
+#include "vg_engine_builtins.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -176,7 +177,7 @@ bool vb_like_match(const String& value, const String& pattern) {
 }
 }
 
-VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), compile_ok(true) {
+VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), last_emitted_debug_line(-1), compile_ok(true) {
 }
 
 VisualGasicCompiler::~VisualGasicCompiler() {
@@ -237,6 +238,28 @@ void VisualGasicCompiler::emit_return() {
     emit_byte(OP_RETURN);
 }
 
+void VisualGasicCompiler::emit_debug_line(int line) {
+    if (line <= 0 || line == last_emitted_debug_line) {
+        return;
+    }
+    current_line = line;
+    emit_byte(OP_DEBUG_LINE);
+    emit_byte((uint8_t)(line & 0xFF));
+    emit_byte((uint8_t)((line >> 8) & 0xFF));
+    last_emitted_debug_line = line;
+}
+
+void VisualGasicCompiler::emit_procedure_epilogue(int end_line) {
+    // Exit Sub / Exit Function jumps were aimed at this point so the
+    // debugger stops on End Sub / End Function before the procedure returns.
+    for (int i = 0; i < procedure_exit_jumps.size(); i++) {
+        patch_jump(procedure_exit_jumps[i]);
+    }
+    procedure_exit_jumps.clear();
+    emit_debug_line(end_line);
+    emit_return();
+}
+
 int VisualGasicCompiler::emit_jump(uint8_t op) {
     emit_byte(op);
     emit_byte(0);
@@ -292,6 +315,8 @@ SubDefinition* VisualGasicCompiler::resolve_call_target(const String &method_nam
 
 bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk, const HashSet<String>* extra_buffer_vars) {
     current_chunk = chunk;
+    last_emitted_debug_line = -1;
+    procedure_exit_jumps.clear();
     current_module = module;
     compile_ok = true;
     array_vars.clear();
@@ -458,6 +483,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         non_local_names.insert(*s);
     }
     vg_register_classdb_non_local_names(non_local_names);
+    vg_register_engine_builtin_non_local_names(non_local_names);
     {
         const HashSet<String> &als = VGAutoloads::names_lower();
         for (const String &n : als) {
@@ -655,7 +681,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         // so publish it here — required now that fast-params gives the return
         // value (and params) real local slots that the VM must allocate/seed.
         current_chunk->local_count = local_slots.size();
-        emit_return();
+        emit_procedure_epilogue(sub->end_line);
         return compile_ok;
     }
 
@@ -754,7 +780,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
     }
     current_chunk->local_count = local_slots.size();
-    emit_return();
+    emit_procedure_epilogue(sub->end_line);
     
     return compile_ok;
 }
@@ -4118,7 +4144,12 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
     if (!expr) return false;
     if (expr->type == ExpressionNode::LITERAL) return true;
     if (expr->type == ExpressionNode::VARIABLE) {
-        return local_const_map.has(((VariableNode*)expr)->name.to_lower());
+        VariableNode *vn = (VariableNode *)expr;
+        if (local_const_map.has(vn->name.to_lower())) {
+            return true;
+        }
+        Variant ignored;
+        return vg_try_engine_builtin_constant(vn->name, ignored);
     }
     if (expr->type == ExpressionNode::UNARY_OP) {
         UnaryOpNode* u = (UnaryOpNode*)expr;
@@ -4179,9 +4210,14 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         return ((LiteralNode*)expr)->value;
     }
     if (expr->type == ExpressionNode::VARIABLE) {
-        String lower = ((VariableNode*)expr)->name.to_lower();
+        VariableNode *vn = (VariableNode *)expr;
+        String lower = vn->name.to_lower();
         if (local_const_map.has(lower)) {
             return local_const_map[lower];
+        }
+        Variant engine_builtin;
+        if (vg_try_engine_builtin_constant(vn->name, engine_builtin)) {
+            return engine_builtin;
         }
     }
     if (expr->type == ExpressionNode::ARRAY_ACCESS) {
@@ -6289,11 +6325,10 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
 
 void VisualGasicCompiler::compile_statement(Statement* stmt) {
     current_line = stmt->line;
-    
-    // Emit debug line opcode for debugger support (line number as 16-bit value)
-    emit_byte(OP_DEBUG_LINE);
-    emit_byte((uint8_t)(current_line & 0xFF));        // Low byte
-    emit_byte((uint8_t)((current_line >> 8) & 0xFF)); // High byte
+
+    // One checkpoint per source line. A single-line If/Exit compiles as several
+    // statements that share stmt->line; stepping should stop once per line.
+    emit_debug_line(current_line);
     
     expr_cache.clear();
     switch (stmt->type) {
@@ -8301,7 +8336,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
         case STMT_EXIT: {
             ExitStatement *s = (ExitStatement *)stmt;
             if (s->exit_type == ExitStatement::EXIT_FUNCTION || s->exit_type == ExitStatement::EXIT_SUB) {
-                emit_return();
+                // Land on End Sub / End Function (emitted as the procedure epilogue).
+                procedure_exit_jumps.push_back(emit_jump(OP_JUMP));
             } else if ((s->exit_type == ExitStatement::EXIT_FOR || s->exit_type == ExitStatement::EXIT_DO ||
                        s->exit_type == ExitStatement::EXIT_WHILE ||
                        s->exit_type == ExitStatement::EXIT_OSCILLATE || s->exit_type == ExitStatement::EXIT_REPEAT ||
@@ -9890,6 +9926,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             if (local_const_map.has(lower_name)) {
                 emit_constant(local_const_map[lower_name]);
                 break;
+            }
+            {
+                Variant engine_builtin;
+                if (vg_try_engine_builtin_constant(v->name, engine_builtin)) {
+                    emit_constant(engine_builtin);
+                    break;
+                }
             }
             {
                 int frame = 0;

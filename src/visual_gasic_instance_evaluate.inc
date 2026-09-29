@@ -1224,10 +1224,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 }
             }
 
-            // Fallback: object method call (try direct, snake_case, VG script, or callp fallback)
+            // Fallback: object method call (try queued canvas, direct, snake_case, VG script)
             if (base.get_type() == Variant::OBJECT) {
                 Object* obj = base;
                 if (obj) {
+                    Variant canvas_ret;
+                    if (try_vg_vector_canvas_call(obj, call->method_name, call_args, canvas_ret)) {
+                        return canvas_ret;
+                    }
                     if (obj->has_method(call->method_name)) {
                         return obj->callv(call->method_name, call_args);
                     }

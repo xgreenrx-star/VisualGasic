@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/canvas_item_material.hpp>
 #include <godot_cpp/classes/viewport.hpp>
+#include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/string.hpp>
 
@@ -16,6 +17,66 @@ using namespace godot;
 
 namespace {
 void vg_draw_solid_segments(CanvasItem *item, const PackedVector2Array &pts, const PackedColorArray &cols, float width);
+
+// CanvasItem::draw_* requires Godot's per-node `drawing` flag (NOTIFICATION_DRAW).
+// Direct `_draw()` / headless flushes skip that flag and print one error per
+// primitive. RenderingServer canvas_item_add_* is legal at any time.
+static RID vg_ci_rid(CanvasItem *item) {
+	return item ? item->get_canvas_item() : RID();
+}
+
+static PackedColorArray vg_solid_colors(const Color &c, int n) {
+	PackedColorArray cols;
+	cols.resize(n);
+	for (int i = 0; i < n; ++i) {
+		cols[i] = c;
+	}
+	return cols;
+}
+
+static void vg_add_line(CanvasItem *item, const Vector2 &from, const Vector2 &to, const Color &color, float width) {
+	RenderingServer::get_singleton()->canvas_item_add_line(vg_ci_rid(item), from, to, color, width, false);
+}
+
+static void vg_add_rect(CanvasItem *item, const Rect2 &rect, const Color &color, bool filled, float width) {
+	RenderingServer *rs = RenderingServer::get_singleton();
+	RID ci = vg_ci_rid(item);
+	if (filled) {
+		rs->canvas_item_add_rect(ci, rect, color, false);
+	}
+	if (!filled || width > 0.0f) {
+		const float w = width > 0.0f ? width : 1.0f;
+		Vector2 p0 = rect.position;
+		Vector2 p1(p0.x + rect.size.x, p0.y);
+		Vector2 p2 = p0 + rect.size;
+		Vector2 p3(p0.x, p0.y + rect.size.y);
+		rs->canvas_item_add_line(ci, p0, p1, color, w, false);
+		rs->canvas_item_add_line(ci, p1, p2, color, w, false);
+		rs->canvas_item_add_line(ci, p2, p3, color, w, false);
+		rs->canvas_item_add_line(ci, p3, p0, color, w, false);
+	}
+}
+
+static void vg_add_polyline(CanvasItem *item, const PackedVector2Array &pts, const Color &color, float width) {
+	if (pts.size() < 2) {
+		return;
+	}
+	RenderingServer::get_singleton()->canvas_item_add_polyline(vg_ci_rid(item), pts, vg_solid_colors(color, pts.size()), width, false);
+}
+
+static void vg_add_polygon(CanvasItem *item, const PackedVector2Array &pts, const PackedColorArray &cols) {
+	if (pts.size() < 3) {
+		return;
+	}
+	RenderingServer::get_singleton()->canvas_item_add_polygon(vg_ci_rid(item), pts, cols);
+}
+
+static void vg_add_multiline(CanvasItem *item, const PackedVector2Array &pts, const Color &color, float width) {
+	if (pts.size() < 2) {
+		return;
+	}
+	RenderingServer::get_singleton()->canvas_item_add_multiline(vg_ci_rid(item), pts, vg_solid_colors(color, pts.size()), width, false);
+}
 }
 
 VGVectorCanvas2D::VGVectorCanvas2D() {
@@ -169,6 +230,7 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("Rotate", "angle"), &VGVectorCanvas2D::Rotate);
 	ClassDB::bind_method(D_METHOD("Scale", "scale"), &VGVectorCanvas2D::Scale);
 	ClassDB::bind_method(D_METHOD("Clear"), &VGVectorCanvas2D::Clear);
+	ClassDB::bind_method(D_METHOD("GetCommandCount"), &VGVectorCanvas2D::GetCommandCount);
 	ClassDB::bind_method(D_METHOD("Render"), &VGVectorCanvas2D::Render);
 	ClassDB::bind_method(D_METHOD("ExecuteQueuedCommands"), &VGVectorCanvas2D::ExecuteQueuedCommands);
 
@@ -490,7 +552,7 @@ void VGVectorCanvas2D::_draw() {
 				for (auto &g : groups) {
 					const int np = g.pts.size();
 					for (int li = 0; li + 1 < np; li += 2) {
-						draw_line(g.pts[li], g.pts[li + 1], g.color, (double)g.width);
+						vg_add_line(this, g.pts[li], g.pts[li + 1], g.color, g.width);
 					}
 				}
 				groups.clear();
@@ -500,7 +562,7 @@ void VGVectorCanvas2D::_draw() {
 		for (auto &g : groups) {
 			const int np = g.pts.size();
 			for (int li = 0; li + 1 < np; li += 2) {
-				draw_line(g.pts[li], g.pts[li + 1], g.color, (double)g.width);
+				vg_add_line(this, g.pts[li], g.pts[li + 1], g.color, g.width);
 			}
 		}
 		return;
@@ -581,7 +643,7 @@ void VGVectorCanvas2D::_draw_line_command(const Dictionary &cmd) {
 	Transform2D t = (Transform2D)cmd["transform"];
 	Vector2 from = t.xform((Vector2)cmd["from"]);
 	Vector2 to = t.xform((Vector2)cmd["to"]);
-	draw_line(from, to, (Color)cmd["color"], (double)cmd["width"]);
+	vg_add_line(this, from, to, (Color)cmd["color"], (float)cmd["width"]);
 }
 
 void VGVectorCanvas2D::_draw_rect_command(const Dictionary &cmd) {
@@ -594,22 +656,22 @@ void VGVectorCanvas2D::_draw_rect_command(const Dictionary &cmd) {
 
 	if (t == Transform2D()) {
 		if (fill) {
-			draw_rect(rect, fc, true);
+			vg_add_rect(this, rect, fc, true, 0.0f);
 		}
 		if (width > 0.0f) {
-			draw_rect(rect, color, false, (double)width);
+			vg_add_rect(this, rect, color, false, width);
 		}
 	} else {
 		PackedVector2Array points = _transform_points_array(_rect_corner_points(rect), t);
 		if (fill) {
-			draw_polygon(points, _make_fill_color_array(fc, points.size()));
+			vg_add_polygon(this, points, _make_fill_color_array(fc, points.size()));
 		}
 		if (width > 0.0f) {
 			PackedVector2Array outline = points;
 			if (points.size() > 0) {
 				outline.append(points[0]);
 			}
-			draw_polyline(outline, color, (double)width);
+			vg_add_polyline(this, outline, color, width);
 		}
 	}
 }
@@ -627,9 +689,9 @@ void VGVectorCanvas2D::_draw_rects_command(const Dictionary &cmd) {
 		Rect2 rect(pos, sz);
 		Color c = (i < colors.size()) ? colors[i] : Color(1, 1, 1, 1);
 		if (fill) {
-			draw_rect(rect, c, true);
+			vg_add_rect(this, rect, c, true, 0.0f);
 		} else {
-			draw_rect(rect, c, false, 1.0f);
+			vg_add_rect(this, rect, c, false, 1.0f);
 		}
 	}
 }
@@ -644,9 +706,9 @@ void VGVectorCanvas2D::_draw_rects_uniform_command(const Dictionary &cmd) {
 		Vector2 sz  = rects[i * 2 + 1];
 		Rect2 rect(pos, sz);
 		if (fill) {
-			draw_rect(rect, color, true);
+			vg_add_rect(this, rect, color, true, 0.0f);
 		} else {
-			draw_rect(rect, color, false, 1.0f);
+			vg_add_rect(this, rect, color, false, 1.0f);
 		}
 	}
 }
@@ -670,7 +732,7 @@ void VGVectorCanvas2D::_draw_plasma_cells_command(const Dictionary &cmd) {
 			float cr = ::sinf(v * TAU) * 0.5f + 0.5f;
 			float cg = ::sinf(v * TAU + 2.094f) * 0.5f + 0.5f;
 			float cb = ::sinf(v * TAU + 4.189f) * 0.5f + 0.5f;
-			draw_rect(Rect2(cx * pw, cy * ph, pw + 1.0f, ph + 1.0f), Color(cr, cg, cb, fade), true);
+			vg_add_rect(this, Rect2(cx * pw, cy * ph, pw + 1.0f, ph + 1.0f), Color(cr, cg, cb, fade), true, 0.0f);
 		}
 	}
 }
@@ -744,14 +806,14 @@ void VGVectorCanvas2D::_draw_rounded_rect_command(const Dictionary &cmd) {
 	bool fill = (bool)cmd["fill"];
 	float width = (float)cmd["width"];
 	if (fill) {
-		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+		vg_add_polygon(this, points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
 	}
 	if (width > 0.0f) {
 		PackedVector2Array outline = points;
 		if (points.size() > 0) {
 			outline.append(points[0]);
 		}
-		draw_polyline(outline, (Color)cmd["color"], (double)width);
+		vg_add_polyline(this, outline, (Color)cmd["color"], width);
 	}
 }
 
@@ -762,10 +824,10 @@ void VGVectorCanvas2D::_draw_ellipse_command(const Dictionary &cmd) {
 	bool fill = (bool)cmd["fill"];
 	float width = (float)cmd["width"];
 	if (fill) {
-		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+		vg_add_polygon(this, points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
 	}
 	if (width > 0.0f) {
-		draw_polyline(points, (Color)cmd["color"], (double)width);
+		vg_add_polyline(this, points, (Color)cmd["color"], width);
 	}
 }
 
@@ -781,10 +843,10 @@ void VGVectorCanvas2D::_draw_arc_command(const Dictionary &cmd) {
 	if (fill) {
 		PackedVector2Array filled = points;
 		filled.append(t.xform(center));
-		draw_polygon(filled, _make_fill_color_array((Color)cmd["fill_color"], filled.size()));
+		vg_add_polygon(this, filled, _make_fill_color_array((Color)cmd["fill_color"], filled.size()));
 	}
 	if (width > 0.0f || !fill) {
-		draw_polyline(points, color, (double)width);
+		vg_add_polyline(this, points, color, width > 0.0f ? width : 1.0f);
 	}
 }
 
@@ -803,12 +865,12 @@ void VGVectorCanvas2D::_draw_pie_slice_command(const Dictionary &cmd) {
 	bool fill = (bool)cmd["fill"];
 	float width = (float)cmd["width"];
 	if (fill) {
-		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+		vg_add_polygon(this, points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
 	}
 	if (width > 0.0f && points.size() > 1) {
 		PackedVector2Array outline = points;
 		outline.append(points[1]); // close back to first arc point, not center
-		draw_polyline(outline, (Color)cmd["color"], (double)width);
+		vg_add_polyline(this, outline, (Color)cmd["color"], width);
 	}
 }
 
@@ -818,14 +880,14 @@ void VGVectorCanvas2D::_draw_polygon_command(const Dictionary &cmd) {
 	bool fill = (bool)cmd["fill"];
 	float width = (float)cmd["width"];
 	if (fill) {
-		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+		vg_add_polygon(this, points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
 	}
 	if (width > 0.0f) {
 		PackedVector2Array outline = points;
 		if (outline.size() > 0) {
 			outline.append(outline[0]);
 		}
-		draw_polyline(outline, (Color)cmd["color"], (double)width);
+		vg_add_polyline(this, outline, (Color)cmd["color"], width);
 	}
 }
 
@@ -841,15 +903,15 @@ void VGVectorCanvas2D::_draw_polyline_command(const Dictionary &cmd) {
 	float width = (float)cmd["width"];
 	bool close = (bool)cmd["close"];
 	if (fill) {
-		draw_polygon(points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
+		vg_add_polygon(this, points, _make_fill_color_array((Color)cmd["fill_color"], points.size()));
 	}
 	if (width > 0.0f) {
 		if (close && points.size() > 0) {
 			PackedVector2Array outline = points;
 			outline.append(points[0]);
-			draw_polyline(outline, (Color)cmd["color"], (double)width);
+			vg_add_polyline(this, outline, (Color)cmd["color"], width);
 		} else {
-			draw_polyline(points, (Color)cmd["color"], (double)width);
+			vg_add_polyline(this, points, (Color)cmd["color"], width);
 		}
 	}
 }
@@ -867,7 +929,7 @@ void VGVectorCanvas2D::_draw_multiline_command(const Dictionary &cmd) {
 	if (sz & 1) {
 		segments.resize(sz - 1);
 	}
-	draw_multiline(segments, color, (double)width);
+	vg_add_multiline(this, segments, color, width);
 }
 
 namespace {
@@ -1063,7 +1125,7 @@ void vg_draw_solid_segments(CanvasItem *item, const PackedVector2Array &pts, con
 		cc.set(1, c);
 		cc.set(2, c);
 		cc.set(3, c);
-		item->draw_polygon(quad, cc);
+		vg_add_polygon(item, quad, cc);
 	}
 }
 
@@ -1203,7 +1265,11 @@ void VGVectorCanvas2D::_draw_sprite_lines_command(const Dictionary &cmd) {
 		mm->set_instance_color(i, tint);
 	}
 
-	draw_multimesh(mm, tex);
+	RID tex_rid = tex.is_valid() ? tex->get_rid() : RID();
+	RID mm_rid = mm.is_valid() ? mm->get_rid() : RID();
+	if (mm_rid.is_valid()) {
+		RenderingServer::get_singleton()->canvas_item_add_multimesh(get_canvas_item(), mm_rid, tex_rid);
+	}
 }
 
 void VGVectorCanvas2D::DrawSpriteLines(const Ref<Texture2D> &texture, const PackedVector2Array &segments, float width, const Color &color) {
@@ -1546,8 +1612,8 @@ void VGVectorCanvas2D::_draw_fire_cells_command(const Dictionary &cmd) {
 			}
 			ha = heat * 5.0f;
 			if (ha > 1.0f) ha = 1.0f;
-			draw_rect(Rect2(x * pw, y * ph, pw + 1.0f, ph + 1.0f),
-					  Color(cr, cg, cb, ha), true);
+			vg_add_rect(this, Rect2(x * pw, y * ph, pw + 1.0f, ph + 1.0f),
+					Color(cr, cg, cb, ha), true, 0.0f);
 		}
 	}
 }
@@ -1571,7 +1637,9 @@ void VGVectorCanvas2D::DrawPath(const Array &points, float width, const Color &c
 }
 
 void VGVectorCanvas2D::DrawCircle(const Vector2 &center, float radius, const Color &color, bool fill, const Color &fill_color) {
-	DrawEllipse(Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0f, radius * 2.0f)), 0.0f, color, fill, fill_color);
+	// Outline needs a stroke; width 0 + fill false used to queue an invisible ellipse.
+	const float stroke = fill ? 0.0f : 2.0f;
+	DrawEllipse(Rect2(center - Vector2(radius, radius), Vector2(radius * 2.0f, radius * 2.0f)), stroke, color, fill, fill_color);
 }
 
 void VGVectorCanvas2D::DrawText(const Vector2 &position, const String &text, const Color &color, const Variant &font) {
@@ -1661,6 +1729,106 @@ void VGVectorCanvas2D::Scale(const Vector2 &scale) {
 	_transform_stack[top] = cur.scaled(scale);
 }
 
+bool VGVectorCanvas2D::try_call_pascal_method(const String &method, const Array &args) {
+	const String m = method.to_lower();
+	auto f = [&](int i, float def) -> float {
+		return i < args.size() ? (float)args[i] : def;
+	};
+	auto b = [&](int i, bool def) -> bool {
+		return i < args.size() ? (bool)args[i] : def;
+	};
+	auto col = [&](int i, const Color &def) -> Color {
+		return i < args.size() ? Color(args[i]) : def;
+	};
+	const Color white(1, 1, 1, 1);
+	const Color none(1, 1, 1, 0);
+
+	if (m == "clear") {
+		Clear();
+		return true;
+	}
+	if (m == "render") {
+		Render();
+		return true;
+	}
+	if (m == "setadditiveblend" && args.size() >= 1) {
+		SetAdditiveBlend((bool)args[0]);
+		return true;
+	}
+	if (m == "setbatchmode" && args.size() >= 1) {
+		SetBatchMode((bool)args[0]);
+		return true;
+	}
+	if (m == "drawrect" && args.size() >= 1) {
+		DrawRect((Rect2)args[0], f(1, 2.0f), col(2, white), b(3, false), col(4, none));
+		return true;
+	}
+	if (m == "drawline" && args.size() >= 2) {
+		DrawLine((Vector2)args[0], (Vector2)args[1], f(2, 2.0f), col(3, white));
+		return true;
+	}
+	if (m == "drawcircle" && args.size() >= 2) {
+		DrawCircle((Vector2)args[0], f(1, 1.0f), col(2, white), b(3, false), col(4, none));
+		return true;
+	}
+	if (m == "drawarc" && args.size() >= 4) {
+		DrawArc((Vector2)args[0], f(1, 1.0f), f(2, 0.0f), f(3, 6.283185f),
+				args.size() > 4 ? (int)args[4] : 32, f(5, 2.0f), col(6, white), b(7, false), col(8, none));
+		return true;
+	}
+	if (m == "drawpolygon" && args.size() >= 1) {
+		DrawPolygon(args[0], f(1, 2.0f), col(2, white), b(3, false), col(4, none));
+		return true;
+	}
+	if (m == "drawpolyline" && args.size() >= 1) {
+		DrawPolyline(args[0], f(1, 2.0f), col(2, white), b(3, false), col(4, none), b(5, false));
+		return true;
+	}
+	if (m == "drawpath" && args.size() >= 1) {
+		DrawPath(args[0], f(1, 2.0f), col(2, white), b(3, false), col(4, none), b(5, false));
+		return true;
+	}
+	if (m == "drawellipse" && args.size() >= 1) {
+		DrawEllipse((Rect2)args[0], f(1, 2.0f), col(2, white), b(3, false), col(4, none),
+				args.size() > 5 ? (int)args[5] : 32);
+		return true;
+	}
+	if (m == "drawroundedrect" && args.size() >= 1) {
+		DrawRoundedRect((Rect2)args[0], f(1, 16.0f), f(2, 2.0f), col(3, white), b(4, false), col(5, none),
+				args.size() > 6 ? (int)args[6] : 8);
+		return true;
+	}
+	if ((m == "drawtext" || m == "drawstring") && args.size() >= 2) {
+		DrawText((Vector2)args[0], String(args[1]), col(2, white), args.size() > 3 ? args[3] : Variant());
+		return true;
+	}
+	if (m == "drawtextcentered" && args.size() >= 2) {
+		DrawTextCentered((Vector2)args[0], String(args[1]), col(2, white), args.size() > 3 ? args[3] : Variant());
+		return true;
+	}
+	if (m == "drawtextrightaligned" && args.size() >= 2) {
+		DrawTextRightAligned((Vector2)args[0], String(args[1]), col(2, white), args.size() > 3 ? args[3] : Variant());
+		return true;
+	}
+	if (m == "drawvectortext" && args.size() >= 2) {
+		DrawVectorText((Vector2)args[0], String(args[1]), col(2, white), f(3, 1.0f), f(4, 2.0f),
+				args.size() > 5 ? String(args[5]) : String("left"), f(6, 2.0f),
+				args.size() > 7 ? String(args[7]) : String(""));
+		return true;
+	}
+	if (m == "drawvectortextcentered" && args.size() >= 2) {
+		DrawVectorTextCentered((Vector2)args[0], String(args[1]), col(2, white), f(3, 1.0f), f(4, 2.0f),
+				f(5, 2.0f), args.size() > 6 ? String(args[6]) : String(""));
+		return true;
+	}
+	if (m == "drawvectortextrightaligned" && args.size() >= 2) {
+		DrawVectorTextRightAligned((Vector2)args[0], String(args[1]), col(2, white), f(3, 1.0f), f(4, 2.0f),
+				f(5, 2.0f), args.size() > 6 ? String(args[6]) : String(""));
+		return true;
+	}
+	return false;
+}
+
 void VGVectorCanvas2D::Clear() {
 	_commands.clear();
 	_group_stack.clear();
@@ -1686,7 +1854,10 @@ void VGVectorCanvas2D::Render() {
 }
 
 void VGVectorCanvas2D::ExecuteQueuedCommands() {
-	_draw();
+	// Never call `_draw()` here. Godot only sets CanvasItem::drawing around
+	// NOTIFICATION_DRAW; a direct `_draw()` prints one error per primitive
+	// (~450/frame in Circuit Breaker) and can stall quit while the log floods.
+	queue_redraw();
 }
 
 void VGVectorCanvas2D::BeginGroup(const String &name) {
@@ -2068,7 +2239,7 @@ void VGVectorCanvas2D::_emit_vector_text(const Vector2 &position, const String &
 				if (queue) {
 					_queue_polyline_absolute(pts, width, color);
 				} else {
-					draw_polyline(pts, color, width);
+					vg_add_polyline(this, pts, color, width);
 				}
 			}
 		}
