@@ -1,0 +1,29 @@
+' ByRef Single outs must survive the JIT hot path.
+' Vector Fathom's cockpit road is ProjectWorld writing three Singles.
+Import "byref_project_helper.vg"
+Attribute VB_Name = "TestByRefProject"
+
+Sub _Ready()
+	Dim i As Integer
+	Dim sx As Single
+	Dim sy As Single
+	Dim sc As Single
+	For i = 1 To 30
+		Call ProjectPoint(960.0, 162.0, 4.0, 8.0, sx, sy, sc)
+	Next
+	If sx > 600.0 And sx < 640.0 Then
+		Print "PASS: byref_project_sx"
+	Else
+		Print "FAIL: byref_project_sx: expected ~620, got " & Str(sx)
+	End If
+	If sy > 400.0 And sy < 480.0 Then
+		Print "PASS: byref_project_sy"
+	Else
+		Print "FAIL: byref_project_sy: expected ~442, got " & Str(sy)
+	End If
+	If sc > 30.0 And sc < 40.0 Then
+		Print "PASS: byref_project_sc"
+	Else
+		Print "FAIL: byref_project_sc: expected 35, got " & Str(sc)
+	End If
+End Sub

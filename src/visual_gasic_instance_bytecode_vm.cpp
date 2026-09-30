@@ -7671,6 +7671,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // then returns from script_debug. This is the same check GDScript
                 // runs on OPCODE_LINE. Our own step mode covers headless traces.
                 bool should_break = false;
+                const VGStepMode mode_before = VisualGasicLanguage::get_step_mode();
                 if (engine_debugger && engine_debugger->is_active()) {
                     int lines_left = engine_debugger->get_lines_left();
                     if (lines_left > 0) {
@@ -7708,6 +7709,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (step_wants_break) {
                         should_break = true;
                         VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
+                    }
+                }
+
+                // The board renderer is hundreds of statements per frame. Pausing
+                // on each one never returns from _Process, so the canvas is never
+                // presented and a key that already updated the cell looks ignored.
+                // Breakpoints in that file still stop.
+                if (should_break && VisualGasicLanguage::step_skips_file(script_path)) {
+                    should_break = false;
+                    if (mode_before != VG_STEP_NONE) {
+                        VisualGasicLanguage::set_step_mode(mode_before);
+                    } else {
+                        VisualGasicLanguage::set_step_mode(VG_STEP_INTO);
+                    }
+                    if (engine_debugger && engine_debugger->get_lines_left() == 0) {
+                        engine_debugger->set_lines_left(1);
                     }
                 }
                 

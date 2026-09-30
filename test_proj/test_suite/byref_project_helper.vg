@@ -1,0 +1,8 @@
+Attribute VB_Name = "ByRefProjectHelper"
+
+Sub ProjectPoint(ByVal screenW As Single, ByVal horizonY As Single, ByVal worldX As Single, ByVal z As Single, ByRef outSx As Single, ByRef outSy As Single, ByRef outScale As Single)
+	If z < 0.8 Then z = 0.8
+	outScale = 280.0 / z
+	outSx = screenW * 0.5 + worldX * outScale
+	outSy = horizonY + 8.0 * outScale
+End Sub

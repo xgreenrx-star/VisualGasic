@@ -165,6 +165,14 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
   WN_GetGroupNodes(gid)              ' returns Array of nodes in that group
 
 === Common VG gotchas ===
+  * Fast-call path: a Sub or Function stays on it only when EVERY parameter
+    is written ByVal with a scalar As type (Integer, Long, LongLong, Single,
+    Double, Boolean, Byte, String, Currency, Date, Short, Char), there is
+    no Optional and no ParamArray, and a Function's return type is one of
+    those scalars. A bare parameter is ByRef. One ByRef takes the WHOLE
+    procedure off the path, including its ByVal parameters. Use ByRef only
+    when the caller must see the write; otherwise return a Function result.
+    Hot helpers (projection, per-frame math) must say ByVal and As explicitly.
   * `IsNot` now compiles and evaluates correctly (fixed Jul 15, 2026) —
     parser, bytecode compiler, and both evaluator paths (tree-walk +
     bytecode VM) all handle it as the negation of `Is` (class type-check,
@@ -215,6 +223,19 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
     addons/visual_gasic/prototypes/ and have extra signals/methods.
   * String concat is &, not +.  + on strings will silently fail or
     coerce in surprising ways.
+  * **Vector canvas frozen after the first frame (keys/logic OK, sprite stuck):**
+    Common layout: module `Dim canvas_board As Object` (set in `_Ready` with
+    `CreateNode(\"VGVectorCanvas2D\")` + `AddChild`), then `_Process` calls a helper
+    like `RenderFrame(canvas_board, canvas_fx, canvas_ui)`. If `PlayerWorldX`,
+    signal drain, or breakpoints in `PlayHandleKey` look correct but the picture
+    never updates, suspect the render helper is getting `Nothing` for canvas args
+    — not \"WASD broken\" and not missing `queue_redraw`. Tier-2 JIT (on by default
+    on x86-64; `VG_JIT=0` disables for diagnosis only) must not treat Object
+    parameters as integer slots on user `Sub`/`Function` calls; that is an engine
+    bug in `src/visual_gasic_jit_tier2.cpp`, not something to fix in `.vg` with
+    copies or globals. Triage: rebuild/restart Godot after a fresh extension build;
+    regression `test_proj/test_suite/test_jit_object_arg.vg`. Do NOT tell users to
+    ship with `VG_JIT=0` unless the engine fix is missing — fix the JIT instead.
   * GetNode(\"name\") returns null if the node hasn't been added to the
     tree yet — guard with If Not GetNode(...) Is Nothing Then ... End If.
   * Sub btnFoo_Click runs on the editor's main thread.  Long work blocks
@@ -247,6 +268,12 @@ VG runtime API (called by codegen; also callable from hand-written .vg):
     classes AND re-publishes that file's own Global Const/Dim declarations.
     A multi-file project (e.g. one class per file) needs Import at the top
     of every consumer file for every class it instantiates.
+  * RUNTIME IMPORT GRAPH (v4.3+): Only Import lines on the SCENE ROOT .vg
+    (e.g. Main.vg on the Node2D you F5) are loaded when the game runs.
+    Import in Play.vg does NOT load Grid.vg at runtime — list every module
+    you will Call from the root script (VectorFathom.vg / circuit_breaker
+    Main.vg pattern). Else: Runtime Error 35 Sub or Function not defined.
+    See docs/manual/vg_import_modules.md
   * Avoid colon-chained statements combined with an inline `If`:
       Dim mapW As Integer = 256: If screenSize >= 1 Then mapW = 512  ' RISKY
     This combination can trigger "Unexpected token in expression" parser
@@ -403,6 +430,10 @@ VGVectorCanvas2D (procedural vector demos — no bitmap sprites):
   ' Do NOT call canvas.ExecuteQueuedCommands() from the parent — that is the
   ' child's _draw and raises \"Drawing is only allowed inside _draw\".
   ' Do NOT call parent DrawCircle/DrawString from _Process — same error.
+  ' Passing module-level canvas Object refs into a render Sub each _Process is
+  ' correct (Circuit Breaker Main.vg → RenderFrame). If the first frame paints
+  ' then freezes while game state still updates, check engine JIT object-arg
+  ' handling — not the render pattern itself.
   See storm.vg (per-frame game layer) and GravenVector.vg (cached cave layer).
 
 SubViewport / portal embed (multi-scene showcase director):
@@ -1511,7 +1542,10 @@ static func canvas_sprite_perf_prompt_extra() -> String:
 const VECTOR_CANVAS_POLICY := (
 	" VECTOR CANVAS (VGVectorCanvas2D + *Vector: Data blocks): "
 	+ "CreateNode(\"VGVectorCanvas2D\") + AddChild once in _Ready. Queue canvas.Draw* from "
-	+ "_Process; the canvas flushes itself in _draw. NEVER parent.ExecuteQueuedCommands, "
+	+ "_Process (directly or via a helper Sub that takes the canvas Object ByVal); "
+	+ "the canvas flushes itself in _draw. If logic runs but the screen sticks on "
+	+ "frame 1, suspect broken Object args on a JIT-compiled call — engine fix, "
+	+ "not a reason to inline 400 Draw* into Main.vg. NEVER parent.ExecuteQueuedCommands, "
 	+ "and NEVER parent DrawCircle/DrawString/DrawLine from _Process (\"Drawing is only allowed inside _draw\"). "
 	+ "Split layers like Storm: static cave/grid on one canvas rebuilt on room load only; "
 	+ "pod/bullets on a second canvas cleared each frame. Restamping every tile every _Process "

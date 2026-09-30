@@ -9,16 +9,6 @@
 #include <cstdlib>
 #include <unordered_set>
 
-#ifdef __linux__
-#include <sys/mman.h>
-#include <unistd.h>
-#endif
-#ifdef __APPLE__
-#include <sys/mman.h>
-#include <unistd.h>
-#include <libkern/OSCacheControl.h>
-#endif
-
 namespace vgjit3 {
 
 // ═══════════════════════════════════════════════════════════════════
@@ -988,34 +978,22 @@ FusedUnit* Tier3::compile_fused(const std::string& root,
         return nullptr;
     }
     
-#if defined(__linux__) || defined(__APPLE__)
-    void* mem = mmap(nullptr, code_size, PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mem == MAP_FAILED) {
+    size_t alloc_size = 0;
+    void* mem = install_executable_code(code.code().data(), code_size, &alloc_size);
+    if (!mem) {
         delete unit;
         return nullptr;
     }
-    std::memcpy(mem, code.code().data(), code_size);
-    mprotect(mem, code_size, PROT_READ | PROT_EXEC);
-    
-#ifdef __APPLE__
-    sys_icache_invalidate(mem, code_size);
-#endif
-    
+
     CompiledFunc* cf = new CompiledFunc();
     cf->code_mem = mem;
-    cf->code_size = code_size;
+    cf->code_size = alloc_size;
     cf->fn = (CompiledFunc::FnPtr)mem;
     cf->name = root + "+inlined";
     cf->total_slots = local_count;
-    
+
     unit->compiled = cf;
     return unit;
-#else
-    // Platform not supported for JIT
-    delete unit;
-    return nullptr;
-#endif
 }
 
 // ═══════════════════════════════════════════════════════════════════

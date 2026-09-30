@@ -349,13 +349,13 @@ static func _build_db() -> void:
 
 	_add("ByVal",
 		"Sub ProcName(ByVal paramName As DataType)",
-		"Passes an argument by value — the procedure gets a copy, so changes don't affect the caller's variable.",
-		"Sub DoubleIt(ByVal x As Integer)\n    x = x * 2  ' Only changes local copy\n    Print x\nEnd Sub", 4866)
+		"Passes an argument by value — the procedure gets a copy, so changes don't affect the caller's variable. A Sub or Function stays on the fast-call path only when every parameter is ByVal with a scalar As type (Integer, Long, LongLong, Single, Double, Boolean, Byte, String, Currency, Date, Short, Char) and a Function's return type is scalar too. One ByRef, Optional, ParamArray, or missing type takes the whole procedure off that path. A bare parameter is ByRef.",
+		"Sub DoubleIt(ByVal x As Integer)\n    x = x * 2  ' Only changes local copy\n    Print x\nEnd Sub\n\n' Fast-call: every parameter is ByVal and typed, return is typed.\nFunction ProjectX(ByVal screenW As Single, ByVal worldX As Single, ByVal z As Single) As Single\n    ProjectX = screenW * 0.5 + worldX * (280.0 / z)\nEnd Function", 4407)
 
 	_add("ByRef",
 		"Sub ProcName(ByRef paramName As DataType)",
-		"Passes an argument by reference — the procedure can modify the caller's original variable. This is the default if neither ByVal nor ByRef is specified.",
-		"Sub SwapValues(ByRef a As Integer, ByRef b As Integer)\n    Dim temp As Integer = a\n    a = b\n    b = temp\nEnd Sub", 4838)
+		"Passes an argument by reference — the procedure can modify the caller's original variable. This is the default if neither ByVal nor ByRef is specified. One ByRef parameter takes the whole Sub or Function off the fast-call path, including any ByVal parameters on that procedure. Use ByRef when the caller must see the write.",
+		"Sub SwapValues(ByRef a As Integer, ByRef b As Integer)\n    Dim temp As Integer = a\n    a = b\n    b = temp\nEnd Sub", 4377)
 
 	_add("Optional",
 		"Sub ProcName(Optional paramName As Type = defaultValue)",

@@ -519,11 +519,16 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             } else if (sub->parameters[i].is_by_ref) {
                 non_local_names.insert(pkey);
             } else {
-                // ByVal non-scalar params (Variant arrays/objects): use a local
-                // slot seeded from variables[] at call entry.  Marking these
-                // non-local forced OP_GET_GLOBAL, which can miss the bound arg
-                // and fall through to scene-node/singleton lookups (OBJECT).
-                get_or_add_local(sub->parameters[i].name, VT_UNKNOWN);
+                // ByVal params get a local slot seeded from variables[] at call
+                // entry. A Single/Double must be tagged VT_FLOAT here. This sub
+                // is not on the fast-call path (it has a ByRef parameter), so the
+                // slot is loaded before any store. An untyped slot is I64, and
+                // the JIT then cvtsi2sd's the float's bit pattern.
+                ValueType pvt = VT_UNKNOWN;
+                String t = sub->parameters[i].type_hint.to_lower();
+                if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
+                else if (t == "single" || t == "double") pvt = VT_FLOAT;
+                get_or_add_local(sub->parameters[i].name, pvt);
             }
         }
     }

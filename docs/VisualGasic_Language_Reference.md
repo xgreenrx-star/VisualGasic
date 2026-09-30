@@ -4390,6 +4390,8 @@ A True/False value. Used for flags, conditions, and toggles.
 
 Passes an argument by reference — the procedure can modify the caller's original variable. This is the default if neither ByVal nor ByRef is specified.
 
+One `ByRef` parameter takes the whole Sub or Function off the fast-call path, including any `ByVal` parameters on that same procedure. Use `ByRef` when the caller must see the write. For a value the caller only reads, pass `ByVal` and return the result from a Function. See [ByVal](#byval).
+
 **Example**
 
     Sub SwapValues(ByRef a As Integer, ByRef b As Integer)
@@ -4418,12 +4420,23 @@ Passes an argument by reference — the procedure can modify the caller's origin
 
 Passes an argument by value — the procedure gets a copy, so changes don't affect the caller's variable.
 
+A Sub or Function stays on the **fast-call path** only when every parameter is `ByVal` with a scalar `As` type, and a Function's return type is scalar too. Arguments then go straight into local slots. One `ByRef`, `Optional`, or `ParamArray`, or a missing or non-scalar type, takes the whole procedure off that path: each call writes the arguments through the variable dictionary. A bare parameter is `ByRef`, so a hot helper has to say `ByVal` explicitly.
+
+Scalar types: Integer, Long, LongLong, Single, Double, Boolean, Byte, String, Currency, Date, Short, Char.
+
+Full rules: [Fast-call path](manual/performance.md#fast-call-path).
+
 **Example**
 
     Sub DoubleIt(ByVal x As Integer)
         x = x * 2  ' Only changes local copy
         Print x
     End Sub
+
+    ' Fast-call: every parameter is ByVal and typed, and the return is typed.
+    Function ProjectX(ByVal screenW As Single, ByVal worldX As Single, ByVal z As Single) As Single
+        ProjectX = screenW * 0.5 + worldX * (280.0 / z)
+    End Function
 
 **See Also** — [Sub](#sub), [Function](#function), [End Sub](#end-sub), [End Function](#end-function), [Call](#call), [Return](#return), [ByRef](#byref), [Optional](#optional), [Lambda](#lambda)
 

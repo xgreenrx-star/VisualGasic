@@ -6,6 +6,40 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 
 > **VM research — tagged operand stack:** An opt-in prototype (`scons tagged_stack=1`) was measured in Sept 2026 and **not pursued for shipping** (~6% win on pure arithmetic, net loss on realistic workloads because locals stay boxed). See [vm_tagged_stack_migration.md](../vm_tagged_stack_migration.md). Higher-ROI target: **type-tagged locals** (ROADMAP M7+).
 
+## Fast-call path
+
+The compiler picks the fast-call path from the procedure signature. It is on for every platform whenever the signature qualifies. It is the call convention, separate from the native JIT below. `VG_JIT` does not turn it on or off.
+
+A Sub or Function stays on the fast-call path only when **all** of these are true:
+
+- Every parameter is written `ByVal`. A parameter with neither `ByVal` nor `ByRef` is `ByRef`.
+- Every parameter has a scalar `As` type: Integer, Long, LongLong, Single, Double, Boolean, Byte, String, Currency, Date, Short, Char.
+- The procedure has no `Optional` parameter and no `ParamArray`.
+- A Function's return type is one of those scalar types. An untyped or `Variant` return does not qualify. A Sub has no return type to declare.
+
+On that path, arguments are seeded straight into local slots and the call skips the per-call variable dictionary. One disqualifier takes the **whole** procedure off the path, including its `ByVal` parameters. Those parameters still run; each call writes them through the dictionary, and `ByRef` results are copied back to the caller.
+
+`ByRef` is the right choice when the caller must see a write. It is slower. For a value the caller only reads, pass `ByVal` and return the result from a Function.
+
+```vb
+' Fast-call.
+Function ProjectX(ByVal screenW As Single, ByVal worldX As Single, ByVal z As Single) As Single
+    ProjectX = screenW * 0.5 + worldX * (280.0 / z)
+End Function
+
+' Not fast-call: the bare parameter is ByRef, and the return type is missing.
+Function ProjectX(screenW As Single, worldX As Single, z As Single)
+    ProjectX = screenW * 0.5 + worldX * (280.0 / z)
+End Function
+
+' Not fast-call: one ByRef takes the ByVal parameters off the path too.
+Sub ProjectPoint(ByVal screenW As Single, ByRef outSx As Single)
+    outSx = screenW * 0.5
+End Sub
+```
+
+Keyword entries: [ByVal](../VisualGasic_Language_Reference.md#byval), [ByRef](../VisualGasic_Language_Reference.md#byref).
+
 ## Test Setup
 
 - Engine: Godot 4.6.1 (headless)
@@ -15,16 +49,19 @@ This page summarizes the built‑in benchmark suite results for Visual Gasic ver
 - Date: **2026-08-25** (compute + draw refresh)
 - Canonical published table: **[BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)**
 
-## Native JIT (optional, off by default)
+## Native JIT (x86-64, on by default)
 
-Visual Gasic has **two** performance layers. Most published wins (compute, draw, gameplay) come from the first; you do not need JIT for shipping games.
+Visual Gasic has **three** performance layers: fast-call (signatures), bytecode VM + fusions (always), and optional native JIT tiers on capable desktops.
 
 | Layer | What it is | Default? | Portable? |
 |-------|------------|:--------:|:---------:|
+| **Fast-call path** | Typed `ByVal` scalars → args in local slots; see [Fast-call path](#fast-call-path) | When signature qualifies | **Yes** |
 | **Bytecode VM + compile fusions** | Optimizer + specialized opcodes (`OP_PACKED_HP_STATE_TICK`, draw grid loops, closed-form loops, packed I64 locals, …) | **Yes** | **Yes** — Linux, Windows, macOS, Android, Web |
-| **Native JIT (Tier 0.5 / 2 / 3)** | Optional x86-64 machine code for hot numeric bodies (`mmap` + `mprotect`) | **No** | **Partial** — see platform table below |
+| **Native JIT (Tier 2 / 3)** | x86-64 machine code for hot numeric bodies | **On** on x86-64 desktop builds; **`VG_JIT=0`** disables | **Partial** — see platform table below |
 
-**Published benchmarks** (`scripts/run_compute_benchmarks.sh`, `run_draw_benchmarks.sh`, `run_gameplay_benchmarks.sh`) do **not** set `VG_JIT`. They measure the portable bytecode path.
+Development started on **Linux**; **Windows x64** now uses the same Tier 2 pipeline (`VirtualAlloc` / CFG). Published Windows JIT speedups are **not yet benchmarked in CI** — treat parity as expected, not measured, until the next release notes confirm numbers.
+
+**Published benchmarks** (`scripts/run_compute_benchmarks.sh`, `run_draw_benchmarks.sh`, `run_gameplay_benchmarks.sh`) do **not** set `VG_JIT`. They measure the portable bytecode path (same as `VG_JIT=0` for timing comparisons).
 
 ### `VG_JIT` environment variable
 
@@ -32,25 +69,33 @@ Set on the **Godot process** before launch (shell, desktop shortcut, CI job). Th
 
 | Value | Effect |
 |-------|--------|
-| *(unset)* or `VG_JIT=0` | **Default.** Native JIT off; bytecode VM only. Use this for cross-platform shipping. |
-| `VG_JIT=1` | Tier 0.5 hot-loop JIT (experimental; Linux only). |
-| `VG_JIT=2` | Tier 2 per-function native compile (Linux only). |
-| `VG_JIT=3` | Tier 3 call-graph fusion (Linux + macOS). Requires Tier 2 infrastructure; enables profiling + inlining. |
+| *(unset)* on **x86-64** Linux / Windows / macOS Intel | **Tier 2 on** — hot functions compile to native code after a small warmup threshold. |
+| `VG_JIT=0` | Native JIT off; bytecode VM only. Use for debugging, ARM hosts, or A/B timing. |
+| `VG_JIT=2` | Tier 2 explicitly (same as default on supported x64). |
+| `VG_JIT=3` | Tier 3 call-graph fusion (inlining hot callees). Requires Tier 2; opt-in. |
+
+Tier 0.5 loop JIT is legacy; Tier 2 subsumes it on supported platforms.
 
 **Linux example:**
 
 ```bash
-export VG_JIT=0          # explicit off (same as default)
+export VG_JIT=0          # interpreter-only (debug / parity check)
 godot --path my_project
 
-export VG_JIT=2          # opt-in Tier 2 (experiments / profiling only)
+export VG_JIT=3          # call-graph fusion experiments
 godot --path my_project
 ```
 
 **Windows example (PowerShell):**
 
 ```powershell
-$env:VG_JIT = "0"
+# Default on x64: Tier 2 JIT active (same idea as Linux dev builds)
+.\Godot_v4.6.1-stable_win64.exe --path my_project
+
+$env:VG_JIT = "0"        # disable native JIT
+.\Godot_v4.6.1-stable_win64.exe --path my_project
+
+$env:VG_JIT = "3"        # Tier 3 fusion (still being validated on Windows)
 .\Godot_v4.6.1-stable_win64.exe --path my_project
 ```
 
@@ -58,21 +103,21 @@ If JIT cannot compile a function (unsupported opcode, wrong platform, body too l
 
 ### Platform support
 
-| Tier | Linux | macOS | Windows | Android / Web |
-|------|:-----:|:-----:|:-------:|:-------------:|
-| Bytecode VM + fusions | ✅ | ✅ | ✅ | ✅ |
-| Tier 0.5 (loop) | ✅ | ❌ | ❌ | ❌ |
-| Tier 2 (function body) | ✅ | ❌ | ❌ | ❌ |
-| Tier 3 (call graph) | ✅ | ✅ | ❌ | ❌ |
+| Tier | Linux x64 | Windows x64 | macOS Intel | Apple Silicon | Android / Web |
+|------|:---------:|:-----------:|:-----------:|:-------------:|:-------------:|
+| Bytecode VM + fusions + fast-call | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Tier 2 (function body) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Tier 3 (call graph, `VG_JIT=3`) | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-Tier 2/3 cover a **narrow** subset of bytecode (mostly numeric control flow). Strings, Variants, Godot interop, and most gameplay shapes stay on the interpreter even when JIT is enabled.
+Tier 2/3 cover a **narrow** subset of bytecode (mostly numeric control flow). Strings, Variants, Godot object globals passed to draw calls, and most gameplay shapes may stay on the interpreter even when JIT is enabled.
 
 ### When to use native JIT
 
-- **Leave unset** for normal development, releases, and parity across platforms.
-- **`VG_JIT=2` or `3`** only for local experiments on Linux (or macOS for Tier 3) when profiling tight numeric loops — not required for the published benchmark numbers.
+- **Default (unset)** on x86-64 desktop — normal play and shipping on Linux/Windows; semantics match the interpreter.
+- **`VG_JIT=0`** when bisecting a bug, comparing speed, or on platforms without `VG_JIT_NATIVE`.
+- **`VG_JIT=3`** when profiling tight call chains (inlining); Linux is the primary dev/test host; Windows Tier 3 is implemented but **needs real-world benchmark confirmation**.
 
-JIT validation scripts live under `demo/benchmarks/jit_*.vg` and `demo/test_suites/test_jit_*.gd`.
+JIT validation: `test_proj/test_suite/test_jit_tier3.vg`, `test_jit_object_arg.vg`, `test_byref_project.vg`, and `engine_lab/benchmarks/jit_*.vg` (run with `VG_JIT=2` or `3` as appropriate).
 
 ## Compile / reload time (VG vs GDScript)
 

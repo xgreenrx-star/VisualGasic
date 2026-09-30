@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Windows x64 native JIT (Tier 2 / Tier 3)** — Same x86-64 Tier 2 pipeline as Linux (`VirtualAlloc`, `VirtualProtect`, CFG registration). Tier 3 fused call-graph code now uses shared `install_executable_code()` on Windows as well. **Release highlight:** Linux was the first JIT platform (primary dev OS); Windows desktop builds should now be **on par for hot numeric code**, but **published Windows JIT benchmarks are not in CI yet** — call this out in release notes and validate on real hardware before quoting speed multipliers.
+- **Fast-call path documentation** — [performance.md](docs/manual/performance.md#fast-call-path), [ByVal / ByRef](docs/VisualGasic_Language_Reference.md#byval) in the language reference, IDE command help, and Narcea gotchas (explicit `ByVal` + scalar `As` for hot helpers).
+
+### Fixed
+
+- **JIT + ByRef subs** — ByVal parameters in subs that also take `ByRef` now get correct `Single`/`Double`/`Integer` local slot types at compile time, so Tier 2 JIT no longer mis-reads float arguments as raw I64 (e.g. pseudo-3D projection / Vector Fathom road). Regression: `test_byref_project.vg`.
+- **Tier 3 on Windows** — Fused JIT blobs no longer bail with “platform not supported” on Win64.
+
+### Documentation
+
+- Refreshed [performance.md](docs/manual/performance.md): JIT defaults on x86-64, platform matrix, fast-call vs native JIT, Windows `VG_JIT` examples.
+- Release copy draft: [UPCOMING_RELEASE_HIGHLIGHTS.md](docs/showcase/UPCOMING_RELEASE_HIGHLIGHTS.md) (Windows JIT blurb — validate benchmarks before publish).
+
 ## [5.5.0-beta3] - 2026-09-26
 
 **Key numbers:** QB ABC showcase + classic SCREEN gallery · **Elite Wire Slice** sample · rebuilt GDExtension (Linux/Windows/Web in Asset Library zip).

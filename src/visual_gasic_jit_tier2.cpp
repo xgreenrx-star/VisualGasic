@@ -58,6 +58,84 @@ CompiledFunc::~CompiledFunc() {
 #endif
 }
 
+void* install_executable_code(const void* code, size_t code_size, size_t* out_alloc_size) {
+    if (!code || code_size == 0 || !out_alloc_size) {
+        return nullptr;
+    }
+#if VG_JIT_NATIVE
+    size_t page_size = 4096;
+    size_t alloc_size = ((code_size + page_size - 1) / page_size) * page_size;
+    if (alloc_size == 0) {
+        alloc_size = page_size;
+    }
+
+#if VG_JIT_WIN64
+    void* mem = VirtualAlloc(nullptr, alloc_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!mem) {
+        return nullptr;
+    }
+    memcpy(mem, code, code_size);
+    DWORD old_protect = 0;
+    if (!VirtualProtect(mem, alloc_size, PAGE_EXECUTE_READ, &old_protect)) {
+        VirtualFree(mem, 0, MEM_RELEASE);
+        return nullptr;
+    }
+    FlushInstructionCache(GetCurrentProcess(), mem, alloc_size);
+    {
+        using SetTargetsFn = int (WINAPI *)(HANDLE, void*, SIZE_T, ULONG, void*);
+        auto set_targets = (SetTargetsFn)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetProcessValidCallTargets");
+        if (set_targets) {
+            struct CfgTarget { ULONG_PTR offset; ULONG_PTR flags; };
+            CfgTarget target;
+            target.offset = 0;
+            target.flags = 0x1;
+            set_targets(GetCurrentProcess(), mem, alloc_size, 1, &target);
+        }
+    }
+#elif VG_JIT_MACOS
+    void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
+    bool map_jit = mem != MAP_FAILED;
+    if (!map_jit) {
+        mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (mem == MAP_FAILED) {
+            return nullptr;
+        }
+    }
+    if (map_jit && pthread_jit_write_protect_np) {
+        pthread_jit_write_protect_np(0);
+    }
+    memcpy(mem, code, code_size);
+    if (map_jit && pthread_jit_write_protect_np) {
+        pthread_jit_write_protect_np(1);
+    } else if (!map_jit && mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
+        munmap(mem, alloc_size);
+        return nullptr;
+    }
+    sys_icache_invalidate(mem, code_size);
+#else
+    void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (mem == MAP_FAILED) {
+        return nullptr;
+    }
+    memcpy(mem, code, code_size);
+    if (mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
+        munmap(mem, alloc_size);
+        return nullptr;
+    }
+#endif
+    *out_alloc_size = alloc_size;
+    return mem;
+#else
+    (void)code;
+    (void)code_size;
+    *out_alloc_size = 0;
+    return nullptr;
+#endif
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  CodeBuf — x86-64 assembler helpers
 // ═══════════════════════════════════════════════════════════════════
@@ -976,9 +1054,16 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     String gname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
                     if (vi->get_variables().has(gname)) {
                         Variant gv = vi->get_variables()[gname];
-                        if (gv.get_type() == Variant::FLOAT) {
+                        Variant::Type gt = gv.get_type();
+                        if (gt == Variant::FLOAT) {
                             slot_type = IRType::F64;
                             local_slot_type[vslot] = IRType::F64;
+                        } else if (gt != Variant::INT && gt != Variant::BOOL && gt != Variant::NIL) {
+                            // Object, String, Array, Vector2, and Color are not
+                            // integer slots. Loading one as I64 passes 0 into
+                            // the next call, so the callee sees Nothing and the
+                            // canvas never redraws. Stay on the interpreter.
+                            return false;
                         }
                     }
                 }
@@ -3318,81 +3403,13 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
         return nullptr;
     }
     
-    // Allocate executable memory
-    size_t page_size = 4096;
-    size_t alloc_size = ((cb.code_size() + page_size - 1) / page_size) * page_size;
-    if (alloc_size == 0) alloc_size = page_size;
-    
-#if VG_JIT_WIN64
-    void* mem = VirtualAlloc(nullptr, alloc_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    size_t alloc_size = 0;
+    void* mem = install_executable_code(cb.code().data(), cb.code_size(), &alloc_size);
     if (!mem) {
         delete out_func;
         return nullptr;
     }
-    memcpy(mem, cb.code().data(), cb.code_size());
-    DWORD old_protect = 0;
-    if (!VirtualProtect(mem, alloc_size, PAGE_EXECUTE_READ, &old_protect)) {
-        VirtualFree(mem, 0, MEM_RELEASE);
-        delete out_func;
-        return nullptr;
-    }
-    FlushInstructionCache(GetCurrentProcess(), mem, alloc_size);
-    // Control Flow Guard rejects an indirect call into a page that was not
-    // registered. Harmless when CFG is off.
-    {
-        using SetTargetsFn = int (WINAPI *)(HANDLE, void*, SIZE_T, ULONG, void*);
-        auto set_targets = (SetTargetsFn)GetProcAddress(GetModuleHandleA("kernel32.dll"), "SetProcessValidCallTargets");
-        if (set_targets) {
-            struct CfgTarget { ULONG_PTR offset; ULONG_PTR flags; };
-            CfgTarget target;
-            target.offset = 0;
-            target.flags = 0x1; // CFG_CALL_TARGET_VALID
-            set_targets(GetCurrentProcess(), mem, alloc_size, 1, &target);
-        }
-    }
-#elif VG_JIT_MACOS
-    // MAP_JIT is the supported macOS path (hardened runtime + allow-jit).
-    // Intel Macs without that entitlement fall back to RW then RX.
-    void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC,
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0);
-    bool map_jit = mem != MAP_FAILED;
-    if (!map_jit) {
-        mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-        if (mem == MAP_FAILED) {
-            delete out_func;
-            return nullptr;
-        }
-    }
-    if (map_jit && pthread_jit_write_protect_np) {
-        pthread_jit_write_protect_np(0);
-    }
-    memcpy(mem, cb.code().data(), cb.code_size());
-    if (map_jit && pthread_jit_write_protect_np) {
-        pthread_jit_write_protect_np(1);
-    } else if (!map_jit && mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
-        munmap(mem, alloc_size);
-        delete out_func;
-        return nullptr;
-    }
-    sys_icache_invalidate(mem, cb.code_size());
-#else
-    void* mem = mmap(nullptr, alloc_size, PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (mem == MAP_FAILED) {
-        delete out_func;
-        return nullptr;
-    }
-    
-    memcpy(mem, cb.code().data(), cb.code_size());
-    
-    if (mprotect(mem, alloc_size, PROT_READ | PROT_EXEC) != 0) {
-        munmap(mem, alloc_size);
-        delete out_func;
-        return nullptr;
-    }
-#endif
-    
+
     out_func->code_mem = mem;
     out_func->code_size = alloc_size;
     out_func->fn = (CompiledFunc::FnPtr)mem;

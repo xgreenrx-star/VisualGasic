@@ -1,0 +1,35 @@
+' The tier-2 JIT must not compile a call that passes an Object global.
+' Those loads are not integer slots; treating them as I64 hands the callee Nothing.
+Option Explicit
+
+Dim held As Object
+Dim expect_id As Integer
+Dim saw_ok As Integer
+Dim saw_null As Integer
+
+Sub Touch(ByVal obj As Object)
+	If obj = Nothing Then
+		saw_null = saw_null + 1
+	ElseIf obj.get_instance_id() = expect_id Then
+		saw_ok = saw_ok + 1
+	End If
+End Sub
+
+Sub PassHeld()
+	Call Touch(held)
+End Sub
+
+Sub _Ready()
+	Set held = ClassDB.Instantiate("Node2D")
+	expect_id = held.get_instance_id()
+	Dim i As Integer
+	For i = 1 To 6
+		Call PassHeld()
+	Next i
+	If saw_ok = 6 And saw_null = 0 Then
+		Print "PASS: jit_object_arg"
+	Else
+		Print "FAIL: jit_object_arg ok=" & CStr(saw_ok) & " null=" & CStr(saw_null)
+	End If
+	Print "TEST_COMPLETE"
+End Sub

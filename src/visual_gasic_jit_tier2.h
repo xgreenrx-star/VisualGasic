@@ -321,6 +321,10 @@ struct CompiledFunc {
     ~CompiledFunc();
 };
 
+// Copy native code into a fresh executable page (page-rounded size).
+// Returns nullptr on failure. out_alloc_size is for VirtualFree/munmap.
+void* install_executable_code(const void* code, size_t code_size, size_t* out_alloc_size);
+
 // ═══════════════════════════════════════════════════════════════════
 //  JIT Tier 2 Engine
 // ═══════════════════════════════════════════════════════════════════
