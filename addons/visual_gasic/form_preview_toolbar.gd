@@ -402,36 +402,14 @@ func _scan_dir_for_tscn(path: String, depth: int) -> String:
 
 func _save_breakpoints_for_preview() -> void:
 	"""Save breakpoints to file so they're available during preview.
-	Collects breakpoints from the embedded VG code editor (primary source)
-	and the debugger plugin (ScriptEditor fallback), then writes to a JSON
-	file that the C++ runtime reads at game startup."""
+	Collects breakpoints from the embedded VG code editor (gutter source of
+	truth), then writes to a JSON file that the C++ runtime reads at startup."""
 	if not _editor_plugin:
 		return
 
 	var breakpoints: Dictionary = {}
-
-	# Source 1: Embedded VG code editor — breakpoints for every .vg file in the session
-	if "_embedded_code_editor" in _editor_plugin:
-		var ece = _editor_plugin._embedded_code_editor
-		if ece and is_instance_valid(ece) and ece.has_method("get_all_debug_breakpoints"):
-			var all_bps: Dictionary = ece.get_all_debug_breakpoints()
-			for path in all_bps:
-				var norm_path := str(path)
-				if _editor_plugin.has_method("normalize_vg_script_path"):
-					norm_path = _editor_plugin.normalize_vg_script_path(str(path))
-				breakpoints[norm_path] = all_bps[path]
-
-	# Source 2: Debugger plugin (polls ScriptEditor — rarely has .vg entries
-	# but merge them in just in case)
 	if _editor_plugin.has_method("get_debugger_breakpoints"):
-		var dbg_bps: Dictionary = _editor_plugin.get_debugger_breakpoints()
-		for path in dbg_bps:
-			if not breakpoints.has(path):
-				breakpoints[path] = dbg_bps[path]
-			else:
-				for l in dbg_bps[path]:
-					if l not in breakpoints[path]:
-						breakpoints[path].append(l)
+		breakpoints = _editor_plugin.get_debugger_breakpoints()
 
 	# Always write the file (even if empty — clears stale breakpoints)
 	var bp_path := "res://.vg_breakpoints.json"

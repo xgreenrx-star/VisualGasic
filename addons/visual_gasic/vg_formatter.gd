@@ -288,7 +288,7 @@ static func _vg_stmt_upper(stripped: String) -> String:
 		else:
 			out.append(probe[i])
 			i += 1
-	return String(out).strip_edges().to_upper()
+	return "".join(out).strip_edges().to_upper()
 
 ## True when stmt_upper starts a block keyword (avoids Randomize→Do, Format→For, etc.).
 static func _stmt_starts_block(stmt_upper: String, keyword: String) -> bool:

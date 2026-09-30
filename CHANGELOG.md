@@ -9,11 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **VG IDE tooltips** — Shared cream/black tooltip styling in `vg_theme_utils.gd` (fixes `vg_code_edit` `_make_custom_tooltip` on main). Data Tips overlay uses the same chrome; type hints when not debugging.
 - **Windows x64 native JIT (Tier 2 / Tier 3)** — Same x86-64 Tier 2 pipeline as Linux (`VirtualAlloc`, `VirtualProtect`, CFG registration). Tier 3 fused call-graph code now uses shared `install_executable_code()` on Windows as well. **Release highlight:** Linux was the first JIT platform (primary dev OS); Windows desktop builds should now be **on par for hot numeric code**, but **published Windows JIT benchmarks are not in CI yet** — call this out in release notes and validate on real hardware before quoting speed multipliers.
 - **Fast-call path documentation** — [performance.md](docs/manual/performance.md#fast-call-path), [ByVal / ByRef](docs/VisualGasic_Language_Reference.md#byval) in the language reference, IDE command help, and Narcea gotchas (explicit `ByVal` + scalar `As` for hot helpers).
 
 ### Fixed
 
+- **Form preview breakpoints** — Save gutters via `get_debugger_breakpoints()` only (no stale ScriptEditor merge).
+- **Formatter** — `_vg_stmt_upper` uses `"".join()` for Godot 4 string building.
 - **JIT + ByRef subs** — ByVal parameters in subs that also take `ByRef` now get correct `Single`/`Double`/`Integer` local slot types at compile time, so Tier 2 JIT no longer mis-reads float arguments as raw I64 (e.g. pseudo-3D projection / Vector Fathom road). Regression: `test_byref_project.vg`.
 - **Tier 3 on Windows** — Fused JIT blobs no longer bail with “platform not supported” on Win64.
 

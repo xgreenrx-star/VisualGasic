@@ -1,56 +1,38 @@
 @tool
 extends Node
-## VB6-style Data Tips — hover over variables during debugging to see their values.
+## VB6-style Data Tips — hover over identifiers in the code editor.
 ##
-## When debugging is active and the user hovers over a variable name in the
-## code editor, a tooltip popup appears showing the variable's current value,
-## just like VB6's Data Tips feature. If hover is awkward, placing the caret
-## on an identifier shows the same tip immediately.
+## Cream panel + black text (VG IDE chrome), never Godot's dark TooltipPanel.
+## Implemented as a top-level Control overlay (not PopupPanel/Window) so it
+## does not steal mouse focus or re-popup on every motion event.
 
-# NOTE: No class_name here — loaded dynamically via load(), class_name causes
-# "hides a global script class" errors when multiple copies exist in the project.
+const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 
 const HOVER_DELAY_SEC := 0.35
 
 var editor_plugin: EditorPlugin
-var _tip_popup: PopupPanel
-var _tip_label: RichTextLabel
+var _tip_panel: PanelContainer
+var _tip_label: Label
 var _hover_timer: Timer
 var _last_hover_word: String = ""
 var _last_caret_word: String = ""
+var _last_tip_text: String = ""
 var _is_debugging: bool = false
 var _debug_variables: Dictionary = {}  # variable_name -> value
 
 func _init():
-	# Create the floating tooltip popup
-	_tip_popup = PopupPanel.new()
-	_tip_popup.transparent_bg = false
-	_tip_popup.size = Vector2(250, 30)
-	# Don't grab focus
-	_tip_popup.exclusive = false
-	
-	_tip_label = RichTextLabel.new()
-	_tip_label.bbcode_enabled = true
-	_tip_label.fit_content = true
-	_tip_label.scroll_active = false
-	_tip_label.custom_minimum_size = Vector2(100, 20)
-	_tip_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(1.0, 1.0, 0.88)  # Light yellow (classic tooltip color)
-	style.set_border_width_all(1)
-	style.border_color = Color(0, 0, 0)
-	style.content_margin_left = 6
-	style.content_margin_right = 6
-	style.content_margin_top = 3
-	style.content_margin_bottom = 3
-	_tip_popup.add_theme_stylebox_override("panel", style)
-	
-	_tip_label.add_theme_color_override("default_color", Color(0, 0, 0))
-	_tip_label.add_theme_font_size_override("normal_font_size", 12)
-	_tip_popup.add_child(_tip_label)
-	
-	# Hover timer (delay before showing tip, like VB6)
+	_tip_panel = PanelContainer.new()
+	_tip_panel.visible = false
+	_tip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_panel.top_level = true
+	_tip_panel.z_index = 128
+	_tip_panel.add_theme_stylebox_override("panel", VGTheme.tooltip_stylebox())
+
+	_tip_label = Label.new()
+	_tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	VGTheme.style_tooltip_label(_tip_label)
+	_tip_panel.add_child(_tip_label)
+
 	_hover_timer = Timer.new()
 	_hover_timer.one_shot = true
 	_hover_timer.wait_time = HOVER_DELAY_SEC
@@ -59,128 +41,169 @@ func _init():
 
 func setup(plugin: EditorPlugin):
 	editor_plugin = plugin
-	# Add popup to editor base (needs to be in the tree)
 	if editor_plugin and is_instance_valid(editor_plugin):
-		editor_plugin.get_editor_interface().get_base_control().add_child(_tip_popup)
+		editor_plugin.get_editor_interface().get_base_control().add_child(_tip_panel)
 
 func cleanup():
-	if is_instance_valid(_tip_popup):
-		_tip_popup.queue_free()
+	if is_instance_valid(_tip_panel):
+		_tip_panel.queue_free()
 	if is_instance_valid(_hover_timer):
 		_hover_timer.queue_free()
 
 func get_debug_variables() -> Dictionary:
 	return _debug_variables.duplicate()
 
-## Called by the debugger when break is hit — provides current variables
 func set_debug_variables(variables: Dictionary):
 	_debug_variables = variables
 	_is_debugging = true
-	# Variables may arrive after the user already hovered / placed the caret.
+	if _tip_panel.visible and not _last_hover_word.is_empty():
+		var shown := _format_tip(_last_hover_word)
+		if not shown.is_empty():
+			_set_tip_text(shown)
+			return
 	if not _last_hover_word.is_empty() and _lookup_variable(_last_hover_word) != null:
-		if _hover_timer.is_stopped():
-			_show_tip(_last_hover_word, _lookup_variable(_last_hover_word))
-		else:
+		if _hover_timer.is_stopped() and not _tip_panel.visible:
+			_show_tip(_last_hover_word)
+		elif not _hover_timer.is_stopped():
 			_hover_timer.start()
 	if not _last_caret_word.is_empty():
 		var cv = _lookup_variable(_last_caret_word)
 		if cv != null:
-			_show_tip(_last_caret_word, cv)
+			_show_tip(_last_caret_word)
 
-## Merge frame locals (e.g. from call stack) into the data-tip lookup table.
 func merge_debug_variables(extra: Dictionary) -> void:
 	if extra.is_empty():
 		return
 	for k in extra.keys():
 		_debug_variables[k] = extra[k]
 	_is_debugging = true
+	if _tip_panel.visible and not _last_hover_word.is_empty():
+		var shown := _format_tip(_last_hover_word)
+		if not shown.is_empty():
+			_set_tip_text(shown)
 
-## Called when debugging ends
 func clear_debug_state():
 	_is_debugging = false
 	_debug_variables.clear()
 	_last_caret_word = ""
 	hide_tip()
 
-## Try to show a data tip for the word under the mouse in a CodeEdit
+## Hover — debug values when paused, otherwise declared type (Dim / ByVal).
 func check_hover(code_edit: CodeEdit, mouse_pos: Vector2):
-	if not _is_debugging:
-		return
-	
-	# Hide if mouse is outside the editor text area (e.g. in gutter or off-control)
 	var gutter_w := code_edit.get_total_gutter_width() if code_edit.has_method("get_total_gutter_width") else 48.0
 	if mouse_pos.x < gutter_w or mouse_pos.x > code_edit.size.x \
 		or mouse_pos.y < 0 or mouse_pos.y > code_edit.size.y:
 		hide_tip()
 		return
-	
+
 	var word := _get_word_at_mouse(code_edit, mouse_pos)
 	if word.is_empty():
 		hide_tip()
 		return
-	
+
+	var type_hint := _type_hint_from_editor(code_edit, word)
+	var text := _format_tip(word, type_hint)
+	if text.is_empty():
+		hide_tip()
+		return
+
+	if word == _last_hover_word and _tip_panel.visible:
+		_position_tip()
+		return
+
 	if word != _last_hover_word:
 		_last_hover_word = word
 		_hover_timer.stop()
-	
-	if _lookup_variable(word) == null:
-		hide_tip()
-		return
-	
-	if not _tip_popup.visible:
+		if _tip_panel.visible:
+			hide_tip()
+			_last_hover_word = word
+
+	if not _tip_panel.visible:
 		_hover_timer.start()
 
-## Caret on an identifier — show immediately (no hover delay).
 func check_caret(code_edit: CodeEdit):
-	if not _is_debugging or code_edit == null:
+	if code_edit == null:
 		return
 	var word := ""
 	if code_edit.has_method("get_symbol_under_caret"):
 		word = code_edit.get_symbol_under_caret()
 	if word.is_empty():
 		_last_caret_word = ""
-		if _tip_popup.visible and _hover_timer.is_stopped():
-			hide_tip()
 		return
 	_last_caret_word = word
-	var value = _lookup_variable(word)
-	if value == null:
-		if _tip_popup.visible and _hover_timer.is_stopped():
-			hide_tip()
+	var type_hint := _type_hint_from_editor(code_edit, word)
+	if _format_tip(word, type_hint).is_empty():
+		return
+	if not _is_debugging and _lookup_builtin_constant(word) == null:
 		return
 	_hover_timer.stop()
 	_last_hover_word = word
-	_show_tip(word, value)
+	_show_tip(word, type_hint)
 
 func _on_hover_timeout():
 	if _last_hover_word.is_empty():
 		return
-	var value = _lookup_variable(_last_hover_word)
-	if value != null:
-		_show_tip(_last_hover_word, value)
+	_show_tip(_last_hover_word)
 
-func _show_tip(var_name: String, value):
-	var type_name = _get_type_name(value)
-	var val_str = str(value)
-	if val_str.length() > 80:
-		val_str = val_str.substr(0, 77) + "..."
-	
-	_tip_label.text = "[b]" + var_name + "[/b] = " + val_str + "  [i](" + type_name + ")[/i]"
-	
-	# Position near mouse
-	var mouse = DisplayServer.mouse_get_position()
-	_tip_popup.position = Vector2i(mouse.x + 16, mouse.y + 16)
-	_tip_popup.size = Vector2(0, 0)  # Auto-size
-	_tip_popup.popup()
+func _show_tip(var_name: String, type_hint: String = ""):
+	var text := _format_tip(var_name, type_hint)
+	if text.is_empty():
+		hide_tip()
+		return
+	_set_tip_text(text)
+	_position_tip()
+	_tip_panel.visible = true
+
+func _set_tip_text(text: String) -> void:
+	if text == _last_tip_text and _tip_label.text == text:
+		return
+	_last_tip_text = text
+	_tip_label.text = text
+	_tip_panel.reset_size()
+
+func _position_tip() -> void:
+	if not is_instance_valid(_tip_panel) or not _tip_panel.is_inside_tree():
+		return
+	var parent := _tip_panel.get_parent() as Control
+	var pos: Vector2
+	if parent:
+		pos = parent.get_global_mouse_position()
+	else:
+		pos = _tip_panel.get_global_mouse_position()
+	_tip_panel.global_position = pos + Vector2(18, 22)
+	_tip_panel.reset_size()
 
 func hide_tip():
 	_last_hover_word = ""
+	_last_tip_text = ""
 	if is_instance_valid(_hover_timer):
 		_hover_timer.stop()
-	if is_instance_valid(_tip_popup) and _tip_popup.visible:
-		_tip_popup.hide()
+	if is_instance_valid(_tip_panel) and _tip_panel.visible:
+		_tip_panel.visible = false
 
-func _lookup_variable(word: String):
+func _format_tip(word: String, type_hint: String = "") -> String:
+	var value = _lookup_identifier_value(word)
+	if value != null:
+		var val_str := str(value)
+		if val_str.length() > 80:
+			val_str = val_str.substr(0, 77) + "..."
+		var kind := "Variable"
+		if _lookup_debug_variable(word) == null and _lookup_builtin_constant(word) != null:
+			kind = "Constant"
+		return word + " = " + val_str + "  (" + kind + ", " + _get_type_name(value) + ")"
+	if type_hint.is_empty():
+		return ""
+	return word + " As " + type_hint
+
+func _type_hint_from_editor(code_edit: CodeEdit, word: String) -> String:
+	if code_edit == null or word.is_empty():
+		return ""
+	if "_variable_types" in code_edit:
+		var types: Dictionary = code_edit._variable_types
+		return str(types.get(word.to_lower(), ""))
+	return ""
+
+func _lookup_debug_variable(word: String):
 	if word.is_empty():
 		return null
 	if _debug_variables.has(word):
@@ -191,20 +214,39 @@ func _lookup_variable(word: String):
 			return _debug_variables[k]
 	return null
 
+
+func _lookup_builtin_constant(word: String):
+	if word.is_empty():
+		return null
+	if not ClassDB.class_has_method("VisualGasicLanguage", "vg_lookup_builtin_constant"):
+		return null
+	var result = ClassDB.class_call_static("VisualGasicLanguage", "vg_lookup_builtin_constant", word)
+	if result == null:
+		return null
+	if typeof(result) == TYPE_NIL:
+		return null
+	return result
+
+
+func _lookup_identifier_value(word: String):
+	var v = _lookup_debug_variable(word)
+	if v != null:
+		return v
+	return _lookup_builtin_constant(word)
+
+
+func _lookup_variable(word: String):
+	return _lookup_identifier_value(word)
+
 func _get_word_at_mouse(code_edit: CodeEdit, mouse_pos: Vector2) -> String:
-	"""Extract the identifier word under the mouse position in a CodeEdit."""
-	# mouse_pos is local to the CodeEdit (from gui_input / _gui_input).
 	var line_col := code_edit.get_line_column_at_pos(mouse_pos)
 	var line_idx := line_col.y
 	var col_idx := line_col.x
-	
 	if line_idx < 0 or line_idx >= code_edit.get_line_count():
 		return ""
-	
 	var line := code_edit.get_line(line_idx)
 	if col_idx < 0 or col_idx >= line.length():
 		return ""
-	
 	return _word_at_column(line, col_idx)
 
 func _word_at_column(line: String, col_idx: int) -> String:

@@ -169,3 +169,43 @@ static func hook_option_button(ob: OptionButton) -> void:
 				if is_instance_valid(ob):
 					style_option_button(ob)
 			)
+
+# ── Tooltips (VB6 Data Tips: cream panel, black text) ─────────────────────
+
+const TOOLTIP_BG := Color(1.0, 1.0, 0.88)
+const TOOLTIP_BORDER := Color(0.15, 0.15, 0.12)
+const TOOLTIP_TEXT := Color(0.08, 0.08, 0.10)
+
+static func tooltip_stylebox() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = TOOLTIP_BG
+	sb.border_color = TOOLTIP_BORDER
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(2)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	sb.shadow_color = Color(0, 0, 0, 0.25)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(1, 1)
+	return sb
+
+## Build a Control Godot can use as `_make_custom_tooltip` (not the dark TooltipPanel).
+static func make_tooltip_control(for_text: String) -> Control:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", tooltip_stylebox())
+	var label := Label.new()
+	label.text = for_text
+	label.add_theme_color_override("font_color", TOOLTIP_TEXT)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+	label.add_theme_font_size_override("font_size", 12)
+	panel.add_child(label)
+	return panel
+
+static func style_tooltip_label(label: Label) -> void:
+	if not label:
+		return
+	label.add_theme_color_override("font_color", TOOLTIP_TEXT)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+	label.add_theme_font_size_override("font_size", 12)
