@@ -836,12 +836,26 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
             DimStatement* s = (DimStatement*)stmt;
             if (s->is_block_scoped) break; // block locals allocated at runtime in block body
             if (s->array_sizes.size() > 0) {
-                array_vars.insert(s->variable_name.to_lower());
+                // Procedure Dim shadows a module variable of the same name.
+                String key = s->variable_name.to_lower();
+                bool shadows = non_local_names.has(key);
+                if (shadows) {
+                    non_local_names.erase(key);
+                }
+                array_vars.insert(key);
                 String t = s->type_name.to_lower();
-                if (t == "integer" || t == "long" || t == "longlong") array_types[s->variable_name.to_lower()] = VT_INT;
-                else if (t == "single" || t == "double") array_types[s->variable_name.to_lower()] = VT_FLOAT;
+                if (t == "integer" || t == "long" || t == "longlong") array_types[key] = VT_INT;
+                else if (t == "single" || t == "double") array_types[key] = VT_FLOAT;
                 String bound = extract_bound_var(s->array_sizes[0]);
-                if (!bound.is_empty()) array_bound_vars[s->variable_name.to_lower()] = bound.to_lower();
+                if (!bound.is_empty()) array_bound_vars[key] = bound.to_lower();
+                if (shadows) {
+                    int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                    // Blank the published name so JIT / exit flush cannot
+                    // write this local back over the module variable.
+                    if (slot >= 0 && slot < current_chunk->local_names.size()) {
+                        current_chunk->local_names.write[slot] = String();
+                    }
+                }
             } else {
                 String t = s->type_name.to_lower();
                 ValueType vt = VT_UNKNOWN;
@@ -862,9 +876,27 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 else if (t == "memorybuffer" || t == "buffer") {
                     buffer_vars.insert(s->variable_name.to_lower());
                 }
-                get_or_add_local(s->variable_name, vt);
+                // Procedure Dim shadows a module variable of the same name (VB6).
+                // Without this, `Dim sx0 As Single` inside a Sub writes the module
+                // array `sx0` via OP_SET_GLOBAL and the exit flush.
+                String key = s->variable_name.to_lower();
+                bool shadows = non_local_names.has(key);
+                if (shadows) {
+                    non_local_names.erase(key);
+                    array_vars.erase(key);
+                    array_types.erase(key);
+                    array_bound_vars.erase(key);
+                    dictionary_vars.erase(key);
+                    trusted_dictionary_vars.erase(key);
+                    sole_owner_dict_vars.erase(key);
+                    buffer_vars.erase(key);
+                }
+                int slot = get_or_add_local(s->variable_name, vt);
+                if (shadows && slot >= 0 && slot < current_chunk->local_names.size()) {
+                    current_chunk->local_names.write[slot] = String();
+                }
                 if (vt != VT_UNKNOWN) {
-                    typed_locals.insert(s->variable_name.to_lower());
+                    typed_locals.insert(key);
                 }
             }
             break;
@@ -6583,7 +6615,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  String name = ((VariableNode*)s->target)->name.to_lower();
                  // Only apply DCE to function-local variables, never to globals.
                  // Global writes affect other functions and must be preserved.
-                 if (!non_local_names.has(name) && !used_vars.has(name) && is_pure_expr(s->value)) {
+                 // A Function's return variable is read by the caller even when
+                 // the body never reads it, so `Name = "literal"` is not dead.
+                 bool is_fn_return = current_sub && current_sub->type == SubDefinition::TYPE_FUNCTION
+                     && name.nocasecmp_to(current_sub->name) == 0;
+                 if (!is_fn_return && !non_local_names.has(name) && !used_vars.has(name) && is_pure_expr(s->value)) {
                      break; // DCE
                  }
              }

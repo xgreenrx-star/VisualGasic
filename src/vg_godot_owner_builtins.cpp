@@ -27,10 +27,15 @@ Node *owner_node(VisualGasicInstance *instance) {
 
 SceneTree *owner_tree(VisualGasicInstance *instance) {
 	Node *n = owner_node(instance);
-	if (!n || !n->is_inside_tree()) {
-		return nullptr;
+	if (n && n->is_inside_tree()) {
+		if (SceneTree *tree = n->get_tree()) {
+			return tree;
+		}
 	}
-	return n->get_tree();
+	if (Engine *eng = Engine::get_singleton()) {
+		return Object::cast_to<SceneTree>(eng->get_main_loop());
+	}
+	return nullptr;
 }
 
 void emit_on_owner(Object *obj, const Array &args) {

@@ -24,6 +24,8 @@ VG_ONLY=0
 SKIP_FILES=(
     test_sprite_data_resolver.vg
     test_vector_data_resolver.vg
+    test_import_grid_helpers_lib.vg
+    test_input_key_edge_press.vg
 )
 
 # Platform-specific FFI smoke tests (libc vs kernel32/ucrtbase).

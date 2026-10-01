@@ -4668,7 +4668,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         } // have_var
                         if (!found) {
                             bool stmt_found = false;
-                            dispatch_builtin_call(method, args, stmt_found);
+                            dispatch_builtin_call(method, args, stmt_found, &call_ret);
                             bool _pc_resolved_deep = stmt_found;
                             if (!stmt_found && owner) {
                                 // Fallback: try calling the method on the owner node

@@ -283,6 +283,13 @@ public:
     
     // Debug wait — enters Godot's EngineDebugger::script_debug() loop
     static void vg_debug_wait();
+    // Seconds the debugger spent blocked since the last take. The next
+    // _Process delta includes that wall time; callers subtract it once.
+    static double take_debug_stall_seconds();
+    static double adjust_process_delta(double delta);
+    // Step-into must not stop on every cell of the board renderer. That
+    // holds the frame open, so the player never appears to move.
+    static bool step_skips_file(const String &file);
     
     // Idle break — called from _process to handle break-when-idle
     static void idle_break();

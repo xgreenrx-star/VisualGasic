@@ -601,10 +601,16 @@ func request_debug_state() -> void:
 	if _active_session:
 		_active_session.send_message("visualgasic:get_debug_state", [])
 
-func send_profiler_command(command: String) -> void:
+func has_debug_session() -> bool:
+	return _active_session != null
+
+
+func send_profiler_command(command: String) -> bool:
 	"""Send a profiler command (start/stop/get_data/clear) to the running game."""
 	if _active_session:
 		_active_session.send_message("visualgasic:profiler_" + command, [])
+		return true
+	return false
 
 # ============================================================================
 # v3.2: DEBUGGER PROTOCOL v2 — Watch Expressions & Data Breakpoints

@@ -1884,6 +1884,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  Node* node = Object::cast_to<Node>(owner);
                  if (node) delta = node->get_process_delta_time();
              }
+             delta = VisualGasicLanguage::adjust_process_delta(delta);
              
              Array args; 
              args.push_back(delta);
@@ -1912,6 +1913,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
                  Node* node = Object::cast_to<Node>(owner);
                  if (node) delta = node->get_physics_process_delta_time();
              }
+             delta = VisualGasicLanguage::adjust_process_delta(delta);
              
              Array args; 
              args.push_back(delta);

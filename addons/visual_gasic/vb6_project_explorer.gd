@@ -21,6 +21,8 @@ const FOLDER_MODULES := "Modules"
 const FOLDER_CLASSES := "Class Modules"
 const FOLDER_RESOURCES := "Resources"
 
+const _VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
 # =============================================================================
 # MEMBER VARIABLES
 # =============================================================================
@@ -83,11 +85,9 @@ func _init():
 	_btn_toggle_folders = Button.new()
 	_btn_toggle_folders.text = "Folders"
 	_btn_toggle_folders.tooltip_text = "Toggle Folders"
-	_btn_toggle_folders.flat = true
 	_btn_toggle_folders.toggle_mode = true
 	_btn_toggle_folders.button_pressed = true
-	_btn_toggle_folders.add_theme_color_override("font_color", Color(0.15, 0.15, 0.15))
-	_btn_toggle_folders.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.5))
+	_VGTheme.style_toolbar_button(_btn_toggle_folders)
 	_btn_toggle_folders.toggled.connect(_on_toggle_folders)
 	_toolbar.add_child(_btn_toggle_folders)
 

@@ -3647,7 +3647,7 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
 }
 
 // Wrapper that forwards statement-level builtin calls to the centralized builtins module.
-void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found) {
+void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found, Variant *r_ret) {
     r_found = false;
 
     // ── Hot-path fast dispatch ────────────────────────────────────────────
@@ -3696,6 +3696,11 @@ void VisualGasicInstance::dispatch_builtin_call(const String &p_method, const Ar
     bool handled = false;
     if (VisualGasicBuiltins::call_builtin(this, p_method, p_args, dummy_ret, handled)) {
         r_found = handled;
+        // Expression calls (GetTree().Quit()) need the builtin result. Statement
+        // callers pass a null out-pointer and ignore it.
+        if (r_ret && handled) {
+            *r_ret = dummy_ret;
+        }
         return;
     }
     

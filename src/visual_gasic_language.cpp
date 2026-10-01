@@ -17,6 +17,8 @@
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
@@ -35,6 +37,7 @@ std::string VisualGasicLanguage::debug_error;
 VGStepMode VisualGasicLanguage::step_mode = VG_STEP_NONE;
 int VisualGasicLanguage::step_target_depth = 0;
 bool VisualGasicLanguage::waiting_for_continue = false;
+static uint64_t vg_debug_stall_usec = 0;
 
 // Current breakpoint location (set before script_debug blocks)
 std::string VisualGasicLanguage::current_break_file;
@@ -238,6 +241,30 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
             msg_data.push_back(request_id);
             msg_data.push_back(result);
             debugger->send_message("visualgasic:eval_result", msg_data);
+        }
+        return true;
+    }
+
+    // Profiler — handle in C++ (global VisualGasicProfiler singleton), same as evaluate.
+    if (p_message == "profiler_start") {
+        VisualGasicLanguage::vg_profiler_enable(true);
+        return true;
+    }
+    if (p_message == "profiler_stop") {
+        VisualGasicLanguage::vg_profiler_enable(false);
+        return true;
+    }
+    if (p_message == "profiler_clear") {
+        VisualGasicLanguage::vg_profiler_clear();
+        return true;
+    }
+    if (p_message == "profiler_get_data") {
+        Dictionary report = VisualGasicLanguage::vg_profiler_get_report();
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        if (debugger) {
+            Array msg_data;
+            msg_data.push_back(report);
+            debugger->send_message("visualgasic:profiler_data", msg_data);
         }
         return true;
     }
@@ -4335,6 +4362,11 @@ void VisualGasicLanguage::debug_continue() {
     // Clear breakpoint location so stack info returns normal line
     current_break_file.clear();
     current_break_line = 0;
+    // The editor takes focus on a pause. Give it back so WASD/R reach the game.
+    DisplayServer *display = DisplayServer::get_singleton();
+    if (display) {
+        display->window_move_to_foreground();
+    }
 }
 
 void VisualGasicLanguage::arm_step_resume_anchor() {
@@ -4960,6 +4992,11 @@ void VisualGasicLanguage::vg_debug_wait() {
     //   Condition "err != OK || size > out_buf.size() - 4" is true.
     // The encode is the multi-second stall between F11 and the next line.
     // Step / continue arrive as visualgasic:debug_step_* and debug_continue.
+    // Wall time spent here is inside the current Godot frame. The next
+    // _Process delta would otherwise include the whole pause, and Circuit
+    // Breaker's signal drain treats that as a multi-second tick: the player
+    // dies in place instead of moving.
+    const uint64_t stall_start = (uint64_t)Time::get_singleton()->get_ticks_msec();
     waiting_for_continue = true;
     while (waiting_for_continue && debugger->is_active()) {
         // line_poll reads the socket once every 2048 calls.
@@ -4972,6 +5009,45 @@ void VisualGasicLanguage::vg_debug_wait() {
         OS::get_singleton()->delay_usec(1000);
     }
     waiting_for_continue = false;
+    const uint64_t stall_end = (uint64_t)Time::get_singleton()->get_ticks_msec();
+    if (stall_end > stall_start) {
+        vg_debug_stall_usec += (stall_end - stall_start) * 1000ULL;
+    }
+}
+
+double VisualGasicLanguage::take_debug_stall_seconds() {
+    const double seconds = (double)vg_debug_stall_usec / 1000000.0;
+    vg_debug_stall_usec = 0;
+    return seconds;
+}
+
+bool VisualGasicLanguage::step_skips_file(const String &file) {
+    // 38×22 cells, several statements each. Stepping them never returns from
+    // _Process, so the queued canvas is never presented.
+    return file.ends_with("Render.vg");
+}
+
+double VisualGasicLanguage::adjust_process_delta(double delta) {
+    // The stall is inside frame N (_Input or mid-_Process). Godot's delta for
+    // frame N was already captured and does not include it. Frame N+1 does.
+    // Hold the stall one frame, then subtract it from every script that runs
+    // in that spiked frame.
+    static uint64_t applied_frame = ~(uint64_t)0;
+    static double pending = 0.0;
+    static double apply_now = 0.0;
+    const uint64_t frame = (uint64_t)Engine::get_singleton()->get_process_frames();
+    if (frame != applied_frame) {
+        apply_now = pending;
+        pending = take_debug_stall_seconds();
+        applied_frame = frame;
+    }
+    if (apply_now <= 0.0 || delta <= 0.0) {
+        return delta;
+    }
+    if (delta > apply_now) {
+        return delta - apply_now;
+    }
+    return 0.0;
 }
 
 // ============================================================================

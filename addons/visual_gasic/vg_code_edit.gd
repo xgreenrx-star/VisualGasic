@@ -911,6 +911,7 @@ func _setup_sticky_scroll() -> void:
 	_sticky_scroll_panel = PanelContainer.new()
 	_sticky_scroll_panel.name = "StickyScrollPanel"
 	_sticky_scroll_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sticky_scroll_panel.clip_contents = true
 	# Style: dark semi-transparent background
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.15, 0.15, 0.2, 0.92)
@@ -926,6 +927,10 @@ func _setup_sticky_scroll() -> void:
 	_sticky_scroll_label.name = "StickyLabel"
 	_sticky_scroll_label.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0, 0.9))
 	_sticky_scroll_label.add_theme_font_size_override("font_size", 12)
+	_sticky_scroll_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sticky_scroll_label.custom_minimum_size.x = 0
+	_sticky_scroll_label.clip_text = true
+	_sticky_scroll_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_sticky_scroll_panel.add_child(_sticky_scroll_label)
 	
 	add_child(_sticky_scroll_panel)
@@ -3190,14 +3195,17 @@ func _update_sticky_scroll(current_line: int) -> void:
 	if proc_text != _sticky_scroll_proc:
 		_sticky_scroll_proc = proc_text
 		_sticky_scroll_label.text = proc_text
+		_sticky_scroll_label.tooltip_text = proc_text
 	
 	if not _sticky_scroll_panel.visible:
 		_sticky_scroll_panel.visible = true
 	
-	# Position: at the top of the code area, past the gutter
+	# Position: at the top of the code area, past the gutter (clip to editor width)
 	var gw := get_total_gutter_width() if has_method("get_total_gutter_width") else 48.0
+	var panel_w := maxf(0.0, size.x - gw)
 	_sticky_scroll_panel.position = Vector2(gw, 0)
-	_sticky_scroll_panel.size = Vector2(size.x - gw, 0)  # Auto-height from content
+	_sticky_scroll_panel.custom_minimum_size = Vector2(panel_w, 0)
+	_sticky_scroll_panel.size = Vector2(panel_w, _sticky_scroll_panel.get_combined_minimum_size().y)
 
 # =============================================================================
 # CODE FOLDING — ensure VB6 blocks are properly foldable

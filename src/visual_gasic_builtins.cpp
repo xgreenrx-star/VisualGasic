@@ -4056,7 +4056,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             String k = args[0];
             key = (Key)OS::get_singleton()->find_keycode_from_string(k);
         }
-        return Input::get_singleton()->is_key_pressed(key);
+        return VGInputEdge::is_key_down(key);
     }
     if ((METHOD_IS("iskeyjustpressed")) && args.size() == 1) {
         r_handled = true;
@@ -4101,7 +4101,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             String k = args[0];
             key = (Key)OS::get_singleton()->find_keycode_from_string(k);
         }
-        return Input::get_singleton()->is_key_pressed(key);
+        return VGInputEdge::is_key_down(key);
     }
     if (METHOD_IS("ismousebuttondown") && args.size() == 1) {
         r_handled = true;
@@ -7948,6 +7948,22 @@ bool call_builtin_for_base_object(VisualGasicInstance *instance, const Variant &
     if (p_base.get_type() != Variant::OBJECT) return false;
     Object *obj = p_base;
     if (!obj) return false;
+
+    // Input.IsKeyPressed — Godot's is_key_pressed misses physical-only binds.
+    if (Object::cast_to<Input>(obj)) {
+        if (p_method.nocasecmp_to("IsKeyPressed") == 0 && p_args.size() == 1) {
+            r_ret = VGInputEdge::is_key_down((Key)(int)p_args[0]);
+            return true;
+        }
+        if (p_method.nocasecmp_to("IsKeyJustPressed") == 0 && p_args.size() == 1) {
+            r_ret = VGInputEdge::is_key_just_pressed((Key)(int)p_args[0]);
+            return true;
+        }
+        if (p_method.nocasecmp_to("IsKeyJustReleased") == 0 && p_args.size() == 1) {
+            r_ret = VGInputEdge::is_key_just_released((Key)(int)p_args[0]);
+            return true;
+        }
+    }
 
     // Tree specific helper: GetTextMatrix(row, col)
     if (obj->is_class("Tree") && p_method == "GetTextMatrix" && p_args.size() >= 2) {

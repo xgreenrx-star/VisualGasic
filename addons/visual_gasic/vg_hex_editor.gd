@@ -201,6 +201,11 @@ var _text_pin_timer        : Timer
 var _h_split               : HSplitContainer
 var _v_split               : VSplitContainer   # vertical split inside text side
 var _tv_vb                 : VBoxContainer     # text-panel VBox (top of _v_split)
+var _toolbar_bar           : HBoxContainer
+var _search_bar_root       : VBoxContainer
+var _status_bar_root       : VBoxContainer
+
+const _VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
 
 # =============================================================================
 # INIT
@@ -216,8 +221,10 @@ func _init() -> void:
 	vbox.add_theme_constant_override("separation", 0)
 	add_child(vbox)
 
-	vbox.add_child(_make_toolbar())
-	vbox.add_child(_make_search_bar())
+	_toolbar_bar = _make_toolbar()
+	vbox.add_child(_toolbar_bar)
+	_search_bar_root = _make_search_bar()
+	vbox.add_child(_search_bar_root)
 
 	# ── Main content: HSplitContainer (hex left | text right) ────────────────
 	_h_split = HSplitContainer.new()
@@ -319,7 +326,9 @@ func _init() -> void:
 	_h_split.add_child(_v_split)
 
 	vbox.add_child(_h_split)
-	vbox.add_child(_make_status_bar())
+	_status_bar_root = _make_status_bar()
+	vbox.add_child(_status_bar_root)
+	call_deferred("_apply_light_toolbar_chrome")
 
 	# ── Context menu ──────────────────────────────────────────────────────────
 	_context_menu = PopupMenu.new()
@@ -659,6 +668,7 @@ func _notification(what: int) -> void:
 	# any overrides set in _ready().  This keeps the grabbers always visible.
 	if what == NOTIFICATION_THEME_CHANGED:
 		_apply_scrollbar_styles()
+		_apply_light_toolbar_chrome()
 
 	# Only run the heavy theming pass on READY / THEME_CHANGED. Previously
 	# this body ran for EVERY notification (process, draw, predelete…),
@@ -736,6 +746,19 @@ func _notification(what: int) -> void:
 	call_deferred("_sync_text_panel")
 	# Apply scrollbar styles after the editor theme has settled
 	call_deferred("_apply_scrollbar_styles")
+	call_deferred("_apply_light_toolbar_chrome")
+
+
+func _apply_light_toolbar_chrome() -> void:
+	if is_instance_valid(_toolbar_bar):
+		_VGTheme.style_light_toolbar_tree(_toolbar_bar)
+	if is_instance_valid(_search_bar_root):
+		_VGTheme.style_light_toolbar_tree(_search_bar_root)
+	if is_instance_valid(_status_bar_root):
+		_VGTheme.style_light_toolbar_tree(_status_bar_root)
+	# Keep dirty indicator red on cream.
+	if is_instance_valid(_dirty_label):
+		_dirty_label.add_theme_color_override("font_color", Color("#B00020"))
 
 
 func _set_default_split() -> void:

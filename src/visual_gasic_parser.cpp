@@ -2127,6 +2127,49 @@ Statement* VisualGasicParser::parse_statement() {
         } else { unregister_node(target); delete target; unregister_node(call_stmt); delete call_stmt; return nullptr; }
 
         call_stmt->arguments = args;
+        // Call GetTree().Quit() — parentheses end the first call, then further
+        // .Member() chains are part of the same statement. Without this, the
+        // dot starts an implicit With member and Quit runs on Nothing (error 91).
+        while (check(VisualGasicTokenizer::TOKEN_OPERATOR) && peek().value == ".") {
+            advance();
+            if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                error("Expected member name after '.'");
+                break;
+            }
+            String member = peek().value;
+            advance();
+            CallExpression* inner = static_cast<CallExpression*>(register_node(new CallExpression()));
+            inner->method_name = call_stmt->method_name;
+            inner->base_object = call_stmt->base_object;
+            inner->arguments = call_stmt->arguments;
+            unregister_node(inner);
+            call_stmt->base_object = inner;
+            call_stmt->method_name = member;
+            call_stmt->arguments.clear();
+            if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                advance();
+                if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    do {
+                        if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
+                        ExpressionNode* arg = parse_expression();
+                        if (arg) {
+                            call_stmt->arguments.push_back(arg);
+                            unregister_node(arg);
+                        }
+                        if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                            advance();
+                        } else {
+                            break;
+                        }
+                    } while (!is_at_end());
+                }
+                if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    advance();
+                } else {
+                    error("Expected )");
+                }
+            }
+        }
         return set_line(call_stmt);
     }
     

@@ -30,11 +30,12 @@
 ### Editor Features
 - [VG_IDE_ALPHA.md](manual/VG_IDE_ALPHA.md) - **VG IDE shell & Form Designer — experimental Alpha** (scope vs v6.0, enable flags, floating code editor)
 - [CODE_EDITOR.md](manual/CODE_EDITOR.md) - **Code Editor Manual** (right-click context menu, Go To Definition, Find References, File path submenu, Surround With — canonical match for `vg_code_edit.gd`)
-- [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes, **Profiler / Controls / Packages / Vibe Code** bottom-dock panels)
+- [ide_tools.md](manual/ide_tools.md) - **Complete IDE tools guide** (Watch Window, Alignment, IntelliSense, Debugging, Linting, Snippets, Themes, **VG Panels** bottom strip: Immediate, Output, Errors, Vibe Code)
 - [ide_tools.md#causal-chain-static-analysis-v54](manual/ide_tools.md#causal-chain-static-analysis-v54) - **Causal Chain** — static event→Sub→Call report (Code Navigator button, Context Rail preview, C++ AST API)
-- [ide_tools.md#profiler-panel](manual/ide_tools.md#profiler-panel) - **Profiler Panel** — bytecode-level hot-path timing, counters, JSON export (C++ `VisualGasicProfiler` bridge)
-- [ide_tools.md#controls-panel-controls-inspector](manual/ide_tools.md#controls-panel-controls-inspector) - **Controls Panel** — VB6-style live inspector for form controls at breakpoints
-- [ide_tools.md#packages-panel-vg-packages](manual/ide_tools.md#packages-panel-vg-packages) - **VG Packages Panel** — install, remove, and search VG packages (pip/npm for VG)
+- [ide_tools.md#errors-panel](manual/ide_tools.md#errors-panel) - **Errors panel** — debounced `vg_validate_code` while editing `.vg` in Godot Script or VG Code Editor
+- [ide_tools.md#profiler-panel-experimental](manual/ide_tools.md#profiler-panel-experimental) - **Profiler Panel (experimental)** — hot-path timing, counters (`vg/enable_experimental_plugins`)
+- [ide_tools.md#controls-panel-controls-inspector--experimental--mothballed](manual/ide_tools.md#controls-panel-controls-inspector--experimental--mothballed) - **Controls Panel (mothballed)** — form control inspector at breakpoints, legacy IDE only
+- [ide_tools.md#packages-panel-vg-packages--experimental--mothballed](manual/ide_tools.md#packages-panel-vg-packages--experimental--mothballed) - **VG Packages Panel (mothballed)** — CLI/`vg_packages/` still supported; GUI legacy IDE only
 - [ide_tools.md#ai-help-panel](manual/ide_tools.md#ai-help-panel) - **Vibe Code panel** — in-editor AI assistant (Ollama / OpenAI / Claude / Gemini) with VG-aware prompt, Explain Error / Explain Code / Translate presets
 - [NARCEA_LIVE_DEBUG_CAPTURE.md](development/NARCEA_LIVE_DEBUG_CAPTURE.md) - **Narcea Live Debug Capture** — opt-in viewport snapshots + debug JSON for Vibe Code (implemented; privacy, MCP, phases A–D)
 - [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)

@@ -1,12 +1,28 @@
-' Headless companion: run_input_key_edge_inject.gd injects KEY_X.
+' Headless companion: run_input_key_edge_inject.gd injects KEY_X / physical KEY_Y / hold KEY_Z.
 Attribute VB_Name = "TestInputKeyEdgePress"
 
 Dim saw_edge As Boolean
+Dim saw_physical As Boolean
+Dim saw_hold As Boolean
 
 Sub _Input(ev As Variant)
 	If ev Is InputEventKey Then
-		If ev.pressed And Not ev.echo And ev.keycode = KEY_X Then
-			saw_edge = True
+		If ev.pressed And Not ev.echo Then
+			If ev.keycode = KEY_X Then
+				saw_edge = True
+			End If
+			If ev.keycode = KEY_Y Then
+				saw_physical = True
+			End If
 		End If
+	End If
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If IsKeyPressed(KEY_Z) Then
+		saw_hold = True
+	End If
+	If Input.IsKeyPressed(KEY_Z) Then
+		saw_hold = True
 	End If
 End Sub

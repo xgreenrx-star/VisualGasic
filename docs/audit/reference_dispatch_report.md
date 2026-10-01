@@ -1,18 +1,51 @@
 # Reference dispatch audit report
 
-Generated: 2026-09-08 by `scripts/audit_reference_dispatch.py`
+Generated: 2026-09-26 by `scripts/audit_reference_dispatch.py`
 
 ## Summary
 
 | Metric | Count |
 |--------|------:|
-| Language Reference commands (Part II) | 445 |
+| Language Reference commands (Part II) | 459 |
 | GODOT_FUNCTIONS_REFERENCE entries | 64 |
-| command_help entries | 446 |
-| OK / dispatch found | 773 |
+| command_help entries | 471 |
+| OK / dispatch found | 795 |
 | Known gaps (allowlisted) | 19 |
-| **Missing dispatch** | **0** |
+| **Missing dispatch** | **15** |
 | Doc source mismatch | 0 |
+
+## Missing dispatch (action required)
+
+- **Autoload** — documented but no dispatch site in src/
+  - language_reference:4041
+- **CIRCLE (QuickBASIC)** — documented but no dispatch site in src/
+  - language_reference:6340
+- **GET (QB)** — documented but no dispatch site in src/
+  - command_help:2111
+- **GET (QuickBASIC graphics)** — documented but no dispatch site in src/
+  - language_reference:7232
+- **LINE (QuickBASIC graphics)** — documented but no dispatch site in src/
+  - language_reference:8867
+- **PAINT (QuickBASIC)** — documented but no dispatch site in src/
+  - language_reference:10060
+- **PLAY (QB)** — documented but no dispatch site in src/
+  - command_help:2126
+- **PLAY (QuickBASIC)** — documented but no dispatch site in src/
+  - language_reference:10072
+- **Point (QB)** — documented but no dispatch site in src/
+  - command_help:2131
+- **Point (QuickBASIC)** — documented but no dispatch site in src/
+  - language_reference:10115
+- **PUT (QB)** — documented but no dispatch site in src/
+  - command_help:2116
+- **PUT (QuickBASIC graphics)** — documented but no dispatch site in src/
+  - language_reference:10244
+- **SCREEN (QuickBASIC)** — documented but no dispatch site in src/
+  - language_reference:11363
+- **ScreenMode** — documented but no dispatch site in src/
+  - command_help:2046
+- **Vector Data** — documented but no dispatch site in src/
+  - command_help:568
 
 ## Known gaps (allowlisted)
 

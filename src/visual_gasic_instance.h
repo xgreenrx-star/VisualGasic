@@ -325,7 +325,7 @@ private:
 
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).
-    void dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found);
+    void dispatch_builtin_call(const String &p_method, const Array &p_args, bool &r_found, Variant *r_ret = nullptr);
     // Hot-path CanvasItem draw builtins (DrawRect, DrawLine, …) — callable with a
     // flat Variant* buffer so bytecode OP_CALL skips Array materialization + cascades.
     bool try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found);

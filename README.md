@@ -260,11 +260,11 @@ own model with `python bench/ai_correctness/scripts/run_bench.py`.
 - **Visual Gasic IDE** — Code editor, debugger, profiler, immediate window, object browser, and form tooling. Note: the Form Designer C++ control has known bugs and is being replaced by **UI Forms** (new WYSIWYG plugin in active development — see [Where we're headed](#%EF%B8%8F-where-were-headed)).
 - **Full Property Wiring** - 62+ VB6 runtime property aliases with O(1) StringName HashMap dispatch, including Font, Colors, Border sub-resources, and `_Change` event firing on programmatic SET
 - **Game UI Controls** - 7 Tier 1 animated controls: DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
-- **IDE Bottom Panel** - Draggable VSplitContainer with Immediate Window (REPL), Output (Debug.Print + lifecycle), and System Console (live Godot log tailing)
+- **IDE bottom strip (VG Panels)** — Immediate Window (REPL), Output (Debug.Print + lifecycle), **Errors** (compile diagnostics for `.vg` in Godot Script or VG Code Editor). System log: use Godot’s **Output** dock (System Console tab removed in v6).
 - **Database Controls** - VGRecordset (ADODB.Recordset API), Data/DBGrid/DBCombo toolbox controls, SQL queries at design time
-- **Package Manager** - `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry, GUI Package Browser panel
+- **Package Manager** - `vg pkg` CLI, `vg.json` manifests, GitHub-backed registry; drop packages into `vg_packages/` (GUI Package Browser panel mothballed unless experimental IDE)
 - **Multi-Module Compilation** - Cross-file `Import` with project-wide symbol tables and circular import detection
-- **Visual Form Debugger** - Controls Inspector panel with tree view, click-to-source, debugger integration
+- **Visual Form Debugger (experimental)** - Controls Inspector at breakpoints — legacy IDE only (`vg/enable_experimental_plugins`); **Profiler** same flag
 
 ### **VB6-Style Visual Gasic IDE**
 
@@ -274,7 +274,7 @@ own model with `python bench/ai_correctness/scripts/run_bench.py`.
 
 ![Code Editor with Bottom Panel](docs/screenshots/ide_bottom_panel.png)
 
-*Code Editor: Procedure navigation · Command Help panel · Multi-caret editing · Ctrl+Click Go To Definition · Tabbed bottom panel (Immediate Window, Output, System Console)*
+*Code Editor: Procedure navigation · Command Help panel · Multi-caret editing · Ctrl+Click Go To Definition · Tabbed bottom panel (Immediate, Output, Errors)*
 
 ![Code Editor](docs/screenshots/ide_code_editor.png)
 

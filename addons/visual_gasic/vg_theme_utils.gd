@@ -80,6 +80,46 @@ static func hook_text_edit(te: TextEdit) -> void:
 		te.set_meta("_vg_ctx_hooked", true)
 		te.tree_entered.connect(func(): style_popup(te.get_menu()))
 
+## Dark text on cream toolbars (Find:, Cols:, status labels, …).
+static func style_light_toolbar_label(lbl: Label) -> void:
+	if not lbl:
+		return
+	lbl.add_theme_color_override("font_color", Color(0.12, 0.12, 0.14))
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+
+
+## MenuButton on cream toolbars (Open, Bookmarks, …) + themed dropdown.
+static func style_menu_button(mb: MenuButton) -> void:
+	if not mb:
+		return
+	style_toolbar_button(mb)
+	var popup := mb.get_popup()
+	if popup:
+		style_popup(popup)
+	if not mb.has_meta("_vg_menu_btn_hooked"):
+		mb.set_meta("_vg_menu_btn_hooked", true)
+		_VGGodotCompat.connect_popup_preshow(mb, func():
+			if is_instance_valid(mb):
+				style_menu_button(mb)
+		)
+
+
+## Recursively style Buttons, MenuButtons, OptionButtons, and Labels for cream panels.
+static func style_light_toolbar_tree(root: Node) -> void:
+	if root == null:
+		return
+	if root is MenuButton:
+		style_menu_button(root as MenuButton)
+	elif root is Button:
+		style_toolbar_button(root as Button)
+	elif root is OptionButton:
+		hook_option_button(root as OptionButton)
+	elif root is Label:
+		style_light_toolbar_label(root as Label)
+	for child in root.get_children():
+		style_light_toolbar_tree(child)
+
+
 ## Cream toolbar toggle/button so it matches the Object and Procedure dropdowns.
 static func style_toolbar_button(btn: Button) -> void:
 	if not btn:

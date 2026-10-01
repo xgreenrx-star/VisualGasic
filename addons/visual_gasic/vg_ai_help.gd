@@ -841,7 +841,7 @@ func _set_work_phase(phase: String) -> void:
 		_:
 			msg = "● %s — working…" % who
 	_status_label.text = msg
-	_status_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.62))
+	_paint_status_label(Color(0.55, 0.90, 0.68))
 
 
 func _set_work_active(active: bool, phase: String = "") -> void:
@@ -862,8 +862,7 @@ func _restore_ready_status() -> void:
 		return
 	var pname: String = _provider_info.display_name if _provider_info else "Ollama"
 	_status_label.text = ("✅ %s ready" % pname) if _ollama_available else ("❌ %s not found" % pname)
-	_status_label.add_theme_color_override("font_color",
-		Color(0.4, 0.9, 0.4) if _ollama_available else Color(1.0, 0.4, 0.4))
+	_paint_status_label(Color(0.68, 0.92, 0.68) if _ollama_available else Color(1.0, 0.55, 0.55))
 
 
 func _reset_stream_display_state() -> void:
@@ -1656,14 +1655,6 @@ func _setup_ui() -> void:
 	toolbar.add_theme_constant_override("separation", 6)
 	toolbar_vbox.add_child(toolbar)
 
-	var title := Label.new()
-	title.text = "🤖 Vibe Code"
-	title.add_theme_font_size_override("font_size", 13)
-	title.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
-	toolbar.add_child(title)
-
-	toolbar.add_child(_make_separator())
-
 	# ── Provider selector ──
 	_provider_dropdown = OptionButton.new()
 	_provider_dropdown.tooltip_text = "Select AI provider (Local or Cloud)"
@@ -1714,13 +1705,24 @@ func _setup_ui() -> void:
 
 	toolbar.add_child(_make_separator())
 
+	var status_chip := PanelContainer.new()
+	var chip_sb := StyleBoxFlat.new()
+	chip_sb.bg_color = Color(0.16, 0.19, 0.24, 0.94)
+	chip_sb.set_corner_radius_all(4)
+	chip_sb.content_margin_left = 8
+	chip_sb.content_margin_right = 8
+	chip_sb.content_margin_top = 3
+	chip_sb.content_margin_bottom = 3
+	status_chip.add_theme_stylebox_override("panel", chip_sb)
+	status_chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status_label = Label.new()
 	var _init_pname: String = _provider_info.display_name if _provider_info else "AI provider"
 	_status_label.text = "⏳ Checking %s..." % _init_pname
 	_status_label.add_theme_font_size_override("font_size", 11)
-	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	_paint_status_label(Color(0.78, 0.82, 0.88))
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	toolbar.add_child(_status_label)
+	status_chip.add_child(_status_label)
+	toolbar.add_child(status_chip)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2249,6 +2251,11 @@ func _make_separator() -> VSeparator:
 	sep.custom_minimum_size.x = 2
 	return sep
 
+
+func _paint_status_label(color: Color) -> void:
+	if is_instance_valid(_status_label):
+		_status_label.add_theme_color_override("font_color", color)
+
 func _style_small_button(btn: Button) -> void:
 	_style_toolbar_light_button(btn)
 
@@ -2425,7 +2432,7 @@ func _style_input_row_button(btn: Button) -> void:
 func _ping_ollama() -> void:
 	var pname: String = _provider_info.display_name if _provider_info else "Ollama"
 	_status_label.text = "⏳ Checking %s..." % pname
-	_status_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	_paint_status_label(Color(0.78, 0.82, 0.88))
 	var err := _ping_http.request("http://127.0.0.1:11434/api/tags")
 	if err != OK:
 		_set_offline()
@@ -2444,7 +2451,7 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 	_ollama_available = true
 	var pname2: String = _provider_info.display_name if _provider_info else "Ollama"
 	_status_label.text = "✅ %s connected" % pname2
-	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	_paint_status_label(Color(0.68, 0.92, 0.68))
 
 	# Parse available models and update dropdown
 	var json = JSON.parse_string(body.get_string_from_utf8())
@@ -2471,7 +2478,7 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 		_append_system("[color=yellow]No AI models installed yet.[/color] Opening the model picker...\n")
 		call_deferred("_show_model_picker")
 		_status_label.text = "📥 No models — click the download icon to install one"
-		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		_paint_status_label(Color(1.0, 0.82, 0.45))
 		return
 	_append_system("Connected to Ollama. Model: [color=cyan]%s[/color]\n" % _current_model)
 	ai_panel_ready.emit()
@@ -2482,7 +2489,7 @@ func _on_ping_response(result: int, code: int, _headers: PackedStringArray, body
 func _set_offline() -> void:
 	_ollama_available = false
 	_status_label.text = "❌ Ollama not found"
-	_status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+	_paint_status_label(Color(1.0, 0.55, 0.55))
 	_append_system("[color=yellow]Ollama is not running.[/color] Install it with:\n")
 	match OS.get_name():
 		"Windows", "UWP":
@@ -2502,7 +2509,7 @@ func _warmup_model() -> void:
 	if _model_warm or not _ollama_available:
 		return
 	_status_label.text = "🔥 Loading model (first query may be slow)..."
-	_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+	_paint_status_label(Color(1.0, 0.82, 0.45))
 	# Keep Send enabled — warmup is an optimization, not a gate.
 	# If the user sends before warmup finishes, the query itself will warm the model.
 	var body := JSON.stringify({
@@ -2517,19 +2524,19 @@ func _warmup_model() -> void:
 		# Couldn't even start warmup (busy or bad state) — treat model as ready
 		# so queries aren't blocked. Worst case, the first query is slow.
 		_status_label.text = "✅ Ollama connected"
-		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_paint_status_label(Color(0.68, 0.92, 0.68))
 		_model_warm = true
 
 func _on_warmup_response(result: int, _code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
 	_model_warm = true
 	if result == HTTPRequest.RESULT_SUCCESS:
 		_status_label.text = "✅ Ready"
-		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_paint_status_label(Color(0.68, 0.92, 0.68))
 		_append_system("[color=green]Model loaded and ready.[/color]\n")
 	else:
 		# Warmup failed — non-critical, just reset status
 		_status_label.text = "✅ Ollama connected"
-		_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+		_paint_status_label(Color(0.68, 0.92, 0.68))
 	# Enable Send button now that the model is ready
 	if is_instance_valid(_send_btn):
 		_send_btn.disabled = false
@@ -4189,7 +4196,7 @@ func _run_activate_provider() -> void:
 		if key.is_empty():
 			_ollama_available = false
 			_status_label.text = "🔑 API key needed"
-			_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+			_paint_status_label(Color(1.0, 0.82, 0.45))
 			_append_provider_status_once(
 				"%s:missing_key" % _provider_id,
 				"[color=yellow]%s requires an API key. Click ⚙️ to configure.[/color]\n" % _provider_info.display_name
@@ -4198,7 +4205,7 @@ func _run_activate_provider() -> void:
 			_ollama_available = true
 			_model_warm = true  # Cloud providers don't need warmup
 			_status_label.text = "✅ %s ready" % _provider_info.display_name
-			_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+			_paint_status_label(Color(0.68, 0.92, 0.68))
 			_append_provider_status_once(
 				"%s:ready:%s" % [_provider_id, _current_model],
 				"Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color]\n" % [_provider_info.display_name, _current_model]
@@ -4213,7 +4220,7 @@ func _activate_cursor_provider() -> void:
 	if key.is_empty():
 		_ollama_available = false
 		_status_label.text = "🔑 Cursor API key needed"
-		_status_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.3))
+		_paint_status_label(Color(1.0, 0.82, 0.45))
 		_append_provider_status_once(
 			"cursor:missing_key",
 			"[color=yellow]Cursor (Composer) needs an API key. Click ⚙️ → paste from cursor.com/dashboard/integrations[/color]\n"
@@ -4238,7 +4245,7 @@ func _activate_cursor_provider() -> void:
 		_cursor_sdk_bootstrapping = true
 		_ollama_available = false
 		_status_label.text = "⏳ Installing cursor-sdk…"
-		_status_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+		_paint_status_label(Color(1.0, 0.88, 0.50))
 		_append_provider_status_once(
 			"cursor:installing_sdk",
 			"[color=yellow]cursor-sdk not found — installing once to shared venv "
@@ -4261,7 +4268,7 @@ func _activate_cursor_provider() -> void:
 		if bool(mcp.get("ok", false)) and (bool(mcp.get("created", false)) or bool(mcp.get("updated", false))):
 			mcp_note = "\n" + str(mcp.get("message", ""))
 	_status_label.text = "✅ %s ready" % _provider_info.display_name
-	_status_label.add_theme_color_override("font_color", Color(0.4, 0.9, 0.4))
+	_paint_status_label(Color(0.68, 0.92, 0.68))
 	_append_provider_status_once(
 		"cursor:ready:%s" % _current_model,
 		"Connected to [color=cyan]%s[/color] — model: [color=cyan]%s[/color] (SDK subprocess, slim Narcea prompt)%s\n"
@@ -4280,7 +4287,7 @@ func _on_cursor_sdk_bootstrap_done(result: Dictionary) -> void:
 	else:
 		_ollama_available = false
 		_status_label.text = "❌ cursor-sdk install failed"
-		_status_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.5))
+		_paint_status_label(Color(1.0, 0.55, 0.55))
 		_append_provider_status_once(
 			"cursor:install_failed",
 			"[color=yellow]Auto-install failed: %s\nOpen ⚙️ → Install cursor-sdk (venv).[/color]\n"

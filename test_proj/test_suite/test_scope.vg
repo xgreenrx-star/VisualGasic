@@ -1,7 +1,6 @@
 ' Test: Global Variables and Scope
-' Tests global vs local scope
-' NOTE: Variable shadowing (Dim globalVar inside function) writes to
-' the global instead of creating a local. Workaround: use different name.
+' Tests global vs local scope.
+' A procedure Dim shadows a module variable of the same name.
 Attribute VB_Name = "TestScope"
 
 Dim globalVar As Integer
@@ -41,7 +40,7 @@ Sub _Ready()
 		Print "FAIL: global_string_modified: got " & sharedVar
 	End If
 	
-	' --- Function with local variable (use different name to avoid shadowing bug) ---
+	' --- Function with local variable ---
 	globalVar = 999
 	Dim shadowResult As Integer = GetLocalValue()
 	If shadowResult = 77 And globalVar = 999 Then

@@ -31,7 +31,7 @@ void sync_frame() {
 		s_pressed_this_frame.clear();
 	}
 	for (Key key : s_tracked_keys) {
-		if (input->is_key_pressed(key)) {
+		if (input->is_key_pressed(key) || input->is_physical_key_pressed(key)) {
 			s_pressed_this_frame.insert(key);
 		}
 	}
@@ -42,6 +42,14 @@ void track_key(Key p_key) {
 }
 
 } // namespace
+
+bool VGInputEdge::is_key_down(Key p_key) {
+	Input *input = Input::get_singleton();
+	if (!input) {
+		return false;
+	}
+	return input->is_key_pressed(p_key) || input->is_physical_key_pressed(p_key);
+}
 
 bool VGInputEdge::is_key_just_pressed(Key p_key) {
 	track_key(p_key);

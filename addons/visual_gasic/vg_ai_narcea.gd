@@ -464,6 +464,14 @@ Attract mode (playable demo in a showcase reel):
   ' Scene-tree query
   Dim node As Node = GetTree.GetRoot.GetNode(\"path/to/node\")
 
+  ' Quit the running game / close the app (VB6-style — prefer in menus & Escape)
+  End
+  ' GetTree() returns the main SceneTree (engine builtin). Root access:
+  Dim root = GetTree().GetRoot()
+  ' Avoid Call GetTree().Quit() — chained .Member() after Call was a parser pitfall;
+  ' use End, or Dim tree = GetTree() : tree.Quit(). See test_gettree_returns_object.vg.
+  ' Raw Godot parity (Input, DisplayServer, nodes): docs/GODOT_PROGRAMMING_MANUAL.md §36.17.
+
   ' Persistent settings (per project)
   Dim cfg As ConfigFile = New ConfigFile()
   cfg.Load(\"user://settings.cfg\")
@@ -684,8 +692,9 @@ for designer controls:
   Sub PlayerAnim_AnimationFinished(anim_name As String)
 
 MANUAL WIRING when the naming convention isn't enough:
-  ConnectSignal "body_entered", "OnBodyEntered"
+  Connect someBody, "body_entered", "OnBodyEntered"
   ' Then: Sub OnBodyEntered(body As Node) ...
+  ' There is NO ConnectSignal — use Connect(node, \"signal\", \"HandlerSub\").
 
 CUSTOM EVENTS (Class modules only — not flat modules):
   ' In the class definition:

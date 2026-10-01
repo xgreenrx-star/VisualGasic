@@ -75,6 +75,10 @@ var _scene_poll_timer: Timer = null  # Polls EditorInterface.is_playing_scene()
 var _was_scene_playing: bool = false  # Last known state for edge detection
 var _scene_connect_retries: int = 0  # Retry counter for auto-connect
 const AUTO_REFRESH_INTERVAL: float = 0.5  # Update every 500ms
+const _VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
+
+var _console_toolbar: HBoxContainer
+var _debug_toolbar: HBoxContainer
 
 func _ready():
 	_setup_ui()
@@ -231,6 +235,25 @@ func _on_debug_session_started() -> void:
 	_debug_session_active = true
 	set_debug_active(true, false)
 
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_THEME_CHANGED:
+		_apply_immediate_light_chrome()
+
+
+func _apply_immediate_light_chrome() -> void:
+	if is_instance_valid(_console_toolbar):
+		_VGTheme.style_light_toolbar_tree(_console_toolbar)
+	if is_instance_valid(_debug_toolbar):
+		_VGTheme.style_light_toolbar_tree(_debug_toolbar)
+	if is_instance_valid(_instance_dropdown):
+		_VGTheme.hook_option_button(_instance_dropdown)
+	if is_instance_valid(_capture_status_chip):
+		_capture_status_chip.add_theme_color_override("font_color", Color(0.12, 0.12, 0.14))
+	if is_instance_valid(_send_button):
+		_VGTheme.style_toolbar_button(_send_button)
+
+
 func _setup_ui():
 	# Main horizontal split: Console (left) + Panels (right)
 	var main_split = HSplitContainer.new()
@@ -245,142 +268,142 @@ func _setup_ui():
 	main_split.add_child(console_vbox)
 	
 	# Toolbar
-	var toolbar = HBoxContainer.new()
-	console_vbox.add_child(toolbar)
+	_console_toolbar = HBoxContainer.new()
+	console_vbox.add_child(_console_toolbar)
 	
 	var title = Label.new()
 	title.text = "Immediate Window"
 	title.add_theme_font_size_override("font_size", 14)
-	toolbar.add_child(title)
+	_console_toolbar.add_child(title)
 	
-	toolbar.add_child(Control.new()) # Spacer
-	toolbar.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_console_toolbar.add_child(Control.new()) # Spacer
+	_console_toolbar.get_child(-1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	
 	# Quick action buttons
 	var repeat_btn = Button.new()
 	repeat_btn.text = "↻ Repeat"
 	repeat_btn.tooltip_text = "Repeat last command (Ctrl+R)"
 	repeat_btn.pressed.connect(_repeat_last)
-	toolbar.add_child(repeat_btn)
+	_console_toolbar.add_child(repeat_btn)
 	
 	var save_btn = Button.new()
 	save_btn.text = "💾 Save"
 	save_btn.tooltip_text = "Save session to file"
 	save_btn.pressed.connect(_save_session)
-	toolbar.add_child(save_btn)
+	_console_toolbar.add_child(save_btn)
 	
 	var load_btn = Button.new()
 	load_btn.text = "📂 Load"
 	load_btn.tooltip_text = "Load session from file"
 	load_btn.pressed.connect(_load_session)
-	toolbar.add_child(load_btn)
+	_console_toolbar.add_child(load_btn)
 	
 	_clear_button = Button.new()
 	_clear_button.text = "Clear"
 	_clear_button.tooltip_text = "Clear the Immediate window (:clear or Ctrl+L)"
 	_clear_button.pressed.connect(_on_clear_pressed)
-	toolbar.add_child(_clear_button)
+	_console_toolbar.add_child(_clear_button)
 	
 	var help_button = Button.new()
 	help_button.text = "Help"
 	help_button.pressed.connect(_show_help)
-	toolbar.add_child(help_button)
+	_console_toolbar.add_child(help_button)
 	
 	# Instance connection section
 	var separator = VSeparator.new()
-	toolbar.add_child(separator)
+	_console_toolbar.add_child(separator)
 	
 	var instance_label = Label.new()
 	instance_label.text = "Connect to:"
-	toolbar.add_child(instance_label)
+	_console_toolbar.add_child(instance_label)
 	
 	_instance_dropdown = OptionButton.new()
 	_instance_dropdown.custom_minimum_size = Vector2(200, 0)
 	_instance_dropdown.add_item("(Not Connected)", 0)
 	_instance_dropdown.item_selected.connect(_on_instance_selected)
-	toolbar.add_child(_instance_dropdown)
+	_console_toolbar.add_child(_instance_dropdown)
 	
 	_refresh_instances_btn = Button.new()
 	_refresh_instances_btn.text = "🔄"
 	_refresh_instances_btn.tooltip_text = "Refresh running instances"
 	_refresh_instances_btn.pressed.connect(_refresh_running_instances)
-	toolbar.add_child(_refresh_instances_btn)
+	_console_toolbar.add_child(_refresh_instances_btn)
 	# help_button already added above
 	
 	# Debug toolbar (Step debugging controls)
-	var debug_toolbar = HBoxContainer.new()
-	console_vbox.add_child(debug_toolbar)
+	_debug_toolbar = HBoxContainer.new()
+	console_vbox.add_child(_debug_toolbar)
 	
 	var debug_label = Label.new()
 	debug_label.text = "Debug:"
-	debug_toolbar.add_child(debug_label)
+	_debug_toolbar.add_child(debug_label)
 	
 	_btn_continue = Button.new()
 	_btn_continue.text = "▶ Continue"
 	_btn_continue.tooltip_text = "Resume execution (F5)"
 	_btn_continue.pressed.connect(_on_debug_continue)
 	_btn_continue.disabled = true
-	debug_toolbar.add_child(_btn_continue)
+	_debug_toolbar.add_child(_btn_continue)
 	
 	_btn_break = Button.new()
 	_btn_break.text = "⏸ Break"
 	_btn_break.tooltip_text = "Pause execution at current line (Ctrl+Break)"
 	_btn_break.pressed.connect(_on_debug_break)
 	_btn_break.disabled = true
-	debug_toolbar.add_child(_btn_break)
+	_debug_toolbar.add_child(_btn_break)
 	
 	_btn_step_over = Button.new()
 	_btn_step_over.text = "⤵ Step Over"
 	_btn_step_over.tooltip_text = "Step to next line (F10)"
 	_btn_step_over.pressed.connect(_on_debug_step_over)
 	_btn_step_over.disabled = true
-	debug_toolbar.add_child(_btn_step_over)
+	_debug_toolbar.add_child(_btn_step_over)
 	
 	_btn_step_into = Button.new()
 	_btn_step_into.text = "↓ Step Into"
 	_btn_step_into.tooltip_text = "Step into function (F11)"
 	_btn_step_into.pressed.connect(_on_debug_step_into)
 	_btn_step_into.disabled = true
-	debug_toolbar.add_child(_btn_step_into)
+	_debug_toolbar.add_child(_btn_step_into)
 	
 	_btn_step_out = Button.new()
 	_btn_step_out.text = "↑ Step Out"
 	_btn_step_out.tooltip_text = "Step out of function (Shift+F11)"
 	_btn_step_out.pressed.connect(_on_debug_step_out)
 	_btn_step_out.disabled = true
-	debug_toolbar.add_child(_btn_step_out)
+	_debug_toolbar.add_child(_btn_step_out)
 	
 	_btn_stop = Button.new()
 	_btn_stop.text = "■ Stop"
 	_btn_stop.tooltip_text = "Stop execution (Shift+F5)"
 	_btn_stop.pressed.connect(_on_debug_stop)
 	_btn_stop.disabled = true
-	debug_toolbar.add_child(_btn_stop)
+	_debug_toolbar.add_child(_btn_stop)
 
 	var cap_sep := VSeparator.new()
-	debug_toolbar.add_child(cap_sep)
+	_debug_toolbar.add_child(cap_sep)
 	_capture_status_chip = Label.new()
 	_capture_status_chip.text = "Capture: OFF"
 	_capture_status_chip.tooltip_text = "Narcea live debug capture (Project Settings → Vg → Narcea)"
-	debug_toolbar.add_child(_capture_status_chip)
+	_debug_toolbar.add_child(_capture_status_chip)
 	_capture_clear_btn = Button.new()
 	_capture_clear_btn.text = "Clear capture"
 	_capture_clear_btn.tooltip_text = "Delete local viewport snapshots for this session (does not stop the game)"
 	_capture_clear_btn.pressed.connect(_on_live_capture_clear_pressed)
-	debug_toolbar.add_child(_capture_clear_btn)
+	_debug_toolbar.add_child(_capture_clear_btn)
 	
 	# Set Next Statement hint label
 	var sns_label = Label.new()
 	sns_label.text = "⬤ Drag yellow arrow in gutter to Set Next Statement"
 	sns_label.add_theme_font_size_override("font_size", 10)
-	sns_label.add_theme_color_override("font_color", Color(0.7, 0.65, 0.3, 0.8))
+	sns_label.add_theme_color_override("font_color", Color(0.45, 0.38, 0.12))
 	sns_label.tooltip_text = "When paused, drag the yellow arrow in the code editor gutter to change where execution continues (VB6-style Set Next Statement)"
-	debug_toolbar.add_child(sns_label)
+	_debug_toolbar.add_child(sns_label)
 	
 	# Spacer
 	var debug_spacer = Control.new()
 	debug_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	debug_toolbar.add_child(debug_spacer)
+	_debug_toolbar.add_child(debug_spacer)
 	
 	# Debug status label — wrapped in dark panel for visibility on any theme
 	var status_panel = PanelContainer.new()
@@ -393,7 +416,7 @@ func _setup_ui():
 	_debug_status_label.text = ""
 	_debug_status_label.add_theme_color_override("font_color", Color.YELLOW)
 	status_panel.add_child(_debug_status_label)
-	debug_toolbar.add_child(status_panel)
+	_debug_toolbar.add_child(status_panel)
 	
 	_bbcode_stripper = RegEx.new()
 	_bbcode_stripper.compile("\\[[^\\]]*\\]")
@@ -428,7 +451,8 @@ func _setup_ui():
 	_send_button.text = "Execute line"
 	_send_button.tooltip_text = "Run the line where the caret is (Enter)"
 	_send_button.pressed.connect(_on_send_pressed)
-	toolbar.add_child(_send_button)
+	_console_toolbar.add_child(_send_button)
+	call_deferred("_apply_immediate_light_chrome")
 	
 	# Right side: Tabbed panels (Variables, Watch, Inspector)
 	_right_tabs = TabContainer.new()

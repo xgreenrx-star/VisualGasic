@@ -142,9 +142,52 @@ func _build_ui() -> void:
 
 func set_debugger_plugin(plugin: EditorDebuggerPlugin) -> void:
 	_debugger_plugin = plugin
-	# The profiler_data_received signal will be connected when available
 	if _debugger_plugin and _debugger_plugin.has_signal("profiler_data_received"):
-		_debugger_plugin.profiler_data_received.connect(_on_profiler_data_received)
+		if not _debugger_plugin.profiler_data_received.is_connected(_on_profiler_data_received):
+			_debugger_plugin.profiler_data_received.connect(_on_profiler_data_received)
+	if _debugger_plugin and _debugger_plugin.has_signal("debug_session_started"):
+		if not _debugger_plugin.debug_session_started.is_connected(_on_debug_session_started):
+			_debugger_plugin.debug_session_started.connect(_on_debug_session_started)
+	if _debugger_plugin and _debugger_plugin.has_signal("debug_session_stopped"):
+		if not _debugger_plugin.debug_session_stopped.is_connected(_on_debug_session_stopped):
+			_debugger_plugin.debug_session_stopped.connect(_on_debug_session_stopped)
+	_update_session_status()
+
+
+func _has_active_session() -> bool:
+	if _debugger_plugin == null:
+		return false
+	if _debugger_plugin.has_method("has_debug_session"):
+		return _debugger_plugin.has_debug_session()
+	return _debugger_plugin.get("_active_session") != null
+
+
+func _on_debug_session_started() -> void:
+	_update_session_status()
+	call_deferred("_request_profile_data")
+
+
+func _on_debug_session_stopped() -> void:
+	_profiling_active = false
+	if is_instance_valid(_toggle_btn):
+		_toggle_btn.set_pressed_no_signal(false)
+		_toggle_btn.text = "▶ Start Profiling"
+	if _auto_refresh_timer:
+		_auto_refresh_timer.stop()
+	_update_session_status()
+
+
+func _update_session_status() -> void:
+	if not is_instance_valid(_status_label):
+		return
+	if _profiling_active:
+		return
+	if _has_active_session():
+		_status_label.text = "Game running — Start profiling or Refresh"
+		_status_label.add_theme_color_override("font_color", Color(0.45, 0.85, 0.45))
+	else:
+		_status_label.text = "Run the game (F5), then Start or Refresh"
+		_status_label.add_theme_color_override("font_color", Color(0.95, 0.65, 0.25))
 
 func _on_toggle_profiling(pressed: bool) -> void:
 	_profiling_active = pressed
@@ -181,10 +224,19 @@ func _clear_profile_data() -> void:
 	_status_label.add_theme_color_override("font_color", Color.GRAY)
 
 func _send_profiler_command(command: String) -> void:
+	if not _has_active_session():
+		_status_label.text = "No debug session — press F5 to run the game"
+		_status_label.add_theme_color_override("font_color", Color(0.95, 0.65, 0.25))
+		return
+	var sent := false
 	if _debugger_plugin and _debugger_plugin.has_method("send_profiler_command"):
-		_debugger_plugin.send_profiler_command(command)
-	elif _debugger_plugin and _debugger_plugin._active_session:
+		sent = _debugger_plugin.send_profiler_command(command)
+	elif _debugger_plugin and _debugger_plugin.get("_active_session"):
 		_debugger_plugin._active_session.send_message("visualgasic:profiler_" + command, [])
+		sent = true
+	if not sent and command == "get_data":
+		_status_label.text = "Profiler command failed — is the game still running?"
+		_status_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 
 # ============================================================================
 # DATA DISPLAY

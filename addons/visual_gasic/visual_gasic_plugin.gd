@@ -165,6 +165,10 @@ var _mirroring_vg_breakpoints: bool = false
 
 ## Timer to periodically check for .vg files in script editor
 var _script_editor_check_timer: Timer
+## Debounced compile check for .vg open in Godot's native Script editor → VG Errors tab
+var _native_vg_validate_timer: Timer = null
+var _native_vg_validate_path: String = ""
+var _native_vg_validate_edit: CodeEdit = null
 
 ## Code Navigator bar (VB6-style Object/Event dropdowns above code editor)
 var _code_navigator = null
@@ -694,22 +698,24 @@ func _enter_tree():
 		_profiler_panel.visible = false
 		print("VisualGasic: Profiler Panel created (will embed in IDE)")
 	
-	# Create Controls Inspector (v4.3.0) — Visual Form Debugger
-	var inspector_script = load("res://addons/visual_gasic/vg_controls_inspector.gd")
-	if inspector_script:
-		_controls_inspector = inspector_script.new()
-		_controls_inspector.setup(debugger_plugin)
-		if debugger_plugin:
-			debugger_plugin.form_controls_received.connect(_on_form_controls_received)
-			debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
-			debugger_plugin.debug_break_hit.connect(_on_debug_break_navigate)
-			debugger_plugin.debug_break_hit.connect(_on_run_to_cursor_break_hit)
-			debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
-			debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
-		_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
-		add_child(_controls_inspector)  # Park on plugin until IDE is ready
-		_controls_inspector.visible = false
-		print("VisualGasic: Controls Inspector created (will embed in IDE)")
+	# Controls Inspector — mothballed for v6 Godot-first (experimental legacy IDE only).
+	if _use_legacy_vg_ide_main_screen():
+		var inspector_script = load("res://addons/visual_gasic/vg_controls_inspector.gd")
+		if inspector_script:
+			_controls_inspector = inspector_script.new()
+			_controls_inspector.setup(debugger_plugin)
+			if debugger_plugin:
+				debugger_plugin.form_controls_received.connect(_on_form_controls_received)
+				debugger_plugin.debug_break_hit.connect(_on_debug_break_for_controls_inspector)
+				debugger_plugin.debug_continued.connect(_on_debug_continued_for_controls_inspector)
+				debugger_plugin.debug_session_stopped.connect(_on_debug_stopped_for_controls_inspector)
+			_controls_inspector.navigate_to_event.connect(_on_controls_navigate_to_event)
+			add_child(_controls_inspector)
+			_controls_inspector.visible = false
+			print("VisualGasic: Controls Inspector created (experimental IDE only)")
+	if debugger_plugin:
+		debugger_plugin.debug_break_hit.connect(_on_debug_break_navigate)
+		debugger_plugin.debug_break_hit.connect(_on_run_to_cursor_break_hit)
 
 	# Create Exception Assistant (VB6-style error popup)
 	var exception_script = load("res://addons/visual_gasic/vg_exception_assistant.gd")
@@ -733,14 +739,15 @@ func _enter_tree():
 				debugger_plugin.stack_level_locals_received.connect(_on_stack_level_locals_received)
 		print("VisualGasic: Exception Assistant created")
 
-	# Create Package Browser (v4.3.0) — will be embedded in VB6 IDE bottom tabs
-	var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
-	if pkg_browser_script:
-		_package_browser = pkg_browser_script.new()
-		_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
-		add_child(_package_browser)  # Park on plugin until IDE is ready
-		_package_browser.visible = false
-		print("VisualGasic: Package Browser created (will embed in IDE)")
+	# Package Browser — mothballed for v6 (local vg_packages/ still works; no bottom tab).
+	if _use_legacy_vg_ide_main_screen():
+		var pkg_browser_script = load("res://addons/visual_gasic/vg_package_browser.gd")
+		if pkg_browser_script:
+			_package_browser = pkg_browser_script.new()
+			_package_browser.setup(EditorInterface.get_editor_paths().get_project_settings_dir().get_base_dir())
+			add_child(_package_browser)
+			_package_browser.visible = false
+			print("VisualGasic: Package Browser created (experimental IDE only)")
 	
 	# Create Vibe Code panel — appears in Godot bottom panel by default (Godot IDE mode).
 	# In VG IDE mode it is re-parented into the embedded code editor's bottom tabs.
@@ -10095,11 +10102,29 @@ func _wire_output_tabs() -> void:
 		if not debugger_plugin.profiler_data_received.is_connected(_on_profiler_to_output):
 			debugger_plugin.profiler_data_received.connect(_on_profiler_to_output)
 
+	if is_instance_valid(_profiler_panel) and debugger_plugin:
+		_profiler_panel.set_debugger_plugin(debugger_plugin)
+
 	# 3) Log an initial message so the Output tab isn't empty
 	var ts = Time.get_datetime_string_from_system(false, true)
 	_embedded_code_editor.append_output("Session started: " + ts, Color(0.3, 0.3, 0.6))
 
 	print("VisualGasic: Output and System Console tabs wired")
+
+## Profiler tab only — safe to call from _sync_bottom_panel_mount (no hex / duplicate tabs).
+func _ensure_profiler_bottom_tab() -> void:
+	if not _use_legacy_vg_ide_main_screen():
+		return
+	if not is_instance_valid(_embedded_code_editor) or not is_instance_valid(_profiler_panel):
+		return
+	if _profiler_panel.get_meta("vg_embedded_bottom", false):
+		return
+	if not _embedded_code_editor.has_method("add_bottom_tab"):
+		return
+	_embedded_code_editor.add_bottom_tab("Profiler", _profiler_panel)
+	_profiler_panel.set_meta("vg_embedded_bottom", true)
+	print("VisualGasic: Profiler embedded in IDE bottom tabs")
+
 
 ## Embed VG panels into the IDE's bottom TabContainer (deferred after IDE layout is built).
 func _embed_ide_bottom_panels() -> void:
@@ -10109,17 +10134,15 @@ func _embed_ide_bottom_panels() -> void:
 		push_warning("VisualGasic: Embedded code editor missing add_bottom_tab — panels stay parked")
 		return
 
-	if is_instance_valid(_profiler_panel):
-		_embedded_code_editor.add_bottom_tab("Profiler", _profiler_panel)
-		print("VisualGasic: Profiler embedded in IDE bottom tabs")
+	_ensure_profiler_bottom_tab()
 
-	if is_instance_valid(_controls_inspector):
-		_embedded_code_editor.add_bottom_tab("Controls", _controls_inspector)
-		print("VisualGasic: Controls Inspector embedded in IDE bottom tabs")
-
-	if is_instance_valid(_package_browser):
-		_embedded_code_editor.add_bottom_tab("Packages", _package_browser)
-		print("VisualGasic: Package Browser embedded in IDE bottom tabs")
+	if _use_legacy_vg_ide_main_screen():
+		if is_instance_valid(_controls_inspector) and not _controls_inspector.get_meta("vg_embedded_bottom", false):
+			_embedded_code_editor.add_bottom_tab("Controls", _controls_inspector)
+			_controls_inspector.set_meta("vg_embedded_bottom", true)
+		if is_instance_valid(_package_browser) and not _package_browser.get_meta("vg_embedded_bottom", false):
+			_embedded_code_editor.add_bottom_tab("Packages", _package_browser)
+			_package_browser.set_meta("vg_embedded_bottom", true)
 
 	_ensure_ai_pair_bottom_tab()
 
@@ -10229,11 +10252,11 @@ func _on_debug_print_to_output(text: String) -> void:
 ## Profiler report summary → Output tab
 func _on_profiler_to_output(report: Dictionary) -> void:
 	if is_instance_valid(_embedded_code_editor):
-		var summary := "Profiler: "
-		if report.has("total_time_ms"):
-			summary += str(snapped(report["total_time_ms"], 0.01)) + "ms"
-		if report.has("frame_count"):
-			summary += " (" + str(report["frame_count"]) + " frames)"
+		var profiles: Dictionary = report.get("profiles", {})
+		var counters: Dictionary = report.get("counters", {})
+		var summary := "Profiler: %d function entries, %d counters" % [profiles.size(), counters.size()]
+		if report.get("profiling_enabled", false):
+			summary += " (recording)"
 		_embedded_code_editor.append_output(summary, Color(0.4, 0.4, 0.2))
 
 ## Log a message to the Output tab (callable from anywhere in the plugin).
@@ -11748,6 +11771,7 @@ func _sync_bottom_panel_mount() -> void:
 		return
 	if not _embedded_code_editor.has_method("get_bottom_panel"):
 		return
+	_ensure_profiler_bottom_tab()
 	_ensure_ai_pair_bottom_tab()
 	if _bottom_panel_should_embed():
 		_mount_bottom_panel_embedded()
@@ -15130,6 +15154,12 @@ func _check_script_editor_for_vg():
 			_refresh_vg_help_from_embedded_editor()
 		else:
 			_update_native_editor_assist(code_edit)
+		if script_path.ends_with(".vg"):
+			var is_vg_embedded_same := false
+			if code_edit.get_script():
+				is_vg_embedded_same = str(code_edit.get_script().resource_path).ends_with("vg_code_edit.gd")
+			if not is_vg_embedded_same:
+				_schedule_native_vg_validation(script_path, code_edit)
 		return
 	
 	# New CodeEdit — clear any VG IDE override so the native editor path wins.
@@ -15162,6 +15192,8 @@ func _check_script_editor_for_vg():
 			_disconnect_native_code_completion(code_edit)
 			if not code_edit.breakpoint_toggled.is_connected(_on_native_vg_breakpoint_toggled):
 				code_edit.breakpoint_toggled.connect(_on_native_vg_breakpoint_toggled)
+			_hook_native_vg_validation(code_edit)
+			call_deferred("_schedule_native_vg_validation", script_path, code_edit)
 
 	# Refresh navigator for the new script.
 	# Schedule a second refresh 0.3s later in case the CodeEdit text buffer
@@ -15180,6 +15212,65 @@ func _check_script_editor_for_vg():
 	# highlighting methods (_get_comment_delimiters, _get_string_delimiters).
 	# Assigning a CodeHighlighter conflicts with this and causes crash.
 	# The C++ extension handles syntax highlighting natively.
+
+
+func _hook_native_vg_validation(code_edit: CodeEdit) -> void:
+	if code_edit == null or not is_instance_valid(code_edit):
+		return
+	if code_edit.has_meta("vg_native_validate_hooked"):
+		return
+	code_edit.text_changed.connect(_on_native_vg_text_changed)
+	code_edit.set_meta("vg_native_validate_hooked", true)
+
+
+func _on_native_vg_text_changed() -> void:
+	var script_editor := get_editor_interface().get_script_editor()
+	if script_editor == null:
+		return
+	var current_script: Script = script_editor.get_current_script()
+	if current_script == null:
+		return
+	var path := str(current_script.resource_path)
+	if not path.ends_with(".vg"):
+		return
+	var code_edit := _active_native_script_code_edit()
+	if code_edit:
+		_schedule_native_vg_validation(path, code_edit)
+
+
+func _ensure_native_vg_validate_timer() -> void:
+	if is_instance_valid(_native_vg_validate_timer):
+		return
+	_native_vg_validate_timer = Timer.new()
+	_native_vg_validate_timer.one_shot = true
+	_native_vg_validate_timer.wait_time = 0.4
+	_native_vg_validate_timer.timeout.connect(_flush_native_vg_validation)
+	add_child(_native_vg_validate_timer)
+
+
+func _schedule_native_vg_validation(path: String, code_edit: CodeEdit) -> void:
+	if path.is_empty() or code_edit == null or not is_instance_valid(code_edit):
+		return
+	_native_vg_validate_path = path
+	_native_vg_validate_edit = code_edit
+	_ensure_native_vg_validate_timer()
+	_native_vg_validate_timer.start()
+
+
+func _flush_native_vg_validation() -> void:
+	if _native_vg_validate_path.is_empty() or not is_instance_valid(_native_vg_validate_edit):
+		return
+	if not is_instance_valid(_embedded_code_editor):
+		return
+	if not _embedded_code_editor.has_method("show_validation_for_external_editor"):
+		return
+	_embedded_code_editor.show_validation_for_external_editor(
+		_native_vg_validate_path,
+		_native_vg_validate_edit.text,
+		_native_vg_validate_edit,
+		false
+	)
+
 
 ## Handles keyboard shortcuts in the code editor.
 ## Ctrl+R triggers the rename refactoring dialog for the word under cursor.

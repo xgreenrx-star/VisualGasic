@@ -21,6 +21,7 @@
 #include <vector>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/rect2.hpp>
@@ -66,6 +67,79 @@ private:
 	Dictionary _frame_line_ord;
 	bool _pending_redraw = false;
 	bool _batch_mode = false;
+
+	// Identity-transform DrawLine records land here (no Dictionary).
+	// _draw submits each same-color run as one RenderingServer multiline.
+	struct FastPrim {
+		bool is_line = false;
+		float x0 = 0.0f;
+		float y0 = 0.0f;
+		float x1 = 0.0f;
+		float y1 = 0.0f;
+		float width = 1.0f;
+		Color color;
+		int cmd_index = -1;
+	};
+	std::vector<FastPrim> _fast_prims;
+	bool _overlay_in_use() const;
+	void _draw_fast_prims();
+	// One GPU mesh per flush. Godot's per-line and per-polygon canvas
+	// commands allocate a mesh each; a dense frame cannot hit 60 fps that way.
+	RID _batch_mesh;
+	std::vector<Vector2> _batch_pos;
+	std::vector<Color> _batch_col;
+	void _batch_tri(const Vector2 &a, const Vector2 &b, const Vector2 &c, const Color &color);
+	void _batch_line(float x0, float y0, float x1, float y1, float width, const Color &color);
+	void _batch_polygon(const PackedVector2Array &pts, const Color &fill, float width, const Color &stroke);
+	void _flush_batch_mesh();
+	// World-space lines and triangles recorded once, projected in C++ each frame.
+	// A dense room cannot call DrawLine per segment from the VM and still hit 60 fps.
+	struct WirePrim {
+		uint8_t kind = 0; // 0 = line, 1 = triangle
+		float x0 = 0.0f, y0 = 0.0f, z0 = 0.0f;
+		float x1 = 0.0f, y1 = 0.0f, z1 = 0.0f;
+		float x2 = 0.0f, y2 = 0.0f, z2 = 0.0f;
+		float width = 1.0f;
+		Color color;
+		uint8_t room = 1;
+		// World point shared by a fill and the lines drawn on it.
+		// Lines sort a hair nearer than that point so the pattern stays
+		// on the wall instead of being covered by the fill.
+		float ax = 0.0f, ay = 0.0f, az = 0.0f;
+		float anchor_bias = 0.0f;
+		uint8_t has_anchor = 0;
+	};
+	std::vector<WirePrim> _wire;
+	// One draw slice. Long lines are split so a near end cannot paint over a
+	// wall that only the far end sits behind.
+	struct WireSpan {
+		int index = 0;
+		float t0 = 0.0f;
+		float t1 = 1.0f;
+		float key = 0.0f;
+		// Triangle slice in camera z. z_lo < 0 means the whole triangle.
+		float z_lo = -1.0f;
+		float z_hi = -1.0f;
+	};
+	std::vector<WireSpan> _wire_spans;
+	bool _wire_draw = false;
+	int _wire_room = 1;
+	int _wire_draw_room = 0;
+	uint32_t _wire_draw_mask = 0;
+	bool _wire_anchor_set = false;
+	float _wire_ax = 0.0f, _wire_ay = 0.0f, _wire_az = 0.0f;
+	bool _wire_line_anchor = false;
+	float _wire_lax = 0.0f, _wire_lay = 0.0f, _wire_laz = 0.0f;
+	float _wire_bias = 0.0f;
+	int _wire_eye_room = 0;
+	int _wire_baked = -1;
+	float _wire_cam_x = 0.0f, _wire_cam_y = 0.0f, _wire_cam_z = 0.0f, _wire_yaw = 0.0f;
+	float _wire_focal = 460.0f, _wire_ox = 480.0f, _wire_oy = 300.0f;
+	float _wire_near = 0.45f, _wire_fill_cull = 0.4f, _wire_pitch = 0.0f;
+	PackedVector2Array _tri_verts;
+	PackedColorArray _tri_cols;
+	PackedInt32Array _tri_idx;
+	void _project_wire3d();
 
 	// Drawing state.
 	Color _stroke_color = Color(1, 1, 1, 1);
@@ -155,6 +229,21 @@ public:
 			float width = 2.0f, const Color &color = Color(1, 1, 1, 1),
 			const PackedColorArray &edge_colors = PackedColorArray(),
 			float offset_x = 0.0f, float offset_y = 0.0f, float offset_z = 0.0f);
+	// Record a static 3D wireframe once (Begin + Add*), then DrawWire3D each frame.
+	void BeginWire3D();
+	void SetWireRoom(int room);
+	void SetWireAnchor(float x, float y, float z);
+	void ClearWireAnchor();
+	void SetWireBias(float bias);
+	void SetEyeRoom(int room);
+	void MarkWireBaked();
+	void BeginDynamic3D();
+	void SetDrawnRoom(int room);
+	void SetDrawnMask(int mask);
+	void AddWireLine3D(float x0, float y0, float z0, float x1, float y1, float z1, float width, const Color &color);
+	void AddWireQuad3D(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Color &color);
+	void DrawWire3D(float cam_x, float cam_y, float cam_z, float yaw, float focal, float origin_x, float origin_y, float near_z, float fill_cull, float pitch = 0.0f);
+	int GetWirePrimCount() const { return (int)_wire.size(); }
 	// Batch rect drawing: rects_xywh is a flat PackedVector2Array where each pair (Vector2(x,y), Vector2(w,h)) is one rect.
 	// DrawRects: per-rect colors supplied in PackedColorArray (same count as rect count).
 	// DrawRectsUniform: all rects share one color.

@@ -376,7 +376,7 @@
 	}
 	if (method == "IsKeyPressed" && call_args.size() == 1) {
 	    int key = call_args[0];
-	    r_found = true; return Input::get_singleton()->is_key_pressed((Key)key);
+	    r_found = true; return VGInputEdge::is_key_down((Key)key);
 	}
 	if (method == "IsKeyJustPressed" && call_args.size() == 1) {
 	    int key = call_args[0];
@@ -734,7 +734,7 @@
 	        String k = call_args[0];
 	        key = (Key)OS::get_singleton()->find_keycode_from_string(k);
 	    }
-	    r_found = true; return Input::get_singleton()->is_key_pressed(key);
+	    r_found = true; return VGInputEdge::is_key_down(key);
 	}
 	if (method.nocasecmp_to("IsKeyDown") == 0 && call_args.size() == 1) {
 	    Key key = Key::KEY_NONE;
@@ -744,7 +744,7 @@
 	        String k = call_args[0];
 	        key = (Key)OS::get_singleton()->find_keycode_from_string(k);
 	    }
-	    r_found = true; return Input::get_singleton()->is_key_pressed(key);
+	    r_found = true; return VGInputEdge::is_key_down(key);
 	}
 	if (method.nocasecmp_to("IsMouseButtonDown") == 0 && call_args.size() == 1) {
 	    int btn = call_args[0];

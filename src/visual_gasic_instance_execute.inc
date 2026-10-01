@@ -34,7 +34,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             bool should_break = false;
             
             // Check our custom step mode (set by IW buttons via visualgasic:debug_* messages)
-            VGStepMode current_step_mode = VisualGasicLanguage::get_step_mode();
+            VGStepMode mode_before = VisualGasicLanguage::get_step_mode();
+            VGStepMode current_step_mode = mode_before;
             if (current_step_mode != VG_STEP_NONE) {
                 int current_depth = VisualGasicLanguage::get_current_stack_depth();
                 int target_depth = VisualGasicLanguage::get_step_target_depth();
@@ -57,6 +58,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 if (step_wants_break) {
                     should_break = true;
                     VisualGasicLanguage::set_step_mode(VG_STEP_NONE);
+                }
+            }
+
+            if (should_break && VisualGasicLanguage::step_skips_file(script_path)) {
+                should_break = false;
+                if (mode_before != VG_STEP_NONE) {
+                    VisualGasicLanguage::set_step_mode(mode_before);
                 }
             }
             

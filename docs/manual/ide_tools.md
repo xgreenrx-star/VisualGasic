@@ -535,10 +535,35 @@ Scope-aware variable renaming.
 
 ## Bottom Dock Panels
 
-The bottom dock in the VisualGasic IDE exposes four specialized panels beyond the built‑in Output/Debugger/Immediate tabs. These panels are defined in the editor addon (`addons/visual_gasic/`) and are available whenever the VG plugin is active.
+The **VG Code Editor** bottom strip (Immediate, Output, **Errors**, Vibe Code, …) lives on the floating **VG Panels** mount or under Code view in the experimental legacy IDE. **Godot-first (default):**
 
-### Profiler Panel
-**Location**: `Bottom Dock > Profiler`
+| Tab | Status |
+|-----|--------|
+| **Immediate** / **Output** / **Errors** | Supported — Errors lists compile results for `.vg` open in **Godot Script** or VG Code Editor |
+| **System Console** | **Removed** — use Godot’s **Output** dock |
+| **Controls** / **Packages** | **Mothballed** — only if `vg/enable_experimental_plugins` + legacy VG IDE |
+| **Profiler** | **Experimental** — same setting; engine dev / F5 debug session |
+
+### Errors panel
+**Location**: VG Panels bottom strip → **Errors** (with Immediate / Output)
+**File**: [addons/visual_gasic/vg_embedded_code_editor.gd](../../addons/visual_gasic/vg_embedded_code_editor.gd) (list UI + validation); native hook in [visual_gasic_plugin.gd](../../addons/visual_gasic/visual_gasic_plugin.gd)
+
+Compile-time diagnostics for the current `.vg` file via C++ **`VisualGasicLanguage.vg_validate_code`**.
+
+**Godot Script tab (default workflow)**  
+While a `.vg` is open in Godot’s built-in **Script** editor, the plugin debounces validation (~400 ms after you stop typing), runs `vg_validate_code` on the live buffer, and fills the **Errors** tab. Matching lines are highlighted in the Script `CodeEdit`. Click or double-click an error row to jump to that line in Script.
+
+**VG Code Editor**  
+Opening or saving in the floating / embedded VG Code Editor runs the same validator; results appear on the same **Errors** tab.
+
+**Runtime errors**  
+When the debugger reports a VG runtime error, entries can append to **Errors** without clearing compile rows until the next validation pass.
+
+**Not covered here**  
+Godot’s own **Output** / **Debugger** docks for engine messages; use those for run-time Godot errors outside VG compile checks.
+
+### Profiler Panel (experimental)
+**Location**: VG Panels → **Profiler** only when **`vg/enable_experimental_plugins`** is on (legacy VG IDE shell)
 **File**: [addons/visual_gasic/vg_profiler_panel.gd](../../addons/visual_gasic/vg_profiler_panel.gd)
 
 Bytecode-level performance profiler for VisualGasic scripts, backed by the C++ `VisualGasicProfiler` singleton. Integrates with the editor via the debug protocol (`visualgasic:profiler_*` messages) and is wired to the running engine through static class methods on `VisualGasicLanguage` (`vg_profiler_enable`, `vg_profiler_get_report`, `vg_profiler_clear`).
@@ -565,17 +590,18 @@ Rows are sorted by total time descending and **heat‑colored**:
 **Counters tab** — `Counter`, `Value`, `Updates`, `Unit`. Populated by the `VG_COUNT` / `VG_COUNT_VALUE` macros in the engine (parser cache hits, JIT tier‑up events, allocator pool util, etc.).
 
 **How to use**:
-1. Open your project and run it (`F5`).
-2. Click **▶ Start Profiling** in the Profiler panel.
-3. Exercise the code paths you want to measure (gameplay, parser, etc.).
-4. Click **⏹ Stop Profiling** or just hit **🔄 Refresh** to see live numbers.
-5. Click a hot row to identify the offending function; use **💾 Export** to share the report.
-6. Click **🗑 Clear** between runs to reset between A/B comparisons.
+1. Enable **Project Settings → Vg → enable_experimental_plugins**, open **VG Panels**, select the **Profiler** tab.
+2. Run the project (`F5`) so the debug session is active.
+3. Click **▶ Start Profiling** in the Profiler panel.
+4. Exercise the code paths you want to measure (gameplay, parser, etc.).
+5. Click **⏹ Stop Profiling** or just hit **🔄 Refresh** to see live numbers.
+6. Click a hot row to identify the offending function; use **💾 Export** to share the report.
+7. Click **🗑 Clear** between runs to reset between A/B comparisons.
 
 **Instrumenting your own code**: engine internals already use `VG_PROFILE(name)` and `VG_COUNT(name)` macros from [src/visual_gasic_profiler.h](../../src/visual_gasic_profiler.h). User `.vg` functions are not auto‑instrumented yet — the Counters tab will populate from engine activity, the Functions tab reflects macro call sites.
 
-### Controls Panel (Controls Inspector)
-**Location**: `Bottom Dock > Controls`
+### Controls Panel (Controls Inspector) — experimental / mothballed
+**Location**: Legacy IDE bottom dock only (`vg/enable_experimental_plugins`)
 **File**: [addons/visual_gasic/vg_controls_inspector.gd](../../addons/visual_gasic/vg_controls_inspector.gd)
 
 A VB6‑style live inspector for every control on your active form. Analogous to VB6's `Me.Controls` collection view at a breakpoint.
@@ -599,8 +625,8 @@ A VB6‑style live inspector for every control on your active form. Analogous to
 
 Outside of debugging the panel shows "Run project and hit a breakpoint to inspect controls." — the data comes from the running instance over the debug protocol, so the game must be paused.
 
-### Packages Panel (VG Packages)
-**Location**: `Bottom Dock > Packages`
+### Packages Panel (VG Packages) — experimental / mothballed
+**Location**: Legacy IDE bottom dock only (`vg/enable_experimental_plugins`)
 **File**: [addons/visual_gasic/vg_package_browser.gd](../../addons/visual_gasic/vg_package_browser.gd)
 
 Editor front‑end for the VisualGasic package manager (C++ class `VisualGasicPackage`). Analogous to NuGet in Visual Studio, or `pip`/`npm` for VG projects.
@@ -620,8 +646,8 @@ Editor front‑end for the VisualGasic package manager (C++ class `VisualGasicPa
 - **Search** — results from the registry query, each with an Install button
 - **Info** — RichTextLabel that shows the selected package's `package.vg.json` (description, author, dependencies, license)
 
-**How to use**:
-1. Open the Packages panel in your project.
+**How to use** (legacy IDE + experimental flag only; otherwise use **`vg pkg`** CLI and `vg_packages/` on disk):
+1. Open the Packages panel in the experimental VG IDE.
 2. If it prompts, click **Init** — this writes `vg.json` at the project root.
 3. Type a package name in the search box and press Enter (or install locally by dropping a package folder into `vg_packages/` and clicking **⟳**).
 4. Hit **Install** on a search result; the package is downloaded into `vg_packages/<name>/` and its exported symbols become available.

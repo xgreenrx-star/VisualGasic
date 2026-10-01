@@ -109,15 +109,10 @@ var _immediate_window_ref = null           # reference to the plugin's Immediate
 var _breakpoints_by_file: Dictionary = {}  # script path -> Array of 0-based breakpoint lines
 var _loading_file := false
 var _output_text: RichTextLabel = null     # Output tab: build/runtime messages
-var _console_text: RichTextLabel = null    # System Console tab: system log
-
-## System Console: Godot log file tailing (cross-platform)
-var _log_file_path: String = ""
-var _log_file_pos: int = 0                 # byte offset for incremental reads
-var _log_timer: Timer = null               # polls log file every 0.5s
-var _log_max_lines: int = 500              # keep console from growing unbounded
 
 ## Error reporting state
+var _validation_target_edit: CodeEdit = null  # Godot Script tab when validating native .vg
+var _validation_target_path: String = ""
 var _error_list: ItemList = null            # Errors tab: clickable error list
 var _errors_container: VBoxContainer = null # Errors tab container
 var _error_count_label: Label = null        # Status bar: "3 Errors, 1 Warning"
@@ -321,7 +316,6 @@ func _build_ui() -> void:
 	# Scrollbar styling first, then code colors/stylebox (must run last).
 	call_deferred("_apply_scrollbar_theme")
 	call_deferred("_apply_vb6_theme")
-	call_deferred("_start_log_tailing")
 	_load_persisted_breakpoints()
 
 
@@ -522,34 +516,7 @@ func _build_bottom_panel() -> void:
 	output_container.add_child(_output_text)
 	_bottom_tabs.add_child(output_container)
 
-	# Tab 2: System Console — system-level log messages
-	var console_container := VBoxContainer.new()
-	console_container.name = "System Console"
-	console_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	console_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_console_text = RichTextLabel.new()
-	_console_text.name = "ConsoleText"
-	_console_text.bbcode_enabled = true
-	_console_text.scroll_following = true
-	_console_text.selection_enabled = true
-	_console_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_console_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var con_sb := StyleBoxFlat.new()
-	con_sb.bg_color = Color(0.12, 0.12, 0.14)  # dark console background
-	con_sb.content_margin_left = 6
-	con_sb.content_margin_right = 4
-	con_sb.content_margin_top = 4
-	con_sb.content_margin_bottom = 4
-	_console_text.add_theme_stylebox_override("normal", con_sb)
-	_console_text.add_theme_font_size_override("normal_font_size", 11)
-	_console_text.add_theme_font_size_override("mono_font_size", 11)
-	_console_text.add_theme_color_override("default_color", Color(0.8, 0.9, 0.8))  # green-on-dark
-	_console_text.text = ""
-	_console_text.append_text("[color=#6688aa]System Console ready.[/color]\n")
-	console_container.add_child(_console_text)
-	_bottom_tabs.add_child(console_container)
-
-	# Tab 3: Errors — clickable error list (VB6-style)
+	# Tab 2: Errors — compile/runtime list (native Script tab + VG Code Editor)
 	_errors_container = VBoxContainer.new()
 	_errors_container.name = "Errors"
 	_errors_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -720,15 +687,12 @@ func append_output(msg: String, color: Color = Color(0.1, 0.1, 0.1)) -> void:
 	if _output_text:
 		_output_text.append_text("[color=#" + color.to_html(false) + "]" + msg + "[/color]\n")
 
-## Append a line to the System Console tab.
-func append_console(msg: String, color: Color = Color(0.8, 0.9, 0.8)) -> void:
-	if _console_text:
-		_console_text.append_text("[color=#" + color.to_html(false) + "]" + msg + "[/color]\n")
+## Mothballed — System Console tab removed (use Godot Output dock).
+func append_console(_msg: String, _color: Color = Color(0.8, 0.9, 0.8)) -> void:
+	pass
 
-## Switch to the System Console tab.
 func focus_console() -> void:
-	if _bottom_tabs:
-		_bottom_tabs.current_tab = 2
+	pass
 
 ## Clear the Output tab.
 func clear_output() -> void:
@@ -736,11 +700,8 @@ func clear_output() -> void:
 		_output_text.clear()
 		_output_text.append_text("[color=#555555][i]Output cleared.[/i][/color]\n")
 
-## Clear the System Console tab.
 func clear_console() -> void:
-	if _console_text:
-		_console_text.clear()
-		_console_text.append_text("[color=#6688aa]Console cleared.[/color]\n")
+	pass
 
 ## Switch to the Errors tab.
 func focus_errors() -> void:
@@ -763,6 +724,8 @@ func validate_code() -> bool:
 	if not _code_edit or _vg_path.is_empty():
 		return true  # Nothing to validate
 
+	_validation_target_edit = null
+	_validation_target_path = ""
 	_is_validating = true
 	var source: String = _code_edit.text
 
@@ -780,6 +743,35 @@ func validate_code() -> bool:
 	var is_valid: bool = result.get("valid", true)
 
 	_apply_validation_results(errors, warnings)
+	_is_validating = false
+	return is_valid
+
+
+## Validate source from Godot's native Script editor; show results on the Errors tab.
+func show_validation_for_external_editor(
+	path: String, source: String, code_edit: CodeEdit, auto_focus_errors: bool = false
+) -> bool:
+	if _is_validating:
+		return true
+	if path.is_empty() or code_edit == null or not is_instance_valid(code_edit):
+		return true
+	if not ClassDB.class_exists(&"VisualGasicLanguage"):
+		return true
+
+	_is_validating = true
+	_validation_target_edit = code_edit
+	_validation_target_path = path
+
+	var result: Dictionary = ClassDB.class_call_static(
+		&"VisualGasicLanguage", &"vg_validate_code", source, path)
+	var errors: Array = result.get("errors", [])
+	var warnings: Array = result.get("warnings", [])
+	var is_valid: bool = result.get("valid", true)
+
+	_apply_validation_results(errors, warnings)
+	if auto_focus_errors and not errors.is_empty():
+		focus_errors()
+
 	_is_validating = false
 	return is_valid
 
@@ -814,11 +806,26 @@ func _apply_validation_results(errors: Array, warnings: Array) -> void:
 	_current_warnings = warnings
 
 	# 1. Update code editor error gutter + line backgrounds
-	if _code_edit and _code_edit.has_method("set_errors"):
+	var gutter_edit: CodeEdit = _code_edit
+	if is_instance_valid(_validation_target_edit):
+		gutter_edit = _validation_target_edit
+	if gutter_edit and gutter_edit.has_method("set_errors"):
 		if errors.is_empty():
-			_code_edit.clear_errors()
+			gutter_edit.clear_errors()
 		else:
-			_code_edit.set_errors(errors)
+			gutter_edit.set_errors(errors)
+	elif is_instance_valid(gutter_edit):
+		for i in range(gutter_edit.get_line_count()):
+			gutter_edit.set_line_background_color(i, Color.TRANSPARENT)
+		for err in errors:
+			var ln: int = int(err.get("line", 0)) - 1
+			if ln >= 0 and ln < gutter_edit.get_line_count():
+				gutter_edit.set_line_background_color(ln, Color(1.0, 0.75, 0.75, 0.35))
+		for warn in warnings:
+			var ln_w: int = int(warn.get("line", 0)) - 1
+			if ln_w >= 0 and ln_w < gutter_edit.get_line_count():
+				if gutter_edit.get_line_background_color(ln_w).a < 0.01:
+					gutter_edit.set_line_background_color(ln_w, Color(1.0, 0.92, 0.65, 0.35))
 
 	# 2. Update Errors tab (ItemList)
 	_update_errors_tab(errors, warnings)
@@ -937,97 +944,37 @@ func _on_error_item_selected(index: int) -> void:
 ## Double-click in error list: navigate and focus the code editor.
 func _on_error_item_activated(index: int) -> void:
 	_navigate_to_error(index)
-	if _code_edit:
-		_code_edit.grab_focus()
+	var focus_edit: CodeEdit = _code_edit
+	if is_instance_valid(_validation_target_edit):
+		focus_edit = _validation_target_edit
+	if focus_edit:
+		focus_edit.grab_focus()
 
 ## Navigate to the error's line in the code editor.
 func _navigate_to_error(index: int) -> void:
-	if not _error_list or not _code_edit:
+	if not _error_list:
 		return
 	if index < 0 or index >= _error_list.item_count:
 		return
 	var meta = _error_list.get_item_metadata(index)
 	if meta is Dictionary:
 		var line_1based: int = meta.get("line", 0)
-		if line_1based > 0:
-			var line_0based: int = line_1based - 1
-			_code_edit.set_caret_line(line_0based)
-			_code_edit.set_caret_column(0)
-			_code_edit.center_viewport_to_caret()
-			# Also select the line briefly for visibility
-			_code_edit.select(line_0based, 0, line_0based, _code_edit.get_line(line_0based).length())
-
-# =============================================================================
-# SYSTEM CONSOLE: Godot log file tailing (works on all platforms)
-# =============================================================================
-
-func _start_log_tailing() -> void:
-	# Godot writes logs to user://logs/godot.log on all platforms
-	_log_file_path = ProjectSettings.globalize_path("user://logs/godot.log")
-	if not FileAccess.file_exists(_log_file_path):
-		# Try alternate path
-		var alt = ProjectSettings.globalize_path("user://logs")
-		var dir = DirAccess.open(alt)
-		if dir:
-			dir.list_dir_begin()
-			var fname = dir.get_next()
-			while fname != "":
-				if fname.ends_with(".log"):
-					_log_file_path = alt + "/" + fname
-					break
-				fname = dir.get_next()
-			dir.list_dir_end()
-
-	# Seek to end of file (only show new messages)
-	if FileAccess.file_exists(_log_file_path):
-		var f = FileAccess.open(_log_file_path, FileAccess.READ)
-		if f:
-			_log_file_pos = f.get_length()
-			f.close()
-		append_console("Tailing: " + _log_file_path, Color(0.5, 0.6, 0.7))
-	else:
-		append_console("Log file not found — console shows manually routed messages only.", Color(0.7, 0.6, 0.4))
-
-	# Poll every 0.5s
-	_log_timer = Timer.new()
-	_log_timer.wait_time = 0.5
-	_log_timer.autostart = true
-	_log_timer.timeout.connect(_poll_log_file)
-	add_child(_log_timer)
-
-func _poll_log_file() -> void:
-	if _log_file_path.is_empty() or not FileAccess.file_exists(_log_file_path):
-		return
-	var f = FileAccess.open(_log_file_path, FileAccess.READ)
-	if not f:
-		return
-	var file_len = f.get_length()
-	if file_len <= _log_file_pos:
-		f.close()
-		return
-	# Read new bytes
-	f.seek(_log_file_pos)
-	var new_text = f.get_buffer(file_len - _log_file_pos).get_string_from_utf8()
-	_log_file_pos = file_len
-	f.close()
-
-	if new_text.is_empty():
-		return
-
-	# Parse each line and colorize by severity
-	for line in new_text.split("\n"):
-		if line.strip_edges().is_empty():
-			continue
-		var color := "#88aa88"  # default: muted green
-		var line_lower = line.to_lower()
-		if line_lower.contains("error") or line_lower.contains("err "):
-			color = "#ff6666"  # red for errors
-		elif line_lower.contains("warning") or line_lower.contains("warn"):
-			color = "#ddaa44"  # amber for warnings
-		elif line_lower.contains("visualgasic") or line_lower.contains("[vg"):
-			color = "#66ccff"  # cyan for VG messages
-		if _console_text:
-			_console_text.append_text("[color=" + color + "]" + line + "[/color]\n")
+		if line_1based <= 0:
+			return
+		var line_0based: int = line_1based - 1
+		var target_edit: CodeEdit = _code_edit
+		if is_instance_valid(_validation_target_edit):
+			target_edit = _validation_target_edit
+		if target_edit == null or not is_instance_valid(target_edit):
+			return
+		var err_file: String = str(meta.get("file", ""))
+		if not err_file.is_empty() and not _validation_target_path.is_empty() \
+				and err_file != _validation_target_path:
+			return
+		target_edit.set_caret_line(line_0based)
+		target_edit.set_caret_column(0)
+		target_edit.center_viewport_to_caret()
+		target_edit.select(line_0based, 0, line_0based, target_edit.get_line(line_0based).length())
 
 func _build_help_panel() -> void:
 	_help_scroll = ScrollContainer.new()
@@ -3257,12 +3204,26 @@ func _show_param_popup(signature: String, arg_index: int) -> void:
 	_param_label.clear()
 	_param_label.append_text(bbcode)
 	
-	# Position below the caret
+	# Position below the caret; keep popup inside the code editor bounds
 	if _code_edit:
 		var caret_pos = _code_edit.get_caret_draw_pos()
 		var global_pos = _code_edit.global_position + caret_pos + Vector2(0, 20)
-		_param_popup.position = Vector2i(int(global_pos.x), int(global_pos.y))
+		var gw := 48.0
+		if _code_edit.has_method("get_total_gutter_width"):
+			gw = _code_edit.get_total_gutter_width()
+		var max_w := maxf(120.0, _code_edit.size.x - gw - 12.0)
+		_param_label.custom_minimum_size = Vector2(min(max_w, 480.0), 20)
+		_param_label.custom_maximum_size = Vector2(max_w, 0)
 		_param_popup.reset_size()
+		var popup_w := mini(_param_popup.size.x, int(max_w + 8))
+		var edit_rect := _code_edit.get_global_rect()
+		var left_x := edit_rect.position.x + gw
+		var pos_x := global_pos.x
+		if pos_x + popup_w > edit_rect.end.x:
+			pos_x = edit_rect.end.x - popup_w
+		pos_x = maxf(pos_x, left_x)
+		_param_popup.position = Vector2i(int(pos_x), int(global_pos.y))
+		_param_popup.size = Vector2i(popup_w, _param_popup.size.y)
 		_param_popup.show()
 
 func _highlight_param_in_sig(sig: String, arg_index: int) -> String:
