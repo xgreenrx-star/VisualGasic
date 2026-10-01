@@ -15,7 +15,7 @@ Public positioning: [`POSITIONING.md`](POSITIONING.md). This hub links every doc
 | Get running in 15 minutes | [Quick Start](getting_started/QUICK_START.md) |
 | See how we describe VG publicly | [Positioning (v6.0 storefront)](POSITIONING.md) |
 | Learn the basics | [Getting Started](#-getting-started) |
-| Port a VB6 project | [Importing VB6 Projects](guides/IMPORTING_VB6.md) |
+| Port from VB6 / VBA (syntax & manual port) | [Migration Guide](guides/MIGRATION_GUIDE.md) · [VB6 legacy import policy](guides/IMPORTING_VB6.md) (importer not v6.0 core) |
 | Look up a function | [Built-in Functions Reference](reference/BUILTIN_FUNCTIONS_REFERENCE.md) |
 | Look up a property | [Runtime Properties Reference](reference/RUNTIME_PROPERTIES_REFERENCE.md) |
 | Look up a control | [Controls Reference](reference/CONTROLS_REFERENCE.md) |
@@ -23,6 +23,7 @@ Public positioning: [`POSITIONING.md`](POSITIONING.md). This hub links every doc
 | Use Python from VG | [System Integration §17 — PyBridge](SYSTEM_INTEGRATION.md#17-python-bridge-pybridgefacade) · [Python Bridge demo](../demos/Utilities/PythonBridge/) |
 | Use the IDE tools | [IDE Tools Guide](manual/ide_tools.md) |
 | Debug my code | [Debugging Guide](manual/debugging.md) |
+| Split a game across `.vg` files | [Multi-file `Import`](manual/vg_import_modules.md) |
 | Build a game | [Game Development Tutorial](tutorials/GAME_DEVELOPMENT.md) |
 | Menu form + 2D canvas game | [Menu Form + Node2D Game](guides/MENU_FORM_AND_2D_GAME.md) |
 | Build an app | [App Development Tutorial](tutorials/APP_DEVELOPMENT.md) |
@@ -66,7 +67,7 @@ The complete language specification and syntax reference.
 
 ## 🎨 Visual Gasic IDE
 
-The Visual Basic 6-style integrated development environment.
+Godot-integrated VG panels (supported v6.0 path) and **legacy** VB6-style Form Designer / standalone shell (**experimental Alpha** — [VG IDE Alpha](manual/VG_IDE_ALPHA.md)).
 
 | Document | Description |
 |----------|-------------|
@@ -179,7 +180,7 @@ Coming from VB6, VBA, or another language? These guides help you transition.
 | Document | Description |
 |----------|-------------|
 | [Migration Guide](guides/MIGRATION_GUIDE.md) | Gradual migration from classic VB6 syntax to modern VisualGasic |
-| [Importing VB6 Projects](guides/IMPORTING_VB6.md) | How to import `.vbp` project files and `.frm` form files into VisualGasic |
+| [VB6 legacy import policy](guides/IMPORTING_VB6.md) | Language compatibility vs **retired** bulk `.vbp`/`.frm` importer; optional community plugin |
 | [VB6 Features Implementation](reference/VB6_FEATURES_IMPLEMENTATION.md) | VB6 advanced feature compatibility — Class modules, Property Get/Let, Collections, Error handling |
 | [VG Advantages over GDScript](guides/VG_ADVANTAGES_OVER_GDSCRIPT.md) | **19 capabilities** VG has that GDScript does not (Form Designer, JIT, GPU, REPL, threading, null safety, FFI) |
 

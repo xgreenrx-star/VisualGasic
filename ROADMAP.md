@@ -79,6 +79,7 @@ Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
 | R6 | **Audit PascalCase ↔ snake_case aliasing** | Low | v6.0 | ~2 hr — teach `audit_reference_dispatch.py` that `GetTree` ↔ `get_tree` are the same symbol |
 | R7 | **Promote GODOT_FUNCTIONS_REFERENCE → Language Reference Part II** | Medium | M9 | ~1 day — optional; intellisense already covered via `command_help`; Part II still lacks many PascalCase Godot globals |
 | R8 | **Allowlisted doc gaps (17)** | — | track only | `ConnectSignal`/`DisconnectSignal` deprecated names, `DataFile`/`LoadData` statement-level (not globals), `shutdown` instance method, `Speaker.Bus` alias, `Sprite Data` IDE feature — see audit report |
+| R9 | **VB6-first API gap audit (game samples + manual)** | Medium | M9 / 5.5.0 | ~1–2 days — catalog where sample `.vg` uses raw Godot (`DisplayServer`, `Input.mouse_mode`, `GetTree().Quit`) vs VB6-shaped builtins (`End`, `Screen.FullScreen`, `Connect`); decide per symbol: add VG wrapper, document in `docs/GODOT_PROGRAMMING_MANUAL.md` only, or keep Godot-native with Narcea guidance. Do **not** duplicate full Godot docs — manual links patterns; engine owns behavior. |
 
 ---
 

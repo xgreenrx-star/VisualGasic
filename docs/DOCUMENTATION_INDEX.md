@@ -14,7 +14,7 @@
 - [README.md](../README.md) - Project overview and quick start
 - [GET_STARTED.md](guides/GET_STARTED.md) - Installation and first steps
 - [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md) - Migrating from VB6/VBA
-- [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) - Importing existing VB6 projects
+- [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) - VB6 legacy import policy (bulk importer retired from core; optional community plugin)
 
 ## Language Reference
 

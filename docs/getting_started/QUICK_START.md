@@ -61,7 +61,7 @@ End Sub
 ### Next Steps
 
 - Explore **demos/UI/VG_UI_TOOLS/** in the VisualGasic GitHub repo for 11 more form examples
-- Read [Form Designer Guide](WINFORMS_FORM_GUIDE.md) for drag-and-drop form building
+- Read [WinForms / Form Guide](../WINFORMS_FORM_GUIDE.md) for drag-and-drop form building ([VG IDE Alpha](../manual/VG_IDE_ALPHA.md) for legacy vs UI Forms)
 - Check out [Auto-Wiring Guide](AUTO_WIRING_GUIDE.md) for event handler shortcuts
 
 ---

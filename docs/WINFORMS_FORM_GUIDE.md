@@ -50,7 +50,7 @@ In Visual Gasic, each Form is built on Godot's `Window` node, which means **Form
 |-------------------------------|-------------------|
 | Building desktop applications | Building game UIs (HUD, menus) |
 | Need separate windows/dialogs | Need embedded UI panels |
-| Importing VB6 projects | Everything in one game window |
+| Desktop-style dialogs (manual port from VB6) | Everything in one game window |
 | MDI-style applications | Overlay menus/inventory screens |
 
 ### Embedded Mode (Optional)

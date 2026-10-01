@@ -708,10 +708,9 @@ VisualGasic can run and port existing VB6 code:
 | **108+ VB6 functions** | MkDir, RmDir, ChDir, CurDir, FileCopy, Environ, QBColor, Weekday, MonthName, and many more |
 | **VB6 constants** | `vbCrLf`, `vbTab`, `vbNullString`, `vbQuote`, `vbSpace`, `vbComma`, `vbPipe`, `PI`, `E`, `vbOKOnly`, `vbYesNo`, `KEY_*` |
 | **Data/Read/Restore** | Embedded data tables with labeled sections, typed reads, 14 introspection functions |
-| **VB6 project import** | `.vbp` / `.frm` / `.bas` file parsing and migration |
 | **VB6-style error handling** | `On Error GoTo`, `On Error Resume Next`, `Err.Number`, `Err.Description`, `Resume` |
 
-If you have existing VB6 projects, VisualGasic can import them. See the [Migration Guide](MIGRATION_GUIDE.md) and [Importing VB6](IMPORTING_VB6.md) for details.
+Bulk **`.vbp` / `.frm` import** was retired from the core product (optional community plugin only—not v6.0). Port by hand with familiar `.vg` syntax: [Migration Guide](MIGRATION_GUIDE.md), [VB6 legacy import policy](IMPORTING_VB6.md), [VB6 Importer Plugin Manual](../community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md).
 
 ---
 

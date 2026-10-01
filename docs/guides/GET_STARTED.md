@@ -81,13 +81,13 @@ Then try the beginner tutorials:
 
 Your existing syntax knowledge transfers directly. Key differences:
 
-- Attach scripts to Godot nodes instead of forms (though Form Designer is built in)
+- Attach scripts to Godot nodes (menu UIs: **UI Forms** experimental or legacy Form Designer — [VG IDE Alpha](../manual/VG_IDE_ALPHA.md))
 - Use `Sub _Ready()` instead of `Form_Load`
 - Use `Sub _Process(delta)` instead of a Timer at the top level
 - `Print` outputs to Godot's debug console (and to the Output panel in the IDE)
 - Signal handlers are auto-wired by naming convention: `Sub btnOK_Click()`, `Sub tmrSpawn_Timer()`
 
-See the full [Migration Guide](MIGRATION_GUIDE.md) and [Importing VB6 Projects](IMPORTING_VB6.md).
+See [Migration Guide](MIGRATION_GUIDE.md) and [VB6 legacy import policy](IMPORTING_VB6.md) (bulk import not v6.0 core).
 
 ### 🎮 Want to make games?
 

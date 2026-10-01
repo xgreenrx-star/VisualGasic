@@ -49,7 +49,21 @@ Use these values when submitting updates:
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 
-**Description (short):** VB6-style programming language and full IDE for Godot 4.6 — Form Designer, JIT bytecode, debugger, Narcea Vibe Code, and 122+ built-in functions. **12/12 compute + 9/9 draw** vs GDScript (Aug 2026). GDExtension binaries for Linux, Windows, macOS, and **HTML5 (WASM)** included.
+**Description (short — paste into Asset Library summary; ≤500 characters):**
+
+VisualGasic brings a modern Basic programming model to Godot 4.6: VB6-inspired syntax on Godot's scene and node system. Write .vg game logic with Sub, Function, Dim, and event handlers—build 2D/3D without learning GDScript. Familiar to VB6, VBA, and BASIC. Godot editor integration: IntelliSense, VGasic panels, UI Forms (experimental), debugger, Narcea, AGCK. Manual port from VB6; bulk .vbp import is optional community plugin, not v6.0 core. Linux, Windows, macOS, HTML5. GPL v3.
+
+**Description (long — optional store body / README lead):**
+
+Godot is a free, open-source game engine with a scene-based architecture that fits VisualGasic’s familiar, object-oriented approach.
+
+**Why VisualGasic for Godot?** VisualGasic extends Godot with modern Basic syntax and readability: meaningful keywords (`End If`, `Next`, `Loop`), natural control flow (`For i = 1 To 10`), and English-like statements (`If health <= 0 Then`) instead of making GDScript a prerequisite. You leverage Godot’s node system, maintain simplicity, and access engine features through `.vg` scripts wired the VB6 way—`Sub Form_Load()`, timers, and controls using names like `Caption` and `Interval`, not raw Godot property paths.
+
+**Development environment:** Integrated script editor with syntax highlighting and IntelliSense, Visual Gasic IDE (40+ controls, live preview), Immediate Window, Toolbox, Property Inspector, and Project Explorer—plus debugger, Narcea AI assist, Arcade Game Construction Kit, and Working Nodes visual scripting.
+
+**Legacy VB6:** Rewrite as `.vg` with familiar syntax; optional community VB6 importer plugin (see docs)—or start from demos and templates.
+
+Requires Godot 4.6+. See the in-repo *Godot Programming Manual* (Chapter 1) for the full introduction.
 
 **Screenshots to include:**
 1. Code editor with `.vg` file and Command Help

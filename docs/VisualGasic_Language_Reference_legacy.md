@@ -1,4 +1,6 @@
-# VisualGasic Language Reference
+# VisualGasic Language Reference (archived snapshot)
+
+> **Do not use this file as the current language manual.** It predates v6.0 policy changes (retired core VB6 importer, Godot-first IDE). Use [VisualGasic_Language_Reference.md](VisualGasic_Language_Reference.md), [IMPORTING_VB6.md](guides/IMPORTING_VB6.md), and [VG IDE Alpha](manual/VG_IDE_ALPHA.md).
 
 ## Table of Contents
 

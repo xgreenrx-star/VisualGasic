@@ -60,7 +60,7 @@ No curly braces, no semicolons, no indentation rules. Keywords like `Sub`, `End 
 
 Already know VB6, VBA, or VB.NET? Your existing knowledge transfers directly:
 
-- **Port VB6 projects** using the built-in VB6 importer (`.frm`, `.bas`, `.cls`, `.vbp` files)
+- **Port VB6-style logic** by rewriting as `.vg` (familiar syntax); bulk `.vbp`/`.frm` import is **not v6.0 core** — see [VB6 legacy import policy](../guides/IMPORTING_VB6.md) and optional [community importer manual](../community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md)
 - **VB6 syntax** works out of the box: `Dim`, `Sub`/`Function`, `If`/`Select Case`/`For`/`Do`, `Class`, `Enum`, `With`, `GoSub`/`Return`
 - **VB6 global objects**: `App`, `Screen`, `Err`, `Printer`, `Clipboard`, `Debug`
 - **VB6 constants**: `vbCrLf`, `vbRed`, `vbOKCancel`, `vbYes`, `True`/`False`

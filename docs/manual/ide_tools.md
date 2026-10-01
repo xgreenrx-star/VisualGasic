@@ -35,8 +35,7 @@ vg/plugins/gdai = true
 Legacy paths (`vg/plugins/<id>/enabled`) are still read if present.
 
 Set any of these to `true` in your project's settings to load the corresponding
-plugin. The VG IDE itself no longer auto-opens on project load — switch to it
-via the **Visual Gasic IDE** button in the top toolbar.
+plugin. The legacy full-screen IDE no longer auto-opens on project load — use the **VGasic** toolbar toggle for floating panels (legacy main-screen Form Designer only when experimental plugins are on).
 
 ---
 

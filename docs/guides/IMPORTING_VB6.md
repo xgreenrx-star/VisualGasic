@@ -1,44 +1,39 @@
-# Importing VB6 Projects into VisualGasic
+# VB6 legacy projects — language vs importer
 
-VisualGasic includes a built-in importer for legacy Visual Basic 6.0 projects (`.vbp`) and forms (`.frm`).
+VisualGasic’s **`.vg` language** is the supported path for ex-VB6 developers: familiar `Sub`/`Function`, `Dim … As`, handler names like `btnOK_Click()`, and many classic builtins.
 
-## How to Import
+**Bulk import** of `.vbp` / `.frm` / `.bas` / `.cls` trees is **not part of the v6.0 core product**. The VB6 importer was **retired from the main distribution** (see [ROADMAP.md](../../ROADMAP.md)). Ongoing work is intended as an optional **community plugin**, documented in [VB6 Importer Plugin Manual](../community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md).
 
-The import tools are located in the **VisualGasic Toolbox** (usually docked in the bottom-left or part of the Scene dock).
+If you still see **Import VB6 Project...** or **Import VB6 Form...** in an old build, treat that as **legacy / unsupported** on the stable Godot integration path—not a shipped v6.0 feature.
 
-### Import a Full Project
+## Recommended workflow (v6.0)
 
-1.  Locate the **Toolbox** panel.
-2.  Click the **Import VB6 Project...** button.
-3.  Browse and select your `.vbp` file (e.g., `calculate.vbp`).
+1. **Manual port** — Rewrite forms as Godot scenes (or **UI Forms** on the 2D viewport when enabled) and logic as `.vg`. Use [Migration Guide](MIGRATION_GUIDE.md) for syntax mapping.
+2. **Templates & demos** — Start from `demos/` and samples instead of one-click migration.
+3. **Optional community importer** — If you maintain or install the separate plugin, follow [VB6 Importer Plugin Manual](../community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md) for mapping tables and API (`VB6Importer.import_project`, etc.).
 
-**What happens:**
-*   **Forms**: Evaluated and converted to Godot Scenes (`.tscn`) in `res://start_forms/`.
-*   **Code**: Extracted logic is saved as `.vg` files in `res://mixed/`.
-*   **Modules**: Standard `.vg` modules are copied to `res://mixed/`.
-*   **Signals**: Button clicks (`Command_Click`) and text changes (`Text_Change`) are automatically wired up to the generated script.
+## Control mapping (reference)
 
-### Import a Single Form
+When porting by hand or using the community plugin, common VB6 controls map roughly as follows:
 
-1.  Click the **Import VB6 Form...** button in the **Toolbox**.
-2.  Select a `.frm` file.
-3.  The specific form is converted to a Scene and its code extracted.
-
-## Supported Controls
-
-The importer currently maps the following VB6 controls to VisualGasic widgets:
-
-| VB6 Control | VisualGasic/Godot Node |
+| VB6 Control | VisualGasic / Godot |
 | :--- | :--- |
-| `VB.Form` | `Control` (Root) |
-| `VB.CommandButton` | `Button` |
-| `VB.TextBox` | `LineEdit` |
-| `VB.Label` | `Label` |
-| `VB.CheckBox` | `CheckBox` |
-| `VB.OptionButton` | `OptionButton` (ComboBox behavior) |
-| `VB.ListBox` | `ItemList` |
-| `VB.PictureBox` | `TextureRect` |
-| `VB.Frame` | `Panel` (or `Frame` wrapper) |
-| `VB.Timer` | `Timer` |
+| `Form` | `Window` or scene root (see [WINFORMS_FORM_GUIDE.md](../WINFORMS_FORM_GUIDE.md)) |
+| `CommandButton` | `Button` |
+| `TextBox` | `LineEdit` / `TextEdit` |
+| `Label` | `Label` |
+| `CheckBox` | `CheckBox` |
+| `OptionButton` | `CheckBox` (radio) or `OptionButton` |
+| `ListBox` | `ItemList` |
+| `PictureBox` | `TextureRect` |
+| `Frame` | `Panel` |
+| `Timer` | `Timer` (`Interval` in ms) |
 
-*Note: Dimensions are automatically converted from Twips to Pixels (15:1 ratio).*
+Twips-to-pixels (15:1) applies when converting legacy layout numbers by hand.
+
+## Related docs
+
+- [Migration Guide](MIGRATION_GUIDE.md) — syntax and architecture differences
+- [VB6 Importer Plugin Manual](../community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md) — optional plugin scope
+- [VG IDE Alpha](../manual/VG_IDE_ALPHA.md) — legacy Form Designer vs Godot-first v6.0 path
+- [Godot Programming Manual § Legacy VB6](../GODOT_PROGRAMMING_MANUAL.md) — same importer policy in the long manual

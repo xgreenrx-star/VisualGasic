@@ -1,4 +1,5 @@
 # VisualGasic for Godot - Complete Programming Manual
+
 *The definitive guide to using VisualGasic in Godot game development*
 
 Version 3.0.0  
@@ -8,96 +9,140 @@ Updated: September 2026
 
 ## Table of Contents
 
-*Links open the file in GitHub's Code view and jump to the exact line (`?plain=1#L<N>`) — GitHub's rendered Preview mode does not support line-number scrolling.*
+*Links open the file in GitHub's Code view and jump to the exact line (*`?plain=1#L<N>`*) — GitHub's rendered Preview mode does not support line-number scrolling.*
 
 ### Part I: Getting Started with Godot
+
 1. [Introduction to Godot with VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L100)
 2. [Understanding Godot's Architecture](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L420)
 3. [Setting Up Your First Project](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L484)
 4. [Scenes, Nodes, and the Scene Tree](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L567)
 
+
+
 ### Part II: Core Godot Concepts in VisualGasic
-5. [Working with Nodes](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L643)
-6. [Signals and Communication](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L784)
-7. [Input Handling](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L956)
-8. [Timers and Processing](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1212)
+
+1. [Working with Nodes](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L643)
+2. [Signals and Communication](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L784)
+3. [Input Handling](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L956)
+4. [Timers and Processing](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1212)
+
+
 
 ### Part III: 2D Game Development
-9. 2D Foundations and Coordinate System *(not yet written)*
-10. Sprites and Animation *(not yet written)*
-11. 2D Physics and Movement *(not yet written)*
-12. Collision Detection *(not yet written)*
-13. [Case Study: 2D Platformer — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760)
+
+1. 2D Foundations and Coordinate System *(not yet written)*
+2. Sprites and Animation *(not yet written)*
+3. 2D Physics and Movement *(not yet written)*
+4. Collision Detection *(not yet written)*
+5. [Case Study: 2D Platformer — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760)
+
+
 
 ### Part IV: 3D Game Development
-14. 3D Foundations and Coordinate System *(not yet written)*
-15. 3D Models and Materials *(not yet written)*
-16. 3D Physics and Movement *(not yet written)*
-17. Lighting and Environment *(not yet written)*
-18. [Case Study: Squash the Creeps — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456)
+
+1. 3D Foundations and Coordinate System *(not yet written)*
+2. 3D Models and Materials *(not yet written)*
+3. 3D Physics and Movement *(not yet written)*
+4. Lighting and Environment *(not yet written)*
+5. [Case Study: Squash the Creeps — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456)
+
+
 
 ### Part V: User Interface
-19. UI System Overview *(not yet written)*
-20. Control Nodes and Layouts *(not yet written)*
-21. Theming and Styling *(not yet written)*
-22. Interactive Elements *(not yet written)*
+
+1. UI System Overview *(not yet written)*
+2. Control Nodes and Layouts *(not yet written)*
+3. Theming and Styling *(not yet written)*
+4. Interactive Elements *(not yet written)*
+
+
 
 ### Part VI: Advanced Features
-23. File I/O and Data Management *(not yet written)*
-24. Networking and Multiplayer *(not yet written)*
-25. Audio System *(not yet written)*
-26. Particle Systems *(not yet written)*
+
+1. File I/O and Data Management *(not yet written)*
+2. Networking and Multiplayer *(not yet written)*
+3. Audio System *(not yet written)*
+4. Particle Systems *(not yet written)*
+
+
 
 ### Part VII: Performance and Optimization
-27. [Performance Best Practices](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L340)
-28. Memory Management *(not yet written)*
-29. Platform-Specific Features *(not yet written)*
+
+1. [Performance Best Practices](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L340)
+2. Memory Management *(not yet written)*
+3. Platform-Specific Features *(not yet written)*
+
+
 
 ### Part VIII: Deployment and Distribution
-30. Export Settings *(not yet written)*
-31. Platform Requirements *(not yet written)*
-32. Distribution Strategies *(not yet written)*
+
+1. Export Settings *(not yet written)*
+2. Platform Requirements *(not yet written)*
+3. Distribution Strategies *(not yet written)*
+
+
 
 ### Part IX: IDE Tools and Productivity (NEW)
-33. [IntelliSense and Code Completion](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1473)
-34. [Debugging Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1514)
-35. [Code Quality and Linting](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1561)
-36. [Snippets and Templates](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1600)
-37. [Visual Gasic IDE Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1685)
+
+1. [IntelliSense and Code Completion](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1473)
+2. [Debugging Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1514)
+3. [Code Quality and Linting](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1561)
+4. [Snippets and Templates](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1600)
+5. [Visual Gasic IDE Tools](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1685)
+
+
 
 ### Part X: GDScript vs VisualGasic — Complete Reference
-38. [GDScript ↔ VisualGasic Quick Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3082)
-39. [Case Study: Screen Space Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366)
-40. [Case Study: 3D Sky Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498)
-41. [Why VisualGasic — Advantages Over GDScript](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3778)
+
+1. [GDScript ↔ VisualGasic Quick Reference](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3082)
+2. [Case Study: Screen Space Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366)
+3. [Case Study: 3D Sky Shaders — GDScript vs VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498)
+4. [Why VisualGasic — Advantages Over GDScript](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3778)
+
+
 
 ### Part XI: Python Bridge Integration (M7 — NEW)
-42. [Python Interoperability Overview](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3926)
-43. [Setting Up Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3952)
-44. [Typed MessagePack Protocol](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3984)
-45. [Python Function Calls from VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4018)
-46. [Working with NumPy Arrays](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4059)
+
+1. [Python Interoperability Overview](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3926)
+2. [Setting Up Python Bridge](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3952)
+3. [Typed MessagePack Protocol](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3984)
+4. [Python Function Calls from VisualGasic](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4018)
+5. [Working with NumPy Arrays](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4059)
+
+
 
 ### Part XII: Narcea Vibe Code Integration (M5 — NEW)
-47. [Introduction to Narcea](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103)
-48. [Configuring AI Providers](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4124)
-49. [AI-Assisted Code Generation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4162)
-50. [Command Help and Context](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4202)
+
+1. [Introduction to Narcea](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4103)
+2. [Configuring AI Providers](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4124)
+3. [AI-Assisted Code Generation](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4162)
+4. [Command Help and Context](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4202)
+
+
 
 ### Part XIII: Advanced Analysis Tools (M6 — NEW)
-51. [Code Navigator and Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4232)
-52. [Dependency Analysis](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4281)
+
+1. [Code Navigator and Causal Chains](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4232)
+2. [Dependency Analysis](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4281)
+
+
 
 ### Part XIV: Modern Language Features (M8 — NEW)
-53. [Exception Handling (Try/Catch)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4303)
-54. [Lambda Expressions](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4365)
-55. [Optional Types and Null Safety](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4419)
-56. [The `Let` Keyword](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4470)
-57. [The `IsNot` Operator](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4524)
+
+1. [Exception Handling (Try/Catch)](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4303)
+2. [Lambda Expressions](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4365)
+3. [Optional Types and Null Safety](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4419)
+4. [The](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4470) `Let` [Keyword](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4470)
+5. [The](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4524) `IsNot` [Operator](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L4524)
 
 ---
 
+
+
 ## Chapter 1: Introduction to Godot with VisualGasic
+
+
 
 ### What is Godot?
 
@@ -105,13 +150,15 @@ Godot is a free and open-source game engine that provides a comprehensive set of
 
 ### Why VisualGasic for Godot?
 
-VisualGasic brings its modern Gasic syntax and programming model to Godot, allowing developers to:
+VisualGasic brings a modern Basic-style syntax and programming model to Godot, allowing developers to:
 
 - Use VisualGasic syntax and concepts
 - Leverage Godot's powerful node system
 - Create games without learning GDScript
 - Maintain readability and simplicity
-- Access all Godot features through Gasic-style code
+- Access all Godot features through Basic-style code
+
+
 
 ### Visual Basic 6.0 Foundation
 
@@ -122,6 +169,7 @@ VisualGasic is built on the foundation of **Visual Basic 6.0**, one of the most 
 BASIC was designed in 1964 to be "beginner-friendly" - using English-like keywords that are easy to read and write. Visual Basic (1991) added the visual form designer and event-driven programming model that revolutionized Windows development.
 
 VisualGasic preserves this philosophy:
+
 - **Readable code**: `If score > 100 Then` instead of `if (score > 100) {`
 - **Meaningful keywords**: `Sub`, `Function`, `End If`, `Loop`, `Next`
 - **Natural syntax**: `For i = 1 To 10` instead of `for (i = 1; i <= 10; i++)`
@@ -168,21 +216,20 @@ x = Int(3.7)               ' 3
 text = CStr(42)            ' "42"
 ```
 
-**Importing Existing VB6 Projects:**
+**Legacy VB6 projects (language vs importer):**
 
-VisualGasic can import your legacy VB6 projects directly:
-- `.vbp` project files → Godot project
-- `.frm` form files → Godot scenes with Control nodes
-- `.bas` modules → VisualGasic scripts
+If you know VB6, VBA, or classic BASIC, the **`.vg` language** is the supported path: same readable control flow, `Sub`/`Function`, `Dim … As`, event handler names like `btnOK_Click()`, and many familiar builtins (`UCase`, `Left`, `CStr`, and similar).
 
-Use **Import VB6 Project...** in the Toolbox to convert existing applications.
+**One-click import** of legacy `.vbp` / `.frm` / `.bas` trees is **not part of the v6.0 core product**. The VB6 importer was **retired from the main distribution** (see [ROADMAP.md](../ROADMAP.md)); ongoing work is intended as an optional **community plugin**, documented in [VB6 Importer Plugin Manual](community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md). Importer source and Toolbox menu items may still exist in the tree for compatibility, but that workflow is **unsupported on the stable Godot integration path**. For new games and tools, author `.vg` and Godot scenes directly (templates, Narcea, or manual port)—do not rely on bulk VB6 migration as a shipped feature.
 
 ### The VisualGasic Development Environment
 
-VisualGasic includes a complete RAD (Rapid Application Development) environment:
+For **v6.0 stable**, the supported surface is **Godot 4.6+** with Visual Gasic panels (Code Navigator, Properties, Toolbox, Vibe Code / Narcea, debugger). See [VG IDE Alpha](manual/VG_IDE_ALPHA.md) for what is **experimental Alpha** (legacy standalone **Visual Gasic IDE** screen and classic Form Designer behind `vg/enable_experimental_plugins`).
 
-- **Integrated Script Editor** with syntax highlighting and IntelliSense
-- **Visual Gasic IDE** — Full C++ WYSIWYG form editor with 40+ controls, VB6 properties, and live preview
+VisualGasic includes RAD tooling on that path:
+
+- **Integrated `.vg` editor** with syntax highlighting and IntelliSense
+- **UI Forms** (experimental) or legacy **Form Designer** (Alpha) — 40+ controls, VB6-style properties
 - **Immediate Window** for testing and debugging
 - **Toolbox** with common controls (Button, Label, TextBox, etc.)
 - **Property Inspector** for editing node properties
@@ -190,19 +237,26 @@ VisualGasic includes a complete RAD (Rapid Application Development) environment:
 
 ---
 
+
+
 ## The IDE in Detail
+
+
 
 ### Toolbox (Left Dock)
 
 The **Toolbox** provides quick access to all VisualGasic features:
 
-| Button | Function |
-|--------|----------|
-| **Import VB6 Project...** | Import complete `.vbp` project with forms and modules |
-| **Import VB6 Form...** | Import individual `.frm` form files |
+
+| Button       | Function                       |
+| ------------ | ------------------------------ |
 | **New Form** | Create new form from templates |
 
+> **Legacy VB6 import:** If you still see **Import VB6 Project...** or **Import VB6 Form...**, that belongs to the **retired** migration tool (optional community plugin only—not v6.0 core). See [VB6 Importer Plugin Manual](community_plugins/VB6_IMPORTER_PLUGIN_MANUAL.md).
+
+
 **Form Templates Available:**
+
 - Blank Form, Dialog, About Box, Splash Screen
 - Login Form, Main Form with Menu, Data Entry Form
 - MDI Parent/Child Forms
@@ -210,29 +264,34 @@ The **Toolbox** provides quick access to all VisualGasic features:
 > **📝 Note: Forms are OS Windows**  
 > Forms are built on Godot's `Window` node, so they appear as **separate operating system windows** - just like VB6. If a Form is your project's main scene, it becomes the main app window. If spawned from another scene, it appears as a popup/dialog. For in-game UIs (HUD, menus), use the **Game Forms** templates which are designed for embedded display. See [WINFORMS_FORM_GUIDE.md](WINFORMS_FORM_GUIDE.md) for details.
 
-### Visual Gasic IDE
 
-![Visual Gasic IDE](screenshots/form_designer_ide.png)
 
-*Complete VB6 IDE: Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+### Visual Gasic IDE (legacy Alpha)
 
-The **Visual Gasic IDE** provides a full WYSIWYG editor for creating user interfaces by dragging controls onto forms:
+> **v6.0 note:** The full-screen **Visual Gasic IDE** layout and classic WYSIWYG form canvas are **experimental Alpha**, not the default Godot workflow. Prefer **VGasic** floating panels on Script/2D/3D editors and **UI Forms** when enabled. Details: [VG IDE Alpha](manual/VG_IDE_ALPHA.md).
+
+*Legacy VB6-style shell (when experimental plugins are on): Toolbox (40+ controls) · WYSIWYG Canvas · Properties Panel · Project Explorer · Alignment Toolbar · Live Preview*
+
+The legacy **Visual Gasic IDE** provides a WYSIWYG editor for dragging controls onto forms:
 
 **VB6 to Godot Control Mappings:**
 
-| VB6 Control | Godot Node | Use For |
-|-------------|------------|---------|
-| Label | Label | Static text display |
-| TextBox | LineEdit | Single-line text input |
-| CommandButton | Button | Clickable buttons |
-| CheckBox | CheckBox | Toggle options |
-| ListBox | ItemList | Scrollable lists |
-| ComboBox | OptionButton | Dropdown selection |
-| PictureBox | TextureRect | Image display |
-| Timer | Timer | Timed events |
-| Frame | Panel | Group controls |
+
+| VB6 Control   | Godot Node   | Use For                |
+| ------------- | ------------ | ---------------------- |
+| Label         | Label        | Static text display    |
+| TextBox       | LineEdit     | Single-line text input |
+| CommandButton | Button       | Clickable buttons      |
+| CheckBox      | CheckBox     | Toggle options         |
+| ListBox       | ItemList     | Scrollable lists       |
+| ComboBox      | OptionButton | Dropdown selection     |
+| PictureBox    | TextureRect  | Image display          |
+| Timer         | Timer        | Timed events           |
+| Frame         | Panel        | Group controls         |
+
 
 **Event Handling:**
+
 ```vb
 ' Events auto-wire to handlers:
 Private Sub btnStart_Click()
@@ -248,11 +307,14 @@ Private Sub Form_Load()
 End Sub
 ```
 
+
+
 ### Immediate Window (Bottom Panel)
 
 The **Immediate Window** provides real-time debugging:
 
 **Basic Commands:**
+
 ```vb
 ' Print variable values
 ? playerHealth
@@ -273,6 +335,7 @@ Testing...
 
 **Remote Debugging:**
 While your game runs, connect to live instances:
+
 ```vb
 ' Auto-connects when single instance is running
 Found 1 remote instance(s) in game!
@@ -291,18 +354,23 @@ player.health = 100
 ```
 
 **Refactoring (Ctrl+R in script editor):**
+
 - **Rename in Current Scope** - Within the current Sub/Function
 - **Rename in Entire Script** - All occurrences in the file  
 - **Rename Everywhere** - Across all .vg files
 
 **Variables Tab Context Menu (right-click):**
+
 - Insert variable name
 - Go to Definition
 - Rename options (3 scope levels)
 
+
+
 ### Menu Editor
 
 Design menu bars visually:
+
 1. **Project > Tools > Visual Gasic Menu Editor**
 2. Add File, Edit, View, Help menus
 3. Add menu items with shortcuts
@@ -318,24 +386,32 @@ Private Sub mnuFileSave_Click()
 End Sub
 ```
 
+
+
 ### Property Inspector (Right Dock)
 
 VB6-style properties for selected controls:
+
 - Name, Text/Caption
 - Position (Left, Top, Width, Height)
 - Visible, Enabled
 - TabStop, TabIndex
 - Colors and Fonts
 
+
+
 ### Tools Menu
 
 Access via **Project > Tools**:
+
 - **Menu Editor** - Visual menu design
 - **Project Properties** - Startup form, version info
 - **Object Browser** - Explore classes and members
 - **Tab Order** - Visual tab order editing
 
 ---
+
+
 
 ## Performance Best Practices
 
@@ -349,6 +425,8 @@ xychart-beta
     bar [108,221,7083]
 ```
 
+
+
 ```mermaid
 xychart-beta
     title "Interop (us)"
@@ -357,6 +435,8 @@ xychart-beta
     bar [238,7626,8427]
 ```
 
+
+
 ```mermaid
 xychart-beta
     title "Allocations (us)"
@@ -364,6 +444,10 @@ xychart-beta
     y-axis "Elapsed (us)" 0 --> 8000
     bar [363,886,6921]
 ```
+
+
+
+
 
 ### Your First VisualGasic Godot Script
 
@@ -417,7 +501,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 2: Understanding Godot's Architecture
+
+
 
 ### The Scene System
 
@@ -450,6 +538,8 @@ Public Class MainGame
 End Class
 ```
 
+
+
 ### Node Hierarchy
 
 Every Godot scene is built from **Nodes** arranged in a tree structure:
@@ -468,20 +558,28 @@ MainGame (Node2D)
     └── ScoreLabel (Label)
 ```
 
+
+
 ### VisualGasic Node Types
 
-| UI Concept | Godot Node Type | VisualGasic Usage |
-|-------------|----------------|-------------------|
-| Form | Control/Node2D/Node3D | Main container for scenes |
-| PictureBox | Sprite2D/TextureRect | Display images and sprites |
-| Label | Label | Show text |
-| Command Button | Button | Interactive buttons |
-| Timer | Timer | Timed events |
-| Shape | CollisionShape2D/3D | Physics collision |
+
+| UI Concept     | Godot Node Type       | VisualGasic Usage          |
+| -------------- | --------------------- | -------------------------- |
+| Form           | Control/Node2D/Node3D | Main container for scenes  |
+| PictureBox     | Sprite2D/TextureRect  | Display images and sprites |
+| Label          | Label                 | Show text                  |
+| Command Button | Button                | Interactive buttons        |
+| Timer          | Timer                 | Timed events               |
+| Shape          | CollisionShape2D/3D   | Physics collision          |
+
 
 ---
 
+
+
 ## Chapter 3: Setting Up Your First Project
+
+
 
 ### Creating a New Godot Project
 
@@ -490,11 +588,15 @@ MainGame (Node2D)
 3. Set project name and location
 4. Create the project
 
+
+
 ### Adding VisualGasic Support
 
 1. Create a `scripts` folder in your project
 2. Add the VisualGasic plugin to `addons/visual_gasic/`
 3. Enable the plugin in Project Settings
+
+
 
 ### Project Structure
 
@@ -514,6 +616,8 @@ MyGame/
 │   └── fonts/
 └── project.godot
 ```
+
+
 
 ### Core Project Setup
 
@@ -564,7 +668,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 4: Scenes, Nodes, and the Scene Tree
+
+
 
 ### Understanding Scenes
 
@@ -601,6 +709,8 @@ Public Class GameLevel
     End Sub
 End Class
 ```
+
+
 
 ### Working with the Scene Tree
 
@@ -640,7 +750,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 5: Working with Nodes
+
+
 
 ### Node Lifecycle
 
@@ -694,6 +808,8 @@ Public Class GameObject
 End Class
 ```
 
+
+
 ### Node Communication
 
 Nodes communicate through signals and direct references:
@@ -728,6 +844,8 @@ Public Class Enemy
     End Sub
 End Class
 ```
+
+
 
 ### Finding and Accessing Nodes
 
@@ -781,7 +899,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 6: Signals and Communication
+
+
 
 ### Understanding Signals
 
@@ -827,6 +949,8 @@ Public Class Player
     End Sub
 End Class
 ```
+
+
 
 ### Connecting Signals
 
@@ -889,6 +1013,8 @@ Public Class GameManager
     End Sub
 End Class
 ```
+
+
 
 ### Signal Groups and Broadcasting
 
@@ -953,7 +1079,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 7: Input Handling
+
+
 
 ### Core Input Detection
 
@@ -996,7 +1126,7 @@ Public Class InputHandler
                 Case Key.Space
                     Print "Space key pressed!"
                 Case Key.Escape
-                    GetTree().Quit()
+                    End
                 Case Key.F1
                     ShowHelp()
                 Case Key.Enter
@@ -1021,6 +1151,8 @@ Public Class InputHandler
     End Sub
 End Class
 ```
+
+
 
 ### Action-Based Input System
 
@@ -1112,6 +1244,8 @@ Public Class Player
     End Sub
 End Class
 ```
+
+
 
 ### Custom Input Manager
 
@@ -1209,7 +1343,11 @@ End Class
 
 ---
 
+
+
 ## Chapter 8: Timers and Processing
+
+
 
 ### Using Godot Timers
 
@@ -1291,6 +1429,8 @@ Public Class TimerExample
 End Class
 ```
 
+
+
 ### Frame-based Processing
 
 ```gasic
@@ -1354,6 +1494,8 @@ Public Class ProcessingExample
     End Sub
 End Class
 ```
+
+
 
 ### Tween Animations
 
@@ -1447,9 +1589,14 @@ End Class
 
 ---
 
+
+
 ## Quick Reference
 
+
+
 ### Common Node Types
+
 - **Node2D**: Base for 2D objects
 - **CharacterBody2D**: Physics-based character
 - **RigidBody2D**: Physics-controlled object
@@ -1459,7 +1606,10 @@ End Class
 - **Button**: Interactive buttons
 - **Timer**: Timed events
 
+
+
 ### Essential Methods
+
 - **_Ready()**: Node initialization
 - **_Process(delta)**: Every-frame updates
 - **_PhysicsProcess(delta)**: Fixed-rate physics
@@ -1468,7 +1618,11 @@ End Class
 
 ---
 
+
+
 ## Part IX: IDE Tools and Productivity
+
+
 
 ### Chapter 31: IntelliSense and Code Completion
 
@@ -1492,24 +1646,30 @@ As you type in `.vg` files, IntelliSense automatically suggests:
 ' - Integer, Long, String, Boolean, Double, Single, etc.
 ```
 
+
+
 #### Code Snippets
 
 Type a snippet prefix and press Tab to expand:
 
-| Prefix | Expands To |
-|--------|------------|
-| `sub` | `Sub ProcedureName()...End Sub` |
-| `func` | `Function FunctionName() As Variant...End Function` |
-| `if` | `If condition Then...End If` |
-| `ife` | `If condition Then...Else...End If` |
-| `for` | `For i = 0 To 10...Next i` |
-| `fore` | `For Each item In collection...Next item` |
-| `sel` | `Select Case expression...End Select` |
-| `try` | `Try...Catch...End Try` |
-| `ready` | `Sub _ready()...End Sub` (Godot) |
-| `proc` | `Sub _process(delta)...End Sub` (Godot) |
+
+| Prefix  | Expands To                                          |
+| ------- | --------------------------------------------------- |
+| `sub`   | `Sub ProcedureName()...End Sub`                     |
+| `func`  | `Function FunctionName() As Variant...End Function` |
+| `if`    | `If condition Then...End If`                        |
+| `ife`   | `If condition Then...Else...End If`                 |
+| `for`   | `For i = 0 To 10...Next i`                          |
+| `fore`  | `For Each item In collection...Next item`           |
+| `sel`   | `Select Case expression...End Select`               |
+| `try`   | `Try...Catch...End Try`                             |
+| `ready` | `Sub _ready()...End Sub` (Godot)                    |
+| `proc`  | `Sub _process(delta)...End Sub` (Godot)             |
+
 
 ---
+
+
 
 ### Chapter 32: Debugging Tools
 
@@ -1531,12 +1691,16 @@ Access via the bottom panel. Features:
 playerHealth = 100   ' Modify variable live
 ```
 
+
+
 #### Watch Window Features
 
 - **Color-Coded Changes**: Yellow = changed, Green = unchanged
 - **Previous Value Tracking**: See what the value was before
 - **Persistence**: Watch expressions saved between sessions
 - **Context Menu**: Right-click to delete or edit watches
+
+
 
 #### Breakpoint Conditions
 
@@ -1546,6 +1710,8 @@ Right-click on any breakpoint to add conditions:
 - **Hit Count**: Break on 5th hit, or every 10th hit
 - **Log Message**: `Player health is {playerHealth}` (tracepoint)
 - **Temporary**: Auto-delete after first hit
+
+
 
 #### Call Stack Panel
 
@@ -1558,24 +1724,30 @@ During a breakpoint pause:
 
 ---
 
+
+
 ### Chapter 33: Code Quality and Linting
 
 VisualGasic automatically analyzes your code for potential issues.
 
 #### Issue Codes
 
-| Code | Severity | Description |
-|------|----------|-------------|
-| VG001 | Info | Unused variable detected |
-| VG002 | Warning | Variable used without declaration |
-| VG003 | Warning | Unreachable code detected |
-| VG004 | Error | Missing End statement |
-| VG005 | Info | Deprecated syntax used |
-| VG006 | Info | Empty block detected |
-| VG007 | Info | Unused parameter |
-| VG008 | Warning | Variable shadows outer scope |
-| VG009 | Hint | Implicit Variant (no type specified) |
-| VG010 | Warning | Function missing Return |
+
+| Code  | Severity | Description                          |
+| ----- | -------- | ------------------------------------ |
+| VG001 | Info     | Unused variable detected             |
+| VG002 | Warning  | Variable used without declaration    |
+| VG003 | Warning  | Unreachable code detected            |
+| VG004 | Error    | Missing End statement                |
+| VG005 | Info     | Deprecated syntax used               |
+| VG006 | Info     | Empty block detected                 |
+| VG007 | Info     | Unused parameter                     |
+| VG008 | Warning  | Variable shadows outer scope         |
+| VG009 | Hint     | Implicit Variant (no type specified) |
+| VG010 | Warning  | Function missing Return              |
+
+
+
 
 #### Example Warnings
 
@@ -1597,11 +1769,16 @@ Dim value  ' Hint: Variable 'value' has no type - will be Variant
 
 ---
 
+
+
 ### Chapter 34: Snippets and Templates
+
+
 
 #### Built-in Snippet Categories
 
 **Control Flow** (if, ife, ifel, sel):
+
 ```vb
 ' Type "sel" + Tab:
 Select Case expression
@@ -1615,6 +1792,7 @@ End Select
 ```
 
 **Loops** (for, fors, fore, dow, dou, whi):
+
 ```vb
 ' Type "fore" + Tab:
 For Each item In collection
@@ -1623,6 +1801,7 @@ Next item
 ```
 
 **Procedures** (sub, psub, func, pfunc):
+
 ```vb
 ' Type "func" + Tab:
 Function FunctionName() As Variant
@@ -1632,6 +1811,7 @@ End Function
 ```
 
 **Properties** (propg, propl, props, propf):
+
 ```vb
 ' Type "propf" + Tab (full property):
 Private m_PropertyName As Variant
@@ -1646,6 +1826,7 @@ End Property
 ```
 
 **Error Handling** (try, tryf, oern):
+
 ```vb
 ' Type "tryf" + Tab:
 Try
@@ -1658,12 +1839,15 @@ End Try
 ```
 
 **Game Development** (ready, proc, input, phys):
+
 ```vb
 ' Type "phys" + Tab:
 Sub _physics_process(delta As Single)
     ' physics logic
 End Sub
 ```
+
+
 
 #### Creating Custom Snippets
 
@@ -1682,9 +1866,11 @@ Next ${1:i}
 
 ---
 
+
+
 ### Chapter 35: Visual Gasic IDE Tools
 
-The Visual Gasic IDE is a **C++ GDExtension** that provides a complete WYSIWYG editing experience with 40+ controls, VB6-style properties, and a live preview system.
+Visual Gasic IDE tooling is implemented as **C++ GDExtension** editor plugins: floating VG panels on Godot’s Script/2D/3D editors (supported v6.0 path), plus an **experimental Alpha** legacy WYSIWYG form canvas when experimental plugins are enabled ([VG IDE Alpha](manual/VG_IDE_ALPHA.md)). The toolbox exposes 40+ controls with VB6-style properties and preview where the active editor mode supports it.
 
 #### Grid Snapping
 
@@ -1694,23 +1880,29 @@ The 2D canvas toolbar provides grid controls:
 - **Grid Size**: 8px, 16px, 32px (configurable)
 - **Grid Overlay**: Visual grid on the canvas
 
+
+
 #### Alignment Toolbar
 
 Select multiple controls and use:
 
-| Button | Action |
-|--------|--------|
-| ⬅ | Align Left |
-| ↔ | Align Center Horizontal |
-| ➡ | Align Right |
-| ⬆ | Align Top |
-| ↕ | Align Middle Vertical |
-| ⬇ | Align Bottom |
-| ⇔ | Distribute Horizontally |
-| ⇕ | Distribute Vertically |
-| = | Make Same Width |
-| ∥ | Make Same Height |
-| ⊞ | Make Same Size (Both) |
+
+| Button | Action                  |
+| ------ | ----------------------- |
+| ⬅      | Align Left              |
+| ↔      | Align Center Horizontal |
+| ➡      | Align Right             |
+| ⬆      | Align Top               |
+| ↕      | Align Middle Vertical   |
+| ⬇      | Align Bottom            |
+| ⇔      | Distribute Horizontally |
+| ⇕      | Distribute Vertically   |
+| =      | Make Same Width         |
+| ∥      | Make Same Height        |
+| ⊞      | Make Same Size (Both)   |
+
+
+
 
 #### Form Preview
 
@@ -1723,6 +1915,8 @@ Press **F5** or click "▶ Preview Form" to:
 - Test visual layout and control positioning
 - Close preview window to return to the editor
 
+
+
 #### Rename Refactoring
 
 Press **Ctrl+R** on any identifier to rename:
@@ -1732,24 +1926,29 @@ Press **Ctrl+R** on any identifier to rename:
 - **Everywhere**: Rename in all .vg files in the project
 
 The refactoring is smart:
+
 - Avoids renaming inside strings and comments
 - Uses word-boundary matching to avoid partial matches
 - Updates all references automatically
 
 ---
 
+
+
 ### Keyboard Shortcuts Reference
 
-| Shortcut | Action |
-|----------|--------|
-| F5 | Preview Form |
-| Ctrl+Click | Go to Definition |
+
+| Shortcut                       | Action                             |
+| ------------------------------ | ---------------------------------- |
+| F5                             | Preview Form                       |
+| Ctrl+Click                     | Go to Definition                   |
 | Right-click → Go To Definition | Go to Definition (caret on symbol) |
-| Ctrl+R | Rename Refactoring |
-| Ctrl+Shift+F | Find All References |
-| Ctrl+Shift+H | Call Hierarchy |
-| Ctrl+Space | Trigger IntelliSense |
-| Ctrl+. | Quick Actions |
+| Ctrl+R                         | Rename Refactoring                 |
+| Ctrl+Shift+F                   | Find All References                |
+| Ctrl+Shift+H                   | Call Hierarchy                     |
+| Ctrl+Space                     | Trigger IntelliSense               |
+| Ctrl+.                         | Quick Actions                      |
+
 
 ---
 
@@ -1757,18 +1956,22 @@ The refactoring is smart:
 | Ctrl+. | Quick Actions |
 
 ---
+
+
 
 ## Chapter 13: Case Study — 2D Platformer (GDScript vs VisualGasic)
 
 This chapter compares the official Godot
 **2D Platformer** demo with its VisualGasic reimplementation. The original
 GDScript sources come from
-[`godotengine/godot-demo-projects/2d/platformer`](https://github.com/godotengine/godot-demo-projects/tree/main/2d/platformer).
+`[godotengine/godot-demo-projects/2d/platformer](https://github.com/godotengine/godot-demo-projects/tree/main/2d/platformer)`.
 The VisualGasic version ships in `demos/2D_Games/Platformer/`.
 
 > **What you will learn:** How a multi-file, node-based GDScript project
 > maps to a single-file VisualGasic game — with manual physics, `DATA`-driven
 > level design, and `_Draw()`-based rendering.
+
+
 
 ### 13.1 Game Overview
 
@@ -1778,19 +1981,23 @@ and a HUD. The GDScript version uses Godot's node tree, TileMap, imported
 sprites, and AnimationPlayer. The VisualGasic version puts the entire game in
 a single `.vg` file using classic BASIC patterns.
 
-| Aspect | GDScript Demo | VisualGasic Demo |
-|--------|--------------|-----------------|
-| **Files** | 6+ scripts (player.gd, enemy.gd, bullet.gd, coin.gd, gun.gd, …) | **1 file** — `platformer.vg` (1278 lines) |
-| **Player node** | `CharacterBody2D` with `move_and_slide()` | Manual `_Process(delta)` + custom tile collision |
-| **Enemy node** | `CharacterBody2D` with `RayCast2D` detectors | Array-based entity pool with manual edge/wall checks |
-| **Level format** | `TileMap` node (editor-painted) | `DATA` / `Read` / `Restore` ASCII art maps |
-| **Rendering** | Imported `.png` sprites + `AnimatedSprite2D` | `_Draw()` primitives: `DrawRect`, `DrawCircle`, `DrawString`, `DrawTexture`, `DrawPolygon`, `DrawArc` + Image APIs (`CreateImage`, `SetImagePixel`, `DrawImageLine`, `FloodFillImage`, `UpdateTexture`) |
-| **Coins** | Instanced coin scenes with `Area2D` pickup | Array pool with distance-check pickup |
-| **Camera** | `Camera2D` node with limits | Manual lerp + clamp to level bounds |
-| **Physics** | Engine `CharacterBody2D` collision | Custom `ResolveHorizontalCollision` / `ResolveVerticalCollision` |
-| **Animation** | `AnimationPlayer` + `Sprite2D` frames | Procedural: `Sin()` bob, walk-cycle `legOffset`, blink timer |
+
+| Aspect           | GDScript Demo                                                   | VisualGasic Demo                                                                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Files**        | 6+ scripts (player.gd, enemy.gd, bullet.gd, coin.gd, gun.gd, …) | **1 file** — `platformer.vg` (1278 lines)                                                                                                                                                               |
+| **Player node**  | `CharacterBody2D` with `move_and_slide()`                       | Manual `_Process(delta)` + custom tile collision                                                                                                                                                        |
+| **Enemy node**   | `CharacterBody2D` with `RayCast2D` detectors                    | Array-based entity pool with manual edge/wall checks                                                                                                                                                    |
+| **Level format** | `TileMap` node (editor-painted)                                 | `DATA` / `Read` / `Restore` ASCII art maps                                                                                                                                                              |
+| **Rendering**    | Imported `.png` sprites + `AnimatedSprite2D`                    | `_Draw()` primitives: `DrawRect`, `DrawCircle`, `DrawString`, `DrawTexture`, `DrawPolygon`, `DrawArc` + Image APIs (`CreateImage`, `SetImagePixel`, `DrawImageLine`, `FloodFillImage`, `UpdateTexture`) |
+| **Coins**        | Instanced coin scenes with `Area2D` pickup                      | Array pool with distance-check pickup                                                                                                                                                                   |
+| **Camera**       | `Camera2D` node with limits                                     | Manual lerp + clamp to level bounds                                                                                                                                                                     |
+| **Physics**      | Engine `CharacterBody2D` collision                              | Custom `ResolveHorizontalCollision` / `ResolveVerticalCollision`                                                                                                                                        |
+| **Animation**    | `AnimationPlayer` + `Sprite2D` frames                           | Procedural: `Sin()` bob, walk-cycle `legOffset`, blink timer                                                                                                                                            |
+
 
 ---
+
+
 
 ### 13.2 Architecture — The Fundamental Difference
 
@@ -1851,7 +2058,11 @@ a single `.vg` file using classic BASIC patterns.
 
 ---
 
+
+
 ### 13.3 Player Movement — Side-by-Side
+
+
 
 #### GDScript (player.gd — excerpt)
 
@@ -1900,6 +2111,8 @@ func try_jump() -> void:
         velocity.y = JUMP_VELOCITY * 0.8
         _double_jump_charged = false
 ```
+
+
 
 #### VisualGasic (platformer.vg — player sections)
 
@@ -1987,18 +2200,24 @@ Sub UpdatePlayer(delta As Single)
 End Sub
 ```
 
+
+
 #### Key Differences — Player Movement
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Physics engine** | `CharacterBody2D.move_and_slide()` handles all collision | Manual: `MovePlayer` → `ResolveHorizontalCollision` + `ResolveVerticalCollision` checking each tile | VG doesn't create CharacterBody2D nodes; it uses a single Node2D with custom physics |
-| **Gravity** | `ProjectSettings.get("physics/2d/default_gravity")` — engine value | `Const GRAVITY As Single = 1800.0` — hardcoded | VG doesn't read project settings; constants are self-contained |
-| **Input** | `Input.get_axis("move_left", "move_right")` — returns -1 to 1 | Separate `IsActionPressed` checks building a `moveDir` value | Both work; VG version is more explicit |
-| **Double jump** | Simple flag: `_double_jump_charged` | Flag + coyote time + jump buffer — **more features** | VG version adds coyote time and jump buffering that the GDScript demo omits |
-| **Floor detection** | `is_on_floor()` — engine provides this after `move_and_slide()` | `playerOnGround` set by `ResolveVerticalCollision` when landing on a solid tile | VG manually sets this during custom collision resolution |
-| **Slope handling** | `floor_stop_on_slope` + `PlatformDetector` RayCast2D | N/A — tile grid is axis-aligned (no slopes) | VG uses a simpler grid world without slope physics |
+
+| Area                | GDScript                                                           | VisualGasic                                                                                         | Why                                                                                  |
+| ------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Physics engine**  | `CharacterBody2D.move_and_slide()` handles all collision           | Manual: `MovePlayer` → `ResolveHorizontalCollision` + `ResolveVerticalCollision` checking each tile | VG doesn't create CharacterBody2D nodes; it uses a single Node2D with custom physics |
+| **Gravity**         | `ProjectSettings.get("physics/2d/default_gravity")` — engine value | `Const GRAVITY As Single = 1800.0` — hardcoded                                                      | VG doesn't read project settings; constants are self-contained                       |
+| **Input**           | `Input.get_axis("move_left", "move_right")` — returns -1 to 1      | Separate `IsActionPressed` checks building a `moveDir` value                                        | Both work; VG version is more explicit                                               |
+| **Double jump**     | Simple flag: `_double_jump_charged`                                | Flag + coyote time + jump buffer — **more features**                                                | VG version adds coyote time and jump buffering that the GDScript demo omits          |
+| **Floor detection** | `is_on_floor()` — engine provides this after `move_and_slide()`    | `playerOnGround` set by `ResolveVerticalCollision` when landing on a solid tile                     | VG manually sets this during custom collision resolution                             |
+| **Slope handling**  | `floor_stop_on_slope` + `PlatformDetector` RayCast2D               | N/A — tile grid is axis-aligned (no slopes)                                                         | VG uses a simpler grid world without slope physics                                   |
+
 
 ---
+
+
 
 ### 13.4 Tile Collision — Manual vs Engine
 
@@ -2012,6 +2231,8 @@ to the engine; VisualGasic implements it from scratch.
 move_and_slide()
 # is_on_floor() / is_on_wall() / is_on_ceiling() available automatically
 ```
+
+
 
 #### VisualGasic: Full Tile Collision System
 
@@ -2088,9 +2309,13 @@ for understanding how platformer physics *actually work* under the hood.
 
 ---
 
+
+
 ### 13.5 Enemy AI — Side-by-Side
 
-#### GDScript (enemy.gd)
+
+
+#### GDScript ([enemy.gd](http://enemy.gd))
 
 ```gdscript
 class_name Enemy
@@ -2132,6 +2357,8 @@ func destroy() -> void:
     _state = State.DEAD
     velocity = Vector2.ZERO
 ```
+
+
 
 #### VisualGasic (platformer.vg — enemy section)
 
@@ -2182,17 +2409,23 @@ Sub UpdateEnemies(delta As Single)
 End Sub
 ```
 
+
+
 #### Key Differences — Enemies
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Entity model** | Each enemy is a scene instance (`CharacterBody2D`) with child nodes | Fixed-size parallel arrays: `enemyX()`, `enemyY()`, `enemyVX()`, `enemyActive()` | VG uses the classic BASIC array-pool pattern — no scene instantiation |
-| **Edge detection** | Two `RayCast2D` child nodes (`FloorDetectorLeft/Right`) | Manual tile lookup: `IsSolidTile(checkCol, footRow)` | VG checks the tile grid directly instead of using raycasts |
-| **Wall detection** | `is_on_wall()` — engine provides after `move_and_slide()` | `IsSolidTile` at the leading edge column | Same logic, different abstraction level |
-| **Stomp detection** | Separate — handled via `Area2D` signals or player collision | Inline `RectsOverlap` + vertical velocity check in the same loop | VG combines movement and combat in one update pass |
-| **Death** | `_state = State.DEAD` + animation plays | `enemyActive(i) = False` — removed from update loop instantly | VG skips death animations; the slot is simply deactivated |
+
+| Area                | GDScript                                                            | VisualGasic                                                                      | Why                                                                   |
+| ------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Entity model**    | Each enemy is a scene instance (`CharacterBody2D`) with child nodes | Fixed-size parallel arrays: `enemyX()`, `enemyY()`, `enemyVX()`, `enemyActive()` | VG uses the classic BASIC array-pool pattern — no scene instantiation |
+| **Edge detection**  | Two `RayCast2D` child nodes (`FloorDetectorLeft/Right`)             | Manual tile lookup: `IsSolidTile(checkCol, footRow)`                             | VG checks the tile grid directly instead of using raycasts            |
+| **Wall detection**  | `is_on_wall()` — engine provides after `move_and_slide()`           | `IsSolidTile` at the leading edge column                                         | Same logic, different abstraction level                               |
+| **Stomp detection** | Separate — handled via `Area2D` signals or player collision         | Inline `RectsOverlap` + vertical velocity check in the same loop                 | VG combines movement and combat in one update pass                    |
+| **Death**           | `_state = State.DEAD` + animation plays                             | `enemyActive(i) = False` — removed from update loop instantly                    | VG skips death animations; the slot is simply deactivated             |
+
 
 ---
+
+
 
 ### 13.6 Level Design — TileMap vs DATA Statements
 
@@ -2266,17 +2499,23 @@ Sub LoadLevel(levelNum As Integer)
 End Sub
 ```
 
-| Aspect | GDScript + TileMap | VisualGasic + DATA |
-|--------|-------------------|-------------------|
-| **Editor support** | Full visual tile painting | Text-only — edit the DATA strings |
-| **Iteration speed** | Click and paint tiles | Modify characters in source, re-run |
-| **Version control** | Binary `.tscn` changes | Plain-text diffs on DATA lines |
-| **Learning value** | Teaches Godot's editor workflow | Teaches how tile maps work internally |
-| **Classic BASIC** | N/A | `DATA` / `Read` / `Restore` — a staple of 1980s game dev |
+
+| Aspect              | GDScript + TileMap              | VisualGasic + DATA                                       |
+| ------------------- | ------------------------------- | -------------------------------------------------------- |
+| **Editor support**  | Full visual tile painting       | Text-only — edit the DATA strings                        |
+| **Iteration speed** | Click and paint tiles           | Modify characters in source, re-run                      |
+| **Version control** | Binary `.tscn` changes          | Plain-text diffs on DATA lines                           |
+| **Learning value**  | Teaches Godot's editor workflow | Teaches how tile maps work internally                    |
+| **Classic BASIC**   | N/A                             | `DATA` / `Read` / `Restore` — a staple of 1980s game dev |
+
 
 ---
 
+
+
 ### 13.7 Rendering — Sprites vs _Draw()
+
+
 
 #### GDScript
 
@@ -2315,12 +2554,16 @@ End Sub
 Enemies, coins, tiles, clouds, HUD, particle effects — **everything** is drawn
 with `DrawRect`, `DrawCircle`, and `DrawString`. No external art files needed.
 
-| Approach | Pros | Cons |
-|----------|------|------|
-| **Imported sprites** (GDScript) | Professional art quality, animation sheets | Requires art assets, asset pipeline |
-| **`_Draw()` primitives** (VG) | Zero dependencies, entire game is one text file | Simpler visuals, more code |
+
+| Approach                        | Pros                                            | Cons                                |
+| ------------------------------- | ----------------------------------------------- | ----------------------------------- |
+| **Imported sprites** (GDScript) | Professional art quality, animation sheets      | Requires art assets, asset pipeline |
+| `_Draw()` **primitives** (VG)   | Zero dependencies, entire game is one text file | Simpler visuals, more code          |
+
 
 ---
+
+
 
 ### 13.8 Game State Machine
 
@@ -2389,26 +2632,30 @@ game frameworks.
 
 ---
 
+
+
 ### 13.9 Feature Comparison Summary
 
-| Feature | GDScript Demo | VisualGasic Demo |
-|---------|--------------|-----------------|
-| Gravity + jumping | ✅ `CharacterBody2D` | ✅ Manual `playerVY + GRAVITY * delta` |
-| Double jump | ✅ `_double_jump_charged` | ✅ `doubleJumpReady` flag |
-| Coyote time | ❌ | ✅ `coyoteTimer` — jump after leaving edge |
-| Jump buffering | ❌ | ✅ `jumpBufferTimer` — pre-land jump input |
-| Variable jump height | ✅ `velocity.y *= 0.6` | ✅ `playerVY = playerVY * 0.5` |
-| Enemy patrol | ✅ `RayCast2D` floor detectors | ✅ `IsSolidTile` edge checks |
-| Enemy stomp | ✅ Collision areas | ✅ `RectsOverlap` + velocity check |
-| Knockback on hit | ❌ (instant death) | ✅ `HitPlayer` with invincibility frames |
-| Coins | ✅ `Area2D` pickup | ✅ Distance check + particle burst |
-| Moving platforms | ✅ `AnimatableBody2D` | ✅ `Sin()` oscillation |
-| Spike hazards | ❌ | ✅ `IsSpikeTile` instant-kill check |
-| Particle effects | ✅ `CPUParticles2D` | ✅ Array-based particle pool |
-| Multiple levels | ✅ Separate scenes | ✅ 3 `DATA`-defined levels |
-| Shooting / gun | ✅ `RigidBody2D` bullets | ❌ |
-| Title / game over screens | ✅ Separate scenes | ✅ `_Draw()` overlays with animation |
-| Music / sound effects | ✅ `AudioStreamPlayer2D` | ❌ |
+
+| Feature                   | GDScript Demo                 | VisualGasic Demo                          |
+| ------------------------- | ----------------------------- | ----------------------------------------- |
+| Gravity + jumping         | ✅ `CharacterBody2D`           | ✅ Manual `playerVY + GRAVITY * delta`     |
+| Double jump               | ✅ `_double_jump_charged`      | ✅ `doubleJumpReady` flag                  |
+| Coyote time               | ❌                             | ✅ `coyoteTimer` — jump after leaving edge |
+| Jump buffering            | ❌                             | ✅ `jumpBufferTimer` — pre-land jump input |
+| Variable jump height      | ✅ `velocity.y *= 0.6`         | ✅ `playerVY = playerVY * 0.5`             |
+| Enemy patrol              | ✅ `RayCast2D` floor detectors | ✅ `IsSolidTile` edge checks               |
+| Enemy stomp               | ✅ Collision areas             | ✅ `RectsOverlap` + velocity check         |
+| Knockback on hit          | ❌ (instant death)             | ✅ `HitPlayer` with invincibility frames   |
+| Coins                     | ✅ `Area2D` pickup             | ✅ Distance check + particle burst         |
+| Moving platforms          | ✅ `AnimatableBody2D`          | ✅ `Sin()` oscillation                     |
+| Spike hazards             | ❌                             | ✅ `IsSpikeTile` instant-kill check        |
+| Particle effects          | ✅ `CPUParticles2D`            | ✅ Array-based particle pool               |
+| Multiple levels           | ✅ Separate scenes             | ✅ 3 `DATA`-defined levels                 |
+| Shooting / gun            | ✅ `RigidBody2D` bullets       | ❌                                         |
+| Title / game over screens | ✅ Separate scenes             | ✅ `_Draw()` overlays with animation       |
+| Music / sound effects     | ✅ `AudioStreamPlayer2D`       | ❌                                         |
+
 
 The VisualGasic version actually has **more gameplay polish** (coyote time,
 jump buffering, knockback with invincibility) but lacks the GDScript demo's
@@ -2416,26 +2663,32 @@ audio and shooting mechanic. Both are complete, playable games.
 
 ---
 
+
+
 ### 13.10 VisualGasic Features Demonstrated
 
-| VG Feature | Usage in This Demo |
-|------------|-------------------|
-| `Const` | Physics constants: `GRAVITY`, `WALK_SPEED`, `JUMP_VELOCITY`, `TILE_SIZE` |
-| `Dim` arrays | Entity pools: `coinX(50)`, `enemyX(20)`, `partX(60)`, `levelGrid(80,20)` |
-| `Sub` / `Function` | 30+ modular routines: `UpdatePlayer`, `DrawTileMap`, `IsSolidTile`, etc. |
-| `Select Case` | Game state machine, tile rendering, level selection |
-| `DATA` / `Read` / `Restore` | Three complete level maps defined as inline ASCII art |
-| `_Ready()` | Game initialization and console output |
-| `_Process(delta)` | Frame update loop with delta timing |
-| `_Draw()` | Full-screen rendering: tiles, sprites, HUD, particles, screens |
-| `Input.IsActionPressed()` | Player movement and jumping |
-| `For` / `Next` loops | Entity iteration, tile map rendering, particle updates |
-| `Mid()`, `Len()`, `Str()`, `Right()`, `Chr()` | Level loading, HUD text formatting, timer display |
-| `Rnd()` | Cloud generation, particle directions, enemy timers |
-| `Sin()` / `Abs()` | Coin bob, walk animation, platform oscillation, title bounce |
-| `Color()` / `Color.White` | All rendering uses named and hex colors |
+
+| VG Feature                                    | Usage in This Demo                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
+| `Const`                                       | Physics constants: `GRAVITY`, `WALK_SPEED`, `JUMP_VELOCITY`, `TILE_SIZE` |
+| `Dim` arrays                                  | Entity pools: `coinX(50)`, `enemyX(20)`, `partX(60)`, `levelGrid(80,20)` |
+| `Sub` / `Function`                            | 30+ modular routines: `UpdatePlayer`, `DrawTileMap`, `IsSolidTile`, etc. |
+| `Select Case`                                 | Game state machine, tile rendering, level selection                      |
+| `DATA` / `Read` / `Restore`                   | Three complete level maps defined as inline ASCII art                    |
+| `_Ready()`                                    | Game initialization and console output                                   |
+| `_Process(delta)`                             | Frame update loop with delta timing                                      |
+| `_Draw()`                                     | Full-screen rendering: tiles, sprites, HUD, particles, screens           |
+| `Input.IsActionPressed()`                     | Player movement and jumping                                              |
+| `For` / `Next` loops                          | Entity iteration, tile map rendering, particle updates                   |
+| `Mid()`, `Len()`, `Str()`, `Right()`, `Chr()` | Level loading, HUD text formatting, timer display                        |
+| `Rnd()`                                       | Cloud generation, particle directions, enemy timers                      |
+| `Sin()` / `Abs()`                             | Coin bob, walk animation, platform oscillation, title bounce             |
+| `Color()` / `Color.White`                     | All rendering uses named and hex colors                                  |
+
 
 ---
+
+
 
 ### 13.11 Running the Demo
 
@@ -2448,22 +2701,27 @@ cd demos/2D_Games/Platformer/
 ```
 
 **Controls:**
+
 - **A/D** or **Arrow Keys** — Move left/right
 - **Space**, **W**, or **Up** — Jump (press again for double jump)
 - **Escape** — Return to title
 
 ---
 
+
+
 ## Chapter 17: Case Study — Squash the Creeps (GDScript vs VisualGasic)
 
 This chapter presents a complete, side-by-side conversion of the official Godot
 **"Squash the Creeps"** 3D tutorial. The original GDScript sources come from
-[`godotengine/godot-demo-projects/3d/squash_the_creeps`](https://github.com/godotengine/godot-demo-projects/tree/main/3d/squash_the_creeps).
+`[godotengine/godot-demo-projects/3d/squash_the_creeps](https://github.com/godotengine/godot-demo-projects/tree/main/3d/squash_the_creeps)`.
 The VisualGasic version ships in `demos/3D_Games/Squash_The_Creeps/`.
 
 > **What you will learn:** How every GDScript idiom maps to its VisualGasic
 > equivalent — signals, `@export` vs `Const`, physics builtins, collision
 > iteration, and scene-tree manipulation.
+
+
 
 ### 17.1 Game Overview
 
@@ -2471,12 +2729,14 @@ Squash the Creeps is a 3D arena game in which the player moves and jumps to
 stomp randomly-spawning enemies. One point is scored per squash, and the game
 ends when a mob touches the player from the side.
 
-| Component | GDScript File | VisualGasic File | Node Type |
-|-----------|--------------|-----------------|-----------|
-| Player | `Player.gd` (74 lines) | `player.vg` (163 lines) | CharacterBody3D |
-| Mob | `Mob.gd` (41 lines) | `mob.vg` (110 lines) | CharacterBody3D |
-| Main | `Main.gd` (47 lines) | `main.vg` (80 lines) | Node |
-| Score Label | `ScoreLabel.gd` (7 lines) | `score_label.vg` (28 lines) | Label |
+
+| Component   | GDScript File             | VisualGasic File            | Node Type       |
+| ----------- | ------------------------- | --------------------------- | --------------- |
+| Player      | `Player.gd` (74 lines)    | `player.vg` (163 lines)     | CharacterBody3D |
+| Mob         | `Mob.gd` (41 lines)       | `mob.vg` (110 lines)        | CharacterBody3D |
+| Main        | `Main.gd` (47 lines)      | `main.vg` (80 lines)        | Node            |
+| Score Label | `ScoreLabel.gd` (7 lines) | `score_label.vg` (28 lines) | Label           |
+
 
 > **Note:** VisualGasic files are longer because VB6-style requires explicit
 > `Dim` declarations and separate lines for each operation that GDScript chains
@@ -2484,35 +2744,43 @@ ends when a mob touches the player from the side.
 
 ---
 
+
+
 ### 17.2 Key Syntax Differences at a Glance
 
-| Concept | GDScript | VisualGasic |
-|---------|----------|-------------|
-| Script header | `extends CharacterBody3D` | `Attribute VB_Name = "Player"` (node type set in `.tscn`) |
-| Signal declaration | `signal hit` | `Event hit()` |
-| Exported property | `@export var speed = 14` | `Const SPEED As Integer = 14` |
-| Variable declaration | `var score = 0` | `Dim score As Integer` |
-| Self reference | implicit (`velocity.y`) | `Me` (`Me.velocity.y`) |
-| Node lookup | `$AnimationPlayer` | `GetNode("AnimationPlayer")` |
-| Null check | `if collision:` | `If Not (collision Is Nothing) Then` |
-| Group check | `collision.get_collider().is_in_group("mob")` | `collider.is_in_group("mob")` |
-| Signal emission | `hit.emit()` | `RaiseEvent hit` |
-| Signal connection | `mob.squashed.connect(func)` | Connected in scene editor or via code |
-| Type conversion | `"Score: %s" % score` | `"Score: " & CStr(score)` |
-| Physics movement | `move_and_slide()` | `MoveAndSlide(Me)` |
-| Set velocity | `velocity = Vector3(...)` | `SetVelocity(Me, vx, vy, vz)` |
-| Floor check | `is_on_floor()` | `IsOnFloor(Me)` |
-| Collision count | `get_slide_collision_count()` | `GetCollisionCount(Me)` |
-| Load scene | `preload("res://mob.tscn")` | `Load("res://mob.tscn")` |
-| Process callback | `func _physics_process(delta):` | `Sub _PhysicsProcess(delta As Single)` |
-| Math | `randf_range(min, max)` | `MIN + Rnd() * (MAX - MIN)` |
-| Rotation | `rotate_y(angle)` | Manual trig: `Cos(offset)` / `Sin(offset)` |
+
+| Concept              | GDScript                                      | VisualGasic                                               |
+| -------------------- | --------------------------------------------- | --------------------------------------------------------- |
+| Script header        | `extends CharacterBody3D`                     | `Attribute VB_Name = "Player"` (node type set in `.tscn`) |
+| Signal declaration   | `signal hit`                                  | `Event hit()`                                             |
+| Exported property    | `@export var speed = 14`                      | `Const SPEED As Integer = 14`                             |
+| Variable declaration | `var score = 0`                               | `Dim score As Integer`                                    |
+| Self reference       | implicit (`velocity.y`)                       | `Me` (`Me.velocity.y`)                                    |
+| Node lookup          | `$AnimationPlayer`                            | `GetNode("AnimationPlayer")`                              |
+| Null check           | `if collision:`                               | `If Not (collision Is Nothing) Then`                      |
+| Group check          | `collision.get_collider().is_in_group("mob")` | `collider.is_in_group("mob")`                             |
+| Signal emission      | `hit.emit()`                                  | `RaiseEvent hit`                                          |
+| Signal connection    | `mob.squashed.connect(func)`                  | Connected in scene editor or via code                     |
+| Type conversion      | `"Score: %s" % score`                         | `"Score: " & CStr(score)`                                 |
+| Physics movement     | `move_and_slide()`                            | `MoveAndSlide(Me)`                                        |
+| Set velocity         | `velocity = Vector3(...)`                     | `SetVelocity(Me, vx, vy, vz)`                             |
+| Floor check          | `is_on_floor()`                               | `IsOnFloor(Me)`                                           |
+| Collision count      | `get_slide_collision_count()`                 | `GetCollisionCount(Me)`                                   |
+| Load scene           | `preload("res://mob.tscn")`                   | `Load("res://mob.tscn")`                                  |
+| Process callback     | `func _physics_process(delta):`               | `Sub _PhysicsProcess(delta As Single)`                    |
+| Math                 | `randf_range(min, max)`                       | `MIN + Rnd() * (MAX - MIN)`                               |
+| Rotation             | `rotate_y(angle)`                             | Manual trig: `Cos(offset)` / `Sin(offset)`                |
+
 
 ---
 
+
+
 ### 17.3 Player Script — Side-by-Side
 
-#### GDScript (Player.gd)
+
+
+#### GDScript ([Player.gd](http://Player.gd))
 
 ```gdscript
 extends CharacterBody3D
@@ -2573,7 +2841,9 @@ func _on_MobDetector_body_entered(_body):
     die()
 ```
 
-#### VisualGasic (player.vg)
+
+
+#### VisualGasic ([player.vg](http://player.vg))
 
 ```vb
 Attribute VB_Name = "Player"
@@ -2688,23 +2958,31 @@ Sub _on_MobDetector_body_entered(body As Object)
 End Sub
 ```
 
+
+
 #### Key Differences — Player
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Self keyword** | Implicit — `velocity.y` reads the node's own property | Explicit — `Me.velocity.y`. VB6 uses `Me` like VB's `Me` keyword | VG scripts aren't compiled classes; `Me` is the attached Godot node |
-| **Velocity access** | Direct property: `velocity.x = value` | Explicit builtin: `SetVelocity(Me, vx, vy, vz)` | VG provides physics builtins that set all components at once |
-| **Normalization** | `direction.normalized()` — one call | Manual `Sqr(dx*dx + dz*dz)` and divide | VG doesn't have vector methods on user-created Vector3s |
-| **Facing** | `basis = Basis.looking_at(direction)` | `pivot.LookAt(target, up)` via a child Pivot node | VG calls Godot's `look_at()` method through the Pivot |
-| **Stomp guard** | GDScript trusts the collision normals | `wasOnFloor` flag prevents ground-level false positives | VG's integer-step physics occasionally produce upward normals at ground level |
-| **Re-entrancy guard** | Not needed (GDScript version is simpler) | `If dead Then Exit Sub` — prevents double-free | VG signal dispatching can re-enter `die()` during the same frame |
-| **Null safety** | `collision.get_collider()` assumed valid | `If Not (collision Is Nothing)` on every object | VG's `Is Nothing` is the null check idiom (like VB6) |
+
+| Area                  | GDScript                                              | VisualGasic                                                      | Why                                                                           |
+| --------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Self keyword**      | Implicit — `velocity.y` reads the node's own property | Explicit — `Me.velocity.y`. VB6 uses `Me` like VB's `Me` keyword | VG scripts aren't compiled classes; `Me` is the attached Godot node           |
+| **Velocity access**   | Direct property: `velocity.x = value`                 | Explicit builtin: `SetVelocity(Me, vx, vy, vz)`                  | VG provides physics builtins that set all components at once                  |
+| **Normalization**     | `direction.normalized()` — one call                   | Manual `Sqr(dx*dx + dz*dz)` and divide                           | VG doesn't have vector methods on user-created Vector3s                       |
+| **Facing**            | `basis = Basis.looking_at(direction)`                 | `pivot.LookAt(target, up)` via a child Pivot node                | VG calls Godot's `look_at()` method through the Pivot                         |
+| **Stomp guard**       | GDScript trusts the collision normals                 | `wasOnFloor` flag prevents ground-level false positives          | VG's integer-step physics occasionally produce upward normals at ground level |
+| **Re-entrancy guard** | Not needed (GDScript version is simpler)              | `If dead Then Exit Sub` — prevents double-free                   | VG signal dispatching can re-enter `die()` during the same frame              |
+| **Null safety**       | `collision.get_collider()` assumed valid              | `If Not (collision Is Nothing)` on every object                  | VG's `Is Nothing` is the null check idiom (like VB6)                          |
+
 
 ---
 
+
+
 ### 17.4 Mob Script — Side-by-Side
 
-#### GDScript (Mob.gd)
+
+
+#### GDScript ([Mob.gd](http://Mob.gd))
 
 ```gdscript
 extends CharacterBody3D
@@ -2740,7 +3018,9 @@ func _on_visible_on_screen_notifier_screen_exited():
     queue_free()
 ```
 
-#### VisualGasic (mob.vg)
+
+
+#### VisualGasic ([mob.vg](http://mob.vg))
 
 ```vb
 Attribute VB_Name = "Mob"
@@ -2814,21 +3094,29 @@ Sub _on_VisibleOnScreenNotifier3D_screen_exited()
 End Sub
 ```
 
+
+
 #### Key Differences — Mob
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Rotation math** | `rotate_y(angle)` then `velocity.rotated(UP, rotation.y)` — engine handles trigonometry | Manual trig: `Cos(offset)`, `Sin(offset)` applied to direction vector | VG doesn't expose `rotate_y` as a builtin; direction is computed before setting velocity |
-| **Random range** | `randf_range(min, max)` — single call | `MIN + Rnd() * (MAX - MIN)` — classic VB6 pattern | VG provides `Rnd()` (0-1) like VB6; scaling is manual |
-| **Forward vector** | `Vector3.FORWARD * speed` then rotate | Pre-computed direction × speed via `SetVelocity` | VG sets the final velocity directly rather than rotating a basis vector |
-| **Screen exit guard** | `queue_free()` immediately | `frameCount > 120` guard before `queue_free()` | Mobs spawning at camera edges need time to enter the viewport before the exit signal is valid |
-| **Signal emission** | `squashed.emit()` | `RaiseEvent squashed` | VB6-style event raising |
+
+| Area                  | GDScript                                                                                | VisualGasic                                                           | Why                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Rotation math**     | `rotate_y(angle)` then `velocity.rotated(UP, rotation.y)` — engine handles trigonometry | Manual trig: `Cos(offset)`, `Sin(offset)` applied to direction vector | VG doesn't expose `rotate_y` as a builtin; direction is computed before setting velocity      |
+| **Random range**      | `randf_range(min, max)` — single call                                                   | `MIN + Rnd() * (MAX - MIN)` — classic VB6 pattern                     | VG provides `Rnd()` (0-1) like VB6; scaling is manual                                         |
+| **Forward vector**    | `Vector3.FORWARD * speed` then rotate                                                   | Pre-computed direction × speed via `SetVelocity`                      | VG sets the final velocity directly rather than rotating a basis vector                       |
+| **Screen exit guard** | `queue_free()` immediately                                                              | `frameCount > 120` guard before `queue_free()`                        | Mobs spawning at camera edges need time to enter the viewport before the exit signal is valid |
+| **Signal emission**   | `squashed.emit()`                                                                       | `RaiseEvent squashed`                                                 | VB6-style event raising                                                                       |
+
 
 ---
 
+
+
 ### 17.5 Main Script — Side-by-Side
 
-#### GDScript (Main.gd)
+
+
+#### GDScript ([Main.gd](http://Main.gd))
 
 ```gdscript
 extends Node
@@ -2863,7 +3151,9 @@ func _on_player_hit():
     $UserInterface/Retry.show()
 ```
 
-#### VisualGasic (main.vg)
+
+
+#### VisualGasic ([main.vg](http://main.vg))
 
 ```vb
 Attribute VB_Name = "Main"
@@ -2911,21 +3201,29 @@ Sub _on_player_hit()
 End Sub
 ```
 
+
+
 #### Key Differences — Main
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Scene loading** | `@export var mob_scene: PackedScene` (drag-drop in editor) | `Load("res://mob.tscn")` at runtime each spawn | VG doesn't have `@export`-based scene references; `Load()` is the standard pattern |
-| **Signal connection** | `mob.squashed.connect($UserInterface/ScoreLabel._on_Mob_squashed)` | Score is tracked directly in `player.vg` instead | Cross-script signal connection uses editor wiring or direct node access in VG |
-| **Property setting** | `mob_spawn_location.progress_ratio = randf()` | `spawnLoc.set("progress_ratio", Rnd())` | VG uses `.set()` to write Godot properties; direct assignment isn't supported for engine properties |
-| **Chained calls** | `get_tree().reload_current_scene()` | Split into two lines: `tree = Me.get_tree()` then `tree.reload_current_scene()` | VG's parser requires separate statements for chained method calls |
-| **Null guard** | Not needed (player always exists when timer fires) | `If player Is Nothing Then ... Exit Sub` | Defensive coding — VG's late-binding means a freed node returns Nothing |
+
+| Area                  | GDScript                                                           | VisualGasic                                                                     | Why                                                                                                 |
+| --------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Scene loading**     | `@export var mob_scene: PackedScene` (drag-drop in editor)         | `Load("res://mob.tscn")` at runtime each spawn                                  | VG doesn't have `@export`-based scene references; `Load()` is the standard pattern                  |
+| **Signal connection** | `mob.squashed.connect($UserInterface/ScoreLabel._on_Mob_squashed)` | Score is tracked directly in `player.vg` instead                                | Cross-script signal connection uses editor wiring or direct node access in VG                       |
+| **Property setting**  | `mob_spawn_location.progress_ratio = randf()`                      | `spawnLoc.set("progress_ratio", Rnd())`                                         | VG uses `.set()` to write Godot properties; direct assignment isn't supported for engine properties |
+| **Chained calls**     | `get_tree().reload_current_scene()`                                | Split into two lines: `tree = Me.get_tree()` then `tree.reload_current_scene()` | VG's parser requires separate statements for chained method calls                                   |
+| **Null guard**        | Not needed (player always exists when timer fires)                 | `If player Is Nothing Then ... Exit Sub`                                        | Defensive coding — VG's late-binding means a freed node returns Nothing                             |
+
 
 ---
 
+
+
 ### 17.6 Score Label Script — Side-by-Side
 
-#### GDScript (ScoreLabel.gd)
+
+
+#### GDScript ([ScoreLabel.gd](http://ScoreLabel.gd))
 
 ```gdscript
 extends Label
@@ -2936,6 +3234,8 @@ func _on_Mob_squashed():
     score += 1
     text = "Score: %s" % score
 ```
+
+
 
 #### VisualGasic (score_label.vg)
 
@@ -2955,16 +3255,22 @@ Sub AddScore()
 End Sub
 ```
 
+
+
 #### Key Differences — Score Label
 
-| Area | GDScript | VisualGasic | Why |
-|------|----------|-------------|-----|
-| **Brevity** | 7 lines total | 28 lines with headers/comments | VB6 style is more verbose but self-documenting |
-| **String formatting** | `"Score: %s" % score` | `"Score: " & CStr(score)` | VG uses VB6's `&` concatenation and `CStr()` type conversion |
-| **Score trigger** | Connected via `mob.squashed.connect(...)` in Main | Player calls the label directly or uses `.set("text", ...)` | VG favors direct node access over dynamic signal wiring |
-| **Initialization** | Implicit (GDScript default) | Explicit `_Ready()` sets initial text | VG requires explicit initialization of UI state |
+
+| Area                  | GDScript                                          | VisualGasic                                                 | Why                                                          |
+| --------------------- | ------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| **Brevity**           | 7 lines total                                     | 28 lines with headers/comments                              | VB6 style is more verbose but self-documenting               |
+| **String formatting** | `"Score: %s" % score`                             | `"Score: " & CStr(score)`                                   | VG uses VB6's `&` concatenation and `CStr()` type conversion |
+| **Score trigger**     | Connected via `mob.squashed.connect(...)` in Main | Player calls the label directly or uses `.set("text", ...)` | VG favors direct node access over dynamic signal wiring      |
+| **Initialization**    | Implicit (GDScript default)                       | Explicit `_Ready()` sets initial text                       | VG requires explicit initialization of UI state              |
+
 
 ---
+
+
 
 ### 17.7 Architecture Comparison
 
@@ -3019,27 +3325,33 @@ cross-script signal plumbing.
 
 ---
 
+
+
 ### 17.8 VisualGasic Physics Builtins Used
 
 This demo exercises the core physics builtins that VisualGasic provides as
 first-class functions (no `Me.move_and_slide()` dot-call needed):
 
-| Builtin | Signature | Equivalent GDScript |
-|---------|-----------|-------------------|
-| `MoveAndSlide(body)` | Calls `body.move_and_slide()` | `move_and_slide()` |
-| `SetVelocity(body, x, y, z)` | Sets `body.velocity = Vector3(x,y,z)` | `velocity = Vector3(x,y,z)` |
-| `IsOnFloor(body)` | Returns `body.is_on_floor()` | `is_on_floor()` |
-| `GetCollisionCount(body)` | Returns `body.get_slide_collision_count()` | `get_slide_collision_count()` |
+
+| Builtin                       | Signature                                      | Equivalent GDScript              |
+| ----------------------------- | ---------------------------------------------- | -------------------------------- |
+| `MoveAndSlide(body)`          | Calls `body.move_and_slide()`                  | `move_and_slide()`               |
+| `SetVelocity(body, x, y, z)`  | Sets `body.velocity = Vector3(x,y,z)`          | `velocity = Vector3(x,y,z)`      |
+| `IsOnFloor(body)`             | Returns `body.is_on_floor()`                   | `is_on_floor()`                  |
+| `GetCollisionCount(body)`     | Returns `body.get_slide_collision_count()`     | `get_slide_collision_count()`    |
 | `IsActionJustPressed(action)` | Returns `Input.is_action_just_pressed(action)` | `Input.is_action_just_pressed()` |
-| `GetAxis(neg, pos)` | Returns `Input.get_axis(neg, pos)` | `Input.get_axis()` |
-| `Load(path)` | Returns `ResourceLoader.load(path)` | `preload()` / `load()` |
-| `Vector3(x, y, z)` | Constructs a `Vector3` | `Vector3(x, y, z)` |
-| `RaiseEvent name` | Emits the named signal | `signal_name.emit()` |
+| `GetAxis(neg, pos)`           | Returns `Input.get_axis(neg, pos)`             | `Input.get_axis()`               |
+| `Load(path)`                  | Returns `ResourceLoader.load(path)`            | `preload()` / `load()`           |
+| `Vector3(x, y, z)`            | Constructs a `Vector3`                         | `Vector3(x, y, z)`               |
+| `RaiseEvent name`             | Emits the named signal                         | `signal_name.emit()`             |
+
 
 These builtins compile directly to Godot engine calls in the bytecode VM,
 giving near-native performance with familiar VB6-style function syntax.
 
 ---
+
+
 
 ### 17.9 Running the Demo
 
@@ -3052,33 +3364,40 @@ cd demos/3D_Games/Squash_The_Creeps/
 ```
 
 **Controls:**
+
 - **W/A/S/D** or **Arrow Keys** — Move
 - **Space** — Jump
 - **Enter/Space** — Retry after game over
 
 ---
 
+
+
 ## Included Demo Projects
 
 VisualGasic ships with several complete game demos in the `demos/` folder. Each
 demonstrates different Godot engine integration patterns:
 
-| Demo | Location | Features Shown |
-|------|----------|---------------|
-| **Pixel Platformer** | `demos/2D_Games/Platformer/` | Gravity, jumping, double jump, coyote time, jump buffering, tile-based levels (DATA statements), enemies with stomp mechanic, coins, scrolling camera, HUD, particle effects, 3 levels. Single-file game with manual physics and `_Draw()` rendering. Based on the official Godot 2D Platformer demo. See [Chapter 13](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760). |
-| **Squash the Creeps** | `demos/3D_Games/Squash_The_Creeps/` | 3D CharacterBody3D physics, MoveAndSlide/SetVelocity builtins, slide-collision iteration for stomp detection, signal events, random mob spawning on a Path3D, game-over/retry loop. Converted from the official Godot "Your First 3D Game" tutorial. See [Chapter 17](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456). |
-| **Space Shooter** | `demos/2D_Games/Space_Shooter/` | Parallel For loops, Lambda expressions, DATA-driven enemy waves, object pools, Select Match pattern matching. |
-| **Snake** | `demos/2D_Games/Snake/` | Grid-based movement, growing body, food spawning, game-over detection. |
-| **Pong** | `demos/2D_Games/Pong/` | Two-player input, ball physics, score tracking. |
-| **Pong Advanced** | `demos/2D_Games/Pong_Advanced/` | AI opponent, power-ups, enhanced graphics. |
-| **Calculator** | `demos/UI/Calculator/` | `_Input()` / `_UnhandledInput()`, `Is` operator type-checking, `_Draw()` UI, keyboard and mouse handling. |
-| **Screen Space Shaders** | `demos/Graphics/Screen_Space_Shaders/` | 2D full-screen post-processing effects (Vignette, Blur, Sepia, etc.), OptionButton UI, `For Each` node iteration, signal callbacks, `GetNode()`, `Is` type-checking. Ported from the official Godot demo. See [Chapter 37](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366). |
-| **Sky Shaders** | `demos/Graphics/Sky_Shaders/` | 3D procedural sky with day/night cycle, `ClassName.new()` constructors, camera mouselook, shader parameters, `Select Case`, `AnimationPlayer` control. Ported from the official Godot demo. See [Chapter 38](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498). |
+
+| Demo                     | Location                               | Features Shown                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Pixel Platformer**     | `demos/2D_Games/Platformer/`           | Gravity, jumping, double jump, coyote time, jump buffering, tile-based levels (DATA statements), enemies with stomp mechanic, coins, scrolling camera, HUD, particle effects, 3 levels. Single-file game with manual physics and `_Draw()` rendering. Based on the official Godot 2D Platformer demo. See [Chapter 13](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L1760). |
+| **Squash the Creeps**    | `demos/3D_Games/Squash_The_Creeps/`    | 3D CharacterBody3D physics, MoveAndSlide/SetVelocity builtins, slide-collision iteration for stomp detection, signal events, random mob spawning on a Path3D, game-over/retry loop. Converted from the official Godot "Your First 3D Game" tutorial. See [Chapter 17](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L2456).                                                  |
+| **Space Shooter**        | `demos/2D_Games/Space_Shooter/`        | Parallel For loops, Lambda expressions, DATA-driven enemy waves, object pools, Select Match pattern matching.                                                                                                                                                                                                                                                                                                                  |
+| **Snake**                | `demos/2D_Games/Snake/`                | Grid-based movement, growing body, food spawning, game-over detection.                                                                                                                                                                                                                                                                                                                                                         |
+| **Pong**                 | `demos/2D_Games/Pong/`                 | Two-player input, ball physics, score tracking.                                                                                                                                                                                                                                                                                                                                                                                |
+| **Pong Advanced**        | `demos/2D_Games/Pong_Advanced/`        | AI opponent, power-ups, enhanced graphics.                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Calculator**           | `demos/UI/Calculator/`                 | `_Input()` / `_UnhandledInput()`, `Is` operator type-checking, `_Draw()` UI, keyboard and mouse handling.                                                                                                                                                                                                                                                                                                                      |
+| **Screen Space Shaders** | `demos/Graphics/Screen_Space_Shaders/` | 2D full-screen post-processing effects (Vignette, Blur, Sepia, etc.), OptionButton UI, `For Each` node iteration, signal callbacks, `GetNode()`, `Is` type-checking. Ported from the official Godot demo. See [Chapter 37](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3366).                                                                                             |
+| **Sky Shaders**          | `demos/Graphics/Sky_Shaders/`          | 3D procedural sky with day/night cycle, `ClassName.new()` constructors, camera mouselook, shader parameters, `Select Case`, `AnimationPlayer` control. Ported from the official Godot demo. See [Chapter 38](https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/GODOT_PROGRAMMING_MANUAL.md?plain=1#L3498).                                                                                                           |
+
 
 > **Tutorial**: For a step-by-step walkthrough of the Platformer demo's architecture,
 > see [Building a 2D Platformer](tutorials/2d_platformer.md).
 
 ---
+
+
 
 ## Chapter 36: GDScript ↔ VisualGasic Quick Reference
 
@@ -3088,50 +3407,63 @@ next to its VisualGasic equivalent.
 
 ### 36.1 Script Structure
 
-| Concept | GDScript | VisualGasic |
-|---------|----------|-------------|
-| Script header | `extends Node2D` | `Attribute VB_Name = "MyScript"` |
-| Class declaration | `class_name Player` | Set in `.tscn` scene file |
-| Tool script | `@tool` | (not needed — VG scripts run in editor by default when attached) |
-| Comments | `# This is a comment` | `' This is a comment` |
-| Multiline string | `"""multi\nline"""` | `"line1" & vbCrLf & "line2"` |
-| Constants | `const SPEED = 300` | `Const SPEED As Integer = 300` |
-| Enums | `enum State { IDLE, RUNNING }` | `Enum State : IDLE : RUNNING : End Enum` |
+
+| Concept           | GDScript                       | VisualGasic                                                      |
+| ----------------- | ------------------------------ | ---------------------------------------------------------------- |
+| Script header     | `extends Node2D`               | `Attribute VB_Name = "MyScript"`                                 |
+| Class declaration | `class_name Player`            | Set in `.tscn` scene file                                        |
+| Tool script       | `@tool`                        | (not needed — VG scripts run in editor by default when attached) |
+| Comments          | `# This is a comment`          | `' This is a comment`                                            |
+| Multiline string  | `"""multi\nline"""`            | `"line1" & vbCrLf & "line2"`                                     |
+| Constants         | `const SPEED = 300`            | `Const SPEED As Integer = 300`                                   |
+| Enums             | `enum State { IDLE, RUNNING }` | `Enum State : IDLE : RUNNING : End Enum`                         |
+
+
+
 
 ### 36.2 Variable Declarations
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `var x = 10` | `Dim x As Integer` followed by `x = 10` |
-| `var x: int = 10` | `Dim x As Integer : x = 10` |
-| `var name: String = "Player"` | `Dim name As String : name = "Player"` |
-| `var speed: float = 3.5` | `Dim speed As Single : speed = 3.5` |
-| `var alive: bool = true` | `Dim alive As Boolean : alive = True` |
-| `var items: Array = []` | `Dim items() As Variant` or `Dim items As Array` |
-| `var data: Dictionary = {}` | `Dim data As New Dictionary` |
-| `@export var speed = 14` | `Const SPEED As Integer = 14` |
-| `@onready var lbl = $Label` | `Dim lbl As Label` then in `_Ready()`: `lbl = GetNode("Label")` |
+
+| GDScript                      | VisualGasic                                                     |
+| ----------------------------- | --------------------------------------------------------------- |
+| `var x = 10`                  | `Dim x As Integer` followed by `x = 10`                         |
+| `var x: int = 10`             | `Dim x As Integer : x = 10`                                     |
+| `var name: String = "Player"` | `Dim name As String : name = "Player"`                          |
+| `var speed: float = 3.5`      | `Dim speed As Single : speed = 3.5`                             |
+| `var alive: bool = true`      | `Dim alive As Boolean : alive = True`                           |
+| `var items: Array = []`       | `Dim items() As Variant` or `Dim items As Array`                |
+| `var data: Dictionary = {}`   | `Dim data As New Dictionary`                                    |
+| `@export var speed = 14`      | `Const SPEED As Integer = 14`                                   |
+| `@onready var lbl = $Label`   | `Dim lbl As Label` then in `_Ready()`: `lbl = GetNode("Label")` |
+
+
+
 
 ### 36.3 Node Access
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `$Player` | `GetNode("Player")` |
-| `$UI/HealthBar` | `GetNode("UI/HealthBar")` |
+
+| GDScript                        | VisualGasic                               |
+| ------------------------------- | ----------------------------------------- |
+| `$Player`                       | `GetNode("Player")`                       |
+| `$UI/HealthBar`                 | `GetNode("UI/HealthBar")`                 |
 | `$AnimationPlayer.play("walk")` | `GetNode("AnimationPlayer").play("walk")` |
-| `get_node("Player")` | `GetNode("Player")` |
-| `get_parent()` | `get_parent()` |
-| `get_children()` | `get_children()` |
-| `get_child(0)` | `get_child(0)` |
-| `get_child_count()` | `get_child_count()` |
-| `find_child("Camera")` | `find_child("Camera")` |
-| `get_tree()` | `get_tree()` |
-| `add_child(node)` | `add_child(node)` |
-| `queue_free()` | `queue_free()` |
+| `get_node("Player")`            | `GetNode("Player")`                       |
+| `get_parent()`                  | `get_parent()`                            |
+| `get_children()`                | `get_children()`                          |
+| `get_child(0)`                  | `get_child(0)`                            |
+| `get_child_count()`             | `get_child_count()`                       |
+| `find_child("Camera")`          | `find_child("Camera")`                    |
+| `get_tree()`                    | `get_tree()`                              |
+| `add_child(node)`               | `add_child(node)`                         |
+| `queue_free()`                  | `queue_free()`                            |
+
+
+
 
 ### 36.4 Functions and Subroutines
 
 **GDScript:**
+
 ```gdscript
 func _ready() -> void:
     print("Ready!")
@@ -3144,6 +3476,7 @@ func take_damage(amount: int) -> void:
 ```
 
 **VisualGasic:**
+
 ```vb
 Sub _Ready()
     Print "Ready!"
@@ -3158,174 +3491,219 @@ Sub TakeDamage(amount As Integer)
 End Sub
 ```
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `func` (returns value) | `Function ... End Function` |
-| `func` (no return) | `Sub ... End Sub` |
-| `return value` | `FunctionName = value` |
-| `-> int` return type | `As Integer` after function name |
-| `func _ready():` | `Sub _Ready()` |
-| `func _process(delta):` | `Sub _Process(delta As Single)` |
+
+| GDScript                        | VisualGasic                            |
+| ------------------------------- | -------------------------------------- |
+| `func` (returns value)          | `Function ... End Function`            |
+| `func` (no return)              | `Sub ... End Sub`                      |
+| `return value`                  | `FunctionName = value`                 |
+| `-> int` return type            | `As Integer` after function name       |
+| `func _ready():`                | `Sub _Ready()`                         |
+| `func _process(delta):`         | `Sub _Process(delta As Single)`        |
 | `func _physics_process(delta):` | `Sub _PhysicsProcess(delta As Single)` |
-| `func _input(event):` | `Sub _Input(ev As InputEvent)` |
-| `func _enter_tree():` | `Sub _EnterTree()` |
-| `func _exit_tree():` | `Sub _ExitTree()` |
+| `func _input(event):`           | `Sub _Input(ev As InputEvent)`         |
+| `func _enter_tree():`           | `Sub _EnterTree()`                     |
+| `func _exit_tree():`            | `Sub _ExitTree()`                      |
+
+
+
 
 ### 36.5 Control Flow
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `if x > 0:` | `If x > 0 Then` |
-| `elif x == 0:` | `ElseIf x = 0 Then` |
-| `else:` | `Else` |
-| (indent ends block) | `End If` |
-| `match value:` | `Select Case value` |
-| `0:` (match arm) | `Case 0` |
-| `_:` (default) | `Case Else` |
-| (indent ends match) | `End Select` |
-| `for i in range(10):` | `For i = 0 To 9` |
-| `for i in range(2, 8):` | `For i = 2 To 7` |
-| `for item in array:` | `For Each item In array` |
-| (indent ends for) | `Next` |
-| `while cond:` | `Do While cond` |
-| (indent ends while) | `Loop` |
-| `break` | `Exit For` / `Exit Do` |
-| `continue` | `Continue For` / `Continue Do` |
+
+| GDScript                | VisualGasic                    |
+| ----------------------- | ------------------------------ |
+| `if x > 0:`             | `If x > 0 Then`                |
+| `elif x == 0:`          | `ElseIf x = 0 Then`            |
+| `else:`                 | `Else`                         |
+| (indent ends block)     | `End If`                       |
+| `match value:`          | `Select Case value`            |
+| `0:` (match arm)        | `Case 0`                       |
+| `_:` (default)          | `Case Else`                    |
+| (indent ends match)     | `End Select`                   |
+| `for i in range(10):`   | `For i = 0 To 9`               |
+| `for i in range(2, 8):` | `For i = 2 To 7`               |
+| `for item in array:`    | `For Each item In array`       |
+| (indent ends for)       | `Next`                         |
+| `while cond:`           | `Do While cond`                |
+| (indent ends while)     | `Loop`                         |
+| `break`                 | `Exit For` / `Exit Do`         |
+| `continue`              | `Continue For` / `Continue Do` |
+
+
+
 
 ### 36.6 Operators
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `==` | `=` |
-| `!=` | `<>` |
-| `and` | `And` |
-| `or` | `Or` |
-| `not` | `Not` |
-| `+` (strings) | `&` (string concatenation) |
-| `%` (format) | `"text " & str(val)` |
-| `is` | `Is` / `TypeOf x Is ClassName` |
-| `as` | (cast with type in Dim) |
-| `in` | `In` (For Each) |
-| `:=` (inferred type) | `Dim x = value` |
-| `+=`, `-=`, `*=` | `x = x + 1` (no compound assignment) |
+
+| GDScript             | VisualGasic                          |
+| -------------------- | ------------------------------------ |
+| `==`                 | `=`                                  |
+| `!=`                 | `<>`                                 |
+| `and`                | `And`                                |
+| `or`                 | `Or`                                 |
+| `not`                | `Not`                                |
+| `+` (strings)        | `&` (string concatenation)           |
+| `%` (format)         | `"text " & str(val)`                 |
+| `is`                 | `Is` / `TypeOf x Is ClassName`       |
+| `as`                 | (cast with type in Dim)              |
+| `in`                 | `In` (For Each)                      |
+| `:=` (inferred type) | `Dim x = value`                      |
+| `+=`, `-=`, `*=`     | `x = x + 1` (no compound assignment) |
+
+
+
 
 ### 36.7 Object Construction
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `Node2D.new()` | `Node2D.new()` ✅ or `New Node2D` |
-| `MeshInstance3D.new()` | `MeshInstance3D.new()` ✅ or `New MeshInstance3D` |
-| `Label.new()` | `Label.new()` ✅ or `New Label` |
-| `SphereMesh.new()` | `SphereMesh.new()` ✅ or `New SphereMesh` |
-| `StandardMaterial3D.new()` | `StandardMaterial3D.new()` ✅ or `New StandardMaterial3D` |
-| `preload("res://scene.tscn")` | `Load("res://scene.tscn")` |
-| `load("res://scene.tscn")` | `Load("res://scene.tscn")` |
-| `scene.instantiate()` | `scene.instantiate()` |
+
+| GDScript                      | VisualGasic                                              |
+| ----------------------------- | -------------------------------------------------------- |
+| `Node2D.new()`                | `Node2D.new()` ✅ or `New Node2D`                         |
+| `MeshInstance3D.new()`        | `MeshInstance3D.new()` ✅ or `New MeshInstance3D`         |
+| `Label.new()`                 | `Label.new()` ✅ or `New Label`                           |
+| `SphereMesh.new()`            | `SphereMesh.new()` ✅ or `New SphereMesh`                 |
+| `StandardMaterial3D.new()`    | `StandardMaterial3D.new()` ✅ or `New StandardMaterial3D` |
+| `preload("res://scene.tscn")` | `Load("res://scene.tscn")`                               |
+| `load("res://scene.tscn")`    | `Load("res://scene.tscn")`                               |
+| `scene.instantiate()`         | `scene.instantiate()`                                    |
+
 
 > **Note:** VisualGasic supports **both** the GDScript-style `ClassName.new()`
 > syntax and the VB6-style `New ClassName` keyword. They are identical at runtime.
 
+
+
 ### 36.8 Signals
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `signal hit` | `Event hit()` |
-| `signal scored(points: int)` | `Event scored(points As Integer)` |
-| `hit.emit()` | `RaiseEvent hit` |
-| `scored.emit(10)` | `RaiseEvent scored(10)` |
-| `node.hit.connect(func)` | Connected via `.tscn` or `node.connect("hit", Callable(Me, "handler"))` |
-| Signal callback naming | `func _on_node_signal():` | `Sub _on_node_signal()` (same convention) |
+
+| GDScript                     | VisualGasic                                                             |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `signal hit`                 | `Event hit()`                                                           |
+| `signal scored(points: int)` | `Event scored(points As Integer)`                                       |
+| `hit.emit()`                 | `RaiseEvent hit`                                                        |
+| `scored.emit(10)`            | `RaiseEvent scored(10)`                                                 |
+| `node.hit.connect(func)`     | Connected via `.tscn` or `node.connect("hit", Callable(Me, "handler"))` |
+| Signal callback naming       | `func _on_node_signal():`                                               |
+
+
+
 
 ### 36.9 Type Checking
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `if event is InputEventKey:` | `If ev Is InputEventKey Then` |
-| `if body is Player:` | `If TypeOf body Is Player Then` |
-| `typeof(x)` | `TypeName(x)` |
-| `x as Player` | `Dim p As Player : p = x` |
+
+| GDScript                     | VisualGasic                     |
+| ---------------------------- | ------------------------------- |
+| `if event is InputEventKey:` | `If ev Is InputEventKey Then`   |
+| `if body is Player:`         | `If TypeOf body Is Player Then` |
+| `typeof(x)`                  | `TypeName(x)`                   |
+| `x as Player`                | `Dim p As Player : p = x`       |
+
+
+
 
 ### 36.10 String Operations
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `"Hello " + name` | `"Hello " & name` |
-| `str(value)` | `str(value)` or `CStr(value)` |
-| `int(text)` | `CInt(text)` or `Val(text)` |
-| `"Score: %d" % score` | `"Score: " & CStr(score)` |
-| `"%.2f" % value` | `"%.2f" % value` ✅ (VG supports GDScript format strings) |
-| `text.to_upper()` | `UCase(text)` |
-| `text.to_lower()` | `LCase(text)` |
-| `text.length()` | `Len(text)` |
-| `text.substr(0, 3)` | `Left(text, 3)` or `Mid(text, 1, 3)` |
-| `text.find("abc")` | `InStr(text, "abc")` |
-| `String(c.get_name())` | `str(c.name)` |
+
+| GDScript               | VisualGasic                                              |
+| ---------------------- | -------------------------------------------------------- |
+| `"Hello " + name`      | `"Hello " & name`                                        |
+| `str(value)`           | `str(value)` or `CStr(value)`                            |
+| `int(text)`            | `CInt(text)` or `Val(text)`                              |
+| `"Score: %d" % score`  | `"Score: " & CStr(score)`                                |
+| `"%.2f" % value`       | `"%.2f" % value` ✅ (VG supports GDScript format strings) |
+| `text.to_upper()`      | `UCase(text)`                                            |
+| `text.to_lower()`      | `LCase(text)`                                            |
+| `text.length()`        | `Len(text)`                                              |
+| `text.substr(0, 3)`    | `Left(text, 3)` or `Mid(text, 1, 3)`                     |
+| `text.find("abc")`     | `InStr(text, "abc")`                                     |
+| `String(c.get_name())` | `str(c.name)`                                            |
+
+
+
 
 ### 36.11 Math Functions
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `abs(x)` | `Abs(x)` |
-| `sqrt(x)` | `Sqr(x)` |
-| `floor(x)` | `Int(x)` |
-| `ceil(x)` | `-Int(-x)` |
-| `round(x)` | `CInt(x)` |
-| `min(a, b)` | `Min(a, b)` |
-| `max(a, b)` | `Max(a, b)` |
-| `clamp(x, lo, hi)` | `clampf(x, lo, hi)` |
-| `lerp(a, b, t)` | `lerpf(a, b, t)` |
-| `randf()` | `Rnd()` |
-| `randf_range(a, b)` | `a + Rnd() * (b - a)` |
-| `sin(x)` / `cos(x)` | `Sin(x)` / `Cos(x)` |
-| `PI` | `PI` |
-| `TAU` | `TAU` |
-| `is_zero_approx(x)` | `is_zero_approx(x)` |
+
+| GDScript               | VisualGasic            |
+| ---------------------- | ---------------------- |
+| `abs(x)`               | `Abs(x)`               |
+| `sqrt(x)`              | `Sqr(x)`               |
+| `floor(x)`             | `Int(x)`               |
+| `ceil(x)`              | `-Int(-x)`             |
+| `round(x)`             | `CInt(x)`              |
+| `min(a, b)`            | `Min(a, b)`            |
+| `max(a, b)`            | `Max(a, b)`            |
+| `clamp(x, lo, hi)`     | `clampf(x, lo, hi)`    |
+| `lerp(a, b, t)`        | `lerpf(a, b, t)`       |
+| `randf()`              | `Rnd()`                |
+| `randf_range(a, b)`    | `a + Rnd() * (b - a)`  |
+| `sin(x)` / `cos(x)`    | `Sin(x)` / `Cos(x)`    |
+| `PI`                   | `PI`                   |
+| `TAU`                  | `TAU`                  |
+| `is_zero_approx(x)`    | `is_zero_approx(x)`    |
 | `move_toward(a, b, d)` | `move_toward(a, b, d)` |
-| `exp(x)` | `exp(x)` |
+| `exp(x)`               | `exp(x)`               |
+
+
+
 
 ### 36.12 Input Handling
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `Input.is_action_pressed("jump")` | `Input.is_action_pressed("jump")` |
-| `Input.is_action_just_pressed("jump")` | `Input.is_action_just_pressed("jump")` |
-| `Input.get_axis("left", "right")` | `Input.get_axis("left", "right")` |
-| `Input.mouse_mode = Input.MOUSE_MODE_CAPTURED` | `Input.mouse_mode = Input.MOUSE_MODE_CAPTURED` |
+
+| GDScript                                           | VisualGasic                                        |
+| -------------------------------------------------- | -------------------------------------------------- |
+| `Input.is_action_pressed("jump")`                  | `Input.is_action_pressed("jump")`                  |
+| `Input.is_action_just_pressed("jump")`             | `Input.is_action_just_pressed("jump")`             |
+| `Input.get_axis("left", "right")`                  | `Input.get_axis("left", "right")`                  |
+| `Input.mouse_mode = Input.MOUSE_MODE_CAPTURED`     | `Input.mouse_mode = Input.MOUSE_MODE_CAPTURED`     |
 | `Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)` | `Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)` |
-| `event.is_action_pressed("action")` | `ev.is_action_pressed("action")` |
-| `event.keycode == KEY_H` | `ev.keycode = KEY_H` |
-| `event.pressed` | `ev.pressed` |
+| `event.is_action_pressed("action")`                | `ev.is_action_pressed("action")`                   |
+| `event.keycode == KEY_H`                           | `ev.keycode = KEY_H`                               |
+| `event.pressed`                                    | `ev.pressed`                                       |
+
+
+
 
 ### 36.13 Node Visibility and Scene Control
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `node.show()` | `node.show()` |
-| `node.hide()` | `node.hide()` |
-| `node.visible = true` | `node.visible = True` |
-| `node.visible = not node.visible` | `node.visible = Not node.visible` |
-| `get_tree().quit()` | `get_tree().quit()` |
-| `get_tree().reload_current_scene()` | `get_tree().reload_current_scene()` |
+
+| GDScript                                | VisualGasic                             |
+| --------------------------------------- | --------------------------------------- |
+| `node.show()`                           | `node.show()`                           |
+| `node.hide()`                           | `node.hide()`                           |
+| `node.visible = true`                   | `node.visible = True`                   |
+| `node.visible = not node.visible`       | `node.visible = Not node.visible`       |
+| `get_tree().quit()`                     | `get_tree().quit()`                     |
+| `get_tree().reload_current_scene()`     | `get_tree().reload_current_scene()`     |
 | `get_tree().change_scene_to_file(path)` | `get_tree().change_scene_to_file(path)` |
+
+
+
 
 ### 36.14 Property Access
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `node.position` | `node.position` |
-| `node.position.x` | `node.position.x` |
-| `node.rotation` | `node.rotation` |
-| `node.name` | `node.name` |
-| `node.text = "hello"` | `node.text = "hello"` |
-| `material.roughness = 0.5` | `material.roughness = 0.5` |
-| `$Sprite.modulate = Color.RED` | `GetNode("Sprite").modulate = Color.RED` |
+
+| GDScript                                  | VisualGasic                               |
+| ----------------------------------------- | ----------------------------------------- |
+| `node.position`                           | `node.position`                           |
+| `node.position.x`                         | `node.position.x`                         |
+| `node.rotation`                           | `node.rotation`                           |
+| `node.name`                               | `node.name`                               |
+| `node.text = "hello"`                     | `node.text = "hello"`                     |
+| `material.roughness = 0.5`                | `material.roughness = 0.5`                |
+| `$Sprite.modulate = Color.RED`            | `GetNode("Sprite").modulate = Color.RED`  |
 | `node.set_shader_parameter("param", val)` | `node.set_shader_parameter("param", val)` |
+
+
+
 
 ### 36.15 Chained Method Calls
 
 Both languages support chained method calls identically:
 
 **GDScript:**
+
 ```gdscript
 pictures.get_child(c).show()
 pictures.get_child(c).hide()
@@ -3333,54 +3711,85 @@ $AnimationPlayer.speed_scale = 0.0
 ```
 
 **VisualGasic:**
+
 ```vb
 pictures.get_child(c).show()
 pictures.get_child(c).hide()
 GetNode("AnimationPlayer").speed_scale = 0.0
 ```
 
+
+
 ### 36.16 Key Differences Summary
 
-| Feature | GDScript | VisualGasic |
-|---------|----------|-------------|
-| **Indentation** | Whitespace-significant (Python-style) | Block keywords (`End If`, `Next`, `End Sub`) |
-| **Type system** | Optional typing with `:` | Explicit `As Type` in Dim |
-| **Self reference** | Implicit | `Me` keyword |
-| **String concat** | `+` | `&` |
-| **Equality** | `==` | `=` |
-| **Assignment** | `=` | `=` (same) |
-| **Not-equal** | `!=` | `<>` |
-| **Node shortcut** | `$NodeName` | `GetNode("NodeName")` |
-| **Null** | `null` | `Nothing` |
-| **Boolean** | `true` / `false` | `True` / `False` |
-| **Constructors** | `ClassName.new()` only | `ClassName.new()` or `New ClassName` |
-| **Return value** | `return x` | `FunctionName = x` |
-| **Print** | `print("text")` | `Print "text"` (no parentheses) |
-| **For loop** | `for i in range(n):` | `For i = 0 To n - 1` |
-| **For each** | `for item in array:` | `For Each item In array` |
-| **Match/Select** | `match value:` | `Select Case value` |
-| **Lambda** | `func(x): return x * 2` | `Lambda(x) = x * 2` |
-| **File extension** | `.gd` | `.vg` |
+
+| Feature            | GDScript                              | VisualGasic                                  |
+| ------------------ | ------------------------------------- | -------------------------------------------- |
+| **Indentation**    | Whitespace-significant (Python-style) | Block keywords (`End If`, `Next`, `End Sub`) |
+| **Type system**    | Optional typing with `:`              | Explicit `As Type` in Dim                    |
+| **Self reference** | Implicit                              | `Me` keyword                                 |
+| **String concat**  | `+`                                   | `&`                                          |
+| **Equality**       | `==`                                  | `=`                                          |
+| **Assignment**     | `=`                                   | `=` (same)                                   |
+| **Not-equal**      | `!=`                                  | `<>`                                         |
+| **Node shortcut**  | `$NodeName`                           | `GetNode("NodeName")`                        |
+| **Null**           | `null`                                | `Nothing`                                    |
+| **Boolean**        | `true` / `false`                      | `True` / `False`                             |
+| **Constructors**   | `ClassName.new()` only                | `ClassName.new()` or `New ClassName`         |
+| **Return value**   | `return x`                            | `FunctionName = x`                           |
+| **Print**          | `print("text")`                       | `Print "text"` (no parentheses)              |
+| **For loop**       | `for i in range(n):`                  | `For i = 0 To n - 1`                         |
+| **For each**       | `for item in array:`                  | `For Each item In array`                     |
+| **Match/Select**   | `match value:`                        | `Select Case value`                          |
+| **Lambda**         | `func(x): return x * 2`               | `Lambda(x) = x * 2`                          |
+| **File extension** | `.gd`                                 | `.vg`                                        |
+
+
+
+
+### 36.17 VB6-first builtins vs raw Godot (roadmap R9)
+
+Visual Gasic is **not** a full GDScript re-skin. Prefer VB6-shaped globals and statements when they exist; use Godot-native calls when no wrapper exists yet or when you need an API the engine has not surfaced.
+
+
+| Task                     | Prefer in `.vg`                                             | Raw Godot (document here until wrapped)                                                            |
+| ------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Quit game / close app    | `End`                                                       | `GetTree().Quit()` — works after `GetTree()` returns the main loop; `End` is the sample-game idiom |
+| Fullscreen / window mode | `Screen.FullScreen True` / `Screen.FullScreen False`        | `DisplayServer.window_set_mode(...)`                                                               |
+| Wire signals             | `Connect node, "signal", "HandlerSub"`                      | `node.connect("signal", Callable(...))`                                                            |
+| Scene tree root          | `GetTree()` then `.GetRoot()` / chained `.Quit()` if needed | Same as GDScript on returned object                                                                |
+| Mouse capture (FPS)      | Document in manual; no single VB6 global yet                | `Input.mouse_mode = Input.MOUSE_MODE_CAPTURED` (or project input map)                              |
+| Timers / UI controls     | `Caption`, `Interval`, `Enabled`, `Sub tmr_Timer()`         | Godot property names on nodes                                                                      |
+
+
+**Chained calls:** `Call GetTree().Quit()` was historically parsed incorrectly; use `End` or `Dim t = GetTree()` then `t.Quit()`. See `test_proj/test_suite/test_gettree_returns_object.vg`.
+
+**Narcea / samples:** Do not teach `ConnectSignal`, `HasMember`, or `ArrayLen` — they are not VG builtins. Gap list and wrapper decisions live on **ROADMAP.md** item **R9**.
 
 ---
+
+
 
 ## Chapter 37: Case Study — Screen Space Shaders (GDScript vs VisualGasic)
 
 This chapter presents a side-by-side comparison of the official Godot
 **"2D Screen Space Shaders"** demo. The original GDScript source comes from
-[`godotengine/godot-demo-projects/2d/screen_space_shaders`](https://github.com/godotengine/godot-demo-projects/tree/master/2d/screen_space_shaders).
+`[godotengine/godot-demo-projects/2d/screen_space_shaders](https://github.com/godotengine/godot-demo-projects/tree/master/2d/screen_space_shaders)`.
 The VisualGasic version ships in `demos/Graphics/Screen_Space_Shaders/`.
 
 > **What you will learn:** Node access patterns (`$` vs `GetNode`), `For Each`
 > loops, signal callbacks, `@onready` vs `Dim` + `_Ready()`, type-checking
 > with `Is`, and how VisualGasic handles OptionButton UIs.
 
+
+
 ### 37.1 Full Script — Side-by-Side
 
-<table>
-<tr><th>GDScript — <code>screen_shaders.gd</code> (27 lines)</th>
-<th>VisualGasic — <code>screen_shaders.vg</code> (75 lines)</th></tr>
-<tr><td>
+
+| GDScript — `screen_shaders.gd` (27 lines) | VisualGasic — `screen_shaders.vg` (75 lines) |
+| ----------------------------------------- | -------------------------------------------- |
+|                                           |                                              |
+
 
 ```gdscript
 extends Control
@@ -3413,7 +3822,7 @@ func _on_effect_item_selected(id: int):
             effects.get_child(c).hide()
 ```
 
-</td><td>
+
 
 ```vb
 ' Screen Space Shaders Demo
@@ -3476,46 +3885,52 @@ Sub _on_effect_item_selected(id As Integer)
 End Sub
 ```
 
-</td></tr>
-</table>
+
 
 ### 37.2 Key Differences Highlighted
 
-| Concept | GDScript | VisualGasic | Notes |
-|---------|----------|-------------|-------|
-| Script header | `extends Control` | `Attribute VB_Name = "ScreenShaders"` | VG sets the node type in `.tscn`, not the script |
-| Lazy init | `@onready var x = $Node` | `Dim x` + `x = GetNode("Node")` in `_Ready()` | VG splits declaration and assignment |
-| Node shortcut | `$Effect` | `GetNode("Effect")` | VG always uses `GetNode()` |
-| String conversion | `String(c.get_name())` | `str(c.name)` | VG uses `str()` and property access |
-| String concat | `"PIC: " + name` | `"PIC: " & name` | `&` is the VG concatenation operator |
-| For-each loop | `for c in arr:` | `For Each c In arr ... Next` | VG requires `Next` to close the loop |
-| For-range loop | `for c in count:` | `For c = 0 To count - 1 ... Next` | VG uses explicit start/end bounds |
-| Conditionals | `if id == c:` | `If id = c Then ... End If` | VG uses `=` for comparison, requires `End If` |
-| Input handling | (not in original) | `If ev Is InputEventKey And ev.pressed Then` | VG port adds H-key help toggle |
-| Signal names | `_on_picture_item_selected` | `_on_picture_item_selected` | Same convention — connected in `.tscn` |
+
+| Concept           | GDScript                    | VisualGasic                                   | Notes                                            |
+| ----------------- | --------------------------- | --------------------------------------------- | ------------------------------------------------ |
+| Script header     | `extends Control`           | `Attribute VB_Name = "ScreenShaders"`         | VG sets the node type in `.tscn`, not the script |
+| Lazy init         | `@onready var x = $Node`    | `Dim x` + `x = GetNode("Node")` in `_Ready()` | VG splits declaration and assignment             |
+| Node shortcut     | `$Effect`                   | `GetNode("Effect")`                           | VG always uses `GetNode()`                       |
+| String conversion | `String(c.get_name())`      | `str(c.name)`                                 | VG uses `str()` and property access              |
+| String concat     | `"PIC: " + name`            | `"PIC: " & name`                              | `&` is the VG concatenation operator             |
+| For-each loop     | `for c in arr:`             | `For Each c In arr ... Next`                  | VG requires `Next` to close the loop             |
+| For-range loop    | `for c in count:`           | `For c = 0 To count - 1 ... Next`             | VG uses explicit start/end bounds                |
+| Conditionals      | `if id == c:`               | `If id = c Then ... End If`                   | VG uses `=` for comparison, requires `End If`    |
+| Input handling    | (not in original)           | `If ev Is InputEventKey And ev.pressed Then`  | VG port adds H-key help toggle                   |
+| Signal names      | `_on_picture_item_selected` | `_on_picture_item_selected`                   | Same convention — connected in `.tscn`           |
+
 
 ---
+
+
 
 ## Chapter 38: Case Study — 3D Sky Shaders (GDScript vs VisualGasic)
 
 This chapter compares the official Godot **"3D Sky Shaders"** demo. The original
 GDScript sources come from
-[`godotengine/godot-demo-projects/3d/sky_shaders`](https://github.com/godotengine/godot-demo-projects/tree/master/3d/sky_shaders).
+`[godotengine/godot-demo-projects/3d/sky_shaders](https://github.com/godotengine/godot-demo-projects/tree/master/3d/sky_shaders)`.
 The VisualGasic version ships in `demos/Graphics/Sky_Shaders/`.
 
 > **What you will learn:** `ClassName.new()` constructors, `Select Case` vs
 > `match`, deep node path access, shader parameter control, `_Process()` and
 > `_Input()` lifecycle methods, and the `Input` singleton.
 
+
+
 ### 38.1 Spheres Script — Side-by-Side
 
 The spheres script creates an 11×11 grid of spheres with varying roughness and
 metallic values. This is the clearest example of `ClassName.new()` constructor usage.
 
-<table>
-<tr><th>GDScript — <code>spheres.gd</code> (16 lines)</th>
-<th>VisualGasic — <code>spheres.vg</code> (27 lines)</th></tr>
-<tr><td>
+
+| GDScript — `spheres.gd` (16 lines) | VisualGasic — `spheres.vg` (27 lines) |
+| ---------------------------------- | ------------------------------------- |
+|                                    |                                       |
+
 
 ```gdscript
 @tool
@@ -3539,7 +3954,7 @@ func _ready() -> void:
             add_child(sphere)
 ```
 
-</td><td>
+
 
 ```vb
 ' Spheres — 11×11 material grid
@@ -3567,38 +3982,45 @@ Sub _Ready()
 End Sub
 ```
 
-</td></tr>
-</table>
+
 
 ### 38.2 Key Differences Highlighted
 
-| Concept | GDScript | VisualGasic | Notes |
-|---------|----------|-------------|-------|
-| Constructor | `MeshInstance3D.new()` | `MeshInstance3D.new()` | **Identical** — VG also supports `New MeshInstance3D` |
-| Typed initializer | `var sphere := MeshInstance3D.new()` | `Dim sphere As MeshInstance3D = MeshInstance3D.new()` | VG uses explicit `Dim … As T = expr` |
-| Range loop | `for roughness in range(11):` | `For roughness = 0 To 10` | VG uses inclusive end bound |
-| Nested loops | Indentation only | `Next` closes each level | VG block structure is explicit |
-| Tool mode | `@tool` (runs in editor) | (not needed for this use case) | VG scripts don't use `@tool` annotation |
+
+| Concept           | GDScript                             | VisualGasic                                           | Notes                                                 |
+| ----------------- | ------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------- |
+| Constructor       | `MeshInstance3D.new()`               | `MeshInstance3D.new()`                                | **Identical** — VG also supports `New MeshInstance3D` |
+| Typed initializer | `var sphere := MeshInstance3D.new()` | `Dim sphere As MeshInstance3D = MeshInstance3D.new()` | VG uses explicit `Dim … As T = expr`                  |
+| Range loop        | `for roughness in range(11):`        | `For roughness = 0 To 10`                             | VG uses inclusive end bound                           |
+| Nested loops      | Indentation only                     | `Next` closes each level                              | VG block structure is explicit                        |
+| Tool mode         | `@tool` (runs in editor)             | (not needed for this use case)                        | VG scripts don't use `@tool` annotation               |
+
+
+
 
 ### 38.3 Main Script — Key Patterns
 
 The main script demonstrates camera control, shader parameters, and UI callbacks.
 Here are the most instructive comparisons:
 
-**Node access — `$` shortcut vs `GetNode()`:**
+**Node access —** `$` **shortcut vs** `GetNode()`**:**
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `$YawCamera/Camera3D.fov` | `GetNode("YawCamera/Camera3D").fov` |
-| `$AnimationPlayer.speed_scale` | `GetNode("AnimationPlayer").speed_scale` |
-| `$Panel.visible = not $Panel.visible` | `GetNode("Panel").visible = Not GetNode("Panel").visible` |
+
+| GDScript                                                                   | VisualGasic                                                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `$YawCamera/Camera3D.fov`                                                  | `GetNode("YawCamera/Camera3D").fov`                                                  |
+| `$AnimationPlayer.speed_scale`                                             | `GetNode("AnimationPlayer").speed_scale`                                             |
+| `$Panel.visible = not $Panel.visible`                                      | `GetNode("Panel").visible = Not GetNode("Panel").visible`                            |
 | `$WorldEnvironment.environment.sky.sky_material.set_shader_parameter(...)` | `GetNode("WorldEnvironment").environment.sky.sky_material.set_shader_parameter(...)` |
+
 
 **Match vs Select Case:**
 
-<table>
-<tr><th>GDScript</th><th>VisualGasic</th></tr>
-<tr><td>
+
+| GDScript | VisualGasic |
+| -------- | ----------- |
+|          |             |
+
 
 ```gdscript
 match index:
@@ -3613,7 +4035,7 @@ match index:
         radiance_panel.visible = false
 ```
 
-</td><td>
+
 
 ```vb
 Select Case index
@@ -3629,35 +4051,44 @@ Select Case index
 End Select
 ```
 
-</td></tr>
-</table>
 
-**Mouse input — `is` type check:**
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `if ... input_event is InputEventMouseMotion:` | `If ... TypeOf input_event Is InputEventMouseMotion Then` |
+**Mouse input —** `is` **type check:**
+
+
+| GDScript                                        | VisualGasic                                                    |
+| ----------------------------------------------- | -------------------------------------------------------------- |
+| `if ... input_event is InputEventMouseMotion:`  | `If ... TypeOf input_event Is InputEventMouseMotion Then`      |
 | `var relative: Vector2 = event.screen_relative` | `Dim relative_motion As Vector2 = input_event.screen_relative` |
+
 
 **String formatting:**
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `"%.2f×" % (speed * 10)` | `"%.2fx" % (speed * 10)` |
-| `"%d%%" % (value * 100)` | `"%d%%" % (value * 100)` |
-| (identical — VG supports GDScript format strings) | |
+
+| GDScript                                          | VisualGasic              |
+| ------------------------------------------------- | ------------------------ |
+| `"%.2f×" % (speed * 10)`                          | `"%.2fx" % (speed * 10)` |
+| `"%d%%" % (value * 100)`                          | `"%d%%" % (value * 100)` |
+| (identical — VG supports GDScript format strings) |                          |
+
+
+
 
 ### 38.4 Architecture Summary
 
-| Aspect | GDScript | VisualGasic |
-|--------|----------|-------------|
-| Total files | 3 (`.gd`) | 3 (`.vg`) |
-| Lines (main) | ~95 | ~141 |
-| Lines (spheres) | ~16 | ~27 |
-| Constructor style | `ClassName.new()` | `ClassName.new()` or `New ClassName` |
-| Scene files | Shared (`.tscn`, `.gdshader`, textures) | Same files — only scripts differ |
-| Godot API calls | Identical | Identical |
-| Performance | GDScript interpreter | VG bytecode compiler (faster in hot paths) |
+
+| Aspect            | GDScript                                | VisualGasic                                |
+| ----------------- | --------------------------------------- | ------------------------------------------ |
+| Total files       | 3 (`.gd`)                               | 3 (`.vg`)                                  |
+| Lines (main)      | ~95                                     | ~141                                       |
+| Lines (spheres)   | ~16                                     | ~27                                        |
+| Constructor style | `ClassName.new()`                       | `ClassName.new()` or `New ClassName`       |
+| Scene files       | Shared (`.tscn`, `.gdshader`, textures) | Same files — only scripts differ           |
+| Godot API calls   | Identical                               | Identical                                  |
+| Performance       | GDScript interpreter                    | VG bytecode compiler (faster in hot paths) |
+
+
+
 
 ### 38.5 Unique Patterns First Seen in This Demo
 
@@ -3669,14 +4100,16 @@ introduces several patterns not seen in any earlier conversion:
 Previous demos only showed `Input.MOUSE_MODE_CAPTURED`. This demo proves that
 VisualGasic handles class enum constants from **any** Godot class:
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `Sky.PROCESS_MODE_QUALITY` | `Sky.PROCESS_MODE_QUALITY` |
+
+| GDScript                       | VisualGasic                    |
+| ------------------------------ | ------------------------------ |
+| `Sky.PROCESS_MODE_QUALITY`     | `Sky.PROCESS_MODE_QUALITY`     |
 | `Sky.PROCESS_MODE_INCREMENTAL` | `Sky.PROCESS_MODE_INCREMENTAL` |
-| `Sky.PROCESS_MODE_REALTIME` | `Sky.PROCESS_MODE_REALTIME` |
-| `Sky.RADIANCE_SIZE_32` | `Sky.RADIANCE_SIZE_32` |
-| `Sky.RADIANCE_SIZE_64` | `Sky.RADIANCE_SIZE_64` |
-| `Sky.RADIANCE_SIZE_128` | `Sky.RADIANCE_SIZE_128` |
+| `Sky.PROCESS_MODE_REALTIME`    | `Sky.PROCESS_MODE_REALTIME`    |
+| `Sky.RADIANCE_SIZE_32`         | `Sky.RADIANCE_SIZE_32`         |
+| `Sky.RADIANCE_SIZE_64`         | `Sky.RADIANCE_SIZE_64`         |
+| `Sky.RADIANCE_SIZE_128`        | `Sky.RADIANCE_SIZE_128`        |
+
 
 The syntax is **identical** — no conversion needed. VG resolves these at runtime
 through `ClassDB`.
@@ -3687,10 +4120,12 @@ through `ClassDB`.
 This is the first demo that creates resources (not just scene nodes)
 programmatically:
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `sphere.mesh = SphereMesh.new()` | `sphere.mesh = SphereMesh.new()` |
+
+| GDScript                                   | VisualGasic                                                     |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| `sphere.mesh = SphereMesh.new()`           | `sphere.mesh = SphereMesh.new()`                                |
 | `var material := StandardMaterial3D.new()` | `Dim material As StandardMaterial3D = StandardMaterial3D.new()` |
+
 
 Under the hood, VG's runtime keeps the `Variant` returned by
 `ClassDB::instantiate()` alive so that RefCounted objects are not prematurely
@@ -3714,10 +4149,14 @@ handles arbitrarily deep chained member access.
 GDScript's `@onready` decorator initializes a variable once the scene tree is
 ready. VG has no decorators, so the pattern becomes two steps:
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `@onready var desired_fov: float = $YawCamera/Camera3D.fov` | `Dim desired_fov As Single` (module-level) |
-| *(runs automatically)* | `desired_fov = GetNode("YawCamera/Camera3D").fov` (inside `Sub _Ready()`) |
+
+| GDScript                                                    | VisualGasic                                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `@onready var desired_fov: float = $YawCamera/Camera3D.fov` | `Dim desired_fov As Single` (module-level)                                |
+| *(runs automatically)*                                      | `desired_fov = GetNode("YawCamera/Camera3D").fov` (inside `Sub _Ready()`) |
+
+
+
 
 #### 38.5.5 `@tool` Script Removal
 
@@ -3725,10 +4164,14 @@ The original `spheres.gd` uses `@tool` so the spheres appear in the Godot
 editor viewport. VG scripts don't support `@tool`, so the annotation is simply
 omitted — the spheres are created at game-time only:
 
-| GDScript | VisualGasic |
-|----------|-------------|
-| `@tool` | *(omitted — runs at runtime only)* |
-| `extends Node3D` | `Attribute VB_Name = "Spheres"` |
+
+| GDScript         | VisualGasic                        |
+| ---------------- | ---------------------------------- |
+| `@tool`          | *(omitted — runs at runtime only)* |
+| `extends Node3D` | `Attribute VB_Name = "Spheres"`    |
+
+
+
 
 #### 38.5.6 `&"StringName"` → Plain Strings
 
@@ -3736,10 +4179,12 @@ GDScript uses the `&` prefix for `StringName` literals (an interned string
 optimization). VG accepts plain strings and handles the conversion to
 `StringName` automatically:
 
-| GDScript | VisualGasic |
-|----------|-------------|
+
+| GDScript                                       | VisualGasic                                   |
+| ---------------------------------------------- | --------------------------------------------- |
 | `input_event.is_action_pressed(&"toggle_gui")` | `input_event.is_action_pressed("toggle_gui")` |
 | `set_shader_parameter(&"cloud_coverage", val)` | `set_shader_parameter("cloud_coverage", val)` |
+
 
 No `&` prefix is ever needed in VG.
 
@@ -3747,23 +4192,25 @@ No `&` prefix is ever needed in VG.
 
 All syntax differences in one table:
 
-| Feature | GDScript | VisualGasic |
-|---------|----------|-------------|
-| Module header | `extends Node3D` | `Attribute VB_Name = "Main"` |
-| Constants | `const MOUSE_SENSITIVITY = 0.001` | `Const MOUSE_SENSITIVITY As Single = 0.001` |
-| Variable decl | `var fov: float` | `Dim fov As Single` |
-| Typed initializer | `var s := MeshInstance3D.new()` | `Dim s As MeshInstance3D = MeshInstance3D.new()` |
-| Node access | `$Panel.visible` | `GetNode("Panel").visible` |
-| Boolean not | `not $Panel.visible` | `Not GetNode("Panel").visible` |
-| For loop | `for r in range(11):` | `For r = 0 To 10` / `Next` |
-| Switch | `match index:` / `0:` | `Select Case index` / `Case 0` / `End Select` |
-| Type check | `event is InputEventMouseMotion` | `TypeOf event Is InputEventMouseMotion` |
-| Format string | `"%.2f×" % (val * 10)` | `"%.2fx" % (val * 10)` |
-| StringName | `&"toggle_gui"` | `"toggle_gui"` |
-| Math builtins | `lerpf()`, `clampf()`, `exp()` | `lerpf()`, `clampf()`, `exp()` (identical) |
-| Class enums | `Sky.PROCESS_MODE_QUALITY` | `Sky.PROCESS_MODE_QUALITY` (identical) |
-| Tool mode | `@tool` | *(not applicable)* |
-| Onready | `@onready var x = $Node.prop` | `Dim x` + assign in `_Ready()` |
+
+| Feature           | GDScript                          | VisualGasic                                      |
+| ----------------- | --------------------------------- | ------------------------------------------------ |
+| Module header     | `extends Node3D`                  | `Attribute VB_Name = "Main"`                     |
+| Constants         | `const MOUSE_SENSITIVITY = 0.001` | `Const MOUSE_SENSITIVITY As Single = 0.001`      |
+| Variable decl     | `var fov: float`                  | `Dim fov As Single`                              |
+| Typed initializer | `var s := MeshInstance3D.new()`   | `Dim s As MeshInstance3D = MeshInstance3D.new()` |
+| Node access       | `$Panel.visible`                  | `GetNode("Panel").visible`                       |
+| Boolean not       | `not $Panel.visible`              | `Not GetNode("Panel").visible`                   |
+| For loop          | `for r in range(11):`             | `For r = 0 To 10` / `Next`                       |
+| Switch            | `match index:` / `0:`             | `Select Case index` / `Case 0` / `End Select`    |
+| Type check        | `event is InputEventMouseMotion`  | `TypeOf event Is InputEventMouseMotion`          |
+| Format string     | `"%.2f×" % (val * 10)`            | `"%.2fx" % (val * 10)`                           |
+| StringName        | `&"toggle_gui"`                   | `"toggle_gui"`                                   |
+| Math builtins     | `lerpf()`, `clampf()`, `exp()`    | `lerpf()`, `clampf()`, `exp()` (identical)       |
+| Class enums       | `Sky.PROCESS_MODE_QUALITY`        | `Sky.PROCESS_MODE_QUALITY` (identical)           |
+| Tool mode         | `@tool`                           | *(not applicable)*                               |
+| Onready           | `@onready var x = $Node.prop`     | `Dim x` + assign in `_Ready()`                   |
+
 
 > **Key takeaway:** The VisualGasic port of the Sky Shaders demo uses the same
 > Godot API calls as the GDScript original. The only differences are syntactic:
@@ -3776,6 +4223,8 @@ All syntax differences in one table:
 
 ---
 
+
+
 ## Chapter 39: Why VisualGasic — Advantages Over GDScript
 
 This chapter is a comprehensive inventory of capabilities that VisualGasic provides
@@ -3786,45 +4235,53 @@ For the full standalone document with code examples, see
 
 ### 39.1 Summary — 19 Capability Categories
 
-| # | Capability | VG | GDScript |
-|---|-----------|:---:|:--------:|
-| 1 | Visual Form Designer (40+ controls, WYSIWYG canvas, Properties Panel) | ✅ | ❌ |
-| 2 | Automatic Event Wiring (name a Sub → it's connected) | ✅ | ❌ |
-| 3 | JIT Compilation (Tier 2 x86-64 native code) | ✅ | ❌ |
-| 4 | 9-Pass Peephole Optimizer (constant folding, DCE, jump threading) | ✅ | ❌ |
-| 5 | GPU Computing / SIMD (VGGpu class, 19 methods) | ✅ | ❌ |
-| 6 | System-Level Programming (7 modules: System, Signals, Permissions, Memory, IPC, Android, FFI) | ✅ | ❌ |
-| 7 | Real Threading — Parallel For, Task.Run, work-stealing | ✅ | ❌ |
-| 8 | Entity Component System (VGEcs, 18 methods) | ✅ | ❌ |
-| 9 | Interactive REPL (Immediate Window, data breakpoints) | ✅ | ❌ |
-| 10 | Package Manager (vgpkg.json, semantic versioning, publish) | ✅ | ❌ |
-| 11 | Generics / Union Types / Optional Types | ✅ | ❌ |
-| 12 | String Interpolation `$"Hello {name}"` | ✅ | ❌ |
-| 13 | Null Safety (`??` null-coalescing, `?.` safe navigation) | ✅ | ❌ |
-| 14 | FFI / COM / Native Calls (`Declare Function ... Lib "..."`) | ✅ | ❌ |
-| 15 | System Integration (ODBC, Crypto, XML, ZIP, Sockets, FileWatcher) | ✅ | ❌ |
-| 16 | Reactive Whenever Blocks (auto-fire on variable conditions) | ✅ | ❌ |
-| 17 | Time-Travel Debugging (step backwards) | ✅ | ❌ |
-| 18 | Custom Theme Editor (8 themes, 38 adjustable colors) | ✅ | ❌ |
-| 19 | VB6 Migration Tools (.vbp/.frm/.bas import, 108+ VB6 functions) | ✅ | N/A |
+
+| #   | Capability                                                                                    | VG  | GDScript |
+| --- | --------------------------------------------------------------------------------------------- | --- | -------- |
+| 1   | Visual Form Designer (40+ controls, WYSIWYG canvas, Properties Panel)                         | ✅   | ❌        |
+| 2   | Automatic Event Wiring (name a Sub → it's connected)                                          | ✅   | ❌        |
+| 3   | JIT Compilation (Tier 2 x86-64 native code)                                                   | ✅   | ❌        |
+| 4   | 9-Pass Peephole Optimizer (constant folding, DCE, jump threading)                             | ✅   | ❌        |
+| 5   | GPU Computing / SIMD (VGGpu class, 19 methods)                                                | ✅   | ❌        |
+| 6   | System-Level Programming (7 modules: System, Signals, Permissions, Memory, IPC, Android, FFI) | ✅   | ❌        |
+| 7   | Real Threading — Parallel For, Task.Run, work-stealing                                        | ✅   | ❌        |
+| 8   | Entity Component System (VGEcs, 18 methods)                                                   | ✅   | ❌        |
+| 9   | Interactive REPL (Immediate Window, data breakpoints)                                         | ✅   | ❌        |
+| 10  | Package Manager (vgpkg.json, semantic versioning, publish)                                    | ✅   | ❌        |
+| 11  | Generics / Union Types / Optional Types                                                       | ✅   | ❌        |
+| 12  | String Interpolation `$"Hello {name}"`                                                        | ✅   | ❌        |
+| 13  | Null Safety (`??` null-coalescing, `?.` safe navigation)                                      | ✅   | ❌        |
+| 14  | FFI / COM / Native Calls (`Declare Function ... Lib "..."`)                                   | ✅   | ❌        |
+| 15  | System Integration (ODBC, Crypto, XML, ZIP, Sockets, FileWatcher)                             | ✅   | ❌        |
+| 16  | Reactive Whenever Blocks (auto-fire on variable conditions)                                   | ✅   | ❌        |
+| 17  | Time-Travel Debugging (step backwards)                                                        | ✅   | ❌        |
+| 18  | Custom Theme Editor (8 themes, 38 adjustable colors)                                          | ✅   | ❌        |
+| 19  | VB6-style syntax & classic builtins (string/math helpers; not bulk `.vbp` import)             | ✅   | Partial  |
+
+
+
 
 ### 39.2 Performance
 
 All 11 benchmarks faster than GDScript. VG wins 6 of 9 head-to-head vs native C++:
 
-| Benchmark | GDScript | VG | **Speedup** |
-|-----------|----------|-----|------------|
-| Branching | 6,988 µs | 59 µs | **118×** |
-| StringConcat | 5,007 µs | 60 µs | **83×** |
-| Interop | 8,096 µs | 120 µs | **67×** |
-| Allocations | 6,871 µs | 128 µs | **54×** |
-| ArraySum | 4,644 µs | 130 µs | **36×** |
-| Arithmetic | 5,333 µs | 331 µs | **16×** |
-| DictFastGet | 29,177 µs | 2,210 µs | **13×** |
-| DictFastSet | 19,266 µs | 2,519 µs | **7.6×** |
-| AllocationsFast | 10,309 µs | 1,817 µs | **5.7×** |
-| ArrayDict | 11,441 µs | 3,834 µs | **3×** |
-| FileIO | 982 µs | 456 µs | **2.2×** |
+
+| Benchmark       | GDScript  | VG       | **Speedup** |
+| --------------- | --------- | -------- | ----------- |
+| Branching       | 6,988 µs  | 59 µs    | **118×**    |
+| StringConcat    | 5,007 µs  | 60 µs    | **83×**     |
+| Interop         | 8,096 µs  | 120 µs   | **67×**     |
+| Allocations     | 6,871 µs  | 128 µs   | **54×**     |
+| ArraySum        | 4,644 µs  | 130 µs   | **36×**     |
+| Arithmetic      | 5,333 µs  | 331 µs   | **16×**     |
+| DictFastGet     | 29,177 µs | 2,210 µs | **13×**     |
+| DictFastSet     | 19,266 µs | 2,519 µs | **7.6×**    |
+| AllocationsFast | 10,309 µs | 1,817 µs | **5.7×**    |
+| ArrayDict       | 11,441 µs | 3,834 µs | **3×**      |
+| FileIO          | 982 µs    | 456 µs   | **2.2×**    |
+
+
+
 
 ### 39.3 Visual Form Designer
 
@@ -3838,6 +4295,8 @@ WYSIWYG IDE with:
 - **7 Game UI Controls** — DialogPanel, InventoryGrid, StatBar, HUDCounter, CooldownButton, NotificationToast, GameMenu
 - **Alignment Toolbar** — align, distribute, same-size operations
 - **Custom Theme Editor** — 38 color pickers across 8 built-in IDE themes
+
+
 
 ### 39.4 Automatic Event Wiring
 
@@ -3864,25 +4323,29 @@ fewer lines of wiring code.
 
 ### 39.5 Language Syntax GDScript Lacks
 
-| Feature | VG Syntax | GDScript |
-|---------|-----------|----------|
-| Select Case ranges | `Case 1 To 10` | ❌ |
-| Pattern matching with guards | `Case Is String s When Len(s) > 5` | ❌ |
-| With blocks | `With obj : .X = 1 : End With` | ❌ |
-| GoTo / GoSub | `GoTo ErrorHandler` | ❌ |
-| On Error Resume Next | `On Error Resume Next` | ❌ |
-| ReDim Preserve | `ReDim Preserve arr(n)` | ❌ |
-| ByRef parameters | `Sub Inc(ByRef x As Integer)` | ❌ |
-| String interpolation | `$"Hello {name}"` | ❌ |
-| Null-coalescing | `value ?? "default"` | ❌ |
-| Null-safe navigation | `obj?.Prop?.Value` | ❌ |
-| Bit-shift operators | `x << 3`, `x >> 2` | ❌ |
-| Static locals | `Static count As Integer` | ❌ |
-| Generics | `Function Max(Of T)(a As T, b As T)` | ❌ |
-| Union types | `Dim v As Integer \| String` | ❌ |
-| Method overloading | Same name, different arity | ❌ |
-| Data/Read/Restore | Embedded data tables | ❌ |
-| Map/Filter/Reduce | `Map(arr, Fn(x) x*2)` | ❌ |
+
+| Feature                      | VG Syntax                            | GDScript |
+| ---------------------------- | ------------------------------------ | -------- |
+| Select Case ranges           | `Case 1 To 10`                       | ❌        |
+| Pattern matching with guards | `Case Is String s When Len(s) > 5`   | ❌        |
+| With blocks                  | `With obj : .X = 1 : End With`       | ❌        |
+| GoTo / GoSub                 | `GoTo ErrorHandler`                  | ❌        |
+| On Error Resume Next         | `On Error Resume Next`               | ❌        |
+| ReDim Preserve               | `ReDim Preserve arr(n)`              | ❌        |
+| ByRef parameters             | `Sub Inc(ByRef x As Integer)`        | ❌        |
+| String interpolation         | `$"Hello {name}"`                    | ❌        |
+| Null-coalescing              | `value ?? "default"`                 | ❌        |
+| Null-safe navigation         | `obj?.Prop?.Value`                   | ❌        |
+| Bit-shift operators          | `x << 3`, `x >> 2`                   | ❌        |
+| Static locals                | `Static count As Integer`            | ❌        |
+| Generics                     | `Function Max(Of T)(a As T, b As T)` | ❌        |
+| Union types                  | `Dim v As Integer | String`          | ❌        |
+| Method overloading           | Same name, different arity           | ❌        |
+| Data/Read/Restore            | Embedded data tables                 | ❌        |
+| Map/Filter/Reduce            | `Map(arr, Fn(x) x*2)`                | ❌        |
+
+
+
 
 ### 39.6 System-Level & Integration
 
@@ -3902,27 +4365,33 @@ VG provides modules that GDScript has no equivalent for:
 - **Native FFI** — `Declare Function ... Lib "..."` to call C libraries
 - **Real COM** — `CreateObject("Excel.Application")` on Windows
 
+
+
 ### 39.7 When to Choose VG Over GDScript
 
-| Scenario | Why VG |
-|----------|--------|
-| Visual drag-and-drop UI design | Form Designer + 40+ control Toolbox |
-| Maximum scripting performance | 2×–118× faster, JIT compiled |
-| Porting existing VB6 code | Native VB6 syntax + import tools |
+
+| Scenario                        | Why VG                                |
+| ------------------------------- | ------------------------------------- |
+| Visual drag-and-drop UI design  | Form Designer + 40+ control Toolbox   |
+| Maximum scripting performance   | 2×–118× faster, JIT compiled          |
+| Porting from VB6 / VBA / BASIC  | Familiar `.vg` syntax; rewrite by hand or optional community importer (not core v6.0) |
 | Zero-boilerplate event handling | Automatic wiring by naming convention |
-| Database access | VGOdbc module |
-| FFI / native library calls | Declare statement + libffi |
-| Parallel processing | Parallel For, Task.Run |
-| Reactive variable watching | Whenever blocks |
-| Functional Map/Filter/Reduce | Built-in collection functions |
-| GPU-accelerated math | VGGpu class |
-| Interactive live coding | REPL / Immediate Window |
-| Null-safe code | `??` and `?.` operators |
+| Database access                 | VGOdbc module                         |
+| FFI / native library calls      | Declare statement + libffi            |
+| Parallel processing             | Parallel For, Task.Run                |
+| Reactive variable watching      | Whenever blocks                       |
+| Functional Map/Filter/Reduce    | Built-in collection functions         |
+| GPU-accelerated math            | VGGpu class                           |
+| Interactive live coding         | REPL / Immediate Window               |
+| Null-safe code                  | `??` and `?.` operators               |
+
 
 > **Full reference:** See [VG Advantages Over GDScript](guides/VG_ADVANTAGES_OVER_GDSCRIPT.md)
 > for code examples, benchmark tables, and detailed explanations of all 19 categories.
 
 ---
+
+
 
 ## Chapter 40: Python Interoperability Overview
 
@@ -3935,6 +4404,8 @@ VisualGasic includes a comprehensive Python bridge that allows seamless integrat
 - **Rapid Prototyping**: Test algorithms quickly without recompiling C++
 - **System Integration**: Call system commands, manage files, network operations
 - **Asset Processing**: Batch convert, analyze, or generate game assets
+
+
 
 ### Architecture Overview
 
@@ -3950,7 +4421,11 @@ VisualGasic (Godot)  ←→  Socket/Pipe  ←→  Python Process
 - **Module Caching**: Python modules loaded once, reused across calls
 - **Error Propagation**: Python exceptions surfaced as VG exceptions
 
+
+
 ## Chapter 41: Setting Up Python Bridge
+
+
 
 ### Prerequisites
 
@@ -3960,6 +4435,8 @@ VisualGasic (Godot)  ←→  Socket/Pipe  ←→  Python Process
 ```bash
 pip install vg-bridge
 ```
+
+
 
 ### Configuration in Project Settings
 
@@ -3972,6 +4449,8 @@ vg/python/use_typed_protocol = true   # Optional: preserve int/float in msgpack
 vg/python/startup_script = "res://scripts/python_init.py"
 ```
 
+
+
 ### Minimal Example
 
 ```vb
@@ -3982,6 +4461,8 @@ Sub InitPython()
 End Sub
 ```
 
+
+
 ## Chapter 42: Typed MessagePack Protocol
 
 By default, VisualGasic uses JSON for Python interop. The typed MessagePack protocol is an opt-in feature that preserves type information.
@@ -3989,8 +4470,11 @@ By default, VisualGasic uses JSON for Python interop. The typed MessagePack prot
 ### Why Typed MessagePack?
 
 JSON loses type distinction between integers and floats:
+
 - `{"x": 1}` — is `x` an integer or float?
 - MessagePack preserves this distinction explicitly
+
+
 
 ### Enabling Typed Protocol
 
@@ -3998,12 +4482,16 @@ JSON loses type distinction between integers and floats:
 vg/python/use_typed_protocol = true
 ```
 
+
+
 ### Performance Impact
 
 - **Throughput**: ~12% faster (binary encoding)
 - **Latency**: Negligible (~0.1–0.2ms per call)
 - **Memory**: ~8% savings on large payloads (arrays)
 - **Large Arrays**: Recommended for NumPy data transfer
+
+
 
 ### Example
 
@@ -4016,7 +4504,11 @@ data.SetDouble("value", 3.14)   ' Explicitly float
 Dim result As Object = VGPython.Call("process_data", data)
 ```
 
+
+
 ## Chapter 43: Python Function Calls from VisualGasic
+
+
 
 ### Simple Function Calls
 
@@ -4027,6 +4519,8 @@ Sub CallPythonFunction()
     Print "Result: " & result
 End Sub
 ```
+
+
 
 ### Working with Python Objects
 
@@ -4044,6 +4538,8 @@ Sub WorkWithPythonObjects()
 End Sub
 ```
 
+
+
 ### Error Handling
 
 ```vb
@@ -4056,6 +4552,8 @@ Sub PythonErrorHandling()
     End Try
 End Sub
 ```
+
+
 
 ## Chapter 44: Working with NumPy Arrays
 
@@ -4077,6 +4575,8 @@ Sub UseNumpyArrays()
     Print "Array stats: mean=" & mean & ", std=" & std
 End Sub
 ```
+
+
 
 ### Image Processing Example
 
@@ -4101,6 +4601,8 @@ End Sub
 
 ---
 
+
+
 ## Chapter 45: Introduction to Narcea
 
 Narcea is VisualGasic's built-in **Vibe Code Programmer** — an integrated coding assistant powered by Claude, GPT-4, Gemini, or Ollama.
@@ -4113,16 +4615,24 @@ Narcea is VisualGasic's built-in **Vibe Code Programmer** — an integrated codi
 - **Command Help**: Documentation lookup and usage examples
 - **Immediate Window**: Test ideas instantly
 
+
+
 ### Supported Providers
 
-| Provider | Model | Requirements |
-|----------|-------|---------------|
-| **Claude** (Anthropic) | claude-opus-4-8, claude-sonnet-4-6 | API key |
-| **OpenAI** | gpt-4, gpt-4-turbo | API key |
-| **Google** | gemini-pro | API key |
-| **Ollama** | local models | Local Ollama server |
+
+| Provider               | Model                              | Requirements        |
+| ---------------------- | ---------------------------------- | ------------------- |
+| **Claude** (Anthropic) | claude-opus-4-8, claude-sonnet-4-6 | API key             |
+| **OpenAI**             | gpt-4, gpt-4-turbo                 | API key             |
+| **Google**             | gemini-pro                         | API key             |
+| **Ollama**             | local models                       | Local Ollama server |
+
+
+
 
 ## Chapter 46: Configuring AI Providers
+
+
 
 ### Step 1: Enable Narcea
 
@@ -4132,6 +4642,8 @@ In `project.godot`:
 vg/narcea/enabled = true
 vg/narcea/default_provider = "claude"
 ```
+
+
 
 ### Step 2: Set API Keys
 
@@ -4147,6 +4659,8 @@ Sub ConfigureNarcea()
 End Sub
 ```
 
+
+
 ### Step 3: Test Connection
 
 ```vb
@@ -4160,7 +4674,11 @@ Sub TestNarceaConnection()
 End Sub
 ```
 
+
+
 ## Chapter 47: AI-Assisted Code Generation
+
+
 
 ### Generate Event Handlers
 
@@ -4175,6 +4693,8 @@ Sub GenerateButtonHandler()
     ' End Sub
 End Sub
 ```
+
+
 
 ### Generate Game Logic
 
@@ -4193,6 +4713,8 @@ Sub RequestEnemyAI()
 End Sub
 ```
 
+
+
 ### Workflow: Form Designer Scaffolding
 
 1. Drag controls onto form (button, text field, labels)
@@ -4200,7 +4722,11 @@ End Sub
 3. Narcea creates Click, TextChanged, etc. stubs
 4. Implement logic in generated subs
 
+
+
 ## Chapter 48: Command Help and Context
+
+
 
 ### Real-Time Command Documentation
 
@@ -4213,14 +4739,18 @@ Next i
 ```
 
 **Narcea Command Help Panel** shows:
+
 - Syntax
 - Usage examples
 - Common pitfalls
 - Links to docs
 
+
+
 ### Context-Aware Suggestions
 
 When generating code, Narcea analyzes:
+
 - Existing class definitions
 - Signal usage patterns
 - Node hierarchy
@@ -4229,6 +4759,8 @@ When generating code, Narcea analyzes:
 This ensures generated code fits your project's conventions.
 
 ---
+
+
 
 ## Chapter 49: Code Navigator and Causal Chains
 
@@ -4245,6 +4777,8 @@ A **causal chain** shows: *if this variable changes, which functions/statements 
 3. See **incoming** (callers) and **outgoing** (callees) references
 4. Click **"Show Causal Chain"** button to trace data dependencies
 
+
+
 ### Example Chain
 
 ```
@@ -4256,6 +4790,8 @@ UpdateHealthBar()
   ↓
 Canvas.update_texture()
 ```
+
+
 
 ### Causal Chain Query
 
@@ -4271,15 +4807,22 @@ Sub AnalyzeDependencies()
 End Sub
 ```
 
+
+
 ### Performance Insight
 
 Causal chains help identify:
+
 - Expensive update cascades
 - Dead code (no incoming edges)
 - Hidden dependencies
 - Optimization opportunities
 
+
+
 ## Chapter 50: Dependency Analysis
+
+
 
 ### Visualizing Import/Reference Graph
 
@@ -4295,11 +4838,14 @@ Causal chains help identify:
 ### Module Dependency Tree
 
 Right-click a `.vg` file in filesystem panel:
+
 - **Show Dependencies** → Visualizes all imports
 - **Reverse Dependencies** → Shows what imports this file
 - **Circular Check** → Highlights cycles
 
 ---
+
+
 
 ## Chapter 51: Exception Handling (Try/Catch)
 
@@ -4322,6 +4868,8 @@ Sub SafeFileRead()
 End Sub
 ```
 
+
+
 ### Catching Godot Exceptions
 
 ```vb
@@ -4334,6 +4882,8 @@ Sub SafeGodotCall()
 End Sub
 ```
 
+
+
 ### Throwing Custom Exceptions
 
 ```vb
@@ -4344,6 +4894,8 @@ Sub ValidateScore(score As Integer)
     ' Continue...
 End Sub
 ```
+
+
 
 ### Finally Blocks (Cleanup)
 
@@ -4363,6 +4915,8 @@ Sub ReadFileWithCleanup()
 End Sub
 ```
 
+
+
 ## Chapter 52: Lambda Expressions
 
 Lambda expressions are anonymous functions useful for event handlers, map/filter operations, and callbacks.
@@ -4372,6 +4926,8 @@ Lambda expressions are anonymous functions useful for event handlers, map/filter
 ```vb
 Lambda(param1, param2, ...) = expression
 ```
+
+
 
 ### Simple Examples
 
@@ -4392,6 +4948,8 @@ Sub LambdaBasics()
 End Sub
 ```
 
+
+
 ### Event Handlers with Lambdas
 
 ```vb
@@ -4403,6 +4961,8 @@ Sub SetupButtonHandler()
     Button.Connect("pressed", Lambda() = Print("Button clicked!"))
 End Sub
 ```
+
+
 
 ### Practical Game Logic
 
@@ -4417,6 +4977,8 @@ Sub FilterEnemiesInRange()
 End Sub
 ```
 
+
+
 ## Chapter 53: Optional Types and Null Safety
 
 Optional types help prevent `Null Reference Exception` errors.
@@ -4430,6 +4992,8 @@ Dim name As Optional(String)
 ' Can be Node or Nothing
 Dim target As Optional(Node)
 ```
+
+
 
 ### Null Coalescing (??)
 
@@ -4448,6 +5012,8 @@ Sub GetPlayerName()
     End If
 End Sub
 ```
+
+
 
 ### Safe Navigation (?.)
 
@@ -4468,6 +5034,8 @@ Sub SafeNodeAccess()
 End Sub
 ```
 
+
+
 ## Chapter 54: The `Let` Keyword
 
 The `Let` keyword enables **immutable variable declarations** — values assigned once, never modified.
@@ -4480,12 +5048,16 @@ Let maxHealth As Integer = 100
 Let spawnPoint As Vector2 = Vector2(50, 100)
 ```
 
+
+
 ### Benefits
 
 - **Safety**: Prevents accidental reassignment
 - **Clarity**: Signals intent ("this doesn't change")
 - **Performance**: Compiler may apply optimizations
 - **Refactoring**: Easier to reason about code flow
+
+
 
 ### Example: Game Constants
 
@@ -4502,14 +5074,18 @@ Sub InitializeGame()
 End Sub
 ```
 
+
+
 ### Compared to Const
 
-| Feature | `Const` | `Let` |
-|---------|---------|-------|
-| Compile-time constant | ✅ | ❌ |
-| Runtime immutability | ❌ | ✅ |
-| Can use dynamic values | ❌ | ✅ |
-| Syntax | `Const x = 1` | `Let x = 1` |
+
+| Feature                | `Const`       | `Let`       |
+| ---------------------- | ------------- | ----------- |
+| Compile-time constant  | ✅             | ❌           |
+| Runtime immutability   | ❌             | ✅           |
+| Can use dynamic values | ❌             | ✅           |
+| Syntax                 | `Const x = 1` | `Let x = 1` |
+
 
 ```vb
 Sub Difference()
@@ -4521,6 +5097,8 @@ Sub Difference()
     Let currentTime As Double = OS.GetTicksMsec()
 End Sub
 ```
+
+
 
 ## Chapter 55: The `IsNot` Operator
 
@@ -4538,6 +5116,8 @@ If player IsNot enemy Then
 End If
 ```
 
+
+
 ### Comparison with `Is Not` (two words)
 
 ```vb
@@ -4546,6 +5126,8 @@ If obj IsNot Nothing Then
 If Not (obj Is Nothing) Then
 If obj Is Not Nothing Then
 ```
+
+
 
 ### Practical Examples
 
@@ -4565,9 +5147,12 @@ Sub CheckPlayerState()
 End Sub
 ```
 
+
+
 ### Performance Note
 
 `IsNot` is optimized to a single comparison:
+
 - ✅ **Preferred** in Godot/native code (one check)
 - ✅ **Faster** than `Not (x Is y)` (one operation vs. two)
 

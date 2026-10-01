@@ -65,7 +65,7 @@ Async | `Async/Await` + `Parallel For` | Coroutines
 String interpolation | `$"Hello, {name}!"` | `"Hello, %s" % name`
 GPU computing | Built-in SIMD + compute shaders | Manual setup
 Pattern matching | `Select Match` with destructuring | `match` (basic)
-VB6 import | Direct `.frm`/`.vbp` import | —
+VB6-style syntax / manual port | Familiar `.vg`; bulk `.vbp` import optional plugin (not v6.0 core) | —
 
 VG also includes a **JIT compiler** that compiles hot loops to native x86-64. On microbenchmarks (tight loops, math, branching) it ranges from **2x to 118x faster than GDScript** depending on the workload. The benchmark scripts are included in the repo so you can verify on your own machine.
 
@@ -73,7 +73,7 @@ VG also includes a **JIT compiler** that compiles hot loops to native x86-64. On
 
 # Visual Gasic IDE
 
-VG ships with a **full VB6-style Visual Gasic IDE** inside Godot's editor:
+VG integrates with Godot via **VGasic panels** (Code Navigator, Toolbox, Properties, Narcea). A **legacy full-screen VB6-style Form Designer** remains **experimental Alpha** (`vg/enable_experimental_plugins`). On the supported path you get:
 
 - **Toolbox** with 40+ built-in controls (buttons, text boxes, list views, tab strips, timers, and more)
 - **Drag-and-drop canvas** with snap grid, alignment guides, and multi-select
@@ -105,7 +105,7 @@ Double-click any control to jump straight to its event handler. It's the RAD wor
 - **Beginners** looking for a readable, low-ceremony language
 - **RAD developers** who miss the "design a form, double-click a button, write code" workflow
 - **Anyone curious** about an alternative to GDScript with modern language features
-- **Hobbyists porting old VB6 projects** — VG can import `.frm` and `.vbp` files directly
+- **Hobbyists porting old VB6 projects** — rewrite logic in familiar `.vg` syntax (optional community importer; not v6.0 core)
 
 &nbsp;
 

@@ -82,7 +82,7 @@ This copies the addon into your project's `addons/visual_gasic/` directory.
 After installation, open your project in Godot. You should see:
 
 - **VisualGasic** available as a script language when attaching scripts to nodes
-- The **VG IDE** accessible from the editor (Form Designer, Properties panel, Toolbox, Immediate Window)
+- **VGasic workspace** panels (Code Navigator, Properties, Toolbox, Vibe Code) on Godot’s Script/2D/3D editors; legacy Form Designer is **experimental Alpha** — [VG IDE Alpha](../manual/VG_IDE_ALPHA.md)
 - `addons/visual_gasic/` present in the FileSystem dock
 
 ---

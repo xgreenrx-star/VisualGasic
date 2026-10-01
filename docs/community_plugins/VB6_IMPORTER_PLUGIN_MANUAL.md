@@ -2,6 +2,10 @@
 
 This document contains VB6 importer details moved out of the core VisualGasic language manual.
 
+## Status (v6.0)
+
+The VB6 importer was **retired from the main Visual Gasic distribution** (see [ROADMAP.md](../../ROADMAP.md)). It is **not** a shipped v6.0 core feature. This manual describes the **optional community plugin** workflow if you install or maintain `vgtools-vb6-importer` separately. For new work, author `.vg` and Godot scenes directly.
+
 ## Scope
 
 The VB6 importer is a plugin-oriented migration tool for legacy VB6 projects. It is not part of the core language runtime reference.
