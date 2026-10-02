@@ -555,10 +555,9 @@ ASYNC / AWAIT — asynchronous programming
       FetchScore = Val(json)
   End Function
 
-USING — guaranteed resource cleanup
-  Using conn = OpenDatabase("game.db")
-      conn.Execute "INSERT INTO scores VALUES(" & score & ")"
-  End Using    ' conn is closed even if an error occurs
+USING — NOT PARSED
+  Do not emit Using … End Using. The parser does not accept it.
+  Close the resource yourself, or clean up in Try / Finally.
 
 CONTINUE — loop early-continue (VB6 lacked this)
   For i = 0 To 99
@@ -979,6 +978,39 @@ Classes go in their own .vg file with a Class header (NOT a flat module).
           name = \"Hero\" : health = 200 : level = 1
       End Sub
   End Class
+
+=== Interfaces ===
+Interface blocks are signatures only — no method bodies between Sub/Function lines.
+
+  Interface IDamageable
+      Sub TakeDamage(amount As Integer)
+      Function IsAlive() As Boolean
+  End Interface
+
+  Class Enemy Implements IDamageable
+      Private health As Integer = 50
+
+      Sub TakeDamage(amount As Integer) Implements IDamageable.TakeDamage
+          health = health - amount
+      End Sub
+
+      Function IsAlive() As Boolean Implements IDamageable.IsAlive
+          IsAlive = (health > 0)
+      End Function
+  End Class
+
+A same-file Implements is satisfied by any of:
+  * a method with the same name (TakeDamage)
+  * the VB6 prefix (IDamageable_TakeDamage)
+  * Implements IFace.Method on the Sub or Function line
+A missing method prints a parser warning; the script still runs.
+An interface declared in another file is only checked for the InterfaceName_ prefix.
+Module-level Implements IFoo uses the same rules against module Subs.
+
+Do not emit these — they are not the VG runtime:
+  * Using … End Using (not parsed; use Close or Try/Finally)
+  * ConnectSignal / DisconnectSignal (use Connect / Disconnect)
+  * DataFile or LoadData as global function calls (they are statements)
 
   ' Instantiation and ArrayList collection pattern:
   Dim e As Variant = New Enemy
@@ -1636,6 +1668,7 @@ const SLIM_KNOWLEDGE := """
   dropdown lists only the open file. Included dropdown lists imported modules; pick a module, then
   the procedure, to open it. Ctrl+Click / Go To Definition on the Call name opens that file.
 - 5.4.0-beta2: Buffer type, Let block scope, Narcea Tier A/B, 916/916 tests; still 12/12 compute + 9/9 draw vs GDScript from beta1.
+- Interface … End Interface is signatures only. Same-file Implements matches Method, Interface_Method, or Implements IFace.Method. Do not emit Using … End Using (not parsed); use Close or Try/Finally. Connect/Disconnect, not ConnectSignal.
 - Python bridge: PyBridgeFacade + opt-in typed msgpack (`vg/python/use_typed_protocol`) for int args.
 - Causal chain: Code Navigator **Show Causal Chain** — static event→Sub→Call audit after AI edits.
 - Live debug capture: Project Settings `vg/narcea/live_debug_capture` + Vibe Code per-run checkbox;

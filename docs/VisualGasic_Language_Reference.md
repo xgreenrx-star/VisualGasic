@@ -1347,7 +1347,7 @@ Class Enemy Implements IDamageable
 End Class
 ```
 
-> **Implements Runtime Verification:** When a module declares `Implements IFoo`, VisualGasic checks at load time that at least one `IFoo_*` method exists in the module. If none is found, a warning is printed to the console so you can catch unimplemented interfaces early.
+> **Implements check:** A same-file `Interface` stores its method signatures. A class or module that `Implements` it must supply each method as `MethodName`, `InterfaceName_MethodName`, or `Sub MethodName() Implements InterfaceName.MethodName`. A missing method prints a warning and the script still runs. An interface declared in another file is only checked for the `InterfaceName_` prefix.
 
 ### Events (WithEvents / RaiseEvent)
 VisualGasic supports VB6-style custom events with `Event`, `RaiseEvent`, and `WithEvents`.
@@ -7744,7 +7744,7 @@ Returns the width of an Image in pixels.
 
 **Description**
 
-Declares that a class implements an interface and must provide all of its methods.
+Declares that a class implements an interface and must provide all of its methods. On the same file, each interface method is satisfied by a member of the same name, `InterfaceName_MethodName`, or `Implements InterfaceName.MethodName` on the procedure line.
 
 **Example**
 

@@ -420,12 +420,12 @@ static func _build_db() -> void:
 
 	_add("Implements",
 		"Class MyClass\n    Implements InterfaceName",
-		"Declares that a class implements an interface and must provide all of its methods.",
+		"Declares that a class implements an interface. Same-file methods match by name, InterfaceName_MethodName, or Implements InterfaceName.MethodName.",
 		"Interface IDamageable\n    Sub TakeDamage(amount As Integer)\nEnd Interface\n\nClass Player\n    Implements IDamageable\n    Sub TakeDamage(amount As Integer)\n        health = health - amount\n    End Sub\nEnd Class", 7688)
 
 	_add("Interface",
 		"Interface InterfaceName\n    Sub MethodName([params])\n    Function FuncName([params]) As Type\nEnd Interface",
-		"Declares an interface — a contract that implementing classes must fulfill.",
+		"Declares a signature-only contract (no method bodies). Same-file Implements checks each Sub/Function.",
 		"Interface ISerializable\n    Function Serialize() As String\n    Sub Deserialize(data As String)\nEnd Interface", 7877)
 
 	_add("Property",
@@ -1887,7 +1887,7 @@ static func _build_db() -> void:
 
 	_add("Using",
 		"Using resource = expression\n    statements\nEnd Using",
-		"Ensures a resource is properly disposed/cleaned up when the block exits.",
+		"Not parsed. Use Close or Try/Finally until Using … End Using is implemented.",
 		"Using conn = OpenDatabase(\"game.db\")\n    conn.Execute \"INSERT INTO scores VALUES(\" & score & \")\"\nEnd Using  ' Connection automatically closed", 12741)
 
 	_add("DoEvents",

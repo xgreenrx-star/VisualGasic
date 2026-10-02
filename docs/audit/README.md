@@ -43,10 +43,10 @@ Input APIs: `test_proj/test_suite/test_reference_input_smoke.vg`
 
 | ID | Item | Status |
 |----|------|--------|
-| R1 | `Interface … End Interface` parser | Open |
+| R1 | `Interface … End Interface` parser | Done |
 | R2 | `Using … End Using` parser + RAII | Open |
 | R3 | `Disconnect()` regression test | Open |
-| R4 | Narcea / copilot known limitations | Open |
+| R4 | Narcea / copilot known limitations | Done |
 | R5 | Graven root duplicate cleanup | Open |
 | R6 | Audit PascalCase ↔ snake_case aliasing | Open |
 | R7 | Promote GODOT_FUNCTIONS_REFERENCE → Part II | Open |

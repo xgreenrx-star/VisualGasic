@@ -74,7 +74,7 @@ Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
 | R1 | **`Interface … End Interface` parser** | Medium | M8 / 5.5.0-beta1 | ✅ **Linux** — signature blocks parse; same-file `Implements` checks `Method`, `Interface_Method`, or `Implements IFace.Method`. Cross-file interfaces still use the VB6 prefix warning |
 | R2 | **`Using … End Using` parser + RAII** | Medium | M8 / v6.1 | ~1–2 weeks — align with RAII row in ODBC/database roadmap; explicit `Close`/`Finally` required until shipped |
 | R3 | **`Disconnect()` regression test** | Low | M9 | ~1 hr — `test_reference_connect_smoke.vg` (Connect + Disconnect round-trip) |
-| R4 | **Narcea / copilot known limitations** | Medium | M9 | ~2 hr — add Interface/Using/ConnectSignal/DataFile caveats to `.github/copilot-instructions.md` and `vg_ai_narcea.gd` system prompt |
+| R4 | **Narcea / copilot known limitations** | Medium | M9 | ✅ Interface contract, `Using` not parsed, `Connect`/`Disconnect`, and `DataFile`/`LoadData` as statements — in `vg_ai_narcea.gd` and `.github/copilot-instructions.md` |
 | R5 | **Graven root duplicate cleanup** | Low | — | ~30 min — remove stale `projects/vg_graven_slice/GravenMain.vg` + `main.tscn` at project root (canonical path: `ai_projects/graven_slice/`) |
 | R6 | **Audit PascalCase ↔ snake_case aliasing** | Low | v6.0 | ~2 hr — teach `audit_reference_dispatch.py` that `GetTree` ↔ `get_tree` are the same symbol |
 | R7 | **Promote GODOT_FUNCTIONS_REFERENCE → Language Reference Part II** | Medium | M9 | ~1 day — optional; intellisense already covered via `command_help`; Part II still lacks many PascalCase Godot globals |

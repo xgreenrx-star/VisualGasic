@@ -81,6 +81,8 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 - **C++ causal-graph API** — `VisualGasicLanguage.vg_analyze_causal_graph(code, roots)`; `vg_causal_chain.gd` prefers C++ then regex fallback. IDE: Code Navigator **Show Causal Chain** button.
 - **Tagged-stack VM prototype** — `scons tagged_stack=1`, `VG_TAGGED_STACK`, selftest via `VG_STACKVALUE_SELFTEST=1`. **NOT pursued for shipping** (~6% arith win, net loss on realistic workloads). See `docs/vm_tagged_stack_migration.md`.
 - **Narcea Live Debug Capture** — opt-in local viewport/stack/locals/UI tree while debugging (`vg/narcea/live_debug_capture*`, Vibe Code per-run checkbox). Knowledge in `vg_ai_narcea.gd`; spec `docs/development/NARCEA_LIVE_DEBUG_CAPTURE.md`.
+- **`Interface … End Interface`** — signature-only blocks parse. Same-file `Implements` matches `Method`, `InterfaceName_MethodName`, or `Implements InterfaceName.MethodName`. A missing method warns; the script still runs. Cross-file interfaces only check the VB6 prefix. Test: `test_interface_block.vg`.
+- **Do not emit:** `Using … End Using` (not parsed — use `Close` or `Try/Finally`); `ConnectSignal` / `DisconnectSignal` (use `Connect` / `Disconnect`); `DataFile` / `LoadData` as global calls (they are statements).
 
 ## Recent fixes (Jun 30, 2026)
 
