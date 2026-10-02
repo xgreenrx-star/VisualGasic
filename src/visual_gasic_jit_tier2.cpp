@@ -15,6 +15,10 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// minwindef.h defines VOID as void, which breaks IRType::VOID below.
+#ifdef VOID
+#undef VOID
+#endif
 #endif
 #if VG_JIT_MACOS
 #include <pthread.h>
