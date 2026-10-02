@@ -247,7 +247,16 @@ def read_message():
 
     blob_size = request.get("blob_size")
     if blob_size is not None:
-        blob = read_exact(int(blob_size))
+        # C++ writes a little-endian length, then the raw bytes. blob_size in
+        # the header must match that length or the stream desynchronizes.
+        raw_blob_len = read_exact(4)
+        if not raw_blob_len:
+            raise EOFError("Unexpected EOF while reading binary blob header")
+        declared = struct.unpack("<I", raw_blob_len)[0]
+        if declared != int(blob_size):
+            raise ValueError(
+                "binary blob length %d does not match blob_size %s" % (declared, blob_size))
+        blob = read_exact(declared) if declared else b""
         if blob is None:
             raise EOFError("Unexpected EOF while reading binary blob")
         request["_blob"] = blob
@@ -297,8 +306,7 @@ def handle_call(request):
         module = sys.modules[module_name]
         func = getattr(module, method_name)
         result = func(*args)
-        return {"kind": "result", "request_id": request.get("request_id", 0),
-                "status": "ok", "value": _make_json_safe(result)}
+        return _finish_call(request, result)
     except Exception as e:
         tb = traceback.format_exc()
         return {"kind": "error", "request_id": request.get("request_id", 0),
@@ -480,6 +488,129 @@ def _make_json_safe(obj):
     return str(obj)
 
 
+# Grids at or above 100×100 travel as raw little-endian floats, not JSON lists.
+LARGE_ARRAY_ELEMS = 100 * 100
+
+
+def _install_vg_lane():
+    """In-process helpers so tests can round-trip large float arrays."""
+    import types
+
+    mod = types.ModuleType("vg_lane")
+
+    def make_ones(n):
+        n = int(n)
+        try:
+            import numpy as np
+            return np.ones(n, dtype=np.float64)
+        except Exception:
+            import array as pyarray
+            return pyarray.array("d", [1.0]) * n
+
+    def sum_f64(arr):
+        try:
+            import numpy as np
+            return float(np.asarray(arr, dtype=np.float64).sum())
+        except Exception:
+            return float(sum(float(x) for x in arr))
+
+    def echo_f64(arr):
+        try:
+            import numpy as np
+            return np.ascontiguousarray(np.asarray(arr), dtype=np.float64)
+        except Exception:
+            import array as pyarray
+            if isinstance(arr, pyarray.array) and arr.typecode == "d":
+                return arr
+            return pyarray.array("d", [float(x) for x in arr])
+
+    mod.make_ones = make_ones
+    mod.sum_f64 = sum_f64
+    mod.echo_f64 = echo_f64
+    sys.modules["vg_lane"] = mod
+
+
+_install_vg_lane()
+
+
+def _blob_to_array(blob, dtype, count):
+    count = int(count)
+    try:
+        import numpy as np
+        np_dtype = np.float64 if dtype == "float64" else np.float32
+        return np.frombuffer(blob, dtype=np_dtype, count=count).copy()
+    except Exception:
+        import array as pyarray
+        code = "d" if dtype == "float64" else "f"
+        arr = pyarray.array(code)
+        arr.frombytes(blob)
+        if len(arr) != count:
+            raise ValueError("binary blob length does not match count")
+        return arr
+
+
+def _large_array_blob(result):
+    """Return (bytes, dtype, count) when result should use the binary lane."""
+    try:
+        import numpy as np
+        if isinstance(result, np.ndarray) and result.size >= LARGE_ARRAY_ELEMS:
+            if result.dtype == np.float64:
+                raw = np.ascontiguousarray(result, dtype=np.float64).tobytes()
+                return raw, "float64", int(result.size)
+            if result.dtype == np.float32:
+                raw = np.ascontiguousarray(result, dtype=np.float32).tobytes()
+                return raw, "float32", int(result.size)
+    except Exception:
+        pass
+    import array as pyarray
+    if isinstance(result, pyarray.array) and len(result) >= LARGE_ARRAY_ELEMS:
+        if result.typecode == "d":
+            return result.tobytes(), "float64", len(result)
+        if result.typecode == "f":
+            return result.tobytes(), "float32", len(result)
+    return None
+
+
+def _finish_call(request, result):
+    packed = _large_array_blob(result)
+    if packed is not None:
+        raw, dtype, count = packed
+        return ({"kind": "result_array", "request_id": request.get("request_id", 0),
+                 "status": "ok", "value": {"dtype": dtype, "count": count}}, raw)
+    return {"kind": "result", "request_id": request.get("request_id", 0),
+            "status": "ok", "value": _make_json_safe(result)}
+
+
+def handle_call_array(request):
+    """Call a function with one argument supplied as a raw float blob."""
+    module_name = request.get("module", "")
+    method_name = request.get("method", "")
+    args = list(request.get("args") or [])
+    meta = args[0] if args and isinstance(args[0], dict) else {}
+    call_args = args[1:]
+    blob = request.get("_blob", b"")
+
+    if not module_name or not method_name:
+        return {"kind": "error", "request_id": request.get("request_id", 0),
+                "status": "error", "message": "Module and method names required"}
+    try:
+        if module_name not in sys.modules:
+            importlib.import_module(module_name)
+        module = sys.modules[module_name]
+        func = getattr(module, method_name)
+        arr = _blob_to_array(blob, str(meta.get("dtype", "float64")), meta.get("count", 0))
+        idx = int(meta.get("array_index", 0))
+        if idx < 0 or idx > len(call_args):
+            raise ValueError("array_index out of range")
+        call_args.insert(idx, arr)
+        result = func(*call_args)
+        return _finish_call(request, result)
+    except Exception:
+        tb = traceback.format_exc()
+        return {"kind": "error", "request_id": request.get("request_id", 0),
+                "status": "error", "message": tb}
+
+
 def main():
     """Main worker loop. Reads commands, dispatches, writes responses."""
     # Flush stderr so error messages are unbuffered
@@ -499,8 +630,16 @@ def main():
                 response = handle_import(request)
             elif kind == "call":
                 response = handle_call(request)
+                if isinstance(response, tuple):
+                    send_response(response[0], response[1])
+                    continue
             elif kind == "call_binary":
                 response = handle_call_binary(request)
+                if isinstance(response, tuple):
+                    send_response(response[0], response[1])
+                    continue
+            elif kind == "call_array":
+                response = handle_call_array(request)
                 if isinstance(response, tuple):
                     send_response(response[0], response[1])
                     continue

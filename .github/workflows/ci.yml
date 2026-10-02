@@ -64,6 +64,28 @@ jobs:
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi.vg
 
+      - name: M7 Python bridge (json-safe, venv, large-array lane)
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
+        run: |
+          python3 scripts/test_python_numpy_json_safe.py
+          VENV="${{ runner.temp }}/vg-m7-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/pip" install -q numpy
+          export VIRTUAL_ENV="$VENV"
+          chmod +x ./run_test_suite.sh
+          for t in test_py_msgpack_typed.vg test_py_await.vg test_py_range_int.vg test_py_large_array.vg; do
+            ./run_test_suite.sh "$t"
+          done
+          echo "res://test_suite/test_py_large_array.vg" > test_proj/current_test.txt
+          out=$(timeout 40 "$GODOT" --headless --path test_proj --user-data-dir "$VG_GODOT_USER_DATA_DIR" -s run_suite.gd 2>&1) || true
+          echo "$out" | tail -30
+          echo "$out" | grep -q "PASS: test_py_large_array"
+          echo "$out" | grep -q "vg-m7-venv"
+
       - name: M8 language parity (Let, lambda, optional ?.)
         env:
           DISPLAY: ""

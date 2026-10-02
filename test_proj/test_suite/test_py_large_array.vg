@@ -1,0 +1,58 @@
+' M7 large-array binary lane: 100×100 float64 grids skip JSON.
+' Outbound make_ones and inbound sum_f64 both use the raw float blob.
+Attribute VB_Name = "TestPyLargeArray"
+
+Sub _Ready()
+    Dim bridge As Object
+    Set bridge = New PyBridgeFacade
+    If Not bridge.InitializeBridge() Then
+        Print "FAIL: test_py_large_array: bridge unavailable"
+        Exit Sub
+    End If
+
+    Dim info
+    info = bridge.PyEnvInfo()
+    Dim exe As String
+    exe = ""
+    If TypeName(info) = "Dictionary" Then
+        exe = CStr(info("python_executable"))
+    End If
+    Print "PASS: test_py_large_array_exe " & exe
+
+    Dim lane
+    lane = bridge.PyImport("vg_lane")
+    If IsEmpty(lane) Then
+        Print "FAIL: test_py_large_array: vg_lane import failed"
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    Dim ones
+    ones = bridge.PyCall(lane, "make_ones", Array(10000))
+    If TypeName(ones) <> "PackedFloat64Array" Then
+        Print "FAIL: test_py_large_array: make_ones type=" & TypeName(ones)
+        bridge.shutdown()
+        Exit Sub
+    End If
+    If ones.size() <> 10000 Then
+        Print "FAIL: test_py_large_array: size=" & CStr(ones.size())
+        bridge.shutdown()
+        Exit Sub
+    End If
+    If CDbl(ones(0)) <> 1.0 Then
+        Print "FAIL: test_py_large_array: ones(0)=" & CStr(ones(0))
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    Dim total
+    total = bridge.PyCall(lane, "sum_f64", Array(ones))
+    If CDbl(total) <> 10000.0 Then
+        Print "FAIL: test_py_large_array: sum=" & CStr(total)
+        bridge.shutdown()
+        Exit Sub
+    End If
+
+    bridge.shutdown()
+    Print "PASS: test_py_large_array"
+End Sub

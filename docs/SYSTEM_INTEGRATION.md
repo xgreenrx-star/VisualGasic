@@ -1067,7 +1067,7 @@ bufResult = bridge.PyProcessBuffer(jsonMod, "dumps", buffer)
 | `PyImport(module)` | Import a Python module → opaque handle |
 | `PyCall(handle, method, args)` | Call function on imported module |
 | `PyCallAsync(module, method, args)` | Async call (runs synchronously in v6) |
-| `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
+| `PyProcessBuffer(handle, method, buffer)` | Bulk byte lane (`PackedByteArray`) |
 | `shutdown()` | Graceful worker termination |
 
 ### Architecture
@@ -1093,6 +1093,12 @@ When enabled, the C++ facade and worker use msgpack instead of JSON for call arg
 **When to enable:** numpy/scipy calls that require integer shape arguments (`range`, `zeros`, `eye`, `linspace` count), or any bridge workload where int/float distinction matters.
 
 **When to leave off:** Legacy demos, minimal dependencies (msgpack is bundled in the worker), or when JSON debuggability is preferred.
+
+### Large float grids (binary lane)
+
+`PyCall` / `PyCallAsync` send a `PackedFloat64Array` or `PackedFloat32Array` of **10,000 elements or more** (a 100×100 grid) as a little-endian blob (`kind: call_array`), not as a JSON or msgpack list. A returned NumPy array or `array.array` of that size comes back as the same packed type (`kind: result_array`). Smaller arrays stay on the normal call path. The default payload cap is **16 MiB** (`vg/python/max_payload_bytes`).
+
+Interpreter selection, when `vg/python/executable` and `VG_PYTHON` are empty: `$VIRTUAL_ENV/bin/python` (Windows: `%VIRTUAL_ENV%\Scripts\python.exe`).
 
 See also: [python_bridge_v6_minimal_spec.md](python_bridge_v6_minimal_spec.md), [demos/Utilities/PythonBridge/README.md](../demos/Utilities/PythonBridge/README.md).
 

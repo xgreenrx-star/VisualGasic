@@ -73,6 +73,8 @@ If the worker fails to launch:
 
 - The demos let `InitializeBridge()` report startup errors directly (no separate `IsAvailable()` preflight).
 - `PyProcessBuffer()` serializes bulk bytes through the worker's binary lane; the main demo shows JSON byte-array round-trip.
+- **Large float grids:** a `PackedFloat64Array` / `PackedFloat32Array` of 10,000+ elements (100×100) is sent and returned as a raw little-endian blob. Regression: `test_proj/test_suite/test_py_large_array.vg` (`vg_lane.make_ones` / `sum_f64`).
+- **Virtualenv:** if `vg/python/executable` and `VG_PYTHON` are unset, the worker is `$VIRTUAL_ENV/bin/python` (Windows: `Scripts\python.exe`).
 - Do not name async handles `task` — **`Task` is a reserved VG keyword**; use `pyJob` instead.
 
 ## Reference

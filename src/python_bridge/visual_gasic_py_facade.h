@@ -19,6 +19,8 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
+#include <godot_cpp/variant/packed_float32_array.hpp>
+#include <godot_cpp/variant/packed_float64_array.hpp>
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 
@@ -175,6 +177,12 @@ private:
 
     String configured_python_executable() const;
     void apply_pythonpath_to_child() const;
+    static String python_from_virtual_env();
+    Dictionary dispatch_call(const String &p_module, const String &p_method, const Array &p_args);
+    static Variant value_from_array_blob(const Dictionary &p_response, const PackedByteArray &p_blob);
+
+    // PackedFloat32/64 args at or above this length use the binary lane (100×100).
+    static constexpr int k_large_array_elems = 100 * 100;
 
     // Request tracking
     std::mutex request_mutex;

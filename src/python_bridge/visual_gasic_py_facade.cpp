@@ -204,7 +204,8 @@ PyBridgeFacade::PyBridgeFacade() {
     worker_stdout_fd = -1;
     next_request_id = 1;
     worker_timeout_ms_ = 5000;
-    max_payload_bytes_ = 1024 * 1024;
+    // 16 MiB: a 1000×1000 float64 grid is 8 MiB; 1 MiB blocked that lane.
+    max_payload_bytes_ = 16 * 1024 * 1024;
     auto_restart_ = true;
 }
 
@@ -284,6 +285,8 @@ bool PyBridgeFacade::initialize_bridge() {
     if (os) {
         if (python_executable_.is_empty())
             python_executable_ = os->get_environment("VG_PYTHON");
+        if (python_executable_.is_empty())
+            python_executable_ = python_from_virtual_env();
         String env_pp = os->get_environment("VG_PYTHONPATH");
         if (!env_pp.is_empty()) {
             if (pythonpath_extra_.is_empty())
@@ -346,6 +349,28 @@ bool PyBridgeFacade::initialize_bridge() {
 
 String PyBridgeFacade::configured_python_executable() const {
     return python_executable_;
+}
+
+String PyBridgeFacade::python_from_virtual_env() {
+    OS *os = OS::get_singleton();
+    if (!os)
+        return String();
+    String root = os->get_environment("VIRTUAL_ENV");
+    if (root.is_empty())
+        return String();
+#if defined(_WIN32)
+    String cand = root.path_join("Scripts").path_join("python.exe");
+    if (FileAccess::file_exists(cand))
+        return cand;
+#else
+    String cand = root.path_join("bin").path_join("python");
+    if (FileAccess::file_exists(cand))
+        return cand;
+    cand = root.path_join("bin").path_join("python3");
+    if (FileAccess::file_exists(cand))
+        return cand;
+#endif
+    return String();
 }
 
 void PyBridgeFacade::apply_pythonpath_to_child() const {
@@ -643,8 +668,14 @@ void PyBridgeFacade::queue_restart() {
 
 Dictionary PyBridgeFacade::send_request(const String &p_kind, const String &p_module,
                                          const String &p_method, const Array &p_args) {
-    PackedByteArray dummy;
-    return send_request_binary(p_kind, p_module, p_method, p_args, dummy, dummy);
+    PackedByteArray empty;
+    PackedByteArray out_blob;
+    Dictionary resp = send_request_binary(p_kind, p_module, p_method, p_args, empty, out_blob);
+    if (resp.has("kind") && String(resp["kind"]) == "result_array" && out_blob.size() > 0) {
+        resp["value"] = value_from_array_blob(resp, out_blob);
+        resp["kind"] = "result";
+    }
+    return resp;
 }
 
 Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const String &p_module,
@@ -681,8 +712,14 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
 
     bool has_blob = p_blob.size() > 0;
     if (has_blob) {
-        request["kind"] = "call_binary";
+        if (p_kind != "call_array")
+            request["kind"] = "call_binary";
         request["blob_size"] = p_blob.size();
+        if (p_blob.size() > max_payload_bytes_) {
+            Dictionary err = make_error("Binary payload exceeds vg/python/max_payload_bytes");
+            last_error_details_ = err;
+            return err;
+        }
     }
 
     String json = vg_json_stringify_typed(request);
@@ -773,8 +810,10 @@ Dictionary PyBridgeFacade::send_request_binary(const String &p_kind, const Strin
     Dictionary resp_dict = parsed;
 
     // Read optional trailing binary blob from response
-    if (resp_dict.has("kind") && String(resp_dict["kind"]) == "result_binary") {
-        read_raw_from_worker(r_out_blob, worker_timeout_ms_);
+    if (resp_dict.has("kind")) {
+        String kind = resp_dict["kind"];
+        if (kind == "result_binary" || kind == "result_array")
+            read_raw_from_worker(r_out_blob, worker_timeout_ms_);
     }
 
     // Phase 3C: Store last error details
@@ -881,6 +920,89 @@ Variant PyBridgeFacade::py_import(const String &p_module_name) {
     return Variant();
 }
 
+Variant PyBridgeFacade::value_from_array_blob(const Dictionary &p_response, const PackedByteArray &p_blob) {
+    Variant meta_v = p_response.get("value", Variant());
+    Dictionary meta;
+    if (meta_v.get_type() == Variant::DICTIONARY)
+        meta = meta_v;
+    String dtype = meta.has("dtype") ? String(meta["dtype"]) : String();
+    int64_t count = meta.has("count") ? (int64_t)meta["count"] : (int64_t)0;
+    if (dtype == "float64" && count > 0 && p_blob.size() == count * (int64_t)sizeof(double)) {
+        PackedFloat64Array out;
+        out.resize(count);
+        memcpy(out.ptrw(), p_blob.ptr(), (size_t)p_blob.size());
+        return out;
+    }
+    if (dtype == "float32" && count > 0 && p_blob.size() == count * (int64_t)sizeof(float)) {
+        PackedFloat32Array out;
+        out.resize(count);
+        memcpy(out.ptrw(), p_blob.ptr(), (size_t)p_blob.size());
+        return out;
+    }
+    return p_response.get("value", Variant());
+}
+
+Dictionary PyBridgeFacade::dispatch_call(const String &p_module, const String &p_method, const Array &p_args) {
+    int slot = -1;
+    bool as_f64 = false;
+    for (int i = 0; i < p_args.size(); i++) {
+        Variant::Type t = p_args[i].get_type();
+        if (t == Variant::PACKED_FLOAT64_ARRAY && ((PackedFloat64Array)p_args[i]).size() >= k_large_array_elems) {
+            slot = i;
+            as_f64 = true;
+            break;
+        }
+        if (t == Variant::PACKED_FLOAT32_ARRAY && ((PackedFloat32Array)p_args[i]).size() >= k_large_array_elems) {
+            slot = i;
+            as_f64 = false;
+            break;
+        }
+    }
+    if (slot < 0)
+        return send_request("call", p_module, p_method, p_args);
+
+    Array wire_args;
+    PackedByteArray blob;
+    int64_t count = 0;
+    String dtype;
+    if (as_f64) {
+        PackedFloat64Array src = p_args[slot];
+        count = src.size();
+        dtype = "float64";
+        blob.resize(count * (int64_t)sizeof(double));
+        memcpy(blob.ptrw(), src.ptr(), (size_t)blob.size());
+    } else {
+        PackedFloat32Array src = p_args[slot];
+        count = src.size();
+        dtype = "float32";
+        blob.resize(count * (int64_t)sizeof(float));
+        memcpy(blob.ptrw(), src.ptr(), (size_t)blob.size());
+    }
+    for (int i = 0; i < p_args.size(); i++) {
+        if (i == slot)
+            continue;
+        wire_args.push_back(p_args[i]);
+    }
+    Dictionary meta;
+    meta["array_index"] = slot;
+    meta["dtype"] = dtype;
+    meta["count"] = count;
+    // send_request_binary copies p_args onto the request; stash lane fields there
+    // and also as real request keys via a dedicated args wrapper.
+    Array lane_args;
+    lane_args.push_back(meta);
+    for (int i = 0; i < wire_args.size(); i++)
+        lane_args.push_back(wire_args[i]);
+
+    PackedByteArray response_blob;
+    Dictionary response = send_request_binary("call_array", p_module, p_method, lane_args, blob, response_blob);
+    if (response.has("kind") && String(response["kind"]) == "result_array" && response_blob.size() > 0) {
+        response["value"] = value_from_array_blob(response, response_blob);
+        response["kind"] = "result";
+    }
+    return response;
+}
+
 Variant PyBridgeFacade::py_call(const Variant &p_handle, const String &p_method,
                                  const Array &p_args) {
     if (!initialized) {
@@ -888,7 +1010,7 @@ Variant PyBridgeFacade::py_call(const Variant &p_handle, const String &p_method,
         return Variant();
     }
     String module_name = p_handle;
-    Dictionary response = send_request("call", module_name, p_method, p_args);
+    Dictionary response = dispatch_call(module_name, p_method, p_args);
     if (response.has("status") && String(response["status"]) == "ok")
         return response["value"];
 
@@ -1023,7 +1145,7 @@ Variant PyBridgeFacade::py_call_async(const String &p_module, const String &p_me
 
     // Spawn a thread to execute the remote call
     std::thread t([task, self_ref, p_module, p_method, p_args]() {
-        Dictionary resp = self_ref->send_request("call", p_module, p_method, p_args);
+        Dictionary resp = self_ref->dispatch_call(p_module, p_method, p_args);
         std::lock_guard<std::mutex> lock(task->result_mutex_);
         if (resp.has("status") && String(resp["status"]) == "ok") {
             task->result_ = resp["value"];

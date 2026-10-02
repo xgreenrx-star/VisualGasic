@@ -32,7 +32,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 | M0–M4 | ✅ Done | Bugs, corpus, Code Navigator, UI Forms |
 | M5 | ✅ Done | Buffer, optimizer hints, Narcea Tier A/B |
 | M6 | ✅ Teaser | Text causal chain; visual panel → v6.1 |
-| M7 | 🔄 Close-out | Core async/sync Python ✅; Windows e2e, Phase 2 numpy ecosystem pending |
+| M7 | ✅ Linux close-out | Core Python ✅; venv + large-array lane on Linux CI. Windows/macOS e2e still deferred |
 | M8 | 🔄 Partial | `Let` ✅; FFI syntax + stress tests pending |
 | M9 | 🔄 Pending | Installer smoke; Asset Library ✅ live |
 
@@ -131,11 +131,11 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 - M8 — `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus
 
 **Expected features:**
-- Windows e2e: `PyCallAsync` + `Await` on clean VM
-- numpy/opencv (or pandas) Phase 2 demo + tests
-- Worker hardening: venv detection, `PYTHONPATH`, timeout recovery
-- C++ FFI syntax + packaging docs
-- Optional: large-array binary lane (>100×100) or defer to v6.1
+- Windows e2e: `PyCallAsync` + `Await` on clean VM (still open — no Windows runner in this close-out)
+- numpy/opencv (or pandas) Phase 2 demo + tests (JSON helpers shipped; Linux CI runs `scripts/test_python_numpy_json_safe.py`)
+- Worker hardening: venv detection (`VIRTUAL_ENV`), `PYTHONPATH`, timeout recovery
+- C++ FFI syntax + packaging docs (M8)
+- Large-array binary lane for `PackedFloat64Array` / `PackedFloat32Array` ≥ 100×100 (`test_py_large_array.vg`)
 - Reference dispatch **R1** (`Interface` parser) if M8 bandwidth allows — see [`ROADMAP.md`](ROADMAP.md) § Reference dispatch — remaining TODO
 
 **Explicitly not in 5.5 scope:** M6 visual graph panel (v6.1), tagged stack VM (not pursued).

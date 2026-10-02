@@ -913,7 +913,7 @@ Short, finishable list. **No new aspirational items.**
 |-----------|--------|---------------------------|
 | **M5** | ✅ **DONE** | — (Narcea Tier A/B validated on `main`) |
 | **M6** | ✅ **Teaser done** | Visual panel explicitly v6.1+ |
-| **M7** | 🔄 **Close-out** | numpy JSON + interpreter/`PYTHONPATH` logic done (Linux verified when libs present). **Deferred testing:** Windows + macOS clean-VM smoke. Still open: large-array binary lane, typed-protocol default-on decision |
+| **M7** | ✅ **Linux close-out** | numpy JSON, venv interpreter, large-array binary lane (100×100+). **Still deferred:** Windows + macOS clean-VM smoke, typed-protocol default-on |
 | **M8** | 🔄 **Partial** | `Let` ✅; `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus |
 | **M9** | 🔄 **Pending** | Installer smoke (Linux + Windows), docs/corpus release gate (Asset Library ✅ live) |
 
@@ -927,7 +927,7 @@ Short, finishable list. **No new aspirational items.**
 | **M4 — UI Forms experimental** | September 30 2026 | ✅ **DONE** (Jul 1) — Control picker popup → ghost placement → single-click place → double-click wire → `Sub Button1_Click()` in `Form1.vg`. Save/reopen preserves everything. Gated behind `vg/enable_experimental_plugins`. |
 | **M5 — Narcea Vibe Code** | October 15 2026 | ✅ **DONE (Sep 2026)** — Buffer type, optimizer hints, Narcea Tier A/B golden path, 8 AI providers (Ollama, Claude, Gemini, DeepSeek, Qwen, Codeium, Amazon Q, Cursor). See v5.4.0-beta2 in [`CHANGELOG.md`](CHANGELOG.md). |
 | **M6 — Causal Chain Visualization (teaser)** | October 31 2026 | ✅ **Teaser done (Sep 2026)** — C++ `VisualGasicLanguage.vg_analyze_causal_graph`, `vg_causal_chain.gd`, Code Navigator **Show Causal Chain** button, Context Rail preview, 8 headless fixtures. **Visual graph panel → v6.1+.** |
-| **M7 — Python Library Integration (Tier A)** | November 15 2026 | 🔄 **Core path done** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), numpy/pandas/torch JSON helpers, interpreter + `PYTHONPATH` on Linux/macOS/Windows (logical). **Deferred:** Windows and macOS e2e smoke (no hosts here). **Still open:** large-array binary lane (>100×100), typed-protocol default-on. |
+| **M7 — Python Library Integration (Tier A)** | November 15 2026 | ✅ **Linux close-out** — `PyImport` / `PyCall` / `PyCallAsync` / `Await`, msgpack C2 (opt-in), numpy/pandas/torch JSON helpers, `VIRTUAL_ENV` interpreter, **large-array binary lane** (PackedFloat32/64 ≥ 100×100). CI: `test_py_*.vg` + `test_python_numpy_json_safe.py`. **Deferred:** Windows and macOS e2e smoke, typed-protocol default-on. |
 | **M7+ — Performance Optimizations (Phase 1)** | December 2026+ | (1) **~~Tagged Stack~~ — NOT PURSUED** (Sept 2026). (2) **Type-Tagged Locals** — highest ROI; research in M7, ship target v6.1. (3) **Packed Arrays** (v6.1). (4) **SIMD Hinting** (v7.0 research). |
 
 #### numpy Support — Phased Plan (within M7 scope)
@@ -935,7 +935,7 @@ Short, finishable list. **No new aspirational items.**
 | Phase | What | Status | Work |
 |-------|------|--------|------|
 | **0 — JSON-serializable numpy** | `numpy.array()`, `dot()`, `sum()`, `linalg.norm()`, `float32()`, scalars, small 2D arrays | ✅ **Done** (Jul 11) | All work via existing `_make_json_safe()` in `python_worker.py` (has `tolist()`/`item()` fallbacks). Demo tested with 5 operations. |
-| **1 — Type-fidelity binary protocol** | Typed msgpack wire (C2) preserving int/float/string/array distinction; eliminates float-only limitation on `Array()` args when `vg/python/use_typed_protocol = true`. Large-array PackedFloat64Array fast path still pending. | ✅ **C2 shipped (Sep 2026, opt-in)** | `vg_msgpack.cpp`, worker `--typed-protocol`, `test_py_msgpack_typed.vg`. Remaining: default-on decision, large-array binary lane (>100×100). |
+| **1 — Type-fidelity binary protocol** | Typed msgpack wire (C2) plus raw float blob for grids ≥ 100×100 (`call_array` / `result_array`). | ✅ **Shipped** | `vg_msgpack.cpp`, `test_py_msgpack_typed.vg`, `test_py_large_array.vg`. Typed protocol stays opt-in. |
 | **2 — Ecosystem expansion** | opencv Mats (numpy ndarrays), torch tensors, pandas DataFrame/Series, structured dtypes → JSON via `_make_json_safe`. | ✅ **Logical path done (Sep 2026)** | `python_worker.py` + `scripts/test_python_numpy_json_safe.py` (skips libs that are not installed). **OS e2e (Windows / macOS) deferred** — add to a later testing milestone; Linux is the current CI host. |
 | **3 — Worker hardening** | Interpreter selection + `PYTHONPATH` on Linux, macOS, and Windows. | ✅ **Logical path done (Sep 2026)** | `vg/python/executable` or `VG_PYTHON`; `vg/python/pythonpath` or `VG_PYTHONPATH`. Unix: `python3` then `python`. Windows: `py`, then `python`, then `python3`, and `--typed-protocol` matches Unix. **Clean-VM smoke on Windows and macOS deferred** (no test hosts in this repo yet). |
 
@@ -1537,7 +1537,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M4** | UI Forms experimental (#8–#12): VB6 visual form designer, control picker popup, ghost placement, signal wiring, two-layer events | Sep 30 | ✅ **DONE** (Jul 1) |
 | **M5** | Narcea Vibe Code (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
 | **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Teaser done** (Sep 2026) — visual panel → v6.1 |
-| **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, numpy demos | Nov 15 | 🔄 **Close-out** — core Linux path ✅; Windows e2e, Phase 2 ecosystem (opencv/torch/pandas), large-array lane pending |
+| **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, large-array lane, venv | Nov 15 | ✅ **Linux close-out** — Windows/macOS e2e and typed-protocol default-on still deferred |
 | **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | 🔄 **Partial** — `Let` ✅ (beta2); FFI demo ✅; syntax + stress corpus pending |
 | **M9** | Release readiness: installer smoke, 50+ corpus, docs current | Nov 28 | 🔄 **Pending** — Asset Library ✅ live (Aug 2026) |
 | **v6.0** | Stable release | Jan 1 2027 | — |
