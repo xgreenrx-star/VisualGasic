@@ -1,0 +1,167 @@
+' In-helmet HUD — utilitarian cyborg rig (Murderbot-adjacent: corporate rescue unit, not IP).
+' Vector frame + scan line; no bitmap assets. Drawn on top of the world view.
+
+Option Explicit
+
+Sub HudLine(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal w As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal a As Single)
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), w, Color(r, g, b, a))
+End Sub
+
+Sub HudBracket(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal len As Single, ByVal flipX As Boolean, ByVal flipY As Boolean)
+	Dim sx As Single
+	Dim sy As Single
+	sx = 1.0
+	sy = 1.0
+	If flipX Then sx = -1.0
+	If flipY Then sy = -1.0
+	Call HudLine(canvas, x, y, x + len * sx, y, 2.0, 0.35, 0.92, 1.05, 0.95)
+	Call HudLine(canvas, x, y, x, y + len * sy, 2.0, 0.35, 0.92, 1.05, 0.95)
+End Sub
+
+Sub HudBar(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal label As String, ByVal frac As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call canvas.DrawRect(Rect2(x, y, w, 10.0), 1.0, Color(0.12, 0.18, 0.22, 0.9), False, Color(0.2, 0.55, 0.65, 0.35))
+	Dim fw As Single
+	fw = (w - 4.0) * frac
+	If fw < 0.0 Then fw = 0.0
+	If fw > w - 4.0 Then fw = w - 4.0
+	Call canvas.DrawRect(Rect2(x + 2.0, y + 2.0, fw, 6.0), 0.0, Color(r, g, b, 0.95), True, Color(r * 0.7, g * 0.7, b * 0.8, 1.0))
+	Call canvas.DrawVectorText(Vector2(x, y - 14.0), label, Color(0.45, 0.75, 0.82, 0.95), 0.95, 0.85, "left", 1.1, "")
+End Sub
+
+Sub DrawVisorVignette(ByVal canvas As Object)
+	Dim edge As Single
+	edge = 72.0
+	Call canvas.DrawRect(Rect2(0.0, 0.0, 960.0, edge), 0.0, Color(0, 0, 0, 0), True, Color(0.01, 0.02, 0.03, 0.72))
+	Call canvas.DrawRect(Rect2(0.0, 540.0 - edge, 960.0, edge), 0.0, Color(0, 0, 0, 0), True, Color(0.01, 0.02, 0.03, 0.78))
+	Call canvas.DrawRect(Rect2(0.0, 0.0, edge, 540.0), 0.0, Color(0, 0, 0, 0), True, Color(0.01, 0.02, 0.03, 0.65))
+	Call canvas.DrawRect(Rect2(960.0 - edge, 0.0, edge, 540.0), 0.0, Color(0, 0, 0, 0), True, Color(0.01, 0.02, 0.03, 0.65))
+End Sub
+
+Sub DrawHelmetBezel(ByVal canvas As Object, ByVal time As Single)
+	Dim i As Integer
+	Dim pulse As Single
+	pulse = 0.55 + 0.45 * Sin(time * 2.2)
+	For i = 0 To 28
+		Dim t0 As Single
+		Dim t1 As Single
+		t0 = 3.14159 * (CSng(i) / 28.0)
+		t1 = 3.14159 * (CSng(i + 1) / 28.0)
+		Dim lx0 As Single
+		Dim ly0 As Single
+		Dim lx1 As Single
+		Dim ly1 As Single
+		lx0 = 118.0 + Cos(t0) * 92.0
+		ly0 = 270.0 + Sin(t0) * 118.0
+		lx1 = 118.0 + Cos(t1) * 92.0
+		ly1 = 270.0 + Sin(t1) * 118.0
+		Call HudLine(canvas, lx0, ly0, lx1, ly1, 2.4, 0.25, 0.85 * pulse, 1.0, 0.55)
+		Dim rx0 As Single
+		Dim ry0 As Single
+		Dim rx1 As Single
+		Dim ry1 As Single
+		rx0 = 842.0 - Cos(t0) * 92.0
+		ry0 = 270.0 + Sin(t0) * 118.0
+		rx1 = 842.0 - Cos(t1) * 92.0
+		ry1 = 270.0 + Sin(t1) * 118.0
+		Call HudLine(canvas, rx0, ry0, rx1, ry1, 2.4, 0.25, 0.85 * pulse, 1.0, 0.55)
+	Next
+	Call HudLine(canvas, 210.0, 88.0, 750.0, 88.0, 2.0, 0.3, 0.9, 1.05, 0.85)
+	Call HudLine(canvas, 180.0, 468.0, 780.0, 468.0, 1.5, 0.35, 0.75, 0.95, 0.6)
+	Call HudBracket(canvas, 24.0, 24.0, 36.0, False, False)
+	Call HudBracket(canvas, 936.0, 24.0, 36.0, True, False)
+	Call HudBracket(canvas, 24.0, 516.0, 36.0, False, True)
+	Call HudBracket(canvas, 936.0, 516.0, 36.0, True, True)
+End Sub
+
+Sub DrawReticle(ByVal canvas As Object, ByVal time As Single)
+	Dim cx As Single
+	Dim cy As Single
+	cx = 480.0
+	cy = 268.0
+	Dim wob As Single
+	wob = Sin(time * 4.0) * 1.2
+	Call canvas.DrawCircle(Vector2(cx, cy), 22.0 + wob, Color(0.35, 0.95, 1.05, 0.35), False, Color(0.2, 0.7, 0.9, 0.9))
+	Call canvas.DrawCircle(Vector2(cx, cy), 6.0, Color(1.0, 0.45, 0.25, 0.5), False, Color(0.9, 0.35, 0.2, 0.85))
+	Call HudLine(canvas, cx - 28.0, cy, cx - 8.0, cy, 1.2, 0.4, 0.95, 1.0, 0.9)
+	Call HudLine(canvas, cx + 8.0, cy, cx + 28.0, cy, 1.2, 0.4, 0.95, 1.0, 0.9)
+	Call HudLine(canvas, cx, cy - 28.0, cx, cy - 8.0, 1.2, 0.4, 0.95, 1.0, 0.9)
+	Call HudLine(canvas, cx, cy + 8.0, cx, cy + 28.0, 1.2, 0.4, 0.95, 1.0, 0.9)
+End Sub
+
+Sub DrawScanSweep(ByVal canvas As Object, ByVal time As Single)
+	Dim sy As Single
+	sy = 90.0 + (time * 95.0 Mod 360.0)
+	Call HudLine(canvas, 140.0, sy, 820.0, sy, 1.0, 0.2, 0.85, 1.0, 0.22)
+	Call HudLine(canvas, 140.0, sy + 2.0, 820.0, sy + 2.0, 3.0, 0.15, 0.5, 0.7, 0.08)
+End Sub
+
+Sub DrawHeadingTape(ByVal canvas As Object, ByVal heading As Single)
+	Dim deg As Single
+	deg = heading * 57.2958
+	If deg < 0.0 Then deg = deg + 360.0
+	Call canvas.DrawVectorText(Vector2(720.0, 36.0), "HDG " & CStr(Int(deg)), Color(0.5, 0.88, 0.95, 0.95), 1.15, 1.0, "left", 1.2, "")
+	Call HudLine(canvas, 720.0, 52.0, 920.0, 52.0, 1.0, 0.25, 0.7, 0.85, 0.5)
+	Dim i As Integer
+	For i = 0 To 8
+		Dim tx As Single
+		tx = 720.0 + CSng(i) * 22.0
+		Call HudLine(canvas, tx, 48.0, tx, 56.0, 1.0, 0.3, 0.75, 0.9, 0.65)
+	Next
+End Sub
+
+Sub DrawHudCaption(ByVal canvas As Object, ByVal title As String, ByVal line As String)
+	Dim title_scale As Single
+	Dim line_scale As Single
+	Dim title_w As Single
+	Dim line_w As Single
+	title_scale = 1.7
+	line_scale = 1.85
+	title_w = CSng(Len(title)) * 11.5 * title_scale
+	If title_w > 820.0 And Len(title) > 0 Then
+		title_scale = title_scale * 820.0 / title_w
+	End If
+	If line <> "" Then
+		line_w = CSng(Len(line)) * 10.2 * line_scale
+		If line_w > 820.0 Then
+			line_scale = line_scale * 820.0 / line_w
+		End If
+	End If
+	Call canvas.DrawRect(Rect2(36.0, 448.0, 888.0, 76.0), 1.6, Color(0.28, 0.72, 0.86, 0.95), True, Color(0.015, 0.03, 0.05, 0.94))
+	Call canvas.DrawVectorText(Vector2(52.0, 456.0), title, Color(0.72, 0.96, 1.0, 1.0), title_scale, 2.4, "left", 2.2, "")
+	If line <> "" Then
+		Call canvas.DrawVectorText(Vector2(52.0, 486.0), line, Color(0.94, 0.97, 1.0, 1.0), line_scale, 2.6, "left", 2.3, "")
+	End If
+End Sub
+
+Sub DrawOverseerTicker(ByVal canvas As Object, ByVal time As Single)
+	Dim msg As String
+	msg = "OVERSEER: facility telemetry nominal — do not deviate from marked route"
+	If time > 12.0 Then msg = "OVERSEER: gravity lattice stable — portal keys remain company property"
+	If time > 28.0 Then msg = "OVERSEER: biohazard signatures detected — maintain sealed suit"
+	Call canvas.DrawRect(Rect2(48.0, 492.0, 864.0, 36.0), 1.0, Color(0.08, 0.12, 0.14, 0.85), True, Color(0.04, 0.06, 0.08, 0.75))
+	Call canvas.DrawVectorText(Vector2(60.0, 508.0), msg, Color(0.55, 0.78, 0.72, 0.95), 0.9, 0.82, "left", 1.0, "")
+End Sub
+
+Sub DrawHelmetHud(ByVal canvas As Object, ByVal delta As Single, ByVal heading As Single, ByVal time As Single, Optional lite As Boolean = False)
+	Call DrawVisorVignette(canvas)
+	If lite Then
+		Call HudBracket(canvas, 24.0, 24.0, 32.0, False, False)
+		Call HudBracket(canvas, 936.0, 24.0, 32.0, True, False)
+		Call DrawReticle(canvas, time)
+		Call HudBar(canvas, 36.0, 120.0, 120.0, "SUIT", 0.92, 0.25, 0.85, 0.95)
+		Call HudBar(canvas, 36.0, 168.0, 120.0, "LINK", 0.78, 0.35, 0.75, 1.0)
+		Exit Sub
+	End If
+	Call DrawHelmetBezel(canvas, time)
+	Call DrawScanSweep(canvas, time)
+	Call DrawReticle(canvas, time)
+	Call DrawHeadingTape(canvas, heading)
+	Call HudBar(canvas, 36.0, 120.0, 140.0, "SUIT", 0.92, 0.25, 0.85, 0.95)
+	Call HudBar(canvas, 36.0, 168.0, 140.0, "LINK", 0.78, 0.35, 0.75, 1.0)
+	Call HudBar(canvas, 36.0, 216.0, 140.0, "GRAV", 0.55, 0.95, 0.55, 0.85)
+	Call HudBar(canvas, 36.0, 264.0, 140.0, "PORT", 0.4, 0.85, 1.0, 0.95)
+	Call canvas.DrawVectorText(Vector2(36.0, 22.0), "MEDIAN SERIES // RESCUE RIG", Color(0.45, 0.92, 1.05, 0.95), 1.35, 1.15, "left", 1.4, "")
+	Call canvas.DrawVectorText(Vector2(36.0, 46.0), "UNIT MS-07  VISOR FEED", Color(0.35, 0.62, 0.68, 0.9), 0.95, 0.85, "left", 1.1, "")
+	Call canvas.DrawVectorText(Vector2(640.0, 480.0), "CHAMBER 00 — ORIENTATION", Color(0.4, 0.7, 0.75, 0.85), 1.0, 0.9, "left", 1.1, "")
+	Call DrawOverseerTicker(canvas, time)
+End Sub

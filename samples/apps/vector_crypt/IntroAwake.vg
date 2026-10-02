@@ -1,0 +1,238 @@
+' Lying in the hospital bed, looking toward the foot.
+' Cream frame, periwinkle panels, teal mattress — same bed as the side-view reference.
+' Quads are clipped to the near plane so the sheet and rails can leave the frame.
+
+Option Explicit
+
+Dim bed_pitch As Single
+Dim bed_built As Boolean
+Dim bed_record As Boolean
+Dim bed_x As Single
+Dim bed_z As Single
+Dim bed_n As Integer
+Dim bed_cx(8) As Single
+Dim bed_cy(8) As Single
+Dim bed_cz(8) As Single
+Dim bed_sx(8) As Single
+Dim bed_sy(8) As Single
+
+Sub ToCam(ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByVal wx As Single, ByVal wy As Single, ByVal wz As Single, ByRef cx As Single, ByRef cy As Single, ByRef cz As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = wx - ox
+	dy = wy - oy
+	dz = wz - oz
+	Dim cyaw As Single
+	Dim syaw As Single
+	cyaw = Cos(yaw)
+	syaw = Sin(yaw)
+	Dim rx As Single
+	Dim rz As Single
+	rx = dx * cyaw - dz * syaw
+	rz = dx * syaw + dz * cyaw
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(bed_pitch)
+	sp = Sin(bed_pitch)
+	cx = rx
+	cy = dy * cp - rz * sp
+	cz = dy * sp + rz * cp
+End Sub
+
+Sub ClipPush(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	If bed_n >= 6 Then Exit Sub
+	bed_n = bed_n + 1
+	bed_cx(bed_n) = x
+	bed_cy(bed_n) = y
+	bed_cz(bed_n) = z
+End Sub
+
+Sub ClipEdge(ByVal ax As Single, ByVal ay As Single, ByVal az As Single, ByVal bx As Single, ByVal by As Single, ByVal bz As Single)
+	Dim near As Single
+	near = 0.2
+	Dim ain As Boolean
+	Dim bin As Boolean
+	ain = az >= near
+	bin = bz >= near
+	Dim dz As Single
+	Dim t As Single
+	dz = bz - az
+	If ain And bin Then
+		Call ClipPush(bx, by, bz)
+	ElseIf ain And Not bin Then
+		If dz < -0.0001 Or dz > 0.0001 Then
+			t = (near - az) / dz
+			Call ClipPush(ax + (bx - ax) * t, ay + (by - ay) * t, near)
+		End If
+	ElseIf Not ain And bin Then
+		If dz < -0.0001 Or dz > 0.0001 Then
+			t = (near - az) / dz
+			Call ClipPush(ax + (bx - ax) * t, ay + (by - ay) * t, near)
+		End If
+		Call ClipPush(bx, by, bz)
+	End If
+End Sub
+
+Sub FPLine(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal w As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal a As Single)
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), w, Color(r, g, b, a))
+End Sub
+
+Sub FPQuad(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal x3 As Single, ByVal y3 As Single, ByVal z3 As Single, ByVal fr As Single, ByVal fg As Single, ByVal fb As Single, ByVal fa As Single, ByVal er As Single, ByVal eg As Single, ByVal eb As Single, ByRef sx As Single, ByRef sy As Single, ByRef sz As Single)
+	Dim ax As Single
+	Dim ay As Single
+	Dim az As Single
+	Dim bx As Single
+	Dim by As Single
+	Dim bz As Single
+	Dim cx As Single
+	Dim cy As Single
+	Dim cz As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	If bed_record Then
+		Call canvas.ClearWireAnchor()
+		Call canvas.SetWireBias(0.03)
+		Call canvas.AddWireQuad3D(x0 + bed_x, y0, z0 + bed_z, x1 + bed_x, y1, z1 + bed_z, x2 + bed_x, y2, z2 + bed_z, x3 + bed_x, y3, z3 + bed_z, Color(fr, fg, fb, fa))
+		Call canvas.SetWireBias(-0.02)
+		Call canvas.AddWireLine3D(x0 + bed_x, y0, z0 + bed_z, x1 + bed_x, y1, z1 + bed_z, 1.8, Color(er, eg, eb, 1.0))
+		Call canvas.AddWireLine3D(x1 + bed_x, y1, z1 + bed_z, x2 + bed_x, y2, z2 + bed_z, 1.8, Color(er, eg, eb, 1.0))
+		Call canvas.AddWireLine3D(x2 + bed_x, y2, z2 + bed_z, x3 + bed_x, y3, z3 + bed_z, 1.8, Color(er, eg, eb, 1.0))
+		Call canvas.AddWireLine3D(x3 + bed_x, y3, z3 + bed_z, x0 + bed_x, y0, z0 + bed_z, 1.8, Color(er, eg, eb, 1.0))
+		Call canvas.SetWireBias(0.0)
+		Exit Sub
+	End If
+	Call ToCam(ox, oy, oz, yaw, x0, y0, z0, ax, ay, az)
+	Call ToCam(ox, oy, oz, yaw, x1, y1, z1, bx, by, bz)
+	Call ToCam(ox, oy, oz, yaw, x2, y2, z2, cx, cy, cz)
+	Call ToCam(ox, oy, oz, yaw, x3, y3, z3, dx, dy, dz)
+	bed_n = 0
+	Call ClipEdge(ax, ay, az, bx, by, bz)
+	Call ClipEdge(bx, by, bz, cx, cy, cz)
+	Call ClipEdge(cx, cy, cz, dx, dy, dz)
+	Call ClipEdge(dx, dy, dz, ax, ay, az)
+	If bed_n < 3 Then Exit Sub
+	Dim i As Integer
+	Dim sc As Single
+	For i = 1 To bed_n
+		sc = 420.0 / bed_cz(i)
+		bed_sx(i) = 480.0 + bed_cx(i) * sc
+		bed_sy(i) = 300.0 - bed_cy(i) * sc
+	Next i
+	Dim pts As Variant
+	If bed_n = 3 Then
+		pts = Array(Vector2(bed_sx(1), bed_sy(1)), Vector2(bed_sx(2), bed_sy(2)), Vector2(bed_sx(3), bed_sy(3)))
+	ElseIf bed_n = 4 Then
+		pts = Array(Vector2(bed_sx(1), bed_sy(1)), Vector2(bed_sx(2), bed_sy(2)), Vector2(bed_sx(3), bed_sy(3)), Vector2(bed_sx(4), bed_sy(4)))
+	Else
+		pts = Array(Vector2(bed_sx(1), bed_sy(1)), Vector2(bed_sx(2), bed_sy(2)), Vector2(bed_sx(3), bed_sy(3)), Vector2(bed_sx(4), bed_sy(4)), Vector2(bed_sx(5), bed_sy(5)))
+	End If
+	Call canvas.DrawPolygon(pts, 0.0, Color(0, 0, 0, 1), True, Color(fr, fg, fb, fa))
+	For i = 1 To bed_n - 1
+		Call FPLine(canvas, bed_sx(i), bed_sy(i), bed_sx(i + 1), bed_sy(i + 1), 1.35, er, eg, eb, 0.95)
+	Next i
+	Call FPLine(canvas, bed_sx(bed_n), bed_sy(bed_n), bed_sx(1), bed_sy(1), 1.35, er, eg, eb, 0.95)
+	sx = bed_sx(1)
+	sy = bed_sy(1)
+	sz = bed_cz(1)
+End Sub
+
+Sub FPSeg(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal w As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim ax As Single
+	Dim ay As Single
+	Dim az As Single
+	Dim bx As Single
+	Dim by As Single
+	Dim bz As Single
+	If bed_record Then
+		Call canvas.AddWireLine3D(x0 + bed_x, y0, z0 + bed_z, x1 + bed_x, y1, z1 + bed_z, w, Color(r, g, b, 0.95))
+		Exit Sub
+	End If
+	Call ToCam(ox, oy, oz, yaw, x0, y0, z0, ax, ay, az)
+	Call ToCam(ox, oy, oz, yaw, x1, y1, z1, bx, by, bz)
+	Dim near As Single
+	near = 0.2
+	If az < near And bz < near Then Exit Sub
+	Dim t As Single
+	If az < near Then
+		t = (near - az) / (bz - az)
+		ax = ax + (bx - ax) * t
+		ay = ay + (by - ay) * t
+		az = near
+	ElseIf bz < near Then
+		t = (near - bz) / (az - bz)
+		bx = bx + (ax - bx) * t
+		by = by + (ay - by) * t
+		bz = near
+	End If
+	Dim sc As Single
+	sc = 420.0 / az
+	Dim sx0 As Single
+	Dim sy0 As Single
+	sx0 = 480.0 + ax * sc
+	sy0 = 300.0 - ay * sc
+	sc = 420.0 / bz
+	Call FPLine(canvas, sx0, sy0, 480.0 + bx * sc, 300.0 - by * sc, w, r, g, b, 0.95)
+End Sub
+
+Sub RecordBed(ByVal canvas As Object)
+	If bed_built Then Exit Sub
+	bed_x = 0.0
+	bed_z = 1.2
+	bed_record = True
+	Dim sx As Single
+	Dim sy As Single
+	Dim sz As Single
+	' Cream frame + periwinkle mattress — readable wire furniture, not a black/white blob.
+	Call FPQuad(canvas, 0.0, 0.0, 0.0, 0.0, -0.5, 0.48, 0.2, 0.5, 0.48, 0.2, 0.5, 0.48, 2.1, -0.5, 0.48, 2.1, 0.22, 0.38, 0.48, 1.0, 0.85, 0.95, 1.05, sx, sy, sz)
+	Call FPQuad(canvas, 0.0, 0.0, 0.0, 0.0, -0.55, 0.48, 0.15, 0.55, 0.48, 0.15, 0.55, 1.05, 0.15, -0.55, 1.05, 0.15, 0.55, 0.5, 0.42, 1.0, 1.05, 0.95, 0.75, sx, sy, sz)
+	Call FPQuad(canvas, 0.0, 0.0, 0.0, 0.0, -0.55, 0.48, 2.15, 0.55, 0.48, 2.15, 0.55, 1.0, 2.15, -0.55, 1.0, 2.15, 0.55, 0.5, 0.42, 1.0, 1.05, 0.95, 0.75, sx, sy, sz)
+	Call FPQuad(canvas, 0.0, 0.0, 0.0, 0.0, -0.55, 0.48, 0.35, -0.55, 0.48, 2.0, -0.55, 0.85, 2.0, -0.55, 0.85, 0.35, 0.5, 0.46, 0.38, 1.0, 1.0, 0.9, 0.7, sx, sy, sz)
+	Call FPQuad(canvas, 0.0, 0.0, 0.0, 0.0, 0.55, 0.48, 2.0, 0.55, 0.48, 0.35, 0.55, 0.85, 0.35, 0.55, 0.85, 2.0, 0.5, 0.46, 0.38, 1.0, 1.0, 0.9, 0.7, sx, sy, sz)
+	Call DrawTrapeze(canvas, 0.0, 0.0, 0.0, 0.0, sx, sy, sz)
+	bed_record = False
+	bed_built = True
+End Sub
+
+Sub DrawBedWakeScene(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal intro_time As Single, ByRef sx As Single, ByRef sy As Single, ByRef sz As Single)
+	sx = 0.0
+	sy = 0.0
+	sz = 1.0
+End Sub
+
+Sub DrawTrapeze(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByRef sx As Single, ByRef sy As Single, ByRef sz As Single)
+	' Straight drop from the ceiling, triangle grip with the bar at the bottom.
+	Call FPSeg(canvas, ox, oy, oz, yaw, 0.0, 4.32, 1.25, 0.0, 1.48, 1.25, 2.2, 0.14, 0.14, 0.16)
+	Call FPSeg(canvas, ox, oy, oz, yaw, 0.0, 1.48, 1.25, -0.1, 1.28, 1.25, 2.2, 0.1, 0.1, 0.12)
+	Call FPSeg(canvas, ox, oy, oz, yaw, 0.0, 1.48, 1.25, 0.1, 1.28, 1.25, 2.2, 0.1, 0.1, 0.12)
+	Call FPSeg(canvas, ox, oy, oz, yaw, -0.1, 1.28, 1.25, 0.1, 1.28, 1.25, 2.4, 0.1, 0.1, 0.12)
+	sx = 0.0
+	sy = 0.0
+	sz = 1.0
+End Sub
+
+Sub DrawIntroFade(ByVal canvas As Object, ByVal intro_time As Single)
+	Dim fade As Single
+	fade = 1.0 - intro_time / 2.8
+	If fade < 0.0 Then fade = 0.0
+	If fade > 0.0 Then
+		Call canvas.DrawRect(Rect2(0.0, 0.0, 960.0, 540.0), 0.0, Color(0, 0, 0, 0), True, Color(0, 0, 0, fade))
+	End If
+End Sub
+
+Sub DrawIntroHelmetFrame(ByVal canvas As Object, ByVal intro_time As Single)
+	Dim a As Single
+	a = 0.35 + intro_time * 0.12
+	If a > 0.75 Then a = 0.75
+	Call FPLine(canvas, 24.0, 24.0, 60.0, 24.0, 1.5, 0.35, 0.75, 0.82, a)
+	Call FPLine(canvas, 24.0, 24.0, 24.0, 60.0, 1.5, 0.35, 0.75, 0.82, a)
+	Call FPLine(canvas, 936.0, 24.0, 900.0, 24.0, 1.5, 0.35, 0.75, 0.82, a)
+	Call FPLine(canvas, 936.0, 24.0, 936.0, 60.0, 1.5, 0.35, 0.75, 0.82, a)
+End Sub
+
+Sub DrawIntroSubtitle(ByVal canvas As Object, ByVal line As String, ByVal alpha As Single)
+	If line = "" Then Exit Sub
+	Call canvas.DrawRect(Rect2(120.0, 430.0, 720.0, 72.0), 1.0, Color(0.92, 0.94, 0.96, 0.08 * alpha), True, Color(0.88, 0.9, 0.93, 0.12 * alpha))
+	Call canvas.DrawVectorText(Vector2(140.0, 458.0), line, Color(0.15, 0.18, 0.22, alpha), 1.15, 1.05, "left", 1.25, "")
+End Sub

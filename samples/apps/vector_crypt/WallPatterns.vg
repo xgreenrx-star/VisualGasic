@@ -1,0 +1,194 @@
+' Neon wire walls for Vector Crypt.
+' Black occlusion plus concentric neon squares — Paradox Vector style.
+' No brick / cement paint. That paint was the hatch fighting the camera.
+
+Option Explicit
+
+Dim anchor_lock As Boolean
+
+Sub NeonEdge(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call canvas.ClearWireAnchor()
+	' HDR neon so glow catches edges the way Paradox Vector does.
+	Call canvas.AddWireLine3D(x0, y0, z0, x1, y1, z1, 1.5, Color(r * 1.25, g * 1.25, b * 1.25, 1.0))
+End Sub
+
+' A stroke sitting in the wall plane. Quads, not view ribbons, so the
+' spiral does not crawl when the camera turns.
+Sub NeonStrip(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal nx As Single, ByVal ny As Single, ByVal nz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	Dim len As Single
+	Dim sx As Single
+	Dim sy As Single
+	Dim sz As Single
+	Dim half As Single
+	Dim nl As Single
+	Dim nl2 As Single
+	Dim push_x As Single
+	Dim push_y As Single
+	Dim push_z As Single
+	dx = x1 - x0
+	dy = y1 - y0
+	dz = z1 - z0
+	len = Sqr(dx * dx + dy * dy + dz * dz)
+	If len < 0.0001 Then Exit Sub
+	dx = dx / len
+	dy = dy / len
+	dz = dz / len
+	sx = dy * nz - dz * ny
+	sy = dz * nx - dx * nz
+	sz = dx * ny - dy * nx
+	nl = Sqr(sx * sx + sy * sy + sz * sz)
+	If nl < 0.0001 Then Exit Sub
+	half = 0.02 / nl
+	sx = sx * half
+	sy = sy * half
+	sz = sz * half
+	' Coat both sides past the black fill. NeonFace fill bias is 0.02; push must
+	' be larger or an inward-wound face keeps neon behind the black quad.
+	' Locals must not be named fx/fy/fz — Import shares names with Main.fy().
+	nl2 = Sqr(nx * nx + ny * ny + nz * nz)
+	If nl2 < 0.0001 Then
+		push_x = 0.0
+		push_y = 0.0
+		push_z = 0.0
+	Else
+		push_x = nx / nl2 * 0.055
+		push_y = ny / nl2 * 0.055
+		push_z = nz / nl2 * 0.055
+	End If
+	Call canvas.ClearWireAnchor()
+	Call canvas.SetWireBias(0.0)
+	Call canvas.AddWireQuad3D(x0 - sx + push_x, y0 - sy + push_y, z0 - sz + push_z, x1 - sx + push_x, y1 - sy + push_y, z1 - sz + push_z, x1 + sx + push_x, y1 + sy + push_y, z1 + sz + push_z, x0 + sx + push_x, y0 + sy + push_y, z0 + sz + push_z, Color(r * 1.35, g * 1.35, b * 1.35, 1.0))
+	Call canvas.AddWireQuad3D(x0 - sx - push_x, y0 - sy - push_y, z0 - sz - push_z, x1 - sx - push_x, y1 - sy - push_y, z1 - sz - push_z, x1 + sx - push_x, y1 + sy - push_y, z1 + sz - push_z, x0 + sx - push_x, y0 + sy - push_y, z0 + sz - push_z, Color(r * 1.35, g * 1.35, b * 1.35, 1.0))
+End Sub
+
+Sub NeonRing(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal inset As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim lo As Single
+	Dim hi As Single
+	Dim nx As Single
+	Dim ny As Single
+	Dim nz As Single
+	lo = inset
+	hi = 1.0 - inset
+	nx = uy * vz - uz * vy
+	ny = uz * vx - ux * vz
+	nz = ux * vy - uy * vx
+	Call NeonStrip(canvas, ox + ux * lo + vx * lo, oy + uy * lo + vy * lo, oz + uz * lo + vz * lo, ox + ux * hi + vx * lo, oy + uy * hi + vy * lo, oz + uz * hi + vz * lo, nx, ny, nz, r, g, b)
+	Call NeonStrip(canvas, ox + ux * hi + vx * lo, oy + uy * hi + vy * lo, oz + uz * hi + vz * lo, ox + ux * hi + vx * hi, oy + uy * hi + vy * hi, oz + uz * hi + vz * hi, nx, ny, nz, r, g, b)
+	Call NeonStrip(canvas, ox + ux * hi + vx * hi, oy + uy * hi + vy * hi, oz + uz * hi + vz * hi, ox + ux * lo + vx * hi, oy + uy * lo + vy * hi, oz + uz * lo + vz * hi, nx, ny, nz, r, g, b)
+	Call NeonStrip(canvas, ox + ux * lo + vx * hi, oy + uy * lo + vy * hi, oz + uz * lo + vz * hi, ox + ux * lo + vx * lo, oy + uy * lo + vy * lo, oz + uz * lo + vz * lo, nx, ny, nz, r, g, b)
+End Sub
+
+Sub NeonCell(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	' Concentric squares — dense enough to read the room like Paradox Vector.
+	Call NeonRing(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.0, r * 0.75, g * 0.75, b * 0.95)
+	For i = 1 To 4
+		Call NeonRing(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, CSng(i) * 0.09, r, g, b)
+	Next i
+End Sub
+
+Sub NeonFace(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim lu As Single
+	Dim lv As Single
+	Dim nu As Integer
+	Dim nv As Integer
+	Dim iu As Integer
+	Dim iv As Integer
+	Dim su As Single
+	Dim sv As Single
+	lu = Sqr(ux * ux + uy * uy + uz * uz)
+	lv = Sqr(vx * vx + vy * vy + vz * vz)
+	If lu < 0.05 Or lv < 0.05 Then Exit Sub
+	Call canvas.ClearWireAnchor()
+	' Keep fill bias below NeonStrip push (0.055) so neon wins on either winding.
+	Call canvas.SetWireBias(0.02)
+	Call canvas.AddWireQuad3D(ox, oy, oz, ox + ux, oy + uy, oz + uz, ox + ux + vx, oy + uy + vy, oz + uz + vz, ox + vx, oy + vy, oz + vz, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.SetWireBias(0.0)
+	nu = Int(lu / 1.35 + 0.55)
+	nv = Int(lv / 1.35 + 0.55)
+	If nu < 1 Then nu = 1
+	If nv < 1 Then nv = 1
+	If nu > 8 Then nu = 8
+	If nv > 8 Then nv = 8
+	su = 1.0 / CSng(nu)
+	sv = 1.0 / CSng(nv)
+	For iv = 0 To nv - 1
+		For iu = 0 To nu - 1
+			Call NeonCell(canvas, ox + ux * (CSng(iu) * su) + vx * (CSng(iv) * sv), oy + uy * (CSng(iu) * su) + vy * (CSng(iv) * sv), oz + uz * (CSng(iu) * su) + vz * (CSng(iv) * sv), ux * su, uy * su, uz * su, vx * sv, vy * sv, vz * sv, r, g, b)
+		Next iu
+	Next iv
+End Sub
+
+Sub DrawAnnex(ByVal canvas As Object)
+	' Outward face normals so black fills push into the wall; dual NeonStrip coats neon.
+	Call NeonFace(canvas, 4.5, 0.02, 4.05, 6.6, 0.0, 0.0, 0.0, 0.0, 4.3, 1.25, 0.5, 0.14)
+	Call NeonFace(canvas, 4.5, 4.32, 8.35, 6.6, 0.0, 0.0, 0.0, 0.0, -4.3, 1.1, 0.42, 0.12)
+	' South wall split around the annex door (x 7.2–9.2, y 0–3.3).
+	Call NeonFace(canvas, 4.5, 0.0, 8.35, 2.7, 0.0, 0.0, 0.0, 4.3, 0.0, 1.35, 0.55, 0.15)
+	Call NeonFace(canvas, 9.2, 0.0, 8.35, 1.9, 0.0, 0.0, 0.0, 4.3, 0.0, 1.35, 0.55, 0.15)
+	Call NeonFace(canvas, 7.2, 3.3, 8.35, 2.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.35, 0.55, 0.15)
+	Call NeonFace(canvas, 11.1, 0.0, 4.05, -6.6, 0.0, 0.0, 0.0, 4.3, 0.0, 1.35, 0.55, 0.15)
+	Call NeonFace(canvas, 4.42, 0.0, 4.05, 0.0, 0.0, 0.95, 0.0, 4.3, 0.0, 1.3, 0.5, 0.14)
+	Call NeonFace(canvas, 4.42, 0.0, 7.25, 0.0, 0.0, 1.1, 0.0, 4.3, 0.0, 1.3, 0.5, 0.14)
+	' East cyan wall: normal +X into the wall mass.
+	Call NeonFace(canvas, 11.15, 0.0, 8.3, 0.0, 0.0, -4.2, 0.0, 4.3, 0.0, 0.35, 1.05, 1.35)
+	Call StampPortalRing(canvas)
+End Sub
+
+Sub StampPortalDisc(ByVal canvas As Object)
+End Sub
+
+Sub StampPortalRing(ByVal canvas As Object)
+	Dim i As Integer
+	For i = 0 To 15
+		Dim a0 As Single
+		Dim a1 As Single
+		a0 = CSng(i) * 0.392699
+		a1 = CSng(i + 1) * 0.392699
+		Call NeonEdge(canvas, 11.12, 2.2 + Sin(a0) * 0.84, 6.2 + Cos(a0) * 0.66, 11.12, 2.2 + Sin(a1) * 0.84, 6.2 + Cos(a1) * 0.66, 0.45, 1.15, 1.45)
+		Call NeonEdge(canvas, 11.12, 2.2 + Sin(a0) * 0.42, 6.2 + Cos(a0) * 0.34, 11.12, 2.2 + Sin(a1) * 0.42, 6.2 + Cos(a1) * 0.34, 0.35, 0.85, 1.25)
+	Next i
+End Sub
+
+Sub PlaneQuad(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal s0 As Single, ByVal t0 As Single, ByVal s1 As Single, ByVal t1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal a As Single)
+	Call NeonFace(canvas, ox + ux * s0 + vx * t0, oy + uy * s0 + vy * t0, oz + uz * s0 + vz * t0, ux * (s1 - s0), uy * (s1 - s0), uz * (s1 - s0), vx * (t1 - t0), vy * (t1 - t0), vz * (t1 - t0), r * 1.4, g * 1.4, b * 1.4)
+End Sub
+
+Sub StampBrickWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 1.25, 0.55, 0.18)
+End Sub
+
+Sub StampCinderWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.75, 0.8, 0.95)
+End Sub
+
+Sub StampWoodWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 1.15, 0.45, 0.12)
+End Sub
+
+Sub StampRustWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 1.2, 0.35, 0.1)
+End Sub
+
+Sub StampCementWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.45, 0.95, 1.25)
+End Sub
+
+Sub StampPlankFloor(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.25, 0.85, 1.3)
+End Sub
+
+Sub StampPanelCeiling(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.35, 0.7, 1.15)
+End Sub
+
+Sub StampFacedWall(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, r * 1.5, g * 1.5, b * 1.5)
+End Sub
+
+Sub BlockFace(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal s0 As Single, ByVal t0 As Single, ByVal s1 As Single, ByVal t1 As Single, ByVal fr As Single, ByVal fg As Single, ByVal fb As Single, ByVal mr As Single, ByVal mg As Single, ByVal mb As Single, ByVal pad As Single)
+	Call NeonFace(canvas, ox + ux * s0 + vx * t0, oy + uy * s0 + vy * t0, oz + uz * s0 + vz * t0, ux * (s1 - s0), uy * (s1 - s0), uz * (s1 - s0), vx * (t1 - t0), vy * (t1 - t0), vz * (t1 - t0), fr * 1.4, fg * 1.4, fb * 1.4)
+End Sub

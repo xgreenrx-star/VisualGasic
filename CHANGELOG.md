@@ -7,23 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.6.0-beta1] - 2026-10-02
+
+**Key numbers:** **Windows x64 native JIT (first ship)** · QB / classic speedups · Interface / Implements · Python bridge large-array lane · Vector Crypt procedural 3D showcase · IDE polish.
+
 ### Added
 
-- **VG IDE tooltips** — Shared cream/black tooltip styling in `vg_theme_utils.gd` (fixes `vg_code_edit` `_make_custom_tooltip` on main). Data Tips overlay uses the same chrome; type hints when not debugging.
-- **Windows x64 native JIT (Tier 2 / Tier 3)** — Same x86-64 Tier 2 pipeline as Linux (`VirtualAlloc`, `VirtualProtect`, CFG registration). Tier 3 fused call-graph code now uses shared `install_executable_code()` on Windows as well. **Release highlight:** Linux was the first JIT platform (primary dev OS); Windows desktop builds should now be **on par for hot numeric code**, but **published Windows JIT benchmarks are not in CI yet** — call this out in release notes and validate on real hardware before quoting speed multipliers.
-- **Fast-call path documentation** — [performance.md](docs/manual/performance.md#fast-call-path), [ByVal / ByRef](docs/VisualGasic_Language_Reference.md#byval) in the language reference, IDE command help, and Narcea gotchas (explicit `ByVal` + scalar `As` for hot helpers).
+- **Windows x64 native JIT (Tier 2 / Tier 3) — first public ship** — Same x86-64 Tier 2 pipeline as Linux (`VirtualAlloc`, `VirtualProtect`, CFG registration). Tier 3 fused call-graph code uses shared `install_executable_code()` on Win64. Hot numeric subs compile to native code after warmup unless `VG_JIT=0`. **We need Windows feedback** — published Win64 JIT benchmark tables are not in CI yet; please report FPS / correctness on real hardware.
+- **Fast-call path documentation** — [performance.md](docs/manual/performance.md#fast-call-path), language reference ByVal/ByRef, IDE command help, Narcea gotchas (`ByVal` + scalar `As` for hot helpers).
+- **`Interface` / `Implements`** — Parse `Interface … End Interface`; same-file `Implements` checking; Narcea + docs for the contract and `Using` gap.
+- **Linux Python bridge** — Large-array binary lane closed out for M8 language-parity work.
+- **Vector canvas depth mesh** — `AddWireTri3D`, `BuildDepthMesh` with depth-cache slots for SubViewport / MeshInstance3D neon+fill coats (procedural 3D facilities).
+- **Showcase — Vector Crypt** — `samples/apps/vector_crypt/`: 100% procedural neon facility (rooms, pistons, plants, waterfall, sky platforms, FPS gun) + ambient track.
+- **BASIC-256 showcase ports** — Source transliterations in the classic showcase tree.
+- **VG IDE tooltips** — Shared cream/black tooltip styling; Data Tips chrome; type hints when not debugging.
+
+### Changed / performance
+
+- **QB 32-bit screen drawing** — Faster path; B256 gallery demos stay responsive; fade washes stay on an opaque canvas so trails stay black.
+- **QuickBASIC LINE / PAINT** — Quarter-pixel LINE rasterization; PAINT flood fill and LINE default color fixes.
+- **Debugger step-into** — Fast step-into; editor comes forward on pause; no full code-editor rebuild on every F11.
+- **Go to Definition** — Opens imported procedures and keeps Project Explorer on that file.
+- **Windows GDExtension rebuild** — Shipping `.dll`s match the Linux editor lane (JIT-capable).
 
 ### Fixed
 
-- **Form preview breakpoints** — Save gutters via `get_debugger_breakpoints()` only (no stale ScriptEditor merge).
-- **Formatter** — `_vg_stmt_upper` uses `"".join()` for Godot 4 string building.
-- **JIT + ByRef subs** — ByVal parameters in subs that also take `ByRef` now get correct `Single`/`Double`/`Integer` local slot types at compile time, so Tier 2 JIT no longer mis-reads float arguments as raw I64 (e.g. pseudo-3D projection / Vector Fathom road). Regression: `test_byref_project.vg`.
-- **Tier 3 on Windows** — Fused JIT blobs no longer bail with “platform not supported” on Win64.
+- **JIT + ByRef subs** — ByVal parameters in subs that also take `ByRef` get correct `Single`/`Double`/`Integer` local slot types so Tier 2 JIT does not mis-read floats as I64. Regression: `test_byref_project.vg`.
+- **Tier 3 on Windows** — Fused JIT blobs no longer bail with “platform not supported”.
+- **Plugin load** — Param popup positioning types so the VisualGasic plugin loads in the editor.
+- **Sample ci_smoke** — Projects that failed `ci_smoke --all` fixed.
+- Website download links pointed at v5.5.0-beta3 installers (prior release).
 
 ### Documentation
 
-- Refreshed [performance.md](docs/manual/performance.md): JIT defaults on x86-64, platform matrix, fast-call vs native JIT, Windows `VG_JIT` examples.
-- Release copy draft: [UPCOMING_RELEASE_HIGHLIGHTS.md](docs/showcase/UPCOMING_RELEASE_HIGHLIGHTS.md) (Windows JIT blurb — validate benchmarks before publish).
+- [performance.md](docs/manual/performance.md) — JIT defaults, platform matrix, Windows `VG_JIT`, fast-call path.
+- v6.0 product-scope alignment; Interface contract / `Using` gap for Narcea.
+- Showcase / community drafts for Vector Crypt + Windows JIT feedback ask.
 
 ## [5.5.0-beta3] - 2026-09-26
 

@@ -1,0 +1,8 @@
+# Local capture / edit footage — keep out of git
+DemoVideo/
+.godot/
+*.avi
+*.mkv
+DemoVideo/
+.cursor/
+.vg_breakpoints.json

@@ -9,6 +9,7 @@
 // `extends VGVectorCanvas2D` and reaches into the protected/exposed state
 // via property accessors bound below.
 
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/multi_mesh.hpp>
@@ -20,6 +21,7 @@
 #include <godot_cpp/variant/dictionary.hpp>
 #include <vector>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
+#include <godot_cpp/variant/packed_vector3_array.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/transform2d.hpp>
@@ -133,6 +135,22 @@ private:
 	float _wire_bias = 0.0f;
 	int _wire_eye_room = 0;
 	int _wire_baked = -1;
+	// Static facility mesh. Rebuilt when the bake or room mask changes.
+	// Keep a few recent masks so opening a door/smash does not hitch.
+	struct DepthCacheSlot {
+		int mask = -1;
+		int baked = -2;
+		Ref<ArrayMesh> mesh;
+	};
+	static const int DEPTH_CACHE_N = 6;
+	DepthCacheSlot _depth_cache[DEPTH_CACHE_N];
+	int _depth_cache_next = 0;
+	Ref<ArrayMesh> _depth_mesh;
+	int _depth_baked = -2;
+	int _depth_mask = -1;
+	void _depth_cache_clear();
+	Ref<ArrayMesh> _depth_cache_find(int mask, int baked);
+	void _depth_cache_store(int mask, int baked, const Ref<ArrayMesh> &mesh);
 	float _wire_cam_x = 0.0f, _wire_cam_y = 0.0f, _wire_cam_z = 0.0f, _wire_yaw = 0.0f;
 	float _wire_focal = 460.0f, _wire_ox = 480.0f, _wire_oy = 300.0f;
 	float _wire_near = 0.45f, _wire_fill_cull = 0.4f, _wire_pitch = 0.0f;
@@ -140,6 +158,7 @@ private:
 	PackedColorArray _tri_cols;
 	PackedInt32Array _tri_idx;
 	void _project_wire3d();
+	void _depth_append_prim(const WirePrim &p, PackedVector3Array &verts, PackedColorArray &cols, int &v);
 
 	// Drawing state.
 	Color _stroke_color = Color(1, 1, 1, 1);
@@ -241,7 +260,10 @@ public:
 	void SetDrawnRoom(int room);
 	void SetDrawnMask(int mask);
 	void AddWireLine3D(float x0, float y0, float z0, float x1, float y1, float z1, float width, const Color &color);
+	void AddWireTri3D(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, const Color &color);
 	void AddWireQuad3D(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Color &color);
+	// Filled triangles plus camera-facing edge ribbons, for a depth-tested MeshInstance3D.
+	Ref<ArrayMesh> BuildDepthMesh(float cam_x, float cam_y, float cam_z);
 	void DrawWire3D(float cam_x, float cam_y, float cam_z, float yaw, float focal, float origin_x, float origin_y, float near_z, float fill_cull, float pitch = 0.0f);
 	int GetWirePrimCount() const { return (int)_wire.size(); }
 	// Batch rect drawing: rects_xywh is a flat PackedVector2Array where each pair (Vector2(x,y), Vector2(w,h)) is one rect.

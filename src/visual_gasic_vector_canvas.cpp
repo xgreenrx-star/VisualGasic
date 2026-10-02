@@ -5,6 +5,7 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/canvas_item_material.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
@@ -162,8 +163,12 @@ void VGVectorCanvas2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("SetDrawnMask", "mask"), &VGVectorCanvas2D::SetDrawnMask);
 	ClassDB::bind_method(D_METHOD("AddWireLine3D", "x0", "y0", "z0", "x1", "y1", "z1", "width", "color"),
 			&VGVectorCanvas2D::AddWireLine3D);
+	ClassDB::bind_method(D_METHOD("AddWireTri3D", "x0", "y0", "z0", "x1", "y1", "z1", "x2", "y2", "z2", "color"),
+			&VGVectorCanvas2D::AddWireTri3D);
 	ClassDB::bind_method(D_METHOD("AddWireQuad3D", "x0", "y0", "z0", "x1", "y1", "z1", "x2", "y2", "z2", "x3", "y3", "z3", "color"),
 			&VGVectorCanvas2D::AddWireQuad3D);
+	ClassDB::bind_method(D_METHOD("BuildDepthMesh", "cam_x", "cam_y", "cam_z"),
+			&VGVectorCanvas2D::BuildDepthMesh);
 	ClassDB::bind_method(D_METHOD("DrawWire3D", "cam_x", "cam_y", "cam_z", "yaw", "focal", "origin_x", "origin_y", "near_z", "fill_cull", "pitch"),
 			&VGVectorCanvas2D::DrawWire3D, DEFVAL(0.0f));
 	ClassDB::bind_method(D_METHOD("GetWirePrimCount"), &VGVectorCanvas2D::GetWirePrimCount);
@@ -624,6 +629,44 @@ void VGVectorCanvas2D::_flush_batch_mesh() {
 	_batch_col.clear();
 }
 
+void VGVectorCanvas2D::_depth_cache_clear() {
+	for (int i = 0; i < DEPTH_CACHE_N; ++i) {
+		_depth_cache[i].mask = -1;
+		_depth_cache[i].baked = -2;
+		_depth_cache[i].mesh.unref();
+	}
+	_depth_cache_next = 0;
+	_depth_mesh.unref();
+	_depth_baked = -2;
+	_depth_mask = -1;
+}
+
+Ref<ArrayMesh> VGVectorCanvas2D::_depth_cache_find(int mask, int baked) {
+	for (int i = 0; i < DEPTH_CACHE_N; ++i) {
+		if (_depth_cache[i].mask == mask && _depth_cache[i].baked == baked && _depth_cache[i].mesh.is_valid()) {
+			return _depth_cache[i].mesh;
+		}
+	}
+	return Ref<ArrayMesh>();
+}
+
+void VGVectorCanvas2D::_depth_cache_store(int mask, int baked, const Ref<ArrayMesh> &mesh) {
+	if (mesh.is_null()) {
+		return;
+	}
+	for (int i = 0; i < DEPTH_CACHE_N; ++i) {
+		if (_depth_cache[i].mask == mask) {
+			_depth_cache[i].baked = baked;
+			_depth_cache[i].mesh = mesh;
+			return;
+		}
+	}
+	_depth_cache[_depth_cache_next].mask = mask;
+	_depth_cache[_depth_cache_next].baked = baked;
+	_depth_cache[_depth_cache_next].mesh = mesh;
+	_depth_cache_next = (_depth_cache_next + 1) % DEPTH_CACHE_N;
+}
+
 void VGVectorCanvas2D::BeginWire3D() {
 	_wire.clear();
 	_wire.reserve(8192);
@@ -631,6 +674,7 @@ void VGVectorCanvas2D::BeginWire3D() {
 	_wire_line_anchor = false;
 	_wire_bias = 0.0f;
 	_wire_baked = -1;
+	_depth_cache_clear();
 }
 
 void VGVectorCanvas2D::SetWireAnchor(float x, float y, float z) {
@@ -685,6 +729,27 @@ void VGVectorCanvas2D::SetDrawnMask(int mask) {
 	_wire_draw_room = _wire_draw_mask == 0 ? 0 : 1;
 }
 
+void VGVectorCanvas2D::AddWireTri3D(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, const Color &color) {
+	if (color.a <= 0.001f) {
+		return;
+	}
+	WirePrim a;
+	a.kind = 1;
+	a.x0 = x0;
+	a.y0 = y0;
+	a.z0 = z0;
+	a.x1 = x1;
+	a.y1 = y1;
+	a.z1 = z1;
+	a.x2 = x2;
+	a.y2 = y2;
+	a.z2 = z2;
+	a.color = color;
+	a.room = (uint8_t)_wire_room;
+	a.has_anchor = 0;
+	_wire.push_back(a);
+}
+
 void VGVectorCanvas2D::AddWireLine3D(float x0, float y0, float z0, float x1, float y1, float z1, float width, const Color &color) {
 	if (width <= 0.0f) {
 		return;
@@ -716,66 +781,12 @@ void VGVectorCanvas2D::AddWireLine3D(float x0, float y0, float z0, float x1, flo
 	_wire.push_back(p);
 }
 
-static float vg_edge_len(float x0, float y0, float z0, float x1, float y1, float z1) {
-	float dx = x1 - x0;
-	float dy = y1 - y0;
-	float dz = z1 - z0;
-	return std::sqrt(dx * dx + dy * dy + dz * dz);
-}
-
-static int vg_quad_splits(float len) {
-	if (len <= 0.7f) {
-		return 1;
-	}
-	int n = (int)(len / 0.55f + 0.5f);
-	if (n < 2) {
-		n = 2;
-	}
-	if (n > 10) {
-		n = 10;
-	}
-	return n;
-}
-
 void VGVectorCanvas2D::AddWireQuad3D(float x0, float y0, float z0, float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3, const Color &color) {
 	if (color.a <= 0.001f) {
 		return;
 	}
-	// A fill sorted by its nearest corner covers lines on the far end of the
-	// same face. Cut long faces into small pieces so each piece sorts locally.
-	int nu = vg_quad_splits(vg_edge_len(x0, y0, z0, x1, y1, z1));
-	int nv = vg_quad_splits(vg_edge_len(x1, y1, z1, x2, y2, z2));
-	if (nu > 1 || nv > 1) {
-		for (int j = 0; j < nv; ++j) {
-			float v0 = (float)j / (float)nv;
-			float v1 = (float)(j + 1) / (float)nv;
-			for (int i = 0; i < nu; ++i) {
-				float u0 = (float)i / (float)nu;
-				float u1 = (float)(i + 1) / (float)nu;
-				float ua[4] = { u0, u1, u1, u0 };
-				float va[4] = { v0, v0, v1, v1 };
-				float px[4], py[4], pz[4];
-				for (int k = 0; k < 4; ++k) {
-					float u = ua[k];
-					float v = va[k];
-					float a = (1.0f - u) * (1.0f - v);
-					float b = u * (1.0f - v);
-					float c = u * v;
-					float d = (1.0f - u) * v;
-					px[k] = a * x0 + b * x1 + c * x2 + d * x3;
-					py[k] = a * y0 + b * y1 + c * y2 + d * y3;
-					pz[k] = a * z0 + b * z1 + c * z2 + d * z3;
-				}
-				AddWireQuad3D(px[0], py[0], pz[0], px[1], py[1], pz[1], px[2], py[2], pz[2], px[3], py[3], pz[3], color);
-			}
-		}
-		// Edge lines that follow a split quad span every piece, so they
-		// keep their own depth instead of the last piece's anchor.
-		if (!_wire_anchor_set) {
-			_wire_line_anchor = false;
-		}
-		return;
-	}
+	// One quad, two triangles. Slicing a face into coplanar pieces makes the
+	// depth buffer flicker along every seam.
 	float mx = (x0 + x1 + x2 + x3) * 0.25f;
 	float my = (y0 + y1 + y2 + y3) * 0.25f;
 	float mz = (z0 + z1 + z2 + z3) * 0.25f;
@@ -827,6 +838,170 @@ void VGVectorCanvas2D::AddWireQuad3D(float x0, float y0, float z0, float x1, flo
 	b.anchor_bias = _wire_bias;
 	b.has_anchor = 1;
 	_wire.push_back(b);
+}
+
+namespace {
+
+void vg_depth_push(PackedVector3Array &verts, PackedColorArray &cols, int &v, const Vector3 &a, const Vector3 &b, const Vector3 &c, const Color &color) {
+	if (v + 3 > verts.size()) {
+		int n = verts.size() * 2;
+		if (n < v + 3) {
+			n = v + 3;
+		}
+		verts.resize(n);
+		cols.resize(n);
+	}
+	verts[v] = a;
+	cols[v] = color;
+	v++;
+	verts[v] = b;
+	cols[v] = color;
+	v++;
+	verts[v] = c;
+	cols[v] = color;
+	v++;
+}
+
+} // namespace
+
+void VGVectorCanvas2D::_depth_append_prim(const WirePrim &p, PackedVector3Array &verts, PackedColorArray &cols, int &v) {
+	if (p.kind == 1) {
+		Vector3 a(p.x0, p.y0, p.z0);
+		Vector3 b(p.x1, p.y1, p.z1);
+		Vector3 c(p.x2, p.y2, p.z2);
+		// Bias separates coplanar coats. Positive = push along winding normal
+		// (black fill into the wall). Negative = push the opposite way so neon
+		// strips sit on the room side of the fill from either winding.
+		if (p.anchor_bias > 0.0001f || p.anchor_bias < -0.0001f) {
+			Vector3 nrm = (b - a).cross(c - a);
+			if (nrm.length_squared() > 0.0000001f) {
+				nrm = nrm.normalized();
+				float lift = p.anchor_bias;
+				if (lift < 0.0f) {
+					lift = -lift;
+					nrm = -nrm;
+				}
+				if (lift < 0.012f) {
+					lift = 0.012f;
+				}
+				if (lift > 0.05f) {
+					lift = 0.05f;
+				}
+				a += nrm * lift;
+				b += nrm * lift;
+				c += nrm * lift;
+			}
+		}
+		vg_depth_push(verts, cols, v, a, b, c, p.color);
+		return;
+	}
+	Vector3 a(p.x0, p.y0, p.z0);
+	Vector3 b(p.x1, p.y1, p.z1);
+	Vector3 dir = b - a;
+	const float len = dir.length();
+	if (len < 0.0001f) {
+		return;
+	}
+	dir /= len;
+	// One stable ribbon. A camera-facing cross turns spirals into crawling dots.
+	Vector3 side = dir.cross(Vector3(0.0f, 1.0f, 0.0f));
+	if (side.length_squared() < 0.0000001f) {
+		side = dir.cross(Vector3(1.0f, 0.0f, 0.0f));
+	}
+	side = side.normalized();
+	// World-space ribbon thickness. Thin enough to stay sharp, thick enough to read.
+	float half = 0.0055f;
+	if (p.width > 1.8f) {
+		half = 0.0085f;
+	}
+	side *= half;
+	Vector3 lift = side.cross(dir);
+	if (lift.length_squared() > 0.0000001f) {
+		lift = lift.normalized() * 0.006f;
+	} else {
+		lift = Vector3(0.0f, 0.006f, 0.0f);
+	}
+	a += lift;
+	b += lift;
+	Color ink = p.color;
+	vg_depth_push(verts, cols, v, a - side, b - side, b + side, ink);
+	vg_depth_push(verts, cols, v, a - side, b + side, a + side, ink);
+}
+
+void vg_depth_upload(const Ref<ArrayMesh> &mesh, const PackedVector3Array &verts, const PackedColorArray &cols, int v) {
+	if (v < 3) {
+		return;
+	}
+	PackedVector3Array used = verts;
+	PackedColorArray used_c = cols;
+	used.resize(v);
+	used_c.resize(v);
+	Array arrays;
+	arrays.resize(Mesh::ARRAY_MAX);
+	arrays[Mesh::ARRAY_VERTEX] = used;
+	arrays[Mesh::ARRAY_COLOR] = used_c;
+	mesh->add_surface_from_arrays(Mesh::PRIMITIVE_TRIANGLES, arrays);
+}
+
+Ref<ArrayMesh> VGVectorCanvas2D::BuildDepthMesh(float cam_x, float cam_y, float cam_z) {
+	(void)cam_x;
+	(void)cam_y;
+	(void)cam_z;
+	const int n = (int)_wire.size();
+	int baked = _wire_baked;
+	if (baked < 0 || baked > n) {
+		baked = n;
+	}
+	const int mask = (int)_wire_draw_mask;
+	// Rooms are baked once. Swap to a cached mesh when the visible mask changes
+	// so a smash / door reveal does not rebuild thousands of tris mid-frame.
+	if (_depth_baked != _wire_baked || _depth_mask != mask || _depth_mesh.is_null()) {
+		Ref<ArrayMesh> hit = _depth_cache_find(mask, baked);
+		if (hit.is_valid()) {
+			_depth_mesh = hit;
+			_depth_baked = baked;
+			_depth_mask = mask;
+		} else {
+			Ref<ArrayMesh> built;
+			built.instantiate();
+			PackedVector3Array verts;
+			PackedColorArray cols;
+			verts.resize(baked * 6 + 16);
+			cols.resize(baked * 6 + 16);
+			int v = 0;
+			for (int i = 0; i < baked; ++i) {
+				const WirePrim &p = _wire[(size_t)i];
+				if (mask != 0 && (p.room >= 31 || (mask & (1 << p.room)) == 0)) {
+					continue;
+				}
+				_depth_append_prim(p, verts, cols, v);
+			}
+			vg_depth_upload(built, verts, cols, v);
+			_depth_cache_store(mask, baked, built);
+			_depth_mesh = built;
+			_depth_baked = baked;
+			_depth_mask = mask;
+		}
+	}
+	if (_depth_mesh.is_null()) {
+		_depth_mesh.instantiate();
+	}
+	while (_depth_mesh->get_surface_count() > 1) {
+		_depth_mesh->surface_remove(1);
+	}
+	if (n > baked) {
+		PackedVector3Array verts;
+		PackedColorArray cols;
+		int dyn = n - baked;
+		verts.resize(dyn * 6 + 16);
+		cols.resize(dyn * 6 + 16);
+		int v = 0;
+		for (int i = baked; i < n; ++i) {
+			_depth_append_prim(_wire[(size_t)i], verts, cols, v);
+		}
+		vg_depth_upload(_depth_mesh, verts, cols, v);
+	}
+	return _depth_mesh;
 }
 
 void VGVectorCanvas2D::DrawWire3D(float cam_x, float cam_y, float cam_z, float yaw, float focal, float origin_x, float origin_y, float near_z, float fill_cull, float pitch) {

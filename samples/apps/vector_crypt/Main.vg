@@ -1,0 +1,3061 @@
+' Vector Crypt — gravity/portal puzzle direction; cyborg helmet HUD over vector chambers.
+' WASD moves. A/D or Left/Right turn. Mouse looks (captured). Space jumps. Q/E strafe. Esc pauses.
+Option Explicit
+
+Import "HudHelmet.vg"
+Import "IntroAwake.vg"
+Import "WallPatterns.vg"
+
+' 0 = recovery vault, 1 = the ten-room facility.
+Dim game_phase As Integer
+Dim canvas As Object
+Dim hud_time As Single
+Dim intro_time As Single
+Dim intro_voice_started As Boolean
+Dim hero_name As String
+Dim subtitle_line As String
+Dim out_sx As Single
+Dim out_sy As Single
+Dim out_sz As Single
+Dim cam_x As Single
+Dim cam_y As Single
+Dim cam_z As Single
+Dim cam_yaw As Single
+Dim cam_pitch As Single
+Dim room_built As Boolean
+Dim wire_build As Boolean
+Dim clip_cx As Single
+Dim clip_cy As Single
+Dim clip_cz As Single
+Dim stood_time As Single
+Dim smash_phase As Integer
+Dim glass_smashed As Boolean
+Dim annex_built As Boolean
+Dim quake As Single
+Dim rig_x As Single
+Dim rig_y As Single
+Dim rig_z As Single
+Dim shard_n As Integer
+Dim shard_x(11) As Single
+Dim shard_y(11) As Single
+Dim shard_z(11) As Single
+Dim shard_vx(11) As Single
+Dim shard_vy(11) As Single
+Dim shard_vz(11) As Single
+Dim shard_life(11) As Single
+Dim vel_y As Single
+Dim grav As Integer
+Dim grounded As Boolean
+Dim look_armed As Boolean
+Dim look_mx As Single
+Dim look_my As Single
+Dim look_dx As Single
+Dim look_dy As Single
+Dim jump_lock As Boolean
+Dim menu_open As Boolean
+Dim menu_item As Integer
+Dim esc_lock As Boolean
+Dim click_lock As Boolean
+Dim nav_lock As Boolean
+Dim enter_lock As Boolean
+Dim probe As Integer
+Dim probe_hold As Integer
+Dim depth_view As Object
+Dim depth_on As Boolean
+Dim pat_r As Single
+Dim pat_g As Single
+Dim pat_b As Single
+Dim pat_br As Single
+Dim pat_bg As Single
+Dim pat_bb As Single
+Dim music_h As Integer
+Dim music_paused As Boolean
+
+Sub EnsureMusic()
+	If probe > 0 Then Exit Sub
+	If IsHeadless() = True Then Exit Sub
+	If music_h <> 0 Then
+		If Sound.IsPlaying(music_h) = True Then Exit Sub
+	End If
+	music_h = Sound.Play("res://audio/empty_neon_corridor.ogg", "Music")
+	If music_h <> 0 Then Call Sound.Volume(55, music_h)
+	music_paused = False
+End Sub
+
+Sub _Ready()
+	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
+	canvas.SetAdditiveBlend(False)
+	game_phase = 0
+	hero_name = "Operator"
+	intro_voice_started = False
+	intro_time = 0.0
+	subtitle_line = ""
+	cam_x = 0.0
+	cam_y = 0.78
+	cam_z = 1.7
+	cam_yaw = 0.0
+	cam_pitch = 0.42
+	hud_time = 0.0
+	stood_time = 0.0
+	smash_phase = 0
+	glass_smashed = False
+	annex_built = False
+	quake = 0.0
+	rig_x = 0.35
+	rig_y = 4.05
+	rig_z = 2.55
+	shard_n = 0
+	vel_y = 0.0
+	grav = 1
+	grounded = True
+	look_armed = False
+	look_dx = 0.0
+	look_dy = 0.0
+	jump_lock = False
+	menu_open = False
+	menu_item = 0
+	esc_lock = False
+	click_lock = False
+	nav_lock = False
+	enter_lock = False
+	Call CaptureMouse()
+	probe = 0
+	If OS.get_environment("VG_CRYPT_PROBE") = "1" Then probe = 1
+	If IsHeadless() = False And probe = 0 Then
+		Screen.FullScreen True
+	End If
+	Set steps = GetNode("Steps")
+	Set depth_view = GetNode("DepthView")
+	depth_on = True
+	pat_r = 1.25
+	pat_g = 0.48
+	pat_b = 0.14
+	pat_br = 1.35
+	pat_bg = 0.55
+	pat_bb = 0.18
+	Call canvas.set_z_index(0)
+	probe_hold = 0
+	music_h = 0
+	music_paused = False
+	If probe = 1 Then
+		DisplayServer.window_set_mode(0)
+		game_phase = 1
+		cam_x = 7.4
+		cam_y = 1.55
+		cam_z = 6.2
+		cam_yaw = 1.57
+		cam_pitch = 0.05
+		smash_phase = 3
+		glass_smashed = True
+		stood_time = 20.0
+		lvl_time = 1.6
+		Print "PROBE start"
+	End If
+	Call EnsureMusic()
+	Set_Process(True)
+End Sub
+
+Sub BeginCorridorPhase()
+	game_phase = 1
+	' Stand beside the bed, looking at it. The same wireframe stays in the room.
+	cam_x = 1.55
+	cam_y = 1.55
+	cam_z = 2.45
+	cam_yaw = -1.15
+	cam_pitch = 0.0
+	stood_time = 0.0
+	smash_phase = 0
+	rig_x = 0.35
+	rig_y = 4.05
+	rig_z = 2.55
+End Sub
+
+Sub TickProbePose()
+	Dim slot As Integer
+	Dim face As Integer
+	smash_phase = 3
+	glass_smashed = True
+	stood_time = 30.0
+	rig_x = 7.1
+	rig_y = 2.4
+	rig_z = 6.1
+	If annex_built = False Then Call RevealAnnex()
+	grounded = True
+	vel_y = 0.0
+	slot = (probe - 1) \ 4
+	face = (probe - 1) - slot * 4
+	cam_y = 1.55
+	cam_pitch = 0.06
+	cam_yaw = CSng(face) * 1.5708
+	If slot = 0 Then
+		cam_x = 7.6
+		cam_z = 6.3
+		' Face 1 looks at the east wall waterfall.
+		If face = 1 Then
+			cam_x = 7.2
+			cam_yaw = 1.57
+			cam_pitch = 0.18
+		End If
+	ElseIf slot = 1 Then
+		cam_x = 8.4
+		cam_z = 10.2
+	ElseIf slot = 2 Then
+		cam_x = 15.5
+		cam_z = 18.0
+	ElseIf slot = 3 Then
+		cam_x = 25.5
+		cam_z = 18.0
+	ElseIf slot = 4 Then
+		cam_x = 34.2
+		cam_z = 19.2
+	ElseIf slot = 5 Then
+		cam_x = 35.2
+		cam_z = 25.2
+	ElseIf slot = 6 Then
+		cam_x = 44.0
+		cam_z = 25.2
+	ElseIf slot = 7 Then
+		cam_x = 47.4
+		cam_z = 28.4
+	ElseIf slot = 8 Then
+		cam_x = 48.5
+		cam_y = 12.05
+		cam_z = 50.5
+		cam_pitch = 0.1
+	Else
+		cam_x = 47.4
+		cam_z = 38.2
+	End If
+	Call TickLevel(cam_x, cam_y, cam_z, 0.016, True, True)
+	If slot = 0 Then opened(2) = True
+	If slot = 4 Then opened(4) = True
+	If slot = 8 Then
+		opened(9) = True
+		level_done = True
+		room_id = 11
+	End If
+End Sub
+
+Sub TickProbeShot()
+	probe_hold = probe_hold + 1
+	If probe_hold = 3 Then
+		Dim line As String
+		line = HintFor(cam_x, cam_z)
+		Print "PROBE " & CStr(probe) & " room " & CStr(room_id) & " mask " & CStr(shown_mask) & " hint " & line
+		Dim vp As Object
+		Set vp = GetViewport()
+		Dim img As Object
+		Set img = vp.GetTexture().GetImage()
+		Call img.SavePng("/tmp/crypt_probe_" & CStr(probe) & ".png")
+	End If
+	If probe_hold >= 5 Then
+		probe_hold = 0
+		probe = probe + 1
+		If probe > 36 Then
+			Print "PROBE done"
+			End
+		End If
+	End If
+End Sub
+
+Sub BuildWorld()
+	If room_built Then Exit Sub
+	wire_build = True
+	Call canvas.BeginWire3D()
+	Call canvas.SetWireRoom(1)
+	Call DrawFloor(canvas)
+	Call DrawWalls(canvas)
+	Call DrawGlassBalcony(canvas)
+	Call RecordBed(canvas)
+	Call EnsureWake()
+	room_built = True
+	wire_build = False
+	Call canvas.MarkWireBaked()
+	' Bake the facility now so the glass smash does not stall the frame.
+	Call PrebuildFacility()
+End Sub
+
+Sub PrebuildFacility()
+	If annex_built Then Exit Sub
+	wire_build = True
+	Call canvas.SetWireRoom(2)
+	Call DrawAnnex(canvas)
+	Call BuildFacility(canvas)
+	annex_built = True
+	wire_build = False
+	Call canvas.MarkWireBaked()
+	' Warm the post-smash depth mesh so opening the seal does not hitch.
+	Call canvas.SetDrawnMask(RoomBit(1) + RoomBit(2))
+	Call canvas.BuildDepthMesh(0.0, 1.0, 5.0)
+	Call canvas.SetDrawnMask(RoomBit(1))
+End Sub
+
+Sub RevealAnnex()
+	' Geometry is already baked. Smash only opens the view.
+	If annex_built = False Then Call PrebuildFacility()
+End Sub
+
+Sub TickIntro(ByVal delta As Single)
+	intro_time = intro_time + delta
+	' Open on the ceiling speaker, then ease the gaze down the bed.
+	If cam_pitch > 0.04 Then
+		cam_pitch = cam_pitch - delta * 0.12
+		If cam_pitch < 0.04 Then cam_pitch = 0.04
+	End If
+	If cam_y < 0.94 Then
+		cam_y = cam_y + delta * 0.05
+		If cam_y > 0.94 Then cam_y = 0.94
+	End If
+	' Voice after lights stabilize (like Portal's delayed PA).
+	If Not intro_voice_started And intro_time > 2.4 Then
+		intro_voice_started = True
+		If VoiceOver IsNot Nothing Then
+			Call VoiceOver.speak_overseer_wakeup(hero_name)
+		End If
+	End If
+	subtitle_line = ""
+	If intro_time > 2.2 And intro_time < 5.5 Then
+		subtitle_line = "Good morning."
+	ElseIf intro_time >= 5.5 And intro_time < 7.5 Then
+		subtitle_line = hero_name & "?"
+	ElseIf intro_time >= 7.5 And intro_time < 12.0 Then
+		subtitle_line = "I'm glad you are finally awake."
+	ElseIf intro_time >= 12.0 Then
+		subtitle_line = "I need your help."
+	End If
+	Dim speaking As Boolean
+	speaking = False
+	If VoiceOver IsNot Nothing Then
+		speaking = VoiceOver.is_speaking
+	End If
+	If intro_time > 16.0 And Not speaking Then
+		BeginCorridorPhase()
+	End If
+	If IsKeyPressed(KEY_ENTER) And intro_time > 8.0 Then
+		BeginCorridorPhase()
+	End If
+End Sub
+
+Sub _Input(ByVal ev As Object)
+	If menu_open = True Then Exit Sub
+	If game_phase <> 1 Then Exit Sub
+	If Input.mouse_mode <> Input.MOUSE_MODE_CAPTURED Then Exit Sub
+	If TypeOf ev Is InputEventMouseMotion Then
+		Dim rel As Vector2
+		rel = ev.relative
+		look_dx = look_dx + rel.x
+		look_dy = look_dy + rel.y
+	End If
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	hud_time = hud_time + delta
+	If menu_open = False Then Call EnsureMusic()
+	Call canvas.Clear()
+	Call TickMenu()
+
+	If game_phase = 0 Then
+		If menu_open = False Then Call TickIntro(delta)
+		Call BuildWorld()
+		Call canvas.SetEyeRoom(0)
+		Call PresentDepth(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, 420.0)
+		Call DrawBedWakeScene(canvas, cam_x, cam_y, cam_z, cam_yaw, cam_pitch, intro_time, out_sx, out_sy, out_sz)
+		Call DrawGlassBalcony(canvas)
+		Call DrawIntroHelmetFrame(canvas, intro_time)
+		Dim cap As String
+		cap = ChamberTitle(room_id)
+		Call DrawHudCaption(canvas, cap, subtitle_line)
+		Call DrawIntroFade(canvas, intro_time)
+		If menu_open = True Then Call DrawPauseMenu(canvas)
+		Exit Sub
+	End If
+
+	Call BuildWorld()
+	If probe > 0 Then
+		Call TickProbePose()
+	ElseIf menu_open = False Then
+		Call TickOverseer(delta)
+		Call TickLook(delta)
+		Call TickBody(delta)
+		Call TickLevel(cam_x, cam_y, cam_z, delta, glass_smashed, grounded)
+	Else
+		look_dx = 0.0
+		look_dy = 0.0
+	End If
+
+	Dim shake_x As Single
+	Dim shake_y As Single
+	shake_x = 0.0
+	shake_y = 0.0
+	If quake > 0.0 Then
+		shake_x = Sin(hud_time * 46.0) * quake
+		shake_y = Cos(hud_time * 33.0) * quake * 0.55
+	End If
+	cam_x = cam_x + shake_x
+	cam_y = cam_y + shake_y + bob
+	cam_pitch = cam_pitch + bob_pitch
+	Call RefreshShown()
+	Call canvas.SetDrawnMask(shown_mask)
+	Call canvas.SetEyeRoom(room_id)
+	Call canvas.BeginDynamic3D()
+	Call DrawDoorWire(canvas)
+	Call DrawLevelDynamics(canvas, cam_x, cam_y, cam_z, cam_yaw, cam_pitch)
+	If depth_on = True Then
+		Call PresentDepth(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, 460.0)
+	Else
+		Call canvas.DrawWire3D(cam_x, cam_y, cam_z, cam_yaw, 460.0, 480.0, 300.0, 0.45, 0.4, cam_pitch)
+	End If
+	Call DrawGlassBalcony(canvas)
+	Call DrawOverseer(canvas)
+	Call DrawShards(canvas)
+	Call DrawHelmetHud(canvas, delta, cam_yaw, hud_time, True)
+	Dim hud_line As String
+	hud_line = ""
+	If smash_phase = 1 Then
+		hud_line = "OVERSEER: MOVE."
+	ElseIf smash_phase = 2 Then
+		hud_line = "THE SEAL IS OPEN."
+	ElseIf smash_phase >= 3 Then
+		hud_line = HintFor(cam_x, cam_z)
+	End If
+	Dim place As String
+	place = ChamberTitle(room_id)
+	Call DrawHudCaption(canvas, place, hud_line)
+	Call DrawVectorGun(canvas)
+	If menu_open = True Then Call DrawPauseMenu(canvas)
+	If probe > 0 Then Call TickProbeShot()
+	cam_x = cam_x - shake_x
+	cam_y = cam_y - shake_y - bob
+	cam_pitch = cam_pitch - bob_pitch
+End Sub
+
+' Scalar ByVal locals — stays on JIT fast-call path when Tier 2 compiles this body.
+Sub Project(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = x - cam_x
+	dy = y - cam_y
+	dz = z - cam_z
+	Dim cy As Single
+	Dim sy As Single
+	cy = Cos(cam_yaw)
+	sy = Sin(cam_yaw)
+	Dim cx As Single
+	Dim cz As Single
+	cx = dx * cy - dz * sy
+	cz = dx * sy + dz * cy
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(cam_pitch)
+	sp = Sin(cam_pitch)
+	Dim py As Single
+	Dim pz As Single
+	py = dy * cp - cz * sp
+	pz = dy * sp + cz * cp
+	clip_cx = cx
+	clip_cy = py
+	clip_cz = pz
+	out_sz = pz
+	If pz < 0.4 Then Exit Sub
+	Dim sc As Single
+	sc = 460.0 / pz
+	out_sx = 480.0 + cx * sc
+	out_sy = 300.0 - py * sc
+End Sub
+
+Sub DrawSeg(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal width As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal a As Single)
+	If wire_build Then
+		Call canvas.AddWireLine3D(x0, y0, z0, x1, y1, z1, width, Color(r, g, b, a))
+		Exit Sub
+	End If
+	Call Project(x0, y0, z0)
+	Dim ax As Single
+	Dim ay As Single
+	Dim az As Single
+	ax = clip_cx
+	ay = clip_cy
+	az = clip_cz
+	Call Project(x1, y1, z1)
+	Dim bx As Single
+	Dim by As Single
+	Dim bz As Single
+	bx = clip_cx
+	by = clip_cy
+	bz = clip_cz
+	Dim near As Single
+	near = 0.45
+	If az < near And bz < near Then Exit Sub
+	Dim t As Single
+	If az < near Then
+		t = (near - az) / (bz - az)
+		ax = ax + (bx - ax) * t
+		ay = ay + (by - ay) * t
+		az = near
+	ElseIf bz < near Then
+		t = (near - bz) / (az - bz)
+		bx = bx + (ax - bx) * t
+		by = by + (ay - by) * t
+		bz = near
+	End If
+	Dim sc As Single
+	sc = 460.0 / az
+	Dim sx0 As Single
+	Dim sy0 As Single
+	sx0 = 480.0 + ax * sc
+	sy0 = 300.0 - ay * sc
+	sc = 460.0 / bz
+	Call canvas.DrawLine(Vector2(sx0, sy0), Vector2(480.0 + bx * sc, 300.0 - by * sc), width, Color(r, g, b, a))
+End Sub
+
+Sub GlowLine(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 6.0, Color(r * 0.35, g * 0.35, b * 0.35, 0.2))
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 2.2, Color(r, g, b, 0.95))
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 1.0, Color(1.5, 1.55, 1.4, 1.0))
+End Sub
+
+Sub Edge(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call DrawSeg(canvas, x0, y0, z0, x1, y1, z1, 2.2, r, g, b, 0.95)
+	Call DrawSeg(canvas, x0, y0, z0, x1, y1, z1, 1.0, 1.2, 1.25, 1.15, 0.85)
+End Sub
+
+Sub Tri(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal fr As Single, ByVal fg As Single, ByVal fb As Single, ByVal er As Single, ByVal eg As Single, ByVal eb As Single)
+	Call Project(x0, y0, z0)
+	Dim ax As Single
+	Dim ay As Single
+	ax = out_sx
+	ay = out_sy
+	Call Project(x1, y1, z1)
+	Dim bx As Single
+	Dim by As Single
+	bx = out_sx
+	by = out_sy
+	Call Project(x2, y2, z2)
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(out_sx, out_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(0, 0, 0, 1), True, Color(fr, fg, fb, 1))
+	Call GlowLine(canvas, ax, ay, bx, by, er, eg, eb)
+	Call GlowLine(canvas, bx, by, out_sx, out_sy, er, eg, eb)
+	Call GlowLine(canvas, out_sx, out_sy, ax, ay, er, eg, eb)
+End Sub
+
+Sub DrawFloor(ByVal canvas As Object)
+	Dim ix As Integer
+	Dim iz As Integer
+	For iz = 4 To 0 Step -1
+		For ix = 0 To 3
+			Dim ox As Single
+			Dim oz As Single
+			ox = -4.4 + CSng(ix) * 2.2
+			oz = 0.6 + CSng(iz) * 2.2
+			' Full neon floor — cream bed sits above it (no black void under the mattress).
+			Call SpiralTile(canvas, ox, 0.0, oz, 2.2, 0.0, 0.0, 0.0, 0.0, 2.2)
+		Next ix
+	Next iz
+End Sub
+
+Sub DrawWalls(ByVal canvas As Object)
+	Dim i As Integer
+	Dim row As Integer
+	Dim iz As Integer
+	For iz = 4 To 0 Step -1
+		For i = 0 To 3
+			Dim cox As Single
+			Dim coz As Single
+			cox = -4.4 + CSng(i) * 2.2
+			coz = 0.6 + CSng(iz) * 2.2
+			Call SpiralTile(canvas, cox, 4.4, coz + 2.2, 2.2, 0.0, 0.0, 0.0, 0.0, -2.2)
+		Next i
+	Next iz
+	For i = 0 To 3
+		' Outward normals + dual NeonStrip: fill pushes into the wall, neon on both sides.
+		Call SpiralTile(canvas, -4.4 + CSng(i) * 2.2, 0.0, 0.6, 2.2, 0.0, 0.0, 0.0, 2.2, 0.0)
+		Call SpiralTile(canvas, -4.4 + CSng(i) * 2.2, 2.2, 0.6, 2.2, 0.0, 0.0, 0.0, 2.2, 0.0)
+		Call SpiralTile(canvas, -4.4 + CSng(i) * 2.2, 0.0, 11.6, 2.2, 0.0, 0.0, 0.0, 2.2, 0.0)
+		Call SpiralTile(canvas, -4.4 + CSng(i) * 2.2, 2.2, 11.6, 2.2, 0.0, 0.0, 0.0, 2.2, 0.0)
+	Next i
+	For i = 0 To 4
+		Dim z0 As Single
+		z0 = 0.6 + CSng(i) * 2.2
+		For row = 0 To 1
+			Dim y0 As Single
+			y0 = CSng(row) * 2.2
+			Call SpiralTile(canvas, -4.4, y0, z0, 0.0, 0.0, 2.2, 0.0, 2.2, 0.0)
+			If i <> 2 Then
+				Call SpiralTile(canvas, 4.4, y0, z0 + 2.2, 0.0, 0.0, -2.2, 0.0, 2.2, 0.0)
+			End If
+		Next row
+	Next i
+End Sub
+
+Sub DrawGlassBalcony(ByVal canvas As Object)
+	Dim z0 As Single
+	z0 = 0.6 + 2.0 * 2.2
+	' Live glass only. Baking it would keep the pane after the smash.
+	If wire_build Then Exit Sub
+	If glass_smashed Then Exit Sub
+	If room_id <> 1 Then Exit Sub
+	Call Project(4.4, 0.0, z0)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim ax As Single
+	Dim ay As Single
+	ax = out_sx
+	ay = out_sy
+	Call Project(4.4, 0.0, z0 + 2.2)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim bx As Single
+	Dim by As Single
+	bx = out_sx
+	by = out_sy
+	Call Project(4.4, 4.4, z0 + 2.2)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = out_sx
+	cy = out_sy
+	Call Project(4.4, 4.4, z0)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(cx, cy), Vector2(out_sx, out_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(0.4, 0.75, 0.95, 0.22), True, Color(0.55, 0.85, 1.0, 0.18))
+	Call DrawSeg(canvas, 4.4, 0.0, z0, 4.4, 4.4, z0, 1.4, 0.7, 0.9, 1.0, 0.85)
+	Call DrawSeg(canvas, 4.4, 0.0, z0 + 2.2, 4.4, 4.4, z0 + 2.2, 1.4, 0.7, 0.9, 1.0, 0.85)
+	Call DrawSeg(canvas, 4.4, 2.2, z0, 4.4, 2.2, z0 + 2.2, 1.2, 0.75, 0.95, 1.05, 0.7)
+End Sub
+
+Sub ClipUv(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal su0 As Single, ByVal sv0 As Single, ByVal su1 As Single, ByVal sv1 As Single, ByVal cu0 As Single, ByVal cv0 As Single, ByVal cu1 As Single, ByVal cv1 As Single, ByVal cr As Single, ByVal cg As Single, ByVal cb As Single)
+	Dim du As Single
+	Dim dv As Single
+	Dim lo As Single
+	Dim hi As Single
+	Dim hold As Single
+	du = su1 - su0
+	If du < 0.0 Then du = -du
+	dv = sv1 - sv0
+	If dv < 0.0 Then dv = -dv
+	If du < 0.0001 Then
+		If su0 < cu0 Or su0 > cu1 Then Exit Sub
+		If su0 > cu1 - 0.0001 And cu1 < 0.99 Then Exit Sub
+		lo = sv0
+		hi = sv1
+		If lo > hi Then
+			hold = lo
+			lo = hi
+			hi = hold
+		End If
+		If lo < cv0 Then lo = cv0
+		If hi > cv1 Then hi = cv1
+		If hi > lo + 0.001 Then
+			Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, su0, lo, su0, hi, cr, cg, cb)
+		End If
+		Exit Sub
+	End If
+	If dv < 0.0001 Then
+		If sv0 < cv0 Or sv0 > cv1 Then Exit Sub
+		If sv0 > cv1 - 0.0001 And cv1 < 0.99 Then Exit Sub
+		lo = su0
+		hi = su1
+		If lo > hi Then
+			hold = lo
+			lo = hi
+			hi = hold
+		End If
+		If lo < cu0 Then lo = cu0
+		If hi > cu1 Then hi = cu1
+		If hi > lo + 0.001 Then
+			Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, lo, sv0, hi, sv0, cr, cg, cb)
+		End If
+	End If
+End Sub
+
+Sub CellPattern(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal cu0 As Single, ByVal cv0 As Single, ByVal cu1 As Single, ByVal cv1 As Single)
+	Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.0, 0.0, 1.0, 0.0, cu0, cv0, cu1, cv1, pat_br, pat_bg, pat_bb)
+	Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 1.0, 0.0, 1.0, 1.0, cu0, cv0, cu1, cv1, pat_br, pat_bg, pat_bb)
+	Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 1.0, 1.0, 0.0, 1.0, cu0, cv0, cu1, cv1, pat_br, pat_bg, pat_bb)
+	Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, 0.0, 1.0, 0.0, 0.0, cu0, cv0, cu1, cv1, pat_br, pat_bg, pat_bb)
+	Dim i As Integer
+	Dim inset As Single
+	Dim a As Single
+	Dim c As Single
+	For i = 1 To 10
+		inset = CSng(i) * 0.038
+		a = inset
+		c = 1.0 - inset
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, a, a, c, a, cu0, cv0, cu1, cv1, pat_r, pat_g, pat_b)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, c, a, c, c, cu0, cv0, cu1, cv1, pat_r, pat_g, pat_b)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, c, c, a, c, cu0, cv0, cu1, cv1, pat_r, pat_g, pat_b)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, a, c, a, a, cu0, cv0, cu1, cv1, pat_r, pat_g, pat_b)
+	Next i
+	Dim x0 As Single
+	Dim y0 As Single
+	Dim x1 As Single
+	Dim y1 As Single
+	Dim gap As Single
+	gap = 0.034
+	x0 = 0.42
+	y0 = 0.42
+	x1 = 0.58
+	y1 = 0.58
+	For i = 0 To 2
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, x0, y0, x1, y0, cu0, cv0, cu1, cv1, pat_r * 1.6, pat_g * 1.14, pat_b * 1.27)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, x1, y0, x1, y1, cu0, cv0, cu1, cv1, pat_r * 1.6, pat_g * 1.14, pat_b * 1.27)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, x1, y1, x0, y1, cu0, cv0, cu1, cv1, pat_r * 1.6, pat_g * 1.14, pat_b * 1.27)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, x0, y1, x0, y0 + gap, cu0, cv0, cu1, cv1, pat_r * 1.6, pat_g * 1.14, pat_b * 1.27)
+		Call ClipUv(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, x0, y0 + gap, x0 + gap, y0 + gap, cu0, cv0, cu1, cv1, pat_r * 1.6, pat_g * 1.14, pat_b * 1.27)
+		x0 = x0 + gap
+		y0 = y0 + gap
+		x1 = x1 - gap
+		y1 = y1 - gap
+	Next i
+End Sub
+
+Sub SpiralTile(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	' World-space neon strips (NeonFace), not screen ribbons — patterns stay put when you turn.
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, pat_r, pat_g, pat_b)
+End Sub
+
+Sub TileRect(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal inset As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim a As Single
+	Dim c As Single
+	a = inset
+	c = 1.0 - inset
+	Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, a, a, c, a, r, g, b)
+	Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, c, a, c, c, r, g, b)
+	Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, c, c, a, c, r, g, b)
+	Call TileEdge(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, a, c, a, a, r, g, b)
+End Sub
+
+Sub TileFill(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single)
+	If wire_build Then
+		Call canvas.AddWireQuad3D(ox, oy, oz, ox + ux, oy + uy, oz + uz, ox + ux + vx, oy + uy + vy, oz + uz + vz, ox + vx, oy + vy, oz + vz, Color(0.0, 0.0, 0.0, 1.0))
+		Exit Sub
+	End If
+	Call Project(ox, oy, oz)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim ax As Single
+	Dim ay As Single
+	ax = out_sx
+	ay = out_sy
+	Call Project(ox + ux, oy + uy, oz + uz)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim bx As Single
+	Dim by As Single
+	bx = out_sx
+	by = out_sy
+	Call Project(ox + ux + vx, oy + uy + vy, oz + uz + vz)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim cx As Single
+	Dim cy As Single
+	cx = out_sx
+	cy = out_sy
+	Call Project(ox + vx, oy + vy, oz + vz)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(cx, cy), Vector2(out_sx, out_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(0, 0, 0, 1), True, Color(0.0, 0.01, 0.02, 1))
+End Sub
+
+Sub TileEdge(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal su0 As Single, ByVal sv0 As Single, ByVal su1 As Single, ByVal sv1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call DrawSeg(canvas, ox + ux * su0 + vx * sv0, oy + uy * su0 + vy * sv0, oz + uz * su0 + vz * sv0, ox + ux * su1 + vx * sv1, oy + uy * su1 + vy * sv1, oz + uz * su1 + vz * sv1, 1.15, r, g, b, 0.95)
+End Sub
+
+Sub DrawDoor(ByVal canvas As Object)
+	Dim z As Single
+	z = 12.0
+	Call Project(1.5, 0.0, z)
+	Dim ax As Single
+	Dim ay As Single
+	ax = out_sx
+	ay = out_sy
+	Call Project(3.6, 0.0, z)
+	Dim bx As Single
+	Dim by As Single
+	bx = out_sx
+	by = out_sy
+	Call Project(3.6, 2.7, z)
+	Dim cx As Single
+	Dim cy As Single
+	cx = out_sx
+	cy = out_sy
+	Call Project(1.5, 2.7, z)
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(cx, cy), Vector2(out_sx, out_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(0, 0, 0, 1), True, Color(0.01, 0.0, 0.02, 1))
+	Call GlowLine(canvas, ax, ay, bx, by, 0.3, 0.55, 1.2)
+	Call GlowLine(canvas, bx, by, cx, cy, 0.3, 0.55, 1.2)
+	Call GlowLine(canvas, cx, cy, out_sx, out_sy, 0.3, 0.55, 1.2)
+	Call GlowLine(canvas, out_sx, out_sy, ax, ay, 0.3, 0.55, 1.2)
+	Call Edge(canvas, 1.7, 2.7, z, 2.15, 3.25, z, 0.35, 0.7, 1.3)
+	Call Edge(canvas, 2.15, 3.25, z, 2.95, 3.25, z, 0.35, 0.7, 1.3)
+	Call Edge(canvas, 2.95, 3.25, z, 3.4, 2.7, z, 0.35, 0.7, 1.3)
+	Dim i As Integer
+	For i = 0 To 5
+		Dim x As Single
+		x = 1.75 + CSng(i) * 0.32
+		Call Edge(canvas, x, 0.15, z - 0.02, x, 2.5, z - 0.02, 1.3, 0.25, 0.1)
+	Next i
+End Sub
+
+Sub DrawPlant(ByVal canvas As Object)
+	Call Tri(canvas, -4.2, 0.0, 3.2, -3.7, 0.0, 3.6, -3.9, 1.3, 3.3, 0.0, 0.04, 0.02, 0.4, 1.1, 0.25)
+	Call Tri(canvas, -4.3, 0.2, 3.1, -4.6, 1.5, 2.8, -3.8, 1.1, 3.4, 0.0, 0.05, 0.02, 0.55, 1.2, 0.3)
+	Call Tri(canvas, -3.6, 0.2, 3.5, -3.2, 1.4, 3.8, -4.0, 0.9, 3.2, 0.0, 0.05, 0.02, 0.7, 1.0, 0.2)
+End Sub
+
+Sub DrawCreature(ByVal canvas As Object)
+	Dim z As Single
+	z = 6.4
+	' Body
+	Call Tri(canvas, -0.55, 0.0, z, 0.55, 0.0, z, 0.38, 2.3, z, 0.01, 0.0, 0.02, 1.35, 0.72, 0.12)
+	Call Tri(canvas, -0.55, 0.0, z, 0.38, 2.3, z, -0.38, 2.3, z, 0.01, 0.0, 0.02, 1.35, 0.72, 0.12)
+	Call Tri(canvas, -0.42, 2.3, z, 0.42, 2.3, z, 0.0, 3.45, z, 0.01, 0.0, 0.02, 1.35, 0.72, 0.12)
+	' Head
+	Call Tri(canvas, -0.18, 3.35, z, 0.18, 3.35, z, 0.0, 4.15, z, 0.02, 0.0, 0.03, 1.4, 0.8, 0.15)
+	' Left wing
+	Call Tri(canvas, -0.2, 2.5, z, -1.15, 3.15, z, -0.35, 3.2, z, 0.02, 0.0, 0.02, 1.25, 0.65, 0.1)
+	Call Tri(canvas, -0.35, 3.2, z, -1.15, 3.15, z, -1.55, 3.85, z, 0.02, 0.0, 0.02, 1.25, 0.65, 0.1)
+	Call Tri(canvas, -0.25, 3.15, z, -0.9, 3.7, z, -0.15, 3.45, z, 0.02, 0.0, 0.02, 1.4, 0.75, 0.12)
+	' Right wing
+	Call Tri(canvas, 0.2, 2.5, z, 0.35, 3.2, z, 1.15, 3.15, z, 0.02, 0.0, 0.02, 1.25, 0.65, 0.1)
+	Call Tri(canvas, 0.35, 3.2, z, 1.55, 3.85, z, 1.15, 3.15, z, 0.02, 0.0, 0.02, 1.25, 0.65, 0.1)
+	Call Tri(canvas, 0.25, 3.15, z, 0.15, 3.45, z, 0.9, 3.7, z, 0.02, 0.0, 0.02, 1.4, 0.75, 0.12)
+	' Feet
+	Call Edge(canvas, -0.28, 0.0, z, -0.55, 0.0, z + 0.15, 1.3, 0.7, 0.12)
+	Call Edge(canvas, 0.28, 0.0, z, 0.55, 0.0, z + 0.15, 1.3, 0.7, 0.12)
+	' A little depth: same silhouette nudged back
+	Call Edge(canvas, 0.0, 4.15, z, 0.0, 4.15, z + 0.35, 1.2, 0.6, 0.1)
+	Call Edge(canvas, -1.55, 3.85, z, -1.55, 3.85, z + 0.35, 1.2, 0.55, 0.1)
+	Call Edge(canvas, 1.55, 3.85, z, 1.55, 3.85, z + 0.35, 1.2, 0.55, 0.1)
+End Sub
+
+Sub DrawHand(ByVal canvas As Object)
+	Call GlowLine(canvas, 760.0, 520.0, 860.0, 470.0, 1.3, 0.45, 0.1)
+	Call GlowLine(canvas, 860.0, 470.0, 910.0, 430.0, 1.3, 0.45, 0.1)
+	Call GlowLine(canvas, 860.0, 470.0, 930.0, 490.0, 1.2, 0.4, 0.1)
+	Call GlowLine(canvas, 800.0, 530.0, 880.0, 500.0, 1.15, 0.4, 0.08)
+End Sub
+
+Function IsHeadless() As Boolean
+	IsHeadless = False
+	If DisplayServer.get_name() = "headless" Then IsHeadless = True
+End Function
+
+Sub CaptureMouse()
+	If IsHeadless() = True Then Exit Sub
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	look_dx = 0.0
+	look_dy = 0.0
+	look_armed = False
+End Sub
+
+Sub ReleaseMouse()
+	If IsHeadless() = True Then Exit Sub
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+End Sub
+
+Sub CloseMenu()
+	menu_open = False
+	look_dx = 0.0
+	look_dy = 0.0
+	If music_h <> 0 And music_paused = True Then
+		Call Sound.Resume(music_h)
+		music_paused = False
+	End If
+	Call CaptureMouse()
+End Sub
+
+Sub ActivateMenu()
+	If menu_item = 0 Then
+		Call CloseMenu()
+	Else
+		If music_h <> 0 Then Call Sound.Stop(music_h)
+		music_h = 0
+		Call ReleaseMouse()
+		End
+	End If
+End Sub
+
+Sub TickMenu()
+	If IsKeyPressed(KEY_ESCAPE) = False Then esc_lock = False
+	If IsKeyPressed(KEY_ESCAPE) = True And esc_lock = False Then
+		esc_lock = True
+		If menu_open = False Then
+			menu_open = True
+			menu_item = 0
+			look_dx = 0.0
+			look_dy = 0.0
+			If music_h <> 0 And music_paused = False Then
+				Call Sound.Pause(music_h)
+				music_paused = True
+			End If
+			Call ReleaseMouse()
+		Else
+			Call CloseMenu()
+		End If
+	End If
+	If menu_open = False Then Exit Sub
+	If IsKeyPressed(KEY_UP) = False And IsKeyPressed(KEY_DOWN) = False And IsKeyPressed(KEY_W) = False And IsKeyPressed(KEY_S) = False Then nav_lock = False
+	If nav_lock = False Then
+		If IsKeyPressed(KEY_UP) = True Or IsKeyPressed(KEY_W) = True Then
+			menu_item = 0
+			nav_lock = True
+		End If
+		If IsKeyPressed(KEY_DOWN) = True Or IsKeyPressed(KEY_S) = True Then
+			menu_item = 1
+			nav_lock = True
+		End If
+	End If
+	Dim mx As Single
+	Dim my As Single
+	mx = GetMouseX()
+	my = GetMouseY()
+	If mx > 340.0 And mx < 620.0 And my > 208.0 And my < 280.0 Then menu_item = 0
+	If mx > 340.0 And mx < 620.0 And my > 296.0 And my < 368.0 Then menu_item = 1
+	If IsMouseButtonDown(1) = False Then click_lock = False
+	If IsMouseButtonDown(1) = True And click_lock = False Then
+		click_lock = True
+		If mx > 340.0 And mx < 620.0 And my > 208.0 And my < 280.0 Then Call CloseMenu()
+		If mx > 340.0 And mx < 620.0 And my > 296.0 And my < 368.0 Then
+			menu_item = 1
+			Call ActivateMenu()
+		End If
+	End If
+	If IsKeyPressed(KEY_ENTER) = False Then enter_lock = False
+	If IsKeyPressed(KEY_ENTER) = True And enter_lock = False Then
+		enter_lock = True
+		Call ActivateMenu()
+	End If
+End Sub
+
+
+Sub GunEdge(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	' Warm banded stroke — no cool white core (that read pink on the blaster).
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 5.5, Color(r * 0.4, g * 0.25, b * 0.1, 0.28))
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 2.4, Color(r, g, b, 1.0))
+	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), 1.1, Color(r * 1.15, g * 0.85, b * 0.45, 1.0))
+End Sub
+
+Sub GunPoly(ByVal canvas As Object, ByVal pts As Variant)
+	Call canvas.DrawPolygon(pts, 0.0, Color(0, 0, 0, 1), True, Color(0.015, 0.008, 0.0, 0.92))
+End Sub
+
+Sub DrawVectorGun(ByVal canvas As Object)
+	' Doom-style FPS viewmodel: big in the corner, barrel aimed at the reticle.
+	Dim bob As Single
+	bob = Sin(hud_time * 6.5) * 2.5
+	Dim mx As Single
+	Dim my As Single
+	Dim rx As Single
+	Dim ry As Single
+	Dim gx As Single
+	Dim gy As Single
+	' Muzzle toward crosshair (screen center).
+	mx = 470.0
+	my = 300.0 + bob * 0.3
+	' Receiver sits lower-right of muzzle.
+	rx = 720.0
+	ry = 380.0 + bob
+	' Grip fills the near corner.
+	gx = 860.0
+	gy = 520.0 + bob
+	Dim barrel As Variant
+	Dim body As Variant
+	Dim grip As Variant
+	Dim hand As Variant
+	barrel = Array(Vector2(mx - 4.0, my - 12.0), Vector2(rx - 90.0, ry - 55.0), Vector2(rx - 70.0, ry + 5.0), Vector2(mx + 10.0, my + 16.0))
+	Call GunPoly(canvas, barrel)
+	body = Array(Vector2(rx - 100.0, ry - 60.0), Vector2(rx + 40.0, ry - 35.0), Vector2(rx + 70.0, ry + 50.0), Vector2(rx - 50.0, ry + 70.0), Vector2(rx - 120.0, ry + 15.0))
+	Call GunPoly(canvas, body)
+	grip = Array(Vector2(rx - 20.0, ry + 45.0), Vector2(rx + 55.0, ry + 35.0), Vector2(gx, gy - 10.0), Vector2(gx - 70.0, gy), Vector2(rx - 45.0, ry + 95.0))
+	Call GunPoly(canvas, grip)
+	' Knuckle / hand mass so it reads as held, not a floating pickup.
+	hand = Array(Vector2(rx + 20.0, ry + 55.0), Vector2(gx - 20.0, gy - 40.0), Vector2(gx + 20.0, gy - 5.0), Vector2(rx + 60.0, ry + 90.0))
+	Call GunPoly(canvas, hand)
+	' Barrel → reticle.
+	Call GunEdge(canvas, mx - 4.0, my - 12.0, rx - 90.0, ry - 55.0, 1.85, 0.62, 0.16)
+	Call GunEdge(canvas, rx - 90.0, ry - 55.0, rx - 70.0, ry + 5.0, 1.8, 0.58, 0.14)
+	Call GunEdge(canvas, rx - 70.0, ry + 5.0, mx + 10.0, my + 16.0, 1.8, 0.58, 0.14)
+	Call GunEdge(canvas, mx + 10.0, my + 16.0, mx - 4.0, my - 12.0, 1.95, 0.8, 0.2)
+	Call GunEdge(canvas, mx - 10.0, my - 18.0, mx + 18.0, my - 10.0, 2.0, 0.9, 0.25)
+	Call GunEdge(canvas, mx + 18.0, my - 10.0, mx + 20.0, my + 20.0, 2.0, 0.9, 0.25)
+	Call GunEdge(canvas, mx + 20.0, my + 20.0, mx - 8.0, my + 12.0, 2.0, 0.9, 0.25)
+	Call GunEdge(canvas, mx - 8.0, my + 12.0, mx - 10.0, my - 18.0, 2.0, 0.9, 0.25)
+	' Body.
+	Call GunEdge(canvas, rx - 100.0, ry - 60.0, rx + 40.0, ry - 35.0, 1.7, 0.52, 0.12)
+	Call GunEdge(canvas, rx + 40.0, ry - 35.0, rx + 70.0, ry + 50.0, 1.7, 0.52, 0.12)
+	Call GunEdge(canvas, rx + 70.0, ry + 50.0, rx - 50.0, ry + 70.0, 1.7, 0.52, 0.12)
+	Call GunEdge(canvas, rx - 50.0, ry + 70.0, rx - 120.0, ry + 15.0, 1.7, 0.52, 0.12)
+	Call GunEdge(canvas, rx - 120.0, ry + 15.0, rx - 100.0, ry - 60.0, 1.7, 0.52, 0.12)
+	Call GunEdge(canvas, rx - 40.0, ry - 68.0, rx + 25.0, ry - 42.0, 1.55, 0.45, 0.1)
+	Call GunEdge(canvas, rx + 10.0, ry - 75.0, rx + 10.0, ry - 40.0, 1.6, 0.5, 0.12)
+	Call GunEdge(canvas, rx + 28.0, ry - 70.0, rx + 28.0, ry - 38.0, 1.6, 0.5, 0.12)
+	' Grip + hand.
+	Call GunEdge(canvas, rx - 20.0, ry + 45.0, rx + 55.0, ry + 35.0, 1.7, 0.55, 0.14)
+	Call GunEdge(canvas, rx + 55.0, ry + 35.0, gx, gy - 10.0, 1.7, 0.55, 0.14)
+	Call GunEdge(canvas, gx, gy - 10.0, gx - 70.0, gy, 1.7, 0.55, 0.14)
+	Call GunEdge(canvas, gx - 70.0, gy, rx - 45.0, ry + 95.0, 1.7, 0.55, 0.14)
+	Call GunEdge(canvas, rx - 45.0, ry + 95.0, rx - 20.0, ry + 45.0, 1.7, 0.55, 0.14)
+	Call GunEdge(canvas, rx + 5.0, ry + 65.0, rx + 45.0, ry + 58.0, 1.5, 0.42, 0.1)
+	Call GunEdge(canvas, rx + 20.0, ry + 55.0, gx - 20.0, gy - 40.0, 1.55, 0.48, 0.12)
+	Call GunEdge(canvas, gx - 20.0, gy - 40.0, gx + 20.0, gy - 5.0, 1.55, 0.48, 0.12)
+	Call GunEdge(canvas, gx + 20.0, gy - 5.0, rx + 60.0, ry + 90.0, 1.55, 0.48, 0.12)
+End Sub
+
+Sub DrawPauseMenu(ByVal canvas As Object)
+	Dim cr As Single
+	Dim cg As Single
+	Dim cb As Single
+	Dim qr As Single
+	Dim qg As Single
+	Dim qb As Single
+	Call canvas.DrawRect(Rect2(0.0, 0.0, 960.0, 540.0), 0.0, Color(0.0, 0.0, 0.0, 0.0), True, Color(0.0, 0.0, 0.0, 0.78))
+	' Outer orange chevron frame + cyan inner plate — Paradox menu language.
+	Call GlowLine(canvas, 250.0, 100.0, 710.0, 100.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 710.0, 100.0, 740.0, 140.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 740.0, 140.0, 740.0, 420.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 740.0, 420.0, 710.0, 460.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 710.0, 460.0, 250.0, 460.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 250.0, 460.0, 220.0, 420.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 220.0, 420.0, 220.0, 140.0, 1.45, 0.45, 0.1)
+	Call GlowLine(canvas, 220.0, 140.0, 250.0, 100.0, 1.45, 0.45, 0.1)
+	Call canvas.DrawRect(Rect2(248.0, 124.0, 464.0, 312.0), 1.5, Color(0.35, 1.05, 1.25, 1.0), True, Color(0.01, 0.02, 0.04, 0.96))
+	Call GlowLine(canvas, 270.0, 148.0, 310.0, 148.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 270.0, 148.0, 270.0, 188.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 690.0, 148.0, 650.0, 148.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 690.0, 148.0, 690.0, 188.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 270.0, 412.0, 310.0, 412.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 270.0, 412.0, 270.0, 372.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 690.0, 412.0, 650.0, 412.0, 0.4, 0.95, 1.15)
+	Call GlowLine(canvas, 690.0, 412.0, 690.0, 372.0, 0.4, 0.95, 1.15)
+	Call canvas.DrawVectorTextCentered(Vector2(480.0, 160.0), "VECTOR CRYPT", Color(1.7, 0.35, 0.12, 1.0), 2.9, 3.0, 3.4, "")
+	Call canvas.DrawVectorTextCentered(Vector2(480.0, 192.0), "SYSTEM HALTED", Color(0.45, 1.05, 1.2, 1.0), 1.55, 1.7, 1.9, "")
+	cr = 0.55
+	cg = 0.22
+	cb = 0.1
+	qr = 0.55
+	qg = 0.22
+	qb = 0.1
+	If menu_item = 0 Then
+		cr = 1.55
+		cg = 0.6
+		cb = 0.15
+	Else
+		qr = 1.55
+		qg = 0.6
+		qb = 0.15
+	End If
+	Call canvas.DrawRect(Rect2(320.0, 230.0, 320.0, 68.0), 2.0, Color(cr, cg, cb, 1.0), True, Color(0.08, 0.03, 0.01, 0.94))
+	Call canvas.DrawRect(Rect2(320.0, 318.0, 320.0, 68.0), 2.0, Color(qr, qg, qb, 1.0), True, Color(0.08, 0.03, 0.01, 0.94))
+	Call canvas.DrawVectorTextCentered(Vector2(480.0, 250.0), "CONTINUE", Color(1.05, 0.98, 0.88, 1.0), 2.4, 3.1, 3.3, "")
+	Call canvas.DrawVectorTextCentered(Vector2(480.0, 338.0), "QUIT", Color(1.05, 0.98, 0.88, 1.0), 2.4, 3.1, 3.3, "")
+	Call canvas.DrawVectorTextCentered(Vector2(480.0, 430.0), "ESC / ENTER", Color(0.35, 0.75, 0.9, 0.85), 1.2, 1.3, 1.5, "")
+End Sub
+
+Sub TickLook(ByVal delta As Single)
+	If IsKeyPressed(KEY_LEFT) Or IsKeyPressed(KEY_A) Then cam_yaw = cam_yaw - delta * 1.5
+	If IsKeyPressed(KEY_RIGHT) Or IsKeyPressed(KEY_D) Then cam_yaw = cam_yaw + delta * 1.5
+	If IsKeyPressed(KEY_UP) Then cam_pitch = cam_pitch + delta * 1.15
+	If IsKeyPressed(KEY_DOWN) Then cam_pitch = cam_pitch - delta * 1.15
+	If IsHeadless() = False And Input.mouse_mode = Input.MOUSE_MODE_CAPTURED Then
+		cam_yaw = cam_yaw + look_dx * 0.0042
+		cam_pitch = cam_pitch - look_dy * 0.0036
+	End If
+	look_dx = 0.0
+	look_dy = 0.0
+	If cam_pitch > 1.25 Then cam_pitch = 1.25
+	If cam_pitch < -1.25 Then cam_pitch = -1.25
+End Sub
+
+Sub TickBody(ByVal delta As Single)
+	Dim pd As Single
+	Dim move As Single
+	Dim strafe As Single
+	pd = delta
+	If pd > 0.05 Then pd = 0.05
+	move = 0.0
+	strafe = 0.0
+	If IsKeyPressed(KEY_W) Then move = 1.0
+	If IsKeyPressed(KEY_S) Then move = move - 1.0
+	If IsKeyPressed(KEY_Q) Then strafe = -1.0
+	If IsKeyPressed(KEY_E) Then strafe = 1.0
+	Dim fx As Single
+	Dim fz As Single
+	Dim rx As Single
+	Dim rz As Single
+	fx = Sin(cam_yaw)
+	fz = Cos(cam_yaw)
+	rx = Cos(cam_yaw)
+	rz = -Sin(cam_yaw)
+	Dim dx As Single
+	Dim dz As Single
+	dx = (fx * move + rx * strafe) * 5.4 * pd
+	dz = (fz * move + rz * strafe) * 5.4 * pd
+	Dim ylo As Single
+	Dim yhi As Single
+	If grav > 0 Then
+		ylo = cam_y - 1.5
+		yhi = cam_y + 0.25
+	Else
+		ylo = cam_y - 0.25
+		yhi = cam_y + 1.5
+	End If
+	If HitsWall(cam_x + dx, ylo, yhi, cam_z, 0.42) = False Then
+		If HitsCrate(cam_x + dx, ylo, yhi, cam_z) = True Then
+			If PushCrate(dx, 0.0) = True Then cam_x = cam_x + dx
+		Else
+			cam_x = cam_x + dx
+		End If
+	End If
+	If HitsWall(cam_x, ylo, yhi, cam_z + dz, 0.42) = False Then
+		If HitsCrate(cam_x, ylo, yhi, cam_z + dz) = True Then
+			If PushCrate(0.0, dz) = True Then cam_z = cam_z + dz
+		Else
+			cam_z = cam_z + dz
+		End If
+	End If
+	Dim gsign As Single
+	gsign = 1.0
+	If grav < 0 Then gsign = -1.0
+	vel_y = vel_y - 11.0 * gsign * pd
+	grounded = False
+	If grav > 0 Then
+		Dim feet As Single
+		Dim nf As Single
+		Dim surf As Single
+		feet = cam_y - 1.55
+		nf = feet + vel_y * pd
+		surf = FloorAt(cam_x, cam_z, nf)
+		If vel_y <= 0.0 And surf > -50.0 And nf <= surf + 0.08 And nf >= surf - 1.4 Then
+			cam_y = surf + 1.55
+			vel_y = 0.0
+			grounded = True
+		Else
+			cam_y = cam_y + vel_y * pd
+			Dim head As Single
+			Dim ctop As Single
+			head = cam_y + 0.25
+			ctop = CeilAt(cam_x, cam_z, head)
+			If head > ctop Then
+				cam_y = ctop - 0.25
+				If vel_y > 0.0 Then vel_y = 0.0
+			End If
+		End If
+	Else
+		Dim feet2 As Single
+		Dim nf2 As Single
+		Dim und As Single
+		feet2 = cam_y + 1.55
+		nf2 = feet2 + vel_y * pd
+		und = CeilAt(cam_x, cam_z, nf2)
+		If vel_y >= 0.0 And und < 50.0 And nf2 >= und - 0.08 And nf2 <= und + 1.4 Then
+			cam_y = und - 1.55
+			vel_y = 0.0
+			grounded = True
+		Else
+			cam_y = cam_y + vel_y * pd
+		End If
+	End If
+	If grounded = True Then
+		Dim pad As Integer
+		pad = PadAt(cam_x, cam_z)
+		If pad = 1 Then grav = -1
+		If pad = 2 Then grav = 1
+		If pad = 3 Then vel_y = 9.2
+	End If
+	If IsKeyPressed(KEY_SPACE) = False Then jump_lock = False
+	If IsKeyPressed(KEY_SPACE) And grounded = True And jump_lock = False Then
+		vel_y = 7.6 * gsign
+		jump_lock = True
+		grounded = False
+	End If
+	bob = 0.0
+	bob_pitch = 0.0
+	If grounded = True Then
+		If move <> 0.0 Or strafe <> 0.0 Then
+			step_acc = step_acc + pd * 2.1
+			bob = Sin(step_acc * 6.28318) * 0.028
+			bob_pitch = Sin(step_acc * 3.14159) * 0.01
+			If step_acc >= 1.0 Then
+				step_acc = step_acc - 1.0
+				Call steps.Step(step_side)
+				If step_side = 0 Then
+					step_side = 1
+				Else
+					step_side = 0
+				End If
+			End If
+		End If
+	Else
+		step_acc = 0.0
+	End If
+	If room_id = 3 And cam_x > 6.3 And cam_x < 10.6 And cam_z > 12.15 And cam_z < 16.25 And cam_y < 0.15 Then
+		cam_x = 8.4
+		cam_y = 1.55
+		cam_z = 11.4
+		vel_y = 0.0
+		grav = 1
+	End If
+	' Shaft exit: flip upright. The ceiling you were walking on is the roof floor.
+	If grav < 0 And cam_y > 7.2 And cam_x > 43.5 And cam_x < 52.0 And cam_z > 39.6 Then
+		grav = 1
+		vel_y = 0.0
+		cam_y = 12.05
+		If cam_z < 41.5 Then cam_z = 41.5
+		If cam_x < 46.2 Then cam_x = 46.2
+		If cam_x > 49.2 Then cam_x = 49.2
+	End If
+	Dim sky As Boolean
+	sky = False
+	If grav < 0 And grounded = False And cam_y > 22.0 Then sky = True
+	If cam_y < -2.2 Or sky = True Or PlayerHurt(cam_x, cam_y, cam_z) = True Then
+		cam_x = SpawnX()
+		cam_y = SpawnY()
+		cam_z = SpawnZ()
+		vel_y = 0.0
+		grav = 1
+	End If
+End Sub
+
+Sub ClampWalker()
+	If glass_smashed = False Then
+		If cam_x < -3.2 Then cam_x = -3.2
+		If cam_x > 3.2 Then cam_x = 3.2
+		If cam_z < 1.3 Then cam_z = 1.3
+		If cam_z > 10.0 Then cam_z = 10.0
+		Exit Sub
+	End If
+	If cam_x > 4.45 Then
+		If cam_z < 4.25 Then cam_z = 4.25
+		If cam_z > 8.15 Then cam_z = 8.15
+		If cam_x > 10.5 Then cam_x = 10.5
+	Else
+		If cam_x < -3.2 Then cam_x = -3.2
+		If cam_z < 1.3 Then cam_z = 1.3
+		If cam_z > 10.0 Then cam_z = 10.0
+		If cam_x > 3.2 Then
+			If cam_z < 5.15 Or cam_z > 7.05 Then cam_x = 3.2
+		End If
+	End If
+End Sub
+
+Sub TickOverseer(ByVal delta As Single)
+	stood_time = stood_time + delta
+	If quake > 0.0 Then
+		quake = quake - delta * 1.6
+		If quake < 0.0 Then quake = 0.0
+	End If
+	If smash_phase = 0 Then
+		rig_x = 0.35
+		rig_y = 4.05
+		rig_z = 2.55
+		If stood_time > 5.5 Then smash_phase = 1
+	ElseIf smash_phase = 1 Then
+		Dim u As Single
+		u = (stood_time - 5.5) / 1.8
+		If u > 1.0 Then u = 1.0
+		rig_x = 0.35 + 3.8 * u
+		rig_z = 2.55 + 3.55 * u
+		rig_y = 4.05 - 1.9 * u
+		If u >= 1.0 Then
+			smash_phase = 2
+			glass_smashed = True
+			quake = 0.18
+			Call RevealAnnex()
+			Call SpawnShards()
+		End If
+	ElseIf smash_phase = 2 Then
+		Dim u2 As Single
+		u2 = (stood_time - 7.3) / 0.4
+		If u2 < 0.0 Then u2 = 0.0
+		If u2 > 1.0 Then u2 = 1.0
+		rig_x = 4.15 + 2.95 * u2
+		rig_y = 2.15 + 0.25 * u2
+		rig_z = 6.1
+		If u2 >= 1.0 Then smash_phase = 3
+	Else
+		rig_x = 7.1
+		rig_y = 2.4
+		rig_z = 6.1
+	End If
+	Call TickShards(delta)
+End Sub
+
+Sub SpawnShards()
+	shard_n = 10
+	Dim i As Integer
+	For i = 0 To 9
+		shard_x(i) = 4.5
+		shard_y(i) = 0.45 + CSng(i) * 0.36
+		shard_z(i) = 5.15 + CSng(i) * 0.18
+		shard_vx(i) = 1.6 + CSng(i) * 0.28
+		shard_vy(i) = 1.8 - CSng(i) * 0.22
+		shard_vz(i) = -0.7 + CSng(i) * 0.14
+		shard_life(i) = 1.2
+	Next i
+End Sub
+
+Sub TickShards(ByVal delta As Single)
+	If shard_n < 1 Then Exit Sub
+	Dim i As Integer
+	For i = 0 To shard_n - 1
+		If shard_life(i) > 0.0 Then
+			shard_x(i) = shard_x(i) + shard_vx(i) * delta
+			shard_y(i) = shard_y(i) + shard_vy(i) * delta
+			shard_z(i) = shard_z(i) + shard_vz(i) * delta
+			shard_vy(i) = shard_vy(i) - 7.5 * delta
+			If shard_y(i) < 0.08 Then
+				shard_y(i) = 0.08
+				shard_vy(i) = 0.0
+			End If
+			shard_life(i) = shard_life(i) - delta
+		End If
+	Next i
+End Sub
+
+Sub DrawShards(ByVal canvas As Object)
+	If shard_n < 1 Then Exit Sub
+	Dim i As Integer
+	For i = 0 To shard_n - 1
+		If shard_life(i) > 0.0 Then
+			Dim a As Single
+			a = shard_life(i) / 1.2
+			Dim x As Single
+			Dim y As Single
+			Dim z As Single
+			x = shard_x(i)
+			y = shard_y(i)
+			z = shard_z(i)
+			Call DrawSeg(canvas, x, y, z, x + 0.22, y + 0.08, z + 0.05, 1.2, 0.7, 0.92, 1.0, a)
+			Call DrawSeg(canvas, x + 0.22, y + 0.08, z + 0.05, x + 0.04, y - 0.16, z - 0.04, 1.2, 0.7, 0.92, 1.0, a)
+			Call DrawSeg(canvas, x + 0.04, y - 0.16, z - 0.04, x, y, z, 1.2, 0.7, 0.92, 1.0, a)
+		End If
+	Next i
+End Sub
+
+Sub DrawRing(ByVal canvas As Object, ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal rad As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	For i = 0 To 7
+		Dim a0 As Single
+		Dim a1 As Single
+		a0 = CSng(i) * 0.785398
+		a1 = CSng(i + 1) * 0.785398
+		Call DrawSeg(canvas, cx + Cos(a0) * rad, cy + Sin(a0) * rad * 0.72, cz + Sin(a0) * rad * 0.35, cx + Cos(a1) * rad, cy + Sin(a1) * rad * 0.72, cz + Sin(a1) * rad * 0.35, 1.25, r, g, b, 0.92)
+	Next i
+End Sub
+
+Sub SolidTri(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call Project(x0, y0, z0)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim ax As Single
+	Dim ay As Single
+	ax = out_sx
+	ay = out_sy
+	Call Project(x1, y1, z1)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim bx As Single
+	Dim by As Single
+	bx = out_sx
+	by = out_sy
+	Call Project(x2, y2, z2)
+	If clip_cz < 0.4 Then Exit Sub
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(out_sx, out_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(r, g, b, 1.0), True, Color(r, g, b, 1.0))
+End Sub
+
+Sub SolidQuad(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal x3 As Single, ByVal y3 As Single, ByVal z3 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call SolidTri(canvas, x0, y0, z0, x1, y1, z1, x2, y2, z2, r, g, b)
+	Call SolidTri(canvas, x0, y0, z0, x2, y2, z2, x3, y3, z3, r, g, b)
+End Sub
+
+Function RigInSight() As Boolean
+	Dim t As Single
+	Dim hz As Single
+	Dim hy As Single
+	RigInSight = False
+	If room_id > 2 Then Exit Function
+	If glass_smashed = False And cam_x < 4.3 Then
+		RigInSight = True
+		Exit Function
+	End If
+	If (cam_x - 4.45) * (rig_x - 4.45) > 0.0 Then
+		If room_id = 1 Then RigInSight = True
+		Exit Function
+	End If
+	If rig_x = cam_x Then Exit Function
+	t = (4.45 - cam_x) / (rig_x - cam_x)
+	If t < 0.0 Or t > 1.0 Then Exit Function
+	hz = cam_z + (rig_z - cam_z) * t
+	hy = cam_y + (rig_y - cam_y) * t
+	If glass_smashed = True And hz > 5.1 And hz < 7.1 And hy > 0.3 And hy < 4.1 Then RigInSight = True
+End Function
+
+Sub DrawCyanPlate(ByVal canvas As Object)
+End Sub
+
+Sub DrawPortalOval(ByVal canvas As Object)
+	Dim i As Integer
+	Dim a As Single
+	Dim pts As Variant
+	Call Project(11.12, 2.08, 6.2)
+	If clip_cz < 0.45 Then Exit Sub
+	pts = Array(Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0), Vector2(0, 0))
+	For i = 0 To 11
+		a = CSng(i) * 0.523599
+		Call Project(11.12, 2.08 + Sin(a) * 0.86, 6.2 + Cos(a) * 0.66)
+		If clip_cz < 0.4 Then Exit Sub
+		pts(i) = Vector2(out_sx, out_sy)
+	Next i
+	Call canvas.DrawPolygon(pts, 2.4, Color(0.55, 0.95, 1.0, 1.0), True, Color(0.08, 0.42, 0.72, 0.92))
+End Sub
+
+Sub DrawOverseer(ByVal canvas As Object)
+	Dim px As Single
+	Dim py As Single
+	Dim pz As Single
+	Dim x0 As Single
+	Dim x1 As Single
+	Dim z0 As Single
+	Dim z1 As Single
+	Dim y0 As Single
+	Dim y1 As Single
+	If room_id <> 1 Then Exit Sub
+	If RigInSight() = False Then Exit Sub
+	px = rig_x
+	py = rig_y
+	pz = rig_z
+	x0 = px - 0.42
+	x1 = px + 0.42
+	z0 = pz - 0.28
+	z1 = pz + 0.28
+	y0 = py - 0.15
+	y1 = py + 1.05
+	Call DrawSeg(canvas, 0.2, 4.38, 2.2, 4.6, 4.38, 6.15, 2.2, 0.55, 0.62, 0.68, 1.0)
+	Call DrawSeg(canvas, px, 4.38, pz, px, y1, pz, 2.4, 0.7, 0.75, 0.8, 1.0)
+	Call SolidQuad(canvas, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, 0.72, 0.76, 0.8)
+	Call SolidQuad(canvas, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, 0.48, 0.52, 0.56)
+	Call SolidQuad(canvas, x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, 0.62, 0.66, 0.7)
+	Call SolidQuad(canvas, x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, 0.4, 0.44, 0.48)
+	Call SolidQuad(canvas, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, 0.82, 0.86, 0.9)
+	Call SolidQuad(canvas, x0, y0, z1, x1, y0, z1, x1, y0, z0, x0, y0, z0, 0.3, 0.32, 0.36)
+	Call SolidQuad(canvas, px - 0.16, y1 - 0.42, z0 - 0.02, px + 0.16, y1 - 0.42, z0 - 0.02, px + 0.16, y1 - 0.22, z0 - 0.02, px - 0.16, y1 - 0.22, z0 - 0.02, 0.15, 0.9, 1.0)
+	Call DrawRing(canvas, px, py + 0.35, pz, 0.72, 0.25, 0.75, 1.0)
+	Call DrawRing(canvas, px, py + 0.35, pz, 0.95, 0.15, 0.45, 0.8)
+End Sub
+
+' --- facility (same module so the wall arrays exist) ---
+' Ten-room facility past the wake vault.
+' Gravity pads, a running jump, a pushed crate, pistons, a timed bridge,
+' and three original custodians (skirt-and-dome machines, 1.62 m tall).
+
+
+Dim wake_done As Boolean
+Dim facility_done As Boolean
+Dim sn As Integer
+Dim sx0(120) As Single
+Dim sy0(120) As Single
+Dim sz0(120) As Single
+Dim sx1(120) As Single
+Dim sy1(120) As Single
+Dim sz1(120) As Single
+Dim sgate(120) As Integer
+Dim fn As Integer
+Dim fx0(80) As Single
+Dim fz0(80) As Single
+Dim fx1(80) As Single
+Dim fz1(80) As Single
+Dim fy(80) As Single
+Dim fgate(80) As Integer
+Dim hn As Integer
+Dim hx0(40) As Single
+Dim hz0(40) As Single
+Dim hx1(40) As Single
+Dim hz1(40) As Single
+Dim hy(40) As Single
+Dim opened(14) As Boolean
+Dim dn As Integer
+Dim door_x0(12) As Single
+Dim door_y0(12) As Single
+Dim door_z0(12) As Single
+Dim door_x1(12) As Single
+Dim door_y1(12) As Single
+Dim door_z1(12) As Single
+Dim door_gate(12) As Integer
+Dim door_axis(12) As Integer
+Dim crate_x As Single
+Dim crate_z As Single
+Dim cust_x(3) As Single
+Dim cust_z(3) As Single
+Dim cust_dir(3) As Single
+Dim lvl_time As Single
+Dim bridge_time As Single
+Dim spx As Single
+Dim spy As Single
+Dim spz As Single
+Dim room_id As Integer
+Dim bob As Single
+Dim bob_pitch As Single
+Dim step_acc As Single
+Dim step_side As Integer
+Dim steps As Object
+Dim shown_mask As Integer
+Dim level_done As Boolean
+Dim look_x As Single
+Dim look_y As Single
+Dim look_z As Single
+Dim look_yaw As Single
+Dim look_pitch As Single
+Dim l_sx As Single
+Dim l_sy As Single
+Dim l_cz As Single
+
+Sub AddSolid(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal gate As Integer)
+	If sn > 118 Then Exit Sub
+	sx0(sn) = x0
+	sy0(sn) = y0
+	sz0(sn) = z0
+	sx1(sn) = x1
+	sy1(sn) = y1
+	sz1(sn) = z1
+	sgate(sn) = gate
+	sn = sn + 1
+End Sub
+
+Sub AddFloor(ByVal x0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal z1 As Single, ByVal y As Single, ByVal gate As Integer)
+	If fn > 78 Then Exit Sub
+	fx0(fn) = x0
+	fz0(fn) = z0
+	fx1(fn) = x1
+	fz1(fn) = z1
+	fy(fn) = y
+	fgate(fn) = gate
+	fn = fn + 1
+End Sub
+
+Sub AddCeil(ByVal x0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal z1 As Single, ByVal y As Single)
+	If hn > 38 Then Exit Sub
+	hx0(hn) = x0
+	hz0(hn) = z0
+	hx1(hn) = x1
+	hz1(hn) = z1
+	hy(hn) = y
+	hn = hn + 1
+End Sub
+
+Sub AddDoor(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal gate As Integer, ByVal axis As Integer)
+	Call AddSolid(x0, y0, z0, x1, y1, z1, gate)
+	If dn > 11 Then Exit Sub
+	door_x0(dn) = x0
+	door_y0(dn) = y0
+	door_z0(dn) = z0
+	door_x1(dn) = x1
+	door_y1(dn) = y1
+	door_z1(dn) = z1
+	door_gate(dn) = gate
+	door_axis(dn) = axis
+	dn = dn + 1
+End Sub
+
+Function GateOn(ByVal gate As Integer) As Boolean
+	Dim live As Boolean
+	live = True
+	If gate = 10 Then
+		GateOn = opened(10)
+		Exit Function
+	End If
+	If gate > 0 Then
+		If opened(gate) = True Then live = False
+	End If
+	GateOn = live
+End Function
+
+Function HitsWall(ByVal x As Single, ByVal y0 As Single, ByVal y1 As Single, ByVal z As Single, Optional ByVal wall_pad As Single = 0.28) As Boolean
+	Dim i As Integer
+	Dim r As Single
+	r = wall_pad
+	HitsWall = False
+	For i = 0 To sn - 1
+		If GateOn(sgate(i)) = True Then
+			If x + r > sx0(i) And x - r < sx1(i) And z + r > sz0(i) And z - r < sz1(i) Then
+				If y1 > sy0(i) And y0 < sy1(i) Then
+					HitsWall = True
+					Exit Function
+				End If
+			End If
+		End If
+	Next i
+End Function
+
+Function FloorAt(ByVal x As Single, ByVal z As Single, ByVal feet As Single) As Single
+	Dim i As Integer
+	Dim best As Single
+	best = -100.0
+	For i = 0 To fn - 1
+		If GateOn(fgate(i)) = True Then
+			If x >= fx0(i) And x <= fx1(i) And z >= fz0(i) And z <= fz1(i) Then
+				If fy(i) <= feet + 0.35 And fy(i) > best Then best = fy(i)
+			End If
+		End If
+	Next i
+	FloorAt = best
+End Function
+
+Function CeilAt(ByVal x As Single, ByVal z As Single, ByVal head As Single) As Single
+	Dim i As Integer
+	Dim best As Single
+	best = 100.0
+	For i = 0 To hn - 1
+		If x > hx0(i) And x < hx1(i) And z > hz0(i) And z < hz1(i) Then
+			If hy(i) >= head - 0.35 And hy(i) < best Then best = hy(i)
+		End If
+	Next i
+	CeilAt = best
+End Function
+
+Function PadAt(ByVal x As Single, ByVal z As Single) As Integer
+	PadAt = 0
+	If x > 9.15 And x < 10.7 And z > 5.35 And z < 7.15 Then PadAt = 4
+	If x > 11.3 And x < 12.6 And z > 17.0 And z < 18.5 Then PadAt = 1
+	If x > 18.2 And x < 19.5 And z > 17.0 And z < 18.5 Then PadAt = 2
+	If x > 33.3 And x < 34.9 And z > 23.5 And z < 24.9 Then PadAt = 3
+	If x > 46.2 And x < 48.2 And z > 37.2 And z < 39.2 Then PadAt = 1
+End Function
+
+Function HitsCrate(ByVal x As Single, ByVal y0 As Single, ByVal y1 As Single, ByVal z As Single) As Boolean
+	HitsCrate = False
+	If facility_done = False Then Exit Function
+	If y1 < 0.0 Or y0 > 0.9 Then Exit Function
+	If x > crate_x - 0.72 And x < crate_x + 0.72 And z > crate_z - 0.72 And z < crate_z + 0.72 Then HitsCrate = True
+End Function
+
+Function CrateBlocked(ByVal x As Single, ByVal z As Single) As Boolean
+	Dim y0 As Single
+	Dim y1 As Single
+	y0 = 0.05
+	y1 = 0.85
+	CrateBlocked = False
+	If x < 30.9 Or x > 38.1 Or z < 16.6 Or z > 21.9 Then
+		CrateBlocked = True
+		Exit Function
+	End If
+	If HitsWall(x, y0, y1, z) = True Then CrateBlocked = True
+End Function
+
+Function PushCrate(ByVal dx As Single, ByVal dz As Single) As Boolean
+	Dim nx As Single
+	Dim nz As Single
+	nx = crate_x + dx
+	nz = crate_z + dz
+	PushCrate = False
+	If CrateBlocked(nx, nz) = True Then Exit Function
+	crate_x = nx
+	crate_z = nz
+	PushCrate = True
+End Function
+
+Function PlayerHurt(ByVal x As Single, ByVal y As Single, ByVal z As Single) As Boolean
+	Dim i As Integer
+	Dim bottom As Single
+	Dim w As Single
+	PlayerHurt = False
+	If y < 1.35 Then
+		For i = 0 To 2
+			If (x - cust_x(i)) * (x - cust_x(i)) + (z - cust_z(i)) * (z - cust_z(i)) < 0.72 Then
+				PlayerHurt = True
+				Exit Function
+			End If
+		Next i
+	End If
+	If z > 24.2 And z < 27.0 And y < 2.0 Then
+		For i = 0 To 2
+			w = Sin(lvl_time * 1.35 + CSng(i) * 2.05)
+			bottom = 0.4 + (w + 1.0) * 1.55
+			If x > 41.6 + CSng(i) * 2.8 - 0.45 And x < 41.6 + CSng(i) * 2.8 + 0.45 Then
+				If y + 0.2 > bottom Then
+					PlayerHurt = True
+					Exit Function
+				End If
+			End If
+		Next i
+	End If
+End Function
+
+Function SpawnX() As Single
+	SpawnX = spx
+End Function
+
+Function SpawnY() As Single
+	SpawnY = spy
+End Function
+
+Function SpawnZ() As Single
+	SpawnZ = spz
+End Function
+
+Function LevelDone() As Boolean
+	LevelDone = level_done
+End Function
+
+Function ChamberTitle(ByVal id As Integer) As String
+	Dim label As String
+	label = "RECOVERY VAULT"
+	If id = 2 Then label = "GARDEN COURT"
+	If id = 3 Then label = "THE GAP"
+	If id = 4 Then label = "FLIP GALLERY"
+	If id = 5 Then label = "CUSTODIAN BAY"
+	If id = 6 Then label = "CRATE ROOM"
+	If id = 7 Then label = "HIGH LOCK"
+	If id = 8 Then label = "PISTON HALL"
+	If id = 9 Then label = "BRIDGE"
+	If id = 10 Then label = "THE SHAFT"
+	If id = 11 Then label = "LATTICE COURT"
+	If id = 12 Then label = "GREEN SPAN"
+	If id = 13 Then label = "RED ARCH"
+	ChamberTitle = label & ""
+End Function
+
+Function HintFor(ByVal x As Single, ByVal z As Single) As String
+	Dim label As String
+	Dim rid As Integer
+	label = ""
+	rid = room_id
+	If level_done = True And rid < 11 Then
+		label = "OVERSEER: LATTICE CLEAR. The roof is open."
+	ElseIf rid = 1 Then
+		label = "The seal is the way out."
+	ElseIf rid = 2 Then
+		If opened(2) = False Then
+			label = "Stand on the cyan plate."
+		Else
+			label = "The annex door is open. Head for the gap."
+		End If
+	ElseIf rid = 3 Then
+		If opened(11) = False Then
+			label = "The pit is a running jump. Space."
+		Else
+			label = "The east door is open. Magenta lifts you to the ceiling."
+		End If
+	ElseIf rid = 4 Then
+		label = "Magenta lifts you to the ceiling. Green sets you down."
+	ElseIf rid = 5 Then
+		label = "The catwalk is above the custodians."
+	ElseIf rid = 6 Then
+		label = "Push the crate onto the amber plate."
+	ElseIf rid = 7 Then
+		label = "The white pad throws you at the high switch."
+	ElseIf rid = 8 Then
+		label = "Walk under the rams when they rise."
+	ElseIf rid = 9 Then
+		label = "The blue plate holds the bridge for a few seconds."
+	ElseIf rid = 10 Then
+		label = "Magenta again. The exit is at the top of the shaft."
+	ElseIf rid = 11 Then
+		label = "East is the green span. North is the red arch."
+	ElseIf rid = 12 Then
+		label = "The span is a walk of green cages."
+	ElseIf rid = 13 Then
+		label = "The arch runs north. Stay on the floor."
+	Else
+		label = "Follow the marked route."
+	End If
+	HintFor = label & ""
+End Function
+
+Sub NoteRoom(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal grounded As Boolean)
+	Dim id As Integer
+	id = 1
+	If x > 4.6 And z < 8.6 Then id = 2
+	If z > 8.5 And x < 10.7 And z < 20.6 Then id = 3
+	If x > 10.5 And x < 20.8 And z > 16.0 And z < 20.2 Then id = 4
+	If x > 20.5 And x < 30.6 And z < 21.2 Then id = 5
+	If x > 30.3 And z < 22.6 And z > 15.8 Then id = 6
+	If z > 22.2 And z < 29.0 And x < 38.8 And x > 31.8 Then id = 7
+	If x > 38.4 And z < 27.3 And z > 23.8 Then id = 8
+	If z > 26.8 And z < 36.4 And x > 44.4 Then id = 9
+	If z > 36.0 And y < 9.2 Then id = 10
+	If y > 9.2 And x >= 62.0 Then id = 12
+	If y > 9.2 And z >= 70.0 And x < 62.0 Then id = 13
+	If y > 9.2 And z > 40.4 And z < 70.0 And x < 62.0 Then id = 11
+	If id <> room_id And grounded = True And y > -1.0 And y < 16.0 Then
+		room_id = id
+		Call RememberSpawn(id)
+	End If
+End Sub
+
+Sub RememberSpawn(ByVal id As Integer)
+	' Checkpoint is inside the room, past the door slab. The entry sample sits in that slab, and a closed door then traps the restart.
+	spx = 0.0
+	spy = 1.55
+	spz = 5.5
+	If id = 2 Then
+		spx = 6.8
+		spz = 6.2
+	ElseIf id = 3 Then
+		spx = 8.5
+		spz = 10.2
+	ElseIf id = 4 Then
+		spx = 16.5
+		spz = 18.0
+	ElseIf id = 5 Then
+		spx = 25.0
+		spz = 18.2
+	ElseIf id = 6 Then
+		spx = 34.2
+		spz = 18.6
+	ElseIf id = 7 Then
+		spx = 35.5
+		spz = 25.6
+	ElseIf id = 8 Then
+		spx = 40.2
+		spz = 25.5
+	ElseIf id = 9 Then
+		spx = 47.2
+		spz = 28.2
+	ElseIf id = 10 Then
+		spx = 47.2
+		spz = 36.6
+	ElseIf id = 11 Then
+		spx = 50.0
+		spy = 12.05
+		spz = 48.0
+	ElseIf id = 12 Then
+		spx = 70.0
+		spy = 12.05
+		spz = 55.0
+	ElseIf id = 13 Then
+		spx = 50.0
+		spy = 12.05
+		spz = 76.0
+	End If
+End Sub
+
+Sub PresentDepth(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal focal As Single)
+	If depth_on = False Then Exit Sub
+	Dim mesh As Object
+	Set mesh = canvas.BuildDepthMesh(x, y, z)
+	Call depth_view.show_mesh(mesh)
+	Call depth_view.look(x, y, z, yaw, pitch, focal)
+End Sub
+
+Sub Panel(ByVal canvas As Object, ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal ux As Single, ByVal uy As Single, ByVal uz As Single, ByVal vx As Single, ByVal vy As Single, ByVal vz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	' Map muted stamps into hot Paradox orange / cyan neon.
+	Dim nr As Single
+	Dim ng As Single
+	Dim nb As Single
+	nr = r * 3.2 + 0.85
+	ng = g * 1.6 + 0.35
+	nb = b * 0.9 + 0.12
+	If nr > 1.6 Then nr = 1.6
+	If ng > 1.2 Then ng = 1.2
+	If nb > 0.55 Then nb = 0.55
+	If r < g And g < b Then
+		' Cool stamp → cyan accent wall
+		nr = r * 1.0 + 0.35
+		ng = g * 2.4 + 0.55
+		nb = b * 2.6 + 0.7
+		If nr > 0.9 Then nr = 0.9
+		If ng > 1.4 Then ng = 1.4
+		If nb > 1.55 Then nb = 1.55
+	End If
+	Call NeonFace(canvas, ox, oy, oz, ux, uy, uz, vx, vy, vz, nr, ng, nb)
+End Sub
+
+Sub Deck(ByVal canvas As Object, ByVal x0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal z1 As Single, ByVal y As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal gate As Integer)
+	Call AddFloor(x0, z0, x1, z1, y, gate)
+	Call NeonFace(canvas, x0, y, z0, x1 - x0, 0.0, 0.0, 0.0, 0.0, z1 - z0, 1.25, 0.5, 0.14)
+End Sub
+
+Sub EnsureWake()
+	If wake_done = True Then Exit Sub
+	wake_done = True
+	spx = 0.0
+	spy = 1.55
+	spz = 5.5
+	room_id = 1
+	Call AddFloor(-4.4, 0.6, 4.4, 11.6, 0.0, 0)
+	Call AddCeil(-4.4, 0.6, 4.4, 11.6, 4.4)
+	Call AddSolid(-4.55, 0.0, 0.6, -4.25, 4.4, 11.6, 0)
+	Call AddSolid(-4.4, 0.0, 0.45, 4.4, 4.4, 0.75, 0)
+	Call AddSolid(-4.4, 0.0, 11.45, 4.4, 4.4, 11.75, 0)
+	Call AddSolid(4.25, 0.0, 0.6, 4.55, 4.4, 5.05, 0)
+	Call AddSolid(4.25, 0.0, 7.15, 4.55, 4.4, 11.6, 0)
+	Call AddSolid(4.25, 0.0, 5.05, 4.55, 4.4, 7.15, 1)
+	Call AddSolid(-0.7, 0.0, 1.15, 0.7, 0.85, 3.5, 0)
+End Sub
+
+Sub BuildFacility(ByVal canvas As Object)
+	If facility_done = True Then Exit Sub
+	facility_done = True
+	crate_x = 33.4
+	crate_z = 17.2
+	cust_x(0) = 24.0
+	cust_z(0) = 17.0
+	cust_dir(0) = 1.4
+	cust_x(1) = 27.2
+	cust_z(1) = 19.0
+	cust_dir(1) = -1.3
+	cust_x(2) = 48.7
+	cust_z(2) = 34.0
+	cust_dir(2) = 1.1
+	' Room 2 annex collision. The mesh is already recorded.
+	Call AddFloor(4.5, 4.1, 11.05, 8.35, 0.0, 0)
+	Call AddCeil(4.5, 4.1, 11.05, 8.35, 4.32)
+	Call AddSolid(4.3, 0.0, 4.05, 4.6, 4.3, 5.05, 0)
+	Call AddSolid(4.3, 0.0, 7.15, 4.6, 4.3, 8.35, 0)
+	Call AddSolid(10.95, 0.0, 4.05, 11.25, 4.3, 8.35, 0)
+	Call AddSolid(4.5, 0.0, 4.0, 11.1, 4.3, 4.25, 0)
+	Call AddSolid(4.5, 0.0, 8.2, 7.2, 4.3, 8.5, 0)
+	Call AddSolid(9.2, 0.0, 8.2, 11.1, 4.3, 8.5, 0)
+	Call AddSolid(7.2, 3.3, 8.2, 9.2, 4.3, 8.5, 0)
+	Call AddDoor(7.2, 0.0, 8.2, 9.2, 3.3, 8.5, 2, 0)
+	Call canvas.SetWireRoom(2)
+	Call canvas.SetWireAnchor(9.92, 0.12, 6.25)
+	Call canvas.SetWireBias(-0.45)
+	Call canvas.AddWireQuad3D(9.2, 0.12, 5.4, 10.65, 0.12, 5.4, 10.65, 0.12, 7.1, 9.2, 0.12, 7.1, Color(0.02, 0.04, 0.06, 1.0))
+	Call canvas.SetWireBias(0.0)
+	Call canvas.ClearWireAnchor()
+	Call canvas.AddWireLine3D(9.2, 0.14, 5.4, 10.65, 0.14, 5.4, 1.6, Color(0.35, 0.7, 0.9, 1.0))
+	Call canvas.AddWireLine3D(10.65, 0.14, 5.4, 10.65, 0.14, 7.1, 1.6, Color(0.35, 0.7, 0.9, 1.0))
+	Call canvas.AddWireLine3D(10.65, 0.14, 7.1, 9.2, 0.14, 7.1, 1.6, Color(0.35, 0.7, 0.9, 1.0))
+	Call canvas.AddWireLine3D(9.2, 0.14, 7.1, 9.2, 0.14, 5.4, 1.6, Color(0.35, 0.7, 0.9, 1.0))
+	' Room 3 the gap.
+	Call canvas.SetWireRoom(3)
+	Call Panel(canvas, 6.5, 0.0, 8.4, 0.0, 4.4, 0.0, 0.0, 0.0, 12.0, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 10.5, 0.0, 8.4, 0.0, 4.4, 0.0, 0.0, 0.0, 8.75, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 10.5, 3.3, 17.15, 0.0, 1.1, 0.0, 0.0, 0.0, 2.15, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 10.5, 0.0, 19.3, 0.0, 4.4, 0.0, 0.0, 0.0, 1.1, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 6.5, 0.0, 8.45, 0.7, 0.0, 0.0, 0.0, 4.4, 0.0, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 9.2, 0.0, 8.45, 1.3, 0.0, 0.0, 0.0, 4.4, 0.0, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 7.2, 3.3, 8.45, 2.0, 0.0, 0.0, 0.0, 1.1, 0.0, 0.22, 0.26, 0.3)
+	Call Panel(canvas, 6.5, 0.0, 20.4, 4.0, 0.0, 0.0, 0.0, 4.4, 0.0, 0.18, 0.2, 0.24)
+	Call Panel(canvas, 6.5, 4.35, 8.4, 4.0, 0.0, 0.0, 0.0, 0.0, 12.0, 0.16, 0.18, 0.2)
+	Call Deck(canvas, 6.55, 8.4, 10.45, 12.05, 0.0, 0.28, 0.3, 0.32, 0)
+	Call Deck(canvas, 6.55, 16.35, 10.45, 20.35, 0.0, 0.28, 0.3, 0.32, 0)
+	Call canvas.AddWireLine3D(6.6, 0.05, 12.05, 10.4, 0.05, 12.05, 2.0, Color(0.95, 0.45, 0.1, 1.0))
+	Call canvas.AddWireLine3D(6.6, 0.05, 16.35, 10.4, 0.05, 16.35, 2.0, Color(0.95, 0.45, 0.1, 1.0))
+	Call AddSolid(6.35, 0.0, 8.4, 6.6, 4.4, 20.4, 0)
+	Call AddSolid(10.35, 0.0, 8.4, 10.6, 4.4, 17.15, 0)
+	Call AddDoor(10.35, 0.0, 17.15, 10.6, 3.3, 19.3, 11, 1)
+	Call AddSolid(10.35, 0.0, 19.3, 10.6, 4.4, 20.4, 0)
+	Call AddSolid(6.5, 0.0, 20.25, 10.5, 4.4, 20.55, 0)
+	Call AddCeil(6.5, 8.4, 10.5, 20.4, 4.35)
+	' Room 4 flip gallery.
+	Call canvas.SetWireRoom(4)
+	Call Panel(canvas, 10.5, 0.0, 16.3, 0.0, 4.4, 0.0, 0.0, 0.0, 0.85, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 10.5, 3.3, 17.15, 0.0, 1.1, 0.0, 0.0, 0.0, 2.15, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 10.5, 0.0, 19.3, 0.0, 4.4, 0.0, 0.0, 0.0, 0.6, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 10.5, 0.0, 16.3, 10.1, 0.0, 0.0, 0.0, 4.4, 0.0, 0.45, 0.42, 0.5)
+	Call AddSolid(10.6, 0.0, 16.02, 20.5, 4.4, 16.38, 0)
+	Call Panel(canvas, 20.6, 0.0, 16.3, 0.0, 4.4, 0.0, 0.0, 0.0, 0.85, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 20.6, 3.3, 17.15, 0.0, 1.1, 0.0, 0.0, 0.0, 1.7, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 20.6, 0.0, 18.85, 0.0, 4.4, 0.0, 0.0, 0.0, 1.05, 0.45, 0.42, 0.5)
+	Call Panel(canvas, 10.5, 0.0, 19.9, 10.1, 0.0, 0.0, 0.0, 4.4, 0.0, 0.4, 0.38, 0.46)
+	Call AddSolid(10.6, 0.0, 19.82, 20.5, 4.4, 20.15, 0)
+	Call Panel(canvas, 10.5, 4.35, 16.3, 10.1, 0.0, 0.0, 0.0, 0.0, 3.6, 0.72, 0.7, 0.78)
+	Call Deck(canvas, 10.55, 16.35, 20.55, 19.85, 0.0, 0.4, 0.36, 0.42, 0)
+	Call AddSolid(10.4, 0.0, 16.2, 10.65, 4.4, 17.15, 0)
+	Call AddSolid(10.4, 0.0, 19.3, 10.65, 4.4, 19.95, 0)
+	Call AddSolid(14.85, 0.0, 16.3, 15.2, 2.15, 19.9, 0)
+	Call AddSolid(20.45, 0.0, 16.3, 20.75, 4.4, 17.15, 0)
+	Call AddSolid(20.45, 0.0, 18.85, 20.75, 4.4, 19.95, 0)
+	Call AddDoor(20.45, 0.0, 17.15, 20.75, 3.3, 18.85, 3, 1)
+	Call AddCeil(10.5, 16.3, 20.6, 19.9, 4.35)
+	Call canvas.AddWireQuad3D(14.85, 0.0, 16.3, 15.2, 0.0, 16.3, 15.2, 2.15, 16.3, 14.85, 2.15, 16.3, Color(0.55, 0.2, 0.22, 1.0))
+	Call canvas.AddWireQuad3D(14.85, 0.0, 19.9, 14.85, 2.15, 19.9, 15.2, 2.15, 19.9, 15.2, 0.0, 19.9, Color(0.55, 0.2, 0.22, 1.0))
+	Call canvas.AddWireQuad3D(11.35, 0.05, 17.05, 12.55, 0.05, 17.05, 12.55, 0.05, 18.45, 11.35, 0.05, 18.45, Color(0.85, 0.25, 0.75, 1.0))
+	Call canvas.AddWireQuad3D(18.25, 0.05, 17.05, 19.45, 0.05, 17.05, 19.45, 0.05, 18.45, 18.25, 0.05, 18.45, Color(0.25, 0.85, 0.45, 1.0))
+	' Room 5 custodians. Catwalk along the south edge.
+	' The south wall is split at the catwalk so a full-height plank cannot paint across the deck.
+	Call canvas.SetWireRoom(5)
+	Call Panel(canvas, 20.6, 0.0, 15.5, 9.9, 0.0, 0.0, 0.0, 2.05, 0.0, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 2.05, 15.5, 9.9, 0.0, 0.0, 0.0, 2.35, 0.0, 0.32, 0.18, 0.14)
+	Call AddSolid(20.6, 0.0, 15.22, 30.45, 4.4, 15.52, 0)
+	Call Panel(canvas, 20.6, 0.0, 15.5, 0.0, 2.05, 0.0, 0.0, 0.0, 1.2, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 2.05, 15.5, 0.0, 2.35, 0.0, 0.0, 0.0, 1.2, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 0.0, 16.7, 0.0, 4.4, 0.0, 0.0, 0.0, 0.45, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 3.3, 17.15, 0.0, 1.1, 0.0, 0.0, 0.0, 1.7, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 0.0, 18.85, 0.0, 4.4, 0.0, 0.0, 0.0, 1.65, 0.32, 0.18, 0.14)
+	' Shared x≈30.5 partition: room 5 east face (slightly west of slab — room 6 owns +X face).
+	Call Panel(canvas, 30.48, 0.0, 15.5, 0.0, 2.05, 0.0, 0.0, 0.0, 1.2, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 30.48, 2.05, 15.5, 0.0, 2.35, 0.0, 0.0, 0.0, 1.2, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 30.48, 0.0, 16.7, 0.0, 4.4, 0.0, 0.0, 0.0, 0.6, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 30.48, 3.3, 17.3, 0.0, 1.1, 0.0, 0.0, 0.0, 1.75, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 30.48, 0.0, 19.05, 0.0, 4.4, 0.0, 0.0, 0.0, 1.45, 0.32, 0.18, 0.14)
+	Call Panel(canvas, 20.6, 0.0, 20.5, 9.9, 0.0, 0.0, 0.0, 4.4, 0.0, 0.28, 0.14, 0.12)
+	Call Panel(canvas, 20.6, 4.35, 15.5, 9.9, 0.0, 0.0, 0.0, 0.0, 5.0, 0.2, 0.16, 0.14)
+	Call Deck(canvas, 20.65, 15.55, 30.4, 20.45, 0.0, 0.24, 0.16, 0.13, 0)
+	Call Deck(canvas, 20.6, 15.5, 30.48, 16.7, 2.05, 0.55, 0.4, 0.22, 0)
+	Call AddSolid(20.45, 0.0, 15.5, 20.7, 4.4, 17.1, 0)
+	Call AddSolid(20.45, 0.0, 18.85, 20.7, 4.4, 20.5, 0)
+	Call AddSolid(30.3, 0.0, 15.5, 30.6, 4.4, 17.3, 0)
+	Call AddSolid(30.3, 0.0, 19.05, 30.6, 4.4, 20.5, 0)
+	Call AddDoor(30.3, 0.0, 17.3, 30.6, 3.3, 19.05, 4, 1)
+	Call AddSolid(20.6, 0.0, 20.35, 30.5, 4.4, 20.6, 0)
+	Call AddCeil(20.6, 15.5, 30.5, 20.5, 4.35)
+	Call canvas.AddWireQuad3D(28.3, 2.08, 15.7, 29.4, 2.08, 15.7, 29.4, 2.08, 16.6, 28.3, 2.08, 16.6, Color(0.95, 0.75, 0.2, 1.0))
+	' Room 6 crate.
+	Call canvas.SetWireRoom(6)
+	' West wall (+X face into room 6); z cuts match gate 4 / room 5 door (17.3–19.05).
+	Call Panel(canvas, 30.52, 0.0, 16.3, 0.0, 4.4, 0.0, 0.0, 0.0, 1.0, 0.55, 0.5, 0.42)
+	Call Panel(canvas, 30.52, 3.3, 17.3, 0.0, 1.1, 0.0, 0.0, 0.0, 1.75, 0.55, 0.5, 0.42)
+	Call Panel(canvas, 30.52, 0.0, 19.05, 0.0, 4.4, 0.0, 0.0, 0.0, 3.25, 0.55, 0.5, 0.42)
+	Call Panel(canvas, 38.6, 0.0, 22.3, 0.0, 4.4, 0.0, 0.0, 0.0, -6.0, 0.55, 0.5, 0.42)
+	Call Panel(canvas, 30.5, 3.3, 22.3, 8.1, 0.0, 0.0, 0.0, 1.1, 0.0, 0.5, 0.46, 0.38)
+	Call Panel(canvas, 30.5, 0.0, 22.3, 2.7, 0.0, 0.0, 0.0, 3.3, 0.0, 0.5, 0.46, 0.38)
+	Call Panel(canvas, 35.4, 0.0, 22.3, 3.2, 0.0, 0.0, 0.0, 3.3, 0.0, 0.5, 0.46, 0.38)
+	Call Panel(canvas, 30.5, 4.35, 16.3, 8.1, 0.0, 0.0, 0.0, 0.0, 6.0, 0.4, 0.38, 0.32)
+	Call Panel(canvas, 30.55, 0.0, 16.35, 7.975, 0.0, 0.0, 0.0, 4.4, 0.0, 0.55, 0.5, 0.42)
+	Call Deck(canvas, 30.55, 16.35, 38.5, 22.2, 0.0, 0.46, 0.4, 0.32, 0)
+	Call AddSolid(30.35, 0.0, 16.3, 30.6, 4.4, 17.3, 0)
+	Call AddSolid(30.35, 0.0, 19.05, 30.6, 4.4, 22.3, 0)
+	Call AddSolid(38.4, 0.0, 16.3, 38.7, 4.4, 22.3, 0)
+	Call AddSolid(30.5, 0.0, 16.15, 38.6, 4.4, 16.45, 0)
+	Call AddSolid(30.5, 3.3, 22.15, 38.6, 4.4, 22.45, 0)
+	Call AddSolid(30.5, 0.0, 22.15, 33.2, 3.3, 22.45, 0)
+	Call AddSolid(35.4, 0.0, 22.15, 38.6, 3.3, 22.45, 0)
+	Call AddDoor(33.2, 0.0, 22.15, 35.4, 3.3, 22.45, 5, 0)
+	Call AddCeil(30.5, 16.3, 38.6, 22.3, 4.35)
+	Call canvas.AddWireQuad3D(36.2, 0.05, 20.2, 37.5, 0.05, 20.2, 37.5, 0.05, 21.4, 36.2, 0.05, 21.4, Color(0.9, 0.55, 0.15, 1.0))
+	' Room 7 high lock.
+	Call canvas.SetWireRoom(7)
+	Call Panel(canvas, 32.2, 0.0, 22.4, 1.0, 0.0, 0.0, 0.0, 4.4, 0.0, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 35.4, 0.0, 22.4, 3.2, 0.0, 0.0, 0.0, 4.4, 0.0, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 33.2, 3.3, 22.4, 2.2, 0.0, 0.0, 0.0, 1.1, 0.0, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 32.2, 0.0, 22.4, 0.0, 4.4, 0.0, 0.0, 0.0, 6.4, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 38.6, 0.0, 22.4, 0.0, 4.4, 0.0, 0.0, 0.0, 2.15, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 38.6, 3.3, 24.55, 0.0, 1.1, 0.0, 0.0, 0.0, 1.9, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 38.6, 0.0, 26.45, 0.0, 4.4, 0.0, 0.0, 0.0, 2.35, 0.2, 0.45, 0.48)
+	Call Panel(canvas, 32.2, 0.0, 28.8, 6.4, 0.0, 0.0, 0.0, 4.4, 0.0, 0.16, 0.38, 0.42)
+	Call Panel(canvas, 32.2, 4.35, 22.4, 6.4, 0.0, 0.0, 0.0, 0.0, 6.4, 0.18, 0.4, 0.44)
+	Call Deck(canvas, 32.25, 22.45, 38.5, 28.7, 0.0, 0.16, 0.34, 0.36, 0)
+	Call AddSolid(32.1, 0.0, 22.4, 32.35, 4.4, 28.8, 0)
+	Call AddSolid(38.4, 0.0, 22.4, 38.7, 4.4, 24.55, 0)
+	Call AddSolid(38.4, 0.0, 26.45, 38.7, 4.4, 28.8, 0)
+	Call AddDoor(38.4, 0.0, 24.55, 38.7, 3.3, 26.45, 6, 1)
+	Call AddSolid(32.2, 0.0, 28.6, 38.6, 4.4, 28.9, 0)
+	Call AddCeil(32.2, 22.4, 38.6, 28.8, 4.35)
+	Call canvas.AddWireQuad3D(33.35, 0.05, 23.55, 34.85, 0.05, 23.55, 34.85, 0.05, 24.85, 33.35, 0.05, 24.85, Color(0.85, 0.9, 0.95, 1.0))
+	Call canvas.AddWireQuad3D(36.1, 3.05, 26.5, 37.5, 3.05, 26.5, 37.5, 3.05, 27.5, 36.1, 3.05, 27.5, Color(0.95, 0.85, 0.3, 1.0))
+	' Room 8 piston hall.
+	Call canvas.SetWireRoom(8)
+	Call Panel(canvas, 38.6, 0.0, 24.2, 11.6, 0.0, 0.0, 0.0, 4.4, 0.0, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 38.6, 0.0, 27.1, 7.7, 0.0, 0.0, 0.0, 4.4, 0.0, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 48.5, 0.0, 27.1, 1.7, 0.0, 0.0, 0.0, 4.4, 0.0, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 46.3, 3.3, 27.1, 2.2, 0.0, 0.0, 0.0, 1.1, 0.0, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 38.6, 0.0, 24.2, 0.0, 4.4, 0.0, 0.0, 0.0, 0.35, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 38.6, 3.3, 24.55, 0.0, 1.1, 0.0, 0.0, 0.0, 1.9, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 38.6, 0.0, 26.45, 0.0, 4.4, 0.0, 0.0, 0.0, 0.65, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 50.2, 0.0, 27.1, 0.0, 4.4, 0.0, 0.0, 0.0, -2.9, 0.25, 0.25, 0.28)
+	Call Panel(canvas, 38.6, 4.35, 24.2, 11.6, 0.0, 0.0, 0.0, 0.0, 2.9, 0.2, 0.2, 0.22)
+	Call Deck(canvas, 38.65, 24.25, 50.1, 26.95, 0.0, 0.22, 0.22, 0.24, 0)
+	Call AddSolid(38.45, 0.0, 24.2, 38.7, 4.4, 24.5, 0)
+	Call AddSolid(38.45, 0.0, 26.5, 38.7, 4.4, 27.1, 0)
+	Call AddSolid(50.05, 0.0, 24.2, 50.35, 4.4, 27.1, 0)
+	Call AddSolid(38.6, 0.0, 24.05, 50.2, 4.4, 24.3, 0)
+	Call AddSolid(38.6, 0.0, 26.95, 46.3, 4.4, 27.25, 0)
+	Call AddSolid(48.5, 0.0, 26.95, 50.2, 4.4, 27.25, 0)
+	Call AddDoor(46.3, 0.0, 26.95, 48.5, 3.3, 27.25, 7, 0)
+	Call AddCeil(38.6, 24.2, 50.2, 27.1, 4.35)
+	' Room 9 bridge.
+	Call canvas.SetWireRoom(9)
+	Call Panel(canvas, 44.8, 0.0, 27.15, 1.5, 0.0, 0.0, 0.0, 4.4, 0.0, 0.18, 0.22, 0.32)
+	Call Panel(canvas, 48.5, 0.0, 27.15, 1.7, 0.0, 0.0, 0.0, 4.4, 0.0, 0.18, 0.22, 0.32)
+	Call Panel(canvas, 46.3, 3.3, 27.15, 2.2, 0.0, 0.0, 0.0, 1.1, 0.0, 0.18, 0.22, 0.32)
+	Call Panel(canvas, 44.8, 0.0, 27.1, 0.0, 4.4, 0.0, 0.0, 0.0, 9.1, 0.18, 0.22, 0.32)
+	Call Panel(canvas, 50.2, 0.0, 36.2, 0.0, 4.4, 0.0, 0.0, 0.0, -9.1, 0.18, 0.22, 0.32)
+	Call Panel(canvas, 44.8, 0.0, 36.2, 1.2, 0.0, 0.0, 0.0, 4.4, 0.0, 0.14, 0.18, 0.28)
+	Call Panel(canvas, 48.2, 0.0, 36.2, 2.0, 0.0, 0.0, 0.0, 4.4, 0.0, 0.14, 0.18, 0.28)
+	Call Panel(canvas, 46.0, 3.3, 36.2, 2.2, 0.0, 0.0, 0.0, 1.1, 0.0, 0.14, 0.18, 0.28)
+	Call Panel(canvas, 44.8, 4.35, 27.1, 5.4, 0.0, 0.0, 0.0, 0.0, 9.1, 0.12, 0.14, 0.22)
+	Call Deck(canvas, 44.85, 27.15, 50.1, 29.55, 0.0, 0.16, 0.18, 0.26, 0)
+	Call Deck(canvas, 44.85, 33.05, 50.1, 36.1, 0.0, 0.16, 0.18, 0.26, 0)
+	Call AddFloor(46.55, 29.55, 48.25, 33.05, 0.0, 10)
+	Call AddSolid(44.8, 0.0, 27.0, 46.3, 4.4, 27.3, 0)
+	Call AddSolid(48.5, 0.0, 27.0, 50.2, 4.4, 27.3, 0)
+	Call AddSolid(44.65, 0.0, 27.1, 44.9, 4.4, 36.2, 0)
+	Call AddSolid(50.05, 0.0, 27.1, 50.35, 4.4, 36.2, 0)
+	Call AddSolid(44.8, 0.0, 36.0, 46.0, 4.4, 36.3, 0)
+	Call AddSolid(48.2, 0.0, 36.0, 50.2, 4.4, 36.3, 0)
+	Call AddDoor(46.0, 0.0, 36.0, 48.2, 3.3, 36.3, 8, 0)
+	Call AddCeil(44.8, 27.1, 50.2, 36.2, 4.35)
+	Call canvas.AddWireQuad3D(45.55, 0.05, 27.6, 46.85, 0.05, 27.6, 46.85, 0.05, 28.7, 45.55, 0.05, 28.7, Color(0.25, 0.45, 0.95, 1.0))
+	Call canvas.AddWireQuad3D(46.7, 0.05, 34.4, 48.3, 0.05, 34.4, 48.3, 0.05, 35.5, 46.7, 0.05, 35.5, Color(0.85, 0.85, 0.4, 1.0))
+	' Room 10 shaft.
+	Call canvas.SetWireRoom(10)
+	Call Panel(canvas, 45.2, 0.0, 36.2, 0.0, 10.5, 0.0, 0.0, 0.0, 4.6, 0.22, 0.28, 0.36)
+	Call Panel(canvas, 49.6, 0.0, 40.8, 0.0, 10.5, 0.0, 0.0, 0.0, -4.6, 0.22, 0.28, 0.36)
+	Call Panel(canvas, 45.2, 0.0, 40.8, 4.4, 0.0, 0.0, 0.0, 7.0, 0.0, 0.18, 0.22, 0.3)
+	Call Panel(canvas, 45.2, 9.6, 40.8, 4.4, 0.0, 0.0, 0.0, 0.9, 0.0, 0.18, 0.22, 0.3)
+	Call Panel(canvas, 45.2, 10.45, 36.2, 4.4, 0.0, 0.0, 0.0, 0.0, 4.6, 0.3, 0.36, 0.48)
+	Call Deck(canvas, 45.25, 36.25, 49.5, 40.7, 0.0, 0.16, 0.2, 0.28, 0)
+	Call AddSolid(45.05, 0.0, 36.2, 45.3, 10.5, 40.8, 0)
+	Call AddSolid(49.45, 0.0, 36.2, 49.7, 10.5, 40.8, 0)
+	Call AddSolid(45.2, 0.0, 40.6, 49.6, 7.0, 40.9, 0)
+	Call AddSolid(45.2, 9.6, 40.6, 49.6, 10.5, 40.9, 0)
+	Call AddDoor(46.2, 7.0, 40.6, 48.6, 9.6, 40.9, 9, 0)
+	Call AddCeil(45.2, 36.2, 49.6, 40.8, 10.45)
+	Call canvas.AddWireQuad3D(46.25, 0.05, 37.25, 48.15, 0.05, 37.25, 48.15, 0.05, 39.15, 46.25, 0.05, 39.15, Color(0.85, 0.25, 0.75, 1.0))
+	' Door sills. Adjacent decks stop short of each other, so a foot sample in the seam falls through.
+	Call AddFloor(7.0, 7.9, 9.4, 8.8, 0.0, 0)
+	Call AddFloor(10.15, 17.0, 10.95, 19.45, 0.0, 0)
+	Call AddFloor(20.15, 17.0, 21.05, 19.0, 0.0, 0)
+	Call AddFloor(30.0, 17.15, 30.95, 19.2, 0.0, 0)
+	Call AddFloor(33.0, 21.85, 35.6, 22.75, 0.0, 0)
+	Call AddFloor(38.1, 24.4, 39.0, 26.6, 0.0, 0)
+	Call AddFloor(46.1, 26.65, 48.7, 27.5, 0.0, 0)
+	Call AddFloor(45.8, 35.8, 48.4, 36.55, 0.0, 0)
+	Call DrawRoofWorlds(canvas)
+End Sub
+
+Sub TickLevel(ByVal px As Single, ByVal py As Single, ByVal pz As Single, ByVal delta As Single, ByVal smashed As Boolean, ByVal grounded As Boolean)
+	Dim i As Integer
+	lvl_time = lvl_time + delta
+	opened(1) = smashed
+	If bridge_time > 0.0 Then
+		bridge_time = bridge_time - delta
+		opened(10) = True
+	Else
+		opened(10) = False
+	End If
+	If px > 9.15 And px < 10.7 And pz > 5.35 And pz < 7.15 And py < 2.2 Then opened(2) = True
+	If px > 6.4 And px < 10.6 And pz > 16.05 And pz < 20.5 And py > 0.4 And py < 3.2 Then opened(11) = True
+	If px > 18.3 And px < 19.6 And pz > 17.0 And pz < 18.6 Then opened(3) = True
+	If px > 28.2 And px < 29.5 And pz > 15.6 And pz < 16.75 And py > 2.3 Then opened(4) = True
+	If crate_x > 36.15 And crate_x < 37.55 And crate_z > 20.15 And crate_z < 21.45 Then opened(5) = True
+	If px > 36.0 And px < 37.6 And pz > 26.4 And pz < 27.6 And py > 2.7 Then opened(6) = True
+	If px > 48.6 And px < 49.8 And pz > 24.8 And pz < 26.4 Then opened(7) = True
+	If px > 46.6 And px < 48.4 And pz > 34.3 And pz < 35.6 And py < 2.4 Then opened(8) = True
+	If px > 45.6 And px < 46.9 And pz > 27.55 And pz < 28.75 And py < 2.2 Then bridge_time = 7.0
+	If px > 46.3 And px < 48.5 And pz > 39.3 And pz < 40.5 And py > 7.0 Then
+		opened(9) = True
+		level_done = True
+	End If
+	' Close the door only after the player is a few meters past it.
+	If pz > 11.0 And px < 10.9 And pz < 20.8 Then opened(2) = False
+	If px > 13.5 And pz > 16.0 And pz < 20.4 Then opened(11) = False
+	If px > 23.6 And pz > 15.4 And pz < 20.8 Then opened(3) = False
+	If px > 33.5 And pz > 15.8 And pz < 22.6 Then opened(4) = False
+	If pz > 25.0 And px > 31.8 And px < 38.9 Then opened(5) = False
+	If px > 41.6 And pz > 23.8 And pz < 27.4 Then opened(6) = False
+	If pz > 28.7 And px > 44.4 And pz < 36.5 Then opened(7) = False
+	If pz > 39.4 Then opened(8) = False
+	For i = 0 To 1
+		cust_z(i) = cust_z(i) + cust_dir(i) * delta
+		If cust_z(i) > 19.3 Then cust_dir(i) = -1.35
+		If cust_z(i) < 16.9 Then cust_dir(i) = 1.35
+	Next i
+	cust_z(2) = cust_z(2) + cust_dir(2) * delta
+	If cust_z(2) > 35.3 Then cust_dir(2) = -1.05
+	If cust_z(2) < 33.5 Then cust_dir(2) = 1.05
+	Call NoteRoom(px, py, pz, grounded)
+End Sub
+
+Function LViewZ(ByVal x As Single, ByVal y As Single, ByVal z As Single) As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	Dim cya As Single
+	Dim sya As Single
+	Dim cx As Single
+	Dim cz As Single
+	Dim cp As Single
+	Dim sp As Single
+	Dim pz As Single
+	dx = x - look_x
+	dy = y - look_y
+	dz = z - look_z
+	cya = Cos(look_yaw)
+	sya = Sin(look_yaw)
+	cx = dx * cya - dz * sya
+	cz = dx * sya + dz * cya
+	cp = Cos(look_pitch)
+	sp = Sin(look_pitch)
+	pz = dy * sp + cz * cp
+	LViewZ = pz
+End Function
+
+Sub LProject(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	Dim cya As Single
+	Dim sya As Single
+	Dim cx As Single
+	Dim cz As Single
+	Dim cp As Single
+	Dim sp As Single
+	Dim py As Single
+	Dim pz As Single
+	dx = x - look_x
+	dy = y - look_y
+	dz = z - look_z
+	cya = Cos(look_yaw)
+	sya = Sin(look_yaw)
+	cx = dx * cya - dz * sya
+	cz = dx * sya + dz * cya
+	cp = Cos(look_pitch)
+	sp = Sin(look_pitch)
+	py = dy * cp - cz * sp
+	pz = dy * sp + cz * cp
+	l_cz = pz
+	If pz < 0.4 Then Exit Sub
+	l_sx = 480.0 + cx * (460.0 / pz)
+	l_sy = 300.0 - py * (460.0 / pz)
+End Sub
+
+Sub LTri(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	If depth_on = True Then
+		Call canvas.AddWireTri3D(x0, y0, z0, x1, y1, z1, x2, y2, z2, Color(r, g, b, 1.0))
+		Exit Sub
+	End If
+	Dim vz0 As Single
+	Dim vz1 As Single
+	Dim vz2 As Single
+	vz0 = LViewZ(x0, y0, z0)
+	vz1 = LViewZ(x1, y1, z1)
+	vz2 = LViewZ(x2, y2, z2)
+	If vz0 < 0.55 Or vz1 < 0.55 Or vz2 < 0.55 Then Exit Sub
+	Call LProject(x0, y0, z0)
+	If l_cz < 0.55 Then Exit Sub
+	Dim ax As Single
+	Dim ay As Single
+	ax = l_sx
+	ay = l_sy
+	Call LProject(x1, y1, z1)
+	If l_cz < 0.55 Then Exit Sub
+	Dim bx As Single
+	Dim by As Single
+	bx = l_sx
+	by = l_sy
+	Call LProject(x2, y2, z2)
+	If l_cz < 0.55 Then Exit Sub
+	If ax < -800.0 Or ax > 1800.0 Or ay < -800.0 Or ay > 1400.0 Then Exit Sub
+	If bx < -800.0 Or bx > 1800.0 Or by < -800.0 Or by > 1400.0 Then Exit Sub
+	If l_sx < -800.0 Or l_sx > 1800.0 Or l_sy < -800.0 Or l_sy > 1400.0 Then Exit Sub
+	Dim area As Single
+	area = (bx - ax) * (l_sy - ay) - (l_sx - ax) * (by - ay)
+	If area > -80.0 And area < 80.0 Then Exit Sub
+	Dim pts As Variant
+	pts = Array(Vector2(ax, ay), Vector2(bx, by), Vector2(l_sx, l_sy))
+	Call canvas.DrawPolygon(pts, 0.0, Color(r, g, b, 1.0), True, Color(r, g, b, 1.0))
+End Sub
+
+Sub LSeg(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal w As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	If depth_on = True Then
+		Call canvas.AddWireLine3D(x0, y0, z0, x1, y1, z1, w, Color(r, g, b, 1.0))
+		Exit Sub
+	End If
+	Call LProject(x0, y0, z0)
+	If l_cz < 0.4 Then Exit Sub
+	Dim ax As Single
+	Dim ay As Single
+	ax = l_sx
+	ay = l_sy
+	Call LProject(x1, y1, z1)
+	If l_cz < 0.4 Then Exit Sub
+	Call canvas.DrawLine(Vector2(ax, ay), Vector2(l_sx, l_sy), w, Color(r, g, b, 1.0))
+End Sub
+
+Sub DrawCustodian(ByVal canvas As Object, ByVal px As Single, ByVal pz As Single, ByVal heading As Single)
+	Dim i As Integer
+	Dim a0 As Single
+	Dim a1 As Single
+	Dim c0 As Single
+	Dim s0 As Single
+	Dim c1 As Single
+	Dim s1 As Single
+	For i = 0 To 7
+		a0 = CSng(i) * 0.785398
+		a1 = CSng(i + 1) * 0.785398
+		c0 = Cos(a0)
+		s0 = Sin(a0)
+		c1 = Cos(a1)
+		s1 = Sin(a1)
+		Call LTri(canvas, px + c0 * 0.46, 0.06, pz + s0 * 0.46, px + c1 * 0.46, 0.06, pz + s1 * 0.46, px + c0 * 0.44, 0.0, pz + s0 * 0.44, 0.18, 0.14, 0.12)
+		Call LTri(canvas, px + c1 * 0.46, 0.06, pz + s1 * 0.46, px + c1 * 0.44, 0.0, pz + s1 * 0.44, px + c0 * 0.44, 0.0, pz + s0 * 0.44, 0.22, 0.16, 0.13)
+		Call LTri(canvas, px + c0 * 0.44, 0.0, pz + s0 * 0.44, px + c1 * 0.44, 0.0, pz + s1 * 0.44, px + c0 * 0.32, 0.72, pz + s0 * 0.32, 0.58, 0.26, 0.09)
+		Call LTri(canvas, px + c1 * 0.44, 0.0, pz + s1 * 0.44, px + c1 * 0.32, 0.72, pz + s1 * 0.32, px + c0 * 0.32, 0.72, pz + s0 * 0.32, 0.68, 0.32, 0.11)
+		Call LTri(canvas, px + c0 * 0.32, 0.72, pz + s0 * 0.32, px + c1 * 0.32, 0.72, pz + s1 * 0.32, px + c0 * 0.3, 0.82, pz + s0 * 0.3, 0.72, 0.38, 0.12)
+		Call LTri(canvas, px + c1 * 0.32, 0.72, pz + s1 * 0.32, px + c1 * 0.3, 0.82, pz + s1 * 0.3, px + c0 * 0.3, 0.82, pz + s0 * 0.3, 0.78, 0.34, 0.1)
+		Call LTri(canvas, px + c0 * 0.3, 0.82, pz + s0 * 0.3, px + c1 * 0.3, 0.82, pz + s1 * 0.3, px + c0 * 0.28, 1.08, pz + s0 * 0.28, 0.82, 0.46, 0.15)
+		Call LTri(canvas, px + c1 * 0.3, 0.82, pz + s1 * 0.3, px + c1 * 0.28, 1.08, pz + s1 * 0.28, px + c0 * 0.28, 1.08, pz + s0 * 0.28, 0.76, 0.4, 0.13)
+		Call LTri(canvas, px + c0 * 0.28, 1.08, pz + s0 * 0.28, px + c1 * 0.28, 1.08, pz + s1 * 0.28, px, 1.62, pz, 0.88, 0.58, 0.2)
+		Call LSeg(canvas, px + c0 * 0.44, 0.0, pz + s0 * 0.44, px + c1 * 0.44, 0.0, pz + s1 * 0.44, 1.2, 0.35, 0.28, 0.22)
+	Next i
+	Dim fx As Single
+	Dim fz As Single
+	fx = Sin(heading)
+	fz = Cos(heading)
+	Dim rx As Single
+	Dim rz As Single
+	rx = Cos(heading)
+	rz = -Sin(heading)
+	Call LSeg(canvas, px - rx * 0.34, 0.86, pz - rz * 0.34, px + rx * 0.34, 0.86, pz + rz * 0.34, 1.6, 0.45, 0.32, 0.22)
+	Call LSeg(canvas, px - rx * 0.3, 1.02, pz - rz * 0.3, px + rx * 0.3, 1.02, pz + rz * 0.3, 1.4, 0.4, 0.3, 0.2)
+	Call LSeg(canvas, px - rx * 0.26, 1.18, pz - rz * 0.26, px + rx * 0.26, 1.18, pz + rz * 0.26, 1.4, 0.38, 0.28, 0.18)
+	Call LSeg(canvas, px, 1.62, pz, px + fx * 0.08, 1.58, pz + fz * 0.08, 1.8, 0.12, 0.1, 0.08)
+	Call LSeg(canvas, px + fx * 0.08, 1.58, pz + fz * 0.08, px + fx * 0.1, 1.54, pz + fz * 0.1, 1.6, 0.55, 0.82, 0.95)
+	Call LSeg(canvas, px, 1.28, pz, px + fx * 0.68, 1.28, pz + fz * 0.68, 2.2, 0.82, 0.78, 0.62)
+	Call LTri(canvas, px + fx * 0.68, 1.34, pz + fz * 0.68, px + fx * 0.68 + rx * 0.06, 1.22, pz + fz * 0.68 + rz * 0.06, px + fx * 0.82, 1.28, pz + fz * 0.82, 0.15, 0.78, 0.92)
+	Call LSeg(canvas, px - rx * 0.24, 0.98, pz - rz * 0.24, px - rx * 0.52, 0.88, pz - rz * 0.52, 2.4, 0.68, 0.38, 0.12)
+	Call LSeg(canvas, px - rx * 0.52, 0.88, pz - rz * 0.52, px - rx * 0.58, 0.82, pz - rz * 0.58, 2.0, 0.55, 0.35, 0.1)
+	Call LSeg(canvas, px + rx * 0.24, 0.98, pz + rz * 0.24, px + rx * 0.5 + fx * 0.12, 0.96, pz + rz * 0.5 + fz * 0.12, 2.4, 0.48, 0.46, 0.42)
+	Call LSeg(canvas, px + rx * 0.5 + fx * 0.12, 0.96, pz + rz * 0.5 + fz * 0.12, px + rx * 0.54 + fx * 0.22, 0.94, pz + rz * 0.54 + fz * 0.22, 2.0, 0.42, 0.4, 0.36)
+	For i = 0 To 3
+		a0 = heading + CSng(i) * 1.570796
+		c0 = Cos(a0)
+		s0 = Sin(a0)
+		Call LTri(canvas, px + c0 * 0.36, 0.38, pz + s0 * 0.36, px + c0 * 0.4, 0.42, pz + s0 * 0.4, px + c0 * 0.38, 0.48, pz + s0 * 0.38, 0.35, 0.55, 0.62)
+	Next i
+End Sub
+
+Sub DrawPushCrate(ByVal canvas As Object)
+	Dim cx As Single
+	Dim cz As Single
+	Dim h As Single
+	Dim s As Single
+	cx = crate_x
+	cz = crate_z
+	h = 0.84
+	s = 0.42
+	Call LTri(canvas, cx - s, 0.0, cz - s, cx + s, 0.0, cz - s, cx + s, h, cz - s, 0.48, 0.3, 0.12)
+	Call LTri(canvas, cx - s, 0.0, cz - s, cx + s, h, cz - s, cx - s, h, cz - s, 0.58, 0.36, 0.14)
+	Call LTri(canvas, cx + s, 0.0, cz + s, cx - s, 0.0, cz + s, cx - s, h, cz + s, 0.42, 0.26, 0.1)
+	Call LTri(canvas, cx + s, 0.0, cz + s, cx - s, h, cz + s, cx + s, h, cz + s, 0.52, 0.32, 0.12)
+	Call LTri(canvas, cx - s, 0.0, cz + s, cx - s, 0.0, cz - s, cx - s, h, cz - s, 0.4, 0.24, 0.09)
+	Call LTri(canvas, cx - s, 0.0, cz + s, cx - s, h, cz - s, cx - s, h, cz + s, 0.5, 0.3, 0.11)
+	Call LTri(canvas, cx + s, 0.0, cz - s, cx + s, 0.0, cz + s, cx + s, h, cz + s, 0.55, 0.34, 0.13)
+	Call LTri(canvas, cx + s, 0.0, cz - s, cx + s, h, cz + s, cx + s, h, cz - s, 0.65, 0.4, 0.16)
+	Call LTri(canvas, cx - s, h, cz - s, cx + s, h, cz - s, cx + s, h, cz + s, 0.72, 0.44, 0.18)
+	Call LTri(canvas, cx - s, h, cz - s, cx + s, h, cz + s, cx - s, h, cz + s, 0.78, 0.48, 0.2)
+	Call LTri(canvas, cx - s, 0.0, cz + s, cx + s, 0.0, cz + s, cx + s, 0.0, cz - s, 0.32, 0.2, 0.07)
+	Call LTri(canvas, cx - s, 0.0, cz + s, cx + s, 0.0, cz - s, cx - s, 0.0, cz - s, 0.32, 0.2, 0.07)
+	Call LSeg(canvas, cx - s, 0.0, cz - s, cx + s, 0.0, cz - s, 1.2, 0.2, 0.1, 0.05)
+	Call LSeg(canvas, cx + s, 0.0, cz - s, cx + s, 0.0, cz + s, 1.2, 0.2, 0.1, 0.05)
+	Call LSeg(canvas, cx + s, 0.0, cz + s, cx - s, 0.0, cz + s, 1.2, 0.2, 0.1, 0.05)
+	Call LSeg(canvas, cx - s, 0.0, cz + s, cx - s, 0.0, cz - s, 1.2, 0.2, 0.1, 0.05)
+	Call LSeg(canvas, cx - s, h, cz - s, cx + s, h, cz - s, 1.2, 0.25, 0.12, 0.06)
+	Call LSeg(canvas, cx + s, h, cz - s, cx + s, h, cz + s, 1.2, 0.25, 0.12, 0.06)
+End Sub
+
+Sub DrawDoorWire(ByVal canvas As Object)
+	Dim i As Integer
+	Dim mid As Single
+	Dim x0 As Single
+	Dim y0 As Single
+	Dim z0 As Single
+	Dim x1 As Single
+	Dim y1 As Single
+	Dim z1 As Single
+	If facility_done = False Then Exit Sub
+	For i = 0 To dn - 1
+		If opened(door_gate(i)) = False Then
+			Call canvas.SetWireRoom(DoorRoom(door_gate(i)))
+			Call canvas.ClearWireAnchor()
+			x0 = door_x0(i)
+			y0 = door_y0(i)
+			z0 = door_z0(i)
+			x1 = door_x1(i)
+			y1 = door_y1(i)
+			z1 = door_z1(i)
+			If door_axis(i) = 0 Then
+				mid = (z0 + z1) * 0.5
+				' Solid orange slab — disappears when the gate opens so the gap reads.
+				Call canvas.SetWireBias(0.02)
+				Call canvas.AddWireQuad3D(x0, y0, mid, x1, y0, mid, x1, y1, mid, x0, y1, mid, Color(1.35, 0.45, 0.08, 1.0))
+				Call canvas.SetWireBias(0.0)
+				Call NeonEdge(canvas, x0, y0, mid, x1, y0, mid, 1.25, 0.7, 0.2)
+				Call NeonEdge(canvas, x1, y0, mid, x1, y1, mid, 1.25, 0.7, 0.2)
+				Call NeonEdge(canvas, x1, y1, mid, x0, y1, mid, 1.25, 0.7, 0.2)
+				Call NeonEdge(canvas, x0, y1, mid, x0, y0, mid, 1.25, 0.7, 0.2)
+				Call NeonEdge(canvas, x0, y0, mid, x1, y1, mid, 0.95, 0.45, 0.12)
+				Call NeonEdge(canvas, x1, y0, mid, x0, y1, mid, 0.95, 0.45, 0.12)
+			Else
+				mid = (x0 + x1) * 0.5
+				Call canvas.SetWireBias(0.02)
+				Call canvas.AddWireQuad3D(mid, y0, z0, mid, y0, z1, mid, y1, z1, mid, y1, z0, Color(1.35, 0.45, 0.08, 1.0))
+				Call canvas.SetWireBias(0.0)
+				Call NeonEdge(canvas, mid, y0, z0, mid, y0, z1, 1.45, 0.8, 0.22)
+				Call NeonEdge(canvas, mid, y0, z1, mid, y1, z1, 1.45, 0.8, 0.22)
+				Call NeonEdge(canvas, mid, y1, z1, mid, y1, z0, 1.45, 0.8, 0.22)
+				Call NeonEdge(canvas, mid, y1, z0, mid, y0, z0, 1.45, 0.8, 0.22)
+				Call NeonEdge(canvas, mid, y0, z0, mid, y1, z1, 1.1, 0.5, 0.14)
+				Call NeonEdge(canvas, mid, y0, z1, mid, y1, z0, 1.1, 0.5, 0.14)
+			End If
+		End If
+	Next i
+End Sub
+
+Sub GlowSeg(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call NeonEdge(canvas, x0, y0, z0, x1, y1, z1, r * 1.05, g * 1.05, b * 1.05)
+End Sub
+
+Sub DrawPlantLeaf(ByVal canvas As Object, ByVal x As Single, ByVal y0 As Single, ByVal z As Single, ByVal tipx As Single, ByVal tipy As Single, ByVal tipz As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim wx As Single
+	Dim wz As Single
+	Dim midy As Single
+	' Wire leaf: dark spine fill + bright neon ribs (not solid plastic blobs).
+	wx = (tipz - z) * 0.32
+	wz = -(tipx - x) * 0.32
+	midy = y0 + (tipy - y0) * 0.55
+	Call LTri(canvas, x, y0, z, tipx, tipy, tipz, x + wx, midy, z + wz, 0.02, 0.04, 0.03)
+	Call LTri(canvas, x, y0, z, tipx, tipy, tipz, x - wx, midy, z - wz, 0.02, 0.04, 0.03)
+	Call GlowSeg(canvas, x, y0, z, tipx, tipy, tipz, r, g, b)
+	Call GlowSeg(canvas, tipx, tipy, tipz, x + wx, midy, z + wz, r * 0.95, g * 0.95, b * 0.95)
+	Call GlowSeg(canvas, tipx, tipy, tipz, x - wx, midy, z - wz, r * 0.95, g * 0.95, b * 0.95)
+	Call GlowSeg(canvas, x + wx, midy, z + wz, x - wx, midy, z - wz, r * 0.7, g * 0.7, b * 0.7)
+End Sub
+
+Sub DrawVectorPlant(ByVal canvas As Object, ByVal x As Single, ByVal z As Single, ByVal h As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	Dim ang As Single
+	Dim rad As Single
+	' Pot / planter ring.
+	For i = 0 To 7
+		ang = CSng(i) * 0.785398
+		Call GlowSeg(canvas, x + Cos(ang) * 0.28, 0.0, z + Sin(ang) * 0.28, x + Cos(ang + 0.785398) * 0.28, 0.0, z + Sin(ang + 0.785398) * 0.28, r * 0.7, g * 0.55, b * 0.35)
+		Call GlowSeg(canvas, x + Cos(ang) * 0.28, 0.0, z + Sin(ang) * 0.28, x + Cos(ang) * 0.22, 0.22, z + Sin(ang) * 0.22, r * 0.6, g * 0.5, b * 0.3)
+	Next i
+	' Trunk.
+	Call GlowSeg(canvas, x, 0.05, z, x, h * 0.55, z, r * 0.9, g * 0.75, b * 0.4)
+	Call GlowSeg(canvas, x - 0.04, 0.05, z, x + 0.04, h * 0.5, z, r * 0.7, g * 0.6, b * 0.35)
+	' Layered fronds.
+	For i = 0 To 5
+		ang = CSng(i) * 1.0472 + lvl_time * 0.15
+		rad = 0.55 + CSng(i Mod 3) * 0.18
+		Call DrawPlantLeaf(canvas, x, h * 0.35, z, x + Cos(ang) * rad, h * (0.75 + CSng(i Mod 2) * 0.2), z + Sin(ang) * rad, r, g, b)
+	Next i
+	For i = 0 To 3
+		ang = CSng(i) * 1.5708 + 0.4
+		Call DrawPlantLeaf(canvas, x, h * 0.55, z, x + Cos(ang) * 0.4, h * 1.05, z + Sin(ang) * 0.4, r * 1.1, g * 1.05, b * 0.9)
+	Next i
+End Sub
+
+Sub DrawFountain(ByVal canvas As Object, ByVal cx As Single, ByVal cz As Single)
+	Dim i As Integer
+	Dim ring As Integer
+	For ring = 1 To 3
+		Dim rad As Single
+		rad = 0.28 + CSng(ring) * 0.22
+		For i = 0 To 7
+			Dim a0 As Single
+			Dim a1 As Single
+			a0 = CSng(i) * 0.785398
+			a1 = a0 + 0.785398
+			Call GlowSeg(canvas, cx + Cos(a0) * rad, 0.08, cz + Sin(a0) * rad, cx + Cos(a1) * rad, 0.08, cz + Sin(a1) * rad, 0.35, 0.85, 1.0)
+		Next i
+	Next ring
+	For i = 0 To 5
+		Dim phase As Single
+		phase = lvl_time * 0.9 + CSng(i) * 0.55
+		Dim rise As Single
+		rise = phase - Int(phase / 2.4) * 2.4
+		Dim ang As Single
+		ang = CSng(i) * 1.05
+		Dim px As Single
+		Dim pz As Single
+		px = cx + Cos(ang) * 0.28
+		pz = cz + Sin(ang) * 0.28
+		Call FallChunk(canvas, px, 0.35 + rise, pz, 0.12 + CSng(i Mod 3) * 0.04, (i Mod 2) * 2, 0.3, 0.65, 0.85)
+	Next i
+End Sub
+
+Sub FallChunk(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal s As Single, ByVal twist As Integer, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	' Lit chip plates — filled so the cascade reads, not dashed hairlines.
+	Dim h As Single
+	h = s * 0.5
+	If twist = 0 Then
+		Call LTri(canvas, x - h, y, z - h, x + h, y, z - h, x + h, y, z + h, r * 0.55, g * 0.9, b)
+		Call LTri(canvas, x - h, y, z - h, x + h, y, z + h, x - h, y, z + h, r * 0.65, g * 1.0, b * 1.05)
+		Call NeonEdge(canvas, x - h, y, z - h, x + h, y, z - h, r, g, b)
+		Call NeonEdge(canvas, x + h, y, z - h, x + h, y, z + h, r, g, b)
+		Call NeonEdge(canvas, x + h, y, z + h, x - h, y, z + h, r, g, b)
+		Call NeonEdge(canvas, x - h, y, z + h, x - h, y, z - h, r, g, b)
+	Else
+		Call LTri(canvas, x, y, z - h, x + h, y, z, x, y, z + h, r * 0.6, g * 0.95, b)
+		Call LTri(canvas, x, y, z - h, x, y, z + h, x - h, y, z, r * 0.7, g * 1.05, b * 1.05)
+		Call NeonEdge(canvas, x, y, z - h, x + h, y, z, r, g, b)
+		Call NeonEdge(canvas, x + h, y, z, x, y, z + h, r, g, b)
+		Call NeonEdge(canvas, x, y, z + h, x - h, y, z, r, g, b)
+		Call NeonEdge(canvas, x - h, y, z, x, y, z - h, r, g, b)
+	End If
+End Sub
+
+Sub DrawFallPlatform(ByVal canvas As Object, ByVal cx As Single, ByVal cy As Single, ByVal cz As Single)
+	' Solid neon pad the chips fall from — black fill + bright frame + grate.
+	Call canvas.ClearWireAnchor()
+	Call canvas.SetWireBias(0.02)
+	Call canvas.AddWireQuad3D(cx - 1.2, cy, cz - 1.0, cx + 1.2, cy, cz - 1.0, cx + 1.2, cy, cz + 1.0, cx - 1.2, cy, cz + 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(cx - 1.2, cy + 0.85, cz - 1.0, cx + 1.2, cy + 0.85, cz - 1.0, cx + 1.2, cy + 0.85, cz + 1.0, cx - 1.2, cy + 0.85, cz + 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(cx - 1.2, cy, cz - 1.0, cx + 1.2, cy, cz - 1.0, cx + 1.2, cy + 0.85, cz - 1.0, cx - 1.2, cy + 0.85, cz - 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(cx + 1.2, cy, cz - 1.0, cx + 1.2, cy, cz + 1.0, cx + 1.2, cy + 0.85, cz + 1.0, cx + 1.2, cy + 0.85, cz - 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(cx + 1.2, cy, cz + 1.0, cx - 1.2, cy, cz + 1.0, cx - 1.2, cy + 0.85, cz + 1.0, cx + 1.2, cy + 0.85, cz + 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(cx - 1.2, cy, cz + 1.0, cx - 1.2, cy, cz - 1.0, cx - 1.2, cy + 0.85, cz - 1.0, cx - 1.2, cy + 0.85, cz + 1.0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.SetWireBias(0.0)
+	Call NeonEdge(canvas, cx - 1.2, cy, cz - 1.0, cx + 1.2, cy, cz - 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx + 1.2, cy, cz - 1.0, cx + 1.2, cy, cz + 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx + 1.2, cy, cz + 1.0, cx - 1.2, cy, cz + 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx - 1.2, cy, cz + 1.0, cx - 1.2, cy, cz - 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx - 1.2, cy + 0.85, cz - 1.0, cx + 1.2, cy + 0.85, cz - 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx + 1.2, cy + 0.85, cz - 1.0, cx + 1.2, cy + 0.85, cz + 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx + 1.2, cy + 0.85, cz + 1.0, cx - 1.2, cy + 0.85, cz + 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx - 1.2, cy + 0.85, cz + 1.0, cx - 1.2, cy + 0.85, cz - 1.0, 0.45, 1.05, 1.4)
+	Call NeonEdge(canvas, cx - 1.2, cy, cz - 1.0, cx - 1.2, cy + 0.85, cz - 1.0, 0.4, 0.95, 1.3)
+	Call NeonEdge(canvas, cx + 1.2, cy, cz - 1.0, cx + 1.2, cy + 0.85, cz - 1.0, 0.4, 0.95, 1.3)
+	Call NeonEdge(canvas, cx + 1.2, cy, cz + 1.0, cx + 1.2, cy + 0.85, cz + 1.0, 0.4, 0.95, 1.3)
+	Call NeonEdge(canvas, cx - 1.2, cy, cz + 1.0, cx - 1.2, cy + 0.85, cz + 1.0, 0.4, 0.95, 1.3)
+	' Underside grate the water falls through.
+	Call NeonEdge(canvas, cx - 0.7, cy, cz - 0.55, cx + 0.7, cy, cz - 0.55, 0.35, 0.85, 1.2)
+	Call NeonEdge(canvas, cx - 0.7, cy, cz, cx + 0.7, cy, cz, 0.35, 0.85, 1.2)
+	Call NeonEdge(canvas, cx - 0.7, cy, cz + 0.55, cx + 0.7, cy, cz + 0.55, 0.35, 0.85, 1.2)
+	Call NeonEdge(canvas, cx - 0.7, cy, cz - 0.55, cx - 0.7, cy, cz + 0.55, 0.35, 0.85, 1.2)
+	Call NeonEdge(canvas, cx, cy, cz - 0.55, cx, cy, cz + 0.55, 0.35, 0.85, 1.2)
+	Call NeonEdge(canvas, cx + 0.7, cy, cz - 0.55, cx + 0.7, cy, cz + 0.55, 0.35, 0.85, 1.2)
+End Sub
+
+Sub DrawWaterfall(ByVal canvas As Object)
+	Dim i As Integer
+	Dim cx As Single
+	Dim cy As Single
+	Dim cz As Single
+	Dim drop As Single
+	Dim y As Single
+	Dim s As Single
+	Dim ox As Single
+	Dim oz As Single
+	cx = 10.35
+	cy = 3.55
+	cz = 6.2
+	Call canvas.SetWireRoom(2)
+	Call DrawFallPlatform(canvas, cx, cy, cz)
+	' Vertical guide streams + streaking chips (not flat floating plates).
+	For i = 0 To 5
+		ox = cx - 0.7 + CSng(i) * 0.28
+		oz = cz - 0.5 + CSng(i Mod 3) * 0.35
+		Call NeonEdge(canvas, ox, cy - 0.05, oz, ox, 0.22, oz + 0.15, 0.35, 0.85, 1.35)
+	Next i
+	For i = 0 To 17
+		drop = lvl_time * 2.1 + CSng(i) * 0.37
+		drop = drop - Int(drop / 3.4) * 3.4
+		y = cy - 0.15 - drop
+		If y < 0.18 Then y = 0.18
+		s = 0.14 + CSng(i Mod 5) * 0.05
+		ox = cx - 0.55 + CSng(i Mod 5) * 0.28
+		oz = cz - 0.55 + CSng((i * 2) Mod 6) * 0.22
+		' Short glowing streak above each chip so it reads as falling water.
+		Call NeonEdge(canvas, ox, y + 0.35, oz, ox, y, oz, 0.55, 1.25, 1.55)
+		Call FallChunk(canvas, ox, y, oz, s, 2, 0.55, 1.3, 1.6)
+	Next i
+	Call DrawBubble(canvas, 9.9, 0.38, 5.6, 0.28, 0.45, 0.85, 1.1)
+	Call DrawBubble(canvas, 10.2, 0.3, 6.5, 0.24, 0.4, 0.8, 1.05)
+	Call DrawBubble(canvas, 9.85, 0.42, 6.95, 0.3, 0.45, 0.9, 1.15)
+	Call DrawBubble(canvas, 10.4, 0.25, 5.9, 0.2, 0.35, 0.75, 1.0)
+End Sub
+
+Sub DrawGardenCourt(ByVal canvas As Object)
+	Call canvas.SetWireRoom(2)
+	Call DrawVectorPlant(canvas, 5.15, 4.7, 1.5, 0.15, 1.25, 0.45)
+	Call DrawVectorPlant(canvas, 5.35, 7.7, 1.8, 1.15, 0.25, 0.95)
+	Call DrawVectorPlant(canvas, 10.2, 4.65, 1.7, 0.65, 0.2, 1.25)
+	Call DrawVectorPlant(canvas, 10.15, 7.55, 1.4, 0.25, 1.2, 0.55)
+	Call DrawFountain(canvas, 8.0, 6.2)
+	Call DrawWaterfall(canvas)
+	Call NeonEdge(canvas, 6.4, 2.4, 5.2, 7.3, 3.3, 5.6, 0.45, 0.75, 0.55)
+	Call NeonEdge(canvas, 7.3, 3.3, 5.6, 7.3, 2.2, 6.5, 0.45, 0.75, 0.55)
+	Call NeonEdge(canvas, 7.3, 2.2, 6.5, 6.4, 2.4, 6.1, 0.45, 0.75, 0.55)
+	Call NeonEdge(canvas, 6.4, 2.4, 5.2, 6.4, 2.4, 6.1, 0.45, 0.75, 0.55)
+End Sub
+
+Sub VEdge(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call NeonEdge(canvas, x0, y0, z0, x1, y1, z1, r * 1.35, g * 1.35, b * 1.35)
+End Sub
+
+Sub VBox(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	' Solid sky platforms — black mass + neon cage, not empty dashed cubes.
+	Call canvas.ClearWireAnchor()
+	Call canvas.SetWireBias(0.02)
+	Call canvas.AddWireQuad3D(x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(x1, y0, z1, x0, y0, z1, x0, y1, z1, x1, y1, z1, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.AddWireQuad3D(x0, y0, z1, x0, y0, z0, x0, y1, z0, x0, y1, z1, Color(0.0, 0.0, 0.0, 1.0))
+	Call canvas.SetWireBias(0.0)
+	Call VEdge(canvas, x0, y0, z0, x1, y0, z0, r, g, b)
+	Call VEdge(canvas, x1, y0, z0, x1, y0, z1, r, g, b)
+	Call VEdge(canvas, x1, y0, z1, x0, y0, z1, r, g, b)
+	Call VEdge(canvas, x0, y0, z1, x0, y0, z0, r, g, b)
+	Call VEdge(canvas, x0, y1, z0, x1, y1, z0, r, g, b)
+	Call VEdge(canvas, x1, y1, z0, x1, y1, z1, r, g, b)
+	Call VEdge(canvas, x1, y1, z1, x0, y1, z1, r, g, b)
+	Call VEdge(canvas, x0, y1, z1, x0, y1, z0, r, g, b)
+	Call VEdge(canvas, x0, y0, z0, x0, y1, z0, r, g, b)
+	Call VEdge(canvas, x1, y0, z0, x1, y1, z0, r, g, b)
+	Call VEdge(canvas, x1, y0, z1, x1, y1, z1, r, g, b)
+	Call VEdge(canvas, x0, y0, z1, x0, y1, z1, r, g, b)
+	' Face diagonals so distant platforms keep density.
+	Call VEdge(canvas, x0, y0, z0, x1, y1, z0, r * 0.7, g * 0.7, b * 0.7)
+	Call VEdge(canvas, x0, y0, z1, x1, y1, z1, r * 0.7, g * 0.7, b * 0.7)
+	Call VEdge(canvas, x0, y0, z0, x0, y1, z1, r * 0.65, g * 0.65, b * 0.65)
+	Call VEdge(canvas, x1, y0, z0, x1, y1, z1, r * 0.65, g * 0.65, b * 0.65)
+End Sub
+
+Sub SpiralFloor(ByVal canvas As Object, ByVal x0 As Single, ByVal z0 As Single, ByVal nx As Integer, ByVal nz As Integer, ByVal y As Single)
+	Dim ix As Integer
+	Dim iz As Integer
+	For iz = 0 To nz - 1
+		For ix = 0 To nx - 1
+			Call SpiralTile(canvas, x0 + CSng(ix) * 2.2, y, z0 + CSng(iz) * 2.2, 2.2, 0.0, 0.0, 0.0, 0.0, 2.2)
+		Next ix
+	Next iz
+End Sub
+
+Sub SpiralWallX(ByVal canvas As Object, ByVal x As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal nz As Integer, ByVal ny As Integer)
+	Dim iz As Integer
+	Dim iy As Integer
+	For iy = 0 To ny - 1
+		For iz = 0 To nz - 1
+			Call SpiralTile(canvas, x, y0 + CSng(iy) * 2.2, z0 + CSng(iz) * 2.2, 0.0, 0.0, 2.2, 0.0, 2.2, 0.0)
+		Next iz
+	Next iy
+End Sub
+
+Sub SpiralWallZ(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z As Single, ByVal nx As Integer, ByVal ny As Integer)
+	Dim ix As Integer
+	Dim iy As Integer
+	For iy = 0 To ny - 1
+		For ix = 0 To nx - 1
+			Call SpiralTile(canvas, x0 + CSng(ix) * 2.2, y0 + CSng(iy) * 2.2, z, 2.2, 0.0, 0.0, 0.0, 2.2, 0.0)
+		Next ix
+	Next iy
+End Sub
+
+Sub DrawRoofWorlds(ByVal canvas As Object)
+	Dim i As Integer
+	Dim y As Single
+	y = 10.52
+	Call canvas.SetWireRoom(11)
+	' Same spiral fill as the vault, on the floor and the court walls.
+	Call SpiralFloor(canvas, 41.8, 44.0, 6, 6, 10.5)
+	Call SpiralWallX(canvas, 41.85, 10.52, 44.0, 6, 2)
+	' East and north walls are split so the green span and the red arch stay open.
+	Call SpiralWallX(canvas, 54.95, 10.52, 44.0, 2, 2)
+	Call SpiralWallX(canvas, 54.95, 10.52, 52.8, 2, 2)
+	Call SpiralWallZ(canvas, 41.8, 10.52, 57.0, 2, 2)
+	Call SpiralWallZ(canvas, 50.6, 10.52, 57.0, 2, 2)
+	Call SpiralWallZ(canvas, 41.8, 10.52, 44.15, 1, 2)
+	Call SpiralWallZ(canvas, 52.8, 10.52, 44.15, 1, 2)
+	' Neon doorframes so open exits read as gates, not missing walls.
+	Call NeonEdge(canvas, 54.95, 10.52, 48.4, 54.95, 14.9, 48.4, 0.35, 1.15, 0.45)
+	Call NeonEdge(canvas, 54.95, 10.52, 52.8, 54.95, 14.9, 52.8, 0.35, 1.15, 0.45)
+	Call NeonEdge(canvas, 54.95, 14.9, 48.4, 54.95, 14.9, 52.8, 0.35, 1.15, 0.45)
+	Call NeonEdge(canvas, 54.95, 10.52, 48.4, 54.95, 10.52, 52.8, 0.35, 1.15, 0.45)
+	Call NeonEdge(canvas, 46.2, 10.52, 57.0, 46.2, 14.9, 57.0, 1.15, 0.35, 0.2)
+	Call NeonEdge(canvas, 50.6, 10.52, 57.0, 50.6, 14.9, 57.0, 1.15, 0.35, 0.2)
+	Call NeonEdge(canvas, 46.2, 14.9, 57.0, 50.6, 14.9, 57.0, 1.15, 0.35, 0.2)
+	Call NeonEdge(canvas, 46.2, 10.52, 57.0, 50.6, 10.52, 57.0, 1.15, 0.35, 0.2)
+	Call AddSolid(41.55, 10.5, 44.0, 41.9, 15.0, 57.2, 0)
+	Call AddSolid(54.9, 10.5, 44.0, 55.25, 15.0, 48.5, 0)
+	Call AddSolid(54.9, 10.5, 52.7, 55.25, 15.0, 57.2, 0)
+	Call AddSolid(41.8, 10.5, 56.9, 46.3, 15.0, 57.25, 0)
+	Call AddSolid(50.5, 10.5, 56.9, 55.0, 15.0, 57.25, 0)
+	Call AddSolid(41.8, 10.5, 43.85, 44.0, 15.0, 44.2, 0)
+	Call AddSolid(52.8, 10.5, 43.85, 55.0, 15.0, 44.2, 0)
+	Call DrawRoofPlant(canvas, 44.6, 10.52, 46.4, 1.6, 0.2, 1.0, 0.4)
+	Call DrawRoofPlant(canvas, 53.2, 10.52, 46.6, 1.9, 0.85, 0.25, 0.9)
+	Call DrawRoofPlant(canvas, 44.4, 10.52, 54.2, 1.5, 0.25, 0.85, 1.0)
+	Call DrawRoofPlant(canvas, 53.0, 10.52, 54.4, 1.7, 0.95, 0.45, 0.15)
+	Call AddFloor(38.0, 41.0, 80.0, 94.0, 10.5, 0)
+	For i = 0 To 11
+		Call VEdge(canvas, 38.0 + CSng(i) * 2.0, y, 41.2, 38.0 + CSng(i) * 2.0, y, 68.0, 0.15, 0.75, 1.0)
+	Next i
+	For i = 0 To 13
+		Call VEdge(canvas, 38.0, y, 41.2 + CSng(i) * 2.0, 60.0, y, 41.2 + CSng(i) * 2.0, 0.15, 0.75, 1.0)
+	Next i
+	For i = 1 To 4
+		Dim s As Single
+		s = CSng(i) * 1.6
+		Call VEdge(canvas, 48.0 - s, y, 52.0 - s, 48.0 + s, y, 52.0 - s, 0.2, 0.9, 1.0)
+		Call VEdge(canvas, 48.0 + s, y, 52.0 - s, 48.0 + s, y, 52.0 + s, 0.2, 0.9, 1.0)
+		Call VEdge(canvas, 48.0 + s, y, 52.0 + s, 48.0 - s, y, 52.0 + s, 0.2, 0.9, 1.0)
+		Call VEdge(canvas, 48.0 - s, y, 52.0 + s, 48.0 - s, y, 52.0 - s, 0.2, 0.9, 1.0)
+	Next i
+	Call VBox(canvas, 42.2, 13.2, 46.0, 45.4, 16.4, 49.2, 0.35, 0.85, 1.0)
+	Call VBox(canvas, 51.0, 14.6, 55.5, 54.6, 18.2, 59.0, 0.45, 1.0, 0.7)
+	Call VBox(canvas, 44.0, 12.4, 60.0, 46.5, 15.0, 62.6, 0.9, 0.35, 0.85)
+	Call VEdge(canvas, 40.5, y, 44.5, 40.5, y + 1.8, 44.5, 0.2, 1.0, 0.4)
+	Call VEdge(canvas, 40.5, y + 0.8, 44.5, 39.6, y + 1.5, 44.9, 0.2, 1.0, 0.4)
+	Call VEdge(canvas, 40.5, y + 0.8, 44.5, 41.4, y + 1.6, 44.1, 0.2, 1.0, 0.4)
+	Call VEdge(canvas, 56.5, y, 63.0, 56.5, y + 2.1, 63.0, 0.85, 0.25, 0.9)
+	Call VEdge(canvas, 56.5, y + 1.0, 63.0, 55.4, y + 1.8, 63.6, 0.85, 0.25, 0.9)
+	Call VEdge(canvas, 56.5, y + 1.0, 63.0, 57.6, y + 1.9, 62.4, 0.85, 0.25, 0.9)
+	' Green span. Cages and a raised walk, like a vector catwalk.
+	Call canvas.SetWireRoom(12)
+	pat_r = 0.15
+	pat_g = 1.15
+	pat_b = 0.28
+	pat_br = 0.2
+	pat_bg = 0.7
+	pat_bb = 1.2
+	Call SpiralFloor(canvas, 64.0, 52.0, 5, 3, 10.5)
+	For i = 0 To 4
+		Dim gx As Single
+		gx = 63.5 + CSng(i) * 3.1
+		Call VBox(canvas, gx, y, 52.0, gx + 2.6, y + 2.8, 58.5, 0.15, 0.95, 0.35)
+		Call VEdge(canvas, gx + 0.3, y + 0.4, 52.2, gx + 2.3, y + 0.4, 58.3, 0.2, 1.0, 0.45)
+		Call VEdge(canvas, gx + 0.3, y + 1.2, 52.2, gx + 2.3, y + 1.2, 58.3, 0.2, 1.0, 0.45)
+		Call VEdge(canvas, gx + 0.3, y + 2.0, 52.2, gx + 2.3, y + 2.0, 58.3, 0.2, 1.0, 0.45)
+	Next i
+	Call VBox(canvas, 66.0, y + 2.8, 53.2, 74.5, y + 4.6, 57.2, 0.25, 1.0, 0.5)
+	Call VEdge(canvas, 67.2, y + 4.6, 54.4, 67.2, y + 6.2, 54.4, 0.2, 0.9, 0.35)
+	Call VEdge(canvas, 67.2, y + 5.2, 54.4, 66.2, y + 6.0, 55.2, 0.2, 0.9, 0.35)
+	Call VEdge(canvas, 72.4, y + 4.6, 55.6, 72.4, y + 6.4, 55.6, 0.35, 1.0, 0.45)
+	Call VEdge(canvas, 72.4, y + 5.4, 55.6, 73.5, y + 6.2, 54.8, 0.35, 1.0, 0.45)
+	' Red arch. Ribs over a dark hall.
+	Call canvas.SetWireRoom(13)
+	pat_r = 1.15
+	pat_g = 0.32
+	pat_b = 0.1
+	pat_br = 1.35
+	pat_bg = 0.45
+	pat_bb = 0.12
+	Call SpiralFloor(canvas, 46.0, 72.0, 4, 6, 10.5)
+	pat_r = 0.12
+	pat_g = 1.05
+	pat_b = 0.22
+	pat_br = 0.25
+	pat_bg = 0.55
+	pat_bb = 1.45
+	For i = 0 To 8
+		Dim az As Single
+		Dim k As Integer
+		az = 71.5 + CSng(i) * 2.4
+		Call canvas.ClearWireAnchor()
+		Call canvas.AddWireQuad3D(45.0, y, az, 46.4, y, az, 46.4, y + 3.4, az, 45.0, y + 3.4, az, Color(0.07, 0.025, 0.02, 1.0))
+		Call canvas.AddWireQuad3D(53.6, y, az, 55.0, y, az, 55.0, y + 3.4, az, 53.6, y + 3.4, az, Color(0.07, 0.025, 0.02, 1.0))
+		For k = 0 To 4
+			Dim a0 As Single
+			Dim a1 As Single
+			a0 = CSng(k) * 0.785398
+			a1 = a0 + 0.785398
+			Call VEdge(canvas, 50.0 + Cos(a0) * 4.8, y + Sin(a0) * 3.6, az, 50.0 + Cos(a1) * 4.8, y + Sin(a1) * 3.6, az, 0.95, 0.35, 0.15)
+		Next k
+		Call VEdge(canvas, 45.4, y + 1.1, az, 47.2, y + 2.0, az, 0.85, 0.28, 0.12)
+		Call VEdge(canvas, 47.2, y + 2.0, az, 45.4, y + 2.9, az, 0.85, 0.28, 0.12)
+		Call VEdge(canvas, 54.6, y + 1.1, az, 52.8, y + 2.0, az, 0.85, 0.28, 0.12)
+		Call VEdge(canvas, 52.8, y + 2.0, az, 54.6, y + 2.9, az, 0.85, 0.28, 0.12)
+	Next i
+	For i = 0 To 10
+		Call VEdge(canvas, 45.2 + CSng(i), y, 71.0, 45.2 + CSng(i), y, 92.5, 0.55, 0.18, 0.08)
+	Next i
+End Sub
+
+Sub DrawRoofPlant(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal h As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	Dim ang As Single
+	Dim rad As Single
+	For i = 0 To 7
+		ang = CSng(i) * 0.785398
+		Call GlowSeg(canvas, x + Cos(ang) * 0.32, y, z + Sin(ang) * 0.32, x + Cos(ang + 0.785398) * 0.32, y, z + Sin(ang + 0.785398) * 0.32, r * 0.75, g * 0.6, b * 0.4)
+	Next i
+	Call GlowSeg(canvas, x, y, z, x, y + h * 0.55, z, r * 0.95, g * 0.8, b * 0.45)
+	For i = 0 To 5
+		ang = CSng(i) * 1.0472
+		rad = 0.6 + CSng(i Mod 3) * 0.2
+		Call DrawPlantLeaf(canvas, x, y + h * 0.35, z, x + Cos(ang) * rad, y + h * (0.8 + CSng(i Mod 2) * 0.18), z + Sin(ang) * rad, r, g, b)
+	Next i
+	For i = 0 To 3
+		ang = CSng(i) * 1.5708 + 0.35
+		Call DrawPlantLeaf(canvas, x, y + h * 0.55, z, x + Cos(ang) * 0.45, y + h * 1.08, z + Sin(ang) * 0.45, r * 1.1, g * 1.05, b * 0.95)
+	Next i
+End Sub
+
+Sub DrawBubble(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal rad As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim k As Integer
+	For k = 0 To 7
+		Dim a0 As Single
+		Dim a1 As Single
+		a0 = CSng(k) * 0.785398
+		a1 = a0 + 0.785398
+		Call GlowSeg(canvas, x + Cos(a0) * rad, y + Sin(a0) * rad, z, x + Cos(a1) * rad, y + Sin(a1) * rad, z, r, g, b)
+		Call GlowSeg(canvas, x + Cos(a0) * rad, y, z + Sin(a0) * rad, x + Cos(a1) * rad, y, z + Sin(a1) * rad, r, g, b)
+	Next k
+End Sub
+
+Sub DrawRoofFalls(ByVal canvas As Object)
+	Dim i As Integer
+	Dim cx As Single
+	Dim cy As Single
+	Dim cz As Single
+	Dim drop As Single
+	Dim y As Single
+	Dim s As Single
+	Dim ox As Single
+	Dim oz As Single
+	cx = 48.0
+	cy = 15.2
+	cz = 50.6
+	Call canvas.SetWireRoom(11)
+	Call DrawFallPlatform(canvas, cx, cy, cz)
+	For i = 0 To 4
+		ox = cx - 0.8 + CSng(i) * 0.4
+		oz = cz - 0.5 + CSng(i Mod 3) * 0.3
+		Call NeonEdge(canvas, ox, cy - 0.05, oz, ox, 10.75, oz + 0.2, 0.35, 0.85, 1.3)
+	Next i
+	For i = 0 To 19
+		drop = lvl_time * 2.0 + CSng(i) * 0.33
+		drop = drop - Int(drop / 4.2) * 4.2
+		y = cy - 0.15 - drop
+		If y < 10.7 Then y = 10.7
+		s = 0.16 + CSng(i Mod 5) * 0.05
+		ox = cx - 0.9 + CSng(i Mod 5) * 0.45
+		oz = cz - 0.7 + CSng((i * 3) Mod 7) * 0.22
+		Call NeonEdge(canvas, ox, y + 0.4, oz, ox, y, oz, 0.55, 1.25, 1.55)
+		Call FallChunk(canvas, ox, y, oz, s, 2, 0.55, 1.3, 1.6)
+	Next i
+End Sub
+
+Sub DrawRoofMotion(ByVal canvas As Object)
+	Dim i As Integer
+	Dim y As Single
+	y = 10.52
+	For i = 0 To 7
+		Dim phase As Single
+		Dim rise As Single
+		Dim bx As Single
+		Dim bz As Single
+		phase = lvl_time * 0.45 + CSng(i) * 0.8
+		rise = phase - Int(phase / 4.5) * 4.5
+		bx = 46.2 + CSng(i) * 0.85
+		bz = 48.6
+		If i = 1 Or i = 4 Or i = 7 Then bz = 51.4
+		If i = 2 Or i = 5 Then bz = 50.0
+		Call DrawBubble(canvas, bx, y + 0.35 + rise, bz, 0.16 + CSng(i) * 0.012, 0.45, 0.9, 1.05)
+	Next i
+	Call DrawRoofFalls(canvas)
+End Sub
+
+' One zigzag segment as a lit ribbon (tris survive depth better than hairlines).
+Sub DrawRamSeg(ByVal canvas As Object, ByVal xa As Single, ByVal ya As Single, ByVal za As Single, ByVal xb As Single, ByVal yb As Single, ByVal zb As Single, ByVal thick As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call LTri(canvas, xa, ya - thick, za, xb, yb - thick, zb, xb, yb + thick, zb, r, g, b)
+	Call LTri(canvas, xa, ya - thick, za, xb, yb + thick, zb, xa, ya + thick, za, r * 1.1, g * 1.1, b * 1.1)
+End Sub
+
+' Jagged neon bolt across the piston hall (south ram ↔ north ram).
+Sub DrawRamBolt(ByVal canvas As Object, ByVal px As Single, ByVal y As Single, ByVal seed As Single, ByVal thick As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim seg As Integer
+	Dim t0 As Single
+	Dim t1 As Single
+	Dim xa As Single
+	Dim ya As Single
+	Dim za As Single
+	Dim xb As Single
+	Dim yb As Single
+	Dim zb As Single
+	Dim amp As Single
+	amp = 0.28
+	For seg = 0 To 5
+		t0 = CSng(seg) / 6.0
+		t1 = CSng(seg + 1) / 6.0
+		za = 24.5 + (26.85 - 24.5) * t0
+		zb = 24.5 + (26.85 - 24.5) * t1
+		xa = px
+		xb = px
+		ya = y
+		yb = y
+		If seg > 0 Then
+			xa = px + Sin(lvl_time * 47.0 + seed + t0 * 15.1) * amp
+			ya = y + Cos(lvl_time * 39.0 + seed * 1.3 + t0 * 11.0) * amp
+		End If
+		If seg < 5 Then
+			xb = px + Sin(lvl_time * 47.0 + seed + t1 * 15.1) * amp
+			yb = y + Cos(lvl_time * 39.0 + seed * 1.3 + t1 * 11.0) * amp
+		End If
+		Call DrawRamSeg(canvas, xa, ya, za, xb, yb, zb, thick, r, g, b)
+		' Hairline core on top for bloom.
+		Call canvas.ClearWireAnchor()
+		Call canvas.AddWireLine3D(xa, ya, za, xb, yb, zb, 2.8, Color(r * 1.35, g * 1.35, b * 1.35, 1.0))
+	Next seg
+End Sub
+
+Sub DrawRamArcs(ByVal canvas As Object, ByVal px As Single, ByVal bottom As Single, ByVal pair As Integer)
+	Dim bolt As Integer
+	Dim y As Single
+	Dim flicker As Single
+	Dim hot As Single
+	Dim span As Single
+	Dim midy As Single
+	Call canvas.SetWireRoom(8)
+	flicker = Sin(lvl_time * 26.0 + CSng(pair) * 4.2)
+	' Keep a faint arc even on the dim frames so the span never vanishes.
+	hot = 0.7 + (flicker + 1.0) * 0.45
+	If hot < 0.55 Then hot = 0.55
+	span = 4.2 - bottom
+	If span < 0.35 Then span = 0.35
+	midy = (bottom + 4.15) * 0.5
+	For bolt = 0 To 3
+		y = bottom + 0.18 + CSng(bolt) * (span / 4.0)
+		If y > 4.1 Then y = 4.1
+		' Soft bloom coat, then hotter jagged core — both span south↔north rams.
+		Call DrawRamBolt(canvas, px, y, CSng(pair) * 8.0 + CSng(bolt) * 2.7, 0.09, 0.25 * hot, 0.9 * hot, 1.6 * hot)
+		Call DrawRamBolt(canvas, px, y, CSng(pair) * 8.0 + CSng(bolt) * 2.7 + 0.55, 0.04, 1.1 * hot, 1.4 * hot, 1.9 * hot)
+	Next bolt
+	' Straight trunks so the discharge still reads when zigzags flicker off.
+	Call DrawRamSeg(canvas, px, bottom + 0.3, 24.5, px, bottom + 0.3, 26.85, 0.07, 0.4 * hot, 1.3 * hot, 1.8 * hot)
+	Call DrawRamSeg(canvas, px, midy, 24.5, px, midy, 26.85, 0.06, 1.4 * hot, 0.6 * hot, 1.75 * hot)
+	Call DrawRamSeg(canvas, px, 4.0, 24.5, px, 4.0, 26.85, 0.055, 0.6 * hot, 1.2 * hot, 1.7 * hot)
+	Call canvas.ClearWireAnchor()
+	Call canvas.AddWireLine3D(px, bottom + 0.3, 24.5, px, bottom + 0.3, 26.85, 3.8, Color(1.25 * hot, 1.55 * hot, 1.95 * hot, 1.0))
+	Call canvas.AddWireLine3D(px, midy, 24.5, px, midy, 26.85, 3.4, Color(1.55 * hot, 0.9 * hot, 1.85 * hot, 1.0))
+	Call canvas.AddWireLine3D(px, 4.0, 24.5, px, 4.0, 26.85, 3.0, Color(0.95 * hot, 1.45 * hot, 1.9 * hot, 1.0))
+	' Live tip glow on each ram face.
+	Call NeonEdge(canvas, px - 0.34, bottom, 24.4, px + 0.34, bottom, 24.4, 1.45 * hot, 0.55 * hot, 1.7 * hot)
+	Call NeonEdge(canvas, px - 0.34, bottom, 26.9, px + 0.34, bottom, 26.9, 1.45 * hot, 0.55 * hot, 1.7 * hot)
+End Sub
+
+Sub DrawLevelDynamics(ByVal canvas As Object, ByVal camx As Single, ByVal camy As Single, ByVal camz As Single, ByVal yaw As Single, ByVal pitch As Single)
+	Dim i As Integer
+	Dim bottom As Single
+	Dim w As Single
+	Dim px As Single
+	look_x = camx
+	look_y = camy
+	look_z = camz
+	look_yaw = yaw
+	look_pitch = pitch
+	If facility_done = False Then Exit Sub
+	If room_id <= 2 Then Call DrawGardenCourt(canvas)
+	If room_id >= 11 Then Call DrawRoofMotion(canvas)
+	If room_id = 6 Then Call DrawPushCrate(canvas)
+	If room_id = 8 Then
+	For i = 0 To 2
+		px = 41.6 + CSng(i) * 2.8
+		w = Sin(lvl_time * 1.35 + CSng(i) * 2.05)
+		bottom = 0.4 + (w + 1.0) * 1.55
+		Call LTri(canvas, px - 0.35, bottom, 24.35, px + 0.35, bottom, 24.35, px + 0.35, 4.3, 24.35, 0.75, 0.12, 0.1)
+		Call LTri(canvas, px - 0.35, bottom, 24.35, px + 0.35, 4.3, 24.35, px - 0.35, 4.3, 24.35, 0.9, 0.18, 0.12)
+		Call LTri(canvas, px - 0.35, bottom, 26.95, px - 0.35, 4.3, 26.95, px + 0.35, 4.3, 26.95, 0.75, 0.12, 0.1)
+		Call LTri(canvas, px - 0.35, bottom, 26.95, px + 0.35, 4.3, 26.95, px + 0.35, bottom, 26.95, 0.9, 0.18, 0.12)
+		Call DrawRamArcs(canvas, px, bottom, i)
+	Next i
+	End If
+	If room_id = 9 And opened(10) = True Then
+		Call LTri(canvas, 46.55, 0.04, 29.55, 48.25, 0.04, 29.55, 48.25, 0.04, 33.05, 0.55, 0.75, 0.95)
+		Call LTri(canvas, 46.55, 0.04, 29.55, 48.25, 0.04, 33.05, 46.55, 0.04, 33.05, 0.4, 0.6, 0.85)
+	End If
+	Dim h0 As Single
+	Dim h1 As Single
+	Dim h2 As Single
+	h0 = 0.0
+	h1 = 0.0
+	h2 = 0.0
+	If cust_dir(0) < 0.0 Then h0 = 3.14159
+	If cust_dir(1) < 0.0 Then h1 = 3.14159
+	If cust_dir(2) < 0.0 Then h2 = 3.14159
+	If room_id = 5 Then
+		Call DrawCustodian(canvas, cust_x(0), cust_z(0), h0)
+		Call DrawCustodian(canvas, cust_x(1), cust_z(1), h1)
+	End If
+	If room_id = 9 Then
+		Call DrawCustodian(canvas, cust_x(2), cust_z(2), h2)
+	End If
+End Sub
+
+Function RoomBit(ByVal id As Integer) As Integer
+	Dim b As Integer
+	Dim i As Integer
+	b = 1
+	For i = 1 To id
+		b = b * 2
+	Next i
+	RoomBit = b
+End Function
+
+Function ExitOpen(ByVal id As Integer) As Boolean
+	ExitOpen = False
+	If id = 1 And opened(1) = True Then ExitOpen = True
+	If id = 2 And opened(2) = True Then ExitOpen = True
+	If id = 3 And opened(11) = True Then ExitOpen = True
+	If id = 4 And opened(3) = True Then ExitOpen = True
+	If id = 5 And opened(4) = True Then ExitOpen = True
+	If id = 6 And opened(5) = True Then ExitOpen = True
+	If id = 7 And opened(6) = True Then ExitOpen = True
+	If id = 8 And opened(7) = True Then ExitOpen = True
+	If id = 9 And opened(8) = True Then ExitOpen = True
+End Function
+
+Sub ShowRoom(ByVal id As Integer)
+	Dim bit As Integer
+	Dim q As Integer
+	If id < 1 Then Exit Sub
+	If id > 13 Then Exit Sub
+	bit = RoomBit(id)
+	q = shown_mask \ bit
+	q = q - (q \ 2) * 2
+	If q = 0 Then shown_mask = shown_mask + bit
+End Sub
+
+Function SeesRoom(ByVal id As Integer) As Boolean
+	Dim q As Integer
+	SeesRoom = False
+	If id < 1 Then Exit Function
+	q = shown_mask \ RoomBit(id)
+	q = q - (q \ 2) * 2
+	If q = 1 Then SeesRoom = True
+End Function
+
+Sub RefreshShown()
+	Dim id As Integer
+	id = room_id
+	If id < 1 Then id = 1
+	shown_mask = 0
+	Call ShowRoom(id)
+	If id < 10 Then
+		If ExitOpen(id) = True Then Call ShowRoom(id + 1)
+	End If
+	' The smashed seal stays open, so the vault shows through that hole only.
+	If id = 2 And opened(1) = True Then Call ShowRoom(1)
+	' The door behind stays open until the player is further in, so that room still shows.
+	If id = 3 And opened(2) = True Then Call ShowRoom(2)
+	If id = 4 And opened(11) = True Then Call ShowRoom(3)
+	If id = 5 And opened(3) = True Then Call ShowRoom(4)
+	If id = 6 And opened(4) = True Then Call ShowRoom(5)
+	If id = 7 And opened(5) = True Then Call ShowRoom(6)
+	If id = 8 And opened(6) = True Then Call ShowRoom(7)
+	If id = 9 And opened(7) = True Then Call ShowRoom(8)
+	If id = 10 And opened(8) = True Then Call ShowRoom(9)
+	' Roof worlds 11–13 were never masked in — whole courts rendered black.
+	If id = 10 And opened(9) = True Then Call ShowRoom(11)
+	If id >= 11 Then
+		Call ShowRoom(11)
+		Call ShowRoom(12)
+		Call ShowRoom(13)
+		If opened(9) = True Then Call ShowRoom(10)
+	End If
+End Sub
+
+Function DoorOnScreen(ByVal gate As Integer) As Boolean
+	Dim owner As Integer
+	DoorOnScreen = False
+	owner = DoorRoom(gate)
+	If owner < 1 Then Exit Function
+	If SeesRoom(owner) = True Then DoorOnScreen = True
+	If owner < 10 Then
+		If SeesRoom(owner + 1) = True Then DoorOnScreen = True
+	End If
+	If gate = 11 And SeesRoom(4) = True Then DoorOnScreen = True
+End Function
+
+Function DoorRoom(ByVal gate As Integer) As Integer
+	DoorRoom = 0
+	If gate = 2 Then DoorRoom = 2
+	If gate = 3 Then DoorRoom = 4
+	If gate = 4 Then DoorRoom = 5
+	If gate = 5 Then DoorRoom = 6
+	If gate = 11 Then DoorRoom = 3
+	If gate = 6 Then DoorRoom = 7
+	If gate = 7 Then DoorRoom = 8
+	If gate = 8 Then DoorRoom = 9
+	If gate = 9 Then DoorRoom = 10
+End Function

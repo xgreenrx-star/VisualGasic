@@ -1,0 +1,52 @@
+[gd_scene load_steps=7 format=3 uid="uid://vectorcryptmain01"]
+
+[ext_resource type="Script" path="res://Main.vg" id="1_main"]
+[ext_resource type="Script" path="res://steps.gd" id="3_steps"]
+[ext_resource type="Shader" path="res://vector_monitor.gdshader" id="4_monitor"]
+[ext_resource type="Script" path="res://depth_view.gd" id="5_depth"]
+
+[sub_resource type="Environment" id="Environment_glow"]
+background_mode = 3
+glow_enabled = true
+glow_intensity = 1.1
+glow_strength = 1.0
+glow_bloom = 0.14
+glow_blend_mode = 0
+glow_hdr_threshold = 0.7
+glow_hdr_scale = 1.3
+glow_levels/1 = 0.0
+glow_levels/2 = 0.5
+glow_levels/3 = 0.65
+glow_levels/4 = 0.4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_monitor"]
+shader = ExtResource("4_monitor")
+
+[node name="VectorCrypt" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="DepthView" type="SubViewportContainer" parent="."]
+offset_right = 960.0
+offset_bottom = 540.0
+mouse_filter = 2
+script = ExtResource("5_depth")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+visible = false
+offset_right = 960.0
+offset_bottom = 540.0
+mouse_filter = 2
+color = Color(0.01, 0.015, 0.03, 1)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_glow")
+
+[node name="Steps" type="Node" parent="."]
+script = ExtResource("3_steps")
+
+[node name="VectorMonitor" type="ColorRect" parent="."]
+z_index = 90
+offset_right = 960.0
+offset_bottom = 540.0
+mouse_filter = 2
+material = SubResource("ShaderMaterial_monitor")
