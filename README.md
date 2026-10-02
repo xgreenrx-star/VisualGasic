@@ -67,7 +67,7 @@ VG is a public beta. The language, JIT compiler, and debugger work. The Form Des
 
 **Recently shipped (5.6.0-beta1):**
 - **Windows x64 native JIT** — Tier 2/3 first public ship; feedback wanted (`VG_JIT=0` to disable)
-- **Vector Crypt** — procedural neon 3D showcase (`samples/apps/vector_crypt/`)
+- **Vector Crypt** — procedural neon 3D showcase (`samples/apps/vector_crypt/`) · [YouTube](https://youtu.be/ntpOTNflE_M)
 - **QB/classic speed** — faster 32-bit draw, LINE/PAINT fidelity
 - **Interface / Implements** · IDE step-into polish · vector `BuildDepthMesh`
 
