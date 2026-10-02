@@ -10,7 +10,7 @@
 ### Showcase — Vector Crypt
 
 - `samples/apps/vector_crypt/` — 100% procedural 3D neon facility (depth-tested vector mesh).
-- **Video:** _(YouTube — paste link when live)_
+- **Video:** [Vector Crypt on YouTube](https://youtu.be/ntpOTNflE_M)
 
 ### Also in this beta
 

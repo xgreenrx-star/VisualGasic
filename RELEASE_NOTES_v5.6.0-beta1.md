@@ -36,7 +36,7 @@ Or use the one-click **AppImage** / **Windows installer** / offline bundles on t
 | Retro pack menu | `samples/showcases/qb_abc_showcase/` |
 | Wireframe space | `samples/games/elite_wire_slice/` |
 
-**Video:** _(YouTube link — add when the Vector Crypt walkthrough is uploaded)_
+**Video:** [Vector Crypt — procedural neon 3D](https://youtu.be/ntpOTNflE_M)
 
 ---
 

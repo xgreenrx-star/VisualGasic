@@ -2,6 +2,8 @@
 
 First-person **vector** prototype for a **gravity / portal puzzle** game (Murderbot-adjacent cyborg HUD, Overseer AI, Portal-like chambers). Visual Gasic + Godot 4.6 — no bitmap art.
 
+**Watch:** [Vector Crypt on YouTube](https://youtu.be/ntpOTNflE_M)
+
 - Run **Main.tscn** — opens in a **Portal-style recovery vault** (fade in, sealed pod, PA voice). **Enter** after ~8s skips to the corridor sandbox; **WASD** / **A/D** there.
 - TTS: install [Piper](https://github.com/rhasspy/piper) and a voice under `~/.local/share/piper/voices/` (e.g. `en_US-amy-medium.onnx`) for best quality.
 - Helmet HUD: `HudHelmet.vg` (visor frame, reticle, status bars, ticker).

@@ -1,6 +1,7 @@
 # Facebook post — Vector Crypt + Visual Gasic 5.6.0-beta1
 
-Attach the Vector Crypt walkthrough video (YouTube). When the release is live, link the GitHub Releases page.
+Attach / link the Vector Crypt walkthrough: https://youtu.be/ntpOTNflE_M  
+When posting, also link the GitHub Releases page.
 
 ---
 
@@ -15,7 +16,7 @@ Also in the beta: faster classic/QB drawing, Interface/Implements, IDE step-into
 **Try it**
 - Release (installers + Asset Library zip): https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1
 - Docs / JIT: https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manual/performance.md
-- Video: _(YouTube URL)_
+- Video: https://youtu.be/ntpOTNflE_M
 
 Godot 4.6.1+ · VB6-style Basic · desktop, and the usual Godot export story.
 
@@ -23,4 +24,5 @@ Godot 4.6.1+ · VB6-style Basic · desktop, and the usual Godot export story.
 
 ## Short alt (if character limit)
 
-New Visual Gasic beta: procedural neon 3D in pure `.vg` (video), plus **Windows native JIT for the first time** — we need Windows feedback. https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1
+New Visual Gasic beta: procedural neon 3D in pure `.vg`, plus **Windows native JIT for the first time** — we need Windows feedback.  
+Video: https://youtu.be/ntpOTNflE_M · Release: https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1
