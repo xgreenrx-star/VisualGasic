@@ -10,7 +10,7 @@ Paste into the Asset Library “Changelog” / description update when submittin
 
 ## Changelog (short)
 
-Windows x64 **native JIT** included for the first time (Tier 2/3; opt out with `VG_JIT=0`) — please send performance/correctness feedback. **C++ engine:** vector canvas depth mesh (`BuildDepthMesh` / `AddWireTri3D`) for depth-tested procedural 3D. Faster QuickBASIC-style 32-bit drawing and LINE/PAINT fixes. `Interface`/`Implements`. New sample: Vector Crypt. IDE: faster step-into, tooltip/Data Tips, Go to Definition across imports. Replace the whole `addons/visual_gasic/` folder (new Linux/Windows/Web binaries).
+Windows x64 **native JIT** included for the first time (Tier 2/3; opt out with `VG_JIT=0`) — please send performance/correctness feedback. **C++ engine:** vector canvas depth mesh (`BuildDepthMesh` / `AddWireTri3D`), faster QuickBASIC-style 32-bit drawing and LINE/PAINT fixes. **Language:** `Interface`/`Implements`, named arguments, deep optional chaining, block lambdas, cross-module exceptions, `Declare`/`DllImport` Alias. Samples: Vector Crypt (procedural neon 3D) + BASIC-256 gallery ports. IDE: faster step-into, tooltip/Data Tips, Go to Definition across imports, panel polish. Replace the whole `addons/visual_gasic/` folder (new Linux/Windows/Web binaries). Video: https://youtu.be/ntpOTNflE_M
 
 ## Longer (optional)
 

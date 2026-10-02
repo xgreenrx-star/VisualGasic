@@ -14,9 +14,9 @@
 Also in this beta:
 
 1. **C++ GDExtension / engine core** — Windows JIT path, QB screen/LINE/PAINT speed + fidelity, **vector canvas depth mesh** (`AddWireTri3D`, `BuildDepthMesh` + depth cache) for SubViewport / MeshInstance3D procedural 3D, JIT+ByRef float slots, Python bridge large-array lane. **New binaries required.**
-2. **Language** — `Interface` / `Implements`.
-3. **Showcase — Vector Crypt** — Procedural neon 3D facility built on that depth-mesh API — [video](https://youtu.be/ntpOTNflE_M).
-4. **IDE** — Faster step-into, tooltips/Data Tips, Go to Definition across imports, plugin load fix.
+2. **Language (M8 parity + Interface)** — Named arguments, deep optional chaining, block lambdas, exceptions across imported modules, `Declare`/`DllImport` Alias resolution; plus `Interface` / `Implements`.
+3. **Showcase** — **Vector Crypt** (depth-mesh procedural 3D) — [video](https://youtu.be/ntpOTNflE_M); BASIC-256 gallery ports in the QB ABC showcase (`,` menu).
+4. **IDE** — Faster step-into, tooltips/Data Tips, Go to Definition across imports, param-popup plugin-load fix, panel/dock polish (signature hints, Errors routing, profiler commands).
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md#560-beta1---2026-10-02)
 
@@ -64,32 +64,35 @@ This is not “sample-only” work — the shipping `.so` / `.dll` / `.wasm` cha
 | **Windows JIT** | Tier 2 + Tier 3 native codegen on Win64 (`VirtualAlloc` / CFG / `install_executable_code`) |
 | **Vector canvas** | `AddWireTri3D`, `BuildDepthMesh`, depth-cache slots, neon edge ribbons + fill bias for depth-tested procedural 3D (`visual_gasic_vector_canvas.*`) |
 | **QB / classic** | Faster 32-bit screen path; quarter-pixel LINE; PAINT / LINE color; opaque fade washes |
-| **Runtime** | JIT ByRef/ByVal float local slots; Linux Python bridge large-array lane |
-| **Language** | `Interface` / `Implements` parser + same-file checks |
+| **Runtime** | JIT ByRef/ByVal float local slots; Linux Python bridge large-array lane; M8 bytecode/parser fixes |
+| **Language** | `Interface` / `Implements`; named args; optional chains; block lambdas; cross-module `Try`/`Raise`; `Declare`/`DllImport` Alias |
 
 ### Vector Crypt (showcase on top of the engine)
 
 - **`samples/apps/vector_crypt/`** — 100% procedural neon facility (corridors, pistons/lightning, garden, waterfall, sky platforms, FPS gun). Uses `BuildDepthMesh` + `DepthView` SubViewport.
 - Last rooftop/lattice area is still rough — shipped as “good enough for showcase,” not a finished game.
 
-### Classic / QB (user-visible)
+### Classic / QB + BASIC-256 (user-visible)
 
 - Faster 32-bit screen path; B256 gallery stays responsive.
 - LINE / PAINT fidelity fixes (same C++ QB screen work as above).
+- **BASIC-256 ports** in `qb_abc_showcase` (`,` menu): Minsky, non-periodic, swirl, Julia — source transliterations, not lite rewrites.
 
 ### Language & runtime (user-visible)
 
 - `Interface … End Interface` + same-file `Implements` checks.
+- **M8 parity:** named arguments, deep optional chaining, block lambdas, exceptions raised from imported helpers, FFI Alias for `Declare`/`DllImport`.
 - JIT ByRef/ByVal float slot typing (`test_byref_project.vg`).
 - Tier 3 install path on Windows.
 - Linux Python bridge large-array binary lane.
 
 ### IDE
 
-- Step-into performance; editor focus on pause.
+- Step-into performance; editor focus on pause; no full editor rebuild each F11.
 - Shared tooltip / Data Tips chrome.
-- Go to Definition for imported procedures.
+- Go to Definition for imported procedures (Project Explorer follows).
 - Param popup typing fix so the plugin loads reliably.
+- Panel polish: sticky signature/param hints clipped to the editor; cream-toolbar contrast; Script validation → Errors; profiler language commands.
 
 ---
 

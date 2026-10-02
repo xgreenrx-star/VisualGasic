@@ -19,7 +19,7 @@
           published wins vs GDScript on compute and canvas benchmarks, and an in-editor <strong>Vibe Code</strong> panel (Narcea + Ollama or your API keys).
           Not retro branding &mdash; games and shipped demos are the proof. Install, docs, benchmarks, and showcases below.
         </p>
-        <p class="roadmap-strip">v5.6.0-beta1: <strong>Windows x64 native JIT (first ship — feedback wanted)</strong> · Vector Crypt procedural neon 3D · QB speedups · Interface/Implements. Still true: 12/12 compute + 9/9 draw vs GDScript.</p>
+        <p class="roadmap-strip">v5.6.0-beta1: <strong>Windows x64 native JIT (first ship — feedback wanted)</strong> · C++ vector depth mesh · M8 language parity · Vector Crypt procedural neon 3D · QB speedups · Interface/Implements. Still true: 12/12 compute + 9/9 draw vs GDScript.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Try Vector Crypt</a>
@@ -34,7 +34,7 @@
       <div class="hero-panel notice-card">
         <p class="notice-title">Status</p>
         <ul class="notice-list">
-            <li>✅ <strong>v5.6.0-beta1</strong> — Windows x64 JIT (first ship) · <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt</a> · QB speed · Interface</li>
+            <li>✅ <strong>v5.6.0-beta1</strong> — Windows x64 JIT (first ship) · C++ depth mesh · M8 parity · <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt</a> · Interface</li>
             <li>✅ <strong>v5.5.0-beta3</strong> — QB ABC showcase · Elite Wire Slice · classic pixel canvas + docs</li>
             <li>✅ 12/12 compute + 9/9 draw vs GDScript · Sept 2026 gameplay benchmarks published</li>
             <li>✅ <strong>v5.4.0-beta2</strong> — Buffer type, Let block scope, Narcea Tier A/B</li>
@@ -185,16 +185,18 @@
         <h2>Fixing the language, shipping examples, building the tools that prove the pitch</h2>
         <p>
           VG is a public beta. Current release: <strong>v5.6.0-beta1</strong> — first public <strong>Windows x64 native JIT</strong>,
-          Vector Crypt procedural 3D showcase, QB/classic draw speedups, and <code>Interface</code>/<code>Implements</code>.
+          C++ vector <strong>depth mesh</strong> (<code>BuildDepthMesh</code>), M8 language parity, Vector Crypt procedural 3D,
+          QB/classic draw speedups, and <code>Interface</code>/<code>Implements</code>.
           Earlier: 12/12 + 9/9 vs GDScript, Beta Showcase tour, Narcea Tier A/B. Next: Windows JIT feedback + benchmarks,
           UI Forms parity, and the examples corpus cleanup.
         </p>
         <div class="manual-grid">
           <a class="card link-card accent-cyan" href="https://youtu.be/ntpOTNflE_M">
-            <strong>✅ Shipped — Windows JIT + Vector Crypt (5.6.0-beta1)</strong>
+            <strong>✅ Shipped — Windows JIT + depth mesh + Vector Crypt (5.6.0-beta1)</strong>
             <span>
               Native x64 JIT on Windows (Tier 2/3; <code>VG_JIT=0</code> to disable) — please send feedback.
-              Procedural neon 3D sample at <code>samples/apps/vector_crypt/</code>. Watch the walkthrough on YouTube.
+              C++ <code>BuildDepthMesh</code> / <code>AddWireTri3D</code> for depth-tested procedural 3D.
+              Sample: <code>samples/apps/vector_crypt/</code>. Watch the walkthrough on YouTube.
             </span>
           </a>
           <a class="card link-card accent-cyan" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">
@@ -423,9 +425,9 @@ End Sub</pre>
             <strong>Method Overloading &mdash; Shipped v3.7</strong>
             <span>Godot's ClassDB/Variant architecture can't support it. VG dispatches by argument count automatically &mdash; <code>Spawn()</code>, <code>Spawn(pos)</code>, <code>Spawn(pos, type, count)</code> all coexist.</span>
           </article>
-          <article class="card link-card accent-gold">
-            <strong>Abstract Classes &amp; Interfaces &mdash; Shipping v6.1</strong>
-            <span>Godot relies on <code>has_method()</code> duck-typing workarounds. VG adds <code>MustOverride</code> and <code>MustInherit</code> for real compile-time API enforcement.</span>
+          <article class="card link-card accent-cyan">
+            <strong>Interface / Implements &mdash; Shipped v5.6.0-beta1</strong>
+            <span>Godot relies on <code>has_method()</code> duck-typing. VG now parses <code>Interface … End Interface</code> with same-file <code>Implements</code> checks. Abstract <code>MustOverride</code> / <code>MustInherit</code> remain on the v6.x roadmap.</span>
           </article>
           <article class="card link-card accent-gold">
             <strong>Namespaces &mdash; Shipping v6.5</strong>
@@ -516,7 +518,7 @@ End Sub</pre>
         <div class="video-grid">
           <article class="card media-card accent-cyan">
             <h3>Vector Crypt (v5.6.0-beta1)</h3>
-            <p>Procedural neon facility — depth-tested vector geometry, rooms, pistons, garden, sky platforms. No mesh kitbash. Ships with Windows x64 JIT in the same release.</p>
+            <p>Procedural neon facility — depth-tested vector geometry via the new C++ <code>BuildDepthMesh</code> API. Rooms, pistons, garden, sky platforms. No mesh kitbash. Same release as the Windows x64 JIT.</p>
             <a href="https://youtu.be/ntpOTNflE_M">Watch on YouTube</a>
             <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Open sample project</a>
             <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/samples/apps/vector_crypt/README.md">Sample README</a>
