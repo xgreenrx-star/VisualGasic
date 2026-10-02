@@ -3215,12 +3215,12 @@ func _show_param_popup(signature: String, arg_index: int) -> void:
 		_param_label.custom_minimum_size = Vector2(min(max_w, 480.0), 20)
 		_param_label.custom_maximum_size = Vector2(max_w, 0)
 		_param_popup.reset_size()
-		var popup_w := mini(_param_popup.size.x, int(max_w + 8))
+		var popup_w: int = mini(_param_popup.size.x, int(max_w + 8))
 		var edit_rect := _code_edit.get_global_rect()
-		var left_x := edit_rect.position.x + gw
-		var pos_x := global_pos.x
-		if pos_x + popup_w > edit_rect.end.x:
-			pos_x = edit_rect.end.x - popup_w
+		var left_x: float = edit_rect.position.x + gw
+		var pos_x: float = global_pos.x
+		if pos_x + float(popup_w) > edit_rect.end.x:
+			pos_x = edit_rect.end.x - float(popup_w)
 		pos_x = maxf(pos_x, left_x)
 		_param_popup.position = Vector2i(int(pos_x), int(global_pos.y))
 		_param_popup.size = Vector2i(popup_w, _param_popup.size.y)
