@@ -1,11 +1,24 @@
-' Neon wire walls for Vector Crypt.
-' Black occlusion plus concentric neon squares — Paradox Vector style.
-' No brick / cement paint. That paint was the hatch fighting the camera.
-
+' =============================================================================
+' WallPatterns.vg — how every neon wall panel is built
+' =============================================================================
+'
+' Main.BuildFacility calls NeonFace for each wall tile. A face is TWO layers:
+'   1) Black (or dark) fill quad — occludes whatever is behind it in depth
+'   2) NeonStrip edge coats — bright ribbons slightly pushed along the normal
+'      so they sit in FRONT of the black fill (push 0.055 > fill bias 0.02)
+'
+' Without the push, neon would z-fight or hide behind the black quad.
+' NeonRing draws concentric squares for the spiral / Paradox look.
+'
+' NOTE: Do not name locals fx/fy/fz — Import shares the global name space
+' with Main.fy() helpers and that can silently break.
+'
+' =============================================================================
 Option Explicit
 
 Dim anchor_lock As Boolean
 
+' Simple HDR line (no thickness ribbon).
 Sub NeonEdge(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
 	Call canvas.ClearWireAnchor()
 	' HDR neon so glow catches edges the way Paradox Vector does.

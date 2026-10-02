@@ -1,3 +1,6 @@
+// Applied to the DepthView MeshInstance3D (facility walls).
+// Vertex COLOR comes from BuildDepthMesh. Bright verts emit; near-black
+// verts stay dark so black fill quads occlude without glowing.
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 

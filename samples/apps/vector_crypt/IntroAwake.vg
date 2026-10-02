@@ -1,7 +1,17 @@
-' Lying in the hospital bed, looking toward the foot.
-' Cream frame, periwinkle panels, teal mattress — same bed as the side-view reference.
-' Quads are clipped to the near plane so the sheet and rails can leave the frame.
-
+' =============================================================================
+' IntroAwake.vg — phase-0 wake-up: lying in a hospital bed looking at your feet
+' =============================================================================
+'
+' Main.vg calls DrawBedWakeScene during game_phase = 0. The bed is drawn as
+' clipped quads in camera space so rails/sheets can leave the near plane
+' (like a Portal recovery pod first-person shot).
+'
+' Pipeline for each bed triangle:
+'   world point → ToCam (camera space) → ClipEdge (near-plane clip) → screen
+'
+' Also provides DrawIntroHelmetFrame / DrawIntroFade used only in the intro.
+'
+' =============================================================================
 Option Explicit
 
 Dim bed_pitch As Single
@@ -9,6 +19,7 @@ Dim bed_built As Boolean
 Dim bed_record As Boolean
 Dim bed_x As Single
 Dim bed_z As Single
+' Scratch polygon after near-plane clipping (max ~6 verts)
 Dim bed_n As Integer
 Dim bed_cx(8) As Single
 Dim bed_cy(8) As Single
@@ -16,6 +27,7 @@ Dim bed_cz(8) As Single
 Dim bed_sx(8) As Single
 Dim bed_sy(8) As Single
 
+' World → camera space (yaw + bed_pitch). Result in cx/cy/cz ByRef.
 Sub ToCam(ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single, ByVal wx As Single, ByVal wy As Single, ByVal wz As Single, ByRef cx As Single, ByRef cy As Single, ByRef cz As Single)
 	Dim dx As Single
 	Dim dy As Single

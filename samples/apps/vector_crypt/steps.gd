@@ -1,4 +1,7 @@
 extends Node
+## Procedural footstep beeps for Vector Crypt.
+## Main.vg calls Step(0) / Step(1) for left/right while walking.
+## No audio files — we synthesize short WAV thumps in memory.
 
 var _player: AudioStreamPlayer
 var _streams: Array = []
@@ -7,6 +10,7 @@ func _ready() -> void:
 	_player = AudioStreamPlayer.new()
 	_player.volume_db = -10.0
 	add_child(_player)
+	# Two slightly different pitches so left/right feel distinct.
 	_streams.append(_thump(90.0, 0.07))
 	_streams.append(_thump(74.0, 0.065))
 
@@ -19,6 +23,7 @@ func Step(side: int) -> void:
 	_player.stream = _streams[i]
 	_player.play()
 
+## Build a tiny mono WAV: decaying sine at `freq` for `dur` seconds.
 func _thump(freq: float, dur: float) -> AudioStreamWAV:
 	var rate := 22050
 	var n := int(rate * dur)

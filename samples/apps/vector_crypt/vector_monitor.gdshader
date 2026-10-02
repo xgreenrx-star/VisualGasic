@@ -1,3 +1,6 @@
+// Full-screen post pass on the VectorMonitor ColorRect (Main.tscn).
+// Runs AFTER DepthView + 2D canvas are composited: bloom hot neon and
+// add a tiny CRT / vector-monitor jitter.
 shader_type canvas_item;
 render_mode unshaded;
 

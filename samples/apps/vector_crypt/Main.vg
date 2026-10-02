@@ -1,40 +1,91 @@
-' Vector Crypt — gravity/portal puzzle direction; cyborg helmet HUD over vector chambers.
-' WASD moves. A/D or Left/Right turn. Mouse looks (captured). Space jumps. Q/E strafe. Esc pauses.
+' =============================================================================
+' Vector Crypt — Main.vg  (beginner walkthrough of how the pieces fit)
+' =============================================================================
+'
+' WHAT YOU ARE LOOKING AT
+'   A first-person "vector CRT" demo: the 3D world is neon triangles/lines, not
+'   textured meshes. The player walks a facility of rooms. There is no bitmap
+'   art — almost everything is drawn by Visual Gasic into VGVectorCanvas2D, then
+'   (for the solid neon walls) turned into a real 3D Mesh for depth testing.
+'
+' HOW THE SCENE IS WIRED (see Main.tscn)
+'   VectorCrypt (this script, Main.vg)
+'     ├─ DepthView     — GDScript SubViewport + Camera3D + MeshInstance3D
+'     │                  Shows the depth-tested neon walls BEHIND the HUD.
+'     ├─ VectorMonitor — full-screen ColorRect with vector_monitor.gdshader
+'     │                  (bloom / CRT flicker over the whole picture)
+'     ├─ Steps         — tiny footstep beeps (steps.gd)
+'     └─ WorldEnvironment — Godot glow on the 2D layer
+'   Autoload VoiceOver (voice_over.gd) speaks Overseer lines (Piper TTS).
+'
+' MODULES WE IMPORT
+'   HudHelmet.vg   — 2D visor frame, reticle, status bars, captions
+'   IntroAwake.vg  — hospital bed / wake-up scene (phase 0)
+'   WallPatterns.vg— NeonFace / NeonStrip: black fill + neon edge coats
+'
+' TWO GAME PHASES (game_phase)
+'   0 = wake-up in the recovery vault (bed, PA voice, glass balcony)
+'   1 = walk the multi-room facility (WASD, mouse look, puzzles)
+'
+' EACH FRAME (_Process) — corridor phase, simplified
+'   1. Clear the 2D canvas
+'   2. Move the player (TickLook / TickBody) and update doors (TickLevel)
+'   3. BuildWorld once: record all static wire triangles into the canvas
+'   4. Draw dynamic bits (doors, pistons, plants) as "dynamic" wire
+'   5. PresentDepth: BuildDepthMesh → DepthView shows solid neon world
+'   6. Draw HUD / gun / captions on top in 2D (not depth-tested)
+'
+' CONTROLS (phase 1)
+'   WASD move · mouse look (captured) · Space jump · Q/E strafe · Esc pause
+'   Enter during intro skips early to the corridor.
+'
+' =============================================================================
 Option Explicit
 
 Import "HudHelmet.vg"
 Import "IntroAwake.vg"
 Import "WallPatterns.vg"
 
-' 0 = recovery vault, 1 = the ten-room facility.
+' --- High-level state --------------------------------------------------------
+' 0 = recovery vault intro, 1 = walkable facility
 Dim game_phase As Integer
+' The VGVectorCanvas2D we create in _Ready — holds wire triangles + 2D draws
 Dim canvas As Object
 Dim hud_time As Single
 Dim intro_time As Single
 Dim intro_voice_started As Boolean
 Dim hero_name As String
 Dim subtitle_line As String
+' Screen-space projection scratch (used by Project / DrawSeg helpers)
 Dim out_sx As Single
 Dim out_sy As Single
 Dim out_sz As Single
+
+' --- Camera / player pose (world units: X right, Y up, Z forward-ish) ---------
 Dim cam_x As Single
 Dim cam_y As Single
 Dim cam_z As Single
 Dim cam_yaw As Single
 Dim cam_pitch As Single
+
+' --- One-time build flags / intro smash sequence -----------------------------
 Dim room_built As Boolean
 Dim wire_build As Boolean
 Dim clip_cx As Single
 Dim clip_cy As Single
 Dim clip_cz As Single
 Dim stood_time As Single
+' smash_phase: 0 wait, 1 Overseer prompts, 2 seal opens, 3 free roam
 Dim smash_phase As Integer
 Dim glass_smashed As Boolean
 Dim annex_built As Boolean
 Dim quake As Single
+' Overseer "rig" position hanging above the vault (drawn as neon prop)
 Dim rig_x As Single
 Dim rig_y As Single
 Dim rig_z As Single
+
+' --- Glass shatter particles -------------------------------------------------
 Dim shard_n As Integer
 Dim shard_x(11) As Single
 Dim shard_y(11) As Single
@@ -43,34 +94,47 @@ Dim shard_vx(11) As Single
 Dim shard_vy(11) As Single
 Dim shard_vz(11) As Single
 Dim shard_life(11) As Single
+
+' --- Locomotion --------------------------------------------------------------
 Dim vel_y As Single
 Dim grav As Integer
 Dim grounded As Boolean
 Dim look_armed As Boolean
 Dim look_mx As Single
 Dim look_my As Single
+' Accumulated mouse delta this frame (filled in _Input, consumed in TickLook)
 Dim look_dx As Single
 Dim look_dy As Single
 Dim jump_lock As Boolean
+
+' --- Pause menu / input edge locks (prevent key-repeat spam) -----------------
 Dim menu_open As Boolean
 Dim menu_item As Integer
 Dim esc_lock As Boolean
 Dim click_lock As Boolean
 Dim nav_lock As Boolean
 Dim enter_lock As Boolean
+
+' --- Debug / render path -----------------------------------------------------
+' Set env VG_CRYPT_PROBE=1 to skip intro and jump into a fixed camera pose.
 Dim probe As Integer
 Dim probe_hold As Integer
+' Sibling node DepthView (depth_view.gd) — SubViewport that shows the mesh
 Dim depth_view As Object
+' True = use BuildDepthMesh + 3D camera; False = pure 2D projected wire
 Dim depth_on As Boolean
+' Wall pattern neon colors (orange / amber coats)
 Dim pat_r As Single
 Dim pat_g As Single
 Dim pat_b As Single
 Dim pat_br As Single
 Dim pat_bg As Single
 Dim pat_bb As Single
+' Looping ambient track handle from Sound.Play
 Dim music_h As Integer
 Dim music_paused As Boolean
 
+' Start (or resume) the ambient corridor music on the Music bus.
 Sub EnsureMusic()
 	If probe > 0 Then Exit Sub
 	If IsHeadless() = True Then Exit Sub
@@ -82,7 +146,9 @@ Sub EnsureMusic()
 	music_paused = False
 End Sub
 
+' Godot calls this once when the scene starts (like Form_Load in VB6).
 Sub _Ready()
+	' Create the vector canvas as a child of this Node2D.
 	Set canvas = CreateNode("VGVectorCanvas2D")
 	AddChild(canvas)
 	canvas.SetAdditiveBlend(False)
@@ -125,9 +191,11 @@ Sub _Ready()
 	If IsHeadless() = False And probe = 0 Then
 		Screen.FullScreen True
 	End If
+	' Grab sibling nodes declared in Main.tscn
 	Set steps = GetNode("Steps")
 	Set depth_view = GetNode("DepthView")
 	depth_on = True
+	' Default wall neon (Paradox-style amber)
 	pat_r = 1.25
 	pat_g = 0.48
 	pat_b = 0.14
@@ -139,6 +207,7 @@ Sub _Ready()
 	music_h = 0
 	music_paused = False
 	If probe = 1 Then
+		' Automated screenshot / CI path: skip story, stand in the annex.
 		DisplayServer.window_set_mode(0)
 		game_phase = 1
 		cam_x = 7.4
@@ -156,6 +225,7 @@ Sub _Ready()
 	Set_Process(True)
 End Sub
 
+' Leave the bed intro and stand up in the vault (still before free roam).
 Sub BeginCorridorPhase()
 	game_phase = 1
 	' Stand beside the bed, looking at it. The same wireframe stays in the room.
@@ -259,6 +329,9 @@ Sub TickProbeShot()
 	End If
 End Sub
 
+' First-time bake of vault geometry into the canvas wire buffer, then
+' MarkWireBaked so later frames reuse it. Also prebuilds the annex so the
+' glass smash never freezes on a huge mesh compile.
 Sub BuildWorld()
 	If room_built Then Exit Sub
 	wire_build = True
@@ -276,6 +349,7 @@ Sub BuildWorld()
 	Call PrebuildFacility()
 End Sub
 
+' Record room-2+ neon + collision while the player is still in the vault.
 Sub PrebuildFacility()
 	If annex_built Then Exit Sub
 	wire_build = True
@@ -296,6 +370,7 @@ Sub RevealAnnex()
 	If annex_built = False Then Call PrebuildFacility()
 End Sub
 
+' Phase-0 animation: look down from the ceiling speaker, hear Overseer, stand up.
 Sub TickIntro(ByVal delta As Single)
 	intro_time = intro_time + delta
 	' Open on the ceiling speaker, then ease the gaze down the bed.
@@ -337,6 +412,8 @@ Sub TickIntro(ByVal delta As Single)
 	End If
 End Sub
 
+' Mouse look: Godot delivers motion events here; we only store the delta.
+' TickLook (below) turns that into yaw/pitch changes once per frame.
 Sub _Input(ByVal ev As Object)
 	If menu_open = True Then Exit Sub
 	If game_phase <> 1 Then Exit Sub
@@ -349,16 +426,19 @@ Sub _Input(ByVal ev As Object)
 	End If
 End Sub
 
+' Main loop — called every frame with delta seconds since last frame.
 Sub _Process(ByVal delta As Single)
 	hud_time = hud_time + delta
 	If menu_open = False Then Call EnsureMusic()
 	Call canvas.Clear()
 	Call TickMenu()
 
+	' ----- Phase 0: lying in bed / wake-up ---------------------------------
 	If game_phase = 0 Then
 		If menu_open = False Then Call TickIntro(delta)
 		Call BuildWorld()
 		Call canvas.SetEyeRoom(0)
+		' Depth mesh for vault walls, then draw the bed on the 2D canvas.
 		Call PresentDepth(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, 420.0)
 		Call DrawBedWakeScene(canvas, cam_x, cam_y, cam_z, cam_yaw, cam_pitch, intro_time, out_sx, out_sy, out_sz)
 		Call DrawGlassBalcony(canvas)
@@ -371,6 +451,7 @@ Sub _Process(ByVal delta As Single)
 		Exit Sub
 	End If
 
+	' ----- Phase 1: walk the facility --------------------------------------
 	Call BuildWorld()
 	If probe > 0 Then
 		Call TickProbePose()
@@ -384,6 +465,7 @@ Sub _Process(ByVal delta As Single)
 		look_dy = 0.0
 	End If
 
+	' Temporary camera shake for the glass smash / quake.
 	Dim shake_x As Single
 	Dim shake_y As Single
 	shake_x = 0.0
@@ -395,20 +477,24 @@ Sub _Process(ByVal delta As Single)
 	cam_x = cam_x + shake_x
 	cam_y = cam_y + shake_y + bob
 	cam_pitch = cam_pitch + bob_pitch
+	' Only draw rooms the player can see (shown_mask bitfield).
 	Call RefreshShown()
 	Call canvas.SetDrawnMask(shown_mask)
 	Call canvas.SetEyeRoom(room_id)
+	' Dynamic wire = doors / movers that change every frame (not baked).
 	Call canvas.BeginDynamic3D()
 	Call DrawDoorWire(canvas)
 	Call DrawLevelDynamics(canvas, cam_x, cam_y, cam_z, cam_yaw, cam_pitch)
 	If depth_on = True Then
 		Call PresentDepth(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, 460.0)
 	Else
+		' Fallback: project all wire to 2D without a real 3D depth buffer.
 		Call canvas.DrawWire3D(cam_x, cam_y, cam_z, cam_yaw, 460.0, 480.0, 300.0, 0.45, 0.4, cam_pitch)
 	End If
 	Call DrawGlassBalcony(canvas)
 	Call DrawOverseer(canvas)
 	Call DrawShards(canvas)
+	' HUD and gun are pure 2D overlays (always on top of the depth view).
 	Call DrawHelmetHud(canvas, delta, cam_yaw, hud_time, True)
 	Dim hud_line As String
 	hud_line = ""
@@ -425,12 +511,17 @@ Sub _Process(ByVal delta As Single)
 	Call DrawVectorGun(canvas)
 	If menu_open = True Then Call DrawPauseMenu(canvas)
 	If probe > 0 Then Call TickProbeShot()
+	' Undo shake so physics next frame uses the real position.
 	cam_x = cam_x - shake_x
 	cam_y = cam_y - shake_y - bob
 	cam_pitch = cam_pitch - bob_pitch
 End Sub
 
-' Scalar ByVal locals — stays on JIT fast-call path when Tier 2 compiles this body.
+' =============================================================================
+' DRAWING PRIMITIVES — world point → screen, then lines / triangles
+' Project() fills out_sx/out_sy/out_sz. Scalar ByVal args stay on the JIT
+' fast-call path when Tier 2 compiles this body.
+' =============================================================================
 Sub Project(ByVal x As Single, ByVal y As Single, ByVal z As Single)
 	Dim dx As Single
 	Dim dy As Single
@@ -1052,6 +1143,7 @@ Sub DrawPauseMenu(ByVal canvas As Object)
 	Call canvas.DrawVectorTextCentered(Vector2(480.0, 430.0), "ESC / ENTER", Color(0.35, 0.75, 0.9, 0.85), 1.2, 1.3, 1.5, "")
 End Sub
 
+' Turn mouse deltas into yaw (left/right) and pitch (up/down).
 Sub TickLook(ByVal delta As Single)
 	If IsKeyPressed(KEY_LEFT) Or IsKeyPressed(KEY_A) Then cam_yaw = cam_yaw - delta * 1.5
 	If IsKeyPressed(KEY_RIGHT) Or IsKeyPressed(KEY_D) Then cam_yaw = cam_yaw + delta * 1.5
@@ -1067,6 +1159,7 @@ Sub TickLook(ByVal delta As Single)
 	If cam_pitch < -1.25 Then cam_pitch = -1.25
 End Sub
 
+' WASD / jump / gravity. Uses HitsWall / FloorAt so you cannot walk through solids.
 Sub TickBody(ByVal delta As Single)
 	Dim pd As Single
 	Dim move As Single
@@ -1510,6 +1603,10 @@ Dim l_sx As Single
 Dim l_sy As Single
 Dim l_cz As Single
 
+' =============================================================================
+' COLLISION HELPERS — axis-aligned boxes stored in arrays.
+' gate = which door must be open for this solid to "exist" (0 = always).
+' =============================================================================
 Sub AddSolid(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal gate As Integer)
 	If sn > 118 Then Exit Sub
 	sx0(sn) = x0
@@ -1830,6 +1927,9 @@ Sub RememberSpawn(ByVal id As Integer)
 	End If
 End Sub
 
+' Hand the static+dynamic wire triangles to DepthView as a real ArrayMesh.
+' BuildDepthMesh (engine) turns neon fills into depth-tested triangles so
+' nearer walls correctly hide farther ones — something pure 2D wire cannot do.
 Sub PresentDepth(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal focal As Single)
 	If depth_on = False Then Exit Sub
 	Dim mesh As Object
@@ -1866,6 +1966,8 @@ Sub Deck(ByVal canvas As Object, ByVal x0 As Single, ByVal z0 As Single, ByVal x
 	Call NeonFace(canvas, x0, y, z0, x1 - x0, 0.0, 0.0, 0.0, 0.0, z1 - z0, 1.25, 0.5, 0.14)
 End Sub
 
+' Collision for the wake-up vault (invisible boxes the player bumps into).
+' AddFloor / AddSolid / AddDoor fill arrays that HitsWall / FloorAt read.
 Sub EnsureWake()
 	If wake_done = True Then Exit Sub
 	wake_done = True
@@ -1884,9 +1986,17 @@ Sub EnsureWake()
 	Call AddSolid(-0.7, 0.0, 1.15, 0.7, 0.85, 3.5, 0)
 End Sub
 
+' =============================================================================
+' LEVEL DATA — BuildFacility runs ONCE. It:
+'   • places collision boxes (AddFloor / AddSolid / AddDoor)
+'   • records neon wall geometry into the canvas wire buffer (NeonFace, etc.)
+'   • tags each piece with a room id via SetWireRoom so shown_mask can cull
+' Rooms are numbered roughly in walk order (vault → annex → halls → roof).
+' =============================================================================
 Sub BuildFacility(ByVal canvas As Object)
 	If facility_done = True Then Exit Sub
 	facility_done = True
+	' Pushable crate start + roaming "custodian" enemies
 	crate_x = 33.4
 	crate_z = 17.2
 	cust_x(0) = 24.0
@@ -2108,6 +2218,9 @@ Sub BuildFacility(ByVal canvas As Object)
 	Call DrawRoofWorlds(canvas)
 End Sub
 
+' Puzzle / door logic every frame. opened(gate) = True means that door is passable.
+' When the player enters a trigger volume we flip a gate; when they leave we
+' often close it again so you cannot skip back through the wrong way.
 Sub TickLevel(ByVal px As Single, ByVal py As Single, ByVal pz As Single, ByVal delta As Single, ByVal smashed As Boolean, ByVal grounded As Boolean)
 	Dim i As Integer
 	lvl_time = lvl_time + delta
@@ -2914,6 +3027,8 @@ Sub DrawRamArcs(ByVal canvas As Object, ByVal px As Single, ByVal bottom As Sing
 	Call NeonEdge(canvas, px - 0.34, bottom, 26.9, px + 0.34, bottom, 26.9, 1.45 * hot, 0.55 * hot, 1.7 * hot)
 End Sub
 
+' Things that move or animate every frame (pistons, waterfall, garden, roof).
+' Called inside BeginDynamic3D so they are not frozen into the static bake.
 Sub DrawLevelDynamics(ByVal canvas As Object, ByVal camx As Single, ByVal camy As Single, ByVal camz As Single, ByVal yaw As Single, ByVal pitch As Single)
 	Dim i As Integer
 	Dim bottom As Single
@@ -2962,6 +3077,11 @@ Sub DrawLevelDynamics(ByVal canvas As Object, ByVal camx As Single, ByVal camy A
 	End If
 End Sub
 
+' =============================================================================
+' ROOM VISIBILITY — shown_mask is a bitfield of rooms currently drawn.
+' ShowRoom / SeesRoom / RefreshShown keep far geometry out of the mesh so
+' BuildDepthMesh stays cheap as the facility grows.
+' =============================================================================
 Function RoomBit(ByVal id As Integer) As Integer
 	Dim b As Integer
 	Dim i As Integer

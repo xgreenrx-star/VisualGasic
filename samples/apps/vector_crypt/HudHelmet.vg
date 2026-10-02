@@ -1,12 +1,30 @@
-' In-helmet HUD — utilitarian cyborg rig (Murderbot-adjacent: corporate rescue unit, not IP).
-' Vector frame + scan line; no bitmap assets. Drawn on top of the world view.
-
+' =============================================================================
+' HudHelmet.vg — 2D helmet overlay drawn ON TOP of the 3D / depth view
+' =============================================================================
+'
+' Called from Main.vg after PresentDepth. Nothing here is depth-tested; it is
+' pure screen-space drawing on VGVectorCanvas2D (960×540).
+'
+' DrawHelmetHud(...) is the entry point Main uses each frame.
+'   lite=True  → sparse brackets + reticle (used during free roam so the world
+'                stays readable)
+'   lite=False → full bezel, scan sweep, bars, ticker (heavier intro look)
+'
+' Helper building blocks:
+'   HudLine / HudBracket / HudBar  — primitive strokes and status meters
+'   DrawVisorVignette             — darken screen edges (tunnel vision)
+'   DrawReticle / DrawHeadingTape — aim point + compass strip
+'   DrawHudCaption                — bottom title + Overseer line
+'
+' =============================================================================
 Option Explicit
 
+' Thin neon stroke in screen pixels (not world units).
 Sub HudLine(ByVal canvas As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal w As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal a As Single)
 	Call canvas.DrawLine(Vector2(x0, y0), Vector2(x1, y1), w, Color(r, g, b, a))
 End Sub
 
+' L-shaped corner mark. flipX/flipY mirror it for the four screen corners.
 Sub HudBracket(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal len As Single, ByVal flipX As Boolean, ByVal flipY As Boolean)
 	Dim sx As Single
 	Dim sy As Single
@@ -18,6 +36,7 @@ Sub HudBracket(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByV
 	Call HudLine(canvas, x, y, x, y + len * sy, 2.0, 0.35, 0.92, 1.05, 0.95)
 End Sub
 
+' Labeled horizontal meter. frac is 0..1 fill amount.
 Sub HudBar(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal label As String, ByVal frac As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
 	Call canvas.DrawRect(Rect2(x, y, w, 10.0), 1.0, Color(0.12, 0.18, 0.22, 0.9), False, Color(0.2, 0.55, 0.65, 0.35))
 	Dim fw As Single
@@ -28,6 +47,7 @@ Sub HudBar(ByVal canvas As Object, ByVal x As Single, ByVal y As Single, ByVal w
 	Call canvas.DrawVectorText(Vector2(x, y - 14.0), label, Color(0.45, 0.75, 0.82, 0.95), 0.95, 0.85, "left", 1.1, "")
 End Sub
 
+' Darken the four edges so the middle of the screen feels like a visor.
 Sub DrawVisorVignette(ByVal canvas As Object)
 	Dim edge As Single
 	edge = 72.0
@@ -37,6 +57,7 @@ Sub DrawVisorVignette(ByVal canvas As Object)
 	Call canvas.DrawRect(Rect2(960.0 - edge, 0.0, edge, 540.0), 0.0, Color(0, 0, 0, 0), True, Color(0.01, 0.02, 0.03, 0.65))
 End Sub
 
+' Curved cheek plates on left/right of the visor (arc of short neon segments).
 Sub DrawHelmetBezel(ByVal canvas As Object, ByVal time As Single)
 	Dim i As Integer
 	Dim pulse As Single
@@ -78,21 +99,18 @@ Sub DrawReticle(ByVal canvas As Object, ByVal time As Single)
 	Dim cy As Single
 	cx = 480.0
 	cy = 268.0
-	Dim wob As Single
-	wob = Sin(time * 4.0) * 1.2
-	Call canvas.DrawCircle(Vector2(cx, cy), 22.0 + wob, Color(0.35, 0.95, 1.05, 0.35), False, Color(0.2, 0.7, 0.9, 0.9))
-	Call canvas.DrawCircle(Vector2(cx, cy), 6.0, Color(1.0, 0.45, 0.25, 0.5), False, Color(0.9, 0.35, 0.2, 0.85))
-	Call HudLine(canvas, cx - 28.0, cy, cx - 8.0, cy, 1.2, 0.4, 0.95, 1.0, 0.9)
-	Call HudLine(canvas, cx + 8.0, cy, cx + 28.0, cy, 1.2, 0.4, 0.95, 1.0, 0.9)
-	Call HudLine(canvas, cx, cy - 28.0, cx, cy - 8.0, 1.2, 0.4, 0.95, 1.0, 0.9)
-	Call HudLine(canvas, cx, cy + 8.0, cx, cy + 28.0, 1.2, 0.4, 0.95, 1.0, 0.9)
+	Dim pulse As Single
+	pulse = 0.7 + 0.3 * Sin(time * 5.0)
+	Call HudLine(canvas, cx - 18.0, cy, cx - 6.0, cy, 1.5, 0.4, 1.0, 1.1, pulse)
+	Call HudLine(canvas, cx + 6.0, cy, cx + 18.0, cy, 1.5, 0.4, 1.0, 1.1, pulse)
+	Call HudLine(canvas, cx, cy - 14.0, cx, cy - 5.0, 1.5, 0.4, 1.0, 1.1, pulse)
+	Call HudLine(canvas, cx, cy + 5.0, cx, cy + 14.0, 1.5, 0.4, 1.0, 1.1, pulse)
 End Sub
 
 Sub DrawScanSweep(ByVal canvas As Object, ByVal time As Single)
-	Dim sy As Single
-	sy = 90.0 + (time * 95.0 Mod 360.0)
-	Call HudLine(canvas, 140.0, sy, 820.0, sy, 1.0, 0.2, 0.85, 1.0, 0.22)
-	Call HudLine(canvas, 140.0, sy + 2.0, 820.0, sy + 2.0, 3.0, 0.15, 0.5, 0.7, 0.08)
+	Dim y As Single
+	y = 80.0 + (Sin(time * 1.4) * 0.5 + 0.5) * 360.0
+	Call HudLine(canvas, 140.0, y, 820.0, y, 1.2, 0.2, 0.9, 1.0, 0.35)
 End Sub
 
 Sub DrawHeadingTape(ByVal canvas As Object, ByVal heading As Single)
@@ -109,6 +127,7 @@ Sub DrawHeadingTape(ByVal canvas As Object, ByVal heading As Single)
 	Next
 End Sub
 
+' Bottom status panel: room name + optional Overseer / hint line.
 Sub DrawHudCaption(ByVal canvas As Object, ByVal title As String, ByVal line As String)
 	Dim title_scale As Single
 	Dim line_scale As Single
@@ -142,6 +161,7 @@ Sub DrawOverseerTicker(ByVal canvas As Object, ByVal time As Single)
 	Call canvas.DrawVectorText(Vector2(60.0, 508.0), msg, Color(0.55, 0.78, 0.72, 0.95), 0.9, 0.82, "left", 1.0, "")
 End Sub
 
+' Main entry from Main.vg — compose the visor for this frame.
 Sub DrawHelmetHud(ByVal canvas As Object, ByVal delta As Single, ByVal heading As Single, ByVal time As Single, Optional lite As Boolean = False)
 	Call DrawVisorVignette(canvas)
 	If lite Then

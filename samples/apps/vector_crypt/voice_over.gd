@@ -1,6 +1,10 @@
 extends Node
 ## Runtime TTS for Vector Crypt — Overseer / loudspeaker lines.
-## Prefers local Piper (natural female voices); falls back to OS speech.
+##
+## Autoloaded as VoiceOver in project.godot. Main.vg / intro code call:
+##   VoiceOver.speak_overseer_wakeup(hero_name)
+##   VoiceOver.speak("...")
+## Prefers local Piper (natural voices); falls back to OS speech if missing.
 
 signal speech_started
 signal speech_finished
