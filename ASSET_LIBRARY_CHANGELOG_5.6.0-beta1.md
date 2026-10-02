@@ -5,14 +5,14 @@ Godot **4.6+** · New **Linux / Windows / Web** GDExtension binaries (rebuild re
 
 ## Summary
 
-**Windows x64 native JIT ships for the first time** (Tier 2 / Tier 3 — same path as Linux). Feedback on real Windows machines requested. Also: QB/classic draw speedups, Interface/Implements, vector depth mesh, Vector Crypt showcase sample, IDE step-into and tooltip fixes.
+**Windows x64 native JIT ships for the first time** (Tier 2 / Tier 3 — same path as Linux). Feedback on real Windows machines requested. **C++ GDExtension core** also adds vector canvas **depth mesh** APIs (`BuildDepthMesh` / `AddWireTri3D`) for depth-tested procedural 3D, plus QB/classic draw speedups, Interface/Implements, Vector Crypt sample, IDE step-into and tooltip fixes.
 
 ## Added
 
 - Windows x64 JIT (Tier 2 + Tier 3); `VG_JIT=0` to disable.
+- **Engine (C++):** vector canvas `AddWireTri3D`, `BuildDepthMesh` + depth cache (SubViewport / MeshInstance3D).
 - `Interface` / `Implements` (same-file checks).
-- Vector canvas: `AddWireTri3D`, `BuildDepthMesh` (depth-tested procedural 3D).
-- Sample: **vector_crypt** (procedural neon facility).
+- Sample: **vector_crypt** (procedural neon facility; uses depth mesh).
 
 ## Changed
 

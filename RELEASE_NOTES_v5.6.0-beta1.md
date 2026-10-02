@@ -13,9 +13,9 @@
 
 Also in this beta:
 
-1. **Speed & classic graphics** — Faster QB 32-bit drawing, LINE/PAINT fidelity, B256 gallery stays responsive.
-2. **Language** — `Interface` / `Implements`, Python bridge large-array lane, JIT+ByRef float slot fix.
-3. **Showcase — Vector Crypt** — Procedural neon 3D facility (vector depth mesh) — great for a video tour.
+1. **C++ GDExtension / engine core** — Windows JIT path, QB screen/LINE/PAINT speed + fidelity, **vector canvas depth mesh** (`AddWireTri3D`, `BuildDepthMesh` + depth cache) for SubViewport / MeshInstance3D procedural 3D, JIT+ByRef float slots, Python bridge large-array lane. **New binaries required.**
+2. **Language** — `Interface` / `Implements`.
+3. **Showcase — Vector Crypt** — Procedural neon 3D facility built on that depth-mesh API — [video](https://youtu.be/ntpOTNflE_M).
 4. **IDE** — Faster step-into, tooltips/Data Tips, Go to Definition across imports, plugin load fix.
 
 Full changelog: [CHANGELOG.md](CHANGELOG.md#560-beta1---2026-10-02)
@@ -55,21 +55,29 @@ Suggested one-liner for posts:
 
 ## Highlights
 
-### Vector Crypt (showcase)
+### C++ engine / GDExtension (VG core)
 
-- **`samples/apps/vector_crypt/`** — 100% procedural 3D levels (neon corridors, rooms, pistons/lightning, garden, waterfall, sky platforms, FPS gun). Depth-tested wire/fill via `BuildDepthMesh` / `AddWireTri3D`.
+This is not “sample-only” work — the shipping `.so` / `.dll` / `.wasm` changed:
+
+| Area | What landed in `src/` |
+|------|------------------------|
+| **Windows JIT** | Tier 2 + Tier 3 native codegen on Win64 (`VirtualAlloc` / CFG / `install_executable_code`) |
+| **Vector canvas** | `AddWireTri3D`, `BuildDepthMesh`, depth-cache slots, neon edge ribbons + fill bias for depth-tested procedural 3D (`visual_gasic_vector_canvas.*`) |
+| **QB / classic** | Faster 32-bit screen path; quarter-pixel LINE; PAINT / LINE color; opaque fade washes |
+| **Runtime** | JIT ByRef/ByVal float local slots; Linux Python bridge large-array lane |
+| **Language** | `Interface` / `Implements` parser + same-file checks |
+
+### Vector Crypt (showcase on top of the engine)
+
+- **`samples/apps/vector_crypt/`** — 100% procedural neon facility (corridors, pistons/lightning, garden, waterfall, sky platforms, FPS gun). Uses `BuildDepthMesh` + `DepthView` SubViewport.
 - Last rooftop/lattice area is still rough — shipped as “good enough for showcase,” not a finished game.
 
-### Vector canvas engine
+### Classic / QB (user-visible)
 
-- Depth mesh cache, neon edge ribbons, fill bias for SubViewport / MeshInstance3D paths used by Crypt (and similar demos).
+- Faster 32-bit screen path; B256 gallery stays responsive.
+- LINE / PAINT fidelity fixes (same C++ QB screen work as above).
 
-### Classic / QB performance & fidelity
-
-- Faster 32-bit screen path; opaque fade washes for B256 trails.
-- Quarter-pixel LINE; PAINT flood fill and LINE default color fixes.
-
-### Language & runtime
+### Language & runtime (user-visible)
 
 - `Interface … End Interface` + same-file `Implements` checks.
 - JIT ByRef/ByVal float slot typing (`test_byref_project.vg`).

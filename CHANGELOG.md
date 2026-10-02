@@ -9,16 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.6.0-beta1] - 2026-10-02
 
-**Key numbers:** **Windows x64 native JIT (first ship)** · QB / classic speedups · Interface / Implements · Python bridge large-array lane · Vector Crypt procedural 3D showcase · IDE polish.
+**Key numbers:** **Windows x64 native JIT (first ship)** · **C++ vector canvas depth mesh** · QB / classic speedups · Interface / Implements · Python bridge · Vector Crypt showcase · IDE polish.
 
 ### Added
 
 - **Windows x64 native JIT (Tier 2 / Tier 3) — first public ship** — Same x86-64 Tier 2 pipeline as Linux (`VirtualAlloc`, `VirtualProtect`, CFG registration). Tier 3 fused call-graph code uses shared `install_executable_code()` on Win64. Hot numeric subs compile to native code after warmup unless `VG_JIT=0`. **We need Windows feedback** — published Win64 JIT benchmark tables are not in CI yet; please report FPS / correctness on real hardware.
+- **C++ vector canvas depth mesh (VG core)** — In `visual_gasic_vector_canvas.*`: `AddWireTri3D`, `BuildDepthMesh`, depth-cache slots, neon edge ribbons + fill bias for SubViewport / MeshInstance3D procedural 3D (powers Vector Crypt and similar demos).
 - **Fast-call path documentation** — [performance.md](docs/manual/performance.md#fast-call-path), language reference ByVal/ByRef, IDE command help, Narcea gotchas (`ByVal` + scalar `As` for hot helpers).
 - **`Interface` / `Implements`** — Parse `Interface … End Interface`; same-file `Implements` checking; Narcea + docs for the contract and `Using` gap.
 - **Linux Python bridge** — Large-array binary lane closed out for M8 language-parity work.
-- **Vector canvas depth mesh** — `AddWireTri3D`, `BuildDepthMesh` with depth-cache slots for SubViewport / MeshInstance3D neon+fill coats (procedural 3D facilities).
-- **Showcase — Vector Crypt** — `samples/apps/vector_crypt/`: 100% procedural neon facility (rooms, pistons, plants, waterfall, sky platforms, FPS gun) + ambient track.
+- **Showcase — Vector Crypt** — `samples/apps/vector_crypt/`: 100% procedural neon facility (rooms, pistons, plants, waterfall, sky platforms, FPS gun) + ambient track; uses the new depth-mesh API.
 - **BASIC-256 showcase ports** — Source transliterations in the classic showcase tree.
 - **VG IDE tooltips** — Shared cream/black tooltip styling; Data Tips chrome; type hints when not debugging.
 
