@@ -1,0 +1,33 @@
+' M8 — chained ?. and a method call that must not run on Nothing.
+Option Explicit
+
+Sub _Ready()
+    Dim inner As Variant
+    Set inner = New Dictionary
+    inner("name") = "bob"
+
+    Dim outer As Variant
+    Set outer = New Dictionary
+    outer("child") = inner
+
+    If outer?.child?.name = "bob" Then
+        Print "PASS: optional_chain_nested"
+    Else
+        Print "FAIL: optional_chain_nested"
+    End If
+
+    Set outer = Nothing
+    If outer?.child?.name Is Nothing Then
+        Print "PASS: optional_chain_nothing_nested"
+    Else
+        Print "FAIL: optional_chain_nothing_nested"
+    End If
+
+    Dim missing As Variant
+    Set missing = Nothing
+    If missing?.ToString() Is Nothing Then
+        Print "PASS: optional_call_nothing"
+    Else
+        Print "FAIL: optional_call_nothing"
+    End If
+End Sub

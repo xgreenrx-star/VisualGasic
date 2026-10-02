@@ -2,11 +2,14 @@
 
 Option Explicit
 
-Declare Function vg_strlen Lib "libc.so.6" (ByVal s As String) As Long
+Declare Function vg_strlen Lib "libc.so.6" Alias "strlen" (ByVal s As String) As Long
 
 Sub _Ready()
     Dim n As Long
     n = vg_strlen("hello")
-    Assert n = 5, "Declare strlen should return 5"
-    Print "PASS: declare_ffi_strlen"
+    If n = 5 Then
+        Print "PASS: declare_ffi_strlen"
+    Else
+        Print "FAIL: declare_ffi_strlen got " & CStr(n)
+    End If
 End Sub

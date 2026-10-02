@@ -1,0 +1,5 @@
+' Helper for test_try_cross_module.vg — raises into the caller's Try.
+Function Boom() As Integer
+    Raise 501, "cross module"
+    Boom = 0
+End Function

@@ -1,0 +1,24 @@
+' M8 — named arguments (x:=) including mixed positional calls.
+Option Explicit
+
+Function Pack(x As Integer, y As Integer) As Integer
+    Pack = x * 10 + y
+End Function
+
+Sub _Ready()
+    Dim swapped As Integer
+    swapped = Pack(y:=3, x:=2)
+    If swapped = 23 Then
+        Print "PASS: named_args_swapped"
+    Else
+        Print "FAIL: named_args_swapped got " & CStr(swapped)
+    End If
+
+    Dim mixed As Integer
+    mixed = Pack(2, y:=4)
+    If mixed = 24 Then
+        Print "PASS: named_args_mixed"
+    Else
+        Print "FAIL: named_args_mixed got " & CStr(mixed)
+    End If
+End Sub

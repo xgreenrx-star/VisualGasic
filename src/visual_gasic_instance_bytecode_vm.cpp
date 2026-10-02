@@ -4712,6 +4712,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
+                if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+                    if (!try_recover_error(Variant(), false)) {
+                        success = false;
+                        goto cleanup;
+                    }
+                    break;
+                }
                 push_value(call_ret);
                 break;
             }
@@ -4895,9 +4902,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((int64_t)arr[idx]);
                     }
-                } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
+                } else if (base.get_type() == Variant::DICTIONARY) {
                     Dictionary dict = base;
-                    result = dict.get(indices[0], Variant());
+                    if (dict.has("__vg_lambda") && (bool)dict["__vg_lambda"]) {
+                        Array call_args;
+                        for (int i = 0; i < arg_count; i++) call_args.push_back(indices[i]);
+                        result = invoke_lambda(dict, call_args);
+                    } else if (arg_count == 1) {
+                        result = dict.get(indices[0], Variant());
+                    } else {
+                        raise_error("Unsupported array base type");
+                        if (try_recover_error(Variant())) break;
+                        success = false;
+                        goto cleanup;
+                    }
                 } else if (arg_count == 1 && try_variant_subscript_get(base, indices[0], result)) {
                     // INT object-id, Object-backed dicts, and other helper types
                 } else if (base.get_type() == Variant::NIL) {

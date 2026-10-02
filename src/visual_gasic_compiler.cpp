@@ -313,6 +313,72 @@ SubDefinition* VisualGasicCompiler::resolve_call_target(const String &method_nam
     return nullptr;
 }
 
+bool VisualGasicCompiler::reorder_named_arguments(const String &method_name, Vector<ExpressionNode*> &args, Vector<String> &names) {
+    bool any = false;
+    for (int i = 0; i < names.size(); i++) {
+        if (!names[i].is_empty()) {
+            any = true;
+            break;
+        }
+    }
+    if (!any) return true;
+
+    SubDefinition *target = resolve_call_target(method_name, args.size());
+    if (!target) {
+        UtilityFunctions::printerr("Named arguments require a known Sub or Function: ", method_name);
+        compile_ok = false;
+        return false;
+    }
+    int n = target->parameters.size();
+    Vector<ExpressionNode*> ordered;
+    ordered.resize(n);
+    Vector<uint8_t> filled;
+    filled.resize(n);
+    for (int i = 0; i < n; i++) filled.set(i, 0);
+    int next_pos = 0;
+    for (int i = 0; i < args.size(); i++) {
+        String nm = (i < names.size()) ? names[i] : String();
+        int slot = -1;
+        if (nm.is_empty()) {
+            while (next_pos < n && filled[next_pos]) next_pos++;
+            slot = next_pos;
+            if (slot < n) next_pos++;
+        } else {
+            for (int p = 0; p < n; p++) {
+                if (target->parameters[p].name.nocasecmp_to(nm) == 0) {
+                    slot = p;
+                    break;
+                }
+            }
+            if (slot < 0) {
+                UtilityFunctions::printerr("Named argument '", nm, "' is not a parameter of ", method_name);
+                compile_ok = false;
+                return false;
+            }
+        }
+        if (slot < 0 || slot >= n || filled[slot]) {
+            UtilityFunctions::printerr("Named argument position conflict in ", method_name);
+            compile_ok = false;
+            return false;
+        }
+        ordered.set(slot, args[i]);
+        filled.set(slot, 1);
+    }
+    int emit_n = n;
+    while (emit_n > 0 && !filled[emit_n - 1] && target->parameters[emit_n - 1].is_optional) emit_n--;
+    for (int i = 0; i < emit_n; i++) {
+        if (!filled[i]) {
+            UtilityFunctions::printerr("Missing argument for ", method_name, " parameter ", target->parameters[i].name);
+            compile_ok = false;
+            return false;
+        }
+    }
+    args.clear();
+    for (int i = 0; i < emit_n; i++) args.push_back(ordered[i]);
+    names.clear();
+    return true;
+}
+
 bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point, BytecodeChunk* chunk, const HashSet<String>* extra_buffer_vars) {
     current_chunk = chunk;
     last_emitted_debug_line = -1;
@@ -7133,6 +7199,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                 }
                 // Imported module: ModuleName.SubName(args) → flat OP_CALL (not OP_METHOD_CALL)
                 if (!detect_imported_module_call(s->base_object).is_empty()) {
+                    if (!reorder_named_arguments(s->method_name, s->arguments, s->argument_names)) break;
                     SubDefinition *target_func = resolve_call_target(s->method_name, s->arguments.size());
                     if (try_emit_draw_call(s, target_func, true)) {
                         emit_byref_writebacks(target_func, s->arguments);
@@ -7165,6 +7232,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Check if calling a function with ByRef parameters AND variable arguments
             // that could be written back (requires interpreter for write-back)
             // Also check for ParamArray which needs interpreter
+            if (!reorder_named_arguments(s->method_name, s->arguments, s->argument_names)) break;
             SubDefinition* target_func = resolve_call_target(s->method_name, s->arguments.size());
             if (target_func) {
                 for (int j = 0; j < target_func->parameters.size(); j++) {
@@ -10807,6 +10875,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
 
              // Resolve the target Sub (this module or an Import) so ByRef params
              // bound to a simple variable argument get written back after the call.
+             if (!reorder_named_arguments(call->method_name, call->arguments, call->argument_names)) break;
              SubDefinition* expr_target_func = resolve_call_target(call->method_name, call->arguments.size());
              // Inline trivial fast-call helpers (e.g. x+1) at the call site —
              // eliminates OP_CALL/call_internal overhead in hot loops.
@@ -10896,8 +10965,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             emit_byte(OP_DUP);
             // If falsy (nil/nothing), jump to the nil path
             int nil_jump = emit_jump(OP_JUMP_IF_FALSE);
-            // Not nil: do member access (base is still on stack from DUP)
-            {
+            // Not nil: member read, or method call. Arguments stay off the nil path.
+            if (oa->is_call) {
+                for (int i = 0; i < oa->arguments.size(); i++) {
+                    compile_expression(oa->arguments[i]);
+                }
+                int name_idx = current_chunk->add_constant(oa->member_name);
+                emit_byte(OP_METHOD_CALL);
+                emit_const_index(name_idx);
+                emit_byte((uint8_t)oa->arguments.size());
+            } else {
                 int name_idx = current_chunk->add_constant(oa->member_name);
                 emit_byte(OP_GET_MEMBER);
                 emit_const_index(name_idx);

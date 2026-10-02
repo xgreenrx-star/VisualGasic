@@ -234,6 +234,19 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         OptionalAccessExpression* oa = (OptionalAccessExpression*)expr;
         Variant base = evaluate(oa->object_expression, ctx);
         if (base.get_type() == Variant::NIL) return Variant();  // Short-circuit: null?.anything == null
+        if (oa->is_call) {
+            if (base.get_type() == Variant::OBJECT) {
+                Object *obj = base;
+                if (obj && obj->has_method(oa->member_name)) {
+                    Array call_args;
+                    for (int i = 0; i < oa->arguments.size(); i++) {
+                        call_args.push_back(evaluate(oa->arguments[i], ctx));
+                    }
+                    return obj->callv(oa->member_name, call_args);
+                }
+            }
+            return Variant();
+        }
         // Otherwise behave like normal member access
         if (base.get_type() == Variant::DICTIONARY) {
             Dictionary d = base;

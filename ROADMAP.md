@@ -914,7 +914,7 @@ Short, finishable list. **No new aspirational items.**
 | **M5** | ✅ **DONE** | — (Narcea Tier A/B validated on `main`) |
 | **M6** | ✅ **Teaser done** | Visual panel explicitly v6.1+ |
 | **M7** | ✅ **Linux close-out** | numpy JSON, venv interpreter, large-array binary lane (100×100+). **Still deferred:** Windows + macOS clean-VM smoke, typed-protocol default-on |
-| **M8** | 🔄 **Partial** | `Let` ✅; `Declare`/`DllImport`, Try/Catch/Lambda/`?.`/`:=` stress corpus |
+| **M8** | ✅ **Linux close-out** | `Let`, `Declare`/`DllImport`, named `:=`, chained `?.`, block lambdas, Try bubbling. **Not started:** `Interface` parser. Windows `test_declare_ffi_windows.vg` is not run on a Windows host here |
 | **M9** | 🔄 **Pending** | Installer smoke (Linux + Windows), docs/corpus release gate (Asset Library ✅ live) |
 
 | Milestone | Target Date | Exit Criteria |
@@ -1538,7 +1538,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M5** | Narcea Vibe Code (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
 | **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Teaser done** (Sep 2026) — visual panel → v6.1 |
 | **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, large-array lane, venv | Nov 15 | ✅ **Linux close-out** — Windows/macOS e2e and typed-protocol default-on still deferred |
-| **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | 🔄 **Partial** — `Let` ✅ (beta2); FFI demo ✅; syntax + stress corpus pending |
+| **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | ✅ **Linux close-out** — stress corpus green on Linux. `Interface … End Interface` not started. Windows Declare smoke not executed on a Windows host |
 | **M9** | Release readiness: installer smoke, 50+ corpus, docs current | Nov 28 | 🔄 **Pending** — Asset Library ✅ live (Aug 2026) |
 | **v6.0** | Stable release | Jan 1 2027 | — |
 | **Bugfix** | C64 Emulator: native `FOR`/assignment statements raised `?SYNTAX ERROR` on run — **FIXED Sep 2026**. Root cause was NOT a 6502 CPU-core or ROM emulation gap (CPU/ROM traced instruction-by-instruction and confirmed correct/unmodified); it was VG's own `c64_main.vg` BASIC tokenizer omitting the 8 single-character operator tokens (`+ - * / ^ > = <` → `$AA`-`$B3`) that real C64 BASIC V2 tokenizes alongside its 68 keyword tokens (confirmed via c64-wiki.com). Any statement with `=` (virtually all `FOR`/assignment statements) got a literal ASCII byte instead of the ROM-expected token, so the real ROM correctly rejected it. Fixed by adding `OperatorToken()` tokenization to `TokenizeLine()` in `c64_main.vg`, respecting string-literal/REM boundaries. Verified: `FOR X=1 TO 5 / PRINT X / NEXT X` now prints 1-5; 855/855 regression suite unaffected. Full findings: `/memories/repo/c64_native_for_loop_bug.md`. | Sep 2026 | ✅ **DONE** (Sep 2026) |

@@ -191,6 +191,7 @@ struct CallExpression : public ExpressionNode {
     ExpressionNode* base_object; // Optional base
     String method_name;
     Vector<ExpressionNode*> arguments;
+    Vector<String> argument_names; // empty entry = positional; "x" = x:=expr
     CallExpression() { type = EXPRESSION_CALL; base_object=nullptr; }
     virtual ~CallExpression() {
         if (base_object) delete base_object;
@@ -201,6 +202,7 @@ struct CallExpression : public ExpressionNode {
     virtual ExpressionNode* duplicate() override {
         CallExpression* c = new CallExpression();
         c->method_name = method_name;
+        c->argument_names = argument_names;
         if(base_object) c->base_object = base_object->duplicate();
         for(int i=0; i<arguments.size(); i++) c->arguments.push_back(arguments[i]->duplicate());
         return c;
@@ -622,6 +624,7 @@ struct CallStatement : public Statement {
     ExpressionNode* base_object;
     String method_name;
     Vector<ExpressionNode*> arguments;
+    Vector<String> argument_names; // empty entry = positional; "x" = x:=expr
     
     CallStatement() : Statement(STMT_CALL), base_object(nullptr) {}
     virtual ~CallStatement() {
@@ -1098,12 +1101,18 @@ struct PatternMatchStatement : Statement {
 struct OptionalAccessExpression : ExpressionNode {
     ExpressionNode* object_expression;
     String member_name;
+    bool is_call;
+    Vector<ExpressionNode*> arguments;
     
     OptionalAccessExpression() : ExpressionNode() { 
         type = OPTIONAL_ACCESS; 
         object_expression = nullptr;
+        is_call = false;
     }
-    ~OptionalAccessExpression() { if(object_expression) delete object_expression; }
+    ~OptionalAccessExpression() {
+        if(object_expression) delete object_expression;
+        for (int i = 0; i < arguments.size(); i++) if (arguments[i]) delete arguments[i];
+    }
 };
 
 // Lambda Expression Node

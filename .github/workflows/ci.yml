@@ -63,6 +63,7 @@ jobs:
         run: |
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi.vg
+          ./run_test_suite.sh test_dllimport_ffi.vg
 
       - name: M7 Python bridge (json-safe, venv, large-array lane)
         env:
@@ -94,7 +95,7 @@ jobs:
           VG_TEST_SUITE_VG_ONLY: "1"
         run: |
           chmod +x ./run_test_suite.sh
-          for t in test_let_block_scope.vg test_lambda.vg test_optional_chaining.vg; do
+          for t in test_let_block_scope.vg test_lambda.vg test_lambda_block.vg test_optional_chaining.vg test_optional_chain_deep.vg test_named_args.vg test_try_cross_module.vg; do
             ./run_test_suite.sh "$t"
           done
 

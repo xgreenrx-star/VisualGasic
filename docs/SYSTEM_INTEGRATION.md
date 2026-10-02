@@ -68,6 +68,28 @@ Print "sqrt(25) = " & CStr(result)
 lib.Unload
 ```
 
+### Declare / DllImport
+
+Module-level `Declare` and `DllImport` bind a C function for the life of the script. The call looks like a normal Function. This is the packaging path for a small C ABI (a `.so`, `.dll`, or `.dylib` you ship next to the game). `NativeLibrary` above is the runtime equivalent when the library path is chosen in code.
+
+```vb
+Declare Function vg_strlen Lib "libc.so.6" Alias "strlen" (ByVal s As String) As Long
+DllImport Function vg_strlen Lib "libc.so.6" Alias "strlen" (ByVal s As String) As Long
+
+' Windows: stdcall is the default. C runtime functions need Cdecl.
+Declare Function vg_strlen Lib "ucrtbase.dll" Cdecl Alias "strlen" (ByVal s As String) As Long
+Declare Function vg_lstrlen Lib "kernel32.dll" Alias "lstrlenA" (ByVal s As String) As Long
+```
+
+| Clause | Meaning |
+|--------|---------|
+| `Lib "name"` | File passed to `dlopen` / `LoadLibrary`. Use the platform soname or DLL name. |
+| `Alias "export"` | Symbol to look up when it differs from the VG name. |
+| `Cdecl` | Windows `__cdecl`. Omit it for `__stdcall` (Win32). Ignored on Linux and macOS. |
+| `ByVal` / `ByRef` | `ByVal String` is a C string. `ByRef` is not a stable C pointer lane — keep exported functions `ByVal`. |
+
+Ship the library beside the exported binary and use a path the loader can see (`libc.so.6` and `ucrtbase.dll` are system libraries). Up to 8 parameters. Types: `Integer`, `Long`, `Single`, `Double`, `String`, `Boolean`. Web and Android exports do not load these desktop libraries. Linux check: `test_declare_ffi.vg`, `test_dllimport_ffi.vg`. Windows check: `test_declare_ffi_windows.vg`.
+
 ### Working with C Structs
 
 ```vb

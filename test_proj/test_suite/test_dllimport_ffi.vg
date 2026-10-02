@@ -1,0 +1,14 @@
+' M8 — DllImport is the same FFI lane as Declare Function.
+Option Explicit
+
+DllImport Function vg_strlen Lib "libc.so.6" Alias "strlen" (ByVal s As String) As Long
+
+Sub _Ready()
+    Dim n As Long
+    n = vg_strlen("hello")
+    If n = 5 Then
+        Print "PASS: dllimport_strlen"
+    Else
+        Print "FAIL: dllimport_strlen got " & CStr(n)
+    End If
+End Sub

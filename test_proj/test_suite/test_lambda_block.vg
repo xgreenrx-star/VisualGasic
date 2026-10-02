@@ -1,0 +1,31 @@
+' M8 — multi-line lambda with a nested arrow lambda and Return.
+Option Explicit
+
+Sub _Ready()
+    Dim scale As Variant
+    scale = Lambda(n)
+        Dim inner As Variant
+        inner = Lambda(x) => x + 1
+        Dim v As Integer
+        v = inner(n)
+        If v < 0 Then
+            Return -7
+        End If
+        Return v * 2
+    End Lambda
+
+    Dim got As Integer
+    got = scale(4)
+    If got = 10 Then
+        Print "PASS: lambda_block_nested"
+    Else
+        Print "FAIL: lambda_block_nested got " & CStr(got)
+    End If
+
+    got = scale(-3)
+    If got = -7 Then
+        Print "PASS: lambda_block_early_return"
+    Else
+        Print "FAIL: lambda_block_early_return got " & CStr(got)
+    End If
+End Sub

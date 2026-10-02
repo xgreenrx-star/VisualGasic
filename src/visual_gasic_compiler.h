@@ -49,6 +49,8 @@ private:
     // Exit Sub / Exit Function jump here so stepping lands on End Sub / End Function.
     Vector<int> procedure_exit_jumps;
     bool compile_ok;
+    // Reorder name:=value arguments onto the callee's parameter list.
+    bool reorder_named_arguments(const String &method_name, Vector<ExpressionNode*> &args, Vector<String> &names);
 
     HashMap<String, int> local_slots;
     HashMap<String, ValueType> local_types;

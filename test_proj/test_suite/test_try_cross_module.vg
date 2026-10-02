@@ -1,0 +1,44 @@
+' M8 — Finally on the success path, nested Finally, and a Raise from an Import.
+Option Explicit
+
+Import "test_try_raise_helper.vg"
+
+Sub _Ready()
+    Dim inner_fin As Boolean
+    Dim outer_fin As Boolean
+    inner_fin = False
+    outer_fin = False
+    Try
+        Try
+            Dim n As Integer
+            n = 1
+        Finally
+            inner_fin = True
+        End Try
+    Finally
+        outer_fin = True
+    End Try
+    If inner_fin And outer_fin Then
+        Print "PASS: try_nested_finally"
+    Else
+        Print "FAIL: try_nested_finally"
+    End If
+
+    Dim caught As Boolean
+    Dim fin As Boolean
+    caught = False
+    fin = False
+    Try
+        Dim ignored As Integer
+        ignored = Boom()
+    Catch ex
+        caught = True
+    Finally
+        fin = True
+    End Try
+    If caught And fin Then
+        Print "PASS: try_cross_module"
+    Else
+        Print "FAIL: try_cross_module caught=" & CStr(caught) & " fin=" & CStr(fin)
+    End If
+End Sub

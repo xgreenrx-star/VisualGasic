@@ -128,6 +128,7 @@ private:
     ExpressionNode* parse_unary();
     ExpressionNode* parse_factor();     // ( ) Lit Var Call unary-
     ExpressionNode* parse_postfix_chain(ExpressionNode* left); // .member, (args), [index] after any primary
+    ExpressionNode* parse_call_argument(String &out_name); // expr, or name:=expr
     ExpressionNode* parse_lambda();     // Lambda(x) => expr or Function(x) ... End Function
 
     // Parser-owned allocations tracking: register nodes created during

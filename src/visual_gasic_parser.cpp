@@ -498,6 +498,22 @@ void VisualGasicParser::clear_tracked_nodes() {
     allocated_expr_nodes.clear();
 }
 
+ExpressionNode* VisualGasicParser::parse_call_argument(String &out_name) {
+    out_name = "";
+    bool named = (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD))
+        && current_pos + 2 < tokens.size()
+        && tokens[current_pos + 1].type == VisualGasicTokenizer::TOKEN_COLON
+        && tokens[current_pos + 2].type == VisualGasicTokenizer::TOKEN_OPERATOR
+        && String(tokens[current_pos + 2].value) == "=";
+    if (named) {
+        out_name = peek().value;
+        advance();
+        advance();
+        advance();
+    }
+    return parse_expression();
+}
+
 static bool _token_is_word(const VisualGasicTokenizer::Token &t, const char *word) {
     return (t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER ||
             t.type == VisualGasicTokenizer::TOKEN_KEYWORD) &&
@@ -2086,6 +2102,7 @@ Statement* VisualGasicParser::parse_statement() {
         }
         
         Vector<ExpressionNode*> args;
+        Vector<String> arg_names;
         if (has_parens && check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
             advance(); // empty
         } else if (has_parens || !check(VisualGasicTokenizer::TOKEN_NEWLINE)) {
@@ -2093,9 +2110,11 @@ Statement* VisualGasicParser::parse_statement() {
              do {
                  if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
                  {
-                     ExpressionNode* _tmp = parse_expression();
+                     String aname;
+                     ExpressionNode* _tmp = parse_call_argument(aname);
                      if (_tmp) {
                          args.push_back(_tmp);
+                         arg_names.push_back(aname);
                          unregister_node(_tmp);
                      }
                  }
@@ -2127,6 +2146,7 @@ Statement* VisualGasicParser::parse_statement() {
         } else { unregister_node(target); delete target; unregister_node(call_stmt); delete call_stmt; return nullptr; }
 
         call_stmt->arguments = args;
+        call_stmt->argument_names = arg_names;
         // Call GetTree().Quit() — parentheses end the first call, then further
         // .Member() chains are part of the same statement. Without this, the
         // dot starts an implicit With member and Quit runs on Nothing (error 91).
@@ -2142,18 +2162,22 @@ Statement* VisualGasicParser::parse_statement() {
             inner->method_name = call_stmt->method_name;
             inner->base_object = call_stmt->base_object;
             inner->arguments = call_stmt->arguments;
+            inner->argument_names = call_stmt->argument_names;
             unregister_node(inner);
             call_stmt->base_object = inner;
             call_stmt->method_name = member;
             call_stmt->arguments.clear();
+            call_stmt->argument_names.clear();
             if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
                 advance();
                 if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                     do {
                         if (check(VisualGasicTokenizer::TOKEN_NEWLINE) || check(VisualGasicTokenizer::TOKEN_EOF)) break;
-                        ExpressionNode* arg = parse_expression();
+                        String aname;
+                        ExpressionNode* arg = parse_call_argument(aname);
                         if (arg) {
                             call_stmt->arguments.push_back(arg);
+                            call_stmt->argument_names.push_back(aname);
                             unregister_node(arg);
                         }
                         if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
@@ -2632,6 +2656,22 @@ ExpressionNode* VisualGasicParser::parse_postfix_chain(ExpressionNode* left) {
                     opt->object_expression = left;
                     opt->member_name = peek().value;
                     advance();
+                    if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                        opt->is_call = true;
+                        advance();
+                        if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                            while (true) {
+                                String aname;
+                                ExpressionNode* expr = parse_call_argument(aname);
+                                if (expr) { opt->arguments.push_back(expr); unregister_node(expr); }
+                                if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                                break;
+                            }
+                        }
+                        if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                            error("Expected ) after ?. call");
+                        }
+                    }
                     left = opt;
                 } else {
                     MemberAccessNode* member = static_cast<MemberAccessNode*>(register_node(new MemberAccessNode()));
@@ -2649,8 +2689,13 @@ ExpressionNode* VisualGasicParser::parse_postfix_chain(ExpressionNode* left) {
 
                         if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                             while(true) {
-                                ExpressionNode* expr = parse_expression();
-                                if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                                String aname;
+                                ExpressionNode* expr = parse_call_argument(aname);
+                                if (expr) {
+                                    call->arguments.push_back(expr);
+                                    call->argument_names.push_back(aname);
+                                    unregister_node(expr);
+                                }
                                 if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                                 break;
                             }
@@ -2690,8 +2735,13 @@ ExpressionNode* VisualGasicParser::parse_postfix_chain(ExpressionNode* left) {
 
                 if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                     while (true) {
-                        ExpressionNode* expr = parse_expression();
-                        if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                        String aname;
+                        ExpressionNode* expr = parse_call_argument(aname);
+                        if (expr) {
+                            call->arguments.push_back(expr);
+                            call->argument_names.push_back(aname);
+                            unregister_node(expr);
+                        }
                         if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                         break;
                     }
@@ -3165,8 +3215,13 @@ ExpressionNode* VisualGasicParser::parse_factor() {
             if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
                 // Parse arguments
                 while (true) {
-                    ExpressionNode* expr = parse_expression();
-                    if (expr) { call->arguments.push_back(expr); unregister_node(expr); }
+                    String aname;
+                    ExpressionNode* expr = parse_call_argument(aname);
+                    if (expr) {
+                        call->arguments.push_back(expr);
+                        call->argument_names.push_back(aname);
+                        unregister_node(expr);
+                    }
                     
                     if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
                     break;
