@@ -1820,6 +1820,17 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             // For now, we verify that _some_ prefixed subs exist.
             // A proper implementation would load the interface .vg file
             // and compare method lists. Emit a warning if no subs match.
+            bool declared_here = false;
+            for (int k = 0; k < script->ast_root->interfaces.size(); k++) {
+                InterfaceDefinition* def = script->ast_root->interfaces[k];
+                if (def && def->name.nocasecmp_to(iface) == 0) {
+                    declared_here = true;
+                    break;
+                }
+            }
+            if (declared_here) {
+                continue;
+            }
             String prefix = iface + "_";
             bool found_any = false;
             for (int si = 0; si < script->ast_root->subs.size(); si++) {

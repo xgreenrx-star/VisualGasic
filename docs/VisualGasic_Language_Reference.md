@@ -7971,8 +7971,7 @@ Declares an interface — a contract that implementing classes must fulfill.
 
 **Known limitations**
 
-- **`Interface … End Interface` blocks are not parsed** — you cannot declare a standalone interface module yet.
-- **`Implements InterfaceName` works** — the compiler checks that the class defines `InterfaceName_MethodName` subs/functions for each required method (VB6 naming convention).
+- **Same-file contracts are checked.** `Interface … End Interface` stores method signatures. A class or module that `Implements` that interface must define each method as `MethodName`, `InterfaceName_MethodName`, or `Sub MethodName() Implements InterfaceName.MethodName`. An interface declared in another file is still only checked for the VB6 `InterfaceName_` prefix.
 
 **Example**
 

@@ -48,6 +48,7 @@ private:
     StructDefinition* parse_struct();
     EventDefinition* parse_event();
     ClassDefinition* parse_class();
+    InterfaceDefinition* parse_interface();
     PropertyDefinition* parse_property();
     Statement* parse_statement();
     Statement* try_parse_qb_graphics();

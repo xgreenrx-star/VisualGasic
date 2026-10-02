@@ -5,6 +5,8 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <stdio.h>
 
+static void _check_interface_implementations(ModuleNode* module);
+
 VisualGasicParser::VisualGasicParser() : current_pos(0), error_count(0) {
 }
 
@@ -203,6 +205,15 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
             if (cls) {
                 module->class_defs.push_back(cls);
                 unregister_node(cls);
+            }
+            continue;
+        }
+
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).nocasecmp_to("interface") == 0) {
+            InterfaceDefinition* iface = parse_interface();
+            if (iface) {
+                module->interfaces.push_back(iface);
+                unregister_node(iface);
             }
             continue;
         }
@@ -451,6 +462,8 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
     // Clear tracking lists to prevent double-free on parser destruction.
     allocated_nodes.clear();
     allocated_expr_nodes.clear();
+
+    _check_interface_implementations(module);
 
     return module;
 }
@@ -771,6 +784,25 @@ SubDefinition* VisualGasicParser::parse_sub() {
             }
         }
     }
+
+    String implements_interface;
+    String implements_member;
+    if (!is_at_end() && (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD || peek().type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
+        && String(peek().value).nocasecmp_to("Implements") == 0) {
+        advance();
+        if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+            implements_interface = peek().value;
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == ".") {
+                advance();
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    implements_member = peek().value;
+                    advance();
+                }
+            }
+        }
+    }
+
     // Skip any remaining tokens to the end of the declaration line.
     while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
           current_pos++;
@@ -782,6 +814,8 @@ SubDefinition* VisualGasicParser::parse_sub() {
     sub->parameters = parameters;
     // Only Functions carry a return type (a Sub's stray `As` was warned + ignored).
     if (is_function) sub->return_type = parsed_return_type;
+    sub->implements_interface = implements_interface;
+    sub->implements_member = implements_member;
 
     // Body
     while (!is_at_end() && error_count < MAX_ERRORS) {
@@ -5119,6 +5153,169 @@ StructDefinition* VisualGasicParser::parse_struct() {
     return def;
 }
 
+static bool _sub_implements_method(SubDefinition* sub, const String& iface_name, const String& method_name) {
+    if (!sub) return false;
+    if (sub->name.nocasecmp_to(method_name) == 0) return true;
+    if (sub->name.nocasecmp_to(iface_name + String("_") + method_name) == 0) return true;
+    if (!sub->implements_interface.is_empty()
+        && sub->implements_interface.nocasecmp_to(iface_name) == 0
+        && sub->implements_member.nocasecmp_to(method_name) == 0) {
+        return true;
+    }
+    return false;
+}
+
+static InterfaceDefinition* _find_interface(ModuleNode* module, const String& name) {
+    if (!module) return nullptr;
+    for (int i = 0; i < module->interfaces.size(); i++) {
+        InterfaceDefinition* iface = module->interfaces[i];
+        if (iface && iface->name.nocasecmp_to(name) == 0) return iface;
+    }
+    return nullptr;
+}
+
+static void _warn_missing_interface_methods(const String& owner, InterfaceDefinition* iface, const Vector<SubDefinition*>& subs) {
+    if (!iface) return;
+    for (int m = 0; m < iface->methods.size(); m++) {
+        const String& method_name = iface->methods[m].name;
+        bool found = false;
+        for (int s = 0; s < subs.size(); s++) {
+            if (_sub_implements_method(subs[s], iface->name, method_name)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            UtilityFunctions::push_warning(
+                "[VG] Warning: " + owner + " Implements " + iface->name
+                + " but has no " + method_name + " or " + iface->name + String("_") + method_name + ".",
+                __FUNCTION__, __FILE__, __LINE__);
+        }
+    }
+}
+
+static void _check_interface_implementations(ModuleNode* module) {
+    if (!module) return;
+    for (int i = 0; i < module->implements_list.size(); i++) {
+        InterfaceDefinition* iface = _find_interface(module, module->implements_list[i]);
+        if (!iface) continue;
+        _warn_missing_interface_methods("Module", iface, module->subs);
+    }
+    for (int c = 0; c < module->class_defs.size(); c++) {
+        ClassDefinition* cls = module->class_defs[c];
+        if (!cls) continue;
+        for (int i = 0; i < cls->implements_list.size(); i++) {
+            InterfaceDefinition* iface = _find_interface(module, cls->implements_list[i]);
+            if (!iface) continue;
+            _warn_missing_interface_methods("Class '" + cls->name + "'", iface, cls->methods);
+        }
+    }
+}
+
+// ── Interface ... End Interface (signatures only) ──
+InterfaceDefinition* VisualGasicParser::parse_interface() {
+    advance(); // Eat Interface
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+
+    if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        error("Expected interface name after 'Interface'");
+        return nullptr;
+    }
+
+    InterfaceDefinition* iface = static_cast<InterfaceDefinition*>(register_node(new InterfaceDefinition()));
+    iface->name = peek().value;
+    advance();
+
+    while (!is_at_end() && error_count < MAX_ERRORS) {
+        while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+        if (is_at_end()) break;
+
+        VisualGasicTokenizer::Token t = peek();
+        String val = String(t.value).to_lower();
+
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
+            && val == "end") {
+            VisualGasicTokenizer::Token next = peek(1);
+            if (String(next.value).nocasecmp_to("interface") == 0) {
+                current_pos += 2;
+                break;
+            }
+        }
+
+        if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && (val == "public" || val == "private")) {
+            advance();
+            continue;
+        }
+
+        bool is_function = (val == "function");
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER)
+            && (val == "sub" || val == "function")) {
+            advance();
+            if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                error("Expected method name in Interface '" + iface->name + "'");
+                break;
+            }
+            InterfaceMethodSig method;
+            method.is_function = is_function;
+            method.name = peek().value;
+            advance();
+
+            if (check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+                advance();
+                if (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    while (!is_at_end()) {
+                        Parameter param;
+                        if (_token_is_word(peek(), "byval")) {
+                            param.is_by_ref = false;
+                            advance();
+                        } else if (_token_is_word(peek(), "byref")) {
+                            param.is_by_ref = true;
+                            advance();
+                        } else if (_token_is_word(peek(), "optional")) {
+                            param.is_optional = true;
+                            advance();
+                        }
+                        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && !check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                            error("Expected parameter name in Interface '" + iface->name + "." + method.name + "'");
+                            break;
+                        }
+                        param.name = peek().value;
+                        advance();
+                        if (_token_is_word(peek(), "as")) {
+                            advance();
+                            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                                param.type_hint = peek().value;
+                                advance();
+                            }
+                        }
+                        method.parameters.push_back(param);
+                        if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
+                        break;
+                    }
+                }
+                if (!match(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
+                    error("Expected ) after Interface method parameters");
+                }
+            }
+
+            if (_token_is_word(peek(), "as")) {
+                advance();
+                if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                    method.return_type = peek().value;
+                    advance();
+                }
+            }
+            iface->methods.push_back(method);
+            continue;
+        }
+
+        error("Expected Sub, Function, or End Interface in '" + iface->name + "'");
+        advance();
+    }
+
+    return iface;
+}
+
 // ── Class ... End Class ──
 ClassDefinition* VisualGasicParser::parse_class() {
     advance(); // Eat 'Class'
@@ -5141,6 +5338,24 @@ ClassDefinition* VisualGasicParser::parse_class() {
         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             cls->base_class = peek().value;
             advance();
+        }
+    }
+
+    while (check(VisualGasicTokenizer::TOKEN_NEWLINE)) advance();
+
+    // Optional: Implements IFace[, IFace2]
+    if ((check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && String(peek().value).nocasecmp_to("implements") == 0) {
+        advance();
+        while (!is_at_end() && peek().type != VisualGasicTokenizer::TOKEN_NEWLINE) {
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                cls->implements_list.push_back(peek().value);
+                advance();
+            }
+            if (check(VisualGasicTokenizer::TOKEN_COMMA)) {
+                advance();
+                continue;
+            }
+            break;
         }
     }
 
@@ -5267,6 +5482,15 @@ ClassDefinition* VisualGasicParser::parse_class() {
             v->array_sizes = member_array_sizes;
             cls->members.push_back(v);
             unregister_node(v);
+            continue;
+        }
+
+        if ((t.type == VisualGasicTokenizer::TOKEN_KEYWORD || t.type == VisualGasicTokenizer::TOKEN_IDENTIFIER) && val == "implements") {
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+                cls->implements_list.push_back(peek().value);
+                advance();
+            }
             continue;
         }
 

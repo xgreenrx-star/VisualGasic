@@ -60,7 +60,6 @@ These appear in the Language Reference or GODOT_FUNCTIONS_REFERENCE but are **no
 
 | Feature | Status | Use instead |
 |---------|--------|-------------|
-| **`Interface … End Interface`** | Not parsed | `Implements InterfaceName` + `InterfaceName_MethodName` subs |
 | **`Using … End Using`** | Not parsed | Explicit `Close` / `Try/Finally` cleanup |
 | **`ConnectSignal` / `DisconnectSignal`** | Deprecated names | `Connect()` / `Disconnect()` |
 | **`shutdown()` global** | Wrong — instance method only | `bridge.shutdown()` on `PyBridgeFacade` |

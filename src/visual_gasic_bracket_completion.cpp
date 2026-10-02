@@ -279,6 +279,10 @@ String BracketCompletionHelper::get_completion_for_block(const String& block_typ
     if (keyword_lower == "class") {
         return "End Class";
     }
+
+    if (keyword_lower == "interface") {
+        return "End Interface";
+    }
     
     if (keyword_lower == "try") {
         return "End Try";

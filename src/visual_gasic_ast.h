@@ -709,6 +709,8 @@ struct SubDefinition : public ASTNode {
     String name;
     Vector<Parameter> parameters;
     String return_type;
+    String implements_interface; // Sub Foo() Implements IFace.Foo
+    String implements_member;
     Vector<Statement*> statements;
     Dictionary label_map; // Name -> Index in statements
     String source_file; // Set for Import modules so runtime errors name this file
@@ -869,6 +871,19 @@ struct ResumeWheneverStatement : public Statement {
     ResumeWheneverStatement() : Statement(STMT_RESUME_WHENEVER) {}
 };
 
+struct InterfaceMethodSig {
+    String name;
+    bool is_function;
+    String return_type;
+    Vector<Parameter> parameters;
+    InterfaceMethodSig() : is_function(false) {}
+};
+
+struct InterfaceDefinition : public ASTNode {
+    String name;
+    Vector<InterfaceMethodSig> methods;
+};
+
 // FFI/DLL Support (Declare / DllImport) — before ModuleNode for complete type in dtor
 struct DeclareStatement : public Statement {
     String name;
@@ -898,6 +913,7 @@ struct ModuleNode {
     Vector<Statement*> global_statements; // For Data and Labels at module level
     Vector<PropertyDefinition*> properties; // Module level properties (owned by ClassDefinitions)
     Vector<ClassDefinition*> class_defs; // Class definitions
+    Vector<InterfaceDefinition*> interfaces; // Interface ... End Interface
     Vector<DeclareStatement*> ffi_declares; // Declare/DllImport (M8)
     Vector<String> implements_list;      // Implements interfaces (v3.5.0)
     Vector<String> imports;              // Import "path/module.vg" (v4.2.0)
@@ -914,6 +930,7 @@ struct ModuleNode {
         for(int i=0; i<constants.size(); i++) if(constants[i]) delete constants[i];
         for(int i=0; i<global_statements.size(); i++) if(global_statements[i]) delete global_statements[i];
         for(int i=0; i<class_defs.size(); i++) if(class_defs[i]) delete class_defs[i];
+        for(int i=0; i<interfaces.size(); i++) if(interfaces[i]) delete interfaces[i];
         for(int i=0; i<ffi_declares.size(); i++) if(ffi_declares[i]) delete ffi_declares[i];
         // Note: properties are managed separately to avoid incomplete type issues with forward declaration
     }
@@ -1174,6 +1191,7 @@ struct ClassDefinition : public ASTNode {
     Vector<SubDefinition*> methods;
     Vector<PropertyDefinition*> properties;
     Vector<EventDefinition*> events;
+    Vector<String> implements_list; // Class Foo Implements IBar
     SubDefinition* class_initialize;  // Class_Initialize sub
     SubDefinition* class_terminate;   // Class_Terminate sub
     bool is_public;

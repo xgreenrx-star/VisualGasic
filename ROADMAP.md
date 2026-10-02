@@ -71,7 +71,7 @@ Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
 
 | # | Item | Priority | Target | Effort |
 |---|------|----------|--------|--------|
-| R1 | **`Interface … End Interface` parser** | Medium | M8 / 5.5.0-beta1 | ~1 week — `Implements` + `InterfaceName_MethodName` works today; standalone interface modules do not parse |
+| R1 | **`Interface … End Interface` parser** | Medium | M8 / 5.5.0-beta1 | ✅ **Linux** — signature blocks parse; same-file `Implements` checks `Method`, `Interface_Method`, or `Implements IFace.Method`. Cross-file interfaces still use the VB6 prefix warning |
 | R2 | **`Using … End Using` parser + RAII** | Medium | M8 / v6.1 | ~1–2 weeks — align with RAII row in ODBC/database roadmap; explicit `Close`/`Finally` required until shipped |
 | R3 | **`Disconnect()` regression test** | Low | M9 | ~1 hr — `test_reference_connect_smoke.vg` (Connect + Disconnect round-trip) |
 | R4 | **Narcea / copilot known limitations** | Medium | M9 | ~2 hr — add Interface/Using/ConnectSignal/DataFile caveats to `.github/copilot-instructions.md` and `vg_ai_narcea.gd` system prompt |
@@ -1538,7 +1538,7 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 | **M5** | Narcea Vibe Code (#13): Buffer Type, Optimizer Hints, Tier A/B golden path, 8 providers | Oct 15 | ✅ **DONE** (Sep 2026) — shipped on `main` as v5.4.0-beta2 prep |
 | **M6** | Causal Chain text-mode (#14): C++ AST API, `vg_causal_chain.gd`, Code Navigator + Context Rail UI | Oct 31 | ✅ **Teaser done** (Sep 2026) — visual panel → v6.1 |
 | **M7** | Python bridge: `PyImport` / `PyCallAsync` / `Await`, msgpack C2, large-array lane, venv | Nov 15 | ✅ **Linux close-out** — Windows/macOS e2e and typed-protocol default-on still deferred |
-| **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI | Nov 22 | ✅ **Linux close-out** — stress corpus green on Linux. `Interface … End Interface` not started. Windows Declare smoke not executed on a Windows host |
+| **M8** | Language parity: Try/Catch/Lambda/`?.`/`:=` tests; `Let`; `Declare`/`DllImport` FFI; `Interface … End Interface` | Nov 22 | ✅ **Linux close-out** — stress corpus green on Linux. Windows Declare smoke not executed on a Windows host |
 | **M9** | Release readiness: installer smoke, 50+ corpus, docs current | Nov 28 | 🔄 **Pending** — Asset Library ✅ live (Aug 2026) |
 | **v6.0** | Stable release | Jan 1 2027 | — |
 | **Bugfix** | C64 Emulator: native `FOR`/assignment statements raised `?SYNTAX ERROR` on run — **FIXED Sep 2026**. Root cause was NOT a 6502 CPU-core or ROM emulation gap (CPU/ROM traced instruction-by-instruction and confirmed correct/unmodified); it was VG's own `c64_main.vg` BASIC tokenizer omitting the 8 single-character operator tokens (`+ - * / ^ > = <` → `$AA`-`$B3`) that real C64 BASIC V2 tokenizes alongside its 68 keyword tokens (confirmed via c64-wiki.com). Any statement with `=` (virtually all `FOR`/assignment statements) got a literal ASCII byte instead of the ROM-expected token, so the real ROM correctly rejected it. Fixed by adding `OperatorToken()` tokenization to `TokenizeLine()` in `c64_main.vg`, respecting string-literal/REM boundaries. Verified: `FOR X=1 TO 5 / PRINT X / NEXT X` now prints 1-5; 855/855 regression suite unaffected. Full findings: `/memories/repo/c64_native_for_loop_bug.md`. | Sep 2026 | ✅ **DONE** (Sep 2026) |
@@ -1559,11 +1559,11 @@ Items below are real but require non-trivial design / scoping. **Do not** start 
 
 ### Programmer's Reference — remaining language gaps (v6.1)
 
-Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasic/vg_command_help.gd`. **`Implements InterfaceName` already works**; these are the two documented keywords still missing full support:
+Tracked by `scripts/audit_command_implementation.py` against `addons/visual_gasic/vg_command_help.gd`. **`Implements InterfaceName` and `Interface … End Interface` parse**; `Using … End Using` is the documented keyword still missing:
 
 | Feature | Description | Priority | Timeline |
 |---------|-------------|----------|----------|
-| **`Interface...End Interface`** | Parse and compile interface declaration blocks (`Interface IFoo` / `Sub`/`Function` signatures / `End Interface`). Today only `Class ... Implements IFoo` is wired; declaring a new interface type from VG source fails. Needs parser + AST + (minimal) type-check pass so AI/docs examples compile. | Medium | 1–2 weeks |
+| **`Interface...End Interface`** | ✅ **Linux:** `Interface` / signature `Sub`/`Function` / `End Interface` parse. Same-file implementers must supply each method by name, `InterfaceName_MethodName`, or `Implements InterfaceName.MethodName`. | Done | — |
 | **`Using...End Using`** | RAII-style resource scope: `Using conn = OpenDatabase(...)` … `End Using` auto-disposes/closes on exit (normal, `Return`, and error paths). Needs parser, scope stack in compiler/VM, and disposal hook per resource type (start with `File`/`Database` patterns from docs). | Medium | 1–2 weeks |
 | **`Whenever` block form** | ✅ **Docs aligned (Aug 2026):** reference now documents `Whenever Section … callbackProc`; inline `End Whenever` blocks remain a future parser feature if demand warrants. | Done | — |
 | **Programmer's Reference runtime harness** | ✅ **Shipped (Aug 2026):** `tests/test_command_reference_harness.gd` + `scripts/run_command_reference_harness.sh` — parse all `_add()` examples; critical runtime checks for `End`, `DoEvents`, `Throw`, `LoadForm`, `ChangeScene`. CI: run before releases. | Done | — |

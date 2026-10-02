@@ -1,0 +1,42 @@
+' Interface ... End Interface must parse, and the Sub after it must still run.
+
+Interface IDamageable
+    Sub TakeDamage(amount As Integer)
+    Function IsAlive() As Boolean
+End Interface
+
+Class Enemy Implements IDamageable
+    Private health As Integer
+
+    Sub TakeDamage(amount As Integer) Implements IDamageable.TakeDamage
+        health = health - amount
+    End Sub
+
+    Function IsAlive() As Boolean Implements IDamageable.IsAlive
+        If health > 0 Then
+            IsAlive = True
+        Else
+            IsAlive = False
+        End If
+    End Function
+End Class
+
+Interface IFoo
+    Function Bar() As Integer
+End Interface
+
+Implements IFoo
+
+Function IFoo_Bar() As Integer
+    IFoo_Bar = 7
+End Function
+
+Sub _Ready()
+    Dim n As Integer
+    n = IFoo_Bar()
+    If n = 7 Then
+        Print "PASS: interface_block"
+    Else
+        Print "FAIL: interface_block got " & n
+    End If
+End Sub

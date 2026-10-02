@@ -57,8 +57,8 @@ Generated: 2026-09-26 by `scripts/audit_reference_dispatch.py`
 - **DisconnectSignal** — Deprecated name; runtime uses Disconnect()
 - **emit_signal** — Use emit_signal() on owner or RaiseEvent for VB events
 - **EmitSignal** — Use emit_signal() on owner or RaiseEvent for VB events
-- **Interface** — Interface...End Interface not parsed (Implements works)
-- **Interface** — Interface...End Interface not parsed (Implements works)
+- **Interface** — Interface...End Interface parses (same-file Implements check)
+- **Interface** — Interface...End Interface parses (same-file Implements check)
 - **LoadData** — Runtime statement (STMT_LOAD_DATA) — not a global call_builtin
 - **LoadData** — Runtime statement (STMT_LOAD_DATA) — not a global call_builtin
 - **shutdown** — PyBridgeFacade.shutdown() instance method — not a global builtin
