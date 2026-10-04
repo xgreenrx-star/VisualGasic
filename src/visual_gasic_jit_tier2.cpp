@@ -31,6 +31,70 @@ extern "C" void pthread_jit_write_protect_np(int enable) __attribute__((weak_imp
 
 using namespace godot;
 
+namespace {
+
+// Tier2 locals are only I64/F64 bit patterns. String (and most Variant) results
+// from host_call are dropped to 0, which then surfaces as 0.0 after finish_host_ret
+// — e.g. FormatCoordHelper(ByVal Double) As String returned 0.0 for every call
+// after HOT_THRESHOLD. Keep those bodies on the interpreter.
+bool jit_tier2_name_eq_ci(const char *a, const char *b) {
+	if (!a || !b) {
+		return false;
+	}
+	for (int i = 0;; i++) {
+		unsigned char ca = (unsigned char)a[i];
+		unsigned char cb = (unsigned char)b[i];
+		if (ca >= 'A' && ca <= 'Z') {
+			ca = (unsigned char)(ca - 'A' + 'a');
+		}
+		if (cb >= 'A' && cb <= 'Z') {
+			cb = (unsigned char)(cb - 'A' + 'a');
+		}
+		if (ca != cb) {
+			return false;
+		}
+		if (ca == 0) {
+			return true;
+		}
+	}
+}
+
+bool jit_tier2_non_numeric_callee(const char *name) {
+	if (!name || !name[0]) {
+		return false;
+	}
+	// Builtins whose return value is String (or otherwise not I64/F64).
+	static const char *k_names[] = {
+		"cstr", "str", "replace", "left", "right", "mid", "trim", "ltrim", "rtrim",
+		"lcase", "ucase", "chr", "format", "space", "hex", "oct", "string",
+		"join", "typename", "chrw", "strconv", "guidtostring", nullptr
+	};
+	for (int i = 0; k_names[i]; i++) {
+		if (jit_tier2_name_eq_ci(name, k_names[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool jit_tier2_chunk_has_non_numeric_slots(const BytecodeChunk *chunk) {
+	if (!chunk || !chunk->fast_params) {
+		return false;
+	}
+	// 3 = String in the compiler's fast_*_coerce enum.
+	if (chunk->fast_return_coerce == 3) {
+		return true;
+	}
+	for (int i = 0; i < chunk->fast_param_coerce.size(); i++) {
+		if (chunk->fast_param_coerce[i] == 3) {
+			return true;
+		}
+	}
+	return false;
+}
+
+} // namespace
+
 Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &args, bool &handled) {
     handled = false;
     return call_internal(method, args, handled);
@@ -2007,18 +2071,13 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     CharString cs = cn.utf8();
                     const char *got = cs.get_data();
                     const char *want = fn_name.c_str();
-                    bool same = got && want && !fn_name.empty();
-                    if (same) {
-                        for (int i = 0;; i++) {
-                            unsigned char a = (unsigned char)got[i];
-                            unsigned char b = (unsigned char)want[i];
-                            if (a >= 'A' && a <= 'Z') a = (unsigned char)(a - 'A' + 'a');
-                            if (b >= 'A' && b <= 'Z') b = (unsigned char)(b - 'A' + 'a');
-                            if (a != b) { same = false; break; }
-                            if (a == 0) break;
-                        }
+                    if (jit_tier2_non_numeric_callee(got)) {
+                        // CStr/Replace/… return String; host_call drops that to 0.
+                        return false;
                     }
-                    if (same) return false;
+                    if (got && want && !fn_name.empty() && jit_tier2_name_eq_ci(got, want)) {
+                        return false;
+                    }
                 }
                 if ((int)vstack.size() < argc) return false;
                 IRInst cinst;
@@ -2034,8 +2093,9 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     cinst.call_src[a] = v;
                     auto sit = vreg_str_pool.find(v);
                     if (sit != vreg_str_pool.end()) {
-                        cinst.call_kind[a] = 2;
-                        cinst.call_pool[a] = sit->second;
+                        // String-literal args mean a string-oriented call; Tier2
+                        // cannot keep the String result either.
+                        return false;
                     } else if (get_vreg_type(v) == IRType::F64) {
                         cinst.call_kind[a] = 1;
                     } else if (get_vreg_type(v) == IRType::VOID) {
@@ -3485,6 +3545,14 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     if (!chunk || chunk->code.size() == 0) return nullptr;
     if (chunk->code.size() > MAX_BC_SIZE) { hot.tried = true; hot.failed = true; return nullptr; }
     if (cache_.size() >= MAX_CACHE) return nullptr;
+    // String params/returns are not representable in Tier2 locals (see
+    // jit_tier2_chunk_has_non_numeric_slots). Compiling them made ByVal Double
+    // helpers that return String hand back 0.0 after the hot threshold.
+    if (jit_tier2_chunk_has_non_numeric_slots(chunk)) {
+        hot.tried = true;
+        hot.failed = true;
+        return nullptr;
+    }
     
     hot.tried = true;
     

@@ -1,0 +1,110 @@
+' Road hazards from OpenStreetMap (Overpass). Module buffers for results.
+Attribute VB_Name = "Hazards"
+
+Import "HttpUtil.vg"
+Import "UrlUtil.vg"
+
+Const OVERPASS_URL As String = "https://overpass-api.de/api/interpreter"
+Const USER_AGENT As String = "VisualGasic-VG-GPS/0.1 (sample; contact via github.com/xgreenrx-star/VisualGasic)"
+
+Dim HazLabels(23) As String
+Dim HazLats(23) As Double
+Dim HazLngs(23) As Double
+Dim HazCount As Integer
+Dim HazError As String
+
+Sub FetchOsmHazards(ByVal minLat As Double, ByVal minLng As Double, ByVal maxLat As Double, ByVal maxLng As Double)
+	HazCount = 0
+	HazError = ""
+
+	Dim s As Double
+	Dim w As Double
+	Dim n As Double
+	Dim e As Double
+	s = minLat - 0.01
+	w = minLng - 0.01
+	n = maxLat + 0.01
+	e = maxLng + 0.01
+
+	Dim ql As String
+	ql = "[out:json][timeout:25];("
+	ql = ql & "node[""highway""=""speed_camera""](" & Replace(CStr(s), ",", ".") & "," & Replace(CStr(w), ",", ".") & "," & Replace(CStr(n), ",", ".") & "," & Replace(CStr(e), ",", ".") & ");"
+	ql = ql & "node[""hazard""](" & Replace(CStr(s), ",", ".") & "," & Replace(CStr(w), ",", ".") & "," & Replace(CStr(n), ",", ".") & "," & Replace(CStr(e), ",", ".") & ");"
+	ql = ql & "node[""enforcement""](" & Replace(CStr(s), ",", ".") & "," & Replace(CStr(w), ",", ".") & "," & Replace(CStr(n), ",", ".") & "," & Replace(CStr(e), ",", ".") & ");"
+	ql = ql & ");out body 40;"
+
+	Dim url As String
+	url = OVERPASS_URL & "?data=" & UrlEncode(ql)
+
+	Dim status As Integer
+	Dim statusText As String
+	Dim body As String
+	Call HttpFetch(url, USER_AGENT, 2, status, statusText, body)
+	If status <> 200 Or Len(body) = 0 Then
+		HazError = "Overpass HTTP " & CStr(status) & " " & statusText
+		Exit Sub
+	End If
+
+	Dim root As Object
+	Set root = JsonParse(body)
+	If root Is Nothing Then
+		HazError = "Overpass JSON parse failed"
+		Exit Sub
+	End If
+
+	Dim elems As Array
+	elems = root("elements")
+	If IsNull(elems) Then
+		HazError = "No elements"
+		Exit Sub
+	End If
+
+	Dim i As Integer
+	For i = 0 To UBound(elems)
+		If HazCount >= 24 Then Exit For
+		Dim el As Object
+		Set el = elems(i)
+		If Not el Is Nothing Then
+			Dim latV As Variant
+			Dim lonV As Variant
+			latV = el("lat")
+			lonV = el("lon")
+			If Not IsNull(latV) And Not IsNull(lonV) Then
+				Dim tags As Object
+				Set tags = el("tags")
+				Dim label As String
+				label = "hazard"
+				If Not tags Is Nothing Then
+					Dim hw As String
+					hw = CStr(tags("highway"))
+					Dim hz As String
+					hz = CStr(tags("hazard"))
+					Dim en As String
+					en = CStr(tags("enforcement"))
+					If hw = "speed_camera" Then
+						label = "speed camera"
+					ElseIf Len(hz) > 0 Then
+						label = "hazard:" & hz
+					ElseIf Len(en) > 0 Then
+						label = "enforcement:" & en
+					End If
+				End If
+				HazLabels(HazCount) = label
+				HazLats(HazCount) = CDbl(latV)
+				HazLngs(HazCount) = CDbl(lonV)
+				HazCount = HazCount + 1
+			End If
+		End If
+	Next i
+End Sub
+
+Sub SeedDemoHazards(ByVal midLat As Double, ByVal midLng As Double)
+	HazLabels(0) = "DEMO police checkpoint (not live Waze)"
+	HazLats(0) = midLat + 0.002
+	HazLngs(0) = midLng - 0.002
+	HazLabels(1) = "DEMO road hazard (construction)"
+	HazLats(1) = midLat - 0.0015
+	HazLngs(1) = midLng + 0.001
+	HazCount = 2
+	HazError = ""
+End Sub

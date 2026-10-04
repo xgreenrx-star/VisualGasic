@@ -1,0 +1,25 @@
+; Engine configuration file.
+; VG GPS sample — Photon search + Valhalla route/avoid + OSM hazards + OsmAnd handoff
+
+config_version=5
+
+[application]
+
+config/name="VG GPS"
+config/description="Search, drive route with avoid zones, OSM hazards, OsmAnd navigate handoff"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"

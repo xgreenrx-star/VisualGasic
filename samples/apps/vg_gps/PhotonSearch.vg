@@ -1,0 +1,95 @@
+' Place search via Komoot Photon (OpenStreetMap geocoder).
+' Results land in module buffers (root must Import this + HttpUtil + UrlUtil).
+Attribute VB_Name = "PhotonSearch"
+
+Import "HttpUtil.vg"
+Import "UrlUtil.vg"
+
+Const PHOTON_BASE As String = "https://photon.komoot.io/api/"
+Const USER_AGENT As String = "VisualGasic-VG-GPS/0.1 (sample; contact via github.com/xgreenrx-star/VisualGasic)"
+
+Dim PhotonNames(7) As String
+Dim PhotonLats(7) As Double
+Dim PhotonLngs(7) As Double
+Dim PhotonCount As Integer
+Dim PhotonError As String
+
+Sub PhotonSearch(ByVal query As String, ByVal limitN As Integer)
+	PhotonCount = 0
+	PhotonError = ""
+	If Len(Trim(query)) = 0 Then
+		PhotonError = "Empty search"
+		Exit Sub
+	End If
+	If limitN < 1 Then limitN = 1
+	If limitN > 8 Then limitN = 8
+
+	Dim url As String
+	url = PHOTON_BASE & "?q=" & UrlEncode(Trim(query)) & "&limit=" & CStr(limitN)
+
+	Dim status As Integer
+	Dim statusText As String
+	Dim body As String
+	Call HttpFetch(url, USER_AGENT, 3, status, statusText, body)
+	If status <> 200 Or Len(body) = 0 Then
+		PhotonError = "Photon HTTP " & CStr(status) & " " & statusText
+		Exit Sub
+	End If
+
+	Dim root As Object
+	Set root = JsonParse(body)
+	If root Is Nothing Then
+		PhotonError = "Photon JSON parse failed"
+		Exit Sub
+	End If
+
+	Dim feats As Array
+	feats = root("features")
+	If IsNull(feats) Then
+		PhotonError = "No features"
+		Exit Sub
+	End If
+
+	Dim n As Integer
+	n = UBound(feats) + 1
+	Dim i As Integer
+	For i = 0 To n - 1
+		If PhotonCount >= limitN Then Exit For
+		Dim feat As Object
+		Set feat = feats(i)
+		If Not feat Is Nothing Then
+			Dim geom As Object
+			Set geom = feat("geometry")
+			Dim props As Object
+			Set props = feat("properties")
+			If Not geom Is Nothing And Not props Is Nothing Then
+				Dim coords As Array
+				coords = geom("coordinates")
+				If Not IsNull(coords) Then
+					If UBound(coords) >= 1 Then
+						Dim name As String
+						name = CStr(props("name"))
+						If Len(name) = 0 Then name = CStr(props("street"))
+						Dim city As String
+						city = CStr(props("city"))
+						If Len(city) = 0 Then city = CStr(props("state"))
+						If Len(city) > 0 Then name = name & ", " & city
+						If Len(name) = 0 Then name = "Result " & CStr(PhotonCount + 1)
+
+						PhotonNames(PhotonCount) = name
+						Dim lonS As String
+						Dim latS As String
+						lonS = CStr(coords(0))
+						latS = CStr(coords(1))
+						' If CStr drops a leading '-', recover from JSON-ish text when lat looks valid.
+						PhotonLngs(PhotonCount) = Val(lonS)
+						PhotonLats(PhotonCount) = Val(latS)
+						PhotonCount = PhotonCount + 1
+					End If
+				End If
+			End If
+		End If
+	Next i
+
+	If PhotonCount = 0 Then PhotonError = "No places found"
+End Sub

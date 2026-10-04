@@ -1,0 +1,43 @@
+' Headless smoke: Photon search + Valhalla route with one avoid polygon.
+' MAX_FRAMES: 600
+Attribute VB_Name = "TestVgGpsApis"
+
+Import "HttpUtil.vg"
+Import "UrlUtil.vg"
+Import "PhotonSearch.vg"
+Import "ValhallaRoute.vg"
+
+Sub _Ready()
+	Print "=== test_vg_gps_apis ==="
+	Print "Val check: " & CStr(Val("40.7484")) & " / " & CStr(Val("-73.9857"))
+
+	Call PhotonSearch("Times Square New York", 3)
+	If Len(PhotonError) > 0 Then
+		Print "FAIL photon: " & PhotonError
+		Exit Sub
+	End If
+	If PhotonCount < 1 Then
+		Print "FAIL photon: empty"
+		Exit Sub
+	End If
+	Print "OK photon: " & PhotonNames(0) & " @ " & CStr(PhotonLats(0)) & "," & CStr(PhotonLngs(0))
+
+	Call ClearAvoids
+	Call AddAvoidPoint(40.754, -73.989)
+	Call SetRouteEndpoints(40.7484, -73.9857, PhotonLats(0), PhotonLngs(0))
+
+	Print "JSON: " & Left(BuildRouteJson(), 240)
+	Print "Req: " & CStr(ReqStartLat) & " / " & CStr(ReqStartLng) & " -> " & CStr(ReqDestLat) & " / " & CStr(ReqDestLng)
+
+	Call RequestRoute
+	If Len(RouteError) > 0 Then
+		Print "FAIL valhalla: " & RouteError
+		Exit Sub
+	End If
+	If RouteMiles <= 0 Or RoutePtCount < 2 Then
+		Print "FAIL valhalla: empty route miles=" & CStr(RouteMiles) & " pts=" & CStr(RoutePtCount)
+		Exit Sub
+	End If
+	Print "OK valhalla: " & CStr(RouteMiles) & " mi, pts=" & CStr(RoutePtCount)
+	Print "PASS vg_gps_apis"
+End Sub

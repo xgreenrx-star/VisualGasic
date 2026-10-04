@@ -1,0 +1,230 @@
+' Driving routes via public Valhalla demo (OSM). Supports exclude_polygons for avoid.
+Attribute VB_Name = "ValhallaRoute"
+
+Import "HttpUtil.vg"
+Import "UrlUtil.vg"
+
+Const VALHALLA_ROUTE As String = "https://valhalla1.openstreetmap.de/route"
+Const USER_AGENT As String = "VisualGasic-VG-GPS/0.1 (sample; contact via github.com/xgreenrx-star/VisualGasic)"
+Const AVOID_HALF_DEG As Double = 0.0012
+
+Dim RouteMiles As Double
+Dim RouteSeconds As Double
+Dim RouteInstructions As String
+Dim RouteShape As String
+Dim RouteMinLat As Double
+Dim RouteMinLng As Double
+Dim RouteMaxLat As Double
+Dim RouteMaxLng As Double
+Dim RouteError As String
+Dim RouteLats(199) As Double
+Dim RouteLngs(199) As Double
+Dim RoutePtCount As Integer
+
+' Avoid list owned by ValhallaRoute (Main copies into these before Route).
+Dim AvoidLats(7) As Double
+Dim AvoidLngs(7) As Double
+Dim AvoidCount As Integer
+
+' Set these before Call RequestRoute.
+Dim ReqStartLat As Double
+Dim ReqStartLng As Double
+Dim ReqDestLat As Double
+Dim ReqDestLng As Double
+
+Sub ClearAvoids()
+	AvoidCount = 0
+End Sub
+
+Sub AddAvoidPoint(ByVal lat As Double, ByVal lng As Double)
+	If AvoidCount >= 8 Then Exit Sub
+	AvoidLats(AvoidCount) = lat
+	AvoidLngs(AvoidCount) = lng
+	AvoidCount = AvoidCount + 1
+End Sub
+
+Function AvoidPolyJsonAt(ByVal idx As Integer) As String
+	Dim lat As Double
+	Dim lng As Double
+	lat = AvoidLats(idx)
+	lng = AvoidLngs(idx)
+	Dim lat1 As Double
+	Dim lat2 As Double
+	Dim lng1 As Double
+	Dim lng2 As Double
+	lat1 = lat - AVOID_HALF_DEG
+	lat2 = lat + AVOID_HALF_DEG
+	lng1 = lng - AVOID_HALF_DEG
+	lng2 = lng + AVOID_HALF_DEG
+	AvoidPolyJsonAt = "[[" & FormatCoord(lng1) & "," & FormatCoord(lat1) & "],[" & FormatCoord(lng2) & "," & FormatCoord(lat1) & "],[" & FormatCoord(lng2) & "," & FormatCoord(lat2) & "],[" & FormatCoord(lng1) & "," & FormatCoord(lat2) & "],[" & FormatCoord(lng1) & "," & FormatCoord(lat1) & "]]"
+End Function
+
+Function BuildRouteJson() As String
+	Dim json As String
+	json = "{""locations"":[{"
+	json = json & """lat"":" & FormatCoord(ReqStartLat) & ","
+	json = json & """lon"":" & FormatCoord(ReqStartLng) & "},{"
+	json = json & """lat"":" & FormatCoord(ReqDestLat) & ","
+	json = json & """lon"":" & FormatCoord(ReqDestLng) & "}],"
+	json = json & """costing"":""auto"",""directions_options"":{""units"":""miles""}"
+	If AvoidCount > 0 Then
+		json = json & ",""exclude_polygons"":["
+		Dim a As Integer
+		For a = 0 To AvoidCount - 1
+			If a > 0 Then json = json & ","
+			json = json & AvoidPolyJsonAt(a)
+		Next a
+		json = json & "]"
+	End If
+	json = json & "}"
+	BuildRouteJson = json
+End Function
+
+Sub DecodePolyline6(ByVal encoded As String, ByVal maxPts As Integer)
+	RoutePtCount = 0
+	If Len(encoded) = 0 Then Exit Sub
+	If maxPts < 8 Then maxPts = 8
+	If maxPts > 200 Then maxPts = 200
+	Dim index As Integer
+	Dim lat As Integer
+	Dim lng As Integer
+	index = 1
+	lat = 0
+	lng = 0
+	Do While index <= Len(encoded)
+		If RoutePtCount >= maxPts Then Exit Do
+		Dim result As Integer
+		Dim shift As Integer
+		Dim b As Integer
+		result = 0
+		shift = 0
+		Do
+			If index > Len(encoded) Then Exit Do
+			b = Asc(Mid(encoded, index, 1)) - 63
+			index = index + 1
+			result = result Or ((b And 31) << shift)
+			shift = shift + 5
+		Loop While b >= 32
+		Dim dlat As Integer
+		If (result And 1) <> 0 Then
+			dlat = -(result \ 2)
+		Else
+			dlat = result \ 2
+		End If
+		lat = lat + dlat
+
+		result = 0
+		shift = 0
+		Do
+			If index > Len(encoded) Then Exit Do
+			b = Asc(Mid(encoded, index, 1)) - 63
+			index = index + 1
+			result = result Or ((b And 31) << shift)
+			shift = shift + 5
+		Loop While b >= 32
+		Dim dlng As Integer
+		If (result And 1) <> 0 Then
+			dlng = -(result \ 2)
+		Else
+			dlng = result \ 2
+		End If
+		lng = lng + dlng
+
+		RouteLats(RoutePtCount) = CDbl(lat) / 1000000.0
+		RouteLngs(RoutePtCount) = CDbl(lng) / 1000000.0
+		RoutePtCount = RoutePtCount + 1
+	Loop
+End Sub
+
+Sub SetRouteEndpoints(ByVal startLat As Double, ByVal startLng As Double, ByVal destLat As Double, ByVal destLng As Double)
+	ReqStartLat = startLat
+	ReqStartLng = startLng
+	ReqDestLat = destLat
+	ReqDestLng = destLng
+End Sub
+
+Sub RequestRoute()
+	RouteMiles = 0
+	RouteSeconds = 0
+	RouteInstructions = ""
+	RouteShape = ""
+	RouteError = ""
+	RoutePtCount = 0
+
+	Dim jsonBody As String
+	jsonBody = BuildRouteJson()
+	Dim url As String
+	url = VALHALLA_ROUTE & "?json=" & UrlEncode(jsonBody)
+
+	Dim status As Integer
+	Dim statusText As String
+	Dim body As String
+	Call HttpFetch(url, USER_AGENT, 3, status, statusText, body)
+	If status <> 200 Or Len(body) = 0 Then
+		RouteError = "Valhalla HTTP " & CStr(status) & " " & statusText
+		Exit Sub
+	End If
+
+	Dim root As Object
+	Set root = JsonParse(body)
+	If root Is Nothing Then
+		RouteError = "Valhalla JSON parse failed"
+		Exit Sub
+	End If
+
+	Dim trip As Object
+	Set trip = root("trip")
+	If trip Is Nothing Then
+		RouteError = "No trip in response"
+		Exit Sub
+	End If
+
+	Dim summary As Object
+	Set summary = trip("summary")
+	If Not summary Is Nothing Then
+		RouteMiles = CDbl(summary("length"))
+		RouteSeconds = CDbl(summary("time"))
+		RouteMinLat = CDbl(summary("min_lat"))
+		RouteMinLng = CDbl(summary("min_lon"))
+		RouteMaxLat = CDbl(summary("max_lat"))
+		RouteMaxLng = CDbl(summary("max_lon"))
+	End If
+
+	Dim legs As Array
+	legs = trip("legs")
+	If Not IsNull(legs) Then
+		If UBound(legs) >= 0 Then
+			Dim leg0 As Object
+			Set leg0 = legs(0)
+			If Not leg0 Is Nothing Then
+				RouteShape = CStr(leg0("shape"))
+				Dim mans As Array
+				mans = leg0("maneuvers")
+				If Not IsNull(mans) Then
+					Dim mi As Integer
+					Dim shown As Integer
+					shown = 0
+					For mi = 0 To UBound(mans)
+						If shown >= 12 Then Exit For
+						Dim man As Object
+						Set man = mans(mi)
+						If Not man Is Nothing Then
+							Dim instr As String
+							instr = CStr(man("instruction"))
+							If Len(instr) > 0 Then
+								If Len(RouteInstructions) > 0 Then RouteInstructions = RouteInstructions & Chr(10)
+								RouteInstructions = RouteInstructions & "• " & instr
+								shown = shown + 1
+							End If
+						End If
+					Next mi
+				End If
+			End If
+		End If
+	End If
+
+	Call DecodePolyline6(RouteShape, 200)
+	If RoutePtCount < 2 And RouteMiles <= 0 Then
+		RouteError = "Route empty — try different points or fewer avoids"
+	End If
+End Sub

@@ -1,0 +1,43 @@
+' Minimal URL helpers for Photon / Valhalla / Overpass query strings.
+Attribute VB_Name = "UrlUtil"
+
+Function IsUrlSafeChar(ByVal code As Integer) As Boolean
+	If code >= 48 And code <= 57 Then
+		IsUrlSafeChar = True
+	ElseIf code >= 65 And code <= 90 Then
+		IsUrlSafeChar = True
+	ElseIf code >= 97 And code <= 122 Then
+		IsUrlSafeChar = True
+	ElseIf code = 45 Or code = 95 Or code = 46 Or code = 126 Then
+		IsUrlSafeChar = True
+	Else
+		IsUrlSafeChar = False
+	End If
+End Function
+
+Function UrlEncode(ByVal s As String) As String
+	Dim out As String
+	Dim i As Integer
+	Dim ch As String
+	Dim code As Integer
+	Dim hx As String
+	out = ""
+	For i = 1 To Len(s)
+		ch = Mid(s, i, 1)
+		code = Asc(ch)
+		If IsUrlSafeChar(code) Then
+			out = out & ch
+		ElseIf code = 32 Then
+			out = out & "%20"
+		Else
+			hx = Hex(code)
+			If Len(hx) < 2 Then hx = "0" & hx
+			out = out & "%" & hx
+		End If
+	Next i
+	UrlEncode = out
+End Function
+
+Function FormatCoord(ByVal v As Double) As String
+	FormatCoord = Replace(CStr(v), ",", ".")
+End Function

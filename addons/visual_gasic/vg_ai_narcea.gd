@@ -880,6 +880,9 @@ Mouse in QB space: _MouseX/_MouseY/_MouseButton after SCREEN — mapped into the
 Project Settings: vg/classic/enabled (Narcea retro lane), vg/classic/clip_playfield (split modes).
 Regression: test_proj/test_suite/test_qb_screen.vg + test_screen_box_host.vg
 Full app sample: samples/apps/climatist_poc/ (Now + Pattern + Discussion + Settings; not web_hello).
+VG GPS sample: samples/apps/vg_gps/ — Photon search, Valhalla route + exclude_polygons avoid,
+  OSM Overpass hazards (not Waze), Navigate via VGAndroidBridge.OpenUrl → OsmAnd/browser.
+  Desktop GPS stub uses NYC; demo hazards seed when Overpass is empty.
 
 === HTTP / HTTPS (VGHttpRequest, Http.Get) ===
 Sync GET from game code:

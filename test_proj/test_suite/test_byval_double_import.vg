@@ -1,0 +1,81 @@
+' Cross-module ByVal Double regressions from vg_gps.
+' Must pass under default Tier2 JIT (do not require VG_JIT=0).
+Import "byval_double_import_helper.vg"
+Attribute VB_Name = "TestByvalDoubleImport"
+
+Sub _Ready()
+	' --- literals across import ---
+	Dim lng As Double
+	lng = EchoDouble(-73.9857)
+	If Abs(lng + 73.9857) < 0.0001 Then
+		Print "PASS: byval_double_import_neg"
+	Else
+		Print "FAIL: byval_double_import_neg: got " & CStr(lng)
+	End If
+
+	' --- SetEndpointsStr then FormatCoordHelper(module dim) from inside helper ---
+	' Call FormatCoordHelper enough times to cross Tier2 HOT_THRESHOLD; a prior
+	' bug returned 0.0 for every call after the function was mis-compiled.
+	Call SetEndpointsStr("40.7484", "-73.9857")
+	Dim built As String
+	Dim warm As Integer
+	For warm = 1 To 4
+		built = BuildFromModuleDims()
+	Next warm
+	If InStr(built, "40.7484") > 0 And InStr(built, "-73.9857") > 0 Then
+		Print "PASS: byval_double_format_module_dim"
+	Else
+		Print "FAIL: byval_double_format_module_dim: got " & built
+	End If
+
+	built = BuildFromModuleDimsLocalCStr()
+	If InStr(built, "40.7484") > 0 And InStr(built, "-73.9857") > 0 Then
+		Print "PASS: byval_double_cstr_module_dim"
+	Else
+		Print "FAIL: byval_double_cstr_module_dim: got " & built
+	End If
+
+	' --- caller FormatCoordHelper(GetLng()) ---
+	Dim s As String
+	Dim i As Integer
+	For i = 1 To 4
+		s = FormatCoordHelper(GetLng())
+	Next i
+	If InStr(s, "73.9857") > 0 And Left(s, 1) = "-" Then
+		Print "PASS: byval_double_format_getlng"
+	Else
+		Print "FAIL: byval_double_format_getlng: got " & s
+	End If
+
+	' --- SetEndpointsDouble with negative literal ---
+	Call SetEndpointsDouble(40.7484, -73.9857)
+	If Abs(GetLng() + 73.9857) < 0.0001 Then
+		Print "PASS: byval_double_set_endpoints"
+	Else
+		Print "FAIL: byval_double_set_endpoints: lng=" & CStr(GetLng())
+	End If
+
+	' --- ByVal Doubles + ByRef Arrays (vg_gps shape) ---
+	Dim avoidLat(7) As Double
+	Dim avoidLng(7) As Double
+	avoidLat(0) = 40.754
+	avoidLng(0) = -73.989
+	Dim json As String
+	json = BuildWithArrays(40.7484, -73.9857, 40.758, -73.9855, avoidLat, avoidLng, 1)
+	If InStr(json, "-73.9857") > 0 And InStr(json, "-73.9855") > 0 And InStr(json, """ac"":1") > 0 Then
+		Print "PASS: byval_double_with_byref_array"
+	Else
+		Print "FAIL: byval_double_with_byref_array: got " & json
+	End If
+
+	' --- cross-module write to imported Dim (should update helper state) ---
+	gLat = 12.5
+	gLng = -45.5
+	If Abs(GetLat() - 12.5) < 0.0001 And Abs(GetLng() + 45.5) < 0.0001 Then
+		Print "PASS: byval_double_cross_module_dim_write"
+	Else
+		Print "FAIL: byval_double_cross_module_dim_write: lat=" & CStr(GetLat()) & " lng=" & CStr(GetLng())
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

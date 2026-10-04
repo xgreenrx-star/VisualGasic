@@ -1,0 +1,46 @@
+' Helper for test_byval_double_import.vg — ByVal Double across Import.
+Attribute VB_Name = "ByvalDoubleImportHelper"
+
+Dim gStored As Double
+Dim gLat As Double
+Dim gLng As Double
+
+Function EchoDouble(ByVal v As Double) As Double
+	EchoDouble = v
+End Function
+
+Function FormatCoordHelper(ByVal v As Double) As String
+	FormatCoordHelper = Replace(CStr(v), ",", ".")
+End Function
+
+' Same pattern as vg_gps UrlUtil.FormatCoord called from ValhallaRoute.BuildRouteJson
+Function BuildFromModuleDims() As String
+	BuildFromModuleDims = FormatCoordHelper(gLat) & "/" & FormatCoordHelper(gLng)
+End Function
+
+Function BuildFromModuleDimsLocalCStr() As String
+	BuildFromModuleDimsLocalCStr = Replace(CStr(gLat), ",", ".") & "/" & Replace(CStr(gLng), ",", ".")
+End Function
+
+Sub SetEndpointsStr(ByVal latS As String, ByVal lngS As String)
+	gLat = Val(latS)
+	gLng = Val(lngS)
+End Sub
+
+Sub SetEndpointsDouble(ByVal lat As Double, ByVal lng As Double)
+	gLat = lat
+	gLng = lng
+End Sub
+
+' Mix ByVal Double with ByRef Array (vg_gps BuildRouteJson signature shape)
+Function BuildWithArrays(ByVal startLat As Double, ByVal startLng As Double, ByVal destLat As Double, ByVal destLng As Double, ByRef avoidLats As Array, ByRef avoidLngs As Array, ByVal avoidCount As Integer) As String
+	BuildWithArrays = "{""lat"":" & CStr(startLat) & ",""lon"":" & CStr(startLng) & ",""dlat"":" & CStr(destLat) & ",""dlng"":" & CStr(destLng) & ",""ac"":" & CStr(avoidCount) & "}"
+End Function
+
+Function GetLat() As Double
+	GetLat = gLat
+End Function
+
+Function GetLng() As Double
+	GetLng = gLng
+End Function

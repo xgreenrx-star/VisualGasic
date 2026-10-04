@@ -1,0 +1,431 @@
+' =============================================================================
+' VG GPS — search, Valhalla drive route + avoid, OSM hazards, OsmAnd handoff
+' =============================================================================
+' Photon (search) → Valhalla (route + exclude_polygons) → OSM Overpass (hazards)
+' Navigate → VGAndroidBridge.OpenUrl (OsmAnd / browser)
+'
+' Desktop GPS stub: Empire State area (NYC). Hazards are OSM tags, not Waze.
+' Root Import list must include every module (imports are not transitive).
+' =============================================================================
+Attribute VB_Name = "VgGpsMain"
+
+Import "HttpUtil.vg"
+Import "UrlUtil.vg"
+Import "PhotonSearch.vg"
+Import "ValhallaRoute.vg"
+Import "Hazards.vg"
+
+Const SCREEN_W As Integer = 960
+Const SCREEN_H As Integer = 720
+Const MAP_TOP As Integer = 210
+Const MAP_BOTTOM As Integer = 520
+
+Dim startLat As Double
+Dim startLng As Double
+Dim destLat As Double
+Dim destLng As Double
+Dim destName As String
+
+Dim selectedHazard As Integer
+Dim statusLine As String
+Dim lastError As String
+Dim gpsLine As String
+
+Sub _Ready()
+	Me.set_process(True)
+	' Avoid unary-minus literals in some call sites — assign then negate.
+	startLat = 40.7484
+	startLng = 73.9857
+	startLng = -startLng
+	destLat = 40.758
+	destLng = 73.9855
+	destLng = -destLng
+	destName = "Times Square, New York"
+	selectedHazard = -1
+	statusLine = "Ready — Search → Route → Hazards → Avoid # → Navigate"
+	lastError = ""
+	Call ClearAvoids
+	Call RefreshGps
+	If Not Permission.Has("location") Then
+		Permission.Request "location"
+	End If
+	Call EnsureUi
+	QueueRedraw
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Call RefreshGps
+End Sub
+
+Sub RefreshGps()
+	Dim lat As Double
+	Dim lng As Double
+	lat = GPS.Lat()
+	lng = GPS.Lng()
+	If Abs(lat) < 0.0001 And Abs(lng) < 0.0001 Then
+		gpsLine = "GPS: (desktop stub) NYC " & Replace(CStr(startLat), ",", ".") & ", " & Replace(CStr(startLng), ",", ".")
+	Else
+		startLat = lat
+		startLng = lng
+		gpsLine = "GPS: " & Replace(CStr(lat), ",", ".") & ", " & Replace(CStr(lng), ",", ".") & "  ±" & Format(GPS.Accuracy(), "0") & "m"
+	End If
+End Sub
+
+Sub EnsureUi()
+	Dim layer As Object
+	Set layer = Me.get_node_or_null("Ui")
+	If Not layer Is Nothing Then Exit Sub
+
+	Set layer = CreateNode("CanvasLayer")
+	layer.name = "Ui"
+	AddChild layer
+
+	Dim searchBox As Object
+	Set searchBox = CreateNode("LineEdit")
+	searchBox.name = "SearchBox"
+	searchBox.Left = 12
+	searchBox.Top = 44
+	searchBox.Width = 520
+	searchBox.Height = 32
+	searchBox.Text = "Empire State Building"
+	layer.AddChild searchBox
+
+	Call AttachBtn(layer, "BtnSearch", "Search", 544, 44, 100, 32, "BtnSearch_Click")
+	Call AttachBtn(layer, "BtnRoute", "Route", 652, 44, 90, 32, "BtnRoute_Click")
+	Call AttachBtn(layer, "BtnHazards", "Hazards", 750, 44, 90, 32, "BtnHazards_Click")
+	Call AttachBtn(layer, "BtnAvoid", "Avoid #", 848, 44, 96, 32, "BtnAvoid_Click")
+
+	Call AttachBtn(layer, "BtnClearAvoid", "Clear avoids", 12, 84, 120, 28, "BtnClearAvoid_Click")
+	Call AttachBtn(layer, "BtnAvoidMid", "Avoid mid-route", 140, 84, 140, 28, "BtnAvoidMid_Click")
+	Call AttachBtn(layer, "BtnNavigate", "Navigate (OsmAnd)", 292, 84, 160, 28, "BtnNavigate_Click")
+	Call AttachBtn(layer, "BtnPick1", "Use #1", 464, 84, 70, 28, "BtnPick1_Click")
+	Call AttachBtn(layer, "BtnPick2", "Use #2", 542, 84, 70, 28, "BtnPick2_Click")
+	Call AttachBtn(layer, "BtnPick3", "Use #3", 620, 84, 70, 28, "BtnPick3_Click")
+	Call AttachBtn(layer, "BtnHazPrev", "Haz <", 700, 84, 70, 28, "BtnHazPrev_Click")
+	Call AttachBtn(layer, "BtnHazNext", "Haz >", 778, 84, 70, 28, "BtnHazNext_Click")
+End Sub
+
+Sub AttachBtn(ByVal parent As Object, ByVal nodeName As String, ByVal caption As String, ByVal x As Integer, ByVal y As Integer, ByVal w As Integer, ByVal h As Integer, ByVal handler As String)
+	Dim b As Object
+	Set b = CreateNode("Button")
+	b.name = nodeName
+	b.Caption = caption
+	b.Left = x
+	b.Top = y
+	b.Width = w
+	b.Height = h
+	parent.AddChild b
+	Connect b, "pressed", handler
+End Sub
+
+Function SearchBoxText() As String
+	SearchBoxText = ""
+	Dim layer As Object
+	Set layer = Me.get_node_or_null("Ui")
+	If layer Is Nothing Then Exit Function
+	Dim box As Object
+	Set box = layer.get_node_or_null("SearchBox")
+	If box Is Nothing Then Exit Function
+	SearchBoxText = CStr(box.Text)
+End Function
+
+Sub BtnSearch_Click()
+	lastError = ""
+	statusLine = "Searching Photon…"
+	QueueRedraw
+	Call PhotonSearch(SearchBoxText(), 5)
+	If Len(PhotonError) > 0 Then
+		lastError = PhotonError
+		statusLine = "Search failed"
+	Else
+		statusLine = "Found " & CStr(PhotonCount) & " — Use #1/#2/#3"
+		If PhotonCount > 0 Then Call ApplyDestination(0)
+	End If
+	QueueRedraw
+End Sub
+
+Sub ApplyDestination(ByVal idx As Integer)
+	If idx < 0 Or idx >= PhotonCount Then Exit Sub
+	destLat = PhotonLats(idx)
+	destLng = PhotonLngs(idx)
+	destName = PhotonNames(idx)
+	statusLine = "Destination: " & destName
+	QueueRedraw
+End Sub
+
+Sub BtnPick1_Click()
+	Call ApplyDestination(0)
+End Sub
+
+Sub BtnPick2_Click()
+	Call ApplyDestination(1)
+End Sub
+
+Sub BtnPick3_Click()
+	Call ApplyDestination(2)
+End Sub
+
+Sub BtnRoute_Click()
+	Call DoRoute
+End Sub
+
+Sub DoRoute()
+	lastError = ""
+	statusLine = "Routing via Valhalla (avoids=" & CStr(AvoidCount) & ")…"
+	QueueRedraw
+	Call SetRouteEndpoints(startLat, startLng, destLat, destLng)
+	Call RequestRoute
+	If Len(RouteError) > 0 Then
+		lastError = RouteError
+		statusLine = "Route failed"
+		QueueRedraw
+		Exit Sub
+	End If
+	Dim mins As Integer
+	mins = CInt(RouteSeconds / 60.0)
+	statusLine = "Route " & CStr(RouteMiles) & " mi · ~" & CStr(mins) & " min · pts " & CStr(RoutePtCount) & " · avoids " & CStr(AvoidCount)
+	QueueRedraw
+End Sub
+
+Sub BtnHazards_Click()
+	lastError = ""
+	statusLine = "Loading OSM hazards…"
+	QueueRedraw
+
+	Dim minLat As Double
+	Dim minLng As Double
+	Dim maxLat As Double
+	Dim maxLng As Double
+	If RoutePtCount >= 2 Then
+		minLat = RouteMinLat
+		minLng = RouteMinLng
+		maxLat = RouteMaxLat
+		maxLng = RouteMaxLng
+	Else
+		minLat = startLat
+		maxLat = startLat
+		minLng = startLng
+		maxLng = startLng
+		If destLat < minLat Then minLat = destLat
+		If destLat > maxLat Then maxLat = destLat
+		If destLng < minLng Then minLng = destLng
+		If destLng > maxLng Then maxLng = destLng
+	End If
+
+	Call FetchOsmHazards(minLat, minLng, maxLat, maxLng)
+	If HazCount = 0 Then
+		Dim midLat As Double
+		Dim midLng As Double
+		midLat = (startLat + destLat) / 2.0
+		midLng = (startLng + destLng) / 2.0
+		Call SeedDemoHazards(midLat, midLng)
+		If Len(HazError) > 0 Then
+			lastError = HazError & " — DEMO hazards"
+		Else
+			lastError = "No OSM hazards in bbox — DEMO hazards (not live Waze)"
+		End If
+	End If
+	selectedHazard = 0
+	statusLine = "Hazards: " & CStr(HazCount) & " — Haz </> then Avoid #"
+	QueueRedraw
+End Sub
+
+Sub BtnHazPrev_Click()
+	If HazCount <= 0 Then Exit Sub
+	selectedHazard = selectedHazard - 1
+	If selectedHazard < 0 Then selectedHazard = HazCount - 1
+	statusLine = "Selected #" & CStr(selectedHazard + 1) & ": " & HazLabels(selectedHazard)
+	QueueRedraw
+End Sub
+
+Sub BtnHazNext_Click()
+	If HazCount <= 0 Then Exit Sub
+	selectedHazard = selectedHazard + 1
+	If selectedHazard >= HazCount Then selectedHazard = 0
+	statusLine = "Selected #" & CStr(selectedHazard + 1) & ": " & HazLabels(selectedHazard)
+	QueueRedraw
+End Sub
+
+Sub BtnAvoid_Click()
+	If selectedHazard < 0 Or selectedHazard >= HazCount Then
+		lastError = "Load Hazards and select one first"
+		QueueRedraw
+		Exit Sub
+	End If
+	Call AddAvoidPoint(HazLats(selectedHazard), HazLngs(selectedHazard))
+	statusLine = "Avoiding hazard #" & CStr(selectedHazard + 1) & " — re-routing…"
+	QueueRedraw
+	Call DoRoute
+End Sub
+
+Sub BtnAvoidMid_Click()
+	Dim midLat As Double
+	Dim midLng As Double
+	midLat = (startLat + destLat) / 2.0
+	midLng = (startLng + destLng) / 2.0
+	Call AddAvoidPoint(midLat, midLng)
+	statusLine = "Avoid mid-route — re-routing…"
+	QueueRedraw
+	Call DoRoute
+End Sub
+
+Sub BtnClearAvoid_Click()
+	Call ClearAvoids
+	statusLine = "Cleared avoid zones"
+	QueueRedraw
+End Sub
+
+Sub BtnNavigate_Click()
+	Dim url As String
+	url = "https://osmand.net/map?end=" & Replace(CStr(destLat), ",", ".") & "," & Replace(CStr(destLng), ",", ".") & "&mode=car"
+	Dim android As Object
+	Set android = New VGAndroidBridge
+	android.OpenUrl url
+	statusLine = "Opened navigate URL (OsmAnd if installed)"
+	QueueRedraw
+End Sub
+
+Sub Permission_Granted(ByVal perm As String)
+	If perm = "location" Then
+		Call RefreshGps
+		QueueRedraw
+	End If
+End Sub
+
+Sub LonLatToScreen(ByVal lat As Double, ByVal lng As Double, ByRef outX As Integer, ByRef outY As Integer)
+	Dim minLat As Double
+	Dim maxLat As Double
+	Dim minLng As Double
+	Dim maxLng As Double
+	minLat = RouteMinLat
+	maxLat = RouteMaxLat
+	minLng = RouteMinLng
+	maxLng = RouteMaxLng
+	If Abs(maxLat - minLat) < 0.0002 Then
+		minLat = startLat - 0.01
+		maxLat = startLat + 0.01
+		If destLat < minLat Then minLat = destLat - 0.01
+		If destLat > maxLat Then maxLat = destLat + 0.01
+	End If
+	If Abs(maxLng - minLng) < 0.0002 Then
+		minLng = startLng - 0.01
+		maxLng = startLng + 0.01
+		If destLng < minLng Then minLng = destLng - 0.01
+		If destLng > maxLng Then maxLng = destLng + 0.01
+	End If
+	Dim padLat As Double
+	Dim padLng As Double
+	padLat = (maxLat - minLat) * 0.08
+	padLng = (maxLng - minLng) * 0.08
+	minLat = minLat - padLat
+	maxLat = maxLat + padLat
+	minLng = minLng - padLng
+	maxLng = maxLng + padLng
+
+	Dim mapL As Integer
+	Dim mapT As Integer
+	Dim mapW As Integer
+	Dim mapH As Integer
+	mapL = 12
+	mapT = MAP_TOP
+	mapW = SCREEN_W - 24
+	mapH = MAP_BOTTOM - MAP_TOP
+
+	Dim nx As Double
+	Dim ny As Double
+	nx = (lng - minLng) / (maxLng - minLng)
+	ny = (maxLat - lat) / (maxLat - minLat)
+	outX = mapL + CInt(nx * CDbl(mapW))
+	outY = mapT + CInt(ny * CDbl(mapH))
+End Sub
+
+Sub _Draw()
+	Cls
+	DrawRect 0, 0, SCREEN_W, SCREEN_H, Color8(18, 22, 30), True
+	DrawString "VG GPS", 12, 10, Color8(120, 200, 255), 18
+	DrawString "Photon · Valhalla avoid · OSM hazards · OsmAnd handoff", 100, 14, Color8(140, 150, 170), 12
+
+	DrawString gpsLine, 12, 120, Color8(200, 210, 220), 13
+	DrawString "Dest: " & destName & "  (" & Replace(CStr(destLat), ",", ".") & ", " & Replace(CStr(destLng), ",", ".") & ")", 12, 140, Color8(220, 230, 240), 13
+	DrawString statusLine, 12, 160, Color8(160, 220, 160), 13
+	If Len(lastError) > 0 Then
+		DrawString lastError, 12, 180, Color8(255, 140, 120), 12
+	End If
+
+	DrawRect 12, MAP_TOP, SCREEN_W - 24, MAP_BOTTOM - MAP_TOP, Color8(28, 34, 46), True
+	DrawRect 12, MAP_TOP, SCREEN_W - 24, MAP_BOTTOM - MAP_TOP, Color8(60, 70, 90), False
+
+	If RoutePtCount >= 2 Then
+		Dim i As Integer
+		For i = 0 To RoutePtCount - 2
+			Dim x1 As Integer
+			Dim y1 As Integer
+			Dim x2 As Integer
+			Dim y2 As Integer
+			Call LonLatToScreen(RouteLats(i), RouteLngs(i), x1, y1)
+			Call LonLatToScreen(RouteLats(i + 1), RouteLngs(i + 1), x2, y2)
+			DrawLine x1, y1, x2, y2, Color8(80, 180, 255)
+		Next i
+	End If
+
+	Dim sx As Integer
+	Dim sy As Integer
+	Dim dx As Integer
+	Dim dy As Integer
+	Call LonLatToScreen(startLat, startLng, sx, sy)
+	Call LonLatToScreen(destLat, destLng, dx, dy)
+	DrawRect sx - 4, sy - 4, 8, 8, Color8(80, 255, 120), True
+	DrawRect dx - 4, dy - 4, 8, 8, Color8(255, 100, 100), True
+
+	Dim a As Integer
+	For a = 0 To AvoidCount - 1
+		Dim ax As Integer
+		Dim ay As Integer
+		Call LonLatToScreen(AvoidLats(a), AvoidLngs(a), ax, ay)
+		DrawRect ax - 10, ay - 10, 20, 20, Color8(255, 200, 60), False
+	Next a
+
+	Dim h As Integer
+	For h = 0 To HazCount - 1
+		Dim hx As Integer
+		Dim hy As Integer
+		Call LonLatToScreen(HazLats(h), HazLngs(h), hx, hy)
+		If h = selectedHazard Then
+			DrawRect hx - 5, hy - 5, 10, 10, Color8(255, 80, 80), True
+		Else
+			DrawRect hx - 3, hy - 3, 6, 6, Color8(255, 160, 80), True
+		End If
+	Next h
+
+	DrawString "green=start  red=dest  yellow=avoid  orange=hazard", 20, MAP_BOTTOM - 18, Color8(130, 140, 155), 11
+
+	Dim y As Integer
+	y = MAP_BOTTOM + 8
+	DrawString "Search results:", 12, y, Color8(180, 190, 200), 12
+	y = y + 18
+	Dim r As Integer
+	For r = 0 To PhotonCount - 1
+		If r >= 5 Then Exit For
+		DrawString CStr(r + 1) & ". " & PhotonNames(r), 20, y, Color8(210, 215, 225), 12
+		y = y + 16
+	Next r
+
+	Dim iy As Integer
+	iy = MAP_BOTTOM + 8
+	DrawString "Turns:", 520, iy, Color8(180, 190, 200), 12
+	iy = iy + 16
+	If Len(RouteInstructions) > 0 Then
+		Dim lines As Array
+		lines = Split(RouteInstructions, Chr(10))
+		Dim li As Integer
+		For li = 0 To UBound(lines)
+			If li >= 8 Then Exit For
+			DrawString CStr(lines(li)), 520, iy, Color8(200, 205, 215), 11
+			iy = iy + 14
+		Next li
+	End If
+
+	If HazCount > 0 And selectedHazard >= 0 And selectedHazard < HazCount Then
+		DrawString "Hazard #" & CStr(selectedHazard + 1) & ": " & HazLabels(selectedHazard), 12, SCREEN_H - 28, Color8(255, 180, 120), 12
+	End If
+End Sub
