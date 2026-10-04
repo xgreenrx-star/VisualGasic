@@ -10,6 +10,7 @@ const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
 const VGCausalChain = preload("res://addons/visual_gasic/vg_causal_chain.gd")
 const SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const SpriteUx = preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
+const VectorResolver = preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
 
 var editor_plugin  # EditorPlugin (untyped to allow test mocking)
 var object_list  # VGComboBox — left dropdown (Object)
@@ -58,6 +59,7 @@ const EVENTS_FORM = ["Load", "Unload", "Click", "MouseDown", "MouseUp", "MouseMo
 const COLOR_DIM := Color(0.45, 0.45, 0.5)
 const COLOR_IMPORTED_PROC := Color(0.52, 0.78, 1.0)
 const COLOR_SPRITE := Color(0.95, 0.78, 0.35)
+const COLOR_VECTOR := Color(0.45, 0.82, 0.95)
 
 func _init():
 	name = "Code Navigator"
@@ -280,6 +282,7 @@ func refresh_objects():
 				_on_object_selected(0)
 			_add_import_modules_section()
 			_add_sprites_section()
+			_add_vectors_section()
 			_apply_pending_selection()
 			return
 		# No cache — fall back to (General)-only standalone module view
@@ -300,6 +303,7 @@ func refresh_objects():
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
 		_append_imported_public_procedures_for_general({})
 		_add_sprites_section()
+		_add_vectors_section()
 		if event_list.item_count > 0:
 			event_list.select(0)
 		_add_import_modules_section()
@@ -369,6 +373,7 @@ func refresh_objects():
 	# Imported helper modules (VB6 Project Explorer → Modules)
 	_add_import_modules_section()
 	_add_sprites_section()
+	_add_vectors_section()
 
 	# Re-apply any pending programmatic selection (from Wire Event / double-click).
 	# This runs AFTER the normal selection-restore so it always wins.
@@ -385,6 +390,19 @@ func _add_sprites_section() -> void:
 	object_list.add_item("(Sprites)")
 	object_list.set_item_metadata(idx, {"type": "sprites", "name": "(Sprites)"})
 	object_list.set_item_custom_color(idx, COLOR_SPRITE)
+
+
+func _add_vectors_section() -> void:
+	var vg_text := _get_current_vg_text()
+	if vg_text.is_empty():
+		return
+	var blocks: Array = VectorResolver.enumerate_blocks(vg_text)
+	if blocks.is_empty():
+		return
+	var idx: int = object_list.item_count
+	object_list.add_item("(Vectors)")
+	object_list.set_item_metadata(idx, {"type": "vectors", "name": "(Vectors)"})
+	object_list.set_item_custom_color(idx, COLOR_VECTOR)
 
 
 func _populate_sprite_events() -> void:
@@ -412,6 +430,39 @@ func _populate_sprite_events() -> void:
 		event_list.add_item("  ✏ Edit %s…" % label)
 		event_list.set_item_metadata(eidx2, {
 			"type": "sprite_block",
+			"label": label,
+			"line": label_line,
+			"edit": true,
+		})
+	if event_list.item_count > 0:
+		event_list.select(0)
+
+
+func _populate_vector_events() -> void:
+	event_list.clear()
+	var vg_text := _get_current_vg_text()
+	var blocks: Array = VectorResolver.enumerate_blocks(vg_text)
+	for block in blocks:
+		var label := str(block.get("label", ""))
+		var label_line: int = int(block.get("label_line", -1))
+		var full := VectorResolver.resolve_at_line(vg_text, label_line)
+		var vw := int(full.get("view_w", 0))
+		var vh := int(full.get("view_h", 0))
+		var shapes: Array = full.get("shapes", []) as Array
+		var display := "%s  %d×%d  %d shape(s)" % [label, vw, vh, shapes.size()]
+		var eidx: int = event_list.item_count
+		event_list.add_item(display)
+		event_list.set_item_metadata(eidx, {
+			"type": "vector_block",
+			"label": label,
+			"line": label_line,
+			"edit": false,
+		})
+		event_list.set_item_custom_color(eidx, COLOR_VECTOR)
+		var eidx2: int = event_list.item_count
+		event_list.add_item("  ✏ Edit %s…" % label)
+		event_list.set_item_metadata(eidx2, {
+			"type": "vector_block",
 			"label": label,
 			"line": label_line,
 			"edit": true,
@@ -768,6 +819,10 @@ func _on_object_selected(idx):
 	if meta is Dictionary and meta.get("type", "") == "sprites":
 		_populate_sprite_events()
 		return
+
+	if meta is Dictionary and meta.get("type", "") == "vectors":
+		_populate_vector_events()
+		return
 	
 	# Handle (General) selection — VB6 shows (Declarations) + standalone procedures only.
 	# Control event handlers (Button1_Click, etc.) belong under their own object entry.
@@ -913,6 +968,19 @@ func _on_event_selected(idx):
 				)
 				if not sec.is_empty():
 					editor_plugin._on_sprite_data_edit_requested(sec)
+		return
+
+	# --- Inline *Vector Data blocks ---
+	if obj_meta is Dictionary and obj_meta.get("type", "") == "vectors":
+		if event_meta is Dictionary and event_meta.get("type", "") == "vector_block":
+			_navigate_to_line_in_vg(int(event_meta.get("line", 0)))
+			if bool(event_meta.get("edit", false)) and editor_plugin \
+					and editor_plugin.has_method("_on_vector_data_edit_requested"):
+				var sec := VectorResolver.resolve_at_line(
+					_get_current_vg_text(), int(event_meta.get("line", 0))
+				)
+				if not sec.is_empty():
+					editor_plugin._on_vector_data_edit_requested(sec)
 		return
 
 	# --- (General) section ---

@@ -282,9 +282,11 @@ var _view_3d_btn: Button = null
 var _pending_2d_dblclick: Dictionary = {}  # {node_name, event_suffix, event_params}
 ## Whether the IDE is currently showing the Sprite Editor view
 var _showing_sprite_view: bool = false
+var _showing_vector_view: bool = false
 var _showing_grid_view: bool = false
 ## Embedded Sprite Editor (Piskel-style pixel art editor)
 var _vg_sprite_editor = null
+var _vg_vector_editor = null
 var _vg_grid_editor = null
 
 ## Whether the IDE is currently showing a plugin view (e.g. AGCK)
@@ -1034,6 +1036,31 @@ func _enter_tree():
 		view_sprite_btn.pressed.connect(_on_sprite_view_pressed)
 		toolbar_row.add_child(view_sprite_btn)
 
+		var view_vector_btn = Button.new()
+		view_vector_btn.name = "ViewVectorBtn"
+		view_vector_btn.text = "Vector"
+		view_vector_btn.tooltip_text = "Vector Editor — LINE/RECT/POLYLINE art for *Vector Data and .vgv files"
+		view_vector_btn.flat = false
+		view_vector_btn.add_theme_font_size_override("font_size", 11)
+		view_vector_btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		view_vector_btn.add_theme_color_override("font_hover_color", Color(0.85, 0.9, 1.0))
+		var view_vector_style = StyleBoxFlat.new()
+		view_vector_style.bg_color = Color(0.25, 0.35, 0.55)
+		view_vector_style.set_corner_radius_all(4)
+		view_vector_style.content_margin_left = 6
+		view_vector_style.content_margin_right = 6
+		view_vector_style.content_margin_top = 2
+		view_vector_style.content_margin_bottom = 2
+		view_vector_btn.add_theme_stylebox_override("normal", view_vector_style)
+		var view_vector_hover = view_vector_style.duplicate()
+		view_vector_hover.bg_color = Color(0.32, 0.42, 0.65)
+		view_vector_btn.add_theme_stylebox_override("hover", view_vector_hover)
+		var view_vector_pressed = view_vector_style.duplicate()
+		view_vector_pressed.bg_color = Color(0.18, 0.28, 0.45)
+		view_vector_btn.add_theme_stylebox_override("pressed", view_vector_pressed)
+		view_vector_btn.pressed.connect(_on_vector_view_pressed)
+		toolbar_row.add_child(view_vector_btn)
+
 		# ── Freeze Previews toggle — pauses live custom control animation ──
 		var freeze_btn = Button.new()
 		freeze_btn.name = "FreezePreviewsBtn"
@@ -1148,8 +1175,12 @@ func _enter_tree():
 				_embedded_code_editor.file_path_open_hex_grid_requested.connect(_on_hex_editor_open_grid)
 			if _embedded_code_editor.has_signal("file_path_open_sprite_requested"):
 				_embedded_code_editor.file_path_open_sprite_requested.connect(open_sprite_editor)
+			if _embedded_code_editor.has_signal("file_path_open_vector_requested"):
+				_embedded_code_editor.file_path_open_vector_requested.connect(open_vector_editor)
 			if _embedded_code_editor.has_signal("sprite_data_edit_requested"):
 				_embedded_code_editor.sprite_data_edit_requested.connect(_on_sprite_data_edit_requested)
+			if _embedded_code_editor.has_signal("vector_data_edit_requested"):
+				_embedded_code_editor.vector_data_edit_requested.connect(_on_vector_data_edit_requested)
 			if _embedded_code_editor.has_signal("file_path_open_grid_editor_requested"):
 				_embedded_code_editor.file_path_open_grid_editor_requested.connect(open_grid_editor)
 			if _embedded_code_editor.has_signal("file_path_reveal_browser_requested"):
@@ -1287,6 +1318,30 @@ func _enter_tree():
 				_vg_sprite_editor
 			)
 			print("VisualGasic: Sprite Editor created")
+
+		var vgvector_script = load("res://addons/visual_gasic/vg_vector_editor.gd")
+		if vgvector_script:
+			_vg_vector_editor = vgvector_script.new()
+			_vg_vector_editor.visible = false
+			_vg_vector_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_vg_vector_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			_vg_vector_editor.back_to_form_requested.connect(_on_vector_editor_back)
+			_vg_vector_editor.vector_saved.connect(_on_vector_saved)
+			if _vg_vector_editor.has_signal("vector_data_saved"):
+				_vg_vector_editor.vector_data_saved.connect(_on_vector_data_saved)
+			center_stack.add_child(_vg_vector_editor)
+			VGPluginRegistry.get_instance().register_provider(
+				"vector_editor",
+				{
+					"name": "VG Vector Editor",
+					"provides": ["asset_editor.vector"],
+					"handles_extensions": ["vgv"],
+					"priority": 10,
+					"enabled": true,
+				},
+				_vg_vector_editor
+			)
+			print("VisualGasic: Vector Editor created")
 
 		var vggrid_script = load("res://addons/visual_gasic/vg_datafile_grid_editor.gd")
 		if vggrid_script:
@@ -2011,6 +2066,11 @@ func _on_2d_view_pressed() -> void:
 func _on_sprite_view_pressed() -> void:
 	_show_sprite_view()
 
+
+func _on_vector_view_pressed() -> void:
+	open_vector_editor()
+
+
 ## Called when the sprite editor saves a file.
 func _on_sprite_saved(path: String) -> void:
 	print("VisualGasic: Sprite saved to ", path)
@@ -2113,6 +2173,34 @@ func _on_sprite_editor_back() -> void:
 	_show_form_view()
 
 
+func _on_vector_saved(path: String) -> void:
+	print("VisualGasic: Vector saved to ", path)
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Vector saved: " + path.get_file()
+
+
+func _on_vector_data_saved(section: Dictionary) -> void:
+	var label := str(section.get("label", "Vector"))
+	print("VisualGasic: Vector Data saved: ", label)
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Vector Data saved: " + label
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+		_embedded_code_editor.flush_for_run()
+
+
+func _on_vector_editor_back() -> void:
+	if is_instance_valid(_vg_vector_editor) and _vg_vector_editor.has_method("is_data_mode") \
+			and bool(_vg_vector_editor.is_data_mode()):
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path"):
+			var p: String = str(_embedded_code_editor.get_file_path())
+			if not p.is_empty() and not _legacy_vg_ide_shell_is_active():
+				_open_vg_script_in_editor(p, -1, true)
+				return
+		_show_code_view()
+		return
+	_show_form_view()
+
+
 ## Routes asset_opened events from VGAssetBus into a view switch when a
 ## built-in editor is the recipient. AGCK's "Open in VG Sprite Editor"
 ## bridge depends on this — without it, the PNG loads into a hidden
@@ -2121,6 +2209,8 @@ func _on_asset_bus_opened(_path: String, by_plugin_id: String) -> void:
 	match by_plugin_id:
 		"sprite_editor":
 			_show_sprite_view()
+		"vector_editor":
+			_show_vector_view()
 		"vg_2d_editor":
 			_show_2d_view()
 		"vg_3d_editor":
@@ -2140,6 +2230,7 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = true
 
@@ -2163,6 +2254,8 @@ func _on_vg_plugin_activated(plugin_id: String) -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 
@@ -10583,6 +10676,7 @@ func _show_code_view() -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = false
 
@@ -10605,6 +10699,8 @@ func _show_code_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 	if is_instance_valid(_embedded_code_editor):
@@ -10666,13 +10762,14 @@ func _open_working_nodes_for_path(wnodes_path: String) -> void:
 
 ## Switch the center panel from code editor or 3D editor back to form canvas.
 func _show_form_view() -> void:
-	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_grid_view and not _showing_plugin_view:
+	if not _showing_code_view and not _showing_3d_view and not _showing_2d_view and not _showing_sprite_view and not _showing_vector_view and not _showing_grid_view and not _showing_plugin_view:
 		return
 	if not is_instance_valid(_ide_layout):
 		_showing_code_view = false
 		_showing_3d_view = false
 		_showing_2d_view = false
 		_showing_sprite_view = false
+		_showing_vector_view = false
 		_showing_grid_view = false
 		_showing_plugin_view = false
 		return
@@ -10685,6 +10782,7 @@ func _show_form_view() -> void:
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = false
 
@@ -10709,6 +10807,8 @@ func _show_form_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 
@@ -10794,6 +10894,7 @@ func _reset_vg_canvas_view_flags() -> void:
 	_showing_2d_view = false
 	_showing_3d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = false
 
@@ -10867,6 +10968,7 @@ func _show_vg_3d_view() -> void:
 	_showing_3d_view = true
 	_showing_2d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = false
 
@@ -10890,6 +10992,8 @@ func _show_vg_3d_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 
@@ -10955,6 +11059,7 @@ func _show_vg_2d_view() -> void:
 	_showing_2d_view = true
 	_showing_3d_view = false
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_plugin_view = false
 
@@ -10980,6 +11085,8 @@ func _show_vg_2d_view() -> void:
 		_vg_2d_editor.visible = true
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 
@@ -11052,6 +11159,7 @@ func _show_sprite_view() -> void:
 		_showing_code_view = false
 
 	_showing_sprite_view = true
+	_showing_vector_view = false
 	_showing_grid_view = false
 	_showing_3d_view = false
 	_showing_2d_view = false
@@ -11077,6 +11185,8 @@ func _show_sprite_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = true
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = false
 
@@ -11105,6 +11215,70 @@ func _show_sprite_view() -> void:
 	_set_form_designer_widgets_visible(false)
 
 
+## Switch the center panel to the Vector Editor.
+func _show_vector_view() -> void:
+	if _showing_vector_view:
+		var rps = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+		if rps:
+			rps.visible = true
+		return
+
+	if _showing_code_view:
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.is_dirty():
+			_embedded_code_editor.save_file()
+		_showing_code_view = false
+
+	_showing_vector_view = true
+	_showing_sprite_view = false
+	_showing_grid_view = false
+	_showing_3d_view = false
+	_showing_2d_view = false
+	_showing_plugin_view = false
+
+	if _vg_plugin_manager:
+		_vg_plugin_manager.deactivate_all()
+
+	var center_stack_ve = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack")
+	if center_stack_ve:
+		center_stack_ve.visible = true
+	var canvas_scroll_ve = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/CenterStack/CanvasScroll")
+	if canvas_scroll_ve:
+		canvas_scroll_ve.visible = false
+	if is_instance_valid(_embedded_code_editor):
+		_embedded_code_editor.visible = false
+	if is_instance_valid(_vg_3d_editor):
+		_vg_3d_editor.visible = false
+	if is_instance_valid(_vg_2d_editor):
+		_vg_2d_editor.visible = false
+	if is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = true
+	if is_instance_valid(_vg_grid_editor):
+		_vg_grid_editor.visible = false
+
+	var toolbox_panel_ve = _ide_layout.get_node_or_null("MainHSplit/ToolboxPanel")
+	if toolbox_panel_ve:
+		var wrapper_ve = toolbox_panel_ve.get_node_or_null("ToolboxWrapper")
+		if wrapper_ve:
+			wrapper_ve.visible = false
+		elif is_instance_valid(toolbox):
+			toolbox.visible = false
+		if is_instance_valid(_embedded_code_editor):
+			_set_code_context_rail_in_toolbox(toolbox_panel_ve, false)
+		toolbox_panel_ve.visible = false
+
+	var right_panel_ve = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
+	if right_panel_ve:
+		right_panel_ve.visible = true
+
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Vector Editor"
+
+	print("VisualGasic: Switched to Vector Editor View")
+	_set_form_designer_widgets_visible(false)
+
+
 ## Switch the center panel to the DataFile Grid Editor.
 func _show_grid_view() -> void:
 	if _showing_grid_view:
@@ -11117,6 +11291,7 @@ func _show_grid_view() -> void:
 
 	_showing_grid_view = true
 	_showing_sprite_view = false
+	_showing_vector_view = false
 	_showing_3d_view = false
 	_showing_2d_view = false
 	_showing_plugin_view = false
@@ -11138,6 +11313,8 @@ func _show_grid_view() -> void:
 		_vg_2d_editor.visible = false
 	if is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.visible = false
+	if is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.visible = false
 	if is_instance_valid(_vg_grid_editor):
 		_vg_grid_editor.visible = true
 
@@ -13845,6 +14022,34 @@ func _on_sprite_data_edit_requested(section: Dictionary) -> void:
 	open_sprite_data_editor(code_edit, section)
 
 
+func open_vector_editor(path: String = "") -> void:
+	_show_vector_view()
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and is_instance_valid(_vg_vector_editor) \
+			and _vg_vector_editor.has_method("bind_code_edit_for_data_bridge"):
+		_vg_vector_editor.bind_code_edit_for_data_bridge(code_edit)
+	if not path.is_empty() and is_instance_valid(_vg_vector_editor):
+		_vg_vector_editor.open_file(path)
+
+
+func open_vector_data_editor(code_edit: CodeEdit, section: Dictionary) -> void:
+	if code_edit == null or section.is_empty() or not is_instance_valid(_vg_vector_editor):
+		return
+	_show_vector_view()
+	if _vg_vector_editor.has_method("bind_code_edit_for_data_bridge"):
+		_vg_vector_editor.bind_code_edit_for_data_bridge(code_edit)
+	_vg_vector_editor.open_vector_data(code_edit, section)
+
+
+func _on_vector_data_edit_requested(section: Dictionary) -> void:
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	open_vector_data_editor(code_edit, section)
+
+
 func open_grid_editor(ref: Dictionary) -> void:
 	_show_grid_view()
 	if is_instance_valid(_vg_grid_editor):
@@ -16412,12 +16617,15 @@ func _ensure_float_assist() -> void:
 
 func _wire_float_assist_sprite_panel() -> void:
 	var sp: VBoxContainer = _float_assist.get("sprite_panel")
-	if sp == null or not sp.has_signal("edit_in_sprite_editor_requested"):
-		return
-	if sp.has_meta("_vg_sprite_edit_wired"):
-		return
-	sp.set_meta("_vg_sprite_edit_wired", true)
-	sp.edit_in_sprite_editor_requested.connect(_on_sprite_data_edit_requested)
+	if sp != null and sp.has_signal("edit_in_sprite_editor_requested") \
+			and not sp.has_meta("_vg_sprite_edit_wired"):
+		sp.set_meta("_vg_sprite_edit_wired", true)
+		sp.edit_in_sprite_editor_requested.connect(_on_sprite_data_edit_requested)
+	var vp: VBoxContainer = _float_assist.get("vector_panel")
+	if vp != null and vp.has_signal("edit_in_vector_editor_requested") \
+			and not vp.has_meta("_vg_vector_edit_wired"):
+		vp.set_meta("_vg_vector_edit_wired", true)
+		vp.edit_in_vector_editor_requested.connect(_on_vector_data_edit_requested)
 
 
 func _ensure_vg_help_window() -> void:

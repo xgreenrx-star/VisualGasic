@@ -8,6 +8,8 @@ signal summary_insert_requested(line: int, text: String)
 signal hex_editor_open_requested(path: String, grid_width: int, elem_size: int)
 signal grid_editor_open_requested(ref: Dictionary)
 signal sprite_data_edit_requested(section: Dictionary)
+signal vector_data_edit_requested(section: Dictionary)
+signal vector_file_edit_requested(path: String)
 
 const Analyzer := preload("res://addons/visual_gasic/vg_context_analyzer.gd")
 const CaretContext := preload("res://addons/visual_gasic/vg_context_caret_context.gd")
@@ -130,8 +132,16 @@ func _ready() -> void:
 		)
 	_vector_panel = VectorPanelScript.new()
 	_vector_panel.name = "VectorEditor"
+	if _vector_panel.has_signal("edit_in_vector_editor_requested"):
+		_vector_panel.edit_in_vector_editor_requested.connect(func(section: Dictionary) -> void:
+			vector_data_edit_requested.emit(section)
+		)
 	_vector_file_panel = VectorFilePanelScript.new()
 	_vector_file_panel.name = "VgvEditor"
+	if _vector_file_panel.has_signal("edit_in_vector_editor_requested"):
+		_vector_file_panel.edit_in_vector_editor_requested.connect(func(path: String) -> void:
+			vector_file_edit_requested.emit(path)
+		)
 	_datafile_panel = DataFilePanelScript.new()
 	_datafile_panel.name = "DataFilePreview"
 	if _datafile_panel.has_signal("action_requested"):
@@ -693,6 +703,12 @@ func _on_datafile_action(action: String, ref: Dictionary) -> void:
 			hex_editor_open_requested.emit(res_path, gw, es)
 		"edit_grid":
 			grid_editor_open_requested.emit(ref.duplicate(true))
+		"edit_vector":
+			var vpath: String = str(ref.get("abs_path", ""))
+			if vpath.is_empty():
+				vpath = str(ref.get("res_path", ""))
+			if not vpath.is_empty():
+				vector_file_edit_requested.emit(vpath)
 		"choose_file":
 			_pick_datafile_path(ref)
 		"new_level":

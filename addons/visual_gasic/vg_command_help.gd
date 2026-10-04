@@ -567,7 +567,7 @@ static func _build_db() -> void:
 
 	_add("Vector Data",
 		"LabelVector:\nData viewW, viewH, gridStep\nData LINE, x1, y1, x2, y2, R, G, B, A, strokeW\nData POLYLINE, pointCount, x1, y1, …, R, G, B, A, strokeW",
-		"Inline vector-art format for labels ending in Vector (e.g. ShipOutlineVector:). Header: viewW, viewH, gridStep (0 = no snap). Shape rows: LINE, RECT, or POLYLINE plus coordinates and stroke color/width. Editable in Context Rail → Vector data (drag points, Shift+click append, right-click remove). Max 32 shapes / 32 points per polyline inline; larger art uses DataFile \"path.vgv\".",
+		"Inline vector-art format for labels ending in Vector (e.g. ShipOutlineVector:). Header: viewW, viewH, gridStep (0 = no snap). Shape rows: LINE, RECT, or POLYLINE plus coordinates and stroke color/width. Edit in the Vector Editor (toolbar / Context Rail → Edit in Vector Editor… / code chip) or the Context Rail mini-canvas. Max 32 shapes / 32 points per polyline inline; larger art uses DataFile \"path.vgv\".",
 		"ArrowVector:\nData 64, 64, 4\nData LINE, 4, 32, 60, 32, 255, 255, 255, 255, 2\nData POLYLINE, 3, 44, 20, 60, 32, 44, 44, 255, 200, 80, 255, 2\n\nDim raw As Variant\nraw = DataToArray(\"ArrowVector\")", 5785)
 
 	_add("DataToArray",

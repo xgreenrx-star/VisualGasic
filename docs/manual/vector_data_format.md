@@ -55,10 +55,15 @@ Data POLYLINE, 3, 44, 20, 60, 32, 44, 44, 255, 200, 80, 255, 2
 
 ## IDE support
 
-- **Context Rail → Vector data** — live preview while the caret is inside the block
-- Point handles: drag vertices, Shift+click to append a vertex, right-click to remove
-- Mouse wheel zoom; middle-drag pans the preview
-- Edits debounce-write back to the `Data` lines in the source editor
+- **Vector Editor** (center toolbar) — full editor with SELECT / LINE / RECT / POLYLINE / DELETE tools, stroke color/width, grid snap, New/Open/Save. Opens from:
+  - Context Rail → **Edit in Vector Editor…**
+  - Code context menu → **Edit Vector Data as Image…**
+  - Vector chips / gutter click in the code editor
+  - Code Navigator → **(Vectors)** → ✏ Edit…
+  - Path menu on `.vgv` literals → **Open in Vector Editor**
+- **Data mode** — editing a `*Vector:` block; **Save Data** writes shapes back into the open `.vg` buffer
+- **Context Rail → Vector data** — live mini-canvas while the caret is inside the block (drag / Shift+append / right-click remove)
+- **New Vector…** in the Context Rail inserts a labeled block (optional open in Vector Editor)
 
 ## Limits (inline editor)
 
@@ -72,4 +77,4 @@ Larger art: use external **`.vgv`** files via `DataFile "ship.vgv"` (see `demos/
 
 ## External `.vgv` files
 
-The standalone [VGVector demo](../../demos/Graphics/VGVector/VGVector.vg) uses the `VGV1` text format. The IDE vector file panel opens `.vgv` paths referenced by `DataFile` for the same point editing workflow.
+The standalone [VGVector demo](../../demos/Graphics/VGVector/VGVector.vg) uses the `VGV1` text format. Open `.vgv` in the **Vector Editor** (or edit in the Context Rail vector file panel).

@@ -159,7 +159,12 @@ func _rebuild_actions(ref: Dictionary, sniff: Dictionary) -> void:
 		return
 	var kind: String = str(sniff.get("kind_name", ""))
 	if kind == "vgv":
-		_action_row.visible = false
+		var vedit_btn := Button.new()
+		vedit_btn.text = "Edit in Vector Editor…"
+		vedit_btn.tooltip_text = "Open the full Vector Editor on this .vgv file"
+		vedit_btn.pressed.connect(func() -> void: action_requested.emit("edit_vector", ref.duplicate(true)))
+		_action_row.add_child(vedit_btn)
+		_action_row.visible = true
 		return
 	if kind in ["csv", "vgd"]:
 		var edit_btn := Button.new()
@@ -237,7 +242,7 @@ func _render_preview(ref: Dictionary, sniff: Dictionary) -> void:
 		if img:
 			_show_grid_texture(ImageTexture.create_from_image(img))
 	elif kind == "vgv":
-		_hint.text = "Edit shapes in the Vector file panel below."
+		_hint.text = "Edit shapes below, or open the full Vector Editor."
 		_hint.visible = true
 	elif kind == "text":
 		var txt := GridIO.read_text_file(abs_path)

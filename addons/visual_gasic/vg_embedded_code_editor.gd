@@ -30,7 +30,9 @@ signal file_path_open_hex_requested(path: String)
 signal file_path_open_hex_grid_requested(path: String, grid_width: int, elem_size: int)
 signal file_path_open_grid_editor_requested(ref: Dictionary)
 signal file_path_open_sprite_requested(path: String)
+signal file_path_open_vector_requested(path: String)
 signal sprite_data_edit_requested(section: Dictionary)
+signal vector_data_edit_requested(section: Dictionary)
 signal file_path_reveal_browser_requested(path: String)
 signal file_path_open_external_requested(path: String)
 signal dual_editor_refresh_requested()  ## user asked to reload from the other editor
@@ -266,6 +268,10 @@ func _build_ui() -> void:
 		_code_edit.edit_sprite_data_requested.connect(_on_edit_sprite_data_requested)
 	if _code_edit.has_signal("edit_sprite_data_at_line_requested"):
 		_code_edit.edit_sprite_data_at_line_requested.connect(_on_edit_sprite_data_at_line_requested)
+	if _code_edit.has_signal("edit_vector_data_requested"):
+		_code_edit.edit_vector_data_requested.connect(_on_edit_vector_data_requested)
+	if _code_edit.has_signal("edit_vector_data_at_line_requested"):
+		_code_edit.edit_vector_data_at_line_requested.connect(_on_edit_vector_data_at_line_requested)
 	if _code_edit.has_signal("migrate_data_indents_requested"):
 		_code_edit.migrate_data_indents_requested.connect(_on_migrate_data_indents_requested)
 	if _code_edit.has_signal("insert_sprite_draw_helpers_requested"):
@@ -302,6 +308,10 @@ func _build_ui() -> void:
 		_context_rail.grid_editor_open_requested.connect(_on_context_rail_grid_open)
 	if _context_rail.has_signal("sprite_data_edit_requested"):
 		_context_rail.sprite_data_edit_requested.connect(_on_context_rail_sprite_data_edit)
+	if _context_rail.has_signal("vector_data_edit_requested"):
+		_context_rail.vector_data_edit_requested.connect(_on_context_rail_vector_data_edit)
+	if _context_rail.has_signal("vector_file_edit_requested"):
+		_context_rail.vector_file_edit_requested.connect(_on_context_rail_vector_file_edit)
 
 	# ── Bottom panel: Immediate Window ──
 	_build_bottom_panel()
@@ -2489,6 +2499,25 @@ func _on_edit_sprite_data_at_line_requested(line: int) -> void:
 	sprite_data_edit_requested.emit(sec)
 
 
+func _on_edit_vector_data_requested() -> void:
+	if _code_edit == null:
+		return
+	_on_edit_vector_data_at_line_requested(_code_edit.get_caret_line())
+
+
+func _on_edit_vector_data_at_line_requested(line: int) -> void:
+	if _code_edit == null:
+		return
+	const VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
+	var sec := VectorResolver.resolve_at_line(_code_edit.text, line)
+	if sec.is_empty():
+		_update_context_rail()
+		if is_instance_valid(_context_rail):
+			_context_rail.grab_focus()
+		return
+	vector_data_edit_requested.emit(sec)
+
+
 func _on_migrate_data_indents_requested() -> void:
 	if _code_edit == null:
 		return
@@ -2525,6 +2554,18 @@ func _on_context_rail_sprite_data_edit(section: Dictionary) -> void:
 	if section.is_empty():
 		return
 	sprite_data_edit_requested.emit(section)
+
+
+func _on_context_rail_vector_data_edit(section: Dictionary) -> void:
+	if section.is_empty():
+		return
+	vector_data_edit_requested.emit(section)
+
+
+func _on_context_rail_vector_file_edit(path: String) -> void:
+	if path.is_empty():
+		return
+	file_path_open_vector_requested.emit(path)
 
 
 func _on_context_rail_hex_open(path: String, grid_width: int, elem_size: int) -> void:
@@ -2601,6 +2642,8 @@ func _on_file_path_action(action: int, ref: Dictionary) -> void:
 			file_path_open_hex_requested.emit(path)
 		OpenPathResolver.FileMenuAction.OPEN_SPRITE:
 			file_path_open_sprite_requested.emit(path)
+		OpenPathResolver.FileMenuAction.OPEN_VECTOR:
+			file_path_open_vector_requested.emit(path)
 		OpenPathResolver.FileMenuAction.REVEAL_BROWSER:
 			file_path_reveal_browser_requested.emit(path)
 		OpenPathResolver.FileMenuAction.SHOW_IN_FOLDER:

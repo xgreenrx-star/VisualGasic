@@ -1,8 +1,17 @@
 @tool
 extends Control
-## Shared vector preview canvas: grid snap, point drag, zoom, pan.
+## Shared vector preview canvas: grid snap, point drag, zoom, pan, draw tools.
 
 signal shapes_edited(shapes: Array)
+signal selection_changed(shape_index: int)
+
+enum Tool {
+	SELECT,
+	LINE,
+	RECT,
+	POLYLINE,
+	DELETE,
+}
 
 const HANDLE_R := 5.0
 const MIN_ZOOM := 0.25
@@ -12,6 +21,12 @@ var view_w: int = 320
 var view_h: int = 240
 var grid_step: int = 8
 var shapes: Array = []
+var tool: int = Tool.SELECT
+var stroke_r: int = 255
+var stroke_g: int = 255
+var stroke_b: int = 255
+var stroke_a: int = 255
+var stroke_w: float = 2.0
 
 var _zoom := 1.0
 var _pan := Vector2.ZERO
@@ -20,6 +35,10 @@ var _dragging := false
 var _panning := false
 var _last_mouse := Vector2.ZERO
 var _user_view_override := false
+var _drawing := false
+var _draw_start := Vector2.ZERO
+var _draw_current := Vector2.ZERO
+var _poly_draft: PackedVector2Array = PackedVector2Array()
 
 
 func _ready() -> void:
@@ -63,10 +82,32 @@ func get_shapes() -> Array:
 	return _duplicate_shapes(shapes)
 
 
+func set_tool(t: int) -> void:
+	tool = t
+	_drawing = false
+	_poly_draft = PackedVector2Array()
+	queue_redraw()
+
+
+func set_stroke(r: int, g: int, b: int, a: int = 255, width: float = 2.0) -> void:
+	stroke_r = clampi(r, 0, 255)
+	stroke_g = clampi(g, 0, 255)
+	stroke_b = clampi(b, 0, 255)
+	stroke_a = clampi(a, 0, 255)
+	stroke_w = maxf(0.0, width)
+
+
+func get_selected_shape_index() -> int:
+	return _selected.x
+
+
 func clear_model() -> void:
 	shapes = []
 	_selected = Vector2i(-1, -1)
+	_drawing = false
+	_poly_draft = PackedVector2Array()
 	queue_redraw()
+	selection_changed.emit(-1)
 
 
 func _fit_view() -> void:
@@ -148,6 +189,25 @@ func _on_draw() -> void:
 			draw_line(Vector2(clip.position.x, sy), Vector2(clip.end.x, sy), col, 1.0)
 	for si in shapes.size():
 		_draw_shape(shapes[si], si, clip)
+	# In-progress draw preview
+	if _drawing and tool in [Tool.LINE, Tool.RECT]:
+		var preview := {
+			"type": "LINE" if tool == Tool.LINE else "RECT",
+			"points": PackedVector2Array([_draw_start, _draw_current]),
+			"stroke_r": stroke_r, "stroke_g": stroke_g, "stroke_b": stroke_b,
+			"stroke_a": stroke_a, "stroke_w": stroke_w,
+		}
+		_draw_shape(preview, -1, clip)
+	elif tool == Tool.POLYLINE and _poly_draft.size() > 0:
+		var pts := _poly_draft.duplicate()
+		pts.append(_draw_current)
+		var preview2 := {
+			"type": "POLYLINE",
+			"points": pts,
+			"stroke_r": stroke_r, "stroke_g": stroke_g, "stroke_b": stroke_b,
+			"stroke_a": stroke_a, "stroke_w": stroke_w,
+		}
+		_draw_shape(preview2, -1, clip)
 
 
 func _draw_shape(shape: Dictionary, shape_idx: int, clip: Rect2 = Rect2()) -> void:
@@ -217,32 +277,34 @@ func _on_gui_input(event: InputEvent) -> void:
 			accept_event()
 			return
 		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			if tool == Tool.POLYLINE and _poly_draft.size() >= 2:
+				_commit_polyline()
+				accept_event()
+				return
 			var hit := _hit_handle(mb.position)
 			if hit.x >= 0:
-				_remove_point(hit.x, hit.y)
+				if tool == Tool.DELETE:
+					_delete_shape(hit.x)
+				else:
+					_remove_point(hit.x, hit.y)
 			accept_event()
 			return
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
-				var hit := _hit_handle(mb.position)
-				if hit.x >= 0:
-					_selected = hit
-					_dragging = true
-				elif mb.shift_pressed:
-					_append_point(_screen_to_world(mb.position))
-				else:
-					_selected = Vector2i(-1, -1)
-				queue_redraw()
+				_handle_left_press(mb)
 			else:
-				if _dragging:
-					shapes_edited.emit(get_shapes())
-				_dragging = false
+				_handle_left_release(mb)
 			accept_event()
 	elif event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		if _panning:
 			_pan += mm.position - _last_mouse
 			_last_mouse = mm.position
+			queue_redraw()
+			accept_event()
+			return
+		_draw_current = _snap(_screen_to_world(mm.position))
+		if _drawing or (tool == Tool.POLYLINE and _poly_draft.size() > 0):
 			queue_redraw()
 			accept_event()
 			return
@@ -255,6 +317,90 @@ func _on_gui_input(event: InputEvent) -> void:
 				shapes[_selected.x] = shape
 				queue_redraw()
 			accept_event()
+
+
+func _handle_left_press(mb: InputEventMouseButton) -> void:
+	var world := _snap(_screen_to_world(mb.position))
+	match tool:
+		Tool.DELETE:
+			var hit_d := _hit_handle(mb.position)
+			if hit_d.x >= 0:
+				_delete_shape(hit_d.x)
+			return
+		Tool.LINE, Tool.RECT:
+			_drawing = true
+			_draw_start = world
+			_draw_current = world
+			queue_redraw()
+			return
+		Tool.POLYLINE:
+			_draw_current = world
+			_poly_draft.append(world)
+			queue_redraw()
+			return
+		_:
+			var hit := _hit_handle(mb.position)
+			if hit.x >= 0:
+				_selected = hit
+				_dragging = true
+				selection_changed.emit(_selected.x)
+			elif mb.shift_pressed:
+				_append_point(world)
+			else:
+				_selected = Vector2i(-1, -1)
+				selection_changed.emit(-1)
+			queue_redraw()
+
+
+func _handle_left_release(_mb: InputEventMouseButton) -> void:
+	if tool in [Tool.LINE, Tool.RECT] and _drawing:
+		_drawing = false
+		if _draw_start.distance_to(_draw_current) < 0.5:
+			queue_redraw()
+			return
+		var typ := "LINE" if tool == Tool.LINE else "RECT"
+		shapes.append({
+			"type": typ,
+			"points": PackedVector2Array([_draw_start, _draw_current]),
+			"stroke_r": stroke_r, "stroke_g": stroke_g, "stroke_b": stroke_b,
+			"stroke_a": stroke_a, "stroke_w": stroke_w if tool == Tool.LINE else stroke_w,
+		})
+		_selected = Vector2i(shapes.size() - 1, 1)
+		selection_changed.emit(_selected.x)
+		shapes_edited.emit(get_shapes())
+		queue_redraw()
+		return
+	if _dragging:
+		shapes_edited.emit(get_shapes())
+	_dragging = false
+
+
+func _commit_polyline() -> void:
+	if _poly_draft.size() < 2:
+		_poly_draft = PackedVector2Array()
+		queue_redraw()
+		return
+	shapes.append({
+		"type": "POLYLINE",
+		"points": _poly_draft.duplicate(),
+		"stroke_r": stroke_r, "stroke_g": stroke_g, "stroke_b": stroke_b,
+		"stroke_a": stroke_a, "stroke_w": stroke_w,
+	})
+	_selected = Vector2i(shapes.size() - 1, _poly_draft.size() - 1)
+	_poly_draft = PackedVector2Array()
+	selection_changed.emit(_selected.x)
+	shapes_edited.emit(get_shapes())
+	queue_redraw()
+
+
+func _delete_shape(shape_idx: int) -> void:
+	if shape_idx < 0 or shape_idx >= shapes.size():
+		return
+	shapes.remove_at(shape_idx)
+	_selected = Vector2i(-1, -1)
+	selection_changed.emit(-1)
+	queue_redraw()
+	shapes_edited.emit(get_shapes())
 
 
 func _remove_point(shape_idx: int, point_idx: int) -> void:

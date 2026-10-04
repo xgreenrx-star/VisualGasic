@@ -4,7 +4,7 @@ extends RefCounted
 
 const AUDIO_EXTS: PackedStringArray = ["wav", "ogg", "mp3"]
 const IMAGE_EXTS: PackedStringArray = ["png", "jpg", "jpeg", "webp", "bmp", "gif"]
-const VECTOR_EXTS: PackedStringArray = ["svg"]
+const VECTOR_EXTS: PackedStringArray = ["svg", "vgv"]
 const TEXT_EXTS: PackedStringArray = ["txt", "json", "cfg", "csv", "log", "md", "vg", "ini", "xml"]
 const BINARY_EXTS: PackedStringArray = ["bin", "dat"]
 

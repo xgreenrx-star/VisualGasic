@@ -34,6 +34,8 @@ signal find_in_file_requested(show_replace: bool)              ## In-file Find (
 signal find_in_file_nav_requested(advance: bool)             ## F3 (true) / Shift+F3 (false) — next/prev match
 signal edit_sprite_data_requested()                            ## Emitted from context menu / thumb / gutter in a *Sprite Data block
 signal edit_sprite_data_at_line_requested(line: int)           ## Open Sprite Editor for block containing this 0-based line
+signal edit_vector_data_requested()                            ## Context menu / chip → Vector Editor
+signal edit_vector_data_at_line_requested(line: int)           ## Open Vector Editor for block containing this 0-based line
 signal migrate_data_indents_requested()                        ## Indent legacy flat *Sprite/*Vector Data blocks
 signal insert_sprite_draw_helpers_requested()                  ## Insert DataToArray + DrawDataSprite stubs for active sprite
 signal sprite_blocks_changed()                                 ## *Sprite block list/thumbs changed (Code Navigator)
@@ -456,6 +458,7 @@ enum ContextMenuItem {
 	SURROUND_SELECT_CASE,
 	TOGGLE_MINIMAP,
 	EDIT_SPRITE_DATA,
+	EDIT_VECTOR_DATA,
 	MIGRATE_DATA_INDENTS,
 	INSERT_SPRITE_DRAW_HELPERS,
 }
@@ -493,6 +496,7 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Sort Lines", ContextMenuItem.SORT_LINES)
 	_context_menu.add_separator()
 	_context_menu.add_item("Edit Sprite Data as Image…", ContextMenuItem.EDIT_SPRITE_DATA)
+	_context_menu.add_item("Edit Vector Data as Image…", ContextMenuItem.EDIT_VECTOR_DATA)
 	_context_menu.add_item("Insert DrawDataSprite helpers…", ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS)
 	_context_menu.add_item("Indent *Sprite/*Vector Data for folding…", ContextMenuItem.MIGRATE_DATA_INDENTS)
 	_file_menu = PopupMenu.new()
@@ -598,6 +602,8 @@ func _on_context_menu_item(id: int) -> void:
 			_toggle_minimap()
 		ContextMenuItem.EDIT_SPRITE_DATA:
 			edit_sprite_data_requested.emit()
+		ContextMenuItem.EDIT_VECTOR_DATA:
+			edit_vector_data_requested.emit()
 		ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS:
 			insert_sprite_draw_helpers_requested.emit()
 		ContextMenuItem.MIGRATE_DATA_INDENTS:
@@ -658,8 +664,7 @@ func _populate_file_menu(menu: PopupMenu, ref: Dictionary) -> void:
 	elif kind == "text":
 		menu.add_item("Preview as text", _OpenPathResolver.FileMenuAction.PREVIEW)
 	elif kind == "vector":
-		menu.add_item("Open in Vector Editor (WIP)", _OpenPathResolver.FileMenuAction.OPEN_VECTOR)
-		menu.set_item_disabled(menu.get_item_index(_OpenPathResolver.FileMenuAction.OPEN_VECTOR), true)
+		menu.add_item("Open in Vector Editor", _OpenPathResolver.FileMenuAction.OPEN_VECTOR)
 	if kind == "binary" or mode == "binary" or kind == "unknown":
 		menu.add_item("Open in Hex Editor", _OpenPathResolver.FileMenuAction.OPEN_HEX)
 	if kind == "image":
@@ -677,6 +682,7 @@ func _populate_file_menu(menu: PopupMenu, ref: Dictionary) -> void:
 		var item_id := menu.get_item_id(i)
 		if item_id == _OpenPathResolver.FileMenuAction.OPEN_HEX \
 				or item_id == _OpenPathResolver.FileMenuAction.OPEN_SPRITE \
+				or item_id == _OpenPathResolver.FileMenuAction.OPEN_VECTOR \
 				or item_id == _OpenPathResolver.FileMenuAction.PREVIEW \
 				or item_id == _OpenPathResolver.FileMenuAction.PLAY_AUDIO \
 				or item_id == _OpenPathResolver.FileMenuAction.OPEN_EXTERNAL:
@@ -732,9 +738,13 @@ func _show_context_menu(at_position: Vector2) -> void:
 		var multi_line_sel := sel_active and get_selection_from_line() != get_selection_to_line()
 		_context_menu.set_item_disabled(sort_idx, not multi_line_sel)
 	var in_sprite := not _SpriteResolver.resolve_at_line(text, get_caret_line()).is_empty()
+	var in_vector := not _VectorResolver.resolve_at_line(text, get_caret_line()).is_empty()
 	var sprite_idx := _context_menu.get_item_index(ContextMenuItem.EDIT_SPRITE_DATA)
 	if sprite_idx >= 0:
 		_context_menu.set_item_disabled(sprite_idx, not in_sprite)
+	var vector_idx := _context_menu.get_item_index(ContextMenuItem.EDIT_VECTOR_DATA)
+	if vector_idx >= 0:
+		_context_menu.set_item_disabled(vector_idx, not in_vector)
 	var draw_idx := _context_menu.get_item_index(ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS)
 	if draw_idx >= 0:
 		_context_menu.set_item_disabled(draw_idx, not in_sprite and _sprite_block_ranges.is_empty())
@@ -2314,13 +2324,23 @@ func _gui_input(event: InputEvent) -> void:
 				edit_sprite_data_at_line_requested.emit(int(hit.get("line", get_caret_line())))
 				accept_event()
 				return
-			# Double-click on a *Sprite label line also opens the editor.
+			var vhit := _vector_hit_at(mb_sprite.position)
+			if not vhit.is_empty():
+				edit_vector_data_at_line_requested.emit(int(vhit.get("line", get_caret_line())))
+				accept_event()
+				return
+			# Double-click on a *Sprite / *Vector label line also opens the editor.
 			if mb_sprite.double_click:
 				var lc_dbl := _line_column_at_pos(mb_sprite.position)
 				if lc_dbl.x >= 0:
 					var sec_dbl := _SpriteResolver.resolve_at_line(text, lc_dbl.x)
 					if not sec_dbl.is_empty() and int(sec_dbl.get("label_line", -1)) == lc_dbl.x:
 						edit_sprite_data_at_line_requested.emit(lc_dbl.x)
+						accept_event()
+						return
+					var vsec_dbl := _VectorResolver.resolve_at_line(text, lc_dbl.x)
+					if not vsec_dbl.is_empty() and int(vsec_dbl.get("label_line", -1)) == lc_dbl.x:
+						edit_vector_data_at_line_requested.emit(lc_dbl.x)
 						accept_event()
 						return
 
@@ -2931,6 +2951,14 @@ func _draw_vector_data_chips(first_visible: int, last_visible: int) -> void:
 			_VectorHighlight.THUMB_LINE, 1.2
 		)
 		_vector_thumb_hits.append({"label": label, "line": label_line, "rect": rect})
+
+
+func _vector_hit_at(local_pos: Vector2) -> Dictionary:
+	for hit in _vector_thumb_hits:
+		var r: Rect2 = hit.get("rect", Rect2())
+		if r.has_point(local_pos):
+			return hit
+	return {}
 
 
 func _sprite_hit_at(local_pos: Vector2) -> Dictionary:
