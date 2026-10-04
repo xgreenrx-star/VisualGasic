@@ -8,6 +8,8 @@ extends HBoxContainer
 
 const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
 const VGCausalChain = preload("res://addons/visual_gasic/vg_causal_chain.gd")
+const SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const SpriteUx = preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 
 var editor_plugin  # EditorPlugin (untyped to allow test mocking)
 var object_list  # VGComboBox — left dropdown (Object)
@@ -55,6 +57,7 @@ const EVENTS_FORM = ["Load", "Unload", "Click", "MouseDown", "MouseUp", "MouseMo
 # Dim colour for unimplemented event handlers (VB6 shows implemented in bold)
 const COLOR_DIM := Color(0.45, 0.45, 0.5)
 const COLOR_IMPORTED_PROC := Color(0.52, 0.78, 1.0)
+const COLOR_SPRITE := Color(0.95, 0.78, 0.35)
 
 func _init():
 	name = "Code Navigator"
@@ -276,6 +279,7 @@ func refresh_objects():
 				object_list.select(0)
 				_on_object_selected(0)
 			_add_import_modules_section()
+			_add_sprites_section()
 			_apply_pending_selection()
 			return
 		# No cache — fall back to (General)-only standalone module view
@@ -295,6 +299,7 @@ func refresh_objects():
 			event_list.add_item(display)
 			event_list.set_item_metadata(eidx, {"type": "procedure", "line": proc["line"], "name": proc["name"], "kind": proc["kind"]})
 		_append_imported_public_procedures_for_general({})
+		_add_sprites_section()
 		if event_list.item_count > 0:
 			event_list.select(0)
 		_add_import_modules_section()
@@ -363,10 +368,57 @@ func refresh_objects():
 
 	# Imported helper modules (VB6 Project Explorer → Modules)
 	_add_import_modules_section()
+	_add_sprites_section()
 
 	# Re-apply any pending programmatic selection (from Wire Event / double-click).
 	# This runs AFTER the normal selection-restore so it always wins.
 	_apply_pending_selection()
+
+func _add_sprites_section() -> void:
+	var vg_text := _get_current_vg_text()
+	if vg_text.is_empty():
+		return
+	var blocks: Array = SpriteResolver.enumerate_blocks(vg_text)
+	if blocks.is_empty():
+		return
+	var idx: int = object_list.item_count
+	object_list.add_item("(Sprites)")
+	object_list.set_item_metadata(idx, {"type": "sprites", "name": "(Sprites)"})
+	object_list.set_item_custom_color(idx, COLOR_SPRITE)
+
+
+func _populate_sprite_events() -> void:
+	event_list.clear()
+	var vg_text := _get_current_vg_text()
+	var blocks: Array = SpriteResolver.enumerate_blocks(vg_text)
+	for block in blocks:
+		var label := str(block.get("label", ""))
+		var label_line: int = int(block.get("label_line", -1))
+		var full := SpriteResolver.resolve_at_line(vg_text, label_line)
+		var w := int(full.get("w", 0))
+		var h := int(full.get("h", 0))
+		var pal := SpriteUx.palette_name(int(full.get("palette_id", 0)))
+		var display := "%s  %d×%d  %s" % [label, w, h, pal]
+		var eidx: int = event_list.item_count
+		event_list.add_item(display)
+		event_list.set_item_metadata(eidx, {
+			"type": "sprite_block",
+			"label": label,
+			"line": label_line,
+			"edit": false,
+		})
+		event_list.set_item_custom_color(eidx, COLOR_SPRITE)
+		var eidx2: int = event_list.item_count
+		event_list.add_item("  ✏ Edit %s…" % label)
+		event_list.set_item_metadata(eidx2, {
+			"type": "sprite_block",
+			"label": label,
+			"line": label_line,
+			"edit": true,
+		})
+	if event_list.item_count > 0:
+		event_list.select(0)
+
 
 func _add_import_modules_section() -> void:
 	var vg_path := _get_current_vg_path()
@@ -712,6 +764,10 @@ func _on_object_selected(idx):
 	if meta is Dictionary and meta.get("type", "") == "imported_module":
 		_populate_import_module_events(meta)
 		return
+
+	if meta is Dictionary and meta.get("type", "") == "sprites":
+		_populate_sprite_events()
+		return
 	
 	# Handle (General) selection — VB6 shows (Declarations) + standalone procedures only.
 	# Control event handlers (Button1_Click, etc.) belong under their own object entry.
@@ -844,6 +900,19 @@ func _on_event_selected(idx):
 	if obj_meta is Dictionary and obj_meta.get("type", "") == "imported_module":
 		if event_meta and event_meta.get("type", "") == "imported_procedure":
 			_navigate_to_module_procedure(str(event_meta.get("path", "")), int(event_meta.get("line", 0)))
+		return
+
+	# --- Inline *Sprite Data blocks ---
+	if obj_meta is Dictionary and obj_meta.get("type", "") == "sprites":
+		if event_meta is Dictionary and event_meta.get("type", "") == "sprite_block":
+			_navigate_to_line_in_vg(int(event_meta.get("line", 0)))
+			if bool(event_meta.get("edit", false)) and editor_plugin \
+					and editor_plugin.has_method("_on_sprite_data_edit_requested"):
+				var sec := SpriteResolver.resolve_at_line(
+					_get_current_vg_text(), int(event_meta.get("line", 0))
+				)
+				if not sec.is_empty():
+					editor_plugin._on_sprite_data_edit_requested(sec)
 		return
 
 	# --- (General) section ---

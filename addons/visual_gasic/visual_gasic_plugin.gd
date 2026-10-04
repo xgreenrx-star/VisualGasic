@@ -48,6 +48,7 @@ const _EditorAssist = preload("res://addons/visual_gasic/vg_editor_assist.gd")
 const _SpriteHighlight = preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
 const _VectorHighlight = preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
 const _SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const _SpriteDataUx = preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 const _DatafileExternal = preload("res://addons/visual_gasic/vg_datafile_external.gd")
 const NATIVE_SPRITE_MENU_ID := 98501
 
@@ -2022,6 +2023,80 @@ func _on_sprite_data_saved(section: Dictionary) -> void:
 	print("VisualGasic: Sprite Data saved: ", label)
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Sprite Data saved: " + label
+	_live_refresh_sprite_data(section)
+	call_deferred("_offer_insert_sprite_draw_helpers", section)
+
+
+func _offer_insert_sprite_draw_helpers(section: Dictionary) -> void:
+	var label := str(section.get("label", ""))
+	if label.is_empty():
+		return
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit == null:
+		return
+	var existing := _SpriteDataUx.find_data_to_array_vars(code_edit.text, label)
+	var already_draws := false
+	for v in existing:
+		if code_edit.text.findn("DrawDataSprite %s" % v) >= 0 \
+				or code_edit.text.findn("DrawDataSprite(%s" % v) >= 0:
+			already_draws = true
+			break
+	if existing.size() > 0 and already_draws:
+		return
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Wire DrawDataSprite?"
+	dlg.dialog_text = "Insert Dim + DataToArray(\"%s\") cache and a DrawDataSprite call in _Draw?" % label
+	dlg.ok_button_text = "Insert helpers"
+	dlg.cancel_button_text = "Not now"
+	dlg.confirmed.connect(func() -> void:
+		var result := _SpriteDataUx.insert_draw_helpers(code_edit, label, 2)
+		if is_instance_valid(_status_bar):
+			_status_bar.text = "  " + str(result.get("message", "Helpers inserted"))
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func() -> void: dlg.queue_free())
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
+
+
+## Push edited sprite tape into a running game (reassign DataToArray caches).
+func _live_refresh_sprite_data(section: Dictionary) -> void:
+	var label := str(section.get("label", ""))
+	if label.is_empty():
+		return
+	if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("flush_for_run"):
+		_embedded_code_editor.flush_for_run()
+	if not debugger_plugin or not debugger_plugin.has_method("is_session_active"):
+		return
+	if not debugger_plugin.is_session_active():
+		return
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit == null:
+		return
+	var vars := _SpriteDataUx.find_data_to_array_vars(code_edit.text, label)
+	if vars.is_empty():
+		if is_instance_valid(_status_bar):
+			_status_bar.text = "  Sprite Data saved: %s (flushed; no DataToArray cache to live-refresh)" % label
+		return
+	var tape: Array = []
+	tape.append(int(section.get("w", 0)))
+	tape.append(int(section.get("h", 0)))
+	tape.append(int(section.get("transparent", 0)))
+	tape.append(int(section.get("palette_id", 0)))
+	var pixels: PackedInt32Array = section.get("pixels", PackedInt32Array())
+	for p in pixels:
+		tape.append(int(p))
+	# Push the new tape into cached Variant arrays (DrawDataSprite reads these).
+	# Do not re-call DataToArray — the in-memory DATA store may still be stale until next Play.
+	for v in vars:
+		if debugger_plugin.has_method("set_variable"):
+			debugger_plugin.set_variable(0, v, tape)
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Sprite Data live-refreshed: %s → %s" % [label, ", ".join(vars)]
 
 
 func _on_sprite_editor_back() -> void:
@@ -11527,6 +11602,14 @@ func _ensure_vg_editor_project_settings() -> void:
 		_register_project_setting("vg/editor/context_rail_enabled", true, TYPE_BOOL)
 	if not ProjectSettings.has_setting("vg/editor/context_rail_width"):
 		_register_project_setting("vg/editor/context_rail_width", 260, TYPE_INT, PROPERTY_HINT_RANGE, "160,480")
+	# *Sprite / *Vector Data fold policy in the VG Code Editor.
+	_register_project_setting(
+		"vg/editor/sprite_data_fold",
+		"on_change",
+		TYPE_STRING,
+		PROPERTY_HINT_ENUM,
+		"on_change,on_open,never"
+	)
 
 
 func _register_narcea_live_project_settings() -> void:
@@ -13734,6 +13817,12 @@ func _edit(object):
 ## or via EditorInterface.get_base_control().get_meta("visual_gasic_plugin_instance").
 func open_sprite_editor(path: String = "") -> void:
 	_show_sprite_view()
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	if code_edit and is_instance_valid(_vg_sprite_editor) \
+			and _vg_sprite_editor.has_method("bind_code_edit_for_data_bridge"):
+		_vg_sprite_editor.bind_code_edit_for_data_bridge(code_edit)
 	if not path.is_empty() and is_instance_valid(_vg_sprite_editor):
 		_vg_sprite_editor.open_file(path)
 
@@ -13744,6 +13833,8 @@ func open_sprite_data_editor(code_edit: CodeEdit, section: Dictionary) -> void:
 	if code_edit == null or section.is_empty() or not is_instance_valid(_vg_sprite_editor):
 		return
 	_show_sprite_view()
+	if _vg_sprite_editor.has_method("bind_code_edit_for_data_bridge"):
+		_vg_sprite_editor.bind_code_edit_for_data_bridge(code_edit)
 	_vg_sprite_editor.open_sprite_data(code_edit, section)
 
 

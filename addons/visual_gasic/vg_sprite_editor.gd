@@ -263,6 +263,9 @@ var _data_section: Dictionary = {}
 var _data_palette_id := 0
 var _data_transparent := 0
 var _save_btn: Button = null
+var _data_bridge_btn: Button = null
+## Last .vg CodeEdit offered for "Save as Data…" when not already in Data mode.
+var _bridge_code_edit: CodeEdit = null
 
 # ── UI REFERENCES ────────────────────────────────────────────────────────────
 var _canvas_panel: Control = null        ## the drawing surface
@@ -1579,10 +1582,18 @@ func _build_toolbar(parent: VBoxContainer) -> void:
 	# Export
 	var export_btn := Button.new()
 	export_btn.text = "📤 Export"
-	export_btn.tooltip_text = "Export Spritesheet (Ctrl+E)"
+	export_btn.tooltip_text = "Export PNG / spritesheet (Ctrl+E) — works in Data mode too"
 	_style_tool_button(export_btn)
 	export_btn.pressed.connect(_show_export_dialog)
 	toolbar.add_child(export_btn)
+
+	# PNG ↔ Data bridge
+	_data_bridge_btn = Button.new()
+	_data_bridge_btn.text = "⇄ Data"
+	_data_bridge_btn.tooltip_text = "Save canvas as *Sprite Data block, or import a PNG into the current Data sprite"
+	_style_tool_button(_data_bridge_btn)
+	_data_bridge_btn.pressed.connect(_on_data_bridge_pressed)
+	toolbar.add_child(_data_bridge_btn)
 
 	toolbar.add_child(VSeparator.new())
 
@@ -3399,6 +3410,131 @@ func clear_sprite_data_binding() -> void:
 		_save_btn.text = "💾 Save"
 		_save_btn.tooltip_text = "Save (Ctrl+S)"
 	_update_status()
+
+
+## Remember a .vg buffer so PNG → Data works even before opening a Data block.
+func bind_code_edit_for_data_bridge(code_edit: CodeEdit) -> void:
+	_bridge_code_edit = code_edit
+
+
+func _on_data_bridge_pressed() -> void:
+	if _is_data_mode():
+		_show_import_png_into_data_dialog()
+	else:
+		_show_save_as_data_dialog()
+
+
+func _show_import_png_into_data_dialog() -> void:
+	var dlg := FileDialog.new()
+	dlg.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dlg.access = FileDialog.ACCESS_RESOURCES
+	dlg.filters = PackedStringArray(["*.png;PNG Image", "*.webp;WebP Image", "*.bmp;BMP Image"])
+	dlg.title = "Import PNG into Data sprite"
+	dlg.file_selected.connect(func(path: String) -> void:
+		_import_png_into_data(path)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func() -> void: dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(600, 400))
+
+
+func _import_png_into_data(path: String) -> void:
+	if not _is_data_mode():
+		return
+	var img := Image.load_from_file(path)
+	if img == null:
+		push_warning("[VG Sprite Editor] Could not load: " + path)
+		return
+	img.convert(Image.FORMAT_RGBA8)
+	var w := clampi(img.get_width(), 1, _DataResolver.MAX_INLINE_W)
+	var h := clampi(img.get_height(), 1, _DataResolver.MAX_INLINE_H)
+	if img.get_width() != w or img.get_height() != h:
+		img.resize(w, h, Image.INTERPOLATE_NEAREST)
+		push_warning("[VG Sprite Editor] Imported image clamped to %d×%d for Data sprites" % [w, h])
+	_canvas_size = Vector2i(w, h)
+	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
+	_active_layer_idx = 0
+	_frames = [{ "layers": [img.duplicate()], "duration": 1.0 / _fps }]
+	_active_frame_idx = 0
+	_dirty = true
+	_refresh_layer_list()
+	_refresh_frame_strip()
+	_refresh_canvas()
+	_update_size_label()
+	_update_status()
+	print("[VG Sprite Editor] Imported PNG into Data mode: ", path)
+
+
+func _show_save_as_data_dialog() -> void:
+	var code_edit := _data_code_edit if is_instance_valid(_data_code_edit) else _bridge_code_edit
+	if code_edit == null or not is_instance_valid(code_edit):
+		push_warning("[VG Sprite Editor] Open a .vg file first, then use ⇄ Data to save as a Data block")
+		return
+	var dlg := AcceptDialog.new()
+	dlg.title = "Save as Sprite Data"
+	dlg.size = Vector2i(360, 220)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	dlg.add_child(vb)
+	var hint := Label.new()
+	hint.text = "Creates / overwrites a labeled *Sprite Data block in the open .vg buffer."
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(hint)
+	var label_edit := LineEdit.new()
+	label_edit.placeholder_text = "PlayerSprite"
+	label_edit.text = _DataSync.suggest_label(code_edit.text)
+	vb.add_child(label_edit)
+	var pal_opt := OptionButton.new()
+	for i in range(_DataPalettes.PALETTE_NAMES.size()):
+		pal_opt.add_item(str(_DataPalettes.PALETTE_NAMES[i]), i)
+	vb.add_child(pal_opt)
+	dlg.confirmed.connect(func() -> void:
+		_save_canvas_as_data_block(code_edit, label_edit.text.strip_edges(), pal_opt.selected)
+		dlg.queue_free()
+	)
+	dlg.canceled.connect(func() -> void: dlg.queue_free())
+	add_child(dlg)
+	dlg.popup_centered()
+
+
+func _save_canvas_as_data_block(code_edit: CodeEdit, label: String, palette_id: int) -> void:
+	if code_edit == null:
+		return
+	var w := clampi(_canvas_size.x, 1, _DataResolver.MAX_INLINE_W)
+	var h := clampi(_canvas_size.y, 1, _DataResolver.MAX_INLINE_H)
+	if _canvas_size.x != w or _canvas_size.y != h:
+		_resize_canvas(Vector2i(w, h))
+	var img := _composite_layers()
+	if img.get_width() != w or img.get_height() != h:
+		var cropped := Image.create(w, h, false, Image.FORMAT_RGBA8)
+		cropped.fill(Color(0, 0, 0, 0))
+		cropped.blit_rect(img, Rect2i(0, 0, mini(img.get_width(), w), mini(img.get_height(), h)), Vector2i.ZERO)
+		img = cropped
+	var transparent := 0
+	var pixels := _DataSync.pixels_from_image(img, palette_id, transparent)
+	var lbl := _DataSync.normalize_label(label)
+	var existing := {}
+	for b in _DataResolver.enumerate_blocks(code_edit.text):
+		if str(b.get("label", "")).to_lower() == lbl.to_lower():
+			existing = _DataResolver.resolve_at_line(code_edit.text, int(b.get("label_line", 0)))
+			break
+	if existing.is_empty():
+		var inserted := _DataSync.insert_new_block(
+			code_edit, code_edit.get_caret_line(), lbl, w, h, transparent, palette_id
+		)
+		if not bool(inserted.get("ok", false)):
+			push_warning("[VG Sprite Editor] " + str(inserted.get("error", "insert failed")))
+			return
+		existing = inserted.get("section", {})
+	if not _DataSync.apply_section(code_edit, existing, pixels, w, h, transparent, palette_id):
+		push_warning("[VG Sprite Editor] Failed to write Data for " + lbl)
+		return
+	var refreshed := _DataResolver.resolve_at_line(code_edit.text, int(existing.get("label_line", 0)))
+	if not refreshed.is_empty():
+		open_sprite_data(code_edit, refreshed)
+	sprite_data_saved.emit(refreshed if not refreshed.is_empty() else existing)
+	print("[VG Sprite Editor] Saved canvas as Data block: ", lbl)
 
 
 ## Open a labeled *Sprite Data block from a CodeEdit for painting.

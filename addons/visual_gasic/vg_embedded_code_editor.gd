@@ -264,6 +264,12 @@ func _build_ui() -> void:
 		_code_edit.find_callers_requested.connect(_show_call_hierarchy)
 	if _code_edit.has_signal("edit_sprite_data_requested"):
 		_code_edit.edit_sprite_data_requested.connect(_on_edit_sprite_data_requested)
+	if _code_edit.has_signal("edit_sprite_data_at_line_requested"):
+		_code_edit.edit_sprite_data_at_line_requested.connect(_on_edit_sprite_data_at_line_requested)
+	if _code_edit.has_signal("migrate_data_indents_requested"):
+		_code_edit.migrate_data_indents_requested.connect(_on_migrate_data_indents_requested)
+	if _code_edit.has_signal("insert_sprite_draw_helpers_requested"):
+		_code_edit.insert_sprite_draw_helpers_requested.connect(_on_insert_sprite_draw_helpers_requested)
 	if _code_edit.has_signal("file_path_action"):
 		_code_edit.file_path_action.connect(_on_file_path_action)
 	if _code_edit.has_signal("go_to_definition_requested"):
@@ -1634,6 +1640,8 @@ func load_file(path: String) -> void:
 			_code_edit.clear_breakpointed_lines()
 		_code_edit.text = content
 		_loading_file = false
+		if _code_edit.has_method("reset_sprite_data_ux_state"):
+			_code_edit.reset_sprite_data_ux_state()
 		_restore_breakpoints_for_path(path)
 		_dirty = false
 		set_dual_editor_stale(false)
@@ -2465,14 +2473,52 @@ func _on_context_rail_summary_insert(proc_line: int, text: String) -> void:
 func _on_edit_sprite_data_requested() -> void:
 	if _code_edit == null:
 		return
+	_on_edit_sprite_data_at_line_requested(_code_edit.get_caret_line())
+
+
+func _on_edit_sprite_data_at_line_requested(line: int) -> void:
+	if _code_edit == null:
+		return
 	const SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
-	var sec := SpriteResolver.resolve_at_line(_code_edit.text, _code_edit.get_caret_line())
+	var sec := SpriteResolver.resolve_at_line(_code_edit.text, line)
 	if sec.is_empty():
 		_update_context_rail()
 		if is_instance_valid(_context_rail):
 			_context_rail.grab_focus()
 		return
 	sprite_data_edit_requested.emit(sec)
+
+
+func _on_migrate_data_indents_requested() -> void:
+	if _code_edit == null:
+		return
+	const SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
+	var n := SpriteUx.migrate_all_indents(_code_edit)
+	print("VG Code Editor: ", "Indented %d Data block(s) for folding" % n if n > 0 else "All Data blocks already indented")
+	_on_code_changed()
+
+
+func _on_insert_sprite_draw_helpers_requested() -> void:
+	if _code_edit == null:
+		return
+	const SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+	const SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
+	var sec := SpriteResolver.resolve_at_line(_code_edit.text, _code_edit.get_caret_line())
+	var label := str(sec.get("label", ""))
+	if label.is_empty() and _code_edit.has_method("get_sprite_data_blocks"):
+		var blocks: Array = _code_edit.get_sprite_data_blocks()
+		if blocks.size() > 0:
+			label = str(blocks[0].get("label", ""))
+	if label.is_empty():
+		print("VG Code Editor: Place the caret in a *Sprite Data block first")
+		return
+	var result := SpriteUx.insert_draw_helpers(_code_edit, label, 2)
+	print("VG Code Editor: ", str(result.get("message", "Done")))
+	var jump := int(result.get("draw_line", result.get("load_line", -1)))
+	if jump >= 0:
+		_code_edit.set_caret_line(jump)
+		_code_edit.center_viewport_to_caret()
+	_on_code_changed()
 
 
 func _on_context_rail_sprite_data_edit(section: Dictionary) -> void:

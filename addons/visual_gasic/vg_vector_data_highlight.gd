@@ -6,6 +6,12 @@ const Resolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd"
 const WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 
 const CLEAR := Color(0, 0, 0, 0)
+## Mini preview chip next to *Vector / wire labels (foldable blocks).
+const THUMB_EDGE := 14.0
+const THUMB_PAD := 6.0
+const THUMB_FRAME := Color(0.12, 0.1, 0.22, 0.6)
+const THUMB_FILL := Color(0.55, 0.45, 0.85, 0.85)
+const THUMB_LINE := Color(0.85, 0.8, 1.0, 0.95)
 
 
 static func overlay_colors(code_edit: CodeEdit) -> Dictionary:

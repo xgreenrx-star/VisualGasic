@@ -32,7 +32,11 @@ signal find_references_requested(symbol: String)               ## Emitted for Fi
 signal find_callers_requested(symbol: String)                  ## Emitted for Call Hierarchy (Ctrl+Shift+H)
 signal find_in_file_requested(show_replace: bool)              ## In-file Find (false) or Replace (true) — Ctrl+F / Ctrl+H
 signal find_in_file_nav_requested(advance: bool)             ## F3 (true) / Shift+F3 (false) — next/prev match
-signal edit_sprite_data_requested()                            ## Emitted from context menu in a *Sprite Data block
+signal edit_sprite_data_requested()                            ## Emitted from context menu / thumb / gutter in a *Sprite Data block
+signal edit_sprite_data_at_line_requested(line: int)           ## Open Sprite Editor for block containing this 0-based line
+signal migrate_data_indents_requested()                        ## Indent legacy flat *Sprite/*Vector Data blocks
+signal insert_sprite_draw_helpers_requested()                  ## Insert DataToArray + DrawDataSprite stubs for active sprite
+signal sprite_blocks_changed()                                 ## *Sprite block list/thumbs changed (Code Navigator)
 signal file_path_action(action: int, ref: Dictionary)          ## Open-path context menu (see vg_open_path_resolver.gd)
 
 # =============================================================================
@@ -59,14 +63,29 @@ var _context_click_col: int = -1
 var _highlight_scope: Vector2i = Vector2i(-1, -1)  # Scope range for scope-aware highlighting
 var _sprite_block_ranges: Array = []  # labeled *Sprite Data blocks for background tint
 var _sprite_active_label: String = ""
+var _sprite_thumb_cache: Dictionary = {}  # label → {sig, tex, w, h, full_w, full_h, palette_id, transparent}
+var _sprite_fold_sig: Dictionary = {}     # label → content sig last seen
+var _sprite_pending_fold: Dictionary = {} # label → true when we should fold after caret leaves Data rows
+var _sprite_thumb_hits: Array = []        # {label, line, rect} for click / hover
+var _sprite_gutter_hits: Array = []       # {label, line, rect}
+var _sprite_peek_popup: PopupPanel = null
+var _sprite_peek_tex_rect: TextureRect = null
+var _sprite_peek_label: Label = null
+var _sprite_peek_label_name: String = ""
+var _sprite_open_migrated: bool = false
 var _vector_block_ranges: Array = []  # labeled *Vector Data blocks for background tint
 var _vector_active_label: String = ""
+var _vector_fold_sig: Dictionary = {}
+var _vector_pending_fold: Dictionary = {}
+var _vector_thumb_hits: Array = []
 var _file_path_ranges: Array = []     # Actionable path literals (right-click menu)
 var _string_literal_ranges: Array = [] # Ordinary "..." strings (warm tint only)
 var _file_path_hover: Dictionary = {}
 
 const _SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const _SpriteHighlight := preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const _SpriteSync := preload("res://addons/visual_gasic/vg_sprite_data_sync.gd")
+const _SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 const _VectorResolver := preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
 const _WireResolver := preload("res://addons/visual_gasic/vg_wire_model_resolver.gd")
 const _VectorHighlight := preload("res://addons/visual_gasic/vg_vector_data_highlight.gd")
@@ -437,6 +456,8 @@ enum ContextMenuItem {
 	SURROUND_SELECT_CASE,
 	TOGGLE_MINIMAP,
 	EDIT_SPRITE_DATA,
+	MIGRATE_DATA_INDENTS,
+	INSERT_SPRITE_DRAW_HELPERS,
 }
 
 func _setup_context_menu() -> void:
@@ -472,6 +493,8 @@ func _setup_context_menu() -> void:
 	_context_menu.add_item("Sort Lines", ContextMenuItem.SORT_LINES)
 	_context_menu.add_separator()
 	_context_menu.add_item("Edit Sprite Data as Image…", ContextMenuItem.EDIT_SPRITE_DATA)
+	_context_menu.add_item("Insert DrawDataSprite helpers…", ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS)
+	_context_menu.add_item("Indent *Sprite/*Vector Data for folding…", ContextMenuItem.MIGRATE_DATA_INDENTS)
 	_file_menu = PopupMenu.new()
 	_file_menu.name = "FilePathMenu"
 	_file_menu.id_pressed.connect(_on_file_menu_item)
@@ -575,6 +598,10 @@ func _on_context_menu_item(id: int) -> void:
 			_toggle_minimap()
 		ContextMenuItem.EDIT_SPRITE_DATA:
 			edit_sprite_data_requested.emit()
+		ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS:
+			insert_sprite_draw_helpers_requested.emit()
+		ContextMenuItem.MIGRATE_DATA_INDENTS:
+			migrate_data_indents_requested.emit()
 
 
 func get_file_ref_at_caret() -> Dictionary:
@@ -704,10 +731,13 @@ func _show_context_menu(at_position: Vector2) -> void:
 	if sort_idx >= 0:
 		var multi_line_sel := sel_active and get_selection_from_line() != get_selection_to_line()
 		_context_menu.set_item_disabled(sort_idx, not multi_line_sel)
+	var in_sprite := not _SpriteResolver.resolve_at_line(text, get_caret_line()).is_empty()
 	var sprite_idx := _context_menu.get_item_index(ContextMenuItem.EDIT_SPRITE_DATA)
 	if sprite_idx >= 0:
-		var in_sprite := not _SpriteResolver.resolve_at_line(text, get_caret_line()).is_empty()
 		_context_menu.set_item_disabled(sprite_idx, not in_sprite)
+	var draw_idx := _context_menu.get_item_index(ContextMenuItem.INSERT_SPRITE_DRAW_HELPERS)
+	if draw_idx >= 0:
+		_context_menu.set_item_disabled(draw_idx, not in_sprite and _sprite_block_ranges.is_empty())
 	_popup_menu_at_mouse(_context_menu)
 
 # =============================================================================
@@ -966,8 +996,14 @@ func _on_features_overlay_draw() -> void:
 	var first_visible: int = get_first_visible_line()
 	var last_visible: int = first_visible + get_visible_line_count() + 1
 	last_visible = mini(last_visible, get_line_count())
+	_sprite_thumb_hits.clear()
+	_sprite_gutter_hits.clear()
+	_vector_thumb_hits.clear()
 	_draw_sprite_data_block_highlights(first_visible, last_visible)
+	_draw_sprite_data_gutter_icons(first_visible, last_visible)
+	_draw_sprite_data_thumbnails(first_visible, last_visible)
 	_draw_vector_data_block_highlights(first_visible, last_visible)
+	_draw_vector_data_chips(first_visible, last_visible)
 	_draw_string_literal_highlights(first_visible, last_visible)
 	_draw_file_path_links(first_visible, last_visible)
 	_draw_procedure_separators(first_visible, last_visible)
@@ -2260,14 +2296,34 @@ func _gui_input(event: InputEvent) -> void:
 					accept_event()
 					return
 	
-	# ── File-path hyperlink cursor ──
+	# ── File-path hyperlink cursor + sprite thumb / gutter hover ──
 	if event is InputEventMouseMotion:
 		var mm := event as InputEventMouseMotion
 		if mm.button_mask & MOUSE_BUTTON_MASK_RIGHT:
 			accept_event()
 			return
 		_update_file_path_link_cursor(mm.position)
+		_update_sprite_thumb_hover(mm.position)
 	
+	# ── Sprite thumb / gutter / label click → Sprite Editor ──
+	if event is InputEventMouseButton:
+		var mb_sprite := event as InputEventMouseButton
+		if mb_sprite.button_index == MOUSE_BUTTON_LEFT and mb_sprite.pressed:
+			var hit := _sprite_hit_at(mb_sprite.position)
+			if not hit.is_empty():
+				edit_sprite_data_at_line_requested.emit(int(hit.get("line", get_caret_line())))
+				accept_event()
+				return
+			# Double-click on a *Sprite label line also opens the editor.
+			if mb_sprite.double_click:
+				var lc_dbl := _line_column_at_pos(mb_sprite.position)
+				if lc_dbl.x >= 0:
+					var sec_dbl := _SpriteResolver.resolve_at_line(text, lc_dbl.x)
+					if not sec_dbl.is_empty() and int(sec_dbl.get("label_line", -1)) == lc_dbl.x:
+						edit_sprite_data_at_line_requested.emit(lc_dbl.x)
+						accept_event()
+						return
+
 	# ── Right-click context menu ──
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
@@ -2606,14 +2662,16 @@ func get_symbol_under_caret() -> String:
 ## of _highlight_word.  Scope-aware: local variables only highlight within
 ## the enclosing Sub/Function; module-level variables highlight everywhere.
 func _refresh_sprite_data_highlights() -> void:
-	_sprite_block_ranges = _SpriteResolver.enumerate_blocks(get_text())
-	var sec := _SpriteResolver.resolve_at_line(get_text(), get_caret_line())
+	var src := get_text()
+	_sprite_block_ranges = _SpriteResolver.enumerate_blocks(src)
+	var sec := _SpriteResolver.resolve_at_line(src, get_caret_line())
 	_sprite_active_label = str(sec.get("label", "")) if not sec.is_empty() else ""
-	_vector_block_ranges = _VectorResolver.enumerate_blocks(get_text())
-	_vector_block_ranges.append_array(_WireResolver.enumerate_blocks(get_text()))
-	var vsec := _VectorResolver.resolve_at_line(get_text(), get_caret_line())
+	_refresh_sprite_thumbs_and_folds(src)
+	_vector_block_ranges = _VectorResolver.enumerate_blocks(src)
+	_vector_block_ranges.append_array(_WireResolver.enumerate_blocks(src))
+	var vsec := _VectorResolver.resolve_at_line(src, get_caret_line())
 	if vsec.is_empty():
-		vsec = _WireResolver.resolve_at_line(get_text(), get_caret_line())
+		vsec = _WireResolver.resolve_at_line(src, get_caret_line())
 	_vector_active_label = str(vsec.get("label", "")) if not vsec.is_empty() else ""
 	_file_path_ranges = _OpenPathResolver.enumerate_path_literals(text)
 	_string_literal_ranges = []
@@ -2622,6 +2680,376 @@ func _refresh_sprite_data_highlights() -> void:
 			_string_literal_ranges.append(ref)
 	if _features_overlay:
 		_features_overlay.queue_redraw()
+
+
+## Build / refresh label-line thumbnails and auto-fold indented *Sprite blocks.
+## Fold policy: ProjectSettings vg/editor/sprite_data_fold = on_change|on_open|never.
+func _refresh_sprite_thumbs_and_folds(src: String) -> void:
+	if not _sprite_open_migrated:
+		_sprite_open_migrated = true
+		var migrated := _SpriteUx.migrate_all_indents(self)
+		if migrated > 0:
+			src = get_text()
+			_sprite_block_ranges = _SpriteResolver.enumerate_blocks(src)
+			_vector_block_ranges = _VectorResolver.enumerate_blocks(src)
+			_vector_block_ranges.append_array(_WireResolver.enumerate_blocks(src))
+	var seen: Dictionary = {}
+	var caret := get_caret_line()
+	var fold_on_change := _SpriteUx.should_auto_fold_on_change()
+	var fold_on_open := _SpriteUx.should_auto_fold_on_open()
+	for block in _sprite_block_ranges:
+		var label := str(block.get("label", ""))
+		if label.is_empty():
+			continue
+		seen[label] = true
+		var label_line: int = int(block.get("label_line", -1))
+		var end_line: int = int(block.get("end_line", label_line))
+		var full := _SpriteResolver.resolve_at_line(src, label_line)
+		if full.is_empty():
+			continue
+		var sig := _sprite_block_content_sig(full)
+		_update_sprite_thumb_cache(label, full, sig)
+		var first_sight := not _sprite_fold_sig.has(label)
+		var sig_changed := str(_sprite_fold_sig.get(label, "")) != sig
+		if sig_changed:
+			_sprite_fold_sig[label] = sig
+		var want_fold := false
+		if fold_on_change and (sig_changed or first_sight):
+			want_fold = true
+		elif fold_on_open and first_sight:
+			want_fold = true
+		if want_fold:
+			_sprite_pending_fold[label] = true
+		var caret_on_data := caret > label_line and caret <= end_line
+		if bool(_sprite_pending_fold.get(label, false)) and not caret_on_data:
+			if can_fold_line(label_line) and not is_line_folded(label_line):
+				fold_line(label_line)
+			_sprite_pending_fold[label] = false
+	for key in _sprite_thumb_cache.keys():
+		if not seen.has(key):
+			_sprite_thumb_cache.erase(key)
+	for key in _sprite_fold_sig.keys():
+		if not seen.has(key):
+			_sprite_fold_sig.erase(key)
+	for key in _sprite_pending_fold.keys():
+		if not seen.has(key):
+			_sprite_pending_fold.erase(key)
+	_refresh_vector_folds(src, caret, fold_on_change, fold_on_open)
+	sprite_blocks_changed.emit()
+
+
+func _refresh_vector_folds(src: String, caret: int, fold_on_change: bool, fold_on_open: bool) -> void:
+	var seen: Dictionary = {}
+	for block in _vector_block_ranges:
+		var label := str(block.get("label", ""))
+		if label.is_empty():
+			continue
+		seen[label] = true
+		var label_line: int = int(block.get("label_line", -1))
+		var end_line: int = int(block.get("end_line", label_line))
+		var sig := "%s|%d|%d" % [label, label_line, end_line]
+		# Content fingerprint from raw lines
+		var h := 0
+		for li in range(label_line, end_line + 1):
+			if li >= 0 and li < get_line_count():
+				h = ((h * 33) + hash(get_line(li))) & 0x7fffffff
+		sig += "|%d" % h
+		var first_sight := not _vector_fold_sig.has(label)
+		var sig_changed := str(_vector_fold_sig.get(label, "")) != sig
+		if sig_changed:
+			_vector_fold_sig[label] = sig
+		var want_fold := false
+		if fold_on_change and (sig_changed or first_sight):
+			want_fold = true
+		elif fold_on_open and first_sight:
+			want_fold = true
+		if want_fold:
+			_vector_pending_fold[label] = true
+		var caret_on_data := caret > label_line and caret <= end_line
+		if bool(_vector_pending_fold.get(label, false)) and not caret_on_data:
+			if can_fold_line(label_line) and not is_line_folded(label_line):
+				fold_line(label_line)
+			_vector_pending_fold[label] = false
+	for key in _vector_fold_sig.keys():
+		if not seen.has(key):
+			_vector_fold_sig.erase(key)
+	for key in _vector_pending_fold.keys():
+		if not seen.has(key):
+			_vector_pending_fold.erase(key)
+
+
+func _sprite_block_content_sig(sec: Dictionary) -> String:
+	var pixels: PackedInt32Array = sec.get("pixels", PackedInt32Array())
+	var h := 0
+	for p in pixels:
+		h = ((h * 33) + int(p)) & 0x7fffffff
+	return "%s|%d|%d|%d|%d|%d|%d" % [
+		str(sec.get("label", "")),
+		int(sec.get("w", 0)),
+		int(sec.get("h", 0)),
+		int(sec.get("transparent", 0)),
+		int(sec.get("palette_id", 0)),
+		pixels.size(),
+		h,
+	]
+
+
+func _update_sprite_thumb_cache(label: String, sec: Dictionary, sig: String) -> void:
+	var cur: Dictionary = _sprite_thumb_cache.get(label, {})
+	if str(cur.get("sig", "")) == sig and cur.get("tex") != null:
+		return
+	var w: int = int(sec.get("w", 0))
+	var h: int = int(sec.get("h", 0))
+	if w < 1 or h < 1:
+		return
+	var img: Image = _SpriteSync.image_from_pixels(
+		sec.get("pixels", PackedInt32Array()),
+		w,
+		h,
+		int(sec.get("palette_id", 0)),
+		int(sec.get("transparent", 0))
+	)
+	var edge := float(_SpriteHighlight.THUMB_MAX_EDGE)
+	var scale := edge / float(maxi(w, h))
+	var dw := maxi(1, int(ceil(float(w) * scale)))
+	var dh := maxi(1, int(ceil(float(h) * scale)))
+	if dw != w or dh != h:
+		img.resize(dw, dh, Image.INTERPOLATE_NEAREST)
+	var tex := ImageTexture.create_from_image(img)
+	_sprite_thumb_cache[label] = {
+		"sig": sig,
+		"tex": tex,
+		"w": dw,
+		"h": dh,
+		"full_w": w,
+		"full_h": h,
+		"palette_id": int(sec.get("palette_id", 0)),
+		"transparent": int(sec.get("transparent", 0)),
+		"pixels": sec.get("pixels", PackedInt32Array()),
+	}
+
+
+func _draw_sprite_data_gutter_icons(first_visible: int, last_visible: int) -> void:
+	if _sprite_block_ranges.is_empty() or _features_overlay == null:
+		return
+	var row_height := float(get_line_height())
+	var gutter_w := float(get_total_gutter_width()) if has_method("get_total_gutter_width") else 48.0
+	var icon_w := _SpriteHighlight.GUTTER_ICON_W
+	var x := maxf(2.0, gutter_w - icon_w - 2.0)
+	for block in _sprite_block_ranges:
+		var label := str(block.get("label", ""))
+		var label_line: int = int(block.get("label_line", -1))
+		if label_line < first_visible or label_line > last_visible:
+			continue
+		var pos := get_pos_at_line_column(label_line, 0)
+		if pos.y < 0:
+			continue
+		var y := float(pos.y) - row_height + (row_height - icon_w) * 0.5
+		var rect := Rect2(x, y, icon_w, icon_w)
+		var col := _SpriteHighlight.GUTTER_ICON_HOVER if label == _sprite_peek_label_name \
+			else _SpriteHighlight.GUTTER_ICON_COLOR
+		# Tiny paintbrush: square + tip.
+		_features_overlay.draw_rect(rect.grow(-2.0), col)
+		_features_overlay.draw_line(
+			Vector2(rect.position.x + 2.0, rect.end.y - 2.0),
+			Vector2(rect.end.x - 1.0, rect.position.y + 2.0),
+			col, 1.5
+		)
+		_sprite_gutter_hits.append({"label": label, "line": label_line, "rect": rect})
+
+
+func _draw_sprite_data_thumbnails(first_visible: int, last_visible: int) -> void:
+	if _sprite_block_ranges.is_empty() or _features_overlay == null or _sprite_thumb_cache.is_empty():
+		return
+	var row_height := float(get_line_height())
+	for block in _sprite_block_ranges:
+		var label := str(block.get("label", ""))
+		var label_line: int = int(block.get("label_line", -1))
+		if label_line < first_visible or label_line > last_visible:
+			continue
+		var entry: Dictionary = _sprite_thumb_cache.get(label, {})
+		var tex: Texture2D = entry.get("tex") as Texture2D
+		if tex == null:
+			continue
+		var line_len := get_line(label_line).length()
+		var pos := get_pos_at_line_column(label_line, line_len)
+		if pos.y < 0:
+			continue
+		var tw: float = float(entry.get("w", _SpriteHighlight.THUMB_MAX_EDGE))
+		var th: float = float(entry.get("h", _SpriteHighlight.THUMB_MAX_EDGE))
+		var x := float(pos.x) + _SpriteHighlight.THUMB_PAD
+		var y := float(pos.y) - row_height + (row_height - th) * 0.5
+		var frame := Rect2(x - 1.0, y - 1.0, tw + 2.0, th + 2.0)
+		_features_overlay.draw_rect(frame, _SpriteHighlight.THUMB_FRAME)
+		# Tiny checkerboard so transparent pixels read on dark/light themes.
+		var cell := 3.0
+		var yy := y
+		while yy < y + th:
+			var xx := x
+			var row_i := int((yy - y) / cell)
+			while xx < x + tw:
+				var col_i := int((xx - x) / cell)
+				var cw := mini(cell, x + tw - xx)
+				var ch := mini(cell, y + th - yy)
+				var chk: Color = _SpriteHighlight.THUMB_CHECK_A if ((row_i + col_i) & 1) == 0 \
+					else _SpriteHighlight.THUMB_CHECK_B
+				_features_overlay.draw_rect(Rect2(xx, yy, cw, ch), chk)
+				xx += cell
+			yy += cell
+		_features_overlay.draw_texture_rect(tex, Rect2(x, y, tw, th), false)
+		_sprite_thumb_hits.append({"label": label, "line": label_line, "rect": frame})
+
+
+func _draw_vector_data_chips(first_visible: int, last_visible: int) -> void:
+	if _vector_block_ranges.is_empty() or _features_overlay == null:
+		return
+	var row_height := float(get_line_height())
+	var edge := _VectorHighlight.THUMB_EDGE
+	for block in _vector_block_ranges:
+		var label := str(block.get("label", ""))
+		var label_line: int = int(block.get("label_line", -1))
+		if label_line < first_visible or label_line > last_visible:
+			continue
+		var line_len := get_line(label_line).length()
+		var pos := get_pos_at_line_column(label_line, line_len)
+		if pos.y < 0:
+			continue
+		var x := float(pos.x) + _VectorHighlight.THUMB_PAD
+		var y := float(pos.y) - row_height + (row_height - edge) * 0.5
+		var rect := Rect2(x, y, edge, edge)
+		_features_overlay.draw_rect(rect, _VectorHighlight.THUMB_FRAME)
+		_features_overlay.draw_rect(rect.grow(-2.0), _VectorHighlight.THUMB_FILL)
+		# Simple polyline glyph
+		_features_overlay.draw_line(
+			Vector2(rect.position.x + 3.0, rect.end.y - 3.0),
+			Vector2(rect.position.x + edge * 0.45, rect.position.y + 3.0),
+			_VectorHighlight.THUMB_LINE, 1.2
+		)
+		_features_overlay.draw_line(
+			Vector2(rect.position.x + edge * 0.45, rect.position.y + 3.0),
+			Vector2(rect.end.x - 3.0, rect.end.y - 4.0),
+			_VectorHighlight.THUMB_LINE, 1.2
+		)
+		_vector_thumb_hits.append({"label": label, "line": label_line, "rect": rect})
+
+
+func _sprite_hit_at(local_pos: Vector2) -> Dictionary:
+	for hit in _sprite_thumb_hits:
+		var r: Rect2 = hit.get("rect", Rect2())
+		if r.has_point(local_pos):
+			return hit
+	for hit in _sprite_gutter_hits:
+		var r2: Rect2 = hit.get("rect", Rect2())
+		if r2.has_point(local_pos):
+			return hit
+	return {}
+
+
+func _update_sprite_thumb_hover(local_pos: Vector2) -> void:
+	var hit := _sprite_hit_at(local_pos)
+	if hit.is_empty():
+		_hide_sprite_peek()
+		return
+	var label := str(hit.get("label", ""))
+	if label == _sprite_peek_label_name and is_instance_valid(_sprite_peek_popup) and _sprite_peek_popup.visible:
+		return
+	_show_sprite_peek(label, local_pos)
+
+
+func _ensure_sprite_peek_popup() -> void:
+	if is_instance_valid(_sprite_peek_popup):
+		return
+	_sprite_peek_popup = PopupPanel.new()
+	_sprite_peek_popup.name = "SpriteDataPeek"
+	_sprite_peek_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 4)
+	_sprite_peek_popup.add_child(vb)
+	_sprite_peek_tex_rect = TextureRect.new()
+	_sprite_peek_tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_sprite_peek_tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sprite_peek_tex_rect.custom_minimum_size = Vector2(_SpriteHighlight.PEEK_MAX_EDGE, _SpriteHighlight.PEEK_MAX_EDGE)
+	vb.add_child(_sprite_peek_tex_rect)
+	_sprite_peek_label = Label.new()
+	_sprite_peek_label.add_theme_font_size_override("font_size", 11)
+	vb.add_child(_sprite_peek_label)
+	add_child(_sprite_peek_popup)
+
+
+func _show_sprite_peek(label: String, local_pos: Vector2) -> void:
+	var entry: Dictionary = _sprite_thumb_cache.get(label, {})
+	if entry.is_empty():
+		_hide_sprite_peek()
+		return
+	_ensure_sprite_peek_popup()
+	var w: int = int(entry.get("full_w", 0))
+	var h: int = int(entry.get("full_h", 0))
+	var pid: int = int(entry.get("palette_id", 0))
+	var pixels: PackedInt32Array = entry.get("pixels", PackedInt32Array())
+	if w > 0 and h > 0 and pixels.size() >= w * h:
+		var img: Image = _SpriteSync.image_from_pixels(
+			pixels, w, h, pid, int(entry.get("transparent", 0))
+		)
+		var edge := float(_SpriteHighlight.PEEK_MAX_EDGE)
+		var scale := edge / float(maxi(w, h))
+		var dw := maxi(1, int(ceil(float(w) * scale)))
+		var dh := maxi(1, int(ceil(float(h) * scale)))
+		if dw != w or dh != h:
+			img.resize(dw, dh, Image.INTERPOLATE_NEAREST)
+		_sprite_peek_tex_rect.texture = ImageTexture.create_from_image(img)
+		_sprite_peek_tex_rect.custom_minimum_size = Vector2(dw, dh)
+	else:
+		_sprite_peek_tex_rect.texture = entry.get("tex") as Texture2D
+	_sprite_peek_label.text = "%s  %d×%d  %s" % [
+		label, w, h, _SpriteUx.palette_name(pid)
+	]
+	_sprite_peek_label_name = label
+	var gp := get_global_transform_with_canvas() * local_pos
+	_sprite_peek_popup.reset_size()
+	_sprite_peek_popup.popup(Rect2i(
+		Vector2i(int(gp.x + 12), int(gp.y + 12)),
+		Vector2i(int(_SpriteHighlight.PEEK_MAX_EDGE) + 24, int(_SpriteHighlight.PEEK_MAX_EDGE) + 40)
+	))
+	if _features_overlay:
+		_features_overlay.queue_redraw()
+
+
+func _hide_sprite_peek() -> void:
+	_sprite_peek_label_name = ""
+	if is_instance_valid(_sprite_peek_popup) and _sprite_peek_popup.visible:
+		_sprite_peek_popup.hide()
+	if _features_overlay:
+		_features_overlay.queue_redraw()
+
+
+## Public: sprite blocks for Code Navigator (label, line, w, h, palette).
+func get_sprite_data_blocks() -> Array:
+	var out: Array = []
+	var src := get_text()
+	for block in _SpriteResolver.enumerate_blocks(src):
+		var label_line: int = int(block.get("label_line", -1))
+		var full := _SpriteResolver.resolve_at_line(src, label_line)
+		if full.is_empty():
+			continue
+		out.append({
+			"label": str(full.get("label", "")),
+			"line": label_line,
+			"w": int(full.get("w", 0)),
+			"h": int(full.get("h", 0)),
+			"palette_id": int(full.get("palette_id", 0)),
+			"transparent": int(full.get("transparent", 0)),
+		})
+	return out
+
+
+## Reset migrate-once flag when a new buffer is loaded.
+func reset_sprite_data_ux_state() -> void:
+	_sprite_open_migrated = false
+	_sprite_fold_sig.clear()
+	_sprite_pending_fold.clear()
+	_vector_fold_sig.clear()
+	_vector_pending_fold.clear()
+	_hide_sprite_peek()
 
 
 func _draw_string_literal_highlights(first_visible: int, last_visible: int) -> void:

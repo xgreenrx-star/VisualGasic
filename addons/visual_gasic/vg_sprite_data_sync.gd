@@ -21,11 +21,22 @@ static func apply_pixels(code_edit: CodeEdit, section: Dictionary, pixels: Packe
 		return false
 
 	code_edit.set_meta(META_GUARD, true)
+	# Keep header + pixel rows indented under the label so the block stays foldable.
+	var header_line: int = int(section.get("header_line", -1))
+	if header_line >= 0 and header_line < code_edit.get_line_count():
+		var header_raw := code_edit.get_line(header_line).strip_edges()
+		var header_prefix := _indent_prefix(code_edit.get_line(header_line))
+		if header_prefix.is_empty():
+			header_prefix = "\t"
+		code_edit.set_line(header_line, header_prefix + header_raw)
 	for row in h:
 		var parts: PackedStringArray = PackedStringArray()
 		for col in w:
 			parts.append(str(pixels[row * w + col]))
-		var line_text := "Data " + ", ".join(parts)
+		var prefix := _indent_prefix(code_edit.get_line(start_line + row))
+		if prefix.is_empty():
+			prefix = "\t"
+		var line_text := prefix + "Data " + ", ".join(parts)
 		code_edit.set_line(start_line + row, line_text)
 	code_edit.remove_meta(META_GUARD)
 	# set_line does not emit text_changed — notify the embedded editor so
@@ -64,13 +75,17 @@ static func apply_section(
 	if header_line < 0 or old_end < header_line:
 		return false
 
+	# Indent Data rows under the label so CodeEdit can fold the whole block.
+	var prefix := _indent_prefix(code_edit.get_line(header_line))
+	if prefix.is_empty():
+		prefix = "\t"
 	var new_lines: PackedStringArray = PackedStringArray()
-	new_lines.append("Data %d, %d, %d, %d" % [w, h, transparent, palette_id])
+	new_lines.append(prefix + "Data %d, %d, %d, %d" % [w, h, transparent, palette_id])
 	for row in h:
 		var parts: PackedStringArray = PackedStringArray()
 		for col in w:
 			parts.append(str(pixels[row * w + col]))
-		new_lines.append("Data " + ", ".join(parts))
+		new_lines.append(prefix + "Data " + ", ".join(parts))
 
 	var old_count := old_end - header_line + 1
 	var new_count := new_lines.size()
@@ -121,12 +136,13 @@ static func insert_new_block(
 
 	var lines: PackedStringArray = PackedStringArray()
 	lines.append(lbl + ":")
-	lines.append("Data %d, %d, %d, %d" % [w, h, transparent, palette_id])
+	# Tab-indent Data under the label → native CodeEdit fold + thumbnail header.
+	lines.append("\tData %d, %d, %d, %d" % [w, h, transparent, palette_id])
 	for row in h:
 		var parts: PackedStringArray = PackedStringArray()
 		for _col in w:
 			parts.append(str(transparent))
-		lines.append("Data " + ", ".join(parts))
+		lines.append("\tData " + ", ".join(parts))
 
 	var line := clampi(caret_line, 0, code_edit.get_line_count())
 	code_edit.set_meta(META_GUARD, true)
@@ -270,3 +286,16 @@ static func _nearest_palette_index(color: Color, cols: Array, transparent: int) 
 
 static func is_sync_guarded(code_edit: CodeEdit) -> bool:
 	return code_edit != null and code_edit.has_meta(META_GUARD)
+
+
+## Leading whitespace on a line, or empty if the line is not indented.
+static func _indent_prefix(line: String) -> String:
+	var i := 0
+	while i < line.length():
+		var ch := line[i]
+		if ch != "\t" and ch != " ":
+			break
+		i += 1
+	if i <= 0:
+		return ""
+	return line.substr(0, i)

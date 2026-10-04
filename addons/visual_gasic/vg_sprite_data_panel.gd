@@ -51,6 +51,12 @@ func _ready() -> void:
 	_edit_btn.pressed.connect(_on_edit_in_editor_pressed)
 	_btn_row.add_child(_edit_btn)
 
+	var migrate_btn := Button.new()
+	migrate_btn.text = "Indent folds…"
+	migrate_btn.tooltip_text = "Indent flat *Sprite/*Vector Data rows so the code editor can fold them and show thumbnails"
+	migrate_btn.pressed.connect(_on_migrate_indents_pressed)
+	_btn_row.add_child(migrate_btn)
+
 	_status = Label.new()
 	_status.text = "Move the caret into a *Sprite: Data block, or click New Sprite…"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -358,6 +364,17 @@ func _on_edit_in_editor_pressed() -> void:
 		return
 	_flush_sync()
 	edit_in_sprite_editor_requested.emit(_section.duplicate(true))
+
+
+func _on_migrate_indents_pressed() -> void:
+	if _code_edit == null or not is_instance_valid(_code_edit):
+		_status.text = "Open a .vg file first."
+		return
+	const SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
+	var n := SpriteUx.migrate_all_indents(_code_edit)
+	_status.text = "Indented %d Data block(s) for folding" % n if n > 0 else "Already indented"
+	if n > 0 and _code_edit:
+		update_for_caret(_code_edit.text, _code_edit.get_caret_line())
 
 
 func _on_new_sprite_pressed() -> void:

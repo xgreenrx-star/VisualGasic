@@ -20,6 +20,17 @@ static func apply_shapes(code_edit: CodeEdit, section: Dictionary, shapes: Array
 	var old_count := end_line - start_line + 1
 	var new_count := shapes.size()
 
+	# Keep shape rows indented under the label so the block stays foldable.
+	var prefix := "\t"
+	var header_line: int = int(section.get("header_line", start_line - 1))
+	if header_line >= 0 and header_line < code_edit.get_line_count():
+		var hp := _indent_prefix(code_edit.get_line(header_line))
+		if not hp.is_empty():
+			prefix = hp
+		elif start_line > 0:
+			var lp := _indent_prefix(code_edit.get_line(maxi(0, int(section.get("label_line", 0)))))
+			prefix = "\t" if lp.is_empty() else lp + "\t"
+
 	code_edit.set_meta(META_GUARD, true)
 	while old_count > new_count:
 		code_edit.remove_line_at(end_line)
@@ -27,10 +38,10 @@ static func apply_shapes(code_edit: CodeEdit, section: Dictionary, shapes: Array
 		old_count -= 1
 	while old_count < new_count:
 		end_line += 1
-		code_edit.insert_line_at(end_line, Resolver.format_shape_line(shapes[old_count]))
+		code_edit.insert_line_at(end_line, prefix + Resolver.format_shape_line(shapes[old_count]))
 		old_count += 1
 	for i in new_count:
-		code_edit.set_line(start_line + i, Resolver.format_shape_line(shapes[i]))
+		code_edit.set_line(start_line + i, prefix + Resolver.format_shape_line(shapes[i]))
 	code_edit.remove_meta(META_GUARD)
 	if code_edit.has_signal("text_changed"):
 		code_edit.text_changed.emit()
@@ -39,3 +50,15 @@ static func apply_shapes(code_edit: CodeEdit, section: Dictionary, shapes: Array
 
 static func is_sync_guarded(code_edit: CodeEdit) -> bool:
 	return code_edit != null and code_edit.has_meta(META_GUARD)
+
+
+static func _indent_prefix(line: String) -> String:
+	var i := 0
+	while i < line.length():
+		var ch := line[i]
+		if ch != "\t" and ch != " ":
+			break
+		i += 1
+	if i <= 0:
+		return ""
+	return line.substr(0, i)

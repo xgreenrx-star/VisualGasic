@@ -5,6 +5,19 @@ extends RefCounted
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 
 const CLEAR := Color(0, 0, 0, 0)
+## Max edge (px) for the inline *Sprite thumbnail drawn next to the label.
+const THUMB_MAX_EDGE := 18
+const THUMB_PAD := 6.0
+const THUMB_FRAME := Color(0.05, 0.05, 0.08, 0.55)
+const THUMB_CHECK_A := Color(0.22, 0.22, 0.26, 0.85)
+const THUMB_CHECK_B := Color(0.32, 0.32, 0.36, 0.85)
+## Hover peek (larger preview popup).
+const PEEK_MAX_EDGE := 96
+const PEEK_PAD := 8.0
+## Gutter paint affordance (left of fold gutter).
+const GUTTER_ICON_W := 12.0
+const GUTTER_ICON_COLOR := Color(0.95, 0.72, 0.28, 0.95)
+const GUTTER_ICON_HOVER := Color(1.0, 0.88, 0.45, 1.0)
 
 
 static func overlay_colors(code_edit: CodeEdit) -> Dictionary:

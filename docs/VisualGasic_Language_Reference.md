@@ -2607,14 +2607,14 @@ AddChild(enemy)
 
 ### Inline Sprite Data (*Sprite blocks)
 
-Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` sections. The IDE **Context Rail → Sprite data** (and Help → **Sprite** tab) shows a live pixel grid when the caret is inside a valid block (label name must end with `Sprite`, e.g. `PlayerSprite:`, `CloudSprite:`). Use **New Sprite…** to insert a blank block, or **Edit in Sprite Editor…** / right-click **Edit Sprite Data as Image…** to paint with the full Sprite Editor — **Save Data** writes indices back into the `Data` rows (max 32×32).
+Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` sections. The IDE **Context Rail → Sprite data** (and Help → **Sprite** tab) shows a live pixel grid when the caret is inside a valid block (label name must end with `Sprite`, e.g. `PlayerSprite:`, `CloudSprite:`). Use **New Sprite…** to insert a blank block, or **Edit in Sprite Editor…** / right-click **Edit Sprite Data as Image…** / click the thumbnail or gutter brush to paint with the full Sprite Editor — **Save Data** writes indices back into the `Data` rows (max 32×32). The code editor **auto-folds** indented blocks and draws a small **thumbnail** next to the label (fold policy: Project Settings `vg/editor/sprite_data_fold`). Code Navigator **(Sprites)** lists blocks; after Save Data the IDE can insert `DataToArray` + `DrawDataSprite` helpers and live-refresh cached arrays while Play is active.
 
 **Block layout**
 
 1. **Label line** — `NameSprite:` (identifier + colon; optional trailing comment).
-2. **Header row** — first `Data` line after the label with **exactly four integers**:
+2. **Header row** — first `Data` line after the label with **exactly four integers** (IDE writers indent this under the label so the block can fold):
 
-        Data w, h, transparentIdx, paletteId
+        	Data w, h, transparentIdx, paletteId
 
    | Field | Meaning |
    |-------|---------|
@@ -2625,21 +2625,21 @@ Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` se
 
 3. **Pixel rows** — exactly **`h` more `Data` lines**, each with **`w` comma-separated palette indices** (0–15), one row per scanline, top to bottom.
 
-The **next label** (e.g. `PlatformData:`) ends the sprite section.
+The **next label** (e.g. `PlatformData:`) ends the sprite section. Leading indentation is ignored at runtime.
 
 **Example (8×8, NES palette, index 0 transparent)**
 
 ```vb
 PlayerSprite:
-Data 8, 8, 0, 0
-Data 0, 0, 1, 1, 0, 0, 0, 0
-Data 0, 1, 2, 2, 1, 0, 0, 0
-Data 0, 1, 2, 2, 1, 0, 0, 0
-Data 0, 1, 2, 2, 1, 0, 0, 0
-Data 0, 0, 1, 1, 0, 0, 0, 0
-Data 0, 0, 0, 0, 0, 0, 0, 0
-Data 0, 0, 0, 0, 0, 0, 0, 0
-Data 0, 0, 0, 0, 0, 0, 0, 0
+	Data 8, 8, 0, 0
+	Data 0, 0, 1, 1, 0, 0, 0, 0
+	Data 0, 1, 2, 2, 1, 0, 0, 0
+	Data 0, 1, 2, 2, 1, 0, 0, 0
+	Data 0, 1, 2, 2, 1, 0, 0, 0
+	Data 0, 0, 1, 1, 0, 0, 0, 0
+	Data 0, 0, 0, 0, 0, 0, 0, 0
+	Data 0, 0, 0, 0, 0, 0, 0, 0
+	Data 0, 0, 0, 0, 0, 0, 0, 0
 ```
 
 **Built-in palettes (`paletteId`)**

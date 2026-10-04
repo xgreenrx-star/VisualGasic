@@ -69,6 +69,22 @@ To create a sprite that lives **in source as `Data` statements** (no PNG file), 
 
 Small pixel-art sprites can live **inline in `.vg` source** as labeled `*Sprite:` `Data` blocks (label must end with `Sprite`, max **32×32**). The full Sprite Editor can create and edit those blocks so you never have to type palette indices by hand.
 
+In the VG code editor, valid blocks **auto-fold** (Data rows are indented under the label) and show a small **thumbnail** next to the label. Use the fold gutter to expand the indices; the thumb updates when `Data` changes.
+
+**Ease-of-use affordances**
+
+| Action | Behavior |
+|--------|----------|
+| Click thumbnail / gutter brush / double-click label | Open Sprite Editor (Data mode) |
+| Hover thumbnail or gutter icon | Larger peek with `w×h` and palette name |
+| Code Navigator → **(Sprites)** | Jump to a block or **Edit …** |
+| After **Save Data** | Optional insert of `DataToArray` + `DrawDataSprite` helpers; live-refresh of cached arrays while Play is active |
+| **⇄ Data** in Sprite Editor | PNG → Data block, or import PNG into the current Data sprite; **Export** still writes PNG |
+| Project Settings → `vg/editor/sprite_data_fold` | `on_change` (default) / `on_open` / `never` |
+| Flat legacy blocks | Auto-indent on open (and **Indent folds…** on the Sprite tab) so fold + thumbs work |
+
+`*Vector` / wire Data blocks get the same indent-fold treatment and a small chip next to the label.
+
 Language format details: [Language Reference — Sprite Data](../VisualGasic_Language_Reference.md#sprite-data).
 
 ### Create a new Data sprite
@@ -79,7 +95,7 @@ Language format details: [Language Reference — Sprite Data](../VisualGasic_Lan
 4. Choose a label (must end with `Sprite`, e.g. `PlayerSprite`), width/height (1–32), and built-in palette (NES / GameBoy / C64 / CGA).
 5. Leave **Open in Sprite Editor after create** checked (default) to jump straight into painting.
 
-VG inserts a header `Data w, h, transparentIdx, paletteId` plus `h` pixel rows filled with the transparent index, then opens the Sprite Editor in **Data mode**.
+VG inserts a header `Data w, h, transparentIdx, paletteId` plus `h` pixel rows (tab-indented under the label) filled with the transparent index, then opens the Sprite Editor in **Data mode**.
 
 ### Edit an existing Data sprite
 
