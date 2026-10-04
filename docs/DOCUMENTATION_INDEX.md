@@ -6,13 +6,14 @@
 
 ## Getting Started
 
+- [QUICK_START.md](getting_started/QUICK_START.md) - **Fast path** — forms, 2D games, Narcea
+- [GET_STARTED.md](guides/GET_STARTED.md) - Installers (v5.6.0-beta1), first script, learning paths
 - [Introduction](getting_started/introduction.md) - What is VisualGasic? Why use it?
 - [Installation](getting_started/installation.md) - Install scripts, manual setup, `vg` CLI
 - [Nodes and Scenes](getting_started/nodes_and_scenes.md) - Godot's building blocks
 - [Scripting](getting_started/scripting.md) - Writing your first VisualGasic code
 - [Signals](getting_started/signals.md) - VB6-style auto-wiring and event handling
 - [README.md](../README.md) - Project overview and quick start
-- [GET_STARTED.md](guides/GET_STARTED.md) - Installation and first steps
 - [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md) - Migrating from VB6/VBA
 - [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) - VB6 legacy import policy (bulk importer retired from core; optional community plugin)
 

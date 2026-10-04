@@ -18,17 +18,18 @@ A **Node** is the smallest building block of your game. Every button, label, spr
 
 | Godot Node | VB6 Equivalent | VisualGasic Helper |
 |------------|---------------|-------------------|
-| `Label` | Label | `CreateLabel` |
-| `Button` | CommandButton | `CreateButton` |
-| `LineEdit` | TextBox | `CreateTextBox` |
+| `Label` | Label | `CreateLabel text, x, y` |
+| `Button` | CommandButton | `CreateButton text, x, y [, handlerSub]` |
+| `LineEdit` | TextBox | `CreateInput text, x, y [, width]` |
 | `Timer` | Timer | `CreateTimer` |
-| `Sprite2D` | Image/PictureBox | `CreateSprite2D` |
-| `CharacterBody2D` | *(no equivalent)* | `CreateActor2D` |
-| `Panel` | Frame | `CreatePanel` |
-| `CheckBox` | CheckBox | `CreateCheckBox` |
-| `ItemList` | ListBox | `CreateListBox` |
+| `Sprite2D` | Image/PictureBox | `CreateNode("Sprite2D")` / Toolbox Image |
+| `TextureRect` | PictureBox / ScreenBox | Toolbox **Picture** or **ScreenBox** (classic `SCREEN` host) |
+| `CharacterBody2D` | *(no equivalent)* | `CreateActor2D` / Godot scene |
+| `Panel` | Frame | Toolbox Frame / `CreateNode("Panel")` |
+| `CheckBox` | CheckBox | Toolbox CheckBox |
+| `ItemList` | ListBox | Toolbox ListBox |
 
-In VisualGasic, you can add nodes **visually** (drag them into the scene in the Godot editor) or **in code** using helper functions like `CreateButton`.
+In VisualGasic, you can add nodes **visually** (Godot scene dock or VG Toolbox) or **in code** with helpers like `CreateButton` / `CreateNode`.
 
 ---
 

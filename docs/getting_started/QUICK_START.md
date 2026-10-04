@@ -1,48 +1,37 @@
 # Getting Started with Visual Gasic
 
-Welcome! This guide covers three ways to use VG: building UI forms, creating 2D games, and using AI to speed up development.
+Welcome! This guide covers three ways to use VG: building UI, creating 2D games, and using AI (Narcea) to speed up development.
+
+**Requires Godot 4.6.1+** with the VisualGasic plugin enabled. Current public beta: **v5.6.0-beta1**.
 
 ---
 
 ## 1. Forms: Your First "Hello World"
 
-Forms are the fastest way to build an interactive VG project. You're building a simple contact form.
+Forms (Control-rooted scenes) are the fastest way to build an interactive VG UI.
 
 ### Setup (2 minutes)
 
-1. **Open Godot 4.6.1+** with VisualGasic installed
-2. **Create a new project** named `VGHelloForm`
+1. **Open Godot 4.6.1+** with VisualGasic installed ([Installation](installation.md))
+2. **Create a new project** named `VGHelloForm` (or `vg new VGHelloForm`)
 3. **Enable the plugin**: Project → Project Settings → Plugins → `visual_gasic` → Enable
-4. **Restart Godot**
+4. **Restart Godot** if the GDExtension just loaded
 
-### Create the Form (5 minutes)
+### Create a simple contact UI (5 minutes)
 
-In the Script editor, create a new VG file named `ContactForm.vg`:
+1. **Scene → New Scene**, root type **Control**, rename root to `ContactForm`
+2. Attach **`ContactForm.vg`** (right-click root → Attach Script → Language: VisualGasic)
+3. Paste:
 
 ```vb
 Option Explicit
 
-Sub Form_Load()
-    ' Set form title and size
-    Me.Caption = "Contact Form"
-    Me.Width = 300
-    Me.Height = 200
-    
-    ' Add a label
-    Dim lbl As Label
-    Set lbl = CreateLabel("Name:", 10, 10, 100, 20)
-    lbl.Parent = Me
-    
-    ' Add a text input
-    Dim txt As TextEdit
-    Set txt = CreateTextEdit(10, 30, 280, 20)
-    txt.Parent = Me
-    
-    ' Add a submit button
-    Dim btn As Button
-    Set btn = CreateButton("Submit", 10, 60, 80, 30)
-    btn.Parent = Me
-    btn.OnClick = "SubmitForm"
+Sub _Ready()
+    ' Create controls in code (auto-parented to this node)
+    CreateLabel "Name:", 10, 10
+    CreateInput "", 10, 30, 280
+    ' 4th argument is the click handler Sub name
+    CreateButton "Submit", 10, 60, "SubmitForm"
 End Sub
 
 Sub SubmitForm()
@@ -50,61 +39,64 @@ Sub SubmitForm()
 End Sub
 ```
 
-### Run It
+4. Set **Project → Project Settings → Application → Run → Main Scene** to your scene
+5. Press **F5**, click **Submit**
 
-- **Press F5** in Godot
-- Click **Submit**
-- See the message box
+**That's it.** No `.tscn` signal wiring — `CreateButton` connects `pressed` to your Sub.
 
-**That's it.** You've written an interactive VG form without a single line of `.tscn` boilerplate or signal wiring.
+### Designer path (optional)
+
+For drag-and-drop layout, use the **Toolbox** to place Label / TextBox / Button controls, then write handlers by name:
+
+```vb
+Sub btnSubmit_Click()
+    MsgBox "Thank you for submitting!"
+End Sub
+```
+
+Legacy Form Designer / standalone shell is **experimental** — see [VG IDE Alpha](../manual/VG_IDE_ALPHA.md). Prefer Godot Script + floating VG panels for v6.0.
 
 ### Next Steps
 
-- Explore **demos/UI/VG_UI_TOOLS/** in the VisualGasic GitHub repo for 11 more form examples
-- Read [WinForms / Form Guide](../WINFORMS_FORM_GUIDE.md) for drag-and-drop form building ([VG IDE Alpha](../manual/VG_IDE_ALPHA.md) for legacy vs UI Forms)
-- Check out [Auto-Wiring Guide](AUTO_WIRING_GUIDE.md) for event handler shortcuts
+- Explore **demos/UI/VG_UI_TOOLS/** (or `samples/demos/UI/VG_UI_TOOLS/`) for more UI examples
+- [WinForms / Form Guide](../WINFORMS_FORM_GUIDE.md) · [Auto-Wiring Guide](../AUTO_WIRING_GUIDE.md)
+- Classic BASIC CRT inside a form: place a **ScreenBox** from the toolbox ([QB graphics mode](../manual/qb_graphics_mode.md))
 
 ---
 
 ## 2. 2D: Step-by-Step to a Platformer
 
-Building a simple 2D platformer in VG teaches core game-dev concepts.
+Building a simple 2D platformer teaches core game-dev concepts.
 
 ### Setup (2 minutes)
 
 1. **Create a new Godot project** named `VGPlatformer`
 2. **Enable VisualGasic plugin**
 3. **Create a 2D Scene** with a Node2D root named `Main`
+4. Attach **`Main.vg`** to that root
 
 ### Scene Structure
 
 Create three child nodes under Main:
 - **Player** (CharacterBody2D)
-  - Sprite2D (sprite image)
-  - CollisionShape2D (rect shape)
+  - Sprite2D
+  - CollisionShape2D
 - **Level** (Node2D)
-  - Ground (StaticBody2D)
-    - Sprite2D (brown rect)
-    - CollisionShape2D (rect)
-- **Camera** (Camera2D)
+  - Ground (StaticBody2D) + CollisionShape2D
+- **Camera2D** (as child of Player, or follow in code)
 
-### The Main Script (`main.vg`)
+### The Main Script (`Main.vg`)
 
 ```vb
 Option Explicit
 
-Global PlayerSpeed = 200
-Global PlayerJump = -400
-Global Gravity = 800
+Dim PlayerSpeed As Single = 200
+Dim PlayerJump As Single = -400
+Dim Gravity As Single = 800
 
-Sub _Ready()
-    Camera.Target = Player
-End Sub
+Sub _PhysicsProcess(delta)
+    Dim velocity As Vector2 = Player.Velocity
 
-Sub _Process(delta)
-    Dim velocity = Player.Velocity
-    
-    ' Horizontal movement
     If Input.IsKeyPressed(KEY_LEFT) Then
         velocity.x = -PlayerSpeed
     ElseIf Input.IsKeyPressed(KEY_RIGHT) Then
@@ -112,15 +104,13 @@ Sub _Process(delta)
     Else
         velocity.x = 0
     End If
-    
-    ' Gravity and jumping
+
     velocity.y = velocity.y + (Gravity * delta)
-    
+
     If Input.IsKeyJustPressed(KEY_SPACE) And Player.IsOnFloor() Then
         velocity.y = PlayerJump
     End If
-    
-    ' Apply physics
+
     Player.Velocity = velocity
     Player.MoveAndSlide()
 End Sub
@@ -130,54 +120,47 @@ End Sub
 
 - Press F5
 - Use **← →** to move, **SPACE** to jump
-- You've built a playable platformer in ~30 lines of readable code
 
 ### Next Steps
 
-- Read [Your First 2D Game](../tutorials/your_first_2d_game.md) for detailed explanations
-- Explore **demos/** in the repo for collision detection, enemies, scoring, and more
-- Check [Performance Guide](../manual/performance.md) for optimization tips as your game grows
+- [Your First 2D Game](../tutorials/your_first_2d_game.md)
+- Explore **demos/2D_Games/** and **samples/games/**
+- [Performance Guide](../manual/performance.md) when you grow past a few entities
+- Pixel / vector art: **Sprite Editor** and **Vector Editor** in the VG toolbar
 
 ---
 
 ## 3. AI: Set Up Narcea and Generate Code
 
-VG is built for AI-assisted development. Narcea is the built-in Vibe Code that generates VG code from plain English.
+Narcea is the built-in **Vibe Code** assistant that generates VG from plain English.
 
-### Get an API Key (3 minutes)
+### Get a provider (3 minutes)
 
-Narcea supports **OpenAI (ChatGPT)**, **Anthropic (Claude)**, **Google (Gemini)**, and **local Ollama**.
+Narcea supports **OpenAI**, **Anthropic (Claude)**, **Google (Gemini)**, **local Ollama**, and optional **Cursor** handoff.
 
-#### Option A: OpenAI API
+#### Option A: OpenAI
 
-1. Go to [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
-2. Click **Create new secret key**
-3. Copy the key
+1. [platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys) → Create secret key → copy
 
-#### Option B: Anthropic API (Claude)
+#### Option B: Anthropic (Claude)
 
-1. Go to [console.anthropic.com/account/keys](https://console.anthropic.com/account/keys)
-2. Click **Create Key**
-3. Copy the key
+1. [console.anthropic.com/account/keys](https://console.anthropic.com/account/keys) → Create Key → copy
 
-#### Option C: Local Ollama (free, runs on your machine)
+#### Option C: Local Ollama (free)
 
-1. Download [Ollama](https://ollama.ai)
-2. Run `ollama pull llama2` (or any model)
-3. Start the server: `ollama serve`
-4. No API key needed — it runs locally
+1. Install [Ollama](https://ollama.ai)
+2. `ollama pull llama3.2` (or any model)
+3. `ollama serve` — no API key
 
 ### Configure Narcea in VG
 
-1. **Open VisualGasic**
-2. **Toolbox panel** → Narcea Vibe Code tab
-3. **Select provider**: OpenAI, Anthropic, Google, or Local Ollama
-4. **Paste your API key** (or leave blank for Ollama)
-5. **Save**
+1. Open your project with VisualGasic enabled
+2. Open the **Vibe Code** panel (VG toolbar / floating assist — not the Godot AssetLib)
+3. Choose provider, paste API key if needed, save
 
 ### Try It: Generate a Login Form
 
-In Narcea, paste this prompt:
+Prompt:
 
 ```
 Create a login form with:
@@ -187,49 +170,38 @@ Create a login form with:
 - A message that says "Incorrect password" if the user enters anything but "demo123"
 ```
 
-Narcea will generate working VG code. You:
-1. **Read every line** — VG's explicit syntax makes it clear what happens
-2. **Spot issues** — no hidden side effects, no implicit behavior
-3. **Accept or reject** — clipboard copy, paste into your script, done
-4. **Run it** — F5 to test
+Then:
+1. **Read every line** — VG’s explicit blocks make audits easy
+2. **Paste into your `.vg` file**
+3. **F5** to test
 
 ### Why This Matters
 
-This is the VG pitch: **AI writes it, you understand it.** Unlike black-box AI tools, you read the code. You audit it. You trust it. You learn from it.
+**AI writes it, you understand it.** Verbose `End Sub` / `End If` syntax is built for auditing, not for hiding control flow.
 
 ### Next Steps
 
-- Explore the [Narcea Vibe Code Guide](../manual/narcea_guide.md) (coming in v5.4)
-- Try more prompts: "Make a calculator", "Build a todo list", "Create a high score leaderboard"
-- Read [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md) when Narcea builds a Start/Exit menu that opens a canvas game
-- Read [the Immediate Window guide](../IMMEDIATE_WINDOW.md) to test code snippets in real-time
+- [IDE Tools — Vibe Code / AI Help](../manual/ide_tools.md#ai-help-panel)
+- [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md)
+- [Immediate Window](../IMMEDIATE_WINDOW.md) for REPL-style checks
 
 ---
 
 ## What's Next?
 
-You now know:
-- ✅ How to build a form (event handlers, controls, no signal wiring)
-- ✅ How to write a 2D game (physics, input, frame loops)
-- ✅ How to use AI to generate code (and understand what it wrote)
-
-### Recommended Path
-
 | Time | Task | Link |
 |------|------|------|
 | 15 min | Explore the UI Toolkit demo | **demos/UI/VG_UI_TOOLS** |
-| 30 min | Build a calculator form | [Calculator Tutorial](../tutorials/calculator_form_designer.md) |
-| 1 hour | Extend the platformer (enemies, coins, lives) | [Your First 2D Game](../tutorials/your_first_2d_game.md) |
-| 2 hours | Prompt Narcea to build a full game menu system | Vibe Code tab |
-| Then | Read the full language reference | [VisualGasic Language Reference](../VisualGasic_Language_Reference.md) |
+| 30 min | Build a calculator | [Calculator Tutorial](../tutorials/calculator_form_designer.md) |
+| 1 hour | Extend the platformer | [Your First 2D Game](../tutorials/your_first_2d_game.md) |
+| Then | Full language reference | [Language Reference](../VisualGasic_Language_Reference.md) |
 
 ### Questions?
 
-- **Installation issues?** → [Installation Guide](installation.md)
+- **Installation issues?** → [Installation](installation.md) · [full Installation Guide](../guides/INSTALLATION.md)
 - **Language syntax?** → [Language Reference](../VisualGasic_Language_Reference.md)
-- **Built-in functions?** → [Builtins Reference](../docs/BUILTINS.md)
+- **Built-in functions?** → [Builtins](../BUILTINS.md) · [Builtin Functions Reference](../reference/BUILTIN_FUNCTIONS_REFERENCE.md)
 - **Report a bug?** → [GitHub Issues](https://github.com/xgreenrx-star/VisualGasic/issues)
-- **Join the community?** → [Discord](https://discord.gg/visualgasic) (coming soon)
 
 ---
 

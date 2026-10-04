@@ -6,7 +6,7 @@
 
 > **VisualGasic is not a VB6 clone.** It is a modern, forward-looking language that draws inspiration from VB6's approachable syntax and ease of learning, while introducing advanced features that go well beyond what VB6 ever offered. If you know VB6, you'll feel at home in minutes. If you're new to programming, you'll find VG one of the easiest languages to learn.
 
-> **Form Designer status (v5.4.0-beta1):** The classic **Form Designer** (VB6-style WYSIWYG canvas) ships today and is the primary way to build menu forms and dialogs. It has known bugs and is being replaced by **UI Forms** — experimental WYSIWYG editing in Godot's 2D viewport, enabled via **Project Settings → `vg/enable_experimental_plugins`**. Until UI Forms reaches parity, use the Form Designer for forms and attach Node2D game scenes separately; see [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md).
+> **Forms status (v5.6 → v6.0):** Prefer **Godot’s editor** with floating VG panels (Toolbox, Code Navigator, Properties, Vibe Code). The classic **Form Designer** / standalone shell is **experimental Alpha** ([VG IDE Alpha](../manual/VG_IDE_ALPHA.md)). **UI Forms** (WYSIWYG on the 2D viewport) is also experimental via **Project Settings → `vg/enable_experimental_plugins`**. Hybrid pattern: menu/UI scene + separate Node2D game scene — [Menu Form + Node2D Game](../guides/MENU_FORM_AND_2D_GAME.md).
 
 ---
 
@@ -36,7 +36,7 @@ VisualGasic compiles to a **JIT-optimized bytecode engine** that outperforms GDS
 VisualGasic is built for **speed of development**:
 
 - **Event-driven programming** — Write `Sub btnSave_Click()` and you're done. No signal wiring, no boilerplate.
-- **One-line controls** — `CreateButton "Play", 100, 50, "OnPlay"` creates a button, positions it, and wires its click handler in one line.
+- **One-line controls** — `CreateButton "Play", 100, 50, "OnPlay"` creates a button at (100, 50) and wires `pressed` to `Sub OnPlay()` in one call.
 - **VB6 property aliases** — Use familiar names like `.Caption`, `.Text`, `.BackColor`, `.Visible` instead of memorizing Godot's API.
 - **122+ built-in functions** — String, math, file I/O, date/time, collections, JSON, regex, and more — all available without imports.
 
@@ -118,9 +118,10 @@ End Sub
 
 Ready to dive in? Here's your path:
 
+0. **[Quick Start](QUICK_START.md)** — Forms, 2D, and Narcea in one guide
 1. **[Installation](installation.md)** — Set up VisualGasic in under 2 minutes
 2. **[Nodes and Scenes](nodes_and_scenes.md)** — Understand Godot's building blocks
 3. **[Scripting](scripting.md)** — Write your first VisualGasic code
 4. **[Signals](signals.md)** — Handle events and user input
 
-For the complete language reference, see the [VisualGasic Language Reference](../VisualGasic_Language_Reference.md).
+Also: [Get Started Guide](../guides/GET_STARTED.md) (installers + learning paths) · [Language Reference](../VisualGasic_Language_Reference.md).

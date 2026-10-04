@@ -6,9 +6,12 @@ Welcome to the official documentation of **Visual Gasic**, the free and open sou
 
 ## Getting Started
 
-The **Getting Started** series will guide you through the essentials of using Visual Gasic with the Godot Editor.
+The **Getting Started** series covers Visual Gasic on **Godot 4.6.1+** (current public beta: **v5.6.0-beta1**).
 
+*   [Quick Start](getting_started/QUICK_START.md) — forms, 2D, Narcea
+*   [Get Started Guide](guides/GET_STARTED.md) — installers + learning paths
 *   [Introduction to Visual Gasic](getting_started/introduction.md)
+*   [Installation](getting_started/installation.md)
 *   [Nodes and Scenes](getting_started/nodes_and_scenes.md)
 *   [Scripting with Visual Gasic](getting_started/scripting.md)
 *   [Using Signals](getting_started/signals.md)

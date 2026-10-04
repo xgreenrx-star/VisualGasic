@@ -41,16 +41,18 @@ No signal wiring, no connection dialogs — just name the Sub and it's connected
 
 ## Creating Controls with Code
 
-You can create controls dynamically with a single line. The callback is auto-wired:
+You can create controls dynamically. The optional 4th argument to `CreateButton` is the Sub name connected to `pressed`:
 
 ```vb
-' Create a button and wire its click handler in one line
+' Create a button at (100, 50) and wire pressed → OnPlayClicked
 CreateButton "Play", 100, 50, "OnPlayClicked"
 
 Sub OnPlayClicked()
     Print "Let's go!"
 End Sub
 ```
+
+For designer-placed controls, prefer the naming convention (`Sub btnPlay_Click()`) instead of a string callback.
 
 ## Connecting Godot Signals
 

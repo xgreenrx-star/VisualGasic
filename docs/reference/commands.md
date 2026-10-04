@@ -164,9 +164,9 @@ These helper functions create Godot Nodes dynamically and return a reference to 
 
 | Function | Description |
 | :--- | :--- |
-| `CreateButton(Text, X, Y, W, H)` | Creates a UI Button. |
+| `CreateButton(Text, X, Y [, HandlerSub])` | Creates a UI Button; optional 4th arg connects `pressed` to that Sub name. |
 | `CreateLabel(Text, X, Y)` | Creates a Text Label. |
-| `CreateInput(Text, X, Y, W, H)` | Creates a LineEdit (Input Box). |
+| `CreateInput(Text, X, Y [, Width])` | Creates a LineEdit (text box). |
 
 ## Physics & Interaction
 
