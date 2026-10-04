@@ -180,6 +180,8 @@ void SnippetHelper::initialize_parameter_hints() {
     (*parameter_hints)["DrawRect"] = "DrawRect(x As Double, y As Double, width As Double, height As Double, color As Color, [filled As Boolean])";
     (*parameter_hints)["DrawCircle"] = "DrawCircle(x As Double, y As Double, radius As Double, color As Color)";
     (*parameter_hints)["DrawPixel"] = "DrawPixel(x As Double, y As Double, color As Color)";
+    (*parameter_hints)["DrawDataSprite"] = "DrawDataSprite(raw As Variant, x As Double, y As Double, [scale As Double = 1]) As Integer";
+    (*parameter_hints)["SpriteDataToImage"] = "SpriteDataToImage(raw As Variant) As Image";
     (*parameter_hints)["PSet"] = "PSet(x As Double, y As Double, color As Color)";
     (*parameter_hints)["DrawTexture"] = "DrawTexture(texture As Texture2D, x As Double, y As Double, [modulate As Color])";
     (*parameter_hints)["DrawTextureRect"] = "DrawTextureRect(texture As Texture2D, x As Double, y As Double, w As Double, h As Double, [tile As Boolean], [modulate As Color])";

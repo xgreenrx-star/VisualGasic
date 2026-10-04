@@ -18,6 +18,7 @@ extends HSplitContainer
 # ─────────────────────────────────────────────────────────────────────────────
 signal back_to_form_requested
 signal sprite_saved(path: String)
+signal sprite_data_saved(section: Dictionary)
 
 # Plugin id used when announcing events on VGAssetBus / VGContextBroker.
 # The editor isn't a real plugin (it lives at the top of addons/visual_gasic/
@@ -27,6 +28,9 @@ signal sprite_saved(path: String)
 const _ASSET_PLUGIN_ID := "sprite_editor"
 const _AssetBus := preload("res://addons/visual_gasic/vg_asset_bus.gd")
 const _ContextBroker := preload("res://addons/visual_gasic/vg_context_broker.gd")
+const _DataSync := preload("res://addons/visual_gasic/vg_sprite_data_sync.gd")
+const _DataResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+const _DataPalettes := preload("res://addons/visual_gasic/vg_sprite_data_palettes.gd")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
@@ -252,6 +256,13 @@ var _pan_start := Vector2.ZERO
 # File
 var _file_path := ""
 var _dirty := false
+
+# Inline *Sprite Data binding (Save writes indexed Data rows into CodeEdit)
+var _data_code_edit: CodeEdit = null
+var _data_section: Dictionary = {}
+var _data_palette_id := 0
+var _data_transparent := 0
+var _save_btn: Button = null
 
 # ── UI REFERENCES ────────────────────────────────────────────────────────────
 var _canvas_panel: Control = null        ## the drawing surface
@@ -1558,12 +1569,12 @@ func _build_toolbar(parent: VBoxContainer) -> void:
 	toolbar.add_child(open_btn)
 
 	# Save
-	var save_btn := Button.new()
-	save_btn.text = "💾 Save"
-	save_btn.tooltip_text = "Save (Ctrl+S)"
-	_style_tool_button(save_btn)
-	save_btn.pressed.connect(_save)
-	toolbar.add_child(save_btn)
+	_save_btn = Button.new()
+	_save_btn.text = "💾 Save"
+	_save_btn.tooltip_text = "Save (Ctrl+S)"
+	_style_tool_button(_save_btn)
+	_save_btn.pressed.connect(_save)
+	toolbar.add_child(_save_btn)
 
 	# Export
 	var export_btn := Button.new()
@@ -3354,6 +3365,9 @@ func _show_frame_duration_dialog() -> void:
 # FILE OPERATIONS
 # ─────────────────────────────────────────────────────────────────────────────
 func _save() -> void:
+	if _is_data_mode():
+		_save_sprite_data()
+		return
 	if _file_path.is_empty():
 		_show_export_dialog()
 		return
@@ -3366,6 +3380,168 @@ func _save() -> void:
 	_AssetBus.get_instance().emit_saved(_file_path, _ASSET_PLUGIN_ID)
 	_update_status()
 	print("[VG Sprite Editor] Saved: ", _file_path)
+
+
+func _is_data_mode() -> bool:
+	return is_data_mode()
+
+
+func is_data_mode() -> bool:
+	return _data_code_edit != null and is_instance_valid(_data_code_edit) and not _data_section.is_empty()
+
+
+func clear_sprite_data_binding() -> void:
+	_data_code_edit = null
+	_data_section = {}
+	_data_palette_id = 0
+	_data_transparent = 0
+	if is_instance_valid(_save_btn):
+		_save_btn.text = "💾 Save"
+		_save_btn.tooltip_text = "Save (Ctrl+S)"
+	_update_status()
+
+
+## Open a labeled *Sprite Data block from a CodeEdit for painting.
+## Save (Ctrl+S) writes palette indices back into the Data statements.
+func open_sprite_data(code_edit: CodeEdit, section: Dictionary) -> bool:
+	if code_edit == null or section.is_empty():
+		return false
+	var w: int = clampi(int(section.get("w", 0)), 1, _DataResolver.MAX_INLINE_W)
+	var h: int = clampi(int(section.get("h", 0)), 1, _DataResolver.MAX_INLINE_H)
+	var pixels: PackedInt32Array = section.get("pixels", PackedInt32Array())
+	if pixels.size() != w * h:
+		# Re-resolve from live source in case the panel snapshot is stale.
+		var live := _DataResolver.resolve_at_line(code_edit.text, int(section.get("label_line", code_edit.get_caret_line())))
+		if live.is_empty():
+			push_warning("[VG Sprite Editor] Invalid sprite Data section")
+			return false
+		section = live
+		w = int(section["w"])
+		h = int(section["h"])
+		pixels = section["pixels"]
+	_data_code_edit = code_edit
+	_data_section = section.duplicate(true)
+	_data_palette_id = int(section.get("palette_id", 0))
+	_data_transparent = int(section.get("transparent", 0))
+	_file_path = ""
+	_canvas_size = Vector2i(w, h)
+	var img := _DataSync.image_from_pixels(pixels, w, h, _data_palette_id, _data_transparent)
+	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
+	_active_layer_idx = 0
+	_frames = [{ "layers": [img.duplicate()], "duration": 1.0 / _fps }]
+	_active_frame_idx = 0
+	_undo_stack.clear()
+	_redo_stack.clear()
+	_dirty = false
+	_zoom = clampf(min(400.0 / float(w), 400.0 / float(h)), MIN_ZOOM, MAX_ZOOM)
+	_pan_offset = Vector2.ZERO
+	_load_data_palette(_data_palette_id)
+	if is_instance_valid(_save_btn):
+		_save_btn.text = "💾 Save Data"
+		_save_btn.tooltip_text = "Save to Data statements (Ctrl+S)"
+	_refresh_layer_list()
+	_refresh_frame_strip()
+	_refresh_canvas()
+	_update_size_label()
+	_update_status()
+	print("[VG Sprite Editor] Editing Data block: ", section.get("label", "?"))
+	return true
+
+
+func _load_data_palette(palette_id: int) -> void:
+	if not is_instance_valid(_palette_grid):
+		return
+	for c in _palette_grid.get_children():
+		c.queue_free()
+	var pname := _DataPalettes.palette_name_for_id(palette_id)
+	if is_instance_valid(_palette_option):
+		for i in _palette_option.item_count:
+			if _palette_option.get_item_text(i) == pname:
+				_palette_option.select(i)
+				break
+	var cols: Array = _DataPalettes.colors_for_id(palette_id)
+	for i in cols.size():
+		var color: Color = cols[i]
+		var swatch := ColorRect.new()
+		swatch.color = color
+		swatch.custom_minimum_size = Vector2(22, 22)
+		swatch.mouse_filter = Control.MOUSE_FILTER_STOP
+		swatch.tooltip_text = "Index %d" % i
+		if i == _data_transparent:
+			swatch.tooltip_text = "Transparent key (index %d)" % i
+		var idx := i
+		swatch.gui_input.connect(func(ev):
+			if ev is InputEventMouseButton and ev.pressed:
+				if ev.button_index == MOUSE_BUTTON_LEFT:
+					if idx == _data_transparent:
+						_set_primary_color(Color(0, 0, 0, 0))
+					else:
+						_set_primary_color(color)
+				elif ev.button_index == MOUSE_BUTTON_RIGHT:
+					if idx == _data_transparent:
+						_set_secondary_color(Color(0, 0, 0, 0))
+					else:
+						_set_secondary_color(color)
+		)
+		_palette_grid.add_child(swatch)
+	# Default brush to first non-transparent color.
+	if _data_transparent == 0 and cols.size() > 1:
+		_set_primary_color(cols[1])
+	elif cols.size() > 0:
+		_set_primary_color(cols[0] if _data_transparent != 0 else Color(0, 0, 0, 0))
+
+
+func _save_sprite_data() -> void:
+	if not _is_data_mode():
+		return
+	# Refresh line anchors from current caret label before write-back.
+	var label_name := str(_data_section.get("label", ""))
+	var caret_hint := int(_data_section.get("label_line", _data_code_edit.get_caret_line()))
+	var live := _DataResolver.resolve_at_line(_data_code_edit.text, caret_hint)
+	if live.is_empty() and not label_name.is_empty():
+		for b in _DataResolver.enumerate_blocks(_data_code_edit.text):
+			if str(b.get("label", "")) == label_name:
+				live = _DataResolver.resolve_at_line(_data_code_edit.text, int(b.get("label_line", 0)))
+				break
+	if not live.is_empty():
+		_data_section = live
+		_data_palette_id = int(live.get("palette_id", _data_palette_id))
+		_data_transparent = int(live.get("transparent", _data_transparent))
+
+	var w := clampi(_canvas_size.x, 1, _DataResolver.MAX_INLINE_W)
+	var h := clampi(_canvas_size.y, 1, _DataResolver.MAX_INLINE_H)
+	if _canvas_size.x != w or _canvas_size.y != h:
+		_resize_canvas(Vector2i(w, h))
+		push_warning("[VG Sprite Editor] Data sprites are limited to %d×%d — canvas clamped" % [
+			_DataResolver.MAX_INLINE_W, _DataResolver.MAX_INLINE_H
+		])
+
+	var img := _composite_layers()
+	if img.get_width() != w or img.get_height() != h:
+		var cropped := Image.create(w, h, false, Image.FORMAT_RGBA8)
+		cropped.fill(Color(0, 0, 0, 0))
+		cropped.blit_rect(img, Rect2i(0, 0, mini(img.get_width(), w), mini(img.get_height(), h)), Vector2i.ZERO)
+		img = cropped
+	var pixels := _DataSync.pixels_from_image(img, _data_palette_id, _data_transparent)
+	if not _DataSync.apply_section(
+		_data_code_edit,
+		_data_section,
+		pixels,
+		w,
+		h,
+		_data_transparent,
+		_data_palette_id
+	):
+		push_warning("[VG Sprite Editor] Failed to write sprite Data for " + label_name)
+		return
+	# Refresh section anchors after rewrite.
+	var refreshed := _DataResolver.resolve_at_line(_data_code_edit.text, int(_data_section.get("label_line", 0)))
+	if not refreshed.is_empty():
+		_data_section = refreshed
+	_dirty = false
+	sprite_data_saved.emit(_data_section.duplicate(true))
+	_update_status()
+	print("[VG Sprite Editor] Saved Data block: ", label_name)
 
 func _show_new_dialog() -> void:
 	if is_instance_valid(_new_dialog):
@@ -3428,6 +3604,7 @@ func _show_new_dialog() -> void:
 	)
 
 	_new_dialog.confirmed.connect(func():
+		clear_sprite_data_binding()
 		var new_size := Vector2i(int(w_spin.value), int(h_spin.value))
 		_canvas_size = new_size
 		_zoom = DEFAULT_ZOOM
@@ -3482,6 +3659,7 @@ func _on_open_file(path: String) -> void:
 	if img == null:
 		push_warning("[VG Sprite Editor] Could not load: " + path)
 		return
+	clear_sprite_data_binding()
 	_canvas_size = Vector2i(img.get_width(), img.get_height())
 	img.convert(Image.FORMAT_RGBA8)
 	_layers = [{ "name": "Layer 1", "image": img, "visible": true, "opacity": 1.0, "locked": false, "blend_mode": BlendMode.NORMAL }]
@@ -3565,9 +3743,10 @@ func _show_resize_dialog() -> void:
 	w_lbl.text = "W:"
 	w_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	row.add_child(w_lbl)
+	var max_dim := _DataResolver.MAX_INLINE_W if _is_data_mode() else 512
 	var w_spin := SpinBox.new()
 	w_spin.min_value = 1
-	w_spin.max_value = 512
+	w_spin.max_value = max_dim
 	w_spin.value = _canvas_size.x
 	w_spin.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(w_spin)
@@ -3577,10 +3756,16 @@ func _show_resize_dialog() -> void:
 	row.add_child(h_lbl)
 	var h_spin := SpinBox.new()
 	h_spin.min_value = 1
-	h_spin.max_value = 512
+	h_spin.max_value = _DataResolver.MAX_INLINE_H if _is_data_mode() else 512
 	h_spin.value = _canvas_size.y
 	h_spin.size_flags_horizontal = SIZE_EXPAND_FILL
 	row.add_child(h_spin)
+	if _is_data_mode():
+		var tip := Label.new()
+		tip.text = "Data sprites max %d×%d" % [_DataResolver.MAX_INLINE_W, _DataResolver.MAX_INLINE_H]
+		tip.add_theme_color_override("font_color", Color(0.75, 0.7, 0.45))
+		tip.add_theme_font_size_override("font_size", 11)
+		vbox.add_child(tip)
 
 	_new_dialog.confirmed.connect(func():
 		_push_undo()
@@ -3702,7 +3887,10 @@ func _update_status() -> void:
 		Tool.GRADIENT: "Gradient", Tool.LASSO: "Lasso",
 	}
 	var parts := []
-	if _file_path.is_empty():
+	if _is_data_mode():
+		parts.append("Data: " + str(_data_section.get("label", "?")))
+		parts.append("|  " + _DataPalettes.palette_name_for_id(_data_palette_id))
+	elif _file_path.is_empty():
 		parts.append("New Sprite")
 	else:
 		parts.append(_file_path.get_file())

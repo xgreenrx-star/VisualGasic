@@ -39,7 +39,7 @@
 - [ide_tools.md#ai-help-panel](manual/ide_tools.md#ai-help-panel) - **Vibe Code panel** — in-editor AI assistant (Ollama / OpenAI / Claude / Gemini) with VG-aware prompt, Explain Error / Explain Code / Translate presets
 - [NARCEA_LIVE_DEBUG_CAPTURE.md](development/NARCEA_LIVE_DEBUG_CAPTURE.md) - **Narcea Live Debug Capture** — opt-in viewport snapshots + debug JSON for Vibe Code (implemented; privacy, MCP, phases A–D)
 - [IDE_SHORTCUTS.md](manual/IDE_SHORTCUTS.md) - **Keyboard shortcuts & features quick-reference** (canvas, menus, properties, code editor)
-- [SPRITE_EDITOR_MANUAL.md](manual/SPRITE_EDITOR_MANUAL.md) - **Sprite Editor Manual** (19 drawing tools, 9 retro palettes, layers with blend modes, animation frames with tags, system clipboard, selection transforms, gradient, outline, reference layers, tiled preview)
+- [SPRITE_EDITOR_MANUAL.md](manual/SPRITE_EDITOR_MANUAL.md) - **Sprite Editor Manual** (19 drawing tools, 9 retro palettes, layers with blend modes, animation frames with tags, system clipboard, selection transforms, gradient, outline, reference layers, tiled preview, [inline `*Sprite` Data create/save](manual/SPRITE_EDITOR_MANUAL.md#inline-sprite-data))
 - [CUSTOM_CONTROLS.md](guides/CUSTOM_CONTROLS.md) - **Creating and using custom controls** (design in Godot, add via Components, use on forms)
 - [BRACKET_COMPLETION.md](BRACKET_COMPLETION.md) - Smart bracket completion system (type `}` to auto-complete blocks)
 - [BRACKET_COMPLETION_QUICK_REF.md](BRACKET_COMPLETION_QUICK_REF.md) - Quick reference for bracket completion
@@ -145,7 +145,7 @@
 | Plugin System | Extensible plugin architecture for custom IDE tabs | `plugins/` directory (auto-discovered) |
 | AGCK | Arcade Game Construction Kit — 5-editor retro game builder | 🕹️ AGCK toolbar button |
 | Bosca Ceoil Blue | Built-in chiptune / music tracker — WAV, OGG, MML export; `VGMusicPlayer` node for in-game dynamic synthesis | 🎵 Bosca Ceoil toolbar button |
-| Sprite Editor | Piskel-style pixel art editor with 16 tools (incl. Magic Wand), 9 retro palettes, palette import/export, layers, animation | 🎨 Sprite Editor toolbar button |
+| Sprite Editor | Piskel-style pixel art editor with 16 tools (incl. Magic Wand), 9 retro palettes, palette import/export, layers, animation; can create/save inline `*Sprite` Data (≤32×32) | 🎨 Sprite Editor toolbar / Sprite tab **New Sprite…** |
 
 ### Code Editing Tools
 | Tool | Description | Location |

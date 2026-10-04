@@ -107,7 +107,7 @@ DataFile "levels/world.vgd"
 
 Runtime: `DataCount("WorldTiles")`, `PeekData("WorldTiles", offset)`, `DataBuffer("WorldTiles")`. See [Language Reference — DataFile](../VisualGasic_Language_Reference.md#datafile) and [`.vgd` format](vg_data_format.md).
 
-Inline **Sprite data** (≤32×32, label ending in `Sprite`) uses a separate **Sprite data** rail section with a paint grid — not the Data file panel.
+Inline **Sprite data** (≤32×32, label ending in `Sprite`) uses a separate **Sprite data** rail section with a paint grid — not the Data file panel. **New Sprite…** inserts a blank labeled block; **Edit in Sprite Editor…** opens the full editor so **Save Data** writes palette indices back into source. See [Sprite Editor Manual — Inline Sprite Data](SPRITE_EDITOR_MANUAL.md#inline-sprite-data).
 
 ---
 

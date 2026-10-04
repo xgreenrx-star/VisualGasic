@@ -2607,7 +2607,7 @@ AddChild(enemy)
 
 ### Inline Sprite Data (*Sprite blocks)
 
-Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` sections. The IDE **Context Rail** shows a live pixel grid when the caret is inside a valid block (label name must end with `Sprite`, e.g. `PlayerSprite:`, `CloudSprite:`).
+Small pixel-art sprites can live **inline in `.vg` source** as labeled `Data` sections. The IDE **Context Rail → Sprite data** (and Help → **Sprite** tab) shows a live pixel grid when the caret is inside a valid block (label name must end with `Sprite`, e.g. `PlayerSprite:`, `CloudSprite:`). Use **New Sprite…** to insert a blank block, or **Edit in Sprite Editor…** / right-click **Edit Sprite Data as Image…** to paint with the full Sprite Editor — **Save Data** writes indices back into the `Data` rows (max 32×32).
 
 **Block layout**
 
@@ -2668,20 +2668,26 @@ Each palette has **16 indices (0–15)**. Index `0` is often used as transparent
 
 Palettes **GameBoy**, **C64**, and **CGA** use the same index range (0–15); see [Sprite Data](#sprite-data) in Part II for full hex tables.
 
-**Reading at runtime**
+**Reading / drawing at runtime**
 
 ```vb
-Dim raw As Variant
-raw = DataToArray("PlayerSprite")
-' raw(0)=w, raw(1)=h, raw(2)=transparentIdx, raw(3)=paletteId
-' raw(4) .. raw(4 + w*h - 1) = pixel indices, row-major (left→right, top→bottom)
+Dim playerRaw As Variant
 
-' Load once in _Ready — do NOT call DataToArray inside _Draw every frame.
+Sub LoadSprites()
+    playerRaw = DataToArray("PlayerSprite")  ' once — not in _Draw
+End Sub
+
+Sub _Draw()
+    DrawDataSprite playerRaw, playerX, playerY, 2   ' scale 2×
+End Sub
+
+' Optional bake:
+' Dim img As Object = SpriteDataToImage(playerRaw)
 ```
 
-For custom RGB (not palette indices), use a separate labeled block such as `PaletteData:` with RGB triplets and map indices yourself — see platformer demos that call `PalColor(index)`.
+`DrawDataSprite(raw, x, y [, scale])` skips `transparentIdx` and maps indices through the built-in palette in `raw(3)`. Returns the opaque pixel count. Prefer this over hand-rolled `DrawRect` loops.
 
-**See also:** [Sprite Data](#sprite-data), [Data](#data), [DataToArray](#datatoarray)
+**See also:** [Sprite Data](#sprite-data), [Data](#data), [DataToArray](#datatoarray), [DrawDataSprite](#drawdatasprite)
 
 ### Godot Singleton Access
 
@@ -6021,7 +6027,7 @@ Only available when the label’s `DataFile` pointed at a valid `.vgd` grid or b
 
 ## Sprite Data
 
-**Purpose** — Inline pixel-art sprites stored as labeled `*Sprite:` `Data` blocks in `.vg` source (editable in the IDE Context Rail).
+**Purpose** — Inline pixel-art sprites stored as labeled `*Sprite:` `Data` blocks in `.vg` source (editable in the IDE Context Rail and the full Sprite Editor).
 
 **Syntax**
 
@@ -6100,7 +6106,7 @@ The four integers on the first `Data` line after the label define the grid:
     ' raw(3) = paletteId
     ' raw(4) .. raw(4 + w*h - 1) = pixel indices (row-major)
 
-When drawing, skip indices equal to `transparentIdx`. Call `DataToArray` **once** at load time; cache the `Variant` for `_Draw` helpers.
+Call `DataToArray` **once** at load time; draw with `DrawDataSprite raw, x, y [, scale]` in `_Draw` (or bake with `SpriteDataToImage(raw)`).
 
 **Example — minimal 4×4**
 
@@ -6111,15 +6117,20 @@ When drawing, skip indices equal to `transparentIdx`. Call `DataToArray` **once*
     Data 15, 15, 15, 15
     Data 0, 15, 15, 0
 
+    Dim cloudRaw As Variant
     Sub LoadSprites()
         cloudRaw = DataToArray("CloudSprite")
+    End Sub
+    Sub _Draw()
+        DrawDataSprite cloudRaw, 40, 20, 3
     End Sub
 
 **IDE**
 
-- Caret inside the block → **Context Rail → Sprite data** shows palette swatches and a paint grid.
-- Right-click in the code editor → **Edit Sprite Data as Image…** (native Script editor).
-- Max **32×32** for inline editing; larger art → PNG + `LoadPicture` / AGCK Sprite Editor.
+- **New Sprite…** on **Context Rail → Sprite data** or Help → **Sprite** tab inserts a labeled blank block (label, size, palette) and optionally opens the full Sprite Editor.
+- Caret inside the block → Sprite tab shows palette swatches and a quick-paint grid (live-writes `Data` rows).
+- **Edit in Sprite Editor…** (same tab) or right-click → **Edit Sprite Data as Image…** opens the full Sprite Editor in **Data mode**; **Save Data** / `Ctrl+S` rewrites the header and pixel rows. Back returns to the code editor.
+- Max **32×32** for inline Data; larger art → PNG + `LoadPicture` / Sprite Editor PNG workflow. See [Sprite Editor Manual — Inline Sprite Data](manual/SPRITE_EDITOR_MANUAL.md#inline-sprite-data).
 
 **See Also** — [Data](#data), [DataToArray](#datatoarray), [PeekData](#peekdata), [DrawRect](#drawrect), [QueueRedraw](#queueredraw)
 
@@ -6386,7 +6397,61 @@ Draws a line between two points with an optional width.
         DrawLine Vector2(50, 50), Vector2(200, 100), Color.White
     End Sub
 
-**See Also** — [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+**See Also** — [DrawRect](#drawrect), [DrawCircle](#drawcircle), [DrawArc](#drawarc), [DrawPixel](#drawpixel), [DrawDataSprite](#drawdatasprite), [DrawPolygon](#drawpolygon), [DrawPolyline](#drawpolyline), [PSet](#pset), [CLS](#cls), [QueueRedraw](#queueredraw)
+
+---
+
+## DrawDataSprite
+
+**Purpose** — Blit a cached labeled `*Sprite` `DataToArray` tape onto the canvas in `_Draw`.
+
+**Syntax**
+
+    DrawDataSprite raw, x, y [, scale]
+
+**Parameters**
+
+- `raw` — `Variant` / `Array` from `DataToArray("LabelSprite")` (header + pixels)
+- `x`, `y` — top-left destination in canvas pixels
+- `scale` — optional pixel size (default `1`)
+
+**Description**
+
+Skips indices equal to `transparentIdx` (`raw(2)`). Maps remaining indices through the built-in palette selected by `raw(3)` (NES / GameBoy / C64 / CGA). Returns the number of opaque pixels drawn. Cache `raw` once at load — never call `DataToArray` inside `_Draw`.
+
+**Example**
+
+    Dim playerRaw As Variant
+    Sub LoadSprites()
+        playerRaw = DataToArray("PlayerSprite")
+    End Sub
+    Sub _Draw()
+        DrawDataSprite playerRaw, playerX, playerY, 2
+    End Sub
+
+**See Also** — [Sprite Data](#sprite-data), [DataToArray](#datatoarray), [SpriteDataToImage](#spritedatatoimage), [DrawRect](#drawrect)
+
+---
+
+## SpriteDataToImage
+
+**Purpose** — Bake a cached `*Sprite` tape to an `Image` (RGBA8).
+
+**Syntax**
+
+    SpriteDataToImage(raw) As Image
+
+**Description**
+
+Transparent key → alpha 0; other indices use the same built-in palettes as `DrawDataSprite`. Use with `ImageToTexture` when you need a `Texture2D`.
+
+**Example**
+
+    Dim raw As Variant = DataToArray("PlayerSprite")
+    Dim img As Object = SpriteDataToImage(raw)
+    Dim tex As Object = ImageToTexture(img)
+
+**See Also** — [DrawDataSprite](#drawdatasprite), [DataToArray](#datatoarray), [ImageToTexture](#imagetotexture)
 
 ---
 
@@ -14160,7 +14225,7 @@ For labeled sections, the compiler records label boundaries; `DataToArray("Playe
 - `(3)` = palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA)
 - `(4)` … `(4 + w×h − 1)` = pixel indices, row-major
 
-Call once in `_Ready` or `LoadSprites` and reuse the cached array in draw code — do not call inside `_Draw` per sprite instance.
+Call once in `_Ready` or `LoadSprites` and reuse the cached array with [DrawDataSprite](#drawdatasprite) — do not call inside `_Draw` per sprite instance.
 
 **Example**
 

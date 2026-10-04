@@ -34,6 +34,7 @@
 #include "visual_gasic_qb_screen.h"
 #include "vg_qb_string_bytes.h"
 #include "visual_gasic_vector_canvas.h"
+#include "vg_sprite_data_runtime.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
@@ -2876,6 +2877,10 @@ void VisualGasicInstance::safe_canvas_draw_circle(CanvasItem *ci, const Vector2 
     RenderingServer::get_singleton()->canvas_item_add_circle(ci->get_canvas_item(), pos, radius, col, false);
 }
 
+int VisualGasicInstance::draw_data_sprite(const Array &raw, float x, float y, float scale) {
+    return VGSpriteDataRuntime::draw(get_draw_canvas_item(), raw, x, y, scale);
+}
+
 CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
     if (_draw_ci_owner_cache != owner) {
         _draw_ci_owner_cache = owner;
@@ -2913,6 +2918,9 @@ int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
     if (p_method.nocasecmp_to("SetDrawTransform") == 0) return 13;
     if (p_method.nocasecmp_to("ResetDrawTransform") == 0) return 14;
     if (p_method.nocasecmp_to("CLS") == 0 || p_method.nocasecmp_to("ClearScreen") == 0) return 15;
+    // DrawDataSprite is intentionally NOT a draw_kind: the VM draw fast-path
+    // pushes NIL and would hide the opaque-pixel return value. Handled as a
+    // normal builtin (call_builtin_expr_evaluated / try_dispatch_draw_call).
     return 0;
 }
 
@@ -3514,6 +3522,25 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
         float x = p_args[0], y = p_args[1];
         Color col = p_args[2];
         safe_canvas_draw_rect(ci,Rect2(x, y, 1, 1), col, true);
+        r_found = true;
+        return true;
+    }
+    // DrawDataSprite(raw, x, y [, scale]) — blit cached *Sprite DataToArray tape.
+    if (p_method.nocasecmp_to("DrawDataSprite") == 0 && p_arg_count >= 3) {
+        Array raw;
+        if (p_args[0].get_type() == Variant::ARRAY) {
+            raw = p_args[0];
+        } else {
+            r_found = true;
+            return true;
+        }
+        float x = (float)(double)p_args[1];
+        float y = (float)(double)p_args[2];
+        float scale = 1.0f;
+        if (p_arg_count > 3) {
+            scale = (float)(double)p_args[3];
+        }
+        VGSpriteDataRuntime::draw(ci, raw, x, y, scale);
         r_found = true;
         return true;
     }

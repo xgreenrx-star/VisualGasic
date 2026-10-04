@@ -4,6 +4,7 @@
 #include "vg_connect.h"
 #include "vg_godot_owner_builtins.h"
 #include "vg_input_edge.h"
+#include "vg_sprite_data_runtime.h"
 #include <cstring>
 #include <algorithm>
 #include <godot_cpp/classes/json.hpp>
@@ -755,6 +756,19 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         return true;
     }
 
+    // DrawDataSprite as a statement (no assignment) — still draws.
+    if (method.nocasecmp_to("DrawDataSprite") == 0 && p_args.size() >= 3) {
+        r_found = true;
+        if (p_args[0].get_type() != Variant::ARRAY) {
+            instance->raise_runtime_error("DrawDataSprite: expected Array from DataToArray(\"LabelSprite\")");
+            r_ret = (int64_t)0;
+            return true;
+        }
+        float scale = (p_args.size() > 3) ? (float)(double)p_args[3] : 1.0f;
+        r_ret = (int64_t)instance->draw_data_sprite((Array)p_args[0], (float)(double)p_args[1], (float)(double)p_args[2], scale);
+        return true;
+    }
+
     // Fallback: not handled here
     return false;
 }
@@ -992,6 +1006,31 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
             result.push_back(instance->get_data_value_at(i));
         }
         return result;
+    }
+    // SpriteDataToImage(raw) — bake *Sprite DataToArray tape to an Image (RGBA8).
+    if (METHOD_IS("spritedatatoimage") && args.size() >= 1) {
+        r_handled = true;
+        if (args[0].get_type() != Variant::ARRAY) {
+            instance->raise_runtime_error("SpriteDataToImage: expected Array from DataToArray(\"LabelSprite\")");
+            return Variant();
+        }
+        Ref<Image> img = VGSpriteDataRuntime::to_image((Array)args[0]);
+        if (!img.is_valid()) {
+            instance->raise_runtime_error("SpriteDataToImage: invalid sprite tape (need w,h,trans,palette + w*h pixels, max 32×32)");
+            return Variant();
+        }
+        return img;
+    }
+    // DrawDataSprite(raw, x, y [, scale]) As Integer — draw + return opaque pixel count.
+    // Prefer statement form in _Draw; expression form is useful for tests / diagnostics.
+    if (METHOD_IS("drawdatasprite") && args.size() >= 3) {
+        r_handled = true;
+        if (args[0].get_type() != Variant::ARRAY) {
+            instance->raise_runtime_error("DrawDataSprite: expected Array from DataToArray(\"LabelSprite\")");
+            return (int64_t)0;
+        }
+        float scale = (args.size() > 3) ? (float)(double)args[3] : 1.0f;
+        return (int64_t)instance->draw_data_sprite((Array)args[0], (float)(double)args[1], (float)(double)args[2], scale);
     }
 
     // File / Dir Helpers (use instance wrappers)
@@ -6043,6 +6082,28 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             result.push_back(instance->get_data_value_at(i));
         }
         return result;
+    }
+    if (METHOD_IS("spritedatatoimage") && args.size() >= 1) {
+        r_handled = true;
+        if (args[0].get_type() != Variant::ARRAY) {
+            instance->raise_runtime_error("SpriteDataToImage: expected Array from DataToArray(\"LabelSprite\")");
+            return Variant();
+        }
+        Ref<Image> img = VGSpriteDataRuntime::to_image((Array)args[0]);
+        if (!img.is_valid()) {
+            instance->raise_runtime_error("SpriteDataToImage: invalid sprite tape (need w,h,trans,palette + w*h pixels, max 32×32)");
+            return Variant();
+        }
+        return img;
+    }
+    if (METHOD_IS("drawdatasprite") && args.size() >= 3) {
+        r_handled = true;
+        if (args[0].get_type() != Variant::ARRAY) {
+            instance->raise_runtime_error("DrawDataSprite: expected Array from DataToArray(\"LabelSprite\")");
+            return (int64_t)0;
+        }
+        float scale = (args.size() > 3) ? (float)(double)args[3] : 1.0f;
+        return (int64_t)instance->draw_data_sprite((Array)args[0], (float)(double)args[1], (float)(double)args[2], scale);
     }
 
     // ============================================

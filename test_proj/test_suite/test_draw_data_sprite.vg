@@ -1,0 +1,65 @@
+' Regression: DrawDataSprite / SpriteDataToImage for labeled *Sprite Data tapes.
+' MAX_FRAMES: 5
+Extends Node2D
+Option Explicit
+
+Dim playerRaw As Variant
+
+TinySprite:
+Data 4, 4, 0, 0
+Data 0, 1, 1, 0
+Data 1, 2, 2, 1
+Data 1, 2, 2, 1
+Data 0, 1, 1, 0
+
+Sub _Ready()
+	playerRaw = DataToArray("TinySprite")
+	If UBound(playerRaw) < 19 Then
+		Print "FAIL: draw_data_sprite_tape: ubound=" & Str(UBound(playerRaw))
+		Exit Sub
+	End If
+	If CInt(playerRaw(0)) = 4 And CInt(playerRaw(1)) = 4 Then
+		Print "PASS: draw_data_sprite_header"
+	Else
+		Print "FAIL: draw_data_sprite_header: w=" & Str(playerRaw(0)) & " h=" & Str(playerRaw(1))
+	End If
+
+	Dim img As Object
+	Set img = SpriteDataToImage(playerRaw)
+	If img Is Nothing Then
+		Print "FAIL: sprite_data_to_image_null"
+		Exit Sub
+	End If
+	If ImageWidth(img) = 4 And ImageHeight(img) = 4 Then
+		Print "PASS: sprite_data_to_image_size"
+	Else
+		Print "FAIL: sprite_data_to_image_size: " & Str(ImageWidth(img)) & "x" & Str(ImageHeight(img))
+	End If
+
+	' Transparent key (0) at (0,0) → alpha 0
+	Dim c0 As Color
+	c0 = GetImagePixel(img, 0, 0)
+	If c0.a < 0.01 Then
+		Print "PASS: sprite_data_to_image_transparent"
+	Else
+		Print "FAIL: sprite_data_to_image_transparent: a=" & Str(c0.a)
+	End If
+
+	' Index 1 → NES blue #0000FC
+	Dim c1 As Color
+	c1 = GetImagePixel(img, 1, 0)
+	If c1.a > 0.9 And c1.b > 0.9 And c1.r < 0.1 And c1.g < 0.1 Then
+		Print "PASS: sprite_data_to_image_palette"
+	Else
+		Print "FAIL: sprite_data_to_image_palette: " & Str(c1.r) & "," & Str(c1.g) & "," & Str(c1.b) & "," & Str(c1.a)
+	End If
+
+	' On Node2D owner: DrawDataSprite paints and returns opaque count (12 non-zero of 16).
+	Dim n As Integer
+	n = DrawDataSprite(playerRaw, 8, 8, 2)
+	If n = 12 Then
+		Print "PASS: draw_data_sprite_count"
+	Else
+		Print "FAIL: draw_data_sprite_count: n=" & Str(n)
+	End If
+End Sub

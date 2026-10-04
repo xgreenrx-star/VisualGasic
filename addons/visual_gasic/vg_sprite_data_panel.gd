@@ -3,6 +3,7 @@ extends VBoxContainer
 ## Inline pixel grid for labeled *Sprite Data blocks. Live-writes Data rows on edit.
 
 signal section_focused(section: Dictionary)
+signal edit_in_sprite_editor_requested(section: Dictionary)
 
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const Sync := preload("res://addons/visual_gasic/vg_sprite_data_sync.gd")
@@ -24,13 +25,34 @@ var _sync_pending := false
 var _zoom := 12
 var _painting := false
 var _data_fingerprint: String = ""
+var _btn_row: HBoxContainer
+var _new_btn: Button
+var _edit_btn: Button
+var _new_dialog: AcceptDialog = null
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+	_btn_row = HBoxContainer.new()
+	_btn_row.add_theme_constant_override("separation", 4)
+	add_child(_btn_row)
+
+	_new_btn = Button.new()
+	_new_btn.text = "New Sprite…"
+	_new_btn.tooltip_text = "Insert a labeled *Sprite Data block and paint it (or open the Sprite Editor)"
+	_new_btn.pressed.connect(_on_new_sprite_pressed)
+	_btn_row.add_child(_new_btn)
+
+	_edit_btn = Button.new()
+	_edit_btn.text = "Edit in Sprite Editor…"
+	_edit_btn.tooltip_text = "Open the full Sprite Editor on this Data block (Save writes back to Data)"
+	_edit_btn.visible = false
+	_edit_btn.pressed.connect(_on_edit_in_editor_pressed)
+	_btn_row.add_child(_edit_btn)
+
 	_status = Label.new()
-	_status.text = "Move the caret into a *Sprite: Data block."
+	_status.text = "Move the caret into a *Sprite: Data block, or click New Sprite…"
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 10)
 	_status.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
@@ -78,7 +100,8 @@ func clear_section() -> void:
 	_grid.visible = false
 	_grid.queue_redraw()
 	_brush_label.text = ""
-	_status.text = "Move the caret into a *Sprite: Data block."
+	_edit_btn.visible = false
+	_status.text = "Move the caret into a *Sprite: Data block, or click New Sprite…"
 
 
 func update_for_caret(source: String, caret_line: int) -> void:
@@ -137,6 +160,7 @@ func _load_section(sec: Dictionary, fingerprint: String = "") -> void:
 	_grid.queue_redraw()
 	_rebuild_palette_row()
 	_update_status_line()
+	_edit_btn.visible = true
 
 
 func _rebuild_palette_row() -> void:
@@ -327,3 +351,133 @@ func _flush_sync() -> void:
 		return
 	_sync_pending = false
 	Sync.apply_pixels(_code_edit, _section, _pixels)
+
+
+func _on_edit_in_editor_pressed() -> void:
+	if _section.is_empty():
+		return
+	_flush_sync()
+	edit_in_sprite_editor_requested.emit(_section.duplicate(true))
+
+
+func _on_new_sprite_pressed() -> void:
+	if _code_edit == null or not is_instance_valid(_code_edit):
+		_status.text = "Open a .vg file first, then create a sprite."
+		return
+	_show_new_sprite_dialog()
+
+
+func _show_new_sprite_dialog() -> void:
+	if is_instance_valid(_new_dialog):
+		_new_dialog.queue_free()
+
+	_new_dialog = AcceptDialog.new()
+	_new_dialog.title = "New Sprite Data"
+	_new_dialog.ok_button_text = "Create"
+	_new_dialog.size = Vector2i(360, 320)
+	_new_dialog.dialog_hide_on_ok = false
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	_new_dialog.add_child(vbox)
+
+	var hint := Label.new()
+	hint.text = "Inserts a labeled Data block (max %d×%d) into the open .vg file." % [
+		Resolver.MAX_INLINE_W, Resolver.MAX_INLINE_H
+	]
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
+	vbox.add_child(hint)
+
+	var label_row := HBoxContainer.new()
+	label_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(label_row)
+	var label_lbl := Label.new()
+	label_lbl.text = "Label:"
+	label_lbl.custom_minimum_size.x = 72
+	label_row.add_child(label_lbl)
+	var label_edit := LineEdit.new()
+	label_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label_edit.text = Sync.suggest_label(_code_edit.text)
+	label_edit.placeholder_text = "PlayerSprite"
+	label_row.add_child(label_edit)
+
+	var size_row := HBoxContainer.new()
+	size_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(size_row)
+	var w_lbl := Label.new()
+	w_lbl.text = "Width:"
+	w_lbl.custom_minimum_size.x = 72
+	size_row.add_child(w_lbl)
+	var w_spin := SpinBox.new()
+	w_spin.min_value = 1
+	w_spin.max_value = Resolver.MAX_INLINE_W
+	w_spin.value = 16
+	w_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_row.add_child(w_spin)
+	var h_lbl := Label.new()
+	h_lbl.text = "Height:"
+	size_row.add_child(h_lbl)
+	var h_spin := SpinBox.new()
+	h_spin.min_value = 1
+	h_spin.max_value = Resolver.MAX_INLINE_H
+	h_spin.value = 16
+	h_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	size_row.add_child(h_spin)
+
+	var pal_row := HBoxContainer.new()
+	pal_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(pal_row)
+	var pal_lbl := Label.new()
+	pal_lbl.text = "Palette:"
+	pal_lbl.custom_minimum_size.x = 72
+	pal_row.add_child(pal_lbl)
+	var pal_opt := OptionButton.new()
+	pal_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in Palettes.PALETTE_NAMES.size():
+		pal_opt.add_item(Palettes.PALETTE_NAMES[i], i)
+	pal_opt.select(0)
+	pal_row.add_child(pal_opt)
+
+	var open_check := CheckBox.new()
+	open_check.text = "Open in Sprite Editor after create"
+	open_check.button_pressed = true
+	vbox.add_child(open_check)
+
+	var err_lbl := Label.new()
+	err_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	err_lbl.add_theme_color_override("font_color", Color(0.75, 0.15, 0.15))
+	err_lbl.add_theme_font_size_override("font_size", 11)
+	vbox.add_child(err_lbl)
+
+	_new_dialog.confirmed.connect(func():
+		err_lbl.text = ""
+		var result := Sync.insert_new_block(
+			_code_edit,
+			_code_edit.get_caret_line(),
+			label_edit.text,
+			int(w_spin.value),
+			int(h_spin.value),
+			0,
+			pal_opt.get_selected_id()
+		)
+		if not bool(result.get("ok", false)):
+			err_lbl.text = str(result.get("error", "Create failed"))
+			return
+		var sec: Dictionary = result.get("section", {})
+		if not sec.is_empty():
+			_load_section(sec, _data_fingerprint_for(sec, _code_edit.text))
+			section_focused.emit(sec)
+			if open_check.button_pressed:
+				edit_in_sprite_editor_requested.emit(sec.duplicate(true))
+		_new_dialog.hide()
+		_new_dialog.queue_free()
+	)
+	_new_dialog.canceled.connect(func(): _new_dialog.queue_free())
+
+	var host: Node = get_tree().root if get_tree() else self
+	host.add_child(_new_dialog)
+	_new_dialog.popup_centered()
+	label_edit.grab_focus()
+	label_edit.select_all()

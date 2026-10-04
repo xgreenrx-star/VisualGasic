@@ -130,7 +130,7 @@ Right-click anywhere in the code editor (not the gutter). Menu items match the l
 
 | Menu item | Notes |
 |-----------|-------|
-| Edit Sprite Data as Image… | **Disabled** unless the caret is inside a `*Sprite Data` labeled block; opens the Sprite Editor on that sheet |
+| Edit Sprite Data as Image… | **Disabled** unless the caret is inside a `*Sprite Data` labeled block; opens the full **Sprite Editor** in Data mode (**Save Data** writes indices back into the block). Create new blocks from **Help → Sprite → New Sprite…** (or Context Rail → Sprite data). See [Sprite Editor Manual — Inline Sprite Data](SPRITE_EDITOR_MANUAL.md#inline-sprite-data). |
 
 ### File path submenu (contextual)
 

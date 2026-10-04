@@ -562,7 +562,7 @@ static func _build_db() -> void:
 
 	_add("Sprite Data",
 		"LabelSprite:\nData w, h, transparentIdx, paletteId\nData …  ' h rows × w palette indices (0–15)",
-		"Inline pixel-art format for labeled *Sprite: Data blocks. Header: width, height, transparent palette index, palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA). Then exactly h Data rows with w indices each. Editable in Context Rail. Max 32×32 inline.",
+		"Inline pixel-art format for labeled *Sprite: Data blocks. Header: width, height, transparent palette index, palette id (0=NES, 1=GameBoy, 2=C64, 3=CGA). Then exactly h Data rows with w indices each. Create/edit in Context Rail → Sprite (New Sprite… / Edit in Sprite Editor…). Max 32×32 inline.",
 		"PlayerSprite:\nData 8, 8, 0, 0\nData 0, 0, 1, 1, 0, 0, 0, 0\nData 0, 1, 2, 2, 1, 0, 0, 0\n\nDim raw As Variant\nraw = DataToArray(\"PlayerSprite\")\n' raw(0)=w raw(1)=h raw(2)=trans raw(3)=palette\n' raw(4)+ = pixels row-major", 5770)
 
 	_add("Vector Data",
@@ -572,8 +572,16 @@ static func _build_db() -> void:
 
 	_add("DataToArray",
 		"DataToArray()\nDataToArray(\"sectionLabel\")\nDataToArray(count)",
-		"Returns DATA values as a Variant array. DataToArray(\"PlayerSprite\") includes header (w,h,transparent,paletteId) then pixel indices — cache at load time, not in _Draw.",
-		"Dim raw As Variant\nraw = DataToArray(\"CloudSprite\")\nDim w As Integer : w = CInt(raw(0))\nDim h As Integer : h = CInt(raw(1))\nDim idx As Integer : idx = 4\n' pixels at raw(4) .. raw(4 + w*h - 1)", 13458)
+		"Returns DATA values as a Variant array. DataToArray(\"PlayerSprite\") includes header (w,h,transparent,paletteId) then pixel indices — cache at load time, not in _Draw. Draw with DrawDataSprite(raw, x, y [, scale]).",
+		"Dim raw As Variant\nraw = DataToArray(\"CloudSprite\")\nDrawDataSprite raw, 40, 20, 3", 13458)
+	_add("DrawDataSprite",
+		"DrawDataSprite(raw, x, y [, scale])",
+		"Blit a cached *Sprite DataToArray tape in _Draw. raw must be loaded once (never call DataToArray inside _Draw). Skips transparentIdx; uses built-in palette from raw(3). Optional scale (default 1). Returns opaque pixel count.",
+		"Dim playerRaw As Variant\nSub LoadSprites()\n    playerRaw = DataToArray(\"PlayerSprite\")\nEnd Sub\nSub _Draw()\n    DrawDataSprite playerRaw, playerX, playerY, 2\nEnd Sub", 6500)
+	_add("SpriteDataToImage",
+		"SpriteDataToImage(raw) As Image",
+		"Bake a cached *Sprite DataToArray tape to an RGBA8 Image (transparentIdx → alpha 0). Useful for Texture2D / one-time conversion.",
+		"Dim raw As Variant = DataToArray(\"PlayerSprite\")\nDim img As Object = SpriteDataToImage(raw)\nDim tex As Object = ImageToTexture(img)", 6501)
 
 	_add("Read",
 		"Read variable1 [, variable2, ...]\nRead variable As Type",
@@ -2798,7 +2806,7 @@ static func _build_see_also() -> void:
 		# Logical operators
 		["And", "Or", "Not", "Xor"],
 		# Drawing — shapes
-		["DrawLine", "DrawRect", "DrawCircle", "DrawArc", "DrawPixel", "DrawPolygon", "DrawPolyline", "PSet", "CLS", "QueueRedraw"],
+		["DrawLine", "DrawRect", "DrawCircle", "DrawArc", "DrawPixel", "DrawDataSprite", "SpriteDataToImage", "DrawPolygon", "DrawPolyline", "PSet", "CLS", "QueueRedraw"],
 		# Drawing — text & images
 		["DrawString", "DrawText", "DrawTexture", "DrawTextureRect"],
 		# Drawing — transform

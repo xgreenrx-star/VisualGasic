@@ -12,18 +12,19 @@ The VisualGasic Sprite Editor is a Piskel/Aseprite-inspired pixel art and animat
 ## Table of Contents
 
 1. [Getting Started](#getting-started)
-2. [Interface Layout](#interface-layout)
-3. [Drawing Tools](#drawing-tools)
-4. [Color Management](#color-management)
-5. [Retro Palettes](#retro-palettes)
-6. [Layers](#layers)
-7. [Animation Frames](#animation-frames)
-8. [Selection & Clipboard](#selection--clipboard)
-9. [Image Operations](#image-operations)
-10. [Canvas Options & Toggles](#canvas-options--toggles)
-11. [File Operations](#file-operations)
-12. [Keyboard Shortcuts](#keyboard-shortcuts)
-13. [Tips & Workflows](#tips--workflows)
+2. [Inline Sprite Data](#inline-sprite-data)
+3. [Interface Layout](#interface-layout)
+4. [Drawing Tools](#drawing-tools)
+5. [Color Management](#color-management)
+6. [Retro Palettes](#retro-palettes)
+7. [Layers](#layers)
+8. [Animation Frames](#animation-frames)
+9. [Selection & Clipboard](#selection--clipboard)
+10. [Image Operations](#image-operations)
+11. [Canvas Options & Toggles](#canvas-options--toggles)
+12. [File Operations](#file-operations)
+13. [Keyboard Shortcuts](#keyboard-shortcuts)
+14. [Tips & Workflows](#tips--workflows)
 
 ---
 
@@ -36,10 +37,11 @@ The Sprite Editor can be opened from the VG IDE in several ways:
 - Double-click a `.png`, `.webp`, or `.bmp` image file in the Project Explorer
 - Select **Project → Tools → Sprite Editor** from the menu
 - From the AGCK Builder, sprites open automatically when editing game assets
+- From a `.vg` file: **Context Rail / Help → Sprite** tab → **Edit in Sprite Editor…**, or right-click a `*Sprite` Data block → **Edit Sprite Data as Image…** (see [Inline Sprite Data](#inline-sprite-data))
 
 ### Creating a New Sprite
 
-Click **📄 New** in the toolbar (or press `Ctrl+N`) to create a new sprite. A dialog appears with preset sizes for common retro formats:
+Click **📄 New** in the toolbar (or press `Ctrl+N`) to create a new **PNG-oriented** sprite. A dialog appears with preset sizes for common retro formats:
 
 | Preset | Size |
 |--------|------|
@@ -58,6 +60,49 @@ You can also enter custom dimensions (up to 512×512).
 
 ![New Sprite Dialog](../screenshots/sprite_editor_new_dialog.png)
 <!-- 📸 SCREENSHOT NEEDED: New Sprite dialog showing preset dropdown and width/height spinboxes -->
+
+To create a sprite that lives **in source as `Data` statements** (no PNG file), use **New Sprite…** on the Sprite tab instead — see below.
+
+---
+
+## Inline Sprite Data
+
+Small pixel-art sprites can live **inline in `.vg` source** as labeled `*Sprite:` `Data` blocks (label must end with `Sprite`, max **32×32**). The full Sprite Editor can create and edit those blocks so you never have to type palette indices by hand.
+
+Language format details: [Language Reference — Sprite Data](../VisualGasic_Language_Reference.md#sprite-data).
+
+### Create a new Data sprite
+
+1. Open a `.vg` file in the VG code editor (embedded or Godot Script).
+2. Open **Context Rail → Sprite data**, or the floating **Help** panel → **Sprite** tab.
+3. Click **New Sprite…**.
+4. Choose a label (must end with `Sprite`, e.g. `PlayerSprite`), width/height (1–32), and built-in palette (NES / GameBoy / C64 / CGA).
+5. Leave **Open in Sprite Editor after create** checked (default) to jump straight into painting.
+
+VG inserts a header `Data w, h, transparentIdx, paletteId` plus `h` pixel rows filled with the transparent index, then opens the Sprite Editor in **Data mode**.
+
+### Edit an existing Data sprite
+
+| Entry point | Action |
+|-------------|--------|
+| Sprite tab | With the caret inside a `*Sprite` block → **Edit in Sprite Editor…** |
+| Right-click menu | **Edit Sprite Data as Image…** (enabled only inside a valid block) |
+| Context Rail | Same Sprite panel buttons as the Help → Sprite tab |
+
+### Data mode (Save writes `Data` rows)
+
+When the editor is bound to a labeled block:
+
+- The status bar shows `Data: LabelName` and the active palette.
+- The toolbar save button becomes **💾 Save Data**.
+- **`Ctrl+S` / Save Data** quantizes the canvas to the block’s 16-color palette and rewrites the header + pixel `Data` lines in the open `.vg` buffer (size changes up to 32×32 are allowed; canvas resize is clamped to that limit).
+- **← Form / Back** returns to the code editor (not the Form Designer).
+- **New** / **Open** (PNG) clears Data mode and switches to the normal image workflow.
+- Multi-frame animation is not written to inline Data — only the composited current canvas is saved as one still sprite.
+
+### Quick paint without the full editor
+
+With the caret in a block, the Sprite tab still shows the small Context Rail pixel grid and palette swatches for quick touch-ups; edits live-write `Data` rows the same way.
 
 ---
 
@@ -524,11 +569,12 @@ Controls the opacity of pen strokes. At 100% (default), strokes fully replace ex
 
 ### Save (`Ctrl+S`)
 
-Saves the composited sprite as PNG to the current file path. If no path has been set, opens the Export dialog.
+- **PNG mode** — saves the composited sprite as PNG to the current file path. If no path has been set, opens the Export dialog.
+- **Data mode** — button reads **Save Data**; writes palette indices back into the bound `*Sprite` `Data` block in the open `.vg` file (see [Inline Sprite Data](#inline-sprite-data)).
 
 ### Open (`Ctrl+O`)
 
-Opens a file dialog to load an existing image (`.png`, `.webp`, `.bmp`). The image is imported as a single layer at its native resolution.
+Opens a file dialog to load an existing image (`.png`, `.webp`, `.bmp`). The image is imported as a single layer at its native resolution. Clears Data mode if it was active.
 
 ### Export (`Ctrl+E`)
 
@@ -539,7 +585,7 @@ Opens a file dialog to export the sprite:
 
 ### New (`Ctrl+N`)
 
-Creates a new blank sprite with the selected preset or custom dimensions.
+Creates a new blank sprite with the selected preset or custom dimensions (PNG workflow). Clears Data mode if it was active. For a new **inline Data** sprite, use the Sprite tab’s **New Sprite…** instead.
 
 ---
 
@@ -601,6 +647,13 @@ Creates a new blank sprite with the selected preset or custom dimensions.
 ---
 
 ## Tips & Workflows
+
+### Inline Data sprites (no PNG)
+
+1. Open your `.vg` → **Sprite** tab → **New Sprite…** (16×16 NES is a good default)
+2. Paint in the full editor; press **Save Data** (`Ctrl+S`) often — indices land in source immediately for Play
+3. Cache once: `raw = DataToArray("YourSprite")` — draw with `DrawDataSprite raw, x, y [, scale]` in `_Draw`
+4. Keep art ≤32×32 for Data; use PNG + `LoadPicture` for larger sheets or animation strips
 
 ### Pixel Art Best Practices
 

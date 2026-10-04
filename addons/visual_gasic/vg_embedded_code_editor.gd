@@ -30,6 +30,7 @@ signal file_path_open_hex_requested(path: String)
 signal file_path_open_hex_grid_requested(path: String, grid_width: int, elem_size: int)
 signal file_path_open_grid_editor_requested(ref: Dictionary)
 signal file_path_open_sprite_requested(path: String)
+signal sprite_data_edit_requested(section: Dictionary)
 signal file_path_reveal_browser_requested(path: String)
 signal file_path_open_external_requested(path: String)
 signal dual_editor_refresh_requested()  ## user asked to reload from the other editor
@@ -293,6 +294,8 @@ func _build_ui() -> void:
 		_context_rail.hex_editor_open_requested.connect(_on_context_rail_hex_open)
 	if _context_rail.has_signal("grid_editor_open_requested"):
 		_context_rail.grid_editor_open_requested.connect(_on_context_rail_grid_open)
+	if _context_rail.has_signal("sprite_data_edit_requested"):
+		_context_rail.sprite_data_edit_requested.connect(_on_context_rail_sprite_data_edit)
 
 	# ── Bottom panel: Immediate Window ──
 	_build_bottom_panel()
@@ -2460,9 +2463,22 @@ func _on_context_rail_summary_insert(proc_line: int, text: String) -> void:
 
 
 func _on_edit_sprite_data_requested() -> void:
-	_update_context_rail()
-	if is_instance_valid(_context_rail):
-		_context_rail.grab_focus()
+	if _code_edit == null:
+		return
+	const SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
+	var sec := SpriteResolver.resolve_at_line(_code_edit.text, _code_edit.get_caret_line())
+	if sec.is_empty():
+		_update_context_rail()
+		if is_instance_valid(_context_rail):
+			_context_rail.grab_focus()
+		return
+	sprite_data_edit_requested.emit(sec)
+
+
+func _on_context_rail_sprite_data_edit(section: Dictionary) -> void:
+	if section.is_empty():
+		return
+	sprite_data_edit_requested.emit(section)
 
 
 func _on_context_rail_hex_open(path: String, grid_width: int, elem_size: int) -> void:

@@ -7,6 +7,7 @@ signal file_action_requested(action: int, ref: Dictionary)
 signal summary_insert_requested(line: int, text: String)
 signal hex_editor_open_requested(path: String, grid_width: int, elem_size: int)
 signal grid_editor_open_requested(ref: Dictionary)
+signal sprite_data_edit_requested(section: Dictionary)
 
 const Analyzer := preload("res://addons/visual_gasic/vg_context_analyzer.gd")
 const CaretContext := preload("res://addons/visual_gasic/vg_context_caret_context.gd")
@@ -123,6 +124,10 @@ func _ready() -> void:
 	_symbol_label = _body_label()
 	_sprite_panel = SpritePanelScript.new()
 	_sprite_panel.name = "SpriteEditor"
+	if _sprite_panel.has_signal("edit_in_sprite_editor_requested"):
+		_sprite_panel.edit_in_sprite_editor_requested.connect(func(section: Dictionary) -> void:
+			sprite_data_edit_requested.emit(section)
+		)
 	_vector_panel = VectorPanelScript.new()
 	_vector_panel.name = "VectorEditor"
 	_vector_file_panel = VectorFilePanelScript.new()

@@ -1263,6 +1263,8 @@ Dictionary VisualGasicLanguage::_complete_code(const String &p_code, const Strin
     keywords.push_back("DrawRect");
     keywords.push_back("DrawCircle");
     keywords.push_back("DrawPixel");
+    keywords.push_back("DrawDataSprite");
+    keywords.push_back("SpriteDataToImage");
     keywords.push_back("PSet");
     keywords.push_back("Paint");
     keywords.push_back("Play");

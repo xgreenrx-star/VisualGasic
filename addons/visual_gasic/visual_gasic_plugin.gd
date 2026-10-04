@@ -1147,6 +1147,8 @@ func _enter_tree():
 				_embedded_code_editor.file_path_open_hex_grid_requested.connect(_on_hex_editor_open_grid)
 			if _embedded_code_editor.has_signal("file_path_open_sprite_requested"):
 				_embedded_code_editor.file_path_open_sprite_requested.connect(open_sprite_editor)
+			if _embedded_code_editor.has_signal("sprite_data_edit_requested"):
+				_embedded_code_editor.sprite_data_edit_requested.connect(_on_sprite_data_edit_requested)
 			if _embedded_code_editor.has_signal("file_path_open_grid_editor_requested"):
 				_embedded_code_editor.file_path_open_grid_editor_requested.connect(open_grid_editor)
 			if _embedded_code_editor.has_signal("file_path_reveal_browser_requested"):
@@ -1263,8 +1265,10 @@ func _enter_tree():
 			_vg_sprite_editor.visible = false
 			_vg_sprite_editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			_vg_sprite_editor.size_flags_vertical = Control.SIZE_EXPAND_FILL
-			_vg_sprite_editor.back_to_form_requested.connect(_show_form_view)
+			_vg_sprite_editor.back_to_form_requested.connect(_on_sprite_editor_back)
 			_vg_sprite_editor.sprite_saved.connect(_on_sprite_saved)
+			if _vg_sprite_editor.has_signal("sprite_data_saved"):
+				_vg_sprite_editor.sprite_data_saved.connect(_on_sprite_data_saved)
 			center_stack.add_child(_vg_sprite_editor)
 			# Register this built-in editor with VGPluginRegistry so other
 			# code (file browser double-click, command palette, AGCK) can
@@ -2011,6 +2015,27 @@ func _on_sprite_saved(path: String) -> void:
 	print("VisualGasic: Sprite saved to ", path)
 	if is_instance_valid(_status_bar):
 		_status_bar.text = "  Sprite saved: " + path.get_file()
+
+
+func _on_sprite_data_saved(section: Dictionary) -> void:
+	var label := str(section.get("label", "Sprite"))
+	print("VisualGasic: Sprite Data saved: ", label)
+	if is_instance_valid(_status_bar):
+		_status_bar.text = "  Sprite Data saved: " + label
+
+
+func _on_sprite_editor_back() -> void:
+	if is_instance_valid(_vg_sprite_editor) and _vg_sprite_editor.has_method("is_data_mode") \
+			and bool(_vg_sprite_editor.is_data_mode()):
+		# Data editing starts from a .vg buffer — return to code, not Form Designer.
+		if is_instance_valid(_embedded_code_editor) and _embedded_code_editor.has_method("get_file_path"):
+			var p: String = str(_embedded_code_editor.get_file_path())
+			if not p.is_empty() and not _legacy_vg_ide_shell_is_active():
+				_open_vg_script_in_editor(p, -1, true)
+				return
+		_show_code_view()
+		return
+	_show_form_view()
 
 
 ## Routes asset_opened events from VGAssetBus into a view switch when a
@@ -13713,6 +13738,22 @@ func open_sprite_editor(path: String = "") -> void:
 		_vg_sprite_editor.open_file(path)
 
 
+## Open the full Sprite Editor bound to a labeled *Sprite Data block.
+## Save writes palette indices back into the CodeEdit Data statements.
+func open_sprite_data_editor(code_edit: CodeEdit, section: Dictionary) -> void:
+	if code_edit == null or section.is_empty() or not is_instance_valid(_vg_sprite_editor):
+		return
+	_show_sprite_view()
+	_vg_sprite_editor.open_sprite_data(code_edit, section)
+
+
+func _on_sprite_data_edit_requested(section: Dictionary) -> void:
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null and is_instance_valid(_embedded_code_editor):
+		code_edit = _embedded_code_editor.get_code_edit()
+	open_sprite_data_editor(code_edit, section)
+
+
 func open_grid_editor(ref: Dictionary) -> void:
 	_show_grid_view()
 	if is_instance_valid(_vg_grid_editor):
@@ -16270,10 +16311,22 @@ func _ensure_float_assist() -> void:
 		content.add_child(_float_assist["root"])
 		get_editor_interface().get_base_control().add_child(_vg_help_window)
 		_vg_help_window.position = Vector2(640, 60)
+		_wire_float_assist_sprite_panel()
 	elif _float_assist.is_empty():
 		var content: VBoxContainer = _vg_help_window.get_meta("_content")
 		_float_assist = _AssistFactory.create_panel()
 		content.add_child(_float_assist["root"])
+		_wire_float_assist_sprite_panel()
+
+
+func _wire_float_assist_sprite_panel() -> void:
+	var sp: VBoxContainer = _float_assist.get("sprite_panel")
+	if sp == null or not sp.has_signal("edit_in_sprite_editor_requested"):
+		return
+	if sp.has_meta("_vg_sprite_edit_wired"):
+		return
+	sp.set_meta("_vg_sprite_edit_wired", true)
+	sp.edit_in_sprite_editor_requested.connect(_on_sprite_data_edit_requested)
 
 
 func _ensure_vg_help_window() -> void:
@@ -16304,6 +16357,7 @@ func _hook_native_assist_caret(code_edit: CodeEdit) -> void:
 	var vp: VBoxContainer = _float_assist.get("vector_panel")
 	if vp and vp.has_method("bind_code_edit"):
 		vp.bind_code_edit(code_edit)
+	_wire_float_assist_sprite_panel()
 	_hook_native_sprite_context_menu(code_edit)
 
 
@@ -16360,10 +16414,21 @@ func _on_native_code_menu_id_pressed(id: int) -> void:
 
 
 func _open_native_sprite_data_editor() -> void:
-	_on_vg_help_btn_pressed()
-	var tabs: TabContainer = _float_assist.get("tabs")
-	if tabs:
-		tabs.current_tab = 1
+	var code_edit := _get_vg_assist_code_edit()
+	if code_edit == null:
+		_on_vg_help_btn_pressed()
+		var tabs: TabContainer = _float_assist.get("tabs")
+		if tabs:
+			tabs.current_tab = 1
+		return
+	var sec := _SpriteResolver.resolve_at_line(code_edit.text, code_edit.get_caret_line())
+	if sec.is_empty():
+		_on_vg_help_btn_pressed()
+		var tabs2: TabContainer = _float_assist.get("tabs")
+		if tabs2:
+			tabs2.current_tab = 1
+		return
+	open_sprite_data_editor(code_edit, sec)
 
 
 func _on_native_script_caret_moved() -> void:

@@ -444,6 +444,9 @@ public:
     // Allow builtins to raise runtime errors via instance wrapper
     void raise_runtime_error(const String &p_msg, int p_code = 5, const String &p_source = "");
 
+    /// Draw a cached *Sprite DataToArray tape (for DrawDataSprite builtin).
+    int draw_data_sprite(const Array &raw, float x, float y, float scale = 1.0f);
+
     // Data introspection accessors for builtins
     int get_data_count() const { return data_segments.size(); }
     int get_data_pointer() const { return data_pointer; }

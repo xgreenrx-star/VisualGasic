@@ -260,7 +260,7 @@ Quick reminders:
 
 - **Go To Definition** uses the **caret** position — click the identifier first, then right-click (or use **Ctrl+Click** at the symbol).
 - **Find All References** / **Call Hierarchy** — also on the menu; shortcuts **Ctrl+Shift+F** / **Ctrl+Shift+H**.
-- **Edit Sprite Data as Image…** and **File "…"** appear only in the right context (sprite block or path literal).
+- **Edit Sprite Data as Image…** and **File "…"** appear only in the right context (sprite block or path literal). Edit Sprite Data opens the full Sprite Editor (**Save Data** writes back to `Data` rows); create blocks via Help/Context Rail → Sprite → **New Sprite…**.
 
 ### Go To Line Dialog
 

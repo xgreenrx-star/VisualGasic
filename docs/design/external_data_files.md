@@ -64,7 +64,7 @@ Fine for piano notes and 8×8 sprites; **not** for 64×64+ level maps on the unf
 
 | Tier | Size | Source | Sidecar | Editor |
 |------|------|--------|---------|--------|
-| Inline sprite | ≤32×32 | `Data` rows | Pixel grid | Context Rail |
+| Inline sprite | ≤32×32 | `Data` rows | Pixel grid + **New Sprite…** | Context Rail / Sprite Editor (Save Data) |
 | Tables / small grids | medium | `Data` / `DataFile` CSV | Text preview | Spreadsheet, VS Code |
 | Large levels | large | `DataFile` → `.vgd`/CSV | Grid meta + actions | **Tiled** (optional) |
 | Display art | any | PNG + `LoadPicture` | File panel | Sprite Editor |
