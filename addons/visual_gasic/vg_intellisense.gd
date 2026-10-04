@@ -47,6 +47,7 @@ const VB6_CONTROL_TYPE_MAP: Dictionary = {
 	"ComboBox": "OptionButton",
 	"PictureBox": "TextureRect", "TextureRect": "TextureRect",
 	"Image": "TextureRect",
+	"ScreenBox": "TextureRect",
 	"Frame": "PanelContainer", "Panel": "Panel", "PanelContainer": "PanelContainer",
 	"Timer": "Timer",
 	"HScrollBar": "HScrollBar", "VScrollBar": "VScrollBar",

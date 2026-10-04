@@ -203,7 +203,7 @@
 ### Toolbox Controls
 | Category | Controls |
 |----------|----------|
-| Standard | Label, TextBox, Button, CheckBox, OptionButton, ListBox, ComboBox, PictureBox, Frame, GroupBox, Timer |
+| Standard | Label, TextBox, Button, CheckBox, OptionButton, ListBox, ComboBox, PictureBox, ScreenBox, Frame, GroupBox, Timer |
 | Extended | ProgressBar, HSlider, VSlider, SpinBox, HScroll, VScroll, Shape, HLine, VLine, RichText, TreeView, TabStrip, Files |
 | 2D Game | Sprite, AnimatedSprite, Tilemap, RigidBody, CharacterBody, Area, Camera |
 | 3D Game | MeshInstance, RigidBody3D, CharacterBody3D, Camera3D, DirectionalLight, SpotLight, OmniLight, WorldEnvironment, CSGBox |

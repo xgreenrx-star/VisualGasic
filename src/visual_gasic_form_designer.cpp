@@ -545,8 +545,27 @@ void VisualGasicFormDesigner::_draw_control(const FormControlItem &item, int ind
         _draw_spinbox_control(r, font, font_size);
     } else if (item.type == "Timer") {
         _draw_timer_control(r, item.name, font, font_size);
-    } else if (item.type == "TextureRect") {
+    } else if (item.type == "TextureRect" || item.type == "Picture") {
         _draw_picture_control(r, item.name, font, font_size);
+    } else if (item.type == "ScreenBox") {
+        // Classic BASIC CRT host — black phosphor rectangle with label
+        draw_rect(r, Color(0.06f, 0.09f, 0.12f));
+        draw_rect(r, Color(0.15f, 0.35f, 0.22f), false, 1.5f);
+        if (r.size.x > 12 && r.size.y > 12) {
+            Rect2 inner(r.position + Vector2(4, 4), r.size - Vector2(8, 8));
+            draw_rect(inner, Color(0.04f, 0.12f, 0.07f));
+            Color scan(0.2f, 0.75f, 0.4f, 0.35f);
+            for (float y = inner.position.y + 3; y < inner.position.y + inner.size.y - 2; y += 4.0f) {
+                draw_line(Vector2(inner.position.x + 2, y),
+                          Vector2(inner.position.x + inner.size.x - 2, y), scan, 1.0f);
+            }
+        }
+        if (font.is_valid()) {
+            String cap = item.name.is_empty() ? String("ScreenBox") : item.name;
+            draw_string(font, r.position + Vector2(6, font_size + 4), cap,
+                        HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, font_size - 1,
+                        Color(0.45f, 0.95f, 0.55f));
+        }
     } else if (item.type == "Tree") {
         _draw_treeview_control(r, font, font_size);
     } else if (item.type == "RichTextLabel") {
@@ -4406,6 +4425,11 @@ void VisualGasicFormDesigner::_init_vb6_defaults(FormControlItem &item) const {
         p["Stretch"]  = false;
         p["TabStop"]  = false;
     }
+    else if (t == "ScreenBox") {
+        p["Stretch"]  = true;
+        p["TabStop"]  = false;
+        p["ToolTipText"] = String("Classic BASIC SCREEN host (PSET/LINE/CIRCLE)");
+    }
     else if (t == "Panel" || t == "ColorRect") {
         p["BorderStyle"] = 1;
     }
@@ -4572,6 +4596,7 @@ Vector2 VisualGasicFormDesigner::_default_size_for_type(const String &p_type) co
     if (p_type == "Panel")        return Vector2(120, 80);
     if (p_type == "ColorRect")    return Vector2(80, 60);
     if (p_type == "TextureRect")  return Vector2(64, 64);
+    if (p_type == "ScreenBox")    return Vector2(320, 200);
     if (p_type == "Tree")         return Vector2(150, 120);
     if (p_type == "RichTextLabel") return Vector2(150, 80);
     if (p_type == "TabContainer") return Vector2(200, 150);
@@ -4678,6 +4703,7 @@ String VisualGasicFormDesigner::_display_label_for_type(const String &p_type) co
     if (p_type == "Panel")        return "Pnl";
     if (p_type == "ColorRect")    return "Shp";
     if (p_type == "TextureRect")  return "Pic";
+    if (p_type == "ScreenBox")    return "Scr";
     if (p_type == "Tree")         return "Tre";
     if (p_type == "RichTextLabel") return "RTx";
     if (p_type == "TabContainer") return "Tab";

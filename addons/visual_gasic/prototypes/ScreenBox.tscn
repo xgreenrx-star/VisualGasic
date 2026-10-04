@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://vg_screen_box_proto"]
+
+[node name="ScreenBox" type="TextureRect"]
+custom_minimum_size = Vector2(320, 200)
+offset_right = 320.0
+offset_bottom = 200.0
+mouse_filter = 0
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+modulate = Color(1, 1, 1, 1)
+self_modulate = Color(1, 1, 1, 1)
+metadata/vg_screen_box = true
+metadata/vg_control_type = "ScreenBox"

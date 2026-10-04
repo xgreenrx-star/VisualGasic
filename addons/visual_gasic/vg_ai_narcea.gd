@@ -35,6 +35,7 @@ Common controls + their primary event in VB6/VG names:
   Label         (Click)         ListBox       (Click / DblClick)
   CheckBox      (Click)         Timer         (Timer)
   PictureBox    (Click)         Image         (Click)
+  ScreenBox     (Click)         — classic BASIC SCREEN host (PSET/LINE)
   Frame, GroupBox               HScroll/VScroll (Change)
 VG aliases for properties on every control — ALWAYS use the VB6 name on the
 left, never the Godot name on the right (Godot props are Vector2 value-types
@@ -865,6 +866,7 @@ Do not pass 255,255,255 to Color() — use Color8. docs/manual/colors.md
 Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
 Keyboard: _Input + ev.keycode for digit keys in embedded game view; also IsKeyJustPressed in _Process.
 QuickBASIC SCREEN/PSET/LINE/InKey$: docs/manual/qb_graphics_mode.md — showcase samples/showcases/qb_abc_showcase/
+ScreenBox toolbox control: drop on a form; SCREEN draws into that CRT (name ScreenBox* or meta vg_screen_box) instead of a full-window QbScreen overlay.
 Classic SCREEN profiles (100–199): docs/manual/classic_games_graphics.md — porting: docs/manual/classic_porting_guide.md — showcase . menu = mode gallery
 Query buffer: ScreenMode(), GfxWidth(), GfxHeight(), GfxPlayfieldBottom() — not Screen.Width (monitor).
 Project Settings: vg/classic/enabled (Narcea retro lane), vg/classic/clip_playfield (split modes).

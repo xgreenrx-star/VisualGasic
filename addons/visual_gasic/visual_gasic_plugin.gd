@@ -5156,6 +5156,7 @@ func _restyle_toolbox_buttons() -> void:
 	var display_names := {
 		"Pointer": "Pointer",
 		"Picture": "PictureBox",
+		"ScreenBox": "ScreenBox",
 		"Label": "Label",
 		"TextBox": "TextBox",
 		"Button": "CommandButton",
@@ -5205,6 +5206,7 @@ func _restyle_toolbox_buttons() -> void:
 		# ── Built-in 2D tools (C++ defaults) ──
 		"Pointer": "Select and move controls on the form",
 		"Picture": "Display an image or texture",
+		"ScreenBox": "Classic BASIC / QuickBASIC SCREEN host — PSET, LINE, CIRCLE draw here",
 		"Label": "Static text that the user cannot edit",
 		"TextBox": "Single-line text input field",
 		"Button": "Clickable button that triggers an action",
@@ -17450,7 +17452,7 @@ func _restyle_toolbox_instance(cpp_toolbox) -> void:
 	var vb6_icons: Dictionary = _VB6Icons.create_all(20)
 
 	var display_names := {
-		"Pointer": "Pointer", "Picture": "PictureBox", "Label": "Label",
+		"Pointer": "Pointer", "Picture": "PictureBox", "ScreenBox": "ScreenBox", "Label": "Label",
 		"TextBox": "TextBox", "Button": "CommandButton", "CheckBox": "CheckBox",
 		"ComboBox": "ComboBox", "Frame": "Frame", "GroupBox": "GroupBox",
 		"ListBox": "ListBox", "TreeView": "TreeView", "HScroll": "HScrollBar",

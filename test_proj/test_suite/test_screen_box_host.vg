@@ -1,0 +1,46 @@
+' ScreenBox hosts classic SCREEN output instead of full-window QbScreen.
+' MAX_FRAMES: 5
+Option Explicit
+
+Sub _Ready()
+	Dim box As Object
+	Set box = CreateNode("TextureRect")
+	box.Name = "ScreenBox1"
+	Call box.SetMeta("vg_screen_box", True)
+	box.CustomMinimumSize = Vector2(320, 200)
+	box.Size = Vector2(320, 200)
+	AddChild(box)
+
+	Screen 13
+	PSet (10, 10), 15
+	If Point(10, 10) <> 15 Then
+		Print "FAIL: screen_box_buffer " & CStr(Point(10, 10))
+		Return
+	End If
+
+	Dim tex As Object
+	Set tex = box.Texture
+	If tex = Null Then
+		Print "FAIL: screen_box_host texture missing"
+		Return
+	End If
+
+	If HasNode("QbScreen") Then
+		Dim overlay As Object
+		Set overlay = GetNode("QbScreen")
+		If overlay.Visible Then
+			Print "FAIL: screen_box_host QbScreen still visible"
+			Return
+		End If
+	End If
+
+	Print "PASS: screen_box_host"
+
+	Screen 0
+	Set tex = box.Texture
+	If tex = Null Then
+		Print "PASS: screen_box_clear"
+	Else
+		Print "FAIL: screen_box_clear texture still set"
+	End If
+End Sub

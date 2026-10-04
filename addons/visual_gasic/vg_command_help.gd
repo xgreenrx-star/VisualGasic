@@ -2048,7 +2048,7 @@ static func _build_db() -> void:
 	# =========================================================================
 	_add("SCREEN",
 		"SCREEN modeNumber\nSCREEN 0   ' turn off QB overlay, return to canvas UI",
-		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). Shown letterboxed via a QbScreen sprite. Screen 0 hides the overlay. 32-bit pages use _RGB32 colors with PSET/LINE. Classic profiles 100–199: docs/manual/classic_games_graphics.md",
+		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). If the scene has a ScreenBox control (toolbox), the buffer is shown there; otherwise letterboxed via a QbScreen sprite. Screen 0 hides the host. 32-bit pages use _RGB32 colors with PSET/LINE. Classic profiles 100–199: docs/manual/classic_games_graphics.md",
 		"Screen 13\nCls\nLine (0, 0)-(319, 199), 7, B\nPSet (160, 100), 15\n\nSub ReturnToMenu()\n    Screen 0\n    QueueRedraw\nEnd Sub", 1590)
 
 	_add("ScreenMode",

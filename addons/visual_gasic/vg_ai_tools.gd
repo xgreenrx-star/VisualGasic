@@ -1119,6 +1119,7 @@ func _build_vb6_alias_map_from_designer() -> Dictionary:
 		"ComboBox": "OptionButton", "ListBox": "ItemList",
 		"Shape": "ColorRect", "Image": "TextureRect",
 		"PictureBox": "TextureRect",
+		"ScreenBox": "TextureRect",
 	}
 	for i in range(fd.get_control_count()):
 		var info: Dictionary = fd.get_control_info(i)

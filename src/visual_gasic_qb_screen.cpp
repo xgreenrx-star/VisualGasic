@@ -14,6 +14,7 @@
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/canvas_item.hpp>
+#include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/core/math.hpp>
@@ -22,6 +23,7 @@
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/sprite2d.hpp>
+#include <godot_cpp/classes/texture_rect.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/core/memory.hpp>
 #include <godot_cpp/core/object.hpp>
@@ -95,6 +97,7 @@ struct QbState {
 	Ref<Image> image;
 	Ref<ImageTexture> texture;
 	ObjectID sprite_id;
+	ObjectID screen_box_id;
 	ObjectID sion_id;
 	bool dirty = false;
 	Vector<uint8_t> key_bytes;
@@ -678,11 +681,89 @@ void clear_buffer(QbState *s) {
 }
 
 static void hide_sprite(QbState *s);
+static void clear_screen_box(QbState *s);
+
+static bool _is_screen_box_node(Node *node) {
+	if (!node) {
+		return false;
+	}
+	if (node->has_meta("vg_screen_box") && (bool)node->get_meta("vg_screen_box")) {
+		return true;
+	}
+	if (node->has_meta("vg_control_type")) {
+		String ctype = String(node->get_meta("vg_control_type"));
+		if (ctype.to_lower() == "screenbox") {
+			return true;
+		}
+	}
+	String nm = String(node->get_name()).to_lower();
+	return nm == "screenbox" || nm.begins_with("screenbox");
+}
+
+static Control *find_screen_box(Node *owner) {
+	if (!owner) {
+		return nullptr;
+	}
+	if (owner->has_meta("vg_qb_screen_target")) {
+		Variant v = owner->get_meta("vg_qb_screen_target");
+		Node *t = nullptr;
+		if (v.get_type() == Variant::NODE_PATH) {
+			t = owner->get_node_or_null(NodePath(v));
+		} else if (v.get_type() == Variant::STRING) {
+			t = owner->get_node_or_null(NodePath(String(v)));
+		} else if (v.get_type() == Variant::OBJECT) {
+			t = Object::cast_to<Node>(v);
+		}
+		Control *c = Object::cast_to<Control>(t);
+		if (c) {
+			return c;
+		}
+	}
+	Control *named = nullptr;
+	TypedArray<Node> nodes = owner->find_children("*", "Control", true, false);
+	for (int i = 0; i < nodes.size(); i++) {
+		Control *c = Object::cast_to<Control>(nodes[i]);
+		if (!c || !_is_screen_box_node(c)) {
+			continue;
+		}
+		if (c->has_meta("vg_screen_box") && (bool)c->get_meta("vg_screen_box")) {
+			return c;
+		}
+		if (!named) {
+			named = c;
+		}
+	}
+	return named;
+}
+
+static void present_to_screen_box(QbState *s, Control *box) {
+	if (!s || !box || !s->texture.is_valid()) {
+		return;
+	}
+	s->screen_box_id = box->get_instance_id();
+	TextureRect *tr = Object::cast_to<TextureRect>(box);
+	if (tr) {
+		tr->set_texture_filter(CanvasItem::TEXTURE_FILTER_NEAREST);
+		tr->set_expand_mode(TextureRect::EXPAND_IGNORE_SIZE);
+		tr->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
+		tr->set_texture(s->texture);
+		tr->set_visible(true);
+		return;
+	}
+	// Generic Control fallback: assign Texture property when present.
+	if (box->has_method("set_texture")) {
+		box->call("set_texture", s->texture);
+	} else if (box->get("texture").get_type() != Variant::NIL) {
+		box->set("texture", s->texture);
+	}
+	box->set_visible(true);
+}
 
 void layout_sprite(QbState *s, VisualGasicInstance *instance) {
 	if (!s || !s->active) {
 		if (s) {
 			hide_sprite(s);
+			clear_screen_box(s);
 		}
 		return;
 	}
@@ -690,6 +771,16 @@ void layout_sprite(QbState *s, VisualGasicInstance *instance) {
 	if (!n || !s->texture.is_valid()) {
 		return;
 	}
+
+	// Prefer an embedded ScreenBox control (form CRT) over the full-viewport overlay.
+	Control *box = find_screen_box(n);
+	if (box) {
+		hide_sprite(s);
+		present_to_screen_box(s, box);
+		return;
+	}
+	s->screen_box_id = ObjectID();
+
 	Sprite2D *sprite = Object::cast_to<Sprite2D>(ObjectDB::get_instance(s->sprite_id));
 	if (!sprite) {
 		Node *existing = n->find_child("QbScreen", false, false);
@@ -735,6 +826,7 @@ void upload(QbState *s, VisualGasicInstance *instance) {
 	}
 	if (!s->active) {
 		hide_sprite(s);
+		clear_screen_box(s);
 		return;
 	}
 	if (!s->dirty) {
@@ -1088,6 +1180,24 @@ static void hide_sprite(QbState *s) {
 	}
 }
 
+static void clear_screen_box(QbState *s) {
+	if (!s || !s->screen_box_id.is_valid()) {
+		return;
+	}
+	Control *box = Object::cast_to<Control>(ObjectDB::get_instance(s->screen_box_id));
+	if (!box) {
+		s->screen_box_id = ObjectID();
+		return;
+	}
+	TextureRect *tr = Object::cast_to<TextureRect>(box);
+	if (tr) {
+		tr->set_texture(Ref<Texture2D>());
+	} else if (box->has_method("set_texture")) {
+		box->call("set_texture", Variant());
+	}
+	s->screen_box_id = ObjectID();
+}
+
 void screen_mode(VisualGasicInstance *instance, int mode, int active_page, int visual_page) {
 	// SCREEN 0 remains the VG "hide overlay" command (showcase menu).
 	if (mode == 0) {
@@ -1097,6 +1207,7 @@ void screen_mode(VisualGasicInstance *instance, int mode, int active_page, int v
 			s->dirty = false;
 			qb_clear_key_queue(s);
 			hide_sprite(s);
+			clear_screen_box(s);
 		}
 		return;
 	}
@@ -2038,7 +2149,39 @@ AudioStreamPlayer *snd_player(QbState *s, int id) {
 }
 
 void map_mouse(QbState *s, const Vector2 &viewport_pos) {
-	if (!s || !s->sprite_id.is_valid()) {
+	if (!s) {
+		return;
+	}
+	int lw = s->disp_w > 0 ? s->disp_w : s->width;
+	int lh = s->disp_h > 0 ? s->disp_h : s->height;
+	if (lw < 1 || lh < 1) {
+		return;
+	}
+
+	if (s->screen_box_id.is_valid()) {
+		Control *box = Object::cast_to<Control>(ObjectDB::get_instance(s->screen_box_id));
+		if (box) {
+			Rect2 gr = box->get_global_rect();
+			if (gr.size.x > 0.0f && gr.size.y > 0.0f) {
+				float sx = gr.size.x / (float)lw;
+				float sy = gr.size.y / (float)lh;
+				float sc = sx < sy ? sx : sy;
+				if (sc <= 0.0f) {
+					sc = 1.0f;
+				}
+				float dw = (float)lw * sc;
+				float dh = (float)lh * sc;
+				float ox = gr.position.x + (gr.size.x - dw) * 0.5f;
+				float oy = gr.position.y + (gr.size.y - dh) * 0.5f;
+				s->mouse_x = (int)((viewport_pos.x - ox) / sc);
+				s->mouse_y = (int)((viewport_pos.y - oy) / sc);
+				s->mouse_new = true;
+				return;
+			}
+		}
+	}
+
+	if (!s->sprite_id.is_valid()) {
 		return;
 	}
 	Sprite2D *sprite = Object::cast_to<Sprite2D>(ObjectDB::get_instance(s->sprite_id));

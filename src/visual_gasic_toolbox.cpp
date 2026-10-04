@@ -237,6 +237,7 @@ VisualGasicToolbox::VisualGasicToolbox() {
     // ── Display Controls ── (alphabetical)
     add_tool("Picture", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/TextureRect.tscn");
     add_tool("ProgressBar", "ProgressBar", "ProgressBar", "res://addons/visual_gasic/prototypes/ProgressBar.tscn");
+    add_tool("ScreenBox", "TextureRect", "TextureRect", "res://addons/visual_gasic/prototypes/ScreenBox.tscn");
     add_tool("Shape", "ColorRect", "ColorRect", "res://addons/visual_gasic/prototypes/ColorRect.tscn");
     
     // ── Menu / Bar Controls ── (alphabetical)

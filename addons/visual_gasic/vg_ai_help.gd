@@ -71,7 +71,7 @@ To load a saved .agck file: load_agck_project {"path":"res://game.agck"}.
 === FORMS ===
 VG Forms (.vg + .tscn pair). The form designer holds controls indexed 0…N-1. \
 Control types accepted by build_form / add_control:
-  Label, Button, TextBox, CheckBox, ComboBox, ListBox, PictureBox,
+  Label, Button, TextBox, CheckBox, ComboBox, ListBox, PictureBox, ScreenBox,
   Timer, HScrollBar, VScrollBar, ProgressBar, TrackBar, Image,
   Panel, GroupBox, TabControl, Frame, LineShape, BoxShape.
 Properties settable via set_form_control_prop:
@@ -5328,7 +5328,8 @@ func _on_make_this() -> void:
 			"TextBox": "LineEdit", "Command": "Button", "Frame": "Panel",
 			"ComboBox": "OptionButton", "ListBox": "ItemList",
 			"Shape": "ColorRect", "Image": "TextureRect",
-			"PictureBox": "TextureRect", "HScrollBar": "HScrollBar",
+			"PictureBox": "TextureRect", "ScreenBox": "TextureRect",
+			"HScrollBar": "HScrollBar",
 			"VScrollBar": "VScrollBar", "Timer": "Timer",
 		}
 		for _ci in _spec_controls:

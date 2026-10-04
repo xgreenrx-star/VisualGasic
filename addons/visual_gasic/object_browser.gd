@@ -406,6 +406,16 @@ func _build_data():
 		_m("Height",    "Property", "Height As Single",      "Gets or sets the height."),
 	]
 
+	# -- ScreenBox (TextureRect QB SCREEN host) --
+	vb["ScreenBox"] = [
+		_m("Visible",   "Property", "Visible As Boolean",    "Gets or sets visibility."),
+		_m("Width",     "Property", "Width As Single",       "Gets or sets the width."),
+		_m("Height",    "Property", "Height As Single",      "Gets or sets the height."),
+		_m("Left",      "Property", "Left As Single",        "Gets or sets the left position."),
+		_m("Top",       "Property", "Top As Single",         "Gets or sets the top position."),
+		_m("Click",     "Event",    "Sub controlname_Click()", "Occurs when the ScreenBox is clicked."),
+	]
+
 	# -- HScrollBar / VScrollBar --
 	vb["ScrollBar"] = [
 		_m("Value",      "Property", "Value As Integer",      "Gets or sets the current position."),

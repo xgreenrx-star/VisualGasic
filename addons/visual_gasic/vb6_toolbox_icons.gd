@@ -21,6 +21,9 @@ static func _svgs() -> Dictionary:
 		# ── PictureBox: photo frame with landscape ──
 		"Picture": '<rect x="1" y="2" width="18" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1.2"/><polygon points="1,18 7,10 11,14 14,10 19,18" fill="#008000" stroke="none"/><circle cx="15" cy="6" r="2" fill="#FFFF00" stroke="#000000" stroke-width="0.5"/>',
 
+		# ── ScreenBox: CRT / QB SCREEN host (black phosphor + scanlines + green glow) ──
+		"ScreenBox": '<rect x="1" y="2" width="18" height="16" rx="1" fill="#101820" stroke="#000000" stroke-width="1.2"/><rect x="3" y="4" width="14" height="10" fill="#0A2010" stroke="#204020" stroke-width="0.6"/><line x1="4" y1="7" x2="16" y2="7" stroke="#30C060" stroke-width="0.7" opacity="0.7"/><line x1="4" y1="10" x2="14" y2="10" stroke="#30C060" stroke-width="0.7" opacity="0.55"/><line x1="4" y1="13" x2="12" y2="13" stroke="#30C060" stroke-width="0.7" opacity="0.4"/><circle cx="16.5" cy="16" r="0.9" fill="#FF4040"/>',
+
 		# ── Label: bold "A" in serif ──
 		"Label": '<text x="10" y="17" text-anchor="middle" font-family="serif" font-weight="bold" font-size="18" fill="#000000">A</text>',
 

@@ -10,7 +10,18 @@ The following are **not** implemented (DOS memory / native code / disk images): 
 
 ## Godot project setup (classic `SCREEN` games)
 
-For QuickBASIC-style **`SCREEN` / `LINE` / `PAINT`** (not VB6 form controls), mirror **`samples/showcases/qb_abc_showcase/Main.tscn`**:
+### Option A — ScreenBox on a VG form (recommended for mixed UI)
+
+Drop a **ScreenBox** from the toolbox onto your form. Classic `SCREEN` / `PSET` / `LINE` / `CIRCLE` draw into that control; buttons and labels stay normal VG controls around it.
+
+1. Form root with your `.vg` script attached.
+2. Place **ScreenBox** (default 320×200). Name it `ScreenBox1` or leave the designer default — any control with meta `vg_screen_box` or a name starting with `ScreenBox` is used.
+3. Optional: set owner meta `vg_qb_screen_target` to a `NodePath` when you have more than one candidate.
+4. In code: `SCREEN 13` then `PSET` / `LINE` as usual. `SCREEN 0` clears the ScreenBox texture.
+
+### Option B — Full-window Node2D port (showcase / ABC archives)
+
+Mirror **`samples/showcases/qb_abc_showcase/Main.tscn`**:
 
 1. Root scene: **`Node2D`** named `Main` (or your entry scene name).
 2. Attach **`Main.vg`** (same basename) **on that root** via `script = ExtResource(...)`.
@@ -34,7 +45,10 @@ Until `SCREEN` runs, use **`Screen 0`** (or no QB buffer) before drawing menu ch
 
 Until the first `SCREEN` statement runs, there is no QB framebuffer; `Screen.Width` still reports the display size.
 
-When `SCREEN` is active, the buffer is shown as a **Sprite2D** child (`QbScreen`): **nearest-neighbor** scaling, **letterboxed** inside the Godot viewport. The project window size is not changed.
+When `SCREEN` is active:
+
+1. **ScreenBox present** — buffer textures that control (nearest-neighbor, aspect-centered). Full-window `QbScreen` sprite stays hidden.
+2. **No ScreenBox** — buffer is shown as a **Sprite2D** child (`QbScreen`): nearest-neighbor scaling, letterboxed in the Godot viewport. The project window size is not changed.
 
 ---
 

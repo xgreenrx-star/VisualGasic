@@ -39,6 +39,7 @@ const TYPE_ALIASES := {
 	"ComboBox":      "OptionButton",
 	"ListBox":       "ItemList",
 	"PictureBox":    "TextureRect",
+	"ScreenBox":     "TextureRect",
 	"Shape":         "ColorRect",
 	"Frame":         "GroupBox",
 	"ScrollBar":     "VScrollBar",

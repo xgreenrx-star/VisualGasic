@@ -20,7 +20,7 @@ This guide is for developers bringing **QuickBASIC / QBasic / QB64-style** progr
 | ------------------------------ | ------------------------------------------------------------------------------------ |
 | Same **gameplay** and **feel** | Rewrite logic in `.vg`; mark edits with `' VG:` or a **VG CHANGES** block at the top |
 | Same **source file unchanged** | Not supported — no `DEF SEG`, no binary PC memory model                              |
-| Ship on desktop / web          | Use Godot export; QB overlay is letterboxed inside the window                        |
+| Ship on desktop / web          | Use Godot export; QB overlay is letterboxed, or host in a ScreenBox on a VG form      |
 
 
 Treat ports as **translations**, not paste-and-run. The [QB ABC showcase](../../samples/showcases/qb_abc_showcase/) is the style reference: original listings reimplemented in `.vg`, with credits and notes in source.
