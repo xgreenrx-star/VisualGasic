@@ -74,6 +74,8 @@ Control types accepted by build_form / add_control:
   Label, Button, TextBox, CheckBox, ComboBox, ListBox, PictureBox, ScreenBox,
   Timer, HScrollBar, VScrollBar, ProgressBar, TrackBar, Image,
   Panel, GroupBox, TabControl, Frame, LineShape, BoxShape.
+ScreenBox = classic BASIC SCREEN host (PSET/LINE CRT on the form); prefer over
+  full-window QbScreen when mixing buttons/labels with QB pixels.
 Properties settable via set_form_control_prop:
   Caption, Text, Left, Top, Width, Height, Visible, Enabled,
   BackColor, ForeColor, FontSize, FontBold, Value, Min, Max,

@@ -1576,7 +1576,7 @@ PSet (10, 10), 4
 Line (0, 0)-(319, 199), 15, B
 ```
 
-The framebuffer is shown letterboxed in the Godot viewport (nearest-neighbor scale). The window size is unchanged. Until `SCREEN` runs, `Screen.Width` / `Screen.Height` still mean the monitor.
+**Display host:** if the scene has a toolbox **ScreenBox** (name `ScreenBox*` or meta `vg_screen_box`), the buffer textures that control. Otherwise it is shown letterboxed via a full-window `QbScreen` sprite (nearest-neighbor). The Godot window size is unchanged. Until `SCREEN` runs, `Screen.Width` / `Screen.Height` still mean the monitor. See [qb_graphics_mode.md](manual/qb_graphics_mode.md).
 
 ### Modes
 
@@ -11439,7 +11439,7 @@ Returns the screen width in pixels.
 
 ## SCREEN (QuickBASIC)
 
-**Purpose** — Opens a logical QuickBASIC-style framebuffer and displays it letterboxed in the viewport.
+**Purpose** — Opens a logical QuickBASIC-style framebuffer and shows it in a **ScreenBox** (if present) or letterboxed via a `QbScreen` sprite.
 
 **Syntax**
 
@@ -11447,7 +11447,7 @@ Returns the screen width in pixels.
 
 **Description**
 
-Creates an indexed-color pixel buffer (modes 0–13 and default). Does **not** change `Screen.Width` / `Screen.Height` (those remain the monitor). See [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen) and [qb_graphics_mode.md](manual/qb_graphics_mode.md).
+Creates an indexed-color pixel buffer (modes 0–14, classic profiles **100–199**, and `_NewImage` handles). Does **not** change `Screen.Width` / `Screen.Height` (those remain the monitor). Prefer a form **ScreenBox** for mixed UI; otherwise the engine uses a full-window letterboxed overlay. `SCREEN 0` clears/hides the host. See [QuickBASIC Graphics Mode (SCREEN)](#quickbasic-graphics-mode-screen) and [qb_graphics_mode.md](manual/qb_graphics_mode.md).
 
 **Example**
 

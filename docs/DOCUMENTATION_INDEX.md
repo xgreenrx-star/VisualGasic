@@ -17,6 +17,14 @@
 - [MIGRATION_GUIDE.md](guides/MIGRATION_GUIDE.md) - Migrating from VB6/VBA
 - [IMPORTING_VB6.md](guides/IMPORTING_VB6.md) - VB6 legacy import policy (bulk importer retired from core; optional community plugin)
 
+## Classic BASIC (QuickBASIC SCREEN)
+
+- [qb_graphics_mode.md](manual/qb_graphics_mode.md) - **SCREEN / PSET / LINE** — ScreenBox host vs full-window `QbScreen`
+- [classic_games_graphics.md](manual/classic_games_graphics.md) - Classic profiles **100–199**, split modes, buffer queries
+- [classic_porting_guide.md](manual/classic_porting_guide.md) - `.BAS` → `.vg` porting checklist
+- [CONTROLS_REFERENCE.md#screenbox-texturerect](reference/CONTROLS_REFERENCE.md#screenbox-texturerect) - ScreenBox toolbox control
+- Showcase: `samples/showcases/qb_abc_showcase/` (`.` on main menu = mode gallery)
+
 ## Language Reference
 
 ### Core Features

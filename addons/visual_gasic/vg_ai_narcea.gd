@@ -35,7 +35,10 @@ Common controls + their primary event in VB6/VG names:
   Label         (Click)         ListBox       (Click / DblClick)
   CheckBox      (Click)         Timer         (Timer)
   PictureBox    (Click)         Image         (Click)
-  ScreenBox     (Click)         — classic BASIC SCREEN host (PSET/LINE)
+  ScreenBox     (Click)         — classic BASIC SCREEN host (PSET/LINE);
+                              drop on a form so SCREEN draws into that CRT
+                              (name ScreenBox* or meta vg_screen_box). Prefer
+                              over full-window QbScreen when mixing UI + pixels.
   Frame, GroupBox               HScroll/VScroll (Change)
 VG aliases for properties on every control — ALWAYS use the VB6 name on the
 left, never the Godot name on the right (Godot props are Vector2 value-types
@@ -866,10 +869,16 @@ Do not pass 255,255,255 to Color() — use Color8. docs/manual/colors.md
 Reference: samples/apps/web_hello/ (HTTPS fetch + JSON on canvas).
 Keyboard: _Input + ev.keycode for digit keys in embedded game view; also IsKeyJustPressed in _Process.
 QuickBASIC SCREEN/PSET/LINE/InKey$: docs/manual/qb_graphics_mode.md — showcase samples/showcases/qb_abc_showcase/
-ScreenBox toolbox control: drop on a form; SCREEN draws into that CRT (name ScreenBox* or meta vg_screen_box) instead of a full-window QbScreen overlay.
+ScreenBox (recommended for form + CRT): toolbox TextureRect host; SCREEN/PSET/LINE texture that control.
+  Identify: name starts with ScreenBox, or meta vg_screen_box, or owner meta vg_qb_screen_target NodePath.
+  SCREEN 0 clears the ScreenBox texture. Without ScreenBox, engine uses letterboxed QbScreen Sprite2D.
+  Do NOT invent ConnectSignal/PropertyGet — use Connect and direct VB6 props (Left/Top/Width/Height).
+  Mixed UI: place ScreenBox + Button/Label on the same form; do not hide QbScreen by hand when ScreenBox is present.
 Classic SCREEN profiles (100–199): docs/manual/classic_games_graphics.md — porting: docs/manual/classic_porting_guide.md — showcase . menu = mode gallery
 Query buffer: ScreenMode(), GfxWidth(), GfxHeight(), GfxPlayfieldBottom() — not Screen.Width (monitor).
+Mouse in QB space: _MouseX/_MouseY/_MouseButton after SCREEN — mapped into the buffer (ScreenBox or letterbox).
 Project Settings: vg/classic/enabled (Narcea retro lane), vg/classic/clip_playfield (split modes).
+Regression: test_proj/test_suite/test_qb_screen.vg + test_screen_box_host.vg
 Full app sample: samples/apps/climatist_poc/ (Now + Pattern + Discussion + Settings; not web_hello).
 
 === HTTP / HTTPS (VGHttpRequest, Http.Get) ===
@@ -1697,9 +1706,11 @@ func _classic_lane_block() -> String:
 === Classic QB / retro SCREEN lane (project opt-in) ===
 This project prefers the QuickBASIC framebuffer: Screen n, PSet, Line, Circle, InKey$.
 Do NOT default to canvas DrawRect / Node2D vector drawing for pixel games unless asked.
+Host: prefer toolbox ScreenBox on forms (name ScreenBox* / meta vg_screen_box); else letterboxed QbScreen.
+SCREEN 0 clears ScreenBox or hides QbScreen — use before canvas menus in hybrid Node2D ports.
 Use GfxWidth()/GfxHeight() for logic size — never Screen.Width (monitor pixels).
 Split Atari-style modes 111/112: GfxPlayfieldBottom(), Print/Locate in the text band.
-Demos: qb_abc_showcase main menu . (period) — manuals: docs/manual/classic_games_graphics.md + docs/manual/classic_porting_guide.md
+Demos: qb_abc_showcase main menu . (period) — manuals: docs/manual/qb_graphics_mode.md + classic_games_graphics.md + classic_porting_guide.md
 """
 
 

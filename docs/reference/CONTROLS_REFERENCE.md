@@ -15,6 +15,7 @@ This document describes all controls available in the VisualGasic Toolbox.
   - [ListBox (ItemList)](#listbox-itemlist)
   - [ComboBox](#combobox)
   - [PictureBox (TextureRect)](#picturebox-texturerect)
+  - [ScreenBox (TextureRect)](#screenbox-texturerect)
   - [Frame / GroupBox (Panel)](#frame-groupbox-panel)
   - [Timer](#timer)
   - [HScrollBar / VScrollBar](#hscrollbar-vscrollbar)
@@ -91,6 +92,7 @@ This document describes all controls available in the VisualGasic Toolbox.
   - [ListBox (ItemList)](#listbox-itemlist)
   - [ComboBox](#combobox)
   - [PictureBox (TextureRect)](#picturebox-texturerect)
+  - [ScreenBox (TextureRect)](#screenbox-texturerect)
   - [Frame / GroupBox (Panel)](#frame-groupbox-panel)
   - [Timer](#timer)
   - [HScrollBar / VScrollBar](#hscrollbar-vscrollbar)
@@ -167,6 +169,7 @@ This document describes all controls available in the VisualGasic Toolbox.
   - [ListBox (ItemList)](#listbox-itemlist)
   - [ComboBox](#combobox)
   - [PictureBox (TextureRect)](#picturebox-texturerect)
+  - [ScreenBox (TextureRect)](#screenbox-texturerect)
   - [Frame / GroupBox (Panel)](#frame-groupbox-panel)
   - [Timer](#timer)
   - [HScrollBar / VScrollBar](#hscrollbar-vscrollbar)
@@ -243,6 +246,7 @@ This document describes all controls available in the VisualGasic Toolbox.
   - [ListBox (ItemList)](#listbox-itemlist)
   - [ComboBox](#combobox)
   - [PictureBox (TextureRect)](#picturebox-texturerect)
+  - [ScreenBox (TextureRect)](#screenbox-texturerect)
   - [Frame / GroupBox (Panel)](#frame-groupbox-panel)
   - [Timer](#timer)
   - [HScrollBar / VScrollBar](#hscrollbar-vscrollbar)
@@ -705,6 +709,31 @@ Combo2.AddItem "Chicago"         ' Auto-sorted alphabetically
 **Properties:**
 - `Picture` / `Texture` — Image to display
 - `Stretch` — Resize image to fit
+
+---
+
+### ScreenBox (TextureRect)
+**VB6 Name:** ScreenBox  
+**Godot Node:** TextureRect  
+**Prototype:** `addons/visual_gasic/prototypes/ScreenBox.tscn`  
+**Description:** Hosts classic BASIC `SCREEN` / `PSET` / `LINE` / `CIRCLE` output inside a form. Prefer this over the full-window `QbScreen` overlay when mixing CRT graphics with buttons and labels.
+
+**Identification (engine picks the first match):**
+- Control name starts with `ScreenBox`, or
+- Metadata `vg_screen_box` is set (prototype sets this), or
+- Owner metadata `vg_qb_screen_target` is a `NodePath` to the host
+
+**Properties (design-time):**
+- `Left` / `Top` / `Width` / `Height` — place and size the CRT on the form
+- `Visible` / `Enabled` — standard control aliases
+- Stretch mode defaults to keep-aspect-centered (nearest-neighbor texture from the QB buffer)
+
+**Runtime notes:**
+- Call `SCREEN n` then draw with `PSET` / `LINE` as usual; the buffer textures this control.
+- `SCREEN 0` clears the ScreenBox texture.
+- Without a ScreenBox in the scene, `SCREEN` falls back to a letterboxed `QbScreen` sprite.
+
+**See also:** [QuickBASIC graphics mode](../manual/qb_graphics_mode.md), [Classic games graphics](../manual/classic_games_graphics.md)
 
 ---
 
@@ -1718,6 +1747,7 @@ For the full walkthrough see:
 
 ### S {#index-s}
 
+- **ScreenBox** — [ScreenBox (TextureRect)](#screenbox-texturerect)
 - **Shape** — [Shape (ColorRect)](#shape-colorrect)
 - **SpinBox** — [SpinBox](#spinbox) · [SpinBox (additional)](#spinbox-additional)
 - **SpotLight3D** — [SpotLight3D / OmniLight3D](#spotlight3d-omnilight3d)

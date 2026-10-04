@@ -26,6 +26,7 @@ Public positioning: [`POSITIONING.md`](POSITIONING.md). This hub links every doc
 | Split a game across `.vg` files | [Multi-file `Import`](manual/vg_import_modules.md) |
 | Build a game | [Game Development Tutorial](tutorials/GAME_DEVELOPMENT.md) |
 | Menu form + 2D canvas game | [Menu Form + Node2D Game](guides/MENU_FORM_AND_2D_GAME.md) |
+| Classic BASIC `SCREEN` / ports | [Classic BASIC](#-classic-basic-quickbasic-screen) |
 | Build an app | [App Development Tutorial](tutorials/APP_DEVELOPMENT.md) |
 | See what's new | [Changelog](../CHANGELOG.md) |
 
@@ -62,6 +63,22 @@ The complete language specification and syntax reference.
 | [API Commands](reference/commands.md) | All built-in commands and their Godot equivalents |
 | [Godot API Mapping](reference/godot_mapping.md) | How VB6 PascalCase properties map to Godot's snake_case API |
 | [Builtins (Developer)](BUILTINS.md) | Developer docs for built-in function dispatch and C++ extension points |
+
+---
+
+## 🕹️ Classic BASIC (QuickBASIC SCREEN)
+
+Optional QB-style framebuffer for ports and retro demos — not full DOS emulation.
+
+| Document | Description |
+|----------|-------------|
+| [QuickBASIC graphics mode](manual/qb_graphics_mode.md) | **Command reference** — `SCREEN`, `PSET`, `LINE`, ScreenBox vs full-window `QbScreen` |
+| [Classic games graphics](manual/classic_games_graphics.md) | SCREEN profiles **100–199**, split modes, `ScreenMode` / `GfxWidth` queries |
+| [Classic porting guide](manual/classic_porting_guide.md) | `.BAS` → `.vg` checklist, SCREEN vs canvas, `VGMemoryBuffer` instead of `PEEK`/`POKE` |
+| [Controls — ScreenBox](reference/CONTROLS_REFERENCE.md#screenbox-texturerect) | Toolbox CRT host for mixed form + classic graphics |
+| [QB ABC showcase](../samples/showcases/qb_abc_showcase/) | Gallery demos; main menu `.` opens classic SCREEN mode gallery |
+
+Project settings: `vg/classic/enabled` (Narcea prefers SCREEN lane), `vg/classic/clip_playfield` (split modes **111** / **112**).
 
 ---
 

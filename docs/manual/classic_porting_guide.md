@@ -38,13 +38,13 @@ Use **one primary drawing path** per game unless you plan the handoff (e.g. menu
 - You want **fixed resolution** and **palette indices** (320×200 mode **13**, narrow **100**, split **111**, etc.).
 - The original used `PSET` **/** `LINE` **/** `CIRCLE` **/** `PAINT` **/** `GET` **/** `PUT` and you want to keep that structure.
 - You are **learning or demoing** retro QB syntax inside VG.
-- You accept **letterboxing** in the Godot window (chunky pixels, not necessarily full-monitor stretch).
+- You want a **CRT-style buffer**: either a **ScreenBox** on a VG form (mixed UI) or a letterboxed full-window **`QbScreen`** (showcase / pure ports).
 
 **Size and mode queries (after** `Screen n`**):**
 
 ```vb
 Dim m As Integer
-m = ScreenMode()          ' 0 when overlay hidden (Screen 0)
+m = ScreenMode()          ' 0 when host hidden/cleared (Screen 0)
 Dim w As Integer
 w = GfxWidth()            ' logical buffer width — not Screen.Width
 ```
@@ -54,17 +54,34 @@ Project setting `vg/classic/enabled` tells Narcea to prefer this lane for the pr
 ### Use canvas / Node2D (`_Draw`, `DrawRect`, …) when
 
 - You want **resolution-independent UI**, anchors, or modern HUD (scores, touch-friendly buttons).
-- You need **Color8 / vector text**, smooth scaling, or mixing with Godot nodes.
+- You need **Color8 / vector text**, smooth scaling, or mixing with Godot nodes **without** a QB buffer.
 - The game is a **shipping Godot product** first and “QB look” is optional.
 - You hit QB layer limits (stretch blit, TTF text, window resize) — see [qb64_compat_roadmap.md](qb64_compat_roadmap.md).
 
-**Rule of thumb:** ABC-era arcade clones and gallery demos → `Screen 13`. Menus, tools, and climatist-style apps → **canvas** on the scene root.
+**Rule of thumb:** ABC-era arcade clones → `Screen 13` (full-window or ScreenBox). Form apps that embed a CRT → **ScreenBox** + `SCREEN`. Menus/tools without QB pixels → **canvas** on the scene root.
 
-### Hybrid pattern (common in the showcase)
+### Hybrid patterns
+
+**A — ScreenBox on a form** (recommended for buttons + CRT):
+
+```vb
+' Form has ScreenBox1 from the toolbox
+Sub Form_Load()
+    Screen 13
+    Cls
+    Line (0, 0)-(319, 199), 15, B
+End Sub
+
+Sub btnClear_Click()
+    Screen 0              ' clears ScreenBox texture
+End Sub
+```
+
+**B — Canvas menu + full-window QbScreen** (common in the ABC showcase):
 
 ```vb
 Sub ShowMenu()
-    Screen 0              ' hide QB sprite
+    Screen 0              ' hide QbScreen overlay
     QueueRedraw           ' canvas _Draw runs again
 End Sub
 
@@ -75,7 +92,7 @@ Sub StartLevel()
 End Sub
 ```
 
-Attach the `.vg` script to a **Node2D** root so `_Draw` and `SCREEN` can coexist; return to `Screen 0` before drawing menu chrome with `DrawString` / `DrawRect`.
+For pattern B, attach the `.vg` script to a **Node2D** root so `_Draw` and `SCREEN` can coexist; return to `Screen 0` before drawing menu chrome with `DrawString` / `DrawRect`.
 
 ---
 
@@ -163,8 +180,8 @@ Available methods include `PeekByte`, `PokeByte`, `PeekInt16`, `PokeInt32`, `Pee
 
 | QBasic / QB64                                 | Visual Gasic                                                         |
 | --------------------------------------------- | -------------------------------------------------------------------- |
-| `SCREEN 13`                                   | Same (or classic **100–199** profiles)                               |
-| `SCREEN 0`                                    | Hides QB overlay; use for canvas menu                                |
+| `SCREEN 13`                                   | Same (or classic **100–199** profiles); host via ScreenBox or `QbScreen` |
+| `SCREEN 0`                                    | Clears ScreenBox / hides `QbScreen`; use before canvas menus         |
 | `WIDTH`, `LOCATE`, `PRINT` (in graphics mode) | Supported on active SCREEN (8×8 cell text)                           |
 | `INKEY$`                                      | Supported; extended keys use Chr(0) + scan byte                      |
 | `PLAY "..."`                                  | Supported (MML / SiON when available)                                |
@@ -186,7 +203,7 @@ Details and deferred features: [qb64_compat_roadmap.md](qb64_compat_roadmap.md).
 
 - **Game loop:** use `Sub _Process(delta)` on the script owner; QB drawing can happen every frame; texture upload is batched once per frame while SCREEN is active.
 - **Keyboard:** `INKEY$` needs input on the owner node; for digit keys in the editor view, `_Input` with `InputEventKey` is often more reliable than action names on raw events.
-- **Mouse in QB space:** `_MouseX`, `_MouseY`, `_MouseButton(1)` after SCREEN is active — not the same as Godot global mouse on canvas.
+- **Mouse in QB space:** `_MouseX`, `_MouseY`, `_MouseButton(1)` after SCREEN is active — mapped into the logical buffer (ScreenBox or letterboxed `QbScreen`), not Godot global mouse on canvas.
 
 ---
 
@@ -196,7 +213,8 @@ Details and deferred features: [qb64_compat_roadmap.md](qb64_compat_roadmap.md).
 
 Classic games usually want **nearest-neighbor** scaling, not blurry stretch:
 
-- QB sprite uses nearest filtering in the engine; keep the **Godot window** stretch mode sensible for your project (see project **Display** settings).
+- ScreenBox and `QbScreen` use nearest filtering; ScreenBox stretch is aspect-centered inside the control.
+- Keep the **Godot window** stretch mode sensible for your project (see project **Display** settings).
 - Game logic should use `GfxWidth` **/** `GfxHeight`, not `Screen.Width` **/** `Screen.Height` (those are the **monitor / window** size).
 
 ---

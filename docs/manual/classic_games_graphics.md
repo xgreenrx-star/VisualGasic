@@ -20,9 +20,20 @@ Use this path when you want a **classic feel** (chunky pixels, few colors, split
 | Fixed-size pixel buffers, palette indices | ANTIC, copper, blitter, Apple artifact colors |
 | `PSET`, `LINE`, `CIRCLE`, `PAINT`, `GET`/`PUT` | Multiple authentic bitplanes at once |
 | **Split layouts** (gfx band + text band) | Exact register-level timing |
-| `INKEY$`, `PLAY`, letterboxed scaling in Godot | DOS memory (`DEF SEG`, `PEEK`/`POKE`) |
+| `INKEY$`, `PLAY`, ScreenBox host or letterboxed `QbScreen` | DOS memory (`DEF SEG`, `PEEK`/`POKE`) |
 
 Original `.BAS` files from other platforms still need **translation**; these modes make the **look** closer without claiming compatibility.
+
+---
+
+## Where the framebuffer appears
+
+| Host | When | Behavior |
+|------|------|----------|
+| **ScreenBox** (toolbox) | Form has a control named `ScreenBox*` or with meta `vg_screen_box` | `SCREEN` / `PSET` / `LINE` texture that CRT; buttons and labels stay normal VG controls |
+| **QbScreen** sprite | No ScreenBox in the scene | Full-window letterboxed nearest-neighbor overlay (ABC showcase default) |
+
+`SCREEN 0` clears / hides the active host (empties the ScreenBox texture, or hides `QbScreen`). Optional owner meta `vg_qb_screen_target` selects which ScreenBox when several exist. Setup details: [qb_graphics_mode.md](qb_graphics_mode.md).
 
 ---
 
@@ -75,7 +86,7 @@ Same statement as QuickBASIC:
 Screen 13          ' DOS VGA256 — showcase default
 Screen 100         ' Tandy narrow field
 Screen 111         ' Split: draw game above the line; use PRINT in text band
-Screen 0           ' Hide QB overlay (menus)
+Screen 0           ' Hide / clear QB host (menus)
 ```
 
 After `SCREEN`, use **mode width/height** for game logic (e.g. 160×200 on mode 100), not `Screen.Width` (monitor size).
@@ -86,7 +97,7 @@ These are **functions**, not the `Screen` monitor namespace:
 
 | Function | Returns |
 |----------|---------|
-| `ScreenMode()` | Active `SCREEN` number, **0** when the overlay is hidden (`Screen 0`). Offscreen `Screen img` returns the **negative** handle. |
+| `ScreenMode()` | Active `SCREEN` number, **0** when the host is hidden/cleared (`Screen 0`). Offscreen `Screen img` returns the **negative** handle. |
 | `GfxWidth()` | Logical buffer width in pixels |
 | `GfxHeight()` | Logical buffer height in pixels |
 | `GfxPlayfieldBottom()` | Last playfield row for split modes (**159** on mode **111**); full height minus one otherwise |
@@ -169,11 +180,12 @@ End Sub
 |--------|------------------|--------------|
 | Drawing | `DrawLine`, `DrawRect`, `_Draw` | `Line`, `PSet`, `Circle` after `SCREEN` |
 | Resolution | Nodes, anchors, viewport | Fixed mode table above |
+| Display host | Form controls / canvas | **ScreenBox** on a form, or letterboxed `QbScreen` |
 | Input | Actions, `IsKeyDown` | `INKEY$` or shared keyboard |
 | Docs | [Scripting](../getting_started/scripting.md), [2D rendering](2d_rendering.md) | This file + [qb_graphics_mode.md](qb_graphics_mode.md) |
-| AI / Narcea | Full Godot + VG controls | Point Narcea at `.vg` ports; cite **VG CHANGES** in source |
+| AI / Narcea | Full Godot + VG controls | Prefer ScreenBox for mixed UI; cite **VG CHANGES** in ports |
 
-Keep classic experiments in their own project or clearly named `.vg` files so you do not mix **`Screen 13`** sprites with **`Control.Left`** UI in one script without planning.
+Mixing **`Screen 13`** with form chrome is supported via **ScreenBox**. Full-window `QbScreen` ports should still plan the handoff (`Screen 0` before canvas menus).
 
 ---
 
@@ -183,15 +195,16 @@ After engine changes, rebuild the GDExtension and run:
 
 ```bash
 VG_TEST_SUITE_VG_ONLY=1 ./run_test_suite.sh test_qb_screen.vg
+VG_TEST_SUITE_VG_ONLY=1 ./run_test_suite.sh test_screen_box_host.vg
 ```
 
-Tests include standard modes and classic profile bounds (modes **100**, **111**).
+Tests include standard modes, classic profile bounds (modes **100**, **111**), and ScreenBox hosting.
 
 ---
 
 ## See also
 
 - **[Classic porting guide](classic_porting_guide.md)** — SCREEN vs canvas, `.BAS` → `.vg` checklist, `MemoryBuffer` instead of `PEEK`/`POKE`
-- [QuickBASIC graphics mode (full statement list)](qb_graphics_mode.md)
+- [QuickBASIC graphics mode (full statement list)](qb_graphics_mode.md) — ScreenBox vs `QbScreen` setup
 - [QB64-style subset limits](qb64_compat_roadmap.md)
 - [ABC showcase notes](../showcase/QB64_SAMPLES_AND_SHOWCASE.md)
