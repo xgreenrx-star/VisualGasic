@@ -136,10 +136,22 @@ echo.
 echo   VisualGasic CLI
 echo   Usage:
 echo     vg new ^<project-name^>    Create a new VG-ready Godot project
+echo       --no-open              Skip auto-launching the Godot editor
 echo     vg install               Install VG into the current Godot project
 echo     vg update                Update global VG installation
 echo     vg version               Show version info
 echo     vg help                  Show this help
+echo.
+echo   Package Manager ^(bash `vg` from a full install / Git Bash / WSL^):
+echo     vg pkg install ^<name^>[@version]
+echo     vg pkg remove ^<name^>
+echo     vg pkg search ^<query^>
+echo     vg pkg list
+echo     vg pkg info ^<name^>
+echo     vg pkg init [name]
+echo     vg pkg update [name]
+echo.
+echo   Tip: run "vg help" after installing the bash CLI for the live list.
 echo.
 exit /b 0
 

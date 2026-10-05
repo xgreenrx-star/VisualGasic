@@ -5973,12 +5973,50 @@ func _create_new_vg_project(proj_name: String, proj_dir: String) -> void:
 	_flash_status_message("Project created: " + proj_name)
 
 	# ── Open the new project in a new Godot instance ──
-	var godot_path = OS.get_executable_path()
-	var args = ["--path", proj_dir, "--editor"]
+	# Keep the current project open. Prefer $APPIMAGE when running from an
+	# AppImage — OS.get_executable_path() points at the squashfs mount and
+	# create_process often fails to spawn a visible second editor.
+	var godot_path := OS.get_environment("APPIMAGE").strip_edges()
+	if godot_path.is_empty() or not FileAccess.file_exists(godot_path):
+		godot_path = OS.get_executable_path()
+	var args: PackedStringArray = ["--path", proj_dir, "--editor"]
 	print("[VisualGasic] Launching: " + godot_path + " " + " ".join(args))
-	OS.create_process(godot_path, args)
+	var pid: int = OS.create_process(godot_path, args)
+	if pid < 0:
+		push_error("[VisualGasic] Failed to launch Godot for new project (pid=%d). Open manually: %s" % [pid, proj_dir])
+		_flash_status_message("Project created — open manually: " + proj_dir)
+		_show_new_project_result_dialog(proj_name, proj_dir, false, godot_path)
+	else:
+		print("[VisualGasic] Launched editor pid=", pid, " for ", proj_dir)
+		_flash_status_message("Opened " + proj_name + " in new Godot window")
+		_show_new_project_result_dialog(proj_name, proj_dir, true, godot_path)
 
-	_flash_status_message("Opened " + proj_name + " in new Godot window")
+
+## Result dialog after New VG Project (success or failed relaunch).
+func _show_new_project_result_dialog(proj_name: String, proj_dir: String, launched: bool, godot_path: String) -> void:
+	var dlg := AcceptDialog.new()
+	dlg.title = "New VisualGasic Project"
+	dlg.ok_button_text = "OK"
+	dlg.min_size = Vector2i(520, 160)
+	if launched:
+		dlg.dialog_text = (
+			"Created \"%s\" at:\n%s\n\n"
+			+ "A second Godot window should open on that folder.\n"
+			+ "This editor stays on your current project.\n\n"
+			+ "If you do not see a new window, open the folder from the Project Manager\n"
+			+ "or run:\n  %s --path \"%s\" --editor"
+		) % [proj_name, proj_dir, godot_path, proj_dir]
+	else:
+		dlg.dialog_text = (
+			"Created \"%s\" at:\n%s\n\n"
+			+ "Could not launch a second Godot window from:\n  %s\n\n"
+			+ "Open the folder from the Project Manager, or run:\n"
+			+ "  godot --path \"%s\" --editor"
+		) % [proj_name, proj_dir, godot_path, proj_dir]
+	dlg.confirmed.connect(dlg.queue_free)
+	dlg.canceled.connect(dlg.queue_free)
+	get_editor_interface().get_base_control().add_child(dlg)
+	dlg.popup_centered()
 
 
 ## Recursively copy a directory from src to dst (absolute paths).

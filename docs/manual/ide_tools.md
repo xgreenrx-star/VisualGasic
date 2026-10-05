@@ -16,6 +16,17 @@ These controls live on Godot’s **top toolbar** (same row as Play) **and** on t
 | **📁 VG Project** | Toggle floating **Project Explorer** (Forms / Modules) |
 Click **VGasic** (toolbar toggle) to open the default workspace over the center editor: **VG Help** · **VG Code Editor** · **Project Explorer** · **Toolbox** · **Properties**. Use **Narcea Vibe Code** (**Ctrl+Shift+N**) for AI — the old **VG Panels** button is removed. Drag/resizing is remembered via **Project → VGasic Tools → Save VG Window Layout** (or **Reset … to Default**).
 
+### Project → VGasic Tools (common entries)
+
+| Menu item | Action |
+|-----------|--------|
+| **New VG Project…** | Scaffold a new Godot+VG folder; keeps the current project open and tries to launch a second editor (see [Installation Method 3](../guides/INSTALLATION.md#method-3-new-project-from-inside-godot)) |
+| **Add Form…** / **New Module…** | Add `.vg` files to the **current** project |
+| **Narcea Vibe Code** | Open AI panel (**Ctrl+Shift+N**) |
+| **Save / Reset VG Window Layout** | Persist or clear floating panel geometry |
+
+CLI alternative for new projects: **`vg new MyGame`** (full list: **`vg help`**).
+
 ---
 
 ## Plugin Activation (v5.3.0+)

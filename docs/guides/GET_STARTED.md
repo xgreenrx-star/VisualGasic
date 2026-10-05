@@ -32,14 +32,20 @@ See the [Installation Guide](INSTALLATION.md) for full details including manual 
 
 ### 2. Create a new project
 
+**CLI (clearest for a first project):**
+
 ```bash
 vg new MyGame
 cd MyGame
+godot . --editor
 ```
 
-Or from the VG Welcome launcher: click **New Project**, enter a name, pick a folder.
+**From an already-open VG project in Godot:**
 
-Then in Godot: **Project → Project Settings → Plugins → visual_gasic → Enable**, and restart if prompted.
+**Project → VGasic Tools → New VG Project…** — name + folder → **Create**.  
+That keeps the current project open and tries to launch a **second** Godot window on the new folder. If no window appears, open the new folder from the Project Manager (or `godot --path … --editor`); details in the [Installation Guide](INSTALLATION.md#method-3-new-project-from-inside-godot).
+
+If you installed via Asset Library into an empty Godot project instead: **Project → Project Settings → Plugins → visual_gasic → Enable**, then restart if prompted.
 
 ### 3. Write your first script
 
@@ -133,15 +139,26 @@ For a guided walkthrough, see the [Game Development Tutorial](../tutorials/GAME_
 
 ## The `vg` CLI
 
-The `vg` command-line tool manages projects and packages:
+The `vg` command-line tool manages projects and packages. Run **`vg help`** for the live list. Current commands:
 
 ```bash
-vg new MyGame          # Create a new VG project
-vg run MyGame          # Run a project headlessly
-vg pkg install Lib     # Install a package from the registry
-vg pkg publish         # Publish your package
-vg help                # Show all commands
+vg new MyGame              # Create a VG-ready Godot project
+vg new MyGame --no-open    # Same, but do not auto-launch the editor
+vg install                 # Install VG into the current Godot project
+vg update                  # Refresh the global VG install from source
+vg version                 # Show version
+vg help                    # Show all commands
+
+vg pkg install Name[@ver]  # Install a package from the registry
+vg pkg remove Name         # Remove an installed package
+vg pkg search query        # Search the registry
+vg pkg list                # List installed packages
+vg pkg info Name           # Package details
+vg pkg init [name]         # Create a vg.json manifest
+vg pkg update [name]       # Update all or one package
 ```
+
+> There is no `vg run` or `vg pkg publish` yet — open projects with Godot (`godot . --editor`) or F5 in the editor.
 
 ---
 

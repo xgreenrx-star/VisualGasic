@@ -13,8 +13,8 @@ Forms (Control-rooted scenes) are the fastest way to build an interactive VG UI.
 ### Setup (2 minutes)
 
 1. **Open Godot 4.6.1+** with VisualGasic installed ([Installation](installation.md))
-2. **Create a new project** named `VGHelloForm` (or `vg new VGHelloForm`)
-3. **Enable the plugin**: Project → Project Settings → Plugins → `visual_gasic` → Enable
+2. **Create a project**: `vg new VGHelloForm` then `godot . --editor`, **or** from an existing VG project use **Project → VGasic Tools → New VG Project…** (keeps the current editor open; may open a second window — if not, open the new folder from the Project Manager)
+3. **Enable the plugin** if needed: Project → Project Settings → Plugins → `visual_gasic` → Enable
 4. **Restart Godot** if the GDExtension just loaded
 
 ### Create a simple contact UI (5 minutes)

@@ -415,7 +415,7 @@ cmd_help() {
     echo -e "  ${BOLD}Quick Start:${NC}"
     echo -e "    1. Run ${CYAN}vg update${NC} from the VisualGasic source directory"
     echo -e "    2. Run ${CYAN}vg new MyGame${NC} from anywhere"
-    echo -e "    3. Run ${CYAN}cd MyGame && godot .${NC}"
+    echo -e "    3. Run ${CYAN}cd MyGame && godot . --editor${NC}"
     echo "    4. Start coding in .vg files!"
     echo ""
     echo -e "  ${BOLD}Adding VG to an existing project:${NC}"

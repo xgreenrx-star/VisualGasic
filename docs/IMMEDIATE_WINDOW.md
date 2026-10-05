@@ -269,7 +269,7 @@ Executes all commands from the saved file in sequence.
 
 ## Interactive Commands
 
-Access special commands with `:` prefix:
+Access special commands with a `:` prefix. Type **`:help`** in the Immediate window for the live list (this table must match that output).
 
 | Command | Description |
 |---------|-------------|
@@ -278,52 +278,28 @@ Access special commands with `:` prefix:
 | `:vars` | List all variables with types and values |
 | `:history` | Show command history |
 | `:reset` | Reset console state (clears everything) |
-| `:watch [expr]` | Add watch expression |
+| `:watch [expr]` | Add watch expression (Watch tab) |
 | `:save [file]` | Save session to file |
 | `:load [file]` | Load session from file |
-| `:eval [expr]` | Evaluate expression in paused debug context |
-| `:wp` or `:watchpoint` | Manage data breakpoints (see below) |
+| `:instances` | List running VisualGasic game instances |
+| `:connect N` | Connect to instance N for live debugging |
+| `:disconnect` | Disconnect from the running instance |
 
-### Watchpoint Commands (Data Breakpoints)
-
-Watchpoints allow you to break execution when a variable's value changes:
-
-| Command | Description |
-|---------|-------------|
-| `:wp` | List all active watchpoints |
-| `:wp add [varname]` | Add watchpoint for a variable |
-| `:wp remove [varname]` | Remove watchpoint for a variable |
-| `:wp clear` | Clear all watchpoints |
-
-**Example:**
-```
-> :wp add player_health
-Watchpoint added: player_health
-
-> :wp
-Active Watchpoints:
-  • player_health
-
-[When player_health changes during execution, the debugger pauses]
-Watchpoint hit: player_health changed from 100 to 75
-```
+There is **no** `:eval` or `:wp` / `:watchpoint` colon command. Type expressions and assignments **directly** (or `Print` / `?`). Use the Watch tab for monitored expressions; data breakpoints (when available) are configured through the debugger UI, not via `:wp`.
 
 ### Expression Evaluation in Debug Context
 
-When the debugger is paused at a breakpoint, use `:eval` to evaluate expressions using the paused instance's context:
+When the debugger is paused at a breakpoint (or you `:connect` to a running instance), type expressions normally — they evaluate in that instance’s context:
 
 ```
-> :eval player_health
+> player_health
 100
 
-> :eval player_health * 2
-200
-
-> :eval player.position.x
-250.5
+> Print Ball_x
+> Ball_x = 100
 ```
 
-This reads the actual variable values from the paused script instance, unlike regular expressions which operate on the Immediate Window's local context.
+This reads the actual variable values from the paused/connected script instance.
 
 ### Examples:
 ```
@@ -610,8 +586,8 @@ Click methods in Inspector to test them:
 13. **Go to Definition** - Jump to variable declarations
 14. **Live Refresh** - Auto-update variables while game runs
 15. **Editable Values** - Double-click to modify variable values
-16. **Expression Evaluation** - `:eval` to evaluate in paused debug context
-17. **Data Breakpoints (Watchpoints)** - `:wp` to break on variable value changes
+16. **Expression Evaluation** - type expressions directly when paused or `:connect`ed
+17. **Watch Expressions** - `:watch expr` and the Watch tab (not a `:wp` colon command)
 
 ---
 
@@ -757,15 +733,10 @@ Both **Variables** and **Watch** tabs support in-place value editing:
 - `:help` - Show help
 - `:vars` - List variables
 - `:watch expr` - Add watch
-- `:save file` - Save session
-- `:load file` - Load session
-- `:clear` - Clear output
-- `:reset` - Reset everything
-- `:eval expr` - Evaluate in paused context
-- `:wp add var` - Add data breakpoint
-- `:wp remove var` - Remove data breakpoint
-- `:wp` - List data breakpoints
-- `:wp clear` - Clear all data breakpoints
+- `:save file` / `:load file` - Session I/O
+- `:clear` / `:reset` - Clear or reset
+- `:instances` / `:connect N` / `:disconnect` - Live game attach
+- Type expressions directly when paused or connected (no `:eval`)
 
 **Shortcuts:**
 - Ctrl+R: Rename variable (in script editor)
@@ -788,10 +759,10 @@ Both **Variables** and **Watch** tabs support in-place value editing:
 - Rename in Entire Script
 - Rename Everywhere
 
-**Data Breakpoints (Watchpoints):**
-- `:wp add player_health` - Break when player_health changes
-- Triggers debugger pause when watched variable is modified
-- Great for tracking down unexpected state changes
+**Watch / debug attach:**
+- `:watch player_health` - monitor in the Watch tab
+- `:instances` / `:connect N` - attach to a running game
+- Type `Print player_health` (or just the name) while paused or connected
 
 **Made development interactive and powerful!**
 
@@ -824,7 +795,7 @@ False
 - No direct access to scene runtime (use Print to scene nodes)
 - Variables reset on editor restart
 - Complex multi-line structures may require careful formatting
-- Expression evaluation (`:eval`) requires an active debug session
+- Live game evaluation requires a paused breakpoint or `:connect` to a running instance
 
 ## Troubleshooting
 

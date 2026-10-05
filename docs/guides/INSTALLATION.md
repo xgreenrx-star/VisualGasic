@@ -213,7 +213,8 @@ After installation, the `vg` command is available from any terminal:
 ```bash
 # Create a new Godot project with VG pre-installed and enabled
 vg new MyGame
-cd MyGame && godot .
+vg new MyGame --no-open          # skip auto-launching the editor
+cd MyGame && godot . --editor
 
 # Add VG to an existing Godot project
 cd /path/to/existing/project
@@ -223,12 +224,14 @@ vg install
 cd /path/to/VisualGasic
 vg update
 
-# Package management
+# Package management (also: remove, info, init, update — see vg help)
 vg pkg install MathLibrary@^2.1.0
 vg pkg search "physics"
 vg pkg list
+vg pkg info MathLibrary
+vg pkg remove MathLibrary
 
-# Show version and help
+# Show version and help (authoritative command list)
 vg version
 vg help
 ```
@@ -250,38 +253,40 @@ MyGame/
 
 ---
 
-## 🎨 Method 3: From the VG IDE (Inside Godot)
+## 🎨 Method 3: New project from inside Godot
 
-If you already have a VG project open in Godot, you can create new projects without leaving the editor:
+If you already have a VG project open (plugin enabled), you can scaffold another project from the editor.
 
-### Step-by-Step Walkthrough
+### Recommended: Project → VGasic Tools
 
-1. **Open an existing VG project** in Godot (or create one with `vg new` first)
+1. **Open an existing VG project** in Godot (or create one with `vg new` first — Method 1 / CLI above).
+2. **Project → VGasic Tools → New VG Project…**
+3. Enter a **project name** and parent **location** (default is usually `~/Documents`).
+4. Click **Create**.
 
-2. **Switch to the Visual Gasic IDE** main screen tab (top of the editor, between "2D", "3D", "Script", etc.)
+What happens:
 
-3. **Go to File → New Project...** in the VG IDE menu bar
+- Writes a new folder with `project.godot` (VG plugin enabled), `addons/visual_gasic/`, and a starter `Form1.vg`.
+- **Does not close** the project you are already editing.
+- Tries to open the new folder in a **second** Godot editor window (`godot --path <dir> --editor`).
 
-4. **Enter a project name** — only letters, digits, hyphens, and underscores allowed
+If no second window appears: check the Output dock for `[VisualGasic] New project…` / launch errors; open the folder manually with Godot’s Project Manager (**Import** / **Scan**), or use `vg new` / `godot --path ~/Documents/MyGame --editor`. Common failure: the default name already exists on disk (pick a new name), or Godot was started from an AppImage/wrapper that cannot relaunch itself (the dialog reports that and still leaves the project on disk).
 
-5. **Choose a folder** — a file browser opens to select the parent directory
+### CLI (same result, often clearer)
 
-6. **Click Create** — the new project is generated with:
-   - `project.godot` with the VG plugin already enabled
-   - `addons/visual_gasic/` copied from your current project
-   - A starter `Form1.vg` file ready to edit
-   - The project opens in a new Godot instance
+```bash
+vg new MyGame
+cd MyGame && godot . --editor
+```
 
-### Also Available from the Tools Menu
+### Legacy Alpha: VG IDE File menu
 
-The VG plugin registers a **Tools → New VG Project...** menu item, so you can also create projects from the main Godot menu without switching to the VG IDE screen.
+The full-screen **Visual Gasic IDE** shell (**File → New Project…**) is **experimental**. Enable **Project Settings → Vg → Enable Experimental Plugins**, then use the **VGasic** main-screen tab. Prefer **Project → VGasic Tools → New VG Project…** for everyday use. See [VG_IDE_ALPHA.md](../manual/VG_IDE_ALPHA.md).
 
-### Creating New Forms and Modules
+### Creating forms and modules in the current project
 
-Within an existing project, use the VG IDE's File menu:
-- **File → New Form** — creates a new `.vg` form file with Form_Load stub
-- **File → New Module** — creates a new `.vg` module file
-- **File → Open** — opens an existing `.vg` file
+- **Project → VGasic Tools → Add Form…** / **New Module…**
+- Or create a `.vg` file in the FileSystem dock and attach it to a node (Language: VisualGasic)
 
 ---
 

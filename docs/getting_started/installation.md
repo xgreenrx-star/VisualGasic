@@ -36,20 +36,28 @@ After installation, create a new VG-ready project:
 
 ```bash
 vg new MyGame
-cd MyGame && godot .
+cd MyGame && godot . --editor
 ```
 
-The `vg` CLI tool supports additional commands:
+From an already-open VG project you can also use **Project → VGasic Tools → New VG Project…** (does not close the current project; see the full [Installation Guide](../guides/INSTALLATION.md#method-3-new-project-from-inside-godot)).
+
+The `vg` CLI tool supports (see **`vg help`** for the authoritative list):
 
 | Command | Description |
 |---------|-------------|
 | `vg new <name>` | Create a new Godot project with VisualGasic pre-installed |
+| `vg new <name> --no-open` | Same, without auto-launching Godot |
 | `vg install` | Install the VG addon into the current Godot project |
-| `vg update` | Update the global VG installation |
+| `vg update` | Update the global VG installation from source |
 | `vg version` | Show version info |
-| `vg pkg install <name>` | Install a VG package from the registry |
-| `vg pkg search <query>` | Search the package registry |
 | `vg help` | Show all commands |
+| `vg pkg install <name>[@ver]` | Install a package from the registry |
+| `vg pkg remove <name>` | Remove an installed package |
+| `vg pkg search <query>` | Search the package registry |
+| `vg pkg list` | List installed packages |
+| `vg pkg info <name>` | Show package details |
+| `vg pkg init [name]` | Create a `vg.json` manifest |
+| `vg pkg update [name]` | Update all packages or one by name |
 
 ---
 

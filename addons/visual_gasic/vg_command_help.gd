@@ -2046,6 +2046,11 @@ static func _build_db() -> void:
 	# QUICKBASIC GRAPHICS (SCREEN buffer — engine builtins)
 	# Not Screen.Width (monitor). See docs/manual/qb_graphics_mode.md
 	# =========================================================================
+	_add("ScreenBox",
+		"Toolbox control: ScreenBox (TextureRect host for SCREEN)",
+		"Classic BASIC / QuickBASIC SCREEN host on a form. Drop from the Toolbox (or name a TextureRect ScreenBox* / set meta vg_screen_box). SCREEN/PSET/LINE draw into this control instead of the full-window QbScreen overlay. SCREEN 0 clears the texture. Mixed UI: keep Buttons/Labels beside ScreenBox. See docs/manual/classic_games_graphics.md and docs/reference/CONTROLS_REFERENCE.md.",
+		"' Scene has a ScreenBox named ScreenBox1\nScreen 13\nCls\nLine (0, 0)-(319, 199), 7, B\nPSet (160, 100), 15\n\nSub ReturnToMenu()\n    Screen 0\nEnd Sub", 1590)
+
 	_add("SCREEN",
 		"SCREEN modeNumber\nSCREEN 0   ' turn off QB overlay, return to canvas UI",
 		"Opens a logical QuickBASIC-style framebuffer (e.g. 13 = 320×200×256) or SCREEN imageHandle from _NewImage (negative). If the scene has a ScreenBox control (toolbox), the buffer is shown there; otherwise letterboxed via a QbScreen sprite. Screen 0 hides the host. 32-bit pages use _RGB32 colors with PSET/LINE. Classic profiles 100–199: docs/manual/classic_games_graphics.md",
@@ -2842,7 +2847,7 @@ static func _build_see_also() -> void:
 		# Colors
 		["Color", "Color8", "RGB"],
 		# QuickBASIC SCREEN buffer
-		["SCREEN", "ScreenMode", "PSet", "LINE", "CIRCLE", "PAINT", "InKey$", "PLAY (QB)", "Point (QB)", "GET (QB)", "PUT (QB)", "_NewImage", "_RGB32", "_MouseX", "_SndOpen", "_DesktopWidth"],
+		["ScreenBox", "SCREEN", "ScreenMode", "PSet", "LINE", "CIRCLE", "PAINT", "InKey$", "PLAY (QB)", "Point (QB)", "GET (QB)", "PUT (QB)", "_NewImage", "_RGB32", "_MouseX", "_SndOpen", "_DesktopWidth"],
 		# GoTo
 		["GoTo", "GoSub", "Return"],
 		# Godot — Movement / Physics
