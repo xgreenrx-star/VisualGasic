@@ -97,7 +97,7 @@ collect_tests() {
 	fi
 	if [[ ${#FILTERS[@]} -gt 0 ]]; then
 		for filter in "${FILTERS[@]}"; do
-			find "$TEST_DIR" -name "$filter" -type f -printf '%f\n'
+			find "$TEST_DIR" -name '*.vg' -name "$filter" -type f -printf '%f\n'
 		done | sort -u
 		return
 	fi

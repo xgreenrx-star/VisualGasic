@@ -132,7 +132,7 @@ Sub _Ready()
     cleaned = DeleteFolder(root)
 End Sub
 
-' Kill with wildcards runs on the tree-walk path (STMT_KILL is not compiled).
+' Kill is parsed as a statement-style call; both execution paths share deletion.
 Sub TestKillWildcard()
     Dim fso As New FileSystemObject
     Dim kdir As String
@@ -143,13 +143,32 @@ Sub TestKillWildcard()
     fso.WriteAll kdir & "/t1.tmp", "1"
     fso.WriteAll kdir & "/t2.tmp", "2"
     fso.WriteAll kdir & "/keep.keep", "k"
+    fso.WriteAll kdir & "/.hidden.tmp", "hidden"
+    MkDir kdir & "/folder.tmp"
 
     Kill kdir & "/*.tmp"
 
-    If Not fso.FileExists(kdir & "/t1.tmp") And Not fso.FileExists(kdir & "/t2.tmp") And fso.FileExists(kdir & "/keep.keep") Then
+    If Not fso.FileExists(kdir & "/t1.tmp") And Not fso.FileExists(kdir & "/t2.tmp") And Not fso.FileExists(kdir & "/.hidden.tmp") And fso.FileExists(kdir & "/keep.keep") And fso.FolderExists(kdir & "/folder.tmp") Then
         Print "PASS: kill_wildcard"
     Else
         Print "FAIL: kill_wildcard"
+    End If
+
+    On Error Resume Next
+    Kill kdir & "/*.missing"
+    If Err.Number = 53 Then
+        Print "PASS: kill_wildcard_no_matches"
+    Else
+        Print "FAIL: kill_wildcard_no_matches"
+    End If
+    Err.Clear()
+    On Error GoTo 0
+    fso.WriteAll kdir & "/single.tmp", "single"
+    Kill kdir & "/single.tmp"
+    If Not fso.FileExists(kdir & "/single.tmp") Then
+        Print "PASS: kill_single_after_handled_error"
+    Else
+        Print "FAIL: kill_single_after_handled_error"
     End If
 
     c = DeleteFolder(kdir)

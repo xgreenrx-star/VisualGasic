@@ -443,6 +443,7 @@ public:
     int file_free(int range);
     Variant file_len(const String &path);
     Variant file_dir(const Array &args);
+	void file_kill(const String &path);
     void randomize_seed();
     // Allow builtins to raise runtime errors via instance wrapper
     void raise_runtime_error(const String &p_msg, int p_code = 5, const String &p_source = "");

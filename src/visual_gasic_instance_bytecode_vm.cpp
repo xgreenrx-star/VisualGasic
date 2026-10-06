@@ -1164,6 +1164,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         bool valid = false;
         Variant::evaluate(op, a, b, result, valid);
         if (!valid) {
+			// Match AST Nothing propagation without restarting a partially executed Sub.
+			if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
+					(a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
+				push_value(Variant());
+				return true;
+			}
             // Rate-limit error output to avoid spam
             static int error_count = 0;
             static uint64_t last_error_time = 0;
@@ -4526,71 +4532,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     handled = true;
                 }
 
-                // Kill <path> — VB6 file/symlink delete. Mirror the AST
-                // interpreter handler in visual_gasic_instance_execute.inc
-                // so bytecode-compiled subs delete files too. Falls back to
-                // raw POSIX unlink / Win32 DeleteFile when Godot's
-                // DirAccess::remove_absolute() can't handle symlinks.
                 if (!handled && method.nocasecmp_to("Kill") == 0 && args.size() == 1) {
-                    String path = args[0];
-                    bool is_abs = path.begins_with("res://") || path.begins_with("user://")
-                               || path.begins_with("/")
-                               || (path.length() >= 2 && path[1] == ':');
-                    if (!is_abs) path = "user://" + path;
-
-                    // VB6 Kill supports wildcards (* and ?) in the file-name
-                    // portion and deletes every matching FILE (never a folder).
-                    // Mirror the AST interpreter's STMT_KILL wildcard handler.
-                    String kfname = path.get_file();
-                    if (kfname.find("*") != -1 || kfname.find("?") != -1) {
-                        String base_dir = path.get_base_dir();
-                        if (base_dir.is_empty()) base_dir = ".";
-                        Ref<DirAccess> kdir = DirAccess::open(base_dir);
-                        if (kdir.is_null()) {
-                            raise_error("Path not found: " + base_dir, 76);
-                        } else {
-                            kdir->set_include_navigational(false);
-                            kdir->set_include_hidden(true);
-                            int removed = 0;
-                            Error last_err = Error::OK;
-                            kdir->list_dir_begin();
-                            String entry = kdir->get_next();
-                            while (!entry.is_empty()) {
-                                if (entry != "." && entry != ".." && !kdir->current_is_dir() && entry.matchn(kfname)) {
-                                    Error e = DirAccess::remove_absolute(base_dir.path_join(entry));
-                                    if (e != Error::OK) last_err = e; else removed++;
-                                }
-                                entry = kdir->get_next();
-                            }
-                            kdir->list_dir_end();
-                            if (removed == 0) {
-                                raise_error("File not found: " + path, 53);
-                            } else if (last_err != Error::OK) {
-                                raise_error("Kill Failed (Error " + String::num(last_err) + "): " + path, 53);
-                            }
-                        }
-                        call_ret = Variant();
-                        handled = true;
-                    } else {
-                    Error err = DirAccess::remove_absolute(path);
-                    if (err != Error::OK) {
-#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
-                        CharString utf8 = path.utf8();
-                        if (::unlink(utf8.get_data()) != 0) {
-                            raise_error("File not found: " + path, 53);
-                        }
-#elif defined(_WIN32)
-                        CharString utf8 = path.utf8();
-                        if (!DeleteFileA(utf8.get_data())) {
-                            raise_error("File not found: " + path, 53);
-                        }
-#else
-                        raise_error("File not found: " + path, 53);
-#endif
-                    }
+					file_kill(args[0]);
                     call_ret = Variant();
                     handled = true;
-                    }
                 }
 
                 }  // end special-case engine-method cascade gate

@@ -1444,31 +1444,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 
                 // --- File System Extended ---
                 if (s->method_name.nocasecmp_to("Kill") == 0 && call_args.size() == 1) {
-                     String path = call_args[0];
-                     // Only map relative paths into user://. Absolute paths
-                     // (POSIX "/foo", Windows "C:\foo") and res:// / user://
-                     // URIs are passed through verbatim so VB6 Kill on
-                     // arbitrary filesystem locations works.
-                     bool is_abs = path.begins_with("res://") || path.begins_with("user://")
-                                || path.begins_with("/")
-                                || (path.length() >= 2 && path[1] == ':');
-                     if (!is_abs) path = "user://" + path;
-                     Error err = DirAccess::remove_absolute(path);
-                     if (err != Error::OK) {
-                         // DirAccess::remove_absolute() probes via is_dir(),
-                         // which follows symlinks via stat() — so it cannot
-                         // remove a (dangling or live) symlink itself. Fall
-                         // back to raw POSIX unlink / Win32 DeleteFile so
-                         // Kill removes the link rather than the target.
-#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
-                         CharString utf8 = path.utf8();
-                         if (::unlink(utf8.get_data()) == 0) break;
-#elif defined(_WIN32)
-                         CharString utf8 = path.utf8();
-                         if (DeleteFileA(utf8.get_data())) break;
-#endif
-                         raise_error("File not found: " + path, 53);
-                     }
+					 file_kill(call_args[0]);
                      break;
                 }
                 if (s->method_name.nocasecmp_to("Name") == 0 && call_args.size() == 2) {
@@ -2978,58 +2954,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         case STMT_KILL: {
             KillStatement* s = (KillStatement*)stmt;
-            String path = evaluate_expression(s->path);
-
-            // VB6 Kill supports wildcards (* and ?) in the file-name portion
-            // and deletes every matching FILE (never a directory). Detect a
-            // wildcard in the last path component and enumerate its folder.
-            String kfname = path.get_file();
-            if (kfname.find("*") != -1 || kfname.find("?") != -1) {
-                String base_dir = path.get_base_dir();
-                if (base_dir.is_empty()) base_dir = ".";
-                Ref<DirAccess> kdir = DirAccess::open(base_dir);
-                if (kdir.is_null()) {
-                    raise_error("Path not found: " + base_dir, 76);
-                    break;
-                }
-                kdir->set_include_navigational(false);
-                kdir->set_include_hidden(true);
-                int removed = 0;
-                Error last_err = Error::OK;
-                kdir->list_dir_begin();
-                String entry = kdir->get_next();
-                while (!entry.is_empty()) {
-                    if (entry != "." && entry != ".." && !kdir->current_is_dir() && entry.matchn(kfname)) {
-                        Error e = DirAccess::remove_absolute(base_dir.path_join(entry));
-                        if (e != Error::OK) last_err = e; else removed++;
-                    }
-                    entry = kdir->get_next();
-                }
-                kdir->list_dir_end();
-                if (removed == 0) {
-                    raise_error("File not found: " + path, 53);
-                } else if (last_err != Error::OK) {
-                    raise_error("Kill Failed (Error " + String::num(last_err) + "): " + path, 53);
-                }
-                break;
-            }
-
-            Error err = DirAccess::remove_absolute(path);
-            if (err != Error::OK) {
-                // Godot's DirAccess::remove_absolute can fail on symlinks
-                // (especially dangling symlinks) on POSIX because the
-                // is_dir() probe follows the link via stat(). Fall back to
-                // a direct POSIX unlink / Win32 DeleteFile so VB6 Kill
-                // behaves like the user expects (remove the link itself).
-#if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
-                CharString utf8 = path.utf8();
-                if (::unlink(utf8.get_data()) == 0) break;
-#elif defined(_WIN32)
-                CharString utf8 = path.utf8();
-                if (DeleteFileA(utf8.get_data())) break;
-#endif
-                raise_error("Kill Failed (Error " + String::num(err) + "): " + path, 53);
-            }
+			String path = evaluate_expression(s->path);
+			if (!error_state.has_error) file_kill(path);
             break;
         }
         case STMT_RAISE_EVENT: {

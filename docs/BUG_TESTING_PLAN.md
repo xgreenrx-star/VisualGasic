@@ -175,12 +175,38 @@ were no native crashes in that run. Additional mutation checks (40 cases at
 seed 7 on the default path and 40 at seed 2026 with forced AST) had no crashes
 or timeouts.
 
-Remaining divergences are AST `Await` (currently a no-op statement, requiring
-real continuation/resume support) and a duplicate PASS line on the bytecode
-Vector3 subtraction test. Other open failures include wildcard `Kill` in the
-AST folder fixture, ByRef import, queued canvas drawing, missing owner helpers
-(`GetDelta`, `IsVisible`), and an unresolved sample import. The folder fixture's
-missing trash service does not explain its separate wildcard failure.
+The next pass fixed two additional defects:
+
+- `Kill` in the folder fixture is parsed as a statement-style call, not
+  `STMT_KILL`. Its AST call handler lacked wildcard support even though the
+  separate statement handler already supported it. All three execution
+  surfaces now call one file-deletion helper. The folder test passes 16
+  assertions per path, including hidden matches, retained nonmatching files
+  and directories, missing-match error 53, and execution after a handled
+  error. A separate five-assertion fixture verifies live/dangling/directory
+  symlinks, directory rejection and missing-folder error 76.
+- Vector3 arithmetic with `Nothing` caused a bytecode bailout without a
+  runtime error, followed by AST replay of the partially executed Sub.
+  This duplicated earlier output and could repeat side effects. Invalid
+  `+`, `-` and `*` operations involving `Nothing` now propagate `Nothing`
+  as the AST evaluator does, without replay. Eight assertions per path cover
+  both operand orders and verify the Sub executes only once; bytecode dumps
+  confirm these tests compile.
+
+The follow-up full run of the original 212 fixtures reports **191 matched
+passes, 2 matched failures, 1 divergence, 7 runs without assertions and 11
+execution failures**, with no native crashes. The new symlink/path fixture
+was run separately and passes on both paths. Another 20 mutants at seed 11
+(default) and 20 at seed 12 (forced AST) had no crashes or timeouts. Basename
+filters now select only `.vg` files, not Godot-generated `.vg.uid` metadata.
+
+The remaining divergence is AST `Await`, still a no-op statement. Its fix
+requires explicit continuation frames for nested AST blocks, saved local
+scopes and task-completion integration; saving only a statement index or
+blocking the main thread is insufficient. No Await implementation was
+changed during this follow-up. Other open failures include ByRef import,
+queued canvas drawing, missing owner helpers (`GetDelta`, `IsVisible`), and
+an unresolved sample import.
 Benchmark/network timeouts and intentional error/debugger/helper fixtures
 need explicit test-runner classification. Retain raw logs and reproducers;
 these counts are not a release sign-off.

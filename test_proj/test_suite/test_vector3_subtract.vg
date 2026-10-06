@@ -1,7 +1,9 @@
 ' Regression: Vector3 subtraction and Variant member assign
 Option Explicit
+Dim execution_count As Integer = 0
 
 Sub _Ready()
+	execution_count = execution_count + 1
 	Dim a As Variant
 	Dim b As Variant
 	Dim c As Variant
@@ -33,3 +35,19 @@ Sub _Ready()
 	Else
 		Print "FAIL: subtract with Nothing should yield Nothing"
 	End If
+	bad = Nothing - ok
+	If bad Is Nothing Then Print "PASS: Nothing minus vector yields Nothing" Else Print "FAIL: Nothing minus vector"
+	bad = ok + Nothing
+	If bad Is Nothing Then Print "PASS: vector plus Nothing yields Nothing" Else Print "FAIL: vector plus Nothing"
+	bad = Nothing + ok
+	If bad Is Nothing Then Print "PASS: Nothing plus vector yields Nothing" Else Print "FAIL: Nothing plus vector"
+	bad = ok * Nothing
+	If bad Is Nothing Then Print "PASS: vector times Nothing yields Nothing" Else Print "FAIL: vector times Nothing"
+	bad = Nothing * ok
+	If bad Is Nothing Then Print "PASS: Nothing times vector yields Nothing" Else Print "FAIL: Nothing times vector"
+	If execution_count = 1 Then
+		Print "PASS: invalid arithmetic does not restart the Sub"
+	Else
+		Print "FAIL: invalid arithmetic restarted the Sub"
+	End If
+End Sub

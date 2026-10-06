@@ -1,0 +1,61 @@
+Sub _Ready()
+	Dim root As String = "/tmp/vg_kill_paths_test"
+	Dim fso As New FileSystemObject
+	Dim fp As New VGFilePermissions
+	Dim cleaned As Boolean = DeleteFolder(root)
+	MkDir root
+	MkDir root & "/target_dir"
+	MkDir root & "/empty_dir"
+	fso.WriteAll root & "/target_dir/keep.txt", "keep"
+	fso.WriteAll root & "/target.txt", "keep"
+	Dim linked As Boolean = fp.CreateSymlink(root & "/live_link", root & "/target.txt")
+	If linked Then
+		Kill root & "/live_link"
+		If Not fp.IsSymlink(root & "/live_link") And fso.FileExists(root & "/target.txt") Then
+			Print "PASS: Kill removes live link without deleting target"
+		Else
+			Print "FAIL: Kill live link"
+		End If
+	Else
+		Print "FAIL: Kill live link setup"
+	End If
+	linked = fp.CreateSymlink(root & "/dangling_link", root & "/missing.txt")
+	If linked Then
+		Kill root & "/dangling_link"
+		If Not fp.IsSymlink(root & "/dangling_link") Then
+			Print "PASS: Kill removes dangling link"
+		Else
+			Print "FAIL: Kill dangling link"
+		End If
+	Else
+		Print "FAIL: Kill dangling link setup"
+	End If
+	linked = fp.CreateSymlink(root & "/dir_link", root & "/target_dir")
+	If linked Then
+		Kill root & "/dir_link"
+		If Not fp.IsSymlink(root & "/dir_link") And fso.FileExists(root & "/target_dir/keep.txt") Then
+			Print "PASS: Kill removes directory link without deleting target"
+		Else
+			Print "FAIL: Kill directory link"
+		End If
+	Else
+		Print "FAIL: Kill directory link setup"
+	End If
+	On Error Resume Next
+	Kill root & "/empty_dir"
+	If Err.Number = 75 And fso.FolderExists(root & "/empty_dir") Then
+		Print "PASS: Kill rejects directories"
+	Else
+		Print "FAIL: Kill directory rejection"
+	End If
+	Err.Clear()
+	Kill root & "/missing_dir/*.tmp"
+	If Err.Number = 76 Then
+		Print "PASS: Kill reports missing wildcard directory"
+	Else
+		Print "FAIL: Kill missing directory"
+	End If
+	Err.Clear()
+	On Error GoTo 0
+	cleaned = DeleteFolder(root)
+End Sub
