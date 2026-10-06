@@ -17,7 +17,8 @@ func _init():
 		print("FAIL: no Main()")
 
 var _frames = 0
-func _process(_delta):
+func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames > 3:
 		quit()
+	return false

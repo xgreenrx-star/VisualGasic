@@ -12,7 +12,7 @@ func _init():
 	root.add_child(node)
 
 var _frames = 0
-func _process(delta):
+func _process(delta: float) -> bool:
 	_frames += 1
 	var pc = node.get("processCount") if node else null
 	if _frames <= 5:
@@ -25,5 +25,6 @@ func _process(delta):
 			else:
 				print("FAIL - %d VG calls in %d frames = %.1fx" % [pc, _frames, float(pc)/_frames])
 		quit()
+	return false
 
 var node: Node

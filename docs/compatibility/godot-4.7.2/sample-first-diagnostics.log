@@ -1,0 +1,301 @@
+
+=== samples__apps__climatist_poc-run.log ===
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: HttpFetch â Sub: HttpGetWithHeaders Line: 102 (WeatherApi.vg)
+
+=== samples__apps__vector_crypt-run.log ===
+ERROR: 2 RID allocations of type 'N13RendererDummy9DummyMeshE' were leaked at exit.
+
+=== samples__apps__vector_dashboard-run.log ===
+Parser Error (line 498): Unexpected token in expression: )
+Parser Error (line 498): Expected )
+Parser Error (line 604): Unexpected token in expression: )
+Parser Error (line 604): Expected )
+Parser Error (line 647): Unexpected token in expression: )
+
+=== samples__apps__vector_fathom-run.log ===
+
+=== samples__apps__vg_gps-run.log ===
+
+=== samples__apps__vg_hex_editor-run.log ===
+
+=== samples__apps__vg_twinpane-run.log ===
+
+=== samples__apps__web_hello-run.log ===
+
+=== samples__demos__2D_Games__Galactic_Defender-run.log ===
+
+=== samples__demos__2D_Games__Platformer_Godot-run.log ===
+Parser Error (line 49): Unexpected token in expression: =
+Parser Error (line 49): Expected property path after 'Tween'
+ERROR: Index p_frame = 42 is out of bounds (vframes * hframes = 8).
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+
+=== samples__demos__2D_Games__Platformer-run.log ===
+
+=== samples__demos__2D_Games__Pong_Advanced-run.log ===
+
+=== samples__demos__2D_Games__Pong-run.log ===
+
+=== samples__demos__2D_Games__Snake-run.log ===
+[VG Runtime Error 9] Array subscript out of range â Sub: GetLevelTarget Line: 129 (snake.vg)
+
+=== samples__demos__2D_Games__Space_Shooter-run.log ===
+
+=== samples__demos__2D_Games__Thrust-run.log ===
+
+=== samples__demos__3D_Games__Squash_The_Creeps-run.log ===
+ERROR: 1 RID allocations of type 'P12GodotShape3D' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage11DummyShaderE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy9DummyMeshE' were leaked at exit.
+ERROR: 7 resources still in use at exit (run with --verbose for details).
+
+=== samples__demos__Audio__Piano-run.log ===
+
+=== samples__demos__Audio__VGMusic-run.log ===
+
+=== samples__demos__C64_Emulator-run.log ===
+
+=== samples__demos__Data_and_Files__HighScores-run.log ===
+ERROR: Maximum array recursion reached!
+ERROR: Maximum array recursion reached!
+ERROR: Maximum array recursion reached!
+ERROR: Maximum array recursion reached!
+ERROR: Maximum array recursion reached!
+
+=== samples__demos__GBA_Emulator-run.log ===
+
+=== samples__demos__Graphics__Screensaver-run.log ===
+
+=== samples__demos__Graphics__Screen_Space_Shaders-run.log ===
+
+=== samples__demos__Graphics__Sky_Shaders-run.log ===
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage11DummyShaderE' were leaked at exit.
+ERROR: 4 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 6 resources still in use at exit (run with --verbose for details).
+
+=== samples__demos__Graphics__VGMovie-run.log ===
+Parser Error: Missing 'Loop' statement for Do block (found 'End')
+
+=== samples__demos__Graphics__VGPaint-run.log ===
+Parser Error (line 681): Unexpected token in expression: ,
+
+=== samples__demos__Graphics__VGVector-run.log ===
+Parser Error (line 403): Unexpected token in expression: ,
+Parser Error: Missing 'Next' statement for For loop (found 'Else')
+
+=== samples__demos__Mobile__Pedometer-run.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__demos__Mobile__TiltMaze-run.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__demos__Networking__VGTerminal-run.log ===
+
+=== samples__demos__Threading__ParallelDemo-run.log ===
+
+=== samples__demos__UI__Calculator-run.log ===
+
+=== samples__demos__UI__TodoApp-run.log ===
+
+=== samples__demos__UI__VG_UI_TOOLS-run.log ===
+
+=== samples__demos__Utilities__DocGen_Example-run.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__games__asteroids-run.log ===
+
+=== samples__games__brotato3d-run.log ===
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+
+=== samples__games__brotato_vg-run.log ===
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+
+=== samples__games__defender-run.log ===
+
+=== samples__games__elite_wire_slice-run.log ===
+ERROR: 1 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+
+=== samples__games__platformer_2d-run.log ===
+
+=== samples__games__pong_ultimate-run.log ===
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+
+=== samples__games__racing_3d-run.log ===
+ERROR: Unrecognized UID: "uid://b1rh8wxduem4j".
+ERROR: Resource file not found: res:// (expected type: unknown)
+ERROR: Failed to instantiate an autoload, can't load from path: .
+
+=== samples__games__vector_storm-run.log ===
+ERROR: 2 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+
+=== samples__games__vg_graven_slice-run.log ===
+
+=== samples__games__zork-run.log ===
+
+=== samples__internal__AGCK_Tests-run.log ===
+ERROR: Shader compilation failed.
+ERROR: Shader compilation failed.
+ERROR: 2 RID allocations of type 'P12GodotShape2D' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage11DummyShaderE' were leaked at exit.
+
+=== samples__internal__vgai_demo-run.log ===
+ERROR: Request for nonexistent project setting: 'vg/gdai/enabled'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/provider'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/api_key'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/endpoint'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/model'.
+
+=== samples__internal__vg_narcea_test-run.log ===
+
+=== samples__showcases__circuit_breaker-run.log ===
+
+=== samples__showcases__classic_screen_modes-run.log ===
+
+=== samples__showcases__demoscene_intro-run.log ===
+
+=== samples__showcases__qb_abc_showcase-run.log ===
+
+=== samples__showcases__vg_beta_showcase-run.log ===
+
+=== samples__showcases__vg_narcea_movie_demo-run.log ===
+
+=== AGCK_Tests-baseline461.log ===
+ERROR: Shader compilation failed.
+ERROR: Shader compilation failed.
+ERROR: 2 RID allocations of type 'P12GodotShape2D' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage11DummyShaderE' were leaked at exit.
+
+=== brotato_vg-cold-baseline461.log ===
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+
+=== brotato_vg-import-baseline461.log ===
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+
+=== samples__apps__climatist_poc-baseline461.log ===
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: HttpFetch â Sub: HttpGetWithHeaders Line: 102 (WeatherApi.vg)
+
+=== samples__apps__vector_dashboard-baseline461.log ===
+Parser Error (line 498): Unexpected token in expression: )
+Parser Error (line 498): Expected )
+Parser Error (line 604): Unexpected token in expression: )
+Parser Error (line 604): Expected )
+Parser Error (line 647): Unexpected token in expression: )
+
+=== samples__demos__2D_Games__Platformer_Godot-baseline461.log ===
+Parser Error (line 49): Unexpected token in expression: =
+Parser Error (line 49): Expected property path after 'Tween'
+ERROR: Index p_frame = 42 is out of bounds (vframes * hframes = 8).
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+
+=== samples__demos__2D_Games__Snake-baseline461.log ===
+[VG Runtime Error 9] Array subscript out of range â Sub: GetLevelTarget Line: 129 (snake.vg)
+
+=== samples__demos__3D_Games__Squash_The_Creeps-baseline461.log ===
+ERROR: 1 RID allocations of type 'P12GodotShape3D' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy9DummyMeshE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage13DummyMaterialE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N13RendererDummy15MaterialStorage11DummyShaderE' were leaked at exit.
+ERROR: 7 resources still in use at exit (run with --verbose for details).
+
+=== samples__demos__Graphics__VGMovie-baseline461.log ===
+Parser Error: Missing 'Loop' statement for Do block (found 'End')
+
+=== samples__demos__Graphics__VGPaint-baseline461.log ===
+Parser Error (line 681): Unexpected token in expression: ,
+
+=== samples__demos__Graphics__VGVector-baseline461.log ===
+Parser Error (line 403): Unexpected token in expression: ,
+Parser Error: Missing 'Next' statement for For loop (found 'Else')
+
+=== samples__demos__Mobile__Pedometer-baseline461.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__demos__Mobile__TiltMaze-baseline461.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__demos__Utilities__DocGen_Example-baseline461.log ===
+ERROR: Cannot open file 'res://main.tscn'.
+ERROR: Failed loading resource: res://main.tscn.
+ERROR: Failed loading scene: res://main.tscn.
+
+=== samples__games__brotato3d-baseline461.log ===
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+
+=== samples__games__pong_ultimate-baseline461.log ===
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+[VG Runtime Error 35] [FROM BYTECODE_VM_4090] Sub or Function not defined: PushTransform â Sub: _Draw Line: 439 (pong_ultimate.vg)
+
+=== samples__games__racing_3d-baseline461.log ===
+ERROR: Unrecognized UID: "uid://b1rh8wxduem4j".
+ERROR: Resource file not found: res:// (expected type: unknown)
+ERROR: Failed to instantiate an autoload, can't load from path: .
+
+=== samples__internal__vgai_demo-baseline461.log ===
+ERROR: Request for nonexistent project setting: 'vg/gdai/enabled'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/provider'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/api_key'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/endpoint'.
+ERROR: Request for nonexistent project setting: 'vg/gdai/model'.
+
+=== vg_hex_editor-import-baseline461.log ===
+ERROR: 1 RID allocations of type 'N16RendererViewport8ViewportE' were leaked at exit.
+ERROR: 19 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 178 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 19 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced27FontAdvancedLinkedVariationE' were leaked at exit.
+
+=== vg_hex_editor-import-472 ===
+ERROR: Plugin is not attached to debugger.
+ERROR: 1 RID allocations of type 'N16RendererViewport8ViewportE' were leaked at exit.
+ERROR: 20 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 179 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 19 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced27FontAdvancedLinkedVariationE' were leaked at exit.
+
+=== vg_hex_editor-import-461 ===
+ERROR: 1 RID allocations of type 'N16RendererViewport8ViewportE' were leaked at exit.
+ERROR: 19 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 178 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 19 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced27FontAdvancedLinkedVariationE' were leaked at exit.

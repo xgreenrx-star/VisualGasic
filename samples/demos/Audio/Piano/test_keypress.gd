@@ -18,7 +18,7 @@ func _init():
 	root.add_child(game_node)
 	print("[OK] Scene instantiated")
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frame += 1
 	
 	if frame == 2:
@@ -67,3 +67,4 @@ func _process(delta):
 		print("")
 		print("=== Diagnostic Complete ===")
 		quit()
+	return false

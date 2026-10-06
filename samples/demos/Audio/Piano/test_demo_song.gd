@@ -17,7 +17,7 @@ func _init():
 	piano_node.set_script(script)
 	root.add_child(piano_node)
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	_frames += 1
 	
 	# Frame 5-10: simulate pressing KEY_1
@@ -33,3 +33,4 @@ func _process(delta):
 	if _frames > 300:
 		print("[test] Timeout - quitting")
 		quit()
+	return false

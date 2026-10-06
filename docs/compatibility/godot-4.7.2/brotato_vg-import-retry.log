@@ -1,0 +1,510 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+ERROR: Cannot open file 'res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata'.
+   at: load (core/io/resource_format_binary.cpp:1156)
+ERROR: Failed loading resource: res://.godot/imported/Kenney_Pixel.ttf-6585914c348d414453f288e46d1d6af1.fontdata.
+   at: _load (core/io/resource_loader.cpp:317)
+ERROR: Failed loading resource: res://assets/fonts/Kenney_Pixel.ttf.
+   at: _load (core/io/resource_loader.cpp:317)
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+   at: _printerr (scene/resources/resource_format_text.cpp:41)
+ERROR: res://themes/default_theme.tres:77 - Parse Error: [ext_resource] referenced non-existent resource at: res://assets/fonts/Kenney_Pixel.ttf.
+   at: _printerr (scene/resources/resource_format_text.cpp:41)
+ERROR: Failed loading resource: res://themes/default_theme.tres.
+   at: _load (core/io/resource_loader.cpp:317)
+ERROR: Error loading custom project theme 'res://themes/default_theme.tres'
+   at: initialize_theme (scene/theme/theme_db.cpp:74)
+[VGOdbc] ODBC library loaded successfully
+[VGSysTray] Tray icon destroyed
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[VG Debugger Plugin] _setup_session(0) session=true
+[VG Debugger Plugin] _active_session SET, is_active=false
+[VG Debugger Plugin] session.has_signal('stopped')=true
+[VG Debugger Plugin] Connected to session.stopped signal
+VisualGasic: Toolbox tool_selected signal connected
+VisualGasic: Properties Inspector created (will dock in VB6 mode)
+VisualGasic: FileSystem Browser created
+VisualGasic: Toolbox created (will dock in VB6 mode)
+VisualGasic: Alignment toolbar created (will add to 2D bar in VB6 mode)
+VisualGasic: Preview toolbar created (will add to 2D bar in VB6 mode)
+VisualGasic: Color palette created (will add to 2D bar in VB6 mode)
+VisualGasic: Data Tips initialized
+VisualGasic: Snippet Browser created
+VisualGasic: Theme Picker created
+VisualGasic: Profiler Panel created (will embed in IDE)
+VisualGasic: Exception Assistant created
+VisualGasic: Vibe Code panel created
+VisualGasic: Project Explorer created (will dock in VB6 mode)
+VisualGasic: Added 'Toggle VG IDE Layout' and 'Toggle Tweak Overlay' to Project > Tools menu
+VisualGasic: Theme loaded (44 values, VGThemeManager overlay: yes)
+FormDesigner: New form 'Form1'
+VisualGasic: Embedded Code Editor created
+VisualGasic: Immediate Window embedding deferred
+VisualGasic: 3D Scene Editor created
+VisualGasic: 2D Scene Editor created
+VisualGasic: Sprite Editor created
+VisualGasic: Vector Editor created
+VisualGasic: Grid Editor created
+VisualGasic: Plugin 'Working Nodes' not enabled (enable via Project Settings → vg/plugins/working_nodes)
+VisualGasic: Plugin 'Form Designer' is experimental and disabled (set vg/enable_experimental_plugins=true to enable)
+VisualGasic: Plugin 'Vector Graphics' not enabled (enable via Project Settings → vg/plugins/vector_graphics)
+VisualGasic: Plugin 'GDAI' not enabled (enable via Project Settings → vg/plugins/gdai)
+VisualGasic: Plugin 'AGCK' not enabled (enable via Project Settings → vg/plugins/agck)
+VisualGasic: Plugin 'VG3D' not enabled (enable via Project Settings → vg/plugins/vg3d)
+VisualGasic: Plugin 'Web Publish' not enabled (enable via Project Settings → vg/plugins/web_publish)
+VisualGasic: Plugin 'VGSFX' not enabled (enable via Project Settings → vg/plugins/vgsfx)
+VisualGasic: Plugin 'VG AI Art' not enabled (enable via Project Settings → vg/plugins/vgaiart)
+VisualGasic: Plugin 'UI Forms' is experimental and disabled (set vg/enable_experimental_plugins=true to enable)
+VisualGasic: Plugin 'VGMusic' not enabled (enable via Project Settings → vg/plugins/vgmusic)
+VisualGasic: Built-in 'Form Designer' entry added to plugin strip
+VisualGasic: Plugin Manager loaded 0 plugin(s)
+VisualGasic: Plugin Manager initialized
+VisualGasic: VB6 IDE layout created — Toolbox | Canvas | Properties
+VisualGasic: Loaded 6 custom/optional components (8 enabled, 2 already present)
+VisualGasic: Toolbox restyled to TwinBasic list layout (34 icons)
+VisualGasic: Initialized. Monitoring nesting & double-click events.
+VisualGasic: Added Recent Projects menu
+[VG-TIP] _load_tip_config: path=user://vg_tip_config.cfg err=7
+[VG-TIP] Config not found, using defaults
+[ImmediateWindow] var_tree item_edited signal connected
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+VisualGasic: Toolbox restyled to TwinBasic list layout (34 icons)
+VisualGasic: Output and System Console tabs wired
+VisualGasic: Vibe Code embedded in IDE bottom tabs
+VisualGasic: Hex Editor instance created OK
+VisualGasic: Hex Editor tab added
+VisualGasic: VB6 theme applied to IDE panels
+VisualGasic: Toolbox restyled to TwinBasic list layout (34 icons)
+VisualGasic: Designer theme applied (25 colors)
+[VG] Hooked Scene Tree double-click (item_activated)
+[VG] Hooked 2D canvas viewport gui_input for double-click detection
+VGMcpServer: listening on 127.0.0.1:8766
+[VG Debugger Plugin] Detected ended session via polling — is_active=false is_breaked=false — cleaning up
+[   0% ] [90m[1mupdate_scripts_classes[22m | Started Registering global classes... (306 steps)[39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   1% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   1% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   1% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   2% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   2% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   2% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   3% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   3% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   3% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   4% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   4% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   4% ] [90m[1mupdate_scripts_classes[22m | AGCKSpritePacks[39m[0m
+[   5% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   5% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   5% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   6% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   6% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   6% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   7% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   7% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   7% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   8% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   8% ] [90m[1mupdate_scripts_classes[22m | VectorCanvas[39m[0m
+[   8% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   9% ] [90m[1mupdate_scripts_classes[22m | VectorShape[39m[0m
+[   9% ] [90m[1mupdate_scripts_classes[22m | VGVectorAPI[39m[0m
+[   9% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  10% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  10% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  10% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  11% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  11% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  11% ] [90m[1mupdate_scripts_classes[22m | VGAIArtPoseRenderer[39m[0m
+[  12% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  12% ] [90m[1mupdate_scripts_classes[22m | VGMusicPlayer[39m[0m
+[  12% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  13% ] [90m[1mupdate_scripts_classes[22m | VGSFXAKWF[39m[0m
+[  13% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  13% ] [90m[1mupdate_scripts_classes[22m | VGSFXDSP[39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | VGSFXFootsteppr[39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | VGSFXPD[39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | VGSFXPDCompile[39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | VGSFXPDModules[39m[0m
+[  15% ] [90m[1mupdate_scripts_classes[22m | VGSFXSynth[39m[0m
+[  15% ] [90m[1mupdate_scripts_classes[22m | VGSFXTransfxr[39m[0m
+[  15% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  16% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  16% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  16% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  17% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  17% ] [90m[1mupdate_scripts_classes[22m | working_nodes_codegen[39m[0m
+[  17% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  18% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  18% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  18% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  19% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  19% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  19% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  20% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  20% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  20% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  21% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  21% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  21% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  22% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  22% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  22% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  23% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  23% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  23% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  24% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  24% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  24% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  25% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  25% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  25% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  26% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  26% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  26% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  27% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  27% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  27% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  29% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  29% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  29% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  30% ] [90m[1mupdate_scripts_classes[22m | VGTweakAdapters[39m[0m
+[  30% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  30% ] [90m[1mupdate_scripts_classes[22m | VGTweakInspector[39m[0m
+[  31% ] [90m[1mupdate_scripts_classes[22m | VGTweakPersistence[39m[0m
+[  31% ] [90m[1mupdate_scripts_classes[22m | VGTweakSource[39m[0m
+[  31% ] [90m[1mupdate_scripts_classes[22m | VGTweakSwapRegistry[39m[0m
+[  32% ] [90m[1mupdate_scripts_classes[22m | VGTweakSystem[39m[0m
+[  32% ] [90m[1mupdate_scripts_classes[22m | VGTweakTarget[39m[0m
+[  32% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  33% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  33% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  33% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  34% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  34% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  34% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  35% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  35% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  35% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  36% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  36% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  36% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  37% ] [90m[1mupdate_scripts_classes[22m | GDAI[39m[0m
+[  37% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  37% ] [90m[1mupdate_scripts_classes[22m | GDAILocalProvider[39m[0m
+[  38% ] [90m[1mupdate_scripts_classes[22m | GDAIOpenAIProvider[39m[0m
+[  38% ] [90m[1mupdate_scripts_classes[22m | GDAIProvider[39m[0m
+[  38% ] [90m[1mupdate_scripts_classes[22m | GDAITest[39m[0m
+[  39% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  39% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  39% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  40% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  40% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  40% ] [90m[1mupdate_scripts_classes[22m | NarceaRubric[39m[0m
+[  41% ] [90m[1mupdate_scripts_classes[22m | NarceaVgParse[39m[0m
+[  41% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  41% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  43% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  43% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  43% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  44% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  44% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  44% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  45% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  45% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  45% ] [90m[1mupdate_scripts_classes[22m | VgAddonInstall[39m[0m
+[  46% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  46% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  46% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  47% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  47% ] [90m[1mupdate_scripts_classes[22m | VGAiCursorSession[39m[0m
+[  47% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  48% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  48% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  48% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  49% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  49% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  49% ] [90m[1mupdate_scripts_classes[22m | VgAiGameReferences[39m[0m
+[  50% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  50% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  50% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  51% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  51% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  51% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  52% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  52% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  52% ] [90m[1mupdate_scripts_classes[22m | VGAiProviderHealth[39m[0m
+[  53% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  53% ] [90m[1mupdate_scripts_classes[22m | VgAiReferenceCatalog[39m[0m
+[  53% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  54% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  54% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  54% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  55% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  55% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  55% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  56% ] [90m[1mupdate_scripts_classes[22m | VGAiValidate[39m[0m
+[  56% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  56% ] [90m[1mupdate_scripts_classes[22m | VgAiWebFetch[39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | VGAssetBus[39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | VGAssetWatcher[39m[0m
+[  58% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  58% ] [90m[1mupdate_scripts_classes[22m | VGBreakpointConditions[39m[0m
+[  58% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  59% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  59% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  59% ] [90m[1mupdate_scripts_classes[22m | VGCodeEdit[39m[0m
+[  60% ] [90m[1mupdate_scripts_classes[22m | VGCodeHighlighter[39m[0m
+[  60% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  60% ] [90m[1mupdate_scripts_classes[22m | VGCommandHelp[39m[0m
+[  61% ] [90m[1mupdate_scripts_classes[22m | VGCommandPalette[39m[0m
+[  61% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  61% ] [90m[1mupdate_scripts_classes[22m | VGContextBroker[39m[0m
+[  62% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  62% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  62% ] [90m[1mupdate_scripts_classes[22m | VGControlsInspector[39m[0m
+[  63% ] [90m[1mupdate_scripts_classes[22m | VGCursorHandoff[39m[0m
+[  63% ] [90m[1mupdate_scripts_classes[22m | VGCursorMcpConfig[39m[0m
+[  63% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  64% ] [90m[1mupdate_scripts_classes[22m | VGDashboardServer[39m[0m
+[  64% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  64% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  65% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  65% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  65% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  66% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  66% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  66% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  67% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  67% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  67% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  68% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  68% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  68% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  69% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  69% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  69% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  70% ] [90m[1mupdate_scripts_classes[22m | VGDualEditorBridge[39m[0m
+[  70% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  70% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | VGExternalChangePrompt[39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  72% ] [90m[1mupdate_scripts_classes[22m | VGFirstRunDialog[39m[0m
+[  72% ] [90m[1mupdate_scripts_classes[22m | VGFormatter[39m[0m
+[  72% ] [90m[1mupdate_scripts_classes[22m | VGFormDesignerTheme[39m[0m
+[  73% ] [90m[1mupdate_scripts_classes[22m | VGGodotCompat[39m[0m
+[  73% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  73% ] [90m[1mupdate_scripts_classes[22m | VGGoToDefinition[39m[0m
+[  74% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  74% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  74% ] [90m[1mupdate_scripts_classes[22m | VGIntelliSense[39m[0m
+[  75% ] [90m[1mupdate_scripts_classes[22m | VGKeywordAutocorrect[39m[0m
+[  75% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  75% ] [90m[1mupdate_scripts_classes[22m | VGLinter[39m[0m
+[  76% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  76% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  76% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  77% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  77% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  77% ] [90m[1mupdate_scripts_classes[22m | VGMcpServer[39m[0m
+[  78% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  78% ] [90m[1mupdate_scripts_classes[22m | VGNarceaLiveSession[39m[0m
+[  78% ] [90m[1mupdate_scripts_classes[22m | VGNativeEditorIndent[39m[0m
+[  79% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  79% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  79% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  80% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  80% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  80% ] [90m[1mupdate_scripts_classes[22m | VGPlatformHints[39m[0m
+[  81% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  81% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  81% ] [90m[1mupdate_scripts_classes[22m | VGPluginRegistry[39m[0m
+[  82% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  82% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  82% ] [90m[1mupdate_scripts_classes[22m | VGRecentProjects[39m[0m
+[  83% ] [90m[1mupdate_scripts_classes[22m | VGRefRewriter[39m[0m
+[  83% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  83% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  84% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  84% ] [90m[1mupdate_scripts_classes[22m | VGSnippetManager[39m[0m
+[  84% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  85% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  85% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  85% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  85% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  86% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  86% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  86% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  87% ] [90m[1mupdate_scripts_classes[22m | VGThemeManager[39m[0m
+[  87% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  87% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  88% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  88% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  88% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  89% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  89% ] [90m[1mupdate_scripts_classes[22m | VGUserSymbolHelp[39m[0m
+[  89% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  90% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  90% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  90% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  91% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  91% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  91% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  92% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  92% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  92% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  93% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  93% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  93% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  94% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  94% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  94% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  95% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  95% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  95% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  96% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  96% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  96% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  97% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  97% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  97% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  98% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  98% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  98% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  99% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  99% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[92m[ DONE ][39m [1mupdate_scripts_classes[22m
+[0m
+[   0% ] [90m[1m_update_scan_actions[22m | Started Scanning actions... (48 steps)[39m[0m
+[   0% ] [90m[1m_update_scan_actions[22m | icon.png[39m[0m
+[   2% ] [90m[1m_update_scan_actions[22m | icon.svg[39m[0m
+[   4% ] [90m[1m_update_scan_actions[22m | vg_file_icon.svg[39m[0m
+[   6% ] [90m[1m_update_scan_actions[22m | vg_project_icon.png[39m[0m
+[   8% ] [90m[1m_update_scan_actions[22m | Kenney_Mini_Square.ttf[39m[0m
+[  10% ] [90m[1m_update_scan_actions[22m | Kenney_Pixel.ttf[39m[0m
+[  12% ] [90m[1m_update_scan_actions[22m | acc_amulet.png[39m[0m
+[  14% ] [90m[1m_update_scan_actions[22m | acc_boots.png[39m[0m
+[  16% ] [90m[1m_update_scan_actions[22m | acc_clover.png[39m[0m
+[  18% ] [90m[1m_update_scan_actions[22m | acc_crown.png[39m[0m
+[  20% ] [90m[1m_update_scan_actions[22m | acc_gloves.png[39m[0m
+[  22% ] [90m[1m_update_scan_actions[22m | acc_medkit.png[39m[0m
+[  24% ] [90m[1m_update_scan_actions[22m | acc_ring.png[39m[0m
+[  26% ] [90m[1m_update_scan_actions[22m | acc_scope.png[39m[0m
+[  28% ] [90m[1m_update_scan_actions[22m | acc_shield.png[39m[0m
+[  30% ] [90m[1m_update_scan_actions[22m | acc_vampire.png[39m[0m
+[  32% ] [90m[1m_update_scan_actions[22m | coin.png[39m[0m
+[  34% ] [90m[1m_update_scan_actions[22m | upg_armor.png[39m[0m
+[  36% ] [90m[1m_update_scan_actions[22m | upg_attack_speed.png[39m[0m
+[  38% ] [90m[1m_update_scan_actions[22m | upg_damage.png[39m[0m
+[  40% ] [90m[1m_update_scan_actions[22m | upg_dodge.png[39m[0m
+[  42% ] [90m[1m_update_scan_actions[22m | upg_lifesteal.png[39m[0m
+[  44% ] [90m[1m_update_scan_actions[22m | upg_max_hp.png[39m[0m
+[  46% ] [90m[1m_update_scan_actions[22m | upg_pierce.png[39m[0m
+[  48% ] [90m[1m_update_scan_actions[22m | upg_range.png[39m[0m
+[  51% ] [90m[1m_update_scan_actions[22m | upg_speed.png[39m[0m
+[  53% ] [90m[1m_update_scan_actions[22m | weapon_flamer.png[39m[0m
+[  55% ] [90m[1m_update_scan_actions[22m | weapon_minigun.png[39m[0m
+[  57% ] [90m[1m_update_scan_actions[22m | weapon_pistol.png[39m[0m
+[  59% ] [90m[1m_update_scan_actions[22m | weapon_shotgun.png[39m[0m
+[  61% ] [90m[1m_update_scan_actions[22m | weapon_smg.png[39m[0m
+[  63% ] [90m[1m_update_scan_actions[22m | weapon_sniper.png[39m[0m
+[  65% ] [90m[1m_update_scan_actions[22m | boss_dash.png[39m[0m
+[  67% ] [90m[1m_update_scan_actions[22m | boss_final.png[39m[0m
+[  69% ] [90m[1m_update_scan_actions[22m | boss_shoot.png[39m[0m
+[  71% ] [90m[1m_update_scan_actions[22m | boss_summon.png[39m[0m
+[  73% ] [90m[1m_update_scan_actions[22m | bullet.png[39m[0m
+[  75% ] [90m[1m_update_scan_actions[22m | bullet_shotgun.png[39m[0m
+[  77% ] [90m[1m_update_scan_actions[22m | bullet_smg.png[39m[0m
+[  79% ] [90m[1m_update_scan_actions[22m | bullet_sniper.png[39m[0m
+[  81% ] [90m[1m_update_scan_actions[22m | enemy_bullet.png[39m[0m
+[  83% ] [90m[1m_update_scan_actions[22m | enemy_elite.png[39m[0m
+[  85% ] [90m[1m_update_scan_actions[22m | enemy_fast.png[39m[0m
+[  87% ] [90m[1m_update_scan_actions[22m | enemy_light.png[39m[0m
+[  89% ] [90m[1m_update_scan_actions[22m | enemy_tank.png[39m[0m
+[  91% ] [90m[1m_update_scan_actions[22m | player.png[39m[0m
+[  93% ] [90m[1m_update_scan_actions[22m | floor.png[39m[0m
+[  95% ] [90m[1m_update_scan_actions[22m | icon.svg[39m[0m
+[92m[ DONE ][39m [1m_update_scan_actions[22m
+[0m
+[   0% ] [90m[1mreimport[22m | Started (Re)Importing Assets (47 steps)[39m[0m
+[   0% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   2% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   4% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   6% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   8% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  10% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  12% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  14% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  16% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  18% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  20% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  22% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  25% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  27% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  29% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  31% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  33% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  35% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  37% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  39% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  41% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  43% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  45% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  47% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  50% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  52% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  54% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  56% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  58% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  60% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  62% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  64% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  66% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  68% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  70% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  72% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  75% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  77% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  79% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  81% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  83% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  85% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  87% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  89% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  91% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  93% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  95% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   0% ] [90m[1mreimport[22m | Executing pre-reimport operations...[39m[0m
+[   0% ] [90m[1mreimport[22m | Kenney_Mini_Square.ttf[39m[0m
+res://assets/fonts/Kenney_Mini_Square.ttf: Pixel font detected, disabling subpixel positioning.
+res://assets/fonts/Kenney_Pixel.ttf: Pixel font detected, disabling subpixel positioning.
+malloc(): unaligned tcache chunk detected
+ERROR: /root: The caller thread can't call the function `propagate_notification()` on this node. Use `call_deferred()` or `call_deferred_thread_group()` instead.
+   at: propagate_notification (scene/main/node.cpp:2578)
+
+================================================================
+handle_crash: Program crashed with signal 11
+Engine version: Godot Engine v4.7.2.stable.official (ed1daf0bf001b61586d9930840f2f1394092c079)
+Dumping the backtrace. Please include this when reporting the bug on: https://github.com/godotengine/godot/issues

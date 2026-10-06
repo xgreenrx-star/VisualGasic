@@ -1,0 +1,153 @@
+PASS: corpus/01_basics/01_hello_world.vg
+PASS: corpus/01_basics/02_variables_and_types.vg
+PASS: corpus/01_basics/03_arithmetic.vg
+SKIP (no expected output): corpus/01_basics/04_user_input.vg
+FAIL: corpus/01_basics/05_type_conversions.vg
+  expected:     CInt("42")   = 42
+    CSng("3.14") = 3.14
+    CStr(99)     = 99
+  actual:       CInt("42")   = 42
+    CSng("3.14") = 3.14000010490417
+    CStr(99)     = 99
+FAIL (execution incomplete or errored, rc=0): corpus/01_basics/06_optional_types.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Parser Error (line 29): Unexpected token in expression: )
+Parser Error (line 35): Unexpected token in expression: )
+[VG] Parser Error: Unexpected token in expression: ) at corpus_audit_tmp.vg line 29 (merged line 29)
+[VG] Parser Error: Unexpected token in expression: ) at corpus_audit_tmp.vg line 35 (merged line 35)
+FAIL (execution incomplete or errored, rc=0): corpus/01_basics/07_exception_patterns.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error (line 32): Unexpected token in expression: ,
+Parser Error (line 62): Unexpected token in expression: ,
+[VG] Parser Error: Unexpected token in expression: , at corpus_audit_tmp.vg line 32 (merged line 32)
+[VG] Parser Error: Unexpected token in expression: , at corpus_audit_tmp.vg line 62 (merged line 62)
+[93m[1mVisualGasic Warning:[22m Script 'res://test_suite/corpus_audit_tmp.vg' has parse warnings. Affected Subs may fail at runtime.[39m[0m
+PASS: corpus/02_control_flow/01_if_else.vg
+PASS: corpus/02_control_flow/02_for_loop.vg
+PASS: corpus/02_control_flow/03_while_loop.vg
+PASS: corpus/02_control_flow/04_select_case.vg
+PASS: corpus/02_control_flow/05_nested_loops.vg
+PASS: corpus/03_strings/01_concat_and_format.vg
+PASS: corpus/03_strings/02_string_search.vg
+PASS: corpus/03_strings/03_split_join.vg
+PASS: corpus/03_strings/04_case_conversion.vg
+PASS: corpus/03_strings/05_parse_csv_line.vg
+FAIL: corpus/03_strings/06_join_numeric.vg
+  expected:     64, 25, 12, 0, -7
+    64 | 25 | 12 | 0 | -7
+    red-green-blue
+  actual:       red-green-blue
+    red, green, blue
+PASS: corpus/04_arrays/01_array_basics.vg
+FAIL (execution incomplete or errored, rc=0): corpus/04_arrays/02_array_sum_average.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Parser Error: Expected ) after parameters
+Sum:     395
+Average: 79
+VG_CORPUS_COMPLETED
+FAIL (execution incomplete or errored, rc=0): corpus/04_arrays/03_array_max_min.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Parser Error: Expected ) after parameters
+Max: 22
+Min: -10
+VG_CORPUS_COMPLETED
+FAIL (execution incomplete or errored, rc=0): corpus/04_arrays/04_linear_search.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Found 'cherry' at index 2
+'fig' not found
+VG_CORPUS_COMPLETED
+FAIL (execution incomplete or errored, rc=0): corpus/04_arrays/05_bubble_sort.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Before: 
+After:  
+VG_CORPUS_COMPLETED
+PASS: corpus/04_arrays/06_array_count.vg
+PASS: corpus/05_dictionaries/01_dict_basics.vg
+SKIP (no expected output): corpus/05_dictionaries/02_word_count.vg
+PASS: corpus/05_dictionaries/03_group_by_key.vg
+PASS: corpus/05_dictionaries/04_dict_iteration.vg
+PASS: corpus/05_dictionaries/05_cache_with_dict.vg
+PASS: corpus/05_dictionaries/06_dict_properties.vg
+PASS: corpus/06_classes/01_class_basics.vg
+PASS: corpus/06_classes/02_class_constructor.vg
+PASS: corpus/06_classes/03_class_inheritance.vg
+PASS: corpus/06_classes/04_class_properties.vg
+PASS: corpus/06_classes/05_class_collection.vg
+FAIL (execution incomplete or errored, rc=0): corpus/06_classes/06_class_generics.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error (line 38): Unexpected token in expression: )
+Parser Error (line 43): Unexpected token in expression: )
+Parser Error (line 48): Unexpected token in expression: )
+[VG] Parser Error: Unexpected token in expression: ) at corpus_audit_tmp.vg line 38 (merged line 38)
+[VG] Parser Error: Unexpected token in expression: ) at corpus_audit_tmp.vg line 43 (merged line 43)
+PASS: corpus/07_file_io/01_write_text_file.vg
+FAIL (execution incomplete or errored, rc=124): corpus/07_file_io/02_read_text_file.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Missing 'Loop' statement for Do block (found 'End')
+PASS: corpus/07_file_io/03_append_to_log.vg
+FAIL (execution incomplete or errored, rc=0): corpus/07_file_io/04_read_csv.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+[VG Runtime Error 9] Array subscript out of range â Sub: Main Line: 22 (corpus_audit_tmp.vg)
+Unhandled runtime error in 'Main': Error 9: Array subscript out of range (Line 22)
+VG_CORPUS_COMPLETED
+FAIL: corpus/07_file_io/05_count_lines.vg
+  expected:     count_demo.txt has 42 lines
+  actual:       
+PASS: corpus/08_math/01_fibonacci.vg
+PASS: corpus/08_math/02_prime_sieve.vg
+PASS: corpus/08_math/03_distance_2d.vg
+FAIL (execution incomplete or errored, rc=0): corpus/08_math/04_statistics_mean_stdev.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error: Expected ) after parameters
+Parser Error: Expected ) after parameters
+Mean:   175
+StdDev: 7.07106781186548
+Mean:   30
+PASS: corpus/08_math/05_clamp_and_lerp.vg
+SKIP (no expected output): corpus/08_math/optimizer_hints_example.vg
+PASS: corpus/09_state_machines/01_traffic_light.vg
+PASS: corpus/09_state_machines/02_door_state.vg
+PASS: corpus/09_state_machines/03_enemy_ai_states.vg
+PASS: corpus/09_state_machines/04_menu_navigation.vg
+PASS: corpus/09_state_machines/05_dialogue_branching.vg
+SKIP (no expected output): corpus/10_godot_integration/01_button_events.vg
+SKIP (no expected output): corpus/10_godot_integration/01_event_handler_button.vg
+SKIP (no expected output): corpus/10_godot_integration/02_timer_event.vg
+SKIP (no expected output): corpus/10_godot_integration/03_input_handling.vg
+FAIL (execution incomplete or errored, rc=0): corpus/10_godot_integration/04_signal_connect.vg
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Score is now 30
+Score is now 70
+Score is now 120
+ERROR: Can't emit non-existing signal "HighScoreReached".
+   at: emit_signalp (core/object/object.cpp:1201)
+SKIP (no expected output): corpus/10_godot_integration/05_scene_property_aliases.vg
+
+=== CORPUS AUDIT: 36 pass, 14 fail, 8 skipped ===

@@ -2,6 +2,18 @@
 
 Visual Gasic ships **GDExtension binaries** per platform. Export/runtime behavior follows **Godot 4.6+** for each target.
 
+## Godot 4.7.2 validation
+
+The existing Linux x86_64 editor and template_debug extensions load on
+`4.7.2.stable.official.ed1daf0bf` without rebuilding or changing the extension's
+minimum version. The language differential suite passed 210 fixtures after
+updating GDScript `SceneTree._process()` callbacks to return `bool`.
+
+This is **runtime compatibility evidence, not blanket editor/export certification**.
+Cold-import and debugger-shutdown concerns remain, and several samples already
+fail on 4.6.1. Windows, macOS, Web and mobile exports were not tested in this
+upgrade audit. See the [full report and evidence](../compatibility/GODOT_4_7_2.md).
+
 | Platform | GDExtension in release zip | Typical use |
 |----------|----------------------------|-------------|
 | **Linux** (x86_64) | `.so` editor + template_debug + template_release | Editor + desktop export |

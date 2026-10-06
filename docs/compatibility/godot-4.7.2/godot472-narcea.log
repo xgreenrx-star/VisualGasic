@@ -1,0 +1,166 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== Narcea Agent Loop Smoke Test ===
+Testing with 8 providers (ollama, openai, claude, gemini, deepseek, qwen, codeium, amazonq)...
+
+╔══ 1. Provider Registry ══╗
+  [PASS] vg_ai_providers.gd loads
+  [PASS] provider 'ollama' registered
+  [PASS] provider 'openai' registered
+  [PASS] provider 'claude' registered
+  [PASS] provider 'gemini' registered
+  [PASS] provider 'deepseek' registered
+  [PASS] provider 'qwen' registered
+  [PASS] provider 'codeium' registered
+  [PASS] provider 'amazonq' registered
+  [PASS] provider 'cursor' registered
+  [PASS] build_request for 'openai' returns valid body (156 chars) + 3 headers
+  [PASS] build_request for 'deepseek' returns valid body (156 chars) + 3 headers
+  [PASS] build_request for 'qwen' returns valid body (156 chars) + 3 headers
+  [PASS] build_request for 'codeium' returns valid body (156 chars) + 3 headers
+  [PASS] build_request for 'amazonq' returns valid body (156 chars) + 3 headers
+  [PASS] parse_stream_line for 'openai' extracts token
+  [PASS] parse_stream_line for 'deepseek' extracts token
+  [PASS] parse_stream_line for 'qwen' extracts token
+  [PASS] parse_stream_line for 'codeium' extracts token
+  [PASS] parse_stream_line for 'amazonq' extracts token
+  [PASS] parse_stream_line for 'openai' detects 'stop'
+  [PASS] parse_stream_line for 'deepseek' detects 'stop'
+  [PASS] parse_stream_line for 'qwen' detects 'stop'
+  [PASS] parse_stream_line for 'codeium' detects 'stop'
+  [PASS] parse_stream_line for 'amazonq' detects 'stop'
+  [PASS] load_api_key for 'codeium' safe (empty in headless)
+  [PASS] load_api_key for 'amazonq' safe (empty in headless)
+
+╔══ 2. Narcea Context Build ══╗
+  [PASS] vg_ai_narcea.gd loads
+  [PASS] Narcea.new() succeeds
+  [PASS] build_context_block(null) returns long string
+  [PASS] context contains VG control catalog
+  [PASS] context with query hint builds
+  [PASS] _user_notes_block empty when no .narcea/notes.md
+  [PASS] _pinned_files_block empty when nothing pinned
+  [PASS] _tokenise produces tokens
+  [PASS] _rank_examples_by_hint returns entries (fallback to first N)
+  [PASS] move_sprite ranks first for 'move sprite'
+  [PASS] decode_error handles undeclared variable
+  [PASS] decode_error handles division by zero
+  [PASS] decode_error empty for unknown error
+
+╔══ 3. System Prompt Assembly ══╗
+  [PASS] context includes 'Narcea response policy'
+  [PASS] vg_ai_help.gd loads
+
+╔══ 4. Stream Line Parsing ══╗
+  [PASS] All 16 stream parse cases pass
+
+╔══ 5. Function-Calling Schema Injection ══╗
+  [PASS] vg_ai_function_calling.gd loads
+  [PASS] openai supports_native_fc
+  [PASS] claude supports_native_fc
+  [PASS] gemini supports_native_fc
+  [PASS] deepseek supports_native_fc
+  [PASS] qwen supports_native_fc
+  [PASS] codeium supports_native_fc
+  [PASS] amazonq supports_native_fc
+  [PASS] ollama does NOT support native FC
+  [PASS] inject_tools_into_body for openai adds 'tools' key
+  [PASS] inject_tools_into_body for openai adds 'tool_choice'
+  [PASS] inject_tools_into_body for deepseek adds 'tools' key
+  [PASS] inject_tools_into_body for deepseek adds 'tool_choice'
+  [PASS] inject_tools_into_body for qwen adds 'tools' key
+  [PASS] inject_tools_into_body for qwen adds 'tool_choice'
+  [PASS] inject_tools_into_body for codeium adds 'tools' key
+  [PASS] inject_tools_into_body for codeium adds 'tool_choice'
+  [PASS] inject_tools_into_body for amazonq adds 'tools' key
+  [PASS] inject_tools_into_body for amazonq adds 'tool_choice'
+  [PASS] Claude inject adds 'tools' key
+  [PASS] parse_stream_line_for_fc processes tool call line
+
+╔══ 6. Agent Loop Simulation ══╗
+  [PASS] All 3 core modules load
+  [PASS] Context builds with query hint
+  [PASS] Simulated response has vg-form-spec
+  [PASS] Simulated response has vg-code-spec
+  [PASS] Form-spec JSON parses
+  [PASS] Form-spec has form_name='Form1'
+ERROR: Parse JSON failed. Error at line 0: Expected '}' or ','
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] _parse_openai_line (res://addons/visual_gasic/vg_ai_providers.gd:1058)
+       [1] parse_stream_line (res://addons/visual_gasic/vg_ai_providers.gd:1030)
+       [2] _test_agent_round_trip (/home/Commodore/Documents/VisualGasic/tests/test_narcea_agent_loop.gd:350)
+       [3] _init (/home/Commodore/Documents/VisualGasic/tests/test_narcea_agent_loop.gd:41)
+  [PASS] Tool call stream line parses
+ERROR: Parse JSON failed. Error at line 0: Expected '}' or ','
+   at: parse_string (core/io/json.cpp:629)
+   GDScript backtrace (most recent call first):
+       [0] parse_stream_line_for_fc (res://addons/visual_gasic/vg_ai_function_calling.gd:323)
+       [1] _test_agent_round_trip (/home/Commodore/Documents/VisualGasic/tests/test_narcea_agent_loop.gd:354)
+       [2] _init (/home/Commodore/Documents/VisualGasic/tests/test_narcea_agent_loop.gd:41)
+  [PASS] FC parser processes tool call line (may return null for empty tool defs)
+
+╔══ 7. Run Session API ══╗
+  [PASS] vg_ai_run_session.gd loads
+  [PASS] RunSession instantiated
+  [PASS] get_recent_output empty with no sessions
+  [PASS] stop() on idle session is safe
+  [PASS] is_running() false when idle
+  [PASS] ai_projects subdir resolves to host project
+  [PASS] relative scene rebased under scaffold
+
+╔══ 8. Narcea Error Decode ══╗
+  [PASS] decode_error('Identifier "foo" not declared in the current scope') returns hint (86 chars)
+  [PASS] decode_error('Parser Error: Expected end of file') returns hint (62 chars)
+  [PASS] decode_error('Invalid call. Nonexistent function') returns hint (71 chars)
+  [PASS] decode_error('Attempt to call function on a null instance') returns hint (76 chars)
+  [PASS] decode_error('Division By Zero') returns hint (57 chars)
+  [PASS] decode_error('Stack overflow') returns hint (63 chars)
+  [PASS] decode_error('Type mismatch') returns hint (59 chars)
+  [PASS] decode_error('Variable not declared') returns hint (78 chars)
+  [PASS] decode_error('') returns empty for no match
+  [PASS] decode_error('Syntax error in SQL statement') returns empty for no match
+
+╔══ 9. Effective Provider (Config Overrides) ══╗
+  [PASS] get_effective_provider returns ProviderInfo for amazonq
+  [PASS] Default host same as find_provider
+  [PASS] Default port same as find_provider
+  [PASS] get_effective_provider for 'ollama' returns valid info
+  [PASS] get_effective_provider for 'openai' returns valid info
+  [PASS] get_effective_provider for 'claude' returns valid info
+  [PASS] get_effective_provider for 'gemini' returns valid info
+  [PASS] get_effective_provider for 'deepseek' returns valid info
+  [PASS] get_effective_provider for 'qwen' returns valid info
+  [PASS] get_effective_provider for 'codeium' returns valid info
+  [PASS] get_effective_provider null for unknown
+  [PASS] Amazon Q get_effective_provider null-safe and idempotent (3 iterations)
+
+╔══ 10. Model Cache / Refresh ══╗
+  [PASS] refresh_models('ollama') returns error dict in headless
+  [PASS] refresh_models('nonexistent') returns error for unknown provider
+  [PASS] get_providers() still returns providers in headless
+  [PASS] ollama still has default models
+  [PASS] refresh_models is a static method
+  [PASS] is_gemini_chat_model rejects embedding models
+  [PASS] is_gemini_chat_model accepts streamGenerateContent models
+  [PASS] is_gemini_legacy_or_experimental rejects gemini-1.5-pro
+  [PASS] is_gemini_legacy_or_experimental rejects -exp builds
+  [PASS] filter_provider_model_list prunes cached legacy ids
+  [PASS] pick_default_model chooses gemini-2.0-flash when 2.5-flash absent
+  [PASS] diff_removed_models finds retired models
+  [PASS] pick_default_model(openai) returns first model without recursion
+
+╔══ 11. play.run_main Launch Detection ══╗
+  [PASS] launched when tool returns launched
+  [PASS] not launched when tool returns nothing to run
+  [PASS] failure message preserved
+  [PASS] no play.run_main in plan → not launched
+
+
+=== Results: 118 passed, 0 failed ===
+RESULTS: 118/118 passed, 0 failed
+WARNING: 3 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 1 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

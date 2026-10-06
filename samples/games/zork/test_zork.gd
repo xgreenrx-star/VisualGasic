@@ -140,12 +140,12 @@ func _init():
 		"quit",
 	]
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frames_waited += 1
 	
 	# Wait 10 frames for scene + VG script to fully initialize
 	if frames_waited < 10:
-		return
+		return false
 	
 	# First frame after init: load scene and find controls
 	if frames_waited == 10:
@@ -157,24 +157,24 @@ func _process(delta):
 			printerr("[TEST] ERROR: Could not load res://main.tscn")
 			print_results()
 			quit(1)
-			return
+			return false
 		
 		zork_root = scene.instantiate()
 		if zork_root == null:
 			printerr("[TEST] ERROR: Could not instantiate main.tscn")
 			print_results()
 			quit(1)
-			return
+			return false
 		
 		root_win.add_child(zork_root)
 		print("[TEST] Scene loaded: %s (%s)" % [zork_root.name, zork_root.get_class()])
 		
 		# Wait more frames for Form_Load to run
-		return
+		return false
 	
 	# Wait for Form_Load to complete (a few more frames)
 	if frames_waited < 15:
-		return
+		return false
 	
 	# Frame 15: find controls
 	if frames_waited == 15:
@@ -193,7 +193,7 @@ func _process(delta):
 			_dump_tree(zork_root, "  ")
 			print_results()
 			quit(1)
-			return
+			return false
 		
 		print("[TEST] CmdInput found: %s (class: %s)" % [cmd_input.name, cmd_input.get_class()])
 		if output_label:
@@ -202,19 +202,19 @@ func _process(delta):
 		
 		print("[TEST] Running %d commands..." % command_queue.size())
 		print("")
-		return
+		return false
 	
 	# Send one command per frame (with spacing for processing)
 	if current_cmd_idx < command_queue.size():
 		# Wait an extra frame between commands for processing
 		if (frames_waited - 10) % 2 == 0:
-			return
+			return false
 		
 		var cmd = command_queue[current_cmd_idx]
 		current_cmd_idx += 1
 		
 		if cmd.is_empty():
-			return
+			return false
 		
 		# Capture output before command
 		var pre_output = ""
@@ -239,7 +239,7 @@ func _process(delta):
 						if line.strip_edges().length() > 0:
 							print("  [OUT] %s" % line.strip_edges())
 		
-		return
+		return false
 	
 	# All commands sent, wait a few more frames for final output then print results
 	if current_cmd_idx >= command_queue.size():
@@ -253,6 +253,7 @@ func _process(delta):
 					print("  %s" % line)
 			print_results()
 			quit(0)
+	return false
 
 func _dump_tree(node, indent):
 	print("[TEST] %s%s (%s)" % [indent, node.name, node.get_class()])

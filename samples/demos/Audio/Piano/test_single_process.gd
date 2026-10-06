@@ -14,7 +14,7 @@ func _init():
 	game_node = scene.instantiate()
 	root.add_child(game_node)
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frame += 1
 	if frame == 1:
 		# Set a counter variable on the VG instance
@@ -38,3 +38,4 @@ func _process(delta):
 			else:
 				print("FAIL - _Process runs %d times in %d frames (%.1fx)" % [counter, frame, float(counter)/frame])
 		quit()
+	return false

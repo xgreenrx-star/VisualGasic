@@ -8,7 +8,7 @@ GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
 TEST_PROJ="$ROOT/test_proj"
 CORPUS="$ROOT/corpus"
 GODOT_USER_DATA_DIR="${VG_GODOT_USER_DATA_DIR:-${TMPDIR:-/tmp}/vg-godot-corpus-$$}"
-PASS=0; FAIL=0
+PASS=0; FAIL=0; SKIP=0
 
 if [[ ! -x "$GODOT" ]]; then
   GODOT="$(command -v godot || true)"
@@ -28,6 +28,16 @@ fi
 run_corpus_file() {
     local src="$1"
     local rel="${src#$ROOT/}"
+    local expected
+    expected="$(grep "^'" "$src" 2>/dev/null | awk '
+        /Expected output:/ { found=1; next }
+        found { line=$0; sub(/^'"'"' ?/, "", line); print line }
+    ' | sed 's/[[:space:]]*$//')"
+    if [ -z "$expected" ]; then
+        echo "SKIP (no expected output): $rel"
+        SKIP=$((SKIP + 1))
+        return
+    fi
 
     # Determine res:// path — copy to test_suite so the project can load it
     local dest="$TEST_PROJ/test_suite/corpus_audit_tmp.vg"
@@ -36,29 +46,23 @@ run_corpus_file() {
 
     # Run and capture stdout (strip Godot engine banner + VG debug lines)
     local raw
+    local rc=0
     raw="$(timeout 15 "$GODOT" --headless --path "$TEST_PROJ" \
         --user-data-dir "$GODOT_USER_DATA_DIR" \
-        -s run_corpus.gd 2>&1 || true)"
+        -s run_corpus.gd 2>&1)" || rc=$?
 
     # Filter to program-output lines only (skip engine/VG debug lines)
     local actual
-    actual="$(echo "$raw" | grep -v "^Godot Engine\|^\[VisualGasic\]\|^\[VG\]\|^ERROR: \|^$\|^WARNING:\|^[[:space:]]*at: \|^Registered class:\|^Initialized Global Var:\|^Parser Error:\|^[[:space:]]*VisualGasic backtrace\|^[[:space:]]*\[[0-9]" | sed 's/[[:space:]]*$//' | sed '/^$/d')"
-
-    # Extract expected output from trailing comment block
-    local expected
-    expected="$(grep "^'" "$src" 2>/dev/null | awk '
-        /Expected output:/ { found=1; next }
-        found { line=$0; sub(/^'"'"' ?/, "", line); print line }
-    ' | sed 's/[[:space:]]*$//')"
+    actual="$(echo "$raw" | { grep -v "^Godot Engine\|^\[VisualGasic\]\|^\[VG\]\|^VG_CORPUS_COMPLETED$\|^ERROR: \|^$\|^WARNING:\|^[[:space:]]*at: \|^Registered class:\|^Initialized Global Var:\|^Parser Error:\|^[[:space:]]*VisualGasic backtrace\|^[[:space:]]*\[[0-9]" || true; } | sed 's/[[:space:]]*$//' | sed '/^$/d')"
 
     rm -f "$dest"
 
-    if [ -z "$expected" ]; then
-        echo "SKIP (no expected output): $rel"
-        return
-    fi
-
-    if [ "$actual" = "$expected" ]; then
+    if [ "$rc" -ne 0 ] || [[ "$raw" != *"VG_CORPUS_COMPLETED"* ]] ||
+        grep -qE '^SCRIPT ERROR|^ERROR:|^Parser Error|^\[VG Runtime Error|^\[VG\] Parser Error' <<<"$raw"; then
+        echo "FAIL (execution incomplete or errored, rc=$rc): $rel"
+        printf '%s\n' "$raw" | head -8 || true
+        FAIL=$((FAIL + 1))
+    elif [ "$actual" = "$expected" ]; then
         echo "PASS: $rel"
         PASS=$((PASS + 1))
     else
@@ -74,5 +78,5 @@ for vg in $(find "$CORPUS" -name "*.vg" | sort); do
 done
 
 echo ""
-echo "=== CORPUS AUDIT: $PASS pass, $FAIL fail ==="
+echo "=== CORPUS AUDIT: $PASS pass, $FAIL fail, $SKIP skipped ==="
 [ "$FAIL" -eq 0 ]

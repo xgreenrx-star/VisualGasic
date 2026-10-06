@@ -64,8 +64,9 @@ func _init():
 	root.add_child(test_node)
 
 var _frame: int = 0
-func _process(_delta):
+func _process(_delta: float) -> bool:
 	_frame += 1
 	if _frame >= max_frames:
 		print("VG_SUITE_COMPLETED")
 		quit()
+	return false

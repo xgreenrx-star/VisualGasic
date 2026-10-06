@@ -43,10 +43,10 @@ func _initialize():
 	# Advance 3 frames to let _ready() callbacks settle
 	_frame = 0
 
-func _process(_delta):
+func _process(_delta: float) -> bool:
 	_frame += 1
 	if _frame < 3:
-		return
+		return false
 	
 	print("\n=== After 3 frames ===")
 	for r in _results:
@@ -73,3 +73,4 @@ func _process(_delta):
 	
 	print("\n=== DONE ===")
 	quit()
+	return false

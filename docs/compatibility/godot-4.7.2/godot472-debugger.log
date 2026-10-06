@@ -1,0 +1,12 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+3
+STEP TRACE (11): [11, 12, 13, 5, 6, 7, 8, 14, 15, 16, 17]
+PASS: step-into one pause per source line, including stepping into Leaf
+3
+LOOP TRACE: [5, 6, 7, 8, 8, 8, 10, 11]
+PASS: loop body paused once per iteration
+PREVIEW: [2000 items]
+NODE PREVIEW: <Node>
+PASS: debugger values are shallow

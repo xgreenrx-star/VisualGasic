@@ -1,0 +1,12 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+WARNING: res://scenes/Enemy.tscn:3 - ext_resource, invalid UID: uid://b0e55a22kflxa - using text path instead: res://scripts/Enemy.vg
+     at: load (scene/resources/resource_format_text.cpp:501)
+WARNING: res://scenes/SpawnWarning.tscn:3 - ext_resource, invalid UID: uid://g7f5c134kshe - using text path instead: res://scripts/SpawnWarning.vg
+     at: load (scene/resources/resource_format_text.cpp:501)
+ERROR: 1 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 5 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -17,7 +17,7 @@ func _init():
     # Add to tree - triggers NOTIFICATION_READY which calls Form_Load
     get_root().call_deferred("add_child", obj)
 
-func _process(_delta):
+func _process(_delta: float) -> bool:
     step += 1
     if step == 2:
         # After node is added and processed, call Main
@@ -35,3 +35,4 @@ func _process(_delta):
         print("=== Event Handler Test Complete ===")
         obj.free()
         quit()
+    return false

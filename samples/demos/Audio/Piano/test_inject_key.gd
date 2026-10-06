@@ -26,7 +26,7 @@ func inject_key(keycode: int, pressed: bool):
 	event.pressed = pressed
 	Input.parse_input_event(event)
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frame += 1
 	
 	if frame == 3:
@@ -71,3 +71,4 @@ func _process(delta):
 		print("=== Test Complete ===")
 		# The output should show PlayNote called exactly twice (frame 4 and frame 16)
 		quit()
+	return false

@@ -1,0 +1,50 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== HIGH SCORE TABLE DEMO ===
+Demonstrating DATA, READ, and RESTORE statements
+
+Loaded 10 high scores from DATA statements
+
+=== CURRENT HIGH SCORES ===
+1. ACE         1000000  2026-01-15
+2. MAX          875000  2026-01-14
+3. ZAP          750000  2026-01-13
+4. PRO          625000  2026-01-12
+5. DOC          500000  2026-01-11
+6. REX          375000  2026-01-10
+7. KID          250000  2026-01-09
+8. NEW          125000  2026-01-08
+9. ONE           50000  2026-01-07
+10. TRY           25000  2026-01-06
+
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)
+ERROR: Maximum array recursion reached!
+   at: stringify (core/variant/variant.cpp:1713)

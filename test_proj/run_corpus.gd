@@ -37,12 +37,15 @@ func _init():
 	_node.set_script(script)
 	root.add_child(_node)
 
-func _process(_delta):
+func _process(_delta: float) -> bool:
 	_frame += 1
 	if _invoke_main:
 		if _frame == 1 and _node.has_method("Main"):
 			_node.Main()
 		if _frame >= 2:
+			print("VG_CORPUS_COMPLETED")
 			quit()
 	elif _frame >= 2:
+		print("VG_CORPUS_COMPLETED")
 		quit()
+	return false

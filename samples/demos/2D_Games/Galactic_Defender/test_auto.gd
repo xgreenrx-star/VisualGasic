@@ -17,7 +17,7 @@ func _init():
 	root.add_child(game_node)
 	print("[OK] Scene instantiated, _Ready should have run")
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frame += 1
 	
 	if frame == 3:
@@ -65,3 +65,4 @@ func _process(delta):
 		print("[Frame 80 FINAL] gameState=%s wave=%s enemyCount=%s lives=%s" % [gs, w, ec, l])
 		print("=== Test Complete ===")
 		quit()
+	return false

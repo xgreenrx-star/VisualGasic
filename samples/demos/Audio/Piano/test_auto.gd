@@ -16,7 +16,7 @@ func _init():
 	root.add_child(game_node)
 	print("[OK] Scene instantiated")
 
-func _process(delta):
+func _process(delta: float) -> bool:
 	frame += 1
 	
 	if frame == 3:
@@ -37,3 +37,4 @@ func _process(delta):
 		print("[Frame 10 FINAL] noteCount=%s" % [nc])
 		print("=== Test Complete ===")
 		quit()
+	return false

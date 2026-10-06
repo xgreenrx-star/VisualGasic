@@ -1,0 +1,71 @@
+── vector_data headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== vector_data headless tests ===
+
+-- resolver: valid *Vector block --
+  [PASS] resolves on shape line
+  [PASS] label ArrowVector
+  [PASS] 64x64 view
+  [PASS] grid step 4
+  [PASS] two shapes
+  [PASS] first is LINE
+  [PASS] polyline points
+-- resolver: reject non-vector --
+  [PASS] NoteData line empty
+  [PASS] NoteData not vector label
+  [PASS] empty source
+-- sync: CodeEdit write-back --
+  [PASS] section for sync
+  [PASS] apply_shapes ok
+  [PASS] not guarded after apply
+  [PASS] row0 is indented for folding
+  [PASS] row0 starts with LINE
+  [PASS] row0 has 8
+-- enumerate_blocks --
+  [PASS] one vector block
+  [PASS] label line 0
+-- native line backgrounds --
+  [PASS] painted vector lines
+  [PASS] line 2 has tint
+  [PASS] cleared line 2
+-- vgv parse/serialize --
+  [PASS] vgv parsed
+  [PASS] vgv view 64
+  [PASS] vgv two shapes
+  [PASS] vgv polyline 3 pts
+  [PASS] vgv reserializes
+  [PASS] vgv roundtrip shapes
+-- sync: insert shape row --
+  [PASS] add shape ok
+  [PASS] three shapes after add
+-- resolver: wide SkiffVector block --
+  [PASS] skiff resolves
+  [PASS] skiff 72x28
+  [PASS] skiff four shapes
+  [PASS] skiff hull rects
+  [PASS] skiff fill rects
+-- resolver: PodCapsuleVector stroke widths --
+  [PASS] pod resolves
+  [PASS] pod four shapes
+  [PASS] pod hull filled
+  [PASS] pod cockpit filled
+  [PASS] pod thrust stroke 2
+-- canvas: refit wide block after resize --
+  [PASS] canvas shrinks zoom after resize
+  [PASS] canvas zoom sane for rail
+  [PASS] canvas doc fits width
+  [PASS] canvas doc fits height
+-- wire model Data preview resolver --
+  [PASS] wire resolves on vertex line
+  [PASS] wire label
+  [PASS] wire 8 verts
+  [PASS] wire 7 edges
+  [PASS] wire negative x parsed
+  [PASS] wire vertex owns its Data line
+  [PASS] curve table is not a wire model
+
+=== Results: 50 passed, 0 failed ===
+RESULTS: 50/50 passed, 0 failed
+ok

@@ -1,0 +1,16 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error (line 2): Nested procedure declarations are not allowed
+PASS: parser rejects duplicated Sub at line 2
+Parser Error (line 2): Nested procedure declarations are not allowed
+Parser Error (line 4): Expected procedure name
+PASS: parser rejects nested Function at line 2
+Parser Error (line 3): Nested procedure declarations are not allowed
+PASS: parser rejects procedure inside If at line 3
+PASS: separate module procedures remain valid
+Parser Error (line 2): Nested procedure declarations are not allowed
+[VG] Parser Error: Nested procedure declarations are not allowed at nested_procedure_reload.vg line 2 (merged line 2)
+PASS: malformed procedure cannot execute; healthy sibling remains runnable
+[93m[1mVisualGasic Warning:[22m Script 'res://nested_procedure_reload.vg' has parse warnings. Affected Subs may fail at runtime.[39m[0m
+[93m  Line 2: Nested procedure declarations are not allowed[39m[0m

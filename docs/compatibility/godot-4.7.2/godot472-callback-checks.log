@@ -1,0 +1,230 @@
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: engine_lab/test_suites/run_events.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: engine_lab/test_suites/run_suite.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/2D_Games/Galactic_Defender/test_auto.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/Audio/Piano/test_auto.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/Audio/Piano/test_demo_song.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/Audio/Piano/test_inject_key.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/Audio/Piano/test_keypress.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/demos/Audio/Piano/test_single_process.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/games/zork/test_zork.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: samples/internal/AGCK_Tests/test_enemy_spawn2.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_array_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_byref_loop_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_corpus.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_debounce_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_immediate_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_packed_arrays.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_piano_diag.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_piano_flow_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_playback_live_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_playback_timing_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_process_count_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_record_playback_test.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64: test_proj/run_suite.gd
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: engine_lab/test_suites/run_events.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: engine_lab/test_suites/run_suite.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/2D_Games/Galactic_Defender/test_auto.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/Audio/Piano/test_auto.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/Audio/Piano/test_demo_song.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/Audio/Piano/test_inject_key.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/Audio/Piano/test_keypress.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/demos/Audio/Piano/test_single_process.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/games/zork/test_zork.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: samples/internal/AGCK_Tests/test_enemy_spawn2.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_array_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_byref_loop_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_corpus.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_debounce_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_immediate_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_packed_arrays.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_piano_diag.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_piano_flow_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_playback_live_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_playback_timing_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_process_count_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_record_playback_test.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+
+Checking /home/Commodore/Documents/VisualGasic/Godot_v4.6.1-stable_linux.x86_64: test_proj/run_suite.gd
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)

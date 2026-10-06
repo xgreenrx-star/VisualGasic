@@ -1,0 +1,175 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+[VGOdbc] ODBC library loaded successfully
+[VGSysTray] Tray icon destroyed
+PASS: editor tests explicitly isolated
+PASS: editor save openai
+PASS: registry custom entry openai
+PASS: editor-local key storage openai
+PASS: registry excludes key openai
+PASS: ID request routing openai
+PASS: ID nonstream routing openai
+PASS: ID stream routing openai
+PASS: ID response routing openai
+PASS: custom native tools capability openai
+PASS: custom vision capability openai
+PASS: custom native tools routing openai
+PASS: custom native tool stream routing openai
+PASS: manual models retained alongside discovered models openai
+PASS: unchanged settings preserve discovery cache openai
+PASS: editor save claude
+PASS: registry custom entry claude
+PASS: editor-local key storage claude
+PASS: registry excludes key claude
+PASS: ID request routing claude
+PASS: ID nonstream routing claude
+PASS: ID stream routing claude
+PASS: ID response routing claude
+PASS: custom native tools capability claude
+PASS: custom vision capability claude
+PASS: custom native tools routing claude
+PASS: custom native tool stream routing claude
+PASS: manual models retained alongside discovered models claude
+PASS: unchanged settings preserve discovery cache claude
+PASS: editor save ollama
+PASS: registry custom entry ollama
+PASS: editor-local key storage ollama
+PASS: registry excludes key ollama
+PASS: ID request routing ollama
+PASS: ID nonstream routing ollama
+PASS: ID stream routing ollama
+PASS: ID response routing ollama
+PASS: custom native tools capability ollama
+PASS: custom vision capability ollama
+PASS: manual models retained alongside discovered models ollama
+PASS: unchanged settings preserve discovery cache ollama
+PASS: editor remove
+PASS: remove resets stale preference
+PASS: remove erases key
+PASS: settings dialog wires editor and keeps validation errors visible
+PASS: settings dialog saves custom definition and key
+PASS: Narcea reload selects custom provider and retains model
+PASS: saving unchanged provider preserves conversation
+PASS: custom default model honored when not first in list
+PASS: HTTPS endpoint with nondefault port
+PASS: IPv6 loopback endpoint
+PASS: IPv6 HTTPClient host and request URL
+PASS: reject invalid setting id openai
+PASS: reject invalid setting name 
+PASS: reject invalid setting format unknown
+PASS: reject invalid setting endpoint file:///tmp/test
+PASS: reject invalid setting endpoint https://user:key@example.invalid/chat
+PASS: reject invalid setting endpoint https://example.invalid/chat?key=secret
+PASS: reject invalid setting endpoint https://example.invalid/chat#fragment
+PASS: reject invalid setting endpoint http://localhost:65536/chat
+PASS: reject invalid setting endpoint http://localhost:0/chat
+PASS: reject invalid setting endpoint http://localhost/chat
+injected
+PASS: reject invalid setting models []
+PASS: reject invalid setting models [""]
+PASS: reject invalid setting models [3]
+PASS: reject invalid setting default_model missing
+PASS: reject invalid setting models_path https://elsewhere.invalid/models
+PASS: reject invalid setting models_path /models?key=secret
+PASS: reject invalid setting native_tools false
+PASS: save custom registry
+PASS: registry reload preserves stable ID and configuration
+PASS: duplicate IDs rejected atomically
+PASS: noneditor save returns explicit error
+PASS: remove custom provider
+PASS: custom openai request path and model
+PASS: optional key omitted for openai
+PASS: request URL preserves HTTPS port openai
+PASS: authentication adapter openai
+PASS: missing required key openai
+PASS: reject header injection openai
+PASS: discovery adapter openai
+PASS: custom claude request path and model
+PASS: optional key omitted for claude
+PASS: request URL preserves HTTPS port claude
+PASS: authentication adapter claude
+PASS: missing required key claude
+PASS: reject header injection claude
+PASS: discovery adapter claude
+PASS: custom ollama request path and model
+PASS: optional key omitted for ollama
+PASS: request URL preserves HTTPS port ollama
+PASS: authentication adapter ollama
+PASS: missing required key ollama
+PASS: reject header injection ollama
+PASS: discovery adapter ollama
+PASS: missing discovery array
+PASS: empty discovery array
+PASS: invalid discovery ID
+PASS: existing OpenAI stream adapter
+PASS: existing Anthropic stream adapter
+PASS: existing Ollama stream adapter
+PASS: nonstream OpenAI extraction
+PASS: nonstream Anthropic extraction
+PASS: nonstream Ollama extraction
+PASS: existing native tools gating
+PASS: existing native tools schema
+PASS: bind owned loopback test server
+PASS: UI collects custom configuration
+PASS: UI refuses invalid configuration
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+PASS: connection test validates assistant response
+PASS: connection test uses custom path and optional key
+PASS: connection test bounded synthetic payload
+PASS: connection test reports HTTP error
+[   0% ] [90m[1mupdate_scripts_classes[22m | Started Registering global classes... (13 steps)[39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[   7% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  14% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  21% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  28% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  35% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  42% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  50% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  57% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  64% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  71% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  78% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  85% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[92m[ DONE ][39m [1mupdate_scripts_classes[22m
+[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Started Loading editor (5 steps)[39m[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Loading editor layout...[39m[0m
+[  16% ] [90m[1mloading_editor_layout[22m | Loading docks...[39m[0m
+[  33% ] [90m[1mloading_editor_layout[22m | Reopening scenes...[39m[0m
+[  50% ] [90m[1mloading_editor_layout[22m | Loading central editor layout...[39m[0m
+[  66% ] [90m[1mloading_editor_layout[22m | Loading plugin window layout...[39m[0m
+[  83% ] [90m[1mloading_editor_layout[22m | Editor layout ready.[39m[0m
+[92m[ DONE ][39m [1mloading_editor_layout[22m
+[0m
+PASS: connection test rejects success-shaped malformed response
+PASS: connection test prevents saving incomplete request
+PASS: connection timeout is explicit and restores controls
+PASS: Ollama UI disables unsupported native tools
+PASS: editing API format keeps stable provider ID
+PASS: remove provider clears staged UI entry
+PASS: live discovery parses owned mock response
+PASS: discovery uses configurable path
+PASS: disabled discovery returns explicit error
+PASS: discovery surfaces HTTP errors
+CUSTOM_AI_PROVIDER_TESTS_COMPLETED passed=123 failures=0
+WARNING: 6 RIDs of type "Canvas" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
+WARNING: 36 RIDs of type "CanvasItem" were leaked.
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
+ERROR: 6 RID allocations of type 'N16RendererViewport8ViewportE' were leaked at exit.
+ERROR: 9 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 1 RID allocations of type 'N17RendererSceneCull8ScenarioE' were leaked at exit.
+ERROR: 83 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: 209 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)

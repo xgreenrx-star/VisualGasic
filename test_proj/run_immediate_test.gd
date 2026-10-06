@@ -43,7 +43,7 @@ func _assert_ok(test_name: String, result: Dictionary):
 		print("FAIL: " + test_name + ": " + str(result.get("result", "")))
 		_fail_count += 1
 
-func _process(_delta):
+func _process(_delta: float) -> bool:
 	_frame += 1
 	# Wait 3 frames for _Ready to complete (bytecode + AST fallback)
 	if _frame == 3 and not _tested:
@@ -51,6 +51,7 @@ func _process(_delta):
 		_run_immediate_tests()
 	if _frame >= max_frames:
 		quit()
+	return false
 
 func _run_immediate_tests():
 	# The static method: VisualGasicLanguage.vg_evaluate_immediate(index, code)

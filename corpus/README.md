@@ -4,9 +4,17 @@ A curated collection of canonical, hand-audited VisualGasic programs intended as
 **high-quality training data for language models** and **reference material for
 human readers**.
 
-Every file in this folder has been read by a human, verified to compile, verified
-to run, and intentionally written to be **idiomatic** rather than clever. The
-programs are deliberately small (most are 20–60 lines) and self-contained.
+The programs are intended to be **idiomatic** rather than clever, deliberately
+small (most are 20–60 lines), and self-contained. They are not all currently
+verified working: the strict output/execution audit reports **36 passing,
+14 failing, and 8 skipped** on both Godot 4.6.1 and 4.7.2.
+
+Run `scripts/audit_corpus.sh` to reproduce the audit; select an engine with
+`GODOT=/absolute/path/to/godot`. Skips have no expected-output block and are not
+counted as passes. Parser/runtime errors, incomplete execution and nonzero exit
+status fail even if some output matches. See the
+[compatibility report](../docs/compatibility/GODOT_4_7_2.md) for the failing
+fixtures and preserved evidence.
 
 ## Why this exists
 
@@ -26,7 +34,7 @@ without restriction or attribution.** All files are dual-licensed under
 **CC0-1.0** (public-domain dedication) and the Unlicense — pick whichever your
 legal team prefers. See [LICENSE.md](LICENSE.md) for the formal text.
 
-The programs are organized into ten categories with 57 total examples covering language fundamentals, advanced features, and real-world patterns:
+The programs are organized into ten categories with 58 total examples covering language fundamentals, advanced features, and real-world patterns:
 
 | Folder | Topic | Why it matters for training |
 |---|---|---|
@@ -44,6 +52,11 @@ The programs are organized into ten categories with 57 total examples covering l
 ## Feature Coverage Matrix
 
 Quick reference: which examples demonstrate which language features?
+
+The status column below describes intended feature coverage, not the result of
+the current execution audit. In particular, conversions, optional types,
+exceptions, generics, several array/file/math fixtures and signal connection
+have failing fixtures in the audit linked above.
 
 | Feature | Examples | Status |
 |---------|----------|--------|

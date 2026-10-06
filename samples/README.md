@@ -30,6 +30,19 @@ scripts/ci_smoke.sh samples/apps/vg_twinpane
 scripts/ci_smoke.sh samples/apps/vg_hex_editor
 ```
 
+### Godot 4.7.2 tested scope
+
+The Linux runtime and existing native extension binaries were tested on Godot
+4.7.2. An isolated audit covered 56 sample projects plus the engine developer
+harness, but **not all examples work**: parser/runtime defects, missing main
+scenes and cold-import problems remain. Many reproduce on 4.6.1; one 4.7.2
+editor-import crash remains unclassified. See the
+[compatibility report and project matrix](../docs/compatibility/GODOT_4_7_2.md).
+
+Headless startup does not certify rendering, gameplay, device APIs or exports.
+The existing `ci_smoke.sh` output is not a substitute for this stricter audit:
+process exit status and VG parser/runtime diagnostics also need checking.
+
 ## Games
 
 | Project | Description |

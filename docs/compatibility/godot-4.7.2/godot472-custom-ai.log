@@ -1,0 +1,79 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+PASS: HTTPS endpoint with nondefault port
+PASS: IPv6 loopback endpoint
+PASS: IPv6 HTTPClient host and request URL
+PASS: reject invalid setting id openai
+PASS: reject invalid setting name 
+PASS: reject invalid setting format unknown
+PASS: reject invalid setting endpoint file:///tmp/test
+PASS: reject invalid setting endpoint https://user:key@example.invalid/chat
+PASS: reject invalid setting endpoint https://example.invalid/chat?key=secret
+PASS: reject invalid setting endpoint https://example.invalid/chat#fragment
+PASS: reject invalid setting endpoint http://localhost:65536/chat
+PASS: reject invalid setting endpoint http://localhost:0/chat
+PASS: reject invalid setting endpoint http://localhost/chat
+injected
+PASS: reject invalid setting models []
+PASS: reject invalid setting models [""]
+PASS: reject invalid setting models [3]
+PASS: reject invalid setting default_model missing
+PASS: reject invalid setting models_path https://elsewhere.invalid/models
+PASS: reject invalid setting models_path /models?key=secret
+PASS: reject invalid setting native_tools false
+PASS: save custom registry
+PASS: registry reload preserves stable ID and configuration
+PASS: duplicate IDs rejected atomically
+PASS: noneditor save returns explicit error
+PASS: remove custom provider
+PASS: custom openai request path and model
+PASS: optional key omitted for openai
+PASS: request URL preserves HTTPS port openai
+PASS: authentication adapter openai
+PASS: missing required key openai
+PASS: reject header injection openai
+PASS: discovery adapter openai
+PASS: custom claude request path and model
+PASS: optional key omitted for claude
+PASS: request URL preserves HTTPS port claude
+PASS: authentication adapter claude
+PASS: missing required key claude
+PASS: reject header injection claude
+PASS: discovery adapter claude
+PASS: custom ollama request path and model
+PASS: optional key omitted for ollama
+PASS: request URL preserves HTTPS port ollama
+PASS: authentication adapter ollama
+PASS: missing required key ollama
+PASS: reject header injection ollama
+PASS: discovery adapter ollama
+PASS: missing discovery array
+PASS: empty discovery array
+PASS: invalid discovery ID
+PASS: existing OpenAI stream adapter
+PASS: existing Anthropic stream adapter
+PASS: existing Ollama stream adapter
+PASS: nonstream OpenAI extraction
+PASS: nonstream Anthropic extraction
+PASS: nonstream Ollama extraction
+PASS: existing native tools gating
+PASS: existing native tools schema
+PASS: bind owned loopback test server
+PASS: UI collects custom configuration
+PASS: UI refuses invalid configuration
+PASS: connection test validates assistant response
+PASS: connection test uses custom path and optional key
+PASS: connection test bounded synthetic payload
+PASS: connection test reports HTTP error
+PASS: connection test rejects success-shaped malformed response
+PASS: connection test prevents saving incomplete request
+PASS: connection timeout is explicit and restores controls
+PASS: Ollama UI disables unsupported native tools
+PASS: editing API format keeps stable provider ID
+PASS: remove provider clears staged UI entry
+PASS: live discovery parses owned mock response
+PASS: discovery uses configurable path
+PASS: disabled discovery returns explicit error
+PASS: discovery surfaces HTTP errors
+CUSTOM_AI_PROVIDER_TESTS_COMPLETED passed=74 failures=0
