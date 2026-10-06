@@ -1,0 +1,12 @@
+Option Explicit
+Attribute VB_Name = "TestTryExplicitCatch"
+
+Sub _Ready()
+	Dim caught As Boolean = False
+	Try
+		Err.Raise 877, "CatchTest", "explicit catch"
+	Catch ex
+		caught = (ex.Number = 877)
+	End Try
+	If caught Then Print "PASS: Catch declares its Option Explicit variable" Else Print "FAIL: explicit Catch variable"
+End Sub

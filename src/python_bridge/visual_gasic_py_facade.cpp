@@ -51,6 +51,7 @@ void PyAsyncTask::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_status"), &PyAsyncTask::get_status);
     ClassDB::bind_method(D_METHOD("get_result"), &PyAsyncTask::get_result);
     ClassDB::bind_method(D_METHOD("get_error"), &PyAsyncTask::get_error);
+	ADD_SIGNAL(MethodInfo("completed"));
 
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "IsComplete"), "", "get_is_complete");
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "IsRunning"), "", "get_is_running");
@@ -79,6 +80,7 @@ void PyAsyncTask::run(const Callable &p_callable) {
         std::lock_guard<std::mutex> lock(result_mutex_);
         result_ = res;
         state_.store(COMPLETED);
+		call_deferred("emit_signal", "completed");
     });
 }
 
@@ -1196,6 +1198,7 @@ Variant PyBridgeFacade::py_call_async(const String &p_module, const String &p_me
             task->error_message_ = resp.has("message") ? String(resp["message"]) : "unknown error";
             task->state_.store(PyAsyncTask::FAILED);
         }
+		task->call_deferred("emit_signal", "completed");
     });
     t.detach();
 

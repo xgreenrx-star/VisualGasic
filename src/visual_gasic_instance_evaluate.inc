@@ -555,6 +555,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          }
          
          // Generic Variant Member Access (Object, Vector2, etc.)
+		 if (base.get_type() == Variant::OBJECT) {
+			 Object *obj = base;
+			 Variant native_result;
+			 if (obj && try_native_node_property_get(obj, ma->member_name, native_result)) {
+				 return native_result;
+			 }
+		 }
          bool valid = false;
          Variant ret = base.get_named(ma->member_name, valid);
          if (valid && (ret.get_type() != Variant::NIL || base.has_method(ma->member_name))) return ret;

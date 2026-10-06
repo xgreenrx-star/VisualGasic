@@ -1,0 +1,18 @@
+' MAX_FRAMES: 480
+Option Explicit
+
+Sub _Ready()
+	Dim caught As Boolean = False
+	Dim finalRan As Boolean = False
+	Try
+		Await 0
+		Err.Raise 876, "AwaitTest", "after suspension"
+	Catch ex
+		caught = (ex.Number = 876)
+		Await 0
+	Finally
+		Await 0
+		finalRan = True
+	End Try
+	If caught And finalRan Then Print "PASS: Await retains Catch and Finally handlers" Else Print "FAIL: Await Catch/Finally"
+End Sub

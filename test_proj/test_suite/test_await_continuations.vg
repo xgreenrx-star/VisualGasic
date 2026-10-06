@@ -1,0 +1,66 @@
+' MAX_FRAMES: 480
+Option Explicit
+Dim elapsed As Double = 0
+Dim ticks As Integer = 0
+Dim finished As Boolean = False
+Dim starts As Integer = 0
+Dim globalIndex As Integer = 0
+Dim globalsChecked As Boolean = False
+
+Sub _Process(delta As Double)
+	elapsed = elapsed + delta
+	ticks = ticks + 1
+	If finished And Not globalsChecked Then
+		globalsChecked = True
+		If globalIndex = 3 Then Print "PASS: Await global loop variable remains live" Else Print "FAIL: Await global loop variable"
+	End If
+	If elapsed > 2 And Not finished Then
+		finished = True
+		Print "FAIL: Await continuation did not finish"
+	End If
+End Sub
+
+Sub _Ready()
+	starts = starts + 1
+	Dim local As Integer = 17
+	Await 0.01
+	If ticks > 0 And local = 17 And starts = 1 Then Print "PASS: Await yields and preserves locals" Else Print "FAIL: Await yield/locals"
+	Dim total As Integer = 0
+	Dim i As Integer
+	For i = 1 To 3
+		If i > 0 Then
+			Await 0.001
+			total = total + i
+		End If
+	Next
+	If total = 6 Then Print "PASS: Await resumes nested For/If" Else Print "FAIL: Await For/If"
+	Dim count As Integer = 0
+	Do
+		Await 0
+		count = count + 1
+	Loop Until count = 2
+	While count < 4
+		Await 0
+		count = count + 1
+	Wend
+	If count = 4 Then Print "PASS: Await resumes Do/While" Else Print "FAIL: Await Do/While"
+	Dim item As Variant
+	total = 0
+	For Each item In Array(2, 3)
+		Await 0
+		total = total + item
+	Next
+	If total = 5 Then Print "PASS: Await resumes For Each" Else Print "FAIL: Await For Each"
+	Dim finalRan As Boolean = False
+	Try
+		Await 0
+	Finally
+		Await 0
+		finalRan = True
+	End Try
+	If finalRan Then Print "PASS: Await preserves Finally" Else Print "FAIL: Await Finally"
+	For globalIndex = 1 To 2
+		Await 0
+	Next
+	finished = True
+End Sub

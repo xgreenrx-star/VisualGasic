@@ -3,6 +3,7 @@
 
 #include "visual_gasic_socket.h"
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <chrono>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/socket.h>
@@ -38,7 +39,7 @@ namespace {
 #endif
 
 void VGSocket::_bind_methods() {
-    ClassDB::bind_method(D_METHOD("connect_to", "host", "port"), &VGSocket::connect_to);
+	ClassDB::bind_method(D_METHOD("connect_to", "host", "port", "timeout_ms"), &VGSocket::connect_to, DEFVAL(30000));
     ClassDB::bind_method(D_METHOD("close_socket"), &VGSocket::close_socket);
     ClassDB::bind_method(D_METHOD("bind_port", "port", "address"), &VGSocket::bind_port, DEFVAL("0.0.0.0"));
     ClassDB::bind_method(D_METHOD("listen_start", "backlog"), &VGSocket::listen_start, DEFVAL(5));
@@ -62,7 +63,7 @@ void VGSocket::_bind_methods() {
     ClassDB::bind_method(D_METHOD("set_option", "option", "value"), &VGSocket::set_option);
 
     // VB6-style aliases (WinSock-compatible names)
-    ClassDB::bind_method(D_METHOD("Connect", "host", "port"), &VGSocket::connect_to);
+	ClassDB::bind_method(D_METHOD("Connect", "host", "port", "timeout_ms"), &VGSocket::connect_to, DEFVAL(30000));
     ClassDB::bind_method(D_METHOD("Close"), &VGSocket::close_socket);
     ClassDB::bind_method(D_METHOD("Bind", "port", "address"), &VGSocket::bind_port, DEFVAL("0.0.0.0"));
     ClassDB::bind_method(D_METHOD("Listen", "backlog"), &VGSocket::listen_start, DEFVAL(5));
@@ -116,9 +117,56 @@ bool VGSocket::set_nonblocking(int fd, bool nonblock) {
 #endif
 }
 
-bool VGSocket::connect_to(const String &p_host, int p_port) {
+bool VGSocket::wait_for_connection(int timeout_ms) {
+#if defined(__linux__) || defined(__APPLE__) || defined(_WIN32)
+	auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+	int rc;
+	do {
+		int remaining = (int)std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
+		if (remaining < 0) remaining = 0;
+#if defined(_WIN32)
+		WSAPOLLFD descriptor = { (SOCKET)sock_fd, POLLOUT, 0 };
+		rc = WSAPoll(&descriptor, 1, remaining);
+		if (rc < 0 && WSAGetLastError() != WSAEINTR) {
+			last_error = "Connect poll failed, WSA error: " + String::num_int64(WSAGetLastError()); return false;
+		}
+#else
+		pollfd descriptor = { sock_fd, POLLOUT, 0 };
+		rc = poll(&descriptor, 1, remaining);
+		if (rc < 0 && errno != EINTR) {
+			last_error = String("Connect poll failed: ") + strerror(errno); return false;
+		}
+#endif
+	} while (rc < 0 && std::chrono::steady_clock::now() < deadline);
+	if (rc <= 0) {
+		last_error = "Connection timed out after " + String::num_int64(timeout_ms) + " ms";
+		return false;
+	}
+	int error = 0;
+#if defined(_WIN32)
+	int size = sizeof(error);
+	if (getsockopt((SOCKET)sock_fd, SOL_SOCKET, SO_ERROR, (char *)&error, &size) != 0) error = WSAGetLastError();
+	if (error) { last_error = "connect() failed, WSA error: " + String::num_int64(error); return false; }
+#else
+	socklen_t size = sizeof(error);
+	if (getsockopt(sock_fd, SOL_SOCKET, SO_ERROR, &error, &size) != 0) error = errno;
+	if (error) { last_error = String("connect() failed: ") + strerror(error); return false; }
+#endif
+	return true;
+#else
+	last_error = "Not implemented on this platform";
+	return false;
+#endif
+}
+
+bool VGSocket::connect_to(const String &p_host, int p_port, int p_timeout_ms) {
+	close_socket();
+	last_error = "";
+	if (p_port <= 0 || p_port > 65535 || p_timeout_ms < 0) {
+		last_error = "Connect requires a port from 1 to 65535 and a nonnegative timeout";
+		return false;
+	}
 #if defined(__linux__) || defined(__APPLE__)
-    close_socket();
 
     int type = (protocol == SCK_TCP) ? SOCK_STREAM : SOCK_DGRAM;
     sock_fd = socket(AF_INET, type, 0);
@@ -142,15 +190,23 @@ bool VGSocket::connect_to(const String &p_host, int p_port) {
         return false;
     }
 
-    if (::connect(sock_fd, res->ai_addr, res->ai_addrlen) < 0) {
-        last_error = String("connect() failed: ") + strerror(errno);
-        freeaddrinfo(res);
-        ::close(sock_fd);
-        sock_fd = -1;
-        return false;
-    }
+	if (!set_nonblocking(sock_fd, true)) {
+		last_error = String("Cannot configure connect socket: ") + strerror(errno);
+		freeaddrinfo(res); close_socket(); return false;
+	}
+	if (::connect(sock_fd, res->ai_addr, res->ai_addrlen) < 0) {
+		int error = errno;
+		if (error != EINPROGRESS) last_error = String("connect() failed: ") + strerror(error);
+		if (error != EINPROGRESS || !wait_for_connection(p_timeout_ms)) {
+			freeaddrinfo(res); close_socket(); return false;
+		}
+	}
 
     freeaddrinfo(res);
+	if (!set_nonblocking(sock_fd, false)) {
+		last_error = String("Cannot restore socket mode: ") + strerror(errno);
+		close_socket(); return false;
+	}
     remote_host = p_host;
     remote_port = p_port;
     connected = true;
@@ -158,7 +214,6 @@ bool VGSocket::connect_to(const String &p_host, int p_port) {
     UtilityFunctions::print("[VGSocket] Connected to ", p_host, ":", p_port);
     return true;
 #elif defined(_WIN32)
-    close_socket();
 
     int type = (protocol == SCK_TCP) ? SOCK_STREAM : SOCK_DGRAM;
     sock_fd = (int)socket(AF_INET, type, 0);
@@ -182,15 +237,23 @@ bool VGSocket::connect_to(const String &p_host, int p_port) {
         return false;
     }
 
-    if (::connect((SOCKET)sock_fd, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR) {
-        last_error = String("connect() failed, WSA error: ") + String::num_int64(WSAGetLastError());
-        freeaddrinfo(res);
-        closesocket((SOCKET)sock_fd);
-        sock_fd = -1;
-        return false;
-    }
+	if (!set_nonblocking(sock_fd, true)) {
+		last_error = "Cannot configure connect socket, WSA error: " + String::num_int64(WSAGetLastError());
+		freeaddrinfo(res); close_socket(); return false;
+	}
+	if (::connect((SOCKET)sock_fd, res->ai_addr, (int)res->ai_addrlen) == SOCKET_ERROR) {
+		int error = WSAGetLastError();
+		if (error != WSAEWOULDBLOCK && error != WSAEINPROGRESS) last_error = "connect() failed, WSA error: " + String::num_int64(error);
+		if ((error != WSAEWOULDBLOCK && error != WSAEINPROGRESS) || !wait_for_connection(p_timeout_ms)) {
+			freeaddrinfo(res); close_socket(); return false;
+		}
+	}
 
     freeaddrinfo(res);
+	if (!set_nonblocking(sock_fd, false)) {
+		last_error = "Cannot restore socket mode, WSA error: " + String::num_int64(WSAGetLastError());
+		close_socket(); return false;
+	}
     remote_host = p_host;
     remote_port = p_port;
     connected = true;

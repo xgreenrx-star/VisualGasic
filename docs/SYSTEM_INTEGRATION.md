@@ -629,6 +629,14 @@ Print sock.GetData()
 sock.Close
 ```
 
+`VGSocket.connect_to(host, port, timeout_ms)` and its `Connect` alias accept an
+optional connection timeout in milliseconds (default 30000). Socket connection
+establishment uses a nonblocking socket and bounded polling, then restores the
+normal blocking transfer mode. Timeout/refusal returns `False`, leaves
+`Connected = False`, and sets `LastError`; invalid ports or negative timeouts
+are rejected. The bound applies after hostname resolution, not to the blocking
+OS DNS resolver. Prefer numeric loopback addresses in automated tests.
+
 ---
 
 ## 9. Real COM Interop (Windows)

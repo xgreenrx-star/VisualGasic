@@ -261,6 +261,71 @@ Remaining work includes AST Await, physical-only input handling, the sample
 import, deterministic network coverage, explicit expected-error/helper/platform
 classification and sanitizer/smaller-native-stack validation.
 
+#### Continuation and networking follow-up, October 6, 2026
+
+The previously divergent ordinary-procedure Await cases now use explicit AST
+continuation frames. Await no longer runs synchronously or replays the procedure:
+numeric zero yields a frame, signal/task callbacks resume the correct invocation,
+and nested ordinary loops, `With`, and `Try`/`Finally` retain their state.
+Python and VG tasks expose a deferred main-thread `completed` signal.
+
+New tests exposed two additional VM defects: resumption restored a stale snapshot
+of every module variable, and compiler-generated For limit/step slots were lost.
+The VM now saves exact local slots, operand-stack contents, block scopes, exception
+handlers, With contexts, and the original compiled function. Callback IDs replace
+LIFO resumption. Await-bearing chunks are excluded from fast-parameter/in-VM call
+dispatch, so caller-native frames are not mistaken for resumable coroutine frames.
+Task failure/cancellation and invalid waits raise recoverable errors.
+
+The overlapping-call fixture verifies opposite completion order, preserved local
+parameters, live module updates, signal Await, and a suspended With context.
+The nested-control fixture verifies actual yielding, no replay, For/If,
+Do/While, For Each, and Finally. The harness requires all expected assertions
+for these fixtures, not merely a runner completion marker.
+
+Additional corrections:
+
+- Catch introduces its exception variable under `Option Explicit` in both
+  ordinary AST execution and the continuation runner. Tests verify the bound
+  exception number with and without suspension, including yielding in Catch
+  and Finally.
+- AST object member reads use the same native property helper as bytecode,
+  including physical-keycode fallback. The dedicated injected-input runner is
+  now selected automatically for its fixture in the differential harness.
+- The road sample import path and the expected normalized curve value are fixed.
+- Network fixtures use numeric loopback refusal rather than an external
+  non-routable address, and check failure state/error text rather than only
+  printing unconditional success.
+- `VGSocket.connect_to` / `Connect` accept an optional timeout (30000 ms default).
+  Connection polling is bounded after OS DNS resolution. The dedicated
+  `tools/run_socket_timeout.gd` saturates a private loopback listener backlog to
+  require a real 25 ms timeout, checks elapsed time and disconnected state, and
+  verifies rejection of negative timeouts.
+- Intentional error fixtures require the exact expected error-code, Sub,
+  source-line, and source-file multiset. Additional/missing/differently located
+  runtime errors fail; this is not a blanket error whitelist.
+- Helpers, data-only fixtures, debugger fixtures, the heavy workload benchmark,
+  and Windows-only DLL fixtures are explicitly excluded from generic differential
+  totals and are never counted as passes. Use their dedicated runners/platform.
+- Speed-test wrappers preserve child exit status and reject incomplete runs,
+  runtime errors, missing benchmark data, and mismatched checksums.
+
+Scope limitations remain: unmanaged AST special-loop/worker/class-method Await
+contexts report errors rather than silently doing nothing; this is not complete
+expression-form async support. The Windows and macOS implementations still need
+native validation, and DNS resolution is not covered by the socket poll timeout.
+The campaign report records final test counts, sanitizer coverage, and measured
+speed results separately; these results are not proof that every possible bug
+has been eliminated.
+
+The existing `scons platform=linux target=editor asan=1` configuration builds,
+but the official Godot 4.6.1 executable loads extensions with `RTLD_DEEPBIND`.
+AddressSanitizer rejects that loader flag before the smoke fixture can execute.
+The official executable has no supported toggle to disable it. Sanitizer
+execution therefore remains a release gate requiring a sanitizer-compatible
+Godot build; an instrumented library build alone is not a passing sanitizer
+test. Restore ordinary libraries before correctness/performance runs and pushes.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

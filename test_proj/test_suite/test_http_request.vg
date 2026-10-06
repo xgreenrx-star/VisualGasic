@@ -39,20 +39,17 @@ Sub _Ready()
         Print "FAIL: http_initial_response_text"
     End If
 
-    ' --- GetUrl to non-routable address (should not crash) ---
+    ' --- Refused local request: no dependence on external routing or DNS ---
     Dim result As String
-    result = http.GetUrl("http://192.0.2.1:1/test")
-    ' May fail with error or empty string, but should not crash
-    Print "PASS: http_get_no_crash"
+    result = http.GetUrl("http://127.0.0.1:1/test")
+    If result = "" Then Print "PASS: http_get_refused" Else Print "FAIL: http_get_refused"
 
     ' --- Status after failed request ---
     status = http.Status
-    ' 0 or an error code are both acceptable
-    Print "PASS: http_status_after_fail"
+    If status = 0 And http.ReadyState = 4 Then Print "PASS: http_status_after_fail" Else Print "FAIL: http_status_after_fail"
 
     ' --- StatusText ---
     Dim st As String
     st = http.StatusText
-    ' Any string (including empty) is acceptable
-    Print "PASS: http_status_text"
+    If Len(st) > 0 Then Print "PASS: http_status_text" Else Print "FAIL: http_status_text"
 End Sub

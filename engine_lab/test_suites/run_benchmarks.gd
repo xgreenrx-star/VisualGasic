@@ -470,4 +470,5 @@ func _init():
             print("C++ vs GDScript: ", ratio_cpp, "x")
         print("Fastest: ", fastest)
 
+    print("VG_COMPUTE_BENCHMARKS_COMPLETED")
     quit(0)

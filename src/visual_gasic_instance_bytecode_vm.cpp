@@ -56,6 +56,7 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
         st.recognized = true;
         st.is_complete = vg_task->get_is_complete();
         st.is_failed = vg_task->get_is_failed();
+		if (vg_task->get_is_cancelled()) { st.is_failed = true; st.error = "Await task was cancelled"; return st; }
         st.error = vg_task->get_error();
         return st;
     }
@@ -68,6 +69,9 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
         if (obj->has_method("get_is_failed")) {
             st.is_failed = obj->call("get_is_failed");
         }
+		if (obj->has_method("get_is_cancelled") && (bool)obj->call("get_is_cancelled")) {
+			st.is_failed = true; st.error = "Await task was cancelled"; return st;
+		}
         if (obj->has_method("get_error")) {
             Variant v_err = obj->call("get_error");
             if (v_err.get_type() == Variant::STRING) {
@@ -571,7 +575,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant>* p_initial_locals,
                                            const Variant* p_fast_args, int p_fast_count,
-                                           VMState* p_vm) {
+                                           VMState* p_vm, const CoroutineState *p_resume) {
 
     if (!chunk) {
         r_ret = Variant();
@@ -678,8 +682,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     VMState& vm = p_vm ? *p_vm : tl_vm;  // shadow instance member for thread-safety
 
     const size_t stack_base = vm.stack.size();
+	const int initial_with_depth = with_stack.size();
     int previous_ip = vm.ip;
     vm.stack.resize(stack_base);
+	if (p_resume) vm.stack.insert(vm.stack.end(), p_resume->operands.begin(), p_resume->operands.end());
     vm.ip = p_ip_start;  // Start at custom IP for parallel workers
 
     auto restore_vm = [&]() {
@@ -707,7 +713,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // seeding step below unconditionally overwrites every slot [0,local_count),
     // so a reused buffer's stale contents are always replaced before any read.
     const int _locals_frame = vm.locals_depth++;
-    vm.block_scope_frames.clear();
+	auto previous_blocks = std::move(vm.block_scope_frames);
+	vm.block_scope_frames = p_resume ? p_resume->blocks : std::vector<VMState::BlockScopeFrame>();
+	struct BlockFrameGuard {
+		VMState &state;
+		std::vector<VMState::BlockScopeFrame> previous;
+		~BlockFrameGuard() { state.block_scope_frames = std::move(previous); }
+	} block_guard{vm, std::move(previous_blocks)};
     while ((int)vm.locals_pool.size() <= _locals_frame) {
         vm.locals_pool.emplace_back();
     }
@@ -734,7 +746,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     auto is_fast_slot = [&](int slot) -> bool {
         return fast_call && (slot < fast_param_count || slot == fast_return_slot);
     };
-    if (p_initial_locals) {
+	if (p_resume) {
+		locals = p_resume->vm_locals;
+	} else if (p_initial_locals) {
         // Parallel worker — use pre-initialized locals (with loop var set).
         locals = *p_initial_locals;
     } else {
@@ -934,22 +948,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             return locals[slot];
         }
         return Variant();
-    };
-
-    auto flush_locals_for_coroutine = [&]() {
-        if (isolated_locals) {
-            return;
-        }
-        for (int li = 0; li < locals.size() && li < chunk->local_names.size(); li++) {
-            const String &lname = chunk->local_names[li];
-            if (lname.is_empty() || is_fast_slot(li)) {
-                continue;
-            }
-            if (lname.length() >= 2 && lname[0] == '_' && lname[1] == '_') {
-                continue;
-            }
-            variables[lname] = locals[li];
-        }
     };
 
     auto resolve_scene_tree = [&]() -> SceneTree * {
@@ -1227,6 +1225,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         int stack_depth;  // vm.stack.size() at OP_SETUP_TRY (for unwinding)
     };
     Vector<TryHandler> try_handler_stack;
+	if (p_resume) {
+		for (const Pair<int, int> &handler : p_resume->handlers) {
+			try_handler_stack.push_back({handler.first, handler.second + (int)stack_base});
+		}
+	}
 
     // Snapshot global variables that this function may write via OP_SET_GLOBAL.
     // If bytecode execution fails and the AST fallback re-runs the function,
@@ -8721,83 +8724,73 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     awaited = pop_value();
                 }
 
-                if (awaited.get_type() == Variant::SIGNAL) {
-                    // Real signal await — connect one-shot, then yield
-                    Signal sig = (Signal)awaited;
-                    if (sig.get_object() && owner) {
-                        // Route resume through owner object's script dispatch
-                        Callable resume_cb = Callable(owner, "_vg_resume_coroutine");
-                        sig.get_object()->connect(sig.get_name(), resume_cb, Object::CONNECT_ONE_SHOT);
-                        
-                        // Save coroutine state for resume
-                        CoroutineState cs;
-                        cs.function_name = func ? func->name : String("<main>");
-                        cs.instruction_pointer = vm.ip;
-                        cs.is_awaiting = true;
-                        flush_locals_for_coroutine();
-                        cs.local_variables = variables.duplicate(true);
-                        coroutine_stack.push_back(cs);
-                        goto cleanup;  // Yield — exit VM loop
-                    }
-                } else if (awaited.get_type() == Variant::FLOAT || awaited.get_type() == Variant::INT) {
-                    // Await <number> → create timer for N seconds, then resume
-                    double seconds = (double)awaited;
-                    if (seconds > 0.0 && owner) {
-                        SceneTree* tree = resolve_scene_tree();
-                        if (tree) {
-                            Ref<SceneTreeTimer> timer = tree->create_timer(seconds);
-                            if (timer.is_valid()) {
-                                Callable resume_cb = Callable(owner, "_vg_resume_coroutine");
-                                timer->connect("timeout", resume_cb, Object::CONNECT_ONE_SHOT);
-                                
-                                CoroutineState cs;
-                                cs.function_name = func ? func->name : String("<main>");
-                                cs.instruction_pointer = vm.ip;
-                                cs.is_awaiting = true;
-                                flush_locals_for_coroutine();
-                                cs.local_variables = variables.duplicate(true);
-                                coroutine_stack.push_back(cs);
-                                goto cleanup;
-                            }
-                        }
-                    }
-                } else if (awaited.get_type() == Variant::OBJECT) {
-                    VgAwaitTaskState task_st = vg_inspect_await_task(awaited);
-                    if (task_st.recognized) {
-                        if (task_st.is_failed) {
-                            String err_msg = task_st.error.is_empty() ? String("Async task failed") : task_st.error;
-                            raise_error(err_msg, 5);
-                            success = false;
-                            goto cleanup;
-                        }
-                        if (task_st.is_complete) {
-                            VG_BREAK;
-                        }
-                        if (owner) {
-                            SceneTree *tree = resolve_scene_tree();
-                            if (tree) {
-                                Ref<SceneTreeTimer> timer = tree->create_timer(0.0);
-                                if (timer.is_valid()) {
-                                    Callable resume_cb = Callable(owner, "_vg_resume_coroutine");
-
-                                    CoroutineState cs;
-                                    cs.function_name = func ? func->name : String("<main>");
-                                    cs.instruction_pointer = last_opcode_offset;
-                                    cs.is_awaiting = true;
-                                    cs.await_result = awaited;
-                                    flush_locals_for_coroutine();
-                                    cs.local_variables = variables.duplicate(true);
-                                    coroutine_stack.push_back(cs);
-
-                                    timer->connect("timeout", resume_cb, Object::CONNECT_ONE_SHOT);
-                                    goto cleanup;
-                                }
-                            }
-                        }
-                    }
-                }
-                // For all other types (or failed timer/signal/task), treat as synchronous no-op.
-                // The awaited value has been consumed from the stack.
+				Object *source = nullptr;
+				StringName signal_name;
+				Ref<SceneTreeTimer> timer;
+				bool task_pending = false;
+				if (awaited.get_type() == Variant::SIGNAL) {
+					Signal signal = awaited;
+					source = signal.get_object();
+					signal_name = signal.get_name();
+				} else if (awaited.get_type() == Variant::INT || awaited.get_type() == Variant::FLOAT) {
+					double seconds = awaited;
+					SceneTree *tree = resolve_scene_tree();
+					if (!Math::is_finite(seconds) || seconds < 0) {
+						raise_error("Await duration must be a finite nonnegative number of seconds", 5);
+						if (!try_recover_error(Variant(), false)) { success = false; goto cleanup; }
+						VG_BREAK;
+					}
+					if (Math::is_finite(seconds) && seconds >= 0 && tree) {
+						timer = tree->create_timer(seconds);
+						source = timer.ptr(); signal_name = "timeout";
+					}
+				} else if (awaited.get_type() == Variant::OBJECT) {
+					VgAwaitTaskState state = vg_inspect_await_task(awaited);
+					if (state.recognized) {
+						if (state.is_failed) {
+							raise_error(state.error.is_empty() ? String("Async task failed") : state.error, 5);
+							if (!try_recover_error(Variant(), false)) { success = false; goto cleanup; }
+							VG_BREAK;
+						}
+						if (state.is_complete) { VG_BREAK; }
+						source = awaited; signal_name = "completed"; task_pending = true;
+					}
+				}
+				if (!owner || !source || signal_name == StringName() || !source->has_signal(signal_name)) {
+					raise_error("Await expects a Signal, nonnegative timer duration, or task with a completed signal", 13);
+					if (!try_recover_error(Variant(), false)) { success = false; goto cleanup; }
+					VG_BREAK;
+				}
+				CoroutineState cs;
+				cs.id = next_ast_coroutine_id++;
+				cs.chunk = chunk; cs.function = func;
+				cs.function_name = func ? func->name : String("<main>");
+				cs.instruction_pointer = task_pending ? last_opcode_offset : vm.ip;
+				cs.vm_locals = locals;
+				cs.operands.assign(vm.stack.begin() + stack_base, vm.stack.end());
+				cs.blocks = vm.block_scope_frames;
+				for (const TryHandler &handler : try_handler_stack) {
+					cs.handlers.push_back({handler.catch_ip, handler.stack_depth - (int)stack_base});
+				}
+				cs.contexts = with_stack;
+				cs.source_file = debug_bc_source_file;
+				cs.error_mode = error_state.mode; cs.error_label = error_state.label;
+				if (task_pending) cs.await_result = awaited;
+				Callable callback = Callable(owner, "_vg_resume_coroutine").bind(cs.id);
+				coroutine_stack.push_back(cs);
+				Error err = source->connect(signal_name, callback, Object::CONNECT_ONE_SHOT);
+				if (err != OK) {
+					coroutine_stack.remove_at(coroutine_stack.size() - 1);
+					raise_error("Cannot connect Await continuation", 5);
+					if (!try_recover_error(Variant(), false)) { success = false; goto cleanup; }
+					VG_BREAK;
+				}
+				if (task_pending) {
+					VgAwaitTaskState state = vg_inspect_await_task(awaited);
+					if (state.is_complete || state.is_failed) callback.call_deferred();
+				}
+				with_stack.resize(initial_with_depth);
+				goto cleanup;
                 VG_BREAK;
             }
 

@@ -583,6 +583,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 variables[func->name] = fast_arg_values[func->parameters.size()];
             }
         }
+		const AstAwaitInfo &await_info = get_ast_await_info(func);
+		if (await_info.has_await) {
+			AstCoroutine coroutine;
+			coroutine.id = next_ast_coroutine_id++;
+			coroutine.function = func;
+			coroutine.local_names = await_info.locals;
+			coroutine.source_file = debug_bc_source_file;
+			AstAwaitFrame frame;
+			frame.statements = func->statements;
+			coroutine.frames.push_back(frame);
+			Vector<Variant> previous_contexts = with_stack;
+			run_ast_coroutine(coroutine);
+			with_stack = previous_contexts;
+		} else {
         // Execute Loop
         for (int i = 0; i < func->statements.size(); i++) {
             jump_target = -1;
@@ -614,6 +628,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 i = jump_target;
             }
         }
+		}
         debug_hit_procedure_end(func->end_line);
     }
 
@@ -784,8 +799,14 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     }
     
     // Coroutine resume callback (v4.2.0) — invoked by signal/timer one-shot
+	if (p_method == StringName("_vg_resume_ast")) {
+		if (p_argcount > 0) resume_ast_coroutine((int64_t)*p_args[p_argcount - 1]);
+		if (r_return) *r_return = Variant();
+		r_error->error = GDEXTENSION_CALL_OK;
+		return;
+	}
     if (p_method == StringName("_vg_resume_coroutine")) {
-        _resume_coroutine();
+		_resume_coroutine(p_argcount > 0 ? (int64_t)*p_args[p_argcount - 1] : 0);
         if (r_return) *r_return = Variant();
         r_error->error = GDEXTENSION_CALL_OK;
         return;

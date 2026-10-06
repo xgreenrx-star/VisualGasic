@@ -88,45 +88,50 @@ Variant VisualGasicInstance::execute_await(ExpressionNode* expr) {
     return result;
 }
 
-void VisualGasicInstance::_resume_coroutine() {
+void VisualGasicInstance::_resume_coroutine(int64_t id) {
     // Resume a suspended coroutine after an Await signal/timer fires (v4.2.0).
     if (coroutine_stack.is_empty()) return;
     
-    CoroutineState cs = coroutine_stack[coroutine_stack.size() - 1];
-    coroutine_stack.remove_at(coroutine_stack.size() - 1);
+	int index = coroutine_stack.size() - 1;
+	if (id != 0) {
+		index = -1;
+		for (int i = 0; i < coroutine_stack.size(); i++) if (coroutine_stack[i].id == id) { index = i; break; }
+	}
+	if (index < 0) return;
+	CoroutineState cs = coroutine_stack[index];
+	coroutine_stack.remove_at(index);
+	if (cs.chunk && cs.function) {
+		SubDefinition *previous_sub = current_sub;
+		ErrorState previous_error = error_state;
+		Vector<Variant> previous_contexts = with_stack;
+		String previous_source = debug_bc_source_file;
+		Dictionary previous_locals;
+		const Vector<String> &names = get_ast_await_info(cs.function).locals;
+		for (const String &name : names) {
+			if (variables.has(name)) previous_locals[name] = variables[name];
+		}
+		current_sub = cs.function;
+		error_state.has_error = false;
+		error_state.mode = static_cast<ErrorState::Mode>(cs.error_mode);
+		error_state.label = cs.error_label;
+		with_stack = cs.contexts;
+		debug_bc_source_file = cs.source_file;
+		pending_await_handle = cs.await_result;
+		Variant result;
+		execute_bytecode(cs.chunk, cs.function, result, cs.instruction_pointer, -1,
+				nullptr, nullptr, 0, nullptr, &cs);
+		if (error_state.has_error && error_state.mode == ErrorState::NONE) report_unhandled_error(cs.function->name);
+		for (const String &name : names) {
+			if (previous_locals.has(name)) variables[name] = previous_locals[name];
+			else variables.erase(name);
+		}
+		current_sub = previous_sub; error_state = previous_error;
+		with_stack = previous_contexts; debug_bc_source_file = previous_source;
+		return;
+	}
     
-    // Find the compiled bytecode chunk for the saved function.
-    Ref<VisualGasicScript> scr = script;
-    if (scr.is_null()) return;
-    
-    BytecodeChunk* chunk = scr->get_bytecode_for(cs.function_name, &get_global_buffer_var_names());
-    SubDefinition* func_def = nullptr;
-    
-    // Look up the SubDefinition so execute_bytecode can set current_sub
-    if (scr->ast_root) {
-        for (int i = 0; i < scr->ast_root->subs.size(); i++) {
-            if (scr->ast_root->subs[i]->name.nocasecmp_to(cs.function_name) == 0) {
-                func_def = scr->ast_root->subs[i];
-                break;
-            }
-        }
-    }
-    
-    if (!chunk) return; // Cannot resume without compiled chunk
-    
-    // Merge saved locals back into instance variables (they'll be picked up
-    // by the VM's get_variable path).
-    Array keys = cs.local_variables.keys();
-    for (int i = 0; i < keys.size(); i++) {
-        variables[keys[i]] = cs.local_variables[keys[i]];
-    }
-
-    if (cs.await_result.get_type() != Variant::NIL) {
-        pending_await_handle = cs.await_result;
-    }
-
-    Variant ret;
-    execute_bytecode(chunk, func_def, ret, cs.instruction_pointer);
+	raise_error("Await continuation has no saved bytecode function", 5);
+	report_unhandled_error(cs.function_name);
 }
 
 void VisualGasicInstance::execute_task_run(TaskRunStatement* task) {

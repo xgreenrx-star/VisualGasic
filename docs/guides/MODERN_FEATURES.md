@@ -513,21 +513,23 @@ PrintAll(...myArray)
 
 ## Async/Await
 
-**Status**: ⚠️ Planned for future  
+**Status**: Statement-form Await supported in ordinary procedures (VM and AST);
+advanced async contexts remain incomplete.
 **Keywords**: `Async`, `Await`
 
 ```vb
-Async Sub LoadData()
-    Dim data = Await FetchFromServer()
-    Print data
+Sub LoadData()
+    Await 0
+    Print "Resumed on a later frame"
 End Sub
 ```
 
 **Implementation Notes**:
-- Keywords added to tokenizer
-- Requires coroutine/continuation infrastructure
-- Integration with Godot's async operations
-- Complex runtime implementation
+- Signal, numeric timer, Python-task, and VG-task completion waits are nonblocking.
+- Locals and nested ordinary control-flow frames survive suspension.
+- Invalid waits and task failures/cancellation raise errors; `Await` is not an
+  expression returning task data.
+- Special loop/worker and native class-method AST contexts remain unsupported.
 
 ---
 
@@ -658,7 +660,7 @@ End Class
 | Classes & Objects | ✅ Complete | ✅ | ✅ | Full OOP support |
 | Pattern Matching | 🔜 Planned | 🔜 | 🔜 | Future feature |
 | Spread Operator | 🔜 Planned | 🔜 | 🔜 | Future feature |
-| Async/Await | 🔜 Planned | 🔜 | 🔜 | Complex feature |
+| Statement Await | ⚠️ Partial | ✅ | ✅ | Ordinary procedures; advanced async contexts remain incomplete |
 | Whenever Sections | ✅ Complete | ✅ | ✅ | Bytecode compiled |
 | GoSub/Return | ✅ Complete | ✅ | ✅ | Bytecode OP_GOSUB/OP_RETURN_GOSUB |
 | Implements Keyword | ✅ Complete | ✅ | ✅ | Interface declaration in classes |
@@ -685,7 +687,7 @@ All modern features are **additive** - existing VB6 code continues to work witho
 
 1. **Type inference**: `Dim x = 42` infers Int32 type
 2. **Enhanced pattern matching**: Destructuring, exhaustiveness checking
-3. **Async/Await**: Full coroutine support for async operations
+3. **Async/Await**: Complete expression-returning tasks and advanced execution contexts
 4. **Null safety annotations**: Optional `?` suffix on types
 5. **Collection builders**: LINQ-style operations on arrays/dictionaries
 6. **Inheritance runtime**: `Inherits BaseClass` with method overriding and `MyBase` calls

@@ -57,7 +57,7 @@ class VGTask : public RefCounted {
     String error_message;
     Callable work_callable;
     std::thread worker;
-    std::mutex result_mutex;
+	mutable std::mutex result_mutex;
 
 protected:
     static void _bind_methods();
@@ -86,7 +86,7 @@ public:
 
     // Result
     Variant get_result();
-    String get_error() const { return error_message; }
+	String get_error() const { std::lock_guard<std::mutex> lock(result_mutex); return error_message; }
 
     // Wait synchronously (blocks current thread — use sparingly)
     Variant wait_for_result(int p_timeout_ms = -1);

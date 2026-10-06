@@ -39,6 +39,7 @@ void VGTask::_bind_methods() {
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "Status"), "", "get_status");
     ADD_PROPERTY(PropertyInfo(Variant::NIL, "Result"), "", "get_result");
     ADD_PROPERTY(PropertyInfo(Variant::STRING, "Error"), "", "get_error");
+	ADD_SIGNAL(MethodInfo("completed"));
 }
 
 VGTask::VGTask() {
@@ -71,6 +72,7 @@ void VGTask::run_async(const Callable &p_callable) {
         if (state.load() == CANCELLED) return;
         result = res;
         state.store(COMPLETED);
+		call_deferred("emit_signal", "completed");
     });
 }
 
@@ -94,6 +96,7 @@ void VGTask::run_async_with_args(const Callable &p_callable, const Array &p_args
         if (state.load() == CANCELLED) return;
         result = res;
         state.store(COMPLETED);
+		call_deferred("emit_signal", "completed");
     });
 }
 
@@ -119,16 +122,19 @@ void VGTask::run_delayed(const Callable &p_callable, double p_delay_seconds) {
         if (state.load() == CANCELLED) return;
         result = res;
         state.store(COMPLETED);
+		call_deferred("emit_signal", "completed");
     });
 }
 
 void VGTask::cancel() {
+	std::lock_guard<std::mutex> lock(result_mutex);
     int expected = RUNNING;
     if (state.compare_exchange_strong(expected, CANCELLED)) {
         error_message = "Task cancelled";
+		call_deferred("emit_signal", "completed");
     } else {
         expected = PENDING;
-        state.compare_exchange_strong(expected, CANCELLED);
+		if (state.compare_exchange_strong(expected, CANCELLED)) call_deferred("emit_signal", "completed");
     }
 }
 

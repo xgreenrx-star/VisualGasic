@@ -27,10 +27,15 @@ if [[ ! -f "$DEMO/.godot/extension_list.cfg" ]]; then
 fi
 
 echo "Running compile benchmarks (demo project)..."
+rc=0
 output="$(timeout 180 "$GODOT" --headless --path "$DEMO" \
 	--user-data-dir "$GODOT_USER_DATA_DIR" \
-	-s res://test_suites/run_compile_benchmarks.gd 2>&1 || true)"
+	-s res://test_suites/run_compile_benchmarks.gd 2>&1)" || rc=$?
 printf '%s\n' "$output" || true
+if [[ "$rc" -ne 0 ]] || grep -qE '^SCRIPT ERROR|^\[VG Runtime Error|^ERROR:' <<<"$output"; then
+	echo "Compile benchmarks failed (rc=$rc)." >&2
+	exit 1
+fi
 
 if [[ "$output" != *"=== Visual Gasic Compile Benchmarks ==="* ]]; then
 	echo "Compile benchmark did not produce expected header." >&2

@@ -469,4 +469,5 @@ func _init() -> void:
 	print("Use Tier A compute/draw + representative Tier C (FrameSlice, EntityThink, NodePropertyChurn) for shipping claims.")
 	print("Note: Tier B/C are informational — not part of CI regression gate (Tier A + draw gate releases).")
 
+	print("VG_GAMEPLAY_BENCHMARKS_COMPLETED")
 	quit(0)

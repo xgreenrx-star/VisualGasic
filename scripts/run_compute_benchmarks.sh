@@ -31,11 +31,17 @@ if [[ ! -f "$DEMO/.godot/extension_list.cfg" ]]; then
 fi
 
 echo "Running compute benchmarks (demo project)..."
+rc=0
 output="$(timeout 180 "$GODOT" --headless --path "$DEMO" \
 	--user-data-dir "$GODOT_USER_DATA_DIR" \
-	-s res://test_suites/run_benchmarks.gd 2>&1 || true)"
+	-s res://test_suites/run_benchmarks.gd 2>&1)" || rc=$?
 # Avoid SIGPIPE under pipefail when CI tees a large log stream.
 printf '%s\n' "$output" || true
+if [[ "$rc" -ne 0 || "$output" != *"VG_COMPUTE_BENCHMARKS_COMPLETED"* ]] ||
+	grep -qiE '^SCRIPT ERROR|^\[VG Runtime Error|^ERROR:|checksum mismatch|Skipping .*missing benchmark data' <<<"$output"; then
+	echo "Compute benchmarks failed, were incomplete, or had incomparable checksums (rc=$rc)." >&2
+	exit 1
+fi
 
 bench_fatal="$(printf '%s\n' "$output" | grep -E '^ERROR: Failed to load script|^ERROR: Failed to instantiate VisualGasicDrawBenchmark' \
 	| grep -E 'run_benchmarks|run_draw_benchmarks|bench\.vg|benchmarks/draw|VisualGasicDrawBenchmark' \

@@ -45,6 +45,7 @@ func _run_all() -> void:
 	for entry in results:
 		_print_entry(entry)
 
+	print("VG_DRAW_BENCHMARKS_COMPLETED")
 	quit(0)
 
 

@@ -9908,6 +9908,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_AWAIT: {
+			current_chunk->fast_params = false;
             // Await statement (v4.2.0): compile the expression (signal/coroutine),
             // push it onto stack, then emit OP_AWAIT for VM coroutine dispatch.
             AwaitStatement* s = (AwaitStatement*)stmt;

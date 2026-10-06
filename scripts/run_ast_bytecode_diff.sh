@@ -146,6 +146,24 @@ extract_assertions() {
 	grep -E '^(PASS|FAIL):' "$1" 2>/dev/null | sed 's/\r$//' | sort || true
 }
 
+runtime_errors_match() {
+	local log="$1" name="$2" expected=""
+	case "$name" in
+		test_error_handling.vg)
+			expected=$'100|_Ready|10|test_error_handling.vg\n200|_Ready|24|test_error_handling.vg\n300|_Ready|55|test_error_handling.vg\n400|_Ready|74|test_error_handling.vg' ;;
+		test_try_cross_module.vg) expected='501|Boom|3|test_try_raise_helper.vg' ;;
+		test_import_error_line.vg) expected='9|ImportErrorLineSub|3|inc_import_error_line.vg' ;;
+		test_include_error_line.vg) expected='9|IncErrorLineSub|3|inc_error_line.vg' ;;
+		test_await_error_continuation.vg) expected='876|_Ready|9|test_await_error_continuation.vg' ;;
+		test_try_explicit_catch.vg) expected='877|_Ready|7|test_try_explicit_catch.vg' ;;
+	esac
+	local actual count parsed_count
+	count=$(grep -c '^\[VG Runtime Error' "$log" || true)
+	actual=$(sed -nE 's/^\[VG Runtime Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) \(([^)]+)\)$/\1|\2|\3|\4/p' "$log" | sort)
+	parsed_count=$(printf '%s\n' "$actual" | grep -c '.' || true)
+	[[ "$count" -eq "$parsed_count" && "$actual" == "$expected" ]]
+}
+
 MISMATCHES=0
 BOTH_OK=0
 BC_ONLY_FAIL=0
@@ -153,8 +171,23 @@ AST_ONLY_FAIL=0
 BOTH_FAIL=0
 NO_ASSERT=0
 EXEC_FAILURES=0
+EXCLUDED=0
 
 for fname in "${TEST_FILES[@]}"; do
+	case "$fname" in
+		test_import_grid_helpers_lib.vg|test_try_raise_helper.vg) reason="imported helper, exercised by importing fixtures" ;;
+		test_sprite_data_resolver.vg|test_vector_data_resolver.vg) reason="data fixture; run scripts/run_sprite_data_tests.sh" ;;
+		test_step_lines.vg|test_step_loop.vg) reason="debugger fixture; run tools/run_step_trace.gd" ;;
+		test_benchmark_suite.vg) reason="performance workload; run benchmark harnesses separately" ;;
+		test_declare_ffi_windows.vg)
+			case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) reason="" ;; *) reason="Windows DLL fixture; requires Windows" ;; esac ;;
+		*) reason="" ;;
+	esac
+	if [[ -n "$reason" ]]; then
+		echo "  EXCLUDED   $fname  ($reason; not a pass)"
+		EXCLUDED=$((EXCLUDED + 1))
+		continue
+	fi
 	bc_raw="$OUT_DIR/${fname}.bc.raw"
 	ast_raw="$OUT_DIR/${fname}.ast.raw"
 	bc_assert="$OUT_DIR/${fname}.bc.txt"
@@ -162,12 +195,20 @@ for fname in "${TEST_FILES[@]}"; do
 
 	bc_rc=0
 	ast_rc=0
-	timeout "$TIMEOUT_SECS" env -u VG_FORCE_AST "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname" >"$bc_raw" 2>&1 || bc_rc=$?
-	timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname" >"$ast_raw" 2>&1 || ast_rc=$?
+	run_args=("${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname")
+	if [[ "$fname" == test_input_key_edge_press.vg ]]; then
+		run_args=(--headless --path test_proj --user-data-dir "$GODOT_USER_DATA_DIR" -s run_input_key_edge_inject.gd)
+	fi
+	timeout "$TIMEOUT_SECS" env -u VG_FORCE_AST "$GODOT" "${run_args[@]}" >"$bc_raw" 2>&1 || bc_rc=$?
+	timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${run_args[@]}" >"$ast_raw" 2>&1 || ast_rc=$?
+	completion='^VG_SUITE_COMPLETED$'
+	if [[ "$fname" == test_input_key_edge_press.vg ]]; then completion='^PASS: input_key_edge_press$'; fi
 	if [[ "$bc_rc" -ne 0 || "$ast_rc" -ne 0 ]] ||
-		! grep -q '^VG_SUITE_COMPLETED$' "$bc_raw" ||
-		! grep -q '^VG_SUITE_COMPLETED$' "$ast_raw" ||
-		grep -qE '^\[VG Runtime Error|^SCRIPT ERROR:|^ERROR:.*(Failed to load|Cannot open)|handle_crash:|Segmentation fault|Aborted' "$bc_raw" "$ast_raw"; then
+		! grep -q "$completion" "$bc_raw" ||
+		! grep -q "$completion" "$ast_raw" ||
+		! runtime_errors_match "$bc_raw" "$fname" ||
+		! runtime_errors_match "$ast_raw" "$fname" ||
+		grep -qE '^SCRIPT ERROR:|^ERROR:.*(Failed to load|Cannot open)|handle_crash:|Segmentation fault|Aborted' "$bc_raw" "$ast_raw"; then
 		echo "  EXEC-FAIL  $fname  (bc rc=$bc_rc ast rc=$ast_rc; inspect raw logs)"
 		EXEC_FAILURES=$((EXEC_FAILURES + 1))
 		continue
@@ -180,6 +221,20 @@ for fname in "${TEST_FILES[@]}"; do
 	bc_fail=$(grep -c '^FAIL:' "$bc_assert" || true)
 	ast_pass=$(grep -c '^PASS:' "$ast_assert" || true)
 	ast_fail=$(grep -c '^FAIL:' "$ast_assert" || true)
+	minimum=1
+	case "$fname" in
+		test_await.vg) minimum=4 ;;
+		test_await_continuations.vg) minimum=6 ;;
+		test_await_interleaved.vg|test_error_handling.vg) minimum=5 ;;
+		test_try_cross_module.vg) minimum=2 ;;
+	esac
+	bc_total=$((bc_pass + bc_fail))
+	ast_total=$((ast_pass + ast_fail))
+	if [[ "$bc_total" -lt "$minimum" || "$ast_total" -lt "$minimum" ]] && [[ "$bc_total" -gt 0 || "$ast_total" -gt 0 ]]; then
+		echo "  INCOMPLETE $fname  (bc=$bc_total ast=$ast_total; expected at least $minimum assertions)"
+		EXEC_FAILURES=$((EXEC_FAILURES + 1))
+		continue
+	fi
 
 	if [[ ! -s "$bc_assert" && ! -s "$ast_assert" ]]; then
 		echo "  ???  $fname  (no assertions either path)"
@@ -219,11 +274,16 @@ echo "    AST-only fail:$AST_ONLY_FAIL"
 echo "    BC-only fail: $BC_ONLY_FAIL"
 echo "  No assertions:  $NO_ASSERT"
 echo "  Execution fail: $EXEC_FAILURES"
+echo "  Excluded:       $EXCLUDED (not counted as passing)"
 echo "  Artifacts:      $OUT_DIR"
 echo ""
 
 if [[ "$MISMATCHES" -gt 0 || "$BOTH_FAIL" -gt 0 || "$NO_ASSERT" -gt 0 || "$EXEC_FAILURES" -gt 0 ]]; then
 	echo "TEST FAILURES — investigate divergences, failed assertions and execution logs above"
+	exit 1
+fi
+if [[ "$BOTH_OK" -eq 0 ]]; then
+	echo "No runnable assertion fixtures were compared."
 	exit 1
 fi
 echo "All compared tests agree across bytecode and AST paths."

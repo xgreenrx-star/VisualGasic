@@ -30,15 +30,15 @@ Sub _Ready()
         Print "FAIL: socket_initial_not_listening"
     End If
 
-    ' --- connect_to invalid address should fail gracefully ---
+    ' A numeric loopback endpoint fails locally without external routing/DNS.
     Dim ok As Boolean
-    ok = sock.connect_to("192.0.2.1", 1)
-    Print "PASS: socket_connect_invalid_no_crash"
+    ok = sock.connect_to("127.0.0.1", 1, 100)
+    If Not ok And Not sock.Connected Then Print "PASS: socket_connect_refused" Else Print "FAIL: socket_connect_refused"
 
     ' --- LastError should be set after failure ---
     Dim err As String
     err = sock.LastError
-    If Len(err) >= 0 Then
+    If Len(err) > 0 Then
         Print "PASS: socket_last_error"
     Else
         Print "FAIL: socket_last_error"

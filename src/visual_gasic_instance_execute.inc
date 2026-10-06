@@ -2598,7 +2598,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                       ex["Description"] = error_state.message;
                       ex["Number"] = error_state.code;
                       ex["Source"] = "VisualGasic"; 
-                      assign_variable(s->catch_var_name, ex);
+					  // Catch declares its variable, even with Option Explicit.
+					  variables[s->catch_var_name] = ex;
                  }
 
                  error_state.has_error = false; // Caught
@@ -3276,7 +3277,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             break;
         }
         case STMT_AWAIT: {
-            // This would be handled in expression evaluation, but could be a statement too
+			raise_error("Await requires a resumable Sub or Function context", 5);
             break;
         }
         case STMT_TASK_RUN: {

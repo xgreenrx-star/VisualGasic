@@ -3075,7 +3075,11 @@ As of v3.1, all multitasking primitives are backed by **real `std::thread`** wit
 
 #### Async/Await Programming
 
-Create responsive applications with non-blocking asynchronous operations using familiar async/await syntax:
+Statement-form `Await` in ordinary procedures is implemented in both execution
+paths; see [Await](#await) for the supported Signal/timer/task forms. The advanced
+expression-returning and `Task(Of T)` examples below illustrate intended async
+patterns, not complete, validated coroutine support. Do not use them as evidence
+that arbitrary async Functions, workers, or native class methods can suspend.
 
 ```vb
 ' Async function declaration
@@ -4076,7 +4080,7 @@ Names registered in Project Settings → Autoload (the `autoload/` keys in `proj
 
 ## Await
 
-**Purpose** — Pauses execution until an asynchronous operation completes, then returns its result.
+**Purpose** — Suspends the current procedure until a signal, timer, or supported task completes.
 
 **Syntax**
 
@@ -4084,17 +4088,35 @@ Names registered in Project Settings → Autoload (the `autoload/` keys in `proj
 
 **Parameters**
 
-- `asyncExpression`
+- `asyncExpression`: a Godot Signal, finite nonnegative number of seconds, or
+  `PyAsyncTask` / `VGTask` with a `completed` signal.
 
 **Description**
 
-Pauses execution until an asynchronous operation completes, then returns its result.
+Statement-form `Await` yields without blocking the SceneTree in both the
+bytecode VM and AST interpreter. `Await 0` resumes on a subsequent frame.
+Procedure locals, nested ordinary loops, `With` contexts, and `Try`/`Finally`
+continuations are retained; live module variables are not rolled back.
+Read a task's `Result` after awaiting the task; the statement itself does not
+assign a result. Completed tasks continue immediately. Invalid types, negative
+or nonfinite durations, failed tasks, and cancelled tasks raise runtime errors.
+
+The AST continuation runner covers ordinary procedure bodies and their
+`If`, `For`, `For Each`, `While`, `Do`, `Select`, `With`, and `Try` blocks.
+Special loop/worker contexts and native class-method execution are not covered
+by this runner; unmanaged AST Await reports an error rather than doing nothing.
+These limitations are not a claim of complete async language support.
 
 **Example**
 
-    Async Sub FetchData()
-        Dim response As String = Await Http.Get("https://api.example.com/data")
-        Print response
+    Sub FetchData()
+        Dim bridge As New PyBridgeFacade
+        If Not bridge.InitializeBridge() Then Exit Sub
+        Dim mathModule As Variant = bridge.PyImport("math")
+        Dim task As Variant = bridge.PyCallAsync(mathModule, "sqrt", Array(256.0))
+        Await task
+        Print task.Result
+        bridge.shutdown()
     End Sub
 
 **See Also** — [Async](#async), [DoEvents](#doevents)

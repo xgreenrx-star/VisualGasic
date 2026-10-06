@@ -6,21 +6,26 @@ Dim counter As Integer
 Sub _Ready()
     counter = 1
 
-    ' Await with 0 seconds should be synchronous (no-op fallback)
+    ' Zero seconds yields to the next frame.
     Await 0
     counter = counter + 1
     If counter = 2 Then
-        Print "PASS: await_sync_fallback"
+        Print "PASS: await_zero_resume"
     Else
-        Print "FAIL: await_sync_fallback: expected 2, got " & Str(counter)
+        Print "FAIL: await_zero_resume: expected 2, got " & Str(counter)
     End If
 
-    ' Await a string (non-signal, non-numeric) should be synchronous
+    On Error Resume Next
+    Await 0
     Await "hello"
-    counter = counter + 1
-    If counter = 3 Then
-        Print "PASS: await_non_signal"
-    Else
-        Print "FAIL: await_non_signal: expected 3, got " & Str(counter)
-    End If
+    If Err.Number = 13 Then Print "PASS: await_invalid_type" Else Print "FAIL: await_invalid_type"
+    Err.Clear
+    Await -1
+    If Err.Number = 5 Then Print "PASS: await_invalid_duration" Else Print "FAIL: await_invalid_duration"
+    Err.Clear
+    Dim cancelled As New VGTask
+    cancelled.Cancel
+    Await cancelled
+    If Err.Number = 5 Then Print "PASS: await_cancelled_task" Else Print "FAIL: await_cancelled_task"
+    Err.Clear
 End Sub

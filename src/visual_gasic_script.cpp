@@ -767,6 +767,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     if (p_method == StringName("_OnArraySignal")) return true;
     if (p_method == StringName("_OnGuiInput")) return true;
     if (p_method == StringName("_vg_resume_coroutine")) return true; // Await resume (v4.2.0)
+	if (p_method == StringName("_vg_resume_ast")) return true;
     if (!ast_root) return false;
     
     String method_str = String(p_method);

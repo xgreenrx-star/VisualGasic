@@ -266,6 +266,17 @@ private:
     std::recursive_mutex instance_mutex_;
     
     struct CoroutineState {
+		int64_t id = 0;
+		BytecodeChunk *chunk = nullptr;
+		SubDefinition *function = nullptr;
+		Vector<Variant> vm_locals;
+		std::vector<Variant> operands;
+		std::vector<VMState::BlockScopeFrame> blocks;
+		Vector<Pair<int, int>> handlers;
+		Vector<Variant> contexts;
+		String source_file;
+		int error_mode = 0;
+		String error_label;
         String function_name;
         Vector<Statement*> remaining_statements;
         int instruction_pointer;
@@ -281,14 +292,48 @@ private:
 
     struct ErrorState {
         enum Mode { NONE, RESUME_NEXT, GOTO_LABEL, EXIT_SUB, EXIT_FOR, EXIT_DO, EXIT_WHILE, EXIT_OSCILLATE, EXIT_CYCLE, EXIT_REPEAT, CONTINUE_FOR, CONTINUE_DO, CONTINUE_WHILE, CONTINUE_OSCILLATE, CONTINUE_CYCLE, CONTINUE_REPEAT };
-        Mode mode;
+        Mode mode = NONE;
         String label;
-        bool has_error;
+        bool has_error = false;
         String message;
-        int code; // Added
+        int code = 0; // Added
         int error_line = 0; // Line number where error occurred (Erl)
         String error_file;  // Source file for error_line (Include-aware)
     } error_state;
+
+	struct AstAwaitFrame {
+		Vector<Statement *> statements;
+		Statement *control = nullptr;
+		int index = 0;
+		int phase = 0;
+		int iterations = 0;
+		Variant limit;
+		Variant step;
+		Array items;
+		ErrorState saved_error;
+	};
+	struct AstAwaitInfo {
+		bool has_await = false;
+		Vector<String> locals;
+	};
+	struct AstCoroutine {
+		int64_t id = 0;
+		SubDefinition *function = nullptr;
+		Vector<AstAwaitFrame> frames;
+		Vector<String> local_names;
+		Dictionary locals;
+		Vector<Variant> contexts;
+		ErrorState error;
+		Variant awaited;
+		String source_file;
+	};
+	HashMap<SubDefinition *, AstAwaitInfo> ast_await_info;
+	Vector<AstCoroutine> ast_coroutines;
+	int64_t next_ast_coroutine_id = 1;
+	const AstAwaitInfo &get_ast_await_info(SubDefinition *function);
+	void run_ast_coroutine(AstCoroutine &coroutine);
+	bool suspend_ast_coroutine(AstCoroutine &coroutine, const Variant &awaited);
+	void resume_ast_coroutine(int64_t id);
 
     // Re-entrancy guard for the synthetic _OnError callback.  Set while the
     // user's _OnError handler runs so an error raised inside it is reported
@@ -524,7 +569,7 @@ public:
     void execute_parallel_for(ParallelForStatement* par_for);
     void execute_parallel_section(ParallelSectionStatement* par_section);
     void update_tasks(); // Check task completion
-    void _resume_coroutine(); // Resume suspended coroutine after await (v4.2.0)
+	void _resume_coroutine(int64_t id = 0);
     static void _task_worker_function(void* user_data);
     static void _parallel_worker_function(void* user_data, uint32_t index);
     static void _pfor_bytecode_worker(void* user_data, uint32_t index);
@@ -548,7 +593,7 @@ public:
                           int p_ip_start = 0, int p_ip_end = -1,
                           const Vector<Variant>* p_initial_locals = nullptr,
                           const Variant* p_fast_args = nullptr, int p_fast_count = 0,
-                          VMState* p_vm = nullptr);
+                          VMState* p_vm = nullptr, const CoroutineState *p_resume = nullptr);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

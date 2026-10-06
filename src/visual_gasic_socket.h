@@ -53,6 +53,7 @@ class VGSocket : public RefCounted {
 
     // Internal helpers
     bool set_nonblocking(int fd, bool nonblock);
+	bool wait_for_connection(int timeout_ms);
 
 protected:
     static void _bind_methods();
@@ -68,7 +69,7 @@ public:
     };
 
     // Connection
-    bool connect_to(const String &p_host, int p_port);
+	bool connect_to(const String &p_host, int p_port, int p_timeout_ms = 30000);
     void close_socket();
     bool bind_port(int p_port, const String &p_address = "0.0.0.0");
     bool listen_start(int p_backlog = 5);
