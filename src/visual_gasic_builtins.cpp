@@ -8152,6 +8152,10 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
     if (p_base.get_type() == Variant::DICTIONARY) {
         Dictionary d = p_base;
 
+		if (d.has("__vg_enum")) {
+			return instance->try_call_enum_method(String(d["__vg_enum"]), p_method, p_args, r_ret);
+		}
+
         // ── Builtin namespace sentinel (set by OP_GET_GLOBAL for SoundGen et al.) ──
         if (d.has("__vg_namespace")) {
             String ns = String(d["__vg_namespace"]);

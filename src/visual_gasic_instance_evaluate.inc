@@ -558,6 +558,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          bool valid = false;
          Variant ret = base.get_named(ma->member_name, valid);
          if (valid && (ret.get_type() != Variant::NIL || base.has_method(ma->member_name))) return ret;
+
+		if (base.get_type() == Variant::OBJECT) {
+			Object *obj = base;
+			Variant alias_result;
+			if (obj && try_read_vb6_property(obj, ma->member_name, alias_result)) {
+				return alias_result;
+			}
+		}
          
          // Try lowercase (for Vector2.X -> x)
          if (!valid) {
@@ -569,13 +577,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              Object* obj = base;
              String prop_name = ma->member_name;
              
-             // VB6 Property Aliasing (Read) — shared helper handles all 62 aliases
              if (obj) {
-                  Variant vb6_result;
-                  if (VisualGasicInstance::try_read_vb6_property(obj, prop_name, vb6_result)) {
-                      return vb6_result;
-                  }
-                  
                   // Range: Min, Max (not in shared helper — AST-specific)
                   if (obj->is_class("Range")) {
                        if (prop_name == "Min") return obj->get("min_value");
@@ -1169,74 +1171,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                         }
                     }
                 }
-                // ── Enum.Parse / Enum.Values / Enum.ToString / Enum.HasFlag ──
-                {
-                    ModuleNode* root = cached_ast_root;
-                    if (!root && script.is_valid() && script->ast_root) {
-                        root = script->ast_root;
-                    }
-                    if (root) {
-                    for (int ei = 0; ei < root->enums.size(); ei++) {
-                        EnumDefinition* ed = root->enums[ei];
-                        if (ed->name.nocasecmp_to(var_name) == 0) {
-                            if (call->method_name.nocasecmp_to("Parse") == 0 && call_args.size() >= 1) {
-                                // Enum.Parse("MemberName") -> int value
-                                String mname = String(call_args[0]);
-                                for (int vi = 0; vi < ed->values.size(); vi++) {
-                                    if (ed->values[vi].name.nocasecmp_to(mname) == 0) {
-                                        return ed->values[vi].value;
-                                    }
-                                }
-                                raise_error("Enum '" + ed->name + "' has no member '" + mname + "'");
-                                return Variant();
-                            }
-                            if (call->method_name.nocasecmp_to("Values") == 0) {
-                                // Enum.Values() -> Array of [name, value] pairs
-                                Array result;
-                                for (int vi = 0; vi < ed->values.size(); vi++) {
-                                    Dictionary entry;
-                                    entry["Name"] = ed->values[vi].name;
-                                    entry["Value"] = ed->values[vi].value;
-                                    result.push_back(entry);
-                                }
-                                return result;
-                            }
-                            if (call->method_name.nocasecmp_to("ToString") == 0 && call_args.size() >= 1) {
-                                // Enum.ToString(intValue) -> name string
-                                int val = (int)call_args[0];
-                                // Exact match first
-                                for (int vi = 0; vi < ed->values.size(); vi++) {
-                                    if (ed->values[vi].value == val) {
-                                        return ed->values[vi].name;
-                                    }
-                                }
-                                // Flags decomposition for [Flags] enums
-                                if (ed->is_flags && val != 0) {
-                                    String result;
-                                    int remaining = val;
-                                    // Walk values largest-first to greedily decompose
-                                    for (int vi = ed->values.size() - 1; vi >= 0; vi--) {
-                                        int fv = ed->values[vi].value;
-                                        if (fv != 0 && (remaining & fv) == fv) {
-                                            if (!result.is_empty()) result = ed->values[vi].name + String(", ") + result;
-                                            else result = ed->values[vi].name;
-                                            remaining &= ~fv;
-                                        }
-                                    }
-                                    if (remaining == 0 && !result.is_empty()) return result;
-                                }
-                                return String::num_int64(val); // Unknown value
-                            }
-                            if (call->method_name.nocasecmp_to("HasFlag") == 0 && call_args.size() >= 2) {
-                                // Enum.HasFlag(value, flag) -> Boolean
-                                int val = (int)call_args[0];
-                                int flag = (int)call_args[1];
-                                return (val & flag) == flag;
-                            }
-                        }
-                    }
-                    }
-                }
+				Variant enum_ret;
+				if (try_call_enum_method(var_name, call->method_name, call_args, enum_ret)) {
+					return enum_ret;
+				}
             }
 
             Variant base = evaluate_expression(call->base_object);

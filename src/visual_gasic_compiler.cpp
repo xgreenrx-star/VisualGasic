@@ -1,4 +1,5 @@
 #include "visual_gasic_compiler.h"
+#include "visual_gasic_tween.h"
 #include "visual_gasic_named_args.h"
 #include "vg_autoloads.h"
 #include "vg_classdb_globals.h"
@@ -6023,6 +6024,31 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
     return VT_UNKNOWN;
 }
 
+void VisualGasicCompiler::emit_collection_element_type(const DimStatement *p_dim, int p_slot) {
+	if (p_dim->type_name.nocasecmp_to("Collection") != 0 || p_dim->generic_type_param.is_empty()) {
+		return;
+	}
+	auto load_collection = [&]() {
+		if (p_slot >= 0) {
+			emit_bytes(OP_GET_LOCAL, (uint8_t)p_slot);
+		} else {
+			emit_byte(OP_GET_GLOBAL);
+			emit_const_index(current_chunk->add_constant(p_dim->variable_name));
+		}
+	};
+	load_collection();
+	emit_constant(String("VGCollection"));
+	emit_byte(OP_IS_CLASS);
+	int skip = emit_jump(OP_JUMP_IF_FALSE);
+	load_collection();
+	emit_constant(p_dim->generic_type_param);
+	emit_byte(OP_METHOD_CALL);
+	emit_const_index(current_chunk->add_constant(String("set_element_type")));
+	emit_byte(1);
+	emit_byte(OP_POP);
+	patch_jump(skip);
+}
+
 // Pass 2: detect Camera./Sound./Speaker. namespace calls.
 // Returns the lowercase namespace name ("camera"/"sound"/"speaker") if
 // base_obj is a bare VariableNode with one of those reserved names AND
@@ -6522,6 +6548,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         emit_byte(OP_SET_GLOBAL);
                         emit_const_index(idx);
                     }
+					emit_collection_element_type(s, slot);
                 }
                 break;
             }
@@ -6631,16 +6658,22 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     init_val = Variant();
                 }
 
+				if (s->type_name.nocasecmp_to("Collection") == 0) {
+					emit_byte(OP_NEW_OBJECT);
+					emit_const_index(current_chunk->add_constant(String("Collection")));
+					emit_byte(0);
+				} else {
+					emit_constant(init_val);
+				}
                 int slot = get_or_add_local(s->variable_name, infer_type(s->initializer));
                 if (slot >= 0) {
-                    emit_constant(init_val);
                     emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                 } else {
-                    emit_constant(init_val);
                     int idx = current_chunk->add_constant(s->variable_name);
                     emit_byte(OP_SET_GLOBAL);
                     emit_const_index(idx);
                 }
+				emit_collection_element_type(s, slot);
             }
             break;
         }
@@ -9193,27 +9226,21 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             // VB6 property aliasing for the property path string
-            String prop_path = tw->property_path;
-            // Single-segment aliases (e.g., Tween Me.Left To ...)
-            if (prop_path.nocasecmp_to("Left") == 0) prop_path = "position:x";
-            else if (prop_path.nocasecmp_to("Top") == 0) prop_path = "position:y";
-            else if (prop_path.nocasecmp_to("Width") == 0) prop_path = "size:x";
-            else if (prop_path.nocasecmp_to("Height") == 0) prop_path = "size:y";
-            else if (prop_path.nocasecmp_to("Caption") == 0) prop_path = "text";
-            else if (prop_path.nocasecmp_to("Text") == 0) prop_path = "text";
-            else if (prop_path.nocasecmp_to("Visible") == 0) prop_path = "visible";
-            else if (prop_path.nocasecmp_to("Value") == 0) prop_path = "value";
-            else {
-                // Multi-segment: convert to lowercase for Godot (Position:X → position:x)
-                prop_path = prop_path.to_lower();
-            }
+            String prop_path = vg_tween_property_path(tw->property_path);
 
             int create_tween_idx = current_chunk->add_constant(String("create_tween"));
             int tween_prop_idx = current_chunk->add_constant(String("tween_property"));
             int path_idx = current_chunk->add_constant(prop_path);
 
             // Step 1: target_node.create_tween() → Tween on stack
+			int target_slot = get_or_add_local("__tween_target_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
+			if (target_slot < 0) {
+				compile_ok = false;
+				break;
+			}
             compile_expression(tw->target_node);
+			emit_bytes(OP_SET_LOCAL, (uint8_t)target_slot);
+			emit_bytes(OP_GET_LOCAL, (uint8_t)target_slot);
             emit_byte(OP_METHOD_CALL);
             emit_const_index(create_tween_idx);
             emit_byte((uint8_t)0); // 0 args
@@ -9221,7 +9248,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Step 2: tween.tween_property(target_node, path, to_val, duration)
             // Stack: [tween]
             // Push 4 args: node, path_string, final_value, duration
-            compile_expression(tw->target_node);             // arg0: node
+			emit_bytes(OP_GET_LOCAL, (uint8_t)target_slot);     // arg0: node (evaluate target once)
             emit_byte(OP_CONSTANT);
             emit_const_index(path_idx);                      // arg1: property path
             compile_expression(tw->to_val);                  // arg2: final value
@@ -10005,6 +10032,21 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 emit_constant(local_const_map[lower_name]);
                 break;
             }
+			bool enum_found = false;
+			if (current_module) {
+				for (int ei = 0; ei < current_module->enums.size(); ei++) {
+					if (current_module->enums[ei]->name.nocasecmp_to(v->name) == 0) {
+						Dictionary sentinel;
+						sentinel["__vg_enum"] = current_module->enums[ei]->name;
+						emit_constant(sentinel);
+						enum_found = true;
+						break;
+					}
+				}
+			}
+			if (enum_found) {
+				break;
+			}
             {
                 Variant engine_builtin;
                 if (vg_try_engine_builtin_constant(v->name, engine_builtin)) {

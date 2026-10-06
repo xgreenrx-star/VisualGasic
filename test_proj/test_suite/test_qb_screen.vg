@@ -87,24 +87,27 @@ Sub _Ready()
 	End If
 
 	Dim spr(0) As Integer
-	Get (0, 0)-(1, 0), spr
-	Put (30, 5), spr, PSET
-	If Point(30, 5) = 4 And Point(31, 5) = 4 Then
+	' Keep the sprite sample away from Print's console text overlay.
+	PSet (0, 190), 4
+	PSet (1, 190), 4
+	Get (0, 190)-(1, 190), spr
+	Put (30, 190), spr, PSET
+	If Point(30, 190) = 4 And Point(31, 190) = 4 Then
 		Print "PASS: qb_getput"
 	Else
-		Print "FAIL: qb_getput " & CStr(Point(30, 5)) & "," & CStr(Point(31, 5))
+		Print "FAIL: qb_getput " & CStr(Point(30, 190)) & "," & CStr(Point(31, 190))
 	End If
 
-	Put (50, 5), spr
-	If Point(50, 5) = 4 Then
-		Put (50, 5), spr
-		If Point(50, 5) = 0 Then
+	Put (50, 190), spr
+	If Point(50, 190) = 4 Then
+		Put (50, 190), spr
+		If Point(50, 190) = 0 Then
 			Print "PASS: qb_put_xor"
 		Else
-			Print "FAIL: qb_put_xor second " & CStr(Point(50, 5))
+			Print "FAIL: qb_put_xor second " & CStr(Point(50, 190))
 		End If
 	Else
-		Print "FAIL: qb_put_xor first " & CStr(Point(50, 5))
+		Print "FAIL: qb_put_xor first " & CStr(Point(50, 190))
 	End If
 
 	Play "T120 O3 L4 C D E"

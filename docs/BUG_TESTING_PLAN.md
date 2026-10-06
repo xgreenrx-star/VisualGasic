@@ -127,6 +127,64 @@ Its accepted timeouts require separate triage. Repeat with multiple seeds and
 both default and `VG_FORCE_AST=1` modes, preserve reproducers, and use
 ASan/UBSan builds before release to find memory faults that do not hard-crash.
 
+#### Differential triage, October 6, 2026
+
+The first full run with strict execution checks covered 210 tests: 181 matched
+passing runs, 2 matched failing runs, 7 divergences, 7 runs without assertions
+and 13 execution failures. This is a triage baseline, not a release pass.
+Some error fixtures intentionally log runtime errors before catching them;
+network timeouts, Windows-only fixtures and helper modules also need explicit
+classification rather than being counted as engine defects or passing tests.
+
+Subsequent targeted regression checks verified these fixes:
+
+| Test area | Passing assertions per path |
+|---|---:|
+| Enum methods, keyword members, flags and handled invalid calls | 31 |
+| Collection auto-instantiation, element-type constraints and explicit Nothing | 11 |
+| Tween execution, all options, aliases and single target evaluation | 11 |
+| Runtime property aliases (including Rotation in degrees) | 65 |
+| File permissions after `On Error GoTo 0` | 13 |
+| Collection integration after `Exit For` | 10 |
+| QB framebuffer suite with isolated sprite samples | 46 |
+| QB sprite copy/XOR without console-overlay interference | 1 |
+| For Each exits and `On Error GoTo 0` control flow | 4 |
+| Fast parameters and recursion through `SumTo(350)` | 14 |
+| v2.10 features, including `Err.Raise`/`Err.Clear` | 16 |
+
+QB `GET`/`PUT` worked on both paths in an isolated reproducer. The original
+test's sample overlapped the text overlay drawn by earlier `Print` assertions;
+it now uses freshly drawn pixels away from that overlay. Do not classify this
+as an unimplemented AST sprite blitter.
+
+The optimizer incorrectly treated `OP_THROW` as an unconditional exit and
+removed statements that `On Error Resume Next` must execute. Retaining that
+fall-through fixes the missing `Err.Raise`/`Err.Clear` assertions.
+
+The deep-recursion crash was a native-stack overflow caused by an inlined
+stack-trace print inside the VM's frequently instantiated `push_value` lambda.
+An out-of-line reporter reduces the optimized VM frame from approximately
+23 KB to 4.6 KB without increasing stack limits or reducing the test depth.
+The 350-level test passes with tracing/profiling enabled too. Deep recursion
+on Windows and worker threads still needs validation against their smaller
+native stacks; this does not remove the runtime's dependence on native recursion.
+
+The final full run covered 212 tests: **189 matched passes, 2 matched failures,
+2 divergences, 7 runs without assertions and 12 execution failures**. There
+were no native crashes in that run. Additional mutation checks (40 cases at
+seed 7 on the default path and 40 at seed 2026 with forced AST) had no crashes
+or timeouts.
+
+Remaining divergences are AST `Await` (currently a no-op statement, requiring
+real continuation/resume support) and a duplicate PASS line on the bytecode
+Vector3 subtraction test. Other open failures include wildcard `Kill` in the
+AST folder fixture, ByRef import, queued canvas drawing, missing owner helpers
+(`GetDelta`, `IsVisible`), and an unresolved sample import. The folder fixture's
+missing trash service does not explain its separate wildcard failure.
+Benchmark/network timeouts and intentional error/debugger/helper fixtures
+need explicit test-runner classification. Retain raw logs and reproducers;
+these counts are not a release sign-off.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

@@ -100,6 +100,7 @@ private:
     bool lookup_block_local(const String &name, int &r_frame, int &r_offset) const;
     int allocate_block_local(const String &name, ValueType vt);
     void compile_statement_block(const Vector<Statement*> &stmts);
+	void emit_collection_element_type(const DimStatement *p_dim, int p_slot);
 
     void emit_byte(uint8_t byte);
     void emit_f32(float p_value);

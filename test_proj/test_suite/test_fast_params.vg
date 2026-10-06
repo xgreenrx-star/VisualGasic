@@ -106,8 +106,9 @@ Sub _Ready()
 		Print "FAIL: fast_sub_no_return: expected 9, got " & Str(gCounter)
 	End If
 
-	' --- Deep recursion stress (sum 1..350; ~500+ overflows the C++ stack
-	'     on BOTH the fast and legacy paths — a pre-existing interpreter limit) ---
+	' --- Deep recursion stress (sum 1..350). Each VG call nests a native
+	'     execute_bytecode frame; this guards against that frame regrowing
+	'     (it was ~23 KB and overflowed the 8 MB stack at ~348 levels). ---
 	Dim deep As Long = SumTo(350)
 	If deep = 61425 Then
 		Print "PASS: fast_deep_recursion"

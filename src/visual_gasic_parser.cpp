@@ -6569,7 +6569,7 @@ void VisualGasicParser::parse_enum(bool p_is_flags) {
              }
          }
          
-         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+         if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
              String mem_name = peek().value;
              advance();
              

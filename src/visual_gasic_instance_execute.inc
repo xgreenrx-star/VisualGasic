@@ -388,6 +388,49 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             }
             break;
         }
+		case STMT_TWEEN: {
+			TweenStatement *tw = static_cast<TweenStatement *>(stmt);
+			if (!tw->target_node || !tw->to_val || !tw->duration) {
+				raise_error("Tween requires a target, final value and duration", 5);
+				break;
+			}
+			Variant target = evaluate_expression(tw->target_node);
+			if (error_state.has_error) break;
+			Object *object = target.get_type() == Variant::OBJECT ? (Object *)target : nullptr;
+			Node *node = Object::cast_to<Node>(object);
+			if (!node) {
+				raise_error("Tween target must be a Node", 91);
+				break;
+			}
+			if (!node->is_inside_tree()) {
+				raise_error("Tween target must be inside the scene tree", 5);
+				break;
+			}
+			Ref<Tween> tween = node->create_tween();
+			if (tween.is_null()) {
+				raise_error("Could not create Tween for target node", 5);
+				break;
+			}
+			Variant to = evaluate_expression(tw->to_val);
+			if (error_state.has_error) { tween->kill(); break; }
+			Variant duration = evaluate_expression(tw->duration);
+			if (error_state.has_error) { tween->kill(); break; }
+			Ref<PropertyTweener> property = tween->tween_property(node,
+				NodePath(vg_tween_property_path(tw->property_path)), to, (double)duration);
+			if (property.is_null()) {
+				tween->kill();
+				raise_error("Could not tween property '" + tw->property_path + "'", 5);
+				break;
+			}
+			if (tw->from_val) {
+				Variant from = evaluate_expression(tw->from_val);
+				if (error_state.has_error) { tween->kill(); break; }
+				property->from(from);
+			}
+			if (tw->ease_type >= 0) property->set_ease(static_cast<Tween::EaseType>(tw->ease_type));
+			if (tw->trans_type >= 0) property->set_trans(static_cast<Tween::TransitionType>(tw->trans_type));
+			break;
+		}
         case STMT_DATA: {
              // Do nothing at runtime, handled by scan
              break;
@@ -483,11 +526,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          if (error_state.mode != ErrorState::NONE) break;
                      }
                      
-                     if (error_state.has_error) break;
                      if (error_state.mode == ErrorState::EXIT_FOR) {
+                         error_state.has_error = false;
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
              } else if (col.get_type() == Variant::DICTIONARY) {
@@ -504,11 +548,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          if (error_state.mode != ErrorState::NONE) break;
                      }
                      
-                     if (error_state.has_error) break;
                      if (error_state.mode == ErrorState::EXIT_FOR) {
+                         error_state.has_error = false;
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
              } else if (col.get_type() == Variant::STRING) {
@@ -524,11 +569,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          if (error_state.mode == ErrorState::EXIT_FOR) break;
                          if (error_state.mode != ErrorState::NONE) break;
                      }
-                     if (error_state.has_error) break;
                      if (error_state.mode == ErrorState::EXIT_FOR) {
+                         error_state.has_error = false;
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
              } else {
@@ -2793,6 +2839,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              OnErrorStatement* s = (OnErrorStatement*)stmt;
              if (s->mode == OnErrorStatement::RESUME_NEXT) {
                  error_state.mode = ErrorState::RESUME_NEXT;
+             } else if (s->label_name.is_empty()) {
+                 error_state.mode = ErrorState::NONE;
+                 error_state.label = String();
              } else {
                  error_state.mode = ErrorState::GOTO_LABEL;
                  error_state.label = s->label_name;

@@ -213,10 +213,10 @@ Sub _Ready()
     ' --- v3.8.0: Flags ToString decomposition ---
     Dim fs As String
     fs = Permissions.ToString(3)
-    If fs = "Read, Write" Then
-        Print "PASS: flags_tostring_decompose"
+    If fs = "ReadWrite" Then
+        Print "PASS: flags_tostring_named_combination"
     Else
-        Print "FAIL: flags_tostring_decompose: got " & fs
+        Print "FAIL: flags_tostring_named_combination: got " & fs
     End If
 
     fs = Permissions.ToString(7)
@@ -232,6 +232,39 @@ Sub _Ready()
     Else
         Print "FAIL: flags_tostring_read_execute: got " & fs
     End If
+
+    Dim memberName As String = "gReEn"
+    If MyColor.Parse(memberName) = Green Then
+        Print "PASS: enum_parse_runtime_case_insensitive"
+    Else
+        Print "FAIL: enum_parse_runtime_case_insensitive"
+    End If
+    If MyColor.ToString(99) = "99" Then
+        Print "PASS: enum_tostring_unknown"
+    Else
+        Print "FAIL: enum_tostring_unknown"
+    End If
+    If Permissions.HasFlag(0, 0) Then
+        Print "PASS: enum_hasflag_zero"
+    Else
+        Print "FAIL: enum_hasflag_zero"
+    End If
+    On Error Resume Next
+    Err.Clear
+    parsed = MyColor.Parse("Missing")
+    If Err.Number = 5 Then
+        Print "PASS: enum_parse_missing_handled"
+    Else
+        Print "FAIL: enum_parse_missing_handled"
+    End If
+    Err.Clear
+    parsed = MyColor.Parse()
+    If Err.Number = 450 Then
+        Print "PASS: enum_parse_arity_handled"
+    Else
+        Print "FAIL: enum_parse_arity_handled"
+    End If
+    On Error GoTo 0
 	
 	Print "TEST_COMPLETE"
 End Sub

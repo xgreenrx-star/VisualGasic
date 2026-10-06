@@ -728,6 +728,10 @@ End Sub
 
 Animates a node property from its current value (or a specified starting value) to a target value over a duration, with optional easing and transition curves. Compiles to Godot's `SceneTreeTween` chain (`create_tween → tween_property → set_ease → set_trans`).
 
+The AST fallback executes the same tween chain, including `From`, `Ease`,
+`Trans` and VB6 property aliases. The target expression is evaluated once.
+The target must be a node inside the scene tree.
+
 **Syntax:**
 ```
 Tween <target.Property> To <value> Over <duration>
@@ -1186,6 +1190,11 @@ anything.Add 3.14
 
 **Supported type parameters:** `Integer`, `Long`, `LongLong`, `Double`, `Single`, `Float`,
 `String`, `Boolean`, `Variant` (any type), and any class name.
+
+Both bytecode and AST execution auto-instantiate `Dim items As Collection`
+and apply the element-type constraint for `Collection(Of T)`, with or without
+`New`. A rejected `.Add()` logs a type mismatch and leaves the collection
+unchanged.
 
 ### Generic Classes — Class(Of T)
 

@@ -1,5 +1,7 @@
 #include <godot_cpp/classes/file_dialog.hpp>
 #include <godot_cpp/classes/tween.hpp>
+#include <godot_cpp/classes/property_tweener.hpp>
+#include "visual_gasic_tween.h"
 #include "visual_gasic_compiler.h"
 #include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_optimizer.h"
@@ -5608,6 +5610,84 @@ static bool _vb6_write_property(Object* obj, const String& prop_name, const Vari
 // Expression evaluation (evaluate_expression + helpers)
 // Extracted for maintainability — 2537 lines
 // ============================================================================
+bool VisualGasicInstance::try_call_enum_method(const String &p_enum, const String &p_method, const Array &p_args, Variant &r_ret) {
+	ModuleNode *root = cached_ast_root;
+	if (!root && script.is_valid()) {
+		root = script->ast_root;
+	}
+	if (!root) {
+		return false;
+	}
+	for (int ei = 0; ei < root->enums.size(); ei++) {
+		EnumDefinition *ed = root->enums[ei];
+		if (ed->name.nocasecmp_to(p_enum) != 0) {
+			continue;
+		}
+		const String method = p_method.to_lower();
+		const int expected_args = method == "values" ? 0 : (method == "hasflag" ? 2 : 1);
+		if (method != "parse" && method != "values" && method != "tostring" && method != "hasflag") {
+			raise_error("Enum '" + ed->name + "' has no method '" + p_method + "'", 438);
+			return true;
+		}
+		if (p_args.size() != expected_args) {
+			raise_error("Wrong number of arguments for " + ed->name + "." + p_method, 450);
+			return true;
+		}
+		if (method == "parse") {
+			const String member = String(p_args[0]);
+			for (int vi = 0; vi < ed->values.size(); vi++) {
+				if (ed->values[vi].name.nocasecmp_to(member) == 0) {
+					r_ret = ed->values[vi].value;
+					return true;
+				}
+			}
+			raise_error("Enum '" + ed->name + "' has no member '" + member + "'", 5);
+			return true;
+		}
+		if (method == "values") {
+			Array result;
+			for (int vi = 0; vi < ed->values.size(); vi++) {
+				Dictionary entry;
+				entry["Name"] = ed->values[vi].name;
+				entry["Value"] = ed->values[vi].value;
+				result.push_back(entry);
+			}
+			r_ret = result;
+			return true;
+		}
+		const int value = (int)p_args[0];
+		if (method == "hasflag") {
+			const int flag = (int)p_args[1];
+			r_ret = (value & flag) == flag;
+			return true;
+		}
+		for (int vi = 0; vi < ed->values.size(); vi++) {
+			if (ed->values[vi].value == value) {
+				r_ret = ed->values[vi].name;
+				return true;
+			}
+		}
+		if (ed->is_flags && value != 0) {
+			String result;
+			int remaining = value;
+			for (int vi = ed->values.size() - 1; vi >= 0; vi--) {
+				const int flag = ed->values[vi].value;
+				if (flag != 0 && (remaining & flag) == flag) {
+					result = ed->values[vi].name + (result.is_empty() ? String() : String(", ") + result);
+					remaining &= ~flag;
+				}
+			}
+			if (remaining == 0 && !result.is_empty()) {
+				r_ret = result;
+				return true;
+			}
+		}
+		r_ret = String::num_int64(value);
+		return true;
+	}
+	return false;
+}
+
 #include "visual_gasic_instance_evaluate.inc"
 
 // ============================================================================

@@ -212,6 +212,18 @@ struct PForBytecodeData {
     Vector<Variant> parent_locals;  // snapshot of parent scope locals for lock-free workers
 };
 
+// Out-of-line VG_STACK_TRACE reporter.  push_value (in execute_bytecode) is a
+// generic lambda inlined at hundreds of opcode sites; inlining this print's
+// variadic Variant argument array at each site gave every copy its own unshared
+// stack slot under -fno-exceptions, bloating execute_bytecode's frame from
+// ~4.6 KB to ~23 KB and overflowing the 8 MB stack at ~350 levels of VG
+// recursion.  Keep it out of line.
+static _NO_INLINE_ void vg_stack_trace_report(uint64_t depth, int op, int offset) {
+	UtilityFunctions::print("[VG_STACK_TRACE] depth=", (int64_t)depth,
+		" op=", op,
+		" offset=", offset);
+}
+
 // Thread-local flag: set to true inside WorkerThreadPool callbacks so that
 // execute_bytecode() can skip non-thread-safe debug/profiling code.
 static thread_local bool tl_on_worker_thread = false;
@@ -981,9 +993,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 stack_profile_sample.max_depth = depth;
                 stack_profile_sample.growth_events++;
                 if (stack_trace_enabled) {
-                    UtilityFunctions::print("[VG_STACK_TRACE] depth=", (int64_t)depth,
-                        " op=", (int)current_opcode,
-                        " offset=", last_opcode_offset);
+                    vg_stack_trace_report(depth, (int)current_opcode, last_opcode_offset);
                 }
             }
         }
@@ -8181,6 +8191,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     call_ret = Variant();
                 }
 
+				if (error_state.has_error) {
+					if (try_recover_error(Variant())) { VG_BREAK; }
+					success = false;
+					goto cleanup;
+				}
                 push_value(call_ret);
                 VG_BREAK;
             }
@@ -8210,8 +8225,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_dict_keys_call, OP_DICT_KEYS_CALL): {
                 // If TOS is a Dictionary, replace it with its keys() array.
-                // If it's already an Array, leave it as-is.
-                // This supports For Each on both Arrays and Dictionaries.
+                // Strings become character arrays; arrays pass through unchanged.
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant &top = vm.stack.back();
                 if (top.get_type() == Variant::DICTIONARY) {
@@ -8242,8 +8256,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             top = dict.keys(); // empty array
                         }
                     }
-                }
-                // If it's an Array (or anything else), leave unchanged.
+				} else if (top.get_type() == Variant::STRING) {
+					String text = top;
+					Array chars;
+					chars.resize(text.length());
+					for (int i = 0; i < text.length(); i++) {
+						chars[i] = String::chr(text[i]);
+					}
+					top = chars;
+				}
                 VG_BREAK;
             }
             VG_CASE(vg_op_push_with, OP_PUSH_WITH): {
@@ -9340,4 +9361,3 @@ cleanup:
     }
     return true;
 }
-

@@ -67,6 +67,7 @@ echo ""
 
 CRASH=0
 OK=0
+TIMED_OUT=0
 python3 - "$COUNT" "$SEED" "$OUT_DIR" "${SOURCES[@]}" <<'PY'
 import random, sys, pathlib, re, subprocess, os
 
@@ -212,15 +213,10 @@ CRASH_FILES=()
 for mutant in "${MUTANTS[@]}"; do
 	fname=$(basename "$mutant")
 	cp -f "$mutant" "$DEST"
-	(
-		flock 9
-		echo "res://test_suite/_mutation_tmp.vg" > test_proj/current_test.txt
-	) 9>test_proj/current_test.lock
-
 	raw_out="$OUT_DIR/${fname}.out"
 	set +e
 	timeout "$TIMEOUT_SECS" "$GODOT" --headless --path test_proj \
-		--user-data-dir "$GODOT_USER_DATA_DIR" -s run_suite.gd \
+		--user-data-dir "$GODOT_USER_DATA_DIR" -s run_suite.gd -- res://test_suite/_mutation_tmp.vg \
 		>"$raw_out" 2>&1
 	rc=$?
 	set -e
@@ -231,6 +227,9 @@ for mutant in "${MUTANTS[@]}"; do
 		CRASH=$((CRASH + 1))
 		CRASH_FILES+=("$fname")
 		tail -12 "$raw_out" | sed 's/^/       /'
+	elif [[ "$rc" -eq 124 ]]; then
+		TIMED_OUT=$((TIMED_OUT + 1))
+		echo "  TIMEOUT  $fname  (rc=$rc; requires hang triage)"
 	else
 		OK=$((OK + 1))
 		echo "  ok     $fname  (rc=$rc)"
@@ -241,7 +240,7 @@ rm -f "$DEST" "${DEST}.uid" 2>/dev/null || true
 
 echo ""
 echo "══════════════════════════════════════════════════"
-echo "Mutation stress: ok=$OK  crashes=$CRASH  total=$COUNT"
+echo "Mutation stress: ok=$OK  crashes=$CRASH  timeouts=$TIMED_OUT  total=$COUNT"
 echo "Artifacts: $OUT_DIR"
 if [[ "$CRASH" -gt 0 ]]; then
 	echo "CRASHES:"

@@ -1,0 +1,55 @@
+' Regression: loop exits are consumed by For Each, and GoTo 0 disables the handler.
+Sub _Ready()
+	Dim values As Variant = Array(1, 2, 3)
+	Dim item As Variant
+	Dim visits As Integer = 0
+	For Each item In values
+		visits = visits + 1
+		Exit For
+	Next item
+	If visits = 1 Then
+		Print "PASS: foreach_array_exit_continues_sub"
+	Else
+		Print "FAIL: foreach_array_exit_continues_sub"
+	End If
+
+	Dim mapping As New Dictionary
+	mapping.Add "a", 1
+	mapping.Add "b", 2
+	visits = 0
+	For Each item In mapping
+		visits = visits + 1
+		Exit For
+	Next item
+	If visits = 1 Then
+		Print "PASS: foreach_dictionary_exit_continues_sub"
+	Else
+		Print "FAIL: foreach_dictionary_exit_continues_sub"
+	End If
+
+	visits = 0
+	For Each item In "ABC"
+		visits = visits + 1
+		Exit For
+	Next item
+	If visits = 1 Then
+		Print "PASS: foreach_string_exit_continues_sub"
+	Else
+		Print "FAIL: foreach_string_exit_continues_sub"
+	End If
+
+	On Error Resume Next
+	Err.Clear
+	On Error GoTo 0
+	visits = 0
+	If True Then
+		visits = visits + 1
+		visits = visits + 1
+	End If
+	If visits = 2 Then
+		Print "PASS: goto_zero_allows_full_if_branch"
+	Else
+		Print "FAIL: goto_zero_allows_full_if_branch"
+	End If
+	Print "TEST_COMPLETE"
+End Sub

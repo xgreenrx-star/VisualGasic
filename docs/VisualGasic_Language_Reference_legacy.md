@@ -6204,7 +6204,11 @@ mask And= Not(Permissions.Read)  ' Remove Read flag
 mask Xor= Permissions.Execute    ' Toggle Execute flag
 ```
 
-> **Note:** `ToString()` uses a greedy largest-first decomposition. If the combined value doesn't exactly decompose into named members, the raw integer is returned.
+> **Note:** `ToString()` returns an exact named member first, including a named
+> combination such as `ReadWrite = 3`. Otherwise it uses a greedy largest-first
+> decomposition. If the combined value doesn't exactly decompose into named
+> members, the raw integer is returned. Enum methods work in both bytecode and
+> AST execution. Member names may be keywords such as `Read` and `Write`.
 
 ### Swap Statement
 

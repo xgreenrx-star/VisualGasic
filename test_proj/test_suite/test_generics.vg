@@ -71,5 +71,32 @@ Sub _Ready()
 		Print "FAIL: typed_collection_with_key"
 	End If
 
+	If intCol.get_element_type() = "Integer" And autoCol.get_element_type() = "Integer" Then
+		Print "PASS: typed_collection_element_type"
+	Else
+		Print "FAIL: typed_collection_element_type"
+	End If
+	intCol.Add "invalid"
+	autoCol.Add "invalid"
+	If intCol.Count = 3 And autoCol.Count = 1 Then
+		Print "PASS: typed_collection_reject_mismatch"
+	Else
+		Print "FAIL: typed_collection_reject_mismatch"
+	End If
+	Dim autoAny As Collection
+	autoAny.Add "untyped"
+	If autoAny.Count = 1 Then
+		Print "PASS: auto_instantiate_untyped"
+	Else
+		Print "FAIL: auto_instantiate_untyped"
+	End If
+
+	Dim emptyCol As Collection(Of Integer) = Nothing
+	If emptyCol Is Nothing Then
+		Print "PASS: typed_collection_explicit_nothing"
+	Else
+		Print "FAIL: typed_collection_explicit_nothing"
+	End If
+
 	Print "TEST_COMPLETE"
 End Sub

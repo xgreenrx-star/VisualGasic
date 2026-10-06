@@ -1,13 +1,21 @@
 ' Test: Tween one-liner statement
-' MAX_FRAMES: 240
+' MAX_FRAMES: 480
 ' Tests Tween parsing, compilation, and execution
 
 Dim frameCount As Integer
 Dim testsRun As Boolean
+Dim targetCalls As Integer
+Dim elapsed As Double
+
+Function GetTweenTarget() As Object
+    targetCalls = targetCalls + 1
+    GetTweenTarget = Me.GetNode("TweenTarget5")
+End Function
 
 Sub _Ready()
     frameCount = 0
     testsRun = False
+    elapsed = 0
 
     ' --- Test 1: Tween compiles with basic syntax ---
     ' Create a Control child node (not Me — Me is a plain Node)
@@ -59,13 +67,20 @@ Sub _Ready()
 
     Tween ctrl5.Left To 100 Over 0.3
     Print "PASS: tween_vb6_alias_compiles"
+    Tween GetTweenTarget().Top To 80 Over 0.3
+    If targetCalls = 1 Then
+        Print "PASS: tween_target_evaluated_once"
+    Else
+        Print "FAIL: tween_target_evaluated_once"
+    End If
 End Sub
 
 Sub _Process(delta As Single)
     frameCount = frameCount + 1
+    elapsed = elapsed + delta
 
-    ' At frame 120 (~2s), verify the tweens actually animated
-    If frameCount = 120 And Not testsRun Then
+    ' Headless frame rates vary; wait for the longest tween in simulation time.
+    If elapsed >= 1.2 And Not testsRun Then
         testsRun = True
 
         ' Test that the first tween reached its target
@@ -90,6 +105,27 @@ Sub _Process(delta As Single)
             Print "FAIL: tween_ease_trans_result: expected ~(100,50) got (" & Str(p3.X) & "," & Str(p3.Y) & ")"
         End If
 
+        Dim t2 As Object = Me.GetNode("TweenTarget2")
+        Dim p2 As Vector2 = t2.Get("position")
+        If Abs(p2.X - 300) < 2 And Abs(p2.Y - 150) < 2 Then
+            Print "PASS: tween_from_result"
+        Else
+            Print "FAIL: tween_from_result"
+        End If
+        Dim t4 As Object = Me.GetNode("TweenTarget4")
+        Dim p4 As Vector2 = t4.Get("position")
+        If Abs(p4.X - 500) < 2 And Abs(p4.Y - 250) < 2 Then
+            Print "PASS: tween_all_options_result"
+        Else
+            Print "FAIL: tween_all_options_result: got (" & Str(p4.X) & "," & Str(p4.Y) & ")"
+        End If
+        Dim t5 As Object = Me.GetNode("TweenTarget5")
+        Dim p5 As Vector2 = t5.Get("position")
+        If Abs(p5.X - 100) < 2 And Abs(p5.Y - 80) < 2 Then
+            Print "PASS: tween_vb6_alias_result"
+        Else
+            Print "FAIL: tween_vb6_alias_result"
+        End If
         Print "TEST_COMPLETE"
     End If
 End Sub

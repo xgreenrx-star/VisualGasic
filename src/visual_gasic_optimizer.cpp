@@ -218,7 +218,8 @@ bool VisualGasicOptimizer::is_push_one(uint8_t op) {
 }
 
 bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
-    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE || op == OP_THROW;
+	// On Error Resume Next can resume immediately after OP_THROW.
+    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE;
 }
 
 int VisualGasicOptimizer::resolve_jump(const Vector<uint8_t>& code, int ip) {

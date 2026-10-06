@@ -1,0 +1,20 @@
+' Regression: sprite blits without Print diagnostics drawing into the framebuffer.
+Sub _Ready()
+	Screen 13
+	PSet (0, 190), 4
+	PSet (1, 190), 4
+	Dim sprite(0) As Integer
+	Get (0, 190)-(1, 190), sprite
+	Put (30, 190), sprite, PSET
+	Dim copied As Boolean = Point(30, 190) = 4 And Point(31, 190) = 4
+	Put (50, 190), sprite
+	Dim firstXor As Boolean = Point(50, 190) = 4
+	Put (50, 190), sprite
+	Dim secondXor As Boolean = Point(50, 190) = 0
+	If copied And firstXor And secondXor Then
+		Print "PASS: qb_isolated_getput_and_xor"
+	Else
+		Print "FAIL: qb_isolated_getput_and_xor"
+	End If
+	Print "TEST_COMPLETE"
+End Sub

@@ -489,6 +489,7 @@ public:
     int get_error_line() const { return error_state.error_line; }
     String get_error_file() const { return error_state.error_file; }
     Variant call_method_by_name(const String &p_name, const Array &p_args);
+	bool try_call_enum_method(const String &p_enum, const String &p_method, const Array &p_args, Variant &r_ret);
 
     // Immediate Window: parse and execute a single VB statement on this instance
     Dictionary evaluate_immediate(const String &p_code);
