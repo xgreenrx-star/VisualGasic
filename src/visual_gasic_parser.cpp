@@ -650,6 +650,7 @@ DeclareStatement* VisualGasicParser::parse_declare(bool dllimport_prefix) {
 }
 
 SubDefinition* VisualGasicParser::parse_sub() {
+	const int procedure_error_count = error_count;
     VisualGasicTokenizer::Token start_token = peek();
     bool is_function = (String(start_token.value).nocasecmp_to("Function") == 0);
     current_pos++; // Eat Sub or Function
@@ -856,6 +857,11 @@ SubDefinition* VisualGasicParser::parse_sub() {
         }
     }
 
+	if (error_count > procedure_error_count) {
+		unregister_node(sub);
+		delete sub;
+		return nullptr;
+	}
     return sub;
 }
 
@@ -1609,6 +1615,13 @@ Statement* VisualGasicParser::parse_statement() {
     }
     
     String val = t.value.operator String().to_lower();
+
+	if ((val == "sub" || val == "function") &&
+			(peek(1).type == VisualGasicTokenizer::TOKEN_IDENTIFIER || peek(1).type == VisualGasicTokenizer::TOKEN_KEYWORD)) {
+		error("Nested procedure declarations are not allowed");
+		while (!is_at_end() && !check(VisualGasicTokenizer::TOKEN_NEWLINE) && !check(VisualGasicTokenizer::TOKEN_COLON)) advance();
+		return nullptr;
+	}
 
     // Helper lambda to set line number on statement before returning
     auto set_line = [statement_line](Statement* s) -> Statement* {

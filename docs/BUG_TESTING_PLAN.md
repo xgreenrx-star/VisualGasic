@@ -326,6 +326,19 @@ execution therefore remains a release gate requiring a sanitizer-compatible
 Godot build; an instrumented library build alone is not a passing sanitizer
 test. Restore ordinary libraries before correctness/performance runs and pushes.
 
+The post-push mutation campaign (forced AST, seed 16, mutant 17) exposed a
+duplicated `Sub _Ready()` header. The parser accepted it as statements inside
+the outer procedure, causing recursive `_Ready` execution until native stack
+exhaustion. Nested procedure declarations now produce a parse diagnostic at
+their original source line. Procedures with parse errors are discarded rather
+than executed as partial bodies; healthy sibling procedures remain runnable,
+preserving the existing per-module error-recovery behavior. The dedicated
+`tools/run_parser_procedure_regressions.gd` verifies duplicated Subs, nested
+Functions, a procedure inside If, valid separate module procedures, and actual
+reload rejection of the malformed procedure plus healthy-sibling execution.
+Preserve the original mutation seed and source
+alongside the native backtrace; rerun that seed after the fix.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks
