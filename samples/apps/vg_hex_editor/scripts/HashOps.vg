@@ -1,0 +1,58 @@
+' =============================================================================
+' HashOps.vg — CRC-32 / MD5 / SHA-1 / SHA-256 of file or selection
+' =============================================================================
+Attribute VB_Name = "HashOps"
+Import "HexModel.vg"
+
+Function SliceForHash() As PackedByteArray
+	Dim empty As PackedByteArray
+	If Not HasFile() Then
+		Set SliceForHash = empty
+		Exit Function
+	End If
+	Dim s As Long
+	Dim e As Long
+	Call SelRange(s, e)
+	If s < 0 Then s = 0
+	If e >= fileSize Then e = fileSize - 1
+	If e < s Then e = s
+	Set SliceForHash = fileBuf.ToByteArrayRange(s, e - s + 1)
+End Function
+
+Function HashScopeLabel() As String
+	If Not HasFile() Then
+		HashScopeLabel = ""
+		Exit Function
+	End If
+	If SelectionActive() Then
+		HashScopeLabel = "selection [0x" & Hex8(selStart) & "–0x" & Hex8(selEnd) & ", " & CStr(selEnd - selStart + 1) & " bytes]"
+	Else
+		HashScopeLabel = "whole file (" & CStr(fileSize) & " bytes)"
+	End If
+End Function
+
+Function FormatHashReport() As String
+	FormatHashReport = ""
+	If Not HasFile() Then Exit Function
+	Dim slice As PackedByteArray
+	Set slice = SliceForHash()
+	Dim crc As String
+	Dim md5 As String
+	Dim sha1 As String
+	Dim sha256 As String
+	Dim s As Long
+	Dim e As Long
+	Call SelRange(s, e)
+	If s < 0 Then s = 0
+	If e >= fileSize Then e = fileSize - 1
+	If e < s Then e = s
+	crc = fileBuf.CRC32Range(s, e - s + 1)
+	md5 = VGCrypto.HexEncode(VGCrypto.MD5Bytes(slice))
+	sha1 = VGCrypto.HexEncode(VGCrypto.SHA1Bytes(slice))
+	sha256 = VGCrypto.HexEncode(VGCrypto.SHA256Bytes(slice))
+	FormatHashReport = "Scope: " & HashScopeLabel() & Chr(10) & Chr(10)
+	FormatHashReport = FormatHashReport & "CRC-32:  " & crc & Chr(10)
+	FormatHashReport = FormatHashReport & "MD5:     " & md5 & Chr(10)
+	FormatHashReport = FormatHashReport & "SHA-1:   " & sha1 & Chr(10)
+	FormatHashReport = FormatHashReport & "SHA-256: " & sha256
+End Function

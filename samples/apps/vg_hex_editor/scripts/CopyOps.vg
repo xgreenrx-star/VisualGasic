@@ -1,0 +1,65 @@
+' =============================================================================
+' CopyOps.vg — clipboard formats + fill selection
+' =============================================================================
+Attribute VB_Name = "CopyOps"
+Import "HexModel.vg"
+
+Sub CopyAsHex()
+	If Not HasFile() Then Exit Sub
+	Dim s As Long
+	Dim e As Long
+	Call SelRange(s, e)
+	Dim parts As String
+	parts = ""
+	Dim i As Long
+	For i = s To e
+		If parts <> "" Then parts = parts + " "
+		parts = parts + Hex2(PeekSafe(i))
+	Next i
+	DisplayServer.ClipboardSet(parts)
+End Sub
+
+Sub CopyAsCArray()
+	If Not HasFile() Then Exit Sub
+	Dim s As Long
+	Dim e As Long
+	Call SelRange(s, e)
+	Dim parts As String
+	parts = ""
+	Dim i As Long
+	For i = s To e
+		If parts <> "" Then parts = parts + ", "
+		parts = parts + "0x" + Hex2(PeekSafe(i))
+	Next i
+	DisplayServer.ClipboardSet("{ " + parts + " }")
+End Sub
+
+Sub CopyAsPythonBytes()
+	If Not HasFile() Then Exit Sub
+	Dim s As Long
+	Dim e As Long
+	Call SelRange(s, e)
+	Dim parts As String
+	parts = ""
+	Dim i As Long
+	For i = s To e
+		parts = parts + "\x" + LCase(Hex2(PeekSafe(i)))
+	Next i
+	DisplayServer.ClipboardSet("b""" + parts + """")
+End Sub
+
+Sub FillSelection(hexByte As String)
+	If Not SelectionActive() Then
+		MsgBox "Select a range first.", vbExclamation, "Fill"
+		Exit Sub
+	End If
+	hexByte = Trim(Replace(LCase(hexByte), " ", ""))
+	If Len(hexByte) = 1 Then hexByte = "0" + hexByte
+	If Len(hexByte) <> 2 Then Exit Sub
+	Dim v As Integer
+	v = Val("&H" + hexByte) And &HFF
+	Dim i As Long
+	For i = selStart To selEnd
+		Call WriteByte(i, v)
+	Next i
+End Sub

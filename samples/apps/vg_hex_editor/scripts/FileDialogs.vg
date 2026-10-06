@@ -1,0 +1,86 @@
+' =============================================================================
+' FileDialogs.vg — VB6-style synchronous file pickers (CommonDialog)
+' =============================================================================
+' Uses VGCommonDialog (New CommonDialog) — blocks until the user picks a path,
+' then returns FileName, same pattern as VB6 MSComDlg:
+'
+'   dlg.ShowOpen
+'   If dlg.FileName <> "" Then ...
+'
+' No signals or hidden callbacks — the path is right there in dlg.FileName.
+' =============================================================================
+Attribute VB_Name = "FileDialogs"
+Import "HexModel.vg"
+Import "FileOps.vg"
+
+Private Const FILTER_ALL As String = "All Files (*.*)|*.*|Binary / media|*.bin;*.dat;*.vgd;*.rom;*.gba;*.png;*.jpg;*.wav;*.ogg"
+
+' Pick a file to open. Returns "" if the user cancelled.
+Function PickOpenFile() As String
+	Dim dlg As Object
+	Set dlg = New CommonDialog
+	dlg.DialogTitle = "Open File"
+	dlg.Filter = FILTER_ALL
+	dlg.InitDir = DefaultOpenPath()
+	If filePath <> "" Then dlg.InitDir = ParentDir(filePath)
+	dlg.ShowOpen
+	If dlg.Cancelled Or dlg.FileName = "" Then
+		PickOpenFile = ""
+	Else
+		PickOpenFile = dlg.FileName
+	End If
+End Function
+
+' Pick a destination path for Save As. Returns "" if cancelled.
+Function PickSaveFile(Optional suggested As String = "") As String
+	Dim dlg As Object
+	Set dlg = New CommonDialog
+	dlg.DialogTitle = "Save File As"
+	dlg.Filter = FILTER_ALL
+	If suggested <> "" Then
+		dlg.FileName = suggested
+		dlg.InitDir = ParentDir(suggested)
+	ElseIf filePath <> "" Then
+		dlg.FileName = filePath
+		dlg.InitDir = ParentDir(filePath)
+	Else
+		dlg.InitDir = DefaultOpenPath()
+		dlg.FileName = DefaultOpenPath() & "untitled.bin"
+	End If
+	dlg.ShowSave
+	If dlg.Cancelled Or dlg.FileName = "" Then
+		PickSaveFile = ""
+	Else
+		PickSaveFile = dlg.FileName
+	End If
+End Function
+
+' --- Thin wrappers kept for callers that already use Sub names ---
+
+Sub ShowOpenDialog()
+	Dim path As String
+	path = PickOpenFile()
+	If path = "" Then Exit Sub
+	Call LoadFileAtPath(path)
+End Sub
+
+Sub ShowSaveDialog()
+	If Not HasFile() Then Exit Sub
+	Dim path As String
+	path = PickSaveFile()
+	If path = "" Then Exit Sub
+	If SaveBytesToPath(path) Then
+		filePath = path
+		modified = False
+	End If
+End Sub
+
+Function ParentDir(path As String) As String
+	Dim p As Integer
+	p = InStrRev(path, "/")
+	If p <= 1 Then
+		ParentDir = "/"
+	Else
+		ParentDir = Left(path, p - 1)
+	End If
+End Function

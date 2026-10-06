@@ -1,0 +1,429 @@
+' Gameplay — signal drain, smooth grid lerp, flow streak, one Short Circuit hazard.
+Option Explicit
+
+Import "res://scripts/Grid.vg"
+
+Const STATE_PLAY As Integer = 0
+Const STATE_WIN As Integer = 1
+Const STATE_DEAD As Integer = 2
+
+Const TRAIL_LEN As Integer = 32
+Const MOVE_SEC As Single = 0.11
+Const MAX_FRAME_DELTA As Single = 0.035
+Const SIGNAL_MAX As Single = 100.0
+
+Dim play_state As Integer
+Dim game_time As Single
+Dim signal As Single
+Dim drain_mult As Single
+Dim flow As Integer
+Dim flow_timer As Single
+Dim move_t As Single
+Dim move_spd As Single
+Dim move_from_wx As Single
+Dim move_from_wy As Single
+Dim move_to_wx As Single
+Dim move_to_wy As Single
+Dim player_cx As Integer
+Dim player_cy As Integer
+Dim player_wx As Single
+Dim player_wy As Single
+Dim moving As Boolean
+Dim pending_dx As Integer
+Dim pending_dy As Integer
+Dim hold_dx As Integer
+Dim hold_dy As Integer
+Dim hold_timer As Single
+Dim resistor_taken As Boolean
+Dim pickup_cx As Integer
+Dim pickup_cy As Integer
+Dim hazard_cx As Integer
+Dim hazard_cy As Integer
+Dim hazard_phase As Single
+Dim win_flash As Single
+Dim death_flash As Single
+Dim shake As Single
+
+Dim trail_x(TRAIL_LEN - 1) As Single
+Dim trail_y(TRAIL_LEN - 1) As Single
+Dim trail_head As Integer
+
+Sub PlayInit()
+	play_state = STATE_PLAY
+	game_time = 0.0
+	signal = SIGNAL_MAX
+	drain_mult = 1.0
+	flow = 0
+	flow_timer = 0.0
+	moving = False
+	move_t = 0.0
+	pending_dx = 0
+	pending_dy = 0
+	hold_dx = 0
+	hold_dy = 0
+	hold_timer = 0.0
+	resistor_taken = False
+	pickup_cx = 6
+	pickup_cy = 6
+	hazard_cx = 20
+	hazard_cy = 8
+	hazard_phase = 0.0
+	win_flash = 0.0
+	death_flash = 0.0
+	shake = 0.0
+	trail_head = 0
+	player_cx = start_cx
+	player_cy = start_cy
+	player_wx = CellCenterX(player_cx)
+	player_wy = CellCenterY(player_cy)
+	move_from_wx = player_wx
+	move_from_wy = player_wy
+	move_to_wx = player_wx
+	move_to_wy = player_wy
+	Dim i As Integer
+	For i = 0 To TRAIL_LEN - 1
+		trail_x(i) = player_wx
+		trail_y(i) = player_wy
+	Next i
+End Sub
+
+Sub PlayRestart()
+	Call PlayInit()
+End Sub
+
+Function PlayState() As Integer
+	PlayState = play_state
+End Function
+
+Function PlaySignal() As Single
+	PlaySignal = signal
+End Function
+
+Function PlayFlow() As Integer
+	PlayFlow = flow
+End Function
+
+Function PlayGameTime() As Single
+	PlayGameTime = game_time
+End Function
+
+Function PlayShake() As Single
+	PlayShake = shake
+End Function
+
+Function PlayWinFlash() As Single
+	PlayWinFlash = win_flash
+End Function
+
+Function PlayDeathFlash() As Single
+	PlayDeathFlash = death_flash
+End Function
+
+Function PlayerWorldX() As Single
+	PlayerWorldX = player_wx
+End Function
+
+Function PlayerWorldY() As Single
+	PlayerWorldY = player_wy
+End Function
+
+Function ResistorTaken() As Boolean
+	ResistorTaken = resistor_taken
+End Function
+
+Function PickupCellX() As Integer
+	PickupCellX = pickup_cx
+End Function
+
+Function PickupCellY() As Integer
+	PickupCellY = pickup_cy
+End Function
+
+Function HazardCellX() As Integer
+	HazardCellX = hazard_cx
+End Function
+
+Function HazardCellY() As Integer
+	HazardCellY = hazard_cy
+End Function
+
+Function HazardPhase() As Single
+	HazardPhase = hazard_phase
+End Function
+
+Sub PushTrail(ByVal wx As Single, ByVal wy As Single)
+	Dim i As Integer
+	For i = TRAIL_LEN - 1 To 1 Step - 1
+		trail_x(i) = trail_x(i - 1)
+		trail_y(i) = trail_y(i - 1)
+	Next i
+	trail_x(0) = wx
+	trail_y(0) = wy
+End Sub
+
+Function TrailX(ByVal idx As Integer) As Single
+	Dim v As Single
+	v = trail_x(idx)
+	TrailX = v
+End Function
+
+Function TrailY(ByVal idx As Integer) As Single
+	Dim v As Single
+	v = trail_y(idx)
+	TrailY = v
+End Function
+
+Function TrailLen() As Integer
+	TrailLen = TRAIL_LEN
+End Function
+
+Sub TryStartMove(ByVal dx As Integer, ByVal dy As Integer)
+	If play_state < > STATE_PLAY Then Exit Sub
+	If moving Then
+		pending_dx = dx
+		pending_dy = dy
+		Exit Sub
+	End If
+	Dim nx As Integer
+	Dim ny As Integer
+	nx = player_cx + dx
+	ny = player_cy + dy
+	If Not IsWalkable(nx, ny) Then Exit Sub
+	moving = True
+	move_t = 0.0
+	move_spd = 1.0 / MOVE_SEC
+	If flow > 4 Then move_spd = move_spd * (1.0 + CSng(flow) * 0.025)
+	move_from_wx = player_wx
+	move_from_wy = player_wy
+	move_to_wx = CellCenterX(nx)
+	move_to_wy = CellCenterY(ny)
+	player_cx = nx
+	player_cy = ny
+	pending_dx = 0
+	pending_dy = 0
+End Sub
+
+Sub FinishMove()
+	moving = False
+	player_wx = move_to_wx
+	player_wy = move_to_wy
+	Call PushTrail(player_wx, player_wy)
+
+	If flow_timer > 0.0 Then
+		flow = flow + 1
+		If flow > 12 Then flow = 12
+		signal = signal + 1.5 + CSng(flow) * 0.35
+		If signal > SIGNAL_MAX Then signal = SIGNAL_MAX
+	Else
+		flow = 0
+	End If
+	flow_timer = 0.42
+
+	If Not resistor_taken Then
+		If player_cx = pickup_cx And player_cy = pickup_cy Then
+			resistor_taken = True
+			drain_mult = 0.55
+			signal = signal + 18.0
+			If signal > SIGNAL_MAX Then signal = SIGNAL_MAX
+		End If
+	End If
+
+	If GetCell(player_cx, player_cy) = CELL_GOAL Then
+		play_state = STATE_WIN
+		win_flash = 1.0
+	End If
+
+	If pending_dx < > 0 Or pending_dy < > 0 Then
+		Dim pdx As Integer
+		Dim pdy As Integer
+		pdx = pending_dx
+		pdy = pending_dy
+		pending_dx = 0
+		pending_dy = 0
+		Call TryStartMove(pdx, pdy)
+	ElseIf hold_dx < > 0 Or hold_dy < > 0 Then
+		' MOVE_SEC (0.11) is shorter than the old 0.16s hold repeat, so pending
+		' was never set during a held key — one idle beat between every tile.
+		Call TryStartMove(hold_dx, hold_dy)
+	End If
+End Sub
+
+Sub PlayApplyDirection(ByVal dx As Integer, ByVal dy As Integer)
+	If dx = 0 And dy = 0 Then Exit Sub
+	hold_dx = dx
+	hold_dy = dy
+	hold_timer = 0.0
+	Call TryStartMove(dx, dy)
+End Sub
+
+Sub PlayHandleKey(ByVal keycode As Integer)
+	If keycode = KEY_R Then
+		Call PlayRestart()
+		Exit Sub
+	End If
+	If play_state = STATE_WIN Or play_state = STATE_DEAD Then
+		If keycode = KEY_SPACE Or keycode = KEY_ENTER Or keycode = KEY_KP_ENTER Then
+			Call PlayRestart()
+		End If
+		Exit Sub
+	End If
+	If keycode = KEY_LEFT Or keycode = KEY_A Then
+		Call PlayApplyDirection(- 1, 0)
+	ElseIf keycode = KEY_RIGHT Or keycode = KEY_D Then
+		Call PlayApplyDirection(1, 0)
+	ElseIf keycode = KEY_UP Or keycode = KEY_W Then
+		Call PlayApplyDirection(0, - 1)
+	ElseIf keycode = KEY_DOWN Or keycode = KEY_S Then
+		Call PlayApplyDirection(0, 1)
+	End If
+End Sub
+
+Sub PlayPollHold(ByVal delta As Single)
+	If play_state < > STATE_PLAY Then Exit Sub
+	Dim dx As Integer
+	Dim dy As Integer
+	dx = 0
+	dy = 0
+	If Input.IsKeyPressed(KEY_UP) Or Input.IsKeyPressed(KEY_W) Or Input.IsActionPressed("ui_up") Then
+		dy = - 1
+	ElseIf Input.IsKeyPressed(KEY_DOWN) Or Input.IsKeyPressed(KEY_S) Or Input.IsActionPressed("ui_down") Then
+		dy = 1
+	ElseIf Input.IsKeyPressed(KEY_LEFT) Or Input.IsKeyPressed(KEY_A) Or Input.IsActionPressed("ui_left") Then
+		dx = - 1
+	ElseIf Input.IsKeyPressed(KEY_RIGHT) Or Input.IsKeyPressed(KEY_D) Or Input.IsActionPressed("ui_right") Then
+		dx = 1
+	End If
+	If dx = 0 And dy = 0 Then
+		hold_dx = 0
+		hold_dy = 0
+		hold_timer = 0.0
+		Exit Sub
+	End If
+	If hold_dx < > dx Or hold_dy < > dy Then
+		hold_dx = dx
+		hold_dy = dy
+		hold_timer = 0.0
+		Call TryStartMove(dx, dy)
+		Exit Sub
+	End If
+	hold_timer = hold_timer + delta
+	If hold_timer > = MOVE_SEC Then
+		hold_timer = 0.0
+		Call TryStartMove(dx, dy)
+	End If
+End Sub
+
+Sub PlayPollTap()
+	If play_state < > STATE_PLAY Then Exit Sub
+	If IsKeyJustPressed(KEY_LEFT) Or IsKeyJustPressed(KEY_A) Then
+		Call PlayApplyDirection(- 1, 0)
+	ElseIf IsKeyJustPressed(KEY_RIGHT) Or IsKeyJustPressed(KEY_D) Then
+		Call PlayApplyDirection(1, 0)
+	ElseIf IsKeyJustPressed(KEY_UP) Or IsKeyJustPressed(KEY_W) Then
+		Call PlayApplyDirection(0, - 1)
+	ElseIf IsKeyJustPressed(KEY_DOWN) Or IsKeyJustPressed(KEY_S) Then
+		Call PlayApplyDirection(0, 1)
+	End If
+End Sub
+
+Sub PlayPollRestartKeys()
+	If IsKeyJustPressed(KEY_R) Then
+		Call PlayRestart()
+		Exit Sub
+	End If
+	If play_state < > STATE_WIN And play_state < > STATE_DEAD Then Exit Sub
+	If IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_KP_ENTER) Then
+		Call PlayRestart()
+	End If
+End Sub
+
+Sub UpdateHazard(ByVal delta As Single)
+	hazard_phase = hazard_phase + delta * 1.35
+	If hazard_phase > 6.2831853 Then hazard_phase = hazard_phase - 6.2831853
+
+	Dim patrol As Integer
+	patrol = 8 + CInt(Sin(hazard_phase * 1.15) * 3.0)
+	If patrol < 5 Then patrol = 5
+	If patrol > 11 Then patrol = 11
+	hazard_cy = patrol
+
+	Dim hx As Single
+	Dim hy As Single
+	Dim rad As Single
+	hx = CellCenterX(hazard_cx)
+	hy = CellCenterY(hazard_cy)
+	rad = 11.0 + Sin(hazard_phase) * 9.0
+
+	Dim dist As Single
+	dist = Sqr((player_wx - hx) * (player_wx - hx) + (player_wy - hy) * (player_wy - hy))
+	If dist < rad + 4.0 Then
+		If play_state = STATE_PLAY Then
+			play_state = STATE_DEAD
+			death_flash = 1.0
+			shake = 0.35
+		End If
+	ElseIf dist < rad + 14.0 And play_state = STATE_PLAY Then
+		signal = signal - delta * 22.0
+		shake = shake + delta * 0.8
+	End If
+End Sub
+
+Sub PlayUpdate(ByVal delta As Single)
+	If delta > MAX_FRAME_DELTA Then delta = MAX_FRAME_DELTA
+	If delta < 0.0 Then delta = 0.0
+	Call PlayPollRestartKeys()
+	Call PlayPollTap()
+
+	If play_state = STATE_WIN Then
+		win_flash = win_flash - delta * 0.55
+		If win_flash < 0.0 Then win_flash = 0.0
+		Exit Sub
+	End If
+	If play_state = STATE_DEAD Then
+		death_flash = death_flash - delta * 0.7
+		If death_flash < 0.0 Then death_flash = 0.0
+		Exit Sub
+	End If
+
+	game_time = game_time + delta
+	Call PlayPollHold(delta)
+
+	Dim drain As Single
+	drain = 7.5 * drain_mult
+	If GetCell(player_cx, player_cy) = CELL_ROOM Then drain = drain * 0.62
+	If moving Then drain = drain * 1.08
+	drain = drain - CSng(flow) * 0.38
+	If drain < 2.0 Then drain = 2.0
+	signal = signal - drain * delta
+
+	flow_timer = flow_timer - delta
+	If flow_timer < 0.0 Then flow_timer = 0.0
+
+	If signal < = 0.0 Then
+		signal = 0.0
+		play_state = STATE_DEAD
+		death_flash = 1.0
+		shake = 0.4
+	End If
+
+	If moving Then
+		move_t = move_t + delta * move_spd
+		If move_t > = 1.0 Then
+			move_t = 1.0
+			player_wx = move_to_wx
+			player_wy = move_to_wy
+			Call FinishMove()
+		Else
+			player_wx = move_from_wx + (move_to_wx - move_from_wx) * move_t
+			player_wy = move_from_wy + (move_to_wy - move_from_wy) * move_t
+			If move_t > 0.15 Then Call PushTrail(player_wx, player_wy)
+		End If
+	End If
+
+	Call UpdateHazard(delta)
+
+	If shake > 0.0 Then
+		shake = shake - delta * 2.2
+		If shake < 0.0 Then shake = 0.0
+	End If
+End Sub

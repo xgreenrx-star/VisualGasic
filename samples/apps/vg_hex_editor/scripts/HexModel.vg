@@ -1,0 +1,495 @@
+' =============================================================================
+' HexModel.vg — shared file + cursor state for the hex editor
+' =============================================================================
+' Imported by Main.vg (toolbar / dialogs) and HexCanvas.vg (draw + keyboard).
+' Keeping state in one module avoids passing dozens of parameters between
+' the form and the custom-draw panel — a pattern you'll reuse in other tools.
+' =============================================================================
+Attribute VB_Name = "HexModel"
+
+' --- Limits (same cap as the IDE hex editor) ---
+Public Const MAX_FILE_BYTES As Long = 268435456  ' 256 MB
+Public Const MAX_UNDO As Integer = 64
+Public Const MAX_SEARCH_HITS As Integer = 512
+Public Const MAX_BOOKMARKS As Integer = 64
+Public Const MAX_HL As Integer = 16
+Public Const MAX_RECENT As Integer = 10
+Public Const UNDO_WRITE As Integer = 0
+Public Const UNDO_INSERT As Integer = 1
+Public Const UNDO_DELETE As Integer = 2
+
+' --- File buffer (MemoryBuffer = raw byte array with Peek/Poke) ---
+Public fileBuf As Variant
+Public filePath As String
+Public fileSize As Long
+Public modified As Boolean
+Public origBuf As Variant
+Public origSize As Long
+
+' --- View / edit ---
+Public bytesPerRow As Integer
+Public scrollRow As Long
+Public cursorOff As Long
+Public selStart As Long          ' -1 = no selection
+Public selEnd As Long
+Public selAnchor As Long
+Public inAsciiPanel As Boolean
+Public pendingNib As Integer     ' -1 = waiting for first hex digit
+Public insertMode As Boolean
+Public littleEndian As Boolean
+
+' --- Search ---
+Public findModeAscii As Boolean  ' False = hex pattern, True = UTF-8 text
+Public lastFindQuery As String
+Public searchHitOff(MAX_SEARCH_HITS) As Long
+Public searchHitCount As Integer
+Public curSearchIdx As Integer
+Public searchPatLen As Integer
+
+' --- Undo ---
+Public undoOff(MAX_UNDO) As Long
+Public undoOld(MAX_UNDO) As Integer
+Public undoNew(MAX_UNDO) As Integer
+Public undoKind(MAX_UNDO) As Integer
+Public undoCount As Integer
+Public redoOff(MAX_UNDO) As Long
+Public redoOld(MAX_UNDO) As Integer
+Public redoNew(MAX_UNDO) As Integer
+Public redoKind(MAX_UNDO) As Integer
+Public redoCount As Integer
+
+' --- Compare ---
+Public cmpBuf As Variant
+Public cmpSize As Long
+Public cmpPath As String
+
+' --- Bookmarks ---
+Public bmOff(MAX_BOOKMARKS) As Long
+Public bmName(MAX_BOOKMARKS) As String
+Public bmCount As Integer
+
+' --- Highlight patterns (hex without spaces + RGB) ---
+Public hlPat(MAX_HL) As String
+Public hlR(MAX_HL) As Integer
+Public hlG(MAX_HL) As Integer
+Public hlB(MAX_HL) As Integer
+Public hlLabel(MAX_HL) As String
+Public hlCount As Integer
+
+' --- Recent files ---
+Public recentPath(MAX_RECENT) As String
+Public recentCount As Integer
+
+' Reset everything to the empty-editor state.
+Sub ResetAll()
+	Set fileBuf = Nothing
+	Set origBuf = Nothing
+	Set cmpBuf = Nothing
+	filePath = ""
+	fileSize = 0
+	origSize = 0
+	modified = False
+	bytesPerRow = 16
+	scrollRow = 0
+	cursorOff = 0
+	selStart = -1
+	selEnd = -1
+	selAnchor = -1
+	inAsciiPanel = False
+	pendingNib = -1
+	insertMode = False
+	littleEndian = True
+	findModeAscii = False
+	lastFindQuery = ""
+	searchHitCount = 0
+	curSearchIdx = -1
+	searchPatLen = 0
+	undoCount = 0
+	redoCount = 0
+	cmpSize = 0
+	cmpPath = ""
+	bmCount = 0
+	' Highlight patterns persist across files (same as colour rules).
+End Sub
+
+Sub InitDefaults()
+	hlCount = 0
+	recentCount = 0
+	Call ResetAll()
+End Sub
+
+Function HasFile() As Boolean
+	HasFile = Not fileBuf Is Nothing And fileSize > 0
+End Function
+
+Function ClampOffset(off As Long) As Long
+	If Not HasFile() Then
+		ClampOffset = 0
+		Exit Function
+	End If
+	If off < 0 Then off = 0
+	If off >= fileSize Then off = fileSize - 1
+	ClampOffset = off
+End Function
+
+Function PeekSafe(off As Long) As Integer
+	If Not HasFile() Or off < 0 Or off >= fileSize Then
+		PeekSafe = 0
+	Else
+		PeekSafe = fileBuf.PeekByte(off)
+	End If
+End Function
+
+Sub RecordUndo(kind As Integer, off As Long, oldVal As Integer, newVal As Integer)
+	If undoCount < MAX_UNDO Then
+		undoKind(undoCount) = kind
+		undoOff(undoCount) = off
+		undoOld(undoCount) = oldVal
+		undoNew(undoCount) = newVal
+		undoCount = undoCount + 1
+	End If
+	redoCount = 0
+End Sub
+
+' Write one byte with undo recording. Clears redo stack.
+Sub WriteByte(off As Long, newVal As Integer)
+	If Not HasFile() Then Exit Sub
+	If off < 0 Or off >= fileSize Then Exit Sub
+	newVal = newVal And &HFF
+	Dim oldVal As Integer
+	oldVal = fileBuf.PeekByte(off)
+	If oldVal = newVal Then Exit Sub
+	Call RecordUndo(UNDO_WRITE, off, oldVal, newVal)
+	fileBuf.PokeByte off, newVal
+	modified = True
+End Sub
+
+Sub SnapshotOriginal()
+	If Not HasFile() Then
+		Set origBuf = Nothing
+		origSize = 0
+		Exit Sub
+	End If
+	Set origBuf = New MemoryBuffer(1)
+	origBuf.Allocate(fileSize)
+	fileBuf.CopyTo origBuf, 0, 0, fileSize
+	origSize = fileSize
+End Sub
+
+Function IsDirtyByte(off As Long) As Boolean
+	IsDirtyByte = False
+	If Not HasFile() Then Exit Function
+	If origBuf Is Nothing Then Exit Function
+	If off < 0 Or off >= fileSize Then Exit Function
+	If off >= origSize Then
+		IsDirtyByte = True
+		Exit Function
+	End If
+	IsDirtyByte = PeekSafe(off) <> origBuf.PeekByte(off)
+End Function
+
+Sub ClearSelection()
+	selStart = -1
+	selEnd = -1
+	selAnchor = -1
+End Sub
+
+Function SelectionActive() As Boolean
+	SelectionActive = selStart >= 0 And selEnd >= selStart
+End Function
+
+Sub SelRange(ByRef s As Long, ByRef e As Long)
+	If SelectionActive() Then
+		s = selStart
+		e = selEnd
+	Else
+		s = ClampOffset(cursorOff)
+		e = s
+	End If
+End Sub
+
+Sub ShiftMarksFrom(off As Long, delta As Long)
+	Dim i As Integer
+	For i = 0 To bmCount - 1
+		If bmOff(i) >= off Then
+			bmOff(i) = bmOff(i) + delta
+			If bmOff(i) < 0 Then bmOff(i) = 0
+		End If
+	Next i
+	For i = 0 To searchHitCount - 1
+		If searchHitOff(i) >= off Then
+			searchHitOff(i) = searchHitOff(i) + delta
+			If searchHitOff(i) < 0 Then searchHitOff(i) = 0
+		End If
+	Next i
+End Sub
+
+Sub InsertByteAt(off As Long, val As Integer)
+	If fileBuf Is Nothing Then Exit Sub
+	If fileSize >= MAX_FILE_BYTES Then Exit Sub
+	If off < 0 Then off = 0
+	If off > fileSize Then off = fileSize
+	Call ApplyInsertNoUndo(off, val And &HFF)
+	Call RecordUndo(UNDO_INSERT, off, 0, val And &HFF)
+	modified = True
+End Sub
+
+Sub DeleteByteAt(off As Long)
+	If Not HasFile() Then Exit Sub
+	If off < 0 Or off >= fileSize Then Exit Sub
+	Dim oldVal As Integer
+	oldVal = fileBuf.PeekByte(off)
+	Call ApplyDeleteNoUndo(off)
+	Call RecordUndo(UNDO_DELETE, off, oldVal, 0)
+	modified = True
+End Sub
+
+Sub ApplyInsertNoUndo(off As Long, val As Integer)
+	If fileSize <= 0 Then
+		fileBuf.Allocate 1
+		fileBuf.PokeByte 0, val And &HFF
+		fileSize = 1
+		cursorOff = 0
+	Else
+		fileBuf.Resize(fileSize + 1)
+		Dim i As Long
+		For i = fileSize - 1 To off Step -1
+			fileBuf.PokeByte i + 1, fileBuf.PeekByte(i)
+		Next i
+		fileBuf.PokeByte off, val And &HFF
+		fileSize = fileBuf.Size
+	End If
+	Call ShiftMarksFrom(off, 1)
+End Sub
+
+Sub ApplyDeleteNoUndo(off As Long)
+	If fileSize <= 1 Then
+		If HasFile() Then fileBuf.PokeByte 0, 0
+		fileSize = 0
+		cursorOff = 0
+		Exit Sub
+	End If
+	Dim i As Long
+	For i = off To fileSize - 2
+		fileBuf.PokeByte i, fileBuf.PeekByte(i + 1)
+	Next i
+	fileBuf.Resize(fileSize - 1)
+	fileSize = fileBuf.Size
+	Call ShiftMarksFrom(off + 1, -1)
+	If cursorOff >= fileSize Then cursorOff = fileSize - 1
+End Sub
+
+Function IsCompareDiff(off As Long) As Boolean
+	IsCompareDiff = False
+	If cmpSize <= 0 Or cmpBuf Is Nothing Then Exit Function
+	If Not HasFile() Then Exit Function
+	If off < 0 Or off >= fileSize Then Exit Function
+	If off >= cmpSize Then
+		IsCompareDiff = True
+	Else
+		IsCompareDiff = PeekSafe(off) <> cmpBuf.PeekByte(off)
+	End If
+End Function
+
+Function IsBookmark(off As Long) As Boolean
+	IsBookmark = False
+	Dim i As Integer
+	For i = 0 To bmCount - 1
+		If bmOff(i) = off Then
+			IsBookmark = True
+			Exit Function
+		End If
+	Next i
+End Function
+
+Function HighlightIndex(off As Long) As Integer
+	HighlightIndex = -1
+	If Not HasFile() Or hlCount <= 0 Then Exit Function
+	Dim i As Integer
+	For i = 0 To hlCount - 1
+		If HighlightMatches(i, off) Then
+			HighlightIndex = i
+			Exit Function
+		End If
+	Next i
+End Function
+
+Function HighlightMatches(idx As Integer, off As Long) As Boolean
+	HighlightMatches = False
+	Dim pat As String
+	pat = hlPat(idx)
+	Dim n As Integer
+	n = Len(pat) \ 2
+	If n <= 0 Then Exit Function
+	If off + n > fileSize Then Exit Function
+	Dim k As Integer
+	For k = 0 To n - 1
+		Dim pair As String
+		pair = Mid(pat, k * 2 + 1, 2)
+		If PeekSafe(off + k) <> Val("&H" + pair) Then Exit Function
+	Next k
+	HighlightMatches = True
+End Function
+
+Function ModeLabel() As String
+	If insertMode Then
+		ModeLabel = "INS"
+	Else
+		ModeLabel = "OVR"
+	End If
+End Function
+
+Function EndianLabel() As String
+	If littleEndian Then
+		EndianLabel = "LE"
+	Else
+		EndianLabel = "BE"
+	End If
+End Function
+
+' Human-readable status line for lblStatus.
+Function FormatStatusLine() As String
+	If Not HasFile() Then
+		FormatStatusLine = "No file loaded — click Open or press Ctrl+O"
+		Exit Function
+	End If
+	Dim off As Long
+	off = ClampOffset(cursorOff)
+	Dim b As Integer
+	b = PeekSafe(off)
+	Dim ch As String
+	If b >= 32 And b <= 126 Then
+		ch = Chr(b)
+	Else
+		ch = "."
+	End If
+	Dim selPart As String
+	selPart = ""
+	If SelectionActive() Then
+		selPart = "   Sel: " & CStr(selEnd - selStart + 1) & " bytes (0x" & Hex8(selStart) & "–0x" & Hex8(selEnd) & ")"
+	End If
+	FormatStatusLine = "Offset: 0x" & Hex8(off) & " (" & CStr(off) & ")   Value: 0x" & Hex2(b) & "   Dec: " & CStr(b) & "   Char: " & ch & "   Size: " & FormatSize(fileSize) & "   " & ModeLabel() & selPart
+End Function
+
+Function FormatInspectorLine() As String
+	If Not HasFile() Then
+		FormatInspectorLine = ""
+		Exit Function
+	End If
+	Dim off As Long
+	off = ClampOffset(cursorOff)
+	Dim line As String
+	line = "int8: " & CStr(Sign8(PeekSafe(off))) & "   uint8: " & CStr(PeekSafe(off))
+	If off + 1 < fileSize Then
+		line = line & "   int16" & EndianLabel() & ": " & CStr(PeekInt16(off)) & "   uint16" & EndianLabel() & ": " & CStr(PeekUInt16(off))
+	End If
+	If off + 3 < fileSize Then
+		line = line & "   int32" & EndianLabel() & ": " & CStr(PeekInt32(off)) & "   uint32" & EndianLabel() & ": " & CStr(PeekUInt32(off))
+		line = line & "   float32" & EndianLabel() & ": " & Format(PeekFloat32(off), "Fixed")
+	End If
+	If off + 7 < fileSize Then
+		line = line & "   float64" & EndianLabel() & ": " & Format(PeekFloat64(off), "Fixed")
+	End If
+	FormatInspectorLine = line
+End Function
+
+Function Sign8(v As Integer) As Integer
+	If v >= 128 Then
+		Sign8 = v - 256
+	Else
+		Sign8 = v
+	End If
+End Function
+
+Function OrderedByte(off As Long, idx As Integer, width As Integer) As Integer
+	If littleEndian Then
+		OrderedByte = PeekSafe(off + idx)
+	Else
+		OrderedByte = PeekSafe(off + (width - 1 - idx))
+	End If
+End Function
+
+Function PeekUInt16(off As Long) As Long
+	PeekUInt16 = OrderedByte(off, 0, 2) Or (CLng(OrderedByte(off, 1, 2)) * 256)
+End Function
+
+Function PeekInt16(off As Long) As Long
+	Dim u As Long
+	u = PeekUInt16(off)
+	If u >= 32768 Then u = u - 65536
+	PeekInt16 = u
+End Function
+
+Function PeekUInt32(off As Long) As Long
+	Dim u As Long
+	u = OrderedByte(off, 0, 4)
+	u = u + CLng(OrderedByte(off, 1, 4)) * 256
+	u = u + CLng(OrderedByte(off, 2, 4)) * 65536
+	u = u + CLng(OrderedByte(off, 3, 4)) * 16777216
+	PeekUInt32 = u
+End Function
+
+Function PeekInt32(off As Long) As Long
+	Dim u As Long
+	u = PeekUInt32(off)
+	If u >= 2147483648 Then u = u - 4294967296
+	PeekInt32 = u
+End Function
+
+Function PeekFloat32(off As Long) As Single
+	Dim tmp As Variant
+	Set tmp = New MemoryBuffer(1)
+	tmp.Allocate 4
+	tmp.PokeByte 0, OrderedByte(off, 0, 4)
+	tmp.PokeByte 1, OrderedByte(off, 1, 4)
+	tmp.PokeByte 2, OrderedByte(off, 2, 4)
+	tmp.PokeByte 3, OrderedByte(off, 3, 4)
+	PeekFloat32 = tmp.PeekFloat(0)
+End Function
+
+Function PeekFloat64(off As Long) As Double
+	Dim tmp As Variant
+	Set tmp = New MemoryBuffer(1)
+	tmp.Allocate 8
+	Dim i As Integer
+	For i = 0 To 7
+		tmp.PokeByte i, OrderedByte(off, i, 8)
+	Next i
+	PeekFloat64 = tmp.PeekDouble(0)
+End Function
+
+Function Hex2(v As Integer) As String
+	Dim s As String
+	s = Hex(v And &HFF)
+	If Len(s) = 1 Then s = "0" + s
+	Hex2 = s
+End Function
+
+Function Hex8(v As Long) As String
+	Dim s As String
+	s = Hex(v)
+	Do While Len(s) < 8
+		s = "0" + s
+	Loop
+	Hex8 = s
+End Function
+
+Function FormatSize(n As Long) As String
+	If n < 1024 Then
+		FormatSize = CStr(n) & " B"
+	ElseIf n < 1048576 Then
+		FormatSize = Format(n / 1024.0, "Fixed") & " KB"
+	Else
+		FormatSize = Format(n / 1048576.0, "Fixed") & " MB"
+	End If
+End Function
+
+Function FileNameOnly(path As String) As String
+	Dim p As Integer
+	p = InStrRev(path, "/")
+	If p <= 0 Then
+		FileNameOnly = path
+	Else
+		FileNameOnly = Mid(path, p + 1)
+	End If
+End Function

@@ -1,0 +1,645 @@
+' =============================================================================
+' HexCanvas.vg — custom hex + ASCII view (attached to pnlHexView Control)
+' =============================================================================
+' File/cursor state lives on the parent form (Main.vg + HexModel import).
+' This panel script is a separate VG instance — do not Import HexModel here or
+' you get an empty copy. Always read/write model state via Form() = GetParent().
+' =============================================================================
+
+Const CHAR_W As Single = 8.0
+Const CHAR_H As Single = 16.0
+Const FONT_SIZE As Integer = 13
+Const ROW_PAD As Single = 2.0
+
+Dim dragSelect As Boolean
+Dim viewBuf As Variant
+Dim viewSize As Long
+Dim viewBpr As Integer
+Dim viewScroll As Long
+Dim viewCursor As Long
+Dim viewSelStart As Long
+Dim viewSelEnd As Long
+Dim viewAscii As Boolean
+
+Function Form() As Object
+	Set Form = GetParent()
+End Function
+
+Sub _Ready()
+	dragSelect = False
+	viewSize = 0
+	viewBpr = 16
+	viewSelStart = -1
+	viewSelEnd = -1
+	GrabFocus()
+End Sub
+
+' Called by Main.RefreshAll with THIS form's HexModel buffer.
+Sub ShowFile(buf As Variant, sz As Long, bpr As Integer, srow As Long, coff As Long, s0 As Long, s1 As Long, asciiPanel As Boolean)
+	Set viewBuf = buf
+	viewSize = sz
+	viewBpr = bpr
+	If viewBpr < 1 Then viewBpr = 16
+	viewScroll = srow
+	viewCursor = coff
+	viewSelStart = s0
+	viewSelEnd = s1
+	viewAscii = asciiPanel
+	QueueRedraw
+End Sub
+
+Sub RefreshChrome()
+	QueueRedraw
+End Sub
+
+Function PeekView(off As Long) As Integer
+	If viewSize <= 0 Or off < 0 Or off >= viewSize Then
+		PeekView = 0
+	ElseIf viewBuf Is Nothing Then
+		PeekView = 0
+	Else
+		PeekView = viewBuf.PeekByte(off)
+	End If
+End Function
+
+Function Hex2(v As Integer) As String
+	Dim s As String
+	s = Hex(v And &HFF)
+	If Len(s) = 1 Then s = "0" + s
+	Hex2 = s
+End Function
+
+Function Hex8(v As Long) As String
+	Dim s As String
+	s = Hex(v)
+	Do While Len(s) < 8
+		s = "0" + s
+	Loop
+	Hex8 = s
+End Function
+
+Sub _Draw()
+	Dim panelW As Single
+	Dim panelH As Single
+	panelW = Width
+	panelH = Height
+	If panelW <= 1 Then panelW = 1024
+	If panelH <= 1 Then panelH = 592
+
+	DrawRect Rect2(0, 0, panelW, panelH), Color8(248, 248, 248), True
+
+	If viewSize <= 0 Or viewBuf Is Nothing Then
+		DrawString "Open a file to view hex", 12, 20, Color8(80, 80, 80), FONT_SIZE
+		Exit Sub
+	End If
+
+	Dim frm As Object
+	Set frm = Form()
+
+	Dim totalRows As Long
+	totalRows = (viewSize + viewBpr - 1) \ viewBpr
+	Dim rowsVisible As Integer
+	rowsVisible = Int((panelH - CHAR_H) / CHAR_H)
+	If rowsVisible < 1 Then rowsVisible = 1
+
+	Dim addrX As Single
+	Dim hexX As Single
+	Dim ascX As Single
+	Dim cellW As Single
+	addrX = 4.0
+	hexX = addrX + CHAR_W * 10.0
+	cellW = CHAR_W * 3.0
+	ascX = hexX + cellW * viewBpr + CHAR_W * 2.0
+
+	Dim hy As Single
+	hy = CHAR_H - 2.0
+	DrawString "  Offset  ", addrX, hy - FONT_SIZE, Color8(96, 96, 96), FONT_SIZE
+	Dim col As Integer
+	For col = 0 To viewBpr - 1
+		Dim xh As Single
+		xh = hexX + col * cellW
+		If col >= viewBpr \ 2 Then xh = xh + CHAR_W
+		DrawString Hex2(col) + " ", xh, hy - FONT_SIZE, Color8(96, 96, 96), FONT_SIZE
+	Next col
+	DrawLine Vector2(0, CHAR_H), Vector2(panelW, CHAR_H), Color8(200, 200, 200), 1.0
+
+	Dim pending As Integer
+	pending = -1
+	If Not frm Is Nothing Then pending = frm.pendingNib
+
+	Dim r As Integer
+	For r = 0 To rowsVisible
+		Dim row As Long
+		row = viewScroll + r
+		If row >= totalRows Then Exit For
+		Dim y As Single
+		y = CHAR_H + r * CHAR_H + 2.0
+		Dim rowOff As Long
+		rowOff = row * viewBpr
+
+		If row = viewCursor \ viewBpr Then
+			DrawRect Rect2(0, CHAR_H + r * CHAR_H, panelW, CHAR_H), Color8(221, 232, 251), True
+		End If
+
+		DrawString Hex8(rowOff), addrX, y, Color8(0, 0, 128), FONT_SIZE
+
+		For col = 0 To viewBpr - 1
+			Dim off As Long
+			off = rowOff + col
+			If off >= viewSize Then Exit For
+			Dim b As Integer
+			b = PeekView(off)
+			Dim xh2 As Single
+			xh2 = hexX + col * cellW
+			If col >= viewBpr \ 2 Then xh2 = xh2 + CHAR_W
+			Dim xa As Single
+			xa = ascX + col * CHAR_W
+			Dim ry As Single
+			ry = CHAR_H + r * CHAR_H
+
+			Dim isCur As Boolean
+			isCur = (off = viewCursor)
+			Dim inSel As Boolean
+			inSel = viewSelStart >= 0 And off >= viewSelStart And off <= viewSelEnd
+			Dim inHit As Boolean
+			inHit = False
+			Dim inCmp As Boolean
+			inCmp = False
+			Dim isDirty As Boolean
+			isDirty = False
+			Dim isBm As Boolean
+			isBm = False
+			Dim hlIdx As Integer
+			hlIdx = -1
+			If Not frm Is Nothing Then
+				inHit = IsSearchHit(frm, off)
+				inCmp = frm.IsCompareDiff(off)
+				isDirty = frm.IsDirtyByte(off)
+				isBm = frm.IsBookmark(off)
+				hlIdx = frm.HighlightIndex(off)
+			End If
+			Dim hasHl As Boolean
+			hasHl = hlIdx >= 0
+
+			If isBm Then
+				DrawRect Rect2(xh2 - 1, ry, 3.0, CHAR_H), Color8(218, 165, 32), True
+			End If
+
+			If isCur And Not viewAscii Then
+				DrawRect Rect2(xh2 - 1, ry, cellW, CHAR_H), Color8(0, 0, 128), True
+			ElseIf inSel Then
+				DrawRect Rect2(xh2 - 1, ry, cellW, CHAR_H), Color8(0, 0, 128), True
+			ElseIf inHit Then
+				DrawRect Rect2(xh2 - 1, ry, cellW, CHAR_H), Color8(204, 102, 0), True
+			ElseIf hasHl Then
+				DrawRect Rect2(xh2 - 1, ry, cellW, CHAR_H), Color8(frm.hlR(hlIdx), frm.hlG(hlIdx), frm.hlB(hlIdx), 80), True
+			ElseIf inCmp Then
+				DrawRect Rect2(xh2 - 1, ry, cellW, CHAR_H), Color8(139, 0, 0), True
+			End If
+
+			Dim tc As Color
+			If isCur And Not viewAscii Then
+				tc = Color8(255, 255, 255)
+			ElseIf inSel Or inHit Then
+				tc = Color8(255, 255, 255)
+			ElseIf isDirty Then
+				tc = Color8(204, 0, 0)
+			ElseIf hasHl Then
+				tc = Color8(frm.hlR(hlIdx), frm.hlG(hlIdx), frm.hlB(hlIdx))
+			ElseIf inCmp Then
+				tc = Color8(255, 128, 128)
+			ElseIf b = 0 Then
+				tc = Color8(136, 136, 136)
+			ElseIf b >= 32 And b <= 126 Then
+				tc = Color8(0, 0, 128)
+			ElseIf b >= 128 Then
+				tc = Color8(128, 0, 0)
+			Else
+				tc = Color8(0, 0, 0)
+			End If
+			If isCur And Not viewAscii And pending >= 0 Then
+				DrawString Hex(pending And 15) + "_", xh2, y, Color8(255, 204, 0), FONT_SIZE
+			Else
+				DrawString Hex2(b), xh2, y, tc, FONT_SIZE
+			End If
+
+			If isCur And viewAscii Then
+				DrawRect Rect2(xa, ry, CHAR_W, CHAR_H), Color8(0, 0, 128), True
+			ElseIf inSel Then
+				DrawRect Rect2(xa, ry, CHAR_W, CHAR_H), Color8(0, 0, 128), True
+			ElseIf inHit Then
+				DrawRect Rect2(xa, ry, CHAR_W, CHAR_H), Color8(204, 102, 0), True
+			ElseIf hasHl Then
+				DrawRect Rect2(xa, ry, CHAR_W, CHAR_H), Color8(frm.hlR(hlIdx), frm.hlG(hlIdx), frm.hlB(hlIdx), 80), True
+			ElseIf inCmp Then
+				DrawRect Rect2(xa, ry, CHAR_W, CHAR_H), Color8(139, 0, 0), True
+			End If
+
+			Dim ach As String
+			Dim tcA As Color
+			If b >= 32 And b <= 126 Then
+				ach = Chr(b)
+			Else
+				ach = "."
+			End If
+			If isCur And viewAscii Then
+				tcA = Color8(255, 255, 255)
+			ElseIf inSel Or inHit Then
+				tcA = Color8(255, 255, 255)
+			ElseIf isDirty Then
+				tcA = Color8(204, 0, 0)
+			ElseIf hasHl Then
+				tcA = Color8(frm.hlR(hlIdx), frm.hlG(hlIdx), frm.hlB(hlIdx))
+			ElseIf inCmp Then
+				tcA = Color8(255, 128, 128)
+			ElseIf b >= 32 And b <= 126 Then
+				tcA = Color8(0, 0, 128)
+			Else
+				tcA = Color8(153, 153, 153)
+			End If
+			DrawString ach, xa, y, tcA, FONT_SIZE
+		Next col
+	Next r
+
+	DrawLine Vector2(ascX - CHAR_W * 0.5, CHAR_H), Vector2(ascX - CHAR_W * 0.5, panelH), Color8(200, 200, 200), 1.0
+	DrawLine Vector2(ascX + viewBpr * CHAR_W + CHAR_W * 0.5, CHAR_H), Vector2(ascX + viewBpr * CHAR_W + CHAR_W * 0.5, panelH), Color8(200, 200, 200), 1.0
+End Sub
+
+Function IsSearchHit(frm, off As Long) As Boolean
+	IsSearchHit = False
+	If frm.searchHitCount <= 0 Or frm.searchPatLen <= 0 Then Exit Function
+	Dim i As Integer
+	For i = 0 To frm.searchHitCount - 1
+		If off >= frm.searchHitOff(i) And off < frm.searchHitOff(i) + frm.searchPatLen Then
+			IsSearchHit = True
+			Exit Function
+		End If
+	Next i
+End Function
+
+Sub _GuiInput(ev)
+	Call HandleCanvasInput(ev)
+End Sub
+
+Sub _UnhandledInput(ev)
+	Call HandleCanvasInput(ev)
+End Sub
+
+Sub HandleCanvasInput(ev)
+	Dim frm As Object
+	Set frm = Form()
+	If frm Is Nothing Then Exit Sub
+	If Not frm.HasFile() Then Exit Sub
+
+	If TypeOf ev Is InputEventMouseButton Then
+		Dim rightClick As Boolean
+		rightClick = (ev.button_index = 2)
+		Call HandleMouseButton(frm, ev)
+		If rightClick Then
+			GetViewport().set_input_as_handled()
+		Else
+			Call FinishInput(frm, True)
+		End If
+	ElseIf TypeOf ev Is InputEventMouseMotion Then
+		Call HandleMouseMotion(frm, ev)
+		If dragSelect Then Call FinishInput(frm, False)
+	ElseIf TypeOf ev Is InputEventKey Then
+		If ev.pressed And Not ev.echo Then
+			Call HandleKey(frm, ev)
+			Call FinishInput(frm, True)
+		End If
+	End If
+End Sub
+
+Sub FinishInput(frm, markHandled As Boolean)
+	Call SyncViewFromForm(frm)
+	QueueRedraw
+	Call frm.RefreshAll()
+	If markHandled Then
+		GetViewport().set_input_as_handled()
+	End If
+End Sub
+
+Sub SyncViewFromForm(frm)
+	If frm Is Nothing Then Exit Sub
+	viewCursor = frm.cursorOff
+	viewScroll = frm.scrollRow
+	viewSelStart = frm.selStart
+	viewSelEnd = frm.selEnd
+	viewAscii = frm.inAsciiPanel
+	viewBpr = frm.bytesPerRow
+	If viewBpr < 1 Then viewBpr = 16
+	viewSize = frm.fileSize
+	If Not frm.fileBuf Is Nothing Then
+		Set viewBuf = frm.fileBuf
+	End If
+End Sub
+
+Sub HandleMouseButton(frm, ev)
+	If ev.button_index = 1 And ev.pressed Then
+		GrabFocus()
+		Dim hit As Long
+		hit = HitTest(frm, ev.position.x, ev.position.y)
+		If hit >= 0 Then
+			If ev.shift_pressed And frm.selAnchor >= 0 Then
+				frm.selStart = frm.selAnchor
+				If hit < frm.selStart Then
+					frm.selEnd = frm.selAnchor
+					frm.selStart = hit
+				Else
+					frm.selEnd = hit
+				End If
+			Else
+				frm.selAnchor = hit
+				Call frm.ClearSelection()
+				dragSelect = True
+			End If
+			frm.cursorOff = hit
+			frm.inAsciiPanel = HitIsAscii(frm, ev.position.x)
+			frm.pendingNib = -1
+			Call ScrollToCursor(frm)
+			Call RefreshChrome()
+		End If
+	ElseIf ev.button_index = 1 And Not ev.pressed Then
+		dragSelect = False
+	ElseIf ev.button_index = 2 And ev.pressed Then
+		GrabFocus()
+		Dim hitR As Long
+		hitR = HitTest(frm, ev.position.x, ev.position.y)
+		If hitR >= 0 Then
+			frm.cursorOff = hitR
+			frm.inAsciiPanel = HitIsAscii(frm, ev.position.x)
+		End If
+		Call frm.ShowHexContext(ev.global_position)
+	ElseIf ev.button_index = 4 And ev.pressed Then
+		frm.scrollRow = frm.scrollRow - 3
+		If frm.scrollRow < 0 Then frm.scrollRow = 0
+		Call RefreshChrome()
+	ElseIf ev.button_index = 5 And ev.pressed Then
+		Dim totalRows As Long
+		totalRows = (frm.fileSize + frm.bytesPerRow - 1) \ frm.bytesPerRow
+		frm.scrollRow = frm.scrollRow + 3
+		If frm.scrollRow > totalRows - 1 Then frm.scrollRow = totalRows - 1
+		Call RefreshChrome()
+	End If
+End Sub
+
+Sub HandleMouseMotion(frm, ev)
+	If Not dragSelect Then Exit Sub
+	Dim hit As Long
+	hit = HitTest(frm, ev.position.x, ev.position.y)
+	If hit < 0 Then Exit Sub
+	frm.cursorOff = hit
+	frm.inAsciiPanel = HitIsAscii(frm, ev.position.x)
+	If frm.selAnchor >= 0 Then
+		frm.selStart = frm.selAnchor
+		If hit < frm.selStart Then
+			frm.selEnd = frm.selAnchor
+			frm.selStart = hit
+		Else
+			frm.selEnd = hit
+		End If
+	End If
+	Call RefreshChrome()
+End Sub
+
+Function HitTest(frm, px As Single, py As Single) As Long
+	HitTest = -1
+	If py < CHAR_H Then Exit Function
+	Dim hexX As Single
+	Dim ascX As Single
+	Dim cellW As Single
+	hexX = 4.0 + CHAR_W * 10.0
+	cellW = CHAR_W * 3.0
+	ascX = hexX + cellW * frm.bytesPerRow + CHAR_W * 2.0
+	Dim row As Long
+	row = frm.scrollRow + Int((py - CHAR_H) / CHAR_H)
+	Dim col As Integer
+	col = -1
+	Dim mid As Integer
+	mid = frm.bytesPerRow \ 2
+	If px >= hexX And px < ascX - CHAR_W * 0.5 Then
+		Dim rx As Single
+		rx = px - hexX
+		col = Int(rx / cellW)
+		If col >= mid Then
+			rx = rx - CHAR_W
+			col = Int(rx / cellW)
+		End If
+	ElseIf px >= ascX Then
+		col = Int((px - ascX) / CHAR_W)
+	End If
+	If col < 0 Or col >= frm.bytesPerRow Then Exit Function
+	Dim off As Long
+	off = row * frm.bytesPerRow + col
+	If off < 0 Or off >= frm.fileSize Then Exit Function
+	HitTest = off
+End Function
+
+Function HitIsAscii(frm, px As Single) As Boolean
+	Dim hexX As Single
+	Dim ascX As Single
+	Dim cellW As Single
+	hexX = 4.0 + CHAR_W * 10.0
+	cellW = CHAR_W * 3.0
+	ascX = hexX + cellW * frm.bytesPerRow + CHAR_W * 2.0
+	HitIsAscii = px >= ascX
+End Function
+
+Sub HandleKey(frm, ev)
+	If ev.ctrl_pressed Then
+		Select Case ev.keycode
+			Case KEY_S
+				Call frm.SaveFromCanvas()
+			Case KEY_O
+				Call frm.OpenFromCanvas()
+			Case KEY_Z
+				Call frm.UndoFromCanvas()
+			Case KEY_Y
+				Call frm.RedoFromCanvas()
+			Case KEY_C
+				Call CopySelectionHex(frm)
+			Case KEY_V
+				Call PasteHexFromClipboard(frm)
+			Case KEY_A
+				frm.selStart = 0
+				frm.selEnd = frm.fileSize - 1
+				frm.selAnchor = 0
+			Case KEY_G
+				Call frm.GoToFromCanvas()
+			Case KEY_F
+				Call frm.FocusFind()
+			Case KEY_B
+				Call frm.BookmarkFromCanvas()
+			Case KEY_HOME
+				frm.cursorOff = 0
+				frm.pendingNib = -1
+			Case KEY_END
+				frm.cursorOff = frm.fileSize - 1
+				frm.pendingNib = -1
+		End Select
+		Call RefreshChrome()
+		Exit Sub
+	End If
+
+	Select Case ev.keycode
+		Case KEY_TAB
+			frm.inAsciiPanel = Not frm.inAsciiPanel
+			frm.pendingNib = -1
+		Case KEY_INSERT
+			frm.insertMode = Not frm.insertMode
+		Case KEY_DELETE
+			If frm.insertMode Then Call frm.DeleteByteAt(frm.cursorOff)
+		Case KEY_BACKSPACE
+			If frm.insertMode And frm.cursorOff > 0 Then
+				frm.cursorOff = frm.cursorOff - 1
+				Call frm.DeleteByteAt(frm.cursorOff)
+			End If
+		Case KEY_F2
+			If ev.shift_pressed Then
+				Call frm.PrevBookmarkFromCanvas()
+			Else
+				Call frm.NextBookmarkFromCanvas()
+			End If
+		Case KEY_F3
+			If ev.shift_pressed Then
+				Call frm.FindPrevFromCanvas()
+			Else
+				Call frm.FindNextFromCanvas()
+			End If
+		Case KEY_LEFT
+			Call MoveCursor(frm, -1, ev.shift_pressed)
+		Case KEY_RIGHT
+			Call MoveCursor(frm, 1, ev.shift_pressed)
+		Case KEY_UP
+			Call MoveCursor(frm, -frm.bytesPerRow, ev.shift_pressed)
+		Case KEY_DOWN
+			Call MoveCursor(frm, frm.bytesPerRow, ev.shift_pressed)
+		Case KEY_PAGEUP
+			Call MoveCursor(frm, -frm.bytesPerRow * 16, ev.shift_pressed)
+		Case KEY_PAGEDOWN
+			Call MoveCursor(frm, frm.bytesPerRow * 16, ev.shift_pressed)
+		Case KEY_HOME
+			frm.cursorOff = (frm.cursorOff \ frm.bytesPerRow) * frm.bytesPerRow
+			frm.pendingNib = -1
+		Case KEY_END
+			frm.cursorOff = (frm.cursorOff \ frm.bytesPerRow) * frm.bytesPerRow + frm.bytesPerRow - 1
+			If frm.cursorOff >= frm.fileSize Then frm.cursorOff = frm.fileSize - 1
+			frm.pendingNib = -1
+		Case Else
+			If Not frm.inAsciiPanel Then
+				Dim nib As Integer
+				nib = KeyToHex(ev)
+				If nib >= 0 Then
+					Call TypeHexNibble(frm, nib)
+				End If
+			Else
+				Dim uch As Integer
+				uch = ev.unicode
+				If uch >= 32 And uch <= 126 Then
+					Call frm.WriteByte(frm.cursorOff, uch)
+					If frm.cursorOff + 1 < frm.fileSize Then frm.cursorOff = frm.cursorOff + 1
+				End If
+			End If
+	End Select
+	Call ScrollToCursor(frm)
+	Call RefreshChrome()
+End Sub
+
+Sub MoveCursor(frm, delta As Long, extendSel As Boolean)
+	Dim old As Long
+	old = frm.cursorOff
+	frm.cursorOff = frm.cursorOff + delta
+	frm.cursorOff = frm.ClampOffset(frm.cursorOff)
+	frm.pendingNib = -1
+	If extendSel Then
+		If frm.selAnchor < 0 Then frm.selAnchor = old
+		frm.selStart = frm.selAnchor
+		If frm.cursorOff < frm.selStart Then
+			frm.selEnd = frm.selAnchor
+			frm.selStart = frm.cursorOff
+		Else
+			frm.selEnd = frm.cursorOff
+		End If
+	Else
+		Call frm.ClearSelection()
+	End If
+End Sub
+
+Sub ScrollToCursor(frm)
+	Dim row As Long
+	row = frm.cursorOff \ frm.bytesPerRow
+	Dim rowsVisible As Integer
+	rowsVisible = Int((Height - CHAR_H) / CHAR_H)
+	If rowsVisible < 1 Then rowsVisible = 1
+	If row < frm.scrollRow Then frm.scrollRow = row
+	If row >= frm.scrollRow + rowsVisible Then frm.scrollRow = row - rowsVisible + 1
+End Sub
+
+Function KeyToHex(ev) As Integer
+	KeyToHex = -1
+	Dim k As Integer
+	k = ev.keycode
+	If k >= KEY_0 And k <= KEY_9 Then KeyToHex = k - KEY_0
+	If k >= KEY_A And k <= KEY_F Then KeyToHex = 10 + (k - KEY_A)
+	If k >= KEY_KP_0 And k <= KEY_KP_9 Then KeyToHex = k - KEY_KP_0
+End Function
+
+Sub TypeHexNibble(frm, nib As Integer)
+	If frm.pendingNib < 0 Then
+		frm.pendingNib = nib
+	Else
+		Call frm.WriteByte(frm.cursorOff, (frm.pendingNib * 16) Or nib)
+		frm.pendingNib = -1
+		If frm.cursorOff + 1 < frm.fileSize Then frm.cursorOff = frm.cursorOff + 1
+	End If
+End Sub
+
+Sub CopySelectionHex(frm)
+	If Not frm.HasFile() Then Exit Sub
+	Dim s As Long
+	Dim e As Long
+	If frm.SelectionActive() Then
+		s = frm.selStart
+		e = frm.selEnd
+	Else
+		s = frm.cursorOff
+		e = frm.cursorOff
+	End If
+	Dim parts As String
+	parts = ""
+	Dim i As Long
+	For i = s To e
+		If parts <> "" Then parts = parts + " "
+		parts = parts + frm.Hex2(frm.PeekSafe(i))
+	Next i
+	DisplayServer.ClipboardSet(parts)
+End Sub
+
+Sub PasteHexFromClipboard(frm)
+	Dim clip As String
+	clip = DisplayServer.ClipboardGet()
+	clip = Replace(clip, " ", "")
+	clip = Replace(clip, Chr(9), "")
+	clip = Replace(clip, Chr(10), "")
+	clip = Replace(clip, Chr(13), "")
+	clip = LCase(clip)
+	If Len(clip) = 0 Or (Len(clip) Mod 2) <> 0 Then Exit Sub
+	Dim pos As Long
+	pos = frm.cursorOff
+	Dim i As Integer
+	For i = 1 To Len(clip) Step 2
+		Dim pair As String
+		pair = Mid(clip, i, 2)
+		If pos < frm.fileSize Then
+			Call frm.WriteByte(pos, Val("&H" + pair))
+			pos = pos + 1
+		ElseIf frm.insertMode Then
+			Call frm.InsertByteAt(pos, Val("&H" + pair))
+			pos = pos + 1
+		Else
+			Exit For
+		End If
+	Next i
+	frm.cursorOff = frm.ClampOffset(pos)
+End Sub

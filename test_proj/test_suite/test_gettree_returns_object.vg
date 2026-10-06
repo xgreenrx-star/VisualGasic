@@ -1,0 +1,21 @@
+' GetTree() must return the SceneTree so GetTree().Quit() is not a null call.
+Attribute VB_Name = "TestGetTreeReturnsObject"
+
+Sub _Ready()
+	Dim tree As Object
+	Set tree = GetTree()
+	If tree Is Nothing Then
+		Print "FAIL: gettree_returns_object"
+	Else
+		Print "PASS: gettree_returns_object"
+	End If
+	Dim root As Object
+	Set root = GetTree().GetRoot()
+	If root Is Nothing Then
+		Print "FAIL: gettree_chain"
+	Else
+		Print "PASS: gettree_chain"
+	End If
+	Call GetTree().GetRoot()
+	Print "PASS: gettree_call_statement"
+End Sub

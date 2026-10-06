@@ -1,0 +1,194 @@
+' Vector glow board — wires, rooms, hazard pulse, trail, HUD.
+Option Explicit
+
+Import "res://scripts/Grid.vg"
+Import "res://scripts/Play.vg"
+
+Const PI As Single = 3.14159265
+
+Sub RenderBoardStatic(ByVal canvas_board As Object)
+	Dim ox As Single
+	Dim oy As Single
+	Dim x As Integer
+	Dim y As Integer
+	ox = GridOffsetX()
+	oy = GridOffsetY()
+	Call canvas_board.Clear()
+	For y = 0 To GH - 1
+		For x = 0 To GW - 1
+			Dim c As Integer
+			c = GetCell(x, y)
+			If c = CELL_WALL Then Continue For
+			Dim px As Single
+			Dim py As Single
+			px = ox + CSng(x * TILE)
+			py = oy + CSng(y * TILE)
+			If c = CELL_ROOM Then
+				Call canvas_board.DrawRect(Rect2(px + 2.0, py + 2.0, CSng(TILE) - 4.0, CSng(TILE) - 4.0), 0.0, Color8(16, 23, 39, 255), True, Color8(20, 28, 48, 255))
+			ElseIf c = CELL_GOAL Then
+				Call canvas_board.DrawRect(Rect2(px + 1.0, py + 1.0, CSng(TILE) - 2.0, CSng(TILE) - 2.0), 1.5, Color8(255, 220, 80, 255), False, Color8(255, 200, 60, 255))
+			Else
+				Call canvas_board.DrawRect(Rect2(px + 1.0, py + 1.0, CSng(TILE) - 2.0, CSng(TILE) - 2.0), 0.0, Color8(11, 18, 28, 255), True, Color8(10, 16, 26, 255))
+			End If
+		Next x
+	Next y
+	Dim colWire As Color
+	colWire = Color8(40, 120, 180, 255)
+	For y = 0 To GH - 1
+		For x = 0 To GW - 2
+			If GetCell(x, y) < > CELL_WALL And GetCell(x + 1, y) < > CELL_WALL Then
+				If GetCell(x, y) = CELL_WIRE Or GetCell(x + 1, y) = CELL_WIRE Or GetCell(x, y) = CELL_GOAL Or GetCell(x + 1, y) = CELL_GOAL Then
+					Call canvas_board.DrawLine(Vector2(CellCenterX(x), CellCenterY(y)), Vector2(CellCenterX(x + 1), CellCenterY(y)), 2.0, colWire)
+				End If
+			End If
+		Next x
+	Next y
+	For y = 0 To GH - 2
+		For x = 0 To GW - 1
+			If GetCell(x, y) < > CELL_WALL And GetCell(x, y + 1) < > CELL_WALL Then
+				If GetCell(x, y) = CELL_WIRE Or GetCell(x, y + 1) = CELL_WIRE Or GetCell(x, y) = CELL_GOAL Or GetCell(x, y + 1) = CELL_GOAL Then
+					Call canvas_board.DrawLine(Vector2(CellCenterX(x), CellCenterY(y)), Vector2(CellCenterX(x), CellCenterY(y + 1)), 2.0, colWire)
+				End If
+			End If
+		Next x
+	Next y
+	Dim gx As Single
+	Dim gy As Single
+	gx = CellCenterX(goal_cx)
+	gy = CellCenterY(goal_cy)
+	Call canvas_board.DrawLine(Vector2(gx, gy - 12.0), Vector2(gx, gy + 8.0), 2.5, Color8(255, 240, 120, 255))
+	Call canvas_board.DrawCircle(Vector2(gx, gy - 14.0), 5.0, Color8(255, 200, 60, 255), True, Color8(255, 220, 100, 255))
+End Sub
+
+Sub RenderFrame(ByVal canvas_board As Object, ByVal canvas_fx As Object, ByVal canvas_ui As Object)
+	Dim t As Single
+	Dim ox As Single
+	Dim oy As Single
+	t = PlayGameTime()
+	ox = GridOffsetX() + Sin(t * 48.0) * PlayShake() * 14.0
+	oy = GridOffsetY() + Cos(t * 52.0) * PlayShake() * 14.0
+
+	Call canvas_fx.Clear()
+	Call canvas_ui.Clear()
+
+	' Pickup — resistor glyph (dynamic layer; board is cached static)
+	If Not ResistorTaken() Then
+		Dim pkx As Single
+		Dim pky As Single
+		pkx = CellCenterX(PickupCellX()) + (ox - GridOffsetX())
+		pky = CellCenterY(PickupCellY()) + (oy - GridOffsetY())
+		Dim colPk As Color
+		colPk = Color8(255, 190, 70, 255)
+		Call canvas_fx.DrawLine(Vector2(pkx - 14.0, pky), Vector2(pkx - 9.0, pky), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx - 9.0, pky), Vector2(pkx - 7.0, pky - 5.0), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx - 7.0, pky - 5.0), Vector2(pkx - 3.0, pky + 5.0), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx - 3.0, pky + 5.0), Vector2(pkx + 1.0, pky - 5.0), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx + 1.0, pky - 5.0), Vector2(pkx + 5.0, pky + 5.0), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx + 5.0, pky + 5.0), Vector2(pkx + 9.0, pky), 2.0, colPk)
+		Call canvas_fx.DrawLine(Vector2(pkx + 9.0, pky), Vector2(pkx + 14.0, pky), 2.0, colPk)
+		Call canvas_fx.DrawCircle(Vector2(pkx, pky), 14.0 + Sin(t * 4.0) * 3.0, Color8(255, 160, 40, 120), False, Color8(0, 0, 0, 0))
+	End If
+
+	' Short circuit hazard
+	Dim hx As Single
+	Dim hy As Single
+	hx = CellCenterX(HazardCellX()) + (ox - GridOffsetX())
+	hy = CellCenterY(HazardCellY()) + (oy - GridOffsetY())
+	Dim phase As Single
+	phase = HazardPhase()
+	Dim hr As Single
+	hr = 11.0 + Sin(phase) * 9.0
+	Call canvas_fx.DrawCircle(Vector2(hx, hy), hr + 6.0, Color8(255, 60, 40, 90), False, Color8(0, 0, 0, 0))
+	Call canvas_fx.DrawCircle(Vector2(hx, hy), hr, Color8(255, 100, 60, 200), False, Color8(255, 40, 20, 255))
+	Call canvas_fx.DrawLine(Vector2(hx - hr, hy), Vector2(hx + hr, hy), 2.0, Color8(255, 220, 180, 220))
+	Call canvas_fx.DrawLine(Vector2(hx, hy - hr * 0.6), Vector2(hx, hy + hr * 0.6), 2.0, Color8(255, 220, 180, 220))
+	' Player trail
+	Dim i As Integer
+	Dim n As Integer
+	n = TrailLen()
+	For i = n - 1 To 1 Step - 1
+		Dim a As Single
+		a = 1.0 - CSng(i) / CSng(n)
+		Call canvas_fx.DrawLine(Vector2(TrailX(i) + (ox - GridOffsetX()), TrailY(i) + (oy - GridOffsetY())), Vector2(TrailX(i - 1) + (ox - GridOffsetX()), TrailY(i - 1) + (oy - GridOffsetY())), 2.0 + a * 4.0, Color8(CByte(40 + a * 180), CByte(200 + a * 55), 255, CByte(30 + a * 200)))
+	Next i
+
+	Dim px As Single
+	Dim py As Single
+	px = PlayerWorldX() + (ox - GridOffsetX())
+	py = PlayerWorldY() + (oy - GridOffsetY())
+	Call canvas_fx.DrawCircle(Vector2(px, py), 10.0, Color8(80, 240, 255, 80), False, Color8(0, 0, 0, 0))
+	Call canvas_fx.DrawCircle(Vector2(px, py), 7.0, Color8(0, 220, 255, 255), False, Color8(0, 180, 220, 255))
+	Call canvas_fx.DrawCircle(Vector2(px, py), 5.5, Color8(200, 255, 255, 255), True, Color8(120, 240, 255, 255))
+
+	' Goal pin glow (base pin is on the static board layer)
+	Dim gx As Single
+	Dim gy As Single
+	gx = CellCenterX(goal_cx) + (ox - GridOffsetX())
+	gy = CellCenterY(goal_cy) + (oy - GridOffsetY())
+	Call canvas_fx.DrawCircle(Vector2(gx, gy), 16.0 + Sin(t * 3.0) * 4.0, Color8(255, 230, 80, 100), False, Color8(0, 0, 0, 0))
+
+	Call RenderHud(canvas_ui, t)
+
+	If PlayState() = STATE_WIN Then
+		Call canvas_ui.DrawVectorTextCentered(Vector2(640.0, 300.0), "PIN LOCKED", Color8(255, 230, 120), 4.0, 3.2, 4.2, "")
+		Call canvas_ui.DrawVectorTextCentered(Vector2(640.0, 360.0), "R — RUN AGAIN", Color8(160, 200, 240), 1.6, 1.4, 2.0, "")
+	End If
+	If PlayState() = STATE_DEAD Then
+		Call canvas_ui.DrawVectorTextCentered(Vector2(640.0, 300.0), "FUSED", Color8(255, 80, 60), 4.2, 3.4, 4.4, "")
+		Call canvas_ui.DrawVectorTextCentered(Vector2(640.0, 360.0), "R — REBOOT TRACE", Color8(160, 180, 200), 1.6, 1.4, 2.0, "")
+	End If
+
+	Dim flash As Single
+	flash = PlayDeathFlash()
+	If flash > 0.0 Then
+		Call canvas_ui.DrawRect(Rect2(0.0, 0.0, 1280.0, 720.0), 0.0, Color8(255, 40, 20, CByte(flash * 120.0)), True, Color8(255, 0, 0, CByte(flash * 80.0)))
+	End If
+	flash = PlayWinFlash()
+	If flash > 0.0 Then
+		Call canvas_ui.DrawRect(Rect2(0.0, 0.0, 1280.0, 720.0), 0.0, Color8(255, 220, 100, CByte(flash * 70.0)), True, Color8(255, 200, 80, CByte(flash * 50.0)))
+	End If
+End Sub
+
+Sub RenderHud(ByVal canvas_ui As Object, ByVal t As Single)
+	Dim colTitle As Color
+	Dim colDim As Color
+	colTitle = Color8(120, 220, 255)
+	colDim = Color8(100, 130, 170)
+	Call canvas_ui.DrawVectorText(Vector2(24.0, 18.0), "CIRCUIT BREAKER", colTitle, 2.2, 1.9, "left", 2.4, "")
+	Call canvas_ui.DrawVectorText(Vector2(24.0, 48.0), "TRACE THE BUS — BEAT THE DRAIN", colDim, 1.3, 1.2, "left", 1.5, "")
+
+	Dim sig As Single
+	sig = PlaySignal()
+	Dim barW As Single
+	barW = 420.0
+	Dim bx As Single
+	Dim by As Single
+	bx = 1280.0 - barW - 32.0
+	by = 28.0
+	Call canvas_ui.DrawRect(Rect2(bx, by, barW, 14.0), 1.0, Color8(30, 40, 60, 255), False, Color8(60, 80, 120, 255))
+	Dim frac As Single
+	frac = sig / 100.0
+	If frac < 0.0 Then frac = 0.0
+	If frac > 1.0 Then frac = 1.0
+	Dim r As Integer
+	Dim g As Integer
+	r = CInt(80.0 + (1.0 - frac) * 175.0)
+	g = CInt(220.0 * frac + 40.0)
+	Call canvas_ui.DrawRect(Rect2(bx + 2.0, by + 2.0, (barW - 4.0) * frac, 10.0), 0.0, Color8(CByte(r), CByte(g), 255, 255), True, Color8(CByte(r), CByte(g), 200, 255))
+	Call canvas_ui.DrawVectorText(Vector2(bx, by - 18.0), "SIGNAL", colDim, 1.2, 1.1, "left", 1.4, "")
+
+	Dim flow As Integer
+	flow = PlayFlow()
+	If flow > 0 Then
+		Call canvas_ui.DrawVectorText(Vector2(bx, by + 22.0), "FLOW x" & CStr(flow), Color8(80, 255, 220), 1.5, 1.3, "left", 1.8, "")
+	End If
+
+	If sig < 25.0 Then
+		Dim vig As Single
+		vig = (25.0 - sig) / 25.0
+		Call canvas_ui.DrawRect(Rect2(0.0, 0.0, 1280.0, 48.0 * vig), 0.0, Color8(0, 0, 0, CByte(vig * 140.0)), True, Color8(0, 0, 0, CByte(vig * 100.0)))
+		Call canvas_ui.DrawRect(Rect2(0.0, 720.0 - 48.0 * vig, 1280.0, 48.0 * vig), 0.0, Color8(0, 0, 0, CByte(vig * 140.0)), True, Color8(0, 0, 0, CByte(vig * 100.0)))
+	End If
+
+	Call canvas_ui.DrawVectorText(Vector2(24.0, 680.0), "WASD / ARROWS — MOVE (HOLD)   R — RESTART", colDim, 1.1, 1.0, "left", 1.3, "")
+End Sub

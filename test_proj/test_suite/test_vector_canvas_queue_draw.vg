@@ -1,0 +1,23 @@
+' Regression: canvas.DrawRect from _Ready/_Process must queue, not call
+' CanvasItem.draw_rect (illegal outside _draw — floods the log and hangs quit).
+' MAX_FRAMES: 5
+Option Explicit
+
+Dim canvas As Object
+
+Sub _Ready()
+	Set canvas = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas)
+	Call canvas.Clear()
+	Call canvas.DrawRect(Rect2(10.0, 10.0, 40.0, 20.0), 1.0, Color8(255, 0, 0, 255), True, Color8(255, 0, 0, 255))
+	Call canvas.DrawLine(Vector2(0.0, 0.0), Vector2(8.0, 8.0), 2.0, Color8(0, 255, 0, 255))
+	Call canvas.DrawCircle(Vector2(16.0, 16.0), 4.0, Color8(0, 0, 255, 255), False, Color8(0, 0, 0, 0))
+	Call canvas.ExecuteQueuedCommands()
+	Dim n As Integer
+	n = canvas.GetCommandCount()
+	If n >= 3 Then
+		Print "PASS: vector_canvas_queue_draw"
+	Else
+		Print "FAIL: vector_canvas_queue_draw: queued=" & CStr(n)
+	End If
+End Sub

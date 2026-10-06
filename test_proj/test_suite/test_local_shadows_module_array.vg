@@ -1,0 +1,26 @@
+' A procedure Dim must shadow a module array of the same name.
+' DrawSeg's local sx0 used to overwrite the facility wall array.
+Attribute VB_Name = "TestLocalShadowsModuleArray"
+
+Dim sx0(4) As Single
+
+Sub _Ready()
+	sx0(0) = 9.0
+	Call Clobber()
+	If sx0(0) = 9.0 Then
+		Print "PASS: local_scalar_does_not_clobber_module_array"
+	Else
+		Print "FAIL: local_scalar_does_not_clobber_module_array got " & CStr(sx0(0))
+	End If
+	Print "TEST_COMPLETE"
+End Sub
+
+Sub Clobber()
+	Dim sx0 As Single
+	sx0 = 1.5
+	If sx0 = 1.5 Then
+		Print "PASS: local_scalar_read"
+	Else
+		Print "FAIL: local_scalar_read"
+	End If
+End Sub

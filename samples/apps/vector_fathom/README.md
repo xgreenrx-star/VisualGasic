@@ -40,6 +40,7 @@ Open `project.godot` in Godot 4.6+ with Visual Gasic enabled.
 - **S / Down** — brake  
 - **A D / Left Right** — steer  
 - **V** — cockpit ↔ top-down  
+- **Track select → Vector Chamber** — free-fly wire room (WASD fly, Q/E turn, R/F height, Esc back)  
 
 ## Web export
 

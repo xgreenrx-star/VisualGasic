@@ -8,6 +8,7 @@ Import "res://scripts/RoadDraw.vg"
 Import "res://scripts/Entities.vg"
 Import "res://scripts/GameFlow.vg"
 Import "res://scripts/Garage.vg"
+Import "res://scripts/ParadoxChamber.vg"
 
 Const ScreenW As Single = 960.0
 Const ScreenH As Single = 540.0
@@ -122,7 +123,12 @@ Sub _Process(ByVal delta As Single)
 	game_time = game_time + delta
 	Call UpdateGameFlow(delta)
 
-	If CurrentState() = StateRacing Then
+	If CurrentState() = StateChamber Then
+		Call UpdateParadoxChamber(delta)
+		If IsKeyJustPressed(KEY_ESCAPE) Then
+			Call ExitChamberToTracks()
+		End If
+	ElseIf CurrentState() = StateRacing Then
 		lap_time = lap_time + delta
 		Call _ReadRaceInput(delta)
 		Call UpdateEntities(delta, game_time, player_dist)
@@ -157,6 +163,8 @@ Sub _ReadMenuInput()
 		Call MenuConfirm()
 		If CurrentState() = StateRacing Then
 			Call _ResetRace()
+		ElseIf CurrentState() = StateChamber Then
+			Call InitParadoxChamber()
 		End If
 	End If
 	If Input.IsActionJustPressed("ui_cancel") Or IsKeyJustPressed(KEY_ESCAPE) Then
@@ -236,6 +244,11 @@ Sub _DrawFrame()
 	canvas_ent.Clear()
 	canvas_fx.Clear()
 	canvas_ui.Clear()
+
+	If CurrentState() = StateChamber Then
+		Call DrawParadoxChamber(canvas_ent, canvas_fx, canvas_ui, ScreenW, ScreenH, game_time)
+		Exit Sub
+	End If
 
 	If CurrentState() < > StateRacing Then
 		Call _ReadMenuInput()

@@ -1,0 +1,62 @@
+' =============================================================================
+' UndoOps.vg — undo / redo for overwrites, insert, and delete
+' =============================================================================
+Attribute VB_Name = "UndoOps"
+Import "HexModel.vg"
+
+Sub PushRedo(kind As Integer, off As Long, oldVal As Integer, newVal As Integer)
+	If redoCount >= MAX_UNDO Then Exit Sub
+	redoKind(redoCount) = kind
+	redoOff(redoCount) = off
+	redoOld(redoCount) = oldVal
+	redoNew(redoCount) = newVal
+	redoCount = redoCount + 1
+End Sub
+
+Sub DoUndo()
+	If undoCount <= 0 Then Exit Sub
+	undoCount = undoCount - 1
+	Dim idx As Integer
+	idx = undoCount
+	Dim kind As Integer
+	kind = undoKind(idx)
+	Dim off As Long
+	off = undoOff(idx)
+	Call PushRedo(kind, off, undoOld(idx), undoNew(idx))
+	If kind = UNDO_WRITE Then
+		fileBuf.PokeByte off, undoOld(idx)
+	ElseIf kind = UNDO_INSERT Then
+		Call ApplyDeleteNoUndo(off)
+	ElseIf kind = UNDO_DELETE Then
+		Call ApplyInsertNoUndo(off, undoOld(idx))
+	End If
+	cursorOff = ClampOffset(off)
+	modified = True
+End Sub
+
+Sub DoRedo()
+	If redoCount <= 0 Then Exit Sub
+	redoCount = redoCount - 1
+	Dim idx As Integer
+	idx = redoCount
+	Dim kind As Integer
+	kind = redoKind(idx)
+	Dim off As Long
+	off = redoOff(idx)
+	If undoCount < MAX_UNDO Then
+		undoKind(undoCount) = kind
+		undoOff(undoCount) = off
+		undoOld(undoCount) = redoOld(idx)
+		undoNew(undoCount) = redoNew(idx)
+		undoCount = undoCount + 1
+	End If
+	If kind = UNDO_WRITE Then
+		fileBuf.PokeByte off, redoNew(idx)
+	ElseIf kind = UNDO_INSERT Then
+		Call ApplyInsertNoUndo(off, redoNew(idx))
+	ElseIf kind = UNDO_DELETE Then
+		Call ApplyDeleteNoUndo(off)
+	End If
+	cursorOff = ClampOffset(off)
+	modified = True
+End Sub

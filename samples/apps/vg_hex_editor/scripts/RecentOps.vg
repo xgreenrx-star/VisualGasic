@@ -1,0 +1,64 @@
+' =============================================================================
+' RecentOps.vg — last 10 paths persisted to user://vg_hex_recent.txt
+' =============================================================================
+' Uses ReadAllText / WriteAllText (not FileAccess.open — avoids Runtime 91 in
+' imported modules where ClassDB static dispatch can fail at Form_Load).
+' =============================================================================
+Attribute VB_Name = "RecentOps"
+Import "HexModel.vg"
+
+Private Const RECENT_FILE As String = "user://vg_hex_recent.txt"
+
+Sub LoadRecent()
+	recentCount = 0
+	If Not FileExists(RECENT_FILE) Then Exit Sub
+	Dim lines As Variant
+	lines = ReadLines(RECENT_FILE)
+	Dim n As Integer
+	n = UBound(lines) + 1
+	Dim i As Integer
+	For i = 0 To n - 1
+		Dim line As String
+		line = Trim(Replace(lines[i], Chr(13), ""))
+		If line <> "" And recentCount < MAX_RECENT Then
+			recentPath(recentCount) = line
+			recentCount = recentCount + 1
+		End If
+	Next i
+End Sub
+
+Sub SaveRecent()
+	Dim txt As String
+	txt = ""
+	Dim i As Integer
+	For i = 0 To recentCount - 1
+		If i > 0 Then txt = txt + Chr(10)
+		txt = txt + recentPath(i)
+	Next i
+	WriteAllText RECENT_FILE, txt
+End Sub
+
+Sub AddRecent(path As String)
+	path = Trim(path)
+	If path = "" Then Exit Sub
+	Dim i As Integer
+	Dim j As Integer
+	For i = 0 To recentCount - 1
+		If recentPath(i) = path Then
+			For j = i To 1 Step -1
+				recentPath(j) = recentPath(j - 1)
+			Next j
+			recentPath(0) = path
+			Call SaveRecent()
+			Exit Sub
+		End If
+	Next i
+	If recentCount < MAX_RECENT Then
+		recentCount = recentCount + 1
+	End If
+	For j = recentCount - 1 To 1 Step -1
+		recentPath(j) = recentPath(j - 1)
+	Next j
+	recentPath(0) = path
+	Call SaveRecent()
+End Sub

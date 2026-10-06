@@ -1,0 +1,230 @@
+' Vector Chamber — free-fly wire room in the Paradox Vector family.
+' Black void, colored edges, additive second stroke for glow. Not a port of that game.
+Option Explicit
+
+Dim cam_x As Single
+Dim cam_y As Single
+Dim cam_z As Single
+Dim cam_yaw As Single
+Dim cam_pitch As Single
+
+Sub InitParadoxChamber()
+	cam_x = 0.0
+	cam_y = 2.4
+	cam_z = -4.0
+	cam_yaw = 0.0
+	cam_pitch = -0.18
+End Sub
+
+Sub UpdateParadoxChamber(ByVal delta As Single)
+	Dim turn As Single
+	Dim move As Single
+	Dim strafe As Single
+	Dim lift As Single
+	turn = 0.0
+	move = 0.0
+	strafe = 0.0
+	lift = 0.0
+	If Input.IsKeyPressed(KEY_Q) Or Input.IsKeyPressed(KEY_LEFT) Then turn = turn + 1.0
+	If Input.IsKeyPressed(KEY_E) Or Input.IsKeyPressed(KEY_RIGHT) Then turn = turn - 1.0
+	If Input.IsKeyPressed(KEY_W) Or Input.IsKeyPressed(KEY_UP) Then move = move + 1.0
+	If Input.IsKeyPressed(KEY_S) Or Input.IsKeyPressed(KEY_DOWN) Then move = move - 1.0
+	If Input.IsKeyPressed(KEY_A) Then strafe = strafe - 1.0
+	If Input.IsKeyPressed(KEY_D) Then strafe = strafe + 1.0
+	If Input.IsKeyPressed(KEY_R) Then lift = lift + 1.0
+	If Input.IsKeyPressed(KEY_F) Then lift = lift - 1.0
+
+	cam_yaw = cam_yaw + turn * 1.15 * delta
+	Dim cy As Single
+	Dim sy As Single
+	cy = Cos(cam_yaw)
+	sy = Sin(cam_yaw)
+	cam_x = cam_x + (sy * move + cy * strafe) * 12.0 * delta
+	cam_z = cam_z + (cy * move - sy * strafe) * 12.0 * delta
+	cam_y = cam_y + lift * 8.0 * delta
+	If cam_y < 0.6 Then cam_y = 0.6
+	If cam_y > 22.0 Then cam_y = 22.0
+End Sub
+
+Sub DrawParadoxChamber(ByVal canvas As Object, ByVal glow As Object, ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single, ByVal gameTime As Single)
+	Dim grid As Color
+	Dim cube As Color
+	Dim plantG As Color
+	Dim plantM As Color
+	Dim plantP As Color
+	Dim orange As Color
+	Dim bubble As Color
+	grid = Color8(50, 220, 255)
+	cube = Color8(190, 255, 255)
+	plantG = Color8(40, 255, 90)
+	plantM = Color8(255, 50, 190)
+	plantP = Color8(170, 60, 255)
+	orange = Color8(255, 100, 30)
+	bubble = Color8(230, 255, 255)
+
+	' Floor grid. Lines run in world X and Z so the camera reads depth.
+	Dim g As Integer
+	For g = -8 To 8
+		Call _Seg(canvas, glow, g * 4.0, 0.0, -6.0, g * 4.0, 0.0, 70.0, grid, screenW, screenH)
+	Next
+	For g = 0 To 16
+		Call _Seg(canvas, glow, -32.0, 0.0, g * 4.0, 32.0, 0.0, g * 4.0, grid, screenW, screenH)
+	Next
+
+	Call _WallRings(canvas, glow, -34.0, 18.0, grid, screenW, screenH)
+	Call _WallRings(canvas, glow, 34.0, 42.0, grid, screenW, screenH)
+
+	Call _Box(canvas, glow, -2.0, 9.5, 26.0, 3.2, cube, screenW, screenH)
+	Call _Box(canvas, glow, 2.4, 12.2, 29.0, 2.4, cube, screenW, screenH)
+	Call _Box(canvas, glow, 0.2, 14.6, 24.0, 1.6, cube, screenW, screenH)
+	Call _Box(canvas, glow, 6.0, 8.0, 22.0, 2.0, grid, screenW, screenH)
+
+	Call _Box(canvas, glow, 10.0, 1.4, 12.0, 1.6, plantG, screenW, screenH)
+	Call _Box(canvas, glow, 12.2, 3.2, 13.5, 1.3, plantG, screenW, screenH)
+	Call _Box(canvas, glow, 16.0, 0.7, 8.0, 1.1, orange, screenW, screenH)
+
+	Call _Plant(canvas, glow, -10.0, 6.0, 3.4, plantM, screenW, screenH)
+	Call _Plant(canvas, glow, -16.0, 14.0, 4.2, plantP, screenW, screenH)
+	Call _Plant(canvas, glow, -6.0, 20.0, 2.6, plantG, screenW, screenH)
+	Call _Plant(canvas, glow, 8.0, 18.0, 3.8, plantG, screenW, screenH)
+	Call _Plant(canvas, glow, 18.0, 16.0, 4.6, plantM, screenW, screenH)
+	Call _Plant(canvas, glow, -18.0, 28.0, 3.0, plantG, screenW, screenH)
+
+	Call _Bubbles(canvas, glow, bubble, gameTime, screenW, screenH)
+	Call _Ring(canvas, glow, 2.0, 6.5, 40.0, 1.1, Color8(255, 40, 50), screenW, screenH)
+
+	Call canvas_ui.DrawVectorText(Vector2(24, 22), "VECTOR CHAMBER", Color8(140, 220, 255), 1.8, 1.5, "left", 2.0, "")
+	Call canvas_ui.DrawVectorText(Vector2(24, 48), "WASD FLY   Q E TURN   R F UP DOWN   ESC BACK", Color8(120, 150, 180), 1.15, 1.0, "left", 1.4, "")
+End Sub
+
+Sub _WallRings(ByVal canvas As Object, ByVal glow As Object, ByVal wallX As Single, ByVal wallZ As Single, ByVal col As Color, ByVal screenW As Single, ByVal screenH As Single)
+	Dim k As Integer
+	For k = 1 To 5
+		Dim s As Single
+		s = k * 1.15
+		Dim y0 As Single
+		Dim y1 As Single
+		Dim z0 As Single
+		Dim z1 As Single
+		y0 = 6.0 - s
+		y1 = 6.0 + s
+		z0 = wallZ - s
+		z1 = wallZ + s
+		Call _Seg(canvas, glow, wallX, y0, z0, wallX, y0, z1, col, screenW, screenH)
+		Call _Seg(canvas, glow, wallX, y1, z0, wallX, y1, z1, col, screenW, screenH)
+		Call _Seg(canvas, glow, wallX, y0, z0, wallX, y1, z0, col, screenW, screenH)
+		Call _Seg(canvas, glow, wallX, y0, z1, wallX, y1, z1, col, screenW, screenH)
+	Next
+End Sub
+
+Sub _Box(ByVal canvas As Object, ByVal glow As Object, ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal s As Single, ByVal col As Color, ByVal screenW As Single, ByVal screenH As Single)
+	Dim x0 As Single
+	Dim y0 As Single
+	Dim z0 As Single
+	Dim x1 As Single
+	Dim y1 As Single
+	Dim z1 As Single
+	x0 = cx - s
+	y0 = cy - s
+	z0 = cz - s
+	x1 = cx + s
+	y1 = cy + s
+	z1 = cz + s
+	Call _Seg(canvas, glow, x0, y0, z0, x1, y0, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y0, z0, x1, y0, z1, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y0, z1, x0, y0, z1, col, screenW, screenH)
+	Call _Seg(canvas, glow, x0, y0, z1, x0, y0, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x0, y1, z0, x1, y1, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y1, z0, x1, y1, z1, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y1, z1, x0, y1, z1, col, screenW, screenH)
+	Call _Seg(canvas, glow, x0, y1, z1, x0, y1, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x0, y0, z0, x0, y1, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y0, z0, x1, y1, z0, col, screenW, screenH)
+	Call _Seg(canvas, glow, x1, y0, z1, x1, y1, z1, col, screenW, screenH)
+	Call _Seg(canvas, glow, x0, y0, z1, x0, y1, z1, col, screenW, screenH)
+End Sub
+
+Sub _Plant(ByVal canvas As Object, ByVal glow As Object, ByVal x As Single, ByVal z As Single, ByVal h As Single, ByVal col As Color, ByVal screenW As Single, ByVal screenH As Single)
+	Call _Seg(canvas, glow, x, 0.0, z, x, h, z, col, screenW, screenH)
+	Call _Seg(canvas, glow, x, h * 0.45, z, x - 1.4, h * 0.85, z + 0.3, col, screenW, screenH)
+	Call _Seg(canvas, glow, x, h * 0.45, z, x + 1.3, h * 0.8, z - 0.2, col, screenW, screenH)
+	Call _Seg(canvas, glow, x - 1.4, h * 0.85, z + 0.3, x, h * 1.05, z, col, screenW, screenH)
+	Call _Seg(canvas, glow, x + 1.3, h * 0.8, z - 0.2, x, h * 1.05, z, col, screenW, screenH)
+	Call _Seg(canvas, glow, x, h * 0.7, z, x, h * 1.15, z + 1.1, col, screenW, screenH)
+End Sub
+
+Sub _Bubbles(ByVal canvas As Object, ByVal glow As Object, ByVal col As Color, ByVal gameTime As Single, ByVal screenW As Single, ByVal screenH As Single)
+	Dim i As Integer
+	For i = 0 To 17
+		Dim phase As Single
+		phase = gameTime * 0.55 + i * 0.7
+		Dim by As Single
+		by = 1.2 + (phase - Int(phase / 14.0) * 14.0)
+		Dim bx As Single
+		Dim bz As Single
+		bx = -4.0 + (i Mod 6) * 1.7
+		bz = 20.0 + Int(i / 6) * 2.4
+		Call _Ring(canvas, glow, bx, by, bz, 0.28 + (i Mod 3) * 0.08, col, screenW, screenH)
+	Next
+End Sub
+
+Sub _Ring(ByVal canvas As Object, ByVal glow As Object, ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal rad As Single, ByVal col As Color, ByVal screenW As Single, ByVal screenH As Single)
+	Dim i As Integer
+	For i = 0 To 7
+		Dim a0 As Single
+		Dim a1 As Single
+		a0 = i * 0.785398
+		a1 = a0 + 0.785398
+		Call _Seg(canvas, glow, cx + Cos(a0) * rad, cy + Sin(a0) * rad, cz, cx + Cos(a1) * rad, cy + Sin(a1) * rad, cz, col, screenW, screenH)
+	Next
+End Sub
+
+Sub _Seg(ByVal canvas As Object, ByVal glow As Object, ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal col As Color, ByVal screenW As Single, ByVal screenH As Single)
+	Dim sx0 As Single
+	Dim sy0 As Single
+	Dim sx1 As Single
+	Dim sy1 As Single
+	Dim vis0 As Boolean
+	Dim vis1 As Boolean
+	Call _Project(x0, y0, z0, screenW, screenH, sx0, sy0, vis0)
+	Call _Project(x1, y1, z1, screenW, screenH, sx1, sy1, vis1)
+	If Not vis0 Or Not vis1 Then Exit Sub
+	Call canvas.DrawLine(Vector2(sx0, sy0), Vector2(sx1, sy1), 1.4, col)
+	Call glow.DrawLine(Vector2(sx0, sy0), Vector2(sx1, sy1), 3.4, col)
+End Sub
+
+Sub _Project(ByVal wx As Single, ByVal wy As Single, ByVal wz As Single, ByVal screenW As Single, ByVal screenH As Single, ByRef sx As Single, ByRef sy As Single, ByRef vis As Boolean)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = wx - cam_x
+	dy = wy - cam_y
+	dz = wz - cam_z
+	Dim cy As Single
+	Dim syaw As Single
+	cy = Cos(cam_yaw)
+	syaw = Sin(cam_yaw)
+	Dim lx As Single
+	Dim lz As Single
+	lx = dx * cy - dz * syaw
+	lz = dx * syaw + dz * cy
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(cam_pitch)
+	sp = Sin(cam_pitch)
+	Dim ly As Single
+	Dim fz As Single
+	ly = dy * cp - lz * sp
+	fz = dy * sp + lz * cp
+	If fz < 0.85 Then
+		vis = False
+		sx = 0.0
+		sy = 0.0
+		Exit Sub
+	End If
+	Dim f As Single
+	f = screenH * 0.95 / fz
+	sx = screenW * 0.5 + lx * f
+	sy = screenH * 0.58 - ly * f
+	vis = True
+End Sub

@@ -1,0 +1,59 @@
+' Regression: imported sibling Functions (GetCell / GridOffsetX / CellCenterX)
+' must return, not recurse. Mirrors Circuit Breaker Grid.vg call graph.
+' MAX_FRAMES: 8
+Option Explicit
+
+Import "test_import_grid_helpers_lib.vg"
+
+Sub _Ready()
+	Call InitDemoLevel()
+
+	Dim c As Integer
+	c = GetCell(1, 1)
+	If c <> 1 Then
+		Print "FAIL: import_sibling_getcell_wire: got " & CStr(c)
+		Return
+	End If
+	c = GetCell(0, 0)
+	If c <> 0 Then
+		Print "FAIL: import_sibling_getcell_wall: got " & CStr(c)
+		Return
+	End If
+	c = GetCell(-1, 0)
+	If c <> 0 Then
+		Print "FAIL: import_sibling_getcell_oob: got " & CStr(c)
+		Return
+	End If
+
+	Dim ox As Single
+	ox = GridOffsetX()
+	If ox <= 0.0 Then
+		Print "FAIL: import_sibling_offsetx: got " & CStr(ox)
+		Return
+	End If
+
+	Dim cxw As Single
+	cxw = CellCenterX(1)
+	If cxw <= ox Then
+		Print "FAIL: import_sibling_centerx: got " & CStr(cxw)
+		Return
+	End If
+
+	Dim x As Integer
+	Dim y As Integer
+	Dim nWire As Integer
+	nWire = 0
+	For y = 0 To 5
+		For x = 0 To 7
+			c = GetCell(x, y)
+			If c = 0 Then Continue For
+			nWire = nWire + 1
+		Next x
+	Next y
+	If nWire < 1 Then
+		Print "FAIL: import_sibling_continue_scan: nWire=" & CStr(nWire)
+		Return
+	End If
+
+	Print "PASS: import_sibling_grid"
+End Sub

@@ -1,0 +1,140 @@
+' Circuit board layout — hand-authored demo floor (prefab before procgen).
+Option Explicit
+
+Const GW As Integer = 38
+Const GH As Integer = 22
+Const TILE As Integer = 28
+
+Const CELL_WALL As Integer = 0
+Const CELL_WIRE As Integer = 1
+Const CELL_ROOM As Integer = 2
+Const CELL_GOAL As Integer = 3
+
+Dim cb_cells(GW * GH - 1) As Integer
+Dim start_cx As Integer
+Dim start_cy As Integer
+Dim goal_cx As Integer
+Dim goal_cy As Integer
+
+Function CellIdx(ByVal cx As Integer, ByVal cy As Integer) As Integer
+	CellIdx = cy * GW + cx
+End Function
+
+Function GetCell(ByVal cx As Integer, ByVal cy As Integer) As Integer
+	Dim v As Integer
+	If cx < 0 Or cy < 0 Or cx >= GW Or cy >= GH Then
+		GetCell = CELL_WALL
+		Exit Function
+	End If
+	v = cb_cells(CellIdx(cx, cy))
+	GetCell = v
+End Function
+
+Function IsWalkable(ByVal cx As Integer, ByVal cy As Integer) As Boolean
+	Dim c As Integer
+	c = GetCell(cx, cy)
+	IsWalkable = (c = CELL_WIRE Or c = CELL_ROOM Or c = CELL_GOAL)
+End Function
+
+Sub SetCell(ByVal cx As Integer, ByVal cy As Integer, ByVal v As Integer)
+	If cx < 0 Or cy < 0 Or cx >= GW Or cy >= GH Then Exit Sub
+	cb_cells(CellIdx(cx, cy)) = v
+End Sub
+
+Sub InitDemoLevel()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To GH - 1
+		For x = 0 To GW - 1
+			SetCell x, y, CELL_WALL
+		Next x
+	Next y
+
+	' Outer wire ring
+	For x = 1 To GW - 2
+		SetCell x, 1, CELL_WIRE
+		SetCell x, GH - 2, CELL_WIRE
+	Next x
+	For y = 1 To GH - 2
+		SetCell 1, y, CELL_WIRE
+		SetCell GW - 2, y, CELL_WIRE
+	Next y
+
+	' Main trace — S-curve corridor
+	For x = 2 To 14
+		SetCell x, 3, CELL_WIRE
+	Next x
+	For y = 3 To 10
+		SetCell 14, y, CELL_WIRE
+	Next y
+	For x = 14 To 26
+		SetCell x, 10, CELL_WIRE
+	Next x
+	For y = 10 To 17
+		SetCell 26, y, CELL_WIRE
+	Next y
+	For x = 10 To 26
+		SetCell x, 17, CELL_WIRE
+	Next x
+	For y = 12 To 17
+		SetCell 10, y, CELL_WIRE
+	Next y
+	For x = 10 To 24
+		SetCell x, 12, CELL_WIRE
+	Next x
+	For x = 18 To GW - 3
+		SetCell x, 17, CELL_WIRE
+	Next x
+	For y = 17 To GH - 3
+		SetCell GW - 3, y, CELL_WIRE
+	Next y
+
+	' North pickup room — branch off the main bus at (7, 3)
+	SetCell 7, 4, CELL_WIRE
+	For x = 4 To 9
+		For y = 5 To 8
+			SetCell x, y, CELL_ROOM
+		Next y
+	Next x
+	For x = 19 To 24
+		For y = 13 To 16
+			SetCell x, y, CELL_ROOM
+		Next y
+	Next x
+
+	' Hot shortcut (risky wire-only choke)
+	For y = 5 To 11
+		SetCell 20, y, CELL_WIRE
+	Next y
+
+	start_cx = 3
+	start_cy = 3
+	goal_cx = GW - 4
+	goal_cy = GH - 4
+	SetCell start_cx, start_cy, CELL_WIRE
+	SetCell goal_cx, goal_cy, CELL_GOAL
+End Sub
+
+Function GridOffsetX() As Single
+	Dim v As Single
+	v = (1280.0 - CSng(GW * TILE)) * 0.5
+	GridOffsetX = v
+End Function
+
+Function GridOffsetY() As Single
+	Dim v As Single
+	v = (720.0 - CSng(GH * TILE)) * 0.5 + 12.0
+	GridOffsetY = v
+End Function
+
+Function CellCenterX(ByVal cx As Integer) As Single
+	Dim ox As Single
+	ox = GridOffsetX()
+	CellCenterX = ox + CSng(cx * TILE) + CSng(TILE) * 0.5
+End Function
+
+Function CellCenterY(ByVal cy As Integer) As Single
+	Dim oy As Single
+	oy = GridOffsetY()
+	CellCenterY = oy + CSng(cy * TILE) + CSng(TILE) * 0.5
+End Function

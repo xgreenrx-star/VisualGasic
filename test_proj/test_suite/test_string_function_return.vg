@@ -1,0 +1,25 @@
+' A String function must return the assigned text, not the typed zero.
+Attribute VB_Name = "TestStringFunctionReturn"
+
+Function ChamberTitle(ByVal id As Integer) As String
+	Dim label As String
+	label = "RECOVERY VAULT"
+	If id = 2 Then label = "ANNEX"
+	ChamberTitle = label & ""
+End Function
+
+Sub _Ready()
+	Dim cap As String
+	cap = ChamberTitle(0)
+	If cap = "RECOVERY VAULT" Then
+		Print "PASS: string_function_return"
+	Else
+		Print "FAIL: string_function_return: got " & cap
+	End If
+	cap = ChamberTitle(2)
+	If cap = "ANNEX" Then
+		Print "PASS: string_function_return_branch"
+	Else
+		Print "FAIL: string_function_return_branch: got " & cap
+	End If
+End Sub

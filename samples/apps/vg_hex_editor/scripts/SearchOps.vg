@@ -1,0 +1,169 @@
+' =============================================================================
+' SearchOps.vg — find hex or ASCII patterns in the open file
+' =============================================================================
+Attribute VB_Name = "SearchOps"
+Import "HexModel.vg"
+
+Sub RunSearch(query As String)
+	query = Trim(query)
+	lastFindQuery = query
+	searchHitCount = 0
+	curSearchIdx = -1
+	searchPatLen = 0
+	If query = "" Or Not HasFile() Then Exit Sub
+
+	Dim pat As PackedByteArray
+	If findModeAscii Then
+		pat = query.to_utf8_buffer()
+	Else
+		pat = ParseHexPattern(query)
+	End If
+	If pat.size() <= 0 Then Exit Sub
+	searchPatLen = pat.size()
+
+	Dim pos As Long
+	pos = 0
+	Do While pos <= fileSize - searchPatLen
+		pos = fileBuf.FindPattern(pat, pos)
+		If pos < 0 Then Exit Do
+		If searchHitCount < MAX_SEARCH_HITS Then
+			searchHitOff(searchHitCount) = pos
+			searchHitCount = searchHitCount + 1
+		End If
+		pos = pos + 1
+	Loop
+
+	If searchHitCount > 0 Then
+		Call JumpToSearchResult(0)
+	End If
+End Sub
+
+Function ParseHexPattern(q As String) As PackedByteArray
+	Dim out As PackedByteArray
+	q = Replace(q, " ", "")
+	q = Replace(q, Chr(9), "")
+	q = LCase(q)
+	If Len(q) = 0 Or (Len(q) Mod 2) <> 0 Then
+		Set ParseHexPattern = out
+		Exit Function
+	End If
+	Dim i As Integer
+	For i = 1 To Len(q) Step 2
+		Dim pair As String
+		pair = Mid(q, i, 2)
+		If Not IsHexPair(pair) Then
+			Set ParseHexPattern = out
+			Exit Function
+		End If
+		out.append(HexPairToInt(pair))
+	Next i
+	Set ParseHexPattern = out
+End Function
+
+Function IsHexPair(s As String) As Boolean
+	Dim c As String
+	c = Left(s, 1)
+	If InStr("0123456789abcdef", c) = 0 Then Exit Function
+	c = Right(s, 1)
+	If InStr("0123456789abcdef", c) = 0 Then Exit Function
+	IsHexPair = True
+End Function
+
+Function HexPairToInt(s As String) As Integer
+	HexPairToInt = Val("&H" + s)
+End Function
+
+Function MatchAt(pat As PackedByteArray, off As Long) As Boolean
+	Dim i As Integer
+	For i = 0 To pat.size() - 1
+		If fileBuf.PeekByte(off + i) <> pat[i] Then
+			MatchAt = False
+			Exit Function
+		End If
+	Next i
+	MatchAt = True
+End Function
+
+Sub JumpToSearchResult(idx As Integer)
+	If searchHitCount <= 0 Then Exit Sub
+	If idx < 0 Then idx = 0
+	If idx >= searchHitCount Then idx = searchHitCount - 1
+	curSearchIdx = idx
+	cursorOff = searchHitOff(idx)
+	scrollRow = cursorOff \ bytesPerRow
+End Sub
+
+Sub NextHit()
+	If searchHitCount <= 0 Then Exit Sub
+	Dim n As Integer
+	n = curSearchIdx + 1
+	If n >= searchHitCount Then n = 0
+	Call JumpToSearchResult(n)
+End Sub
+
+Sub PrevHit()
+	If searchHitCount <= 0 Then Exit Sub
+	Dim n As Integer
+	n = curSearchIdx - 1
+	If n < 0 Then n = searchHitCount - 1
+	Call JumpToSearchResult(n)
+End Sub
+
+Function FindResultLabel() As String
+	' Empty until the user runs a search — avoids "Not found" on fresh startup.
+	If searchPatLen <= 0 Then
+		FindResultLabel = ""
+	ElseIf searchHitCount <= 0 Then
+		FindResultLabel = "Not found"
+	Else
+		FindResultLabel = CStr(curSearchIdx + 1) & " / " & CStr(searchHitCount)
+	End If
+End Function
+
+Sub ReplaceCurrent(hexRep As String)
+	If searchHitCount <= 0 Or curSearchIdx < 0 Then Exit Sub
+	Dim rep As PackedByteArray
+	Set rep = ParseHexPattern(hexRep)
+	If rep.size() <= 0 Then Exit Sub
+	Dim off As Long
+	off = searchHitOff(curSearchIdx)
+	Dim n As Integer
+	n = rep.size()
+	If n > searchPatLen Then n = searchPatLen
+	Dim i As Integer
+	For i = 0 To n - 1
+		If off + i < fileSize Then Call WriteByte(off + i, rep[i])
+	Next i
+	Dim keepIdx As Integer
+	keepIdx = curSearchIdx
+	Call RunSearch(lastFindQuery)
+	If searchHitCount > 0 Then
+		If keepIdx >= searchHitCount Then keepIdx = searchHitCount - 1
+		Call JumpToSearchResult(keepIdx)
+	End If
+End Sub
+
+Sub ReplaceAll(hexRep As String)
+	If searchHitCount <= 0 Then Exit Sub
+	Dim rep As PackedByteArray
+	Set rep = ParseHexPattern(hexRep)
+	If rep.size() <= 0 Then Exit Sub
+	Dim n As Integer
+	n = rep.size()
+	If n > searchPatLen Then n = searchPatLen
+	Dim snap(MAX_SEARCH_HITS) As Long
+	Dim snapN As Integer
+	snapN = searchHitCount
+	Dim i As Integer
+	For i = 0 To snapN - 1
+		snap(i) = searchHitOff(i)
+	Next i
+	Dim h As Integer
+	For h = 0 To snapN - 1
+		Dim j As Integer
+		For j = 0 To n - 1
+			If snap(h) + j < fileSize Then Call WriteByte(snap(h) + j, rep[j])
+		Next j
+	Next h
+	Call RunSearch(lastFindQuery)
+End Sub

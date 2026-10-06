@@ -8,8 +8,10 @@ Const StateTrackSelect As Integer = 1
 Const StateCarSelect As Integer = 2
 Const StateRacing As Integer = 3
 Const StateGarage As Integer = 4
+Const StateChamber As Integer = 5
 
-Const TrackCount As Integer = 3
+Const TrackCount As Integer = 4
+Const TrackChamber As Integer = 3
 Const CarCount As Integer = 3
 
 Dim game_state As Integer
@@ -20,8 +22,8 @@ Dim garage_menu As Integer
 Dim last_lap_time As Single
 Dim race_crashed As Boolean
 
-Dim track_name(2) As String
-Dim track_unlocked(2) As Boolean
+Dim track_name(3) As String
+Dim track_unlocked(3) As Boolean
 Dim car_name(2) As String
 Dim car_blurb(2) As String
 
@@ -38,9 +40,11 @@ Sub InitGameFlow()
 	track_name(0) = "Neon Ring"
 	track_name(1) = "Skyline City"
 	track_name(2) = "Coastal Loop"
+	track_name(3) = "Vector Chamber"
 	track_unlocked(0) = True
 	track_unlocked(1) = False
 	track_unlocked(2) = False
+	track_unlocked(3) = True
 
 	car_name(0) = "Vector S"
 	car_blurb(0) = "Balanced coast and brake"
@@ -69,7 +73,11 @@ Sub MenuConfirm()
 		game_state = StateTrackSelect
 	ElseIf game_state = StateTrackSelect Then
 		If track_unlocked(selected_track) Then
-			game_state = StateCarSelect
+			If selected_track = TrackChamber Then
+				game_state = StateChamber
+			Else
+				game_state = StateCarSelect
+			End If
 		End If
 	ElseIf game_state = StateCarSelect Then
 		race_crashed = False
@@ -87,7 +95,13 @@ Sub MenuBack()
 		game_state = StateSplash
 	ElseIf game_state = StateGarage Then
 		game_state = StateTrackSelect
+	ElseIf game_state = StateChamber Then
+		game_state = StateTrackSelect
 	End If
+End Sub
+
+Sub ExitChamberToTracks()
+	game_state = StateTrackSelect
 End Sub
 
 Sub MenuUp()
@@ -183,7 +197,7 @@ Sub _DrawTrackSelect(ByVal canvas_ui As Object, ByVal screenW As Single, ByVal s
 		End If
 		Call canvas_ui.DrawVectorText(Vector2(80, 110 + t * 42), label, col, 1.8, 1.6, "left", 2.2, "")
 	Next
-	Call canvas_ui.DrawVectorText(Vector2(80, screenH - 56), "UP/DOWN — TRACK   ENTER — RACE   ESC — BACK", Color8(110, 130, 160), 1.2, 1.1, "left", 1.5, "")
+	Call canvas_ui.DrawVectorText(Vector2(80, screenH - 56), "UP/DOWN — TRACK   ENTER — GO   ESC — BACK", Color8(110, 130, 160), 1.2, 1.1, "left", 1.5, "")
 End Sub
 
 Sub _DrawCarSelect(ByVal canvas_ui As Object, ByVal screenW As Single, ByVal screenH As Single)

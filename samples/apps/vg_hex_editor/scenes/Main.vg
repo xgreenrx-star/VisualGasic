@@ -1,0 +1,785 @@
+' =============================================================================
+' Main.vg — VG Hex Editor form (sibling of scenes/Main.tscn)
+' =============================================================================
+Import "res://scripts/HexModel.vg"
+Import "res://scripts/FileOps.vg"
+Import "res://scripts/FileDialogs.vg"
+Import "res://scripts/UndoOps.vg"
+Import "res://scripts/SearchOps.vg"
+Import "res://scripts/CompareOps.vg"
+Import "res://scripts/HashOps.vg"
+Import "res://scripts/BookmarkOps.vg"
+Import "res://scripts/HighlightOps.vg"
+Import "res://scripts/RecentOps.vg"
+Import "res://scripts/CopyOps.vg"
+
+Const HEX_TOP As Single = 120.0
+Const STATUS_H As Single = 48.0
+Const SCROLL_W As Single = 16.0
+Const TEXT_W As Single = 280.0
+
+Dim btnCompare As Object
+Dim btnClearDiff As Object
+Dim btnHash As Object
+Dim mnuHighlight As Object
+Dim mnuBookmarks As Object
+Dim btnFill As Object
+Dim mnuRecent As Object
+Dim btnEndian As Object
+Dim lblMode As Object
+Dim lblReplace As Object
+Dim txtReplace As Object
+Dim btnReplace As Object
+Dim btnReplaceAll As Object
+Dim vsbHex As Object
+Dim txtHexSide As Object
+Dim ctxHex As Object
+Dim extraUiReady As Boolean
+Dim updatingScroll As Boolean
+Dim textUpdating As Boolean
+Dim textChunkStart As Long
+Dim textLineStart(4096) As Long
+Dim textLineCount As Integer
+
+Sub Form_Load()
+	Call HexModel.InitDefaults()
+	Call RecentOps.LoadRecent()
+	Call BuildExtraUi()
+	Call LayoutHexPanel()
+	Call DisableToolbarTabStops()
+	lblPath.Text = "(no file)"
+	lblModified.Text = ""
+	lblStatus.Text = "Welcome — open a binary file to begin"
+	lblInspector.Text = ""
+	lblFindResult.Text = ""
+	txtFind.Text = ""
+	Call SyncColumnButtons()
+	btnFindHex.Enabled = False
+	btnFindAscii.Enabled = True
+	Call RefreshAll()
+	pnlHexView.GrabFocus()
+End Sub
+
+Sub BuildExtraUi()
+	If extraUiReady Then Exit Sub
+	extraUiReady = True
+
+	Set btnCompare = MakeButton("Compare", 8, 36, 78, "btnCompare_Click")
+	Set btnClearDiff = MakeButton("Clear Diff", 90, 36, 86, "btnClearDiff_Click")
+	Set btnHash = MakeButton("Hash", 180, 36, 56, "btnHash_Click")
+	Set btnFill = MakeButton("Fill", 240, 36, 48, "btnFill_Click")
+
+	Set mnuHighlight = New MenuButton
+	mnuHighlight.Text = "Highlight"
+	mnuHighlight.Left = 292
+	mnuHighlight.Top = 36
+	mnuHighlight.Width = 84
+	mnuHighlight.Height = 23
+	mnuHighlight.TabStop = False
+	AddChild mnuHighlight
+	Connect mnuHighlight.get_popup(), "about_to_popup", "PopulateHighlightMenu"
+	Connect mnuHighlight.get_popup(), "id_pressed", "OnHighlightMenu"
+
+	Set mnuBookmarks = New MenuButton
+	mnuBookmarks.Text = "Bookmarks"
+	mnuBookmarks.Left = 380
+	mnuBookmarks.Top = 36
+	mnuBookmarks.Width = 92
+	mnuBookmarks.Height = 23
+	mnuBookmarks.TabStop = False
+	AddChild mnuBookmarks
+	Connect mnuBookmarks.get_popup(), "about_to_popup", "PopulateBookmarkMenu"
+	Connect mnuBookmarks.get_popup(), "id_pressed", "OnBookmarkMenu"
+
+	Set mnuRecent = New MenuButton
+	mnuRecent.Text = "Recent"
+	mnuRecent.Left = 476
+	mnuRecent.Top = 36
+	mnuRecent.Width = 72
+	mnuRecent.Height = 23
+	mnuRecent.TabStop = False
+	AddChild mnuRecent
+	Connect mnuRecent.get_popup(), "about_to_popup", "PopulateRecentMenu"
+	Connect mnuRecent.get_popup(), "id_pressed", "OnRecentMenu"
+
+	Set btnEndian = MakeButton("LE", 552, 36, 36, "btnEndian_Click")
+	Set lblMode = New Label
+	lblMode.Text = "OVR"
+	lblMode.Left = 592
+	lblMode.Top = 40
+	lblMode.Width = 36
+	lblMode.Height = 16
+	AddChild lblMode
+
+	Set lblReplace = New Label
+	lblReplace.Text = "Replace:"
+	lblReplace.Left = 8
+	lblReplace.Top = 96
+	lblReplace.Width = 64
+	lblReplace.Height = 16
+	AddChild lblReplace
+
+	Set txtReplace = New LineEdit
+	txtReplace.Text = ""
+	txtReplace.placeholder_text = "hex bytes e.g. 00 00"
+	txtReplace.Left = 76
+	txtReplace.Top = 92
+	txtReplace.Width = 280
+	txtReplace.Height = 24
+	txtReplace.TabStop = False
+	AddChild txtReplace
+
+	Set btnReplace = MakeButton("Replace", 364, 92, 80, "btnReplace_Click")
+	Set btnReplaceAll = MakeButton("Replace All", 448, 92, 96, "btnReplaceAll_Click")
+
+	Set vsbHex = New VScrollBar
+	vsbHex.TabStop = False
+	AddChild vsbHex
+	Connect vsbHex, "value_changed", "OnHexScroll"
+
+	Set txtHexSide = New TextEdit
+	txtHexSide.wrap_mode = 0
+	txtHexSide.context_menu_enabled = False
+	txtHexSide.shortcut_keys_enabled = False
+	AddChild txtHexSide
+	Connect txtHexSide, "caret_changed", "OnTextCaret"
+	Connect txtHexSide, "gui_input", "OnTextPanelInput"
+
+	Set ctxHex = New PopupMenu
+	ctxHex.add_item("Select All", 10)
+	ctxHex.add_separator()
+	ctxHex.add_item("Copy as Hex", 11)
+	ctxHex.add_item("Paste Hex", 12)
+	ctxHex.add_item("Copy as C Array", 13)
+	ctxHex.add_item("Copy as Python bytes", 14)
+	ctxHex.add_separator()
+	ctxHex.add_item("Fill Selection", 20)
+	ctxHex.add_item("Go to Offset", 30)
+	ctxHex.add_item("Add Bookmark", 40)
+	AddChild ctxHex
+	Connect ctxHex, "id_pressed", "OnHexContext"
+End Sub
+
+Function MakeButton(caption As String, x As Single, y As Single, w As Single, handler As String) As Object
+	Dim b As Object
+	Set b = New Button
+	b.Text = caption
+	b.Left = x
+	b.Top = y
+	b.Width = w
+	b.Height = 23
+	b.TabStop = False
+	AddChild b
+	Connect b, "pressed", handler
+	Set MakeButton = b
+End Function
+
+Sub DisableToolbarTabStops()
+	btnOpen.TabStop = False
+	btnSave.TabStop = False
+	btnSaveAs.TabStop = False
+	btnClose.TabStop = False
+	btnUndo.TabStop = False
+	btnRedo.TabStop = False
+	btnGoTo.TabStop = False
+	btnCol8.TabStop = False
+	btnCol16.TabStop = False
+	btnCol32.TabStop = False
+	btnFindHex.TabStop = False
+	btnFindAscii.TabStop = False
+	btnSearch.TabStop = False
+	btnFindPrev.TabStop = False
+	btnFindNext.TabStop = False
+	txtFind.TabStop = False
+	pnlHexView.TabStop = True
+End Sub
+
+' --- Toolbar: file ---
+
+Sub btnOpen_Click()
+	Dim path As String
+	path = FileDialogs.PickOpenFile()
+	If path = "" Then Exit Sub
+	Call OpenPath(path)
+End Sub
+
+Sub OpenPath(path As String)
+	Call FileOps.LoadFileAtPath(path)
+	If HasFile() Then Call RecentOps.AddRecent(path)
+	Call RefreshAll()
+End Sub
+
+Sub btnSave_Click()
+	If Not HexModel.HasFile() Then Exit Sub
+	If filePath = "" Then
+		Call btnSaveAs_Click()
+	ElseIf FileOps.SaveCurrentFile() Then
+		Call RefreshAll()
+	End If
+End Sub
+
+Sub btnSaveAs_Click()
+	Dim path As String
+	path = FileDialogs.PickSaveFile()
+	If path = "" Then Exit Sub
+	If FileOps.SaveBytesToPath(path) Then
+		filePath = path
+		modified = False
+		Call RecentOps.AddRecent(path)
+		Call RefreshAll()
+	End If
+End Sub
+
+Sub btnClose_Click()
+	If modified Then
+		Dim ans As Integer
+		ans = MsgBox("Discard unsaved changes?", vbYesNo + vbQuestion, "Close")
+		If ans <> vbYes Then Exit Sub
+	End If
+	Call FileOps.CloseCurrentFile()
+	Call BookmarkOps.ClearBookmarks()
+	Call RefreshAll()
+End Sub
+
+Sub btnUndo_Click()
+	Call UndoOps.DoUndo()
+	Call RefreshAll()
+End Sub
+
+Sub btnRedo_Click()
+	Call UndoOps.DoRedo()
+	Call RefreshAll()
+End Sub
+
+Sub btnGoTo_Click()
+	Call DoGoTo()
+End Sub
+
+Sub DoGoTo()
+	If Not HexModel.HasFile() Then Exit Sub
+	Dim raw As String
+	raw = InputBox("Enter offset (decimal or 0x hex):", "Go To", "0")
+	raw = Trim(raw)
+	If raw = "" Then Exit Sub
+	Dim off As Long
+	If Left(LCase(raw), 2) = "0x" Then
+		off = Val("&H" + Mid(raw, 3))
+	Else
+		off = Val(raw)
+	End If
+	cursorOff = off
+	If cursorOff < 0 Then cursorOff = 0
+	If cursorOff >= fileSize Then cursorOff = fileSize - 1
+	scrollRow = cursorOff \ bytesPerRow
+	Call RefreshAll()
+End Sub
+
+Sub btnCol8_Click()
+	bytesPerRow = 8
+	Call SyncColumnButtons()
+	Call RefreshAll()
+End Sub
+
+Sub btnCol16_Click()
+	bytesPerRow = 16
+	Call SyncColumnButtons()
+	Call RefreshAll()
+End Sub
+
+Sub btnCol32_Click()
+	bytesPerRow = 32
+	Call SyncColumnButtons()
+	Call RefreshAll()
+End Sub
+
+Sub SyncColumnButtons()
+	btnCol8.Enabled = (bytesPerRow <> 8)
+	btnCol16.Enabled = (bytesPerRow <> 16)
+	btnCol32.Enabled = (bytesPerRow <> 32)
+End Sub
+
+Sub btnFindHex_Click()
+	findModeAscii = False
+	btnFindHex.Enabled = False
+	btnFindAscii.Enabled = True
+End Sub
+
+Sub btnFindAscii_Click()
+	findModeAscii = True
+	btnFindHex.Enabled = True
+	btnFindAscii.Enabled = False
+End Sub
+
+Sub btnSearch_Click()
+	Call SearchOps.RunSearch(txtFind.Text)
+	Call RefreshAll()
+End Sub
+
+Sub txtFind_KeyPress()
+	Call SearchOps.RunSearch(txtFind.Text)
+	Call RefreshAll()
+End Sub
+
+Sub btnFindPrev_Click()
+	Call SearchOps.PrevHit()
+	Call RefreshAll()
+End Sub
+
+Sub btnFindNext_Click()
+	Call SearchOps.NextHit()
+	Call RefreshAll()
+End Sub
+
+Sub btnReplace_Click()
+	Call SearchOps.ReplaceCurrent(txtReplace.Text)
+	Call RefreshAll()
+End Sub
+
+Sub btnReplaceAll_Click()
+	Call SearchOps.ReplaceAll(txtReplace.Text)
+	Call RefreshAll()
+End Sub
+
+Sub btnCompare_Click()
+	Dim path As String
+	path = FileDialogs.PickOpenFile()
+	If path = "" Then Exit Sub
+	Call CompareOps.LoadCompareFile(path)
+	Call RefreshAll()
+End Sub
+
+Sub btnClearDiff_Click()
+	Call CompareOps.ClearCompare()
+	Call RefreshAll()
+End Sub
+
+Sub btnHash_Click()
+	If Not HasFile() Then Exit Sub
+	Dim report As String
+	report = HashOps.FormatHashReport()
+	DisplayServer.ClipboardSet(report)
+	MsgBox report & Chr(10) & Chr(10) & "Full report copied to clipboard.", vbInformation, "Hash / Checksum"
+End Sub
+
+Sub btnFill_Click()
+	Call DoFill()
+End Sub
+
+Sub DoFill()
+	If Not SelectionActive() Then
+		MsgBox "Select a range first.", vbExclamation, "Fill"
+		Exit Sub
+	End If
+	Dim raw As String
+	raw = InputBox("Fill " & CStr(selEnd - selStart + 1) & " byte(s) with hex value:", "Fill Selection", "00")
+	If Trim(raw) = "" Then Exit Sub
+	Call CopyOps.FillSelection(raw)
+	Call RefreshAll()
+End Sub
+
+Sub btnEndian_Click()
+	littleEndian = Not littleEndian
+	Call RefreshAll()
+End Sub
+
+Sub PopulateHighlightMenu()
+	Dim p As Object
+	Set p = mnuHighlight.get_popup()
+	p.clear()
+	p.add_item("Add Pattern...", 0)
+	If hlCount > 0 Then
+		p.add_separator()
+		Dim i As Integer
+		For i = 0 To hlCount - 1
+			p.add_item(hlLabel(i), 100 + i)
+		Next i
+		p.add_separator()
+		p.add_item("Clear All Highlights", 200)
+	End If
+End Sub
+
+Sub OnHighlightMenu(id)
+	If id = 0 Then
+		Dim pat As String
+		pat = InputBox("Hex pattern to highlight (e.g. FF D8 FF):", "Highlight Patterns", "")
+		If Trim(pat) = "" Then Exit Sub
+		Dim lab As String
+		lab = InputBox("Optional label:", "Highlight Patterns", "")
+		Call HighlightOps.AddPattern(pat, lab)
+		Call RefreshAll()
+	ElseIf id = 200 Then
+		Call HighlightOps.ClearPatterns()
+		Call RefreshAll()
+	ElseIf id >= 100 Then
+		Call HighlightOps.RemovePattern(id - 100)
+		Call RefreshAll()
+	End If
+End Sub
+
+Sub PopulateBookmarkMenu()
+	Dim p As Object
+	Set p = mnuBookmarks.get_popup()
+	p.clear()
+	p.add_item("Add Bookmark Here    Ctrl+B", 0)
+	If bmCount > 0 Then
+		p.add_separator()
+		Dim i As Integer
+		For i = 0 To bmCount - 1
+			p.add_item(bmName(i) & "  (0x" & Hex8(bmOff(i)) & ")", 100 + i)
+		Next i
+		p.add_separator()
+		p.add_item("Clear All Bookmarks", 200)
+	End If
+End Sub
+
+Sub OnBookmarkMenu(id)
+	If id = 0 Then
+		Call PromptAddBookmark()
+	ElseIf id = 200 Then
+		Call BookmarkOps.ClearBookmarks()
+		Call RefreshAll()
+	ElseIf id >= 100 Then
+		Call BookmarkOps.JumpToBookmark(id - 100)
+		Call RefreshAll()
+	End If
+End Sub
+
+Sub PromptAddBookmark()
+	If Not HasFile() Then Exit Sub
+	Dim off As Long
+	off = ClampOffset(cursorOff)
+	Dim name As String
+	name = InputBox("Bookmark name for 0x" & Hex8(off) & ":", "Add Bookmark", "0x" & Hex8(off))
+	If Trim(name) = "" Then Exit Sub
+	Call BookmarkOps.AddBookmark(off, name)
+	Call RefreshAll()
+End Sub
+
+Sub PopulateRecentMenu()
+	Dim p As Object
+	Set p = mnuRecent.get_popup()
+	p.clear()
+	If recentCount <= 0 Then
+		p.add_item("(no recent files)", 0)
+		p.set_item_disabled(0, True)
+		Exit Sub
+	End If
+	Dim i As Integer
+	For i = 0 To recentCount - 1
+		p.add_item(FileNameOnly(recentPath(i)), 100 + i)
+	Next i
+End Sub
+
+Sub OnRecentMenu(id)
+	If id < 100 Then Exit Sub
+	Dim idx As Integer
+	idx = id - 100
+	If idx < 0 Or idx >= recentCount Then Exit Sub
+	Call OpenPath(recentPath(idx))
+End Sub
+
+Sub OnHexContext(id)
+	Select Case id
+		Case 10
+			If HasFile() Then
+				selStart = 0
+				selEnd = fileSize - 1
+				selAnchor = 0
+			End If
+		Case 11
+			Call CopyOps.CopyAsHex()
+		Case 12
+			Call pnlHexView.PasteHexFromClipboard(Me)
+		Case 13
+			Call CopyOps.CopyAsCArray()
+		Case 14
+			Call CopyOps.CopyAsPythonBytes()
+		Case 20
+			Call DoFill()
+		Case 30
+			Call DoGoTo()
+		Case 40
+			Call PromptAddBookmark()
+	End Select
+	Call RefreshAll()
+End Sub
+
+Sub ShowHexContext(pos)
+	If ctxHex Is Nothing Then Exit Sub
+	Dim fillIdx As Integer
+	fillIdx = ctxHex.get_item_index(20)
+	If fillIdx >= 0 Then ctxHex.set_item_disabled(fillIdx, Not SelectionActive())
+	ctxHex.position = Vector2i(pos)
+	ctxHex.popup()
+End Sub
+
+Sub OnHexScroll(v)
+	If updatingScroll Then Exit Sub
+	scrollRow = Int(v)
+	If scrollRow < 0 Then scrollRow = 0
+	Call RefreshAll()
+End Sub
+
+Sub FocusFind()
+	txtFind.GrabFocus()
+End Sub
+
+Sub SaveFromCanvas()
+	If FileOps.SaveCurrentFile() Then
+		Call RefreshAll()
+	End If
+End Sub
+
+Sub OpenFromCanvas()
+	Call btnOpen_Click()
+End Sub
+
+Sub UndoFromCanvas()
+	Call UndoOps.DoUndo()
+	Call RefreshAll()
+End Sub
+
+Sub RedoFromCanvas()
+	Call UndoOps.DoRedo()
+	Call RefreshAll()
+End Sub
+
+Sub GoToFromCanvas()
+	Call DoGoTo()
+End Sub
+
+Sub FindNextFromCanvas()
+	Call SearchOps.NextHit()
+	Call RefreshAll()
+End Sub
+
+Sub FindPrevFromCanvas()
+	Call SearchOps.PrevHit()
+	Call RefreshAll()
+End Sub
+
+Sub BookmarkFromCanvas()
+	Call PromptAddBookmark()
+End Sub
+
+Sub NextBookmarkFromCanvas()
+	Call BookmarkOps.CycleBookmark(1)
+	Call RefreshAll()
+End Sub
+
+Sub PrevBookmarkFromCanvas()
+	Call BookmarkOps.CycleBookmark(-1)
+	Call RefreshAll()
+End Sub
+
+Sub Form_Resize()
+	Call LayoutHexPanel()
+	Call pnlHexView.RefreshChrome()
+End Sub
+
+Sub LayoutHexPanel()
+	Dim clientW As Single
+	Dim clientH As Single
+	clientW = Width
+	clientH = Height
+	If clientW < 64 Then clientW = 1024
+	If clientH < 64 Then clientH = 720
+
+	lblPath.Left = 640
+	lblPath.Top = 40
+	lblPath.Width = clientW - 760
+	If lblPath.Width < 80 Then lblPath.Width = 80
+	lblModified.Left = clientW - 112
+	lblModified.Top = 40
+	lblModified.Width = 100
+
+	lblFind.Top = 68
+	txtFind.Top = 64
+	btnFindHex.Top = 64
+	btnFindAscii.Top = 64
+	btnSearch.Top = 64
+	btnFindPrev.Top = 64
+	btnFindNext.Top = 64
+	lblFindResult.Top = 68
+	lblFindResult.Left = 708
+	lblFindResult.Width = clientW - 716
+
+	Dim hexW As Single
+	hexW = clientW - SCROLL_W - TEXT_W
+	If hexW < 320 Then hexW = clientW - SCROLL_W
+	Dim hexH As Single
+	hexH = clientH - HEX_TOP - STATUS_H
+	If hexH < 32 Then hexH = 32
+
+	pnlHexView.Left = 0
+	pnlHexView.Top = HEX_TOP
+	pnlHexView.Width = hexW
+	pnlHexView.Height = hexH
+
+	If Not vsbHex Is Nothing Then
+		vsbHex.Left = hexW
+		vsbHex.Top = HEX_TOP
+		vsbHex.Width = SCROLL_W
+		vsbHex.Height = hexH
+	End If
+	If Not txtHexSide Is Nothing Then
+		txtHexSide.Left = hexW + SCROLL_W
+		txtHexSide.Top = HEX_TOP
+		txtHexSide.Width = clientW - hexW - SCROLL_W
+		txtHexSide.Height = hexH
+		If txtHexSide.Width < 40 Then txtHexSide.Visible = False Else txtHexSide.Visible = True
+	End If
+
+	lblStatus.Left = 8
+	lblStatus.Top = clientH - 40
+	lblStatus.Width = clientW - 16
+	lblInspector.Left = 8
+	lblInspector.Top = clientH - 22
+	lblInspector.Width = clientW - 16
+End Sub
+
+Sub RefreshAll()
+	If filePath <> "" Then
+		lblPath.Text = filePath
+	Else
+		lblPath.Text = "(no file)"
+	End If
+	lblStatus.Text = FormatStatusLine()
+	If cmpPath <> "" Then
+		lblStatus.Text = lblStatus.Text & "   " & CompareOps.CompareStatus()
+	End If
+	lblInspector.Text = FormatInspectorLine()
+	lblFindResult.Text = FindResultLabel()
+	If modified Then
+		lblModified.Text = "* Modified"
+	Else
+		lblModified.Text = ""
+	End If
+	If Not lblMode Is Nothing Then lblMode.Text = ModeLabel()
+	If Not btnEndian Is Nothing Then btnEndian.Text = EndianLabel()
+
+	Call SyncScrollbar()
+	Call RebuildTextPanel()
+	Call pnlHexView.ShowFile(fileBuf, fileSize, bytesPerRow, scrollRow, cursorOff, selStart, selEnd, inAsciiPanel)
+End Sub
+
+Sub SyncScrollbar()
+	If vsbHex Is Nothing Then Exit Sub
+	updatingScroll = True
+	Dim totalRows As Long
+	Dim rowsVisible As Integer
+	rowsVisible = Int((pnlHexView.Height - 16.0) / 16.0)
+	If rowsVisible < 1 Then rowsVisible = 1
+	If Not HasFile() Then
+		vsbHex.max_value = 1
+		vsbHex.page = 1
+		vsbHex.value = 0
+	Else
+		totalRows = (fileSize + bytesPerRow - 1) \ bytesPerRow
+		If totalRows < 1 Then totalRows = 1
+		vsbHex.max_value = totalRows
+		vsbHex.page = rowsVisible
+		vsbHex.value = scrollRow
+	End If
+	updatingScroll = False
+End Sub
+
+Sub RebuildTextPanel()
+	If txtHexSide Is Nothing Then Exit Sub
+	textUpdating = True
+	textLineCount = 0
+	If Not HasFile() Then
+		txtHexSide.Text = ""
+		textUpdating = False
+		Exit Sub
+	End If
+	Dim center As Long
+	center = scrollRow * bytesPerRow
+	If center < 0 Then center = 0
+	If center >= fileSize Then center = fileSize - 1
+	Dim startOff As Long
+	Dim endOff As Long
+	startOff = center - 4096
+	If startOff < 0 Then startOff = 0
+	startOff = startOff - (startOff Mod bytesPerRow)
+	endOff = center + 4096
+	If endOff > fileSize Then endOff = fileSize
+	textChunkStart = startOff
+	Dim out As PackedByteArray
+	Dim lineChars As Integer
+	lineChars = 0
+	If textLineCount < 4096 Then
+		textLineStart(textLineCount) = startOff
+		textLineCount = textLineCount + 1
+	End If
+	Dim i As Long
+	For i = startOff To endOff - 1
+		Dim b As Integer
+		b = PeekSafe(i)
+		If b = 10 Then
+			out.append(10)
+			lineChars = 0
+			If i + 1 < endOff And textLineCount < 4096 Then
+				textLineStart(textLineCount) = i + 1
+				textLineCount = textLineCount + 1
+			End If
+		Else
+			If lineChars >= 80 Then
+				out.append(10)
+				lineChars = 0
+				If textLineCount < 4096 Then
+					textLineStart(textLineCount) = i
+					textLineCount = textLineCount + 1
+				End If
+			End If
+			If b >= 32 And b <= 126 Then
+				out.append(b)
+			Else
+				out.append(63)
+			End If
+			lineChars = lineChars + 1
+		End If
+	Next i
+	txtHexSide.Text = out.get_string_from_ascii()
+	textUpdating = False
+End Sub
+
+Sub OnTextCaret()
+	If textUpdating Then Exit Sub
+	If txtHexSide Is Nothing Then Exit Sub
+	If Not HasFile() Then Exit Sub
+	Dim line As Integer
+	Dim col As Integer
+	line = txtHexSide.get_caret_line()
+	col = txtHexSide.get_caret_column()
+	If line < 0 Or line >= textLineCount Then Exit Sub
+	cursorOff = ClampOffset(textLineStart(line) + col)
+	scrollRow = cursorOff \ bytesPerRow
+	Call pnlHexView.ShowFile(fileBuf, fileSize, bytesPerRow, scrollRow, cursorOff, selStart, selEnd, inAsciiPanel)
+End Sub
+
+Sub OnTextPanelInput(ev)
+	If TypeOf ev Is InputEventMouseButton Then
+		If ev.pressed And ev.button_index = 4 Then
+			scrollRow = scrollRow - 3
+			If scrollRow < 0 Then scrollRow = 0
+			Call RefreshAll()
+			GetViewport().set_input_as_handled()
+		ElseIf ev.pressed And ev.button_index = 5 Then
+			scrollRow = scrollRow + 3
+			Call RefreshAll()
+			GetViewport().set_input_as_handled()
+		End If
+	ElseIf TypeOf ev Is InputEventKey Then
+		If ev.pressed And Not ev.echo And Not ev.ctrl_pressed Then
+			Dim uch As Integer
+			uch = ev.unicode
+			If uch >= 32 And uch <= 126 And HasFile() Then
+				Call WriteByte(cursorOff, uch)
+				If cursorOff + 1 < fileSize Then cursorOff = cursorOff + 1
+				Call RefreshAll()
+				GetViewport().set_input_as_handled()
+			End If
+		End If
+	End If
+End Sub

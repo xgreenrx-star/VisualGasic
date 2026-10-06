@@ -1,0 +1,34 @@
+' Regression: Continue For must increment when Dim locals sit in the inner body
+' and the first cell is skipped (Circuit Breaker wall-first scan).
+' MAX_FRAMES: 5
+Option Explicit
+
+Sub _Ready()
+	Dim x As Integer
+	Dim y As Integer
+	Dim nSkip As Integer
+	Dim nKeep As Integer
+	nSkip = 0
+	nKeep = 0
+	For y = 0 To 3
+		For x = 0 To 5
+			Dim c As Integer
+			c = 0
+			If x = 0 Then c = 0
+			If x > 0 Then c = 1
+			If c = 0 Then
+				nSkip = nSkip + 1
+				Continue For
+			End If
+			Dim px As Single
+			px = CSng(x)
+			nKeep = nKeep + 1
+		Next x
+	Next y
+	' 4 rows * 6 cols = 24; first col skipped (4), rest kept (20)
+	If nSkip = 4 And nKeep = 20 Then
+		Print "PASS: continue_dim_inner"
+	Else
+		Print "FAIL: continue_dim_inner: skip=" & CStr(nSkip) & " keep=" & CStr(nKeep)
+	End If
+End Sub

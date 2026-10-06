@@ -1,0 +1,86 @@
+' =============================================================================
+' HighlightOps.vg — colour-code repeating byte patterns
+' =============================================================================
+Attribute VB_Name = "HighlightOps"
+Import "HexModel.vg"
+Import "SearchOps.vg"
+
+Sub AddPattern(hexPat As String, label As String)
+	hexPat = Trim(hexPat)
+	Dim parsed As PackedByteArray
+	Set parsed = ParseHexPattern(hexPat)
+	If parsed.size() <= 0 Then
+		MsgBox "Enter an even-length hex pattern, e.g. FF D8 FF", vbExclamation, "Highlight"
+		Exit Sub
+	End If
+	If hlCount >= MAX_HL Then
+		MsgBox "Maximum " & CStr(MAX_HL) & " highlight patterns.", vbExclamation, "Highlight"
+		Exit Sub
+	End If
+	Dim compact As String
+	compact = Replace(Replace(LCase(hexPat), " ", ""), Chr(9), "")
+	hlPat(hlCount) = compact
+	label = Trim(label)
+	If label = "" Then label = UCase(compact)
+	hlLabel(hlCount) = label
+	Dim r As Integer
+	Dim g As Integer
+	Dim b As Integer
+	Dim n As Integer
+	n = hlCount Mod 8
+	Select Case n
+		Case 0
+			r = 255
+			g = 140
+			b = 0
+		Case 1
+			r = 46
+			g = 139
+			b = 87
+		Case 2
+			r = 147
+			g = 112
+			b = 219
+		Case 3
+			r = 0
+			g = 191
+			b = 255
+		Case 4
+			r = 220
+			g = 20
+			b = 60
+		Case 5
+			r = 255
+			g = 215
+			b = 0
+		Case 6
+			r = 255
+			g = 105
+			b = 180
+		Case Else
+			r = 30
+			g = 144
+			b = 255
+	End Select
+	hlR(hlCount) = r
+	hlG(hlCount) = g
+	hlB(hlCount) = b
+	hlCount = hlCount + 1
+End Sub
+
+Sub RemovePattern(idx As Integer)
+	If idx < 0 Or idx >= hlCount Then Exit Sub
+	Dim i As Integer
+	For i = idx To hlCount - 2
+		hlPat(i) = hlPat(i + 1)
+		hlR(i) = hlR(i + 1)
+		hlG(i) = hlG(i + 1)
+		hlB(i) = hlB(i + 1)
+		hlLabel(i) = hlLabel(i + 1)
+	Next i
+	hlCount = hlCount - 1
+End Sub
+
+Sub ClearPatterns()
+	hlCount = 0
+End Sub

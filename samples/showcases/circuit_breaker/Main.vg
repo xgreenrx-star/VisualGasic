@@ -1,0 +1,44 @@
+' Circuit Breaker — VG 6.0 vector roguelite slice (gameplay in .vg only).
+Option Explicit
+
+Import "res://scripts/Grid.vg"
+Import "res://scripts/Play.vg"
+Import "res://scripts/Render.vg"
+
+Dim canvas_board As Object
+Dim canvas_fx As Object
+Dim canvas_ui As Object
+
+Sub _Ready()
+	Print("CIRCUIT BREAKER — trace the bus, beat the drain.")
+	Set canvas_board = CreateNode("VGVectorCanvas2D")
+	Set canvas_fx = CreateNode("VGVectorCanvas2D")
+	Set canvas_ui = CreateNode("VGVectorCanvas2D")
+	AddChild(canvas_board)
+	AddChild(canvas_fx)
+	AddChild(canvas_ui)
+	canvas_fx.SetAdditiveBlend(True)
+	Call Grid.InitDemoLevel()
+	Call PlayInit()
+	Call RenderBoardStatic(canvas_board)
+	' Static board is baked once; reload the scene (or re-run) after level edits.
+	Randomize()
+	Set_Process(True)
+	Me.set_process_input(True)
+End Sub
+
+Sub _Input(ev As Variant)
+	If ev Is InputEventKey Then
+		If ev.pressed And Not ev.echo Then
+			Dim kc As Integer
+			kc = ev.keycode
+			If kc = 0 Then kc = ev.physical_keycode
+			Call PlayHandleKey(kc)
+		End If
+	End If
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Call PlayUpdate(delta)
+	Call RenderFrame(canvas_board, canvas_fx, canvas_ui)
+End Sub

@@ -1,0 +1,18 @@
+' Regression: Function return must not treat same-named array access as self-call.
+' MAX_FRAMES: 5
+Dim cb_cells(3) As Integer
+
+Function GetCell(ByVal i As Integer) As Integer
+	Dim v As Integer
+	v = cb_cells(i)
+	GetCell = v
+End Function
+
+Sub _Ready()
+	cb_cells(0) = 7
+	If GetCell(0) = 7 Then
+		Print "PASS: func_array_return"
+	Else
+		Print "FAIL: func_array_return"
+	End If
+End Sub

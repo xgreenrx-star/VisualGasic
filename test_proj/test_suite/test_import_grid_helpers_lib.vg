@@ -1,0 +1,73 @@
+' Fixture: Circuit Breaker-style grid helpers imported from a sibling module.
+' Not a standalone test (no _Ready).
+Option Explicit
+
+Const GW As Integer = 8
+Const GH As Integer = 6
+Const TILE As Integer = 28
+
+Const CELL_WALL As Integer = 0
+Const CELL_WIRE As Integer = 1
+
+Dim cb_cells(GW * GH - 1) As Integer
+Dim start_cx As Integer
+Dim start_cy As Integer
+
+Function CellIdx(ByVal cx As Integer, ByVal cy As Integer) As Integer
+	CellIdx = cy * GW + cx
+End Function
+
+Function GetCell(ByVal cx As Integer, ByVal cy As Integer) As Integer
+	Dim v As Integer
+	If cx < 0 Or cy < 0 Or cx >= GW Or cy >= GH Then
+		GetCell = CELL_WALL
+		Exit Function
+	End If
+	v = cb_cells(CellIdx(cx, cy))
+	GetCell = v
+End Function
+
+Sub SetCell(ByVal cx As Integer, ByVal cy As Integer, ByVal t As Integer)
+	If cx < 0 Or cy < 0 Or cx >= GW Or cy >= GH Then Exit Sub
+	cb_cells(CellIdx(cx, cy)) = t
+End Sub
+
+Sub InitDemoLevel()
+	Dim x As Integer
+	Dim y As Integer
+	For y = 0 To GH - 1
+		For x = 0 To GW - 1
+			SetCell x, y, CELL_WALL
+		Next x
+	Next y
+	For x = 1 To GW - 2
+		SetCell x, 1, CELL_WIRE
+	Next x
+	start_cx = 1
+	start_cy = 1
+	SetCell start_cx, start_cy, CELL_WIRE
+End Sub
+
+Function GridOffsetX() As Single
+	Dim v As Single
+	v = (1280.0 - CSng(GW * TILE)) * 0.5
+	GridOffsetX = v
+End Function
+
+Function GridOffsetY() As Single
+	Dim v As Single
+	v = (720.0 - CSng(GH * TILE)) * 0.5 + 12.0
+	GridOffsetY = v
+End Function
+
+Function CellCenterX(ByVal cx As Integer) As Single
+	Dim ox As Single
+	ox = GridOffsetX()
+	CellCenterX = ox + CSng(cx * TILE) + CSng(TILE) * 0.5
+End Function
+
+Function CellCenterY(ByVal cy As Integer) As Single
+	Dim oy As Single
+	oy = GridOffsetY()
+	CellCenterY = oy + CSng(cy * TILE) + CSng(TILE) * 0.5
+End Function

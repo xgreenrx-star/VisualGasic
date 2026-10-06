@@ -1,0 +1,77 @@
+' =============================================================================
+' FileOps.vg — load / save / path helpers
+' =============================================================================
+' Uses MemoryBuffer LoadFromFile / SaveToFile. Open/Save As paths from FileDialogs.
+' =============================================================================
+Attribute VB_Name = "FileOps"
+Import "HexModel.vg"
+
+Sub LoadFileAtPath(path As String)
+	path = Trim(path)
+	If path = "" Then Exit Sub
+
+	Dim sz As Long
+	sz = FileLen(path)
+	If sz < 0 Then sz = 0
+	If sz > MAX_FILE_BYTES Then
+		MsgBox "File is larger than 256 MB — not opened.", vbExclamation, "VG Hex Editor"
+		Exit Sub
+	End If
+
+	Dim buf As Variant
+	Set buf = New MemoryBuffer(1)
+	If Not buf.LoadFromFile(path) Then
+		MsgBox "Could not open file:" & Chr(10) & path, vbExclamation, "Open Error"
+		Exit Sub
+	End If
+
+	Set fileBuf = buf
+	filePath = path
+	fileSize = buf.Size
+	modified = False
+	cursorOff = 0
+	scrollRow = 0
+	pendingNib = -1
+	Call ClearSelection()
+	searchHitCount = 0
+	searchPatLen = 0
+	curSearchIdx = -1
+	lastFindQuery = ""
+	undoCount = 0
+	redoCount = 0
+	Set cmpBuf = Nothing
+	cmpSize = 0
+	cmpPath = ""
+	Call SnapshotOriginal()
+End Sub
+
+Function SaveCurrentFile() As Boolean
+	SaveCurrentFile = False
+	If Not HasFile() Then Exit Function
+	If filePath = "" Then Exit Function
+	If SaveBytesToPath(filePath) Then
+		modified = False
+		SaveCurrentFile = True
+	End If
+End Function
+
+Function SaveBytesToPath(path As String) As Boolean
+	SaveBytesToPath = False
+	If Not fileBuf.SaveToFile(path) Then
+		MsgBox "Could not write file:" & Chr(10) & path, vbExclamation, "Save Error"
+		Exit Function
+	End If
+	Call SnapshotOriginal()
+	SaveBytesToPath = True
+End Function
+
+Sub CloseCurrentFile()
+	Call ResetAll()
+End Sub
+
+Function DefaultOpenPath() As String
+	Dim home As String
+	home = VGSystem.GetEnv("HOME")
+	If home = "" Then home = "/tmp"
+	DefaultOpenPath = home & "/"
+End Function

@@ -1,0 +1,87 @@
+' =============================================================================
+' BookmarkOps.vg — named offsets, F2 cycle, menu jump
+' =============================================================================
+Attribute VB_Name = "BookmarkOps"
+Import "HexModel.vg"
+
+Function BookmarkIndexAt(off As Long) As Integer
+	BookmarkIndexAt = -1
+	Dim i As Integer
+	For i = 0 To bmCount - 1
+		If bmOff(i) = off Then
+			BookmarkIndexAt = i
+			Exit Function
+		End If
+	Next i
+End Function
+
+Sub AddBookmark(off As Long, name As String)
+	If Not HasFile() Then Exit Sub
+	off = ClampOffset(off)
+	If BookmarkIndexAt(off) >= 0 Then Exit Sub
+	If bmCount >= MAX_BOOKMARKS Then
+		MsgBox "Maximum " & CStr(MAX_BOOKMARKS) & " bookmarks.", vbExclamation, "Bookmarks"
+		Exit Sub
+	End If
+	name = Trim(name)
+	If name = "" Then name = "0x" & Hex8(off)
+	bmOff(bmCount) = off
+	bmName(bmCount) = name
+	bmCount = bmCount + 1
+	Call SortBookmarks()
+End Sub
+
+Sub SortBookmarks()
+	Dim i As Integer
+	Dim j As Integer
+	For i = 0 To bmCount - 2
+		For j = i + 1 To bmCount - 1
+			If bmOff(j) < bmOff(i) Then
+				Dim toff As Long
+				Dim tname As String
+				toff = bmOff(i)
+				tname = bmName(i)
+				bmOff(i) = bmOff(j)
+				bmName(i) = bmName(j)
+				bmOff(j) = toff
+				bmName(j) = tname
+			End If
+		Next j
+	Next i
+End Sub
+
+Sub ClearBookmarks()
+	bmCount = 0
+End Sub
+
+Sub JumpToBookmark(idx As Integer)
+	If idx < 0 Or idx >= bmCount Then Exit Sub
+	cursorOff = ClampOffset(bmOff(idx))
+	scrollRow = cursorOff \ bytesPerRow
+	pendingNib = -1
+End Sub
+
+Sub CycleBookmark(dir As Integer)
+	If bmCount <= 0 Then Exit Sub
+	Dim best As Integer
+	best = -1
+	Dim i As Integer
+	If dir > 0 Then
+		For i = 0 To bmCount - 1
+			If bmOff(i) > cursorOff Then
+				best = i
+				Exit For
+			End If
+		Next i
+		If best < 0 Then best = 0
+	Else
+		For i = bmCount - 1 To 0 Step -1
+			If bmOff(i) < cursorOff Then
+				best = i
+				Exit For
+			End If
+		Next i
+		If best < 0 Then best = bmCount - 1
+	End If
+	Call JumpToBookmark(best)
+End Sub

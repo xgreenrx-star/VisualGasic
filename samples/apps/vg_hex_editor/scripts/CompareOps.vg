@@ -1,0 +1,40 @@
+' =============================================================================
+' CompareOps.vg — load a second file and highlight differing bytes
+' =============================================================================
+Attribute VB_Name = "CompareOps"
+Import "HexModel.vg"
+
+Sub LoadCompareFile(path As String)
+	path = Trim(path)
+	If path = "" Then Exit Sub
+	Dim sz As Long
+	sz = FileLen(path)
+	If sz < 0 Then sz = 0
+	If sz > MAX_FILE_BYTES Then
+		MsgBox "Compare file is larger than 256 MB.", vbExclamation, "Compare"
+		Exit Sub
+	End If
+	Dim buf As Variant
+	Set buf = New MemoryBuffer(1)
+	If Not buf.LoadFromFile(path) Then
+		MsgBox "Could not open compare file:" & Chr(10) & path, vbExclamation, "Compare"
+		Exit Sub
+	End If
+	Set cmpBuf = buf
+	cmpSize = buf.Size
+	cmpPath = path
+End Sub
+
+Sub ClearCompare()
+	Set cmpBuf = Nothing
+	cmpSize = 0
+	cmpPath = ""
+End Sub
+
+Function CompareStatus() As String
+	If cmpSize <= 0 Then
+		CompareStatus = ""
+	Else
+		CompareStatus = "Diff vs " & FileNameOnly(cmpPath)
+	End If
+End Function
