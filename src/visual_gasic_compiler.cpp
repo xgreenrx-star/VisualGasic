@@ -5518,8 +5518,18 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
     }
     String x_var = ((VariableNode *)x_as->target)->name;
     String offset_name;
-    if (x_as->value && x_as->value->type == ExpressionNode::ARRAY_ACCESS) {
-        ArrayAccessNode *arr = (ArrayAccessNode *)x_as->value;
+    int64_t offset_divisor = 1;
+    ExpressionNode *offset_expr = x_as->value;
+    if (offset_expr && offset_expr->type == ExpressionNode::BINARY_OP) {
+        BinaryOpNode *div = (BinaryOpNode *)offset_expr;
+        if (div->op != "/" || !try_const_i64_from_expr(div->right, offset_divisor) ||
+                offset_divisor <= 0 || offset_divisor > INT32_MAX) {
+            return trace_fail("offset divisor");
+        }
+        offset_expr = _vg_unwrap_cdbl(div->left);
+    }
+    if (offset_expr && offset_expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *arr = (ArrayAccessNode *)offset_expr;
         if (!arr->base || arr->base->type != ExpressionNode::VARIABLE || arr->indices.size() != 1) {
             return trace_fail("offset array access");
         }
@@ -5530,8 +5540,8 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
         if (((VariableNode *)arr->indices[0])->name.to_lower() != p_for->variable_name.to_lower()) {
             return trace_fail("offset loop var");
         }
-    } else if (x_as->value && x_as->value->type == ExpressionNode::EXPRESSION_CALL) {
-        CallExpression *call = (CallExpression *)x_as->value;
+    } else if (offset_expr && offset_expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)offset_expr;
         if (call->base_object || call->arguments.size() != 1 ||
                 call->arguments[0]->type != ExpressionNode::VARIABLE) {
             return trace_fail("offset call shape");
@@ -5542,6 +5552,23 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
         }
     } else {
         return trace_fail("offset rhs");
+    }
+    if (offset_divisor != 1) {
+        bool integer_module_array = false;
+        if (local_slots.has(offset_name.to_lower())) {
+            return trace_fail("local offset array");
+        }
+        for (int vi = 0; current_module && vi < current_module->variables.size(); vi++) {
+            VariableDefinition *decl = current_module->variables[vi];
+            if (decl->name.nocasecmp_to(offset_name) == 0 && decl->array_sizes.size() == 1) {
+                String type = decl->type.to_lower();
+                integer_module_array = type == "integer" || type == "long" || type == "longlong";
+                break;
+            }
+        }
+        if (!integer_module_array) {
+            return trace_fail("scaled offset array type");
+        }
     }
     int64_t y_mul = 0;
     int64_t y_mod = 0;
@@ -5575,8 +5602,68 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
     }
     String cs_var;
     int64_t cs_add = 0;
-    if (!parse_grid_checksum_stmt(p_for->body[3], cs_var, x_var, y_var, cs_add)) {
-        return false;
+    if (offset_divisor == 1) {
+        if (!parse_grid_checksum_stmt(p_for->body[3], cs_var, x_var, y_var, cs_add)) {
+            return false;
+        }
+    } else {
+        AssignmentStatement *cs_as = (AssignmentStatement *)p_for->body[3];
+        if (!cs_as->target || cs_as->target->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        cs_var = ((VariableNode *)cs_as->target)->name;
+        Vector<ExpressionNode *> terms;
+        ExpressionNode *cur = cs_as->value;
+        while (cur && cur->type == ExpressionNode::BINARY_OP && ((BinaryOpNode *)cur)->op == "+") {
+            terms.push_back(((BinaryOpNode *)cur)->right);
+            cur = ((BinaryOpNode *)cur)->left;
+        }
+        terms.push_back(cur);
+        if (terms.size() != 4 || !terms[3] || terms[3]->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)terms[3])->name.nocasecmp_to(cs_var) != 0 ||
+                !_vg_is_clng_var(terms[1], y_var) || !parse_checksum_tail(terms[0], cs_add) ||
+                !terms[2] || terms[2]->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *div = (BinaryOpNode *)terms[2];
+        int64_t checksum_divisor = 0;
+        if (div->op != "\\" || !try_const_i64_from_expr(div->right, checksum_divisor) ||
+                checksum_divisor != offset_divisor || !div->left) {
+            return false;
+        }
+        ExpressionNode *base = nullptr;
+        if (div->left->type == ExpressionNode::ARRAY_ACCESS) {
+            ArrayAccessNode *arr = (ArrayAccessNode *)div->left;
+            if (!arr->base || arr->base->type != ExpressionNode::VARIABLE || arr->indices.size() != 1 ||
+                    ((VariableNode *)arr->base)->name.nocasecmp_to(offset_name) != 0) {
+                return false;
+            }
+            base = arr->indices[0];
+        } else if (div->left->type == ExpressionNode::EXPRESSION_CALL) {
+            CallExpression *call = (CallExpression *)div->left;
+            if (call->base_object || call->method_name.nocasecmp_to(offset_name) != 0 || call->arguments.size() != 1) {
+                return false;
+            }
+            base = call->arguments[0];
+        }
+        if (!base || base->type != ExpressionNode::VARIABLE ||
+                ((VariableNode *)base)->name.nocasecmp_to(p_for->variable_name) != 0) {
+            return false;
+        }
+    }
+    if (x_var.nocasecmp_to(y_var) == 0 || x_var.nocasecmp_to(cs_var) == 0 ||
+            y_var.nocasecmp_to(cs_var) == 0 || p_for->variable_name.nocasecmp_to(x_var) == 0 ||
+            p_for->variable_name.nocasecmp_to(y_var) == 0 || p_for->variable_name.nocasecmp_to(cs_var) == 0 ||
+            !local_slots.has(x_var.to_lower()) || !local_slots.has(y_var.to_lower()) ||
+            !local_slots.has(cs_var.to_lower()) || get_local_type(cs_var) != VT_INT ||
+            !local_slots.has(p_for->variable_name.to_lower()) ||
+            get_local_type(x_var) != VT_FLOAT || get_local_type(y_var) != VT_FLOAT ||
+            get_local_type(p_for->variable_name) != VT_INT) {
+        return trace_fail("offset loop locals");
+    }
+    if (y_mul < INT32_MIN || y_mul > INT32_MAX || y_mod > INT32_MAX || cell > INT32_MAX ||
+            cs_add < INT32_MIN || cs_add > INT32_MAX) {
+        return trace_fail("offset loop operand range");
     }
     int cs_slot = get_or_add_local(cs_var, VT_INT);
     if (cs_slot < 0) {
@@ -5588,6 +5675,7 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
     emit_byte(OP_DRAW_RECT_OFFSET_LOOP);
     emit_byte((uint8_t)cs_slot);
     emit_const_index(arr_idx);
+    emit_i32((int32_t)offset_divisor);
     emit_i32((int32_t)y_mul);
     emit_i32((int32_t)y_mod);
     emit_i32((int32_t)cell);
@@ -5596,6 +5684,9 @@ bool VisualGasicCompiler::try_compile_offset_rect_for_fusion(ForStatement *p_for
     emit_const_index(cidx);
     emit_byte(filled ? 1 : 0);
     emit_i32((int32_t)cs_add);
+    emit_byte((uint8_t)local_slots[p_for->variable_name.to_lower()]);
+    emit_byte((uint8_t)local_slots[x_var.to_lower()]);
+    emit_byte((uint8_t)local_slots[y_var.to_lower()]);
     return true;
 }
 

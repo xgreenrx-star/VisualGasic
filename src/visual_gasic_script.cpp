@@ -259,7 +259,7 @@ int opcode_operand_length(uint8_t op) {
         case OP_DRAW_POLYLINE_GRID_LOOP:
             return 19;
         case OP_DRAW_RECT_OFFSET_LOOP:
-            return 30;
+            return 37;
         case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
             return 24;
         // 2-byte operand: single 16-bit constant pool index

@@ -393,8 +393,9 @@ private:
     int64_t run_draw_polyline_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
             float p_width, const Color &p_color, int32_t p_checksum_add);
     int64_t run_draw_rect_offset_loop(int64_t p_count, int64_t p_cs, const String &p_offset_name,
-            int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
-            const Color &p_color, bool p_filled, int32_t p_checksum_add);
+            int32_t p_offset_divisor, int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
+            const Color &p_color, bool p_filled, int32_t p_checksum_add,
+            int64_t &r_loop_index, double &r_x, double &r_y);
     int64_t run_vector_uniform_rect_grid_loop(int64_t p_count, int64_t p_cs, int32_t p_cols, int32_t p_cell,
             float p_w, float p_h, const Color &p_color, bool p_filled, int32_t p_checksum_add);
     CanvasItem *get_draw_canvas_item();

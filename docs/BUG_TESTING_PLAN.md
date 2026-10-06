@@ -377,6 +377,28 @@ with comparable outputs. See the
 [final report and raw results](benchmarks/BUG_CAMPAIGN_OCT2026.md), including
 slower workloads and the outstanding sanitizer/platform validation limits.
 
+The moving-rectangle follow-up identified an optimization-shape regression:
+integer-tenths motion changed `x = offsets(i)` to
+`x = CDbl(offsets(i)) / 10.0`, and changed the checksum to integer division.
+Neither expression matched the existing offset-loop fusion, so each of 500
+rectangles ran generic bytecode with repeated array lookups. The compiler now
+recognizes constant positive integer scaling with a matching checksum divisor
+on module-level integer arrays. The offset-loop opcode carries the divisor and
+local slots, preserves observable loop variables, and reports array errors
+instead of silently stopping. VM decoding, optimizer lengths and bytecode
+inspection agree on the extended encoding. Unsupported/nonmatching shapes
+remain on the ordinary path.
+
+`tests/test_scaled_offset_draw.gd` passes 25 checks per execution mode, covering
+negative/fractional coordinates, empty loops, legacy unscaled loops, observable
+loop locals, out-of-range errors and rejection of mismatched/variable divisors
+and floating arrays. The full differential suite still has 210 matched passes
+and zero failures/divergences. Three validated moving-draw samples now report
+VG 100/83/88 us against GDScript 191/213/244 us: medians 88/213 us, or **2.42x
+VG speedup**, with identical checksum `257901` and exactly 120 measured frames
+in each lane. This fixes the prior generic-path slowdown without altering the
+benchmark workload or weakening its validation.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

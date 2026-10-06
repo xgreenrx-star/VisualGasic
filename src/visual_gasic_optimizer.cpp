@@ -192,7 +192,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_DRAW_POLYLINE_GRID_LOOP:
             return 19;
         case OP_DRAW_RECT_OFFSET_LOOP:
-            return 30;
+            return 38;
         case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
             return 24;
 

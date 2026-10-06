@@ -4086,7 +4086,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 break;
             }
             VG_CASE(vg_op_draw_rect_offset_loop, OP_DRAW_RECT_OFFSET_LOOP): {
-                if (vm.ip + 30 >= code_size) { success = false; goto cleanup; }
+                if (vm.ip + 37 > code_size) { success = false; goto cleanup; }
                 uint8_t cs_slot = code[vm.ip++];
                 int arr_idx = read_const_index();
                 if (arr_idx < 0 || arr_idx >= chunk->constants.size()) { success = false; goto cleanup; }
@@ -4107,6 +4107,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     vm.ip += 4;
                     return conv.f;
                 };
+                int32_t offset_divisor = read_i32();
+                if (offset_divisor <= 0) { success = false; goto cleanup; }
                 int32_t y_mul = read_i32();
                 int32_t y_mod = read_i32();
                 int32_t cell = read_i32();
@@ -4116,13 +4118,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (color_idx < 0 || color_idx >= chunk->constants.size()) { success = false; goto cleanup; }
                 uint8_t filled = code[vm.ip++];
                 int32_t cs_add = read_i32();
+                uint8_t i_slot = code[vm.ip++];
+                uint8_t x_slot = code[vm.ip++];
+                uint8_t y_slot = code[vm.ip++];
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 int64_t count = to_int(pop_value());
                 int64_t cs = to_int(read_local(cs_slot));
+                int64_t loop_index = 0;
+                double x = (double)read_local(x_slot);
+                double y = (double)read_local(y_slot);
                 String arr_name = chunk->constants[arr_idx];
-                cs = run_draw_rect_offset_loop(count, cs, arr_name, y_mul, y_mod, cell, w, h,
-                        (Color)chunk->constants[color_idx], filled != 0, cs_add);
+                cs = run_draw_rect_offset_loop(count, cs, arr_name, offset_divisor, y_mul, y_mod, cell, w, h,
+                        (Color)chunk->constants[color_idx], filled != 0, cs_add, loop_index, x, y);
+                sync_local(i_slot, Variant(loop_index));
+                sync_local(x_slot, Variant(x));
+                sync_local(y_slot, Variant(y));
                 sync_local(cs_slot, Variant(cs));
+                if (error_state.has_error && !try_recover_error(Variant(), false)) {
+                    success = false;
+                    goto cleanup;
+                }
                 break;
             }
             VG_CASE(vg_op_vector_uniform_rect_grid_loop, OP_VECTOR_UNIFORM_RECT_GRID_LOOP): {

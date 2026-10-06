@@ -3229,8 +3229,9 @@ int64_t VisualGasicInstance::run_draw_polyline_grid_loop(int64_t p_count, int64_
 }
 
 int64_t VisualGasicInstance::run_draw_rect_offset_loop(int64_t p_count, int64_t p_cs, const String &p_offset_name,
-        int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
-        const Color &p_color, bool p_filled, int32_t p_checksum_add) {
+        int32_t p_offset_divisor, int32_t p_y_mul, int32_t p_y_mod, int32_t p_cell, float p_w, float p_h,
+        const Color &p_color, bool p_filled, int32_t p_checksum_add,
+        int64_t &r_loop_index, double &r_x, double &r_y) {
     CanvasItem *ci = get_draw_canvas_item();
     if (!ci || p_count <= 0) {
         return p_cs;
@@ -3246,6 +3247,7 @@ int64_t VisualGasicInstance::run_draw_rect_offset_loop(int64_t p_count, int64_t 
         }
     }
     if (offsets_var.get_type() != Variant::ARRAY) {
+        raise_error("Type mismatch: rectangle offsets must be an array", 13);
         return p_cs;
     }
     Array offsets = offsets_var;
@@ -3255,14 +3257,19 @@ int64_t VisualGasicInstance::run_draw_rect_offset_loop(int64_t p_count, int64_t 
     int64_t cs = p_cs;
     for (int64_t i = 0; i < p_count; i++) {
         if (i >= offsets.size()) {
+            raise_error("Array subscript out of range", 9);
             break;
         }
-        // Match GDScript/C++ moving benchmark: offsets live in float32 precision.
-        float x = (float)(double)offsets[i];
+        double offset = (double)offsets[i];
+        r_x = offset / p_offset_divisor;
+        float x = (float)r_x;
+        int64_t checksum_x = p_offset_divisor == 1 ? (int64_t)x : (int64_t)offsets[i] / p_offset_divisor;
         int64_t y_index = (i * (int64_t)p_y_mul) % (int64_t)p_y_mod;
-        float y = (float)(y_index * p_cell);
+        r_y = (double)(y_index * p_cell);
+        float y = (float)r_y;
         safe_canvas_draw_rect(ci,Rect2(x, y, p_w, p_h), p_color, p_filled);
-        cs += (int64_t)x + (int64_t)y + p_checksum_add;
+        cs += checksum_x + (int64_t)y + p_checksum_add;
+        r_loop_index = i + 1;
     }
     return cs;
 }

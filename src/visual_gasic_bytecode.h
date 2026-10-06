@@ -311,7 +311,7 @@ enum OpCode {
     OP_DRAW_CIRCLE_GRID_LOOP,       // cs_slot u8, cols i32, cell i32, ox f32, oy f32, radius f32, color const16, cs_add i32
     OP_DRAW_TEXTURE_RECT_GRID_LOOP, // cs_slot u8, tex global const16, cols i32, cell i32, w f32, h f32, tile u8, cs_add i32
     OP_DRAW_POLYLINE_GRID_LOOP,     // cs_slot u8, cols i32, cell i32, width f32, color const16, cs_add i32
-    OP_DRAW_RECT_OFFSET_LOOP,       // cs_slot u8, offset_arr const16, y_mul i32, y_mod i32, cell i32, w f32, h f32, color const16, filled u8, cs_add i32
+    OP_DRAW_RECT_OFFSET_LOOP,       // cs_slot u8, offset_arr const16, divisor i32, y_mul i32, y_mod i32, cell i32, w f32, h f32, color const16, filled u8, cs_add i32, i/x/y slots u8
     OP_VECTOR_UNIFORM_RECT_GRID_LOOP, // cs_slot u8, cols i32, cell i32, w f32, h f32, color const16, filled u8, cs_add i32
 
     // Block-scoped Let variables (v6.0)
