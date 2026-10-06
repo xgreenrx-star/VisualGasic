@@ -108,6 +108,25 @@ Test that modules work correctly **together**:
 
 **Priority: 🟠 MEDIUM**
 
+### AST/bytecode differential checks
+
+Run `scripts/run_ast_bytecode_diff.sh --all` for the full suite, or pass one
+or more quoted basename globs for targeted tests. The runner accepts a test
+resource path after `--`, avoiding the shared `current_test.txt` selector.
+The harness requires a successful process exit, a runner completion marker,
+nonempty assertions and matching passing assertions. Timeouts, unhandled VG
+runtime errors, identical failing assertions and empty runs are failures, not
+evidence of parity. Raw logs remain in the reported artifact directory.
+
+The default path may fall back to AST when compilation is unsupported; matching
+results alone do not prove that bytecode executed. For newly fixed compiler
+features, also inspect compilation or bytecode execution directly.
+
+Mutation stress is a crash check, not a correctness or hang-freedom check.
+Its accepted timeouts require separate triage. Repeat with multiple seeds and
+both default and `VG_FORCE_AST=1` modes, preserve reproducers, and use
+ASan/UBSan builds before release to find memory faults that do not hard-crash.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

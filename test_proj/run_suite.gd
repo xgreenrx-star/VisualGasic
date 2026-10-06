@@ -7,19 +7,23 @@ extends SceneTree
 var max_frames: int = 120
 
 func _init():
+	var args = OS.get_cmdline_user_args()
+	var vg_path: String = ""
+	if not args.is_empty():
+		vg_path = args[0]
 	# Read test file path from current_test.txt
-	var f = FileAccess.open("res://current_test.txt", FileAccess.READ)
-	if f == null:
-		print("ERROR: Cannot open res://current_test.txt")
-		quit()
-		return
-	
-	var vg_path = f.get_line().strip_edges()
-	f.close()
+	if vg_path.is_empty():
+		var f = FileAccess.open("res://current_test.txt", FileAccess.READ)
+		if f == null:
+			print("ERROR: Cannot open res://current_test.txt")
+			quit(1)
+			return
+		vg_path = f.get_line().strip_edges()
+		f.close()
 	
 	if vg_path == "":
 		print("ERROR: Empty test file path")
-		quit()
+		quit(1)
 		return
 	
 	# Check if file has a max_frames override by reading the VG source
@@ -39,7 +43,7 @@ func _init():
 	var script = load(vg_path)
 	if script == null:
 		print("ERROR: Failed to load " + vg_path)
-		quit()
+		quit(1)
 		return
 	
 	# Honor Extends (CharacterBody2D / Node2D / …) so Me is the real owner type.
@@ -63,4 +67,5 @@ var _frame: int = 0
 func _process(_delta):
 	_frame += 1
 	if _frame >= max_frames:
+		print("VG_SUITE_COMPLETED")
 		quit()

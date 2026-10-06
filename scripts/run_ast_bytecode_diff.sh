@@ -5,7 +5,8 @@
 # Runs the same .vg tests twice:
 #   1) default path (bytecode VM when compilation succeeds)
 #   2) VG_FORCE_AST=1 (AST tree-walk only)
-# Diffs PASS:/FAIL: lines. Any mismatch is a dual-path bug candidate.
+# Diffs PASS:/FAIL: lines and checks execution status. Any mismatch is a
+# dual-path bug candidate; crashes, timeouts, runtime errors and empty runs fail.
 #
 # Usage:
 #   ./scripts/run_ast_bytecode_diff.sh              # default hot set
@@ -56,12 +57,12 @@ DEFAULT_HOT=(
 	test_variant_tostring.vg
 )
 
-FILTER=""
+FILTERS=()
 USE_ALL=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--all) USE_ALL=1; shift ;;
-		*) FILTER="$1"; shift ;;
+		*) FILTERS+=("$1"); shift ;;
 	esac
 done
 
@@ -94,8 +95,10 @@ collect_tests() {
 		find "$TEST_DIR" -name 'test_*.vg' -type f -printf '%f\n' | sort
 		return
 	fi
-	if [[ -n "$FILTER" ]]; then
-		find "$TEST_DIR" -name "$FILTER" -type f -printf '%f\n' | sort
+	if [[ ${#FILTERS[@]} -gt 0 ]]; then
+		for filter in "${FILTERS[@]}"; do
+			find "$TEST_DIR" -name "$filter" -type f -printf '%f\n'
+		done | sort -u
 		return
 	fi
 	for f in "${DEFAULT_HOT[@]}"; do
@@ -106,7 +109,7 @@ collect_tests() {
 mapfile -t TEST_FILES < <(collect_tests)
 if [[ ${#TEST_FILES[@]} -eq 0 ]]; then
 	echo "No matching tests."
-	exit 0
+	exit 1
 fi
 
 echo "╔══════════════════════════════════════════════════╗"
@@ -118,9 +121,9 @@ echo "Out:   $OUT_DIR"
 echo ""
 
 # Smoke: bytecode path must produce PASS
-echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
-smoke_out=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
-if ! echo "$smoke_out" | grep -q "^PASS:"; then
+smoke_rc=0
+smoke_out=$(timeout "$TIMEOUT_SECS" env -u VG_FORCE_AST "$GODOT" "${GODOT_BASE_ARGS[@]}" -- res://test_suite/test_arr_simple.vg 2>&1) || smoke_rc=$?
+if [[ "$smoke_rc" -ne 0 ]] || ! echo "$smoke_out" | grep -q "^PASS:" || ! echo "$smoke_out" | grep -q '^VG_SUITE_COMPLETED$'; then
 	echo "FATAL: GDExtension smoke failed (bytecode path)"
 	echo "$smoke_out" | tail -40
 	exit 1
@@ -128,18 +131,14 @@ fi
 
 # Smoke: AST force must also load and run (may FAIL assertions — that's OK for smoke)
 # We only require the process not crash and that VG prints something.
-export VG_FORCE_AST=1
-smoke_ast=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
-unset VG_FORCE_AST
-if ! echo "$smoke_ast" | grep -qE "^(PASS:|FAIL:|ERROR:)"; then
-	# Still accept if Godot at least ran without hard crash and printed VG output
-	if ! echo "$smoke_ast" | grep -qiE "visual.?gasic|PASS|FAIL|Sub |_Ready"; then
-		echo "FATAL: VG_FORCE_AST smoke produced no recognizable VG output"
-		echo "$smoke_ast" | tail -40
-		exit 1
-	fi
+smoke_rc=0
+smoke_ast=$(timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${GODOT_BASE_ARGS[@]}" -- res://test_suite/test_arr_simple.vg 2>&1) || smoke_rc=$?
+if [[ "$smoke_rc" -ne 0 ]] || ! echo "$smoke_ast" | grep -q '^PASS:' || ! echo "$smoke_ast" | grep -q '^VG_SUITE_COMPLETED$'; then
+	echo "FATAL: VG_FORCE_AST smoke failed"
+	echo "$smoke_ast" | tail -40
+	exit 1
 fi
-echo "Smoke OK (bytecode + VG_FORCE_AST env honored)"
+echo "Smoke OK (default + forced AST)"
 echo ""
 
 extract_assertions() {
@@ -153,21 +152,26 @@ BC_ONLY_FAIL=0
 AST_ONLY_FAIL=0
 BOTH_FAIL=0
 NO_ASSERT=0
+EXEC_FAILURES=0
 
 for fname in "${TEST_FILES[@]}"; do
-	# Serialize current_test.txt against concurrent suite runners
-	(
-		flock 9
-		echo "res://test_suite/$fname" > test_proj/current_test.txt
-	) 9>test_proj/current_test.lock
-
 	bc_raw="$OUT_DIR/${fname}.bc.raw"
 	ast_raw="$OUT_DIR/${fname}.ast.raw"
 	bc_assert="$OUT_DIR/${fname}.bc.txt"
 	ast_assert="$OUT_DIR/${fname}.ast.txt"
 
-	timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" >"$bc_raw" 2>&1 || true
-	VG_FORCE_AST=1 timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${GODOT_BASE_ARGS[@]}" >"$ast_raw" 2>&1 || true
+	bc_rc=0
+	ast_rc=0
+	timeout "$TIMEOUT_SECS" env -u VG_FORCE_AST "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname" >"$bc_raw" 2>&1 || bc_rc=$?
+	timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname" >"$ast_raw" 2>&1 || ast_rc=$?
+	if [[ "$bc_rc" -ne 0 || "$ast_rc" -ne 0 ]] ||
+		! grep -q '^VG_SUITE_COMPLETED$' "$bc_raw" ||
+		! grep -q '^VG_SUITE_COMPLETED$' "$ast_raw" ||
+		grep -qE '^\[VG Runtime Error|^SCRIPT ERROR:|^ERROR:.*(Failed to load|Cannot open)|handle_crash:|Segmentation fault|Aborted' "$bc_raw" "$ast_raw"; then
+		echo "  EXEC-FAIL  $fname  (bc rc=$bc_rc ast rc=$ast_rc; inspect raw logs)"
+		EXEC_FAILURES=$((EXEC_FAILURES + 1))
+		continue
+	fi
 
 	extract_assertions "$bc_raw" >"$bc_assert"
 	extract_assertions "$ast_raw" >"$ast_assert"
@@ -214,11 +218,12 @@ echo "  Mismatches:     $MISMATCHES"
 echo "    AST-only fail:$AST_ONLY_FAIL"
 echo "    BC-only fail: $BC_ONLY_FAIL"
 echo "  No assertions:  $NO_ASSERT"
+echo "  Execution fail: $EXEC_FAILURES"
 echo "  Artifacts:      $OUT_DIR"
 echo ""
 
-if [[ "$MISMATCHES" -gt 0 ]]; then
-	echo "DIFFERENTIAL FAILURES — investigate AST↔bytecode divergences above"
+if [[ "$MISMATCHES" -gt 0 || "$BOTH_FAIL" -gt 0 || "$NO_ASSERT" -gt 0 || "$EXEC_FAILURES" -gt 0 ]]; then
+	echo "TEST FAILURES — investigate divergences, failed assertions and execution logs above"
 	exit 1
 fi
 echo "All compared tests agree across bytecode and AST paths."
