@@ -1,0 +1,34 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+PASS: fusion selection/decoding scaled integer offsets
+PASS: empty draw preserves locals
+[VG Runtime Error 9] Array subscript out of range â Sub: Render Line: 44 (scaled_offset_0.vg)
+PASS: checksum scaled integer offsets
+PASS: observable loop locals scaled integer offsets
+PASS: out-of-range offset error scaled integer offsets
+PASS: fusion selection/decoding legacy unscaled offsets
+PASS: empty draw preserves locals
+[VG Runtime Error 9] Array subscript out of range â Sub: Render Line: 44 (scaled_offset_1.vg)
+PASS: checksum legacy unscaled offsets
+PASS: observable loop locals legacy unscaled offsets
+PASS: out-of-range offset error legacy unscaled offsets
+PASS: fusion selection/decoding different checksum divisor
+PASS: empty draw preserves locals
+[VG Runtime Error 9] Array subscript out of range â Sub: Render Line: 45 (scaled_offset_2.vg)
+PASS: checksum different checksum divisor
+PASS: observable loop locals different checksum divisor
+PASS: out-of-range offset error different checksum divisor
+PASS: fusion selection/decoding variable position divisor
+PASS: empty draw preserves locals
+[VG Runtime Error 9] Array subscript out of range â Sub: Render Line: 45 (scaled_offset_3.vg)
+PASS: checksum variable position divisor
+PASS: observable loop locals variable position divisor
+PASS: out-of-range offset error variable position divisor
+PASS: fusion selection/decoding floating offset array
+PASS: empty draw preserves locals
+[VG Runtime Error 9] Array subscript out of range â Sub: Render Line: 45 (scaled_offset_4.vg)
+PASS: checksum floating offset array
+PASS: observable loop locals floating offset array
+PASS: out-of-range offset error floating offset array
+SCALED_OFFSET_TESTS_COMPLETED failures=0

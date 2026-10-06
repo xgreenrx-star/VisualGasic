@@ -1,0 +1,9 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+PASS: equal results
+PASS: moving checksum mismatch
+PASS: extra draw frame
+PASS: missing frame count
+PASS: missing checksum
+PASS: negative timing

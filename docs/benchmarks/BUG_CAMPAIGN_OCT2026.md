@@ -1,6 +1,7 @@
 # Bug campaign close-out and benchmark results
 
-Date: October 6, 2026. Tested revision: `ad84892f`.
+Date: October 6, 2026. Original tested revision: `ad84892f`.
+Moving-draw follow-up tested revision: `22e729f8`.
 
 The reproduced defects from the Cursor follow-up campaign are resolved. The
 final correctness gate ran after the fixes were pushed; performance collection
@@ -9,6 +10,70 @@ that VisualGasic contains no remaining bugs.
 
 The [Facebook draft](../community/FACEBOOK_BUG_FIXES_OCT2026.md) is ready to copy.
 The [testing plan](../BUG_TESTING_PLAN.md) contains the chronological triage.
+
+## Latest draw follow-up: scaled-offset optimization restored
+
+The previously reported MovingFilledRects slowdown was real for the corrected
+workload, not a checksum/math error. Changing the motion representation to
+integer tenths changed the draw loop from `x = offsets(i)` to
+`x = CDbl(offsets(i)) / 10.0`, with an integer-divided checksum term. The
+compiler's existing offset-draw fusion recognized neither new expression.
+Bytecode inspection confirmed a generic loop with repeated global/array
+lookups and per-element arithmetic instead of `OP_DRAW_RECT_OFFSET_LOOP`.
+
+The compiler/VM now support positive constant integer scaling with a matching
+checksum divisor on module-level integer arrays. The extended native opcode
+preserves loop-local values and reports array errors. Nonmatching or unsupported
+shapes stay on the ordinary path. The workload, coordinates, object count,
+warmup, frame gate and checksums were not changed in this follow-up.
+
+Verification after rebuilding both Linux libraries:
+
+- 25 dedicated checks pass in each execution mode: scaled/legacy loops,
+  negative/fractional coordinates, empty loops, observable local values,
+  out-of-range errors and fallback selection.
+- Full differential suite: 210 matched passes; zero divergences/failures;
+  eight explicit exclusions.
+- All six draw-result validation checks pass.
+- Three sequential complete draw-suite runs pass checksum/frame validation.
+  MovingFilledRects remains 500 objects, 10 warmup frames and exactly 120
+  measured frames, with checksum `257901` in every lane.
+
+Latest draw medians, in microseconds:
+
+| Workload | VG us | GDScript us | C++ us | GD/VG speedup |
+|---|---:|---:|---:|---:|
+| FilledRects | 274 | 541 | 54 | 1.97x |
+| OutlineRects | 682 | 1014 | 209 | 1.49x |
+| Lines | 467 | 467 | 73 | 1.00x |
+| Circles | 2069 | 2193 | 990 | 1.06x |
+| Sprites | 288 | 1981 | 81 | 6.88x |
+| Polylines | 479 | 1097 | 370 | 2.29x |
+| Mixed | 1764 | 2563 | 2419 | 1.45x |
+| VectorCanvasUniformRects | 132 | 437 | 102 | 3.31x |
+| MovingFilledRects | 88 | 213 | 41 | 2.42x |
+
+Moving samples: VG **100 / 83 / 88 us**, GDScript **191 / 213 / 244 us**,
+C++ **41 / 32 / 51 us**. The ratio of medians is `213 / 88 = 2.42x`,
+favoring VG. The earlier generic-path VG median was 7476 us; the new median
+is 88 us. These are separate measurement sessions, not a controlled estimate
+of exactly how much every moving-draw program improves.
+
+Unchanged static draw workloads also fluctuated between sessions. Laptop CPU
+clocks/scheduling and short single-draw samples make near-parity ratios
+particularly noisy. Do not interpret these as universal language rankings.
+
+Latest raw logs: [draw 1](oct2026/moving-followup-draw-1.log),
+[draw 2](oct2026/moving-followup-draw-2.log),
+[draw 3](oct2026/moving-followup-draw-3.log),
+[full differential](oct2026/moving-followup-differential.log),
+[default regressions](oct2026/moving-followup-default.log),
+[AST regressions](oct2026/moving-followup-ast.log),
+[result validator](oct2026/moving-followup-validator.log).
+The regression logs deliberately raise/catch error 9 to verify bounds errors.
+
+The original campaign measurements below are retained as historical evidence.
+Compute/gameplay/reload were not remeasured in this draw-only follow-up.
 
 ## Fixes delivered
 
@@ -122,7 +187,7 @@ These are scripting workloads, not complete games or measured game FPS.
 CallChain is 1.12x slower in VG. NodePropertyChurn and LocalCalls are especially
 optimization-sensitive; do not use their ratios as whole-game multipliers.
 
-## Headless draw-command work
+## Original headless draw-command measurements (superseded above)
 
 Static rows time CPU-side work inside `_draw`. MovingFilledRects reports the
 per-run average over 120 measured draws; the table is the median of those
@@ -140,9 +205,11 @@ three averages. These are not GPU rendering times or FPS results.
 | VectorCanvasUniformRects | 57 | 741 | 136 | 13.00x |
 | MovingFilledRects | 7476 | 163 | 47 | 0.022x |
 
-VG is slower on OutlineRects, Lines, Circles and MovingFilledRects. Moving
-rectangles are **45.87x slower** in this corrected workload and remain a
-performance investigation target, not a failing correctness result.
+In this original run VG was slower on OutlineRects, Lines, Circles and
+MovingFilledRects. Moving rectangles were **45.87x slower** in the corrected
+workload. This remains a historical generic-path result, not a failing
+correctness result. The scaled
+offset-loop optimization and current measurements are documented above.
 
 The moving workload uses identical integer-tenths motion in all implementations:
 500 objects, 10 warmup frames and 120 measured frames. All lanes produced final
@@ -200,6 +267,8 @@ scripts/run_sprite_data_tests.sh
 ./Godot_v4.6.1-stable_linux.x86_64 --headless --path test_proj -s tools/run_socket_timeout.gd
 ./Godot_v4.6.1-stable_linux.x86_64 --headless --path test_proj -s tools/run_step_trace.gd
 ./Godot_v4.6.1-stable_linux.x86_64 --headless --path test_proj -s "$PWD/tests/test_draw_benchmark_results.gd"
+./Godot_v4.6.1-stable_linux.x86_64 --headless --path test_proj -s "$PWD/tests/test_scaled_offset_draw.gd"
+VG_FORCE_AST=1 ./Godot_v4.6.1-stable_linux.x86_64 --headless --path test_proj -s "$PWD/tests/test_scaled_offset_draw.gd"
 scripts/run_parser_mutation_stress.sh 40 15
 VG_FORCE_AST=1 scripts/run_parser_mutation_stress.sh 40 16
 ```
@@ -229,5 +298,6 @@ done
 - Native recursion remains stack-dependent; the Linux 4 MiB result does not
   certify every worker-thread/platform stack.
 - Slower benchmark rows remain performance work. Highest-priority follow-up:
-  profile the corrected moving-draw workload; then investigate nested call
-  chains and reload cost without weakening checksum/frame-count validation.
+  investigate nested call chains, reload cost and generic draw-loop overhead
+  outside the supported fusion shapes, without weakening checksum/frame-count
+  validation.
