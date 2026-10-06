@@ -302,7 +302,7 @@ own model with `python bench/ai_correctness/scripts/run_bench.py`.
 
 ![AI Provider API Keys](docs/screenshots/beta6_narcea_ai_provider_keys.png)
 
-*Configure Gemini, OpenAI, Claude, DeepSeek, and other Narcea providers from the IDE (keys stored locally in `user://vg_ai_keys.cfg`).*
+*Configure Gemini, OpenAI, Claude, DeepSeek, and other Narcea providers from the IDE. Keys are stored locally in Godot Editor Settings, not in the project. [Custom AI providers](docs/manual/CUSTOM_AI_PROVIDERS.md) support user-defined OpenAI-compatible, Anthropic-compatible and Ollama endpoints with manually entered model IDs.*
 
 ### **Custom Theme Editor**
 

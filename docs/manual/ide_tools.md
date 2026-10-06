@@ -675,7 +675,7 @@ Editor front‑end for the VisualGasic package manager (C++ class `VisualGasicPa
 **Location**: `Bottom Dock > Vibe Code`
 **Files**: [addons/visual_gasic/vg_ai_help.gd](../../addons/visual_gasic/vg_ai_help.gd), [addons/visual_gasic/vg_ai_providers.gd](../../addons/visual_gasic/vg_ai_providers.gd), [addons/visual_gasic/vg_ai_model_picker.gd](../../addons/visual_gasic/vg_ai_model_picker.gd)
 
-In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **local Ollama** (private, offline) and cloud providers **OpenAI**, **Claude**, and **Gemini**. Streams token‑by‑token responses into a RichTextLabel in the panel.
+In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **local Ollama** (private, offline), built-in cloud providers including **OpenAI**, **Claude**, and **Gemini**, and [user-configured compatible providers](CUSTOM_AI_PROVIDERS.md). Streams token‑by‑token responses into a RichTextLabel in the panel.
 
 **What it's for**: explain errors, translate GDScript ↔ VG, describe a selected `Sub`/`Function`, generate boilerplate, or just ask "why doesn't this compile?" without leaving the IDE.
 
