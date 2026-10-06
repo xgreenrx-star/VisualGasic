@@ -292,6 +292,9 @@ Print "FPS: " & GetFPS()
 - `MoveToward(from, to, delta)` - Move toward value
 
 ### Rendering
+These owner-relative functions require a `CanvasItem` owner, such as
+`Extends Node2D` or `Extends Control`.
+
 - `IsVisible()` / `SetVisible(bool)` - Visibility
 - `GetModulate()` / `SetModulate(color)` - Color tint
 

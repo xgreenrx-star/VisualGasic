@@ -58,6 +58,11 @@ Sub _Ready()
 	Else
 		Print "FAIL: getdelta_expr: got " & Str(d)
 	End If
+	If getdelta() = GetDeltaTime() Then
+		Print "PASS: getdelta_case_insensitive_alias"
+	Else
+		Print "FAIL: getdelta_case_insensitive_alias"
+	End If
 
 	Print "TEST_COMPLETE"
 End Sub

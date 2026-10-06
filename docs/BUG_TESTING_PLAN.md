@@ -204,12 +204,62 @@ The remaining divergence is AST `Await`, still a no-op statement. Its fix
 requires explicit continuation frames for nested AST blocks, saved local
 scopes and task-completion integration; saving only a statement index or
 blocking the main thread is insufficient. No Await implementation was
-changed during this follow-up. Other open failures include ByRef import,
-queued canvas drawing, missing owner helpers (`GetDelta`, `IsVisible`), and
-an unresolved sample import.
-Benchmark/network timeouts and intentional error/debugger/helper fixtures
-need explicit test-runner classification. Retain raw logs and reproducers;
-these counts are not a release sign-off.
+changed during this follow-up.
+
+The next targeted pass resolves the ByRef-import and queued-canvas failures:
+
+- AST ByRef target detection rejected multidimensional array elements even
+  though the assignment helper already supported them. It now accepts
+  nonempty array-index lists while preserving the single-key restriction for
+  dictionaries, packed arrays and memory buffers. The call-expression
+  assignment path also stores the modified innermost array before rebuilding
+  its parents. The import regression passes four assertions on each path,
+  covering scalar, statement-call and expression-call write-back, plus
+  temporary arguments that must not become assignment targets.
+- `VGVectorCanvas2D.GetCommandCount()` counted dictionary-backed commands
+  but omitted identity-transform lines stored in the optimized primitive
+  buffer. It now counts those lines without double-counting dictionary
+  commands. Five assertions per path verify mixed primitives, redraw
+  scheduling, Clear, fast lines and overlay-backed lines.
+- `GetDelta()` returned an owner delta without setting its dispatch-found
+  flag, causing the caller to report an undefined function. The flag is now
+  set before returning; case-insensitive dispatch is also tested. The
+  expression-compatibility fixture passes nine assertions per path.
+- The `IsVisible` fixture was attached to a plain `Node`, not a `CanvasItem`.
+  It now declares `Extends Node2D` and verifies visible/hidden/restored states
+  instead of only printing a success line. No visibility-runtime change was
+  needed; seven assertions pass per path.
+
+All 14 targeted ByRef, array, canvas and owner-helper fixtures pass on both
+paths. Another 20 mutations at seed 13 (default) and 20 at seed 14 (forced
+AST) had no crashes or timeouts.
+
+The complete follow-up run covers 213 fixtures: **196 matched passes, zero
+matched failures, one divergence, seven assertionless runs and nine execution
+failures**. No native crashes occurred. The only assertion divergence in this
+generic suite remains AST Await; the dedicated input runner exposes an
+additional physical-key parity failure described below.
+
+Additional fixture triage used the dedicated runners instead of counting
+assertionless runs as passes:
+
+| Fixture group | Classification / verified outcome |
+|---|---|
+| `test_error_handling`, `test_try_cross_module` | Deliberately raised/caught errors; raw logs contain five and two passing assertions respectively, but the strict differential harness still flags the error log. |
+| `test_import_error_line`, `test_include_error_line` | Deliberate subscript errors; assertions verify error 9 and source line 3. These still require explicit expected-error validation in the harness. |
+| `test_declare_ffi_windows` | Uses `ucrtbase.dll` and `kernel32.dll`; must run on Windows, not be treated as a Linux pass. |
+| `test_benchmark_suite` | Workload benchmark; the forced-AST run exceeds the default 20-second budget. No hang-freedom conclusion. |
+| `test_http_request`, `test_socket` | Blocking connection attempts to `192.0.2.1`; timed out. Need deterministic local networking tests and timeout checks. |
+| `test_import_grid_helpers_lib`, `test_try_raise_helper` | Imported helpers without standalone assertions. |
+| `test_step_lines`, `test_step_loop` | Dedicated `tools/run_step_trace.gd` passes all three checks: exact source-line trace, three loop-body pauses and shallow debugger values. |
+| `test_sprite_data_resolver`, `test_vector_data_resolver` | Data-only fixtures. Dedicated resolver suites initially failed because assertions expected unindented rows although sync deliberately indents Data for folding. Tests now verify both indentation and content: sprite 37/37, vector 50/50; no sync-runtime change. |
+| `test_input_key_edge_press` | Requires `run_input_key_edge_inject.gd`. Default path passes, but forced AST fails the physical-only KEY_Y fallback check. This newly exposed parity bug remains open and is invisible to the generic assertionless run. |
+| `test_road_seg_data_import` | Unresolved `RoadProject.vg` import; still an open execution failure. |
+
+Retain raw logs and reproducers; these counts are not a release sign-off.
+Remaining work includes AST Await, physical-only input handling, the sample
+import, deterministic network coverage, explicit expected-error/helper/platform
+classification and sanitizer/smaller-native-stack validation.
 
 ### Memory Stress Tests
 ```vb

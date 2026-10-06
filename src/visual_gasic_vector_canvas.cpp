@@ -2665,6 +2665,14 @@ void VGVectorCanvas2D::ExecuteQueuedCommands() {
 	queue_redraw();
 }
 
+int VGVectorCanvas2D::GetCommandCount() const {
+	int count = _commands.size();
+	for (const FastPrim &prim : _fast_prims) {
+		if (prim.is_line) count++;
+	}
+	return count;
+}
+
 void VGVectorCanvas2D::BeginGroup(const String &name) {
 	_group_stack.append(name);
 }

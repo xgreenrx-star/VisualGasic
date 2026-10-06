@@ -229,7 +229,7 @@ public:
 	// VG `canvas.DrawRect` snake_cases to CanvasItem.draw_rect. Route PascalCase
 	// Draw*/Clear through the queued API instead of Godot's immediate draw_*.
 	bool try_call_pascal_method(const String &method, const Array &args);
-	int GetCommandCount() const { return _commands.size(); }
+	int GetCommandCount() const;
 
 	// ---- Public Draw* API (1:1 with vector_canvas.gd) ----
 	void DrawLine(const Vector2 &from, const Vector2 &to, float width = 2.0f, const Color &color = Color(1, 1, 1, 1));

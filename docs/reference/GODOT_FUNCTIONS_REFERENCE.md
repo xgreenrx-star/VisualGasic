@@ -401,7 +401,7 @@ Sub _Process(delta As Single)
 End Sub
 ```
 
-**Note:** `GetDeltaTime()` reads the owner's process delta. It is accurate inside `_Process`; outside that callback it returns `0`. Prefer the `delta` parameter passed to `_Process`.
+**Note:** `GetDeltaTime()` reads the owner's process delta. It is accurate inside `_Process`; outside that callback it returns `0`. Prefer the `delta` parameter passed to `_Process`. `GetDelta()` is a case-insensitive compatibility alias that reads the same owner delta.
 
 ---
 
@@ -1051,7 +1051,9 @@ SetVisible(Not is_vis)
 ---
 
 ### IsVisible() As Boolean
-Returns true if the node is visible.
+Returns true if the script owner is visible. The owner must derive from
+`CanvasItem` (for example, declare `Extends Node2D` or `Extends Control`).
+Plain `Node` owners do not have visibility.
 
 **Syntax:**
 ```vb

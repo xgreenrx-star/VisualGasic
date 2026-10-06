@@ -15,9 +15,35 @@ Sub _Ready()
 	Call canvas.ExecuteQueuedCommands()
 	Dim n As Integer
 	n = canvas.GetCommandCount()
-	If n >= 3 Then
+	If n = 3 Then
 		Print "PASS: vector_canvas_queue_draw"
 	Else
 		Print "FAIL: vector_canvas_queue_draw: queued=" & CStr(n)
+	End If
+	Call canvas.ExecuteQueuedCommands()
+	If canvas.GetCommandCount() = 3 Then
+		Print "PASS: vector_canvas_execute_preserves_commands"
+	Else
+		Print "FAIL: vector_canvas_execute_preserves_commands"
+	End If
+	Call canvas.Clear()
+	If canvas.GetCommandCount() = 0 Then
+		Print "PASS: vector_canvas_clear_commands"
+	Else
+		Print "FAIL: vector_canvas_clear_commands"
+	End If
+	Call canvas.DrawLine(Vector2(0.0, 0.0), Vector2(8.0, 8.0), 2.0, Color8(0, 255, 0, 255))
+	If canvas.GetCommandCount() = 1 Then
+		Print "PASS: vector_canvas_fast_line_count"
+	Else
+		Print "FAIL: vector_canvas_fast_line_count"
+	End If
+	Call canvas.BeginGroup("count_test")
+	Call canvas.DrawLine(Vector2(0.0, 0.0), Vector2(8.0, 8.0), 2.0, Color8(0, 255, 0, 255))
+	Call canvas.EndGroup()
+	If canvas.GetCommandCount() = 2 Then
+		Print "PASS: vector_canvas_overlay_line_count"
+	Else
+		Print "FAIL: vector_canvas_overlay_line_count"
 	End If
 End Sub

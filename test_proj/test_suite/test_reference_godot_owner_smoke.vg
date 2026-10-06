@@ -1,4 +1,5 @@
 ' Tier 1 smoke: owner-relative Godot builtins from reference audit
+Extends Node2D
 Attribute VB_Name = "TestReferenceGodotOwnerSmoke"
 
 Sub _Ready()
@@ -25,7 +26,11 @@ Sub _Ready()
 	Print "PASS: get_parent_dispatch"
 
 	vis = IsVisible()
-	Print "PASS: is_visible_dispatch"
+	If vis Then Print "PASS: is_visible_dispatch" Else Print "FAIL: is_visible_dispatch"
+	SetVisible(False)
+	If Not IsVisible() Then Print "PASS: set_visible_false" Else Print "FAIL: set_visible_false"
+	SetVisible(True)
+	If IsVisible() Then Print "PASS: set_visible_true" Else Print "FAIL: set_visible_true"
 
 	If Input.GetActionStrength("ui_accept") >= 0 Then
 		Print "PASS: get_action_strength"

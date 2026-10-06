@@ -101,7 +101,8 @@ func _test_sync_roundtrip() -> void:
 	_check("apply_shapes ok", Sync.apply_shapes(ce, sec, shapes))
 	_check("not guarded after apply", not Sync.is_sync_guarded(ce))
 	var line2 := ce.get_line(sec["data_start_line"])
-	_check("row0 starts with LINE", line2.begins_with("Data LINE"))
+	_check("row0 is indented for folding", line2.begins_with("\t"))
+	_check("row0 starts with LINE", line2.strip_edges().begins_with("Data LINE"))
 	_check("row0 has 8", ", 8," in line2 or ", 8 " in line2)
 	ce.free()
 

@@ -24,4 +24,13 @@ Sub _Ready()
 	Else
 		Print "FAIL: byref_ast_import_slot got " & CStr(grid(0, 1)) & "," & CStr(grid(1, 0))
 	End If
+	Dim result As Integer
+	result = FillBoxResult(grid(0, 1), grid(1, 0))
+	If result = 7 And grid(0, 1) = 41.0 And grid(1, 0) = 91.0 Then
+		Print "PASS: byref_import_expression_slots"
+	Else
+		Print "FAIL: byref_import_expression_slots"
+	End If
+	Call FillBox(CSng(1), CSng(2))
+	Print "PASS: byref_import_temporary_arguments"
 End Sub

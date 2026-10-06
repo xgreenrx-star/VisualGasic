@@ -5,3 +5,9 @@ Sub FillBox(ByRef x As Single, ByRef y As Single)
 	x = 40.0
 	y = 90.0
 End Sub
+
+Function FillBoxResult(ByRef x As Single, ByRef y As Single) As Integer
+	x = 41.0
+	y = 91.0
+	Return 7
+End Function

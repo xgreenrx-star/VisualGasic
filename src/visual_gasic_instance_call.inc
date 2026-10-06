@@ -2614,22 +2614,23 @@ bool VisualGasicInstance::is_byref_writeback_target(ExpressionNode* target) {
     }
     if (target->type == ExpressionNode::ARRAY_ACCESS) {
         ArrayAccessNode* aa = (ArrayAccessNode*)target;
-        // Bytecode only write-backs single-index Variable bases (arr(i)).
-        return aa->base && aa->base->type == ExpressionNode::VARIABLE && aa->indices.size() == 1;
+        return aa->base && aa->base->type == ExpressionNode::VARIABLE && !aa->indices.is_empty();
     }
     if (target->type == ExpressionNode::EXPRESSION_CALL) {
         // parse_expression represents arr(i) as CallExpression("arr", [i]).
         // Nested calls like AddTwo(1, 2) must not be treated as array L-values.
         CallExpression* call = (CallExpression*)target;
-        if (call->base_object || call->arguments.size() != 1) {
+        if (call->base_object || call->arguments.is_empty()) {
             return false;
         }
         String name = call->method_name;
         Variant container;
         if (get_variable(name, container)) {
-            if (container.get_type() == Variant::ARRAY || container.get_type() == Variant::DICTIONARY) {
+            if (container.get_type() == Variant::ARRAY) {
                 return true;
             }
+            if (call->arguments.size() != 1) return false;
+            if (container.get_type() == Variant::DICTIONARY) return true;
             if (container.get_type() >= Variant::PACKED_BYTE_ARRAY && container.get_type() <= Variant::PACKED_COLOR_ARRAY) {
                 return true;
             }
@@ -2973,6 +2974,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              }
              innermost[last_idx] = val;
 
+             arr_stack.write[arr_stack.size() - 1] = innermost;
              // Propagate changes back up the stack
              for (int i = arr_stack.size() - 2; i >= 0; i--) {
                  Array parent = arr_stack[i];
@@ -3021,4 +3023,3 @@ Variant VisualGasicInstance::call_method_by_name(const String &p_name, const Arr
     raise_error("[FROM CALL_INC_2870] Sub or Function not defined: " + p_name, 35);
     return Variant();
 }
-

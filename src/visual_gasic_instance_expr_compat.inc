@@ -369,12 +369,13 @@
 	     r_found = true; return shader;
 	}
 	
-	if (method == "GetDelta" && call_args.size() == 0) {
+	if (method.nocasecmp_to("GetDelta") == 0 && call_args.size() == 0) {
+	     r_found = true;
 	     if (owner) {
 	         Node *n = Object::cast_to<Node>(owner);
 	         if (n) return n->get_process_delta_time();
 	     }
-	     r_found = true; return 0.0;
+	     return 0.0;
 	}
 
 	// Input Handling
@@ -892,4 +893,3 @@
 	    }
 	    return 0.0;
 	}
-
