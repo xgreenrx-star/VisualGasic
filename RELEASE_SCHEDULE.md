@@ -32,7 +32,7 @@ Milestone IDs appear in **release notes and GitHub titles**, not in tags. Full p
 | M0–M4 | ✅ Done | Bugs, corpus, Code Navigator, UI Forms |
 | M5 | ✅ Done | Buffer, optimizer hints, Narcea Tier A/B |
 | M6 | ✅ Teaser | Text causal chain; visual panel → v6.1 |
-| M7 | ✅ Linux close-out | Core Python ✅; venv + large-array lane on Linux CI. Windows/macOS e2e still deferred |
+| M7 | 🟡 Close-out | Core Python ✅; large-array lane ✅; typed protocol default-on; Windows + macOS CI `test_py_*.vg` smoke added |
 | M8 | ✅ Linux close-out | `Let`, `Declare`/`DllImport`, named args, `?.`, block lambdas, Try bubbling. Interface parser not started |
 | M9 | 🔄 Pending | Installer smoke; Asset Library ✅ live |
 

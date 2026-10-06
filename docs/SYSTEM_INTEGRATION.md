@@ -1097,12 +1097,12 @@ bufResult = bridge.PyProcessBuffer(jsonMod, "dumps", buffer)
 - **Tier A (v6 baseline):** Launches `python_worker.py` as a child process.
   Protocol: length‑prefixed frames over stdin/stdout.
   - **Default:** JSON payload (compatible with all existing demos).
-  - **Opt-in typed msgpack (C2):** When `vg/python/use_typed_protocol = true` in Project Settings, payloads use msgpack so `Variant::INT` and `Variant::FLOAT` survive the wire. Required for integer-arg Python APIs such as `range(0, 5)` without `CInt()` workarounds. Framing is unchanged (4-byte little-endian length + payload).
+  - **Typed msgpack (C2, default on for new projects):** When `vg/python/use_typed_protocol = true` in Project Settings, payloads use msgpack so `Variant::INT` and `Variant::FLOAT` survive the wire. Needed for integer-arg Python APIs such as `range(0, 5)` without `CInt()` workarounds. Framing is unchanged (4-byte little-endian length + payload).
 - **Tier B (planned Phase 6):** Embedded CPython — requires `python=1` build flag.
 
-### Typed protocol (C2, opt-in)
+### Typed protocol (C2)
 
-Enable in **Project → Project Settings → Vg → Python → Use Typed Protocol** (`vg/python/use_typed_protocol`, default `false`).
+**Project → Project Settings → Vg → Python → Use Typed Protocol** (`vg/python/use_typed_protocol`, default `true` for new projects).
 
 ```ini
 # project.godot

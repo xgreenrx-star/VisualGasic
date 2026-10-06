@@ -47,7 +47,7 @@ These are tracked on the roadmap and may affect demos or daily use:
 
 | Issue | Detail | Workaround |
 |-------|--------|------------|
-| **Python bridge JSON int args** | On the **default JSON wire path**, integer literals in `Array(0, 5)` PyCall args arrive in Python as `float`. | Enable **`vg/python/use_typed_protocol = true`** (msgpack C2), or wrap with `CInt()`. |
+| **Python bridge JSON int args** | On the **JSON wire path** (`vg/python/use_typed_protocol = false`), integer literals in `Array(0, 5)` PyCall args arrive in Python as `float`. | New projects default to **typed msgpack** (`true`). If you disabled it, re-enable or wrap with `CInt()`. |
 | **Unhandled errors corrupt state** | Some unhandled runtime errors can leave the app in a bad state instead of failing cleanly. | Use `Try/Catch` or `On Error` around risky blocks during development. |
 | **Double-click ignores existing `.tscn` signal connections** | Form Designer double-click may not respect pre-wired Godot signals. | Wire handlers via VG naming convention (`btnOK_Click`) in `.vg` instead. |
 | **Phantom button double-press on blocking async** | Blocking async calls may duplicate button press events. | Avoid long blocking work in click handlers; use `Await` patterns. |

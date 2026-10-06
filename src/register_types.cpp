@@ -210,9 +210,15 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
             ProjectSettings::get_singleton()->set_setting("vg/python/embedded_enabled", false);
             ProjectSettings::get_singleton()->set_initial_value("vg/python/embedded_enabled", false);
         }
+        // M7 close-out: typed msgpack is the default wire format so integer
+        // args (range, numpy shapes) stay ints. Existing projects that already
+        // saved false keep that value; only fresh registrations get true.
         if (!ProjectSettings::get_singleton()->has_setting("vg/python/use_typed_protocol")) {
-            ProjectSettings::get_singleton()->set_setting("vg/python/use_typed_protocol", false);
-            ProjectSettings::get_singleton()->set_initial_value("vg/python/use_typed_protocol", false);
+            ProjectSettings::get_singleton()->set_setting("vg/python/use_typed_protocol", true);
+            ProjectSettings::get_singleton()->set_initial_value("vg/python/use_typed_protocol", true);
+        } else {
+            // Keep initial_value in sync for the Project Settings UI reset button.
+            ProjectSettings::get_singleton()->set_initial_value("vg/python/use_typed_protocol", true);
         }
 
         visual_gasic_language = memnew(VisualGasicLanguage);

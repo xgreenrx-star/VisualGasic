@@ -146,8 +146,21 @@ def main() -> int:
                     )
             else:
                 run = agent.send(prompt)
+            # Status ERROR often carries the real reason (usage limit, billing)
+            # on the stream message — RunResult.result is frequently empty.
+            stream_error_detail = ""
             for message in run.messages():
                 msg_type = getattr(message, "type", "")
+                if msg_type == "status":
+                    st = str(getattr(message, "status", "") or "")
+                    detail = str(getattr(message, "message", "") or "").strip()
+                    if detail and (
+                        st.upper() in {"ERROR", "FAILED", "CANCELLED", "EXPIRED"}
+                        or "limit" in detail.lower()
+                        or "billing" in detail.lower()
+                    ):
+                        stream_error_detail = detail
+                    continue
                 if msg_type != "assistant":
                     continue
                 content = getattr(getattr(message, "message", None), "content", None)
@@ -162,14 +175,110 @@ def main() -> int:
                         emit({"type": "token", "text": text})
             result = run.wait()
             status = getattr(result, "status", "finished")
-            emit({"type": "done", "status": str(status)})
-            if str(status) == "error":
+            status_s = str(getattr(status, "value", status))
+            if status_s.endswith("error") or status_s == "error":
+                # Mid-flight failure: no exception was raised, so Godot used to
+                # show only a generic "Cursor agent run failed." Surface id +
+                # status-stream / result text when the SDK provides them.
+                parts: list[str] = ["Cursor agent run failed"]
+                run_id = getattr(result, "id", None) or getattr(result, "run_id", None)
+                if run_id:
+                    parts.append(f"run_id={run_id}")
+                detail = (
+                    stream_error_detail
+                    or str(getattr(result, "result", "") or "").strip()
+                )
+                if not detail:
+                    # Last resort: local agent store sometimes keeps error_code.
+                    detail = _lookup_local_run_error(cwd, str(run_id or ""))
+                if detail:
+                    parts.append(detail[:800])
+                else:
+                    parts.append(
+                        "No assistant output. Check Cursor dashboard usage/billing "
+                        "(composer-2.5 spend limit), API key (Vibe Code → ⚙️), "
+                        "and network. ↗ Cursor (IDE) can still work when SDK "
+                        "usage is exhausted."
+                    )
+                emit({"type": "error", "message": " — ".join(parts)})
+                emit({"type": "done", "status": "error"})
                 return 2
+            emit({"type": "done", "status": status_s})
             return 0
     except Exception as exc:  # noqa: BLE001 — surface to Godot panel
-        emit({"type": "error", "message": str(exc)})
+        err_name = type(exc).__name__
+        msg = str(exc).strip() or err_name
+        retryable = getattr(exc, "is_retryable", None)
+        code = getattr(exc, "code", None)
+        extras: list[str] = []
+        if code:
+            extras.append(f"code={code}")
+        if retryable is not None:
+            extras.append(f"retryable={retryable}")
+        if extras:
+            msg = f"{msg} ({', '.join(extras)})"
+        emit({"type": "error", "message": f"{err_name}: {msg}"})
         traceback.print_exc(file=sys.stderr)
         return 1
+
+
+def _lookup_local_run_error(cwd: str, run_id: str) -> str:
+    """Read error_code from the local sdk-agent-store when RunResult is empty."""
+    if not run_id:
+        return ""
+    try:
+        import sqlite3
+        from pathlib import Path
+
+        home = Path.home()
+        # Cursor hashes cwd into ~/.cursor/projects/<slug>/sdk-agent-store/*/index.db
+        projects = home / ".cursor" / "projects"
+        if not projects.is_dir():
+            return ""
+        for db in projects.glob("*/sdk-agent-store/*/index.db"):
+            try:
+                con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                try:
+                    row = con.execute(
+                        "SELECT error_code, result FROM runs WHERE run_id = ? LIMIT 1",
+                        (run_id,),
+                    ).fetchone()
+                finally:
+                    con.close()
+            except Exception:
+                continue
+            if not row:
+                continue
+            for cell in row:
+                text = str(cell or "").strip()
+                if text:
+                    return text
+        # Also try matching by cwd path in agents.workspace_ref
+        cwd_norm = os.path.abspath(cwd).rstrip("/") + "/"
+        for db in projects.glob("*/sdk-agent-store/*/index.db"):
+            try:
+                con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                try:
+                    row = con.execute(
+                        "SELECT r.error_code, r.result FROM runs r "
+                        "JOIN agents a ON a.agent_id = r.agent_id "
+                        "WHERE r.run_id = ? OR a.workspace_ref = ? "
+                        "ORDER BY r.updated_at DESC LIMIT 1",
+                        (run_id, cwd_norm),
+                    ).fetchone()
+                finally:
+                    con.close()
+            except Exception:
+                continue
+            if not row:
+                continue
+            for cell in row:
+                text = str(cell or "").strip()
+                if text:
+                    return text
+    except Exception:
+        return ""
+    return ""
 
 
 if __name__ == "__main__":

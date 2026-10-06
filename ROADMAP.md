@@ -913,7 +913,7 @@ Short, finishable list. **No new aspirational items.**
 |-----------|--------|---------------------------|
 | **M5** | ✅ **DONE** | — (Narcea Tier A/B validated on `main`) |
 | **M6** | ✅ **Teaser done** | Visual panel explicitly v6.1+ |
-| **M7** | ✅ **Linux close-out** | numpy JSON, venv interpreter, large-array binary lane (100×100+). **Still deferred:** Windows + macOS clean-VM smoke, typed-protocol default-on |
+| **M7** | 🟡 **Close-out** | numpy JSON, venv, large-array binary lane (100×100+), typed-protocol **default-on** for new projects, Windows CI `test_py_*.vg` smoke. **Still deferred:** macOS clean-VM smoke |
 | **M8** | ✅ **Linux close-out** | `Let`, `Declare`/`DllImport`, named `:=`, chained `?.`, block lambdas, Try bubbling. **Not started:** `Interface` parser. Windows `test_declare_ffi_windows.vg` is not run on a Windows host here |
 | **M9** | 🔄 **Pending** | Installer smoke (Linux + Windows), docs/corpus release gate (Asset Library ✅ live) |
 

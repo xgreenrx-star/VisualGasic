@@ -1852,7 +1852,7 @@ static func _build_db() -> void:
 	# =========================================================================
 	_add("PyBridgeFacade",
 		"Dim bridge As Object\nSet bridge = New PyBridgeFacade",
-		"Out-of-process Python 3 worker (Tier A). Requires python3 on PATH. Enable vg/python/use_typed_protocol in Project Settings when calling Python functions that require integer arguments (range, numpy.zeros).",
+		"Out-of-process Python 3 worker (Tier A). Requires python3 on PATH. New projects default vg/python/use_typed_protocol=true (msgpack) so integer args stay ints.",
 		"Dim bridge As Object\nSet bridge = New PyBridgeFacade\nIf Not bridge.InitializeBridge() Then\n    Print bridge.GetStatus()\n    Exit Sub\nEnd If\nDim mathMod = bridge.PyImport(\"math\")\nDim r = bridge.PyCall(mathMod, \"sqrt\", Array(144.0))\nPrint r\nbridge.shutdown()", 2056)
 
 	_add("InitializeBridge",
@@ -1867,7 +1867,7 @@ static func _build_db() -> void:
 
 	_add("PyCall",
 		"bridge.PyCall(handle, methodName As String, args As Array) As Variant",
-		"Calls a function on an imported Python module. For integer args (range, numpy shape), enable vg/python/use_typed_protocol or wrap literals with CInt().",
+		"Calls a function on an imported Python module. Typed protocol (default on) preserves ints; if disabled, wrap with CInt() for range/numpy shapes.",
 		"Dim builtins = bridge.PyImport(\"builtins\")\nDim r = bridge.PyCall(builtins, \"range\", Array(0, 5))\nDim v = bridge.PyCall(mathMod, \"sqrt\", Array(144.0))", 2056)
 
 	_add("PyCallAsync",

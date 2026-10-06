@@ -64,6 +64,67 @@ jobs:
           path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
           retention-days: 30
 
+  # M7 close-out: Python bridge e2e on macOS (editor framework only).
+  m7-python-smoke:
+    needs: build-macos-universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download editor framework artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-editor-framework
+          path: demo/bin/libvisualgasic.macos.editor.framework
+
+      - name: Materialize GDExtension into test_proj
+        run: |
+          mkdir -p addons/visual_gasic/bin test_proj/addons/visual_gasic/bin
+          rm -rf addons/visual_gasic/bin/libvisualgasic.macos.editor.framework
+          cp -R demo/bin/libvisualgasic.macos.editor.framework addons/visual_gasic/bin/
+          if [ -L test_proj/addons/visual_gasic ] || [ ! -d test_proj/addons/visual_gasic ]; then
+            rm -rf test_proj/addons/visual_gasic
+            mkdir -p test_proj/addons/visual_gasic
+            cp -a addons/visual_gasic/. test_proj/addons/visual_gasic/
+          fi
+          rm -rf test_proj/addons/visual_gasic/bin/libvisualgasic.macos.editor.framework
+          cp -R demo/bin/libvisualgasic.macos.editor.framework test_proj/addons/visual_gasic/bin/
+          mkdir -p test_proj/.godot
+          echo 'res://addons/visual_gasic/visual_gasic.gdextension' > test_proj/.godot/extension_list.cfg
+
+      - name: Download Godot 4.6.1 (macOS)
+        run: |
+          curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_macos.universal.zip"
+          unzip -q godot.zip
+          # App bundle → console-friendly binary path used by run_test_suite.sh
+          GODOT_APP="$(find . -maxdepth 3 -name 'Godot' -type f | head -1)"
+          test -n "$GODOT_APP"
+          chmod +x "$GODOT_APP"
+          echo "GODOT=$GODOT_APP" >> "$GITHUB_ENV"
+
+      - name: M7 Python bridge smoke (macOS)
+        env:
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
+        run: |
+          python3 -m pip install -q numpy
+          VENV="${{ runner.temp }}/vg-m7-venv-mac"
+          python3 -m venv "$VENV"
+          "$VENV/bin/pip" install -q numpy
+          export VIRTUAL_ENV="$VENV"
+          export PATH="$VENV/bin:$PATH"
+          chmod +x ./run_test_suite.sh
+          for t in test_py_msgpack_typed.vg test_py_range_int.vg test_py_large_array.vg test_py_await.vg; do
+            ./run_test_suite.sh "$t"
+          done
+
   package-universal:
     needs: build-macos-universal
     runs-on: macos-latest

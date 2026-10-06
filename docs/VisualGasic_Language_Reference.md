@@ -2122,11 +2122,11 @@ Call Python 3 modules and functions from VisualGasic using an out-of-process wor
 | `PyProcessBuffer(handle, method, buffer)` | Bulk data processing |
 | `shutdown()` | Graceful worker termination (**instance method** on `PyBridgeFacade`, not a global builtin) |
 
-**Project setting — typed wire protocol (C2, opt-in):**
+**Project setting — typed wire protocol (C2, default on for new projects):**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `vg/python/use_typed_protocol` | `false` | When `true`, IPC uses msgpack instead of JSON so integer arguments (`Array(0, 5)`) reach Python as `int`. Enable for numpy integer-arg APIs. Test: `test_py_msgpack_typed.vg`. |
+| `vg/python/use_typed_protocol` | `true` (new projects) | When `true`, IPC uses msgpack instead of JSON so integer arguments (`Array(0, 5)`) reach Python as `int`. Disable only for legacy JSON-only workers. Test: `test_py_msgpack_typed.vg`. |
 
 ```vb
 Dim bridge As New PyBridgeFacade

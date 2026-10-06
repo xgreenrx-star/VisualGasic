@@ -577,12 +577,22 @@ bool PyBridgeFacade::launch_worker_windows(const String &p_script_path) {
 void PyBridgeFacade::kill_worker() {
     if (worker_pid <= 0) return;
 
-#if defined(__linux__) || defined(__APPLE__)
+    // Best-effort shutdown frame — must match the worker's wire format
+    // (JSON vs msgpack). Ignore write failures; we terminate next.
     Dictionary shutdown_req;
     shutdown_req["kind"] = "shutdown";
     shutdown_req["request_id"] = 0;
-    write_to_worker(vg_json_stringify_typed(shutdown_req));
+    if (use_typed_protocol_) {
+        PackedByteArray payload;
+        String pack_err;
+        if (vg_msgpack_encode(shutdown_req, payload, pack_err)) {
+            write_to_worker_raw(payload.ptr(), payload.size());
+        }
+    } else {
+        write_to_worker(vg_json_stringify_typed(shutdown_req));
+    }
 
+#if defined(__linux__) || defined(__APPLE__)
     int status;
     for (int i = 0; i < 50; i++) {
         if (waitpid(worker_pid, &status, WNOHANG) != 0) break;
@@ -595,10 +605,6 @@ void PyBridgeFacade::kill_worker() {
         waitpid(worker_pid, &status, 0);
     }
 #elif defined(_WIN32)
-    Dictionary shutdown_req;
-    shutdown_req["kind"] = "shutdown";
-    shutdown_req["request_id"] = 0;
-    write_to_worker(vg_json_stringify_typed(shutdown_req));
     HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, (DWORD)worker_pid);
     if (hProcess) {
         WaitForSingleObject(hProcess, 500);
@@ -1082,26 +1088,62 @@ Array PyBridgeFacade::py_call_many(const Array &p_calls) {
     request["calls"] = call_list;
     request["request_id"] = next_request_id++;
 
-    String json = vg_json_stringify_typed(request);
-    if (!write_to_worker(json)) {
-        UtilityFunctions::printerr("[PyBridgeFacade] Failed to write call_many");
-        return results;
-    }
-
-    String response = read_from_worker(worker_timeout_ms_);
-    if (response.is_empty()) {
-        UtilityFunctions::printerr("[PyBridgeFacade] Timeout on call_many");
-        return results;
-    }
-
     Variant parsed;
     String parse_err;
-    if (!vg_json_parse_typed(response, parsed, parse_err) ||
-        parsed.get_type() != Variant::DICTIONARY) {
-        UtilityFunctions::printerr("[PyBridgeFacade] call_many: " +
-                                   (parse_err.is_empty() ? "Invalid JSON response from worker" :
-                                    "Invalid JSON response from worker: " + parse_err));
-        return results;
+    if (use_typed_protocol_) {
+        PackedByteArray payload;
+        String pack_err;
+        if (!vg_msgpack_encode(request, payload, pack_err)) {
+            UtilityFunctions::printerr("[PyBridgeFacade] call_many msgpack encode failed: ", pack_err);
+            return results;
+        }
+        if (!write_to_worker_raw(payload.ptr(), payload.size())) {
+            UtilityFunctions::printerr("[PyBridgeFacade] Failed to write call_many");
+            return results;
+        }
+        uint8_t hdr[4];
+        if (!read_exact(worker_stdout_fd, hdr, 4)) {
+            UtilityFunctions::printerr("[PyBridgeFacade] Timeout on call_many");
+            return results;
+        }
+        uint32_t payload_len = (uint32_t)hdr[0] | ((uint32_t)hdr[1] << 8) |
+                               ((uint32_t)hdr[2] << 16) | ((uint32_t)hdr[3] << 24);
+        if (payload_len == 0 || payload_len > (uint32_t)max_payload_bytes_) {
+            UtilityFunctions::printerr("[PyBridgeFacade] call_many: invalid msgpack response size");
+            return results;
+        }
+        PackedByteArray resp_payload;
+        resp_payload.resize(payload_len);
+        if (!read_exact(worker_stdout_fd, resp_payload.ptrw(), payload_len)) {
+            UtilityFunctions::printerr("[PyBridgeFacade] Timeout on call_many");
+            return results;
+        }
+        if (!vg_msgpack_decode(resp_payload.ptr(), resp_payload.size(), parsed, parse_err) ||
+            parsed.get_type() != Variant::DICTIONARY) {
+            UtilityFunctions::printerr("[PyBridgeFacade] call_many: ",
+                                       parse_err.is_empty() ? String("Invalid msgpack response") : parse_err);
+            return results;
+        }
+    } else {
+        String json = vg_json_stringify_typed(request);
+        if (!write_to_worker(json)) {
+            UtilityFunctions::printerr("[PyBridgeFacade] Failed to write call_many");
+            return results;
+        }
+
+        String response = read_from_worker(worker_timeout_ms_);
+        if (response.is_empty()) {
+            UtilityFunctions::printerr("[PyBridgeFacade] Timeout on call_many");
+            return results;
+        }
+
+        if (!vg_json_parse_typed(response, parsed, parse_err) ||
+            parsed.get_type() != Variant::DICTIONARY) {
+            UtilityFunctions::printerr("[PyBridgeFacade] call_many: " +
+                                       (parse_err.is_empty() ? "Invalid JSON response from worker" :
+                                        "Invalid JSON response from worker: " + parse_err));
+            return results;
+        }
     }
     Dictionary resp_dict = parsed;
     if (resp_dict.has("status") && String(resp_dict["status"]) == "ok") {

@@ -39,7 +39,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M4 | Sep 30 | ✅ DONE (Jul 1) | UI Forms experimental (#8–12) |
 | M5 | Oct 15 | 🔄 NEXT | Narcea Vibe Code (#13) |
 | M6 | Oct 31 | ✅ **Partial** | Causal Chain text-mode (#14) — C++ `vg_analyze_causal_graph`, Code Navigator button, Context Rail preview, 8 headless fixtures |
-| M7 | Nov 15 | 🟡 **In progress** | Python Library Integration — Phase 2/3 done; **C2 typed msgpack shipped (opt-in)** via `vg/python/use_typed_protocol`; large-array binary lane still pending |
+| M7 | Nov 15 | 🟡 **Close-out** | Python Library Integration — C2 typed msgpack **default-on** for new projects; large-array binary lane shipped (`test_py_large_array.vg`); Windows CI M7 smoke; macOS e2e still deferred |
 | M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
 | M9 | Nov 28 | — | Asset Library submission, installer smoke test, 50+ corpus, docs |
 | Stable v6.0 | Jan 1 2027 | — | — |

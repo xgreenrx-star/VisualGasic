@@ -2090,6 +2090,13 @@ func _setup_ui() -> void:
 	_retry_patch_btn.visible = false
 	actions.add_child(_retry_patch_btn)
 
+	# --- Chat + prompt: VSplit so the prompt box is drag-resizable ---
+	var chat_split := VSplitContainer.new()
+	chat_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	chat_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chat_split.split_offset = -160  # prefer ~160px for the prompt pane at typical heights
+	main_vbox.add_child(chat_split)
+
 	# --- Output area (animated border while Narcea is working) ---
 	_chat_frame = PanelContainer.new()
 	_chat_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2101,7 +2108,7 @@ func _setup_ui() -> void:
 	_chat_frame_style.set_border_width_all(2)
 	_chat_frame_style.border_color = Color(0.16, 0.20, 0.26)
 	_chat_frame.add_theme_stylebox_override("panel", _chat_frame_style)
-	main_vbox.add_child(_chat_frame)
+	chat_split.add_child(_chat_frame)
 
 	_output = RichTextLabel.new()
 	_output.bbcode_enabled = true
@@ -2117,12 +2124,19 @@ func _setup_ui() -> void:
 	_append_system("Vibe Code is ready. Type a question below or use the quick actions.\n")
 	_append_system("Providers: [color=cyan]Ollama[/color] (local), [color=green]OpenAI[/color], [color=#bb77ff]Claude[/color], [color=#4488ff]Gemini[/color]. Click ⚙️ to set API keys.\n")
 
+	var bottom_pane := VBoxContainer.new()
+	bottom_pane.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_pane.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_pane.custom_minimum_size.y = 100
+	bottom_pane.add_theme_constant_override("separation", 4)
+	chat_split.add_child(bottom_pane)
+
 	# --- Input row ---
 	# Image attach indicator — hidden until an image is pasted from the clipboard.
 	_image_attached_row = HBoxContainer.new()
 	_image_attached_row.visible = false
 	_image_attached_row.add_theme_constant_override("separation", 4)
-	main_vbox.add_child(_image_attached_row)
+	bottom_pane.add_child(_image_attached_row)
 
 	var _image_icon := Label.new()
 	_image_icon.text = "📎"
@@ -2145,7 +2159,7 @@ func _setup_ui() -> void:
 	_ref_attached_row = HBoxContainer.new()
 	_ref_attached_row.visible = false
 	_ref_attached_row.add_theme_constant_override("separation", 4)
-	main_vbox.add_child(_ref_attached_row)
+	bottom_pane.add_child(_ref_attached_row)
 
 	var _ref_icon := Label.new()
 	_ref_icon.text = "🌐"
@@ -2170,22 +2184,25 @@ func _setup_ui() -> void:
 	_reference_offer_panel.visible = false
 	_reference_offer_panel.accepted.connect(_on_reference_offer_accepted)
 	_reference_offer_panel.skipped.connect(_on_reference_offer_skipped)
-	main_vbox.add_child(_reference_offer_panel)
+	bottom_pane.add_child(_reference_offer_panel)
 
 	# Hint when catalog matches while typing (offer appears on Send).
 	_game_chips_row = HBoxContainer.new()
 	_game_chips_row.visible = false
 	_game_chips_row.add_theme_constant_override("separation", 4)
-	main_vbox.add_child(_game_chips_row)
+	bottom_pane.add_child(_game_chips_row)
 
 	var input_row := HBoxContainer.new()
 	input_row.add_theme_constant_override("separation", 4)
-	main_vbox.add_child(input_row)
+	input_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	input_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_pane.add_child(input_row)
 
 	_input = CodeEdit.new()
 	_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_input.custom_minimum_size.y = 60
-	_input.placeholder_text = "Ask about VisualGasic, Godot, VB6 syntax..."
+	_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_input.custom_minimum_size.y = 72
+	_input.placeholder_text = "Ask about VisualGasic, Godot, VB6 syntax… (drag the bar above to resize)"
 	_input.scroll_past_end_of_file = false
 	_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_input.gutters_draw_line_numbers = false
@@ -4225,7 +4242,7 @@ func _activate_cursor_provider() -> void:
 		_paint_status_label(Color(1.0, 0.82, 0.45))
 		_append_provider_status_once(
 			"cursor:missing_key",
-			"[color=yellow]Cursor (Composer) needs an API key. Click ⚙️ → paste from cursor.com/dashboard/integrations[/color]\n"
+			"[color=yellow]Cursor (Composer) needs an API key. Click ⚙️ → paste from cursor.com/dashboard (API Keys / Integrations). Note: in-panel Cursor uses SDK usage limits; ↗ Cursor opens the IDE and can still work when SDK quota is exhausted.[/color]\n"
 		)
 		return
 	if CursorSession == null:
@@ -4534,7 +4551,13 @@ func _on_cursor_stream_finished(status: String) -> void:
 	if not _is_generating:
 		return
 	if status == "error" and _accumulated_response.strip_edges().is_empty() and _stream_error.is_empty():
-		_append_system("[color=red]Cursor agent run failed.[/color]\n")
+		_append_system(
+			"[color=red]Cursor agent run failed[/color] "
+			+ "[color=#aaaaaa](no assistant tokens — often a Cursor "
+			+ "usage/spend limit on composer-2.5, not a bad key. "
+			+ "↗ Cursor IDE can still work. Check dashboard Usage; "
+			+ "see user://vg_agent_runs/).[/color]\n"
+		)
 	if _stream_started:
 		_output.append_text("[/color]\n")
 	_finish_generation()
@@ -5100,11 +5123,16 @@ func _refresh_build_form_btn() -> void:
 				if not _proj_spec_d.is_empty() and (_last_build_intent == "project" or _was_explicit_desc_mode or _project_iterate_auto):
 					_suppress_agent_loop = true
 					call_deferred("_on_make_project", true)
+				elif _last_build_intent == "project" or _project_iterate_auto:
+					# Never fall through to Make-this for game/project requests —
+					# that path writes TODO form stubs instead of a runnable canvas.
+					_spec_missing = true
+					_hint = "Narcea needs a fenced ```vg-project-spec``` JSON block."
 				elif is_instance_valid(_make_this_btn) and not _make_this_btn.disabled:
 					call_deferred("_on_make_this")
 				elif is_instance_valid(_make_code_btn) and not _make_code_btn.disabled:
 					call_deferred("_on_make_code")
-				elif _chat_build_auto or _was_explicit_desc_mode or _last_build_intent == "project":
+				elif _chat_build_auto or _was_explicit_desc_mode:
 					_spec_missing = true
 					_hint = "build request"
 		if (_chat_build_auto or _persona_spec_auto or _project_iterate_auto) and not _spec_missing:
@@ -5676,6 +5704,7 @@ func _on_make_project(skip_diff: bool = false) -> void:
 	_ensure_agent_helpers()
 	_ensure_form_spec_helper()
 	if _project_spec == null or _safe_writer == null:
+		_suppress_agent_loop = false
 		_append_system("[color=#ff8888]Project-spec helpers unavailable.[/color]\n")
 		return
 	var spec: Dictionary = _project_spec.extract_spec(_accumulated_response)
@@ -5752,6 +5781,7 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 	if not validation.get("ok", false):
 		if _try_retry_invalid_project_spec(validation):
 			return
+		_suppress_agent_loop = false
 		_append_system("[color=#ff8888]Project spec invalid — scaffold aborted.[/color]\n")
 		return
 	_scaffold_in_progress = true
@@ -5787,6 +5817,13 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 	_safe_writer.set_root("res://")
 	_print_project_result(result)
 	_emit_scaffold_telemetry(spec, root, iterate_mode, spec_bytes, result)
+	if not result.get("ok", false):
+		_append_system(
+			"[color=#ff8888]Scaffold incomplete — not promoting main scene. %s[/color]\n"
+			% str(result.get("summary", ""))
+		)
+		_scaffold_done()
+		return
 	_last_project_root = result.get("root", "")
 	var ms := str(result.get("main_scene", ""))
 	if not ms.is_empty():

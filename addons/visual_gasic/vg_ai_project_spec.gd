@@ -189,6 +189,44 @@ func describe(spec: Dictionary) -> String:
 	return "Project '%s' (%d form(s), %d file(s))" % [name, nf, nc]
 
 
+## True when .vg source is only TODO / empty handler shells (not playable).
+func _vg_source_is_stub_only(src: String) -> bool:
+	var body := src.strip_edges()
+	if body.is_empty():
+		return true
+	var low := body.to_lower()
+	# Explicit TODO markers from form stub generators / lazy model output.
+	if low.find("' todo") >= 0 or low.find("'todo") >= 0 or low.find("todo:") >= 0:
+		return true
+	if low.find("not implemented") >= 0:
+		return true
+	# Strip comments and blank lines; if almost nothing remains, treat as stub.
+	var code_lines: PackedStringArray = []
+	for line in body.split("\n"):
+		var t := line.strip_edges()
+		if t.is_empty() or t.begins_with("'") or t.to_lower().begins_with("rem "):
+			continue
+		if t.to_lower() == "option explicit":
+			continue
+		code_lines.append(t)
+	if code_lines.is_empty():
+		return true
+	# Heuristic: only Sub/End Sub shells with no other statements.
+	var has_real_stmt := false
+	for t in code_lines:
+		var tl := t.to_lower()
+		if tl.begins_with("sub ") or tl.begins_with("function ") or tl.begins_with("end sub") \
+				or tl.begins_with("end function") or tl.begins_with("private sub") \
+				or tl.begins_with("public sub") or tl.begins_with("private function") \
+				or tl.begins_with("public function"):
+			continue
+		if tl.begins_with("dim ") or tl.begins_with("const ") or tl.begins_with("attribute "):
+			continue
+		has_real_stmt = true
+		break
+	return not has_real_stmt
+
+
 ## Pre-scaffold validation. Returns {ok, errors[], warnings[]}.
 func validate_spec(spec: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 	var errors: PackedStringArray = []
@@ -204,20 +242,66 @@ func validate_spec(spec: Dictionary, ctx: Dictionary = {}) -> Dictionary:
 	if files.is_empty() and forms.is_empty():
 		errors.append("files[] and forms[] both empty")
 	var has_vg := false
+	var has_tscn := false
+	var vg_basenames: Dictionary = {}  # lower basename -> true
 	var min_vg_len := int(ctx.get("min_vg_source_len", 40))
 	for entry in files:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var path := str(entry.get("path", "")).strip_edges()
 		var src := str(entry.get("source", entry.get("contents", entry.get("content", "")))).strip_edges()
+		if path.ends_with(".tscn"):
+			has_tscn = true
 		if path.ends_with(".vg"):
 			has_vg = true
+			vg_basenames[path.get_file().to_lower()] = true
 			if src.length() < min_vg_len:
 				errors.append("short or missing source for %s" % path.get_file())
+			elif _vg_source_is_stub_only(src):
+				errors.append("%s is stub-only (TODO / empty handlers) — emit full Sub bodies" % path.get_file())
+	# Canvas / Node2D scaffolds with only .tscn (no forms) are unrunnable without .vg —
+	# treating this as a warning used to write a broken scene that referenced a missing script.
 	if not has_vg and forms.is_empty():
-		warnings.append("no .vg file in files[]")
+		errors.append("no .vg file in files[] (include full .vg source with _Ready/_Process/_Draw)")
+	# If a .tscn in files[] points at Foo.vg, that Foo.vg must also be in files[].
+	var canvas_tscn := false
+	for entry in files:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var path2 := str(entry.get("path", "")).strip_edges()
+		if not path2.ends_with(".tscn"):
+			continue
+		var tscn_src := str(entry.get("source", entry.get("contents", entry.get("content", ""))))
+		if tscn_src.find("Node2D") >= 0 or tscn_src.find("type=\"Node2D\"") >= 0:
+			canvas_tscn = true
+		var rx := RegEx.new()
+		if rx.compile("path=\"([^\"]+\\.vg)\"") != OK:
+			continue
+		for m in rx.search_all(tscn_src):
+			var ref_path := str(m.get_string(1)).strip_edges()
+			var ref_base := ref_path.get_file().to_lower()
+			if ref_base.is_empty():
+				continue
+			if not vg_basenames.has(ref_base):
+				errors.append(".tscn references %s but that .vg is missing from files[]" % ref_path.get_file())
+	# Canvas Node2D games need _Ready/_Process/_Draw in some .vg in files[].
+	if canvas_tscn and forms.is_empty():
+		var has_handlers := false
+		for entry2 in files:
+			if typeof(entry2) != TYPE_DICTIONARY:
+				continue
+			var p3 := str(entry2.get("path", "")).strip_edges()
+			if not p3.ends_with(".vg"):
+				continue
+			var s3 := str(entry2.get("source", entry2.get("contents", entry2.get("content", ""))))
+			var low := s3.to_lower()
+			if low.find("sub _ready") >= 0 and low.find("sub _process") >= 0 and low.find("sub _draw") >= 0:
+				has_handlers = true
+				break
+		if not has_handlers:
+			errors.append("Node2D canvas .tscn needs a .vg with Sub _Ready, _Process, and _Draw")
 	var main_scene := str(spec.get("main_scene", "")).strip_edges()
-	if main_scene.is_empty() and has_vg:
+	if main_scene.is_empty() and (has_vg or has_tscn):
 		warnings.append("main_scene not set")
 	var existing_root := str(ctx.get("existing_root", "")).strip_edges()
 	if not existing_root.is_empty():
@@ -436,6 +520,30 @@ func apply(spec: Dictionary, helpers: Dictionary) -> Dictionary:
 
 	# 3d. Ensure every form .vg has a loadable paired .tscn.
 	_ensure_form_tscn_files(root, spec, safe_writer, form_spec, designer, result)
+
+	# 3e. Refuse "success" when a written .tscn still points at a missing .vg.
+	var missing_scripts: PackedStringArray = []
+	for w in result["written"]:
+		var wp := str(w)
+		if not wp.ends_with(".tscn") or not FileAccess.file_exists(wp):
+			continue
+		var tscn_txt := FileAccess.get_file_as_string(wp)
+		var rx_miss := RegEx.new()
+		if rx_miss.compile("path=\"([^\"]+\\.vg)\"") != OK:
+			continue
+		for m in rx_miss.search_all(tscn_txt):
+			var ref_p := str(m.get_string(1)).strip_edges()
+			if ref_p.is_empty():
+				continue
+			var abs_ref := ref_p
+			if not abs_ref.begins_with("res://"):
+				abs_ref = root + abs_ref.lstrip("/")
+			if not FileAccess.file_exists(abs_ref):
+				missing_scripts.append(abs_ref)
+	if not missing_scripts.is_empty():
+		result["ok"] = false
+		result["summary"] = "scaffold incomplete — .tscn references missing .vg: %s" % ", ".join(missing_scripts)
+		return result
 
 	# 4. README so a human can find their way around later.
 	var readme := _readme_for(spec)

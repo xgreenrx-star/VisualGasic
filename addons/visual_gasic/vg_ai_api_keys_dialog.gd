@@ -204,7 +204,8 @@ func _build_ui(providers_script: Variant) -> void:
 		+ "• Qwen: dashscope.console.aliyun.com/apiKey\n"
 		+ "• Codeium: codeium.com/profile → API Keys\n"
 		+ "• Amazon Q: Set up Bedrock Access Gateway locally\n"
-		+ "• Cursor: cursor.com/dashboard/integrations"
+		+ "• Cursor: cursor.com/dashboard → API Keys / Integrations\n"
+		+ "  (In-panel Cursor uses SDK usage; ↗ Cursor opens the IDE — different quota.)"
 	)
 	hints.add_theme_font_size_override("font_size", 11)
 	hints.add_theme_color_override("font_color", MUTED_COLOR)

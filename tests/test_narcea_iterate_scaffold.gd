@@ -153,6 +153,58 @@ func _test_spec_validator() -> void:
 	_expect("invalid spec fails validation", not val.get("ok", true))
 	_expect("invalid spec reports empty files", str(val.get("errors", [])).find("empty") >= 0)
 
+	# Missing .vg next to Node2D .tscn must fail (Breakout-class failure).
+	var no_vg := {
+		"project_name": "breakout",
+		"main_scene": "Breakout.tscn",
+		"files": [{
+			"path": "Breakout.tscn",
+			"source": "[gd_scene]\n[ext_resource type=\"Script\" path=\"Breakout.vg\"]\n[node name=\"Breakout\" type=\"Node2D\"]\n",
+		}],
+	}
+	var v_no_vg: Dictionary = ps.validate_spec(no_vg, {})
+	_expect("no .vg fails validation", not v_no_vg.get("ok", true))
+	_expect("no .vg error mentions .vg", str(v_no_vg.get("errors", [])).find(".vg") >= 0)
+
+	# Stub-only .vg must fail.
+	var stub_only := {
+		"project_name": "stubgame",
+		"main_scene": "Game.tscn",
+		"files": [
+			{
+				"path": "Game.tscn",
+				"source": "[gd_scene]\n[ext_resource type=\"Script\" path=\"Game.vg\"]\n[node name=\"Game\" type=\"Node2D\"]\n",
+			},
+			{
+				"path": "Game.vg",
+				"source": "' stub\nOption Explicit\nSub _Ready()\n    ' TODO\nEnd Sub\nSub _Process(d As Single)\nEnd Sub\nSub _Draw()\nEnd Sub\n",
+			},
+		],
+	}
+	var v_stub: Dictionary = ps.validate_spec(stub_only, {})
+	_expect("stub-only .vg fails validation", not v_stub.get("ok", true))
+
+	# Playable canvas .vg with handlers must pass.
+	var good := {
+		"project_name": "pong",
+		"main_scene": "Pong.tscn",
+		"files": [
+			{
+				"path": "Pong.tscn",
+				"source": "[gd_scene]\n[ext_resource type=\"Script\" path=\"Pong.vg\"]\n[node name=\"Pong\" type=\"Node2D\"]\n",
+			},
+			{
+				"path": "Pong.vg",
+				"source": ("' pong\nOption Explicit\nDim x As Single\n"
+					+ "Sub _Ready()\n    x = 1\n    QueueRedraw\nEnd Sub\n"
+					+ "Sub _Process(d As Single)\n    x = x + d\n    QueueRedraw\nEnd Sub\n"
+					+ "Sub _Draw()\n    DrawRect 0, 0, 10, 10, Color8(255,255,255), True\nEnd Sub\n"),
+			},
+		],
+	}
+	var v_good: Dictionary = ps.validate_spec(good, {})
+	_expect("playable canvas spec validates", v_good.get("ok", false), str(v_good.get("errors", [])))
+
 
 func _test_vg_parse_gate() -> void:
 	print("")

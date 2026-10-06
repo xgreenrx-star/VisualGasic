@@ -171,7 +171,7 @@ private:
     int worker_timeout_ms_;
     int max_payload_bytes_;
     bool auto_restart_;
-    bool use_typed_protocol_ = false;
+    bool use_typed_protocol_ = true;
     String python_executable_;
     String pythonpath_extra_;
 

@@ -282,6 +282,24 @@ jobs:
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi_windows.vg
 
+      - name: M7 Python bridge smoke (Windows)
+        shell: bash
+        env:
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_win64_console.exe
+          VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
+        run: |
+          python -m pip install -q numpy
+          VENV="${{ runner.temp }}/vg-m7-venv-win"
+          python -m venv "$VENV"
+          "$VENV/Scripts/pip.exe" install -q numpy
+          export VIRTUAL_ENV="$VENV"
+          export PATH="$VENV/Scripts:$PATH"
+          chmod +x ./run_test_suite.sh
+          for t in test_py_msgpack_typed.vg test_py_range_int.vg test_py_large_array.vg test_py_await.vg; do
+            ./run_test_suite.sh "$t"
+          done
+
       - name: Build (Windows template_debug, MSVC)
         shell: pwsh
         run: |
