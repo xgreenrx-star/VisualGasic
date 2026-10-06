@@ -2605,6 +2605,46 @@ void VisualGasicInstance::_send_call_stack_to_debugger(EngineDebugger* debugger)
     debugger->send_message("visualgasic:call_stack", data);
 }
 
+bool VisualGasicInstance::is_byref_writeback_target(ExpressionNode* target) {
+    if (!target) {
+        return false;
+    }
+    if (target->type == ExpressionNode::VARIABLE || target->type == ExpressionNode::MEMBER_ACCESS) {
+        return true;
+    }
+    if (target->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode* aa = (ArrayAccessNode*)target;
+        // Bytecode only write-backs single-index Variable bases (arr(i)).
+        return aa->base && aa->base->type == ExpressionNode::VARIABLE && aa->indices.size() == 1;
+    }
+    if (target->type == ExpressionNode::EXPRESSION_CALL) {
+        // parse_expression represents arr(i) as CallExpression("arr", [i]).
+        // Nested calls like AddTwo(1, 2) must not be treated as array L-values.
+        CallExpression* call = (CallExpression*)target;
+        if (call->base_object || call->arguments.size() != 1) {
+            return false;
+        }
+        String name = call->method_name;
+        Variant container;
+        if (get_variable(name, container)) {
+            if (container.get_type() == Variant::ARRAY || container.get_type() == Variant::DICTIONARY) {
+                return true;
+            }
+            if (container.get_type() >= Variant::PACKED_BYTE_ARRAY && container.get_type() <= Variant::PACKED_COLOR_ARRAY) {
+                return true;
+            }
+            if (container.get_type() == Variant::OBJECT) {
+                Object* obj = container;
+                if (obj && obj->has_method("PeekByte")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    return false;
+}
+
 void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) {
     if (target->type == ExpressionNode::VARIABLE) {
          String name = ((VariableNode*)target)->name;

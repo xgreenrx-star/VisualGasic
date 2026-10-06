@@ -2404,8 +2404,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         int arg_count = s->arguments.size();
                         for (int i = 0; i < max_params && i < arg_count; i++) {
                             const Parameter& param = called_func->parameters[i];
-                            // If ByRef (not ByVal), write back to variable or array slot
-                            if (param.is_by_ref && s->arguments[i]) {
+                            // If ByRef (not ByVal), write back to variable or array slot.
+                            // Skip nested calls / non-LValues (matches emit_byref_writebacks).
+                            if (param.is_by_ref && s->arguments[i] && is_byref_writeback_target(s->arguments[i])) {
                                 for (int j = 0; j < _last_byref_captures.size(); j++) {
                                     if (_last_byref_captures[j].first == param.name) {
                                         assign_to_target(s->arguments[i], _last_byref_captures[j].second);

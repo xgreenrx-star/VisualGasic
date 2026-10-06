@@ -1537,6 +1537,15 @@ void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
             }
             break;
         }
+        case STMT_LOAD_DATA: {
+            // LoadData / DataFromString — path/string expression is read at runtime.
+            // Without this, `csv = …` + `DataFromString csv` DCE-kills the store.
+            LoadDataStatement* s = (LoadDataStatement*)stmt;
+            if (s->path_expression) {
+                collect_used_vars_expr(s->path_expression);
+            }
+            break;
+        }
         default:
             break;
     }

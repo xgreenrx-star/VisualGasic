@@ -634,6 +634,22 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              raise_error("Incomplete array access: missing base");
              return Variant();
          }
+
+         // parse_assignment_or_call chains `obj.method(args)` as:
+         //   ArrayAccess { base: MemberAccess{obj, method}, indices: [args] }
+         // Bytecode rewrites this to OP_METHOD_CALL; AST must match or chained
+         // statement bases (GetTree().current_scene.GetNode(...).add_child) are null.
+         if (aa->base->type == ExpressionNode::MEMBER_ACCESS) {
+             MemberAccessNode* ma = (MemberAccessNode*)aa->base;
+             CallExpression call_tmp;
+             call_tmp.base_object = ma->base_object;
+             call_tmp.method_name = ma->member_name;
+             call_tmp.arguments = aa->indices;
+             Variant call_ret = evaluate_expression(&call_tmp);
+             call_tmp.base_object = nullptr;
+             call_tmp.arguments.clear();
+             return call_ret;
+         }
          
          Variant base = evaluate_expression(aa->base);
          
@@ -972,8 +988,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)expr;
         
-        // Delegate to centralized expression-level builtins first (they may evaluate arguments themselves)
-        {
+        // Bare expression builtins only (Map/Filter/… and owner GetParent/GetTree).
+        // With an explicit receiver, owner builtins must not steal the call —
+        // `child.GetParent()` must dispatch on `child`, not the script owner.
+        if (!call->base_object) {
             bool _bg_handled = false;
             Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, _bg_handled);
             if (_bg_handled) {
@@ -1036,8 +1054,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         // Dispatch to expression-level builtins with evaluated arguments
-        // (Map, Filter, Reduce, Any, All, Find, string helpers, etc.)
-        {
+        // (Map, Filter, Reduce, Any, All, Find, string helpers, etc.).
+        // Must NOT run when there is an explicit receiver — owner builtins
+        // like GetParent/GetTree would steal `child.GetParent()` and return
+        // the script owner's parent (scene root) instead of child's.
+        if (!call->base_object) {
             bool _ev_handled = false;
             Variant _ev_res = VisualGasicBuiltins::call_builtin_expr_evaluated(this, call->method_name, call_args, _ev_handled);
             if (_ev_handled) return _ev_res;
@@ -1831,7 +1852,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     int arg_count = call->arguments.size();
                     for (int i = 0; i < max_params && i < arg_count; i++) {
                         const Parameter& param = called_func->parameters[i];
-                        if (param.is_by_ref && call->arguments[i]) {
+                        if (param.is_by_ref && call->arguments[i] && is_byref_writeback_target(call->arguments[i])) {
                             for (int j = 0; j < _last_byref_captures.size(); j++) {
                                 if (_last_byref_captures[j].first == param.name) {
                                     assign_to_target(call->arguments[i], _last_byref_captures[j].second);
