@@ -494,12 +494,16 @@ public:
     Dictionary evaluate_immediate(const String &p_code);
     
     void clear_error_state() {
+        // Used by Err.Clear (VB6 semantics): resets the Err object's info and the
+        // "an error occurred" flag only. It must NOT disable the currently active
+        // On Error Resume Next/GoTo handler registration (error_state.mode) —
+        // doing so previously caused a subsequent error (e.g. after Err.Clear)
+        // to go unhandled even though an On Error handler was still active.
         error_state.has_error = false;
         error_state.message = "";
         error_state.code = 0;
         error_state.error_line = 0;
         error_state.error_file = "";
-        error_state.mode = ErrorState::NONE;
     }
     
     // Whenever system utilities

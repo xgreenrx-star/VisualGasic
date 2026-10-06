@@ -619,6 +619,19 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
             error_state.mode = ErrorState::NONE;
             break;
         }
+        // On Error Resume Next: clear the error and move on to the next
+        // statement — mirrors call_internal()'s loop. Without this,
+        // has_error stayed stuck at true after a handled error (RESUME_NEXT
+        // never clears it elsewhere), so a later `On Error GoTo 0` (which
+        // only resets mode, not has_error) made the stale flag look like a
+        // fresh unhandled error and silently aborted the rest of the method.
+        if (error_state.has_error && error_state.mode == ErrorState::RESUME_NEXT) {
+            error_state.has_error = false;
+            if (jump_target != -1) {
+                i = jump_target;
+            }
+            continue;
+        }
         // Stop executing further statements on a genuine unhandled error
         // (mode == NONE means no On Error handler caught it) — mirrors
         // call_internal()'s loop. Without this, a real runtime error partway

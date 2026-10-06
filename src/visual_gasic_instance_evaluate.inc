@@ -1148,7 +1148,19 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     }
                     return Variant();
                 }
-                {
+                // Only treat `var_name` as a bare class-facade reference (e.g.
+                // calling System.Foo() without ever Dim'ing a System variable)
+                // when it is NOT already bound to a real instantiated object.
+                // Without this guard, any variable whose NAME happens to
+                // case-insensitively match one of these aliases (e.g.
+                // `Dim ecs As New VGEcs`, `Dim gpu As New VGGpu`) had its
+                // instance method calls hijacked into a static ClassDB call
+                // before ever reaching the real object below — breaking every
+                // non-static instance method (e.g. VGEcs.CreateEntity) with
+                // "Method is not static".
+                bool var_is_real_object = variables.has(var_name) &&
+                    ((Variant)variables[var_name]).get_type() == Variant::OBJECT;
+                if (!var_is_real_object) {
                     const String resolved_class = vg_resolve_classdb_alias(var_name);
                     if (!resolved_class.is_empty()) {
                         Variant static_ret;

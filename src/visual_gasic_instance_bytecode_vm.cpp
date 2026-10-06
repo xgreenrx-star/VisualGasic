@@ -4739,7 +4739,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                 }
-                if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+                // Bug fix: this used to gate on `mode == NONE`, so a builtin
+                // (e.g. Kill) that raised an error under On Error Resume Next
+                // or On Error GoTo Label left error_state.has_error stuck at
+                // true — try_recover_error() (which actually clears it for
+                // RESUME_NEXT) was never invoked. The stale flag then looked
+                // like a fresh unhandled error to the very next check (e.g.
+                // after `On Error GoTo 0` reset mode to NONE, or on the next
+                // OP_CALL), silently aborting the rest of the Sub. Always
+                // run recovery when has_error is set; try_recover_error()
+                // already branches correctly per mode (clears + resumes for
+                // RESUME_NEXT, unwinds Try/Catch, or returns false to abort
+                // for GOTO_LABEL/NONE).
+                if (error_state.has_error) {
                     if (!try_recover_error(Variant(), false)) {
                         success = false;
                         goto cleanup;
