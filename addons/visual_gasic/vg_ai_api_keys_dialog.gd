@@ -19,10 +19,12 @@ var _install_sdk_btn: Button = null
 var _custom_cancel_btn: Button = null
 var _custom_save_btn: Button = null
 var _scroll: ScrollContainer = null
+var _custom_editor: VBoxContainer
+var _providers_script: Variant
 
 
 func _init() -> void:
-	title = "⚙  AI Provider API Keys"
+	title = "⚙  AI Providers and API Keys"
 	ok_button_text = "Save"
 	wrap_controls = true
 	unresizable = false
@@ -30,10 +32,12 @@ func _init() -> void:
 	max_size = DIALOG_MAX
 	size = DIALOG_SIZE
 	exclusive = true
+	dialog_hide_on_ok = false
 	theme = _build_theme()
 
 
 func setup(providers_script: Variant) -> void:
+	_providers_script = providers_script
 	for c in get_children():
 		c.queue_free()
 	_key_edits.clear()
@@ -46,6 +50,23 @@ func setup(providers_script: Variant) -> void:
 
 func get_key_edits() -> Dictionary:
 	return _key_edits
+
+func save_provider_settings() -> Dictionary:
+	for pid in _key_edits:
+		var key: String = _key_edits[pid].text
+		if key.contains("\r") or key.contains("\n"):
+			_custom_editor.show_error("API keys must not contain line breaks.")
+			return {"ok": false, "error": "API keys must not contain line breaks."}
+	var custom: Dictionary = _custom_editor.collect()
+	if not custom.ok:
+		return custom
+	var result: Dictionary = _providers_script.save_custom_providers(custom.records, custom.keys)
+	if not result.ok:
+		_custom_editor.show_error(result.error)
+		return result
+	for pid in _key_edits:
+		_providers_script.save_api_key(pid, _key_edits[pid].text.strip_edges())
+	return {"ok": true}
 
 
 func _ready() -> void:
@@ -138,7 +159,7 @@ func _build_ui(providers_script: Variant) -> void:
 	margin.add_child(outer)
 
 	var desc := Label.new()
-	desc.text = "Enter API keys for cloud AI providers.\nKeys are stored locally in user://vg_ai_keys.cfg"
+	desc.text = "Configure built-in and custom AI providers.\nKeys are stored locally in Godot Editor Settings, not in your project."
 	desc.add_theme_font_size_override("font_size", 12)
 	desc.add_theme_color_override("font_color", MUTED_COLOR)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -161,11 +182,14 @@ func _build_ui(providers_script: Variant) -> void:
 
 	if providers_script != null and providers_script.has_method("get_providers"):
 		for p in providers_script.get_providers():
-			if p.is_local:
+			if p.is_local or p.is_custom:
 				continue
 			_add_provider_row(vbox, providers_script, p)
 
 	vbox.add_child(HSeparator.new())
+	_custom_editor = preload("res://addons/visual_gasic/vg_ai_custom_provider_editor.gd").new()
+	vbox.add_child(_custom_editor)
+	_custom_editor.setup(providers_script.CustomProviders.load_records(providers_script._editor_settings()))
 
 	_health_box = VBoxContainer.new()
 	_health_box.add_theme_constant_override("separation", 4)

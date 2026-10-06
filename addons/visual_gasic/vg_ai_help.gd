@@ -1677,7 +1677,7 @@ func _setup_ui() -> void:
 
 	# ── API Key button ──
 	_api_key_btn = Button.new()
-	_api_key_btn.tooltip_text = "Configure API keys for cloud providers"
+	_api_key_btn.tooltip_text = "Configure API keys and custom AI providers"
 	_api_key_btn.pressed.connect(_show_api_key_dialog)
 	_style_toolbar_icon_button(_api_key_btn, "⚙")
 	toolbar.add_child(_api_key_btn)
@@ -4212,7 +4212,7 @@ func _run_activate_provider() -> void:
 	else:
 		# Cloud provider — check if API key exists
 		var key: String = AIProviders.load_api_key(_provider_id) if AIProviders else ""
-		if key.is_empty():
+		if key.is_empty() and _provider_info.requires_key:
 			_ollama_available = false
 			_status_label.text = "🔑 API key needed"
 			_paint_status_label(Color(1.0, 0.82, 0.45))
@@ -4385,7 +4385,7 @@ func _update_model_dropdown() -> void:
 		# Keep current selection when still valid; otherwise pick best available.
 		var pick: String = _current_model
 		if pick.is_empty() or models.find(pick) < 0:
-			pick = AIProviders.pick_default_model(_provider_id, models)
+			pick = _provider_info.default_model if _provider_info.is_custom else AIProviders.pick_default_model(_provider_id, models)
 		if models.find(pick) < 0:
 			pick = str(models[0])
 		var didx: int = models.find(pick)
@@ -4415,7 +4415,27 @@ func _apply_model_tooltips(models: Array) -> void:
 # ---------------------------------------------------------------------------
 const _API_KEY_DIALOG_SIZE := Vector2i(540, 720)
 
+func _reload_provider_dropdown() -> void:
+	var providers: Array = AIProviders.get_providers()
+	_provider_dropdown.clear()
+	var selected := -1
+	for p in providers:
+		_provider_dropdown.add_item(p.display_name)
+		if p.id == _provider_id:
+			selected = _provider_dropdown.item_count - 1
+	if selected < 0:
+		selected = 0
+	_provider_dropdown.select(selected)
+	if providers[selected].id != _provider_id:
+		_on_provider_selected(selected)
+	else:
+		_provider_info = providers[selected]
+		_update_model_dropdown()
+
 func _show_api_key_dialog() -> void:
+	if _is_generating:
+		_append_system("[color=yellow]Stop the current generation before changing AI provider settings.[/color]\n")
+		return
 	if not AIProviders:
 		_append_system("[color=#ff8888]AI providers module not loaded — restart the editor.[/color]\n")
 		return
@@ -4433,14 +4453,17 @@ func _show_api_key_dialog() -> void:
 	dlg.setup(AIProviders)
 
 	dlg.confirmed.connect(func():
-		for pid in dlg.get_key_edits():
-			AIProviders.save_api_key(pid, dlg.get_key_edits()[pid].text.strip_edges())
-		_append_system("[color=green]API keys saved.[/color]\n")
+		var saved: Dictionary = dlg.save_provider_settings()
+		if not saved.ok:
+			_append_system("[color=red]Provider settings were not saved: %s[/color]\n" % saved.error)
+			return
+		_reload_provider_dropdown()
+		_append_system("[color=green]AI provider settings saved.[/color]\n")
 		_clear_provider_status_dedupe()
 		_activate_provider(true)
 		_api_key_dialog = null
 		dlg.queue_free()
-	, CONNECT_ONE_SHOT)
+	)
 	dlg.canceled.connect(func():
 		_api_key_dialog = null
 		dlg.queue_free()
@@ -4576,13 +4599,16 @@ func _send_cloud_query(prompt: String) -> void:
 		return
 
 	var api_key: String = AIProviders.load_api_key(_provider_id)
-	if api_key.is_empty() and not _provider_info.is_local:
+	if api_key.is_empty() and _provider_info.requires_key:
 		_append_system("[color=yellow]No API key configured for %s. Click ⚙️ to set one.[/color]\n" % _provider_info.display_name)
 		return
 
 	var req_data: Dictionary = AIProviders.build_request(
 		_provider_id, _current_model, _get_active_system_prompt(),
 		_conversation_history, prompt, api_key, _pending_image_b64)
+	if req_data.has("error"):
+		_append_system("[color=red]Request could not be built: %s[/color]\n" % req_data.error)
+		return
 	if not _pending_image_b64.is_empty():
 		_clear_pending_image()
 
@@ -7544,4 +7570,3 @@ func _save_persona() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("persona", "id", _persona_id)
 	cfg.save(PERSONA_CFG_PATH)
-

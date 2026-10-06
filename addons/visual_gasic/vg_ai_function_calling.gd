@@ -17,8 +17,12 @@ extends RefCounted
 ## Ollama and Gemini use the existing fenced-JSON system-prompt approach (no change).
 ## DeepSeek and Qwen are OpenAI-compatible, so they reuse the "openai" code path.
 const PROVIDERS_WITH_NATIVE_FC := ["openai", "claude", "gemini", "deepseek", "qwen", "codeium", "amazonq"]
+const Providers = preload("res://addons/visual_gasic/vg_ai_providers.gd")
 
 static func supports_native_fc(provider_id: String) -> bool:
+	if provider_id.begins_with("custom_"):
+		var p := Providers.find_provider(provider_id)
+		return p != null and p.native_tools and p.protocol in ["openai", "claude"]
 	return PROVIDERS_WITH_NATIVE_FC.has(provider_id)
 
 
@@ -270,7 +274,7 @@ static func _to_gemini_schema(defs: Array) -> Array:
 ## The dict is mutated in place — re-serialise to JSON after calling this.
 static func inject_tools_into_body(provider_id: String, body_dict: Dictionary) -> void:
 	var defs := _get_tool_defs()
-	match provider_id:
+	match Providers.get_protocol(provider_id):
 		"openai", "deepseek", "qwen", "codeium", "amazonq":
 			body_dict["tools"] = _to_openai_schema(defs)
 			body_dict["tool_choice"] = "auto"
@@ -319,7 +323,7 @@ static func parse_stream_line_for_fc(provider_id: String, line: String) -> Varia
 	var json = JSON.parse_string(json_str)
 	if json == null or typeof(json) != TYPE_DICTIONARY:
 		return null
-	match provider_id:
+	match Providers.get_protocol(provider_id):
 		"openai", "deepseek", "qwen", "codeium", "amazonq":
 			return _parse_openai_fc(json)
 		"claude":

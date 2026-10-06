@@ -244,32 +244,20 @@ func _send_repair_request() -> void:
 
 	# Force non-streaming for a clean single-blob response.
 	var api_key: String = AIProviders.load_api_key(_provider_id) if _provider_info and not _provider_info.is_local else ""
-	if _provider_info and not _provider_info.is_local and api_key.is_empty():
+	if _provider_info and _provider_info.requires_key and api_key.is_empty():
 		_show_error("No API key configured for %s.  Open the Vibe Code panel ⚙️ to set one." % _provider_info.display_name)
 		return
 
-	var req: Dictionary = AIProviders.build_request(_provider_id, _model, SYSTEM_PROMPT, [], prompt, api_key)
-	# Patch the body to disable streaming.
+	var req: Dictionary = AIProviders.build_request_nostream(_provider_id, _model, SYSTEM_PROMPT, prompt, api_key)
+	if req.has("error"):
+		_show_error(req.error)
+		return
 	var body_str: String = req.get("body", "")
-	var body_obj = JSON.parse_string(body_str)
-	if body_obj is Dictionary:
-		body_obj["stream"] = false
-		# OpenAI/Ollama use "stream"; Gemini ignores it (we'll switch endpoint below).
-		body_str = JSON.stringify(body_obj)
-
 	var headers: Array = req.get("headers", [])
 	var path: String = req.get("path", "")
 
-	# For Gemini, swap the streaming endpoint for the single-shot one.
-	if _provider_id == "gemini":
-		path = path.replace(":streamGenerateContent?alt=sse", ":generateContent?")
-
 	# Build a fully-qualified URL.  HTTPRequest needs scheme + host.
-	var url: String = ""
-	if _provider_info.use_tls:
-		url = "https://" + _provider_info.api_host + path
-	else:
-		url = "http://" + _provider_info.api_host + ":" + str(_provider_info.api_port) + path
+	var url: String = AIProviders.request_url(_provider_info, {"path": path})
 
 	# Convert headers Array → PackedStringArray.
 	var header_arr := PackedStringArray()
@@ -417,29 +405,7 @@ func _on_http_response(result: int, code: int, _headers: PackedStringArray, body
 
 ## Pull the assistant's text from a non-streaming provider response.
 func _extract_response_text(body_text: String) -> String:
-	var parsed = JSON.parse_string(body_text)
-	if parsed == null:
-		return ""
-	match _provider_id:
-		"ollama":
-			return String(parsed.get("response", ""))
-		"openai":
-			var choices = parsed.get("choices", [])
-			if choices is Array and choices.size() > 0:
-				var msg = choices[0].get("message", {})
-				return String(msg.get("content", ""))
-		"claude":
-			var content_arr = parsed.get("content", [])
-			if content_arr is Array and content_arr.size() > 0:
-				return String(content_arr[0].get("text", ""))
-		"gemini":
-			var candidates = parsed.get("candidates", [])
-			if candidates is Array and candidates.size() > 0:
-				var c = candidates[0]
-				var parts = c.get("content", {}).get("parts", [])
-				if parts is Array and parts.size() > 0:
-					return String(parts[0].get("text", ""))
-	return ""
+	return AIProviders.extract_response_text(_provider_id, body_text)
 
 ## Locate and parse a JSON object inside an LLM response.  Tolerates
 ## ```json fences and stray prose around the object.

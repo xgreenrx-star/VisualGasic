@@ -8,6 +8,8 @@ extends RefCounted
 # ─── Provider Registry ──────────────────────────────────────────────────────
 # Each provider entry describes how to connect and authenticate.
 
+const CustomProviders = preload("res://addons/visual_gasic/vg_ai_custom_providers.gd")
+
 class ProviderInfo:
 	var id: String             # "ollama", "openai", "claude", "gemini"
 	var display_name: String   # "Ollama (Local)", "OpenAI", etc.
@@ -18,6 +20,12 @@ class ProviderInfo:
 	var use_tls: bool          # true for cloud providers
 	var models: Array          # available model names
 	var default_model: String  # default selection
+	var protocol: String = ""
+	var is_custom: bool = false
+	var requires_key: bool = true
+	var models_path: String = ""
+	var native_tools: bool = false
+	var vision: bool = false
 
 static func get_providers() -> Array:
 	var providers: Array = []
@@ -27,6 +35,7 @@ static func get_providers() -> Array:
 	ollama.id = "ollama"
 	ollama.display_name = "🏠 Ollama (Local)"
 	ollama.is_local = true
+	ollama.requires_key = false
 	ollama.api_host = "127.0.0.1"
 	ollama.api_port = 11434
 	ollama.api_path = "/api/generate"
@@ -155,14 +164,80 @@ static func get_providers() -> Array:
 	# Apply cached model overrides from EditorSettings (if any)
 	var es := _editor_settings()
 	if es != null:
+		for record in CustomProviders.load_records(es):
+			providers.append(custom_provider_info(record))
 		for p in providers:
 			var cached := _load_cached_models(es, p.id)
 			if not cached.is_empty():
-				p.models = filter_provider_model_list(p.id, cached)
+				if p.is_custom:
+					for model in cached:
+						if model is String and not model.is_empty() and not p.models.has(model):
+							p.models.append(model)
+				else:
+					p.models = filter_provider_model_list(p.id, cached)
 				if p.models.find(p.default_model) < 0:
 					p.default_model = pick_default_model(p.id, p.models)
 
 	return providers
+
+static func custom_provider_info(record: Dictionary) -> ProviderInfo:
+	var checked := CustomProviders.validate(record)
+	if not checked.ok:
+		push_error(checked.error)
+		return null
+	var normalized: Dictionary = checked.record
+	var p := ProviderInfo.new()
+	p.id = normalized.id
+	p.display_name = normalized.name + " (Custom)"
+	p.is_custom = true
+	# Custom Ollama endpoints use the configurable HTTP transport, not the
+	# built-in localhost warmup/generate path.
+	p.is_local = false
+	p.protocol = normalized.format
+	p.requires_key = normalized.requires_key
+	p.api_host = str(checked.host).trim_prefix("[").trim_suffix("]")
+	p.api_port = checked.port
+	p.api_path = checked.path
+	p.use_tls = checked.tls
+	p.models = normalized.models.duplicate()
+	p.default_model = normalized.default_model
+	p.models_path = normalized.models_path
+	p.native_tools = normalized.native_tools
+	p.vision = normalized.vision
+	return p
+
+static func get_protocol(provider_id: String) -> String:
+	if provider_id.begins_with("custom_"):
+		var p := find_provider(provider_id)
+		return p.protocol if p != null else ""
+	return provider_id
+
+static func save_custom_providers(records: Array, keys: Dictionary) -> Dictionary:
+	var es := _editor_settings()
+	var previous := CustomProviders.load_records(es)
+	for id in keys:
+		var key := str(keys[id])
+		if key.contains("\r") or key.contains("\n"):
+			return {"ok": false, "error": "API keys must not contain line breaks."}
+	var result := CustomProviders.save_records(es, records)
+	if not result.ok:
+		return result
+	for record in records:
+		var id: String = record.id
+		var setting := "visual_gasic/ai/" + id + "_key"
+		var old_key := load_api_key(id)
+		var new_key := str(keys.get(id, old_key))
+		es.set_setting(setting, new_key)
+		es.add_property_info({"name": setting, "type": TYPE_STRING, "hint": PROPERTY_HINT_PASSWORD})
+		if old_key != new_key or not previous.has(CustomProviders.validate(record).record):
+			clear_cached_models(id)
+	for record in previous:
+		if not records.any(func(item): return item.id == record.id):
+			es.erase("visual_gasic/ai/" + record.id + "_key")
+			clear_cached_models(record.id)
+	if find_provider(load_preferred_provider()) == null:
+		save_preferred_provider("ollama")
+	return {"ok": true}
 
 ## Drop stale cached model ids from EditorSettings (safe to call once at startup).
 static func prune_cached_model_lists() -> void:
@@ -293,6 +368,8 @@ static func load_api_key(provider_id: String) -> String:
 	if es == null:
 		return ""
 	_migrate_legacy_to_editor_settings_if_needed(es)
+	if not es.has_setting("visual_gasic/ai/" + provider_id + "_key"):
+		return ""
 	return es.get_setting("visual_gasic/ai/" + provider_id + "_key")
 
 static func save_api_key(provider_id: String, key: String) -> void:
@@ -326,6 +403,8 @@ static func save_preferred_provider(provider_id: String) -> void:
 ## Load cached model names for a provider from EditorSettings.
 ## Returns an empty array if nothing is cached.
 static func _load_cached_models(es: Object, provider_id: String) -> Array:
+	if not es.has_setting('visual_gasic/ai/' + provider_id + '_cached_models'):
+		return []
 	var raw: Variant = es.get_setting('visual_gasic/ai/' + provider_id + '_cached_models')
 	if raw == null or typeof(raw) != TYPE_STRING or String(raw).is_empty():
 		return []
@@ -441,14 +520,60 @@ static func _http_request_sync(host: String, port: int, use_tls: bool, method: i
 		OS.delay_msec(100)
 	var code := http.get_response_code()
 	var body_bytes := PackedByteArray()
+	var deadline := Time.get_ticks_msec() + body_polls * 100
 	while http.get_status() == HTTPClient.STATUS_BODY:
+		http.poll()
 		var chunk := http.read_response_body_chunk()
 		if chunk.size() > 0:
 			body_bytes.append_array(chunk)
 		else:
 			OS.delay_msec(10)
+		if Time.get_ticks_msec() >= deadline:
+			http.close()
+			return {'ok': false, 'error': 'Timed out reading response body'}
+		if body_bytes.size() > 4 * 1024 * 1024:
+			http.close()
+			return {'ok': false, 'error': 'Response exceeds 4 MiB limit'}
+	var completed := http.get_status() in [HTTPClient.STATUS_CONNECTED, HTTPClient.STATUS_DISCONNECTED]
 	http.close()
+	if code == 0 or not completed:
+		return {'ok': false, 'error': 'Connection failed or response timed out'}
 	return {'ok': true, 'code': code, 'body': body_bytes.get_string_from_utf8()}
+
+static func parse_custom_models(protocol: String, raw_body: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(raw_body)
+	if not parsed is Dictionary:
+		return {"ok": false, "error": "Model discovery returned invalid JSON."}
+	var entries: Variant = parsed.get("models" if protocol == "ollama" else "data", null)
+	if not entries is Array:
+		return {"ok": false, "error": "Model discovery response has no model array."}
+	var models: Array = []
+	for entry in entries:
+		if not entry is Dictionary:
+			return {"ok": false, "error": "Model discovery returned an invalid model entry."}
+		var model: Variant = entry.get("name" if protocol == "ollama" else "id", "")
+		if not model is String or model.strip_edges().is_empty() or model.contains("\n") or model.contains("\r"):
+			return {"ok": false, "error": "Model discovery returned an invalid model ID."}
+		if not models.has(model):
+			models.append(model)
+	if models.is_empty():
+		return {"ok": false, "error": "Model discovery returned no models; manually configured models are unchanged."}
+	models.sort()
+	return {"ok": true, "models": models}
+
+static func discover_custom_models(p: ProviderInfo, key: String) -> Dictionary:
+	if p.models_path.is_empty():
+		return {"ok": false, "error": "Model discovery is disabled. Configure a discovery path or enter model IDs manually."}
+	var req := build_custom_request(p, p.default_model, "", [], "ping", key)
+	if req.has("error"):
+		return {"ok": false, "error": req.error}
+	var response := _http_request_sync(p.api_host, p.api_port, p.use_tls,
+		HTTPClient.METHOD_GET, p.models_path, PackedStringArray(req.headers))
+	if not response.ok:
+		return response
+	if response.code < 200 or response.code >= 300:
+		return {"ok": false, "error": "Model discovery returned HTTP " + str(response.code)}
+	return parse_custom_models(p.protocol, response.body)
 
 ## Probe whether Gemini will accept generateContent for this model id.
 static func probe_gemini_model(model: String, api_key: String) -> bool:
@@ -564,6 +689,13 @@ static func refresh_models(provider_id: String) -> Dictionary:
 	var path := '/v1/models'
 	var headers := PackedStringArray()
 	var api_key := load_api_key(provider_id)
+	if p.is_custom:
+		var result := discover_custom_models(p, api_key)
+		if not result.ok:
+			return result
+		var old := _load_cached_models(es, provider_id)
+		_save_cached_models(es, provider_id, result.models)
+		return {"ok": true, "models": result.models, "removed": diff_removed_models(old, result.models), "rejected": []}
 
 	match provider_id:
 		'ollama':
@@ -725,6 +857,12 @@ static func refresh_models(provider_id: String) -> Dictionary:
 ## Returns the body string and the required HTTP headers.
 static func build_request(provider_id: String, model: String, system_prompt: String,
 		conversation_history: Array, user_prompt: String, api_key: String, image_b64: String = "") -> Dictionary:
+	if provider_id.begins_with("custom_"):
+		var p := find_provider(provider_id)
+		if p == null:
+			push_error("Unknown custom AI provider: " + provider_id)
+			return {"body": "", "headers": [], "path": "", "error": "Unknown custom provider."}
+		return build_custom_request(p, model, system_prompt, conversation_history, user_prompt, api_key, image_b64)
 	match provider_id:
 		"ollama":
 			return _build_ollama(model, system_prompt, conversation_history, user_prompt, image_b64)
@@ -736,6 +874,23 @@ static func build_request(provider_id: String, model: String, system_prompt: Str
 			return _build_gemini(model, system_prompt, conversation_history, user_prompt, api_key, image_b64)
 	return {"body": "", "headers": [], "path": ""}
 
+static func build_custom_request(p: ProviderInfo, model: String, system_prompt: String,
+		history: Array, prompt: String, key: String, image_b64: String = "") -> Dictionary:
+	if key.contains("\r") or key.contains("\n"):
+		return {"body": "", "headers": [], "path": "", "error": "API key contains a line break."}
+	if p.requires_key and key.is_empty():
+		return {"body": "", "headers": [], "path": "", "error": "This custom provider requires an API key."}
+	var req := build_request(p.protocol, model, system_prompt, history, prompt, key, image_b64)
+	req.path = p.api_path
+	if key.is_empty():
+		var headers: Array = []
+		for header in req.headers:
+			if not str(header).to_lower().begins_with("authorization:") and not str(header).to_lower().begins_with("x-api-key:"):
+				headers.append(header)
+		req.headers = headers
+	elif p.protocol == "ollama":
+		req.headers.append("Authorization: Bearer " + key)
+	return req
 
 static func _build_ollama(model: String, system_prompt: String,
 		conversation_history: Array, user_prompt: String, image_b64: String = "") -> Dictionary:
@@ -868,7 +1023,7 @@ static func _build_gemini(model: String, system_prompt: String,
 ## Parse a single JSON line from a streaming response.
 ## Returns {"token": "text", "done": bool} or null if the line is not parseable.
 static func parse_stream_line(provider_id: String, line: String) -> Dictionary:
-	match provider_id:
+	match get_protocol(provider_id):
 		"ollama":
 			return _parse_ollama_line(line)
 		"openai", "deepseek", "qwen", "codeium", "amazonq":
@@ -969,9 +1124,14 @@ static func build_request_nostream(provider_id: String, model: String, system_pr
 	var body_text: String = str(req.get("body", ""))
 	var parsed = JSON.parse_string(body_text)
 	if typeof(parsed) == TYPE_DICTIONARY:
-		match provider_id:
+		match get_protocol(provider_id):
 			"ollama", "openai", "deepseek", "qwen", "codeium", "amazonq", "claude":
 				parsed["stream"] = false
+		for field in ["max_tokens", "max_output_tokens"]:
+			if parsed.has(field):
+				parsed[field] = int(parsed[field])
+		if parsed.get("options") is Dictionary and parsed.options.has("num_predict"):
+			parsed.options.num_predict = int(parsed.options.num_predict)
 		req["body"] = JSON.stringify(parsed)
 	if provider_id == "gemini":
 		var path: String = str(req.get("path", ""))
@@ -985,7 +1145,7 @@ static func extract_response_text(provider_id: String, raw_body: String) -> Stri
 	var parsed = JSON.parse_string(raw_body)
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return raw_body.strip_edges()
-	match provider_id:
+	match get_protocol(provider_id):
 		"ollama":
 			return str(parsed.get("response", ""))
 		"openai", "deepseek", "qwen", "codeium", "amazonq":
@@ -1016,11 +1176,18 @@ static func extract_response_text(provider_id: String, raw_body: String) -> Stri
 ## Resolve API URL for a provider request dict.
 static func request_url(provider_info: ProviderInfo, req: Dictionary) -> String:
 	var scheme := "https" if provider_info.use_tls else "http"
-	return scheme + "://" + provider_info.api_host + str(req.get("path", ""))
+	var port := "" if provider_info.api_port == (443 if provider_info.use_tls else 80) else ":" + str(provider_info.api_port)
+	var host := provider_info.api_host
+	if host.contains(":") and not host.begins_with("["):
+		host = "[" + host + "]"
+	return scheme + "://" + host + port + str(req.get("path", ""))
 
 
 ## True when the active provider/model can accept PNG attachments in chat.
 static func provider_supports_vision(provider_id: String, model: String) -> bool:
+	if provider_id.begins_with("custom_"):
+		var p := find_provider(provider_id)
+		return p != null and p.vision
 	if provider_id == "ollama":
 		var m := model.to_lower()
 		return m.contains("llava") or m.contains("vision") or m.contains("gemma3")

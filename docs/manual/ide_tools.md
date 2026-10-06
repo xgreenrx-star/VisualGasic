@@ -680,8 +680,8 @@ In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **lo
 **What it's for**: explain errors, translate GDScript ↔ VG, describe a selected `Sub`/`Function`, generate boilerplate, or just ask "why doesn't this compile?" without leaving the IDE.
 
 **UI**:
-- **Provider dropdown** — pick Ollama / OpenAI / Claude / Gemini
-- **API Key** button — stores keys in `user://vg_ai_keys.cfg` (Ollama needs none)
+- **Provider dropdown** — choose a built-in provider or a saved custom provider
+- **AI Providers and API Keys** button — stores keys locally in Godot Editor Settings (built-in Ollama needs none). Add, edit or remove compatible services under **Custom AI providers**; see [Custom AI providers](CUSTOM_AI_PROVIDERS.md) for endpoints, manual model IDs, discovery and connection testing.
 - **Model dropdown** / **Models…** — pick the model. Defaults to `qwen2.5-coder:7b` on Ollama.
 - **Status label** — shows connection state (`Ollama ready`, `Warming up…`, `Streaming…`, etc.)
 - **Output** — RichTextLabel with Markdown/code‑fence rendering, token count, and elapsed time
@@ -699,7 +699,7 @@ In‑editor AI assistant with a VisualGasic‑aware system prompt. Supports **lo
 
 **How to use**:
 1. Open the Vibe Code panel. If you want local/offline: install Ollama (`curl -fsSL https://ollama.ai/install.sh | sh`) and pull a model (`ollama pull qwen2.5-coder:7b`). The panel pings `http://127.0.0.1:11434` on activation.
-2. For cloud providers, click **API Key** and paste your key (stored in `user://vg_ai_keys.cfg`).
+2. For cloud providers, click the provider settings gear and paste your key (stored locally in Godot Editor Settings). Custom providers can use manually entered model IDs rather than VG's built-in catalog.
 3. Pick a model from the dropdown. Click **Models…** to browse everything installed.
 4. Type a question, or select code in the editor and click a preset button.
 5. Tokens stream in real time — click **Stop** anytime to abort.

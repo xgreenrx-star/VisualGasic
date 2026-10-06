@@ -527,7 +527,10 @@ func _enter_tree():
 	_register_editor_setting(_es, "visual_gasic/ai/amazonq_port", 8080, TYPE_INT, PROPERTY_HINT_RANGE, "1,65535")
 	_register_editor_setting(_es, "visual_gasic/ai/amazonq_use_tls", false, TYPE_BOOL, PROPERTY_HINT_NONE, "")
 	_register_editor_setting(_es, "visual_gasic/ai/cursor_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
-	_register_editor_setting(_es, "visual_gasic/ai/preferred_provider", "ollama", TYPE_STRING, PROPERTY_HINT_ENUM, "ollama,openai,claude,gemini,deepseek,qwen,codeium,amazonq,cursor")
+	_register_editor_setting(_es, "visual_gasic/ai/custom_providers", "[]", TYPE_STRING, PROPERTY_HINT_MULTILINE_TEXT, "")
+	for custom_provider in preload("res://addons/visual_gasic/vg_ai_custom_providers.gd").load_records(_es):
+		_register_editor_setting(_es, "visual_gasic/ai/" + custom_provider.id + "_key", "", TYPE_STRING, PROPERTY_HINT_PASSWORD, "")
+	_register_editor_setting(_es, "visual_gasic/ai/preferred_provider", "ollama", TYPE_STRING, PROPERTY_HINT_NONE, "")
 	_register_editor_setting(_es, "visual_gasic/ai/migrated_to_editor_settings", false, TYPE_BOOL)
 	# Narcea window geometry (persists across sessions via EditorSettings)
 	_register_editor_setting(_es, "visual_gasic/narcea/window_x", -1.0, TYPE_FLOAT)
