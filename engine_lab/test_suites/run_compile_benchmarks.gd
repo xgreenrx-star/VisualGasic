@@ -1,6 +1,6 @@
 extends SceneTree
 
-## Headless VG vs GDScript compile/reload timing (parse + bytecode + optimizer).
+## Headless VG vs GDScript forced reload timing (runtime execution excluded).
 ## Metric: median reload elapsed_us (lower is faster). Does not include runtime execution.
 
 const WARMUP := 3
@@ -39,7 +39,8 @@ func _run_all() -> void:
 
 	print("=== Visual Gasic Compile Benchmarks ===")
 	print("Metric: median script reload time (microseconds, lower is faster)")
-	print("Phases: tokenize + parse + compile + optimizer (VG); GDScript analyzer + compile")
+	print("Phases: forced VG reload (tokenize + parse); GDScript analyzer + compile")
+	print("VG bytecode compilation is lazy and is not included in this metric.")
 	print("")
 
 	var results: Array = []
@@ -164,7 +165,7 @@ func _median_vg_reload_us(path: String) -> int:
 	var samples: Array[int] = []
 	for i in ITERS + WARMUP:
 		var t0 := Time.get_ticks_usec()
-		var err := script.reload()
+		var err := script.reload(true)
 		var elapsed := Time.get_ticks_usec() - t0
 		if err != OK:
 			push_error("VG reload failed iter %d: %s" % [i, path])

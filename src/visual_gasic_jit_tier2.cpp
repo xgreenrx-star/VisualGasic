@@ -1477,25 +1477,27 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             // Integer ops with constant operand
             case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST: {
                 int const_idx = (code[ip + 2] << 8) | code[ip + 1];
-                // These opcodes: [OP] [CONST_LO] [CONST_HI]
-                // They apply constants[const_idx] to the operand
-                // Let's load, compute, and store back
                 if (const_idx >= chunk->constants.size()) return false;
                 Variant cv = chunk->constants[const_idx];
                 if (cv.get_type() != Variant::INT) return false;
                 int64_t cval = (int64_t)cv;
                 
-                // Encoding: [OP][CONST_LO][CONST_HI] — load from slot, apply const, push result
-                int loaded = next_vreg++;
-                set_vreg_type(loaded, IRType::I64);
-                {
-                    IRInst ld;
-                    ld.op = IROp::LOAD_LOCAL;
-                    ld.type = IRType::I64;
-                    ld.dest = loaded;
-                    ld.local_slot = code[ip + 1];
-                    ld.bc_offset = ip;
-                    ir.push_back(ld);
+                // Match the VM's [operand, literal] stack contract.
+                if (vstack.size() < 2) return false;
+                vstack.pop_back();
+                int loaded = vstack.back();
+                vstack.pop_back();
+                if (get_vreg_type(loaded) == IRType::VOID) return false;
+                if (get_vreg_type(loaded) == IRType::F64) {
+                    IRInst conv;
+                    conv.op = IROp::F64_TO_I64;
+                    conv.type = IRType::I64;
+                    conv.dest = next_vreg++;
+                    conv.src1 = loaded;
+                    conv.bc_offset = ip;
+                    set_vreg_type(conv.dest, IRType::I64);
+                    ir.push_back(conv);
+                    loaded = conv.dest;
                 }
                 IRInst arith;
                 if (op == OP_ADD_I64_CONST) arith.op = IROp::ADD_I64_CONST;
@@ -2359,15 +2361,15 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     std::sort(active_ranges.begin(), active_ranges.end(),
               [](const LiveRange& a, const LiveRange& b) { return a.first_use < b.first_use; });
     
-    // Allocatable GP registers (avoid rax=scratch, rsp, rbp, rdi=locals ptr, rsi=local_count)
-    std::vector<Reg> gp_pool = { Reg::RCX, Reg::RDX, Reg::RBX, Reg::R8, Reg::R9,
+    // The emitter reserves rax/rcx/rdx and xmm0-xmm2 for temporary operands.
+    std::vector<Reg> gp_pool = { Reg::RBX, Reg::R8, Reg::R9,
                                   Reg::R10, Reg::R11, Reg::R12, Reg::R13, Reg::R14, Reg::R15 };
 #if VG_JIT_WIN64
     // XMM6 and XMM7 are callee-saved on Windows x64.
-    std::vector<Reg> fp_pool = { Reg::XMM0, Reg::XMM1, Reg::XMM2, Reg::XMM3,
+    std::vector<Reg> fp_pool = { Reg::XMM3,
                                   Reg::XMM4, Reg::XMM5 };
 #else
-    std::vector<Reg> fp_pool = { Reg::XMM0, Reg::XMM1, Reg::XMM2, Reg::XMM3,
+    std::vector<Reg> fp_pool = { Reg::XMM3,
                                   Reg::XMM4, Reg::XMM5, Reg::XMM6, Reg::XMM7 };
 #endif
     
@@ -2381,8 +2383,16 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     // rbp-8 .. rbp-48 hold rbx, r12-r15, and rdi. Spills start underneath them.
     int next_spill = 56;
 #else
-    int next_spill = 8; // Start spill at rbp-8 (below saved regs)
+    int next_spill = 48; // rbp-8 .. rbp-40 hold callee-saved registers.
 #endif
+    // Keep spills below the emitter's 960-byte host-call frame.
+    for (const auto &inst : ir) {
+        if (inst.op == IROp::LIBM1 || inst.op == IROp::RUNTIME_CALL ||
+            inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD) {
+            next_spill = 968;
+            break;
+        }
+    }
     
     for (int i = 0; i < (int)active_ranges.size(); i++) {
         LiveRange& cur = active_ranges[i];
@@ -3095,16 +3105,12 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 Reg rhs_xmm_scratch = (xmm_a == Reg::XMM1) ? Reg::XMM2 : Reg::XMM1;
                 Reg xmm_b = load_xmm(inst.src2, rhs, Reg::RCX, rhs_xmm_scratch);
                 
-                // The SSE op is destructive: xmm_a = xmm_a op xmm_b.
-                // If xmm_a is the same as a live src register we don't want to
-                // destroy, we need to copy first. But since xmm_a IS src1's reg
-                // and the register allocator treats it as consumed, it's fine.
-                // However, if dst is a different XMM from xmm_a, copy lhs there first.
-                Reg work = xmm_a;
+                // A spilled destination must not overwrite a still-live source.
+                Reg work = Reg::XMM2;
                 if (dst >= Reg::XMM0 && dst <= Reg::XMM7 && dst != xmm_a && dst != xmm_b) {
-                    cb.movsd_rr(dst, xmm_a);
                     work = dst;
                 }
+                if (work != xmm_a) cb.movsd_rr(work, xmm_a);
                 
                 if (inst.op == IROp::ADD_F64) cb.addsd(work, xmm_b);
                 else if (inst.op == IROp::SUB_F64) cb.subsd(work, xmm_b);

@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
-DEMO="$ROOT/demo"
+source "$ROOT/scripts/benchmark_host.sh"
 GODOT_USER_DATA_DIR="${VG_GODOT_USER_DATA_DIR:-${TMPDIR:-/tmp}/vg-godot-compile-$$}"
 
 if [[ ! -x "$GODOT" ]]; then

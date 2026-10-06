@@ -339,6 +339,24 @@ reload rejection of the malformed procedure plus healthy-sibling execution.
 Preserve the original mutation seed and source
 alongside the native backtrace; rerun that seed after the fix.
 
+The speed-test correctness gate subsequently exposed a hot-call JIT arithmetic
+failure: `BenchArithmetic(200, 1000)` returned a negative checksum instead of
+`298300000`, despite the interpreter returning the correct result. Tier 2
+lowered constant arithmetic as a local-slot load instead of consuming the
+VM's `[operand, literal]` stack pair. The lowering now matches the VM contract.
+The emitter's GP/XMM scratch registers are excluded from allocation, spilled
+floating results no longer destroy live inputs, and spills are placed below
+callee saves and outside host-call scratch storage. The new
+`test_jit_scratch_registers.vg` exercises hot calls, exact benchmark output,
+changing/empty bounds, integer spills, and floating spills across host calls.
+
+Benchmark wrappers use a temporary minimal host, without modifying the demo's
+music-plugin autoloads or suppressing startup errors. The compute interop
+workload now frees its created node. Compile timing forces VG reload rather
+than measuring the unchanged-resource early return; it measures tokenization
+and parsing, not lazy bytecode generation. Report this distinction and the
+nonidentical medium-workload sources with the results.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

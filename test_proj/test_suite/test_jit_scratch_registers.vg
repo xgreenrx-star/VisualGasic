@@ -1,0 +1,53 @@
+Option Explicit
+
+Function FusedSum(ByVal iterations As Long, ByVal inner As Long) As Long
+	Dim i As Long
+	Dim j As Long
+	Dim s As Long
+	For i = 0 To iterations - 1 Step 1
+		For j = 0 To inner - 1 Step 1
+			s = s + (j * 3) - 7
+		Next j
+	Next i
+	FusedSum = s
+End Function
+
+Function LiveIntegers(ByVal a As Long, ByVal b As Long) As Long
+	LiveIntegers = (a * 3 + b * 7) * (a - b) + (a * 5 - b * 11)
+End Function
+
+Function LiveFloats(ByVal a As Double, ByVal b As Double) As Double
+	LiveFloats = (a * 3.0 + b * 7.0) * (a - b) + (a * 5.0 - b * 11.0)
+End Function
+
+Function IntegerSpills(ByVal a As Long) As Long
+	IntegerSpills = (a + 1) * ((a + 2) * ((a + 3) * ((a + 4) * ((a + 5) * ((a + 6) * ((a + 7) * ((a + 8) * ((a + 9) * ((a + 10) * ((a + 11) * ((a + 12) * (a + 13))))))))))))
+End Function
+
+Function FloatSpills(ByVal a As Double) As Double
+	FloatSpills = (a + 1.0) * ((a + 2.0) * ((a + 3.0) * ((a + 4.0) * ((a + 5.0) * ((a + 6.0) * ((a + 7.0) * ((a + 8.0) * ((a + 9.0) * Abs(a + 10.0)))))))))
+End Function
+
+Sub _Ready()
+	Dim i As Long
+	Dim sums As Long
+	Dim ints As Long
+	Dim floats As Double
+	For i = 1 To 100
+		sums = FusedSum(2, 10)
+		ints = LiveIntegers(10, 2)
+		floats = LiveFloats(10.0, 2.0)
+		ints = IntegerSpills(0)
+		floats = FloatSpills(0.0)
+	Next i
+	If sums = 130 Then Print "PASS: warm fused sum" Else Print "FAIL: warm fused sum"
+	If LiveIntegers(10, 2) = 380 Then Print "PASS: live integer operands" Else Print "FAIL: live integer operands"
+	If LiveFloats(10.0, 2.0) = 380.0 Then Print "PASS: live floating operands" Else Print "FAIL: live floating operands"
+	If ints = 6227020800 Then Print "PASS: integer spills preserve native frame" Else Print "FAIL: integer spills preserve native frame"
+	If floats = 3628800.0 Then Print "PASS: floating spills survive host calls" Else Print "FAIL: floating spills survive host calls"
+	If FusedSum(200, 1000) = 298300000 Then Print "PASS: benchmark arithmetic checksum" Else Print "FAIL: benchmark arithmetic checksum"
+	If FusedSum(0, 10) = 0 Then Print "PASS: empty outer bound" Else Print "FAIL: empty outer bound"
+	If FusedSum(2, 0) = 0 Then Print "PASS: empty inner bound" Else Print "FAIL: empty inner bound"
+	If FusedSum(1, 1) = -7 Then Print "PASS: single iteration" Else Print "FAIL: single iteration"
+	If FusedSum(2, 10) = 130 Then Print "PASS: changing hot call bounds" Else Print "FAIL: changing hot call bounds"
+End Sub

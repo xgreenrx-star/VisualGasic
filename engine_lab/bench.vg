@@ -185,6 +185,7 @@ Function BenchInterop(ByVal iterations As Long, ByVal inner As Long) As Long
         Next j
     Next i
 
+    node.Free()
     BenchInterop = checksum
 End Function
 
@@ -359,6 +360,7 @@ Function BenchNodePropertyChurn(ByVal outer As Long, ByVal inner As Long) As Lon
 			checksum = checksum + Len(node.Name)
 		Next j
 	Next i
+	node.Free()
 	BenchNodePropertyChurn = checksum
 End Function
 

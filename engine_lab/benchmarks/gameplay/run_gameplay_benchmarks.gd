@@ -32,7 +32,7 @@ func run_visual_gasic(func_name: String, args: Array) -> Dictionary:
 	var elapsed := Time.get_ticks_usec() - start
 
 	root.remove_child(node)
-	node.queue_free()
+	node.free()
 
 	return {"elapsed_us": elapsed, "checksum": checksum}
 
@@ -120,7 +120,7 @@ func bench_gd_node_property_churn(outer: int, inner: int) -> Dictionary:
 		for j in inner:
 			node.name = prefix + str(j)
 			checksum += node.name.length()
-	node.queue_free()
+	node.free()
 	var elapsed := Time.get_ticks_usec() - start
 	return {"elapsed_us": elapsed, "checksum": checksum, "ops": outer * inner}
 
