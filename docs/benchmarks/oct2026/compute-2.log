@@ -1,0 +1,98 @@
+Running compute benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Warmup...
+Running benchmarks...
+
+=== Arithmetic ===
+GDScript: { "elapsed_us": 5322, "checksum": 298300000 }
+VisualGasic: { "elapsed_us": 79, "checksum": 298300000 }
+C++: { "elapsed_us": 59, "checksum": 298300000 }
+VisualGasic vs GDScript: 0.01484404359263x
+C++ vs GDScript: 0.01108605787298x
+Fastest: C++
+
+=== ArraySum ===
+GDScript: { "elapsed_us": 4302, "checksum": 99900000 }
+VisualGasic: { "elapsed_us": 288, "checksum": 99900000 }
+C++: { "elapsed_us": 37, "checksum": 99900000 }
+VisualGasic vs GDScript: 0.06694560669456x
+C++ vs GDScript: 0.00860065086007x
+Fastest: C++
+
+=== StringConcat ===
+GDScript: { "elapsed_us": 5149, "checksum": 400 }
+VisualGasic: { "elapsed_us": 233, "checksum": 400 }
+C++: { "elapsed_us": 533, "checksum": 400 }
+VisualGasic vs GDScript: 0.04525150514663x
+C++ vs GDScript: 0.10351524567877x
+Fastest: VisualGasic
+
+=== Branching ===
+GDScript: { "elapsed_us": 7086, "checksum": -100000 }
+VisualGasic: { "elapsed_us": 182, "checksum": -100000 }
+C++: { "elapsed_us": 60, "checksum": -100000 }
+VisualGasic vs GDScript: 0.02568444820773x
+C++ vs GDScript: 0.00846740050804x
+Fastest: C++
+
+=== FunctionCall ===
+GDScript: { "elapsed_us": 5391, "checksum": 50000 }
+VisualGasic: { "elapsed_us": 190, "checksum": 50000 }
+VisualGasic vs GDScript: 0.03524392506029x
+Fastest: VisualGasic
+
+=== ArrayDict ===
+GDScript: { "elapsed_us": 11397, "checksum": 49152000 }
+VisualGasic: { "elapsed_us": 5747, "checksum": 49152000 }
+C++: { "elapsed_us": 2495, "checksum": 49152000 }
+VisualGasic vs GDScript: 0.50425550583487x
+C++ vs GDScript: 0.21891725892779x
+Fastest: C++
+
+=== DictFastGet ===
+GDScript: { "elapsed_us": 19191, "checksum": 52326400 }
+VisualGasic: { "elapsed_us": 2285, "checksum": 52326400 }
+VisualGasic vs GDScript: 0.11906622896149x
+Fastest: VisualGasic
+
+=== DictFastSet ===
+GDScript: { "elapsed_us": 15334, "checksum": 93184000 }
+VisualGasic: { "elapsed_us": 4054, "checksum": 93184000 }
+VisualGasic vs GDScript: 0.2643798095735x
+Fastest: VisualGasic
+
+=== Interop ===
+GDScript: { "elapsed_us": 8481, "checksum": 166200 }
+VisualGasic: { "elapsed_us": 355, "checksum": 166200 }
+C++: { "elapsed_us": 6856, "checksum": 166200 }
+VisualGasic vs GDScript: 0.04185827143026x
+C++ vs GDScript: 0.8083952364108x
+Fastest: VisualGasic
+
+=== Allocations ===
+GDScript: { "elapsed_us": 6789, "checksum": 13440000 }
+VisualGasic: { "elapsed_us": 294, "checksum": 13440000 }
+C++: { "elapsed_us": 496, "checksum": 13440000 }
+VisualGasic vs GDScript: 0.04330534688467x
+C++ vs GDScript: 0.07305936073059x
+Fastest: VisualGasic
+
+=== AllocationsFast ===
+GDScript: { "elapsed_us": 9213, "checksum": 655360 }
+VisualGasic: { "elapsed_us": 1890, "checksum": 655360 }
+C++: { "elapsed_us": 380, "checksum": 655360 }
+VisualGasic vs GDScript: 0.20514490394008x
+C++ vs GDScript: 0.04124606534245x
+Fastest: C++
+
+=== FileIO ===
+GDScript: { "elapsed_us": 1135, "checksum": 2048 }
+VisualGasic: { "elapsed_us": 676, "checksum": 2048 }
+C++: { "elapsed_us": 411, "checksum": 2048 }
+VisualGasic vs GDScript: 0.59559471365639x
+C++ vs GDScript: 0.36211453744493x
+Fastest: C++
+VG_COMPUTE_BENCHMARKS_COMPLETED
+Compute benchmarks finished.

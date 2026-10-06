@@ -1,0 +1,29 @@
+Running compile benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== Visual Gasic Compile Benchmarks ===
+Metric: median script reload time (microseconds, lower is faster)
+Phases: forced VG reload (tokenize + parse); GDScript analyzer + compile
+VG bytecode compilation is lazy and is not included in this metric.
+
+=== HelloWorld ===
+  lines (approx): vg=4 gd=3
+  VisualGasic reload: { "elapsed_us": 31 }
+  GDScript reload:    { "elapsed_us": 20 }
+  VG vs GDScript: 1.550x
+
+=== BenchCompute ===
+  lines (approx): vg=461 gd=302
+  VisualGasic reload: { "elapsed_us": 6287 }
+  GDScript reload:    { "elapsed_us": 2677 }
+  VG vs GDScript: 2.349x
+
+=== SyntheticLarge ===
+  lines (approx): vg=1805 gd=1576
+  VisualGasic reload: { "elapsed_us": 23659 }
+  GDScript reload:    { "elapsed_us": 15392 }
+  VG vs GDScript: 1.537x
+
+Compile benchmarks finished.
+Compile benchmarks finished.

@@ -366,6 +366,17 @@ result-validation tests reject mismatches, extra/missing frames, missing
 checksums and negative timings. These revised timings must not be compared
 with the earlier unchecked floating-motion run.
 
+Final post-push gate on `ad84892f`: **210 matched passes**, zero matched
+failures/divergences/assertionless runs/execution failures, and eight explicit
+exclusions. Dedicated runners pass 170 data/context assertions, five parser
+checks, three debugger checks, two socket checks and six draw-validation checks.
+The 4 MiB stack test passes 18 assertions per mode. Both final mutation runs
+(40 cases at seed 15/default and 40 at seed 16/forced AST) have zero crashes
+or timeouts. All twelve subsequent benchmark runs (three per suite) completed
+with comparable outputs. See the
+[final report and raw results](benchmarks/BUG_CAMPAIGN_OCT2026.md), including
+slower workloads and the outstanding sanitizer/platform validation limits.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

@@ -1,0 +1,84 @@
+Running draw benchmarks (demo project)...
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Draw benchmark warmup...
+
+=== Visual Gasic Draw Benchmarks ===
+Metric: microseconds inside _draw (lower is faster)
+MovingObjects: average _draw us over 120 frames (500 objects)
+
+
+=== FilledRects (n=2500) ===
+GDScript: { "elapsed_us": 531, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 273, "checksum": 1000000 }
+C++: { "elapsed_us": 64, "checksum": 1000000 }
+VisualGasic vs GDScript: 0.51412429378531x
+C++ vs GDScript: 0.12052730696798x
+Fastest: C++ (64 us)
+
+=== OutlineRects (n=2500) ===
+GDScript: { "elapsed_us": 749, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 1634, "checksum": 1000000 }
+C++: { "elapsed_us": 244, "checksum": 1000000 }
+VisualGasic vs GDScript: 2.18157543391188x
+C++ vs GDScript: 0.32576769025367x
+Fastest: C++ (244 us)
+
+=== Lines (n=2000) ===
+GDScript: { "elapsed_us": 453, "checksum": 720000 }
+VisualGasic: { "elapsed_us": 689, "checksum": 720000 }
+C++: { "elapsed_us": 54, "checksum": 720000 }
+VisualGasic vs GDScript: 1.52097130242826x
+C++ vs GDScript: 0.11920529801325x
+Fastest: C++ (54 us)
+
+=== Circles (n=1500) ===
+GDScript: { "elapsed_us": 1195, "checksum": 472500 }
+VisualGasic: { "elapsed_us": 1248, "checksum": 472500 }
+C++: { "elapsed_us": 2345, "checksum": 472500 }
+VisualGasic vs GDScript: 1.04435146443515x
+C++ vs GDScript: 1.96234309623431x
+Fastest: GDScript (1195 us)
+
+=== Sprites (n=2000) ===
+GDScript: { "elapsed_us": 678, "checksum": 720000 }
+VisualGasic: { "elapsed_us": 782, "checksum": 720000 }
+C++: { "elapsed_us": 33, "checksum": 720000 }
+VisualGasic vs GDScript: 1.15339233038348x
+C++ vs GDScript: 0.04867256637168x
+Fastest: C++ (33 us)
+
+=== Polylines (n=800) ===
+GDScript: { "elapsed_us": 2271, "checksum": 211200 }
+VisualGasic: { "elapsed_us": 459, "checksum": 211200 }
+C++: { "elapsed_us": 641, "checksum": 211200 }
+VisualGasic vs GDScript: 0.20211360634082x
+C++ vs GDScript: 0.28225451343021x
+Fastest: VisualGasic (459 us)
+
+=== Mixed (n=2500) ===
+GDScript: { "elapsed_us": 3477, "checksum": 2743750 }
+VisualGasic: { "elapsed_us": 3650, "checksum": 2743750 }
+C++: { "elapsed_us": 1609, "checksum": 2743750 }
+VisualGasic vs GDScript: 1.04975553638194x
+C++ vs GDScript: 0.46275524877768x
+Fastest: C++ (1609 us)
+
+=== VectorCanvasUniformRects (n=2500) ===
+GDScript: { "elapsed_us": 664, "checksum": 1000000 }
+VisualGasic: { "elapsed_us": 75, "checksum": 1000000 }
+C++: { "elapsed_us": 136, "checksum": 1000000 }
+VisualGasic vs GDScript: 0.11295180722892x
+C++ vs GDScript: 0.20481927710843x
+Fastest: VisualGasic (75 us)
+
+=== MovingFilledRects (n=500) ===
+GDScript: { "elapsed_us": 206, "checksum": 257901, "frames": 120 }
+VisualGasic: { "elapsed_us": 8556, "checksum": 257901, "frames": 120 }
+C++: { "elapsed_us": 123, "checksum": 257901, "frames": 120 }
+VisualGasic vs GDScript: 41.5339805825243x
+C++ vs GDScript: 0.59708737864078x
+Fastest: C++ (123 us)
+VG_DRAW_BENCHMARKS_COMPLETED
+Draw benchmarks finished.

@@ -1,0 +1,93 @@
+╔══════════════════════════════════════════════════╗
+║  VG parser/VM mutation stress                    ║
+╚══════════════════════════════════════════════════╝
+Godot:   ./Godot_v4.6.1-stable_linux.x86_64
+Pool:    80 files
+Mutants: 40  seed=15
+Out:     /tmp/vg-mutation-278759
+
+/tmp/vg-mutation-278759/mutant_000.vg
+/tmp/vg-mutation-278759/mutant_001.vg
+/tmp/vg-mutation-278759/mutant_002.vg
+/tmp/vg-mutation-278759/mutant_003.vg
+/tmp/vg-mutation-278759/mutant_004.vg
+/tmp/vg-mutation-278759/mutant_005.vg
+/tmp/vg-mutation-278759/mutant_006.vg
+/tmp/vg-mutation-278759/mutant_007.vg
+/tmp/vg-mutation-278759/mutant_008.vg
+/tmp/vg-mutation-278759/mutant_009.vg
+/tmp/vg-mutation-278759/mutant_010.vg
+/tmp/vg-mutation-278759/mutant_011.vg
+/tmp/vg-mutation-278759/mutant_012.vg
+/tmp/vg-mutation-278759/mutant_013.vg
+/tmp/vg-mutation-278759/mutant_014.vg
+/tmp/vg-mutation-278759/mutant_015.vg
+/tmp/vg-mutation-278759/mutant_016.vg
+/tmp/vg-mutation-278759/mutant_017.vg
+/tmp/vg-mutation-278759/mutant_018.vg
+/tmp/vg-mutation-278759/mutant_019.vg
+/tmp/vg-mutation-278759/mutant_020.vg
+/tmp/vg-mutation-278759/mutant_021.vg
+/tmp/vg-mutation-278759/mutant_022.vg
+/tmp/vg-mutation-278759/mutant_023.vg
+/tmp/vg-mutation-278759/mutant_024.vg
+/tmp/vg-mutation-278759/mutant_025.vg
+/tmp/vg-mutation-278759/mutant_026.vg
+/tmp/vg-mutation-278759/mutant_027.vg
+/tmp/vg-mutation-278759/mutant_028.vg
+/tmp/vg-mutation-278759/mutant_029.vg
+/tmp/vg-mutation-278759/mutant_030.vg
+/tmp/vg-mutation-278759/mutant_031.vg
+/tmp/vg-mutation-278759/mutant_032.vg
+/tmp/vg-mutation-278759/mutant_033.vg
+/tmp/vg-mutation-278759/mutant_034.vg
+/tmp/vg-mutation-278759/mutant_035.vg
+/tmp/vg-mutation-278759/mutant_036.vg
+/tmp/vg-mutation-278759/mutant_037.vg
+/tmp/vg-mutation-278759/mutant_038.vg
+/tmp/vg-mutation-278759/mutant_039.vg
+  ok     mutant_000.vg  (rc=0)
+  ok     mutant_001.vg  (rc=0)
+  ok     mutant_002.vg  (rc=0)
+  ok     mutant_003.vg  (rc=0)
+  ok     mutant_004.vg  (rc=0)
+  ok     mutant_005.vg  (rc=0)
+  ok     mutant_006.vg  (rc=0)
+  ok     mutant_007.vg  (rc=0)
+  ok     mutant_008.vg  (rc=0)
+  ok     mutant_009.vg  (rc=0)
+  ok     mutant_010.vg  (rc=0)
+  ok     mutant_011.vg  (rc=0)
+  ok     mutant_012.vg  (rc=0)
+  ok     mutant_013.vg  (rc=0)
+  ok     mutant_014.vg  (rc=0)
+  ok     mutant_015.vg  (rc=0)
+  ok     mutant_016.vg  (rc=0)
+  ok     mutant_017.vg  (rc=0)
+  ok     mutant_018.vg  (rc=0)
+  ok     mutant_019.vg  (rc=0)
+  ok     mutant_020.vg  (rc=0)
+  ok     mutant_021.vg  (rc=0)
+  ok     mutant_022.vg  (rc=0)
+  ok     mutant_023.vg  (rc=0)
+  ok     mutant_024.vg  (rc=0)
+  ok     mutant_025.vg  (rc=0)
+  ok     mutant_026.vg  (rc=0)
+  ok     mutant_027.vg  (rc=0)
+  ok     mutant_028.vg  (rc=0)
+  ok     mutant_029.vg  (rc=0)
+  ok     mutant_030.vg  (rc=0)
+  ok     mutant_031.vg  (rc=0)
+  ok     mutant_032.vg  (rc=0)
+  ok     mutant_033.vg  (rc=0)
+  ok     mutant_034.vg  (rc=0)
+  ok     mutant_035.vg  (rc=0)
+  ok     mutant_036.vg  (rc=0)
+  ok     mutant_037.vg  (rc=0)
+  ok     mutant_038.vg  (rc=0)
+  ok     mutant_039.vg  (rc=0)
+
+══════════════════════════════════════════════════
+Mutation stress: ok=40  crashes=0  timeouts=0  total=40
+Artifacts: /tmp/vg-mutation-278759
+No hard crashes.

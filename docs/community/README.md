@@ -9,6 +9,7 @@ so the wording can be reviewed in PRs before it goes out.
 | [discussions_pin_vision.md](discussions_pin_vision.md) | GitHub Discussions → Vision (pinned) | ready to post |
 | [hn_submission.md](hn_submission.md) | Hacker News | ready to post |
 | [reddit_r_programming.md](reddit_r_programming.md) | r/programming | ready to post |
+| [FACEBOOK_BUG_FIXES_OCT2026.md](FACEBOOK_BUG_FIXES_OCT2026.md) | Facebook | ready to post; verified bug-campaign and benchmark results |
 
 ## Posting checklist
 

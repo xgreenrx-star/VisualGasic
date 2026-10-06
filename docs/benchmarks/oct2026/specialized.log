@@ -1,0 +1,329 @@
+── sprite_data headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== sprite_data headless tests ===
+
+-- resolver: valid *Sprite block --
+  [PASS] resolves on grid line
+  [PASS] label PlayerSprite
+  [PASS] 4x4 dimensions
+  [PASS] header line index
+  [PASS] data start line
+  [PASS] 16 pixels
+  [PASS] pixel (1,1) == 1
+  [PASS] caret on label line
+  [PASS] caret on header line
+-- resolver: reject non-sprite --
+  [PASS] NoteData line empty
+  [PASS] NoteData not sprite label
+  [PASS] empty source
+  [PASS] negative caret
+-- resolver: size limits --
+  [PASS] oversized width rejected
+  [PASS] short header rejected
+-- resolver: resize header rows --
+  [PASS] 12x6 resolves
+  [PASS] 12x12 resolves
+  [PASS] 12x12 has 144 pixels
+  [PASS] 12x12 needs 12 rows
+-- palettes --
+  [PASS] NES name id 0
+  [PASS] 16 NES colors
+  [PASS] index 1 is Color
+  [PASS] clamp high palette id
+-- sync: CodeEdit write-back --
+  [PASS] section for sync
+  [PASS] apply_pixels ok
+  [PASS] not guarded after apply
+  [PASS] row0 is indented for folding
+  [PASS] row0 starts with 9
+  [PASS] roundtrip pixel 0
+  [PASS] reject bad pixel count
+-- enumerate_blocks --
+  [PASS] one sprite block
+  [PASS] label line 0
+  [PASS] end line 5
+-- native line backgrounds --
+  [PASS] painted sprite lines
+  [PASS] line 2 has tint
+  [PASS] cleared line 2
+-- editor assist: keyword at caret --
+  [PASS] DrawRect keyword
+
+=== Results: 37 passed, 0 failed ===
+RESULTS: 37/37 passed, 0 failed
+
+── vector_data headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== vector_data headless tests ===
+
+-- resolver: valid *Vector block --
+  [PASS] resolves on shape line
+  [PASS] label ArrowVector
+  [PASS] 64x64 view
+  [PASS] grid step 4
+  [PASS] two shapes
+  [PASS] first is LINE
+  [PASS] polyline points
+-- resolver: reject non-vector --
+  [PASS] NoteData line empty
+  [PASS] NoteData not vector label
+  [PASS] empty source
+-- sync: CodeEdit write-back --
+  [PASS] section for sync
+  [PASS] apply_shapes ok
+  [PASS] not guarded after apply
+  [PASS] row0 is indented for folding
+  [PASS] row0 starts with LINE
+  [PASS] row0 has 8
+-- enumerate_blocks --
+  [PASS] one vector block
+  [PASS] label line 0
+-- native line backgrounds --
+  [PASS] painted vector lines
+  [PASS] line 2 has tint
+  [PASS] cleared line 2
+-- vgv parse/serialize --
+  [PASS] vgv parsed
+  [PASS] vgv view 64
+  [PASS] vgv two shapes
+  [PASS] vgv polyline 3 pts
+  [PASS] vgv reserializes
+  [PASS] vgv roundtrip shapes
+-- sync: insert shape row --
+  [PASS] add shape ok
+  [PASS] three shapes after add
+-- resolver: wide SkiffVector block --
+  [PASS] skiff resolves
+  [PASS] skiff 72x28
+  [PASS] skiff four shapes
+  [PASS] skiff hull rects
+  [PASS] skiff fill rects
+-- resolver: PodCapsuleVector stroke widths --
+  [PASS] pod resolves
+  [PASS] pod four shapes
+  [PASS] pod hull filled
+  [PASS] pod cockpit filled
+  [PASS] pod thrust stroke 2
+-- canvas: refit wide block after resize --
+  [PASS] canvas shrinks zoom after resize
+  [PASS] canvas zoom sane for rail
+  [PASS] canvas doc fits width
+  [PASS] canvas doc fits height
+-- wire model Data preview resolver --
+  [PASS] wire resolves on vertex line
+  [PASS] wire label
+  [PASS] wire 8 verts
+  [PASS] wire 7 edges
+  [PASS] wire negative x parsed
+  [PASS] wire vertex owns its Data line
+  [PASS] curve table is not a wire model
+
+=== Results: 50 passed, 0 failed ===
+RESULTS: 50/50 passed, 0 failed
+
+── context_analyzer headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== context_analyzer headless tests ===
+
+-- procedure at caret --
+  OK  inside procedure
+  OK  handler name
+  OK  region title mentions Sub
+  OK  line range detail
+-- event handler chain roots --
+  OK  is event handler
+  OK  chain root
+  OK  event label mentions click
+-- sprite block region --
+  OK  sprite dict populated
+  OK  sprite title
+  OK  4x4 in title
+-- outline entries --
+  OK  outline has landmarks
+  OK  outline has PlayerSprite
+  OK  outline has NoteData
+  OK  outline skips Sub entries
+  OK  outline skips Function entries
+-- @VG-Summary / comment summary --
+  OK  summary from @VG-Summary
+
+RESULTS: 16 passed, 0 failed
+
+── context_caret_context headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== context_caret_context headless tests ===
+
+-- connect_at_line --
+  OK  resolves connect
+  OK  node btnOK
+  OK  signal Click
+  OK  handler
+-- event_handler_parts --
+  OK  control
+  OK  event Click
+-- member dim variable --
+  OK  score name
+  OK  integer type
+-- control prefix --
+  OK  btnOK control
+  OK  kind control
+  OK  has Caption prop
+
+RESULTS: 11 passed, 0 failed
+
+── datafile_resolver headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== datafile headless tests ===
+-- resolver: DataFile under label --
+  OK  resolves on DataFile line
+  OK  label WorldMap
+  OK  path csv
+  OK  label line 0
+  OK  data line 1
+  OK  sprite block no datafile
+-- resolver: multiple DataFile under one label --
+  OK  line1 world.vgd
+  OK  line1 data_line 1
+  OK  line2 world2.vgd
+  OK  line2 data_line 2
+-- sniff: csv heuristic --
+  OK  csv kind
+  OK  exists
+-- vgd write + sniff --
+  OK  vgd kind
+  OK  2x2
+
+datafile tests: 14 passed, 0 failed
+
+── narcea_datafile_knowledge headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== narcea datafile knowledge tests ===
+-- knowledge block (no hint) --
+  OK  context non-empty
+  OK  mentions DataFile
+  OK  mentions .vgd
+  OK  mentions DataBuffer or PeekData
+-- query hint: large tilemap --
+  OK  hint builds context
+  OK  tilemap hint still cites DataFile
+  OK  discourages inline megadata
+RESULTS: 7 passed, 0 failed
+
+── literal_resolver headless tests (host: /home/Commodore/Documents/VisualGasic/test_proj) ──
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+=== literal_resolver headless tests ===
+
+-- decimal literal --
+  OK  resolves
+  OK  kind integer
+  OK  value 10
+  OK  source text
+  OK  radix decimal
+-- hex vb6 literal --
+  OK  resolves &H10
+  OK  value 16
+  OK  radix hex_vb
+-- 0x literal --
+  OK  resolves 0xFF
+  OK  value 255
+  OK  radix hex_c
+-- octal literal --
+  OK  resolves &O12
+  OK  value 10
+  OK  radix octal
+-- binary literal --
+  OK  resolves &B1010
+  OK  value 10
+  OK  radix binary
+-- conversions for &B1010 --
+  OK  one current row
+  OK  current is binary
+  OK  binary text copyable
+-- date literal --
+  OK  resolves date
+  OK  kind date
+  OK  date body
+-- string false positive --
+  OK  numeric in string ignored
+  OK  string kind at quote
+-- boolean literal --
+  OK  resolves True
+  OK  kind boolean
+  OK  value true
+-- conversions for 10 --
+Unicode parsing error, some characters were replaced with � (U+FFFD): Unexpected NUL character
+  OK  has rows
+  OK  hex vb6 &HA
+  OK  octal &O12
+  OK  binary &B1010
+  OK  decimal current
+-- conversions for &HA --
+  OK  one current row
+  OK  current is hex vb6
+
+RESULTS: 35 passed, 0 failed
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+[VGSocket] Connected to 127.0.0.1:42000
+PASS: socket saturated-loopback timeout 24 ms
+PASS: socket invalid timeout is rejected
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+Parser Error (line 2): Nested procedure declarations are not allowed
+PASS: parser rejects duplicated Sub at line 2
+Parser Error (line 2): Nested procedure declarations are not allowed
+Parser Error (line 4): Expected procedure name
+PASS: parser rejects nested Function at line 2
+Parser Error (line 3): Nested procedure declarations are not allowed
+PASS: parser rejects procedure inside If at line 3
+PASS: separate module procedures remain valid
+Parser Error (line 2): Nested procedure declarations are not allowed
+[VG] Parser Error: Nested procedure declarations are not allowed at nested_procedure_reload.vg line 2 (merged line 2)
+PASS: malformed procedure cannot execute; healthy sibling remains runnable
+[93m[1mVisualGasic Warning:[22m Script 'res://nested_procedure_reload.vg' has parse warnings. Affected Subs may fail at runtime.[39m[0m
+[93m  Line 2: Nested procedure declarations are not allowed[39m[0m
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+3
+STEP TRACE (11): [11, 12, 13, 5, 6, 7, 8, 14, 15, 16, 17]
+PASS: step-into one pause per source line, including stepping into Leaf
+3
+LOOP TRACE: [5, 6, 7, 8, 8, 8, 10, 11]
+PASS: loop body paused once per iteration
+PREVIEW: [2000 items]
+NODE PREVIEW: <Node>
+PASS: debugger values are shallow
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+PASS: equal results
+PASS: moving checksum mismatch
+PASS: extra draw frame
+PASS: missing frame count
+PASS: missing checksum
+PASS: negative timing
