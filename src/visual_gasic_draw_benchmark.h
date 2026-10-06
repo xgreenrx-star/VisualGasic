@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
-#include <godot_cpp/variant/packed_float32_array.hpp>
+#include <godot_cpp/variant/packed_int64_array.hpp>
 
 using namespace godot;
 
@@ -29,8 +29,9 @@ class VisualGasicDrawBenchmark : public Node2D {
 	int object_count = 0;
 	int frame_target = 0;
 	int warmup_frames = 0;
-	PackedFloat32Array offsets;
+	PackedInt64Array offsets;
 	int frame = 0;
+	int last_drawn_frame = -1;
 	int64_t draw_total_us = 0;
 	int draw_samples = 0;
 	bool finished = false;

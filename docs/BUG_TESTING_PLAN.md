@@ -357,6 +357,15 @@ than measuring the unchanged-resource early return; it measures tokenization
 and parsing, not lazy bytecode generation. Report this distinction and the
 nonidentical medium-workload sources with the results.
 
+The draw review also found that moving-workload checksum comparisons had been
+explicitly bypassed, allowing 121 VG samples versus 120 in the other lanes.
+Moving fixtures now use identical integer-tenths motion, gate each simulation
+step on completion of its draw, and reject duplicate/final redraws. All lanes
+must report exactly 120 measured frames and an identical checksum. Six direct
+result-validation tests reject mismatches, extra/missing frames, missing
+checksums and negative timings. These revised timings must not be compared
+with the earlier unchecked floating-motion run.
+
 ### Memory Stress Tests
 ```vb
 ' Allocate/free in tight loop — detect leaks

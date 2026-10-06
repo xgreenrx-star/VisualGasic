@@ -3,8 +3,9 @@
 Dim _objectCount As Long
 Dim _frameTarget As Long
 Dim _warmup As Long
-Dim _offsets(0) As Double
+Dim _offsets(0) As Long
 Dim _frame As Long
+Dim _lastDrawnFrame As Long
 Dim _drawTotalUs As Long
 Dim _drawSamples As Long
 Dim _finished As Boolean
@@ -19,9 +20,10 @@ Sub ConfigureMoving(ByVal objectCount As Long, ByVal frameCount As Long, ByVal w
     ReDim _offsets(objectCount - 1)
     Dim i As Long
     For i = 0 To objectCount - 1 Step 1
-        _offsets(i) = CDbl(i * 3)
+        _offsets(i) = i * 30
     Next i
     _frame = 0
+    _lastDrawnFrame = -1
     _drawTotalUs = 0
     _drawSamples = 0
     _finished = False
@@ -51,6 +53,9 @@ Sub _Process()
     If _finished Then
         Exit Sub
     End If
+    If _frame > _warmup And _lastDrawnFrame <> _frame Then
+        Exit Sub
+    End If
 
     If _frame >= _frameTarget + _warmup Then
         _finished = True
@@ -59,9 +64,9 @@ Sub _Process()
 
     Dim i As Long
     For i = 0 To _objectCount - 1 Step 1
-        _offsets(i) = _offsets(i) + 1.7 + CDbl(i Mod 5) * 0.3
-        If _offsets(i) > 800.0 Then
-            _offsets(i) = 0.0
+        _offsets(i) = _offsets(i) + 17 + (i Mod 5) * 3
+        If _offsets(i) > 8000 Then
+            _offsets(i) = 0
         End If
     Next i
 
@@ -70,12 +75,16 @@ Sub _Process()
 End Sub
 
 Sub _Draw()
+    If _finished Or _lastDrawnFrame = _frame Then
+        Exit Sub
+    End If
     If _frame <= _warmup Then
         Exit Sub
     End If
     If _frame > _frameTarget + _warmup Then
         Exit Sub
     End If
+    _lastDrawnFrame = _frame
 
     Dim t0 As Long
     Dim i As Long
@@ -85,10 +94,10 @@ Sub _Draw()
 
     t0 = Time.get_ticks_usec()
     For i = 0 To _objectCount - 1 Step 1
-        x = _offsets(i)
+        x = CDbl(_offsets(i)) / 10.0
         y = CDbl((i * 7) Mod 40) * CDbl(CELL)
         DrawRect x, y, CDbl(CELL), CDbl(CELL), Color(0.2, 0.4, 0.9, 1.0), True
-        cs = cs + CLng(x) + CLng(y) + CELL
+        cs = cs + (_offsets(i) \ 10) + CLng(y) + CELL
     Next i
 
     _drawTotalUs = _drawTotalUs + (Time.get_ticks_usec() - t0)

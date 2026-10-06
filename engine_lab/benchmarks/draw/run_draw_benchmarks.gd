@@ -43,7 +43,9 @@ func _run_all() -> void:
 	))
 
 	for entry in results:
-		_print_entry(entry)
+		if not _print_entry(entry):
+			quit(1)
+			return
 
 	print("VG_DRAW_BENCHMARKS_COMPLETED")
 	quit(0)
@@ -230,7 +232,7 @@ func _wait_vg_moving(node: Node) -> bool:
 	return false
 
 
-func _print_entry(entry: Dictionary) -> void:
+func _print_entry(entry: Dictionary) -> bool:
 	print("\n=== ", entry["name"], " (n=", entry["count"], ") ===")
 	var gd_result: Dictionary = entry.get("gd", {})
 	var vg_result: Dictionary = entry.get("vg", {})
@@ -240,16 +242,10 @@ func _print_entry(entry: Dictionary) -> void:
 	print("VisualGasic: ", vg_result)
 	print("C++: ", cpp_result)
 
-	if gd_result.is_empty() or vg_result.is_empty() or cpp_result.is_empty():
-		push_warning("Skipping " + str(entry["name"]) + " due to missing benchmark data.")
-		return
-	var gd_cs = gd_result.get("checksum")
-	var vg_cs = vg_result.get("checksum")
-	var cpp_cs = cpp_result.get("checksum")
-	var is_moving := str(entry["name"]).begins_with("Moving")
-	if not is_moving and (gd_cs != vg_cs or gd_cs != cpp_cs):
-		push_warning("Checksum mismatch in " + str(entry["name"]) + " — results may not be comparable.")
-		print("  checksums gd=", gd_cs, " vg=", vg_cs, " cpp=", cpp_cs)
+	var result_error := DrawBenchConfig.result_error(entry)
+	if not result_error.is_empty():
+		push_error(result_error + " in " + str(entry["name"]))
+		return false
 
 	var gd_us := float(gd_result.get("elapsed_us", 0))
 	var vg_us := float(vg_result.get("elapsed_us", 0))
@@ -267,3 +263,4 @@ func _print_entry(entry: Dictionary) -> void:
 	print("VisualGasic vs GDScript: ", vg_us / max(1.0, gd_us), "x")
 	print("C++ vs GDScript: ", cpp_us / max(1.0, gd_us), "x")
 	print("Fastest: ", fastest, " (", int(fastest_us), " us)")
+	return true

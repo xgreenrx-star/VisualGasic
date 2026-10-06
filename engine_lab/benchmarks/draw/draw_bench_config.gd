@@ -29,3 +29,21 @@ static func workload_counts() -> Dictionary:
 		"Mixed": 2500,
 		"VectorCanvasUniformRects": 2500,
 	}
+
+
+static func result_error(entry: Dictionary) -> String:
+	var lanes: Array[Dictionary] = [
+		entry.get("gd", {}), entry.get("vg", {}), entry.get("cpp", {}),
+	]
+	for lane in lanes:
+		if not lane.has("checksum") or not lane.has("elapsed_us"):
+			return "Missing benchmark data"
+		if lane["elapsed_us"] < 0:
+			return "Negative benchmark timing"
+	if lanes[0]["checksum"] != lanes[1]["checksum"] or lanes[0]["checksum"] != lanes[2]["checksum"]:
+		return "Checksum mismatch"
+	if str(entry.get("name", "")).begins_with("Moving"):
+		for lane in lanes:
+			if lane.get("frames", 0) != MOVING_FRAME_COUNT:
+				return "Incorrect measured frame count"
+	return ""

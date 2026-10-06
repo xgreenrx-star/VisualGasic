@@ -152,13 +152,14 @@ void VisualGasicDrawBenchmark::configure_moving(int p_object_count, int p_frame_
 	frame_target = p_frame_count;
 	warmup_frames = p_warmup;
 	frame = 0;
+	last_drawn_frame = -1;
 	draw_total_us = 0;
 	draw_samples = 0;
 	last_checksum = 0;
 	result = Dictionary();
 	offsets.resize(object_count);
 	for (int i = 0; i < object_count; i++) {
-		offsets[i] = float(i * 3);
+		offsets[i] = i * 30;
 	}
 	set_process(true);
 }
@@ -179,6 +180,9 @@ void VisualGasicDrawBenchmark::_process(double delta) {
 	if (!moving_mode || finished) {
 		return;
 	}
+	if (frame > warmup_frames && last_drawn_frame != frame) {
+		return;
+	}
 
 	if (frame >= frame_target + warmup_frames) {
 		int64_t avg_us = 0;
@@ -197,9 +201,9 @@ void VisualGasicDrawBenchmark::_process(double delta) {
 	}
 
 	for (int i = 0; i < object_count; i++) {
-		offsets[i] += 1.7f + float(i % 5) * 0.3f;
-		if (offsets[i] > 800.0f) {
-			offsets[i] = 0.0f;
+		offsets[i] += 17 + (i % 5) * 3;
+		if (offsets[i] > 8000) {
+			offsets[i] = 0;
 		}
 	}
 
@@ -209,18 +213,19 @@ void VisualGasicDrawBenchmark::_process(double delta) {
 
 void VisualGasicDrawBenchmark::_draw() {
 	if (moving_mode) {
-		if (frame <= warmup_frames || frame > frame_target + warmup_frames) {
+		if (finished || last_drawn_frame == frame || frame <= warmup_frames || frame > frame_target + warmup_frames) {
 			return;
 		}
+		last_drawn_frame = frame;
 
 		uint64_t start = Time::get_singleton()->get_ticks_usec();
 		int64_t cs = 0;
 		Color color(0.2f, 0.4f, 0.9f, 1.0f);
 		for (int i = 0; i < object_count; i++) {
-			real_t x = offsets[i];
+			real_t x = real_t(offsets[i]) / 10.0;
 			real_t y = float((i * 7) % 40) * float(CELL);
 			draw_rect(Rect2(x, y, CELL, CELL), color, true);
-			cs += int64_t(x) + int64_t(y) + CELL;
+			cs += offsets[i] / 10 + int64_t(y) + CELL;
 		}
 		draw_total_us += int64_t(Time::get_singleton()->get_ticks_usec() - start);
 		draw_samples++;

@@ -5,8 +5,9 @@ const DrawBenchConfig = preload("res://benchmarks/draw/draw_bench_config.gd")
 var _object_count := DrawBenchConfig.MOVING_OBJECT_COUNT
 var _frame_target := DrawBenchConfig.MOVING_FRAME_COUNT
 var _warmup := DrawBenchConfig.MOVING_WARMUP_FRAMES
-var _offsets: PackedFloat32Array = PackedFloat32Array()
+var _offsets := PackedInt64Array()
 var _frame := 0
+var _last_drawn_frame := -1
 var _draw_total_us := 0
 var _draw_samples := 0
 var _finished := false
@@ -20,8 +21,9 @@ func configure(object_count: int, frame_count: int, warmup_frames: int) -> void:
 	_warmup = warmup_frames
 	_offsets.resize(object_count)
 	for i in object_count:
-		_offsets[i] = float(i * 3)
+		_offsets[i] = i * 30
 	_frame = 0
+	_last_drawn_frame = -1
 	_draw_total_us = 0
 	_draw_samples = 0
 	_finished = false
@@ -40,6 +42,8 @@ func get_result() -> Dictionary:
 func step_frame() -> void:
 	if _finished:
 		return
+	if _frame > _warmup and _last_drawn_frame != _frame:
+		return
 	if _frame >= _frame_target + _warmup:
 		var avg_us := 0
 		if _draw_samples > 0:
@@ -53,27 +57,28 @@ func step_frame() -> void:
 		return
 
 	for i in _object_count:
-		_offsets[i] += 1.7 + float(i % 5) * 0.3
-		if _offsets[i] > 800.0:
-			_offsets[i] = 0.0
+		_offsets[i] += 17 + (i % 5) * 3
+		if _offsets[i] > 8000:
+			_offsets[i] = 0
 
 	_frame += 1
 	queue_redraw()
 
 
 func _draw() -> void:
-	if _frame <= _warmup or _frame > _frame_target + _warmup:
+	if _finished or _last_drawn_frame == _frame or _frame <= _warmup or _frame > _frame_target + _warmup:
 		return
+	_last_drawn_frame = _frame
 
 	var start := Time.get_ticks_usec()
 	var cs := 0
 	var cell := float(DrawBenchConfig.CELL)
 	var color := DrawBenchConfig.FILL_COLOR
 	for i in _object_count:
-		var x := _offsets[i]
+		var x := float(_offsets[i]) / 10.0
 		var y := float((i * 7) % 40) * cell
 		draw_rect(Rect2(x, y, cell, cell), color, true)
-		cs += int(x) + int(y) + DrawBenchConfig.CELL
+		cs += _offsets[i] / 10 + int(y) + DrawBenchConfig.CELL
 
 	_draw_total_us += Time.get_ticks_usec() - start
 	_draw_samples += 1
