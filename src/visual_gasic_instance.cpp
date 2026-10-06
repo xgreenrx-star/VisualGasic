@@ -62,6 +62,7 @@
 #include <godot_cpp/classes/packed_scene.hpp>
 #include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include "visual_gasic_named_args.h"
 #include <godot_cpp/classes/config_file.hpp>
 #include <godot_cpp/classes/json.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -2297,6 +2298,16 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_sub(const String& entry_poi
 BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod, const String& entry_point) {
     if (!mod.ast || entry_point.is_empty()) {
         return nullptr;
+    }
+    // Force AST tree-walk for differential testing (VG_FORCE_AST=1).
+    {
+        static int _vg_force_ast_cached = -1;
+        if (_vg_force_ast_cached < 0) {
+            _vg_force_ast_cached = OS::get_singleton()->has_environment("VG_FORCE_AST") ? 1 : 0;
+        }
+        if (_vg_force_ast_cached == 1) {
+            return nullptr;
+        }
     }
     std::list<ModuleBytecodeEntry> *cache_list = mod.bytecode_cache;
     if (mod.ast_is_shared && !mod.full_path.is_empty()) {

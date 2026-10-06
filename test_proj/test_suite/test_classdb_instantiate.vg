@@ -1,0 +1,36 @@
+' Regression: ClassDB.Instantiate("ClassName") must not ResourceLoader::load
+' (AST path used to treat PascalCase Instantiate as PackedScene load → res://Node).
+Option Explicit
+
+Sub _Ready()
+	Dim n As Object
+	Set n = ClassDB.Instantiate("Node")
+	If n Is Nothing Then
+		Print "FAIL: ClassDB.Instantiate Node is Nothing"
+	ElseIf TypeOf n Is Node Then
+		Print "PASS: ClassDB.Instantiate Node"
+	Else
+		Print "FAIL: ClassDB.Instantiate type=" & TypeName(n)
+	End If
+
+	Dim body As Object
+	Set body = ClassDB.Instantiate("CharacterBody2D")
+	If body Is Nothing Then
+		Print "FAIL: ClassDB.Instantiate CharacterBody2D is Nothing"
+	ElseIf TypeOf body Is CharacterBody2D Then
+		Print "PASS: ClassDB.Instantiate CharacterBody2D"
+	Else
+		Print "FAIL: ClassDB.Instantiate CharacterBody2D type=" & TypeName(body)
+	End If
+
+	' Bare Instantiate(className) should also ClassDB-instantiate (not res:// load).
+	Dim bare As Object
+	Set bare = Instantiate("Node2D")
+	If bare Is Nothing Then
+		Print "FAIL: bare Instantiate Node2D is Nothing"
+	ElseIf TypeOf bare Is Node2D Then
+		Print "PASS: bare Instantiate Node2D"
+	Else
+		Print "FAIL: bare Instantiate type=" & TypeName(bare)
+	End If
+End Sub

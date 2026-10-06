@@ -1,0 +1,35 @@
+' Regression: Variant structs (Vector2/Vector2i/Color) support .ToString()
+' via stringify — Godot does not bind to_string on these types.
+Option Explicit
+
+Sub _Ready()
+	Dim v As Vector2
+	v = Vector2(10.5, 20.5)
+	Dim s As String
+	s = v.ToString()
+	If s = "" Or s = "<null>" Then
+		Print "FAIL: Vector2.ToString empty/null"
+	Else
+		Print "PASS: Vector2.ToString"
+	End If
+
+	Dim vi As Vector2i
+	vi = Vector2i(3, 4)
+	Dim si As String
+	si = vi.ToString()
+	If si = "" Or si = "<null>" Then
+		Print "FAIL: Vector2i.ToString empty/null"
+	Else
+		Print "PASS: Vector2i.ToString"
+	End If
+
+	Dim c As Color
+	c = Color(1, 0, 0, 1)
+	Dim sc As String
+	sc = c.ToString()
+	If sc = "" Or sc = "<null>" Then
+		Print "FAIL: Color.ToString empty/null"
+	Else
+		Print "PASS: Color.ToString"
+	End If
+End Sub

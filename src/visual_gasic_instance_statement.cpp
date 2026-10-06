@@ -212,6 +212,82 @@ void VisualGasicInstance::_execute_statement_impl(Statement* stmt) {
 				case ExitStatement::EXIT_OSCILLATE:
 					error_state.mode = ErrorState::EXIT_OSCILLATE;
 					break;
+				case ExitStatement::EXIT_CYCLE:
+					error_state.mode = ErrorState::EXIT_CYCLE;
+					break;
+				case ExitStatement::EXIT_REPEAT:
+					error_state.mode = ErrorState::EXIT_REPEAT;
+					break;
+			}
+			break;
+		}
+		case STMT_REPEAT: {
+			RepeatStatement *rp = static_cast<RepeatStatement *>(stmt);
+			if (!rp->count_val) {
+				break;
+			}
+			int n = (int)_evaluate_expression_impl(rp->count_val);
+			if (n < 0) {
+				n = 0;
+			}
+			for (int i = 1; i <= n; i++) {
+				if (!rp->counter_name.is_empty()) {
+					assign_variable(rp->counter_name, (int64_t)i);
+				}
+				for (Statement *s : rp->body) {
+					_execute_statement_impl(s);
+				}
+				if (error_state.mode == ErrorState::EXIT_REPEAT) {
+					error_state.mode = ErrorState::NONE;
+					break;
+				}
+				if (error_state.mode == ErrorState::CONTINUE_REPEAT) {
+					error_state.mode = ErrorState::NONE;
+				}
+			}
+			break;
+		}
+		case STMT_CYCLE: {
+			CycleStatement *cy = static_cast<CycleStatement *>(stmt);
+			if (!cy->collection || !cy->count_val || cy->element_name.is_empty()) {
+				break;
+			}
+			Variant col = _evaluate_expression_impl(cy->collection);
+			if (col.get_type() == Variant::DICTIONARY) {
+				col = ((Dictionary)col).keys();
+			}
+			Array arr;
+			if (col.get_type() == Variant::ARRAY) {
+				arr = col;
+			} else if (col.get_type() == Variant::STRING) {
+				String str = col;
+				arr.resize(str.length());
+				for (int i = 0; i < str.length(); i++) {
+					arr[i] = String(String::chr(str[i]));
+				}
+			} else {
+				break;
+			}
+			int len = arr.size();
+			int n = (int)_evaluate_expression_impl(cy->count_val);
+			if (n < 0) {
+				n = 0;
+			}
+			if (len <= 0) {
+				break;
+			}
+			for (int i = 0; i < n; i++) {
+				assign_variable(cy->element_name, arr[i % len]);
+				for (Statement *s : cy->body) {
+					_execute_statement_impl(s);
+				}
+				if (error_state.mode == ErrorState::EXIT_CYCLE) {
+					error_state.mode = ErrorState::NONE;
+					break;
+				}
+				if (error_state.mode == ErrorState::CONTINUE_CYCLE) {
+					error_state.mode = ErrorState::NONE;
+				}
 			}
 			break;
 		}

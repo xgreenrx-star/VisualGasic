@@ -587,6 +587,73 @@ static void _vg_list_files_recursive(const String &p_path, const String &p_patte
     dir->list_dir_end();
 }
 
+// Bytecode `Dim arr(N) As Integer` emits PackedInt64Array (OP_NEW_ARRAY_I64);
+// the AST path uses Variant::ARRAY. High-level array helpers (Push/Sort/…) must
+// accept both so BC and AST agree.
+static bool vg_array_like_to_array(const Variant &v, Array &out) {
+	switch (v.get_type()) {
+		case Variant::ARRAY: {
+			out = v;
+			return true;
+		}
+		case Variant::PACKED_INT64_ARRAY: {
+			PackedInt64Array a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = a[i];
+			}
+			return true;
+		}
+		case Variant::PACKED_INT32_ARRAY: {
+			PackedInt32Array a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = (int64_t)a[i];
+			}
+			return true;
+		}
+		case Variant::PACKED_FLOAT32_ARRAY: {
+			PackedFloat32Array a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = (double)a[i];
+			}
+			return true;
+		}
+		case Variant::PACKED_FLOAT64_ARRAY: {
+			PackedFloat64Array a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = a[i];
+			}
+			return true;
+		}
+		case Variant::PACKED_STRING_ARRAY: {
+			PackedStringArray a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = a[i];
+			}
+			return true;
+		}
+		case Variant::PACKED_BYTE_ARRAY: {
+			PackedByteArray a = v;
+			out.resize(a.size());
+			for (int i = 0; i < a.size(); i++) {
+				out[i] = (int64_t)a[i];
+			}
+			return true;
+		}
+		default:
+			return false;
+	}
+}
+
+static bool vg_is_array_like(const Variant &v) {
+	Array unused;
+	return vg_array_like_to_array(v, unused);
+}
+
 // ── PrintForm (v3.5.0) ── VB6 PrintForm statement ──
 // In VB6 this prints the current form to the default printer.
 // In Godot we capture the viewport to an image and save it as PNG.
@@ -767,6 +834,20 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
         float scale = (p_args.size() > 3) ? (float)(double)p_args[3] : 1.0f;
         r_ret = (int64_t)instance->draw_data_sprite((Array)p_args[0], (float)(double)p_args[1], (float)(double)p_args[2], scale);
         return true;
+    }
+
+    // Statement-level CallStatement path historically only handled a small
+    // statement builtin set. Expression builtins (SetDataPointer, DataLabels,
+    // Push, …) live in call_builtin_expr_evaluated — fall through so AST
+    // statement calls match the bytecode OP_CALL path.
+    {
+        bool expr_handled = false;
+        Variant expr_ret = call_builtin_expr_evaluated(instance, p_method, p_args, expr_handled);
+        if (expr_handled) {
+            r_found = true;
+            r_ret = expr_ret;
+            return true;
+        }
     }
 
     // Fallback: not handled here
@@ -4534,8 +4615,19 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         Variant input = args[0];
         Variant new_item = args[1];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        // Preserve packed int arrays from OP_NEW_ARRAY_I64 (BC Dim As Integer).
+        if (input.get_type() == Variant::PACKED_INT64_ARRAY) {
+            PackedInt64Array arr = input;
+            arr.push_back((int64_t)new_item);
+            return arr;
+        }
+        if (input.get_type() == Variant::PACKED_INT32_ARRAY) {
+            PackedInt32Array arr = input;
+            arr.push_back((int32_t)(int64_t)new_item);
+            return arr;
+        }
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array new_arr = arr.duplicate();
             new_arr.append(new_item);
             return new_arr;
@@ -4546,11 +4638,16 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("pop") && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        if (input.get_type() == Variant::PACKED_INT64_ARRAY) {
+            PackedInt64Array arr = input;
             if (arr.size() > 0) {
                 return arr[arr.size() - 1];
             }
+            return Variant();
+        }
+        Array arr;
+        if (vg_array_like_to_array(input, arr) && arr.size() > 0) {
+            return arr[arr.size() - 1];
         }
         return Variant();
     }
@@ -4560,12 +4657,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         Variant input = args[0];
         int start = int(args[1]);
         int end = args.size() > 2 ? int(args[2]) : -1;
-        
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array sliced;
             if (end == -1) end = arr.size();
-            
             for (int i = start; i < end && i < arr.size(); i++) {
                 if (i >= 0) sliced.append(arr[i]);
             }
@@ -4576,8 +4671,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("sort") && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array sorted_arr = arr.duplicate();
 
             // Native O(n log n) sort (std::stable_sort) — replaces the previous
@@ -4615,8 +4710,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("reverse") && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array reversed_arr;
             for (int i = arr.size() - 1; i >= 0; i--) {
                 reversed_arr.append(arr[i]);
@@ -4630,8 +4725,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         Variant input = args[0];
         Variant search_val = args[1];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             for (int i = 0; i < arr.size(); i++) {
                 if (arr[i] == search_val) {
                     return i;
@@ -4653,9 +4748,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             return text.contains(search);
         }
         
-        // Handle array contains
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        // Handle array / packed-array contains
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             for (int i = 0; i < arr.size(); i++) {
                 if (arr[i] == search_val) {
                     return true;
@@ -4668,8 +4763,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("unique") && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array unique_arr;
             for (int i = 0; i < arr.size(); i++) {
                 bool found = false;
@@ -4691,64 +4786,20 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     if (METHOD_IS("flatten") && args.size() == 1) {
         r_handled = true;
         Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
+        Array arr;
+        if (vg_array_like_to_array(input, arr)) {
             Array flat_arr;
             for (int i = 0; i < arr.size(); i++) {
-                if (arr[i].get_type() == Variant::ARRAY) {
-                    Array sub_arr = arr[i];
-                    for (int j = 0; j < sub_arr.size(); j++) {
-                        flat_arr.append(sub_arr[j]);
+                Array sub;
+                if (vg_array_like_to_array(arr[i], sub)) {
+                    for (int j = 0; j < sub.size(); j++) {
+                        flat_arr.append(sub[j]);
                     }
                 } else {
                     flat_arr.append(arr[i]);
                 }
             }
             return flat_arr;
-        }
-        return input;
-    }
-    
-    if (METHOD_IS("push") && args.size() == 2) {
-        r_handled = true;
-        Variant input = args[0];
-        Variant new_item = args[1];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
-            Array new_arr = arr.duplicate();
-            new_arr.append(new_item);
-            return new_arr;
-        }
-        return input;
-    }
-    
-    if (METHOD_IS("pop") && args.size() == 1) {
-        r_handled = true;
-        Variant input = args[0];
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
-            if (arr.size() > 0) {
-                return arr[arr.size() - 1];
-            }
-        }
-        return Variant();
-    }
-    
-    if (METHOD_IS("slice") && args.size() >= 2) {
-        r_handled = true;
-        Variant input = args[0];
-        int start = int(args[1]);
-        int end = args.size() > 2 ? int(args[2]) : -1;
-        
-        if (input.get_type() == Variant::ARRAY) {
-            Array arr = input;
-            Array sliced;
-            if (end == -1) end = arr.size();
-            
-            for (int i = start; i < end && i < arr.size(); i++) {
-                if (i >= 0) sliced.append(arr[i]);
-            }
-            return sliced;
         }
         return input;
     }
@@ -4874,7 +4925,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // Type checking functions
     if (METHOD_IS("isarray") && args.size() == 1) {
         r_handled = true;
-        return args[0].get_type() == Variant::ARRAY;
+        // Packed* arrays from OP_NEW_ARRAY_I64 count as arrays (VB IsArray).
+        return vg_is_array_like(args[0]);
     }
     
     if (METHOD_IS("isdict") && args.size() == 1) {
@@ -5921,7 +5973,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // Type Checking Functions
     if (METHOD_IS("isarray") && args.size() == 1) {
         r_handled = true;
-        return args[0].get_type() == Variant::ARRAY;
+        return vg_is_array_like(args[0]);
     }
     
     if (METHOD_IS("isdict") && args.size() == 1) {

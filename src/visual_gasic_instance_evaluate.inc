@@ -71,6 +71,17 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (n->class_name.nocasecmp_to("Dictionary") == 0) {
             return Dictionary();
         }
+
+        // Godot built-in value types: New Vector2i(), New Color(), etc.
+        // These are not ClassDB classes — ClassDB::class_exists("Vector2i") is false.
+        // Bytecode emits OP_NEW_OBJECT → construct_godot_type; AST must match.
+        if (is_godot_type_constructor(n->class_name)) {
+            Array ctor_args;
+            for (int i = 0; i < n->args.size(); i++) {
+                ctor_args.push_back(evaluate_expression(n->args[i]));
+            }
+            return construct_godot_type(n->class_name, ctor_args);
+        }
         
         // Custom Structs or Types?
         // Use struct_prototypes for proper typed defaults + fixed-length strings
@@ -219,10 +230,23 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         // VB6 Boolean constants
         if (name.nocasecmp_to("vbTrue") == 0) return true;
         if (name.nocasecmp_to("vbFalse") == 0) return false;
-        // Nothing / Null / Empty
+        // Nothing / Null / Empty — Empty is shadowable by `Dim empty` (VB keyword
+        // otherwise). Locals must win so `empty = "…"` / CRC32 reads work on AST.
         if (name.nocasecmp_to("Nothing") == 0) return Variant();
         if (name.nocasecmp_to("Null") == 0) return Variant();
-        if (name.nocasecmp_to("Empty") == 0) return Variant();
+        if (name.nocasecmp_to("Empty") == 0) {
+            if (variables.has(name)) {
+                return variables[name];
+            }
+            Array _ek = variables.keys();
+            for (int _ei = 0; _ei < _ek.size(); _ei++) {
+                String _ekn = _ek[_ei];
+                if (_ekn.nocasecmp_to("Empty") == 0) {
+                    return variables[_ekn];
+                }
+            }
+            return Variant();
+        }
         // PI and E as standalone constants
         if (name.nocasecmp_to("PI") == 0) return Math_PI;
         if (name.nocasecmp_to("E") == 0 && !variables.has("E") && !variables.has("e")) return Math_E;
@@ -957,14 +981,58 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
             }
         }
 
+        // Named args (x:=) — bytecode compile reorders via reorder_named_arguments;
+        // AST must apply the same mapping or Pack(y:=3, x:=2) binds in call order.
+        Vector<ExpressionNode *> eval_args = call->arguments;
+        Vector<String> eval_names = call->argument_names;
+        if (!call->base_object) {
+            bool any_named = false;
+            for (int ni = 0; ni < eval_names.size(); ni++) {
+                if (!eval_names[ni].is_empty()) {
+                    any_named = true;
+                    break;
+                }
+            }
+            if (any_named) {
+                SubDefinition *named_target = nullptr;
+                if (script.is_valid() && script->ast_root) {
+                    SubDefinition *first = nullptr;
+                    for (int si = 0; si < script->ast_root->subs.size(); si++) {
+                        SubDefinition *cand = script->ast_root->subs[si];
+                        if (!cand || cand->name.nocasecmp_to(call->method_name) != 0) {
+                            continue;
+                        }
+                        if (!first) {
+                            first = cand;
+                        }
+                        if (cand->parameters.size() == eval_args.size()) {
+                            named_target = cand;
+                            break;
+                        }
+                    }
+                    if (!named_target) {
+                        named_target = first;
+                    }
+                }
+                if (!named_target) {
+                    named_target = find_imported_sub(call->method_name, eval_args.size());
+                }
+                String named_err;
+                if (!reorder_named_arguments_onto(named_target, eval_args, eval_names, &named_err)) {
+                    raise_error(named_err.is_empty() ? String("Named argument error in " + call->method_name) : named_err);
+                    return Variant();
+                }
+            }
+        }
+
         Array call_args;
-        for(int i=0; i<call->arguments.size(); i++) {
+        for(int i=0; i<eval_args.size(); i++) {
             // Check for null argument from parser errors
-            if (!call->arguments[i]) {
+            if (!eval_args[i]) {
                 raise_error("Incomplete function call: missing argument");
                 return Variant();
             }
-            call_args.push_back(evaluate_expression(call->arguments[i]));
+            call_args.push_back(evaluate_expression(eval_args[i]));
         }
 
         // Dispatch to expression-level builtins with evaluated arguments
@@ -1248,6 +1316,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
              // Fallback for Variant types (Structs like Rect2, Vector2, etc.)
              if (base.get_type() != Variant::OBJECT && base.get_type() != Variant::NIL) {
+                 // VB/C# ToString() — Godot Variant structs expose stringify(), not a
+                 // bound to_string method (Vector2.has_method("to_string") is false).
+                 if (call_args.is_empty() && call->method_name.nocasecmp_to("ToString") == 0) {
+                     return base.stringify();
+                 }
                  String method_to_call = "";
                  if (base.has_method(call->method_name)) {
                      method_to_call = call->method_name;

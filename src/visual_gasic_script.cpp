@@ -27,6 +27,16 @@ bool vg_bc_log_fallbacks() {
     return cached == 1;
 }
 
+// Differential / soak harness: skip bytecode compile so call_internal uses the
+// AST tree-walk path. Set VG_FORCE_AST=1 in the environment before launching Godot.
+bool vg_force_ast() {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = OS::get_singleton()->has_environment("VG_FORCE_AST") ? 1 : 0;
+    }
+    return cached == 1;
+}
+
 String variant_preview(const Variant &value) {
     String preview = UtilityFunctions::var_to_str(value);
     preview = preview.replace("\n", " ");
@@ -1015,6 +1025,11 @@ void VisualGasicScript::clear_bytecode_cache() {
 
 BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars, const Vector<ModuleNode*>* import_modules) {
     if (!ast_root || entry_point.is_empty()) {
+        return nullptr;
+    }
+
+    // Force AST tree-walk for differential testing (see scripts/run_ast_bytecode_diff.sh).
+    if (vg_force_ast()) {
         return nullptr;
     }
 

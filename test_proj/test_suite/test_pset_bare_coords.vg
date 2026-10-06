@@ -1,0 +1,18 @@
+' Regression: PSet x, y[, c] without parentheses (Narcea/AI form).
+' Classic QB is PSet (x, y), c — both must work.
+Option Explicit
+
+Sub _Ready()
+	Screen 13
+	PSet 10, 20, 15
+	PSet (11, 21), 14
+	Dim c1 As Integer
+	Dim c2 As Integer
+	c1 = Point(10, 20)
+	c2 = Point(11, 21)
+	If c1 = 15 And c2 = 14 Then
+		Print "PASS: bare and paren PSet"
+	Else
+		Print "FAIL: bare/paren PSet colors c1=" & c1 & " c2=" & c2
+	End If
+End Sub

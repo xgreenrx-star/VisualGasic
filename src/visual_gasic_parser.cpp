@@ -1067,9 +1067,17 @@ Statement* VisualGasicParser::try_parse_qb_graphics() {
         return nullptr;
     }
     if (is_pset) {
+        // Accept classic QB `PSet (x, y)[, c]`, STEP form, and bare `PSet x, y[, c]`
+        // (Narcea / AI scaffolds often omit the parentheses).
         bool step = (next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER || next.type == VisualGasicTokenizer::TOKEN_KEYWORD)
             && String(next.value).to_lower() == "step";
-        if (!step && next.type != VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+        bool expr_start = next.type == VisualGasicTokenizer::TOKEN_LITERAL_INTEGER
+            || next.type == VisualGasicTokenizer::TOKEN_LITERAL_FLOAT
+            || next.type == VisualGasicTokenizer::TOKEN_IDENTIFIER
+            || next.type == VisualGasicTokenizer::TOKEN_KEYWORD
+            || next.type == VisualGasicTokenizer::TOKEN_PAREN_OPEN
+            || is_op(next, "-");
+        if (!step && !expr_start) {
             return nullptr;
         }
     }
@@ -1141,6 +1149,17 @@ Statement* VisualGasicParser::try_parse_qb_graphics() {
             error("Expected )");
             return false;
         }
+        return x && y;
+    };
+    // Bare `x, y` point — AI scaffolds often emit `PSet x, y, c` without parens.
+    // Keep separate from parse_point so Line (x1,y1)-(x2,y2) is unchanged.
+    auto parse_point_bare = [&](ExpressionNode*& x, ExpressionNode*& y) -> bool {
+        x = parse_expression();
+        if (!check(VisualGasicTokenizer::TOKEN_COMMA)) {
+            return false;
+        }
+        advance();
+        y = parse_expression();
         return x && y;
     };
 
@@ -1341,13 +1360,19 @@ Statement* VisualGasicParser::try_parse_qb_graphics() {
         x1 = lit_int(0);
         y1 = lit_int(0);
         advance();
-    } else if (!parse_point(x1, y1)) {
-        drop(x1);
-        drop(y1);
-        return nullptr;
-    }
-
-    if (is_pset || is_paint) {
+    } else if (is_pset || is_paint) {
+        // Prefer (x, y); fall back to bare x, y for AI-generated PSet/Paint.
+        if (peek().type == VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+            if (!parse_point(x1, y1)) {
+                drop(x1);
+                drop(y1);
+                return nullptr;
+            }
+        } else if (!parse_point_bare(x1, y1)) {
+            drop(x1);
+            drop(y1);
+            return nullptr;
+        }
         CallStatement* cs = static_cast<CallStatement*>(register_node(new CallStatement()));
         cs->method_name = is_pset ? "QbPset" : "QbPaint";
         take(cs, x1);
@@ -1366,6 +1391,10 @@ Statement* VisualGasicParser::try_parse_qb_graphics() {
         if (is_paint) take(cs, border ? border : lit_int(-1));
         if (is_pset) take(cs, lit_int(step1 ? 1 : 0));
         return cs;
+    } else if (!parse_point(x1, y1)) {
+        drop(x1);
+        drop(y1);
+        return nullptr;
     }
 
     if (is_circle) {

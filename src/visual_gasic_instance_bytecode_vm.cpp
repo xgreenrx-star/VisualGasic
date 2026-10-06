@@ -3304,6 +3304,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case Variant::DICTIONARY:
                         length = ((Dictionary)value).size();
                         break;
+                    case Variant::PACKED_BYTE_ARRAY:
+                        length = ((PackedByteArray)value).size();
+                        break;
+                    case Variant::PACKED_INT32_ARRAY:
+                        length = ((PackedInt32Array)value).size();
+                        break;
+                    case Variant::PACKED_INT64_ARRAY:
+                        length = ((PackedInt64Array)value).size();
+                        break;
+                    case Variant::PACKED_FLOAT32_ARRAY:
+                        length = ((PackedFloat32Array)value).size();
+                        break;
+                    case Variant::PACKED_FLOAT64_ARRAY:
+                        length = ((PackedFloat64Array)value).size();
+                        break;
+                    case Variant::PACKED_STRING_ARRAY:
+                        length = ((PackedStringArray)value).size();
+                        break;
+                    case Variant::PACKED_VECTOR2_ARRAY:
+                        length = ((PackedVector2Array)value).size();
+                        break;
+                    case Variant::PACKED_VECTOR3_ARRAY:
+                        length = ((PackedVector3Array)value).size();
+                        break;
+                    case Variant::PACKED_COLOR_ARRAY:
+                        length = ((PackedColorArray)value).size();
+                        break;
                     default:
                         length = 0;
                         break;
@@ -8083,16 +8110,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 // --- Variant method call (structs like Vector2, Rect2, etc.) ---
                 if (!handled && base.get_type() != Variant::OBJECT && base.get_type() != Variant::NIL) {
+                    // VB/C# ToString() — structs have stringify(), not a bound method.
+                    if (args.is_empty() && method.nocasecmp_to("ToString") == 0) {
+                        call_ret = base.stringify();
+                        handled = true;
+                    }
                     String method_to_call;
-                    if (base.has_method(method)) {
+                    if (!handled && base.has_method(method)) {
                         method_to_call = method;
-                    } else {
+                    } else if (!handled) {
                         String snake = method.to_snake_case();
                         if (base.has_method(snake)) {
                             method_to_call = snake;
                         }
                     }
-                    if (!method_to_call.is_empty()) {
+                    if (!handled && !method_to_call.is_empty()) {
                         GDExtensionCallError err;
                         Variant res;
                         Vector<Variant> args_store;

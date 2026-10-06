@@ -1,4 +1,5 @@
 #include "visual_gasic_compiler.h"
+#include "visual_gasic_named_args.h"
 #include "vg_autoloads.h"
 #include "vg_classdb_globals.h"
 #include "vg_engine_builtins.h"
@@ -329,53 +330,12 @@ bool VisualGasicCompiler::reorder_named_arguments(const String &method_name, Vec
         compile_ok = false;
         return false;
     }
-    int n = target->parameters.size();
-    Vector<ExpressionNode*> ordered;
-    ordered.resize(n);
-    Vector<uint8_t> filled;
-    filled.resize(n);
-    for (int i = 0; i < n; i++) filled.set(i, 0);
-    int next_pos = 0;
-    for (int i = 0; i < args.size(); i++) {
-        String nm = (i < names.size()) ? names[i] : String();
-        int slot = -1;
-        if (nm.is_empty()) {
-            while (next_pos < n && filled[next_pos]) next_pos++;
-            slot = next_pos;
-            if (slot < n) next_pos++;
-        } else {
-            for (int p = 0; p < n; p++) {
-                if (target->parameters[p].name.nocasecmp_to(nm) == 0) {
-                    slot = p;
-                    break;
-                }
-            }
-            if (slot < 0) {
-                UtilityFunctions::printerr("Named argument '", nm, "' is not a parameter of ", method_name);
-                compile_ok = false;
-                return false;
-            }
-        }
-        if (slot < 0 || slot >= n || filled[slot]) {
-            UtilityFunctions::printerr("Named argument position conflict in ", method_name);
-            compile_ok = false;
-            return false;
-        }
-        ordered.set(slot, args[i]);
-        filled.set(slot, 1);
+    String err;
+    if (!VisualGasic::reorder_named_arguments_onto(target, args, names, &err)) {
+        UtilityFunctions::printerr(err);
+        compile_ok = false;
+        return false;
     }
-    int emit_n = n;
-    while (emit_n > 0 && !filled[emit_n - 1] && target->parameters[emit_n - 1].is_optional) emit_n--;
-    for (int i = 0; i < emit_n; i++) {
-        if (!filled[i]) {
-            UtilityFunctions::printerr("Missing argument for ", method_name, " parameter ", target->parameters[i].name);
-            compile_ok = false;
-            return false;
-        }
-    }
-    args.clear();
-    for (int i = 0; i < emit_n; i++) args.push_back(ordered[i]);
-    names.clear();
     return true;
 }
 

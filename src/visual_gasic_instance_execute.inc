@@ -746,6 +746,171 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             if (safety >= 10000000) UtilityFunctions::print("Runtime: Oscillate loop limit reached.");
             break;
         }
+        case STMT_REPEAT: {
+            // Repeat N Times [As counter] ... End Repeat
+            RepeatStatement *rp = (RepeatStatement *)stmt;
+            if (!rp->count_val) {
+                raise_error("Invalid Repeat statement");
+                break;
+            }
+            int n = (int)evaluate_expression(rp->count_val);
+            if (n < 0) {
+                n = 0;
+            }
+            for (int i = 1; i <= n; i++) {
+                if (!rp->counter_name.is_empty()) {
+                    assign_variable(rp->counter_name, (int64_t)i);
+                }
+                for (int b = 0; b < rp->body.size(); b++) {
+                    execute_statement(rp->body[b]);
+                    if (error_state.has_error) {
+                        break;
+                    }
+                }
+                if (error_state.has_error) {
+                    if (error_state.mode == ErrorState::CONTINUE_REPEAT) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        continue;
+                    }
+                    if (error_state.mode == ErrorState::EXIT_REPEAT) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        break;
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+        case STMT_EVERY: {
+            // Every N Frames/Seconds ... End Every — conditional guard, not a loop.
+            EveryStatement *ev = (EveryStatement *)stmt;
+            if (!ev->interval_val) {
+                raise_error("Invalid Every statement");
+                break;
+            }
+            String id_str = String::num_int64(ev->unique_id);
+            if (ev->interval_type == EveryStatement::FRAMES) {
+                String counter_name = "__every_frame_" + id_str;
+                Variant counter_v;
+                if (!get_variable(counter_name, counter_v) || counter_v.get_type() == Variant::NIL) {
+                    counter_v = (int64_t)0;
+                }
+                int64_t counter = (int64_t)counter_v + 1;
+                assign_variable(counter_name, counter);
+                int64_t interval = (int64_t)evaluate_expression(ev->interval_val);
+                if (interval > 0 && counter >= interval) {
+                    assign_variable(counter_name, (int64_t)0);
+                    for (int i = 0; i < ev->body.size(); i++) {
+                        execute_statement(ev->body[i]);
+                        if (error_state.has_error) {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                String last_name = "__every_last_" + id_str;
+                // Timer() — seconds since engine start (same as BC OP_CALL Timer).
+                Variant now_v;
+                {
+                    Array no_args;
+                    bool handled = false;
+                    now_v = VisualGasicBuiltins::call_builtin_expr_evaluated(this, "Timer", no_args, handled);
+                    if (!handled) {
+                        now_v = (double)Time::get_singleton()->get_ticks_msec() / 1000.0;
+                    }
+                }
+                double now = (double)now_v;
+                Variant last_v;
+                if (!get_variable(last_name, last_v) || last_v.get_type() == Variant::NIL) {
+                    assign_variable(last_name, now);
+                    break;
+                }
+                double elapsed = now - (double)last_v;
+                double interval = (double)evaluate_expression(ev->interval_val);
+                if (interval > 0.0 && elapsed >= interval) {
+                    assign_variable(last_name, now);
+                    for (int i = 0; i < ev->body.size(); i++) {
+                        execute_statement(ev->body[i]);
+                        if (error_state.has_error) {
+                            break;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case STMT_CYCLE: {
+            // Cycle Through collection For N As element ... End Cycle
+            // N iterations with wrap-around: element = collection[i Mod Len]
+            CycleStatement *cy = (CycleStatement *)stmt;
+            if (!cy->collection || !cy->count_val || cy->element_name.is_empty()) {
+                raise_error("Invalid Cycle statement");
+                break;
+            }
+            Variant col = evaluate_expression(cy->collection);
+            if (col.get_type() == Variant::DICTIONARY) {
+                col = ((Dictionary)col).keys();
+            }
+            Array arr;
+            if (col.get_type() == Variant::ARRAY) {
+                arr = col;
+            } else if (col.get_type() == Variant::PACKED_STRING_ARRAY) {
+                PackedStringArray psa = col;
+                arr.resize(psa.size());
+                for (int i = 0; i < psa.size(); i++) {
+                    arr[i] = psa[i];
+                }
+            } else if (col.get_type() == Variant::PACKED_INT64_ARRAY) {
+                PackedInt64Array pia = col;
+                arr.resize(pia.size());
+                for (int i = 0; i < pia.size(); i++) {
+                    arr[i] = pia[i];
+                }
+            } else if (col.get_type() == Variant::STRING) {
+                String str = col;
+                arr.resize(str.length());
+                for (int i = 0; i < str.length(); i++) {
+                    arr[i] = String(String::chr(str[i]));
+                }
+            } else {
+                raise_error("Cycle Through requires an Array, Dictionary, or String");
+                break;
+            }
+            int len = arr.size();
+            int n = (int)evaluate_expression(cy->count_val);
+            if (n < 0) {
+                n = 0;
+            }
+            if (len <= 0 && n > 0) {
+                raise_error("Cycle Through empty collection");
+                break;
+            }
+            for (int i = 0; i < n; i++) {
+                assign_variable(cy->element_name, arr[i % len]);
+                for (int b = 0; b < cy->body.size(); b++) {
+                    execute_statement(cy->body[b]);
+                    if (error_state.has_error) {
+                        break;
+                    }
+                }
+                if (error_state.has_error) {
+                    if (error_state.mode == ErrorState::CONTINUE_CYCLE) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        continue;
+                    }
+                    if (error_state.mode == ErrorState::EXIT_CYCLE) {
+                        error_state.has_error = false;
+                        error_state.mode = ErrorState::NONE;
+                        break;
+                    }
+                    break; // Propagate other errors/exits
+                }
+            }
+            break;
+        }
 
         case STMT_RETURN: {
             ReturnStatement* ret = (ReturnStatement*)stmt;
@@ -772,16 +937,59 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             else if (cont->loop_type == ContinueStatement::DO) error_state.mode = ErrorState::CONTINUE_DO;
             else if (cont->loop_type == ContinueStatement::WHILE) error_state.mode = ErrorState::CONTINUE_WHILE;
             else if (cont->loop_type == ContinueStatement::OSCILLATE) error_state.mode = ErrorState::CONTINUE_OSCILLATE;
+            else if (cont->loop_type == ContinueStatement::CYCLE) error_state.mode = ErrorState::CONTINUE_CYCLE;
+            else if (cont->loop_type == ContinueStatement::REPEAT) error_state.mode = ErrorState::CONTINUE_REPEAT;
             else error_state.mode = ErrorState::NONE; // Unknown?
             break;
         }
 
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
+            Vector<ExpressionNode *> stmt_args = s->arguments;
+            Vector<String> stmt_names = s->argument_names;
+            if (!s->base_object) {
+                bool any_named = false;
+                for (int ni = 0; ni < stmt_names.size(); ni++) {
+                    if (!stmt_names[ni].is_empty()) {
+                        any_named = true;
+                        break;
+                    }
+                }
+                if (any_named) {
+                    SubDefinition *named_target = nullptr;
+                    if (script.is_valid() && script->ast_root) {
+                        SubDefinition *first = nullptr;
+                        for (int si = 0; si < script->ast_root->subs.size(); si++) {
+                            SubDefinition *cand = script->ast_root->subs[si];
+                            if (!cand || cand->name.nocasecmp_to(s->method_name) != 0) {
+                                continue;
+                            }
+                            if (!first) {
+                                first = cand;
+                            }
+                            if (cand->parameters.size() == stmt_args.size()) {
+                                named_target = cand;
+                                break;
+                            }
+                        }
+                        if (!named_target) {
+                            named_target = first;
+                        }
+                    }
+                    if (!named_target) {
+                        named_target = find_imported_sub(s->method_name, stmt_args.size());
+                    }
+                    String named_err;
+                    if (!reorder_named_arguments_onto(named_target, stmt_args, stmt_names, &named_err)) {
+                        raise_error(named_err.is_empty() ? String("Named argument error in " + s->method_name) : named_err);
+                        break;
+                    }
+                }
+            }
             Array call_args;
-            int arg_count = s->arguments.size();
+            int arg_count = stmt_args.size();
             for(int i=0; i<arg_count; i++) {
-                call_args.push_back(evaluate_expression(s->arguments[i]));
+                call_args.push_back(evaluate_expression(stmt_args[i]));
             }
 
             // Try centralized statement-level builtins first
@@ -1051,6 +1259,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     // allows arr.append(x), dict.has(k), v.normalized(), etc.
                     // Without this, AST CallStatement raised Runtime Error 5
                     // (Bullet.vg Hit: hitEnemies.append(enemy)).
+                    if (call_args.is_empty() && s->method_name.nocasecmp_to("ToString") == 0) {
+                        // Statement form is rare; keep parity with expression path.
+                        break;
+                    }
                     String method_to_call;
                     if (base.has_method(s->method_name)) {
                         method_to_call = s->method_name;
@@ -2833,6 +3045,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 error_state.mode = ErrorState::EXIT_WHILE;
             } else if (s->exit_type == ExitStatement::EXIT_OSCILLATE) {
                 error_state.mode = ErrorState::EXIT_OSCILLATE;
+            } else if (s->exit_type == ExitStatement::EXIT_CYCLE) {
+                error_state.mode = ErrorState::EXIT_CYCLE;
+            } else if (s->exit_type == ExitStatement::EXIT_REPEAT) {
+                error_state.mode = ErrorState::EXIT_REPEAT;
             }
             error_state.has_error = true; // Signal interruption flow
             break;

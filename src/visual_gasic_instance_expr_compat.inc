@@ -325,20 +325,36 @@
 	     r_found = true; return Variant();
 	}
 
-	if (method == "Instantiate" && call_args.size() == 1) {
-	     // Supports path or PackedScene
+	if (method.nocasecmp_to("Instantiate") == 0 && call_args.size() == 1) {
+	     // Dual meaning (must match ClassDB.Instantiate AND PackedScene.Instantiate):
+	     //   1) Class name → ClassDB::instantiate("Node") / CharacterBody2D / …
+	     //   2) Scene path or PackedScene → ResourceLoader + scene->instantiate()
+	     // AST used to always ResourceLoader::load the string, so ClassDB.Instantiate("Node")
+	     // (and bare Instantiate("Node")) failed with res://Node before ClassDB dispatch ran.
 	     Variant arg = call_args[0];
-	     Ref<PackedScene> scene;
 	     if (arg.get_type() == Variant::STRING) {
-	          scene = ResourceLoader::get_singleton()->load(arg);
-	     } else if (arg.get_type() == Variant::OBJECT) {
-	          scene = arg;
+	          String type_or_path = arg;
+	          if (ClassDB::class_exists(type_or_path) && ClassDB::can_instantiate(type_or_path)) {
+	               r_found = true;
+	               return ClassDB::instantiate(type_or_path);
+	          }
+	          Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(type_or_path);
+	          if (scene.is_valid()) {
+	               r_found = true;
+	               return scene->instantiate();
+	          }
+	          r_found = true;
+	          return Variant();
 	     }
-	     
-	     if (scene.is_valid()) {
-	          r_found = true; return scene->instantiate();
+	     if (arg.get_type() == Variant::OBJECT) {
+	          Ref<PackedScene> scene = arg;
+	          if (scene.is_valid()) {
+	               r_found = true;
+	               return scene->instantiate();
+	          }
 	     }
-	     r_found = true; return Variant(); 
+	     r_found = true;
+	     return Variant();
 	}
 
 	if (method == "LoadShader" && call_args.size() == 1) {

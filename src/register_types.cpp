@@ -37,6 +37,7 @@
 #endif
 #include "visual_gasic_settings.h"
 #include "visual_gasic_vector_canvas.h"
+#include "visual_gasic_qb_screen.h"
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_com_interop.h"
 #endif
@@ -126,6 +127,7 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
         ClassDB::register_class<VisualGasicImmediate>();
         ClassDB::register_class<VisualGasicDebugger>();
         ClassDB::register_class<VGVectorCanvas2D>();
+        ClassDB::register_class<QbScreen>();
         ClassDB::register_class<VisualGasicVectorDrawBenchmark>();
 
         // System-level classes (v2.9.0)

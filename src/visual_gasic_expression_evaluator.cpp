@@ -1,6 +1,7 @@
 #include "visual_gasic_expression_evaluator.h"
 #include "visual_gasic_instance.h"
 #include "visual_gasic_builtins.h"
+#include "visual_gasic_godot_ctors.h"
 
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node2d.hpp>
@@ -57,6 +58,14 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         }
         if (n->class_name.nocasecmp_to("Dictionary") == 0) {
             return Dictionary();
+        }
+        // Godot value types: New Vector2i() / New Color() — not ClassDB classes.
+        if (is_godot_type_constructor(n->class_name)) {
+            Array ctor_args;
+            for (int i = 0; i < n->args.size(); i++) {
+                ctor_args.push_back(evaluate(n->args[i], ctx));
+            }
+            return construct_godot_type(n->class_name, ctor_args);
         }
         // Custom Structs or Types?
         // Check struct definitions
