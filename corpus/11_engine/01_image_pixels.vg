@@ -1,0 +1,18 @@
+' Image coordinates are zero-based integer pixels, not window/monitor sizes.
+' Use VG's image helpers at this boundary; no graphics device is needed to check.
+Sub Main()
+    Dim image As Object = CreateImage(4, 4, Color(0, 0, 0, 1))
+    SetImagePixel(image, 2, 1, Color(1, 0, 0, 1))
+    Dim marked As Color = GetImagePixel(image, 2, 1)
+    Dim untouched As Color = GetImagePixel(image, 0, 0)
+    Assert marked.R > 0.99 And marked.G < 0.01, "The marked pixel must be red"
+    Assert untouched.R < 0.01 And untouched.A > 0.99, "Other pixels stay black"
+    Assert ImageWidth(image) = 4 And ImageHeight(image) = 4
+    Print "Image: 4 x 4"
+    Print "Red pixel: (2, 1)"
+    ' Image is reference-counted. A rendered UI can display CreateTexture(image).
+End Sub
+
+' Expected output:
+' Image: 4 x 4
+' Red pixel: (2, 1)

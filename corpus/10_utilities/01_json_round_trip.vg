@@ -1,0 +1,22 @@
+' Serialize structured values, not hand-built JSON with fragile quoting.
+' Object key order is not a contract; check decoded fields instead of raw text.
+' JSON numbers decode as floating point; convert to Integer for display here.
+Sub Main()
+    Dim settings As New Dictionary
+    settings("name") = "Ada"
+    settings("volume") = 75
+    settings("enabled") = True
+    Dim encoded As String = JsonStringify(settings)
+    Dim decoded As Variant = JsonParse(encoded)
+    Assert decoded("name") = "Ada", "Text must survive serialization"
+    Assert decoded("volume") = 75, "Numbers must survive serialization"
+    Assert decoded("enabled") = True, "Booleans must survive serialization"
+    Print "Name: " & decoded("name")
+    Print "Volume: " & CInt(decoded("volume"))
+    Print "Enabled: " & decoded("enabled")
+End Sub
+
+' Expected output:
+' Name: Ada
+' Volume: 75
+' Enabled: true

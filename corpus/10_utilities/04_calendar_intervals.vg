@@ -1,0 +1,20 @@
+' Fixed dates make this lesson reproducible; do not compare the current clock.
+' VG DateSerial returns month/day/year text. These are calendar dates, not zones.
+Sub Main()
+    Dim startDate As String = DateSerial(2026, 1, 15)
+    Dim dueDate As String = DateAdd("d", 7, startDate)
+    Dim days As Integer = DateDiff("d", startDate, dueDate)
+    Assert days = 7, "The due date should be seven days later"
+    Assert Year(dueDate) = 2026 And Month(dueDate) = 1 And Day(dueDate) = 22
+    Print "Start: " & startDate
+    Print "Days until due: " & days
+    ' TimeSerial expects a 24-hour input and returns VG's 12-hour display text.
+    Dim appointment As String = TimeSerial(14, 30, 0)
+    Assert appointment = "2:30:00 PM"
+    Print "Appointment: " & appointment
+End Sub
+
+' Expected output:
+' Start: 1/15/2026
+' Days until due: 7
+' Appointment: 2:30:00 PM

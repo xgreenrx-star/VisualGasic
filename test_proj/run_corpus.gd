@@ -5,6 +5,10 @@ var _invoke_main := false
 var _frame := 0
 var _audit_mode := ""
 var _failed := false
+var _server: TCPServer
+var _peer: StreamPeerTCP
+var _request := ""
+var _replied := false
 
 func _init():
 	var args := OS.get_cmdline_user_args()
@@ -60,12 +64,22 @@ func _init():
 				_add_control(Label.new(), "lblPlayer")
 				for name in ["btnMove", "btnHide", "btnTint"]:
 					_add_control(Button.new(), name)
-	elif _audit_mode in ["", "input"]:
+	elif _audit_mode == "async2d":
+		_node = Node2D.new()
+		_node.name = "CorpusNode2D"
+	elif _audit_mode in ["", "input", "async", "network"]:
 		_node = Node.new()
 		_node.name = "CorpusNode"
 	else:
 		_fail("Unknown audit mode: " + _audit_mode)
 		return
+	if _audit_mode == "network":
+		_server = TCPServer.new()
+		var error := _server.listen(0, "127.0.0.1")
+		if error != OK:
+			_fail("Cannot start loopback server: " + error_string(error))
+			return
+		_node.set_meta("corpus_port", _server.get_local_port())
 	_node.set_script(script)
 	root.add_child(_node)
 
@@ -76,7 +90,42 @@ func _add_control(control: Node, control_name: String) -> void:
 func _fail(message: String) -> void:
 	_failed = true
 	printerr("ERROR: Corpus audit: " + message)
+	_close_network()
 	quit(1)
+
+func _close_network() -> void:
+	if _peer != null:
+		_peer.disconnect_from_host()
+	if _server != null:
+		_server.stop()
+
+func _pump_network() -> void:
+	if _replied:
+		return
+	if _peer == null and _server.is_connection_available():
+		_peer = _server.take_connection()
+	if _peer == null:
+		return
+	var error := _peer.poll()
+	if error != OK:
+		_fail("Loopback peer failed: " + error_string(error))
+		return
+	var count := _peer.get_available_bytes()
+	if count > 0:
+		var data := _peer.get_data(count)
+		if data[0] != OK:
+			_fail("Cannot read loopback request")
+			return
+		_request += data[1].get_string_from_utf8()
+	if _request.contains("\n") and not _replied:
+		if _request != "ping\n":
+			_fail("Unexpected loopback request")
+			return
+		error = _peer.put_data("pong\n".to_utf8_buffer())
+		if error != OK:
+			_fail("Cannot send loopback response")
+			return
+		_replied = true
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
@@ -142,6 +191,10 @@ func _process(_delta: float) -> bool:
 	if _failed:
 		return false
 	_frame += 1
+	if _audit_mode == "network":
+		_pump_network()
+		if _failed:
+			return false
 	if _frame == 1:
 		if _invoke_main:
 			if not _node.has_method("Main"):
@@ -150,7 +203,14 @@ func _process(_delta: float) -> bool:
 			_node.Main()
 		elif _audit_mode != "":
 			_exercise_host()
+	if _audit_mode in ["async", "async2d", "network"]:
+		if _frame >= 300:
+			_fail("Async example did not finish within 300 frames")
+			return false
+		if _node.get("AuditDone") != true:
+			return false
 	if _frame >= 2 and not _failed:
+		_close_network()
 		_node.free()
 		print("VG_CORPUS_COMPLETED")
 		quit()

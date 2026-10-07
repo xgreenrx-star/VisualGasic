@@ -1,0 +1,18 @@
+' Data holds a small constant fixture; arrays hold transformed runtime results.
+' Lambdas are useful for short transformations, not long blocks with side effects.
+Sub Main()
+    Data 3, 7, 2, 9
+    Dim readings As Variant = DataToArray()
+    Dim doubled As Variant = Map(readings, Lambda(x) => x * 2)
+    Dim selected As Variant = Filter(doubled, Lambda(x) => x >= 10)
+    ' An explicit initial value defines the result even when the array is empty.
+    Dim total As Variant = Reduce(selected, Fn(acc, x) => acc + x, 0)
+    Assert total = 32, "Only doubled readings 14 and 18 should contribute"
+    Assert UBound(selected) = 1, "Two readings pass the threshold"
+    Print "Selected: " & Join(selected, ", ")
+    Print "Total: " & total
+End Sub
+
+' Expected output:
+' Selected: 14, 18
+' Total: 32

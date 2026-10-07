@@ -1,0 +1,22 @@
+' An interface states a shared contract without storing implementation data.
+' VG validates same-file signatures; missing implementations warn, not enforce.
+Interface IQuote
+    Function Amount(units As Integer) As Integer
+End Interface
+
+Class FixedQuote Implements IQuote
+    Function Amount(units As Integer) As Integer Implements IQuote.Amount
+        ' Integer cents avoid floating-point rounding in this small example.
+        Amount = units * 250
+    End Function
+End Class
+
+Sub Main()
+    Dim quote As New FixedQuote
+    Dim cents As Integer = quote.Amount(3)
+    Assert cents = 750, "The implementing class must execute its method"
+    Print "Quote cents: " & cents
+End Sub
+
+' Expected output:
+' Quote cents: 750

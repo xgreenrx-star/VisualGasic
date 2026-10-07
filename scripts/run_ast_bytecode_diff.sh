@@ -198,6 +198,8 @@ for fname in "${TEST_FILES[@]}"; do
 	run_args=("${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname")
 	if [[ "$fname" == test_input_key_edge_press.vg ]]; then
 		run_args=(--headless --path test_proj --user-data-dir "$GODOT_USER_DATA_DIR" -s run_input_key_edge_inject.gd)
+	elif [[ "$fname" == test_await_resource_lifetime.vg ]]; then
+		run_args=(--headless --path test_proj --user-data-dir "$GODOT_USER_DATA_DIR" -s run_await_resource_lifetime.gd)
 	fi
 	timeout "$TIMEOUT_SECS" env -u VG_FORCE_AST "$GODOT" "${run_args[@]}" >"$bc_raw" 2>&1 || bc_rc=$?
 	timeout "$TIMEOUT_SECS" env VG_FORCE_AST=1 "$GODOT" "${run_args[@]}" >"$ast_raw" 2>&1 || ast_rc=$?

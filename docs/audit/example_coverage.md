@@ -20,15 +20,15 @@ matched command has its own assertion.
 | Inventory entries (case-insensitive; aliases may remain separate) | 1002 |
 | Documented entries | 668 |
 | Entries with runtime dispatch-literal evidence | 776 |
-| Documented entries with a corpus code reference | 109 |
-| Documented entries without a corpus code reference | 559 |
-| Documented entries without an assertion-bearing regression reference | 410 |
-| Documented entries missing both kinds of reference | 404 |
-| Documented entries with no active VG code reference anywhere scanned | 252 |
+| Documented entries with a corpus code reference | 162 |
+| Documented entries without a corpus code reference | 506 |
+| Documented entries without an assertion-bearing regression reference | 409 |
+| Documented entries missing both kinds of reference | 386 |
+| Documented entries with no active VG code reference anywhere scanned | 241 |
 | Entries without extracted implementation evidence (needs review) | 81 |
-| Available corpus / sample / regression / other VG files | 58 / 270 / 230 / 31 |
+| Available corpus / sample / regression / other VG files | 80 / 270 / 233 / 31 |
 | Unavailable tracked VG files (not silently counted as covered) | 53 |
-| Current hash-matched verified corpus / regression fixtures | 58 / 212 |
+| Current hash-matched verified corpus / regression fixtures | 80 / 215 |
 
 ## Scope and limitations
 
@@ -60,7 +60,7 @@ matched command has its own assertion.
 ## Verified fixtures, not verified commands
 
 The recorded corpus evidence has 4 passing runs;
-the recorded differential evidence has 212
+the recorded differential evidence has 215
 matched passing fixtures. A verified-reference column is populated only
 when the current VG file, native-source, binary and runner hashes match
 that captured evidence.
@@ -83,10 +83,10 @@ support for a resource-management `Using ... End Using` block.
 Start with documented entries that lack both teaching and regression
 references. Confirm implementation first, then add small runnable lessons
 with deterministic output and tests for supported overloads and failures.
-Existing regression-only features (Await, lambdas, interfaces and optional
-chaining) need teaching examples, not assumptions that they are unsupported.
+The initial six teaching batches are now represented by 22 added corpus
+lessons. References still do not prove coverage of all overloads or errors.
 
-### Recommended teaching batches
+### Added teaching batches
 
 1. Enums and user-defined types; optional parameters and ParamArray.
 2. ReDim/Erase, legacy On Error/Resume and binary/random-access files.
@@ -176,7 +176,6 @@ purportedly supported examples.
 - `flatten`
 - `FormatCurrency`
 - `FormatPercent`
-- `fv`
 - `get_node`
 - `GetAllSettings`
 - `GetChildren`
@@ -225,7 +224,6 @@ purportedly supported examples.
 - `LoadForm`
 - `LoadImage`
 - `LoadScene`
-- `lof`
 - `look_at`
 - `LSet`
 - `Material.SetShader`
@@ -258,22 +256,14 @@ purportedly supported examples.
 - `Physics.GravityV3`
 - `Plane`
 - `PlaySound`
-- `pmt`
 - `pop`
 - `ppmt`
-- `pv`
 - `Quaternion`
 - `QuaternionFromEuler`
 - `queue_redraw`
 - `Ray.Cast2D`
 - `Ray.Cast3D`
-- `Ray.Collider`
-- `Ray.Enable`
-- `Ray.ForceUpdate`
-- `Ray.Hit`
 - `Ray.Normal`
-- `Ray.Point`
-- `Ray.Target`
 - `regexp.execute`
 - `regexp.replace`
 - `regexp.test`
@@ -306,7 +296,6 @@ purportedly supported examples.
 - `SoundGen.FillVoices4`
 - `SoundGen.PushMono`
 - `SoundGen.PushMonoBuffer`
-- `SoundGen.PushStereo`
 - `spc`
 - `Speaker.Bus`
 - `Speaker.Exists`
@@ -433,7 +422,6 @@ This second list can include commands referenced by sample projects.
 - `ConnectSignal`
 - `contains`
 - `CreateActor2D`
-- `CreateImage`
 - `createobject`
 - `CreateTexture`
 - `Crypto.Base64`
@@ -481,7 +469,6 @@ This second list can include commands referenced by sample projects.
 - `FormatCurrency`
 - `FormatNumber`
 - `FormatPercent`
-- `fv`
 - `get_global_mouse_position`
 - `get_node`
 - `get_tree`
@@ -549,7 +536,6 @@ This second list can include commands referenced by sample projects.
 - `LoadImage`
 - `LoadPicture`
 - `LoadScene`
-- `lof`
 - `look_at`
 - `LSet`
 - `Material.New`
@@ -598,11 +584,9 @@ This second list can include commands referenced by sample projects.
 - `Physics.Torque`
 - `Plane`
 - `PlaySound`
-- `pmt`
 - `pop`
 - `ppmt`
 - `Pull`
-- `pv`
 - `Quaternion`
 - `QuaternionFromEuler`
 - `queue_redraw`
@@ -612,15 +596,8 @@ This second list can include commands referenced by sample projects.
 - `rate`
 - `Ray.Cast2D`
 - `Ray.Cast3D`
-- `Ray.Collider`
-- `Ray.Enable`
-- `Ray.ForceUpdate`
-- `Ray.Hit`
 - `Ray.Normal`
-- `Ray.Point`
-- `Ray.Target`
 - `readlines`
-- `reduce`
 - `regexp.execute`
 - `regexp.replace`
 - `regexp.test`
@@ -648,7 +625,6 @@ This second list can include commands referenced by sample projects.
 - `set_process`
 - `SetDrawTransform`
 - `SetGlobalPosition`
-- `SetImagePixel`
 - `SetModulate`
 - `SetPosition`
 - `setprop`
@@ -676,14 +652,10 @@ This second list can include commands referenced by sample projects.
 - `Sound.Seek`
 - `Sound.Stop`
 - `Sound.Volume`
-- `SoundGen.Available`
-- `SoundGen.Close`
 - `SoundGen.FillVoices`
 - `SoundGen.FillVoices4`
-- `SoundGen.Open`
 - `SoundGen.PushMono`
 - `SoundGen.PushMonoBuffer`
-- `SoundGen.PushStereo`
 - `SoundGen.PushStereoBuffer`
 - `spc`
 - `Speaker.Bus`
@@ -737,7 +709,6 @@ This second list can include commands referenced by sample projects.
 - `Tracker.Stop`
 - `Transform2D`
 - `Transform3D`
-- `Type`
 - `unique`
 - `UpdateTexture`
 - `vadd`

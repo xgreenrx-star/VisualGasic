@@ -1,0 +1,10 @@
+' A Range control's Value alias must not shadow VGRegExMatch.Value.
+Sub _Ready()
+    Dim regex As New VGRegEx
+    regex.Pattern = "[0-9]+"
+    Dim matches As Variant = regex.Execute("A123")
+    Dim match As Variant = matches(0)
+    If match.Value = "123" Then Print "PASS: regex match Value" Else Print "FAIL: regex match Value"
+    If match.FirstIndex = 1 Then Print "PASS: regex match FirstIndex" Else Print "FAIL: regex match FirstIndex"
+    If match.Length = 3 Then Print "PASS: regex match Length" Else Print "FAIL: regex match Length"
+End Sub

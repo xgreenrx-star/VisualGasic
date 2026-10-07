@@ -1,0 +1,18 @@
+' ?. stops member access when the receiver is Nothing.
+' It does not validate arbitrary malformed data or replace required-field checks.
+Sub Main()
+    Dim missing As Variant = Nothing
+    Dim absent As Variant = missing?.name
+    Assert absent Is Nothing, "A missing receiver yields Nothing"
+    If absent Is Nothing Then Print "No customer supplied"
+
+    Dim customer As New Dictionary
+    customer("name") = "Ada"
+    Dim name As Variant = customer?.name
+    Assert name = "Ada", "A present receiver still resolves its member"
+    Print "Customer: " & name
+End Sub
+
+' Expected output:
+' No customer supplied
+' Customer: Ada

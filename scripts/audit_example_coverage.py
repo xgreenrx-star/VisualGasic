@@ -212,6 +212,7 @@ def runtime_hashes(root: Path) -> dict[str, str]:
              if path.is_file() and path.suffix in {".cpp", ".h", ".inc"}]
     paths += [root / relative for relative in [
         "test_proj/run_corpus.gd", "test_proj/run_suite.gd",
+        "test_proj/run_await_resource_lifetime.gd",
         "scripts/audit_corpus.sh", "scripts/run_ast_bytecode_diff.sh",
         "addons/visual_gasic/visual_gasic.gdextension",
         "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so",
@@ -492,9 +493,9 @@ def render_report(rows: list[dict], programs: list[Program], unavailable: list[s
         "", "Start with documented entries that lack both teaching and regression",
         "references. Confirm implementation first, then add small runnable lessons",
         "with deterministic output and tests for supported overloads and failures.",
-        "Existing regression-only features (Await, lambdas, interfaces and optional",
-        "chaining) need teaching examples, not assumptions that they are unsupported.",
-        "", "### Recommended teaching batches", "",
+        "The initial six teaching batches are now represented by 22 added corpus",
+        "lessons. References still do not prove coverage of all overloads or errors.",
+        "", "### Added teaching batches", "",
         "1. Enums and user-defined types; optional parameters and ParamArray.",
         "2. ReDim/Erase, legacy On Error/Resume and binary/random-access files.",
         "3. Lambdas, functional helpers, Await, interfaces and optional chaining.",

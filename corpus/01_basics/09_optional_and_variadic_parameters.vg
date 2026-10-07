@@ -1,0 +1,28 @@
+' Optional supplies an omitted argument; ParamArray gathers trailing arguments.
+Function MakeGreeting(name As String, Optional punctuation As String = "!") As String
+    MakeGreeting = "Hello, " & name & punctuation
+End Function
+
+Function SumScores(ParamArray scores()) As Integer
+    Dim total As Integer = 0
+    Dim i As Integer
+    For i = LBound(scores) To UBound(scores)
+        total = total + CInt(scores(i))
+    Next i
+    SumScores = total
+End Function
+
+Sub Main()
+    Print MakeGreeting("Ada")
+    Print MakeGreeting("Grace", ".")
+    Assert SumScores(3, 7, 5) = 15, "Variadic scores must be summed"
+    Assert SumScores() = 0, "An empty score list has a zero total"
+    Print "Scores: " & SumScores(3, 7, 5)
+    Print "No scores: " & SumScores()
+End Sub
+
+' Expected output:
+' Hello, Ada!
+' Hello, Grace.
+' Scores: 15
+' No scores: 0

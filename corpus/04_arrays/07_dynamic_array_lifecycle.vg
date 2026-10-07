@@ -1,0 +1,30 @@
+' Grow a runtime-sized array while preserving existing entries, then release it.
+' VG array bounds are inclusive: ReDim scores(3) allocates indexes 0 through 3.
+Sub Main()
+    Dim scores() As Integer
+    ReDim scores(1)
+    scores(0) = 10
+    scores(1) = 20
+
+    ' Preserve retains old elements when increasing the upper bound.
+    ReDim Preserve scores(3)
+    scores(2) = 30
+    scores(3) = 40
+    Assert scores(0) = 10 And scores(1) = 20, "Growth must retain prior scores"
+    Print "Entries: " & scores.Count
+    Print "Last score: " & scores(UBound(scores))
+
+    ' Erase empties the VG array; reallocate before indexing it again.
+    Erase scores
+    Assert UBound(scores) = -1, "An erased array has no valid indexes"
+    Print "After Erase: " & scores.Count
+    ReDim scores(0)
+    scores(0) = 99
+    Print "Reused score: " & scores(0)
+End Sub
+
+' Expected output:
+' Entries: 4
+' Last score: 40
+' After Erase: 0
+' Reused score: 99

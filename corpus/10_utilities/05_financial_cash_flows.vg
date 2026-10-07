@@ -1,0 +1,24 @@
+' Rate must be per payment period: an annual rate / 12 for monthly payments.
+' Positive money received and negative money paid follow VB cash-flow signs.
+' These calculations use floating point, not a production accounting ledger.
+Sub Main()
+    Dim periods As Integer = 12
+    Dim principal As Double = 1200
+    Assert periods > 0, "Validate periods before calling financial functions"
+    ' Zero interest gives exact, readable results while exercising Pmt/PV/FV.
+    Dim payment As Double = Pmt(0, periods, principal)
+    Assert Abs(payment + 100) < 0.000001, "Repayment is an outgoing cash flow"
+    Assert Abs(PV(0, periods, payment) - principal) < 0.000001
+    Assert Abs(FV(0, periods, payment, principal)) < 0.000001
+    Print "Monthly outgoing payment: " & CStr(payment)
+
+    ' Check a nonzero monthly rate by reconstructing the original principal.
+    Dim monthlyRate As Double = 0.06 / 12
+    Dim interestPayment As Double = Pmt(monthlyRate, periods, principal)
+    Assert Abs(PV(monthlyRate, periods, interestPayment) - principal) < 0.000001
+    Print "Interest-bearing round trip verified"
+End Sub
+
+' Expected output:
+' Monthly outgoing payment: -100
+' Interest-bearing round trip verified

@@ -1,0 +1,19 @@
+' Audit mode: async
+' Attach to a Node in a running scene. Await 0 yields until the next frame.
+' Use Await rather than blocking the editor/game with a busy-wait loop.
+Dim AuditDone As Boolean = False
+
+Sub _Ready()
+    Dim stage As Integer = 1
+    Print "Before yield"
+    Await 0
+    Assert stage = 1, "Local state survives suspension"
+    stage = stage + 1
+    Print "After yield: " & stage
+    ' The audit host waits for this flag, with a bounded frame watchdog.
+    AuditDone = True
+End Sub
+
+' Expected output:
+' Before yield
+' After yield: 2

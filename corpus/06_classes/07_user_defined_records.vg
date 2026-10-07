@@ -1,0 +1,26 @@
+' Type groups related fields without class methods or event handlers.
+' Store an item as one record rather than parallel arrays of names and prices.
+Type InventoryItem
+    title As String
+    quantity As Integer
+    unitPrice As Double
+End Type
+
+Sub Main()
+    Dim item As InventoryItem
+    item.title = "Notebook"
+    item.quantity = 3
+    item.unitPrice = 2.5
+
+    ' Prices are demonstration numbers, not a fixed-point accounting model.
+    Dim total As Double = item.quantity * item.unitPrice
+    Assert total = 7.5, "Record fields must retain their values"
+    Print "Item: " & item.title
+    Print "Quantity: " & item.quantity
+    Print "Total: " & CStr(total)
+End Sub
+
+' Expected output:
+' Item: Notebook
+' Quantity: 3
+' Total: 7.5

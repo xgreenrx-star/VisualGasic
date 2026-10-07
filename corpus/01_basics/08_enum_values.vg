@@ -1,0 +1,43 @@
+' Enums name discrete states; Flags enums describe combinable permissions.
+Enum DeliveryState
+    Waiting
+    Shipped
+    Delivered
+End Enum
+
+<Flags>
+Enum AccessRights
+    View = 1
+    Edit = 2
+    Admin = 4
+End Enum
+
+Sub Main()
+    Dim state As Integer = DeliveryState.Parse("Shipped")
+    Select Case state
+        Case DeliveryState.Waiting
+            Print "Delivery: waiting"
+        Case DeliveryState.Shipped
+            Print "Delivery: shipped"
+        Case DeliveryState.Delivered
+            Print "Delivery: delivered"
+    End Select
+
+    Dim states As Variant = DeliveryState.Values()
+    Assert states.Count = 3, "Three delivery states are expected"
+    Print "State count: " & states.Count
+    Print "State name: " & DeliveryState.ToString(state)
+
+    ' Bit flags combine independent rights; they are not mutually exclusive states.
+    Dim rights As Integer = AccessRights.View Or AccessRights.Edit
+    Assert AccessRights.HasFlag(rights, AccessRights.View), "View permission is required"
+    Print "Can edit: " & CStr(AccessRights.HasFlag(rights, AccessRights.Edit))
+    Print "Is admin: " & CStr(AccessRights.HasFlag(rights, AccessRights.Admin))
+End Sub
+
+' Expected output:
+' Delivery: shipped
+' State count: 3
+' State name: Shipped
+' Can edit: true
+' Is admin: false

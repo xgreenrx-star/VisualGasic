@@ -1,0 +1,43 @@
+' Audit mode: network
+' The host starts a loopback-only TCP server on an OS-selected ephemeral port.
+' It replies to ping/newline with pong/newline; no Internet service is contacted.
+' To run independently, supply that server and the corpus_port node metadata.
+Dim AuditDone As Boolean = False
+
+Sub _Ready()
+    Dim socket As New VGSocket
+    Dim port As Integer = Me.GetMeta("corpus_port")
+    ' Use the transport method, not the unrelated Godot signal Connect helper.
+    If Not socket.connect_to("127.0.0.1", port, 1000) Then
+        Dim detail As String = socket.LastError
+        socket.Close()
+        Err.Raise 5, "Loopback connection failed: " & detail
+        Exit Sub
+    End If
+    ' TCP is a byte stream: even a small message may require multiple sends.
+    Dim request As String = "ping" & vbLf
+    Dim sent As Integer = 0
+    Dim attempts As Integer = 0
+    Do While sent < Len(request) And attempts < 120
+        Dim count As Integer = socket.SendData(Mid(request, sent + 1))
+        If count > 0 Then sent = sent + count
+        attempts = attempts + 1
+        Await 0
+    Loop
+    Dim response As String = ""
+    attempts = 0
+    Do While InStr(response, vbLf) = 0 And attempts < 120
+        ' Receive is nonblocking. Yield so the server can process its request.
+        response = response & socket.GetData(64)
+        attempts = attempts + 1
+        Await 0
+    Loop
+    socket.Close()
+    Assert sent = Len(request), "Bounded send must transmit the whole request"
+    Assert response = "pong" & vbLf, "Bounded receive must collect one reply"
+    Print "Loopback reply: pong"
+    AuditDone = True
+End Sub
+
+' Expected output:
+' Loopback reply: pong

@@ -1,0 +1,27 @@
+' Anchors require the entire value to match, not just a matching substring.
+' This intentionally narrow product-code rule is not an email/Unicode validator.
+Sub Main()
+    Dim rule As New VGRegEx
+    rule.Pattern = "^[A-Z]{2}-[0-9]{3}$"
+    rule.IgnoreCase = True
+    Assert rule.Test("ab-123"), "Case-insensitive product code should match"
+    Assert Not rule.Test("AB-12"), "Too few digits must be rejected"
+    Assert Not rule.Test("prefix AB-123"), "Anchors reject extra text"
+    Print "Code accepted: ab-123"
+    Print "Code rejected: AB-12"
+
+    ' Global Execute returns all matches; FirstIndex is zero-based.
+    rule.Pattern = "[0-9]+"
+    rule.Global = True
+    Dim matches As Variant = rule.Execute("A12 B345")
+    Assert UBound(matches) = 1, "Two numeric runs should be found"
+    Dim secondMatch As Variant = matches(1)
+    Assert secondMatch.FirstIndex = 5, "Second run begins at character index five"
+    Assert secondMatch.Value = "345", "Read the match's captured text"
+    Print "Second number: " & secondMatch.Value
+End Sub
+
+' Expected output:
+' Code accepted: ab-123
+' Code rejected: AB-12
+' Second number: 345

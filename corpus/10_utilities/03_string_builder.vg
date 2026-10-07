@@ -1,0 +1,19 @@
+' A builder collects text fragments before producing a final string.
+' Use the method Length() for this API; it counts characters, not UTF-8 bytes.
+Sub Main()
+    Dim builder As Variant = StringBuilder()
+    builder.Append("Order")
+    builder.Append(": ")
+    builder.Append("pending")
+    builder.Replace("pending", "ready")
+    Assert builder.Length() = 12, "The rebuilt text has twelve characters"
+    Print builder.ToString()
+    builder.Clear()
+    Assert builder.Length() = 0, "Clear permits builder reuse"
+    builder.Append("Next order")
+    Print builder.ToString()
+End Sub
+
+' Expected output:
+' Order: ready
+' Next order

@@ -1,0 +1,34 @@
+' Put/Get can address records without reading all preceding records.
+' Current VG Get/Put uses 128-byte record offsets and string payloads.
+' This is NOT a portable VB6 typed-record serializer. Use ASCII and pad records.
+Sub Main()
+    Dim path As String = "user://corpus_records.dat"
+    Dim firstRecord As String = "alpha" & Space(123)
+    Dim secondRecord As String = "beta" & Space(124)
+
+    ' Create/truncate our own file; never overwrite a caller-supplied path.
+    Open path For Output As #1
+    Close #1
+    Open path For Random As #1
+    Put #1, 1, firstRecord
+    Put #1, 2, secondRecord
+    Close #1
+
+    Open path For Binary As #2
+    Dim recordText As String
+    ' Record numbers are one-based even though VG arrays are zero-based.
+    Get #2, 2, recordText
+    Assert Trim(recordText) = "beta", "Direct access must select the second record"
+    Print "Record 2: " & Trim(recordText)
+    Get #2, 1, recordText
+    Print "Record 1: " & Trim(recordText)
+    Assert LOF(2) = 256, "Two padded ASCII records occupy 256 bytes"
+    Print "File bytes: " & LOF(2)
+    Close #2
+    Kill path
+End Sub
+
+' Expected output:
+' Record 2: beta
+' Record 1: alpha
+' File bytes: 256

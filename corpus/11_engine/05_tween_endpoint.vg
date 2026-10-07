@@ -1,0 +1,18 @@
+' Audit mode: async
+' Attach to a Node. Tween starts an animation; it does not block until completion.
+' Duration and Await delay are seconds. The audit verifies the final endpoint.
+Dim AuditDone As Boolean = False
+
+Sub _Ready()
+    Dim panel As Object = CreateNode("Control")
+    Me.AddChild(panel)
+    panel.Left = 0
+    Tween panel.Left To 80 Over 0.05 Ease Out Trans Cubic
+    Await 0.15
+    Assert Abs(panel.Left - 80) < 0.01, "Waited tween must reach its endpoint"
+    Print "Tween finished at Left=80"
+    AuditDone = True
+End Sub
+
+' Expected output:
+' Tween finished at Left=80

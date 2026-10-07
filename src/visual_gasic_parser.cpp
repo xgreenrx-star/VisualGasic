@@ -5732,18 +5732,27 @@ OpenStatement* VisualGasicParser::parse_open() {
         unregister_node(_tmp);
     }
     
+    if (!stmt->path) {
+        error("Open requires a file path");
+        return stmt;
+    }
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("For") == 0) {
         advance();
-        if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
+        if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
             String m = peek().value;
             if (m.nocasecmp_to("Input") == 0) stmt->mode = OpenStatement::MODE_INPUT;
             else if (m.nocasecmp_to("Output") == 0) stmt->mode = OpenStatement::MODE_OUTPUT;
             else if (m.nocasecmp_to("Append") == 0) stmt->mode = OpenStatement::MODE_APPEND;
             else if (m.nocasecmp_to("Binary") == 0) stmt->mode = OpenStatement::MODE_BINARY;
             else if (m.nocasecmp_to("Random") == 0) stmt->mode = OpenStatement::MODE_RANDOM;
-            else UtilityFunctions::print("Parser Error: Unknown Open mode ", m);
+            else error("Unknown Open mode: " + m);
             advance();
+        } else {
+            error("Open requires Input, Output, Append, Binary, or Random after For");
         }
+    } else {
+        error("Open requires For followed by a file mode");
+        return stmt;
     }
     
     // Len=N for Random mode
@@ -5767,7 +5776,10 @@ OpenStatement* VisualGasicParser::parse_open() {
             stmt->file_number = _tmp;
             unregister_node(_tmp);
         }
+    } else {
+        error("Open requires As followed by a file number");
     }
+    if (!stmt->file_number) error("Open requires a file number");
     
     return stmt;
 }

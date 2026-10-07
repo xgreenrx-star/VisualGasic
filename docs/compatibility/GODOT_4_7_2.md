@@ -17,15 +17,15 @@ retain the historical counts, paths and evidence.
 
 ## Follow-up corpus review
 
-All **58 corpus examples pass, with zero failures and zero skips**, on Linux
+All **80 corpus examples pass, with zero failures and zero skips**, on Linux
 in both default and forced-AST execution modes on **Godot 4.7.2 and 4.6.1**.
 See the [corpus guide](../../corpus/README.md) for the four-run matrix,
 review conventions and exact validation commands.
 
 After rebuilding Linux editor and template_debug extensions, the complete
-4.7.2 AST/bytecode differential rerun passed **212 matched fixtures**, with
+4.7.2 AST/bytecode differential rerun passed **215 matched fixtures**, with
 zero failures/divergences and eight explicit exclusions. The audit harness's
-12 acceptance/rejection checks also passed. An earlier concurrent run hit one
+16 acceptance/rejection checks also passed. An earlier concurrent run hit one
 overlapping-Await order assertion; an isolated retry and the full isolated
 rerun passed. No Await source or expectation was changed for this review.
 
@@ -46,6 +46,21 @@ This review also required native correctness fixes, not an ABI migration:
   method Callables or null.
 - Local array indexing takes precedence over same-named builtins such as
   `Keys()` / `Values()`, including case-insensitive references.
+- `Put` is recognized by the tokenizer. `Open For Binary/Random` accepts
+  contextual mode names and reports missing path/mode/file-number syntax rather
+  than leaving a null operand for the compiler.
+- Record `Get` / `Put` deliberately falls back to AST execution. Its current
+  contract is fixed 128-byte string records, not full VB6 typed serialization.
+- Bytecode `Value` aliases apply to Range controls, not unrelated resources such
+  as `VGRegExMatch` with their own `Value` property.
+- Reusable VM local frames release objects and resource-owning containers on
+  exit. A dedicated awaited-resource test verifies release on owner destruction.
+
+Twenty-two commented lessons were added in six batches. Async hosts wait for
+completion with a watchdog, physics checks a real collision, Tween checks its
+endpoint, and interop uses an ephemeral loopback server and Python's standard
+library. Python initialization failures are explicit, not skips. Headless audio
+checks silent frame queueing only; rendering and audible output remain untested.
 
 The corpus host now exercises actual auto-connected button, timer and keyboard
 signals and checks resulting control state. Timer timeouts are synthetic;

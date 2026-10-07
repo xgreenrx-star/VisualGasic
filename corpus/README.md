@@ -8,9 +8,10 @@ The programs are intended to be **idiomatic** rather than clever and deliberatel
 small (most are 20–60 lines). Console examples provide their own data. Form
 examples state their required controls and include an automated host scenario.
 
-All 58 examples are back in their original paths, including the 14 fixtures
+All 58 original examples are back in their original paths, including the 14 fixtures
 previously parked for review. Their UID sidecars were preserved. The 15 unrelated
 sample projects remain parked; they are outside this corpus review.
+Twenty-two additional commented lessons bring the corpus to **80 examples**.
 
 The original **36 pass / 14 fail / 8 skipped** compatibility audit is historical,
 not the result of the revised examples. See the
@@ -20,10 +21,10 @@ not the result of the revised examples. See the
 
 | Engine | Execution mode | Passed | Failed | Skipped |
 |---|---|---:|---:|---:|
-| Godot 4.7.2 | Default | 58 | 0 | 0 |
-| Godot 4.7.2 | Forced AST (`VG_FORCE_AST=1`) | 58 | 0 | 0 |
-| Godot 4.6.1 | Default | 58 | 0 | 0 |
-| Godot 4.6.1 | Forced AST (`VG_FORCE_AST=1`) | 58 | 0 | 0 |
+| Godot 4.7.2 | Default | 80 | 0 | 0 |
+| Godot 4.7.2 | Forced AST (`VG_FORCE_AST=1`) | 80 | 0 | 0 |
+| Godot 4.6.1 | Default | 80 | 0 | 0 |
+| Godot 4.6.1 | Forced AST (`VG_FORCE_AST=1`) | 80 | 0 | 0 |
 
 These Linux headless results use the reviewed examples and rebuilt extension,
 not the original compatibility-audit binaries. Both execution paths must
@@ -31,10 +32,12 @@ produce the documented output; AST failures were fixed rather than excluded.
 The form/input limitations below still apply.
 
 The complete Godot 4.7.2 AST/bytecode differential rerun also passed:
-**212 matched passing fixtures, zero failures or divergences, eight explicit
-exclusions**. Two new fixtures cover file-hash/date boundaries and nested AST
-expressions, including local `Keys` / `Values` arrays. The corpus audit harness
-has 12 passing acceptance/rejection checks.
+**215 matched passing fixtures, zero failures or divergences, eight explicit
+exclusions**. New regression fixtures cover random-access records, regex match
+`Value`, and resource release when an awaited procedure's owner is destroyed.
+The corpus audit harness has 16 passing acceptance/rejection checks.
+Default execution includes deliberate AST fallback for `Get` / `Put` record I/O;
+it does not mean every lesson runs entirely as bytecode.
 
 An earlier run alongside other Godot audits hit the existing timing-sensitive
 overlapping-Await order check. Its isolated retry and the complete isolated
@@ -59,7 +62,7 @@ without restriction or attribution.** All files are dual-licensed under
 **CC0-1.0** (public-domain dedication) and the Unlicense — pick whichever your
 legal team prefers. See [LICENSE.md](LICENSE.md) for the formal text.
 
-The 58 programs are organized into ten categories covering language fundamentals,
+The 80 programs are organized into thirteen categories covering language fundamentals,
 advanced features, and real-world patterns:
 
 | Folder | Topic | Why it matters for training |
@@ -74,20 +77,21 @@ advanced features, and real-world patterns:
 | [08_math](08_math/) | Geometry, statistics, sequences | Numeric idioms |
 | [09_state_machines](09_state_machines/) | Game-style state patterns | Where verbose syntax shines |
 | [10_godot_integration](10_godot_integration/) | Signals, nodes, events | What makes VG a real game language |
+| [10_utilities](10_utilities/) | JSON, regex, text building, dates, finance | Deterministic data processing and validation |
+| [11_engine](11_engine/) | Images, physics, audio, scenes, Tween | Engine boundaries with checked state and cleanup |
+| [12_interop](12_interop/) | Local TCP and Python | Bounded communication and explicit dependency failures |
 
 ## Feature Coverage Matrix
 
 Quick reference: which examples demonstrate which language features?
 
-**This corpus is not an exhaustive command reference.** Its 58 programs cover
-selected idioms, not every statement, builtin, overload or error path. Missing
-teaching examples include enums and user-defined types, optional/ParamArray
-parameters, `ReDim`/`Erase`, legacy `On Error`/`Resume`, binary/random-access
-files, JSON, regular expressions, functional collection helpers, date/time and
-financial functions, drawing/physics/audio, networking and Python interop.
-Lambda, Await, optional chaining and interfaces are also absent from this
-corpus, although regression fixtures exist in
-[the language test suite](../test_proj/test_suite/).
+**This corpus is not an exhaustive command reference.** Its 80 programs cover
+selected idioms, not every statement, builtin, overload or error path.
+The six added batches cover types/parameters, storage/error recovery, modern
+language features, data utilities, engine APIs and local interop, in that order.
+Pattern matching, additional `Resume` forms, many receiver-specific methods,
+overloads and failure paths still need teaching coverage. See
+[the language test suite](../test_proj/test_suite/) for additional fixtures.
 
 The [builtin reference](../docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) and
 [Godot reference](../docs/reference/GODOT_FUNCTIONS_REFERENCE.md) contain
@@ -111,6 +115,7 @@ numeric arrays are not accepted by that builtin.
 |---------|----------|--------|
 | **Basics** | | |
 | Variables & types | 01_basics/02_variables | ✅ |
+| Enums and flags | 01_basics/08_enum_values.vg | ✅ |
 | Arithmetic | 01_basics/03_arithmetic | ✅ |
 | User input | 01_basics/04_user_input | ✅ |
 | Type conversion | 01_basics/05_type_conversions | ✅ |
@@ -125,25 +130,36 @@ numeric arrays are not accepted by that builtin.
 | Array basics | 04_arrays/01_array_basics | ✅ |
 | Array search | 04_arrays/04_linear_search | ✅ |
 | Array sort | 04_arrays/05_bubble_sort | ✅ |
+| ReDim Preserve / Erase | 04_arrays/07_dynamic_array_lifecycle.vg | ✅ |
+| Lambda / Map / Filter / Reduce | 04_arrays/08_functional_pipeline.vg | ✅ |
 | Dictionary/lookup | 05_dictionaries/01_dict_basics | ✅ |
 | Word counting | 05_dictionaries/02_word_count | ✅ |
 | **Procedures** | | |
 | Functions | 01_basics/05_type_conversions | ✅ |
 | Subroutines | 08_math/03_distance_2d | ✅ |
 | Parameters & return | 08_math/04_statistics_mean_stdev.vg | ✅ |
+| Optional / ParamArray | 01_basics/09_optional_and_variadic_parameters.vg | ✅ |
 | **Object-Oriented** | | |
 | Classes | 06_classes/01_class_basics | ✅ |
 | Constructors | 06_classes/02_class_constructor | ✅ |
 | Inheritance | 06_classes/03_class_inheritance | ✅ |
 | Properties | 06_classes/04_class_properties | ✅ |
+| User-defined Type records | 06_classes/07_user_defined_records.vg | ✅ |
+| Interface implementations | 06_classes/08_interface_contract.vg | ✅ |
+| Optional chaining `?.` | 06_classes/09_optional_member_access.vg | ✅ |
 | Collections of objects | 06_classes/05_class_collection | ✅ |
 | **Advanced** | | |
 | Generics/Templates | 06_classes/06_class_generics | ✅ |
 | Nullable values (`Variant` / `Nothing`) | 01_basics/06_optional_types | ✅ |
 | Try/Catch/Finally | 01_basics/07_exception_patterns | ✅ |
+| On Error Resume Next | 01_basics/10_legacy_error_recovery.vg | ✅ |
 | **File I/O** | | |
 | Read/write files | 07_file_io/01_write_text_file.vg, 02_read_text_file.vg | ✅ |
 | Line-by-line parsing | 07_file_io/04_read_csv | ✅ |
+| Random/Binary Get / Put | 07_file_io/06_random_access_records.vg | Fixed 128-byte ASCII string records |
+| **Data utilities** | | |
+| JSON / regex / StringBuilder | 10_utilities/01_json_round_trip.vg, 02_regex_validation.vg, 03_string_builder.vg | ✅ |
+| Calendar / financial functions | 10_utilities/04_calendar_intervals.vg, 05_financial_cash_flows.vg | Fixed dates; checked cash-flow signs |
 | **Algorithms** | | |
 | Fibonacci | 08_math/01_fibonacci | ✅ |
 | Prime sieve | 08_math/02_prime_sieve | ✅ |
@@ -157,18 +173,19 @@ numeric arrays are not accepted by that builtin.
 | Input handling | 10_godot_integration/03_input_handling | ✅ |
 | Signals | 10_godot_integration/04_signal_connect | ✅ |
 | Property aliases | 10_godot_integration/05_scene_property_aliases.vg | ✅ |
+| Await | 10_godot_integration/06_await_next_frame.vg | Resumed locals checked |
+| Images / physics rays | 11_engine/01_image_pixels.vg, 02_physics_ray.vg | Pixels and real collision checked |
+| Audio generation | 11_engine/03_audio_generator.vg | Silent frame queueing, not audible certification |
+| Scene lifecycle / Tween | 11_engine/04_scene_instances.vg, 05_tween_endpoint.vg | Cleanup and completed endpoint checked |
+| Local TCP / Python | 12_interop/01_loopback_socket.vg, 02_python_standard_library.vg | Requires local host / Python 3 |
 | **Not Yet Covered** | | |
-| Lambda expressions | — | Not represented in this corpus |
-| Async/Await | — | Not represented in this corpus |
 | Pattern matching | — | Not represented in this corpus |
-| Optional chaining `?.` | — | Not represented in this corpus |
-| Interfaces | — | Not represented in this corpus |
 
 ## For human readers
 
 If you are new to VisualGasic, start at [01_basics/01_hello_world.vg](01_basics/01_hello_world.vg)
-and read straight through. You can have the entire surface area of the language
-in your head in about 90 minutes.
+and read straight through. These small programs introduce selected language
+features, not the entire language surface.
 
 ## Conventions
 
@@ -220,6 +237,7 @@ The audit creates an isolated corpus copy, preserves sibling `Include` paths,
 checks exit status/completion/diagnostics and compares actual output. Explicit
 `Expected handled errors` blocks list exact error code/procedure/line signatures
 for the exception lesson; unexpected or unhandled errors still fail.
+Both `VG Runtime Error` and `VG Handled Error` diagnostics require exact signatures.
 An empty corpus or any skipped example also makes the audit fail.
 
 Run the audit harness's acceptance/rejection checks with:
@@ -235,10 +253,22 @@ Examples with an `Audit mode` header receive a small host:
 - `keyboard`: emit `gui_input` keys including Shift and Ctrl, then check reset.
 - `properties`: emit button signals and check position, visibility and tint.
 - `input`: exercise greeting/default logic without opening a native modal dialog.
+- `async`: Node host waiting for `AuditDone`, with a 300-frame watchdog.
+- `async2d`: the same completion contract on Node2D for real physics queries.
+- `network`: loopback-only TCP server using an OS-selected port, a bounded
+  `ping` / `pong` exchange, and explicit peer/server cleanup.
+
+The Python lesson requires Python 3 and the addon's worker. Set `VG_PYTHON` or
+`vg/python/executable` to select an interpreter. It uses only the standard
+library and fails explicitly when initialization/import/call fails; it is not
+silently skipped. `Finally` shuts down the worker. No external network,
+credentials or third-party Python packages are required.
 
 These tests validate handlers and resulting state, not visual layout, physical
 keyboard focus, real-time timer scheduling or the native InputBox dialog.
-Follow each example's host comments for interactive testing.
+Image pixels, collision state and Tween endpoints are checked; visual rendering,
+speakers and audible quality are not certified. Follow each example's host
+comments for interactive testing.
 
 ## Contributing
 

@@ -9822,6 +9822,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // Pass statement — intentional no-op
             break;
         }
+		case STMT_GET_FILE:
+		case STMT_PUT_FILE:
+			// Record I/O currently uses the AST file table and string serializer.
+			compile_ok = false;
+			break;
         case STMT_OPEN: {
             // Open "path" For mode As #filenum
             OpenStatement* s = (OpenStatement*)stmt;

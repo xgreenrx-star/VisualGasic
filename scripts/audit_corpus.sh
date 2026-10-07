@@ -41,8 +41,8 @@ runtime_errors_match() {
         /^'\'' Expected output:/ { found=0 }
         found && /^'\'' [0-9]+\|/ { sub(/^'\'' /, ""); print }
     ' "$src")"
-    actual="$(sed -nE 's/^\[VG Runtime Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) .*$/\1|\2|\3/p' <<<"$raw")"
-    count="$(grep -c '^\[VG Runtime Error' <<<"$raw" || true)"
+    actual="$(sed -nE 's/^\[VG (Runtime|Handled) Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) .*$/\2|\3|\4/p' <<<"$raw")"
+    count="$(grep -cE '^\[VG (Runtime|Handled) Error' <<<"$raw" || true)"
     parsed_count="$(grep -c . <<<"$actual" || true)"
     [[ "$count" -eq "$parsed_count" && "$actual" == "$expected" ]]
 }
@@ -73,7 +73,7 @@ run_corpus_file() {
 
     # Filter to program-output lines only (skip engine/VG debug lines)
     local actual
-    actual="$(echo "$raw" | { grep -v "^Godot Engine\|^\[VisualGasic\]\|^\[VG\]\|^\[VG Runtime Error\|^Including file:\|^VG_CORPUS_COMPLETED$\|^ERROR: \|^$\|^WARNING:\|^[[:space:]]*at: \|^Registered class:\|^Initialized Global Var:\|^Parser Error:\|^[[:space:]]*VisualGasic backtrace\|^[[:space:]]*\[[0-9]" || true; } | sed 's/[[:space:]]*$//' | sed '/^$/d')"
+    actual="$(echo "$raw" | { grep -v "^Godot Engine\|^\[VisualGasic\]\|^\[VG\]\|^\[VG Runtime Error\|^\[VG Handled Error\|^\[VGSocket\] Connected to 127\.0\.0\.1:[0-9][0-9]*$\|^\[PyBridgeFacade\] Tier A.*worker connected (Python \|^\[PyBridgeFacade\] Worker launched (PID [0-9][0-9]*)$\|^\[PyBridgeFacade\] Shutting down\.\.\.$\|^\[PyBridgeFacade\] Worker (PID [0-9][0-9]*) terminated$\|^Including file:\|^VG_CORPUS_COMPLETED$\|^ERROR: \|^$\|^WARNING:\|^[[:space:]]*at: \|^Registered class:\|^Initialized Global Var:\|^Parser Error:\|^[[:space:]]*VisualGasic backtrace\|^[[:space:]]*\[[0-9]" || true; } | sed 's/[[:space:]]*$//' | sed '/^$/d')"
 
     if [ "$rc" -ne 0 ] || [[ "$raw" != *"VG_CORPUS_COMPLETED"* ]] ||
         ! runtime_errors_match "$src" "$raw" ||

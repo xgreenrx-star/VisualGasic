@@ -1,0 +1,30 @@
+' On Error is useful when reading legacy BASIC; prefer Try/Catch in new code.
+' Restrict Resume Next to the operation whose error you intend to inspect.
+Sub Main()
+    Dim denominator As Integer = 0
+    On Error Resume Next
+    Err.Clear
+    Dim quotient As Double = 10 / denominator
+    Dim errorNumber As Integer = Err.Number
+    Err.Clear
+    On Error GoTo 0
+
+    ' Never treat a recovered result as success without examining Err.Number.
+    Select Case errorNumber
+        Case 11
+            Print "Division rejected: zero denominator"
+        Case 0
+            Print "Quotient: " & quotient
+        Case Else
+            Raise errorNumber, "Unexpected division error"
+    End Select
+    Assert errorNumber = 11, "The deliberate invalid divisor must be reported"
+    Print "Normal error handling restored"
+End Sub
+
+' Expected handled errors:
+' 11|Main|7
+
+' Expected output:
+' Division rejected: zero denominator
+' Normal error handling restored

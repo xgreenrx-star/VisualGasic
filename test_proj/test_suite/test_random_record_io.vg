@@ -1,0 +1,20 @@
+' Random/Binary modes are contextual names, not reserved tokenizer keywords.
+' Put/Get currently use fixed 128-byte string records; this checks that contract.
+Sub _Ready()
+    Dim path As String = "user://random_record_regression.dat"
+    Open path For Output As #1
+    Close #1
+    Open path For Random As #1
+    Put #1, 1, "alpha" & Space(123)
+    Put #1, 2, "beta" & Space(124)
+    Close #1
+    Open path For Binary As #2
+    Dim value As String
+    Get #2, 2, value
+    If Trim(value) = "beta" Then Print "PASS: random second record" Else Print "FAIL: random second record"
+    Get #2, 1, value
+    If Trim(value) = "alpha" Then Print "PASS: random first record" Else Print "FAIL: random first record"
+    If LOF(2) = 256 Then Print "PASS: random file length" Else Print "FAIL: random file length"
+    Close #2
+    Kill path
+End Sub

@@ -1,0 +1,14 @@
+' Completed VM frames must not retain resources in the reusable locals pool.
+' MAX_FRAMES: 10
+Dim AuditWeak As Object
+Dim AuditDone As Boolean = False
+
+Sub _Ready()
+    Dim shape As New RectangleShape2D
+    AuditWeak = WeakRef(shape)
+    shape.Size = Vector2(10, 10)
+    Await 0
+    Assert shape.Size.X = 10, "Resources remain alive across suspension"
+    Print "PASS: awaited resource usable"
+    AuditDone = True
+End Sub

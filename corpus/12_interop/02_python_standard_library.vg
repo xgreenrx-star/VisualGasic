@@ -1,0 +1,26 @@
+' Requires Python 3 and the installed addon python_worker.py; no pip packages.
+' Select the interpreter with VG_PYTHON or vg/python/executable if necessary.
+' The bridge runs a bounded local worker; initialization failure is not a pass.
+Sub Main()
+    Dim bridge As New PyBridgeFacade
+    If Not bridge.InitializeBridge() Then
+        Dim detail As String = bridge.GetStatus()
+        bridge.shutdown()
+        Err.Raise 5, "Python initialization failed: " & detail
+        Exit Sub
+    End If
+    ' Finally always stops the worker, including after a failed import or call.
+    Try
+        Dim mathModule As Variant = bridge.PyImport("math")
+        Assert Not IsEmpty(mathModule), "Import the standard-library math module"
+        Dim root As Variant = bridge.PyCall(mathModule, "sqrt", Array(81))
+        Assert Not IsEmpty(root), "Python call must return a value"
+        Assert Abs(CDbl(root) - 9) < 0.000001, "Check the returned numeric value"
+        Print "Python sqrt(81): " & CInt(root)
+    Finally
+        bridge.shutdown()
+    End Try
+End Sub
+
+' Expected output:
+' Python sqrt(81): 9

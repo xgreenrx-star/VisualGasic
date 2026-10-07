@@ -725,8 +725,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }
     struct LocalsFrameGuard {
         VMState &v;
-        ~LocalsFrameGuard() { v.locals_depth--; }
-    } _locals_guard{vm};
+		int frame_index;
+		~LocalsFrameGuard() {
+			Vector<Variant> &frame = v.locals_pool[frame_index];
+			// Keep reusable storage, but not resources or containers owning them.
+			for (int i = 0; i < frame.size(); i++) {
+				Variant::Type type = frame[i].get_type();
+				if (type == Variant::OBJECT || type == Variant::ARRAY ||
+						type == Variant::DICTIONARY || type == Variant::CALLABLE ||
+						type == Variant::SIGNAL) {
+					frame.write[i] = Variant();
+				}
+			}
+			v.locals_depth--;
+		}
+    } _locals_guard{vm, _locals_frame};
     Vector<Variant> &locals = vm.locals_pool[_locals_frame];
     // ── Fast-call convention (v6.0) ────────────────────────────────────
     // When the compiler flagged this chunk fast_params, the caller
@@ -5762,7 +5775,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                         // Value property
-                        else if (prop_name == "Value") {
+                        else if (prop_name == "Value" && obj->is_class("Range")) {
                             result = obj->get("value");
                             handled = true;
                         }
@@ -6599,7 +6612,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                         // Value property (for sliders, spinboxes, progress bars)
-                        else if (prop_name == "Value") {
+                        else if (prop_name == "Value" && obj->is_class("Range")) {
                             godot_prop = "value";
                         }
                         // ToolTipText → tooltip_text

@@ -17,6 +17,17 @@ case "$VG_FAKE_CASE" in
     parser) echo 'Parser Error: rejected'; echo answer ;;
     unexpected_error) echo '[VG Runtime Error 5] expected -- Sub: Example Line: 10 (example.vg)'; echo answer ;;
     handled) echo '[VG Runtime Error 5] expected -- Sub: Example Line: 10 (example.vg)'; echo answer ;;
+    handled_on_error) echo '[VG Handled Error 5] expected -- Sub: Example Line: 10 (example.vg, handled by On Error)'; echo answer ;;
+    interop_status)
+        echo '[VGSocket] Connected to 127.0.0.1:54321'
+        echo '[PyBridgeFacade] Worker launched (PID 123)'
+        echo '[PyBridgeFacade] Tier A -- worker connected (Python 3.11.2)'
+        echo answer
+        echo '[PyBridgeFacade] Shutting down...'
+        echo '[PyBridgeFacade] Worker (PID 123) terminated' ;;
+    interop_error)
+        echo '[PyBridgeFacade] Worker launch not supported'
+        echo answer ;;
     extra_error)
         echo '[VG Runtime Error 5] expected -- Sub: Example Line: 10 (example.vg)'
         echo '[VG Runtime Error 6] unexpected -- Sub: Example Line: 11 (example.vg)'
@@ -55,6 +66,10 @@ check nonzero plain fail
 check parser plain fail
 check unexpected_error plain fail
 check handled handled pass
+check handled_on_error handled pass
+check handled_on_error plain fail
+check interop_status plain pass
+check interop_error plain fail
 check extra_error handled fail
 check unhandled handled fail
 check success handled fail

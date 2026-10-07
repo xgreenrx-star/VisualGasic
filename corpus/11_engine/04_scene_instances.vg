@@ -1,0 +1,24 @@
+' PackedScene is a reusable scene resource; each Instantiate creates a new Node.
+' Godot resource APIs are appropriate here: there is no VG typed-scene serializer.
+Sub Main()
+    Dim template As Object = CreateNode("Node2D")
+    template.Name = "ReusableMarker"
+    Dim scene As New PackedScene
+    Assert scene.Pack(template) = 0, "Packing must return Godot OK (zero)"
+    template.Free()
+
+    Dim marker As Object = scene.Instantiate()
+    Assert marker IsNot Nothing, "Instantiation must create a node"
+    Me.AddChild(marker)
+    Assert marker.GetParent() Is Me, "The instance belongs to this scene tree"
+    Assert marker.Name = "ReusableMarker", "Packed state survives instantiation"
+    Print "Instantiated: " & marker.Name
+    ' QueueFree is normally preferable during callbacks. Here the node is idle.
+    marker.Free()
+    Assert Me.GetChildCount() = 0, "The temporary instance was cleaned up"
+    Print "Instance cleaned up"
+End Sub
+
+' Expected output:
+' Instantiated: ReusableMarker
+' Instance cleaned up

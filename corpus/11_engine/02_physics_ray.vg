@@ -1,0 +1,34 @@
+' Audit mode: async2d
+' Attach to Node2D. This builds a small collision fixture in local pixel units.
+' Godot node/resources configure physics; VG Ray helpers query its result.
+Extends Node2D
+Dim AuditDone As Boolean = False
+
+Sub _Ready()
+    Dim obstacle As Object = CreateNode("StaticBody2D")
+    obstacle.Position = Vector2(40, 0)
+    Dim shape As New RectangleShape2D
+    shape.Size = Vector2(10, 10)
+    Dim collision As Object = CreateNode("CollisionShape2D")
+    collision.Shape = shape
+    obstacle.AddChild(collision)
+    Me.AddChild(obstacle)
+
+    Dim probe As Object = CreateNode("RayCast2D")
+    Me.AddChild(probe)
+    Ray.Target(probe, Vector2(100, 0))
+    Ray.Enable(probe, True)
+    ' Allow registration with the physics server; never spin in a blocking loop.
+    Await 0.1
+    Ray.ForceUpdate(probe)
+    Assert Ray.Hit(probe), "The ray must hit the test obstacle"
+    Assert Ray.Collider(probe) Is obstacle, "Report the body, not its shape node"
+    Dim point As Vector2 = Ray.Point(probe)
+    Assert Abs(point.X - 35) < 1 And Abs(point.Y) < 1
+    Print "Ray hit obstacle near x=35"
+    ' Children are owned by this scene and freed when its root is destroyed.
+    AuditDone = True
+End Sub
+
+' Expected output:
+' Ray hit obstacle near x=35

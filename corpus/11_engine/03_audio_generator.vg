@@ -1,0 +1,17 @@
+' SoundGen.Open takes sample rate in Hz and buffer duration in seconds.
+' This sends silence to check the audio pipeline without making unwanted noise.
+' A headless run proves setup/queueing only, not speakers or audible quality.
+Sub Main()
+    Dim handle As Long = SoundGen.Open(22050, 0.1)
+    Assert handle <> 0, "The generator must create an audio player"
+    Assert SoundGen.Available(handle) >= 64, "Reserve room before pushing samples"
+    ' Samples must be between -1 and 1. Real synthesis normally uses a buffer.
+    For frame As Integer = 1 To 64
+        SoundGen.PushStereo(handle, 0, 0)
+    Next frame
+    Print "Queued 64 silent stereo frames"
+    SoundGen.Close(handle)
+End Sub
+
+' Expected output:
+' Queued 64 silent stereo frames
