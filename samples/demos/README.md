@@ -1,6 +1,12 @@
 # VisualGasic Demos
 
-Complete, working demo programs written in VisualGasic. Each demo is a full Godot project showcasing various language features and capabilities.
+Demo programs written in VisualGasic. Each demo is a Godot project showcasing various language features and capabilities.
+
+The projects initially quarantined by the
+[Godot 4.7.2 audit](../../docs/compatibility/GODOT_4_7_2.md) have been corrected
+and restored to this tree. Startup checks cover both Godot 4.6.1 and 4.7.2 in
+default and forced-AST modes. Mobile console stubs are not device-certified,
+and startup alone is not complete gameplay or rendering validation.
 
 **Location:** `samples/demos/` (repo root). Legacy symlink: `demos/` → here.
 

@@ -10,12 +10,19 @@ from unittest.mock import patch
 
 from audit_example_coverage import (
     Command, Program, capture_validation, collect_commands, collect_programs,
-    collect_rows, cpp_lines, digest, key, matcher, render_tsv, runtime_hashes,
+    collect_rows, cpp_lines, digest, key, matcher, render_report, render_tsv, runtime_hashes,
     surface, vg_code,
 )
 
 
 class ExampleCoverageTests(unittest.TestCase):
+    def test_restored_inventory_has_no_trailing_blank_line(self):
+        rows = collect_rows({"absent": Command("Absent", aliases={"Absent"})}, [])
+        report = render_report(rows, [], [], {})
+        self.assertIn("None. All tracked VG source files are available.", report)
+        self.assertTrue(report.endswith("\n"))
+        self.assertFalse(report.endswith("\n\n"))
+
     def test_comments_strings_and_dates_do_not_count(self):
         source = '''' Await Foo
 Rem Tween thing

@@ -1,0 +1,12 @@
+Sub _Ready()
+    Dim api As Object = Load("res://test_suite/static_reference_helper.gd")
+    Dim before As Integer = api.GetReferenceCount()
+    Dim i As Integer
+    For i = 1 To 10
+        Dim value As Integer = api.SampleValue()
+    Next i
+    Dim after As Integer = api.GetReferenceCount()
+    Print "Script references: " & before & " -> " & after
+    If value = 7 Then Print "PASS: static method result" Else Print "FAIL: static method result"
+    If after = before Then Print "PASS: static calls preserve script reference count" Else Print "FAIL: static calls preserve script reference count"
+End Sub

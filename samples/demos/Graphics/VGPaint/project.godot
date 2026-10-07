@@ -17,7 +17,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 [autoload]
 
-VGDebugHandler="*uid://bba4n02t2dx1g"
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [display]
 

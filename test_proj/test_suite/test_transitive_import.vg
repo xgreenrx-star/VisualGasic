@@ -1,0 +1,6 @@
+Import "transitive_parent.vg"
+
+Sub _Ready()
+    If ReadImportedLeaf() = 42 Then Print "PASS: nested module dependency" Else Print "FAIL: nested module dependency"
+    If transitive_leaf.TransitiveLeafValue() = 42 Then Print "PASS: transitive qualified call" Else Print "FAIL: transitive qualified call"
+End Sub

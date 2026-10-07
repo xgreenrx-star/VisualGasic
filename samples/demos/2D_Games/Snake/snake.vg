@@ -125,7 +125,8 @@ Whenever Section SpeedBoostEnd speedBoostTimer Below 0 EndSpeedBoost
 ' Called by the LevelComplete Whenever to get the current level's target score.
 ' Returning 99999 effectively disables level completion beyond the last defined level.
 Function GetLevelTarget() As Integer
-    If level <= totalLevels Then
+    ' Whenever thresholds can be evaluated before _Ready initializes level.
+    If level >= 1 And level <= totalLevels Then
         Return levelTargets(level - 1)  ' Arrays are 0-based; levels are 1-based
     Else
         Return 99999  ' No more levels — unreachable target
@@ -351,11 +352,14 @@ End Sub
 
 ' Place a new food item on a random unoccupied cell.
 Sub SpawnFood()
-    ' Rejection sampling: pick random coords until we find an empty cell.
-    Do
-        foodX = Int(Rnd() * GRID_WIDTH)   ' Random column
-        foodY = Int(Rnd() * GRID_HEIGHT)  ' Random row
-    Loop While IsOccupied(foodX, foodY)    ' Keep trying if cell is taken
+    Dim cell As Integer = FindFreeCell(False)
+    If cell < 0 Then
+        Print "Board full: no free cell remains for food."
+        gameState = "gameover"
+        Exit Sub
+    End If
+    foodX = cell Mod GRID_WIDTH
+    foodY = Int(cell / GRID_WIDTH)
     
     foodType = Int(Rnd() * foodCount)  ' Pick a random food variety
     foodTimer = 0                      ' Reset pulsing animation timer
@@ -366,11 +370,13 @@ End Sub
 Sub SpawnPowerUp()
     If powerUpActive Then Exit Sub  ' Guard: only one at a time
     
-    ' Same rejection-sampling loop as SpawnFood
-    Do
-        powerUpX = Int(Rnd() * GRID_WIDTH)
-        powerUpY = Int(Rnd() * GRID_HEIGHT)
-    Loop While IsOccupied(powerUpX, powerUpY)
+    Dim cell As Integer = FindFreeCell(True)
+    If cell < 0 Then
+        Print "Power-up not spawned: the board has no free cell."
+        Exit Sub
+    End If
+    powerUpX = cell Mod GRID_WIDTH
+    powerUpY = Int(cell / GRID_WIDTH)
     
     ' Pick a random power-up effect from a local array of type names.
     ' VB6-style: Dim a fixed array, fill it, then index with Rnd().
@@ -385,9 +391,24 @@ Sub SpawnPowerUp()
     Print "Power-up spawned: " & powerUpType
 End Sub
 
+' A random starting cell keeps placement varied; one bounded scan also handles
+' a full board. Do not assign foodX/foodY before checking: food would block itself.
+Function FindFreeCell(ByVal avoidFood As Boolean) As Integer
+    Dim cellCount As Integer = GRID_WIDTH * GRID_HEIGHT
+    Dim startCell As Integer = Int(Rnd() * cellCount)
+    Dim offset As Integer
+    For offset = 0 To cellCount - 1
+        Dim candidate As Integer = (startCell + offset) Mod cellCount
+        Dim x As Integer = candidate Mod GRID_WIDTH
+        Dim y As Integer = Int(candidate / GRID_WIDTH)
+        If Not IsOccupied(x, y, avoidFood) Then Return candidate
+    Next offset
+    Return -1
+End Function
+
 ' Check whether a grid cell is already occupied by the snake, a wall, or food.
 ' Used by SpawnFood/SpawnPowerUp to avoid placing items on top of things.
-Function IsOccupied(x As Integer, y As Integer) As Boolean
+Function IsOccupied(ByVal x As Integer, ByVal y As Integer, Optional ByVal avoidFood As Boolean = True) As Boolean
     ' Check every snake segment
     Dim i As Integer
     For i = 0 To snakeLength - 1
@@ -400,7 +421,7 @@ Function IsOccupied(x As Integer, y As Integer) As Boolean
     Next
     
     ' Check current food position
-    If x = foodX And y = foodY Then Return True
+    If avoidFood And x = foodX And y = foodY Then Return True
     
     Return False  ' Cell is free
 End Function

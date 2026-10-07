@@ -47,6 +47,7 @@
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_timer.h"
+#include <functional>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/input.hpp>
@@ -1589,18 +1590,20 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             if (!import_wiring_applied) {
             import_stack.push_back(this_path);
             
-            for (int ii = 0; ii < vs->ast_root->imports.size(); ii++) {
-                String import_path = vs->ast_root->imports[ii];
-                // Resolve relative to current script directory
-                String script_dir = vs->get_path().get_base_dir();
+			std::function<void(const String &, const String &)> load_import;
+			load_import = [&](const String &import_path, const String &script_dir) {
                 String full_path = import_path;
                 if (!import_path.begins_with("res://") && !import_path.begins_with("/")) {
                     full_path = script_dir.path_join(import_path);
                 }
+				full_path = full_path.simplify_path();
+				for (int mi = 0; mi < imported_modules.size(); mi++) {
+					if (imported_modules[mi].full_path == full_path) return;
+				}
                 
                 // Circular import detection
                 bool is_circular = false;
-                for (int ci = 0; ci < import_stack.size() - 1; ci++) {
+                for (int ci = 0; ci < import_stack.size(); ci++) {
                     if (import_stack[ci] == full_path) {
                         is_circular = true;
                         break;
@@ -1608,7 +1611,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 }
                 if (is_circular) {
                     UtilityFunctions::print("[VG] Import Warning: Circular import detected for: ", full_path, " — skipping");
-                    continue;
+                    return;
                 }
                 
                 {
@@ -1616,6 +1619,10 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                     ModuleNode* import_ast = vg_acquire_shared_import_ast(full_path, import_shared);
                     
                     if (import_ast) {
+						import_stack.push_back(full_path);
+						for (int di = 0; di < import_ast->imports.size(); di++) {
+							load_import(import_ast->imports[di], full_path.get_base_dir());
+						}
                         String mod_name = full_path.get_file().get_basename();
 
                         for (int di2 = 0; di2 < import_ast->ffi_declares.size(); di2++) {
@@ -1736,11 +1743,15 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                         for (int cdi = 0; cdi < import_ast->class_defs.size(); cdi++) {
                             register_class(import_ast->class_defs[cdi]);
                         }
+						import_stack.remove_at(import_stack.size() - 1);
                     } else {
                         UtilityFunctions::print("[VG] Import Error: Could not parse: ", full_path);
-                    }
+					}
                 }
-            }
+			};
+			for (int ii = 0; ii < vs->ast_root->imports.size(); ii++) {
+				load_import(vs->ast_root->imports[ii], vs->get_path().get_base_dir());
+			}
             
             // Pop import stack
             if (import_stack.size() > 0) {

@@ -7,4 +7,3 @@ Sub AddPathPoint(px As Single, py As Single)
         HasPath = True
     End If
 End Sub
-

@@ -282,6 +282,8 @@ enum OpCode {
     // DEST is the local slot index (IS_GLOBAL==0) or a constant-pool index for
     // the destination's global name (IS_GLOBAL==1) — the SAME destination the
     // compiler emits an OP_SET_LOCAL/OP_SET_GLOBAL for immediately after this.
+	// IS_GLOBAL==2 leaves [container, index] on the stack and uses the indexed
+	// element as fallback; DEST is unused. OP_SET_ARRAY consumes the result.
     // If the param name IS found in _last_byref_captures, pushes the captured
     // value. If NOT found — e.g. the call the compiler resolved for write-back
     // purposes wasn't actually what ran at runtime, such as a builtin of the

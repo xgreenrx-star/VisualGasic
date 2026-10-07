@@ -1,0 +1,15 @@
+Dim names(1) As String
+
+Function FirstIndex() As Integer
+    Return 0
+End Function
+
+Sub ReplaceName(ByRef text As String)
+    text = "NEW"
+End Sub
+
+Sub _Ready()
+    names(0) = "OLD"
+    ReplaceName names(FirstIndex())
+    If names(0) = "NEW" Then Print "PASS: ByRef writeback survives computed index" Else Print "FAIL: ByRef writeback survives computed index"
+End Sub

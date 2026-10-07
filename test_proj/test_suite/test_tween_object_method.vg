@@ -1,0 +1,7 @@
+Sub _Ready()
+    Dim animation As Object = Me.CreateTween()
+    animation.TweenProperty(Me, "process_priority", 42, 0.0)
+    animation.CustomStep(0.01)
+    If Me.ProcessPriority = 42 Then Print "PASS: explicit Tween receiver" Else Print "FAIL: explicit Tween receiver"
+    animation.Kill()
+End Sub

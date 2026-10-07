@@ -462,7 +462,7 @@ position = Vector2(0.0, -14.0)
 texture = "ExtResource("9")"
 hframes = 8
 vframes = 8
-frame = 42
+frame = 0
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 offset_left = 0.0
@@ -506,4 +506,3 @@ offset_top = 0.0
 offset_right = 80.0
 offset_bottom = 23.0
 layer = 0
-

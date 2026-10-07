@@ -7,7 +7,7 @@
 ' and tracks coin collection via the coin_collected signal relay.
 '
 ' Original GDScript used complex Tween property path animations.
-' VG uses TweenProperty for the fade effect and simplified open/close.
+' Keep a Tween handle here so rapid pause toggles can cancel the previous fade.
 ' ============================================================================
 Attribute VB_Name = "PauseMenu"
 
@@ -19,6 +19,8 @@ Const FADE_OUT_DURATION As Single = 0.2
 Dim centerCont As Object            ' CenterContainer - menu buttons container
 Dim resumeButton As Object          ' Button - resume game
 Dim coinsCounter As Object          ' CoinsCounter (Panel) - coin display
+Dim fadeAnimation As Object
+Dim menuGeneration As Integer
 
 ' ============================================================================
 ' INITIALIZATION
@@ -38,6 +40,8 @@ End Sub
 ' ============================================================================
 ' Opens the pause menu with a fade-in animation.
 Sub OpenMenu()
+    menuGeneration = menuGeneration + 1
+    If fadeAnimation IsNot Nothing Then fadeAnimation.Kill()
     Me.Show()
     resumeButton.GrabFocus()
 
@@ -45,21 +49,25 @@ Sub OpenMenu()
     Me.modulate = Color(1.0, 1.0, 1.0, 0.0)
 
     ' Fade in using a tween on the modulate alpha
-    Dim tween As Object
-    tween = CreateTween()
-    TweenProperty Me, "modulate:a", 1.0, FADE_IN_DURATION
+    Set fadeAnimation = Me.CreateTween()
+    fadeAnimation.TweenProperty(Me, "modulate", Color(1, 1, 1, 1), FADE_IN_DURATION)
 End Sub
 
 ' Closes the pause menu with a fade-out animation.
 Sub CloseMenu()
+    menuGeneration = menuGeneration + 1
+    Dim closingGeneration As Integer = menuGeneration
+    If fadeAnimation IsNot Nothing Then fadeAnimation.Kill()
     Dim tree As Object
     tree = Me.GetTree()
     tree.paused = False
 
     ' Fade out then hide
-    TweenProperty Me, "modulate:a", 0.0, FADE_OUT_DURATION
-    ' Hide after the fade completes
-    Me.Hide()
+    Set fadeAnimation = Me.CreateTween()
+    fadeAnimation.TweenProperty(Me, "modulate", Color(1, 1, 1, 0), FADE_OUT_DURATION)
+    ' Yield so the fade is visible before removing the overlay.
+    Await FADE_OUT_DURATION
+    If closingGeneration = menuGeneration Then Me.Hide()
 End Sub
 
 ' ============================================================================

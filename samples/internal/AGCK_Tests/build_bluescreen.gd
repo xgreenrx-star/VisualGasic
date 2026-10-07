@@ -1,7 +1,7 @@
 ## build_bluescreen.gd
 ## Run headlessly to generate the BlueScreen AGCK game scaffold.
 ## Usage:
-##   ./Godot_v4.6.1-stable_linux.x86_64 --headless --path game_projects/AGCK_Tests -s build_bluescreen.gd
+##   ./Godot_v4.6.1-stable_linux.x86_64 --headless --path samples/internal/AGCK_Tests -s res://build_bluescreen.gd
 extends SceneTree
 
 func _init() -> void:
@@ -36,6 +36,16 @@ func _init() -> void:
 	print("Levels: ", game_data.get("levels", []).size())
 	print("Building...")
 
+	var TileLibraryClass = load("res://addons/visual_gasic/plugins/agck/agck_tile_library.gd")
+	if TileLibraryClass == null:
+		printerr("ERROR: Could not load AGCK tile library")
+		quit(1)
+		return
+	var tile_library = TileLibraryClass.new()
+	tile_library.set_data(game_data.get("tile_library", {}))
+	tile_library.tile_render_size = int(game_data.get("settings", {}).get("tile_size", 32))
+	tile_library.actor_frame_size = int(game_data.get("settings", {}).get("actor_frame_size", 32))
+	backend.tile_library = tile_library
 	var result = backend.build(game_data)
 
 	if result.get("ok", false):
@@ -43,7 +53,16 @@ func _init() -> void:
 		print("Output dir: ", result.get("output_dir", "?"))
 		print("Files generated: ", result.get("files", []).size())
 		for fpath in result.get("files", []):
+			if not FileAccess.file_exists(fpath):
+				printerr("ERROR: Builder reported a missing output: " + str(fpath))
+				quit(1)
+				return
 			print("  ", fpath)
+		var repair_tool = load("res://repair_generated_build.gd")
+		if repair_tool == null or not repair_tool.repair(str(result["output_dir"])):
+			printerr("Generated build repair failed.")
+			quit(1)
+			return
 	else:
 		printerr("=== BUILD FAILED ===")
 		print("Result: ", result)

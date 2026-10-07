@@ -20,5 +20,19 @@ enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 renderer/rendering_method="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
 
-audio
+[vg]
+
+gdai/enabled=false
+gdai/provider="local"
+gdai/api_key=""
+gdai/endpoint="http://127.0.0.1:8000/v1"
+gdai/model=""
+gdai/embedding_model=""
+gdai/temperature=0.7
+gdai/max_tokens=256
+gdai/top_p=1.0
+gdai/n=1
+gdai/timeout_ms=15000
+
+[audio]
 driver/enable_input=true

@@ -22,7 +22,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-VGDebugHandler="*uid://b1rh8wxduem4j"
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [display]
 

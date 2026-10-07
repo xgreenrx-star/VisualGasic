@@ -436,8 +436,8 @@ Sub _Draw()
 		shakeY = (Rnd() - 0.5) * shakeAmt * 2
 	End If
 
-	PushTransform()
-	Translate Vector2(shakeX, shakeY)
+	' Canvas draw transforms affect subsequent primitives until explicitly reset.
+	Me.DrawSetTransform(Vector2(shakeX, shakeY), 0, Vector2(1, 1))
 
 	DrawRect 0, 0, SCREEN_W, SCREEN_H, Color.Black
 
@@ -510,5 +510,5 @@ Sub _Draw()
 			DrawString "Press Enter to continue", SCREEN_W / 2 - 100, SCREEN_H / 2 + 80, Color.Gray
 	End Select
 
-	PopTransform()
+	Me.DrawSetTransform(Vector2(0, 0), 0, Vector2(1, 1))
 End Sub

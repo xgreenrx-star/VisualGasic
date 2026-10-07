@@ -1,0 +1,32 @@
+Dim names(1) As String
+
+Function PreviousCall(text As String) As String
+    text = "STALE"
+    Return text
+End Function
+
+Function PadRight(text As String, width As Integer) As String
+    Dim result As String = text
+    Do While Len(result) < width
+        result = result & " "
+    Loop
+    Return result
+End Function
+
+Sub _Ready()
+    names(0) = "ACE"
+    Dim previous As String = PreviousCall("OTHER")
+    Dim label As String = PadRight(names(0), 5)
+    If label = "ACE  " Then Print "PASS: formatted array element" Else Print "FAIL: formatted array element"
+    If TypeName(names(0)) = "String" Then Print "PASS: readonly ByRef preserves element type" Else Print "FAIL: readonly ByRef preserves element type"
+    If TypeName(names(0)) = "String" Then
+        If names(0) = "ACE" Then Print "PASS: readonly ByRef preserves element" Else Print "FAIL: readonly ByRef preserves element"
+    End If
+    Dim labels As Variant = JsonParse("{""first"":""ZIP""}")
+    label = PadRight(labels("first"), 5)
+    If labels("first") = "ZIP" Then Print "PASS: builtin fallback preserves dictionary entry" Else Print "FAIL: builtin fallback preserves dictionary entry"
+    Dim tag As String = "TAG"
+    previous = PreviousCall("OTHER")
+    label = PadRight(tag, 5)
+    If tag = "TAG" Then Print "PASS: builtin clears stale scalar captures" Else Print "FAIL: builtin clears stale scalar captures"
+End Sub

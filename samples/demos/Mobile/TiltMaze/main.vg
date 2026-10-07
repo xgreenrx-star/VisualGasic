@@ -5,9 +5,9 @@
 ' Uses Pass 4 Sensor namespace (Accel/Tilt/Units).
 '
 ' Runs anywhere:
-'   • Desktop  — accelerometer is flat; press Q to quit
+'   • Desktop  — accelerometer is flat; fixed nudge drives a console simulation
 '   • Android  — real tilt rolls the ball
-'   • Headless — runs 60 frames of simulated tilt + prints state
+'   • Headless — runs 60 simulated steps + prints state
 '
 ' Showcase verbs:
 '   Sensor.Units("game")  Sensor.Accel  Sensor.Tilt
@@ -62,7 +62,7 @@ Sub _Ready()
 End Sub
 
 ' ------------------------------------------------------------
-' Maze definition (10×6 inner area framed by walls)
+' Maze definition (24 columns by 14 rows, including boundary walls)
 ' ------------------------------------------------------------
 Sub BuildMaze()
     Maze = Array()
@@ -85,7 +85,7 @@ End Sub
 ' ------------------------------------------------------------
 ' One physics tick.  Tilt → acceleration → velocity → position.
 ' Reads Sensor.Accel (Vector3, in Gs) for real device input;
-' falls back to a sinusoidal sweep for headless / desktop.
+' falls back to a fixed nudge for headless / desktop.
 ' ------------------------------------------------------------
 Sub Step()
     Dim acc As Variant

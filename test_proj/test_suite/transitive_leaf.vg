@@ -1,0 +1,3 @@
+Function TransitiveLeafValue() As Integer
+    Return 42
+End Function

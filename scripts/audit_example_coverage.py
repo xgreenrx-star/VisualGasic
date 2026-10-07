@@ -539,8 +539,11 @@ def render_report(rows: list[dict], programs: list[Program], unavailable: list[s
         "These paths remain tracked but are absent in this local working tree.",
         "They are not removed by this audit and their ignored archives are not scanned.", "",
     ]
-    lines += ["- `" + name + "`" for name in unavailable]
-    return "\n".join(lines) + "\n"
+    if unavailable:
+        lines += ["- `" + name + "`" for name in unavailable]
+    else:
+        lines += ["None. All tracked VG source files are available."]
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def main() -> int:

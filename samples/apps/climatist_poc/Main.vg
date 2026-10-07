@@ -115,7 +115,12 @@ Sub _Ready()
 	Dim poll As Object
 	Set poll = GetNode("InputPoll")
 	Connect poll, "timeout", "InputPoll_Fire"
-	Call RefreshWeather
+	If Environ("VG_CLIMATIST_SKIP_STARTUP_FETCH") = "1" Then
+		currentLine = "Startup download skipped (offline verification)."
+		Print currentLine
+	Else
+		Call RefreshWeather
+	End If
 End Sub
 
 Sub InputPoll_Fire()

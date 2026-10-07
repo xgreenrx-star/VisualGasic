@@ -2833,17 +2833,20 @@ func _generate_main_vg(path: String, settings: Dictionary, actors: Array, level_
 			da_args += ", "
 			dt_args += ", "
 		var idx: int = level_indices[li]
-		var da_str: String = "Restart Level"
+		var death_action: Variant = "Restart Level"
 		var dt_val: int = 1
 		if idx >= 0 and idx < levels.size():
-			da_str = levels[idx].get("death_action", "Restart Level")
+			death_action = levels[idx].get("death_action", "Restart Level")
 			dt_val = levels[idx].get("death_action_target", 1)
 		var da_code: int = 0
-		match da_str:
-			"Restart Level": da_code = 0
-			"Go To Level":   da_code = 1
-			"Lose Item":     da_code = 2
-			"End Game":      da_code = 3
+		if death_action is int or death_action is float:
+			da_code = int(death_action)
+		else:
+			match death_action:
+				"Restart Level": da_code = 0
+				"Go To Level":   da_code = 1
+				"Lose Item":     da_code = 2
+				"End Game":      da_code = 3
 		da_args += str(da_code)
 		dt_args += str(dt_val)
 	code += "    DeathActions = Array(" + da_args + ")\n"

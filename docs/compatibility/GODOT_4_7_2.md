@@ -11,7 +11,8 @@ Scratch is Git-ignored: this is a local review archive, not a published move.
 The two Brotato projects and shutdown-only cases remain in the active tree.
 
 The 14 corpus fixtures and their UID sidecars have since been restored and all
-58 examples reviewed. The 15 sample projects remain parked. The follow-up
+58 examples reviewed, followed by 22 additional lessons. All 15 sample projects
+and five legacy aliases have now been restored. The follow-up
 section below describes the revised corpus; subsequent original-audit sections
 retain the historical counts, paths and evidence.
 
@@ -65,10 +66,87 @@ checks silent frame queueing only; rendering and audible output remain untested.
 The corpus host now exercises actual auto-connected button, timer and keyboard
 signals and checks resulting control state. Timer timeouts are synthetic;
 physical focus, native InputBox dialogs, visual layout and gameplay remain
-interactive validation tasks. This does not certify the quarantined projects
+interactive validation tasks. This does not fully certify the sample projects
 or resolve the editor-import/shutdown concerns documented below.
 
-## Conclusion
+## Follow-up sample restoration
+
+All 15 previously quarantined projects are back in their original locations.
+They passed **60 bounded startup combinations**: 15 projects, two engines and
+default/forced-AST execution. No parser, runtime or shader failure occurred in
+those startup runs. Climatist's startup weather request was explicitly disabled
+for offline testing; a separate loopback HTTP check verified status and body.
+
+Ten focused probes in [`run_sample_regression.gd`](../../test_proj/run_sample_regression.gd)
+passed **40 engine/mode combinations**. These check HighScores data preservation,
+Snake food/power-up placement and full-board termination, Platformer pause
+fades/resume/reopen races, vector hit-testing and persistence, paint pixels,
+movie controls, dashboard initialization, DocGen utility results, Climatist
+imports, and AGCK's active glitch/shatter rendering. AGCK used OpenGL
+Compatibility under Xvfb, not the dummy headless renderer.
+
+The restoration exposed four native root causes:
+
+- Indexed ByRef write-back could store an entire array in its own element
+  when a builtin shadowed a user function. Indexed fallbacks now read the
+  element, and each call clears stale captures. Non-pure computed indices
+  retain the established AST fallback so index calls cannot erase captures.
+- Imported modules' dependencies were not loaded recursively, and the compiler
+  did not recognize transitive qualified module calls.
+- Computed-goto opcode exits bypassed C++ scope destructors. Dispatch now leaves
+  the opcode scope through a direct jump before indirect dispatch. A regression
+  verifies that repeated GDScript static calls do not grow script references.
+- AST execution incorrectly treated an explicit Tween object's `TweenProperty`
+  method as the legacy global shortcut, leaving the receiver Tween empty.
+
+After the final native rebuild, the full differential suite passed **220
+matched fixtures on each engine**, with zero failures/divergences and eight
+explicit exclusions. All four final corpus runs passed **80/80**, without
+failures or skips.
+
+Sample fixes include supported draw transforms, path-based autoloads, corrected
+declarations, bounded Snake placement, pause-menu race handling, standalone
+mobile console hosts, and DocGen's Include-based module host. The API snapshots
+were regenerated with the actual documentation generator.
+
+AGCK's augmented game and media remain ignored/local by explicit choice.
+Its [tracked build and repair workflow](../../samples/internal/AGCK_Tests/README.md)
+preserves the shader, widget and music-teardown corrections without committing
+generated assets. Clean scaffold generation also required loading the tile
+library, supporting serialized numeric death actions, and completing the
+behavior-template `.vgt` migration. The base scaffold is not the augmented game.
+Repair/generation acceptance tests pass on both engines, including idempotence,
+helper-return preservation, explicit rejection of unknown shader patterns,
+persisted widget/music repairs, and numeric/string death actions.
+
+**Remaining limits:** cold editor imports can still report debugger attachment
+and RID/font/viewport teardown diagnostics. Abrupt frame-limited shutdown can
+warn about autoplay audio resources; the orderly behavioral host stops audio
+and waits before quitting. Brotato cold-import hangs/crash classification,
+interactive gameplay, hardware input, mobile permissions and exports remain
+separate work. Known generic-dictionary local/await initialization observations
+also need focused native investigation; this campaign does not claim that all
+possible VG defects have been eliminated.
+
+### Final performance checks
+
+After correctness testing, the final Linux editor build passed the compute
+wrapper and three isolated gameplay and draw runs on Godot 4.7.2. Required
+completion markers and comparable checksums were verified.
+
+Three-run median paired GDScript/VG speed ratios were **4.85x** for FrameSlice,
+**2.83x** for EntityThink and **1.15x** for CallChain. These are individual
+microbenchmark results, not whole-game FPS claims.
+
+The corrected MovingFilledRects workload retained checksum **257901** and
+**120 frames** for all three implementations in every run. Median reported
+`elapsed_us` values were **144 VG**, **236 GDScript** and **39 C++**.
+The ratio of those median timings is **1.64x in VG's favor**; C++ remains faster.
+This headless draw/queue benchmark does not measure displayed frame rate or
+GPU rendering. It is a follow-up smoke measurement, not a replacement for the
+earlier published benchmark campaign.
+
+## Original audit conclusion (historical)
 
 **The tested Linux VG runtime works on Godot 4.7.2 with the existing binaries.**
 This audit does **not** establish that every example works or that the complete

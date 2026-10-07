@@ -1834,17 +1834,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
     // VG_CASE(label, opcode):  on GCC/Clang emits `label: case opcode:`
     //                          on MSVC emits `case opcode:` only.
-    // VG_BREAK:  on GCC/Clang fetches next opcode + goto *dispatch_table[op]
-    //            on MSVC is plain `break`.
+	// A direct jump first leaves the opcode scope and runs its destructors.
+	// Jumping indirectly from the handler bypasses Variant/Array cleanup.
 #define VG_CASE(label, opcode)  label: case opcode
-#define VG_BREAK                                    \
-    do {                                            \
-        if (vm.ip >= effective_code_end) goto cleanup; \
-        last_opcode_offset = vm.ip;                 \
-        op = code[vm.ip++];                         \
-        current_opcode = op;                        \
-        goto *dispatch_table[op];                   \
-    } while (0)
+#define VG_BREAK goto vg_dispatch_next
 
 #else  // !VG_USE_COMPUTED_GOTO  (MSVC fallback)
 #define VG_CASE(label, opcode)  case opcode
@@ -1852,6 +1845,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif // VG_USE_COMPUTED_GOTO
 
     while (vm.ip < effective_code_end) {
+#if VG_USE_COMPUTED_GOTO
+	vg_dispatch_next:
+		if (vm.ip >= effective_code_end) goto cleanup;
+#endif
         last_opcode_offset = vm.ip;
         uint8_t op = code[vm.ip++];
         current_opcode = op;
@@ -2476,7 +2473,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // Re-push the destination's CURRENT value so the following
                     // OP_SET_LOCAL/OP_SET_GLOBAL is a true no-op instead of
                     // overwriting the variable with Nil.
-                    if (is_global) {
+					if (is_global == 2) {
+						if (!ensure_stack(2)) { success = false; goto cleanup; }
+						bool valid = false;
+						result = vm.stack[vm.stack.size() - 2].get(vm.stack.back(), &valid);
+						if (!valid) {
+							raise_error("Invalid indexed ByRef destination", 9);
+							if (try_recover_error(Variant())) break;
+							success = false;
+							goto cleanup;
+						}
+					} else if (is_global) {
                         Variant dest_name_var = read_constant(dest_idx);
                         String dest_name = dest_name_var;
                         result = variables.has(dest_name) ? variables[dest_name] : Variant();
@@ -4223,7 +4230,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 const String &method = (name_idx >= 0 && name_idx < chunk->constants.size())
                     ? ensure_member_cache_entry(name_idx).primary_string
                     : _vg_empty_method_name;
-                
+				_last_byref_captures.clear();
+
                 // ── Draw builtin fast path (perf) ──
                 if (name_idx >= 0 && name_idx < chunk->constants.size()) {
                     MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);

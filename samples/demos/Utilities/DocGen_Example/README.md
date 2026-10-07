@@ -47,15 +47,25 @@ Browse the output:
 
 ## Try It Yourself
 
+Run the main scene to see the inventory, math, and string demonstrations in
+the debug console. Five `PASS:` checks precede `All demos complete!`.
+This is a console scene, not a form-based UI. `Main.vg` uses `Include` so the
+utility record types and enums share one compilation unit. `InventorySystem`
+is a module, not a class; call `ResetInventory`, not `New InventorySystem`.
+
+The generator UI belongs to the experimental Form Designer, which is
+disabled by default. To try that UI:
+
 1. Open this project in Godot 4.6+
 2. Enable the VisualGasic plugin (**Project → Project Settings → Plugins**)
-3. Switch to the **Form Designer**
+3. Enable `vg/enable_experimental_plugins`, restart the editor, and switch to the **Form Designer**
 4. Click **Tools → Generate Documentation...**
 5. Choose an output folder and format (Markdown, HTML, or Both)
 6. Click **OK**
 
 The generator scans every `.vg` file (excluding `addons/`) and produces
 an index page plus one detail page per module.
+Regenerate the shipped documentation snapshots after editing source comments.
 
 ## Options
 

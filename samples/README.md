@@ -33,15 +33,21 @@ scripts/ci_smoke.sh samples/apps/vg_hex_editor
 ### Godot 4.7.2 tested scope
 
 The Linux runtime and existing native extension binaries were tested on Godot
-4.7.2. An isolated audit covered 56 sample projects plus the engine developer
-harness, but **not all examples work**: parser/runtime defects, missing main
-scenes and cold-import problems remain. Many reproduce on 4.6.1; one 4.7.2
-editor-import crash remains unclassified. See the
+4.7.2. After the initial audit of 56 sample projects plus the engine developer
+harness, all 15 quarantined projects were corrected and restored. They passed
+60 bounded startup checks across both engines and both execution modes;
+ten projects also passed 40 focused behavioral checks. Cold-import problems
+in the Brotato projects and an unclassified editor-import crash remain. See the
 [compatibility report and project matrix](../docs/compatibility/GODOT_4_7_2.md).
 
 Headless startup does not certify rendering, gameplay, device APIs or exports.
 The existing `ci_smoke.sh` output is not a substitute for this stricter audit:
 process exit status and VG parser/runtime diagnostics also need checking.
+
+The report retains the original failure table as historical evidence, not a
+list of projects still parked. AGCK's augmented generated game remains local
+and ignored; its [tracked build/repair workflow](internal/AGCK_Tests/README.md)
+documents what can be reproduced from a clone.
 
 ## Games
 
@@ -52,8 +58,6 @@ process exit status and VG parser/runtime diagnostics also need checking.
 | [asteroids](games/asteroids/) | Classic asteroids |
 | [defender](games/defender/) | Side-scrolling shooter |
 | [platformer_2d](games/platformer_2d/) | Jump-and-run platformer |
-| [pong_ultimate](games/pong_ultimate/) | Pong variant |
-| [racing_3d](games/racing_3d/) | Simple 3D racing |
 | [vector_storm](games/vector_storm/) | Vector graphics shooter |
 | [elite_wire_slice](games/elite_wire_slice/) | Wireframe space demo (Elite-inspired, early) |
 | [zork](games/zork/) | Text adventure |
@@ -65,7 +69,6 @@ process exit status and VG parser/runtime diagnostics also need checking.
 |---------|-------------|
 | [vg_twinpane](apps/vg_twinpane/) | Dual-pane file manager (Form Designer sample) |
 | [vg_hex_editor](apps/vg_hex_editor/) | Binary hex editor (Form + custom `_Draw` canvas) |
-| [vector_dashboard](apps/vector_dashboard/) | Vector dashboard UI |
 | [VG_UI_TOOLS](demos/UI/VG_UI_TOOLS/) | VB6-style control gallery |
 
 ## Showcases

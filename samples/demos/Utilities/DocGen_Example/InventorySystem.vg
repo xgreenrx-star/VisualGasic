@@ -4,11 +4,11 @@
 ''' of inventory items.  Designed for RPG or shop-style games.
 '''
 ''' @example
-'''   Dim inv As Object
-'''   Set inv = New InventorySystem
-'''   inv.AddItem "Sword", 1, 150.0
-'''   inv.AddItem "Potion", 5, 25.0
-'''   Print inv.GetTotalValue()   ' → 275.0
+'''   Include "InventorySystem.vg"
+'''   ResetInventory
+'''   AddItem "Sword", 1, 150.0
+'''   AddItem "Potion", 5, 25.0
+'''   Print GetTotalValue()   ' → 275.0
 Attribute VB_Name = "InventorySystem"
 Option Explicit
 
@@ -39,7 +39,7 @@ Dim items(MAX_SLOTS) As InventoryItem
 Dim itemCount As Integer
 
 ''' Initializes the inventory to empty.
-Sub Form_Load()
+Sub ResetInventory()
     itemCount = 0
 End Sub
 

@@ -29,6 +29,11 @@ Open **`samples/apps/climatist_poc/project.godot`** in Godot 4.6+ with Visual Ga
 
 After editing `.vg` files, run **F5** again so scripts recompile; the Now title bar should read **“Now (Tab, then Pattern)”** (ASCII on web).
 
+For offline startup verification, launch with
+`VG_CLIMATIST_SKIP_STARTUP_FETCH=1`. The window explicitly reports that the
+startup download was skipped. This does not validate live weather services
+and does not disable downloads initiated by the Refresh controls.
+
 | Input | Action |
 |-------|--------|
 | **Click bottom bar** | Now / Pattern / Settings / Refresh (always works) |

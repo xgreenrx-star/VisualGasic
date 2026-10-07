@@ -6169,6 +6169,13 @@ String VisualGasicCompiler::detect_imported_module_call(ExpressionNode* base_obj
             return mod_name;
         }
     }
+	for (int mi = 0; mi < import_modules.size(); mi++) {
+		if (!import_modules[mi]) continue;
+		for (int ii = 0; ii < import_modules[mi]->imports.size(); ii++) {
+			String mod_name = import_modules[mi]->imports[ii].get_file().get_basename();
+			if (mod_name.nocasecmp_to(name) == 0) return mod_name;
+		}
+	}
     return String();
 }
 
@@ -6436,28 +6443,22 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
         } else if (arg->type == ExpressionNode::ARRAY_ACCESS) {
             ArrayAccessNode* aa = (ArrayAccessNode*)arg;
             if (aa->indices.size() != 1 || !aa->base || aa->base->type != ExpressionNode::VARIABLE) continue;
+			// Index calls can overwrite captures; retain the AST write-back path.
+			if (!is_pure_expr(aa->indices[0])) {
+				compile_ok = false;
+				return;
+			}
             VariableNode* base_var = (VariableNode*)aa->base;
             String argname = base_var->name;
             if (local_const_map.has(argname.to_lower())) continue;
             int slot = get_or_add_local(argname, VT_UNKNOWN);
+			compile_expression(aa->base);
+			compile_expression(aa->indices[0]);
             emit_byte(OP_BYREF_LOAD);
             emit_const_index(pidx);
-            if (slot >= 0) {
-                emit_byte(0);
-                emit_byte((uint8_t)(slot & 0xFF));
-                emit_byte((uint8_t)((slot >> 8) & 0xFF));
-            } else {
-                int nidx = current_chunk->add_constant(argname);
-                emit_byte(1);
-                emit_byte((uint8_t)(nidx & 0xFF));
-                emit_byte((uint8_t)((nidx >> 8) & 0xFF));
-            }
-            // Stack: [byref_value] — rearrange to [array, index, value] for OP_SET_ARRAY
-            int temp_slot = get_or_add_local("__byref_wb_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
-            emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot);
-            compile_expression(aa->base);
-            compile_expression(aa->indices[0]);
-            emit_bytes(OP_GET_LOCAL, (uint8_t)temp_slot);
+			emit_byte(2); // Indexed fallback reads the element, not its container.
+			emit_byte(0);
+			emit_byte(0);
             emit_byte(OP_SET_ARRAY);
             emit_byte(1);
             if (slot >= 0) {
@@ -6478,26 +6479,20 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
                     !local_slots.has(key) && !param_vars.has(key) && !is_buffer_var(argname)) {
                 continue;
             }
+			if (!is_pure_expr(call->arguments[0])) {
+				compile_ok = false;
+				return;
+			}
             int slot = get_or_add_local(argname, VT_UNKNOWN);
+			VariableNode base_var;
+			base_var.name = argname;
+			compile_expression(&base_var);
+			compile_expression(call->arguments[0]);
             emit_byte(OP_BYREF_LOAD);
             emit_const_index(pidx);
-            if (slot >= 0) {
-                emit_byte(0);
-                emit_byte((uint8_t)(slot & 0xFF));
-                emit_byte((uint8_t)((slot >> 8) & 0xFF));
-            } else {
-                int nidx = current_chunk->add_constant(argname);
-                emit_byte(1);
-                emit_byte((uint8_t)(nidx & 0xFF));
-                emit_byte((uint8_t)((nidx >> 8) & 0xFF));
-            }
-            int temp_slot = get_or_add_local("__byref_wb_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
-            emit_bytes(OP_SET_LOCAL, (uint8_t)temp_slot);
-            VariableNode base_var;
-            base_var.name = argname;
-            compile_expression(&base_var);
-            compile_expression(call->arguments[0]);
-            emit_bytes(OP_GET_LOCAL, (uint8_t)temp_slot);
+			emit_byte(2);
+			emit_byte(0);
+			emit_byte(0);
             emit_byte(OP_SET_ARRAY);
             emit_byte(1);
             if (slot >= 0) {

@@ -12,4 +12,3 @@ Sub _PhysicsProcess(delta As Single)
         Direction = -Direction
     End If
 End Sub
-

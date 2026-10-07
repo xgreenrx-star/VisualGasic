@@ -22,13 +22,13 @@ matched command has its own assertion.
 | Entries with runtime dispatch-literal evidence | 776 |
 | Documented entries with a corpus code reference | 162 |
 | Documented entries without a corpus code reference | 506 |
-| Documented entries without an assertion-bearing regression reference | 409 |
-| Documented entries missing both kinds of reference | 386 |
-| Documented entries with no active VG code reference anywhere scanned | 241 |
+| Documented entries without an assertion-bearing regression reference | 408 |
+| Documented entries missing both kinds of reference | 385 |
+| Documented entries with no active VG code reference anywhere scanned | 235 |
 | Entries without extracted implementation evidence (needs review) | 81 |
-| Available corpus / sample / regression / other VG files | 80 / 270 / 233 / 31 |
-| Unavailable tracked VG files (not silently counted as covered) | 53 |
-| Current hash-matched verified corpus / regression fixtures | 80 / 215 |
+| Available corpus / sample / regression / other VG files | 80 / 323 / 240 / 31 |
+| Unavailable tracked VG files (not silently counted as covered) | 0 |
+| Current hash-matched verified corpus / regression fixtures | 80 / 220 |
 
 ## Scope and limitations
 
@@ -60,7 +60,7 @@ matched command has its own assertion.
 ## Verified fixtures, not verified commands
 
 The recorded corpus evidence has 4 passing runs;
-the recorded differential evidence has 215
+the recorded differential evidence has 220
 matched passing fixtures. A verified-reference column is populated only
 when the current VG file, native-source, binary and runner hashes match
 that captured evidence.
@@ -168,10 +168,8 @@ purportedly supported examples.
 - `DisconnectSignal`
 - `DoEvents`
 - `DrawPixel`
-- `EmitSignal`
 - `ErrorDesc`
 - `FileDateTime`
-- `FillImageRect`
 - `FindChild`
 - `flatten`
 - `FormatCurrency`
@@ -211,7 +209,6 @@ purportedly supported examples.
 - `IsMissing`
 - `isnumber`
 - `IsOnCeiling`
-- `IsOnWall`
 - `IsSQLiteAvailable`
 - `isstring`
 - `IsZeroApprox`
@@ -224,7 +221,6 @@ purportedly supported examples.
 - `LoadForm`
 - `LoadImage`
 - `LoadScene`
-- `look_at`
 - `LSet`
 - `Material.SetShader`
 - `merge`
@@ -256,7 +252,6 @@ purportedly supported examples.
 - `Physics.GravityV3`
 - `Plane`
 - `PlaySound`
-- `pop`
 - `ppmt`
 - `Quaternion`
 - `QuaternionFromEuler`
@@ -305,7 +300,6 @@ purportedly supported examples.
 - `Speaker.Solo`
 - `Speaker.Volume`
 - `Sprite Data`
-- `Steps.Today`
 - `strcontains`
 - `StrConv`
 - `string.contains`
@@ -570,7 +564,6 @@ This second list can include commands referenced by sample projects.
 - `npv`
 - `OS`
 - `padleft`
-- `padright`
 - `Permission.All`
 - `Permission.Has`
 - `Permission.Request`
@@ -765,56 +758,4 @@ failures/skips. The differential log must finish successfully.
 These paths remain tracked but are absent in this local working tree.
 They are not removed by this audit and their ignored archives are not scanned.
 
-- `samples/apps/climatist_poc/ClimatistStore.vg`
-- `samples/apps/climatist_poc/DiscussionApi.vg`
-- `samples/apps/climatist_poc/HttpUtil.vg`
-- `samples/apps/climatist_poc/Main.vg`
-- `samples/apps/climatist_poc/PatternApi.vg`
-- `samples/apps/climatist_poc/WeatherApi.vg`
-- `samples/apps/climatist_poc/test_climatist_fixtures.vg`
-- `samples/apps/climatist_poc/test_http_util.vg`
-- `samples/apps/climatist_poc/test_pattern_parse.vg`
-- `samples/apps/vector_dashboard/Module1.vg`
-- `samples/apps/vector_dashboard/main.vg`
-- `samples/apps/vector_dashboard/vector_asteroids.vg`
-- `samples/apps/vector_dashboard/vector_dashboard.vg`
-- `samples/demos/2D_Games/Platformer_Godot/.vg`
-- `samples/demos/2D_Games/Platformer_Godot/enemy/enemy.vg`
-- `samples/demos/2D_Games/Platformer_Godot/game.vg`
-- `samples/demos/2D_Games/Platformer_Godot/gui/coins_counter.vg`
-- `samples/demos/2D_Games/Platformer_Godot/gui/pause_menu.vg`
-- `samples/demos/2D_Games/Platformer_Godot/level/coin.vg`
-- `samples/demos/2D_Games/Platformer_Godot/level/level.vg`
-- `samples/demos/2D_Games/Platformer_Godot/player/bullet.vg`
-- `samples/demos/2D_Games/Platformer_Godot/player/gun.vg`
-- `samples/demos/2D_Games/Platformer_Godot/player/player.vg`
-- `samples/demos/2D_Games/Snake/snake.vg`
-- `samples/demos/Data_and_Files/HighScores/highscores.vg`
-- `samples/demos/Graphics/VGMovie/Form1.vg`
-- `samples/demos/Graphics/VGMovie/VGMovie.vg`
-- `samples/demos/Graphics/VGPaint/.vg`
-- `samples/demos/Graphics/VGPaint/Form1.vg`
-- `samples/demos/Graphics/VGPaint/VGPaint.vg`
-- `samples/demos/Graphics/VGVector/.vg`
-- `samples/demos/Graphics/VGVector/Form1.vg`
-- `samples/demos/Graphics/VGVector/VGVector.vg`
-- `samples/demos/Mobile/Pedometer/main.vg`
-- `samples/demos/Mobile/TiltMaze/main.vg`
-- `samples/demos/Utilities/DocGen_Example/InventorySystem.vg`
-- `samples/demos/Utilities/DocGen_Example/Main.vg`
-- `samples/demos/Utilities/DocGen_Example/MathHelpers.vg`
-- `samples/demos/Utilities/DocGen_Example/StringUtils.vg`
-- `samples/games/pong_ultimate/pong_ultimate.vg`
-- `samples/games/racing_3d/main.vg`
-- `samples/games/racing_3d/racing.vg`
-- `samples/internal/AGCK_Tests/.vg`
-- `samples/internal/AGCK_Tests/Form1.vg`
-- `samples/internal/AGCK_Tests/demo_platformer.vg`
-- `samples/internal/AGCK_Tests/frmGreeting.vg`
-- `samples/internal/AGCK_Tests/frmLogin.vg`
-- `samples/internal/AGCK_Tests/mixed/Enemy.vg`
-- `samples/internal/AGCK_Tests/mixed/Form1.vg`
-- `samples/internal/AGCK_Tests/mixed/Utils.vg`
-- `samples/internal/AGCK_Tests/working_nodes_export.vg`
-- `samples/internal/AGCK_Tests/working_nodes_export_2d.vg`
-- `samples/stdlib/HttpUtil.vg`
+None. All tracked VG source files are available.

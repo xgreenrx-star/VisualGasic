@@ -1050,7 +1050,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                 }
             }
 
-            if (s->method_name.nocasecmp_to("TweenProperty") == 0) {
+            if (!s->base_object && s->method_name.nocasecmp_to("TweenProperty") == 0) {
                  if (call_args.size() == 4) {
                       Object *obj = call_args[0];
                       String prop = call_args[1];

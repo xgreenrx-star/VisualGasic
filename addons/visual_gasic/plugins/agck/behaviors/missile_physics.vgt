@@ -13,4 +13,3 @@ Sub Launch(dir As Vector2)
     MoveDirection = dir.Normalized()
     LifeTime = 3.0
 End Sub
-

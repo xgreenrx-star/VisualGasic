@@ -1,26 +1,26 @@
 {
   "corpus_runs": [
     {
-      "log": "examples-final-472-default.log",
+      "log": "sample-corpus-final-461-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "examples-final-472-ast.log",
+      "log": "sample-corpus-final-461-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "examples-final-461-default.log",
+      "log": "sample-corpus-final-472-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "examples-final-461-ast.log",
+      "log": "sample-corpus-final-472-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     }
   ],
   "differential": {
-    "log": "examples-final-native-full.log",
-    "matched": 215,
-    "sha256": "f8601208914ee893d6c6900b1d6787935cd53eb3e48f90c7bd22254e6d3a0a33"
+    "log": "sample-native-220-final472.log",
+    "matched": 220,
+    "sha256": "c44f70efdf46a11b4279eaf8cb8d563e758755cd3e91ad019682c3b640e5abdf"
   },
   "files": {
     "corpus/01_basics/01_hello_world.vg": "88fd2503cd3e86ab564652be5b222761107bb6267ffa773a0f799c8e76c46dfc",
@@ -127,6 +127,7 @@
     "test_proj/test_suite/test_byref_ast_import.vg": "0e68969adc9aa96f8c9d02812042d56ad084a0826808969cfa1048c81e84f1fb",
     "test_proj/test_suite/test_byref_byval.vg": "fab294891b904507066c5f5f59d53bd0e3601cb51e14a30a9e3d5db59ad14ace",
     "test_proj/test_suite/test_byref_caller_import.vg": "610b04233edce7d83549fc6a44a8693a24ef4f672398ff1565d829bb9091351b",
+    "test_proj/test_suite/test_byref_computed_index.vg": "96e344e881a98c944a8d0eb2e39d42e16cf3fe86a72e07ec84fb31d03abb2c59",
     "test_proj/test_suite/test_byref_import.vg": "866cde81930832056f01d592e6dc85dddecdcc313f636fb175961346e2b323e9",
     "test_proj/test_suite/test_byref_project.vg": "06be6192e95a7ae7b53e31adbaf1d22ef1fe3fe800e33b40a96c5ad2dc137f83",
     "test_proj/test_suite/test_byval_double_import.vg": "0b06b4bac331f94eb621cf325be024112d839de829e9cefa70b750a770ac46eb",
@@ -277,6 +278,7 @@
     "test_proj/test_suite/test_runtime_properties.vg": "8bdfc0599fc3a0dc4b4e8883e92225eeb364b71083296c0f3bc6b7591b9e46f4",
     "test_proj/test_suite/test_scope.vg": "630807941cdb79a7bb8eedea9245376b4066979384af34cf884411982d65d5c1",
     "test_proj/test_suite/test_screen_box_host.vg": "cc5fe796e1fedafc7e8a7f24afeb8a7e50877cd22b614646747eb9e7626c2b2c",
+    "test_proj/test_suite/test_script_static_reference_lifetime.vg": "bec1c5955d86829789c62e942878c1ac9264d59ad3a8ca0a7ba3004d88580535",
     "test_proj/test_suite/test_select_case.vg": "76aad25f30ff2b4281a95d477701dd708cb609846ad635a2b18a5682b9df9262",
     "test_proj/test_suite/test_signal_handler.vg": "32acd8a8aa2da07baaaaa5ee5a668820c1acf22eb7e835929988b65769f115d8",
     "test_proj/test_suite/test_simple_assign.vg": "929836abe3a9ae92c482e6d37f1c2e70915eee7dd755b0d9bf745ba5e572d675",
@@ -288,14 +290,17 @@
     "test_proj/test_suite/test_stress_memory.vg": "35e5944deb1bdf0b29d03973c0b1613644a73fc3498cbc2eaf711f8a76f96406",
     "test_proj/test_suite/test_stress_strings.vg": "1f5366871887435c5605a03d673c98730552f1a4ebf0155747d7ed35d0530e08",
     "test_proj/test_suite/test_stress_threading.vg": "cc875f417a4bc21fbf0d8f710da8959bd2abc526356366f59b0ca12d3dd7e9c0",
+    "test_proj/test_suite/test_string_array_readonly_byref.vg": "0e31923d5b697e75a328cdd5b75cd72b11a61d27a7ad05c076a38a090d3d444a",
     "test_proj/test_suite/test_string_funcs.vg": "3a126d6553416b6d77a6a3585aa32d89f7402cba28ded1482bba385e996096c7",
     "test_proj/test_suite/test_string_function_return.vg": "75ba650c79b4c0ec7b22c16954d227232b7f3369eedb932fd2dfcf4858f64786",
     "test_proj/test_suite/test_sub_function.vg": "20188ad03cc0130d94c5d31b40c5a90737c11bd7de5bcdc218bd75c7ec6bdf7f",
     "test_proj/test_suite/test_syntax_parity.vg": "78c81ef531e5b848f7401773c902e6dfc89b9757fc9638478a55e92a82ebcd4e",
     "test_proj/test_suite/test_threading.vg": "faaa7a1398de22c110acd046b736a653cc91d6d8b99fd0903a77632dc807bb34",
+    "test_proj/test_suite/test_transitive_import.vg": "b9164dc138ea7022254518667378fa46a80a4fb13f7dc3c47e322012b0938380",
     "test_proj/test_suite/test_try_cross_module.vg": "f6e8fa130855e3e4fc4d7b7692eb691677ac99ba66a719946bb93ad0e6edc216",
     "test_proj/test_suite/test_try_explicit_catch.vg": "095905f3fed865b370c09b62d9563adf08316133ff6f729f32f3cf0193ba6a4a",
     "test_proj/test_suite/test_tween.vg": "f2a2d12d18b894e180a266a52d7398a3bf0e6e46b146d1d9756e3a58e87e6665",
+    "test_proj/test_suite/test_tween_object_method.vg": "d4fe7cfde252bb355d81cd1767ba3025cb929015f90c197611665fc2e0f2cb06",
     "test_proj/test_suite/test_type_conversion.vg": "211ad51034697bc3c389c02b513425a57f2f6a697978bbf414525f4a070742e2",
     "test_proj/test_suite/test_v210_features.vg": "d23132755dc57eb9f2d22e9f5cd7c625344703d223adb2fc42b28350ec880d48",
     "test_proj/test_suite/test_v2_vs_v2i.vg": "c17c466a893e4af855dfe33fd62b71b2228839298ab99fd064feae475d154fd4",
@@ -321,8 +326,8 @@
   },
   "hash_note": "Hashes captured from the working tree during inventory generation, not embedded by the test runner.",
   "runtime": {
-    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "eec5e1cd8331a6de0e069375ae224e507d50124e058c29300c159029403ce081",
-    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "ecd1cfbad1bc41de61ac1af0d93118bd5c4f23d2892268b92d7c5c6c11d27edc",
+    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "712cb07a6ae508a34c1e9c8ca884ac074d6d24c9b109a102f9ba02db4b60fad4",
+    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "c07d5b2cb392b0909c5146cc4aab8e89ffb616c80e216544738f7be8e8cc8799",
     "addons/visual_gasic/visual_gasic.gdextension": "6882e50f52a707e28baaf6f12929d1906cc3b0fd8806f4f576f3b2fd68bb6198",
     "scripts/audit_corpus.sh": "68ebb14c179dfbf82acff20dfd165b2a865948a42436ea07118e1edb55f4bedd",
     "scripts/run_ast_bytecode_diff.sh": "60159e2bb34fbe5ebdf4c7e03c3c1a4a61e32554beb3e02a2d4b8f6c1439c1b9",
@@ -375,7 +380,7 @@
     "src/visual_gasic_bracket_completion.h": "f2757af6967666f2c3815243c83b19f634fb1ac7b27ddb571df160d20a86402b",
     "src/visual_gasic_builtins.cpp": "64e7c03bb6c51d503c005afdcbb9d903b42b37453a2dfa0babbc4d8ece56c3be",
     "src/visual_gasic_builtins.h": "05a94418d685a43dfa7bc6b69c69c96ad889e98dc236ee1c2f568bc1d48a1dfa",
-    "src/visual_gasic_bytecode.h": "34e09f8fe524f9dd5697917da773dc122346055be26db0ec15965e6bf24639cf",
+    "src/visual_gasic_bytecode.h": "20492e82d0edb6e65facb610a7a832df2b6528baf4bdc4ef0b9830626f45846a",
     "src/visual_gasic_bytecode_cache.h": "9bb1663e55043bd490a20b59adc53ed532d4476188cdac92af821f101becea96",
     "src/visual_gasic_causal_graph.cpp": "9957a042cb94e0c9f67289e1bc77046e31d4743541c1770de353beead4f0bcf5",
     "src/visual_gasic_causal_graph.h": "a38f0758c40dbb5f18d1699b7a8c30215455176fc6f7e7d798127d6d27726c23",
@@ -388,7 +393,7 @@
     "src/visual_gasic_comm.h": "f83d5dbb9944350afae213ae4b09ce84001621a01d46257e3bc175fde6bbf709",
     "src/visual_gasic_common_dialog.cpp": "e55e62a240eb59a25129413963b5645c063403c7df3b0c51145a50378567f64b",
     "src/visual_gasic_common_dialog.h": "90ac747e111cc0c5459906cda41116ee3309ca5d5860a7aaaa42422dcc0685d3",
-    "src/visual_gasic_compiler.cpp": "8cba65bff6b93416d00311425e3e17df3aad1951d7783b279ea9d657dbc6e093",
+    "src/visual_gasic_compiler.cpp": "3316961a4c04b0670f82db273806662cf0c4075c010789eb69fb798578ab81d0",
     "src/visual_gasic_compiler.h": "9908e652e6baf0605e8e510eac153697a4c152a52a1a1cd85357d70485bfb6ce",
     "src/visual_gasic_crypto.cpp": "b023f3feb63deeb9cb36ae4dc1a5387a364115bcecddb095365460befae84e55",
     "src/visual_gasic_crypto.h": "45a30669b8b4bfcc2b2d01f13e058019368c5fcd00dfd5e46daf7af7fe490744",
@@ -420,15 +425,15 @@
     "src/visual_gasic_http.h": "1b07d2b78d9227ae394c22ce682f2d0a4355131b9f7f6f152cc4ce7131001eaa",
     "src/visual_gasic_immediate.cpp": "4c8f83718f47d1494097f536865e8f09fb52ef3cce2a1bbd34c33edbd64c6672",
     "src/visual_gasic_immediate.h": "1597807f4d5ffe62d9608865a39b5b91f29063ddc58796c874a84d953e280f47",
-    "src/visual_gasic_instance.cpp": "aaed8782c3a495846861a07061adb519bbb311480edb91f52854d53aaefa52ae",
+    "src/visual_gasic_instance.cpp": "0bb98c7a78858651949b90f9285e1068c8b36653e3ceb01038795765935b595a",
     "src/visual_gasic_instance.h": "08b37843e35eaee9f47d96ec4b17d96609504b87ccb90ac935c04ff7d5cd7828",
     "src/visual_gasic_instance_ast_await.cpp": "1351382240355a3ea224e6409085765313448dce97cb544a671b3078ff1c9942",
     "src/visual_gasic_instance_builtins.cpp": "4e573c572ba8a3dfa9c44c9ddca5cec093485bdca6ea9436357614053f4774f7",
-    "src/visual_gasic_instance_bytecode_vm.cpp": "1309047551818de0a70cb313fa65da75786904ab16a9c0613ebef268355274c1",
+    "src/visual_gasic_instance_bytecode_vm.cpp": "61819233e3a7eb540eec6de7f69f3d79dd8bd35c55a19afaa8aef06aaf70fd13",
     "src/visual_gasic_instance_call.inc": "cdb71e02beaa1c9155e325807f7f1d381aa8d26e5d5d5d9a1bd2147a6be0aaa3",
     "src/visual_gasic_instance_class.cpp": "0f1502bf924c637b2fedfbf3f5a93131ff34fc1190c40856ffafa941cc4574cc",
     "src/visual_gasic_instance_evaluate.inc": "148cc9e99d362542525fdefcfc8ccb5c91f76f7afacd9d803789c48cde421f34",
-    "src/visual_gasic_instance_execute.inc": "2385d89647bccbae5481d7a3e23e25ab566902711ae684b9ec35dea37e3a332e",
+    "src/visual_gasic_instance_execute.inc": "e44f0bdb9026af12764393ca8edb34069df16a75c19cf23de75cc4c832151169",
     "src/visual_gasic_instance_expr_compat.inc": "da262618202abc7ad01c14c67d62436ea7458e16f9d228bc9e0c1b387ae21a7b",
     "src/visual_gasic_instance_expression.cpp": "2a681c1eba36933e3ef83e44824a18828ef6f3ac381bfd6017490b843264daf9",
     "src/visual_gasic_instance_fileio.cpp": "1909c0674d965f3158dcc5a040c0263611a7574fe4baf610c8cebcf4548458ad",

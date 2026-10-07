@@ -160,7 +160,7 @@ End Function
 '''   Dim v(1) As TemplateVar
 '''   v(0).Key = "name" : v(0).Value = "World"
 '''   Print ExpandTemplate("Hello {{name}}!", v, 1)   ' → "Hello World!"
-Function ExpandTemplate(template As String, vars() As TemplateVar, varCount As Integer) As String
+Function ExpandTemplate(template As String, vars As Variant, varCount As Integer) As String
     Dim result As String
     result = template
     Dim i As Integer

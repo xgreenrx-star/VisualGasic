@@ -777,12 +777,10 @@ Function HitTestShapes(px As Double, py As Double) As Integer
         Dim minY As Double
         Dim maxX As Double
         Dim maxY As Double
-        If x1 < x2 Then minX = x1
-        maxX = x2 Else minX = x2
-        maxX = x1
-        If y1 < y2 Then minY = y1
-        maxY = y2 Else minY = y2
-        maxY = y1
+        minX = Min(x1, x2)
+        maxX = Max(x1, x2)
+        minY = Min(y1, y2)
+        maxY = Max(y1, y2)
 
         ' Add some margin for thin shapes
         If px >= minX - 5 And px <= maxX + 5 And py >= minY - 5 And py <= maxY + 5 Then

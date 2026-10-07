@@ -50,10 +50,7 @@ Sub _Ready()
 	If vg = Null Then
 		Set vg = Load("res://addons/visual_gasic/plugins/vector_graphics/vg_vector_api.gd")
 	End If
-	If vg <> Null And vg.has_method("Get") Then
-		Set vg = vg.Get()
-	End If
-
+	' The API methods are static; keep the script, not its owning singleton.
 	Set canvas_background = vg.CreateVectorCanvas()
 	Set canvas_game = vg.CreateVectorCanvas()
 	Set canvas_ui = vg.CreateVectorCanvas()
@@ -88,6 +85,7 @@ Sub _ApplyFullscreen()
 End Sub
 
 Sub _InitGame()
+	Dim i As Integer
 	score = 0
 	level = 1
 	ship_position = Vector2(ScreenSize.x * 0.5, ScreenSize.y * 0.5)
@@ -449,7 +447,7 @@ Sub _DrawCubeDemo(canvas As Object)
 	size = 34.0
 	Dim angle_x As Single
 	Dim angle_y As Single
-	agle_x = cube_rotation.x * PI / 180.0
+	angle_x = cube_rotation.x * PI / 180.0
 	angle_y = cube_rotation.y * PI / 180.0
 	Dim depth_offset As Vector2
 	depth_offset = Vector2(14, -10)
@@ -495,10 +493,10 @@ Sub _FireBullet()
 	bullet_vel_y(index) = ship_velocity.y + Sin(ship_angle) * 760.0
 	bullet_life(index) = 1.2
 	Print("FIRE BULLET INDEX " & CStr(index))
-	Beep()
+	Call PlayHitSound()
 End Sub
 
-Sub Beep()
+Sub PlayHitSound()
 	If DisplayServer.get_name() = "headless" Then
 		Return
 	End If
@@ -601,7 +599,7 @@ Sub _DestroyAsteroid(index As Integer)
 	Dim original_size As Integer
 	original_size = asteroid_size(index)
 	score = score + original_size * 60
-	Beep()
+	Call PlayHitSound()
 	If original_size > 1 Then
 		asteroid_size(index) = original_size - 1
 		asteroid_rot(index) = asteroid_rot(index) * 1.2
@@ -644,7 +642,7 @@ Sub _HitShip()
 	cube_spin = cube_spin + Vector3((Rnd() - 0.5) * 180.0, (Rnd() - 0.5) * 200.0, (Rnd() - 0.5) * 160.0)
 	cube_shake = 6.0
 	cube_hit_timer = 0.4
-	Beep()
+	Call PlayHitSound()
 	If ship_lives < = 0 Then
 		game_over = True
 	End If
@@ -699,7 +697,7 @@ Sub _ResolveAsteroidCollisions()
 						asteroid_vel_y(i) = vi_y - p * ny
 						asteroid_vel_x(j) = vj_x + p * nx
 						asteroid_vel_y(j) = vj_y + p * ny
-						Beep()
+						Call PlayHitSound()
 					End If
 				End If
 			Next

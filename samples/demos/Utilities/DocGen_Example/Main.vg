@@ -5,11 +5,15 @@
 Attribute VB_Name = "Main"
 Option Explicit
 
-Dim inv As Object
+' Include shares the utility declarations, enums, and record types with this
+' entry point. These are modules, not classes to instantiate with New.
+Include "InventorySystem.vg"
+Include "MathHelpers.vg"
+Include "StringUtils.vg"
 
-''' Called when the form loads — runs all the demos.
-Sub Form_Load()
-    Me.Caption = "DocGen Example"
+''' Called when the scene loads — runs all the demos in the debug console.
+Sub _Ready()
+    ResetInventory
     RunInventoryDemo
     RunMathDemo
     RunStringDemo
@@ -26,6 +30,7 @@ Sub RunInventoryDemo()
     SetItemRarity "Dragon Scale", Legendary
     SortByName
     PrintInventory
+    If GetTotalValue() = 5625 Then Print "PASS: inventory total" Else Print "FAIL: inventory total"
 End Sub
 
 ''' Demonstrates the math helper functions.
@@ -36,6 +41,8 @@ Sub RunMathDemo()
     Print "Distance2D(0,0,3,4) = " & CStr(Distance2D(0, 0, 3, 4))
     Print "DegToRad(180) = " & CStr(DegToRad(180))
     Print "WrapIndex(-1, 10) = " & CStr(WrapIndex(-1, 10))
+    If Distance2D(0, 0, 3, 4) = 5 Then Print "PASS: distance" Else Print "FAIL: distance"
+    If WrapIndex(-1, 10) = 9 Then Print "PASS: wrapped index" Else Print "FAIL: wrapped index"
 End Sub
 
 ''' Demonstrates the string utility functions.
@@ -45,4 +52,6 @@ Sub RunStringDemo()
     Print "RepeatString('=-', 5) = " & RepeatString("=-", 5)
     Print "ReverseString('Hello') = " & ReverseString("Hello")
     Print "Truncate('A very long string', 10) = " & Truncate("A very long string", 10)
+    If RepeatString("=-", 5) = "=-=-=-=-=-" Then Print "PASS: repeated string" Else Print "FAIL: repeated string"
+    If ReverseString("Hello") = "olleH" Then Print "PASS: reversed string" Else Print "FAIL: reversed string"
 End Sub
