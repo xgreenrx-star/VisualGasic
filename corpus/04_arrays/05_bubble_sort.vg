@@ -3,14 +3,15 @@
 ' clearest possible illustration of nested loops mutating an array,
 ' which is the underlying shape of every comparison sort.
 
-Sub BubbleSort(values() As Integer)
+' ByRef makes the in-place mutation explicit at the procedure boundary.
+Sub BubbleSort(ByRef values As Variant)
     Dim n As Integer = UBound(values) - LBound(values) + 1
     Dim i As Integer
     Dim j As Integer
     Dim tmp As Integer
 
     For i = 0 To n - 2
-        For j = 0 To n - 2 - i
+        For j = LBound(values) To UBound(values) - 1 - i
             If values(j) > values(j + 1) Then
                 tmp = values(j)
                 values(j) = values(j + 1)
@@ -21,19 +22,16 @@ Sub BubbleSort(values() As Integer)
 End Sub
 
 Sub Main()
-    Dim nums(6) As Integer
-    nums(0) = 64
-    nums(1) = 25
-    nums(2) = 12
-    nums(3) = 22
-    nums(4) = 11
-    nums(5) = 90
-    nums(6) = 7
+    ' Data holds the fixed fixture; a mutable general array holds the sort.
+    Dim nums As Variant = DataToArray("Numbers")
 
     Print "Before: " & Join(nums, ", ")
     BubbleSort(nums)
     Print "After:  " & Join(nums, ", ")
 End Sub
+
+Numbers:
+Data 64, 25, 12, 22, 11, 90, 7
 
 ' Expected output:
 ' Before: 64, 25, 12, 22, 11, 90, 7

@@ -11,7 +11,7 @@
 
 **Storefront positioning:** [docs/POSITIONING.md](docs/POSITIONING.md)
 
-**Godot 4.7.2 compatibility:** Linux runtime tests pass with the existing extension binaries. Editor cold-import/shutdown concerns and pre-existing example failures remain; see the [tested scope and compatibility report](docs/compatibility/GODOT_4_7_2.md) before migrating a project.
+**Godot 4.7.2 compatibility:** Linux runtime checks pass. All 58 reviewed corpus examples pass on Godot 4.7.2 and 4.6.1 in default and forced-AST modes with the rebuilt extension. Editor cold-import/shutdown concerns and the 15 quarantined sample projects remain unresolved; see the [tested scope and compatibility report](docs/compatibility/GODOT_4_7_2.md) before migrating a project.
 
 ## 🧭 The thesis (audit + AI — optional deep read)
 
@@ -52,7 +52,7 @@ BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 imp
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
 - **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
 
-**Examples for major features are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Type Conversions](corpus/01_basics/05_type_conversions.vg) · [Generics](corpus/06_classes/06_class_generics.vg) · [Optional Types](corpus/01_basics/06_optional_types.vg) · [Exception Handling](corpus/01_basics/07_exception_patterns.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_event_handler_button.vg). The current strict audit reports **36 passing, 14 failing, and 8 skipped** on both Godot 4.6.1 and 4.7.2; these are not all verified working references.
+**Examples for major features are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_event_handler_button.vg). All 58 corpus examples, including the 14 previously failing fixtures, have been restored, reviewed and validated. This is not exhaustive command coverage; see the corpus guide for gaps. The 15 unrelated failing sample projects remain parked locally under `scratch/failing_examples_godot_4_7_2_2026-10-06/`; they are not fixed by the corpus review.
 
 If the next decade really is auditor-bound, then the language that wins is the one that minimizes time-to-confidence per line. That language already exists, and it has had its tooling problem solved. **It's this one.**
 

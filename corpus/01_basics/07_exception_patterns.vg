@@ -1,19 +1,22 @@
 ' Advanced Exception Handling Patterns in VisualGasic
 ' Try/Catch/Finally allows defensive programming and graceful error recovery.
-' This example shows multiple exception types, nested handlers, and the Finally block.
+' This example shows validation, nested handlers and cleanup with Finally.
 
 ' Simulates parsing an integer with validation
 Function ParsePositiveInteger(str As String) As Integer
     Dim value As Integer
     
     Try
+        If Not IsNumeric(str) Then
+            Err.Raise 5, "ParsePositiveInteger", "Invalid numeric text"
+        End If
         value = CInt(str)
-    Catch ex As Exception
-        Throw New Exception("Failed to parse integer: " & str)
+    Catch ex
+        Err.Raise 5, "ParsePositiveInteger", "Failed to parse integer: " & str
     End Try
     
     If value <= 0 Then
-        Throw New Exception("Value must be positive, got: " & CStr(value))
+        Err.Raise 5, "ParsePositiveInteger", "Value must be positive, got: " & CStr(value)
     End If
     
     Return value
@@ -22,36 +25,38 @@ End Function
 ' Simulates division with zero-checking
 Function SafeDivide(numerator As Integer, denominator As Integer) As Single
     If denominator = 0 Then
-        Throw New Exception("Cannot divide by zero")
+        Err.Raise 11, "SafeDivide", "Cannot divide by zero"
     End If
     Return numerator / denominator
 End Function
 
 Sub Main()
     Print "--- Nested Try/Catch Example ---"
-    Dim inputs() As String = {"10", "abc", "-5", "0"}
+    Dim inputText As String
+    Dim i As Integer
+    Restore ParseInputs
     
-    For i = 0 To UBound(inputs)
+    For i = 1 To 4
+        Read inputText
         Try
-            Dim num As Integer = ParsePositiveInteger(inputs(i))
-            Print "Input '" & inputs(i) & "' -> " & CStr(num)
-        Catch parseEx As Exception
-            Print "Error parsing '" & inputs(i) & "': " & parseEx.Message
+            Dim num As Integer = ParsePositiveInteger(inputText)
+            Print "Input '" & inputText & "' -> " & CStr(num)
+        Catch parseEx
+            Print "Error parsing '" & inputText & "': " & parseEx.Description
             ' Continue to next input instead of crashing
         End Try
     Next i
     
     Print ""
     Print "--- Finally Block Example ---"
-    Dim logFile As String = "operation.log"
     
     Try
         Print "Starting operation..."
         ' Simulate an operation that might fail
         Dim result As Single = SafeDivide(10, 2)
         Print "Division result: " & CStr(result)
-    Catch divEx As Exception
-        Print "Operation failed: " & divEx.Message
+    Catch divEx
+        Print "Operation failed: " & divEx.Description
     Finally
         ' This always runs, whether the Try succeeded or Catch fired
         Print "Cleaning up resources (Finally block always runs)"
@@ -59,20 +64,33 @@ Sub Main()
     
     Print ""
     Print "--- Multiple Paths with Error Handling ---"
-    Dim testValues() As Integer = {4, 0, 2}
+    Dim divisor As Integer
+    Restore Divisors
     
-    For i = 0 To UBound(testValues)
+    For i = 1 To 3
+        Read divisor
         Try
-            Dim divisor As Integer = testValues(i)
             Dim quotient As Single = SafeDivide(100, divisor)
             Print "100 / " & CStr(divisor) & " = " & CStr(quotient)
-        Catch divEx As Exception
-            Print "Cannot divide: " & divEx.Message
+        Catch divEx
+            Print "Cannot divide: " & divEx.Description
         Finally
-            Print "  [Finally: Operation complete for denominator " & CStr(testValues(i)) & "]"
+            Print "  [Finally: Operation complete for denominator " & CStr(divisor) & "]"
         End Try
     Next i
 End Sub
+
+ParseInputs:
+Data "10", "abc", "-5", "0"
+Divisors:
+Data 4, 0, 2
+
+' Expected handled errors:
+' 5|ParsePositiveInteger|11
+' 5|ParsePositiveInteger|15
+' 5|ParsePositiveInteger|19
+' 5|ParsePositiveInteger|19
+' 11|SafeDivide|28
 
 ' Expected output:
 ' --- Nested Try/Catch Example ---
@@ -88,6 +106,7 @@ End Sub
 '
 ' --- Multiple Paths with Error Handling ---
 ' 100 / 4 = 25
+'   [Finally: Operation complete for denominator 4]
 ' Cannot divide: Cannot divide by zero
 '   [Finally: Operation complete for denominator 0]
 ' 100 / 2 = 50

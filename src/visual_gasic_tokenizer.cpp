@@ -293,7 +293,8 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
         if (c == '#') {
             int start = current;
             int scan = current + 1;
-            while (scan < length && p_source_code[scan] != '#') {
+            while (scan < length && p_source_code[scan] != '#' &&
+                   p_source_code[scan] != '\n' && p_source_code[scan] != '\r') {
                 scan++;
             }
             if (scan < length && p_source_code[scan] == '#') {

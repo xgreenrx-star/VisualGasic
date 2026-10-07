@@ -1,6 +1,6 @@
 ' Split breaks a string into an array on a delimiter.
 ' Join glues an array back together with a delimiter.
-' Both are 0-indexed (a deliberate exception to BASIC's usual 1-indexing).
+' Split returns an array indexed from 0, like VG's default array declarations.
 
 Sub Main()
     Dim csv As String = "apple,banana,cherry,date"

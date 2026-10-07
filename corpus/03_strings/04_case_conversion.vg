@@ -1,5 +1,5 @@
 ' UCase, LCase, and Trim are the three most-used string normalisation
-' functions. UCase and LCase only affect ASCII letters; Trim removes
+' functions. UCase and LCase convert letter case; Trim removes
 ' leading and trailing spaces (and also tabs and newlines).
 
 Sub Main()

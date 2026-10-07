@@ -3,4 +3,11 @@
 '
 ' https://github.com/xgreenrx-star/VisualGasic/blob/main/corpus/10_godot_integration/01_event_handler_button.vg
 
-#Include "01_event_handler_button.vg"
+' Audit mode: buttons
+Include "01_event_handler_button.vg"
+
+' Expected output:
+' Form loaded
+' Save clicked. Total: 1
+' Save clicked. Total: 2
+' Reset

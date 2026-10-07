@@ -1,5 +1,58 @@
 # Godot 4.7.2 compatibility audit
 
+## Local review quarantine
+
+After this audit, the 14 failing corpus fixtures and 15 projects in the
+confirmed-failure table were initially moved locally to
+`scratch/failing_examples_godot_4_7_2_2026-10-06/`, preserving their original
+`corpus/` and `samples/` paths and available sidecars. The associated legacy
+project aliases were parked there too; canonical addon links were adjusted.
+Scratch is Git-ignored: this is a local review archive, not a published move.
+The two Brotato projects and shutdown-only cases remain in the active tree.
+
+The 14 corpus fixtures and their UID sidecars have since been restored and all
+58 examples reviewed. The 15 sample projects remain parked. The follow-up
+section below describes the revised corpus; subsequent original-audit sections
+retain the historical counts, paths and evidence.
+
+## Follow-up corpus review
+
+All **58 corpus examples pass, with zero failures and zero skips**, on Linux
+in both default and forced-AST execution modes on **Godot 4.7.2 and 4.6.1**.
+See the [corpus guide](../../corpus/README.md) for the four-run matrix,
+review conventions and exact validation commands.
+
+After rebuilding Linux editor and template_debug extensions, the complete
+4.7.2 AST/bytecode differential rerun passed **212 matched fixtures**, with
+zero failures/divergences and eight explicit exclusions. The audit harness's
+12 acceptance/rejection checks also passed. An earlier concurrent run hit one
+overlapping-Await order assertion; an isolated retry and the full isolated
+rerun passed. No Await source or expectation was changed for this review.
+
+The examples now use supported declarations, exception handling, VG event and
+property conventions, and explicit input validation. Fixed scenario data uses
+`Data` where appropriate; arrays and `If` remain where indexing, mutation,
+guards or the lesson itself make them clearer.
+
+This review also required native correctness fixes, not an ABI migration:
+
+- Date-literal scanning no longer pairs file-number `#` markers across lines
+  and swallows intervening file-processing statements.
+- A VM error propagated to a caller's `Catch` no longer prematurely prints an
+  unhandled-exception diagnostic. Genuinely unhandled errors remain reported.
+- Builtin arguments and extracted statement expressions use the full AST
+  evaluator, preserving floating `/` and VG property-alias semantics.
+- AST array `Count` / `Length` properties return sizes instead of Godot
+  method Callables or null.
+- Local array indexing takes precedence over same-named builtins such as
+  `Keys()` / `Values()`, including case-insensitive references.
+
+The corpus host now exercises actual auto-connected button, timer and keyboard
+signals and checks resulting control state. Timer timeouts are synthetic;
+physical focus, native InputBox dialogs, visual layout and gameplay remain
+interactive validation tasks. This does not certify the quarantined projects
+or resolve the editor-import/shutdown concerns documented below.
+
 ## Conclusion
 
 **The tested Linux VG runtime works on Godot 4.7.2 with the existing binaries.**

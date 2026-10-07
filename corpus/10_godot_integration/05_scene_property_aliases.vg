@@ -8,6 +8,9 @@
 '
 ' Same for: visible/Visible, modulate/Modulate, rotation/Rotation,
 ' scale/Scale, name/Name, and so on.
+' Requires Sprite2D sprite1, Label lblPlayer, and Buttons btnMove,
+' btnHide and btnTint below a Control form.
+' Audit mode: properties
 
 Sub Form_Load()
     ' All four assignments use VB-style aliases
@@ -17,6 +20,7 @@ Sub Form_Load()
     sprite1.Modulate = Color(1.0, 1.0, 1.0, 1.0)
 
     lblPlayer.Text = "Player ready"
+    Print lblPlayer.Text
 End Sub
 
 Sub btnMove_Click()
@@ -25,10 +29,12 @@ Sub btnMove_Click()
     p.x = p.x + 10.0
     sprite1.Position = p
     lblPlayer.Text = "Moved to x=" & CStr(p.x)
+    Print lblPlayer.Text
 End Sub
 
 Sub btnHide_Click()
     sprite1.Visible = Not sprite1.Visible
+    Print "Visible: " & CStr(sprite1.Visible)
 End Sub
 
 Sub btnTint_Click()
@@ -37,6 +43,12 @@ Sub btnTint_Click()
     Dim g As Single = Rnd()
     Dim b As Single = Rnd()
     sprite1.Modulate = Color(r, g, b, 1.0)
+    Print "Tint applied"
 End Sub
 
-' No "Expected output" -- run in the IDE.
+' The audit presses Move, Hide and Tint and checks the resulting properties.
+' Expected output:
+' Player ready
+' Moved to x=60
+' Visible: false
+' Tint applied

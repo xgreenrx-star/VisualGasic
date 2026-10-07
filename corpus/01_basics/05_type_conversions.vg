@@ -1,7 +1,7 @@
 ' Type conversion functions in VisualGasic.
-' CStr, CInt, CSng, CDbl, CBool all do exactly what they say.
-' They raise an error rather than returning a default on bad input,
-' so wrap them in Try/Catch when parsing user data.
+' CStr, CInt, CSng and CBool convert values to the requested type.
+' Validate numeric text with IsNumeric before conversion; do not assume
+' invalid text raises an exception. Format controls displayed precision.
 
 Sub Main()
     Dim n As Integer = CInt("42")
@@ -10,17 +10,18 @@ Sub Main()
     Dim b As Boolean = CBool("True")
 
     Print "CInt(""42"")   = " & CStr(n)
-    Print "CSng(""3.14"") = " & CStr(f)
+    Print "CSng(""3.14"") = " & Format(f, "0.00")
     Print "CStr(99)     = " & s
     Print "CBool(""True"") = " & CStr(b)
 
-    ' Defensive parsing: catch the exception, fall back to a default.
+    ' Invalid user input is reported explicitly, not silently converted.
+    Dim inputText As String = "not a number"
     Dim parsed As Integer = 0
-    Try
-        parsed = CInt("not a number")
-    Catch ex As Exception
-        parsed = 0
-    End Try
+    If IsNumeric(inputText) Then
+        parsed = CInt(inputText)
+    Else
+        Print "Invalid integer: " & inputText & "; using 0"
+    End If
     Print "Bad parse fell back to: " & CStr(parsed)
 End Sub
 
@@ -29,4 +30,5 @@ End Sub
 ' CSng("3.14") = 3.14
 ' CStr(99)     = 99
 ' CBool("True") = true
+' Invalid integer: not a number; using 0
 ' Bad parse fell back to: 0

@@ -1,6 +1,7 @@
 ' If / ElseIf / Else / End If is the universal branch construct.
 ' Note that every block keyword is closed with an English keyword
-' rather than a brace -- this makes mis-nested blocks impossible.
+' rather than a brace, making block boundaries easier to inspect.
+' This lesson deliberately uses If; use Select Case for discrete alternatives.
 
 Sub Main()
     Dim score As Integer = 75

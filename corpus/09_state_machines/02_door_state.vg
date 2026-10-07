@@ -2,8 +2,7 @@
 ' States: CLOSED, OPENING, OPEN, CLOSING.
 ' Events: "open", "close", "tick".
 ' This pattern shows up everywhere -- elevators, garage doors, vending
-' machines -- and in a verbose Select Case form even the AI can't get
-' the transitions wrong in a way the auditor doesn't immediately see.
+' machines. Select Case keeps transitions grouped by the current state.
 
 Function Step(state As String, event As String) As String
     Select Case state
@@ -36,29 +35,28 @@ Function Step(state As String, event As String) As String
             End If
 
         Case Else
-            Step = "CLOSED"
+            Raise 5, "Unknown door state: " & state
     End Select
 End Function
 
 Sub Main()
     Dim state As String = "CLOSED"
-    Dim events(5) As String
-    events(0) = "open"
-    events(1) = "tick"
-    events(2) = "close"
-    events(3) = "tick"
-    events(4) = "open"
-    events(5) = "tick"
 
     Print "Initial: " & state
 
     Dim e As String
-    For Each e In events
+    Dim eventIndex As Integer
+    Restore DoorEvents
+    For eventIndex = 1 To 6
+        Read e
         Dim newState As String = Step(state, e)
         Print "  " & state & " --(" & e & ")--> " & newState
         state = newState
-    Next e
+    Next eventIndex
 End Sub
+
+DoorEvents:
+Data "open", "tick", "close", "tick", "open", "tick"
 
 ' Expected output:
 ' Initial: CLOSED

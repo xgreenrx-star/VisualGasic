@@ -1,6 +1,7 @@
 ' Parse a single CSV line into typed fields.
 ' This is the simple version: no quoting, no embedded commas.
-' For real-world CSV use the corpus example in 07_file_io/04_read_csv.vg.
+' The file-reading example in 07_file_io also uses this restricted format;
+' use a CSV parser when quoted fields or embedded commas are required.
 
 Sub Main()
     Dim line As String = "Alice,30,engineer,87.5"

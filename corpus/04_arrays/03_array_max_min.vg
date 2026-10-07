@@ -3,11 +3,9 @@
 ' walk the rest. Seeding with 0 (or with a "very large" sentinel) is a
 ' classic AI-generated bug: it fails silently on all-negative arrays.
 
-Function ArrayMax(values() As Integer) As Integer
+Function ArrayMax(values As Variant) As Integer
     If UBound(values) < LBound(values) Then
-        Print "ArrayMax: empty array"
-        ArrayMax = 0
-        Exit Function
+        Raise 5, "ArrayMax requires a nonempty array"
     End If
 
     Dim best As Integer = values(LBound(values))
@@ -18,7 +16,10 @@ Function ArrayMax(values() As Integer) As Integer
     ArrayMax = best
 End Function
 
-Function ArrayMin(values() As Integer) As Integer
+Function ArrayMin(values As Variant) As Integer
+    If UBound(values) < LBound(values) Then
+        Raise 5, "ArrayMin requires a nonempty array"
+    End If
     Dim best As Integer = values(LBound(values))
     Dim i As Integer
     For i = LBound(values) + 1 To UBound(values)

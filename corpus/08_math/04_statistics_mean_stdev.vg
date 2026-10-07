@@ -3,16 +3,19 @@
 ' This is more accurate than the one-pass "sum of squares" formula
 ' that AI models often produce.
 
-Function Mean(values() As Single) As Single
+Function Mean(values As Variant) As Single
+    If values.Count = 0 Then
+        Raise 5, "Mean requires a nonempty array"
+    End If
     Dim total As Single = 0.0
     Dim v As Single
     For Each v In values
         total = total + v
     Next v
-    Mean = total / CSng(UBound(values) + 1)
+    Mean = total / CSng(values.Count)
 End Function
 
-Function StdDev(values() As Single) As Single
+Function StdDev(values As Variant) As Single
     Dim m As Single = Mean(values)
     Dim sumSq As Single = 0.0
     Dim v As Single
@@ -20,7 +23,7 @@ Function StdDev(values() As Single) As Single
         Dim d As Single = v - m
         sumSq = sumSq + d * d
     Next v
-    StdDev = Sqr(sumSq / CSng(UBound(values) + 1))
+    StdDev = Sqr(sumSq / CSng(values.Count))
 End Function
 
 Sub Main()

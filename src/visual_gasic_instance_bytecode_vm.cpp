@@ -8306,7 +8306,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // v3.2: Use centralized error recovery (try/catch, On Error, etc.)
                 if (!try_recover_error(Variant(), false)) {
-                    UtilityFunctions::printerr("VisualGasic: Unhandled exception: ", msg, " (code ", err_code, ")");
+                    // A caller may catch this; the top-level dispatcher reports
+                    // errors that remain unhandled after propagation.
                     success = false;
                     goto cleanup;
                 }

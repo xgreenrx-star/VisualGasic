@@ -1,17 +1,21 @@
-' Reading a line of input from the console with InputBox.
-' This example uses a default value so the program is non-interactive
-' when run through automation (the input box returns the default
-' immediately if the host has no UI).
+' Request text with InputBox, a native dialog rather than console input.
+' A default fills the dialog; it does not make execution non-interactive.
+' The audit exercises greeting logic without opening the modal dialog.
+' Audit mode: input
+
+Sub GreetUser(userName As String)
+    If Trim(userName) = "" Then
+        userName = "stranger"
+    End If
+    Print "Hello, " & userName & "!"
+End Sub
 
 Sub Main()
     Dim userName As String = InputBox("What is your name?", "Greeting", "World")
 
-    If userName = "" Then
-        userName = "stranger"
-    End If
-
-    Print "Hello, " & userName & "!"
+    GreetUser(userName)
 End Sub
 
-' Expected output (with default "World"):
+' Expected output:
 ' Hello, World!
+' Hello, stranger!

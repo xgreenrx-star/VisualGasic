@@ -17,7 +17,7 @@ Sub Main()
 
     ' .Items without parens returns an Array of values
     Dim vals As Variant = ages.Items
-    Print "Value count: " & CStr(ages.Count)
+    Print "Value count: " & CStr(vals.Count)
 
     ' Remove one and confirm Count updates
     ages.Remove("Bob")

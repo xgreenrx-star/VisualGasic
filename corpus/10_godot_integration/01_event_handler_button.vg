@@ -4,8 +4,9 @@
 ' So Sub btnSave_Click() is automatically connected to the
 ' "pressed" signal of a Button control named btnSave on the form.
 '
-' This is the same convention VB6 used; it is the single biggest
-' reason VisualGasic feels "obvious" to a human auditor.
+' Requires a Control form with Button children btnSave and btnReset,
+' and a Label named lblStatus. The audit builds that host and emits pressed.
+' Audit mode: buttons
 
 Dim clickCount As Integer
 
@@ -29,5 +30,8 @@ Sub btnReset_Click()
     Print "Reset"
 End Sub
 
-' No "Expected output" -- this is an event-driven program.
-' Run it inside the VisualGasic IDE and click the buttons.
+' Expected output:
+' Form loaded
+' Save clicked. Total: 1
+' Save clicked. Total: 2
+' Reset

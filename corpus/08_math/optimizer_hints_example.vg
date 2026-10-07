@@ -1,38 +1,25 @@
 Attribute VB_Name = "OptimizerHintsExample"
 
-' Optimizer Hints Example
-' =======================
-' Demonstrates how to use '@accumulator, '@loop_counter, and '@pure
-' directives to help the VG bytecode optimizer recognize patterns
-' for faster code generation.
-'
-' Run via: node.call("Main")
+' Optimizer-friendly loops (the filename is retained for existing links).
+' Simple accumulators and counted loops make intent easy to inspect.
+' Comment annotations are not recognized optimizer directives; these
+' examples make no guarantee about a particular optimization or speedup.
+' The corpus runner invokes Main; no GDScript caller is needed.
 
-' --- Example 1: Accumulator Pattern ---
-' The '@accumulator hint tells the optimizer that 'total' is only
-' modified by addition inside the loop. This enables sum-reduction
-' optimizations (e.g., unrolling, vectorization in future versions).
-
-Function SumArray(arr() As Long) As Long
+' A reduction keeps the accumulator separate from its loop counter.
+Function SumArray(arr As Variant) As Long
     Dim total As Long = 0
     Dim i As Long
-    '@accumulator total
-    '@loop_counter i
     For i = 0 To UBound(arr)
         total = total + arr(i)
     Next i
     SumArray = total
 End Function
 
-' --- Example 2: Loop Counter Pattern ---
-' When the optimizer knows 'i' is a simple 0→N counter, it can
-' elide bounds checks and apply strength reduction.
-
-Function CountEvens(arr() As Long) As Long
+' Count matches while preserving the source array.
+Function CountEvens(arr As Variant) As Long
     Dim count As Long = 0
     Dim i As Long
-    '@loop_counter i
-    '@accumulator count
     For i = 0 To UBound(arr)
         If arr(i) Mod 2 = 0 Then
             count = count + 1
@@ -41,13 +28,7 @@ Function CountEvens(arr() As Long) As Long
     CountEvens = count
 End Function
 
-' --- Example 3: Pure Function Hint ---
-' Marking a function as '@pure tells the optimizer it has no side
-' effects and always returns the same result for the same inputs.
-' This allows the optimizer to hoist the call out of loops or
-' fold constant arguments at compile time.
-
-'@pure
+' Square has no side effects; no annotation is needed for correctness.
 Function Square(x As Long) As Long
     Square = x * x
 End Function
@@ -55,32 +36,24 @@ End Function
 Function SumOfSquares(n As Long) As Long
     Dim total As Long = 0
     Dim i As Long
-    '@accumulator total
-    '@loop_counter i
     For i = 1 To n
         total = total + Square(i)
     Next i
     SumOfSquares = total
 End Function
 
-' --- Example 4: MemoryBuffer with Optimizer Hints ---
-' Combining Buffer Type with optimizer hints for maximum performance.
-' This pattern is common in emulator inner loops.
-
+' MemoryBuffer stores bytes, making its storage intent explicit.
 Function BufferChecksum(size As Long) As Long
     Dim buf As New MemoryBuffer(size)
     Dim i As Long
     Dim checksum As Long = 0
 
     ' Fill buffer with a pattern
-    '@loop_counter i
     For i = 0 To size - 1
         buf(i) = (i * 7 + 13) And &HFF
     Next i
 
     ' Compute checksum
-    '@loop_counter i
-    '@accumulator checksum
     For i = 0 To size - 1
         checksum = checksum + buf(i)
     Next i
@@ -114,8 +87,16 @@ Sub Main()
     ' Test 4: BufferChecksum
     Dim cksum As Long = BufferChecksum(256)
     Print "BufferChecksum(256) = " & cksum
-    Assert cksum > 0, "BufferChecksum should be > 0"
+    Assert cksum = 32640, "BufferChecksum should sum every byte value once"
 
     Print ""
-    Print "All optimizer hints examples passed!"
+    Print "All optimizer-friendly loop examples passed!"
 End Sub
+
+' Expected output:
+' SumArray(1..10) = 55
+' CountEvens(1..10) = 5
+' SumOfSquares(5) = 55
+' BufferChecksum(256) = 32640
+'
+' All optimizer-friendly loop examples passed!

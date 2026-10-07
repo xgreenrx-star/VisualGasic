@@ -28,7 +28,7 @@ Sub Main()
         Print "Fib(" & CStr(i) & ") = " & CStr(Fib(i))
     Next i
 
-    Print "Cache holds " & CStr(memo.Count()) & " entries"
+    Print "Cache holds " & CStr(memo.Count) & " entries"
 End Sub
 
 ' Expected output:

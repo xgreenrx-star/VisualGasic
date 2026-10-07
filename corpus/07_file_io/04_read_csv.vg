@@ -24,16 +24,26 @@ Sub Main()
     Dim row As String
     Do While Not EOF(2)
         Line Input #2, row
-        Dim fields() As String = Split(row, ",")
-        Dim nm As String = fields(0)
-        Dim age As Integer = CInt(fields(1))
-        Dim city As String = fields(2)
-        Print "  " & nm & ", " & CStr(age) & ", " & city
-        totalAge = totalAge + age
-        rowCount = rowCount + 1
+        ' A trailing newline may yield an empty final read; it is not a record.
+        If row <> "" Then
+            Dim fields() As String = Split(row, ",")
+            If UBound(fields) <> 2 Then
+                Close #2
+                Raise 5, "Expected three CSV fields: " & row
+            End If
+            Dim nm As String = fields(0)
+            Dim age As Integer = CInt(fields(1))
+            Dim city As String = fields(2)
+            Print "  " & nm & ", " & CStr(age) & ", " & city
+            totalAge = totalAge + age
+            rowCount = rowCount + 1
+        End If
     Loop
     Close #2
 
+    If rowCount = 0 Then
+        Raise 5, "CSV contains no data rows"
+    End If
     Print "Average age: " & CStr(totalAge / rowCount)
 End Sub
 

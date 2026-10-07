@@ -1,21 +1,15 @@
 ' Join() with integer and numeric arrays.
-' Arrays declared As Integer store values internally as floats.
-' Join formats whole-number floats without a .0 suffix.
+' A labeled Data table becomes a general array with DataToArray.
+' Join accepts general arrays and string arrays, not packed numeric arrays.
 
 Sub Main()
-    ' Integer array — values must print as "64", not "64.0"
-    Dim scores(4) As Integer
-    scores(0) = 64
-    scores(1) = 25
-    scores(2) = 12
-    scores(3) = 0
-    scores(4) = -7
+    Dim scores As Variant = DataToArray("Scores")
     Print Join(scores, ", ")
 
     ' Joined with a different delimiter
     Print Join(scores, " | ")
 
-    ' Single array — round-trips through Join/Split
+    ' String array round-trips through Join/Split.
     Dim words(2) As String
     words(0) = "red"
     words(1) = "green"
@@ -25,6 +19,9 @@ Sub Main()
     Dim parts() As String = Split(joined, "-")
     Print Join(parts, ", ")
 End Sub
+
+Scores:
+Data 64, 25, 12, 0, -7
 
 ' Expected output:
 ' 64, 25, 12, 0, -7

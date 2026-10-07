@@ -54,28 +54,25 @@ End Sub
 Sub Main()
     Dim e As Variant = New Enemy
 
-    ' Simulate the player approaching, attacking, retreating
-    Dim distances(6) As Single
-    distances(0) = 1000.0
-    distances(1) = 150.0
-    distances(2) = 40.0
-    distances(3) = 6.0
-    distances(4) = 3.0
-    distances(5) = 50.0
-    distances(6) = 400.0
-
+    ' Read the fixed approach/retreat scenario from the Data tape.
     Dim d As Single
-    For Each d In distances
+    Dim stepIndex As Integer
+    Restore PlayerDistances
+    For stepIndex = 1 To 7
+        Read d
         e.distanceToPlayer = d
         UpdateAI(e)
         Print "dist=" & CStr(d) & " -> state=" & e.state
-    Next d
+    Next stepIndex
 
     ' Now kill it
     e.hp = 0
     UpdateAI(e)
     Print "after death -> state=" & e.state
 End Sub
+
+PlayerDistances:
+Data 1000, 150, 40, 6, 3, 50, 400
 
 ' Expected output:
 ' dist=1000 -> state=IDLE

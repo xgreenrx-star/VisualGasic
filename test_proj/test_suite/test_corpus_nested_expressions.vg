@@ -1,0 +1,47 @@
+' Builtin arguments and extracted statements must use full VG semantics.
+Function Minimum(values As Variant) As Integer
+    Dim best As Integer = values(LBound(values))
+    Dim i As Integer
+    For i = LBound(values) + 1 To UBound(values)
+        If values(i) < best Then best = values(i)
+    Next i
+    Minimum = best
+End Function
+
+Sub SortPair(ByRef values As Variant)
+    If values(0) > values(1) Then
+        Dim temporary As Integer = values(0)
+        values(0) = values(1)
+        values(1) = temporary
+    End If
+End Sub
+
+Sub _Ready()
+    Dim numerator As Integer = 10
+    Dim denominator As Integer = 3
+    If CStr(numerator / denominator) = "3.33333333333333" Then Print "PASS: nested floating division" Else Print "FAIL: nested floating division"
+
+    Dim numbers(2) As Integer
+    numbers(0) = 4
+    numbers(1) = -10
+    numbers(2) = 22
+    If CStr(numbers.Count) = "3" And CStr(numbers.Length) = "3" Then Print "PASS: nested array properties" Else Print "FAIL: nested array properties"
+    If CStr(Minimum(numbers)) = "-10" Then Print "PASS: nested typed array indexing" Else Print "FAIL: nested typed array indexing"
+
+    Dim pair As Variant = Array(9, 2)
+    SortPair(pair)
+    If Join(pair, ",") = "2,9" Then Print "PASS: extracted array comparison and mutation" Else Print "FAIL: extracted array comparison and mutation"
+
+    Dim ages As New Dictionary
+    ages.Add("Alice", 30)
+    ages.Add("Bob", 25)
+    If CStr(ages.Count) = "2" Then Print "PASS: nested dictionary Count" Else Print "FAIL: nested dictionary Count"
+    Dim keys As Variant = ages.Keys
+    Dim values As Variant = ages.Items
+    If CStr(KEYS(0)) = "Alice" And CStr(VALUES(1)) = "25" Then Print "PASS: nested dictionary arrays" Else Print "FAIL: nested dictionary arrays"
+
+    Dim control As Object = ClassDB.Instantiate("Control")
+    Me.AddChild(control)
+    control.Visible = False
+    If CStr(control.Visible) = "false" Then Print "PASS: nested VG property alias" Else Print "FAIL: nested VG property alias"
+End Sub

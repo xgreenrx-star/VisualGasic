@@ -24,7 +24,8 @@ Sub Main()
     Next k
 End Sub
 
-' Expected output (key order is insertion order):
+' Keys are visited in insertion order in this example.
+' Expected output:
 ' the -> 3
 ' quick -> 1
 ' brown -> 1

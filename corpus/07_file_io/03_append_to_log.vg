@@ -1,6 +1,6 @@
 ' Append to a log file using Open For Append.
 ' If the file does not exist, Open For Append creates it.
-' This is a one-liner, idempotent log helper.
+' Each call appends one line; repeated runs intentionally add more entries.
 
 Sub LogMessage(message As String)
     Open "user://app.log" For Append As #1

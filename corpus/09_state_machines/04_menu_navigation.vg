@@ -39,29 +39,27 @@ Function Navigate(state As String, choice As String) As String
             End If
 
         Case Else
-            Navigate = "MAIN"
+            Raise 5, "Unknown menu state: " & state
     End Select
 End Function
 
 Sub Main()
     Dim state As String = "MAIN"
-    Dim choices(6) As String
-    choices(0) = "2"
-    choices(1) = "1"
-    choices(2) = "back"
-    choices(3) = "1"
-    choices(4) = "2"
-    choices(5) = "back"
-    choices(6) = "back"
 
     Print "Start: " & state
     Dim c As String
-    For Each c In choices
+    Dim choiceIndex As Integer
+    Restore MenuChoices
+    For choiceIndex = 1 To 7
+        Read c
         Dim ns As String = Navigate(state, c)
         Print state & " --(" & c & ")--> " & ns
         state = ns
-    Next c
+    Next choiceIndex
 End Sub
+
+MenuChoices:
+Data "2", "1", "back", "1", "2", "back", "back"
 
 ' Expected output:
 ' Start: MAIN

@@ -1,22 +1,21 @@
-' Optional/Nullable Types in VisualGasic
-' Optional types can be Nothing (null) or contain a value.
-' Syntax: Dim x As Optional(String) or use Variant for older-style nullable.
-' This example demonstrates checking for Nothing and safely extracting values.
+' Nullable values in VisualGasic use Variant to hold a value or Nothing.
+' Optional(T) annotations are not accepted by the current parser.
+' Check for Nothing before extracting a value, or supply an explicit default.
 
-' Helper function to create an optional string (returns Nothing or a value)
-Function LookupUserName(id As Integer) As Optional(String)
-    ' Simulate a database lookup that might not find the user
-    If id = 1 Then
-        Return "Alice"
-    ElseIf id = 2 Then
-        Return "Bob"
-    Else
-        Return Nothing  ' User not found
-    End If
+' Variant procedure boundaries carry either String or Nothing.
+Function LookupUserName(id As Integer) As Variant
+    Select Case id
+        Case 1
+            LookupUserName = "Alice"
+        Case 2
+            LookupUserName = "Bob"
+        Case Else
+            LookupUserName = Nothing
+    End Select
 End Function
 
 ' Helper function to provide a default value if optional is Nothing
-Function GetOrDefault(opt As Optional(String), defaultVal As String) As String
+Function GetOrDefault(opt As Variant, defaultVal As String) As String
     If opt Is Nothing Then
         Return defaultVal
     Else
@@ -26,13 +25,13 @@ End Function
 
 Sub Main()
     ' Example 1: Optional that contains a value
-    Dim foundUser As Optional(String) = LookupUserName(1)
-    If Not (foundUser Is Nothing) Then
+    Dim foundUser As Variant = LookupUserName(1)
+    If foundUser IsNot Nothing Then
         Print "Found user: " & foundUser
     End If
     
     ' Example 2: Optional that is Nothing
-    Dim missingUser As Optional(String) = LookupUserName(99)
+    Dim missingUser As Variant = LookupUserName(99)
     If missingUser Is Nothing Then
         Print "User 99 not found (is Nothing)"
     End If

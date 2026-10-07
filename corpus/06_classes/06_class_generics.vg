@@ -1,5 +1,7 @@
 ' Generic/Parameterized Classes in VisualGasic
-' A generic class can work with any type, providing type safety without code duplication.
+' A type parameter describes a reusable class shape without code duplication.
+' Custom generic members are not all runtime-checked; use Collection(Of T)
+' when you need a built-in collection that rejects mismatched element types.
 ' Syntax: Class MyClass(Of T) where T is the type parameter.
 ' This example shows a simple Container that holds one value of any type.
 
@@ -8,18 +10,18 @@ Class Container(Of T)
     Private _value As T
     Private _isEmpty As Boolean
     
-    Sub New()
+    Sub Class_Initialize()
         _isEmpty = True
     End Sub
     
-    Sub Set(val As T)
+    Sub StoreValue(val As T)
         _value = val
         _isEmpty = False
     End Sub
     
-    Function Get() As T
+    Function ReadValue() As T
         If _isEmpty Then
-            Throw New Exception("Container is empty")
+            Raise 5, "Container is empty"
         End If
         Return _value
     End Function
@@ -35,17 +37,17 @@ End Class
 
 Sub Main()
     ' Create a container for integers
-    Dim intContainer As Variant = New Container(Of Integer)
-    intContainer.Set(42)
-    Print "Integer container: " & CStr(intContainer.Get())
+    Dim intContainer As New Container(Of Integer)
+    intContainer.StoreValue(42)
+    Print "Integer container: " & CStr(intContainer.ReadValue())
     
     ' Create a container for strings
-    Dim strContainer As Variant = New Container(Of String)
-    strContainer.Set("Hello, Generics!")
-    Print "String container: " & strContainer.Get()
+    Dim strContainer As New Container(Of String)
+    strContainer.StoreValue("Hello, Generics!")
+    Print "String container: " & strContainer.ReadValue()
     
     ' Check if container has value before accessing
-    Dim emptyContainer As Variant = New Container(Of Single)
+    Dim emptyContainer As New Container(Of Single)
     If emptyContainer.HasValue() Then
         Print "This should not print"
     Else

@@ -1,36 +1,33 @@
-' Godot integration: emitting a custom signal from a class.
+' Godot integration: declaring, connecting and emitting a custom event.
 ' RaiseEvent fires a signal declared with the Event keyword.
-' This example shows the publisher side; the subscriber receives
-' the event via the naming convention sub inside the same module.
+' Events belong to the script's owning node, not an inner VG class.
+' Connect takes a source node, signal name and handler procedure name.
 
-' --- Publisher: a "Score" panel that emits HighScoreReached ---
-Class ScorePanel
-    Public score As Integer
+Event HighScoreReached(newScore As Integer)
+Dim score As Integer
 
-    Event HighScoreReached(newScore As Integer)
-
-    Sub Class_Initialize()
-        score = 0
-    End Sub
-
-    Sub AddPoints(points As Integer)
+Sub AddPoints(points As Integer)
         score = score + points
         Print "Score is now " & CStr(score)
         If score >= 100 Then
             RaiseEvent HighScoreReached(score)
         End If
-    End Sub
-End Class
+End Sub
+
+Sub OnHighScoreReached(newScore As Integer)
+    Print "High score event: " & CStr(newScore)
+End Sub
 
 Sub Main()
-    Dim panel As Variant = New ScorePanel
-
-    panel.AddPoints(30)
-    panel.AddPoints(40)
-    panel.AddPoints(50)    ' This crosses 100 and fires the event
+    score = 0
+    Connect Me, "HighScoreReached", "OnHighScoreReached"
+    AddPoints(30)
+    AddPoints(40)
+    AddPoints(50)    ' This crosses 100 and fires the event.
 End Sub
 
 ' Expected output:
 ' Score is now 30
 ' Score is now 70
 ' Score is now 120
+' High score event: 120

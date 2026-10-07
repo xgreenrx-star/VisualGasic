@@ -1,9 +1,9 @@
 ' Godot integration: keyboard input.
 ' Form_KeyDown receives a KeyCode and a Shift flag.
-' Common KeyCodes:
-'   8  = Backspace, 9 = Tab, 13 = Enter, 27 = Escape, 32 = Space
-'   37 = Left, 38 = Up, 39 = Right, 40 = Down
-'   65 = A ... 90 = Z
+' Use VG's vbKey constants; numeric VB6 keycodes do not match Godot.
+' Shift is a modifier bitmask: Shift=1, Ctrl=2, Alt=4.
+' Requires a focusable Control named Form and a Label named lblPlayer.
+' Audit mode: keyboard
 
 Dim playerX As Single
 Dim playerY As Single
@@ -16,22 +16,23 @@ End Sub
 
 Sub UpdatePlayerLabel()
     lblPlayer.Text = "Player: (" & CStr(playerX) & ", " & CStr(playerY) & ")"
+    Print lblPlayer.Text
 End Sub
 
-Sub Form_KeyDown(KeyCode, Shift)
-    Dim step As Single = 10.0
-    If Shift Then step = 50.0
+Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
+    Dim moveStep As Single = 10.0
+    If (Shift And 1) <> 0 Then moveStep = 50.0
 
     Select Case KeyCode
-        Case 37    ' Left
-            playerX = playerX - step
-        Case 39    ' Right
-            playerX = playerX + step
-        Case 38    ' Up
-            playerY = playerY - step
-        Case 40    ' Down
-            playerY = playerY + step
-        Case 27    ' Escape
+        Case vbKeyLeft
+            playerX = playerX - moveStep
+        Case vbKeyRight
+            playerX = playerX + moveStep
+        Case vbKeyUp
+            playerY = playerY - moveStep
+        Case vbKeyDown
+            playerY = playerY + moveStep
+        Case vbKeyEscape
             playerX = 100.0
             playerY = 100.0
             Print "Reset to start"
@@ -42,4 +43,12 @@ Sub Form_KeyDown(KeyCode, Shift)
     UpdatePlayerLabel()
 End Sub
 
-' No "Expected output" -- run inside the IDE and use the arrow keys.
+' The audit sends Left, Shift+Right, Ctrl+Up, Down, then Escape.
+' Expected output:
+' Player: (100, 100)
+' Player: (90, 100)
+' Player: (140, 100)
+' Player: (140, 90)
+' Player: (140, 100)
+' Reset to start
+' Player: (100, 100)

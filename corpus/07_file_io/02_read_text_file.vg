@@ -1,7 +1,7 @@
 ' Read a text file line by line using VisualGasic's built-in file I/O.
 ' Open path For Input opens for reading.
 ' Line Input #n reads one line; EOF(n) returns True at end of file.
-' This example assumes 01_write_text_file.vg was run first.
+' This example writes its own fixture; it does not depend on another example.
 
 Sub Main()
     Dim path As String = "user://hello.txt"
@@ -16,11 +16,11 @@ Sub Main()
     ' Now read it back
     Open path For Input As #2
     Dim lineNumber As Integer = 0
-    Dim ln As String
+    Dim lineText As String
     Do While Not EOF(2)
         lineNumber = lineNumber + 1
-        Line Input #2, ln
-        Print CStr(lineNumber) & ": " & ln
+        Line Input #2, lineText
+        Print CStr(lineNumber) & ": " & lineText
     Loop
     Close #2
 End Sub

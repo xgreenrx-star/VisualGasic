@@ -1,0 +1,21 @@
+' File-number markers must not become date literals spanning source lines.
+Sub _Ready()
+    Dim path As String = "user://hash_date_boundary.txt"
+    Open path For Output As #1
+    Print #1, "alpha"
+    Print #1, "beta"
+    Close #1
+
+    Open path For Input As #2
+    Dim text As String
+    Line Input #2, text
+    If text = "alpha" Then Print "PASS: hash first line" Else Print "FAIL: hash first line"
+    Line Input #2, text
+    If text = "beta" Then Print "PASS: hash second line" Else Print "FAIL: hash second line"
+    Close #2
+
+    Dim dateText As String = #1/15/2026#
+    Dim timeText As String = #4:45:23 PM#
+    If dateText = "1/15/2026" Then Print "PASS: same-line date literal" Else Print "FAIL: same-line date literal"
+    If timeText = "4:45:23 PM" Then Print "PASS: same-line time literal" Else Print "FAIL: same-line time literal"
+End Sub

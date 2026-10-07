@@ -41,9 +41,7 @@ Sub Main()
     tree.Add("fight", n)
 
     ' Walk a fixed script through the tree
-    Dim script(1) As String
-    script(0) = "Just passing through."
-    script(1) = "Thank you."
+    Dim script As Variant = DataToArray("PlayerChoices")
     Dim current As String = "start"
     Dim choiceIdx As Integer = 0
 
@@ -52,10 +50,15 @@ Sub Main()
         Print "NPC: " & node.text
 
         Dim nodeChoices As Variant = node.choices
-        If nodeChoices.Count() = 0 Then Exit Do
-        If choiceIdx > UBound(script) Then Exit Do
+        If nodeChoices.Count = 0 Then Exit Do
+        If choiceIdx > UBound(script) Then
+            Raise 5, "Dialogue script ended before reaching a terminal state"
+        End If
 
         Dim choice As String = script(choiceIdx)
+        If Not nodeChoices.Exists(choice) Then
+            Raise 5, "Unknown dialogue choice: " & choice
+        End If
         Print "YOU: " & choice
         current = nodeChoices(choice)
         choiceIdx = choiceIdx + 1
@@ -63,6 +66,9 @@ Sub Main()
 
     Print "(dialogue ended at: " & current & ")"
 End Sub
+
+PlayerChoices:
+Data "Just passing through.", "Thank you."
 
 ' Expected output:
 ' NPC: Greetings, traveler. What brings you to the inn?

@@ -524,6 +524,13 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          }
          
          Variant base = evaluate_expression(ma->base_object);
+
+		if (base.get_type() == Variant::ARRAY ||
+				(base.get_type() >= Variant::PACKED_BYTE_ARRAY && base.get_type() <= Variant::PACKED_COLOR_ARRAY)) {
+			if (ma->member_name.nocasecmp_to("Count") == 0 || ma->member_name.nocasecmp_to("Length") == 0) {
+				return base.call("size");
+			}
+		}
          
          // VG class instance (object ID is an integer)
          if (base.get_type() == Variant::INT) {
@@ -996,11 +1003,34 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)expr;
+
+		// Resolve local indexing before builtins such as Keys() and Values().
+		Variant _expr_var;
+		bool _expr_has_var = false;
+		if (!call->base_object) {
+			if (variables.has(call->method_name)) {
+				_expr_var = variables[call->method_name];
+				_expr_has_var = true;
+			} else {
+				Array names = variables.keys();
+				for (int i = 0; i < names.size(); i++) {
+					String name = names[i];
+					if (name.nocasecmp_to(call->method_name) == 0) {
+						_expr_var = variables[names[i]];
+						_expr_has_var = true;
+						break;
+					}
+				}
+			}
+		}
+		const bool local_indexing = _expr_has_var &&
+				(_expr_var.get_type() == Variant::ARRAY || _expr_var.get_type() == Variant::DICTIONARY ||
+				(_expr_var.get_type() >= Variant::PACKED_BYTE_ARRAY && _expr_var.get_type() <= Variant::PACKED_COLOR_ARRAY));
         
         // Bare expression builtins only (Map/Filter/… and owner GetParent/GetTree).
         // With an explicit receiver, owner builtins must not steal the call —
         // `child.GetParent()` must dispatch on `child`, not the script owner.
-        if (!call->base_object) {
+        if (!call->base_object && !local_indexing) {
             bool _bg_handled = false;
             Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, _bg_handled);
             if (_bg_handled) {
@@ -1067,7 +1097,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         // Must NOT run when there is an explicit receiver — owner builtins
         // like GetParent/GetTree would steal `child.GetParent()` and return
         // the script owner's parent (scene root) instead of child's.
-        if (!call->base_object) {
+        if (!call->base_object && !local_indexing) {
             bool _ev_handled = false;
             Variant _ev_res = VisualGasicBuiltins::call_builtin_expr_evaluated(this, call->method_name, call_args, _ev_handled);
             if (_ev_handled) return _ev_res;
@@ -1354,24 +1384,6 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         // Check if it is an array access
-        // Case-insensitive lookup: VB identifiers are case-insensitive
-        Variant _expr_var;
-        bool _expr_has_var = false;
-        if (variables.has(call->method_name)) {
-            _expr_var = variables[call->method_name];
-            _expr_has_var = true;
-        }
-        if (!_expr_has_var) {
-            Array _ek = variables.keys();
-            for (int _ei = 0; _ei < _ek.size(); _ei++) {
-                String _ekn = _ek[_ei];
-                if (_ekn.nocasecmp_to(call->method_name) == 0) {
-                    _expr_var = variables[_ekn];
-                    _expr_has_var = true;
-                    break;
-                }
-            }
-        }
         if (_expr_has_var) {
             Variant v = _expr_var;
             bool is_array = (v.get_type() == Variant::ARRAY);

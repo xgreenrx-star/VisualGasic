@@ -1,6 +1,7 @@
 ' The Fibonacci sequence by iteration.
 ' Two accumulators, swap each step. O(n) time, O(1) space.
-' Use Long (not Integer) so the result doesn't overflow at n=47.
+' Long expresses a wide integer result. This example stops at n=20,
+' rather than assuming unbounded precision for arbitrarily large inputs.
 
 Function Fibonacci(n As Integer) As Long
     If n < 2 Then
