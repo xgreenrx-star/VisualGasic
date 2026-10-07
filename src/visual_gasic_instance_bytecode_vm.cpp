@@ -701,6 +701,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
     // ── End JIT Tier 2 ────────────────────────────────────────────────
 
+	std::vector<VGFastStringDict> vgdict_pool;
+	bool vgdict_slot_active[VGDICT_POOL_MAX] = {};
+	if (p_resume && !p_resume->fast_dictionaries.is_empty()) {
+		vgdict_pool.resize(VGDICT_POOL_MAX);
+		for (const Pair<int, Dictionary> &saved : p_resume->fast_dictionaries) {
+			int slot = saved.first;
+			vgdict_slot_active[slot] = true;
+			Array keys = saved.second.keys();
+			for (int i = 0; i < keys.size(); i++) {
+				vgdict_pool[slot].set(String(keys[i]), saved.second[keys[i]]);
+			}
+		}
+	}
+
     // ── Part AB: borrow this frame's locals from the VMState pool ──────
     // Instead of heap-allocating a fresh Vector<Variant> every call (the last
     // per-call CowData<Variant> alloc on the hot path), reuse a per-nesting-
@@ -5330,6 +5344,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
+				if (vgdict_pool.empty()) vgdict_pool.resize(VGDICT_POOL_MAX);
                 vgdict_pool[slot].clear();
                 vgdict_slot_active[slot] = true;
                 // Also put a placeholder in locals[] so the rest of the VM
@@ -8804,6 +8819,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 				cs.function_name = func ? func->name : String("<main>");
 				cs.instruction_pointer = task_pending ? last_opcode_offset : vm.ip;
 				cs.vm_locals = locals;
+				for (int i = 0; i < VGDICT_POOL_MAX; i++) {
+					if (vgdict_slot_active[i]) {
+						cs.fast_dictionaries.push_back({i, vgdict_pool[i].to_godot_dict()});
+					}
+				}
 				cs.operands.assign(vm.stack.begin() + stack_base, vm.stack.end());
 				cs.blocks = vm.block_scope_frames;
 				for (const TryHandler &handler : try_handler_stack) {

@@ -207,12 +207,8 @@ private:
     StringName fast_dict_last_key_name;
     uint32_t fast_dict_last_key_hits = 0;
 
-    // Sole-owner VGFastStringDict pool (indexed by local slot)
-    // When the compiler proves a dictionary has sole ownership, it uses
-    // this pool instead of Godot's Dictionary.  Max 16 per function call.
+	// Sole-owner fast dictionaries are private to each bytecode invocation.
     static constexpr int VGDICT_POOL_MAX = 16;
-    VGFastStringDict vgdict_pool[VGDICT_POOL_MAX];
-    bool vgdict_slot_active[VGDICT_POOL_MAX] = {};
 
     // Whenever system tracking
     struct WheneverSection {
@@ -270,6 +266,7 @@ private:
 		BytecodeChunk *chunk = nullptr;
 		SubDefinition *function = nullptr;
 		Vector<Variant> vm_locals;
+		Vector<Pair<int, Dictionary>> fast_dictionaries;
 		std::vector<Variant> operands;
 		std::vector<VMState::BlockScopeFrame> blocks;
 		Vector<Pair<int, int>> handlers;

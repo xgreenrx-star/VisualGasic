@@ -26,9 +26,9 @@ matched command has its own assertion.
 | Documented entries missing both kinds of reference | 385 |
 | Documented entries with no active VG code reference anywhere scanned | 235 |
 | Entries without extracted implementation evidence (needs review) | 81 |
-| Available corpus / sample / regression / other VG files | 80 / 323 / 240 / 31 |
+| Available corpus / sample / regression / other VG files | 80 / 323 / 243 / 31 |
 | Unavailable tracked VG files (not silently counted as covered) | 0 |
-| Current hash-matched verified corpus / regression fixtures | 80 / 220 |
+| Current hash-matched verified corpus / regression fixtures | 80 / 223 |
 
 ## Scope and limitations
 
@@ -60,7 +60,7 @@ matched command has its own assertion.
 ## Verified fixtures, not verified commands
 
 The recorded corpus evidence has 4 passing runs;
-the recorded differential evidence has 220
+the recorded differential evidence has 223
 matched passing fixtures. A verified-reference column is populated only
 when the current VG file, native-source, binary and runner hashes match
 that captured evidence.

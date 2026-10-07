@@ -1,26 +1,26 @@
 {
   "corpus_runs": [
     {
-      "log": "sample-corpus-final-461-default.log",
+      "log": "dictionary-corpus-461-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "sample-corpus-final-461-ast.log",
+      "log": "dictionary-corpus-461-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "sample-corpus-final-472-default.log",
+      "log": "dictionary-corpus-472-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "sample-corpus-final-472-ast.log",
+      "log": "dictionary-corpus-472-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     }
   ],
   "differential": {
-    "log": "sample-native-220-final472.log",
-    "matched": 220,
-    "sha256": "c44f70efdf46a11b4279eaf8cb8d563e758755cd3e91ad019682c3b640e5abdf"
+    "log": "dictionary-full-472.log",
+    "matched": 223,
+    "sha256": "e5072bb449dc2e115a9d70da96d17750052a65c556b25bb8cd940f0b90a2aec9"
   },
   "files": {
     "corpus/01_basics/01_hello_world.vg": "88fd2503cd3e86ab564652be5b222761107bb6267ffa773a0f799c8e76c46dfc",
@@ -162,6 +162,9 @@
     "test_proj/test_suite/test_design_persist.vg": "e3a08d89d6b66c13ec9ae6405a413eb27ab63a9737af6b9ed0b086d734a4f29c",
     "test_proj/test_suite/test_dict_in_array.vg": "565544496287a3c7dff0d22dd4e1e50565fa0492db7a4473f7b90ed85dd641fa",
     "test_proj/test_suite/test_dictionary.vg": "a0218afa927aff94034d328a8cb489546986ba573a3a045a9dcf9d6ffd7e5185",
+    "test_proj/test_suite/test_dictionary_await_frame.vg": "51d5103a39c478b940068d3403d5bc6e71a2da78a4b174a54c7834acd6381235",
+    "test_proj/test_suite/test_dictionary_dim_initializer.vg": "f2ada96abfdc058f2127c5aebaae18f891c83649b41cdc32e77394bec24f5a7c",
+    "test_proj/test_suite/test_dictionary_nested_frame.vg": "a622f6620f20b30fcdfbdeb26b5a58474af95a781d53c7ed9128096be1270481",
     "test_proj/test_suite/test_dllimport_ffi.vg": "a7fd01dc309db9c1985c7b459670cc5326490dbc035a0980de423b6591e994c2",
     "test_proj/test_suite/test_do_loop.vg": "5f8e7cd8b189e88ff96b13ced75e1b4c161c9b335377bca3131726d7ac62e90c",
     "test_proj/test_suite/test_drag_drop.vg": "f961063d372b580a64736d8b9a474838127d471cc597c17b2c3459f18dafb6ec",
@@ -326,8 +329,8 @@
   },
   "hash_note": "Hashes captured from the working tree during inventory generation, not embedded by the test runner.",
   "runtime": {
-    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "712cb07a6ae508a34c1e9c8ca884ac074d6d24c9b109a102f9ba02db4b60fad4",
-    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "c07d5b2cb392b0909c5146cc4aab8e89ffb616c80e216544738f7be8e8cc8799",
+    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "9fd2c057bf360f9cdb2c0bdab8704785e5756dd3ab6c4441194cc7c945409854",
+    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "26adbe22ab25b39befe2a1ec1bd77d72f28d6a0aeb7309ef902c0775c4ba54fa",
     "addons/visual_gasic/visual_gasic.gdextension": "6882e50f52a707e28baaf6f12929d1906cc3b0fd8806f4f576f3b2fd68bb6198",
     "scripts/audit_corpus.sh": "68ebb14c179dfbf82acff20dfd165b2a865948a42436ea07118e1edb55f4bedd",
     "scripts/run_ast_bytecode_diff.sh": "60159e2bb34fbe5ebdf4c7e03c3c1a4a61e32554beb3e02a2d4b8f6c1439c1b9",
@@ -393,7 +396,7 @@
     "src/visual_gasic_comm.h": "f83d5dbb9944350afae213ae4b09ce84001621a01d46257e3bc175fde6bbf709",
     "src/visual_gasic_common_dialog.cpp": "e55e62a240eb59a25129413963b5645c063403c7df3b0c51145a50378567f64b",
     "src/visual_gasic_common_dialog.h": "90ac747e111cc0c5459906cda41116ee3309ca5d5860a7aaaa42422dcc0685d3",
-    "src/visual_gasic_compiler.cpp": "3316961a4c04b0670f82db273806662cf0c4075c010789eb69fb798578ab81d0",
+    "src/visual_gasic_compiler.cpp": "7bf763b9214cec3495eae119542cad91d6d823436a8b64b2a3c74672e1ae5e73",
     "src/visual_gasic_compiler.h": "9908e652e6baf0605e8e510eac153697a4c152a52a1a1cd85357d70485bfb6ce",
     "src/visual_gasic_crypto.cpp": "b023f3feb63deeb9cb36ae4dc1a5387a364115bcecddb095365460befae84e55",
     "src/visual_gasic_crypto.h": "45a30669b8b4bfcc2b2d01f13e058019368c5fcd00dfd5e46daf7af7fe490744",
@@ -426,11 +429,11 @@
     "src/visual_gasic_immediate.cpp": "4c8f83718f47d1494097f536865e8f09fb52ef3cce2a1bbd34c33edbd64c6672",
     "src/visual_gasic_immediate.h": "1597807f4d5ffe62d9608865a39b5b91f29063ddc58796c874a84d953e280f47",
     "src/visual_gasic_instance.cpp": "0bb98c7a78858651949b90f9285e1068c8b36653e3ceb01038795765935b595a",
-    "src/visual_gasic_instance.h": "08b37843e35eaee9f47d96ec4b17d96609504b87ccb90ac935c04ff7d5cd7828",
+    "src/visual_gasic_instance.h": "e6deeb448ec44adb5c4cfa331378f39528aa06311a42ebfaabd85bb63a8589e7",
     "src/visual_gasic_instance_ast_await.cpp": "1351382240355a3ea224e6409085765313448dce97cb544a671b3078ff1c9942",
     "src/visual_gasic_instance_builtins.cpp": "4e573c572ba8a3dfa9c44c9ddca5cec093485bdca6ea9436357614053f4774f7",
-    "src/visual_gasic_instance_bytecode_vm.cpp": "61819233e3a7eb540eec6de7f69f3d79dd8bd35c55a19afaa8aef06aaf70fd13",
-    "src/visual_gasic_instance_call.inc": "cdb71e02beaa1c9155e325807f7f1d381aa8d26e5d5d5d9a1bd2147a6be0aaa3",
+    "src/visual_gasic_instance_bytecode_vm.cpp": "089134c72f2a192b24a22c1fa481d8945312d23df409a18f1e83e985c33d1569",
+    "src/visual_gasic_instance_call.inc": "0dfdb33e27a49a929aa8bb5643d9a4f81efd82766006483bcac70cdd090d4e7f",
     "src/visual_gasic_instance_class.cpp": "0f1502bf924c637b2fedfbf3f5a93131ff34fc1190c40856ffafa941cc4574cc",
     "src/visual_gasic_instance_evaluate.inc": "148cc9e99d362542525fdefcfc8ccb5c91f76f7afacd9d803789c48cde421f34",
     "src/visual_gasic_instance_execute.inc": "e44f0bdb9026af12764393ca8edb34069df16a75c19cf23de75cc4c832151169",

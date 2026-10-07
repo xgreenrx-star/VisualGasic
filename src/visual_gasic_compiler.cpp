@@ -1807,6 +1807,10 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
             if (s->initializer) {
+				if (s->initializer->type == ExpressionNode::VARIABLE) {
+					String source = ((VariableNode *)s->initializer)->name.to_lower();
+					if (sole_owner_dict_vars.has(source)) escaped.insert(source);
+				}
                 // Non-New initializer means the variable receives an existing object —
                 // not a sole-owner dict, so the VGDict optimisation must not apply.
                 bool is_new_dict = false;
@@ -6602,9 +6606,12 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         break;
                     }
                     if (n->class_name.nocasecmp_to("Dictionary") == 0 && n->args.size() == 0) {
-                        // Dim d As New Dictionary → OP_NEW_DICT + store
-                        emit_byte(OP_NEW_DICT);
                         int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+						if (is_sole_owner_dict_var(s->variable_name) && slot >= 0 && slot < 16) {
+							emit_bytes(OP_NEW_VGDICT, (uint8_t)slot);
+							break;
+						}
+                        emit_byte(OP_NEW_DICT);
                         if (slot >= 0) {
                             dictionary_vars.insert(s->variable_name.to_lower());
                             emit_bytes(OP_SET_LOCAL, (uint8_t)slot);

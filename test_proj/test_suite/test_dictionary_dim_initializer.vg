@@ -1,0 +1,25 @@
+Sub TestAsNew()
+	Dim labels As New Dictionary
+	labels("name") = "Alice"
+	If labels("name") = "Alice" Then Print "PASS: As New dictionary indexed access" Else Print "FAIL: As New dictionary indexed access"
+End Sub
+
+Sub TestExplicitInitializer()
+	Dim labels As Dictionary = New Dictionary
+	labels("answer") = 42
+	If labels("answer") = 42 Then Print "PASS: Dictionary initializer indexed access" Else Print "FAIL: Dictionary initializer indexed access"
+End Sub
+
+Sub TestEscapedInitializer()
+	Dim labels As New Dictionary
+	labels("value") = 1
+	Dim aliasMap As Variant = labels
+	aliasMap("value") = 2
+	If labels("value") = 2 Then Print "PASS: escaped initializer preserves alias" Else Print "FAIL: escaped initializer preserves alias"
+End Sub
+
+Sub _Ready()
+	TestAsNew()
+	TestExplicitInitializer()
+	TestEscapedInitializer()
+End Sub

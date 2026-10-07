@@ -99,7 +99,7 @@ The restoration exposed four native root causes:
 - AST execution incorrectly treated an explicit Tween object's `TweenProperty`
   method as the legacy global shortcut, leaving the receiver Tween empty.
 
-After the final native rebuild, the full differential suite passed **220
+At the sample-restoration checkpoint, the full differential suite passed **220
 matched fixtures on each engine**, with zero failures/divergences and eight
 explicit exclusions. All four final corpus runs passed **80/80**, without
 failures or skips.
@@ -124,11 +124,63 @@ and RID/font/viewport teardown diagnostics. Abrupt frame-limited shutdown can
 warn about autoplay audio resources; the orderly behavioral host stops audio
 and waits before quitting. Brotato cold-import hangs/crash classification,
 interactive gameplay, hardware input, mobile permissions and exports remain
-separate work. Known generic-dictionary local/await initialization observations
-also need focused native investigation; this campaign does not claim that all
-possible VG defects have been eliminated.
+separate work. This campaign does not claim that all possible VG defects have
+been eliminated.
 
-### Final performance checks
+### Dictionary frame follow-up
+
+Focused reproductions confirmed three bytecode-only fast-dictionary defects:
+
+- `Dim … As New Dictionary` and `Dim … As Dictionary = New Dictionary`
+  initialized a Godot Dictionary while subsequent indexed operations expected
+  an active fast-dictionary slot.
+- Fast-dictionary slots lived on the script instance instead of the invocation,
+  so a nested call could overwrite and clear its caller's slots.
+- `Await` saved ordinary locals but not fast-dictionary contents or active-slot
+  state. Resumption therefore accessed invalid slots.
+
+The compiler now initializes eligible declarations with the fast-dictionary
+opcode. A declaration that aliases an existing dictionary revokes fast-dictionary
+eligibility, preserving shared Godot Dictionary behavior. The VM owns a lazily
+allocated pool per invocation; each continuation saves active dictionaries and
+reconstructs its own pool when resumed. Empty active dictionaries are saved too.
+
+Regression fixtures cover both declaration forms, aliasing, nested calls,
+recursion, and overlapping continuations with repeated suspension. A resource
+probe also checks that a dictionary keeps its resource alive across suspension
+and releases it after the completed continuation.
+
+That probe exposed a related scope-cleanup defect: the VM publishes named
+locals at exit, but call cleanup had assumed that disabled per-opcode variable
+synchronization meant nothing was published. Named locals are now saved,
+restored and removed regardless of that synchronization setting. Fast-call
+parameters/return slots and unpublished compiler scratch retain their existing
+fast paths.
+
+Both Linux targets were rebuilt. The final full differential runs passed **223
+matched fixtures per engine**, with zero failures/divergences and eight explicit
+exclusions. All four corpus runs passed **80/80**, and the 40 sample behavior
+combinations passed again. The three new fixtures provide 16 matched assertions,
+including resource retention/release. Bytecode inspection confirmed that
+eligible declarations and recursive/awaited dictionary accesses still use
+compiled fast-dictionary operations rather than a new AST fallback.
+
+### Latest performance checks after dictionary fixes
+
+The compute wrapper and three sequential gameplay/draw runs passed on Godot
+4.7.2 with comparable checksums and required completion markers. Median paired
+GDScript/VG speed ratios were **5.26x FrameSlice**, **4.13x EntityThink**,
+**6.06x DictionaryScan**, and **approximately 1.00x CallChain** (parity).
+
+Corrected MovingFilledRects again matched checksum **257901** and **120 frames**.
+Median reported timings were **163 us VG**, **229 us GDScript**, and **44 us C++**;
+the ratio of median timings is **1.40x in VG's favor**. Individual gameplay runs
+varied substantially on this shared host: for example, EntityThink ratios ranged
+from 1.31x to 6.58x. These smoke measurements do not establish a performance
+improvement or regression versus the earlier campaign. They are not whole-game
+FPS or GPU-rendering claims.
+
+### Sample-restoration performance checkpoint
 
 After correctness testing, the final Linux editor build passed the compute
 wrapper and three isolated gameplay and draw runs on Godot 4.7.2. Required

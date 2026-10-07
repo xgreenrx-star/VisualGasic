@@ -1,0 +1,36 @@
+' MAX_FRAMES: 180
+Dim resourceWeak As Object
+
+Sub Worker(ByVal number As Integer)
+	Dim values As Dictionary
+	Set values = New Dictionary
+	Await 0.01
+	values("value") = number
+	Await 0.01
+	If values("value") = number Then Print "PASS: dictionary survives Await " & CStr(number) Else Print "FAIL: dictionary survives Await " & CStr(number)
+	values("value") = number + 10
+	Await 0.01
+	If values("value") = number + 10 Then Print "PASS: dictionary survives second Await " & CStr(number) Else Print "FAIL: dictionary survives second Await " & CStr(number)
+End Sub
+
+Sub ResourceWorker()
+	Dim owned As New Dictionary
+	Dim shape As New RectangleShape2D
+	shape.Size = Vector2(10, 20)
+	Set resourceWeak = WeakRef(shape)
+	owned("shape") = shape
+	Set shape = Nothing
+	Await 0.01
+	Dim restored As Object = owned("shape")
+	If restored.Size.Y = 20 Then Print "PASS: fast dictionary retains resource across Await" Else Print "FAIL: fast dictionary retains resource across Await"
+	Set restored = Nothing
+	owned("shape") = Nothing
+End Sub
+
+Sub _Ready()
+	Worker(1)
+	Worker(2)
+	ResourceWorker()
+	Await 0.05
+	If resourceWeak.GetRef() Is Nothing Then Print "PASS: completed dictionary continuation releases resource" Else Print "FAIL: completed dictionary continuation releases resource"
+End Sub

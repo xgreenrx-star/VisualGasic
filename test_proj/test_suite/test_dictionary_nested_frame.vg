@@ -1,0 +1,23 @@
+Sub InnerDictionary()
+	Dim inner As Dictionary
+	Set inner = New Dictionary
+	inner("value") = 99
+	If inner("value") = 99 Then Print "PASS: inner dictionary frame" Else Print "FAIL: inner dictionary frame"
+End Sub
+
+Sub RecursiveDictionary(ByVal depth As Integer)
+	Dim localMap As New Dictionary
+	localMap("depth") = depth
+	If depth > 0 Then RecursiveDictionary(depth - 1)
+	If localMap("depth") = depth Then Print "PASS: recursive dictionary frame " & CStr(depth) Else Print "FAIL: recursive dictionary frame " & CStr(depth)
+End Sub
+
+Sub _Ready()
+	Dim outer As Dictionary
+	Set outer = New Dictionary
+	outer("value") = 12
+	InnerDictionary()
+	If outer("value") = 12 Then Print "PASS: outer dictionary survives nested call" Else Print "FAIL: outer dictionary survives nested call"
+	RecursiveDictionary(3)
+	If outer("value") = 12 Then Print "PASS: outer dictionary survives recursion" Else Print "FAIL: outer dictionary survives recursion"
+End Sub

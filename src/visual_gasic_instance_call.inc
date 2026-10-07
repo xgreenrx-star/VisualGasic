@@ -232,19 +232,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // are skipped in the local_names loops below (save and erase, kept in
     // balance so a same-named module global a param shadows stays untouched).
     const bool use_fast_params = (chunk_for_locals && chunk_for_locals->fast_params);
-    // Part P: capture the local<->variables[] sync mode ONCE at entry so the
-    // save (pre-execution) and erase (post-execution) local_names scans below
-    // make an IDENTICAL decision — even if the callee itself registers a
-    // Whenever (STMT_WHENEVER flips needs_var_sync true mid-run, permanently).
-    // When sync is off (the overwhelmingly common case), every slot-based local
-    // lives only in locals[]/typed shadow arrays and is NEVER mirrored into the
-    // variables[] Dictionary (see sync_local's `needs_var_sync && …` guard), so
-    // there is nothing in variables[] to save, restore, or erase for those
-    // names.  Skipping the scans removes one variables.has() + one
-    // variables.erase() ptrcall PER CALL for every compiler-generated temp
-    // (__cse_*, __inv_to_*, Dim locals) — ~8.5% Dictionary::has + 2.6%
-    // Dictionary::erase of call-heavy runtime, per perf.
+	// VM exit publishes named locals even when per-opcode synchronization is off.
+	// Only compiler scratch slots can skip scope restoration in that mode.
     const bool _sync_locals_to_dict = needs_var_sync;
+	auto is_unpublished_scratch = [&](const String &name) {
+		return !_sync_locals_to_dict && name.begins_with("__");
+	};
     // Save parameters
     if (!use_fast_params) {
         for(int i=0; i<func->parameters.size(); i++) {
@@ -264,20 +257,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // (bytecode_key / chunk_for_locals were already resolved — from cache or
     // freshly computed — in the call-site resolution block above.)
     if (chunk_for_locals) {
-        // Part P: slot-based locals only enter variables[] under Whenever/Task.Run
-        // sync; otherwise the whole scan is wasted Dictionary probes — skip it.
-        if (_sync_locals_to_dict) {
-            for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
-                // Fast-call slots (params + return) never touch variables[].
-                if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
-                    continue;
-                }
-                const String &lname = chunk_for_locals->local_names[i];
-                if (!lname.is_empty() && variables.has(lname)) {
-                    saved_locals.push_back({lname, variables[lname]});
-                }
-            }
-        }
+		for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+			// Fast-call slots (params + return) never touch variables[].
+			if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
+				continue;
+			}
+			const String &lname = chunk_for_locals->local_names[i];
+			if (!lname.is_empty() && !is_unpublished_scratch(lname) && variables.has(lname)) {
+				saved_locals.push_back({lname, variables[lname]});
+			}
+		}
     } else {
         // Fallback: AST-only path (no bytecode compiled for this function).
         // Recursively scan for Dim'd variables in all nested blocks.
@@ -760,11 +749,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         }
     }
     // -- Dim'd locals
-    // Part P: mirror the save-loop guard.  When sync was off at entry, slot
-    // locals never entered variables[] (nothing was saved for them either), so
-    // there is nothing to erase — skipping keeps save/erase perfectly balanced
-    // and avoids deleting a same-named module global that was never shadowed.
-    if (chunk_for_locals && _sync_locals_to_dict) {
+    if (chunk_for_locals) {
         for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
             // Fast-call slots (params + return) are never written to variables[],
             // so there is nothing to erase; skip them (kept in balance with the
@@ -773,7 +758,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 continue;
             }
             const String &lname = chunk_for_locals->local_names[i];
-            if (!lname.is_empty() && !saved_locals_has(lname)) {
+            if (!lname.is_empty() && !is_unpublished_scratch(lname) && !saved_locals_has(lname)) {
                 variables.erase(lname);
             }
         }
