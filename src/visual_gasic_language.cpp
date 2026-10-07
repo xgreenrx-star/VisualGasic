@@ -4035,36 +4035,30 @@ TypedArray<Dictionary> VisualGasicLanguage::_debug_get_current_stack_info() {
 }
 
 void VisualGasicLanguage::_frame() {
-    // Process pending hot reloads (queued from resource_saved or _reload_tool_script)
-    if (!pending_reloads.empty()) {
-        std::lock_guard<std::mutex> lock(live_scripts_mutex);
-        for (VisualGasicScript* script : pending_reloads) {
-            if (live_scripts.count(script) && script->_has_source_code()) {
-                String path = script->get_path();
-                
-                // Re-read source from disk if the file exists
-                if (!path.is_empty() && FileAccess::file_exists(path)) {
-                    Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
-                    if (f.is_valid()) {
-                        String new_source = f->get_as_text();
-                        f->close();
-                        
-                        // Only reload if source actually changed
-                        if (new_source != script->_get_source_code()) {
-                            script->_set_source_code(new_source);
-                            Error err = script->_reload(true);
-                            if (err == OK) {
-                                UtilityFunctions::print_rich("[color=lime][VG Hot Reload] Reloaded: ", path, "[/color]");
-                            } else {
-                                UtilityFunctions::print_rich("[color=red][VG Hot Reload] Failed to reload: ", path, "[/color]");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        pending_reloads.clear();
-    }
+	auto scripts = take_reload_snapshot(true);
+	for (const Ref<VisualGasicScript> &script : scripts) {
+		if (!script->_has_source_code()) {
+			continue;
+		}
+		String path = script->get_path();
+		if (path.is_empty() || !FileAccess::file_exists(path)) {
+			continue;
+		}
+		Ref<FileAccess> f = FileAccess::open(path, FileAccess::READ);
+		if (f.is_valid()) {
+			String new_source = f->get_as_text();
+			f->close();
+			if (new_source != script->_get_source_code()) {
+				script->_set_source_code(new_source);
+				Error err = script->_reload(true);
+				if (err == OK) {
+					UtilityFunctions::print_rich("[color=lime][VG Hot Reload] Reloaded: ", path, "[/color]");
+				} else {
+					UtilityFunctions::print_rich("[color=red][VG Hot Reload] Failed to reload: ", path, "[/color]");
+				}
+			}
+		}
+	}
 }
 
 Dictionary VisualGasicLanguage::_debug_get_globals(int32_t p_max_subitems, int32_t p_max_depth) {
@@ -4080,9 +4074,9 @@ String VisualGasicLanguage::_debug_parse_stack_level_expression(int32_t p_level,
 }
 
 void VisualGasicLanguage::_reload_all_scripts() {
-    std::lock_guard<std::mutex> lock(live_scripts_mutex);
+    auto scripts = take_reload_snapshot(false);
     int count = 0;
-    for (VisualGasicScript* script : live_scripts) {
+    for (const Ref<VisualGasicScript> &script : scripts) {
         String path = script->get_path();
         if (path.is_empty()) continue;
         if (!FileAccess::file_exists(path)) continue;
@@ -4919,6 +4913,34 @@ Dictionary VisualGasicLanguage::evaluate_immediate_by_index(int instance_index, 
 // ============================================================================
 // HOT RELOAD — SCRIPT REGISTRY
 // ============================================================================
+
+std::vector<Ref<VisualGasicScript>> VisualGasicLanguage::take_reload_snapshot(bool p_pending_only) {
+	std::vector<Ref<VisualGasicScript>> scripts;
+	{
+		std::lock_guard<std::mutex> lock(live_scripts_mutex);
+		auto retain_script = [&scripts](VisualGasicScript *script) {
+			Ref<VisualGasicScript> retained(script);
+			if (retained.is_valid()) {
+				scripts.push_back(retained);
+			}
+		};
+		if (p_pending_only) {
+			for (VisualGasicScript *script : pending_reloads) {
+				if (live_scripts.count(script)) {
+					retain_script(script);
+				}
+			}
+			pending_reloads.clear();
+		} else {
+			for (VisualGasicScript *script : live_scripts) {
+				retain_script(script);
+			}
+		}
+	}
+	// Reload re-registers scripts and can load/release dependencies. Neither it
+	// nor the last retained reference may run while the registry lock is held.
+	return scripts;
+}
 
 void VisualGasicLanguage::register_script(VisualGasicScript* script) {
     std::lock_guard<std::mutex> lock(live_scripts_mutex);

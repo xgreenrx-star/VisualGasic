@@ -103,6 +103,7 @@ class VisualGasicLanguage : public ScriptLanguageExtension {
     static std::set<VisualGasicScript*> live_scripts;
     static std::mutex live_scripts_mutex;
     static std::vector<VisualGasicScript*> pending_reloads;  // Scripts queued for reload on next _frame()
+	static std::vector<Ref<VisualGasicScript>> take_reload_snapshot(bool p_pending_only);
     
     // Helper to ensure debug stack is initialized (lazy initialization)
     static std::vector<VGDebugStackFrame>& get_debug_stack();

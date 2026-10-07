@@ -122,7 +122,7 @@ persisted widget/music repairs, and numeric/string death actions.
 **Remaining limits:** cold editor imports can still report debugger attachment
 and RID/font/viewport teardown diagnostics. Abrupt frame-limited shutdown can
 warn about autoplay audio resources; the orderly behavioral host stops audio
-and waits before quitting. Brotato cold-import hangs/crash classification,
+and waits before quitting. The historical Brotato heap-corruption crash classification,
 interactive gameplay, hardware input, mobile permissions and exports remain
 separate work. This campaign does not claim that all possible VG defects have
 been eliminated.
@@ -164,6 +164,68 @@ combinations passed again. The three new fixtures provide 16 matched assertions,
 including resource retention/release. Bytecode inspection confirmed that
 eligible declarations and recursive/awaited dictionary accesses still use
 compiled fast-dictionary operations rather than a new AST fallback.
+
+### Cold editor-import deadlock follow-up
+
+A symbolized native stack from a pristine 2D Brotato import identified the
+timeout: `_reload_all_scripts()` held `live_scripts_mutex`, called
+`VisualGasicScript::_reload()`, and blocked when `register_script()` tried to
+lock that same non-recursive mutex. The queued `_frame()` reload path had the
+same lock/reload ordering. The suspended preview-capture warnings occurred
+before the stall; they were not its cause.
+
+Both paths now take a retained script snapshot while holding the registry lock
+and perform file access and reloads after releasing it. Retained references keep
+scripts alive during reload and are released outside the lock. Pending work is
+drained under the lock, without discarding new work queued during a reload.
+
+The opt-in [native regression probe](../../src/visual_gasic_hot_reload_selftest.cpp)
+checks initial parsing, reload-all reparsing, deferred/duplicate queued reloads,
+unchanged source, snapshot-reference release, and destruction of queued scripts.
+It removes its own process-specific fixture and reports **9 passed, 0 failed**
+on both Godot versions, under both headless and graphical launch.
+
+The persistent [editor regression runner](../../scripts/run_editor_reload_regression.sh)
+creates fresh tracked-input snapshots, never imports the user's working sample
+projects, and retains all diagnostics. Both Brotato projects completed cold
+imports on **4.6.1 and 4.7.2**, with both the headless renderer and software
+OpenGL Compatibility under Xvfb: **eight completed import combinations**.
+Headless logs explicitly confirm editor-layout completion and reload-all;
+graphical runs verify VG resource recognition in the persisted editor cache.
+Both main scenes also passed **eight 120-frame startup combinations** across
+the two engines and default/forced-AST modes.
+
+Both Linux libraries were rebuilt. Final differential suites passed **223
+matched fixtures per engine**, with zero failures/divergences and eight explicit
+exclusions; all four corpus runs passed **80/80**. Full suites were run
+sequentially because database/folder fixtures use fixed `/tmp` paths and collide
+under concurrent engine runs. The coverage evidence was refreshed, and its
+14 acceptance checks passed. Compute, gameplay and draw wrappers also completed
+with comparable checksums, including MovingFilledRects checksum **257901** and
+**120 frames**. These completion checks do not establish new speed comparisons.
+
+Reproduce the bounded import checks with:
+
+```sh
+GODOT=/path/to/Godot scripts/run_editor_reload_regression.sh
+GODOT=/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
+  scripts/run_editor_reload_regression.sh
+```
+
+`TIMEOUT_SECS` defaults to 120 per launch. An optional `OUT_DIR` must have no
+existing regression-project directories. The native probe runs only when
+`VG_HOT_RELOAD_SELFTEST=1`; the runner checks its exact completion summary and
+rejects probe errors/leaks, engine failures, timeouts, and script/fatal errors.
+The sample import checks deliberately retain and display cold font/theme
+bootstrap errors and shutdown diagnostics rather than calling imports clean.
+
+**Still unresolved:** editor RID/font/viewport/ObjectDB teardown leaks,
+suspended live-preview cancellation warnings, debugger-session detachment
+diagnostics, and the earlier heap-corruption crash. No heap-corruption crash
+occurred in these eight imports, but that does not classify or resolve the
+historical crash. This fix is not an ABI change or an interactive gameplay
+certification.
 
 ### Latest performance checks after dictionary fixes
 
@@ -300,6 +362,9 @@ These are completion counts, not successful-example counts.
   `_do_deferred_first_capture` executions during script reload.
   Thus the cold-import timeout is not exclusive to 4.7.2, but the observed
   crash is **unclassified and unresolved**, not cleared by the warm success.
+  The [cold-import follow-up](#cold-editor-import-deadlock-follow-up) subsequently
+  identifies and fixes a native reload deadlock on both engines; the historical
+  heap-corruption crash remains unresolved.
 - **Debugger shutdown:** several 4.7.2 editor imports report
   `Plugin is not attached to debugger` from
   `editor_debugger_plugin.cpp:102`. An old-engine hex-editor import did not

@@ -99,6 +99,8 @@ void vg_stack_value_selftest();
 
 using namespace godot;
 
+void vg_hot_reload_selftest(VisualGasicLanguage *language);
+
 static VisualGasicLanguage *visual_gasic_language = nullptr;
 static Ref<VisualGasicFormatLoader> visual_gasic_loader;
 static Ref<VisualGasicFormatSaver> visual_gasic_saver;
@@ -237,6 +239,10 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
     
         visual_gasic_saver.instantiate();
         ResourceSaver::get_singleton()->add_resource_format_saver(visual_gasic_saver);
+
+		if (OS::get_singleton()->get_environment("VG_HOT_RELOAD_SELFTEST") == "1") {
+			vg_hot_reload_selftest(visual_gasic_language);
+		}
     }
     
 #ifndef VG_WEB_BUILD

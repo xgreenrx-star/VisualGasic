@@ -1,26 +1,26 @@
 {
   "corpus_runs": [
     {
-      "log": "dictionary-corpus-461-default.log",
+      "log": "editor-reload-corpus472-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "dictionary-corpus-461-ast.log",
+      "log": "editor-reload-corpus472-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "dictionary-corpus-472-default.log",
+      "log": "editor-reload-corpus461-default.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     },
     {
-      "log": "dictionary-corpus-472-ast.log",
+      "log": "editor-reload-corpus461-ast.log",
       "sha256": "467ed8ea2d4abaa5ffa42dbe8a3601d817536b15100ef259630e0a0b50d2fb39"
     }
   ],
   "differential": {
-    "log": "dictionary-full-472.log",
+    "log": "editor-reload-isolated-full472.log",
     "matched": 223,
-    "sha256": "e5072bb449dc2e115a9d70da96d17750052a65c556b25bb8cd940f0b90a2aec9"
+    "sha256": "15dd615378ac4496006b26bf9b830028a520c98eebe8a117bcefa78e34d9e26b"
   },
   "files": {
     "corpus/01_basics/01_hello_world.vg": "88fd2503cd3e86ab564652be5b222761107bb6267ffa773a0f799c8e76c46dfc",
@@ -329,8 +329,8 @@
   },
   "hash_note": "Hashes captured from the working tree during inventory generation, not embedded by the test runner.",
   "runtime": {
-    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "9fd2c057bf360f9cdb2c0bdab8704785e5756dd3ab6c4441194cc7c945409854",
-    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "26adbe22ab25b39befe2a1ec1bd77d72f28d6a0aeb7309ef902c0775c4ba54fa",
+    "addons/visual_gasic/bin/libvisualgasic.linux.editor.x86_64.so": "864c019f11b1675e0f490edc1a32b2c6a8dddc2013f0253c85e00e3937120add",
+    "addons/visual_gasic/bin/libvisualgasic.linux.template_debug.x86_64.so": "de689288e601e25bdcb6564b707eb6fe65b0e3ed76929cee0fceb66de747dc80",
     "addons/visual_gasic/visual_gasic.gdextension": "6882e50f52a707e28baaf6f12929d1906cc3b0fd8806f4f576f3b2fd68bb6198",
     "scripts/audit_corpus.sh": "68ebb14c179dfbf82acff20dfd165b2a865948a42436ea07118e1edb55f4bedd",
     "scripts/run_ast_bytecode_diff.sh": "60159e2bb34fbe5ebdf4c7e03c3c1a4a61e32554beb3e02a2d4b8f6c1439c1b9",
@@ -349,7 +349,7 @@
     "src/python_bridge/vg_msgpack.h": "a75fbdc236f6f5c2ebdf54ce20fc13c0f3ce35a56fab0340a72b660843a49d9a",
     "src/python_bridge/visual_gasic_py_facade.cpp": "27cbbe3b2590b9782e69527aa27129ed916b1bf0763592b062179b543b820646",
     "src/python_bridge/visual_gasic_py_facade.h": "e611559fbe09bfadb53c3308f4bc4869b3956f14cc312c3d070577a208d1cc32",
-    "src/register_types.cpp": "14c8dbeefa967b5157fadf8d3da9f37a1b36fcf4d9578c4398e33661863d99bd",
+    "src/register_types.cpp": "81ccc71ae9eca1b1f63e1483c6876384031dd6424b9df23263fa48517f11a7b0",
     "src/register_types.h": "50a6f1f6d964fe1df12e1989ff3ea7f6f99c9e19eef9e501673a2a81b6277f9b",
     "src/vg_autoloads.cpp": "77b5062b08efdcdff17ef920d71dcf686635c02ab8a742ff6a1c00cc8735dc2b",
     "src/vg_autoloads.h": "1fef9fa78ce499e487eee4d6ec5779ec5593d4599502f1bab27ace6f8f4b56fc",
@@ -424,6 +424,7 @@
     "src/visual_gasic_godot_ctors.h": "eacc423519e9c41f330e7fd3794d2a339ecc2ce9cc5e862de3209e061bb133a0",
     "src/visual_gasic_gpu.cpp": "824b8a097265ed532c4bc45faf6a5b6afc78df09dfce623cdd088f87bffd672a",
     "src/visual_gasic_gpu.h": "61c60230d15242708d99f3d036dfc4188d7955ac334c927e1d1923dd47510dd0",
+    "src/visual_gasic_hot_reload_selftest.cpp": "91ddb27de34b49de0dcb1b300c14fea97e7548edf184814e592690f59550da4e",
     "src/visual_gasic_http.cpp": "952e21f25bbce6a44d31f310d0b854ea14ee0c8d07f38e67c3e20389ee814e1f",
     "src/visual_gasic_http.h": "1b07d2b78d9227ae394c22ce682f2d0a4355131b9f7f6f152cc4ce7131001eaa",
     "src/visual_gasic_immediate.cpp": "4c8f83718f47d1494097f536865e8f09fb52ef3cce2a1bbd34c33edbd64c6672",
@@ -451,8 +452,8 @@
     "src/visual_gasic_jit_tier2.h": "e1253c0d082810fdcea6c93fcb9db42c45ae5080471f684e642616fd48defa8c",
     "src/visual_gasic_jit_tier3.cpp": "9b05a272695e9739554d897258e532c7f85c748e430f7da8008c70fb837477e0",
     "src/visual_gasic_jit_tier3.h": "5815a6d720cc7b73d2910601f59433cbd156dc6913ae94f5aa53443eb280e0c2",
-    "src/visual_gasic_language.cpp": "ad520eb2515bf503a06cd7d55c846f974eae3a1ce5dee17b0effff89cdb00690",
-    "src/visual_gasic_language.h": "c6232ca0578d7797966db730894b3e9611d377f6a70855c3609d1abdf13515d9",
+    "src/visual_gasic_language.cpp": "5f6888f38f1fc4702e171723458b9ea6d389daa5ce13788176ae9ba6e3762be4",
+    "src/visual_gasic_language.h": "5521f54b3a50cc3a2b0430f93cf54da76eb2f6def92b4396b29b14710ea1e650",
     "src/visual_gasic_linter.cpp": "1f95e9d54ecade50181577be0c4d7fa3f39e808014ecc2f788123443fa91012e",
     "src/visual_gasic_linter.h": "98af85e95b279aa5a0989092c5b995f7506a6228aa2b524f34a6cd05371e07f3",
     "src/visual_gasic_loader.cpp": "2bc69895df48ce28842642557e5cb56c44ff82dd498b9c912f5afe0d6a2d5103",
