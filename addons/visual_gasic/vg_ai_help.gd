@@ -1953,6 +1953,7 @@ func _setup_ui() -> void:
 	_build_form_btn.text = "🔨 Build form"
 	_build_form_btn.visible = false
 	_build_form_btn.pressed.connect(_on_build_form)
+	_toolbar3_advanced.add_child(_build_form_btn)
 
 	# Apply form — programmatic / auto-apply only; not shown in toolbar (chat-first).
 	_make_this_btn = Button.new()

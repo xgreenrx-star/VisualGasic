@@ -284,6 +284,54 @@ not a GDScript backtrace; its remaining calling path is not yet classified.
 The earlier heap-corruption crash also remains unresolved. The clean isolated
 lifecycle checks do not establish clean shutdown of the complete editor.
 
+### Complete-editor UI ownership follow-up
+
+Complete-plugin disable probes identified four VG-owned allocation leaks:
+
+- The directly injected Project menu popup was detached but never freed.
+  Direct injection now frees the popup; the Project > Tools fallback uses
+  Godot's submenu-removal ownership instead. Deferred injection stops during
+  shutdown.
+- The embedded editor allocated an unused, unparented `ProcNavBar` container.
+  That unused allocation was removed without changing the visible navigation bar.
+- Narcea's hidden programmatic Build form button was never parented. It is now
+  owned by its existing advanced toolbar and remains hidden.
+- Each graphical Code Navigator ComboBox allocated a hidden inline ItemList
+  without owning it until Simple style was selected. The inline list is now an
+  internal child in all three styles, preserving later style switches.
+
+The [lifecycle runner](../../scripts/run_editor_lifecycle_regression.sh) now
+supports `FULL_PLUGIN=1`. **23 checks pass on each engine in both headless and
+graphical modes**: all ComboBox styles and transitions retain items/selection
+and release their lists; two complete VG enable/disable cycles release menus,
+panels, debugger and main plugin; both direct Project and Tools-fallback paths
+are exercised; no new orphan roots remain. Adding `EXIT_ENABLED=1` runs **24
+checks**, leaving VG enabled for normal editor quit. All four enabled-at-quit
+engine/renderer combinations completed without error or RID/ObjectDB leak
+diagnostics. The original 50-headless/64-graphical component checks also pass
+on both engines.
+
+```sh
+GODOT=/path/to/Godot FULL_PLUGIN=1 EXIT_ENABLED=1 \
+  scripts/run_editor_lifecycle_regression.sh
+GODOT=/path/to/Godot FULL_PLUGIN=1 EXIT_ENABLED=1 RENDER_MODE=graphical \
+  LIBGL_ALWAYS_SOFTWARE=1 xvfb-run --auto-servernum \
+  --server-args='-screen 0 1280x800x24' \
+  scripts/run_editor_lifecycle_regression.sh
+```
+
+Full-plugin runs are sequential because VG's local MCP server uses a fixed
+port. No native source or binary changed. These checks establish clean
+complete-plugin ownership in the tested minimal editor projects, not every
+interactive workflow or optional plugin combination.
+
+**Still open:** the Platformer editor shutdown retains one stackless native
+debugger-detachment diagnostic, even though the tested UI leaks are gone.
+A separate snapshot with VG's editor plugin disabled does not emit it.
+The historical heap-corruption crash remains unclassified. Earlier unresolved
+leak observations above are retained as historical evidence; the verified
+ownership follow-up supersedes them for the tested minimal editor lifecycle.
+
 ### Latest performance checks after dictionary fixes
 
 The compute wrapper and three sequential gameplay/draw runs passed on Godot

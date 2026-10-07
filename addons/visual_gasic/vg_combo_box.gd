@@ -341,6 +341,7 @@ func _build_ui() -> void:
 	_inline_list.visible = false
 	_inline_list.item_clicked.connect(_on_item_clicked)
 	_inline_list.item_activated.connect(_on_item_activated)
+	add_child(_inline_list, false, INTERNAL_MODE_FRONT)
 
 	# Active list pointer
 	_item_list = _popup_list

@@ -133,6 +133,8 @@ var _recent_projects_menu: PopupMenu
 var _recent_projects_manager
 var _vgasic_tools_menu: PopupMenu
 var _godot_project_popup: PopupMenu = null
+var _vgasic_tools_menu_in_tools := false
+var _shutting_down := false
 var _godot_project_hook_retries: int = 0
 
 const _VGTOOLS_ADD_FORM_ID := 100
@@ -2565,6 +2567,7 @@ func _ensure_vgasic_child_in_tscn(tscn_path: String, vg_path: String) -> void:
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
+	_shutting_down = true
 	if debugger_plugin:
 		debugger_plugin.shutdown()
 	if is_instance_valid(_live_preview_mgr):
@@ -15404,9 +15407,12 @@ func _on_vgasic_tools_menu_pressed(id: int) -> void:
 
 ## Injects VGasic Tools as a submenu directly in Godot's Project dropdown, below Tools.
 func _inject_vgasic_into_project_menu() -> void:
+	if _shutting_down:
+		return
 	if _godot_project_hook_retries > 10:
 		# Fallback: add to Project > Tools so it shows up somewhere
 		add_tool_submenu_item("VGasic Tools", _vgasic_tools_menu)
+		_vgasic_tools_menu_in_tools = true
 		return
 	var base := get_editor_interface().get_base_control()
 	if base == null:
@@ -15441,18 +15447,22 @@ func _inject_vgasic_into_project_menu() -> void:
 	# PopupMenu.move_item() does not exist in Godot 4 — VGasic Tools appends at bottom (with separator above it)
 
 func _remove_vgasic_from_project_menu() -> void:
-	if not is_instance_valid(_godot_project_popup):
-		_godot_project_popup = null
-		return
-	for i in range(_godot_project_popup.get_item_count() - 1, -1, -1):
-		if _godot_project_popup.get_item_text(i) == "VGasic Tools":
-			_godot_project_popup.remove_item(i)
-			# Remove the separator that sits just above it
-			if i - 1 >= 0 and _godot_project_popup.is_item_separator(i - 1):
-				_godot_project_popup.remove_item(i - 1)
-			break
-	if is_instance_valid(_vgasic_tools_menu) and _vgasic_tools_menu.get_parent() == _godot_project_popup:
-		_godot_project_popup.remove_child(_vgasic_tools_menu)
+	if _vgasic_tools_menu_in_tools:
+		# Godot owns and deletes Tools submenus on removal.
+		remove_tool_menu_item("VGasic Tools")
+		_vgasic_tools_menu_in_tools = false
+	elif is_instance_valid(_godot_project_popup):
+		for i in range(_godot_project_popup.get_item_count() - 1, -1, -1):
+			if _godot_project_popup.get_item_text(i) == "VGasic Tools":
+				_godot_project_popup.remove_item(i)
+				if i - 1 >= 0 and _godot_project_popup.is_item_separator(i - 1):
+					_godot_project_popup.remove_item(i - 1)
+				break
+	if is_instance_valid(_vgasic_tools_menu):
+		if _vgasic_tools_menu.get_parent():
+			_vgasic_tools_menu.get_parent().remove_child(_vgasic_tools_menu)
+		_vgasic_tools_menu.queue_free()
+	_vgasic_tools_menu = null
 	_godot_project_popup = null
 	_godot_project_hook_retries = 0
 

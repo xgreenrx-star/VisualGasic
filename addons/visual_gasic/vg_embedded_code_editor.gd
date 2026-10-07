@@ -147,11 +147,6 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	# ── Procedure navigation bar ──
-	var nav_bar := HBoxContainer.new()
-	nav_bar.name = "ProcNavBar"
-	nav_bar.custom_minimum_size.y = 28
-	nav_bar.add_theme_constant_override("separation", 4)
-
 	# Background panel for the nav bar
 	var nav_panel := PanelContainer.new()
 	nav_panel.name = "NavPanel"
