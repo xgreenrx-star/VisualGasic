@@ -94,6 +94,11 @@ The [builtin reference](../docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) and
 additional snippets. Documentation snippets and test fixtures are not a
 substitute for independently runnable, audited teaching examples. The coverage
 matrix below is feature-level, not a measured command-by-command inventory.
+For the generated per-entry mapping, implementation locations, sample/test
+references and gap lists, see the
+[command and example coverage inventory](../docs/audit/example_coverage.md).
+It distinguishes lexical references from verified fixtures and does not
+claim that every referenced command, overload or error path was executed.
 
 The status column describes demonstrated coverage, not support for every
 possible use of that feature. Nullable values use `Variant` and `Nothing`:
