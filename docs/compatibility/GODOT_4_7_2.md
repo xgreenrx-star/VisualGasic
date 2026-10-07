@@ -376,6 +376,59 @@ as a passing regression test. No engine internals are patched and no general
 VG UI shutdown workaround is claimed. The historical heap-corruption crash
 remains separate and unclassified.
 
+### Allocator-perturbed import and optional synth pool repair
+
+A fresh Godot 4.7.2 2D Brotato import with `MALLOC_PERTURB_=165` aborted.
+Two subsequent GDB reproductions stopped at a shutdown use-after-free in the
+locally installed optional GDSiON library. Relinking its existing objects in
+their original order with symbols mapped the matching machine instructions to
+`SiMMLTrack::finalize` called from `uninitialize_sion_module`. The destination
+pointer was `0xA5A5A5A5A5A5A5A5`, matching the allocator's freed-memory fill.
+
+GDSiON finalized its integer/double linked-list pools **before** finalizing
+tracks and singletons that returned elements to those pools. Its pool pointer
+remained dangling, and list clearing also unlinked the current element before
+advancing, preventing complete drainage. The tracked
+[repair patch](../../addons/visual_gasic/plugins/vgmusic/gdsion_pool_lifetime.patch)
+finalizes pools last, nulls freed pool pointers, frees unpooled elements and
+drains lists by popping elements. The
+[build helper](../../addons/visual_gasic/plugins/vgmusic/build_gdsion.sh) applies
+the patch idempotently or fails explicitly on a conflict. Both local Linux
+debug/release synth binaries were rebuilt sequentially. These optional binaries
+and their vendor source are ignored; the persistent deliverable is the patch,
+build workflow and tests, not a newly shipped platform binary.
+
+The [native pool runner](../../scripts/run_gdsion_pool_regression.sh) passes
+**14 checks on each engine** under allocator perturbation, including ring
+drainage/reuse, lists outliving the pool, repeated finalization and restart.
+The [import stress runner](../../scripts/run_editor_import_heap_stress.sh)
+completed **three iterations on each engine**, each importing fresh 2D and 3D
+Brotato projects: **12 imports**, plus six nine-check native reload selftests,
+with no process crash or timeout after the repair.
+The persistent stress wrapper was then verified with one additional 4.7.2
+iteration (two more fresh imports). The 24-check full-plugin enabled-at-quit
+headless lifecycle also remains clean on both engines.
+The isolated upstream driver lifecycle test passes all **13 assertions on each
+engine**, including audio stream start/stop, but emits an
+`AudioStreamGeneratorPlayback` ObjectDB leak on 4.7.2 (the 4.6.1 run also reports
+an ObjectDB leak). This audio teardown limit is not counted as clean shutdown
+and is not addressed by the linked-list pool repair.
+
+```sh
+JOBS=4 addons/visual_gasic/plugins/vgmusic/build_gdsion.sh \
+  template_debug template_release
+GODOT=/path/to/Godot scripts/run_gdsion_pool_regression.sh
+GODOT=/path/to/Godot ITERATIONS=3 scripts/run_editor_import_heap_stress.sh
+```
+
+These imports still report cold project-theme/font bootstrap diagnostics; they
+are import-completion and crash checks, not clean-import certification. The
+historical `malloc(): unaligned tcache chunk detected` occurred earlier during
+font reimport, whereas the captured reproducible fault is in synth shutdown.
+The demonstrated use-after-free is repaired, but the historical crash is **not
+conclusively attributed or marked fixed** without matching native evidence.
+The independent engine Game View focus diagnostic remains classified separately.
+
 ### Latest performance checks after dictionary fixes
 
 The compute wrapper and three sequential gameplay/draw runs passed on Godot

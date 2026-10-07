@@ -1,0 +1,55 @@
+diff --git a/src/register_types.cpp b/src/register_types.cpp
+--- a/src/register_types.cpp
++++ b/src/register_types.cpp
+@@ -193,10 +193,6 @@ void uninitialize_sion_module(ModuleInitializationLevel p_level) {
+ 
+ 	// Finalization.
+ 
+-	// SUS: This is a bit ugly, but I don't have a better idea yet.
+-	SinglyLinkedList<int>::finalize_pool();
+-	SinglyLinkedList<double>::finalize_pool();
+-
+ 	// Finalize singletons and static members after the execution.
+ 	SiOPMChannelFM::finalize_pool();
+ 	SiMMLTrack::finalize();
+@@ -204,6 +200,9 @@ void uninitialize_sion_module(ModuleInitializationLevel p_level) {
+ 	SiOPMRefTable::finalize();
+ 	MMLSequencer::finalize();
+ 	MMLParser::finalize();
++
++	SinglyLinkedList<int>::finalize_pool();
++	SinglyLinkedList<double>::finalize_pool();
+ }
+ 
+ extern "C" {
+diff --git a/src/templates/singly_linked_list.h b/src/templates/singly_linked_list.h
+--- a/src/templates/singly_linked_list.h
++++ b/src/templates/singly_linked_list.h
+@@ -62,6 +62,8 @@ class SinglyLinkedList {
+ 
+ 		if (_element_pool) {
+ 			_element_pool->push_back_element(p_element);
++		} else {
++			memdelete(p_element);
+ 		}
+ 	}
+ 
+@@ -84,6 +86,7 @@ public:
+ 		}
+ 
+ 		memdelete(_element_pool);
++		_element_pool = nullptr;
+ 	}
+ 
+ 	//
+@@ -322,8 +325,8 @@ public:
+ 
+ 	// Removes all elements from the list and resets its size.
+ 	void clear() {
+-		for (Element *elem = front(); elem; elem = next_safe()) {
+-			_release_element(elem);
++		while (has_any()) {
++			_release_element(pop_front_element());
+ 		}
+ 
+ 		_first = nullptr;

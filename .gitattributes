@@ -42,3 +42,4 @@ Godot_v4.*-stable_linux.x86_64 export-ignore
 addons/visual_gasic/bin/*.framework/** filter=lfs diff=lfs merge=lfs -text
 addons/visual_gasic/bin/*.so filter=lfs diff=lfs merge=lfs -text
 addons/visual_gasic/bin/*.dll filter=lfs diff=lfs merge=lfs -text
+addons/visual_gasic/plugins/vgmusic/gdsion_pool_lifetime.patch whitespace=-blank-at-eol,-space-before-tab
