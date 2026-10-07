@@ -1,0 +1,10 @@
+config_version=5
+
+[application]
+config/name="Editor Window Focus Teardown Probe"
+
+[editor_plugins]
+enabled=PackedStringArray("res://addons/focus_probe/plugin.cfg")
+
+[rendering]
+renderer/rendering_method="gl_compatibility"

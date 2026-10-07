@@ -332,6 +332,50 @@ The historical heap-corruption crash remains unclassified. Earlier unresolved
 leak observations above are retained as historical evidence; the verified
 ownership follow-up supersedes them for the tested minimal editor lifecycle.
 
+### Native popup-focus shutdown diagnostic classification
+
+The remaining Platformer diagnostic was traced further, without changing VG's
+session guards or suppressing engine errors. Its Godot 4.7.2 native caller is
+`GameView::_notification` forwarding a window-focus notification to
+`GameViewDebugger::report_window_focused`, which calls
+`EditorDebuggerSession::is_active` after that engine-owned session was detached.
+The stripped executable's direct call and message string
+`scene:report_window_focused` were mapped to the matching engine source. This
+is not a VG debugger callback.
+
+The [standalone probe](../../scripts/run_editor_focus_teardown_probe.sh)
+creates a fresh project containing only a minimal EditorPlugin and a visible
+Window parented to Godot's editor base control. It loads **no VG extension,
+VG editor plugin, or custom debugger**. Quitting reproduces the exact
+`Plugin is not attached to debugger` / `is_active` diagnostic on **Godot 4.7.2
+headless**. Godot 4.6.1 headless and graphical runs on both versions were clean.
+Parenting the Window to the test plugin instead was also clean headlessly on
+both versions, as was hiding the base-owned popup before quitting. Thus the
+observed headless shutdown warning has an independent
+engine-side reproduction; its absence with VG disabled does not establish
+that VG owns the detached session.
+
+```sh
+# Expected to fail with the native diagnostic on 4.7.2 headless.
+GODOT=/path/to/Godot scripts/run_editor_focus_teardown_probe.sh
+# Ownership control: release the popup with its EditorPlugin subtree.
+GODOT=/path/to/Godot WINDOW_OWNER=plugin \
+  scripts/run_editor_focus_teardown_probe.sh
+# Focus control: hide the popup before initiating quit.
+GODOT=/path/to/Godot CLOSE_BEFORE_QUIT=1 \
+  scripts/run_editor_focus_teardown_probe.sh
+# Graphical comparison; clean in the tested Xvfb runs.
+GODOT=/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
+  scripts/run_editor_focus_teardown_probe.sh
+```
+
+The runner returns failure for any shutdown error, even when Godot exits with
+status zero. It preserves the full log and never treats this known diagnostic
+as a passing regression test. No engine internals are patched and no general
+VG UI shutdown workaround is claimed. The historical heap-corruption crash
+remains separate and unclassified.
+
 ### Latest performance checks after dictionary fixes
 
 The compute wrapper and three sequential gameplay/draw runs passed on Godot
