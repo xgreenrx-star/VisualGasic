@@ -1,0 +1,5 @@
+Dim answer As Integer = 42
+
+Sub _Ready()
+    answer = 42
+End Sub

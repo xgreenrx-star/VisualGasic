@@ -44,8 +44,50 @@ var _breakpoint_poll_timer: Timer = null
 
 ## Visual Gasic main EditorPlugin — used to read VG Code Editor gutter breakpoints.
 var _vg_main_plugin: EditorPlugin = null
+var _shutting_down := false
+
+func shutdown() -> void:
+	if _shutting_down:
+		return
+	_shutting_down = true
+	var sessions := get_sessions()
+	if _active_session != null and not sessions.has(_active_session):
+		sessions.append(_active_session)
+	for session in sessions:
+		for connection in [
+			[session.breaked, _on_session_breaked],
+			[session.continued, _on_session_continued],
+			[session.stopped, _on_session_stopped_signal],
+		]:
+			if connection[0].is_connected(connection[1]):
+				connection[0].disconnect(connection[1])
+	_active_session = null
+	_vg_main_plugin = null
+	if is_instance_valid(_breakpoint_poll_timer):
+		_breakpoint_poll_timer.stop()
+		if _breakpoint_poll_timer.timeout.is_connected(_poll_breakpoints_from_editor):
+			_breakpoint_poll_timer.timeout.disconnect(_poll_breakpoints_from_editor)
+		if _breakpoint_poll_timer.get_parent():
+			_breakpoint_poll_timer.get_parent().remove_child(_breakpoint_poll_timer)
+		_breakpoint_poll_timer.queue_free()
+	_breakpoint_poll_timer = null
+	var callbacks := _pending_requests.values()
+	_pending_requests.clear()
+	for callback in callbacks:
+		if callback.is_valid():
+			callback.call({"success": false, "result": "Debug session closed"})
+
+func _get_registered_session(session_id: int) -> EditorDebuggerSession:
+	if _shutting_down:
+		return null
+	var sessions := get_sessions()
+	if session_id < 0 or session_id >= sessions.size():
+		return null
+	return sessions[session_id]
 
 func bind_vg_main_plugin(plugin: EditorPlugin) -> void:
+	if _shutting_down:
+		return
 	_vg_main_plugin = plugin
 	_load_breakpoints_from_json_file()
 
@@ -76,30 +118,32 @@ func _has_capture(prefix: String) -> bool:
 	return prefix == "visualgasic"
 
 func toggle_tweak_overlay() -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:toggle_tweak_overlay", [])
 
 func request_tweak_targets(instance_id: int = 0) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_tweak_targets", [instance_id])
 
 func apply_tweak_override(target_id: String, override: Dictionary) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:apply_tweak_override", [target_id, override])
 
 func undo_tweak_override() -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:undo_tweak_override", [])
 
 func redo_tweak_override() -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:redo_tweak_override", [])
 
 func reset_tweak_overrides() -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:reset_tweak_overrides", [])
 
 func _goto_script_line(script: Script, line: int) -> void:
+	if _shutting_down:
+		return
 	"""Called by Godot when user clicks on a breakpoint line in the debugger panel."""
 	# Godot passes 0-based line (it subtracts 1 from _debug_get_stack_level_line internally).
 	# Our _navigate_to_script_line expects 1-based, so convert here.
@@ -110,14 +154,16 @@ func _goto_script_line(script: Script, line: int) -> void:
 		_emit_break_hit_deduped(script.resource_path, one_based_line)
 
 func _capture(message: String, data: Array, session_id: int) -> bool:
-	if not message.begins_with("visualgasic:"):
+	if _shutting_down or not message.begins_with("visualgasic:"):
 		return false
 	
 	# CRITICAL FIX: Godot 4.6 may never call _setup_session() for our plugin,
 	# but it DOES call _capture() with a valid session_id on every message.
 	# Ensure we always have a reference to the active session.
-	if _active_session == null:
-		var session = get_session(session_id)
+	if not is_session_active():
+		var session = _get_registered_session(session_id)
+		if session == null:
+			return false
 		if session:
 			print("[VG Debugger Plugin] Acquired session from _capture (session_id=%d)" % session_id)
 			_active_session = session
@@ -292,7 +338,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 	return false
 
 func _setup_session(session_id: int) -> void:
-	var session = get_session(session_id)
+	var session = _get_registered_session(session_id)
 	print("[VG Debugger Plugin] _setup_session(%d) session=%s" % [session_id, str(session != null)])
 	if session:
 		_active_session = session
@@ -335,9 +381,12 @@ func _on_session_breaked(_can_debug: bool) -> void:
 
 func _on_session_continued() -> void:
 	"""Called when the remote game continues from break."""
-	debug_continued.emit()
+	if not _shutting_down:
+		debug_continued.emit()
 
 func _session_stopped(session_id: int) -> void:
+	if _shutting_down:
+		return
 	print("[VG Debugger Plugin] _session_stopped(%d) called!" % session_id)
 	_active_session = null
 	_pending_requests.clear()
@@ -347,6 +396,8 @@ func _session_stopped(session_id: int) -> void:
 	debug_session_stopped.emit()
 
 func _on_session_stopped_signal() -> void:
+	if _shutting_down:
+		return
 	## Fallback: fired by EditorDebuggerSession.stopped signal
 	print("[VG Debugger Plugin] _on_session_stopped_signal() FIRED!")
 	_active_session = null
@@ -362,7 +413,9 @@ func _poll_breakpoints_from_editor() -> void:
 	# Check if the active session died (fallback if stopped signal didn't fire).
 	# IMPORTANT: Only check when NOT breaked — is_active() can return false during
 	# break state in some Godot versions, which would incorrectly nuke the session.
-	if _active_session:
+	if _shutting_down:
+		return
+	if is_session_active():
 		var is_act = _active_session.is_active()
 		var is_brk = _active_session.is_breaked()
 		var session_gone := false
@@ -380,6 +433,8 @@ func _poll_breakpoints_from_editor() -> void:
 	_push_editor_breakpoints_to_game(false)
 
 func _push_editor_breakpoints_to_game(force_sync: bool = true) -> void:
+	if _shutting_down:
+		return
 	var new_breakpoints: Dictionary = {}
 	# Primary: embedded VG Code Editor gutters (ScriptEditor never sees .vg breakpoints).
 	if is_instance_valid(_vg_main_plugin) and _vg_main_plugin.has_method("get_debugger_breakpoints"):
@@ -448,8 +503,10 @@ func _breakpoints_cleared_in_tree() -> void:
 func _sync_breakpoints_to_game() -> void:
 	"""Send the current breakpoint state to the running game."""
 	# Also save to file so game can load breakpoints at startup (before debug session connects)
+	if _shutting_down:
+		return
 	_save_breakpoints_to_file()
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:set_breakpoints", [_breakpoints])
 
 static func normalize_vg_script_path(path: String) -> String:
@@ -499,36 +556,36 @@ func _save_breakpoints_to_file() -> void:
 		file.close()
 
 func request_instances() -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_instances", [])
 
 func request_variable(instance_id: int, var_name: String) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_variable", [instance_id, var_name])
 
 func request_all_variables(instance_id: int) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_all_variables", [instance_id])
 
 func set_variable(instance_id: int, var_name: String, value: Variant) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:set_variable", [instance_id, var_name, value])
 
 func request_whenever_sections(instance_id: int) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_whenever_sections", [instance_id])
 
 func set_whenever_active(instance_id: int, section_name: String, active: bool) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:set_whenever_active", [instance_id, section_name, active])
 
 func evaluate_code(instance_id: int, code: String, callback: Callable) -> void:
-	if _active_session and _active_session.is_active():
+	if is_session_active() and _active_session.is_active():
 		_request_id += 1
 		_pending_requests[_request_id] = callback
 		print("[VG Debugger Plugin] evaluate_code: sending req_id=%d instance=%d code='%s'" % [_request_id, instance_id, code])
 		_active_session.send_message("visualgasic:evaluate", [instance_id, code, _request_id])
-	elif _active_session and _active_session.is_breaked():
+	elif is_session_active() and _active_session.is_breaked():
 		# Session exists and game is paused at breakpoint — is_active() may be
 		# false during break in some Godot versions, but we can still send.
 		_request_id += 1
@@ -541,12 +598,18 @@ func evaluate_code(instance_id: int, code: String, callback: Callable) -> void:
 			callback.call({"success": false, "result": "No active debug session"})
 
 func is_session_active() -> bool:
-	return _active_session != null
+	if _shutting_down or _active_session == null:
+		return false
+	# A retained Ref remains valid after Godot clears/detaches its sessions.
+	if not get_sessions().has(_active_session):
+		shutdown()
+		return false
+	return true
 
 func is_session_alive() -> bool:
 	"""Returns true if the session exists AND the game is still running or breaked.
 	   When the game exits, is_active() and is_breaked() both become false."""
-	if not _active_session:
+	if not is_session_active():
 		return false
 	return _active_session.is_active() or _active_session.is_breaked()
 
@@ -556,7 +619,7 @@ func is_session_alive() -> bool:
 
 func debug_continue() -> void:
 	"""Resume execution after a breakpoint or step."""
-	if _active_session:
+	if is_session_active():
 		# Unblocks the VM wait directly. Do not also send bare "continue":
 		# that command is only consumed inside Godot's script_debug loop,
 		# which VG no longer enters (it stalls the debugger thread).
@@ -565,49 +628,53 @@ func debug_continue() -> void:
 func debug_break() -> void:
 	"""Request a pause at the next statement (VB6-style Break button)."""
 	# Try to acquire session if we don't have one yet (game may have just started)
-	if _active_session == null:
-		var session = get_session(0)
+	if _shutting_down:
+		return
+	if not is_session_active():
+		var session = _get_registered_session(0)
 		if session and session.is_active():
 			_active_session = session
 			print("[VG Debugger Plugin] debug_break: acquired session 0 on demand")
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:debug_break", [])
 
 func debug_step_into() -> void:
 	"""Step to the next line, entering function calls."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:debug_step_into", [])
 
 func debug_step_over() -> void:
 	"""Step to the next line, stepping over function calls."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:debug_step_over", [])
 
 func debug_step_out() -> void:
 	"""Step out of the current function."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:debug_step_out", [])
 
 func debug_stop() -> void:
 	"""Stop execution — terminate the running game process."""
 	# Unblock a paused VM so the process can exit, then stop the scene.
-	if _active_session:
+	if _shutting_down:
+		return
+	if is_session_active():
 		_active_session.send_message("visualgasic:debug_continue", [])
 	# Then stop the running scene
 	EditorInterface.stop_playing_scene()
 
 func request_debug_state() -> void:
 	"""Request the current debug state from the game."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_debug_state", [])
 
 func has_debug_session() -> bool:
-	return _active_session != null
+	return is_session_active()
 
 
 func send_profiler_command(command: String) -> bool:
 	"""Send a profiler command (start/stop/get_data/clear) to the running game."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:profiler_" + command, [])
 		return true
 	return false
@@ -618,34 +685,34 @@ func send_profiler_command(command: String) -> bool:
 
 func add_watchpoint(variable_name: String) -> void:
 	"""Add a data breakpoint (watchpoint) that breaks when a variable changes."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:add_watchpoint", [variable_name])
 
 func remove_watchpoint(variable_name: String) -> void:
 	"""Remove a data breakpoint."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:remove_watchpoint", [variable_name])
 
 func clear_watchpoints() -> void:
 	"""Clear all data breakpoints."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:clear_watchpoints", [])
 
 func request_watchpoints() -> void:
 	"""Request the current list of watchpoints from the game."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_watchpoints", [])
 
 func eval_watch_expressions(instance_id: int, expressions: Array) -> void:
 	"""Evaluate a list of expressions in the context of a running instance.
 	   Results come back via 'visualgasic:watch_results' message."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:eval_watch_expressions", [instance_id, expressions])
 
 func set_conditional_breakpoint(script_path: String, line: int, condition: String) -> void:
 	"""Set a breakpoint with a condition expression.
 	   The breakpoint only triggers when the condition evaluates to true."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:set_conditional_breakpoint", [script_path, line, condition])
 
 # ============================================================================
@@ -656,7 +723,7 @@ func set_next_statement(line: int, script_path: String = "") -> void:
 	"""Set Next Statement: move execution point to a new line (1-based).
 	   script_path is the .vg file shown in the editor (required when using Include).
 	   Only works while paused at a breakpoint or step."""
-	if _active_session:
+	if is_session_active():
 		if script_path.is_empty():
 			print("[VG Debugger Plugin] Set Next Statement → line ", line)
 			_active_session.send_message("visualgasic:set_next_statement", [line])
@@ -671,12 +738,12 @@ func set_next_statement(line: int, script_path: String = "") -> void:
 func set_tracepoint(script_path: String, line: int, message: String) -> void:
 	"""Set a tracepoint (log point) at the given line. When hit, it logs
 	   the message (with {variable} interpolation) and continues."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:set_tracepoint", [script_path, line, message])
 
 func remove_tracepoint(script_path: String, line: int) -> void:
 	"""Remove a tracepoint at the given line."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:remove_tracepoint", [script_path, line])
 
 # ============================================================================
@@ -686,7 +753,7 @@ func remove_tracepoint(script_path: String, line: int) -> void:
 func edit_and_continue(script_path: String, new_source: String) -> void:
 	"""Send the updated source code to the running game so the C++ side can
 	   hot-reload the script while the VM is paused in script_debug()."""
-	if _active_session:
+	if is_session_active():
 		print("[VG Debugger Plugin] Edit & Continue → ", script_path.get_file())
 		_active_session.send_message("visualgasic:edit_and_continue", [script_path, new_source])
 
@@ -696,37 +763,37 @@ func edit_and_continue(script_path: String, new_source: String) -> void:
 
 func request_call_stack() -> void:
 	"""Request the current call stack from the running game."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_call_stack", [])
 
 func request_stack_level_locals(level: int) -> void:
 	"""Request local variables for a specific stack frame level (0 = top/current)."""
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_stack_level_locals", [level])
 
 
 func request_capture_frame(max_png_width: int = 960) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:capture_frame", [max_png_width])
 
 
 func request_ui_tree(instance_id: int = 0) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:get_ui_tree", [instance_id])
 
 
 func request_audio_chunk(duration_ms: int = 250) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:capture_audio_chunk", [duration_ms])
 
 
 func send_inject_pointer(viewport_x: int, viewport_y: int, pressed: bool) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:inject_pointer", [viewport_x, viewport_y, pressed])
 
 
 func send_inject_unicode(text: String) -> void:
-	if _active_session:
+	if is_session_active():
 		_active_session.send_message("visualgasic:inject_unicode", [text])
 
 # ============================================================================
@@ -766,6 +833,8 @@ func _navigate_to_script_line(file_path: String, line: int) -> void:
 
 func _deferred_center_on_line(line: int) -> void:
 	"""Center the script editor viewport on the specified line."""
+	if _shutting_down:
+		return
 	var script_editor = EditorInterface.get_script_editor()
 	if not script_editor:
 		return

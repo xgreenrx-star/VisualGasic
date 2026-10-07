@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
+OUT_DIR="${OUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/vg-editor-lifecycle-XXXXXX")}"
+RENDER_MODE="${RENDER_MODE:-headless}"
+TIMEOUT_SECS="${TIMEOUT_SECS:-120}"
+
+if [[ ! -x "$GODOT" ]]; then
+	echo "ERROR: GODOT must name an executable engine" >&2
+	exit 1
+fi
+case "$RENDER_MODE" in
+	headless) engine_args=(--headless); live_debugger=false; expected_checks=50 ;;
+	graphical) engine_args=(--rendering-method gl_compatibility --audio-driver Dummy); live_debugger=true; expected_checks=64 ;;
+	*) echo "ERROR: RENDER_MODE must be headless or graphical" >&2; exit 1 ;;
+esac
+mkdir -p "$OUT_DIR"
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
+project="$OUT_DIR/project"
+if [[ -e "$project" || -L "$project" ]]; then
+	echo "ERROR: use a fresh OUT_DIR; $project already exists" >&2
+	exit 1
+fi
+mkdir -p "$project/addons" "$project/.godot"
+ln -s "$ROOT/addons/visual_gasic" "$project/addons/visual_gasic"
+ln -s "$ROOT/test_proj/tools/editor_lifecycle" "$project/addons/lifecycle_test"
+printf '%s\n' res://addons/visual_gasic/visual_gasic.gdextension > "$project/.godot/extension_list.cfg"
+cat > "$project/project.godot" <<PROJECT
+config_version=5
+[application]
+config/name="VG Editor Lifecycle Regression"
+run/main_scene="res://main.tscn"
+[editor]
+run/main_run_args="--headless --audio-driver Dummy"
+[editor_plugins]
+enabled=PackedStringArray("res://addons/lifecycle_test/plugin.cfg")
+[rendering]
+renderer/rendering_method="gl_compatibility"
+[vg]
+tests/live_debugger=$live_debugger
+PROJECT
+cat > "$project/main.tscn" <<'SCENE'
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://addons/lifecycle_test/game.gd" id="1"]
+[node name="Fixture" type="Node"]
+script = ExtResource("1")
+SCENE
+log="$OUT_DIR/editor.log"
+if ! timeout "$TIMEOUT_SECS" "$GODOT" "${engine_args[@]}" --editor --path "$project" > "$log" 2>&1; then
+	echo "FAIL: editor lifecycle process failed or timed out; see $log" >&2
+	tail -n 20 "$log" >&2
+	exit 1
+fi
+if ! grep -Fxq "EDITOR-LIFECYCLE RESULTS: $expected_checks passed, 0 failed" "$log" ||
+		grep -Eq '^ERROR:|SCRIPT ERROR|Parser Error|VG Runtime Error|leaked at exit|were leaked|instances leaked|signal 11|malloc\(\)|Scan thread aborted' "$log"; then
+	echo "FAIL: lifecycle checks incomplete or diagnostics present; see $log" >&2
+	grep -E 'EDITOR-LIFECYCLE|ERROR:|leaked|aborted' "$log" >&2 || true
+	exit 1
+fi
+grep '^EDITOR-LIFECYCLE RESULTS:' "$log"
+echo "PASS: isolated $RENDER_MODE editor lifecycle; full log $log"

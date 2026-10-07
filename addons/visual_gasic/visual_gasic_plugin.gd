@@ -2565,6 +2565,10 @@ func _ensure_vgasic_child_in_tscn(tscn_path: String, vg_path: String) -> void:
 ## Called when the plugin exits the editor tree.
 ## Cleans up all plugin components and disconnects signals.
 func _exit_tree():
+	if debugger_plugin:
+		debugger_plugin.shutdown()
+	if is_instance_valid(_live_preview_mgr):
+		_live_preview_mgr.shutdown()
 	# Disconnect hover-link watcher
 	if get_tree().node_added.is_connected(_on_node_added_for_help_links):
 		get_tree().node_added.disconnect(_on_node_added_for_help_links)

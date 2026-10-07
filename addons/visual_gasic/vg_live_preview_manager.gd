@@ -46,6 +46,8 @@ var _capture_timer: Timer = null
 
 ## Round-robin index — captures one viewport per tick for performance
 var _capture_index := 0
+var _shutting_down := false
+var _first_captures: Dictionary = {}
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -56,6 +58,8 @@ func _init(plugin: Node = null, form_designer: Node = null) -> void:
 	name = "LivePreviewManager"
 
 func _ready() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
 	_capture_timer = Timer.new()
 	_capture_timer.name = "CaptureTimer"
 	_capture_timer.one_shot = false
@@ -63,9 +67,23 @@ func _ready() -> void:
 	_capture_timer.wait_time = 1.0 / FOCUSED_FPS
 	add_child(_capture_timer)
 	_capture_timer.timeout.connect(_on_capture_tick)
+	RenderingServer.frame_post_draw.connect(_on_frame_post_draw)
 
 func _exit_tree() -> void:
+	shutdown()
+
+func shutdown() -> void:
+	if _shutting_down:
+		return
+	_shutting_down = true
+	if is_instance_valid(_capture_timer):
+		_capture_timer.stop()
+	if RenderingServer.frame_post_draw.is_connected(_on_frame_post_draw):
+		RenderingServer.frame_post_draw.disconnect(_on_frame_post_draw)
+	_first_captures.clear()
 	_clear_all()
+	_plugin = null
+	_form_designer = null
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -76,6 +94,8 @@ func _exit_tree() -> void:
 ## @param ctrl_name: Control type name (e.g. "MySpinner")
 ## @param scene_path: Path to the .tscn file
 func register_control(ctrl_name: String, scene_path: String) -> void:
+	if _shutting_down or DisplayServer.get_name() == "headless":
+		return
 	if _viewports.has(ctrl_name):
 		# Already registered — skip
 		return
@@ -119,11 +139,11 @@ func register_control(ctrl_name: String, scene_path: String) -> void:
 		"scene_path": scene_path,
 	}
 
-	# Do an immediate first capture after 2 frames (viewport needs to render)
-	_do_deferred_first_capture(ctrl_name)
+	_first_captures[ctrl_name] = 2
 
 ## Unregister a control type and clean up its SubViewport.
 func unregister_control(ctrl_name: String) -> void:
+	_first_captures.erase(ctrl_name)
 	if not _viewports.has(ctrl_name):
 		return
 	var data: Dictionary = _viewports[ctrl_name]
@@ -185,7 +205,7 @@ func set_form_designer(fd: Node) -> void:
 ## Timer callback — captures one viewport per tick in round-robin fashion.
 ## This spreads the GPU readback cost across frames instead of doing all at once.
 func _on_capture_tick() -> void:
-	if _frozen:
+	if _shutting_down or _frozen:
 		return
 	if _viewports.is_empty():
 		return
@@ -200,7 +220,7 @@ func _on_capture_tick() -> void:
 
 ## Capture a single viewport and update the form designer texture.
 func _capture_one(ctrl_name: String) -> void:
-	if not _viewports.has(ctrl_name):
+	if _shutting_down or _first_captures.has(ctrl_name) or not _viewports.has(ctrl_name):
 		return
 	var data: Dictionary = _viewports[ctrl_name]
 	var vp: SubViewport = data["viewport"]
@@ -230,13 +250,18 @@ func _capture_one(ctrl_name: String) -> void:
 	if _form_designer and _form_designer.has_method("set_control_preview_texture"):
 		_form_designer.set_control_preview_texture(ctrl_name, tex)
 
-## Deferred first capture — waits 2 frames for the viewport to render.
-func _do_deferred_first_capture(ctrl_name: String) -> void:
-	if not is_inside_tree():
+func _on_frame_post_draw() -> void:
+	if _shutting_down or _frozen:
 		return
-	await get_tree().process_frame
-	await get_tree().process_frame
-	_capture_one(ctrl_name)
+	for ctrl_name in _first_captures.keys():
+		if _shutting_down:
+			return
+		if not _first_captures.has(ctrl_name):
+			continue
+		_first_captures[ctrl_name] -= 1
+		if _first_captures[ctrl_name] <= 0:
+			_first_captures.erase(ctrl_name)
+			_capture_one(ctrl_name)
 
 ## Clean up all viewports.
 func _clear_all() -> void:

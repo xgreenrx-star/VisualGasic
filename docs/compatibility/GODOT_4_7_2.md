@@ -227,6 +227,63 @@ occurred in these eight imports, but that does not classify or resolve the
 historical crash. This fix is not an ABI change or an interactive gameplay
 certification.
 
+### Debugger and live-preview lifecycle follow-up
+
+An isolated real editor plugin reproduced a VG-owned lifecycle defect:
+after `remove_debugger_plugin()`, VG still retained its session and polling
+timer. Calling `is_session_alive()` or the poll callback then produced
+`Plugin is not attached to debugger`; late `debug_break()` also requested
+session zero from an empty native session list.
+
+The debugger now has idempotent shutdown before the main plugin unregisters it
+or destroys panels. Shutdown stops, disconnects and frees the polling timer,
+disconnects retained session signals, releases session/parent references, and
+completes pending evaluation callbacks with an explicit failure. Remote-command
+and liveness paths check current native session membership before accessing a
+retained session. Late callbacks cannot reacquire sessions after shutdown.
+Ordinary game stop does **not** shut the plugin down: a subsequent game launch
+can reconnect normally.
+
+Live preview first captures no longer suspend a GDScript coroutine across
+script reimports. They are scheduled after two rendered frames and canceled on
+unregistration or shutdown. Headless imports allocate neither preview viewports
+nor capture timers, since their dummy renderer cannot provide preview pixels.
+Graphical preview capture, freeze and re-registration remain supported.
+
+The [lifecycle runner](../../scripts/run_editor_lifecycle_regression.sh) enables
+only its test plugin in a new isolated project. It passes **50 headless checks
+and 64 graphical checks on each engine**, with no errors or shutdown leaks in
+these isolated harnesses. Checks cover three registration/removal cycles,
+explicit and engine-first removal, retained-session signal disconnection,
+timer/reference release, pending and late evaluations, and late remote commands.
+Graphical checks verify actual **200 × 150 red-control pixels**, freeze behavior
+and cancellation, plus native VG instance requests and Immediate-window
+evaluation across two real game launches. Child games run headlessly to avoid
+Xvfb embedded-window races; this is debugger transport validation, not a visual
+gameplay test.
+
+```sh
+GODOT=/path/to/Godot scripts/run_editor_lifecycle_regression.sh
+GODOT=/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
+  scripts/run_editor_lifecycle_regression.sh
+```
+
+The runner rejects an absent or incomplete exact check summary, engine failures,
+timeouts, script/runtime errors, and teardown leak diagnostics. It refuses to
+reuse a project directory. All eight pristine Brotato import combinations
+completed again without canceled preview executions or debugger-detachment
+diagnostics. No native source or binary changed in this follow-up.
+
+**Remaining limits:** the full VG editor still leaks UI/font/viewport/ObjectDB
+resources, unlike the extension-loaded baseline with the VG editor plugin
+disabled. A fresh Platformer import still produces **one stackless native
+`Plugin is not attached to debugger` diagnostic**, despite the VG callback
+regression being fixed. A native write catchpoint captured tree-teardown frames,
+not a GDScript backtrace; its remaining calling path is not yet classified.
+The earlier heap-corruption crash also remains unresolved. The clean isolated
+lifecycle checks do not establish clean shutdown of the complete editor.
+
 ### Latest performance checks after dictionary fixes
 
 The compute wrapper and three sequential gameplay/draw runs passed on Godot
@@ -370,6 +427,9 @@ These are completion counts, not successful-example counts.
   `editor_debugger_plugin.cpp:102`. An old-engine hex-editor import did not
   emit that diagnostic. Registration/session teardown needs investigation;
   no cause or safe fix has been established.
+  The [lifecycle follow-up](#debugger-and-live-preview-lifecycle-follow-up)
+  subsequently fixes VG-owned retained-session/timer callbacks, but one native
+  Platformer shutdown diagnostic and general editor leaks remain unresolved.
 - **`engine_lab`:** cold import cannot resolve a UID-only music autoload
   (`uid://bc7hq8fpdwr7s`). There is no configured main-scene startup result.
 
