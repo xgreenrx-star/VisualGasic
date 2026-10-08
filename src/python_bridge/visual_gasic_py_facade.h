@@ -28,8 +28,15 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <cstdint>
 
 namespace godot {
+
+#ifdef _WIN32
+using PyBridgePipeHandle = std::intptr_t;
+#else
+using PyBridgePipeHandle = int;
+#endif
 
 // --------------------------------------------------------------------------
 // PyAsyncTask — lightweight RefCounted task handle for PyCallAsync
@@ -141,12 +148,12 @@ private:
     bool read_raw_from_worker(PackedByteArray &r_out, int p_timeout_ms = -1);
 
     // Framing helpers
-    bool write_all(int fd, const uint8_t *data, size_t len);
-    bool read_exact(int fd, uint8_t *buf, size_t len);
+    bool write_all(PyBridgePipeHandle fd, const uint8_t *data, size_t len);
+    bool read_exact(PyBridgePipeHandle fd, uint8_t *buf, size_t len);
 
     // Platform I/O abstraction
-    bool platform_write(int fd, const uint8_t *data, size_t len);
-    int platform_read_with_timeout(int fd, uint8_t *buf, size_t len, int timeout_ms);
+    bool platform_write(PyBridgePipeHandle fd, const uint8_t *data, size_t len);
+    int platform_read_with_timeout(PyBridgePipeHandle fd, uint8_t *buf, size_t len, int timeout_ms);
 
     String find_worker_script();
 
@@ -164,8 +171,8 @@ private:
 
     // Tier A worker state
     int worker_pid;
-    int worker_stdin_fd;
-    int worker_stdout_fd;
+    PyBridgePipeHandle worker_stdin_fd;
+    PyBridgePipeHandle worker_stdout_fd;
 
     // Project settings cache
     int worker_timeout_ms_;

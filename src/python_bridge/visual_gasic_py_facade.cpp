@@ -111,7 +111,7 @@ String PyAsyncTask::get_error() const { return error_message_; }
 
 #if defined(__linux__) || defined(__APPLE__)
 
-bool PyBridgeFacade::platform_write(int fd, const uint8_t *data, size_t len) {
+bool PyBridgeFacade::platform_write(PyBridgePipeHandle fd, const uint8_t *data, size_t len) {
     while (len > 0) {
         ssize_t n = ::write(fd, data, len);
         if (n < 0) {
@@ -124,7 +124,7 @@ bool PyBridgeFacade::platform_write(int fd, const uint8_t *data, size_t len) {
     return true;
 }
 
-int PyBridgeFacade::platform_read_with_timeout(int fd, uint8_t *buf, size_t len, int timeout_ms) {
+int PyBridgeFacade::platform_read_with_timeout(PyBridgePipeHandle fd, uint8_t *buf, size_t len, int timeout_ms) {
     if (timeout_ms > 0) {
         struct pollfd pfd;
         pfd.fd = fd;
@@ -143,23 +143,25 @@ int PyBridgeFacade::platform_read_with_timeout(int fd, uint8_t *buf, size_t len,
 
 #elif defined(_WIN32)
 
-bool PyBridgeFacade::platform_write(int fd, const uint8_t *data, size_t len) {
-    HANDLE h = (HANDLE)(intptr_t)fd;
+bool PyBridgeFacade::platform_write(PyBridgePipeHandle fd, const uint8_t *data, size_t len) {
+    HANDLE h = reinterpret_cast<HANDLE>(fd);
     DWORD written;
     if (!WriteFile(h, data, (DWORD)len, &written, NULL)) return false;
     return (size_t)written == len;
 }
 
-int PyBridgeFacade::platform_read_with_timeout(int fd, uint8_t *buf, size_t len, int timeout_ms) {
-    HANDLE h = (HANDLE)(intptr_t)fd;
+int PyBridgeFacade::platform_read_with_timeout(PyBridgePipeHandle fd, uint8_t *buf, size_t len, int timeout_ms) {
+    HANDLE h = reinterpret_cast<HANDLE>(fd);
+    DWORD start = GetTickCount();
     DWORD avail = 0;
-    if (!PeekNamedPipe(h, NULL, 0, NULL, &avail, NULL)) return -1;
-    if (avail == 0) {
-        DWORD wait = WaitForSingleObject(h, timeout_ms > 0 ? (DWORD)timeout_ms : INFINITE);
-        if (wait == WAIT_TIMEOUT) return -1;
-        if (wait != WAIT_OBJECT_0) return -1;
+    // Anonymous pipe handles are not waitable; poll for data until the timeout.
+    for (;;) {
         if (!PeekNamedPipe(h, NULL, 0, NULL, &avail, NULL)) return -1;
-        if (avail == 0) return -2;
+        if (avail > 0) break;
+        if (timeout_ms > 0 &&
+            (DWORD)(GetTickCount() - start) >= (DWORD)timeout_ms)
+            return -1;
+        Sleep(1);
     }
     DWORD to_read = (DWORD)std::min((size_t)avail, len);
     DWORD read_count = 0;
@@ -170,8 +172,8 @@ int PyBridgeFacade::platform_read_with_timeout(int fd, uint8_t *buf, size_t len,
 
 #else
 
-bool PyBridgeFacade::platform_write(int, const uint8_t*, size_t) { return false; }
-int PyBridgeFacade::platform_read_with_timeout(int, uint8_t*, size_t, int) { return -1; }
+bool PyBridgeFacade::platform_write(PyBridgePipeHandle, const uint8_t*, size_t) { return false; }
+int PyBridgeFacade::platform_read_with_timeout(PyBridgePipeHandle, uint8_t*, size_t, int) { return -1; }
 
 #endif
 
@@ -179,11 +181,11 @@ int PyBridgeFacade::platform_read_with_timeout(int, uint8_t*, size_t, int) { ret
 // Framing-safe I/O wrappers
 // --------------------------------------------------------------------------
 
-bool PyBridgeFacade::write_all(int fd, const uint8_t *data, size_t len) {
+bool PyBridgeFacade::write_all(PyBridgePipeHandle fd, const uint8_t *data, size_t len) {
     return platform_write(fd, data, len);
 }
 
-bool PyBridgeFacade::read_exact(int fd, uint8_t *buf, size_t len) {
+bool PyBridgeFacade::read_exact(PyBridgePipeHandle fd, uint8_t *buf, size_t len) {
     while (len > 0) {
         int n = platform_read_with_timeout(fd, buf, len, worker_timeout_ms_);
         if (n <= 0) return false;
@@ -566,8 +568,8 @@ bool PyBridgeFacade::launch_worker_windows(const String &p_script_path) {
         CloseHandle(h_stdout_rd);
         return false;
     }
-    worker_stdin_fd = (int)(intptr_t)h_stdin_wr;
-    worker_stdout_fd = (int)(intptr_t)h_stdout_rd;
+    worker_stdin_fd = reinterpret_cast<PyBridgePipeHandle>(h_stdin_wr);
+    worker_stdout_fd = reinterpret_cast<PyBridgePipeHandle>(h_stdout_rd);
     worker_pid = (int)pi.dwProcessId;
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
