@@ -53,7 +53,7 @@ jobs:
           echo "Checking: $DYLIB"
           lipo -info "$DYLIB"
           file "$DYLIB"
-          lipo -verify_arch "${{ matrix.arch }}" "$DYLIB"
+          lipo "$DYLIB" -verify_arch "${{ matrix.arch }}"
           echo "PASS: ${{ matrix.arch }} slice built"
 
       - name: Upload architecture slice
@@ -150,7 +150,7 @@ jobs:
             lipo -create "$arm_slice" "$x86_slice" -output "$universal"
             codesign --force --sign - --deep "$framework" 2>/dev/null || true
             lipo -info "$universal"
-            lipo -verify_arch arm64 x86_64 "$universal"
+            lipo "$universal" -verify_arch arm64 x86_64
             echo "Packaged universal framework: $framework"
           done
           cd release && zip -r ../VisualGasic-macos-universal.zip macos/
