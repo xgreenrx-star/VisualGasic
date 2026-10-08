@@ -147,7 +147,10 @@ if [ ! -d "$TEST_DIR" ]; then
 fi
 
 # Collect test files
-mapfile -t TEST_FILES < <(find "$TEST_DIR" -name "$FILTER" -type f | sort)
+TEST_FILES=()
+while IFS= read -r test_file; do
+    TEST_FILES+=("$test_file")
+done < <(find "$TEST_DIR" -name "$FILTER" -type f | sort)
 
 if [ ${#TEST_FILES[@]} -eq 0 ]; then
     echo -e "${YELLOW}No test files matching '$FILTER' in $TEST_DIR${NC}"
@@ -158,9 +161,24 @@ echo -e "${CYAN}Found ${#TEST_FILES[@]} test file(s)${NC}"
 echo -e "${CYAN}Godot: $GODOT${NC}"
 echo ""
 
+run_with_timeout() {
+    local seconds="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$seconds" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        gtimeout "$seconds" "$@"
+    elif command -v perl >/dev/null 2>&1; then
+        perl -e 'alarm shift; exec @ARGV' "$seconds" "$@"
+    else
+        echo "ERROR: no timeout utility available (tried timeout, gtimeout, perl)" >&2
+        return 127
+    fi
+}
+
 # Preflight: verify GDExtension loads and VG prints PASS/FAIL.
 echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
-smoke_out=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+smoke_out=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
 if ! echo "$smoke_out" | grep -q "^PASS:"; then
     echo -e "${RED}FATAL: GDExtension smoke test failed (no PASS: from test_arr_simple.vg)${NC}"
     echo -e "${YELLOW}Hint: run scripts/prepare_ci_gdextension.sh after scons build${NC}"
@@ -200,7 +218,7 @@ for vg_file in "${TEST_FILES[@]}"; do
     echo "res://test_suite/$fname" > test_proj/current_test.txt
     
     # Run headlessly, capture output
-    output=$(timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+    output=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
     
     # Count PASS and FAIL lines
     pass_count=$(echo "$output" | grep -c "^PASS:" || true)
