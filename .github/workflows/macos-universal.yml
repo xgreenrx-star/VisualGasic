@@ -7,6 +7,8 @@ on:
       - 'src/**'
       - 'SConstruct'
       - 'godot-cpp/**'
+      - 'scripts/build_macos_universal.sh'
+      - '.github/workflows/macos-universal.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
