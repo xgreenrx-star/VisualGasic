@@ -8,6 +8,7 @@ on:
       - 'SConstruct'
       - 'godot-cpp/**'
       - 'scripts/build_macos_universal.sh'
+      - 'run_test_suite.sh'
       - '.github/workflows/macos-universal.yml'
   pull_request:
     branches: [main]
