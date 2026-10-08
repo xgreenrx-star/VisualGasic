@@ -306,6 +306,14 @@ jobs:
               & $dumpbin /exports $dll | Select-String 'visual_gasic_library_init'
             }
           }
+          $cdb = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Debuggers\x64\cdb.exe'
+          if (Test-Path $cdb) {
+            $python = (Get-Command python).Source
+            & $cdb -c 'sxe av; g; k; q' $python -c 'import ctypes,sys; ctypes.WinDLL(sys.argv[1])' $dll
+            Write-Host "CDB exit code: $LASTEXITCODE"
+          } else {
+            Write-Host "CDB is unavailable at $cdb"
+          }
 
       - name: M7 Python bridge smoke (Windows)
         shell: bash

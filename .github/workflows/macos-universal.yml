@@ -103,8 +103,11 @@ jobs:
           curl -L -o godot.zip "https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_macos.universal.zip"
           unzip -q godot.zip
           # App bundle → console-friendly binary path used by run_test_suite.sh
-          GODOT_APP="$(find . -maxdepth 3 -name 'Godot' -type f | head -1)"
-          test -n "$GODOT_APP"
+          GODOT_APP="$(find . -type f -name 'Godot' -print | sed -n '1p')"
+          if [ -z "$GODOT_APP" ]; then
+            echo "::error::Could not locate the Godot executable in the downloaded macOS archive"
+            exit 1
+          fi
           chmod +x "$GODOT_APP"
           echo "GODOT=$GODOT_APP" >> "$GITHUB_ENV"
 
