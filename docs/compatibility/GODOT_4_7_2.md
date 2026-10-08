@@ -217,8 +217,11 @@ GODOT=/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
 existing regression-project directories. The native probe runs only when
 `VG_HOT_RELOAD_SELFTEST=1`; the runner checks its exact completion summary and
 rejects probe errors/leaks, engine failures, timeouts, and script/fatal errors.
-The sample import checks deliberately retain and display cold font/theme
-bootstrap errors and shutdown diagnostics rather than calling imports clean.
+The sample import checks reject cold Kenney Pixel font/theme bootstrap errors
+and start both games after import to verify their deferred themes load. With
+`RENDER_MODE=graphical`, resource import and editor lifecycle checks remain
+headless; only the final game startup uses the graphical renderer. Editor
+shutdown diagnostics are still retained and are not counted as clean shutdown.
 
 **Still unresolved:** editor RID/font/viewport/ObjectDB teardown leaks,
 suspended live-preview cancellation warnings, debugger-session detachment
@@ -409,10 +412,13 @@ The persistent stress wrapper was then verified with one additional 4.7.2
 iteration (two more fresh imports). The 24-check full-plugin enabled-at-quit
 headless lifecycle also remains clean on both engines.
 The isolated upstream driver lifecycle test passes all **13 assertions on each
-engine**, including audio stream start/stop, but emits an
-`AudioStreamGeneratorPlayback` ObjectDB leak on 4.7.2 (the 4.6.1 run also reports
-an ObjectDB leak). This audio teardown limit is not counted as clean shutdown
-and is not addressed by the linked-list pool repair.
+engine**, including audio stream start/stop, but immediately quitting afterward
+can report an `AudioStreamGeneratorPlayback` ObjectDB leak. A probe that waits
+60 process frames after stopping and freeing the driver produced no leak in
+five consecutive runs on each engine. This makes asynchronous audio teardown
+the current explanation, not a proven driver ownership defect; the immediate
+quit warning remains unresolved and is not addressed by the linked-list pool
+repair.
 
 ```sh
 JOBS=4 addons/visual_gasic/plugins/vgmusic/build_gdsion.sh \
@@ -421,13 +427,16 @@ GODOT=/path/to/Godot scripts/run_gdsion_pool_regression.sh
 GODOT=/path/to/Godot ITERATIONS=3 scripts/run_editor_import_heap_stress.sh
 ```
 
-These imports still report cold project-theme/font bootstrap diagnostics; they
-are import-completion and crash checks, not clean-import certification. The
-historical `malloc(): unaligned tcache chunk detected` occurred earlier during
-font reimport, whereas the captured reproducible fault is in synth shutdown.
-The demonstrated use-after-free is repaired, but the historical crash is **not
-conclusively attributed or marked fixed** without matching native evidence.
-The independent engine Game View focus diagnostic remains classified separately.
+The Brotato projects now apply their custom theme from the main scene after
+Godot has completed the font import, instead of loading it from `project.godot`
+during the initial cold scan. Pristine cold imports on Godot 4.6.1 and 4.7.2 no
+longer report the Kenney Pixel font/theme bootstrap errors, and the regression
+runner also starts each game after import. The historical
+`malloc(): unaligned tcache chunk detected` occurred during font reimport,
+whereas the captured reproducible fault is in synth shutdown. The demonstrated
+use-after-free is repaired, but the historical crash is **not conclusively
+attributed or marked fixed** without matching native evidence. The independent
+engine Game View focus diagnostic remains classified separately.
 
 ### Latest performance checks after dictionary fixes
 

@@ -12,8 +12,14 @@ if [[ ! -x "$GODOT" ]]; then
 	exit 1
 fi
 case "$RENDER_MODE" in
-	headless) engine_args=(--headless) ;;
-	graphical) engine_args=(--rendering-method gl_compatibility --audio-driver Dummy) ;;
+	headless)
+		engine_args=(--headless)
+		import_mode_args=()
+		;;
+	graphical)
+		engine_args=(--rendering-method gl_compatibility --audio-driver Dummy)
+		import_mode_args=(--headless)
+		;;
 	*) echo "ERROR: RENDER_MODE must be headless or graphical" >&2; exit 1 ;;
 esac
 mkdir -p "$OUT_DIR"
@@ -77,10 +83,9 @@ for sample in brotato_vg brotato3d; do
 		tar -xf - -C "$project" --strip-components=3
 	bootstrap "$project"
 	log="$OUT_DIR/$sample-import.log"
-	run_engine "$project" "$log" --editor --import
-	if [[ "$RENDER_MODE" == headless ]] &&
-			{ ! grep -Eq '\[ DONE \].*loading_editor_layout' "$log" ||
-			! grep -Fq '[VG Hot Reload] Reloaded ' "$log"; }; then
+	run_engine "$project" "$log" "${import_mode_args[@]}" --editor --import
+	if ! grep -Eq '\[ DONE \].*loading_editor_layout' "$log" ||
+			! grep -Fq '[VG Hot Reload] Reloaded ' "$log"; then
 		echo "FAIL: $sample did not complete editor loading and exercise reload-all; see $log" >&2
 		exit 1
 	fi
@@ -88,9 +93,18 @@ for sample in brotato_vg brotato3d; do
 		echo "FAIL: $sample editor cache does not recognize VG scripts; see $log" >&2
 		exit 1
 	fi
-	echo "PASS: pristine $sample editor import completed ($RENDER_MODE)"
-	# Cold imported-font bootstrap and editor teardown diagnostics are retained,
-	# not counted as clean shutdown or concealed by the completion check.
+	if grep -Eq 'No loader found for resource: res://assets/fonts/Kenney_Pixel\.ttf|Failed loading resource: res://themes/default_theme\.tres|Error loading custom project theme' "$log"; then
+		echo "FAIL: $sample cold import could not defer the custom theme until its font was imported; see $log" >&2
+		exit 1
+	fi
+	runtime_log="$OUT_DIR/$sample-runtime.log"
+	run_engine "$project" "$runtime_log" --quit-after 60
+	if grep -Eq '^ERROR:|SCRIPT ERROR' "$runtime_log"; then
+		echo "FAIL: $sample game startup did not load its imported theme cleanly; see $runtime_log" >&2
+		exit 1
+	fi
+	echo "PASS: pristine $sample import and themed game startup completed ($RENDER_MODE)"
+	# Editor teardown diagnostics are retained and not counted as clean shutdown.
 	grep -E '^ERROR:|leaked at exit|were leaked|Canceling suspended' "$log" || true
 done
-echo "RESULTS: 3/3 reload regressions passed; full diagnostics retained in $OUT_DIR"
+echo "RESULTS: 3/3 reload regressions and both Brotato theme startups passed; logs retained in $OUT_DIR"

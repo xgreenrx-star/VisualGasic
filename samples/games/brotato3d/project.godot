@@ -32,10 +32,6 @@ window/stretch/mode="canvas_items"
 
 enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
 
-[gui]
-
-theme/custom="res://themes/default_theme.tres"
-
 [input]
 
 move_left={

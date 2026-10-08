@@ -26,6 +26,9 @@ Dim waveTimerRef As Single
 Dim shakeAmount As Single
 
 Sub _Ready()
+	Dim gameTheme As Object
+	gameTheme = Load("res://themes/default_theme.tres")
+	Call ApplyGameTheme(Me, gameTheme)
 	GetTree().set_current_scene(Me)
 	player = GetNode("GameObjects/Player")
 	waveManager = GetNode("WaveManager")
@@ -63,6 +66,13 @@ Sub _Ready()
 	Call SetupArena()
 	Call BuildCharacterGrid()
 	Call ShowTitle()
+End Sub
+
+Sub ApplyGameTheme(node As Object, gameTheme As Object)
+	If node.is_class("Control") Then node.theme = gameTheme
+	For Each child In node.get_children()
+		Call ApplyGameTheme(child, gameTheme)
+	Next child
 End Sub
 
 ' One-time arena look — floor texture + dark rim meshes.
