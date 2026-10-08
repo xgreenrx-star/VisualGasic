@@ -258,4 +258,4 @@ func _print_summary() -> void:
 	if not _parse_fail.is_empty():
 		print("\nParse failures:")
 		for i in mini(_parse_fail.size(), 30):
-			print("  - ", _parse_fail[i]["keyword"])
+			print("  - ", _parse_fail[i]["keyword"], "\n", _parse_fail[i]["source"])

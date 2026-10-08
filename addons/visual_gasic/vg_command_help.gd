@@ -287,7 +287,7 @@ static func _build_db() -> void:
 	_add("While",
 		"While condition\n    statements\nWend",
 		"Repeats a block as long as the condition is True. Legacy syntax; prefer Do...Loop for new code.",
-		"While Not gameOver\n    Update()\n    Draw()\nWend", 13111)
+		"While Not gameOver\n    Update()\n    RenderFrame()\nWend", 13111)
 
 	_add("Wend",
 		"Wend",
