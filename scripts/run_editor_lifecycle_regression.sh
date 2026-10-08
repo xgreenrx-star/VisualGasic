@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/editor_regression_helpers.sh"
 GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
 OUT_DIR="${OUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/vg-editor-lifecycle-XXXXXX")}"
 RENDER_MODE="${RENDER_MODE:-headless}"
@@ -43,9 +44,8 @@ if [[ -e "$project" || -L "$project" ]]; then
 	exit 1
 fi
 mkdir -p "$project/addons" "$project/.godot"
-ln -s "$ROOT/addons/visual_gasic" "$project/addons/visual_gasic"
+prepare_editor_regression_addon "$project"
 ln -s "$ROOT/test_proj/tools/editor_lifecycle" "$project/addons/lifecycle_test"
-printf '%s\n' res://addons/visual_gasic/visual_gasic.gdextension > "$project/.godot/extension_list.cfg"
 cat > "$project/project.godot" <<PROJECT
 config_version=5
 [application]
@@ -53,8 +53,6 @@ config/name="VG Editor Lifecycle Regression"
 run/main_scene="res://main.tscn"
 [editor]
 run/main_run_args="--headless --audio-driver Dummy"
-[editor_plugins]
-enabled=PackedStringArray("res://addons/lifecycle_test/$plugin_config")
 [rendering]
 renderer/rendering_method="gl_compatibility"
 [vg]
@@ -70,6 +68,16 @@ SCENE
 if [[ "$FULL_PLUGIN" == 1 ]]; then
 	printf '\n[autoload]\nVGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"\n' >> "$project/project.godot"
 fi
+import_log="$OUT_DIR/import.log"
+if ! timeout "$TIMEOUT_SECS" "$GODOT" --headless --editor --import --path "$project" \
+		> "$import_log" 2>&1 ||
+		grep -Eq '^ERROR:|SCRIPT ERROR|Parser Error|leaked at exit|were leaked|signal 11|Scan thread aborted' "$import_log"; then
+	echo "FAIL: lifecycle fixture import failed; see $import_log" >&2
+	tail -n 20 "$import_log" >&2
+	exit 1
+fi
+printf '\n[editor_plugins]\nenabled=PackedStringArray("res://addons/lifecycle_test/%s")\n' \
+	"$plugin_config" >> "$project/project.godot"
 log="$OUT_DIR/editor.log"
 if ! timeout "$TIMEOUT_SECS" "$GODOT" "${engine_args[@]}" --editor --path "$project" > "$log" 2>&1; then
 	echo "FAIL: editor lifecycle process failed or timed out; see $log" >&2

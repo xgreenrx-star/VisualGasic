@@ -37,7 +37,9 @@ jobs:
           ./scripts/sync_addons.sh check
 
       - name: Build
-        run: scons platform=linux target=editor -j2
+        run: |
+          scons platform=linux target=template_debug -j2
+          scons platform=linux target=editor -j2
 
       - name: Prepare GDExtension for testing
         run: |
@@ -130,6 +132,22 @@ jobs:
         run: |
           chmod +x ./tests/run_builtin_tests.py
           ./tests/run_builtin_tests.py
+
+      - name: Release hardening (parity, corpus, mutations, editor lifecycle)
+        timeout-minutes: 25
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          OUT_DIR: ${{ runner.temp }}/vg-release-hardening
+        run: bash scripts/run_release_hardening.sh
+
+      - name: Upload release hardening evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-hardening
+          path: ${{ runner.temp }}/vg-release-hardening
+          if-no-files-found: warn
 
       - name: Programmer's Reference gate (audit + parse harness)
         env:

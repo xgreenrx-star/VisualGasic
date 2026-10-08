@@ -26,7 +26,7 @@ cd "$ROOT"
 TEST_DIR="test_proj/test_suite"
 RUNNER="run_suite.gd"
 TIMEOUT_SECS="${TIMEOUT_SECS:-20}"
-OUT_DIR="${TMPDIR:-/tmp}/vg-ast-bc-diff-$$"
+OUT_DIR="${OUT_DIR:-${TMPDIR:-/tmp}/vg-ast-bc-diff-$$}"
 mkdir -p "$OUT_DIR"
 
 # Default hot set: arithmetic, ByRef, Godot ctors, nested calls — dual-path landmines.

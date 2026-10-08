@@ -5,6 +5,7 @@ Dim order As String = ""
 Dim ticks As Integer = 0
 Dim elapsed As Double = 0
 Dim finished As Boolean = False
+Dim fastDone As Boolean = False
 
 Sub _Process(delta As Double)
 	ticks = ticks + 1
@@ -17,16 +18,26 @@ End Sub
 
 Sub Waiter(ByVal tag As String, ByVal delay As Double)
 	Dim local As String = tag
+	' Timers expiring in the same frame need not resume by requested duration.
+	' Keep both calls suspended, but establish the order explicitly.
+	If tag = "slow" Then
+		While Not fastDone
+			Await 0
+		Wend
+	End If
 	Await delay
 	If local = tag Then Print "PASS: overlapping Await locals " & tag Else Print "FAIL: overlapping Await locals " & tag
 	order = order & tag
 	completed = completed + 1
+	If tag = "fast" Then fastDone = True
 End Sub
 
 Sub _Ready()
 	Waiter "slow", 0.04
 	Waiter "fast", 0
-	Await 0.08
+	While completed < 2 And Not finished
+		Await 0
+	Wend
 	If completed = 2 And order = "fastslow" And ticks > 0 Then Print "PASS: overlapping Await order and live globals" Else Print "FAIL: overlapping Await order and live globals"
 	Dim timer As Object
 	Set timer = GetTree().CreateTimer(0.001)

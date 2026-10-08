@@ -3,15 +3,17 @@
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-5.6.0--beta1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
-[![Godot](https://img.shields.io/badge/Godot-4.6.1+-purple.svg)](https://godotengine.org)
+[![Godot](https://img.shields.io/badge/Godot-4.6.1_baseline-purple.svg)](docs/compatibility/GODOT_4_7_2.md)
 
 > **Keep GDScript for engine glue. Use Visual Gasic for game rules, UI-heavy flows, and in-editor tools** — with features GDScript doesn’t ship, JIT-backed performance, and **Vibe Code** (Narcea + your choice of model).
 >
-> Plain `Sub` / `If` / `Dim` control flow; VB6-*compatible* where porting helps. C++ GDExtension for Godot 4.6+.
+> Plain `Sub` / `If` / `Dim` control flow; VB6-*compatible* where porting helps. C++ GDExtension with Godot 4.6.1 as the tested cross-platform baseline.
 
 **Storefront positioning:** [docs/POSITIONING.md](docs/POSITIONING.md)
 
-**Godot 4.7.2 compatibility:** Linux runtime checks pass. All 58 reviewed corpus examples pass on Godot 4.7.2 and 4.6.1 in default and forced-AST modes with the rebuilt extension. Editor cold-import/shutdown concerns and the 15 quarantined sample projects remain unresolved; see the [tested scope and compatibility report](docs/compatibility/GODOT_4_7_2.md) before migrating a project.
+**Tested engine scope:** Godot **4.6.1** is the cross-platform CI baseline; Godot **4.7.2** has additional Linux compatibility evidence. All **80 corpus examples** passed on both engines in default and forced-AST modes. The 15 previously quarantined sample projects have been restored and passed bounded startup checks, not full gameplay certification. Remaining editor/audio shutdown and historical crash investigations are described in the [compatibility report](docs/compatibility/GODOT_4_7_2.md). Other Godot versions are not certified by these checks.
+
+**v6 release readiness:** [Release gates and evidence requirements](docs/release/RELEASE_PROCESS.md#v6-release-gates) distinguish automated checks from manual platform, installation, upgrade and export sign-off.
 
 ## 🧭 The thesis (audit + AI — optional deep read)
 

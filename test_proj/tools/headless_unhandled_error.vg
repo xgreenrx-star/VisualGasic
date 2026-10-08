@@ -1,0 +1,14 @@
+Option Explicit
+Dim reported As Boolean = False
+
+Sub _Ready()
+    Await 0
+    Err.Raise 879, "HeadlessErrorTest", "headless event failure"
+End Sub
+
+Sub _Process(delta As Single)
+    If Not reported Then
+        reported = True
+        Print "PASS: headless event loop continues"
+    End If
+End Sub

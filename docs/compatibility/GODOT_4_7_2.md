@@ -438,6 +438,57 @@ use-after-free is repaired, but the historical crash is **not conclusively
 attributed or marked fixed** without matching native evidence. The independent
 engine Game View focus diagnostic remains classified separately.
 
+### Release-hardening graphical shutdown follow-up
+
+The 2026-10-08 release-hardening campaign passed the full differential suite
+(223 matched fixtures per engine), both 80-example corpus modes, both 40-case
+mutation modes, and headless lifecycle/reload checks on 4.6.1 and 4.7.2.
+The [release process](../release/RELEASE_PROCESS.md#v6-release-gates) now records
+the required gates and the limits of those results.
+
+Fresh tracked-source addon snapshots exposed two harness setup assumptions:
+the optional GDSiON manifest could be scanned even when its ignored Linux
+library was absent, and cold script reimports could cancel the test coroutine.
+Core editor fixtures now copy addon source, explicitly omit the unavailable
+optional manifest with a `NOT TESTED` message, and finish lifecycle asset import
+before enabling the test plugin. This is not a music packaging fix. Both clean
+headless lifecycle variants and cold Brotato imports/startups pass.
+Reload-all remains deliberately exercised by the native nine-check probe,
+rather than inferred from a message that need not occur on a fresh sample import.
+
+**New unresolved graphical failure:** with copied addon source, the component
+lifecycle probe prints `EDITOR-LIFECYCLE RESULTS: 64 passed, 0 failed`, then
+aborts on editor shutdown. It reproduced on both engines; two repeat 4.6.1
+launches also aborted. An isolated control using the previous committed
+4.6.1 editor extension (SHA-256
+`864c019f11b1675e0f490edc1a32b2c6a8dddc2013f0253c85e00e3937120add`)
+reproduced the same crash, without the new headless-dialog guard.
+
+The 4.6.1 native trace includes repeated frames at `0x1a1c6bc`, a fault at
+`0x1a1c724` and worker entry `0x1a1d086`. The 4.7.2 trace has an analogous
+recursive worker stack. The stripped engine binaries do not identify the
+responsible function; no engine-only or VG-owned classification is claimed.
+The historical font-import heap corruption and the repaired GDSiON pool
+use-after-free remain separate until matching evidence connects them.
+
+The full-plugin graphical enabled-at-quit probe passed 24/24 on both engines,
+and the component/full-plugin headless variants remain clean. Those passes do
+not override a crashing graphical component probe. The runner rejects the
+crash even after the assertion summary succeeds.
+
+Reproduce the current graphical component failure with:
+
+```sh
+GODOT=/absolute/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
+  bash scripts/run_editor_lifecycle_regression.sh
+```
+
+Next investigation: obtain a symbolized worker stack and a minimal reproduction
+separating addon/resource scanning from the two live debugger game launches.
+Do not suppress the crash, add an arbitrary shutdown delay, or mark v6 ready
+based only on the green headless gates.
+
 ### Latest performance checks after dictionary fixes
 
 The compute wrapper and three sequential gameplay/draw runs passed on Godot

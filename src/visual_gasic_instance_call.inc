@@ -1457,8 +1457,11 @@ void VisualGasicInstance::report_unhandled_error(const String &p_sub_name) {
         in_error_handler = false;
     }
 
-    // No user handler → VB6-style native dialog so the failure is visible.
-    if (!handled_by_user) {
+    // Headless runs already report to stderr; an external dialog can block CI
+    // even with --headless when the process inherits a desktop display.
+    // Graphical runs retain the VB6-style native dialog.
+    if (!handled_by_user && DisplayServer::get_singleton() &&
+			DisplayServer::get_singleton()->get_name() != "headless") {
         String dlg = "Run-time error '" + String::num_int64(err_code) + "':\n\n" + err_message;
         if (err_line > 0) {
             if (!err_file.is_empty()) {

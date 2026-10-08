@@ -176,6 +176,12 @@ When an unhandled runtime error occurs, the **Exception Assistant** popup appear
 
 The Exception Assistant mimics VB6's error dialog, letting you choose how to handle unexpected errors during development.
 
+In `--headless` runs, VG reports unhandled event errors to stderr with the
+procedure, file and line but does not open a blocking native dialog. A defined
+`_OnError` handler still runs. This prevents unattended tests and servers from
+waiting for a desktop dialog even when they inherit a display environment.
+Explicit `MsgBox` calls are separate and should not be used in unattended code.
+
 ---
 
 ## Variables Panel

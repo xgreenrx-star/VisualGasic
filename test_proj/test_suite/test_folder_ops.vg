@@ -117,11 +117,14 @@ Sub _Ready()
     fso.WriteAll trashPath, "bye"
     Dim trashed As Boolean
     trashed = SendToTrash(trashPath)
-    If trashed And Not fso.FileExists(trashPath) Then
-        Print "PASS: sendtotrash"
+    Dim fileRemains As Boolean = fso.FileExists(trashPath)
+    If (trashed And Not fileRemains) Or (Not trashed And fileRemains) Then
+        Print "PASS: sendtotrash_result_matches_file_presence"
     Else
-        ' Headless environments may lack an XDG trash location; non-fatal.
-        Print "PASS: sendtotrash (unavailable in this environment)"
+        Print "FAIL: sendtotrash_result_matches_file_presence"
+    End If
+    If Not trashed Then
+        Print "UNVERIFIED: SendToTrash returned False; positive OS trash integration not tested"
     End If
 
     ' Delegate the wildcard-Kill and FSO checks to helper Subs.

@@ -1,5 +1,5 @@
 ' Test: Package Manager basic operations
-' Validates VisualGasicPackage class instantiation and manifest handling
+' Validates local operations without depending on a public registry.
 
 Sub _Ready()
     Print "=== Package Manager Tests ==="
@@ -30,25 +30,41 @@ Sub _Ready()
         Print "PASS: GetInstalledPackages returned " & pkgs.size() & " packages"
     End If
 
-    ' Test 4: Registries
+    ' Test 4: Registries. Remove defaults before offline operations.
     Dim regs As Variant
     regs = pm.GetRegistries()
-    Print "PASS: GetRegistries returned"
+    For Each reg In regs
+        pm.RemoveRegistry reg.get("name")
+    Next reg
+    regs = pm.GetRegistries()
+    If regs.size() = 0 Then
+        Print "PASS: Registry removal leaves offline configuration"
+    Else
+        Print "FAIL: Registry removal"
+    End If
 
     ' Test 5: Package name validation (install non-existent)
     Dim result As Dictionary
     Set result = pm.InstallPackage("test-nonexistent-pkg", "^1.0.0")
-    Print "PASS: InstallPackage returned: " & result.get("success", false)
+    If Not result.get("success", true) And result.get("message", "") <> "" Then
+        Print "PASS: Missing package fails with a message"
+    Else
+        Print "FAIL: Missing package installation"
+    End If
 
     ' Test 6: Initialize project (creates manifest)
     Dim proj As Dictionary
     Set proj = pm.InitializeProject("/tmp/vg_pkg_test_proj")
     Print "PASS: InitializeProject returned"
 
-    ' Test 7: Search (returns empty from stub registry)
+    ' Test 7: Search without registries returns an empty array.
     Dim searchResults As Variant
     searchResults = pm.SearchPackages("math")
-    Print "PASS: SearchPackages returned"
+    If searchResults.size() = 0 Then
+        Print "PASS: Offline search returns no packages"
+    Else
+        Print "FAIL: Offline search results"
+    End If
 
     ' Test 8: Add/remove dependency
     pm.AddDependency "test-lib", "^2.0.0"
