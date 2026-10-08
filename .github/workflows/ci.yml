@@ -284,6 +284,29 @@ jobs:
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi_windows.vg
 
+      - name: Diagnose Windows GDExtension load failure
+        if: failure()
+        shell: pwsh
+        run: |
+          $dll = Join-Path $env:GITHUB_WORKSPACE 'test_proj\addons\visual_gasic\bin\libvisualgasic.windows.editor.x86_64.dll'
+          if (-not (Test-Path $dll)) {
+            Write-Host "Staged extension DLL not found: $dll"
+            exit 0
+          }
+          Get-Item $dll | Format-List FullName,Length,LastWriteTime
+          python -c 'import ctypes,sys; ctypes.WinDLL(sys.argv[1])' $dll
+          Write-Host "Isolated LoadLibrary exit code: $LASTEXITCODE"
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (Test-Path $vswhere) {
+            $vsPath = & $vswhere -latest -products '*' -property installationPath
+            $dumpbin = Get-ChildItem "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" -File -ErrorAction SilentlyContinue |
+              Select-Object -First 1 -ExpandProperty FullName
+            if ($dumpbin) {
+              & $dumpbin /dependents $dll
+              & $dumpbin /exports $dll | Select-String 'visual_gasic_library_init'
+            }
+          }
+
       - name: M7 Python bridge smoke (Windows)
         shell: bash
         env:
