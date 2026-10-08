@@ -25,6 +25,7 @@ BIN_DIR="$ROOT_DIR/demo/bin"
 
 FRAMEWORK_NAME="libvisualgasic.macos.${TARGET}.framework"
 DYLIB_NAME="libvisualgasic.macos.${TARGET}"
+PKG_CONFIG_PATH_DEFAULT="${PKG_CONFIG_PATH:-}"
 
 echo "╔══════════════════════════════════════════════╗"
 echo "║  VisualGasic — macOS Universal Binary Build  ║"
@@ -36,9 +37,25 @@ echo ""
 
 cd "$ROOT_DIR"
 
+build_arch() {
+    local arch="$1"
+    local pkg_config_path="$PKG_CONFIG_PATH_DEFAULT"
+    if [[ "$arch" == "arm64" && -n "${PKG_CONFIG_PATH_ARM64:-}" ]]; then
+        pkg_config_path="$PKG_CONFIG_PATH_ARM64"
+    elif [[ "$arch" == "x86_64" && -n "${PKG_CONFIG_PATH_X86_64:-}" ]]; then
+        pkg_config_path="$PKG_CONFIG_PATH_X86_64"
+    fi
+
+    if [[ -n "$pkg_config_path" ]]; then
+        PKG_CONFIG_PATH="$pkg_config_path" scons target="$TARGET" platform=macos "arch=$arch" -j"$JOBS"
+    else
+        scons target="$TARGET" platform=macos "arch=$arch" -j"$JOBS"
+    fi
+}
+
 # ── Step 1: Build for arm64 (Apple Silicon) ─────────────────────────────────
 echo "▶ Building arm64 (Apple Silicon)..."
-scons target="$TARGET" platform=macos arch=arm64 -j"$JOBS"
+build_arch arm64
 
 ARM64_FRAMEWORK="$BIN_DIR/$FRAMEWORK_NAME"
 ARM64_DYLIB="$ARM64_FRAMEWORK/$DYLIB_NAME"
@@ -55,7 +72,7 @@ echo "  ✅ arm64 binary saved"
 
 # ── Step 2: Build for x86_64 (Intel) ────────────────────────────────────────
 echo "▶ Building x86_64 (Intel)..."
-scons target="$TARGET" platform=macos arch=x86_64 -j"$JOBS"
+build_arch x86_64
 
 X86_FRAMEWORK="$BIN_DIR/$FRAMEWORK_NAME"
 X86_DYLIB="$X86_FRAMEWORK/$DYLIB_NAME"

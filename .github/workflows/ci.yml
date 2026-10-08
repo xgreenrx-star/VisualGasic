@@ -166,7 +166,7 @@ jobs:
           DISPLAY: ""
         run: |
           ./Godot_v4.6.1-stable_linux.x86_64 --headless --path demo \
-            --script dump_bytecode.gd \
+            --script "${{ github.workspace }}/engine_lab/prototypes/dump_bytecode.gd" \
             --entries=BenchArithmetic,BenchArraySum,BenchStringConcat,BenchBranch \
             --json --out=${{ github.workspace }}/bytecode_dump.json
 

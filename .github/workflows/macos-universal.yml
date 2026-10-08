@@ -38,12 +38,24 @@ jobs:
       - name: Install libopenmpt (for Tracker namespace — .xm/.mod/.s3m playback)
         run: brew install libopenmpt
 
+      - name: Install Intel Homebrew dependencies (Rosetta)
+        run: |
+          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            sudo softwareupdate --install-rosetta --agree-to-license
+          fi
+          if [[ ! -x /usr/local/bin/brew ]]; then
+            NONINTERACTIVE=1 arch -x86_64 /bin/bash -c \
+              "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          HOMEBREW_NO_AUTO_UPDATE=1 arch -x86_64 /usr/local/bin/brew install libffi libopenmpt
+
       - name: Build Universal Binary
         run: |
           chmod +x scripts/build_macos_universal.sh
           ./scripts/build_macos_universal.sh ${{ matrix.target }}
         env:
-          PKG_CONFIG_PATH: /opt/homebrew/opt/libffi/lib/pkgconfig:/opt/homebrew/opt/libopenmpt/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
+          PKG_CONFIG_PATH_ARM64: /opt/homebrew/opt/libffi/lib/pkgconfig:/opt/homebrew/opt/libopenmpt/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
+          PKG_CONFIG_PATH_X86_64: /usr/local/opt/libffi/lib/pkgconfig:/usr/local/opt/libopenmpt/lib/pkgconfig:/usr/local/lib/pkgconfig
 
       - name: Verify Universal Binary
         run: |

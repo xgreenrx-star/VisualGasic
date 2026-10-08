@@ -108,7 +108,7 @@ def main() -> int:
 
     try:
         wait_url(page_url)
-        time.sleep(1.5)
+        wait_url(f"http://127.0.0.1:{cdp_port}/json/version")
         req = urllib.request.Request(
             f"http://127.0.0.1:{cdp_port}/json/new?{page_url}",
             method="PUT",
