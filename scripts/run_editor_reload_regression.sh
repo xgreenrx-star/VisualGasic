@@ -7,9 +7,18 @@ GODOT="${GODOT:-$ROOT/Godot_v4.6.1-stable_linux.x86_64}"
 TIMEOUT_SECS="${TIMEOUT_SECS:-120}"
 OUT_DIR="${OUT_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/vg-editor-reload-XXXXXX")}"
 RENDER_MODE="${RENDER_MODE:-headless}"
+IMPORT_BACKTRACE="${IMPORT_BACKTRACE:-0}"
 
 if [[ ! -x "$GODOT" ]]; then
 	echo "ERROR: GODOT must name an executable engine" >&2
+	exit 1
+fi
+if [[ "$IMPORT_BACKTRACE" != 0 && "$IMPORT_BACKTRACE" != 1 ]]; then
+	echo "ERROR: IMPORT_BACKTRACE must be 0 or 1" >&2
+	exit 1
+fi
+if [[ "$IMPORT_BACKTRACE" == 1 ]] && ! command -v gdb >/dev/null 2>&1; then
+	echo "ERROR: IMPORT_BACKTRACE=1 requires gdb" >&2
 	exit 1
 fi
 case "$RENDER_MODE" in
@@ -42,7 +51,16 @@ bootstrap() {
 run_engine() {
 	local project="$1" log="$2"
 	shift 2
-	if ! timeout "$TIMEOUT_SECS" "$GODOT" "${engine_args[@]}" --path "$project" "$@" > "$log" 2>&1; then
+	local launcher=("$GODOT")
+	if [[ "$IMPORT_BACKTRACE" == 1 && " $* " == *" --import "* ]]; then
+		launcher=(gdb --batch --return-child-result
+			-ex 'set pagination off'
+			-ex 'handle SIGSEGV stop print nopass'
+			-ex 'handle SIGABRT stop print nopass'
+			-ex run -ex 'thread apply all bt 32'
+			--args "$GODOT" --disable-crash-handler)
+	fi
+	if ! timeout "$TIMEOUT_SECS" "${launcher[@]}" "${engine_args[@]}" --path "$project" "$@" > "$log" 2>&1; then
 		echo "FAIL: engine failed or timed out; see $log" >&2
 		tail -n 20 "$log" >&2
 		exit 1

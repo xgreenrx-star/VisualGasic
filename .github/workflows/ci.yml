@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y scons build-essential python3 python3-pip libopenmpt-dev pkg-config
+          sudo apt-get install -y scons build-essential python3 python3-pip libopenmpt-dev pkg-config gdb
 
       - name: Dim linter
         run: |
@@ -134,12 +134,24 @@ jobs:
           ./tests/run_builtin_tests.py
 
       - name: Release hardening (parity, corpus, mutations, editor lifecycle)
+        id: release-hardening
         timeout-minutes: 25
         env:
           DISPLAY: ""
           GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
           OUT_DIR: ${{ runner.temp }}/vg-release-hardening
         run: bash scripts/run_release_hardening.sh
+
+      - name: Diagnose fresh editor imports after hardening failure
+        if: ${{ failure() && steps.release-hardening.outcome == 'failure' }}
+        timeout-minutes: 6
+        continue-on-error: true
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          OUT_DIR: ${{ runner.temp }}/vg-release-hardening/editor-reload-backtrace
+          IMPORT_BACKTRACE: "1"
+        run: bash scripts/run_editor_reload_regression.sh
 
       - name: Upload release hardening evidence
         if: always()

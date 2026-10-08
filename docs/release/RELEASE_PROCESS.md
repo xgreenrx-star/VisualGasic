@@ -288,7 +288,21 @@ component lifecycle reports 64 successful assertions but then crashes during
 editor shutdown on both engines. Godot 4.6.1 reproduced it on two repeat launches
 and with the previously committed editor binary; the headless dialog fix is
 therefore not required to reproduce it. Full-plugin graphical enabled-at-quit
-checks passed 24/24 on both engines. The component crash remains unclassified:
-native frames in the engine do not establish an engine-only cause.
-The strict runner still returns failure, and the release is not certified.
+checks passed 24/24 on both engines. Subsequent isolation reproduced the exact
+crash on both engines in a GDScript-only project with no VG addon or extension.
+Its filesystem traversal matches Godot's script-documentation regeneration
+worker. A session-only documentation-cache control prevents the crash in both
+no-VG projects and in the original 4.6.1 component fixture (64/64).
+The failure is therefore independently reproducible in Godot, but remains
+unfixed; no cache workaround or sleep is shipped. The strict graphical runner
+still returns failure, and the release is not certified.
 See the [compatibility follow-up](../compatibility/GODOT_4_7_2.md#release-hardening-graphical-shutdown-follow-up).
+
+The same checkpoint's remote Windows, macOS and Web jobs passed, but Linux
+hardening failed its tenth gate during a cold 3D Brotato font reimport, with
+signal 11 and heap-corruption diagnostics. Optional GDSiON was absent. This
+keeps the historical import-corruption investigation open independently of the
+classified graphical documentation teardown crash. See the
+[CI failure evidence](../compatibility/GODOT_4_7_2.md#release-hardening-ci-font-import-failure).
+Failure-only fresh-import diagnostics run under GDB and are retained with the
+hardening artifact. They never turn a failed hardening run into a passing job.

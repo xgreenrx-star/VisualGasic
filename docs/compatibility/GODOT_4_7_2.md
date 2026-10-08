@@ -466,10 +466,41 @@ reproduced the same crash, without the new headless-dialog guard.
 
 The 4.6.1 native trace includes repeated frames at `0x1a1c6bc`, a fault at
 `0x1a1c724` and worker entry `0x1a1d086`. The 4.7.2 trace has an analogous
-recursive worker stack. The stripped engine binaries do not identify the
-responsible function; no engine-only or VG-owned classification is claimed.
-The historical font-import heap corruption and the repaired GDSiON pool
-use-after-free remain separate until matching evidence connects them.
+recursive worker stack.
+
+**Subsequent isolation classifies this crash as independently reproducible in
+Godot, without VG.** The
+[documentation teardown probe](../../scripts/run_editor_doc_teardown_probe.sh)
+creates a fresh project with 400 generated GDScripts and one minimal EditorPlugin.
+There is no VG addon, GDExtension, live debugger, game launch or rendered preview.
+After the filesystem scan completes, the plugin calls `SceneTree.quit()`.
+Graphical runs crash on both engines, with exactly the same native fault and
+recursive worker addresses as the VG component probe. A second fresh 4.6.1
+project also crashes. Both headless controls pass.
+
+GDB catches the fault in a worker while the main thread is tearing down objects.
+Disassembly traverses directory/subdirectory and file vectors, then filters file
+types against the embedded `"Script"` string. This matches
+`EditorHelp::_reload_scripts_documentation()` and `_regen_script_doc_thread()`
+in the matching engine source, `editor/doc/editor_help.cpp`. The latter receives
+a raw `EditorFileSystemDirectory *`; `EditorFileSystem` destroys the directory
+tree on teardown. Function names are source/disassembly matches, not symbols
+recovered from the stripped executables.
+
+A session-only control seeded `.godot/editor/editor_script_doc_cache.res` with
+an empty documentation cache, bypassing the engine's recursive regeneration.
+Both no-VG graphical controls then exit zero instead of crashing; verbose logs
+still report one unclaimed `Node` StringName, so this is not clean-shutdown
+certification. The original 4.6.1 VG component fixture with the same cache control
+passes all 64 assertions and exits zero without error/leak diagnostics.
+This ties the component failure to the independently reproduced documentation
+loader path; it does not establish that every VG shutdown path is safe.
+
+No cache seeding, arbitrary delay, engine patch or diagnostic suppression is
+applied to the regression runners or shipped addon. The graphical crash remains
+unfixed and release-blocking pending an engine repair or a verified supported
+shutdown path. The historical font-import heap corruption and the repaired
+GDSiON pool use-after-free remain separate until matching evidence connects them.
 
 The full-plugin graphical enabled-at-quit probe passed 24/24 on both engines,
 and the component/full-plugin headless variants remain clean. Those passes do
@@ -484,10 +515,68 @@ GODOT=/absolute/path/to/Godot RENDER_MODE=graphical LIBGL_ALWAYS_SOFTWARE=1 \
   bash scripts/run_editor_lifecycle_regression.sh
 ```
 
-Next investigation: obtain a symbolized worker stack and a minimal reproduction
-separating addon/resource scanning from the two live debugger game launches.
-Do not suppress the crash, add an arbitrary shutdown delay, or mark v6 ready
-based only on the green headless gates.
+Reproduce the independent engine failure with:
+
+```sh
+GODOT=/absolute/path/to/Godot LIBGL_ALWAYS_SOFTWARE=1 \
+  xvfb-run --auto-servernum --server-args='-screen 0 1280x800x24' \
+  bash scripts/run_editor_doc_teardown_probe.sh
+```
+
+The probe retains its generated project and logs in the printed temporary
+directory. `OUT_DIR` selects a retained output directory, which must not already
+contain `project`; `SCRIPT_COUNT` changes the generated script count.
+`RENDER_MODE=headless` selects the control, and `TIMEOUT_SECS` bounds each engine
+launch (default 120). A crash remains a failing result, not an expected-success
+test. This diagnostic probe is deliberately not added to the headless release
+gate as a substitute for fixing graphical shutdown.
+
+Next investigation: verify an engine repair or supported shutdown path against
+both the no-VG reproduction and the original graphical component fixture.
+
+### Release-hardening CI font-import failure
+
+On commit `31e59b84`, both Windows jobs, all macOS jobs (including the Python
+smoke), and Web build/export smoke passed. Linux
+[run 37855421142](https://github.com/xgreenrx-star/VisualGasic/actions/runs/37855421142)
+failed the new hardening gate: **nine of ten checks passed**, then the
+`editor-reload` cold 3D Brotato import aborted during Kenney font reimport.
+The 2D Brotato import and themed startup had completed successfully.
+
+The retained log reports signal 11 and
+`malloc(): unaligned tcache chunk detected`. Two off-thread root
+`propagate_notification()` diagnostics also appear, but these may arise from
+Godot's crash notification handling; they do not identify the initiating
+memory corruption. The Linux optional GDSiON library was absent and its manifest
+was excluded, so that synth's repaired shutdown pool defect cannot be the sole
+explanation for this import failure.
+
+This is renewed evidence of the historical unresolved import-corruption
+signature, not proof of the same allocation bug, and not the graphical
+documentation-loader classification above. The crashed CI log did not yield a
+usable native backtrace. The exact failing source fixture and freshly built
+library were retained in the hardening artifact. That library requires
+`GLIBC_2.38` and cannot load on the local older-glibc host. A fresh local
+tracked-source/optional-synth-absent run with the tested local library,
+`MALLOC_PERTURB_=165` and `glibc.malloc.check=3` passed the nine native checks and
+both cold imports/startups; this does not override the failed CI run.
+
+Next work is to capture the initiating fault in a compatible environment and
+compare plugin-enabled, plugin-disabled and no-extension cold-import controls.
+The hardening gate remains failing; no retry-based pass, font exclusion or
+diagnostic suppression is applied.
+
+Linux CI now runs a separate fresh-import diagnostic **only after hardening
+fails**. `IMPORT_BACKTRACE=1` on
+[the reload runner](../../scripts/run_editor_reload_regression.sh) launches only
+the cold editor imports under GDB, disables Godot's crash handler, and captures
+up to 32 frames per thread at SIGSEGV/SIGABRT. GDB preserves a nonzero child
+result; timeouts remain failures. Successful diagnostic runs cannot override
+the original job failure. Logs are included in the existing hardening artifact.
+Local validation passed both cold imports/startups under GDB; a real no-VG
+graphical crash verified that instrumentation captures the first SIGSEGV and
+returns nonzero rather than silently passing. This adds evidence collection,
+not a memory-corruption repair.
 
 ### Latest performance checks after dictionary fixes
 
