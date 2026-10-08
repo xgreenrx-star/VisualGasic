@@ -4,6 +4,10 @@ import sys
 
 env = SConscript("godot-cpp/SConstruct")
 
+# Match the library name declared in visual_gasic.gdextension on native Windows builds.
+if env["platform"] == "windows":
+    env["SHLIBPREFIX"] = "lib"
+
 # Allow passing debug_build via command-line args to enable -g -O0
 from SCons.Script import ARGUMENTS
 if ARGUMENTS.get("debug_build", "0") == "1":

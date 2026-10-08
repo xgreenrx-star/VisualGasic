@@ -648,7 +648,7 @@ bool PyBridgeFacade::check_worker_alive() {
 
 void PyBridgeFacade::queue_restart() {
     std::vector<String> modules_to_reimport = imported_modules;
-    UtilityFunctions::print("[PyBridgeFacade] Queueing worker restart (", modules_to_reimport.size(), " modules cached)...");
+    UtilityFunctions::print("[PyBridgeFacade] Queueing worker restart (", static_cast<int>(modules_to_reimport.size()), " modules cached)...");
     kill_worker();
     if (launch_worker()) {
         for (const String &mod : modules_to_reimport) {

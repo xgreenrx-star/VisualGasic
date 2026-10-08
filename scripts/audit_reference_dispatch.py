@@ -33,11 +33,14 @@ REPORT_PATH = ROOT / "docs" / "audit" / "reference_dispatch_report.md"
 
 # Documented symbols intentionally missing runtime or not global builtins.
 KNOWN_GAPS: dict[str, str] = {
+    "autoload": "Global identifier resolution is handled by VGAutoloads, not method dispatch",
     "interface": "Interface...End Interface not parsed (Implements works)",
+    "screenbox": "ScreenBox is a toolbox/control type, not a runtime builtin",
     "using": "Using...End Using not parsed or executed",
     "datafile": "Parse-time DATA statement — not a runtime call_builtin",
     "loaddata": "Runtime statement (STMT_LOAD_DATA) — not a global call_builtin",
     "spritedata": "Sprite Data asset docs — IDE/context rail feature; not a global builtin",
+    "vectordata": "Inline DATA shape blocks are parsed by the vector-data pipeline, not method dispatch",
     "shutdown": "PyBridgeFacade.shutdown() instance method — not a global builtin",
     "speakerbus": "Speaker.Bus is compile-time alias for Speaker namespace",
     "connectsignal": "Deprecated name; runtime uses Connect()",
@@ -230,12 +233,32 @@ def build_dispatch_index(texts: dict[str, str]) -> tuple[set[str], dict[str, lis
                 key = norm(m.group(1))
                 names.add(key)
                 locs[key].append(f"{fname}:{tag}:{m.group(1)}")
+        if fname == "src/visual_gasic_qb_screen.cpp":
+            for m in re.finditer(r'\bm\s*==\s*"([^"]+)"', body):
+                key = norm(m.group(1))
+                names.add(key)
+                locs[key].append(f"{fname}:qb_screen_method:{m.group(1)}")
         if "vg_godot_owner_builtins.cpp" in fname:
             for m in re.finditer(r'\bM\("([a-z0-9_]+)"\)', body):
                 raw = m.group(1)
                 key = norm(raw)
                 names.add(key)
                 locs[key].append(f"{fname}:owner_builtin:{raw}")
+
+    qb_parser = texts.get("src/visual_gasic_parser.cpp", "")
+    for public_name, internal_name in {
+        "screen": "QbScreen",
+        "circle": "QbCircle",
+        "line": "QbLine",
+        "get": "QbGet",
+        "put": "QbPut",
+        "paint": "QbPaint",
+        "play": "QbPlay",
+    }.items():
+        if f'method_name = "{internal_name}"' in qb_parser:
+            key = norm(public_name)
+            names.add(key)
+            locs[key].append(f"src/visual_gasic_parser.cpp:qb_graphics:{internal_name}")
 
     # Bytecode VM fast-path special call names (lowercase literals)
     vm = texts.get("src/visual_gasic_instance_bytecode_vm.cpp", "")
@@ -365,7 +388,8 @@ def builtin_needles(name: str) -> list[str]:
 
 
 def check_entry(entry: DocEntry, dispatch: set[str], locs: dict[str, list[str]], texts: dict[str, str]) -> Finding:
-    key = norm(entry.name)
+    dispatch_name = re.sub(r"\s+\((?:QB|QuickBASIC(?: graphics)?)\)$", "", entry.name, flags=re.I)
+    key = norm(dispatch_name)
     sources = [f"{entry.source}:{entry.line}"]
 
     if entry.kind == "godot_doc_link":
