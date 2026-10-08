@@ -16,11 +16,11 @@ config/features=PackedStringArray("4.6")
 
 [audio]
 
-buses/default_bus_layout="uid://blqwm83q6se0m"
+buses/default_bus_layout="res://default_bus_layout.tres"
 
 [autoload]
 
-VGDebugHandler="*uid://bba4n02t2dx1g"
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
 
 [editor_plugins]
 

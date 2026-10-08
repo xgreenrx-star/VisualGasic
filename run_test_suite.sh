@@ -6,6 +6,7 @@
 # Each .vg file must print "PASS: <name>" or "FAIL: <name>: <reason>" lines.
 # Usage: ./run_test_suite.sh [filter]
 #   filter: optional glob pattern to match test filenames (e.g. "test_array*")
+#           filtered runs execute only matching VG fixtures
 #   --vg-only: skip GDScript + Narcea golden phases (set automatically when
 #              VG_TEST_SUITE_VG_ONLY=1, as in CI)
 # Env:
@@ -20,12 +21,17 @@ RUNNER="run_suite.gd"
 TIMEOUT_SECS=20
 FILTER="test_*.vg"
 VG_ONLY=0
-# Data-only .vg fixtures (no Sub _Ready); tested via GDScript harnesses instead.
+FILTERED_RUN=0
+# Data-only fixtures, debugger traces, and imported helpers have dedicated
+# harnesses and are not standalone runtime tests.
 SKIP_FILES=(
     test_sprite_data_resolver.vg
     test_vector_data_resolver.vg
     test_import_grid_helpers_lib.vg
     test_input_key_edge_press.vg
+    test_step_lines.vg
+    test_step_loop.vg
+    test_try_raise_helper.vg
 )
 
 # Platform-specific FFI smoke tests (libc vs kernel32/ucrtbase).
@@ -50,6 +56,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             FILTER="$1"
+            FILTERED_RUN=1
             shift
             ;;
     esac
@@ -252,7 +259,7 @@ echo -e "${BOLD}═════════════════════�
 # Phase 2: GDScript test suites (tests/test_*.gd) — covers VB6 importer, etc.
 # ---------------------------------------------------------------------------
 GD_FAIL=0
-if [[ "$VG_ONLY" -eq 0 && -x "tests/run_gd_tests.sh" ]]; then
+if [[ "$VG_ONLY" -eq 0 && "$FILTERED_RUN" -eq 0 && -x "tests/run_gd_tests.sh" ]]; then
     echo ""
     echo -e "${BOLD}── GDScript suites (tests/) ──${NC}"
     if ! bash tests/run_gd_tests.sh; then
@@ -264,7 +271,7 @@ fi
 # Phase 3: Narcea Golden Path — Tier A + B (fixture + recorded replay)
 # ---------------------------------------------------------------------------
 NARCEA_GOLDEN_FAIL=0
-if [[ "$VG_ONLY" -eq 0 && -x "scripts/run_narcea_golden.sh" ]]; then
+if [[ "$VG_ONLY" -eq 0 && "$FILTERED_RUN" -eq 0 && -x "scripts/run_narcea_golden.sh" ]]; then
     echo ""
     echo -e "${BOLD}── Narcea Golden Path (Tier A) ──${NC}"
     if ! bash scripts/run_narcea_golden.sh --tier A; then

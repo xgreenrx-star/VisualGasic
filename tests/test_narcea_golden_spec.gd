@@ -6,6 +6,8 @@ extends SceneTree
 ##
 ## Env: NARCEA_GOLDEN_TIER=A|B (set by scripts/run_narcea_golden.sh)
 
+const VGLinterScript := preload("res://addons/visual_gasic/vg_linter.gd")
+
 var _tier := "A"
 var _failed := 0
 var _passed := 0
@@ -464,10 +466,7 @@ func _score_vg_rubric(source: String, label: String) -> void:
 
 
 func _lint_vg(source: String, path: String, label: String) -> void:
-	if not ClassDB.class_exists("VGLinter"):
-		_ok("[%s] VGLinter skipped (headless)" % label)
-		return
-	var issues: Array = VGLinter.lint_text(source, path)
+	var issues: Array = VGLinterScript.lint_text(source, path)
 	var forbid := str(_rubric.get("forbid_lint_severity", "ERROR")).to_upper()
 	var bad := 0
 	for issue in issues:

@@ -60,6 +60,7 @@ jobs:
           DISPLAY: ""
           GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
           VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
         run: |
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi.vg
@@ -278,6 +279,7 @@ jobs:
         env:
           GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_win64_console.exe
           VG_GODOT_USER_DATA_DIR: ${{ runner.temp }}/vg-godot-user
+          VG_TEST_SUITE_VG_ONLY: "1"
         run: |
           chmod +x ./run_test_suite.sh
           ./run_test_suite.sh test_declare_ffi_windows.vg

@@ -330,7 +330,11 @@ void VisualGasicInstance::_task_run_bc_worker(void* user_data) {
     inst->task_results[d->task_name] = ok ? Variant("Task completed") : Variant("Task failed");
 }
 
+#if defined(_MSC_VER)
+__declspec(noinline)
+#else
 __attribute__((noinline))
+#endif
 bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant> *p_initial_locals,
