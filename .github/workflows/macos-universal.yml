@@ -14,11 +14,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-macos-universal:
-    runs-on: macos-latest
+  build-macos-slices:
+    runs-on: ${{ matrix.arch == 'arm64' && 'macos-latest' || 'macos-15-intel' }}
     strategy:
       matrix:
         target: [editor, template_debug, template_release]
+        arch: [arm64, x86_64]
 
     steps:
       - name: Checkout
@@ -40,47 +41,31 @@ jobs:
       - name: Install libopenmpt (for Tracker namespace — .xm/.mod/.s3m playback)
         run: brew install libopenmpt
 
-      - name: Install Intel Homebrew dependencies (Rosetta)
+      - name: Build architecture slice
         run: |
-          if ! arch -x86_64 /usr/bin/true 2>/dev/null; then
-            sudo softwareupdate --install-rosetta --agree-to-license
-          fi
-          if [[ ! -x /usr/local/bin/brew ]]; then
-            NONINTERACTIVE=1 arch -x86_64 /bin/bash -c \
-              "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          fi
-          HOMEBREW_NO_AUTO_UPDATE=1 arch -x86_64 /usr/local/bin/brew install libffi libopenmpt
+          export PKG_CONFIG_PATH="$(brew --prefix libffi)/lib/pkgconfig:$(brew --prefix libopenmpt)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          scons target=${{ matrix.target }} platform=macos arch=${{ matrix.arch }} -j"$(sysctl -n hw.logicalcpu)"
 
-      - name: Build Universal Binary
-        run: |
-          chmod +x scripts/build_macos_universal.sh
-          ./scripts/build_macos_universal.sh ${{ matrix.target }}
-        env:
-          PKG_CONFIG_PATH_ARM64: /opt/homebrew/opt/libffi/lib/pkgconfig:/opt/homebrew/opt/libopenmpt/lib/pkgconfig:/opt/homebrew/lib/pkgconfig
-          PKG_CONFIG_PATH_X86_64: /usr/local/opt/libffi/lib/pkgconfig:/usr/local/opt/libopenmpt/lib/pkgconfig:/usr/local/lib/pkgconfig
-
-      - name: Verify Universal Binary
+      - name: Verify architecture slice
         run: |
           FRAMEWORK="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
           DYLIB="$FRAMEWORK/libvisualgasic.macos.${{ matrix.target }}"
           echo "Checking: $DYLIB"
           lipo -info "$DYLIB"
           file "$DYLIB"
-          # Ensure both architectures are present
-          lipo -info "$DYLIB" | grep -q "arm64" || (echo "FAIL: missing arm64" && exit 1)
-          lipo -info "$DYLIB" | grep -q "x86_64" || (echo "FAIL: missing x86_64" && exit 1)
-          echo "PASS: Universal binary contains both architectures"
+          lipo -verify_arch "${{ matrix.arch }}" "$DYLIB"
+          echo "PASS: ${{ matrix.arch }} slice built"
 
-      - name: Upload Framework Artifact
+      - name: Upload architecture slice
         uses: actions/upload-artifact@v4
         with:
-          name: macos-${{ matrix.target }}-framework
-          path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
+          name: macos-${{ matrix.target }}-${{ matrix.arch }}-slice
+          path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/libvisualgasic.macos.${{ matrix.target }}
           retention-days: 30
 
   # M7 close-out: Python bridge e2e on macOS (editor framework only).
   m7-python-smoke:
-    needs: build-macos-universal
+    needs: package-universal
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,26 +125,56 @@ jobs:
           done
 
   package-universal:
-    needs: build-macos-universal
+    needs: build-macos-slices
     runs-on: macos-latest
     steps:
-      - name: Download all frameworks
+      - name: Download architecture slices
         uses: actions/download-artifact@v4
         with:
-          path: frameworks
+          pattern: macos-*-slice
+          path: slices
 
-      - name: Package
+      - name: Combine slices and package
         run: |
+          set -euo pipefail
           mkdir -p release/macos/bin
           for target in editor template_debug template_release; do
-            src="frameworks/macos-${target}-framework"
-            dst="release/macos/bin/libvisualgasic.macos.${target}.framework"
-            if [ -d "$src" ]; then
-              cp -r "$src" "$dst"
-              echo "Packaged: $dst"
-            fi
+            dylib="libvisualgasic.macos.${target}"
+            arm_slice="slices/macos-${target}-arm64-slice/$dylib"
+            x86_slice="slices/macos-${target}-x86_64-slice/$dylib"
+            framework="release/macos/bin/libvisualgasic.macos.${target}.framework"
+            universal="$framework/$dylib"
+            test -f "$arm_slice"
+            test -f "$x86_slice"
+            mkdir -p "$framework"
+            lipo -create "$arm_slice" "$x86_slice" -output "$universal"
+            codesign --force --sign - --deep "$framework" 2>/dev/null || true
+            lipo -info "$universal"
+            lipo -verify_arch arm64 x86_64 "$universal"
+            echo "Packaged universal framework: $framework"
           done
           cd release && zip -r ../VisualGasic-macos-universal.zip macos/
+
+      - name: Upload editor framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-editor-framework
+          path: release/macos/bin/libvisualgasic.macos.editor.framework/
+          retention-days: 30
+
+      - name: Upload template_debug framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-template_debug-framework
+          path: release/macos/bin/libvisualgasic.macos.template_debug.framework/
+          retention-days: 30
+
+      - name: Upload template_release framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-template_release-framework
+          path: release/macos/bin/libvisualgasic.macos.template_release.framework/
+          retention-days: 30
 
       - name: Upload Release Package
         uses: actions/upload-artifact@v4
