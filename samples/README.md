@@ -75,6 +75,7 @@ documents what can be reproduced from a clone.
 
 | Project | Description |
 |---------|-------------|
+| [crystal_caverns](showcases/crystal_caverns/) | Original digging game: inline Data sprites/cave and Whenever-driven counters, exit and defeat |
 | [qb_abc_showcase](showcases/qb_abc_showcase/) | Retro game pack + screen gallery (main menu **`.`**) |
 | [classic_screen_modes](showcases/classic_screen_modes/) | Standalone SCREEN mode demos |
 | [vg_beta_showcase](showcases/vg_beta_showcase/) | Beta feature tour (~6 min) — [YouTube](https://youtu.be/FUw8zgbn_tU); run F5 in-editor or `scripts/record_beta_showcase.sh` for local AVI |

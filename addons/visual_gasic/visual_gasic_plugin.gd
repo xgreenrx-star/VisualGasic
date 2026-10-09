@@ -288,6 +288,8 @@ var _showing_vector_view: bool = false
 var _showing_grid_view: bool = false
 ## Embedded Sprite Editor (Piskel-style pixel art editor)
 var _vg_sprite_editor = null
+var _vg_sprite_float: PanelContainer = null
+var _sprite_editor_mount: Node = null
 var _vg_vector_editor = null
 var _vg_grid_editor = null
 
@@ -351,6 +353,7 @@ var _native_assist_connected: CodeEdit = null
 var _native_sprite_lines: Array = []
 var _native_vector_lines: Array = []
 const _DualEditorBridge := preload("res://addons/visual_gasic/vg_dual_editor_bridge.gd")
+const _VGThemeUtils := preload("res://addons/visual_gasic/vg_theme_utils.gd")
 var _dual_editor_bridge = _DualEditorBridge.new()
 var _native_stale_strip: PanelContainer = null
 var _native_stale_injected_parent: Control = null
@@ -2165,6 +2168,9 @@ func _live_refresh_sprite_data(section: Dictionary) -> void:
 
 
 func _on_sprite_editor_back() -> void:
+	if is_instance_valid(_vg_sprite_float) and _vg_sprite_float.visible:
+		_vg_sprite_float.hide()
+		return
 	if is_instance_valid(_vg_sprite_editor) and _vg_sprite_editor.has_method("is_data_mode") \
 			and bool(_vg_sprite_editor.is_data_mode()):
 		# Data editing starts from a .vg buffer — return to code, not Form Designer.
@@ -2630,6 +2636,10 @@ func _exit_tree():
 		_restore_embedded_code_editor_to_ide_mount(true)
 		_vg_code_editor_float.queue_free()
 		_vg_code_editor_float = null
+	if is_instance_valid(_vg_sprite_float):
+		_restore_sprite_editor_mount()
+		_vg_sprite_float.queue_free()
+		_vg_sprite_float = null
 	if is_instance_valid(_vg_help_window):
 		_vg_help_window.queue_free()
 		_vg_help_window = null
@@ -4317,6 +4327,11 @@ func _build_vb6_theme() -> Theme:
 	t.set_color("font_color", "Button", text_color)
 	t.set_color("font_hover_color", "Button", text_color)
 	t.set_color("font_pressed_color", "Button", text_color)
+	t.set_stylebox("hover_pressed", "Button", btn_prs)
+	t.set_stylebox("disabled", "Button", btn_sb)
+	t.set_color("font_hover_pressed_color", "Button", text_color)
+	t.set_color("font_focus_color", "Button", text_color)
+	t.set_color("font_disabled_color", "Button", text_color.lerp(bg, 0.35))
 
 	# ── OptionButton ──
 	var ob_sb = StyleBoxFlat.new()
@@ -4326,7 +4341,16 @@ func _build_vb6_theme() -> Theme:
 	ob_sb.content_margin_left = 4; ob_sb.content_margin_right = 16
 	ob_sb.content_margin_top = 2; ob_sb.content_margin_bottom = 2
 	t.set_stylebox("normal", "OptionButton", ob_sb)
+	t.set_stylebox("hover", "OptionButton", btn_hov)
+	t.set_stylebox("pressed", "OptionButton", btn_prs)
+	t.set_stylebox("hover_pressed", "OptionButton", btn_prs)
+	t.set_stylebox("disabled", "OptionButton", ob_sb)
 	t.set_color("font_color", "OptionButton", text_color)
+	t.set_color("font_hover_color", "OptionButton", text_color)
+	t.set_color("font_pressed_color", "OptionButton", text_color)
+	t.set_color("font_hover_pressed_color", "OptionButton", text_color)
+	t.set_color("font_focus_color", "OptionButton", text_color)
+	t.set_color("font_disabled_color", "OptionButton", text_color.lerp(bg, 0.35))
 
 	# ── ScrollContainer ──
 	var sc_sb = StyleBoxFlat.new()
@@ -11196,6 +11220,10 @@ func _auto_load_2d_scene() -> void:
 
 ## Switch the center panel to the embedded Sprite Editor (pixel art).
 func _show_sprite_view() -> void:
+	if not _legacy_vg_ide_shell_is_active():
+		_show_floating_sprite_editor()
+		return
+	_restore_sprite_editor_mount()
 	if _showing_sprite_view:
 		var rps = _ide_layout.get_node_or_null("MainHSplit/CanvasRightSplit/RightPanelSplit")
 		if rps:
@@ -12703,6 +12731,8 @@ func _hide_vg_script_workspace() -> void:
 	if is_instance_valid(_vg_help_window):
 		_vg_help_window.visible = false
 	_hide_floating_vg_code_editor()
+	if is_instance_valid(_vg_sprite_float):
+		_vg_sprite_float.hide()
 	if is_instance_valid(_ui_forms_toolbox_window):
 		_ui_forms_toolbox_window.visible = false
 	if is_instance_valid(_ui_forms_props_window):
@@ -14043,10 +14073,10 @@ func _edit(object):
 ## Can be called by plugins (AGCK, etc.) via the host_plugin reference
 ## or via EditorInterface.get_base_control().get_meta("visual_gasic_plugin_instance").
 func open_sprite_editor(path: String = "") -> void:
-	_show_sprite_view()
 	var code_edit := _get_vg_assist_code_edit()
 	if code_edit == null and is_instance_valid(_embedded_code_editor):
 		code_edit = _embedded_code_editor.get_code_edit()
+	_show_sprite_view()
 	if code_edit and is_instance_valid(_vg_sprite_editor) \
 			and _vg_sprite_editor.has_method("bind_code_edit_for_data_bridge"):
 		_vg_sprite_editor.bind_code_edit_for_data_bridge(code_edit)
@@ -14058,11 +14088,44 @@ func open_sprite_editor(path: String = "") -> void:
 ## Save writes palette indices back into the CodeEdit Data statements.
 func open_sprite_data_editor(code_edit: CodeEdit, section: Dictionary) -> void:
 	if code_edit == null or section.is_empty() or not is_instance_valid(_vg_sprite_editor):
+		push_warning("VisualGasic: Open a valid Sprite Data block before opening the Sprite Editor.")
 		return
-	_show_sprite_view()
 	if _vg_sprite_editor.has_method("bind_code_edit_for_data_bridge"):
 		_vg_sprite_editor.bind_code_edit_for_data_bridge(code_edit)
-	_vg_sprite_editor.open_sprite_data(code_edit, section)
+	if _vg_sprite_editor.open_sprite_data(code_edit, section):
+		_show_sprite_view()
+
+
+func _show_floating_sprite_editor() -> void:
+	if not is_instance_valid(_vg_sprite_editor):
+		push_warning("VisualGasic: Sprite Editor is unavailable.")
+		return
+	if not is_instance_valid(_vg_sprite_float):
+		_vg_sprite_float = _create_floating_panel("Sprite Editor", Vector2(1000, 650))
+		_vg_sprite_float.theme = get_editor_interface().get_base_control().get_theme()
+		var background: StyleBoxFlat = _vg_sprite_float.get_theme_stylebox("panel").duplicate()
+		background.bg_color = Color(0.12, 0.12, 0.14)
+		_vg_sprite_float.add_theme_stylebox_override("panel", background)
+		get_editor_interface().get_base_control().add_child(_vg_sprite_float)
+		var workspace := _get_godot_script_workspace_rect()
+		_vg_sprite_float.position = workspace.position
+		_vg_sprite_float.size = workspace.size.max(Vector2(800, 500))
+	var content: Control = _vg_sprite_float.get_meta("_content")
+	if _vg_sprite_editor.get_parent() != content:
+		_sprite_editor_mount = _vg_sprite_editor.get_parent()
+		_vg_sprite_editor.reparent(content)
+	_vg_sprite_editor.show()
+	_vg_sprite_float.show()
+	_vg_sprite_float.move_to_front()
+
+
+func _restore_sprite_editor_mount() -> void:
+	if is_instance_valid(_sprite_editor_mount) and is_instance_valid(_vg_sprite_editor):
+		_vg_sprite_editor.reparent(_sprite_editor_mount)
+		_vg_sprite_editor.hide()
+	_sprite_editor_mount = null
+	if is_instance_valid(_vg_sprite_float):
+		_vg_sprite_float.hide()
 
 
 func _on_sprite_data_edit_requested(section: Dictionary) -> void:
@@ -16856,10 +16919,7 @@ func _update_native_editor_assist(code_edit: CodeEdit) -> void:
 			vector_panel.clear_section()
 	_float_assist["state"] = state
 	if is_vg and tabs:
-		if state.get("in_vector_block", false):
-			tabs.current_tab = 2
-		elif state.get("in_sprite_block", false):
-			tabs.current_tab = 1
+		_AssistFactory.update_context_tab(tabs, state)
 	_apply_native_data_highlights(code_edit, script_path)
 
 
@@ -16901,7 +16961,7 @@ func _on_embedded_file_loaded(path: String) -> void:
 
 
 func _on_embedded_stale_banner_dismissed(path: String) -> void:
-	_dual_editor_bridge.dismiss_popup(path, _DualEditorBridge.SIDE_EMBEDDED)
+	_dual_editor_bridge.dismiss_warning(path, _DualEditorBridge.SIDE_EMBEDDED)
 
 
 func _native_vg_editor_state() -> Dictionary:
@@ -16942,44 +17002,13 @@ func _poll_dual_editor_stale() -> void:
 		emb_path, emb_text, str(native.get("text", "")), true)
 	if _embedded_code_editor.has_method("set_dual_editor_stale"):
 		_embedded_code_editor.set_dual_editor_stale(
-			bool(verdict.get("embedded_stale", false)),
+			bool(verdict.get("embedded_stale", false)) and not _dual_editor_bridge.is_warning_dismissed(emb_path, _DualEditorBridge.SIDE_EMBEDDED),
 			str(verdict.get("authority_label", ""))
 		)
-	if bool(verdict.get("embedded_stale", false)) and _showing_code_view:
-		if _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_EMBEDDED, true):
-			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_EMBEDDED, str(verdict.get("authority_label", "")))
-	if bool(verdict.get("native_stale", false)):
+	if bool(verdict.get("native_stale", false)) and not _dual_editor_bridge.is_warning_dismissed(emb_path, _DualEditorBridge.SIDE_NATIVE):
 		_show_native_stale_strip(str(verdict.get("authority_label", "")))
-		if not _showing_code_view and _dual_editor_bridge.should_popup(emb_path, _DualEditorBridge.SIDE_NATIVE, true):
-			_show_dual_editor_stale_dialog(emb_path, _DualEditorBridge.SIDE_NATIVE, str(verdict.get("authority_label", "")))
 	else:
 		_hide_native_stale_strip()
-
-
-func _show_dual_editor_stale_dialog(path: String, side: int, authority_label: String) -> void:
-	var where := authority_label if not authority_label.is_empty() else "the other editor"
-	var dlg := AcceptDialog.new()
-	dlg.title = "Code editor out of date"
-	dlg.dialog_text = (
-		"%s\n\nThis view is out of date — %s has newer changes.\n\nRefresh now?"
-		% [path.get_file(), where]
-	)
-	dlg.ok_button_text = "Refresh"
-	dlg.add_cancel_button("Not now")
-	dlg.exclusive = false
-	get_editor_interface().get_base_control().add_child(dlg)
-	dlg.confirmed.connect(func() -> void:
-		if side == _DualEditorBridge.SIDE_EMBEDDED:
-			_refresh_embedded_from_native_editor()
-		else:
-			_refresh_native_from_embedded_editor()
-		dlg.queue_free()
-	)
-	dlg.canceled.connect(func() -> void:
-		_dual_editor_bridge.dismiss_popup(path, side)
-		dlg.queue_free()
-	)
-	dlg.popup_centered(Vector2i(460, 150))
 
 
 func _refresh_embedded_from_native_editor() -> void:
@@ -17025,12 +17054,14 @@ func _ensure_native_stale_strip(code_edit: CodeEdit) -> void:
 		row.add_theme_constant_override("separation", 8)
 		var icon := Label.new()
 		icon.text = "⚠"
+		_VGThemeUtils.style_light_toolbar_label(icon)
 		row.add_child(icon)
 		var lbl := Label.new()
 		lbl.name = "StaleLabel"
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lbl.add_theme_font_size_override("font_size", 11)
+		_VGThemeUtils.style_light_toolbar_label(lbl)
 		row.add_child(lbl)
 		var refresh_btn := Button.new()
 		refresh_btn.text = "Refresh"
@@ -17073,7 +17104,7 @@ func _on_native_stale_banner_dismissed() -> void:
 	var native := _native_vg_editor_state()
 	var path: String = str(native.get("path", ""))
 	if not path.is_empty():
-		_dual_editor_bridge.dismiss_popup(path, _DualEditorBridge.SIDE_NATIVE)
+		_dual_editor_bridge.dismiss_warning(path, _DualEditorBridge.SIDE_NATIVE)
 
 
 func _on_vg_panels_btn_pressed() -> void:
@@ -17229,6 +17260,7 @@ func _ui_forms_wire_stub(ctrl: Control, godot_type: String) -> void:
 ## detects it via gui_is_dragging() + Engine._vg_active_drag meta.
 func _create_floating_panel(title: String, panel_size: Vector2) -> PanelContainer:
 	var panel := PanelContainer.new()
+	panel.theme = _build_vb6_theme()
 	panel.custom_minimum_size = Vector2(200, 200)
 	panel.size = panel_size
 	# VB6 light background matching the IDE

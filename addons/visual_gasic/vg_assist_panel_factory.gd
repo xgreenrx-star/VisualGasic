@@ -21,8 +21,13 @@ static func _cream_stylebox() -> StyleBoxFlat:
 
 
 static func create_panel() -> Dictionary:
+	var state := {"last_keyword": "", "manual_tab_selection": false}
 	var root := VBoxContainer.new()
 	root.name = "VGAssistPanel"
+	var text_theme := Theme.new()
+	text_theme.set_color("font_color", "Label", Color(0.12, 0.12, 0.14))
+	text_theme.set_color("default_color", "RichTextLabel", Color(0.12, 0.12, 0.14))
+	root.theme = text_theme
 	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
@@ -75,6 +80,13 @@ static func create_panel() -> Dictionary:
 	vector_panel.name = "VectorTab"
 	tabs.add_child(vector_panel)
 	tabs.set_tab_title(2, "Vector")
+	tabs.get_tab_bar().tab_clicked.connect(func(_tab: int) -> void:
+		state["manual_tab_selection"] = true
+	)
+	tabs.tab_changed.connect(func(_tab: int) -> void:
+		if not state.get("updating_context_tab", false):
+			state["manual_tab_selection"] = true
+	)
 
 	return {
 		"root": root,
@@ -83,5 +95,16 @@ static func create_panel() -> Dictionary:
 		"help_label": help_label,
 		"sprite_panel": sprite_panel,
 		"vector_panel": vector_panel,
-		"state": {"last_keyword": ""},
+		"state": state,
 	}
+
+
+static func update_context_tab(tabs: TabContainer, state: Dictionary) -> void:
+	if tabs == null or state.get("manual_tab_selection", false):
+		return
+	state["updating_context_tab"] = true
+	if state.get("in_vector_block", false):
+		tabs.current_tab = 2
+	elif state.get("in_sprite_block", false):
+		tabs.current_tab = 1
+	state["updating_context_tab"] = false

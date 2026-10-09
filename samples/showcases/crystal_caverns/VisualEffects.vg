@@ -1,0 +1,315 @@
+Extends Node2D
+Option Explicit
+
+' Presentation only: read the parent game, never change its board or timer.
+' The GPU draws the shaders; this VG script supplies their uniform parameters.
+Const INTRO_SECONDS As Double = 0.8
+Const VICTORY_SECONDS As Double = 2.0
+Const BURST_SECONDS As Double = 1.15
+
+Dim ready_to_draw As Boolean
+Dim effects_enabled As Boolean = True
+Dim clock As Double
+Dim phase As String = "entrance"
+Dim phase_time As Double
+Dim move_time As Double
+Dim pickup_time As Double = 1.0
+Dim game As Object
+Dim world As Object
+' Allocate once and reuse. Variant arrays can hold Godot nodes or materials.
+Dim tiles(239) As Variant
+Dim fragments(63) As Variant
+Dim rock_materials(239) As Variant
+Dim crystal_materials(239) As Variant
+Dim miner As Object
+Dim portal As Object
+Dim pickup As Object
+Dim post As Object
+Dim toggle As Object
+Dim last_epoch As Integer = -1
+Dim last_state As String
+Dim last_player As Variant = Vector2(-1, -1)
+Dim last_crystals As Integer
+Dim burst_origin As Variant
+Dim burst_texture As Object
+
+Sub _Ready()
+	' Children become ready before their parent; defer until DATA art is loaded.
+	game = GetParent()
+	Call call_deferred("_initialize_visuals")
+End Sub
+
+Function MakeMaterial(shader As Object) As Object
+	' Each material has its own uniforms, even when sharing the same GPU shader.
+	Dim result As Object = New ShaderMaterial
+	result.Shader = shader
+	MakeMaterial = result
+End Function
+
+Function MakeRect(width As Integer, height As Integer, shader As Object, depth As Integer) As Object
+	' Transparent shader overlays ignore mouse input. Higher ZIndex draws on top.
+	Dim result As Object = CreateNode("ColorRect")
+	result.Size = Vector2(width, height)
+	result.MouseFilter = 2
+	result.Material = MakeMaterial(shader)
+	result.ZIndex = depth
+	world.AddChild(result)
+	MakeRect = result
+End Function
+
+Sub _initialize_visuals()
+	' Load standard Godot shader files; VG controls them without GDScript.
+	Dim minerShader As Object = Load("res://shaders/miner_swirl.gdshader")
+	Dim rockShader As Object = Load("res://shaders/rock_wobble.gdshader")
+	Dim crystalShader As Object = Load("res://shaders/crystal_shimmer.gdshader")
+	Dim portalShader As Object = Load("res://shaders/exit_vortex.gdshader")
+	Dim burstShader As Object = Load("res://shaders/pixel_burst.gdshader")
+	Dim pickupShader As Object = Load("res://shaders/pickup_ring.gdshader")
+	Dim screenShader As Object = Load("res://shaders/cave_screen.gdshader")
+	If minerShader Is Nothing Or rockShader Is Nothing Or crystalShader Is Nothing Or portalShader Is Nothing Or burstShader Is Nothing Or pickupShader Is Nothing Or screenShader Is Nothing Then
+		Err.Raise 5, "Crystal Caverns effects", "Cannot load required shader resources"
+	End If
+	Me.TextureFilter = 1
+	world = CreateNode("Control")
+	' Clip particles and portals to the cave so the HUD stays readable.
+	world.Position = Vector2(32, 96)
+	world.Size = Vector2(640, 384)
+	world.ClipContents = True
+	world.MouseFilter = 2
+	AddChild(world)
+	Dim index As Integer
+	Dim node As Object
+	Dim material As Object
+	For index = 0 To 239
+		' Mod gives the column; integer division (\) gives the row.
+		' Sprite2D is centered, hence the half-cell offset of 16 pixels.
+		node = CreateNode("Sprite2D")
+		node.Position = Vector2((index Mod 20) * 32 + 16, (index \ 20) * 32 + 16)
+		node.Scale = Vector2(4, 4)
+		world.AddChild(node)
+		tiles(index) = node
+		material = MakeMaterial(rockShader)
+		' Different seeds keep every rock/crystal from moving in perfect sync.
+		Shader.Param material, "seed", index * 0.73
+		rock_materials(index) = material
+		material = MakeMaterial(crystalShader)
+		Shader.Param material, "seed", index * 0.37 - Int(index * 0.37)
+		crystal_materials(index) = material
+	Next index
+	miner = CreateNode("Sprite2D")
+	miner.Scale = Vector2(4, 4)
+	miner.ZIndex = 3
+	miner.Material = MakeMaterial(minerShader)
+	world.AddChild(miner)
+	portal = MakeRect(64, 64, portalShader, 1)
+	pickup = MakeRect(64, 64, pickupShader, 4)
+	post = MakeRect(640, 384, screenShader, 10)
+	Dim pixelTexture As Object = CreateTexture(1, 1, Color(1, 1, 1, 1))
+	' A white pixel can be tinted to any DATA color for the death fragments.
+	For index = 0 To 63
+		node = CreateNode("Sprite2D")
+		node.Texture = pixelTexture
+		node.Scale = Vector2(4, 4)
+		node.ZIndex = 5
+		node.Material = MakeMaterial(burstShader)
+		node.Visible = False
+		world.AddChild(node)
+		fragments(index) = node
+	Next index
+	toggle = CreateNode("CheckButton")
+	toggle.Text = "Effects (F8)"
+	toggle.Position = Vector2(352, 70)
+	toggle.Size = Vector2(174, 26)
+	toggle.FocusMode = 0
+	toggle.ButtonPressed = effects_enabled
+	toggle.TooltipText = "Disable shader motion, transitions and CRT for a plain DATA-art view."
+	Connect toggle, "toggled", "set_effects_enabled"
+	AddChild(toggle)
+	ready_to_draw = True
+	Call update_visuals(0.0)
+	game.QueueRedraw()
+End Sub
+
+Sub _UnhandledInput(ev As Variant)
+	' Unhandled input allows UI controls to consume their own keys first.
+	Call _unhandled_key_input(ev)
+End Sub
+
+Sub _unhandled_key_input(ev As Variant)
+	If ev Is InputEventKey Then
+		If ev.Pressed And Not ev.Echo And ev.Keycode = KEY_F8 Then
+			Call set_effects_enabled(Not effects_enabled)
+			GetViewport().SetInputAsHandled()
+		End If
+	End If
+End Sub
+
+Sub set_effects_enabled(enabled As Boolean)
+	' SetPressedNoSignal updates the switch without recursively firing toggled.
+	effects_enabled = enabled
+	If toggle IsNot Nothing Then toggle.SetPressedNoSignal(enabled)
+	If ready_to_draw Then Call update_visuals(0.0)
+End Sub
+
+Sub _Process(delta As Double)
+	' Visual timing uses frame seconds, separate from the game's 8 Hz simulation.
+	If ready_to_draw Then Call update_visuals(delta)
+End Sub
+
+Function SmoothProgress(first As Double, last As Double, value As Double) As Double
+	' Map time to 0..1, then ease the endpoints to avoid an abrupt start/stop.
+	Dim t As Double = Clamp((value - first) / (last - first), 0.0, 1.0)
+	SmoothProgress = t * t * (3 - 2 * t)
+End Function
+
+Sub update_visuals(delta As Double)
+	' Get reads public state from the other VG script attached to the parent.
+	Dim epoch As Integer = game.Get("visualEpoch")
+	Dim state As String = game.Get("gameState")
+	Dim paused As Boolean = game.Get("paused")
+	Dim player As Variant = Vector2(game.Get("playerX"), game.Get("playerY"))
+	Dim crystals As Integer = game.Get("crystals")
+	Dim index As Integer
+	Dim node As Object
+	If epoch <> last_epoch Then
+		' A restart can leave gameState unchanged, so compare the reset counter too.
+		last_epoch = epoch
+		phase = "entrance"
+		phase_time = 0
+		move_time = 0
+		pickup_time = 1
+		last_state = state
+		last_player = player
+		last_crystals = crystals
+		For index = 0 To 63
+			node = fragments(index)
+			node.Hide()
+		Next index
+	End If
+	Dim dt As Double = Clamp(delta, 0.0, 0.25)
+	' Use our own clock instead of shader TIME; pause must freeze every effect.
+	If paused Then dt = 0
+	clock = clock + dt
+	phase_time = phase_time + dt
+	move_time = Max(0.0, move_time - dt)
+	pickup_time = pickup_time + dt
+	If player <> last_player Then move_time = 0.16
+	If crystals > last_crystals Then
+		pickup_time = 0
+		pickup.Position = player * 32.0 - Vector2(16, 16)
+	End If
+	If state <> last_state Then
+		' State transitions start their animation exactly once.
+		phase_time = 0
+		If state = "won" Then
+			phase = "victory"
+		ElseIf state = "lost" Then
+			phase = "death"
+			Call _begin_burst(player)
+		End If
+	End If
+	If phase = "entrance" And phase_time >= INTRO_SECONDS Then phase = "playing"
+	Dim art As Variant = game.Get("art")
+	Dim board As Variant = game.Get("board")
+	Dim falling As Variant = game.Get("falling")
+	Dim tick As Integer = game.Get("ticks")
+	Dim exit_open As Boolean = game.Get("exitOpen")
+	portal.Visible = effects_enabled And exit_open
+	Dim kind As Integer
+	Dim sprite As Integer
+	Dim material As Object
+	Dim amount As Double
+	For index = 0 To 239
+		' Choose DATA textures first; effects only change their appearance.
+		kind = board(index)
+		sprite = kind
+		If kind = 4 And tick Mod 8 >= 4 Then sprite = 6
+		If kind = 5 And exit_open Then
+			sprite = 7
+			If tick Mod 8 >= 4 Then sprite = 11
+		End If
+		node = tiles(index)
+		node.Texture = art(sprite)
+		node.Material = Nothing
+		If effects_enabled And kind = 3 Then
+			material = rock_materials(index)
+			Shader.Param material, "clock", clock
+			amount = 0
+			If falling(index) Then amount = 1
+			Shader.Param material, "falling", amount
+			node.Material = material
+		ElseIf effects_enabled And kind = 4 Then
+			material = crystal_materials(index)
+			Shader.Param material, "clock", clock
+			node.Material = material
+		ElseIf kind = 5 Then
+			portal.Position = node.Position - Vector2(32, 32)
+		End If
+	Next index
+	Dim miner_index As Integer = 8 + game.Get("walkFrame")
+	If game.Get("facingLeft") Then miner_index = 10
+	miner.Texture = art(miner_index)
+	miner.Position = player * 32.0 + Vector2(16, 16)
+	miner.Visible = state <> "lost"
+	amount = 1
+	' Shader.Param names must match the uniforms declared in the shader files.
+	If effects_enabled And phase = "entrance" Then amount = SmoothProgress(0, INTRO_SECONDS, phase_time)
+	Shader.Param miner.Material, "reveal", amount
+	amount = 0
+	If effects_enabled And move_time > 0 Then amount = 1
+	Shader.Param miner.Material, "moving", amount
+	Shader.Param miner.Material, "clock", clock
+	Shader.Param portal.Material, "clock", clock
+	pickup.Visible = effects_enabled And pickup_time < 0.55
+	Shader.Param pickup.Material, "progress", Clamp(pickup_time / 0.55, 0.0, 1.0)
+	For index = 0 To 63
+		node = fragments(index)
+		node.Visible = effects_enabled And phase = "death" And phase_time < BURST_SECONDS And node.Modulate.A > 0
+		Shader.Param node.Material, "elapsed", phase_time
+	Next index
+	post.Visible = effects_enabled
+	' The screen shader samples the cave already drawn, adding CRT and victory FX.
+	Shader.Param post.Material, "clock", clock
+	amount = 0
+	If effects_enabled Then amount = 0.65
+	Shader.Param post.Material, "crt_strength", amount
+	amount = 0
+	If phase = "victory" Then amount = Sin(Clamp(phase_time / 1.1, 0.0, 1.0) * 3.141592653589793)
+	' Wave reaches its peak halfway through 1.1s, then ends before the sink starts.
+	Shader.Param post.Material, "wave", amount
+	amount = 0
+	If phase = "victory" Then amount = SmoothProgress(1.1, VICTORY_SECONDS, phase_time)
+	Shader.Param post.Material, "sink", amount
+	amount = 0
+	If effects_enabled Then
+		amount = Max(0.0, 1.0 - pickup_time / 0.2) * 0.25
+	End If
+	Shader.Param post.Material, "glitch", amount
+	last_state = state
+	last_player = player
+	last_crystals = crystals
+End Sub
+
+Sub _begin_burst(player As Variant)
+	' Sample the cached miner image: transparent pixels produce no visible pieces.
+	burst_origin = player * 32.0 + Vector2(16, 16)
+	burst_texture = miner.Texture
+	Dim image As Object = burst_texture.GetImage()
+	Dim index As Integer
+	Dim node As Object
+	Dim offset As Variant
+	Dim direction As Variant
+	Dim speed As Double
+	For index = 0 To 63
+		offset = Vector2((index Mod 8) * 4 - 14, (index \ 8) * 4 - 14)
+		node = fragments(index)
+		node.Position = burst_origin + offset
+		node.Modulate = image.GetPixel(index Mod 8, index \ 8)
+		direction = offset.Normalized()
+		' Radial velocity spreads pieces from the center. Divide world speed by the
+		' sprite's 4x scale using multiplication; the shader adds gravity and fade.
+		speed = 38 + (index * 17 Mod 38)
+		Shader.Param node.Material, "velocity", (direction * speed + Vector2(0, -24)) * 0.25
+		Shader.Param node.Material, "elapsed", 0.0
+	Next index
+End Sub

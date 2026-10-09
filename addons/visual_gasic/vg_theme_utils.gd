@@ -110,10 +110,10 @@ static func style_light_toolbar_tree(root: Node) -> void:
 		return
 	if root is MenuButton:
 		style_menu_button(root as MenuButton)
-	elif root is Button:
-		style_toolbar_button(root as Button)
 	elif root is OptionButton:
 		hook_option_button(root as OptionButton)
+	elif root is Button:
+		style_toolbar_button(root as Button)
 	elif root is Label:
 		style_light_toolbar_label(root as Label)
 	for child in root.get_children():
@@ -130,6 +130,7 @@ static func style_toolbar_button(btn: Button) -> void:
 	btn.add_theme_color_override("font_pressed_color", text)
 	btn.add_theme_color_override("font_hover_pressed_color", text)
 	btn.add_theme_color_override("font_focus_color", text)
+	btn.add_theme_color_override("font_disabled_color", Color(0.38, 0.38, 0.40))
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(1.0, 1.0, 1.0, 1.0)
 	normal.border_color = Color(0.65, 0.64, 0.62, 1.0)
@@ -150,6 +151,9 @@ static func style_toolbar_button(btn: Button) -> void:
 	btn.add_theme_stylebox_override("pressed", pressed)
 	btn.add_theme_stylebox_override("hover_pressed", pressed)
 	btn.add_theme_stylebox_override("focus", normal.duplicate())
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color(0.94, 0.94, 0.94)
+	btn.add_theme_stylebox_override("disabled", disabled)
 
 # ── OptionButton: light chrome + dropdown (Godot editor theme is dark) ─
 
@@ -161,7 +165,9 @@ static func style_option_button(ob: OptionButton) -> void:
 	ob.add_theme_color_override("font_color", text)
 	ob.add_theme_color_override("font_hover_color", Color(0.0, 0.0, 0.45))
 	ob.add_theme_color_override("font_pressed_color", text)
+	ob.add_theme_color_override("font_hover_pressed_color", text)
 	ob.add_theme_color_override("font_focus_color", text)
+	ob.add_theme_color_override("font_disabled_color", Color(0.38, 0.38, 0.40))
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(1.0, 1.0, 1.0, 1.0)
 	normal.border_color = Color(0.65, 0.64, 0.62, 1.0)
@@ -180,7 +186,11 @@ static func style_option_button(ob: OptionButton) -> void:
 	pressed.bg_color = Color(1.0, 1.0, 1.0, 1.0)
 	pressed.border_color = Color(0.30, 0.50, 0.80, 1.0)
 	ob.add_theme_stylebox_override("pressed", pressed)
+	ob.add_theme_stylebox_override("hover_pressed", pressed)
 	ob.add_theme_stylebox_override("focus", normal.duplicate())
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color(0.94, 0.94, 0.94)
+	ob.add_theme_stylebox_override("disabled", disabled)
 	var popup := ob.get_popup()
 	if popup:
 		style_popup(popup)

@@ -168,6 +168,21 @@ jobs:
           chmod +x ./scripts/run_command_reference_gate.sh
           ./scripts/run_command_reference_gate.sh
 
+      - name: Crystal Caverns DATA and Whenever gameplay
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          OUT_DIR: ${{ runner.temp }}/vg-crystal-caverns
+        run: bash scripts/run_crystal_caverns_regression.sh
+
+      - name: Upload Crystal Caverns evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crystal-caverns-regression
+          path: ${{ runner.temp }}/vg-crystal-caverns/*.log
+          if-no-files-found: warn
+
       - name: Asset Library install smoke
         env:
           DISPLAY: ""

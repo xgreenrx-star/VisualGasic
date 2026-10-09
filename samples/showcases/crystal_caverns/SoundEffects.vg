@@ -1,0 +1,158 @@
+Extends Node
+Option Explicit
+
+' This node makes short sounds locally. No audio files or optional synth plugin
+' are needed: DATA describes each cue, and BuildCue turns it into PCM samples.
+' A sample is one loudness value; 8000 samples are played every second.
+Const MIX_RATE As Integer = 8000
+Const CUE_COUNT As Integer = 10
+Const VOICE_COUNT As Integer = 4
+Dim enabled As Boolean = True
+Dim ready_to_play As Boolean
+Dim streams(9) As Variant
+Dim voices(3) As Variant
+Dim cue_counts(9) As Integer
+Dim next_voice As Integer
+Dim toggle As Object
+
+Sub _Ready()
+	Dim recipes As Variant = DataToArray("CueRecipes")
+	If UBound(recipes) <> CUE_COUNT * 4 - 1 Then
+		Err.Raise 5, "Crystal Caverns sound", "Each cue needs duration, start Hz, end Hz and noise amount"
+	End If
+	Dim index As Integer
+	For index = 0 To CUE_COUNT - 1
+		streams(index) = BuildCue(recipes(index * 4), recipes(index * 4 + 1), recipes(index * 4 + 2), recipes(index * 4 + 3))
+	Next index
+	' Reuse four players so simultaneous pickup/unlock cues can overlap, while
+	' falling rocks cannot create an unlimited number of sound-playing nodes.
+	Dim voice As Object
+	For index = 0 To VOICE_COUNT - 1
+		voice = CreateNode("AudioStreamPlayer")
+		voice.VolumeDb = -12
+		AddChild(voice)
+		voices(index) = voice
+	Next index
+	toggle = CreateNode("CheckButton")
+	toggle.Text = "Sound (F9)"
+	toggle.Position = Vector2(352, 16)
+	toggle.Size = Vector2(132, 30)
+	toggle.FocusMode = 0
+	toggle.ButtonPressed = enabled
+	toggle.TooltipText = "Mute sound effects independently of the visual effects."
+	Connect toggle, "toggled", "SetEnabled"
+	AddChild(toggle)
+	ready_to_play = True
+End Sub
+
+' Godot expects signed 16-bit PCM in a byte buffer. The small fade-in/out
+' envelope avoids clicks at the start and end; a frequency sweep makes a chirp.
+Function BuildCue(duration As Double, firstHz As Double, lastHz As Double, noise As Double) As Object
+	' Keep hand-edited DATA bounded, and keep pitch below half the sample rate.
+	If duration < 0.001 Or duration > 2 Or firstHz < 20 Or firstHz > 3000 Or lastHz < 20 Or lastHz > 3000 Or noise < 0 Or noise > 1 Then
+		Err.Raise 5, "Crystal Caverns sound", "Cue needs 0.001..2 seconds, 20..3000 Hz and noise 0..1"
+	End If
+	Dim count As Integer = Int(duration * MIX_RATE)
+	Dim bytes As Object = New VGMemoryBuffer
+	If Not bytes.Allocate(count * 2) Then
+		Err.Raise 5, "Crystal Caverns sound", "Cannot allocate sound sample buffer"
+	End If
+	Dim index As Integer
+	Dim t As Double
+	Dim phase As Double = 0
+	Dim envelope As Double
+	Dim sample As Double
+	Dim seed As Integer = 12345
+	For index = 0 To count - 1
+		t = index / CDbl(count - 1)
+		phase = phase + (firstHz + (lastHz - firstHz) * t) / MIX_RATE
+		' A repeatable pseudo-random sequence gives dirt/rock sounds a rough edge.
+		seed = (seed * 25173 + 13849) Mod 65536
+		envelope = Min(1.0, t * 30.0) * (1.0 - t) * (1.0 - t)
+		sample = (Sin(phase * 6.283185307179586) * (1.0 - noise) + (seed / 32768.0 - 1.0) * noise) * envelope
+		bytes.PokeInt16(index * 2, Int(sample * 12000))
+	Next index
+	Dim stream As Object = New AudioStreamWAV
+	stream.Format = 1
+	stream.MixRate = MIX_RATE
+	stream.Stereo = False
+	stream.Data = bytes.ToByteArray()
+	BuildCue = stream
+End Function
+
+' Cue IDs come from the gameplay constants. Muting does not change gameplay.
+Sub PlayCue(cue As Integer)
+	If cue < 0 Or cue >= CUE_COUNT Then
+		Err.Raise 5, "Crystal Caverns sound", "Invalid sound cue"
+	End If
+	If Not ready_to_play Then Err.Raise 5, "Crystal Caverns sound", "Sound controller is not initialized"
+	If Not enabled Then Exit Sub
+	Dim voice As Object = voices(next_voice)
+	voice.Stop()
+	voice.StreamPaused = False
+	voice.Stream = streams(cue)
+	voice.Play()
+	cue_counts(cue) = cue_counts(cue) + 1
+	next_voice = (next_voice + 1) Mod VOICE_COUNT
+End Sub
+
+' Stop old sounds on restart/mute; pausing instead preserves their position.
+Sub StopAll()
+	Dim index As Integer
+	Dim voice As Object
+	For index = 0 To VOICE_COUNT - 1
+		voice = voices(index)
+		voice.Stop()
+		voice.StreamPaused = False
+	Next index
+End Sub
+
+Sub SetPaused(paused As Boolean)
+	Dim index As Integer
+	Dim voice As Object
+	For index = 0 To VOICE_COUNT - 1
+		voice = voices(index)
+		If voice.Playing Or voice.StreamPaused Then voice.StreamPaused = paused
+	Next index
+End Sub
+
+' Release active playback before Godot destroys the child players.
+Sub Form_Unload()
+	Call StopAll()
+	Dim index As Integer
+	Dim voice As Object
+	For index = 0 To VOICE_COUNT - 1
+		voice = voices(index)
+		voice.Stream = Nothing
+	Next index
+End Sub
+
+Sub SetEnabled(value As Boolean)
+	enabled = value
+	toggle.SetPressedNoSignal(value)
+	If Not enabled Then Call StopAll()
+End Sub
+
+Sub _UnhandledInput(ev As Variant)
+	If ev Is InputEventKey Then
+		If ev.Pressed And Not ev.Echo And ev.Keycode = KEY_F9 Then
+			Call SetEnabled(Not enabled)
+			GetViewport().SetInputAsHandled()
+		End If
+	End If
+End Sub
+
+' Four values per cue: seconds, start frequency, end frequency, noise mix.
+' Order: entrance, step, dig, push, rock landing, pickup, unlock, win,
+' defeat, low-time warning.
+CueRecipes:
+	Data 0.28, 220, 660, 0.0
+	Data 0.045, 140, 90, 0.15
+	Data 0.075, 170, 60, 0.7
+	Data 0.10, 110, 55, 0.4
+	Data 0.09, 90, 35, 0.65
+	Data 0.16, 880, 1760, 0.0
+	Data 0.32, 440, 1320, 0.0
+	Data 0.48, 523, 1568, 0.0
+	Data 0.38, 240, 30, 0.65
+	Data 0.18, 990, 660, 0.0

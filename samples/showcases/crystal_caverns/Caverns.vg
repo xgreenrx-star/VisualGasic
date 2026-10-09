@@ -1,0 +1,712 @@
+Extends Node2D
+Option Explicit
+
+' A cave is a 20-column, 12-row grid. Tile numbers also select the first six
+' artwork slots. Option Explicit catches misspelled variable names.
+Const CAVE_WIDTH As Integer = 20
+Const CAVE_HEIGHT As Integer = 12
+Const CELL_COUNT As Integer = 240
+Const TILE_EMPTY As Integer = 0
+Const TILE_WALL As Integer = 1
+Const TILE_DIRT As Integer = 2
+Const TILE_ROCK As Integer = 3
+Const TILE_CRYSTAL As Integer = 4
+Const TILE_EXIT As Integer = 5
+Const GEM_TARGET As Integer = 6
+Const STEP_SECONDS As Double = 0.125
+Const LEVEL_COUNT As Integer = 3
+Const SFX_ENTRANCE As Integer = 0
+Const SFX_STEP As Integer = 1
+Const SFX_DIG As Integer = 2
+Const SFX_PUSH As Integer = 3
+Const SFX_LAND As Integer = 4
+Const SFX_PICKUP As Integer = 5
+Const SFX_UNLOCK As Integer = 6
+Const SFX_WIN As Integer = 7
+Const SFX_DEFEAT As Integer = 8
+Const SFX_HURRY As Integer = 9
+
+' Arrays use zero-based indices: cell (x,y) is stored at y * CAVE_WIDTH + x.
+' falling remembers airborne rocks; moved prevents a second move in one tick.
+Dim board(239) As Integer
+Dim falling(239) As Boolean
+Dim moved(239) As Boolean
+Dim art(11) As Variant
+Dim playerX As Integer
+Dim playerY As Integer
+Dim crystals As Integer
+Dim secondsLeft As Integer
+Dim health As Integer
+Dim exitOpen As Boolean
+Dim lowTime As Boolean
+Dim paused As Boolean
+Dim gameState As String
+Dim message As String
+Dim gemText As String
+Dim clockText As String
+Dim ticks As Integer
+Dim walkFrame As Integer
+Dim facingLeft As Boolean
+Dim accumulator As Double
+Dim gemChanges As Integer
+Dim exitSignals As Integer
+Dim defeatSignals As Integer
+Dim warningSignals As Integer
+Dim gemLabel As Object
+Dim clockLabel As Object
+Dim messageLabel As Object
+Dim pausePanel As Object
+Dim levelIndex As Integer
+Dim levelName As String
+Dim levelLabel As Object
+Dim nextButton As Object
+Dim fullscreenButton As Object
+Dim effectsRenderer As Object
+Dim visualEpoch As Integer
+Dim soundRenderer As Object
+
+' Whenever watches a value and calls a Sub when its condition changes.
+' Changes updates counters; Becomes/Below trigger one-time transitions.
+Whenever Section CrystalCounter crystals Changes OnCrystalCounter
+	Whenever Section UnlockExit crystals Becomes GEM_TARGET OnUnlockExit
+		Whenever Section ClockCounter secondsLeft Changes OnClockCounter
+			Whenever Section Hurry secondsLeft Below 11 OnHurry
+				Whenever Section OutOfTime secondsLeft Becomes 0 OnOutOfTime
+					Whenever Section Crushed health Becomes 0 OnCrushed
+
+						Sub _Ready()
+							' Godot calls _Ready once after child nodes enter the scene.
+							effectsRenderer = GetNode("VisualEffects")
+							soundRenderer = GetNode("SoundEffects")
+							Call LoadArt()
+							Call CreateHud()
+							Call RestartCave()
+							Me.set_process_input(True)
+						End Sub
+
+						Sub LoadArt()
+							' DATA holds four header values plus 64 palette-index pixels.
+							' Decode once, cache the textures, and reuse them every frame.
+							Dim labels As Variant
+							labels = DataToArray("ArtLabels")
+							If UBound(labels) < > 11 Then Err.Raise 5, "Crystal Caverns", "ArtLabels must contain twelve sprite labels"
+							Dim i As Integer
+							Dim pixels As Variant
+							For i = 0 To 11
+								pixels = DataToArray(labels(i))
+								If UBound(pixels) < > 67 Then Err.Raise 5, "Crystal Caverns", "Each sprite needs an 8x8 header and 64 pixels: " & labels(i)
+								If pixels(0) < > 8 Or pixels(1) < > 8 Then Err.Raise 5, "Crystal Caverns", "Sprite dimensions must be 8x8: " & labels(i)
+								art(i) = CreateTexture(SpriteDataToImage(pixels))
+							Next i
+						End Sub
+
+						Function MakeLabel(text As String, x As Integer, y As Integer, width As Integer, tint As Variant) As Object
+							' Create a native Godot label; positions/sizes are in screen pixels.
+							Dim label As Object = CreateNode("Label")
+							label.Text = text
+							label.Position = Vector2(x, y)
+							label.Size = Vector2(width, 26)
+							label.MouseFilter = 2
+							label.AddThemeColorOverride("font_color", tint)
+							AddChild(label)
+							MakeLabel = label
+						End Function
+
+						Sub CreateHud()
+							' HUD means heads-up display. Signals connect button clicks to Subs.
+							Dim label As Object
+							label = MakeLabel("CRYSTAL CAVERNS", 32, 16, 640, Color(0.47, 0.86, 1.0))
+							label.AddThemeFontSizeOverride("font_size", 24)
+							fullscreenButton = CreateNode("Button")
+							fullscreenButton.Text = "Fullscreen (F11)"
+							fullscreenButton.Position = Vector2(492, 16)
+							fullscreenButton.Size = Vector2(180, 30)
+							fullscreenButton.FocusMode = 0
+							AddChild(fullscreenButton)
+							Connect fullscreenButton, "pressed", "ToggleFullscreen"
+							label = MakeLabel("Original DATA art / fixed-step rocks / WHENEVER reactions", 32, 49, 640, Color(0.68, 0.71, 0.79))
+							gemLabel = MakeLabel("", 32, 73, 480, Color(0.55, 0.94, 0.81))
+							clockLabel = MakeLabel("", 540, 73, 132, Color(0.96, 0.84, 0.52))
+							messageLabel = MakeLabel("", 32, 492, 640, Color(0.90, 0.91, 0.95))
+							levelLabel = MakeLabel("", 32, 518, 420, Color(0.68, 0.71, 0.79))
+							nextButton = CreateNode("Button")
+							nextButton.Text = "Next cave (N)"
+							nextButton.Position = Vector2(492, 518)
+							nextButton.Size = Vector2(180, 30)
+							nextButton.FocusMode = 0
+							AddChild(nextButton)
+							Connect nextButton, "pressed", "NextCave"
+							label = MakeLabel("Arrows / WASD: dig & push P / Esc: pause R: restart F11: fullscreen", 32, 559, 640, Color(0.68, 0.71, 0.79))
+							pausePanel = CreateNode("ColorRect")
+							pausePanel.Position = Vector2(192, 232)
+							pausePanel.Size = Vector2(320, 80)
+							pausePanel.Color = Color(0.067, 0.10, 0.21)
+							pausePanel.MouseFilter = 2
+							AddChild(pausePanel)
+							label = CreateNode("Label")
+							label.Text = "PAUSED - P / Esc to resume"
+							label.Position = Vector2(16, 24)
+							label.AddThemeColorOverride("font_color", Color(0.96, 0.84, 0.52))
+							label.AddThemeFontSizeOverride("font_size", 20)
+							pausePanel.AddChild(label)
+						End Sub
+
+						Sub UpdateHud()
+							' Refresh labels from state; never change the rules from drawing code.
+							gemLabel.Text = gemText
+							clockLabel.Text = clockText
+							messageLabel.Text = message
+							levelLabel.Text = "CAVE " & CStr(levelIndex + 1) & " / " & CStr(LEVEL_COUNT) & " - " & levelName
+							nextButton.Visible = gameState = "won"
+							If levelIndex = LEVEL_COUNT - 1 Then
+								nextButton.Text = "Play again (N)"
+							Else
+								nextButton.Text = "Next cave (N)"
+							End If
+							pausePanel.Visible = paused
+							If lowTime Then
+								clockLabel.AddThemeColorOverride("font_color", Color(1.0, 0.47, 0.47))
+							Else
+								clockLabel.AddThemeColorOverride("font_color", Color(0.96, 0.84, 0.52))
+							End If
+						End Sub
+
+						Sub RestartCave()
+							' Re-read the authored map rather than undoing old moves.
+							' The epoch tells the visual child to restart even in the same cave.
+							visualEpoch = visualEpoch + 1
+							soundRenderer.StopAll()
+							Dim rows As Variant
+							Dim names As Variant = DataToArray("CaveNames")
+							Dim times As Variant = DataToArray("CaveTimes")
+							If levelIndex < 0 Or levelIndex > = LEVEL_COUNT Then Err.Raise 5, "Crystal Caverns", "Invalid cave index"
+							levelName = names(levelIndex)
+							Select Case levelIndex
+								Case 0
+									rows = DataToArray("CaveRows")
+								Case 1
+									rows = DataToArray("CaveRows2")
+								Case 2
+									rows = DataToArray("CaveRows3")
+							End Select
+							If UBound(rows) < > CAVE_HEIGHT - 1 Then Err.Raise 5, "Crystal Caverns", "CaveRows must have twelve rows"
+							Dim x As Integer
+							Dim y As Integer
+							Dim ch As String
+							Dim index As Integer
+							Dim spawnCount As Integer = 0
+							Dim exitCount As Integer = 0
+							Dim crystalCount As Integer = 0
+							For y = 0 To CAVE_HEIGHT - 1
+								If Len(rows(y)) < > CAVE_WIDTH Then Err.Raise 5, "Crystal Caverns", "Cave row width must be twenty"
+								For x = 0 To CAVE_WIDTH - 1
+									index = y * CAVE_WIDTH + x
+									' Mid uses one-based string positions; grid coordinates start at zero.
+									ch = Mid(rows(y), x + 1, 1)
+									board(index) = TILE_EMPTY
+									Select Case ch
+										Case "#"
+										board(index) = TILE_WALL
+										Case "."
+										board(index) = TILE_DIRT
+										Case "O"
+										board(index) = TILE_ROCK
+										Case "*"
+										board(index) = TILE_CRYSTAL
+										crystalCount = crystalCount + 1
+										Case "E"
+										board(index) = TILE_EXIT
+										exitCount = exitCount + 1
+										Case "@"
+										playerX = x
+										playerY = y
+										spawnCount = spawnCount + 1
+										Case " "
+										board(index) = TILE_EMPTY
+										Case Else
+											Err.Raise 5, "Crystal Caverns", "Unknown cave tile: " & ch
+									End Select
+									If x = 0 Or x = CAVE_WIDTH - 1 Or y = 0 Or y = CAVE_HEIGHT - 1 Then
+										If board(index) < > TILE_WALL Then Err.Raise 5, "Crystal Caverns", "Cave boundary must be solid wall"
+									End If
+									falling(index) = False
+									moved(index) = False
+								Next x
+							Next y
+							If spawnCount < > 1 Or exitCount < > 1 Or crystalCount < > GEM_TARGET Then
+								Err.Raise 5, "Crystal Caverns", "Cave needs one player, one exit and six crystals"
+							End If
+							gameState = "playing"
+							paused = False
+							exitOpen = False
+							lowTime = False
+							ticks = 0
+							walkFrame = 0
+							facingLeft = False
+							accumulator = 0
+							crystals = 0
+							health = 1
+							secondsLeft = times(levelIndex)
+							gemChanges = 0
+							exitSignals = 0
+							defeatSignals = 0
+							warningSignals = 0
+							' Reset display values explicitly: assigning the same value does not fire Changes.
+							gemText = "CRYSTALS 0 / " & CStr(GEM_TARGET)
+							clockText = "TIME " & CStr(secondsLeft)
+							message = "Collect six crystals. Dig carefully beneath rocks."
+							Call UpdateHud()
+							QueueRedraw()
+							Call PlayCue(SFX_ENTRANCE)
+						End Sub
+
+						Sub PlayCue(cue As Integer)
+							' Sound is feedback only: the sound child cannot alter the cave.
+							soundRenderer.PlayCue(cue)
+						End Sub
+
+						Sub NextCave()
+							' Only a finished cave may advance; Mod wraps cave three to cave one.
+							If gameState < > "won" Then Exit Sub
+							levelIndex = (levelIndex + 1) Mod LEVEL_COUNT
+							Call RestartCave()
+						End Sub
+
+						Sub ToggleFullscreen()
+							' Godot window modes: 0 = windowed, 3/4 = fullscreen variants.
+							Dim window As Object = Me.GetWindow()
+							If window.Mode = 3 Or window.Mode = 4 Then
+								window.Mode = 0
+								fullscreenButton.Text = "Fullscreen (F11)"
+							Else
+								window.Mode = 3
+								fullscreenButton.Text = "Windowed (F11)"
+							End If
+						End Sub
+
+						Sub OnCrystalCounter()
+							' This watcher also runs on resets, so zero crystals makes no pickup sound.
+							If crystals > 0 Then Call PlayCue(SFX_PICKUP)
+							gemChanges = gemChanges + 1
+							gemText = "CRYSTALS " & CStr(crystals) & " / " & CStr(GEM_TARGET)
+							gemLabel.Text = gemText
+						End Sub
+
+						Sub OnUnlockExit()
+							' Guard against duplicate callbacks and leave the door open until restart.
+							If gameState < > "playing" Or exitOpen Then Exit Sub
+							exitOpen = True
+							exitSignals = exitSignals + 1
+							Call PlayCue(SFX_UNLOCK)
+							message = "Exit unlocked! Reach the glowing door."
+							messageLabel.Text = message
+						End Sub
+
+						Sub OnClockCounter()
+							' Changing secondsLeft updates text without polling the clock in _Draw.
+							clockText = "TIME " & CStr(secondsLeft)
+							clockLabel.Text = clockText
+						End Sub
+
+						Sub OnHurry()
+							' The Below watcher fires when crossing the threshold, not every frame.
+							If gameState < > "playing" Then Exit Sub
+							lowTime = True
+							warningSignals = warningSignals + 1
+							Call PlayCue(SFX_HURRY)
+							message = "Ten seconds left! Find the exit."
+							Call UpdateHud()
+						End Sub
+
+						Sub OnOutOfTime()
+							' Timeout and crushing share one defeat handler.
+							Call FinishDefeat("Out of time")
+						End Sub
+
+						Sub OnCrushed()
+							' health becoming zero reaches here through Whenever, not a draw routine.
+							Call FinishDefeat("Crushed by a falling rock")
+						End Sub
+
+						Sub FinishDefeat(reason As String)
+							' Stop accepting simulation steps; repeated defeat requests do nothing.
+							If gameState < > "playing" Then Exit Sub
+							gameState = "lost"
+							defeatSignals = defeatSignals + 1
+							Call PlayCue(SFX_DEFEAT)
+							message = reason & ". Press R to try again."
+							messageLabel.Text = message
+						End Sub
+
+						Function TileAt(x As Integer, y As Integer) As Integer
+							' Treat outside coordinates as walls, avoiding out-of-range array reads.
+							If x < 0 Or x > = CAVE_WIDTH Or y < 0 Or y > = CAVE_HEIGHT Then
+								TileAt = TILE_WALL
+							Else
+								TileAt = board(y * CAVE_WIDTH + x)
+							End If
+						End Function
+
+						Sub TryMove(dx As Integer, dy As Integer)
+							' Exactly one cardinal step is allowed. Reject blocked moves before sound.
+							If Abs(dx) + Abs(dy) < > 1 Then Exit Sub
+							Dim nx As Integer = playerX + dx
+							Dim ny As Integer = playerY + dy
+							Dim tile As Integer = TileAt(nx, ny)
+							Dim target As Integer = ny * CAVE_WIDTH + nx
+							If tile = TILE_WALL Then Exit Sub
+							If tile = TILE_EXIT Then
+								If Not exitOpen Then Exit Sub
+								playerX = nx
+								playerY = ny
+								gameState = "won"
+								Call PlayCue(SFX_WIN)
+								message = "CAVE CLEARED! Press R for another run."
+								If levelIndex < LEVEL_COUNT - 1 Then
+									message = "CAVE CLEARED! Press N for the next cave, R to retry."
+								Else
+									message = "ALL THREE CAVES CLEARED! N starts a new expedition."
+								End If
+								messageLabel.Text = message
+								Call UpdateHud()
+								Exit Sub
+							End If
+							If tile = TILE_ROCK Then
+								' Push only sideways into empty space; moved protects the pushed rock.
+								If dy < > 0 Or falling(target) Then Exit Sub
+								If TileAt(nx + dx, ny) < > TILE_EMPTY Then Exit Sub
+								Dim beyond As Integer = ny * CAVE_WIDTH + nx + dx
+								board(beyond) = TILE_ROCK
+								falling(beyond) = False
+								moved(beyond) = True
+								Call PlayCue(SFX_PUSH)
+							ElseIf tile = TILE_CRYSTAL Then
+								' Changing crystals invokes the pickup and unlock watchers.
+								crystals = crystals + 1
+							ElseIf tile = TILE_DIRT Then
+								Call PlayCue(SFX_DIG)
+							Else
+								Call PlayCue(SFX_STEP)
+							End If
+							board(target) = TILE_EMPTY
+							falling(target) = False
+							playerX = nx
+							playerY = ny
+							walkFrame = 1 - walkFrame
+							If dx < > 0 Then facingLeft = dx < 0
+						End Sub
+
+						Sub StepCave(dx As Integer, dy As Integer)
+							' One simulation tick: move the miner, drop rocks, then advance the clock.
+							If gameState < > "playing" Or paused Then Exit Sub
+							Dim i As Integer
+							For i = 0 To CELL_COUNT - 1
+								moved(i) = False
+							Next i
+							Call TryMove(dx, dy)
+							If gameState < > "playing" Then Exit Sub
+							' Bottom-up plus moved flags prevents a rock (including a pushed rock) moving twice.
+							Dim x As Integer
+							Dim y As Integer
+							Dim index As Integer
+							Dim Below As Integer
+							Dim landed As Boolean = False
+							For y = CAVE_HEIGHT - 2 To 1 Step - 1
+								For x = 1 To CAVE_WIDTH - 2
+									index = y * CAVE_WIDTH + x
+									If board(index) = TILE_ROCK And Not moved(index) Then
+										Below = index + CAVE_WIDTH
+										If board(Below) = TILE_EMPTY Then
+											board(index) = TILE_EMPTY
+											falling(index) = False
+											board(Below) = TILE_ROCK
+											falling(Below) = True
+											moved(Below) = True
+											If playerX = x And playerY = y + 1 Then
+												health = 0
+												Exit Sub
+											End If
+										Else
+											If falling(index) Then landed = True
+											falling(index) = False
+										End If
+									End If
+								Next x
+							Next y
+							' At most one landing cue per tick, even if several rocks settle.
+							If landed Then Call PlayCue(SFX_LAND)
+							ticks = ticks + 1
+							If ticks Mod 8 = 0 Then secondsLeft = secondsLeft - 1
+						End Sub
+
+						Sub _Process(delta As Double)
+							' Godot supplies seconds since the last rendered frame.
+							Call AdvanceFrame(delta)
+						End Sub
+
+						Sub AdvanceFrame(delta As Double)
+							' Accumulate real time into fixed 1/8-second steps, independent of FPS.
+							' Cap catch-up so a slow frame does not create an unbounded loop.
+							If gameState = "playing" And Not paused Then
+								accumulator = accumulator + Min(delta, 0.25)
+								Dim dx As Integer
+								Dim dy As Integer
+								Do While accumulator > = STEP_SECONDS
+									accumulator = accumulator - STEP_SECONDS
+									dx = 0
+									dy = 0
+									If Input.IsActionPressed("ui_left") Or Input.IsPhysicalKeyPressed(65) Then
+										dx = - 1
+									ElseIf Input.IsActionPressed("ui_right") Or Input.IsPhysicalKeyPressed(68) Then
+										dx = 1
+									ElseIf Input.IsActionPressed("ui_up") Or Input.IsPhysicalKeyPressed(87) Then
+										dy = - 1
+									ElseIf Input.IsActionPressed("ui_down") Or Input.IsPhysicalKeyPressed(83) Then
+										dy = 1
+									End If
+									Call StepCave(dx, dy)
+								Loop
+							End If
+							QueueRedraw()
+						End Sub
+
+						Sub _Input(ev As Variant)
+							' Ignore key-release/repeat events so toggles happen once per press.
+							If Not (ev Is InputEventKey) Then Exit Sub
+							If Not ev.pressed Or ev.echo Then Exit Sub
+							' These Godot key codes select F11, N, R, then P/Escape.
+							' The sound and visual children handle F9/F8 independently.
+							Select Case ev.keycode
+								Case 4194342
+									Call ToggleFullscreen()
+								Case 78
+									Call NextCave()
+								Case 82
+									Call RestartCave()
+								Case 80, 4194305
+									If gameState = "playing" Then
+										paused = Not paused
+										soundRenderer.SetPaused(paused)
+										accumulator = 0
+										Call UpdateHud()
+									End If
+							End Select
+						End Sub
+
+						Sub _Draw()
+							' Fallback rendering until the shader child is ready. Each 8x8 sprite
+							' occupies a 32x32 cell; the miner is drawn over the map.
+							If effectsRenderer IsNot Nothing Then
+								If effectsRenderer.ready_to_draw Then Exit Sub
+							End If
+							Dim x As Integer
+							Dim y As Integer
+							Dim tile As Integer
+							Dim sprite As Integer
+							For y = 0 To CAVE_HEIGHT - 1
+								For x = 0 To CAVE_WIDTH - 1
+									tile = TileAt(x, y)
+									sprite = tile
+									If tile = TILE_CRYSTAL And ticks Mod 8 > = 4 Then sprite = 6
+									If tile = TILE_EXIT And exitOpen Then
+										sprite = 7
+										If ticks Mod 8 > = 4 Then sprite = 11
+									End If
+									DrawTextureRect art(sprite), 32 + x * 32, 96 + y * 32, 32, 32
+								Next x
+							Next y
+							If gameState < > "lost" Then
+								sprite = 8 + walkFrame
+								If facingLeft Then sprite = 10
+								DrawTextureRect art(sprite), 32 + playerX * 32, 96 + playerY * 32, 32, 32
+							End If
+						End Sub
+
+						' # wall, . dirt, O rock, * crystal, E exit, @ player, space empty.
+						CaveRows:
+						Data "####################"
+						Data "#@....*....#.......#"
+						Data "#..##......#..O....#"
+						Data "#.....O....#.......#"
+						Data "#..*.......#..*....#"
+						Data "#....###..........##"
+						Data "#..O.......#.......#"
+						Data "#......*...#..O....#"
+						Data "#..##......#.......#"
+						Data "#..*.......#..*....#"
+						Data "#.................E#"
+						Data "####################"
+
+						CaveNames:
+						' Matching indices select a name, time limit and map for each cave.
+						Data "First Light", "Stone Galleries", "The Deep Vault"
+						CaveTimes:
+						Data 120, 100, 90
+
+						CaveRows2:
+						Data "####################"
+						Data "#@....*............#"
+						Data "#..####...O...###..#"
+						Data "#.........#........#"
+						Data "#..*......#...*....#"
+						Data "#.....O...#....O...#"
+						Data "#.####....#........#"
+						Data "#......*......##...#"
+						Data "#...O....###.......#"
+						Data "#..*..........*....#"
+						Data "#.................E#"
+						Data "####################"
+
+						CaveRows3:
+						Data "####################"
+						Data "#@....*............#"
+						Data "#..O....#####..O...#"
+						Data "#.......#..........#"
+						Data "#..*....#.....*....#"
+						Data "#....O..#..O.......#"
+						Data "#.###...#....###...#"
+						Data "#......*#..........#"
+						Data "#.......#..O.......#"
+						Data "#..*..........*....#"
+						Data "#.................E#"
+						Data "####################"
+
+						ArtLabels:
+						' The label order is the texture-slot order used by tile/sprite numbers.
+						Data "FloorSprite", "WallSprite", "DirtSprite", "RockSprite"
+						Data "CrystalSprite", "DoorSprite", "CrystalGlowSprite", "OpenDoorSprite"
+						Data "MinerSprite", "MinerWalkSprite", "MinerLeftSprite", "ExitGlowSprite"
+
+						' Headers: width, height, transparent index, palette (2 = C64).
+						FloorSprite:
+						' Palette index 6 fills empty cells with dark blue.
+						Data 8, 8, 0, 2
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						WallSprite:
+						' Repeating light/dark rows form the brick pattern.
+						Data 8, 8, 0, 2
+						Data 15, 15, 15, 15, 15, 15, 15, 15
+						Data 12, 12, 12, 11, 12, 12, 12, 11
+						Data 12, 12, 12, 11, 12, 12, 12, 11
+						Data 11, 11, 11, 11, 11, 11, 11, 11
+						Data 15, 15, 15, 15, 15, 15, 15, 15
+						Data 12, 11, 12, 12, 12, 11, 12, 12
+						Data 12, 11, 12, 12, 12, 11, 12, 12
+						Data 11, 11, 11, 11, 11, 11, 11, 11
+						DirtSprite:
+						' Earth colors mark tiles the miner can dig away.
+						Data 8, 8, 0, 2
+						Data 9, 9, 8, 9, 9, 9, 9, 9
+						Data 9, 8, 9, 9, 9, 9, 8, 9
+						Data 9, 9, 9, 9, 8, 9, 9, 9
+						Data 9, 9, 8, 9, 9, 9, 9, 9
+						Data 9, 9, 9, 9, 9, 9, 8, 9
+						Data 8, 9, 9, 9, 8, 9, 9, 9
+						Data 9, 9, 8, 9, 9, 9, 9, 9
+						Data 9, 9, 9, 9, 9, 8, 9, 9
+						RockSprite:
+						' Transparent corners give this otherwise square tile a round silhouette.
+						Data 8, 8, 0, 2
+						Data 6, 6, 12, 12, 12, 6, 6, 6
+						Data 6, 12, 15, 15, 12, 12, 6, 6
+						Data 12, 15, 15, 12, 12, 11, 12, 6
+						Data 12, 15, 12, 12, 11, 12, 11, 6
+						Data 12, 12, 12, 11, 12, 11, 11, 6
+						Data 6, 12, 11, 12, 11, 11, 6, 6
+						Data 6, 6, 11, 11, 11, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						CrystalSprite:
+						' The normal crystal frame alternates with CrystalGlowSprite.
+						Data 8, 8, 0, 2
+						Data 6, 6, 6, 3, 6, 6, 6, 6
+						Data 6, 6, 3, 1, 3, 6, 6, 6
+						Data 6, 3, 1, 3, 14, 3, 6, 6
+						Data 3, 1, 3, 14, 3, 14, 3, 6
+						Data 6, 3, 14, 3, 14, 3, 6, 6
+						Data 6, 6, 3, 14, 3, 6, 6, 6
+						Data 6, 6, 6, 3, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						DoorSprite:
+						' The locked door becomes OpenDoorSprite when six crystals are collected.
+						Data 8, 8, 0, 2
+						Data 12, 12, 12, 12, 12, 12, 12, 12
+						Data 12, 9, 9, 9, 9, 9, 9, 12
+						Data 12, 9, 2, 2, 2, 2, 9, 12
+						Data 12, 9, 2, 7, 7, 2, , 12
+						Data 12, 9, 2, 7, 7, 2, 9, 12
+						Data 12, 9, 2, 2, 2, 2, 9, 12
+						Data 12, 9, 9, 9, 9, 9, 9, 12
+						Data 12, 12, 12, 12, 12, 12, 12, 12
+						CrystalGlowSprite:
+						' A second bright frame makes the crystal twinkle without changing its tile.
+						Data 8, 8, 0, 2
+						Data 6, 6, 6, 1, 6, 6, 6, 6
+						Data 6, 6, 1, 1, 3, 6, 6, 6
+						Data 6, 1, 1, 3, 3, 3, 6, 6
+						Data 1, 1, 3, 3, 3, 14, 3, 6
+						Data 6, 3, 3, 3, 14, 3, 6, 6
+						Data 6, 6, 3, 14, 3, 6, 6, 6
+						Data 6, 6, 6, 3, 6, 6, 6, 6
+						Data 6, 6, 6, 6, 6, 6, 6, 6
+						OpenDoorSprite:
+						' Open-door artwork is still DATA; the vortex shader is an extra overlay.
+						Data 8, 8, 0, 2
+						Data 5, 5, 5, 5, 5, 5, 5, 5
+						Data 5, 13, 6, 6, 6, 6, 13, 5
+						Data 5, 6, 6, 6, 13, 6, 6, 5
+						Data 5, 6, 6, 13, 13, 13, 6, 5
+						Data 5, 6, 6, 6, 13, 6, 6, 5
+						Data 5, 6, 6, 6, 6, 6, 6, 5
+						Data 5, 13, 6, 6, 6, 6, 13, 5
+						Data 5, 5, 5, 5, 5, 5, 5, 5
+						MinerSprite:
+						' The standing/right-facing pose; zero-valued pixels are transparent.
+						Data 8, 8, 0, 2
+						Data 0, 0, 7, 7, 7, 0, 0, 0
+						Data 0, 7, 7, 7, 1, 7, 0, 0
+						Data 0, 0, 10, 10, 10, 0, 0, 0
+						Data 0, 0, 10, 1, 10, 0, 0, 0
+						Data 0, 14, 14, 14, 14, 10, 0, 0
+						Data 0, 0, 14, 14, 14, 0, 0, 0
+						Data 0, 0, 8, 0, 8, 0, 0, 0
+						Data 0, 9, 9, 0, 9, 9, 0, 0
+						MinerWalkSprite:
+						' Alternate leg positions; walkFrame changes on each successful move.
+						Data 8, 8, 0, 2
+						Data 0, 0, 7, 7, 7, 0, 0, 0
+						Data 0, 7, 7, 7, 1, 7, 0, 0
+						Data 0, 0, 10, 10, 10, 0, 0, 0
+						Data 0, 0, 10, 1, 10, 0, 0, 0
+						Data 0, 10, 14, 14, 14, 14, 0, 0
+						Data 0, 0, 14, 14, 14, 0, 0, 0
+						Data 0, 8, 8, 0, 0, 8, 0, 0
+						Data 9, 9, 0, 0, 0, 9, 9, 0
+						MinerLeftSprite:
+						' A separate left-facing pose avoids mirroring all gameplay coordinates.
+						Data 8, 8, 0, 2
+						Data 0, 0, 0, 7, 7, 7, 0, 0
+						Data 0, 0, 7, 1, 7, 7, 7, 0
+						Data 0, 0, 0, 10, 10, 10, 0, 0
+						Data 0, 0, 0, 10, 1, 10, 0, 0
+						Data 0, 0, 10, 14, 14, 14, 14, 0
+						Data 0, 0, 0, 14, 14, 14, 0, 0
+						Data 0, 0, 0, 8, 0, 8, 0, 0
+						Data 0, 0, 9, 9, 0, 9, 9, 0
+						ExitGlowSprite:
+						' The unlocked exit alternates this glow frame with OpenDoorSprite.
+						Data 8, 8, 0, 2
+						Data 13, 13, 13, 13, 13, 13, 13, 13
+						Data 13, 5, 6, 6, 6, 6, 5, 13
+						Data 13, 6, 6, 6, 5, 6, 6, 13
+						Data 13, 6, 6, 5, 5, 5, 6, 13
+						Data 13, 6, 6, 6, 5, 6, 6, 13
+						Data 13, 6, 6, 6, 6, 6, 6, 13
+						Data 13, 5, 6, 6, 6, 6, 5, 13
+						Data 13, 13, 13, 13, 13, 13, 13, 13

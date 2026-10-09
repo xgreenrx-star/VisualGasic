@@ -13,7 +13,7 @@ const SIDE_LABEL := {
 }
 
 var _authority: Dictionary = {}       # path -> int side
-var _popup_shown: Dictionary = {}   # "path|side" -> true until refresh/dismiss
+var _dismissed_warnings: Dictionary = {}
 
 
 func note_modified(path: String, side: int) -> void:
@@ -21,18 +21,17 @@ func note_modified(path: String, side: int) -> void:
 		return
 	var prev: int = int(_authority.get(path, -1))
 	_authority[path] = side
-	# Only re-arm the stale-side popup when editing authority switches editors —
-	# not on every keystroke in the same buffer.
+	# Re-arm warnings only when authority switches, not on each keystroke.
 	if prev != side:
 		var stale_side := SIDE_EMBEDDED if side == SIDE_NATIVE else SIDE_NATIVE
-		_popup_shown.erase(_popup_key(path, stale_side))
+		_dismissed_warnings.erase(_warning_key(path, stale_side))
 
 
 func clear_path(path: String) -> void:
 	if path.is_empty():
 		return
 	_authority.erase(path)
-	_clear_popup_flags(path)
+	_clear_warning_flags(path)
 
 
 func authority_label(path: String) -> String:
@@ -53,7 +52,7 @@ func evaluate(path: String, embedded_text: String, native_text: String, native_o
 	if path.is_empty() or not native_open:
 		return out
 	if embedded_text == native_text:
-		_clear_popup_flags(path)
+		_clear_warning_flags(path)
 		return out
 	if not _authority.has(path):
 		return out
@@ -65,24 +64,18 @@ func evaluate(path: String, embedded_text: String, native_text: String, native_o
 	return out
 
 
-func should_popup(path: String, side: int, stale: bool) -> bool:
-	if not stale:
-		return false
-	var key := _popup_key(path, side)
-	if _popup_shown.get(key, false):
-		return false
-	_popup_shown[key] = true
-	return true
+func is_warning_dismissed(path: String, side: int) -> bool:
+	return bool(_dismissed_warnings.get(_warning_key(path, side), false))
 
 
-func dismiss_popup(path: String, side: int) -> void:
-	_popup_shown[_popup_key(path, side)] = true
+func dismiss_warning(path: String, side: int) -> void:
+	_dismissed_warnings[_warning_key(path, side)] = true
 
 
-func _clear_popup_flags(path: String) -> void:
-	_popup_shown.erase(_popup_key(path, SIDE_EMBEDDED))
-	_popup_shown.erase(_popup_key(path, SIDE_NATIVE))
+func _clear_warning_flags(path: String) -> void:
+	_dismissed_warnings.erase(_warning_key(path, SIDE_EMBEDDED))
+	_dismissed_warnings.erase(_warning_key(path, SIDE_NATIVE))
 
 
-func _popup_key(path: String, side: int) -> String:
+func _warning_key(path: String, side: int) -> String:
 	return path + "|" + str(side)

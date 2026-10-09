@@ -8,6 +8,7 @@ const Palettes := preload("res://addons/visual_gasic/vg_sprite_data_palettes.gd"
 const Sync := preload("res://addons/visual_gasic/vg_sprite_data_sync.gd")
 const Assist := preload("res://addons/visual_gasic/vg_editor_assist.gd")
 const Highlight := preload("res://addons/visual_gasic/vg_sprite_data_highlight.gd")
+const Ux := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 
 var _failed := 0
 var _passed := 0
@@ -33,6 +34,8 @@ func _init() -> void:
 	_test_resize_header()
 	_test_palettes()
 	_test_sync_roundtrip()
+	_test_grid_alignment()
+	_test_indent_and_folds()
 	_test_enumerate_blocks()
 	_test_native_highlight()
 	_test_assist_keyword()
@@ -112,11 +115,42 @@ func _test_sync_roundtrip() -> void:
 	_check("not guarded after apply", not Sync.is_sync_guarded(ce))
 	var line2 := ce.get_line(sec["data_start_line"])
 	_check("row0 is indented for folding", line2.begins_with("\t"))
-	_check("row0 starts with 9", line2.strip_edges().begins_with("Data 9"))
+	_check("row0 starts with padded 9", line2.strip_edges().begins_with("Data  9"))
 	var sec2 := Resolver.resolve_at_line(ce.text, 3)
 	var px2: PackedInt32Array = sec2.get("pixels", PackedInt32Array())
 	_check("roundtrip pixel 0", px2[0] == 9)
 	_check("reject bad pixel count", not Sync.apply_pixels(ce, sec, PackedInt32Array()))
+	ce.free()
+
+func _test_grid_alignment() -> void:
+	var ce := CodeEdit.new()
+	ce.text = FIXTURE.replace("Data 0, 1, 2, 1", "' Keep this note\nData 0, 10, 15, 1")
+	var before := ce.text
+	var sec := Resolver.resolve_at_line(ce.text, 2)
+	var original_pixels: PackedInt32Array = sec["pixels"]
+	_check("align grid succeeds", Sync.align_grid(ce, sec))
+	_check("single digit values space padded", ce.get_line(2) == "\tData  0,  1,  1,  0")
+	_check("mixed digit values align", ce.get_line(4) == "\tData  0, 10, 15,  1")
+	_check("header unchanged", ce.get_line(1) == "Data 4, 4, 0, 0")
+	_check("comment unchanged", ce.get_line(3) == "' Keep this note")
+	_check("other Data block unchanged", ce.text.ends_with('NoteData:\nData "C4", 261.63\n'))
+	var after := Resolver.resolve_at_line(ce.text, 2)
+	_check("aligned pixels unchanged", after["pixels"] == original_pixels)
+	ce.undo()
+	_check("align is one undo action", ce.text == before)
+	ce.redo()
+	var aligned := ce.text
+	_check("second alignment succeeds", Sync.align_grid(ce, Resolver.resolve_at_line(ce.text, 2)))
+	_check("alignment idempotent", ce.text == aligned)
+	_check("painting with intervening comment succeeds", Sync.apply_pixels(ce, Resolver.resolve_at_line(ce.text, 2), original_pixels))
+	_check("painting keeps comment intact", ce.get_line(3) == "' Keep this note")
+	_check("painting preserves aligned columns", ce.get_line(4) == "\tData  0, 10, 15,  1")
+	var rows := Sync.pixel_rows(PackedInt32Array([0, 100, -1, 15]), 2, 2)
+	_check("wider fields use spaces without truncation", rows == PackedStringArray(["Data   0, 100", "Data  -1,  15"]))
+	var inserted := Sync.insert_new_block(ce, 0, "AddedSprite", 2, 2, 0, 2)
+	_check("new sprite pixel rows aligned", inserted["ok"] and ce.get_line(2) == "\tData  0,  0")
+	var insert_sec: Dictionary = inserted["section"]
+	_check("full editor write aligned", Sync.apply_section(ce, insert_sec, PackedInt32Array([1, 15, 10, 0])) and ce.get_line(2) == "\tData  1, 15")
 	ce.free()
 
 
@@ -130,6 +164,33 @@ func _test_native_highlight() -> void:
 	_check("line 2 has tint", c.a > 0.01)
 	Highlight.clear_native_lines(ce, painted)
 	_check("cleared line 2", ce.get_line_background_color(2).a < 0.01)
+	ce.free()
+
+func _test_indent_and_folds() -> void:
+	var ce := CodeEdit.new()
+	ce.line_folding = true
+	ce.indent_size = 4
+	ce.text = "\t\t" + FIXTURE.replace("\n", "\n\t\t")
+	var original := ce.text
+	var pixels: PackedInt32Array = Resolver.resolve_at_line(ce.text, 2)["pixels"]
+	_check("equal label/row indentation repaired", Ux.migrate_all_indents(ce) == 1)
+	_check("label indentation preserved", ce.get_line(0) == "\t\tPlayerSprite:")
+	_check("rows deeper than indented label", ce.get_line(1) == "\t\t\tData 4, 4, 0, 0")
+	_check("indentation preserves pixel values", Resolver.resolve_at_line(ce.text, 2)["pixels"] == pixels)
+	_check("other Data unchanged", ce.get_line(8) == "\t\tData \"C4\", 261.63")
+	var repaired := ce.text
+	_check("migration idempotent", Ux.migrate_all_indents(ce) == 0 and ce.text == repaired)
+	ce.undo()
+	_check("indent migration one-step undo", ce.text == original)
+	ce.redo()
+	ce.set_caret_line(3)
+	_check("collapse succeeds from inside data", Ux.set_data_folded(ce, true) == 1)
+	_check("collapse moves caret to visible label", ce.get_caret_line() == 0)
+	_check("all data folded detected", Ux.all_data_folded(ce))
+	_check("expand succeeds", Ux.set_data_folded(ce, false) == 1 and not Ux.all_data_folded(ce))
+	_check("fold toggle leaves source unchanged", ce.text == repaired)
+	ce.text = FIXTURE.replace("\nData", "\n    Data")
+	_check("already foldable spaces stay untouched", Ux.migrate_all_indents(ce) == 0)
 	ce.free()
 
 

@@ -1716,6 +1716,7 @@ func _build_toolbar(parent: VBoxContainer) -> void:
 func _build_canvas(parent: VBoxContainer) -> void:
 	_canvas_panel = Control.new()
 	_canvas_panel.name = "PixelCanvas"
+	_canvas_panel.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_canvas_panel.size_flags_horizontal = SIZE_EXPAND_FILL
 	_canvas_panel.size_flags_vertical = SIZE_EXPAND_FILL
 	_canvas_panel.clip_contents = true

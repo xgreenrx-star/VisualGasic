@@ -9,14 +9,14 @@ static var _qb_palette: Array[int] = [
 
 static func _char_constants() -> Array:
 	return [
-		{"bytes": "\r\n", "name": "vbCrLf", "desc": "Carriage return + line feed"},
-		{"bytes": "\r", "name": "vbCr", "desc": "Carriage return"},
-		{"bytes": "\n", "name": "vbLf", "desc": "Line feed"},
-		{"bytes": "\t", "name": "vbTab", "desc": "Tab"},
-		{"bytes": String.chr(0), "name": "vbNullChar", "desc": "Null character"},
-		{"bytes": "\b", "name": "vbBack", "desc": "Backspace"},
-		{"bytes": "\f", "name": "vbFormFeed", "desc": "Form feed"},
-		{"bytes": "\v", "name": "vbVerticalTab", "desc": "Vertical tab"},
+		{"codes": [13, 10], "name": "vbCrLf", "desc": "Carriage return + line feed"},
+		{"codes": [13], "name": "vbCr", "desc": "Carriage return"},
+		{"codes": [10], "name": "vbLf", "desc": "Line feed"},
+		{"codes": [9], "name": "vbTab", "desc": "Tab"},
+		{"codes": [0], "name": "vbNullChar", "desc": "Null character"},
+		{"codes": [8], "name": "vbBack", "desc": "Backspace"},
+		{"codes": [12], "name": "vbFormFeed", "desc": "Form feed"},
+		{"codes": [11], "name": "vbVerticalTab", "desc": "Vertical tab"},
 	]
 
 
@@ -218,8 +218,13 @@ static func _vb_concat_hints(raw: String) -> Array:
 	while i < raw.length():
 		var matched := false
 		for entry in _char_constants():
-			var b: String = entry.bytes
-			if raw.substr(i, b.length()) == b:
+			var codes: Array = entry.codes
+			var matches := i + codes.size() <= raw.length()
+			for j in codes.size():
+				if not matches or raw.unicode_at(i + j) != int(codes[j]):
+					matches = false
+					break
+			if matches:
 				rows.append({
 					"label": "Use instead",
 					"text": ' & %s' % entry.name,
@@ -227,35 +232,18 @@ static func _vb_concat_hints(raw: String) -> Array:
 					"is_current": false,
 					"hint": entry.desc,
 				})
-				i += b.length()
+				i += codes.size()
 				matched = true
 				break
 		if not matched:
-			var cp := raw.unicode_at(i)
-			if cp < 32 or cp == 127:
-				var one := char(cp)
-				for entry in _char_constants():
-					if entry.bytes == one:
-						rows.append({
-							"label": "Use instead",
-							"text": ' & %s' % entry.name,
-							"radix_id": "vbconst",
-							"is_current": false,
-							"hint": entry.desc,
-						})
-						break
 			i += 1
 	return rows
 
 
 static func _vb_char_hints_for_code(code: int) -> Array:
 	for entry in _char_constants():
-		if entry.bytes.length() == 1 and entry.bytes.unicode_at(0) == code:
+		if entry.codes.size() == 1 and int(entry.codes[0]) == code:
 			return [{"label": "VB constant", "text": entry.name, "radix_id": "vbconst", "is_current": false, "hint": entry.desc}]
-	if code == 13:
-		return [{"label": "VB constant", "text": "vbCr", "radix_id": "vbconst", "is_current": false}]
-	if code == 10:
-		return [{"label": "VB constant", "text": "vbLf", "radix_id": "vbconst", "is_current": false}]
 	return []
 
 

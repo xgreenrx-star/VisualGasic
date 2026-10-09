@@ -5,6 +5,7 @@ extends VBoxContainer
 const VGTheme = preload("res://addons/visual_gasic/vg_theme_utils.gd")
 const VGCommandHelp = preload("res://addons/visual_gasic/vg_command_help.gd")
 const FindReferencesPanel = preload("res://addons/visual_gasic/find_references_panel.gd")
+const SpriteResolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 ##
 ## Replaces the Form Designer canvas in-place when the user double-clicks a
 ## control or chooses View → Code.  The Toolbox, Properties panel, and Project
@@ -351,6 +352,7 @@ func _build_stale_strip() -> void:
 	var icon := Label.new()
 	icon.text = "⚠"
 	icon.add_theme_font_size_override("font_size", 13)
+	VGTheme.style_light_toolbar_label(icon)
 	row.add_child(icon)
 	_stale_label = Label.new()
 	_stale_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1869,12 +1871,18 @@ func _rebuild_proc_list() -> void:
 	)
 
 	# Check which object is selected — show event-aware proc list if applicable
+	_rebuild_object_combo()
 	var selected_obj := ""
 	if _object_combo and _object_combo.selected >= 0:
 		selected_obj = _object_combo.get_item_text(_object_combo.selected)
 
 	_ensure_proc_scope_button()
-	if _show_imported_procs:
+	var source_group := selected_obj in ["(Sprites)", "(Whenever)"]
+	if is_instance_valid(_proc_scope_btn):
+		_proc_scope_btn.disabled = source_group
+	if source_group:
+		_fill_source_navigation(selected_obj)
+	elif _show_imported_procs:
 		_fill_imported_proc_combo()
 	elif selected_obj != "" and selected_obj != "(General)":
 		_rebuild_event_list_for_object(selected_obj)
@@ -1960,6 +1968,8 @@ func _rebuild_event_list_for_object(obj_name: String) -> void:
 func _rebuild_object_combo() -> void:
 	if not _object_combo:
 		return
+	var selected_obj := _object_combo.get_item_text(_object_combo.selected) if _object_combo.selected >= 0 else "(General)"
+	_object_combo.set_block_signals(true)
 	_object_combo.clear()
 	_object_combo.add_item("(General)")
 
@@ -1970,6 +1980,50 @@ func _rebuild_object_combo() -> void:
 	sorted_controls.sort_custom(func(a, b): return a.to_lower() < b.to_lower())
 	for ctrl_name in sorted_controls:
 		_object_combo.add_item(ctrl_name)
+	for group in ["(Sprites)", "(Whenever)"]:
+		if not _source_navigation_entries(group).is_empty():
+			_object_combo.add_item(group)
+	for i in _object_combo.item_count:
+		if _object_combo.get_item_text(i) == selected_obj:
+			_object_combo.select(i)
+			break
+	_object_combo.set_block_signals(false)
+
+func _source_navigation_entries(group: String) -> Array:
+	if not _code_edit:
+		return []
+	if group == "(Sprites)":
+		return SpriteResolver.enumerate_blocks(_code_edit.text)
+	var entries: Array = []
+	var rx := RegEx.new()
+	rx.compile("(?i)^\\s*Whenever\\s+Section\\s+(?:Local\\s+)?([A-Za-z_]\\w*)\\b")
+	var lines := _code_edit.text.split("\n")
+	for i in lines.size():
+		var match_result := rx.search(lines[i])
+		if match_result:
+			entries.append({"label": match_result.get_string(1), "label_line": i})
+	return entries
+
+func _fill_source_navigation(group: String) -> void:
+	_proc_combo.set_block_signals(true)
+	_proc_combo.clear()
+	for entry in _source_navigation_entries(group):
+		_proc_combo.add_item(str(entry["label"]))
+		_proc_combo.set_item_metadata(_proc_combo.item_count - 1, {
+			"type": "source_section", "line": int(entry["label_line"]),
+		})
+	_proc_combo.set_block_signals(false)
+	_update_source_navigation_selection()
+
+func _update_source_navigation_selection() -> void:
+	var caret := _code_edit.get_caret_line()
+	var selected := -1
+	for i in _proc_combo.item_count:
+		var meta = _proc_combo.get_item_metadata(i)
+		if meta is Dictionary and int(meta.get("line", -1)) <= caret:
+			selected = i
+	if selected >= 0:
+		_proc_combo.select(selected)
 
 ## Sets the list of form control names for the Object dropdown.
 func set_control_names(names: Array) -> void:
@@ -2021,6 +2075,10 @@ func _update_index_map_for_current_object() -> void:
 		set_index_map_control({})
 
 func _update_proc_selection() -> void:
+	if _object_combo and _object_combo.selected >= 0 \
+			and _object_combo.get_item_text(_object_combo.selected) in ["(Sprites)", "(Whenever)"]:
+		_update_source_navigation_selection()
+		return
 	if not _code_edit or _procedures.is_empty():
 		# Select (Declarations)
 		if _proc_combo.item_count > 0:
@@ -2257,6 +2315,12 @@ func _on_proc_selected(index: int) -> void:
 	var meta = _proc_combo.get_item_metadata(index) if index >= 0 and index < _proc_combo.item_count else null
 	if meta is Dictionary:
 		match str(meta.get("type", "")):
+			"source_section":
+				_code_edit.set_caret_line(int(meta["line"]))
+				_code_edit.set_caret_column(0)
+				_code_edit.center_viewport_to_caret()
+				_code_edit.grab_focus()
+				return
 			"header":
 				return
 			"declarations":
@@ -2388,6 +2452,15 @@ static func _get_event_params(event_name: String) -> String:
 
 func _on_object_selected(index: int) -> void:
 	var obj_name := _object_combo.get_item_text(index)
+	if is_instance_valid(_proc_scope_btn):
+		_proc_scope_btn.disabled = obj_name in ["(Sprites)", "(Whenever)"]
+	if obj_name in ["(Sprites)", "(Whenever)"]:
+		_fill_source_navigation(obj_name)
+		set_index_map_control({})
+		if _proc_combo.item_count > 0:
+			_proc_combo.select(0)
+			_on_proc_selected(0)
+		return
 	if obj_name == "(General)":
 		# Switch to general mode — show all procedures
 		_rebuild_general_proc_list()
@@ -3287,7 +3360,7 @@ func _show_param_popup(signature: String, arg_index: int) -> void:
 		sb.bg_color = Color(1.0, 1.0, 0.88)  # Light yellow tooltip
 		sb.border_color = Color(0.0, 0.0, 0.0)
 		sb.set_border_width_all(1)
-		sb.content_margin_all = 4
+		sb.set_content_margin_all(4)
 		_param_popup.add_theme_stylebox_override("panel", sb)
 		_param_label = RichTextLabel.new()
 		_param_label.bbcode_enabled = true
@@ -3313,7 +3386,8 @@ func _show_param_popup(signature: String, arg_index: int) -> void:
 			gw = _code_edit.get_total_gutter_width()
 		var max_w := maxf(120.0, _code_edit.size.x - gw - 12.0)
 		_param_label.custom_minimum_size = Vector2(min(max_w, 480.0), 20)
-		_param_label.custom_maximum_size = Vector2(max_w, 0)
+		if "custom_maximum_size" in _param_label:
+			_param_label.set("custom_maximum_size", Vector2(max_w, 0))
 		_param_popup.reset_size()
 		var popup_w: int = mini(_param_popup.size.x, int(max_w + 8))
 		var edit_rect := _code_edit.get_global_rect()

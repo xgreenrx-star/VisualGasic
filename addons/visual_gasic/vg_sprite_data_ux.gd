@@ -36,38 +36,7 @@ static func should_auto_fold_on_open() -> bool:
 static func migrate_sprite_indents(code_edit: CodeEdit) -> int:
 	if code_edit == null:
 		return 0
-	var src := code_edit.get_text()
-	var blocks: Array = SpriteResolver.enumerate_blocks(src)
-	var changed := 0
-	code_edit.set_meta(SpriteSync.META_GUARD, true)
-	for block in blocks:
-		var label_line: int = int(block.get("label_line", -1))
-		var end_line: int = int(block.get("end_line", label_line))
-		if label_line < 0 or end_line <= label_line:
-			continue
-		var needs := false
-		for li in range(label_line + 1, end_line + 1):
-			var raw := code_edit.get_line(li)
-			if raw.strip_edges().is_empty() or raw.strip_edges().begins_with("'"):
-				continue
-			if not raw.begins_with("\t") and not raw.begins_with(" "):
-				needs = true
-				break
-		if not needs:
-			continue
-		changed += 1
-		for li in range(label_line + 1, end_line + 1):
-			var raw2 := code_edit.get_line(li)
-			var stripped := raw2.strip_edges()
-			if stripped.is_empty():
-				continue
-			if raw2.begins_with("\t") or raw2.begins_with(" "):
-				continue
-			code_edit.set_line(li, "\t" + stripped)
-	code_edit.remove_meta(SpriteSync.META_GUARD)
-	if changed > 0 and code_edit.has_signal("text_changed"):
-		code_edit.text_changed.emit()
-	return changed
+	return _migrate_indents(code_edit, SpriteResolver.enumerate_blocks(code_edit.text))
 
 
 ## Indent *Vector / wire Data rows under their labels.
@@ -77,38 +46,97 @@ static func migrate_vector_indents(code_edit: CodeEdit) -> int:
 	var src := code_edit.get_text()
 	var blocks: Array = VectorResolver.enumerate_blocks(src)
 	blocks.append_array(WireResolver.enumerate_blocks(src))
+	return _migrate_indents(code_edit, blocks)
+
+
+static func _migrate_indents(code_edit: CodeEdit, blocks: Array) -> int:
 	var changed := 0
+	var edits: Dictionary = {}
 	for block in blocks:
 		var label_line: int = int(block.get("label_line", -1))
 		var end_line: int = int(block.get("end_line", label_line))
 		if label_line < 0 or end_line <= label_line:
 			continue
+		var label_text := code_edit.get_line(label_line)
+		var prefix := label_text.substr(0, label_text.length() - label_text.strip_edges(true, false).length())
+		var label_depth := _indent_depth(prefix, code_edit.indent_size)
 		var needs := false
 		for li in range(label_line + 1, end_line + 1):
 			var raw := code_edit.get_line(li)
-			if raw.strip_edges().is_empty() or raw.strip_edges().begins_with("'"):
+			if raw.strip_edges().is_empty():
 				continue
-			if not raw.begins_with("\t") and not raw.begins_with(" "):
+			if _indent_depth(raw, code_edit.indent_size) <= label_depth:
+				edits[li] = prefix + "\t" + raw.strip_edges(true, false)
 				needs = true
-				break
-		if not needs:
-			continue
-		changed += 1
-		for li in range(label_line + 1, end_line + 1):
-			var raw2 := code_edit.get_line(li)
-			var stripped := raw2.strip_edges()
-			if stripped.is_empty():
-				continue
-			if raw2.begins_with("\t") or raw2.begins_with(" "):
-				continue
-			code_edit.set_line(li, "\t" + stripped)
-	if changed > 0 and code_edit.has_signal("text_changed"):
+		if needs:
+			changed += 1
+	if changed > 0:
+		var was_guarded := SpriteSync.is_sync_guarded(code_edit)
+		code_edit.begin_complex_operation()
+		code_edit.set_meta(SpriteSync.META_GUARD, true)
+		for line in edits:
+			code_edit.set_line(line, edits[line])
+		if not was_guarded:
+			code_edit.remove_meta(SpriteSync.META_GUARD)
+		code_edit.end_complex_operation()
 		code_edit.text_changed.emit()
 	return changed
 
 
+static func _indent_depth(text: String, tab_size: int) -> int:
+	var depth := 0
+	for character in text:
+		if character == "\t":
+			depth += tab_size - depth % tab_size
+		elif character == " ":
+			depth += 1
+		else:
+			break
+	return depth
+
+
+static func data_blocks(source: String) -> Array:
+	var blocks := SpriteResolver.enumerate_blocks(source)
+	blocks.append_array(VectorResolver.enumerate_blocks(source))
+	blocks.append_array(WireResolver.enumerate_blocks(source))
+	return blocks
+
+
+static func all_data_folded(code_edit: CodeEdit) -> bool:
+	var blocks := data_blocks(code_edit.text)
+	if blocks.is_empty():
+		return false
+	for block in blocks:
+		if not code_edit.is_line_folded(int(block["label_line"])):
+			return false
+	return true
+
+
+static func set_data_folded(code_edit: CodeEdit, folded: bool) -> int:
+	var blocks := data_blocks(code_edit.text)
+	if folded:
+		for block in blocks:
+			var label_line := int(block["label_line"])
+			if code_edit.get_caret_line() > label_line and code_edit.get_caret_line() <= int(block["end_line"]):
+				code_edit.set_caret_line(label_line)
+				code_edit.set_caret_column(0)
+				break
+	var changed := 0
+	for block in blocks:
+		var line := int(block["label_line"])
+		if folded and code_edit.can_fold_line(line) and not code_edit.is_line_folded(line):
+			code_edit.fold_line(line)
+			changed += 1
+		elif not folded and code_edit.is_line_folded(line):
+			code_edit.unfold_line(line)
+			changed += 1
+	return changed
+
+
 static func migrate_all_indents(code_edit: CodeEdit) -> int:
-	return migrate_sprite_indents(code_edit) + migrate_vector_indents(code_edit)
+	if code_edit == null:
+		return 0
+	return _migrate_indents(code_edit, data_blocks(code_edit.text))
 
 
 ## Variable names assigned via DataToArray("Label") in source.

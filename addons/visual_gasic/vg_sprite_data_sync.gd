@@ -8,6 +8,58 @@ const Palettes := preload("res://addons/visual_gasic/vg_sprite_data_palettes.gd"
 const META_GUARD := "vg_sprite_sync_guard"
 const DEFAULT_LABEL := "NewSprite"
 
+static func pixel_rows(pixels: PackedInt32Array, w: int, palette_id: int) -> PackedStringArray:
+	if w <= 0 or pixels.size() % w != 0:
+		push_error("Sprite Data grid requires a positive width and complete pixel rows.")
+		return PackedStringArray()
+	var field_width := str(Palettes.colors_for_id(palette_id).size() - 1).length()
+	for pixel in pixels:
+		field_width = maxi(field_width, str(pixel).length())
+	var rows: PackedStringArray = []
+	for row in pixels.size() / w:
+		var parts: PackedStringArray = []
+		for col in w:
+			parts.append(str(pixels[row * w + col]).lpad(field_width))
+		rows.append("Data " + ", ".join(parts))
+	return rows
+
+
+static func align_grid(code_edit: CodeEdit, section: Dictionary) -> bool:
+	if code_edit == null or section.is_empty():
+		return false
+	var rows := pixel_rows(section["pixels"], int(section["w"]), int(section["palette_id"]))
+	var data_lines: Array[int] = []
+	var prefix := _indent_prefix(code_edit.get_line(int(section["header_line"])))
+	if prefix.is_empty():
+		prefix = "\t"
+	for line in range(int(section["data_start_line"]), int(section["data_end_line"]) + 1):
+		var raw := code_edit.get_line(line).strip_edges()
+		if raw.begins_with("Data "):
+			var values := raw.substr(5).split(",")
+			if values.size() != int(section["w"]):
+				return false
+			for value in values:
+				if not value.strip_edges().is_valid_int():
+					return false
+			data_lines.append(line)
+	if data_lines.size() != rows.size():
+		return false
+	var changed := false
+	for row in rows.size():
+		if code_edit.get_line(data_lines[row]) != prefix + rows[row]:
+			changed = true
+			break
+	if not changed:
+		return true
+	code_edit.begin_complex_operation()
+	code_edit.set_meta(META_GUARD, true)
+	for row in rows.size():
+		code_edit.set_line(data_lines[row], prefix + rows[row])
+	code_edit.remove_meta(META_GUARD)
+	code_edit.end_complex_operation()
+	code_edit.text_changed.emit()
+	return true
+
 
 static func apply_pixels(code_edit: CodeEdit, section: Dictionary, pixels: PackedInt32Array) -> bool:
 	if code_edit == null or section.is_empty():
@@ -20,6 +72,12 @@ static func apply_pixels(code_edit: CodeEdit, section: Dictionary, pixels: Packe
 	if pixels.size() != w * h:
 		return false
 
+	var data_lines: Array[int] = []
+	for line in range(start_line, int(section.get("data_end_line", start_line + h - 1)) + 1):
+		if code_edit.get_line(line).strip_edges().begins_with("Data "):
+			data_lines.append(line)
+	if data_lines.size() != h:
+		return false
 	code_edit.set_meta(META_GUARD, true)
 	# Keep header + pixel rows indented under the label so the block stays foldable.
 	var header_line: int = int(section.get("header_line", -1))
@@ -29,15 +87,13 @@ static func apply_pixels(code_edit: CodeEdit, section: Dictionary, pixels: Packe
 		if header_prefix.is_empty():
 			header_prefix = "\t"
 		code_edit.set_line(header_line, header_prefix + header_raw)
+	var rows := pixel_rows(pixels, w, int(section.get("palette_id", 0)))
 	for row in h:
-		var parts: PackedStringArray = PackedStringArray()
-		for col in w:
-			parts.append(str(pixels[row * w + col]))
-		var prefix := _indent_prefix(code_edit.get_line(start_line + row))
+		var prefix := _indent_prefix(code_edit.get_line(data_lines[row]))
 		if prefix.is_empty():
 			prefix = "\t"
-		var line_text := prefix + "Data " + ", ".join(parts)
-		code_edit.set_line(start_line + row, line_text)
+		var line_text := prefix + rows[row]
+		code_edit.set_line(data_lines[row], line_text)
 	code_edit.remove_meta(META_GUARD)
 	# set_line does not emit text_changed — notify the embedded editor so
 	# dirty tracking, context rail, and flush_for_run see the edit.
@@ -81,11 +137,8 @@ static func apply_section(
 		prefix = "\t"
 	var new_lines: PackedStringArray = PackedStringArray()
 	new_lines.append(prefix + "Data %d, %d, %d, %d" % [w, h, transparent, palette_id])
-	for row in h:
-		var parts: PackedStringArray = PackedStringArray()
-		for col in w:
-			parts.append(str(pixels[row * w + col]))
-		new_lines.append(prefix + "Data " + ", ".join(parts))
+	for row in pixel_rows(pixels, w, palette_id):
+		new_lines.append(prefix + row)
 
 	var old_count := old_end - header_line + 1
 	var new_count := new_lines.size()
@@ -138,11 +191,8 @@ static func insert_new_block(
 	lines.append(lbl + ":")
 	# Tab-indent Data under the label → native CodeEdit fold + thumbnail header.
 	lines.append("\tData %d, %d, %d, %d" % [w, h, transparent, palette_id])
-	for row in h:
-		var parts: PackedStringArray = PackedStringArray()
-		for _col in w:
-			parts.append(str(transparent))
-		lines.append("\tData " + ", ".join(parts))
+	for row in pixel_rows(pixels, w, palette_id):
+		lines.append("\t" + row)
 
 	var line := clampi(caret_line, 0, code_edit.get_line_count())
 	code_edit.set_meta(META_GUARD, true)

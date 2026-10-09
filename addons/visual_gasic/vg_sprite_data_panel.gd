@@ -8,6 +8,9 @@ signal edit_in_sprite_editor_requested(section: Dictionary)
 const Resolver := preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const Sync := preload("res://addons/visual_gasic/vg_sprite_data_sync.gd")
 const Palettes := preload("res://addons/visual_gasic/vg_sprite_data_palettes.gd")
+const VGTheme := preload("res://addons/visual_gasic/vg_theme_utils.gd")
+const SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
+const FORMAT_HELP := "Sprite Data format:\nFirst row: Data width, height, transparent index, palette ID.\nThen one Data row per image row, top to bottom. Each number is a palette index; columns run left to right.\nPalette IDs: 0 = NES, 1 = GameBoy, 2 = C64, 3 = CGA. The transparent index is see-through, not a color.\nExample: Data 8, 8, 0, 2 means 8 x 8 pixels, index 0 transparent, C64 palette."
 
 var _code_edit: CodeEdit
 var _section: Dictionary = {}
@@ -28,6 +31,9 @@ var _data_fingerprint: String = ""
 var _btn_row: HBoxContainer
 var _new_btn: Button
 var _edit_btn: Button
+var _align_btn: Button
+var _format_help: Label
+var _fold_btn: Button
 var _new_dialog: AcceptDialog = null
 
 
@@ -52,10 +58,16 @@ func _ready() -> void:
 	_btn_row.add_child(_edit_btn)
 
 	var migrate_btn := Button.new()
-	migrate_btn.text = "Indent folds…"
+	migrate_btn.text = "Indent Data"
 	migrate_btn.tooltip_text = "Indent flat *Sprite/*Vector Data rows so the code editor can fold them and show thumbnails"
 	migrate_btn.pressed.connect(_on_migrate_indents_pressed)
 	_btn_row.add_child(migrate_btn)
+
+	_fold_btn = Button.new()
+	_fold_btn.text = "Collapse Data"
+	_fold_btn.tooltip_text = "Toggle all Sprite/Vector Data blocks between collapsed and expanded. Indentation is prepared once if needed."
+	_fold_btn.pressed.connect(_on_toggle_data_folds_pressed)
+	add_child(_fold_btn)
 
 	_status = Label.new()
 	_status.text = "Move the caret into a *Sprite: Data block, or click New Sprite…"
@@ -63,6 +75,20 @@ func _ready() -> void:
 	_status.add_theme_font_size_override("font_size", 10)
 	_status.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
 	add_child(_status)
+
+	_format_help = Label.new()
+	_format_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_format_help.add_theme_font_size_override("font_size", 10)
+	VGTheme.style_light_toolbar_label(_format_help)
+	_format_help.text = FORMAT_HELP
+	add_child(_format_help)
+
+	_align_btn = Button.new()
+	_align_btn.text = "Align Data grid"
+	_align_btn.tooltip_text = "Space-pad this sprite's pixel values into columns without changing their values. Undo restores the old spacing."
+	_align_btn.disabled = true
+	_align_btn.pressed.connect(_on_align_grid_pressed)
+	add_child(_align_btn)
 
 	_brush_label = Label.new()
 	_brush_label.add_theme_font_size_override("font_size", 10)
@@ -107,10 +133,14 @@ func clear_section() -> void:
 	_grid.queue_redraw()
 	_brush_label.text = ""
 	_edit_btn.visible = false
+	_align_btn.disabled = true
+	_format_help.text = FORMAT_HELP
 	_status.text = "Move the caret into a *Sprite: Data block, or click New Sprite…"
 
 
 func update_for_caret(source: String, caret_line: int) -> void:
+	if is_instance_valid(_fold_btn) and is_instance_valid(_code_edit):
+		_fold_btn.text = "Expand Data" if SpriteUx.all_data_folded(_code_edit) else "Collapse Data"
 	if _code_edit != null and Sync.is_sync_guarded(_code_edit):
 		return
 	var sec := Resolver.resolve_at_line(source, caret_line)
@@ -167,6 +197,24 @@ func _load_section(sec: Dictionary, fingerprint: String = "") -> void:
 	_rebuild_palette_row()
 	_update_status_line()
 	_edit_btn.visible = true
+	_align_btn.disabled = false
+	_format_help.text = "Header: Data %d, %d, %d, %d\nWidth = %d; height = %d; transparent index = %d; palette ID = %d (%s).\nThe next %d Data rows each contain %d palette indices: left to right, top to bottom. Indices matching %d are see-through.\nPalette IDs: 0 = NES, 1 = GameBoy, 2 = C64, 3 = CGA. Click a swatch to choose a color; its tooltip shows its index." % [
+		w, h, _transparent, _palette_id, w, h, _transparent, _palette_id,
+		Palettes.palette_name_for_id(_palette_id), h, w, _transparent,
+	]
+
+
+func _on_align_grid_pressed() -> void:
+	if _code_edit == null or not is_instance_valid(_code_edit):
+		_status.text = "Open a .vg file first."
+		return
+	_flush_sync()
+	var current := Resolver.resolve_at_line(_code_edit.text, int(_section.get("label_line", -1)))
+	if current.is_empty() or not Sync.align_grid(_code_edit, current):
+		_status.text = "Cannot align: this sprite needs complete rows of integer palette indices."
+		push_warning(_status.text)
+		return
+	update_for_caret(_code_edit.text, int(current["label_line"]))
 
 
 func _rebuild_palette_row() -> void:
@@ -370,11 +418,23 @@ func _on_migrate_indents_pressed() -> void:
 	if _code_edit == null or not is_instance_valid(_code_edit):
 		_status.text = "Open a .vg file first."
 		return
-	const SpriteUx := preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 	var n := SpriteUx.migrate_all_indents(_code_edit)
+	SpriteUx.set_data_folded(_code_edit, true)
 	_status.text = "Indented %d Data block(s) for folding" % n if n > 0 else "Already indented"
 	if n > 0 and _code_edit:
 		update_for_caret(_code_edit.text, _code_edit.get_caret_line())
+	_fold_btn.text = "Expand Data" if SpriteUx.all_data_folded(_code_edit) else "Collapse Data"
+
+
+func _on_toggle_data_folds_pressed() -> void:
+	if not is_instance_valid(_code_edit):
+		_status.text = "Open a .vg file first."
+		return
+	var collapse := not SpriteUx.all_data_folded(_code_edit)
+	if collapse:
+		SpriteUx.migrate_all_indents(_code_edit)
+	SpriteUx.set_data_folded(_code_edit, collapse)
+	_fold_btn.text = "Expand Data" if SpriteUx.all_data_folded(_code_edit) else "Collapse Data"
 
 
 func _on_new_sprite_pressed() -> void:
@@ -391,7 +451,7 @@ func _show_new_sprite_dialog() -> void:
 	_new_dialog = AcceptDialog.new()
 	_new_dialog.title = "New Sprite Data"
 	_new_dialog.ok_button_text = "Create"
-	_new_dialog.size = Vector2i(360, 320)
+	_new_dialog.size = Vector2i(420, 320)
 	_new_dialog.dialog_hide_on_ok = false
 
 	var vbox := VBoxContainer.new()
@@ -403,8 +463,8 @@ func _show_new_sprite_dialog() -> void:
 		Resolver.MAX_INLINE_W, Resolver.MAX_INLINE_H
 	]
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = 380
 	hint.add_theme_font_size_override("font_size", 11)
-	hint.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
 	vbox.add_child(hint)
 
 	var label_row := HBoxContainer.new()
@@ -415,6 +475,7 @@ func _show_new_sprite_dialog() -> void:
 	label_lbl.custom_minimum_size.x = 72
 	label_row.add_child(label_lbl)
 	var label_edit := LineEdit.new()
+	label_edit.name = "SpriteLabel"
 	label_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label_edit.text = Sync.suggest_label(_code_edit.text)
 	label_edit.placeholder_text = "PlayerSprite"
@@ -495,6 +556,6 @@ func _show_new_sprite_dialog() -> void:
 
 	var host: Node = get_tree().root if get_tree() else self
 	host.add_child(_new_dialog)
-	_new_dialog.popup_centered()
+	_new_dialog.popup_centered(Vector2i(420, 320))
 	label_edit.grab_focus()
 	label_edit.select_all()

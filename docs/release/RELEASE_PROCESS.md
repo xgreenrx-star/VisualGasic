@@ -306,3 +306,301 @@ classified graphical documentation teardown crash. See the
 [CI failure evidence](../compatibility/GODOT_4_7_2.md#release-hardening-ci-font-import-failure).
 Failure-only fresh-import diagnostics run under GDB and are retained with the
 hardening artifact. They never turn a failed hardening run into a passing job.
+
+### 2026-10-08 release direction and implementation handoff
+
+The proposed next milestone is **`v5.7.0-beta1`**, rather than another 5.6 beta:
+55 commits since `v5.6.0-beta1` include runtime correctness, editor lifecycle,
+cross-platform bridge/build repairs, restored samples and stronger release gates.
+Position it as a hardening and feature-completion milestone, not stability
+certification. This is recorded planning direction, not authorization to tag,
+publish, or expand the language's feature scope.
+
+Use **`v6.0.0-rc.1`** for the first v6 release candidate and **`v6.0.0`** for
+stable. `v6.0.1` / "SR1" applies only after stable v6. Mark beta and RC releases
+as GitHub prereleases; `v5.6.0-beta1` was observed to lack that flag.
+
+#### 5.7 showcase: Crystal Caverns (October 9 direction)
+
+The maintainer chose an original Boulder Dash-style digging game to demonstrate
+sprite/cave `Data` and `Whenever`, superseding the Circuit Breaker polish proposal.
+[Crystal Caverns](../../samples/showcases/crystal_caverns/README.md) now provides
+the bounded first playable, since extended at the maintainer's request to three
+authored caves, twelve original inline Data
+sprites, six crystals, falling/pushable rocks, timer, exit, pause and restart.
+No classic game's artwork or cave layout is copied.
+
+Six watchers drive visible counters, exit unlocking, low-time warning and defeat.
+The fixed-step simulation remains explicit, not a network of reactive callbacks.
+The game is offline and independent of AI credentials, optional music libraries
+and the experimental standalone IDE. Rolling rocks, enemies, explosions,
+scrolling, campaigns, save files and audio are intentionally outside this scope.
+
+The [regression runner](../../scripts/run_crystal_caverns_regression.sh) exercises
+both execution modes in an isolated project. Behavioral checks include real held
+input, pushing/falling/crushing, watcher threshold/restart behavior, a bounded
+frame accumulator and two deterministic complete cave playthroughs. Graphical
+mode separately checks sprite and HUD pixels. Publication still requires
+interactive review and validation of the packaged candidate; a playable sample
+is not release certification.
+
+October 9 verification: Linux Godot 4.6.1 and 4.7.2 both passed default/forced-AST
+headless (79 checks each) and graphical OpenGL Compatibility/Xvfb (87 checks each)
+runs: eight engine/mode/render combinations, with no error/crash/leak diagnostics.
+Actual input-event dispatch, held input and complete authored-cave playthroughs
+are covered; physical keyboard ergonomics and manual polish remain review tasks.
+CI now runs the isolated headless sample checks; remote results and shipped
+platform exports must still be verified on the final candidate.
+The three-cave extension includes victory-gated next-cave navigation, current-cave
+restart and a fullscreen button/F11 toggle. Tests complete and replay every cave,
+verify both button and key navigation, and exercise actual fullscreen/windowed
+transitions. The project enables the VG editor plugin and does not depend on
+which editor view is used. The replacement editor now includes `(Sprites)` and
+`(Whenever)` source-navigation groups. Its 169-check sample regression verifies
+all twelve sprite previews/thumbnails, all six watcher entries, navigation,
+refresh preservation and removal of stale entries. The reported unexpected-NUL
+errors were reproduced by moving through line 73: the literal conversion helper
+constructed `String.chr(0)` on every character-constant lookup. It now compares
+integer character codes without creating NUL strings. The same caret test
+exposed an invalid signature-popup StyleBox property, now corrected to use its
+setter. The editor regression rejects Unicode diagnostics as well as script
+errors and exercises every caret column on that line. Final checks passed:
+57 editor checks on Linux Godot 4.6.1 headless and 4.7.2 graphical, the existing
+179-check sprite/context/literal suite, and unchanged gameplay checks in both
+default and forced-AST modes (79 headless / 87 graphical).
+
+Follow-up screenshot reproduction exposed two missing editor test surfaces:
+folded source-line ranges incorrectly used a count of visible rows, skipping
+visible sprite labels after folded Data blocks, and the hover popup assigned a
+Control-only `mouse_filter` property to a Window. The visible range now follows
+actual source lines and mouse filtering is applied to the popup's Controls.
+All twelve actual thumbnail draw hits and hover textures are checked, along
+with the actual `(General)` menu entries and workspace control-list refresh.
+The sprite-edit gutter previously overlapped Godot's fold gutter, so a click
+intended to expand a Data block could open the full Sprite Editor and hide the
+floating code buffer. A separate sprite gutter now keeps these actions apart.
+The sample regression dispatches real pointer motion/press/release events to
+expand and collapse all twelve blocks, rejecting editor-open requests, hidden
+buffers and source changes. Native Script editor diagnostics identify its
+current VG highlighter as `EditorPlainTextSyntaxHighlighter`; the monochrome
+minimap is distinct from the floating editor visibility defect.
+Verification passed on Godot 4.6.1 headless and 4.7.2 graphical (169 editor
+checks each, plus unchanged gameplay matrices). An isolated full Godot editor
+launch with the actual VG plugin also expanded all twelve sprite blocks through
+real gutter clicks without hiding the code window or switching to Sprite view;
+a post-click screenshot confirmed that the source buffer remained visible.
+
+Rendering comparison during development also exposed a separate primitive-path
+discrepancy: the initial `DrawString`/string-color HUD was absent in default mode
+but visible in forced AST; native labels with string colors subsequently rendered
+black in default mode. The final sample uses native Label controls with numeric
+RGB colors and separately checks actual HUD pixels, excluding the cave region.
+The underlying drawing/string-color parity issue was not repaired by this sample;
+retain it for focused runtime investigation rather than claiming it fixed.
+
+The Sprite panel now explains the selected Data header (width, height,
+transparent palette index, palette ID) and the left-to-right, top-to-bottom
+pixel layout. **Align Data grid** explicitly space-pads the selected pixel rows,
+preserves numeric values, the header and intervening comments, and supports
+one-step Undo. Painting, new sprite generation and full-editor write-back use
+the same spacing. All twelve showcase grids are aligned without changing pixels.
+Caret navigation does not automatically format source. Clicking an assist tab
+preserves the user's Help/Sprite/Vector selection across later caret updates;
+explicit Sprite actions remain available.
+
+Latest targeted validation: 179 editor checks on Godot 4.6.1 headless and 4.7.2
+graphical, including a real Help-tab click and grid-edit/Undo checks; 79 headless
+and 87 graphical gameplay checks in each default/forced-AST mode. The seven-stage
+sprite/vector/context/literal suite passes 208 checks, including 66 sprite tests
+for exact spacing, value roundtrips, comment preservation and idempotence.
+
+The October 9 screenshot follow-up fixed inherited white Sprite-help text on
+cream, supplied matching themes to all floating workspace panels, corrected
+light-toolbar disabled/hover-pressed states and OptionButton dropdown styling,
+and made both native and embedded stale-buffer warning labels/icons readable.
+New Sprite/Vector dialog hints now inherit the native dialog text theme instead
+of forcing dark text onto Godot's dark dialog background.
+
+Stale-buffer polling no longer creates automatic refresh dialogs. This avoids
+interrupting typing and no longer misclassifies the floating code editor using
+the legacy `_showing_code_view` flag. Nonmodal warnings and explicit Refresh
+remain in both editors; no automatic peer overwrite occurs. Dismissal survives
+same-side keystrokes and rearms after equality or an authority switch.
+
+`scripts/run_editor_workspace_regression.sh` adds 118 actual-editor checks on
+Godot 4.6.1 and 4.7.2, including real key input, retained focus, explicit
+bidirectional refresh, dismissal and a minimum 4.5:1 contrast ratio for tested
+panel text and toolbar states. The showcase editor regression prepares its
+foldable fixture indentation only in memory, tolerating subsequent user source
+formatting without rewriting the showcase file.
+
+The later October 9 Sprite-actions report was reproduced in the actual editor:
+the New Sprite dialog grew to 1,272 pixels tall during initial autowrap layout,
+and full Sprite Editor launch hid code while its legacy mount remained hidden.
+The dialog now establishes its wrapping width before display and opens at
+420x320 (also applied to the equivalent New Vector layout). The full Sprite
+Editor is reparented into a visible floating panel outside the legacy shell,
+preserves the code view, and supports Save Data, back/close and repeated opening.
+Its dark chrome remains separate from cream workspace chrome, and the pixel
+canvas explicitly uses nearest-neighbor filtering.
+
+Indent migration now compares row depth with label depth rather than accepting
+any leading whitespace. Equal-depth indented labels/rows become foldable without
+changing labels or numeric values; the repair is idempotent and one-step undoable.
+**Indent Data** repairs and collapses blocks; a separate **Collapse Data / Expand
+Data** control toggles view state without accumulating indentation. Default
+auto-folding remains subject to the existing fold-policy setting and caret guard.
+Tests preserve the maintainer's subsequently reformatted showcase source.
+
+The workspace probe checks creation/validation, a bounded dialog height, painted
+pixel save, back/close/reopen and fold toggles in addition to the earlier contrast
+and typing coverage. Its cold-run budget is 300 seconds: several 90-second runs
+timed out during startup/typing, and a GDB sample located the main thread in
+Fontconfig substitution. No font or documentation cache is seeded and no errors
+are suppressed; failed-run evidence is retained. Final 4.6.1/4.7.2 runs pass all
+118 checks.
+
+#### Crystal Caverns shader presentation
+
+The showcase now includes seven original Compatibility canvas shaders: a miner
+swirl entrance, cave-completion wave followed by swirl sink, DATA-colored death
+fragments, unlocked-exit vortex, subtle CRT/miner pulse, rock wobble, and crystal
+shimmer/pickup ring with a short event-driven glitch. No linked GodotShaders
+implementation is copied. F8 or the Effects switch selects plain DATA-art
+rendering. Effects are clipped to the cave, freeze on pause, reset on each cave
+restart and never change gameplay rules, timer, collision or Whenever callbacks.
+The presentation child is `VisualEffects.vg`; gameplay, DATA decoding and all
+game-specific CPU scripting are VG. It loads Godot shader resources, creates
+ShaderMaterials and updates their uniforms using `Shader.Param`. The GPU code
+remains standard `.gdshader` resources; the sample's GDScript files are tests only.
+Completion animations do not delay the existing next-cave/restart controls.
+
+The isolated showcase runner now includes an effects regression: 277 headless
+checks or 302 graphical checks per default/forced-AST run. Linux Godot 4.6.1 and
+4.7.2 pass both execution modes in headless and OpenGL Compatibility rendering,
+alongside the existing 179 editor and 79/87 gameplay checks. GPU evidence covers
+entrance, pickup, rotating portal, death-pixel motion, wave/sink, plain DATA
+colors, undistorted HUD, resized windows and fullscreen. The actual editor
+workspace probe passes 118 checks on both engines with the new dependencies.
+Tests also assert both attached scripts are VG and verify real F8 input reaches
+the VG effects controller. All 24 deterministic 4.6.1 capture files (twelve per
+execution mode) match the previous GDScript controller byte-for-byte.
+During migration, a handwritten conditional clamp
+helper returned 1 for input 0.5 in default execution versus 0.5 in forced AST.
+The controller reuses the existing `Clamp` builtin instead of duplicating it;
+this does not fix or certify that independent compiler discrepancy. The first
+isolated VG-effects project and numeric probe output are retained in session
+evidence (`files/crystal-vg-effects-first/`) for a separate native investigation.
+An additional AST discrepancy converted a Vector2 divided by 4.0 into scalar
+zero, suppressing explosion velocities. Scaling by 0.25 with vector
+multiplication preserves the intended shader output in both modes. This sample
+change does not fix the runtime division behavior. Evidence is retained under
+`files/crystal-vg-final-headless461/burst-*-before.log` alongside its isolated
+source. The strengthened regression verifies the type and radial values of all
+64 velocities, plus actual pixel motion near the miner instead of a whole-cave
+difference that could pass on unrelated crystal shimmer.
+An asynchronous window-manager mode change exposed an existing single-frame
+fullscreen-test race; the test now waits for the requested windowed mode with
+a two-second deadline rather than sleeping or skipping the assertion.
+These shader checks do not certify Windows/macOS, other rendering backends,
+low-end GPU performance, exports or resolution of the independent native bugs.
+
+#### Crystal Caverns sound and instructional source
+
+The game now synthesizes ten original sound effects entirely in
+`SoundEffects.vg`, using DATA recipes and `VGMemoryBuffer` to create cached
+16-bit mono AudioStreamWAV resources. Cues cover entrance, steps, digging,
+pushing, rock landing, pickups, unlock, victory, defeat and the low-time warning.
+No external audio assets or optional audio plugin are required. Four bounded
+AudioStreamPlayers use -12 dB volume. F9/the Sound switch mutes independently of
+F8/visual effects; pause freezes ongoing playback, and restart stops old cues.
+Godot's VG `Form_Unload` callback stops players and detaches streams on exit.
+
+Beginner-oriented source comments explain each gameplay procedure, grid/DATA
+indexing, watcher callbacks, fixed-step gravity, input, sprite roles, shader
+coordinates/uniforms, PCM synthesis, voice reuse and shutdown. The showcase
+README supplies a reading order and explains editable sound recipes.
+
+Linux 4.6.1 and 4.7.2 pass default/forced-AST headless and graphical matrices:
+95 sound checks, 80/88 gameplay checks, 278/303 effects checks, and 179 editor
+checks. Both actual-editor workspace probes pass 118 checks. Sound tests verify
+actual non-silent AudioServer mixer output using the Dummy driver, exact DATA
+durations, signed PCM format, bounded levels, fades and sample-level
+frequency/noise/envelope calculations (within one PCM unit), action/watcher
+events, independent mute, pause/resume, bounded voices and resource retirement.
+All ten 4.6.1 default/AST WAV evidence files match byte-for-byte.
+Speaker output and subjective listening balance remain manual playtest items.
+
+An initial `MemoryBlock.EncodeS16` packed-array attempt produced silent,
+all-zero PCM in default execution and a "Method call base is not an Object"
+error in forced AST execution. The sample instead uses the existing native
+`VGMemoryBuffer.PokeInt16`/`ToByteArray` API, verified by the waveform assertions.
+The packed-array method-dispatch discrepancy remains a separate runtime
+investigation; this sample does not claim to fix it.
+
+The gameplay held-input probe now waits for an observed tick and player move
+with a two-second deadline instead of relying on a 0.3-second timer that could
+fire before process notifications under parallel graphical load. Audio cleanup
+tests similarly observe weak-reference retirement with a bounded deadline,
+because stopped playback retires on the mixer thread. No diagnostics are
+suppressed. Sample lifecycle code uses the supported VG unload callback, not
+an assumed GDScript `_ExitTree` callback.
+
+#### 6.0 showcase: Circuit Breaker: Signal Lab
+
+The earlier, unapproved flagship proposal would evolve Circuit Breaker, pairing a complete
+playable experience with a short "build, inspect, play" development walkthrough:
+
+| Part | Intended demonstration |
+| --- | --- |
+| Play | Several authored boards and a bounded progression with polished gameplay |
+| Inspect | Readable VG gameplay code in Godot, procedure navigation and state inspection |
+| Change | A small hazard, pickup or board-rule edit using a verified supported reload workflow |
+| Explain | Existing causal-chain tooling on a relationship it actually supports |
+| Optional AI | A recorded Narcea-assisted change that is reviewed and tested |
+
+The October 9 Crystal Caverns choice applies to the bounded 5.7 showcase, not
+automatic approval of a larger 6.0 game. Revisit the 6.0 flagship after reviewing
+the playable sample; do not build both larger games on speculation.
+These are targets, not claims of implemented or validated capabilities. The game
+must run independently of the development tools. Narcea is optional, never a
+launch or completion dependency. Do not make the experimental standalone IDE,
+legacy Form Designer or experimental UI Forms part of stable support promises.
+Deliver the complete showcase with RC1; between RC1 and stable, allow defect
+fixes and presentation polish, not major showcase systems.
+
+#### Next steps for Cursor or another maintainer
+
+1. Continue the two distinct native investigations before declaring release
+   readiness: the independently reproduced Godot documentation-worker teardown
+   crash, and the unresolved intermittent cold font-import corruption.
+   Preserve failing tests; do not seed documentation caches, add arbitrary sleeps,
+   exclude fonts or suppress diagnostics to obtain a passing gate.
+2. Review the latest evidence. Commit `204cb5c8` passed
+   [CI run 37858498510](https://github.com/xgreenrx-star/VisualGasic/actions/runs/37858498510),
+   including Linux hardening and both Windows jobs. The failure-only GDB step was
+   skipped because hardening passed. This does not erase the earlier import
+   crash on `31e59b84`. macOS and Web passed on that earlier commit, not yet on
+   the same final candidate.
+3. Review and playtest Crystal Caverns, validate the Data/Whenever editing
+   walkthrough, and address sample defects without expanding its first-playable
+   scope or the experimental IDE. Choose the 6.0 flagship separately.
+4. Build every shipped platform/target binary from the same candidate source.
+   The October 8 native fixes were tested with locally rebuilt Linux binaries,
+   but those build outputs were not republished as tracked release binaries.
+   Source commits alone do not make the existing downloads current.
+5. Run required workflows against that exact candidate, then validate actual
+   release archives/installers: clean installation, upgrade, editor/game startup
+   and supported exports. Record optional dependencies and untested platforms.
+6. Update version metadata, changelog and release notes for `v5.7.0-beta1`;
+   disclose unresolved affected scope explicitly. Do not tag or publish until
+   the maintainer approves the candidate and its artifact validation.
+
+Native investigation logs, independent no-VG reproductions, CI artifacts and
+local controls are retained outside Git in the current Copilot session's
+`files/release-doc-teardown-20261008/`, `files/ci-37855421142-evidence/`,
+`files/ci-font-import-local-20261008-2/` and
+`files/ci-import-gdb-validation-20261008/` directories under
+`/home/Commodore/.copilot/session-state/cf88c33e-98ba-4080-a9de-a8fd9e85de16/`.
+The persistent reproducer, diagnostic runners and compatibility report are in
+the repository; do not make release tooling depend on session-only artifacts.

@@ -79,6 +79,9 @@ echo ""
 echo "── literal_resolver headless tests (host: $HOST) ──"
 out3="$(timeout 60 "$GODOT" --headless --path "$HOST" -s "$ROOT/tests/test_literal_resolver.gd" 2>&1)" || ec3=$?
 echo "$out3"
+if echo "$out3" | grep -Eq 'Unicode parsing error|^ERROR:|SCRIPT ERROR'; then
+	exit 1
+fi
 if echo "$out3" | grep -q "RESULTS:.*0 failed"; then
 	exit 0
 fi

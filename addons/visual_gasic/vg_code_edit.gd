@@ -423,6 +423,11 @@ func _setup_auto_indent() -> void:
 	set_gutter_width(0, 4)
 	set_gutter_draw(0, true)
 	set_gutter_name(0, "change_tracking")
+	add_gutter(1)
+	set_gutter_type(1, TextEdit.GUTTER_TYPE_CUSTOM)
+	set_gutter_width(1, int(_SpriteHighlight.GUTTER_ICON_W) + 4)
+	set_gutter_draw(1, true)
+	set_gutter_name(1, "sprite_data")
 
 ## IDs for the right-click context menu items.
 enum ContextMenuItem {
@@ -1004,7 +1009,8 @@ func _setup_features_overlay() -> void:
 
 func _on_features_overlay_draw() -> void:
 	var first_visible: int = get_first_visible_line()
-	var last_visible: int = first_visible + get_visible_line_count() + 1
+	var last_visible: int = get_last_full_visible_line()
+	last_visible += get_next_visible_line_offset_from(last_visible, 1)
 	last_visible = mini(last_visible, get_line_count())
 	_sprite_thumb_hits.clear()
 	_sprite_gutter_hits.clear()
@@ -2853,9 +2859,13 @@ func _draw_sprite_data_gutter_icons(first_visible: int, last_visible: int) -> vo
 	if _sprite_block_ranges.is_empty() or _features_overlay == null:
 		return
 	var row_height := float(get_line_height())
-	var gutter_w := float(get_total_gutter_width()) if has_method("get_total_gutter_width") else 48.0
 	var icon_w := _SpriteHighlight.GUTTER_ICON_W
-	var x := maxf(2.0, gutter_w - icon_w - 2.0)
+	var x := get_theme_stylebox("normal").get_margin(SIDE_LEFT) + 2.0
+	for gutter in get_gutter_count():
+		if get_gutter_name(gutter) == "sprite_data":
+			break
+		if is_gutter_drawn(gutter):
+			x += get_gutter_width(gutter)
 	for block in _sprite_block_ranges:
 		var label := str(block.get("label", ""))
 		var label_line: int = int(block.get("label_line", -1))
@@ -2989,16 +2999,18 @@ func _ensure_sprite_peek_popup() -> void:
 		return
 	_sprite_peek_popup = PopupPanel.new()
 	_sprite_peek_popup.name = "SpriteDataPeek"
-	_sprite_peek_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vb := VBoxContainer.new()
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_theme_constant_override("separation", 4)
 	_sprite_peek_popup.add_child(vb)
 	_sprite_peek_tex_rect = TextureRect.new()
+	_sprite_peek_tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sprite_peek_tex_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_sprite_peek_tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_sprite_peek_tex_rect.custom_minimum_size = Vector2(_SpriteHighlight.PEEK_MAX_EDGE, _SpriteHighlight.PEEK_MAX_EDGE)
 	vb.add_child(_sprite_peek_tex_rect)
 	_sprite_peek_label = Label.new()
+	_sprite_peek_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sprite_peek_label.add_theme_font_size_override("font_size", 11)
 	vb.add_child(_sprite_peek_label)
 	add_child(_sprite_peek_popup)

@@ -3,6 +3,7 @@ extends SceneTree
 ## Headless tests for vg_literal_resolver.gd
 
 const Resolver := preload("res://addons/visual_gasic/vg_literal_resolver.gd")
+const Enrich := preload("res://addons/visual_gasic/vg_literal_enrich.gd")
 
 var _failed := 0
 var _passed := 0
@@ -22,7 +23,20 @@ func _init() -> void:
 	_test_true_literal()
 	_test_conversions_decimal_10()
 	_test_conversions_hex_a()
+	_test_character_hints()
 	_finish()
+
+
+func _test_character_hints() -> void:
+	for pair in [[0, "vbNullChar"], [8, "vbBack"], [9, "vbTab"], [10, "vbLf"], [11, "vbVerticalTab"], [12, "vbFormFeed"], [13, "vbCr"]]:
+		var rows := Enrich.chr_rows(int(pair[0]))
+		var hints := rows.filter(func(row): return row.get("radix_id") == "vbconst")
+		_check("character constant " + str(pair[1]), hints.size() == 1 and hints[0]["text"] == pair[1])
+	var strings := Enrich.string_hint_rows("a\r\nb\tc\nd")
+	var string_hints := strings.filter(func(row): return row.get("radix_id") == "vbconst")
+	_check("control sequences preserve order", string_hints.size() == 3 and string_hints[0]["text"] == " & vbCrLf" and string_hints[1]["text"] == " & vbTab" and string_hints[2]["text"] == " & vbLf")
+	var plain := Enrich.string_hint_rows("Crystal Caverns")
+	_check("ordinary strings need no character hints", plain.filter(func(row): return row.get("radix_id") == "vbconst").is_empty())
 
 
 func _test_decimal_at_caret() -> void:

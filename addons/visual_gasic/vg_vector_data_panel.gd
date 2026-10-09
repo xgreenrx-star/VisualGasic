@@ -274,7 +274,7 @@ func _show_new_vector_dialog() -> void:
 	_new_dialog = AcceptDialog.new()
 	_new_dialog.title = "New Vector Data"
 	_new_dialog.ok_button_text = "Create"
-	_new_dialog.size = Vector2i(360, 300)
+	_new_dialog.size = Vector2i(420, 300)
 	_new_dialog.dialog_hide_on_ok = false
 
 	var vbox := VBoxContainer.new()
@@ -286,8 +286,8 @@ func _show_new_vector_dialog() -> void:
 		Resolver.MAX_VIEW, Resolver.MAX_VIEW
 	]
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = 380
 	hint.add_theme_font_size_override("font_size", 11)
-	hint.add_theme_color_override("font_color", Color(0.25, 0.25, 0.35))
 	vbox.add_child(hint)
 
 	var label_row := HBoxContainer.new()
@@ -377,5 +377,5 @@ func _show_new_vector_dialog() -> void:
 
 	var host: Node = get_tree().root if get_tree() else self
 	host.add_child(_new_dialog)
-	_new_dialog.popup_centered()
+	_new_dialog.popup_centered(Vector2i(420, 300))
 	label_edit.grab_focus()
