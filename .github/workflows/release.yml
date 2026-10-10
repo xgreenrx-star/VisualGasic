@@ -169,7 +169,7 @@ jobs:
           path: |
             release/v*/*.zip
             release/v*/*.exe
-            release/v*/*.AppImage
+            release/v*/VisualGasic-Installer-v*-x86_64.AppImage
             release/v*/SHA256SUMS
             release/v*/BUILD_COMMIT.txt
             release/v*/asset-smoke.log
@@ -179,6 +179,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
+          existing="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq ".[] | select(.tag_name == \"v${version}\") | .html_url")"
+          if [[ -n "$existing" ]]; then
+            echo "Release already exists; preserving its assets and publication state: $existing"
+            exit 0
+          fi
           args=()
           [[ "$version" == *-* ]] && args+=(--prerelease)
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
@@ -190,5 +196,5 @@ jobs:
             --title "VisualGasic v${version} — Core fixes, DATA sprite editing and Crystal Caverns" \
             --notes-file "RELEASE_NOTES_v${version}.md" \
             release/v${version}/*.zip release/v${version}/*.exe \
-            release/v${version}/*.AppImage release/v${version}/SHA256SUMS \
+            release/v${version}/VisualGasic-Installer-v${version}-x86_64.AppImage release/v${version}/SHA256SUMS \
             release/v${version}/BUILD_COMMIT.txt

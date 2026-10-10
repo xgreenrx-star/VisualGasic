@@ -63,4 +63,4 @@ bash scripts/build_windows_installer.sh "$VERSION"
 bash scripts/build_offline_bundle.sh "$VERSION"
 bash scripts/build_macos_installer.sh "$VERSION"
 git rev-parse HEAD > "$OUT/BUILD_COMMIT.txt"
-(cd "$OUT" && sha256sum *.zip *.exe *.AppImage BUILD_COMMIT.txt > SHA256SUMS)
+(cd "$OUT" && sha256sum *.zip *.exe "VisualGasic-Installer-v$VERSION-x86_64.AppImage" BUILD_COMMIT.txt > SHA256SUMS)

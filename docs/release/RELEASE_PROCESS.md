@@ -302,6 +302,35 @@ full-workspace probes pass 118 checks. Gameplay/effects/sound matrices still
 pass in both execution modes. The release candidate must include this fix;
 older build artifacts are not publication candidates.
 
+#### Published October 10: v5.7.0-beta.1
+
+[Release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.1)
+published as a prerelease at 14:43:46 UTC from
+`4a6d844510ffbd26c643da3a25f33d2312aa3c0f`, including the indentation fix.
+[Release workflow 38058236429](https://github.com/xgreenrx-star/VisualGasic/actions/runs/38058236429)
+passed all 23 jobs: desktop targets, patched music libraries, universal Mac
+framework/dependency packaging, Windows/Linux gates, Mac Python smoke,
+Web export smoke and final packaging.
+
+Fifteen assets are public: four platform binary archives, two identical
+addon/Asset Library archives, examples/docs, three setup packages, three
+offline bundles, SHA256SUMS and BUILD_COMMIT.txt. Every final artifact checksum
+was verified after downloading the draft, and the public checksum manifest
+was downloaded and checked again. The exact downloaded addon cold-imported
+and executed successfully on the maintainer's older-glibc Linux machine.
+The packaged editor source exactly matches the committed indentation fix.
+The helper appimagetool is not a user download: it was removed from the draft
+and checksum list; future workflow globs now exclude it.
+Publishing created the exact candidate tag and triggered a redundant tag build,
+which was canceled. Future draft creation preserves an existing release instead
+of failing or replacing its published assets.
+
+This evidence is automated build/package sign-off, not physical-machine
+installer, upgrade/export, listening or graphical certification on every OS.
+Mac setup remains unsigned. Asset Library listing submission and moderation
+remain pending; the addon ZIP and copy are published and ready to submit.
+The Facebook copy is ready to post, not automatically posted.
+
 As of 2026-10-08, commit `cf804a95` completed the main CI and macOS universal
 workflows successfully, including Windows and macOS Python bridge smoke.
 The earlier Web workflow passed on `1e003890`; that older result is **not**

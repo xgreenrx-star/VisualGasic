@@ -1,6 +1,6 @@
 # Facebook release announcement
 
-Publish after the GitHub release and downloads are public.
+Ready to post: the GitHub release and downloads were published October 10, 2026.
 
 ---
 
