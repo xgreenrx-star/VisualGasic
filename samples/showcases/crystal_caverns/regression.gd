@@ -103,6 +103,8 @@ func _run() -> void:
 	game.set_process(false)
 	check(game.get("gameState") == "playing", "game initializes")
 	check(game.get("board").size() == 240, "DATA cave has 240 cells")
+	check(game.get("playerX") == 1 and game.get("playerY") == 10,
+		"first cave loads the edited DATA starting position")
 	check(game.get("gemLabel").get_theme_color("font_color").g > 0.9,
 		"native HUD uses readable RGB colors")
 	var gems := 0

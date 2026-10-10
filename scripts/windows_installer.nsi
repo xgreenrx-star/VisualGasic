@@ -512,7 +512,10 @@ Section "VisualGasic first-time installer" SecMain
     ;
     ; PYTHONUNBUFFERED=1 makes nsExec see incremental output instead of a
     ; long silent block while Godot downloads.
-    DetailPrint "Running first-time setup (this downloads Godot and can take a few minutes)..."
+    IfFileExists "$EXEDIR\godot\Godot_v$GodotVersion_win64.exe.zip" 0 +3
+        DetailPrint "Using Godot from the offline bundle."
+        CopyFiles /SILENT "$EXEDIR\godot\Godot_v$GodotVersion_win64.exe.zip" "$INSTDIR\offline\"
+    DetailPrint "Running first-time setup (downloads Godot if not bundled)..."
     nsExec::ExecToLog 'cmd.exe /c set PYTHONUNBUFFERED=1 && set PYTHONIOENCODING=utf-8 && set SSL_CERT_FILE=$INSTDIR\cacert.pem && "$INSTDIR\python\python.exe" -X utf8 "$INSTDIR\bootstrap_vg.py" --no-gui --offline "$INSTDIR\offline" --godot-version "$GodotVersion" --project-dir "$ProjectFolder" --display-name "$ProjectName" $0 > "$INSTDIR\install.log" 2>&1'
     Pop $3
     ${If} $3 != 0

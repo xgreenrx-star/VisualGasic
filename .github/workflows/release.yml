@@ -2,222 +2,144 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-env:
-  GODOT_CPP_VERSION: "4.5"
-
 jobs:
-  # ---------------------------------------------------------------------------
-  # Linux build — all three targets (editor, template_debug, template_release)
-  # ---------------------------------------------------------------------------
+  gates:
+    uses: ./.github/workflows/ci.yml
+
   build-linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [editor, template_debug, template_release]
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y scons build-essential python3 libffi-dev
-
-      - name: Build (${{ matrix.target }})
-        run: scons platform=linux target=${{ matrix.target }} -j$(nproc)
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+          sudo apt-get install -y scons build-essential libffi-dev libopenmpt-dev pkg-config
+      - name: Build
+        run: scons platform=linux target=${{ matrix.target }} -j2
+      - uses: actions/upload-artifact@v4
         with:
-          name: linux-${{ matrix.target }}
-          path: demo/bin/libvisualgasic.linux.*
+          name: release-linux-${{ matrix.target }}
+          path: demo/bin/libvisualgasic.linux.${{ matrix.target }}.x86_64.so
+          if-no-files-found: error
 
-  # ---------------------------------------------------------------------------
-  # Windows build (cross-compiled from Ubuntu with MinGW)
-  # ---------------------------------------------------------------------------
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     strategy:
       matrix:
         target: [editor, template_debug, template_release]
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install SCons
+        run: pip install scons
+      - name: Build
+        shell: pwsh
+        run: scons platform=windows target=${{ matrix.target }} "-j$($env:NUMBER_OF_PROCESSORS)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-${{ matrix.target }}
+          path: demo/bin/libvisualgasic.windows.${{ matrix.target }}.x86_64.dll
+          if-no-files-found: error
 
-      - name: Install dependencies
+  build-macos:
+    uses: ./.github/workflows/macos-universal.yml
+
+  build-web:
+    uses: ./.github/workflows/build-web-gdextension.yml
+
+  package:
+    needs: [gates, build-linux, build-windows, build-macos, build-web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check candidate identity
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          test -f "RELEASE_NOTES_v${version}.md"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v${version}"
+          fi
+          mkdir -p addons/visual_gasic/bin
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-linux-*
+          path: addons/visual_gasic/bin
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-windows-*
+          path: addons/visual_gasic/bin
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-editor-framework
+          path: addons/visual_gasic/bin/libvisualgasic.macos.editor.framework
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-template_debug-framework
+          path: addons/visual_gasic/bin/libvisualgasic.macos.template_debug.framework
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-template_release-framework
+          path: addons/visual_gasic/bin/libvisualgasic.macos.template_release.framework
+      - uses: actions/download-artifact@v4
+        with:
+          name: visualgasic-web-wasm
+          path: addons/visual_gasic/bin
+      - name: Install packaging and smoke dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y scons build-essential python3 g++-mingw-w64-x86-64
-
-      - name: Build (${{ matrix.target }})
-        run: scons platform=windows target=${{ matrix.target }} -j$(nproc)
-
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+          sudo apt-get install -y nsis rsync unzip zip libffi-dev libopenmpt-dev python3-tk
+          curl -fL --retry 3 -o godot.zip https://github.com/godotengine/godot/releases/download/4.6.1-stable/Godot_v4.6.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.6.1-stable_linux.x86_64 addons/visual_gasic/bin/*.so
+      - name: Package all downloads
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: bash scripts/package_release_candidate.sh
+      - name: Smoke test packaged Asset Library archive
+        run: bash scripts/test_release_archive.sh
+      - uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ matrix.target }}
-          path: demo/bin/libvisualgasic.windows.*
-
-  # ---------------------------------------------------------------------------
-  # macOS build — universal binary (x86_64 + arm64)
-  # ---------------------------------------------------------------------------
-  build-macos:
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        target: [editor, template_debug, template_release]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install dependencies
-        run: |
-          brew install scons libffi
-          export PKG_CONFIG_PATH="$(brew --prefix libffi)/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
-
-      - name: Build x86_64 (${{ matrix.target }})
-        run: |
-          scons platform=macos target=${{ matrix.target }} arch=x86_64 -j$(sysctl -n hw.logicalcpu)
-          # Save x86_64 binary before arm64 build overwrites it (SConstruct output has no arch suffix)
-          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
-          cp "${fw}/libvisualgasic.macos.${{ matrix.target }}" "${fw}/libvisualgasic.macos.${{ matrix.target }}.x86_64"
-
-      - name: Build arm64 (${{ matrix.target }})
-        run: |
-          scons platform=macos target=${{ matrix.target }} arch=arm64 -j$(sysctl -n hw.logicalcpu)
-          # Save arm64 binary
-          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
-          cp "${fw}/libvisualgasic.macos.${{ matrix.target }}" "${fw}/libvisualgasic.macos.${{ matrix.target }}.arm64"
-
-      - name: Create universal binary (${{ matrix.target }})
-        run: |
-          fw="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
-          inner="libvisualgasic.macos.${{ matrix.target }}"
-
-          lipo -create "${fw}/${inner}.x86_64" "${fw}/${inner}.arm64" -output "${fw}/${inner}"
-
-          # Clean up single-arch copies
-          rm -f "${fw}/${inner}.x86_64" "${fw}/${inner}.arm64"
-
-          echo "Created universal binary:"
-          lipo -info "${fw}/${inner}"
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-${{ matrix.target }}
+          name: release-downloads
           path: |
-            demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
-
-  # ---------------------------------------------------------------------------
-  # Package addon .zip and publish GitHub Release
-  # ---------------------------------------------------------------------------
-  publish:
-    needs: [build-linux, build-windows, build-macos]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Read version
-        id: version
-        run: echo "version=$(cat VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
-
-      - name: Create staging directory
-        run: mkdir -p staging/addons/visual_gasic/bin
-
-      - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: linux-*
-          path: staging/addons/visual_gasic/bin
-          merge-multiple: true
-
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: windows-*
-          path: staging/addons/visual_gasic/bin
-          merge-multiple: true
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: macos-*
-          path: staging/addons/visual_gasic/bin
-          merge-multiple: true
-
-      - name: Copy addon files
+            release/v*/*.zip
+            release/v*/*.exe
+            release/v*/*.AppImage
+            release/v*/SHA256SUMS
+            release/v*/BUILD_COMMIT.txt
+            release/v*/asset-smoke.log
+          if-no-files-found: error
+      - name: Create draft beta release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # Copy all GDScript editor files, plugin config, icons, etc.
-          cp addons/visual_gasic/*.gd staging/addons/visual_gasic/ 2>/dev/null || true
-          cp addons/visual_gasic/*.cfg staging/addons/visual_gasic/ 2>/dev/null || true
-          cp addons/visual_gasic/*.svg staging/addons/visual_gasic/ 2>/dev/null || true
-          cp addons/visual_gasic/visual_gasic.gdextension staging/addons/visual_gasic/
-          # Copy prototype files if present
-          if [ -d addons/visual_gasic/prototypes ]; then
-            cp -r addons/visual_gasic/prototypes staging/addons/visual_gasic/
+          version="$(tr -d '[:space:]' < VERSION)"
+          args=()
+          [[ "$version" == *-* ]] && args+=(--prerelease)
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            args+=(--verify-tag)
+          else
+            args+=(--target "$GITHUB_SHA")
           fi
-
-          # Copy installers and CLI tool to release root
-          cp install.sh staging/
-          cp install.ps1 staging/
-          cp install.py staging/
-          cp vg staging/
-          chmod +x staging/vg staging/install.sh
-
-          # Copy documentation
-          cp README.md staging/
-          cp CHANGELOG.md staging/
-          cp LICENSE staging/
-          cp RELEASE_NOTES_v*.md staging/ 2>/dev/null || true
-          cp -r docs staging/ 2>/dev/null || true
-          rm -rf staging/docs/archive staging/docs/development 2>/dev/null || true
-
-          # Copy examples, demos, and tutorials
-          cp -r examples staging/ 2>/dev/null || true
-          cp -r demos staging/ 2>/dev/null || true
-          cp -r tutorials staging/ 2>/dev/null || true
-
-          # Clean up build artifacts and caches
-          find staging -name "*.uid" -delete 2>/dev/null || true
-          find staging -name ".godot" -type d -exec rm -rf {} + 2>/dev/null || true
-          find staging -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-          find staging -name ".DS_Store" -delete 2>/dev/null || true
-
-      - name: List packaged files
-        run: find staging -type f | sort
-
-      - name: Create addon zip
-        working-directory: staging
-        run: zip -r "../VisualGasic-v${{ steps.version.outputs.version }}.zip" addons/
-
-      - name: Build Godot Asset Library zip
-        run: |
-          rm -rf addons/visual_gasic/bin
-          ln -sf ../../demo/bin addons/visual_gasic/bin
-          bash scripts/build_asset_library_zip.sh "${{ steps.version.outputs.version }}"
-          cp "release/v${{ steps.version.outputs.version }}/VisualGasic_AssetLibrary_v${{ steps.version.outputs.version }}.zip" .
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "VisualGasic v${{ steps.version.outputs.version }}"
-          body_path: RELEASE_BODY_${{ steps.version.outputs.version }}.md
-          files: |
-            VisualGasic-v${{ steps.version.outputs.version }}.zip
-            VisualGasic_AssetLibrary_v${{ steps.version.outputs.version }}.zip
-          draft: false
-          prerelease: ${{ contains(steps.version.outputs.version, 'rc') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'Beta') || contains(steps.version.outputs.version, 'alpha') }}
+          gh release create "v${version}" --draft "${args[@]}" \
+            --title "VisualGasic v${version} — Core fixes, DATA sprite editing and Crystal Caverns" \
+            --notes-file "RELEASE_NOTES_v${version}.md" \
+            release/v${version}/*.zip release/v${version}/*.exe \
+            release/v${version}/*.AppImage release/v${version}/SHA256SUMS \
+            release/v${version}/BUILD_COMMIT.txt

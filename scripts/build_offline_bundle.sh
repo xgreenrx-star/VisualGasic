@@ -58,6 +58,9 @@ build_linux_bundle() {
     mkdir -p "$staging/godot"
     cp "$appimage" "$staging/"
     cp "$WORK_DIR/$godot_zip" "$staging/godot/"
+    mkdir -p "$staging/godot/addons"
+    cp -aL "$ROOT/addons/visual_gasic" "$staging/godot/addons/"
+    cp "$ROOT/VERSION" "$staging/godot/"
 
     cat > "$staging/README.txt" <<EOF
 VisualGasic Offline Installer — Linux
@@ -105,8 +108,8 @@ VisualGasic Offline Installer — Windows
        VisualGasic-Installer-v$VERSION-x86_64.exe
 
 2. After install, launch "VisualGasic first-time setup" from the Start Menu
-   and the bundled Godot $GODOT_VERSION will be used automatically — no
-   internet connection required.
+   with Godot 4.6.1 selected. Keep the adjacent godot folder beside this
+   installer; it copies that archive before setup, without a network download.
 
 The installer will:
   - Install the VisualGasic editor plugin

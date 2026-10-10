@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.1] - 2026-10-10
+
+Public beta: core correctness, editor reliability, DATA sprite editing, and
+Crystal Caverns. [Release notes](RELEASE_NOTES_v5.7.0-beta.1.md) cover downloads,
+upgrade steps, evidence, and known limitations.
+
+### Added
+
+- Crystal Caverns: three DATA-defined caves, twelve inline sprites, six Whenever
+  callbacks, VG shader controller, ten synthesized DATA sound cues, fullscreen,
+  independent effects/sound switches, and instructional source comments.
+- Twenty-two teaching examples; the audited corpus now contains 80 examples.
+- Custom Narcea OpenAI-compatible, Anthropic-compatible, and Ollama endpoints,
+  configurable models, connection tests, and separate credential storage.
+- Complete candidate packaging: all desktop editor/debug/release targets,
+  universal Mac runtime dependency bundles, Web binaries, Linux/Windows
+  installers, unsigned Mac setup launcher, offline bundles, examples/docs,
+  Asset Library archive, checksums, and build identity.
+- Strict candidate archive smoke and draft-only release publication workflow.
+
+### Fixed
+
+- Interpreter/compiler gaps in Tween, enum dispatch, typed collections,
+  DataFromString, method chains, loops, array helpers, and Empty/Nothing behavior.
+- ByRef write-back through multidimensional arrays, imports, and expression calls.
+- Await continuation/local/error state and dictionary ownership across overlapping
+  calls, recursion, and suspension.
+- Resume Next, Err.Clear, handler recovery, native input/property dispatch,
+  GetDelta, child method ownership, and optimized canvas command counts.
+- Native arithmetic lowering, JIT register/spill safety, String/float helper
+  handling, recursion stack use, and rejection of nested procedure declarations.
+- Wildcard deletion parity and bounded socket connection waits.
+- Reload deadlock and debugger/preview/editor/music resource cleanup.
+- Windows DLL initialization and worker-pipe reads; Mac runner portability.
+- DATA sprite thumbnails, hover previews, navigation, header help, aligned grids,
+  visual editing, bounded New Sprite dialog, fold toggles and indentation.
+- Assist-panel contrast, manual Help-tab ownership, and stale-buffer handling
+  without repeated modal dialogs during typing.
+- Offline installer access to bundled Godot/addon payloads.
+
+### Testing and documentation
+
+- Stricter differential, mutation, harness-completion, lifecycle, and benchmark
+  checksum checks; explicit exclusions and remaining engine/runtime limitations.
+- Restored/audited sample projects, command-reference coverage, Python bridge
+  platform smoke, Godot 4.7.2 Linux compatibility evidence, and AI setup docs.
+- Revised installation guide, human-readable release notes, Asset Library copy,
+  and Facebook announcement draft.
+
 ## [5.6.0-beta1] - 2026-10-02
 
 **Key numbers:** **Windows x64 native JIT (first ship)** · **C++ vector canvas depth mesh** · **M8 language parity** · QB / classic speedups · Interface / Implements · Python bridge · Vector Crypt + BASIC-256 · IDE polish.

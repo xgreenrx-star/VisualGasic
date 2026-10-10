@@ -242,6 +242,38 @@ ordering when two timers become due during the same engine frame.
 
 ### Current evidence and remaining work
 
+#### October 10: authorized 5.7.0-beta.1 candidate
+
+The maintainer authorized **5.7.0-beta.1** as a public beta, including the
+latest Crystal Caverns cave/sprite edits. The edited game passes Linux 4.6.1
+default/forced-AST headless and graphical runs: 81/89 gameplay, 278/303 effects,
+95 sound and 179 editor checks. The new starting-position assertion and
+position-derived GPU comparison regions preserve meaningful validation.
+
+CI and Nightly passed the preceding `f08ca2c8` commit; those results do not
+certify the new packaging revision. The Release workflow now runs the reusable
+CI, native macOS slice/dependency packaging and Web export workflows alongside
+all desktop editor/debug/release builds. The package job requires their success.
+It creates installers/offline bundles for Linux, Windows and universal macOS,
+addon/Asset Library/platform binary archives, examples/docs, checksums and
+build-commit identity. It cold-imports and executes the **actual extracted**
+Asset Library ZIP, rejecting errors, crashes, leaks and checksum failures.
+Only then does it create a **draft prerelease**, never publish automatically.
+
+Mac setup is an unsigned command launcher needing Python 3, not a notarized
+DMG. Native Mac framework dependencies are bundled per architecture before
+universal merging; smoke tests run without installing Homebrew runtime libraries.
+Optional GDSiON platform binaries are included in packaging rather than
+silently removing that extension. Linux/Windows offline payload access is
+corrected. These packaging changes require fresh remote build evidence.
+
+Release copy: [notes](../../RELEASE_NOTES_v5.7.0-beta.1.md),
+[Asset Library text](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md),
+and [Facebook draft](../community/FACEBOOK_RELEASE_5.7.0-beta.1.md).
+Store submission/moderation and physical-machine installer/upgrade/export
+sign-off are separate steps. Known unresolved engine/runtime limitations remain
+listed in the public notes; this beta does not claim v6 stable certification.
+
 As of 2026-10-08, commit `cf804a95` completed the main CI and macOS universal
 workflows successfully, including Windows and macOS Python bridge smoke.
 The earlier Web workflow passed on `1e003890`; that older result is **not**

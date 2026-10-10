@@ -13,6 +13,7 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build-macos-slices:
@@ -42,6 +43,9 @@ jobs:
       - name: Install libopenmpt (for Tracker namespace — .xm/.mod/.s3m playback)
         run: brew install libopenmpt
 
+      - name: Install dependency bundler
+        run: brew install dylibbundler
+
       - name: Build architecture slice
         run: |
           export PKG_CONFIG_PATH="$(brew --prefix libffi)/lib/pkgconfig:$(brew --prefix libopenmpt)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig:$PKG_CONFIG_PATH"
@@ -57,11 +61,26 @@ jobs:
           lipo "$DYLIB" -verify_arch "${{ matrix.arch }}"
           echo "PASS: ${{ matrix.arch }} slice built"
 
+      - name: Bundle runtime libraries
+        run: |
+          set -euo pipefail
+          framework="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          binary="$framework/libvisualgasic.macos.${{ matrix.target }}"
+          dylibbundler -od -b -x "$binary" -d "$framework/Libraries" -p '@rpath/'
+          install_name_tool -add_rpath '@loader_path/Libraries' "$binary"
+          for library in "$binary" "$framework"/Libraries/*.dylib; do
+            test -f "$library"
+            if otool -L "$library" | tail -n +2 | grep -E '/opt/homebrew/|/usr/local/(opt|Cellar)/'; then
+              echo "::error::Unbundled Homebrew dependency: $library"
+              exit 1
+            fi
+          done
+
       - name: Upload architecture slice
         uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.target }}-${{ matrix.arch }}-slice
-          path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/libvisualgasic.macos.${{ matrix.target }}
+          path: demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework/
           retention-days: 30
 
   # M7 close-out: Python bridge e2e on macOS (editor framework only).
@@ -83,9 +102,6 @@ jobs:
         with:
           name: macos-editor-framework
           path: demo/bin/libvisualgasic.macos.editor.framework
-
-      - name: Install macOS runtime libraries
-        run: brew install libffi libopenmpt
 
       - name: Materialize GDExtension into test_proj
         run: |
@@ -155,7 +171,17 @@ jobs:
             test -f "$x86_slice"
             mkdir -p "$framework"
             lipo -create "$arm_slice" "$x86_slice" -output "$universal"
-            codesign --force --sign - --deep "$framework" 2>/dev/null || true
+            mkdir -p "$framework/Libraries"
+            diff <(cd "slices/macos-${target}-arm64-slice/Libraries" && ls *.dylib) \
+              <(cd "slices/macos-${target}-x86_64-slice/Libraries" && ls *.dylib)
+            for arm_library in "slices/macos-${target}-arm64-slice/Libraries/"*.dylib; do
+              name="$(basename "$arm_library")"
+              lipo -create "$arm_library" "slices/macos-${target}-x86_64-slice/Libraries/$name" \
+                -output "$framework/Libraries/$name"
+              lipo "$framework/Libraries/$name" -verify_arch arm64 x86_64
+              codesign --force --sign - "$framework/Libraries/$name"
+            done
+            codesign --force --sign - "$universal"
             lipo -info "$universal"
             lipo "$universal" -verify_arch arm64 x86_64
             echo "Packaged universal framework: $framework"

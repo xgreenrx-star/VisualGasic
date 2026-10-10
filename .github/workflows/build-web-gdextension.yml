@@ -2,6 +2,7 @@ name: Build web GDExtension
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     branches: [main, master]
     paths:

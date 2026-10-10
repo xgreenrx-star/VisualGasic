@@ -4,23 +4,25 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current status (v5.5.0-beta2.1)
+## Current submission materials (v5.7.0-beta.1)
 
 | Field | Value |
 |-------|--------|
-| **Version submitted** | 5.5.0-beta2.1 (pending submit) |
+| **Version prepared** | 5.7.0-beta.1 (listing update and moderator approval pending) |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.5.0-beta2.1.zip` |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.7.0-beta.1.zip` |
 | **Listing state** | **Live** (store) — submit version update for moderator approval |
 
-Changelog copy for the Asset Library version field: [`ASSET_LIBRARY_CHANGELOG_5.5.0-beta2.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.5.0-beta2.1.md) (**Markdown** for store.godotengine.org — `-` lists, `**bold**`, `` `code` ``; do **not** use BBCode or `•`).
+Copy for this update: [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md).
+Use Markdown, not BBCode. The description distinguishes the addon-only store
+ZIP from the separate examples download and identifies the release as a beta.
 
 User-facing install steps: [Installation Guide — Method 0](../guides/INSTALLATION.md#-method-0-godot-asset-library-recommended-if-you-already-have-godot)
 
 ---
 
-## Submission checklist (5.4.0-beta2)
+## Historical submission checklist (5.4.0-beta2)
 
 - [x] Plugin metadata in `addons/visual_gasic/plugin.cfg` (version **5.4.0-beta2**)
 - [x] Asset library metadata in `.assetlib.json`
@@ -44,8 +46,8 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.5.0-beta2.1/VisualGasic_AssetLibrary_v5.5.0-beta2.1.zip` |
-| **Version** | 5.5.0-beta2.1 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.1/VisualGasic_AssetLibrary_v5.7.0-beta.1.zip` |
+| **Version** | 5.7.0-beta.1 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 

@@ -525,7 +525,7 @@ Whenever Section CrystalCounter crystals Changes OnCrystalCounter
 						' # wall, . dirt, O rock, * crystal, E exit, @ player, space empty.
 						CaveRows:
 						Data "####################"
-						Data "#@....*....#.......#"
+						Data "#.....*....#.......#"
 						Data "#..##......#..O....#"
 						Data "#.....O....#.......#"
 						Data "#..*.......#..*....#"
@@ -534,7 +534,7 @@ Whenever Section CrystalCounter crystals Changes OnCrystalCounter
 						Data "#......*...#..O....#"
 						Data "#..##......#.......#"
 						Data "#..*.......#..*....#"
-						Data "#.................E#"
+						Data "#@................E#"
 						Data "####################"
 
 						CaveNames:
@@ -614,13 +614,13 @@ Whenever Section CrystalCounter crystals Changes OnCrystalCounter
 						RockSprite:
 						' Transparent corners give this otherwise square tile a round silhouette.
 						Data 8, 8, 0, 2
-						Data 6, 6, 12, 12, 12, 6, 6, 6
-						Data 6, 12, 15, 15, 12, 12, 6, 6
-						Data 12, 15, 15, 12, 12, 11, 12, 6
-						Data 12, 15, 12, 12, 11, 12, 11, 6
-						Data 12, 12, 12, 11, 12, 11, 11, 6
-						Data 6, 12, 11, 12, 11, 11, 6, 6
-						Data 6, 6, 11, 11, 11, 6, 6, 6
+						Data 6, 6, 6, 12, 12, 12, 6, 6
+						Data 6, 6, 12, 12, 15, 15, 12, 6
+						Data 6, 12, 11, 12, 12, 15, 15, 12
+						Data 6, 11, 12, 11, 12, 12, 15, 12
+						Data 6, 11, 11, 12, 11, 12, 12, 12
+						Data 6, 6, 11, 11, 12, 11, 12, 6
+						Data 6, 6, 6, 11, 11, 11, 6, 6
 						Data 6, 6, 6, 6, 6, 6, 6, 6
 						CrystalSprite:
 						' The normal crystal frame alternates with CrystalGlowSprite.
@@ -670,7 +670,7 @@ Whenever Section CrystalCounter crystals Changes OnCrystalCounter
 						' The standing/right-facing pose; zero-valued pixels are transparent.
 						Data 8, 8, 0, 2
 						Data 0, 0, 7, 7, 7, 0, 0, 0
-						Data 0, 7, 7, 7, 1, 7, 0, 0
+						Data 0, 7, 7, 7, 7, 7, 0, 0
 						Data 0, 0, 10, 10, 10, 0, 0, 0
 						Data 0, 0, 10, 1, 10, 0, 0, 0
 						Data 0, 14, 14, 14, 14, 10, 0, 0

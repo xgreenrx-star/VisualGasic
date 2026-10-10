@@ -11,8 +11,8 @@ if [[ ! -x "$GODOT" ]]; then
 	exit 1
 fi
 case "$RENDER_MODE" in
-	headless) args=(--headless --audio-driver Dummy); expected=80; fx_expected=278 ;;
-	graphical) args=(--rendering-method gl_compatibility --audio-driver Dummy); expected=88; fx_expected=303 ;;
+	headless) args=(--headless --audio-driver Dummy); expected=81; fx_expected=278 ;;
+	graphical) args=(--rendering-method gl_compatibility --audio-driver Dummy); expected=89; fx_expected=303 ;;
 	*) echo "ERROR: RENDER_MODE must be headless or graphical" >&2; exit 1 ;;
 esac
 mkdir -p "$OUT_DIR"

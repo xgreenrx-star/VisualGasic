@@ -71,6 +71,7 @@ func _run() -> void:
 	check(fx.phase == "entrance" and fx.phase_time == 0.0, "entrance starts at zero")
 	check(fx.miner.material.get_shader_parameter("reveal") == 0.0, "miner starts fully swirled away")
 	var initial := snapshot(game)
+	var entrance_region := Rect2i(32 + int(game.get("playerX")) * 32, 96 + int(game.get("playerY")) * 32, 32, 32)
 	advance(fx, 0.4)
 	check(is_equal_approx(fx.miner.material.get_shader_parameter("reveal"), 0.5), "entrance half revealed after 0.4s")
 	var entrance: Image
@@ -206,8 +207,8 @@ func _run() -> void:
 		check(difference(plain, treated, Rect2i(32, 96, 640, 384)) > 0.005, "GPU CRT and shimmer affect cave")
 		check(difference(plain, treated, Rect2i(0, 0, 704, 70)) == 0.0, "shader leaves title and HUD unchanged")
 		check(difference(plain, treated, Rect2i(0, 480, 704, 120)) == 0.0, "shader leaves messages and buttons unchanged")
-		check(difference(entrance, treated, Rect2i(64, 128, 32, 32)) > 0.001, "GPU entrance visibly changes miner")
-		check(difference(pickup_start, treated, Rect2i(64, 112, 64, 64)) > 0.001, "GPU pickup glow changes pixels")
+		check(difference(entrance, treated, entrance_region) > 0.001, "GPU entrance visibly changes miner")
+		check(difference(pickup_start, treated, Rect2i(entrance_region.position + Vector2i(0, -16), Vector2i(64, 64))) > 0.001, "GPU pickup glow changes pixels")
 		game.call("ToggleFullscreen")
 		await process_frame
 		var fullscreen := await frame("fullscreen")
