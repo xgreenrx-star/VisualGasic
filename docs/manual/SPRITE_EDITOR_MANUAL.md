@@ -120,6 +120,12 @@ When the editor is bound to a labeled block:
 
 With the caret in a block, the Sprite tab still shows the small Context Rail pixel grid and palette swatches for quick touch-ups; edits live-write `Data` rows the same way.
 
+Left-click a palette swatch to select its index; the selection border and
+**Brush: index** label show the active brush. The checkerboard swatch selects
+the transparent index. Left-click the pixel grid to paint, Shift+click to erase,
+or right-click a pixel to pick its index. Choosing a brush does not edit the
+source; painting updates the `Data` rows.
+
 ---
 
 ## Interface Layout

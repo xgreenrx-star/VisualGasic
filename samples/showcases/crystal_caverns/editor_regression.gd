@@ -1,5 +1,10 @@
 extends SceneTree
 
+class PaletteTestPanel extends "res://addons/visual_gasic/vg_sprite_data_panel.gd":
+	func _cell_at_mouse() -> Vector2i:
+		# Synthetic viewport events do not move the physical cursor in headless runs.
+		return Vector2i.ZERO
+
 var _passed := 0
 var _failed := 0
 var _sprite_open_requests := 0
@@ -89,6 +94,43 @@ func _run() -> void:
 	edit.undo()
 	_check("grid alignment undo restores source", edit.text == alignment_before)
 	edit.text = source
+	var palette_panel = PaletteTestPanel.new()
+	root.add_child(palette_panel)
+	palette_panel.position = Vector2(650, 0)
+	palette_panel.size = Vector2(400, 650)
+	palette_panel.bind_code_edit(edit)
+	palette_panel.update_for_caret(edit.text, int(walk_section["label_line"]))
+	await process_frame
+	await process_frame
+	for index in [2, 7, 0]:
+		var swatch: Control = palette_panel._swatch_frames[index].get_child(0)
+		var click_pos := swatch.global_position + swatch.size / 2
+		for pressed in [true, false]:
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = pressed
+			click.position = click_pos
+			click.global_position = click_pos
+			root.push_input(click, true)
+		_check("inline swatch click selects brush index %d" % index, palette_panel._brush == index)
+		var expected_note := "transparent" if index == 0 else str(index)
+		_check("inline brush label follows clicked swatch %d" % index, palette_panel._brush_label.text.begins_with("Brush: index " + expected_note + " "))
+		_check("inline brush selection never changes source", edit.text == source)
+		var grid_pos: Vector2 = palette_panel._grid.global_position + Vector2.ONE * (palette_panel._zoom / 2.0)
+		for pressed in [true, false]:
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = pressed
+			click.position = grid_pos
+			click.global_position = grid_pos
+			root.push_input(click, true)
+		var painted: Dictionary = resolver.resolve_at_line(edit.text, int(walk_section["label_line"]))
+		_check("inline painting writes selected palette index %d to Data" % index, painted["pixels"][0] == index)
+		edit.text = source
+		palette_panel._load_section(walk_section)
+		await process_frame
+		await process_frame
+	palette_panel.free()
 	var factory = load("res://addons/visual_gasic/vg_assist_panel_factory.gd")
 	var assist: Dictionary = factory.create_panel()
 	root.add_child(assist["root"])

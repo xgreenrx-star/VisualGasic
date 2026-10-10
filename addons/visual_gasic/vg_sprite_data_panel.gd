@@ -234,6 +234,7 @@ func _rebuild_palette_row() -> void:
 		frame.add_theme_stylebox_override("panel", frame_sb)
 
 		var swatch := _make_swatch_control(i, cols[i])
+		swatch.mouse_filter = Control.MOUSE_FILTER_PASS
 		frame.add_child(swatch)
 
 		var idx := i
