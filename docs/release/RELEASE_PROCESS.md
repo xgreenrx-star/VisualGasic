@@ -331,6 +331,17 @@ Mac setup remains unsigned. Asset Library listing submission and moderation
 remain pending; the addon ZIP and copy are published and ready to submit.
 The Facebook copy is ready to post, not automatically posted.
 
+The user authorized replacing the existing beta downloads with the inline
+palette-click fix. Packages were rebuilt in an isolated checkout at
+`3f654919e11abf91ffea80d629b43155a0035db8`, reusing the downloaded release
+native files. All 32 native files compared byte-for-byte equal to the original
+addon. The corrected addon passed the packaged import/runtime smoke; all
+package checksums passed. Palette selection and painting regressions passed
+202 checks on both Godot versions, including a graphical 4.6.1 run.
+Refreshed BUILD_COMMIT.txt records the package source; the original release tag
+is intentionally unchanged. Release notes explain this provenance difference
+and tell earlier downloaders to replace the addon.
+
 As of 2026-10-08, commit `cf804a95` completed the main CI and macOS universal
 workflows successfully, including Windows and macOS Python bridge smoke.
 The earlier Web workflow passed on `1e003890`; that older result is **not**
