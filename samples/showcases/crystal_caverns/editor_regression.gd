@@ -46,6 +46,31 @@ func _run() -> void:
 	_check("signature helper creates its label", is_instance_valid(embedded._param_label))
 	_check("signature popup belongs to editor", is_instance_valid(embedded._param_popup) and embedded._param_popup.get_parent() == embedded)
 	var source: String = edit.text
+	var formatter = load("res://addons/visual_gasic/vg_formatter.gd")
+	var save_fixture := "Whenever Section First x Changes OnFirst\nWhenever Section Second y Changes OnSecond\nSub Check()\n\tIf x>=-1 And y<>2 Then\n\t\tPrint \"two  spaces\", &HFF\n\tEnd If\nEnd Sub\nWalkSprite:\n\tData 2, 1, 0, 2\n\tData  0,  1\n"
+	var formatted_save: String = formatter.format_text(save_fixture)
+	_check("save formatter does not nest inline Whenever handlers", formatted_save.contains("\nWhenever Section Second") and formatted_save.contains("\nSub Check()"))
+	_check("save formatter keeps comparison operators intact", formatted_save.contains("x >= -1 And y <> 2"))
+	_check("save formatter preserves spaces inside strings", formatted_save.contains('"two  spaces"'))
+	_check("save formatter preserves padded Data rows", formatted_save.contains("\n\tData  0,  1\n"))
+	_check("save formatter is idempotent", formatter.format_text(formatted_save) == formatted_save)
+	_check("save formatter repairs previously split comparisons outside strings", formatter.format_text('If x < > y And x > = 1 Then Print "< >"\n').contains('x <> y And x >= 1 Then Print "< >"'))
+	_check("save formatter handles access modifiers and interfaces", formatter.format_text("Private Sub Test()\nPrint 1\nEnd Sub\nInterface ITest\nEnd Interface\nSub NextTest()\nEnd Sub\n").contains("Private Sub Test()\n\tPrint 1\nEnd Sub\nInterface ITest\nEnd Interface\nSub NextTest()"))
+	_check("save formatter treats interface methods as signatures", formatter.format_text("Interface ITest\nSub First()\nFunction Second() As Integer\nEnd Interface\nSub Test()\nPrint 1\nEnd Sub\n").contains("Interface ITest\n\tSub First()\n\tFunction Second() As Integer\nEnd Interface\nSub Test()\n\tPrint 1"))
+	var original_path: String = embedded._vg_path
+	embedded._vg_path = "user://sprite_save_regression.vg"
+	edit.text = save_fixture
+	embedded.save_file()
+	_check("actual save persists formatter output without nesting handlers", FileAccess.get_file_as_string(embedded._vg_path) == formatted_save and edit.text == formatted_save)
+	_check("actual saved source validates", embedded.validate_code())
+	edit.text = source
+	embedded.save_file()
+	_check("saving actual showcase restores top-level procedure indentation", edit.text.contains("\nSub _Ready()\n\t") and edit.text.contains("\nWhenever Section UnlockExit"))
+	_check("saving actual showcase preserves cave and sprite Data", resolver.resolve_at_line(edit.text, edit.text.substr(0, edit.text.find("WalkSprite:")).count("\n"))["pixels"] == resolver.resolve_at_line(source, source.substr(0, source.find("WalkSprite:")).count("\n"))["pixels"])
+	_check("saving actual showcase is idempotent", formatter.format_text(edit.text) == edit.text)
+	DirAccess.remove_absolute(embedded._vg_path)
+	embedded._vg_path = original_path
+	edit.text = source
 	for group in ["(Sprites)", "(Whenever)"]:
 		var object_index := -1
 		for i in embedded._object_combo.item_count:

@@ -239,7 +239,7 @@ Click any color swatch to open a full **ColorPicker** dialog with alpha channel 
 |---------|-------------|
 | **Procedure Separator Lines** | A horizontal rule is drawn above each `Sub` / `Function` / `Property` header — the classic VB6 blue separator line |
 | **Parameter Info Popup** | When typing inside function call parentheses, a tooltip shows the function signature with the current parameter highlighted |
-| **Pretty Listing** | On save, keywords are auto-capitalized, operators are spaced, and indentation is normalized (VB6-style auto-format) |
+| **Pretty Listing** | On save, keywords are auto-capitalized, operators are spaced, and indentation is normalized (VB6-style auto-format). Inline `Whenever Section` handlers do not add nesting. Sprite `Data` value padding and spaces inside quoted strings are preserved. |
 | **Multiple Cursors** | Place multiple carets to edit several locations simultaneously; use **Ctrl+D** to add the next matching word |
 | **Highlight Current Line** | The active line has a subtle background tint for easy orientation |
 | **Code Minimap** | A zoomed-out overview of the entire file on the right side of the editor |

@@ -64,7 +64,7 @@ class FormatOptions:
 # =============================================================================
 
 const INDENT_KEYWORDS: Array[String] = [
-	"Sub", "Function", "Property", "Class", "Type", "Enum",
+	"Sub", "Function", "Property", "Class", "Type", "Enum", "Interface",
 	"If", "ElseIf", "Else", "For", "While", "Do", "Select Case",
 	"Try", "Catch", "Finally", "With", "Whenever"
 ]
@@ -72,7 +72,7 @@ const INDENT_KEYWORDS: Array[String] = [
 const DEDENT_KEYWORDS: Array[String] = [
 	"End Sub", "End Function", "End Property", "End Class", "End Type", "End Enum",
 	"End If", "Next", "Wend", "Loop", "End Select",
-	"End Try", "End With", "End Whenever", "End Class"
+	"End Try", "End With", "End Whenever", "End Class", "End Interface"
 ]
 
 const DEDENT_BEFORE_KEYWORDS: Array[String] = [
@@ -184,6 +184,7 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 	var indent_level = 0
 	var blank_count = 0
 	var select_case_stack: Array[int] = []
+	var interface_stack: Array[int] = []
 	
 	for i in range(lines.size()):
 		var line = lines[i]
@@ -199,11 +200,19 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		blank_count = 0
 		
 		var stmt_upper := _vg_stmt_upper(stripped)
+		var block_upper := stmt_upper
+		for prefix in ["PUBLIC ", "PRIVATE ", "STATIC ", "FRIEND ", "ASYNC "]:
+			if block_upper.begins_with(prefix):
+				block_upper = block_upper.substr(prefix.length())
 		var is_select_case := stmt_upper.begins_with("SELECT CASE")
 		var is_case_line := _is_vg_case_line(stmt_upper)
 		var is_end_select := stmt_upper.begins_with("END SELECT")
+		var is_interface := _stmt_starts_block(block_upper, "Interface")
+		var is_end_interface := _stmt_starts_block(stmt_upper, "End Interface")
 		
-		if is_end_select and select_case_stack.size() > 0:
+		if is_end_interface and not interface_stack.is_empty():
+			indent_level = interface_stack.pop_back()
+		elif is_end_select and select_case_stack.size() > 0:
 			indent_level = select_case_stack.pop_back()
 		elif is_case_line and select_case_stack.size() > 0:
 			indent_level = select_case_stack[-1] + 1
@@ -214,17 +223,19 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 					indent_level = maxi(0, indent_level - 1)
 					break
 			# Check for dedent (End statements) — End Select handled above
-			if not is_end_select:
+			if not is_end_select and not is_end_interface:
 				for keyword in DEDENT_KEYWORDS:
 					if _stmt_starts_block(stmt_upper, keyword):
 						indent_level = maxi(0, indent_level - 1)
 						break
 		
 		# Apply formatting to the line
-		var formatted_line = _format_line(stripped, options)
+		var is_data := _stmt_starts_block(stmt_upper, "Data")
+		var formatted_line = stripped if is_data else _format_line(stripped, options)
 		
 		# Apply indentation
-		var indent_str = "\t".repeat(indent_level) if options.use_tabs else " ".repeat(indent_level * options.indent_size)
+		var line_indent: int = maxi(1, indent_level) if is_data else indent_level
+		var indent_str = "\t".repeat(line_indent) if options.use_tabs else " ".repeat(line_indent * options.indent_size)
 		formatted_line = indent_str + formatted_line
 		
 		# Trim trailing whitespace
@@ -233,7 +244,12 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		
 		result_lines.append(formatted_line)
 		
-		if is_select_case:
+		if is_interface:
+			interface_stack.append(indent_level)
+			indent_level += 1
+		elif not interface_stack.is_empty() or is_end_interface:
+			pass
+		elif is_select_case:
 			select_case_stack.append(indent_level)
 			indent_level += 1
 		elif is_case_line and select_case_stack.size() > 0:
@@ -243,7 +259,9 @@ static func format_text(text: String, options: FormatOptions = null) -> String:
 		else:
 			# Check for indent (Sub, If, For, etc.) - excluding single-line If
 			for keyword in INDENT_KEYWORDS:
-				if _stmt_starts_block(stmt_upper, keyword):
+				if _stmt_starts_block(block_upper, keyword):
+					if keyword == "Whenever" and block_upper.begins_with("WHENEVER SECTION "):
+						break
 					# Special case: single-line If (If x Then y)
 					if keyword == "If" and "THEN" in stmt_upper:
 						var after_then = stmt_upper.split("THEN", true, 1)
@@ -315,6 +333,8 @@ static func _is_vg_case_line(stripped_upper: String) -> bool:
 
 ## Formats a single line
 static func _format_line(line: String, options: FormatOptions) -> String:
+	if line.to_upper() == "REM" or line.to_upper().begins_with("REM "):
+		return line
 	var result = line
 	
 	# Skip comments
@@ -422,6 +442,16 @@ static func _is_in_string(line: String, pos: int) -> bool:
 ## Adds spaces around operators
 static func _space_operators(line: String) -> String:
 	var result = line
+	var compound := RegEx.new()
+	compound.compile("<[ \\t]+[>=]|>[ \\t]+=")
+	var split_operator := compound.search(result)
+	while split_operator:
+		if not _is_in_string(result, split_operator.get_start()):
+			var joined := split_operator.get_string().replace(" ", "").replace("\t", "")
+			result = result.substr(0, split_operator.get_start()) + joined + result.substr(split_operator.get_end())
+			split_operator = compound.search(result, split_operator.get_start() + joined.length())
+		else:
+			split_operator = compound.search(result, split_operator.get_end())
 	
 	# Handle multi-character operators first
 	result = _space_operator(result, "<>")
@@ -438,10 +468,6 @@ static func _space_operators(line: String) -> String:
 	result = _space_operator(result, "/")
 	result = _space_operator(result, "&")
 	
-	# Clean up any double spaces
-	while "  " in result:
-		result = result.replace("  ", " ")
-	
 	return result
 
 ## Adds space around a specific operator
@@ -457,6 +483,21 @@ static func _space_operator(line: String, op: String) -> String:
 				result += op
 				i += op.length()
 				continue
+			# A later single-character pass must not split a compound operator.
+			if op.length() == 1 and op in ["<", ">", "="]:
+				if (i > 0 and line[i - 1] in ["<", ">", "="]) \
+						or (i + 1 < line.length() and line[i + 1] in ["<", ">", "="]):
+					result += op
+					i += 1
+					continue
+			if op in ["+", "-"]:
+				var previous := result.rstrip(" \t")
+				if previous.is_empty() or previous[-1] in "(,=<>+-*/\\^&":
+					result += op
+					i += 1
+					while i < line.length() and line[i] in [" ", "\t"]:
+						i += 1
+					continue
 			
 			# Don't treat '&' as the concatenation operator when it begins a VB
 			# numeric literal: &H (hex), &O (octal), &B (binary). Splitting these
