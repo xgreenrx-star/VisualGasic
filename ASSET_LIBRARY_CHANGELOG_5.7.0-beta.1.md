@@ -27,6 +27,7 @@ Function, Dim, For/Next, and readable event handlers.
   error handling, loops, DATA loading, arithmetic/JIT behavior, and recursion.
 - More usable DATA sprite previews, sprite navigation, grid alignment, header
   help, folding, and visual editing that writes back to the source.
+- Fix Indentation preserves folded code and Undo instead of corrupting statements.
 - UI contrast fixes, bounded dialogs, improved cleanup, and nonmodal handling
   when the native Script editor and VG editor contain different buffers.
 - More reliable Windows Python worker pipes and native platform builds.

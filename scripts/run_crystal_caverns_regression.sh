@@ -42,13 +42,13 @@ rc=0
 env -u VG_FORCE_AST timeout "$TIMEOUT_SECS" "$GODOT" "${args[@]}" --path "$project" \
 	--script editor_regression.gd > "$editor_log" 2>&1 || rc=$?
 if [[ "$rc" -ne 0 ]] ||
-		! grep -Fxq "EDITOR RESULTS: 179 passed, 0 failed" "$editor_log" ||
+		! grep -Fxq "EDITOR RESULTS: 190 passed, 0 failed" "$editor_log" ||
 		grep -Eq '^ERROR:|SCRIPT ERROR|Parser Error|Unicode parsing error|handle_crash:|leaked at exit|were leaked' "$editor_log"; then
 	echo "FAIL: Crystal Caverns editor/$RENDER_MODE (exit=$rc); see $editor_log" >&2
 	tail -n 35 "$editor_log" >&2
 	exit 1
 fi
-echo "PASS: Crystal Caverns editor/$RENDER_MODE (179 checks); $editor_log"
+echo "PASS: Crystal Caverns editor/$RENDER_MODE (190 checks); $editor_log"
 for mode in default ast; do
 	log="$OUT_DIR/$mode.log"
 	environment=(env -u VG_FORCE_AST)

@@ -45,6 +45,9 @@ upgrade steps, evidence, and known limitations.
   visual editing, bounded New Sprite dialog, fold toggles and indentation.
 - Assist-panel contrast, manual Help-tab ownership, and stale-buffer handling
   without repeated modal dialogs during typing.
+- Fix Indentation corruption of folded source: position-based whitespace edits,
+  atomic Undo, no-op safety, inline watcher handling and selection context;
+  eleven new editor assertions reproduce and guard the failure.
 - Offline installer access to bundled Godot/addon payloads.
 
 ### Testing and documentation

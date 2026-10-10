@@ -324,3 +324,10 @@ pixels. Default/forced-AST Linux 4.6.1 checks pass headless and graphical:
 81/89 gameplay, 278/303 effects, 95 sound and 179 editor checks.
 The added assertion verifies the DATA starting position; pixel-effect checks
 derive their region from that position rather than assuming the old start.
+
+The editor suite now has 190 checks. Eleven new indentation checks cover folded
+procedures/DATA, unchanged statement text and line count, deferred callbacks,
+valid parsing, exact Undo, repeated formatting, inline watchers, mixed-case
+keywords/comments, and selection boundaries/nesting across blank lines.
+Fix Indentation edits only leading whitespace using explicit line positions;
+it never replaces hidden statements through a visible-caret selection.

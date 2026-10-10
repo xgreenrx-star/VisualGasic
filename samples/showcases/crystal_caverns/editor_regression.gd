@@ -158,6 +158,35 @@ func _run() -> void:
 			_check("fold click toggles block: " + str(block["label"]), edit.is_line_folded(line) != was_folded)
 			_check("fold click never opens sprite view", request_count == _sprite_open_requests and embedded.visible)
 			_check("fold click preserves source", edit.text == source)
+	edit.text = source
+	edit.deselect()
+	edit.call("_refresh_sprite_data_highlights")
+	edit.call("fold_all_procedures")
+	edit.call("fix_indentation")
+	_check("Fix Indentation preserves line count", edit.get_line_count() == source.split("\n").size())
+	_check("Fix Indentation preserves all nonindent source", _line_contents(edit.text) == _line_contents(source))
+	await process_frame
+	await process_frame
+	_check("Fix Indentation has no deferred source mutation", _line_contents(edit.text) == _line_contents(source))
+	_check("Fix Indentation leaves valid code", embedded.validate_code())
+	var fixed_source := edit.text
+	_check("Whenever declarations do not indent DATA labels", edit.get_line(int(blocks[0]["line"])).begins_with(str(blocks[0]["label"]) + ":"))
+	edit.call("fix_indentation")
+	_check("Fix Indentation is idempotent", edit.text == fixed_source)
+	edit.undo()
+	_check("Fix Indentation undo restores exact source", edit.text == source)
+	edit.text = "private static sub Main()\nif True then ' block comment\nPrint \"If Then Else\" ' keep literal\nelse\nPrint \"Case Else\"\nend if\nend sub\nWhenever Section Clock ticks Changes OnClock\nSprite:\nData 1, 1, 0, 2\n"
+	edit.deselect()
+	edit.call("fix_indentation")
+	var expected := "private static sub Main()\n\tif True then ' block comment\n\t\tPrint \"If Then Else\" ' keep literal\n\telse\n\t\tPrint \"Case Else\"\n\tend if\nend sub\nWhenever Section Clock ticks Changes OnClock\nSprite:\nData 1, 1, 0, 2\n"
+	_check("indentation handles modifiers, case, comments and inline watchers", edit.text == expected)
+	edit.text = "Sub Main()\nIf True Then\n\nPrint \"selected\"\n      End If\nEnd Sub\n"
+	edit.select(3, 0, 4, 0)
+	edit.call("fix_indentation")
+	_check("selected indentation derives nesting across blank lines", edit.get_line(3) == "\t\tPrint \"selected\"")
+	_check("selection ending at column zero leaves next line unchanged", edit.get_line(4) == "      End If")
+	_check("selected indentation preserves unselected prefix", edit.get_line(1) == "If True Then")
+	edit.text = source
 	edit.text += "\n' Whenever Section Fake value Changes OnFake\nwhenever section local Extra value changes OnExtra\n"
 	embedded._rebuild_proc_list()
 	_check("Whenever handles local/case and ignores comments", embedded._source_navigation_entries("(Whenever)").size() == 7)
@@ -175,3 +204,6 @@ func _check(label: String, condition: bool) -> void:
 	else:
 		_failed += 1
 		push_error(label)
+
+func _line_contents(value: String) -> Array:
+	return Array(value.split("\n")).map(func(line: String): return line.strip_edges(true, false))

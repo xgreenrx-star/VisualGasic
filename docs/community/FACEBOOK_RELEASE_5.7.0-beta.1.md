@@ -27,6 +27,7 @@ Whenever statements handle the crystal counter, exit unlock, and warning events.
 The UI got some much-needed attention as well: readable panel colors, better
 sprite help and navigation, sensible dialog sizes, more predictable folding,
 and no repeated refresh popup interrupting every keystroke.
+Fix Indentation also preserves folded code and Undo instead of breaking statements.
 
 Downloads include Linux and Windows installers, Intel/Apple Silicon Mac setup,
 offline bundles, and a Godot Asset Library addon ZIP. The Mac setup is unsigned

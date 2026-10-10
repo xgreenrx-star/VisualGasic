@@ -769,27 +769,22 @@ func fix_indentation() -> void:
 	if has_selection():
 		from_line = get_selection_from_line()
 		to_line = get_selection_to_line()
-	
-	begin_complex_operation()
+		if to_line > from_line and get_selection_to_column() == 0:
+			to_line -= 1
 	
 	var indent_level := 0
+	var replacement_lines: Array[int] = []
+	var replacement_text: Array[String] = []
 	
-	# If reindenting a partial selection, start with the indent of the line
-	# before the selection so nested blocks stay correct
-	if from_line > 0:
-		indent_level = _get_line_indent(from_line - 1)
-		var prev_stripped := get_line(from_line - 1).strip_edges()
-		if _is_indent_opener(prev_stripped):
-			indent_level += 1
-	
-	for i in range(from_line, to_line + 1):
+	for i in range(0, to_line + 1):
 		var raw_line := get_line(i)
 		var stripped := raw_line.strip_edges()
 		
 		# Skip completely blank lines — don't add whitespace
 		if stripped.is_empty():
-			if raw_line != "":
-				_set_line_indent_raw(i, "")
+			if i >= from_line and raw_line != "":
+				replacement_lines.append(i)
+				replacement_text.append("")
 			continue
 		
 		# Check if this line is a dedent trigger (closer or mid-block keyword)
@@ -801,7 +796,11 @@ func fix_indentation() -> void:
 			indent_level = maxi(0, indent_level - 1)
 		
 		# Apply indent
-		_set_line_indent(i, indent_level)
+		if i >= from_line:
+			var updated := "\t".repeat(indent_level) + raw_line.strip_edges(true, false)
+			if updated != raw_line:
+				replacement_lines.append(i)
+				replacement_text.append("\t".repeat(indent_level))
 		
 		# Re-indent AFTER for mid-block keywords (Else, Case, etc.)
 		if is_mid_block:
@@ -811,14 +810,18 @@ func fix_indentation() -> void:
 		if _is_indent_opener(stripped):
 			indent_level += 1
 	
-	end_complex_operation()
+	if not replacement_lines.is_empty():
+		begin_complex_operation()
+		for index in replacement_lines.size():
+			_set_line_indent_raw(replacement_lines[index], replacement_text[index])
+		end_complex_operation()
 
 ## Returns true if `stripped_line` opens a new indentation block.
 ## Handles: Sub, Function, Property, For, While, Do, Select Case, With, Try,
 ## Whenever, Class, Type, Enum, If...Then (multi-line).
 func _is_indent_opener(stripped_line: String) -> bool:
 	# First check multi-line If...Then (line begins with If, ends with Then)
-	var sl := stripped_line.to_lower()
+	var sl := VGFormatter._vg_stmt_upper(stripped_line).to_lower()
 	if sl.begins_with("if ") and sl.ends_with(" then"):
 		return true
 	# Use existing _line_starts_block (handles access modifiers)
@@ -826,10 +829,10 @@ func _is_indent_opener(stripped_line: String) -> bool:
 
 ## Returns true if `stripped_line` is a block closer that should decrease indent.
 func _is_indent_closer(stripped_line: String) -> bool:
-	var sl := stripped_line.to_lower()
+	var sl := VGFormatter._vg_stmt_upper(stripped_line).to_lower()
 	for trigger in ["end sub", "end function", "end if", "next", "wend", "loop",
 					 "end select", "end class", "end try", "end whenever",
-					 "end with", "end property", "end type", "end enum"]:
+					 "end with", "end property", "end type", "end enum", "end interface"]:
 		if sl == trigger or sl.begins_with(trigger + " "):
 			return true
 	return false
@@ -837,7 +840,7 @@ func _is_indent_closer(stripped_line: String) -> bool:
 ## Returns true if `stripped_line` is a mid-block keyword (Else, ElseIf, Case, Catch, Finally).
 ## These lines dedent to match the parent, then re-indent for the following block.
 func _is_mid_block_keyword(stripped_line: String) -> bool:
-	var sl := stripped_line.to_lower()
+	var sl := VGFormatter._vg_stmt_upper(stripped_line).to_lower()
 	if sl == "else":
 		return true
 	if sl.begins_with("elseif "):
@@ -863,8 +866,11 @@ func _set_line_indent_raw(line_idx: int, indent_str: String) -> void:
 	var content := line.substr(first_non_ws)
 	var new_line := indent_str + content
 	if new_line != line:
-		select(line_idx, 0, line_idx, line.length())
-		insert_text_at_caret(new_line)
+		# Explicit positions preserve hidden text and undo without moving the caret.
+		if first_non_ws > 0:
+			remove_text(line_idx, 0, line_idx, first_non_ws)
+		if not indent_str.is_empty():
+			insert_text(indent_str, line_idx, 0)
 
 # =============================================================================
 # TOGGLE COMMENT — VB6 ' prefix
@@ -1899,14 +1905,16 @@ func _handle_auto_indent() -> void:
 ## Returns true if `line` is a block-opening statement, handling optional
 ## access modifiers: Public Sub, Private Function, Static Property Get, etc.
 func _line_starts_block(line: String) -> bool:
-	var work := line
+	var work := VGFormatter._vg_stmt_upper(line)
+	if work.begins_with("WHENEVER SECTION "):
+		return false
 	# Strip optional access modifier prefix
-	for prefix in ["Public ", "Private ", "Static ", "Friend "]:
+	for prefix in ["PUBLIC ", "PRIVATE ", "STATIC ", "FRIEND "]:
 		if work.begins_with(prefix):
 			work = work.substr(prefix.length())
-			break  # only one modifier
 	# Now check against block keywords
-	for kw in _block_start_keywords:
+	for keyword in _block_start_keywords + ["Interface"]:
+		var kw: String = keyword.to_upper()
 		if work.begins_with(kw + " ") or work.begins_with(kw + "(") or work == kw:
 			return true
 	return false
@@ -1941,13 +1949,7 @@ func _get_line_indent(line_idx: int) -> int:
 	return int(indent)
 
 func _set_line_indent(line_idx: int, indent_level: int) -> void:
-	var line = get_line(line_idx)
-	var content = line.strip_edges(true, false)  # Keep trailing whitespace
-	var new_line = "\t".repeat(indent_level) + content
-	
-	# Replace the line
-	select(line_idx, 0, line_idx, line.length())
-	insert_text_at_caret(new_line)
+	_set_line_indent_raw(line_idx, "\t".repeat(indent_level))
 
 # =============================================================================
 # BLOCK AUTO-CLOSE HELPERS

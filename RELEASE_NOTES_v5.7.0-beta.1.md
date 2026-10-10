@@ -65,6 +65,9 @@ This release makes that workflow easier to use:
 - DATA blocks start folded under the default editor policy. Expand/collapse and
   relative indentation work without unexpectedly opening the Sprite Editor.
 - Context updates no longer pull you away from a Help tab you deliberately chose.
+- **Fix Indentation no longer corrupts folded code.** It changes only leading
+  whitespace, preserves Undo, and recognizes inline Whenever declarations,
+  comments, mixed-case keywords, and selected-block context.
 
 The Vector/DATA panels share the relevant help, context, and contrast fixes.
 The experimental full Vector Editor routing is not being presented as finished.
@@ -170,7 +173,7 @@ cleanup instead of stopping at successful startup.
 
 For the latest edited Crystal Caverns source, local Linux checks pass in default
 and forced-AST modes: **81/89 gameplay checks** in headless/graphical runs,
-**278/303 visual-effects checks**, **95 sound checks**, and **179 editor checks**.
+**278/303 visual-effects checks**, **95 sound checks**, and **190 editor checks**.
 Earlier full-workspace probes passed 118 checks on both tested Godot versions.
 Audio tests capture actual mixer output, not physical speaker playback.
 

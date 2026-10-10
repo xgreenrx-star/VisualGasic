@@ -282,6 +282,26 @@ Store submission/moderation and physical-machine installer/upgrade/export
 sign-off are separate steps. Known unresolved engine/runtime limitations remain
 listed in the public notes; this beta does not claim v6 stable certification.
 
+The maintainer subsequently reported that **Fix Indentation corrupts code**.
+A folded-showcase reproduction preserved the line count but changed statements,
+then failed with nested-procedure/inline-If/Loop parser errors and broken Undo.
+The fix computes replacements before editing and uses explicit-position
+`remove_text`/`insert_text` for leading whitespace only. Caret selections are
+not safe for replacing hidden lines; `set_line` avoided corruption but did not
+provide the required Undo behavior in the tested path. No-op formatting now
+leaves history untouched. Block classification ignores comments/string contents,
+handles mixed-case/access modifiers and interfaces, and does not treat inline
+`Whenever Section` declarations as blocks. Selected ranges derive their depth
+from the preceding structure, including blank lines, and exclude a next line
+selected only at column zero.
+
+Eleven new assertions pass alongside the existing editor suite: **190 checks**
+on 4.6.1/4.7.2, including graphical runs, exact nonindent content, deferred
+callbacks, parse validity, idempotence and exact single-step Undo. Both engines'
+full-workspace probes pass 118 checks. Gameplay/effects/sound matrices still
+pass in both execution modes. The release candidate must include this fix;
+older build artifacts are not publication candidates.
+
 As of 2026-10-08, commit `cf804a95` completed the main CI and macOS universal
 workflows successfully, including Windows and macOS Python bridge smoke.
 The earlier Web workflow passed on `1e003890`; that older result is **not**
