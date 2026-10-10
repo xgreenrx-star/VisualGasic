@@ -28,6 +28,8 @@ Function, Dim, For/Next, and readable event handlers.
 - More usable DATA sprite previews, sprite navigation, grid alignment, header
   help, folding, and visual editing that writes back to the source.
 - Fix Indentation preserves folded code and Undo instead of corrupting statements.
+- Inline palette clicks select the brush correctly. Saving preserves DATA-grid
+  padding, quoted spaces and compound comparisons without nesting Whenever handlers.
 - UI contrast fixes, bounded dialogs, improved cleanup, and nonmodal handling
   when the native Script editor and VG editor contain different buffers.
 - More reliable Windows Python worker pipes and native platform builds.
