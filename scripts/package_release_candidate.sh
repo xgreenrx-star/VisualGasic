@@ -21,22 +21,31 @@ done
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/vg-release-package.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
-# The optional music editor has its own native extension.
-for platform in linux windows macos web; do
-  curl -fL --retry 3 -o "$WORK/gdsion-$platform.zip" \
-    "https://github.com/YuriSizov/gdsion/releases/download/0.7-beta8/libgdsion-$platform.zip"
-  unzip -qo "$WORK/gdsion-$platform.zip" -d "$WORK/gdsion-$platform"
-  test -d "$WORK/gdsion-$platform/bin"
-  mkdir -p addons/visual_gasic/plugins/vgmusic/bin
-  cp -a "$WORK/gdsion-$platform/bin/." addons/visual_gasic/plugins/vgmusic/bin/
+test -s addons/visual_gasic/plugins/vgmusic/bin/LICENSE
+for target in template_debug template_release; do
+  test -s "addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.$target.x86_64.so"
+  test -s "addons/visual_gasic/plugins/vgmusic/bin/libgdsion.windows.$target.x86_64.dll"
+  test -s "addons/visual_gasic/plugins/vgmusic/bin/libgdsion.macos.$target.framework/libgdsion.macos.$target"
 done
+cat > addons/visual_gasic/plugins/vgmusic/libgdsion.gdextension <<'EOF'
+[configuration]
+compatibility_minimum = "4.3"
+entry_symbol = "gdsion_library_init"
+[libraries]
+linux.debug.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.linux.template_release.x86_64.so"
+windows.debug.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.windows.template_release.x86_64.dll"
+macos.debug = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.macos.template_debug.framework"
+macos.release = "res://addons/visual_gasic/plugins/vgmusic/bin/libgdsion.macos.template_release.framework"
+EOF
 bash scripts/build_asset_library_zip.sh "$VERSION"
 cp "$OUT/VisualGasic_AssetLibrary_v$VERSION.zip" "$OUT/VisualGasic-v$VERSION.zip"
 mkdir -p "$WORK/full"
 unzip -q "$OUT/VisualGasic_AssetLibrary_v$VERSION.zip" -d "$WORK/full"
 cp README.md CHANGELOG.md LICENSE VERSION "RELEASE_NOTES_v$VERSION.md" "$WORK/full/"
 cp install.sh install.ps1 install.py vg "$WORK/full/"
-git archive HEAD docs tutorials samples | tar -x -C "$WORK/full"
+git ls-files -z docs tutorials samples | tar --null -T - -cf - | tar -xf - -C "$WORK/full"
 # Sample addon links resolve to the bundled addon, not the developer checkout.
 (cd "$WORK/full" && zip -qry "$OUT/VisualGasic-Examples-and-Docs-v$VERSION.zip" .)
 

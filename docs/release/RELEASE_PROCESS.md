@@ -263,9 +263,17 @@ Only then does it create a **draft prerelease**, never publish automatically.
 Mac setup is an unsigned command launcher needing Python 3, not a notarized
 DMG. Native Mac framework dependencies are bundled per architecture before
 universal merging; smoke tests run without installing Homebrew runtime libraries.
-Optional GDSiON platform binaries are included in packaging rather than
+Optional GDSiON desktop binaries are rebuilt from pinned revision
+`4460364ea6dfdd625f4e15f1ec95e06e417bf2b7` with the existing pool-lifetime
+patch and its license, rather than shipping unpatched upstream archives or
 silently removing that extension. Linux/Windows offline payload access is
 corrected. These packaging changes require fresh remote build evidence.
+
+An extracted first-build Linux archive failed on Debian's older glibc:
+the Ubuntu-latest binary required `GLIBC_2.38`. Release Linux builds now use
+Ubuntu 22.04 to lower the ABI baseline. The same archive smoke passed with
+the locally rebuilt library and the full optional music payload, isolating
+the new problem to the shipping native build baseline rather than hiding it.
 
 Release copy: [notes](../../RELEASE_NOTES_v5.7.0-beta.1.md),
 [Asset Library text](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md),

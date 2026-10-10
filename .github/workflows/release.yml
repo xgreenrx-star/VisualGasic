@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         target: [editor, template_debug, template_release]
@@ -62,8 +62,52 @@ jobs:
   build-web:
     uses: ./.github/workflows/build-web-gdextension.yml
 
+  build-music:
+    strategy:
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-22.04
+            arch: x86_64
+          - platform: windows
+            runner: windows-latest
+            arch: x86_64
+          - platform: macos
+            runner: macos-latest
+            arch: universal
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install SCons
+        run: pip install scons
+      - name: Fetch pinned music source and apply lifetime repair
+        shell: bash
+        run: |
+          git clone https://github.com/YuriSizov/gdsion vendor/gdsion
+          git -C vendor/gdsion checkout 4460364ea6dfdd625f4e15f1ec95e06e417bf2b7
+          git -C vendor/gdsion config -f .gitmodules submodule.godot-cpp.url https://github.com/godotengine/godot-cpp.git
+          git -C vendor/gdsion submodule sync
+          git -C vendor/gdsion submodule update --init --recursive
+      - name: Build patched music library
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+          JOBS: '3'
+        run: |
+          bash addons/visual_gasic/plugins/vgmusic/build_gdsion.sh template_debug template_release
+          cp vendor/gdsion/LICENSE addons/visual_gasic/plugins/vgmusic/bin/LICENSE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-music-${{ matrix.platform }}
+          path: addons/visual_gasic/plugins/vgmusic/bin/
+          if-no-files-found: error
+
   package:
-    needs: [gates, build-linux, build-windows, build-macos, build-web]
+    needs: [gates, build-linux, build-windows, build-macos, build-web, build-music]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -101,6 +145,11 @@ jobs:
         with:
           name: visualgasic-web-wasm
           path: addons/visual_gasic/bin
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-music-*
+          path: addons/visual_gasic/plugins/vgmusic/bin
+          merge-multiple: true
       - name: Install packaging and smoke dependencies
         run: |
           sudo apt-get update

@@ -31,6 +31,8 @@ if [[ ! -d "${GDSION_DIR}/godot-cpp/include" ]]; then
 fi
 
 PLATFORM="${PLATFORM:-linux}"
+ARCH_ARGS=()
+[[ -n "${ARCH:-}" ]] && ARCH_ARGS=("arch=$ARCH")
 JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 if [[ "$#" -gt 0 ]]; then
     TARGETS=("$@")
@@ -43,7 +45,7 @@ mkdir -p "${BIN_DIR}"
 cd "${GDSION_DIR}"
 for tgt in "${TARGETS[@]}"; do
     echo ">>> scons platform=${PLATFORM} target=${tgt} -j${JOBS}"
-    scons platform="${PLATFORM}" target="${tgt}" -j"${JOBS}"
+    scons platform="${PLATFORM}" target="${tgt}" "${ARCH_ARGS[@]}" -j"${JOBS}"
     shopt -s nullglob
     outputs=("${GDSION_DIR}/bin/"*"${PLATFORM}.${tgt}"*)
     if [[ "${#outputs[@]}" -eq 0 ]]; then

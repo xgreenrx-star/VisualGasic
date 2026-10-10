@@ -152,6 +152,8 @@ Forms and the legacy full-screen IDE/Form Designer remain opt-in Alpha features.
   explains setup and key storage.
 - Release packaging now builds all desktop targets, Web binaries, installers,
   offline bundles, and the Asset Library archive from the candidate revision.
+- Linux release builds use an older glibc baseline for wider compatibility.
+  Desktop music libraries are rebuilt with the existing shutdown-lifetime fix.
 
 ## More useful examples and more honest tests
 
