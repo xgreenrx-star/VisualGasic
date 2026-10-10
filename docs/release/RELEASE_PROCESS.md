@@ -342,6 +342,20 @@ Refreshed BUILD_COMMIT.txt records the package source; the original release tag
 is intentionally unchanged. Release notes explain this provenance difference
 and tell earlier downloaders to replace the addon.
 
+A second authorized download refresh includes the save formatter repair
+(`980e5196`). Package source is
+`f8675641` (use BUILD_COMMIT.txt for the full SHA).
+The inline Whenever indentation, comparison tokenization, quoted spacing,
+DATA padding and interface-signature tests pass: 215 editor checks on each
+tested engine. The graphical 4.6.1 run passed 214 checks before the final
+interface-signature assertion was added. The canonical repaired game passed
+81 gameplay checks after cold import; visual effects passed 278 checks.
+Every replacement was redownloaded from the public release and passed its
+checksum; the local Asset Library reupload ZIP matches the public asset.
+User worktree cave-spawn and effects edits were preserved separately, not
+included in the release. Local gameplay retains one fixture mismatch because
+the user moved the spawn to the top-left while the fixture expects bottom-left.
+
 As of 2026-10-08, commit `cf804a95` completed the main CI and macOS universal
 workflows successfully, including Windows and macOS Python bridge smoke.
 The earlier Web workflow passed on `1e003890`; that older result is **not**
