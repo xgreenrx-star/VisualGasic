@@ -714,6 +714,7 @@ struct SubDefinition : public ASTNode {
     Vector<Statement*> statements;
     Dictionary label_map; // Name -> Index in statements
     String source_file; // Set for Import modules so runtime errors name this file
+    int line = 0; // 1-based source line of Sub/Function, matching the tokenizer
     int end_line = 0; // Source line of End Sub / End Function (not a body statement)
     
     // Per-call perf (v6.0): tri-state cache for "does this Sub declare any

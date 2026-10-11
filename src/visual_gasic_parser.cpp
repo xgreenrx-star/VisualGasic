@@ -810,6 +810,7 @@ SubDefinition* VisualGasicParser::parse_sub() {
     }
 
     SubDefinition* sub = static_cast<SubDefinition*>(register_node(new SubDefinition()));
+    sub->line = start_token.line;
     sub->name = name;
     sub->type = is_function ? SubDefinition::TYPE_FUNCTION : SubDefinition::TYPE_SUB;
     sub->parameters = parameters;
@@ -6429,6 +6430,7 @@ RaiseStatement* VisualGasicParser::parse_raise() {
 }
 
 WheneverSectionStatement* VisualGasicParser::parse_whenever() {
+    int whenever_line = peek().line;
     advance(); // Eat "Whenever"
     
     if (!check(VisualGasicTokenizer::TOKEN_KEYWORD) || String(peek().value).nocasecmp_to("section") != 0) {
@@ -6438,6 +6440,7 @@ WheneverSectionStatement* VisualGasicParser::parse_whenever() {
     advance(); // Eat "Section"
     
     WheneverSectionStatement* stmt = static_cast<WheneverSectionStatement*>(register_node(new WheneverSectionStatement()));
+    stmt->line = whenever_line;
     
     // Check for optional "Local" scope modifier
     bool is_local = false;
@@ -6489,7 +6492,8 @@ WheneverSectionStatement* VisualGasicParser::parse_whenever() {
         
         // Parse comparison value (optional for "Changes")
         if (op != "changes") {
-            ExpressionNode* _tmp = parse_expression();
+            // Between's And is the range separator, so the bounds stop above And/Or.
+            ExpressionNode* _tmp = (op == "between") ? parse_not() : parse_expression();
             stmt->comparison_value = _tmp;
             unregister_node(_tmp);
             
@@ -6501,7 +6505,7 @@ WheneverSectionStatement* VisualGasicParser::parse_whenever() {
                 }
                 advance(); // consume "And"
                 
-                ExpressionNode* _tmp2 = parse_expression();
+                ExpressionNode* _tmp2 = parse_not();
                 stmt->comparison_value2 = _tmp2;
                 unregister_node(_tmp2);
             }
