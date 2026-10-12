@@ -2987,7 +2987,8 @@ Whenever Section AchievementSystem totalPlayTime Exceeds 3600 UnlockTimeBasedAch
 
 **4. Safety and Performance Guidelines**
 
-- **Avoid Recursion**: Never modify watched variables inside their callbacks
+- **Callback order**: An assignment inside a callback is detected immediately, including `last_value`. Its callbacks run after the current callback finishes, in the order the assignments happened. `Suspend Whenever` still applies at the moment of the assignment: a suspended section does not fire.
+- **Chain limit**: A self-triggering chain stops after 1000 callback dispatches. The runtime error is `Whenever chain limit reached in section <name>`, and `Err.Line` is the assignment that would have continued the chain.
 - **Use Local Scope**: Prefer `Whenever Section Local` for temporary monitoring
 - **Implement Debouncing**: Add timing controls for high-frequency events  
 - **Descriptive Naming**: Use clear, intention-revealing section names

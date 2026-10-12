@@ -13,6 +13,7 @@ const CONTAINS := "Dim s As String\nWhenever Section Gate s Contains \"gem\" OnG
 const EXPR := "Dim score As Integer\nWhenever Section Hot (score > 3) OnHot\nSub OnHot()\nEnd Sub\nSub Go()\n  score = 2\n  score = 4\n  score = 5\nEnd Sub\n"
 const MULTI := "Dim n As Integer\nWhenever Section Multi n Becomes 1 OnYes, OnMissing\nSub OnYes()\nEnd Sub\nSub Go()\n  n = 1\nEnd Sub\n"
 const REENTER := "Dim a As Integer\nDim b As Integer\nWhenever Section WatchA a Becomes 1 OnA\nWhenever Section WatchB b Becomes 1 OnB\nSub OnA()\n  b = 1\nEnd Sub\nSub OnB()\nEnd Sub\nSub Go()\n  a = 1\nEnd Sub\n"
+const CHAIN := "Dim x As Integer\nDim y As Integer\nWhenever Section Feed x Changes OnFeed\nWhenever Section After y Changes OnAfter\nSub OnFeed()\n  x = x + 1\nEnd Sub\nSub OnAfter()\nEnd Sub\nSub Go()\n  On Error Resume Next\n  x = 1\n  y = 1\nEnd Sub\n"
 const DEBOUNCE := "Dim score As Integer\nWhenever Section UIUpdate score Changes OnScore Debounce 1000ms\nSub OnScore()\nEnd Sub\nSub Go()\n  score = 1\n  score = 2\nEnd Sub\n"
 const DEBOUNCE_FIRST := "Dim score As Integer\nWhenever Section UIUpdate score Changes OnScore Debounce 600000ms\nSub OnScore()\nEnd Sub\nSub Go()\n  score = 1\n  score = 2\nEnd Sub\n"
 const NO_SECTION := "Dim crystals As Integer\nSub Go()\n  crystals = 3\nEnd Sub\n"
@@ -168,12 +169,27 @@ func _suite() -> void:
 
 		var reenter: Dictionary = run_entry(REENTER, "Go", ["a", "b"], force_ast)
 		check(fires(reenter, "WatchA").size() == 1, "reenter fires WatchA (%s)" % engine)
-		check(fires(reenter, "WatchB").is_empty(), "reenter does not fire WatchB (%s)" % engine)
-		var suppressed := 0
+		var watch_b: Array = fires(reenter, "WatchB")
+		check(watch_b.size() == 1, "reenter fires WatchB once (%s) %s" % [engine, str(tuples(reenter))])
+		if watch_b.size() == 1:
+			check(bool(watch_b[0].get("deferred", false)), "reenter WatchB is deferred (%s)" % engine)
+			check(bool(watch_b[0].get("location_known", false)) and int(watch_b[0].get("line", 0)) > 0, "reenter WatchB line known (%s)" % engine)
+		var reentrant := 0
 		for event in reenter.get("events", []):
-			if str(event.get("kind", "")) == "whenever_suppressed" and str(event.get("section", "")) == "WatchB" and str(event.get("reason", "")) == "reentrant":
-				suppressed += 1
-		check(suppressed == 1, "reenter suppresses WatchB (%s) %s" % [engine, str(tuples(reenter))])
+			if str(event.get("kind", "")) == "whenever_suppressed" and str(event.get("reason", "")) == "reentrant":
+				reentrant += 1
+		check(reentrant == 0, "reenter has no reentrant suppression (%s)" % engine)
+
+		var chain: Dictionary = run_entry(CHAIN, "Go", ["x", "y"], force_ast, 4096)
+		check(fires(chain, "Feed").size() == 1001, "chain limit fires Feed 1001 times (%s) got %d" % [engine, fires(chain, "Feed").size()])
+		var limited := 0
+		for event in chain.get("events", []):
+			if str(event.get("kind", "")) == "whenever_suppressed" and str(event.get("section", "")) == "Feed" and str(event.get("reason", "")) == "chain_limit":
+				limited += 1
+			if str(event.get("kind", "")) == "whenever_suppressed" and str(event.get("reason", "")) == "reentrant":
+				reentrant += 1
+		check(limited == 1, "chain limit suppression (%s) %s" % [engine, str(tuples(chain))])
+		check(fires(chain, "After").size() == 1, "assignment after chain limit fires (%s)" % engine)
 
 		var bare: Dictionary = run_entry(NO_SECTION, "Go", ["crystals"], force_ast)
 		var bare_writes := 0

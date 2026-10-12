@@ -704,8 +704,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
 #if VG_JIT_NATIVE
     // The native JIT writes module variables without the interpreter hooks.
-    // While a run is being recorded, stay on the interpreter so each store is visible.
-    if (!vg_evidence_recording() && try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
+    // While a run is being recorded, or while a Whenever callback is running,
+    // stay on the interpreter so each store is visible to evidence and Whenever.
+    if (!vg_evidence_recording() && !whenever_evaluating && try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
                          p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
         return true;
     }
@@ -916,6 +917,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         return String();
     };
 
+    // Fused local opcodes (x = x + 1) write variables[] here and never reach
+    // OP_SET_GLOBAL. Whenever detection has to happen at this write. Compiler
+    // temps stay out of it. No sections: needs_var_sync is false, one branch.
+    auto publish_synced_global = [&](const String &name) {
+        if (name.length() >= 2 && name[0] == '_' && name[1] == '_') {
+            return;
+        }
+        check_whenever_conditions(name, variables[name]);
+        check_expression_conditions();
+    };
+
     auto sync_local = [&](int slot, const Variant &value) {
         if (slot < 0 || slot >= locals.size()) {
             return;
@@ -939,6 +951,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             String name = get_local_name(slot);
             if (!name.is_empty() && !builtin_constants.has(name)) {
                 variables[name] = value;
+                publish_synced_global(name);
             }
         }
     };
@@ -1099,6 +1112,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String name = get_local_name(slot);
                 if (!name.is_empty() && !builtin_constants.has(name)) {
                     variables[name] = Variant(value);
+                    publish_synced_global(name);
                 }
             }
         } else {
@@ -1114,6 +1128,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 String name = get_local_name(slot);
                 if (!name.is_empty() && !builtin_constants.has(name)) {
                     variables[name] = Variant(value);
+                    publish_synced_global(name);
                 }
             }
         } else {
@@ -1875,6 +1890,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 		if (vm.ip >= effective_code_end) goto cleanup;
 #endif
         last_opcode_offset = vm.ip;
+        if (error_state.has_error) {
+            // A Whenever chain limit (or any raise during a store) must honor
+            // On Error Resume Next here. Leaving has_error set makes the VM
+            // return failure and the AST fallback re-runs the whole procedure.
+            if (!try_recover_error(Variant(), false)) {
+                success = false;
+                goto cleanup;
+            }
+        }
         uint8_t op = code[vm.ip++];
         current_opcode = op;
 #if VG_USE_COMPUTED_GOTO
@@ -7540,6 +7564,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 
                 whenever_sections.push_back(section);
+                // Match the AST registration path: fused local writes must
+                // publish into variables[] so Whenever can see them.
+                needs_var_sync = true;
                 break;
             }
             VG_CASE(vg_op_suspend_whenever, OP_SUSPEND_WHENEVER): {

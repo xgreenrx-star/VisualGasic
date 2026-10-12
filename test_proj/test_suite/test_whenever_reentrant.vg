@@ -1,0 +1,182 @@
+' MAX_FRAMES: 30
+Option Explicit
+
+Dim a As Integer
+Dim b As Integer
+Dim c As Integer
+Dim bFires As Integer
+Dim cFires As Integer
+Dim order As String
+
+Whenever Section WatchA a Changes OnA
+Whenever Section WatchB b Becomes 1 OnB
+Whenever Section WatchC c Changes OnC
+
+Sub OnA()
+	b = 1
+	c = 5
+End Sub
+
+Sub OnB()
+	bFires = bFires + 1
+	order = order & "B"
+End Sub
+
+Sub OnC()
+	cFires = cFires + 1
+	order = order & "C"
+End Sub
+
+Dim s As Integer
+Dim suspendB As Integer
+Dim suspendFires As Integer
+Whenever Section SuspendSrc s Changes OnSuspend
+Whenever Section SuspendWatch suspendB Changes OnSuspendWatch
+
+Sub OnSuspend()
+	Suspend Whenever SuspendWatch
+	suspendB = 1
+	Resume Whenever SuspendWatch
+End Sub
+
+Sub OnSuspendWatch()
+	suspendFires = suspendFires + 1
+End Sub
+
+Dim scoreSrc As Integer
+Dim score As Integer
+Dim hotFires As Integer
+Whenever Section ScoreSrc scoreSrc Changes OnScore
+Whenever Section Hot (score > 3) OnHot
+
+Sub OnScore()
+	score = 4
+End Sub
+
+Sub OnHot()
+	hotFires = hotFires + 1
+End Sub
+
+Dim n As Integer
+Dim m As Integer
+Dim laterFires As Integer
+Whenever Section Boom n Becomes 1 OnBoom
+Whenever Section Later m Changes OnLater
+
+Sub OnBoom()
+	Err.Raise 5, "Boom", "boom"
+End Sub
+
+Sub OnLater()
+	laterFires = laterFires + 1
+End Sub
+
+Dim x As Integer
+Dim y As Integer
+Dim yFires As Integer
+Whenever Section Feed x Changes OnFeed
+Whenever Section After y Changes OnAfter
+
+Sub OnFeed()
+	x = x + 1
+End Sub
+
+Sub OnAfter()
+	yFires = yFires + 1
+End Sub
+
+Sub _Ready()
+	a = 1
+	If bFires = 1 And cFires = 1 Then
+		Print "PASS: reentrant callbacks run"
+	Else
+		Print "FAIL: reentrant callbacks bFires=" & bFires & " cFires=" & cFires
+	End If
+	If order = "BC" Then
+		Print "PASS: fifo order"
+	Else
+		Print "FAIL: fifo order " & order
+	End If
+	b = 1
+	If bFires = 1 Then
+		Print "PASS: becomes does not refire"
+	Else
+		Print "FAIL: becomes refire bFires=" & bFires
+	End If
+	c = 0
+	If cFires = 2 Then
+		Print "PASS: later change still fires"
+	Else
+		Print "FAIL: later change cFires=" & cFires
+	End If
+
+	s = 1
+	If suspendFires = 0 Then
+		Print "PASS: suspend inside callback"
+	Else
+		Print "FAIL: suspend fired " & suspendFires
+	End If
+
+	scoreSrc = 1
+	If hotFires = 1 Then
+		Print "PASS: expression from callback"
+	Else
+		Print "FAIL: expression fires " & hotFires
+	End If
+
+	On Error Resume Next
+	n = 1
+	If Err.Number = 5 Then
+		Print "PASS: erroring callback raises"
+	Else
+		Print "FAIL: erroring callback Err=" & Err.Number
+	End If
+	Err.Clear
+	m = 1
+	If laterFires = 1 Then
+		Print "PASS: assignment after error fires"
+	Else
+		Print "FAIL: assignment after error laterFires=" & laterFires
+	End If
+
+	x = 1
+	If InStr(Err.Description, "Whenever chain limit") > 0 And InStr(Err.Description, "Feed") > 0 And Erl() = 81 Then
+		Print "PASS: chain limit"
+	Else
+		Print "FAIL: chain limit desc=" & Err.Description & " line=" & Erl()
+	End If
+	Err.Clear
+	y = 1
+	If yFires = 1 Then
+		Print "PASS: assignment after chain limit fires"
+	Else
+		Print "FAIL: after chain limit yFires=" & yFires
+	End If
+
+	ep = 1
+	If eqFires = 1 Then
+		Print "PASS: expression callback fires expression"
+	Else
+		Print "FAIL: expression callback eqFires=" & eqFires
+	End If
+	eq = 6
+	If eqFires = 1 Then
+		Print "PASS: expression does not fire late"
+	Else
+		Print "FAIL: expression late eqFires=" & eqFires
+	End If
+End Sub
+
+Dim ep As Integer
+Dim eq As Integer
+Dim eqFires As Integer
+Whenever Section EqWatch (eq > 3) OnEq
+Whenever Section EpWatch (ep > 0) OnEp
+
+Sub OnEp()
+	eq = 5
+End Sub
+
+Sub OnEq()
+	eqFires = eqFires + 1
+End Sub

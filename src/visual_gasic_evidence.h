@@ -38,7 +38,7 @@ void vg_evidence_arm_scene_quit(godot::Node *p_node);
 
 void vg_evidence_note_module_write(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const godot::String &p_name, const godot::Variant &p_old_value, const godot::Variant &p_new_value);
 
-void vg_evidence_note_fired(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const godot::String &p_section, const godot::String &p_variable, const godot::String &p_operator, const godot::Variant &p_target, const godot::Variant &p_old_value, const godot::Variant &p_new_value, int p_declared_line, const godot::Vector<godot::String> &p_callbacks);
+void vg_evidence_note_fired(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const godot::String &p_section, const godot::String &p_variable, const godot::String &p_operator, const godot::Variant &p_target, const godot::Variant &p_old_value, const godot::Variant &p_new_value, int p_declared_line, const godot::Vector<godot::String> &p_callbacks, bool p_deferred);
 
 void vg_evidence_note_suppressed(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const godot::String &p_section, const godot::String &p_variable, const godot::String &p_reason);
 

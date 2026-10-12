@@ -54,15 +54,15 @@ Exactly these kinds. Do not add others in this phase.
 | `kind` | When | Fields beyond the common ones |
 |---|---|---|
 | `watched_write` | A module-level variable in the watch list is assigned | `variable`, `old`, `new` |
-| `whenever_fired` | A section's condition is met and callbacks are about to run | `section`, `variable` (or `""` for expression sections), `operator`, `target`, `old`, `new`, `declared_line`, `callbacks: [{name, resolved}]` |
-| `whenever_suppressed` | A section matched the variable but did not run callbacks | `section`, `reason`: `debounce` or `reentrant` |
+| `whenever_fired` | A section's condition is met. Callbacks run now, or after the current callback when `deferred` is true. | `section`, `variable` (or `""` for expression sections), `operator`, `target`, `old`, `new`, `declared_line`, `callbacks: [{name, resolved}]`, `deferred` |
+| `whenever_suppressed` | A section matched the variable but did not run callbacks | `section`, `reason`: `debounce` or `chain_limit` |
 | `callback_missing` | `call_internal` returned `found = false` for a callback | `section`, `callback` |
 
 Common fields on every event: `seq`, `kind`, `engine` (`ast` or `bytecode`), `script_path`, `script_hash`, `procedure` (current Sub/Function, `""` at module level), `line`, `location_known`, `ticks_msec`.
 
 Notes the tests must lock down:
 
-- **Re-entrancy is evidence, not noise.** `check_whenever_conditions` returns early while `whenever_evaluating` is true, so a watched assignment *inside* a callback never fires other sections and does not update their `last_value`. Record one `whenever_suppressed reason=reentrant` per active section watching that variable. Do not change the existing semantics in this phase; if you believe the stale `last_value` is a bug, write it up in your report with a repro.
+- **Re-entrant detection is a deferred fire.** Issue #23 detects the condition and updates `last_value` immediately. The fire event is recorded at detection with `deferred: true`. Callbacks run after the current callback. `reason=reentrant` is not produced. A chain that dispatches more than 1000 callbacks records `whenever_suppressed reason=chain_limit`.
 - **Debounce** skips also become `whenever_suppressed reason=debounce`.
 - A `Becomes` re-assignment to the same value (6 → 6) is not a transition. It produces a `watched_write` (if watched) and no `whenever_fired`.
 - Module-initialisation assignments run under `whenever_init_suppress`. Record them as `watched_write` only if they pass through the hook; do not invent `whenever_fired` for them.
@@ -130,7 +130,7 @@ New suite `tests/test_vg_behavior_ring.gd` with small inline `.vg` fixtures (not
 - Every operator (`Changes`, `Becomes`, `Exceeds`, `Below`, `Between`, `Contains`) fires once on its transition and not on a non-transition.
 - Expression section fires on false→true only.
 - Multiple callbacks, including one missing → `callback_missing`.
-- Re-entrant assignment → `whenever_suppressed reason=reentrant`.
+- Re-entrant assignment → `whenever_fired` with `deferred: true`. A chain past 1000 callbacks → `whenever_suppressed reason=chain_limit`.
 - Debounce → `whenever_suppressed reason=debounce`.
 - Watched variable with no section (bytecode fast path).
 - Two scripts in one run share one ordered `seq` stream.

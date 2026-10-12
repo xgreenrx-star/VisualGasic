@@ -2227,33 +2227,96 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
         vg_evidence_note_module_write(script.ptr(), current_sub, debug_state.current_line, "ast", name, evidence_old, variables.get(name, val));
     }
 
-    // Check Whenever sections for this variable
+    // Check Whenever sections for this variable.
+    // No sections: one branch, then both checks return.
     check_whenever_conditions(name, val);
     
     // Check complex expression conditions
     check_expression_conditions();
 }
 
-void VisualGasicInstance::check_whenever_conditions(const String& variable_name, const Variant& new_value) {
-    // Suppress during module-level initialization to prevent false triggers
-    if (whenever_init_suppress) return;
+void VisualGasicInstance::enqueue_whenever(const WheneverSection &section, int section_index) {
+    PendingWhenever pending;
+    pending.section_index = section_index;
+    pending.callbacks = section.callback_procedures;
+    pending.assignment_line = debug_state.current_line;
+    pending.section_name = section.section_name;
+    whenever_queue.push_back(pending);
+}
 
-    // Re-entrancy guard: if we're already evaluating Whenever callbacks,
-    // don't re-enter (prevents infinite recursion when callbacks assign variables).
-    // A watched assignment inside a callback does not update other sections' last_value.
-    if (whenever_evaluating) {
-        if (vg_evidence_recording()) {
-            const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
-            for (int i = 0; i < whenever_sections.size(); i++) {
-                WheneverSection &section = whenever_sections.write[i];
-                if (!section.is_active || section.variable_name.is_empty() || section.variable_name.nocasecmp_to(variable_name) != 0) {
-                    continue;
-                }
-                vg_evidence_note_suppressed(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.variable_name, "reentrant");
-            }
-        }
+bool VisualGasicInstance::whenever_callback_failed() const {
+    // Stop the drain on any error, including one On Error Resume Next will handle.
+    // Leaving the flag set or the queue full would leak into the next assignment.
+    return error_state.has_error;
+}
+
+void VisualGasicInstance::note_whenever_chain_limit(const String &section_name, int assignment_line) {
+    const int saved_line = debug_state.current_line;
+    if (assignment_line > 0) {
+        debug_state.current_line = assignment_line;
+    }
+    if (vg_evidence_recording()) {
+        const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+        vg_evidence_note_suppressed(script.ptr(), current_sub, debug_state.current_line, engine, section_name, "", "chain_limit");
+    }
+    raise_error("Whenever chain limit reached in section " + section_name, 5);
+    debug_state.current_line = saved_line;
+}
+
+void VisualGasicInstance::dispatch_whenever_callbacks(const Vector<String> &callbacks, const String &section_name, int assignment_line) {
+    if (whenever_dispatched >= WHENEVER_CHAIN_LIMIT) {
+        note_whenever_chain_limit(section_name, assignment_line);
+        whenever_queue.clear();
         return;
     }
+    Array empty_args;
+    const int missing_line = assignment_line > 0 ? assignment_line : debug_state.current_line;
+    for (int j = 0; j < callbacks.size(); j++) {
+        if (whenever_dispatched >= WHENEVER_CHAIN_LIMIT) {
+            note_whenever_chain_limit(section_name, assignment_line);
+            whenever_queue.clear();
+            return;
+        }
+        whenever_dispatched++;
+        bool found = false;
+        call_internal(callbacks[j], empty_args, found);
+        if (!found) {
+            UtilityFunctions::print("Warning: Whenever callback procedure '", callbacks[j], "' not found");
+            if (vg_evidence_recording()) {
+                const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                vg_evidence_note_missing(script.ptr(), current_sub, missing_line, engine, section_name, callbacks[j]);
+            }
+        }
+        if (whenever_callback_failed()) {
+            whenever_queue.clear();
+            return;
+        }
+    }
+}
+
+void VisualGasicInstance::begin_whenever_outermost(const Vector<String> &callbacks, const String &section_name, int assignment_line) {
+    whenever_evaluating = true;
+    whenever_dispatched = 0;
+    dispatch_whenever_callbacks(callbacks, section_name, assignment_line);
+    while (!whenever_queue.is_empty() && !whenever_callback_failed()) {
+        PendingWhenever item = whenever_queue[0];
+        whenever_queue.remove_at(0);
+        if (whenever_dispatched >= WHENEVER_CHAIN_LIMIT) {
+            note_whenever_chain_limit(item.section_name, item.assignment_line);
+            whenever_queue.clear();
+            break;
+        }
+        dispatch_whenever_callbacks(item.callbacks, item.section_name, item.assignment_line);
+    }
+    whenever_evaluating = false;
+    whenever_queue.clear();
+    whenever_dispatched = 0;
+}
+
+void VisualGasicInstance::check_whenever_conditions(const String& variable_name, const Variant& new_value) {
+    // Suppress during module-level initialization to prevent false triggers.
+    // No sections: this one branch is the whole check.
+    if (whenever_init_suppress || whenever_sections.is_empty()) return;
 
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
@@ -2333,6 +2396,10 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
             section.last_trigger_time = current_time;
             section.has_fired = true;
 
+            const bool deferred = whenever_evaluating;
+            Vector<String> callbacks = section.callback_procedures;
+            const String section_name = section.section_name;
+            const int assignment_line = debug_state.current_line;
             if (vg_evidence_recording()) {
                 const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
                 Variant target;
@@ -2345,32 +2412,16 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
                 } else if (op_key != "changes") {
                     target = section.comparison_value;
                 }
-                vg_evidence_note_fired(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.variable_name, section.comparison_operator, target, section.last_value, new_value, section.declared_line, section.callback_procedures);
+                vg_evidence_note_fired(script.ptr(), current_sub, assignment_line, engine, section_name, section.variable_name, section.comparison_operator, target, section.last_value, new_value, section.declared_line, callbacks, deferred);
             }
             
-            // Update last value for future comparisons
+            // Update last value for future comparisons before any callback runs.
             section.last_value = new_value;
-            
-            // Set re-entrancy guard before calling callbacks
-            whenever_evaluating = true;
-            
-            // Call all callback procedures
-            Array empty_args;
-            for (int j = 0; j < section.callback_procedures.size(); j++) {
-                bool found = false;
-                call_internal(section.callback_procedures[j], empty_args, found);
-                
-                if (!found) {
-                    UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
-                    if (vg_evidence_recording()) {
-                        const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
-                        vg_evidence_note_missing(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.callback_procedures[j]);
-                    }
-                }
+            if (deferred) {
+                enqueue_whenever(section, i);
+            } else {
+                begin_whenever_outermost(callbacks, section_name, assignment_line);
             }
-            
-            // Release re-entrancy guard
-            whenever_evaluating = false;
         } else {
             // Update last value even if condition wasn't met (for "changes" tracking)
             section.last_value = new_value;
@@ -2379,11 +2430,11 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
 }
 
 void VisualGasicInstance::check_expression_conditions() {
-    // Suppress during module-level initialization
-    if (whenever_init_suppress) return;
-
-    // Re-entrancy guard: prevent infinite recursion when callbacks assign variables
-    if (whenever_evaluating) return;
+    // Suppress during module-level initialization.
+    // A condition that assigns must not re-enter this scan.
+    if (whenever_init_suppress || whenever_sections.is_empty() || whenever_expression_scanning) return;
+    whenever_expression_scanning = true;
+    Vector<PendingWhenever> outer_fires;
 
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
@@ -2415,32 +2466,34 @@ void VisualGasicInstance::check_expression_conditions() {
             section.last_trigger_time = current_time;
             section.has_fired = true;
 
+            const bool deferred = whenever_evaluating;
+            Vector<String> callbacks = section.callback_procedures;
+            const String section_name = section.section_name;
+            const int assignment_line = debug_state.current_line;
             if (vg_evidence_recording()) {
                 const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
-                vg_evidence_note_fired(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, "", section.comparison_operator, Variant(), Variant(false), Variant(true), section.declared_line, section.callback_procedures);
+                vg_evidence_note_fired(script.ptr(), current_sub, assignment_line, engine, section_name, "", section.comparison_operator, Variant(), Variant(false), Variant(true), section.declared_line, callbacks, deferred);
             }
-            
-            // Set re-entrancy guard before calling callbacks
-            whenever_evaluating = true;
-            
-            // Call all callback procedures
-            Array empty_args;
-            for (int j = 0; j < section.callback_procedures.size(); j++) {
-                bool found = false;
-                call_internal(section.callback_procedures[j], empty_args, found);
-                
-                if (!found) {
-                    UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
-                    if (vg_evidence_recording()) {
-                        const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
-                        vg_evidence_note_missing(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.callback_procedures[j]);
-                    }
-                }
+            if (deferred) {
+                enqueue_whenever(section, i);
+            } else {
+                // Dispatch after the scan ends, so assignments made by these
+                // callbacks are scanned for expression sections too.
+                PendingWhenever pending;
+                pending.section_index = i;
+                pending.callbacks = callbacks;
+                pending.assignment_line = assignment_line;
+                pending.section_name = section_name;
+                outer_fires.push_back(pending);
             }
-            
-            // Release re-entrancy guard
-            whenever_evaluating = false;
         }
+    }
+    whenever_expression_scanning = false;
+    if (!outer_fires.is_empty()) {
+        for (int k = 1; k < outer_fires.size(); k++) {
+            whenever_queue.push_back(outer_fires[k]);
+        }
+        begin_whenever_outermost(outer_fires[0].callbacks, outer_fires[0].section_name, outer_fires[0].assignment_line);
     }
 }
 

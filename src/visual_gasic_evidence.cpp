@@ -619,7 +619,7 @@ void vg_evidence_note_module_write(VisualGasicScript *p_script, VisualGasic::Sub
 	push_event_locked(event);
 }
 
-void vg_evidence_note_fired(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const String &p_section, const String &p_variable, const String &p_operator, const Variant &p_target, const Variant &p_old_value, const Variant &p_new_value, int p_declared_line, const Vector<String> &p_callbacks) {
+void vg_evidence_note_fired(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const String &p_section, const String &p_variable, const String &p_operator, const Variant &p_target, const Variant &p_old_value, const Variant &p_new_value, int p_declared_line, const Vector<String> &p_callbacks, bool p_deferred) {
 	if (!recording_and_main_thread()) {
 		return;
 	}
@@ -643,6 +643,7 @@ void vg_evidence_note_fired(VisualGasicScript *p_script, VisualGasic::SubDefinit
 	event["new"] = capture_value(p_new_value);
 	event["declared_line"] = p_declared_line;
 	event["callbacks"] = callbacks;
+	event["deferred"] = p_deferred;
 	push_event_locked(event);
 }
 

@@ -131,6 +131,17 @@ private:
 
     // Re-entrancy guard: prevent Whenever callbacks from recursively triggering more Whenever checks
     bool whenever_evaluating = false;
+    // Nested expression scans must not re-enter while a condition is being evaluated.
+    bool whenever_expression_scanning = false;
+    int whenever_dispatched = 0;
+    static constexpr int WHENEVER_CHAIN_LIMIT = 1000;
+    struct PendingWhenever {
+        int section_index = -1;
+        Vector<String> callbacks;
+        int assignment_line = 0;
+        String section_name;
+    };
+    Vector<PendingWhenever> whenever_queue;
 
     // Set only while the evidence recorder is on, so a fire can name its engine.
     bool evidence_from_bytecode = false;
@@ -444,6 +455,11 @@ private:
     void assign_variable(const String& name, Variant val);
     void check_whenever_conditions(const String& variable_name, const Variant& new_value);
     void check_expression_conditions();  // For complex expression monitoring
+    void enqueue_whenever(const WheneverSection &section, int section_index);
+    void dispatch_whenever_callbacks(const Vector<String> &callbacks, const String &section_name, int assignment_line);
+    void begin_whenever_outermost(const Vector<String> &callbacks, const String &section_name, int assignment_line);
+    void note_whenever_chain_limit(const String &section_name, int assignment_line);
+    bool whenever_callback_failed() const;
 
     void execute_statement(Statement* stmt);
     // Pause on End Sub / End Function / End Property when that line is not a body statement.

@@ -5,6 +5,7 @@ const ChainScript = preload("res://addons/visual_gasic/vg_causal_chain.gd")
 
 const UNLOCK := "Dim crystals As Integer\nDim exitOpen As Boolean\nWhenever Section UnlockExit crystals Becomes 6 OnUnlockExit\nSub OnUnlockExit()\n\tIf exitOpen Then Exit Sub\n\texitOpen = True\n\tCall PlayCue(1)\nEnd Sub\nSub PlayCue(id As Integer)\nEnd Sub\nSub Go()\n\tcrystals = 6\nEnd Sub\n"
 const REENTER := "Dim a As Integer\nDim b As Integer\nWhenever Section WatchA a Becomes 1 OnA\nWhenever Section WatchB b Becomes 1 OnB\nSub OnA()\n\tb = 1\nEnd Sub\nSub OnB()\nEnd Sub\nSub Go()\n\ta = 1\nEnd Sub\n"
+const CHAIN := "Dim x As Integer\nWhenever Section Feed x Changes OnFeed\nSub OnFeed()\n\tx = x + 1\nEnd Sub\nSub Go()\n\tOn Error Resume Next\n\tx = 1\nEnd Sub\n"
 const MULTI := "Dim n As Integer\nWhenever Section Multi n Becomes 1 OnYes, OnMissing\nSub OnYes()\nEnd Sub\nSub Go()\n\tn = 1\nEnd Sub\n"
 
 var failures := 0
@@ -81,11 +82,17 @@ func _covered(engine: String, force_ast: bool) -> void:
 	check(bool(stale_view.get("header", {}).get("stale", false)), "%s header stale" % engine)
 	var reenter: Dictionary = _play(REENTER, "Go", ["a", "b"], force_ast)
 	var reenter_view: Dictionary = view.build_view(chain.analyze(str(reenter.get("text", "")), ["WatchB"], str(reenter.get("path", ""))), reenter, "ended")
-	var suppressed: Dictionary = _row(reenter_view, "whenever", "")
-	var detail := " ".join(suppressed.get("detail", []))
-	check(detail.contains("reason=reentrant"), "%s reentrant detail, got %s" % [engine, detail])
-	check(int(reenter_view.get("header", {}).get("fire_count", -1)) == 0, "%s suppression is not a fire" % engine)
-	check(str(suppressed.get("runtime", "")) != "observed", "%s suppressed root is not observed" % engine)
+	var deferred_row: Dictionary = _row(reenter_view, "whenever", "")
+	var detail := " ".join(deferred_row.get("detail", []))
+	check(str(deferred_row.get("runtime", "")) == "observed", "%s deferred fire is observed, got %s" % [engine, str(deferred_row.get("runtime", ""))])
+	check(int(reenter_view.get("header", {}).get("fire_count", -1)) == 1, "%s deferred fire counts" % engine)
+	check(not detail.contains("reason=reentrant"), "%s deferred fire is not reentrant, got %s" % [engine, detail])
+	var chain_run: Dictionary = _play(CHAIN, "Go", ["x"], force_ast, 4096)
+	var chain_view: Dictionary = view.build_view(chain.analyze(str(chain_run.get("text", "")), ["Feed"], str(chain_run.get("path", ""))), chain_run, "ended")
+	var chain_row: Dictionary = _row(chain_view, "whenever", "")
+	var chain_detail := " ".join(chain_row.get("detail", []))
+	check(chain_detail.contains("reason=chain_limit"), "%s chain_limit detail, got %s" % [engine, chain_detail])
+	check(str(chain_row.get("runtime", "")) == "observed", "%s chain limit root stays observed" % engine)
 	var missing_run: Dictionary = _play(MULTI, "Go", ["n"], force_ast)
 	var missing_view: Dictionary = view.build_view(chain.analyze(str(missing_run.get("text", "")), ["Multi"], str(missing_run.get("path", ""))), missing_run, "ended")
 	var missing: Dictionary = _row(missing_view, "callback", "OnMissing")
@@ -121,7 +128,7 @@ func _line_of(text: String, needle: String) -> int:
 			return index + 1
 	return 0
 
-func _play(source: String, entry: String, names: Array, force_ast: bool) -> Dictionary:
+func _play(source: String, entry: String, names: Array, force_ast: bool, capacity: int = 512) -> Dictionary:
 	VisualGasicLanguage.vg_set_force_ast(force_ast)
 	VisualGasicLanguage.vg_evidence_stop()
 	var scr := VisualGasicScript.new()
@@ -132,7 +139,7 @@ func _play(source: String, entry: String, names: Array, force_ast: bool) -> Dict
 	var node := Node.new()
 	root.add_child(node)
 	node.set_script(scr)
-	VisualGasicLanguage.vg_evidence_start({"watch": names, "capacity": 512})
+	VisualGasicLanguage.vg_evidence_start({"watch": names, "capacity": capacity})
 	if err == OK:
 		node.call(entry)
 	var snap: Dictionary = VisualGasicLanguage.vg_evidence_snapshot()
