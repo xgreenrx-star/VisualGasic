@@ -150,6 +150,10 @@ void VisualGasicLanguage::vg_evidence_stop() {
     ::vg_evidence_stop();
 }
 
+bool VisualGasicLanguage::vg_evidence_autostart_decision(bool p_setting_enabled, bool p_debugger_active) {
+    return ::vg_evidence_autostart_decision(p_setting_enabled, p_debugger_active);
+}
+
 void VisualGasicLanguage::vg_set_force_ast(bool p_force) {
     vg_force_ast_override.store(p_force ? 1 : 0, std::memory_order_relaxed);
 }
@@ -297,6 +301,16 @@ static bool forward_to_gdscript_handler(const String& p_message, const Array& p_
             Array msg_data;
             msg_data.push_back(report);
             debugger->send_message("visualgasic:profiler_data", msg_data);
+        }
+        return true;
+    }
+    if (p_message == "evidence_snapshot") {
+        Dictionary snap = VisualGasicLanguage::vg_evidence_snapshot();
+        EngineDebugger* debugger = EngineDebugger::get_singleton();
+        if (debugger) {
+            Array msg_data;
+            msg_data.push_back(snap);
+            debugger->send_message("visualgasic:evidence_data", msg_data);
         }
         return true;
     }
@@ -3789,6 +3803,7 @@ void VisualGasicLanguage::_bind_methods() {
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_start", "config"), &VisualGasicLanguage::vg_evidence_start);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_snapshot"), &VisualGasicLanguage::vg_evidence_snapshot);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_stop"), &VisualGasicLanguage::vg_evidence_stop);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_autostart_decision", "setting_enabled", "debugger_active"), &VisualGasicLanguage::vg_evidence_autostart_decision);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_set_force_ast", "force"), &VisualGasicLanguage::vg_set_force_ast);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_is_force_ast"), &VisualGasicLanguage::vg_is_force_ast);
     

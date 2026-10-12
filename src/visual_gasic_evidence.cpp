@@ -4,6 +4,7 @@
 #include "visual_gasic_script.h"
 
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/engine_debugger.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/hashing_context.hpp>
 #include <godot_cpp/classes/node.hpp>
@@ -40,6 +41,7 @@ struct RingState {
 	Array scripts;
 	HashMap<String, int> script_index;
 	bool saw_worker = false;
+	bool autostarted = false;
 };
 
 RingState *g_state = nullptr;
@@ -56,6 +58,7 @@ const char *k_limit_line = "Executing line numbers come from debug_state.current
 const char *k_limit_value = "Value capture does not call user code. Strings longer than 120 characters are truncated. Arrays and dictionaries are recorded as type and size only.";
 const char *k_limit_callback = "Callback resolved flags check procedures declared in the same script.";
 const char *k_limit_worker = "Parallel worker assignments are not recorded.";
+const char *k_limit_autostart = "Recording started because vg/evidence/runtime_ring is enabled and the game was launched from the editor debugger.";
 
 int clamp_capacity(int p_capacity) {
 	if (p_capacity < 64) {
@@ -351,8 +354,8 @@ void load_project_defaults(int &r_capacity, bool &r_have_watch) {
 	if (settings == nullptr) {
 		return;
 	}
-	if (settings->has_setting("vg/evidence/runtime_rinstate().capacity")) {
-		r_capacity = (int)settings->get_setting("vg/evidence/runtime_rinstate().capacity");
+	if (settings->has_setting("vg/evidence/runtime_ring_capacity")) {
+		r_capacity = clamp_capacity((int)settings->get_setting("vg/evidence/runtime_ring_capacity"));
 	}
 	if (settings->has_setting("vg/evidence/watch")) {
 		read_watch_variant(settings->get_setting("vg/evidence/watch"));
@@ -369,6 +372,7 @@ void clear_run_locked() {
 	state().started_ticks = 0;
 	state().run_id = "";
 	state().saw_worker = false;
+	state().autostarted = false;
 }
 
 void touch_script_locked(VisualGasicScript *p_script, const char *p_engine) {
@@ -439,6 +443,9 @@ Array standing_limitations() {
 	if (state().saw_worker) {
 		notes.push_back(String(k_limit_worker));
 	}
+	if (state().autostarted) {
+		notes.push_back(String(k_limit_autostart));
+	}
 	return notes;
 }
 
@@ -454,11 +461,54 @@ bool recording_and_main_thread() {
 	return true;
 }
 
+} // namespace
+
 void vg_evidence_on_scene_quit() {
+	bool should_send = false;
+	{
+		std::lock_guard<std::mutex> lock(g_mutex);
+		should_send = g_state != nullptr && (state().recording || state().events.size() > 0);
+	}
+	if (should_send) {
+		EngineDebugger *debugger = EngineDebugger::get_singleton();
+		if (debugger != nullptr && debugger->is_active()) {
+			Dictionary snap = vg_evidence_snapshot();
+			Array msg;
+			msg.push_back(snap);
+			debugger->send_message("visualgasic:evidence_data", msg);
+		}
+	}
 	vg_evidence_stop();
 }
 
-} // namespace
+bool vg_evidence_autostart_decision(bool p_setting_enabled, bool p_debugger_active) {
+	return p_setting_enabled && p_debugger_active;
+}
+
+static bool g_autostart_done = false;
+
+void vg_evidence_maybe_autostart() {
+	if (g_autostart_done || vg_evidence_recording()) {
+		return;
+	}
+	bool setting_on = false;
+	ProjectSettings *settings = ProjectSettings::get_singleton();
+	if (settings != nullptr && settings->has_setting("vg/evidence/runtime_ring")) {
+		setting_on = (bool)settings->get_setting("vg/evidence/runtime_ring");
+	}
+	bool debugger_active = false;
+	EngineDebugger *debugger = EngineDebugger::get_singleton();
+	if (debugger != nullptr && debugger->is_active()) {
+		debugger_active = true;
+	}
+	if (!vg_evidence_autostart_decision(setting_on, debugger_active)) {
+		return;
+	}
+	g_autostart_done = true;
+	vg_evidence_start(Dictionary());
+	std::lock_guard<std::mutex> lock(g_mutex);
+	state().autostarted = true;
+}
 
 String vg_evidence_start(const Dictionary &p_config) {
 	std::lock_guard<std::mutex> lock(g_mutex);

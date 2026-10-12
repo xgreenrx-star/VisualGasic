@@ -1385,6 +1385,9 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
             // Basic usually has static declarative section.
             // Suppress Whenever triggers during module init to prevent
             // false callback fires before _Ready has run.
+            // Auto-start must run before those statements so the first
+            // module assignment is visible when the editor launched the game.
+            vg_evidence_maybe_autostart();
             whenever_init_suppress = true;
             for(int i=0; i<vs->ast_root->global_statements.size(); i++) {
                 Statement *stmt = vs->ast_root->global_statements[i];

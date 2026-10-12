@@ -126,6 +126,7 @@ public:
     static String vg_evidence_start(const Dictionary &p_config);
     static Dictionary vg_evidence_snapshot();
     static void vg_evidence_stop();
+    static bool vg_evidence_autostart_decision(bool p_setting_enabled, bool p_debugger_active);
     static void vg_set_force_ast(bool p_force);
     static bool vg_is_force_ast();
 

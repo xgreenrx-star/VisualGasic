@@ -28,6 +28,12 @@ godot::String vg_evidence_start(const godot::Dictionary &p_config);
 godot::Dictionary vg_evidence_snapshot();
 void vg_evidence_stop();
 
+// True only when the project setting is on and this process is a debugger session.
+// Headless tests call this directly; EngineDebugger cannot be faked.
+bool vg_evidence_autostart_decision(bool p_setting_enabled, bool p_debugger_active);
+// Once per process, before the first script's module init. No-op unless the decision is true.
+void vg_evidence_maybe_autostart();
+
 void vg_evidence_arm_scene_quit(godot::Node *p_node);
 
 void vg_evidence_note_module_write(VisualGasicScript *p_script, VisualGasic::SubDefinition *p_proc, int p_line, const char *p_engine, const godot::String &p_name, const godot::Variant &p_old_value, const godot::Variant &p_new_value);

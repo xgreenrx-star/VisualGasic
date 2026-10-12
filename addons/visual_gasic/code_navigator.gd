@@ -1,5 +1,5 @@
 @tool
-extends HBoxContainer
+extends VBoxContainer
 ## Code Navigator — VB6-style Object/Event dropdowns above the code editor.
 ## In VB6, this bar sits directly above the code window with two dropdowns:
 ##   [Object ▼]  |  [Event ▼]
@@ -8,6 +8,7 @@ extends HBoxContainer
 
 const VGComboBox = preload("res://addons/visual_gasic/vg_combo_box.gd")
 const VGCausalChain = preload("res://addons/visual_gasic/vg_causal_chain.gd")
+const VGEvidenceView = preload("res://addons/visual_gasic/vg_evidence_view.gd")
 const SpriteResolver = preload("res://addons/visual_gasic/vg_sprite_data_resolver.gd")
 const SpriteUx = preload("res://addons/visual_gasic/vg_sprite_data_ux.gd")
 const VectorResolver = preload("res://addons/visual_gasic/vg_vector_data_resolver.gd")
@@ -43,7 +44,30 @@ func set_cached_controls_from_scene(scene_root: Node) -> void:
 var refresh_button: Button
 var chain_button: Button
 var _separator: VSeparator
+var _nav_bar: HBoxContainer
 var _debugger_plugin: EditorDebuggerPlugin = null
+var _evidence_toggle: Button
+var _evidence_panel: VBoxContainer
+var _evidence_record: CheckButton
+var _evidence_watch: Button
+var _evidence_header: Label
+var _evidence_banner: Label
+var _evidence_columns: HBoxContainer
+var _evidence_left: VBoxContainer
+var _evidence_right: VBoxContainer
+var _evidence_prompt: Label
+var _evidence_view_model = VGEvidenceView.new()
+var _evidence_view: Dictionary = {}
+var _evidence_text := ""
+var _evidence_path := ""
+var _evidence_line := 0
+var _evidence_run: Dictionary = {}
+var _evidence_run_state := "none"
+var _evidence_recording_override := -1
+var _evidence_poll_timer: Timer
+var _evidence_caret_timer: Timer
+var _evidence_caret_key := ""
+var _evidence_record_sync := false
 var _current_break_file: String = ""
 var _current_break_line: int = 0
 
@@ -63,27 +87,29 @@ const COLOR_VECTOR := Color(0.45, 0.82, 0.95)
 
 func _init():
 	name = "Code Navigator"
-	# Horizontal bar that spans the full width above the code editor
 	size_flags_horizontal = SIZE_EXPAND_FILL
-	custom_minimum_size = Vector2(0, 30)
+	_nav_bar = HBoxContainer.new()
+	_nav_bar.size_flags_horizontal = SIZE_EXPAND_FILL
+	_nav_bar.custom_minimum_size = Vector2(0, 30)
+	add_child(_nav_bar)
 	
 	# --- Object Dropdown (left half) ---
 	object_list = VGComboBox.new()
 	object_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	object_list.custom_minimum_size.x = 120
 	object_list.item_selected.connect(_on_object_selected)
-	add_child(object_list)
+	_nav_bar.add_child(object_list)
 	
 	# --- Vertical Separator (VB6-style divider between the two dropdowns) ---
 	_separator = VSeparator.new()
-	add_child(_separator)
+	_nav_bar.add_child(_separator)
 	
 	# --- Event Dropdown (right half) ---
 	event_list = VGComboBox.new()
 	event_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	event_list.custom_minimum_size.x = 120
 	event_list.item_selected.connect(_on_event_selected)
-	add_child(event_list)
+	_nav_bar.add_child(event_list)
 	
 	# --- Refresh Button (compact icon button) ---
 	refresh_button = Button.new()
@@ -91,7 +117,7 @@ func _init():
 	refresh_button.custom_minimum_size = Vector2(28, 28)
 	refresh_button.pressed.connect(refresh_objects)
 	_set_refresh_icon()
-	add_child(refresh_button)
+	_nav_bar.add_child(refresh_button)
 	
 	# --- Causal Chain Button (compact icon button) ---
 	chain_button = Button.new()
@@ -99,7 +125,8 @@ func _init():
 	chain_button.custom_minimum_size = Vector2(28, 28)
 	chain_button.pressed.connect(_show_causal_chain)
 	_set_chain_icon()
-	add_child(chain_button)
+	_nav_bar.add_child(chain_button)
+	_build_evidence_section()
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED:
@@ -135,6 +162,7 @@ func setup(plugin: EditorPlugin):
 		set_debugger_plugin(plugin.debugger_plugin)
 	
 	refresh_objects()
+	_ensure_evidence_timers()
 
 func set_debugger_plugin(debugger: EditorDebuggerPlugin) -> void:
 	"""Connect to debugger plugin to receive break notifications."""
@@ -142,10 +170,18 @@ func set_debugger_plugin(debugger: EditorDebuggerPlugin) -> void:
 		# Disconnect old signals
 		if _debugger_plugin.has_signal("debug_break_hit") and _debugger_plugin.debug_break_hit.is_connected(_on_debug_break_hit):
 			_debugger_plugin.debug_break_hit.disconnect(_on_debug_break_hit)
+		if _debugger_plugin.has_signal("evidence_data_received") and _debugger_plugin.evidence_data_received.is_connected(_on_evidence_data):
+			_debugger_plugin.evidence_data_received.disconnect(_on_evidence_data)
+		if _debugger_plugin.has_signal("debug_session_stopped") and _debugger_plugin.debug_session_stopped.is_connected(_on_evidence_session_stopped):
+			_debugger_plugin.debug_session_stopped.disconnect(_on_evidence_session_stopped)
 	
 	_debugger_plugin = debugger
 	if _debugger_plugin and _debugger_plugin.has_signal("debug_break_hit"):
 		_debugger_plugin.debug_break_hit.connect(_on_debug_break_hit)
+	if _debugger_plugin and _debugger_plugin.has_signal("evidence_data_received") and not _debugger_plugin.evidence_data_received.is_connected(_on_evidence_data):
+		_debugger_plugin.evidence_data_received.connect(_on_evidence_data)
+	if _debugger_plugin and _debugger_plugin.has_signal("debug_session_stopped") and not _debugger_plugin.debug_session_stopped.is_connected(_on_evidence_session_stopped):
+		_debugger_plugin.debug_session_stopped.connect(_on_evidence_session_stopped)
 
 func _on_debug_break_hit(file: String, line: int) -> void:
 	"""Called when a breakpoint or step is hit - navigate to the line."""
@@ -1347,3 +1383,428 @@ func has_vg_source() -> bool:
 	if path.is_empty():
 		return false
 	return FileAccess.file_exists(path)
+
+
+func _build_evidence_section() -> void:
+	_evidence_toggle = Button.new()
+	_evidence_toggle.text = "Behavior evidence"
+	_evidence_toggle.toggle_mode = true
+	_evidence_toggle.toggled.connect(_on_evidence_toggled)
+	_nav_bar.add_child(_evidence_toggle)
+	_evidence_panel = VBoxContainer.new()
+	_evidence_panel.visible = false
+	_evidence_panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	add_child(_evidence_panel)
+	var controls := HBoxContainer.new()
+	_evidence_panel.add_child(controls)
+	_evidence_record = CheckButton.new()
+	_evidence_record.text = "Record runs"
+	_evidence_record.toggled.connect(_on_evidence_record_toggled)
+	controls.add_child(_evidence_record)
+	_evidence_watch = Button.new()
+	_evidence_watch.text = "Watch"
+	_evidence_watch.pressed.connect(_on_evidence_watch_pressed)
+	controls.add_child(_evidence_watch)
+	var refresh := Button.new()
+	refresh.text = "Refresh"
+	refresh.pressed.connect(_on_evidence_refresh_pressed)
+	controls.add_child(refresh)
+	var clear_button := Button.new()
+	clear_button.text = "Clear"
+	clear_button.pressed.connect(_on_evidence_clear_pressed)
+	controls.add_child(clear_button)
+	var copy_button := Button.new()
+	copy_button.text = "Copy"
+	copy_button.pressed.connect(_on_evidence_copy_pressed)
+	controls.add_child(copy_button)
+	_evidence_header = Label.new()
+	_evidence_header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_evidence_panel.add_child(_evidence_header)
+	_evidence_banner = Label.new()
+	_evidence_banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_evidence_panel.add_child(_evidence_banner)
+	_evidence_prompt = Label.new()
+	_evidence_prompt.text = "Put the caret on a Whenever Section line."
+	_evidence_panel.add_child(_evidence_prompt)
+	_evidence_columns = HBoxContainer.new()
+	_evidence_columns.size_flags_horizontal = SIZE_EXPAND_FILL
+	_evidence_panel.add_child(_evidence_columns)
+	_evidence_left = VBoxContainer.new()
+	_evidence_left.size_flags_horizontal = SIZE_EXPAND_FILL
+	_evidence_right = VBoxContainer.new()
+	_evidence_right.size_flags_horizontal = SIZE_EXPAND_FILL
+	_evidence_columns.add_child(_evidence_left)
+	_evidence_columns.add_child(_evidence_right)
+	_evidence_columns.visible = false
+	_sync_record_checkbox()
+
+
+func _ensure_evidence_timers() -> void:
+	if _evidence_caret_timer == null:
+		_evidence_caret_timer = Timer.new()
+		_evidence_caret_timer.wait_time = 0.25
+		_evidence_caret_timer.one_shot = true
+		_evidence_caret_timer.timeout.connect(_on_evidence_caret_timeout)
+		add_child(_evidence_caret_timer)
+	if _evidence_poll_timer == null:
+		_evidence_poll_timer = Timer.new()
+		_evidence_poll_timer.wait_time = 1.0
+		_evidence_poll_timer.timeout.connect(_on_evidence_poll_timeout)
+		add_child(_evidence_poll_timer)
+
+
+func _on_evidence_toggled(shown: bool) -> void:
+	_evidence_panel.visible = shown
+	if shown:
+		_pull_caret_source()
+		_rebuild_evidence()
+		if _evidence_caret_timer != null and _evidence_caret_timer.is_stopped():
+			_evidence_caret_timer.start()
+	elif _evidence_caret_timer != null:
+		_evidence_caret_timer.stop()
+	_sync_evidence_poll()
+
+
+func _on_evidence_caret_timeout() -> void:
+	if _evidence_panel == null or not _evidence_panel.visible:
+		return
+	if _pull_caret_source():
+		_rebuild_evidence()
+	if _evidence_caret_timer != null:
+		_evidence_caret_timer.start()
+
+
+func _pull_caret_source() -> bool:
+	if editor_plugin == null:
+		return false
+	var iface = editor_plugin.get_editor_interface()
+	if iface == null:
+		return false
+	var script_editor = iface.get_script_editor()
+	if script_editor == null:
+		return false
+	var current_editor = script_editor.get_current_editor()
+	if current_editor == null:
+		return false
+	var code_edit := current_editor.get_base_editor() as CodeEdit
+	if code_edit == null:
+		return false
+	var line := code_edit.get_caret_line() + 1
+	var text := code_edit.text
+	var path := ""
+	var current_script = script_editor.get_current_script()
+	if current_script:
+		path = str(current_script.resource_path)
+	var key := "%s\n%d\n%s" % [path, line, text]
+	if key == _evidence_caret_key:
+		return false
+	_evidence_caret_key = key
+	_evidence_text = text
+	_evidence_line = line
+	_evidence_path = path
+	return true
+
+
+func _sync_evidence_poll() -> void:
+	if _evidence_poll_timer == null:
+		return
+	var want := _evidence_panel != null and _evidence_panel.visible and _recording_enabled() and _evidence_session_active()
+	if want:
+		if _evidence_poll_timer.is_stopped():
+			_evidence_poll_timer.start()
+	else:
+		_evidence_poll_timer.stop()
+
+
+func _evidence_session_active() -> bool:
+	if _debugger_plugin == null or not _debugger_plugin.has_method("is_session_active"):
+		return false
+	return bool(_debugger_plugin.is_session_active())
+
+
+func _on_evidence_poll_timeout() -> void:
+	if not (_evidence_panel != null and _evidence_panel.visible and _recording_enabled() and _evidence_session_active()):
+		_sync_evidence_poll()
+		return
+	if _debugger_plugin != null and _debugger_plugin.has_method("request_evidence_snapshot"):
+		_debugger_plugin.request_evidence_snapshot()
+
+
+func _on_evidence_data(snapshot: Dictionary) -> void:
+	_evidence_run = snapshot.duplicate(true)
+	if _debugger_plugin != null and _debugger_plugin.has_method("get_evidence_snapshot"):
+		_evidence_run = _debugger_plugin.get_evidence_snapshot()
+	if _debugger_plugin != null and _debugger_plugin.has_method("get_evidence_run_state"):
+		_evidence_run_state = str(_debugger_plugin.get_evidence_run_state())
+	_sync_evidence_poll()
+	_rebuild_evidence()
+
+
+func _on_evidence_session_stopped() -> void:
+	if _debugger_plugin != null and _debugger_plugin.has_method("get_evidence_run_state"):
+		_evidence_run_state = str(_debugger_plugin.get_evidence_run_state())
+	_sync_evidence_poll()
+	_rebuild_evidence()
+
+
+func _recording_enabled() -> bool:
+	if _evidence_recording_override >= 0:
+		return _evidence_recording_override == 1
+	if ProjectSettings.has_setting("vg/evidence/runtime_ring"):
+		return bool(ProjectSettings.get_setting("vg/evidence/runtime_ring"))
+	return false
+
+
+func _sync_record_checkbox() -> void:
+	if _evidence_record == null:
+		return
+	_evidence_record_sync = true
+	_evidence_record.button_pressed = _recording_enabled()
+	_evidence_record_sync = false
+
+
+func _on_evidence_record_toggled(on: bool) -> void:
+	if _evidence_record_sync:
+		return
+	_evidence_recording_override = -1
+	ProjectSettings.set_setting("vg/evidence/runtime_ring", on)
+	ProjectSettings.save()
+	_sync_evidence_poll()
+	_rebuild_evidence()
+
+
+func _watch_names() -> PackedStringArray:
+	var names := PackedStringArray()
+	if not ProjectSettings.has_setting("vg/evidence/watch"):
+		return names
+	var current = ProjectSettings.get_setting("vg/evidence/watch")
+	if current is PackedStringArray:
+		return current
+	if current is Array:
+		for item in current:
+			names.append(str(item))
+	return names
+
+
+func _watch_contains(variable: String) -> bool:
+	for existing in _watch_names():
+		if existing.to_lower() == variable.to_lower():
+			return true
+	return false
+
+
+func _on_evidence_watch_pressed() -> void:
+	var variable := ""
+	if _evidence_watch != null:
+		variable = _evidence_watch.text.trim_prefix("Watch ").strip_edges()
+	if variable.is_empty() or variable == "Watch":
+		return
+	if _watch_contains(variable):
+		return
+	var names := _watch_names()
+	names.append(variable)
+	ProjectSettings.set_setting("vg/evidence/watch", names)
+	ProjectSettings.save()
+	_rebuild_evidence()
+
+
+func _on_evidence_refresh_pressed() -> void:
+	if _debugger_plugin != null and _debugger_plugin.has_method("request_evidence_snapshot"):
+		_debugger_plugin.request_evidence_snapshot()
+	if _debugger_plugin != null and _debugger_plugin.has_method("get_evidence_snapshot"):
+		_evidence_run = _debugger_plugin.get_evidence_snapshot()
+		_evidence_run_state = str(_debugger_plugin.get_evidence_run_state())
+	_pull_caret_source()
+	_rebuild_evidence()
+
+
+func _on_evidence_clear_pressed() -> void:
+	if _debugger_plugin != null and _debugger_plugin.has_method("clear_evidence_memory"):
+		_debugger_plugin.clear_evidence_memory()
+	_evidence_run = {}
+	_evidence_run_state = "none"
+	_rebuild_evidence()
+
+
+func _on_evidence_copy_pressed() -> void:
+	DisplayServer.clipboard_set(JSON.stringify(_evidence_view, "\t"))
+
+
+func _on_evidence_row_pressed(file_path: String, line: int) -> void:
+	navigate_to_line(file_path, line)
+
+
+func set_evidence_source(text: String, caret_line: int, path: String) -> void:
+	_evidence_text = text
+	_evidence_line = caret_line
+	_evidence_path = path
+	_rebuild_evidence()
+
+
+func set_evidence_run(run: Dictionary, run_state: String) -> void:
+	_evidence_run = run
+	_evidence_run_state = run_state
+	_rebuild_evidence()
+
+
+func set_evidence_recording_override(enabled: bool) -> void:
+	_evidence_recording_override = 1 if enabled else 0
+	_sync_evidence_poll()
+	_rebuild_evidence()
+
+
+func evidence_header_text() -> String:
+	if _evidence_header == null:
+		return ""
+	return _evidence_header.text
+
+
+func evidence_banner_text() -> String:
+	if _evidence_banner == null:
+		return ""
+	return _evidence_banner.text
+
+
+func evidence_prompt_text() -> String:
+	if _evidence_prompt != null and _evidence_prompt.visible:
+		return _evidence_prompt.text
+	return ""
+
+
+func evidence_row_statuses() -> Array:
+	var statuses: Array = []
+	for row in _evidence_view.get("rows", []):
+		if typeof(row) == TYPE_DICTIONARY:
+			statuses.append(str(row.get("runtime", "")))
+	return statuses
+
+
+func _whenever_section_at_line(text: String, line_number: int) -> String:
+	var lines := text.split("\n")
+	if line_number < 1 or line_number > lines.size():
+		return ""
+	var pattern := RegEx.new()
+	if pattern.compile("(?i)^Whenever\\s+Section\\s+([A-Za-z_][A-Za-z0-9_]*)") != OK:
+		return ""
+	var found := pattern.search(lines[line_number - 1].strip_edges())
+	if found == null:
+		return ""
+	return found.get_string(1)
+
+
+func _rebuild_evidence() -> void:
+	if _evidence_header == null:
+		return
+	var section := _whenever_section_at_line(_evidence_text, _evidence_line)
+	if section.is_empty():
+		_evidence_view = {}
+		_evidence_header.text = ""
+		_evidence_banner.text = ""
+		_evidence_prompt.visible = true
+		_evidence_prompt.text = "Put the caret on a Whenever Section line."
+		_evidence_columns.visible = false
+		_evidence_watch.visible = false
+		_clear_evidence_rows()
+		_sync_record_checkbox()
+		return
+	var chain = VGCausalChain.new()
+	var report: Dictionary = chain.analyze(_evidence_text, [section], _evidence_path)
+	_evidence_view = _evidence_view_model.build_view(report, _evidence_run, _evidence_run_state)
+	var header: Dictionary = _evidence_view.get("header", {})
+	_evidence_header.text = _format_evidence_header(header)
+	_evidence_banner.text = _evidence_banners(header)
+	_evidence_prompt.visible = false
+	_evidence_columns.visible = true
+	var variable := ""
+	for root in report.get("roots", []):
+		if typeof(root) == TYPE_DICTIONARY and str(root.get("kind", "")) == "whenever":
+			variable = str(root.get("variable", ""))
+			break
+	_evidence_watch.visible = not variable.is_empty() and not _watch_contains(variable)
+	_evidence_watch.text = "Watch " + variable
+	_render_evidence_rows(_evidence_view.get("rows", []))
+	_sync_record_checkbox()
+
+
+func _format_evidence_header(header: Dictionary) -> String:
+	var text := "%s  %s  fires %d  %s  dropped %d/%d" % [
+		str(header.get("section", "")),
+		str(header.get("root_status", "")),
+		int(header.get("fire_count", 0)),
+		str(header.get("run_state", "")),
+		int(header.get("dropped", 0)),
+		int(header.get("capacity", 0)),
+	]
+	if bool(header.get("stale", false)):
+		text += "  stale"
+	return text
+
+
+func _evidence_banners(header: Dictionary) -> String:
+	var lines := PackedStringArray()
+	var has_run := not _evidence_run.is_empty() and str(_evidence_run.get("schema", "")) != ""
+	if not _recording_enabled():
+		lines.append("Recording off. Enable vg/evidence/runtime_ring and run the game.")
+	elif not has_run:
+		lines.append("No run yet.")
+	if bool(header.get("stale", false)):
+		lines.append("Source changed since this run (stale).")
+	var dropped := int(header.get("dropped", 0))
+	if dropped > 0:
+		lines.append("Events dropped (%d). Raise vg/evidence/runtime_ring_capacity." % dropped)
+	return "\n".join(lines)
+
+
+func _risk_tags(risks: Array) -> String:
+	var tags := ""
+	for risk in risks:
+		var label := ""
+		match str(risk):
+			"state write":
+				label = "[write]"
+			"early-return guard":
+				label = "[guard]"
+			"external effect":
+				label = "[external]"
+			"unresolved target":
+				label = "[unresolved]"
+		if not label.is_empty() and tags.find(label) < 0:
+			tags += " " + label
+	return tags
+
+
+func _clear_evidence_rows() -> void:
+	if _evidence_left == null or _evidence_right == null:
+		return
+	for child in _evidence_left.get_children():
+		child.free()
+	for child in _evidence_right.get_children():
+		child.free()
+
+
+func _render_evidence_rows(rows: Array) -> void:
+	_clear_evidence_rows()
+	for row in rows:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		var item: Dictionary = row
+		var depth := int(item.get("depth", 0))
+		var left := Button.new()
+		left.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		left.flat = true
+		var location := ""
+		if int(item.get("line", 0)) > 0:
+			location = "  %s:%d" % [str(item.get("file", "")), int(item.get("line", 0))]
+		left.text = "  ".repeat(depth) + str(item.get("text", "")) + location + _risk_tags(item.get("risks", []))
+		left.pressed.connect(_on_evidence_row_pressed.bind(str(item.get("file", "")), int(item.get("line", 0))))
+		_evidence_left.add_child(left)
+		var right := Label.new()
+		var detail := ""
+		for fact in item.get("detail", []):
+			if not detail.is_empty():
+				detail += " "
+			detail += str(fact)
+		right.text = str(item.get("runtime", ""))
+		if not detail.is_empty():
+			right.text += "  " + detail
+		_evidence_right.add_child(right)

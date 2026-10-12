@@ -25,6 +25,7 @@ signal set_next_statement_failed(requested_line: int, actual_line: int)
 signal capture_frame_received(payload: Dictionary)
 signal ui_tree_received(tree: Array)
 signal capture_audio_received(payload: Dictionary)
+signal evidence_data_received(snapshot: Dictionary)
 
 var _active_session: EditorDebuggerSession = null
 var _pending_requests: Dictionary = {}
@@ -46,10 +47,15 @@ var _breakpoint_poll_timer: Timer = null
 var _vg_main_plugin: EditorPlugin = null
 var _shutting_down := false
 
+# Last behavior-run snapshot. Editor memory only. Never written to disk.
+var _evidence_snapshot: Dictionary = {}
+var _evidence_run_state: String = "none"
+
 func shutdown() -> void:
 	if _shutting_down:
 		return
 	_shutting_down = true
+	clear_evidence_memory()
 	var sessions := get_sessions()
 	if _active_session != null and not sessions.has(_active_session):
 		sessions.append(_active_session)
@@ -156,6 +162,16 @@ func _goto_script_line(script: Script, line: int) -> void:
 func _capture(message: String, data: Array, session_id: int) -> bool:
 	if _shutting_down or not message.begins_with("visualgasic:"):
 		return false
+
+	# Snapshot replies are stored even when this plugin has not acquired a
+	# session yet. Headless tests call _capture with no live session.
+	if message == "visualgasic:evidence_data":
+		var snap: Dictionary = {}
+		if data.size() > 0 and typeof(data[0]) == TYPE_DICTIONARY:
+			snap = data[0]
+		_store_evidence_snapshot(snap)
+		evidence_data_received.emit(snap)
+		return true
 	
 	# CRITICAL FIX: Godot 4.6 may never call _setup_session() for our plugin,
 	# but it DOES call _capture() with a valid session_id on every message.
@@ -181,6 +197,7 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 				_breakpoint_poll_timer.timeout.connect(_poll_breakpoints_from_editor)
 				EditorInterface.get_base_control().add_child(_breakpoint_poll_timer)
 			_breakpoint_poll_timer.start()
+			note_debug_session_started()
 			debug_session_started.emit()
 			_push_editor_breakpoints_to_game()
 	
@@ -359,6 +376,7 @@ func _setup_session(session_id: int) -> void:
 			print("[VG Debugger Plugin] Connected to session.stopped signal")
 		
 		# Notify listeners that a debug session is now active (enables Stop button etc.)
+		note_debug_session_started()
 		debug_session_started.emit()
 		
 		# Always push current gutters so a cleared breakpoint overwrites stale JSON
@@ -393,6 +411,7 @@ func _session_stopped(session_id: int) -> void:
 	if _breakpoint_poll_timer:
 		_breakpoint_poll_timer.stop()
 	instances_updated.emit([])
+	note_debug_session_stopped()
 	debug_session_stopped.emit()
 
 func _on_session_stopped_signal() -> void:
@@ -405,7 +424,40 @@ func _on_session_stopped_signal() -> void:
 	if _breakpoint_poll_timer:
 		_breakpoint_poll_timer.stop()
 	instances_updated.emit([])
+	note_debug_session_stopped()
 	debug_session_stopped.emit()
+
+func get_evidence_snapshot() -> Dictionary:
+	return _evidence_snapshot.duplicate(true)
+
+func get_evidence_run_state() -> String:
+	return _evidence_run_state
+
+func clear_evidence_memory() -> void:
+	_evidence_snapshot = {}
+	_evidence_run_state = "none"
+	evidence_data_received.emit({})
+
+func note_debug_session_started() -> void:
+	_evidence_snapshot = {}
+	_evidence_run_state = "running"
+	evidence_data_received.emit({})
+
+func note_debug_session_stopped() -> void:
+	if _evidence_run_state == "running":
+		_evidence_run_state = "ended"
+
+func request_evidence_snapshot() -> void:
+	if not is_session_active():
+		return
+	_active_session.send_message("visualgasic:evidence_snapshot", [])
+
+func _store_evidence_snapshot(snap: Dictionary) -> void:
+	var events: Array = snap.get("events", [])
+	var empty := str(snap.get("run_id", "")) == "" and events.is_empty()
+	if _evidence_run_state == "ended" and empty:
+		return
+	_evidence_snapshot = snap.duplicate(true)
 
 func _poll_breakpoints_from_editor() -> void:
 	"""Poll breakpoints from ScriptEditor - workaround since _breakpoint_set_in_tree 
@@ -428,6 +480,7 @@ func _poll_breakpoints_from_editor() -> void:
 			if _breakpoint_poll_timer:
 				_breakpoint_poll_timer.stop()
 			instances_updated.emit([])
+			note_debug_session_stopped()
 			debug_session_stopped.emit()
 			return
 	_push_editor_breakpoints_to_game(false)
