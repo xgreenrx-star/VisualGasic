@@ -1755,7 +1755,10 @@ func _evidence_banners(header: Dictionary) -> String:
 	var lines := PackedStringArray()
 	var has_run := not _evidence_run.is_empty() and str(_evidence_run.get("schema", "")) != ""
 	if not _recording_enabled():
-		lines.append("Recording off. Enable vg/evidence/runtime_ring and run the game.")
+		if has_run:
+			lines.append("Recording off. Showing the last captured run; new runs are not recorded.")
+		else:
+			lines.append("Recording off. Enable vg/evidence/runtime_ring and run the game.")
 	elif not has_run:
 		lines.append("No run yet.")
 	if bool(header.get("stale", false)):
@@ -1914,7 +1917,9 @@ func _render_change_card() -> void:
 		var pre: PackedByteArray = CS.read_pre_bytes(str(manifest.get("id", "")), str(entry.get("pre_file", "")))
 		before[path] = pre.get_string_from_utf8()
 		if FileAccess.file_exists(path):
-			after[path] = FileAccess.get_file_as_string(path)
+			var disk := FileAccess.get_file_as_bytes(path)
+			if CS._sha(disk) == str(entry.get("post_hash", "")):
+				after[path] = disk.get_string_from_utf8()
 	var card: Dictionary = Card.build_card(manifest, {
 		"reply": str(manifest.get("reply", "")),
 		"before": before,

@@ -54,6 +54,9 @@ func _run() -> void:
 	}
 	nav.set_evidence_run(dropped, "running")
 	check(nav.evidence_banner_text().contains("Events dropped (4). Raise vg/evidence/runtime_ring_capacity."), "dropped banner, got " + nav.evidence_banner_text())
+	nav.set_evidence_recording_override(false)
+	check(nav.evidence_banner_text().contains("Recording off. Showing the last captured run; new runs are not recorded."), "recording off with a run names the shown run, got " + nav.evidence_banner_text())
+	nav.set_evidence_recording_override(true)
 	nav.set_evidence_source(text, 1, "res://inline.vg")
 	check(nav.evidence_prompt_text() == "Put the caret on a Whenever Section line.", "caret prompt")
 	nav.free()

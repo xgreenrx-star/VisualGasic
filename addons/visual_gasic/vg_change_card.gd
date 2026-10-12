@@ -124,7 +124,9 @@ static func _files(change_set: Dictionary, inputs: Dictionary) -> Array:
 		if not bool(entry.get("binary", false)):
 			var before_text := str(before.get(path, ""))
 			var after_text := str(after.get(path, ""))
-			if before.has(path) or after.has(path):
+			if not after.has(path) and not str(entry.get("post_hash", "")).is_empty():
+				line_delta = ""
+			elif before.has(path) or after.has(path):
 				line_delta = str(_line_count(after_text) - _line_count(before_text))
 		rows.append({
 			"path": path,
@@ -162,6 +164,9 @@ static func _static_section(change_set: Dictionary, inputs: Dictionary) -> Dicti
 		if not path.ends_with(".vg"):
 			continue
 		if not before.has(path) and not after.has(path):
+			continue
+		if before.has(path) and not after.has(path) and not str(entry.get("post_hash", "")).is_empty():
+			rows.append({"section": path, "changes": "not available", "detail": "file no longer matches this change"})
 			continue
 		var before_text := str(before.get(path, ""))
 		var after_text := str(after.get(path, ""))
@@ -228,16 +233,16 @@ static func _observed(change_set: Dictionary, inputs: Dictionary) -> Array:
 	var after: Dictionary = inputs.get("after", {})
 	var snapshot: Dictionary = inputs.get("snapshot", {})
 	var rows: Array = []
-	var View = load("res://addons/visual_gasic/vg_evidence_view.gd")
-	var Chain = load("res://addons/visual_gasic/vg_causal_chain.gd")
 	for entry in change_set.get("entries", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var path := str(entry.get("path", ""))
 		if not path.ends_with(".vg"):
 			continue
-		var after_text := str(after.get(path, ""))
-		var after_hash := _sha_text(after_text)
+		# The change's own post-write hash, so a rolled-back file never credits an old run to this change.
+		var after_hash := str(entry.get("post_hash", ""))
+		if after_hash.is_empty() and after.has(path):
+			after_hash = _sha_text(str(after.get(path, "")))
 		var ran := false
 		for script in snapshot.get("scripts", []):
 			if typeof(script) != TYPE_DICTIONARY:
@@ -247,18 +252,16 @@ static func _observed(change_set: Dictionary, inputs: Dictionary) -> Array:
 		if not ran:
 			rows.append({"path": path, "text": "not run since change"})
 			continue
-		var chain = Chain.new()
-		var report: Dictionary = chain.analyze(after_text, [], path)
-		var view_model = View.new()
-		var view: Dictionary = view_model.build_view(report, snapshot, "finished")
-		var fires := int(view.get("header", {}).get("fire_count", 0))
+		var fires := 0
 		var writes := 0
 		var suppressions := 0
 		for event in snapshot.get("events", []):
 			if typeof(event) != TYPE_DICTIONARY:
 				continue
 			var kind := str(event.get("kind", ""))
-			if kind == "watched_write":
+			if kind == "whenever_fired":
+				fires += 1
+			elif kind == "watched_write":
 				writes += 1
 			elif kind == "whenever_suppressed":
 				suppressions += 1

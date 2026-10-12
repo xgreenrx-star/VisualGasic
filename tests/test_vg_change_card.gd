@@ -44,6 +44,50 @@ func check(ok: bool, what: String) -> void:
 	push_error("FAIL: " + what)
 
 
+func _sha(text: String) -> String:
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(text.to_utf8_buffer())
+	return ctx.finish().hex_encode()
+
+
+## Found in the windowed editor: after rollback the card re-read the restored file as "after",
+## credited a pre-change run to the change, and took fires from an arbitrary section.
+func _check_post_hash_and_fires(Card) -> void:
+	var entry := {"op": "write", "path": "res://Caverns.vg", "existed": true, "binary": false,
+		"pre_hash": _sha(BEFORE), "post_hash": _sha(AFTER)}
+	var change_set := {"id": "card-2", "status": "rolled_back", "entries": [entry], "not_tracked": []}
+	var events := [
+		{"kind": "whenever_fired", "section": "UnlockExit"},
+		{"kind": "watched_write", "variable": "crystals"},
+		{"kind": "watched_write", "variable": "exitOpen"},
+	]
+	var old_run := {"run_id": "run-old", "scripts": [{"path": "res://Caverns.vg", "content_hash": _sha(BEFORE)}], "events": events}
+	var rolled: Dictionary = Card.build_card(change_set, {
+		"before": {"res://Caverns.vg": BEFORE},
+		"after": {},
+		"snapshot": old_run,
+		"expectations": {"present": false},
+		"rollback_state": {"status": "rolled_back", "conflicts": []},
+	})
+	var rolled_text: String = Card.to_text(rolled)
+	check(rolled_text.find("not run since change") >= 0, "a pre-change run is not credited to the change")
+	check(rolled_text.find("run-old") < 0, "pre-change run id is not shown as observed")
+	check(rolled_text.find("file no longer matches this change") >= 0, "static says the file no longer matches")
+	check(rolled_text.find("removed") < 0, "static does not report sections as removed after rollback")
+	check(rolled_text.find("line delta") < 0, "no line delta when the file no longer matches")
+	var new_run := {"run_id": "run-new", "scripts": [{"path": "res://Caverns.vg", "content_hash": _sha(AFTER)}], "events": events}
+	var ran: Dictionary = Card.build_card(change_set, {
+		"before": {"res://Caverns.vg": BEFORE},
+		"after": {"res://Caverns.vg": AFTER},
+		"snapshot": new_run,
+		"expectations": {"present": false},
+		"rollback_state": {"status": "available", "conflicts": []},
+	})
+	var ran_text: String = Card.to_text(ran)
+	check(ran_text.find("run run-new: fires 1, writes 2, suppressions 0") >= 0, "fires counts whenever_fired events")
+
+
 func _run() -> void:
 	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
 	if Card == null:
@@ -112,6 +156,7 @@ func _run() -> void:
 	check(static_text.find("stale") >= 0, "expectation stale")
 	check(static_text.find("Form.tscn") >= 0, "not tracked file is named")
 	check(str(card.get("rollback", {}).get("status", "")) == "incomplete", "not tracked makes rollback incomplete")
+	_check_post_hash_and_fires(Card)
 	var empty: Dictionary = Card.build_card({"entries": [], "not_tracked": []}, {"expectations": {"present": false}})
 	var empty_text: String = Card.to_text(empty)
 	check(empty_text.find("No protected expectations in this project.") >= 0, "no-expectations sentence")
