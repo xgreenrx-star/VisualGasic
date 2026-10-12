@@ -91,10 +91,20 @@ func is_safe(path: String) -> Array:
 ## [ok, msg].  On success msg is "wrote N bytes to <path>"; on failure
 ## msg explains why (path rejected, FS error, etc.).
 func write(path: String, contents: String) -> Array:
+	return _commit_bytes(path, contents.to_utf8_buffer(), contents.length())
+
+
+## Write raw bytes through the same gate and audit as write().
+func write_bytes(path: String, data: PackedByteArray) -> Array:
+	return _commit_bytes(path, data, data.size())
+
+
+func _commit_bytes(path: String, data: PackedByteArray, reported: int) -> Array:
 	var safety: Array = is_safe(path)
 	if not safety[0]:
 		_audit_block(path, str(safety[1]))
 		return [false, "refused: " + str(safety[1])]
+	var token: Dictionary = _change_set().capture_write(path)
 	var dir := path.get_base_dir()
 	if not dir.is_empty():
 		var dir_abs := _resolve(dir)
@@ -107,10 +117,15 @@ func write(path: String, contents: String) -> Array:
 		var ferr := FileAccess.get_open_error()
 		_audit("ERROR", path, 0, "open WRITE -> %s" % ferr)
 		return [false, "could not open %s (err %d)" % [path, ferr]]
-	f.store_string(contents)
+	f.store_buffer(data)
 	f.close()
-	_audit("WRITE", path, contents.length(), "")
-	return [true, "wrote %d bytes to %s" % [contents.length(), path]]
+	_change_set().commit_write(token)
+	_audit("WRITE", path, reported, "")
+	return [true, "wrote %d bytes to %s" % [reported, path]]
+
+
+func _change_set():
+	return load("res://addons/visual_gasic/vg_change_set.gd")
 
 
 ## Read a UTF-8 string.  Returns "" if the file doesn't exist or can't be
@@ -152,9 +167,11 @@ func remove(path: String) -> Array:
 	if not safety[0]:
 		_audit_block(path, str(safety[1]))
 		return [false, "refused: " + str(safety[1])]
+	var token: Dictionary = _change_set().capture_remove(path)
 	var err := DirAccess.remove_absolute(_resolve(path))
 	if err != OK:
 		return [false, "could not remove %s (err %d)" % [path, err]]
+	_change_set().commit_remove(token)
 	_audit("DELETE", path, 0, "")
 	return [true, "removed %s" % path]
 
@@ -166,9 +183,14 @@ func rename_path(from_path: String, to_path: String) -> Array:
 		var why := from_block if not from_block.is_empty() else to_block
 		_audit_block(from_path, why)
 		return [false, "refused: " + why]
-	var err := DirAccess.rename_absolute(_resolve(from_path), _resolve(to_path))
+	var token: Dictionary = _change_set().capture_rename(from_path, to_path)
+	var to_abs := _resolve(to_path)
+	if FileAccess.file_exists(to_abs):
+		DirAccess.remove_absolute(to_abs)
+	var err := DirAccess.rename_absolute(_resolve(from_path), to_abs)
 	if err != OK:
 		return [false, "could not rename %s (err %d)" % [from_path, err]]
+	_change_set().commit_rename(token)
 	return [true, "renamed %s" % from_path]
 
 
@@ -177,9 +199,14 @@ func copy_onto(from_path: String, to_path: String) -> Array:
 	if not blocked.is_empty():
 		_audit_block(to_path, blocked)
 		return [false, "refused: " + blocked]
+	var token: Dictionary = _change_set().capture_write(to_path)
+	var dest_dir := to_path.get_base_dir()
+	if not dest_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(_resolve(dest_dir))
 	var err := DirAccess.copy_absolute(_resolve(from_path), _resolve(to_path))
 	if err != OK:
 		return [false, "could not copy onto %s (err %d)" % [to_path, err]]
+	_change_set().commit_write(token)
 	return [true, "copied onto %s" % to_path]
 
 
@@ -225,7 +252,8 @@ func _expectation_refusal_if_protected(path: String) -> String:
 func _is_guard_script(abs_path: String) -> bool:
 	var folded := abs_path.replace("\\", "/").to_lower()
 	return folded.ends_with("/addons/visual_gasic/vg_expectations.gd") \
-		or folded.ends_with("/addons/visual_gasic/vg_ai_safe_write.gd")
+		or folded.ends_with("/addons/visual_gasic/vg_ai_safe_write.gd") \
+		or folded.ends_with("/addons/visual_gasic/vg_change_set.gd")
 
 
 func _resolve(path: String) -> String:

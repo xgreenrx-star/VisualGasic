@@ -3202,16 +3202,30 @@ func _write_vg_file(vg_path: String, src: String) -> bool:
 	if why.find("outside project root") < 0:
 		_safe_writer.write(vg_path, src)
 		return false
+	var CS = _change_set()
+	var opened := false
+	if CS != null and not CS.has_open():
+		CS.begin("Raw fallback", "raw_fallback", _accumulated_response)
+		opened = true
+	var token: Dictionary = CS.capture_write(vg_path) if CS != null else {}
 	var dir := vg_path.get_base_dir()
 	if not dir.is_empty():
 		DirAccess.make_dir_recursive_absolute(dir)
 	if Exp != null and Exp.new().blocks_ai_write(vg_path):
+		if opened and CS != null:
+			CS.end()
 		return false
 	var f := FileAccess.open(vg_path, FileAccess.WRITE)
 	if f == null:
+		if opened and CS != null:
+			CS.end()
 		return false
 	f.store_string(src)
 	f.close()
+	if CS != null:
+		CS.commit_write(token)
+	if opened and CS != null:
+		CS.end()
 	return true
 
 
@@ -3570,7 +3584,64 @@ func _append_ai(text: String) -> void:
 	_output.append_text(formatted + "\n")
 
 func _append_system(text: String) -> void:
+	if _output == null:
+		return
 	_output.append_text("[color=gray]%s[/color]" % text)
+
+
+func _change_set():
+	return load("res://addons/visual_gasic/vg_change_set.gd")
+
+
+func _change_begin(label: String, source: String) -> void:
+	var CS = _change_set()
+	if CS != null and not CS.has_open():
+		CS.begin(label, source, _accumulated_response)
+
+
+func _change_end() -> void:
+	var CS = _change_set()
+	if CS != null and CS.has_open():
+		CS.end()
+
+
+func _append_review_change_link() -> void:
+	if _output == null:
+		return
+	_output.append_text("[url=vg_change_card]Review change[/url]\n")
+	_ensure_meta_handler()
+
+
+func _focus_change_card() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var base := EditorInterface.get_base_control()
+	if base == null or not base.has_meta("visual_gasic_plugin_instance"):
+		return
+	var plugin = base.get_meta("visual_gasic_plugin_instance")
+	if plugin == null or not plugin.has_method("_get_navigator"):
+		return
+	var nav = plugin._get_navigator()
+	if nav != null and nav.has_method("show_last_change"):
+		nav.show_last_change()
+
+
+func _track_form_save(designer, tscn_path: String, use_as: bool) -> void:
+	var CS = _change_set()
+	var vg_side := tscn_path.get_basename() + ".vg"
+	var tscn_token: Dictionary = {}
+	var vg_token: Dictionary = {}
+	if CS != null:
+		tscn_token = CS.capture_write(tscn_path)
+		vg_token = CS.capture_write(vg_side)
+	if use_as and designer != null and designer.has_method("save_form_as"):
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(tscn_path.get_base_dir()))
+		designer.save_form_as(tscn_path)
+	elif designer != null and designer.has_method("save_form"):
+		designer.save_form()
+	if CS != null:
+		CS.commit_write(tscn_token)
+		CS.commit_write(vg_token)
 
 
 func _append_provider_status_once(chat_key: String, text: String) -> void:
@@ -3775,6 +3846,14 @@ func _on_undo_last_edit() -> void:
 	if _undo_stack.is_empty():
 		_append_system("[color=yellow]Nothing to undo.[/color]\n")
 		return
+	var peek: Dictionary = _undo_stack.back()
+	var CS = _change_set()
+	if CS != null:
+		for fe in peek.get("files", []):
+			var refusal := str(CS.legacy_file_undo_refusal(str(fe.get("path", ""))))
+			if not refusal.is_empty():
+				_append_system(refusal + "\n")
+				return
 	_ensure_agent_helpers()
 	if _safe_writer == null:
 		_append_system("[color=#ff8888]Safe-writer unavailable — cannot undo.[/color]\n")
@@ -3887,11 +3966,14 @@ func _on_make_test() -> void:
 	var paths: Array = []
 	for t in spec.get("tests", []):
 		paths.append(str(t.get("path", "")))
+	_change_begin("Make test", "make_test")
 	_undo_capture("Make test", paths)
 	var result: Dictionary = _test_spec.apply(spec, _safe_writer, false)
 	_last_apply_result = result
 	_last_apply_kind = "Test"
 	_print_apply_result("Test", result)
+	_change_end()
+	_append_review_change_link()
 	# Run the first test through the existing run-session.
 	if not result.get("written", []).is_empty():
 		var first: String = str(result["written"][0])
@@ -3914,11 +3996,14 @@ func _on_make_wnodes() -> void:
 		return
 	_safe_writer.set_root("res://")
 	var target_path := str(spec.get("path", ""))
+	_change_begin("Make WN graph", "wn_graph")
 	_undo_capture("Make WN graph", [target_path] if not target_path.is_empty() else [])
 	var result: Dictionary = _wnodes_spec.apply(spec, _safe_writer, false)
 	_last_apply_result = result
 	_last_apply_kind = "WN"
 	_print_apply_result("Working Nodes", result)
+	_change_end()
+	_append_review_change_link()
 	# Auto-open the new graph in the Working Nodes editor if a path was written.
 	var written: Array = result.get("written", [])
 	if not written.is_empty():
@@ -5360,22 +5445,18 @@ func _on_make_this() -> void:
 	# Reject a degenerate existing path (no basename).
 	if not tscn_path.is_empty() and tscn_path.get_file().get_basename().is_empty():
 		tscn_path = ""
+	var save_as := tscn_path.is_empty()
 	if tscn_path.is_empty():
 		if not _ai_vg_path.is_empty():
 			tscn_path = _ai_vg_path.get_basename() + ".tscn"
 		else:
 			tscn_path = "res://%s.tscn" % form_name
-		if designer.has_method("save_form_as"):
-			# Ensure the destination dir exists.
-			DirAccess.make_dir_recursive_absolute(
-				ProjectSettings.globalize_path(tscn_path.get_base_dir()))
-			designer.save_form_as(tscn_path)
-	else:
-		if designer.has_method("save_form"):
-			designer.save_form()
+	_change_begin("Make this", "make_code")
+	_track_form_save(designer, tscn_path, save_as)
 
 	# Validate the save actually produced a .tscn — abort loudly if not.
 	if not FileAccess.file_exists(tscn_path):
+		_change_end()
 		_append_system("[color=#ff8888]⚠ Could not save form to %s — aborting code write to avoid orphaned files.[/color]\n" % tscn_path)
 		return
 
@@ -5548,6 +5629,8 @@ func _on_make_this() -> void:
 	if is_instance_valid(_run_btn):
 		_run_btn.disabled = false
 		_run_btn.tooltip_text = "Run %s" % tscn_path.get_file()
+	_change_end()
+	_append_review_change_link()
 
 
 ## Apply a multi-file vg-code-spec block.  Shows a diff dialog first, then
@@ -5564,6 +5647,7 @@ func _on_make_code() -> void:
 	if not spec.is_empty():
 		var plan: Array = _code_spec.plan(spec, _safe_writer)
 		_show_diff_dialog(plan, func() -> void:
+			_change_begin("Make code", "make_code")
 			var paths_pre: Array = []
 			for item in plan:
 				paths_pre.append(str(item.get("path", "")))
@@ -5574,6 +5658,8 @@ func _on_make_code() -> void:
 			_last_apply_kind = "Code"
 			_last_apply_diff_summary = _summarise_diff(result.get("written", []), snap_local)
 			_print_apply_result("Code", result)
+			_change_end()
+			_append_review_change_link()
 			if Engine.is_editor_hint():
 				EditorInterface.get_resource_filesystem().scan()
 			_reload_first_vg_in_editor(spec)
@@ -5588,6 +5674,7 @@ func _on_make_code() -> void:
 		for item in pplan:
 			reload_shim["files"].append({"path": item["path"]})
 		_show_diff_dialog(pplan, func() -> void:
+			_change_begin("Make patch", "make_patch")
 			var paths_pre: Array = []
 			for item in pplan:
 				paths_pre.append(str(item.get("path", "")))
@@ -5598,6 +5685,8 @@ func _on_make_code() -> void:
 			_last_apply_kind = "Patch"
 			_last_apply_diff_summary = _summarise_diff(result.get("written", []), snap_local)
 			_print_apply_result("Patch", result)
+			_change_end()
+			_append_review_change_link()
 			if Engine.is_editor_hint():
 				EditorInterface.get_resource_filesystem().scan()
 			_reload_first_vg_in_editor(reload_shim)
@@ -5844,6 +5933,7 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 		"form_spec":   _form_spec,
 		"designer":    designer,
 	}
+	_change_begin("Make project", "make_project")
 	var result: Dictionary = _project_spec.apply(spec, helpers)
 	const ProjectSynth = preload("res://addons/visual_gasic/vg_ai_project_synth.gd")
 	var fin: Dictionary = ProjectSynth.finalize_project(spec, root, _last_user_prompt)
@@ -5853,6 +5943,8 @@ func _execute_project_scaffold(spec: Dictionary) -> void:
 	_safe_writer.set_root("res://")
 	_print_project_result(result)
 	_emit_scaffold_telemetry(spec, root, iterate_mode, spec_bytes, result)
+	_change_end()
+	_append_review_change_link()
 	if not result.get("ok", false):
 		_append_system(
 			"[color=#ff8888]Scaffold incomplete — not promoting main scene. %s[/color]\n"
@@ -7297,6 +7389,7 @@ func _apply_mutations(muts: Array) -> Array[String]:
 			return [refused]
 	var written_tscn_paths: Array[String] = []
 	var results: Array[String] = []
+	_change_begin("Tool approval", "tool_approval")
 	for m in muts:
 		var line: String = _ai_tools.execute_mutation_with_undo(m)
 		results.append(line)
@@ -7309,6 +7402,8 @@ func _apply_mutations(muts: Array) -> Array[String]:
 		# Track build_form so _refresh_action_buttons skips the duplicate apply.
 		elif str(m.get("tool", "")) == "build_form":
 			_build_form_ran_this_turn = true
+	_change_end()
+	_append_review_change_link()
 	_render_action_bar()
 	# Auto-open any form scenes the AI just wrote — deferred so the files are
 	# fully flushed to disk before the Form Designer tries to load them.
@@ -7364,6 +7459,8 @@ func _on_ai_meta_clicked(meta: Variant) -> void:
 			if _ai_tools != null:
 				_ai_tools.clear_undo()
 			_output.append_text("[color=#66aa66]  \u2713 Edits kept (undo history cleared).[/color]\n")
+		"vg_change_card":
+			_focus_change_card()
 		"ai_toggle_approvals":
 			# 3-way cycle: ask -> bypass -> read_only -> ask
 			match _approval_mode:

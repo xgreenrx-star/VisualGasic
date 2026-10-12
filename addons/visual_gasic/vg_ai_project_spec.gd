@@ -453,8 +453,7 @@ func apply(spec: Dictionary, helpers: Dictionary) -> Dictionary:
 			result["skipped"].append({"path": tscn, "reason": str(safety[1])})
 			continue
 		_mkdir_for_path(tscn)
-		if designer.has_method("save_form_as"):
-			designer.save_form_as(tscn)
+		_save_form_tracked(designer, tscn)
 		if _tscn_is_valid(tscn):
 			if tscn not in result["written"]:
 				result["written"].append(tscn)
@@ -498,7 +497,7 @@ func apply(spec: Dictionary, helpers: Dictionary) -> Dictionary:
 			if not safety_resave[0]:
 				continue
 			_mkdir_for_path(tscn_resave)
-			designer.save_form_as(tscn_resave)
+			_save_form_tracked(designer, tscn_resave)
 			if _tscn_is_valid(tscn_resave) and tscn_resave not in result["written"]:
 				result["written"].append(tscn_resave)
 
@@ -781,7 +780,25 @@ func _tscn_is_valid(path: String) -> bool:
 
 func _mkdir_for_path(res_path: String) -> void:
 	var dir_abs := ProjectSettings.globalize_path(res_path.get_base_dir())
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	if CS != null:
+		CS.note_created_dirs(dir_abs)
 	DirAccess.make_dir_recursive_absolute(dir_abs)
+
+
+func _save_form_tracked(designer, tscn_path: String) -> void:
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var vg_side := tscn_path.get_basename() + ".vg"
+	var tscn_token: Dictionary = {}
+	var vg_token: Dictionary = {}
+	if CS != null:
+		tscn_token = CS.capture_write(tscn_path)
+		vg_token = CS.capture_write(vg_side)
+	if designer != null and designer.has_method("save_form_as"):
+		designer.save_form_as(tscn_path)
+	if CS != null:
+		CS.commit_write(tscn_token)
+		CS.commit_write(vg_token)
 
 
 func _minimal_form_tscn(vg_path: String, form_name: String) -> String:
@@ -833,8 +850,7 @@ func _create_missing_tscn(vg_path: String, tscn_path: String, root: String, safe
 			and designer != null and is_instance_valid(designer):
 		form_spec.apply_to_designer(form_specs_by_name[fn_lower], designer)
 		_mkdir_for_path(tscn_path)
-		if designer.has_method("save_form_as"):
-			designer.save_form_as(tscn_path)
+		_save_form_tracked(designer, tscn_path)
 		if _tscn_is_valid(tscn_path):
 			_repair_tscn_file(tscn_path, root, safe_writer, result)
 			return

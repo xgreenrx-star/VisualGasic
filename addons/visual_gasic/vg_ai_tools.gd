@@ -264,12 +264,19 @@ func has_tool_calls(text: String) -> bool:
 ## Execute a mutating call AND record an undo snapshot first.  Used by
 ## vg_ai_help.gd after the user approves (or in bypass mode).
 func execute_mutation_with_undo(d: Dictionary) -> String:
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var opened := false
+	if CS != null and not CS.has_open():
+		CS.begin("Tool approval", "tool_approval", "")
+		opened = true
 	var snap := _snapshot_for(d)
 	var msg := execute_tool(d)
 	if not snap.is_empty():
 		_undo_stack.append(snap)
 		while _undo_stack.size() > UNDO_MAX:
 			_undo_stack.pop_front()
+	if opened and CS != null:
+		CS.end()
 	return msg
 
 
@@ -278,7 +285,10 @@ func undo_last() -> String:
 	if _undo_stack.is_empty():
 		return "[undo] nothing to undo"
 	var s: Dictionary = _undo_stack.pop_back()
-	return _apply_snapshot(s)
+	var msg := _apply_snapshot(s)
+	if msg.begins_with("Refused:"):
+		_undo_stack.append(s)
+	return msg
 
 
 ## Pop and revert ALL queued undo snapshots, newest first.  Returns a
@@ -289,7 +299,10 @@ func undo_all() -> String:
 	var n := _undo_stack.size()
 	while not _undo_stack.is_empty():
 		var s: Dictionary = _undo_stack.pop_back()
-		_apply_snapshot(s)
+		var msg := _apply_snapshot(s)
+		if msg.begins_with("Refused:"):
+			_undo_stack.append(s)
+			return msg
 	return "[undo-all] reverted %d edit(s)" % n
 
 
@@ -307,6 +320,11 @@ func _apply_snapshot(s: Dictionary) -> String:
 			var path := str(s.get("path", ""))
 			if path.is_empty():
 				return "[undo] no path"
+			var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+			if CS != null:
+				var refusal := str(CS.legacy_file_undo_refusal(path))
+				if not refusal.is_empty():
+					return refusal
 			var safe = _get_safe()
 			if safe == null:
 				return "[undo] safe-write unavailable"
@@ -1566,7 +1584,7 @@ func _do_restore_addon(d: Dictionary) -> String:
 	for rel in zr.get_files():
 		var rel_s := str(rel).replace("\\", "/")
 		var folded := rel_s.to_lower()
-		if folded.ends_with("/vg_expectations.gd") or folded.ends_with("/vg_ai_safe_write.gd") or folded == "vg_expectations.gd" or folded == "vg_ai_safe_write.gd":
+		if folded.ends_with("/vg_expectations.gd") or folded.ends_with("/vg_ai_safe_write.gd") or folded.ends_with("/vg_change_set.gd") or folded == "vg_expectations.gd" or folded == "vg_ai_safe_write.gd" or folded == "vg_change_set.gd":
 			blocked = "protected expectation: res://%s. The expectation can only be changed with propose_expectation_change." % rel_s
 			break
 		if safe != null:
@@ -1577,18 +1595,32 @@ func _do_restore_addon(d: Dictionary) -> String:
 	if not blocked.is_empty():
 		zr.close()
 		return "[restore_addon] REFUSED: %s" % blocked
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var opened := false
+	if CS != null and not CS.has_open():
+		CS.begin("Restore addon", "restore_addon", "")
+		opened = true
+	var addon_was_open := false
+	if safe != null:
+		addon_was_open = bool(safe._addon_writes_allowed)
+		safe.allow_addon_writes(true)
 	for rel in zr.get_files():
-		var data := zr.read_file(rel)
-		var dest := "res://" + rel
-		var dest_abs := ProjectSettings.globalize_path(dest)
-		var ddir := dest_abs.get_base_dir()
-		DirAccess.make_dir_recursive_absolute(ddir)
-		var f := FileAccess.open(dest, FileAccess.WRITE)
-		if f:
-			f.store_buffer(data)
-			f.close()
+		var data: PackedByteArray = zr.read_file(rel)
+		var dest := "res://" + str(rel)
+		if safe == null:
+			if CS != null:
+				CS.note_untracked(dest, "safe writer unavailable")
+			continue
+		var wrote: Array = safe.write_bytes(dest, data)
+		if bool(wrote[0]):
 			count += 1
+		elif CS != null:
+			CS.note_untracked(dest, str(wrote[1]))
+	if safe != null:
+		safe.allow_addon_writes(addon_was_open)
 	zr.close()
+	if opened and CS != null:
+		CS.end()
 	# Rescan so Godot picks up the restored scripts.
 	if Engine.is_editor_hint():
 		var efs = EditorInterface.get_resource_filesystem()

@@ -70,6 +70,16 @@ var _evidence_caret_key := ""
 var _evidence_record_sync := false
 var _current_break_file: String = ""
 var _current_break_line: int = 0
+var _change_toggle: Button
+var _change_panel: VBoxContainer
+var _change_body: RichTextLabel
+var _change_pos := -1
+var _change_queue: Array = []
+var _change_results: Array = []
+var _change_running := ""
+var _change_timer: Timer
+var _change_confirm: ConfirmationDialog
+var _change_text := ""
 
 # Standard VB6 Events
 const EVENTS_COMMON = ["Click", "DblClick", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
@@ -127,6 +137,7 @@ func _init():
 	_set_chain_icon()
 	_nav_bar.add_child(chain_button)
 	_build_evidence_section()
+	_build_change_section()
 
 func _notification(what):
 	if what == NOTIFICATION_THEME_CHANGED:
@@ -1808,3 +1819,252 @@ func _render_evidence_rows(rows: Array) -> void:
 		if not detail.is_empty():
 			right.text += "  " + detail
 		_evidence_right.add_child(right)
+
+
+func _build_change_section() -> void:
+	_change_toggle = Button.new()
+	_change_toggle.text = "Last change"
+	_change_toggle.toggle_mode = true
+	_change_toggle.pressed.connect(_on_change_toggled)
+	add_child(_change_toggle)
+	_change_panel = VBoxContainer.new()
+	_change_panel.visible = false
+	add_child(_change_panel)
+	var buttons := HBoxContainer.new()
+	_change_panel.add_child(buttons)
+	var run_btn := Button.new()
+	run_btn.text = "Run checks"
+	run_btn.pressed.connect(_on_change_run_checks)
+	buttons.add_child(run_btn)
+	var back_btn := Button.new()
+	back_btn.text = "Roll back"
+	back_btn.pressed.connect(_on_change_rollback_pressed)
+	buttons.add_child(back_btn)
+	var copy_btn := Button.new()
+	copy_btn.text = "Copy"
+	copy_btn.pressed.connect(_on_change_copy)
+	buttons.add_child(copy_btn)
+	var prev_btn := Button.new()
+	prev_btn.text = "Previous"
+	prev_btn.pressed.connect(_on_change_previous)
+	buttons.add_child(prev_btn)
+	var next_btn := Button.new()
+	next_btn.text = "Next"
+	next_btn.pressed.connect(_on_change_next)
+	buttons.add_child(next_btn)
+	_change_body = RichTextLabel.new()
+	_change_body.fit_content = true
+	_change_body.scroll_active = false
+	_change_body.selection_enabled = true
+	_change_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_change_body.custom_minimum_size = Vector2(0, 80)
+	_change_panel.add_child(_change_body)
+	_change_timer = Timer.new()
+	_change_timer.wait_time = 0.1
+	_change_timer.timeout.connect(_on_change_poll)
+	add_child(_change_timer)
+	_change_confirm = ConfirmationDialog.new()
+	_change_confirm.ok_button_text = "Roll back"
+	_change_confirm.confirmed.connect(_on_change_rollback_confirmed)
+	add_child(_change_confirm)
+
+
+func show_last_change() -> void:
+	visible = true
+	if _change_toggle != null:
+		_change_toggle.button_pressed = true
+	if _change_panel != null:
+		_change_panel.visible = true
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var ids: Array = CS.list_ids() if CS != null else []
+	_change_pos = ids.size() - 1
+	_render_change_card()
+
+
+func _on_change_toggled(on: bool) -> void:
+	if _change_panel != null:
+		_change_panel.visible = on
+	if on:
+		_render_change_card()
+
+
+func _render_change_card() -> void:
+	if _change_body == null:
+		return
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
+	if CS == null or Card == null:
+		return
+	var ids: Array = CS.list_ids()
+	if ids.is_empty():
+		_change_text = "No change set is stored."
+		_change_body.text = _change_text
+		return
+	if _change_pos < 0 or _change_pos >= ids.size():
+		_change_pos = ids.size() - 1
+	var manifest: Dictionary = CS.read_set(str(ids[_change_pos]))
+	var before := {}
+	var after := {}
+	for entry in manifest.get("entries", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var path := str(entry.get("path", ""))
+		if not path.ends_with(".vg") or bool(entry.get("binary", false)):
+			continue
+		var pre: PackedByteArray = CS.read_pre_bytes(str(manifest.get("id", "")), str(entry.get("pre_file", "")))
+		before[path] = pre.get_string_from_utf8()
+		if FileAccess.file_exists(path):
+			after[path] = FileAccess.get_file_as_string(path)
+	var card: Dictionary = Card.build_card(manifest, {
+		"reply": str(manifest.get("reply", "")),
+		"before": before,
+		"after": after,
+		"snapshot": _evidence_run,
+		"expectations": _change_expectations(manifest),
+		"rollback_state": CS.preview(str(manifest.get("id", ""))),
+	})
+	_change_text = Card.to_text(card)
+	_change_body.text = _change_text
+
+
+func _change_expectations(manifest: Dictionary) -> Dictionary:
+	var Runner = load("res://addons/visual_gasic/vg_change_runner.gd")
+	var project := ProjectSettings.globalize_path("res://")
+	var scenarios: Array = Runner.scenario_rows(project) if Runner != null else []
+	if scenarios.is_empty():
+		return {"present": false, "rows": []}
+	var ended := int(manifest.get("ended_unix", 0))
+	var rows: Array = []
+	for scenario in scenarios:
+		var path := str(scenario.get("path", ""))
+		var abs := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+		var status := "not run"
+		var finished := 0
+		if path.get_file() == _change_running:
+			status = "running"
+		for result in _change_results:
+			if str(result.get("name", "")) == path.get_file():
+				status = str(result.get("status", "incomplete"))
+				finished = int(result.get("finished_unix", 0))
+		if finished > 0 and ended > 0 and finished < ended:
+			status = "stale"
+		var current := ""
+		if FileAccess.file_exists(abs):
+			current = _change_sha(FileAccess.get_file_as_bytes(abs))
+		rows.append({
+			"name": path.get_file(),
+			"status": status,
+			"note": str(scenario.get("note", "")),
+			"manifest_hash": str(scenario.get("sha256", "")),
+			"scenario_hash": current,
+			"finished_unix": finished,
+		})
+	return {"present": true, "rows": rows}
+
+
+func _on_change_run_checks() -> void:
+	var Runner = load("res://addons/visual_gasic/vg_change_runner.gd")
+	if Runner == null:
+		return
+	var project := ProjectSettings.globalize_path("res://")
+	_change_queue = Runner.scenario_rows(project)
+	_change_results = []
+	_change_running = ""
+	_start_next_scenario()
+
+
+func _start_next_scenario() -> void:
+	var Runner = load("res://addons/visual_gasic/vg_change_runner.gd")
+	if _change_queue.is_empty():
+		_change_running = ""
+		if _change_timer != null:
+			_change_timer.stop()
+		_render_change_card()
+		return
+	var row: Dictionary = _change_queue.pop_front()
+	var path := str(row.get("path", ""))
+	var script := ProjectSettings.globalize_path(path) if path.begins_with("res://") else path
+	_change_running = path.get_file()
+	_render_change_card()
+	var project := ProjectSettings.globalize_path("res://")
+	if Runner == null or not Runner.start(project, script, ""):
+		_change_results.append({
+			"name": path.get_file(),
+			"status": "incomplete",
+			"finished_unix": int(Time.get_unix_time_from_system()),
+		})
+		_change_running = ""
+		_start_next_scenario()
+		return
+	if _change_timer != null:
+		_change_timer.start()
+
+
+func _on_change_poll() -> void:
+	var Runner = load("res://addons/visual_gasic/vg_change_runner.gd")
+	if Runner == null:
+		return
+	var result: Dictionary = Runner.poll()
+	if not bool(result.get("done", false)):
+		return
+	result["finished_unix"] = int(Time.get_unix_time_from_system())
+	_change_results.append(result)
+	_change_running = ""
+	_start_next_scenario()
+
+
+func _on_change_rollback_pressed() -> void:
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	if CS == null or _change_confirm == null:
+		return
+	var ids: Array = CS.list_ids()
+	if ids.is_empty() or _change_pos < 0 or _change_pos >= ids.size():
+		return
+	var manifest: Dictionary = CS.read_set(str(ids[_change_pos]))
+	var lines := "Roll back these paths?\n"
+	for entry in manifest.get("entries", []):
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		lines += str(entry.get("path", entry.get("to", ""))) + "\n"
+	for row in manifest.get("not_tracked", []):
+		if typeof(row) == TYPE_DICTIONARY:
+			lines += str(row.get("path", "")) + " (not tracked)\n"
+	_change_confirm.dialog_text = lines
+	_change_confirm.popup_centered()
+
+
+func _on_change_rollback_confirmed() -> void:
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	if CS == null:
+		return
+	var ids: Array = CS.list_ids()
+	if _change_pos < 0 or _change_pos >= ids.size():
+		return
+	CS.rollback(str(ids[_change_pos]))
+	_render_change_card()
+
+
+func _on_change_copy() -> void:
+	if DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		DisplayServer.clipboard_set(_change_text)
+
+
+func _on_change_previous() -> void:
+	_change_pos = maxi(_change_pos - 1, 0)
+	_render_change_card()
+
+
+func _on_change_next() -> void:
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var ids: Array = CS.list_ids() if CS != null else []
+	if ids.is_empty():
+		return
+	_change_pos = mini(_change_pos + 1, ids.size() - 1)
+	_render_change_card()
+
+
+func _change_sha(data: PackedByteArray) -> String:
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(data)
+	return ctx.finish().hex_encode()
