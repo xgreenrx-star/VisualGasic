@@ -23,7 +23,7 @@ if [[ -e "$OUT_DIR/project" || -L "$OUT_DIR/project" ]]; then
 fi
 project="$OUT_DIR/project"
 mkdir -p "$project"
-cp "$ROOT/samples/showcases/crystal_caverns/"{project.godot,main.tscn,Caverns.vg,regression.gd,editor_regression.gd} "$project/"
+cp "$ROOT/samples/showcases/crystal_caverns/"{project.godot,main.tscn,Caverns.vg,regression.gd,editor_regression.gd,save_format_scenario.gd,evidence_exit_scenario.gd,vg_expectations.json} "$project/"
 cp "$ROOT/samples/showcases/crystal_caverns/"{VisualEffects.vg,SoundEffects.vg,effects_regression.gd,sound_regression.gd,regression_lifecycle.gd} "$project/"
 cp -a "$ROOT/samples/showcases/crystal_caverns/shaders" "$project/"
 prepare_editor_regression_addon "$project"

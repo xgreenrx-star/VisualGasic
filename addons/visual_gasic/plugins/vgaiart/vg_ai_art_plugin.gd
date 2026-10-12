@@ -1383,6 +1383,10 @@ func _save_image_to(path: String) -> void:
 		var d := DirAccess.open("res://")
 		if d:
 			d.make_dir_recursive(dir.trim_prefix("res://"))
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(path):
+		_status_label.modulate = Color(0.9, 0.5, 0.5)
+		_status_label.text = "protected expectation: %s" % path
+		return
 	var err := _last_image.save_png(path)
 	if err != OK:
 		_status_label.modulate = Color(0.9, 0.5, 0.5)
@@ -1412,6 +1416,8 @@ func _save_image_to(path: String) -> void:
 			"preset": _last_preset_name,
 		}
 		var json_path := path.get_basename() + ".json"
+		if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(json_path):
+			return
 		var jf := FileAccess.open(json_path, FileAccess.WRITE)
 		if jf:
 			jf.store_string(JSON.stringify(meta, "  "))

@@ -212,6 +212,16 @@ static func _get_tool_defs() -> Array:
 			"required": [],
 			"_vg_name": "play.stop",
 		},
+		{
+			"name": "propose_expectation_change",
+			"description": "Propose a new body for a protected expectation. Writes nothing until the user accepts the separate confirmation dialog.",
+			"properties": {
+				"path": {"type": "string", "description": "Protected res:// path"},
+				"contents": {"type": "string", "description": "Proposed file contents"},
+				"reason": {"type": "string", "description": "Why the expectation should change"},
+			},
+			"required": ["path", "contents", "reason"],
+		},
 	]
 
 

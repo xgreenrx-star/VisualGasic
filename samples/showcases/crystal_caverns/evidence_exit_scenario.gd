@@ -88,6 +88,16 @@ func _run() -> void:
 		push_error("FAIL: VisualGasicLanguage is not loaded")
 		quit(1)
 		return
+	var expectation_status := "unprotected"
+	var Exp = load("res://addons/visual_gasic/vg_expectations.gd")
+	if Exp != null:
+		var exp = Exp.new()
+		exp.load_manifest(ProjectSettings.globalize_path("res://"))
+		expectation_status = str(exp.status("res://evidence_exit_scenario.gd"))
+	if expectation_status != "accepted" and expectation_status != "unprotected":
+		print("[EXPECTATION MODIFIED] evidence_exit_scenario.gd")
+		quit(1)
+		return
 	var chain = load("res://addons/visual_gasic/vg_causal_chain.gd").new()
 	for force_ast in [false, true]:
 		var engine := "ast" if force_ast else "bytecode"
@@ -146,8 +156,8 @@ func _run() -> void:
 		check(wiped.get("events", []).is_empty(), "%s stop leaves no events" % engine)
 
 	if failures == 0:
-		print("[PASS] evidence_exit_scenario.gd (%d/%d, both engines)" % [checks, checks])
+		print("[PASS] evidence_exit_scenario.gd (%d/%d, both engines) expectation=%s" % [checks, checks, expectation_status])
 		quit(0)
 	else:
-		print("[FAIL] evidence_exit_scenario.gd (%d failures / %d checks)" % [failures, checks])
+		print("[FAIL] evidence_exit_scenario.gd (%d failures / %d checks) expectation=%s" % [failures, checks, expectation_status])
 		quit(1)

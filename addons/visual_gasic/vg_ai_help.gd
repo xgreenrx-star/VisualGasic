@@ -3071,12 +3071,7 @@ func _try_synthesize_click_counter(form_name: String, form_spec: Dictionary, vg_
 	if low.find("click") < 0 and low.find("count") < 0 and low.find("times") < 0 and low.find("number") < 0:
 		return false
 	var src := _build_click_counter_vg(form_name, btn_name, lbl_name, lbl_initial)
-	var wf := FileAccess.open(vg_path, FileAccess.WRITE)
-	if wf == null:
-		return false
-	wf.store_string(src)
-	wf.close()
-	return true
+	return _write_vg_file(vg_path, src)
 
 
 func _try_synthesize_form_handlers(form_name: String, form_spec: Dictionary, vg_path: String, user_prompt: String) -> bool:
@@ -3190,11 +3185,33 @@ func _try_synthesize_textbox_validation(form_name: String, form_spec: Dictionary
 
 
 func _write_vg_file(vg_path: String, src: String) -> bool:
-	var wf := FileAccess.open(vg_path, FileAccess.WRITE)
-	if wf == null:
+	_ensure_agent_helpers()
+	var Exp = load("res://addons/visual_gasic/vg_expectations.gd")
+	if Exp != null and Exp.new().blocks_ai_write(vg_path):
 		return false
-	wf.store_string(src)
-	wf.close()
+	if _safe_writer == null:
+		var Safe = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+		if Safe == null:
+			return false
+		_safe_writer = Safe.new()
+	var safety: Array = _safe_writer.is_safe(vg_path)
+	if bool(safety[0]):
+		var res: Array = _safe_writer.write(vg_path, src)
+		return bool(res[0])
+	var why := str(safety[1])
+	if why.find("outside project root") < 0:
+		_safe_writer.write(vg_path, src)
+		return false
+	var dir := vg_path.get_base_dir()
+	if not dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(dir)
+	if Exp != null and Exp.new().blocks_ai_write(vg_path):
+		return false
+	var f := FileAccess.open(vg_path, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(src)
+	f.close()
 	return true
 
 
@@ -3773,11 +3790,11 @@ func _on_undo_last_edit() -> void:
 			continue
 		# Empty `old` means the file didn't exist before the edit — delete it.
 		if old.is_empty() and FileAccess.file_exists(p):
-			var abs := ProjectSettings.globalize_path(p)
-			if DirAccess.remove_absolute(abs) == OK:
+			var removed: Array = _safe_writer.remove(p)
+			if removed[0]:
 				restored.append(p + " (deleted)")
 			else:
-				failed.append(p)
+				failed.append("%s — %s" % [p, str(removed[1])])
 			continue
 		var res: Array = _safe_writer.write(p, old)
 		if res[0]:
@@ -5466,12 +5483,7 @@ func _on_make_this() -> void:
 						src = src.replace(_vb6_name + "\t", _real_name + "\t")
 						src = src.replace(_vb6_name + "\n", _real_name + "\n")
 
-					var dir_abs := ProjectSettings.globalize_path(vg_path.get_base_dir())
-					DirAccess.make_dir_recursive_absolute(dir_abs)
-					var wf := FileAccess.open(vg_path, FileAccess.WRITE)
-					if wf:
-						wf.store_string(src)
-						wf.close()
+					if _write_vg_file(vg_path, src):
 						vg_written = true
 					else:
 						_append_system("[color=#ffaa66]⚠ Could not write %s[/color]\n" % vg_path)
@@ -5503,10 +5515,7 @@ func _on_make_this() -> void:
 			if not contents.ends_with("\n"):
 				contents += "\n"
 			contents += stubs
-			var wf := FileAccess.open(vg_path, FileAccess.WRITE)
-			if wf:
-				wf.store_string(contents)
-				wf.close()
+			if _write_vg_file(vg_path, contents):
 				code_written = true
 			else:
 				_append_system("[color=#ffaa66]⚠ Could not write %s — form was built but stubs were not added.[/color]\n" % vg_path)
@@ -6359,6 +6368,9 @@ func _transcript_open() -> void:
 	var ts := Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "T")
 	_agent_graph_session_ts = ts
 	var path := "user://vg_agent_runs/%s.ndjson" % ts
+	var exp = load("res://addons/visual_gasic/vg_expectations.gd").new()
+	if exp.blocks_ai_write(path):
+		return
 	_agent_transcript_file = FileAccess.open(path, FileAccess.WRITE)
 	if _agent_transcript_file:
 		_transcript_append({
@@ -6758,6 +6770,27 @@ func _ai_tool_run_handler(tool_name: String, _args: Dictionary) -> String:
 		_:
 			return "[%s] unhandled run-loop tool" % tool_name
 
+func _show_expectation_proposals(plan: Dictionary) -> void:
+	var proposals: Array = plan.get("expectations", [])
+	if proposals.is_empty():
+		return
+	var Exp = load("res://addons/visual_gasic/vg_expectations.gd")
+	if Exp == null:
+		return
+	var exp = Exp.new()
+	var Dlg = load("res://addons/visual_gasic/vg_ai_diff_dialog.gd")
+	if Dlg == null:
+		return
+	for proposal in exp.pending():
+		var dlg = Dlg.new()
+		dlg.configure_expectation(proposal, exp)
+		if Engine.is_editor_hint():
+			EditorInterface.popup_dialog_centered(dlg, Vector2i(720, 540))
+		else:
+			add_child(dlg)
+			dlg.popup_centered()
+
+
 func _dispatch_tool_calls(reply_text: String) -> void:
 	if not _cursor_vg_tools_allowed():
 		if reply_text.find("```vg-tool") >= 0:
@@ -6776,6 +6809,7 @@ func _dispatch_tool_calls(reply_text: String) -> void:
 	_ai_tools.set_whitelist(wl)
 
 	var plan: Dictionary = _ai_tools.plan_response(reply_text)
+	_show_expectation_proposals(plan)
 	_transcript_log_tool_plan(plan)
 	_set_work_phase("tools")
 	var ro_logs: Array = plan.get("logs", [])
@@ -7255,6 +7289,12 @@ func _ask_apply_mutations(muts: Array) -> void:
 		dlg.popup_centered(MUT_DLG_SIZE)
 
 func _apply_mutations(muts: Array) -> Array[String]:
+	if _ai_tools != null and _ai_tools.has_method("mutation_batch_block"):
+		var block: String = _ai_tools.mutation_batch_block(muts)
+		if not block.is_empty():
+			var refused := "[batch] REFUSED: " + block
+			_output.append_text("[color=#cc6666]  %s[/color]\n" % _escape_bbcode(refused))
+			return [refused]
 	var written_tscn_paths: Array[String] = []
 	var results: Array[String] = []
 	for m in muts:

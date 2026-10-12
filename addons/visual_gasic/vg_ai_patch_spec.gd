@@ -145,6 +145,11 @@ func apply(spec: Dictionary, safe_writer: Object, _strict: bool = false) -> Dict
 		return result
 	var the_plan := plan(spec, safe_writer)
 	for item in the_plan:
+		if not item["safe"] and str(item.get("safe_reason", "")).begins_with("protected expectation:"):
+			result["ok"] = false
+			result["summary"] = "refused: %s" % str(item.get("safe_reason", ""))
+			return result
+	for item in the_plan:
 		var p: String = item["path"]
 		if not item["safe"]:
 			result["skipped"].append({"path": p, "reason": item["safe_reason"]})

@@ -420,6 +420,9 @@ func _tool_write_file(args: Dictionary) -> Dictionary:
 	if not _is_safe_res_path(path):
 		return {"error": "Unsafe or non-res:// path: " + path}
 	var contents: String = str(args.get("contents", ""))
+	var exp = load("res://addons/visual_gasic/vg_expectations.gd").new()
+	if exp.blocks_ai_write(path):
+		return {"error": exp.refusal_for(path)}
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return {"error": "Cannot write: " + path}
@@ -576,6 +579,9 @@ func _tool_apply_diff(args: Dictionary) -> Dictionary:
 	if hunks_applied == 0:
 		return {"error": "No @@ hunks found in diff"}
 	# Write back.
+	var exp = load("res://addons/visual_gasic/vg_expectations.gd").new()
+	if exp.blocks_ai_write(path):
+		return {"error": exp.refusal_for(path)}
 	var fw := FileAccess.open(path, FileAccess.WRITE)
 	if fw == null:
 		return {"error": "Cannot write: " + path}

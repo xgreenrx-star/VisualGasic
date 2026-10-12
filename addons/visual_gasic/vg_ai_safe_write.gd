@@ -67,6 +67,11 @@ func is_safe(path: String) -> Array:
 	var abs := _resolve(path)
 	if abs.is_empty():
 		return [false, "could not resolve path: %s" % path]
+	if _is_guard_script(abs):
+		return [false, _expectation_refusal(path)]
+	var blocked := _expectation_refusal_if_protected(path)
+	if not blocked.is_empty():
+		return [false, blocked]
 	# Reject parent traversal even if the resolved form happens to land
 	# inside root (defence in depth).
 	if path.find("..") != -1:
@@ -88,7 +93,7 @@ func is_safe(path: String) -> Array:
 func write(path: String, contents: String) -> Array:
 	var safety: Array = is_safe(path)
 	if not safety[0]:
-		_audit("BLOCK", path, 0, str(safety[1]))
+		_audit_block(path, str(safety[1]))
 		return [false, "refused: " + str(safety[1])]
 	var dir := path.get_base_dir()
 	if not dir.is_empty():
@@ -140,6 +145,87 @@ func tail_audit(max_lines: int = 50) -> String:
 
 
 # --- internals -------------------------------------------------------------
+
+
+func remove(path: String) -> Array:
+	var safety: Array = is_safe(path)
+	if not safety[0]:
+		_audit_block(path, str(safety[1]))
+		return [false, "refused: " + str(safety[1])]
+	var err := DirAccess.remove_absolute(_resolve(path))
+	if err != OK:
+		return [false, "could not remove %s (err %d)" % [path, err]]
+	_audit("DELETE", path, 0, "")
+	return [true, "removed %s" % path]
+
+
+func rename_path(from_path: String, to_path: String) -> Array:
+	var from_block := _mutation_block(from_path)
+	var to_block := _mutation_block(to_path)
+	if not from_block.is_empty() or not to_block.is_empty():
+		var why := from_block if not from_block.is_empty() else to_block
+		_audit_block(from_path, why)
+		return [false, "refused: " + why]
+	var err := DirAccess.rename_absolute(_resolve(from_path), _resolve(to_path))
+	if err != OK:
+		return [false, "could not rename %s (err %d)" % [from_path, err]]
+	return [true, "renamed %s" % from_path]
+
+
+func copy_onto(from_path: String, to_path: String) -> Array:
+	var blocked := _mutation_block(to_path)
+	if not blocked.is_empty():
+		_audit_block(to_path, blocked)
+		return [false, "refused: " + blocked]
+	var err := DirAccess.copy_absolute(_resolve(from_path), _resolve(to_path))
+	if err != OK:
+		return [false, "could not copy onto %s (err %d)" % [to_path, err]]
+	return [true, "copied onto %s" % to_path]
+
+
+func first_protected_reason(paths: Array) -> String:
+	for entry in paths:
+		var why := _mutation_block(str(entry))
+		if why.begins_with("protected expectation:"):
+			return why
+	return ""
+
+
+func audit(action: String, path: String, size: int, note: String) -> void:
+	_audit(action, path, size, note)
+
+
+func _mutation_block(path: String) -> String:
+	var safety: Array = is_safe(path)
+	if safety[0]:
+		return ""
+	return str(safety[1])
+
+
+func _audit_block(path: String, why: String) -> void:
+	var action := "BLOCK_EXPECTATION" if why.begins_with("protected expectation:") else "BLOCK"
+	_audit(action, path, 0, why)
+
+
+func _expectation_refusal(path: String) -> String:
+	return "protected expectation: %s. The expectation can only be changed with propose_expectation_change." % path
+
+
+func _expectation_refusal_if_protected(path: String) -> String:
+	var Exp = load("res://addons/visual_gasic/vg_expectations.gd")
+	if Exp == null:
+		return ""
+	var exp = Exp.new()
+	exp.ensure(ProjectSettings.globalize_path("res://"))
+	if exp.is_protected(path):
+		return exp.refusal_for(path)
+	return ""
+
+
+func _is_guard_script(abs_path: String) -> bool:
+	var folded := abs_path.replace("\\", "/").to_lower()
+	return folded.ends_with("/addons/visual_gasic/vg_expectations.gd") \
+		or folded.ends_with("/addons/visual_gasic/vg_ai_safe_write.gd")
 
 
 func _resolve(path: String) -> String:

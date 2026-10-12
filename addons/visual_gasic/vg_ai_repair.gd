@@ -516,6 +516,14 @@ func _render_diff() -> void:
 func _esc(text: String) -> String:
 	return text.replace("[", "[lb]").replace("]", "[rb]")
 
+
+static func write_patched_file(path: String, contents: String) -> Array:
+	var Safe = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	if Safe == null:
+		return [false, "safe-write unavailable"]
+	var safe = Safe.new()
+	return safe.write(path, contents)
+
 # ─── Apply / Retry / Cancel ─────────────────────────────────────────────────
 
 func _on_apply() -> void:
@@ -524,13 +532,11 @@ func _on_apply() -> void:
 		_show_error("Patch failed to apply (line numbers no longer valid).")
 		return
 
-	# Write the file back.
-	var f := FileAccess.open(_file_path, FileAccess.WRITE)
-	if f == null:
-		_show_error("Cannot write %s — file is read-only?" % _file_path)
+	# Write the file back through SafeWrite so a protected expectation cannot be patched.
+	var repaired: Array = write_patched_file(_file_path, "\n".join(new_lines))
+	if not repaired[0]:
+		_show_error(str(repaired[1]))
 		return
-	f.store_string("\n".join(new_lines))
-	f.close()
 
 	var delta: int = new_lines.size() - _file_lines.size()
 	repair_applied.emit(_file_path, delta)

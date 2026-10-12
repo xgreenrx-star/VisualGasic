@@ -328,6 +328,18 @@ func project_root(spec: Dictionary) -> String:
 	return "res://%s/%s/" % [subdir, name]
 
 
+func _collect_spec_paths(node, into: Array) -> void:
+	if typeof(node) == TYPE_DICTIONARY:
+		for key in node.keys():
+			if str(key) == "path":
+				into.append(str(node[key]))
+			else:
+				_collect_spec_paths(node[key], into)
+	elif typeof(node) == TYPE_ARRAY:
+		for child in node:
+			_collect_spec_paths(child, into)
+
+
 ## Normalize a file path for scaffolding under `root`.
 ##   • bare relative ("Form1.vg") -> root + path
 ##   • already inside root -> unchanged
@@ -390,6 +402,15 @@ func apply(spec: Dictionary, helpers: Dictionary) -> Dictionary:
 	# Caller is responsible for restoring the previous root after apply().
 	safe_writer.set_root(root)
 	result["root"] = root
+	var planned_paths: Array = []
+	_collect_spec_paths(spec, planned_paths)
+	planned_paths.append(root + "project.json")
+	planned_paths.append(root + "README.md")
+	if safe_writer.has_method("first_protected_reason"):
+		var blocked: String = safe_writer.first_protected_reason(planned_paths)
+		if not blocked.is_empty():
+			result["summary"] = "refused: " + blocked
+			return result
 
 	# 1. Write manifest (main_scene rebased to scaffold root).
 	var main_scene_raw := str(spec.get("main_scene", ""))

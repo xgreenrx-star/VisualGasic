@@ -1,0 +1,23 @@
+{
+	"protected": [
+		{
+			"accepted_at": "2026-10-12T13:44:59",
+			"note": "exit opens at 6 crystals",
+			"path": "res://evidence_exit_scenario.gd",
+			"sha256": "c6a2d787dd1ef60ce88d38c521d750876bf58f81dd3d8c99f4d5bbb45eb2766a"
+		},
+		{
+			"accepted_at": "2026-10-12T13:44:59",
+			"note": "formatter save matches the fixed expectation",
+			"path": "res://save_format_scenario.gd",
+			"sha256": "a6be11aff4721492f2f2bade401e268cbd63fe5fdd60d674a6de4c63bf7ff67f"
+		},
+		{
+			"accepted_at": "2026-10-12T13:44:59",
+			"note": "manifest",
+			"path": "res://vg_expectations.json",
+			"sha256": "d1da2051a969e70a4ace5e2939ae801e4f95dc36f5b950e5396a6775ed1894c2"
+		}
+	],
+	"schema": "vg-expectations/1"
+}

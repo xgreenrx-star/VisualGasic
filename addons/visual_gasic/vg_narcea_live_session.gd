@@ -146,6 +146,8 @@ func format_for_narcea(max_entries: int = 3, include_ui_tree: bool = true) -> St
 func _spill_png(entry_id: int, png_bytes: PackedByteArray) -> String:
 	DirAccess.make_dir_recursive_absolute(SPILL_DIR)
 	var path := SPILL_DIR.path_join("frame_%d.png" % entry_id)
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(path):
+		return ""
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return ""
@@ -157,7 +159,8 @@ func _spill_png(entry_id: int, png_bytes: PackedByteArray) -> String:
 func _drop_entry_files(entry: Dictionary) -> void:
 	var path := str(entry.get("png_path", ""))
 	if not path.is_empty() and FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+		if not load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(path):
+			DirAccess.remove_absolute(path)
 
 
 func _remove_spill_dir() -> void:
@@ -173,6 +176,10 @@ func _remove_spill_dir() -> void:
 			break
 		if name == "." or name == "..":
 			continue
-		DirAccess.remove_absolute(SPILL_DIR.path_join(name))
+		var spill_path := SPILL_DIR.path_join(name)
+		if not load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(spill_path):
+			DirAccess.remove_absolute(spill_path)
 	dir.list_dir_end()
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(SPILL_DIR):
+		return
 	DirAccess.remove_absolute(SPILL_DIR)

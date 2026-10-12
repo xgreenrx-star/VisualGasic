@@ -837,6 +837,10 @@ func _stt_whisper_cpp(wav_bytes: PackedByteArray) -> void:
 	var temp_dir := OS.get_user_data_dir().path_join("vg_voice_tmp")
 	DirAccess.make_dir_recursive_absolute(temp_dir)
 	var wav_path := temp_dir.path_join("rec.wav")
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(wav_path):
+		_is_transcribing = false
+		transcription_failed.emit("protected expectation: %s" % wav_path)
+		return
 	var f := FileAccess.open(wav_path, FileAccess.WRITE)
 	if f == null:
 		_is_transcribing = false
@@ -847,6 +851,10 @@ func _stt_whisper_cpp(wav_bytes: PackedByteArray) -> void:
 
 	# whisper.cpp -m <model> -f <wav> -otxt -of <prefix>
 	var prefix := temp_dir.path_join("rec")
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(prefix + ".txt"):
+		_is_transcribing = false
+		transcription_failed.emit("protected expectation: %s" % (prefix + ".txt"))
+		return
 	var args := PackedStringArray([
 		"-m", whisper_cpp_model,
 		"-f", wav_path,
@@ -911,6 +919,10 @@ func _on_tts_response(result: int, code: int, _headers: PackedStringArray, body:
 	var temp := OS.get_user_data_dir().path_join("vg_voice_tmp")
 	DirAccess.make_dir_recursive_absolute(temp)
 	var mp3_path := temp.path_join("reply.mp3")
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(mp3_path):
+		_is_speaking = false
+		speech_failed.emit("protected expectation: %s" % mp3_path)
+		return
 	var f := FileAccess.open(mp3_path, FileAccess.WRITE)
 	if f == null:
 		_is_speaking = false
@@ -950,6 +962,9 @@ func _speak_piper(text: String) -> void:
 	DirAccess.make_dir_recursive_absolute(temp)
 	var txt_path := temp.path_join("reply.txt")
 	var wav_path := temp.path_join("reply.wav")
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(txt_path) or load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(wav_path):
+		speech_failed.emit("protected expectation: %s" % wav_path)
+		return
 	var f := FileAccess.open(txt_path, FileAccess.WRITE)
 	if f == null:
 		speech_failed.emit("Cannot write temp TTS input.")

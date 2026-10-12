@@ -114,6 +114,15 @@ func apply(spec: Dictionary, safe_writer: Object, strict: bool = false) -> Dicti
 		result["summary"] = "Safe-writer unavailable."
 		return result
 	var files: Array = spec.get("files", [])
+	var planned_paths: Array = []
+	for entry in files:
+		if typeof(entry) == TYPE_DICTIONARY:
+			planned_paths.append(str(entry.get("path", "")))
+	if safe_writer.has_method("first_protected_reason"):
+		var blocked: String = safe_writer.first_protected_reason(planned_paths)
+		if not blocked.is_empty():
+			result["summary"] = "refused: " + blocked
+			return result
 	for entry in files:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue

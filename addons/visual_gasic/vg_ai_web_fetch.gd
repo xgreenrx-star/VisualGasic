@@ -122,7 +122,10 @@ static func write_cache(url: String, title: String, text: String) -> void:
 	var dir := "user://vg_references"
 	if not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)
-	var f := FileAccess.open(cache_path_for_url(url), FileAccess.WRITE)
+	var cache_path := cache_path_for_url(url)
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(cache_path):
+		return
+	var f := FileAccess.open(cache_path, FileAccess.WRITE)
 	if f:
 		f.store_string("URL: %s\nTitle: %s\n\n%s" % [url, title, text])
 		f.close()

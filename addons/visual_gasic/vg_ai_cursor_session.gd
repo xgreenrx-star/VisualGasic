@@ -282,6 +282,9 @@ func start(request: Dictionary) -> bool:
 	_request_path = OS.get_cache_dir().path_join(
 		"vg_cursor_req_%d.json" % Time.get_ticks_msec()
 	)
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(_request_path):
+		stream_error.emit("protected expectation: %s" % _request_path)
+		return false
 	var f := FileAccess.open(_request_path, FileAccess.WRITE)
 	if f == null:
 		stream_error.emit("Could not write Cursor request file.")
@@ -396,5 +399,6 @@ func _cleanup_request_file() -> void:
 	if _request_path.is_empty():
 		return
 	if FileAccess.file_exists(_request_path):
-		DirAccess.remove_absolute(_request_path)
+		if not load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(_request_path):
+			DirAccess.remove_absolute(_request_path)
 	_request_path = ""

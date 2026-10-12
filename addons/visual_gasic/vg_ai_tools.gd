@@ -104,12 +104,14 @@ const MUTATING_TOOLS := [
 	# IDE self-modification tools
 	"backup_addon", "enable_addon_editing", "disable_addon_editing",
 	"restore_addon",
+	"propose_expectation_change",
 ]
 
 const UNDO_MAX := 32
 
 # Lazy-loaded SafeWrite singleton instance.
 var _safe = null
+var _test_buffer_path := ""
 
 # Tier-3 run-loop handler.  vg_ai_help.gd registers a Callable here so
 # the play.run_main / play.stop tools can drive the same run session the
@@ -176,6 +178,7 @@ func plan_response(text: String) -> Dictionary:
 	var plan: Dictionary = {
 		"read_only":        [],
 		"mutating":         [],
+		"expectations":     [],
 		"logs":             [],
 		"unfenced_attempt": false,
 		"blocked":          [],   # calls dropped by whitelist or budget
@@ -191,6 +194,11 @@ func plan_response(text: String) -> Dictionary:
 		# Persona whitelist gate
 		if not _whitelist.is_empty() and not _whitelist.has(tname):
 			plan["blocked"].append({"call": c, "reason": "persona disallows '%s'" % tname})
+			continue
+		if tname == "propose_expectation_change":
+			var proposed: String = execute_tool(c)
+			plan["expectations"].append(c)
+			plan["logs"].append(proposed)
 			continue
 		if READ_ONLY_TOOLS.has(tname):
 			var msg: String = execute_tool(c)
@@ -305,14 +313,10 @@ func _apply_snapshot(s: Dictionary) -> String:
 			if bool(s.get("existed", true)):
 				var res: Array = safe.write(path, _restore_payload(s.get("prev", {})))
 				return "[undo] %s -> %s" % [label, str(res[1])]
-			# File didn't exist before; remove it.
-			var abs := path
-			if path.begins_with("res://") or path.begins_with("user://"):
-				abs = ProjectSettings.globalize_path(path)
-			var derr := DirAccess.remove_absolute(abs)
-			if derr == OK:
+			var removed: Array = safe.remove(path)
+			if removed[0]:
 				return "[undo] removed %s" % path
-			return "[undo] could not remove %s (err %d)" % [path, derr]
+			return "[undo] REFUSED: %s" % str(removed[1])
 	return "[undo] unknown snapshot kind"
 
 
@@ -596,6 +600,8 @@ func execute_tool(d: Dictionary) -> String:
 			return _do_disable_addon_editing()
 		"restore_addon":
 			return _do_restore_addon(d)
+		"propose_expectation_change":
+			return _do_propose_expectation_change(d)
 		"reload_scripts":
 			return _do_reload_scripts()
 		"get_vgmusic_project":
@@ -775,6 +781,9 @@ func _do_open_file(d: Dictionary) -> String:
 
 
 func _do_insert_text(d: Dictionary) -> String:
+	var refused := protected_buffer_refusal("insert_text", _buffer_path(d))
+	if not refused.is_empty():
+		return refused
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[insert_text] no code editor open"
@@ -808,6 +817,9 @@ func _do_insert_text(d: Dictionary) -> String:
 
 
 func _do_replace_range(d: Dictionary) -> String:
+	var refused := protected_buffer_refusal("replace_range", _buffer_path(d))
+	if not refused.is_empty():
+		return refused
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[replace_range] no code editor open"
@@ -843,6 +855,9 @@ func _do_replace_range(d: Dictionary) -> String:
 
 
 func _do_replace_in_buffer(d: Dictionary) -> String:
+	var refused := protected_buffer_refusal("replace_in_buffer", _buffer_path(d))
+	if not refused.is_empty():
+		return refused
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[replace_in_buffer] no code editor open"
@@ -883,6 +898,9 @@ func _do_replace_in_buffer(d: Dictionary) -> String:
 
 
 func _do_set_buffer_text(d: Dictionary) -> String:
+	var refused := protected_buffer_refusal("set_buffer_text", _buffer_path(d))
+	if not refused.is_empty():
+		return refused
 	var ce := _get_code_edit()
 	if ce == null:
 		return "[set_buffer_text] no code editor open"
@@ -903,6 +921,9 @@ func _do_set_buffer_text(d: Dictionary) -> String:
 
 
 func _do_save_file() -> String:
+	var refused := protected_buffer_refusal("save_file", _buffer_path({}))
+	if not refused.is_empty():
+		return refused
 	var ece := _get_embedded_editor()
 	if ece == null or not ece.has_method("save_file"):
 		return "[save_file] embedded code editor not available"
@@ -1319,18 +1340,11 @@ func _do_vb6_canonicalize(d: Dictionary) -> String:
 			total_subs += per_file_subs
 			rewrites.append("  • %s — %d substitution(s)" % [p, per_file_subs])
 			if not dry_run:
-				if safe != null:
-					var wres: Array = safe.write(p, new_src)
-					if not wres[0]:
-						rewrites.append("    [SKIPPED: %s]" % str(wres[1]))
-						continue
-				else:
-					var wf := FileAccess.open(p, FileAccess.WRITE)
-					if wf == null:
-						rewrites.append("    [SKIPPED: cannot write]")
-						continue
-					wf.store_string(new_src)
-					wf.close()
+				var writer = safe if safe != null else load("res://addons/visual_gasic/vg_ai_safe_write.gd").new()
+				var wres: Array = writer.write(p, new_src)
+				if not wres[0]:
+					rewrites.append("    [SKIPPED: %s]" % str(wres[1]))
+					continue
 	if files_changed == 0:
 		return "[vb6_canonicalize] no .vg files needed canonicalization under %s" % base
 	var verb := "would rewrite" if dry_run else "rewrote"
@@ -1547,6 +1561,22 @@ func _do_restore_addon(d: Dictionary) -> String:
 	if zerr != OK:
 		return "[restore_addon] could not open zip (err %d): %s" % [zerr, zip_abs]
 	var count := 0
+	var safe = _get_safe()
+	var blocked := ""
+	for rel in zr.get_files():
+		var rel_s := str(rel).replace("\\", "/")
+		var folded := rel_s.to_lower()
+		if folded.ends_with("/vg_expectations.gd") or folded.ends_with("/vg_ai_safe_write.gd") or folded == "vg_expectations.gd" or folded == "vg_ai_safe_write.gd":
+			blocked = "protected expectation: res://%s. The expectation can only be changed with propose_expectation_change." % rel_s
+			break
+		if safe != null:
+			var safety: Array = safe.is_safe("res://" + rel_s)
+			if not safety[0] and str(safety[1]).begins_with("protected expectation:"):
+				blocked = str(safety[1])
+				break
+	if not blocked.is_empty():
+		zr.close()
+		return "[restore_addon] REFUSED: %s" % blocked
 	for rel in zr.get_files():
 		var data := zr.read_file(rel)
 		var dest := "res://" + rel
@@ -1757,6 +1787,11 @@ func _do_build_form(d: Dictionary) -> String:
 		else:
 			tscn_path = "res://forms/%s.tscn" % form_name
 	if not tscn_path.is_empty():
+		var _form_safe = _get_safe()
+		if _form_safe != null:
+			var _form_block: String = _form_safe.first_protected_reason([tscn_path, "res://project.godot"])
+			if not _form_block.is_empty():
+				return "[build_form] REFUSED: %s" % _form_block
 		# Ensure parent directory exists — save_form_as() fails silently
 		# if it doesn't (test17 landmine: no forms/ → no .tscn).
 		var _dir_abs := ProjectSettings.globalize_path(tscn_path.get_base_dir())
@@ -1931,6 +1966,63 @@ func _get_code_edit() -> CodeEdit:
 	if "_code_edit" in ece:
 		return ece.get("_code_edit")
 	return null
+
+
+func _do_propose_expectation_change(d: Dictionary) -> String:
+	var path := str(d.get("path", "")).strip_edges()
+	if path.is_empty() or not d.has("contents"):
+		return "[propose_expectation_change] path and contents are required"
+	var Exp = load("res://addons/visual_gasic/vg_expectations.gd")
+	if Exp == null:
+		return "[propose_expectation_change] expectations unavailable"
+	var exp = Exp.new()
+	exp.ensure(ProjectSettings.globalize_path("res://"))
+	var proposal_id: String = exp.propose_change(path, d.get("contents"), str(d.get("reason", "")))
+	return "[propose_expectation_change] proposal %s (nothing written)" % proposal_id
+
+
+func set_test_buffer_path(path: String) -> void:
+	_test_buffer_path = path
+
+
+func protected_buffer_refusal(tool_name: String, buffer_path: String) -> String:
+	if buffer_path.is_empty():
+		return ""
+	var safe = _get_safe()
+	if safe == null:
+		return ""
+	var safety: Array = safe.is_safe(buffer_path)
+	if safety[0]:
+		return ""
+	var why := str(safety[1])
+	if why.begins_with("protected expectation:") or why.find("addons/visual_gasic") >= 0:
+		return "[%s] REFUSED: %s" % [tool_name, why]
+	return ""
+
+
+func mutation_batch_block(muts: Array) -> String:
+	var safe = _get_safe()
+	if safe == null:
+		return ""
+	var paths: Array = []
+	for m in muts:
+		if typeof(m) != TYPE_DICTIONARY:
+			continue
+		var path := str(m.get("path", "")).strip_edges()
+		if path.is_empty():
+			path = _buffer_path(m)
+		if not path.is_empty():
+			paths.append(path)
+	return safe.first_protected_reason(paths)
+
+
+func _buffer_path(d: Dictionary) -> String:
+	if not _test_buffer_path.is_empty():
+		return _test_buffer_path
+	var from_call := str(d.get("path", "")).strip_edges()
+	if not from_call.is_empty():
+		return from_call
+	return _active_editor_path()
 
 
 ## Path of the file currently open in the embedded editor, or "" if none.

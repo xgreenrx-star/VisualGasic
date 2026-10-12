@@ -563,11 +563,9 @@ static func _sub_body_contains(src: String, sub_name: String, tokens: Array) -> 
 
 
 static func _write_file(path: String, contents: String) -> bool:
-	var dir_abs := ProjectSettings.globalize_path(path.get_base_dir())
-	DirAccess.make_dir_recursive_absolute(dir_abs)
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f == null:
+	var Safe = load("res://addons/visual_gasic/vg_ai_safe_write.gd")
+	if Safe == null:
 		return false
-	f.store_string(contents)
-	f.close()
-	return true
+	var safe = Safe.new()
+	var res: Array = safe.write(path, contents)
+	return bool(res[0])

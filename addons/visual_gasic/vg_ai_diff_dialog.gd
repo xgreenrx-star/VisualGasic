@@ -33,6 +33,62 @@ var _list: ItemList
 var _body: RichTextLabel
 
 
+var _expectation_id := ""
+var _expectations = null
+var _expectation_wired := false
+
+
+func configure_expectation(proposal: Dictionary, expectations) -> void:
+	title = "Change a protected expectation"
+	get_ok_button().text = "Accept"
+	get_cancel_button().text = "Reject"
+	_expectation_id = str(proposal.get("id", ""))
+	_expectations = expectations
+	var path := str(proposal.get("path", ""))
+	var reason := str(proposal.get("reason", ""))
+	var contents := str(proposal.get("contents", ""))
+	var old_text := ""
+	if FileAccess.file_exists(path):
+		old_text = FileAccess.get_file_as_string(path)
+	if _body != null:
+		_body.bbcode_enabled = false
+		_body.text = "Path: %s\nReason: %s\n\n%s" % [path, reason, _full_diff(old_text, contents)]
+	if not _expectation_wired:
+		confirmed.connect(_on_expectation_accept)
+		canceled.connect(_on_expectation_reject)
+		_expectation_wired = true
+
+
+func _on_expectation_accept() -> void:
+	if _expectations != null and not _expectation_id.is_empty():
+		_expectations.accept(_expectation_id)
+
+
+func _on_expectation_reject() -> void:
+	if _expectations != null and not _expectation_id.is_empty():
+		_expectations.reject(_expectation_id)
+
+
+func _full_diff(old_text: String, new_text: String) -> String:
+	var old_lines := old_text.split("\n")
+	var new_lines := new_text.split("\n")
+	var out: PackedStringArray = []
+	var count := maxi(old_lines.size(), new_lines.size())
+	for i in count:
+		var old_line := old_lines[i] if i < old_lines.size() else ""
+		var new_line := new_lines[i] if i < new_lines.size() else ""
+		var old_have := i < old_lines.size()
+		var new_have := i < new_lines.size()
+		if old_have and new_have and old_line == new_line:
+			out.append(" " + old_line)
+		else:
+			if old_have:
+				out.append("-" + old_line)
+			if new_have:
+				out.append("+" + new_line)
+	return "\n".join(out)
+
+
 func _init() -> void:
 	title = "Apply spec — review changes"
 	get_ok_button().text = "✅ Apply"
