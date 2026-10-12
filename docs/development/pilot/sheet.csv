@@ -1,0 +1,5 @@
+participant,slot,condition,variant,time_sec,timed_out,points,points_max,label_seen_in_a_run,label_possible_from_code,label_the_ai_said_so,confidence_1_to_5,what_was_confusing
+1,1,baseline,A1,,,,,,,,,
+1,1,baseline,B1,,,,,,,,,
+1,1,evidence,A2,,,,,,,,,
+1,1,evidence,B2,,,,,,,,,
