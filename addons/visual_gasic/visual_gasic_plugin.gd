@@ -512,6 +512,7 @@ func _enter_tree():
 	_ensure_scene_editor_project_settings()
 	_ensure_vg_editor_project_settings()
 	_register_narcea_live_project_settings()
+	_register_evidence_project_settings()
 	_register_python_project_settings()
 
 	if not ProjectSettings.settings_changed.is_connected(_on_vg_project_settings_changed):
@@ -11877,6 +11878,12 @@ func _register_narcea_live_project_settings() -> void:
 	_register_project_setting("vg/narcea/live_debug_capture_audio", false, TYPE_BOOL)
 	_register_project_setting("vg/narcea/live_debug_capture_audio_ms", 250, TYPE_INT, PROPERTY_HINT_RANGE, "50,500")
 	_register_project_setting("vg/narcea/live_debug_capture_drive_mode", false, TYPE_BOOL)
+
+
+func _register_evidence_project_settings() -> void:
+	_register_project_setting("vg/evidence/runtime_ring", false, TYPE_BOOL)
+	_register_project_setting("vg/evidence/runtime_ring_capacity", 512, TYPE_INT, PROPERTY_HINT_RANGE, "64,4096")
+	_register_project_setting("vg/evidence/watch", PackedStringArray(), TYPE_PACKED_STRING_ARRAY)
 
 ## Document Python bridge Tier B toggle (registered in C++; add_property_info here for editor UI).
 func _register_python_project_settings() -> void:

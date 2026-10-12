@@ -30,11 +30,7 @@ bool vg_bc_log_fallbacks() {
 // Differential / soak harness: skip bytecode compile so call_internal uses the
 // AST tree-walk path. Set VG_FORCE_AST=1 in the environment before launching Godot.
 bool vg_force_ast() {
-    static int cached = -1;
-    if (cached < 0) {
-        cached = OS::get_singleton()->has_environment("VG_FORCE_AST") ? 1 : 0;
-    }
-    return cached == 1;
+    return VisualGasicLanguage::vg_is_force_ast();
 }
 
 String variant_preview(const Variant &value) {

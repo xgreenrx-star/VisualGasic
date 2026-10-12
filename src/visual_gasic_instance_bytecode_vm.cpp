@@ -5,6 +5,7 @@
 #include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_instance_internal.h"
 #include "visual_gasic_language.h"
+#include "visual_gasic_evidence.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
 #include "vg_godot_owner_builtins.h"
@@ -231,6 +232,10 @@ static _NO_INLINE_ void vg_stack_trace_report(uint64_t depth, int op, int offset
 // Thread-local flag: set to true inside WorkerThreadPool callbacks so that
 // execute_bytecode() can skip non-thread-safe debug/profiling code.
 static thread_local bool tl_on_worker_thread = false;
+
+bool vg_evidence_on_worker_thread() {
+    return tl_on_worker_thread;
+}
 
 // RAII guard that sets tl_on_worker_thread for the scope of a worker callback.
 struct WorkerThreadGuard {
@@ -698,7 +703,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
 #if VG_JIT_NATIVE
-    if (try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
+    // The native JIT writes module variables without the interpreter hooks.
+    // While a run is being recorded, stay on the interpreter so each store is visible.
+    if (!vg_evidence_recording() && try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
                          p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
         return true;
     }
@@ -2388,6 +2395,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 Variant value = pop_value();
+                const bool evidence_on = vg_evidence_recording();
+                Variant evidence_old;
+                if (evidence_on) {
+                    evidence_from_bytecode = true;
+                    if (variables.has(name)) {
+                        evidence_old = variables[name];
+                    }
+                }
                 
                 // Check for data breakpoint (watchpoint)
                 if (VisualGasicLanguage::check_watchpoint(name, value)) {
@@ -2449,6 +2464,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 
+                if (evidence_on && variables.has(name)) {
+                    vg_evidence_note_module_write(script.ptr(), current_sub, debug_state.current_line, "bytecode", name, evidence_old, variables[name]);
+                }
+
                 // Trigger Whenever system (must match assign_variable behavior)
                 check_whenever_conditions(name, variables[name]);
                 check_expression_conditions();
@@ -7467,6 +7486,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 section.variable_name = String(section_data.get("variable_name", ""));
                 section.comparison_operator = String(section_data.get("comparison_operator", ""));
                 section.is_active = true;
+                section.declared_line = (int)section_data.get("declared_line", 0);
+                section.debounce_ms = (uint64_t)(int64_t)section_data.get("debounce_ms", (int64_t)0);
                 
                 // Get callback procedures
                 Array callbacks = section_data.get("callback_procedures", Array());

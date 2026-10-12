@@ -2522,6 +2522,8 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             section.comparison_operator = s->comparison_operator;
             section.callback_procedures = s->callback_procedures;  // Copy all callbacks
             section.condition_expression = s->condition_expression;  // Copy expression reference
+            section.declared_line = s->line;
+            section.debounce_ms = s->debounce_ms;
             
             // Set scope information
             if (s->is_local_scope) {

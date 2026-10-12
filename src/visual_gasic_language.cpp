@@ -1,4 +1,5 @@
 #include "visual_gasic_language.h"
+#include "visual_gasic_evidence.h"
 #include "vg_source_map.h"
 #include "visual_gasic_causal_graph.h"
 #include "visual_gasic_bracket_completion.h"
@@ -135,11 +136,42 @@ Dictionary VisualGasicLanguage::vg_analyze_causal_graph(const String &p_code, co
     return ::godot::vg_analyze_causal_graph(p_code, p_roots);
 }
 
+static std::atomic<int> vg_force_ast_override{-1};
+
+String VisualGasicLanguage::vg_evidence_start(const Dictionary &p_config) {
+    return ::vg_evidence_start(p_config);
+}
+
+Dictionary VisualGasicLanguage::vg_evidence_snapshot() {
+    return ::vg_evidence_snapshot();
+}
+
+void VisualGasicLanguage::vg_evidence_stop() {
+    ::vg_evidence_stop();
+}
+
+void VisualGasicLanguage::vg_set_force_ast(bool p_force) {
+    vg_force_ast_override.store(p_force ? 1 : 0, std::memory_order_relaxed);
+}
+
+bool VisualGasicLanguage::vg_is_force_ast() {
+    int override_value = vg_force_ast_override.load(std::memory_order_relaxed);
+    if (override_value >= 0) {
+        return override_value == 1;
+    }
+    static int cached = -1;
+    if (cached < 0) {
+        cached = OS::get_singleton()->has_environment("VG_FORCE_AST") ? 1 : 0;
+    }
+    return cached == 1;
+}
+
 VisualGasicLanguage::VisualGasicLanguage() {
     singleton = this;
 }
 
 VisualGasicLanguage::~VisualGasicLanguage() {
+    vg_evidence_stop();
     if (singleton == this) {
         singleton = nullptr;
     }
@@ -3754,6 +3786,11 @@ void VisualGasicLanguage::_bind_methods() {
     // Code validation — callable from GDScript as VisualGasicLanguage.vg_validate_code(source, path)
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_validate_code", "code", "path"), &VisualGasicLanguage::vg_validate_code);
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_analyze_causal_graph", "code", "roots"), &VisualGasicLanguage::vg_analyze_causal_graph);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_start", "config"), &VisualGasicLanguage::vg_evidence_start);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_snapshot"), &VisualGasicLanguage::vg_evidence_snapshot);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_evidence_stop"), &VisualGasicLanguage::vg_evidence_stop);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_set_force_ast", "force"), &VisualGasicLanguage::vg_set_force_ast);
+    ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_is_force_ast"), &VisualGasicLanguage::vg_is_force_ast);
     
     // Step debugging methods - these are instance methods that delegate to static methods
     ClassDB::bind_static_method("VisualGasicLanguage", D_METHOD("vg_debug_continue"), &VisualGasicLanguage::debug_continue);

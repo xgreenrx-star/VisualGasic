@@ -8567,6 +8567,8 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             section_data["variable_name"] = s->variable_name;
             section_data["comparison_operator"] = s->comparison_operator;
             section_data["is_local_scope"] = s->is_local_scope;
+            section_data["declared_line"] = s->line;
+            section_data["debounce_ms"] = (int64_t)s->debounce_ms;
             
             // Store callback procedures as an Array
             Array callbacks;

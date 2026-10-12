@@ -35,6 +35,7 @@
 #include "visual_gasic_vector_canvas.h"
 #include "vg_sprite_data_runtime.h"
 #include "visual_gasic_language.h"
+#include "visual_gasic_evidence.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
 #include "vg_godot_owner_builtins.h"
@@ -2151,15 +2152,9 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
     if (!mod.ast || entry_point.is_empty()) {
         return nullptr;
     }
-    // Force AST tree-walk for differential testing (VG_FORCE_AST=1).
-    {
-        static int _vg_force_ast_cached = -1;
-        if (_vg_force_ast_cached < 0) {
-            _vg_force_ast_cached = OS::get_singleton()->has_environment("VG_FORCE_AST") ? 1 : 0;
-        }
-        if (_vg_force_ast_cached == 1) {
-            return nullptr;
-        }
+    // Force AST tree-walk for differential testing (VG_FORCE_AST=1 or vg_set_force_ast).
+    if (VisualGasicLanguage::vg_is_force_ast()) {
+        return nullptr;
     }
     std::list<ModuleBytecodeEntry> *cache_list = mod.bytecode_cache;
     if (mod.ast_is_shared && !mod.full_path.is_empty()) {

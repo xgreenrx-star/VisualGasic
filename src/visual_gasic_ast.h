@@ -846,8 +846,9 @@ struct WheneverSectionStatement : public Statement {
     ExpressionNode* condition_expression;  // For complex conditions like (health < 10 And stamina < 5)
     Vector<String> callback_procedures;  // Support multiple callbacks
     bool is_local_scope;  // True if declared with "Local" keyword
+    uint64_t debounce_ms; // Optional Debounce clause; 0 when omitted
     
-    WheneverSectionStatement() : Statement(STMT_WHENEVER_SECTION), is_local_scope(false) {
+    WheneverSectionStatement() : Statement(STMT_WHENEVER_SECTION), is_local_scope(false), debounce_ms(0) {
         comparison_value = nullptr;
         comparison_value2 = nullptr;
         condition_expression = nullptr;

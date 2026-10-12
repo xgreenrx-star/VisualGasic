@@ -1759,6 +1759,12 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (Engine::get_singleton()->is_editor_hint()) {
              return;
          }
+         if (owner) {
+             Node *ready_node = Object::cast_to<Node>(owner);
+             if (ready_node) {
+                 vg_evidence_arm_scene_quit(ready_node);
+             }
+         }
 
          // Guard against double _Ready calls from GDExtension lifecycle
          if (ready_executed) {
@@ -2097,6 +2103,14 @@ const GDExtensionScriptInstanceInfo3 *VisualGasicInstance::get_script_instance_i
 }
 
 void VisualGasicInstance::assign_variable(const String& name, Variant val) {
+    const bool evidence_on = vg_evidence_recording();
+    Variant evidence_old;
+    if (evidence_on) {
+        evidence_from_bytecode = false;
+        if (variables.has(name)) {
+            evidence_old = variables[name];
+        }
+    }
     if (script.is_valid() && script->ast_root && script->ast_root->option_explicit) {
          if (!variables.has(name)) {
              bool is_prop = false;
@@ -2209,6 +2223,10 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
         VisualGasicLanguage::vg_debug_wait();
     }
     
+    if (evidence_on) {
+        vg_evidence_note_module_write(script.ptr(), current_sub, debug_state.current_line, "ast", name, evidence_old, variables.get(name, val));
+    }
+
     // Check Whenever sections for this variable
     check_whenever_conditions(name, val);
     
@@ -2221,8 +2239,21 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
     if (whenever_init_suppress) return;
 
     // Re-entrancy guard: if we're already evaluating Whenever callbacks,
-    // don't re-enter (prevents infinite recursion when callbacks assign variables)
-    if (whenever_evaluating) return;
+    // don't re-enter (prevents infinite recursion when callbacks assign variables).
+    // A watched assignment inside a callback does not update other sections' last_value.
+    if (whenever_evaluating) {
+        if (vg_evidence_recording()) {
+            const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+            for (int i = 0; i < whenever_sections.size(); i++) {
+                WheneverSection &section = whenever_sections.write[i];
+                if (!section.is_active || section.variable_name.is_empty() || section.variable_name.nocasecmp_to(variable_name) != 0) {
+                    continue;
+                }
+                vg_evidence_note_suppressed(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.variable_name, "reentrant");
+            }
+        }
+        return;
+    }
 
     for (int i = 0; i < whenever_sections.size(); i++) {
         WheneverSection& section = whenever_sections.write[i];
@@ -2287,16 +2318,35 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
         }
         
         if (condition_met) {
-            // Check debounce timing
+            // Check debounce timing. A section that has never fired is not inside a window.
             uint64_t current_time = Time::get_singleton()->get_ticks_msec();
-            if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
-                // Skip this trigger due to debouncing
+            if (section.has_fired && section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
+                if (vg_evidence_recording()) {
+                    const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                    vg_evidence_note_suppressed(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.variable_name, "debounce");
+                }
                 section.last_value = new_value;  // Still update last value
                 continue;
             }
             
             // Update last trigger time
             section.last_trigger_time = current_time;
+            section.has_fired = true;
+
+            if (vg_evidence_recording()) {
+                const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                Variant target;
+                String op_key = section.comparison_operator.to_lower();
+                if (op_key == "between") {
+                    Array bounds;
+                    bounds.push_back(section.comparison_value);
+                    bounds.push_back(section.comparison_value2);
+                    target = bounds;
+                } else if (op_key != "changes") {
+                    target = section.comparison_value;
+                }
+                vg_evidence_note_fired(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.variable_name, section.comparison_operator, target, section.last_value, new_value, section.declared_line, section.callback_procedures);
+            }
             
             // Update last value for future comparisons
             section.last_value = new_value;
@@ -2312,6 +2362,10 @@ void VisualGasicInstance::check_whenever_conditions(const String& variable_name,
                 
                 if (!found) {
                     UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
+                    if (vg_evidence_recording()) {
+                        const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                        vg_evidence_note_missing(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.callback_procedures[j]);
+                    }
                 }
             }
             
@@ -2338,9 +2392,13 @@ void VisualGasicInstance::check_expression_conditions() {
             continue;
         }
         
-        // Check debounce timing
+        // Check debounce timing. A section that has never fired is not inside a window.
         uint64_t current_time = Time::get_singleton()->get_ticks_msec();
-        if (section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
+        if (section.has_fired && section.debounce_ms > 0 && (current_time - section.last_trigger_time) < section.debounce_ms) {
+            if (vg_evidence_recording()) {
+                const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                vg_evidence_note_suppressed(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, "", "debounce");
+            }
             continue;
         }
         
@@ -2355,6 +2413,12 @@ void VisualGasicInstance::check_expression_conditions() {
         if (condition_now && !was_true) {
             // Update last trigger time
             section.last_trigger_time = current_time;
+            section.has_fired = true;
+
+            if (vg_evidence_recording()) {
+                const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                vg_evidence_note_fired(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, "", section.comparison_operator, Variant(), Variant(false), Variant(true), section.declared_line, section.callback_procedures);
+            }
             
             // Set re-entrancy guard before calling callbacks
             whenever_evaluating = true;
@@ -2367,6 +2431,10 @@ void VisualGasicInstance::check_expression_conditions() {
                 
                 if (!found) {
                     UtilityFunctions::print("Warning: Whenever callback procedure '", section.callback_procedures[j], "' not found");
+                    if (vg_evidence_recording()) {
+                        const char *engine = evidence_from_bytecode ? "bytecode" : "ast";
+                        vg_evidence_note_missing(script.ptr(), current_sub, debug_state.current_line, engine, section.section_name, section.callback_procedures[j]);
+                    }
                 }
             }
             

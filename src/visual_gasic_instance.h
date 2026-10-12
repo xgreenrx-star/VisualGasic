@@ -132,6 +132,9 @@ private:
     // Re-entrancy guard: prevent Whenever callbacks from recursively triggering more Whenever checks
     bool whenever_evaluating = false;
 
+    // Set only while the evidence recorder is on, so a fire can name its engine.
+    bool evidence_from_bytecode = false;
+
     // VM State
     VMState vm;
     Vector<Variant> with_stack;
@@ -222,12 +225,14 @@ private:
         Variant last_value;  // For tracking changes
         bool is_active;
         uint64_t last_trigger_time;  // For debouncing
+        bool has_fired;              // Debounce starts after the first fire
         uint64_t debounce_ms;       // Minimum time between triggers
         String scope_type;          // "global", "local", "member"
         String scope_context;       // Sub/Function name or Class name
         bool last_condition_result;  // For edge detection on expression conditions and Exceeds/Below
+        int declared_line;           // 1-based Whenever source line; 0 when unknown
         
-        WheneverSection() : condition_expression(nullptr), is_active(true), last_trigger_time(0), debounce_ms(0), scope_type("global"), last_condition_result(false) {}
+        WheneverSection() : condition_expression(nullptr), is_active(true), last_trigger_time(0), has_fired(false), debounce_ms(0), scope_type("global"), last_condition_result(false), declared_line(0) {}
         
         ~WheneverSection() {
             // Note: condition_expression will be cleaned up by AST, don't delete here

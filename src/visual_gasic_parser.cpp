@@ -6532,6 +6532,44 @@ WheneverSectionStatement* VisualGasicParser::parse_whenever() {
         stmt->callback_procedures.push_back(peek().value);
         advance();
     }
+
+    // Optional `Debounce <ms>` / `Throttle <ms>`. Debounce is stored for the
+    // existing skip rule. Throttle is accepted and ignored.
+    auto consume_timing = [&](const char *p_word, uint64_t *r_ms) {
+        if (!check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || String(peek().value).nocasecmp_to(p_word) != 0) {
+            return;
+        }
+        advance();
+        uint64_t ms = 0;
+        bool have_ms = false;
+        if (check(VisualGasicTokenizer::TOKEN_LITERAL_INTEGER)) {
+            ms = (uint64_t)(int64_t)peek().value;
+            have_ms = true;
+            advance();
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) && String(peek().value).nocasecmp_to("ms") == 0) {
+                advance();
+            }
+        } else if (check(VisualGasicTokenizer::TOKEN_LITERAL_FLOAT)) {
+            ms = (uint64_t)(double)peek().value;
+            have_ms = true;
+            advance();
+        } else if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            String token = String(peek().value).to_lower();
+            if (token.ends_with("ms")) {
+                String digits = token.substr(0, token.length() - 2);
+                if (digits.is_valid_int()) {
+                    ms = (uint64_t)digits.to_int();
+                    have_ms = true;
+                    advance();
+                }
+            }
+        }
+        if (have_ms && r_ms != nullptr) {
+            *r_ms = ms;
+        }
+    };
+    consume_timing("debounce", &stmt->debounce_ms);
+    consume_timing("throttle", nullptr);
     
     // Set scope information
     stmt->is_local_scope = is_local;

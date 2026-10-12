@@ -123,6 +123,12 @@ public:
     ///   VisualGasicLanguage.vg_analyze_causal_graph(source, roots)
     static Dictionary vg_analyze_causal_graph(const String &p_code, const Array &p_roots);
 
+    static String vg_evidence_start(const Dictionary &p_config);
+    static Dictionary vg_evidence_snapshot();
+    static void vg_evidence_stop();
+    static void vg_set_force_ast(bool p_force);
+    static bool vg_is_force_ast();
+
     // ── Profiler bridge (static, backed by VisualGasicProfiler singleton) ──
     // Exposed to GDScript as VisualGasicLanguage.vg_profiler_enable() etc.
     // The editor Profiler panel drives the C++ profiler through these.

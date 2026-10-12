@@ -845,7 +845,20 @@ func _watcher_selected(watcher: Dictionary, roots: Array, filter_names: Dictiona
 	return false
 
 
+func _strip_timing_clause(tail: String) -> String:
+	var lower := tail.to_lower()
+	var cut := lower.length()
+	for word in [" debounce", " throttle"]:
+		var at := lower.find(word)
+		if at >= 0 and at < cut:
+			cut = at
+	if lower.begins_with("debounce") or lower.begins_with("throttle"):
+		return ""
+	return tail.substr(0, cut)
+
+
 func _split_whenever_tail(operator_text: String, tail: String) -> Dictionary:
+	tail = _strip_timing_clause(tail)
 	var handlers: Array = []
 	var words := str(tail).strip_edges().split(",", false)
 	var first_words := str(words[0]).strip_edges().split(" ", false) if words.size() > 0 else []
@@ -1198,3 +1211,101 @@ func _parse_fallback_source(text: String) -> Dictionary:
 	if not current_name.is_empty():
 		procedures[current_name] = {"line": current_line, "body": current_body}
 	return {"procedures": procedures, "watchers": watchers}
+
+
+func _join_script_presence(identity: String, static_hash: String, scripts: Array) -> Dictionary:
+	if not identity.is_empty():
+		var found := false
+		var hash_match := false
+		for row in scripts:
+			if typeof(row) != TYPE_DICTIONARY:
+				continue
+			if str(row.get("path", "")) != identity:
+				continue
+			found = true
+			if str(row.get("content_hash", "")) == static_hash:
+				hash_match = true
+		if not found:
+			return {"status": "unknown", "hash": ""}
+		if not hash_match:
+			return {"status": "stale", "hash": ""}
+		return {"status": "", "hash": static_hash}
+	if scripts.is_empty():
+		return {"status": "unknown", "hash": ""}
+	for row in scripts:
+		if typeof(row) != TYPE_DICTIONARY:
+			continue
+		if static_hash.is_empty():
+			continue
+		if str(row.get("content_hash", "")) == static_hash:
+			return {"status": "", "hash": static_hash}
+	return {"status": "stale", "hash": ""}
+
+
+func _join_callback_unresolved(root: Dictionary) -> bool:
+	var handlers: Array = root.get("handlers", [])
+	if handlers.is_empty():
+		return str(root.get("handler_resolution", "")) != "resolved"
+	for handler in handlers:
+		if typeof(handler) != TYPE_DICTIONARY:
+			return true
+		if str(handler.get("resolution", "")) != "resolved":
+			return true
+	return false
+
+
+func _join_fire_seqs(section: String, content_hash: String, run: Dictionary) -> Array:
+	var seqs: Array = []
+	if content_hash.is_empty():
+		return seqs
+	var want := section.to_lower()
+	for event in run.get("events", []):
+		if typeof(event) != TYPE_DICTIONARY:
+			continue
+		if str(event.get("kind", "")) != "whenever_fired":
+			continue
+		if str(event.get("section", "")).to_lower() != want:
+			continue
+		if str(event.get("script_hash", "")) != content_hash:
+			continue
+		seqs.append(int(event.get("seq", 0)))
+	return seqs
+
+
+## Compare Whenever roots in a static report with one behavior-run snapshot.
+## Status is observed, not_observed, unknown, stale, or unresolved. No prose.
+func join_runtime(static_report: Dictionary, run: Dictionary) -> Dictionary:
+	var roots_out: Array = []
+	var source: Dictionary = static_report.get("source", {})
+	var identity := str(source.get("identity", "")).strip_edges()
+	var static_hash := str(source.get("content_hash", ""))
+	var recording := bool(run.get("recording", false))
+	var dropped := int(run.get("dropped", 0))
+	var scripts: Array = run.get("scripts", [])
+	for root in static_report.get("roots", []):
+		if typeof(root) != TYPE_DICTIONARY or str(root.get("kind", "")) != "whenever":
+			continue
+		var section := str(root.get("section", root.get("name", "")))
+		var status := "unknown"
+		var matched_hash := ""
+		if recording:
+			var presence: Dictionary = _join_script_presence(identity, static_hash, scripts)
+			status = str(presence.get("status", ""))
+			matched_hash = str(presence.get("hash", ""))
+			if status.is_empty():
+				if dropped > 0:
+					status = "unknown"
+				elif _join_callback_unresolved(root):
+					status = "unresolved"
+				else:
+					status = "not_observed"
+		var seqs: Array = _join_fire_seqs(section, matched_hash, run)
+		if status == "not_observed" and seqs.size() > 0:
+			status = "observed"
+		roots_out.append({
+			"section": section,
+			"status": status,
+			"fire_count": seqs.size(),
+			"seqs": seqs,
+		})
+	return {"roots": roots_out}
