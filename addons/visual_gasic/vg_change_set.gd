@@ -206,6 +206,18 @@ static func commit_rename(token: Dictionary) -> void:
 	_open["entries"] = entries
 
 
+static func record_user_summary(id: String, text: String) -> void:
+	var manifest := read_set(id)
+	if manifest.is_empty():
+		return
+	manifest["user_summary"] = {
+		"source": "user",
+		"text": text,
+		"timestamp": int(Time.get_unix_time_from_system()),
+	}
+	write_set(manifest)
+
+
 static func read_set(id: String) -> Dictionary:
 	var path := _manifest_path(id)
 	if not FileAccess.file_exists(path):

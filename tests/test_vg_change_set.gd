@@ -51,6 +51,8 @@ func _run() -> void:
 	_protected_path_is_reported(CS, safe)
 	_guard_script_refused(safe)
 	await _legacy_undo_refusals(CS, safe, Tools, Help)
+	_user_summary_roundtrip(CS)
+	_audit_note_is_optional(CS)
 
 	if failures == 0:
 		print("[PASS] test_vg_change_set.gd (%d/%d)" % [checks, checks])
@@ -328,6 +330,47 @@ func _reason_has(result: Dictionary, path: String, reason: String) -> bool:
 		if str(row.get("path", "")) == path and str(row.get("reason", "")) == reason:
 			return true
 	return false
+
+
+func _user_summary_roundtrip(CS) -> void:
+	var id: String = CS.begin("Summary", "make_patch", "Narcea claim")
+	CS.end()
+	CS.record_user_summary(id, "The exit opens at 5 crystals.")
+	CS.drop_memory()
+	var loaded: Dictionary = CS.read_set(id)
+	var summary: Dictionary = loaded.get("user_summary", {})
+	check(str(summary.get("source", "")) == "user", "user summary source is user")
+	check(str(summary.get("text", "")) == "The exit opens at 5 crystals.", "user summary text is stored")
+	check(str(loaded.get("reply", "")) == "Narcea claim", "the model claim stays separate")
+	check(int(summary.get("timestamp", 0)) > 0, "user summary has a timestamp")
+
+
+func _audit_note_is_optional(CS) -> void:
+	var Expectations = load("res://addons/visual_gasic/vg_expectations.gd")
+	var missing_root := _root.rstrip("/") + "/no-manifest"
+	DirAccess.make_dir_recursive_absolute(missing_root)
+	var exp = Expectations.new()
+	exp.load_manifest(missing_root)
+	var skipped: Dictionary = exp.append_audit_note("opens at 5", "res://Caverns.vg", "UnlockExit")
+	check(skipped.is_empty(), "a missing expectations file is left untouched")
+	check(not FileAccess.file_exists(missing_root.path_join("vg_expectations.json")), "no expectations file is created")
+	var present_root := _root.rstrip("/") + "/with-manifest"
+	DirAccess.make_dir_recursive_absolute(present_root)
+	var manifest := {"schema": "vg-expectations/1", "protected": [{"path": "res://evidence_exit_scenario.gd", "sha256": "abc", "accepted_at": "t", "note": "exit"}]}
+	var mf := FileAccess.open(present_root.path_join("vg_expectations.json"), FileAccess.WRITE)
+	mf.store_string(JSON.stringify(manifest, "\t"))
+	mf.close()
+	var exp2 = Expectations.new()
+	exp2.load_manifest(present_root)
+	var saved: Dictionary = exp2.append_audit_note("opens at 5", "res://Caverns.vg", "UnlockExit")
+	check(str(saved.get("status", "")) == "pending", "audit note starts pending")
+	check(str(saved.get("note", "")) == "opens at 5", "audit note stores the sentence")
+	check(str(saved.get("section", "")) == "UnlockExit", "audit note stores the section")
+	var raw = JSON.parse_string(FileAccess.get_file_as_string(present_root.path_join("vg_expectations.json")))
+	var protected_rows: Array = raw.get("protected", [])
+	check(protected_rows.size() == 1 and str(protected_rows[0].get("note", "")) == "exit", "protected entries stay as they were")
+	var audit_rows: Array = raw.get("audit", [])
+	check(audit_rows.size() == 1 and str(audit_rows[0].get("file", "")) == "res://Caverns.vg", "audit note is stored beside protected entries")
 
 
 func _abs(rel: String) -> String:

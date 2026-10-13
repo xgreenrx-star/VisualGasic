@@ -88,6 +88,44 @@ func _check_post_hash_and_fires(Card) -> void:
 	check(ran_text.find("run run-new: fires 1, writes 2, suppressions 0") >= 0, "fires counts whenever_fired events")
 
 
+func _check_audit_breakdown(Card, main_text: String) -> void:
+	check(main_text.find("writes: score = 1") >= 0, "changed section lists the write in execution order")
+	check(main_text.find("Keep | unchanged |") >= 0, "unchanged section stays a single line")
+	var keep_at := main_text.find("Keep | unchanged |")
+	var after_keep := main_text.substr(keep_at, main_text.find("\n", keep_at) - keep_at)
+	check(after_keep.find("writes:") < 0 and after_keep.find("guard:") < 0, "unchanged section has no execution steps")
+	check(main_text.find("symbols: new: [") >= 0 and main_text.find("OnOther") >= 0, "new procedure is marked new")
+	check(main_text.find("already in project: [") >= 0 and main_text.find("OnKeep") >= 0, "existing procedure stays in the project")
+	var proc_before := "Sub CalculateScore()\n\tscore = 1\nEnd Sub\n"
+	var proc_after := "Sub CalculateScore()\n\tscore = 2\nEnd Sub\nFunction GetKey()\n\tGetKey = 1\nEnd Function\n"
+	var proc_card: Dictionary = Card.build_card({
+		"entries": [{"op": "write", "path": "res://Util.vg", "existed": true, "binary": false, "pre_size": 1, "post_size": 2}],
+	}, {"before": {"res://Util.vg": proc_before}, "after": {"res://Util.vg": proc_after}, "expectations": {"present": false}})
+	var proc_text: String = Card.to_text(proc_card)
+	check(proc_text.find("procedures: modified Sub CalculateScore (lines ") >= 0, "modified procedure is named with its lines")
+	check(proc_text.find("added Function GetKey") >= 0, "added function is named")
+	var warned: String = Card.advisory("The exit still opens at GEM_TARGET.", proc_card.get("static", {}), "Const GEM_TARGET As Integer = 6\n")
+	check(warned.is_empty(), "a card with no target change does not warn")
+	var target_static: Dictionary = {
+		"rows": [{"section": "UnlockExit", "changes": "trigger changed", "detail": "target GEM_TARGET -> 5"}],
+	}
+	var old_only: String = Card.advisory("The exit still opens at GEM_TARGET.", target_static, "Const GEM_TARGET As Integer = 6\n")
+	check(old_only.find("Advisory:") >= 0 and old_only.find("5") >= 0 and old_only.find("GEM_TARGET") >= 0, "old target without the new value warns")
+	var both: String = Card.advisory("Changed target from 6 to 5.", target_static, "Const GEM_TARGET As Integer = 6\n")
+	check(both.is_empty(), "a sentence that names the new target does not warn")
+	var numbered: String = Card.advisory("It still opens at 6.", target_static, "Const GEM_TARGET As Integer = 6\n")
+	check(numbered.find("Advisory:") >= 0 and numbered.find("6") >= 0, "the old constant value counts as the old target")
+	var sections: Array = Card.changed_section_names([
+		{"section": "Keep", "changes": "unchanged", "detail": ""},
+		{"section": "UnlockExit", "changes": "trigger changed", "detail": "target GEM_TARGET -> 5"},
+		{"section": "Added", "changes": "added", "detail": "line 9"},
+	])
+	check(sections.size() == 2 and sections.has("UnlockExit") and sections.has("Added"), "paging lists changed and added sections")
+	check(not Card.keep_ready("exit", sections, sections), "a sentence under 5 characters does not allow Keep")
+	check(not Card.keep_ready("exit opens later", ["UnlockExit"], sections), "Keep waits until every changed section was viewed")
+	check(Card.keep_ready("exit opens later", sections, sections), "Keep is allowed after the sentence and every section")
+
+
 func _run() -> void:
 	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
 	if Card == null:
@@ -163,6 +201,7 @@ func _run() -> void:
 	var blob := JSON.stringify(card) + text + JSON.stringify(empty) + empty_text
 	check(blob.find("safe") < 0, "card output has no safe substring")
 	check(blob.find("success") < 0, "card output has no success substring")
+	_check_audit_breakdown(Card, text)
 	if failures == 0:
 		print("[PASS] test_vg_change_card.gd (%d/%d)" % [checks, checks])
 		quit(0)

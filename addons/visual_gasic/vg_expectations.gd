@@ -150,12 +150,42 @@ func _read_from_disk() -> Dictionary:
 		_loaded = true
 		return _manifest.duplicate(true)
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var audit: Array = []
 	if typeof(parsed) != TYPE_DICTIONARY:
 		_manifest = {"schema": SCHEMA, "protected": []}
 	else:
+		audit = parsed.get("audit", [])
 		_manifest = _canonical(parsed)
+	if typeof(audit) == TYPE_ARRAY and not audit.is_empty():
+		_manifest["audit"] = audit
 	_loaded = true
 	return _manifest.duplicate(true)
+
+
+func append_audit_note(sentence: String, file_path: String, section: String) -> Dictionary:
+	if _root.is_empty() or not FileAccess.file_exists(_manifest_abs()):
+		return {}
+	if not _loaded:
+		_read_from_disk()
+	var rows: Array = _manifest.get("audit", [])
+	if typeof(rows) != TYPE_ARRAY:
+		rows = []
+	var stamp := str(int(Time.get_unix_time_from_system()))
+	var entry := {
+		"id": "exp_" + _hash_text(sentence + "\n" + file_path + "\n" + section + "\n" + stamp).substr(0, 12),
+		"note": sentence,
+		"file": file_path,
+		"section": section,
+		"status": "pending",
+	}
+	rows.append(entry)
+	_manifest["audit"] = rows
+	var f := FileAccess.open(_manifest_abs(), FileAccess.WRITE)
+	if f == null:
+		return {}
+	f.store_string(JSON.stringify(_manifest, "\t"))
+	f.close()
+	return entry
 
 
 func _canonical(data: Dictionary) -> Dictionary:
@@ -195,6 +225,7 @@ func _upsert(path: String, digest: String, note: String) -> void:
 
 
 func _seal_and_write() -> void:
+	var audit: Array = _manifest.get("audit", [])
 	var rows: Array = _manifest.get("protected", [])
 	var have_self := false
 	var now := _now()
@@ -216,6 +247,8 @@ func _seal_and_write() -> void:
 		if _same(_to_abs(str(row.get("path", ""))), _manifest_abs()):
 			row["sha256"] = digest
 	_manifest = _canonical({"schema": SCHEMA, "protected": rows})
+	if typeof(audit) == TYPE_ARRAY and not audit.is_empty():
+		_manifest["audit"] = audit
 	var f := FileAccess.open(_manifest_abs(), FileAccess.WRITE)
 	if f == null:
 		return

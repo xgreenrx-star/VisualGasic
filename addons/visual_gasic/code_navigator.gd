@@ -80,6 +80,20 @@ var _change_running := ""
 var _change_timer: Timer
 var _change_confirm: ConfirmationDialog
 var _change_text := ""
+var _change_card: Dictionary = {}
+var _change_before_blob := ""
+var _change_prompt: Label
+var _change_summary: LineEdit
+var _change_expect: CheckBox
+var _change_keep: Button
+var _change_section_row: HBoxContainer
+var _change_section_label: Label
+var _change_section_next: Button
+var _change_page := 0
+var _change_required: Array = []
+var _change_reviewed: Array = []
+var _change_seen_id := ""
+var _change_file := ""
 
 # Standard VB6 Events
 const EVENTS_COMMON = ["Click", "DblClick", "MouseDown", "MouseUp", "MouseMove", "KeyDown", "KeyUp", "KeyPress"]
@@ -1855,6 +1869,31 @@ func _build_change_section() -> void:
 	next_btn.text = "Next"
 	next_btn.pressed.connect(_on_change_next)
 	buttons.add_child(next_btn)
+	_change_prompt = Label.new()
+	_change_prompt.text = "What does this change do?"
+	_change_panel.add_child(_change_prompt)
+	_change_summary = LineEdit.new()
+	_change_summary.placeholder_text = "Summarize the intended behavior in one sentence..."
+	_change_summary.text_changed.connect(_on_change_summary_changed)
+	_change_panel.add_child(_change_summary)
+	_change_expect = CheckBox.new()
+	_change_expect.text = "Save as protected expectation"
+	_change_panel.add_child(_change_expect)
+	_change_section_row = HBoxContainer.new()
+	_change_section_row.visible = false
+	_change_panel.add_child(_change_section_row)
+	_change_section_label = Label.new()
+	_change_section_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_change_section_row.add_child(_change_section_label)
+	_change_section_next = Button.new()
+	_change_section_next.text = "Next >"
+	_change_section_next.pressed.connect(_on_change_section_next)
+	_change_section_row.add_child(_change_section_next)
+	_change_keep = Button.new()
+	_change_keep.text = "Keep"
+	_change_keep.disabled = true
+	_change_keep.pressed.connect(_on_change_keep)
+	_change_panel.add_child(_change_keep)
 	_change_body = RichTextLabel.new()
 	_change_body.fit_content = true
 	_change_body.scroll_active = false
@@ -1882,6 +1921,8 @@ func show_last_change() -> void:
 	var ids: Array = CS.list_ids() if CS != null else []
 	_change_pos = ids.size() - 1
 	_render_change_card()
+	if _change_summary != null:
+		_change_summary.grab_focus()
 
 
 func _on_change_toggled(on: bool) -> void:
@@ -1902,20 +1943,33 @@ func _render_change_card() -> void:
 	if ids.is_empty():
 		_change_text = "No change set is stored."
 		_change_body.text = _change_text
+		_change_card = {}
+		_change_required = []
+		_change_reviewed = []
+		_change_file = ""
+		if _change_section_row != null:
+			_change_section_row.visible = false
+		if _change_keep != null:
+			_change_keep.disabled = true
 		return
 	if _change_pos < 0 or _change_pos >= ids.size():
 		_change_pos = ids.size() - 1
 	var manifest: Dictionary = CS.read_set(str(ids[_change_pos]))
 	var before := {}
 	var after := {}
+	var before_blob := ""
+	var file_path := ""
 	for entry in manifest.get("entries", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var path := str(entry.get("path", ""))
 		if not path.ends_with(".vg") or bool(entry.get("binary", false)):
 			continue
+		if file_path.is_empty():
+			file_path = path
 		var pre: PackedByteArray = CS.read_pre_bytes(str(manifest.get("id", "")), str(entry.get("pre_file", "")))
 		before[path] = pre.get_string_from_utf8()
+		before_blob += before[path] + "\n"
 		if FileAccess.file_exists(path):
 			var disk := FileAccess.get_file_as_bytes(path)
 			if CS._sha(disk) == str(entry.get("post_hash", "")):
@@ -1928,8 +1982,11 @@ func _render_change_card() -> void:
 		"expectations": _change_expectations(manifest),
 		"rollback_state": CS.preview(str(manifest.get("id", ""))),
 	})
-	_change_text = Card.to_text(card)
-	_change_body.text = _change_text
+	_change_card = card
+	_change_before_blob = before_blob
+	_change_file = file_path
+	_sync_change_gate(manifest, Card)
+	_apply_live_summary(Card)
 
 
 func _change_expectations(manifest: Dictionary) -> Dictionary:
@@ -2066,6 +2123,134 @@ func _on_change_next() -> void:
 		return
 	_change_pos = mini(_change_pos + 1, ids.size() - 1)
 	_render_change_card()
+
+
+func _on_change_summary_changed(_text: String) -> void:
+	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
+	if Card != null:
+		_apply_live_summary(Card)
+
+
+func _on_change_section_next() -> void:
+	if _change_required.size() < 2:
+		return
+	_change_page = (_change_page + 1) % _change_required.size()
+	_note_section_reviewed(str(_change_required[_change_page]))
+	_update_section_label()
+	_refresh_keep_button()
+
+
+func _on_change_keep() -> void:
+	if not Engine.is_editor_hint():
+		try_keep()
+		return
+	var base := EditorInterface.get_base_control()
+	var help = null
+	if base != null and base.has_meta("visual_gasic_plugin_instance"):
+		var plugin = base.get_meta("visual_gasic_plugin_instance")
+		if plugin != null:
+			help = plugin.get("_ai_help_panel")
+	if help != null and help.has_method("_accept_kept_change"):
+		help._accept_kept_change()
+		return
+	try_keep()
+
+
+func try_keep() -> String:
+	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
+	var sentence := ""
+	if _change_summary != null:
+		sentence = _change_summary.text.strip_edges()
+	if Card == null or not Card.keep_ready(sentence, _change_reviewed, _change_required):
+		return "Type what this change does, and view each changed section, before keeping."
+	var CS = load("res://addons/visual_gasic/vg_change_set.gd")
+	var ids: Array = CS.list_ids() if CS != null else []
+	if ids.is_empty() or _change_pos < 0 or _change_pos >= ids.size():
+		return ""
+	CS.record_user_summary(str(ids[_change_pos]), sentence)
+	if _change_expect != null and _change_expect.button_pressed:
+		var Expectations = load("res://addons/visual_gasic/vg_expectations.gd")
+		if Expectations != null:
+			var exp = Expectations.new()
+			exp.load_manifest(ProjectSettings.globalize_path("res://"))
+			var sections: Array = _change_required.duplicate()
+			if sections.is_empty():
+				sections = [""]
+			for section in sections:
+				exp.append_audit_note(sentence, _change_file, str(section))
+	return ""
+
+
+func _sync_change_gate(manifest: Dictionary, Card) -> void:
+	var id := str(manifest.get("id", ""))
+	if id != _change_seen_id:
+		_change_seen_id = id
+		_change_reviewed = []
+		_change_page = 0
+		if _change_summary != null:
+			var stored: Dictionary = manifest.get("user_summary", {})
+			_change_summary.text = str(stored.get("text", "")) if typeof(stored) == TYPE_DICTIONARY else ""
+		if _change_expect != null:
+			_change_expect.button_pressed = false
+	var static_section: Dictionary = _change_card.get("static", {})
+	_change_required = Card.changed_section_names(static_section.get("rows", []))
+	if _change_required.size() <= 1:
+		if _change_section_row != null:
+			_change_section_row.visible = false
+		if _change_required.size() == 1:
+			_note_section_reviewed(str(_change_required[0]))
+		return
+	if _change_page < 0 or _change_page >= _change_required.size():
+		_change_page = 0
+	_note_section_reviewed(str(_change_required[_change_page]))
+	_update_section_label()
+
+
+func _update_section_label() -> void:
+	if _change_section_row == null or _change_section_label == null:
+		return
+	if _change_required.size() < 2:
+		_change_section_row.visible = false
+		return
+	_change_section_row.visible = true
+	_change_section_label.text = "Section %d of %d: %s" % [_change_page + 1, _change_required.size(), str(_change_required[_change_page])]
+
+
+func _note_section_reviewed(section: String) -> void:
+	if section.is_empty() or _change_reviewed.has(section):
+		return
+	_change_reviewed.append(section)
+
+
+func _apply_live_summary(Card) -> void:
+	if _change_card.is_empty() or _change_body == null:
+		_refresh_keep_button()
+		return
+	var sentence := ""
+	if _change_summary != null:
+		sentence = _change_summary.text
+	var stored: Dictionary = _change_card.get("user_summary", {})
+	_change_card["user_summary"] = {
+		"source": "user",
+		"text": sentence,
+		"timestamp": int(stored.get("timestamp", 0)) if typeof(stored) == TYPE_DICTIONARY else 0,
+	}
+	var static_section: Dictionary = _change_card.get("static", {})
+	static_section["advisory"] = Card.advisory(sentence, static_section, _change_before_blob)
+	_change_card["static"] = static_section
+	_change_text = Card.to_text(_change_card)
+	_change_body.text = _change_text
+	_refresh_keep_button()
+
+
+func _refresh_keep_button() -> void:
+	if _change_keep == null:
+		return
+	var Card = load("res://addons/visual_gasic/vg_change_card.gd")
+	var sentence := ""
+	if _change_summary != null:
+		sentence = _change_summary.text
+	_change_keep.disabled = Card == null or not Card.keep_ready(sentence, _change_reviewed, _change_required)
 
 
 func _change_sha(data: PackedByteArray) -> String:

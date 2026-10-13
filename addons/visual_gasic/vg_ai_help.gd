@@ -3612,6 +3612,33 @@ func _append_review_change_link() -> void:
 	_ensure_meta_handler()
 
 
+func _change_navigator():
+	if not Engine.is_editor_hint():
+		return null
+	var base := EditorInterface.get_base_control()
+	if base == null or not base.has_meta("visual_gasic_plugin_instance"):
+		return null
+	var plugin = base.get_meta("visual_gasic_plugin_instance")
+	if plugin == null or not plugin.has_method("_get_navigator"):
+		return null
+	return plugin._get_navigator()
+
+
+func _accept_kept_change() -> void:
+	var nav = _change_navigator()
+	if nav != null and nav.has_method("try_keep"):
+		var reason := str(nav.try_keep())
+		if not reason.is_empty():
+			if _output != null:
+				_output.append_text("[color=#cc8866]  %s[/color]\n" % _escape_bbcode(reason))
+			_focus_change_card()
+			return
+	if _ai_tools != null:
+		_ai_tools.clear_undo()
+	if _output != null:
+		_output.append_text("[color=#66aa66]  \u2713 Edits kept (undo history cleared).[/color]\n")
+
+
 func _focus_change_card() -> void:
 	if not Engine.is_editor_hint():
 		return
@@ -7456,9 +7483,7 @@ func _on_ai_meta_clicked(meta: Variant) -> void:
 			else:
 				_output.append_text("[color=#888888]  (nothing to undo)[/color]\n")
 		"ai_keep":
-			if _ai_tools != null:
-				_ai_tools.clear_undo()
-			_output.append_text("[color=#66aa66]  \u2713 Edits kept (undo history cleared).[/color]\n")
+			_accept_kept_change()
 		"vg_change_card":
 			_focus_change_card()
 		"ai_toggle_approvals":
