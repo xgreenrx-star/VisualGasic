@@ -11,6 +11,7 @@
 // - src/visual_gasic_expression_evaluator.cpp (expression evaluator)
 
 #include <godot_cpp/variant/variant.hpp>
+#include <godot_cpp/variant/quaternion.hpp>
 
 // Godot built-in types that can be constructed via type-constructor syntax
 // (e.g., Vector2(x, y), Rect2i(x, y, w, h), Color(r, g, b, a))
@@ -147,7 +148,10 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     }
     
     if (name_lower == "basis") {
-        // Basis() identity; Basis(axis, angle); Basis(x_axis, y_axis, z_axis)
+        // Basis() identity; Basis(quaternion); Basis(axis, angle); Basis(x, y, z)
+        if (args.size() == 1 && args[0].get_type() == Variant::QUATERNION) {
+            return Basis((Quaternion)args[0]);
+        }
         if (args.size() == 2 && args[0].get_type() == Variant::VECTOR3) {
             return Basis((Vector3)args[0], (float)args[1]);
         }
@@ -213,6 +217,60 @@ inline Variant vg_dictionary_key(const Variant &key) {
         return key;
     }
     return Variant(as_int);
+}
+
+// Dictionary.set/get/has/erase and the VB Add/Remove/Exists/Item names all
+// take the key as the first argument. Indexing already normalizes keys;
+// these method names must use the same key or Set/Erase create a second entry.
+inline bool vg_dictionary_method_uses_key(const String &method) {
+    const String m = method.to_lower();
+    return m == "has" || m == "get" || m == "erase" || m == "set" ||
+            m == "add" || m == "remove" || m == "exists" || m == "item";
+}
+
+// Godot rejects int/bool arithmetic and compares. VB treats True as -1 and
+// False as 0. NIL add/sub/mul still propagates Nothing. NIL relational
+// compares stay unresolved so a missing value is not treated as zero.
+inline bool vg_vb_numeric(const Variant &v, double &out) {
+    switch (v.get_type()) {
+        case Variant::INT:
+            out = (double)(int64_t)v;
+            return true;
+        case Variant::FLOAT:
+            out = (double)v;
+            return true;
+        case Variant::BOOL:
+            out = (bool)v ? -1.0 : 0.0;
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline bool vg_evaluate_vb_numeric(Variant::Operator op, const Variant &a, const Variant &b, Variant &result) {
+    if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
+            (a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
+        result = Variant();
+        return true;
+    }
+    double da = 0.0;
+    double db = 0.0;
+    if (!vg_vb_numeric(a, da) || !vg_vb_numeric(b, db)) {
+        return false;
+    }
+    switch (op) {
+        case Variant::OP_EQUAL: result = (da == db); return true;
+        case Variant::OP_NOT_EQUAL: result = (da != db); return true;
+        case Variant::OP_LESS: result = (da < db); return true;
+        case Variant::OP_LESS_EQUAL: result = (da <= db); return true;
+        case Variant::OP_GREATER: result = (da > db); return true;
+        case Variant::OP_GREATER_EQUAL: result = (da >= db); return true;
+        case Variant::OP_ADD: result = (da + db); return true;
+        case Variant::OP_SUBTRACT: result = (da - db); return true;
+        case Variant::OP_MULTIPLY: result = (da * db); return true;
+        case Variant::OP_DIVIDE: result = (db == 0.0 ? 0.0 : da / db); return true;
+        default: return false;
+    }
 }
 
 #endif  // VISUAL_GASIC_GODOT_CTORS_H

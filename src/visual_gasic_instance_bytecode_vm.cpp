@@ -1208,22 +1208,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // VB6: False is 0 and True is -1. Godot refuses int/float compared with bool,
     // and the bytecode path treated that as fatal. A fatal compare aborts the
     // Sub and the caller re-runs it in the AST, so earlier Prints and assignments
-    // happen twice and later results are lost.
-    auto vb_numeric = [](const Variant &v, double &out) -> bool {
-        switch (v.get_type()) {
-            case Variant::INT:
-                out = (double)(int64_t)v;
-                return true;
-            case Variant::FLOAT:
-                out = (double)v;
-                return true;
-            case Variant::BOOL:
-                out = (bool)v ? -1.0 : 0.0;
-                return true;
-            default:
-                return false;
-        }
-    };
+    // happen twice and later results are lost. vg_evaluate_vb_numeric covers
+    // the same cases for the AST interpreter.
     auto apply_variant_op = [&](Variant::Operator op) -> bool {
         if (!ensure_stack(2)) {
             return false;
@@ -1234,29 +1220,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         bool valid = false;
         Variant::evaluate(op, a, b, result, valid);
         if (!valid) {
-			// Match AST Nothing propagation without restarting a partially executed Sub.
-			if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
-					(a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
-				push_value(Variant());
+			// Match AST Nothing propagation and VB True=-1 compares without
+			// restarting a partially executed Sub.
+			if (vg_evaluate_vb_numeric(op, a, b, result)) {
+				push_value(result);
 				return true;
 			}
-            double da = 0.0;
-            double db = 0.0;
-            if (vb_numeric(a, da) && vb_numeric(b, db)) {
-                switch (op) {
-                    case Variant::OP_EQUAL: push_value(da == db); return true;
-                    case Variant::OP_NOT_EQUAL: push_value(da != db); return true;
-                    case Variant::OP_LESS: push_value(da < db); return true;
-                    case Variant::OP_LESS_EQUAL: push_value(da <= db); return true;
-                    case Variant::OP_GREATER: push_value(da > db); return true;
-                    case Variant::OP_GREATER_EQUAL: push_value(da >= db); return true;
-                    case Variant::OP_ADD: push_value(da + db); return true;
-                    case Variant::OP_SUBTRACT: push_value(da - db); return true;
-                    case Variant::OP_MULTIPLY: push_value(da * db); return true;
-                    case Variant::OP_DIVIDE: push_value(db == 0.0 ? 0.0 : da / db); return true;
-                    default: break;
-                }
-            }
             // Rate-limit error output to avoid spam
             static int error_count = 0;
             static uint64_t last_error_time = 0;
@@ -4799,7 +4768,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     found = true;
                                 } else if (args.size() == 1) {
                                     // Dictionary indexing: dict(key) → dict[key]
-                                    call_ret = d.get(args[0], Variant());
+                                    call_ret = d.get(vg_dictionary_key(args[0]), Variant());
                                     found = true;
                                 }
                             } else if (v.get_type() >= Variant::PACKED_BYTE_ARRAY && v.get_type() <= Variant::PACKED_COLOR_ARRAY) {
@@ -8309,7 +8278,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         const Variant **ptrs_w = arg_ptrs.ptrw();
                         String dict_method = method_to_call.to_lower();
                         bool coerce_dict_key = base.get_type() == Variant::DICTIONARY && args.size() >= 1 &&
-                                (dict_method == "has" || dict_method == "get" || dict_method == "erase");
+                                vg_dictionary_method_uses_key(dict_method);
                         for (int i = 0; i < args.size(); i++) {
                             args_w[i] = (coerce_dict_key && i == 0) ? vg_dictionary_key(args[i]) : args[i];
                             ptrs_w[i] = &args_w[i];

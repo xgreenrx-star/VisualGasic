@@ -91,6 +91,13 @@ pickups, collisions, pause/resume, return to Cursor's city, and mesh reuse.
 
 ## Rendering and regression checks
 
+The live scene uses `presentation.vg`; city generation, exploration, cockpit
+artwork, gauges, and stars run in VG. The older `.gd` implementations remain
+as migration references, and the existing regression runners are GDScript.
+The VisualGasic addon/debug infrastructure also remains an engine dependency.
+Native `.gdshader` resources supply the optical effects. References below to
+the former GDScript adapters describe their VG replacements' responsibilities.
+
 ### Backlight City: exploration prototype
 
 **BACKLIGHT CITY** is a fourth, independent destination at the bottom of the

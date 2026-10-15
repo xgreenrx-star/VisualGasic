@@ -97,6 +97,19 @@ bool jit_tier2_chunk_has_non_numeric_slots(const BytecodeChunk *chunk) {
 
 Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &args, bool &handled) {
     handled = false;
+    // QueueRedraw and the other canvas helpers are instance draw calls. The
+    // numeric builtin list does not know them, so a JIT'd hot function would
+    // otherwise drop queue_redraw() and keep the first canvas frame.
+    Variant draw_args[8];
+    const int n = args.size() < 8 ? args.size() : 8;
+    for (int i = 0; i < n; i++) {
+        draw_args[i] = args[i];
+    }
+    bool draw_found = false;
+    if (try_dispatch_draw_call(method, draw_args, n, draw_found) && draw_found) {
+        handled = true;
+        return Variant();
+    }
     return call_internal(method, args, handled);
 }
 

@@ -264,7 +264,7 @@ Sub _ready()
 	stars = ClassDB.Instantiate("Node2D")
 	stars.set_script(Load("res://cockpit_stars.vg"))
 	cockpit_view.add_child(stars)
-	_add_cached_art(cockpit_view, "res://cockpit_art.gd")
+	_add_cached_art(cockpit_view, "res://cockpit_art.vg")
 	ship_instruments = ClassDB.Instantiate("Node2D")
 	ship_instruments.set_script(Load("res://cockpit_instruments.vg"))
 	cockpit_view.add_child(ship_instruments)
@@ -273,7 +273,7 @@ Sub _ready()
 	buggy_view.transparent_bg = True
 	buggy_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(buggy_view)
-	_add_cached_art(buggy_view, "res://buggy_art.gd")
+	_add_cached_art(buggy_view, "res://buggy_art.vg")
 	buggy_instruments = ClassDB.Instantiate("Node2D")
 	buggy_instruments.set_script(Load("res://cockpit_instruments.vg"))
 	buggy_instruments.buggy = True
@@ -302,9 +302,12 @@ End Sub
 
 Function cockpit_texture(ByVal t As Single, ByVal speed As Single, ByVal height As Single, ByVal alert As Single) As Texture2D
 	Call EnsureInit()
-	stars.time = t
+	stars.time_n = t
 	stars.queue_redraw()
 	ship_instruments.update_readings(t, speed, 0, height, alert, 0)
+	' UPDATE_ONCE leaves the property at ONCE after the render, so assigning
+	' ONCE again does not schedule another frame.
+	cockpit_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	cockpit_view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	Return cockpit_view.get_texture()
 End Function
@@ -312,6 +315,7 @@ End Function
 Function buggy_texture(ByVal t As Single, ByVal speed As Single, ByVal heading As Single, ByVal distance As Single, Optional destination As Variant = 368.0, Optional top_speed As Variant = 16.0) As Texture2D
 	Call EnsureInit()
 	buggy_instruments.update_readings(t, speed, heading, 0, 0, distance, destination, top_speed)
+	buggy_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	buggy_view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	Return buggy_view.get_texture()
 End Function

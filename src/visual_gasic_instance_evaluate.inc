@@ -685,7 +685,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      raise_error("Incomplete array access: missing index");
                      return Variant();
                  }
-                 Variant key = evaluate_expression(aa->indices[0]);
+                 Variant key = vg_dictionary_key(evaluate_expression(aa->indices[0]));
                  if (d.has(key)) return d[key];
                  return Variant(); // Or error?
              }
@@ -722,7 +722,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      return Variant();
                  }
                  Dictionary dict = container;
-                 Variant key = evaluate_expression(aa->indices[i]);
+                 Variant key = vg_dictionary_key(evaluate_expression(aa->indices[i]));
                  container = dict.get(key, Variant());
              }
              return container;
@@ -1285,7 +1285,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                                 if (valid) return res;
                             } else if (fv.get_type() == Variant::DICTIONARY && call_args.size() == 1) {
                                 Dictionary d = fv;
-                                Variant key = call_args[0];
+                                Variant key = vg_dictionary_key(call_args[0]);
                                 if (d.has(key)) return d[key];
                                 return Variant();
                             } else if (fv.get_type() == Variant::OBJECT) {
@@ -1430,7 +1430,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     return invoke_lambda(d, call_args);
                 }
                 if (call_args.size() == 1) {
-                    Variant key = call_args[0];
+                    Variant key = vg_dictionary_key(call_args[0]);
                     if (d.has(key)) return d[key];
                     return Variant();
                 }
@@ -2136,6 +2136,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              
              v_op = Variant::OP_GREATER;
              Variant::evaluate(v_op, l, r, result, valid);
+             if (!valid && vg_evaluate_vb_numeric(v_op, l, r, result)) {
+                 return result;
+             }
              return result;
         }
         else if (op == "<=") {
@@ -2200,6 +2203,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         Variant::evaluate(v_op, l, r, result, valid);
+        if (!valid) {
+            Variant coerced;
+            if (vg_evaluate_vb_numeric(v_op, l, r, coerced)) {
+                return coerced;
+            }
+        }
         return result;
     }
     return Variant();

@@ -52,6 +52,12 @@ Sub _Ready()
 	Else
 		Print "FAIL: minus_one_eq_true"
 	End If
+	whole = 0
+	If whole > True And whole >= True And True < whole And True <= whole And whole <> True Then
+		Print "PASS: numeric_bool_relational_operators"
+	Else
+		Print "FAIL: numeric_bool_relational_operators"
+	End If
 	Dim arc As Single
 	arc = -PI * 1.2
 	If arc < -3.7 And arc > -3.8 Then

@@ -2919,7 +2919,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                  Variant dict_base = evaluate_expression(ma->base_object);
                  if (dict_base.get_type() == Variant::DICTIONARY) {
                      Dictionary d = dict_base;
-                     Variant key = evaluate_expression(aa->indices[0]);
+                     Variant key = vg_dictionary_key(evaluate_expression(aa->indices[0]));
                      d[key] = val;
                      // Write back the dictionary to the source variable
                      if (ma->base_object->type == ExpressionNode::VARIABLE) {
@@ -2934,7 +2934,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
          if (base.get_type() == Variant::DICTIONARY) {
              if (aa->indices.size() > 0) {
                  Dictionary d = base;
-                 Variant key = evaluate_expression(aa->indices[0]);
+                 Variant key = vg_dictionary_key(evaluate_expression(aa->indices[0]));
                  d[key] = val;
                  // Write back the dictionary to the variable
                  if (!var_name.is_empty()) {
@@ -3042,7 +3042,7 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
                  return;
              }
              Dictionary dict = container;
-             Variant key = evaluate_expression(call->arguments[0]);
+             Variant key = vg_dictionary_key(evaluate_expression(call->arguments[0]));
              dict[key] = val;
              assign_variable(name, dict);
              return;

@@ -18,4 +18,42 @@ Sub _Ready()
 	Else
 		Print "FAIL: dict_integral_float_key whole=" & Str(VarType(key)) & " half=" & Str(VarType(half))
 	End If
+	' Method calls must use the same key as indexing. Set must replace the
+	' entry, and Erase must remove it, instead of leaving a float-key twin.
+	whole.Set(box, "again")
+	If whole.size() = 1 And whole.Has(box) And whole(box) = "again" Then
+		Print "PASS: dict_set_replaces_integral_key"
+	Else
+		Print "FAIL: dict_set_replaces_integral_key count=" & Str(whole.size()) & " val=" & whole(box)
+	End If
+	If HasKey(whole, box) And whole.Get(box) = "again" Then
+		Print "PASS: dict_global_haskey_matches_index"
+	Else
+		Print "FAIL: dict_global_haskey_matches_index"
+	End If
+	Dim removed As Dictionary
+	removed = DictRemove(whole, box)
+	If removed.size() = 0 And whole.size() = 1 Then
+		Print "PASS: dictremove_normalizes_without_mutating_source"
+	Else
+		Print "FAIL: dictremove_normalizes_without_mutating_source"
+	End If
+	Dim erased As Variant
+	erased = whole.Erase(box)
+	If VarType(erased) = 11 And erased = True Then
+		Print "PASS: dict_erase_returns_true"
+	Else
+		Print "FAIL: dict_erase_returns_true"
+	End If
+	erased = whole.Erase(box)
+	If VarType(erased) = 11 And erased = False Then
+		Print "PASS: dict_erase_missing_returns_false"
+	Else
+		Print "FAIL: dict_erase_missing_returns_false"
+	End If
+	If whole.size() = 0 And Not whole.Has(box) Then
+		Print "PASS: dict_erase_removes_integral_key"
+	Else
+		Print "FAIL: dict_erase_removes_integral_key count=" & Str(whole.size())
+	End If
 End Sub

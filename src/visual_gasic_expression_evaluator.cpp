@@ -370,7 +370,7 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             if (v.get_type() == Variant::DICTIONARY) {
                 Dictionary d = v;
                 if (call->arguments.size() == 1) {
-                    Variant key = evaluate(call->arguments[0], ctx);
+                    Variant key = vg_dictionary_key(evaluate(call->arguments[0], ctx));
                     if (d.has(key)) return d[key];
                 }
                 return Variant();

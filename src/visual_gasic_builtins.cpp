@@ -1,4 +1,5 @@
 #include "visual_gasic_builtins.h"
+#include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_qb_screen.h"
 #include "vg_qb_string_bytes.h"
 #include "vg_connect.h"
@@ -1328,11 +1329,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
 
     // Built-in type constructors
-    if (METHOD_IS("vector2")) {
+    if (METHOD_IS("vector2") || METHOD_IS("vector2i")) {
         r_handled = true;
-        if (args.size() == 0) return Vector2();
-        if (args.size() == 2) return Vector2((real_t)(double)args[0], (real_t)(double)args[1]);
-        return Vector2();
+        return construct_godot_type(lowercase_name, args);
     }
     if (METHOD_IS("vector3")) {
         r_handled = true;
@@ -1391,16 +1390,10 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         Vector3 e((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2]);
         return Quaternion::from_euler(e);
     }
-    // Basis() = identity (full Basis construction goes via Quaternion or methods on the value)
+    // Basis() identity, Basis(quaternion), Basis(axis, angle), Basis(x, y, z).
     if (METHOD_IS("basis")) {
         r_handled = true;
-        if (args.size() == 0) return Basis();
-        if (args.size() == 1) {
-            // Basis from Quaternion
-            Quaternion q = args[0];
-            return Basis(q);
-        }
-        return Basis();
+        return construct_godot_type("basis", args);
     }
     // Transform2D() | Transform2D(rotation_rad, origin_vec2) | Transform2D(rotation, scale, skew, origin)
     if (METHOD_IS("transform2d")) {
@@ -4887,7 +4880,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         Variant key = args[1];
         if (input.get_type() == Variant::DICTIONARY) {
             Dictionary dict = input;
-            return dict.has(key);
+            return dict.has(vg_dictionary_key(key));
         }
         return false;
     }
@@ -4919,7 +4912,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (input.get_type() == Variant::DICTIONARY) {
             Dictionary dict = input;
             Dictionary new_dict = dict.duplicate();
-            new_dict.erase(key);
+            new_dict.erase(vg_dictionary_key(key));
             return new_dict;
         }
         return input;
@@ -5923,7 +5916,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         Variant key = args[1];
         if (input.get_type() == Variant::DICTIONARY) {
             Dictionary dict = input;
-            return dict.has(key);
+            return dict.has(vg_dictionary_key(key));
         }
         return false;
     }
@@ -5955,7 +5948,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         if (input.get_type() == Variant::DICTIONARY) {
             Dictionary dict = input;
             Dictionary new_dict = dict.duplicate();
-            new_dict.erase(key);
+            new_dict.erase(vg_dictionary_key(key));
             return new_dict;
         }
         return input;
@@ -8027,8 +8020,10 @@ static bool try_call_godot_variant_method(Variant &p_base, const String &p_metho
     Vector<const Variant *> arg_ptrs;
     arg_ptrs.resize(p_args.size());
     const Variant **ptrs_w = arg_ptrs.ptrw();
+    const bool coerce_dict_key = p_base.get_type() == Variant::DICTIONARY && p_args.size() >= 1 &&
+            vg_dictionary_method_uses_key(method_to_call);
     for (int i = 0; i < p_args.size(); i++) {
-        args_w[i] = p_args[i];
+        args_w[i] = (coerce_dict_key && i == 0) ? vg_dictionary_key(p_args[i]) : p_args[i];
         ptrs_w[i] = &args_w[i];
     }
     p_base.callp(method_to_call, ptrs_w, p_args.size(), res, err);
@@ -8251,22 +8246,23 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
             return true;
         }
         // VB6 Scripting.Dictionary methods
-        if (p_method.nocasecmp_to("Add") == 0 && p_args.size() >= 2) {
-            d[p_args[0]] = p_args[1];
+        if ((p_method.nocasecmp_to("Add") == 0 || p_method.nocasecmp_to("Set") == 0) && p_args.size() >= 2) {
+            d[vg_dictionary_key(p_args[0])] = p_args[1];
             r_ret = Variant();
             return true;
         }
-        if (p_method.nocasecmp_to("Remove") == 0 && p_args.size() >= 1) {
-            d.erase(p_args[0]);
-            r_ret = Variant();
+        if ((p_method.nocasecmp_to("Remove") == 0 || p_method.nocasecmp_to("Erase") == 0) && p_args.size() >= 1) {
+            bool erased = d.erase(vg_dictionary_key(p_args[0]));
+            r_ret = p_method.nocasecmp_to("Erase") == 0 ? Variant(erased) : Variant();
             return true;
         }
         if (p_method.nocasecmp_to("Exists") == 0 && p_args.size() >= 1) {
-            r_ret = d.has(p_args[0]);
+            r_ret = d.has(vg_dictionary_key(p_args[0]));
             return true;
         }
         if (p_method.nocasecmp_to("Item") == 0 && p_args.size() >= 1) {
-            r_ret = d.has(p_args[0]) ? d[p_args[0]] : Variant();
+            Variant item_key = vg_dictionary_key(p_args[0]);
+            r_ret = d.has(item_key) ? d[item_key] : Variant();
             return true;
         }
         if (p_method.nocasecmp_to("Keys") == 0) {
@@ -8299,7 +8295,7 @@ bool call_builtin_for_base_variant(VisualGasicInstance *instance, const Variant 
         }
         // Godot Dictionary.has(key) (VB6 Exists is handled above)
         if (p_method.nocasecmp_to("has") == 0 && p_args.size() >= 1) {
-            r_ret = d.has(p_args[0]);
+            r_ret = d.has(vg_dictionary_key(p_args[0]));
             return true;
         }
         {

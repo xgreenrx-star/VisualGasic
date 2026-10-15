@@ -21,4 +21,13 @@ Sub _Ready()
 	Else
 		Print "FAIL: getnode_outside_tree returned null"
 	End If
+	' The suite host is named TestNode. A missing child of a detached node
+	' must stay Nothing instead of falling through to that host.
+	Set found = root.GetNode("TestNode")
+	If found Is Nothing Then
+		Print "PASS: getnode_missing_child_stays_nothing"
+	Else
+		Print "FAIL: getnode_missing_child_stays_nothing name=" & found.name
+	End If
+	root.free()
 End Sub

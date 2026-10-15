@@ -1869,7 +1869,7 @@ Sub _cell()
 	_cylinder(Vector3(0, 1.35, 0), 0.13, 0.08, GOLD, 1, True)
 End Sub
 
-Function _effect(ByVal view As Node, ByVal size As Vector2i, ByVal code As String, ByVal texture As Texture2D) As SubViewport
+Function _effect(ByVal view As Node, ByVal size As Vector2i, ByVal code As Variant, ByVal texture As Texture2D) As SubViewport
 	Dim target As Variant
 	Dim canvas As Variant
 	Dim material As Variant
@@ -1886,8 +1886,15 @@ Function _effect(ByVal view As Node, ByVal size As Vector2i, ByVal code As Strin
 	canvas.size = Vector2(size)
 	canvas.texture = texture
 	material = ClassDB.Instantiate("ShaderMaterial")
-	shader = ClassDB.Instantiate("Shader")
-	shader.code = code
+	' Load() of a .gdshader is a Shader resource. Assigning that resource to a
+	' String parameter stringifies it, and shader.code then holds the resource
+	' description. A string is still source text for the inline-shader path.
+	If VarType(code) = 8 Then
+		shader = ClassDB.Instantiate("Shader")
+		shader.code = code
+	Else
+		shader = code
+	End If
 	material.shader = shader
 	canvas.material = material
 	target.add_child(canvas)

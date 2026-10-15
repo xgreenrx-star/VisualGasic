@@ -11,4 +11,12 @@ Sub _Ready()
 	Else
 		Print "FAIL: vector2_from_vector2i x=" & Str(glow.x) & " y=" & Str(glow.y)
 	End If
+	Dim turned As Basis
+	turned = Basis(Vector3(0, 1, 0), PI / 2)
+	' Identity would leave the X column at (1, 0, 0). A quarter turn around Y does not.
+	If Abs(turned.x.x) < 0.01 And Abs(Abs(turned.x.z) - 1) < 0.01 Then
+		Print "PASS: basis_axis_angle"
+	Else
+		Print "FAIL: basis_axis_angle x=" & Str(turned.x.x) & " z=" & Str(turned.x.z)
+	End If
 End Sub

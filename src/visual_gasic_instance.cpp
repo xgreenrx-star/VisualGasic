@@ -2770,7 +2770,7 @@ int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
     if (p_method.nocasecmp_to("DrawPolyline") == 0) return 4;
     if (p_method.nocasecmp_to("DrawTextureRect") == 0) return 5;
     if (p_method.nocasecmp_to("DrawTexture") == 0) return 6;
-    if (p_method.nocasecmp_to("QueueRedraw") == 0) return 7;
+    if (p_method.nocasecmp_to("QueueRedraw") == 0 || p_method.nocasecmp_to("queue_redraw") == 0) return 7;
     if (p_method.nocasecmp_to("DrawString") == 0) return 8;
     if (p_method.nocasecmp_to("DrawText") == 0) return 9;
     if (p_method.nocasecmp_to("DrawArc") == 0) return 10;
@@ -3538,7 +3538,7 @@ bool VisualGasicInstance::try_dispatch_draw_call(const String &p_method, const V
         r_found = true;
         return true;
     }
-    if (p_method.nocasecmp_to("QueueRedraw") == 0) {
+    if (p_method.nocasecmp_to("QueueRedraw") == 0 || p_method.nocasecmp_to("queue_redraw") == 0) {
         ci->queue_redraw();
         r_found = true;
         return true;

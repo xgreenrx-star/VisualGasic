@@ -195,7 +195,8 @@ Sub EnsureInit()
 	CYAN = Color(0.2, 0.92, 1.0)
 	AMBER = Color(1.0, 0.45, 0.15)
 	INK = Color(0.005, 0.018, 0.025)
-	buggy = False
+	' Presentation sets buggy before the first reading. Assigning False here
+	' would wipe that and draw the ship cluster inside the courier viewport.
 	time_n = 0.0
 	speed = 0.0
 	heading = 0.0
