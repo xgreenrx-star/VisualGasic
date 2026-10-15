@@ -1,0 +1,343 @@
+' Generated Visual Gasic port of bleed_city.vg
+Dim __ready As Boolean
+Dim CYAN As Variant
+Dim PINK As Variant
+Dim AMBER As Variant
+Dim BEAM As Variant
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	CYAN = Color(0.15, 0.95, 1.0)
+	PINK = Color(1.0, 0.22, 0.78)
+	AMBER = Color(1.0, 0.62, 0.12)
+	BEAM = Color(0.82, 0.95, 1.0)
+End Sub
+
+Sub build(ByVal view As Node)
+	Call EnsureInit()
+	_road(view)
+	_hall(view, Vector3(-22, 0, 6), Vector3(10, 7, 8))
+	_hall(view, Vector3(-24, 0, 22), Vector3(12, 9, 10))
+	_hall(view, Vector3(-20, 0, 42), Vector3(9, 6, 14))
+	_hall(view, Vector3(-26, 0, 64), Vector3(14, 11, 12))
+	_hall(view, Vector3(12, 0, 8), Vector3(11, 8, 9))
+	_hall(view, Vector3(14, 0, 28), Vector3(8, 5, 16))
+	_hall(view, Vector3(10, 0, 52), Vector3(13, 10, 11))
+	_pipes(view)
+	_silo(view, Vector3(22, 0, 70), 2.2, 14.0)
+	_silo(view, Vector3(28, 0, 78), 1.5, 9.0)
+	_catwalk(view, 48.0)
+	_bottle(view, Vector3(5.5, 0.4, 24))
+	_buggy(view, Vector3(0, 0, 18))
+	_beam(view, Vector3(0, 0, 110))
+End Sub
+
+Sub _road(ByVal view As Node)
+	Call EnsureInit()
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each lane In AsArray(Array(1.35, 2.15))
+			view.segment(Vector3(side * lane, 0.05, -6), Vector3(side * lane, 0.05, 96), CYAN)
+		Next
+		For z = -4 To (96 - 1) Step 4
+			view.segment(Vector3(side * 1.35, 0.05, z), Vector3(side * 2.15, 0.05, z), CYAN * 0.55)
+		Next
+	Next
+	For x = -28 To (32 - 1) Step 4
+		view.segment(Vector3(x, 0.05, 34.6), Vector3(x, 0.05, 35.4), CYAN * 0.7)
+		view.segment(Vector3(x, 0.05, 37.2), Vector3(x, 0.05, 38.0), CYAN * 0.7)
+	Next
+End Sub
+
+Sub _hall(ByVal view As Node, ByVal origin As Vector3, ByVal size As Vector3)
+	Dim posts As Variant
+	Dim roof As Variant
+	Dim mid As Variant
+	Dim y As Variant
+	Call EnsureInit()
+	posts = Array(origin, origin + Vector3(size.x, 0, 0), origin + Vector3(size.x, 0, size.z), origin + Vector3(0, 0, size.z))
+	For Each post In AsArray(posts)
+		view.segment(post, post + Vector3(0, size.y, 0), PINK)
+	Next
+	roof = origin + Vector3(0, size.y, 0)
+	view.segment(roof, roof + Vector3(size.x, 0, 0), PINK)
+	view.segment(roof + Vector3(size.x, 0, 0), roof + Vector3(size.x, 0, size.z), PINK)
+	view.segment(roof + Vector3(size.x, 0, size.z), roof + Vector3(0, 0, size.z), PINK)
+	view.segment(roof + Vector3(0, 0, size.z), roof, PINK)
+	view.segment(roof, roof + Vector3(size.x, 0, size.z), PINK * 0.65)
+	mid = size.y * 0.45
+	view.segment(origin + Vector3(0, mid, 0), origin + Vector3(size.x, mid, 0), PINK * 0.75)
+	view.segment(origin + Vector3(0, mid, size.z), origin + Vector3(size.x, mid, size.z), PINK * 0.75)
+	For step_n = 0 To (4 - 1)
+		y = size.y * (0.25 + step_n * 0.15)
+		view.segment(origin + Vector3(size.x * 0.5, y, 0), origin + Vector3(size.x * 0.5, y, size.z), PINK * 0.4)
+	Next
+End Sub
+
+Sub _pipes(ByVal view As Node)
+	Call EnsureInit()
+	view.segment(Vector3(-16, 6.2, 14), Vector3(-14, 6.2, 30), CYAN * 0.8)
+	view.segment(Vector3(-14, 6.2, 30), Vector3(-12, 4.4, 48), CYAN * 0.8)
+	view.segment(Vector3(16, 5.4, 16), Vector3(18, 5.4, 36), PINK * 0.8)
+	view.segment(Vector3(18, 5.4, 36), Vector3(20, 8.0, 58), PINK * 0.8)
+	view.segment(Vector3(-8, 3.2, 36), Vector3(8, 3.2, 36), CYAN)
+End Sub
+
+Sub _silo(ByVal view As Node, ByVal origin As Vector3, ByVal radius As Single, ByVal height As Single)
+	Dim a As Variant
+	Dim p As Variant
+	Call EnsureInit()
+	For i = 0 To (7 - 1)
+		_ring(view, origin + Vector3(0, height * i / 6.0, 0), radius, AMBER)
+	Next
+	For i = 0 To (8 - 1)
+		a = 6.283185307179586 * i / 8.0
+		p = Vector3(Cos(a) * radius, 0, Sin(a) * radius)
+		view.segment(origin + p, origin + p + Vector3(0, height, 0), AMBER)
+	Next
+	_ring(view, origin + Vector3(0, height + 0.6, 0), radius * 0.45, AMBER)
+End Sub
+
+Sub _catwalk(ByVal view As Node, ByVal z As Single)
+	Call EnsureInit()
+	view.segment(Vector3(-16, 0, z), Vector3(-16, 4.2, z), PINK)
+	view.segment(Vector3(16, 0, z), Vector3(16, 4.2, z), PINK)
+	view.segment(Vector3(-16, 4.2, z - 0.8), Vector3(16, 4.2, z - 0.8), PINK)
+	view.segment(Vector3(-16, 4.2, z + 0.8), Vector3(16, 4.2, z + 0.8), PINK)
+	For x = -14 To (16 - 1) Step 2
+		view.segment(Vector3(x, 4.2, z - 0.8), Vector3(x, 4.2, z + 0.8), PINK * 0.7)
+	Next
+End Sub
+
+Sub _bottle(ByVal view As Node, ByVal origin As Vector3)
+	Call EnsureInit()
+	For i = 0 To (5 - 1)
+		_ring_x(view, origin + Vector3(i * 0.55, 0.7, 0), 0.42, PINK)
+	Next
+	_ring_x(view, origin + Vector3(-0.35, 0.7, 0), 0.22, CYAN)
+	_ring_x(view, origin + Vector3(-0.7, 0.7, 0), 0.16, CYAN)
+	view.segment(origin + Vector3(-0.7, 0.7, 0), origin + Vector3(-1.3, 0.7, 0), CYAN)
+	view.segment(origin + Vector3(-0.9, 0.55, 0), origin + Vector3(-0.9, 0.15, 0), AMBER)
+	_ring_x(view, origin + Vector3(-0.9, 0.12, 0), 0.12, AMBER)
+End Sub
+
+Sub _buggy(ByVal view As Node, ByVal origin As Vector3)
+	Call EnsureInit()
+	view.segment(origin + Vector3(-0.8, 0.4, -1.2), origin + Vector3(0.8, 0.4, -1.2), CYAN)
+	view.segment(origin + Vector3(0.8, 0.4, -1.2), origin + Vector3(0.7, 0.9, 0.2), CYAN)
+	view.segment(origin + Vector3(0.7, 0.9, 0.2), origin + Vector3(-0.7, 0.9, 0.2), CYAN)
+	view.segment(origin + Vector3(-0.7, 0.9, 0.2), origin + Vector3(-0.8, 0.4, -1.2), CYAN)
+	view.segment(origin + Vector3(-0.8, 0.4, 1.3), origin + Vector3(0.8, 0.4, 1.3), CYAN)
+	view.segment(origin + Vector3(-0.8, 0.4, -1.2), origin + Vector3(-0.8, 0.4, 1.3), CYAN)
+	view.segment(origin + Vector3(0.8, 0.4, -1.2), origin + Vector3(0.8, 0.4, 1.3), CYAN)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each z In AsArray(Array(-0.8, 0.9))
+			_ring_x(view, origin + Vector3(side * 0.95, 0.38, z), 0.38, CYAN)
+		Next
+	Next
+End Sub
+
+Sub _beam(ByVal view As Node, ByVal origin As Vector3)
+	Call EnsureInit()
+	_ring(view, origin + Vector3(0, 0.2, 0), 3.2, BEAM)
+	_ring(view, origin + Vector3(0, 0.2, 0), 2.2, BEAM)
+	view.segment(origin, origin + Vector3(0, 28, 0), BEAM)
+End Sub
+
+Sub _ring(ByVal view As Node, ByVal center As Vector3, ByVal radius As Single, ByVal color As Color)
+	Dim a As Variant
+	Dim b As Variant
+	Call EnsureInit()
+	For i = 0 To (16 - 1)
+		a = 6.283185307179586 * i / 16.0
+		b = 6.283185307179586 * (i + 1) / 16.0
+		view.segment(center + Vector3(Cos(a), 0, Sin(a)) * radius, center + Vector3(Cos(b), 0, Sin(b)) * radius, color)
+	Next
+End Sub
+
+Sub _ring_x(ByVal view As Node, ByVal center As Vector3, ByVal radius As Single, ByVal color As Color)
+	Dim a As Variant
+	Dim b As Variant
+	Call EnsureInit()
+	For i = 0 To (12 - 1)
+		a = 6.283185307179586 * i / 12.0
+		b = 6.283185307179586 * (i + 1) / 12.0
+		view.segment(center + Vector3(0, Cos(a), Sin(a)) * radius, center + Vector3(0, Cos(b), Sin(b)) * radius, color)
+	Next
+End Sub

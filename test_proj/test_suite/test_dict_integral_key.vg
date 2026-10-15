@@ -1,0 +1,21 @@
+Sub _Ready()
+	Dim box As Single
+	Dim frac As Single
+	Dim whole As Dictionary
+	Dim parts As Dictionary
+	Dim key As Variant
+	Dim half As Variant
+	box = 0
+	frac = 1.5
+	whole = New Dictionary
+	parts = New Dictionary
+	whole(box) = "clue"
+	parts(frac) = "half"
+	key = whole.Keys()(0)
+	half = parts.Keys()(0)
+	If VarType(key) = 3 And whole.Has(box) And VarType(half) = 5 And parts.Has(frac) Then
+		Print "PASS: dict_integral_float_key"
+	Else
+		Print "FAIL: dict_integral_float_key whole=" & Str(VarType(key)) & " half=" & Str(VarType(half))
+	End If
+End Sub

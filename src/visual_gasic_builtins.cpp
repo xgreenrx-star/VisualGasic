@@ -1370,6 +1370,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     }
     if (METHOD_IS("rect2")) {
         r_handled = true;
+        if (args.size() == 2 && args[0].get_type() == Variant::VECTOR2 && args[1].get_type() == Variant::VECTOR2) {
+            return Rect2((Vector2)args[0], (Vector2)args[1]);
+        }
         if (args.size() == 4) return Rect2((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
         return Rect2();
     }

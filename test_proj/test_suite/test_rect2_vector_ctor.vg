@@ -1,0 +1,28 @@
+' Rect2(Vector2, Vector2), Basis, and Transform3D must keep their vector arguments.
+Attribute VB_Name = "TestRect2VectorCtor"
+
+Sub _Ready()
+	Dim wall As Rect2
+	Dim spin As Basis
+	Dim placed As Transform3D
+	Dim origin As Vector3
+	wall = Rect2(Vector2(-31, 12), Vector2(0.5, 24))
+	If wall.position.x = -31 And wall.position.y = 12 And wall.size.x = 0.5 And wall.size.y = 24 Then
+		Print "PASS: rect2_vector_ctor"
+	Else
+		Print "FAIL: rect2_vector_ctor pos=" & wall.position.ToString() & " size=" & wall.size.ToString()
+	End If
+	spin = Basis(Vector3(0, 1, 0), 1.5707963267948966)
+	If Abs(spin.x.x) < 0.01 And Abs(spin.x.length() - 1) < 0.01 Then
+		Print "PASS: basis_axis_angle"
+	Else
+		Print "FAIL: basis_axis_angle x=" & spin.x.ToString()
+	End If
+	origin = Vector3(4, 5, 6)
+	placed = Transform3D(Basis(), origin)
+	If placed.origin.x = 4 And placed.origin.y = 5 And placed.origin.z = 6 Then
+		Print "PASS: transform3d_basis_origin"
+	Else
+		Print "FAIL: transform3d_basis_origin origin=" & placed.origin.ToString()
+	End If
+End Sub

@@ -1,0 +1,14 @@
+' Vector2(Vector2i) must keep both components. A one-argument cast to float made a square.
+Attribute VB_Name = "TestVector2FromVector2i"
+
+Sub _Ready()
+	Dim glow As Vector2
+	Dim pixels As Vector2i
+	pixels = Vector2i(320, 180)
+	glow = Vector2(pixels)
+	If glow.x = 320 And glow.y = 180 Then
+		Print "PASS: vector2_from_vector2i"
+	Else
+		Print "FAIL: vector2_from_vector2i x=" & Str(glow.x) & " y=" & Str(glow.y)
+	End If
+End Sub

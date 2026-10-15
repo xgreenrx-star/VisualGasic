@@ -1,0 +1,216 @@
+' Generated Visual Gasic port of cockpit_stars.vg
+Dim __ready As Boolean
+Dim time_n As Variant
+Dim stars As PackedVector2Array
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	time_n = 0.0
+End Sub
+
+Sub _ready()
+	Dim random As Variant
+	Call EnsureInit()
+	random = ClassDB.Instantiate("RandomNumberGenerator")
+	random.seed = 73219
+	For i = 0 To (160 - 1)
+		stars.append(Vector2(random.randf_range(0, 6.283185307179586), random.randf()))
+	Next
+End Sub
+
+Sub _draw()
+	Dim depth As Variant
+	Dim angle As Variant
+	Dim radius As Variant
+	Dim point As Variant
+	Dim brightness As Variant
+	Call EnsureInit()
+	For Each star In AsArray(stars)
+		depth = FPosMod(star.y + time_n * 0.035, 1.0)
+		angle = star.x
+		radius = 30 + depth * depth * 700
+		point = Vector2(480, 205) + Vector2(Cos(angle), Sin(angle)) * Vector2(radius, radius * 0.6)
+		brightness = 0.35 + depth * 0.65
+		draw_circle(point, 0.6 + depth, Color(0.7 * brightness, 0.85 * brightness, brightness))
+		If depth > 0.65 Then
+			draw_line(point, point + (point - Vector2(480, 205)) * 0.012, Color(0.4, 0.65, 0.85, 0.4), 1, True)
+		End If
+	Next
+End Sub

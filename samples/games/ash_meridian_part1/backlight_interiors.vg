@@ -1,0 +1,525 @@
+' Generated Visual Gasic port of backlight_interiors.vg
+Dim __ready As Boolean
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+End Sub
+
+Sub build(ByVal city As Node)
+	Dim underground As Boolean
+	Dim rng As Variant
+	Dim length As Variant
+	Dim ink As Color
+	Dim shell As Color
+	Dim cyan As Color
+	Dim gold As Color
+	Dim signature As Variant
+	Dim z As Variant
+	Dim width As Variant
+	Dim depth As Variant
+	Dim x As Variant
+	Dim facing As Variant
+	Dim back As Variant
+	Dim prop_x As Variant
+	Dim item As Boolean
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Dim _t2 As Variant
+	Dim _t3 As Variant
+	Dim _t4 As Variant
+	Dim _t5 As Variant
+	Dim _t6 As Variant
+	Dim _t7 As Variant
+	Call EnsureInit()
+	If city.place = "lift" Then
+		_cabin(city)
+		Exit Sub
+	End If
+	underground = city.place = "floor"
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	If underground Then
+		_t0 = Int(city.floor_code)
+	Else
+		_t0 = city.building_index * 971 + 11
+	End If
+	rng.seed = _t0
+	If underground Then
+		length = 56.0
+	Else
+		length = 25.0
+	End If
+	ink = city.INK
+	shell = city.SHELL
+	cyan = city.ICE
+	gold = city.GOLD
+	city._box(Vector3(-22, -0.3, 0), Vector3(44, 0.3, length), shell * 0.6)
+	_wall(city, Rect2(-22, 0, 0.4, length), shell)
+	_wall(city, Rect2(21.6, 0, 0.4, length), shell)
+	_wall(city, Rect2(-22, length - 0.4, 44, 0.4), shell)
+	_wall(city, Rect2(-22, 0, 20, 0.3), shell)
+	_wall(city, Rect2(2, 0, 20, 0.3), shell)
+	city._box(Vector3(-22, 6, 0), Vector3(44, 0.25, length), ink)
+	For Each x In AsArray(Array(-2.8, 2.8))
+		city._box(Vector3(x, 0.014, 1), Vector3(0.07, 0.03, length - 2), cyan * 0.65, True)
+	Next
+	For z = 5 To (Int(length) - 1) Step 8
+		city._box(Vector3(-2.5, 5.95, z), Vector3(5, 0.04, 0.5), cyan * 0.7, True)
+	Next
+	If underground Or city.building_index = 7 Then
+		_lift(city, underground)
+	End If
+	signature = ""
+	If underground Then
+		If city.floor_code = city.FEB_CODE Then
+			_t2 = 3
+		Else
+			_t2 = 4
+		End If
+		For row = 0 To ((_t2) - 1)
+			z = 9.0 + row * 10
+			For Each side In AsArray(Array(-1.0, 1.0))
+				width = rng.randi_range(7, 15)
+				depth = rng.randi_range(5, 8)
+				If side < 0 Then
+					x = -3.5 - width
+				Else
+					x = 3.5
+				End If
+				signature = signature + Str(width) & ":" & Str(depth) & ";"
+				_wall(city, Rect2(x, z, width, 0.25), shell * 0.7)
+				_wall(city, Rect2(x, z + depth, width, 0.25), shell * 0.7)
+				If side < 0 Then
+					facing = -3.6
+				Else
+					facing = 3.35
+				End If
+				_wall(city, Rect2(facing, z, 0.25, 1.2), shell)
+				_wall(city, Rect2(facing, z + 4, 0.25, depth - 4), shell)
+				If side < 0 Then
+					back = x
+				Else
+					back = x + width - 0.25
+				End If
+				_wall(city, Rect2(back, z, 0.25, depth), shell)
+				For i = 0 To (rng.randi_range(1, 3) - 1)
+					If side > 0 Then
+						prop_x = x + 1.5 + i * 2.0
+					Else
+						prop_x = x + width - 1.5 - i * 2.0
+					End If
+					city._box(Vector3(prop_x, 0, z + depth - 1.8), Vector3(0.9, 1.0 + rng.randf(), 1), ink)
+					city.interior_solids.append(Rect2(prop_x, z + depth - 1.8, 0.9, 1))
+				Next
+				' Sparse filled geometry and narrow luminous ribs mix the two treatments.
+				For Each y In AsArray(Array(0.5, 3.0, 5.2))
+					If Int(city.floor_code)  Mod  2 Then
+						_t7 = 0.55
+					Else
+						_t7 = 0.9
+					End If
+					city._bar(Vector3(back + 0.1, y, z), Vector3(back + 0.1, y, z + depth), 0.025, cyan * (_t7), True)
+				Next
+			Next
+		Next
+		city._box(Vector3(-1.2, 0, 26), Vector3(2.4, 1.0, 1.2), ink)
+		city.interior_solids.append(Rect2(-1.2, 26, 2.4, 1.2))
+		city._box(Vector3(-0.9, 1.01, 26.2), Vector3(1.8, 0.03, 0.7), cyan * 0.4, True)
+	Else
+		For Each side In AsArray(Array(-1.0, 1.0))
+			For Each z In AsArray(Array(7.0, 17.0))
+				city._box(Vector3(side * 12 - 1.5, 0, z), Vector3(3, 1.4, 2), ink)
+				city.interior_solids.append(Rect2(side * 12 - 1.5, z, 3, 2))
+				city._box(Vector3(side * 12 - 1.2, 1.41, z + 0.2), Vector3(2.4, 0.03, 0.3), cyan * 0.22, True)
+			Next
+		Next
+		If city.building_index <> 7 Then
+			city._box(Vector3(-1.8, 0, 14), Vector3(3.6, 1.0, 1.4), shell)
+			city.interior_solids.append(Rect2(-1.8, 14, 3.6, 1.4))
+			item = (city.building_index = 5 And Not city.inventory.has("regulator")) Or (city.building_index = 6 And Not city.inventory.has("ignition"))
+			If item Then
+				city._cylinder(Vector3(0, 1.4, 14.5), 0.35, 0.7, gold, 1, True)
+			ElseIf city.building_index < 5 Then
+				city._box(Vector3(-0.8, 1.02, 14.2), Vector3(1.6, 0.03, 0.9), gold * 0.7, True)
+			End If
+		Else
+			city._box(Vector3(2.4, 0, 21), Vector3(0.5, 2.6, 1.2), ink)
+			For Each y In AsArray(Array(0.6, 1.2, 1.8))
+				city._box(Vector3(2.35, y, 21.1), Vector3(0.03, 0.25, 0.8), gold, True)
+			Next
+		End If
+	End If
+	city.floor_signature = signature
+	city.room_mesh = city._finish("InteriorShell")
+	city.room_mesh.reparent(city.interior)
+	If underground And city.floor_code = city.FEB_CODE Then
+		_pod(city)
+	End If
+	city.interior.visible = True
+End Sub
+
+Sub _wall(ByVal city As Node, ByVal rect As Rect2, ByVal color As Color)
+	Call EnsureInit()
+	city._box(Vector3(rect.position.x, 0, rect.position.y), Vector3(rect.size.x, 6, rect.size.y), color)
+	city.interior_solids.append(rect)
+End Sub
+
+Sub _lift(ByVal city As Node, ByVal underground As Boolean)
+	Dim z As Variant
+	Dim x As Variant
+	Dim door As MeshInstance3D
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	If underground Then
+		z = 0.4
+	Else
+		z = 22.5
+	End If
+	For Each side In AsArray(Array(-1.0, 1.0))
+		city._box(Vector3(side * 2.1 - 0.15, 0, z), Vector3(0.3, 4.5, 0.4), city.SHELL)
+		city._box(Vector3(side * 1.8 - 0.04, 0.1, z - 0.03), Vector3(0.08, 4.1, 0.05), city.GOLD, True)
+	Next
+	city._box(Vector3(-2.2, 4.3, z), Vector3(4.4, 0.25, 0.4), city.SHELL)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		If side < 0 Then
+			x = -1.7
+		Else
+			x = 0.0
+		End If
+		city._box(Vector3(x, 0, z), Vector3(1.7, 4.2, 0.18), city.SHELL * 0.7)
+		city._box(Vector3(x + 0.15, 0.3, z - 0.02), Vector3(1.4, 3.4, 0.02), city.INK)
+		door = city._finish("LiftDoor")
+		door.reparent(city.interior)
+		city.lift_doors.append(door)
+	Next
+End Sub
+
+Sub _pod(ByVal city As Node)
+	Dim pink As Variant
+	Dim cyan As Color
+	Dim center As Variant
+	Dim offset As Variant
+	Dim pod As MeshInstance3D
+	Dim glass As Variant
+	Dim panel As Variant
+	Dim material As Variant
+	Dim fog As Variant
+	Dim plane As Variant
+	Dim mist_material As Variant
+	Dim shader As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	pink = Color(1.0, 0.22, 0.7)
+	cyan = city.ICE
+	center = Vector3(0, 0, 49)
+	city._cylinder(center + Vector3(0, 0.4, 0), 2.0, 0.8, city.SHELL)
+	city._cylinder(center + Vector3(0, 5.2, 0), 1.9, 0.55, city.SHELL)
+	For Each y In AsArray(Array(0.12, 0.65, 0.85, 4.95, 5.3, 5.6))
+		If y < 1 Then
+			_t0 = 1.95
+		Else
+			_t0 = 1.85
+		End If
+		city._annulus(center + Vector3(0, y, 0), _t0, 0.08, pink)
+	Next
+	For Each y In AsArray(Array(1.0, 4.8))
+		city._annulus(center + Vector3(0, y, 0), 1.55, 0.06, cyan)
+	Next
+	For Each angle In AsArray(Array(0.0, PI, PI * 0.25, PI * 0.75))
+		offset = Vector3(Cos(angle) * 1.8, 0, Sin(angle) * 1.8)
+		city._bar(center + offset + Vector3(0, 1, 0) * 0.85, center + offset + Vector3(0, 1, 0) * 4.95, 0.1, city.SHELL)
+		city._bar(center + offset + Vector3(0, 1, 0), center + offset + Vector3(0, 1, 0) * 4.8, 0.035, cyan, True)
+	Next
+	For Each y In AsArray(Array(1.3, 1.65, 2.0, 3.7, 4.1, 4.45))
+		city._box(center + Vector3(-1.1, y, 1.5), Vector3(2.2, 0.07, 0.04), cyan * 0.5, True)
+	Next
+	city.interior_solids.append(Rect2(-2, 47.7, 4, 3.3))
+	city._box(Vector3(2.6, 0, 47), Vector3(1.5, 1.2, 1.2), city.INK)
+	city.interior_solids.append(Rect2(2.6, 47, 1.5, 1.2))
+	pod = city._finish("StasisCrownAndCradle")
+	pod.reparent(city.interior)
+	_figure(city, Vector3(0, 0, 0))
+	city.pod_figure = city._finish("FEB")
+	city.pod_figure.reparent(city.interior)
+	city.pod_figure.position = center
+	city._cylinder(Vector3(3.35, 1.6, 47.5), 0.3, 0.7, city.GOLD, 1, True)
+	city.repair_part = city._finish("ReflectorCoupler")
+	city.repair_part.reparent(city.interior)
+	city.repair_part.visible = Not city.inventory.has("coupler")
+	glass = ClassDB.Instantiate("MeshInstance3D")
+	panel = ClassDB.Instantiate("CylinderMesh")
+	panel.top_radius = 1.65
+	panel.bottom_radius = 1.65
+	panel.height = 3.8
+	panel.radial_segments = 48
+	glass.mesh = panel
+	glass.position = center + Vector3(0, 1, 0) * 2.9
+	material = ClassDB.Instantiate("StandardMaterial3D")
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(0.1, 0.65, 0.8, 0.055)
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	glass.material_override = material
+	city.interior.add_child(glass)
+	fog = ClassDB.Instantiate("MeshInstance3D")
+	plane = ClassDB.Instantiate("PlaneMesh")
+	plane.size = Vector2(40, 38)
+	fog.mesh = plane
+	fog.position = Vector3(0, 0.7, 37)
+	mist_material = ClassDB.Instantiate("ShaderMaterial")
+	shader = ClassDB.Instantiate("Shader")
+	shader = Load("res://shaders/backlight_interiors_00.gdshader")
+	mist_material.shader = shader
+	fog.material_override = mist_material
+	city.interior.add_child(fog)
+	city.mist = fog
+End Sub
+
+Sub _figure(ByVal city As Node, ByVal p As Vector3)
+	Dim body As Color
+	Dim light As Color
+	Dim shoulder As Variant
+	Dim elbow As Variant
+	Dim wrist As Variant
+	Dim hip As Variant
+	Dim knee As Variant
+	Dim ankle As Variant
+	Dim width As Single
+	Dim rib As Array
+	Call EnsureInit()
+	body = city.SHELL * 0.6
+	light = city.ICE
+	city._prism(PackVec2(Array(Vector2(-0.3, 2.25), Vector2(0.3, 2.25), Vector2(0.65, 3.5), Vector2(0.36, 3.85), Vector2(-0.36, 3.85), Vector2(-0.65, 3.5))), 0.42, body, Transform3D(Basis(), p + Vector3(0, 0, -0.21)))
+	city._cylinder(p + Vector3(0, 4.18, 0), 0.3, 0.57, body)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		shoulder = p + Vector3(side * 0.65, 3.48, 0)
+		elbow = p + Vector3(side * 0.85, 2.78, -0.06)
+		wrist = p + Vector3(side * 0.88, 2.1, -0.12)
+		hip = p + Vector3(side * 0.26, 2.3, 0)
+		knee = p + Vector3(side * 0.32, 1.52, 0)
+		ankle = p + Vector3(side * 0.34, 0.96, 0)
+		For Each pair In AsArray(Array(Array(shoulder, elbow), Array(elbow, wrist), Array(hip, knee), Array(knee, ankle)))
+			city._bar(pair(0), pair(1), 0.18, body)
+			city._bar(pair(0) + Vector3(0, 0, -0.12), pair(1) + Vector3(0, 0, -0.12), 0.035, light, True)
+		Next
+		For Each joint In AsArray(Array(shoulder, elbow, knee))
+			city._cylinder(joint, 0.17, 0.20, light, 0, True)
+		Next
+		city._box(ankle + Vector3(-0.14, -0.1, -0.28), Vector3(0.28, 0.16, 0.45), body)
+		city._box(p + Vector3(side * 0.15 - 0.09, 4.18, -0.305), Vector3(0.18, 0.06, 0.03), Color(1, 0.2, 0.7), True)
+	Next
+	For Each y In AsArray(Array(2.65, 2.9, 3.15, 3.4))
+		width = (y - 2.2) * 0.42
+		rib = Array(p + Vector3(-width, y + 0.1, -0.24), p + Vector3(0, y, -0.27), p + Vector3(width, y + 0.1, -0.24))
+		city._trace(rib, 0.035, light)
+	Next
+	city._bar(p + Vector3(0, 2.3, -0.26), p + Vector3(0, 3.85, -0.26), 0.035, light, True)
+End Sub
+
+Sub _cabin(ByVal city As Node)
+	Dim door As MeshInstance3D
+	Dim _t0 As Variant
+	Call EnsureInit()
+	city._box(Vector3(-3, -0.2, 0), Vector3(6, 0.2, 7), city.SHELL)
+	city._box(Vector3(-3, 4.5, 0), Vector3(6, 0.2, 7), city.INK)
+	For Each x In AsArray(Array(-3.0, 2.8))
+		_wall(city, Rect2(x, 0, 0.2, 7), city.SHELL)
+		For Each y In AsArray(Array(0.6, 3.7))
+			city._box(Vector3(x + 0.21, y, 0.2), Vector3(0.03, 0.06, 6.6), city.ICE, True)
+		Next
+	Next
+	_wall(city, Rect2(-3, 0, 6, 0.2), city.SHELL)
+	For Each x In AsArray(Array(-3.0, 1.7))
+		_wall(city, Rect2(x, 6.7, 1.3, 0.2), city.SHELL)
+	Next
+	city.room_mesh = city._finish("TransitCabin")
+	city.room_mesh.reparent(city.interior)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		If side < 0 Then
+			_t0 = -1.7
+		Else
+			_t0 = 0.0
+		End If
+		city._box(Vector3(_t0, 0, 6.7), Vector3(1.7, 4.3, 0.15), city.SHELL * 0.8)
+		door = city._finish("CabinDoor")
+		door.reparent(city.interior)
+		city.lift_doors.append(door)
+	Next
+End Sub

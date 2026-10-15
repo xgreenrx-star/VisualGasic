@@ -50,11 +50,23 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     String name_lower = name.to_lower();
     
     if (name_lower == "vector2") {
+        if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2I) {
+            return Vector2((Vector2i)args[0]);
+        }
+        if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2) {
+            return (Vector2)args[0];
+        }
         if (args.size() >= 2) return Vector2((float)args[0], (float)args[1]);
         if (args.size() == 1) return Vector2((float)args[0], (float)args[0]);
         return Vector2();
     }
     if (name_lower == "vector2i") {
+        if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2) {
+            return Vector2i((Vector2)args[0]);
+        }
+        if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2I) {
+            return (Vector2i)args[0];
+        }
         if (args.size() >= 2) return Vector2i((int)args[0], (int)args[1]);
         if (args.size() == 1) return Vector2i((int)args[0], (int)args[0]);
         return Vector2i();
@@ -89,21 +101,17 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     }
     
     if (name_lower == "rect2") {
-        if (args.size() >= 4) return Rect2((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
-        if (args.size() >= 2) {
-            Vector2 pos((float)args[0], (float)args[1]);
-            Vector2 size = args.size() >= 4 ? Vector2((float)args[2], (float)args[3]) : Vector2();
-            return Rect2(pos, size);
+        if (args.size() == 2 && args[0].get_type() == Variant::VECTOR2 && args[1].get_type() == Variant::VECTOR2) {
+            return Rect2((Vector2)args[0], (Vector2)args[1]);
         }
+        if (args.size() >= 4) return Rect2((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         return Rect2();
     }
     if (name_lower == "rect2i") {
-        if (args.size() >= 4) return Rect2i((int)args[0], (int)args[1], (int)args[2], (int)args[3]);
-        if (args.size() >= 2) {
-            Vector2i pos((int)args[0], (int)args[1]);
-            Vector2i size = args.size() >= 4 ? Vector2i((int)args[2], (int)args[3]) : Vector2i();
-            return Rect2i(pos, size);
+        if (args.size() == 2 && args[0].get_type() == Variant::VECTOR2I && args[1].get_type() == Variant::VECTOR2I) {
+            return Rect2i((Vector2i)args[0], (Vector2i)args[1]);
         }
+        if (args.size() >= 4) return Rect2i((int)args[0], (int)args[1], (int)args[2], (int)args[3]);
         return Rect2i();
     }
     
@@ -132,21 +140,19 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     
     if (name_lower == "transform3d") {
         // Transform3D() — identity; Transform3D(basis, origin)
-        if (args.size() >= 3) {
-            // Assume basis params are 9 floats for now; simplified
-            // Real usage: typically Transform3D() with no args
-            return Transform3D();
+        if (args.size() == 2 && args[0].get_type() == Variant::BASIS && args[1].get_type() == Variant::VECTOR3) {
+            return Transform3D((Basis)args[0], (Vector3)args[1]);
         }
         return Transform3D();
     }
     
     if (name_lower == "basis") {
-        // Basis() — identity; Basis(x, y, z) axes
-        if (args.size() >= 3) {
-            Vector3 x((float)args[0], args.size() > 3 ? (float)args[3] : 0.0f, args.size() > 6 ? (float)args[6] : 0.0f);
-            Vector3 y((float)args[1], args.size() > 4 ? (float)args[4] : 0.0f, args.size() > 7 ? (float)args[7] : 0.0f);
-            Vector3 z((float)args[2], args.size() > 5 ? (float)args[5] : 0.0f, args.size() > 8 ? (float)args[8] : 0.0f);
-            return Basis(x, y, z);
+        // Basis() identity; Basis(axis, angle); Basis(x_axis, y_axis, z_axis)
+        if (args.size() == 2 && args[0].get_type() == Variant::VECTOR3) {
+            return Basis((Vector3)args[0], (float)args[1]);
+        }
+        if (args.size() == 3 && args[0].get_type() == Variant::VECTOR3 && args[1].get_type() == Variant::VECTOR3 && args[2].get_type() == Variant::VECTOR3) {
+            return Basis((Vector3)args[0], (Vector3)args[1], (Vector3)args[2]);
         }
         return Basis();
     }
@@ -187,6 +193,26 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     
     // Unknown type
     return Variant();
+}
+
+// Godot Dictionary keys are typed: int 0 and float 0.0 do not match.
+// VG numeric values are often floats. A whole-number float shares the int key
+// so Dictionary.has(0) from GDScript finds a VG write of 0.0. Non-integral
+// floats stay floats. The same helper must run on lookup (get/has/erase).
+inline Variant vg_dictionary_key(const Variant &key) {
+    if (key.get_type() != Variant::FLOAT) {
+        return key;
+    }
+    const double v = (double)key;
+    // 2^53 is the last exact integer width of a double.
+    if (!(v >= -9007199254740992.0 && v <= 9007199254740992.0)) {
+        return key;
+    }
+    const int64_t as_int = (int64_t)v;
+    if ((double)as_int != v) {
+        return key;
+    }
+    return Variant(as_int);
 }
 
 #endif  // VISUAL_GASIC_GODOT_CTORS_H

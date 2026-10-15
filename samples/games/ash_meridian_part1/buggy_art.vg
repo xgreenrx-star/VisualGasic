@@ -1,0 +1,288 @@
+' Generated Visual Gasic port of buggy_art.vg
+Dim __ready As Boolean
+Dim PINK As Variant
+Dim CYAN As Variant
+Dim METAL As Variant
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	PINK = Color(1.0, 0.29, 0.85)
+	CYAN = Color(0.2, 0.92, 1.0)
+	METAL = Color(0.018, 0.009, 0.028)
+End Sub
+
+Sub path(ByVal points As Array, Optional color As Variant, Optional width As Variant = 1.2, Optional glow As Variant = True)
+	Dim packed As PackedVector2Array
+	If color Is Nothing Then
+		color = PINK
+	End If
+	Call EnsureInit()
+	For Each point In AsArray(points)
+		packed.append(point)
+	Next
+	If glow Then
+		draw_polyline(packed, Color(color, 0.045), width + 9.0, True)
+		draw_polyline(packed, Color(color, 0.12), width + 4.0, True)
+	End If
+	draw_polyline(packed, color, width, True)
+End Sub
+
+Sub plate(ByVal points As Array, Optional color As Variant)
+	If color Is Nothing Then
+		color = PINK
+	End If
+	Call EnsureInit()
+	draw_colored_polygon(PackVec2(points), METAL)
+	path(points + Array(points(0)), color)
+End Sub
+
+Sub arc(ByVal center As Vector2, ByVal radius As Vector2, ByVal start As Single, ByVal finish As Single, Optional color As Variant, Optional width As Variant = 1.2)
+	Dim points As Variant
+	Dim angle As Variant
+	If color Is Nothing Then
+		color = PINK
+	End If
+	Call EnsureInit()
+	points = Array()
+	For i = 0 To (65 - 1)
+		angle = LerpF(start, finish, i / 64.0)
+		points.append(center + Vector2(Cos(angle), Sin(angle)) * radius)
+	Next
+	path(points, color, width)
+End Sub
+
+Sub screen(ByVal rect As Rect2)
+	Call EnsureInit()
+	draw_style_box(_panel_style(), rect.grow(6))
+	draw_rect(rect, Color(0.005, 0.018, 0.025))
+	path(Array(rect.position, rect.position + Vector2(rect.size.x, 0), rect.end, rect.position + Vector2(0, rect.size.y), rect.position), PINK)
+End Sub
+
+Function _panel_style() As StyleBoxFlat
+	Dim style As Variant
+	Call EnsureInit()
+	style = ClassDB.Instantiate("StyleBoxFlat")
+	style.bg_color = METAL
+	style.border_color = Color(0.6, 0.16, 0.5)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	Return style
+End Function
+
+Sub _draw()
+	Dim edge As Single
+	Call EnsureInit()
+	plate(Array(Vector2(0, 0), Vector2(960, 0), Vector2(960, 88), Vector2(0, 88)))
+	For Each side In AsArray(Array(-1.0, 1.0))
+		edge = 480 + side * 480
+		plate(Array(Vector2(edge, 0), Vector2(480 + side * 240, 74), Vector2(480 + side * 218, 63), Vector2(480 + side * 405, 0)))
+		plate(Array(Vector2(edge, 92), Vector2(480 + side * 432, 95), Vector2(480 + side * 220, 323), Vector2(480 + side * 249, 342)))
+		For rib = 0 To (3 - 1)
+			path(Array(Vector2(480 + side * (440 + rib * 7), 96), Vector2(480 + side * (237 + rib * 7), 324)), PINK, 2)
+		Next
+		plate(Array(Vector2(edge, 297), Vector2(480 + side * 376, 300), Vector2(480 + side * 290, 351), Vector2(edge, 416)))
+		arc(Vector2(480 + side * 422, 342), Vector2(87, 37), PI, 6.283185307179586, PINK, 2)
+		plate(Array(Vector2(edge, 405), Vector2(480 + side * 294, 344), Vector2(480 + side * 262, 393), Vector2(edge, 481)))
+		plate(Array(Vector2(edge, 461), Vector2(480 + side * 268, 399), Vector2(480 + side * 204, 540), Vector2(edge, 540)))
+	Next
+	path(Array(Vector2(61, 95), Vector2(899, 95)), PINK, 2.2)
+	path(Array(Vector2(97, 103), Vector2(863, 103), Vector2(720, 307), Vector2(240, 307), Vector2(97, 103)), PINK)
+	plate(Array(Vector2(176, 417), Vector2(206, 363), Vector2(337, 349), Vector2(367, 337), Vector2(593, 337), Vector2(623, 349), Vector2(754, 363), Vector2(784, 417), Vector2(731, 464), Vector2(229, 464)))
+	path(Array(Vector2(181, 414), Vector2(211, 367), Vector2(340, 354), Vector2(370, 343), Vector2(590, 343), Vector2(620, 354), Vector2(749, 367), Vector2(779, 414)), CYAN, 2)
+	screen(Rect2(219, 372, 121, 58))
+	screen(Rect2(359, 359, 242, 75))
+	screen(Rect2(620, 372, 121, 58))
+	For Each side In AsArray(Array(-1.0, 1.0))
+		plate(Array(Vector2(480 + side * 277, 419), Vector2(480 + side * 239, 412), Vector2(480 + side * 209, 441), Vector2(480 + side * 225, 471), Vector2(480 + side * 271, 465), Vector2(480 + side * 288, 441)))
+		plate(Array(Vector2(480 + side * 269, 424), Vector2(480 + side * 240, 420), Vector2(480 + side * 220, 442), Vector2(480 + side * 232, 459), Vector2(480 + side * 264, 453)), CYAN)
+		path(Array(Vector2(480 + side * 250, 471), Vector2(480 + side * 248, 502), Vector2(480 + side * 159, 509)), PINK, 3)
+		For i = 0 To (3 - 1)
+			path(Array(Vector2(480 + side * 256, 433 + i * 5), Vector2(480 + side * 246, 431 + i * 5)), CYAN)
+		Next
+	Next
+	plate(Array(Vector2(300, 540), Vector2(323, 466), Vector2(375, 449), Vector2(585, 449), Vector2(637, 466), Vector2(660, 540)))
+	plate(Array(Vector2(365, 540), Vector2(391, 482), Vector2(569, 482), Vector2(595, 540)), CYAN)
+	path(Array(Vector2(394, 540), Vector2(413, 496), Vector2(547, 496), Vector2(566, 540)), CYAN, 2)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For row = 0 To (4 - 1)
+			path(Array(Vector2(480 + side * 131, 475 + row * 7), Vector2(480 + side * 153, 478 + row * 7)), CYAN)
+		Next
+	Next
+End Sub

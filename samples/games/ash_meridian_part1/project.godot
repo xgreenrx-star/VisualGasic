@@ -1,0 +1,39 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Ash Meridian — Part 1"
+config/description="Jonah Hale takes a Narcean coupling, wakes Feb, and seats the reflector before the shot lands."
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"
+
+[display]
+
+window/size/viewport_width=960
+window/size/viewport_height=540
+window/size/mode=3
+window/stretch/mode="canvas_items"
+
+[editor]
+
+movie_writer/movie_file="/home/Commodore/Documents/VisualGasic/samples/games/ash_meridian_part1/ash_meridian1.avi"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/visual_gasic/plugin.cfg")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"

@@ -1205,6 +1205,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         vg_stack_profile_dump(stack_profile_sample, stack_profile_label);
     };
 
+    // VB6: False is 0 and True is -1. Godot refuses int/float compared with bool,
+    // and the bytecode path treated that as fatal. A fatal compare aborts the
+    // Sub and the caller re-runs it in the AST, so earlier Prints and assignments
+    // happen twice and later results are lost.
+    auto vb_numeric = [](const Variant &v, double &out) -> bool {
+        switch (v.get_type()) {
+            case Variant::INT:
+                out = (double)(int64_t)v;
+                return true;
+            case Variant::FLOAT:
+                out = (double)v;
+                return true;
+            case Variant::BOOL:
+                out = (bool)v ? -1.0 : 0.0;
+                return true;
+            default:
+                return false;
+        }
+    };
     auto apply_variant_op = [&](Variant::Operator op) -> bool {
         if (!ensure_stack(2)) {
             return false;
@@ -1221,6 +1240,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 				push_value(Variant());
 				return true;
 			}
+            double da = 0.0;
+            double db = 0.0;
+            if (vb_numeric(a, da) && vb_numeric(b, db)) {
+                switch (op) {
+                    case Variant::OP_EQUAL: push_value(da == db); return true;
+                    case Variant::OP_NOT_EQUAL: push_value(da != db); return true;
+                    case Variant::OP_LESS: push_value(da < db); return true;
+                    case Variant::OP_LESS_EQUAL: push_value(da <= db); return true;
+                    case Variant::OP_GREATER: push_value(da > db); return true;
+                    case Variant::OP_GREATER_EQUAL: push_value(da >= db); return true;
+                    case Variant::OP_ADD: push_value(da + db); return true;
+                    case Variant::OP_SUBTRACT: push_value(da - db); return true;
+                    case Variant::OP_MULTIPLY: push_value(da * db); return true;
+                    case Variant::OP_DIVIDE: push_value(db == 0.0 ? 0.0 : da / db); return true;
+                    default: break;
+                }
+            }
             // Rate-limit error output to avoid spam
             static int error_count = 0;
             static uint64_t last_error_time = 0;
@@ -1978,6 +2014,43 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     args_arr[i] = pop_value();
                 }
 
+                // Dim As Packed*Array. Each evaluation must own its buffer.
+                if (class_name.nocasecmp_to("PackedByteArray") == 0) {
+                    push_value(PackedByteArray());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedInt32Array") == 0) {
+                    push_value(PackedInt32Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedInt64Array") == 0) {
+                    push_value(PackedInt64Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedFloat32Array") == 0) {
+                    push_value(PackedFloat32Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedFloat64Array") == 0) {
+                    push_value(PackedFloat64Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedStringArray") == 0) {
+                    push_value(PackedStringArray());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedVector2Array") == 0) {
+                    push_value(PackedVector2Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedVector3Array") == 0) {
+                    push_value(PackedVector3Array());
+                    break;
+                }
+                if (class_name.nocasecmp_to("PackedColorArray") == 0) {
+                    push_value(PackedColorArray());
+                    break;
+                }
                 // MemoryBlock → PackedByteArray
                 if (class_name.nocasecmp_to("MemoryBlock") == 0) {
                     int sz = 0;
@@ -2867,7 +2940,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 bool valid = false;
                 Variant::evaluate(Variant::OP_NEGATE, value, Variant(), result, valid);
                 if (!valid) {
-                    UtilityFunctions::printerr("VisualGasic: invalid negate operation on type ", (int)value.get_type());
+                    UtilityFunctions::printerr("VisualGasic: invalid negate operation on type ", (int)value.get_type(),
+                        " in ", func ? func->name : String("?"), " line ", debug_state.current_line);
                     success = false;
                     goto cleanup;
                 }
@@ -4987,6 +5061,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((int64_t)arr[idx]);
                     }
+                } else if (base.get_type() == Variant::PACKED_VECTOR3_ARRAY && arg_count == 1) {
+                    PackedVector3Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = arr[idx];
+                    }
+                } else if (base.get_type() == Variant::PACKED_VECTOR2_ARRAY && arg_count == 1) {
+                    PackedVector2Array arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = arr[idx];
+                    }
+                } else if (base.get_type() == Variant::PACKED_COLOR_ARRAY && arg_count == 1) {
+                    PackedColorArray arr = base;
+                    int idx = (int)to_int(indices[0]);
+                    if (idx < 0 || idx >= arr.size()) {
+                        if (op == OP_GET_ARRAY_UNCHECKED) { result = Variant(); }
+                        else { raise_error("Array subscript out of range", 9); if (try_recover_error(Variant())) break; success = false; goto cleanup; }
+                    } else {
+                        result = arr[idx];
+                    }
                 } else if (base.get_type() == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
                     PackedByteArray arr = base;
                     int idx = (int)to_int(indices[0]);
@@ -5003,7 +5104,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         for (int i = 0; i < arg_count; i++) call_args.push_back(indices[i]);
                         result = invoke_lambda(dict, call_args);
                     } else if (arg_count == 1) {
-                        result = dict.get(indices[0], Variant());
+                        result = dict.get(vg_dictionary_key(indices[0]), Variant());
                     } else {
                         raise_error("Unsupported array base type");
                         if (try_recover_error(Variant())) break;
@@ -5119,7 +5220,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
                 // Direct dictionary access via pointer
                 const Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
-                push_value(dict_ptr->get(key_var, Variant()));
+                push_value(dict_ptr->get(vg_dictionary_key(key_var), Variant()));
                 break;
             }
             VG_CASE(vg_op_set_array, OP_SET_ARRAY):
@@ -5155,7 +5256,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
-                    dict[indices[0]] = value;
+                    dict[vg_dictionary_key(indices[0])] = value;
                     updated = dict;
                 } else if (base.get_type() == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
                     PackedInt64Array arr = base;
@@ -5316,7 +5417,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
                 // Direct dictionary modification via pointer
                 Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
-                (*dict_ptr)[key_var] = value;
+                (*dict_ptr)[vg_dictionary_key(key_var)] = value;
                 push_value(base);
                 break;
             }
@@ -5375,7 +5476,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 // Direct dictionary modification via pointer
                 Dictionary *dict_ptr = VariantInternal::get_dictionary(dict_var_ptr);
-                (*dict_ptr)[key_var] = value;
+                (*dict_ptr)[vg_dictionary_key(key_var)] = value;
                 
                 // Note: No need to sync to variables HashMap - COW ensures both point to same data
                 break;
@@ -8206,8 +8307,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         Vector<const Variant*> arg_ptrs;
                         arg_ptrs.resize(args.size());
                         const Variant **ptrs_w = arg_ptrs.ptrw();
+                        String dict_method = method_to_call.to_lower();
+                        bool coerce_dict_key = base.get_type() == Variant::DICTIONARY && args.size() >= 1 &&
+                                (dict_method == "has" || dict_method == "get" || dict_method == "erase");
                         for (int i = 0; i < args.size(); i++) {
-                            args_w[i] = args[i];
+                            args_w[i] = (coerce_dict_key && i == 0) ? vg_dictionary_key(args[i]) : args[i];
                             ptrs_w[i] = &args_w[i];
                         }
                         base.callp(method_to_call, ptrs_w, args.size(), res, err);

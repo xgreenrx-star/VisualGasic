@@ -532,7 +532,10 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             // (assigned in order → slots 0..P-1) seeded from the call args at
             // runtime.  Keep it in param_vars for subscript/namespace-shadow
             // logic, but NOT in non_local_names (that would force OP_GET_GLOBAL).
+            // Width/Height/Left/Top are pre-seeded as owner properties. A ByVal
+            // parameter of that name must shadow them or PadInt's width is Nothing.
             param_vars.insert(pkey);
+            non_local_names.erase(pkey);
             ValueType pvt = VT_UNKNOWN;
             String t = sub->parameters[i].type_hint.to_lower();
             if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
@@ -551,6 +554,9 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
                 // is not on the fast-call path (it has a ByRef parameter), so the
                 // slot is loaded before any store. An untyped slot is I64, and
                 // the JIT then cvtsi2sd's the float's bit pattern.
+                // Shadow owner-property names (Width/Height/Left/Top) the same
+                // way the fast-call path does.
+                non_local_names.erase(pkey);
                 ValueType pvt = VT_UNKNOWN;
                 String t = sub->parameters[i].type_hint.to_lower();
                 if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
@@ -1461,6 +1467,14 @@ void VisualGasicCompiler::collect_used_vars_stmt(Statement* stmt) {
             if (tw->from_val) collect_used_vars_expr(tw->from_val);
             collect_used_vars_expr(tw->to_val);
             collect_used_vars_expr(tw->duration);
+            break;
+        }
+        case STMT_RETURN: {
+            // A value used only as `Return expr` is still live. Without this,
+            // `temp = distance` / `Return temp` is deleted as a dead store and
+            // the function returns the temp's zero default.
+            ReturnStatement* s = (ReturnStatement*)stmt;
+            if (s->return_value) collect_used_vars_expr(s->return_value);
             break;
         }
         case STMT_PRINT: {
@@ -6720,15 +6734,26 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         dictionary_vars.insert(lower);
                         trusted_dictionary_vars.insert(lower);
                     }
-                    else if (t == "packedbytearray") init_val = PackedByteArray();
-                    else if (t == "packedint32array") init_val = PackedInt32Array();
-                    else if (t == "packedint64array") init_val = PackedInt64Array();
-                    else if (t == "packedfloat32array") init_val = PackedFloat32Array();
-                    else if (t == "packedfloat64array") init_val = PackedFloat64Array();
-                    else if (t == "packedstringarray") init_val = PackedStringArray();
-                    else if (t == "packedvector2array") init_val = PackedVector2Array();
-                    else if (t == "packedvector3array") init_val = PackedVector3Array();
-                    else if (t == "packedcolorarray") init_val = PackedColorArray();
+                    else if (t == "packedbytearray" || t == "packedint32array" || t == "packedint64array"
+                        || t == "packedfloat32array" || t == "packedfloat64array" || t == "packedstringarray"
+                        || t == "packedvector2array" || t == "packedvector3array" || t == "packedcolorarray") {
+                        // A shared empty constant would alias every Dim of this type:
+                        // append on one local mutates the others, and the next call
+                        // sees the previous call's elements. Construct a fresh array.
+                        int name_idx = current_chunk->add_constant(s->type_name);
+                        emit_byte(OP_NEW_OBJECT);
+                        emit_const_index(name_idx);
+                        emit_byte(0);
+                        int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                        if (slot >= 0) {
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        } else {
+                            int gidx = current_chunk->add_constant(s->variable_name);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(gidx);
+                        }
+                        break;
+                    }
                     else {
                         // Check if it's a user-defined struct type
                         bool is_struct = false;

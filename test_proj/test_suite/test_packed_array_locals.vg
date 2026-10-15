@@ -1,0 +1,29 @@
+' Two Dims of the same packed-array type must not share one buffer,
+' and a later call must not see elements appended by an earlier call.
+Attribute VB_Name = "TestPackedArrayLocals"
+
+Sub FillOnce()
+	Dim fresh As PackedVector3Array
+	fresh.append(Vector3(1, 0, 0))
+	If fresh.size() = 1 Then
+		Print "PASS: packedvector3_fresh_each_call"
+	Else
+		Print "FAIL: packedvector3_fresh_each_call size=" & Str(fresh.size())
+	End If
+End Sub
+
+Sub _Ready()
+	Dim verts As PackedVector3Array
+	Dim norms As PackedVector3Array
+	verts.append(Vector3(0, 0, 0))
+	verts.append(Vector3(1, 0, 0))
+	verts.append(Vector3(0, 1, 0))
+	norms.append(Vector3(0, 0, 1))
+	If verts.size() = 3 And norms.size() = 1 And verts(0) = Vector3(0, 0, 0) And verts(2) = Vector3(0, 1, 0) And norms(0) = Vector3(0, 0, 1) Then
+		Print "PASS: packedvector3_locals_independent"
+	Else
+		Print "FAIL: packedvector3_locals_independent verts=" & Str(verts.size()) & " norms=" & Str(norms.size())
+	End If
+	Call FillOnce()
+	Call FillOnce()
+End Sub

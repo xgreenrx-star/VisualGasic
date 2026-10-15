@@ -1,0 +1,101 @@
+Function ProbeCeil(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		ProbeCeil = floored + 1
+	Else
+		ProbeCeil = floored
+	End If
+End Function
+
+Function ProbeNum(ByVal value As Variant) As Single
+	If value = True Then
+		ProbeNum = 1.0
+	ElseIf value = False Then
+		ProbeNum = 0.0
+	Else
+		ProbeNum = value
+	End If
+End Function
+
+Sub _Ready()
+	Dim n As Integer
+	Dim f As Single
+	Dim whole As Integer
+	n = ProbeCeil(1.2)
+	If n = 2 Then
+		Print "PASS: ceil_keeps_argument"
+	Else
+		Print "FAIL: ceil_keeps_argument got " & Str(n)
+	End If
+	whole = 4
+	f = ProbeNum(whole)
+	If f = 4.0 Then
+		Print "PASS: num_keeps_integer"
+	Else
+		Print "FAIL: num_keeps_integer got " & Str(f)
+	End If
+	If whole = False Then
+		Print "FAIL: four_eq_false"
+	Else
+		Print "PASS: four_eq_false"
+	End If
+	whole = 0
+	If whole = False Then
+		Print "PASS: zero_eq_false"
+	Else
+		Print "FAIL: zero_eq_false"
+	End If
+	whole = -1
+	If whole = True Then
+		Print "PASS: minus_one_eq_true"
+	Else
+		Print "FAIL: minus_one_eq_true"
+	End If
+	Dim arc As Single
+	arc = -PI * 1.2
+	If arc < -3.7 And arc > -3.8 Then
+		Print "PASS: pi_unary_minus"
+	Else
+		Print "FAIL: pi_unary_minus " & Str(arc)
+	End If
+	Dim count As Integer
+	Dim height As Single
+	height = 20
+	count = 0
+	For y = 4 To (Int(height) - 1) Step 4
+		count = count + 1
+	Next
+	If count = 4 Then
+		Print "PASS: for_step_computed_end"
+	Else
+		Print "FAIL: for_step_computed_end " & Str(count)
+	End If
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim across As Vector3
+	a = Vector3(1, 2, 0)
+	b = Vector3(1, 6, 0)
+	across = Vector3(-(b.y - a.y), b.x - a.x, 0)
+	If across.x = -4 And across.y = 0 And across.z = 0 Then
+		Print "PASS: vector_across"
+	Else
+		Print "FAIL: vector_across x=" & Str(across.x) & " y=" & Str(across.y)
+	End If
+	If ProbePad(4, 3) = "pad" Then
+		Print "PASS: param_shadows_width"
+	Else
+		Print "FAIL: param_shadows_width"
+	End If
+End Sub
+
+Function ProbePad(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	If Len(text) < width Then
+		ProbePad = "pad"
+	Else
+		ProbePad = "full"
+	End If
+End Function

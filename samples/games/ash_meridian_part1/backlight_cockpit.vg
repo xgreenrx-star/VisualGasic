@@ -1,0 +1,240 @@
+' Generated Visual Gasic port of backlight_cockpit.vg
+Dim __ready As Boolean
+Dim BLUE As Variant
+Dim TRIM As Variant
+Dim PANEL As Variant
+Dim time_n As Variant
+Dim speed As Variant
+Dim heading As Variant
+Dim charge As Variant
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	BLUE = Color(0.28, 0.78, 1.0)
+	TRIM = Color(0.12, 0.22, 0.30)
+	PANEL = Color(0.035, 0.055, 0.08)
+	time_n = 0.0
+	speed = 0.0
+	heading = 0.0
+	charge = 0
+End Sub
+
+Sub _draw()
+	Dim x As Single
+	Dim font As Variant
+	Dim lit As Variant
+	Dim y As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	For Each side In AsArray(Array(-1.0, 1.0))
+		x = 480 + side * 437
+		draw_polygon(PackVec2(Array(Vector2(x - 32, 0), Vector2(x + 32, 0), Vector2(x + side * 5 + 22, 435), Vector2(x + side * 5 - 22, 435))), PackColor(Array(TRIM, TRIM, PANEL, PANEL)))
+		draw_line(Vector2(x - side * 26, 0), Vector2(x - side * 17, 422), BLUE * 0.7, 3, True)
+	Next
+	draw_rect(Rect2(0, 0, 960, 31), PANEL)
+	draw_line(Vector2(88, 32), Vector2(872, 32), BLUE * 0.8, 3, True)
+	draw_polygon(PackVec2(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450), Vector2(960, 540), Vector2(0, 540))), PackColor(Array(TRIM, TRIM, TRIM, TRIM, PANEL, PANEL)))
+	draw_polyline(PackVec2(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450))), BLUE, 3, True)
+	For Each x In AsArray(Array(158.0, 392.0, 626.0))
+		draw_rect(Rect2(x, 417, 176, 76), PANEL)
+		draw_rect(Rect2(x, 417, 176, 76), BLUE * 0.5, False, 1.5)
+	Next
+	font = ThemeDB.fallback_font
+	draw_string(font, Vector2(175, 437), "GROUND SPEED", 0, -1, 12, BLUE)
+	draw_string(font, Vector2(184, 479), PadInt(RoundInt(Abs(speed) * 3.6), 2), 0, -1, 33, Color(0.68, 0.92, 1.0))
+	draw_string(font, Vector2(257, 476), "KM/H", 0, -1, 12, BLUE)
+	draw_string(font, Vector2(406, 437), "NAV / HEADING", 0, -1, 12, BLUE)
+	draw_string(font, Vector2(419, 478), PadInt(RoundInt(FPosMod(((heading) * 57.29577951308232), 360)), 3), 0, -1, 30, Color(0.68, 0.92, 1.0))
+	draw_string(font, Vector2(641, 437), "DRIVE / CELLS " & Str(charge), 0, -1, 12, BLUE)
+	For i = 0 To (12 - 1)
+		lit = Num(i) < Abs(speed) / 18 * 12
+		If lit Then
+			_t0 = BLUE
+		Else
+			_t0 = BLUE * 0.15
+		End If
+		draw_rect(Rect2(642 + i * 12, 456, 8, 22), _t0)
+	Next
+	For i = 0 To (44 - 1)
+		x = 174.0 + i * 14
+		y = 514 + Sin(time_n * 3 + i * 0.32) * (2 + Abs(speed) * 0.15)
+		draw_line(Vector2(x, y), Vector2(x + 9, y), BLUE * 0.6, 1.5)
+	Next
+End Sub

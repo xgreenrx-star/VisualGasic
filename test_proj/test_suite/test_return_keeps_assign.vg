@@ -1,0 +1,24 @@
+' A store whose only reader is Return must survive dead-store elimination.
+Attribute VB_Name = "TestReturnKeepsAssign"
+
+Function Pick(ByVal distance As Single, ByVal inspection As Integer) As Single
+	Dim chosen As Variant
+	If inspection = 0 Then
+		chosen = distance
+	Else
+		chosen = Max(distance, 220)
+	End If
+	Return chosen
+End Function
+
+Sub _Ready()
+	Dim street As Single
+	Dim overview As Single
+	street = Pick(160, 0)
+	overview = Pick(160, 1)
+	If street = 160 And overview = 220 Then
+		Print "PASS: return_keeps_then_assign"
+	Else
+		Print "FAIL: return_keeps_then_assign street=" & Str(street) & " overview=" & Str(overview)
+	End If
+End Sub

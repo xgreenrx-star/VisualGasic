@@ -443,6 +443,15 @@ bool VGGodotOwnerBuiltins::try_resolve_node_on_base(VisualGasicInstance *instanc
 		r_ret = resolve_from->get_node_or_null(NodePath(path));
 		return true;
 	}
+	// A node from PackedScene.instantiate() is not in the tree yet. Direct
+	// children are still addressable; do not substitute an ancestor of the script.
+	if (resolve_from && !path.begins_with("/")) {
+		Node *found = resolve_from->get_node_or_null(NodePath(path));
+		if (found) {
+			r_ret = found;
+			return true;
+		}
+	}
 	// current_scene was null — walk owner ancestors (Bullet/Enemy under GameObjects).
 	if (instance) {
 		Node *owner_n = Object::cast_to<Node>(instance->get_owner());

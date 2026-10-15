@@ -1,0 +1,2695 @@
+' Ash Meridian — first level.
+' Cockpit: the reflector coupler burns out. Zen names Narcea.
+' The Ash lands. Zen fails. Jonah walks and drives a dead yard,
+' powers an elevator, and takes the coupler from Feb's stasis chamber.
+' The run back is a 3D canyon of rings.
+Option Explicit
+
+Const SW As Single = 960.0
+Const SH As Single = 540.0
+Const PI As Single = 3.14159265
+Const FOCAL As Single = 520.0
+Const NEARZ As Single = 0.45
+
+Const PH_INTRO As Integer = 0
+Const PH_LAND As Integer = 1
+Const PH_GROUND As Integer = 2
+Const PH_DOWN As Integer = 3
+Const PH_CHAMBER As Integer = 4
+Const PH_UP As Integer = 5
+Const PH_ESCAPE As Integer = 6
+Const PH_FILM As Integer = 7
+Const PH_INSTALL As Integer = 8
+Const PH_REFLECT As Integer = 9
+Const PH_BAY As Integer = 10
+Const PH_BOOT As Integer = 11
+Const PH_TITLE As Integer = 12
+Const PH_OPTS As Integer = 13
+Const PH_BLEED As Integer = 14
+Const PH_BLEED2 As Integer = 15
+Const PH_BLEED3 As Integer = 16
+Const PH_BACKLIGHT As Integer = 17
+Const LAND_RINGS As Integer = 28
+Const LAND_SPACING As Single = 20.0
+Const LAND_START As Single = 26.0
+Const LAND_END As Single = 596.0
+Const LAND_RADIUS As Single = 2.15
+
+Dim phase As Integer
+Dim clock As Single
+Dim px As Single
+Dim pz As Single
+Dim yaw As Single
+Dim cam_x As Single
+Dim cam_y As Single
+Dim cam_z As Single
+Dim cam_yaw As Single
+Dim cam_pitch As Single
+Dim on_buggy As Boolean
+Dim buggy_v As Single
+Dim bx As Single
+Dim bz As Single
+Dim byaw As Single
+Dim bug_x As Single
+Dim bug_y As Single
+Dim bug_z As Single
+Dim bug_fx As Single
+Dim bug_fz As Single
+Dim bug_rx As Single
+Dim bug_rz As Single
+Dim land_t As Single
+Dim ride_t As Single
+Dim alarm_t As Single
+Dim scan_t As Single
+Dim scan_line As String
+Dim zen_dead As Boolean
+Dim have_device As Boolean
+Dim hurt As Single
+Dim drive_z As Single
+Dim drive_lat As Single
+Dim film_t As Single
+Dim shot As Single
+Dim marker As Single
+Dim marker_dir As Single
+Dim seated As Integer
+Dim hull_hits As Integer
+Dim reflect_t As Single
+Dim edge_e As Boolean
+Dim edge_f As Boolean
+Dim edge_q As Boolean
+Dim ship_x As Single
+Dim ship_z As Single
+Dim ship_alt As Single
+Dim prev_x As Single
+Dim prev_z As Single
+Dim next_ring As Integer
+Dim ring_miss As Integer
+Dim landing_failed As Boolean
+Dim landing_speed As Single
+Dim bay_t As Single
+Dim boot_t As Single
+Dim menu_on As Boolean
+Dim menu_i As Integer
+Dim title_i As Integer
+Dim opt_i As Integer
+Dim opt_back As Integer
+Dim held_phase As Integer
+Dim opt_full As Boolean
+Dim opt_view As Single
+Dim opt_detail As Integer
+Dim opt_vsync As Boolean
+Dim opt_shake As Boolean
+Dim opt_fps As Boolean
+Dim save_msg As String
+Dim last_dt As Single
+Dim key_cool As Single
+Dim face_ink As Single
+Dim pod_glow As Single
+Dim dev_on As Boolean
+Dim dev_i As Integer
+Dim code_i As Integer
+
+Dim got(8) As Boolean
+Dim deb_x(32) As Single
+Dim deb_z(32) As Single
+Dim deb_s(32) As Single
+Dim junk_ready As Boolean
+
+Dim out_sx As Single
+Dim out_sy As Single
+Dim clip_x As Single
+Dim clip_y As Single
+Dim clip_z As Single
+Dim presentation As Object
+Dim yard_build As Boolean
+
+Sub _Ready()
+	presentation = GetNode("Presentation")
+	Call LoadOptions()
+	Call ApplyDisplay()
+	phase = PH_BOOT
+	boot_t = 0.0
+	menu_on = False
+	title_i = 0
+	menu_i = 0
+	opt_i = 0
+	save_msg = ""
+	last_dt = 0.016
+	key_cool = 0.0
+	face_ink = 0.16
+	pod_glow = 0.0
+	dev_on = False
+	dev_i = 0
+	code_i = 0
+	Call InitJunk()
+	Set_Process(True)
+	Print("ASH MERIDIAN PART 1 READY")
+End Sub
+
+Sub StartRun()
+	phase = PH_INTRO
+	menu_on = False
+	clock = 0.0
+	px = 2.0
+	pz = 10.0
+	yaw = 0.0
+	on_buggy = False
+	buggy_v = 0.0
+	bx = 9.0
+	bz = 18.0
+	byaw = PI
+	land_t = 0.0
+	ride_t = 0.0
+	alarm_t = 0.0
+	scan_t = 0.0
+	scan_line = ""
+	zen_dead = False
+	have_device = False
+	hurt = 0.0
+	drive_z = 0.0
+	drive_lat = 0.0
+	film_t = 0.0
+	shot = 8.4
+	marker = 0.12
+	marker_dir = 1.0
+	seated = 0
+	hull_hits = 0
+	reflect_t = 0.0
+	edge_e = False
+	edge_f = False
+	edge_q = False
+	ship_x = 0.0
+	ship_z = 0.0
+	ship_alt = 0.0
+	next_ring = 0
+	ring_miss = 0
+	landing_failed = False
+	landing_speed = 16.0
+	bay_t = 0.0
+	Dim i As Integer
+	For i = 0 To 7
+		got(i) = False
+	Next
+	Call InitJunk()
+End Sub
+
+Sub InitJunk()
+	If junk_ready Then Exit Sub
+	junk_ready = True
+	Dim i As Integer
+	For i = 0 To 27
+		deb_x(i) = -68.0 + Scatter(i) * 136.0
+		If deb_x(i) > -8.0 And deb_x(i) < 8.0 Then deb_x(i) = deb_x(i) + 16.0
+		deb_z(i) = 18.0 + Scatter(i + 11) * 300.0
+		deb_s(i) = 0.5 + Scatter(i + 5) * 2.4
+	Next
+End Sub
+
+Function Scatter(ByVal n As Integer) As Single
+	Dim k As Integer
+	k = n * 37 + 13
+	k = k - Int(k / 97) * 97
+	If k < 0 Then k = k + 97
+	Scatter = k / 97.0
+End Function
+
+Function Wrap90(ByVal v As Single) As Single
+	While v >= 90.0
+		v = v - 90.0
+	Wend
+	Wrap90 = v
+End Function
+
+Function Dist2(ByVal ax As Single, ByVal az As Single, ByVal bx As Single, ByVal bz As Single) As Single
+	Dim dx As Single
+	Dim dz As Single
+	dx = ax - bx
+	dz = az - bz
+	Dist2 = Sqr(dx * dx + dz * dz)
+End Function
+
+Function Pressed(ByVal code As Integer, ByRef held As Boolean) As Boolean
+	Dim down As Boolean
+	down = IsKeyPressed(code)
+	Pressed = down And Not held
+	held = down
+End Function
+
+' Hidden terminal. The sequence is not shown on any menu.
+Function CodeKey(ByVal i As Integer) As Integer
+	If i = 0 Or i = 1 Then
+		CodeKey = KEY_UP
+	ElseIf i = 2 Or i = 3 Then
+		CodeKey = KEY_DOWN
+	ElseIf i = 4 Or i = 6 Then
+		CodeKey = KEY_LEFT
+	ElseIf i = 5 Or i = 7 Then
+		CodeKey = KEY_RIGHT
+	ElseIf i = 8 Or i = 10 Then
+		CodeKey = KEY_B
+	Else
+		CodeKey = KEY_A
+	End If
+End Function
+
+Function CodeTap() As Integer
+	Dim up As Boolean
+	Dim down As Boolean
+	Dim left As Boolean
+	Dim right As Boolean
+	Dim hit_b As Boolean
+	Dim hit_a As Boolean
+	up = IsKeyJustPressed(KEY_UP)
+	down = IsKeyJustPressed(KEY_DOWN)
+	left = IsKeyJustPressed(KEY_LEFT)
+	right = IsKeyJustPressed(KEY_RIGHT)
+	hit_b = IsKeyJustPressed(KEY_B)
+	hit_a = IsKeyJustPressed(KEY_A)
+	CodeTap = 0
+	If up Then CodeTap = KEY_UP
+	If down Then CodeTap = KEY_DOWN
+	If left Then CodeTap = KEY_LEFT
+	If right Then CodeTap = KEY_RIGHT
+	If hit_b Then CodeTap = KEY_B
+	If hit_a Then CodeTap = KEY_A
+End Function
+
+Sub HearCode()
+	Call NoteCode(CodeTap())
+End Sub
+
+Sub NoteCode(ByVal hit As Integer)
+	If hit = 0 Then Exit Sub
+	If hit = CodeKey(code_i) Then
+		code_i = code_i + 1
+		If code_i >= 12 Then
+			code_i = 0
+			dev_on = True
+		End If
+	ElseIf hit = CodeKey(0) Then
+		code_i = 1
+	Else
+		code_i = 0
+	End If
+End Sub
+
+Sub TickDev()
+	If IsKeyJustPressed(KEY_UP) Then dev_i = dev_i - 1
+	If IsKeyJustPressed(KEY_DOWN) Then dev_i = dev_i + 1
+	If dev_i < 0 Then dev_i = 13
+	If dev_i > 13 Then dev_i = 0
+	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then Call WarpDev()
+	If IsKeyJustPressed(KEY_ESCAPE) Then dev_on = False
+End Sub
+
+Function DevLabel(ByVal i As Integer) As String
+	If i = 0 Then
+		DevLabel = "INTRO"
+	ElseIf i = 1 Then
+		DevLabel = "LANDING"
+	ElseIf i = 2 Then
+		DevLabel = "BAY"
+	ElseIf i = 3 Then
+		DevLabel = "YARD"
+	ElseIf i = 4 Then
+		DevLabel = "SHAFT"
+	ElseIf i = 5 Then
+		DevLabel = "CHAMBER"
+	ElseIf i = 6 Then
+		DevLabel = "CANYON"
+	ElseIf i = 7 Then
+		DevLabel = "FILM"
+	ElseIf i = 8 Then
+		DevLabel = "INSTALL"
+	ElseIf i = 9 Then
+		DevLabel = "REFLECT"
+	ElseIf i = 10 Then
+		DevLabel = "BLEED CITY"
+	ElseIf i = 11 Then
+		DevLabel = "BLEED CITY 2"
+	ElseIf i = 12 Then
+		DevLabel = "BLEED CITY 3"
+	Else
+		DevLabel = "BACKLIGHT CITY"
+	End If
+End Function
+
+Sub WarpDev()
+	Dim pick As Integer
+	pick = dev_i
+	Call StartRun()
+	dev_on = False
+	code_i = 0
+	menu_on = False
+	If pick = 1 Then
+		phase = PH_LAND
+	ElseIf pick = 2 Then
+		phase = PH_BAY
+	ElseIf pick = 3 Then
+		phase = PH_GROUND
+		zen_dead = True
+		on_buggy = True
+		px = 6.4
+		pz = -18.0
+		yaw = 0.0
+		bx = px
+		bz = pz
+		byaw = yaw
+	ElseIf pick = 4 Then
+		phase = PH_DOWN
+		zen_dead = True
+		got(0) = True
+	ElseIf pick = 5 Then
+		phase = PH_CHAMBER
+		zen_dead = True
+		got(0) = True
+		yaw = 0.0
+	ElseIf pick = 6 Then
+		phase = PH_ESCAPE
+		zen_dead = True
+		got(0) = True
+		have_device = True
+		alarm_t = 1.0
+	ElseIf pick = 7 Then
+		phase = PH_FILM
+		zen_dead = True
+		have_device = True
+	ElseIf pick = 8 Then
+		phase = PH_INSTALL
+		zen_dead = True
+		have_device = True
+		Call ResetInstall()
+	ElseIf pick = 9 Then
+		phase = PH_REFLECT
+		zen_dead = True
+		have_device = True
+	ElseIf pick = 10 Then
+		phase = PH_BLEED
+		px = 0.0
+		pz = 8.0
+		yaw = 0.0
+	ElseIf pick = 11 Then
+		phase = PH_BLEED2
+		Call presentation.start_bleed_city2()
+	ElseIf pick = 12 Then
+		phase = PH_BLEED3
+		Call presentation.start_bleed_city3()
+	ElseIf pick = 13 Then
+		phase = PH_BACKLIGHT
+		Call presentation.start_backlight_city()
+	End If
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Call presentation.sample_input()
+	If dev_on Then
+		Call TickDev()
+		QueueRedraw()
+		Exit Sub
+	End If
+	Call HearCode()
+	If dev_on Then
+		QueueRedraw()
+		Exit Sub
+	End If
+	last_dt = delta
+	clock = clock + delta
+	If key_cool > 0.0 Then key_cool = key_cool - delta
+	If phase = PH_BOOT Then
+		boot_t = boot_t + delta
+		If boot_t > 2.4 Then phase = PH_TITLE
+		QueueRedraw()
+		Exit Sub
+	End If
+	If phase = PH_TITLE Then
+		Call TickTitle()
+		QueueRedraw()
+		Exit Sub
+	End If
+	If phase = PH_OPTS Then
+		Call TickOptions()
+		QueueRedraw()
+		Exit Sub
+	End If
+	If presentation.menu_tap(KEY_ESCAPE) Then
+		menu_on = Not menu_on
+		menu_i = 0
+		save_msg = ""
+		QueueRedraw()
+		Exit Sub
+	End If
+	If menu_on Then
+		Call TickPause()
+		QueueRedraw()
+		Exit Sub
+	End If
+	If hurt > 0.0 Then hurt = hurt - delta
+	If scan_t > 0.0 Then scan_t = scan_t - delta
+	If phase = PH_INTRO Then
+		If clock > 34.0 Or (clock > 22.0 And (IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER))) Then
+			phase = PH_LAND
+			land_t = 0.0
+			clock = 0.0
+			ship_x = 0.0
+			ship_z = 0.0
+			next_ring = 0
+			ring_miss = 0
+		End If
+	ElseIf phase = PH_LAND Then
+		Call TickApproach(delta)
+	ElseIf phase = PH_BAY Then
+		bay_t = bay_t + delta
+		If bay_t > 7.4 Then
+			phase = PH_GROUND
+			zen_dead = True
+			on_buggy = True
+			px = 6.4
+			pz = -18.0
+			yaw = 0.0
+			bx = px
+			bz = pz
+			byaw = yaw
+			buggy_v = 0.0
+		End If
+	ElseIf phase = PH_GROUND Then
+		Call TickGround(delta)
+	ElseIf phase = PH_BLEED Then
+		Call TickBleed(delta)
+	ElseIf phase = PH_BLEED2 Then
+		Call presentation.tick_bleed_city2(delta)
+	ElseIf phase = PH_BLEED3 Then
+		Call presentation.tick_bleed_city3(delta)
+	ElseIf phase = PH_BACKLIGHT Then
+		Call presentation.tick_backlight_city(delta)
+	ElseIf phase = PH_DOWN Then
+		ride_t = ride_t + delta
+		If ride_t > 4.2 Then
+			phase = PH_CHAMBER
+			ride_t = 0.0
+			yaw = 0.0
+		End If
+	ElseIf phase = PH_CHAMBER Then
+		Call TickChamber(delta)
+	ElseIf phase = PH_UP Then
+		ride_t = ride_t + delta
+		If ride_t > 4.2 Then
+			phase = PH_GROUND
+			px = 0.0
+			pz = YardEnd() - 10.0
+			yaw = PI
+			on_buggy = False
+		End If
+	ElseIf phase = PH_ESCAPE Then
+		Call TickEscape(delta)
+	ElseIf phase = PH_FILM Then
+		film_t = film_t + delta
+		If film_t > 5.0 Or IsKeyJustPressed(KEY_SPACE) Then
+			phase = PH_INSTALL
+			Call ResetInstall()
+		End If
+	ElseIf phase = PH_INSTALL Then
+		Call TickInstall(delta)
+	ElseIf phase = PH_REFLECT Then
+		reflect_t = reflect_t + delta
+		If reflect_t > 1.4 And IsKeyJustPressed(KEY_SPACE) Then
+			junk_ready = True
+			Call StartRun()
+		End If
+	End If
+	QueueRedraw()
+End Sub
+
+Sub TickApproach(ByVal delta As Single)
+	Dim steer As Single
+	Dim lift As Single
+	Dim rz As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim old_x As Single
+	Dim old_alt As Single
+	Dim old_z As Single
+	Dim cross_t As Single
+	If landing_failed Then
+		If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+			ship_x = 0.0
+			ship_alt = 0.0
+			ship_z = 0.0
+			next_ring = 0
+			ring_miss = 0
+			land_t = 0.0
+			landing_failed = False
+		End If
+		Exit Sub
+	End If
+	old_x = ship_x
+	old_alt = ship_alt
+	old_z = ship_z
+	land_t = land_t + delta
+	steer = 0.0
+	lift = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
+	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
+	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	ship_x = ship_x + steer * delta * 2.35 + Sin(land_t * 1.7) * delta * 0.1
+	ship_alt = ship_alt + lift * delta * 4.6 + Sin(land_t * 2.3) * delta * 0.28
+	If ship_x > 1.15 Then ship_x = 1.15
+	If ship_x < -1.15 Then ship_x = -1.15
+	If ship_alt > 3.0 Then ship_alt = 3.0
+	If ship_alt < -3.0 Then ship_alt = -3.0
+	landing_speed = 16.0 + next_ring * 0.16
+	ship_z = ship_z + delta * landing_speed
+	While next_ring < LAND_RINGS
+		rz = LAND_START + next_ring * LAND_SPACING
+		If ship_z < rz Then Exit While
+		cross_t = (rz - old_z) / (ship_z - old_z)
+		dx = (old_x + (ship_x - old_x) * cross_t - RingOff(next_ring)) * 7.0
+		dy = old_alt + (ship_alt - old_alt) * cross_t - RingLift(next_ring)
+		If dx * dx + dy * dy > LAND_RADIUS * LAND_RADIUS Then
+			ring_miss = ring_miss + 1
+			ship_z = rz - 8.0
+			hurt = 0.8
+			If ring_miss >= 2 Then landing_failed = True
+			Exit While
+		Else
+			next_ring = next_ring + 1
+		End If
+	Wend
+	If next_ring >= LAND_RINGS And ship_z > LAND_END Then
+		phase = PH_BAY
+		bay_t = 0.0
+		zen_dead = True
+	End If
+End Sub
+
+Function RingOff(ByVal i As Integer) As Single
+	If i = 0 Then
+		RingOff = 0.0
+	Else
+		RingOff = Sin(i * 1.92) * 0.78
+	End If
+End Function
+
+Function RingLift(ByVal i As Integer) As Single
+	If i = 0 Then
+		RingLift = 0.0
+	Else
+		RingLift = Sin(i * 1.31) * 2.15
+	End If
+End Function
+
+Function GlideY(ByVal z As Single) As Single
+	GlideY = 24.0 - z * 0.038
+	If GlideY < 1.4 Then GlideY = 1.4
+End Function
+
+Sub TickBleed(ByVal delta As Single)
+	Dim turn As Single
+	Dim speed As Single
+	turn = 0.0
+	speed = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then turn = turn - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then turn = turn + 1.0
+	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then speed = speed + 1.0
+	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then speed = speed - 0.45
+	yaw = yaw + turn * delta * 1.4
+	px = px + Sin(yaw) * speed * delta * 14.0
+	pz = pz + Cos(yaw) * speed * delta * 14.0
+	If px > 36.0 Then px = 36.0
+	If px < -36.0 Then px = -36.0
+	If pz > 100.0 Then pz = 100.0
+	If pz < -8.0 Then pz = -8.0
+End Sub
+
+Sub DrawBleed()
+	cam_x = px
+	cam_y = 2.6
+	cam_z = pz
+	cam_yaw = yaw
+	cam_pitch = -0.12
+	Call presentation.bleed_city()
+	Call FlushFaces()
+	DrawString "BLEED CITY    WASD    THE YARD IS UNCHANGED", 220, 500, Color(0.4, 0.9, 1.0), 16
+End Sub
+
+Sub DrawBleed2()
+	Dim image As Object
+	image = presentation.bleed_city2(clock, opt_view, opt_detail)
+	DrawTexture image, 0, 0
+	If presentation.city2_driving() Then
+		image = presentation.city2_cockpit(clock)
+		DrawTexture image, 0, 0
+		DrawString "BLEED CITY 2    F EXIT    V INSPECT", 260, 76, Color(0.4, 0.95, 1.0), 14
+		DrawString presentation.city2_status(), 275, 109, Color(0.65, 0.85, 0.9), 12
+	Else
+		DrawRect 0, 0, 960, 52, Color(0.005, 0.012, 0.02, 0.9)
+		DrawString "BLEED CITY 2 / REFINERY DISTRICT", 24, 16, Color(0.4, 0.95, 1.0), 20
+		DrawString presentation.city2_status(), 24, 43, Color(0.65, 0.85, 0.9), 11
+		DrawRect 0, 493, 960, 47, Color(0.005, 0.012, 0.02, 0.9)
+		DrawString "W/S MOVE  A/D TURN  F ENTER BUGGY  E TAKE AIR  V INSPECT / OVERVIEW", 28, 510, Color(0.55, 0.85, 0.9), 14
+	End If
+End Sub
+
+Sub DrawBleed3()
+	Dim image As Object
+	image = presentation.bleed_city3(clock, opt_view, opt_detail)
+	DrawTexture image, 0, 0
+	If presentation.city3_driving() Then
+		image = presentation.city3_cockpit(clock)
+		DrawTexture image, 0, 0
+		DrawString "BLEED CITY 3    F EXIT    V INSPECT", 260, 76, Color(0.4, 0.95, 1.0), 14
+		DrawString presentation.city3_status(), 275, 109, Color(0.65, 0.85, 0.9), 12
+	Else
+		DrawRect 0, 0, 960, 52, Color(0.005, 0.012, 0.02, 0.9)
+		DrawString "BLEED CITY 3 / SCAFFOLD DISTRICT", 24, 16, Color(0.4, 0.95, 1.0), 20
+		DrawString presentation.city3_status(), 24, 43, Color(0.65, 0.85, 0.9), 11
+		DrawRect 0, 493, 960, 47, Color(0.005, 0.012, 0.02, 0.9)
+		DrawString "W/S MOVE  A/D TURN  F ENTER BUGGY  E TAKE AIR  V INSPECT / OVERVIEW", 28, 510, Color(0.55, 0.85, 0.9), 14
+	End If
+End Sub
+
+Sub DrawBacklight()
+	Dim image As Object
+	image = presentation.draw_backlight_city(clock, opt_view, opt_detail)
+	DrawTexture image, 0, 0
+	If presentation.backlight_driving() Then
+		image = presentation.backlight_cockpit(clock)
+		DrawTexture image, 0, 0
+	End If
+	image = presentation.backlight_overlay()
+	DrawTexture image, 0, 0
+End Sub
+
+Sub TickGround(ByVal delta As Single)
+	Dim turn As Single
+	Dim use_e As Boolean
+	Dim use_f As Boolean
+	Dim use_q As Boolean
+	turn = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then turn = turn - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then turn = turn + 1.0
+	yaw = yaw + turn * delta * 1.7
+	use_e = Pressed(KEY_E, edge_e)
+	use_f = Pressed(KEY_F, edge_f)
+	use_q = Pressed(KEY_Q, edge_q)
+	If on_buggy Then
+		If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then buggy_v = buggy_v + delta * 10.0
+		If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then buggy_v = buggy_v - delta * 14.0
+		buggy_v = buggy_v * (1.0 - delta * 0.6)
+		If buggy_v > 16.0 Then buggy_v = 16.0
+		If buggy_v < -4.0 Then buggy_v = -4.0
+		Call Slide(Sin(yaw) * buggy_v * delta, Cos(yaw) * buggy_v * delta)
+		If use_f Then Call LeaveBuggy()
+		If have_device And pz < 4.0 Then
+			phase = PH_ESCAPE
+			drive_z = 0.0
+			drive_lat = 0.0
+		End If
+	Else
+		Dim step As Single
+		step = 0.0
+		If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then step = step + 1.0
+		If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then step = step - 1.0
+		Call Slide(Sin(yaw) * step * 4.2 * delta, Cos(yaw) * step * 4.2 * delta)
+		If use_f And Dist2(px, pz, bx, bz) < 3.2 Then
+			on_buggy = True
+			px = bx
+			pz = bz
+			yaw = byaw
+			buggy_v = 0.0
+		End If
+		If use_e Then Call TryUse()
+	End If
+	Call KeepOut()
+	If px < -86.0 Then px = -86.0
+	If px > 86.0 Then px = 86.0
+	If pz < -22.0 Then pz = -22.0
+	If pz > 400.0 Then pz = 400.0
+	If use_q Then Call TryScan()
+	If have_device Then
+		alarm_t = alarm_t + delta
+		Call SurfaceLasers()
+	End If
+End Sub
+
+Sub Slide(ByVal dx As Single, ByVal dz As Single)
+	Dim mag As Single
+	Dim n As Integer
+	Dim i As Integer
+	Dim stepx As Single
+	Dim stepz As Single
+	mag = Sqr(dx * dx + dz * dz)
+	If mag < 0.001 Then Exit Sub
+	If mag > 1.6 Then
+		dx = dx / mag * 1.6
+		dz = dz / mag * 1.6
+	End If
+	n = 5
+	stepx = dx / n
+	stepz = dz / n
+	For i = 1 To n
+		prev_x = px
+		prev_z = pz
+		px = prev_x + stepx
+		pz = prev_z + stepz
+		Call KeepOut()
+		If Abs(px - (prev_x + stepx)) > 0.02 Or Abs(pz - (prev_z + stepz)) > 0.02 Then Exit For
+	Next
+End Sub
+
+Sub LeaveBuggy()
+	bx = px
+	bz = pz
+	byaw = yaw
+	on_buggy = False
+	buggy_v = 0.0
+	px = px + Cos(yaw) * 2.4
+	pz = pz - Sin(yaw) * 2.4
+End Sub
+
+Sub TryUse()
+	Dim i As Integer
+	For i = 0 To 4
+		If Not got(i) Then
+			If Dist2(px, pz, ItemX(i), ItemZ(i)) < 2.4 Then
+				got(i) = True
+				scan_line = "TAKEN  " & ItemName(i)
+				scan_t = 3.0
+				Exit Sub
+			End If
+		End If
+	Next
+	If Dist2(px, pz, 0.0, YardEnd()) < 3.0 Then
+		If got(0) Then
+			phase = PH_DOWN
+			ride_t = 0.0
+			on_buggy = False
+		Else
+			scan_line = "ELEVATOR DARK. IT WANTS A CELL."
+			scan_t = 3.0
+		End If
+	End If
+End Sub
+
+Sub TryScan()
+	Dim i As Integer
+	Dim best As Single
+	Dim id As Integer
+	best = 7.0
+	id = -1
+	For i = 0 To 4
+		If Not got(i) Then
+			If Dist2(px, pz, ItemX(i), ItemZ(i)) < best Then
+				best = Dist2(px, pz, ItemX(i), ItemZ(i))
+				id = i
+			End If
+		End If
+	Next
+	If Dist2(px, pz, 0.0, 2.0) < best Then
+		best = Dist2(px, pz, 0.0, 2.0)
+		id = 100
+	End If
+	If Dist2(px, pz, bx, bz) < best Then
+		best = Dist2(px, pz, bx, bz)
+		id = 101
+	End If
+	If Dist2(px, pz, -22.0, 58.0) < best Then
+		best = Dist2(px, pz, -22.0, 58.0)
+		id = 102
+	End If
+	If Dist2(px, pz, 22.0, 36.0) < best Then
+		best = Dist2(px, pz, 22.0, 36.0)
+		id = 103
+	End If
+	If Dist2(px, pz, 0.0, YardEnd()) < best Then
+		best = Dist2(px, pz, 0.0, YardEnd())
+		id = 104
+	End If
+	For i = 0 To 3
+		If Dist2(px, pz, TurretX(i), TurretZ(i)) < best Then
+			best = Dist2(px, pz, TurretX(i), TurretZ(i))
+			id = 105
+		End If
+	Next
+	If id < 0 Then
+		scan_line = "BROKEN MACHINERY. COLD METAL. NOTHING TO TAKE."
+	ElseIf id = 100 Then
+		scan_line = "ASH. REFLECTOR SOCKET IS OPEN AND BLACK."
+	ElseIf id = 101 Then
+		scan_line = "YARD BUGGY. STILL HOLDS A CHARGE."
+	ElseIf id = 102 Then
+		scan_line = "PRESS HALL. ROOF GONE. CELL GLINT INSIDE."
+	ElseIf id = 103 Then
+		scan_line = "GANTRY. COLLAPSED ACROSS THE ROAD EDGE."
+	ElseIf id = 104 Then
+		scan_line = "FREIGHT LIFT TO 14242. SHAFT RUNS UNDER THE YARD."
+	ElseIf id = 105 Then
+		scan_line = "YARD GUN. BARRELS STILL LIVE."
+	Else
+		scan_line = ItemName(id) & "  —  " & ItemBlurb(id)
+	End If
+	scan_t = 4.0
+End Sub
+
+Sub SurfaceLasers()
+	Dim band As Single
+	band = clock * 18.0
+	While band > 340.0
+		band = band - 340.0
+	Wend
+	band = band + 16.0
+	If Abs(pz - band) < 1.4 And Abs(px) < 8.0 Then
+		hurt = 0.3
+		pz = pz + 3.0
+	End If
+End Sub
+
+Sub KeepOut()
+	Dim i As Integer
+	Call BlockCity()
+	Call PushBox(-5.1, 5.1, -4.4, 5.2)
+	Call PushBox(12.0, 26.0, 96.0, 112.0)
+	Call PushBox(-28.0, -18.0, 112.0, 124.0)
+	Call PushBox(-14.8, -11.0, 9.6, 12.8)
+	Call PushBox(10.6, 13.8, -2.4, 0.6)
+	Call PushPier(42.0)
+	Call PushPier(150.0)
+	Call PushPier(240.0)
+	Call PushPier(320.0)
+	For i = 0 To 3
+		Call PushBox(TurretX(i) - 1.8, TurretX(i) + 1.8, TurretZ(i) - 1.8, TurretZ(i) + 1.8)
+	Next
+	For i = 0 To 27
+		If Abs(deb_z(i) - pz) < 28.0 And Abs(deb_x(i)) > 8.0 And deb_s(i) > 1.1 Then
+			Call PushBox(deb_x(i) - 0.2, deb_x(i) + deb_s(i) + 0.2, deb_z(i) - 0.2, deb_z(i) + deb_s(i) * 0.7 + 0.2)
+		End If
+	Next
+	If on_buggy Then
+		Call PushBox(-32.0, -14.0, 48.0, 68.0)
+		Call PushBox(-4.2, 4.2, YardEnd() - 4.4, YardEnd() + 4.4)
+	Else
+		Call PushWalls()
+	End If
+End Sub
+
+Sub BlockCity()
+	Dim i As Integer
+	Dim x As Single
+	Dim z As Single
+	For i = 0 To 17
+		z = RowZ(i)
+		If Abs(z - pz) < 40.0 Then
+			x = LeftTowerX(i)
+			Call PushBox(x - 1.2, x + 6.2, z - 1.2, z + 5.2)
+			x = RightTowerX(i)
+			z = RowZ(i) + 6.0
+			Call PushBox(x - 1.2, x + 5.8, z - 1.2, z + 4.8)
+			If opt_detail > 0 And i Mod 2 = 0 Then
+				z = RowZ(i) + 2.0
+				x = LeftFarX(i)
+				Call PushBox(x - 1.0, x + 6.4, z - 1.0, z + 5.0)
+				x = RightFarX(i)
+				Call PushBox(x - 1.0, x + 6.4, z - 1.0, z + 5.0)
+			End If
+		End If
+	Next
+End Sub
+
+Sub PushPier(ByVal az As Single)
+	If Abs(pz - az) > 16.0 Then Exit Sub
+	Call PushBox(-9.4, -7.4, az - 1.2, az + 1.2)
+	Call PushBox(7.4, 9.4, az - 1.2, az + 1.2)
+End Sub
+
+Function YardEnd() As Single
+	YardEnd = 368.0
+End Function
+
+Function RowZ(ByVal i As Integer) As Single
+	RowZ = 24.0 + i * 18.0
+End Function
+
+Function LeftTowerX(ByVal i As Integer) As Single
+	LeftTowerX = -18.0 - (i Mod 3) * 7.0
+End Function
+
+Function RightTowerX(ByVal i As Integer) As Single
+	RightTowerX = 12.0 + (i Mod 3) * 7.0
+End Function
+
+Function LeftFarX(ByVal i As Integer) As Single
+	LeftFarX = -48.0 - (i Mod 2) * 6.0
+End Function
+
+Function RightFarX(ByVal i As Integer) As Single
+	RightFarX = 42.0 + (i Mod 2) * 6.0
+End Function
+
+Function TurretX(ByVal i As Integer) As Single
+	If i = 0 Or i = 2 Then
+		TurretX = -11.0
+	Else
+		TurretX = 13.0
+	End If
+End Function
+
+Function TurretZ(ByVal i As Integer) As Single
+	If i = 0 Then
+		TurretZ = 72.0
+	ElseIf i = 1 Then
+		TurretZ = 156.0
+	ElseIf i = 2 Then
+		TurretZ = 228.0
+	Else
+		TurretZ = 300.0
+	End If
+End Function
+
+Function TurretYaw(ByVal i As Integer) As Single
+	If i = 0 Or i = 2 Then
+		TurretYaw = -0.2
+	Else
+		TurretYaw = PI + 0.2
+	End If
+End Function
+
+Sub PushBox(ByVal minx As Single, ByVal maxx As Single, ByVal minz As Single, ByVal maxz As Single)
+	If px <= minx Or px >= maxx Or pz <= minz Or pz >= maxz Then Exit Sub
+	If prev_z <= minz Then
+		pz = minz - 0.35
+	ElseIf prev_z >= maxz Then
+		pz = maxz + 0.35
+	ElseIf prev_x <= minx Then
+		px = minx - 0.35
+	ElseIf prev_x >= maxx Then
+		px = maxx + 0.35
+	ElseIf (px - minx) < (maxx - px) Then
+		px = minx - 0.35
+	Else
+		px = maxx + 0.35
+	End If
+	buggy_v = 0.0
+End Sub
+
+Sub PushWalls()
+	' Press hall walls. East wall has a door between z 56 and 60.
+	If px > -32.4 And px < -31.2 And pz > 48.0 And pz < 68.0 Then px = -32.6
+	If pz > 47.6 And pz < 48.6 And px > -32.0 And px < -14.0 Then pz = 47.4
+	If pz > 67.4 And pz < 68.4 And px > -32.0 And px < -14.0 Then pz = 68.6
+	If px > -14.6 And px < -13.6 And pz > 48.0 And pz < 68.0 Then
+		If pz < 56.0 Or pz > 60.0 Then
+			If px < -14.1 Then
+				px = -14.8
+			Else
+				px = -13.4
+			End If
+		End If
+	End If
+End Sub
+
+Sub TickChamber(ByVal delta As Single)
+	Dim use_e As Boolean
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then yaw = yaw - delta * 0.8
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then yaw = yaw + delta * 0.8
+	If yaw > 0.55 Then yaw = 0.55
+	If yaw < -0.55 Then yaw = -0.55
+	use_e = Pressed(KEY_E, edge_e)
+	If use_e And Not have_device Then
+		have_device = True
+		alarm_t = 0.01
+		scan_line = "ZEN: RUN!"
+		scan_t = 4.0
+	End If
+	If have_device Then alarm_t = alarm_t + delta
+	If have_device And alarm_t > 1.6 And use_e Then
+		phase = PH_UP
+		ride_t = 0.0
+	End If
+End Sub
+
+Sub TickEscape(ByVal delta As Single)
+	Dim steer As Single
+	Dim i As Integer
+	Dim rz As Single
+	steer = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
+	drive_lat = drive_lat + steer * delta * 0.82
+	If drive_lat > 1.0 Then drive_lat = 1.0
+	If drive_lat < -1.0 Then drive_lat = -1.0
+	drive_lat = drive_lat * (1.0 - delta * 0.08)
+	drive_z = drive_z + delta * 6.2
+	For i = 0 To 12
+		rz = 28.0 + i * 22.0
+		If Abs((drive_z + 6.5) - rz) < delta * 6.2 + 0.08 Then
+			If Abs(drive_lat) > 0.48 Then
+				hurt = 0.25
+				drive_lat = drive_lat * 0.45
+			End If
+		End If
+	Next
+	If Abs(drive_lat) > 0.92 Then
+		drive_z = drive_z - delta * 2.4
+		hurt = 0.15
+	End If
+	If drive_z > 280.0 Then
+		phase = PH_FILM
+		film_t = 0.0
+	End If
+End Sub
+
+Sub ResetInstall()
+	shot = 8.4 - hull_hits * 0.5
+	If shot < 6.0 Then shot = 6.0
+	marker = 0.12
+	marker_dir = 1.0
+	seated = 0
+End Sub
+
+Sub TickInstall(ByVal delta As Single)
+	Dim gate As Single
+	shot = shot - delta
+	marker = marker + marker_dir * delta * 0.55
+	If marker > 1.0 Then
+		marker = 1.0
+		marker_dir = -1.0
+	End If
+	If marker < 0.0 Then
+		marker = 0.0
+		marker_dir = 1.0
+	End If
+	gate = 0.38 + seated * 0.18
+	If IsKeyJustPressed(KEY_SPACE) Then
+		If Abs(marker - gate) < 0.07 Then
+			seated = seated + 1
+			If seated >= 3 Then
+				phase = PH_REFLECT
+				reflect_t = 0.0
+			End If
+		Else
+			shot = shot - 0.45
+		End If
+	End If
+	If shot <= 0.0 And phase = PH_INSTALL Then
+		hull_hits = hull_hits + 1
+		Call ResetInstall()
+	End If
+End Sub
+
+Function ItemX(ByVal i As Integer) As Single
+	If i = 0 Then
+		ItemX = -22.0
+	ElseIf i = 1 Then
+		ItemX = 20.0
+	ElseIf i = 2 Then
+		ItemX = -16.0
+	ElseIf i = 3 Then
+		ItemX = 18.0
+	Else
+		ItemX = -9.0
+	End If
+End Function
+
+Function ItemZ(ByVal i As Integer) As Single
+	If i = 0 Then
+		ItemZ = 58.0
+	ElseIf i = 1 Then
+		ItemZ = 34.0
+	ElseIf i = 2 Then
+		ItemZ = 96.0
+	ElseIf i = 3 Then
+		ItemZ = 122.0
+	Else
+		ItemZ = 142.0
+	End If
+End Function
+
+Function ItemName(ByVal i As Integer) As String
+	If i = 0 Then
+		ItemName = "ENERGY CELL"
+	ElseIf i = 1 Then
+		ItemName = "COIL"
+	ElseIf i = 2 Then
+		ItemName = "SEAL TAPE"
+	ElseIf i = 3 Then
+		ItemName = "CRACKED LENS"
+	Else
+		ItemName = "MAST TAG"
+	End If
+End Function
+
+Function ItemBlurb(ByVal i As Integer) As String
+	If i = 0 Then
+		ItemBlurb = "STILL HOLDS A YARD CHARGE."
+	ElseIf i = 1 Then
+		ItemBlurb = "BURNT WINDING. USEFUL AS WIRE."
+	ElseIf i = 2 Then
+		ItemBlurb = "PATCH FOR A SUIT OR A HOSE."
+	ElseIf i = 3 Then
+		ItemBlurb = "SURVEY GLASS. ONE CLEAR EDGE."
+	Else
+		ItemBlurb = "NARCEAN SERIAL. FEB'S CRADLE NUMBER."
+	End If
+End Function
+
+Sub ApplyCam()
+	Dim wobble As Single
+	If phase = PH_LAND Then
+		cam_x = 8.5
+		cam_y = 3.2
+		cam_z = 15.0
+		cam_yaw = PI
+		cam_pitch = -0.16
+	ElseIf phase = PH_DOWN Then
+		cam_x = 0.0
+		cam_y = 2.0 - ride_t * 7.2
+		cam_z = YardEnd() - 4.0
+		cam_yaw = 0.0
+		cam_pitch = -0.05
+	ElseIf phase = PH_UP Then
+		cam_x = 0.0
+		cam_y = -28.0 + ride_t * 7.2
+		cam_z = YardEnd() - 4.0
+		cam_yaw = PI
+		cam_pitch = -0.05
+	ElseIf phase = PH_CHAMBER Then
+		cam_x = 0.0
+		cam_y = -27.4
+		cam_z = YardEnd() - 7.0
+		cam_yaw = yaw
+		cam_pitch = 0.02
+	ElseIf on_buggy Then
+		wobble = 0.0
+		If opt_shake Then wobble = Sin(pz * 1.2) * 0.012
+		cam_x = px + Sin(yaw) * 0.35
+		cam_y = 1.12 + wobble
+		cam_z = pz + Cos(yaw) * 0.35
+		cam_yaw = yaw
+		cam_pitch = -0.02
+	Else
+		cam_x = px
+		cam_y = 1.7
+		cam_z = pz
+		cam_yaw = yaw
+		cam_pitch = -0.08
+	End If
+End Sub
+
+Sub Project(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Dim dx As Single
+	Dim dy As Single
+	Dim dz As Single
+	dx = x - cam_x
+	dy = y - cam_y
+	dz = z - cam_z
+	Dim cy As Single
+	Dim sy As Single
+	cy = Cos(cam_yaw)
+	sy = Sin(cam_yaw)
+	Dim rx As Single
+	Dim rz As Single
+	rx = dx * cy - dz * sy
+	rz = dx * sy + dz * cy
+	Dim cp As Single
+	Dim sp As Single
+	cp = Cos(cam_pitch)
+	sp = Sin(cam_pitch)
+	Dim ry As Single
+	Dim pz As Single
+	ry = dy * cp - rz * sp
+	pz = dy * sp + rz * cp
+	clip_x = rx
+	clip_y = ry
+	clip_z = pz
+	out_sx = 0.0
+	out_sy = 0.0
+	If pz < NEARZ Then Exit Sub
+	Dim sc As Single
+	sc = FOCAL / pz
+	out_sx = 480.0 + rx * sc
+	out_sy = 270.0 - ry * sc
+End Sub
+
+Sub Seg(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call presentation.segment(Vector3(x0, y0, z0), Vector3(x1, y1, z1), Color(r, g, b))
+End Sub
+
+Sub SolidFace(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single, ByVal x2 As Single, ByVal y2 As Single, ByVal z2 As Single, ByVal x3 As Single, ByVal y3 As Single, ByVal z3 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call presentation.face(Vector3(x0, y0, z0), Vector3(x1, y1, z1), Vector3(x2, y2, z2), Vector3(x3, y3, z3), Color(r, g, b))
+End Sub
+
+Sub FlushFaces()
+	Dim image As Object
+	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, opt_view)
+	DrawTexture image, 0, 0
+End Sub
+
+Sub DrawBox(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal w As Single, ByVal h As Single, ByVal d As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call SolidFace(x, y, z, x, y + h, z, x + w, y + h, z, x + w, y, z, r, g, b)
+	Call SolidFace(x, y, z + d, x + w, y, z + d, x + w, y + h, z + d, x, y + h, z + d, r, g, b)
+	Call SolidFace(x, y, z, x, y, z + d, x, y + h, z + d, x, y + h, z, r, g, b)
+	Call SolidFace(x + w, y, z, x + w, y + h, z, x + w, y + h, z + d, x + w, y, z + d, r, g, b)
+	Call SolidFace(x, y, z, x + w, y, z, x + w, y, z + d, x, y, z + d, r, g, b)
+	Call SolidFace(x, y + h, z, x, y + h, z + d, x + w, y + h, z + d, x + w, y + h, z, r, g, b)
+End Sub
+
+Sub DrawWireBox(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal w As Single, ByVal h As Single, ByVal d As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call Seg(x, y, z, x + w, y, z, r, g, b)
+	Call Seg(x, y, z + d, x + w, y, z + d, r, g, b)
+	Call Seg(x, y, z, x, y, z + d, r, g, b)
+	Call Seg(x + w, y, z, x + w, y, z + d, r, g, b)
+	Call Seg(x, y + h, z, x + w, y + h, z, r, g, b)
+	Call Seg(x, y + h, z + d, x + w, y + h, z + d, r, g, b)
+	Call Seg(x, y + h, z, x, y + h, z + d, r, g, b)
+	Call Seg(x + w, y + h, z, x + w, y + h, z + d, r, g, b)
+	Call Seg(x, y, z, x, y + h, z, r, g, b)
+	Call Seg(x + w, y, z, x + w, y + h, z, r, g, b)
+	Call Seg(x, y, z + d, x, y + h, z + d, r, g, b)
+	Call Seg(x + w, y, z + d, x + w, y + h, z + d, r, g, b)
+End Sub
+
+Sub DrawRingFlat(ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal radius As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	Dim a0 As Single
+	Dim a1 As Single
+	For i = 0 To 7
+		a0 = i * PI * 2.0 / 8.0
+		a1 = (i + 1) * PI * 2.0 / 8.0
+		Call Seg(cx + Cos(a0) * radius, cy, cz + Sin(a0) * radius, cx + Cos(a1) * radius, cy, cz + Sin(a1) * radius, r, g, b)
+	Next
+End Sub
+
+Sub DrawHoop(ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal radius As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call presentation.hoop(cx, cy, cz, radius, Color(r, g, b))
+End Sub
+
+Sub DrawRingStand(ByVal cx As Single, ByVal cy As Single, ByVal cz As Single, ByVal radius As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	Dim a0 As Single
+	Dim a1 As Single
+	For i = 0 To 7
+		a0 = i * PI * 2.0 / 8.0
+		a1 = (i + 1) * PI * 2.0 / 8.0
+		Call Seg(cx + Cos(a0) * radius, cy + Sin(a0) * radius, cz, cx + Cos(a1) * radius, cy + Sin(a1) * radius, cz, r, g, b)
+	Next
+End Sub
+
+Sub HullQuad(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal ax As Single, ByVal ay0 As Single, ByVal ay1 As Single, ByVal az As Single, ByVal bx As Single, ByVal by0 As Single, ByVal by1 As Single, ByVal bz As Single)
+	Call SolidFace(x + ax, y + ay0, z + az, x + bx, y + by0, z + bz, x + bx, y + by1, z + bz, x + ax, y + ay1, z + az, 0.62, 0.84, 1.0)
+	Call SolidFace(x - ax, y + ay0, z + az, x - ax, y + ay1, z + az, x - bx, y + by1, z + bz, x - bx, y + by0, z + bz, 0.62, 0.84, 1.0)
+	Call SolidFace(x - ax, y + ay1, z + az, x + ax, y + ay1, z + az, x + bx, y + by1, z + bz, x - bx, y + by1, z + bz, 0.75, 0.9, 1.0)
+	Call SolidFace(x - ax, y + ay0, z + az, x - bx, y + by0, z + bz, x + bx, y + by0, z + bz, x + ax, y + ay0, z + az, 0.5, 0.72, 0.92)
+End Sub
+
+Sub DrawShipAt(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal sc As Single)
+	Dim n As Single
+	n = sc
+	' Nose, cockpit, waist, tail. Four stations so the hull has volume.
+	Call HullQuad(x, y, z, 0.15 * n, 1.05 * n, 1.25 * n, 4.7 * n, 0.48 * n, 0.7 * n, 1.6 * n, 3.15 * n)
+	Call HullQuad(x, y, z, 0.48 * n, 0.7 * n, 1.6 * n, 3.15 * n, 0.9 * n, 0.58 * n, 2.2 * n, 1.45 * n)
+	Call HullQuad(x, y, z, 0.9 * n, 0.58 * n, 2.2 * n, 1.45 * n, 1.15 * n, 0.48 * n, 1.7 * n, -0.35 * n)
+	Call HullQuad(x, y, z, 1.15 * n, 0.48 * n, 1.7 * n, -0.35 * n, 0.62 * n, 0.62 * n, 1.42 * n, -3.3 * n)
+	Call Seg(x, y + 1.12 * n, z - 4.15 * n, x - 0.62 * n, y + 0.62 * n, z - 3.3 * n, 0.62, 0.84, 1.0)
+	Call Seg(x, y + 1.12 * n, z - 4.15 * n, x + 0.62 * n, y + 0.62 * n, z - 3.3 * n, 0.62, 0.84, 1.0)
+	Call Seg(x, y + 1.12 * n, z - 4.15 * n, x, y + 1.42 * n, z - 3.3 * n, 0.75, 0.9, 1.0)
+	Call Seg(x - 0.62 * n, y + 0.62 * n, z - 3.3 * n, x + 0.62 * n, y + 0.62 * n, z - 3.3 * n, 0.62, 0.84, 1.0)
+	Call Seg(x - 0.62 * n, y + 1.42 * n, z - 3.3 * n, x + 0.62 * n, y + 1.42 * n, z - 3.3 * n, 0.75, 0.9, 1.0)
+	Call Seg(x - 0.62 * n, y + 0.62 * n, z - 3.3 * n, x - 0.62 * n, y + 1.42 * n, z - 3.3 * n, 0.62, 0.84, 1.0)
+	Call Seg(x + 0.62 * n, y + 0.62 * n, z - 3.3 * n, x + 0.62 * n, y + 1.42 * n, z - 3.3 * n, 0.62, 0.84, 1.0)
+	' Canopy arch.
+	Call Seg(x, y + 2.55 * n, z + 1.7 * n, x - 0.9 * n, y + 2.2 * n, z + 1.45 * n, 0.85, 0.95, 1.0)
+	Call Seg(x, y + 2.55 * n, z + 1.7 * n, x + 0.9 * n, y + 2.2 * n, z + 1.45 * n, 0.85, 0.95, 1.0)
+	Call Seg(x, y + 2.55 * n, z + 1.7 * n, x, y + 1.25 * n, z + 4.7 * n, 0.85, 0.95, 1.0)
+	' Wings as plates, so the far wing does not show through the hull.
+	Call SolidFace(x - 1.15 * n, y + 1.15 * n, z + 0.85 * n, x - 4.7 * n, y + 0.62 * n, z + 0.05 * n, x - 4.7 * n, y + 0.5 * n, z - 1.2 * n, x - 1.15 * n, y + 1.0 * n, z - 0.85 * n, 0.45, 0.75, 1.0)
+	Call SolidFace(x - 1.15 * n, y + 1.15 * n, z + 0.85 * n, x - 1.15 * n, y + 1.0 * n, z - 0.85 * n, x - 4.7 * n, y + 0.5 * n, z - 1.2 * n, x - 4.7 * n, y + 0.62 * n, z + 0.05 * n, 0.45, 0.75, 1.0)
+	Call SolidFace(x + 1.15 * n, y + 1.15 * n, z + 0.85 * n, x + 1.15 * n, y + 1.0 * n, z - 0.85 * n, x + 4.7 * n, y + 0.5 * n, z - 1.2 * n, x + 4.7 * n, y + 0.62 * n, z + 0.05 * n, 0.45, 0.75, 1.0)
+	Call SolidFace(x + 1.15 * n, y + 1.15 * n, z + 0.85 * n, x + 4.7 * n, y + 0.62 * n, z + 0.05 * n, x + 4.7 * n, y + 0.5 * n, z - 1.2 * n, x + 1.15 * n, y + 1.0 * n, z - 0.85 * n, 0.45, 0.75, 1.0)
+	' Twin engines.
+	Call DrawBox(x - 2.15 * n, y + 0.28 * n, z - 2.7 * n, 0.7 * n, 0.7 * n, 2.2 * n, 0.85, 0.4, 0.15)
+	Call DrawBox(x + 1.45 * n, y + 0.28 * n, z - 2.7 * n, 0.7 * n, 0.7 * n, 2.2 * n, 0.85, 0.4, 0.15)
+	Call DrawRingStand(x - 1.8 * n, y + 0.63 * n, z - 2.75 * n, 0.32 * n, 1.0, 0.45, 0.1)
+	Call DrawRingStand(x + 1.8 * n, y + 0.63 * n, z - 2.75 * n, 0.32 * n, 1.0, 0.45, 0.1)
+	' Tail fin.
+	Call SolidFace(x, y + 1.42 * n, z - 2.7 * n, x, y + 3.05 * n, z - 1.55 * n, x, y + 1.55 * n, z - 0.55 * n, x, y + 1.7 * n, z - 1.8 * n, 0.7, 0.88, 1.0)
+	Call SolidFace(x, y + 1.42 * n, z - 2.7 * n, x, y + 1.7 * n, z - 1.8 * n, x, y + 1.55 * n, z - 0.55 * n, x, y + 3.05 * n, z - 1.55 * n, 0.7, 0.88, 1.0)
+	' Skids on the ground.
+	Call Seg(x - 1.25 * n, y + 0.06 * n, z - 2.5 * n, x - 1.25 * n, y + 0.06 * n, z + 2.7 * n, 0.55, 0.6, 0.68)
+	Call Seg(x + 1.25 * n, y + 0.06 * n, z - 2.5 * n, x + 1.25 * n, y + 0.06 * n, z + 2.7 * n, 0.55, 0.6, 0.68)
+	Call Seg(x - 1.25 * n, y + 0.06 * n, z - 1.4 * n, x - 0.7 * n, y + 0.58 * n, z - 1.4 * n, 0.55, 0.6, 0.68)
+	Call Seg(x - 1.25 * n, y + 0.06 * n, z + 1.5 * n, x - 0.7 * n, y + 0.58 * n, z + 1.5 * n, 0.55, 0.6, 0.68)
+	Call Seg(x + 1.25 * n, y + 0.06 * n, z - 1.4 * n, x + 0.7 * n, y + 0.58 * n, z - 1.4 * n, 0.55, 0.6, 0.68)
+	Call Seg(x + 1.25 * n, y + 0.06 * n, z + 1.5 * n, x + 0.7 * n, y + 0.58 * n, z + 1.5 * n, 0.55, 0.6, 0.68)
+	' Empty coupler socket on the spine.
+	Call DrawRingFlat(x, y + 1.85 * n, z + 0.15 * n, 0.38 * n, 1.0, 0.35, 0.15)
+End Sub
+
+Sub DrawPad()
+	Dim i As Integer
+	Dim z0 As Single
+	Call DrawRingFlat(0.0, 0.03, 1.2, 6.5, 1.0, 0.45, 0.12)
+	Call DrawRingFlat(0.0, 0.03, 1.2, 9.5, 0.25, 0.65, 0.75)
+	Call DrawRingFlat(0.0, 0.03, 1.2, 12.5, 0.9, 0.35, 0.1)
+	Call Seg(-8.0, 0.0, -4.0, -8.0, 5.2, -4.0, 1.0, 0.45, 0.12)
+	Call Seg(8.0, 0.0, -4.0, 8.0, 5.2, -4.0, 0.3, 0.75, 0.9)
+	Call Seg(-8.0, 0.0, 8.0, -8.0, 4.2, 8.0, 1.0, 0.4, 0.1)
+	Call Seg(8.0, 0.0, 8.0, 8.0, 4.2, 8.0, 0.3, 0.75, 0.9)
+	Call Seg(-8.0, 5.2, -4.0, -7.4, 5.2, -4.0, 1.0, 0.7, 0.3)
+	Call Seg(8.0, 5.2, -4.0, 7.4, 5.2, -4.0, 0.6, 0.95, 1.0)
+	' Factory shoulders so the pad is a cut, not a blank plane.
+	For i = 0 To 7
+		z0 = -8.0 + i * 7.0
+		Call Seg(-11.0, 0.0, z0, -18.0, 8.5, z0, 0.9, 0.38, 0.1)
+		Call Seg(-18.0, 8.5, z0, -12.0, 0.0, z0 + 7.0, 0.18, 0.28, 0.4)
+		Call Seg(11.0, 0.0, z0, 18.0, 7.5, z0, 0.2, 0.65, 0.85)
+		Call Seg(18.0, 7.5, z0, 12.0, 0.0, z0 + 7.0, 0.85, 0.4, 0.12)
+	Next
+	Call DrawBox(-14.5, 0.0, 10.0, 3.2, 1.8, 2.4, 0.4, 0.38, 0.32)
+	Call Seg(-12.5, 1.8, 11.0, -9.0, 0.2, 14.5, 0.85, 0.45, 0.15)
+	Call DrawBox(11.0, 0.0, -2.0, 2.4, 3.2, 2.0, 0.32, 0.34, 0.4)
+End Sub
+
+Sub BSolid(ByVal lx0 As Single, ByVal ly0 As Single, ByVal lz0 As Single, ByVal lx1 As Single, ByVal ly1 As Single, ByVal lz1 As Single, ByVal lx2 As Single, ByVal ly2 As Single, ByVal lz2 As Single, ByVal lx3 As Single, ByVal ly3 As Single, ByVal lz3 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call SolidFace(bug_x + bug_rx * lx0 + bug_fx * lz0, bug_y + ly0, bug_z + bug_rz * lx0 + bug_fz * lz0, bug_x + bug_rx * lx1 + bug_fx * lz1, bug_y + ly1, bug_z + bug_rz * lx1 + bug_fz * lz1, bug_x + bug_rx * lx2 + bug_fx * lz2, bug_y + ly2, bug_z + bug_rz * lx2 + bug_fz * lz2, bug_x + bug_rx * lx3 + bug_fx * lz3, bug_y + ly3, bug_z + bug_rz * lx3 + bug_fz * lz3, r, g, b)
+End Sub
+
+Sub BSeg(ByVal lx0 As Single, ByVal ly0 As Single, ByVal lz0 As Single, ByVal lx1 As Single, ByVal ly1 As Single, ByVal lz1 As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Call Seg(bug_x + bug_rx * lx0 + bug_fx * lz0, bug_y + ly0, bug_z + bug_rz * lx0 + bug_fz * lz0, bug_x + bug_rx * lx1 + bug_fx * lz1, bug_y + ly1, bug_z + bug_rz * lx1 + bug_fz * lz1, r, g, b)
+End Sub
+
+Sub DrawBugWheel(ByVal lx As Single, ByVal ly As Single, ByVal lz As Single)
+	Dim i As Integer
+	Dim a0 As Single
+	Dim a1 As Single
+	Dim c0 As Single
+	Dim s0 As Single
+	Dim c1 As Single
+	Dim s1 As Single
+	For i = 0 To 9
+		a0 = i * PI * 2.0 / 10.0
+		a1 = (i + 1) * PI * 2.0 / 10.0
+		c0 = Cos(a0)
+		s0 = Sin(a0)
+		c1 = Cos(a1)
+		s1 = Sin(a1)
+		Call BSeg(lx + 0.08, ly + c0 * 0.58, lz + s0 * 0.58, lx + 0.08, ly + c1 * 0.58, lz + s1 * 0.58, 1.0, 0.2, 0.9)
+		Call BSeg(lx - 0.08, ly + c0 * 0.58, lz + s0 * 0.58, lx - 0.08, ly + c1 * 0.58, lz + s1 * 0.58, 0.85, 0.12, 0.7)
+		Call BSeg(lx + 0.08, ly + c0 * 0.2, lz + s0 * 0.2, lx + 0.08, ly + c1 * 0.2, lz + s1 * 0.2, 0.35, 0.9, 1.0)
+		If i Mod 4 = 0 Then
+			Call BSeg(lx + 0.08, ly + c0 * 0.58, lz + s0 * 0.58, lx - 0.08, ly + c0 * 0.58, lz + s0 * 0.58, 1.0, 0.25, 0.85)
+			Call BSeg(lx + 0.08, ly, lz, lx + 0.08, ly + c0 * 0.5, lz + s0 * 0.5, 0.95, 0.35, 1.0)
+		End If
+	Next
+End Sub
+
+Sub DrawBugSpring(ByVal x0 As Single, ByVal y0 As Single, ByVal z0 As Single, ByVal x1 As Single, ByVal y1 As Single, ByVal z1 As Single)
+	Dim i As Integer
+	Dim t0 As Single
+	Dim t1 As Single
+	Dim w0 As Single
+	Dim w1 As Single
+	For i = 0 To 4
+		t0 = i / 5.0
+		t1 = (i + 1) / 5.0
+		w0 = 0.1
+		w1 = -0.1
+		If i Mod 2 = 1 Then
+			w0 = -0.1
+			w1 = 0.1
+		End If
+		Call BSeg(x0 + (x1 - x0) * t0 + w0, y0 + (y1 - y0) * t0, z0 + (z1 - z0) * t0, x1 * t1 + x0 * (1.0 - t1) + w1, y0 + (y1 - y0) * t1, z0 + (z1 - z0) * t1, 0.4, 0.95, 1.0)
+	Next
+End Sub
+
+Sub DrawBuggySide(ByVal s As Single)
+	Call BSeg(s * 0.22, 0.5, 1.78, s * 0.68, 0.4, 1.28, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.68, 0.4, 1.28, s * 0.82, 0.46, 0.15, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.82, 0.46, 0.15, s * 0.78, 0.48, -1.35, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.78, 0.48, -1.35, s * 0.55, 0.98, -1.62, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.55, 0.98, -1.62, s * 0.46, 1.32, -0.42, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.46, 1.32, -0.42, s * 0.4, 1.22, 0.38, 0.45, 1.0, 1.0)
+	Call BSeg(s * 0.4, 1.22, 0.38, s * 0.58, 0.76, 0.92, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.58, 0.76, 0.92, s * 0.22, 0.5, 1.78, 0.25, 0.95, 1.0)
+	Call BSeg(s * 0.7, 0.64, 1.12, s * 0.74, 0.64, -1.15, 0.15, 0.75, 0.9)
+	Call BSeg(s * 0.58, 0.76, 0.7, s * 0.42, 1.18, 0.28, 0.35, 0.95, 1.0)
+	Call BSeg(s * 0.42, 1.18, 0.28, s * 0.48, 1.22, -0.35, 0.35, 0.95, 1.0)
+	Call BSeg(s * 0.48, 1.22, -0.35, s * 0.7, 0.72, -0.55, 0.35, 0.95, 1.0)
+	Call BSeg(s * 0.7, 0.72, -0.55, s * 0.58, 0.76, 0.7, 0.2, 0.8, 0.95)
+	Call BSeg(s * 0.5, 1.18, -0.48, s * 0.66, 0.88, -0.9, 1.0, 0.25, 0.8)
+End Sub
+
+Sub DrawBuggyAt(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal face As Single)
+	bug_x = x
+	bug_y = y
+	bug_z = z
+	bug_fx = Sin(face)
+	bug_fz = Cos(face)
+	bug_rx = Cos(face)
+	bug_rz = -Sin(face)
+	Call BSolid(-0.78, 0.42, 1.2, -0.78, 1.2, 1.2, -0.78, 1.2, -1.35, -0.78, 0.42, -1.35, 0.25, 0.95, 1.0)
+	Call BSolid(0.78, 0.42, 1.2, 0.78, 0.42, -1.35, 0.78, 1.2, -1.35, 0.78, 1.2, 1.2, 0.25, 0.95, 1.0)
+	Call BSolid(-0.78, 1.2, 1.2, 0.78, 1.2, 1.2, 0.78, 1.2, -1.35, -0.78, 1.2, -1.35, 0.4, 1.0, 1.0)
+	Call BSolid(-0.78, 0.42, 1.2, -0.78, 0.42, -1.35, 0.78, 0.42, -1.35, 0.78, 0.42, 1.2, 0.2, 0.7, 0.85)
+	Call BSolid(-0.55, 0.5, 1.55, -0.55, 0.85, 1.55, 0.55, 0.85, 1.55, 0.55, 0.5, 1.55, 0.35, 0.95, 1.0)
+	Call BSolid(1.05, 0.62 + 0.5, 1.05, 1.05, 0.62, 1.05 + 0.5, 1.05, 0.62 - 0.5, 1.05, 1.05, 0.62, 1.05 - 0.5, 1.0, 0.2, 0.85)
+	Call BSolid(-1.05, 0.62 + 0.5, 1.05, -1.05, 0.62, 1.05 - 0.5, -1.05, 0.62 - 0.5, 1.05, -1.05, 0.62, 1.05 + 0.5, 1.0, 0.2, 0.85)
+	Call BSolid(1.05, 0.62 + 0.5, -1.15, 1.05, 0.62, -1.15 + 0.5, 1.05, 0.62 - 0.5, -1.15, 1.05, 0.62, -1.15 - 0.5, 1.0, 0.2, 0.85)
+	Call BSolid(-1.05, 0.62 + 0.5, -1.15, -1.05, 0.62, -1.15 - 0.5, -1.05, 0.62 - 0.5, -1.15, -1.05, 0.62, -1.15 + 0.5, 1.0, 0.2, 0.85)
+	Call DrawBuggySide(1.0)
+	Call DrawBuggySide(-1.0)
+	Call BSeg(-0.22, 0.5, 1.78, 0.22, 0.5, 1.78, 0.25, 0.95, 1.0)
+	Call BSeg(-0.68, 0.4, 1.28, 0.68, 0.4, 1.28, 0.25, 0.95, 1.0)
+	Call BSeg(-0.58, 0.76, 0.92, 0.58, 0.76, 0.92, 0.4, 1.0, 1.0)
+	Call BSeg(-0.4, 1.22, 0.38, 0.4, 1.22, 0.38, 0.45, 1.0, 1.0)
+	Call BSeg(-0.46, 1.32, -0.42, 0.46, 1.32, -0.42, 0.45, 1.0, 1.0)
+	Call BSeg(-0.55, 0.98, -1.62, 0.55, 0.98, -1.62, 0.25, 0.95, 1.0)
+	Call BSeg(-0.78, 0.48, -1.35, 0.78, 0.48, -1.35, 0.25, 0.95, 1.0)
+	Call BSeg(0.0, 0.58, 1.72, 0.0, 0.86, 0.95, 0.35, 0.95, 1.0)
+	Call DrawBugWheel(1.05, 0.62, 1.05)
+	Call DrawBugWheel(-1.05, 0.62, 1.05)
+	Call DrawBugWheel(1.05, 0.62, -1.15)
+	Call DrawBugWheel(-1.05, 0.62, -1.15)
+	Call DrawBugSpring(0.55, 0.78, 1.05, 1.05, 0.62, 1.05)
+	Call DrawBugSpring(-0.55, 0.78, 1.05, -1.05, 0.62, 1.05)
+	Call DrawBugSpring(0.55, 0.78, -1.15, 1.05, 0.62, -1.15)
+	Call DrawBugSpring(-0.55, 0.78, -1.15, -1.05, 0.62, -1.15)
+End Sub
+
+Sub DrawWorld()
+	Dim cache_key As String
+	Dim saved_view As Single
+	Dim j As Integer
+	cache_key = Str(opt_detail) & ":" & Str(on_buggy) & ":" & Str(bx) & ":" & Str(bz) & ":" & Str(byaw)
+	For j = 0 To 4
+		cache_key = cache_key & ":" & Str(got(j))
+	Next
+	Call DrawSky()
+	If presentation.begin_yard(cache_key) Then
+		saved_view = opt_view
+		opt_view = 1000.0
+		yard_build = True
+		Call DrawRoadBand(-32.0, 400.0)
+		Call DrawCityBand(-32.0, 400.0)
+		Call DrawYardBand(-32.0, 400.0)
+		yard_build = False
+		opt_view = saved_view
+		Call presentation.end_yard()
+	End If
+	If have_device Then
+		Dim beam_z As Single
+		beam_z = 20.0 + Wrap90(clock * 6.0)
+		Call Seg(-8.0, 1.2, beam_z, 8.0, 1.2, beam_z, 1.0, 0.2, 0.2)
+	End If
+	Call FlushFaces()
+End Sub
+
+Sub DrawRoadBand(ByVal z0 As Single, ByVal z1 As Single)
+	Dim gz As Single
+	gz = z0
+	While gz < z1
+		Call Seg(-5.2, 0.02, gz, -5.2, 0.02, gz + 3.0, 0.25, 0.85, 1.0)
+		Call Seg(5.2, 0.02, gz, 5.2, 0.02, gz + 3.0, 1.0, 0.25, 0.75)
+		Call Seg(-0.18, 0.03, gz, -0.18, 0.03, gz + 1.6, 0.9, 0.35, 0.85)
+		Call Seg(0.18, 0.03, gz, 0.18, 0.03, gz + 1.6, 0.2, 0.85, 1.0)
+		gz = gz + 4.0
+	Wend
+End Sub
+
+Sub DrawYardBand(ByVal z0 As Single, ByVal z1 As Single)
+	Dim i As Integer
+	Dim saved As Single
+	Dim gz As Single
+	Dim dx As Single
+	Dim dz As Single
+	saved = face_ink
+	face_ink = 0.78
+	If 58.0 >= z0 And 58.0 < z1 Then
+		If Abs(cam_z - 58.0) < opt_view Then
+			Call DrawBox(-32.0, 0.0, 48.0, 18.0, 8.0, 20.0, 0.25, 0.55, 0.7)
+			Call Seg(-14.0, 0.0, 56.0, -14.0, 3.4, 56.0, 0.9, 0.7, 0.3)
+			Call Seg(-14.0, 0.0, 60.0, -14.0, 3.4, 60.0, 0.9, 0.7, 0.3)
+		End If
+	End If
+	If 104.0 >= z0 And 104.0 < z1 Then
+		If Abs(cam_z - 104.0) < opt_view Then Call DrawBox(12.0, 0.0, 96.0, 14.0, 2.4, 16.0, 0.35, 0.32, 0.28)
+	End If
+	If 118.0 >= z0 And 118.0 < z1 Then
+		If Abs(cam_z - 118.0) < opt_view Then Call DrawBox(-28.0, 0.0, 112.0, 10.0, 5.0, 12.0, 0.3, 0.32, 0.38)
+	End If
+	If YardEnd() >= z0 And YardEnd() < z1 Then
+		If Abs(cam_z - YardEnd()) < opt_view Then
+			Call DrawBox(-4.0, 0.0, YardEnd() - 4.0, 8.0, 6.0, 8.0, 0.85, 0.55, 0.2)
+			Call Seg(0.0, 0.0, YardEnd(), 0.0, 6.0, YardEnd(), 0.45, 0.35, 0.15)
+		End If
+	End If
+	face_ink = saved
+	If 36.0 >= z0 And 36.0 < z1 Then
+		If Abs(cam_z - 36.0) < opt_view Then
+			Call Seg(16.0, 0.0, 30.0, 24.0, 7.0, 38.0, 0.9, 0.45, 0.15)
+			Call Seg(24.0, 7.0, 38.0, 28.0, 0.3, 44.0, 0.9, 0.45, 0.15)
+		End If
+	End If
+	If 0.0 >= z0 And 0.0 < z1 Then
+		If cam_z < opt_view Then Call DrawPad()
+		If cam_z < opt_view + 8.0 Then Call DrawShipAt(0.0, 0.0, 0.0, 1.0)
+	End If
+	If Not on_buggy Then
+		If bz >= z0 And bz < z1 Then
+			dx = bx - cam_x
+			dz = bz - cam_z
+			If dx * dx + dz * dz < opt_view * opt_view Then Call DrawBuggyAt(bx, 0.0, bz, byaw)
+		End If
+	End If
+	For i = 0 To 3
+		gz = TurretZ(i)
+		If gz >= z0 And gz < z1 Then Call DrawTurret(TurretX(i), 0.0, gz, TurretYaw(i))
+	Next
+	For i = 0 To 27
+		If Abs(deb_x(i)) > 8.0 And deb_z(i) >= z0 And deb_z(i) < z1 Then
+			dx = deb_x(i) - cam_x
+			dz = deb_z(i) - cam_z
+			If dx * dx + dz * dz < opt_view * opt_view Then
+				Call Seg(deb_x(i), 0.0, deb_z(i), deb_x(i) + deb_s(i), 0.0, deb_z(i), 0.45, 0.48, 0.52)
+				Call Seg(deb_x(i), 0.0, deb_z(i), deb_x(i), deb_s(i) * 0.4, deb_z(i), 0.45, 0.48, 0.52)
+				Call Seg(deb_x(i), deb_s(i) * 0.4, deb_z(i), deb_x(i) + deb_s(i), 0.15, deb_z(i) + deb_s(i) * 0.5, 0.45, 0.48, 0.52)
+			End If
+		End If
+	Next
+	For i = 0 To 4
+		If Not got(i) Then
+			If ItemZ(i) >= z0 And ItemZ(i) < z1 Then
+				Call Seg(ItemX(i), 0.2, ItemZ(i), ItemX(i), 1.4, ItemZ(i), 1.0, 0.6, 0.15)
+				Call DrawRingFlat(ItemX(i), 0.15, ItemZ(i), 0.6, 1.0, 0.55, 0.1)
+			End If
+		End If
+	Next
+	If have_device And phase = PH_GROUND And Not yard_build Then
+		gz = 20.0 + Wrap90(clock * 6.0)
+		If gz >= z0 And gz < z1 Then Call Seg(-8.0, 1.2, gz, 8.0, 1.2, gz, 1.0, 0.2, 0.2)
+	End If
+End Sub
+
+Sub DrawChamber()
+	Call DrawLevel14242()
+End Sub
+
+Sub DrawSky()
+	Dim i As Integer
+	Dim ang As Single
+	Dim x As Single
+	Dim y As Single
+	Dim z As Single
+	If cam_y < -2.0 Then Exit Sub
+	For i = 0 To 39
+		ang = Scatter(i) * PI * 2.0
+		x = cam_x + Cos(ang) * 90.0
+		z = cam_z + Sin(ang) * 90.0
+		y = 26.0 + Scatter(i + 8) * 36.0
+		Call Project(x, y, z)
+		If clip_z > NEARZ Then DrawRect out_sx, out_sy, 2, 2, Color(0.8, 0.86, 0.95)
+	Next
+	Call DrawMoon(-60.0, 52.0, 30.0, 8.0, 0.95, 0.52, 0.28)
+	Call DrawMoon(78.0, 38.0, 180.0, 4.6, 0.4, 0.78, 0.98)
+End Sub
+
+Sub DrawMoon(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal radius As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim sx As Single
+	Dim sy As Single
+	Dim rad As Single
+	Call Project(x, y, z)
+	If clip_z < NEARZ Then Exit Sub
+	sx = out_sx
+	sy = out_sy
+	rad = FOCAL * radius / clip_z
+	If rad < 3.0 Then Exit Sub
+	If rad > 160.0 Then rad = 160.0
+	DrawCircle sx, sy, rad, Color(r, g, b)
+	DrawArc sx, sy, rad, 0.0, PI * 2.0, 24, Color(r * 0.55, g * 0.55, b * 0.55), 1
+End Sub
+
+Sub DrawShaft()
+	Dim i As Integer
+	Dim yy As Single
+	face_ink = 0.35
+	Call SolidFace(-1.8, -34.0, YardEnd() - 2.0, -1.8, 6.0, YardEnd() - 2.0, -1.8, 6.0, YardEnd() + 2.0, -1.8, -34.0, YardEnd() + 2.0, 0.15, 0.35, 0.55)
+	Call SolidFace(1.8, -34.0, YardEnd() - 2.0, 1.8, -34.0, YardEnd() + 2.0, 1.8, 6.0, YardEnd() + 2.0, 1.8, 6.0, YardEnd() - 2.0, 0.55, 0.15, 0.4)
+	face_ink = 0.16
+	For i = 0 To 8
+		yy = -32.0 + i * 4.0 + Wrap90(ride_t * 12.0) * 0.04
+		Call DrawRingStand(0.0, yy, YardEnd(), 1.35, 0.25, 0.85, 1.0)
+	Next
+	Call FlushFaces()
+	DrawString "LIFT", 430, 48, Color(0.45, 0.9, 1.0), 16
+	DrawString "14242", 400, 80, Color(0.95, 0.45, 0.85), 28
+End Sub
+
+Sub DrawLevel14242()
+	Dim i As Integer
+	Dim ez As Single
+	Dim fz As Single
+	ez = YardEnd()
+	pod_glow = 0.0
+	If have_device Then
+		pod_glow = alarm_t / 32.0
+		If pod_glow > 1.15 Then pod_glow = 1.15
+	End If
+	face_ink = 0.5 + pod_glow * 0.35
+	Call SolidFace(-10.0, -30.0, ez - 8.0, -10.0, -30.0, ez + 8.0, 10.0, -30.0, ez + 8.0, 10.0, -30.0, ez - 8.0, 0.12, 0.16, 0.28)
+	Call SolidFace(-10.0, -24.2, ez - 6.0, 10.0, -24.2, ez - 6.0, 10.0, -24.2, ez + 6.0, -10.0, -24.2, ez + 6.0, 0.08, 0.1, 0.18)
+	For i = 0 To 4
+		fz = ez - 5.0 + i * 2.6
+		Call DrawBox(-7.2, -30.0, fz, 2.4, 3.2 + (i Mod 2) * 1.1, 2.0, 0.15, 0.55, 0.85)
+		Call DrawBox(4.6, -30.0, fz + 0.6, 2.6, 2.6 + (i Mod 3) * 0.8, 1.8, 0.75, 0.18, 0.5)
+	Next
+	face_ink = 0.16
+	Call DrawPod(0.0, -30.0, ez + 2.4)
+	Call DrawFeb(0.0, -29.72, ez + 2.4)
+	If Not have_device Then
+		Call DrawCoupler(0.0, -28.42, ez + 2.02)
+	Else
+		Call DrawCountPanel(1.55, -29.2, ez + 2.15, 256 - Int(alarm_t))
+	End If
+	Call FlushFaces()
+	If have_device Then
+		Call Project(0.0, -28.4, ez + 2.4)
+		If clip_z > NEARZ Then Call DrawFebMist(out_sx, out_sy, pod_glow)
+	End If
+	DrawString "LEVEL 14242", 400, 28, Color(0.55, 0.9, 1.0), 16
+End Sub
+
+Sub DrawPod(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Dim i As Integer
+	Dim a As Single
+	Dim c As Single
+	Dim s As Single
+	Dim cr As Single
+	Dim cg As Single
+	Dim cb As Single
+	Dim mr As Single
+	Dim mg As Single
+	Dim mb As Single
+	cr = 0.3 + pod_glow * 0.65
+	cg = 0.85
+	cb = 1.0
+	mr = 0.9 + pod_glow * 0.1
+	mg = 0.25 + pod_glow * 0.35
+	mb = 0.8 + pod_glow * 0.15
+	If cr > 1.0 Then cr = 1.0
+	If mr > 1.0 Then mr = 1.0
+	If mb > 1.0 Then mb = 1.0
+	Call DrawRingFlat(x, y, z, 1.15, mr, mg, mb)
+	Call DrawRingFlat(x, y + 0.28, z, 0.95, cr, cg, cb)
+	Call DrawRingFlat(x, y + 3.15, z, 0.95, cr, cg, cb)
+	Call DrawRingFlat(x, y + 3.45, z, 1.15, mr, mg, mb)
+	Call DrawRingFlat(x, y + 3.7, z, 0.72, mr, mg, mb)
+	Call DrawRingFlat(x, y + 1.7, z, 0.78, mr, 0.25, 0.8)
+	If have_device And Sin(clock * 9.0) > 0.0 Then
+		Call DrawRingFlat(x, y + 3.58, z, 0.42, 1.0, 0.95, 1.0)
+		Call Seg(x, y + 3.7, z, x, y + 4.15, z, 1.0, 0.95, 1.0)
+	End If
+	For i = 0 To 7
+		a = i * PI * 2.0 / 8.0
+		c = Cos(a) * 0.92
+		s = Sin(a) * 0.92
+		Call Seg(x + c, y + 0.28, z + s, x + c, y + 3.15, z + s, cr, cg, cb)
+		If i Mod 2 = 0 Then
+			Call Seg(x + c * 0.82, y + 0.7, z + s * 0.82, x + c * 0.82, y + 2.6, z + s * 0.82, mr, mg, mb)
+		End If
+	Next
+	Call Seg(x - 0.55, y + 0.05, z, x - 0.2, y + 0.05, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 0.2, y + 0.05, z, x + 0.55, y + 0.05, z, 0.3, 0.95, 1.0)
+End Sub
+
+Sub DrawFeb(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Call DrawRingStand(x, y + 2.15, z, 0.16, 0.35, 0.95, 1.0)
+	Call Seg(x - 0.08, y + 2.18, z, x + 0.08, y + 2.18, z, 0.95, 0.3, 0.85)
+	Call Seg(x, y + 1.98, z, x, y + 1.78, z, 0.35, 0.9, 1.0)
+	Call Seg(x - 0.42, y + 1.72, z, x + 0.42, y + 1.72, z, 0.35, 0.9, 1.0)
+	Call Seg(x - 0.16, y + 1.72, z, x - 0.22, y + 1.15, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.16, y + 1.72, z, x + 0.22, y + 1.15, z, 0.35, 0.9, 1.0)
+	Call Seg(x - 0.22, y + 1.15, z, x + 0.22, y + 1.15, z, 0.95, 0.28, 0.8)
+	Call Seg(x - 0.1, y + 1.55, z, x + 0.1, y + 1.55, z, 0.95, 0.3, 0.85)
+	Call Seg(x - 0.08, y + 1.4, z, x + 0.08, y + 1.4, z, 0.95, 0.3, 0.85)
+	Call Seg(x - 0.42, y + 1.72, z, x - 0.55, y + 1.4, z, 0.35, 0.9, 1.0)
+	Call Seg(x - 0.55, y + 1.4, z, x - 0.48, y + 0.95, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.42, y + 1.72, z, x + 0.55, y + 1.4, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.55, y + 1.4, z, x + 0.48, y + 0.95, z, 0.35, 0.9, 1.0)
+	Call DrawRingStand(x - 0.42, y + 1.72, z, 0.06, 0.95, 0.3, 0.85)
+	Call DrawRingStand(x + 0.42, y + 1.72, z, 0.06, 0.95, 0.3, 0.85)
+	Call DrawRingStand(x - 0.55, y + 1.4, z, 0.05, 0.95, 0.3, 0.85)
+	Call DrawRingStand(x + 0.55, y + 1.4, z, 0.05, 0.95, 0.3, 0.85)
+	Call Seg(x - 0.16, y + 1.12, z, x - 0.18, y + 0.55, z, 0.35, 0.9, 1.0)
+	Call Seg(x - 0.18, y + 0.55, z, x - 0.16, y + 0.05, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.16, y + 1.12, z, x + 0.18, y + 0.55, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.18, y + 0.55, z, x + 0.16, y + 0.05, z, 0.35, 0.9, 1.0)
+	Call DrawRingStand(x - 0.18, y + 0.55, z, 0.06, 0.95, 0.3, 0.85)
+	Call DrawRingStand(x + 0.18, y + 0.55, z, 0.06, 0.95, 0.3, 0.85)
+	Call Seg(x - 0.28, y + 0.02, z, x - 0.04, y + 0.02, z, 0.35, 0.9, 1.0)
+	Call Seg(x + 0.04, y + 0.02, z, x + 0.28, y + 0.02, z, 0.35, 0.9, 1.0)
+End Sub
+
+Sub DrawFebMist(ByVal sx As Single, ByVal sy As Single, ByVal amt As Single)
+	Dim a As Single
+	a = amt
+	If a < 0.0 Then a = 0.0
+	If a > 1.0 Then a = 1.0
+	DrawCircle sx, sy, 60.0 + a * 170.0, Color(0.55, 0.12, 0.62, 0.04 + a * 0.26)
+	DrawCircle sx, sy, 28.0 + a * 80.0, Color(0.15, 0.45, 0.7, 0.03 + a * 0.14)
+	DrawCircle sx + 30.0, sy + 10.0, 20.0 + a * 50.0, Color(0.7, 0.2, 0.55, 0.02 + a * 0.1)
+End Sub
+
+Sub DrawCoupler(ByVal x As Single, ByVal y As Single, ByVal z As Single)
+	Dim w As Single
+	Dim h As Single
+	w = 0.22
+	h = 0.32
+	Call Seg(x - w, y + 0.06, z, x - w + 0.05, y, z, 0.95, 0.25, 0.9)
+	Call Seg(x - w + 0.05, y, z, x + w - 0.05, y, z, 0.95, 0.25, 0.9)
+	Call Seg(x + w - 0.05, y, z, x + w, y + 0.06, z, 0.95, 0.25, 0.9)
+	Call Seg(x + w, y + 0.06, z, x + w, y + h - 0.06, z, 0.95, 0.25, 0.9)
+	Call Seg(x + w, y + h - 0.06, z, x + w - 0.05, y + h, z, 0.95, 0.25, 0.9)
+	Call Seg(x + w - 0.05, y + h, z, x - w + 0.05, y + h, z, 0.95, 0.25, 0.9)
+	Call Seg(x - w + 0.05, y + h, z, x - w, y + h - 0.06, z, 0.95, 0.25, 0.9)
+	Call Seg(x - w, y + h - 0.06, z, x - w, y + 0.06, z, 0.95, 0.25, 0.9)
+	Call Seg(x - w + 0.04, y + 0.08, z, x + w - 0.04, y + 0.08, z, 0.95, 0.35, 0.95)
+	Call Seg(x - w + 0.04, y + h - 0.08, z, x + w - 0.04, y + h - 0.08, z, 0.95, 0.35, 0.95)
+	Call Seg(x - 0.07, y + h * 0.62, z, x, y + h * 0.42, z, 0.25, 0.95, 1.0)
+	Call Seg(x + 0.07, y + h * 0.62, z, x, y + h * 0.42, z, 0.25, 0.95, 1.0)
+	Call Seg(x, y + h * 0.42, z, x, y + 0.08, z, 0.25, 0.95, 1.0)
+	Call Seg(x - 0.1, y + h * 0.68, z, x - 0.02, y + h * 0.48, z, 0.2, 0.8, 0.95)
+	Call Seg(x + 0.1, y + h * 0.68, z, x + 0.02, y + h * 0.48, z, 0.2, 0.8, 0.95)
+	Call Seg(x - 0.02, y + h * 0.48, z, x - 0.02, y + 0.1, z, 0.2, 0.8, 0.95)
+	Call Seg(x + 0.02, y + h * 0.48, z, x + 0.02, y + 0.1, z, 0.2, 0.8, 0.95)
+	Call Seg(x - w + 0.02, y + 0.16, z, x - 0.1, y + 0.16, z, 0.85, 0.3, 0.8)
+	Call Seg(x - w + 0.02, y + 0.16, z, x - w + 0.02, y + 0.34, z, 0.85, 0.3, 0.8)
+	Call Seg(x - 0.1, y + 0.16, z, x - 0.1, y + 0.3, z, 0.85, 0.3, 0.8)
+	Call Seg(x + 0.1, y + 0.18, z, x + w - 0.03, y + 0.18, z, 0.85, 0.3, 0.8)
+	Call Seg(x + 0.1, y + 0.18, z, x + 0.1, y + 0.36, z, 0.85, 0.3, 0.8)
+	Call Seg(x + w - 0.03, y + 0.18, z, x + w - 0.03, y + 0.32, z, 0.85, 0.3, 0.8)
+	Call Seg(x - 0.04, y + h - 0.02, z, x - 0.04, y + h + 0.04, z, 0.95, 0.3, 0.9)
+	Call Seg(x + 0.04, y + h - 0.02, z, x + 0.04, y + h + 0.04, z, 0.95, 0.3, 0.9)
+	Call Seg(x - 0.04, y + h + 0.04, z, x + 0.04, y + h + 0.04, z, 0.95, 0.3, 0.9)
+End Sub
+
+Sub DrawCountPanel(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal value As Single)
+	Dim n As Integer
+	Dim h As Integer
+	Dim t As Integer
+	Dim o As Integer
+	Dim fr As Single
+	Dim fg As Single
+	Dim fb As Single
+	n = Int(value)
+	If n < 0 Then n = 0
+	If n > 999 Then n = 999
+	h = Int(n / 100.0)
+	t = Int((n - h * 100) / 10.0)
+	o = n - h * 100 - t * 10
+	fr = 0.95
+	fg = 0.25
+	fb = 0.9
+	If Sin(clock * 8.0) > 0.0 Then
+		fr = 1.0
+		fg = 0.85
+		fb = 1.0
+	End If
+	Call Seg(x, y + 0.08, z, x + 0.08, y, z, fr, fg, fb)
+	Call Seg(x + 0.08, y, z, x + 1.28, y, z, fr, fg, fb)
+	Call Seg(x + 1.28, y, z, x + 1.36, y + 0.08, z, fr, fg, fb)
+	Call Seg(x + 1.36, y + 0.08, z, x + 1.36, y + 0.92, z, fr, fg, fb)
+	Call Seg(x + 1.36, y + 0.92, z, x + 1.28, y + 1.0, z, fr, fg, fb)
+	Call Seg(x + 1.28, y + 1.0, z, x + 0.08, y + 1.0, z, fr, fg, fb)
+	Call Seg(x + 0.08, y + 1.0, z, x, y + 0.92, z, fr, fg, fb)
+	Call Seg(x, y + 0.92, z, x, y + 0.08, z, fr, fg, fb)
+	Call Seg(x + 0.08, y + 0.08, z, x + 1.28, y + 0.08, z, 0.25, 0.9, 1.0)
+	Call Seg(x + 1.28, y + 0.08, z, x + 1.28, y + 0.92, z, 0.25, 0.9, 1.0)
+	Call Seg(x + 1.28, y + 0.92, z, x + 0.08, y + 0.92, z, 0.25, 0.9, 1.0)
+	Call Seg(x + 0.08, y + 0.92, z, x + 0.08, y + 0.08, z, 0.25, 0.9, 1.0)
+	Call Seg(x + 0.04, y + 0.2, z, x + 0.04, y + 0.32, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 0.04, y + 0.4, z, x + 0.04, y + 0.52, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 0.04, y + 0.6, z, x + 0.04, y + 0.72, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 1.32, y + 0.2, z, x + 1.32, y + 0.32, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 1.32, y + 0.4, z, x + 1.32, y + 0.52, z, 0.3, 0.95, 1.0)
+	Call Seg(x + 1.32, y + 0.6, z, x + 1.32, y + 0.72, z, 0.3, 0.95, 1.0)
+	Call DrawFig(x + 0.16, y + 0.28, z, h)
+	Call DrawFig(x + 0.52, y + 0.28, z, t)
+	Call DrawFig(x + 0.88, y + 0.28, z, o)
+End Sub
+
+Sub DrawFig(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal n As Integer)
+	Dim w As Single
+	Dim h As Single
+	w = 0.26
+	h = 0.42
+	If n = 0 Or n = 2 Or n = 3 Or n = 5 Or n = 6 Or n = 7 Or n = 8 Or n = 9 Then
+		Call Seg(x, y + h, z, x + w, y + h, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 0 Or n = 1 Or n = 2 Or n = 3 Or n = 4 Or n = 7 Or n = 8 Or n = 9 Then
+		Call Seg(x + w, y + h * 0.5, z, x + w, y + h, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 0 Or n = 1 Or n = 3 Or n = 4 Or n = 5 Or n = 6 Or n = 7 Or n = 8 Or n = 9 Then
+		Call Seg(x + w, y, z, x + w, y + h * 0.5, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 0 Or n = 2 Or n = 3 Or n = 5 Or n = 6 Or n = 8 Or n = 9 Then
+		Call Seg(x, y, z, x + w, y, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 0 Or n = 2 Or n = 6 Or n = 8 Then
+		Call Seg(x, y, z, x, y + h * 0.5, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 0 Or n = 4 Or n = 5 Or n = 6 Or n = 8 Or n = 9 Then
+		Call Seg(x, y + h * 0.5, z, x, y + h, z, 0.25, 0.95, 1.0)
+	End If
+	If n = 2 Or n = 3 Or n = 4 Or n = 5 Or n = 6 Or n = 8 Or n = 9 Then
+		Call Seg(x, y + h * 0.5, z, x + w, y + h * 0.5, z, 0.25, 0.95, 1.0)
+	End If
+End Sub
+
+Sub DrawTurret(ByVal ox As Single, ByVal oy As Single, ByVal oz As Single, ByVal yaw As Single)
+	Call presentation.turret(ox, oy, oz, yaw)
+End Sub
+
+Sub DrawEscapeWorld()
+	Dim i As Integer
+	Dim z0 As Single
+	Dim z1 As Single
+	cam_x = drive_lat * 0.4
+	cam_y = 3.2
+	cam_z = drive_z
+	cam_yaw = 0.0
+	cam_pitch = -0.08
+	Call DrawSky()
+	' Canyon walls, left amber, right cyan, faceted.
+	i = 0
+	While i < 14
+		z0 = drive_z + i * 6.0
+		z1 = z0 + 6.0
+		Call SolidFace(-8.5, 0.0, z0, -8.5, 8.0, z0, -8.5, 8.0, z1, -8.5, 0.0, z1, 0.9, 0.4, 0.12)
+		Call SolidFace(8.5, 0.0, z0, 8.5, 0.0, z1, 8.5, 7.5, z1, 8.5, 7.5, z0, 0.2, 0.75, 0.95)
+		i = i + 1
+	Wend
+	Call Seg(-1.6, 0.02, drive_z, -1.6, 0.02, drive_z + 80.0, 1.0, 0.45, 0.1)
+	Call Seg(1.6, 0.02, drive_z, 1.6, 0.02, drive_z + 80.0, 0.9, 0.3, 0.85)
+	' Rings ahead, and the mast the picture hangs on.
+	For i = 0 To 12
+		z0 = 28.0 + i * 22.0
+		If z0 > drive_z + 2.0 And z0 < drive_z + 78.0 Then
+			Call DrawRingStand(0.0, 2.4, z0, 2.3, 1.0, 0.48, 0.06)
+			Call DrawRingStand(0.0, 2.4, z0, 1.65, 1.0, 0.55, 0.08)
+			Call DrawRingStand(0.0, 2.4, z0, 1.15, 1.0, 0.4, 0.05)
+		End If
+	Next
+	Call Seg(0.0, 0.0, drive_z + 62.0, 0.0, 16.0, drive_z + 62.0, 1.0, 0.25, 0.9)
+	Call DrawRingStand(0.0, 3.2, drive_z + 48.0, 3.6, 1.0, 0.45, 0.08)
+	Call DrawBuggyAt(drive_lat * 2.1, 0.35, drive_z + 6.5, 0.0)
+	Call FlushFaces()
+End Sub
+
+Sub DrawRadar()
+	Dim i As Integer
+	Dim dx As Single
+	Dim dz As Single
+	Dim d As Single
+	DrawArc 860, 78, 52, 0, PI * 2, 32, Color(0.25, 0.7, 0.55), 1
+	DrawLine 860, 78, 860 + Sin(yaw) * 18, 78 - Cos(yaw) * 18, Color(0.5, 0.9, 0.75), 1
+	For i = 0 To 4
+		If Not got(i) Then
+			dx = ItemX(i) - px
+			dz = ItemZ(i) - pz
+			d = Sqr(dx * dx + dz * dz)
+			If d < 24.0 And d > 0.2 Then
+				DrawArc 860 + dx / 24.0 * 46.0, 78 - dz / 24.0 * 46.0, 3, 0, PI * 2, 8, Color(1.0, 0.6, 0.15), 1
+			End If
+			If d < 9.0 Then DrawString ItemName(i), 790, 140 + i * 14, Color(1.0, 0.7, 0.3), 11
+		End If
+	Next
+	dx = 0.0 - px
+	dz = YardEnd() - pz
+	d = Sqr(dx * dx + dz * dz)
+	If d < 24.0 Then DrawArc 860 + dx / 24.0 * 46.0, 78 - dz / 24.0 * 46.0, 3, 0, PI * 2, 8, Color(0.4, 0.8, 1.0), 1
+End Sub
+
+Sub DrawHud()
+	Dim i As Integer
+	Dim n As Integer
+	Dim line As String
+	n = 0
+	For i = 0 To 4
+		If got(i) Then n = n + 1
+	Next
+	If phase = PH_GROUND And on_buggy Then
+		DrawString "HOLD " & Str(n) & "/5   Q SCAN   F STEP OUT", 285, 76, Color(0.4, 0.95, 1.0), 13
+		n = 0
+		For i = 0 To 4
+			If got(i) Then
+				DrawString ItemName(i), 24, 12 + n * 14, Color(0.75, 0.8, 0.7), 12
+				n = n + 1
+			End If
+		Next
+		If zen_dead And Not have_device Then DrawString "ZEN OFFLINE", 730, 32, Color(1.0, 0.4, 0.35), 13
+		If have_device Then
+			DrawString "ZEN: RUN - RETURN TO THE ASH", 300, 109, Color(1.0, 0.4, 0.35), 14
+		ElseIf Not got(0) Then
+			DrawString "CELL: NORTH / PRESS HALL", 320, 109, Color(0.7, 0.85, 0.9), 13
+		End If
+		If scan_t > 0.0 Then
+			DrawRect 100, 319, 760, 22, Color(0.01, 0.015, 0.025)
+			DrawString scan_line, 110, 323, Color(0.85, 0.9, 0.7), 12
+		End If
+		If hurt > 0.0 Then DrawRect 0, 0, SW, SH, Color(1.0, 0.05, 0.05, 0.13)
+		Exit Sub
+	End If
+	DrawString "HOLD " & Str(n), 24, 24, Color(0.7, 0.75, 0.8), 14
+	n = 0
+	For i = 0 To 4
+		If got(i) Then
+			DrawString ItemName(i), 24, 68 + n * 16, Color(0.75, 0.8, 0.7), 13
+			n = n + 1
+		End If
+	Next
+	If zen_dead And Not have_device Then
+		DrawString "ZEN OFFLINE", 24, 46, Color(0.8, 0.3, 0.25), 14
+	ElseIf have_device Then
+		DrawString "ZEN: RUN", 24, 46, Color(1.0, 0.35, 0.3), 16
+	End If
+	If phase = PH_GROUND Then
+		If on_buggy Then
+			line = "A/D TURN   F LEAVES THE BUGGY HERE"
+		Else
+			line = "WASD WALK   F NEAR THE BUGGY TO DRIVE   E TAKE   Q SCAN"
+		End If
+		If Not got(0) Then line = line & "   CELL IS NORTH, IN THE PRESS HALL"
+		DrawString line, 24, 508, Color(0.55, 0.6, 0.66), 13
+	ElseIf phase = PH_CHAMBER Then
+		If Not have_device Then
+			DrawString "LEVEL 14242. FEB IS IN THE POD. E TAKES THE COUPLER.", 24, 508, Color(0.8, 0.7, 0.5), 14
+		Else
+			DrawString "ZEN: RUN!   E RIDES THE LIFT UP.", 24, 508, Color(1.0, 0.4, 0.35), 16
+		End If
+	ElseIf phase = PH_ESCAPE Then
+		DrawString "A / D  THROUGH THE RINGS. THE ASH IS AHEAD.", 24, 508, Color(0.9, 0.6, 0.3), 14
+	End If
+	If scan_t > 0.0 Then DrawString scan_line, 24, 470, Color(0.85, 0.9, 0.7), 15
+	If hurt > 0.0 Then DrawRect 0, 0, SW, SH, Color(1.0, 0.05, 0.05, 0.13)
+	If phase = PH_GROUND Or phase = PH_CHAMBER Then Call DrawRadar()
+End Sub
+
+Sub DrawArch(ByVal ax As Single, ByVal az As Single, ByVal aw As Single, ByVal ah As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single)
+	Dim i As Integer
+	Dim a0 As Single
+	Dim a1 As Single
+	For i = 0 To 5
+		a0 = PI - i * PI / 6.0
+		a1 = PI - (i + 1) * PI / 6.0
+		Call Seg(ax + aw * 0.5 + Cos(a0) * aw * 0.5, Sin(a0) * ah, az, ax + aw * 0.5 + Cos(a1) * aw * 0.5, Sin(a1) * ah, az, r, g, b)
+	Next
+	Call Seg(ax, 0.0, az, ax, ah * 0.08, az, r, g, b)
+	Call Seg(ax + aw, 0.0, az, ax + aw, ah * 0.08, az, r, g, b)
+End Sub
+
+Sub DrawTower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Single, ByVal r As Single, ByVal g As Single, ByVal b As Single, ByVal side As Single, ByVal kind As Integer)
+	Call presentation.tower(x, z, w, h, side, kind, opt_detail)
+End Sub
+
+Sub DrawGlyph(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal kind As Integer)
+	If kind = 0 Then
+		Call Seg(x, y, z, x, y + 1.6, z, 1.0, 0.3, 0.75)
+		Call Seg(x - 0.35, y + 1.3, z, x + 0.35, y + 1.3, z, 1.0, 0.3, 0.75)
+		Call Seg(x - 0.2, y + 0.7, z, x + 0.45, y + 0.7, z, 0.3, 0.9, 1.0)
+		Call Seg(x - 0.1, y + 0.2, z, x + 0.15, y + 0.2, z, 1.0, 0.3, 0.75)
+	ElseIf kind = 1 Then
+		Call DrawRingStand(x, y + 0.8, z, 0.45, 0.3, 0.95, 1.0)
+		Call Seg(x, y, z, x, y + 0.35, z, 1.0, 0.35, 0.8)
+		Call Seg(x - 0.25, y + 1.35, z, x + 0.25, y + 1.55, z, 0.3, 0.95, 1.0)
+	Else
+		Call Seg(x - 0.4, y + 0.3, z, x, y + 0.7, z, 1.0, 0.3, 0.8)
+		Call Seg(x, y + 0.7, z, x + 0.4, y + 0.3, z, 1.0, 0.3, 0.8)
+		Call Seg(x - 0.3, y + 1.0, z, x, y + 1.4, z, 0.3, 0.95, 1.0)
+		Call Seg(x, y + 1.4, z, x + 0.3, y + 1.0, z, 0.3, 0.95, 1.0)
+	End If
+End Sub
+
+Sub DrawCityBand(ByVal z0 As Single, ByVal z1 As Single)
+	Dim i As Integer
+	Dim tz As Single
+	Dim dx As Single
+	Dim dz As Single
+	Dim reach As Single
+	reach = opt_view * opt_view
+	For i = 0 To 17
+		tz = RowZ(i)
+		If tz >= z0 And tz < z1 Then
+			dx = LeftTowerX(i) - cam_x
+			dz = tz - cam_z
+			If dx * dx + dz * dz < reach Then
+				Call DrawTower(LeftTowerX(i), tz, 4.8, 8.0 + (i Mod 3) * 3.2, 0.2, 0.85, 1.0, -1.0, i Mod 4)
+				If opt_detail > 0 Then Call DrawGlyph(-6.3, 1.3, tz + 2.2, i Mod 3)
+			End If
+			dx = RightTowerX(i) - cam_x
+			dz = tz + 6.0 - cam_z
+			If dx * dx + dz * dz < reach Then
+				Call DrawTower(RightTowerX(i), tz + 6.0, 4.4, 7.0 + (i Mod 4) * 2.6, 1.0, 0.28, 0.75, 1.0, (i + 1) Mod 4)
+				If opt_detail > 0 Then Call DrawGlyph(6.3, 1.3, tz + 8.0, (i + 1) Mod 3)
+			End If
+			If opt_detail > 0 And i Mod 2 = 0 Then
+				dx = LeftFarX(i) - cam_x
+				dz = tz + 2.0 - cam_z
+				If dx * dx + dz * dz < reach Then
+					Call DrawTower(LeftFarX(i), tz + 2.0, 5.2, 11.0 + (i Mod 3) * 2.4, 0.15, 0.7, 0.95, -1.0, i Mod 4)
+				End If
+				dx = RightFarX(i) - cam_x
+				If dx * dx + dz * dz < reach Then
+					Call DrawTower(RightFarX(i), tz + 2.0, 5.0, 10.0 + (i Mod 4) * 2.0, 0.85, 0.22, 0.6, 1.0, (i + 2) Mod 4)
+				End If
+			End If
+		End If
+	Next
+	If 42.0 >= z0 And 42.0 < z1 Then Call DrawSpan(42.0)
+	If 150.0 >= z0 And 150.0 < z1 Then Call DrawSpan(150.0)
+	If 240.0 >= z0 And 240.0 < z1 Then Call DrawSpan(240.0)
+	If 320.0 >= z0 And 320.0 < z1 Then Call DrawSpan(320.0)
+End Sub
+
+Sub DrawSpan(ByVal az As Single)
+	Call presentation.bridge(az)
+End Sub
+
+Sub DrawApproach()
+	Dim i As Integer
+	Dim rz As Single
+	Dim ry As Single
+	cam_x = ship_x * 7.0
+	cam_y = GlideY(ship_z) + ship_alt + 2.4
+	cam_z = ship_z - 8.0
+	cam_yaw = 0.0
+	cam_pitch = -0.22
+	Call DrawSky()
+	Call DrawShipAt(ship_x * 7.0, GlideY(ship_z) + ship_alt - 0.36, ship_z, 0.24)
+	Call presentation.landing_clouds()
+	For i = 0 To LAND_RINGS - 1
+		rz = LAND_START + i * LAND_SPACING
+		If i >= next_ring And rz < ship_z + opt_view + 20.0 Then
+			ry = GlideY(rz) + RingLift(i)
+			If i = next_ring Then
+				Call DrawHoop(RingOff(i) * 7.0, ry, rz, LAND_RADIUS, 1.0, 0.55, 0.15)
+			Else
+				Call DrawHoop(RingOff(i) * 7.0, ry, rz, LAND_RADIUS, 0.3, 0.95, 1.0)
+			End If
+		End If
+	Next
+	Call DrawRingFlat(0.0, 0.05, LAND_END + 8.0, 8.0, 1.0, 0.4, 0.15)
+	Call DrawTower(-18.0, LAND_END, 5.0, 11.0, 0.2, 0.85, 1.0, -1.0, 1)
+	Call DrawTower(12.0, LAND_END + 4.0, 4.5, 9.0, 1.0, 0.28, 0.75, 1.0, 2)
+	Call FlushFaces()
+	DrawString "A/D STEER  W/S LIFT   FLY THE ORANGE RING  " & Str(next_ring) & "/28", 150, 500, Color(0.4, 0.9, 1.0), 16
+	If ship_z > LAND_END * 0.65 Then
+		DrawString "ZEN  ####  THE COUPLER  ####", 250, 40, Color(1.0, 0.35, 0.3), 16
+	Else
+		DrawString "ZEN  PAD IS UNDER THE LAST RING", 250, 40, Color(0.5, 0.9, 1.0), 16
+	End If
+	If ring_miss > 0 Then DrawString "HULL STRIKE " & Str(ring_miss) & "/2", 40, 75, Color(1.0, 0.4, 0.3), 16
+	If landing_failed Then
+		DrawRect 150, 210, 660, 110, Color(0.025, 0.008, 0.025)
+		DrawString "APPROACH LOST - TWO HULL STRIKES", 240, 235, Color(1.0, 0.35, 0.5), 20
+		DrawString "ENTER / SPACE TO RETRY THE COURSE", 240, 280, Color(0.4, 0.95, 1.0), 17
+	End If
+End Sub
+
+Sub DrawBay()
+	Dim gap As Single
+	Dim roll As Single
+	gap = 0.0
+	roll = 0.0
+	If bay_t > 1.3 Then gap = (bay_t - 1.3) / 1.8
+	If gap > 1.0 Then gap = 1.0
+	If bay_t > 3.3 Then roll = (bay_t - 3.3) * 3.4
+	cam_x = 14.0
+	cam_y = 3.6
+	cam_z = -6.0
+	cam_yaw = -1.15
+	cam_pitch = -0.18
+	Call DrawShipAt(0.0, 0.0, 0.0, 1.0)
+	Call DrawPad()
+	Call Seg(-1.1, 0.45, -4.15, -1.1 - gap * 2.2, 0.45, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	Call Seg(-1.1, 2.15, -4.15, -1.1 - gap * 2.2, 2.15, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	Call Seg(-1.1, 0.45, -4.15, -1.1, 2.15, -4.15, 0.7, 0.9, 1.0)
+	Call Seg(-1.1 - gap * 2.2, 0.45, -4.15 - gap * 0.4, -1.1 - gap * 2.2, 2.15, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	Call Seg(1.1, 0.45, -4.15, 1.1 + gap * 2.2, 0.45, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	Call Seg(1.1, 2.15, -4.15, 1.1 + gap * 2.2, 2.15, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	Call Seg(1.1, 0.45, -4.15, 1.1, 2.15, -4.15, 0.7, 0.9, 1.0)
+	Call Seg(1.1 + gap * 2.2, 0.45, -4.15 - gap * 0.4, 1.1 + gap * 2.2, 2.15, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
+	If bay_t > 3.1 Then Call DrawBuggyAt(6.4, 0.0, -4.0 - roll, PI)
+	Call FlushFaces()
+	If bay_t < 1.5 Then
+		DrawString "A MUFFLED SCREAM. THEN NOTHING.", 250, 48, Color(1.0, 0.4, 0.35), 16
+	ElseIf bay_t < 3.2 Then
+		DrawString "BAY OPEN", 420, 48, Color(0.4, 0.95, 1.0), 18
+	Else
+		DrawString "ZEN OFFLINE", 400, 48, Color(1.0, 0.35, 0.3), 18
+	End If
+End Sub
+
+Sub DrawCockpit()
+	Dim image As Object
+	image = presentation.buggy_texture(clock, buggy_v, yaw, pz)
+	DrawTexture image, 0, 0
+	DrawString "W/S DRIVE   A/D TURN   F STEP OUT", 310, 520, Color(0.45, 0.9, 1.0), 12
+End Sub
+
+Function BitOf(ByVal v As Boolean) As String
+	If v Then
+		BitOf = "1"
+	Else
+		BitOf = "0"
+	End If
+End Function
+
+Function OnOff(ByVal v As Boolean) As String
+	If v Then
+		OnOff = "ON"
+	Else
+		OnOff = "OFF"
+	End If
+End Function
+
+Function TitleCount() As Integer
+	TitleCount = 3
+	If FileExists("user://ash_meridian_save.txt") Then TitleCount = 4
+End Function
+
+Function TitleLabel(ByVal i As Integer) As String
+	Dim pick As Integer
+	pick = i
+	If TitleCount() = 3 Then pick = i + 1
+	If pick = 0 Then
+		TitleLabel = "CONTINUE"
+	ElseIf pick = 1 Then
+		TitleLabel = "PLAY"
+	ElseIf pick = 2 Then
+		TitleLabel = "OPTIONS"
+	Else
+		TitleLabel = "EXIT"
+	End If
+End Function
+
+Function DetailName() As String
+	If opt_detail = 0 Then
+		DetailName = "LOW"
+	ElseIf opt_detail = 2 Then
+		DetailName = "HIGH"
+	Else
+		DetailName = "MEDIUM"
+	End If
+End Function
+
+Sub LoadOptions()
+	opt_full = True
+	opt_view = 100.0
+	opt_detail = 1
+	opt_vsync = True
+	opt_shake = True
+	opt_fps = False
+	If Not FileExists("user://ash_meridian_options.txt") Then Exit Sub
+	Dim lines As Array
+	lines = ReadLines("user://ash_meridian_options.txt")
+	If UBound(lines) < 5 Then Exit Sub
+	opt_full = Val(lines(0)) > 0.0
+	opt_view = Val(lines(1))
+	opt_detail = Val(lines(2))
+	opt_vsync = Val(lines(3)) > 0.0
+	opt_shake = Val(lines(4)) > 0.0
+	opt_fps = Val(lines(5)) > 0.0
+	If opt_view < 50.0 Then opt_view = 50.0
+	If opt_view > 160.0 Then opt_view = 160.0
+	If opt_detail < 0 Then opt_detail = 0
+	If opt_detail > 2 Then opt_detail = 2
+End Sub
+
+Sub SaveOptions()
+	Dim body As String
+	body = BitOf(opt_full) & Chr(10) & Str(opt_view) & Chr(10) & Str(opt_detail) & Chr(10)
+	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps)
+	WriteAllText "user://ash_meridian_options.txt", body
+End Sub
+
+Sub ApplyDisplay()
+	If DisplayServer.get_name() = "headless" Then Exit Sub
+	If opt_full Then
+		Screen.FullScreen True
+	Else
+		Screen.FullScreen False
+	End If
+	If opt_vsync Then
+		DisplayServer.window_set_vsync_mode(1)
+	Else
+		DisplayServer.window_set_vsync_mode(0)
+	End If
+End Sub
+
+Sub SaveRun()
+	If phase = PH_BLEED2 Then
+		save_msg = "CITY 2 IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
+	If phase = PH_BLEED3 Then
+		save_msg = "CITY 3 IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
+	If phase = PH_BACKLIGHT Then
+		save_msg = "BACKLIGHT CITY IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
+	Dim body As String
+	body = "v1" & Chr(10) & Str(phase) & Chr(10) & Str(px) & Chr(10) & Str(pz) & Chr(10) & Str(yaw)
+	body = body & Chr(10) & BitOf(on_buggy) & Chr(10) & Str(bx) & Chr(10) & Str(bz) & Chr(10) & Str(byaw)
+	body = body & Chr(10) & Str(buggy_v) & Chr(10) & BitOf(have_device) & Chr(10) & BitOf(zen_dead)
+	body = body & Chr(10) & Str(alarm_t) & Chr(10) & Str(ship_x) & Chr(10) & Str(ship_z) & Chr(10) & Str(ship_alt)
+	body = body & Chr(10) & Str(next_ring) & Chr(10) & Str(ring_miss) & Chr(10) & Str(drive_z) & Chr(10) & Str(drive_lat)
+	body = body & Chr(10) & Str(seated) & Chr(10) & Str(hull_hits)
+	body = body & Chr(10) & BitOf(got(0)) & Chr(10) & BitOf(got(1)) & Chr(10) & BitOf(got(2))
+	body = body & Chr(10) & BitOf(got(3)) & Chr(10) & BitOf(got(4))
+	WriteAllText "user://ash_meridian_save.txt", body
+	save_msg = "SAVED"
+End Sub
+
+Sub LoadRun()
+	If Not FileExists("user://ash_meridian_save.txt") Then Exit Sub
+	Dim lines As Array
+	lines = ReadLines("user://ash_meridian_save.txt")
+	If UBound(lines) < 26 Then Exit Sub
+	If Trim(lines(0)) <> "v1" Then Exit Sub
+	phase = Val(lines(1))
+	px = Val(lines(2))
+	pz = Val(lines(3))
+	yaw = Val(lines(4))
+	on_buggy = Val(lines(5)) > 0.0
+	bx = Val(lines(6))
+	bz = Val(lines(7))
+	byaw = Val(lines(8))
+	buggy_v = Val(lines(9))
+	have_device = Val(lines(10)) > 0.0
+	zen_dead = Val(lines(11)) > 0.0
+	alarm_t = Val(lines(12))
+	ship_x = Val(lines(13))
+	ship_z = Val(lines(14))
+	ship_alt = Val(lines(15))
+	next_ring = Val(lines(16))
+	ring_miss = Val(lines(17))
+	landing_failed = phase = PH_LAND And ring_miss >= 2
+	landing_speed = 16.0 + next_ring * 0.16
+	drive_z = Val(lines(18))
+	drive_lat = Val(lines(19))
+	seated = Val(lines(20))
+	hull_hits = Val(lines(21))
+	got(0) = Val(lines(22)) > 0.0
+	got(1) = Val(lines(23)) > 0.0
+	got(2) = Val(lines(24)) > 0.0
+	got(3) = Val(lines(25)) > 0.0
+	got(4) = Val(lines(26)) > 0.0
+	menu_on = False
+	If phase < PH_INTRO Or phase > PH_BAY Then Call StartRun()
+End Sub
+
+Sub TickTitle()
+	Dim n As Integer
+	n = TitleCount()
+	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then title_i = title_i - 1
+	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then title_i = title_i + 1
+	If title_i < 0 Then title_i = n - 1
+	If title_i >= n Then title_i = 0
+	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+		Call TitleAct()
+	End If
+End Sub
+
+Sub TitleAct()
+	Dim pick As Integer
+	pick = title_i
+	If TitleCount() = 3 Then pick = pick + 1
+	If pick = 0 Then
+		Call LoadRun()
+	ElseIf pick = 1 Then
+		Call StartRun()
+	ElseIf pick = 2 Then
+		opt_back = 0
+		opt_i = 0
+		phase = PH_OPTS
+	Else
+		GetTree().Quit()
+	End If
+End Sub
+
+Sub TickPause()
+	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then menu_i = menu_i - 1
+	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then menu_i = menu_i + 1
+	If menu_i < 0 Then menu_i = 3
+	If menu_i > 3 Then menu_i = 0
+	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+		If menu_i = 0 Then
+			menu_on = False
+		ElseIf menu_i = 1 Then
+			Call SaveRun()
+		ElseIf menu_i = 2 Then
+			held_phase = phase
+			opt_back = 1
+			menu_on = False
+			opt_i = 0
+			phase = PH_OPTS
+		Else
+			menu_on = False
+			phase = PH_TITLE
+			title_i = 0
+		End If
+	End If
+End Sub
+
+Sub TickOptions()
+	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then opt_i = opt_i - 1
+	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then opt_i = opt_i + 1
+	If opt_i < 0 Then opt_i = 6
+	If opt_i > 6 Then opt_i = 0
+	If presentation.menu_tap(KEY_LEFT) Or presentation.menu_tap(KEY_A) Then
+		Call NudgeOption(-1.0)
+	End If
+	If presentation.menu_tap(KEY_RIGHT) Or presentation.menu_tap(KEY_D) Then
+		Call NudgeOption(1.0)
+	End If
+	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+		If opt_i = 6 Then
+			Call CloseOptions()
+		Else
+			Call NudgeOption(1.0)
+		End If
+	End If
+	If presentation.menu_tap(KEY_ESCAPE) Then
+		Call CloseOptions()
+	End If
+End Sub
+
+Sub NudgeOption(ByVal dir As Single)
+	If opt_i = 0 Then
+		opt_view = opt_view + dir * 10.0
+		If opt_view < 50.0 Then opt_view = 50.0
+		If opt_view > 160.0 Then opt_view = 160.0
+	ElseIf opt_i = 1 Then
+		opt_detail = opt_detail + Int(dir)
+		If opt_detail < 0 Then opt_detail = 0
+		If opt_detail > 2 Then opt_detail = 2
+	ElseIf opt_i = 2 Then
+		opt_full = Not opt_full
+		Call ApplyDisplay()
+	ElseIf opt_i = 3 Then
+		opt_vsync = Not opt_vsync
+		Call ApplyDisplay()
+	ElseIf opt_i = 4 Then
+		opt_shake = Not opt_shake
+	ElseIf opt_i = 5 Then
+		opt_fps = Not opt_fps
+	End If
+	Call SaveOptions()
+End Sub
+
+Sub CloseOptions()
+	Call SaveOptions()
+	If opt_back = 1 Then
+		phase = held_phase
+		menu_on = True
+	Else
+		phase = PH_TITLE
+	End If
+End Sub
+
+Sub DrawBoot()
+	Dim warm As Variant
+	Dim w As Single
+	w = boot_t / 2.4 * 420.0
+	If w > 420.0 Then w = 420.0
+	DrawString "ASH MERIDIAN", 280, 170, Color(0.45, 0.92, 1.0), 36
+	DrawString "WAKING THE YARD", 360, 230, Color(0.85, 0.35, 0.7), 16
+	DrawRect 270, 300, 420, 10, Color(0.08, 0.1, 0.14)
+	DrawRect 270, 300, w, 10, Color(0.3, 0.9, 1.0)
+	warm = Array(Vector2(70, 430), Vector2(150, 400), Vector2(170, 470), Vector2(60, 460))
+	DrawPolygon warm, Color(0.04, 0.1, 0.14)
+	DrawArc 480, 250, 18, 0.0, PI * 2.0, 28, Color(0.25, 0.75, 0.95), 1
+End Sub
+
+Sub DrawTitle()
+	Dim i As Integer
+	Dim y As Single
+	DrawString "ASH MERIDIAN", 280, 90, Color(0.45, 0.92, 1.0), 36
+	DrawString "NARCEA", 430, 140, Color(0.8, 0.35, 0.65), 16
+	For i = 0 To TitleCount() - 1
+		y = 220.0 + i * 48.0
+		Call DrawPick(TitleLabel(i), y, i = title_i)
+	Next
+	DrawString "UP / DOWN     ENTER", 360, 470, Color(0.4, 0.5, 0.55), 14
+End Sub
+
+Sub DrawPause()
+	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 0.55)
+	DrawRect 280, 120, 400, 320, Color(0.02, 0.04, 0.06)
+	DrawString "PAUSED", 400, 150, Color(0.5, 0.9, 1.0), 24
+	Call DrawPick("CONTINUE", 210, menu_i = 0)
+	Call DrawPick("SAVE", 258, menu_i = 1)
+	Call DrawPick("OPTIONS", 306, menu_i = 2)
+	Call DrawPick("QUIT", 354, menu_i = 3)
+	If save_msg <> "" Then DrawString save_msg, 430, 410, Color(0.4, 0.95, 0.7), 16
+End Sub
+
+Sub DrawOptions()
+	Dim screen As String
+	Dim bar As Single
+	If opt_full Then
+		screen = "FULLSCREEN"
+	Else
+		screen = "WINDOW"
+	End If
+	DrawString "OPTIONS", 390, 70, Color(0.5, 0.9, 1.0), 28
+	Call DrawPick("VIEW DISTANCE", 140, opt_i = 0)
+	bar = (opt_view - 50.0) / 110.0 * 220.0
+	DrawRect 560, 148, 220, 8, Color(0.1, 0.12, 0.16)
+	DrawRect 560, 148, bar, 8, Color(0.3, 0.85, 1.0)
+	DrawString Str(Int(opt_view)) & " M", 800, 140, Color(0.7, 0.85, 0.9), 16
+	Call DrawPick("DETAIL    " & DetailName(), 190, opt_i = 1)
+	Call DrawPick("SCREEN    " & screen, 240, opt_i = 2)
+	Call DrawPick("VSYNC     " & OnOff(opt_vsync), 290, opt_i = 3)
+	Call DrawPick("RIDE SHAKE    " & OnOff(opt_shake), 340, opt_i = 4)
+	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), 390, opt_i = 5)
+	Call DrawPick("BACK", 450, opt_i = 6)
+	DrawString "LEFT / RIGHT CHANGES A ROW", 320, 500, Color(0.4, 0.5, 0.55), 14
+End Sub
+
+Sub DrawDev()
+	Dim i As Integer
+	Dim y As Single
+	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 0.55)
+	DrawRect 280, 20, 400, 500, Color(0.02, 0.04, 0.06)
+	DrawString "TERMINAL", 390, 38, Color(0.5, 0.9, 1.0), 24
+	For i = 0 To 13
+		y = 72.0 + i * 28.0
+		Call DrawPick(DevLabel(i), y, i = dev_i)
+	Next
+	DrawString "ENTER JUMPS     ESC CLOSES", 330, 490, Color(0.4, 0.5, 0.55), 14
+End Sub
+
+Sub DrawPick(ByVal text As String, ByVal y As Single, ByVal on As Boolean)
+	If on Then
+		DrawRect 300, y - 6, 360, 32, Color(0.06, 0.16, 0.22)
+		DrawString text, 320, y, Color(0.55, 0.95, 1.0), 20
+	Else
+		DrawString text, 320, y, Color(0.55, 0.62, 0.68), 18
+	End If
+End Sub
+
+Sub DrawFrame()
+	Dim fps As Integer
+	fps = 0
+	If last_dt > 0.001 Then fps = Int(1.0 / last_dt)
+	DrawString Str(fps), 880, 16, Color(0.45, 0.8, 0.7), 14
+End Sub
+
+Sub _Draw()
+	Call presentation.begin_frame(phase = PH_BACKLIGHT)
+	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
+	If phase = PH_BOOT Then
+		Call DrawBoot()
+	ElseIf phase = PH_TITLE Then
+		Call DrawTitle()
+	ElseIf phase = PH_OPTS Then
+		Call DrawOptions()
+	ElseIf phase = PH_INTRO Then
+		Call DrawIntro()
+	ElseIf phase = PH_LAND Then
+		Call DrawApproach()
+		If hurt > 0.0 Then DrawRect 0, 0, SW, SH, Color(1.0, 0.05, 0.05, 0.13)
+	ElseIf phase = PH_BAY Then
+		Call DrawBay()
+	ElseIf phase = PH_FILM Then
+		Call DrawFilm()
+	ElseIf phase = PH_INSTALL Then
+		Call DrawInstall()
+	ElseIf phase = PH_REFLECT Then
+		Call DrawReflect()
+	ElseIf phase = PH_ESCAPE Then
+		Call DrawEscapeWorld()
+		Call DrawHud()
+	ElseIf phase = PH_BLEED Then
+		Call DrawBleed()
+	ElseIf phase = PH_BLEED2 Then
+		Call DrawBleed2()
+	ElseIf phase = PH_BLEED3 Then
+		Call DrawBleed3()
+	ElseIf phase = PH_BACKLIGHT Then
+		Call DrawBacklight()
+	Else
+		Call ApplyCam()
+		If phase = PH_CHAMBER Then
+			Call DrawLevel14242()
+		ElseIf phase = PH_DOWN Or phase = PH_UP Then
+			Call DrawShaft()
+		ElseIf phase = PH_GROUND Then
+			Call DrawWorld()
+		End If
+		If phase = PH_GROUND And on_buggy Then Call DrawCockpit()
+		If phase = PH_GROUND Or phase = PH_CHAMBER Then Call DrawHud()
+	End If
+	If menu_on Then Call DrawPause()
+	If dev_on Then Call DrawDev()
+	If opt_fps And phase <> PH_BOOT Then Call DrawFrame()
+End Sub
+
+Sub DrawLandTalk()
+	Dim who As String
+	Dim talk As String
+	Dim rad As Single
+	who = "ZEN"
+	talk = "Pad is under us."
+	If land_t > 2.0 Then talk = "I — the coupler — Jonah, I can't —"
+	If land_t > 4.2 Then talk = "####  hhkk  ####"
+	If land_t > 6.0 Then
+		who = "SPEAKER"
+		talk = "A muffled scream. Then nothing."
+	End If
+	If land_t > 7.6 Then
+		who = "ZEN"
+		talk = "OFFLINE"
+	End If
+	If land_t > 5.6 And land_t < 7.8 Then
+		rad = (land_t - 5.6) * 90.0
+		DrawArc 480, 300, rad, 0, PI * 2, 40, Color(1.0, 0.35, 0.3, 0.7), 2
+		DrawArc 480, 300, rad * 0.62, 0, PI * 2, 32, Color(1.0, 0.2, 0.25, 0.5), 1
+	End If
+	DrawRect 48, 430, 864, 78, Color(0.01, 0.01, 0.02)
+	DrawString who, 64, 442, Color(0.9, 0.4, 0.3), 14
+	DrawString talk, 64, 472, Color(0.9, 0.9, 0.92), 18
+End Sub
+
+Sub DrawIntro()
+	Call DrawAshCockpit()
+	Call DrawIntroLines()
+End Sub
+
+Sub DrawAshCockpit()
+	Dim cockpit_image As Object
+	Dim alive As Single
+	cockpit_image = presentation.cockpit_texture(clock, 84.0 + Sin(clock * 0.3) * 7.0, 820.0 - clock * 3.0, 1.0)
+	DrawTexture cockpit_image, 0, 0
+	alive = 1.0
+	If clock > 1.2 Then alive = 1.0 - (clock - 1.2) * 0.35
+	If alive < 0.15 Then alive = 0.15
+	DrawRect 408, 423, 144.0 * alive, 3, Color(1.0, 0.45, 0.15)
+End Sub
+
+Sub DrawIntroLines()
+	Dim talk As String
+	Dim who As String
+	who = "ASH"
+	talk = "Reflector coupler is burning."
+	If clock >= 2.2 And clock < 6.5 Then
+		who = "JONAH"
+		talk = "Shit. Not again. Zen — deep search. I need air."
+	ElseIf clock >= 6.5 And clock < 10.5 Then
+		who = "ZEN"
+		talk = "Already running."
+	ElseIf clock >= 10.5 And clock < 14.5 Then
+		who = "ZEN"
+		talk = "Jonah. I have no safe world."
+	ElseIf clock >= 14.5 And clock < 19.5 Then
+		who = "JONAH"
+		talk = "Safe left with the coupler. If there is one mark, say it."
+	ElseIf clock >= 19.5 And clock < 23.0 Then
+		who = "ZEN"
+		talk = "You will not like the mark."
+	ElseIf clock >= 23.0 And clock < 28.0 Then
+		who = "ZEN"
+		talk = "Dark mass. Planet-sized. Meridian 4, radius 0.8, inclination 11."
+	ElseIf clock >= 28.0 Then
+		who = "ZEN"
+		talk = "Quarantine on the charts. Narcean beacon yard. I will not call it a landing."
+	End If
+	DrawString who, 24, 500, Color(0.45, 0.9, 1.0), 12
+	DrawString talk, 24, 518, Color(0.92, 0.92, 0.94), 14
+	If clock > 22.0 Then DrawString "SPACE", 860, 500, Color(0.45, 0.55, 0.6), 12
+End Sub
+
+Sub DrawFilm()
+	Dim lift As Single
+	lift = film_t * 28.0
+	DrawString "KEEL IS CLIMBING.", 360, 36, Color(1.0, 0.4, 0.75), 18
+	Call DrawKite(220, 420 - lift * 0.55, 1.1, Color(0.75, 0.85, 1.0))
+	Call DrawKite(680, 460 - lift, 1.25, Color(1.0, 0.35, 0.8))
+	DrawString "ASH", 200, 450, Color(0.7, 0.8, 0.9), 12
+	DrawString "KEEL", 656, 490, Color(1.0, 0.45, 0.8), 12
+	DrawString "SPACE TO THE COCKPIT", 340, 510, Color(0.5, 0.55, 0.6), 14
+End Sub
+
+Sub DrawKite(ByVal x As Single, ByVal y As Single, ByVal sc As Single, ByVal col As Variant)
+	DrawLine x, y - 28 * sc, x - 16 * sc, y + 18 * sc, col, 2
+	DrawLine x, y - 28 * sc, x + 16 * sc, y + 18 * sc, col, 2
+	DrawLine x - 16 * sc, y + 18 * sc, x + 16 * sc, y + 18 * sc, col, 2
+	DrawLine x - 22 * sc, y + 4 * sc, x + 22 * sc, y + 4 * sc, col, 2
+End Sub
+
+Sub DrawInstall()
+	Dim i As Integer
+	Dim gate As Single
+	Dim gx As Single
+	Dim mx As Single
+	DrawString "SEAT THE COUPLER", 330, 36, Color(1.0, 0.55, 0.12), 22
+	DrawString "SPACE when the tick is in the gate.", 300, 72, Color(0.6, 0.65, 0.7), 14
+	If hull_hits > 0 Then DrawString "BARE HULL HIT. SEAT IT AGAIN.", 300, 100, Color(1.0, 0.3, 0.3), 16
+	For i = 0 To 2
+		If i < seated Then
+			DrawRect 180, 160 + i * 70, 220, 36, Color(0.15, 0.45, 0.3)
+			DrawString "SEATED", 250, 168 + i * 70, Color(0.6, 1.0, 0.7), 16
+		ElseIf i = seated Then
+			DrawRect 180, 160 + i * 70, 220, 36, Color(0.2, 0.12, 0.05)
+			DrawString "OPEN", 258, 168 + i * 70, Color(1.0, 0.6, 0.2), 16
+		Else
+			DrawRect 180, 160 + i * 70, 220, 36, Color(0.08, 0.08, 0.1)
+			DrawString "WAITING", 244, 168 + i * 70, Color(0.4, 0.42, 0.48), 16
+		End If
+	Next
+	gate = 0.38 + seated * 0.18
+	gx = 480 + gate * 400
+	DrawLine 480, 340, 880, 340, Color(0.35, 0.38, 0.45), 2
+	DrawRect gx - 22, 322, 44, 36, Color(0.15, 0.35, 0.2)
+	mx = 480 + marker * 400
+	DrawLine mx, 310, mx, 370, Color(0.9, 0.95, 1.0), 3
+	DrawString "FEB'S SHOT", 70, 430, Color(1.0, 0.35, 0.4), 14
+	DrawRect 70, 456, 400, 16, Color(0.12, 0.05, 0.06)
+	If shot > 0.0 Then DrawRect 70, 456, shot / 8.4 * 400.0, 16, Color(1.0, 0.25, 0.3)
+End Sub
+
+Sub DrawReflect()
+	Call DrawKite(200, 300, 1.4, Color(0.75, 0.85, 1.0))
+	DrawArc 200, 300, 70, 0, PI * 2, 48, Color(0.4, 0.85, 1.0), 2
+	Call DrawKite(760, 180, 1.1, Color(1.0, 0.35, 0.8))
+	If reflect_t < 0.55 Then
+		DrawLine 700, 210, 400, 280, Color(1.0, 0.3, 0.35), 3
+		DrawString "REFLECTOR UP", 360, 48, Color(0.4, 0.9, 1.0), 22
+	Else
+		DrawLine 250, 280, 760, 180, Color(0.5, 0.9, 1.0), 3
+		DrawString "THE BEAM GOES BACK. KEEL IS DARK.", 220, 48, Color(0.85, 0.9, 1.0), 20
+		DrawString "SPACE TO REPLAY", 380, 504, Color(0.4, 0.75, 0.9), 14
+	End If
+End Sub

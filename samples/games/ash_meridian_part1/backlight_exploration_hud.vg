@@ -1,0 +1,356 @@
+' Generated Visual Gasic port of backlight_exploration_hud.vg
+Dim __ready As Boolean
+Dim CYAN As Variant
+Dim AMBER As Variant
+Dim PINK As Variant
+Dim city As Node
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	CYAN = Color(0.4, 0.85, 1.0)
+	AMBER = Color(1.0, 0.65, 0.22)
+	PINK = Color(1.0, 0.3, 0.65)
+End Sub
+
+Sub _text(ByVal at As Vector2, ByVal text As String, Optional size As Variant = 14, Optional color As Variant)
+	If color Is Nothing Then
+		color = CYAN
+	End If
+	Call EnsureInit()
+	draw_string(ThemeDB.fallback_font, at, text, 0, -1, size, color)
+End Sub
+
+Sub glyph(ByVal at As Vector2, ByVal digit As Integer, Optional scale As Variant = 1.0, Optional color As Variant)
+	Dim patterns As Variant
+	Dim paths As Variant
+	Dim points As PackedVector2Array
+	If color Is Nothing Then
+		color = AMBER
+	End If
+	Call EnsureInit()
+	' An original stroke alphabet; keyboard numerals are controls, not the display.
+	patterns = Array(15, 21, 38, 56, 41, 26, 52, 35, 29, 51)
+	paths = Array(PackVec2(Array(Vector2(0, 0), Vector2(7, 6), Vector2(14, 0))), PackVec2(Array(Vector2(0, 18), Vector2(7, 12), Vector2(14, 18))), PackVec2(Array(Vector2(0, 2), Vector2(0, 16))), PackVec2(Array(Vector2(14, 2), Vector2(14, 16))), PackVec2(Array(Vector2(3, 9), Vector2(11, 9))), PackVec2(Array(Vector2(7, -3), Vector2(7, 21))))
+	For i = 0 To (paths.size() - 1)
+		If patterns(digit)  And  (1 << i) Then
+			For Each p In AsArray(paths(i))
+				points.append(at + p * scale)
+			Next
+			draw_polyline(points, color, 1.7 * scale, True)
+		End If
+	Next
+End Sub
+
+Sub glyph_string(ByVal at As Vector2, ByVal text As String, Optional scale As Variant = 1.0, Optional color As Variant)
+	If color Is Nothing Then
+		color = AMBER
+	End If
+	Call EnsureInit()
+	For i = 0 To (text.length() - 1)
+		glyph(at + Vector2(i * 23 * scale, 0), Int(text.substr(i, 1)), scale, color)
+	Next
+End Sub
+
+Sub _draw()
+	Dim driving As Boolean
+	Dim title As Variant
+	Dim at As Variant
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Dim _t2 As Variant
+	Dim _t3 As Variant
+	Dim _t4 As Variant
+	Dim _t5 As Variant
+	Dim _t6 As Variant
+	Dim _t7 As Variant
+	Dim _t8 As Variant
+	Call EnsureInit()
+	driving = city.driving And city.place = "surface" And city.inspection = 0
+	draw_rect(Rect2(0, 0, 960, 64), Color(0.005, 0.015, 0.025, 0.87))
+	If city.place = "lift" Then
+		_t0 = "DEEP TRANSIT / LIFT"
+	Else
+		_t0 = "DEEP STRATUM"
+	End If
+	If city.place = "building" Then
+		_t1 = Str(city.buildings(city.building_index).label)
+	Else
+		_t1 = (_t0)
+	End If
+	If city.place = "surface" Then
+		title = "BACKLIGHT CITY / SURFACE"
+	Else
+		title = (_t1)
+	End If
+	_text(Vector2(22, 24), title, 18)
+	If city.place = "floor" Then
+		glyph_string(Vector2(240, 10), city.floor_code, 0.65)
+	End If
+	If city.inventory.has("regulator") Then
+		_t3 = "PRESSURE OK"
+	Else
+		_t3 = "PRESSURE --"
+	End If
+	If city.inventory.has("ignition") Then
+		_t4 = "IGNITION OK"
+	Else
+		_t4 = "IGNITION --"
+	End If
+	If city.inventory.has("coupler") Then
+		_t5 = "COUPLER OK"
+	Else
+		_t5 = "COUPLER --"
+	End If
+	_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
+	If Not driving Then
+		draw_rect(Rect2(0, 495, 960, 45), Color(0.005, 0.015, 0.025, 0.9))
+		_text(Vector2(20, 520), city.prompt(), 14)
+	Else
+		_text(Vector2(225, 86), "F EXIT / E USE / V INSPECT", 12)
+	End If
+	If city.message_left > 0 Then
+		draw_rect(Rect2(14, 72, 932, 38), Color(0.005, 0.01, 0.02, 0.87))
+		_text(Vector2(24, 96), city.message, 13, AMBER)
+	End If
+	If Not driving Then
+		draw_rect(Rect2(14, 126, 170, 121), Color(0.005, 0.01, 0.02, 0.8))
+		_text(Vector2(26, 148), "DESCENT JOURNAL", 12)
+		For i = 0 To (5 - 1)
+			at = Vector2(27 + i * 29, 165)
+			draw_rect(Rect2(at - Vector2(4, 4), Vector2(25, 31)), CYAN * 0.3, False)
+			If city.discovered.has(i) Then
+				glyph(at, Int(city.discovered(i)), 1.0)
+			End If
+		Next
+		_text(Vector2(25, 226), "Search the five archives.", 11)
+	End If
+	If city.awakening Then
+		draw_rect(Rect2(725, 120, 220, 82), Color(0.025, 0.005, 0.018, 0.92))
+		_text(Vector2(744, 142), "PURGE / ZEN ONLINE", 12, PINK)
+		glyph_string(Vector2(756, 157), PadInt(CeilInt(city.countdown), 3), 1.5, PINK)
+		If FMod(city.alarm_elapsed, 1.0) < 0.3 Then
+			draw_rect(Rect2(0, 0, 960, 540), Color(1, 0.03, 0.2, 0.055))
+		End If
+		If city.alarm_elapsed < 8 Then
+			_text(Vector2(360, 330), "ZEN: RUN!", 38, PINK)
+		End If
+	End If
+	If city.keypad Then
+		draw_rect(Rect2(220, 140, 520, 330), Color(0.01, 0.025, 0.04, 0.98))
+		_text(Vector2(247, 171), "DEEP TRANSIT / FIVE-SYMBOL ADDRESS", 17)
+		glyph_string(Vector2(363, 198), city.sequence, 1.7)
+		For digit = 0 To (10 - 1)
+			at = Vector2(260 + (digit  Mod  5) * 94, 263 + (digit / 5) * 68)
+			draw_rect(Rect2(at - Vector2(12, 7), Vector2(70, 55)), CYAN * 0.25, False)
+			glyph(at, digit, 1.3)
+			_text(at + Vector2(32, 22), Str(digit), 12, CYAN * 0.8)
+		Next
+		_text(Vector2(244, 420), "0-9 choose / Backspace erase / Enter descend", 14)
+		_text(Vector2(244, 446), "F cancel. Journal order is left to right.", 13)
+	End If
+	If city.transit_left > 0 Then
+		draw_rect(Rect2(250, 212, 460, 120), Color(0.005, 0.015, 0.025, 0.94))
+		If city.lift_target = "surface" Then
+			_t6 = "ASCENDING"
+		Else
+			_t6 = "DESCENDING TO STRATUM"
+		End If
+		_text(Vector2(283, 246), _t6, 20)
+		If city.lift_target <> "surface" Then
+			glyph_string(Vector2(366, 272), city.lift_target, 1.4)
+		End If
+	End If
+	If city.failed Or city.completed Then
+		draw_rect(Rect2(150, 220, 660, 150), Color(0.005, 0.015, 0.025, 0.97))
+		If city.completed Then
+			_t7 = "THE ASH IS AWAY"
+		Else
+			_t7 = "ESCAPE FAILED"
+		End If
+		_text(Vector2(210, 258), _t7, 28, AMBER)
+		If city.completed Then
+			_t8 = "Enter: restart prototype"
+		Else
+			_t8 = "Enter: retry from the FEB chamber"
+		End If
+		_text(Vector2(210, 295), _t8, 18)
+		_text(Vector2(210, 332), "Chapter save unchanged. This is the exploration prototype.", 13)
+	End If
+End Sub

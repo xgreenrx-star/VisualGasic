@@ -1,0 +1,985 @@
+' Generated Visual Gasic port of presentation.vg
+Dim __ready As Boolean
+Dim CYAN As Variant
+Dim PINK As Variant
+Dim KEYS As Variant
+Dim viewport As SubViewport
+Dim camera As Camera3D
+Dim world_mesh As MeshInstance3D
+Dim frame_mesh As MeshInstance3D
+Dim line_material As ShaderMaterial
+Dim face_material As StandardMaterial3D
+Dim held As Dictionary
+Dim taps As Dictionary
+Dim vertices As PackedVector3Array
+Dim colors As PackedColorArray
+Dim edges As PackedVector3Array
+Dim edge_colors As PackedColorArray
+Dim yard_key As Variant
+Dim building_yard As Variant
+Dim rebuild_count As Variant
+Dim cockpit_view As SubViewport
+Dim buggy_view As SubViewport
+Dim ship_instruments As Node2D
+Dim buggy_instruments As Node2D
+Dim stars As Node2D
+Dim clouds As MeshInstance3D
+Dim city2 As Node3D
+Dim city2_output As SubViewport
+Dim city2_antialiasing As Variant
+Dim city3 As Node3D
+Dim city3_output As SubViewport
+Dim city3_antialiasing As Variant
+Dim backlight_city As Node3D
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	CYAN = Color(0.18, 0.86, 1.0)
+	PINK = Color(1.0, 0.24, 0.78)
+	KEYS = Array(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_F, KEY_E, KEY_V, KEY_BACKSPACE, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9)
+	held = New Dictionary
+	taps = New Dictionary
+	yard_key = ""
+	building_yard = False
+	rebuild_count = 0
+	city2_antialiasing = Viewport.MSAA_2X
+	city3_antialiasing = Viewport.MSAA_2X
+End Sub
+
+Sub _ready()
+	Dim shader As Variant
+	Dim halo As Variant
+	Dim halo_shader As Variant
+	Call EnsureInit()
+	viewport = ClassDB.Instantiate("SubViewport")
+	viewport.size = Vector2i(960, 540)
+	viewport.own_world_3d = True
+	viewport.transparent_bg = True
+	viewport.handle_input_locally = False
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	camera = ClassDB.Instantiate("Camera3D")
+	camera.near = 0.1
+	camera.current = True
+	viewport.add_child(camera)
+	world_mesh = ClassDB.Instantiate("MeshInstance3D")
+	frame_mesh = ClassDB.Instantiate("MeshInstance3D")
+	viewport.add_child(world_mesh)
+	viewport.add_child(frame_mesh)
+	face_material = ClassDB.Instantiate("StandardMaterial3D")
+	face_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	face_material.vertex_color_use_as_albedo = True
+	face_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	line_material = ClassDB.Instantiate("ShaderMaterial")
+	shader = ClassDB.Instantiate("Shader")
+	shader = Load("res://shaders/presentation_07.gdshader")
+	line_material.shader = shader
+	halo = ClassDB.Instantiate("ShaderMaterial")
+	halo_shader = ClassDB.Instantiate("Shader")
+	halo_shader.code = shader.code.replace("unshaded, cull_disabled, depth_draw_never", "unshaded, cull_disabled, blend_add, depth_draw_never").replace("line_width = 1.6", "line_width = 5.0").replace("ALBEDO = COLOR.rgb * 1.25;", "ALBEDO = COLOR.rgb; ALPHA = 0.12;")
+	halo.shader = halo_shader
+	line_material.next_pass = halo
+	cockpit_view = ClassDB.Instantiate("SubViewport")
+	cockpit_view.size = Vector2i(960, 540)
+	cockpit_view.transparent_bg = True
+	cockpit_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(cockpit_view)
+	stars = ClassDB.Instantiate("Node2D")
+	stars.set_script(Load("res://cockpit_stars.vg"))
+	cockpit_view.add_child(stars)
+	_add_cached_art(cockpit_view, "res://cockpit_art.gd")
+	ship_instruments = ClassDB.Instantiate("Node2D")
+	ship_instruments.set_script(Load("res://cockpit_instruments.vg"))
+	cockpit_view.add_child(ship_instruments)
+	buggy_view = ClassDB.Instantiate("SubViewport")
+	buggy_view.size = Vector2i(960, 540)
+	buggy_view.transparent_bg = True
+	buggy_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(buggy_view)
+	_add_cached_art(buggy_view, "res://buggy_art.gd")
+	buggy_instruments = ClassDB.Instantiate("Node2D")
+	buggy_instruments.set_script(Load("res://cockpit_instruments.vg"))
+	buggy_instruments.buggy = True
+	buggy_view.add_child(buggy_instruments)
+	_create_clouds()
+End Sub
+
+Sub _add_cached_art(ByVal target As SubViewport, ByVal script_path As String)
+	Dim art_view As Variant
+	Dim art As Variant
+	Dim canvas As Variant
+	Call EnsureInit()
+	art_view = ClassDB.Instantiate("SubViewport")
+	art_view.size = Vector2i(960, 540)
+	art_view.transparent_bg = True
+	art_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(art_view)
+	art = ClassDB.Instantiate("Node2D")
+	art.set_script(load(script_path))
+	art_view.add_child(art)
+	canvas = ClassDB.Instantiate("TextureRect")
+	canvas.texture = art_view.get_texture()
+	canvas.size = Vector2(960, 540)
+	target.add_child(canvas)
+End Sub
+
+Function cockpit_texture(ByVal t As Single, ByVal speed As Single, ByVal height As Single, ByVal alert As Single) As Texture2D
+	Call EnsureInit()
+	stars.time = t
+	stars.queue_redraw()
+	ship_instruments.update_readings(t, speed, 0, height, alert, 0)
+	cockpit_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	Return cockpit_view.get_texture()
+End Function
+
+Function buggy_texture(ByVal t As Single, ByVal speed As Single, ByVal heading As Single, ByVal distance As Single, Optional destination As Variant = 368.0, Optional top_speed As Variant = 16.0) As Texture2D
+	Call EnsureInit()
+	buggy_instruments.update_readings(t, speed, heading, 0, 0, distance, destination, top_speed)
+	buggy_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	Return buggy_view.get_texture()
+End Function
+
+Sub _create_clouds()
+	Dim mesh As Variant
+	Dim cloud_vertices As PackedVector3Array
+	Dim cloud_colors As PackedColorArray
+	Dim cloud_normals As PackedVector3Array
+	Dim sphere As Variant
+	Dim sphere_arrays As Variant
+	Dim points As PackedVector3Array
+	Dim normals As PackedVector3Array
+	Dim indices As PackedInt32Array
+	Dim side As Variant
+	Dim center As Variant
+	Dim arrays As Variant
+	Dim material As Variant
+	Dim shader As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	clouds = ClassDB.Instantiate("MeshInstance3D")
+	mesh = ClassDB.Instantiate("ArrayMesh")
+	sphere = ClassDB.Instantiate("SphereMesh")
+	sphere.radial_segments = 16
+	sphere.rings = 8
+	sphere_arrays = sphere.get_mesh_arrays()
+	points = sphere_arrays(Mesh.ARRAY_VERTEX)
+	normals = sphere_arrays(Mesh.ARRAY_NORMAL)
+	indices = sphere_arrays(Mesh.ARRAY_INDEX)
+	For i = 0 To (36 - 1)
+		If i  Mod  2 = 0 Then
+			side = -1.0
+		Else
+			side = 1.0
+		End If
+		center = Vector3(side * (20 + Sin(i * 2.4) * 4), 22 - i * 0.48, 30 + i * 16)
+		For puff = 0 To (3 - 1)
+			For Each index In AsArray(indices)
+				cloud_vertices.append(center + Vector3(puff * 4 - 4, Sin(puff * 2.0), 0) + points(index) * Vector3(12, 3.5, 6))
+				cloud_normals.append(Vector3(normals(index).x / 12.0, normals(index).y / 3.5, normals(index).z / 6.0).normalized())
+				cloud_colors.append(Color(0.16 + puff * 0.006, 0.21 + puff * 0.008, 0.28 + puff * 0.01))
+			Next
+		Next
+	Next
+	arrays = Array()
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays(Mesh.ARRAY_VERTEX) = cloud_vertices
+	arrays(Mesh.ARRAY_NORMAL) = cloud_normals
+	arrays(Mesh.ARRAY_COLOR) = cloud_colors
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	material = ClassDB.Instantiate("ShaderMaterial")
+	shader = ClassDB.Instantiate("Shader")
+	shader = Load("res://shaders/presentation_08.gdshader")
+	material.shader = shader
+	mesh.surface_set_material(0, material)
+	clouds.mesh = mesh
+	clouds.visible = False
+	viewport.add_child(clouds)
+End Sub
+
+Sub landing_clouds()
+	Call EnsureInit()
+	clouds.visible = True
+End Sub
+
+Sub sample_input()
+	Dim down As Variant
+	Call EnsureInit()
+	taps.clear()
+	For Each code In AsArray(KEYS)
+		down = Input.is_key_pressed(code) Or Input.is_physical_key_pressed(code)
+		taps(code) = down And Not DictFlag(held, code)
+		held(code) = down
+	Next
+End Sub
+
+Function menu_tap(ByVal code As Integer) As Boolean
+	Dim hit As Boolean
+	Call EnsureInit()
+	hit = DictFlag(taps, code)
+	taps(code) = False
+	Return hit
+End Function
+
+Sub begin_frame(Optional backlight_active As Variant = False)
+	Call EnsureInit()
+	vertices.clear()
+	colors.clear()
+	edges.clear()
+	edge_colors.clear()
+	world_mesh.visible = False
+	frame_mesh.visible = False
+	clouds.visible = False
+	If Not backlight_active Then
+		If camera.environment <> Nothing Then
+			camera.environment = Nothing
+		End If
+		If Not viewport.transparent_bg Then
+			viewport.transparent_bg = True
+		End If
+	End If
+	If backlight_city <> Nothing Then
+		backlight_city.deactivate()
+		If backlight_city.audio <> Nothing Then
+			If Not backlight_active Then
+				backlight_city.audio.stop()
+			Else
+				backlight_city.audio.stream_paused = CBool(get_parent().get("menu_on")) Or CBool(get_parent().get("dev_on"))
+			End If
+		End If
+	End If
+	If city2 <> Nothing Then
+		city2.visible = False
+		city2_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	End If
+	If city3 <> Nothing Then
+		city3.visible = False
+		city3_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	End If
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+End Sub
+
+Sub segment(ByVal a As Vector3, ByVal b As Vector3, ByVal color As Color)
+	Call EnsureInit()
+	edges.append(a)
+	edges.append(b)
+	edge_colors.append(color)
+	edge_colors.append(color)
+End Sub
+
+Sub hoop(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal radius As Single, ByVal color As Color)
+	Dim center As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Call EnsureInit()
+	center = Vector3(x, y, z)
+	For i = 0 To (40 - 1)
+		a = 6.283185307179586 * i / 40.0
+		b = 6.283185307179586 * (i + 1) / 40.0
+		segment(center + Vector3(Cos(a), Sin(a), 0) * radius, center + Vector3(Cos(b), Sin(b), 0) * radius, color)
+	Next
+End Sub
+
+Sub face(ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, ByVal d As Vector3, ByVal color As Color)
+	Dim ink As Variant
+	Call EnsureInit()
+	ink = Color(color.r * 0.055, color.g * 0.055, color.b * 0.07, 1.0)
+	For Each point In AsArray(Array(a, b, c, a, c, d))
+		vertices.append(point)
+		colors.append(ink)
+	Next
+	For Each pair In AsArray(Array(Array(a, b), Array(b, c), Array(c, d), Array(d, a)))
+		segment(pair(0), pair(1), color)
+	Next
+End Sub
+
+Function _mesh() As ArrayMesh
+	Dim mesh As Variant
+	Dim arrays As Variant
+	Dim line_vertices As PackedVector3Array
+	Dim line_normals As PackedVector3Array
+	Dim line_colors As PackedColorArray
+	Dim line_uvs As PackedVector2Array
+	Dim index As Variant
+	Call EnsureInit()
+	mesh = ClassDB.Instantiate("ArrayMesh")
+	If Not vertices.is_empty() Then
+		arrays = Array()
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays(Mesh.ARRAY_VERTEX) = vertices
+		arrays(Mesh.ARRAY_COLOR) = colors
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, face_material)
+	End If
+	If Not edges.is_empty() Then
+		For i = 0 To (edges.size() - 1) Step 2
+			For Each corner In AsArray(Array(Vector2(0, -1), Vector2(0, 1), Vector2(1, 1), Vector2(0, -1), Vector2(1, 1), Vector2(1, -1)))
+				index = i + Int(corner.x)
+				line_vertices.append(edges(index))
+				line_normals.append(edges(i + 1) - edges(i))
+				line_colors.append(edge_colors(index))
+				line_uvs.append(Vector2(corner.y, 0))
+			Next
+		Next
+		arrays = Array()
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays(Mesh.ARRAY_VERTEX) = line_vertices
+		arrays(Mesh.ARRAY_NORMAL) = line_normals
+		arrays(Mesh.ARRAY_COLOR) = line_colors
+		arrays(Mesh.ARRAY_TEX_UV) = line_uvs
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		mesh.surface_set_material(mesh.get_surface_count() - 1, line_material)
+	End If
+	Return mesh
+End Function
+
+Function begin_yard(ByVal key As String) As Boolean
+	Call EnsureInit()
+	world_mesh.visible = True
+	If yard_key = key And world_mesh.mesh <> Nothing Then
+		Return False
+	End If
+	building_yard = True
+	yard_key = key
+	Return True
+End Function
+
+Sub bleed_city()
+	Dim city As Node
+	Call EnsureInit()
+	If Not begin_yard("bleed-city") Then
+		Exit Sub
+	End If
+	city = get_node_or_null("BleedCity")
+	If city = Nothing Then
+		city = SpawnVg("res://bleed_city.vg", "Node")
+		city.name = "BleedCity"
+		add_child(city)
+	End If
+	city.build(Me)
+	end_yard()
+End Sub
+
+Sub _ensure_city2()
+	Dim canvas As Variant
+	Dim material As Variant
+	Dim shader As Variant
+	Call EnsureInit()
+	If city2 = Nothing Then
+		city2 = SpawnVg("res://bleed_city_2.vg", "Node3D")
+		city2.name = "BleedCity2"
+		viewport.add_child(city2)
+		city2_output = ClassDB.Instantiate("SubViewport")
+		city2_output.size = viewport.size
+		city2_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		city2_output.disable_3d = True
+		add_child(city2_output)
+		canvas = ClassDB.Instantiate("TextureRect")
+		canvas.size = Vector2(viewport.size)
+		canvas.texture = viewport.get_texture()
+		material = ClassDB.Instantiate("ShaderMaterial")
+		shader = ClassDB.Instantiate("Shader")
+		shader = Load("res://shaders/presentation_09.gdshader")
+		material.shader = shader
+		canvas.material = material
+		city2_output.add_child(canvas)
+	End If
+End Sub
+
+Sub start_bleed_city2()
+	Call EnsureInit()
+	_ensure_city2()
+	city2.reset()
+End Sub
+
+Sub tick_bleed_city2(ByVal delta As Single)
+	Call EnsureInit()
+	city2.tick(delta, Me)
+End Sub
+
+Function bleed_city2(ByVal time_n As Single, ByVal distance As Single, ByVal detail As Integer) As Texture2D
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	_ensure_city2()
+	city2.visible = True
+	If detail = 2 Then
+		_t0 = Viewport.MSAA_4X
+	Else
+		_t0 = Viewport.MSAA_2X
+	End If
+	If detail = 0 Then
+		city2_antialiasing = Viewport.MSAA_DISABLED
+	Else
+		city2_antialiasing = (_t0)
+	End If
+	city2.render(Me, time_n, distance)
+	If detail = 0 Then
+		Return viewport.get_texture()
+	End If
+	city2_output.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return city2_output.get_texture()
+End Function
+
+Function city2_driving() As Boolean
+	Call EnsureInit()
+	Return city2.driving And city2.inspection = 0
+End Function
+
+Function city2_cockpit(ByVal time_n As Single) As Texture2D
+	Call EnsureInit()
+	Return buggy_texture(time_n, city2.velocity, city2.heading, city2.position_xz.y, 154, 18)
+End Function
+
+Function city2_status() As String
+	Call EnsureInit()
+	Return "AIR BOTTLES " & Str(city2.collected) & "/3   V: STREET / DISTRICT / BUGGY"
+End Function
+
+Sub _ensure_city3()
+	Dim canvas As Variant
+	Dim material As Variant
+	Dim shader As Variant
+	Call EnsureInit()
+	If city3 <> Nothing Then
+		Exit Sub
+	End If
+	city3 = SpawnVg("res://bleed_city_3.vg", "Node3D")
+	city3.name = "BleedCity3"
+	viewport.add_child(city3)
+	city3.visible = False
+	city3_output = ClassDB.Instantiate("SubViewport")
+	city3_output.size = viewport.size
+	city3_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	city3_output.disable_3d = True
+	add_child(city3_output)
+	canvas = ClassDB.Instantiate("TextureRect")
+	canvas.size = Vector2(viewport.size)
+	canvas.texture = viewport.get_texture()
+	material = ClassDB.Instantiate("ShaderMaterial")
+	shader = ClassDB.Instantiate("Shader")
+	shader = Load("res://shaders/presentation_10.gdshader")
+	material.shader = shader
+	canvas.material = material
+	city3_output.add_child(canvas)
+End Sub
+
+Sub start_bleed_city3()
+	Call EnsureInit()
+	_ensure_city3()
+	city3.reset()
+End Sub
+
+Sub tick_bleed_city3(ByVal delta As Single)
+	Call EnsureInit()
+	city3.tick(delta, Me)
+End Sub
+
+Function bleed_city3(ByVal time_n As Single, ByVal distance As Single, ByVal detail As Integer) As Texture2D
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	_ensure_city3()
+	city3.visible = True
+	If detail = 2 Then
+		_t0 = Viewport.MSAA_4X
+	Else
+		_t0 = Viewport.MSAA_2X
+	End If
+	If detail = 0 Then
+		city3_antialiasing = Viewport.MSAA_DISABLED
+	Else
+		city3_antialiasing = (_t0)
+	End If
+	city3.render(Me, time_n, distance)
+	If detail = 0 Then
+		Return viewport.get_texture()
+	End If
+	city3_output.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return city3_output.get_texture()
+End Function
+
+Function city3_driving() As Boolean
+	Call EnsureInit()
+	Return city3.driving And city3.inspection = 0
+End Function
+
+Function city3_cockpit(ByVal time_n As Single) As Texture2D
+	Call EnsureInit()
+	Return buggy_texture(time_n, city3.velocity, city3.heading, city3.position_xz.y, 124, 16)
+End Function
+
+Function city3_status() As String
+	Call EnsureInit()
+	Return "AIR BOTTLES " & Str(city3.collected) & "/3   V: STREET / DISTRICT / BUGGY"
+End Function
+
+Sub start_backlight_city()
+	Call EnsureInit()
+	If backlight_city = Nothing Then
+		backlight_city = SpawnVg("res://backlight_exploration.vg", "Node3D")
+		backlight_city.name = "BacklightCity"
+		viewport.add_child(backlight_city)
+	End If
+	backlight_city.reset()
+End Sub
+
+Sub tick_backlight_city(ByVal delta As Single)
+	Call EnsureInit()
+	backlight_city.tick(delta, Me)
+End Sub
+
+Function draw_backlight_city(ByVal time_n As Single, ByVal distance As Single, ByVal detail As Integer) As Texture2D
+	Call EnsureInit()
+	Return backlight_city.render_style(Me, time_n, distance, detail)
+End Function
+
+Function backlight_driving() As Boolean
+	Call EnsureInit()
+	Return backlight_city.driving And backlight_city.inspection = 0 And backlight_city.place = "surface"
+End Function
+
+Function backlight_cockpit(ByVal time_n As Single) As Texture2D
+	Call EnsureInit()
+	Return buggy_texture(time_n, backlight_city.velocity, backlight_city.heading, backlight_city.position_xz.y, 420, 18)
+End Function
+
+Function backlight_overlay() As Texture2D
+	Call EnsureInit()
+	Return backlight_city.hud_view.get_texture()
+End Function
+
+Function backlight_status() As String
+	Call EnsureInit()
+	Return backlight_city.prompt()
+End Function
+
+Sub end_yard()
+	Call EnsureInit()
+	world_mesh.mesh = _mesh()
+	building_yard = False
+	rebuild_count = rebuild_count + 1
+	vertices.clear()
+	colors.clear()
+	edges.clear()
+	edge_colors.clear()
+End Sub
+
+Function present(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal distance As Single) As Texture2D
+	Dim antialiasing As Variant
+	Dim forward As Variant
+	Dim right As Variant
+	Call EnsureInit()
+	antialiasing = Viewport.MSAA_DISABLED
+	If backlight_city <> Nothing And backlight_city.visible Then
+		antialiasing = backlight_city.antialiasing
+	ElseIf city3 <> Nothing And city3.visible Then
+		antialiasing = city3_antialiasing
+	ElseIf city2 <> Nothing And city2.visible Then
+		antialiasing = city2_antialiasing
+	End If
+	If viewport.msaa_3d <> antialiasing Then
+		viewport.msaa_3d = antialiasing
+	End If
+	forward = Vector3(Sin(yaw) * Cos(pitch), Sin(pitch), Cos(yaw) * Cos(pitch))
+	right = Vector3(0, 1, 0).cross(forward).normalized()
+	camera.transform = Transform3D(Basis(right, forward.cross(right), -forward), Vector3(x, y, z))
+	camera.fov = ((2.0 * Atan2(270.0 / 520.0, 1.0)) * 57.29577951308232)
+	camera.far = Max(distance, 50.0)
+	If Not edges.is_empty() Or Not vertices.is_empty() Then
+		frame_mesh.mesh = _mesh()
+		frame_mesh.visible = True
+	End If
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return viewport.get_texture()
+End Function
+
+Sub box(ByVal origin As Vector3, ByVal size As Vector3, ByVal color As Color, Optional transform As Variant)
+	Dim p As Array
+	If transform Is Nothing Then
+		transform = Transform3D()
+	End If
+	Call EnsureInit()
+	p = Array()
+	For Each offset In AsArray(Array(Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1)))
+		p.append(transform * (origin + offset * size))
+	Next
+	For Each indices In AsArray(Array(Array(0, 1, 2, 3), Array(4, 7, 6, 5), Array(0, 3, 7, 4), Array(1, 5, 6, 2), Array(3, 2, 6, 7), Array(0, 4, 5, 1)))
+		face(p(indices(0)), p(indices(1)), p(indices(2)), p(indices(3)), color)
+	Next
+End Sub
+
+Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Single, ByVal side As Single, ByVal kind As Integer, ByVal detail As Integer)
+	Dim d As Variant
+	Dim outline As Variant
+	Dim mast As Variant
+	Dim street_x As Variant
+	Dim height As Variant
+	Dim conduit_x As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	d = w * 0.72
+	outline = PackVec2(Array(Vector2(0, 0), Vector2(w, 0), Vector2(w * 0.78, h * 0.14), Vector2(w * 0.78, h * 0.38), Vector2(w * 0.96, h * 0.42), Vector2(w * 0.96, h * 0.48), Vector2(w * 0.7, h * 0.48), Vector2(w * 0.7, h * 0.65), Vector2(w * 0.58, h * 0.65), Vector2(w * 0.58, h), Vector2(w * 0.43, h), Vector2(w * 0.43, h * (0.86 - kind * 0.03)), Vector2(w * 0.27, h * 0.8), Vector2(w * 0.27, h * 0.58), Vector2(w * 0.15, h * 0.58), Vector2(w * 0.15, h * 0.32), Vector2(w * 0.32, h * 0.25), Vector2(w * 0.32, h * 0.14)))
+	_extrude(outline, d, CYAN, Transform3D(Basis(), Vector3(x, 0, z)))
+	mast = Vector3(x + w * 0.44, h, z + d * 0.48)
+	segment(mast, mast + Vector3(0, 2.2 + kind, 0), CYAN)
+	segment(mast + Vector3(-w * 0.16, -h * 0.2, 0), mast + Vector3(-w * 0.16, 1.0, 0), CYAN * 0.5)
+	If side < 0 Then
+		street_x = x + w
+	Else
+		street_x = x
+	End If
+	For Each dz In AsArray(Array(0.0, d))
+		face(Vector3(street_x, 0, z + dz), Vector3(street_x - side * 2.0, 0, z + dz), Vector3(street_x, h * 0.25, z + dz), Vector3(street_x, h * 0.42, z + dz), CYAN * 0.65)
+	Next
+	If detail = 0 Then
+		Exit Sub
+	End If
+	For i = 0 To (2 + detail * 2 - 1)
+		height = h * 0.18 + i * 0.22
+		segment(Vector3(x + w * 0.36, height, z - 0.015), Vector3(x + w * 0.56, height, z - 0.015), CYAN * 0.65)
+	Next
+	conduit_x = x + w * 0.67
+	segment(Vector3(conduit_x, 0.1, z - 0.02), Vector3(conduit_x, h * 0.35, z - 0.02), CYAN)
+	segment(Vector3(conduit_x, h * 0.35, z - 0.02), Vector3(conduit_x - w * 0.22, h * 0.44, z - 0.02), CYAN)
+	segment(Vector3(conduit_x - w * 0.22, h * 0.44, z - 0.02), Vector3(conduit_x - w * 0.22, h * 0.82, z - 0.02), CYAN)
+	For Each dz In AsArray(Array(d * 0.2, d * 0.55))
+		segment(Vector3(street_x, h * 0.12, z + dz), Vector3(street_x, h * 0.3, z + dz), CYAN * 0.55)
+		segment(Vector3(street_x, h * 0.3, z + dz), Vector3(street_x - side * w * 0.15, h * 0.4, z + dz), CYAN * 0.55)
+	Next
+End Sub
+
+Sub _extrude(ByVal outline As PackedVector2Array, ByVal depth As Single, ByVal color As Color, ByVal transform As Transform3D)
+	Dim indices As Variant
+	Dim point As Variant
+	Dim p As Variant
+	Dim q As Variant
+	Call EnsureInit()
+	indices = Geometry2D.triangulate_polygon(outline)
+	For Each back In AsArray(Array(0.0, depth))
+		For Each index In AsArray(indices)
+			point = outline(index)
+			vertices.append(transform * Vector3(point.x, point.y, back))
+			colors.append(Color(color.r * 0.04, color.g * 0.045, color.b * 0.06))
+		Next
+	Next
+	For i = 0 To (outline.size() - 1)
+		p = outline(i)
+		q = outline((i + 1)  Mod  outline.size())
+		face(transform * Vector3(p.x, p.y, 0), transform * Vector3(q.x, q.y, 0), transform * Vector3(q.x, q.y, depth), transform * Vector3(p.x, p.y, depth), color)
+	Next
+End Sub
+
+Sub _cylinder(ByVal center As Vector3, ByVal radius As Single, ByVal length As Single, ByVal axis As Integer, ByVal color As Color, ByVal transform As Transform3D)
+	Dim a As Variant
+	Dim b As Variant
+	Dim p As Variant
+	Dim q As Variant
+	Dim extent As Variant
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Dim _t2 As Variant
+	Dim _t3 As Variant
+	Call EnsureInit()
+	For i = 0 To (16 - 1)
+		a = 6.283185307179586 * i / 16.0
+		b = 6.283185307179586 * (i + 1) / 16.0
+		If axis = 0 Then
+			p = Vector3(0, Cos(a), Sin(a)) * radius
+		Else
+			p = Vector3(Cos(a), 0, Sin(a)) * radius
+		End If
+		If axis = 0 Then
+			q = Vector3(0, Cos(b), Sin(b)) * radius
+		Else
+			q = Vector3(Cos(b), 0, Sin(b)) * radius
+		End If
+		If axis = 0 Then
+			extent = Vector3(length, 0, 0)
+		Else
+			extent = Vector3(0, length, 0)
+		End If
+		' Filled sides are independent of decorative coil rings.
+		For Each point In AsArray(Array(center + p, center + q, center + q + extent, center + p, center + q + extent, center + p + extent))
+			vertices.append(transform * point)
+			colors.append(Color(0.008, 0.015, 0.022))
+		Next
+		For Each end_n In AsArray(Array(Vector3(0, 0, 0), extent))
+			For Each point In AsArray(Array(center + end_n, center + p + end_n, center + q + end_n))
+				vertices.append(transform * point)
+				colors.append(Color(0.008, 0.012, 0.019))
+			Next
+		Next
+	Next
+	_ring(center, radius, axis, color, transform)
+	If axis = 0 Then
+		_t3 = Vector3(length, 0, 0)
+	Else
+		_t3 = Vector3(0, length, 0)
+	End If
+	_ring(center + (_t3), radius, axis, color, transform)
+End Sub
+
+Sub _ring(ByVal center As Vector3, ByVal radius As Single, ByVal axis As Integer, ByVal color As Color, ByVal transform As Transform3D, Optional spokes As Variant = False)
+	Dim a As Variant
+	Dim b As Variant
+	Dim p As Variant
+	Dim q As Variant
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	For i = 0 To (20 - 1)
+		a = 6.283185307179586 * i / 20.0
+		b = 6.283185307179586 * (i + 1) / 20.0
+		If axis = 0 Then
+			p = Vector3(0, Cos(a), Sin(a))
+		Else
+			p = Vector3(Cos(a), 0, Sin(a))
+		End If
+		If axis = 0 Then
+			q = Vector3(0, Cos(b), Sin(b))
+		Else
+			q = Vector3(Cos(b), 0, Sin(b))
+		End If
+		segment(transform * (center + p * radius), transform * (center + q * radius), color)
+		If spokes And i  Mod  4 = 0 Then
+			segment(transform * (center + p * radius * 0.2), transform * (center + p * radius), color)
+		End If
+	Next
+End Sub
+
+Sub turret(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single)
+	Dim transform As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Dim p As Variant
+	Dim q As Variant
+	Dim housing As Variant
+	Call EnsureInit()
+	transform = Transform3D(Basis(Vector3(0, 1, 0), -yaw), Vector3(x, y, z))
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each end_n In AsArray(Array(-1.0, 1.0))
+			box(Vector3(-0.6 + end_n * 1.05, 0.03, side * 1.2 - 0.3), Vector3(1.1, 0.22, 0.6), PINK, transform)
+		Next
+	Next
+	For i = 0 To (8 - 1)
+		a = 6.283185307179586 * i / 8.0
+		b = 6.283185307179586 * (i + 1) / 8.0
+		p = Vector3(Cos(a), 0, Sin(a))
+		q = Vector3(Cos(b), 0, Sin(b))
+		face(transform * (p * 1.8), transform * (q * 1.8), transform * (q * 1.45 + Vector3(0, 1, 0) * 0.3), transform * (p * 1.45 + Vector3(0, 1, 0) * 0.3), PINK)
+	Next
+	_cylinder(Vector3(0, 0.3, 0), 0.6, 0.8, 1, PINK, transform)
+	_ring(Vector3(0, 0.32, 0), 1.0, 1, CYAN, transform)
+	_ring(Vector3(0, 0.45, 0), 0.72, 1, PINK, transform)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		box(Vector3(-0.55, 0.8, side * 0.7 - 0.12), Vector3(1.15, 0.65, 0.24), PINK, transform)
+		housing = PackVec2(Array(Vector2(-0.8, 1.3), Vector2(0.85, 1.3), Vector2(0.85, 1.8), Vector2(0.55, 2.12), Vector2(-0.55, 2.12), Vector2(-0.8, 1.85)))
+		_extrude(housing, 0.6, PINK, transform.translated_local(Vector3(0, 0, side * 0.58 - 0.3)))
+		_cylinder(Vector3(0.8, 1.66, side * 0.58), 0.13, 1.5, 0, CYAN, transform)
+		For rib = 0 To (5 - 1)
+			_ring(Vector3(1.62 + rib * 0.12, 1.66, side * 0.58), 0.19, 0, CYAN, transform)
+		Next
+		_ring(Vector3(2.3, 1.66, side * 0.58), 0.15, 0, PINK, transform)
+		_ring(Vector3(-0.52, 2.35, side * 0.64), 0.5, 0, CYAN, transform, True)
+		_ring(Vector3(-0.52, 2.35, side * 0.64), 0.3, 0, CYAN, transform)
+		segment(transform * Vector3(-0.52, 2.0, side * 0.64), transform * Vector3(-0.52, 2.35, side * 0.64), PINK)
+	Next
+	box(Vector3(-0.45, 1.4, -0.22), Vector3(1, 0.5, 0.44), PINK, transform)
+End Sub
+
+Sub bridge(ByVal z As Single)
+	Dim previous As Variant
+	Dim angle As Variant
+	Dim point As Variant
+	Call EnsureInit()
+	box(Vector3(-8.5, 4.8, z - 0.7), Vector3(17, 0.4, 1.4), CYAN * 0.65)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		box(Vector3(side * 8.4 - 0.4, 0, z - 0.8), Vector3(0.8, 4.8, 1.6), CYAN * 0.7)
+		For rib = 0 To (3 - 1)
+			previous = Vector3(side * 7.8, 0, z - 0.75 - rib * 0.06)
+			For step_n = 1 To (17 - 1)
+				angle = step_n * PI * 0.5 / 16.0
+				point = Vector3(side * (7.8 - Sin(angle) * 6.8), (1.0 - Cos(angle)) * 4.5, previous.z)
+				segment(previous, point, CYAN * (0.55 + rib * 0.2))
+				previous = point
+			Next
+		Next
+	Next
+End Sub

@@ -1,4 +1,5 @@
 #include "visual_gasic_instance.h"
+#include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_language.h"
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_com_interop.h"
@@ -217,8 +218,35 @@ bool VisualGasicInstance::try_variant_subscript_get(const Variant &base, const V
         r_out = arr[idx];
         return true;
     }
+    if (base.get_type() == Variant::PACKED_VECTOR3_ARRAY) {
+        PackedVector3Array arr = base;
+        int idx = (int)(int64_t)key;
+        if (idx < 0 || idx >= arr.size()) {
+            return false;
+        }
+        r_out = arr[idx];
+        return true;
+    }
+    if (base.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+        PackedVector2Array arr = base;
+        int idx = (int)(int64_t)key;
+        if (idx < 0 || idx >= arr.size()) {
+            return false;
+        }
+        r_out = arr[idx];
+        return true;
+    }
+    if (base.get_type() == Variant::PACKED_COLOR_ARRAY) {
+        PackedColorArray arr = base;
+        int idx = (int)(int64_t)key;
+        if (idx < 0 || idx >= arr.size()) {
+            return false;
+        }
+        r_out = arr[idx];
+        return true;
+    }
     if (base.get_type() == Variant::DICTIONARY) {
-        r_out = ((Dictionary)base).get(key, Variant());
+        r_out = ((Dictionary)base).get(vg_dictionary_key(key), Variant());
         return true;
     }
     if (base.get_type() == Variant::INT) {
@@ -307,7 +335,7 @@ bool VisualGasicInstance::try_property_index_get(const Variant &base, const Stri
 bool VisualGasicInstance::try_variant_subscript_set(Variant &base, const Variant &key, const Variant &value, Variant &r_updated) {
     if (base.get_type() == Variant::DICTIONARY) {
         Dictionary dict = base;
-        dict[key] = value;
+        dict[vg_dictionary_key(key)] = value;
         r_updated = dict;
         return true;
     }

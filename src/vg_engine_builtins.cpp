@@ -1,5 +1,6 @@
 #include "vg_engine_builtins.h"
 
+#include <godot_cpp/core/math.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 
 using namespace godot;
@@ -25,6 +26,16 @@ static Vector<BuiltinEntry> &builtin_entries() {
 		e.value = Variant(v);
 		entries.push_back(e);
 	};
+	auto add_float = [&](const String &name, double v) {
+		BuiltinEntry e;
+		e.name = name;
+		e.value = Variant(v);
+		entries.push_back(e);
+	};
+	// Same values the AST evaluator returns for bare PI / Math_TAU.
+	// Bytecode was allocating them as empty locals, so -PI negated Nothing.
+	add_float("PI", Math_PI);
+	add_float("Math_TAU", Math_TAU);
 
 	// VB6-style key aliases (mirrors VisualGasicInstance::builtin_constants).
 	add_int("vbKeyReturn", (int)Key::KEY_ENTER);

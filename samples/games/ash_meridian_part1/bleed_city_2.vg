@@ -1,0 +1,959 @@
+' Generated Visual Gasic port of bleed_city_2.vg
+Dim __ready As Boolean
+Dim CYAN As Variant
+Dim PINK As Variant
+Dim AMBER As Variant
+Dim WHITE As Variant
+Dim BOTTLE_POSITIONS As Variant
+Dim position_xz As Variant
+Dim heading As Variant
+Dim velocity As Variant
+Dim driving As Variant
+Dim inspection As Variant
+Dim buggy_position As Variant
+Dim buggy_heading As Variant
+Dim collected As Variant
+Dim solids As Array
+Dim bottles As Array
+Dim wheels As Array
+Dim vehicle As MeshInstance3D
+Dim world As MeshInstance3D
+Dim beam As MeshInstance3D
+Dim initialized As Variant
+Dim wheel_angle As Variant
+Dim steering As Variant
+Dim camera_position As Variant
+Dim camera_heading As Variant
+Dim camera_pitch As Variant
+Dim neon As ShaderMaterial
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	Dim packed As PackedVector2Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec2 = packed
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	Dim packed As PackedVector3Array
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackVec3 = packed
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	Dim packed As PackedColorArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackColor = packed
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	Dim packed As PackedByteArray
+	Dim item As Variant
+	For Each item In AsArray(items)
+		packed.append(item)
+	Next
+	PackByte = packed
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	CYAN = Color(0.12, 0.92, 1.0)
+	PINK = Color(1.0, 0.20, 0.74)
+	AMBER = Color(1.0, 0.61, 0.13)
+	WHITE = Color(0.78, 0.96, 1.0)
+	BOTTLE_POSITIONS = Array(Vector3(7, 0.5, 29), Vector3(-8, 0.5, 68), Vector3(31, 0.5, 49))
+	position_xz = Vector2(5, 9)
+	heading = -0.18
+	velocity = 0.0
+	driving = False
+	inspection = 0
+	buggy_position = Vector2(0, 18)
+	buggy_heading = 0.0
+	collected = 0
+	solids = Array()
+	bottles = Array()
+	wheels = Array()
+	initialized = False
+	wheel_angle = 0.0
+	steering = 0.0
+	camera_position = Vector3(0, 0, 0)
+	camera_heading = 0.0
+	camera_pitch = -0.08
+End Sub
+
+Sub reset()
+	Call EnsureInit()
+	position_xz = Vector2(5, 9)
+	heading = -0.18
+	velocity = 0
+	driving = False
+	inspection = 0
+	buggy_position = Vector2(0, 18)
+	buggy_heading = 0
+	collected = 0
+	wheel_angle = 0
+	steering = 0
+	For Each bottle In AsArray(bottles)
+		bottle.visible = True
+	Next
+End Sub
+
+Function _freeze(ByVal view As Node, ByVal label As String) As MeshInstance3D
+	Dim seen As Dictionary
+	Dim unique_edges As PackedVector3Array
+	Dim unique_colors As PackedColorArray
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim pair As Variant
+	Dim instance As Variant
+	Dim halo As ShaderMaterial
+	Dim _t0 As Variant
+	Call EnsureInit()
+	seen = New Dictionary
+	For i = 0 To (view.edges.size() - 1) Step 2
+		a = view.edges(i)
+		b = view.edges(i + 1)
+		If a = b Then
+			Continue For
+		End If
+		If a < b Then
+			pair = Array(a, b)
+		Else
+			pair = Array(b, a)
+		End If
+		If seen.has(pair) Then
+			Continue For
+		End If
+		seen(pair) = True
+		unique_edges.append(a)
+		unique_edges.append(b)
+		unique_colors.append(view.edge_colors(i))
+		unique_colors.append(view.edge_colors(i + 1))
+	Next
+	view.edges = unique_edges
+	view.edge_colors = unique_colors
+	instance = ClassDB.Instantiate("MeshInstance3D")
+	instance.name = label
+	instance.mesh = view._mesh()
+	If neon = Nothing Then
+		neon = view.line_material.duplicate()
+		neon.set_shader_parameter("line_width", 1.05)
+		halo = view.line_material.next_pass.duplicate()
+		halo.set_shader_parameter("line_width", 4.5)
+		neon.next_pass = halo
+	End If
+	If instance.mesh.get_surface_count() = 2 Then
+		instance.mesh.surface_set_material(1, neon)
+	End If
+	view.vertices.clear()
+	view.colors.clear()
+	view.edges.clear()
+	view.edge_colors.clear()
+	add_child(instance)
+	Return instance
+End Function
+
+Sub build(ByVal view As Node)
+	Dim wheel_mesh As Variant
+	Dim wheel As Variant
+	Dim beam_material As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	_roads(view)
+	_hall(view, Vector3(-31, 0, 12), 16, 24, 9, False)
+	_hall(view, Vector3(15, 0, 15), 18, 22, 11, True)
+	_hall(view, Vector3(-34, 0, 61), 19, 24, 12, True)
+	_hall(view, Vector3(16, 0, 63), 18, 22, 8, False)
+	_hall(view, Vector3(-31, 0, 117), 16, 23, 10, False)
+	_hall(view, Vector3(16, 0, 119), 18, 22, 10, True)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each z In AsArray(Array(22.0, 73.0, 129.0))
+			_refinery(view, Vector3(side * 46, 0, z), 2.8, 16 + FMod(z, 9), PINK)
+			If z > 100 Then
+				_t0 = AMBER
+			Else
+				_t0 = PINK
+			End If
+			_refinery(view, Vector3(side * 52, 0, z + 8), 2.2, 12, _t0)
+			_pipe(view, Array(Vector3(side * 46, 14, z), Vector3(side * 39, 14, z), Vector3(side * 39, 6, z), Vector3(side * 31, 6, z)), 0.38, PINK)
+			For Each dz In AsArray(Array(0.0, 5.0, 10.0))
+				_frame(view, Vector3(side * 40, 0, z + dz), 3.5, 9)
+			Next
+		Next
+	Next
+	_catwalk(view, Vector3(-40, 7, 43), Vector3(40, 7, 43), AMBER)
+	_catwalk(view, Vector3(-39, 8, 93), Vector3(39, 8, 93), PINK)
+	_shaft(view)
+	_crane(view, Vector3(38, 0, 108))
+	_dock(view, Vector3(-46, 0, 100))
+	For Each x In AsArray(Array(-22.0, -14.0))
+		_refinery(view, Vector3(x, 0, 149), 3, 23, AMBER)
+	Next
+	world = _freeze(view, "DistrictGeometry")
+	_buggy(view)
+	vehicle = _freeze(view, "AirBuggy")
+	_wheel(view)
+	wheel_mesh = _freeze(view, "WheelPrototype")
+	remove_child(wheel_mesh)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each z In AsArray(Array(-1.35, 1.4))
+			wheel = ClassDB.Instantiate("MeshInstance3D")
+			wheel.mesh = wheel_mesh.mesh
+			wheel.position = Vector3(side * 1.12, 0.59, z)
+			vehicle.add_child(wheel)
+			wheels.append(wheel)
+		Next
+	Next
+	wheel_mesh.free()
+	For Each point In AsArray(BOTTLE_POSITIONS)
+		_bottle(view, Transform3D(Basis(), point), 0.65)
+		bottles.append(_freeze(view, "AirBottle"))
+	Next
+	_beam(view)
+	beam = _freeze(view, "ShaftLight")
+	beam_material = ClassDB.Instantiate("StandardMaterial3D")
+	beam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_material.albedo_color = WHITE
+	beam.mesh.surface_set_material(0, beam_material)
+	initialized = True
+End Sub
+
+Sub _road_strip(ByVal view As Node, ByVal center As Vector3, ByVal width As Single, ByVal length As Single, Optional across As Variant = False)
+	Dim size As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Call EnsureInit()
+	size = Vector3(width, 0.28, length)
+	If across Then
+		size = Vector3(length, 0.28, width)
+	End If
+	view.box(center - size * Vector3(0.5, 0, 0.5) - Vector3(0, 0.3, 0), size, CYAN * 0.27)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each rail In AsArray(Array(width * 0.5 - 0.1, width * 0.5 - 0.45))
+			a = Vector3(side * rail, 0.015, -length * 0.5)
+			b = Vector3(side * rail, 0.015, length * 0.5)
+			If across Then
+				a = Vector3(a.z, a.y, a.x)
+				b = Vector3(b.z, b.y, b.x)
+			End If
+			view.segment(center + a, center + b, CYAN)
+		Next
+	Next
+End Sub
+
+Sub _roads(ByVal view As Node)
+	Dim center As Variant
+	Dim previous As Variant
+	Dim angle As Variant
+	Dim point As Vector3
+	Call EnsureInit()
+	' Separate strips leave the junction interiors clear of crossing edge lines.
+	For Each x In AsArray(Array(-36.0, 0.0, 36.0))
+		For Each span In AsArray(Array(Vector2(-12, 42), Vector2(54, 94), Vector2(106, 155)))
+			If x = 0 And span.x = 106 Then
+				_road_strip(view, Vector3(0, 0, 136), 12, 38)
+			ElseIf x = 0 And span.x = 54 Then
+				_road_strip(view, Vector3(0, 0, 70), 12, 32)
+			Else
+				_road_strip(view, Vector3(x, 0, (span.x + span.y) / 2), 12, span.y - span.x)
+			End If
+		Next
+	Next
+	For Each z In AsArray(Array(48.0, 100.0))
+		If z = 100 Then
+			For Each span In AsArray(Array(Vector2(-42, -9), Vector2(9, 42)))
+				_road_strip(view, Vector3((span.x + span.y) / 2, -0.025, z), 12, span.y - span.x, True)
+			Next
+		Else
+			_road_strip(view, Vector3(0, -0.025, z), 12, 84, True)
+		End If
+		For Each x In AsArray(Array(-36.0, 0.0, 36.0))
+			For Each side In AsArray(Array(-1.0, 1.0))
+				For Each end_n In AsArray(Array(-1.0, 1.0))
+					center = Vector3(x + side * 9, 0.03, z + end_n * 9)
+					For Each inset In AsArray(Array(0.0, 0.3))
+						previous = center + Vector3(-side * (3 + inset), 0, 0)
+						For i = 1 To (13 - 1)
+							angle = i * PI * 0.5 / 12
+							point = center + Vector3(-side * Cos(angle), 0, -end_n * Sin(angle)) * (3 + inset)
+							view.segment(previous, point, CYAN)
+							previous = point
+						Next
+					Next
+				Next
+			Next
+		Next
+	Next
+	For z = -8 To (150 - 1) Step 5
+		If Abs(z - 48) > 8 And Abs(z - 100) > 14 Then
+			view.segment(Vector3(-0.1, 0.02, z), Vector3(-0.1, 0.02, z + 2), CYAN * 0.5)
+		End If
+	Next
+	For z = 4 To (150 - 1) Step 20
+		For Each x In AsArray(Array(-6.8, 6.8))
+			view.box(Vector3(x - 0.2, 0, z), Vector3(0.4, 0.65, 0.4), AMBER)
+		Next
+	Next
+	' Piers and service ducts make the roadway a structure suspended in the void.
+	For Each x In AsArray(Array(-36.0, 0.0, 36.0))
+		For z = 0 To (150 - 1) Step 12
+			For Each side In AsArray(Array(-1.0, 1.0))
+				view.box(Vector3(x + side * 5 - 0.12, -7, z), Vector3(0.24, 6.7, 0.24), CYAN * 0.35)
+			Next
+			view.segment(Vector3(x - 5, -1.8, z), Vector3(x + 5, -1.8, z), CYAN * 0.4)
+		Next
+		_pipe(view, Array(Vector3(x - 4.5, -0.7, -10), Vector3(x - 4.5, -0.7, 86)), 0.18, CYAN * 0.6)
+	Next
+End Sub
+
+Sub _strut(ByVal view As Node, ByVal a As Vector3, ByVal b As Vector3, ByVal width As Single, ByVal color As Color)
+	Dim direction As Variant
+	Dim up As Variant
+	Dim right As Variant
+	Dim basis As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	direction = b - a
+	If Abs(direction.normalized().dot(Vector3(0, 1, 0))) > 0.95 Then
+		up = Vector3(0, 0, -1)
+	Else
+		up = Vector3(0, 1, 0)
+	End If
+	right = up.cross(direction).normalized()
+	basis = Basis(right, direction.normalized(), right.cross(direction).normalized())
+	view.box(Vector3(-width / 2, 0, -width / 2), Vector3(width, direction.length(), width), color, Transform3D(basis, a))
+End Sub
+
+Sub _frame(ByVal view As Node, ByVal origin As Vector3, ByVal width As Single, ByVal height As Single)
+	Dim y As Variant
+	Call EnsureInit()
+	For Each side In AsArray(Array(-1.0, 1.0))
+		_strut(view, origin + Vector3(side * width / 2, 0, 0), origin + Vector3(side * width / 2, height, 0), 0.18, PINK)
+	Next
+	For Each y In AsArray(Array(0.3, height * 0.5, height))
+		_strut(view, origin + Vector3(-width / 2, y, 0), origin + Vector3(width / 2, y, 0), 0.16, PINK)
+	Next
+	For level = 0 To (2 - 1)
+		y = level * height / 2
+		view.segment(origin + Vector3(-width / 2, y, 0), origin + Vector3(width / 2, y + height / 2, 0), PINK)
+		view.segment(origin + Vector3(width / 2, y, 0), origin + Vector3(-width / 2, y + height / 2, 0), PINK)
+	Next
+End Sub
+
+Sub _hall(ByVal view As Node, ByVal p As Vector3, ByVal width As Single, ByVal length As Single, ByVal height As Single, ByVal sawtooth As Boolean)
+	Dim crest As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Dim peak As Variant
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	' An open doorway has actual side walls and a lintel, not a filled front plane.
+	solids.append(Rect2(Vector2(p.x, p.z), Vector2(0.5, length)))
+	solids.append(Rect2(Vector2(p.x + width - 0.5, p.z), Vector2(0.5, length)))
+	solids.append(Rect2(Vector2(p.x, p.z + length - 0.5), Vector2(width, 0.5)))
+	view.box(p, Vector3(0.35, height, length), PINK)
+	view.box(p + Vector3(width - 0.35, 0, 0), Vector3(0.35, height, length), PINK)
+	view.box(p + Vector3(0, 0, length - 0.35), Vector3(width, height, 0.35), PINK)
+	view.box(p + Vector3(0, height - 2, 0), Vector3(width, 2, 0.4), PINK)
+	For Each x In AsArray(Array(0.0, width))
+		For z = 0 To (Int(length) + 1 - 1) Step 4
+			_strut(view, p + Vector3(x, 0, z), p + Vector3(x, height, z), 0.22, PINK)
+			view.segment(p + Vector3(x, height * 0.45, z), p + Vector3(x, height, Min(z + 4, length)), PINK * 0.7)
+		Next
+	Next
+	For z = 0 To (Int(length) - 1) Step 6
+		If sawtooth Then
+			_t0 = 2.8
+		Else
+			_t0 = 1.5
+		End If
+		crest = height + (_t0)
+		a = p + Vector3(0, height, z)
+		b = p + Vector3(width, height, z)
+		If sawtooth Then
+			_t1 = 0.8
+		Else
+			_t1 = 0.5
+		End If
+		peak = p + Vector3(width * (_t1), crest, z)
+		For Each offset In AsArray(Array(0.0, 6.0))
+			view.segment(a + Vector3(0, 0, offset), peak + Vector3(0, 0, offset), PINK)
+			view.segment(b + Vector3(0, 0, offset), peak + Vector3(0, 0, offset), PINK)
+		Next
+		view.face(a, peak, peak + Vector3(0, 0, 6), a + Vector3(0, 0, 6), PINK * 0.8)
+		view.face(peak, b, b + Vector3(0, 0, 6), peak + Vector3(0, 0, 6), PINK * 0.8)
+	Next
+	view.box(p + Vector3(0.5, -0.15, 0.5), Vector3(width - 1, 0.15, length - 1), CYAN * 0.35)
+	For Each x In AsArray(Array(width * 0.2, width * 0.8))
+		_bottle(view, Transform3D(Basis(), p + Vector3(x, 0.8, length * 0.65)), 1.2)
+	Next
+	' Door portal is amber; the rest of the structure remains magenta.
+	_strut(view, p + Vector3(1, 0, 0.05), p + Vector3(1, height - 2, 0.05), 0.1, AMBER)
+	_strut(view, p + Vector3(width - 1, 0, 0.05), p + Vector3(width - 1, height - 2, 0.05), 0.1, AMBER)
+End Sub
+
+Sub _tube(ByVal view As Node, ByVal a As Vector3, ByVal b As Vector3, ByVal radius As Single, ByVal color As Color, Optional ribs As Variant = 0)
+	Dim direction As Variant
+	Dim up As Variant
+	Dim right As Variant
+	Dim basis As Variant
+	Dim transform As Variant
+	Dim offset As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	direction = b - a
+	If Abs(direction.normalized().dot(Vector3(0, 1, 0))) > 0.95 Then
+		up = Vector3(0, 0, -1)
+	Else
+		up = Vector3(0, 1, 0)
+	End If
+	right = up.cross(direction).normalized()
+	basis = Basis(right, direction.normalized(), right.cross(direction).normalized())
+	transform = Transform3D(basis, a)
+	view._cylinder(Vector3(0, 0, 0), radius, direction.length(), 1, color, transform)
+	For i = 0 To (4 - 1)
+		offset = Vector3(Cos(i * PI / 2), 0, Sin(i * PI / 2)) * radius
+		view.segment(transform * offset, transform * (offset + Vector3(0, 1, 0) * direction.length()), color * 0.65)
+	Next
+	For i = 1 To (ribs + 1 - 1)
+		view._ring(Vector3(0, direction.length() * i / (ribs + 1), 0), radius * 1.025, 1, color, transform)
+	Next
+End Sub
+
+Sub _pipe(ByVal view As Node, ByVal points As Array, ByVal radius As Single, ByVal color As Color)
+	Call EnsureInit()
+	For i = 0 To (points.size() - 1 - 1)
+		_tube(view, points(i), points(i + 1), radius, color)
+		view._ring(Vector3(0, 0, 0), radius * 1.18, 1, color, Transform3D(Basis(), points(i)))
+	Next
+End Sub
+
+Sub _refinery(ByVal view As Node, ByVal p As Vector3, ByVal radius As Single, ByVal height As Single, ByVal color As Color)
+	Dim angle As Variant
+	Dim edge As Variant
+	Dim next_n As Variant
+	Dim y As Variant
+	Call EnsureInit()
+	_tube(view, p + Vector3(0, 1, 0) * 2, p + Vector3(0, 1, 0) * height, radius, color, 6)
+	For Each y In AsArray(Array(2.0, height * 0.55, height))
+		view._ring(p + Vector3(0, 1, 0) * y, radius + 0.25, 1, color, Transform3D())
+	Next
+	For i = 0 To (12 - 1)
+		angle = 6.283185307179586 * i / 12
+		edge = p + Vector3(Cos(angle) * radius, height, Sin(angle) * radius)
+		next_n = p + Vector3(Cos(angle + 6.283185307179586 / 12) * radius, height, Sin(angle + 6.283185307179586 / 12) * radius)
+		view.face(edge, next_n, p + Vector3(0, 1, 0) * (height + 1.5), p + Vector3(0, 1, 0) * (height + 1.5), color * 0.7)
+	Next
+	For Each side In AsArray(Array(-1.0, 1.0))
+		For Each z In AsArray(Array(-1.0, 1.0))
+			view.box(p + Vector3(side * radius * 0.65 - 0.12, 0, z * radius * 0.65 - 0.12), Vector3(0.24, 2, 0.24), color)
+		Next
+	Next
+	For rung = 1 To (Int(height * 2) - 1)
+		y = rung * 0.5
+		view.segment(p + Vector3(-0.4, y, -radius - 0.3), p + Vector3(0.4, y, -radius - 0.3), color)
+	Next
+	For Each x In AsArray(Array(-0.4, 0.4))
+		view.segment(p + Vector3(x, 0.2, -radius - 0.3), p + Vector3(x, height, -radius - 0.3), color)
+	Next
+	solids.append(Rect2(Vector2(p.x - radius, p.z - radius), Vector2(1, 1) * radius * 2))
+End Sub
+
+Sub _catwalk(ByVal view As Node, ByVal a As Vector3, ByVal b As Vector3, ByVal color As Color)
+	Call EnsureInit()
+	view.box(a + Vector3(0, -0.25, -0.7), Vector3(b.x - a.x, 0.25, 1.4), color * 0.65)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		view.segment(a + Vector3(0, 1, side * 0.7), b + Vector3(0, 1, side * 0.7), color)
+		For x = Int(a.x) To (Int(b.x) + 1 - 1) Step 2
+			view.segment(Vector3(x, a.y, a.z + side * 0.7), Vector3(x, a.y + 1, a.z + side * 0.7), color)
+		Next
+	Next
+	For Each x In AsArray(Array(-12.0, 12.0))
+		_strut(view, Vector3(x, 0, a.z), Vector3(x, a.y, a.z), 0.22, color)
+	Next
+End Sub
+
+Sub _shaft(ByVal view As Node)
+	Dim center As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Dim p As Variant
+	Dim q As Variant
+	Call EnsureInit()
+	center = Vector3(0, -0.1, 100)
+	For i = 0 To (48 - 1)
+		a = 6.283185307179586 * i / 48
+		b = 6.283185307179586 * (i + 1) / 48
+		p = Vector3(Cos(a), 0, Sin(a))
+		q = Vector3(Cos(b), 0, Sin(b))
+		view.face(center + p * 9, center + q * 9, center + q * 6, center + p * 6, CYAN)
+		view.face(center + p * 6, center + q * 6, center + q * 6 - Vector3(0, 1, 0) * 5, center + p * 6 - Vector3(0, 1, 0) * 5, CYAN * 0.6)
+		If i  Mod  3 = 0 Then
+			view.segment(center + p * 8.5, center + p * 8.5 + Vector3(0, 1, 0), CYAN)
+			view.segment(center + p * 8.5 + Vector3(0, 1, 0), center + q * 8.5 + Vector3(0, 1, 0), CYAN)
+		End If
+	Next
+	solids.append(Rect2(-6, 94, 12, 12))
+	For Each z In AsArray(Array(91.0, 109.0))
+		_road_strip(view, Vector3(0, 0, z), 3, 24, True)
+	Next
+End Sub
+
+Sub _beam(ByVal view As Node)
+	Dim angle As Variant
+	Dim offset As Variant
+	Call EnsureInit()
+	_tube(view, Vector3(0, -4, 100), Vector3(0, 64, 100), 0.48, WHITE)
+	For i = 0 To (8 - 1)
+		angle = i * 6.283185307179586 / 8
+		offset = Vector3(Cos(angle), 0, Sin(angle)) * (0.9 + i * 0.15)
+		view.segment(Vector3(0, 0, 100) + offset, Vector3(0, 58 - i * 3, 100) + offset, WHITE * 0.65)
+	Next
+	view._ring(Vector3(0, 0.05, 100), 5.5, 1, WHITE, Transform3D())
+End Sub
+
+Sub _crane(ByVal view As Node, ByVal p As Vector3)
+	Call EnsureInit()
+	_frame(view, p, 4, 13)
+	_strut(view, p + Vector3(0, 13, 0), p + Vector3(-20, 15, 0), 0.4, AMBER)
+	view.segment(p + Vector3(0, 16, 0), p + Vector3(-20, 15, 0), AMBER)
+	_tube(view, p + Vector3(-19, 15, 0), p + Vector3(-19, 3, 0), 0.035, AMBER)
+	view._ring(p + Vector3(-19, 3, 0), 0.5, 0, AMBER, Transform3D())
+	view.box(p + Vector3(-2, 10, -1.5), Vector3(3, 2, 3), AMBER)
+End Sub
+
+Sub _dock(ByVal view As Node, ByVal p As Vector3)
+	Dim outline As Variant
+	Call EnsureInit()
+	view.box(p + Vector3(-8, -0.5, -10), Vector3(16, 0.5, 21), CYAN * 0.45)
+	solids.append(Rect2(Vector2(p.x - 5, p.z - 7), Vector2(10, 14)))
+	' A tapered, closed hull with a raised canopy and paired engine pods.
+	outline = PackVec2(Array(Vector2(-1.1, 0.7), Vector2(-4.2, 0.8), Vector2(-4.2, 2), Vector2(-2.1, 3), Vector2(2.1, 3), Vector2(4.2, 2), Vector2(4.2, 0.8), Vector2(1.1, 0.7)))
+	view._extrude(outline, 10, CYAN, Transform3D(Basis(), p + Vector3(0, 0, -5)))
+	view.box(p + Vector3(-1.6, 2.7, -1), Vector3(3.2, 1.3, 4), CYAN)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		_tube(view, p + Vector3(side * 4.3, 2, -6), p + Vector3(side * 4.3, 2, 4), 1, CYAN, 4)
+		_tube(view, p + Vector3(side * 4.3, 2, -6.05), p + Vector3(side * 4.3, 2, -5.9), 0.65, AMBER)
+		_strut(view, p + Vector3(side * 2.5, 0, -4), p + Vector3(side * 2.5, 1, -4), 0.2, CYAN)
+	Next
+End Sub
+
+Sub _bottle(ByVal view As Node, ByVal transform As Transform3D, ByVal scale As Single)
+	Dim shaped As Variant
+	Dim profile As Variant
+	Dim angle As Variant
+	Dim next_n As Variant
+	Dim a As Variant
+	Dim b As Variant
+	Dim c As Variant
+	Dim d As Variant
+	Call EnsureInit()
+	shaped = transform.scaled_local(Vector3(1, 1, 1) * scale)
+	profile = PackVec2(Array(Vector2(0, 0.1), Vector2(0.28, 0.12), Vector2(0.42, 0.28), Vector2(0.42, 1.4), Vector2(0.30, 1.62), Vector2(0.12, 1.77), Vector2(0, 1.77)))
+	For i = 0 To (24 - 1)
+		angle = 6.283185307179586 * i / 24
+		next_n = 6.283185307179586 * (i + 1) / 24
+		For j = 0 To (profile.size() - 1 - 1)
+			a = Vector3(Cos(angle) * profile(j).x, profile(j).y, Sin(angle) * profile(j).x)
+			b = Vector3(Cos(next_n) * profile(j).x, profile(j).y, Sin(next_n) * profile(j).x)
+			c = Vector3(Cos(next_n) * profile(j + 1).x, profile(j + 1).y, Sin(next_n) * profile(j + 1).x)
+			d = Vector3(Cos(angle) * profile(j + 1).x, profile(j + 1).y, Sin(angle) * profile(j + 1).x)
+			For Each point In AsArray(Array(a, b, c, a, c, d))
+				view.vertices.append(shaped * point)
+				view.colors.append(Color(0.016, 0.005, 0.014))
+			Next
+			If i  Mod  6 = 0 Then
+				view.segment(shaped * a, shaped * d, PINK * 0.65)
+			End If
+		Next
+	Next
+	view._cylinder(Vector3(0, 1.77, 0), 0.12, 0.3, 1, CYAN, shaped)
+	For Each y In AsArray(Array(0.3, 0.42, 1.3, 1.4))
+		view._ring(Vector3(0, y, 0), 0.45, 1, PINK, shaped)
+	Next
+	view._cylinder(Vector3(-0.3, 1.91, 0), 0.14, 0.6, 0, CYAN, shaped)
+	view._ring(Vector3(0.36, 1.72, 0), 0.19, 0, AMBER, shaped)
+End Sub
+
+Sub _buggy(ByVal view As Node)
+	Dim points As Variant
+	Dim t As Variant
+	Dim p As Variant
+	Call EnsureInit()
+	view.box(Vector3(-0.7, 0.44, -1.7), Vector3(1.4, 0.2, 3.4), PINK)
+	view.box(Vector3(-0.6, 0.7, -0.5), Vector3(1.2, 0.5, 1.2), CYAN * 0.6)
+	For Each side In AsArray(Array(-1.0, 1.0))
+		points = Array(Vector3(side * 0.7, 0.65, 1.7), Vector3(side * 0.7, 1.5, 0.75), Vector3(side * 0.65, 1.6, -0.65), Vector3(side * 0.8, 0.7, -1.55))
+		_pipe(view, points, 0.055, PINK)
+		_strut(view, points(0), points(3), 0.08, PINK)
+		_strut(view, points(1), points(3), 0.065, PINK)
+		For Each z In AsArray(Array(-1.35, 1.4))
+			_tube(view, Vector3(side * 0.48, 0.95, z * 0.8), Vector3(side * 1.05, 0.5, z), 0.07, CYAN)
+			For rib = 0 To (9 - 1)
+				t = rib / 8.0
+				p = Vector3(side * LerpF(0.48, 1.05, t), LerpF(0.95, 0.5, t), LerpF(z * 0.8, z, t))
+				view._ring(p, 0.12, 1, PINK, Transform3D())
+			Next
+			_pipe(view, Array(Vector3(0, 1.3, -1.25), Vector3(side * 0.6, 1.3, -1.4), Vector3(side * 1.0, 0.65, z)), 0.025, CYAN)
+		Next
+	Next
+	For Each z In AsArray(Array(-0.65, 0.75))
+		_tube(view, Vector3(-0.7, 1.55, z), Vector3(0.7, 1.55, z), 0.055, PINK)
+	Next
+	_bottle(view, Transform3D(Basis(Vector3(1, 0, 0), PI / 2), Vector3(0, 1, -1.0)), 0.65)
+	For Each x In AsArray(Array(-0.38, 0.38))
+		view.box(Vector3(x - 0.2, 0.65, -0.4), Vector3(0.4, 0.65, 0.5), PINK * 0.55)
+		_tube(view, Vector3(x, 0.8, 1.6), Vector3(x, 0.8, 1.72), 0.16, AMBER)
+	Next
+	view._ring(Vector3(-0.38, 1.05, 0.8), 0.21, 1, CYAN, Transform3D())
+	view.box(Vector3(-0.76, 0.45, 1.7), Vector3(1.52, 0.12, 0.12), CYAN)
+End Sub
+
+Sub _wheel(ByVal view As Node)
+	Dim angle As Variant
+	Call EnsureInit()
+	view._cylinder(Vector3(-0.2, 0, 0), 0.55, 0.4, 0, PINK, Transform3D())
+	For Each x In AsArray(Array(-0.21, 0.21))
+		view._ring(Vector3(x, 0, 0), 0.39, 0, CYAN, Transform3D(), True)
+		view._ring(Vector3(x, 0, 0), 0.14, 0, CYAN, Transform3D())
+	Next
+	For i = 0 To (16 - 1)
+		angle = i * 6.283185307179586 / 16
+		view.segment(Vector3(-0.2, Cos(angle) * 0.55, Sin(angle) * 0.55), Vector3(0.2, Cos(angle + 0.1) * 0.55, Sin(angle + 0.1) * 0.55), PINK * 0.5)
+	Next
+End Sub
+
+Function blocked(ByVal point As Vector2, ByVal radius As Single) As Boolean
+	Call EnsureInit()
+	If point.x < -58 + radius Or point.x > 58 - radius Or point.y < -12 + radius Or point.y > 154 - radius Then
+		Return True
+	End If
+	For Each rect In AsArray(solids)
+		If rect.grow(radius).has_point(point) Then
+			Return True
+		End If
+	Next
+	Return False
+End Function
+
+Sub move_distance(ByVal distance As Single)
+	Dim delta As Variant
+	Dim steps As Variant
+	Dim radius As Variant
+	Dim step_n As Variant
+	Dim x As Variant
+	Dim z As Variant
+	Dim _t0 As Variant
+	Call EnsureInit()
+	delta = Vector2(Sin(heading), Cos(heading)) * distance
+	steps = Max(1, CeilInt(delta.length() / 0.25))
+	If driving Then
+		radius = 1.4
+	Else
+		radius = 0.35
+	End If
+	For i = 0 To (steps - 1)
+		step_n = delta / steps
+		x = position_xz + Vector2(step_n.x, 0)
+		If Not blocked(x, radius) Then
+			position_xz = x
+		End If
+		z = position_xz + Vector2(0, step_n.y)
+		If Not blocked(z, radius) Then
+			position_xz = z
+		End If
+	Next
+End Sub
+
+Sub interact_vehicle()
+	Dim exit_position As Vector2
+	Call EnsureInit()
+	If inspection <> 0 Then
+		inspection = 0
+	End If
+	If driving Then
+		For Each side In AsArray(Array(1.0, -1.0))
+			exit_position = buggy_position + Vector2(Cos(heading), -Sin(heading)) * side * 2.5
+			If Not blocked(exit_position, 0.35) Then
+				driving = False
+				velocity = 0
+				position_xz = exit_position
+				Exit Sub
+			End If
+		Next
+	ElseIf position_xz.distance_to(buggy_position) < 3.8 Then
+		driving = True
+		position_xz = buggy_position
+		heading = buggy_heading
+		velocity = 0
+	End If
+End Sub
+
+Sub collect_bottle()
+	Dim point As Vector3
+	Call EnsureInit()
+	If driving Then
+		Exit Sub
+	End If
+	For i = 0 To (bottles.size() - 1)
+		point = BOTTLE_POSITIONS(i)
+		If bottles(i).visible And position_xz.distance_to(Vector2(point.x, point.z)) < 2.4 Then
+			bottles(i).visible = False
+			collected = collected + 1
+			Exit Sub
+		End If
+	Next
+End Sub
+
+Sub tick(ByVal delta As Single, ByVal view As Node)
+	Dim turn As Variant
+	Dim throttle As Variant
+	Dim before As Variant
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Dim _t2 As Variant
+	Dim _t3 As Variant
+	Call EnsureInit()
+	If view.menu_tap(KEY_V) Then
+		inspection = (inspection + 1)  Mod  3
+	End If
+	If view.menu_tap(KEY_F) Then
+		interact_vehicle()
+	End If
+	If view.menu_tap(KEY_E) Then
+		collect_bottle()
+	End If
+	If inspection <> 0 Then
+		Exit Sub
+	End If
+	turn = Num(Input.is_physical_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_RIGHT))
+	turn = turn - Num(Input.is_physical_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_LEFT))
+	throttle = Num(Input.is_physical_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_UP))
+	throttle = throttle - Num(Input.is_physical_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_DOWN))
+	If driving Then
+		_t0 = 1.3
+	Else
+		_t0 = 1.7
+	End If
+	heading = heading + turn * delta * (_t0)
+	If driving Then
+		_t1 = turn * 0.4
+	Else
+		_t1 = 0.0
+	End If
+	steering = MoveToward(steering, _t1, delta * 2)
+	If driving Then
+		If throttle > 0 Then
+			_t2 = 18
+		Else
+			_t2 = 6
+		End If
+		If throttle <> 0 Then
+			_t3 = 7
+		Else
+			_t3 = 5
+		End If
+		velocity = MoveToward(velocity, throttle * (_t2), delta * (_t3))
+		before = position_xz
+		move_distance(velocity * delta)
+		If delta > 0 And position_xz.distance_to(before) < Abs(velocity * delta) * 0.2 Then
+			velocity = 0
+		End If
+		buggy_position = position_xz
+		buggy_heading = heading
+		wheel_angle = wheel_angle + velocity * delta / 0.55
+	Else
+		move_distance(throttle * 4.5 * delta)
+	End If
+End Sub
+
+Function render(ByVal view As Node, ByVal time_n As Single, ByVal distance As Single) As Texture2D
+	Dim _t0 As Variant
+	Dim _t1 As Variant
+	Call EnsureInit()
+	If Not initialized Then
+		build(view)
+	End If
+	vehicle.position = Vector3(buggy_position.x, 0, buggy_position.y)
+	vehicle.rotation.y = buggy_heading
+	vehicle.visible = Not driving Or inspection <> 0
+	For Each wheel In AsArray(wheels)
+		wheel.rotation.x = wheel_angle
+		If wheel.position.z > 0 Then
+			_t0 = steering
+		Else
+			_t0 = 0
+		End If
+		wheel.rotation.y = _t0
+	Next
+	beam.scale.x = 1 + Sin(time_n * 2) * 0.05
+	If inspection = 1 Then
+		camera_position = Vector3(52, 43, -12)
+		camera_heading = -0.59
+		camera_pitch = -0.45
+	ElseIf inspection = 2 Then
+		camera_position = Vector3(buggy_position.x + 4.5, 3.2, buggy_position.y + 5)
+		camera_heading = -2.4
+		camera_pitch = -0.3
+	Else
+		camera_position = Vector3(position_xz.x, 1.65, position_xz.y)
+		camera_heading = heading
+		camera_pitch = -0.06
+	End If
+	If inspection = 0 Then
+		_t1 = distance
+	Else
+		_t1 = Max(distance, 220)
+	End If
+	Return view.present(camera_position.x, camera_position.y, camera_position.z, camera_heading, camera_pitch, _t1)
+End Function

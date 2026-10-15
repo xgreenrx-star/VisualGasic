@@ -1,0 +1,24 @@
+' GetNode on a node that is not in the tree must still find its own child.
+' PackedScene.instantiate() returns that situation.
+Attribute VB_Name = "TestGetNodeOutsideTree"
+
+Sub _Ready()
+	Dim root As Object
+	Dim kid As Object
+	Dim found As Object
+	Set root = ClassDB.Instantiate("Node3D")
+	root.name = "Holder"
+	Set kid = ClassDB.Instantiate("MeshInstance3D")
+	kid.name = "ProbeMesh"
+	root.add_child(kid)
+	Set found = root.GetNode("ProbeMesh")
+	If Not found Is Nothing Then
+		If found.name = "ProbeMesh" Then
+			Print "PASS: getnode_outside_tree"
+		Else
+			Print "FAIL: getnode_outside_tree name=" & found.name
+		End If
+	Else
+		Print "FAIL: getnode_outside_tree returned null"
+	End If
+End Sub
