@@ -4755,6 +4755,10 @@ Array VisualGasicLanguage::get_watchpoints() {
 }
 
 bool VisualGasicLanguage::check_watchpoint(const String& variable_name, const Variant& new_value) {
+    // Called on every global store; no watchpoints is the normal case.
+    if (watchpoints.empty()) {
+        return false;
+    }
     std::string key = variable_name.utf8().get_data();
     auto it = watchpoints.find(key);
     if (it == watchpoints.end()) {

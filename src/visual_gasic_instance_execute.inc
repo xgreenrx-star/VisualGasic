@@ -16,6 +16,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         debug_state.current_line = stmt->line;
         if (!debug_bc_source_file.is_empty()) {
             debug_state.current_file = debug_bc_source_file;
+            debug_state.current_file_id = -2;
         }
     }
     
@@ -512,6 +513,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              ForEachStatement* s = (ForEachStatement*)stmt;
              Variant col = evaluate_expression(s->collection);
              bool has_index = !s->index_variable_name.is_empty();
+
+             // Packed arrays iterate like Arrays — the bytecode VM and the
+             // Await continuation already accept them; the tiers must agree.
+             if (col.get_type() != Variant::ARRAY && col.get_type() != Variant::DICTIONARY &&
+                     col.get_type() != Variant::STRING && col.get_type() != Variant::NIL &&
+                     Variant::can_convert(col.get_type(), Variant::ARRAY)) {
+                 col = Array(col);
+             }
              
              if (col.get_type() == Variant::ARRAY) {
                  Array arr = col;
@@ -2586,11 +2595,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             TryStatement* s = (TryStatement*)stmt;
             
             // Execute Try Block
+            active_try_depth++;
             for(int i=0; i<s->try_block.size(); i++) {
                 execute_statement(s->try_block[i]);
                 if (error_state.has_error && error_state.mode == ErrorState::NONE) break; // Runtime Error
                 if (error_state.mode != ErrorState::NONE && error_state.mode != ErrorState::GOTO_LABEL) break; // Break/Return/Exit
             }
+            active_try_depth--;
             
             bool error_handled = false;
             if (error_state.has_error && error_state.mode == ErrorState::NONE) {

@@ -34,23 +34,47 @@ static const char* GODOT_TYPE_CONSTRUCTORS[] = {
     nullptr  // sentinel
 };
 
-// Helper to check if a name is a known Godot type constructor (case-insensitive)
-inline bool is_godot_type_constructor(const String& name) {
-    String name_lower = name.to_lower();
+// Index into GODOT_TYPE_CONSTRUCTORS (+1), so the VM can resolve a name once
+// per call site and construct by kind afterwards.  0 = not a constructor.
+enum GodotCtorKind : int8_t {
+    GODOT_CTOR_NONE = 0,
+    GODOT_CTOR_VECTOR2,
+    GODOT_CTOR_VECTOR2I,
+    GODOT_CTOR_VECTOR3,
+    GODOT_CTOR_VECTOR3I,
+    GODOT_CTOR_VECTOR4,
+    GODOT_CTOR_VECTOR4I,
+    GODOT_CTOR_RECT2,
+    GODOT_CTOR_RECT2I,
+    GODOT_CTOR_COLOR,
+    GODOT_CTOR_TRANSFORM2D,
+    GODOT_CTOR_TRANSFORM3D,
+    GODOT_CTOR_BASIS,
+    GODOT_CTOR_QUATERNION,
+    GODOT_CTOR_PLANE,
+    GODOT_CTOR_AABB,
+};
+
+// Case-insensitive name → kind.  One nocasecmp_to per table entry; no
+// to_lower() temporary.
+inline GodotCtorKind godot_type_constructor_kind(const String& name) {
     for (int i = 0; GODOT_TYPE_CONSTRUCTORS[i]; ++i) {
-        if (name_lower == GODOT_TYPE_CONSTRUCTORS[i]) {
-            return true;
+        if (name.nocasecmp_to(GODOT_TYPE_CONSTRUCTORS[i]) == 0) {
+            return (GodotCtorKind)(i + 1);
         }
     }
-    return false;
+    return GODOT_CTOR_NONE;
 }
 
-// Helper to construct a Godot type by name from an array of arguments
-// Returns Variant() (NIL) if the type is unknown or construction fails
-inline Variant construct_godot_type(const String& name, const Array& args) {
-    String name_lower = name.to_lower();
-    
-    if (name_lower == "vector2") {
+// Helper to check if a name is a known Godot type constructor (case-insensitive)
+inline bool is_godot_type_constructor(const String& name) {
+    return godot_type_constructor_kind(name) != GODOT_CTOR_NONE;
+}
+
+// Construct a Godot built-in by resolved kind.
+// Returns Variant() (NIL) if the kind is unknown or construction fails
+inline Variant construct_godot_type_by_kind(GodotCtorKind kind, const Array& args) {
+    if (kind == GODOT_CTOR_VECTOR2) {
         if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2I) {
             return Vector2((Vector2i)args[0]);
         }
@@ -61,7 +85,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         if (args.size() == 1) return Vector2((float)args[0], (float)args[0]);
         return Vector2();
     }
-    if (name_lower == "vector2i") {
+    if (kind == GODOT_CTOR_VECTOR2I) {
         if (args.size() == 1 && args[0].get_type() == Variant::VECTOR2) {
             return Vector2i((Vector2)args[0]);
         }
@@ -73,27 +97,27 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Vector2i();
     }
     
-    if (name_lower == "vector3") {
+    if (kind == GODOT_CTOR_VECTOR3) {
         if (args.size() >= 3) return Vector3((float)args[0], (float)args[1], (float)args[2]);
         if (args.size() >= 2) return Vector3((float)args[0], (float)args[1], 0.0f);
         if (args.size() == 1) return Vector3((float)args[0], (float)args[0], (float)args[0]);
         return Vector3();
     }
-    if (name_lower == "vector3i") {
+    if (kind == GODOT_CTOR_VECTOR3I) {
         if (args.size() >= 3) return Vector3i((int)args[0], (int)args[1], (int)args[2]);
         if (args.size() >= 2) return Vector3i((int)args[0], (int)args[1], 0);
         if (args.size() == 1) return Vector3i((int)args[0], (int)args[0], (int)args[0]);
         return Vector3i();
     }
     
-    if (name_lower == "vector4") {
+    if (kind == GODOT_CTOR_VECTOR4) {
         if (args.size() >= 4) return Vector4((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         if (args.size() >= 3) return Vector4((float)args[0], (float)args[1], (float)args[2], 0.0f);
         if (args.size() >= 2) return Vector4((float)args[0], (float)args[1], 0.0f, 0.0f);
         if (args.size() == 1) return Vector4((float)args[0], (float)args[0], (float)args[0], (float)args[0]);
         return Vector4();
     }
-    if (name_lower == "vector4i") {
+    if (kind == GODOT_CTOR_VECTOR4I) {
         if (args.size() >= 4) return Vector4i((int)args[0], (int)args[1], (int)args[2], (int)args[3]);
         if (args.size() >= 3) return Vector4i((int)args[0], (int)args[1], (int)args[2], 0);
         if (args.size() >= 2) return Vector4i((int)args[0], (int)args[1], 0, 0);
@@ -101,14 +125,14 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Vector4i();
     }
     
-    if (name_lower == "rect2") {
+    if (kind == GODOT_CTOR_RECT2) {
         if (args.size() == 2 && args[0].get_type() == Variant::VECTOR2 && args[1].get_type() == Variant::VECTOR2) {
             return Rect2((Vector2)args[0], (Vector2)args[1]);
         }
         if (args.size() >= 4) return Rect2((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         return Rect2();
     }
-    if (name_lower == "rect2i") {
+    if (kind == GODOT_CTOR_RECT2I) {
         if (args.size() == 2 && args[0].get_type() == Variant::VECTOR2I && args[1].get_type() == Variant::VECTOR2I) {
             return Rect2i((Vector2i)args[0], (Vector2i)args[1]);
         }
@@ -116,7 +140,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Rect2i();
     }
     
-    if (name_lower == "color") {
+    if (kind == GODOT_CTOR_COLOR) {
         if (args.size() >= 4) return Color((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         if (args.size() >= 3) return Color((float)args[0], (float)args[1], (float)args[2], 1.0f);
         if (args.size() >= 1) {
@@ -126,7 +150,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Color();
     }
     
-    if (name_lower == "transform2d") {
+    if (kind == GODOT_CTOR_TRANSFORM2D) {
         // Transform2D() — default; Transform2D(rotation, position)
         if (args.size() >= 2) {
             float rot = (float)args[0];
@@ -139,7 +163,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Transform2D();
     }
     
-    if (name_lower == "transform3d") {
+    if (kind == GODOT_CTOR_TRANSFORM3D) {
         // Transform3D() — identity; Transform3D(basis, origin)
         if (args.size() == 2 && args[0].get_type() == Variant::BASIS && args[1].get_type() == Variant::VECTOR3) {
             return Transform3D((Basis)args[0], (Vector3)args[1]);
@@ -147,7 +171,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Transform3D();
     }
     
-    if (name_lower == "basis") {
+    if (kind == GODOT_CTOR_BASIS) {
         // Basis() identity; Basis(quaternion); Basis(axis, angle); Basis(x, y, z)
         if (args.size() == 1 && args[0].get_type() == Variant::QUATERNION) {
             return Basis((Quaternion)args[0]);
@@ -161,14 +185,14 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Basis();
     }
     
-    if (name_lower == "quaternion") {
+    if (kind == GODOT_CTOR_QUATERNION) {
         // Quaternion() — identity; Quaternion(x, y, z, w)
         if (args.size() >= 4) return Quaternion((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         if (args.size() >= 3) return Quaternion((float)args[0], (float)args[1], (float)args[2], 1.0f);
         return Quaternion();
     }
     
-    if (name_lower == "plane") {
+    if (kind == GODOT_CTOR_PLANE) {
         // Plane() — at origin; Plane(normal, d) or Plane(a, b, c, d)
         if (args.size() >= 4) return Plane((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
         if (args.size() >= 2) {
@@ -180,7 +204,7 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
         return Plane();
     }
     
-    if (name_lower == "aabb") {
+    if (kind == GODOT_CTOR_AABB) {
         // AABB() — at origin; AABB(position, size)
         if (args.size() >= 4) {
             Vector3 pos((float)args[0], (float)args[1], (float)args[2]);
@@ -197,6 +221,12 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
     
     // Unknown type
     return Variant();
+}
+
+// Helper to construct a Godot type by name from an array of arguments
+// Returns Variant() (NIL) if the type is unknown or construction fails
+inline Variant construct_godot_type(const String& name, const Array& args) {
+    return construct_godot_type_by_kind(godot_type_constructor_kind(name), args);
 }
 
 // Godot Dictionary keys are typed: int 0 and float 0.0 do not match.

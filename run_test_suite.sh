@@ -223,6 +223,22 @@ for vg_file in "${TEST_FILES[@]}"; do
     # Count PASS and FAIL lines
     pass_count=$(echo "$output" | grep -c "^PASS:" || true)
     fail_count=$(echo "$output" | grep -c "^FAIL:" || true)
+
+    # An unhandled runtime error aborts the rest of the fixture; the PASS
+    # lines printed before it must not make the file green.  The engine
+    # prints this line only when no On Error handler is active.  Fixtures
+    # that deliberately leave an error unhandled opt out with a
+    # `' EXPECT_UNHANDLED_RUNTIME_ERROR` comment.
+    abort_count=$(echo "$output" | grep -c "^\[VG Runtime Error " || true)
+    if [ "$abort_count" -gt 0 ] && ! grep -q "EXPECT_UNHANDLED_RUNTIME_ERROR" "$vg_file"; then
+        abort_lines=$(echo "$output" | grep -m 3 "^\[VG Runtime Error " || true)
+        while read -r line; do
+            if [ -n "$line" ]; then
+                echo -e "       ${RED}ABORTED: $line${NC}"
+            fi
+        done <<< "$abort_lines"
+        fail_count=$((fail_count + abort_count))
+    fi
     
     # Detect if test produced no PASS/FAIL at all (broken test)
     if [ "$pass_count" -eq 0 ] && [ "$fail_count" -eq 0 ]; then

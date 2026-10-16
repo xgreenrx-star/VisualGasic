@@ -99,6 +99,69 @@ private:
     };
     HashMap<String, CallResolutionCacheEntry> _call_resolution_cache;
 
+    // Per-constant-slot memo used by the bytecode VM (OP_CALL / OP_GET_MEMBER /
+    // OP_SET_MEMBER / OP_GET_GLOBAL / OP_METHOD_CALL / OP_NEW_OBJECT).  A chunk's
+    // constant pool is immutable, so everything derived from a name at slot
+    // `idx` — its StringName, snake_case form, draw kind, Array()/VarType()
+    // flags, the user-Sub resolution for a call site, and whether `New X(...)`
+    // is a Godot type constructor — is valid for as long as the chunk exists.
+    struct MemberNameCacheEntry {
+        enum class AccessPreference : uint8_t {
+            UNKNOWN,
+            PRIMARY,
+            SNAKE,
+        };
+        struct ClassPreference {
+            StringName class_name;
+            AccessPreference preference = AccessPreference::UNKNOWN;
+        };
+        bool initialized = false;
+        String primary_string;
+        StringName primary_name;
+        bool snake_computed = false;
+        bool has_snake = false;
+        StringName snake_name;
+        Vector<ClassPreference> class_preferences;
+        // Part F: memoized special-global test (-1 unknown, 0 no, 1 yes).
+        int8_t is_special_global = -1;
+        // Part H: per-call-site OP_CALL resolution memo.
+        // call_disp: -1 unknown, 0 = known user Sub, 1 = cached engine/owner call.
+        // call_argc validates the memo against this site's arg count (overloads).
+        int8_t call_disp = -1;
+        int32_t call_argc = -1;
+        // Part I: cached full resolution for a known user Sub (call_disp==0).
+        CallResolutionCacheEntry call_res;
+        // Draw builtin kind (classify_draw_kind); 0 = not a draw call.
+        int8_t draw_kind = 0;
+        // VB6 Array(...) literal.
+        bool is_array_ctor = false;
+        // VarType(x).
+        bool is_vartype = false;
+        // Pure numeric builtins the VM evaluates inline instead of walking
+        // the ~450-entry strcmp cascade (Min/Int were 33k calls per
+        // Backlight City build).  Values mirror the cascade entries exactly.
+        enum PureBuiltin : int8_t { PB_NONE = 0, PB_MIN, PB_MAX, PB_INT, PB_FIX, PB_LERPF };
+        int8_t pure_builtin = PB_NONE;
+        // OP_NEW_OBJECT: 0 = not yet classified, 1 = Godot built-in type
+        // constructor (Vector3/Color/Basis/...), reached only after the
+        // packed-array / struct / class_registry / ClassDB branches all missed.
+        int8_t new_object_kind = 0;
+        // GodotCtorKind when new_object_kind == 1.
+        int8_t godot_ctor_kind = 0;
+    };
+
+    // The memo above used to live on execute_bytecode()'s stack, so it was
+    // rebuilt on every call: a short helper such as _triangle() re-interned
+    // and re-classified every name it touched on every invocation (StringName
+    // construction, to_lower, classify_draw_kind, the OP_NEW_OBJECT nocasecmp
+    // cascade).  Main-thread execution now keeps one vector per chunk here.
+    // Parallel-For workers still use a per-run local vector (they run
+    // concurrently on other threads).  Keyed by chunk pointer; the map is
+    // dropped whenever the script's bytecode generation changes (hot reload
+    // frees and recompiles every chunk), so a recycled address cannot alias.
+    HashMap<const BytecodeChunk *, Vector<MemberNameCacheEntry>> _member_cache_by_chunk;
+    uint32_t _member_cache_generation = 0;
+
     // Part C (v6.0 perf): (name#argcount) pairs proven to resolve only at the
     // deep call fallback — statement/drawing builtins (SetImagePixel, BlitImage,
     // …) or owner-node methods.  Lets hot per-pixel/per-frame engine calls skip
@@ -314,6 +377,14 @@ private:
         String error_file;  // Source file for error_line (Include-aware)
     } error_state;
 
+    // Number of enclosing handlers able to catch an error raised right now:
+    // bytecode Try handler stack + AST Try bodies + Await-coroutine Try frames
+    // + callers whose On Error mode is active (VB6 propagates callee errors
+    // to the caller's handler).  Neither is visible in error_state.mode, so
+    // raise_error() consults this to log a caught error as "handled" instead
+    // of "[VG Runtime Error]" — which the test runner treats as an abort.
+    int active_try_depth = 0;
+
 	struct AstAwaitFrame {
 		Vector<Statement *> statements;
 		Statement *control = nullptr;
@@ -366,6 +437,11 @@ private:
         int merged_line = 0; // Pre-Include-expansion line (bytecode/AST)
         int current_line = 0;
         String current_file;
+        // Identity of current_file for the OP_LINE fast path: which script
+        // and which source_files id it was copied from.  -2 = unknown /
+        // set from an Import module path (always re-checked).
+        const void *current_file_script = nullptr;
+        int current_file_id = -2;
         bool debug_paused = false;
         enum StepMode { STEP_NONE, STEP_INTO, STEP_OVER, STEP_OUT } step_mode = STEP_NONE;
         int step_depth = 0;  // For step over/out tracking

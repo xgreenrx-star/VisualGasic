@@ -431,6 +431,11 @@ bool VGGodotOwnerBuiltins::try_resolve_node_on_base(VisualGasicInstance *instanc
 	if (p_args.is_empty()) {
 		return false;
 	}
+	// Every name this resolves starts with "get"; skip the to_lower()+utf8()
+	// temporaries for the other ~all method calls routed through here.
+	if (p_method.length() < 7 || (p_method[0] | 0x20) != 'g') {
+		return false;
+	}
 	const CharString _utf8 = p_method.to_lower().utf8();
 	const char *m = _utf8.get_data() ? _utf8.get_data() : "";
 	if (std::strcmp(m, "getnode") != 0 && std::strcmp(m, "get_node") != 0 &&

@@ -81,12 +81,12 @@ bool jit_tier2_chunk_has_non_numeric_slots(const BytecodeChunk *chunk) {
 	if (!chunk || !chunk->fast_params) {
 		return false;
 	}
-	// 3 = String in the compiler's fast_*_coerce enum.
-	if (chunk->fast_return_coerce == 3) {
+	// 3 = String, 5 = Array in the compiler's fast_*_coerce enum.
+	if (chunk->fast_return_coerce == 3 || chunk->fast_return_coerce == 5) {
 		return true;
 	}
 	for (int i = 0; i < chunk->fast_param_coerce.size(); i++) {
-		if (chunk->fast_param_coerce[i] == 3) {
+		if (chunk->fast_param_coerce[i] == 3 || chunk->fast_param_coerce[i] == 5) {
 			return true;
 		}
 	}

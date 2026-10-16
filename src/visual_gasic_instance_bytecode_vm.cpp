@@ -352,10 +352,13 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
     // (parallel worker / sub-range) stays on the interpreter.
     if (p_ip_start == 0 && p_ip_end <= 0 && func && !p_initial_locals
         && !(chunk->fast_params && p_fast_args == nullptr)) {
-        std::string jit_name;
-        if (func->name.length() > 0) {
-            jit_name = std::string(func->name.utf8().get_data());
+        if (!chunk->jit_name_cached) {
+            if (func->name.length() > 0) {
+                chunk->jit_name_cache = std::string(func->name.utf8().get_data());
+            }
+            chunk->jit_name_cached = true;
         }
+        const std::string &jit_name = chunk->jit_name_cache;
         if (!jit_name.empty()) {
             // ── Tier 3: record bytecode size for call-graph profiling ───
             vgjit3::Tier3& t3 = vgjit3::thread_jit3();
@@ -1288,6 +1291,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 			try_handler_stack.push_back({handler.first, handler.second + (int)stack_base});
 		}
 	}
+    // Publish this run's live handler count on top of the caller's so
+    // raise_error() can tell a Try-caught error from an unhandled one.
+    // RAII-restored on every exit (cleanup, early return on Await suspend).
+    struct TryDepthGuard {
+        int &ref; int prev;
+        TryDepthGuard(int &r) : ref(r), prev(r) {}
+        ~TryDepthGuard() { ref = prev; }
+    } _try_depth_guard(active_try_depth);
+    const int _prev_try_depth = _try_depth_guard.prev;
+    auto sync_try_depth = [&]() { active_try_depth = _prev_try_depth + try_handler_stack.size(); };
+    sync_try_depth();
 
     // Snapshot global variables that this function may write via OP_SET_GLOBAL.
     // If bytecode execution fails and the AST fallback re-runs the function,
@@ -1489,6 +1503,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (!try_handler_stack.is_empty()) {
             TryHandler handler = try_handler_stack[try_handler_stack.size() - 1];
             try_handler_stack.resize(try_handler_stack.size() - 1);
+            sync_try_depth();
             // Build exception dictionary (matches OP_THROW behavior)
             Dictionary ex;
             ex["Description"] = error_state.message;
@@ -1551,48 +1566,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         return false;
     };
 
-    struct MemberNameCacheEntry {
-        enum class AccessPreference : uint8_t {
-            UNKNOWN,
-            PRIMARY,
-            SNAKE,
-        };
-        struct ClassPreference {
-            StringName class_name;
-            AccessPreference preference = AccessPreference::UNKNOWN;
-        };
-        bool initialized = false;
-        String primary_string;
-        StringName primary_name;
-        bool snake_computed = false;
-        bool has_snake = false;
-        StringName snake_name;
-        Vector<ClassPreference> class_preferences;
-        // Part F: memoized special-global test (-1 unknown, 0 no, 1 yes).
-        // The name at a given constant slot is immutable, so OP_GET_GLOBAL
-        // runs to_lower + the HashSet probe once per distinct name instead of
-        // once per read (to_lower was ~12% of C64 runtime after Part E).
-        int8_t is_special_global = -1;
-        // Part H: per-call-site OP_CALL resolution memo (this execute_bytecode run).
-        // call_disp: -1 unknown, 0 = known user Sub, 1 = cached engine/owner call.
-        // call_argc validates the memo against this site's arg count (overloads).
-        int8_t call_disp = -1;
-        int32_t call_argc = -1;
-        // Part I: cached full resolution for a known user Sub (call_disp==0), copied
-        // from _call_resolution_cache so call_internal() can skip its own to_lower +
-        // "name#argc" concat + hashmap probe + linear rescan on every hot-path call.
-        CallResolutionCacheEntry call_res;
-        // Draw builtin kind (classify_draw_kind); 0 = not a draw call. Set once per constant.
-        int8_t draw_kind = 0;
-    };
-
-    // Lazily sized on first member-cache opcode (OP_CALL / OP_GET_MEMBER /
-    // OP_SET_MEMBER / OP_GET_GLOBAL).  A leaf chunk that uses none of those
-    // (e.g. a pure-arithmetic helper like `f(x) = x + 1`) never touches it, so
-    // it never allocates — removing a per-call Vector<MemberNameCacheEntry>
-    // alloc plus N heavy-entry (String+StringName+Vector+CallResolutionCacheEntry)
-    // construct/destruct (~2% of call-heavy runtime) on every such leaf call.
-    Vector<MemberNameCacheEntry> member_name_cache;
+    // MemberNameCacheEntry is declared in visual_gasic_instance.h.  Main-thread
+    // runs share one vector per chunk (_member_cache_by_chunk) so the memo
+    // survives across calls: the Backlight City build invokes _triangle()/
+    // _quad()/_box() tens of thousands of times, and a per-run cache made each
+    // of those calls re-intern every StringName, re-run classify_draw_kind and
+    // re-walk the OP_NEW_OBJECT nocasecmp cascade for Vector3/Color/Basis.
+    // Parallel-For workers run concurrently on other threads, so they keep a
+    // per-run local vector exactly as before.  HashMap nodes are individually
+    // allocated, so the reference taken here stays valid while nested calls
+    // insert entries for other chunks.
+    Vector<MemberNameCacheEntry> local_member_name_cache;
+    Vector<MemberNameCacheEntry> *member_name_cache_ptr = &local_member_name_cache;
+    if (!is_parallel_worker && script.is_valid()) {
+        if (_member_cache_generation != script->bytecode_generation) {
+            _member_cache_by_chunk.clear();
+            _call_resolution_cache.clear();
+            _member_cache_generation = script->bytecode_generation;
+        }
+        member_name_cache_ptr = &_member_cache_by_chunk[chunk];
+    }
+    Vector<MemberNameCacheEntry> &member_name_cache = *member_name_cache_ptr;
 
     auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
         // Lazy first-touch allocation (see declaration above): a chunk reaches
@@ -1606,6 +1600,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             entry.primary_string = String(member_variant);
             entry.primary_name = entry.primary_string;
             entry.draw_kind = classify_draw_kind(entry.primary_string);
+            entry.is_array_ctor = entry.primary_string.nocasecmp_to("Array") == 0;
+            entry.is_vartype = entry.primary_string.nocasecmp_to("VarType") == 0;
+            {
+                const String &ps = entry.primary_string;
+                const int plen = ps.length();
+                if (plen == 3 || plen == 5) {
+                    if (ps.nocasecmp_to("Min") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_MIN;
+                    else if (ps.nocasecmp_to("Max") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_MAX;
+                    else if (ps.nocasecmp_to("Int") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_INT;
+                    else if (ps.nocasecmp_to("Fix") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_FIX;
+                    else if (ps.nocasecmp_to("LerpF") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_LERPF;
+                }
+            }
             entry.initialized = true;
         }
         return entry;
@@ -1626,16 +1633,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         return entry.has_snake;
     };
 
-    auto resolve_class_preference = [&](MemberNameCacheEntry &entry, const StringName &class_name) -> MemberNameCacheEntry::AccessPreference* {
+    // Returns an index, not a pointer: the entry is shared across runs now, and
+    // the obj->get()/set() calls made while a preference is being established
+    // can re-enter VG (setter signals) and push_back() onto the same vector.
+    auto resolve_class_preference = [&](MemberNameCacheEntry &entry, const StringName &class_name) -> int {
         for (int i = 0; i < entry.class_preferences.size(); i++) {
             if (entry.class_preferences[i].class_name == class_name) {
-                return &entry.class_preferences.write[i].preference;
+                return i;
             }
         }
         MemberNameCacheEntry::ClassPreference pref;
         pref.class_name = class_name;
         entry.class_preferences.push_back(pref);
-        return &entry.class_preferences.write[entry.class_preferences.size() - 1].preference;
+        return entry.class_preferences.size() - 1;
     };
 
     // -------- Computed-goto threaded dispatch (GCC/Clang) --------
@@ -1974,7 +1984,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
                 int name_idx = read_const_index();
                 uint8_t arg_count = code[vm.ip++];
-                String class_name = read_constant(name_idx);
+                MemberNameCacheEntry &_nc = ensure_member_cache_entry(name_idx);
+                const String &class_name = _nc.primary_string;
 
                 // Pop args (pushed left-to-right, so collect in reverse)
                 Array args_arr;
@@ -1983,42 +1994,59 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     args_arr[i] = pop_value();
                 }
 
+                // Vector3(...)/Color(...)/Basis(...) resolved to the Godot
+                // type-constructor branch at the bottom on an earlier run of
+                // this site.  Every branch above it is a pure function of the
+                // name (packed arrays, structs, class_registry, ClassDB), so
+                // skip the ~60 nocasecmp_to probes it took to get there.
+                if (_nc.new_object_kind == 1) {
+                    push_value(construct_godot_type_by_kind((GodotCtorKind)_nc.godot_ctor_kind, args_arr));
+                    break;
+                }
+
                 // Dim As Packed*Array. Each evaluation must own its buffer.
-                if (class_name.nocasecmp_to("PackedByteArray") == 0) {
-                    push_value(PackedByteArray());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedInt32Array") == 0) {
-                    push_value(PackedInt32Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedInt64Array") == 0) {
-                    push_value(PackedInt64Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedFloat32Array") == 0) {
-                    push_value(PackedFloat32Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedFloat64Array") == 0) {
-                    push_value(PackedFloat64Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedStringArray") == 0) {
-                    push_value(PackedStringArray());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedVector2Array") == 0) {
-                    push_value(PackedVector2Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedVector3Array") == 0) {
-                    push_value(PackedVector3Array());
-                    break;
-                }
-                if (class_name.nocasecmp_to("PackedColorArray") == 0) {
-                    push_value(PackedColorArray());
-                    break;
+                // Resolved once per site into new_object_kind (10 + Variant::Type);
+                // a helper that Dims a PackedVector3Array per call paid eight
+                // nocasecmp_to probes to get here on every invocation.
+                {
+                    static const struct { const char *name; Variant::Type type; } _packed_ctors[] = {
+                        { "PackedByteArray", Variant::PACKED_BYTE_ARRAY },
+                        { "PackedInt32Array", Variant::PACKED_INT32_ARRAY },
+                        { "PackedInt64Array", Variant::PACKED_INT64_ARRAY },
+                        { "PackedFloat32Array", Variant::PACKED_FLOAT32_ARRAY },
+                        { "PackedFloat64Array", Variant::PACKED_FLOAT64_ARRAY },
+                        { "PackedStringArray", Variant::PACKED_STRING_ARRAY },
+                        { "PackedVector2Array", Variant::PACKED_VECTOR2_ARRAY },
+                        { "PackedVector3Array", Variant::PACKED_VECTOR3_ARRAY },
+                        { "PackedColorArray", Variant::PACKED_COLOR_ARRAY },
+                    };
+                    Variant::Type packed_type = Variant::NIL;
+                    if (_nc.new_object_kind >= 10) {
+                        packed_type = (Variant::Type)(_nc.new_object_kind - 10);
+                    } else if (_nc.new_object_kind == 0 && class_name.length() > 6 &&
+                               (class_name[0] | 0x20) == 'p' && (class_name[1] | 0x20) == 'a') {
+                        for (const auto &pc : _packed_ctors) {
+                            if (class_name.nocasecmp_to(pc.name) == 0) {
+                                packed_type = pc.type;
+                                _nc.new_object_kind = (int8_t)(10 + (int)pc.type);
+                                break;
+                            }
+                        }
+                    }
+                    if (packed_type != Variant::NIL) {
+                        switch (packed_type) {
+                            case Variant::PACKED_BYTE_ARRAY: push_value(PackedByteArray()); break;
+                            case Variant::PACKED_INT32_ARRAY: push_value(PackedInt32Array()); break;
+                            case Variant::PACKED_INT64_ARRAY: push_value(PackedInt64Array()); break;
+                            case Variant::PACKED_FLOAT32_ARRAY: push_value(PackedFloat32Array()); break;
+                            case Variant::PACKED_FLOAT64_ARRAY: push_value(PackedFloat64Array()); break;
+                            case Variant::PACKED_STRING_ARRAY: push_value(PackedStringArray()); break;
+                            case Variant::PACKED_VECTOR2_ARRAY: push_value(PackedVector2Array()); break;
+                            case Variant::PACKED_VECTOR3_ARRAY: push_value(PackedVector3Array()); break;
+                            default: push_value(PackedColorArray()); break;
+                        }
+                        break;
+                    }
                 }
                 // MemoryBlock → PackedByteArray
                 if (class_name.nocasecmp_to("MemoryBlock") == 0) {
@@ -2145,10 +2173,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 // Godot built-in type constructors (Vector2i, Rect2i, Color, etc.)
-                if (is_godot_type_constructor(class_name)) {
-                    Variant result = construct_godot_type(class_name, args_arr);
-                    push_value(result);
-                    break;
+                {
+                    const GodotCtorKind _ck = godot_type_constructor_kind(class_name);
+                    if (_ck != GODOT_CTOR_NONE) {
+                        _nc.new_object_kind = 1;
+                        _nc.godot_ctor_kind = (int8_t)_ck;
+                        push_value(construct_godot_type_by_kind(_ck, args_arr));
+                        break;
+                    }
                 }
                 // Unknown class — push Nil
                 push_value(Variant());
@@ -2297,6 +2329,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }  // end special-identifier gate (Part E)
                 
                 Variant val = variables.get(name, Variant());
+                // The name exists in variables[] (a ByRef / Optional parameter
+                // bound to Nothing, or a module Dim never assigned): that NIL
+                // is the value. The AST walker returns variables[name] here;
+                // the fallbacks below (singletons, root scan, res://Name.tscn
+                // probe, owner->get, recursive find_child) are for undeclared
+                // identifiers and cost ~1 ms per read.
+                if (val.get_type() == Variant::NIL && variables.has(name)) {
+                    push_value(val);
+                    break;
+                }
                 
                 // Fallback to built-in constants (separated so debugger only shows user vars)
                 if (val.get_type() == Variant::NIL && builtin_constants.has(name)) {
@@ -2620,9 +2662,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant val = read_local(slot);
                 
+                // A declared parameter or Dim holding NIL is Nothing. The
+                // control-name / form lookup below is for undeclared
+                // identifiers only (AST parity: variables[name] wins when the
+                // name exists). An omitted `Optional normal As Variant` read
+                // on every call otherwise pays two recursive find_child()
+                // walks plus a ResourceLoader::exists() probe.
+                const bool declared_slot = slot < chunk->local_declared.size() &&
+                        chunk->local_declared[slot] != 0;
+
                 // If local is NIL, check if it's actually a control name (VB6 style)
                 // or a form name reference (Form1.BackColor from within Form1)
-                if (val.get_type() == Variant::NIL && owner) {
+                if (val.get_type() == Variant::NIL && owner && !declared_slot) {
                     String local_name;
                     if (slot < chunk->local_names.size()) {
                         local_name = chunk->local_names[slot];
@@ -4345,6 +4396,57 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             push_value(Variant());
                             break;
                         }
+                    }
+                    // VB6 Array(a, b, c): same result as the special-case
+                    // cascade below, reached without the builtin strcmp walk.
+                    // The builtin cascade has no "Array" entry, so this is the
+                    // only handler that can claim the name.
+                    if (_mc.is_array_ctor) {
+                        Array literal;
+                        literal.resize(arg_count);
+                        for (int _ai = 0; _ai < arg_count; _ai++) literal[_ai] = args_ptr[_ai];
+                        push_value(literal);
+                        break;
+                    }
+                    // VarType(x): same codes as the builtin cascade entry.
+                    if (_mc.is_vartype && arg_count == 1) {
+                        push_value(VisualGasicBuiltins::vb6_var_type(args_ptr[0]));
+                        break;
+                    }
+                    // Min/Max/Int/Fix/LerpF: inline copies of the cascade entries
+                    // (same arity guards, same coercions).  The builtin cascade
+                    // runs before user-Sub resolution, so claiming them here
+                    // preserves the existing precedence.
+                    if (_mc.pure_builtin != MemberNameCacheEntry::PB_NONE) {
+                        bool _pb_done = true;
+                        switch (_mc.pure_builtin) {
+                            case MemberNameCacheEntry::PB_MIN:
+                                if (arg_count == 2) { double a = (double)args_ptr[0]; double b = (double)args_ptr[1]; push_value(a < b ? a : b); }
+                                else _pb_done = false;
+                                break;
+                            case MemberNameCacheEntry::PB_MAX:
+                                if (arg_count == 2) { double a = (double)args_ptr[0]; double b = (double)args_ptr[1]; push_value(a > b ? a : b); }
+                                else _pb_done = false;
+                                break;
+                            case MemberNameCacheEntry::PB_INT:
+                                if (arg_count == 1) {
+                                    if (args_ptr[0].get_type() == Variant::INT) push_value((int64_t)args_ptr[0]);
+                                    else push_value((int64_t)floor((double)args_ptr[0]));
+                                } else _pb_done = false;
+                                break;
+                            case MemberNameCacheEntry::PB_FIX:
+                                if (arg_count == 1) { double v = (double)args_ptr[0]; push_value(v < 0 ? ceil(v) : floor(v)); }
+                                else _pb_done = false;
+                                break;
+                            case MemberNameCacheEntry::PB_LERPF:
+                                if (arg_count == 3) { double a = args_ptr[0]; double b = args_ptr[1]; double t = args_ptr[2]; push_value(Math::lerp(a, b, t)); }
+                                else _pb_done = false;
+                                break;
+                            default:
+                                _pb_done = false;
+                                break;
+                        }
+                        if (_pb_done) break;
                     }
                 }
 #ifndef VG_WEB_BUILD
@@ -6486,7 +6588,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         
                         StringName class_name = StringName(obj->get_class());
-                        MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
+                        const int class_pref_idx = resolve_class_preference(cache, class_name);
+                        auto set_class_pref = [&](MemberNameCacheEntry::AccessPreference p) {
+                            if (class_pref_idx < cache.class_preferences.size()) {
+                                cache.class_preferences.write[class_pref_idx].preference = p;
+                            }
+                        };
                         auto read_engine_prop = [&](const StringName &name) -> Variant {
                             Variant value;
                             if (try_native_node_property_get(obj, String(name), value)) {
@@ -6502,7 +6609,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             Variant value = read_engine_prop(cache.primary_name);
                             if (value.get_type() != Variant::NIL) {
                                 result = value;
-                                *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                set_class_pref(MemberNameCacheEntry::AccessPreference::PRIMARY);
                                 return true;
                             }
                             return false;
@@ -6514,13 +6621,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             Variant value = read_engine_prop(cache.snake_name);
                             if (value.get_type() != Variant::NIL) {
                                 result = value;
-                                *class_pref = MemberNameCacheEntry::AccessPreference::SNAKE;
+                                set_class_pref(MemberNameCacheEntry::AccessPreference::SNAKE);
                                 return true;
                             }
                             return false;
                         };
 
-                        switch (*class_pref) {
+                        switch (cache.class_preferences[class_pref_idx].preference) {
                             case MemberNameCacheEntry::AccessPreference::SNAKE:
                                 if (try_snake()) {
                                     break;
@@ -7386,17 +7493,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                         
                         StringName class_name = StringName(obj->get_class());
-                        MemberNameCacheEntry::AccessPreference *class_pref = resolve_class_preference(cache, class_name);
+                        const int class_pref_idx = resolve_class_preference(cache, class_name);
+                        auto set_class_pref = [&](MemberNameCacheEntry::AccessPreference p) {
+                            if (class_pref_idx < cache.class_preferences.size()) {
+                                cache.class_preferences.write[class_pref_idx].preference = p;
+                            }
+                        };
                         
                         // Optimization: Once preference is established, trust it without verification
                         // This eliminates the extra get() call that was creating Variant allocations
-                        switch (*class_pref) {
+                        switch (cache.class_preferences[class_pref_idx].preference) {
                             case MemberNameCacheEntry::AccessPreference::SNAKE:
                                 if (ensure_snake_case(cache)) {
                                     obj->set(cache.snake_name, value);
                                 } else {
                                     obj->set(cache.primary_name, value);
-                                    *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                    set_class_pref(MemberNameCacheEntry::AccessPreference::PRIMARY);
                                 }
                                 break;
                             case MemberNameCacheEntry::AccessPreference::PRIMARY:
@@ -7409,10 +7521,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 if (verify.get_type() == Variant::NIL) {
                                     if (ensure_snake_case(cache)) {
                                         obj->set(cache.snake_name, value);
-                                        *class_pref = MemberNameCacheEntry::AccessPreference::SNAKE;
+                                        set_class_pref(MemberNameCacheEntry::AccessPreference::SNAKE);
                                     }
                                 } else {
-                                    *class_pref = MemberNameCacheEntry::AccessPreference::PRIMARY;
+                                    set_class_pref(MemberNameCacheEntry::AccessPreference::PRIMARY);
                                 }
                                 break;
                         }
@@ -7803,16 +7915,47 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // (not the host script's Include line map). Always update
                 // debug_state here — runtime errors use it even when Godot's
                 // debugger is not attached (see raise_error()).
+                //
+                // No debugger hook: only debug_state needs to be current.  The
+                // file changes at Include boundaries and across calls, so key it
+                // by (script, file id) and copy the String only when that key
+                // moves.  The unconditional resolve + three String copies per
+                // executed line were ~5% of the Backlight City build.
+                if (!VisualGasicLanguage::is_debug_hook_active()) {
+                    if (!debug_bc_source_file.is_empty()) {
+                        debug_state.current_file = debug_bc_source_file;
+                        debug_state.current_file_script = nullptr;
+                        debug_state.current_file_id = -2;
+                        debug_state.current_line = line_number;
+                    } else if (script.is_valid()) {
+                        int fast_src_line = line_number;
+                        const int fid = script->source_file_id_for_line(line_number, fast_src_line);
+                        if (debug_state.current_file_id != fid || debug_state.current_file_script != script.ptr()) {
+                            debug_state.current_file = (fid < 0) ? _debug_script_path : script->source_file_by_id(fid);
+                            debug_state.current_file_script = script.ptr();
+                            debug_state.current_file_id = fid;
+                        }
+                        debug_state.current_line = fast_src_line;
+                    }
+                    break;
+                }
                 String script_path;
                 int src_line = line_number;
+                debug_state.current_file_id = -2;   // slow path: fast path must re-key
                 if (!debug_bc_source_file.is_empty()) {
                     script_path = debug_bc_source_file;
                     debug_state.current_file = script_path;
                     debug_state.current_line = src_line;
                 } else {
-                    resolve_debug_location(line_number);
-                    script_path = debug_state.current_file.is_empty() ? _debug_script_path : debug_state.current_file;
-                    src_line = debug_state.current_line;
+                    // Same mapping as resolve_debug_location(), fed the
+                    // cached script path: get_path() is an engine call per
+                    // executed line and was ~3% of a geometry build.
+                    String src_file;
+                    if (script.is_valid()) {
+                        vg_resolve_source_location(script->get_source_line_map(), _debug_script_path,
+                                line_number, src_file, src_line);
+                    }
+                    script_path = src_file.is_empty() ? _debug_script_path : src_file;
                     debug_state.current_file = script_path;
                     debug_state.current_line = src_line;
                 }
@@ -8175,9 +8318,50 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant call_ret;
                 bool handled = false;
 
+                // Math structs and packed arrays (v.normalized(), points.append(p),
+                // points.append_array(a)) have no VG-level overrides: the cascade
+                // below ends in Variant::callp for them anyway, after a
+                // to_lower().utf8() in try_resolve_node_on_base, a String→StringName
+                // intern for has_method and another for callp, and two heap
+                // Vectors for the argument pointers. Use the per-constant cached
+                // StringName and call directly. Claimed only when has_method is
+                // true, so a miss falls through to the unchanged cascade.
+                {
+                    const Variant::Type bt = base.get_type();
+                    const bool struct_or_packed =
+                            (bt >= Variant::VECTOR2 && bt <= Variant::COLOR) ||
+                            (bt >= Variant::PACKED_BYTE_ARRAY && bt <= Variant::PACKED_VECTOR4_ARRAY);
+                    if (struct_or_packed && name_idx >= 0 && name_idx < chunk->constants.size()) {
+                        MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);
+                        const StringName *sn = nullptr;
+                        if (base.has_method(_mc.primary_name)) {
+                            sn = &_mc.primary_name;
+                        } else if (ensure_snake_case(_mc) && base.has_method(_mc.snake_name)) {
+                            sn = &_mc.snake_name;
+                        }
+                        if (sn) {
+                            constexpr int METHOD_INLINE_ARGS = 8;
+                            const Variant *ptrs_inline[METHOD_INLINE_ARGS];
+                            Vector<const Variant *> ptrs_heap;
+                            const Variant **ptrs = ptrs_inline;
+                            if (arg_count > METHOD_INLINE_ARGS) {
+                                ptrs_heap.resize(arg_count);
+                                ptrs = ptrs_heap.ptrw();
+                            }
+                            for (int i = 0; i < arg_count; i++) {
+                                ptrs[i] = &args[i];
+                            }
+                            GDExtensionCallError err;
+                            memset(&err, 0, sizeof(err));
+                            base.callp(*sn, ptrs, arg_count, call_ret, err);
+                            handled = true;
+                        }
+                    }
+                }
+
                 // GetNode/GetNodeOrNull on explicit base (Brotato: current_scene.GetNode("GameObjects")).
                 // Must run before owner-relative dispatch_builtin_call fallback.
-                if (VGGodotOwnerBuiltins::try_resolve_node_on_base(this, base, method, args, call_ret)) {
+                if (!handled && VGGodotOwnerBuiltins::try_resolve_node_on_base(this, base, method, args, call_ret)) {
                     handled = true;
                 }
 
@@ -8444,6 +8628,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 handler.catch_ip = catch_ip;
                 handler.stack_depth = (int)vm.stack.size();
                 try_handler_stack.push_back(handler);
+                sync_try_depth();
                 error_state.has_error = false;
                 VG_BREAK;
             }
@@ -8451,6 +8636,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // No error in try block — pop the handler.
                 if (!try_handler_stack.is_empty()) {
                     try_handler_stack.resize(try_handler_stack.size() - 1);
+                    sync_try_depth();
                 }
                 VG_BREAK;
             }

@@ -4,6 +4,7 @@
 #include "vg_autoloads.h"
 #include "vg_classdb_globals.h"
 #include "vg_engine_builtins.h"
+#include "visual_gasic_godot_ctors.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -540,7 +541,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             String t = sub->parameters[i].type_hint.to_lower();
             if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
             else if (t == "single" || t == "double") pvt = VT_FLOAT;
-            get_or_add_local(sub->parameters[i].name, pvt);
+            mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
         } else {
             param_vars.insert(pkey);
             if (sub->parameters[i].is_param_array) {
@@ -561,7 +562,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
                 String t = sub->parameters[i].type_hint.to_lower();
                 if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
                 else if (t == "single" || t == "double") pvt = VT_FLOAT;
-                get_or_add_local(sub->parameters[i].name, pvt);
+                mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
             }
         }
     }
@@ -571,33 +572,43 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     // VM seeds params from args and reads the return value straight from its
     // slot — no variables[] round-trip.  param_count/return_slot are captured
     // here, before any body-level Dim locals grab higher slots.
-    if (fast_params_ok) {
-        current_chunk->fast_params = true;
-        current_chunk->param_count = sub->parameters.size();
-        // Precompute per-slot coercion codes so the call binder skips the
-        // per-call type_hint.to_lower() + string compares.  MUST mirror
-        // call_internal's fast-arg coercion EXACTLY (0=none,1=int64,2=double,
-        // 3=string,4=bool) — note longlong/byte/currency/date/short/char map to
-        // 0 (no coercion), matching the binder's original untouched behavior.
+    // Precompute per-parameter coercion codes so the call binder skips the
+    // per-call type_hint.to_lower() + string compares.  MUST mirror
+    // call_internal's coercion EXACTLY (0=none,1=int64,2=double,3=string,
+    // 4=bool) — note longlong/byte/currency/date/short/char map to 0 (no
+    // coercion), matching the binder's original untouched behavior.
+    // Computed for EVERY chunk: the variables[]-bound (ByRef / Optional) binder
+    // ran the string path on each parameter of each call — Backlight City's
+    // _quad(a, b, c, d, Optional lit, Optional normal) is called ~10k times.
+    {
         auto _vg_coerce_code = [](const String &th) -> int8_t {
             String t = th.to_lower();
             if (t == "integer" || t == "long") return 1;
             if (t == "single"  || t == "double") return 2;
             if (t == "string") return 3;
             if (t == "boolean") return 4;
+            // 5 = Array: no arg/init coercion (a Variant Nothing stays Nothing),
+            // but the Function RETURN is normalised to a plain Array in
+            // call_internal (packed arrays convert; see the return path).
+            if (t == "array") return 5;
             return 0;
         };
         current_chunk->fast_param_coerce.resize(sub->parameters.size());
         for (int i = 0; i < sub->parameters.size(); i++) {
             current_chunk->fast_param_coerce.write[i] = _vg_coerce_code(sub->parameters[i].type_hint);
         }
+        current_chunk->fast_return_coerce = (sub->type == SubDefinition::TYPE_FUNCTION)
+                ? _vg_coerce_code(sub->return_type) : (int8_t)-1;
+    }
+    if (fast_params_ok) {
+        current_chunk->fast_params = true;
+        current_chunk->param_count = sub->parameters.size();
         if (sub->type == SubDefinition::TYPE_FUNCTION) {
             ValueType rvt = VT_UNKNOWN;
             String rt = sub->return_type.to_lower();
             if (rt == "integer" || rt == "long" || rt == "longlong") rvt = VT_INT;
             else if (rt == "single" || rt == "double") rvt = VT_FLOAT;
             current_chunk->return_slot = get_or_add_local(sub->name, rvt);
-            current_chunk->fast_return_coerce = _vg_coerce_code(sub->return_type);
         } else {
             current_chunk->return_slot = -1;
         }
@@ -847,7 +858,14 @@ int VisualGasicCompiler::get_or_add_local(const String &name, ValueType type) {
     local_types[key] = type;
     current_chunk->local_names.push_back(name);
     current_chunk->local_types.push_back(to_local_type(type));
+    current_chunk->local_declared.push_back(0);
     return slot;
+}
+
+void VisualGasicCompiler::mark_local_declared(int slot) {
+    if (slot >= 0 && slot < current_chunk->local_declared.size()) {
+        current_chunk->local_declared.write[slot] = 1;
+    }
 }
 
 VisualGasicCompiler::ValueType VisualGasicCompiler::get_local_type(const String &name) const {
@@ -925,6 +943,7 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                     buffer_vars.erase(key);
                 }
                 int slot = get_or_add_local(s->variable_name, vt);
+                mark_local_declared(slot);
                 if (shadows && slot >= 0 && slot < current_chunk->local_names.size()) {
                     current_chunk->local_names.write[slot] = String();
                 }
@@ -10522,6 +10541,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     is_local = false;
                     is_param = false;
                 }
+                // `Dim basis As Variant : basis = Basis(right, up, fwd)` — a
+                // scalar local named after a Godot type constructor. The AST
+                // walker constructs the type whenever the variable does not
+                // hold a container, so route the call to OP_NEW_OBJECT instead
+                // of failing the chunk (multi-arg) or indexing a scalar (1 arg).
+                if ((is_local || is_param) && !is_array && !is_dict &&
+                    is_godot_type_constructor(var_name)) {
+                    is_local = false;
+                    is_param = false;
+                }
                 // v4.4.0: a module-level MemoryBuffer var (Set X = New MemoryBuffer(...)
                 // in a different Sub than the one being compiled) never gets a local
                 // slot (it's forced non-local as a Public/Global), so `is_local` alone
@@ -10881,7 +10910,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              bool _is_self_return_call = (current_sub && current_chunk &&
                  current_chunk->return_slot >= 0 &&
                  call->method_name.nocasecmp_to(current_sub->name) == 0);
-             if (!_is_self_return_call &&
+             // Scalar local/param named after a Godot type constructor
+             // (`Dim basis As Variant` + `Basis(...)`): construct, as the AST
+             // walker does, instead of treating the call as an array read.
+             bool _is_shadowed_godot_ctor = !array_vars.has(call_name) &&
+                 !dictionary_vars.has(call_name) && !is_buffer_var(call->method_name) &&
+                 is_godot_type_constructor(call->method_name);
+             if (!_is_self_return_call && !_is_shadowed_godot_ctor &&
                  (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name))) {
                  if (call->arguments.size() != 1) {
                      compile_ok = false;
@@ -10978,6 +11013,38 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  compile_expression(call->arguments[0]);
                  emit_byte(OP_SGN);
                  break;
+             }
+             // Trig/math dedicated opcodes for the CallExpression form.
+             // `Cos(i * step)` inside an expression parses as a CallExpression
+             // and otherwise walks the builtin strcmp cascade on every call.
+             // Only the double→double entries whose builtin returns the same
+             // value are listed (the builtin Floor/Ceiling return Long and
+             // Atan2 takes (y, x) in source order).
+             {
+                 struct { const char* name; OpCode op; int nargs; } _trig_ops_call[] = {
+                     {"sin",   OP_SIN,    1},
+                     {"cos",   OP_COS,    1},
+                     {"sqr",   OP_SQRT,   1},
+                     {"sqrt",  OP_SQRT,   1},
+                     {"tan",   OP_TAN,    1},
+                     {"exp",   OP_EXP,    1},
+                     {"log",   OP_LOG,    1},
+                     {nullptr, OP_COUNT_, 0},
+                 };
+                 bool _trig_emitted = false;
+                 for (int _ti = 0; _trig_ops_call[_ti].name; ++_ti) {
+                     if (call_name == _trig_ops_call[_ti].name &&
+                             call->arguments.size() == _trig_ops_call[_ti].nargs &&
+                             find_sub_by_name(call->method_name) == nullptr) {
+                         for (int i = 0; i < call->arguments.size(); i++) {
+                             compile_expression(call->arguments[i]);
+                         }
+                         emit_byte((uint8_t)_trig_ops_call[_ti].op);
+                         _trig_emitted = true;
+                         break;
+                     }
+                 }
+                 if (_trig_emitted) break;
              }
              if (call_name == "allocfilli64" && call->arguments.size() == 1) {
                  compile_expression(call->arguments[0]);

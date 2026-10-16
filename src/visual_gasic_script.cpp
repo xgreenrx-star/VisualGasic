@@ -642,6 +642,7 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     }
     VgIncludeResolveResult resolved = vg_resolve_includes_with_map(include_host_path, source_code);
     source_line_map = resolved.line_map;
+    rebuild_source_file_index();
     String processed_code = resolved.code;
     Vector<VisualGasicTokenizer::Token> tokens = tokenizer.tokenize(processed_code);
     // Scan ALL tokens for errors (not just the last — error tokens in the middle
@@ -1009,6 +1010,29 @@ TypedArray<Dictionary> VisualGasicScript::_get_documentation() const {
     return TypedArray<Dictionary>();
 }
 
+void VisualGasicScript::rebuild_source_file_index() {
+    source_line_file_ids.clear();
+    source_files.clear();
+    source_line_file_ids.resize(source_line_map.size());
+    int last_id = -1;
+    for (int i = 0; i < source_line_map.size(); i++) {
+        const String &file = source_line_map[i].file;
+        // Runs of consecutive lines share a file, so check the previous id
+        // before scanning the (tiny) distinct-file list.
+        if (last_id < 0 || source_files[last_id] != file) {
+            last_id = -1;
+            for (int f = 0; f < source_files.size(); f++) {
+                if (source_files[f] == file) { last_id = f; break; }
+            }
+            if (last_id < 0) {
+                source_files.push_back(file);
+                last_id = source_files.size() - 1;
+            }
+        }
+        source_line_file_ids.write[i] = last_id;
+    }
+}
+
 void VisualGasicScript::clear_bytecode_cache() {
     bytecode.code.clear();
     bytecode.constants.clear();
@@ -1018,6 +1042,7 @@ void VisualGasicScript::clear_bytecode_cache() {
     bytecode.local_count = 0;
     bytecode_cache.clear();
     has_bytecode = false;
+    bytecode_generation++;
 }
 
 BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, const HashSet<String>* extra_buffer_vars, const Vector<ModuleNode*>* import_modules) {

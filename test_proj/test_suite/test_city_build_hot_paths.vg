@@ -1,0 +1,215 @@
+' Test: Backlight City warp-stall regressions (engine hot paths)
+' Each case below used to fall off the bytecode fast path or walk a slow
+' lookup chain on every call. The build went from 20 s to a few seconds
+' once these were fixed. Behaviour must match on the AST walker
+' (VG_FORCE_AST=1), the bytecode VM and the JIT (VG_JIT=0 disables it).
+Attribute VB_Name = "TestCityBuildHotPaths"
+
+Dim shared_hits As Integer
+
+Sub _Ready()
+	' --- A local named like a Godot constructor must not shadow Basis()/Vector3() ---
+	' The compiler used to treat `Basis(x, y, z)` as an index into `Dim basis`
+	' and the whole Sub fell back to the AST walker.
+	Dim b As Variant
+	b = ShadowedBasis(Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1))
+	If b.x.x = 1 And b.y.y = 1 And b.z.z = 1 Then
+		Print "PASS: ctor_shadowed_by_local_name"
+	Else
+		Print "FAIL: ctor_shadowed_by_local_name: got " & b
+	End If
+	Dim v3 As Variant
+	v3 = ShadowedVector3(4)
+	If v3.x = 4 And v3.y = 4 And v3.z = 4 Then
+		Print "PASS: ctor_shadowed_single_arg"
+	Else
+		Print "FAIL: ctor_shadowed_single_arg: got " & v3
+	End If
+
+	' --- Omitted Optional Variant (ByRef) is Nothing, then assignable ---
+	Dim n As Variant
+	n = NormalOf(Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(0, 1, 0))
+	If n.z = 1 Then
+		Print "PASS: optional_variant_omitted_is_nothing"
+	Else
+		Print "FAIL: optional_variant_omitted_is_nothing: got " & n
+	End If
+	n = NormalOf(Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1))
+	If n.z = -1 Then
+		Print "PASS: optional_variant_supplied"
+	Else
+		Print "FAIL: optional_variant_supplied: got " & n
+	End If
+
+	' --- Omitted Optional whose name matches an autoload / engine singleton ---
+	' The NIL fallback chain used to resolve a declared-but-Nothing parameter
+	' through autoloads, Engine singletons and ResourceLoader on every read.
+	If OptionalNamedLikeNode() = "nothing" Then
+		Print "PASS: optional_declared_nil_short_circuit"
+	Else
+		Print "FAIL: optional_declared_nil_short_circuit: got " & OptionalNamedLikeNode()
+	End If
+
+	' --- Array(...) literal and VarType fast paths ---
+	Dim arr As Variant
+	arr = Array(1, "two", 3.0)
+	If VarType(arr) = 8204 And arr.size() = 3 And arr(1) = "two" Then
+		Print "PASS: array_literal_vartype"
+	Else
+		Print "FAIL: array_literal_vartype: vt=" & VarType(arr) & " n=" & arr.size()
+	End If
+	If VarType(Nothing) = 1 And VarType(True) = 11 And VarType(3) = 3 And VarType(2.5) = 5 And VarType("s") = 8 Then
+		Print "PASS: vartype_codes"
+	Else
+		Print "FAIL: vartype_codes: " & VarType(Nothing) & "," & VarType(True) & "," & VarType(3) & "," & VarType(2.5) & "," & VarType("s")
+	End If
+
+	' --- Min/Max/Int/Fix/LerpF inline builtins ---
+	If Min(3, 7) = 3 And Max(3, 7) = 7 And Min(2.5, -1) = -1 Then
+		Print "PASS: min_max_inline"
+	Else
+		Print "FAIL: min_max_inline: " & Min(3, 7) & "," & Max(3, 7) & "," & Min(2.5, -1)
+	End If
+	If Int(-2.5) = -3 And Fix(-2.5) = -2 And Int(7) = 7 And Int(3.9) = 3 Then
+		Print "PASS: int_fix_inline"
+	Else
+		Print "FAIL: int_fix_inline: " & Int(-2.5) & "," & Fix(-2.5) & "," & Int(7) & "," & Int(3.9)
+	End If
+	If Abs(LerpF(0, 10, 0.25) - 2.5) < 0.0001 Then
+		Print "PASS: lerpf_inline"
+	Else
+		Print "FAIL: lerpf_inline: " & LerpF(0, 10, 0.25)
+	End If
+
+	' --- Trig CallExpression form matches the builtin ---
+	If Abs(Cos(0) - 1) < 0.0001 And Abs(Sin(0)) < 0.0001 And Abs(Sqr(16) - 4) < 0.0001 Then
+		Print "PASS: trig_call_form"
+	Else
+		Print "FAIL: trig_call_form"
+	End If
+
+	' --- Packed-array method fast path (append / append_array / size) ---
+	Dim pts As PackedVector3Array
+	pts.append(Vector3(1, 2, 3))
+	pts.append_array(PackTwo())
+	If pts.size() = 3 And pts(2).z = 9 Then
+		Print "PASS: packed_method_fast_path"
+	Else
+		Print "FAIL: packed_method_fast_path: n=" & pts.size()
+	End If
+
+	' --- Dim As Packed*Array inside a helper owns a fresh buffer per call ---
+	Dim first As Variant
+	Dim second As Variant
+	first = FreshPacked(1)
+	second = FreshPacked(2)
+	If first.size() = 1 And second.size() = 1 And first(0) = 1 And second(0) = 2 Then
+		Print "PASS: packed_dim_fresh_per_call"
+	Else
+		Print "FAIL: packed_dim_fresh_per_call: " & first.size() & "," & second.size()
+	End If
+
+	' --- Member-name memo survives across calls and arity changes ---
+	' Repeated calls of a helper that mixes Vector3(), Color() and a
+	' user Sub must keep resolving correctly on the 2nd..Nth call.
+	Dim total As Single
+	Dim i As Integer
+	total = 0
+	For i = 1 To 50
+		total = total + MixedHelper(i)
+	Next
+	If Abs(total - 1275 * 2) < 0.001 And shared_hits = 50 Then
+		Print "PASS: memo_repeat_calls"
+	Else
+		Print "FAIL: memo_repeat_calls: total=" & total & " hits=" & shared_hits
+	End If
+	If TwoArityHelper(1) = 1 And TwoArityHelper(1, 2) = 3 And TwoArityHelper(5) = 5 Then
+		Print "PASS: memo_arity_revalidated"
+	Else
+		Print "FAIL: memo_arity_revalidated"
+	End If
+
+	' --- Typed params still coerce on the variables[] binder (ByRef sub) ---
+	Dim coerced As Variant
+	coerced = CoerceInt(3.7)
+	If coerced = 3 And TypeName(coerced) = "Integer" Then
+		Print "PASS: byref_binder_param_coercion"
+	Else
+		Print "FAIL: byref_binder_param_coercion: " & coerced & " " & TypeName(coerced)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Function ShadowedBasis(ByVal x As Vector3, ByVal y As Vector3, ByVal z As Vector3) As Variant
+	Dim basis As Variant
+	basis = Basis(x, y, z)
+	ShadowedBasis = basis
+End Function
+
+Function ShadowedVector3(ByVal s As Single) As Variant
+	Dim vector3 As Variant
+	vector3 = Vector3(s, s, s)
+	ShadowedVector3 = vector3
+End Function
+
+Function NormalOf(ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, Optional normal As Variant) As Variant
+	If normal Is Nothing Then
+		normal = Vector3(0, 0, 0)
+	End If
+	If normal = Vector3(0, 0, 0) Then
+		normal = (b - a).cross(c - a).normalized()
+	End If
+	NormalOf = normal
+End Function
+
+Function OptionalNamedLikeNode(Optional VgTestAutoload As Variant, Optional Engine As Variant, Optional Time As Variant) As String
+	Dim got As String
+	got = ""
+	If Not (VgTestAutoload Is Nothing) Then got = got & "autoload "
+	If Not (Engine Is Nothing) Then got = got & "engine "
+	If Not (Time Is Nothing) Then got = got & "time "
+	If got = "" Then
+		OptionalNamedLikeNode = "nothing"
+	Else
+		OptionalNamedLikeNode = "resolved: " & got
+	End If
+End Function
+
+Function PackTwo() As PackedVector3Array
+	Dim out As PackedVector3Array
+	out.append(Vector3(4, 5, 6))
+	out.append(Vector3(7, 8, 9))
+	PackTwo = out
+End Function
+
+Function FreshPacked(ByVal v As Integer) As Variant
+	Dim buf As PackedInt32Array
+	buf.append(v)
+	FreshPacked = buf
+End Function
+
+Function MixedHelper(ByVal i As Integer) As Single
+	Dim p As Vector3
+	Dim c As Color
+	p = Vector3(i, 0, 0)
+	c = Color(0.5, 0.5, 0.5)
+	Call Bump()
+	MixedHelper = p.x * 2 + c.a - 1
+End Function
+
+Sub Bump()
+	shared_hits = shared_hits + 1
+End Sub
+
+Function TwoArityHelper(ByVal a As Integer, Optional b As Variant) As Integer
+	If b Is Nothing Then
+		TwoArityHelper = a
+	Else
+		TwoArityHelper = a + b
+	End If
+End Function
+
+Function CoerceInt(n As Integer) As Variant
+	CoerceInt = n
+End Function

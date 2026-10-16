@@ -116,6 +116,7 @@ private:
     void emit_loop(int loop_start);
 
     int get_or_add_local(const String &name, ValueType type);
+    void mark_local_declared(int slot);
     ValueType get_local_type(const String &name) const;
     uint8_t to_local_type(ValueType type) const;
 

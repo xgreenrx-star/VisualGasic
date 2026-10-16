@@ -28,7 +28,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
 
-    {
+    // `Declare Function` FFI dispatch.  Most scripts declare nothing, so skip
+    // the to_lower() temporary (one per call) when the table is empty.
+    if (!declared_functions.is_empty()) {
         const String _ffi_key = p_method.to_lower();
         if (declared_functions.has(_ffi_key)) {
             DeclareStatement* decl = (DeclareStatement*)(int64_t)declared_functions[_ffi_key];
@@ -207,6 +209,17 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     SubDefinition* prev_sub = current_sub;
     int prev_jump = jump_target;
     ErrorState prev_error = error_state;
+    // VB6: the caller's On Error Resume Next / GoTo also covers errors raised
+    // inside this callee (they propagate back on return).  Count it as an
+    // enclosing handler so raise_error() logs such errors as handled.
+    struct HandlerDepthGuard {
+        int &ref; int prev;
+        HandlerDepthGuard(int &r) : ref(r), prev(r) {}
+        ~HandlerDepthGuard() { ref = prev; }
+    } _handler_depth_guard(active_try_depth);
+    if (prev_error.mode == ErrorState::RESUME_NEXT || prev_error.mode == ErrorState::GOTO_LABEL) {
+        active_try_depth++;
+    }
     
     // Save local variables for recursion support.
     // Only save variables the function will define: params, return var, and Dim'd locals.
@@ -407,6 +420,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     } else {
         // Use larger size if params exist, or args exist.
         // Actually we iterate params to define them.
+        // Compiler-precomputed coercion codes (same enum as the fast path);
+        // the string path below only runs for AST-only Subs with no chunk.
+        const bool _have_pc_slow = chunk_for_locals && chunk_for_locals->fast_param_coerce.size() == max_params;
         for(int i=0; i<max_params; i++) {
             Parameter& param = func->parameters.write[i];
 
@@ -423,7 +439,15 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             if (i < p_arg_count) {
                 Variant val = p_args[i];
                  // Enforce Parameter Type
-                if (!param.type_hint.is_empty()) {
+                if (_have_pc_slow) {
+                    switch (chunk_for_locals->fast_param_coerce[i]) {
+                        case 1: val = (int64_t)val; break;
+                        case 2: val = (double)val;  break;
+                        case 3: val = (String)val;  break;
+                        case 4: val = (bool)val;    break;
+                        default: break;
+                    }
+                } else if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = (int64_t)val;
                     else if (t == "single" || t == "double") val = (double)val;
@@ -443,7 +467,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         // Init Return
         if (func->type == SubDefinition::TYPE_FUNCTION) {
             Variant init_val = Variant();
-            if (!func->return_type.is_empty()) {
+            const int8_t _rc_slow = chunk_for_locals ? chunk_for_locals->fast_return_coerce : (int8_t)-1;
+            if (_rc_slow >= 0) {
+                switch (_rc_slow) {
+                    case 1: init_val = (int64_t)0; break;
+                    case 2: init_val = 0.0;        break;
+                    case 3: init_val = String();   break;
+                    case 4: init_val = false;      break;
+                    default: break;
+                }
+            } else if (!func->return_type.is_empty()) {
                  String t = func->return_type.to_lower();
                  if (t == "integer" || t == "long") init_val = (int64_t)0;
                  else if (t == "single" || t == "double") init_val = 0.0;
@@ -629,6 +662,21 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             ret = bytecode_ret;
         } else if (variables.has(func->name)) {
             ret = variables[func->name];
+        }
+        // `Function F(...) As Array` must hand back a plain Array whatever
+        // was assigned to it.  `AsArray = v` with a PackedVector2Array in v
+        // used to leak the packed type out through the Array-typed return,
+        // and the AST walker's For Each then rejected it.  Nothing stays
+        // Nothing (callers test `Is Nothing`); only convertible values change.
+        // Shared by every tier: bytecode, JIT and the tree-walker all return
+        // through here.
+        if (ret.get_type() != Variant::ARRAY && ret.get_type() != Variant::NIL) {
+            const bool returns_array = chunk_for_locals
+                    ? (chunk_for_locals->fast_return_coerce == 5)
+                    : (func->return_type.nocasecmp_to("Array") == 0);
+            if (returns_array && Variant::can_convert(ret.get_type(), Variant::ARRAY)) {
+                ret = Array(ret);
+            }
         }
     } else if (used_bytecode) {
         ret = bytecode_ret;
@@ -1319,6 +1367,7 @@ void VisualGasicInstance::resolve_debug_location(int merged_line) {
     }
     debug_state.current_line = src_line;
     debug_state.current_file = src_file;
+    debug_state.current_file_id = -2;
 }
 
 int VisualGasicInstance::resolve_merged_line_for_source(const String &source_file, int source_line) const {
@@ -1352,6 +1401,7 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     // faulted). Only resolve when the location has not been set yet.
     if (!debug_bc_source_file.is_empty()) {
         debug_state.current_file = debug_bc_source_file;
+        debug_state.current_file_id = -2;
     } else if (debug_state.current_file.is_empty()) {
         const int merged = debug_state.merged_line > 0 ? debug_state.merged_line : debug_state.current_line;
         resolve_debug_location(merged);
@@ -1373,11 +1423,18 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     String sub_name = current_sub ? String(current_sub->name) : String("(unknown)");
     String script_path = script.is_valid() ? script->get_path() : String("(unknown)");
     String loc_file = error_state.error_file.is_empty() ? script_path : error_state.error_file;
-    if (error_state.mode == ErrorState::NONE) {
+    if (error_state.mode == ErrorState::NONE && active_try_depth == 0) {
         UtilityFunctions::printerr("[VG Runtime Error ", code, "] ", msg,
             " — Sub: ", sub_name,
             " Line: ", error_state.error_line,
             " (", loc_file.get_file(), ")");
+    } else if (error_state.mode == ErrorState::NONE) {
+        // An enclosing Try block or a caller's On Error will catch this; the
+        // test runner and the Output panel must not see it as an unhandled abort.
+        UtilityFunctions::print("[VG Handled Error ", code, "] ", msg,
+            " — Sub: ", sub_name,
+            " Line: ", error_state.error_line,
+            " (", loc_file.get_file(), ", caught by enclosing handler)");
     } else {
         // Handled by On Error — log at lower severity so it's visible but not alarming
         UtilityFunctions::print("[VG Handled Error ", code, "] ", msg,

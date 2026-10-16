@@ -16,6 +16,9 @@ namespace VisualGasicBuiltins {
     Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, bool &r_handled);
     // Variant of call_builtin_expr that accepts pre-evaluated argument list.
     Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
+    // VB6 VarType() code for a value. Shared by the builtin cascade and the
+    // OP_CALL fast path so both tiers return the same codes.
+    int64_t vb6_var_type(const Variant &p_value);
     // Handle calls where the base is a simple variable name (eg. Clipboard.GetText)
     bool call_builtin_for_base_variable(VisualGasicInstance *instance, const String &p_base_name, const String &p_method, const Array &p_args, Variant &r_ret);
     // Handle calls where the base is an evaluated Variant (object) - returns true if handled and sets r_ret

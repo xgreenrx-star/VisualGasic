@@ -21,6 +21,14 @@ class VisualGasicScript : public ScriptExtension {
 
     String source_code;
     Vector<VgSourceLineEntry> source_line_map;
+    // Flattened view of source_line_map for the VM's per-line debug bookkeeping:
+    // source_line_file_ids[merged_line - 1] indexes source_files.  OP_LINE runs
+    // for every executed statement; comparing one int against the previous
+    // line's id lets it skip three String copies per line when the file has
+    // not changed (it changes only at Include boundaries).
+    Vector<int32_t> source_line_file_ids;
+    Vector<String> source_files;
+    void rebuild_source_file_index();
     VisualGasicTokenizer tokenizer;
     VisualGasicParser parser;
     Ref<Script> base_script;
@@ -41,6 +49,10 @@ public:
     ModuleNode *ast_root = nullptr;
     BytecodeChunk bytecode; // For now single chunk for main module
     bool has_bytecode = false;
+    // Bumped by clear_bytecode_cache() (every reload).  Instances compare it
+    // against the generation their chunk-keyed VM memos were built for and
+    // drop them when it changes — a recompiled chunk may reuse a freed address.
+    uint32_t bytecode_generation = 1;
 
 protected:
 	static void _bind_methods();
@@ -81,6 +93,20 @@ public:
     bool has_reload_errors() const { return last_reload_had_error; }
     const Vector<VisualGasicParser::ParsingError>& get_parser_errors() const { return parser.errors; }
     const Vector<VgSourceLineEntry> &get_source_line_map() const { return source_line_map; }
+    // Returns the source_files index for a merged line, or -1 when the line
+    // belongs to the host script itself (no Include map, or out of range).
+    // Also writes the original (pre-Include) line number to out_line.
+    int source_file_id_for_line(int merged_line, int &out_line) const {
+        if (merged_line <= 0 || source_line_file_ids.is_empty()) {
+            out_line = merged_line;
+            return -1;
+        }
+        int idx = merged_line - 1;
+        if (idx >= source_line_file_ids.size()) idx = source_line_file_ids.size() - 1;
+        out_line = source_line_map[idx].line;
+        return source_line_file_ids[idx];
+    }
+    const String &source_file_by_id(int id) const { return source_files[id]; }
     bool resolve_source_location(int merged_line, String &out_file, int &out_line) const;
     int resolve_merged_line(const String &source_file, int source_line) const;
 

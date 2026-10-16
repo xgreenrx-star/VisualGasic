@@ -271,6 +271,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
         
         // General Godot singleton resolution (Engine, OS, Time, etc.)
+        // A declared variable/parameter of the same name wins, including one
+        // that is currently Nothing (an omitted `Optional Time As Variant`):
+        // the bytecode VM reads variables[] first, and the tiers must agree.
+        if (variables.has(name)) {
+            return variables[name];
+        }
         if (Engine::get_singleton()->has_singleton(name)) {
             Object *singleton = Engine::get_singleton()->get_singleton(name);
             if (singleton) return Variant(singleton);

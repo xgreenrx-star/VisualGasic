@@ -1,0 +1,82 @@
+' Test: Function ... As Array returning a Variant-held Array
+' Backlight City's AsArray(v) is `Function AsArray(v As Variant) As Array`
+' with `AsArray = v`. The returned value must be iterable by For Each and
+' indexable, on the AST walker, the bytecode VM and the JIT alike.
+Attribute VB_Name = "TestTypedArrayReturn"
+
+Sub _Ready()
+	Dim n As Integer
+	Dim total As Integer
+
+	' --- Pass-through of an Array literal ---
+	n = 0
+	total = 0
+	For Each v In AsArray(Array(1, 2, 3))
+		n = n + 1
+		total = total + v
+	Next
+	If n = 3 And total = 6 Then
+		Print "PASS: typed_array_return_foreach_literal"
+	Else
+		Print "FAIL: typed_array_return_foreach_literal: n=" & n & " total=" & total
+	End If
+
+	' --- Pass-through of a Variant holding an Array ---
+	Dim src As Variant
+	src = Array("a", "b")
+	n = 0
+	For Each s In AsArray(src)
+		n = n + 1
+	Next
+	If n = 2 Then
+		Print "PASS: typed_array_return_foreach_variant"
+	Else
+		Print "FAIL: typed_array_return_foreach_variant: n=" & n
+	End If
+
+	' --- Packed array converts to a plain Array ---
+	Dim pk As PackedVector2Array
+	pk.append(Vector2(1, 2))
+	pk.append(Vector2(3, 4))
+	n = 0
+	For Each p In AsArray(pk)
+		n = n + p.x
+	Next
+	If n = 4 Then
+		Print "PASS: typed_array_return_foreach_packed"
+	Else
+		Print "FAIL: typed_array_return_foreach_packed: n=" & n
+	End If
+
+	' --- Indexing the returned value directly ---
+	If AsArray(Array(7, 8, 9))(1) = 8 Then
+		Print "PASS: typed_array_return_index"
+	Else
+		Print "FAIL: typed_array_return_index"
+	End If
+
+	' --- Nothing stays Nothing (callers test Is Nothing); UBound reports -1 ---
+	Dim e As Variant
+	e = AsArray(Nothing)
+	If e Is Nothing And UBound(e) = -1 Then
+		Print "PASS: typed_array_return_nothing_empty"
+	Else
+		Print "FAIL: typed_array_return_nothing_empty: ubound=" & UBound(e)
+	End If
+
+	' --- Assigning to a typed local keeps it an Array ---
+	Dim held As Array
+	held = AsArray(Array(5, 6))
+	held.append(7)
+	If held.size() = 3 And TypeName(held) = "Array" Then
+		Print "PASS: typed_array_return_assign_typed_local"
+	Else
+		Print "FAIL: typed_array_return_assign_typed_local: size=" & held.size() & " type=" & TypeName(held)
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Function AsArray(v As Variant) As Array
+	AsArray = v
+End Function

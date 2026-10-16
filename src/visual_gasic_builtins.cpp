@@ -1267,6 +1267,21 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
     return Variant();
 }
 
+int64_t vb6_var_type(const Variant &p_value) {
+    // VB6 VarType constants: vbEmpty=0, vbNull=1, vbInteger=2, vbLong=3, vbSingle=4, vbDouble=5, vbString=8, vbObject=9, vbBoolean=11, vbVariant=12, vbArray=8192
+    switch (p_value.get_type()) {
+        case Variant::NIL: return 1;  // vbNull
+        case Variant::BOOL: return 11;  // vbBoolean
+        case Variant::INT: return 3;  // vbLong
+        case Variant::FLOAT: return 5;  // vbDouble
+        case Variant::STRING: return 8;  // vbString
+        case Variant::OBJECT: return 9;  // vbObject
+        case Variant::ARRAY: return 8192 + 12;  // vbArray + vbVariant
+        case Variant::DICTIONARY: return 9;  // vbObject (closest match)
+        default: return 0;  // vbEmpty
+    }
+}
+
 Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled) {
     r_handled = false;
     const Array &args = p_args;
@@ -5046,19 +5061,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     
     if (METHOD_IS("vartype") && args.size() == 1) {
         r_handled = true;
-        // VB6 VarType constants: vbEmpty=0, vbNull=1, vbInteger=2, vbLong=3, vbSingle=4, vbDouble=5, vbString=8, vbObject=9, vbBoolean=11, vbVariant=12, vbArray=8192
-        Variant::Type t = args[0].get_type();
-        switch (t) {
-            case Variant::NIL: return 1;  // vbNull
-            case Variant::BOOL: return 11;  // vbBoolean
-            case Variant::INT: return 3;  // vbLong
-            case Variant::FLOAT: return 5;  // vbDouble
-            case Variant::STRING: return 8;  // vbString
-            case Variant::OBJECT: return 9;  // vbObject
-            case Variant::ARRAY: return 8192 + 12;  // vbArray + vbVariant
-            case Variant::DICTIONARY: return 9;  // vbObject (closest match)
-            default: return 0;  // vbEmpty
-        }
+        return vb6_var_type(args[0]);
     }
     
     // ============================================

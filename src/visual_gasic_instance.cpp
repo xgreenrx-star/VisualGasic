@@ -2764,6 +2764,12 @@ CanvasItem *VisualGasicInstance::get_draw_canvas_item() {
 }
 
 int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
+    // Every draw name below starts with D, Q, P, S, R or C. The 19 literal
+    // compares ran for every constant touched by every call (append, Array,
+    // normalized, ...) and were ~7% of a geometry build.
+    if (p_method.is_empty()) return 0;
+    const char32_t c0 = p_method[0] | 0x20;
+    if (c0 != 'd' && c0 != 'q' && c0 != 'p' && c0 != 's' && c0 != 'r' && c0 != 'c') return 0;
     if (p_method.nocasecmp_to("DrawRect") == 0) return 1;
     if (p_method.nocasecmp_to("DrawLine") == 0) return 2;
     if (p_method.nocasecmp_to("DrawCircle") == 0) return 3;

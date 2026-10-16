@@ -192,6 +192,23 @@ void VisualGasicInstance::run_ast_coroutine(AstCoroutine &coroutine) {
 		frame.statements = body;
 		coroutine.frames.push_back(frame);
 	};
+	// Try frames in phase 1 (running their try_block) can catch an error.
+	// Published on top of the caller's depth so raise_error() logs a caught
+	// error as handled; restored on return (including an Await suspension).
+	struct TryDepthGuard {
+		int &ref; int prev;
+		TryDepthGuard(int &r) : ref(r), prev(r) {}
+		~TryDepthGuard() { ref = prev; }
+	} _try_depth_guard(active_try_depth);
+	auto sync_try_depth = [&]() {
+		int live = 0;
+		for (int i = 0; i < coroutine.frames.size(); i++) {
+			const AstAwaitFrame &f = coroutine.frames[i];
+			if (f.control && f.control->type == STMT_TRY && f.phase == 1) live++;
+		}
+		active_try_depth = _try_depth_guard.prev + live;
+	};
+	sync_try_depth();
 	while (!coroutine.frames.is_empty()) {
 		const int top = coroutine.frames.size() - 1;
 		AstAwaitFrame &frame = coroutine.frames.write[top];
@@ -268,7 +285,7 @@ void VisualGasicInstance::run_ast_coroutine(AstCoroutine &coroutine) {
 		Statement *control = frame.control;
 		if (control->type == STMT_TRY) {
 			auto *s = static_cast<TryStatement *>(control);
-			if (frame.phase == 0) { frame.phase = 1; push_body(s->try_block); continue; }
+			if (frame.phase == 0) { frame.phase = 1; sync_try_depth(); push_body(s->try_block); continue; }
 			if (frame.phase == 1 && error_state.has_error && error_state.mode == ErrorState::NONE) {
 				if (!s->catch_var_name.is_empty()) {
 					Dictionary exception;
@@ -278,13 +295,14 @@ void VisualGasicInstance::run_ast_coroutine(AstCoroutine &coroutine) {
 				}
 				error_state.has_error = false;
 				frame.phase = 2;
+				sync_try_depth();
 				push_body(s->catch_block);
 				continue;
 			}
 			if (frame.phase < 3) {
 				frame.saved_error = error_state;
 				error_state.has_error = false; error_state.mode = ErrorState::NONE;
-				frame.phase = 3; push_body(s->finally_block); continue;
+				frame.phase = 3; sync_try_depth(); push_body(s->finally_block); continue;
 			}
 			if (!error_state.has_error && error_state.mode == ErrorState::NONE) error_state = frame.saved_error;
 			coroutine.frames.remove_at(top);

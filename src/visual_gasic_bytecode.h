@@ -7,6 +7,7 @@
 #include <godot_cpp/templates/vector.hpp>
 #include <vector>
 #include <deque>
+#include <string>
 
 using namespace godot;
 
@@ -347,6 +348,11 @@ struct BytecodeChunk {
     Vector<int> lines; // Line number per byte (RLE compressed ideally, but flat for now)
     Vector<String> local_names;
     Vector<uint8_t> local_types;
+    // 1 = slot belongs to a declared parameter or Dim. A NIL value in such a
+    // slot is Nothing, so OP_GET_LOCAL skips the control/form name lookup
+    // that exists for undeclared identifiers (matches the AST walker, which
+    // returns variables[name] as soon as the name is present).
+    Vector<uint8_t> local_declared;
     int local_count = 0;
 
     // ── Fast-call convention (v6.0): when a Sub/Function has ONLY scalar-typed
@@ -368,8 +374,10 @@ struct BytecodeChunk {
     // EVERY call to coerce args to the declared type — the residual ~4% to_lower
     // after fast_params engaged.  The type hints are immutable, so the compiler
     // maps them to a small enum once, MIRRORING the binder's coercion EXACTLY:
-    // 0=none, 1=int64, 2=double, 3=string, 4=bool.  Only populated when
-    // fast_params is true; fast_return_coerce stays -1 for Subs / unpopulated.
+    // 0=none, 1=int64, 2=double, 3=string, 4=bool, 5=Array (return
+    // normalisation only — see call_internal).  Populated for every
+    // compiled Sub (the variables[]-bound binder uses them too);
+    // fast_return_coerce stays -1 for Subs / unpopulated.
     Vector<int8_t> fast_param_coerce;   // one entry per parameter slot
     int8_t fast_return_coerce = -1;     // Function return init (-1 = none/unset)
 
@@ -383,6 +391,11 @@ struct BytecodeChunk {
     // skip the scan entirely). See execute_bytecode().
     Vector<String> globals_written;
     bool globals_scan_done = false;
+
+    // try_jit_bytecode() keys its tier-2/3 lookups by the Sub name as a
+    // std::string; built once per chunk instead of String::utf8() per call.
+    std::string jit_name_cache;
+    bool jit_name_cached = false;
 
     void write(uint8_t byte, int line) {
         code.push_back(byte);
