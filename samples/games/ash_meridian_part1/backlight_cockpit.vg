@@ -183,7 +183,7 @@ Sub _draw()
 	Dim y As Variant
 	Dim _t0 As Variant
 	Call EnsureInit()
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		x = 480 + side * 437
 		draw_polygon(PackedVector2Array(Array(Vector2(x - 32, 0), Vector2(x + 32, 0), Vector2(x + side * 5 + 22, 435), Vector2(x + side * 5 - 22, 435))), PackedColorArray(Array(TRIM, TRIM, PANEL, PANEL)))
 		draw_line(Vector2(x - side * 26, 0), Vector2(x - side * 17, 422), BLUE * 0.7, 3, True)
@@ -192,7 +192,7 @@ Sub _draw()
 	draw_line(Vector2(88, 32), Vector2(872, 32), BLUE * 0.8, 3, True)
 	draw_polygon(PackedVector2Array(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450), Vector2(960, 540), Vector2(0, 540))), PackedColorArray(Array(TRIM, TRIM, TRIM, TRIM, PANEL, PANEL)))
 	draw_polyline(PackedVector2Array(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450))), BLUE, 3, True)
-	For Each x In AsArray(Array(158.0, 392.0, 626.0))
+	For Each x In Array(158.0, 392.0, 626.0)
 		draw_rect(Rect2(x, 417, 176, 76), PANEL)
 		draw_rect(Rect2(x, 417, 176, 76), BLUE * 0.5, False, 1.5)
 	Next

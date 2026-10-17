@@ -353,6 +353,19 @@ enum OpCode {
     // Same operand layout as OP_NEW_OBJECT.
     OP_NEW_PACKED_LITERAL,
 
+    // Guarded fused form of `recv.append_array(PackedXArray(Array(v1, …, vn)))`
+    // where recv is a plain local/global variable and every element is a
+    // plain local (the mesh-building idiom: three vertices per triangle).
+    //   [OP] [RECV_KIND] [RECV_LO] [RECV_HI] [CLASS_IDX(2)] [COUNT] [SKIP_HI] [SKIP_LO] [SLOT]*COUNT
+    // RECV_KIND 0 = local slot (RECV_LO), 1 = global (constant index).  When
+    // the receiver already is that packed type and every element already has
+    // the exact element type, the elements are pushed straight into the
+    // receiver's storage (no literal, no stack traffic) and execution jumps
+    // +SKIP (relative to the byte after the offset, like OP_JUMP) over the
+    // ordinary code for the same statement that the compiler emits right
+    // after it; otherwise nothing is consumed and that ordinary code runs.
+    OP_PACKED_APPEND_LITERAL,
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

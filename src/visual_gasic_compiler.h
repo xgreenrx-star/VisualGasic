@@ -67,6 +67,15 @@ private:
     HashSet<String> non_local_names;
     HashSet<String> used_vars;
     HashMap<String, int> expr_cache;
+    // Statement-scoped CSE bookkeeping: every `SET_LOCAL __cse_N; GET_LOCAL
+    // __cse_N` pair the BINARY_OP compiler emits (code offset of the SET and
+    // the slot), and the slots a later expr_cache hit actually read.  A pair
+    // whose slot was never read again by the end of its statement is NOP'd
+    // out (the optimizer compacts the NOPs), so single-use expressions do
+    // not pay a store + reload + Variant copy for a cache nobody consults.
+    Vector<int> cse_pair_pos;
+    Vector<int> cse_pair_slot;
+    HashSet<int> cse_reused_slots;
     Vector<String> loop_vars;
     Vector<String> loop_bound_vars;
     // Stack of pending exit-jump addresses for Exit For / Exit Do.
@@ -170,6 +179,7 @@ private:
     bool try_emit_draw_circle_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_texture_rect_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
+    bool try_emit_packed_append_literal(CallStatement *s);
     SubDefinition *find_sub_by_name(const String &p_name) const;
     bool try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const;
     bool try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const;
@@ -191,6 +201,7 @@ private:
     ValueType infer_type(ExpressionNode* expr) const;
 
     void compile_statement(Statement* stmt);
+    void compile_statement_body(Statement* stmt);
     void compile_expression(ExpressionNode* expr);
 
     // ByRef write-back (v6.2): after an OP_CALL to target_func, emit

@@ -362,6 +362,9 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.clear();
     used_vars.clear();
     expr_cache.clear();
+    cse_pair_pos.clear();
+    cse_pair_slot.clear();
+    cse_reused_slots.clear();
     loop_vars.clear();
     loop_bound_vars.clear();
     loop_exit_jumps.clear();
@@ -1617,6 +1620,98 @@ const Vector<ExpressionNode*> *VisualGasicCompiler::array_literal_elements(Expre
         return &aa->indices;
     }
     return nullptr;
+}
+
+// `recv.append_array(PackedXArray(Array(v1, …, vn)))` as a statement, with
+// recv a plain variable and every vi a plain local: emit the ordinary code
+// first, and when it has exactly the shape
+//   GET_LOCAL|GET_GLOBAL recv ; GET_LOCAL vi ×n ; NEW_PACKED_LITERAL ; METHOD_CALL append_array,1 ; POP
+// prefix it with a guarded OP_PACKED_APPEND_LITERAL that appends straight
+// from the slots and skips the ordinary code (see visual_gasic_bytecode.h).
+// The ordinary code is kept verbatim as the fallback, so the shape test is
+// on the emitted bytes: whatever compile_expression resolved the names to
+// (block locals, Consts, enums, builtin constants, …) simply fails the test.
+// Returns true when the statement has been emitted (fused or not).
+bool VisualGasicCompiler::try_emit_packed_append_literal(CallStatement *s) {
+    if (!s || !s->base_object || s->method_name.nocasecmp_to("append_array") != 0 ||
+            s->arguments.size() != 1 || s->base_object->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    for (int i = 0; i < s->argument_names.size(); i++) {
+        if (!s->argument_names[i].is_empty()) return false;
+    }
+    ExpressionNode *arg = s->arguments[0];
+    if (!arg || arg->type != ExpressionNode::EXPRESSION_CALL) return false;
+    CallExpression *ctor = (CallExpression *)arg;
+    if (ctor->base_object || !ctor->method_name.to_lower().begins_with("packed") || ctor->arguments.size() != 1) {
+        return false;
+    }
+    const Vector<ExpressionNode*> *elems = array_literal_elements(ctor->arguments[0]);
+    if (!elems || elems->is_empty() || elems->size() > 255) return false;
+    for (int i = 0; i < elems->size(); i++) {
+        if (!(*elems)[i] || (*elems)[i]->type != ExpressionNode::VARIABLE) return false;
+    }
+
+    // Ordinary code first (it is also the fallback).
+    const int start = current_chunk->code.size();
+    compile_expression(s->base_object);
+    compile_expression(arg);
+    int method_idx = current_chunk->add_constant(s->method_name);
+    emit_byte(OP_METHOD_CALL);
+    emit_const_index(method_idx);
+    emit_byte((uint8_t)1);
+    emit_byte(OP_POP);
+
+    // Shape test on the emitted bytes.
+    const Vector<uint8_t> &code = current_chunk->code;
+    const int n = elems->size();
+    int p = start;
+    uint8_t recv_kind;
+    int recv_idx;
+    if (p < code.size() && code[p] == OP_GET_LOCAL && p + 1 < code.size()) {
+        recv_kind = 0; recv_idx = code[p + 1]; p += 2;
+    } else if (p < code.size() && code[p] == OP_GET_GLOBAL && p + 2 < code.size()) {
+        recv_kind = 1; recv_idx = code[p + 1] | (code[p + 2] << 8); p += 3;
+    } else {
+        return true;
+    }
+    Vector<uint8_t> slots;
+    for (int i = 0; i < n; i++) {
+        if (p + 1 >= code.size() || code[p] != OP_GET_LOCAL) return true;
+        slots.push_back(code[p + 1]);
+        p += 2;
+    }
+    if (p + 3 >= code.size() || code[p] != OP_NEW_PACKED_LITERAL || code[p + 3] != (uint8_t)n) return true;
+    const int class_idx = code[p + 1] | (code[p + 2] << 8);
+    p += 4;
+    if (p + 3 >= code.size() || code[p] != OP_METHOD_CALL ||
+            (code[p + 1] | (code[p + 2] << 8)) != method_idx || code[p + 3] != 1) return true;
+    p += 4;
+    if (p + 1 != code.size() || code[p] != OP_POP) return true;
+
+    // Lift the ordinary code out, emit the guarded prefix, put it back.
+    Vector<uint8_t> tail_code;
+    Vector<int> tail_lines;
+    for (int i = start; i < code.size(); i++) {
+        tail_code.push_back(code[i]);
+        tail_lines.push_back(i < current_chunk->lines.size() ? current_chunk->lines[i] : current_line);
+    }
+    current_chunk->code.resize(start);
+    if (current_chunk->lines.size() > start) current_chunk->lines.resize(start);
+    // Skip is relative to the byte after the offset (ip+9); the n slot bytes
+    // and the whole ordinary code lie between that point and the target.
+    const int skip = n + tail_code.size();
+    emit_byte(OP_PACKED_APPEND_LITERAL);
+    emit_byte(recv_kind);
+    emit_byte((uint8_t)(recv_idx & 0xFF));
+    emit_byte((uint8_t)((recv_idx >> 8) & 0xFF));
+    emit_const_index(class_idx);
+    emit_byte((uint8_t)n);
+    emit_byte((uint8_t)((skip >> 8) & 0xFF));
+    emit_byte((uint8_t)(skip & 0xFF));
+    for (int i = 0; i < n; i++) emit_byte(slots[i]);
+    for (int i = 0; i < tail_code.size(); i++) current_chunk->write(tail_code[i], tail_lines[i]);
+    return true;
 }
 
 bool VisualGasicCompiler::is_trusted_dictionary_var(const String &name) const {
@@ -6558,6 +6653,28 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
     emit_debug_line(current_line);
     
     expr_cache.clear();
+    const int cse_mark = cse_pair_pos.size();
+    compile_statement_body(stmt);
+    // Statement-scoped CSE: drop the store+reload of every __cse_ temp this
+    // statement (and nothing nested in it — those were handled at their own
+    // level) never read back.  The cache is cleared per statement, so the
+    // value could not be consulted later either.  OP_NOP bytes are removed
+    // by the optimizer's compaction, which relocates any jump across them.
+    for (int i = cse_mark; i < cse_pair_pos.size(); i++) {
+        const int pos = cse_pair_pos[i];
+        const int slot = cse_pair_slot[i];
+        if (cse_reused_slots.has(slot)) continue;
+        Vector<uint8_t> &code = current_chunk->code;
+        if (pos + 3 < code.size() && code[pos] == OP_SET_LOCAL && code[pos + 1] == (uint8_t)slot &&
+                code[pos + 2] == OP_GET_LOCAL && code[pos + 3] == (uint8_t)slot) {
+            for (int b = 0; b < 4; b++) code.write[pos + b] = 0xFF; // OP_NOP (optimizer sentinel)
+        }
+    }
+    cse_pair_pos.resize(cse_mark);
+    cse_pair_slot.resize(cse_mark);
+}
+
+void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
     switch (stmt->type) {
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
@@ -7387,6 +7504,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                     break;
                 }
                 // Method call on object — compile base + args, emit OP_METHOD_CALL
+                if (try_emit_packed_append_literal(s)) break;
                 compile_expression(s->base_object);
                 for (int i = 0; i < s->arguments.size(); i++) {
                     compile_expression(s->arguments[i]);
@@ -10327,6 +10445,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
 
                 if (expr_cache.has(key)) {
                     emit_bytes(OP_GET_LOCAL, (uint8_t)expr_cache[key]);
+                    cse_reused_slots.insert(expr_cache[key]);
                     break;
                 }
 
@@ -10425,6 +10544,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 }
 
                 if (cse_slot >= 0) {
+                    cse_pair_pos.push_back(current_chunk->code.size());
+                    cse_pair_slot.push_back(cse_slot);
                     emit_bytes(OP_SET_LOCAL, (uint8_t)cse_slot);
                     emit_bytes(OP_GET_LOCAL, (uint8_t)cse_slot);
                     expr_cache[key] = cse_slot;
@@ -10826,7 +10947,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // Check for Color.White, Color.Red, etc. — named color constants
             if (ma->base_object && ma->base_object->type == ExpressionNode::VARIABLE) {
                 String base_name = ((VariableNode*)ma->base_object)->name;
-                if (base_name.nocasecmp_to("Color") == 0 && !ma->member_name.is_empty()) {
+                // Only fold when the member really is a named color and "Color" is not
+                // shadowed by a local/parameter (e.g. `color.r` on a Color variable).
+                int bl_frame = 0, bl_offset = 0;
+                bool color_is_variable = local_slots.has(base_name.to_lower()) ||
+                        lookup_block_local(base_name, bl_frame, bl_offset);
+                if (base_name.nocasecmp_to("Color") == 0 && !ma->member_name.is_empty() &&
+                        !color_is_variable && Color::find_named_color(ma->member_name) >= 0) {
                     Color c = Color::named(ma->member_name);
                     int cidx = current_chunk->add_constant(c);
                     emit_byte(OP_CONSTANT);

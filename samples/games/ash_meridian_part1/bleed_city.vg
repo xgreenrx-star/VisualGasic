@@ -191,8 +191,8 @@ End Sub
 
 Sub _road(ByVal view As Node)
 	Call EnsureInit()
-	For Each side In AsArray(Array(-1.0, 1.0))
-		For Each lane In AsArray(Array(1.35, 2.15))
+	For Each side In Array(-1.0, 1.0)
+		For Each lane In Array(1.35, 2.15)
 			view.segment(Vector3(side * lane, 0.05, -6), Vector3(side * lane, 0.05, 96), CYAN)
 		Next
 		For z = -4 To (96 - 1) Step 4
@@ -286,8 +286,8 @@ Sub _buggy(ByVal view As Node, ByVal origin As Vector3)
 	view.segment(origin + Vector3(-0.8, 0.4, 1.3), origin + Vector3(0.8, 0.4, 1.3), CYAN)
 	view.segment(origin + Vector3(-0.8, 0.4, -1.2), origin + Vector3(-0.8, 0.4, 1.3), CYAN)
 	view.segment(origin + Vector3(0.8, 0.4, -1.2), origin + Vector3(0.8, 0.4, 1.3), CYAN)
-	For Each side In AsArray(Array(-1.0, 1.0))
-		For Each z In AsArray(Array(-0.8, 0.9))
+	For Each side In Array(-1.0, 1.0)
+		For Each z In Array(-0.8, 0.9)
 			_ring_x(view, origin + Vector3(side * 0.95, 0.38, z), 0.38, CYAN)
 		Next
 	Next

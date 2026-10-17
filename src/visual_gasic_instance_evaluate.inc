@@ -453,7 +453,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          // Color.White, Color.Red, etc. — named color constants
          if (ma->base_object->type == ExpressionNode::VARIABLE) {
              String base_name = ((VariableNode*)ma->base_object)->name;
-             if (base_name == "Color") {
+             if (base_name == "Color" && Color::find_named_color(ma->member_name) >= 0) {
                  return Color::named(ma->member_name);
              }
              // Math.PI, Math.E constants

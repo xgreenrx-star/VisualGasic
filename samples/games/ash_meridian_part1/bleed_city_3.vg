@@ -328,8 +328,8 @@ Sub build(ByVal view As Node)
 	_wheel(view)
 	wheel_mesh = _freeze(view, "Wheel")
 	remove_child(wheel_mesh)
-	For Each side In AsArray(Array(-1.0, 1.0))
-		For Each z In AsArray(Array(-1.45, 1.35))
+	For Each side In Array(-1.0, 1.0)
+		For Each z In Array(-1.45, 1.35)
 			wheel = ClassDB.Instantiate("MeshInstance3D")
 			wheel.mesh = wheel_mesh.mesh
 			wheel.position = Vector3(side * 1.15, 0.52, z)
@@ -352,7 +352,7 @@ Sub build(ByVal view As Node)
 	_lamp(view)
 	lamp_mesh = _freeze(view, "Searchlight")
 	remove_child(lamp_mesh)
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		lamp = ClassDB.Instantiate("Node3D")
 		lamp.position = Vector3(side * 8.2, 0, 38)
 		head = ClassDB.Instantiate("MeshInstance3D")
@@ -429,7 +429,7 @@ Sub _roads(ByVal view As Node)
 	' Dark deck, bright twin rails. The road is a bridge over the void.
 	view.box(Vector3(-5.2, -0.35, -8), Vector3(10.4, 0.28, 128), Color(0.02, 0.04, 0.05))
 	view.box(Vector3(-42, -0.38, 32), Vector3(84, 0.28, 10), Color(0.02, 0.04, 0.05))
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		view.segment(Vector3(side * 4.6, 0.04, -8), Vector3(side * 4.6, 0.04, 118), CYAN)
 		view.segment(Vector3(side * 3.9, 0.04, -8), Vector3(side * 3.9, 0.04, 118), CYAN * 0.72)
 		view.segment(Vector3(-40, 0.05, 34 + side * 3.6), Vector3(40, 0.05, 34 + side * 3.6), CYAN)
@@ -440,13 +440,13 @@ Sub _roads(ByVal view As Node)
 		End If
 	Next
 	For z = 0 To (114 - 1) Step 8
-		For Each side In AsArray(Array(-1.0, 1.0))
+		For Each side In Array(-1.0, 1.0)
 			_strut(view, Vector3(side * 5.1, -6.5, z), Vector3(side * 5.1, 0, z), 0.16, CYAN * 0.45)
 		Next
 		view.segment(Vector3(-5.1, -2.2, z), Vector3(5.1, -2.2, z), CYAN * 0.4)
 	Next
-	For Each x In AsArray(Array(-4.6, 4.6))
-		For Each z In AsArray(Array(32.4, 39.6))
+	For Each x In Array(-4.6, 4.6)
+		For Each z In Array(32.4, 39.6)
 			center = Vector3(x * 2.2, 0.05, z)
 			previous = center + Vector3(-Sign(x) * 4.2, 0, 0)
 			For i = 1 To (10 - 1)
@@ -468,7 +468,7 @@ Sub _tower(ByVal view As Node, ByVal origin As Vector3, ByVal color As Color)
 	For i = 0 To (heights.size() - 1)
 		_tube(view, origin + offsets(i), origin + offsets(i) + Vector3(0, 1, 0) * heights(i), 0.28 + (i  Mod  3) * 0.08, color, 3)
 	Next
-	For Each y In AsArray(Array(4.0, 8.0))
+	For Each y In Array(4.0, 8.0)
 		For i = 0 To (offsets.size() - 1 - 1)
 			view.segment(origin + offsets(i) + Vector3(0, 1, 0) * y, origin + offsets(i + 1) + Vector3(0, 1, 0) * y, color * 0.8)
 		Next
@@ -481,13 +481,13 @@ Sub _hall(ByVal view As Node, ByVal p As Vector3, ByVal width As Single, ByVal l
 	Dim z As Variant
 	Dim x As Variant
 	Call EnsureInit()
-	For Each x In AsArray(Array(0.0, width))
-		For Each z In AsArray(Array(0.0, length))
+	For Each x In Array(0.0, width)
+		For Each z In Array(0.0, length)
 			_strut(view, p + Vector3(x, 0, z), p + Vector3(x, height, z), 0.2, PINK)
 			solids.append(Rect2(Vector2(p.x + x - 0.45, p.z + z - 0.45), Vector2(0.9, 0.9)))
 		Next
 	Next
-	For Each y In AsArray(Array(height * 0.45, height))
+	For Each y In Array(height * 0.45, height)
 		view.segment(p + Vector3(0, y, 0), p + Vector3(width, y, 0), PINK)
 		view.segment(p + Vector3(width, y, 0), p + Vector3(width, y, length), PINK)
 		view.segment(p + Vector3(width, y, length), p + Vector3(0, y, length), PINK)
@@ -540,7 +540,7 @@ End Sub
 
 Sub _catwalk(ByVal view As Node, ByVal z As Single)
 	Call EnsureInit()
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		_strut(view, Vector3(side * 14, 0, z), Vector3(side * 14, 5.2, z), 0.16, PINK)
 		view.segment(Vector3(-14, 5.2, z + side * 0.7), Vector3(14, 5.2, z + side * 0.7), PINK)
 		view.segment(Vector3(-14, 6.3, z + side * 0.7), Vector3(14, 6.3, z + side * 0.7), CYAN * 0.8)
@@ -554,14 +554,14 @@ Sub _span(ByVal view As Node, ByVal z As Single, ByVal y As Single, ByVal color 
 	Call EnsureInit()
 	_tube(view, Vector3(-22, y, z), Vector3(22, y, z), 0.16, color, 5)
 	_tube(view, Vector3(-22, y - 0.9, z + 0.6), Vector3(22, y - 0.9, z + 0.6), 0.1, CYAN, 3)
-	For Each x In AsArray(Array(-18.0, -6.0, 6.0, 18.0))
+	For Each x In Array(-18.0, -6.0, 6.0, 18.0)
 		view.segment(Vector3(x, y, z), Vector3(x, y - 0.9, z + 0.6), color * 0.8)
 	Next
 End Sub
 
 Sub _lights(ByVal view As Node)
 	Call EnsureInit()
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		_tube(view, Vector3(side * 8.2, 0, 38), Vector3(side * 8.2, 3.2, 38), 0.35, PINK, 2)
 		view._ring(Vector3(side * 8.2, 3.3, 38), 0.7, 1, AMBER, Transform3D())
 	Next
@@ -617,7 +617,7 @@ Sub _ship(ByVal view As Node, ByVal p As Vector3)
 	view.segment(nose, p + Vector3(-2.2, 1.2, -2), CYAN)
 	view.segment(nose, p + Vector3(2.2, 1.2, -2), CYAN)
 	view.segment(nose, p + Vector3(0, 3.4, -2), CYAN)
-	For Each y In AsArray(Array(1.2, 3.4))
+	For Each y In Array(1.2, 3.4)
 		view.segment(p + Vector3(-2.4, y, -2), p + Vector3(2.4, y, -2), CYAN)
 		view.segment(p + Vector3(-2.4, y, -2), p + Vector3(-2.2, y, 6), CYAN)
 		view.segment(p + Vector3(2.4, y, -2), p + Vector3(2.2, y, 6), CYAN)
@@ -625,7 +625,7 @@ Sub _ship(ByVal view As Node, ByVal p As Vector3)
 	view.segment(p + Vector3(-2.2, 1.2, 6), tail, CYAN)
 	view.segment(p + Vector3(2.2, 1.2, 6), tail, CYAN)
 	view.segment(p + Vector3(0, 3.4, 6), tail + Vector3(0, 0.4, 0), CYAN)
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		_tube(view, p + Vector3(side * 3.3, 2.2, -1), p + Vector3(side * 3.3, 2.2, 5), 0.55, CYAN, 3)
 	Next
 End Sub
@@ -686,8 +686,8 @@ Sub _buggy(ByVal view As Node)
 	view.segment(Vector3(-0.7, 1.15, 0.35), Vector3(-0.55, 1.55, -0.4), PINK)
 	view.segment(Vector3(0.7, 1.15, 0.35), Vector3(0.55, 1.55, -0.4), PINK)
 	view.segment(Vector3(-0.55, 1.55, -0.4), Vector3(0.55, 1.55, -0.4), CYAN)
-	For Each side In AsArray(Array(-1.0, 1.0))
-		For Each z In AsArray(Array(-1.45, 1.35))
+	For Each side In Array(-1.0, 1.0)
+		For Each z In Array(-1.45, 1.35)
 			_tube(view, Vector3(side * 0.35, 0.85, z * 0.55), Vector3(side * 1.05, 0.52, z), 0.055, CYAN)
 			For rib = 0 To (7 - 1)
 				t = rib / 6.0
@@ -697,7 +697,7 @@ Sub _buggy(ByVal view As Node)
 		Next
 	Next
 	_bottle(view, Vector3(0, 0.15, -0.15), PI / 2.0)
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		view.segment(Vector3(0, 0.7, -0.2), Vector3(side * 1.05, 0.52, -1.45), CYAN)
 		view.segment(Vector3(0, 0.7, -0.2), Vector3(side * 1.05, 0.52, 1.35), CYAN)
 	Next
@@ -706,7 +706,7 @@ End Sub
 Sub _wheel(ByVal view As Node)
 	Call EnsureInit()
 	view._cylinder(Vector3(-0.16, 0, 0), 0.52, 0.32, 0, PINK, Transform3D())
-	For Each x In AsArray(Array(-0.17, 0.17))
+	For Each x In Array(-0.17, 0.17)
 		view._ring(Vector3(x, 0, 0), 0.36, 0, CYAN, Transform3D(), True)
 	Next
 End Sub
@@ -760,7 +760,7 @@ Sub interact_vehicle()
 		inspection = 0
 	End If
 	If driving Then
-		For Each side In AsArray(Array(1.0, -1.0))
+		For Each side In Array(1.0, -1.0)
 			exit_position = buggy_position + Vector2(Cos(heading), -Sin(heading)) * Num(side) * 2.4
 			If Not blocked(exit_position, 0.35) Then
 				driving = False

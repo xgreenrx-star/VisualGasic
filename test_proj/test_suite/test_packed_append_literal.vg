@@ -1,0 +1,142 @@
+Option Explicit
+
+' recv.append_array(PackedXArray(Array(v1, …, vn))) with a plain variable
+' receiver and plain local elements compiles to a guarded
+' OP_PACKED_APPEND_LITERAL ahead of the ordinary code.  The fast path must
+' leave exactly the state the ordinary code leaves, and every case the guard
+' rejects (receiver not yet a packed array, mismatched element types, Array
+' receiver, Nothing elements) must still run the ordinary code.  All three
+' tiers must agree.
+
+Dim fails As Integer
+Dim points As PackedVector3Array
+Dim shades As PackedColorArray
+Dim names As PackedStringArray
+Dim weights As PackedFloat32Array
+Dim late As Variant
+Dim bag As Array
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Sub Tri(ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, ByVal color As Color, ByVal label As String)
+	points.append_array(PackedVector3Array(Array(a, b, c)))
+	shades.append_array(PackedColorArray(Array(color, color, color)))
+	names.append_array(PackedStringArray(Array(label, label)))
+End Sub
+
+Sub TriOptional(ByVal a As Vector3, Optional normal As Variant)
+	' `normal` is Nothing when omitted: the guard must reject it and the
+	' ordinary code must raise the same conversion result it always did.
+	points.append_array(PackedVector3Array(Array(a, a)))
+	If Not (normal Is Nothing) Then
+		points.append_array(PackedVector3Array(Array(normal, normal)))
+	End If
+End Sub
+
+Sub Weigh(ByVal w As Integer, ByVal f As Single)
+	' Integer elements into a Float32 array: not the exact element type, so
+	' the ordinary conversion path runs every time.
+	weights.append_array(PackedFloat32Array(Array(w, f)))
+End Sub
+
+Sub LateAppend(ByVal v As Vector3)
+	late.append_array(PackedVector3Array(Array(v)))
+End Sub
+
+Sub BagAppend(ByVal v As Vector3)
+	bag.append_array(PackedVector3Array(Array(v, v)))
+End Sub
+
+Function LocalRecv(ByVal a As Vector3, ByVal n As Integer) As PackedVector3Array
+	Dim acc As PackedVector3Array
+	Dim i As Integer
+	Dim b As Vector3
+	acc = PackedVector3Array()
+	For i = 1 To n
+		b = a * i
+		acc.append_array(PackedVector3Array(Array(a, b)))
+	Next
+	LocalRecv = acc
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim a As Vector3
+	Dim c As Color
+	Dim r As PackedVector3Array
+	Dim snapshot As PackedVector3Array
+
+	points = PackedVector3Array()
+	shades = PackedColorArray()
+	names = PackedStringArray()
+	weights = PackedFloat32Array()
+
+	' Global receivers, exact element types; run several times so the
+	' second and later calls take the fast path.
+	For i = 1 To 4
+		a = Vector3(i, i * 2, i * 3)
+		c = Color(0.25 * i, 0, 0)
+		Tri a, a + Vector3(1, 0, 0), a + Vector3(0, 1, 0), c, "t" & i
+	Next
+	Check "points size", CStr(points.size()), "12"
+	Check "points first", CStr(points(0)), CStr(Vector3(1, 2, 3))
+	Check "points last", CStr(points(11)), CStr(Vector3(4, 9, 12))
+	Check "points mid", CStr(points(7).x), "4"
+	Check "shades size", CStr(shades.size()), "12"
+	Check "shades last", CStr(shades(11).r), "1"
+	Check "names", names(0) & names(1) & names(6) & names(7), "t1t1t4t4"
+
+	' A copy taken before further appends shares storage (Godot reference
+	' semantics for packed arrays), exactly as with the ordinary code.
+	snapshot = points
+	Tri Vector3(7, 7, 7), Vector3(8, 8, 8), Vector3(9, 9, 9), Color(0, 1, 0), "x"
+	Check "shared storage", CStr(snapshot.size()), "15"
+
+	' Nothing element (omitted Optional) must take the ordinary path.
+	TriOptional Vector3(1, 1, 1)
+	Check "optional omitted", CStr(points.size()), "17"
+	TriOptional Vector3(2, 2, 2), Vector3(3, 3, 3)
+	Check "optional given", CStr(points.size()) & "/" & CStr(points(20)), "21/" & CStr(Vector3(3, 3, 3))
+
+	' Mismatched element types convert on the ordinary path every call.
+	For i = 1 To 3
+		Weigh i, i * 0.5
+	Next
+	Check "weights", CStr(weights.size()) & "/" & CStr(weights(4)) & "/" & CStr(weights(5)), "6/3/1.5"
+
+	' Receiver that is not a packed array yet: first call fails the guard.
+	late = Nothing
+	late = PackedVector3Array()
+	LateAppend Vector3(5, 5, 5)
+	LateAppend Vector3(6, 6, 6)
+	Check "late receiver", CStr(late.size()) & "/" & CStr(late(1).x), "2/6"
+
+	' Receiver reassigned between calls: the fused form must follow the
+	' variable, not the storage it saw first.
+	late = PackedVector3Array()
+	LateAppend Vector3(1, 0, 0)
+	Check "reassigned receiver", CStr(late.size()), "1"
+
+	' Godot Array receiver: ordinary path (Array.append_array).
+	bag = Array()
+	BagAppend Vector3(4, 4, 4)
+	BagAppend Vector3(5, 5, 5)
+	Check "array receiver", CStr(bag.size()) & "/" & CStr(bag(3)), "4/" & CStr(Vector3(5, 5, 5))
+
+	' Local receiver inside a loop.
+	r = LocalRecv(Vector3(1, 2, 3), 3)
+	Check "local receiver", CStr(r.size()) & "/" & CStr(r(5)), "6/" & CStr(Vector3(3, 6, 9))
+	r = LocalRecv(Vector3(1, 1, 1), 0)
+	Check "local receiver empty", CStr(r.size()), "0"
+
+	If fails = 0 Then
+		Print "PASS: packed append literal"
+	Else
+		Print "FAIL: " & CStr(fails) & " packed append literal checks failed"
+	End If
+End Sub

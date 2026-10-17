@@ -238,7 +238,7 @@ Sub _draw()
 	For i = 0 To (5 - 1)
 		arc(Vector2(480, 389), Vector2(468 + i * 8, 345 + i * 6), PI * 1.04, PI * 1.96, PINK, 1.0)
 	Next
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		For rib = 0 To (4 - 1)
 			offset = side * rib * 5
 			path(Array(Vector2(480 + side * 470 + offset, -12), Vector2(480 + side * 298 + offset, 106), Vector2(480 + side * 219 + offset, 190), Vector2(480 + side * 158 + offset, 300)), PINK)
@@ -303,7 +303,7 @@ Sub _draw()
 	Next
 	' Low yoke grips leave all three instruments readable.
 	plate(Array(Vector2(385, 420), Vector2(402, 425), Vector2(390, 468), Vector2(406, 480), Vector2(554, 480), Vector2(570, 468), Vector2(558, 425), Vector2(575, 420), Vector2(592, 477), Vector2(576, 497), Vector2(384, 497), Vector2(368, 477)))
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		arc(Vector2(480 + side * 94, 421), Vector2(14, 7), 0, 6.283185307179586, PINK, 1.6)
 		For rib = 0 To (3 - 1)
 			path(Array(Vector2(480 + side * 105, 426 + rib * 4), Vector2(480 + side * 85, 431 + rib * 4)), PINK)

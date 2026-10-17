@@ -444,11 +444,11 @@ Sub face(ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, ByVal d As 
 	Dim ink As Variant
 	Call EnsureInit()
 	ink = Color(color.r * 0.055, color.g * 0.055, color.b * 0.07, 1.0)
-	For Each point In AsArray(Array(a, b, c, a, c, d))
+	For Each point In Array(a, b, c, a, c, d)
 		vertices.append(point)
 		colors.append(ink)
 	Next
-	For Each pair In AsArray(Array(Array(a, b), Array(b, c), Array(c, d), Array(d, a)))
+	For Each pair In Array(Array(a, b), Array(b, c), Array(c, d), Array(d, a))
 		segment(pair(0), pair(1), color)
 	Next
 End Sub
@@ -473,7 +473,7 @@ Function _mesh() As ArrayMesh
 	End If
 	If Not edges.is_empty() Then
 		For i = 0 To (edges.size() - 1) Step 2
-			For Each corner In AsArray(Array(Vector2(0, -1), Vector2(0, 1), Vector2(1, 1), Vector2(0, -1), Vector2(1, 1), Vector2(1, -1)))
+			For Each corner In Array(Vector2(0, -1), Vector2(0, 1), Vector2(1, 1), Vector2(0, -1), Vector2(1, 1), Vector2(1, -1))
 				index = i + Int(corner.x)
 				line_vertices.append(edges(index))
 				line_normals.append(edges(i + 1) - edges(i))
@@ -761,10 +761,10 @@ Sub box(ByVal origin As Vector3, ByVal size As Vector3, ByVal color As Color, Op
 	End If
 	Call EnsureInit()
 	p = Array()
-	For Each offset In AsArray(Array(Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1)))
+	For Each offset In Array(Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(1, 1, 0), Vector3(0, 1, 0), Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(1, 1, 1), Vector3(0, 1, 1))
 		p.append(transform * (origin + offset * size))
 	Next
-	For Each indices In AsArray(Array(Array(0, 1, 2, 3), Array(4, 7, 6, 5), Array(0, 3, 7, 4), Array(1, 5, 6, 2), Array(3, 2, 6, 7), Array(0, 4, 5, 1)))
+	For Each indices In Array(Array(0, 1, 2, 3), Array(4, 7, 6, 5), Array(0, 3, 7, 4), Array(1, 5, 6, 2), Array(3, 2, 6, 7), Array(0, 4, 5, 1))
 		face(p(indices(0)), p(indices(1)), p(indices(2)), p(indices(3)), color)
 	Next
 End Sub
@@ -789,7 +789,7 @@ Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Si
 	Else
 		street_x = x
 	End If
-	For Each dz In AsArray(Array(0.0, d))
+	For Each dz In Array(0.0, d)
 		face(Vector3(street_x, 0, z + dz), Vector3(street_x - side * 2.0, 0, z + dz), Vector3(street_x, h * 0.25, z + dz), Vector3(street_x, h * 0.42, z + dz), CYAN * 0.65)
 	Next
 	If detail = 0 Then
@@ -803,7 +803,7 @@ Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Si
 	segment(Vector3(conduit_x, 0.1, z - 0.02), Vector3(conduit_x, h * 0.35, z - 0.02), CYAN)
 	segment(Vector3(conduit_x, h * 0.35, z - 0.02), Vector3(conduit_x - w * 0.22, h * 0.44, z - 0.02), CYAN)
 	segment(Vector3(conduit_x - w * 0.22, h * 0.44, z - 0.02), Vector3(conduit_x - w * 0.22, h * 0.82, z - 0.02), CYAN)
-	For Each dz In AsArray(Array(d * 0.2, d * 0.55))
+	For Each dz In Array(d * 0.2, d * 0.55)
 		segment(Vector3(street_x, h * 0.12, z + dz), Vector3(street_x, h * 0.3, z + dz), CYAN * 0.55)
 		segment(Vector3(street_x, h * 0.3, z + dz), Vector3(street_x - side * w * 0.15, h * 0.4, z + dz), CYAN * 0.55)
 	Next
@@ -816,7 +816,7 @@ Sub _extrude(ByVal outline As PackedVector2Array, ByVal depth As Single, ByVal c
 	Dim q As Variant
 	Call EnsureInit()
 	indices = Geometry2D.triangulate_polygon(outline)
-	For Each back In AsArray(Array(0.0, depth))
+	For Each back In Array(0.0, depth)
 		For Each index In AsArray(indices)
 			point = outline(index)
 			vertices.append(transform * Vector3(point.x, point.y, back))
@@ -860,12 +860,12 @@ Sub _cylinder(ByVal center As Vector3, ByVal radius As Single, ByVal length As S
 			extent = Vector3(0, length, 0)
 		End If
 		' Filled sides are independent of decorative coil rings.
-		For Each point In AsArray(Array(center + p, center + q, center + q + extent, center + p, center + q + extent, center + p + extent))
+		For Each point In Array(center + p, center + q, center + q + extent, center + p, center + q + extent, center + p + extent)
 			vertices.append(transform * point)
 			colors.append(Color(0.008, 0.015, 0.022))
 		Next
-		For Each end_n In AsArray(Array(Vector3(0, 0, 0), extent))
-			For Each point In AsArray(Array(center + end_n, center + p + end_n, center + q + end_n))
+		For Each end_n In Array(Vector3(0, 0, 0), extent)
+			For Each point In Array(center + end_n, center + p + end_n, center + q + end_n)
 				vertices.append(transform * point)
 				colors.append(Color(0.008, 0.012, 0.019))
 			Next
@@ -917,8 +917,8 @@ Sub turret(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As
 	Dim housing As Variant
 	Call EnsureInit()
 	transform = Transform3D(Basis(Vector3(0, 1, 0), -yaw), Vector3(x, y, z))
-	For Each side In AsArray(Array(-1.0, 1.0))
-		For Each end_n In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
+		For Each end_n In Array(-1.0, 1.0)
 			box(Vector3(-0.6 + end_n * 1.05, 0.03, side * 1.2 - 0.3), Vector3(1.1, 0.22, 0.6), PINK, transform)
 		Next
 	Next
@@ -932,7 +932,7 @@ Sub turret(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As
 	_cylinder(Vector3(0, 0.3, 0), 0.6, 0.8, 1, PINK, transform)
 	_ring(Vector3(0, 0.32, 0), 1.0, 1, CYAN, transform)
 	_ring(Vector3(0, 0.45, 0), 0.72, 1, PINK, transform)
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		box(Vector3(-0.55, 0.8, side * 0.7 - 0.12), Vector3(1.15, 0.65, 0.24), PINK, transform)
 		housing = PackedVector2Array(Array(Vector2(-0.8, 1.3), Vector2(0.85, 1.3), Vector2(0.85, 1.8), Vector2(0.55, 2.12), Vector2(-0.55, 2.12), Vector2(-0.8, 1.85)))
 		_extrude(housing, 0.6, PINK, transform.translated_local(Vector3(0, 0, side * 0.58 - 0.3)))
@@ -954,7 +954,7 @@ Sub bridge(ByVal z As Single)
 	Dim point As Variant
 	Call EnsureInit()
 	box(Vector3(-8.5, 4.8, z - 0.7), Vector3(17, 0.4, 1.4), CYAN * 0.65)
-	For Each side In AsArray(Array(-1.0, 1.0))
+	For Each side In Array(-1.0, 1.0)
 		box(Vector3(side * 8.4 - 0.4, 0, z - 0.8), Vector3(0.8, 4.8, 1.6), CYAN * 0.7)
 		For rib = 0 To (3 - 1)
 			previous = Vector3(side * 7.8, 0, z - 0.75 - rib * 0.06)

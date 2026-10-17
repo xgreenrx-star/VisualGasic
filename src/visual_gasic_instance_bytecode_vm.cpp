@@ -1550,8 +1550,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     };
 
-    auto ensure_stack = [&](int count) -> bool {
-        if ((int)(vm.stack.size() - stack_base) < count) {
+    // The underflow report is a separate cold, never-inlined body so that the
+    // check itself (one compare on nearly every opcode) stays inline: with the
+    // diagnostics in the same lambda GCC emitted an out-of-line call for it.
+    auto ensure_stack_fail = [&](int count) __attribute__((noinline, cold)) -> bool {
+        {
             if (stack_profile_enabled) {
                 stack_profile_sample.underflow_count++;
             }
@@ -1578,6 +1581,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             UtilityFunctions::printerr(cdump);
             return false;
+        }
+    };
+    auto ensure_stack = [&](int count) -> bool {
+        if (__builtin_expect((int)(vm.stack.size() - stack_base) < count, 0)) {
+            return ensure_stack_fail(count);
         }
         return true;
     };
@@ -2046,6 +2054,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         scan_ip += 6; break;
                     case OP_FOREACH_STEP: // coll, idx, var, exit16
                         scan_ip += 5; break;
+                    case OP_PACKED_APPEND_LITERAL: // kind, recv16, class16, count, skip16, count slots
+                        scan_ip += (scan_ip + 5 < code_size) ? 8 + code[scan_ip + 5] : 0; break;
                     default:
                         // 1-byte opcodes (no operands) — nothing to skip
                         break;
@@ -2206,7 +2216,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }
     // Accessed through member_name_cache_ptr below (inline calls repoint it).
 
-    auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
+    // First-touch allocation and per-name classification live in a cold,
+    // never-inlined body; the hot lookup below is a size compare, an index
+    // and a flag test so it inlines into every member-cache opcode.
+    auto ensure_member_cache_entry_slow = [&](int idx) __attribute__((noinline, cold)) -> MemberNameCacheEntry& {
         // Lazy first-touch allocation (see declaration above): a chunk reaches
         // here only if it actually executes a member-cache opcode.
         if ((*member_name_cache_ptr).size() != chunk->constants.size()) {
@@ -2234,6 +2247,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             entry.initialized = true;
         }
         return entry;
+    };
+    auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
+        Vector<MemberNameCacheEntry> &cache_vec = *member_name_cache_ptr;
+        if (__builtin_expect(cache_vec.size() == chunk->constants.size(), 1)) {
+            MemberNameCacheEntry &entry = cache_vec.ptrw()[idx];
+            if (__builtin_expect(entry.initialized, 1)) {
+                return entry;
+            }
+        }
+        return ensure_member_cache_entry_slow(idx);
     };
 
     // Lazy global rollback snapshot (see saved_globals above).  `exists` /
@@ -2949,6 +2972,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_PACKED_NEAREST_I64]   = &&vg_op_packed_nearest_i64;
         dispatch_table[OP_FOREACH_STEP]         = &&vg_op_foreach_step;
         dispatch_table[OP_NEW_PACKED_LITERAL]   = &&vg_op_new_packed_literal;
+        dispatch_table[OP_PACKED_APPEND_LITERAL] = &&vg_op_packed_append_literal;
         dispatch_table_init = true;
     }
     // Resolve the thread-local table once.  This .so is dlopen'd, so every
@@ -3022,7 +3046,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 int idx = read_const_index();
-                push_value(read_constant(idx));
+                // Push straight from the pool: a POD constant (numbers,
+                // Vector*/Color, …) is a raw 24-byte copy; only refcounted
+                // constants (strings, arrays) go through the engine copy.
+                // read_constant() returned by value, which was an engine
+                // copy + a move for every one of the ~560k constant loads
+                // of a Backlight City build.
+                if (idx >= 0 && idx < chunk->constants.size()) {
+                    push_value(chunk->constants[idx]);
+                } else {
+                    push_value(Variant());
+                }
                 break;
             }
             VG_CASE(vg_op_constant_long, OP_CONSTANT_LONG): {
@@ -3031,7 +3065,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 int idx = read_const_index();
-                push_value(read_constant(idx));
+                if (idx >= 0 && idx < chunk->constants.size()) {
+                    push_value(chunk->constants[idx]);
+                } else {
+                    push_value(Variant());
+                }
                 break;
             }
             VG_CASE(vg_op_pop, OP_POP): {
@@ -3123,6 +3161,89 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 vm.stack.resize(vm.stack.size() - count);
                 push_value(std::move(made));
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_packed_append_literal, OP_PACKED_APPEND_LITERAL): {
+                // [OP] [RECV_KIND] [RECV_LO] [RECV_HI] [CLASS_IDX(2)] [COUNT] [SKIP_HI] [SKIP_LO] [SLOT]*COUNT
+                // Guarded prefix of `recv.append_array(PackedXArray(Array(v1, …, vn)))`:
+                // the ordinary code for the statement follows this opcode, and
+                // runs untouched whenever any guard below fails (nothing has
+                // been consumed at that point).  On the fast path the elements
+                // go straight from the local slots into the receiver's storage
+                // with the same push_back ptrcall OP_METHOD_CALL's packed fast
+                // path uses — no literal, no receiver copy, no stack traffic.
+                // Packed arrays are reference-shared, so appending through the
+                // variable's own Variant is exactly what the stack-copy path did.
+                if (vm.ip + 7 >= code_size) { success = false; goto cleanup; }
+                const uint8_t recv_kind = code[vm.ip++];
+                const int recv_idx = read_const_index();
+                const int class_idx = read_const_index();
+                const uint8_t count = code[vm.ip++];
+                const uint8_t skip_hi = code[vm.ip++];
+                const uint8_t skip_lo = code[vm.ip++];
+                const int skip = (skip_hi << 8) | skip_lo;
+                const int skip_base = vm.ip;   // byte after the offset (jump base)
+                if (vm.ip + count > code_size) { success = false; goto cleanup; }
+                const uint8_t *slots = &code[vm.ip];
+                vm.ip += count;
+
+                Variant *recv = nullptr;
+                if (recv_kind == 0) {
+                    if (recv_idx < locals.size() && (!needs_var_sync || isolated_locals || is_fast_slot(recv_idx))) {
+                        recv = &locals.write[recv_idx];
+                    }
+                } else if (class_idx >= 0 && class_idx < chunk->constants.size() &&
+                        recv_idx >= 0 && recv_idx < chunk->constants.size()) {
+                    MemberNameCacheEntry &_ge = ensure_member_cache_entry(recv_idx);
+                    if (_ge.is_special_global == 0) {
+                        recv = global_value_ptr(recv_idx, _ge.primary_name);
+                    }
+                }
+                if (!recv) { VG_BREAK; }
+                const Variant::Type rt = vgfast::vtype(*recv);
+                if (rt < Variant::PACKED_BYTE_ARRAY || rt > Variant::PACKED_VECTOR4_ARRAY) { VG_BREAK; }
+                if (class_idx < 0 || class_idx >= chunk->constants.size()) { VG_BREAK; }
+                MemberNameCacheEntry &_nc = ensure_member_cache_entry(class_idx);
+                Variant::Type packed_type = Variant::NIL;
+                if (_nc.new_object_kind >= 10) {
+                    packed_type = (Variant::Type)(_nc.new_object_kind - 10);
+                } else {
+                    packed_type = vg_packed_type_from_name(_nc.primary_string);
+                    if (packed_type != Variant::NIL) {
+                        _nc.new_object_kind = (int8_t)(10 + (int)packed_type);
+                    }
+                }
+                if (packed_type != rt) { VG_BREAK; }
+                const VgPackedFastMethods *pm = vg_packed_fast_methods(rt);
+                if (!pm || !pm->push_back) { VG_BREAK; }
+                if (pm->element_type != Variant::STRING && !vgfast::g_layout_ok) { VG_BREAK; }
+                const bool slots_direct = !needs_var_sync || isolated_locals;
+                bool all_exact = true;
+                for (int i = 0; i < count; i++) {
+                    const uint8_t s = slots[i];
+                    if (s >= locals.size() || !(slots_direct || is_fast_slot(s)) ||
+                            vgfast::vtype(locals[s]) != pm->element_type) {
+                        all_exact = false;
+                        break;
+                    }
+                }
+                if (!all_exact) { VG_BREAK; }
+                void *base_p = pm->internal_ptr(recv->_native_ptr());
+                for (int i = 0; i < count; i++) {
+                    Variant &elem = locals.write[slots[i]];
+                    const void *arg_p;
+                    if (pm->element_type == Variant::STRING) {
+                        static const GDExtensionVariantGetInternalPtrFunc str_getter =
+                                internal::gdextension_interface_variant_get_ptr_internal_getter(GDEXTENSION_VARIANT_TYPE_STRING);
+                        arg_p = str_getter(elem._native_ptr());
+                    } else {
+                        arg_p = reinterpret_cast<const uint8_t *>(&elem) + vgfast::PAYLOAD_OFFSET;
+                    }
+                    const GDExtensionConstTypePtr args[1] = { arg_p };
+                    GDExtensionBool ok = 0;
+                    pm->push_back(base_p, args, &ok, 1);
+                }
+                vm.ip = skip_base + skip;
                 VG_BREAK;
             }
             VG_CASE(vg_op_new_object, OP_NEW_OBJECT): {
@@ -4408,18 +4529,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 {
-                    Variant bv2 = pop_value();
-                    Variant av2 = pop_value();
+                    // Operands are read in place and the result overwrites the
+                    // left slot: no Variant temporaries, so no engine
+                    // destructor calls for the two scalars (the F64 ops are
+                    // ~285k of a Backlight City build).
+                    Variant &av2 = vm.stack[vm.stack.size() - 2];
+                    const Variant &bv2 = vm.stack[vm.stack.size() - 1];
                     Variant::Type at2 = vgfast::vtype(av2), bt2 = vgfast::vtype(bv2);
                     bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
                     bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
                     if (an2 && bn2) {
-                        push_value(to_double(av2) + to_double(bv2));
+                        const double r2 = to_double(av2) + to_double(bv2);
+                        vm.stack.pop_back();
+                        vgfast::set_float(av2, r2);
                     } else {
                         Variant res2; bool ok2 = false;
                         Variant::evaluate(Variant::OP_ADD, av2, bv2, res2, ok2);
                         if (!ok2) { success = false; goto cleanup; }
-                        push_value(res2);
+                        vm.stack.pop_back();
+                        vm.stack.pop_back();
+                        push_value(std::move(res2));
                     }
                 }
                 break;
@@ -4430,18 +4559,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 {
-                    Variant bv2 = pop_value();
-                    Variant av2 = pop_value();
+                    Variant &av2 = vm.stack[vm.stack.size() - 2];
+                    const Variant &bv2 = vm.stack[vm.stack.size() - 1];
                     Variant::Type at2 = vgfast::vtype(av2), bt2 = vgfast::vtype(bv2);
                     bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
                     bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
                     if (an2 && bn2) {
-                        push_value(to_double(av2) - to_double(bv2));
+                        const double r2 = to_double(av2) - to_double(bv2);
+                        vm.stack.pop_back();
+                        vgfast::set_float(av2, r2);
                     } else {
                         Variant res2; bool ok2 = false;
                         Variant::evaluate(Variant::OP_SUBTRACT, av2, bv2, res2, ok2);
                         if (!ok2) { success = false; goto cleanup; }
-                        push_value(res2);
+                        vm.stack.pop_back();
+                        vm.stack.pop_back();
+                        push_value(std::move(res2));
                     }
                 }
                 break;
@@ -4451,8 +4584,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                Variant bv = pop_value();
-                Variant av = pop_value();
+                Variant &av = vm.stack[vm.stack.size() - 2];
+                const Variant &bv = vm.stack[vm.stack.size() - 1];
                 // Only use fast float path for numeric types; fall back to
                 // generic Variant::evaluate for Vector2, Color, etc.
                 Variant::Type at = vgfast::vtype(av);
@@ -4460,11 +4593,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 bool a_numeric = (at == Variant::INT || at == Variant::FLOAT || at == Variant::BOOL || at == Variant::NIL);
                 bool b_numeric = (bt == Variant::INT || bt == Variant::FLOAT || bt == Variant::BOOL || bt == Variant::NIL);
                 if (a_numeric && b_numeric) {
-                    push_value(to_double(av) * to_double(bv));
+                    const double r = to_double(av) * to_double(bv);
+                    vm.stack.pop_back();
+                    vgfast::set_float(av, r);
                 } else {
                     Variant result;
                     bool valid = false;
                     Variant::evaluate(Variant::OP_MULTIPLY, av, bv, result, valid);
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
                     if (!valid) {
                         // Report and bail
                         static int mul_err_count = 0;
@@ -4479,7 +4616,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         success = false;
                         goto cleanup;
                     }
-                    push_value(result);
+                    push_value(std::move(result));
                 }
                 break;
             }
@@ -4489,25 +4626,31 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 {
-                    Variant bv3 = pop_value();
-                    Variant av3 = pop_value();
+                    Variant &av3 = vm.stack[vm.stack.size() - 2];
+                    const Variant &bv3 = vm.stack[vm.stack.size() - 1];
                     Variant::Type at3 = vgfast::vtype(av3), bt3 = vgfast::vtype(bv3);
                     bool an3 = (at3 == Variant::INT || at3 == Variant::FLOAT || at3 == Variant::BOOL || at3 == Variant::NIL);
                     bool bn3 = (bt3 == Variant::INT || bt3 == Variant::FLOAT || bt3 == Variant::BOOL || bt3 == Variant::NIL);
                     if (an3 && bn3) {
                         double b3 = to_double(bv3);
                         if (b3 == 0.0) {
+                            vm.stack.pop_back();
+                            vm.stack.pop_back();
                             raise_error("Division by zero", 11);
                             if (try_recover_error(Variant(0.0))) break;
                             success = false;
                             goto cleanup;
                         }
-                        push_value(to_double(av3) / b3);
+                        const double r3 = to_double(av3) / b3;
+                        vm.stack.pop_back();
+                        vgfast::set_float(av3, r3);
                     } else {
                         Variant res3; bool ok3 = false;
                         Variant::evaluate(Variant::OP_DIVIDE, av3, bv3, res3, ok3);
+                        vm.stack.pop_back();
+                        vm.stack.pop_back();
                         if (!ok3) { success = false; goto cleanup; }
-                        push_value(res3);
+                        push_value(std::move(res3));
                     }
                 }
                 break;

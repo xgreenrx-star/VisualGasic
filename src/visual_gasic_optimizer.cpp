@@ -157,6 +157,9 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 8-byte instructions (opcode + 3 local + 1 const-pool [2] + 2 local)
         case OP_ALLOC_FILL_REPEAT_I64:                                // [OP] [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]
             return 8;
+        // Variable-length: 9 header bytes + COUNT element slots
+        case OP_PACKED_APPEND_LITERAL:                                // [OP] [KIND] [RECV(2)] [CLASS(2)] [COUNT] [SKIP16] [SLOT]*COUNT
+            return (ip + 6 < code.size()) ? 9 + code[ip + 6] : 1;
         // Variable-length: OP_JUMP_TABLE = 8 header + count*2 table bytes
         case OP_JUMP_TABLE: {
             if (ip + 8 <= code.size()) {
@@ -230,14 +233,18 @@ bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
 // Every opcode that carries a relocatable 16-bit code offset.  OP_FOREACH_STEP
 // keeps its forward exit offset after three slot bytes ([OP][C][I][V][HI][LO]),
 // so the offset position is per-opcode (jump_offset_pos); the target is
-// always relative to the byte after the offset.
+// always relative to the byte after the offset.  OP_PACKED_APPEND_LITERAL's
+// skip offset sits at byte 7, ahead of its variable-length slot list.
 bool VisualGasicOptimizer::is_jump_op(uint8_t op) {
     return op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE ||
-           op == OP_LOOP || op == OP_SETUP_TRY || op == OP_FOREACH_STEP;
+           op == OP_LOOP || op == OP_SETUP_TRY || op == OP_FOREACH_STEP ||
+           op == OP_PACKED_APPEND_LITERAL;
 }
 
 int VisualGasicOptimizer::jump_offset_pos(uint8_t op) {
-    return op == OP_FOREACH_STEP ? 4 : 1;
+    if (op == OP_FOREACH_STEP) return 4;
+    if (op == OP_PACKED_APPEND_LITERAL) return 7;
+    return 1;
 }
 
 int VisualGasicOptimizer::resolve_jump(const Vector<uint8_t>& code, int ip) {

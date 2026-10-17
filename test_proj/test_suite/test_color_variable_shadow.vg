@@ -1,0 +1,48 @@
+Option Explicit
+
+' A parameter or local named `color` must not be mistaken for the Color
+' named-constant namespace: `color.r` is a component read on the variable,
+' not `Color.named("r")`.  `Color.Red` / `Color.White` still fold to named
+' colors when no variable shadows the name.  All three tiers must agree.
+
+Dim fails As Integer
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Function Ink(ByVal color As Color) As Color
+	Ink = Color(color.r * 0.5, color.g * 0.25, color.b * 2.0, color.a)
+End Function
+
+Function LocalShadow() As String
+	Dim color As Color
+	color = Color(0.25, 0.5, 0.75, 1.0)
+	LocalShadow = CStr(color.r) & "/" & CStr(color.g) & "/" & CStr(color.b) & "/" & CStr(color.a)
+End Function
+
+Sub _Ready()
+	Dim tint As Color
+	tint = Ink(Color(1.0, 1.0, 0.25, 1.0))
+	Check "param r", CStr(tint.r), "0.5"
+	Check "param g", CStr(tint.g), "0.25"
+	Check "param b", CStr(tint.b), "0.5"
+	Check "param a", CStr(tint.a), "1"
+
+	Check "local shadow", LocalShadow(), "0.25/0.5/0.75/1"
+
+	Dim named As Color
+	named = Color.Red
+	Check "named red", CStr(named), CStr(Color(1, 0, 0, 1))
+	named = Color.White
+	Check "named white", CStr(named), CStr(Color(1, 1, 1, 1))
+
+	If fails = 0 Then
+		Print "PASS: color variable shadow"
+	Else
+		Print "FAIL: " & CStr(fails) & " color variable shadow checks failed"
+	End If
+End Sub

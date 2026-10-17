@@ -238,6 +238,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_ARRAY_RESIZE);
         OP_NAME_CASE(OP_NEW_OBJECT);
         OP_NAME_CASE(OP_NEW_PACKED_LITERAL);
+        OP_NAME_CASE(OP_PACKED_APPEND_LITERAL);
         OP_NAME_CASE(OP_OPEN_FILE);
         OP_NAME_CASE(OP_CLOSE_FILE);
         OP_NAME_CASE(OP_PRINT_FILE);
@@ -491,6 +492,24 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
                     describe_local_slot(chunk, int(operands[1])),
                     describe_local_slot(chunk, int(operands[2])),
                     exit_off);
+            }
+            break;
+        case OP_PACKED_APPEND_LITERAL:
+            // [KIND] [RECV_LO] [RECV_HI] [CLASS_LO] [CLASS_HI] [COUNT] [SKIP_HI] [SKIP_LO] [SLOT]*COUNT
+            if (operands.size() >= 8) {
+                int recv_idx = (int(operands[2]) << 8) | int(operands[1]);
+                String recv = int(operands[0]) == 0
+                        ? describe_local_slot(chunk, recv_idx)
+                        : describe_constant(chunk, recv_idx);
+                int count = int(operands[5]);
+                int skip = (int(operands[6]) << 8) | int(operands[7]);
+                String slots;
+                for (int i = 0; i < count && 8 + i < operands.size(); i++) {
+                    if (i) slots += ", ";
+                    slots += describe_local_slot(chunk, int(operands[8 + i]));
+                }
+                return vformat("recv=%s, %s, elems=[%s], skip=+%d",
+                    recv, describe_constant(chunk, const16(3)), slots, skip);
             }
             break;
         case OP_ADD_LOCAL_I64_CONST:
@@ -1270,6 +1289,9 @@ Dictionary VisualGasicScript::debug_dump_bytecode(const String &entry_point) {
         inst["line"] = line_number;
 
         int operand_len = opcode_operand_length(op);
+        if (op == OP_PACKED_APPEND_LITERAL && ip + 6 < chunk->code.size()) {
+            operand_len = 8 + chunk->code[ip + 6]; // header + COUNT element slots
+        }
         Array operands;
         for (int i = 0; i < operand_len && (ip + 1 + i) < chunk->code.size(); i++) {
             operands.push_back((int)chunk->code[ip + 1 + i]);
