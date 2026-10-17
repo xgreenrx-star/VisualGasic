@@ -1,4 +1,8 @@
 ' Yard silhouettes share the chapter profile; Backlight owns materials and simulation.
+Dim doors As Array
+Dim door_origins As Array
+Dim sky_material As ShaderMaterial
+
 Sub build(ByVal city As Object, ByVal view As Object)
 	Dim i As Integer
 	Dim side As Integer
@@ -8,6 +12,11 @@ Sub build(ByVal city As Object, ByVal view As Object)
 	Dim h As Single
 	Dim transform As Transform3D
 	Dim profile As PackedVector2Array
+	doors = Array()
+	door_origins = Array()
+	sky_material = ClassDB.Instantiate("ShaderMaterial")
+	sky_material.shader = Load("res://shaders/backlight_yard_sky.gdshader")
+	city.atmosphere.sky.sky_material = sky_material
 	city._box(Vector3(-118, -0.5, -12), Vector3(236, 0.5, 432), Color(0.07, 0.13, 0.18))
 	For i = 0 To 11
 		z = 12 + i * 34
@@ -22,6 +31,7 @@ Sub build(ByVal city As Object, ByVal view As Object)
 			profile = view.yard_profile(w, h, i Mod 3)
 			transform = Transform3D(Basis(), Vector3(x, 0, z))
 			city._prism(profile, w * 0.72, city.SHELL, transform)
+			sealed_door(city, Vector3(x + w * 0.5 - 1.2, 0, z - 0.12), 2.4, 3.8)
 			city.solids.append(Rect2(x, z, w, w * 0.72))
 			city._trace(Array(Vector3(w * 0.67, 0.2, -0.05), Vector3(w * 0.67, h * 0.35, -0.05), Vector3(w * 0.45, h * 0.44, -0.05), Vector3(w * 0.45, h * 0.78, -0.05)), 0.12, city.ICE, transform)
 			city._cylinder(Vector3(x + w * 0.5, h, z + w * 0.36), 0.12, 3, city.ICE, 1, True)
@@ -69,6 +79,36 @@ Sub build(ByVal city As Object, ByVal view As Object)
 	city._box(Vector3(-4, 0, 398), Vector3(8, 8, 8), city.SHELL)
 	city.solids.append(Rect2(-4, 398, 8, 8))
 	city._box(Vector3(-0.12, 0.1, 397.95), Vector3(0.24, 7.5, 0.05), city.GOLD, True)
+	sealed_door(city, Vector3(-1.6, 0, 397.8), 3.2, 5)
+End Sub
+
+Sub sealed_door(ByVal city As Object, ByVal p As Vector3, ByVal width As Single, ByVal height As Single)
+	city._box(p, Vector3(width, height, 0.1), city.INK)
+	city._box(p + Vector3(0.12, 0.12, -0.04), Vector3(width * 0.5 - 0.17, height - 0.24, 0.06), city.SHELL * 1.3)
+	city._box(p + Vector3(width * 0.5 + 0.05, 0.12, -0.04), Vector3(width * 0.5 - 0.17, height - 0.24, 0.06), city.SHELL * 1.3)
+	city._box(p + Vector3(0, height, -0.06), Vector3(width, 0.12, 0.06), city.GOLD, True)
+	city._box(p + Vector3(width + 0.2, height * 0.45, -0.06), Vector3(0.22, 0.5, 0.06), city.ICE, True)
+End Sub
+
+Sub update_scene(ByVal city As Object, ByVal time_n As Single, ByVal outdoors As Boolean)
+	Dim i As Integer
+	Dim opening As Single
+	Dim p As Vector3
+	Me.visible = outdoors
+	sky_material.set_shader_parameter("sky_time", time_n)
+	If outdoors Then
+		city.shell_material.set_shader_parameter("yard_haze", 1.0)
+		city.light_material.set_shader_parameter("yard_haze", 1.0)
+	Else
+		city.shell_material.set_shader_parameter("yard_haze", 0.0)
+		city.light_material.set_shader_parameter("yard_haze", 0.0)
+	End If
+	For i = 0 To doors.size() - 1
+		p = door_origins(i)
+		opening = ClampF((7 - city.position_xz.distance_to(Vector2(p.x + 2.2, p.z))) / 3, 0, 1)
+		doors(i).position = p + Vector3(-2.05 * opening, 0, 0)
+		doors(i).GetChild(0).position.x = 2.2 + 4.1 * opening
+	Next
 End Sub
 
 Sub press_hall(ByVal city As Object, ByVal p As Vector3, ByVal index As Integer)
@@ -105,4 +145,30 @@ Sub press_hall(ByVal city As Object, ByVal p As Vector3, ByVal index As Integer)
 	entry("door") = Vector2(p.x + 11, p.z + 1)
 	entry("label") = label
 	city.buildings.append(entry)
+	door_origins.append(p + Vector3(8.84, 0, 0.65))
+End Sub
+
+Sub build_doors(ByVal city As Object)
+	Dim index As Integer
+	Dim i As Integer
+	Dim left_leaf As Node3D
+	Dim right_leaf As Node3D
+	For index = 0 To door_origins.size() - 1
+		For i = 0 To 1
+			city._box(Vector3(0, 0.08, 0), Vector3(2.12, 4.65, 0.2), city.SHELL * 1.4)
+			city._box(Vector3(0.18, 0.4, -0.04), Vector3(1.75, 3.8, 0.04), city.INK)
+			city._box(Vector3(0.2, 2.3, -0.08), Vector3(1.7, 0.1, 0.04), city.GOLD, True)
+			city._box(Vector3(1.85, 0.3, -0.08), Vector3(0.08, 4.1, 0.04), city.ICE, True)
+			If i = 0 Then
+				left_leaf = city._finish("YardDoor" & Str(index))
+				left_leaf.reparent(Me)
+				left_leaf.position = door_origins(index)
+			Else
+				right_leaf = city._finish("RightLeaf")
+				right_leaf.reparent(left_leaf)
+				right_leaf.position = Vector3(2.2, 0, 0)
+			End If
+		Next
+		doors.append(left_leaf)
+	Next
 End Sub

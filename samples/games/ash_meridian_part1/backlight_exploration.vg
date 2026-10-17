@@ -1,6 +1,7 @@
 ' Generated Visual Gasic port of backlight_exploration.vg
 Dim __ready As Boolean
 Dim yard_mode As Boolean
+Dim yard_scenery As Node3D
 Dim CYAN As Variant
 Dim PINK As Variant
 Dim AMBER As Variant
@@ -520,9 +521,9 @@ Sub backlight_city_build(ByVal view As Node)
 	Call EnsureInit()
 	_materials()
 	If yard_mode Then
-		Dim yard_builder As Object
-		yard_builder = SpawnVg("res://backlight_yard.vg", "RefCounted")
-		yard_builder.build(Me, view)
+		yard_scenery = SpawnVg("res://backlight_yard.vg", "Node3D")
+		add_child(yard_scenery)
+		yard_scenery.build(Me, view)
 	Else
 	_box(Vector3(-62, -0.5, -16), Vector3(124, 0.5, 178), Color(0.07, 0.13, 0.18))
 	For Each x In Array(-6.5, 6.5)
@@ -552,6 +553,7 @@ Sub backlight_city_build(ByVal view As Node)
 	_transit_court()
 	End If
 	world = _finish("SolidBacklitArchitecture")
+	If yard_mode Then yard_scenery.build_doors(Me)
 	_courier()
 	vehicle = _finish("ArcCourier")
 	_cylinder(Vector3(0, 0, 0), 0.6, 0.34, INK, 0)
@@ -598,6 +600,7 @@ Sub build(ByVal view As Node)
 	warning_shader = ClassDB.Instantiate("Shader")
 	warning_shader = Load("res://shaders/backlight_exploration_06.gdshader")
 	light_material.shader = warning_shader
+	light_material.set_shader_parameter("yard_haze", 0.0)
 	If Not yard_mode Then
 	_box(Vector3(-118, -0.52, 162), Vector3(236, 0.5, 258), Color(0.07, 0.13, 0.18))
 	For Each x In Array(-118.0, 62.0)
@@ -1553,6 +1556,7 @@ Sub _materials()
 	shader = ClassDB.Instantiate("Shader")
 	shader = Load("res://shaders/backlight_city_01.gdshader")
 	shell_material.shader = shader
+	shell_material.set_shader_parameter("yard_haze", 0.0)
 	light_material = ClassDB.Instantiate("ShaderMaterial")
 	light_shader = ClassDB.Instantiate("Shader")
 	light_shader = Load("res://shaders/backlight_city_02.gdshader")
@@ -2043,6 +2047,9 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 	' The base renderer still owns the cached optical pipeline and camera.
 	result = backlight_city_render_style(view, time_n, distance, detail)
 	outdoors = place = "surface"
+	If yard_mode Then
+		yard_scenery.update_scene(Me, time_n, outdoors)
+	End If
 	world.visible = outdoors
 	carrier.visible = outdoors
 	vehicle.visible = outdoors And (Not driving Or inspection <> 0)

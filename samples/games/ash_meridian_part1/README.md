@@ -107,6 +107,18 @@ gantries, capped tanks, the north lift head, six turrets, and the restored buggy
 The tower silhouette is shared with the original yard rather than redrawn as
 a different building. Geometry is cached between visits.
 
+Depot entries have solid, illuminated two-leaf doors that slide into the walls
+as you approach; E still enters their separate interiors. Tower and north
+lift-head doors are sealed scenery. Blue-violet distance fog starts beyond
+28 units and grows denser with distance, including on luminous surfaces, without
+obscuring nearby geometry. It is disabled inside depots and does not affect
+the original Backlight City.
+
+The yard-only procedural sky includes twinkling stars, blue/violet nebula
+clouds, two shaded moons and a brief shooting star approximately every
+19 seconds. These are shader effects, not additional per-star nodes or
+downloaded textures, and remain available at low detail.
+
 W/S moves, A/D turns, F enters/exits the buggy, E interacts and V cycles views.
 Five archives, the pressure workshop, ignition press hall and deep-transit
 depot reuse the existing exploration/interior and FEB escape systems with
