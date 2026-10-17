@@ -69,7 +69,7 @@ They meet in that order: Jonah alone, then Feb, then Greg. Each meeting is a fig
 
 **Who.** A Narcean cyborg, the last living one. His name is Feb. Off-world crews mishear it as "Fed." He does not correct them twice. He is not a full frame like Greg, and he is not a human wearing armor. What is left of the organic Narcean does the living. The metal does the reading, the grip, and one arm. He is not a soldier of any Earth nation, and he is not the last member of a time-traveling order.
 
-**How he came to be here.** Feb was compiled and waiting in a cradle. His port had not been seated, so Latch's last write never reached him. He woke in that cradle on a dead planet: metal, machinery, no other organic life, and a data center that was still shooting. He walked out through the traps, reached the hangar while Latch could still aim, and stole the cutter **Keel**. Clearing the ring lane in a ship the AI still called its own is the end of that chapter. He left. He came back when the beacons, which Latch used to run, started to slip without a mind on them. Keel is the ship he arrives in. He will not give it to Jonah.
+**How he came to be here.** Feb was compiled and waiting in a cradle. His port had not been seated, so Latch's last write never reached him. He woke on the dead planet, walked the traps, and reached Keel in the hangar. Latch still had one gun on the cutter. The shot dropped Keel back into the yard and shut Feb down in the seat. He has been dark since. The coupling that would have raised Keel's reflector is still socketed in a mast. Jonah taking that coupling is what feeds the core enough to boot Feb and the yard guns together. Feb launches on the last order he has, which is to stop anyone cutting a mast. He is not choosing yet.
 
 **How he survives.** There is nothing to hunt and nothing growing. He lives on sealed nutrient from the old forges, frost pulled out of the machinery, and beacon spill for the plate. Most ships that land now come to cut the towers. The towers are the same metal he is made of, and the blanked Narceans are still seated in the masts. Cutting one is a body on the ground. He snares ring lanes, including from Keel, and leaves crews alive if they leave the masts alone. He reads signs by laying the forearm plate on them. The signs are geometry, not a language Jonah knows. A sign is a path: which ring, which door, which mast. If the plate is dark, he can trace a sign with a finger, slowly, and he hates doing it where a stranger can see.
 
@@ -99,12 +99,94 @@ They meet in that order: Jonah alone, then Feb, then Greg. Each meeting is a fig
 
 ## How the party forms
 
-1. **Feb's wake, playable.** Cradle, traps, the dying data center, steal Keel, fly the ring lane out while Latch can still aim. This chapter ends in orbit. Latch does not survive it. The core remains as a dead, trapped interior for later.
-2. **Jonah alone.** Fly a short lane. Learn the console. Land one practice ring lane at a friendly yard. Trade once.
-3. **Feb returns in Keel.** The Narcea snare. Fight on the hull. The canyon reprints. Truce over the mast. He keeps Keel. He will ride the Ash only after Jonah turns down the tower-skin haul. Until then he is a hostile who shares a map.
-4. **Greg.** The gate. He is an enemy with a half-lowered door. He becomes a companion when he breaks his own order in front of them. He does not pretend he was friendly first.
+1. **Part 1, playable** (`samples/games/ash_meridian_part1/`). This is the first level. It opens in the cockpit: the Ash's reflector coupler burns out, and Zen's search has one mark, a quarantined Narcean mass at Meridian 4, radius 0.8, inclination 11. The Ash lands on camera. Zen glitches, a muffled scream leaves her speaker, and she goes offline. Jonah works one yard road from the south pad to a freight shaft at the north end. Suit air forces return trips to the ship. A press-hall cell, a yard-gun battery, and a mast path on the plate each open the next stretch. The shaft to level 14242 opens only after that path is legal. Feb is shut down there, and the chamber holds the coupler. Taking it starts the 256 second count, Zen comes back long enough to say run, and the ride back is a 3D canyon of orange rings. A short vector shot shows Keel climbing after him. In the cockpit he seats three couplings before Feb's shot arrives. In time, the reflector rises and the beam disables Keel. Late, the hull is hit and the seating starts over. Jonah's name stays Jonah Hale. The Ludo "Ring Lane Run" pitch is only the canyon drive, not the whole game. The yard route is the next section.
+2. **Greg.** The gate. He is an enemy with a half-lowered door. He becomes a companion when he breaks his own order in front of them. He does not pretend he was friendly first.
 
 After that, the three share the Ash. Jonah flies. Feb reads, plate to sign. Greg holds doors and the hull when a slip hits. Arguments stay in the dialogue. They do not become a cheerful crew. They become a crew that has the same job.
+
+## Part 1 yard — level design
+
+One road. South is the Ash. North is the shaft. The buggy can drive the spine the whole time, and the guns decide how far that is worth. Interiors are on foot. Feb is behind the last door.
+
+Jonah is stranded because the coupler burned out and Zen died in the speaker. The yard is airless because a purge already ran. Suit air is the only pressure left, so the open buggy burns it as propellant. That is why driving spends air, and why a vent spends more. His instruments still read an intact part at the north gantry. The gantry socket is empty. The mast serial points under the yard. The part is the coupler, seated in the cradle. He hauls cells to the relays on the way north. He carries the coupler on foot only from the pod to the lift. The ride out is the canyon. Taking the coupler starts the yard's last purge, which is the 256 second count. A live air bottle is the cell. Spent bottles are not a second economy. The geysers and the relays are the other taps. Two skimmers work the north catwalks. They are not a swarm.
+
+The yard is an assembly floor abandoned in the purge. The press hall is open, the tug sits where it stopped, and the relay sockets are dark. The neon guides stay lit. A live bottle sits in its silo with the cyan valve lit. Seated in a relay, that socket burns cyan. The surface is hollow wire: conduits, rails, catwalks, vacant docks. Level 14242 is the filled chamber under it. Past the airlock there is no yard voice. Zen is already gone. He hears the suit hiss, and the hiss gets louder as the tank empties. The next voice is Zen telling him to run, when the 256 count starts.
+
+The yard already built is the map. Rows sit every 18 meters from z=24. Spans cross the road at z=42, 150, 240, and 320. The press hall is the west room at z=48 to 68, with its door on the east wall between z=56 and 60. Guns stand at (-11, 72), (13, 156), (-11, 228), and (13, 300). The shaft is the orange cage at (0, 368).
+
+### Clock
+
+Stepping off the Ash starts suit air at 180 seconds, and the clock runs until he docks again. Walking spends it slowly. Driving, and sprinting a catwalk, spend it at the full rate. A dead zone doubles whichever rate he is on. Docking at the Ash refills it to 180. Empty air blacks him out at the ship with 60 seconds and the guns reset. The 256 second count beside Feb replaces this clock. Once that count starts, air stops, and the count is the exit.
+
+The yard's air is a dead pipeline. Three roadside relays sit on the spans at z=42, z=150, and z=240. Each socket is dark until Jonah seats one air bottle in it. He carries one. The bottle is a magenta tank, a cyan valve at the neck, and a small amber port under the valve. The cyan valve is lit only while the bottle still holds pressure. On the buggy it sits in the frame where the hoses meet the wheels. A live relay refills the suit to 180 while he stands on it, and the stretch behind it drains at the normal rate. The stretch ahead of the last live relay is a dead zone: suit drain doubles, and nothing there refills him until the next cell is seated. The Ash remains the south tap. The relays are the forward taps. There is one buggy. A larger buggy is a later game.
+
+### Buggy air
+
+Two maneuvers spend or catch suit air. Neither one skips a relay, the plate, or the shaft.
+
+**Vent.** Double-tap forward. The buggy spends 15 percent of a full suit, about 27 seconds, and surges straight for 1.5 seconds. Steering is locked for that surge. A cyan trail hangs on the road behind it. The surge crosses one gun sweep without the shove, and it shoves one stranded tug off the road. It does not break a reprint ring, open a door, or seat a cell. Gun 0, just north of the first tap, is where he learns it. Going around the sweep spends time in the dead zone. Venting spends air and keeps the line.
+
+**Geyser.** Each dead zone has one vent in the road. It glows amber for half a second, then blows. With the tank empty, crossing during that window siphons 10 percent of a full suit. Missing the window spins the buggy and bleeds 5 percent. With a cell in the tank the intake is shut: the window gives nothing, and a hit is only the spin and the bleed. He siphons on the way to a silo. He spends that air on the haul back.
+
+Cracking the carried cell is not in this level. Dropping it is. The cell stays on the ground, and he can pick it up again. The guns, the doubled drain, the geysers, the tug, the skimmers, the void edges, and the reprint ring are the hazards.
+
+### Skimmers
+
+A skimmer is a yard drone left running after the purge, drawn in flickering amber wire. It was built to find a leak and tap it. Two of them are still working. One skitters the gantry catwalk at span 150. One skitters the banked rails south of the reprint. They stay off the pad, off the press road, and out of level 14242.
+
+A skimmer stalks a pressure plume: a vent trail, a geyser blow, or the cyan tank while a cell is in it. On a catwalk it lunges at Jonah on foot. On the road it lunges at the buggy. A clamp siphons suit air straight into the drone, and the stolen air makes it faster. When it has taken about 10 percent of a full suit it vent-bursts, spending that air to leap clear, then comes back.
+
+The joints are thin. One hit from the buggy crushes it, and it stays crushed. The vent surge crushes it too, if the surge is aimed along the road and not off the bank. On a catwalk the buggy cannot follow. Dropping the cell makes the skimmer clamp the tank instead of the suit. He walks past, then picks the cell up. If he leaves it, the skimmer empties the cell and the haul is gone. He goes back to that silo for another.
+
+### The road
+
+The expressway is hollow pipeline and catwalk, drawn as cyan rails on black. Where the rails stop, the void starts. Leaving them wakes Jonah at the last live relay with 60 seconds, the same as an empty suit.
+
+The scrubber silos are the amber towers. Each one that matters holds one live bottle, cyan valve lit. The bottles clustered around it are the same tank with the valve dark. They scan as spent, and they are not pickups.
+
+One inert tug chassis sits across the gantry road. Going around it stays in the doubled drain longer. A vent shoves it clear, and it stays clear. It does not hunt.
+
+The catwalk at span 150 is the pedestrian grid. Jonah can walk it. The socket there looks like it should hold the ship's part. It is empty. The lens is what the catwalk actually has. The first skimmer is on that grid.
+
+From span 150 toward the reprint the road banks and narrows, with cyan guide rails and void on the outside. A vent on that bank locks the steering while the road turns, so the straight surge he learned at gun 0 will leave the rails. The west gap around the reprint is the other narrow edge.
+
+### Districts, south to north
+
+**Pad, z=-22 to 40.** The Ash, the open socket, the buggy. Scan on the ship: "REFLECTOR SOCKET IS OPEN AND BLACK." The road north of the ramp is the first dead zone. The only refill is the ship until the first relay is live.
+
+**Press, z=42 to 90.** The first relay is the socket on span 42. The cell for it is on the press-hall floor at (-22, 58), on foot. Haul it back and seat it. The pad-to-press stretch becomes a safe stage, and the tap at span 42 refills the suit. This cell does not open level 14242. Gun 0 at (-11, 72) sweeps the road just north of the new tap. It shoves the buggy and spends air. It has nothing to pull. The player learns to go around a sweep before the next dead zone.
+
+**Gantry, z=90 to 170.** From span 42 to span 150 the drain is fast until the second relay is live. One geyser sits in that stretch of road. A ruptured scrubber silo stands by gun 1 at (13, 156). The cell is in that house. Park the buggy at z<=140, off the sweep, walk the east alley, pull the cell, and seat it in the socket on span 150. The gun goes dark because its feed is now the relay. The gantry becomes a safe stage. The catwalk door opens, and the cracked lens at (18, 122) turns the plate on.
+
+**Mast, z=170 to 280.** From span 150 to span 240 is the third dead zone. The road banks there. One geyser sits in that stretch, south of the reprint. Span 240 is the mast base and the third relay. A tag there scans as a Narcean serial the plate will not finish. It does not say the name Feb. The cell is in the scrubber on the far side of the road break. Gun 2 at (-11, 228) is dark until a bad trace. With the lens, the plate can take the three strokes below. A legal third stroke needs the third cell seated, and that seating kills the feed to gun 3. An illegal stroke plants a landing ring through the road at z=200. The detour is the west gap between the towers of that row. Correcting the stroke lifts the ring. The silo is on the far side of that detour, so the dead zone is crossed twice: out for the cell, back to the socket.
+
+**Shaft road, z=280 to 368.** Span 320 frames the orange cage. Gun 3 at (13, 300) shoves anything that drives at the shaft while its feed is live. The cage accepts the player only after gun 3 is dark. Level 14242, the pod, the coupler, the glow, and the 256 count stay as they are. The ride up and the canyon follow. The canyon rings are the ring that cut the yard, now moving.
+
+### Plate
+
+The plate is a top-down etch of this one road. A span's line appears after Jonah has stood within 12 meters of that span. Unwalked districts stay blank, so the map fills by driving it.
+
+Three strokes, confirmed one at a time:
+
+1. West gutter, from the press door at z=58 to span 150.
+2. Across span 150 into the east gun house. The plate accepts this stroke only after the second relay is live and gun 1 is dark.
+3. East of the spine, from that gun house to the mast at span 240, staying east of gun 2. The plate accepts this stroke only after the third relay is live.
+
+Stroke 3 drawn across the road is the reprint. The hall then matches the plate. Where they disagree, the ring is in the road.
+
+### Order the doors enforce
+
+1. Leave the Ash. Air is running. The road north is a dead zone.
+2. Press hall. Haul that cell to the relay on span 42. The south road becomes a stage.
+3. Gantry dead zone. Pull the scrubber cell from gun 1 and seat it on span 150. The gun goes dark, the catwalk opens, the lens wakes the plate.
+4. Draw stroke 2.
+5. Mast dead zone. Read the serial. Cross the reprint if the third stroke is wrong. Haul the far silo cell to the relay on span 240.
+6. Draw the legal third stroke. Gun 3 goes dark. The shaft opens.
+7. Level 14242. Feb is the body in the cradle. Take the coupler. Run the canyon. Seat it on the Ash.
+
+### What this level still is not
+
+Greg, the trade board, Pell, and the Silt pair stay later. The other two beacons stay later. The plate in this level routes one mast. The signs stay glyphs.
 
 ## Other ships and people
 
@@ -117,7 +199,7 @@ That is the cast. No empires, no idols, no hidden ancient race waiting behind th
 
 ## Gameplay
 
-**Feb's wake.** Played as Feb, before Jonah. The halls are Vector Crypt: wire rooms, visor, doors that still obey Latch. Traps are leftover orders, not a personality you can talk to. The 2D plate shows which corridors the dying core still owns. The hangar is 3D. Keel is there, and the ring lane out is the first flight test, flown while yard guns still track. Stealing the ship is the win. The core goes dark behind him.
+**Part 1 install.** Three couplings. A tick travels a track. Space seats a coupling only while the tick is inside the gate. Feb's shot is a bar that empties in real time. Three seats before the bar empties raises the reflector. The return shot is the end of the chapter, not a conversation. Feb's own escape from the cradle is still later, told from his side once Keel is on the ground.
 
 **Flight.** Momentum, fuel, a scanner, and a few wire contacts in the lane. Friendly ships hail on the 2D console. Hostile contacts, early on, are Latch's leftover guns and Feb's snare, not a wanted-level fantasy. Combat is short: run, or cut a gun off a mast, or let Greg answer a door.
 
@@ -130,6 +212,19 @@ That is the cast. No empires, no idols, no hidden ancient race waiting behind th
 **Trade.** Air, fuel, intact signs, tower-skin, company cells. Prices move by port, not by a famous market formula. Tower-skin pays well and costs Feb's trust. That is the moral trade, and it is one good, not a spreadsheet.
 
 **Beacons.** Three of them. Each needs a flown lane, a read sign, and a door. Lighting one steadies the lanes behind it. Lighting all three steadies the road to Breakwater. The ending is the Ash on that road with the note still unpaid or paid, depending on whether Jonah sold the skin. The region is quiet. The city is still dead. Feb is still the last. Greg's order is the one he spoke.
+
+## FEB — name options, not chosen
+
+Feb is one body from a military pattern. The living Narceans compiled themselves into cyborgs, and the defence pattern was stamped FEB. Off-world crews still hear that as "Fed." None of these expansions are in the game until one is picked.
+
+1. **Frame-Encoded Bastion.** The template name. A body compiled as a fixed defence and left on a level. Feb is what the stamp said, and he kept it.
+2. **Forward Emplacement Biped.** A gun that walks, sits, and stays. The unit is the emplacement. The legs are how it was delivered.
+3. **Failsafe Encased Battery.** The soldier and the cell are the same machine. The device in his chest is what holds the chamber, and what the Ash is missing.
+4. **Field Enforcement Body.** The occupation pattern Latch kept after the organic army was gone. Enforcement meant hold the yard, not leave it.
+5. **Final Epoch Bulwark.** The last pattern Narcea compiled before the Commit. A wall that could stand up.
+6. **Fortress-Encoded Body.** The city wrote its soldiers in the same strokes as its halls. A FEB is a building that was given a posture.
+
+Part 1, as built: the device seated in Feb's chest is what is keeping the stasis chamber powered. Taking it starts a 256 second count on the panel beside him. The name above is still just Feb until one of these is chosen.
 
 ## What we will not use
 

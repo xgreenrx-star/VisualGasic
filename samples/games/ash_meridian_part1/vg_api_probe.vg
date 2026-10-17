@@ -1,0 +1,228 @@
+' Proves the Godot operations the Ash Meridian VG port needs.
+' Prints PASS/FAIL lines and quits with the failure count.
+Attribute VB_Name = "VgApiProbe"
+
+Dim fails As Integer
+
+Sub Note(ByVal ok As Boolean, ByVal name As String)
+	If ok Then
+		Print "PASS: " & name
+	Else
+		fails = fails + 1
+		Print "FAIL: " & name
+	End If
+End Sub
+
+Sub CheckNodes()
+	Dim bare As Object
+	Dim flat As Object
+	Dim spatial As Object
+	Dim scr As Object
+	Dim echoed As Integer
+	Dim label As String
+	Set bare = ClassDB.Instantiate("Node")
+	Set flat = ClassDB.Instantiate("Node2D")
+	Set spatial = ClassDB.Instantiate("Node3D")
+	Call Note(TypeOf bare Is Node, "instantiate_node")
+	Call Note(TypeOf flat Is Node2D, "instantiate_node2d")
+	Call Note(TypeOf spatial Is Node3D, "instantiate_node3d")
+	Set scr = Load("res://vg_api_target.vg")
+	spatial.set_script(scr)
+	AddChild spatial
+	echoed = spatial.Echo(4)
+	label = spatial.Label()
+	Call Note(echoed = 11, "vg_method_on_node3d")
+	Call Note(label = "node3d_ok", "vg_method_string_on_node3d")
+	spatial.QueueFree()
+End Sub
+
+Function BuildMesh() As Object
+	Dim mesh As Object
+	Dim verts As PackedVector3Array
+	Dim norms As PackedVector3Array
+	Dim cols As PackedColorArray
+	Dim indices As PackedInt32Array
+	Dim arrays As Variant
+	Dim line_arrays As Variant
+	Dim line_verts As PackedVector3Array
+	Dim line_cols As PackedColorArray
+	Dim face As Object
+	Dim edge As Object
+	Set mesh = ClassDB.Instantiate("ArrayMesh")
+	arrays = Array()
+	line_arrays = Array()
+	verts.append(Vector3(0, 0, 0))
+	verts.append(Vector3(1, 0, 0))
+	verts.append(Vector3(0, 1, 0))
+	norms.append(Vector3(0, 0, 1))
+	norms.append(Vector3(0, 0, 1))
+	norms.append(Vector3(0, 0, 1))
+	cols.append(Color(1, 0, 0, 1))
+	cols.append(Color(0, 1, 0, 1))
+	cols.append(Color(0, 0, 1, 1))
+	indices.append(0)
+	indices.append(1)
+	indices.append(2)
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays(Mesh.ARRAY_VERTEX) = verts
+	arrays(Mesh.ARRAY_NORMAL) = norms
+	arrays(Mesh.ARRAY_COLOR) = cols
+	arrays(Mesh.ARRAY_INDEX) = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	Set face = ClassDB.Instantiate("StandardMaterial3D")
+	face.albedo_color = Color(0.2, 0.4, 0.9, 1)
+	mesh.surface_set_material(0, face)
+	line_verts.append(Vector3(0, 0, 0))
+	line_verts.append(Vector3(0, 1, 0))
+	line_verts.append(Vector3(0, 0, 0))
+	line_verts.append(Vector3(1, 0, 0))
+	line_cols.append(Color(0, 1, 1, 1))
+	line_cols.append(Color(0, 1, 1, 1))
+	line_cols.append(Color(1, 0, 1, 1))
+	line_cols.append(Color(1, 0, 1, 1))
+	line_arrays.resize(Mesh.ARRAY_MAX)
+	line_arrays(Mesh.ARRAY_VERTEX) = line_verts
+	line_arrays(Mesh.ARRAY_COLOR) = line_cols
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, line_arrays)
+	Set edge = ClassDB.Instantiate("StandardMaterial3D")
+	edge.albedo_color = Color(0.1, 0.9, 0.8, 1)
+	mesh.surface_set_material(1, edge)
+	Set BuildMesh = mesh
+End Function
+
+Sub CheckMesh()
+	Dim mesh As Object
+	Dim back As Variant
+	Dim got As PackedVector3Array
+	Dim got_i As PackedInt32Array
+	Dim got_c As PackedColorArray
+	Dim mat As Object
+	Set mesh = BuildMesh()
+	Call Note(mesh.get_surface_count() = 2, "mesh_two_surfaces")
+	Call Note(mesh.surface_get_array_len(0) = 3, "mesh_triangle_winding_count")
+	back = mesh.surface_get_arrays(0)
+	got = back(Mesh.ARRAY_VERTEX)
+	got_i = back(Mesh.ARRAY_INDEX)
+	got_c = back(Mesh.ARRAY_COLOR)
+	Call Note(got(0) = Vector3(0, 0, 0) And got(1) = Vector3(1, 0, 0) And got(2) = Vector3(0, 1, 0), "mesh_vertex_order")
+	Call Note(got_i(0) = 0 And got_i(1) = 1 And got_i(2) = 2, "mesh_index_order")
+	Call Note(got_c(2) = Color(0, 0, 1, 1), "mesh_vertex_color")
+	Set mat = mesh.surface_get_material(0)
+	Call Note(mat.albedo_color = Color(0.2, 0.4, 0.9, 1), "mesh_surface_material")
+	Set mat = mesh.surface_get_material(1)
+	Call Note(mat.albedo_color = Color(0.1, 0.9, 0.8, 1), "mesh_second_material")
+End Sub
+
+Sub CheckView()
+	Dim view As Object
+	Dim cam As Object
+	Dim env As Object
+	Dim shader As Object
+	Dim material As Object
+	Dim pulse As Single
+	Set view = ClassDB.Instantiate("SubViewport")
+	view.size = Vector2i(64, 64)
+	view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	view.msaa_3d = Viewport.MSAA_2X
+	AddChild view
+	Set cam = ClassDB.Instantiate("Camera3D")
+	cam.fov = 40
+	view.add_child(cam)
+	Set env = ClassDB.Instantiate("Environment")
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.02, 0.03, 0.08, 1)
+	cam.environment = env
+	Call Note(view.size = Vector2i(64, 64), "subviewport_size")
+	Call Note(view.render_target_update_mode = SubViewport.UPDATE_DISABLED, "subviewport_update_mode")
+	Call Note(view.msaa_3d = Viewport.MSAA_2X, "viewport_msaa")
+	Call Note(cam.environment.background_mode = Environment.BG_COLOR, "camera_environment")
+	Set shader = Load("res://vg_api_pulse.gdshader")
+	Set material = ClassDB.Instantiate("ShaderMaterial")
+	material.shader = shader
+	material.set_shader_parameter("pulse", 0.35)
+	pulse = material.get_shader_parameter("pulse")
+	Call Note(pulse > 0.34 And pulse < 0.36, "shader_parameter")
+	view.QueueFree()
+End Sub
+
+Sub CheckPack()
+	Dim mesh As Object
+	Dim root As Object
+	Dim body As Object
+	Dim packed As Object
+	Dim pack_err As Integer
+	Dim save_err As Integer
+	Dim loaded As Object
+	Dim again As Object
+	Dim child As Object
+	Dim mesh_err As Integer
+	Dim loaded_mesh As Object
+	Set mesh = BuildMesh()
+	Set root = ClassDB.Instantiate("Node3D")
+	root.name = "ProbeRoot"
+	Set body = ClassDB.Instantiate("MeshInstance3D")
+	body.name = "ProbeMesh"
+	body.mesh = mesh
+	root.add_child(body)
+	body.owner = root
+	Set packed = ClassDB.Instantiate("PackedScene")
+	pack_err = packed.pack(root)
+	save_err = ResourceSaver.save(packed, "user://vg_api_pack.tscn")
+	Call Note(pack_err = 0, "packed_scene_pack")
+	Call Note(save_err = 0, "resource_saver_scene")
+	Set loaded = Load("user://vg_api_pack.tscn")
+	Set again = loaded.instantiate()
+	Set child = again.GetNode("ProbeMesh")
+	Call Note(Not child Is Nothing, "packed_scene_child")
+	If Not child Is Nothing Then
+		Call Note(child.name = "ProbeMesh", "packed_scene_child_name")
+		Call Note(child.mesh.get_surface_count() = 2, "packed_scene_mesh")
+	End If
+	mesh_err = ResourceSaver.save(mesh, "user://vg_api_mesh.res")
+	Set loaded_mesh = Load("user://vg_api_mesh.res")
+	Call Note(mesh_err = 0 And loaded_mesh.get_surface_count() = 2, "resource_saver_mesh")
+	again.QueueFree()
+End Sub
+
+Sub CheckRandomAndAlarm()
+	Dim rng As Object
+	Dim first As Single
+	Dim second As Single
+	Dim audio As Object
+	Dim wav As Object
+	Dim samples As PackedByteArray
+	Dim i As Integer
+	Set rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 42
+	first = rng.randf()
+	rng.seed = 42
+	second = rng.randf()
+	Call Note(first = second And first > 0, "rng_seed")
+	Set audio = ClassDB.Instantiate("AudioStreamPlayer")
+	AddChild audio
+	Set wav = ClassDB.Instantiate("AudioStreamWAV")
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	samples.resize(128)
+	For i = 0 To 63
+		samples.encode_s16(i * 2, 1000)
+	Next
+	wav.data = samples
+	audio.stream = wav
+	audio.play()
+	Call Note(wav.data.size() = 128, "alarm_wav_bytes")
+	Call Note(audio.playing, "alarm_play")
+	audio.stop()
+	audio.QueueFree()
+End Sub
+
+Sub _Ready()
+	fails = 0
+	Call CheckNodes()
+	Call CheckMesh()
+	Call CheckView()
+	Call CheckPack()
+	Call CheckRandomAndAlarm()
+	Print "VG_API_RESULT=" & Str(fails)
+	GetTree().Quit(fails)
+End Sub

@@ -1,15 +1,15 @@
 [gd_scene format=3 uid="uid://cfytk3jtb2ljd"]
 
 [ext_resource type="Script" uid="uid://ciemttmjfw2rt" path="res://Caverns.vg" id="1"]
-[ext_resource type="Script" path="res://VisualEffects.vg" id="2"]
-[ext_resource type="Script" path="res://SoundEffects.vg" id="3"]
+[ext_resource type="Script" uid="uid://bcdbcn8gfgjkd" path="res://VisualEffects.vg" id="2"]
+[ext_resource type="Script" uid="uid://b46nkxu5j7g6v" path="res://SoundEffects.vg" id="3"]
 
 [node name="CrystalCaverns" type="Node2D" unique_id=1626332168]
 texture_filter = 1
 script = ExtResource("1")
 
-[node name="VisualEffects" type="Node2D" parent="."]
+[node name="VisualEffects" type="Node2D" parent="." unique_id=328182173]
 script = ExtResource("2")
 
-[node name="SoundEffects" type="Node" parent="."]
+[node name="SoundEffects" type="Node" parent="." unique_id=770681208]
 script = ExtResource("3")

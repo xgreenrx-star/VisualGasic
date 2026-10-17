@@ -1,0 +1,10 @@
+' Method target for the pure-VG API probe. Attached at runtime to a Node3D.
+Attribute VB_Name = "VgApiTarget"
+
+Function Echo(ByVal n As Integer) As Integer
+	Return n + 7
+End Function
+
+Function Label() As String
+	Return "node3d_ok"
+End Function

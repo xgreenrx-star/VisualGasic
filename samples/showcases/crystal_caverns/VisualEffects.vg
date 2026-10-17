@@ -28,7 +28,7 @@ Dim post As Object
 Dim toggle As Object
 Dim last_epoch As Integer = -1
 Dim last_state As String
-Dim last_player As Variant = Vector2(-1, -1)
+Dim last_player As Variant = Vector2( -1, -1)
 Dim last_crystals As Integer
 Dim burst_origin As Variant
 Dim burst_texture As Object
@@ -60,7 +60,7 @@ End Function
 Sub _initialize_visuals()
 	' Load standard Godot shader files; VG controls them without GDScript.
 	Dim minerShader As Object = Load("res://shaders/miner_swirl.gdshader")
-	Dim rockShader As Object = Load("res://shaders/rock_wobble.gdshader")
+	Dim rockShader As Object = load("res://shaders/rock_wobble.gdshader")
 	Dim crystalShader As Object = Load("res://shaders/crystal_shimmer.gdshader")
 	Dim portalShader As Object = Load("res://shaders/exit_vortex.gdshader")
 	Dim burstShader As Object = Load("res://shaders/pixel_burst.gdshader")
@@ -156,9 +156,9 @@ Sub _Process(delta As Double)
 	If ready_to_draw Then Call update_visuals(delta)
 End Sub
 
-Function SmoothProgress(first As Double, last As Double, value As Double) As Double
+Function SmoothProgress(first As Double, last As Double, Value As Double) As Double
 	' Map time to 0..1, then ease the endpoints to avoid an abrupt start/stop.
-	Dim t As Double = Clamp((value - first) / (last - first), 0.0, 1.0)
+	Dim t As Double = Clamp((Value - first) / (last - first), 0.0, 1.0)
 	SmoothProgress = t * t * (3 - 2 * t)
 End Function
 

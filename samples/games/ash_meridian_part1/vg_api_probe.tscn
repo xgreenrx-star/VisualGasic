@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://vg_api_probe.vg" id="1"]
+
+[node name="VgApiProbe" type="Node"]
+
+[node name="VGASIC" type="Node" parent="."]
+script = ExtResource("1")
