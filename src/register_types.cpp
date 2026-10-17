@@ -107,9 +107,13 @@ static Ref<VisualGasicFormatSaver> visual_gasic_saver;
 
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/os.hpp>
+#include "vg_variant_fast.h"
 
 void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
     if (p_level == MODULE_INITIALIZATION_LEVEL_SCENE) {
+        // Probe the engine's Variant layout once; the VM's inline Variant
+        // fast paths stay disabled unless it matches (see vg_variant_fast.h).
+        vgfast::verify_layout();
         // Register Settings
         if (!ProjectSettings::get_singleton()->has_setting("visual_gasic/auto_format_iif")) {
             ProjectSettings::get_singleton()->set_setting("visual_gasic/auto_format_iif", false);

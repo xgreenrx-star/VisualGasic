@@ -1,0 +1,100 @@
+' Test: slot-call convention (v6.1) — params live in local slots.
+' Regressions caught while moving ByRef/Optional/ByVal params off variables[]:
+'  * DCE dropped `x = 100` in a ByRef Sub because the body never read x
+'    (the CALLER reads it through the write-back).
+'  * The tier-2 JIT stored `Return expr` into slot 0, which is now the first
+'    parameter; a ByRef first param then wrote the return value back into the
+'    caller's loop counter (every other iteration skipped).
+'  * Await cleared fast_params, so the body read unseeded param slots.
+Attribute VB_Name = "TestSlotCallParams"
+
+Sub SetConst(x As Integer, ByVal y As Integer)
+	x = 100
+	y = 200
+End Sub
+
+Sub SetString(ByRef text As String)
+	text = "NEW"
+End Sub
+
+Sub SetTwo(ByRef a As Single, ByRef b As Single)
+	a = 40.0
+	b = 90.0
+End Sub
+
+Function AddOneRet(x As Integer) As Integer
+	Return x + 1
+End Function
+
+Function HalfRet(x As Double) As Double
+	Return x * 0.5
+End Function
+
+Function FlagAndReturn(ByRef flag As Boolean, ByVal base As Integer) As Integer
+	flag = True
+	Return base + 1
+End Function
+
+Sub OptionalConst(Optional ByRef v As Integer = 7)
+	v = 55
+End Sub
+
+Sub _Ready()
+	' DCE must not drop constant stores to ByRef params.
+	Dim a As Integer = 10
+	Dim b As Integer = 20
+	SetConst a, b
+	If a = 100 And b = 20 Then
+		Print "PASS: byref_const_store_mixed_byval"
+	Else
+		Print "FAIL: byref_const_store_mixed_byval: a=" & Str(a) & " b=" & Str(b)
+	End If
+
+	Dim s As String = "OLD"
+	SetString s
+	If s = "NEW" Then Print "PASS: byref_const_string" Else Print "FAIL: byref_const_string got " & s
+
+	Dim sx As Single = 0
+	Dim sy As Single = 0
+	SetTwo sx, sy
+	If sx = 40.0 And sy = 90.0 Then Print "PASS: byref_two_consts" Else Print "FAIL: byref_two_consts " & Str(sx) & "," & Str(sy)
+
+	' JIT: Return value must not alias the (ByRef) first parameter slot.
+	Dim i As Integer
+	Dim total As Integer = 0
+	Dim iters As Integer = 0
+	For i = 1 To 1000
+		total = total + AddOneRet(i)
+		iters = iters + 1
+	Next
+	If total = 501500 And iters = 1000 Then
+		Print "PASS: jit_return_slot_not_param"
+	Else
+		Print "FAIL: jit_return_slot_not_param: total=" & Str(total) & " iters=" & Str(iters)
+	End If
+
+	Dim d As Double = 8.0
+	Dim dsum As Double = 0
+	For i = 1 To 50
+		dsum = dsum + HalfRet(d)
+	Next
+	If dsum = 200.0 And d = 8.0 Then
+		Print "PASS: jit_return_f64_slot"
+	Else
+		Print "FAIL: jit_return_f64_slot: dsum=" & Str(dsum) & " d=" & Str(d)
+	End If
+
+	' Expression-level ByRef write-back with explicit Return.
+	Dim flag As Boolean = False
+	Dim r As Integer = FlagAndReturn(flag, 41)
+	If r = 42 And flag = True Then Print "PASS: byref_flag_with_return" Else Print "FAIL: byref_flag_with_return r=" & Str(r)
+
+	' Optional ByRef: default seeded, write-back still applies when passed.
+	Dim o As Integer = 1
+	OptionalConst o
+	If o = 55 Then Print "PASS: optional_byref_const_store" Else Print "FAIL: optional_byref_const_store got " & Str(o)
+	OptionalConst
+	Print "PASS: optional_byref_omitted"
+
+	Print "TEST_COMPLETE"
+End Sub

@@ -125,39 +125,19 @@ Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
 End Function
 
 Function PackVec2(ByVal items As Array) As PackedVector2Array
-	Dim packed As PackedVector2Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec2 = packed
+	PackVec2 = PackedVector2Array(items)
 End Function
 
 Function PackVec3(ByVal items As Array) As PackedVector3Array
-	Dim packed As PackedVector3Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec3 = packed
+	PackVec3 = PackedVector3Array(items)
 End Function
 
 Function PackColor(ByVal items As Array) As PackedColorArray
-	Dim packed As PackedColorArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackColor = packed
+	PackColor = PackedColorArray(items)
 End Function
 
 Function PackByte(ByVal items As Array) As PackedByteArray
-	Dim packed As PackedByteArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackByte = packed
+	PackByte = PackedByteArray(items)
 End Function
 
 Function Sign(ByVal value As Single) As Single
@@ -799,7 +779,7 @@ Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Si
 	Dim _t0 As Variant
 	Call EnsureInit()
 	d = w * 0.72
-	outline = PackVec2(Array(Vector2(0, 0), Vector2(w, 0), Vector2(w * 0.78, h * 0.14), Vector2(w * 0.78, h * 0.38), Vector2(w * 0.96, h * 0.42), Vector2(w * 0.96, h * 0.48), Vector2(w * 0.7, h * 0.48), Vector2(w * 0.7, h * 0.65), Vector2(w * 0.58, h * 0.65), Vector2(w * 0.58, h), Vector2(w * 0.43, h), Vector2(w * 0.43, h * (0.86 - kind * 0.03)), Vector2(w * 0.27, h * 0.8), Vector2(w * 0.27, h * 0.58), Vector2(w * 0.15, h * 0.58), Vector2(w * 0.15, h * 0.32), Vector2(w * 0.32, h * 0.25), Vector2(w * 0.32, h * 0.14)))
+	outline = PackedVector2Array(Array(Vector2(0, 0), Vector2(w, 0), Vector2(w * 0.78, h * 0.14), Vector2(w * 0.78, h * 0.38), Vector2(w * 0.96, h * 0.42), Vector2(w * 0.96, h * 0.48), Vector2(w * 0.7, h * 0.48), Vector2(w * 0.7, h * 0.65), Vector2(w * 0.58, h * 0.65), Vector2(w * 0.58, h), Vector2(w * 0.43, h), Vector2(w * 0.43, h * (0.86 - kind * 0.03)), Vector2(w * 0.27, h * 0.8), Vector2(w * 0.27, h * 0.58), Vector2(w * 0.15, h * 0.58), Vector2(w * 0.15, h * 0.32), Vector2(w * 0.32, h * 0.25), Vector2(w * 0.32, h * 0.14)))
 	_extrude(outline, d, CYAN, Transform3D(Basis(), Vector3(x, 0, z)))
 	mast = Vector3(x + w * 0.44, h, z + d * 0.48)
 	segment(mast, mast + Vector3(0, 2.2 + kind, 0), CYAN)
@@ -954,7 +934,7 @@ Sub turret(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As
 	_ring(Vector3(0, 0.45, 0), 0.72, 1, PINK, transform)
 	For Each side In AsArray(Array(-1.0, 1.0))
 		box(Vector3(-0.55, 0.8, side * 0.7 - 0.12), Vector3(1.15, 0.65, 0.24), PINK, transform)
-		housing = PackVec2(Array(Vector2(-0.8, 1.3), Vector2(0.85, 1.3), Vector2(0.85, 1.8), Vector2(0.55, 2.12), Vector2(-0.55, 2.12), Vector2(-0.8, 1.85)))
+		housing = PackedVector2Array(Array(Vector2(-0.8, 1.3), Vector2(0.85, 1.3), Vector2(0.85, 1.8), Vector2(0.55, 2.12), Vector2(-0.55, 2.12), Vector2(-0.8, 1.85)))
 		_extrude(housing, 0.6, PINK, transform.translated_local(Vector3(0, 0, side * 0.58 - 0.3)))
 		_cylinder(Vector3(0.8, 1.66, side * 0.58), 0.13, 1.5, 0, CYAN, transform)
 		For rib = 0 To (5 - 1)

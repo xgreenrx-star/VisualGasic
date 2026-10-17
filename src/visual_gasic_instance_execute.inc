@@ -478,6 +478,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_ASSIGNMENT: {
             AssignmentStatement* s = (AssignmentStatement*)stmt;
             Variant val = evaluate_expression(s->value);
+            // A right-hand side that raised an unhandled error stops the
+            // procedure at that point: the store does not happen (the
+            // bytecode VM aborts at the failing opcode, before OP_SET_*).
+            // Under On Error Resume Next both tiers store the expression's
+            // fallback value and carry on.
+            if (error_state.has_error && error_state.mode != ErrorState::RESUME_NEXT) {
+                break;
+            }
             assign_to_target(s->target, val);
             break;
         }
@@ -540,6 +548,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.mode == ErrorState::CONTINUE_FOR) {
+                         error_state.has_error = false;
+                         error_state.mode = ErrorState::NONE;
+                         continue;
+                     }
                      if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
@@ -562,6 +575,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.mode == ErrorState::CONTINUE_FOR) {
+                         error_state.has_error = false;
+                         error_state.mode = ErrorState::NONE;
+                         continue;
+                     }
                      if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
@@ -583,9 +601,16 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                          error_state.mode = ErrorState::NONE;
                          break;
                      }
+                     if (error_state.mode == ErrorState::CONTINUE_FOR) {
+                         error_state.has_error = false;
+                         error_state.mode = ErrorState::NONE;
+                         continue;
+                     }
                      if (error_state.has_error) break;
                      if (error_state.mode != ErrorState::NONE) break;
                  }
+             } else if (col.get_type() == Variant::NIL) {
+                 // Nothing / Empty iterates zero times (bytecode VM parity).
              } else {
                  raise_error("For Each requires an Array, Dictionary, or String");
              }
@@ -3329,6 +3354,17 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         
         default: break;
+    }
+
+    // On Error Resume Next: a statement that raised (itself or through a
+    // callee) is abandoned and execution continues with the statement after
+    // it — inside loop, If and Select bodies too.  Only the procedure-level
+    // loop in call_internal used to clear the flag, so every enclosing block
+    // broke out on the way there and the rest of the loop body plus all
+    // remaining iterations were skipped (the bytecode tier resumes at the
+    // next opcode).  Err.Number / Err.Description stay readable.
+    if (error_state.has_error && error_state.mode == ErrorState::RESUME_NEXT) {
+        error_state.has_error = false;
     }
 }
 

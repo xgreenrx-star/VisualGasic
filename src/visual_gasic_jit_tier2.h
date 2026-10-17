@@ -311,13 +311,28 @@ struct CompiledFunc {
     // beyond chunk->local_count so the caller can pre-populate them.
     // Each pair: (global_name, virtual_slot_index).
     std::vector<std::pair<std::string, int>> global_slots;
-    int total_slots = 0; // local_count + number of virtual global slots
+    int total_slots = 0; // local_count + number of virtual global slots (+ ret slot)
+    // Slot that receives `Return expr` (fn() returned 1); -1 if the body has
+    // no value-returning Return.  Dedicated so it never aliases a parameter.
+    int ret_slot = -1;
     // 1 = slot holds an IEEE float bit pattern. Writeback must not cast it to int.
     std::vector<uint8_t> slot_is_f64;
     // Stable storage for string pointers embedded in native code.
     std::deque<std::string> str_pool;
     std::vector<std::string> local_names;
-    
+
+    // Dispatch-side memo, filled by the VM on the first native call so the
+    // per-call marshal in try_jit_bytecode does no UTF-8 parsing, no
+    // return-type string compares and no parameter scans:
+    //   global_slot_names[i] — interned key for global_slots[i].first
+    //   returns_boolean      — -1 unknown, 0 no, 1 Function ... As Boolean
+    //   byref_params         — indices into func->parameters that are ByRef
+    std::vector<godot::StringName> global_slot_names;
+    std::vector<godot::String> global_slot_strings;
+    bool dispatch_memo_ready = false;
+    int8_t returns_boolean = -1;
+    std::vector<int> byref_params;
+
     ~CompiledFunc();
 };
 
@@ -342,6 +357,17 @@ public:
     
     // Record a call; returns compiled fn if ready, else nullptr.
     CompiledFunc* get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst);
+
+    // True once it is settled that `chunk` will never run natively on this
+    // engine: Tier 2 is off, or the compile was attempted and refused.  The
+    // interpreter's inline call frames (execute_bytecode OP_CALL) only take
+    // callees in this state, so a hot body that would compile still gets to
+    // reach HOT_THRESHOLD through the ordinary call path.
+    bool settled_not_native(const BytecodeChunk* chunk) const {
+        if (!enabled_ || tier_level_ < 2) return true;
+        return chunk && chunk->jit_t2.owner.load(std::memory_order_acquire) == this &&
+               chunk->jit_t2.func == nullptr;
+    }
     
     // Stats
     int  compiled_count() const { return (int)cache_.size(); }

@@ -186,6 +186,8 @@ static int opcode_size(uint8_t op) {
             return 4;
         case OP_PACKED_HP_STATE_TICK:
             return 5;
+        case OP_FOREACH_STEP:
+            return 6;
         case OP_PACKED_NEAREST_I64:
             return 7;
         default:

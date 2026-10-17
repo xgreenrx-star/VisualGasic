@@ -192,39 +192,19 @@ Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
 End Function
 
 Function PackVec2(ByVal items As Array) As PackedVector2Array
-	Dim packed As PackedVector2Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec2 = packed
+	PackVec2 = PackedVector2Array(items)
 End Function
 
 Function PackVec3(ByVal items As Array) As PackedVector3Array
-	Dim packed As PackedVector3Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec3 = packed
+	PackVec3 = PackedVector3Array(items)
 End Function
 
 Function PackColor(ByVal items As Array) As PackedColorArray
-	Dim packed As PackedColorArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackColor = packed
+	PackColor = PackedColorArray(items)
 End Function
 
 Function PackByte(ByVal items As Array) As PackedByteArray
-	Dim packed As PackedByteArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackByte = packed
+	PackByte = PackedByteArray(items)
 End Function
 
 Function Sign(ByVal value As Single) As Single
@@ -990,7 +970,7 @@ Sub _dock(ByVal view As Node, ByVal p As Vector3)
 	view.box(p + Vector3(-8, -0.5, -10), Vector3(16, 0.5, 21), CYAN * 0.45)
 	solids.append(Rect2(Vector2(p.x - 5, p.z - 7), Vector2(10, 14)))
 	' A tapered, closed hull with a raised canopy and paired engine pods.
-	outline = PackVec2(Array(Vector2(-1.1, 0.7), Vector2(-4.2, 0.8), Vector2(-4.2, 2), Vector2(-2.1, 3), Vector2(2.1, 3), Vector2(4.2, 2), Vector2(4.2, 0.8), Vector2(1.1, 0.7)))
+	outline = PackedVector2Array(Array(Vector2(-1.1, 0.7), Vector2(-4.2, 0.8), Vector2(-4.2, 2), Vector2(-2.1, 3), Vector2(2.1, 3), Vector2(4.2, 2), Vector2(4.2, 0.8), Vector2(1.1, 0.7)))
 	view._extrude(outline, 10, CYAN, Transform3D(Basis(), p + Vector3(0, 0, -5)))
 	view.box(p + Vector3(-1.6, 2.7, -1), Vector3(3.2, 1.3, 4), CYAN)
 	For Each side In AsArray(Array(-1.0, 1.0))
@@ -1011,7 +991,7 @@ Sub _bottle(ByVal view As Node, ByVal transform As Transform3D, ByVal scale As S
 	Dim d As Variant
 	Call EnsureInit()
 	shaped = transform.scaled_local(Vector3(1, 1, 1) * scale)
-	profile = PackVec2(Array(Vector2(0, 0.1), Vector2(0.28, 0.12), Vector2(0.42, 0.28), Vector2(0.42, 1.4), Vector2(0.30, 1.62), Vector2(0.12, 1.77), Vector2(0, 1.77)))
+	profile = PackedVector2Array(Array(Vector2(0, 0.1), Vector2(0.28, 0.12), Vector2(0.42, 0.28), Vector2(0.42, 1.4), Vector2(0.30, 1.62), Vector2(0.12, 1.77), Vector2(0, 1.77)))
 	For i = 0 To (24 - 1)
 		angle = 6.283185307179586 * i / 24
 		next_n = 6.283185307179586 * (i + 1) / 24
@@ -1365,13 +1345,13 @@ End Function
 Sub _triangle(ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, ByVal color As Color, ByVal lit As Boolean, ByVal normal As Vector3)
 	Call EnsureInit()
 	If lit Then
-		light_points.append_array(PackVec3(Array(a, b, c)))
-		light_shades.append_array(PackColor(Array(color, color, color)))
-		light_normals.append_array(PackVec3(Array(normal, normal, normal)))
+		light_points.append_array(PackedVector3Array(Array(a, b, c)))
+		light_shades.append_array(PackedColorArray(Array(color, color, color)))
+		light_normals.append_array(PackedVector3Array(Array(normal, normal, normal)))
 	Else
-		points.append_array(PackVec3(Array(a, b, c)))
-		shades.append_array(PackColor(Array(color, color, color)))
-		normals.append_array(PackVec3(Array(normal, normal, normal)))
+		points.append_array(PackedVector3Array(Array(a, b, c)))
+		shades.append_array(PackedColorArray(Array(color, color, color)))
+		normals.append_array(PackedVector3Array(Array(normal, normal, normal)))
 	End If
 End Sub
 
@@ -1586,7 +1566,7 @@ Sub _gate(ByVal z As Single)
 	For Each side In AsArray(Array(-1.0, 1.0))
 		x = side * 13
 		transform = Transform3D(Basis(), Vector3(x, 0, z))
-		_prism(PackVec2(Array(Vector2(-2.7, 0), Vector2(2.7, 0), Vector2(2.1, 10), Vector2(1.1, 14), Vector2(-1.1, 14), Vector2(-2.1, 10))), 3.4, SHELL, transform)
+		_prism(PackedVector2Array(Array(Vector2(-2.7, 0), Vector2(2.7, 0), Vector2(2.1, 10), Vector2(1.1, 14), Vector2(-1.1, 14), Vector2(-2.1, 10))), 3.4, SHELL, transform)
 		solids.append(Rect2(x - 2.7, z, 5.4, 3.4))
 		_box(Vector3(x - 1.6, 1.2, z - 0.03), Vector3(3.2, 8.5, 0.025), INK)
 		For Each offset In AsArray(Array(-0.9, 0.9))
@@ -1713,7 +1693,7 @@ Sub _transit_court()
 		For i = 0 To (2 - 1)
 			center = Vector3(side * 10.2, 0, 95 + i * 16)
 			transform = Transform3D(Basis(), center - Vector3(0, 0, 1.2))
-			_prism(PackVec2(Array(Vector2(-1.6, 0), Vector2(1.6, 0), Vector2(0.9, 3.2), Vector2(-0.9, 3.2))), 2.4, SHELL, transform)
+			_prism(PackedVector2Array(Array(Vector2(-1.6, 0), Vector2(1.6, 0), Vector2(0.9, 3.2), Vector2(-0.9, 3.2))), 2.4, SHELL, transform)
 			_box(center + Vector3(-1.05, 3.2, -1.4), Vector3(2.1, 0.26, 2.8), INK)
 			_box(center + Vector3(-0.67, 1.5, -1.22), Vector3(1.34, 1.15, 0.025), INK)
 			If side > 0 Then
@@ -1835,7 +1815,7 @@ Sub _carrier()
 	Dim profile As Variant
 	Dim transform As Variant
 	Call EnsureInit()
-	profile = PackVec2(Array(Vector2(-2.5, 0.0), Vector2(2.5, 0.0), Vector2(3.1, 0.7), Vector2(2.7, 2.1), Vector2(1.7, 2.8), Vector2(-1.7, 2.8), Vector2(-2.7, 2.1), Vector2(-3.1, 0.7)))
+	profile = PackedVector2Array(Array(Vector2(-2.5, 0.0), Vector2(2.5, 0.0), Vector2(3.1, 0.7), Vector2(2.7, 2.1), Vector2(1.7, 2.8), Vector2(-1.7, 2.8), Vector2(-2.7, 2.1), Vector2(-3.1, 0.7)))
 	_prism(profile, 7.2, SHELL * 0.8, Transform3D(Basis(), Vector3(0, 0, -3.6)))
 	_box(Vector3(-1.6, 1.55, 3.61), Vector3(3.2, 0.8, 0.03), INK)
 	_box(Vector3(-1.6, 1.55, -3.65), Vector3(3.2, 0.8, 0.03), INK)
@@ -2169,7 +2149,7 @@ End Sub
 
 Sub _ship()
 	Call EnsureInit()
-	_prism(PackVec2(Array(Vector2(-5, 0.7), Vector2(5, 0.7), Vector2(3.2, 2.2), Vector2(1.8, 3.8), Vector2(-1.8, 3.8), Vector2(-3.2, 2.2))), 7, SHELL, Transform3D(Basis(), Vector3(0, 0, -3.5)))
+	_prism(PackedVector2Array(Array(Vector2(-5, 0.7), Vector2(5, 0.7), Vector2(3.2, 2.2), Vector2(1.8, 3.8), Vector2(-1.8, 3.8), Vector2(-3.2, 2.2))), 7, SHELL, Transform3D(Basis(), Vector3(0, 0, -3.5)))
 	_box(Vector3(-1.5, 2.3, 3.52), Vector3(3, 0.7, 0.05), INK)
 	For Each side In AsArray(Array(-1.0, 1.0))
 		_box(Vector3(side * 3.3 - 0.6, 0, -2), Vector3(1.2, 1.0, 4), SHELL)

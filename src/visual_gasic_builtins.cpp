@@ -1348,6 +1348,41 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         return construct_godot_type(lowercase_name, args);
     }
+    // Packed*Array() — empty, or Packed*Array(arr) converting an Array /
+    // another packed array (GDScript constructor syntax).  `Dim x As
+    // Packed*Array` already worked; the call form raised "not defined".
+    if (_method_cstr[0] == 'p' && _method_cstr[1] == 'a' && std::strncmp(_method_cstr, "packed", 6) == 0) {
+        static const struct { const char *name; Variant::Type type; } _packed_ctor_names[] = {
+            { "packedbytearray", Variant::PACKED_BYTE_ARRAY },
+            { "packedint32array", Variant::PACKED_INT32_ARRAY },
+            { "packedint64array", Variant::PACKED_INT64_ARRAY },
+            { "packedfloat32array", Variant::PACKED_FLOAT32_ARRAY },
+            { "packedfloat64array", Variant::PACKED_FLOAT64_ARRAY },
+            { "packedstringarray", Variant::PACKED_STRING_ARRAY },
+            { "packedvector2array", Variant::PACKED_VECTOR2_ARRAY },
+            { "packedvector3array", Variant::PACKED_VECTOR3_ARRAY },
+            { "packedcolorarray", Variant::PACKED_COLOR_ARRAY },
+            { "packedvector4array", Variant::PACKED_VECTOR4_ARRAY },
+        };
+        for (const auto &pc : _packed_ctor_names) {
+            if (!METHOD_IS(pc.name)) continue;
+            r_handled = true;
+            Variant src = args.size() >= 1 ? args[0] : Variant(Array());
+            if (src.get_type() == Variant::NIL) src = Array();
+            switch (pc.type) {
+                case Variant::PACKED_BYTE_ARRAY: return (PackedByteArray)src;
+                case Variant::PACKED_INT32_ARRAY: return (PackedInt32Array)src;
+                case Variant::PACKED_INT64_ARRAY: return (PackedInt64Array)src;
+                case Variant::PACKED_FLOAT32_ARRAY: return (PackedFloat32Array)src;
+                case Variant::PACKED_FLOAT64_ARRAY: return (PackedFloat64Array)src;
+                case Variant::PACKED_STRING_ARRAY: return (PackedStringArray)src;
+                case Variant::PACKED_VECTOR2_ARRAY: return (PackedVector2Array)src;
+                case Variant::PACKED_VECTOR3_ARRAY: return (PackedVector3Array)src;
+                case Variant::PACKED_VECTOR4_ARRAY: return (PackedVector4Array)src;
+                default: return (PackedColorArray)src;
+            }
+        }
+    }
     if (METHOD_IS("vector3")) {
         r_handled = true;
         if (args.size() == 0) return Vector3();

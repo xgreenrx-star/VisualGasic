@@ -1,0 +1,102 @@
+Option Explicit
+
+' Vector2 / Vector3 / Color construction and arithmetic take an in-place
+' path in the bytecode VM (no engine Variant calls): component-wise + - * /
+' between equal types, * and / by an Integer or Double scalar, scalar *
+' tuple, and exact = / <>.  The results must match Godot's own operator
+' evaluators (the AST tier is the reference) on all three tiers, including
+' Integer operands, which Godot converts to real_t.
+
+Dim fails As Integer
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Function Mix(ByVal a As Vector3, ByVal b As Vector3, ByVal k As Single) As Vector3
+	Mix = a * (1 - k) + b * k
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim p As Vector2
+	Dim q As Vector2
+	Dim c As Color
+	Dim d As Color
+	Dim n As Integer
+	Dim f As Double
+
+	n = 2
+	f = 0.5
+	' Repeat so the warmed-up (memoized) sites are exercised too.
+	For i = 1 To 3
+		a = Vector3(1, 2, 3)
+		b = Vector3(0.5, -1, 4)
+		Check "v3 ctor int", CStr(a), CStr(Vector3(1.0, 2.0, 3.0))
+		Check "v3 add", CStr(a + b), "(1.5, 1.0, 7.0)"
+		Check "v3 sub", CStr(a - b), "(0.5, 3.0, -1.0)"
+		Check "v3 mul", CStr(a * b), "(0.5, -2.0, 12.0)"
+		Check "v3 div", CStr(a / Vector3(2, 4, 3)), "(0.5, 0.5, 1.0)"
+		Check "v3 mul int", CStr(a * n), "(2.0, 4.0, 6.0)"
+		Check "v3 mul dbl", CStr(a * f), "(0.5, 1.0, 1.5)"
+		Check "int mul v3", CStr(n * a), "(2.0, 4.0, 6.0)"
+		Check "dbl mul v3", CStr(f * a), "(0.5, 1.0, 1.5)"
+		Check "v3 div int", CStr(a / n), "(0.5, 1.0, 1.5)"
+		Check "v3 div dbl", CStr(a / f), "(2.0, 4.0, 6.0)"
+		Check "v3 eq", CStr(a = Vector3(1, 2, 3)), CStr(True)
+		Check "v3 ne", CStr(a <> b), CStr(True)
+		Check "v3 eq false", CStr(a = b), CStr(False)
+		Check "v3 chain", CStr((a + b) * 2 - a), "(2.0, 0.0, 11.0)"
+		Check "v3 func", CStr(Mix(a, b, 0.5)), "(0.75, 0.5, 3.5)"
+		Check "v3 method after op", CStr((a - a).length()), "0"
+
+		p = Vector2(3, 4)
+		q = Vector2(1, 0.5)
+		Check "v2 ctor", CStr(p), "(3.0, 4.0)"
+		Check "v2 add", CStr(p + q), "(4.0, 4.5)"
+		Check "v2 sub", CStr(p - q), "(2.0, 3.5)"
+		Check "v2 mul", CStr(p * q), "(3.0, 2.0)"
+		Check "v2 div", CStr(p / q), "(3.0, 8.0)"
+		Check "v2 mul int", CStr(p * n), "(6.0, 8.0)"
+		Check "int mul v2", CStr(n * p), "(6.0, 8.0)"
+		Check "v2 div dbl", CStr(p / f), "(6.0, 8.0)"
+		Check "v2 eq", CStr(p = Vector2(3, 4)), CStr(True)
+		Check "v2 ne", CStr(p <> q), CStr(True)
+		Check "v2 length", CStr(p.length()), "5"
+
+		c = Color(0.5, 0.25, 1, 1)
+		d = Color(0.5, 0.5, 0.5)
+		Check "color ctor 3", CStr(d), "(0.5, 0.5, 0.5, 1.0)"
+		Check "color add", CStr(c + d), "(1.0, 0.75, 1.5, 2.0)"
+		Check "color sub", CStr(c - d), "(0.0, -0.25, 0.5, 0.0)"
+		Check "color mul", CStr(c * d), "(0.25, 0.125, 0.5, 1.0)"
+		Check "color div", CStr(c / d), "(1.0, 0.5, 2.0, 1.0)"
+		Check "color mul int", CStr(c * n), "(1.0, 0.5, 2.0, 2.0)"
+		Check "color mul dbl", CStr(c * f), "(0.25, 0.125, 0.5, 0.5)"
+		Check "dbl mul color", CStr(f * c), "(0.25, 0.125, 0.5, 0.5)"
+		Check "color div int", CStr(c / n), "(0.25, 0.125, 0.5, 0.5)"
+		Check "color eq", CStr(c = Color(0.5, 0.25, 1, 1)), CStr(True)
+		Check "color ne", CStr(c <> d), CStr(True)
+
+		' Mixed tuple types and ordering compares stay on the engine path.
+		Check "v3 lt", CStr(Vector3(1, 0, 0) < Vector3(2, 0, 0)), CStr(True)
+		Check "v3i add", CStr(Vector3i(1, 2, 3) + Vector3i(1, 1, 1)), "(2, 3, 4)"
+		Check "v3i div", CStr(Vector3i(4, 6, 8) / 2), "(2, 3, 4)"
+		Check "xform mul", CStr(Transform3D() * a), "(1.0, 2.0, 3.0)"
+
+		' VB `/` on scalars is Double division (constant operands included).
+		Check "int div const", CStr(7 / 2), "3.5"
+		Check "int div var", CStr(n / 4), "0.5"
+	Next
+
+	If fails = 0 Then
+		Print "PASS: vector tuple ops"
+	Else
+		Print "FAIL: " & CStr(fails) & " vector tuple op checks failed"
+	End If
+End Sub

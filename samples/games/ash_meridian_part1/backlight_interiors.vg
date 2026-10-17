@@ -94,39 +94,19 @@ Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
 End Function
 
 Function PackVec2(ByVal items As Array) As PackedVector2Array
-	Dim packed As PackedVector2Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec2 = packed
+	PackVec2 = PackedVector2Array(items)
 End Function
 
 Function PackVec3(ByVal items As Array) As PackedVector3Array
-	Dim packed As PackedVector3Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec3 = packed
+	PackVec3 = PackedVector3Array(items)
 End Function
 
 Function PackColor(ByVal items As Array) As PackedColorArray
-	Dim packed As PackedColorArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackColor = packed
+	PackColor = PackedColorArray(items)
 End Function
 
 Function PackByte(ByVal items As Array) As PackedByteArray
-	Dim packed As PackedByteArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackByte = packed
+	PackByte = PackedByteArray(items)
 End Function
 
 Function Sign(ByVal value As Single) As Single
@@ -466,7 +446,7 @@ Sub _figure(ByVal city As Node, ByVal p As Vector3)
 	Call EnsureInit()
 	body = city.SHELL * 0.6
 	light = city.ICE
-	city._prism(PackVec2(Array(Vector2(-0.3, 2.25), Vector2(0.3, 2.25), Vector2(0.65, 3.5), Vector2(0.36, 3.85), Vector2(-0.36, 3.85), Vector2(-0.65, 3.5))), 0.42, body, Transform3D(Basis(), p + Vector3(0, 0, -0.21)))
+	city._prism(PackedVector2Array(Array(Vector2(-0.3, 2.25), Vector2(0.3, 2.25), Vector2(0.65, 3.5), Vector2(0.36, 3.85), Vector2(-0.36, 3.85), Vector2(-0.65, 3.5))), 0.42, body, Transform3D(Basis(), p + Vector3(0, 0, -0.21)))
 	city._cylinder(p + Vector3(0, 4.18, 0), 0.3, 0.57, body)
 	For Each side In AsArray(Array(-1.0, 1.0))
 		shoulder = p + Vector3(side * 0.65, 3.48, 0)

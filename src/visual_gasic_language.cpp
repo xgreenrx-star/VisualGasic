@@ -4305,12 +4305,13 @@ bool VisualGasicLanguage::begin_debug_pause_at(const String& file, int line, int
     return !should_skip_debug_wait_at(file, line, depth);
 }
 
-bool VisualGasicLanguage::is_debug_hook_active() {
-    if (debug_trace_active) {
-        return true;
-    }
+int8_t VisualGasicLanguage::debug_hook_attached_state = -1;
+
+bool VisualGasicLanguage::is_debug_hook_active_slow() {
     EngineDebugger *debugger = EngineDebugger::get_singleton();
-    return debugger && debugger->is_active();
+    const bool attached = debugger && debugger->is_active();
+    debug_hook_attached_state = attached ? 1 : 0;
+    return attached;
 }
 
 Variant VisualGasicLanguage::debug_preview_value(const Variant &value) {

@@ -232,7 +232,21 @@ public:
     static void note_debug_wait_at(const String& file, int line, int depth);
     static void clear_debug_wait_coalesce();
     static bool begin_debug_pause_at(const String& file, int line, int depth);
-    static bool is_debug_hook_active();
+    // Called from OP_DEBUG_LINE on every executed statement: stays inline so
+    // the no-debugger case is two loads.  The engine debugger is created
+    // before any script runs and lives until shutdown, so its attachment is
+    // resolved once per process (see is_debug_hook_active_slow()).
+    static bool is_debug_hook_active() {
+        if (debug_trace_active) {
+            return true;
+        }
+        if (debug_hook_attached_state < 0) {
+            return is_debug_hook_active_slow();
+        }
+        return debug_hook_attached_state != 0;
+    }
+    static bool is_debug_hook_active_slow();
+    static int8_t debug_hook_attached_state; // -1 unresolved, 0 detached, 1 attached
     static Variant debug_preview_value(const Variant &value);
     static void adjust_debugger_call_depth(int delta);
 

@@ -112,6 +112,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_CALL:                                                 // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_METHOD_CALL:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_NEW_OBJECT:                                           // [OP] [CLASS_LO] [CLASS_HI] [ARG_COUNT]
+        case OP_NEW_PACKED_LITERAL:                                   // [OP] [CLASS_LO] [CLASS_HI] [COUNT]
         case OP_RAISE_EVENT:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:     // [OP] [LOCAL_SLOT] [CONST_LO] [CONST_HI]
         case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST:
@@ -148,6 +149,10 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 7-byte instructions (opcode + 6 local slots)
         case OP_PACKED_NEAREST_I64:                                   // [OP] [PX] [PY] [TX] [TY] [BEST] [BESTIDX]
             return 7;
+
+        // 6-byte instructions (opcode + 3 local slots + exit16)
+        case OP_FOREACH_STEP:                                         // [OP] [COLL] [IDX] [VAR] [EXIT_HI] [EXIT_LO]
+            return 6;
 
         // 8-byte instructions (opcode + 3 local + 1 const-pool [2] + 2 local)
         case OP_ALLOC_FILL_REPEAT_I64:                                // [OP] [SUM_SLOT] [ARR_SLOT] [TMP_SLOT] [LIT_LO] [LIT_HI] [ITER_SLOT] [SIZE_SLOT]
@@ -222,34 +227,53 @@ bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
     return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE;
 }
 
+// Every opcode that carries a relocatable 16-bit code offset.  OP_FOREACH_STEP
+// keeps its forward exit offset after three slot bytes ([OP][C][I][V][HI][LO]),
+// so the offset position is per-opcode (jump_offset_pos); the target is
+// always relative to the byte after the offset.
+bool VisualGasicOptimizer::is_jump_op(uint8_t op) {
+    return op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE ||
+           op == OP_LOOP || op == OP_SETUP_TRY || op == OP_FOREACH_STEP;
+}
+
+int VisualGasicOptimizer::jump_offset_pos(uint8_t op) {
+    return op == OP_FOREACH_STEP ? 4 : 1;
+}
+
 int VisualGasicOptimizer::resolve_jump(const Vector<uint8_t>& code, int ip) {
     // Jump opcodes store 16-bit offset: [OP] [HI] [LO]
     // For forward jumps (JUMP, JUMP_IF_*): target = ip + 3 + offset
     // For backward jumps (LOOP): target = ip + 3 - offset
-    if (ip + 2 >= code.size()) return ip;
+    if (ip >= code.size()) return ip;
     uint8_t op = code[ip];
-    int hi = code[ip + 1];
-    int lo = code[ip + 2];
+    const int pos = jump_offset_pos(op);
+    if (ip + pos + 1 >= code.size()) return ip;
+    int hi = code[ip + pos];
+    int lo = code[ip + pos + 1];
     int offset = (hi << 8) | lo;
+    const int base = ip + pos + 2;
     if (op == OP_LOOP) {
-        return (ip + 3) - offset;
+        return base - offset;
     }
-    return (ip + 3) + offset;
+    return base + offset;
 }
 
 void VisualGasicOptimizer::patch_jump_target(Vector<uint8_t>& code, int ip, int target) {
-    if (ip + 2 >= code.size()) return;
+    if (ip >= code.size()) return;
     uint8_t op = code[ip];
+    const int pos = jump_offset_pos(op);
+    if (ip + pos + 1 >= code.size()) return;
+    const int base = ip + pos + 2;
     int offset;
     if (op == OP_LOOP) {
-        offset = (ip + 3) - target;
+        offset = base - target;
     } else {
-        offset = target - (ip + 3);
+        offset = target - base;
     }
     if (offset < 0) offset = 0;
     if (offset > 0xFFFF) offset = 0xFFFF;
-    code.write[ip + 1] = (uint8_t)((offset >> 8) & 0xFF);
-    code.write[ip + 2] = (uint8_t)(offset & 0xFF);
+    code.write[ip + pos] = (uint8_t)((offset >> 8) & 0xFF);
+    code.write[ip + pos + 1] = (uint8_t)(offset & 0xFF);
 }
 
 // ============================================================================
@@ -280,7 +304,7 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
     // Fix all jump targets BEFORE removing bytes
     for (int ip = 0; ip < chunk->code.size();) {
         uint8_t op = chunk->code[ip];
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
+        if (is_jump_op(op)) {
             if (ip < start || ip >= start + count) {
                 int target = resolve_jump(chunk->code, ip);
                 if (target >= 0 && target <= chunk->code.size()) {
@@ -301,17 +325,21 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
                         new_target = old_to_new[chunk->code.size()];
                     }
                     if (new_ip >= 0 && new_target >= 0) {
-                        // Temporarily patch with new absolute positions — we'll recalculate offset
+                        // Encode the offset the instruction will have at its
+                        // NEW position (new_ip ↔ new_target); the bytes are
+                        // written at the current (old) position.
+                        const int pos = jump_offset_pos(op);
+                        const int new_base = new_ip + pos + 2;
                         int new_offset;
                         if (op == OP_LOOP) {
-                            new_offset = (new_ip + 3) - new_target;
+                            new_offset = new_base - new_target;
                         } else {
-                            new_offset = new_target - (new_ip + 3);
+                            new_offset = new_target - new_base;
                         }
                         if (new_offset < 0) new_offset = 0;
                         if (new_offset > 0xFFFF) new_offset = 0xFFFF;
-                        chunk->code.write[ip + 1] = (uint8_t)((new_offset >> 8) & 0xFF);
-                        chunk->code.write[ip + 2] = (uint8_t)(new_offset & 0xFF);
+                        chunk->code.write[ip + pos] = (uint8_t)((new_offset >> 8) & 0xFF);
+                        chunk->code.write[ip + pos + 1] = (uint8_t)(new_offset & 0xFF);
                     }
                 }
             }
@@ -448,7 +476,7 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
             ip++;
             continue;
         }
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
+        if (is_jump_op(op)) {
             int target = resolve_jump(chunk->code, ip);
             int new_ip = old_to_new[ip];
             int new_target;
@@ -473,16 +501,18 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
                 }
             }
 
+            const int pos = jump_offset_pos(op);
+            const int new_base = new_ip + pos + 2;
             int new_offset;
             if (op == OP_LOOP) {
-                new_offset = (new_ip + 3) - new_target;
+                new_offset = new_base - new_target;
             } else {
-                new_offset = new_target - (new_ip + 3);
+                new_offset = new_target - new_base;
             }
             if (new_offset < 0) new_offset = 0;
             if (new_offset > 0xFFFF) new_offset = 0xFFFF;
-            chunk->code.write[ip + 1] = (uint8_t)((new_offset >> 8) & 0xFF);
-            chunk->code.write[ip + 2] = (uint8_t)(new_offset & 0xFF);
+            chunk->code.write[ip + pos] = (uint8_t)((new_offset >> 8) & 0xFF);
+            chunk->code.write[ip + pos + 1] = (uint8_t)(new_offset & 0xFF);
         }
         ip += instruction_size(chunk->code, ip);
     }
@@ -732,10 +762,11 @@ bool VisualGasicOptimizer::pass_constant_fold(BytecodeChunk* chunk, Stats& stats
                     can_fold = valid;
                 } break;
                 case OP_DIVIDE: case OP_DIV_F64: {
+                    // VB `/` is Double division whatever the operand types;
+                    // Variant::evaluate would fold `7 / 2` to the Integer 3.
                     if (b.operator double() != 0.0) {
-                        bool valid = false;
-                        Variant::evaluate(Variant::OP_DIVIDE, a, b, result, valid);
-                        can_fold = valid;
+                        result = a.operator double() / b.operator double();
+                        can_fold = true;
                     }
                 } break;
                 case OP_MOD: {
@@ -791,7 +822,7 @@ bool VisualGasicOptimizer::pass_jump_threading(BytecodeChunk* chunk, Stats& stat
 
     for (int ip = 0; ip < code.size();) {
         uint8_t op = code[ip];
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE) {
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_FOREACH_STEP) {
             int target = resolve_jump(code, ip);
             // Follow chain of unconditional jumps
             int hops = 0;
@@ -824,7 +855,7 @@ bool VisualGasicOptimizer::pass_dead_code_elimination(BytecodeChunk* chunk, Stat
     HashSet<int> jump_targets;
     for (int ip = 0; ip < code.size();) {
         uint8_t op = code[ip];
-        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE || op == OP_LOOP || op == OP_SETUP_TRY) {
+        if (is_jump_op(op)) {
             int target = resolve_jump(code, ip);
             if (target >= 0 && target < code.size()) {
                 jump_targets.insert(target);

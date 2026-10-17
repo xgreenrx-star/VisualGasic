@@ -1,0 +1,288 @@
+Option Explicit
+
+' Module-level fast-params Subs/Functions run as in-VM inline frames inside
+' the caller's execute_bytecode run (OP_CALL inline path).  Everything the
+' ordinary call_internal path guarantees must hold there too: argument
+' coercion, Optional defaults, implicit/explicit Function results, Exit
+' Sub/Function, recursion, nested calls, module globals written by the
+' callee, callee errors reaching the caller's On Error Resume Next and
+' Try/Catch, globals rollback on an unhandled callee error, block-scoped
+' loop locals, and `As Array` return normalisation.  All three tiers must
+' agree (the AST tier has no inline frames and is the reference).
+
+Dim fails As Integer
+Dim counter As Integer
+Dim trail As String
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Function AddInt(ByVal a As Integer, ByVal b As Integer) As Integer
+	AddInt = a + b
+End Function
+
+Function AddExplicit(ByVal a As Integer, ByVal b As Integer) As Integer
+	Return a + b
+	AddExplicit = -1
+End Function
+
+Function Describe(ByVal n As Integer, Optional ByVal suffix As String = "!") As String
+	Describe = "n=" & CStr(n) & suffix
+End Function
+
+Function Fib(ByVal n As Integer) As Integer
+	If n < 2 Then
+		Fib = n
+	Else
+		Fib = Fib(n - 1) + Fib(n - 2)
+	End If
+End Function
+
+Function Depth3(ByVal x As Integer) As Integer
+	Depth3 = Depth2(x) * 2
+End Function
+
+Function Depth2(ByVal x As Integer) As Integer
+	Depth2 = Depth1(x) + 1
+End Function
+
+Function Depth1(ByVal x As Integer) As Integer
+	Depth1 = x * 10
+End Function
+
+Sub Bump(ByVal by As Integer)
+	counter = counter + by
+	trail = trail & "b" & CStr(by)
+	If by > 100 Then
+		Exit Sub
+	End If
+	trail = trail & "."
+End Sub
+
+Function EarlyExit(ByVal x As Integer) As Integer
+	EarlyExit = x
+	If x > 5 Then
+		EarlyExit = 99
+		Exit Function
+	End If
+	EarlyExit = x + 1
+End Function
+
+Function SumTo(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + i
+	Next
+	SumTo = s
+End Function
+
+Function Halve(ByVal x As Double) As Double
+	Halve = x / 2
+End Function
+
+Function DivideBy(ByVal a As Integer, ByVal b As Integer) As Integer
+	counter = counter + 1000
+	DivideBy = a \ b
+End Function
+
+Function PickAt(ByVal arr As Array, ByVal idx As Integer) As Integer
+	PickAt = arr(idx)
+End Function
+
+Function AsPlainArray(ByVal n As Integer) As Array
+	Dim p As PackedInt64Array
+	Dim i As Integer
+	For i = 0 To n - 1
+		p.push_back(i * i)
+	Next
+	AsPlainArray = p
+End Function
+
+Function JoinAll(ByVal items As Array) As String
+	Dim it As Variant
+	Dim s As String
+	For Each it In items
+		s = s & CStr(it) & ","
+	Next
+	JoinAll = s
+End Function
+
+Function MixedTypes(ByVal i As Integer, ByVal d As Double, ByVal s As String, ByVal b As Boolean) As String
+	MixedTypes = CStr(i) & "|" & CStr(d) & "|" & s & "|" & CStr(b)
+End Function
+
+Sub Swell(ByRef acc As Integer, ByVal other As Integer, ByVal amount As Integer)
+	acc = acc + amount
+	other = other + amount
+End Sub
+
+Sub FillNormal(ByVal a As Vector3, ByVal b As Vector3, Optional normal As Variant)
+	If normal Is Nothing Then
+		normal = Vector3(0, 0, 0)
+	End If
+	If normal = Vector3(0, 0, 0) Then
+		normal = a.cross(b).normalized()
+	End If
+End Sub
+
+Sub BumpGlobal(ByRef amount As Integer)
+	counter = counter + amount
+	amount = 0
+End Sub
+
+Sub SwellThenFail(ByRef acc As Integer)
+	acc = acc + 50
+	acc = acc \ 0
+	acc = acc + 1
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	Dim r As Integer
+	Dim caught As Boolean
+	Dim arr As Array
+	Dim plain As Array
+
+	' Warm the call sites: the first calls take the ordinary path, later
+	' ones switch to inline frames; results must not differ.
+	For i = 1 To 6
+		r = AddInt(i, i)
+		Check "AddInt " & CStr(i), CStr(r), CStr(i * 2)
+		Check "AddExplicit " & CStr(i), CStr(AddExplicit(i, 1)), CStr(i + 1)
+	Next
+
+	' Argument coercion: a Double into an Integer parameter, a number into
+	' a String parameter, and an Optional default.
+	Check "coerce double", CStr(AddInt(2.6, 1)), "3"
+	Check "coerce string", Describe(7, 5), "n=75"
+	Check "optional default", Describe(3), "n=3!"
+	Check "mixed types", MixedTypes("12", 3, 44, 1), "12|3|44|" & CStr(True)
+	Check "halve", CStr(Halve(5)), "2.5"
+
+	' Recursion and nesting.
+	Check "fib 15", CStr(Fib(15)), "610"
+	Check "depth3", CStr(Depth3(4)), "82"
+	For i = 1 To 3
+		Check "sumto " & CStr(i), CStr(SumTo(i * 10)), CStr((i * 10) * (i * 10 + 1) \ 2)
+	Next
+
+	' Module globals written by the callee, Exit Sub, Exit Function.
+	counter = 0
+	trail = ""
+	For i = 1 To 4
+		Bump i
+	Next
+	Bump 500
+	Check "counter", CStr(counter), "510"
+	Check "trail", trail, "b1.b2.b3.b4.b500"
+	Check "early exit low", CStr(EarlyExit(2)), "3"
+	Check "early exit high", CStr(EarlyExit(9)), "99"
+
+	' As Array return normalisation (packed → plain Array) and For Each over it.
+	plain = AsPlainArray(4)
+	Check "as array type", CStr(VarType(plain) = VarType(Array())), CStr(True)
+	Check "as array data", JoinAll(plain), "0,1,4,9,"
+
+	' A callee error under the caller's On Error Resume Next: the error is
+	' reported to the caller, execution continues after the call, and the
+	' global the callee wrote before failing keeps its value (no tier rolls
+	' back a procedure that stopped on a runtime error).
+	counter = 0
+	trail = ""
+	On Error Resume Next
+	For i = 1 To 3
+		r = -1
+		r = DivideBy(10, 0)
+		trail = trail & "x"
+		Check "resume next err " & CStr(i), CStr(Err.Number <> 0), CStr(True)
+		Err.Clear
+	Next
+	' The statement after the failing call runs, and so do the remaining
+	' iterations (Resume Next resumes inside the loop body).
+	Check "resume next continues loop", trail, "xxx"
+	Check "writes before error stand", CStr(counter), "3000"
+	r = DivideBy(10, 2)
+	Check "after error", CStr(r), "5"
+	Check "counter after ok", CStr(counter), "4000"
+	On Error GoTo 0
+
+	' A callee error caught by the caller's Try/Catch, repeated so the
+	' inline path is exercised, with the handler stack unwound correctly.
+	arr = Array(1, 2, 3)
+	For i = 1 To 3
+		caught = False
+		Try
+			r = PickAt(arr, 7)
+			r = 123
+		Catch ex
+			caught = True
+		End Try
+		Check "try catch " & CStr(i), CStr(caught), CStr(True)
+		Check "try value " & CStr(i), CStr(PickAt(arr, 1)), "2"
+	Next
+
+	' Nested: a Try in the caller around a call whose callee calls another
+	' callee that fails.
+	For i = 1 To 2
+		caught = False
+		Try
+			r = Depth2(PickAt(arr, 9))
+		Catch ex
+			caught = True
+		End Try
+		Check "nested try " & CStr(i), CStr(caught), CStr(True)
+	Next
+
+	' ByRef parameters (explicit, and the VB6 default for an Optional
+	' without ByVal): the callee's final value is written back to the
+	' caller's variable, array slot or global; a ByVal sibling is not.
+	Dim total As Integer
+	Dim keep As Integer
+	Dim normal As Variant
+	total = 0
+	For i = 1 To 3
+		keep = 5
+		Swell total, keep, 10
+		Check "byref write-back " & CStr(i), CStr(total), CStr(i * 10)
+		Check "byval untouched " & CStr(i), CStr(keep), "5"
+	Next
+	arr = Array(1, 2, 3)
+	For i = 0 To 2
+		Swell arr(i), keep, 100
+	Next
+	Check "byref array slot", JoinAll(arr), "101,102,103,"
+	For i = 1 To 3
+		normal = Nothing
+		FillNormal Vector3(1, 0, 0), Vector3(0, 1, 0), normal
+		Check "byref optional default " & CStr(i), CStr(normal), CStr(Vector3(0, 0, 1))
+		FillNormal Vector3(1, 0, 0), Vector3(0, 1, 0)
+	Next
+	counter = 0
+	For i = 1 To 3
+		BumpGlobal 7
+	Next
+	Check "byref global", CStr(counter), "21"
+	' A ByRef callee that stops on an error still writes back what it had
+	' assigned so far: `acc \ 0` raises error 11 and the store never
+	' happens, so the value is the one from the statement before it.
+	On Error Resume Next
+	For i = 1 To 2
+		total = 1
+		SwellThenFail total
+		Check "byref error reported " & CStr(i), CStr(Err.Number <> 0), CStr(True)
+		Err.Clear
+		Check "byref error write-back " & CStr(i), CStr(total), "51"
+	Next
+	On Error GoTo 0
+
+	If fails = 0 Then
+		Print "PASS: inline call frames"
+	Else
+		Print "FAIL: " & CStr(fails) & " inline call frame checks failed"
+	End If
+End Sub

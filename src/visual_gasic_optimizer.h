@@ -50,9 +50,11 @@ public:
      */
     static Stats optimize(BytecodeChunk* chunk, bool strip_debug = false);
 
-private:
-    // Helper: instruction size at position ip in code
+    // Instruction size at position ip in code (the canonical opcode-length
+    // table; the VM's inline-call eligibility scan walks chunks with it).
     static int instruction_size(const Vector<uint8_t>& code, int ip);
+
+private:
 
     // Helper: is this opcode a push-only instruction (puts exactly 1 value on stack)?
     static bool is_push_one(uint8_t op);
@@ -79,6 +81,11 @@ private:
 
     // Utility: rebuild chunk from code with NOPs removed
     static void compact(BytecodeChunk* chunk);
+
+    // Utility: opcodes carrying a relocatable 16-bit code offset, and where
+    // that offset lives inside the instruction (1 for jumps, 4 for FOREACH_STEP).
+    static bool is_jump_op(uint8_t op);
+    static int jump_offset_pos(uint8_t op);
 
     // Utility: resolve a 16-bit jump offset at ip (returns absolute target)
     static int resolve_jump(const Vector<uint8_t>& code, int ip);

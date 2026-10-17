@@ -101,39 +101,19 @@ Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
 End Function
 
 Function PackVec2(ByVal items As Array) As PackedVector2Array
-	Dim packed As PackedVector2Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec2 = packed
+	PackVec2 = PackedVector2Array(items)
 End Function
 
 Function PackVec3(ByVal items As Array) As PackedVector3Array
-	Dim packed As PackedVector3Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec3 = packed
+	PackVec3 = PackedVector3Array(items)
 End Function
 
 Function PackColor(ByVal items As Array) As PackedColorArray
-	Dim packed As PackedColorArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackColor = packed
+	PackColor = PackedColorArray(items)
 End Function
 
 Function PackByte(ByVal items As Array) As PackedByteArray
-	Dim packed As PackedByteArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackByte = packed
+	PackByte = PackedByteArray(items)
 End Function
 
 Function Sign(ByVal value As Single) As Single
@@ -205,13 +185,13 @@ Sub _draw()
 	Call EnsureInit()
 	For Each side In AsArray(Array(-1.0, 1.0))
 		x = 480 + side * 437
-		draw_polygon(PackVec2(Array(Vector2(x - 32, 0), Vector2(x + 32, 0), Vector2(x + side * 5 + 22, 435), Vector2(x + side * 5 - 22, 435))), PackColor(Array(TRIM, TRIM, PANEL, PANEL)))
+		draw_polygon(PackedVector2Array(Array(Vector2(x - 32, 0), Vector2(x + 32, 0), Vector2(x + side * 5 + 22, 435), Vector2(x + side * 5 - 22, 435))), PackedColorArray(Array(TRIM, TRIM, PANEL, PANEL)))
 		draw_line(Vector2(x - side * 26, 0), Vector2(x - side * 17, 422), BLUE * 0.7, 3, True)
 	Next
 	draw_rect(Rect2(0, 0, 960, 31), PANEL)
 	draw_line(Vector2(88, 32), Vector2(872, 32), BLUE * 0.8, 3, True)
-	draw_polygon(PackVec2(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450), Vector2(960, 540), Vector2(0, 540))), PackColor(Array(TRIM, TRIM, TRIM, TRIM, PANEL, PANEL)))
-	draw_polyline(PackVec2(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450))), BLUE, 3, True)
+	draw_polygon(PackedVector2Array(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450), Vector2(960, 540), Vector2(0, 540))), PackedColorArray(Array(TRIM, TRIM, TRIM, TRIM, PANEL, PANEL)))
+	draw_polyline(PackedVector2Array(Array(Vector2(0, 450), Vector2(138, 401), Vector2(822, 401), Vector2(960, 450))), BLUE, 3, True)
 	For Each x In AsArray(Array(158.0, 392.0, 626.0))
 		draw_rect(Rect2(x, 417, 176, 76), PANEL)
 		draw_rect(Rect2(x, 417, 176, 76), BLUE * 0.5, False, 1.5)

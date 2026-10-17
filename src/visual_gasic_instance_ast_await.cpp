@@ -358,7 +358,9 @@ void VisualGasicInstance::run_ast_coroutine(AstCoroutine &coroutine) {
 				else if (collection.get_type() == Variant::STRING) {
 					String text = collection;
 					for (int i = 0; i < text.length(); i++) frame.items.push_back(String::chr(text[i]));
-				} else raise_error("For Each requires an Array, Dictionary, or String", 13);
+				} else if (collection.get_type() != Variant::NIL) { // Nothing iterates zero times (VM parity)
+					raise_error("For Each requires an Array, Dictionary, or String", 13);
+				}
 				frame.phase = 1;
 			}
 			if (!error_state.has_error && frame.index < frame.items.size()) {

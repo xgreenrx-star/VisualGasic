@@ -1,0 +1,203 @@
+' Test: For Each fused header (OP_FOREACH_STEP)
+' Covers every collection kind the fused opcode must treat exactly like the
+' old GET/LEN/GREATER_EQUAL/GET_ARRAY/SET sequence: Godot Arrays, packed
+' arrays, Dictionaries (keys), Strings (characters), Nothing / scalars (no
+' iterations), Exit For / Continue For, nested loops, a collection that grows
+' while iterated, and a module-level iteration variable (unfused path).
+Attribute VB_Name = "TestForEachFused"
+
+Dim gItem As Variant
+Dim gLog As String
+
+Function MakeList() As Array
+	MakeList = Array(3, 4, 5)
+End Function
+
+Sub LogGlobalLoop()
+	For Each gItem In Array("a", "b", "c")
+		gLog = gLog & gItem
+	Next
+End Sub
+
+Sub _Ready()
+	Dim item As Variant
+	Dim sum As Integer
+	Dim s As String
+	Dim n As Integer
+
+	' --- Array ---
+	sum = 0
+	For Each item In Array(1, 2, 3, 4)
+		sum = sum + item
+	Next
+	If sum = 10 Then
+		Print "PASS: foreach_fused_array"
+	Else
+		Print "FAIL: foreach_fused_array: expected 10, got " & Str(sum)
+	End If
+
+	' --- Function result ---
+	sum = 0
+	For Each item In MakeList()
+		sum = sum + item
+	Next
+	If sum = 12 Then
+		Print "PASS: foreach_fused_function_result"
+	Else
+		Print "FAIL: foreach_fused_function_result: expected 12, got " & Str(sum)
+	End If
+
+	' --- PackedVector3Array ---
+	Dim pts As PackedVector3Array
+	pts.append(Vector3(1, 0, 0))
+	pts.append(Vector3(0, 2, 0))
+	pts.append(Vector3(0, 0, 3))
+	Dim acc As Vector3
+	acc = Vector3(0, 0, 0)
+	For Each item In pts
+		acc = acc + item
+	Next
+	If acc = Vector3(1, 2, 3) Then
+		Print "PASS: foreach_fused_packed_vector3"
+	Else
+		Print "FAIL: foreach_fused_packed_vector3: got " & Str(acc)
+	End If
+
+	' --- PackedFloat64Array (element type must stay Double) ---
+	Dim fl As PackedFloat64Array
+	fl.append(0.5)
+	fl.append(0.25)
+	Dim fsum As Double
+	fsum = 0
+	For Each item In fl
+		fsum = fsum + item
+	Next
+	If fsum = 0.75 Then
+		Print "PASS: foreach_fused_packed_float64"
+	Else
+		Print "FAIL: foreach_fused_packed_float64: got " & Str(fsum)
+	End If
+
+	' --- PackedByteArray (elements are integers) ---
+	Dim bytes As PackedByteArray
+	bytes.append(200)
+	bytes.append(100)
+	sum = 0
+	For Each item In bytes
+		sum = sum + item
+	Next
+	If sum = 300 Then
+		Print "PASS: foreach_fused_packed_byte"
+	Else
+		Print "FAIL: foreach_fused_packed_byte: got " & Str(sum)
+	End If
+
+	' --- Dictionary iterates keys ---
+	Dim d As Dictionary
+	d("x") = 1
+	d("y") = 2
+	s = ""
+	For Each item In d
+		s = s & item
+	Next
+	If s = "xy" Then
+		Print "PASS: foreach_fused_dictionary_keys"
+	Else
+		Print "FAIL: foreach_fused_dictionary_keys: got " & s
+	End If
+
+	' --- String iterates characters ---
+	s = ""
+	For Each item In "abc"
+		s = item & s
+	Next
+	If s = "cba" Then
+		Print "PASS: foreach_fused_string_chars"
+	Else
+		Print "FAIL: foreach_fused_string_chars: got " & s
+	End If
+
+	' --- Nothing: zero iterations, no error ---
+	Dim none As Variant
+	n = 0
+	For Each item In none
+		n = n + 1
+	Next
+	If n = 0 Then
+		Print "PASS: foreach_fused_nothing"
+	Else
+		Print "FAIL: foreach_fused_nothing: iterated " & Str(n)
+	End If
+
+	' --- Empty Array: zero iterations ---
+	n = 0
+	For Each item In Array()
+		n = n + 1
+	Next
+	If n = 0 Then
+		Print "PASS: foreach_fused_empty"
+	Else
+		Print "FAIL: foreach_fused_empty: iterated " & Str(n)
+	End If
+
+	' --- Exit For / Continue For ---
+	s = ""
+	For Each item In Array(1, 2, 3, 4, 5)
+		If item = 2 Then Continue For
+		If item = 4 Then Exit For
+		s = s & item
+	Next
+	If s = "13" Then
+		Print "PASS: foreach_fused_exit_continue"
+	Else
+		Print "FAIL: foreach_fused_exit_continue: got " & s
+	End If
+
+	' --- Nested ---
+	Dim inner As Variant
+	n = 0
+	For Each item In Array(1, 2, 3)
+		For Each inner In Array(10, 20)
+			n = n + item * inner
+		Next
+	Next
+	If n = 180 Then
+		Print "PASS: foreach_fused_nested"
+	Else
+		Print "FAIL: foreach_fused_nested: expected 180, got " & Str(n)
+	End If
+
+	' --- Collection grows while iterated (Len is re-read each step) ---
+	Dim grow As Array
+	grow = Array(1, 2)
+	n = 0
+	For Each item In grow
+		n = n + 1
+		If n = 1 Then grow.append(3)
+	Next
+	If n = 3 Then
+		Print "PASS: foreach_fused_growing"
+	Else
+		Print "FAIL: foreach_fused_growing: expected 3, got " & Str(n)
+	End If
+
+	' --- Iteration variable is the loop variable after the loop (last element) ---
+	For Each item In Array(7, 8, 9)
+	Next
+	If item = 9 Then
+		Print "PASS: foreach_fused_var_after_loop"
+	Else
+		Print "FAIL: foreach_fused_var_after_loop: got " & Str(item)
+	End If
+
+	' --- Module-level iteration variable (OP_SET_GLOBAL path) ---
+	gLog = ""
+	LogGlobalLoop()
+	If gLog = "abc" And gItem = "c" Then
+		Print "PASS: foreach_global_iteration_var"
+	Else
+		Print "FAIL: foreach_global_iteration_var: log=" & gLog & " item=" & gItem
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

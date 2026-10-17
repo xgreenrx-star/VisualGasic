@@ -1,0 +1,122 @@
+Option Explicit
+
+' PackedXArray(Array(...)) literals compile to OP_NEW_PACKED_LITERAL, and
+' append_array / append / push_back / size on packed arrays take a direct
+' ptrcall when the operand types already match.  Mismatched operand types
+' must still convert through the ordinary path.  All three tiers must agree.
+
+Dim fails As Integer
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Function BuildV3(ByVal a As Vector3, ByVal b As Vector3) As PackedVector3Array
+	BuildV3 = PackedVector3Array(Array(a, b, a + b))
+End Function
+
+Sub _Ready()
+	Dim a As Vector3
+	Dim pv As PackedVector3Array
+	Dim pc As PackedColorArray
+	Dim p2 As PackedVector2Array
+	Dim pb As PackedByteArray
+	Dim pint As PackedInt32Array
+	Dim pl As PackedInt64Array
+	Dim pf As PackedFloat32Array
+	Dim pd As PackedFloat64Array
+	Dim ps As PackedStringArray
+	Dim acc As PackedVector3Array
+	Dim items As Array
+	Dim i As Integer
+
+	a = Vector3(1, 2, 3)
+
+	' Literals: direct Array(...) argument and an Array held in a variable.
+	pv = PackedVector3Array(Array(a, a * 2, Vector3(4, 5, 6)))
+	Check "v3 literal size", CStr(pv.size()), "3"
+	Check "v3 literal elem", CStr(pv(1).y), "4"
+	Check "v3 literal last", CStr(pv(2).z), "6"
+	items = Array(Vector2(1, 2), Vector2(3, 4))
+	p2 = PackedVector2Array(items)
+	Check "v2 from variable", CStr(p2.size()) & "/" & CStr(p2(1).y), "2/4"
+	pb = PackedByteArray(Array(1, 2, 255))
+	Check "byte literal", CStr(pb.size()) & "/" & CStr(pb(2)), "3/255"
+	pint = PackedInt32Array(Array(10, 20, 30))
+	Check "int32 literal", CStr(pint(2)), "30"
+	pl = PackedInt64Array(Array(10000000000, 7))
+	Check "int64 literal", CStr(pl(0)), "10000000000"
+	pf = PackedFloat32Array(Array(0.5, 1.5))
+	Check "float32 literal", CStr(pf(1)), "1.5"
+	pd = PackedFloat64Array(Array(0.25, 2))
+	Check "float64 literal mixed", CStr(pd(0)) & "/" & CStr(pd(1)), "0.25/2"
+	ps = PackedStringArray(Array("x", 42))
+	Check "string literal mixed", ps(0) & ps(1), "x42"
+	pc = PackedColorArray(Array(Color(1, 0, 0), Color(0, 0.5, 0)))
+	Check "color literal", CStr(pc(1).g), "0.5"
+	Check "empty literal", CStr(PackedVector3Array(Array()).size()), "0"
+	Check "literal from function", CStr(BuildV3(a, a)(2).x), "2"
+
+	' push_back / append with exact element types (direct ptrcall).
+	pv = PackedVector3Array()
+	pc = PackedColorArray()
+	pb = PackedByteArray()
+	pint = PackedInt32Array()
+	pl = PackedInt64Array()
+	pf = PackedFloat32Array()
+	pd = PackedFloat64Array()
+	ps = PackedStringArray()
+	p2 = PackedVector2Array()
+	For i = 1 To 3
+		pv.push_back(a * i)
+		pc.append(Color(0.1 * i, 0.2, 0.3))
+		pb.push_back(i * 100)
+		pint.append(i * 1000)
+		pl.push_back(i * 10000000000)
+		pf.push_back(i * 0.5)
+		pd.append(i / 4)
+		ps.push_back("s" & i)
+		p2.append(Vector2(i, -i))
+	Next
+	Check "push v3", CStr(pv.size()) & "/" & CStr(pv(2).x), "3/3"
+	Check "append color", CStr(pc.size()) & "/" & CStr(pc(0).b), "3/" & CStr(Color(0.1, 0.2, 0.3).b)
+	Check "push byte wraps", CStr(pb(2)), "44"
+	Check "append int32", CStr(pint(2)), "3000"
+	Check "push int64", CStr(pl(2)), "30000000000"
+	Check "push f32", CStr(pf(2)), "1.5"
+	Check "append f64", CStr(pd(1)), "0.5"
+	Check "push string", ps(2), "s3"
+	Check "append v2", CStr(p2(2).y), "-3"
+
+	' Mismatched operand types: converted by the ordinary path.
+	pf.push_back(7)
+	pb.push_back(3.9)
+	ps.push_back(42)
+	pd.push_back(2)
+	Check "f32 from int", CStr(pf(3)), "7"
+	Check "byte from float", CStr(pb(3)), "3"
+	Check "string from int", ps(3), "42"
+	Check "f64 from int", CStr(pd(3)), "2"
+
+	' append_array: same type (direct), via literal, and size() afterwards.
+	acc.append_array(pv)
+	acc.append_array(pv)
+	acc.append_array(PackedVector3Array(Array(Vector3(9, 9, 9))))
+	Check "append_array size", CStr(acc.size()), "7"
+	Check "append_array data", CStr(acc(5).z) & "/" & CStr(acc(6).x), "9/9"
+
+	' Mutation through a module-level packed array shared with a copy.
+	items = Array()
+	items.append(acc.size())
+	acc.push_back(Vector3(1, 1, 1))
+	Check "size after push", CStr(acc.size()), CStr(items(0) + 1)
+
+	If fails = 0 Then
+		Print "PASS: packed literals and packed method fast paths"
+	Else
+		Print "FAIL: " & CStr(fails) & " packed checks failed"
+	End If
+End Sub

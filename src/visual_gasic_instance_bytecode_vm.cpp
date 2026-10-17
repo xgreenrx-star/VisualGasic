@@ -4,6 +4,7 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_instance_internal.h"
+#include "vg_variant_fast.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_evidence.h"
 #include "visual_gasic_parser.h"
@@ -16,6 +17,7 @@
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_jit_tier2.h"
 #include "visual_gasic_jit_tier3.h"
+#include "visual_gasic_optimizer.h"   // instruction_size(): inline-frame eligibility scan
 #include "visual_gasic_task.h"
 #include "python_bridge/visual_gasic_py_facade.h"
 #endif
@@ -36,7 +38,7 @@ struct VgAwaitTaskState {
 
 static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
     VgAwaitTaskState st;
-    if (awaited.get_type() != Variant::OBJECT) {
+    if (vgfast::vtype(awaited) != Variant::OBJECT) {
         return st;
     }
     Object *obj = Object::cast_to<Object>(awaited);
@@ -75,7 +77,7 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
 		}
         if (obj->has_method("get_error")) {
             Variant v_err = obj->call("get_error");
-            if (v_err.get_type() == Variant::STRING) {
+            if (vgfast::vtype(v_err) == Variant::STRING) {
                 st.error = v_err;
             }
         }
@@ -83,13 +85,13 @@ static VgAwaitTaskState vg_inspect_await_task(const Variant &awaited) {
     }
     Variant v_complete = obj->get("IsComplete");
     Variant v_failed = obj->get("IsFailed");
-    if (v_complete.get_type() == Variant::BOOL || v_failed.get_type() == Variant::BOOL) {
+    if (vgfast::vtype(v_complete) == Variant::BOOL || vgfast::vtype(v_failed) == Variant::BOOL) {
         st.recognized = true;
-        st.is_complete = v_complete.get_type() == Variant::BOOL && (bool)v_complete;
-        st.is_failed = v_failed.get_type() == Variant::BOOL && (bool)v_failed;
+        st.is_complete = vgfast::vtype(v_complete) == Variant::BOOL && (bool)v_complete;
+        st.is_failed = vgfast::vtype(v_failed) == Variant::BOOL && (bool)v_failed;
         if (st.is_failed) {
             Variant v_err = obj->get("Error");
-            if (v_err.get_type() == Variant::STRING) {
+            if (vgfast::vtype(v_err) == Variant::STRING) {
                 st.error = v_err;
             }
         }
@@ -340,6 +342,201 @@ __declspec(noinline)
 #else
 __attribute__((noinline))
 #endif
+// Packed*Array constructor names → Variant type (NIL when not a packed ctor).
+// Shared by OP_NEW_OBJECT and OP_NEW_PACKED_LITERAL; both memoise the result
+// per call site in MemberNameCacheEntry::new_object_kind (10 + type).
+static Variant::Type vg_packed_type_from_name(const String &class_name) {
+    static const struct { const char *name; Variant::Type type; } _packed_ctors[] = {
+        { "PackedByteArray", Variant::PACKED_BYTE_ARRAY },
+        { "PackedInt32Array", Variant::PACKED_INT32_ARRAY },
+        { "PackedInt64Array", Variant::PACKED_INT64_ARRAY },
+        { "PackedFloat32Array", Variant::PACKED_FLOAT32_ARRAY },
+        { "PackedFloat64Array", Variant::PACKED_FLOAT64_ARRAY },
+        { "PackedStringArray", Variant::PACKED_STRING_ARRAY },
+        { "PackedVector2Array", Variant::PACKED_VECTOR2_ARRAY },
+        { "PackedVector3Array", Variant::PACKED_VECTOR3_ARRAY },
+        { "PackedColorArray", Variant::PACKED_COLOR_ARRAY },
+        { "PackedVector4Array", Variant::PACKED_VECTOR4_ARRAY },
+    };
+    if (class_name.length() > 6 && (class_name[0] | 0x20) == 'p' && (class_name[1] | 0x20) == 'a') {
+        for (const auto &pc : _packed_ctors) {
+            if (class_name.nocasecmp_to(pc.name) == 0) {
+                return pc.type;
+            }
+        }
+    }
+    return Variant::NIL;
+}
+
+// ── In-VM call frames ────────────────────────────────────────────────────────
+// A call to a module-level fast_params Sub used to recurse through
+// call_internal() → execute_bytecode(): resolving, binding, a fresh C++ frame
+// of the (very large) interpreter function with all its guards and lambdas,
+// the JIT probe, and the mirror-image teardown — about 3,000 instructions per
+// call even for an empty body, which is where the Backlight City build spent
+// a third of its time.  Bodies that pass this check instead switch frames
+// INSIDE the running execute_bytecode: OP_CALL saves the caller's per-frame
+// state in a VMInlineCallFrame, seeds the callee's locals and continues the
+// same dispatch loop in the callee's code; reaching the end of that code (or
+// OP_RETURN / OP_RETURN_VALUE) restores the caller and pushes the result.
+//
+// The body is eligible when everything call_internal would do for it is
+// reproducible from the frame alone: slot-bound parameters (fast_params, no
+// ByRef/ParamArray, precomputed coercions), no publishing of locals to
+// workers, no Static locals, and none of the opcodes whose state lives in
+// the C++ frame rather than the VM frame (Try/Catch, On Error, GoSub,
+// With, Await, Parallel/Task bodies, fast VGDICT pools, Whenever
+// registration).  Everything else — error propagation, the On Error Resume
+// Next of the caller, globals rollback, locals recycling, the debugger view,
+// the Function return coercion — is mirrored on the push/pop paths.
+static bool vg_chunk_inline_eligible(BytecodeChunk *chunk, VisualGasic::SubDefinition *func) {
+    if (chunk->inline_state != 0) {
+        return chunk->inline_state > 0;
+    }
+    // globals_written is needed for the rollback snapshot; it is filled by
+    // the first ordinary (recursive) run of the body, so decide after that.
+    if (!chunk->globals_scan_done || !func) {
+        return false;
+    }
+    bool ok = chunk->fast_params && !chunk->publishes_locals &&
+            chunk->param_count == func->parameters.size() &&
+            chunk->fast_param_coerce.size() == func->parameters.size();
+    for (int i = 0; ok && i < func->parameters.size(); i++) {
+        if (func->parameters[i].is_param_array) {
+            ok = false;
+        }
+    }
+    if (ok && func->type == VisualGasic::SubDefinition::TYPE_FUNCTION) {
+        if (chunk->return_slot < 0 || chunk->return_slot >= chunk->local_count) {
+            ok = false;
+        } else if (chunk->fast_return_coerce < 0 && !func->return_type.is_empty()) {
+            ok = false;   // call_internal would derive the init from the type string
+        }
+    }
+    if (ok) {
+        // Same rule as call_internal's static-locals persistence.
+        if (func->has_static_locals_cache < 0) {
+            int hs = 0;
+            for (int si = 0; si < func->statements.size(); si++) {
+                if (func->statements[si] && func->statements[si]->type == VisualGasic::STMT_DIM &&
+                        ((VisualGasic::DimStatement *)func->statements[si])->is_static) { hs = 1; break; }
+            }
+            func->has_static_locals_cache = hs;
+        }
+        if (func->has_static_locals_cache != 0) {
+            ok = false;
+        }
+    }
+    if (ok) {
+        const Vector<uint8_t> &code = chunk->code;
+        int ip = 0;
+        while (ip < code.size()) {
+            switch (code[ip]) {
+                case OP_SETUP_TRY: case OP_POP_TRY: case OP_THROW:
+                case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO: case OP_ON_ERROR_GOTO_0:
+                case OP_GOSUB: case OP_RETURN_GOSUB:
+                case OP_PUSH_WITH: case OP_POP_WITH: case OP_GET_WITH:
+                case OP_AWAIT:
+                case OP_PARALLEL_FOR_BEGIN: case OP_PARALLEL_FOR_END:
+                case OP_TASK_RUN_BEGIN: case OP_TASK_RUN_END: case OP_TASK_WAIT:
+                case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
+                case OP_SUM_VGDICT_ALL_I64:
+                case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
+                case OP_STOP:
+                    ok = false;
+                    break;
+                default:
+                    break;
+            }
+            if (!ok) break;
+            const int len = VisualGasicOptimizer::instruction_size(code, ip);
+            ip += len > 0 ? len : 1;
+        }
+    }
+    chunk->inline_state = ok ? 1 : -1;
+    return ok;
+}
+
+// Direct ptrcalls for the hottest packed-array methods.  Variant::callp
+// resolves the method by StringName and validates/converts every argument
+// on each call; the GDExtension ptr-method + internal-pointer interface does
+// neither, so it is only taken when the receiver and arguments already have
+// the exact types the method expects (otherwise the ordinary callp path
+// runs and converts).  The method hashes are the ones godot-cpp's generated
+// bindings use for the same signatures.
+enum VgPackedFastKind : int8_t {
+    VG_PACKED_FAST_NONE = -1,
+    VG_PACKED_FAST_UNSET = 0,
+    VG_PACKED_FAST_APPEND_ARRAY = 1,   // append_array(same packed type) → nil
+    VG_PACKED_FAST_PUSH_BACK = 2,      // append / push_back(element) → bool
+    VG_PACKED_FAST_SIZE = 3,           // size() → int
+};
+struct VgPackedFastMethods {
+    GDExtensionVariantGetInternalPtrFunc internal_ptr = nullptr;
+    GDExtensionPtrBuiltInMethod append_array = nullptr;
+    GDExtensionPtrBuiltInMethod push_back = nullptr;
+    GDExtensionPtrBuiltInMethod size = nullptr;
+    Variant::Type element_type = Variant::NIL;   // exact element Variant type
+};
+static const VgPackedFastMethods *vg_packed_fast_methods(Variant::Type t) {
+    // Function-local static: initialised exactly once, thread-safely
+    // (Parallel For workers reach OP_METHOD_CALL too).
+    static const VgPackedFastMethods *table = []() -> const VgPackedFastMethods * {
+        static VgPackedFastMethods built[Variant::VARIANT_MAX];
+        struct Row { Variant::Type type; Variant::Type elem; int64_t h_append_array; int64_t h_push_back; };
+        static const Row rows[] = {
+            { Variant::PACKED_BYTE_ARRAY,    Variant::INT,     791097111,  694024632 },
+            { Variant::PACKED_INT32_ARRAY,   Variant::INT,     1087733270, 694024632 },
+            { Variant::PACKED_INT64_ARRAY,   Variant::INT,     2090311302, 694024632 },
+            { Variant::PACKED_FLOAT32_ARRAY, Variant::FLOAT,   2981316639, 4094791666 },
+            { Variant::PACKED_FLOAT64_ARRAY, Variant::FLOAT,   792078629,  4094791666 },
+            { Variant::PACKED_STRING_ARRAY,  Variant::STRING,  1120103966, 816187996 },
+            { Variant::PACKED_VECTOR2_ARRAY, Variant::VECTOR2, 3887534835, 4188891560 },
+            { Variant::PACKED_VECTOR3_ARRAY, Variant::VECTOR3, 203538016,  3295363524 },
+            { Variant::PACKED_COLOR_ARRAY,   Variant::COLOR,   798822497,  1007858200 },
+            { Variant::PACKED_VECTOR4_ARRAY, Variant::VECTOR4, 537428395,  3289167688 },
+        };
+        const StringName sn_append_array("append_array");
+        const StringName sn_push_back("push_back");
+        const StringName sn_size("size");
+        for (const Row &r : rows) {
+            VgPackedFastMethods &m = built[r.type];
+            const GDExtensionVariantType gt = (GDExtensionVariantType)r.type;
+            m.internal_ptr = internal::gdextension_interface_variant_get_ptr_internal_getter(gt);
+            m.append_array = internal::gdextension_interface_variant_get_ptr_builtin_method(gt, sn_append_array._native_ptr(), r.h_append_array);
+            m.push_back = internal::gdextension_interface_variant_get_ptr_builtin_method(gt, sn_push_back._native_ptr(), r.h_push_back);
+            m.size = internal::gdextension_interface_variant_get_ptr_builtin_method(gt, sn_size._native_ptr(), 3173160232);
+            m.element_type = r.elem;
+        }
+        return built;
+    }();
+    if ((unsigned)t >= (unsigned)Variant::VARIANT_MAX) return nullptr;
+    const VgPackedFastMethods &m = table[t];
+    return m.internal_ptr ? &m : nullptr;
+}
+
+// Build a packed array straight from `count` stack Variants (the elements of
+// a PackedXArray(Array(e1, …, en)) literal).  Element conversion is the same
+// Variant → element operator the engine's Array → PackedXArray constructor
+// applies; inline payloads of the exact element type are copied raw.
+template <typename PackedT, typename ElemT, Variant::Type ELEM_VTYPE, size_t RAW_BYTES>
+static Variant vg_build_packed_literal(const Variant *elems, int count) {
+    PackedT out;
+    if (count > 0) {
+        out.resize(count);
+        ElemT *w = out.ptrw();
+        for (int i = 0; i < count; i++) {
+            const Variant &e = elems[i];
+            if (RAW_BYTES != 0 && vgfast::g_layout_ok && vgfast::vtype(e) == ELEM_VTYPE) {
+                memcpy(&w[i], reinterpret_cast<const uint8_t *>(&e) + vgfast::PAYLOAD_OFFSET, RAW_BYTES);
+            } else {
+                w[i] = (ElemT)e;
+            }
+        }
+    }
+    return Variant(out);
+}
+
 bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant> *p_initial_locals,
@@ -361,7 +558,9 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
         const std::string &jit_name = chunk->jit_name_cache;
         if (!jit_name.empty()) {
             // ── Tier 3: record bytecode size for call-graph profiling ───
-            vgjit3::Tier3& t3 = vgjit3::thread_jit3();
+            if (!vm->jit3) vm->jit3 = &vgjit3::thread_jit3();
+            if (!vm->jit2) vm->jit2 = &vgjit2::thread_jit();
+            vgjit3::Tier3& t3 = *static_cast<vgjit3::Tier3 *>(vm->jit3);
             if (t3.enabled()) {
                 t3.record_bytecode_size(jit_name, chunk->code.size());
             }
@@ -393,14 +592,16 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                             Variant v;
                             if (variables.has(lname)) v = variables[lname];
                             else if (builtin_constants.has(lname)) v = builtin_constants[lname];
-                            if (v.get_type() == Variant::INT) jit_locals[i] = (int64_t)v;
-                            else if (v.get_type() == Variant::FLOAT) {
+                            if (vgfast::vtype(v) == Variant::INT) jit_locals[i] = (int64_t)v;
+                            else if (vgfast::vtype(v) == Variant::FLOAT) {
                                 double d = (double)v; memcpy(&jit_locals[i], &d, 8);
                             }
                         }
                     }
                     int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
                     for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                        // Declared locals never enter variables[] (interpreter rule).
+                        if (i < chunk->local_declared.size() && chunk->local_declared[i] != 0) continue;
                         const String &lname = chunk->local_names[i];
                         if (!lname.is_empty() && !builtin_constants.has(lname)) variables[lname] = Variant((int64_t)jit_locals[i]);
                     }
@@ -420,11 +621,11 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
             }
 
             // ── Tier 2: per-function native compilation ─────────────────
-            vgjit2::CompiledFunc* native = vgjit2::thread_jit().get_or_compile(jit_name, chunk, this);
+            vgjit2::CompiledFunc* native = static_cast<vgjit2::Tier2 *>(vm->jit2)->get_or_compile(jit_name, chunk, this);
             bool jit_numeric_args = true;
             if (chunk->fast_params && p_fast_args) {
                 for (int i = 0; i < chunk->param_count && i < p_fast_count; i++) {
-                    Variant::Type t = p_fast_args[i].get_type();
+                    Variant::Type t = vgfast::vtype(p_fast_args[i]);
                     if (t != Variant::NIL && t != Variant::INT && t != Variant::FLOAT && t != Variant::BOOL) {
                         jit_numeric_args = false;
                         break;
@@ -436,29 +637,70 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
             // native frames share the variables[] return name and were
             // returning 0. The outer call stays native.
             if (native && native->fn && jit_numeric_args && !vgjit2::jit_func_active(native)) {
+                // One-time per-CompiledFunc memo: interned global names, the
+                // Boolean-return flag and the ByRef parameter list.  These
+                // used to be recomputed on every native call (UTF-8 parse per
+                // global, two nocasecmp_to per call, a parameter scan) and
+                // made a JIT-compiled leaf slower than interpreting it.
+                if (!native->dispatch_memo_ready) {
+                    native->global_slot_names.clear();
+                    native->global_slot_strings.clear();
+                    for (const auto &gs : native->global_slots) {
+                        String gname = String::utf8(gs.first.c_str());
+                        native->global_slot_strings.push_back(gname);
+                        native->global_slot_names.push_back(StringName(gname));
+                    }
+                    native->returns_boolean = (func->return_type.nocasecmp_to("boolean") == 0 ||
+                            func->return_type.nocasecmp_to("bool") == 0) ? 1 : 0;
+                    native->byref_params.clear();
+                    for (int pi = 0; pi < func->parameters.size(); pi++) {
+                        if (func->parameters[pi].is_by_ref) native->byref_params.push_back(pi);
+                    }
+                    native->dispatch_memo_ready = true;
+                }
                 // Marshal locals + virtual global slots into int64 array
                 int slot_count = native->total_slots > 0 ? native->total_slots : chunk->local_count;
                 if (slot_count < 1) slot_count = 1;
-                std::vector<int64_t> jit_locals(slot_count, 0);
+                constexpr int JIT_LOCALS_INLINE = 64;
+                int64_t jit_locals_inline[JIT_LOCALS_INLINE];
+                std::vector<int64_t> jit_locals_heap;
+                int64_t *jit_locals = jit_locals_inline;
+                if (slot_count <= JIT_LOCALS_INLINE) {
+                    memset(jit_locals_inline, 0, sizeof(int64_t) * (size_t)slot_count);
+                } else {
+                    jit_locals_heap.assign((size_t)slot_count, 0);
+                    jit_locals = jit_locals_heap.data();
+                }
                 auto pack_jit_slot = [&](int slot, const Variant &v) {
                     if (slot < 0 || slot >= slot_count) return;
-                    if (v.get_type() == Variant::FLOAT) {
-                        double d = (double)v;
+                    const Variant::Type vt = vgfast::vtype(v);
+                    if (vt == Variant::FLOAT) {
+                        double d = vgfast::vfloat(v);
                         memcpy(&jit_locals[slot], &d, 8);
-                    } else if (v.get_type() == Variant::BOOL) {
-                        jit_locals[slot] = (bool)v ? 1 : 0;
-                    } else if (v.get_type() == Variant::INT) {
-                        jit_locals[slot] = (int64_t)v;
+                    } else if (vt == Variant::BOOL) {
+                        jit_locals[slot] = vgfast::vbool(v) ? 1 : 0;
+                    } else if (vt == Variant::INT) {
+                        jit_locals[slot] = vgfast::vint(v);
                     }
                 };
-                // Pre-populate real locals from variable values
+                // Pre-populate implicit (undeclared) locals from variable
+                // values.  Declared locals (Dim'd / params / return) are
+                // written before read and never touch variables[] — same
+                // rule as the interpreter's seed/flush.
+                auto jit_is_declared = [&](int slot) -> bool {
+                    return slot < chunk->local_declared.size() && chunk->local_declared[slot] != 0;
+                };
+                // Value slot of a module variable, or nullptr (no insert).
+                auto var_ptr = [&](const StringName &key) -> Variant * {
+                    if (!variables.has(key)) return nullptr;
+                    return &variables[key];
+                };
                 for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                    if (jit_is_declared(i)) continue;
                     const String &lname = chunk->local_names[i];
                     if (!lname.is_empty()) {
-                        Variant v;
-                        if (variables.has(lname)) v = variables[lname];
-                        else if (builtin_constants.has(lname)) v = builtin_constants[lname];
-                        pack_jit_slot(i, v);
+                        if (const Variant *vp = var_ptr(lname)) pack_jit_slot(i, *vp);
+                        else if (builtin_constants.has(lname)) pack_jit_slot(i, builtin_constants[lname]);
                     }
                 }
                 // Fast-call args live in p_fast_args, never in variables[].
@@ -471,41 +713,68 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                     }
                 }
                 // Pre-populate virtual global slots from variables dictionary
-                for (const auto& gs : native->global_slots) {
-                    String gname = String(gs.first.c_str());
-                    int slot = gs.second;
+                const size_t gs_count = native->global_slots.size();
+                for (size_t gi = 0; gi < gs_count; gi++) {
+                    const int slot = native->global_slots[gi].second;
                     if (slot >= 0 && slot < slot_count) {
-                        Variant v;
-                        if (variables.has(gname)) v = variables[gname];
-                        else if (builtin_constants.has(gname)) v = builtin_constants[gname];
-                        pack_jit_slot(slot, v);
+                        const StringName &gkey = native->global_slot_names[gi];
+                        if (const Variant *vp = var_ptr(gkey)) pack_jit_slot(slot, *vp);
+                        else if (builtin_constants.has(gkey)) pack_jit_slot(slot, builtin_constants[gkey]);
                     }
                 }
-                vgjit2::JitFrame prev_frame = vgjit2::jit_swap_frame({ this, native, jit_locals.data() });
-                int64_t has_retval = native->fn(jit_locals.data(), (int64_t)slot_count);
+                vgjit2::JitFrame prev_frame = vgjit2::jit_swap_frame({ this, native, jit_locals });
+                int64_t has_retval = native->fn(jit_locals, (int64_t)slot_count);
                 vgjit2::jit_swap_frame(prev_frame);
+                auto slot_is_f64 = [&](int slot) -> bool {
+                    return slot < (int)native->slot_is_f64.size() && native->slot_is_f64[slot];
+                };
                 auto slot_variant = [&](int slot) -> Variant {
                     if (slot < 0 || slot >= slot_count) return Variant();
-                    bool is_f = slot < (int)native->slot_is_f64.size() && native->slot_is_f64[slot];
-                    if (is_f) {
+                    if (slot_is_f64(slot)) {
                         double d = 0;
                         memcpy(&d, &jit_locals[slot], 8);
                         return Variant(d);
                     }
                     return Variant((int64_t)jit_locals[slot]);
                 };
-                auto jit_write_slot = [&](const String &slot_name, int slot) {
-                    if (slot_name.is_empty() || builtin_constants.has(slot_name)) return;
+                // Same value written in place (no temporary Variant: that was a
+                // from_type_constructor + move + destroy per native return).
+                auto slot_into = [&](Variant &dst, int slot) {
+                    if (slot < 0 || slot >= slot_count) {
+                        if (vgfast::vtype(dst) != Variant::NIL) dst = Variant();
+                        return;
+                    }
+                    if (slot_is_f64(slot)) {
+                        double d = 0;
+                        memcpy(&d, &jit_locals[slot], 8);
+                        vgfast::set_float(dst, d);
+                    } else {
+                        vgfast::set_int(dst, (int64_t)jit_locals[slot]);
+                    }
+                };
+                // Write a slot back into variables[name], preserving the
+                // variable's existing scalar type; non-scalar variables are
+                // left untouched (the JIT never produced them).
+                auto jit_write_slot = [&](const StringName &key, const String &slot_name, int slot) {
+                    if (slot_name.is_empty() || builtin_constants.has(key)) return;
                     if (slot < 0 || slot >= slot_count) return;
-                    if (variables.has(slot_name)) {
-                        Variant::Type ot = variables[slot_name].get_type();
+                    if (Variant *vp = var_ptr(key)) {
+                        const Variant::Type ot = vgfast::vtype(*vp);
                         if (ot == Variant::BOOL) {
-                            variables[slot_name] = jit_locals[slot] != 0;
+                            vgfast::set_bool(*vp, jit_locals[slot] != 0);
                             return;
                         }
                         if (ot != Variant::NIL && ot != Variant::INT && ot != Variant::FLOAT) {
                             return;
                         }
+                        if (slot_is_f64(slot)) {
+                            double d = 0;
+                            memcpy(&d, &jit_locals[slot], 8);
+                            vgfast::set_float(*vp, d);
+                        } else {
+                            vgfast::set_int(*vp, jit_locals[slot]);
+                        }
+                        return;
                     }
                     variables[slot_name] = slot_variant(slot);
                 };
@@ -513,60 +782,63 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                 // matching the interpreter. Other locals and numeric globals write back.
                 for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                     if (chunk->fast_params && (i < chunk->param_count || i == chunk->return_slot)) continue;
-                    jit_write_slot(chunk->local_names[i], i);
+                    if (jit_is_declared(i)) continue;
+                    const String &lname = chunk->local_names[i];
+                    jit_write_slot(StringName(lname), lname, i);
                 }
-                for (const auto& gs : native->global_slots) {
-                    jit_write_slot(String(gs.first.c_str()), gs.second);
+                for (size_t gi = 0; gi < gs_count; gi++) {
+                    jit_write_slot(native->global_slot_names[gi], native->global_slot_strings[gi], native->global_slots[gi].second);
                 }
                 if (has_retval) {
-                    r_ret = slot_variant(0);
+                    slot_into(r_ret, native->ret_slot >= 0 ? native->ret_slot : 0);
                 } else if (func->type == SubDefinition::TYPE_FUNCTION &&
                            chunk->return_slot >= 0 && chunk->return_slot < slot_count) {
-                    r_ret = slot_variant(chunk->return_slot);
+                    slot_into(r_ret, chunk->return_slot);
                 } else if (func->type == SubDefinition::TYPE_FUNCTION && variables.has(func->name)) {
                     r_ret = variables[func->name];
-                } else {
+                } else if (vgfast::vtype(r_ret) != Variant::NIL) {
                     r_ret = Variant();
                 }
                 // Logical Not compiles to 0/1. A Boolean function must hand
                 // back a Boolean, or `result = False` fails.
-                if (func->return_type.nocasecmp_to("boolean") == 0 ||
-                    func->return_type.nocasecmp_to("bool") == 0) {
-                    if (r_ret.get_type() == Variant::INT || r_ret.get_type() == Variant::FLOAT) {
+                if (native->returns_boolean == 1) {
+                    const Variant::Type rt = vgfast::vtype(r_ret);
+                    if (rt == Variant::INT) {
+                        vgfast::set_bool(r_ret, vgfast::vint(r_ret) != 0);
+                    } else if (rt == Variant::FLOAT) {
                         r_ret = r_ret.booleanize();
                     }
                 }
                 // ByRef write-back is emitted in the caller as OP_BYREF_LOAD, which
                 // reads _last_byref_captures. The interpreter records those on the
                 // way out; the JIT return must do the same or ByRef stops updating.
-                Vector<Pair<String, Variant>> bc_byref_captures;
-                for (int pi = 0; pi < func->parameters.size(); pi++) {
-                    if (!func->parameters[pi].is_by_ref) continue;
-                    const String &pname = func->parameters[pi].name;
-                    Variant captured;
-                    bool got = false;
-                    for (int s = 0; s < chunk->local_names.size() && s < slot_count; s++) {
-                        if (chunk->local_names[s].nocasecmp_to(pname) == 0) {
-                            captured = slot_variant(s);
-                            got = true;
-                            break;
-                        }
-                    }
-                    if (!got) {
-                        for (const auto &gs : native->global_slots) {
-                            if (String(gs.first.c_str()).nocasecmp_to(pname) == 0) {
-                                captured = slot_variant(gs.second);
+                if (!native->byref_params.empty()) {
+                    Vector<Pair<String, Variant>> bc_byref_captures;
+                    for (int pi : native->byref_params) {
+                        const String &pname = func->parameters[pi].name;
+                        Variant captured;
+                        bool got = false;
+                        for (int s = 0; s < chunk->local_names.size() && s < slot_count; s++) {
+                            if (chunk->local_names[s].nocasecmp_to(pname) == 0) {
+                                captured = slot_variant(s);
                                 got = true;
                                 break;
                             }
                         }
+                        if (!got) {
+                            for (size_t gi = 0; gi < gs_count; gi++) {
+                                if (native->global_slot_strings[gi].nocasecmp_to(pname) == 0) {
+                                    captured = slot_variant(native->global_slots[gi].second);
+                                    got = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (!got && variables.has(pname)) {
+                            captured = variables[pname];
+                        }
+                        bc_byref_captures.push_back({pname, captured});
                     }
-                    if (!got && variables.has(pname)) {
-                        captured = variables[pname];
-                    }
-                    bc_byref_captures.push_back({pname, captured});
-                }
-                if (!bc_byref_captures.is_empty()) {
                     _last_byref_captures = bc_byref_captures;
                 }
                 // Restore the shared thread-local VM state (ip/stack) this
@@ -621,9 +893,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // against an empty stack, so a stray pop is harmless regardless).
     // Part J: script->get_path() is memoized (constant per script) — it was
     // ~6.3% of call-heavy runtime when called fresh on every execute_bytecode.
-    EngineDebugger *_entry_debugger = EngineDebugger::get_singleton();
+    // EngineDebugger is created in Main::setup2 (before any script runs) and
+    // torn down at exit, so "attached" is constant for the life of the
+    // process: resolve the two engine ptrcalls once instead of per call.
+    static const bool _vg_engine_debugger_attached = []() {
+        EngineDebugger *d = EngineDebugger::get_singleton();
+        return d && d->is_active();
+    }();
     const bool debug_frames_active = !is_parallel_worker && !is_sub_range
-                                     && _entry_debugger && _entry_debugger->is_active();
+                                     && _vg_engine_debugger_attached;
     if (debug_frames_active) {
         String debug_file;
         if (!debug_bc_source_file.is_empty()) {
@@ -649,6 +927,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
         vg_opcode_profile_depth++;
     }
+    // VG_OPCODE_PROFILE=2: all-opcode cycle profile (see opcode_full_profile_dump).
+    const bool full_profile_enabled = profiling_enabled && vg_opcode_full_profile_enabled();
+    int full_profile_prev_op = -1;
+    uint64_t full_profile_prev_tsc = 0;
+    uint64_t full_profile_nested_mark = 0;
+    const uint64_t full_profile_entry_tsc = full_profile_enabled ? vg_profile_tsc() : 0;
+    const uint64_t full_profile_entry_acc = full_profile_enabled ? vg_opcode_profile_nested_acc() : 0;
+    auto full_profile_close_prev = [&](uint64_t now) {
+        OpcodeFullProfileEntry &pe = vg_opcode_full_profiles()[full_profile_prev_op];
+        pe.hits++;
+        const uint64_t nested = vg_opcode_profile_nested_acc() - full_profile_nested_mark;
+        const uint64_t span = now - full_profile_prev_tsc;
+        pe.cycles += span > nested ? span - nested : 0;
+    };
 
     const bool stack_profile_enabled = !is_parallel_worker && vg_stack_profile_enabled();
     // Cache the VG_STACK_TRACE env probe once (function-local static, thread-safe
@@ -660,7 +952,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }();
     const bool stack_trace_enabled = !is_parallel_worker && _vg_stack_trace_env;
     StackProfileSample stack_profile_sample;
-    String stack_profile_label = "<bytecode>";
+    // Default-constructed (no engine ptrcall) on the hot path; the literal
+    // fallback is applied only when the sample is actually dumped.
+    vgfast::OptString stack_profile_label;   // engaged only when profiling
     if (stack_profile_enabled) {
         String func_label = func ? func->name : String();
         String script_label;
@@ -668,11 +962,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             script_label = script->get_path();
         }
         if (!func_label.is_empty() && !script_label.is_empty()) {
-            stack_profile_label = func_label + "@" + script_label;
+            stack_profile_label.set_move(func_label + "@" + script_label);
         } else if (!func_label.is_empty()) {
-            stack_profile_label = func_label;
+            stack_profile_label.set_copy(func_label);
         } else if (!script_label.is_empty()) {
-            stack_profile_label = script_label;
+            stack_profile_label.set_copy(script_label);
         }
     }
 
@@ -693,11 +987,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     static thread_local VMState tl_vm;
     VMState& vm = p_vm ? *p_vm : tl_vm;  // shadow instance member for thread-safety
 
-    const size_t stack_base = vm.stack.size();
+    size_t stack_base = vm.stack.size();   // per frame (inline calls switch it)
 	const int initial_with_depth = with_stack.size();
     int previous_ip = vm.ip;
     vm.stack.resize(stack_base);
-	if (p_resume) vm.stack.insert(vm.stack.end(), p_resume->operands.begin(), p_resume->operands.end());
+	if (p_resume) {
+		for (const Variant &operand : p_resume->operands) vm.stack.push_back(operand);
+	}
     vm.ip = p_ip_start;  // Start at custom IP for parallel workers
 
     auto restore_vm = [&]() {
@@ -711,6 +1007,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // stay on the interpreter so each store is visible to evidence and Whenever.
     if (!vg_evidence_recording() && !whenever_evaluating && try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
                          p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
+        // Mirror finalize_profile(): this early return used to leak
+        // vg_opcode_profile_depth, so once any JIT'd helper ran, every later
+        // frame looked "nested" and the profiler never dumped again.
+        if (profiling_enabled) {
+            if (full_profile_enabled) {
+                const uint64_t now = vg_profile_tsc();
+                const uint64_t inclusive = now - full_profile_entry_tsc;
+                vg_sub_profile_add(String("[jit] ") + (func ? func->name : String("<main>")), inclusive);
+                vg_opcode_profile_nested_acc() = full_profile_entry_acc + inclusive;
+            }
+            vg_opcode_profile_depth--;
+            if (vg_opcode_profile_depth < 0) vg_opcode_profile_depth = 0;
+            if (is_outermost_profile) {
+                opcode_profile_dump();
+                if (full_profile_enabled) {
+                    opcode_full_profile_dump();
+                    sub_profile_dump();
+                }
+            }
+        }
+        if (debug_frames_active) {
+            VisualGasicLanguage::pop_stack_frame();
+        }
         return true;
     }
 #endif
@@ -743,7 +1062,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // so a reused buffer's stale contents are always replaced before any read.
     const int _locals_frame = vm.locals_depth++;
 	auto previous_blocks = std::move(vm.block_scope_frames);
-	vm.block_scope_frames = p_resume ? p_resume->blocks : std::vector<VMState::BlockScopeFrame>();
+	if (p_resume) {
+		vm.block_scope_frames = p_resume->blocks;
+	} else {
+		vm.block_scope_frames.clear(); // moved-from: already empty, no free
+	}
 	struct BlockFrameGuard {
 		VMState &state;
 		std::vector<VMState::BlockScopeFrame> previous;
@@ -759,7 +1082,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 			Vector<Variant> &frame = v.locals_pool[frame_index];
 			// Keep reusable storage, but not resources or containers owning them.
 			for (int i = 0; i < frame.size(); i++) {
-				Variant::Type type = frame[i].get_type();
+				Variant::Type type = vgfast::vtype(frame[i]);
 				if (type == Variant::OBJECT || type == Variant::ARRAY ||
 						type == Variant::DICTIONARY || type == Variant::CALLABLE ||
 						type == Variant::SIGNAL) {
@@ -782,11 +1105,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // probe in the init loop is pure waste for them — skip it (that probe was
     // ~9% of call-heavy instructions: up to 3 Dictionary::has per slot per call,
     // e.g. 6 dict probes on every leaf-function call, all immediately clobbered).
-    const bool fast_call = (chunk->fast_params && p_fast_args != nullptr);
-    const int  fast_param_count = fast_call ? chunk->param_count : 0;
-    const int  fast_return_slot = fast_call ? chunk->return_slot : -1;
+    // A resumed coroutine (p_resume) restores its saved slots — including the
+    // params/return seeded on the original entry — so it is a fast call too.
+    // Per frame: inline calls switch these to the callee's and back.
+    bool fast_call = chunk->fast_params && (p_fast_args != nullptr || p_resume != nullptr);
+    int  fast_param_count = fast_call ? chunk->param_count : 0;
+    int  fast_return_slot = fast_call ? chunk->return_slot : -1;
     auto is_fast_slot = [&](int slot) -> bool {
         return fast_call && (slot < fast_param_count || slot == fast_return_slot);
+    };
+    // Declared locals (Dim'd / params / return) are always written by their
+    // Dim initialiser or the call seeding before any read, so they are neither
+    // seeded from nor flushed to variables[] (call_internal skips their
+    // save/erase for the same reason).  Implicit (undeclared) locals keep the
+    // legacy seed/flush so `x = x + 1` on a leaked instance variable still
+    // sees it.
+    const uint8_t *local_declared = chunk->local_declared.ptr();
+    int local_declared_n = chunk->local_declared.size();
+    auto is_declared_slot = [&](int slot) -> bool {
+        return slot < local_declared_n && local_declared[slot] != 0;
     };
 	if (p_resume) {
 		locals = p_resume->vm_locals;
@@ -796,10 +1133,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     } else {
         locals.resize(chunk->local_count);
         for (int i = 0; i < chunk->local_count; i++) {
-            Variant initial;
             // Fast-call param/return slots are seeded from p_fast_args right
-            // after this loop, so skip the (thrice-)Dictionary probe for them.
-            if (!is_fast_slot(i) && i < chunk->local_names.size()) {
+            // after this loop, and declared locals by their Dim initialiser,
+            // so skip the (thrice-)Dictionary probe for them.  Their slot just
+            // needs resetting to NIL: a raw reset when the pooled frame left an
+            // inline payload behind, one engine assign otherwise (no `Variant
+            // initial` temporary — that was new_nil + assign + destroy, three
+            // engine calls per slot per call).
+            if (is_fast_slot(i) || is_declared_slot(i) || i >= chunk->local_names.size()) {
+                Variant &reset = locals.write[i];
+                if (vgfast::g_layout_ok && vgfast::is_pod_type(vgfast::vtype(reset))) {
+                    memset(&reset, 0, sizeof(Variant));
+                } else {
+                    reset = Variant();
+                }
+                continue;
+            }
+            Variant initial;
+            {
                 const String &name = chunk->local_names[i];
                 // Part R: compiler-generated temporaries (__cse_*, __inv_to_*,
                 // __const_step_*) are ALWAYS written before they are read (they
@@ -823,7 +1174,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
             }
-            locals.write[i] = initial;
+            locals.write[i] = std::move(initial);
         }
     }
 
@@ -833,12 +1184,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // (the typed zero the caller computed from the return type).
     if (fast_call) {
         for (int i = 0; i < fast_param_count && i < p_fast_count && i < locals.size(); i++) {
-            locals.write[i] = p_fast_args[i];
+            vgfast::assign(locals.write[i], p_fast_args[i]);
         }
         if (fast_return_slot >= 0 && fast_return_slot < locals.size()) {
             // The caller appends the typed return-init value after the params.
             if (p_fast_count > fast_param_count) {
-                locals.write[fast_return_slot] = p_fast_args[fast_param_count];
+                vgfast::assign(locals.write[fast_return_slot], p_fast_args[fast_param_count]);
             }
         }
     }
@@ -893,9 +1244,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     for (int i = 0; i < chunk->local_count && i < chunk->local_types.size(); i++) {
         uint8_t lt = chunk->local_types[i];
         if (lt == 1 && i < locals.size()) {
-            typed_i64_locals[i] = (int64_t)locals[i];
+            const Variant &lv = locals[i];
+            const Variant::Type vt = vgfast::vtype(lv);
+            typed_i64_locals[i] = (vt == Variant::INT) ? vgfast::vint(lv) : (vt == Variant::NIL ? 0 : (int64_t)lv);
         } else if (lt == 2 && i < locals.size()) {
-            typed_f64_locals[i] = (double)locals[i];
+            const Variant &lv = locals[i];
+            const Variant::Type vt = vgfast::vtype(lv);
+            typed_f64_locals[i] = (vt == Variant::FLOAT) ? vgfast::vfloat(lv) : (vt == Variant::NIL ? 0.0 : (double)lv);
         }
     }
 
@@ -904,7 +1259,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // don't clobber the outer frame's pointer on return.
     Vector<Variant>* prev_debug_bc_locals = debug_bc_locals;
     BytecodeChunk*   prev_debug_bc_chunk  = debug_bc_chunk;
-    String           prev_debug_bc_source_file = debug_bc_source_file;
+    // Saved only when set: a plain String copy + restore + destroy was three
+    // engine calls per frame for a value that is empty outside Include'd code.
+    vgfast::OptString prev_debug_bc_source_file;
+    prev_debug_bc_source_file.save_if_set(debug_bc_source_file);
     debug_bc_locals = &locals;
     debug_bc_chunk  = chunk;
 
@@ -931,18 +1289,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         check_expression_conditions();
     };
 
-    auto sync_local = [&](int slot, const Variant &value) {
-        if (slot < 0 || slot >= locals.size()) {
-            return;
-        }
-        locals.write[slot] = value;
+    // Shadow-array + Whenever mirroring shared by the two store flavours below.
+    auto sync_local_tail = [&](int slot) {
+        const Variant &stored = locals[slot];
         // ── v4.8: Update typed shadow arrays ───────────────────
         if (slot < chunk->local_types.size()) {
             uint8_t lt = chunk->local_types[slot];
             if (lt == 1) {
-                typed_i64_locals[slot] = (int64_t)value;
+                const Variant::Type st = vgfast::vtype(stored);
+                typed_i64_locals[slot] = (st == Variant::INT) ? vgfast::vint(stored) : (int64_t)stored;
             } else if (lt == 2) {
-                typed_f64_locals[slot] = (double)value;
+                const Variant::Type st = vgfast::vtype(stored);
+                typed_f64_locals[slot] = (st == Variant::FLOAT) ? vgfast::vfloat(stored) : (double)stored;
             }
         }
         // Fast path: skip the expensive variables[] Dictionary sync
@@ -953,10 +1311,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (needs_var_sync && !isolated_locals && !is_fast_slot(slot)) {
             String name = get_local_name(slot);
             if (!name.is_empty() && !builtin_constants.has(name)) {
-                variables[name] = value;
+                variables[name] = stored;
                 publish_synced_global(name);
             }
         }
+    };
+    auto sync_local = [&](int slot, const Variant &value) {
+        if (slot < 0 || slot >= locals.size()) {
+            return;
+        }
+        // Inline payloads (int/float/bool/Vector*/Color…) are stored with a
+        // raw copy; everything else takes the refcounting engine assign.
+        vgfast::assign(locals.write[slot], value);
+        sync_local_tail(slot);
+    };
+    // Store a value the caller no longer needs (popped operand): moves
+    // instead of copying, so a non-POD payload costs one swap rather than a
+    // release + retain round-trip through the engine.
+    auto sync_local_owned = [&](int slot, Variant &&value) {
+        if (slot < 0 || slot >= locals.size()) {
+            return;
+        }
+        Variant &dst = locals.write[slot];
+        if (vgfast::g_layout_ok && vgfast::is_pod_type(vgfast::vtype(value)) && vgfast::is_pod_type(vgfast::vtype(dst))) {
+            memcpy(&dst, &value, sizeof(Variant));
+        } else {
+            dst = std::move(value);
+        }
+        sync_local_tail(slot);
     };
 
     auto read_local = [&](int slot) -> Variant {
@@ -1037,7 +1419,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     int last_opcode_offset = 0;
 
     auto push_value = [&](auto &&value) {
-        vm.stack.push_back(std::forward<decltype(value)>(value));
+        // Scalars are built in place on the operand stack (no Variant
+        // from_type_constructor engine call); Variants are copied raw when
+        // their payload is inline and through the engine otherwise.
+        using _PVT = std::decay_t<decltype(value)>;
+        if constexpr (std::is_same_v<_PVT, bool>) {
+            vm.stack.push_bool(value);
+        } else if constexpr (std::is_integral_v<_PVT>) {
+            vm.stack.push_int((int64_t)value);
+        } else if constexpr (std::is_floating_point_v<_PVT>) {
+            vm.stack.push_float((double)value);
+        } else {
+            vm.stack.push_back(std::forward<decltype(value)>(value));
+        }
         if (stack_profile_enabled) {
             stack_profile_sample.push_count++;
             uint64_t depth = (uint64_t)(vm.stack.size() - stack_base);
@@ -1052,13 +1446,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
     auto to_int = [&](const Variant &value) -> int64_t {
-        switch (value.get_type()) {
+        switch (vgfast::vtype(value)) {
             case Variant::INT:
-                return (int64_t)value;
+                return vgfast::vint(value);
             case Variant::FLOAT:
-                return (int64_t)((double)value);
+                return (int64_t)vgfast::vfloat(value);
             case Variant::BOOL:
-                return (bool)value ? 1 : 0;
+                return vgfast::vbool(value) ? 1 : 0;
             case Variant::STRING:
                 return ((String)value).to_int();
             default:
@@ -1067,13 +1461,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
     auto to_double = [&](const Variant &value) -> double {
-        switch (value.get_type()) {
+        switch (vgfast::vtype(value)) {
             case Variant::FLOAT:
-                return (double)value;
+                return vgfast::vfloat(value);
             case Variant::INT:
-                return (double)((int64_t)value);
+                return (double)vgfast::vint(value);
             case Variant::BOOL:
-                return (bool)value ? 1.0 : 0.0;
+                return vgfast::vbool(value) ? 1.0 : 0.0;
             case Variant::STRING:
                 return ((String)value).to_float();
             default:
@@ -1109,7 +1503,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (slot < 0 || slot >= locals.size()) return;
         typed_i64_locals[slot] = value;
         // Always keep locals[] in sync for debugger and Variant read_local
-        locals.write[slot] = Variant(value);
+        vgfast::set_int(locals.write[slot], value);
         if (slot < chunk->local_types.size() && chunk->local_types[slot] == 1) {
             if (needs_var_sync && !isolated_locals) {
                 String name = get_local_name(slot);
@@ -1125,7 +1519,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     auto sync_local_f64 = [&](int slot, double value) {
         if (slot < 0 || slot >= locals.size()) return;
         typed_f64_locals[slot] = value;
-        locals.write[slot] = Variant(value);
+        vgfast::set_float(locals.write[slot], value);
         if (slot < chunk->local_types.size() && chunk->local_types[slot] == 2) {
             if (needs_var_sync && !isolated_locals) {
                 String name = get_local_name(slot);
@@ -1140,13 +1534,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
 
     auto to_bool = [&](const Variant &value) -> bool {
-        switch (value.get_type()) {
+        switch (vgfast::vtype(value)) {
             case Variant::BOOL:
-                return (bool)value;
+                return vgfast::vbool(value);
             case Variant::INT:
-                return (int64_t)value != 0;
+                return vgfast::vint(value) != 0;
             case Variant::FLOAT:
-                return !Math::is_zero_approx((double)value);
+                return !Math::is_zero_approx(vgfast::vfloat(value));
             case Variant::STRING:
                 return !String(value).is_empty();
             case Variant::NIL:
@@ -1192,12 +1586,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (!profiling_enabled) {
             return;
         }
+        if (full_profile_enabled) {
+            const uint64_t now = vg_profile_tsc();
+            if (full_profile_prev_op >= 0) {
+                full_profile_close_prev(now);
+                full_profile_prev_op = -1;
+            }
+            // Publish this frame's inclusive time for the caller's exclusive math.
+            const uint64_t inclusive = now - full_profile_entry_tsc;
+            const uint64_t nested = vg_opcode_profile_nested_acc() - full_profile_entry_acc;
+            vg_sub_profile_add(func ? func->name : String("<main>"),
+                    inclusive > nested ? inclusive - nested : 0);
+            vg_opcode_profile_nested_acc() = full_profile_entry_acc + inclusive;
+        }
         vg_opcode_profile_depth--;
         if (vg_opcode_profile_depth < 0) {
             vg_opcode_profile_depth = 0;
         }
         if (is_outermost_profile) {
             opcode_profile_dump();
+            if (full_profile_enabled) {
+                opcode_full_profile_dump();
+                sub_profile_dump();
+            }
         }
     };
 
@@ -1205,7 +1616,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         if (!stack_profile_enabled) {
             return;
         }
-        vg_stack_profile_dump(stack_profile_sample, stack_profile_label);
+        vg_stack_profile_dump(stack_profile_sample,
+                (!stack_profile_label.engaged() || stack_profile_label.get().is_empty())
+                        ? String("<bytecode>") : stack_profile_label.get());
     };
 
     // VB6: False is 0 and True is -1. Godot refuses int/float compared with bool,
@@ -1216,6 +1629,168 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     auto apply_variant_op = [&](Variant::Operator op) -> bool {
         if (!ensure_stack(2)) {
             return false;
+        }
+        // Numeric fast path: both operands are Integer/Double already on the
+        // stack, so compare / add / subtract / multiply in place and push the
+        // scalar result directly.  Mirrors Variant::evaluate exactly for these
+        // type pairs (int op int → int with wraparound, any float → double,
+        // comparisons → bool); everything else takes the engine path below.
+        {
+            const Variant &bv = vm.stack.back();
+            const Variant &av = vm.stack[vm.stack.size() - 2];
+            const Variant::Type ta = vgfast::vtype(av);
+            const Variant::Type tb = vgfast::vtype(bv);
+            const bool a_num = (ta == Variant::INT || ta == Variant::FLOAT);
+            const bool b_num = (tb == Variant::INT || tb == Variant::FLOAT);
+            if (a_num && b_num) {
+                if (ta == Variant::INT && tb == Variant::INT) {
+                    const int64_t a = vgfast::vint(av);
+                    const int64_t b = vgfast::vint(bv);
+                    bool handled = true;
+                    bool rb = false;
+                    int64_t ri = 0;
+                    bool is_bool = true;
+                    switch (op) {
+                        case Variant::OP_EQUAL: rb = (a == b); break;
+                        case Variant::OP_NOT_EQUAL: rb = (a != b); break;
+                        case Variant::OP_LESS: rb = (a < b); break;
+                        case Variant::OP_LESS_EQUAL: rb = (a <= b); break;
+                        case Variant::OP_GREATER: rb = (a > b); break;
+                        case Variant::OP_GREATER_EQUAL: rb = (a >= b); break;
+                        case Variant::OP_ADD: is_bool = false; ri = (int64_t)((uint64_t)a + (uint64_t)b); break;
+                        case Variant::OP_SUBTRACT: is_bool = false; ri = (int64_t)((uint64_t)a - (uint64_t)b); break;
+                        case Variant::OP_MULTIPLY: is_bool = false; ri = (int64_t)((uint64_t)a * (uint64_t)b); break;
+                        default: handled = false; break;
+                    }
+                    if (handled) {
+                        vm.stack.pop_back();
+                        vm.stack.pop_back();
+                        if (is_bool) push_value(rb); else push_value(ri);
+                        return true;
+                    }
+                } else {
+                    const double a = (ta == Variant::INT) ? (double)vgfast::vint(av) : vgfast::vfloat(av);
+                    const double b = (tb == Variant::INT) ? (double)vgfast::vint(bv) : vgfast::vfloat(bv);
+                    bool handled = true;
+                    bool rb = false;
+                    double rf = 0.0;
+                    bool is_bool = true;
+                    switch (op) {
+                        case Variant::OP_EQUAL: rb = (a == b); break;
+                        case Variant::OP_NOT_EQUAL: rb = (a != b); break;
+                        case Variant::OP_LESS: rb = (a < b); break;
+                        case Variant::OP_LESS_EQUAL: rb = (a <= b); break;
+                        case Variant::OP_GREATER: rb = (a > b); break;
+                        case Variant::OP_GREATER_EQUAL: rb = (a >= b); break;
+                        case Variant::OP_ADD: is_bool = false; rf = a + b; break;
+                        case Variant::OP_SUBTRACT: is_bool = false; rf = a - b; break;
+                        case Variant::OP_MULTIPLY: is_bool = false; rf = a * b; break;
+                        default: handled = false; break;
+                    }
+                    if (handled) {
+                        vm.stack.pop_back();
+                        vm.stack.pop_back();
+                        if (is_bool) push_value(rb); else push_value(rf);
+                        return true;
+                    }
+                }
+            }
+            // Vector2 / Vector3 / Color arithmetic.  The same operator
+            // evaluators Godot registers for these pairs (component-wise
+            // + - * / between equal types, * and / by a scalar, scalar *
+            // tuple, exact == and <>), computed on the inline payloads and
+            // written over the left operand's slot.  Both operands are
+            // inline payloads, so nothing is released; the engine path
+            // below cost an evaluate call plus three Variant destructor
+            // calls per Vector3 op.  Anything else (Vector3i, Basis *
+            // Vector3, ordering compares, ...) still goes to the engine.
+            if (vgfast::g_layout_ok) {
+                const bool a_tuple = (ta == Variant::VECTOR3 || ta == Variant::VECTOR2 || ta == Variant::COLOR);
+                const bool b_tuple = (tb == Variant::VECTOR3 || tb == Variant::VECTOR2 || tb == Variant::COLOR);
+                if ((a_tuple && (tb == ta || b_num)) || (a_num && b_tuple && op == Variant::OP_MULTIPLY)) {
+                    Variant *out = &vm.stack[vm.stack.size() - 2];
+                    const Variant::Type tt = a_tuple ? ta : tb;
+                    bool handled = true;
+                    bool rb = false;
+                    bool is_bool = false;
+                    if (a_tuple && tb == ta) {
+                        switch (op) {
+                            case Variant::OP_EQUAL: case Variant::OP_NOT_EQUAL: {
+                                is_bool = true;
+                                bool eq;
+                                if (tt == Variant::VECTOR3) eq = (vgfast::vvec3(av) == vgfast::vvec3(bv));
+                                else if (tt == Variant::VECTOR2) eq = (vgfast::vvec2(av) == vgfast::vvec2(bv));
+                                else eq = (vgfast::vcolor(av) == vgfast::vcolor(bv));
+                                rb = (op == Variant::OP_EQUAL) ? eq : !eq;
+                                break;
+                            }
+                            case Variant::OP_ADD: case Variant::OP_SUBTRACT:
+                            case Variant::OP_MULTIPLY: case Variant::OP_DIVIDE: {
+                                if (tt == Variant::VECTOR3) {
+                                    const Vector3 a = vgfast::vvec3(av), b = vgfast::vvec3(bv);
+                                    Vector3 r;
+                                    if (op == Variant::OP_ADD) r = a + b;
+                                    else if (op == Variant::OP_SUBTRACT) r = a - b;
+                                    else if (op == Variant::OP_MULTIPLY) r = a * b;
+                                    else r = a / b;
+                                    vgfast::raw_init_vector3(out, r);
+                                } else if (tt == Variant::VECTOR2) {
+                                    const Vector2 a = vgfast::vvec2(av), b = vgfast::vvec2(bv);
+                                    Vector2 r;
+                                    if (op == Variant::OP_ADD) r = a + b;
+                                    else if (op == Variant::OP_SUBTRACT) r = a - b;
+                                    else if (op == Variant::OP_MULTIPLY) r = a * b;
+                                    else r = a / b;
+                                    vgfast::raw_init_vector2(out, r);
+                                } else {
+                                    const Color a = vgfast::vcolor(av), b = vgfast::vcolor(bv);
+                                    Color r;
+                                    if (op == Variant::OP_ADD) r = a + b;
+                                    else if (op == Variant::OP_SUBTRACT) r = a - b;
+                                    else if (op == Variant::OP_MULTIPLY) r = a * b;
+                                    else r = a / b;
+                                    vgfast::raw_init_color(out, r);
+                                }
+                                break;
+                            }
+                            default: handled = false; break;
+                        }
+                    } else if (a_tuple) {
+                        // tuple * scalar, tuple / scalar (Godot converts the
+                        // scalar to real_t; int division by zero is not an
+                        // error for these pairs either).
+                        const float s = (float)vgfast::vnum(bv);
+                        if (op == Variant::OP_MULTIPLY || op == Variant::OP_DIVIDE) {
+                            const bool mul = (op == Variant::OP_MULTIPLY);
+                            if (tt == Variant::VECTOR3) {
+                                const Vector3 a = vgfast::vvec3(av);
+                                vgfast::raw_init_vector3(out, mul ? a * s : a / s);
+                            } else if (tt == Variant::VECTOR2) {
+                                const Vector2 a = vgfast::vvec2(av);
+                                vgfast::raw_init_vector2(out, mul ? a * s : a / s);
+                            } else {
+                                const Color a = vgfast::vcolor(av);
+                                vgfast::raw_init_color(out, mul ? a * s : a / s);
+                            }
+                        } else {
+                            handled = false;
+                        }
+                    } else {
+                        // scalar * tuple
+                        const float s = (float)vgfast::vnum(av);
+                        if (tt == Variant::VECTOR3) vgfast::raw_init_vector3(out, vgfast::vvec3(bv) * s);
+                        else if (tt == Variant::VECTOR2) vgfast::raw_init_vector2(out, vgfast::vvec2(bv) * s);
+                        else vgfast::raw_init_color(out, vgfast::vcolor(bv) * s);
+                    }
+                    if (handled) {
+                        vm.stack.pop_back();
+                        if (is_bool) {
+                            vgfast::set_bool(*out, rb);
+                        }
+                        return true;
+                    }
+                }
+            }
         }
         Variant b = pop_value();
         Variant a = pop_value();
@@ -1259,9 +1834,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // chunk (ptr()==nullptr) is never indexed (the dispatch loop and
     // read_const_index both bound-check against code_size first).
     const uint8_t *code = chunk->code.ptr();
-    const int code_size = chunk->code.size();
+    int code_size = chunk->code.size();
     // For parallel workers p_ip_end constrains execution to the body range.
-    const int effective_code_end = (p_ip_end > 0 && p_ip_end <= code_size) ? p_ip_end : code_size;
+    int effective_code_end = (p_ip_end > 0 && p_ip_end <= code_size) ? p_ip_end : code_size;
     bool success = true;
 
     // Part W: lazily cache the Tier3 thread-local reference on first OP_CALL.
@@ -1276,8 +1851,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #ifndef VG_WEB_BUILD
     vgjit3::Tier3* _t3_cached = nullptr;
 #endif
-    Variant result_snapshot;
-    Variant explicit_return;
+    // The frame's result is written straight into r_ret (an explicit Return
+    // value at OP_RETURN_VALUE, otherwise the stack top at cleanup); the old
+    // result_snapshot / explicit_return pair was two new_nil + two destroy +
+    // two copy engine calls per frame.
     bool has_explicit_return = false;
 
     // ── v3.2: Try/Catch handler stack for nested exception handling ──
@@ -1299,9 +1876,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         TryDepthGuard(int &r) : ref(r), prev(r) {}
         ~TryDepthGuard() { ref = prev; }
     } _try_depth_guard(active_try_depth);
-    const int _prev_try_depth = _try_depth_guard.prev;
+    // Per frame: an inline call bumps it when the caller's On Error mode
+    // covers the callee (call_internal's HandlerDepthGuard) and restores it
+    // on return; the guard above still resets the member on every exit.
+    int _prev_try_depth = _try_depth_guard.prev;
     auto sync_try_depth = [&]() { active_try_depth = _prev_try_depth + try_handler_stack.size(); };
     sync_try_depth();
+    // In-VM inline call frames (see the OP_CALL inline path below): frames
+    // above inline_base_count were pushed by this run; try_handler_stack
+    // entries below inline_try_base belong to an outer inline caller, so a
+    // callee's error must not unwind into them before its frame is popped.
+    const int inline_base_count = vm.inline_frame_count;
+    int inline_try_base = 0;
+    bool inline_call_error_pending = false;   // set when a callee's error was just propagated
 
     // Snapshot global variables that this function may write via OP_SET_GLOBAL.
     // If bytecode execution fails and the AST fallback re-runs the function,
@@ -1414,6 +2001,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_STRING_REPEAT_OUTER:
                     case OP_SET_DICT_GLOBAL:
                     case OP_NEW_OBJECT:
+                    case OP_NEW_PACKED_LITERAL:
                     case OP_RAISE_EVENT:
                         scan_ip += 3; break;
                     // 4-byte opcodes (all-slot operands)
@@ -1456,6 +2044,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         scan_ip += 4; break;
                     case OP_PACKED_NEAREST_I64: // px, py, tx, ty, best, bestidx
                         scan_ip += 6; break;
+                    case OP_FOREACH_STEP: // coll, idx, var, exit16
+                        scan_ip += 5; break;
                     default:
                         // 1-byte opcodes (no operands) — nothing to skip
                         break;
@@ -1464,15 +2054,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
         chunk->globals_scan_done = true;
       }
-      // Per-call: snapshot only the known written globals that currently exist
-      // in variables[] (behavior-identical to the old inline scan+snapshot, but
-      // O(globals written) instead of O(entire chunk)).
-      for (int gi = 0; gi < chunk->globals_written.size(); gi++) {
-          const String &gname = chunk->globals_written[gi];
-          if (variables.has(gname)) {
-              saved_globals.push_back({gname, variables[gname]});
-          }
-      }
+      // The snapshot itself is now LAZY: OP_SET_GLOBAL records a global's
+      // pre-write value the first time it is written in this frame (see
+      // snapshot_global_before_write).  The eager loop here used to pay
+      // has()+get()+Variant copy for EVERY global the chunk could ever write,
+      // on EVERY call — an `If __ready Then Exit Sub` guard Sub that
+      // initialises ~80 module globals cost ~78k cycles per call for that
+      // alone (Backlight City: 42k calls, 23% of the whole build).
+    }
+    bool snapshot_globals_active = (p_ip_end <= 0) && !p_initial_locals && !chunk->globals_written.is_empty();
+    // One bit per globals_written[] entry: already snapshotted in this frame.
+    uint64_t _gw_bits_inline[4] = { 0, 0, 0, 0 };
+    std::vector<uint64_t> _gw_bits_heap;
+    uint64_t *gw_bits = _gw_bits_inline;
+    if (snapshot_globals_active && chunk->globals_written.size() > 256) {
+        _gw_bits_heap.assign((chunk->globals_written.size() + 63) / 64, 0);
+        gw_bits = _gw_bits_heap.data();
     }
 
     auto read_constant = [&](int idx) -> Variant {
@@ -1499,8 +2096,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // Returns true if error was handled (caller should break/VG_BREAK).
     // When push_default=true, pushes default_val onto stack for expression contexts.
     auto try_recover_error = [&](const Variant& default_val = Variant(), bool push_default = true) -> bool {
-        // Priority 1: Try/Catch handler stack (innermost handler wins)
-        if (!try_handler_stack.is_empty()) {
+        // Priority 1: Try/Catch handler stack (innermost handler wins).
+        // Handlers below inline_try_base belong to an inline caller: the
+        // callee frame is popped first (loop top / cleanup), then the caller
+        // catches.
+        if (try_handler_stack.size() > inline_try_base) {
             TryHandler handler = try_handler_stack[try_handler_stack.size() - 1];
             try_handler_stack.resize(try_handler_stack.size() - 1);
             sync_try_depth();
@@ -1583,18 +2183,36 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             _member_cache_by_chunk.clear();
             _call_resolution_cache.clear();
             _member_cache_generation = script->bytecode_generation;
+            _member_cache_last_chunk = nullptr;
+            _member_cache_last_ptr = nullptr;
         }
-        member_name_cache_ptr = &_member_cache_by_chunk[chunk];
+        if (_member_cache_last_chunk == chunk && _member_cache_last_ptr) {
+            member_name_cache_ptr = _member_cache_last_ptr;
+        } else if (chunk->member_memo.cache && chunk->member_memo.instance_serial == _instance_serial &&
+                chunk->member_memo.generation == _member_cache_generation) {
+            // Chunk-side memo: survives alternation between helpers (the
+            // one-entry front cache above only covers a tight self-loop).
+            member_name_cache_ptr = static_cast<Vector<MemberNameCacheEntry> *>(chunk->member_memo.cache);
+            _member_cache_last_chunk = chunk;
+            _member_cache_last_ptr = member_name_cache_ptr;
+        } else {
+            member_name_cache_ptr = &_member_cache_by_chunk[chunk];
+            _member_cache_last_chunk = chunk;
+            _member_cache_last_ptr = member_name_cache_ptr;
+            chunk->member_memo.cache = member_name_cache_ptr;
+            chunk->member_memo.instance_serial = _instance_serial;
+            chunk->member_memo.generation = _member_cache_generation;
+        }
     }
-    Vector<MemberNameCacheEntry> &member_name_cache = *member_name_cache_ptr;
+    // Accessed through member_name_cache_ptr below (inline calls repoint it).
 
     auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
         // Lazy first-touch allocation (see declaration above): a chunk reaches
         // here only if it actually executes a member-cache opcode.
-        if (member_name_cache.size() != chunk->constants.size()) {
-            member_name_cache.resize(chunk->constants.size());
+        if ((*member_name_cache_ptr).size() != chunk->constants.size()) {
+            (*member_name_cache_ptr).resize(chunk->constants.size());
         }
-        MemberNameCacheEntry &entry = member_name_cache.write[idx];
+        MemberNameCacheEntry &entry = (*member_name_cache_ptr).write[idx];
         if (!entry.initialized) {
             Variant member_variant = read_constant(idx);
             entry.primary_string = String(member_variant);
@@ -1616,6 +2234,48 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             entry.initialized = true;
         }
         return entry;
+    };
+
+    // Lazy global rollback snapshot (see saved_globals above).  `exists` /
+    // `existing_value` come from the lookup OP_SET_GLOBAL already did for
+    // type preservation, so no second Dictionary probe is needed.
+    auto snapshot_global_before_write = [&](int const_idx, const String &name, bool exists, const Variant &existing_value) {
+        if (!snapshot_globals_active || !exists) return;
+        MemberNameCacheEntry &mc = ensure_member_cache_entry(const_idx);
+        if (mc.gw_index == -2) {
+            mc.gw_index = chunk->globals_written.find(name);
+        }
+        const int gi = mc.gw_index;
+        if (gi < 0) return;
+        const uint64_t mask = (uint64_t)1 << (gi & 63);
+        if (gw_bits[gi >> 6] & mask) return;
+        gw_bits[gi >> 6] |= mask;
+        saved_globals.push_back({ name, existing_value });
+    };
+
+    // Pointer to the module variable `key` inside `variables`, or nullptr when
+    // the name is not a key right now.  Hits are memoized per constant slot
+    // and validated against VgVariables::generation (bumped by erase / clear /
+    // whole-dictionary replacement — the only operations that can move or
+    // free a value inside Godot's node-allocated HashMap).  Misses are never
+    // memoized: a later plain store can create the key without a bump.
+    // Lock-free parallel workers share the memo with the main thread, so they
+    // read it but do not write it (same rule as the other per-site memos).
+    auto global_value_ptr = [&](int const_idx, const StringName &key) -> Variant * {
+        MemberNameCacheEntry &e = (*member_name_cache_ptr).write[const_idx];
+        if (e.gptr && e.gptr_gen == variables.generation) {
+            return e.gptr;
+        }
+        if (!variables.has(key)) {
+            if (!is_parallel_worker) e.gptr = nullptr;
+            return nullptr;
+        }
+        Variant *p = &variables[key];
+        if (!is_parallel_worker) {
+            e.gptr = p;
+            e.gptr_gen = variables.generation;
+        }
+        return p;
     };
 
     auto ensure_snake_case = [&](MemberNameCacheEntry &entry) -> bool {
@@ -1646,6 +2306,409 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         pref.class_name = class_name;
         entry.class_preferences.push_back(pref);
         return entry.class_preferences.size() - 1;
+    };
+
+    // ── In-VM inline call frames ─────────────────────────────────────────
+    // A resolved module-level fast_params Sub/Function whose body is
+    // vg_chunk_inline_eligible() runs inside THIS execute_bytecode() run:
+    // OP_CALL parks the caller's per-frame state in vm.inline_frames and
+    // switches the frame variables (chunk, code, locals, stack_base, typed
+    // shadows, member cache, error snapshot …) to the callee; the end of the
+    // callee's code (or OP_RETURN_VALUE) switches them back and pushes the
+    // result.  This replaces OP_CALL → call_internal() → execute_bytecode()
+    // (two C++ frames, a dozen RAII guards, the JIT probe, TLS, locals-pool
+    // bookkeeping …) — about 3.5k instructions per call on an empty Sub,
+    // more than twice GDScript's call cost — with a few hundred.
+    // Semantics are those of call_internal + the base-frame prologue/cleanup
+    // (see inline_frame_push / inline_frame_return below); anything not
+    // mirrored is excluded by the eligibility scan or the per-call gate.
+    // VG_INLINE_CALLS=0 disables the path (every call takes call_internal).
+    // (inline_base_count / inline_try_base are declared with the Try depth
+    // bookkeeping above so try_recover_error can see them.)
+    static const bool _vg_inline_calls_off = []() {
+        const char *e = std::getenv("VG_INLINE_CALLS");
+        return e && e[0] == '0' && e[1] == '\0';
+    }();
+    const bool inline_calls_ok = !_vg_inline_calls_off && !is_parallel_worker && !is_sub_range &&
+            !p_initial_locals && !debug_frames_active && !profiling_enabled &&
+            !stack_profile_enabled && !stack_trace_enabled && script.is_valid();
+
+    // Same resolution as the prologue above, for a callee chunk.
+    auto inline_member_cache_for = [&](BytecodeChunk *c) -> Vector<MemberNameCacheEntry> * {
+        if (_member_cache_last_chunk == c && _member_cache_last_ptr) {
+            return _member_cache_last_ptr;
+        }
+        Vector<MemberNameCacheEntry> *p;
+        if (c->member_memo.cache && c->member_memo.instance_serial == _instance_serial &&
+                c->member_memo.generation == _member_cache_generation) {
+            p = static_cast<Vector<MemberNameCacheEntry> *>(c->member_memo.cache);
+        } else {
+            p = &_member_cache_by_chunk[c];
+            c->member_memo.cache = p;
+            c->member_memo.instance_serial = _instance_serial;
+            c->member_memo.generation = _member_cache_generation;
+        }
+        _member_cache_last_chunk = c;
+        _member_cache_last_ptr = p;
+        return p;
+    };
+
+    // Switch this run to `callee_chunk`/`callee_func` with `args` as the
+    // (uncoerced) ByVal arguments.  Mirrors call_internal's fast-params
+    // binding and the prologue above; returns false (nothing changed) only
+    // when the frame limit is hit.
+    auto inline_frame_push = [&](BytecodeChunk *callee_chunk, SubDefinition *callee_func,
+                                 Variant *args, int argc) -> bool {
+        constexpr int INLINE_FRAME_LIMIT = 1024;
+        if (vm.inline_frame_count >= INLINE_FRAME_LIMIT) {
+            return false;
+        }
+        while ((int)vm.inline_frames.size() <= vm.inline_frame_count) {
+            vm.inline_frames.emplace_back();
+        }
+        VMInlineCallFrame &fr = vm.inline_frames[vm.inline_frame_count];
+        // ── park the caller ──
+        fr.chunk = chunk;
+        fr.func = func;
+        fr.return_ip = vm.ip;
+        fr.code_size = code_size;
+        fr.effective_code_end = effective_code_end;
+        fr.stack_base = stack_base;
+        fr.fast_call = fast_call;
+        fr.fast_param_count = fast_param_count;
+        fr.fast_return_slot = fast_return_slot;
+        fr.local_declared = local_declared;
+        fr.local_declared_n = local_declared_n;
+        fr.typed_i64 = typed_i64_locals;
+        fr.typed_f64 = typed_f64_locals;
+        fr.member_cache = member_name_cache_ptr;
+        fr.has_explicit_return = has_explicit_return;
+        fr.snapshot_globals_active = snapshot_globals_active;
+        fr.gw_bits = gw_bits;
+        fr.saved_globals_start = saved_globals.size();
+        fr.try_base = inline_try_base;
+        fr.active_try_depth = _prev_try_depth;
+        fr.jump_target = jump_target;
+        fr.current_sub = current_sub;
+        fr.block_scope_frames = std::move(vm.block_scope_frames);
+        vm.block_scope_frames.clear();
+        // error_state as call_internal's prev_error snapshot
+        fr.error_mode = (int)error_state.mode;
+        fr.error_has_error = error_state.has_error;
+        fr.error_code = error_state.code;
+        fr.error_line = error_state.error_line;
+        fr.error_label.reset();
+        fr.error_label.save_if_set(error_state.label);
+        fr.error_message.reset();
+        fr.error_message.save_if_set(error_state.message);
+        fr.error_file.reset();
+        fr.error_file.save_if_set(error_state.error_file);
+
+        // ── callee locals: a fresh pool frame, swapped into `locals` so the
+        // reference (and debug_bc_locals) keeps pointing at the live frame ──
+        const int callee_idx = vm.locals_depth++;
+        while ((int)vm.locals_pool.size() <= callee_idx) vm.locals_pool.emplace_back();
+        while ((int)vm.typed_i64_pool.size() <= callee_idx) vm.typed_i64_pool.emplace_back();
+        while ((int)vm.typed_f64_pool.size() <= callee_idx) vm.typed_f64_pool.emplace_back();
+        while ((int)vm.gw_bits_pool.size() <= callee_idx) vm.gw_bits_pool.emplace_back();
+        fr.callee_locals_frame = callee_idx;
+        std::swap(locals, vm.locals_pool[callee_idx]);
+
+        // ── become the callee ──
+        chunk = callee_chunk;
+        func = callee_func;
+        code = chunk->code.ptr();
+        code_size = chunk->code.size();
+        effective_code_end = code_size;
+        stack_base = vm.stack.size();
+        fast_call = true;
+        fast_param_count = chunk->param_count;
+        fast_return_slot = chunk->return_slot;
+        local_declared = chunk->local_declared.ptr();
+        local_declared_n = chunk->local_declared.size();
+        has_explicit_return = false;
+        member_name_cache_ptr = inline_member_cache_for(chunk);
+
+        // The pool frame keeps this callee's size between calls (a Vector
+        // resize is a copy-on-write probe + possible realloc even when the
+        // size is unchanged).
+        if (locals.size() != chunk->local_count) {
+            locals.resize(chunk->local_count);
+        }
+        for (int i = 0; i < chunk->local_count; i++) {
+            // Same seeding rules as the prologue: fast/declared/temp slots
+            // are reset, implicit locals pick up a same-named module value.
+            if (is_fast_slot(i) || is_declared_slot(i) || i >= chunk->local_names.size()) {
+                Variant &reset = locals.write[i];
+                if (vgfast::g_layout_ok && vgfast::is_pod_type(vgfast::vtype(reset))) {
+                    memset(&reset, 0, sizeof(Variant));
+                } else {
+                    reset = Variant();
+                }
+                continue;
+            }
+            Variant initial;
+            const String &name = chunk->local_names[i];
+            const bool is_compiler_temp = (name.length() >= 2 && name[0] == '_' && name[1] == '_');
+            if (!name.is_empty() && !is_compiler_temp) {
+                if (variables.has(name)) {
+                    initial = variables[name];
+                } else if (builtin_constants.has(name)) {
+                    initial = builtin_constants[name];
+                } else if (get_global_scope().has(name)) {
+                    initial = get_global_scope()[name];
+                }
+            }
+            locals.write[i] = std::move(initial);
+        }
+        // Arguments: call_internal's precomputed coercion, written straight
+        // into the (NIL) parameter slots.
+        const int8_t *coerce = chunk->fast_param_coerce.ptr();
+        const Parameter *params_r = func->parameters.ptr();
+        for (int i = 0; i < fast_param_count && i < locals.size(); i++) {
+            Variant &dst = locals.write[i];
+            if (i < argc) {
+                // The argument buffer is dead after this: move non-POD
+                // payloads (one pointer swap) instead of retain + release.
+                Variant &src = args[i];
+                const Variant::Type st = vgfast::vtype(src);
+                switch (coerce[i]) {
+                    case 1:
+                        if (st == Variant::INT) vgfast::assign(dst, src);
+                        else vgfast::set_int(dst, (int64_t)src);
+                        break;
+                    case 2:
+                        if (st == Variant::FLOAT) vgfast::assign(dst, src);
+                        else vgfast::set_float(dst, (double)src);
+                        break;
+                    case 3:
+                        if (st == Variant::STRING) dst = std::move(src);
+                        else dst = Variant((String)src);
+                        break;
+                    case 4:
+                        if (st == Variant::BOOL) vgfast::assign(dst, src);
+                        else vgfast::set_bool(dst, (bool)src);
+                        break;
+                    default:
+                        if (vgfast::g_layout_ok && vgfast::is_pod_type(st)) vgfast::assign(dst, src);
+                        else dst = std::move(src);
+                        break;
+                }
+            } else if (params_r[i].is_optional) {
+                vgfast::assign(dst, params_r[i].default_value);
+            } else {
+                UtilityFunctions::print("Runtime Error: Argument '", params_r[i].name, "' missing for ", func->name);
+            }
+        }
+        if (func->type == SubDefinition::TYPE_FUNCTION && fast_return_slot >= 0 && fast_return_slot < locals.size()) {
+            Variant &rs = locals.write[fast_return_slot];
+            switch (chunk->fast_return_coerce) {
+                case 1: vgfast::set_int(rs, 0); break;
+                case 2: vgfast::set_float(rs, 0.0); break;
+                case 3: rs = Variant(String()); break;
+                case 4: vgfast::set_bool(rs, false); break;
+                default: break;   // NIL
+            }
+        }
+        // Typed shadow arrays from the pools (the base frame's live in C++
+        // stack buffers), seeded exactly like the prologue.
+        {
+            const size_t n = (size_t)locals.size();
+            std::vector<int64_t> &ti = vm.typed_i64_pool[callee_idx];
+            std::vector<double> &tf = vm.typed_f64_pool[callee_idx];
+            if (ti.size() < n) ti.resize(n);
+            if (tf.size() < n) tf.resize(n);
+            typed_i64_locals = ti.data();
+            typed_f64_locals = tf.data();
+            if (n) {
+                memset(typed_i64_locals, 0, n * sizeof(int64_t));
+                memset(typed_f64_locals, 0, n * sizeof(double));
+            }
+            for (int i = 0; i < chunk->local_count && i < chunk->local_types.size(); i++) {
+                const uint8_t lt = chunk->local_types[i];
+                if (lt == 1 && i < locals.size()) {
+                    const Variant &lv = locals[i];
+                    const Variant::Type vt = vgfast::vtype(lv);
+                    typed_i64_locals[i] = (vt == Variant::INT) ? vgfast::vint(lv) : (vt == Variant::NIL ? 0 : (int64_t)lv);
+                } else if (lt == 2 && i < locals.size()) {
+                    const Variant &lv = locals[i];
+                    const Variant::Type vt = vgfast::vtype(lv);
+                    typed_f64_locals[i] = (vt == Variant::FLOAT) ? vgfast::vfloat(lv) : (vt == Variant::NIL ? 0.0 : (double)lv);
+                }
+            }
+        }
+        // Globals rollback snapshot (lazy, per OP_SET_GLOBAL) for this frame.
+        snapshot_globals_active = !chunk->globals_written.is_empty();
+        if (snapshot_globals_active) {
+            std::vector<uint64_t> &gb = vm.gw_bits_pool[callee_idx];
+            const size_t words = (size_t)((chunk->globals_written.size() + 63) / 64);
+            if (gb.size() < words) gb.resize(words);
+            gw_bits = gb.data();
+            memset(gw_bits, 0, words * sizeof(uint64_t));
+        } else {
+            gw_bits = nullptr;
+        }
+        // call_internal: fresh error state; the caller's On Error mode counts
+        // as an enclosing handler for raise_error()'s logging.
+        error_state.mode = ErrorState::NONE;
+        error_state.has_error = false;
+        if (fr.error_mode == (int)ErrorState::RESUME_NEXT || fr.error_mode == (int)ErrorState::GOTO_LABEL) {
+            _prev_try_depth++;
+        }
+        inline_try_base = try_handler_stack.size();
+        sync_try_depth();
+        current_sub = func;
+        debug_bc_chunk = chunk;
+        vm.ip = 0;
+        vm.inline_frame_count++;
+        return true;
+    };
+
+    // Pop the innermost inline frame.  With `result_on_top` the operand
+    // stack's top element is the call's value: it slides down to the call
+    // site's slot as the callee's operands are dropped.  `error_unwind`
+    // mirrors call_internal's unhandled-error propagation: the caller's
+    // error mode/label/file come back while has_error + message/code/line
+    // stay set, and no value is produced — the caller's loop top then runs
+    // its own recovery (Try handler, On Error Resume Next, or a further
+    // unwind).
+    auto inline_frame_pop = [&](bool result_on_top, bool error_unwind) {
+        VMInlineCallFrame &fr = vm.inline_frames[vm.inline_frame_count - 1];
+        // ByRef write-back: the caller's OP_BYREF_LOAD (or the AST
+        // write-back) reads the callee's final parameter values from
+        // _last_byref_captures.  Like execute_bytecode's epilogue (and the
+        // AST walker) this includes a callee that stopped on a runtime
+        // error: it writes back what it had assigned so far.
+        if (current_sub && (!error_unwind || error_state.has_error)) {
+            Vector<Pair<String, Variant>> bc_byref_captures;
+            for (int pi = 0; pi < current_sub->parameters.size(); pi++) {
+                if (!current_sub->parameters[pi].is_by_ref) {
+                    continue;
+                }
+                Variant captured;
+                if (pi < chunk->param_count && pi < locals.size()) {
+                    captured = locals[pi];
+                }
+                bc_byref_captures.push_back({current_sub->parameters[pi].name, captured});
+            }
+            if (!bc_byref_captures.is_empty()) {
+                _last_byref_captures = bc_byref_captures;
+            }
+        }
+        // Release resources held by the callee's slots (LocalsFrameGuard).
+        for (int i = 0; i < locals.size(); i++) {
+            const Variant::Type t = vgfast::vtype(locals[i]);
+            if (t == Variant::OBJECT || t == Variant::ARRAY || t == Variant::DICTIONARY ||
+                    t == Variant::CALLABLE || t == Variant::SIGNAL) {
+                locals.write[i] = Variant();
+            }
+        }
+        // A Whenever registered during the call mirrored the callee's locals
+        // into variables[]; call_internal erases them after the call.
+        if (needs_var_sync) {
+            for (int i = 0; i < chunk->local_names.size(); i++) {
+                if (is_fast_slot(i)) continue;
+                const String &lname = chunk->local_names[i];
+                if (lname.is_empty() || (lname.length() >= 2 && lname[0] == '_' && lname[1] == '_')) continue;
+                variables.erase(lname);
+            }
+        }
+        std::swap(locals, vm.locals_pool[fr.callee_locals_frame]);
+        vm.locals_depth--;
+        // Drop the callee's operands; a result on top takes the call's slot.
+        if (result_on_top && vm.stack.size() > stack_base) {
+            if (vm.stack.size() - 1 != stack_base) {
+                vm.stack.pop_into(vm.stack[stack_base]);
+            }
+            vm.stack.resize(stack_base + 1);
+        } else {
+            vm.stack.resize(stack_base);
+        }
+        // The callee's globals snapshots: a finished call (normal return or a
+        // runtime error — its writes stand, see the cleanup rollback rule)
+        // drops them; a non-error bail keeps them for the base frame's
+        // rollback, since the AST fallback re-runs everything.
+        const bool callee_finished = !error_unwind || error_state.has_error;
+        if (callee_finished && saved_globals.size() > fr.saved_globals_start) {
+            saved_globals.resize(fr.saved_globals_start);
+        }
+        if (error_unwind && error_state.has_error) {
+            inline_call_error_pending = true;
+        }
+        // ── restore the caller ──
+        chunk = fr.chunk;
+        func = fr.func;
+        code = chunk->code.ptr();
+        code_size = fr.code_size;
+        effective_code_end = fr.effective_code_end;
+        stack_base = fr.stack_base;
+        fast_call = fr.fast_call;
+        fast_param_count = fr.fast_param_count;
+        fast_return_slot = fr.fast_return_slot;
+        local_declared = fr.local_declared;
+        local_declared_n = fr.local_declared_n;
+        typed_i64_locals = fr.typed_i64;
+        typed_f64_locals = fr.typed_f64;
+        member_name_cache_ptr = static_cast<Vector<MemberNameCacheEntry> *>(fr.member_cache);
+        has_explicit_return = fr.has_explicit_return;
+        snapshot_globals_active = fr.snapshot_globals_active;
+        gw_bits = fr.gw_bits;
+        inline_try_base = fr.try_base;
+        _prev_try_depth = fr.active_try_depth;
+        sync_try_depth();
+        jump_target = fr.jump_target;
+        current_sub = fr.current_sub;
+        vm.block_scope_frames = std::move(fr.block_scope_frames);
+        fr.block_scope_frames.clear();
+        if (error_unwind) {
+            // had_unhandled_error path of call_internal (has_error, message,
+            // code and line stay as the callee left them; a non-error bail
+            // unwinding through here leaves has_error false).
+            error_state.mode = (ErrorState::Mode)fr.error_mode;
+            fr.error_label.restore_into(error_state.label);
+            fr.error_file.restore_into(error_state.error_file);
+        } else {
+            error_state.mode = (ErrorState::Mode)fr.error_mode;
+            error_state.has_error = fr.error_has_error;
+            error_state.code = fr.error_code;
+            error_state.error_line = fr.error_line;
+            fr.error_label.restore_into(error_state.label);
+            fr.error_message.restore_into(error_state.message);
+            fr.error_file.restore_into(error_state.error_file);
+        }
+        fr.error_label.reset();
+        fr.error_message.reset();
+        fr.error_file.reset();
+        debug_bc_chunk = chunk;
+        vm.ip = fr.return_ip;
+        vm.inline_frame_count--;
+    };
+
+    // Normal callee exit (end of body, Exit Sub/Function, or Return <expr>
+    // with the value already on the stack top).  Same result rules as the
+    // base frame's cleanup: explicit Return value, else a Function's return
+    // slot, else a Sub's stack top, else NIL.
+    auto inline_frame_return = [&](bool value_on_top) {
+        if (!value_on_top) {
+            if (func->type == SubDefinition::TYPE_FUNCTION) {
+                if (fast_return_slot >= 0 && fast_return_slot < locals.size()) {
+                    vm.stack.push_back(std::move(locals.write[fast_return_slot]));   // slot left NIL
+                } else {
+                    vm.stack.resize(vm.stack.size() + 1);   // NIL
+                }
+            } else if (vm.stack.size() <= stack_base) {
+                vm.stack.resize(vm.stack.size() + 1);   // NIL
+            }
+        }
+        // `Function F(...) As Array` hands back a plain Array (call_internal).
+        if (func->type == SubDefinition::TYPE_FUNCTION && chunk->fast_return_coerce == 5) {
+            Variant &top = vm.stack.back();
+            const Variant::Type rt = vgfast::vtype(top);
+            if (rt != Variant::ARRAY && rt != Variant::NIL && Variant::can_convert(rt, Variant::ARRAY)) {
+                top = Array(top);
+            }
+        }
+        inline_frame_pop(true, false);
     };
 
     // -------- Computed-goto threaded dispatch (GCC/Clang) --------
@@ -1884,8 +2947,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_LESS_I64]             = &&vg_op_less_i64;
         dispatch_table[OP_PACKED_HP_STATE_TICK] = &&vg_op_packed_hp_state_tick;
         dispatch_table[OP_PACKED_NEAREST_I64]   = &&vg_op_packed_nearest_i64;
+        dispatch_table[OP_FOREACH_STEP]         = &&vg_op_foreach_step;
+        dispatch_table[OP_NEW_PACKED_LITERAL]   = &&vg_op_new_packed_literal;
         dispatch_table_init = true;
     }
+    // Resolve the thread-local table once.  This .so is dlopen'd, so every
+    // `dispatch_table[op]` is a global-dynamic TLS access: a __tls_get_addr
+    // call (and the caller-saved spills around it) on EVERY opcode dispatch.
+    // A plain local pointer keeps the dispatch at one load + indirect jump.
+    const void *const *const vg_dispatch = dispatch_table;
 
     // VG_CASE(label, opcode):  on GCC/Clang emits `label: case opcode:`
     //                          on MSVC emits `case opcode:` only.
@@ -1899,25 +2969,51 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #define VG_BREAK  break
 #endif // VG_USE_COMPUTED_GOTO
 
-    while (vm.ip < effective_code_end) {
-#if VG_USE_COMPUTED_GOTO
+    while (true) {
 	vg_dispatch_next:
-		if (vm.ip >= effective_code_end) goto cleanup;
-#endif
+		if (vm.ip >= effective_code_end) {
+			// End of an inline callee's body: back to its caller.
+			if (vm.inline_frame_count > inline_base_count) {
+				inline_frame_return(false);
+				continue;
+			}
+			goto cleanup;
+		}
         last_opcode_offset = vm.ip;
         if (error_state.has_error) {
             // A Whenever chain limit (or any raise during a store) must honor
             // On Error Resume Next here. Leaving has_error set makes the VM
             // return failure and the AST fallback re-runs the whole procedure.
-            if (!try_recover_error(Variant(), false)) {
+            // An error propagated out of an inline callee is the OP_CALL
+            // recovery (the call's value slot is filled with NIL on resume).
+            const bool from_inline_call = inline_call_error_pending;
+            inline_call_error_pending = false;
+            if (!try_recover_error(Variant(), from_inline_call)) {
+                if (vm.inline_frame_count > inline_base_count) {
+                    // Unhandled in the callee: propagate to the inline caller,
+                    // whose own recovery runs on the next pass.
+                    inline_frame_pop(false, true);
+                    continue;
+                }
                 success = false;
                 goto cleanup;
             }
         }
         uint8_t op = code[vm.ip++];
         current_opcode = op;
+        if (full_profile_enabled) {
+            // Attribute the cycles since the previous opcode started to that
+            // opcode (exclusive of nested execute_bytecode frames), open this one.
+            const uint64_t now = vg_profile_tsc();
+            if (full_profile_prev_op >= 0) {
+                full_profile_close_prev(now);
+            }
+            full_profile_prev_op = op;
+            full_profile_prev_tsc = now;
+            full_profile_nested_mark = vg_opcode_profile_nested_acc();
+        }
 #if VG_USE_COMPUTED_GOTO
-        goto *dispatch_table[op];  // skip the switch on GCC/Clang
+        goto *vg_dispatch[op];  // skip the switch on GCC/Clang
 #endif
         switch (op) {
             VG_CASE(vg_op_constant, OP_CONSTANT): {
@@ -1955,19 +3051,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant new_size_v = pop_value();
                 Variant arr_v = pop_value();
                 int new_size = (int)(int64_t)new_size_v;
-                if (arr_v.get_type() == Variant::ARRAY) {
+                if (vgfast::vtype(arr_v) == Variant::ARRAY) {
                     Array arr = arr_v;
                     arr.resize(new_size);
                     push_value(arr);
-                } else if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                } else if (vgfast::vtype(arr_v) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array arr = arr_v;
                     arr.resize(new_size);
                     push_value(arr);
-                } else if (arr_v.get_type() == Variant::PACKED_FLOAT64_ARRAY) {
+                } else if (vgfast::vtype(arr_v) == Variant::PACKED_FLOAT64_ARRAY) {
                     PackedFloat64Array arr = arr_v;
                     arr.resize(new_size);
                     push_value(arr);
-                } else if (arr_v.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
+                } else if (vgfast::vtype(arr_v) == Variant::PACKED_VECTOR2_ARRAY) {
                     PackedVector2Array arr = arr_v;
                     arr.resize(new_size);
                     push_value(arr);
@@ -1979,6 +3075,56 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 break;
             }
+            VG_CASE(vg_op_new_packed_literal, OP_NEW_PACKED_LITERAL): {
+                // [OP] [CLASS_NAME_IDX(2)] [COUNT] — PackedXArray(Array(e1, …, en))
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
+                uint8_t count = code[vm.ip++];
+                if (!ensure_stack(count)) { success = false; goto cleanup; }
+                MemberNameCacheEntry &_nc = ensure_member_cache_entry(name_idx);
+                Variant::Type packed_type = Variant::NIL;
+                if (_nc.new_object_kind >= 10) {
+                    packed_type = (Variant::Type)(_nc.new_object_kind - 10);
+                } else {
+                    packed_type = vg_packed_type_from_name(_nc.primary_string);
+                    if (packed_type != Variant::NIL) {
+                        _nc.new_object_kind = (int8_t)(10 + (int)packed_type);
+                    }
+                }
+                if (packed_type == Variant::NIL) {
+                    raise_error("Unknown packed array type: " + _nc.primary_string, 13);
+                    if (try_recover_error(Variant())) { VG_BREAK; }
+                    success = false;
+                    goto cleanup;
+                }
+                const Variant *elems = &vm.stack[vm.stack.size() - count];
+                Variant made;
+                switch (packed_type) {
+                    case Variant::PACKED_BYTE_ARRAY:
+                        made = vg_build_packed_literal<PackedByteArray, uint8_t, Variant::NIL, 0>(elems, count); break;
+                    case Variant::PACKED_INT32_ARRAY:
+                        made = vg_build_packed_literal<PackedInt32Array, int32_t, Variant::NIL, 0>(elems, count); break;
+                    case Variant::PACKED_INT64_ARRAY:
+                        made = vg_build_packed_literal<PackedInt64Array, int64_t, Variant::INT, sizeof(int64_t)>(elems, count); break;
+                    case Variant::PACKED_FLOAT32_ARRAY:
+                        made = vg_build_packed_literal<PackedFloat32Array, float, Variant::NIL, 0>(elems, count); break;
+                    case Variant::PACKED_FLOAT64_ARRAY:
+                        made = vg_build_packed_literal<PackedFloat64Array, double, Variant::FLOAT, sizeof(double)>(elems, count); break;
+                    case Variant::PACKED_STRING_ARRAY:
+                        made = vg_build_packed_literal<PackedStringArray, String, Variant::NIL, 0>(elems, count); break;
+                    case Variant::PACKED_VECTOR2_ARRAY:
+                        made = vg_build_packed_literal<PackedVector2Array, Vector2, Variant::VECTOR2, sizeof(Vector2)>(elems, count); break;
+                    case Variant::PACKED_VECTOR3_ARRAY:
+                        made = vg_build_packed_literal<PackedVector3Array, Vector3, Variant::VECTOR3, sizeof(Vector3)>(elems, count); break;
+                    case Variant::PACKED_VECTOR4_ARRAY:
+                        made = vg_build_packed_literal<PackedVector4Array, Vector4, Variant::VECTOR4, sizeof(Vector4)>(elems, count); break;
+                    default:
+                        made = vg_build_packed_literal<PackedColorArray, Color, Variant::COLOR, sizeof(Color)>(elems, count); break;
+                }
+                vm.stack.resize(vm.stack.size() - count);
+                push_value(std::move(made));
+                VG_BREAK;
+            }
             VG_CASE(vg_op_new_object, OP_NEW_OBJECT): {
                 // [OP] [CLASS_NAME_IDX(2)] [ARG_COUNT]
                 if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
@@ -1986,6 +3132,58 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 MemberNameCacheEntry &_nc = ensure_member_cache_entry(name_idx);
                 const String &class_name = _nc.primary_string;
+
+                // Vector2/Vector3/Color with their full-arity numeric forms:
+                // read the operands straight off the VM stack.  Same arithmetic
+                // as construct_godot_type_by_kind, minus the godot Array build
+                // (one heap alloc + an interface call per element) that made a
+                // Vector3(x, y, z) cost ~1.1k cycles.
+                if (_nc.new_object_kind == 1 && arg_count >= 2 && arg_count <= 4 && ensure_stack(arg_count)) {
+                    const Variant *a = &vm.stack[vm.stack.size() - arg_count];
+                    bool numeric = true;
+                    for (int i = 0; i < arg_count; i++) {
+                        const Variant::Type t = vgfast::vtype(a[i]);
+                        if (t != Variant::FLOAT && t != Variant::INT) { numeric = false; break; }
+                    }
+                    if (numeric) {
+                        // The operands are INT/FLOAT (inline payloads, nothing
+                        // to release), so the result is written straight over
+                        // the first operand's slot: no Variant constructor /
+                        // destructor engine calls and no to_float conversions.
+                        Variant *out = &vm.stack[vm.stack.size() - arg_count];
+                        bool built = true;
+                        switch ((GodotCtorKind)_nc.godot_ctor_kind) {
+                            case GODOT_CTOR_VECTOR2:
+                                if (arg_count == 2) {
+                                    const Vector2 v2((float)vgfast::vnum(a[0]), (float)vgfast::vnum(a[1]));
+                                    vgfast::raw_init_vector2(out, v2);
+                                } else built = false;
+                                break;
+                            case GODOT_CTOR_VECTOR3:
+                                if (arg_count == 3) {
+                                    const Vector3 v3((float)vgfast::vnum(a[0]), (float)vgfast::vnum(a[1]), (float)vgfast::vnum(a[2]));
+                                    vgfast::raw_init_vector3(out, v3);
+                                } else built = false;
+                                break;
+                            case GODOT_CTOR_COLOR:
+                                if (arg_count == 4) {
+                                    const Color c((float)vgfast::vnum(a[0]), (float)vgfast::vnum(a[1]), (float)vgfast::vnum(a[2]), (float)vgfast::vnum(a[3]));
+                                    vgfast::raw_init_color(out, c);
+                                } else if (arg_count == 3) {
+                                    const Color c((float)vgfast::vnum(a[0]), (float)vgfast::vnum(a[1]), (float)vgfast::vnum(a[2]), 1.0f);
+                                    vgfast::raw_init_color(out, c);
+                                } else built = false;
+                                break;
+                            default:
+                                built = false;
+                                break;
+                        }
+                        if (built) {
+                            vm.stack.resize(vm.stack.size() - arg_count + 1);
+                            break;
+                        }
+                    }
+                }
 
                 // Pop args (pushed left-to-right, so collect in reverse)
                 Array args_arr;
@@ -2009,31 +3207,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // a helper that Dims a PackedVector3Array per call paid eight
                 // nocasecmp_to probes to get here on every invocation.
                 {
-                    static const struct { const char *name; Variant::Type type; } _packed_ctors[] = {
-                        { "PackedByteArray", Variant::PACKED_BYTE_ARRAY },
-                        { "PackedInt32Array", Variant::PACKED_INT32_ARRAY },
-                        { "PackedInt64Array", Variant::PACKED_INT64_ARRAY },
-                        { "PackedFloat32Array", Variant::PACKED_FLOAT32_ARRAY },
-                        { "PackedFloat64Array", Variant::PACKED_FLOAT64_ARRAY },
-                        { "PackedStringArray", Variant::PACKED_STRING_ARRAY },
-                        { "PackedVector2Array", Variant::PACKED_VECTOR2_ARRAY },
-                        { "PackedVector3Array", Variant::PACKED_VECTOR3_ARRAY },
-                        { "PackedColorArray", Variant::PACKED_COLOR_ARRAY },
-                    };
                     Variant::Type packed_type = Variant::NIL;
                     if (_nc.new_object_kind >= 10) {
                         packed_type = (Variant::Type)(_nc.new_object_kind - 10);
-                    } else if (_nc.new_object_kind == 0 && class_name.length() > 6 &&
-                               (class_name[0] | 0x20) == 'p' && (class_name[1] | 0x20) == 'a') {
-                        for (const auto &pc : _packed_ctors) {
-                            if (class_name.nocasecmp_to(pc.name) == 0) {
-                                packed_type = pc.type;
-                                _nc.new_object_kind = (int8_t)(10 + (int)pc.type);
-                                break;
-                            }
+                    } else if (_nc.new_object_kind == 0) {
+                        packed_type = vg_packed_type_from_name(class_name);
+                        if (packed_type != Variant::NIL) {
+                            _nc.new_object_kind = (int8_t)(10 + (int)packed_type);
                         }
                     }
                     if (packed_type != Variant::NIL) {
+                        // Packed*Array(arr): convert an Array / other packed
+                        // array (GDScript constructor form).  Nothing → empty.
+                        if (arg_count >= 1 && vgfast::vtype(args_arr[0]) != Variant::NIL) {
+                            const Variant &src = args_arr[0];
+                            switch (packed_type) {
+                                case Variant::PACKED_BYTE_ARRAY: push_value((PackedByteArray)src); break;
+                                case Variant::PACKED_INT32_ARRAY: push_value((PackedInt32Array)src); break;
+                                case Variant::PACKED_INT64_ARRAY: push_value((PackedInt64Array)src); break;
+                                case Variant::PACKED_FLOAT32_ARRAY: push_value((PackedFloat32Array)src); break;
+                                case Variant::PACKED_FLOAT64_ARRAY: push_value((PackedFloat64Array)src); break;
+                                case Variant::PACKED_STRING_ARRAY: push_value((PackedStringArray)src); break;
+                                case Variant::PACKED_VECTOR2_ARRAY: push_value((PackedVector2Array)src); break;
+                                case Variant::PACKED_VECTOR3_ARRAY: push_value((PackedVector3Array)src); break;
+                                case Variant::PACKED_VECTOR4_ARRAY: push_value((PackedVector4Array)src); break;
+                                default: push_value((PackedColorArray)src); break;
+                            }
+                            break;
+                        }
                         switch (packed_type) {
                             case Variant::PACKED_BYTE_ARRAY: push_value(PackedByteArray()); break;
                             case Variant::PACKED_INT32_ARRAY: push_value(PackedInt32Array()); break;
@@ -2043,6 +3244,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             case Variant::PACKED_STRING_ARRAY: push_value(PackedStringArray()); break;
                             case Variant::PACKED_VECTOR2_ARRAY: push_value(PackedVector2Array()); break;
                             case Variant::PACKED_VECTOR3_ARRAY: push_value(PackedVector3Array()); break;
+                            case Variant::PACKED_VECTOR4_ARRAY: push_value(PackedVector4Array()); break;
                             default: push_value(PackedColorArray()); break;
                         }
                         break;
@@ -2131,7 +3333,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                     if (!resolved.is_empty() && ClassDB::class_exists(resolved)) {
                         Variant inst = ClassDB::instantiate(resolved);
-                        if (inst.get_type() == Variant::OBJECT) {
+                        if (vgfast::vtype(inst) == Variant::OBJECT) {
                             // v4.4.0: New MemoryBuffer(size) via the generic OP_NEW_OBJECT
                             // path (e.g. assigning to a module-level/global var) never used
                             // to allocate the backing storage — only the local-slot fast
@@ -2167,7 +3369,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // retain their reference count instead of being freed when a
                     // temporary Object* goes out of scope.
                     Variant inst = ClassDB::instantiate(class_name);
-                    if (inst.get_type() == Variant::OBJECT) {
+                    if (vgfast::vtype(inst) == Variant::OBJECT) {
                         push_value(inst);
                         break;
                     }
@@ -2192,8 +3394,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 int idx = read_const_index();
-                Variant name_var = read_constant(idx);
-                String name = name_var;
+                // Per-constant cached String (no Variant→String conversion per
+                // read) and, when the name is a plain variable, a single
+                // Dictionary probe: `get` with a non-NIL result is the whole
+                // opcode.  Everything else (special identifiers, NIL-valued
+                // globals, builtin constants, autoloads, owner props) takes
+                // the unchanged path below.
+                static const String _vg_empty_global_name;
+                const bool _gc_ok = (idx >= 0 && idx < chunk->constants.size());
+                const String &name = _gc_ok ? ensure_member_cache_entry(idx).primary_string : _vg_empty_global_name;
+                if (_gc_ok && (*member_name_cache_ptr)[idx].is_special_global == 0) {
+                    // Cached value pointer (VgVariables generation-checked); the
+                    // probe below runs only on the first read or after an erase.
+                    // String and StringName keys are the same Dictionary key and
+                    // the StringName hash is precomputed.
+                    const Variant *quick = global_value_ptr(idx, (*member_name_cache_ptr)[idx].primary_name);
+                    if (quick && vgfast::vtype(*quick) != Variant::NIL) {
+                        push_value(*quick);
+                        break;
+                    }
+                }
                 
                 // Handle special keywords first
                 // "Me" - returns owner (self reference), or the current class
@@ -2224,10 +3444,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 bool _name_is_special;
                 if (idx >= 0 && idx < chunk->constants.size()) {
                     // Lazy first-touch allocation of the memo cache (see decl).
-                    if (member_name_cache.size() != chunk->constants.size()) {
-                        member_name_cache.resize(chunk->constants.size());
+                    if ((*member_name_cache_ptr).size() != chunk->constants.size()) {
+                        (*member_name_cache_ptr).resize(chunk->constants.size());
                     }
-                    int8_t &_sp = member_name_cache.write[idx].is_special_global;
+                    int8_t &_sp = (*member_name_cache_ptr).write[idx].is_special_global;
                     if (_sp < 0) {
                         _sp = _vg_global_special_names.has(name.to_lower()) ? 1 : 0;
                     }
@@ -2335,23 +3555,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // the fallbacks below (singletons, root scan, res://Name.tscn
                 // probe, owner->get, recursive find_child) are for undeclared
                 // identifiers and cost ~1 ms per read.
-                if (val.get_type() == Variant::NIL && variables.has(name)) {
+                if (vgfast::vtype(val) == Variant::NIL && variables.has(name)) {
                     push_value(val);
                     break;
                 }
                 
                 // Fallback to built-in constants (separated so debugger only shows user vars)
-                if (val.get_type() == Variant::NIL && builtin_constants.has(name)) {
+                if (vgfast::vtype(val) == Variant::NIL && builtin_constants.has(name)) {
                     val = builtin_constants[name];
                 }
 
                 // Fallback to project-wide "Global Const"/"Global Dim" registry (v4.4.0)
-                if (val.get_type() == Variant::NIL && get_global_scope().has(name)) {
+                if (vgfast::vtype(val) == Variant::NIL && get_global_scope().has(name)) {
                     val = get_global_scope()[name];
                 }
 
                 // Project autoloads (e.g. GameManager) — /root/<Name> from project.godot
-                if (val.get_type() == Variant::NIL) {
+                if (vgfast::vtype(val) == Variant::NIL) {
                     Node *al = VGAutoloads::get_node(name);
                     if (al) {
                         push_value(Variant(al));
@@ -2364,7 +3584,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // (Part E) so ordinary global reads no longer pay its
                 // nocasecmp_to + get_name() on every access; it runs only when
                 // the name isn't a plain variable.
-                if (val.get_type() == Variant::NIL && owner) {
+                if (vgfast::vtype(val) == Variant::NIL && owner) {
                     Node *owner_node = Object::cast_to<Node>(owner);
                     if (owner_node && name.nocasecmp_to(owner_node->get_name()) == 0) {
                         push_value(Variant(owner));
@@ -2373,7 +3593,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 
                 // If not found in variables, try Godot engine singletons
-                if (val.get_type() == Variant::NIL) {
+                if (vgfast::vtype(val) == Variant::NIL) {
                     if (Engine::get_singleton()->has_singleton(name)) {
                         Object *singleton = Engine::get_singleton()->get_singleton(name);
                         if (singleton) {
@@ -2387,7 +3607,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // loaded form Window with the matching name (e.g. "Form1"
                 // accessed from MyCalculator context).  VB6 allows referencing
                 // any loaded form by its Name.
-                if (val.get_type() == Variant::NIL && owner) {
+                if (vgfast::vtype(val) == Variant::NIL && owner) {
                     SceneTree *tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
                     if (tree) {
                         Window *root = tree->get_root();
@@ -2403,7 +3623,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             // VB6 auto-load: if not found, try to load the .tscn
                             // from the project (res://<Name>.tscn).  In VB6,
                             // referencing a form by name implicitly loads it.
-                            if (val.get_type() == Variant::NIL) {
+                            if (vgfast::vtype(val) == Variant::NIL) {
                                 String tscn_path = "res://" + name + ".tscn";
                                 if (ResourceLoader::get_singleton()->exists(tscn_path)) {
                                     Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(tscn_path);
@@ -2422,20 +3642,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 // If not found in variables, try owner node properties (PascalCase → snake_case)
                 // e.g. "Position" → owner->get("position") for Area2D/CharacterBody2D
-                if (val.get_type() == Variant::NIL && owner) {
+                if (vgfast::vtype(val) == Variant::NIL && owner) {
                     Variant prop = owner->get(name);
-                    if (prop.get_type() != Variant::NIL) {
+                    if (vgfast::vtype(prop) != Variant::NIL) {
                         val = prop;
                     } else {
                         String snake = name.to_snake_case();
                         if (snake != name) {
                             prop = owner->get(snake);
-                            if (prop.get_type() != Variant::NIL) {
+                            if (vgfast::vtype(prop) != Variant::NIL) {
                                 val = prop;
                             }
                         }
                     }
-                    if (val.get_type() == Variant::NIL) {
+                    if (vgfast::vtype(val) == Variant::NIL) {
                         Variant vb6_owner_prop;
                         if (VisualGasicInstance::try_read_vb6_property(owner, name, vb6_owner_prop)) {
                             val = vb6_owner_prop;
@@ -2444,7 +3664,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 // If not found in variables, search for child control by name (VB6 style)
-                if (val.get_type() == Variant::NIL && owner) {
+                if (vgfast::vtype(val) == Variant::NIL && owner) {
                     Node* owner_node = Object::cast_to<Node>(owner);
                     if (owner_node) {
                         Node *found = owner_node->find_child(name, true, false);
@@ -2462,7 +3682,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Debug, RegExp are not variables but dispatch targets handled by
                 // call_builtin_for_base_variable.  Push a sentinel dict so that
                 // OP_METHOD_CALL's call_builtin_for_base_variant can recognise them.
-                if (val.get_type() == Variant::NIL) {
+                if (vgfast::vtype(val) == Variant::NIL) {
                     static const char *known_ns[] = {
                         "SoundGen", "Clipboard", "Debug", "RegExp", "Array",
                         "Music", "Tracker",
@@ -2483,7 +3703,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
 
-                if (val.get_type() == Variant::NIL) {
+                if (vgfast::vtype(val) == Variant::NIL) {
                     val = vg_classdb_type_sentinel(name);
                 }
 
@@ -2496,19 +3716,44 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 int idx = read_const_index();
-                Variant name_var = read_constant(idx);
-                String name = name_var;
+                String name;
+                // Interned key for the Dictionary traffic below (String and
+                // StringName keys are interchangeable; the StringName hash is
+                // precomputed, the String hash is recomputed on every probe).
+                StringName key_name;
+                if (idx >= 0 && idx < chunk->constants.size()) {
+                    const MemberNameCacheEntry &_sg = ensure_member_cache_entry(idx);
+                    name = _sg.primary_string;   // ref-copy, no Variant→String
+                    key_name = _sg.primary_name;
+                } else {
+                    name = String(read_constant(idx));
+                    key_name = name;
+                }
                 if (!ensure_stack(1)) {
                     success = false;
                     goto cleanup;
                 }
                 Variant value = pop_value();
+                // One cached value pointer serves the rollback snapshot, the
+                // evidence recorder and the type-preserving store below (no
+                // Dictionary probe after the first write at this site).
+                const bool _sg_cached = (idx >= 0 && idx < chunk->constants.size());
+                Variant *existing_ptr = nullptr;
+                if (_sg_cached) {
+                    existing_ptr = global_value_ptr(idx, key_name);
+                } else if (variables.has(key_name)) {
+                    existing_ptr = &variables[key_name];
+                }
+                const bool had_existing = existing_ptr != nullptr;
+                if (had_existing) {
+                    snapshot_global_before_write(idx, name, true, *existing_ptr);
+                }
                 const bool evidence_on = vg_evidence_recording();
                 Variant evidence_old;
                 if (evidence_on) {
                     evidence_from_bytecode = true;
-                    if (variables.has(name)) {
-                        evidence_old = variables[name];
+                    if (had_existing) {
+                        evidence_old = *existing_ptr;
                     }
                 }
                 
@@ -2531,21 +3776,41 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     debugger->send_message("visualgasic:watchpoint_hit", 
                         Array::make(name, variables.get(name, Variant()), value, wp_file, wp_line));
                     VisualGasicLanguage::vg_debug_wait();
+                    // The paused debugger may have edited `variables`; re-resolve.
+                    if (had_existing) {
+                        existing_ptr = _sg_cached ? global_value_ptr(idx, key_name)
+                                : (variables.has(key_name) ? &variables[key_name] : nullptr);
+                        if (!existing_ptr) {
+                            variables[key_name] = Variant();
+                            existing_ptr = &variables[key_name];
+                        }
+                    }
                 }
                 
-                // Type-preservation matching assign_variable() behavior
-                if (variables.has(name)) {
-                    Variant::Type target_type = variables[name].get_type();
+                // Type-preservation matching assign_variable() behavior,
+                // written straight into the Dictionary's value slot.
+                if (had_existing) {
+                    Variant &target = *existing_ptr;
+                    const Variant::Type target_type = vgfast::vtype(target);
+                    const Variant::Type value_type = vgfast::vtype(value);
                     if (target_type == Variant::INT) {
-                        variables[name] = (int64_t)value;
+                        vgfast::set_int(target, to_int(value));
                     } else if (target_type == Variant::FLOAT) {
-                        variables[name] = (double)value;
+                        vgfast::set_float(target, to_double(value));
                     } else if (target_type == Variant::STRING) {
-                        variables[name] = (String)value;
+                        if (value_type == Variant::STRING) {
+                            target = std::move(value);
+                        } else {
+                            target = (String)value;
+                        }
                     } else if (target_type == Variant::BOOL) {
-                        variables[name] = (bool)value;
+                        // Engine booleanize semantics (exact-zero test for floats).
+                        const bool b = (value_type == Variant::BOOL) ? vgfast::vbool(value)
+                                : (value_type == Variant::INT) ? (vgfast::vint(value) != 0)
+                                : (bool)value;
+                        vgfast::set_bool(target, b);
                     } else {
-                        variables[name] = value;
+                        target = std::move(value);
                     }
                 } else {
                     // Check if it's an owner node property (PascalCase → snake_case)
@@ -2553,14 +3818,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     bool wrote_to_owner = false;
                     if (owner) {
                         Variant current = owner->get(name);
-                        if (current.get_type() != Variant::NIL) {
+                        if (vgfast::vtype(current) != Variant::NIL) {
                             owner->set(name, value);
                             wrote_to_owner = true;
                         } else {
                             String snake = name.to_snake_case();
                             if (snake != name) {
                                 current = owner->get(snake);
-                                if (current.get_type() != Variant::NIL) {
+                                if (vgfast::vtype(current) != Variant::NIL) {
                                     owner->set(snake, value);
                                     wrote_to_owner = true;
                                 }
@@ -2572,12 +3837,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 
-                if (evidence_on && variables.has(name)) {
-                    vg_evidence_note_module_write(script.ptr(), current_sub, debug_state.current_line, "bytecode", name, evidence_old, variables[name]);
+                if (evidence_on && variables.has(key_name)) {
+                    vg_evidence_note_module_write(script.ptr(), current_sub, debug_state.current_line, "bytecode", name, evidence_old, variables[key_name]);
                 }
 
-                // Trigger Whenever system (must match assign_variable behavior)
-                check_whenever_conditions(name, variables[name]);
+                // Trigger Whenever system (must match assign_variable behavior).
+                // Same early-out as check_whenever_conditions, hoisted so the
+                // no-Whenever case skips the extra Dictionary read.
+                if (!whenever_init_suppress && !whenever_sections.is_empty()) {
+                    check_whenever_conditions(name, had_existing ? *existing_ptr : variables[key_name]);
+                }
                 check_expression_conditions();
                 
                 break;
@@ -2655,7 +3924,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // control-name / form-lookup resolution below, unchanged.
                 if (slot < locals.size() && (!needs_var_sync || isolated_locals || is_fast_slot(slot))) {
                     const Variant &lv = locals[slot];
-                    if (lv.get_type() != Variant::NIL) {
+                    if (vgfast::vtype(lv) != Variant::NIL) {
                         push_value(lv);
                         break;
                     }
@@ -2673,7 +3942,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 // If local is NIL, check if it's actually a control name (VB6 style)
                 // or a form name reference (Form1.BackColor from within Form1)
-                if (val.get_type() == Variant::NIL && owner && !declared_slot) {
+                if (vgfast::vtype(val) == Variant::NIL && owner && !declared_slot) {
                     String local_name;
                     if (slot < chunk->local_names.size()) {
                         local_name = chunk->local_names[slot];
@@ -2697,7 +3966,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                         // Cross-form reference: search scene tree for another form
-                        if (val.get_type() == Variant::NIL) {
+                        if (vgfast::vtype(val) == Variant::NIL) {
                             SceneTree *tree = Object::cast_to<SceneTree>(Engine::get_singleton()->get_main_loop());
                             if (tree) {
                                 Window *root = tree->get_root();
@@ -2710,7 +3979,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                         }
                                     }
                                     // VB6 auto-load: try to load .tscn from project
-                                    if (val.get_type() == Variant::NIL) {
+                                    if (vgfast::vtype(val) == Variant::NIL) {
                                         String tscn_path = "res://" + local_name + ".tscn";
                                         if (ResourceLoader::get_singleton()->exists(tscn_path)) {
                                             Ref<PackedScene> scene = ResourceLoader::get_singleton()->load(tscn_path);
@@ -2726,7 +3995,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                             }
                         }
-                        if (val.get_type() == Variant::NIL) {
+                        if (vgfast::vtype(val) == Variant::NIL) {
                             Variant vb6_owner_prop;
                             if (VisualGasicInstance::try_read_vb6_property(owner, local_name, vb6_owner_prop)) {
                                 val = vb6_owner_prop;
@@ -2748,8 +4017,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                Variant value = pop_value();
-                sync_local(slot, value);
+                sync_local_owned(slot, pop_value());
                 break;
             }
             VG_CASE(vg_op_push_scope, OP_PUSH_SCOPE): {
@@ -2848,6 +4116,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
+                // Vector2 / Vector3 / Color divided by a tuple or scalar is
+                // Godot's component-wise division (shared with the AST tier
+                // through vg_divide_non_scalar); `/` on VB scalars is the
+                // Double division below.
+                {
+                    const Variant &bv = vm.stack.back();
+                    const Variant &av = vm.stack[vm.stack.size() - 2];
+                    if (!vg_is_vb_scalar(vgfast::vtype(av)) || !vg_is_vb_scalar(vgfast::vtype(bv))) {
+                        Variant result;
+                        if (vg_divide_non_scalar(av, bv, result)) {
+                            vm.stack.pop_back();
+                            vm.stack.pop_back();
+                            push_value(std::move(result));
+                            break;
+                        }
+                    }
+                }
                 Variant b = pop_value();
                 Variant a = pop_value();
                 // Check for division by zero
@@ -2869,11 +4154,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant b = pop_value();
                 Variant a = pop_value();
                 // GDScript-style string format: "fmt" % value
-                if (a.get_type() == Variant::STRING) {
+                if (vgfast::vtype(a) == Variant::STRING) {
                     String fmt = a;
                     // Godot's String::operator% expects Array for multiple placeholders
                     // or single Variant. Wrap non-Array values in Array for consistency.
-                    if (b.get_type() == Variant::ARRAY) {
+                    if (vgfast::vtype(b) == Variant::ARRAY) {
                         push_value(Variant(fmt % b));
                     } else {
                         Array arr;
@@ -2976,7 +4261,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant b = pop_value();
                 Variant a = pop_value();
                 // Fast path: avoid conversion if already strings
-                if (a.get_type() == Variant::STRING && b.get_type() == Variant::STRING) {
+                if (vgfast::vtype(a) == Variant::STRING && vgfast::vtype(b) == Variant::STRING) {
                     push_value(Variant(String(a) + String(b)));
                 } else {
                     push_value(Variant(String(a) + String(b)));
@@ -3068,8 +4353,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value((int64_t)(a + b));
@@ -3087,8 +4372,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value((int64_t)(a - b));
@@ -3106,8 +4391,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value((int64_t)(a * b));
@@ -3125,7 +4410,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 {
                     Variant bv2 = pop_value();
                     Variant av2 = pop_value();
-                    Variant::Type at2 = av2.get_type(), bt2 = bv2.get_type();
+                    Variant::Type at2 = vgfast::vtype(av2), bt2 = vgfast::vtype(bv2);
                     bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
                     bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
                     if (an2 && bn2) {
@@ -3147,7 +4432,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 {
                     Variant bv2 = pop_value();
                     Variant av2 = pop_value();
-                    Variant::Type at2 = av2.get_type(), bt2 = bv2.get_type();
+                    Variant::Type at2 = vgfast::vtype(av2), bt2 = vgfast::vtype(bv2);
                     bool an2 = (at2 == Variant::INT || at2 == Variant::FLOAT || at2 == Variant::BOOL || at2 == Variant::NIL);
                     bool bn2 = (bt2 == Variant::INT || bt2 == Variant::FLOAT || bt2 == Variant::BOOL || bt2 == Variant::NIL);
                     if (an2 && bn2) {
@@ -3170,8 +4455,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant av = pop_value();
                 // Only use fast float path for numeric types; fall back to
                 // generic Variant::evaluate for Vector2, Color, etc.
-                Variant::Type at = av.get_type();
-                Variant::Type bt = bv.get_type();
+                Variant::Type at = vgfast::vtype(av);
+                Variant::Type bt = vgfast::vtype(bv);
                 bool a_numeric = (at == Variant::INT || at == Variant::FLOAT || at == Variant::BOOL || at == Variant::NIL);
                 bool b_numeric = (bt == Variant::INT || bt == Variant::FLOAT || bt == Variant::BOOL || bt == Variant::NIL);
                 if (a_numeric && b_numeric) {
@@ -3206,7 +4491,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 {
                     Variant bv3 = pop_value();
                     Variant av3 = pop_value();
-                    Variant::Type at3 = av3.get_type(), bt3 = bv3.get_type();
+                    Variant::Type at3 = vgfast::vtype(av3), bt3 = vgfast::vtype(bv3);
                     bool an3 = (at3 == Variant::INT || at3 == Variant::FLOAT || at3 == Variant::BOOL || at3 == Variant::NIL);
                     bool bn3 = (bt3 == Variant::INT || bt3 == Variant::FLOAT || bt3 == Variant::BOOL || bt3 == Variant::NIL);
                     if (an3 && bn3) {
@@ -3235,13 +4520,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t a;
                 {
                     const Variant &av = vm.stack[vm.stack.size() - 1];
-                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                 }
                 int64_t c;
                 {
                     const Variant &cv = read_constant(idx);
-                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                    c = (vgfast::vtype(cv) == Variant::INT) ? vgfast::vint(cv) : to_int(cv);
                 }
                 push_value((int64_t)(a + c));
                 break;
@@ -3254,13 +4539,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t a;
                 {
                     const Variant &av = vm.stack[vm.stack.size() - 1];
-                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                 }
                 int64_t c;
                 {
                     const Variant &cv = read_constant(idx);
-                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                    c = (vgfast::vtype(cv) == Variant::INT) ? vgfast::vint(cv) : to_int(cv);
                 }
                 push_value((int64_t)(a - c));
                 break;
@@ -3273,13 +4558,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t a;
                 {
                     const Variant &av = vm.stack[vm.stack.size() - 1];
-                    a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                 }
                 int64_t c;
                 {
                     const Variant &cv = read_constant(idx);
-                    c = (cv.get_type() == Variant::INT) ? (int64_t)cv : (int64_t)((double)cv);
+                    c = (vgfast::vtype(cv) == Variant::INT) ? vgfast::vint(cv) : to_int(cv);
                 }
                 push_value((int64_t)(a * c));
                 break;
@@ -3358,7 +4643,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
                 int64_t idx = to_int(pop_value());
                 Variant &arr_v = locals.write[slot];
-                if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(arr_v) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array *arr = VariantInternal::get_int64_array(&arr_v);
                     if (idx < 0 || idx >= arr->size()) {
                         raise_error("Array subscript out of range", 9);
@@ -3367,7 +4652,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         goto cleanup;
                     }
                     push_value((int64_t)(*arr)[(int)idx]);
-                } else if (arr_v.get_type() == Variant::ARRAY) {
+                } else if (vgfast::vtype(arr_v) == Variant::ARRAY) {
                     Array *arr = VariantInternal::get_array(&arr_v);
                     if (idx < 0 || idx >= arr->size()) {
                         raise_error("Array subscript out of range", 9);
@@ -3391,7 +4676,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t value = to_int(pop_value());
                 int64_t idx = to_int(pop_value());
                 Variant &arr_v = locals.write[slot];
-                if (arr_v.get_type() == Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(arr_v) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array *arr = VariantInternal::get_int64_array(&arr_v);
                     if (idx < 0 || idx >= arr->size()) {
                         raise_error("Array subscript out of range", 9);
@@ -3400,7 +4685,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         goto cleanup;
                     }
                     (*arr)[(int)idx] = value;
-                } else if (arr_v.get_type() == Variant::ARRAY) {
+                } else if (vgfast::vtype(arr_v) == Variant::ARRAY) {
                     Array *arr = VariantInternal::get_array(&arr_v);
                     if (idx < 0 || idx >= arr->size()) {
                         raise_error("Array subscript out of range", 9);
@@ -3487,7 +4772,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant value = pop_value();
                 int64_t length = 0;
-                switch (value.get_type()) {
+                switch (vgfast::vtype(value)) {
                     case Variant::STRING:
                     case Variant::STRING_NAME:
                         length = String(value).length();
@@ -3525,6 +4810,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case Variant::PACKED_COLOR_ARRAY:
                         length = ((PackedColorArray)value).size();
                         break;
+                    case Variant::PACKED_VECTOR4_ARRAY:
+                        length = ((PackedVector4Array)value).size();
+                        break;
                     default:
                         length = 0;
                         break;
@@ -3556,8 +4844,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value(a == b);
@@ -3569,8 +4857,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value(a != b);
@@ -3582,8 +4870,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value(a <= b);
@@ -3595,8 +4883,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.stack.size() >= 2) {
                     const Variant &bv = vm.stack[vm.stack.size() - 1];
                     const Variant &av = vm.stack[vm.stack.size() - 2];
-                    int64_t b = (bv.get_type() == Variant::INT) ? (int64_t)bv : (int64_t)((double)bv);
-                    int64_t a = (av.get_type() == Variant::INT) ? (int64_t)av : (int64_t)((double)av);
+                    int64_t b = (vgfast::vtype(bv) == Variant::INT) ? vgfast::vint(bv) : to_int(bv);
+                    int64_t a = (vgfast::vtype(av) == Variant::INT) ? vgfast::vint(av) : to_int(av);
                     vm.stack.pop_back();
                     vm.stack.pop_back();
                     push_value(a < b);
@@ -3615,8 +4903,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (hp_slot >= locals.size() || st_slot >= locals.size() || sum_slot >= locals.size()) {
                     success = false; goto cleanup;
                 }
-                if (locals[hp_slot].get_type() != Variant::PACKED_INT64_ARRAY ||
-                        locals[st_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(locals[hp_slot]) != Variant::PACKED_INT64_ARRAY ||
+                        vgfast::vtype(locals[st_slot]) != Variant::PACKED_INT64_ARRAY) {
                     raise_error("OP_PACKED_HP_STATE_TICK requires PackedInt64Array locals");
                     success = false; goto cleanup;
                 }
@@ -3624,7 +4912,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 PackedInt64Array *st = VariantInternal::get_int64_array(&locals.write[st_slot]);
                 PackedInt64Array *tag = nullptr;
                 if (tag_slot != 255) {
-                    if (tag_slot >= locals.size() || locals[tag_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                    if (tag_slot >= locals.size() || vgfast::vtype(locals[tag_slot]) != Variant::PACKED_INT64_ARRAY) {
                         success = false; goto cleanup;
                     }
                     tag = VariantInternal::get_int64_array(&locals.write[tag_slot]);
@@ -3674,8 +4962,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (px_slot >= locals.size() || py_slot >= locals.size()) {
                     success = false; goto cleanup;
                 }
-                if (locals[px_slot].get_type() != Variant::PACKED_INT64_ARRAY ||
-                        locals[py_slot].get_type() != Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(locals[px_slot]) != Variant::PACKED_INT64_ARRAY ||
+                        vgfast::vtype(locals[py_slot]) != Variant::PACKED_INT64_ARRAY) {
                     raise_error("OP_PACKED_NEAREST_I64 requires PackedInt64Array locals");
                     success = false; goto cleanup;
                 }
@@ -3712,8 +5000,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant b = pop_value();
                 Variant a = pop_value();
                 // VB6: bitwise when both operands are numeric, logical otherwise
-                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
-                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                if ((vgfast::vtype(a) == Variant::INT || vgfast::vtype(a) == Variant::FLOAT) &&
+                    (vgfast::vtype(b) == Variant::INT || vgfast::vtype(b) == Variant::FLOAT)) {
                     push_value(Variant((int64_t)a & (int64_t)b));
                 } else {
                     push_value(to_bool(a) && to_bool(b));
@@ -3724,8 +5012,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant b = pop_value();
                 Variant a = pop_value();
-                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
-                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                if ((vgfast::vtype(a) == Variant::INT || vgfast::vtype(a) == Variant::FLOAT) &&
+                    (vgfast::vtype(b) == Variant::INT || vgfast::vtype(b) == Variant::FLOAT)) {
                     push_value(Variant((int64_t)a | (int64_t)b));
                 } else {
                     push_value(to_bool(a) || to_bool(b));
@@ -3736,8 +5024,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant b = pop_value();
                 Variant a = pop_value();
-                if ((a.get_type() == Variant::INT || a.get_type() == Variant::FLOAT) &&
-                    (b.get_type() == Variant::INT || b.get_type() == Variant::FLOAT)) {
+                if ((vgfast::vtype(a) == Variant::INT || vgfast::vtype(a) == Variant::FLOAT) &&
+                    (vgfast::vtype(b) == Variant::INT || vgfast::vtype(b) == Variant::FLOAT)) {
                     push_value(Variant((int64_t)a ^ (int64_t)b));
                 } else {
                     bool ab = to_bool(a);
@@ -3759,7 +5047,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
                 int offset = (hi << 8) | lo;
-                bool condition = to_bool(pop_value());
+                bool condition;
+                if (vm.stack.size() > stack_base) {
+                    // Test in place, then drop: avoids the moved-out temporary's
+                    // construct/destroy pair that pop_value() would cost.
+                    condition = to_bool(vm.stack.back());
+                    vm.stack.pop_back();
+                } else {
+                    condition = to_bool(pop_value());
+                }
                 if (!condition) {
                     vm.ip += offset;
                 }
@@ -3770,7 +5066,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t hi = code[vm.ip++];
                 uint8_t lo = code[vm.ip++];
                 int offset = (hi << 8) | lo;
-                bool condition = to_bool(pop_value());
+                bool condition;
+                if (vm.stack.size() > stack_base) {
+                    condition = to_bool(vm.stack.back());
+                    vm.stack.pop_back();
+                } else {
+                    condition = to_bool(pop_value());
+                }
                 if (condition) {
                     vm.ip += offset;
                 }
@@ -3782,6 +5084,85 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t lo = code[vm.ip++];
                 int offset = (hi << 8) | lo;
                 vm.ip -= offset;
+                break;
+            }
+            VG_CASE(vg_op_foreach_step, OP_FOREACH_STEP): {
+                // [COLL_SLOT] [IDX_SLOT] [VAR_SLOT] [EXIT_HI] [EXIT_LO]
+                // Fused For Each header — behaviour-identical to the sequence
+                //   GET idx; GET coll; LEN; GREATER_EQUAL; JUMP_IF_TRUE exit;
+                //   GET coll; GET idx; GET_ARRAY 1; SET var
+                // the compiler used to emit (Len() of a non-collection is 0, so
+                // the body never runs for Nothing / objects / numbers).
+                if (vm.ip + 4 >= code_size) { success = false; goto cleanup; }
+                const uint8_t coll_slot = code[vm.ip++];
+                const uint8_t idx_slot = code[vm.ip++];
+                const uint8_t var_slot = code[vm.ip++];
+                const uint8_t exit_hi = code[vm.ip++];
+                const uint8_t exit_lo = code[vm.ip++];
+                const int exit_offset = (exit_hi << 8) | exit_lo;
+                const int64_t fe_idx = read_local_i64(idx_slot);
+                // read_local() honours Whenever var-sync; the fast reference is
+                // enough when the slot is a plain local.
+                Variant fe_coll_slow;
+                const Variant *fe_coll = nullptr;
+                if (coll_slot < locals.size() && (!needs_var_sync || isolated_locals || is_fast_slot(coll_slot))) {
+                    fe_coll = &locals[coll_slot];
+                } else {
+                    fe_coll_slow = read_local(coll_slot);
+                    fe_coll = &fe_coll_slow;
+                }
+                const Variant::Type ct = fe_coll->get_type();
+                if (ct == Variant::ARRAY || (ct >= Variant::PACKED_BYTE_ARRAY && ct <= Variant::PACKED_VECTOR4_ARRAY)) {
+                    bool _valid = false, _oob = false;
+                    Variant elem = (fe_idx >= 0) ? fe_coll->get_indexed(fe_idx, _valid, _oob) : Variant();
+                    if (fe_idx < 0 || !_valid || _oob) {
+                        // idx >= Len(coll) (or a negative index, which the old
+                        // header would also have bounced via GREATER_EQUAL=false
+                        // then GET_ARRAY error 9 — unreachable: idx starts at 0
+                        // and only ever increments).
+                        vm.ip += exit_offset;
+                        break;
+                    }
+                    sync_local(var_slot, elem);
+                    break;
+                }
+                // Cold types: same Len() table as OP_LEN, same element rules
+                // as OP_GET_ARRAY.
+                int64_t fe_len = 0;
+                switch (ct) {
+                    case Variant::STRING:
+                    case Variant::STRING_NAME:
+                        fe_len = String(*fe_coll).length();
+                        break;
+                    case Variant::DICTIONARY:
+                        fe_len = ((Dictionary)*fe_coll).size();
+                        break;
+                    default:
+                        fe_len = 0;
+                        break;
+                }
+                if (fe_idx >= fe_len) {
+                    vm.ip += exit_offset;
+                    break;
+                }
+                Variant fe_elem;
+                if (ct == Variant::DICTIONARY) {
+                    Dictionary dict = *fe_coll;
+                    if (dict.has("__vg_lambda") && (bool)dict["__vg_lambda"]) {
+                        Array call_args;
+                        call_args.push_back(fe_idx);
+                        fe_elem = invoke_lambda(dict, call_args);
+                    } else {
+                        fe_elem = dict.get(vg_dictionary_key(fe_idx), Variant());
+                    }
+                } else if (!try_variant_subscript_get(*fe_coll, fe_idx, fe_elem)) {
+                    raise_error("Unsupported array base type");
+                    // Statement context: nothing to push on recovery.
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                sync_local(var_slot, fe_elem);
                 break;
             }
             VG_CASE(vg_op_draw_rect, OP_DRAW_RECT): {
@@ -4367,15 +5748,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // materialize a real Array from this buffer locally, on demand.  A
                 // small inline array covers the common arity; >8 args spill to heap.
                 constexpr int OPCALL_INLINE_ARGS = 8;
-                Variant _opcall_args_inline[OPCALL_INLINE_ARGS];
-                Vector<Variant> _opcall_args_heap;
-                Variant* args_ptr = _opcall_args_inline;
-                if (arg_count > OPCALL_INLINE_ARGS) {
-                    _opcall_args_heap.resize(arg_count);
-                    args_ptr = _opcall_args_heap.ptrw();
-                }
-                for (int i = arg_count - 1; i >= 0; i--) {
-                    args_ptr[i] = pop_value();
+                // Elements are move-constructed straight out of the operand
+                // stack (byte swaps), then the stack is trimmed once: no
+                // per-slot engine new_nil/destroy for the inline capacity and
+                // no per-argument pop_back.
+                vgfast::VariantBuf<OPCALL_INLINE_ARGS> _opcall_args(arg_count);
+                Variant* args_ptr = _opcall_args.ptr;
+                {
+                    const size_t _first = vm.stack.size() - (size_t)arg_count;
+                    for (int i = 0; i < arg_count; i++) {
+                        _opcall_args.construct_move(i, std::move(vm.stack[_first + (size_t)i]));
+                    }
+                    vm.stack.resize(_first);
+                    if (stack_profile_enabled) {
+                        stack_profile_sample.pop_count += arg_count;
+                    }
                 }
                 // Part K: reference the method name straight from the per-constant
                 // member cache instead of rebuilding it (Variant copy + String ctor,
@@ -4385,7 +5772,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 const String &method = (name_idx >= 0 && name_idx < chunk->constants.size())
                     ? ensure_member_cache_entry(name_idx).primary_string
                     : _vg_empty_method_name;
-				_last_byref_captures.clear();
+				if (!_last_byref_captures.is_empty()) _last_byref_captures.clear();
 
                 // ── Draw builtin fast path (perf) ──
                 if (name_idx >= 0 && name_idx < chunk->constants.size()) {
@@ -4404,7 +5791,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (_mc.is_array_ctor) {
                         Array literal;
                         literal.resize(arg_count);
-                        for (int _ai = 0; _ai < arg_count; _ai++) literal[_ai] = args_ptr[_ai];
+                        // Inline payloads are copied raw into the fresh (NIL) slots;
+                        // everything else goes through the engine copy.
+                        for (int _ai = 0; _ai < arg_count; _ai++) vgfast::assign(literal[_ai], args_ptr[_ai]);
                         push_value(literal);
                         break;
                     }
@@ -4430,7 +5819,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 break;
                             case MemberNameCacheEntry::PB_INT:
                                 if (arg_count == 1) {
-                                    if (args_ptr[0].get_type() == Variant::INT) push_value((int64_t)args_ptr[0]);
+                                    if (vgfast::vtype(args_ptr[0]) == Variant::INT) push_value((int64_t)args_ptr[0]);
                                     else push_value((int64_t)floor((double)args_ptr[0]));
                                 } else _pb_done = false;
                                 break;
@@ -4451,9 +5840,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 #ifndef VG_WEB_BUILD
                 {
-                    if (!_t3_cached) _t3_cached = &vgjit3::thread_jit3();
+                    if (!_t3_cached) {
+                        if (!vm.jit3) vm.jit3 = &vgjit3::thread_jit3();
+                        _t3_cached = static_cast<vgjit3::Tier3 *>(vm.jit3);
+                    }
                     vgjit3::Tier3& t3 = *_t3_cached;
-                    if (t3.enabled() && func && !method.is_empty()) {
+                    if (t3.enabled() && func && !vgfast::str_empty(method)) {
                         std::string caller_name(func->name.utf8().get_data());
                         std::string callee_name(method.utf8().get_data());
                         if (!caller_name.empty() && !callee_name.empty()) {
@@ -4489,14 +5881,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // per-constant member_name_cache (Part F vehicle — local to this
                 // execute_bytecode run, so it persists across a hot loop's repeated
                 // calls to the same helper).  On a memo hit we do ZERO string work.
-                String _method_lower;   // lazily computed (cache miss / cascade only)
-                String _pc_res_key;     // lazily computed
+                // Lazily computed (cache miss / cascade only).  Held in OptString
+                // slots: two default-constructed Strings were two engine
+                // constructor + two destructor calls on EVERY memo-hit call.
+                vgfast::OptString _method_lower_slot;
+                vgfast::OptString _pc_res_key_slot;
+                auto _compute_call_keys = [&]() {
+                    _method_lower_slot.set_move(method.to_lower());
+                    _pc_res_key_slot.set_move(_method_lower_slot.get() + "#" + String::num_int64(arg_count));
+                };
                 bool _pb_known_user_sub = false;
                 bool _pc_engine_call = false;   // Part C: cached deep-fallback call (statement builtin / owner method)
                 const CallResolutionCacheEntry* _pc_pre_resolved = nullptr;   // Part I: threaded into call_internal on a hit
                 {
-                    const bool _cc_ok = (name_idx >= 0 && name_idx < member_name_cache.size());
-                    MemberNameCacheEntry *_cc = _cc_ok ? &member_name_cache.write[name_idx] : nullptr;
+                    const bool _cc_ok = (name_idx >= 0 && name_idx < (*member_name_cache_ptr).size());
+                    MemberNameCacheEntry *_cc = _cc_ok ? &(*member_name_cache_ptr).write[name_idx] : nullptr;
                     if (_cc && _cc->call_disp >= 0 && _cc->call_argc == (int)arg_count) {
                         // Memoized decision for this immutable site: no to_lower,
                         // no concat, no hashmap probe.
@@ -4507,8 +5906,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             _pc_engine_call = true;
                         }
                     } else {
-                        _method_lower = method.to_lower();
-                        _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
+                        _compute_call_keys();
+                        const String &_pc_res_key = _pc_res_key_slot.get();
                         if (_call_resolution_cache.has(_pc_res_key)) {
                             const CallResolutionCacheEntry &_pb_cached = _call_resolution_cache[_pc_res_key];
                             if (_pb_cached.resolved) {
@@ -4539,9 +5938,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // The cascade path (both flags false) still needs the lowered
                     // name for the special-name gate + the key for the engine-cache
                     // insert; compute them if the memo hit skipped that above.
-                    if (!_pb_known_user_sub && !_pc_engine_call && _pc_res_key.is_empty()) {
-                        _method_lower = method.to_lower();
-                        _pc_res_key = _method_lower + "#" + String::num_int64(arg_count);
+                    if (!_pb_known_user_sub && !_pc_engine_call && !_pc_res_key_slot.engaged()) {
+                        _compute_call_keys();
                     }
                 }
 
@@ -4582,7 +5980,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     for (const char *n : names) s.insert(String(n));
                     return s;
                 }();
-                if (!handled && _vg_special_call_names.has(_method_lower)) {
+                if (!handled && _vg_special_call_names.has(_method_lower_slot.get())) {
 
                 // VB6 Array() — build a Godot Array from the arguments
                 if (!handled && method.nocasecmp_to("Array") == 0) {
@@ -4787,6 +6185,39 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 }  // end Part B: skip builtin+special cascades for cached user Subs
 
+                // ── In-VM inline call (see inline_frame_push above) ──
+                // Only a site already resolved to a module-level user Sub with
+                // a compiled fast_params body, at module scope, in the host
+                // script, with no observer that reads per-call C++ state
+                // (debugger hook, evidence recorder, Whenever evaluation,
+                // Declare'd externs that could shadow the name, Tier 3 call
+                // graph).  The Tier 2 JIT keeps precedence: a body it has not
+                // tried yet still goes through call_internal so it can get hot.
+                if (!handled && _pb_known_user_sub && _pc_pre_resolved && inline_calls_ok &&
+                        _pc_pre_resolved->func && _pc_pre_resolved->chunk_for_locals &&
+                        _pc_pre_resolved->owning_module_index < 0 &&
+                        current_object_id == -1 && !needs_var_sync &&
+                        vgfast::str_empty(debug_bc_source_file) &&
+                        !vg_evidence_recording() && !whenever_evaluating &&
+                        declared_functions.is_empty() &&
+                        !VisualGasicLanguage::is_debug_hook_active()) {
+                    BytecodeChunk *_ic_chunk = _pc_pre_resolved->chunk_for_locals;
+                    SubDefinition *_ic_func = _pc_pre_resolved->func;
+                    bool _ic_ok = vg_chunk_inline_eligible(_ic_chunk, _ic_func);
+#ifndef VG_WEB_BUILD
+                    if (_ic_ok && _t3_cached && _t3_cached->enabled()) _ic_ok = false;
+#endif
+#if VG_JIT_NATIVE
+                    if (_ic_ok) {
+                        if (!vm.jit2) vm.jit2 = &vgjit2::thread_jit();
+                        _ic_ok = static_cast<vgjit2::Tier2 *>(vm.jit2)->settled_not_native(_ic_chunk);
+                    }
+#endif
+                    if (_ic_ok && inline_frame_push(_ic_chunk, _ic_func, args_ptr, arg_count)) {
+                        break;   // the callee's first opcode dispatches next
+                    }
+                }
+
                 if (!handled) {
                     bool found = false;
                     if (!_pc_engine_call) {
@@ -4835,12 +6266,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             }
                         }
                         if (have_var) {
-                            if (v.get_type() == Variant::ARRAY) {
+                            if (vgfast::vtype(v) == Variant::ARRAY) {
                                 // Array indexing: arr(idx) → arr[idx]
                                 Variant current = v;
                                 bool fail = false;
                                 for (int ai = 0; ai < args.size(); ai++) {
-                                    if (current.get_type() != Variant::ARRAY) {
+                                    if (vgfast::vtype(current) != Variant::ARRAY) {
                                         fail = true;
                                         break;
                                     }
@@ -4863,7 +6294,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     call_ret = current;
                                     found = true;
                                 }
-                            } else if (v.get_type() == Variant::DICTIONARY) {
+                            } else if (vgfast::vtype(v) == Variant::DICTIONARY) {
                                 Dictionary d = v;
                                 if (d.has("__vg_lambda") && (bool)d["__vg_lambda"]) {
                                     call_ret = invoke_lambda(d, args);
@@ -4873,7 +6304,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                     call_ret = d.get(vg_dictionary_key(args[0]), Variant());
                                     found = true;
                                 }
-                            } else if (v.get_type() >= Variant::PACKED_BYTE_ARRAY && v.get_type() <= Variant::PACKED_COLOR_ARRAY) {
+                            } else if (vgfast::vtype(v) >= Variant::PACKED_BYTE_ARRAY && vgfast::vtype(v) <= Variant::PACKED_COLOR_ARRAY) {
                                 // Packed array indexing
                                 if (args.size() == 1) {
                                     int idx = args[0];
@@ -4934,7 +6365,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             // undefined-name error path) and only at module-level
                             // scope, so class sibling-method calls are unaffected.
                             if (_pc_resolved_deep && !_pc_engine_call && current_object_id == -1) {
-                                _engine_call_cache.insert(_pc_res_key);
+                                if (!_pc_res_key_slot.engaged()) _compute_call_keys();
+                                _engine_call_cache.insert(_pc_res_key_slot.get());
                             }
                         }
                     }
@@ -4951,14 +6383,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // already branches correctly per mode (clears + resumes for
                 // RESUME_NEXT, unwinds Try/Catch, or returns false to abort
                 // for GOTO_LABEL/NONE).
+                // On Error Resume Next must leave the call's value slot filled
+                // (NIL, like every other expression-site recovery): `x = F()`
+                // continues with OP_SET_LOCAL, which underflowed when nothing
+                // was pushed — the VM then bailed without has_error and the AST
+                // fallback re-ran the whole procedure, repeating its side effects.
                 if (error_state.has_error) {
-                    if (!try_recover_error(Variant(), false)) {
+                    if (!try_recover_error(Variant(), true)) {
                         success = false;
                         goto cleanup;
                     }
                     break;
                 }
-                push_value(call_ret);
+                push_value(std::move(call_ret));
                 break;
             }
             VG_CASE(vg_op_return, OP_RETURN): {
@@ -4967,7 +6404,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_return_value, OP_RETURN_VALUE): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
-                explicit_return = pop_value();
+                if (vm.inline_frame_count > inline_base_count) {
+                    inline_frame_return(true);   // the Return value is the stack top
+                    break;
+                }
+                r_ret = pop_value();
                 has_explicit_return = true;
                 vm.ip = code_size;
                 break;
@@ -5047,6 +6488,32 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count + 1)) { success = false; goto cleanup; }
+                // Fast path for the overwhelmingly common `arr(i)` on a Godot
+                // Array / packed array with a numeric index: read straight from
+                // the stack slots (no indices Vector heap alloc, no base/index
+                // Variant copies) via one Variant::get_indexed call.  Only the
+                // in-range hit is claimed; out-of-range and every other base
+                // type fall through to the unchanged generic path so the error
+                // text and UNCHECKED semantics stay identical.
+                if (arg_count == 1) {
+                    const Variant &idx_ref = vm.stack[vm.stack.size() - 1];
+                    const Variant &base_ref = vm.stack[vm.stack.size() - 2];
+                    const Variant::Type bt = vgfast::vtype(base_ref);
+                    const Variant::Type it = vgfast::vtype(idx_ref);
+                    if ((bt == Variant::ARRAY || (bt >= Variant::PACKED_BYTE_ARRAY && bt <= Variant::PACKED_VECTOR4_ARRAY)) &&
+                            (it == Variant::INT || it == Variant::FLOAT)) {
+                        const int64_t idx = (it == Variant::INT) ? (int64_t)idx_ref : (int64_t)to_int(idx_ref);
+                        bool _valid = false, _oob = false;
+                        // idx >= 0: get_indexed wraps negatives Python-style,
+                        // VG raises "subscript out of range" for them.
+                        Variant fast_result = idx >= 0 ? base_ref.get_indexed(idx, _valid, _oob) : Variant();
+                        if (idx >= 0 && _valid && !_oob) {
+                            vm.stack.resize(vm.stack.size() - 2);
+                            push_value(fast_result);
+                            VG_BREAK;
+                        }
+                    }
+                }
                 Vector<Variant> indices;
                 indices.resize(arg_count);
                 for (int i = arg_count - 1; i >= 0; i--) {
@@ -5054,7 +6521,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant base = pop_value();
                 Variant result;
-                if (base.get_type() == Variant::ARRAY && arg_count == 1) {
+                if (vgfast::vtype(base) == Variant::ARRAY && arg_count == 1) {
                     Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5069,7 +6536,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = arr[idx];
                     }
-                } else if (base.get_type() == Variant::PACKED_STRING_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_STRING_ARRAY && arg_count == 1) {
                     PackedStringArray psa = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= psa.size()) {
@@ -5084,7 +6551,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = psa[idx];
                     }
-                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
                     PackedInt64Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5099,7 +6566,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((int64_t)arr[idx]);
                     }
-                } else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
                     PackedFloat64Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5114,7 +6581,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant(arr[idx]);
                     }
-                } else if (base.get_type() == Variant::PACKED_FLOAT32_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_FLOAT32_ARRAY && arg_count == 1) {
                     PackedFloat32Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5123,7 +6590,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((double)arr[idx]);
                     }
-                } else if (base.get_type() == Variant::PACKED_INT32_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_INT32_ARRAY && arg_count == 1) {
                     PackedInt32Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5132,7 +6599,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((int64_t)arr[idx]);
                     }
-                } else if (base.get_type() == Variant::PACKED_VECTOR3_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_VECTOR3_ARRAY && arg_count == 1) {
                     PackedVector3Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5141,7 +6608,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = arr[idx];
                     }
-                } else if (base.get_type() == Variant::PACKED_VECTOR2_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_VECTOR2_ARRAY && arg_count == 1) {
                     PackedVector2Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5150,7 +6617,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = arr[idx];
                     }
-                } else if (base.get_type() == Variant::PACKED_COLOR_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_COLOR_ARRAY && arg_count == 1) {
                     PackedColorArray arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5159,7 +6626,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = arr[idx];
                     }
-                } else if (base.get_type() == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
                     PackedByteArray arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5168,7 +6635,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     } else {
                         result = Variant((int64_t)arr[idx]);
                     }
-                } else if (base.get_type() == Variant::DICTIONARY) {
+                } else if (vgfast::vtype(base) == Variant::DICTIONARY) {
                     Dictionary dict = base;
                     if (dict.has("__vg_lambda") && (bool)dict["__vg_lambda"]) {
                         Array call_args;
@@ -5184,7 +6651,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 } else if (arg_count == 1 && try_variant_subscript_get(base, indices[0], result)) {
                     // INT object-id, Object-backed dicts, and other helper types
-                } else if (base.get_type() == Variant::NIL) {
+                } else if (vgfast::vtype(base) == Variant::NIL) {
                     raise_error("Object variable not set", 91);
                     if (try_recover_error(Variant())) break;
                     success = false;
@@ -5212,7 +6679,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant index_var = pop_value();
                 Variant base = pop_value();
-                if (base.get_type() == Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array arr = base;
                     int64_t idx = to_int(index_var);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5228,7 +6695,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(Variant((int64_t)arr[(int)idx]));
                     break;
                 }
-                if (base.get_type() == Variant::PACKED_STRING_ARRAY) {
+                if (vgfast::vtype(base) == Variant::PACKED_STRING_ARRAY) {
                     // Convert PackedStringArray to Array for uniform handling
                     PackedStringArray psa = base;
                     Array converted;
@@ -5236,7 +6703,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     for (int i = 0; i < psa.size(); i++) { converted[i] = psa[i]; }
                     base = converted;
                 }
-                if (base.get_type() != Variant::ARRAY) {
+                if (vgfast::vtype(base) != Variant::ARRAY) {
                     raise_error("Fast array base is not an array");
                     if (try_recover_error(Variant())) break;
                     success = false;
@@ -5272,7 +6739,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant key_var = pop_value();
                 Variant base = pop_value();
                 if (op == OP_GET_DICT_FAST) {
-                    if (base.get_type() != Variant::DICTIONARY) {
+                    if (vgfast::vtype(base) != Variant::DICTIONARY) {
                         raise_error("Fast dictionary base is not a dictionary");
                         if (try_recover_error(Variant())) break;
                         success = false;
@@ -5281,7 +6748,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 #ifdef DEBUG_ENABLED
                 else {
-                    if (base.get_type() != Variant::DICTIONARY) {
+                    if (vgfast::vtype(base) != Variant::DICTIONARY) {
                         raise_error("Trusted dictionary base is not a dictionary");
                         if (try_recover_error(Variant())) break;
                         success = false;
@@ -5309,7 +6776,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant base = pop_value();
                 Variant updated = base;
                 bool ok = true;
-                if (base.get_type() == Variant::ARRAY && arg_count == 1) {
+                if (vgfast::vtype(base) == Variant::ARRAY && arg_count == 1) {
                     Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5325,11 +6792,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         arr[idx] = value;
                         updated = arr;
                     }
-                } else if (base.get_type() == Variant::DICTIONARY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     dict[vg_dictionary_key(indices[0])] = value;
                     updated = dict;
-                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
                     PackedInt64Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5345,7 +6812,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         arr[idx] = (int64_t)to_int(value);
                         updated = arr;
                     }
-                } else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
                     PackedFloat64Array arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5361,7 +6828,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         arr[idx] = (double)value;
                         updated = arr;
                     }
-                } else if (base.get_type() == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
                     PackedByteArray arr = base;
                     int idx = (int)to_int(indices[0]);
                     if (idx < 0 || idx >= arr.size()) {
@@ -5377,14 +6844,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         arr.set(idx, (uint8_t)to_int(value));
                         updated = arr;
                     }
-                } else if (base.get_type() == Variant::OBJECT && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::OBJECT && arg_count == 1) {
                     if (!try_variant_subscript_set(updated, indices[0], value, updated)) {
                         raise_error("Unsupported array assignment base");
                         if (try_recover_error(base)) break;
                         success = false;
                         goto cleanup;
                     }
-                } else if (base.get_type() == Variant::INT && arg_count == 1) {
+                } else if (vgfast::vtype(base) == Variant::INT && arg_count == 1) {
                     if (!try_variant_subscript_set(updated, indices[0], value, updated)) {
                         raise_error("Unsupported array assignment base");
                         if (try_recover_error(base)) break;
@@ -5416,7 +6883,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant index_var = pop_value();
                 Variant base = pop_value();
                 int64_t idx = to_int(index_var);
-                if (base.get_type() == Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array arr = base;
                     if (idx < 0 || idx >= arr.size()) {
                         if (op == OP_SET_ARRAY_FAST_UNCHECKED) {
@@ -5432,7 +6899,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(arr);
                     break;
                 }
-                if (base.get_type() != Variant::ARRAY) {
+                if (vgfast::vtype(base) != Variant::ARRAY) {
                     raise_error("Fast array assignment base is not an array");
                     if (try_recover_error(base)) break;
                     success = false;
@@ -5469,7 +6936,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant key_var = pop_value();
                 Variant base = pop_value();
                 if (op == OP_SET_DICT_FAST) {
-                    if (base.get_type() != Variant::DICTIONARY) {
+                    if (vgfast::vtype(base) != Variant::DICTIONARY) {
                         raise_error("Fast dictionary assignment base is not a dictionary");
                         if (try_recover_error(base)) break;
                         success = false;
@@ -5478,7 +6945,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 #ifdef DEBUG_ENABLED
                 else {
-                    if (base.get_type() != Variant::DICTIONARY) {
+                    if (vgfast::vtype(base) != Variant::DICTIONARY) {
                         raise_error("Trusted dictionary assignment base is not a dictionary");
                         if (try_recover_error(base)) break;
                         success = false;
@@ -5589,7 +7056,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     int top = vm.stack.size() - 1;
                     const Variant &key_ref = vm.stack[top];
                     Variant *vptr = nullptr;
-                    if (key_ref.get_type() == Variant::STRING) {
+                    if (vgfast::vtype(key_ref) == Variant::STRING) {
                         vptr = vgdict_pool[slot].getptr(key_ref);
                     } else {
                         String skey = key_ref;
@@ -5616,7 +7083,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     // Stack: [..., key, value]  (value is TOS)
                     const Variant &val_ref = vm.stack[top];
                     const Variant &key_ref = vm.stack[top - 1];
-                    if (key_ref.get_type() == Variant::STRING) {
+                    if (vgfast::vtype(key_ref) == Variant::STRING) {
                         vgdict_pool[slot].set(key_ref, val_ref);
                     } else {
                         String skey = key_ref;
@@ -5631,13 +7098,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant arr_var = pop_value();
                 int64_t sum = 0;
-                if (arr_var.get_type() == Variant::PACKED_INT64_ARRAY) {
+                if (vgfast::vtype(arr_var) == Variant::PACKED_INT64_ARRAY) {
                     PackedInt64Array arr = arr_var;
                     const int count = arr.size();
                     for (int i = 0; i < count; i++) {
                         sum += arr[i];
                     }
-                } else if (arr_var.get_type() == Variant::ARRAY) {
+                } else if (vgfast::vtype(arr_var) == Variant::ARRAY) {
                     const Array *arr_ptr = VariantInternal::get_array(&arr_var);
                     int count = arr_ptr->size();
                     for (int i = 0; i < count; i++) {
@@ -5651,7 +7118,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 int64_t sum = 0;
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     Dictionary dict = dict_var;
                     Array keys = dict.keys();
                     for (int i = 0; i < keys.size(); i++) {
@@ -5693,7 +7160,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t count = to_int(pop_value());
                 Variant arr_var = pop_value();
                 Array arr;
-                if (arr_var.get_type() == Variant::ARRAY) {
+                if (vgfast::vtype(arr_var) == Variant::ARRAY) {
                     arr = arr_var;
                 }
                 if (count < 0) {
@@ -5781,7 +7248,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 
                 Variant result;
                 // VG class instance (object ID is an integer)
-                if (base.get_type() == Variant::INT) {
+                if (vgfast::vtype(base) == Variant::INT) {
                     int obj_id = (int)base;
                     if (object_instances.has(obj_id)) {
                         if (get_object_member(obj_id, cache.primary_string, result)) {
@@ -5799,72 +7266,72 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     }
                 }
-                if (base.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(base) == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&base);
                     String member = cache.primary_string;
                     if (member.nocasecmp_to("Count") == 0) result = dict->size();
                     else if (member.nocasecmp_to("Keys") == 0) result = dict->keys();
                     else if (member.nocasecmp_to("Items") == 0 || member.nocasecmp_to("Values") == 0) result = dict->values();
                     else result = dict->get(cache.primary_string, Variant());
-                } else if (base.get_type() == Variant::ARRAY) {
+                } else if (vgfast::vtype(base) == Variant::ARRAY) {
                     const Array *arr = VariantInternal::get_array(&base);
                     String member = cache.primary_string;
                     if (member.nocasecmp_to("Count") == 0 || member.nocasecmp_to("Length") == 0)
                         result = (int64_t)arr->size();
                     else result = Variant();
-                } else if (base.get_type() == Variant::PACKED_INT64_ARRAY ||
-                           base.get_type() == Variant::PACKED_FLOAT64_ARRAY ||
-                           base.get_type() == Variant::PACKED_STRING_ARRAY ||
-                           base.get_type() == Variant::PACKED_INT32_ARRAY ||
-                           base.get_type() == Variant::PACKED_FLOAT32_ARRAY) {
+                } else if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY ||
+                           vgfast::vtype(base) == Variant::PACKED_FLOAT64_ARRAY ||
+                           vgfast::vtype(base) == Variant::PACKED_STRING_ARRAY ||
+                           vgfast::vtype(base) == Variant::PACKED_INT32_ARRAY ||
+                           vgfast::vtype(base) == Variant::PACKED_FLOAT32_ARRAY) {
                     String member = cache.primary_string;
                     if (member.nocasecmp_to("Count") == 0 || member.nocasecmp_to("Length") == 0) {
                         int sz = 0;
-                        if (base.get_type() == Variant::PACKED_INT64_ARRAY) sz = VariantInternal::get_int64_array(&base)->size();
-                        else if (base.get_type() == Variant::PACKED_FLOAT64_ARRAY) sz = VariantInternal::get_float64_array(&base)->size();
-                        else if (base.get_type() == Variant::PACKED_STRING_ARRAY) sz = VariantInternal::get_string_array(&base)->size();
-                        else if (base.get_type() == Variant::PACKED_INT32_ARRAY) sz = VariantInternal::get_int32_array(&base)->size();
-                        else if (base.get_type() == Variant::PACKED_FLOAT32_ARRAY) sz = VariantInternal::get_float32_array(&base)->size();
+                        if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY) sz = VariantInternal::get_int64_array(&base)->size();
+                        else if (vgfast::vtype(base) == Variant::PACKED_FLOAT64_ARRAY) sz = VariantInternal::get_float64_array(&base)->size();
+                        else if (vgfast::vtype(base) == Variant::PACKED_STRING_ARRAY) sz = VariantInternal::get_string_array(&base)->size();
+                        else if (vgfast::vtype(base) == Variant::PACKED_INT32_ARRAY) sz = VariantInternal::get_int32_array(&base)->size();
+                        else if (vgfast::vtype(base) == Variant::PACKED_FLOAT32_ARRAY) sz = VariantInternal::get_float32_array(&base)->size();
                         result = (int64_t)sz;
                     } else result = Variant();
-                } else if (base.get_type() == Variant::VECTOR2) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR2) {
                     // Handle Vector2.x, Vector2.y member access
                     Vector2 vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
-                } else if (base.get_type() == Variant::VECTOR2I) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR2I) {
                     Vector2i vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
-                } else if (base.get_type() == Variant::VECTOR3I) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR3I) {
                     Vector3i vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
-                } else if (base.get_type() == Variant::VECTOR4I) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR4I) {
                     Vector4i vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
                     else if (member == "w") result = vec.w;
-                } else if (base.get_type() == Variant::RECT2I) {
+                } else if (vgfast::vtype(base) == Variant::RECT2I) {
                     Rect2i rect = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "position") result = rect.position;
                     else if (member == "size") result = rect.size;
                     else if (member == "end") result = rect.get_end();
-                } else if (base.get_type() == Variant::VECTOR3) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR3) {
                     // Handle Vector3.x, Vector3.y, Vector3.z member access
                     Vector3 vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
-                } else if (base.get_type() == Variant::COLOR) {
+                } else if (vgfast::vtype(base) == Variant::COLOR) {
                     // Handle Color.r, Color.g, Color.b, Color.a member access
                     Color col = base;
                     String member = cache.primary_string.to_lower();
@@ -5872,14 +7339,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "g" || member == "green") result = col.g;
                     else if (member == "b" || member == "blue") result = col.b;
                     else if (member == "a" || member == "alpha") result = col.a;
-                } else if (base.get_type() == Variant::RECT2) {
+                } else if (vgfast::vtype(base) == Variant::RECT2) {
                     // Handle Rect2.position, Rect2.size member access
                     Rect2 rect = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "position") result = rect.position;
                     else if (member == "size") result = rect.size;
                     else if (member == "end") result = rect.get_end();
-                } else if (base.get_type() == Variant::QUATERNION) {
+                } else if (vgfast::vtype(base) == Variant::QUATERNION) {
                     // Pass 1: Quaternion.x/y/z/w
                     Quaternion q = base;
                     String member = cache.primary_string.to_lower();
@@ -5887,7 +7354,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "y") result = q.y;
                     else if (member == "z") result = q.z;
                     else if (member == "w") result = q.w;
-                } else if (base.get_type() == Variant::PLANE) {
+                } else if (vgfast::vtype(base) == Variant::PLANE) {
                     // Pass 1: Plane.normal / .d / .x / .y / .z
                     Plane pl = base;
                     String member = cache.primary_string.to_lower();
@@ -5896,34 +7363,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "x") result = pl.normal.x;
                     else if (member == "y") result = pl.normal.y;
                     else if (member == "z") result = pl.normal.z;
-                } else if (base.get_type() == Variant::AABB) {
+                } else if (vgfast::vtype(base) == Variant::AABB) {
                     // Pass 1: AABB.position / .size / .end
                     AABB box = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "position") result = box.position;
                     else if (member == "size") result = box.size;
                     else if (member == "end") result = box.get_end();
-                } else if (base.get_type() == Variant::TRANSFORM2D) {
+                } else if (vgfast::vtype(base) == Variant::TRANSFORM2D) {
                     // Pass 1: Transform2D.origin / .x / .y (basis columns)
                     Transform2D t = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "origin") result = t.get_origin();
                     else if (member == "x") result = t.columns[0];
                     else if (member == "y") result = t.columns[1];
-                } else if (base.get_type() == Variant::TRANSFORM3D) {
+                } else if (vgfast::vtype(base) == Variant::TRANSFORM3D) {
                     // Pass 1: Transform3D.origin / .basis
                     Transform3D t = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "origin") result = t.origin;
                     else if (member == "basis") result = t.basis;
-                } else if (base.get_type() == Variant::BASIS) {
+                } else if (vgfast::vtype(base) == Variant::BASIS) {
                     // Pass 1: Basis.x / .y / .z (rows)
                     Basis b = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") result = b.rows[0];
                     else if (member == "y") result = b.rows[1];
                     else if (member == "z") result = b.rows[2];
-                } else if (base.get_type() == Variant::VECTOR4) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     // Pass 1: Vector4.x/y/z/w
                     Vector4 v = base;
                     String member = cache.primary_string.to_lower();
@@ -5931,7 +7398,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "y") result = v.y;
                     else if (member == "z") result = v.z;
                     else if (member == "w") result = v.w;
-                } else if (base.get_type() == Variant::OBJECT) {
+                } else if (vgfast::vtype(base) == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
                         // Node2D/Node3D engine properties (global_position, …)
@@ -5960,13 +7427,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             // Try to get disabled property using StringName
                             StringName disabled_sn = StringName("disabled");
                             Variant disabled_val = obj->get(disabled_sn);
-                            if (disabled_val.get_type() == Variant::BOOL) {
+                            if (vgfast::vtype(disabled_val) == Variant::BOOL) {
                                 result = !(bool)disabled_val;
                             } else {
                                 // Fallback: try editable property for LineEdit, etc.
                                 StringName editable_sn = StringName("editable");
                                 Variant editable_val = obj->get(editable_sn);
-                                if (editable_val.get_type() == Variant::BOOL) {
+                                if (vgfast::vtype(editable_val) == Variant::BOOL) {
                                     result = (bool)editable_val;
                                 } else {
                                     result = true; // Default to enabled
@@ -6048,7 +7515,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Locked → !editable (TextEdit/LineEdit)
                         else if (prop_name == "Locked") {
                             Variant ed = obj->get("editable");
-                            if (ed.get_type() == Variant::BOOL) {
+                            if (vgfast::vtype(ed) == Variant::BOOL) {
                                 result = !(bool)ed;
                             } else {
                                 result = false;
@@ -6132,7 +7599,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                             for (int fi = 0; fi < names.size(); fi++) {
                                                 if (String(names[fi]).findn("Bold") >= 0) { result = true; break; }
                                             }
-                                            if (result.get_type() == Variant::NIL) result = false;
+                                            if (vgfast::vtype(result) == Variant::NIL) result = false;
                                         } else {
                                             result = false;
                                         }
@@ -6270,7 +7737,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Editable → editable (direct, not inverted like Locked)
                         else if (prop_name == "Editable") {
                             Variant ed = obj->get("editable");
-                            if (ed.get_type() == Variant::BOOL) {
+                            if (vgfast::vtype(ed) == Variant::BOOL) {
                                 result = ed;
                             } else {
                                 result = true;
@@ -6600,14 +8067,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 return value;
                             }
                             value = obj->get(name);
-                            if (value.get_type() != Variant::NIL) {
+                            if (vgfast::vtype(value) != Variant::NIL) {
                                 return value;
                             }
                             return ClassDB::class_get_property(obj, name);
                         };
                         auto try_primary = [&]() -> bool {
                             Variant value = read_engine_prop(cache.primary_name);
-                            if (value.get_type() != Variant::NIL) {
+                            if (vgfast::vtype(value) != Variant::NIL) {
                                 result = value;
                                 set_class_pref(MemberNameCacheEntry::AccessPreference::PRIMARY);
                                 return true;
@@ -6619,7 +8086,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 return false;
                             }
                             Variant value = read_engine_prop(cache.snake_name);
-                            if (value.get_type() != Variant::NIL) {
+                            if (vgfast::vtype(value) != Variant::NIL) {
                                 result = value;
                                 set_class_pref(MemberNameCacheEntry::AccessPreference::SNAKE);
                                 return true;
@@ -6650,7 +8117,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // This handles ClassName.ENUM_VALUE (e.g. Input.MOUSE_MODE_CAPTURED)
                         // Try as-is first, then UPPER_CASE (tokeniser normalises keywords
                         // like READ → "Read" but Godot constants are ALL_CAPS).
-                        if (result.get_type() == Variant::NIL && obj) {
+                        if (vgfast::vtype(result) == Variant::NIL && obj) {
                             StringName cn = obj->get_class();
                             StringName mname = cache.primary_string;
                             if (!ClassDB::class_has_integer_constant(cn, mname)) {
@@ -6663,7 +8130,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // VB6-style child control access: Me.btnPlay, Form1.txtName
                         // If the property wasn't found on the object, try find_child()
                         // to locate a child node with that name.
-                        if (result.get_type() == Variant::NIL && obj) {
+                        if (vgfast::vtype(result) == Variant::NIL && obj) {
                             Node *node = Object::cast_to<Node>(obj);
                             if (node) {
                                 Node *child = node->find_child(cache.primary_string, true, false);
@@ -6693,7 +8160,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant value = pop_value();
                 Variant base = pop_value();
                 // VG class instance (object ID is an integer)
-                if (base.get_type() == Variant::INT) {
+                if (vgfast::vtype(base) == Variant::INT) {
                     int obj_id = (int)base;
                     if (object_instances.has(obj_id)) {
                         set_object_member(obj_id, cache.primary_string, value);
@@ -6701,25 +8168,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     }
                 }
-                if (base.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(base) == Variant::DICTIONARY) {
                     Dictionary *dict = VariantInternal::get_dictionary(&base);
                     (*dict)[cache.primary_string] = value;
                     push_value(base);  // Push modified dictionary back
-                } else if (base.get_type() == Variant::VECTOR2) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR2) {
                     // Value types need to be reconstructed
                     Vector2 vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") vec.x = (real_t)(double)value;
                     else if (member == "y") vec.y = (real_t)(double)value;
                     push_value(vec);
-                } else if (base.get_type() == Variant::VECTOR3) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR3) {
                     Vector3 vec = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") vec.x = (real_t)(double)value;
                     else if (member == "y") vec.y = (real_t)(double)value;
                     else if (member == "z") vec.z = (real_t)(double)value;
                     push_value(vec);
-                } else if (base.get_type() == Variant::COLOR) {
+                } else if (vgfast::vtype(base) == Variant::COLOR) {
                     Color col = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "r" || member == "red") col.r = (float)(double)value;
@@ -6727,7 +8194,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "b" || member == "blue") col.b = (float)(double)value;
                     else if (member == "a" || member == "alpha") col.a = (float)(double)value;
                     push_value(col);
-                } else if (base.get_type() == Variant::QUATERNION) {
+                } else if (vgfast::vtype(base) == Variant::QUATERNION) {
                     Quaternion q = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") q.x = (real_t)(double)value;
@@ -6735,7 +8202,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "z") q.z = (real_t)(double)value;
                     else if (member == "w") q.w = (real_t)(double)value;
                     push_value(q);
-                } else if (base.get_type() == Variant::PLANE) {
+                } else if (vgfast::vtype(base) == Variant::PLANE) {
                     Plane pl = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "normal") pl.normal = (Vector3)value;
@@ -6744,33 +8211,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "y") pl.normal.y = (real_t)(double)value;
                     else if (member == "z") pl.normal.z = (real_t)(double)value;
                     push_value(pl);
-                } else if (base.get_type() == Variant::AABB) {
+                } else if (vgfast::vtype(base) == Variant::AABB) {
                     AABB box = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "position") box.position = (Vector3)value;
                     else if (member == "size") box.size = (Vector3)value;
                     push_value(box);
-                } else if (base.get_type() == Variant::TRANSFORM2D) {
+                } else if (vgfast::vtype(base) == Variant::TRANSFORM2D) {
                     Transform2D t = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "origin") t.set_origin((Vector2)value);
                     else if (member == "x") t.columns[0] = (Vector2)value;
                     else if (member == "y") t.columns[1] = (Vector2)value;
                     push_value(t);
-                } else if (base.get_type() == Variant::TRANSFORM3D) {
+                } else if (vgfast::vtype(base) == Variant::TRANSFORM3D) {
                     Transform3D t = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "origin") t.origin = (Vector3)value;
                     else if (member == "basis") t.basis = (Basis)value;
                     push_value(t);
-                } else if (base.get_type() == Variant::BASIS) {
+                } else if (vgfast::vtype(base) == Variant::BASIS) {
                     Basis b = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") b.rows[0] = (Vector3)value;
                     else if (member == "y") b.rows[1] = (Vector3)value;
                     else if (member == "z") b.rows[2] = (Vector3)value;
                     push_value(b);
-                } else if (base.get_type() == Variant::VECTOR4) {
+                } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     Vector4 v = base;
                     String member = cache.primary_string.to_lower();
                     if (member == "x") v.x = (real_t)(double)value;
@@ -6778,7 +8245,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "z") v.z = (real_t)(double)value;
                     else if (member == "w") v.w = (real_t)(double)value;
                     push_value(v);
-                } else if (base.get_type() == Variant::OBJECT) {
+                } else if (vgfast::vtype(base) == Variant::OBJECT) {
                     Object *obj = base;
                     if (obj) {
                         if (try_native_node_property_set(obj, cache.primary_string, value)) {
@@ -6802,14 +8269,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             // Check if object has "disabled" property (Button, CheckBox, etc.)
                             // or "editable" property (LineEdit, TextEdit)
                             Variant test_disabled = obj->get("disabled");
-                            if (test_disabled.get_type() == Variant::BOOL) {
+                            if (vgfast::vtype(test_disabled) == Variant::BOOL) {
                                 godot_prop = "disabled";
                                 // Invert the boolean for Godot's "disabled" property
                                 value = !(bool)value;
                             } else {
                                 // Try editable for LineEdit/TextEdit
                                 Variant test_editable = obj->get("editable");
-                                if (test_editable.get_type() == Variant::BOOL) {
+                                if (vgfast::vtype(test_editable) == Variant::BOOL) {
                                     godot_prop = "editable";
                                     // editable is not inverted (Enabled=True means editable=True)
                                 }
@@ -6891,7 +8358,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         // Locked → !editable (TextEdit/LineEdit)
                         else if (prop_name == "Locked") {
                             Variant test_ed = obj->get("editable");
-                            if (test_ed.get_type() == Variant::BOOL) {
+                            if (vgfast::vtype(test_ed) == Variant::BOOL) {
                                 obj->set("editable", !(bool)value);
                             }
                             push_value(base);
@@ -7219,12 +8686,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         else if (prop_name == "Picture") {
                             TextureRect *tr = Object::cast_to<TextureRect>(obj);
                             if (tr) {
-                                if (value.get_type() == Variant::STRING) {
+                                if (vgfast::vtype(value) == Variant::STRING) {
                                     String path = value;
                                     Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path);
                                     if (tex.is_valid()) tr->set_texture(tex);
                                     obj->set_meta("vg_picture_path", path);
-                                } else if (value.get_type() == Variant::OBJECT) {
+                                } else if (vgfast::vtype(value) == Variant::OBJECT) {
                                     Ref<Texture2D> tex = value;
                                     if (tex.is_valid()) tr->set_texture(tex);
                                 }
@@ -7239,11 +8706,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         else if (prop_name == "Icon") {
                             Button *btn = Object::cast_to<Button>(obj);
                             if (btn) {
-                                if (value.get_type() == Variant::STRING) {
+                                if (vgfast::vtype(value) == Variant::STRING) {
                                     String path = value;
                                     Ref<Texture2D> tex = ResourceLoader::get_singleton()->load(path);
                                     if (tex.is_valid()) btn->set_button_icon(tex);
-                                } else if (value.get_type() == Variant::OBJECT) {
+                                } else if (vgfast::vtype(value) == Variant::OBJECT) {
                                     Ref<Texture2D> tex = value;
                                     if (tex.is_valid()) btn->set_button_icon(tex);
                                 }
@@ -7518,7 +8985,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 // First time: try primary, then snake if needed
                                 obj->set(cache.primary_name, value);
                                 Variant verify = obj->get(cache.primary_name);
-                                if (verify.get_type() == Variant::NIL) {
+                                if (vgfast::vtype(verify) == Variant::NIL) {
                                     if (ensure_snake_case(cache)) {
                                         obj->set(cache.snake_name, value);
                                         set_class_pref(MemberNameCacheEntry::AccessPreference::SNAKE);
@@ -7547,7 +9014,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_abs, OP_ABS): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant value = pop_value();
-                if (value.get_type() == Variant::INT) {
+                if (vgfast::vtype(value) == Variant::INT) {
                     push_value(Math::abs((int64_t)value));
                 } else {
                     push_value(Math::abs(to_double(value)));
@@ -7614,7 +9081,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant key = pop_value();
                 Variant dict_var = pop_value();
                 bool result = false;
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     result = dict->has(key);
                 }
@@ -7625,7 +9092,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 int64_t size = 0;
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     size = dict->size();
                 }
@@ -7635,7 +9102,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_dict_clear_inplace, OP_DICT_CLEAR_INPLACE): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     dict->clear();
                 }
@@ -7646,7 +9113,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 Array keys;
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     keys = dict->keys();
                 }
@@ -7657,7 +9124,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant dict_var = pop_value();
                 Array values;
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     const Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     values = dict->values();
                 }
@@ -7668,7 +9135,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant key = pop_value();
                 Variant dict_var = pop_value();
-                if (dict_var.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(dict_var) == Variant::DICTIONARY) {
                     Dictionary *dict = VariantInternal::get_dictionary(&dict_var);
                     dict->erase(key);
                 }
@@ -7680,7 +9147,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
                 int data_idx = read_const_index();
                 Variant data_var = read_constant(data_idx);
-                if (data_var.get_type() != Variant::DICTIONARY) {
+                if (vgfast::vtype(data_var) != Variant::DICTIONARY) {
                     UtilityFunctions::printerr("VisualGasic: OP_REGISTER_WHENEVER expected Dictionary");
                     success = false;
                     goto cleanup;
@@ -7787,7 +9254,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Reset DATA pointer based on value on stack
                 // -1 means reset to start, otherwise it's a label name to restore to
                 Variant restore_val = pop_value();
-                if (restore_val.get_type() == Variant::INT && (int64_t)restore_val == -1) {
+                if (vgfast::vtype(restore_val) == Variant::INT && (int64_t)restore_val == -1) {
                     data_pointer = 0;
                     break;
                 }
@@ -7922,7 +9389,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // moves.  The unconditional resolve + three String copies per
                 // executed line were ~5% of the Backlight City build.
                 if (!VisualGasicLanguage::is_debug_hook_active()) {
-                    if (!debug_bc_source_file.is_empty()) {
+                    if (!vgfast::str_empty(debug_bc_source_file)) {
                         debug_state.current_file = debug_bc_source_file;
                         debug_state.current_file_script = nullptr;
                         debug_state.current_file_id = -2;
@@ -8289,7 +9756,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant class_v = pop_value(); // class name (String)
                 Variant obj_v   = pop_value(); // object
                 bool result = false;
-                if (obj_v.get_type() == Variant::OBJECT && class_v.get_type() == Variant::STRING) {
+                if (vgfast::vtype(obj_v) == Variant::OBJECT && vgfast::vtype(class_v) == Variant::STRING) {
                     Object* obj = Object::cast_to<Object>(obj_v);
                     if (obj) result = obj->is_class(String(class_v));
                 }
@@ -8305,16 +9772,6 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t arg_count = code[vm.ip++];
                 if (!ensure_stack(arg_count + 1)) { success = false; goto cleanup; }
 
-                // Pop arguments (reverse order)
-                Array args;
-                args.resize(arg_count);
-                for (int i = arg_count - 1; i >= 0; i--) {
-                    args[i] = pop_value();
-                }
-                // Pop the base object
-                Variant base = pop_value();
-                String method = read_constant(name_idx);
-
                 Variant call_ret;
                 bool handled = false;
 
@@ -8326,18 +9783,105 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Vectors for the argument pointers. Use the per-constant cached
                 // StringName and call directly. Claimed only when has_method is
                 // true, so a miss falls through to the unchanged cascade.
+                // The arguments stay on the VM stack (callp only needs pointers)
+                // and the receiver is mutated IN PLACE on the stack slot — no
+                // godot Array, no Variant copies.  has_method is memoised per
+                // (site, receiver type): it is a pure function of the name.
+                // Godot Arrays qualify too: the only VG-level Array overrides
+                // (call_array_instance_method) are append/push_back, which are
+                // identical to the Godot methods, and `has`, whose VG version
+                // uses Variant== rather than Godot's hash-compare — so `has`
+                // stays on the cascade.  Dictionaries have many VB6 overrides
+                // (Add/Remove/Exists/Item/Count/…) and are excluded.
                 {
-                    const Variant::Type bt = base.get_type();
+                    Variant &base_ref = vm.stack[vm.stack.size() - 1 - arg_count];
+                    const Variant::Type bt = vgfast::vtype(base_ref);
                     const bool struct_or_packed =
                             (bt >= Variant::VECTOR2 && bt <= Variant::COLOR) ||
-                            (bt >= Variant::PACKED_BYTE_ARRAY && bt <= Variant::PACKED_VECTOR4_ARRAY);
+                            (bt >= Variant::PACKED_BYTE_ARRAY && bt <= Variant::PACKED_VECTOR4_ARRAY) ||
+                            bt == Variant::ARRAY;
+                    // Packed-array append_array / append / push_back / size with
+                    // exactly-typed operands: one GDExtension ptrcall on the
+                    // receiver's internal storage (same in-place mutation as
+                    // callp, minus the name lookup and argument validation).
+                    if (bt >= Variant::PACKED_BYTE_ARRAY && bt <= Variant::PACKED_VECTOR4_ARRAY &&
+                            name_idx >= 0 && name_idx < chunk->constants.size()) {
+                        MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);
+                        if (_mc.packed_fast_kind == VG_PACKED_FAST_UNSET) {
+                            const String &pn = _mc.primary_string;
+                            if (pn.nocasecmp_to("append_array") == 0) _mc.packed_fast_kind = VG_PACKED_FAST_APPEND_ARRAY;
+                            else if (pn.nocasecmp_to("push_back") == 0 || pn.nocasecmp_to("append") == 0) _mc.packed_fast_kind = VG_PACKED_FAST_PUSH_BACK;
+                            else if (pn.nocasecmp_to("size") == 0) _mc.packed_fast_kind = VG_PACKED_FAST_SIZE;
+                            else _mc.packed_fast_kind = VG_PACKED_FAST_NONE;
+                        }
+                        if (_mc.packed_fast_kind > 0) {
+                            const VgPackedFastMethods *pm = vg_packed_fast_methods(bt);
+                            if (pm) {
+                                bool done = false;
+                                void *base_p = pm->internal_ptr(base_ref._native_ptr());
+                                if (_mc.packed_fast_kind == VG_PACKED_FAST_APPEND_ARRAY && arg_count == 1 && pm->append_array) {
+                                    Variant &arg = vm.stack[vm.stack.size() - 1];
+                                    if (vgfast::vtype(arg) == bt) {
+                                        const void *arg_p = pm->internal_ptr(arg._native_ptr());
+                                        const GDExtensionConstTypePtr args[1] = { arg_p };
+                                        pm->append_array(base_p, args, nullptr, 1);
+                                        // Pop receiver + argument, leave a NIL result
+                                        // (grow zero-fills: no engine new_nil).
+                                        vm.stack.resize(vm.stack.size() - 2);
+                                        vm.stack.resize(vm.stack.size() + 1);
+                                        done = true;
+                                    }
+                                } else if (_mc.packed_fast_kind == VG_PACKED_FAST_PUSH_BACK && arg_count == 1 && pm->push_back) {
+                                    Variant &arg = vm.stack[vm.stack.size() - 1];
+                                    if (vgfast::vtype(arg) == pm->element_type) {
+                                        // Inline payloads (int/float/Vector*/Color) start at
+                                        // PAYLOAD_OFFSET; a String payload is reached through
+                                        // the engine's internal getter for STRING.
+                                        const void *arg_p = nullptr;
+                                        if (pm->element_type == Variant::STRING) {
+                                            static const GDExtensionVariantGetInternalPtrFunc str_getter =
+                                                    internal::gdextension_interface_variant_get_ptr_internal_getter(GDEXTENSION_VARIANT_TYPE_STRING);
+                                            arg_p = str_getter(arg._native_ptr());
+                                        } else if (vgfast::g_layout_ok) {
+                                            arg_p = reinterpret_cast<const uint8_t *>(&arg) + vgfast::PAYLOAD_OFFSET;
+                                        }
+                                        if (arg_p) {
+                                            const GDExtensionConstTypePtr args[1] = { arg_p };
+                                            GDExtensionBool ok = 0;
+                                            pm->push_back(base_p, args, &ok, 1);
+                                            vm.stack.resize(vm.stack.size() - 2);
+                                            push_value((bool)ok);
+                                            done = true;
+                                        }
+                                    }
+                                } else if (_mc.packed_fast_kind == VG_PACKED_FAST_SIZE && arg_count == 0 && pm->size) {
+                                    int64_t n = 0;
+                                    pm->size(base_p, nullptr, &n, 0);
+                                    vm.stack.resize(vm.stack.size() - 1);
+                                    push_value(n);
+                                    done = true;
+                                }
+                                if (done) {
+                                    VG_BREAK;
+                                }
+                            }
+                        }
+                    }
                     if (struct_or_packed && name_idx >= 0 && name_idx < chunk->constants.size()) {
                         MemberNameCacheEntry &_mc = ensure_member_cache_entry(name_idx);
                         const StringName *sn = nullptr;
-                        if (base.has_method(_mc.primary_name)) {
+                        if (_mc.method_call_type == (int8_t)bt) {
+                            sn = (_mc.method_call_spelling == 2) ? &_mc.snake_name : &_mc.primary_name;
+                        } else if (bt == Variant::ARRAY && _mc.primary_string.nocasecmp_to("has") == 0) {
+                            // leave sn null → VG Array.has override on the cascade
+                        } else if (base_ref.has_method(_mc.primary_name)) {
                             sn = &_mc.primary_name;
-                        } else if (ensure_snake_case(_mc) && base.has_method(_mc.snake_name)) {
+                            _mc.method_call_type = (int8_t)bt;
+                            _mc.method_call_spelling = 1;
+                        } else if (ensure_snake_case(_mc) && base_ref.has_method(_mc.snake_name)) {
                             sn = &_mc.snake_name;
+                            _mc.method_call_type = (int8_t)bt;
+                            _mc.method_call_spelling = 2;
                         }
                         if (sn) {
                             constexpr int METHOD_INLINE_ARGS = 8;
@@ -8348,16 +9892,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 ptrs_heap.resize(arg_count);
                                 ptrs = ptrs_heap.ptrw();
                             }
+                            const Variant *first_arg = &vm.stack[vm.stack.size() - arg_count];
                             for (int i = 0; i < arg_count; i++) {
-                                ptrs[i] = &args[i];
+                                ptrs[i] = first_arg + i;
                             }
                             GDExtensionCallError err;
                             memset(&err, 0, sizeof(err));
-                            base.callp(*sn, ptrs, arg_count, call_ret, err);
-                            handled = true;
+                            base_ref.callp(*sn, ptrs, arg_count, call_ret, err);
+                            vm.stack.resize(vm.stack.size() - arg_count - 1);
+                            if (error_state.has_error) {
+                                if (try_recover_error(Variant())) { VG_BREAK; }
+                                success = false;
+                                goto cleanup;
+                            }
+                            push_value(std::move(call_ret));
+                            VG_BREAK;
                         }
                     }
                 }
+
+                // Pop arguments (reverse order)
+                Array args;
+                args.resize(arg_count);
+                for (int i = arg_count - 1; i >= 0; i--) {
+                    args[i] = pop_value();
+                }
+                // Pop the base object
+                Variant base = pop_value();
+                String method = read_constant(name_idx);
 
                 // GetNode/GetNodeOrNull on explicit base (Brotato: current_scene.GetNode("GameObjects")).
                 // Must run before owner-relative dispatch_builtin_call fallback.
@@ -8375,7 +9937,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 // --- VG class instance method call (object ID stored as int) ---
-                if (!handled && base.get_type() == Variant::INT) {
+                if (!handled && vgfast::vtype(base) == Variant::INT) {
                     int obj_id = (int)base;
                     if (object_instances.has(obj_id)) {
                         call_ret = call_object_method(obj_id, method, args);
@@ -8384,7 +9946,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 // --- Godot Object method call ---
-                if (!handled && base.get_type() == Variant::OBJECT) {
+                if (!handled && vgfast::vtype(base) == Variant::OBJECT) {
                     Object* obj = Object::cast_to<Object>(base);
                     if (obj) {
                         // DrawRect/DrawLine snake_case to CanvasItem.draw_* (illegal
@@ -8393,7 +9955,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             handled = true;
                         } else if (CanvasItem *ci = Object::cast_to<CanvasItem>(obj)) {
                             String ml = method.to_lower();
-                            if ((ml == "drawrect" || ml == "draw_rect") && args.size() >= 1 && args[0].get_type() == Variant::RECT2) {
+                            if ((ml == "drawrect" || ml == "draw_rect") && args.size() >= 1 && vgfast::vtype(args[0]) == Variant::RECT2) {
                                 bool fill = true;
                                 Color col(1, 1, 1, 1);
                                 if (args.size() >= 5) {
@@ -8405,12 +9967,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                                 VisualGasicInstance::safe_canvas_draw_rect(ci, (Rect2)args[0], col, fill);
                                 handled = true;
-                            } else if ((ml == "drawline" || ml == "draw_line") && args.size() >= 2 && args[0].get_type() == Variant::VECTOR2) {
+                            } else if ((ml == "drawline" || ml == "draw_line") && args.size() >= 2 && vgfast::vtype(args[0]) == Variant::VECTOR2) {
                                 Color col = args.size() > 2 ? Color(args[2]) : Color(1, 1, 1, 1);
                                 float width = args.size() > 3 ? (float)args[3] : 1.0f;
                                 VisualGasicInstance::safe_canvas_draw_line(ci, (Vector2)args[0], (Vector2)args[1], col, width);
                                 handled = true;
-                            } else if ((ml == "drawcircle" || ml == "draw_circle") && args.size() >= 2 && args[0].get_type() == Variant::VECTOR2) {
+                            } else if ((ml == "drawcircle" || ml == "draw_circle") && args.size() >= 2 && vgfast::vtype(args[0]) == Variant::VECTOR2) {
                                 Color col = args.size() > 2 ? Color(args[2]) : Color(1, 1, 1, 1);
                                 VisualGasicInstance::safe_canvas_draw_circle(ci, (Vector2)args[0], (float)args[1], col);
                                 handled = true;
@@ -8436,7 +9998,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
 
                 // --- Variant method call (structs like Vector2, Rect2, etc.) ---
-                if (!handled && base.get_type() != Variant::OBJECT && base.get_type() != Variant::NIL) {
+                if (!handled && vgfast::vtype(base) != Variant::OBJECT && vgfast::vtype(base) != Variant::NIL) {
                     // VB/C# ToString() — structs have stringify(), not a bound method.
                     if (args.is_empty() && method.nocasecmp_to("ToString") == 0) {
                         call_ret = base.stringify();
@@ -8461,7 +10023,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         arg_ptrs.resize(args.size());
                         const Variant **ptrs_w = arg_ptrs.ptrw();
                         String dict_method = method_to_call.to_lower();
-                        bool coerce_dict_key = base.get_type() == Variant::DICTIONARY && args.size() >= 1 &&
+                        bool coerce_dict_key = vgfast::vtype(base) == Variant::DICTIONARY && args.size() >= 1 &&
                                 vg_dictionary_method_uses_key(dict_method);
                         for (int i = 0; i < args.size(); i++) {
                             args_w[i] = (coerce_dict_key && i == 0) ? vg_dictionary_key(args[i]) : args[i];
@@ -8484,8 +10046,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 if (!handled) {
                     // Method call on Null / Nothing — raise error
-                    const bool base_is_null = base.get_type() == Variant::NIL ||
-                            (base.get_type() == Variant::OBJECT && !Object::cast_to<Object>(base));
+                    const bool base_is_null = vgfast::vtype(base) == Variant::NIL ||
+                            (vgfast::vtype(base) == Variant::OBJECT && !Object::cast_to<Object>(base));
                     if (base_is_null) {
                         raise_error("Method call on Null object: ." + method, 91);
                         if (try_recover_error(Variant())) { VG_BREAK; }
@@ -8504,7 +10066,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 					success = false;
 					goto cleanup;
 				}
-                push_value(call_ret);
+                push_value(std::move(call_ret));
                 VG_BREAK;
             }
             VG_CASE(vg_op_iter_array, OP_ITER_ARRAY): {
@@ -8519,7 +10081,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant &arr_v = locals.write[arr_slot];
                 int64_t idx = (int64_t)locals[idx_slot];
-                if (arr_v.get_type() == Variant::ARRAY) {
+                if (vgfast::vtype(arr_v) == Variant::ARRAY) {
                     Array a = arr_v;
                     if (idx >= 0 && idx < a.size()) {
                         push_value(a[idx]);
@@ -8536,7 +10098,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Strings become character arrays; arrays pass through unchanged.
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 Variant &top = vm.stack.back();
-                if (top.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(top) == Variant::DICTIONARY) {
                     Dictionary dict = top;
                     if (!dict.is_empty()) {
                         top = dict.keys();
@@ -8564,7 +10126,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             top = dict.keys(); // empty array
                         }
                     }
-				} else if (top.get_type() == Variant::STRING) {
+				} else if (vgfast::vtype(top) == Variant::STRING) {
 					String text = top;
 					Array chars;
 					chars.resize(text.length());
@@ -8582,7 +10144,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Handle VGDict sole-owner optimization: if the value is an
                 // empty Dictionary placeholder, check if it came from a VGDict slot
                 // and materialize the real dictionary.
-                if (val.get_type() == Variant::DICTIONARY) {
+                if (vgfast::vtype(val) == Variant::DICTIONARY) {
                     Dictionary d = val;
                     if (d.is_empty()) {
                         // Check preceding bytecode for OP_GET_LOCAL pattern
@@ -8738,7 +10300,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     for (int i = 0; i < args.size(); i++) {
                         if (i > 0) line += ",";
                         Variant v = args[i];
-                        if (v.get_type() == Variant::STRING) {
+                        if (vgfast::vtype(v) == Variant::STRING) {
                             line += String("\"") + String(v) + String("\"");
                         } else {
                             line += String(v);
@@ -9079,7 +10641,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             // (VGTask, PyAsyncTask) yield until IsComplete / IsFailed.
             VG_CASE(vg_op_await, OP_AWAIT): {
                 Variant awaited;
-                if (pending_await_handle.get_type() != Variant::NIL) {
+                if (vgfast::vtype(pending_await_handle) != Variant::NIL) {
                     awaited = pending_await_handle;
                     pending_await_handle = Variant();
                 } else {
@@ -9091,11 +10653,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 				StringName signal_name;
 				Ref<SceneTreeTimer> timer;
 				bool task_pending = false;
-				if (awaited.get_type() == Variant::SIGNAL) {
+				if (vgfast::vtype(awaited) == Variant::SIGNAL) {
 					Signal signal = awaited;
 					source = signal.get_object();
 					signal_name = signal.get_name();
-				} else if (awaited.get_type() == Variant::INT || awaited.get_type() == Variant::FLOAT) {
+				} else if (vgfast::vtype(awaited) == Variant::INT || vgfast::vtype(awaited) == Variant::FLOAT) {
 					double seconds = awaited;
 					SceneTree *tree = resolve_scene_tree();
 					if (!Math::is_finite(seconds) || seconds < 0) {
@@ -9107,7 +10669,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 						timer = tree->create_timer(seconds);
 						source = timer.ptr(); signal_name = "timeout";
 					}
-				} else if (awaited.get_type() == Variant::OBJECT) {
+				} else if (vgfast::vtype(awaited) == Variant::OBJECT) {
 					VgAwaitTaskState state = vg_inspect_await_task(awaited);
 					if (state.recognized) {
 						if (state.is_failed) {
@@ -9266,7 +10828,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     VG_BREAK;
                 }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) {
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) {
                     push_value((int64_t)0);
                     VG_BREAK;
                 }
@@ -9288,7 +10850,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 if (slot >= locals.size()) { VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
                 PackedByteArray buf = var;
                 if (offset >= 0 && offset < buf.size()) {
                     buf.set((int)offset, (uint8_t)(value & 0xFF));
@@ -9305,7 +10867,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
                 PackedByteArray buf = var;
                 if (offset >= 0 && offset + 1 < buf.size()) {
                     uint16_t word = (uint8_t)buf[offset] | ((uint16_t)(uint8_t)buf[offset + 1] << 8);
@@ -9325,7 +10887,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 if (slot >= locals.size()) { VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
                 PackedByteArray buf = var;
                 if (offset >= 0 && offset + 1 < buf.size()) {
                     buf.set((int)offset, (uint8_t)(value & 0xFF));
@@ -9343,7 +10905,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { push_value((int64_t)0); VG_BREAK; }
                 PackedByteArray buf = var;
                 if (offset >= 0 && offset + 3 < buf.size()) {
                     uint32_t dword = (uint8_t)buf[offset]
@@ -9366,7 +10928,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 if (slot >= locals.size()) { VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
                 PackedByteArray buf = var;
                 if (offset >= 0 && offset + 3 < buf.size()) {
                     buf.set((int)offset, (uint8_t)(value & 0xFF));
@@ -9384,7 +10946,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 if (slot >= locals.size()) { push_value((int64_t)0); VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) {
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) {
                     push_value((int64_t)0);
                 } else {
                     PackedByteArray buf = var;
@@ -9401,7 +10963,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t new_size = to_int(pop_value());
                 if (slot >= locals.size()) { VG_BREAK; }
                 Variant &var = locals.write[slot];
-                if (var.get_type() != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
+                if (vgfast::vtype(var) != Variant::PACKED_BYTE_ARRAY) { VG_BREAK; }
                 PackedByteArray buf = var;
                 buf.resize((int)new_size);
                 sync_local(slot, Variant(buf));
@@ -9425,7 +10987,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 String name = read_constant(idx);
                 Variant gvar = variables.get(name, Variant());
-                if (gvar.get_type() == Variant::OBJECT) {
+                if (vgfast::vtype(gvar) == Variant::OBJECT) {
                     Object *obj = gvar;
                     VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
                     if (mb) {
@@ -9448,7 +11010,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int64_t offset = to_int(pop_value());
                 String name = read_constant(idx);
                 Variant gvar = variables.get(name, Variant());
-                if (gvar.get_type() == Variant::OBJECT) {
+                if (vgfast::vtype(gvar) == Variant::OBJECT) {
                     Object *obj = gvar;
                     VGMemoryBuffer *mb = Object::cast_to<VGMemoryBuffer>(obj);
                     if (mb) {
@@ -9479,8 +11041,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 Variant top = pop_value();
                 int64_t val = 0;
-                if (top.get_type() == Variant::INT) val = (int64_t)top;
-                else if (top.get_type() == Variant::FLOAT) val = (int64_t)(double)top;
+                if (vgfast::vtype(top) == Variant::INT) val = (int64_t)top;
+                else if (vgfast::vtype(top) == Variant::FLOAT) val = (int64_t)(double)top;
                 else { vm.ip += table_bytes + def_off; VG_BREAK; }
 
                 int64_t min_val = (int64_t)chunk->constants[min_cix];
@@ -9525,6 +11087,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #endif
 
 cleanup:
+    // Bail-outs from inside an inline callee land here with its frame still
+    // live.  A runtime error propagates to the inline caller (call_internal's
+    // unhandled-error path) and this run carries on at the call site, where
+    // the caller's recovery decides; any other bail (stack underflow, bad
+    // operand …) fails the whole run, so every inline frame is unwound first
+    // and the base frame's cleanup below sees its own state.
+    if (vm.inline_frame_count > inline_base_count) {
+        if (!success && error_state.has_error) {
+            inline_frame_pop(false, true);
+            success = true;
+            goto vg_dispatch_next;
+        }
+        while (vm.inline_frame_count > inline_base_count) {
+            inline_frame_pop(false, true);
+        }
+    }
     // Materialize any active VGFastStringDict pools back into locals[]
     // so that cleanup/return-value logic sees a proper Godot Dictionary.
     for (int i = 0; i < VGDICT_POOL_MAX; i++) {
@@ -9547,9 +11125,24 @@ cleanup:
     // NOTE: Skip the flush for parallel workers (p_initial_locals != nullptr)
     // because worker locals are private; shared state goes through
     // OP_GET_GLOBAL / OP_SET_GLOBAL protected by Lock/Unlock.
-    if (success && !needs_var_sync && !p_initial_locals) {
+    // Declared slots (Dim'd locals, params, return) stay out of variables[]
+    // too: call_internal erases every callee local right after the call, so
+    // flushing them was a dead insert+erase pair per local per call.  The
+    // only reader of a flushed declared local is a top-level run with no
+    // SubDefinition (test runner / tooling), which keeps the full flush.
+    const bool flush_declared = (func == nullptr);
+    // Undeclared (implicit) locals of a Sub/Function are dead on exit too:
+    // call_internal snapshots every such name that already existed in
+    // variables[] and restores it after the call, and erases the rest — so
+    // the flushed value is never observable.  Only a top-level run (no func)
+    // or a body that publishes its locals for Parallel For / Task.Run
+    // workers has a reader.  call_internal's save/erase scans skip the same
+    // case (see skip_local_scope there) — keep the two in step.
+    const bool flush_implicit = (func == nullptr) || chunk->publishes_locals;
+    if (success && !needs_var_sync && !p_initial_locals && flush_implicit) {
         for (int i = 0; i < locals.size() && i < chunk->local_names.size(); i++) {
             if (is_fast_slot(i)) continue; // fast-call params/return never enter variables[]
+            if (!flush_declared && is_declared_slot(i)) continue;
             const String &name = chunk->local_names[i];
             if (name.is_empty()) continue;
             // Part Y: compiler-generated temporaries (__cse_*, __inv_to_*,
@@ -9576,7 +11169,12 @@ cleanup:
     // entire function, causing globals to be double-mutated (e.g. wave += 1
     // runs in bytecode, then again in AST → wave += 2).
     // Skip for parallel workers — they don't own global rollback.
-    if (!success && !p_initial_locals && saved_globals.size() > 0) {
+    // Only for a bail that WILL be re-run: a run that stops on a runtime
+    // error is not re-executed (call_internal keeps used_bytecode), and the
+    // writes made before the error stand, as in VB6 and in the AST tier —
+    // rolling them back made `On Error Resume Next` / Try-Catch callers see
+    // different module state per tier.
+    if (!success && !error_state.has_error && !p_initial_locals && saved_globals.size() > 0) {
         for (int i = 0; i < saved_globals.size(); i++) {
             variables[saved_globals[i].first] = saved_globals[i].second;
         }
@@ -9584,7 +11182,7 @@ cleanup:
 
     if (success) {
         if (has_explicit_return) {
-            result_snapshot = explicit_return;
+            // r_ret already holds the Return value (OP_RETURN_VALUE).
             // Bug fix: Also write to variables[func->name] so that
             // call_internal's return-value lookup sees it. Otherwise
             // the default-initialized value (0/"") wins over the
@@ -9592,10 +11190,13 @@ cleanup:
             // Fast-call Functions read their result straight from the return
             // slot, so skip the variables[] write (it would leak func->name).
             if (func && func->type == SubDefinition::TYPE_FUNCTION && !fast_call) {
-                variables[func->name] = explicit_return;
+                variables[func->name] = r_ret;
             }
         } else if (vm.stack.size() > stack_base) {
-            result_snapshot = vm.stack[vm.stack.size() - 1];
+            // Snapshot the stack top before restore_vm() trims it.
+            vgfast::assign(r_ret, vm.stack[vm.stack.size() - 1]);
+        } else if (vgfast::vtype(r_ret) != Variant::NIL) {
+            r_ret = Variant();
         }
     }
     restore_vm();
@@ -9606,7 +11207,11 @@ cleanup:
     // call_internal() used to read debug_bc_locals after we restore the outer
     // frame below, which pointed at the CALLER's slots — stale/wrong captures
     // for fast-param bytecode subs (e.g. Bump arr(1) never wrote back).
-    if (func && success) {
+    // A callee that stopped on a runtime error still writes back what it had
+    // assigned so far (VB6 ByRef is a reference; the AST walker captures the
+    // same way).  A non-error bail is re-run by the AST fallback, which
+    // captures on its own.
+    if (func && (success || error_state.has_error)) {
         Vector<Pair<String, Variant>> bc_byref_captures;
         for (int pi = 0; pi < func->parameters.size(); pi++) {
             if (!func->parameters[pi].is_by_ref) {
@@ -9624,7 +11229,10 @@ cleanup:
                     }
                 }
             }
-            if (captured.get_type() == Variant::NIL && variables.has(pname)) {
+            // Slot-bound params are authoritative (a ByRef set to Nothing must
+            // write Nothing back); only legacy variables[]-bound chunks fall
+            // back to the dictionary.
+            if (!fast_call && vgfast::vtype(captured) == Variant::NIL && variables.has(pname)) {
                 captured = variables[pname];
             }
             bc_byref_captures.push_back({pname, captured});
@@ -9637,7 +11245,7 @@ cleanup:
     // Restore the outer frame's debug pointers (for nested calls).
     debug_bc_locals = prev_debug_bc_locals;
     debug_bc_chunk  = prev_debug_bc_chunk;
-    debug_bc_source_file = prev_debug_bc_source_file;
+    prev_debug_bc_source_file.move_into(debug_bc_source_file);
     
     // Pop debug stack frame (must match push above; skipped for parallel workers,
     // sub-range bodies, AND when no debugger was attached at entry — Part O).
@@ -9646,24 +11254,22 @@ cleanup:
     }
     
     if (!success) {
-        r_ret = Variant();
+        if (vgfast::vtype(r_ret) != Variant::NIL) {
+            r_ret = Variant();
+        }
         return false;
     }
 
-    if (func && func->type == SubDefinition::TYPE_FUNCTION) {
-        if (has_explicit_return) {
-            r_ret = result_snapshot;
-        } else if (fast_call && fast_return_slot >= 0 && fast_return_slot < locals.size()) {
+    // r_ret holds the explicit Return value or the stack-top snapshot (or
+    // NIL); a Function without an explicit Return reads its named result.
+    if (func && func->type == SubDefinition::TYPE_FUNCTION && !has_explicit_return) {
+        if (fast_call && fast_return_slot >= 0 && fast_return_slot < locals.size()) {
             // Fast-call: the implicit `FuncName = expr` result lives in the
             // dedicated return slot, never in variables[].
-            r_ret = locals[fast_return_slot];
+            vgfast::assign(r_ret, locals[fast_return_slot]);
         } else if (variables.has(func->name)) {
             r_ret = variables[func->name];
-        } else {
-            r_ret = result_snapshot;
         }
-    } else {
-        r_ret = result_snapshot;
     }
     return true;
 }

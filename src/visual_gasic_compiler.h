@@ -130,6 +130,9 @@ private:
     bool is_pure_expr(ExpressionNode* expr) const;
     bool is_fast_array_var(const String &name) const;
     bool is_dictionary_var(const String &name) const;
+    // The element expressions of a VB6 `Array(e1, …, en)` literal, or nullptr
+    // when `expr` is anything else (including a user variable named Array).
+    const Vector<ExpressionNode*> *array_literal_elements(ExpressionNode* expr) const;
     bool is_trusted_dictionary_var(const String &name) const;
     bool is_sole_owner_dict_var(const String &name) const;
     bool is_buffer_var(const String &name) const;

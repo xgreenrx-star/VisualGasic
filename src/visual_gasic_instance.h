@@ -23,13 +23,56 @@ namespace godot {
 class VGCanvasDrawDelegate;
 }
 
+// Module-level variable storage.  A Dictionary with the three operations that
+// can invalidate a pointer into its value map (erase, clear/assign, and
+// replacing the whole dictionary) wrapped to bump `generation`.  Godot's
+// HashMap<Variant, Variant> allocates every element individually and only
+// rebuilds its index array on rehash, so `&variables[name]` stays valid until
+// that key is erased or the backing map is swapped — which lets the bytecode
+// VM cache the value pointer per OP_GET_GLOBAL / OP_SET_GLOBAL site and read
+// or write module variables with no Dictionary probe at all (see
+// MemberNameCacheEntry::gptr).  Every other Dictionary member is inherited
+// unchanged, so existing `variables.xxx` / `Dictionary d = variables` code
+// compiles as before.
+struct VgVariables : public Dictionary {
+    uint32_t generation = 1;
+    VgVariables() = default;
+    VgVariables(const VgVariables &p_other) : Dictionary(p_other) {}
+    VgVariables &operator=(const Dictionary &p_other) {
+        generation++;
+        Dictionary::operator=(p_other);
+        return *this;
+    }
+    VgVariables &operator=(const VgVariables &p_other) {
+        generation++;
+        Dictionary::operator=(p_other);
+        return *this;
+    }
+    bool erase(const Variant &p_key) {
+        generation++;
+        return Dictionary::erase(p_key);
+    }
+    void clear() {
+        generation++;
+        Dictionary::clear();
+    }
+    void assign(const Dictionary &p_dictionary) {
+        generation++;
+        Dictionary::assign(p_dictionary);
+    }
+    void sort() {
+        generation++;
+        Dictionary::sort();
+    }
+};
+
 class VisualGasicInstance {
     friend class VisualGasicExpressionEvaluator;
     friend class godot::VGCanvasDrawDelegate;
     Ref<VisualGasicScript> script;
     Object *owner;
     ModuleNode* cached_ast_root = nullptr; // Cached for enum/struct lookups
-    Dictionary variables; // Variable storage (user-defined only)
+    VgVariables variables; // Variable storage (user-defined only)
     Dictionary builtin_constants; // Built-in VB6/Godot constants (separate from user vars so they don't clutter debugger)
     Dictionary open_files; // Map<int, Ref<FileAccess>>
     Dictionary static_variables; // Persist across calls (Static keyword)
@@ -96,6 +139,10 @@ private:
         int owning_module_index = -1;    // -1 = resolved from the main script, not an import
         String bytecode_key;
         BytecodeChunk* chunk_for_locals = nullptr;
+        // Source file the callee's debug frames / runtime errors report under
+        // (empty = the host script).  Constant per resolution; call_internal
+        // used to re-derive it per call by scanning every imported module.
+        String debug_source;
     };
     HashMap<String, CallResolutionCacheEntry> _call_resolution_cache;
 
@@ -124,6 +171,14 @@ private:
         Vector<ClassPreference> class_preferences;
         // Part F: memoized special-global test (-1 unknown, 0 no, 1 yes).
         int8_t is_special_global = -1;
+        // Index of this name in chunk->globals_written (-2 unknown, -1 absent);
+        // used by the lazy per-frame global rollback snapshot in OP_SET_GLOBAL.
+        int32_t gw_index = -2;
+        // OP_GET_GLOBAL / OP_SET_GLOBAL: pointer to this name's value inside
+        // `variables` (see VgVariables).  Valid only while
+        // gptr_gen == variables.generation; re-resolved otherwise.
+        Variant *gptr = nullptr;
+        uint32_t gptr_gen = 0;
         // Part H: per-call-site OP_CALL resolution memo.
         // call_disp: -1 unknown, 0 = known user Sub, 1 = cached engine/owner call.
         // call_argc validates the memo against this site's arg count (overloads).
@@ -148,6 +203,16 @@ private:
         int8_t new_object_kind = 0;
         // GodotCtorKind when new_object_kind == 1.
         int8_t godot_ctor_kind = 0;
+        // OP_METHOD_CALL on a math struct / packed array: Variant::Type of the
+        // receiver for which has_method already succeeded at this site, and
+        // which spelling it accepted (1 = primary_name, 2 = snake_name).
+        // Variant::callp on the same receiver type is a pure function of the
+        // name, so later calls skip the has_method round-trip.
+        int8_t method_call_type = -1;
+        int8_t method_call_spelling = 0;
+        // OP_METHOD_CALL on a packed array: which direct ptrcall this name
+        // maps to (0 = unclassified, -1 = none, else vg_packed_fast_kind).
+        int8_t packed_fast_kind = 0;
     };
 
     // The memo above used to live on execute_bytecode()'s stack, so it was
@@ -161,6 +226,16 @@ private:
     // frees and recompiles every chunk), so a recycled address cannot alias.
     HashMap<const BytecodeChunk *, Vector<MemberNameCacheEntry>> _member_cache_by_chunk;
     uint32_t _member_cache_generation = 0;
+    // One-entry front cache for the HashMap above: a hot loop calling the same
+    // helper repeatedly re-enters execute_bytecode with the same chunk, so the
+    // per-call pointer-keyed hash probe collapses to a compare.  HashMap nodes
+    // are stable; the pair is reset whenever the map is cleared.
+    const BytecodeChunk *_member_cache_last_chunk = nullptr;
+    Vector<MemberNameCacheEntry> *_member_cache_last_ptr = nullptr;
+    // Identity for BytecodeChunk::member_memo (see visual_gasic_bytecode.h):
+    // unique per instance for the life of the process.
+    static uint64_t _next_instance_serial;
+    const uint64_t _instance_serial = ++_next_instance_serial;
 
     // Part C (v6.0 perf): (name#argcount) pairs proven to resolve only at the
     // deep call fallback — statement/drawing builtins (SetImagePixel, BlitImage,
@@ -377,6 +452,41 @@ private:
         String error_file;  // Source file for error_line (Include-aware)
     } error_state;
 
+    // Save/restore of error_state around a call.  A full `ErrorState copy =
+    // error_state; ... error_state = copy;` is three String copies, three
+    // assigns and three destroys through the engine on EVERY call; the
+    // Strings are empty on the no-error steady state, so they are captured
+    // only when (possibly) set — see vgfast::OptString / str_is_null.
+    struct ErrorStateSnapshot {
+        ErrorState::Mode mode = ErrorState::NONE;
+        bool has_error = false;
+        int code = 0;
+        int error_line = 0;
+        vgfast::OptString label;
+        vgfast::OptString message;
+        vgfast::OptString error_file;
+
+        void capture(const ErrorState &e) {
+            mode = e.mode;
+            has_error = e.has_error;
+            code = e.code;
+            error_line = e.error_line;
+            label.save_if_set(e.label);
+            message.save_if_set(e.message);
+            error_file.save_if_set(e.error_file);
+        }
+        // Byte-for-byte the same end state as `e = <captured copy>`.
+        void restore(ErrorState &e) {
+            e.mode = mode;
+            e.has_error = has_error;
+            e.code = code;
+            e.error_line = error_line;
+            label.restore_into(e.label);
+            message.restore_into(e.message);
+            error_file.restore_into(e.error_file);
+        }
+    };
+
     // Number of enclosing handlers able to catch an error raised right now:
     // bytecode Try handler stack + AST Try bodies + Await-coroutine Try frames
     // + callers whose On Error mode is active (VB6 propagates callee errors
@@ -569,6 +679,7 @@ public:
     // JIT host calls into user Subs. Builtins stay on the public builtin dispatcher.
     Variant jit_invoke_call(const String &method, const Array &args, bool &handled);
     Variant jit_byref_capture(const String &name, bool &found) const;
+    bool jit_callee_returns_non_numeric(const String &name, int argc);
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);
@@ -621,7 +732,7 @@ public:
     }
 
     // Accessors for builtins module (Err.Clear etc.)
-    Dictionary &get_variables() { return variables; }
+    VgVariables &get_variables() { return variables; }
     const Dictionary &get_builtin_constants() const { return builtin_constants; }
     /// Shared VG global constants (vbGreen, KEY_*, vbYesNo, …) for editor hover / tooling.
     static Variant lookup_builtin_constant(const String &p_name);

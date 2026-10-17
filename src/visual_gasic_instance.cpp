@@ -841,6 +841,8 @@ Dictionary &VisualGasicInstance::get_global_scope() {
     return global_scope;
 }
 
+uint64_t VisualGasicInstance::_next_instance_serial = 0;
+
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
     script = p_script;
     owner = p_owner;

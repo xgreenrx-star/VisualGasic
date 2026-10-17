@@ -96,15 +96,18 @@ public:
     // Returns the source_files index for a merged line, or -1 when the line
     // belongs to the host script itself (no Include map, or out of range).
     // Also writes the original (pre-Include) line number to out_line.
-    int source_file_id_for_line(int merged_line, int &out_line) const {
-        if (merged_line <= 0 || source_line_file_ids.is_empty()) {
+    // Per executed statement (OP_DEBUG_LINE): keep it inline and index the
+    // raw buffers (the Vector accessors re-check bounds and COW each time).
+    _ALWAYS_INLINE_ int source_file_id_for_line(int merged_line, int &out_line) const {
+        const int n = source_line_file_ids.size();
+        if (merged_line <= 0 || n == 0) {
             out_line = merged_line;
             return -1;
         }
         int idx = merged_line - 1;
-        if (idx >= source_line_file_ids.size()) idx = source_line_file_ids.size() - 1;
-        out_line = source_line_map[idx].line;
-        return source_line_file_ids[idx];
+        if (idx >= n) idx = n - 1;
+        out_line = source_line_map.ptr()[idx].line;
+        return source_line_file_ids.ptr()[idx];
     }
     const String &source_file_by_id(int id) const { return source_files[id]; }
     bool resolve_source_location(int merged_line, String &out_file, int &out_line) const;

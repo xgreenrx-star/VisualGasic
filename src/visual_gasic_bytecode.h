@@ -8,6 +8,8 @@
 #include <vector>
 #include <deque>
 #include <string>
+#include <atomic>
+#include "vg_variant_fast.h"
 
 using namespace godot;
 
@@ -339,6 +341,18 @@ enum OpCode {
     OP_PACKED_HP_STATE_TICK, // [hp][state][sum][tag] tag=255 means unused
     OP_PACKED_NEAREST_I64,   // [px][py][tx][ty][best][bestidx]
 
+    // Fused For Each header: [OP] [COLL_SLOT] [IDX_SLOT] [VAR_SLOT] [EXIT_HI] [EXIT_LO]
+    // if idx >= Len(coll) then jump +exit (relative to the byte after the
+    // operands, like OP_JUMP_IF_TRUE) else var = coll(idx).  Replaces the
+    // 9-opcode GET/GET/LEN/GE/JIT/GET/GET/GET_ARRAY/SET header per iteration.
+    OP_FOREACH_STEP,
+
+    // PackedXArray(Array(e1, …, en)) literal: [OP] [CLASS_NAME_IDX(2)] [COUNT]
+    // Pops COUNT elements and builds the packed array directly — no
+    // intermediate godot Array (OP_CALL "Array" + OP_NEW_OBJECT conversion).
+    // Same operand layout as OP_NEW_OBJECT.
+    OP_NEW_PACKED_LITERAL,
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 
@@ -367,6 +381,11 @@ struct BytecodeChunk {
     bool fast_params = false;
     int  param_count = 0;   // number of leading local slots that are parameters
     int  return_slot = -1;  // local slot holding the Function return value (-1 = Sub / none)
+    // Set when the body contains Parallel For / Task.Run, whose workers read
+    // the parent's locals through variables[]: the VM flushes every local
+    // there mid-run, so call_internal must save/restore/erase declared locals
+    // for this chunk like the legacy path did.
+    bool publishes_locals = false;
 
     // ── Per-call perf (v6.0): precomputed scalar-coercion codes for the
     // fast-call binder.  call_internal previously ran param.type_hint.to_lower()
@@ -396,6 +415,43 @@ struct BytecodeChunk {
     // std::string; built once per chunk instead of String::utf8() per call.
     std::string jit_name_cache;
     bool jit_name_cached = false;
+    // Tier-2 decision memo: once the owning per-thread JIT engine has either
+    // compiled this chunk or given up on it, the result is cached here so the
+    // hot path skips the std::string "name@chunk" key build + two hash-map
+    // probes on every call (jit_t2_func == nullptr with a non-null owner means
+    // "tried, not compilable").  Owner is published last with release order
+    // so a reader that matches it sees the func pointer; a different thread's
+    // engine simply takes the slow path and never overwrites the memo.
+    // Copies (compile-time `entry.chunk = compiled_chunk`) never inherit a
+    // memo: native code is bound to the chunk address it was compiled for.
+    struct JitT2Memo {
+        std::atomic<void *> owner{nullptr};
+        void *func = nullptr;
+        JitT2Memo() = default;
+        JitT2Memo(const JitT2Memo &) {}
+        JitT2Memo &operator=(const JitT2Memo &) { owner.store(nullptr); func = nullptr; return *this; }
+    } jit_t2;
+
+    // Member-name memo slot: the instance (by serial, never by address — a
+    // freed instance's address can be reused) that last resolved its
+    // per-chunk MemberNameCacheEntry vector for this chunk, and that pointer.
+    // execute_bytecode() checks it before probing the instance's HashMap, so
+    // helpers that alternate (_quad → _triangle → EnsureInit → ...) stop
+    // paying a hash lookup per call.  Main thread only (workers keep a local
+    // vector).  Same copy semantics as jit_t2: a copied chunk inherits nothing.
+    struct MemberCacheMemo {
+        uint64_t instance_serial = 0;
+        uint32_t generation = 0;
+        void *cache = nullptr;
+        MemberCacheMemo() = default;
+        MemberCacheMemo(const MemberCacheMemo &) {}
+        MemberCacheMemo &operator=(const MemberCacheMemo &) { instance_serial = 0; generation = 0; cache = nullptr; return *this; }
+    } member_memo;
+
+    // Inline-frame eligibility (execute_bytecode OP_CALL): 0 = undecided,
+    // 1 = this body can run as an inline VM frame, -1 = never.  A pure
+    // function of the compiled body + its SubDefinition, so a copy may keep it.
+    int8_t inline_state = 0;
 
     void write(uint8_t byte, int line) {
         code.push_back(byte);
@@ -415,19 +471,59 @@ struct BytecodeChunk {
     }
 };
 
+// Block-scoped Let variables: {base_slot, slot_count} into locals[].
+struct VMBlockScopeFrame {
+    int base_slot = 0;
+    int slot_count = 0;
+};
+
+// One suspended CALLER frame of execute_bytecode() while an inline callee
+// runs in the same C++ invocation (see the OP_CALL inline path).  Everything
+// execute_bytecode keeps per frame and switches on call/return is saved
+// here; the callee's own identity (chunk, locals frame) is kept alongside so
+// the return path can release it.  Frames live in VMState::inline_frames (a
+// std::deque: constructed once per depth, reused, never moved) so the
+// non-copyable OptString members are fine.
 struct VMInlineCallFrame {
+    // ── caller state ──
     BytecodeChunk *chunk = nullptr;
     VisualGasic::SubDefinition *func = nullptr;
     int return_ip = 0;
-    int locals_frame = 0;
+    int code_size = 0;
+    int effective_code_end = 0;
+    size_t stack_base = 0;
     bool fast_call = false;
     int fast_param_count = 0;
     int fast_return_slot = -1;
+    const uint8_t *local_declared = nullptr;
+    int local_declared_n = 0;
+    int64_t *typed_i64 = nullptr;
+    double *typed_f64 = nullptr;
+    void *member_cache = nullptr;        // Vector<MemberNameCacheEntry>*
+    bool has_explicit_return = false;
+    bool snapshot_globals_active = false;
+    uint64_t *gw_bits = nullptr;
+    int saved_globals_start = 0;         // callee's first saved_globals entry
+    int try_base = 0;                    // caller's inline_try_base
+    int active_try_depth = 0;
+    int jump_target = -1;
+    VisualGasic::SubDefinition *current_sub = nullptr;
+    std::vector<VMBlockScopeFrame> block_scope_frames;   // caller's, moved in/out
+    // error_state at the call (restored on return; call_internal's prev_error)
+    int error_mode = 0;
+    bool error_has_error = false;
+    int error_code = 0;
+    int error_line = 0;
+    vgfast::OptString error_label, error_message, error_file;
+    // ── callee identity ──
+    int callee_locals_frame = 0;
 };
 
 struct VMState {
     int ip; // Instruction Pointer
-    std::vector<Variant> stack;
+    // Operand stack: inline-payload Variants push/pop without engine calls
+    // (see vgfast::VariantStack); element type is still godot::Variant.
+    vgfast::VariantStack stack;
 
     // v6.0 (Part AB): per-thread pool of reusable local-variable frames.
     // execute_bytecode used to heap-allocate a fresh godot Vector<Variant> for
@@ -446,15 +542,27 @@ struct VMState {
     int locals_depth = 0;
 
     // Block-scoped Let variables: stack of {base_slot, slot_count} into locals[].
-    struct BlockScopeFrame {
-        int base_slot = 0;
-        int slot_count = 0;
-    };
+    using BlockScopeFrame = VMBlockScopeFrame;
     std::vector<BlockScopeFrame> block_scope_frames;
 
     // In-VM fast calls: module-level fast_params Subs switch frames inside one
     // execute_bytecode() run instead of recursing through call_internal().
-    std::vector<VMInlineCallFrame> inline_call_stack;
+    // inline_frames[i] for i < inline_frame_count are live (deque: stable,
+    // reused, never moved).  The typed-shadow and globals-snapshot bitmaps
+    // the base frame keeps in C++-stack buffers come from these pools for
+    // inline frames, indexed by the callee's locals_pool frame.
+    std::deque<VMInlineCallFrame> inline_frames;
+    int inline_frame_count = 0;
+    std::deque<std::vector<int64_t>> typed_i64_pool;
+    std::deque<std::vector<double>> typed_f64_pool;
+    std::deque<std::vector<uint64_t>> gw_bits_pool;
+
+    // This thread's JIT engines (vgjit2::thread_jit() / vgjit3::thread_jit3()
+    // are `static thread_local` in other TUs: each access from this dlopen'd
+    // .so is an out-of-line __tls_get_addr).  VMState is itself per-thread,
+    // so the pointers are resolved once and reused by every frame.
+    void *jit2 = nullptr;   // vgjit2::Tier2*
+    void *jit3 = nullptr;   // vgjit3::Tier3*
 
     // Call Frame info usually needed here for recursion
     // For now we can assume flat execution or use C++ recursion for calls

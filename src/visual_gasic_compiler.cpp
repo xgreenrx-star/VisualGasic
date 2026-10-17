@@ -410,42 +410,19 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
     }
 
-    // ── Fast-call convention detection (v6.0) ──────────────────────────
-    // A Sub/Function qualifies for the fast-param path when EVERY parameter is
-    // a scalar value type passed ByVal (no ByRef, no ParamArray, no Optional)
-    // and — for Functions — the return type is also scalar.  Such params/return
-    // get dedicated LOCAL SLOTS seeded directly from the call args, bypassing the
-    // per-call variables[] Dictionary insert/lookup/erase that dominates call
-    // overhead.  Scalar-only guarantees value semantics, so there is no dict/
-    // array aliasing or sole-owner escape-analysis interaction to worry about.
-    auto _vg_is_scalar_type = [](const String &th) -> bool {
-        String t = th.to_lower();
-        return t == "integer" || t == "long" || t == "longlong" ||
-               t == "single"  || t == "double"   || t == "boolean" ||
-               t == "byte"    || t == "string"   || t == "currency" ||
-               t == "date"    || t == "short"    || t == "char";
-    };
-    bool fast_params_ok = true;
-    for (int i = 0; i < sub->parameters.size(); i++) {
-        const Parameter &p = sub->parameters[i];
-        if (p.is_by_ref || p.is_param_array || p.is_optional ||
-            p.type_hint.is_empty() || !_vg_is_scalar_type(p.type_hint)) {
-            fast_params_ok = false;
-            break;
-        }
-    }
-    if (fast_params_ok && sub->type == SubDefinition::TYPE_FUNCTION) {
-        // Untyped (Variant) return excluded to keep the return slot value-typed.
-        if (sub->return_type.is_empty() || !_vg_is_scalar_type(sub->return_type)) {
-            fast_params_ok = false;
-        }
-    }
-
-    // For a fast-params Function the return variable (named after the Sub) must
-    // be eligible for a local slot, so do NOT force it non-local.
-    if (!(fast_params_ok && sub->type == SubDefinition::TYPE_FUNCTION)) {
-        non_local_names.insert(sub->name.to_lower());
-    }
+    // ── Slot-call convention (v6.1) ─────────────────────────────────────
+    // EVERY parameter (ByVal, ByRef, Optional, ParamArray, any type) and the
+    // Function return variable live in dedicated LOCAL SLOTS seeded directly
+    // from the call arguments by call_internal, never in the string-keyed
+    // variables[] Dictionary.  ByRef is copy-in/copy-out: the VM captures the
+    // ByRef slots into _last_byref_captures at exit and the caller's
+    // OP_BYREF_LOAD / AST write-back stores them — exactly the mechanism the
+    // old variables[]-bound path used (it also captured a value at exit).
+    // Optional params are seeded with the argument or the default value, a
+    // ParamArray slot receives the rest-Array.  This removed ~50 Dictionary
+    // operations per call for Backlight City's _triangle/_quad/_box helpers.
+    // Only AST-only Subs (no compiled chunk) still bind through variables[].
+    const bool fast_params_ok = true;
     used_vars.insert(sub->name.to_lower());
 
     // Keywords and singletons must always go through OP_GET_GLOBAL
@@ -528,43 +505,24 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
 
     for (int i = 0; i < sub->parameters.size(); i++) {
         const String pkey = sub->parameters[i].name.to_lower();
-        if (fast_params_ok) {
-            // Fast-call: give each scalar ByVal param its own local slot
-            // (assigned in order → slots 0..P-1) seeded from the call args at
-            // runtime.  Keep it in param_vars for subscript/namespace-shadow
-            // logic, but NOT in non_local_names (that would force OP_GET_GLOBAL).
-            // Width/Height/Left/Top are pre-seeded as owner properties. A ByVal
-            // parameter of that name must shadow them or PadInt's width is Nothing.
-            param_vars.insert(pkey);
-            non_local_names.erase(pkey);
-            ValueType pvt = VT_UNKNOWN;
-            String t = sub->parameters[i].type_hint.to_lower();
-            if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
-            else if (t == "single" || t == "double") pvt = VT_FLOAT;
-            mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
-        } else {
-            param_vars.insert(pkey);
-            if (sub->parameters[i].is_param_array) {
-                array_vars.insert(pkey);
-                non_local_names.insert(pkey);
-            } else if (sub->parameters[i].is_by_ref) {
-                non_local_names.insert(pkey);
-            } else {
-                // ByVal params get a local slot seeded from variables[] at call
-                // entry. A Single/Double must be tagged VT_FLOAT here. This sub
-                // is not on the fast-call path (it has a ByRef parameter), so the
-                // slot is loaded before any store. An untyped slot is I64, and
-                // the JIT then cvtsi2sd's the float's bit pattern.
-                // Shadow owner-property names (Width/Height/Left/Top) the same
-                // way the fast-call path does.
-                non_local_names.erase(pkey);
-                ValueType pvt = VT_UNKNOWN;
-                String t = sub->parameters[i].type_hint.to_lower();
-                if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
-                else if (t == "single" || t == "double") pvt = VT_FLOAT;
-                mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
-            }
+        // Give each param its own local slot (assigned in order → slots
+        // 0..P-1) seeded from the call args at runtime.  Keep it in
+        // param_vars for subscript/namespace-shadow logic, but NOT in
+        // non_local_names (that would force OP_GET_GLOBAL).  Width/Height/
+        // Left/Top are pre-seeded as owner properties. A parameter of that
+        // name must shadow them or PadInt's width is Nothing.
+        param_vars.insert(pkey);
+        non_local_names.erase(pkey);
+        if (sub->parameters[i].is_param_array) {
+            // The slot holds the rest-Array; `args(i)` must compile as an
+            // array subscript, not a call.
+            array_vars.insert(pkey);
         }
+        ValueType pvt = VT_UNKNOWN;
+        String t = sub->parameters[i].type_hint.to_lower();
+        if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
+        else if (t == "single" || t == "double") pvt = VT_FLOAT;
+        mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
     }
 
     // Fast-call: allocate the return-value slot (Functions only) immediately
@@ -577,9 +535,9 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     // call_internal's coercion EXACTLY (0=none,1=int64,2=double,3=string,
     // 4=bool) — note longlong/byte/currency/date/short/char map to 0 (no
     // coercion), matching the binder's original untouched behavior.
-    // Computed for EVERY chunk: the variables[]-bound (ByRef / Optional) binder
-    // ran the string path on each parameter of each call — Backlight City's
-    // _quad(a, b, c, d, Optional lit, Optional normal) is called ~10k times.
+    // 6 = any other / untyped (Variant, Vector3, Object, Dictionary, …): no
+    // coercion either, but distinct from 0 so the numeric-only tier-2 JIT can
+    // refuse chunks whose slots may hold non-numeric values.
     {
         auto _vg_coerce_code = [](const String &th) -> int8_t {
             String t = th.to_lower();
@@ -591,7 +549,9 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             // but the Function RETURN is normalised to a plain Array in
             // call_internal (packed arrays convert; see the return path).
             if (t == "array") return 5;
-            return 0;
+            if (t == "longlong" || t == "byte" || t == "currency" || t == "date" ||
+                t == "short" || t == "char") return 0;
+            return 6;
         };
         current_chunk->fast_param_coerce.resize(sub->parameters.size());
         for (int i = 0; i < sub->parameters.size(); i++) {
@@ -609,6 +569,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             if (rt == "integer" || rt == "long" || rt == "longlong") rvt = VT_INT;
             else if (rt == "single" || rt == "double") rvt = VT_FLOAT;
             current_chunk->return_slot = get_or_add_local(sub->name, rvt);
+            mark_local_declared(current_chunk->return_slot);
         } else {
             current_chunk->return_slot = -1;
         }
@@ -858,7 +819,11 @@ int VisualGasicCompiler::get_or_add_local(const String &name, ValueType type) {
     local_types[key] = type;
     current_chunk->local_names.push_back(name);
     current_chunk->local_types.push_back(to_local_type(type));
-    current_chunk->local_declared.push_back(0);
+    // Compiler temporaries (__cse_N, __const_to_N, ...) are written before
+    // they are read and are never user-visible, so they count as declared:
+    // neither the interpreter nor the JIT dispatch seeds them from, or
+    // flushes them to, variables[].
+    current_chunk->local_declared.push_back(name.begins_with("__") ? 1 : 0);
     return slot;
 }
 
@@ -899,11 +864,14 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 else if (t == "single" || t == "double") array_types[key] = VT_FLOAT;
                 String bound = extract_bound_var(s->array_sizes[0]);
                 if (!bound.is_empty()) array_bound_vars[key] = bound.to_lower();
-                if (shadows) {
+                {
+                    // Dim'd arrays are initialised by OP_NEW_ARRAY before any
+                    // read: a declared slot, never seeded from variables[].
                     int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                    mark_local_declared(slot);
                     // Blank the published name so JIT / exit flush cannot
                     // write this local back over the module variable.
-                    if (slot >= 0 && slot < current_chunk->local_names.size()) {
+                    if (shadows && slot >= 0 && slot < current_chunk->local_names.size()) {
                         current_chunk->local_names.write[slot] = String();
                     }
                 }
@@ -980,7 +948,9 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
         }
         case STMT_FOR: {
             ForStatement* f = (ForStatement*)stmt;
-            get_or_add_local(f->variable_name, VT_UNKNOWN);
+            // The counter is assigned its start value before any read, so the
+            // slot is declared (no variables[] seed/flush) like a Dim'd local.
+            mark_local_declared(get_or_add_local(f->variable_name, VT_UNKNOWN));
             for (int i = 0; i < f->body.size(); i++) {
                 collect_locals(f->body[i]);
             }
@@ -1620,6 +1590,33 @@ bool VisualGasicCompiler::is_fast_array_var(const String &name) const {
 
 bool VisualGasicCompiler::is_dictionary_var(const String &name) const {
     return dictionary_vars.has(name.to_lower());
+}
+
+const Vector<ExpressionNode*> *VisualGasicCompiler::array_literal_elements(ExpressionNode* expr) const {
+    if (!expr) return nullptr;
+    // A variable/array/dictionary/parameter called "array" makes `Array(x)`
+    // an index, not the builtin literal.
+    static const String _array_lower("array");
+    if (local_slots.has(_array_lower) || param_vars.has(_array_lower) ||
+        array_vars.has(_array_lower) || dictionary_vars.has(_array_lower) ||
+        is_fast_array_var(_array_lower) || is_buffer_var(_array_lower)) {
+        return nullptr;
+    }
+    if (expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression* call = (CallExpression*)expr;
+        if (call->base_object || call->method_name.nocasecmp_to("Array") != 0) return nullptr;
+        for (int i = 0; i < call->argument_names.size(); i++) {
+            if (!call->argument_names[i].is_empty()) return nullptr;   // named args: not a literal
+        }
+        return &call->arguments;
+    }
+    if (expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode* aa = (ArrayAccessNode*)expr;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE) return nullptr;
+        if (((VariableNode*)aa->base)->name.nocasecmp_to("Array") != 0) return nullptr;
+        return &aa->indices;
+    }
+    return nullptr;
 }
 
 bool VisualGasicCompiler::is_trusted_dictionary_var(const String &name) const {
@@ -4397,7 +4394,16 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         if (b->op == "+") Variant::evaluate(Variant::OP_ADD, a, c, res, valid);
         else if (b->op == "-") Variant::evaluate(Variant::OP_SUBTRACT, a, c, res, valid);
         else if (b->op == "*") Variant::evaluate(Variant::OP_MULTIPLY, a, c, res, valid);
-        else if (b->op == "/") Variant::evaluate(Variant::OP_DIVIDE, a, c, res, valid);
+        else if (b->op == "/") {
+            // VB `/` is Double division (`7 / 2` is 3.5, not Godot's Integer 3);
+            // Vector / Color operands use Godot's component-wise operator.
+            if (vg_is_vb_scalar(a.get_type()) && vg_is_vb_scalar(c.get_type())) {
+                const double dc = (double)c;
+                if (dc != 0.0) { valid = true; res = (double)a / dc; }
+            } else {
+                Variant::evaluate(Variant::OP_DIVIDE, a, c, res, valid);
+            }
+        }
         else if (b->op == "&") { valid = true; res = String(a) + String(c); }
         else if (b->op == "=") Variant::evaluate(Variant::OP_EQUAL, a, c, res, valid);
         else if (b->op == "<") Variant::evaluate(Variant::OP_LESS, a, c, res, valid);
@@ -6752,6 +6758,25 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                         String lower = s->variable_name.to_lower();
                         dictionary_vars.insert(lower);
                         trusted_dictionary_vars.insert(lower);
+                        // `Dim d As Dictionary` is an empty dictionary (AST walker
+                        // parity: `d("k") = v` right after the Dim works).  A NIL
+                        // slot here used to make the sole-owner OP_SET_VGDICT_LOCAL
+                        // fast path raise "invalid VGDict slot" because nothing
+                        // had activated the pool entry.
+                        int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
+                        if (is_sole_owner_dict_var(s->variable_name) && slot >= 0 && slot < 16) {
+                            emit_bytes(OP_NEW_VGDICT, (uint8_t)slot);
+                            break;
+                        }
+                        emit_byte(OP_NEW_DICT);
+                        if (slot >= 0) {
+                            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+                        } else {
+                            int gidx = current_chunk->add_constant(s->variable_name);
+                            emit_byte(OP_SET_GLOBAL);
+                            emit_const_index(gidx);
+                        }
+                        break;
                     }
                     else if (t == "packedbytearray" || t == "packedint32array" || t == "packedint64array"
                         || t == "packedfloat32array" || t == "packedfloat64array" || t == "packedstringarray"
@@ -6824,7 +6849,13 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
                  // the body never reads it, so `Name = "literal"` is not dead.
                  bool is_fn_return = current_sub && current_sub->type == SubDefinition::TYPE_FUNCTION
                      && name.nocasecmp_to(current_sub->name) == 0;
-                 if (!is_fn_return && !non_local_names.has(name) && !used_vars.has(name) && is_pure_expr(s->value)) {
+                 // Parameters live in local slots (slot-call convention) but a
+                 // ByRef param is read by the CALLER through the write-back
+                 // capture, so `x = 100` in `Sub S(x As Integer)` is never dead.
+                 // (Only the DCE pass has this blind spot; the binder copies
+                 // every param slot out at exit regardless.)
+                 if (!is_fn_return && !non_local_names.has(name) && !param_vars.has(name) &&
+                         !used_vars.has(name) && is_pure_expr(s->value)) {
                      break; // DCE
                  }
              }
@@ -9561,6 +9592,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             }
 
             // Emit OP_PARALLEL_FOR_BEGIN [var_slot] [body_len placeholder]
+            current_chunk->publishes_locals = true; // body reads parent locals via variables[]
             emit_byte(OP_PARALLEL_FOR_BEGIN);
             emit_byte((uint8_t)(var_slot >= 0 ? var_slot : 0));
             // Reserve 2 bytes for body_len (patched after body compilation).
@@ -9653,24 +9685,38 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             // --- loop header ---
             int loop_start = current_chunk->code.size();
 
-            // if idx >= Len(coll) then exit
-            emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
-            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
-            emit_byte(OP_LEN);
-            emit_byte(OP_GREATER_EQUAL);  // idx >= len → done
-            int exit_jump = emit_jump(OP_JUMP_IF_TRUE);
-
-            // var = coll(idx)
-            emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
-            emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
-            emit_byte(foreach_fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY);
-            emit_byte(1);
-            if (var_slot >= 0) {
-                emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+            int exit_jump;
+            if (var_slot >= 0 && var_slot < 256 && coll_slot < 256 && idx_slot < 256) {
+                // Fused header: one opcode does the bound check, the element
+                // fetch and the store (see OP_FOREACH_STEP).  Its exit offset
+                // is patched exactly like a jump's.
+                emit_byte(OP_FOREACH_STEP);
+                emit_byte((uint8_t)coll_slot);
+                emit_byte((uint8_t)idx_slot);
+                emit_byte((uint8_t)var_slot);
+                emit_byte(0xFF);
+                emit_byte(0xFF);
+                exit_jump = current_chunk->code.size() - 2;
             } else {
-                int name_idx = current_chunk->add_constant(s->variable_name);
-                emit_byte(OP_SET_GLOBAL);
-                emit_const_index(name_idx);
+                // if idx >= Len(coll) then exit
+                emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
+                emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+                emit_byte(OP_LEN);
+                emit_byte(OP_GREATER_EQUAL);  // idx >= len → done
+                exit_jump = emit_jump(OP_JUMP_IF_TRUE);
+
+                // var = coll(idx)
+                emit_bytes(OP_GET_LOCAL, (uint8_t)coll_slot);
+                emit_bytes(OP_GET_LOCAL, (uint8_t)idx_slot);
+                emit_byte(foreach_fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY);
+                emit_byte(1);
+                if (var_slot >= 0) {
+                    emit_bytes(OP_SET_LOCAL, (uint8_t)var_slot);
+                } else {
+                    int name_idx = current_chunk->add_constant(s->variable_name);
+                    emit_byte(OP_SET_GLOBAL);
+                    emit_const_index(name_idx);
+                }
             }
 
             // --- loop body ---
@@ -10006,6 +10052,7 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
 
             // Emit OP_TASK_RUN_BEGIN [name_const] [bg_flag] [body_len_hi] [body_len_lo]
             int name_idx = current_chunk->add_constant(Variant(s->task_name));
+            current_chunk->publishes_locals = true; // body reads parent locals via variables[]
             emit_byte(OP_TASK_RUN_BEGIN);
             emit_const_index(name_idx);
             emit_byte(s->is_background ? 1 : 0);
@@ -10052,7 +10099,11 @@ void VisualGasicCompiler::compile_statement(Statement* stmt) {
             break;
         }
         case STMT_AWAIT: {
-			current_chunk->fast_params = false;
+            // Params stay in their slots across a suspend: OP_AWAIT snapshots
+            // `locals` into CoroutineState.vm_locals and the resume treats the
+            // chunk as a fast call again (see execute_bytecode's p_resume).
+            // Clearing fast_params here would make call_internal bind the
+            // params through variables[] while the body reads local slots.
             // Await statement (v4.2.0): compile the expression (signal/coroutine),
             // push it onto stack, then emit OP_AWAIT for VM coroutine dispatch.
             AwaitStatement* s = (AwaitStatement*)stmt;
@@ -10965,15 +11016,43 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              // OP_CALL returns NIL for these since they are not VG subs/builtins.
              bool _emitted_godot_ctor = false;
              {
+                 // Packed*Array() / Packed*Array(arr) take the same route: the
+                 // VM's OP_NEW_OBJECT memoises the packed kind per call site,
+                 // whereas OP_CALL would walk the whole builtin cascade (owner
+                 // node probes, QB screen, ~450 strcmps) on every evaluation.
                  static const char* _godot_type_ctors_call[] = {
                      "vector2", "vector2i", "vector3", "vector3i",
                      "vector4", "vector4i", "rect2", "rect2i",
                      "color", "transform2d", "transform3d",
                      "basis", "quaternion", "plane", "aabb",
+                     "packedbytearray", "packedint32array", "packedint64array",
+                     "packedfloat32array", "packedfloat64array", "packedstringarray",
+                     "packedvector2array", "packedvector3array", "packedcolorarray",
+                     "packedvector4array",
                      nullptr
                  };
                  for (int _gi = 0; _godot_type_ctors_call[_gi]; ++_gi) {
                      if (call_name == _godot_type_ctors_call[_gi]) {
+                         // PackedXArray(Array(e1, …, en)): build the packed array
+                         // straight from the element values (one opcode) instead
+                         // of OP_CALL "Array" (godot Array literal) + OP_NEW_OBJECT
+                         // (Array → packed conversion).  Same result: the VM applies
+                         // the same per-element Variant conversion the engine's
+                         // Array constructor does.
+                         if (call_name.begins_with("packed") && call->arguments.size() == 1) {
+                             const Vector<ExpressionNode*> *elems = array_literal_elements(call->arguments[0]);
+                             if (elems && elems->size() <= 255) {
+                                 for (int i = 0; i < elems->size(); i++) {
+                                     compile_expression((*elems)[i]);
+                                 }
+                                 int name_idx = current_chunk->add_constant(call->method_name);
+                                 emit_byte(OP_NEW_PACKED_LITERAL);
+                                 emit_const_index(name_idx);
+                                 emit_byte((uint8_t)elems->size());
+                                 _emitted_godot_ctor = true;
+                                 break;
+                             }
+                         }
                          if (call_name == "color" && call->arguments.size() >= 3) {
                              bool all_const = true;
                              for (int i = 0; i < call->arguments.size(); i++) {

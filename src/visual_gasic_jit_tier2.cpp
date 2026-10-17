@@ -6,6 +6,7 @@
 #include "visual_gasic_builtins.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cmath>
+#include <cctype>
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
@@ -74,6 +75,29 @@ bool jit_tier2_non_numeric_callee(const char *name) {
 			return true;
 		}
 	}
+	// Container / Godot-type constructors in call position
+	// (PackedVector3Array(), Array(...), Dictionary(), Color(...)) — their
+	// result is never representable as an I64/F64 slot.  A JIT'd
+	// `points = PackedVector3Array()` silently became a no-op otherwise.
+	static const char *k_ctor_names[] = {
+		"array", "dictionary", "createnode", "vector2", "vector2i", "vector3", "vector3i",
+		"vector4", "vector4i", "rect2", "rect2i", "color", "color8", "rgb", "transform2d",
+		"transform3d", "basis", "quaternion", "plane", "aabb", "callable", "nodepath",
+		"stringname", nullptr
+	};
+	for (int i = 0; k_ctor_names[i]; i++) {
+		if (jit_tier2_name_eq_ci(name, k_ctor_names[i])) {
+			return true;
+		}
+	}
+	if ((name[0] == 'p' || name[0] == 'P') && std::strlen(name) > 6) {
+		char prefix[7];
+		for (int i = 0; i < 6; i++) prefix[i] = (char)std::tolower((unsigned char)name[i]);
+		prefix[6] = 0;
+		if (std::strcmp(prefix, "packed") == 0) {
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -81,12 +105,15 @@ bool jit_tier2_chunk_has_non_numeric_slots(const BytecodeChunk *chunk) {
 	if (!chunk || !chunk->fast_params) {
 		return false;
 	}
-	// 3 = String, 5 = Array in the compiler's fast_*_coerce enum.
-	if (chunk->fast_return_coerce == 3 || chunk->fast_return_coerce == 5) {
+	// 3 = String, 5 = Array, 6 = Variant/other (Vector3, Object, …) in the
+	// compiler's fast_*_coerce enum; only 0/1/2/4 slots are representable
+	// as I64/F64 bit patterns.
+	auto non_numeric = [](int8_t c) { return c == 3 || c == 5 || c == 6; };
+	if (non_numeric(chunk->fast_return_coerce)) {
 		return true;
 	}
 	for (int i = 0; i < chunk->fast_param_coerce.size(); i++) {
-		if (chunk->fast_param_coerce[i] == 3 || chunk->fast_param_coerce[i] == 5) {
+		if (non_numeric(chunk->fast_param_coerce[i])) {
 			return true;
 		}
 	}
@@ -111,6 +138,31 @@ Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &
         return Variant();
     }
     return call_internal(method, args, handled);
+}
+
+// Tier-2 lowers every OP_CALL to a RUNTIME_CALL whose result is kept as an
+// I64/F64 bit pattern.  A user Function returning anything else (Variant,
+// Vector3, Array, String, Object, …) would have its result truncated to 0,
+// so the lowering must refuse such callees.  Mirrors call_internal's lookup
+// order: host script Subs first, then imported modules.
+bool VisualGasicInstance::jit_callee_returns_non_numeric(const String &name, int argc) {
+    auto non_numeric_return = [](const SubDefinition *sd) -> bool {
+        if (!sd || sd->type != SubDefinition::TYPE_FUNCTION) return false;
+        String t = sd->return_type.to_lower();
+        return !(t == "integer" || t == "long" || t == "longlong" || t == "single" ||
+                 t == "double" || t == "boolean" || t == "byte" || t == "short" ||
+                 t == "currency" || t == "date");
+    };
+    if (script.is_valid() && script->ast_root) {
+        for (int i = 0; i < script->ast_root->subs.size(); i++) {
+            const SubDefinition *sd = script->ast_root->subs[i];
+            if (sd && sd->name.nocasecmp_to(name) == 0) {
+                if (non_numeric_return(sd)) return true;
+            }
+        }
+    }
+    const SubDefinition *imported = find_imported_sub(name, argc, nullptr);
+    return non_numeric_return(imported);
 }
 
 Variant VisualGasicInstance::jit_byref_capture(const String &name, bool &found) const {
@@ -814,6 +866,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
                         case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
                         case OP_PUSH_SCOPE:
+                        case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
                             advance = 2; break;
                         // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
                         case OP_CONSTANT:
@@ -823,8 +876,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_GET_MEMBER: case OP_SET_MEMBER:
                         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
                         case OP_SET_DICT_LOCAL:
-                        case OP_ITER_ARRAY: case OP_NEW_VGDICT:
-                        case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
+                        case OP_ITER_ARRAY:
                         case OP_PRINT_FILE: case OP_WRITE_FILE: case OP_INPUT_FILE:
                         case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
                         case OP_ON_ERROR_GOTO: case OP_GOSUB:
@@ -842,6 +894,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_SET_DICT_GLOBAL:
                         case OP_RAISE_EVENT:
                         case OP_NEW_OBJECT:
+                        case OP_NEW_PACKED_LITERAL:
                         case OP_STRING_REPEAT_OUTER:
                         case OP_PARALLEL_FOR_BEGIN:
                             advance = 4; break;
@@ -852,6 +905,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         // 6-byte opcodes
                         case OP_TASK_RUN_BEGIN:
                         case OP_BYREF_LOAD:
+                        case OP_FOREACH_STEP:
                             advance = 6; break;
                         // 8-byte opcodes
                         case OP_ALLOC_FILL_REPEAT_I64:
@@ -935,6 +989,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 case OP_ACCUM_I64_MULADD_CONST:
                     ip += 5; break;
                 case OP_BYREF_LOAD:
+                case OP_FOREACH_STEP:
                     ip += 6; break;
                 default:
                     ip += 1; break;
@@ -1841,6 +1896,10 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 IRInst inst;
                 inst.op = IROp::RET_VALUE;
                 inst.src1 = val;
+                inst.type = get_vreg_type(val);
+                // local_slot is patched to the dedicated return slot once the
+                // slot count is final (see end of lowering).
+                inst.local_slot = -1;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 ip += 1;
@@ -2093,6 +2152,11 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     if (got && want && !fn_name.empty() && jit_tier2_name_eq_ci(got, want)) {
                         return false;
                     }
+                    // User Functions returning Vector3/Array/String/Variant…
+                    // would be truncated to an F64 by RUNTIME_CALL.
+                    if (inst && static_cast<VisualGasicInstance *>(inst)->jit_callee_returns_non_numeric(cn, argc)) {
+                        return false;
+                    }
                 }
                 if ((int)vstack.size() < argc) return false;
                 IRInst cinst;
@@ -2310,6 +2374,27 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         if (kv.first >= 0 && kv.first < (int)slot_is_f64.size() && kv.second == IRType::F64) {
             slot_is_f64[kv.first] = 1;
         }
+    }
+    // `Return expr` hands its value back through a DEDICATED slot appended
+    // after the locals and virtual globals.  It used to overwrite slot 0,
+    // which under the slot-call convention is the first parameter — a ByRef
+    // first param then wrote the return value back into the caller
+    // (`For i … AddOne(i)` skipped every other i).  Every RET_VALUE in the
+    // body must agree on I64 vs F64 so the host can decode the slot.
+    {
+        int ret_slot = -1;
+        bool ret_f64 = false, ret_i64 = false;
+        for (IRInst &inst : ir) {
+            if (inst.op != IROp::RET_VALUE) continue;
+            if (ret_slot < 0) {
+                ret_slot = total_slots++;
+                slot_is_f64.push_back(0);
+            }
+            inst.local_slot = ret_slot;
+            if (inst.type == IRType::F64) ret_f64 = true; else ret_i64 = true;
+        }
+        if (ret_f64 && ret_i64) return false;
+        if (ret_slot >= 0 && ret_f64) slot_is_f64[ret_slot] = 1;
     }
     return true;
 }
@@ -2597,12 +2682,37 @@ static int64_t host_call(int64_t name_ptr, int64_t argc, int64_t bits_ptr, int64
     }
     String method(reinterpret_cast<const char *>(name_ptr));
     bool handled = false;
-    Variant r = VisualGasicBuiltins::call_builtin_expr_evaluated(vi, method, args, handled);
-    if (!handled) {
-        VisualGasicBuiltins::call_builtin(vi, method, args, r, handled);
+    Variant r;
+    // Per-site memo: name_ptr is a C string owned by the compiled function
+    // (stable for its lifetime) and both builtin cascades decide r_handled
+    // purely on (name, argc).  Once a site has fallen through both cascades
+    // to a user Sub, skip the ~450-entry strcmp walks on every later call —
+    // they made an empty JIT'd `Sub` call cost ~15 µs vs 0.5 µs interpreted.
+    // The name's leading bytes are kept alongside the pointer so a freed and
+    // re-used code buffer cannot inherit a stale decision.
+    struct HostCallMemo { int64_t name_ptr; int64_t argc; uint64_t name_prefix; bool user_sub; };
+    static thread_local std::vector<HostCallMemo> s_host_call_memo;
+    uint64_t name_prefix = 0;
+    {
+        const char *nm = reinterpret_cast<const char *>(name_ptr);
+        size_t nl = std::strlen(nm);
+        memcpy(&name_prefix, nm, nl < 8 ? nl : 8);
+    }
+    bool known_user_sub = false;
+    for (const HostCallMemo &m : s_host_call_memo) {
+        if (m.name_ptr == name_ptr && m.argc == argc && m.name_prefix == name_prefix) { known_user_sub = m.user_sub; break; }
+    }
+    if (!known_user_sub) {
+        r = VisualGasicBuiltins::call_builtin_expr_evaluated(vi, method, args, handled);
+        if (!handled) {
+            VisualGasicBuiltins::call_builtin(vi, method, args, r, handled);
+        }
     }
     if (!handled) {
         r = vi->jit_invoke_call(method, args, handled);
+        if (handled && !known_user_sub && s_host_call_memo.size() < 4096) {
+            s_host_call_memo.push_back({ name_ptr, argc, name_prefix, true });
+        }
     }
     g_jit_frame = saved;
     jit_sync_globals(false);
@@ -3464,9 +3574,18 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
             }
             
             case IROp::RET_VALUE: {
-                Reg val = get_or_load(cb, alloc, inst.src1, Reg::RCX);
-                // Store return value in locals[0]
-                cb.store_local_i64(0, val);
+                // Store return value in the dedicated return slot (patched in
+                // by lower_bytecode); the host reads CompiledFunc::ret_slot.
+                // An F64 result may live in an XMM register — store it as the
+                // raw bit pattern, exactly like STORE_LOCAL.
+                const int ret_slot = inst.local_slot >= 0 ? inst.local_slot : 0;
+                Reg src = alloc.reg_for(inst.src1);
+                if (src >= Reg::XMM0 && src <= Reg::XMM7) {
+                    cb.store_local_f64(ret_slot, src);
+                } else {
+                    Reg val = get_or_load(cb, alloc, inst.src1, Reg::RCX);
+                    cb.store_local_i64(ret_slot, val);
+                }
                 cb.mov_ri32(Reg::RAX, 1); // return 1 (has value)
                 cb.epilogue();
                 break;
@@ -3542,6 +3661,23 @@ Tier2::HotInfo& Tier2::get_hotness(const std::string& name) {
 
 CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst) {
     if (!enabled_ || tier_level_ < 2) return nullptr;
+    // Per-chunk memo (see BytecodeChunk::jit_t2): a settled decision by
+    // THIS engine short-circuits the string-key build + hash probes below.
+    if (chunk && chunk->jit_t2.owner.load(std::memory_order_acquire) == this) {
+        CompiledFunc *memo = static_cast<CompiledFunc *>(chunk->jit_t2.func);
+        if (memo) memo->exec_count++;
+        return memo;
+    }
+    auto publish_memo = [&](CompiledFunc *decision) {
+        if (!chunk) return;
+        void *expected = nullptr;
+        // First engine to settle the chunk owns the memo; others keep probing
+        // their own tables (no cross-thread overwrite).
+        if (chunk->jit_t2.owner.load(std::memory_order_acquire) == nullptr) {
+            chunk->jit_t2.func = decision;
+            chunk->jit_t2.owner.compare_exchange_strong(expected, this, std::memory_order_release);
+        }
+    };
     // Overloads share a name and must not share native code. The chunk
     // pointer is stable for one compiled body, including recursive calls.
     std::string cache_key = name;
@@ -3552,6 +3688,7 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     auto cache_it = cache_.find(cache_key);
     if (cache_it != cache_.end()) {
         cache_it->second->exec_count++;
+        publish_memo(cache_it->second);
         return cache_it->second;
     }
     
@@ -3559,10 +3696,10 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     HotInfo& hot = get_hotness(cache_key);
     hot.calls++;
     
-    if (hot.tried) return nullptr;
+    if (hot.tried) { if (hot.failed) publish_memo(nullptr); return nullptr; }
     if (hot.calls < HOT_THRESHOLD) return nullptr;
     if (!chunk || chunk->code.size() == 0) return nullptr;
-    if (chunk->code.size() > MAX_BC_SIZE) { hot.tried = true; hot.failed = true; return nullptr; }
+    if (chunk->code.size() > MAX_BC_SIZE) { hot.tried = true; hot.failed = true; publish_memo(nullptr); return nullptr; }
     if (cache_.size() >= MAX_CACHE) return nullptr;
     // String params/returns are not representable in Tier2 locals (see
     // jit_tier2_chunk_has_non_numeric_slots). Compiling them made ByVal Double
@@ -3570,6 +3707,7 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     if (jit_tier2_chunk_has_non_numeric_slots(chunk)) {
         hot.tried = true;
         hot.failed = true;
+        publish_memo(nullptr);
         return nullptr;
     }
     
@@ -3605,6 +3743,7 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
                                     "' ip ", g_jit_lower_ip, " op ", g_jit_lower_op, extra);
         }
         hot.failed = true;
+        publish_memo(nullptr);
         return nullptr;
     }
     
@@ -3614,6 +3753,7 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
             UtilityFunctions::print("[VG_JIT T2] regalloc failed '", String(name.c_str()), "'");
         }
         hot.failed = true;
+        publish_memo(nullptr);
         return nullptr;
     }
     
@@ -3623,13 +3763,18 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
             UtilityFunctions::print("[VG_JIT T2] emit failed '", String(name.c_str()), "'");
         }
         hot.failed = true;
+        publish_memo(nullptr);
         return nullptr;
     }
     
     func->global_slots = std::move(global_slots);
     func->total_slots = total_slots;
     func->slot_is_f64 = std::move(slot_is_f64);
+    for (const IRInst &inst : ir) {
+        if (inst.op == IROp::RET_VALUE) { func->ret_slot = inst.local_slot; break; }
+    }
     cache_[cache_key] = func;
+    publish_memo(func);
     
     if (jit_log && jit_log[0] == '1') {
         UtilityFunctions::print("[VG_JIT T2] Compiled '", String(name.c_str()), "' → ",

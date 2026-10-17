@@ -747,6 +747,38 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
              return container;
          }
+
+         // Packed array produced by any expression (a call result such as
+         // Build()(2), a member, a literal): same indexing and the same
+         // "Subscript out of range" as the bytecode VM's OP_CALL fallback.
+         if (base.get_type() >= Variant::PACKED_BYTE_ARRAY && base.get_type() <= Variant::PACKED_VECTOR4_ARRAY) {
+             Variant container = base;
+             for (int i = 0; i < aa->indices.size(); i++) {
+                 if (!aa->indices[i]) {
+                     raise_error("Incomplete array access: missing index");
+                     return Variant();
+                 }
+                 const Variant::Type ct = container.get_type();
+                 if (ct < Variant::PACKED_BYTE_ARRAY || ct > Variant::PACKED_VECTOR4_ARRAY) {
+                     raise_error("Unsupported array base type");
+                     return Variant();
+                 }
+                 const int64_t idx = (int64_t)evaluate_expression(aa->indices[i]);
+                 bool valid = false;
+                 bool oob = false;
+                 Variant next = container.get_indexed(idx, valid, oob);
+                 if (oob) {
+                     raise_error("Subscript out of range", 9);
+                     return Variant();
+                 }
+                 if (!valid) {
+                     raise_error("Unsupported array base type");
+                     return Variant();
+                 }
+                 container = next;
+             }
+             return container;
+         }
          
          if (aa->base->type == ExpressionNode::VARIABLE) {
              String func_name = ((VariableNode*)aa->base)->name;
@@ -2109,6 +2141,14 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         else if (op == "-") v_op = Variant::OP_SUBTRACT;
         else if (op == "*") v_op = Variant::OP_MULTIPLY;
         else if (op == "/") {
+            // Vector / Color operands: Godot's component-wise division (same
+            // helper as the bytecode VM's OP_DIVIDE).
+            if (!vg_is_vb_scalar(l.get_type()) || !vg_is_vb_scalar(r.get_type())) {
+                Variant divided;
+                if (vg_divide_non_scalar(l, r, divided)) {
+                    return divided;
+                }
+            }
             // Check for division by zero
             double divisor = (double)r;
             if (divisor == 0.0) {

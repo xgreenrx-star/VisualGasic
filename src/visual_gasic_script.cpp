@@ -112,6 +112,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_LESS_I64);
         OP_NAME_CASE(OP_PACKED_HP_STATE_TICK);
         OP_NAME_CASE(OP_PACKED_NEAREST_I64);
+        OP_NAME_CASE(OP_FOREACH_STEP);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);
         OP_NAME_CASE(OP_SUM_ARRAY_I64);
@@ -194,6 +195,85 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_DRAW_POLYLINE_GRID_LOOP);
         OP_NAME_CASE(OP_DRAW_RECT_OFFSET_LOOP);
         OP_NAME_CASE(OP_VECTOR_UNIFORM_RECT_GRID_LOOP);
+        OP_NAME_CASE(OP_POWER);
+        OP_NAME_CASE(OP_SHL);
+        OP_NAME_CASE(OP_SHR);
+        OP_NAME_CASE(OP_SUM_VGDICT_ALL_I64);
+        OP_NAME_CASE(OP_SIN);
+        OP_NAME_CASE(OP_COS);
+        OP_NAME_CASE(OP_SQRT);
+        OP_NAME_CASE(OP_TAN);
+        OP_NAME_CASE(OP_ATAN2);
+        OP_NAME_CASE(OP_FLOOR_F);
+        OP_NAME_CASE(OP_CEIL_F);
+        OP_NAME_CASE(OP_EXP);
+        OP_NAME_CASE(OP_LOG);
+        OP_NAME_CASE(OP_SET_DICT_LOCAL);
+        OP_NAME_CASE(OP_SET_DICT_GLOBAL);
+        OP_NAME_CASE(OP_DICT_HAS_KEY);
+        OP_NAME_CASE(OP_DICT_SIZE);
+        OP_NAME_CASE(OP_DICT_CLEAR_INPLACE);
+        OP_NAME_CASE(OP_DICT_KEYS);
+        OP_NAME_CASE(OP_DICT_VALUES);
+        OP_NAME_CASE(OP_DICT_ERASE);
+        OP_NAME_CASE(OP_NEW_VGDICT);
+        OP_NAME_CASE(OP_GET_VGDICT_LOCAL);
+        OP_NAME_CASE(OP_SET_VGDICT_LOCAL);
+        OP_NAME_CASE(OP_LOAD_DATA);
+        OP_NAME_CASE(OP_DATA_FROM_STRING);
+        OP_NAME_CASE(OP_CLEAR_DATA);
+        OP_NAME_CASE(OP_COERCE_TYPE);
+        OP_NAME_CASE(OP_STOP);
+        OP_NAME_CASE(OP_IS_CLASS);
+        OP_NAME_CASE(OP_METHOD_CALL);
+        OP_NAME_CASE(OP_ITER_ARRAY);
+        OP_NAME_CASE(OP_DICT_KEYS_CALL);
+        OP_NAME_CASE(OP_PUSH_WITH);
+        OP_NAME_CASE(OP_POP_WITH);
+        OP_NAME_CASE(OP_GET_WITH);
+        OP_NAME_CASE(OP_SETUP_TRY);
+        OP_NAME_CASE(OP_POP_TRY);
+        OP_NAME_CASE(OP_THROW);
+        OP_NAME_CASE(OP_DUP);
+        OP_NAME_CASE(OP_ARRAY_RESIZE);
+        OP_NAME_CASE(OP_NEW_OBJECT);
+        OP_NAME_CASE(OP_NEW_PACKED_LITERAL);
+        OP_NAME_CASE(OP_OPEN_FILE);
+        OP_NAME_CASE(OP_CLOSE_FILE);
+        OP_NAME_CASE(OP_PRINT_FILE);
+        OP_NAME_CASE(OP_WRITE_FILE);
+        OP_NAME_CASE(OP_INPUT_FILE);
+        OP_NAME_CASE(OP_LINE_INPUT);
+        OP_NAME_CASE(OP_GOSUB);
+        OP_NAME_CASE(OP_RETURN_GOSUB);
+        OP_NAME_CASE(OP_LOCK);
+        OP_NAME_CASE(OP_UNLOCK);
+        OP_NAME_CASE(OP_PARALLEL_FOR_BEGIN);
+        OP_NAME_CASE(OP_PARALLEL_FOR_END);
+        OP_NAME_CASE(OP_TASK_RUN_BEGIN);
+        OP_NAME_CASE(OP_TASK_RUN_END);
+        OP_NAME_CASE(OP_TASK_WAIT);
+        OP_NAME_CASE(OP_AWAIT);
+        OP_NAME_CASE(OP_RAISE_EVENT);
+        OP_NAME_CASE(OP_ADDRESS_OF);
+        OP_NAME_CASE(OP_BUF_ALLOC);
+        OP_NAME_CASE(OP_BUF_FREE);
+        OP_NAME_CASE(OP_BUF_READ8);
+        OP_NAME_CASE(OP_BUF_WRITE8);
+        OP_NAME_CASE(OP_BUF_READ16);
+        OP_NAME_CASE(OP_BUF_WRITE16);
+        OP_NAME_CASE(OP_BUF_READ32);
+        OP_NAME_CASE(OP_BUF_WRITE32);
+        OP_NAME_CASE(OP_BUF_SIZE);
+        OP_NAME_CASE(OP_BUF_RESIZE);
+        OP_NAME_CASE(OP_HINT_ACCUMULATOR);
+        OP_NAME_CASE(OP_HINT_LOOP_COUNTER);
+        OP_NAME_CASE(OP_HINT_PURE_CALL);
+        OP_NAME_CASE(OP_JUMP_TABLE);
+        OP_NAME_CASE(OP_PUSH_SCOPE);
+        OP_NAME_CASE(OP_POP_SCOPE);
+        OP_NAME_CASE(OP_GET_BLOCK_LOCAL);
+        OP_NAME_CASE(OP_SET_BLOCK_LOCAL);
 #undef OP_NAME_CASE
         default:
             return vformat("OP_UNKNOWN_%d", (int)op);
@@ -227,6 +307,9 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_DICT_TRUSTED:
         case OP_DRAW_RECT:
         case OP_DRAW_LINE:
+        case OP_NEW_VGDICT:
+        case OP_GET_VGDICT_LOCAL:
+        case OP_SET_VGDICT_LOCAL:
             return 1;
         case OP_DRAW_RECT_F64:
             return 11;
@@ -295,6 +378,7 @@ int opcode_operand_length(uint8_t op) {
         case OP_CALL:
         case OP_METHOD_CALL:
         case OP_NEW_OBJECT:
+        case OP_NEW_PACKED_LITERAL:
         case OP_RAISE_EVENT:
         case OP_ADD_LOCAL_I64_CONST:
         case OP_SUB_LOCAL_I64_CONST:
@@ -321,6 +405,9 @@ int opcode_operand_length(uint8_t op) {
             return 4;
         case OP_PACKED_NEAREST_I64:
             return 6;
+        // 5-byte operand: 3 local slots + exit16
+        case OP_FOREACH_STEP:
+            return 5;
         default:
             return 0;
     }
@@ -394,6 +481,16 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
                     describe_local_slot(chunk, int(operands[3])),
                     describe_local_slot(chunk, int(operands[4])),
                     describe_local_slot(chunk, int(operands[5])));
+            }
+            break;
+        case OP_FOREACH_STEP:
+            if (operands.size() >= 5) {
+                int exit_off = (int(operands[3]) << 8) | int(operands[4]);
+                return vformat("coll=%s, idx=%s, var=%s, exit=+%d",
+                    describe_local_slot(chunk, int(operands[0])),
+                    describe_local_slot(chunk, int(operands[1])),
+                    describe_local_slot(chunk, int(operands[2])),
+                    exit_off);
             }
             break;
         case OP_ADD_LOCAL_I64_CONST:
@@ -512,6 +609,11 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
 }
 
 } // namespace
+
+// External-linkage name lookup for the VM's VG_OPCODE_PROFILE=2 dump.
+String vg_opcode_name(uint8_t op) {
+    return opcode_name(op);
+}
 
 void VisualGasicScript::_bind_methods() {
     ClassDB::bind_method(D_METHOD("debug_dump_bytecode", "entry_point"), &VisualGasicScript::debug_dump_bytecode);

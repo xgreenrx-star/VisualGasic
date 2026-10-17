@@ -96,39 +96,19 @@ Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
 End Function
 
 Function PackVec2(ByVal items As Array) As PackedVector2Array
-	Dim packed As PackedVector2Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec2 = packed
+	PackVec2 = PackedVector2Array(items)
 End Function
 
 Function PackVec3(ByVal items As Array) As PackedVector3Array
-	Dim packed As PackedVector3Array
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackVec3 = packed
+	PackVec3 = PackedVector3Array(items)
 End Function
 
 Function PackColor(ByVal items As Array) As PackedColorArray
-	Dim packed As PackedColorArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackColor = packed
+	PackColor = PackedColorArray(items)
 End Function
 
 Function PackByte(ByVal items As Array) As PackedByteArray
-	Dim packed As PackedByteArray
-	Dim item As Variant
-	For Each item In AsArray(items)
-		packed.append(item)
-	Next
-	PackByte = packed
+	PackByte = PackedByteArray(items)
 End Function
 
 Function Sign(ByVal value As Single) As Single

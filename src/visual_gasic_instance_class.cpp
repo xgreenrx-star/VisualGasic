@@ -218,31 +218,15 @@ bool VisualGasicInstance::try_variant_subscript_get(const Variant &base, const V
         r_out = arr[idx];
         return true;
     }
-    if (base.get_type() == Variant::PACKED_VECTOR3_ARRAY) {
-        PackedVector3Array arr = base;
-        int idx = (int)(int64_t)key;
-        if (idx < 0 || idx >= arr.size()) {
+    if (base.get_type() >= Variant::PACKED_BYTE_ARRAY && base.get_type() <= Variant::PACKED_VECTOR4_ARRAY) {
+        // Every packed array type (the bytecode VM indexes them the same way).
+        bool valid = false;
+        bool oob = false;
+        Variant got = base.get_indexed((int64_t)key, valid, oob);
+        if (!valid || oob) {
             return false;
         }
-        r_out = arr[idx];
-        return true;
-    }
-    if (base.get_type() == Variant::PACKED_VECTOR2_ARRAY) {
-        PackedVector2Array arr = base;
-        int idx = (int)(int64_t)key;
-        if (idx < 0 || idx >= arr.size()) {
-            return false;
-        }
-        r_out = arr[idx];
-        return true;
-    }
-    if (base.get_type() == Variant::PACKED_COLOR_ARRAY) {
-        PackedColorArray arr = base;
-        int idx = (int)(int64_t)key;
-        if (idx < 0 || idx >= arr.size()) {
-            return false;
-        }
-        r_out = arr[idx];
+        r_out = got;
         return true;
     }
     if (base.get_type() == Variant::DICTIONARY) {

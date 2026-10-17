@@ -303,4 +303,23 @@ inline bool vg_evaluate_vb_numeric(Variant::Operator op, const Variant &a, const
     }
 }
 
+// VB `/` operands: Double division with the Error 11 zero check.  Anything
+// else (Vector2/3/4, Color, Vector*i, Transform*, ...) is a Godot type, and
+// `/` on those is Godot's own component-wise division — see
+// vg_divide_non_scalar.  NIL is a VB scalar here (Nothing / 2 is 0).
+inline bool vg_is_vb_scalar(Variant::Type t) {
+    return t == Variant::NIL || t == Variant::BOOL || t == Variant::INT ||
+            t == Variant::FLOAT || t == Variant::STRING;
+}
+
+// a / b through Godot's operator table when at least one operand is not a
+// VB scalar.  False when Godot has no such operator (the caller then keeps
+// its previous behaviour).  Shared by the AST walker and the bytecode VM so
+// `Vector3(1, 2, 3) / 2` and `v / Vector3(2, 4, 3)` agree on every tier.
+inline bool vg_divide_non_scalar(const Variant &a, const Variant &b, Variant &result) {
+    bool valid = false;
+    Variant::evaluate(Variant::OP_DIVIDE, a, b, result, valid);
+    return valid;
+}
+
 #endif  // VISUAL_GASIC_GODOT_CTORS_H

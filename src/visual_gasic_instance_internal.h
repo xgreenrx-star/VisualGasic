@@ -7,6 +7,9 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <cstdlib>
+#if defined(__x86_64__) || defined(_M_X64)
+#include <x86intrin.h>
+#endif
 
 using namespace godot;
 
@@ -86,6 +89,118 @@ private:
     uint64_t start_us = 0;
     bool enabled = false;
 };
+
+// Whole-dispatch-loop profile (VG_OPCODE_PROFILE=2): every executed opcode
+// is bucketed by opcode byte with a TSC cycle count attributed to it, so the
+// dump shows which opcodes a hot Sub actually spends its time in.  Nested
+// execute_bytecode frames (OP_CALL) attribute the callee's whole run to the
+// caller's OP_CALL bucket (inclusive), which is what you want when hunting
+// call overhead.  Zero cost unless the env var is set (one well-predicted
+// local-bool branch per opcode).
+struct OpcodeFullProfileEntry {
+    uint64_t hits = 0;
+    uint64_t cycles = 0;
+};
+
+inline uint64_t vg_profile_tsc() {
+#if defined(__x86_64__) || defined(_M_X64)
+    return __rdtsc();
+#else
+    return (uint64_t)Time::get_singleton()->get_ticks_usec() * 1000ULL;
+#endif
+}
+
+inline bool vg_opcode_full_profile_enabled() {
+    static bool initialized = false;
+    static bool enabled = false;
+    if (!initialized) {
+        const char *env = std::getenv("VG_OPCODE_PROFILE");
+        enabled = env && env[0] == '2';
+        initialized = true;
+    }
+    return enabled;
+}
+
+inline OpcodeFullProfileEntry *vg_opcode_full_profiles() {
+    static OpcodeFullProfileEntry entries[256];
+    return entries;
+}
+
+// Cycles spent in nested execute_bytecode frames, so a caller's OP_CALL
+// bucket can be made EXCLUSIVE of the callee body (which is itself profiled
+// opcode by opcode).  A frame sets this to entry_value + its own inclusive
+// time on exit, so grandchildren are not double-subtracted.
+inline uint64_t &vg_opcode_profile_nested_acc() {
+    static thread_local uint64_t acc = 0;
+    return acc;
+}
+
+String vg_opcode_name(uint8_t op);
+
+// Per-Sub exclusive cycles (VG_OPCODE_PROFILE=2), keyed by Sub name.  Tells
+// WHICH body the opcode table above is describing when a build has several
+// hot loops.  Exclusive: a frame records (inclusive − nested callee time).
+struct SubProfileEntry { uint64_t hits = 0, cycles = 0; };
+inline HashMap<String, SubProfileEntry> &vg_sub_profiles() {
+    static HashMap<String, SubProfileEntry> m;
+    return m;
+}
+inline void vg_sub_profile_add(const String &name, uint64_t exclusive_cycles) {
+    SubProfileEntry &e = vg_sub_profiles()[name];
+    e.hits++;
+    e.cycles += exclusive_cycles;
+}
+inline void sub_profile_dump() {
+    HashMap<String, SubProfileEntry> &m = vg_sub_profiles();
+    if (m.is_empty()) return;
+    Vector<Pair<String, SubProfileEntry>> rows;
+    uint64_t total = 0;
+    for (const KeyValue<String, SubProfileEntry> &kv : m) {
+        rows.push_back({ kv.key, kv.value });
+        total += kv.value.cycles;
+    }
+    for (int i = 1; i < rows.size(); i++) {
+        Pair<String, SubProfileEntry> k = rows[i]; int j = i - 1;
+        while (j >= 0 && rows[j].second.cycles < k.second.cycles) { rows.write[j + 1] = rows[j]; j--; }
+        rows.write[j + 1] = k;
+    }
+    UtilityFunctions::print("=== Bytecode Sub Profile (exclusive cycles) ===");
+    for (int i = 0; i < rows.size() && i < 40; i++) {
+        double pct = total ? 100.0 * (double)rows[i].second.cycles / (double)total : 0.0;
+        if (pct < 0.05) break;
+        UtilityFunctions::print(vformat("%6.2f%%  %-40s hits=%-8d Mcycles=%d",
+                pct, rows[i].first, (int64_t)rows[i].second.hits,
+                (int64_t)(rows[i].second.cycles / 1000000)));
+    }
+    m.clear();
+}
+
+inline void opcode_full_profile_dump() {
+    OpcodeFullProfileEntry *e = vg_opcode_full_profiles();
+    uint64_t total_cycles = 0, total_hits = 0;
+    for (int i = 0; i < 256; i++) { total_cycles += e[i].cycles; total_hits += e[i].hits; }
+    if (total_hits == 0) return;
+    // Sort indices by cycles, descending (256 entries: insertion sort is fine).
+    int order[256];
+    for (int i = 0; i < 256; i++) order[i] = i;
+    for (int i = 1; i < 256; i++) {
+        int k = order[i]; int j = i - 1;
+        while (j >= 0 && e[order[j]].cycles < e[k].cycles) { order[j + 1] = order[j]; j--; }
+        order[j + 1] = k;
+    }
+    UtilityFunctions::print("=== Bytecode Opcode Profile (all opcodes, inclusive cycles) ===");
+    UtilityFunctions::print(vformat("total_hits=%d total_Mcycles=%d", (int64_t)total_hits, (int64_t)(total_cycles / 1000000)));
+    for (int i = 0; i < 256; i++) {
+        int op = order[i];
+        if (e[op].hits == 0) continue;
+        double pct = total_cycles ? 100.0 * (double)e[op].cycles / (double)total_cycles : 0.0;
+        if (pct < 0.05) break;
+        UtilityFunctions::print(vformat("%6.2f%%  %-32s hits=%-10d avg_cycles=%d",
+                pct, vg_opcode_name((uint8_t)op), (int64_t)e[op].hits,
+                (int64_t)(e[op].cycles / e[op].hits)));
+    }
+    for (int i = 0; i < 256; i++) { e[i].hits = 0; e[i].cycles = 0; }
+}
 
 inline void opcode_profile_reset() {
     if (!vg_opcode_profile_enabled()) {

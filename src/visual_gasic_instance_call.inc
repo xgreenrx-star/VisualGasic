@@ -1,3 +1,4 @@
+#include "vg_variant_fast.h"
 void VisualGasicInstance::debug_hit_procedure_end(int line) {
     if (line <= 0 || !VisualGasicLanguage::is_debug_hook_active()) {
         return;
@@ -46,8 +47,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         }
     }
 
-    // Block runtime methods in editor mode
-    if (Engine::get_singleton()->is_editor_hint()) {
+    // Block runtime methods in editor mode.  is_editor_hint() is fixed for
+    // the lifetime of the process, so resolve the engine ptrcall once.
+    static const bool _vg_editor_hint = Engine::get_singleton()->is_editor_hint();
+    if (_vg_editor_hint) {
         String method_lower = p_method.to_lower();
         if (method_lower == "_ready" || method_lower == "_process" || 
             method_lower == "_physics_process" || method_lower == "_input" ||
@@ -80,11 +83,42 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // runtime, per perf, once fast_params engaged).  Mirrors the cache-hit branch
     // exactly; only ever set for module-level resolutions (never class siblings),
     // preserving the module-takes-precedence order below.
+    // Source file for the callee's debug frame / debug_bc_source_file.
+    // Derived once per resolution (cached in CallResolutionCacheEntry); the
+    // scan over every imported module's subs used to run on every call.
+    // Held by pointer: the hot pre-resolved path points into the cache entry
+    // (only read before the callee runs, so no nested call can move it), and
+    // a plain `String` here cost a construct + copy + destroy engine call
+    // per call for a value that is empty for every same-script callee.
+    static const String _vg_empty_import_src;
+    const String *import_src_for_debug_p = &_vg_empty_import_src;
+    vgfast::OptString import_src_local;   // only the cache-miss branch fills it
+    auto derive_debug_source = [&](SubDefinition *f, ImportedModule *om) -> String {
+        if (om && !om->full_path.is_empty()) {
+            return om->full_path;
+        }
+        if (!f) {
+            return String();
+        }
+        for (int mi = 0; mi < imported_modules.size(); mi++) {
+            ModuleNode *mast = imported_modules[mi].ast;
+            if (!mast) {
+                continue;
+            }
+            for (int si = 0; si < mast->subs.size(); si++) {
+                if (mast->subs[si] == f) {
+                    return imported_modules[mi].full_path;
+                }
+            }
+        }
+        return f->source_file;
+    };
     if (p_pre_resolved && p_pre_resolved->resolved) {
         func = p_pre_resolved->func;
         owning_module = (p_pre_resolved->owning_module_index >= 0)
                         ? &imported_modules.write[p_pre_resolved->owning_module_index] : nullptr;
         chunk_for_locals = p_pre_resolved->chunk_for_locals;
+        import_src_for_debug_p = &p_pre_resolved->debug_source;
     } else {
     String _res_key = p_method.to_lower() + "#" + String::num_int64(call_arg_count);
     if (_call_resolution_cache.has(_res_key)) {
@@ -93,6 +127,8 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             func = _cached.func;
             owning_module = (_cached.owning_module_index >= 0) ? &imported_modules.write[_cached.owning_module_index] : nullptr;
             chunk_for_locals = _cached.chunk_for_locals;
+            import_src_local.set_copy(_cached.debug_source);
+            import_src_for_debug_p = &import_src_local.get();
         }
         // _cached.resolved == false means "no module/import-level function with
         // this name/arity" — func stays nullptr, falls through to the same-class
@@ -173,6 +209,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             chunk_for_locals = owning_module ? get_bytecode_for_import(*owning_module, bytecode_key)
                                               : get_bytecode_for_sub(bytecode_key);
             _new_entry.chunk_for_locals = chunk_for_locals;
+            import_src_local.set_move(derive_debug_source(func, owning_module));
+            import_src_for_debug_p = &import_src_local.get();
+            _new_entry.debug_source = import_src_local.get();
         }
         _call_resolution_cache[_res_key] = _new_entry;
     }
@@ -208,7 +247,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // Save Context
     SubDefinition* prev_sub = current_sub;
     int prev_jump = jump_target;
-    ErrorState prev_error = error_state;
+    ErrorStateSnapshot prev_error;
+    prev_error.capture(error_state);
+    // The resolved callee's source file (see import_src_for_debug_p above).
+    const String &import_src_for_debug = *import_src_for_debug_p;
     // VB6: the caller's On Error Resume Next / GoTo also covers errors raised
     // inside this callee (they propagate back on return).  Count it as an
     // enclosing handler so raise_error() logs such errors as handled.
@@ -251,8 +293,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 	auto is_unpublished_scratch = [&](const String &name) {
 		return !_sync_locals_to_dict && name.begins_with("__");
 	};
-    // Save parameters
-    if (!use_fast_params) {
+    // Save parameters (slot-bound params only reach variables[] when the body
+    // publishes its locals for Parallel For / Task.Run workers).
+    const bool params_may_hit_dict = !use_fast_params || chunk_for_locals->publishes_locals;
+    if (params_may_hit_dict) {
         for(int i=0; i<func->parameters.size(); i++) {
             const String &pname = func->parameters[i].name;
             if (variables.has(pname)) saved_locals.push_back({pname, variables[pname]});
@@ -269,22 +313,69 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // just iterate that flat vector — O(locals) instead of O(AST nodes).
     // (bytecode_key / chunk_for_locals were already resolved — from cache or
     // freshly computed — in the call-site resolution block above.)
-    if (chunk_for_locals) {
-		for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
-			// Fast-call slots (params + return) never touch variables[].
-			if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
-				continue;
-			}
-			const String &lname = chunk_for_locals->local_names[i];
-			if (!lname.is_empty() && !is_unpublished_scratch(lname) && variables.has(lname)) {
-				saved_locals.push_back({lname, variables[lname]});
-			}
-		}
+    // Declared locals (Dim'd / params / return slot — local_declared[i]) are
+    // pure bytecode slots: execute_bytecode neither seeds them from nor
+    // flushes them to variables[] (see its Part R / exit-flush rules), so
+    // there is nothing to save or erase for them — UNLESS a Whenever is
+    // active (needs_var_sync: locals are mirrored into variables[] as they
+    // change) or the bytecode bails and the AST walker re-runs the body
+    // through variables[].  Both cases set declared_locals_in_dict and take
+    // the full save (lazily, before the AST fallback) + erase path.
+    bool declared_locals_in_dict = _sync_locals_to_dict ||
+            (chunk_for_locals && chunk_for_locals->publishes_locals);
+    auto is_declared_slot = [&](int i) -> bool {
+        return chunk_for_locals && i < chunk_for_locals->local_declared.size() &&
+               chunk_for_locals->local_declared[i] != 0;
+    };
+    auto save_chunk_locals = [&](bool include_declared) {
+        for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+            // Fast-call slots (params + return) never touch variables[]
+            // while bytecode runs; the AST fallback binds them separately
+            // (and saves them there).
+            if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
+                continue;
+            }
+            if (!include_declared && is_declared_slot(i)) {
+                continue;
+            }
+            const String &lname = chunk_for_locals->local_names[i];
+            if (!lname.is_empty() && !is_unpublished_scratch(lname) && !saved_locals_has(lname) && variables.has(lname)) {
+                saved_locals.push_back({lname, variables[lname]});
+            }
+        }
+    };
+    // Implicit (undeclared) locals never reach variables[] from a bytecode run
+    // either: execute_bytecode's exit flush is skipped for Sub bodies that do
+    // not publish their locals (flush_implicit), so with no Whenever mirroring
+    // there is nothing to snapshot — skip the per-call walk over local_names
+    // (a begins_with + Dictionary::has per slot).  The AST fallback below
+    // flips declared_locals_in_dict and takes the full save lazily.
+    const bool skip_local_scope = chunk_for_locals && !declared_locals_in_dict &&
+            !chunk_for_locals->publishes_locals;
+    if (skip_local_scope) {
+        // nothing to save
+    } else if (chunk_for_locals) {
+        save_chunk_locals(declared_locals_in_dict);
     } else {
         // Fallback: AST-only path (no bytecode compiled for this function).
         // Recursively scan for Dim'd variables in all nested blocks.
+        // Loop variables (For / For Each / Oscillate) are only procedure
+        // locals when they are NOT module-level Dims: `For Each gItem In …`
+        // over a module variable must leave the last element in gItem after
+        // the call returns (the bytecode tiers write it via OP_SET_GLOBAL).
         struct DimScanner {
-            static void scan(const Vector<Statement*>& stmts, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars) {
+            static bool is_module_var(const ModuleNode *mod, const String &name) {
+                if (!mod) return false;
+                for (int i = 0; i < mod->variables.size(); i++) {
+                    if (mod->variables[i] && mod->variables[i]->name.nocasecmp_to(name) == 0) return true;
+                }
+                return false;
+            }
+            static void save_loop_var(const String &name, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod) {
+                if (all_vars.has(name) && !is_module_var(mod, name))
+                    vars.push_back({name, all_vars[name]});
+            }
+            static void scan(const Vector<Statement*>& stmts, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod) {
                 for(int i=0; i<stmts.size(); i++) {
                     if (!stmts[i]) continue;
                     if (stmts[i]->type == STMT_DIM) {
@@ -293,32 +384,30 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                             vars.push_back({ds->variable_name, all_vars[ds->variable_name]});
                     } else if (stmts[i]->type == STMT_IF) {
                         IfStatement* ifs = (IfStatement*)stmts[i];
-                        scan(ifs->then_branch, vars, all_vars);
-                        scan(ifs->else_branch, vars, all_vars);
+                        scan(ifs->then_branch, vars, all_vars, mod);
+                        scan(ifs->else_branch, vars, all_vars, mod);
                     } else if (stmts[i]->type == STMT_FOR) {
                         ForStatement* fs = (ForStatement*)stmts[i];
-                        if (all_vars.has(fs->variable_name))
-                            vars.push_back({fs->variable_name, all_vars[fs->variable_name]});
-                        scan(fs->body, vars, all_vars);
+                        save_loop_var(fs->variable_name, vars, all_vars, mod);
+                        scan(fs->body, vars, all_vars, mod);
                     } else if (stmts[i]->type == STMT_WHILE) {
-                        scan(((WhileStatement*)stmts[i])->body, vars, all_vars);
+                        scan(((WhileStatement*)stmts[i])->body, vars, all_vars, mod);
                     } else if (stmts[i]->type == STMT_DO) {
-                        scan(((DoStatement*)stmts[i])->body, vars, all_vars);
+                        scan(((DoStatement*)stmts[i])->body, vars, all_vars, mod);
                     } else if (stmts[i]->type == STMT_FOR_EACH) {
                         ForEachStatement* fes = (ForEachStatement*)stmts[i];
-                        if (all_vars.has(fes->variable_name))
-                            vars.push_back({fes->variable_name, all_vars[fes->variable_name]});
-                        scan(fes->body, vars, all_vars);
+                        save_loop_var(fes->variable_name, vars, all_vars, mod);
+                        scan(fes->body, vars, all_vars, mod);
                     } else if (stmts[i]->type == STMT_OSCILLATE) {
                         OscillateStatement* oss = (OscillateStatement*)stmts[i];
-                        if (all_vars.has(oss->variable_name))
-                            vars.push_back({oss->variable_name, all_vars[oss->variable_name]});
-                        scan(oss->body, vars, all_vars);
+                        save_loop_var(oss->variable_name, vars, all_vars, mod);
+                        scan(oss->body, vars, all_vars, mod);
                     }
                 }
             }
         };
-        DimScanner::scan(func->statements, saved_locals, variables);
+        const ModuleNode *scan_module = (owning_module && owning_module->ast) ? owning_module->ast : cached_ast_root;
+        DimScanner::scan(func->statements, saved_locals, variables, scan_module);
     }
     
     // Fast-call convention (v6.0): when the compiled chunk flagged fast_params,
@@ -336,52 +425,80 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // godot Vector<Variant> (CowData::resize + Memory::alloc_static were each
     // ~3% of call-heavy runtime); many-arg calls fall back to the heap Vector.
     constexpr int FAST_ARGS_INLINE = 6;
-    Variant _fast_args_inline[FAST_ARGS_INLINE];
-    Vector<Variant> _fast_args_heap;   // fallback storage for > FAST_ARGS_INLINE
-    Variant* fast_arg_values = _fast_args_inline;
+    // Constructed on demand (see vgfast::VariantBuf): a plain Variant[6] paid
+    // six engine new_nil + six destroy calls on every call regardless of arity.
     int fast_arg_count = 0;
+    const bool use_fast_params_sizing = (chunk_for_locals && chunk_for_locals->fast_params);
+    if (use_fast_params_sizing) {
+        fast_arg_count = func->parameters.size() + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0);
+    }
+    vgfast::VariantBuf<FAST_ARGS_INLINE> _fast_args(fast_arg_count);
+    Variant* fast_arg_values = _fast_args.ptr;
+    // Every slot [0, fast_arg_count) is written exactly once below via
+    // _fast_args.construct_*; nothing reads a slot before it is constructed.
 
     // Arguments
     int max_params = func->parameters.size();
     if (use_fast_params) {
-        // Scalar ByVal params only (guaranteed by the compiler's fast_params
-        // guard) → pure coercion into a flat buffer, no variables[] writes.
-        // The trailing slot (Functions only) carries the typed return init.
-        fast_arg_count = max_params + (func->type == SubDefinition::TYPE_FUNCTION ? 1 : 0);
-        if (fast_arg_count > FAST_ARGS_INLINE) {
-            _fast_args_heap.resize(fast_arg_count);
-            fast_arg_values = _fast_args_heap.ptrw();
-        }
+        // Every parameter (ByVal/ByRef/Optional/ParamArray, any type) → pure
+        // coercion into a flat buffer, no variables[] writes.  The trailing
+        // slot (Functions only) carries the typed return init.
         // Precomputed coercion codes (compiler) replace the per-call
         // type_hint.to_lower() + string compares.  Guarded by a size check so a
         // chunk somehow lacking them falls back to the original string path.
         const bool _have_pc = (chunk_for_locals->fast_param_coerce.size() == max_params);
+        const Parameter *params_r = func->parameters.ptr();
         for (int i = 0; i < max_params; i++) {
+            // ParamArray: collect the remaining arguments into one Array slot.
+            // It is always the last parameter.
+            if (params_r[i].is_param_array) {
+                Array rest;
+                for (int k = i; k < p_arg_count; k++) {
+                    rest.push_back(p_args[k]);
+                }
+                _fast_args.construct_copy(i, Variant(rest));
+                // Slots after a ParamArray are never written by this loop:
+                // construct them NIL so the buffer's destructor stays balanced.
+                for (int k = i + 1; k < max_params; k++) {
+                    _fast_args.construct_copy(k, Variant());
+                }
+                break;
+            }
             // Part AG (v6.0 perf): precomputed-coercion fast path — write the
             // coerced arg STRAIGHT into fast_arg_values[i] instead of routing it
             // through an intermediate `val` Variant.  The old shape
             // (`val = p_args[i]; val = (T)val; fast_arg_values[i] = val;`) cost
             // two extra Variant copy-assigns per arg (copy in + copy out); the
             // direct `fast_arg_values[i] = (T)p_args[i];` is one extract + one
-            // typed assign.  Also skips the per-iteration `func->parameters.write[i]`
-            // (a CoW write-proxy access the fast path never reads).  Rare paths
-            // (no precomputed codes, optional default, missing arg) keep the
-            // original val-based path below unchanged.
+            // typed assign.  Rare paths (no precomputed codes, optional default,
+            // missing arg) keep the original val-based path below unchanged.
             if (_have_pc && i < p_arg_count) {
                 const Variant& src = p_args[i];
+                const Variant::Type st = vgfast::vtype(src);
                 switch (chunk_for_locals->fast_param_coerce[i]) {
-                    case 1: fast_arg_values[i] = (int64_t)src; break;
-                    case 2: fast_arg_values[i] = (double)src;  break;
-                    case 3: fast_arg_values[i] = (String)src;  break;
-                    case 4: fast_arg_values[i] = (bool)src;    break;
-                    default: fast_arg_values[i] = src;         break;   // 0 = no coercion
+                    case 1:
+                        if (st == Variant::INT) _fast_args.construct_copy(i, src);
+                        else _fast_args.construct_copy(i, Variant((int64_t)src));
+                        break;
+                    case 2:
+                        if (st == Variant::FLOAT) _fast_args.construct_copy(i, src);
+                        else _fast_args.construct_copy(i, Variant((double)src));
+                        break;
+                    case 3:
+                        if (st == Variant::STRING) _fast_args.construct_copy(i, src);
+                        else _fast_args.construct_copy(i, Variant((String)src));
+                        break;
+                    case 4:
+                        if (st == Variant::BOOL) _fast_args.construct_copy(i, src);
+                        else _fast_args.construct_copy(i, Variant((bool)src));
+                        break;
+                    default: _fast_args.construct_copy(i, src); break;   // 0/6 = no coercion
                 }
                 continue;
             }
-            Parameter& param = func->parameters.write[i];
-            Variant val;
+            const Parameter& param = params_r[i];
             if (i < p_arg_count) {
-                val = p_args[i];
+                Variant val = p_args[i];
                 if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = (int64_t)val;
@@ -389,13 +506,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                     else if (t == "string") val = (String)val;
                     else if (t == "boolean") val = (bool)val;
                 }
+                _fast_args.construct_move(i, std::move(val));
             } else if (param.is_optional) {
-                val = param.default_value;
+                _fast_args.construct_copy(i, param.default_value);
             } else {
                 UtilityFunctions::print("Runtime Error: Argument '", param.name, "' missing for ", func->name);
-                val = Variant();
+                _fast_args.construct_copy(i, Variant());
             }
-            fast_arg_values[i] = val;
         }
         if (func->type == SubDefinition::TYPE_FUNCTION) {
             Variant init_val = Variant();
@@ -415,7 +532,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 else if (t == "string") init_val = "";
                 else if (t == "boolean") init_val = false;
             }
-            fast_arg_values[max_params] = init_val;
+            _fast_args.construct_move(max_params, std::move(init_val));
         }
     } else {
         // Use larger size if params exist, or args exist.
@@ -509,29 +626,15 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // std::vector push_back per call on the hot path. pop_stack_frame guards an
     // empty stack, and runtime errors report via debug_state.current_line, so
     // gating is safe. push/pop share the SAME cached flag to stay balanced.
-    String import_src_for_debug;
-    if (owning_module && !owning_module->full_path.is_empty()) {
-        import_src_for_debug = owning_module->full_path;
-    } else if (func) {
-        for (int mi = 0; mi < imported_modules.size() && import_src_for_debug.is_empty(); mi++) {
-            ModuleNode *mast = imported_modules[mi].ast;
-            if (!mast) {
-                continue;
-            }
-            for (int si = 0; si < mast->subs.size(); si++) {
-                if (mast->subs[si] == func) {
-                    import_src_for_debug = imported_modules[mi].full_path;
-                    break;
-                }
-            }
-        }
-        if (import_src_for_debug.is_empty() && !func->source_file.is_empty()) {
-            import_src_for_debug = func->source_file;
-        }
-    }
+    // (import_src_for_debug was resolved with the callee above.)
 
-    EngineDebugger *_call_debugger = EngineDebugger::get_singleton();
-    const bool debug_frames_active = _call_debugger && _call_debugger->is_active();
+    // Process-lifetime constant (see execute_bytecode): skip the two engine
+    // ptrcalls per call.
+    static const bool _vg_call_debugger_attached = []() {
+        EngineDebugger *d = EngineDebugger::get_singleton();
+        return d && d->is_active();
+    }();
+    const bool debug_frames_active = _vg_call_debugger_attached;
     if (debug_frames_active) {
         String file_path;
         if (!import_src_for_debug.is_empty()) {
@@ -548,19 +651,29 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     }
 
     bool used_bytecode = false;
-    Variant bytecode_ret;
-    String prev_debug_bc_source_file = debug_bc_source_file;
-    if (!import_src_for_debug.is_empty()) {
-        debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(import_src_for_debug);
-    } else {
-        debug_bc_source_file = String();
+    // The bytecode result lands straight in `ret` (returned below); a separate
+    // `bytecode_ret` was a new_nil + copy + destroy per call.
+    Variant ret;
+    // Only swap the callee's source file in when either side is non-empty;
+    // the common host-script → host-script call keeps the two String copies
+    // and the normalize call off the hot path.  str_empty() answers "empty"
+    // from the raw pointer without an engine call.
+    const bool swap_debug_src = !vgfast::str_empty(import_src_for_debug) || !vgfast::str_empty(debug_bc_source_file);
+    vgfast::OptString prev_debug_bc_source_file;
+    if (swap_debug_src) {
+        prev_debug_bc_source_file.set_copy(debug_bc_source_file);
+        if (!import_src_for_debug.is_empty()) {
+            debug_bc_source_file = VisualGasicLanguage::normalize_breakpoint_script_path(import_src_for_debug);
+        } else {
+            debug_bc_source_file = String();
+        }
     }
     if (chunk_for_locals) {
         // v2.5: No more variables.duplicate(true) deep copy!
         // execute_bytecode() now only flushes locals→variables on
         // success, so on failure the dictionary stays clean and the
         // AST fallback can re-execute without a rollback copy.
-        used_bytecode = execute_bytecode(chunk_for_locals, func, bytecode_ret, 0, -1, nullptr,
+        used_bytecode = execute_bytecode(chunk_for_locals, func, ret, 0, -1, nullptr,
                                          use_fast_params ? fast_arg_values : nullptr, fast_arg_count,
                                          p_vm);
         if (!used_bytecode) {
@@ -583,7 +696,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 // branch, never the hot bytecode-success path every fast_params call
                 // takes.  (ErrorState::ErrorState 1.61% + ErrorState::operator= 1.31%
                 // surfaced as the top cluster once Part AE removed the String cost.)
-                error_state = prev_error;
+                prev_error.restore(error_state);
                 error_state.mode = ErrorState::NONE;
                 error_state.has_error = false;
             }
@@ -591,6 +704,25 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     }
 
     if (!used_bytecode) {
+        // The AST walker binds params, the return variable and every Dim'd
+        // local through variables[].  Snapshot whatever the caller already
+        // had under those names first (the bytecode attempt touched none of
+        // them — it only flushes on success), so the restore/erase step below
+        // leaves the caller's scope exactly as it found it.
+        if (chunk_for_locals && !declared_locals_in_dict) {
+            declared_locals_in_dict = true;
+            save_chunk_locals(true);
+        }
+        if (use_fast_params) {
+            for (int i = 0; i < func->parameters.size(); i++) {
+                const String &pname = func->parameters[i].name;
+                if (!saved_locals_has(pname) && variables.has(pname)) saved_locals.push_back({pname, variables[pname]});
+            }
+            if (func->type == SubDefinition::TYPE_FUNCTION &&
+                !saved_locals_has(func->name) && variables.has(func->name)) {
+                saved_locals.push_back({func->name, variables[func->name]});
+            }
+        }
         // Fast-call params were seeded straight into local slots for the
         // bytecode VM and never written to variables[]; the AST interpreter
         // reads params/return from variables[], so bind them now (rare
@@ -654,13 +786,15 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         debug_hit_procedure_end(func->end_line);
     }
 
-    debug_bc_source_file = prev_debug_bc_source_file;
+    if (swap_debug_src) {
+        prev_debug_bc_source_file.move_into(debug_bc_source_file);
+    }
     
-    Variant ret = Variant();
+    // `ret` already holds the bytecode result (or NIL when the VM bailed /
+    // there was no chunk); the AST walker leaves a Function result in
+    // variables[func->name].
     if (func->type == SubDefinition::TYPE_FUNCTION) {
-        if (used_bytecode) {
-            ret = bytecode_ret;
-        } else if (variables.has(func->name)) {
+        if (!used_bytecode && variables.has(func->name)) {
             ret = variables[func->name];
         }
         // `Function F(...) As Array` must hand back a plain Array whatever
@@ -670,16 +804,15 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         // Nothing (callers test `Is Nothing`); only convertible values change.
         // Shared by every tier: bytecode, JIT and the tree-walker all return
         // through here.
-        if (ret.get_type() != Variant::ARRAY && ret.get_type() != Variant::NIL) {
+        const Variant::Type ret_type = vgfast::vtype(ret);
+        if (ret_type != Variant::ARRAY && ret_type != Variant::NIL) {
             const bool returns_array = chunk_for_locals
                     ? (chunk_for_locals->fast_return_coerce == 5)
                     : (func->return_type.nocasecmp_to("Array") == 0);
-            if (returns_array && Variant::can_convert(ret.get_type(), Variant::ARRAY)) {
+            if (returns_array && Variant::can_convert(ret_type, Variant::ARRAY)) {
                 ret = Array(ret);
             }
         }
-    } else if (used_bytecode) {
-        ret = bytecode_ret;
     }
     
     // Pop call stack frame for debugger (Part O: only if we pushed one — i.e. a
@@ -696,24 +829,17 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     //   call_internal saves noteIndex=<old>, sets noteIndex=12, executes,
     //   then restores noteIndex=<old>.  Without this capture, the caller's
     //   ByRef write-back reads the stale <old> value and clobbers i.
+    // Bytecode runs capture from the callee's live slots inside
+    // execute_bytecode() (debug_bc_locals already points at the CALLER's
+    // frame here); only the AST walker, which binds params through
+    // variables[], is captured at this point.
     Vector<Pair<String, Variant>> byref_captures;
-    if (func) {
+    if (func && !used_bytecode) {
         for (int i = 0; i < func->parameters.size(); i++) {
             if (!func->parameters[i].is_by_ref) continue;
             Variant captured;
-            // Fast-call params live in bytecode local slots, not variables[].
-            if (use_fast_params && chunk_for_locals && debug_bc_locals &&
-                    i < chunk_for_locals->param_count && i < debug_bc_locals->size()) {
-                captured = (*debug_bc_locals)[i];
-            } else if (variables.has(func->parameters[i].name)) {
+            if (variables.has(func->parameters[i].name)) {
                 captured = variables[func->parameters[i].name];
-            } else if (chunk_for_locals && debug_bc_locals) {
-                for (int s = 0; s < chunk_for_locals->local_names.size() && s < debug_bc_locals->size(); s++) {
-                    if (chunk_for_locals->local_names[s].nocasecmp_to(func->parameters[i].name) == 0) {
-                        captured = (*debug_bc_locals)[s];
-                        break;
-                    }
-                }
             }
             byref_captures.push_back({func->parameters[i].name, captured});
         }
@@ -737,13 +863,13 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         const String prop_message = error_state.message;
         const int prop_code = error_state.code;
         const int prop_error_line = error_state.error_line;
-        error_state = prev_error;
+        prev_error.restore(error_state);
         error_state.has_error = true;
         error_state.message = prop_message;
         error_state.code = prop_code;
         error_state.error_line = prop_error_line;
     } else {
-        error_state = prev_error;
+        prev_error.restore(error_state);
     }
     
     // Save any static variables before restoring locals
@@ -783,12 +909,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // (e.g. "Scale") leaks into `variables` and the tree-walk evaluator's
     // ARRAY_ACCESS handler sees it as an Array/Dictionary instead of
     // dispatching a function call on subsequent invocations.
+    // Slot-bound params/return only reach variables[] through the AST
+    // fallback (bound above after a lazy save).
+    const bool fast_slots_in_dict = use_fast_params &&
+            (!used_bytecode || chunk_for_locals->publishes_locals);
     // -- Function return variable
-    if (func->type == SubDefinition::TYPE_FUNCTION && !use_fast_params && !saved_locals_has(func->name)) {
+    if (func->type == SubDefinition::TYPE_FUNCTION && (!use_fast_params || fast_slots_in_dict) && !saved_locals_has(func->name)) {
         variables.erase(func->name);
     }
     // -- Parameters
-    if (!use_fast_params) {
+    if (!use_fast_params || fast_slots_in_dict) {
         for (int i = 0; i < func->parameters.size(); i++) {
             const String &pname = func->parameters[i].name;
             if (!saved_locals_has(pname)) {
@@ -796,13 +926,24 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
             }
         }
     }
-    // -- Dim'd locals
+    // -- Dim'd locals.  Declared slots were never mirrored into variables[]
+    // unless a Whenever was active at some point during the call or the AST
+    // fallback ran (see declared_locals_in_dict); a Whenever registered mid-
+    // call flips needs_var_sync, so re-check it here rather than trusting the
+    // entry snapshot.
     if (chunk_for_locals) {
-        for (int i = 0; i < chunk_for_locals->local_names.size(); i++) {
+        const bool erase_declared = declared_locals_in_dict || needs_var_sync;
+        // Mirror of skip_local_scope: no flush happened, nothing to erase
+        // (declared_locals_in_dict flips when the AST fallback ran).
+        const bool nothing_in_dict = !erase_declared && !chunk_for_locals->publishes_locals;
+        for (int i = 0; nothing_in_dict ? false : i < chunk_for_locals->local_names.size(); i++) {
             // Fast-call slots (params + return) are never written to variables[],
             // so there is nothing to erase; skip them (kept in balance with the
             // save loop so a shadowed same-named module global is left intact).
             if (use_fast_params && (i < chunk_for_locals->param_count || i == chunk_for_locals->return_slot)) {
+                continue;
+            }
+            if (!erase_declared && is_declared_slot(i)) {
                 continue;
             }
             const String &lname = chunk_for_locals->local_names[i];

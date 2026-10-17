@@ -1,0 +1,106 @@
+' Test: Packed*Array() constructor call syntax (GDScript style).
+' `Dim x As PackedVector3Array` always worked; the CALL form
+' `PackedVector3Array()` / `PackedFloat64Array(arr)` raised
+' "Sub or Function not defined" (bytecode) / "Failed to call function" (AST).
+Attribute VB_Name = "TestPackedArrayCtor"
+
+Dim gPts As PackedVector3Array
+
+' Hot enough to be JIT-compiled: the numeric-only tier must refuse this body
+' (it assigns a packed array to a module global) instead of turning the
+' reset into a silent no-op.
+Sub ResetPts()
+	gPts = PackedVector3Array()
+End Sub
+
+Function MakeVerts() As Variant
+	Dim v As Variant
+	v = PackedVector3Array()
+	v.append(Vector3(1, 2, 3))
+	v.append(Vector3(4, 5, 6))
+	Return v
+End Function
+
+Sub _Ready()
+	Dim p As Variant
+	p = PackedVector3Array()
+	If TypeName(p) = "PackedVector3Array" And p.size() = 0 Then
+		Print "PASS: packed_vector3_empty_ctor"
+	Else
+		Print "FAIL: packed_vector3_empty_ctor got " & TypeName(p)
+	End If
+
+	Dim q As Variant
+	q = PackedFloat64Array(Array(1.5, 2.5, 3.5))
+	If TypeName(q) = "PackedFloat64Array" And q.size() = 3 And q(2) = 3.5 Then
+		Print "PASS: packed_float64_from_array"
+	Else
+		Print "FAIL: packed_float64_from_array got " & TypeName(q) & " n=" & q.size()
+	End If
+
+	Dim c As Variant
+	c = PackedColorArray()
+	c.append(Color(1, 0, 0))
+	If TypeName(c) = "PackedColorArray" And c.size() = 1 Then
+		Print "PASS: packed_color_append"
+	Else
+		Print "FAIL: packed_color_append"
+	End If
+
+	Dim ints As Variant
+	ints = PackedInt32Array(Array(3, 1, 2))
+	If TypeName(ints) = "PackedInt32Array" And ints.size() = 3 Then
+		Print "PASS: packed_int32_from_array"
+	Else
+		Print "FAIL: packed_int32_from_array got " & TypeName(ints)
+	End If
+
+	Dim strs As Variant
+	strs = PackedStringArray(Array("a", "b"))
+	If TypeName(strs) = "PackedStringArray" And strs(1) = "b" Then
+		Print "PASS: packed_string_from_array"
+	Else
+		Print "FAIL: packed_string_from_array"
+	End If
+
+	' Convert one packed type to another.
+	Dim f32 As Variant
+	f32 = PackedFloat32Array(q)
+	If TypeName(f32) = "PackedFloat32Array" And f32.size() = 3 Then
+		Print "PASS: packed_float32_from_packed"
+	Else
+		Print "FAIL: packed_float32_from_packed got " & TypeName(f32)
+	End If
+
+	Dim verts As Variant
+	verts = MakeVerts()
+	If TypeName(verts) = "PackedVector3Array" And verts.size() = 2 Then
+		Print "PASS: packed_ctor_in_function"
+	Else
+		Print "FAIL: packed_ctor_in_function got " & TypeName(verts)
+	End If
+
+	' Expression position: pass straight into another call.
+	Dim n As Integer = CountOf(PackedVector2Array())
+	If n = 0 Then Print "PASS: packed_ctor_as_argument" Else Print "FAIL: packed_ctor_as_argument n=" & Str(n)
+
+	' Module-global reset through a hot Sub (JIT tier must not drop it).
+	Dim i As Integer
+	Dim leaked As Integer = 0
+	For i = 1 To 200
+		gPts.append(Vector3(i, 0, 0))
+		ResetPts
+		If gPts.size() <> 0 Then leaked = leaked + 1
+	Next
+	If leaked = 0 And gPts.size() = 0 Then
+		Print "PASS: packed_ctor_global_reset_hot"
+	Else
+		Print "FAIL: packed_ctor_global_reset_hot leaked=" & Str(leaked) & " size=" & Str(gPts.size())
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub
+
+Function CountOf(ByVal arr As Variant) As Integer
+	Return arr.size()
+End Function
