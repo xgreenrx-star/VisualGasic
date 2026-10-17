@@ -1,5 +1,6 @@
 ' Generated Visual Gasic port of backlight_exploration.vg
 Dim __ready As Boolean
+Dim yard_mode As Boolean
 Dim CYAN As Variant
 Dim PINK As Variant
 Dim AMBER As Variant
@@ -518,6 +519,11 @@ Sub backlight_city_build(ByVal view As Node)
 	Dim _t0 As Variant
 	Call EnsureInit()
 	_materials()
+	If yard_mode Then
+		Dim yard_builder As Object
+		yard_builder = SpawnVg("res://backlight_yard.vg", "RefCounted")
+		yard_builder.build(Me, view)
+	Else
 	_box(Vector3(-62, -0.5, -16), Vector3(124, 0.5, 178), Color(0.07, 0.13, 0.18))
 	For Each x In Array(-6.5, 6.5)
 		_box(Vector3(x - 0.1, 0.006, -12), Vector3(0.20, 0.025, 166), ICE, True)
@@ -544,6 +550,7 @@ Sub backlight_city_build(ByVal view As Node)
 	Next
 	_plaza()
 	_transit_court()
+	End If
 	world = _finish("SolidBacklitArchitecture")
 	_courier()
 	vehicle = _finish("ArcCourier")
@@ -591,6 +598,7 @@ Sub build(ByVal view As Node)
 	warning_shader = ClassDB.Instantiate("Shader")
 	warning_shader = Load("res://shaders/backlight_exploration_06.gdshader")
 	light_material.shader = warning_shader
+	If Not yard_mode Then
 	_box(Vector3(-118, -0.52, 162), Vector3(236, 0.5, 258), Color(0.07, 0.13, 0.18))
 	For Each x In Array(-118.0, 62.0)
 		_box(Vector3(x, -0.52, -12), Vector3(56, 0.5, 174), Color(0.07, 0.13, 0.18))
@@ -638,6 +646,7 @@ Sub build(ByVal view As Node)
 	Next
 	extension = _finish("ExpandedDistrict")
 	extension.reparent(world)
+	End If
 	For Each z In Array(64.0, 205.0, 340.0)
 		For Each side In Array(-1.0, 1.0)
 			_turret(Vector2(side * 19, z))

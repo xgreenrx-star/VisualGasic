@@ -1,0 +1,108 @@
+Dim game As Object
+Dim view As Object
+Dim yard As Object
+Dim elapsed_frames As Integer
+Dim failures As Integer
+Dim checks As Integer
+Dim mesh_id As Variant
+
+Sub Check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim packed As Object
+	packed = Load("res://main.tscn")
+	game = packed.instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_detail = 1
+	view = game.GetNode("Presentation")
+	game.dev_i = 14
+	game.WarpDev()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim i As Integer
+	Dim door As Vector2
+	Dim directory As String
+	elapsed_frames = elapsed_frames + 1
+	game.QueueRedraw()
+	If elapsed_frames = 8 Then
+		yard = view.backlight_city
+		Check(game.phase = 18, "backlight_yard_has_own_phase")
+		Check(game.DevLabel(14) = "BACKLIGHT YARD", "backlight_yard_terminal_label")
+		Check(yard.yard_mode And yard.initialized, "backlight_yard_built_in_vg")
+		Check(yard.buildings.size() = 8, "backlight_yard_eight_enterable_depots")
+		Check(yard.world.mesh.get_surface_count() = 2, "backlight_yard_solid_and_luminous_surfaces")
+		Check(yard.world.mesh.surface_get_array_len(0) > 10000, "backlight_yard_volumetric_architecture")
+		Check(yard.optics.size() = 3 And view.camera.environment = yard.atmosphere, "backlight_yard_optics_and_horizon")
+		Check(Not yard.blocked(Vector2(0, 100), 1.4), "backlight_yard_drivable_central_lane")
+		Check(yard.blocked(Vector2(78, 15), 0.4), "backlight_yard_tower_collision")
+		Check(yard.blocked(Vector2(119, 50), 0.4), "backlight_yard_boundary_collision")
+		For i = 0 To 7
+			door = yard.buildings(i).door
+			Check(Not yard.blocked(door, 0.4) And Not yard.blocked(door - Vector2(0, 3), 0.4), "backlight_yard_door_clear_" & Str(i))
+		Next
+		yard.position_xz = Vector2(0, 90)
+		yard.heading = 0
+		yard.move_distance(12)
+		Check(yard.position_xz.y > 101, "backlight_yard_movement_along_road")
+		mesh_id = yard.world.mesh.get_instance_id()
+		yard.position_xz = Vector2(-41, 36)
+		yard.use_object()
+		Check(yard.place = "building" And yard.building_index = 0, "backlight_yard_archive_entry")
+	ElseIf elapsed_frames = 12 Then
+		yard.position_xz = Vector2(0, 14)
+		yard.use_object()
+		Check(yard.discovered.has(0), "backlight_yard_archive_clue")
+		yard.position_xz = Vector2(0, 2)
+		yard.use_object()
+		Check(yard.place = "surface", "backlight_yard_exit_interior")
+		yard.position_xz = Vector2(2.5, 14)
+		yard.interact_vehicle()
+		Check(yard.driving, "backlight_yard_buggy_entry")
+		yard.interact_vehicle()
+		Check(Not yard.driving, "backlight_yard_buggy_exit")
+		game.SaveRun()
+		Check(game.save_msg = "BACKLIGHT YARD IS A DEV DEMO - CHAPTER SAVE UNCHANGED", "backlight_yard_save_protection")
+		yard.position_xz = Vector2(0, 9)
+		yard.heading = 0
+	ElseIf elapsed_frames = 20 Then
+		directory = OS.get_environment("ASH_YARD_CAPTURE")
+		If Len(directory) > 0 And DisplayServer.get_name() <> "headless" Then
+			Check(yard.optics.back().get_texture().get_image().save_png(directory & "/backlight-yard.png") = 0, "backlight_yard_capture")
+		End If
+		yard.position_xz = Vector2(4, 60)
+		yard.heading = -0.6
+	ElseIf elapsed_frames = 24 Then
+		directory = OS.get_environment("ASH_YARD_CAPTURE")
+		If Len(directory) > 0 And DisplayServer.get_name() <> "headless" Then
+			Check(yard.optics.back().get_texture().get_image().save_png(directory & "/press-halls.png") = 0, "backlight_yard_hall_capture")
+		End If
+		game.dev_i = 13
+		game.WarpDev()
+	ElseIf elapsed_frames = 28 Then
+		Check(Not yard.visible And view.backlight_city <> yard, "backlight_yard_city_isolation")
+		Check(view.backlight_city.buildings.size() = 24, "backlight_city_keeps_original_layout")
+		game.dev_i = 14
+		game.WarpDev()
+	ElseIf elapsed_frames = 36 Then
+		Check(view.backlight_city = yard And yard.world.mesh.get_instance_id() = mesh_id, "backlight_yard_reuses_geometry")
+		Check(yard.discovered.size() = 0 And Not yard.driving, "backlight_yard_reentry_resets_progress")
+		game.dev_i = 3
+		game.WarpDev()
+	ElseIf elapsed_frames = 44 Then
+		Check(Not yard.visible And view.camera.environment Is Nothing, "backlight_yard_restores_chapter_environment")
+		Check(view.world_mesh.visible, "original_yard_still_available")
+		Print "BACKLIGHT_YARD_RESULT=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

@@ -235,7 +235,11 @@ Sub _draw()
 		_t1 = (_t0)
 	End If
 	If city.place = "surface" Then
-		title = "BACKLIGHT CITY / SURFACE"
+		If city.yard_mode Then
+			title = "BACKLIGHT YARD / SURFACE"
+		Else
+			title = "BACKLIGHT CITY / SURFACE"
+		End If
 	Else
 		title = (_t1)
 	End If

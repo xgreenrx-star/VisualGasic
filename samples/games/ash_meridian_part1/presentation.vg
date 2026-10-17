@@ -31,6 +31,8 @@ Dim city3 As Node3D
 Dim city3_output As SubViewport
 Dim city3_antialiasing As Variant
 Dim backlight_city As Node3D
+Dim backlight_city_cache As Node3D
+Dim backlight_yard As Node3D
 
 
 Function Num(ByVal value As Variant) As Single
@@ -676,12 +678,36 @@ End Function
 
 Sub start_backlight_city()
 	Call EnsureInit()
-	If backlight_city = Nothing Then
-		backlight_city = SpawnVg("res://backlight_exploration.vg", "Node3D")
-		backlight_city.name = "BacklightCity"
-		viewport.add_child(backlight_city)
+	Call leave_backlight()
+	If backlight_city_cache = Nothing Then
+		backlight_city_cache = SpawnVg("res://backlight_exploration.vg", "Node3D")
+		backlight_city_cache.name = "BacklightCity"
+		viewport.add_child(backlight_city_cache)
 	End If
+	backlight_city = backlight_city_cache
 	backlight_city.reset()
+End Sub
+
+Sub leave_backlight()
+	If backlight_city <> Nothing Then
+		backlight_city.deactivate()
+		If backlight_city.audio <> Nothing Then backlight_city.audio.stop()
+	End If
+End Sub
+
+Sub start_backlight_yard()
+	Call EnsureInit()
+	Call leave_backlight()
+	If backlight_yard = Nothing Then
+		backlight_yard = SpawnVg("res://backlight_exploration.vg", "Node3D")
+		backlight_yard.name = "BacklightYard"
+		backlight_yard.EnsureInit()
+		backlight_yard.yard_mode = True
+		viewport.add_child(backlight_yard)
+	End If
+	backlight_city = backlight_yard
+	backlight_city.reset()
+	backlight_city.notify("BACKLIGHT YARD / Press halls, stepped towers and the deep transit depot.")
 End Sub
 
 Sub tick_backlight_city(ByVal delta As Single)
@@ -779,7 +805,7 @@ Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Si
 	Dim _t0 As Variant
 	Call EnsureInit()
 	d = w * 0.72
-	outline = PackedVector2Array(Array(Vector2(0, 0), Vector2(w, 0), Vector2(w * 0.78, h * 0.14), Vector2(w * 0.78, h * 0.38), Vector2(w * 0.96, h * 0.42), Vector2(w * 0.96, h * 0.48), Vector2(w * 0.7, h * 0.48), Vector2(w * 0.7, h * 0.65), Vector2(w * 0.58, h * 0.65), Vector2(w * 0.58, h), Vector2(w * 0.43, h), Vector2(w * 0.43, h * (0.86 - kind * 0.03)), Vector2(w * 0.27, h * 0.8), Vector2(w * 0.27, h * 0.58), Vector2(w * 0.15, h * 0.58), Vector2(w * 0.15, h * 0.32), Vector2(w * 0.32, h * 0.25), Vector2(w * 0.32, h * 0.14)))
+	outline = yard_profile(w, h, kind)
 	_extrude(outline, d, CYAN, Transform3D(Basis(), Vector3(x, 0, z)))
 	mast = Vector3(x + w * 0.44, h, z + d * 0.48)
 	segment(mast, mast + Vector3(0, 2.2 + kind, 0), CYAN)
@@ -808,6 +834,10 @@ Sub tower(ByVal x As Single, ByVal z As Single, ByVal w As Single, ByVal h As Si
 		segment(Vector3(street_x, h * 0.3, z + dz), Vector3(street_x - side * w * 0.15, h * 0.4, z + dz), CYAN * 0.55)
 	Next
 End Sub
+
+Function yard_profile(ByVal w As Single, ByVal h As Single, ByVal kind As Integer) As PackedVector2Array
+	Return PackedVector2Array(Array(Vector2(0, 0), Vector2(w, 0), Vector2(w * 0.78, h * 0.14), Vector2(w * 0.78, h * 0.38), Vector2(w * 0.96, h * 0.42), Vector2(w * 0.96, h * 0.48), Vector2(w * 0.7, h * 0.48), Vector2(w * 0.7, h * 0.65), Vector2(w * 0.58, h * 0.65), Vector2(w * 0.58, h), Vector2(w * 0.43, h), Vector2(w * 0.43, h * (0.86 - kind * 0.03)), Vector2(w * 0.27, h * 0.8), Vector2(w * 0.27, h * 0.58), Vector2(w * 0.15, h * 0.58), Vector2(w * 0.15, h * 0.32), Vector2(w * 0.32, h * 0.25), Vector2(w * 0.32, h * 0.14)))
+End Function
 
 Sub _extrude(ByVal outline As PackedVector2Array, ByVal depth As Single, ByVal color As Color, ByVal transform As Transform3D)
 	Dim indices As Variant

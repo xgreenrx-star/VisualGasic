@@ -91,6 +91,42 @@ pickups, collisions, pause/resume, return to Cursor's city, and mesh reuse.
 
 ## Rendering and regression checks
 
+### Backlight Yard
+
+The hidden terminal now has a separate **BACKLIGHT YARD** destination after
+Backlight City (destination 15, phase 18). Open it with Up, Up, Down, Down,
+Left, Right, Left, Right, B, A, B, A; Up from the first row selects the new
+destination, then Enter opens it. The terminal scrolls to keep the selection
+visible. The original yard and every existing city remain separate.
+
+This district combines the chapter yard's stepped tower profiles and industrial
+press-hall architecture with Backlight's opaque satin shells, cyan circuit
+insets, amber door frames, violet horizon and restrained glow. It includes
+24 stepped towers, eight enterable pitched-roof depots, overhead service
+gantries, capped tanks, the north lift head, six turrets, and the restored buggy.
+The tower silhouette is shared with the original yard rather than redrawn as
+a different building. Geometry is cached between visits.
+
+W/S moves, A/D turns, F enters/exits the buggy, E interacts and V cycles views.
+Five archives, the pressure workshop, ignition press hall and deep-transit
+depot reuse the existing exploration/interior and FEB escape systems with
+independent session state. Re-entry resets progress without rebuilding the
+district; saving never overwrites the chapter save.
+
+The layout source is `backlight_yard.vg`; it uses the existing VG Backlight
+mesh/material helpers and simulation. No new GDScript game code is required.
+Run the VG integration fixture from the repository root:
+
+```bash
+./Godot_v4.6.1-stable_linux.x86_64 --headless \
+  --path samples/games/ash_meridian_part1 \
+  --script "$PWD/test_proj/run_suite.gd" -- res://test_backlight_yard.vg
+```
+
+The shared test launcher is existing infrastructure; the fixture itself is VG.
+For rendered previews, remove `--headless`, use a display or `xvfb-run -a`, and
+set `ASH_YARD_CAPTURE` to an existing output directory.
+
 The live scene uses `presentation.vg`; city generation, exploration, cockpit
 artwork, gauges, and stars run in VG. The older `.gd` implementations remain
 as migration references, and the existing regression runners are GDScript.

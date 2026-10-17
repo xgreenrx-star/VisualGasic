@@ -1,0 +1,108 @@
+' Yard silhouettes share the chapter profile; Backlight owns materials and simulation.
+Sub build(ByVal city As Object, ByVal view As Object)
+	Dim i As Integer
+	Dim side As Integer
+	Dim x As Single
+	Dim z As Single
+	Dim w As Single
+	Dim h As Single
+	Dim transform As Transform3D
+	Dim profile As PackedVector2Array
+	city._box(Vector3(-118, -0.5, -12), Vector3(236, 0.5, 432), Color(0.07, 0.13, 0.18))
+	For i = 0 To 11
+		z = 12 + i * 34
+		For Each side In Array(-1, 1)
+			w = 12 + (i Mod 3) * 3
+			h = 22 + (i Mod 4) * 8
+			If side < 0 Then
+				x = -76 - w
+			Else
+				x = 76
+			End If
+			profile = view.yard_profile(w, h, i Mod 3)
+			transform = Transform3D(Basis(), Vector3(x, 0, z))
+			city._prism(profile, w * 0.72, city.SHELL, transform)
+			city.solids.append(Rect2(x, z, w, w * 0.72))
+			city._trace(Array(Vector3(w * 0.67, 0.2, -0.05), Vector3(w * 0.67, h * 0.35, -0.05), Vector3(w * 0.45, h * 0.44, -0.05), Vector3(w * 0.45, h * 0.78, -0.05)), 0.12, city.ICE, transform)
+			city._cylinder(Vector3(x + w * 0.5, h, z + w * 0.36), 0.12, 3, city.ICE, 1, True)
+		Next
+	Next
+	For i = 0 To 7
+		z = 36 + Int(i / 2) * 94
+		If i Mod 2 = 0 Then
+			x = -52
+		Else
+			x = 28
+		End If
+		press_hall(city, Vector3(x, 0, z), i)
+	Next
+	For Each z In Array(88, 182, 276)
+		For Each side In Array(-1, 1)
+			city._box(Vector3(side * 15 - 1, 0, z), Vector3(2, 12, 3), city.SHELL)
+			city.solids.append(Rect2(side * 15 - 1, z, 2, 3))
+			city._box(Vector3(side * 15 - 0.12, 0.2, z - 0.03), Vector3(0.24, 11.5, 0.05), city.GOLD, True)
+		Next
+		city._box(Vector3(-16, 11, z), Vector3(32, 2.5, 3), city.SHELL)
+		city._box(Vector3(-13, 11.5, z - 0.05), Vector3(26, 0.22, 0.08), city.ICE, True)
+	Next
+	For Each x In Array(-6.5, 6.5)
+		city._box(Vector3(x, 0.015, -10), Vector3(0.16, 0.025, 420), city.ICE, True)
+	Next
+	For i = 0 To 51
+		z = -8 + i * 8
+		city._box(Vector3(-0.1, 0.02, z), Vector3(0.2, 0.02, 2.4), city.GOLD * 0.65, True)
+		city._box(Vector3(-112, 0.008, z), Vector3(224, 0.012, 0.035), city.INK)
+	Next
+	For Each x In Array(-64, 64)
+		For Each z In Array(70, 164, 258, 352)
+			city._cylinder(Vector3(x, 0, z), 3, 16, city.SHELL)
+			city.solids.append(Rect2(x - 3, z - 3, 6, 6))
+			city._cylinder(Vector3(x, 12, z), 3.05, 0.18, city.GOLD, 1, True)
+			city._trace(Array(Vector3(x, 14, z), Vector3(x - 8, 14, z), Vector3(x - 8, 4, z)), 0.45, city.SHELL)
+		Next
+	Next
+	city._box(Vector3(-10, 0.02, -11), Vector3(20, 0.12, 16), city.INK)
+	For Each x In Array(-10, 10)
+		city._box(Vector3(x, 0.18, -11), Vector3(0.18, 0.05, 16), city.GOLD, True)
+	Next
+	' The distant lift head echoes the chapter's north-end shaft.
+	city._box(Vector3(-4, 0, 398), Vector3(8, 8, 8), city.SHELL)
+	city.solids.append(Rect2(-4, 398, 8, 8))
+	city._box(Vector3(-0.12, 0.1, 397.95), Vector3(0.24, 7.5, 0.05), city.GOLD, True)
+End Sub
+
+Sub press_hall(ByVal city As Object, ByVal p As Vector3, ByVal index As Integer)
+	Dim label As String
+	Dim x As Single
+	Dim entry As Dictionary
+	Dim transform As Transform3D
+	transform = Transform3D(Basis(), p)
+	' Front wall is split around a real recessed entry, not a painted doorway.
+	city._box(p, Vector3(8.8, 9, 1), city.SHELL)
+	city._box(p + Vector3(13.2, 0, 0), Vector3(8.8, 9, 1), city.SHELL)
+	city._box(p + Vector3(8.8, 4.8, 0), Vector3(4.4, 4.2, 1), city.SHELL)
+	city._box(p + Vector3(0, 0, 1), Vector3(1, 9, 23), city.SHELL)
+	city._box(p + Vector3(21, 0, 1), Vector3(1, 9, 23), city.SHELL)
+	city._box(p + Vector3(0, 0, 23), Vector3(22, 9, 1), city.SHELL)
+	city._prism(PackedVector2Array(Array(Vector2(0, 9), Vector2(5, 14), Vector2(17, 14), Vector2(22, 9))), 24, city.SHELL, transform)
+	For Each x In Array(8.7, 13.2)
+		city._box(p + Vector3(x, 0, -0.06), Vector3(0.12, 4.9, 0.08), city.GOLD, True)
+	Next
+	city._box(p + Vector3(8.7, 4.9, -0.06), Vector3(4.62, 0.15, 0.08), city.GOLD, True)
+	For Each x In Array(2, 5, 17, 20)
+		city._trace(Array(Vector3(x, 1, -0.08), Vector3(x, 7.5, -0.08), Vector3(11 + (x - 11) * 0.65, 11, -0.08)), 0.10, city.ICE, transform)
+	Next
+	city.solids.append(Rect2(p.x, p.z, 8.8, 1))
+	city.solids.append(Rect2(p.x + 13.2, p.z, 8.8, 1))
+	city.solids.append(Rect2(p.x, p.z + 1, 1, 23))
+	city.solids.append(Rect2(p.x + 21, p.z + 1, 1, 23))
+	city.solids.append(Rect2(p.x, p.z + 23, 22, 1))
+	label = "YARD ARCHIVE " & Str(index + 1)
+	If index = 5 Then label = "PRESSURE WORKSHOP"
+	If index = 6 Then label = "IGNITION PRESS HALL"
+	If index = 7 Then label = "DEEP TRANSIT / YARD LIFT"
+	entry = New Dictionary
+	entry("door") = Vector2(p.x + 11, p.z + 1)
+	entry("label") = label
+	city.buildings.append(entry)
+End Sub

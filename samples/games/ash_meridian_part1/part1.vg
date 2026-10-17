@@ -29,6 +29,8 @@ Const PH_BLEED As Integer = 14
 Const PH_BLEED2 As Integer = 15
 Const PH_BLEED3 As Integer = 16
 Const PH_BACKLIGHT As Integer = 17
+Const PH_BACKLIGHT_YARD As Integer = 18
+Const DEV_LAST As Integer = 14
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -296,8 +298,8 @@ End Sub
 Sub TickDev()
 	If IsKeyJustPressed(KEY_UP) Then dev_i = dev_i - 1
 	If IsKeyJustPressed(KEY_DOWN) Then dev_i = dev_i + 1
-	If dev_i < 0 Then dev_i = 13
-	If dev_i > 13 Then dev_i = 0
+	If dev_i < 0 Then dev_i = DEV_LAST
+	If dev_i > DEV_LAST Then dev_i = 0
 	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then Call WarpDev()
 	If IsKeyJustPressed(KEY_ESCAPE) Then dev_on = False
 End Sub
@@ -329,8 +331,10 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "BLEED CITY 2"
 	ElseIf i = 12 Then
 		DevLabel = "BLEED CITY 3"
-	Else
+	ElseIf i = 13 Then
 		DevLabel = "BACKLIGHT CITY"
+	Else
+		DevLabel = "BACKLIGHT YARD"
 	End If
 End Function
 
@@ -397,6 +401,9 @@ Sub WarpDev()
 	ElseIf pick = 13 Then
 		phase = PH_BACKLIGHT
 		Call presentation.start_backlight_city()
+	ElseIf pick = 14 Then
+		phase = PH_BACKLIGHT_YARD
+		Call presentation.start_backlight_yard()
 	End If
 End Sub
 
@@ -479,7 +486,7 @@ Sub _Process(ByVal delta As Single)
 		Call presentation.tick_bleed_city2(delta)
 	ElseIf phase = PH_BLEED3 Then
 		Call presentation.tick_bleed_city3(delta)
-	ElseIf phase = PH_BACKLIGHT Then
+	ElseIf phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
 		Call presentation.tick_backlight_city(delta)
 	ElseIf phase = PH_DOWN Then
 		ride_t = ride_t + delta
@@ -2246,6 +2253,10 @@ Sub ApplyDisplay()
 End Sub
 
 Sub SaveRun()
+	If phase = PH_BACKLIGHT_YARD Then
+		save_msg = "BACKLIGHT YARD IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
 	If phase = PH_BLEED2 Then
 		save_msg = "CITY 2 IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
 		Exit Sub
@@ -2481,14 +2492,16 @@ End Sub
 Sub DrawDev()
 	Dim i As Integer
 	Dim y As Single
+	Dim first As Integer
 	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 0.55)
 	DrawRect 280, 20, 400, 500, Color(0.02, 0.04, 0.06)
 	DrawString "TERMINAL", 390, 38, Color(0.5, 0.9, 1.0), 24
-	For i = 0 To 13
-		y = 72.0 + i * 28.0
+	first = Max(0, dev_i - 12)
+	For i = first To Min(first + 12, DEV_LAST)
+		y = 72.0 + (i - first) * 28.0
 		Call DrawPick(DevLabel(i), y, i = dev_i)
 	Next
-	DrawString "ENTER JUMPS     ESC CLOSES", 330, 490, Color(0.4, 0.5, 0.55), 14
+	DrawString Str(dev_i + 1) & "/" & Str(DEV_LAST + 1) & "   ENTER JUMPS   ESC CLOSES", 310, 490, Color(0.4, 0.5, 0.55), 14
 End Sub
 
 Sub DrawPick(ByVal text As String, ByVal y As Single, ByVal on As Boolean)
@@ -2508,7 +2521,7 @@ Sub DrawFrame()
 End Sub
 
 Sub _Draw()
-	Call presentation.begin_frame(phase = PH_BACKLIGHT)
+	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD)
 	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
 	If phase = PH_BOOT Then
 		Call DrawBoot()
@@ -2538,7 +2551,7 @@ Sub _Draw()
 		Call DrawBleed2()
 	ElseIf phase = PH_BLEED3 Then
 		Call DrawBleed3()
-	ElseIf phase = PH_BACKLIGHT Then
+	ElseIf phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
 		Call DrawBacklight()
 	Else
 		Call ApplyCam()
