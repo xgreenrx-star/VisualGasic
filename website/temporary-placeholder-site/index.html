@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Visual Gasic | Game systems on Godot</title>
-  <meta name="description" content="Visual Gasic 5.6.0-beta1 — VB6-style .vg on Godot 4.6+. Windows x64 native JIT (first ship), Vector Crypt procedural 3D, published speed vs GDScript, Vibe Code with Narcea. Free, open source.">
+  <meta name="description" content="Visual Gasic 5.7.0-beta.2 — VB6-style .vg on Godot 4.6+. Bug-fix beta. Releases slow down after this one. Free, open source.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,11 +15,11 @@
         <h1>Game systems on Godot &mdash; with a power layer GDScript doesn't ship.</h1>
         <p class="tagline-strip">Keep GDScript for glue. Use VG for rules, UI, and tools.</p>
         <p class="lede">
-          Visual Gasic is a C++ GDExtension language for Godot 4.6+: plain <code>Sub</code> / <code>If</code> / <code>Dim</code> control flow,
-          published wins vs GDScript on compute and canvas benchmarks, and an in-editor <strong>Vibe Code</strong> panel (Narcea + Ollama or your API keys).
-          Not retro branding &mdash; games and shipped demos are the proof. Install, docs, benchmarks, and showcases below.
+          Visual Gasic is a C++ GDExtension language for Godot 4.6+: plain <code>Sub</code> / <code>If</code> / <code>Dim</code> control flow
+          and an in-editor <strong>Vibe Code</strong> panel (Narcea + Ollama or your API keys).
+          Older microbenchmarks are not the whole speed story. A full city build in October 2026 still used about 2.7&times; the instructions of the GDScript port.
         </p>
-        <p class="roadmap-strip">v5.6.0-beta1: <strong>Windows x64 native JIT (first ship — feedback wanted)</strong> · C++ vector depth mesh · M8 language parity · Vector Crypt procedural neon 3D · QB speedups · Interface/Implements. Still true: 12/12 compute + 9/9 draw vs GDScript.</p>
+        <p class="roadmap-strip">v5.7.0-beta.2 is a <strong>bug-fix beta</strong>: ambiguous procedure names, Color component reads, typed Array returns, Whenever re-entry, and editor save/palette fixes. Releases slow down after this one. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Try Vector Crypt</a>
@@ -34,15 +34,15 @@
       <div class="hero-panel notice-card">
         <p class="notice-title">Status</p>
         <ul class="notice-list">
-            <li>✅ <strong>v5.6.0-beta1</strong> — Windows x64 JIT (first ship) · C++ depth mesh · M8 parity · <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt</a> · Interface</li>
-            <li>✅ <strong>v5.5.0-beta3</strong> — QB ABC showcase · Elite Wire Slice · classic pixel canvas + docs</li>
-            <li>✅ 12/12 compute + 9/9 draw vs GDScript · Sept 2026 gameplay benchmarks published</li>
+            <li>✅ <strong>v5.7.0-beta.2</strong> — bug-fix beta. <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.7.0-beta.2.md">Release notes</a></li>
+            <li>✅ <strong>v5.7.0-beta.1</strong> — Crystal Caverns, DATA sprite editing, core correctness</li>
+            <li>✅ <strong>v5.6.0-beta1</strong> — Windows x64 JIT first ship · <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt</a></li>
             <li>✅ <strong>v5.4.0-beta2</strong> — Buffer type, Let block scope, Narcea Tier A/B</li>
             <li>✅ <strong><a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">VG Beta Showcase</a></strong> — <a href="https://youtu.be/FUw8zgbn_tU">watch on YouTube</a> or open <code>samples/showcases/vg_beta_showcase/</code> and press F5</li>
-            <li>✅ Core language and debugger stable (public beta); <strong>Windows x64 JIT</strong> newly shipped — feedback wanted</li>
+            <li>✅ Public beta. Releases slow down after 5.7.0-beta.2. Occasional bug fixes continue. Stable v6.0 is still the goal for the end of 2026 or early 2027.</li>
             <li>✅ Full Godot 4.6 IDE integration with autocomplete and Code Navigator</li>
             <li>🔄 UI Forms experimental (Godot-native form editing); legacy Form Designer behind experimental toggle</li>
-            <li>📦 Installers, offline bundles, and Asset Library zip for v5.6.0-beta1</li>
+            <li>📦 Installers, offline bundles, and Asset Library zip for v5.7.0-beta.2</li>
         </ul>
       </div>
     </header>
@@ -53,8 +53,8 @@
           <p class="section-kicker">Downloads</p>
           <h2>Installers, offline bundles, and manual install for the current beta</h2>
           <p>
-            Latest engine addon: <strong>v5.6.0-beta1 Asset Library zip</strong> (BYO Godot 4.6.1+). One-click installers below are
-            <strong>v5.6.0-beta1</strong> (bundled addon, includes Windows JIT). For air-gapped installs, use the offline bundles.
+            Latest engine addon: <strong>v5.7.0-beta.2 Asset Library zip</strong> (BYO Godot 4.6.1+). One-click installers below are
+            <strong>v5.7.0-beta.2</strong> (bundled addon, includes Windows JIT). For air-gapped installs, use the offline bundles.
           </p>
           <p>
             <strong>Portable platform zips are no longer provided</strong> — they exceeded GitHub’s 2 GB limit. Bring your own Godot
@@ -68,7 +68,7 @@
         </div>
         <div class="download-grid">
           <article class="card download-card accent-cyan">
-            <h3>Vector Crypt (v5.6.0-beta1)</h3>
+            <h3>Vector Crypt (v5.7.0-beta.2)</h3>
             <p>100% procedural neon 3D in Visual Gasic — depth-tested vector facility. Clone the repo, open <code>samples/apps/vector_crypt/project.godot</code>, press F5.</p>
             <a href="https://youtu.be/ntpOTNflE_M">Watch on YouTube</a>
             <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Open Demo Project</a>
@@ -84,29 +84,35 @@
           <article class="card download-card accent-cyan">
             <h3>Linux Installer</h3>
             <p>AppImage installer for Linux x86_64.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-v5.6.0-beta1-x86_64.AppImage">Download AppImage</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-v5.7.0-beta.2-x86_64.AppImage">Download AppImage</a>
           </article>
           <article class="card download-card accent-gold">
             <h3>Windows Installer</h3>
             <p>One-click Windows x64 installer.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-v5.6.0-beta1-x86_64.exe">Download EXE</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-v5.7.0-beta.2-x86_64.exe">Download EXE</a>
+          </article>
+          <article class="card download-card">
+            <h3>Mac setup</h3>
+            <p>Unsigned launcher for Intel and Apple Silicon. Needs Python 3. Control-click and choose Open if macOS prompts.</p>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-v5.7.0-beta.2-macos-universal.zip">Download Mac setup</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-Offline-v5.7.0-beta.2-macos-universal.zip">Mac offline bundle</a>
           </article>
           <article class="card download-card">
             <h3>Manual (BYO Godot)</h3>
             <p>Install Godot 4.6.1+, then replace <code>addons/visual_gasic/</code> from the Asset Library zip (includes Linux / Windows / Web binaries).</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic_AssetLibrary_v5.6.0-beta1.zip">Asset Library Zip (v5.6.0-beta1)</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic_AssetLibrary_v5.7.0-beta.2.zip">Asset Library Zip (v5.7.0-beta.2)</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">AssetLib Listing</a>
           </article>
           <article class="card download-card">
             <h3>Offline Bundles</h3>
             <p>Includes the Godot download for offline installs.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-Offline-v5.6.0-beta1-linux-x86_64.zip">Linux Offline Bundle</a>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-Offline-v5.6.0-beta1-windows-x86_64.zip">Windows Offline Bundle</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-Offline-v5.7.0-beta.2-linux-x86_64.zip">Linux Offline Bundle</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic-Installer-Offline-v5.7.0-beta.2-windows-x86_64.zip">Windows Offline Bundle</a>
           </article>
           <article class="card download-card">
             <h3>Godot Asset Library</h3>
             <p>Single-addon zip for in-editor AssetLib install.</p>
-            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic_AssetLibrary_v5.6.0-beta1.zip">Download Asset Library Zip (v5.6.0-beta1)</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic_AssetLibrary_v5.7.0-beta.2.zip">Download Asset Library Zip (v5.7.0-beta.2)</a>
             <a href="https://store.godotengine.org/asset/visual-gasic/visual-gasic/">Store Listing</a>
           </article>
         </div>
@@ -115,9 +121,9 @@
           <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Vector Crypt Sample</a>
           <a href="https://youtu.be/FUw8zgbn_tU">Beta Showcase Video</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/showcases/vg_beta_showcase">Beta Showcase Demo</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1">Latest Release Page</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2">Latest Release Page</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/releases">All Releases</a>
-          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.6.0-beta1.md">5.6.0-beta1 Release Notes</a>
+          <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/RELEASE_NOTES_v5.7.0-beta.2.md">5.7.0-beta.2 Release Notes</a>
           <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/manual/performance.md">JIT / Performance</a>
         </div>
       </section>
@@ -184,7 +190,7 @@
         <p class="section-kicker">What We Are Building Now</p>
         <h2>Fixing the language, shipping examples, building the tools that prove the pitch</h2>
         <p>
-          VG is a public beta. Current release: <strong>v5.6.0-beta1</strong> — first public <strong>Windows x64 native JIT</strong>,
+          VG is a public beta. Current release: <strong>v5.7.0-beta.2</strong> — first public <strong>Windows x64 native JIT</strong>,
           C++ vector <strong>depth mesh</strong> (<code>BuildDepthMesh</code>), M8 language parity, Vector Crypt procedural 3D,
           QB/classic draw speedups, and <code>Interface</code>/<code>Implements</code>.
           Earlier: 12/12 + 9/9 vs GDScript, Beta Showcase tour, Narcea Tier A/B. Next: Windows JIT feedback + benchmarks,
@@ -192,7 +198,7 @@
         </p>
         <div class="manual-grid">
           <a class="card link-card accent-cyan" href="https://youtu.be/ntpOTNflE_M">
-            <strong>✅ Shipped — Windows JIT + depth mesh + Vector Crypt (5.6.0-beta1)</strong>
+            <strong>✅ Shipped — Windows JIT + depth mesh + Vector Crypt (5.7.0-beta.2)</strong>
             <span>
               Native x64 JIT on Windows (Tier 2/3; <code>VG_JIT=0</code> to disable) — please send feedback.
               C++ <code>BuildDepthMesh</code> / <code>AddWireTri3D</code> for depth-tested procedural 3D.
@@ -426,7 +432,7 @@ End Sub</pre>
             <span>Godot's ClassDB/Variant architecture can't support it. VG dispatches by argument count automatically &mdash; <code>Spawn()</code>, <code>Spawn(pos)</code>, <code>Spawn(pos, type, count)</code> all coexist.</span>
           </article>
           <article class="card link-card accent-cyan">
-            <strong>Interface / Implements &mdash; Shipped v5.6.0-beta1</strong>
+            <strong>Interface / Implements &mdash; Shipped v5.7.0-beta.2</strong>
             <span>Godot relies on <code>has_method()</code> duck-typing. VG now parses <code>Interface … End Interface</code> with same-file <code>Implements</code> checks. Abstract <code>MustOverride</code> / <code>MustInherit</code> remain on the v6.x roadmap.</span>
           </article>
           <article class="card link-card accent-gold">
@@ -511,13 +517,13 @@ End Sub</pre>
           <p class="section-kicker">Videos And Demo Source</p>
           <h2>Watch the demos, then inspect the source like an engineer</h2>
           <p>
-            Latest: <strong>Vector Crypt</strong> — 100% procedural neon 3D in <code>.vg</code> (v5.6.0-beta1).
+            Latest: <strong>Vector Crypt</strong> — 100% procedural neon 3D in <code>.vg</code> (v5.7.0-beta.2).
             Also below: the Beta Showcase tour, demoscene, and making-of.
           </p>
         </div>
         <div class="video-grid">
           <article class="card media-card accent-cyan">
-            <h3>Vector Crypt (v5.6.0-beta1)</h3>
+            <h3>Vector Crypt (v5.7.0-beta.2)</h3>
             <p>Procedural neon facility — depth-tested vector geometry via the new C++ <code>BuildDepthMesh</code> API. Rooms, pistons, garden, sky platforms. No mesh kitbash. Same release as the Windows x64 JIT.</p>
             <a href="https://youtu.be/ntpOTNflE_M">Watch on YouTube</a>
             <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">Open sample project</a>
@@ -559,7 +565,7 @@ End Sub</pre>
         <p class="section-kicker">Screenshots</p>
         <h2>Videos, IDE, and showcase stills</h2>
         <p>
-          <strong>New in v5.6.0-beta1:</strong>
+          <strong>New in v5.7.0-beta.2:</strong>
           <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt on YouTube</a>
           — procedural neon 3D in pure <code>.vg</code>
           (<a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vector_crypt">(<code>samples/apps/vector_crypt/</code>)</a>.
@@ -640,17 +646,17 @@ End Sub</pre>
       <section id="sponsor" class="section sponsor-section">
         <div class="sponsor-inner">
           <h2 class="sponsor-heading">Support Development</h2>
-          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.6.0-beta1 is the current public beta (Windows JIT first ship) — sponsorship helps fund docs, examples, UI Forms, and the road to stable VG6 in 2027.</p>
+          <p class="sponsor-body">Visual Gasic is an independent open-source project. v5.7.0-beta.2 is the current public beta (Windows JIT first ship) — sponsorship helps fund docs, examples, UI Forms, and the road to stable VG6 in 2027.</p>
           <a class="button sponsor" href="https://github.com/sponsors/xgreenrx-star" target="_blank" rel="noopener">&#9829; Sponsor on GitHub</a>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <p>Visual Gasic v5.6.0-beta1 &mdash; Narcean Technologies &mdash; GPL-3.0</p>
+      <p>Visual Gasic v5.7.0-beta.2 &mdash; Narcean Technologies &mdash; GPL-3.0</p>
       <div class="footer-links">
         <a href="https://github.com/xgreenrx-star/VisualGasic">GitHub Repository</a>
-        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1">Latest Release</a>
+        <a href="https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2">Latest Release</a>
         <a href="https://youtu.be/ntpOTNflE_M">Vector Crypt Video</a>
         <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/docs/DOCS.md">Documentation Hub</a>
         <a href="play/climatist/index.html">Climatist POC (browser experiment)</a>

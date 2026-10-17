@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.2] - 2026-10-17
+
+Bug-fix beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.2.md).
+Releases slow down after this one: funds are exhausted, other projects take
+priority, and occasional bug fixes continue. Stable v6.0 is still the goal
+for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
+
+### Fixed
+
+- A scalar local or parameter that shares a procedure name no longer compiles
+  the call as an array read (error 91). The call is error 328, Ambiguous name
+  detected. Recursion through the function's own name is unchanged.
+- `color.r` on a Color variable is a component read. Named colors such as
+  `Color.Red` still fold.
+- Typed Array returns, the Backlight City warp stall, re-entrant Whenever
+  callbacks, save formatting, and inline palette clicks.
+
+### Changed
+
+- VM instruction count for a Backlight City build dropped from about 5× the
+  GDScript port to about 2.7×. The build is not faster than GDScript.
+- Ash Meridian Part 1 cities run in Visual Gasic, including Backlight Yard
+  doors, distance fog, and a procedural sky. Behavior evidence (opt-in ring,
+  protected expectations, change card, rollback) is in the Code Navigator.
+
 ## [5.7.0-beta.1] - 2026-10-10
 
 Public beta: core correctness, editor reliability, DATA sprite editing, and

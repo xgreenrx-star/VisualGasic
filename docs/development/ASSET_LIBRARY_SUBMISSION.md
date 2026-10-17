@@ -4,17 +4,18 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current submission materials (v5.7.0-beta.1)
+## Current submission materials (v5.7.0-beta.2)
 
 | Field | Value |
 |-------|--------|
-| **Version prepared** | 5.7.0-beta.1 (listing update and moderator approval pending) |
+| **Version prepared** | 5.7.0-beta.2 (listing update and moderator approval pending) |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.7.0-beta.1.zip` |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.7.0-beta.2.zip` |
 | **Listing state** | **Live** (store) — submit version update for moderator approval |
 
-Copy for this update: [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md).
+Copy for this update: [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md).
+Previous copy remains in [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md).
 Use Markdown, not BBCode. The description distinguishes the addon-only store
 ZIP from the separate examples download and identifies the release as a beta.
 

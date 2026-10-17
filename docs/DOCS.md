@@ -10,7 +10,7 @@ Public positioning: [`POSITIONING.md`](POSITIONING.md). This hub links every doc
 
 | I want to... | Go to |
 |---|---|
-| See working code examples | [Corpus: 57 Hand-Audited Examples](../corpus/README.md) — Hello World, Generics, Optional types, Exception handling, Classes, State Machines, and more |
+| See working code examples | [Corpus: 80 hand-audited examples](../corpus/README.md) — Hello World, Generics, Optional types, Exception handling, Classes, State Machines, and more |
 | Install VisualGasic | [Installation Guide](guides/INSTALLATION.md) (Asset Library, one-click installer, manual) |
 | Get running in 15 minutes | [Quick Start](getting_started/QUICK_START.md) |
 | See how we describe VG publicly | [Positioning (v6.0 storefront)](POSITIONING.md) |

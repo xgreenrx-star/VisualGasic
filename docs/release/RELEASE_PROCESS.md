@@ -242,6 +242,18 @@ ordering when two timers become due during the same engine frame.
 
 ### Current evidence and remaining work
 
+#### October 17: 5.7.0-beta.2 bug-fix beta
+
+Bug-fix preview on the 5.7.0 line.
+[Notes](../../RELEASE_NOTES_v5.7.0-beta.2.md),
+[Asset Library text](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md),
+and [Facebook draft](../community/FACEBOOK_RELEASE_5.7.0-beta.2.md).
+Tag `v5.7.0-beta.2` runs the Release workflow: Linux, Windows, universal macOS,
+Web, installers, offline bundles, and the Asset Library ZIP, then a draft
+prerelease. Publish the draft only after that workflow is green.
+Releases slow down after this beta. Stable v6.0 is still the goal for the end
+of 2026 or early 2027. Bug reports and feature requests stay welcome.
+
 #### October 10: authorized 5.7.0-beta.1 candidate
 
 The maintainer authorized **5.7.0-beta.1** as a public beta, including the

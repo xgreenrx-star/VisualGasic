@@ -1,7 +1,7 @@
 # VisualGasic — Game systems and tools on Godot, with a power layer GDScript doesn't ship.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.6.0--beta1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1_baseline-purple.svg)](docs/compatibility/GODOT_4_7_2.md)
 
@@ -23,7 +23,7 @@ In 2026, working programmers spend more time **reviewing AI-generated code** tha
 
 It also turns out that LLMs *write* this kind of language with fewer bugs than they write Python or C++. Verbose, redundant syntax is easier for the model to get right at every closing token. So the AI era delivers a double win: **humans audit BASIC faster, and AI writes BASIC more correctly.** Those compound.
 
-The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. VG's bytecode VM and compiler fusion run **1.8×–139× faster than GDScript** on compute microbenchmarks and **1.3×–6.7× faster on canvas draw workloads** (Aug 2026 — see [Performance](#-performance) below). The "BASIC can't compete" excuse is no longer available.
+The historical reason BASIC lost the popularity contest was tooling, not language — and we have solved tooling. Older compute microbenchmarks and canvas draw rows are in [Performance](#-performance) below. They are not a claim that every game is faster than GDScript. A full Backlight City build measured in October 2026 still used about **2.7×** the instructions of the GDScript port, down from about 5× earlier that month.
 
 ### The next decade — and why BASIC wins it
 
@@ -48,13 +48,13 @@ Modern mainstream languages have explicitly rejected every one of those properti
 
 BASIC the syntax family is the right answer; **VisualGasic is a serious 2026 implementation of it.** The defects of historical BASIC dialects were tooling defects, not language defects, and they have been fixed:
 
-- **Performance.** Bytecode VM + 9-pass optimizer + grid-loop fusion for hot `_Draw` paths. Beats GDScript on **12/12 compute** and **9/9 draw** published tests — tables below. Regression gate: `scripts/benchmark_regression_check.sh`.
+- **Performance.** Bytecode VM + optimizer + grid-loop fusion for hot `_Draw` paths. Older published rows are in the tables below. A full city build measured in October 2026 was still about 2.7× GDScript's instruction count. Regression gate: `scripts/benchmark_regression_check.sh`.
 - **Type safety.** `Dim ... As ...` is enforced, not decorative. Generics, optionals, unions, and a strict mode are first-class. The auditor sees a type and knows the runtime will hold the line.
 - **A real IDE.** VB6-style Form Designer + Code Editor + Debugger + Profiler + Object Browser + Immediate Window, plus a Vibe Code panel that runs locally against Ollama or against frontier models with your own key.
 - **A real ecosystem.** A package manager (`vg pkg`), a plugin SDK with capability-based routing, a multi-module import system, ECS, GPU, FFI, and a 14-demo gallery in the box.
 - **Receipts, not promises.** Every claim above is backed by a benchmark or a test in this repo. The AI-correctness numbers (next section down) are reproducible from `bench/ai_correctness/` on your own model in fifteen minutes.
 
-**Examples for major features are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_event_handler_button.vg). All 58 corpus examples, including the 14 previously failing fixtures, have been restored, reviewed and validated. This is not exhaustive command coverage; see the corpus guide for gaps. The 15 unrelated failing sample projects remain parked locally under `scratch/failing_examples_godot_4_7_2_2026-10-06/`; they are not fixed by the corpus review.
+**Examples for major features are in the [corpus](corpus/README.md):** [Hello World](corpus/01_basics/01_hello_world.vg) · [Classes & Inheritance](corpus/06_classes/01_class_basics.vg) · [State Machines](corpus/09_state_machines/01_traffic_light.vg) · [Godot Integration](corpus/10_godot_integration/01_event_handler_button.vg). The corpus is **80 examples**: the original 58, including the 14 previously failing fixtures, plus 22 commented lessons. This is not exhaustive command coverage; see the corpus guide for gaps.
 
 If the next decade really is auditor-bound, then the language that wins is the one that minimizes time-to-confidence per line. That language already exists, and it has had its tooling problem solved. **It's this one.**
 
@@ -62,7 +62,9 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ## 🗺️ Where we're headed
 
-VG is a public beta. The language, JIT compiler, and debugger work. The Form Designer has known bugs and is being **actively replaced** by UI Forms. Here is the explicit priority list:
+VG is a public beta. Current release: **v5.7.0-beta.2** ([notes](RELEASE_NOTES_v5.7.0-beta.2.md)). Releases slow down after this beta: funds are exhausted, other projects take priority, and occasional bug fixes continue. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
+
+The language, JIT compiler, and debugger work. The Form Designer is experimental Alpha, not the default editor. Here is the explicit priority list:
 
 **Fixing now (these block the positioning story):**
 - Unhandled errors corrupt app state — demos that hit a bug should fail gracefully, not freeze

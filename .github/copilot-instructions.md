@@ -42,7 +42,7 @@ Switch the model in the Copilot chat dropdown before pasting a large prompt.
 | M7 | Nov 15 | 🟡 **Close-out** | Python Library Integration — C2 typed msgpack **default-on** for new projects; large-array binary lane shipped (`test_py_large_array.vg`); Windows CI M7 smoke; macOS e2e still deferred |
 | M8 | Nov 22 | — | Language parity (Try/Catch/Lambda/`?.` tests), `Let` keyword, C++ interop |
 | M9 | Nov 28 | — | Asset Library submission, installer smoke test, 50+ corpus, docs |
-| Stable v6.0 | Jan 1 2027 | — | — |
+| Stable v6.0 | end of 2026 or early 2027 | — | Occasional bug fixes until then. Public releases slow down after 5.7.0-beta.2 (17 Oct 2026): funds are exhausted and other projects take priority. Bug reports and feature requests are still reviewed. |
 
 ## Code conventions
 
