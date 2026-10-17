@@ -1025,6 +1025,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
 
         case STMT_CALL: {
             CallStatement* s = (CallStatement*)stmt;
+            if (!s->base_object && scalar_decl_hides_procedure(s->method_name)) {
+                raise_error("Ambiguous name detected: " + s->method_name + ". A local variable or parameter hides this Sub or Function.", 328);
+                break;
+            }
             Vector<ExpressionNode *> stmt_args = s->arguments;
             Vector<String> stmt_names = s->argument_names;
             if (!s->base_object) {

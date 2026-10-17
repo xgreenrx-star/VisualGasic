@@ -1521,6 +1521,100 @@ int VisualGasicInstance::resolve_merged_line_for_source(const String &source_fil
     return source_line;
 }
 
+static bool _stmt_declares_scalar(Statement *stmt, const String &name);
+
+static bool _stmts_declare_scalar(const Vector<Statement *> &body, const String &name) {
+    for (int i = 0; i < body.size(); i++) {
+        if (_stmt_declares_scalar(body[i], name)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool _stmt_declares_scalar(Statement *stmt, const String &name) {
+    if (!stmt) {
+        return false;
+    }
+    switch (stmt->type) {
+        case STMT_DIM: {
+            DimStatement *s = (DimStatement *)stmt;
+            if (s->is_block_scoped || s->array_sizes.size() > 0) {
+                return false;
+            }
+            String t = s->type_name.to_lower();
+            if (t == "dictionary" || t == "array" || t == "memorybuffer" || t == "buffer") {
+                return false;
+            }
+            return s->variable_name.nocasecmp_to(name) == 0;
+        }
+        case STMT_IF: {
+            IfStatement *s = (IfStatement *)stmt;
+            return _stmts_declare_scalar(s->then_branch, name) || _stmts_declare_scalar(s->else_branch, name);
+        }
+        case STMT_FOR: {
+            ForStatement *s = (ForStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_WHILE: {
+            WhileStatement *s = (WhileStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_DO: {
+            DoStatement *s = (DoStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_FOR_EACH: {
+            ForEachStatement *s = (ForEachStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_REPEAT: {
+            RepeatStatement *s = (RepeatStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_CYCLE: {
+            CycleStatement *s = (CycleStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_EVERY: {
+            EveryStatement *s = (EveryStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        case STMT_OSCILLATE: {
+            OscillateStatement *s = (OscillateStatement *)stmt;
+            return _stmts_declare_scalar(s->body, name);
+        }
+        default:
+            return false;
+    }
+}
+
+bool VisualGasicInstance::scalar_decl_hides_procedure(const String &name) {
+    if (!current_sub || name.nocasecmp_to(current_sub->name) == 0) {
+        return false;
+    }
+    bool declared = false;
+    for (int i = 0; i < current_sub->parameters.size(); i++) {
+        const Parameter &p = current_sub->parameters[i];
+        if (!p.is_param_array && p.name.nocasecmp_to(name) == 0) {
+            declared = true;
+            break;
+        }
+    }
+    if (!declared && !_stmts_declare_scalar(current_sub->statements, name)) {
+        return false;
+    }
+    if (script.is_valid() && script->ast_root) {
+        for (int i = 0; i < script->ast_root->subs.size(); i++) {
+            SubDefinition *cand = script->ast_root->subs[i];
+            if (cand && cand->name.nocasecmp_to(name) == 0) {
+                return true;
+            }
+        }
+    }
+    return find_imported_sub(name, -1) != nullptr;
+}
+
 void VisualGasicInstance::raise_error(String msg, int code, const String &source) {
     // Update Err Object — create if it doesn't exist yet (v3.2 fix)
     Dictionary err;

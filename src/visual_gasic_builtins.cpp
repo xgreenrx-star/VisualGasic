@@ -6258,6 +6258,7 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
             case 75: desc = "Path/File access error"; break;
             case 76: desc = "Path not found"; break;
             case 91: desc = "Object variable or With block variable not set"; break;
+            case 328: desc = "Ambiguous name detected"; break;
             case 94: desc = "Invalid use of Null"; break;
             case 380: desc = "Invalid property value"; break;
             case 422: desc = "Property not found"; break;

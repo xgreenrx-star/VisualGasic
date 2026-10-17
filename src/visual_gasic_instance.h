@@ -883,6 +883,10 @@ public:
 
     // Multi-module: find a Sub/Function across imported modules
     SubDefinition* find_imported_sub(const String& name, int arg_count = -1, String* r_module_name = nullptr);
+    // True when the current procedure declares a scalar (Dim or parameter, not
+    // an array/dictionary/buffer) with this name and a Sub or Function of the
+    // same name exists. The procedure's own name is excluded so recursion works.
+    bool scalar_decl_hides_procedure(const String &name);
     // Multi-module: find a Sub/Function in a specific imported module
     SubDefinition* find_sub_in_module(const String& module_name, const String& sub_name, int arg_count = -1);
     // Multi-module: get (compiling + caching on first use) the bytecode chunk for

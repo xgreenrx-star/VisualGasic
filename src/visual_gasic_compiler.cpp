@@ -4710,6 +4710,43 @@ SubDefinition *VisualGasicCompiler::find_sub_by_name(const String &p_name) const
     return nullptr;
 }
 
+bool VisualGasicCompiler::scalar_local_hides_procedure(const String &name) const {
+    // Inside Function Ink the return slot is named Ink, and Ink(args) is a
+    // recursive call, not an index of that slot.
+    if (current_sub && current_chunk && current_chunk->return_slot >= 0 &&
+            name.nocasecmp_to(current_sub->name) == 0) {
+        return false;
+    }
+    const String key = name.to_lower();
+    if (array_vars.has(key) || dictionary_vars.has(key) || is_buffer_var(name)) {
+        return false;
+    }
+    if (!local_slots.has(key) && !param_vars.has(key)) {
+        return false;
+    }
+    if (find_sub_by_name(name)) {
+        return true;
+    }
+    for (int m = 0; m < import_modules.size(); m++) {
+        if (_resolve_sub_in_module(import_modules[m], name, -1)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void VisualGasicCompiler::emit_ambiguous_name(const String &name, bool as_expression) {
+    // VB6 error 328. Expression context leaves a Nil on Resume Next so the
+    // assignment that consumed the call still has a value to store.
+    emit_constant(Variant((int64_t)328));
+    emit_constant(Variant(String("Ambiguous name detected: ") + name +
+            String(". A local variable or parameter hides this Sub or Function.")));
+    emit_byte(OP_THROW);
+    if (as_expression) {
+        emit_byte(OP_NIL);
+    }
+}
+
 bool VisualGasicCompiler::try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const {
     if (!local_const_map.has("grid_cols") || !local_const_map.has("cell")) {
         return false;
@@ -7520,6 +7557,10 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // Check if calling a function with ByRef parameters AND variable arguments
             // that could be written back (requires interpreter for write-back)
             // Also check for ParamArray which needs interpreter
+            if (scalar_local_hides_procedure(s->method_name)) {
+                emit_ambiguous_name(s->method_name, false);
+                break;
+            }
             if (!reorder_named_arguments(s->method_name, s->arguments, s->argument_names)) break;
             SubDefinition* target_func = resolve_call_target(s->method_name, s->arguments.size());
             if (target_func) {
@@ -10701,6 +10742,13 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 bool is_dict = is_dictionary_var(var_name);
                 bool is_local = local_slots.has(var_name.to_lower());
                 bool is_param = param_vars.has(var_name.to_lower());
+                // Dim ink As Color in this Sub, and a module Function Ink:
+                // Ink(...) is not an index of the (nil) local. Report VB6 328
+                // instead of OP_GET_ARRAY → Error 91 Object variable not set.
+                if (scalar_local_hides_procedure(var_name)) {
+                    emit_ambiguous_name(var_name, true);
+                    break;
+                }
                 
                 // A fast-call Function's return variable occupies a local slot
                 // named after the function itself.  `FuncName(args)` appearing
@@ -11094,6 +11142,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              bool _is_shadowed_godot_ctor = !array_vars.has(call_name) &&
                  !dictionary_vars.has(call_name) && !is_buffer_var(call->method_name) &&
                  is_godot_type_constructor(call->method_name);
+             if (scalar_local_hides_procedure(call->method_name)) {
+                 emit_ambiguous_name(call->method_name, true);
+                 break;
+             }
              if (!_is_self_return_call && !_is_shadowed_godot_ctor &&
                  (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name))) {
                  if (call->arguments.size() != 1) {

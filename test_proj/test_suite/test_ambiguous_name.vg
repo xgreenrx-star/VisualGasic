@@ -1,0 +1,82 @@
+Option Explicit
+
+' A scalar local or parameter named like a module Function must not be
+' indexed as an array (that was Error 91, Object variable not set). The
+' call is VB6 error 328. The function's own name stays a recursive call,
+' and Color() still constructs when a local happens to be named color.
+' All three tiers must agree.
+
+Dim fails As Integer
+
+Sub Check(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got <> want Then
+		Print "FAIL: " & label & " got " & got & " want " & want
+		fails = fails + 1
+	End If
+End Sub
+
+Function Ink(ByVal color As Color) As Color
+	Ink = Color(color.r * 0.5, color.g, color.b, color.a)
+End Function
+
+Function Nest(ByVal n As Integer) As Integer
+	If n <= 0 Then
+		Nest = 0
+	Else
+		Nest = Nest(n - 1) + 1
+	End If
+End Function
+
+Sub Plain()
+	Dim tint As Color
+	tint = Ink(Color(1.0, 0.5, 0.25, 1.0))
+	Check "plain call", CStr(tint.r), "0.5"
+End Sub
+
+Sub Shadowed()
+	Dim ink As Color
+	Dim tint As Color
+	On Error Resume Next
+	tint = Ink(Color(1.0, 0.0, 0.0, 1.0))
+	Check "local hides function", CStr(Err.Number), "328"
+	Dim hit As Integer
+	hit = 0
+	If InStr(Err.Description, "Ambiguous name detected") > 0 Then hit = 1
+	Check "local hides text", CStr(hit), "1"
+	On Error GoTo 0
+End Sub
+
+Sub ParamShadow(ByVal ink As Color)
+	Dim tint As Color
+	On Error Resume Next
+	tint = Ink(Color(1.0, 0.0, 0.0, 1.0))
+	Check "param hides function", CStr(Err.Number), "328"
+	On Error GoTo 0
+End Sub
+
+Sub ShadowStmt()
+	Dim ink As Color
+	On Error Resume Next
+	Call Ink(Color(1.0, 0.0, 0.0, 1.0))
+	Check "statement hides function", CStr(Err.Number), "328"
+	On Error GoTo 0
+End Sub
+
+Sub _Ready()
+	Plain()
+	Check "recursion", CStr(Nest(3)), "3"
+
+	Dim color As Color
+	color = Color(0.25, 0.5, 0.75, 1.0)
+	Check "ctor not hidden", CStr(color.r), "0.25"
+
+	Shadowed()
+	ParamShadow(Color(0.0, 0.0, 0.0, 1.0))
+	ShadowStmt()
+
+	If fails = 0 Then
+		Print "PASS: ambiguous name"
+	Else
+		Print "FAIL: " & CStr(fails) & " ambiguous name checks failed"
+	End If
+End Sub

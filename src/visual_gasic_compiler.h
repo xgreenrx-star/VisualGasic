@@ -181,6 +181,10 @@ private:
     bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
     bool try_emit_packed_append_literal(CallStatement *s);
     SubDefinition *find_sub_by_name(const String &p_name) const;
+    // Scalar local/param whose name is also a Sub or Function. The function's
+    // own return variable is not a hide: Ink() inside Function Ink stays a call.
+    bool scalar_local_hides_procedure(const String &name) const;
+    void emit_ambiguous_name(const String &name, bool as_expression);
     bool try_get_module_grid_constants(int64_t &r_cols, int64_t &r_cell) const;
     bool try_parse_grid_axis_sub(const String &p_name, bool p_want_x, int64_t &r_cols, int64_t &r_cell) const;
     bool try_emit_grid_axis_inline(const String &p_func_name, const Vector<ExpressionNode*> &args, bool p_want_x);

@@ -782,6 +782,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
          
          if (aa->base->type == ExpressionNode::VARIABLE) {
              String func_name = ((VariableNode*)aa->base)->name;
+             if (scalar_decl_hides_procedure(func_name)) {
+                 raise_error("Ambiguous name detected: " + func_name + ". A local variable or parameter hides this Sub or Function.", 328);
+                 return Variant();
+             }
              Array call_args; 
              for(int i=0; i<aa->indices.size(); i++) call_args.push_back(evaluate_expression(aa->indices[i]));
              
@@ -1041,6 +1045,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression* call = (CallExpression*)expr;
+
+        if (!call->base_object && scalar_decl_hides_procedure(call->method_name)) {
+            raise_error("Ambiguous name detected: " + call->method_name + ". A local variable or parameter hides this Sub or Function.", 328);
+            return Variant();
+        }
 
 		// Resolve local indexing before builtins such as Keys() and Values().
 		Variant _expr_var;
