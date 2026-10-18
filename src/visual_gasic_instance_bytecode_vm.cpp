@@ -27,6 +27,16 @@
 #include "visual_gasic_qb_screen.h"
 #include <cmath>  // ::sin, ::cos, ::sqrt, ::tan, ::atan2, ::floor, ::ceil, ::exp, ::log
 
+#if defined(__GNUC__) || defined(__clang__)
+#define VG_COLD_LAMBDA __attribute__((noinline, cold))
+#define VG_LIKELY(x) __builtin_expect(!!(x), 1)
+#define VG_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define VG_COLD_LAMBDA
+#define VG_LIKELY(x) (x)
+#define VG_UNLIKELY(x) (x)
+#endif
+
 namespace {
 
 struct VgAwaitTaskState {
@@ -1553,7 +1563,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // The underflow report is a separate cold, never-inlined body so that the
     // check itself (one compare on nearly every opcode) stays inline: with the
     // diagnostics in the same lambda GCC emitted an out-of-line call for it.
-    auto ensure_stack_fail = [&](int count) __attribute__((noinline, cold)) -> bool {
+    auto ensure_stack_fail = [&](int count) VG_COLD_LAMBDA -> bool {
         {
             if (stack_profile_enabled) {
                 stack_profile_sample.underflow_count++;
@@ -1584,7 +1594,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     };
     auto ensure_stack = [&](int count) -> bool {
-        if (__builtin_expect((int)(vm.stack.size() - stack_base) < count, 0)) {
+        if (VG_UNLIKELY((int)(vm.stack.size() - stack_base) < count)) {
             return ensure_stack_fail(count);
         }
         return true;
@@ -2219,7 +2229,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // First-touch allocation and per-name classification live in a cold,
     // never-inlined body; the hot lookup below is a size compare, an index
     // and a flag test so it inlines into every member-cache opcode.
-    auto ensure_member_cache_entry_slow = [&](int idx) __attribute__((noinline, cold)) -> MemberNameCacheEntry& {
+    auto ensure_member_cache_entry_slow = [&](int idx) VG_COLD_LAMBDA -> MemberNameCacheEntry& {
         // Lazy first-touch allocation (see declaration above): a chunk reaches
         // here only if it actually executes a member-cache opcode.
         if ((*member_name_cache_ptr).size() != chunk->constants.size()) {
@@ -2250,9 +2260,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     };
     auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
         Vector<MemberNameCacheEntry> &cache_vec = *member_name_cache_ptr;
-        if (__builtin_expect(cache_vec.size() == chunk->constants.size(), 1)) {
+        if (VG_LIKELY(cache_vec.size() == chunk->constants.size())) {
             MemberNameCacheEntry &entry = cache_vec.ptrw()[idx];
-            if (__builtin_expect(entry.initialized, 1)) {
+            if (VG_LIKELY(entry.initialized)) {
                 return entry;
             }
         }
