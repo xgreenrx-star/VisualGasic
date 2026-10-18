@@ -8,6 +8,38 @@
 **Repository:** https://github.com/xgreenrx-star/VisualGasic
 **Issues:** https://github.com/xgreenrx-star/VisualGasic/issues
 
+## Changelog
+
+Paste this into the version changelog. Same Markdown shape as the 5.6.0-beta1 submission.
+
+**VisualGasic 5.7.0-beta.2** — October 17, 2026
+Godot **4.6+** · Bug-fix beta (not stable v6)
+
+## Summary
+
+Bug-fix update on the 5.7.0 beta. Releases will slow down: funds are exhausted, other projects come first, and occasional bug fixes continue. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
+
+## Fixed
+
+- A local or parameter that hides a Sub or Function reports error **328**, Ambiguous name detected, instead of error 91. Recursion through the function's own name still works. `Color(...)` still constructs when a local is only named `color`.
+- `color.r` on a Color variable reads the component. `Color.Red` is still the named constant.
+- Dense integer Select Case keeps every case. A jump-table body is no longer deleted or left as an invalid opcode.
+- Typed Array returns, a long Backlight City warp stall, re-entrant Whenever callbacks, save formatting, and inline palette clicks.
+
+## Changed
+
+- A full city build uses about **2.7×** GDScript's instruction count, down from about 5×. It is not faster than GDScript yet.
+- Ash Meridian Part 1, including Backlight Yard, is in the separate examples download. This ZIP installs only the addon.
+
+## Upgrade
+
+- Replace the whole `addons/visual_gasic/` folder. Godot **4.6.1** is the baseline. Mac builds are unsigned.
+
+## Links
+
+- Release notes: https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2
+- Download: https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic_AssetLibrary_v5.7.0-beta.2.zip
+
 ## Short description
 
 Write Godot game logic in VB6-style BASIC. VisualGasic adds .vg scripts,
@@ -28,6 +60,8 @@ Function, Dim, For/Next, and readable event handlers.
   name detected. Recursion through the function's own name still works.
 - `color.r` on a Color variable is a component read. `Color.Red` is still
   the named constant.
+- Dense integer Select Case keeps every case. A jump-table body is no
+  longer deleted or left as an invalid opcode.
 - Typed Array returns, a long Backlight City warp stall, re-entrant Whenever
   callbacks, save formatting, and inline palette clicks are fixed.
 - VM work reduced a full city build from about 5× GDScript's instruction
