@@ -1292,6 +1292,10 @@ Dictionary VisualGasicScript::debug_dump_bytecode(const String &entry_point) {
         if (op == OP_PACKED_APPEND_LITERAL && ip + 6 < chunk->code.size()) {
             operand_len = 8 + chunk->code[ip + 6]; // header + COUNT element slots
         }
+        if (op == OP_JUMP_TABLE && ip + 8 < chunk->code.size()) {
+            int num_cases = (int)chunk->code[ip + 7] | ((int)chunk->code[ip + 8] << 8);
+            operand_len = 8 + num_cases * 2; // 8 operand bytes of header + OFF16*COUNT
+        }
         Array operands;
         for (int i = 0; i < operand_len && (ip + 1 + i) < chunk->code.size(); i++) {
             operands.push_back((int)chunk->code[ip + 1 + i]);

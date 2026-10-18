@@ -7,7 +7,9 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <cstdlib>
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(_MSC_VER)
+#include <intrin.h>
+#elif defined(__x86_64__) || defined(__i386__)
 #include <x86intrin.h>
 #endif
 

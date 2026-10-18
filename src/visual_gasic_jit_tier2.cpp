@@ -900,6 +900,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                             advance = 4; break;
                         case OP_PACKED_APPEND_LITERAL:   // 9 header bytes + COUNT slots
                             advance = (ip + 6 < size) ? 9 + code[ip + 6] : 1; break;
+                        case OP_JUMP_TABLE:              // 9 header bytes + COUNT*2 offsets
+                            if (ip + 9 <= size) {
+                                int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+                                advance = 9 + num_cases * 2;
+                            }
+                            break;
                         // 5-byte opcodes
                         case OP_ARITH_SUM:
                         case OP_ACCUM_I64_MULADD_CONST:
@@ -995,6 +1001,14 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ip += 6; break;
                 case OP_PACKED_APPEND_LITERAL:
                     ip += (ip + 6 < size) ? 9 + code[ip + 6] : 1; break;
+                case OP_JUMP_TABLE:
+                    if (ip + 9 <= size) {
+                        int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+                        ip += 9 + num_cases * 2;
+                    } else {
+                        ip += 1;
+                    }
+                    break;
                 default:
                     ip += 1; break;
             }

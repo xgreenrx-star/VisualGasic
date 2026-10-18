@@ -14,10 +14,10 @@
 #include "vg_autoloads.h"
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
+#include "visual_gasic_optimizer.h"   // instruction_size(): inline-frame eligibility scan
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_jit_tier2.h"
 #include "visual_gasic_jit_tier3.h"
-#include "visual_gasic_optimizer.h"   // instruction_size(): inline-frame eligibility scan
 #include "visual_gasic_task.h"
 #include "python_bridge/visual_gasic_py_facade.h"
 #endif

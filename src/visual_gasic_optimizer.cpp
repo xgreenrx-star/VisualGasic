@@ -160,11 +160,12 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // Variable-length: 9 header bytes + COUNT element slots
         case OP_PACKED_APPEND_LITERAL:                                // [OP] [KIND] [RECV(2)] [CLASS(2)] [COUNT] [SKIP16] [SLOT]*COUNT
             return (ip + 6 < code.size()) ? 9 + code[ip + 6] : 1;
-        // Variable-length: OP_JUMP_TABLE = 8 header + count*2 table bytes
+        // Variable-length: [OP] [MIN16] [MAX16] [DEF16] [COUNT16] [OFF16]*COUNT
+        // Header is 9 bytes. COUNT sits at ip+7, not ip+6 (that byte is DEF hi).
         case OP_JUMP_TABLE: {
-            if (ip + 8 <= code.size()) {
-                int num_cases = (code[ip + 6]) | (code[ip + 7] << 8);
-                return 8 + num_cases * 2;
+            if (ip + 9 <= code.size()) {
+                int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+                return 9 + num_cases * 2;
             }
             return 1;
         }
@@ -293,6 +294,55 @@ void VisualGasicOptimizer::nop_out(BytecodeChunk* chunk, int start, int count) {
     }
 }
 
+static int vg_mapped_code_pos(const Vector<int> &old_to_new, int pos, int code_size) {
+    if (pos < 0) return 0;
+    if (pos > code_size) pos = code_size;
+    if (pos == code_size) return old_to_new[code_size];
+    int mapped = old_to_new[pos];
+    if (mapped >= 0) return mapped;
+    for (int t = pos; t < code_size; t++) {
+        if (old_to_new[t] >= 0) return old_to_new[t];
+    }
+    return old_to_new[code_size];
+}
+
+// Select Case offsets are relative to the byte after the table. Compaction
+// removes OP_NOP from case bodies, so those offsets have to move with them.
+static void vg_relocate_jump_table_offsets(BytecodeChunk *chunk, const Vector<int> &old_to_new) {
+    Vector<uint8_t> &code = chunk->code;
+    const int n = code.size();
+    for (int ip = 0; ip < n;) {
+        if (code[ip] == 0xFF) {
+            ip++;
+            continue;
+        }
+        if (code[ip] == OP_JUMP_TABLE && ip + 9 <= n) {
+            int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+            int table_end = ip + 9 + num_cases * 2;
+            if (table_end <= n && old_to_new[ip] >= 0) {
+                int new_end = vg_mapped_code_pos(old_to_new, table_end, n);
+                auto rewrite = [&](int at) {
+                    int16_t off = (int16_t)((int)code[at] | ((int)code[at + 1] << 8));
+                    int old_target = table_end + (int)off;
+                    int new_target = vg_mapped_code_pos(old_to_new, old_target, n);
+                    int new_off = new_target - new_end;
+                    if (new_off < -32768) new_off = -32768;
+                    if (new_off > 32767) new_off = 32767;
+                    code.write[at] = (uint8_t)(new_off & 0xFF);
+                    code.write[at + 1] = (uint8_t)(((uint16_t)new_off >> 8) & 0xFF);
+                };
+                rewrite(ip + 5);
+                for (int s = 0; s < num_cases; s++) {
+                    rewrite(ip + 9 + s * 2);
+                }
+            }
+            ip = (table_end <= n) ? table_end : n;
+            continue;
+        }
+        ip += VisualGasicOptimizer::instruction_size(code, ip);
+    }
+}
+
 void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int count) {
     // Build a mapping from old positions to new positions
     Vector<int> old_to_new;
@@ -354,6 +404,8 @@ void VisualGasicOptimizer::erase_bytes(BytecodeChunk* chunk, int start, int coun
         int sz = instruction_size(chunk->code, ip);
         ip += sz;
     }
+
+    vg_relocate_jump_table_offsets(chunk, old_to_new);
 
     // Fix body_len fields in OP_PARALLEL_FOR_BEGIN and OP_TASK_RUN_BEGIN
     for (int ip = 0; ip < chunk->code.size();) {
@@ -523,6 +575,8 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
         }
         ip += instruction_size(chunk->code, ip);
     }
+
+    vg_relocate_jump_table_offsets(chunk, old_to_new);
 
     // Fix body_len fields in OP_PARALLEL_FOR_BEGIN and OP_TASK_RUN_BEGIN.
     // These opcodes embed a 16-bit body length that must be adjusted when

@@ -247,6 +247,14 @@ bool Tier3::lower_callee(BytecodeChunk* chunk,
                     scan_ip += 3;
                     break;
                 }
+                case OP_JUMP_TABLE:
+                    if (scan_ip + 9 <= bc_size) {
+                        int num_cases = (int)bc[scan_ip + 7] | ((int)bc[scan_ip + 8] << 8);
+                        scan_ip += 9 + num_cases * 2;
+                    } else {
+                        scan_ip += 1;
+                    }
+                    break;
                 default:
                     scan_ip += opcode_size(op);
                     break;
