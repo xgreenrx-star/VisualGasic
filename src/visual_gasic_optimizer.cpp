@@ -228,7 +228,8 @@ bool VisualGasicOptimizer::is_push_one(uint8_t op) {
 
 bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
 	// On Error Resume Next can resume immediately after OP_THROW.
-    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE;
+    // OP_JUMP_TABLE always branches; it does not fall into the next byte.
+    return op == OP_JUMP || op == OP_RETURN || op == OP_RETURN_VALUE || op == OP_JUMP_TABLE;
 }
 
 // Every opcode that carries a relocatable 16-bit code offset.  OP_FOREACH_STEP
@@ -920,6 +921,23 @@ bool VisualGasicOptimizer::pass_dead_code_elimination(BytecodeChunk* chunk, Stat
             int target = resolve_jump(code, ip);
             if (target >= 0 && target < code.size()) {
                 jump_targets.insert(target);
+            }
+        }
+        if (op == OP_JUMP_TABLE && ip + 9 <= code.size()) {
+            int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+            int table_end = ip + 9 + num_cases * 2;
+            if (table_end <= code.size()) {
+                auto mark = [&](int at) {
+                    int16_t off = (int16_t)((int)code[at] | ((int)code[at + 1] << 8));
+                    int target = table_end + (int)off;
+                    if (target >= 0 && target < code.size()) {
+                        jump_targets.insert(target);
+                    }
+                };
+                mark(ip + 5);
+                for (int s = 0; s < num_cases; s++) {
+                    mark(ip + 9 + s * 2);
+                }
             }
         }
         ip += instruction_size(code, ip);
