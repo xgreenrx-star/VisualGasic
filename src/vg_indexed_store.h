@@ -179,7 +179,17 @@ inline bool variant_to_bytes(Variant::Type packed, const Variant &value, uint8_t
 	}
 }
 
+// In-place CowData size writes are not safe. The offset is probed on one
+// Vector3 array, then reused while arrays grow and share buffers. That
+// write lands off the size field and corrupts the heap (mismatched mesh
+// attribute lengths, then malloc abort). Packed ops use the engine path.
+inline bool cow_layout_for(Variant::Type t) {
+	(void)t;
+	return false;
+}
+
 inline StoreResult cow_load(Variant &seq, int64_t idx, Variant &out) {
+	if (!cow_layout_for(vgfast::vtype(seq))) return STORE_UNSUPPORTED;
 	vgcow::Pin p;
 	if (!vgcow::pin_ro(seq, p)) return STORE_UNSUPPORTED;
 	uint8_t buf[16];
@@ -189,6 +199,7 @@ inline StoreResult cow_load(Variant &seq, int64_t idx, Variant &out) {
 }
 
 inline StoreResult cow_store(Variant &seq, int64_t idx, const Variant &value) {
+	if (!cow_layout_for(vgfast::vtype(seq))) return STORE_UNSUPPORTED;
 	vgcow::Pin p;
 	if (!vgcow::pin_rw(seq, p)) return STORE_UNSUPPORTED;
 	uint8_t buf[16];
@@ -198,7 +209,7 @@ inline StoreResult cow_store(Variant &seq, int64_t idx, const Variant &value) {
 }
 
 inline bool cow_append(Variant &seq, const Variant &value) {
-	if (!vgcow::g_ok) return false;
+	if (!vgcow::g_ok || !cow_layout_for(vgfast::vtype(seq))) return false;
 	vgcow::Pin p;
 	if (!vgcow::pin_rw(seq, p)) return false;
 	uint8_t buf[16];
@@ -444,7 +455,7 @@ inline bool append(Variant &seq, const Variant &value) {
 inline StoreResult copy_index(Variant &dst, Variant &src, int64_t idx) {
 	const Variant::Type st = vgfast::vtype(src);
 	const Variant::Type dt = vgfast::vtype(dst);
-	if (vgcow::is_pod_packed(st) && st == dt) {
+	if (cow_layout_for(st) && vgcow::is_pod_packed(st) && st == dt) {
 		uint8_t buf[16];
 		if (vgcow::opaque_of(dst) == vgcow::opaque_of(src)) {
 			vgcow::Pin p;
@@ -470,6 +481,19 @@ inline StoreResult append_sub_index(Variant &dst, Variant &src, int64_t idx_left
 	const Variant::Type dt = vgfast::vtype(dst);
 	if (st != dt || (st != Variant::PACKED_VECTOR3_ARRAY && st != Variant::PACKED_VECTOR2_ARRAY && st != Variant::PACKED_COLOR_ARRAY)) {
 		return STORE_UNSUPPORTED;
+	}
+	if (!cow_layout_for(st)) {
+		Variant lv, rv;
+		const StoreResult left_sr = load(src, idx_left, lv);
+		if (left_sr != STORE_OK) return left_sr;
+		const StoreResult right_sr = load(src, idx_right, rv);
+		if (right_sr != STORE_OK) return right_sr;
+		if (st == Variant::PACKED_VECTOR2_ARRAY) {
+			vgfast::raw_init_vector2(&lv, vgfast::vvec2(lv) - vgfast::vvec2(rv));
+		} else {
+			vgfast::raw_init_color(&lv, vgfast::vcolor(lv) - vgfast::vcolor(rv));
+		}
+		return append(dst, lv) ? STORE_OK : STORE_UNSUPPORTED;
 	}
 	vgcow::Pin sp, dp;
 	if (vgcow::opaque_of(dst) == vgcow::opaque_of(src)) {

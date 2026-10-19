@@ -531,6 +531,11 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             array_vars.insert(pkey);
         } else if (t == "array" || vg_is_packed_array_type(t)) {
             array_vars.insert(pkey);
+        } else if (t == "dictionary") {
+            // `table(code)` on a Dictionary parameter is a key lookup.
+            // Leaving it out of dictionary_vars emits OP_GET_INDEX_LOCAL,
+            // and the packed loader raises "Unsupported array base type".
+            dictionary_vars.insert(pkey);
         }
         if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
         else if (t == "single" || t == "double") pvt = VT_FLOAT;

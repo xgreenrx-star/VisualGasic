@@ -1,0 +1,53 @@
+Function Flag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		Flag = table(code)
+	Else
+		Flag = False
+	End If
+End Function
+
+Function ReadName(ByVal table As Dictionary, ByVal key As String) As String
+	ReadName = table(key)
+End Function
+
+Sub WriteCode(ByVal table As Dictionary, ByVal code As Integer, ByVal value As Boolean)
+	table(code) = value
+End Sub
+
+Sub _Ready()
+	Dim held As Dictionary
+	Dim names As Dictionary
+	held = New Dictionary
+	names = New Dictionary
+	held(65) = True
+	names("orac") = "online"
+	If Flag(held, 65) = True Then
+		Print "PASS: dict_param_int_key"
+	Else
+		Print "FAIL: dict_param_int_key"
+	End If
+	If Flag(held, 66) = False Then
+		Print "PASS: dict_param_missing_key"
+	Else
+		Print "FAIL: dict_param_missing_key"
+	End If
+	If ReadName(names, "orac") = "online" Then
+		Print "PASS: dict_param_string_key"
+	Else
+		Print "FAIL: dict_param_string_key got=" & ReadName(names, "orac")
+	End If
+	Call WriteCode(held, 67, True)
+	If Flag(held, 67) = True Then
+		Print "PASS: dict_param_write"
+	Else
+		Print "FAIL: dict_param_write"
+	End If
+	Dim alias As Variant
+	alias = names
+	alias("orac") = "ready"
+	If alias("orac") = "ready" And names("orac") = "ready" Then
+		Print "PASS: dict_variant_alias"
+	Else
+		Print "FAIL: dict_variant_alias"
+	End If
+End Sub

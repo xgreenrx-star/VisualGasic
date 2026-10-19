@@ -4905,6 +4905,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
                 Variant &idxv = vm.stack.back();
+                Variant &base = locals.write[slot];
+                // A Variant local may hold a Dictionary. Keep the key; do not
+                // coerce it to an integer packed-array index.
+                if (vgfast::vtype(base) == Variant::DICTIONARY) {
+                    const Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
+                    idxv = dict_ptr->get(vg_dictionary_key(idxv), Variant());
+                    break;
+                }
                 int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
                 vgidx::StoreResult sr;
                 if (vgfast::g_layout_ok && vgfast::is_pod_type(vgfast::vtype(idxv))) {
@@ -4929,7 +4937,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t slot = code[vm.ip++];
                 if (!ensure_stack(2) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
                 Variant value = pop_value();
-                int64_t idx = to_int(pop_value());
+                Variant key = pop_value();
+                Variant &base = locals.write[slot];
+                if (vgfast::vtype(base) == Variant::DICTIONARY) {
+                    Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
+                    (*dict_ptr)[vg_dictionary_key(key)] = value;
+                    break;
+                }
+                int64_t idx = to_int(key);
                 const vgidx::StoreResult sr = vgidx::store(locals.write[slot], idx, value);
                 if (sr == vgidx::STORE_OUT_OF_RANGE) {
                     raise_error("Array subscript out of range", 9);
@@ -4966,8 +4981,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
-                const Variant &idxv = vm.stack.back();
-                int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
+                Variant key = vm.stack.back();
                 vm.stack.pop_back();
                 MemberNameCacheEntry &mc = ensure_member_cache_entry(name_idx);
                 Variant *gp = global_value_ptr(name_idx, mc.primary_name);
@@ -4977,6 +4991,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     success = false;
                     goto cleanup;
                 }
+                if (vgfast::vtype(*gp) == Variant::DICTIONARY) {
+                    const Dictionary *dict_ptr = VariantInternal::get_dictionary(gp);
+                    push_value(dict_ptr->get(vg_dictionary_key(key), Variant()));
+                    break;
+                }
+                int64_t idx = (vgfast::vtype(key) == Variant::INT) ? vgfast::vint(key) : to_int(key);
                 vm.stack.resize(vm.stack.size() + 1);
                 const vgidx::StoreResult sr = vgidx::load(*gp, idx, vm.stack.back());
                 if (sr != vgidx::STORE_OK) {
@@ -4994,7 +5014,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 int name_idx = read_const_index();
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
                 Variant value = pop_value();
-                int64_t idx = to_int(pop_value());
+                Variant key = pop_value();
                 const bool okc = (name_idx >= 0 && name_idx < chunk->constants.size());
                 if (!okc) { success = false; goto cleanup; }
                 MemberNameCacheEntry &mc = ensure_member_cache_entry(name_idx);
@@ -5023,6 +5043,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (VisualGasicLanguage::has_watchpoints()) {
                     VisualGasicLanguage::check_watchpoint(mc.primary_string, value);
                 }
+                if (vgfast::vtype(*gp) == Variant::DICTIONARY) {
+                    Dictionary *dict_ptr = VariantInternal::get_dictionary(gp);
+                    (*dict_ptr)[vg_dictionary_key(key)] = value;
+                    if (!whenever_init_suppress && !whenever_sections.is_empty()) {
+                        check_whenever_conditions(mc.primary_string, *gp);
+                    }
+                    break;
+                }
+                int64_t idx = to_int(key);
                 const vgidx::StoreResult sr = vgidx::store(*gp, idx, value);
                 if (sr == vgidx::STORE_OUT_OF_RANGE) {
                     raise_error("Array subscript out of range", 9);
