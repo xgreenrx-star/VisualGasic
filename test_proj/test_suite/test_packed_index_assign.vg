@@ -1,0 +1,49 @@
+' Packed array element assignment and in-place append (local + module).
+Attribute VB_Name = "TestPackedIndexAssign"
+
+Dim g_verts As PackedVector3Array
+Dim g_colors As PackedColorArray
+
+Sub _Ready()
+	Dim verts As PackedVector3Array
+	Dim cols As PackedColorArray
+	Dim uvs As PackedVector2Array
+	verts.resize(2)
+	verts(0) = Vector3(1, 2, 3)
+	verts(1) = Vector3(4, 5, 6)
+	If verts(0) = Vector3(1, 2, 3) And verts(1) = Vector3(4, 5, 6) Then
+		Print "PASS: local_packed_index_assign"
+	Else
+		Print "FAIL: local_packed_index_assign"
+	End If
+	cols.resize(1)
+	cols(0) = Color(1, 0, 0, 1)
+	If cols(0) = Color(1, 0, 0, 1) Then
+		Print "PASS: local_packed_color_assign"
+	Else
+		Print "FAIL: local_packed_color_assign"
+	End If
+	uvs.append(Vector2(-1, 0))
+	uvs.append(Vector2(1, 0))
+	If uvs.size() = 2 And uvs(0) = Vector2(-1, 0) And uvs(1) = Vector2(1, 0) Then
+		Print "PASS: local_packed_append"
+	Else
+		Print "FAIL: local_packed_append size=" & Str(uvs.size())
+	End If
+
+	g_verts.resize(2)
+	g_verts(0) = Vector3(9, 8, 7)
+	g_verts(1) = Vector3(6, 5, 4)
+	If g_verts(0) = Vector3(9, 8, 7) And g_verts(1) = Vector3(6, 5, 4) Then
+		Print "PASS: module_packed_index_assign"
+	Else
+		Print "FAIL: module_packed_index_assign"
+	End If
+	g_colors.append(Color(0, 1, 0, 1))
+	g_colors.append(Color(0, 0, 1, 1))
+	If g_colors.size() = 2 And g_colors(0) = Color(0, 1, 0, 1) And g_colors(1) = Color(0, 0, 1, 1) Then
+		Print "PASS: module_packed_append"
+	Else
+		Print "FAIL: module_packed_append size=" & Str(g_colors.size())
+	End If
+End Sub

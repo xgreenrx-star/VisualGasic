@@ -173,10 +173,12 @@ static int opcode_size(uint8_t op) {
         case OP_GET_LOCAL: case OP_SET_LOCAL:
         case OP_INC_LOCAL_I64:
         case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
+        case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
             return 2;
         // 3-byte opcodes
         case OP_CONSTANT: case OP_CONSTANT_LONG:
         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+        case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
         case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
         case OP_DEBUG_LINE:

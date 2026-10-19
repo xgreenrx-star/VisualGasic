@@ -3246,6 +3246,25 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              }
          }
 
+         if (vgidx::is_sequence(base.get_type()) && aa->indices.size() == 1) {
+             int64_t idx = vgidx::vb_int(evaluate_expression(aa->indices[0]));
+             const vgidx::StoreResult sr = vgidx::store(base, idx, val);
+             if (sr == vgidx::STORE_OUT_OF_RANGE) {
+                 raise_error("Array subscript out of range", 9);
+                 return;
+             }
+             if (sr == vgidx::STORE_TYPE_MISMATCH) {
+                 raise_error("Type mismatch", 13);
+                 return;
+             }
+             if (sr == vgidx::STORE_OK) {
+                 if (!var_name.is_empty()) {
+                     assign_variable(var_name, base);
+                 }
+                 return;
+             }
+         }
+
          if (base.get_type() != Variant::ARRAY) {
              raise_error("Expected Array for index access");
              return;
@@ -3338,6 +3357,23 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              dict[key] = val;
              assign_variable(name, dict);
              return;
+         }
+         if (vgidx::is_sequence(container.get_type()) && container.get_type() != Variant::ARRAY
+                 && call->arguments.size() == 1) {
+             int64_t idx = vgidx::vb_int(evaluate_expression(call->arguments[0]));
+             const vgidx::StoreResult sr = vgidx::store(container, idx, val);
+             if (sr == vgidx::STORE_OUT_OF_RANGE) {
+                 raise_error("Array subscript out of range", 9);
+                 return;
+             }
+             if (sr == vgidx::STORE_TYPE_MISMATCH) {
+                 raise_error("Type mismatch", 13);
+                 return;
+             }
+             if (sr == vgidx::STORE_OK) {
+                 assign_variable(name, container);
+                 return;
+             }
          }
          if (container.get_type() == Variant::ARRAY) {
              if (call->arguments.is_empty()) {

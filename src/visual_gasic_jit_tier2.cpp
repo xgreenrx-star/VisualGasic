@@ -867,11 +867,13 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
                         case OP_PUSH_SCOPE:
                         case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
+                        case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                             advance = 2; break;
                         // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
                         case OP_CONSTANT:
                         case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+                        case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
                         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                         case OP_GET_MEMBER: case OP_SET_MEMBER:
                         case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
@@ -982,9 +984,11 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
                     ip += 3; break;
                 case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
+                case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
                     ip += 3; break;
                 case OP_GET_LOCAL: case OP_SET_LOCAL:
                 case OP_PUSH_SCOPE:
+                case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                     ip += 2; break;
                 case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                     ip += 3; break;

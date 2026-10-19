@@ -5,6 +5,7 @@
 #include "visual_gasic_godot_ctors.h"
 #include "visual_gasic_instance_internal.h"
 #include "vg_variant_fast.h"
+#include "vg_indexed_store.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_evidence.h"
 #include "visual_gasic_parser.h"
@@ -1931,7 +1932,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         int scan_ip = 0;
         while (scan_ip < code_size) {
             uint8_t scan_op = code[scan_ip++];
-            if (scan_op == OP_SET_GLOBAL && scan_ip + 1 < code_size) {
+            if ((scan_op == OP_SET_GLOBAL || scan_op == OP_SET_INDEX_GLOBAL || scan_op == OP_APPEND_GLOBAL)
+                    && scan_ip + 1 < code_size) {
                 int idx = (code[scan_ip + 1] << 8) | code[scan_ip];
                 if (idx >= 0 && idx < chunk->constants.size()) {
                     String gname = chunk->constants[idx];
@@ -1973,6 +1975,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
                     case OP_HINT_PURE_CALL:
                     case OP_PUSH_SCOPE:
+                    case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                         scan_ip += 1; break;
                     case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                         scan_ip += 2; break;
@@ -1997,6 +2000,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
                     case OP_COERCE_TYPE:
                     case OP_GET_GLOBAL_BUF8: case OP_SET_GLOBAL_BUF8:
+                    case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
                         scan_ip += 2; break;
                     // OP_BYREF_LOAD: 2-byte const index + 1-byte flag + 2-byte dest = 5 bytes
                     case OP_BYREF_LOAD:
@@ -2983,6 +2987,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_FOREACH_STEP]         = &&vg_op_foreach_step;
         dispatch_table[OP_NEW_PACKED_LITERAL]   = &&vg_op_new_packed_literal;
         dispatch_table[OP_PACKED_APPEND_LITERAL] = &&vg_op_packed_append_literal;
+        dispatch_table[OP_GET_INDEX_LOCAL] = &&vg_op_get_index_local;
+        dispatch_table[OP_SET_INDEX_LOCAL] = &&vg_op_set_index_local;
+        dispatch_table[OP_APPEND_LOCAL] = &&vg_op_append_local;
+        dispatch_table[OP_GET_INDEX_GLOBAL] = &&vg_op_get_index_global;
+        dispatch_table[OP_SET_INDEX_GLOBAL] = &&vg_op_set_index_global;
+        dispatch_table[OP_APPEND_GLOBAL] = &&vg_op_append_global;
         dispatch_table_init = true;
     }
     // Resolve the thread-local table once.  This .so is dlopen'd, so every
@@ -4852,6 +4862,183 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (try_recover_error(Variant(), false)) break;
                     success = false;
                     goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_get_index_local, OP_GET_INDEX_LOCAL): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
+                const Variant &idxv = vm.stack.back();
+                int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
+                vm.stack.pop_back();
+                vm.stack.resize(vm.stack.size() + 1);
+                const vgidx::StoreResult sr = vgidx::load(locals.write[slot], idx, vm.stack.back());
+                if (sr != vgidx::STORE_OK) {
+                    vm.stack.resize(vm.stack.size() - 1);
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Unsupported array base type",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_set_index_local, OP_SET_INDEX_LOCAL): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(2) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                int64_t idx = to_int(pop_value());
+                const vgidx::StoreResult sr = vgidx::store(locals.write[slot], idx, value);
+                if (sr == vgidx::STORE_OUT_OF_RANGE) {
+                    raise_error("Array subscript out of range", 9);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_TYPE_MISMATCH ? "Type mismatch" : "Unsupported array assignment base",
+                            sr == vgidx::STORE_TYPE_MISMATCH ? 13 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_local, OP_APPEND_LOCAL): {
+                if (vm.ip >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                if (!vgidx::append(locals.write[slot], value)) {
+                    raise_error("Invalid packed array append");
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_get_index_global, OP_GET_INDEX_GLOBAL): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
+                if (!ensure_stack(1) || name_idx < 0 || name_idx >= chunk->constants.size()) {
+                    success = false;
+                    goto cleanup;
+                }
+                const Variant &idxv = vm.stack.back();
+                int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
+                vm.stack.pop_back();
+                MemberNameCacheEntry &mc = ensure_member_cache_entry(name_idx);
+                Variant *gp = global_value_ptr(name_idx, mc.primary_name);
+                if (!gp) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
+                }
+                vm.stack.resize(vm.stack.size() + 1);
+                const vgidx::StoreResult sr = vgidx::load(*gp, idx, vm.stack.back());
+                if (sr != vgidx::STORE_OK) {
+                    vm.stack.resize(vm.stack.size() - 1);
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Unsupported array base type",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_set_index_global, OP_SET_INDEX_GLOBAL): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
+                if (!ensure_stack(2)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                int64_t idx = to_int(pop_value());
+                const bool okc = (name_idx >= 0 && name_idx < chunk->constants.size());
+                if (!okc) { success = false; goto cleanup; }
+                MemberNameCacheEntry &mc = ensure_member_cache_entry(name_idx);
+                Variant *gp = global_value_ptr(name_idx, mc.primary_name);
+                if (!gp) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (snapshot_globals_active) {
+                    MemberNameCacheEntry &sm = mc;
+                    if (sm.gw_index == -2) {
+                        sm.gw_index = chunk->globals_written.find(mc.primary_string);
+                    }
+                    const int gi = sm.gw_index;
+                    if (gi >= 0) {
+                        const uint64_t mask = (uint64_t)1 << (gi & 63);
+                        if (!(gw_bits[gi >> 6] & mask)) {
+                            gw_bits[gi >> 6] |= mask;
+                            saved_globals.push_back({ mc.primary_string, *gp });
+                            *gp = gp->duplicate();
+                        }
+                    }
+                }
+                if (VisualGasicLanguage::has_watchpoints()) {
+                    VisualGasicLanguage::check_watchpoint(mc.primary_string, value);
+                }
+                const vgidx::StoreResult sr = vgidx::store(*gp, idx, value);
+                if (sr == vgidx::STORE_OUT_OF_RANGE) {
+                    raise_error("Array subscript out of range", 9);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_TYPE_MISMATCH ? "Type mismatch" : "Unsupported array assignment base",
+                            sr == vgidx::STORE_TYPE_MISMATCH ? 13 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (!whenever_init_suppress && !whenever_sections.is_empty()) {
+                    check_whenever_conditions(mc.primary_string, *gp);
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_global, OP_APPEND_GLOBAL): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                int name_idx = read_const_index();
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant value = pop_value();
+                const bool okc = (name_idx >= 0 && name_idx < chunk->constants.size());
+                if (!okc) { success = false; goto cleanup; }
+                MemberNameCacheEntry &mc = ensure_member_cache_entry(name_idx);
+                Variant *gp = global_value_ptr(name_idx, mc.primary_name);
+                if (!gp) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (snapshot_globals_active) {
+                    if (mc.gw_index == -2) {
+                        mc.gw_index = chunk->globals_written.find(mc.primary_string);
+                    }
+                    const int gi = mc.gw_index;
+                    if (gi >= 0) {
+                        const uint64_t mask = (uint64_t)1 << (gi & 63);
+                        if (!(gw_bits[gi >> 6] & mask)) {
+                            gw_bits[gi >> 6] |= mask;
+                            saved_globals.push_back({ mc.primary_string, *gp });
+                            *gp = gp->duplicate();
+                        }
+                    }
+                }
+                if (!vgidx::append(*gp, value)) {
+                    raise_error("Invalid packed array append");
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (!whenever_init_suppress && !whenever_sections.is_empty()) {
+                    check_whenever_conditions(mc.primary_string, *gp);
                 }
                 break;
             }
@@ -6928,75 +7115,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 Variant base = pop_value();
                 Variant updated = base;
-                bool ok = true;
-                if (vgfast::vtype(base) == Variant::ARRAY && arg_count == 1) {
-                    Array arr = base;
-                    int idx = (int)to_int(indices[0]);
-                    if (idx < 0 || idx >= arr.size()) {
+                if (vgidx::is_sequence(vgfast::vtype(base)) && arg_count == 1) {
+                    const vgidx::StoreResult sr = vgidx::store(updated, to_int(indices[0]), value);
+                    if (sr == vgidx::STORE_OUT_OF_RANGE) {
                         if (op == OP_SET_ARRAY_UNCHECKED) {
-                            ok = false;
+                            updated = base;
                         } else {
                             raise_error("Array subscript out of range", 9);
                             if (try_recover_error(base)) break;
                             success = false;
                             goto cleanup;
                         }
-                    } else if (ok) {
-                        arr[idx] = value;
-                        updated = arr;
+                    } else if (sr == vgidx::STORE_TYPE_MISMATCH) {
+                        raise_error("Type mismatch", 13);
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
                     }
                 } else if (vgfast::vtype(base) == Variant::DICTIONARY && arg_count == 1) {
                     Dictionary dict = base;
                     dict[vg_dictionary_key(indices[0])] = value;
                     updated = dict;
-                } else if (vgfast::vtype(base) == Variant::PACKED_INT64_ARRAY && arg_count == 1) {
-                    PackedInt64Array arr = base;
-                    int idx = (int)to_int(indices[0]);
-                    if (idx < 0 || idx >= arr.size()) {
-                        if (op == OP_SET_ARRAY_UNCHECKED) {
-                            ok = false;
-                        } else {
-                            raise_error("Array subscript out of range", 9);
-                            if (try_recover_error(base)) break;
-                            success = false;
-                            goto cleanup;
-                        }
-                    } else if (ok) {
-                        arr[idx] = (int64_t)to_int(value);
-                        updated = arr;
-                    }
-                } else if (vgfast::vtype(base) == Variant::PACKED_FLOAT64_ARRAY && arg_count == 1) {
-                    PackedFloat64Array arr = base;
-                    int idx = (int)to_int(indices[0]);
-                    if (idx < 0 || idx >= arr.size()) {
-                        if (op == OP_SET_ARRAY_UNCHECKED) {
-                            ok = false;
-                        } else {
-                            raise_error("Array subscript out of range", 9);
-                            if (try_recover_error(base)) break;
-                            success = false;
-                            goto cleanup;
-                        }
-                    } else if (ok) {
-                        arr[idx] = (double)value;
-                        updated = arr;
-                    }
-                } else if (vgfast::vtype(base) == Variant::PACKED_BYTE_ARRAY && arg_count == 1) {
-                    PackedByteArray arr = base;
-                    int idx = (int)to_int(indices[0]);
-                    if (idx < 0 || idx >= arr.size()) {
-                        if (op == OP_SET_ARRAY_UNCHECKED) {
-                            ok = false;
-                        } else {
-                            raise_error("Array subscript out of range", 9);
-                            if (try_recover_error(base)) break;
-                            success = false;
-                            goto cleanup;
-                        }
-                    } else if (ok) {
-                        arr.set(idx, (uint8_t)to_int(value));
-                        updated = arr;
-                    }
                 } else if (vgfast::vtype(base) == Variant::OBJECT && arg_count == 1) {
                     if (!try_variant_subscript_set(updated, indices[0], value, updated)) {
                         raise_error("Unsupported array assignment base");
@@ -7050,6 +7189,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                     arr[(int)idx] = to_int(value);
                     push_value(arr);
+                    break;
+                }
+                if (vgidx::is_sequence(vgfast::vtype(base))) {
+                    const vgidx::StoreResult sr = vgidx::store(base, idx, value);
+                    if (sr == vgidx::STORE_OUT_OF_RANGE) {
+                        if (op == OP_SET_ARRAY_FAST_UNCHECKED) {
+                            push_value(base);
+                            break;
+                        }
+                        raise_error("Array subscript out of range", 9);
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    if (sr != vgidx::STORE_OK) {
+                        raise_error(sr == vgidx::STORE_TYPE_MISMATCH ? "Type mismatch" : "Fast array assignment base is not an array",
+                                sr == vgidx::STORE_TYPE_MISMATCH ? 13 : 0);
+                        if (try_recover_error(base)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(base);
                     break;
                 }
                 if (vgfast::vtype(base) != Variant::ARRAY) {
@@ -9542,11 +9703,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // moves.  The unconditional resolve + three String copies per
                 // executed line were ~5% of the Backlight City build.
                 if (!VisualGasicLanguage::is_debug_hook_active()) {
+                    debug_state.current_line = line_number;
                     if (!vgfast::str_empty(debug_bc_source_file)) {
-                        debug_state.current_file = debug_bc_source_file;
-                        debug_state.current_file_script = nullptr;
-                        debug_state.current_file_id = -2;
-                        debug_state.current_line = line_number;
+                        if (debug_state.current_file_id != -2) {
+                            debug_state.current_file = debug_bc_source_file;
+                            debug_state.current_file_script = nullptr;
+                            debug_state.current_file_id = -2;
+                        }
                     } else if (script.is_valid()) {
                         int fast_src_line = line_number;
                         const int fid = script->source_file_id_for_line(line_number, fast_src_line);

@@ -30,6 +30,7 @@
 #include <godot_cpp/variant/variant_internal.hpp>
 
 #include "visual_gasic_instance.h"
+#include "vg_indexed_store.h"
 #include "visual_gasic_qb_screen.h"
 #include "vg_qb_string_bytes.h"
 #include "visual_gasic_vector_canvas.h"

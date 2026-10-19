@@ -366,6 +366,20 @@ enum OpCode {
     // after it; otherwise nothing is consumed and that ordinary code runs.
     OP_PACKED_APPEND_LITERAL,
 
+    // `v(i)` / `v(i) = x` / `v.append(x)` on a plain variable, working on the
+    // variable's own storage (no base push, no store-back).  Any base type
+    // the generic OP_GET_ARRAY / OP_SET_ARRAY accept is accepted here.
+    //   OP_GET_INDEX_LOCAL [SLOT]     stack: idx        → element
+    //   OP_SET_INDEX_LOCAL [SLOT]     stack: idx, value →
+    //   OP_APPEND_LOCAL    [SLOT]     stack: value      →   (statement form)
+    //   *_GLOBAL           [NAME(2)]  same, on a module variable
+    OP_GET_INDEX_LOCAL,
+    OP_SET_INDEX_LOCAL,
+    OP_APPEND_LOCAL,
+    OP_GET_INDEX_GLOBAL,
+    OP_SET_INDEX_GLOBAL,
+    OP_APPEND_GLOBAL,
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

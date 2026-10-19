@@ -83,6 +83,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_NEW_VGDICT:                                           // [OP] [SLOT_IDX]
         case OP_GET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
         case OP_SET_VGDICT_LOCAL:                                     // [OP] [SLOT_IDX]
+        case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL:             // [OP] [SLOT_IDX]
+        case OP_APPEND_LOCAL:                                         // [OP] [SLOT_IDX]
             return 2;
 
         // 3-byte instructions (opcode + 1 const-pool index [2-byte LE])
@@ -96,6 +98,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_ADD_I64_CONST: case OP_SUB_I64_CONST:                 // [OP] [CONST_LO] [CONST_HI]
         case OP_MUL_I64_CONST:                                        // [OP] [CONST_LO] [CONST_HI]
         case OP_GET_GLOBAL_BUF8: case OP_SET_GLOBAL_BUF8:             // [OP] [NAME_LO] [NAME_HI]
+        case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL:           // [OP] [NAME_LO] [NAME_HI]
+        case OP_APPEND_GLOBAL:
             return 3;
 
         // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)

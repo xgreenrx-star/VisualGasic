@@ -180,6 +180,13 @@ bool vb_like_match(const String& value, const String& pattern) {
 }
 }
 
+static bool vg_is_packed_array_type(const String &t) {
+    return t == "packedbytearray" || t == "packedint32array" || t == "packedint64array"
+        || t == "packedfloat32array" || t == "packedfloat64array" || t == "packedstringarray"
+        || t == "packedvector2array" || t == "packedvector3array" || t == "packedcolorarray"
+        || t == "packedvector4array";
+}
+
 VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), last_emitted_debug_line(-1), compile_ok(true) {
 }
 
@@ -516,13 +523,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         // name must shadow them or PadInt's width is Nothing.
         param_vars.insert(pkey);
         non_local_names.erase(pkey);
+        ValueType pvt = VT_UNKNOWN;
+        String t = sub->parameters[i].type_hint.to_lower();
         if (sub->parameters[i].is_param_array) {
             // The slot holds the rest-Array; `args(i)` must compile as an
             // array subscript, not a call.
             array_vars.insert(pkey);
+        } else if (t == "array" || vg_is_packed_array_type(t)) {
+            array_vars.insert(pkey);
         }
-        ValueType pvt = VT_UNKNOWN;
-        String t = sub->parameters[i].type_hint.to_lower();
         if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
         else if (t == "single" || t == "double") pvt = VT_FLOAT;
         mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
@@ -599,9 +608,10 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         if (vtype == "dictionary") {
             dictionary_vars.insert(module->variables[i]->name.to_lower());
         }
-        // Register "Dim X As Array" — dynamic arrays typed as Array
-        // so the compiler emits OP_GET_ARRAY instead of OP_CALL
-        if (vtype == "array") {
+        // Register "Dim X As Array" / Packed*Array so `x(i)` is an index,
+        // not OP_CALL (module packed Dims used to miss this and go through
+        // the full Sub-resolution cascade on every element).
+        if (vtype == "array" || vg_is_packed_array_type(vtype)) {
             array_vars.insert(module->variables[i]->name.to_lower());
         }
     }
@@ -646,7 +656,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             if (vtype == "dictionary") {
                 dictionary_vars.insert(gkey);
             }
-            if (vtype == "array") {
+            if (vtype == "array" || vg_is_packed_array_type(vtype)) {
                 array_vars.insert(gkey);
             }
         }
@@ -890,8 +900,8 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                     // Will be revoked if the dict escapes (passed as arg, assigned to another var, etc.)
                     sole_owner_dict_vars.insert(s->variable_name.to_lower());
                 }
-                // Register "Dim X As Array" — dynamic arrays typed as Array
-                else if (t == "array") {
+                // Register "Dim X As Array" / Packed*Array — dynamic arrays
+                else if (t == "array" || vg_is_packed_array_type(t)) {
                     array_vars.insert(s->variable_name.to_lower());
                 }
                 // M5: MemoryBuffer type — fast byte buffer stored as PackedByteArray
@@ -3247,6 +3257,84 @@ bool VisualGasicCompiler::try_emit_set_array_i64_local(const String &arr_name, E
     return true;
 }
 
+bool VisualGasicCompiler::try_emit_get_index(const String &arr_name, ExpressionNode *index) {
+    if (!index) {
+        return false;
+    }
+    String key = arr_name.to_lower();
+    if (dictionary_vars.has(key) || is_buffer_var(arr_name)) {
+        return false;
+    }
+    int slot = get_or_add_local(arr_name, VT_UNKNOWN);
+    if (slot >= 256) {
+        return false;
+    }
+    compile_expression(index);
+    if (slot >= 0) {
+        emit_bytes(OP_GET_INDEX_LOCAL, (uint8_t)slot);
+    } else {
+        int idx = current_chunk->add_constant(arr_name);
+        emit_byte(OP_GET_INDEX_GLOBAL);
+        emit_const_index(idx);
+    }
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_set_index(const String &arr_name, ExpressionNode *index, ExpressionNode *value) {
+    if (!index || !value) {
+        return false;
+    }
+    String key = arr_name.to_lower();
+    if (dictionary_vars.has(key) || is_buffer_var(arr_name)) {
+        return false;
+    }
+    int slot = get_or_add_local(arr_name, VT_UNKNOWN);
+    if (slot >= 256) {
+        return false;
+    }
+    compile_expression(index);
+    compile_expression(value);
+    if (slot >= 0) {
+        emit_bytes(OP_SET_INDEX_LOCAL, (uint8_t)slot);
+    } else {
+        int idx = current_chunk->add_constant(arr_name);
+        emit_byte(OP_SET_INDEX_GLOBAL);
+        emit_const_index(idx);
+    }
+    return true;
+}
+
+bool VisualGasicCompiler::try_emit_append(CallStatement *s) {
+    if (!s || !s->base_object || s->arguments.size() != 1 ||
+            s->base_object->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    if (s->method_name.nocasecmp_to("append") != 0 && s->method_name.nocasecmp_to("push_back") != 0) {
+        return false;
+    }
+    const String name = ((VariableNode *)s->base_object)->name;
+    String key = name.to_lower();
+    if (dictionary_vars.has(key) || is_buffer_var(name)) {
+        return false;
+    }
+    if (!array_vars.has(key) && !local_slots.has(key) && !param_vars.has(key)) {
+        return false;
+    }
+    int slot = get_or_add_local(name, VT_UNKNOWN);
+    if (slot >= 256) {
+        return false;
+    }
+    compile_expression(s->arguments[0]);
+    if (slot >= 0) {
+        emit_bytes(OP_APPEND_LOCAL, (uint8_t)slot);
+    } else {
+        int idx = current_chunk->add_constant(name);
+        emit_byte(OP_APPEND_GLOBAL);
+        emit_const_index(idx);
+    }
+    return true;
+}
+
 static bool _vg_arr_index(ExpressionNode *e, String &arr, String &idx) {
     if (!e) {
         return false;
@@ -4381,6 +4469,12 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
             }
             return true;
         }
+        if (name == "vector2" || name == "vector2i") {
+            return aa->indices.size() == 2 && is_constant_expr(aa->indices[0]) && is_constant_expr(aa->indices[1]);
+        }
+        if (name == "vector3" || name == "vector3i") {
+            return aa->indices.size() == 3 && is_constant_expr(aa->indices[0]) && is_constant_expr(aa->indices[1]) && is_constant_expr(aa->indices[2]);
+        }
     }
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
         CallExpression *call = (CallExpression *)expr;
@@ -4401,6 +4495,12 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
                 }
             }
             return true;
+        }
+        if (name == "vector2" || name == "vector2i") {
+            return call->arguments.size() == 2 && is_constant_expr(call->arguments[0]) && is_constant_expr(call->arguments[1]);
+        }
+        if (name == "vector3" || name == "vector3i") {
+            return call->arguments.size() == 3 && is_constant_expr(call->arguments[0]) && is_constant_expr(call->arguments[1]) && is_constant_expr(call->arguments[2]);
         }
     }
     return false;
@@ -4445,6 +4545,18 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 double a = aa->indices.size() > 3 ? (double)eval_constant_expr(aa->indices[3]) : 1.0;
                 return Variant(Color(r, g, b, a));
             }
+            if (name == "vector2" && aa->indices.size() == 2) {
+                return Variant(Vector2((double)eval_constant_expr(aa->indices[0]), (double)eval_constant_expr(aa->indices[1])));
+            }
+            if (name == "vector2i" && aa->indices.size() == 2) {
+                return Variant(Vector2i((int)eval_constant_expr(aa->indices[0]), (int)eval_constant_expr(aa->indices[1])));
+            }
+            if (name == "vector3" && aa->indices.size() == 3) {
+                return Variant(Vector3((double)eval_constant_expr(aa->indices[0]), (double)eval_constant_expr(aa->indices[1]), (double)eval_constant_expr(aa->indices[2])));
+            }
+            if (name == "vector3i" && aa->indices.size() == 3) {
+                return Variant(Vector3i((int)eval_constant_expr(aa->indices[0]), (int)eval_constant_expr(aa->indices[1]), (int)eval_constant_expr(aa->indices[2])));
+            }
         }
     }
     if (expr->type == ExpressionNode::EXPRESSION_CALL) {
@@ -4469,6 +4581,18 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 double b = (double)eval_constant_expr(call->arguments[2]);
                 double a = call->arguments.size() > 3 ? (double)eval_constant_expr(call->arguments[3]) : 1.0;
                 return Variant(Color(r, g, b, a));
+            }
+            if (name == "vector2" && call->arguments.size() == 2) {
+                return Variant(Vector2((double)eval_constant_expr(call->arguments[0]), (double)eval_constant_expr(call->arguments[1])));
+            }
+            if (name == "vector2i" && call->arguments.size() == 2) {
+                return Variant(Vector2i((int)eval_constant_expr(call->arguments[0]), (int)eval_constant_expr(call->arguments[1])));
+            }
+            if (name == "vector3" && call->arguments.size() == 3) {
+                return Variant(Vector3((double)eval_constant_expr(call->arguments[0]), (double)eval_constant_expr(call->arguments[1]), (double)eval_constant_expr(call->arguments[2])));
+            }
+            if (name == "vector3i" && call->arguments.size() == 3) {
+                return Variant(Vector3i((int)eval_constant_expr(call->arguments[0]), (int)eval_constant_expr(call->arguments[1]), (int)eval_constant_expr(call->arguments[2])));
             }
         }
     }
@@ -6932,9 +7056,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                         }
                         break;
                     }
-                    else if (t == "packedbytearray" || t == "packedint32array" || t == "packedint64array"
-                        || t == "packedfloat32array" || t == "packedfloat64array" || t == "packedstringarray"
-                        || t == "packedvector2array" || t == "packedvector3array" || t == "packedcolorarray") {
+                    else if (vg_is_packed_array_type(t)) {
                         // A shared empty constant would alias every Dim of this type:
                         // append on one local mutates the others, and the next call
                         // sees the previous call's elements. Construct a fresh array.
@@ -7265,6 +7387,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      emit_const_index(name_idx);
                      break;
                  }
+                 if (try_emit_set_index(v->name, aa->indices[0], s->value)) {
+                     break;
+                 }
                  compile_expression(aa->base);
                  compile_expression(aa->indices[0]);
                  compile_expression(s->value);
@@ -7313,6 +7438,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  bool fast_dict = is_dictionary_var(call->method_name);
                  bool trusted_dict = fast_dict && is_trusted_dictionary_var(call->method_name);
                  if (try_emit_set_array_i64_local(call->method_name, call->arguments[0], s->value)) {
+                     break;
+                 }
+                 if (!fast_dict && try_emit_set_index(call->method_name, call->arguments[0], s->value)) {
                      break;
                  }
                  
@@ -7541,6 +7669,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     break;
                 }
                 // Method call on object — compile base + args, emit OP_METHOD_CALL
+                if (try_emit_append(s)) break;
                 if (try_emit_packed_append_literal(s)) break;
                 compile_expression(s->base_object);
                 for (int i = 0; i < s->arguments.size(); i++) {
@@ -10957,6 +11086,10 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     try_emit_get_array_i64_local(((VariableNode*)aa->base)->name, aa->indices[0])) {
                 break;
             }
+            if (aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                    try_emit_get_index(((VariableNode*)aa->base)->name, aa->indices[0])) {
+                break;
+            }
             compile_expression(aa->base);
             compile_expression(aa->indices[0]);
             bool unchecked = false;
@@ -11174,6 +11307,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  if (try_emit_get_array_i64_local(call->method_name, call->arguments[0])) {
                      break;
                  }
+                 if (try_emit_get_index(call->method_name, call->arguments[0])) {
+                     break;
+                 }
                  VariableNode tmp;
                  tmp.name = call->method_name;
                  compile_expression(&tmp);
@@ -11232,7 +11368,9 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                                  break;
                              }
                          }
-                         if (call_name == "color" && call->arguments.size() >= 3) {
+                         if ((call_name == "color" && call->arguments.size() >= 3) ||
+                                 ((call_name == "vector2" || call_name == "vector2i") && call->arguments.size() == 2) ||
+                                 ((call_name == "vector3" || call_name == "vector3i") && call->arguments.size() == 3)) {
                              bool all_const = true;
                              for (int i = 0; i < call->arguments.size(); i++) {
                                  if (!is_constant_expr(call->arguments[i])) { all_const = false; break; }

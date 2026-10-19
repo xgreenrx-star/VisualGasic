@@ -239,6 +239,12 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_NEW_OBJECT);
         OP_NAME_CASE(OP_NEW_PACKED_LITERAL);
         OP_NAME_CASE(OP_PACKED_APPEND_LITERAL);
+        OP_NAME_CASE(OP_GET_INDEX_LOCAL);
+        OP_NAME_CASE(OP_SET_INDEX_LOCAL);
+        OP_NAME_CASE(OP_APPEND_LOCAL);
+        OP_NAME_CASE(OP_GET_INDEX_GLOBAL);
+        OP_NAME_CASE(OP_SET_INDEX_GLOBAL);
+        OP_NAME_CASE(OP_APPEND_GLOBAL);
         OP_NAME_CASE(OP_OPEN_FILE);
         OP_NAME_CASE(OP_CLOSE_FILE);
         OP_NAME_CASE(OP_PRINT_FILE);
@@ -293,6 +299,9 @@ int opcode_operand_length(uint8_t op) {
         case OP_INC_LOCAL_I64:
         case OP_GET_ARRAY_I64_LOCAL:
         case OP_SET_ARRAY_I64_LOCAL:
+        case OP_GET_INDEX_LOCAL:
+        case OP_SET_INDEX_LOCAL:
+        case OP_APPEND_LOCAL:
         case OP_BRANCH_SUM:
         case OP_GET_ARRAY:
         case OP_SET_ARRAY:
@@ -359,6 +368,9 @@ int opcode_operand_length(uint8_t op) {
         case OP_COERCE_TYPE:
         case OP_GET_GLOBAL_BUF8:
         case OP_SET_GLOBAL_BUF8:
+        case OP_GET_INDEX_GLOBAL:
+        case OP_SET_INDEX_GLOBAL:
+        case OP_APPEND_GLOBAL:
             return 2;
         // 2-byte operand: non-const pairs (jump offsets, local+count, etc.)
         case OP_JUMP:
@@ -457,9 +469,19 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_INC_LOCAL_I64:
         case OP_GET_ARRAY_I64_LOCAL:
         case OP_SET_ARRAY_I64_LOCAL:
+        case OP_GET_INDEX_LOCAL:
+        case OP_SET_INDEX_LOCAL:
+        case OP_APPEND_LOCAL:
         case OP_BRANCH_SUM:
             if (operands.size() >= 1) {
                 return describe_local_slot(chunk, int(operands[0]));
+            }
+            break;
+        case OP_GET_INDEX_GLOBAL:
+        case OP_SET_INDEX_GLOBAL:
+        case OP_APPEND_GLOBAL:
+            if (operands.size() >= 2) {
+                return describe_constant(chunk, const16(0));
             }
             break;
         case OP_PACKED_HP_STATE_TICK:

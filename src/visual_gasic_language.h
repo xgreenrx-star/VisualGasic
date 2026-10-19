@@ -284,6 +284,7 @@ public:
     static void clear_watchpoints();
     static Array get_watchpoints();  // Returns list of watched variable names
     static bool check_watchpoint(const String& variable_name, const Variant& new_value);  // Returns true if value changed
+    static bool has_watchpoints() { return !watchpoints.empty(); }
     
     // Pause/Break request - allows pausing a running program without pre-set breakpoints
     static void request_break();     // Called from UI/editor to request a break
