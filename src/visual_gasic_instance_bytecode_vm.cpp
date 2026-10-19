@@ -1942,6 +1942,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
                 scan_ip += 2; // skip the 2-byte name index
+            } else if ((scan_op == OP_APPEND_INDEX_GLOBAL || scan_op == OP_APPEND_SUB_INDEX_GLOBAL)
+                    && scan_ip + 3 < code_size) {
+                int idx = (code[scan_ip + 1] << 8) | code[scan_ip];
+                if (idx >= 0 && idx < chunk->constants.size()) {
+                    String gname = chunk->constants[idx];
+                    if (chunk->globals_written.find(gname) == -1) {
+                        chunk->globals_written.push_back(gname);
+                    }
+                }
+                scan_ip += 4;
             } else {
                 // Skip operand bytes for multi-byte opcodes so the scan
                 // doesn't misinterpret data bytes as OP_SET_GLOBAL.
@@ -1977,6 +1987,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     case OP_PUSH_SCOPE:
                     case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                         scan_ip += 1; break;
+                    case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
+                        scan_ip += 2; break;
                     case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                         scan_ip += 2; break;
                     case OP_POP_SCOPE:
@@ -2066,6 +2078,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         scan_ip += 4; break;
                     case OP_PACKED_NEAREST_I64: // px, py, tx, ty, best, bestidx
                         scan_ip += 6; break;
+                    case OP_PACKED_RIBBON_EXPAND_LOCAL: // 6 slots + loop + cursor + flags
+                        scan_ip += 9; break;
+                    case OP_PACKED_RIBBON_EXPAND_GLOBAL: { // 6 names + loop + cursor + flags
+                        if (scan_ip + 14 < code_size) {
+                            for (int gi = 2; gi < 6; gi++) {
+                                int idx = (code[scan_ip + gi * 2 + 1] << 8) | code[scan_ip + gi * 2];
+                                if (idx >= 0 && idx < chunk->constants.size()) {
+                                    String gname = chunk->constants[idx];
+                                    if (chunk->globals_written.find(gname) == -1) {
+                                        chunk->globals_written.push_back(gname);
+                                    }
+                                }
+                            }
+                        }
+                        scan_ip += 15;
+                        break;
+                    }
                     case OP_FOREACH_STEP: // coll, idx, var, exit16
                         scan_ip += 5; break;
                     case OP_PACKED_APPEND_LITERAL: // kind, recv16, class16, count, skip16, count slots
@@ -2984,6 +3013,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_LESS_I64]             = &&vg_op_less_i64;
         dispatch_table[OP_PACKED_HP_STATE_TICK] = &&vg_op_packed_hp_state_tick;
         dispatch_table[OP_PACKED_NEAREST_I64]   = &&vg_op_packed_nearest_i64;
+        dispatch_table[OP_PACKED_RIBBON_EXPAND_LOCAL] = &&vg_op_packed_ribbon_expand_local;
+        dispatch_table[OP_PACKED_RIBBON_EXPAND_GLOBAL] = &&vg_op_packed_ribbon_expand_global;
         dispatch_table[OP_FOREACH_STEP]         = &&vg_op_foreach_step;
         dispatch_table[OP_NEW_PACKED_LITERAL]   = &&vg_op_new_packed_literal;
         dispatch_table[OP_PACKED_APPEND_LITERAL] = &&vg_op_packed_append_literal;
@@ -2993,6 +3024,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_GET_INDEX_GLOBAL] = &&vg_op_get_index_global;
         dispatch_table[OP_SET_INDEX_GLOBAL] = &&vg_op_set_index_global;
         dispatch_table[OP_APPEND_GLOBAL] = &&vg_op_append_global;
+        dispatch_table[OP_APPEND_INDEX_LOCAL] = &&vg_op_append_index_local;
+        dispatch_table[OP_APPEND_INDEX_GLOBAL] = &&vg_op_append_index_global;
+        dispatch_table[OP_APPEND_SUB_INDEX_LOCAL] = &&vg_op_append_sub_index_local;
+        dispatch_table[OP_APPEND_SUB_INDEX_GLOBAL] = &&vg_op_append_sub_index_global;
         dispatch_table_init = true;
     }
     // Resolve the thread-local table once.  This .so is dlopen'd, so every
@@ -4869,13 +4904,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vm.ip >= code_size) { success = false; goto cleanup; }
                 uint8_t slot = code[vm.ip++];
                 if (!ensure_stack(1) || slot >= (uint32_t)locals.size()) { success = false; goto cleanup; }
-                const Variant &idxv = vm.stack.back();
+                Variant &idxv = vm.stack.back();
                 int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
-                vm.stack.pop_back();
-                vm.stack.resize(vm.stack.size() + 1);
-                const vgidx::StoreResult sr = vgidx::load(locals.write[slot], idx, vm.stack.back());
+                vgidx::StoreResult sr;
+                if (vgfast::g_layout_ok && vgfast::is_pod_type(vgfast::vtype(idxv))) {
+                    sr = vgidx::load(locals.write[slot], idx, idxv);
+                } else {
+                    vm.stack.pop_back();
+                    vm.stack.resize(vm.stack.size() + 1);
+                    sr = vgidx::load(locals.write[slot], idx, vm.stack.back());
+                }
                 if (sr != vgidx::STORE_OK) {
-                    vm.stack.resize(vm.stack.size() - 1);
+                    vm.stack.pop_back();
                     raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Unsupported array base type",
                             sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
                     if (try_recover_error(Variant())) break;
@@ -5039,6 +5079,110 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 if (!whenever_init_suppress && !whenever_sections.is_empty()) {
                     check_whenever_conditions(mc.primary_string, *gp);
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_index_local, OP_APPEND_INDEX_LOCAL): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t dst = code[vm.ip++];
+                uint8_t src = code[vm.ip++];
+                if (!ensure_stack(1) || dst >= (uint32_t)locals.size() || src >= (uint32_t)locals.size()) {
+                    success = false;
+                    goto cleanup;
+                }
+                const Variant &idxv = vm.stack.back();
+                int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
+                vm.stack.pop_back();
+                const vgidx::StoreResult sr = vgidx::copy_index(locals.write[dst], locals.write[src], idx);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed array append",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_sub_index_local, OP_APPEND_SUB_INDEX_LOCAL): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                uint8_t dst = code[vm.ip++];
+                uint8_t src = code[vm.ip++];
+                if (!ensure_stack(2) || dst >= (uint32_t)locals.size() || src >= (uint32_t)locals.size()) {
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t idx_right = to_int(pop_value());
+                int64_t idx_left = to_int(pop_value());
+                const vgidx::StoreResult sr = vgidx::append_sub_index(locals.write[dst], locals.write[src], idx_left, idx_right);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed array append",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_index_global, OP_APPEND_INDEX_GLOBAL): {
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                int dst_idx = read_const_index();
+                int src_idx = read_const_index();
+                if (!ensure_stack(1) || dst_idx < 0 || src_idx < 0 ||
+                        dst_idx >= chunk->constants.size() || src_idx >= chunk->constants.size()) {
+                    success = false;
+                    goto cleanup;
+                }
+                const Variant &idxv = vm.stack.back();
+                int64_t idx = (vgfast::vtype(idxv) == Variant::INT) ? vgfast::vint(idxv) : to_int(idxv);
+                vm.stack.pop_back();
+                MemberNameCacheEntry &dc = ensure_member_cache_entry(dst_idx);
+                MemberNameCacheEntry &sc = ensure_member_cache_entry(src_idx);
+                Variant *dp = global_value_ptr(dst_idx, dc.primary_name);
+                Variant *sp = global_value_ptr(src_idx, sc.primary_name);
+                if (!dp || !sp) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                const vgidx::StoreResult sr = vgidx::copy_index(*dp, *sp, idx);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed array append",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                break;
+            }
+            VG_CASE(vg_op_append_sub_index_global, OP_APPEND_SUB_INDEX_GLOBAL): {
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                int dst_idx = read_const_index();
+                int src_idx = read_const_index();
+                if (!ensure_stack(2) || dst_idx < 0 || src_idx < 0 ||
+                        dst_idx >= chunk->constants.size() || src_idx >= chunk->constants.size()) {
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t idx_right = to_int(pop_value());
+                int64_t idx_left = to_int(pop_value());
+                MemberNameCacheEntry &dc = ensure_member_cache_entry(dst_idx);
+                MemberNameCacheEntry &sc = ensure_member_cache_entry(src_idx);
+                Variant *dp = global_value_ptr(dst_idx, dc.primary_name);
+                Variant *sp = global_value_ptr(src_idx, sc.primary_name);
+                if (!dp || !sp) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                const vgidx::StoreResult sr = vgidx::append_sub_index(*dp, *sp, idx_left, idx_right);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed array append",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
                 }
                 break;
             }
@@ -5328,6 +5472,100 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 sync_local_i64(best_slot, best);
                 sync_local_i64(bidx_slot, best_idx);
+                break;
+            }
+            VG_CASE(vg_op_packed_ribbon_expand_local, OP_PACKED_RIBBON_EXPAND_LOCAL): {
+                if (vm.ip + 8 >= code_size) { success = false; goto cleanup; }
+                uint8_t e_slot = code[vm.ip++];
+                uint8_t c_slot = code[vm.ip++];
+                uint8_t v_slot = code[vm.ip++];
+                uint8_t n_slot = code[vm.ip++];
+                uint8_t vc_slot = code[vm.ip++];
+                uint8_t u_slot = code[vm.ip++];
+                uint8_t loop_slot = code[vm.ip++];
+                uint8_t cursor_slot = code[vm.ip++];
+                uint8_t flags = code[vm.ip++];
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                int64_t to_val = to_int(pop_value());
+                if (e_slot >= (uint32_t)locals.size() || c_slot >= (uint32_t)locals.size() ||
+                        v_slot >= (uint32_t)locals.size() || n_slot >= (uint32_t)locals.size() ||
+                        vc_slot >= (uint32_t)locals.size() || u_slot >= (uint32_t)locals.size()) {
+                    success = false; goto cleanup;
+                }
+                int64_t loop_out = 0;
+                int64_t written = 0;
+                const vgidx::StoreResult sr = vgidx::expand_ribbon(
+                        locals.write[e_slot], locals.write[c_slot],
+                        locals.write[v_slot], locals.write[n_slot],
+                        locals.write[vc_slot], locals.write[u_slot],
+                        to_val, (flags & 1) != 0, loop_out, written);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed ribbon expand",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (loop_slot != 255) {
+                    sync_local_i64(loop_slot, loop_out);
+                }
+                if (cursor_slot != 255) {
+                    sync_local_i64(cursor_slot, written);
+                }
+                break;
+            }
+            VG_CASE(vg_op_packed_ribbon_expand_global, OP_PACKED_RIBBON_EXPAND_GLOBAL): {
+                if (vm.ip + 14 >= code_size) { success = false; goto cleanup; }
+                int e_idx = read_const_index();
+                int c_idx = read_const_index();
+                int v_idx = read_const_index();
+                int n_idx = read_const_index();
+                int vc_idx = read_const_index();
+                int u_idx = read_const_index();
+                uint8_t loop_slot = code[vm.ip++];
+                uint8_t cursor_slot = code[vm.ip++];
+                uint8_t flags = code[vm.ip++];
+                if (!ensure_stack(1) || e_idx < 0 || c_idx < 0 || v_idx < 0 || n_idx < 0 ||
+                        vc_idx < 0 || u_idx < 0) {
+                    success = false; goto cleanup;
+                }
+                int64_t to_val = to_int(pop_value());
+                MemberNameCacheEntry &ee = ensure_member_cache_entry(e_idx);
+                MemberNameCacheEntry &ce = ensure_member_cache_entry(c_idx);
+                MemberNameCacheEntry &ve = ensure_member_cache_entry(v_idx);
+                MemberNameCacheEntry &ne = ensure_member_cache_entry(n_idx);
+                MemberNameCacheEntry &vce = ensure_member_cache_entry(vc_idx);
+                MemberNameCacheEntry &ue = ensure_member_cache_entry(u_idx);
+                Variant *ep = global_value_ptr(e_idx, ee.primary_name);
+                Variant *cp = global_value_ptr(c_idx, ce.primary_name);
+                Variant *vp = global_value_ptr(v_idx, ve.primary_name);
+                Variant *np = global_value_ptr(n_idx, ne.primary_name);
+                Variant *vcp = global_value_ptr(vc_idx, vce.primary_name);
+                Variant *up = global_value_ptr(u_idx, ue.primary_name);
+                if (!ep || !cp || !vp || !np || !vcp || !up) {
+                    raise_error("Object variable not set", 91);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                int64_t loop_out = 0;
+                int64_t written = 0;
+                const vgidx::StoreResult sr = vgidx::expand_ribbon(
+                        *ep, *cp, *vp, *np, *vcp, *up,
+                        to_val, (flags & 1) != 0, loop_out, written);
+                if (sr != vgidx::STORE_OK) {
+                    raise_error(sr == vgidx::STORE_OUT_OF_RANGE ? "Array subscript out of range" : "Invalid packed ribbon expand",
+                            sr == vgidx::STORE_OUT_OF_RANGE ? 9 : 0);
+                    if (try_recover_error(Variant(), false)) break;
+                    success = false;
+                    goto cleanup;
+                }
+                if (loop_slot != 255) {
+                    sync_local_i64(loop_slot, loop_out);
+                }
+                if (cursor_slot != 255) {
+                    sync_local_i64(cursor_slot, written);
+                }
                 break;
             }
             VG_CASE(vg_op_not, OP_NOT): {

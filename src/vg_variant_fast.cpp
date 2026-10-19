@@ -1,4 +1,5 @@
 #include "vg_variant_fast.h"
+#include "vg_packed_cow.h"
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -116,6 +117,9 @@ bool verify_layout() {
     g_string_layout_ok = verify_string_layout();
     if (!g_string_layout_ok) {
         UtilityFunctions::print("[VG] String layout probe failed; using engine-call String paths.");
+    }
+    if (ok) {
+        vgcow::verify();
     }
     return ok;
 }

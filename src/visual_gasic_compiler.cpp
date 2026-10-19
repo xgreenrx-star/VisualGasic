@@ -2785,6 +2785,31 @@ static bool _vg_for_from_zero_step_one(const ForStatement *f) {
     }
 }
 
+static bool _vg_for_from_zero_step_two(const ForStatement *f) {
+    if (!f || !f->from_val || f->from_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *from_lit = (LiteralNode *)f->from_val;
+    const Variant &fv = from_lit->value;
+    bool from_zero = false;
+    switch (fv.get_type()) {
+        case Variant::INT: from_zero = ((int64_t)fv == 0); break;
+        case Variant::BOOL: from_zero = !((bool)fv); break;
+        case Variant::FLOAT: from_zero = Math::is_zero_approx((double)fv); break;
+        default: break;
+    }
+    if (!from_zero || !f->step_val || f->step_val->type != ExpressionNode::LITERAL) {
+        return false;
+    }
+    LiteralNode *step_lit = (LiteralNode *)f->step_val;
+    const Variant &sv = step_lit->value;
+    switch (sv.get_type()) {
+        case Variant::INT: return ((int64_t)sv == 2);
+        case Variant::FLOAT: return Math::is_equal_approx((double)sv, 2.0);
+        default: return false;
+    }
+}
+
 static bool _vg_expr_is_cint_var(ExpressionNode *expr, const String &var_name) {
     if (!expr) {
         return false;
@@ -3304,6 +3329,31 @@ bool VisualGasicCompiler::try_emit_set_index(const String &arr_name, ExpressionN
     return true;
 }
 
+static bool _vg_packed_index_expr(ExpressionNode *e, String &arr, ExpressionNode *&index) {
+    if (!e) {
+        return false;
+    }
+    if (e->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode *)e;
+        if (!aa->base || aa->base->type != ExpressionNode::VARIABLE || aa->indices.size() != 1 || !aa->indices[0]) {
+            return false;
+        }
+        arr = ((VariableNode *)aa->base)->name;
+        index = aa->indices[0];
+        return true;
+    }
+    if (e->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *c = (CallExpression *)e;
+        if (c->base_object || c->arguments.size() != 1 || !c->arguments[0]) {
+            return false;
+        }
+        arr = c->method_name;
+        index = c->arguments[0];
+        return true;
+    }
+    return false;
+}
+
 bool VisualGasicCompiler::try_emit_append(CallStatement *s) {
     if (!s || !s->base_object || s->arguments.size() != 1 ||
             s->base_object->type != ExpressionNode::VARIABLE) {
@@ -3320,13 +3370,64 @@ bool VisualGasicCompiler::try_emit_append(CallStatement *s) {
     if (!array_vars.has(key) && !local_slots.has(key) && !param_vars.has(key)) {
         return false;
     }
-    int slot = get_or_add_local(name, VT_UNKNOWN);
-    if (slot >= 256) {
+    int dst_slot = get_or_add_local(name, VT_UNKNOWN);
+    if (dst_slot >= 256) {
         return false;
     }
-    compile_expression(s->arguments[0]);
-    if (slot >= 0) {
-        emit_bytes(OP_APPEND_LOCAL, (uint8_t)slot);
+
+    auto emit_append_index = [&](const String &src_name, ExpressionNode *idx, bool is_sub, ExpressionNode *idx_right) -> bool {
+        String src_key = src_name.to_lower();
+        if (dictionary_vars.has(src_key) || is_buffer_var(src_name)) {
+            return false;
+        }
+        int src_slot = get_or_add_local(src_name, VT_UNKNOWN);
+        if (src_slot >= 256) {
+            return false;
+        }
+        const bool dst_local = dst_slot >= 0;
+        const bool src_local = src_slot >= 0;
+        if (dst_local != src_local) {
+            return false;
+        }
+        compile_expression(idx);
+        if (is_sub) {
+            compile_expression(idx_right);
+        }
+        if (dst_local) {
+            emit_bytes(is_sub ? OP_APPEND_SUB_INDEX_LOCAL : OP_APPEND_INDEX_LOCAL, (uint8_t)dst_slot);
+            emit_byte((uint8_t)src_slot);
+        } else {
+            emit_byte(is_sub ? OP_APPEND_SUB_INDEX_GLOBAL : OP_APPEND_INDEX_GLOBAL);
+            emit_const_index(current_chunk->add_constant(name));
+            emit_const_index(current_chunk->add_constant(src_name));
+        }
+        return true;
+    };
+
+    ExpressionNode *arg = s->arguments[0];
+    String src_name;
+    ExpressionNode *src_idx = nullptr;
+    if (_vg_packed_index_expr(arg, src_name, src_idx) && emit_append_index(src_name, src_idx, false, nullptr)) {
+        return true;
+    }
+    if (arg && arg->type == ExpressionNode::BINARY_OP) {
+        BinaryOpNode *b = (BinaryOpNode *)arg;
+        if (b->op == "-") {
+            String left_name, right_name;
+            ExpressionNode *left_idx = nullptr;
+            ExpressionNode *right_idx = nullptr;
+            if (_vg_packed_index_expr(b->left, left_name, left_idx) &&
+                    _vg_packed_index_expr(b->right, right_name, right_idx) &&
+                    left_name.to_lower() == right_name.to_lower() &&
+                    emit_append_index(left_name, left_idx, true, right_idx)) {
+                return true;
+            }
+        }
+    }
+
+    compile_expression(arg);
+    if (dst_slot >= 0) {
+        emit_bytes(OP_APPEND_LOCAL, (uint8_t)dst_slot);
     } else {
         int idx = current_chunk->add_constant(name);
         emit_byte(OP_APPEND_GLOBAL);
@@ -3866,6 +3967,398 @@ bool VisualGasicCompiler::try_compile_packed_nearest_for(ForStatement *f) {
             emit_bytes(OP_SET_LOCAL, (uint8_t)loop_slot);
         }
     }
+    return true;
+}
+
+bool VisualGasicCompiler::try_compile_packed_ribbon_for(ForStatement *f) {
+    if (!kEnableLoopFusions || !_vg_for_from_zero_step_two(f) || !f->to_val) {
+        return false;
+    }
+    const String loop = f->variable_name.to_lower();
+    Vector<Statement *> body;
+    body.resize(0);
+    for (int i = 0; i < f->body.size(); i++) {
+        Statement *s = f->body[i];
+        if (!s || s->type == STMT_PASS || s->type == STMT_LABEL) {
+            continue;
+        }
+        body.push_back(s);
+    }
+
+    auto lit_num = [&](ExpressionNode *n, double &out) -> bool {
+        if (!n || !is_constant_expr(n)) {
+            return false;
+        }
+        const Variant v = eval_constant_expr(n);
+        if (v.get_type() == Variant::INT) {
+            out = (double)(int64_t)v;
+            return true;
+        }
+        if (v.get_type() == Variant::FLOAT) {
+            out = (double)v;
+            return true;
+        }
+        return false;
+    };
+    auto loop_off = [&](ExpressionNode *idx, const String &base, int64_t &off) -> bool {
+        if (!idx) {
+            return false;
+        }
+        if (idx->type == ExpressionNode::VARIABLE) {
+            if (((VariableNode *)idx)->name.to_lower() != base) {
+                return false;
+            }
+            off = 0;
+            return true;
+        }
+        if (idx->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *b = (BinaryOpNode *)idx;
+        if (b->op != "+") {
+            return false;
+        }
+        ExpressionNode *var_e = nullptr;
+        ExpressionNode *lit_e = nullptr;
+        if (b->left && b->left->type == ExpressionNode::VARIABLE) {
+            var_e = b->left;
+            lit_e = b->right;
+        } else if (b->right && b->right->type == ExpressionNode::VARIABLE) {
+            var_e = b->right;
+            lit_e = b->left;
+        } else {
+            return false;
+        }
+        if (((VariableNode *)var_e)->name.to_lower() != base) {
+            return false;
+        }
+        double d = 0;
+        if (!lit_num(lit_e, d)) {
+            return false;
+        }
+        off = (int64_t)d;
+        return true;
+    };
+    auto packed_off = [&](ExpressionNode *e, const String &base, String &arr, int64_t &off) -> bool {
+        ExpressionNode *idx = nullptr;
+        if (!_vg_packed_index_expr(e, arr, idx)) {
+            return false;
+        }
+        return loop_off(idx, base, off);
+    };
+    auto is_vec2 = [&](ExpressionNode *e, double &x, double &y) -> bool {
+        if (!e || !is_constant_expr(e)) {
+            return false;
+        }
+        const Variant v = eval_constant_expr(e);
+        if (v.get_type() != Variant::VECTOR2) {
+            return false;
+        }
+        const Vector2 p = v;
+        x = p.x;
+        y = p.y;
+        return true;
+    };
+    auto is_append = [](Statement *stmt, String &dst, ExpressionNode *&arg) -> bool {
+        if (!stmt || stmt->type != STMT_CALL) {
+            return false;
+        }
+        CallStatement *s = (CallStatement *)stmt;
+        if (!s->base_object || s->base_object->type != ExpressionNode::VARIABLE || s->arguments.size() != 1) {
+            return false;
+        }
+        if (s->method_name.nocasecmp_to("append") != 0 && s->method_name.nocasecmp_to("push_back") != 0) {
+            return false;
+        }
+        dst = ((VariableNode *)s->base_object)->name;
+        arg = s->arguments[0];
+        return true;
+    };
+    auto is_sub_edge = [&](ExpressionNode *e, const String &edges_expect, bool have_edges, String &edges_out) -> bool {
+        if (!e || e->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *b = (BinaryOpNode *)e;
+        if (b->op != "-") {
+            return false;
+        }
+        String larr, rarr;
+        int64_t lo = 0, ro = 0;
+        if (!packed_off(b->left, loop, larr, lo) || !packed_off(b->right, loop, rarr, ro)) {
+            return false;
+        }
+        if (larr != rarr || lo != 1 || ro != 0) {
+            return false;
+        }
+        if (have_edges && larr != edges_expect) {
+            return false;
+        }
+        edges_out = larr;
+        return true;
+    };
+
+    static const int8_t k_end[6] = { 0, 0, 1, 0, 1, 1 };
+    static const int8_t k_u[6] = { -1, 1, 1, -1, 1, -1 };
+
+    String edges, colors, verts, norms, vcols, uvs;
+    bool append_mode = false;
+    String cursor_name;
+
+    if (body.size() == 24) {
+        for (int vert = 0; vert < 6; vert++) {
+            String d0, d1, d2, d3;
+            ExpressionNode *a0 = nullptr;
+            ExpressionNode *a1 = nullptr;
+            ExpressionNode *a2 = nullptr;
+            ExpressionNode *a3 = nullptr;
+            if (!is_append(body[vert * 4 + 0], d0, a0) ||
+                    !is_append(body[vert * 4 + 1], d1, a1) ||
+                    !is_append(body[vert * 4 + 2], d2, a2) ||
+                    !is_append(body[vert * 4 + 3], d3, a3)) {
+                return false;
+            }
+            String src;
+            int64_t off = 0;
+            if (!packed_off(a0, loop, src, off) || off != k_end[vert]) {
+                return false;
+            }
+            if (vert == 0) {
+                edges = src;
+                verts = d0;
+            } else if (src != edges || d0 != verts) {
+                return false;
+            }
+            String e2;
+            if (!is_sub_edge(a1, edges, true, e2) || d1 != (vert == 0 ? d1 : norms)) {
+                return false;
+            }
+            if (vert == 0) {
+                norms = d1;
+            } else if (d1 != norms) {
+                return false;
+            }
+            if (!packed_off(a2, loop, src, off) || off != k_end[vert]) {
+                return false;
+            }
+            if (vert == 0) {
+                colors = src;
+                vcols = d2;
+            } else if (src != colors || d2 != vcols) {
+                return false;
+            }
+            double x = 0, y = 0;
+            if (!is_vec2(a3, x, y) || !Math::is_equal_approx(y, 0.0) || !Math::is_equal_approx(x, (double)k_u[vert])) {
+                return false;
+            }
+            if (vert == 0) {
+                uvs = d3;
+            } else if (d3 != uvs) {
+                return false;
+            }
+        }
+        append_mode = true;
+    } else if (body.size() == 30) {
+        String a_name, b_name, d_name, ca_name, cb_name;
+        ExpressionNode *av = nullptr;
+        ExpressionNode *bv = nullptr;
+        ExpressionNode *dv = nullptr;
+        ExpressionNode *cav = nullptr;
+        ExpressionNode *cbv = nullptr;
+        if (!_vg_is_var_assign(body[0], a_name, av) ||
+                !_vg_is_var_assign(body[1], b_name, bv) ||
+                !_vg_is_var_assign(body[2], d_name, dv) ||
+                !_vg_is_var_assign(body[3], ca_name, cav) ||
+                !_vg_is_var_assign(body[4], cb_name, cbv)) {
+            return false;
+        }
+        String src;
+        int64_t off = 0;
+        if (!packed_off(av, loop, src, off) || off != 0) {
+            return false;
+        }
+        edges = src;
+        if (!packed_off(bv, loop, src, off) || off != 1 || src != edges) {
+            return false;
+        }
+        if (!dv || dv->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *sub = (BinaryOpNode *)dv;
+        if (sub->op != "-" || !sub->left || !sub->right ||
+                sub->left->type != ExpressionNode::VARIABLE ||
+                sub->right->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)sub->left)->name.to_lower() != b_name ||
+                ((VariableNode *)sub->right)->name.to_lower() != a_name) {
+            return false;
+        }
+        if (!packed_off(cav, loop, src, off) || off != 0) {
+            return false;
+        }
+        colors = src;
+        if (!packed_off(cbv, loop, src, off) || off != 1 || src != colors) {
+            return false;
+        }
+        auto is_idx_assign = [&](Statement *stmt, String &arr, const String &cur, int64_t expect_off, ExpressionNode *&value) -> bool {
+            if (!stmt || stmt->type != STMT_ASSIGNMENT) {
+                return false;
+            }
+            AssignmentStatement *as = (AssignmentStatement *)stmt;
+            ExpressionNode *idx = nullptr;
+            String name;
+            if (!_vg_packed_index_expr(as->target, name, idx)) {
+                return false;
+            }
+            arr = name.to_lower();
+            int64_t got = 0;
+            if (!loop_off(idx, cur, got) || got != expect_off) {
+                return false;
+            }
+            value = as->value;
+            return true;
+        };
+        auto is_var = [](ExpressionNode *e, const String &name) -> bool {
+            return e && e->type == ExpressionNode::VARIABLE &&
+                    ((VariableNode *)e)->name.to_lower() == name;
+        };
+        for (int vert = 0; vert < 6; vert++) {
+            String d0, d1, d2, d3;
+            ExpressionNode *w0 = nullptr;
+            ExpressionNode *w1 = nullptr;
+            ExpressionNode *w2 = nullptr;
+            ExpressionNode *w3 = nullptr;
+            const int base = 5 + vert * 4;
+            if (vert == 0) {
+                ExpressionNode *idx0 = nullptr;
+                String n0;
+                if (body[base]->type != STMT_ASSIGNMENT) {
+                    return false;
+                }
+                if (!_vg_packed_index_expr(((AssignmentStatement *)body[base])->target, n0, idx0)) {
+                    return false;
+                }
+                int64_t got = 0;
+                if (idx0 && idx0->type == ExpressionNode::VARIABLE) {
+                    cursor_name = ((VariableNode *)idx0)->name.to_lower();
+                } else if (idx0 && idx0->type == ExpressionNode::BINARY_OP) {
+                    BinaryOpNode *b = (BinaryOpNode *)idx0;
+                    if (b->op != "+" || !b->left || b->left->type != ExpressionNode::VARIABLE) {
+                        return false;
+                    }
+                    cursor_name = ((VariableNode *)b->left)->name.to_lower();
+                } else {
+                    return false;
+                }
+                if (!loop_off(idx0, cursor_name, got) || got != 0) {
+                    return false;
+                }
+            }
+            if (!is_idx_assign(body[base + 0], d0, cursor_name, vert, w0) ||
+                    !is_idx_assign(body[base + 1], d1, cursor_name, vert, w1) ||
+                    !is_idx_assign(body[base + 2], d2, cursor_name, vert, w2) ||
+                    !is_idx_assign(body[base + 3], d3, cursor_name, vert, w3)) {
+                return false;
+            }
+            const String expect_pt = k_end[vert] ? b_name : a_name;
+            const String expect_col = k_end[vert] ? cb_name : ca_name;
+            if (!is_var(w0, expect_pt) || !is_var(w1, d_name) || !is_var(w2, expect_col)) {
+                return false;
+            }
+            double x = 0, y = 0;
+            if (!is_vec2(w3, x, y) || !Math::is_equal_approx(y, 0.0) || !Math::is_equal_approx(x, (double)k_u[vert])) {
+                return false;
+            }
+            if (vert == 0) {
+                verts = d0;
+                norms = d1;
+                vcols = d2;
+                uvs = d3;
+            } else if (d0 != verts || d1 != norms || d2 != vcols || d3 != uvs) {
+                return false;
+            }
+        }
+        String cur_as;
+        ExpressionNode *cur_v = nullptr;
+        if (!_vg_is_var_assign(body[29], cur_as, cur_v) || cur_as != cursor_name) {
+            return false;
+        }
+        if (!cur_v || cur_v->type != ExpressionNode::BINARY_OP) {
+            return false;
+        }
+        BinaryOpNode *add6 = (BinaryOpNode *)cur_v;
+        if (add6->op != "+" || !add6->left || add6->left->type != ExpressionNode::VARIABLE) {
+            return false;
+        }
+        if (((VariableNode *)add6->left)->name.to_lower() != cursor_name) {
+            return false;
+        }
+        double step = 0;
+        if (!lit_num(add6->right, step) || step != 6.0) {
+            return false;
+        }
+        append_mode = false;
+    } else {
+        return false;
+    }
+
+    if (edges.is_empty() || colors.is_empty() || verts.is_empty() ||
+            norms.is_empty() || vcols.is_empty() || uvs.is_empty()) {
+        return false;
+    }
+    if (verts == edges || norms == edges || uvs == edges || vcols == colors) {
+        return false;
+    }
+
+    int e_s = get_or_add_local(edges, VT_UNKNOWN);
+    int c_s = get_or_add_local(colors, VT_UNKNOWN);
+    int v_s = get_or_add_local(verts, VT_UNKNOWN);
+    int n_s = get_or_add_local(norms, VT_UNKNOWN);
+    int vc_s = get_or_add_local(vcols, VT_UNKNOWN);
+    int u_s = get_or_add_local(uvs, VT_UNKNOWN);
+    int loop_s = get_or_add_local(loop, VT_INT);
+    int cursor_s = 255;
+    if (!append_mode && !cursor_name.is_empty()) {
+        cursor_s = get_or_add_local(cursor_name, VT_INT);
+        if (cursor_s < 0 || cursor_s > 254) {
+            return false;
+        }
+    }
+    if (loop_s < 0 || loop_s > 254) {
+        return false;
+    }
+    const bool loc = e_s >= 0;
+    if (loc) {
+        if (c_s < 0 || v_s < 0 || n_s < 0 || vc_s < 0 || u_s < 0) {
+            return false;
+        }
+        compile_expression(f->to_val);
+        emit_byte(OP_PACKED_RIBBON_EXPAND_LOCAL);
+        emit_byte((uint8_t)e_s);
+        emit_byte((uint8_t)c_s);
+        emit_byte((uint8_t)v_s);
+        emit_byte((uint8_t)n_s);
+        emit_byte((uint8_t)vc_s);
+        emit_byte((uint8_t)u_s);
+        emit_byte((uint8_t)loop_s);
+        emit_byte((uint8_t)cursor_s);
+        emit_byte(append_mode ? 1 : 0);
+        return true;
+    }
+    if (c_s >= 0 || v_s >= 0 || n_s >= 0 || vc_s >= 0 || u_s >= 0) {
+        return false;
+    }
+    compile_expression(f->to_val);
+    emit_byte(OP_PACKED_RIBBON_EXPAND_GLOBAL);
+    emit_const_index(current_chunk->add_constant(edges));
+    emit_const_index(current_chunk->add_constant(colors));
+    emit_const_index(current_chunk->add_constant(verts));
+    emit_const_index(current_chunk->add_constant(norms));
+    emit_const_index(current_chunk->add_constant(vcols));
+    emit_const_index(current_chunk->add_constant(uvs));
+    emit_byte((uint8_t)loop_s);
+    emit_byte((uint8_t)cursor_s);
+    emit_byte(append_mode ? 1 : 0);
     return true;
 }
 
@@ -7729,6 +8222,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             ForStatement* f = (ForStatement*)stmt;
             if (!f->from_val || !f->to_val) {
                 compile_ok = false;
+                break;
+            }
+            if (try_compile_packed_ribbon_for(f)) {
                 break;
             }
             if (try_compile_packed_hp_state_for(f)) {

@@ -86,6 +86,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL:             // [OP] [SLOT_IDX]
         case OP_APPEND_LOCAL:                                         // [OP] [SLOT_IDX]
             return 2;
+        case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:   // [OP] [DST] [SRC]
+            return 3;
 
         // 3-byte instructions (opcode + 1 const-pool index [2-byte LE])
         case OP_CONSTANT:                                              // [OP] [CONST_LO] [CONST_HI]
@@ -101,6 +103,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL:           // [OP] [NAME_LO] [NAME_HI]
         case OP_APPEND_GLOBAL:
             return 3;
+        case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL: // [OP] [DST 2] [SRC 2]
+            return 5;
 
         // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)
         case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
@@ -153,6 +157,12 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 7-byte instructions (opcode + 6 local slots)
         case OP_PACKED_NEAREST_I64:                                   // [OP] [PX] [PY] [TX] [TY] [BEST] [BESTIDX]
             return 7;
+
+        // Ribbon expand: 6 packed slots + loop + cursor + flags
+        case OP_PACKED_RIBBON_EXPAND_LOCAL:                           // [OP] [e][c][v][n][vc][uv][loop][cursor][flags]
+            return 10;
+        case OP_PACKED_RIBBON_EXPAND_GLOBAL:                          // [OP] [6 names × 2] [loop][cursor][flags]
+            return 16;
 
         // 6-byte instructions (opcode + 3 local slots + exit16)
         case OP_FOREACH_STEP:                                         // [OP] [COLL] [IDX] [VAR] [EXIT_HI] [EXIT_LO]

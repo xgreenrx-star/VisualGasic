@@ -1,0 +1,240 @@
+' Native Step-2 ribbon expand (six verts per edge pair). Matches presentation.vg _mesh().
+Attribute VB_Name = "TestPackedRibbonExpand"
+
+Dim g_edges As PackedVector3Array
+Dim g_colors As PackedColorArray
+Dim g_vertices As PackedVector3Array
+Dim g_normals As PackedVector3Array
+Dim g_vcolors As PackedColorArray
+Dim g_uvs As PackedVector2Array
+
+Function CheckRibbon(ByVal verts As PackedVector3Array, ByVal norms As PackedVector3Array, ByVal cols As PackedColorArray, ByVal uvs As PackedVector2Array) As Integer
+	If verts.size() <> 6 Then
+		CheckRibbon = 1
+		Exit Function
+	End If
+	If Not (verts(0) = Vector3(0, 0, 0) And verts(2) = Vector3(10, 0, 0) And verts(5) = Vector3(10, 0, 0)) Then
+		CheckRibbon = 2
+		Exit Function
+	End If
+	If Not (norms(0) = Vector3(10, 0, 0) And norms(5) = Vector3(10, 0, 0)) Then
+		CheckRibbon = 3
+		Exit Function
+	End If
+	If Not (cols(0) = Color(1, 0, 0) And cols(2) = Color(0, 0, 1) And cols(5) = Color(0, 0, 1)) Then
+		CheckRibbon = 4
+		Exit Function
+	End If
+	If Not (uvs(0) = Vector2(-1, 0) And uvs(1) = Vector2(1, 0) And uvs(3) = Vector2(-1, 0) And uvs(5) = Vector2(-1, 0)) Then
+		CheckRibbon = 5
+		Exit Function
+	End If
+	CheckRibbon = 0
+End Function
+
+Function BuildAppend(ByVal edges As PackedVector3Array, ByVal edge_colors As PackedColorArray) As Integer
+	Dim line_vertices As PackedVector3Array
+	Dim line_normals As PackedVector3Array
+	Dim line_colors As PackedColorArray
+	Dim line_uvs As PackedVector2Array
+	Dim i As Integer
+	For i = 0 To (edges.size() - 1) Step 2
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(-1, 0))
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(-1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(-1, 0))
+	Next
+	BuildAppend = CheckRibbon(line_vertices, line_normals, line_colors, line_uvs)
+End Function
+
+Function BuildModule(ByVal edges As PackedVector3Array, ByVal edge_colors As PackedColorArray) As Integer
+	Dim i As Integer
+	g_edges = edges
+	g_colors = edge_colors
+	g_vertices.clear()
+	g_normals.clear()
+	g_vcolors.clear()
+	g_uvs.clear()
+	For i = 0 To (g_edges.size() - 1) Step 2
+		g_vertices.append(g_edges(i))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i))
+		g_uvs.append(Vector2(-1, 0))
+		g_vertices.append(g_edges(i))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i))
+		g_uvs.append(Vector2(1, 0))
+		g_vertices.append(g_edges(i + 1))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i + 1))
+		g_uvs.append(Vector2(1, 0))
+		g_vertices.append(g_edges(i))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i))
+		g_uvs.append(Vector2(-1, 0))
+		g_vertices.append(g_edges(i + 1))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i + 1))
+		g_uvs.append(Vector2(1, 0))
+		g_vertices.append(g_edges(i + 1))
+		g_normals.append(g_edges(i + 1) - g_edges(i))
+		g_vcolors.append(g_colors(i + 1))
+		g_uvs.append(Vector2(-1, 0))
+	Next
+	BuildModule = CheckRibbon(g_vertices, g_normals, g_vcolors, g_uvs)
+End Function
+
+Function BuildIndexed(ByVal edges As PackedVector3Array, ByVal edge_colors As PackedColorArray) As Integer
+	Dim line_vertices As PackedVector3Array
+	Dim line_normals As PackedVector3Array
+	Dim line_colors As PackedColorArray
+	Dim line_uvs As PackedVector2Array
+	Dim count As Integer
+	Dim cursor As Integer
+	Dim i As Integer
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim d As Vector3
+	Dim ca As Color
+	Dim cb As Color
+	count = (edges.size() \ 2) * 6
+	line_vertices.resize(count)
+	line_normals.resize(count)
+	line_colors.resize(count)
+	line_uvs.resize(count)
+	cursor = 0
+	For i = 0 To (edges.size() - 1) Step 2
+		a = edges(i)
+		b = edges(i + 1)
+		d = b - a
+		ca = edge_colors(i)
+		cb = edge_colors(i + 1)
+		line_vertices(cursor) = a
+		line_normals(cursor) = d
+		line_colors(cursor) = ca
+		line_uvs(cursor) = Vector2(-1, 0)
+		line_vertices(cursor + 1) = a
+		line_normals(cursor + 1) = d
+		line_colors(cursor + 1) = ca
+		line_uvs(cursor + 1) = Vector2(1, 0)
+		line_vertices(cursor + 2) = b
+		line_normals(cursor + 2) = d
+		line_colors(cursor + 2) = cb
+		line_uvs(cursor + 2) = Vector2(1, 0)
+		line_vertices(cursor + 3) = a
+		line_normals(cursor + 3) = d
+		line_colors(cursor + 3) = ca
+		line_uvs(cursor + 3) = Vector2(-1, 0)
+		line_vertices(cursor + 4) = b
+		line_normals(cursor + 4) = d
+		line_colors(cursor + 4) = cb
+		line_uvs(cursor + 4) = Vector2(1, 0)
+		line_vertices(cursor + 5) = b
+		line_normals(cursor + 5) = d
+		line_colors(cursor + 5) = cb
+		line_uvs(cursor + 5) = Vector2(-1, 0)
+		cursor = cursor + 6
+	Next
+	If cursor <> 6 Then
+		BuildIndexed = 6
+		Exit Function
+	End If
+	BuildIndexed = CheckRibbon(line_vertices, line_normals, line_colors, line_uvs)
+End Function
+
+Function BuildEmpty(ByVal edges As PackedVector3Array, ByVal edge_colors As PackedColorArray) As Integer
+	Dim line_vertices As PackedVector3Array
+	Dim line_normals As PackedVector3Array
+	Dim line_colors As PackedColorArray
+	Dim line_uvs As PackedVector2Array
+	Dim i As Integer
+	For i = 0 To (edges.size() - 1) Step 2
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(-1, 0))
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i))
+		line_uvs.append(Vector2(-1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(1, 0))
+		line_vertices.append(edges(i + 1))
+		line_normals.append(edges(i + 1) - edges(i))
+		line_colors.append(edge_colors(i + 1))
+		line_uvs.append(Vector2(-1, 0))
+	Next
+	BuildEmpty = line_vertices.size() + line_normals.size() + line_colors.size() + line_uvs.size()
+End Function
+
+Sub _Ready()
+	Dim edges As PackedVector3Array
+	Dim cols As PackedColorArray
+	Dim n As Integer
+	edges.resize(2)
+	cols.resize(2)
+	edges(0) = Vector3(0, 0, 0)
+	edges(1) = Vector3(10, 0, 0)
+	cols(0) = Color(1, 0, 0)
+	cols(1) = Color(0, 0, 1)
+
+	n = BuildAppend(edges, cols)
+	If n = 0 Then
+		Print "PASS: ribbon_append_local"
+	Else
+		Print "FAIL: ribbon_append_local code=" & Str(n)
+	End If
+
+	n = BuildModule(edges, cols)
+	If n = 0 Then
+		Print "PASS: ribbon_append_module"
+	Else
+		Print "FAIL: ribbon_append_module code=" & Str(n)
+	End If
+
+	n = BuildIndexed(edges, cols)
+	If n = 0 Then
+		Print "PASS: ribbon_indexed"
+	Else
+		Print "FAIL: ribbon_indexed code=" & Str(n)
+	End If
+
+	Dim empty_e As PackedVector3Array
+	Dim empty_c As PackedColorArray
+	n = BuildEmpty(empty_e, empty_c)
+	If n = 0 Then
+		Print "PASS: ribbon_empty"
+	Else
+		Print "FAIL: ribbon_empty size=" & Str(n)
+	End If
+End Sub

@@ -869,6 +869,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
                         case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                             advance = 2; break;
+                        case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
+                            advance = 3; break;
+                        case OP_PACKED_RIBBON_EXPAND_LOCAL:
+                            advance = 10; break;
+                        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
+                            advance = 16; break;
                         // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
                         case OP_CONSTANT:
                         case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
@@ -900,6 +906,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_STRING_REPEAT_OUTER:
                         case OP_PARALLEL_FOR_BEGIN:
                             advance = 4; break;
+                        case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
+                            advance = 5; break;
                         case OP_PACKED_APPEND_LITERAL:   // 9 header bytes + COUNT slots
                             advance = (ip + 6 < size) ? 9 + code[ip + 6] : 1; break;
                         case OP_JUMP_TABLE:              // 9 header bytes + COUNT*2 offsets
@@ -986,10 +994,18 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
                 case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
                     ip += 3; break;
+                case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
+                    ip += 5; break;
                 case OP_GET_LOCAL: case OP_SET_LOCAL:
                 case OP_PUSH_SCOPE:
                 case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
                     ip += 2; break;
+                case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
+                    ip += 3; break;
+                case OP_PACKED_RIBBON_EXPAND_LOCAL:
+                    ip += 10; break;
+                case OP_PACKED_RIBBON_EXPAND_GLOBAL:
+                    ip += 16; break;
                 case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                     ip += 3; break;
                 case OP_CALL:

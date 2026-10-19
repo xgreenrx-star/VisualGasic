@@ -112,6 +112,8 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_LESS_I64);
         OP_NAME_CASE(OP_PACKED_HP_STATE_TICK);
         OP_NAME_CASE(OP_PACKED_NEAREST_I64);
+        OP_NAME_CASE(OP_PACKED_RIBBON_EXPAND_LOCAL);
+        OP_NAME_CASE(OP_PACKED_RIBBON_EXPAND_GLOBAL);
         OP_NAME_CASE(OP_FOREACH_STEP);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);
@@ -245,6 +247,10 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_GET_INDEX_GLOBAL);
         OP_NAME_CASE(OP_SET_INDEX_GLOBAL);
         OP_NAME_CASE(OP_APPEND_GLOBAL);
+        OP_NAME_CASE(OP_APPEND_INDEX_LOCAL);
+        OP_NAME_CASE(OP_APPEND_INDEX_GLOBAL);
+        OP_NAME_CASE(OP_APPEND_SUB_INDEX_LOCAL);
+        OP_NAME_CASE(OP_APPEND_SUB_INDEX_GLOBAL);
         OP_NAME_CASE(OP_OPEN_FILE);
         OP_NAME_CASE(OP_CLOSE_FILE);
         OP_NAME_CASE(OP_PRINT_FILE);
@@ -383,6 +389,8 @@ int opcode_operand_length(uint8_t op) {
         case OP_GOSUB:
         case OP_ITER_ARRAY:
         case OP_SET_DICT_LOCAL:
+        case OP_APPEND_INDEX_LOCAL:
+        case OP_APPEND_SUB_INDEX_LOCAL:
             return 2;
         // 5-byte operand: const16 param-name + 1-byte is_global flag + 2-byte dest
         case OP_BYREF_LOAD:
@@ -404,6 +412,8 @@ int opcode_operand_length(uint8_t op) {
             return 3;
         // 4-byte operand: 2x const16
         case OP_ARITH_SUM:
+        case OP_APPEND_INDEX_GLOBAL:
+        case OP_APPEND_SUB_INDEX_GLOBAL:
             return 4;
         // 4-byte operand: 1 local + 1 const16
         case OP_ACCUM_I64_MULADD_CONST:
@@ -418,6 +428,10 @@ int opcode_operand_length(uint8_t op) {
             return 4;
         case OP_PACKED_NEAREST_I64:
             return 6;
+        case OP_PACKED_RIBBON_EXPAND_LOCAL:
+            return 9;
+        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
+            return 15;
         // 5-byte operand: 3 local slots + exit16
         case OP_FOREACH_STEP:
             return 5;
@@ -482,6 +496,45 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_APPEND_GLOBAL:
             if (operands.size() >= 2) {
                 return describe_constant(chunk, const16(0));
+            }
+            break;
+        case OP_APPEND_INDEX_LOCAL:
+        case OP_APPEND_SUB_INDEX_LOCAL:
+            if (operands.size() >= 2) {
+                return vformat("%s, %s", describe_local_slot(chunk, int(operands[0])), describe_local_slot(chunk, int(operands[1])));
+            }
+            break;
+        case OP_APPEND_INDEX_GLOBAL:
+        case OP_APPEND_SUB_INDEX_GLOBAL:
+            if (operands.size() >= 4) {
+                return vformat("%s, %s", describe_constant(chunk, const16(0)), describe_constant(chunk, const16(2)));
+            }
+            break;
+        case OP_PACKED_RIBBON_EXPAND_LOCAL:
+            if (operands.size() >= 9) {
+                return vformat("%s,%s -> %s,%s,%s,%s loop=%s cursor=%s flags=%d",
+                    describe_local_slot(chunk, int(operands[0])),
+                    describe_local_slot(chunk, int(operands[1])),
+                    describe_local_slot(chunk, int(operands[2])),
+                    describe_local_slot(chunk, int(operands[3])),
+                    describe_local_slot(chunk, int(operands[4])),
+                    describe_local_slot(chunk, int(operands[5])),
+                    describe_local_slot(chunk, int(operands[6])),
+                    int(operands[7]) == 255 ? String("<none>") : describe_local_slot(chunk, int(operands[7])),
+                    int(operands[8]));
+            }
+            break;
+        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
+            if (operands.size() >= 15) {
+                return vformat("%s,%s -> %s,%s,%s,%s loop=%s flags=%d",
+                    describe_constant(chunk, const16(0)),
+                    describe_constant(chunk, const16(2)),
+                    describe_constant(chunk, const16(4)),
+                    describe_constant(chunk, const16(6)),
+                    describe_constant(chunk, const16(8)),
+                    describe_constant(chunk, const16(10)),
+                    describe_local_slot(chunk, int(operands[12])),
+                    int(operands[14]));
             }
             break;
         case OP_PACKED_HP_STATE_TICK:

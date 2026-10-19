@@ -379,6 +379,23 @@ enum OpCode {
     OP_GET_INDEX_GLOBAL,
     OP_SET_INDEX_GLOBAL,
     OP_APPEND_GLOBAL,
+    // dest.append(src[idx]) without boxing the element on the VM stack.
+    //   OP_APPEND_INDEX_LOCAL  [DST] [SRC]           stack: idx →
+    //   OP_APPEND_INDEX_GLOBAL [DST_NAME(2)] [SRC_NAME(2)]
+    // dest.append(src[idx_left] - src[idx_right]) for Vector2/3/Color packed.
+    //   OP_APPEND_SUB_INDEX_LOCAL  [DST] [SRC]       stack: idx_left, idx_right →
+    //   OP_APPEND_SUB_INDEX_GLOBAL [DST_NAME(2)] [SRC_NAME(2)]
+    OP_APPEND_INDEX_LOCAL,
+    OP_APPEND_INDEX_GLOBAL,
+    OP_APPEND_SUB_INDEX_LOCAL,
+    OP_APPEND_SUB_INDEX_GLOBAL,
+    // Native For i = 0 To N Step 2 ribbon expand (six verts per edge pair).
+    // Stack: inclusive To value.
+    // LOCAL:  [e][c][v][n][vc][uv][loop][cursor][flags]   flags bit0 = append
+    // GLOBAL: [e 2][c 2][v 2][n 2][vc 2][uv 2][loop][cursor][flags]
+    // loop/cursor = 255 means unused local slot.
+    OP_PACKED_RIBBON_EXPAND_LOCAL,
+    OP_PACKED_RIBBON_EXPAND_GLOBAL,
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

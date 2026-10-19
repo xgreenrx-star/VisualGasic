@@ -175,6 +175,8 @@ static int opcode_size(uint8_t op) {
         case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
         case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
             return 2;
+        case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
+            return 3;
         // 3-byte opcodes
         case OP_CONSTANT: case OP_CONSTANT_LONG:
         case OP_GET_GLOBAL: case OP_SET_GLOBAL:
@@ -187,11 +189,16 @@ static int opcode_size(uint8_t op) {
         case OP_CALL:
             return 4;
         case OP_PACKED_HP_STATE_TICK:
+        case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
             return 5;
         case OP_FOREACH_STEP:
             return 6;
         case OP_PACKED_NEAREST_I64:
             return 7;
+        case OP_PACKED_RIBBON_EXPAND_LOCAL:
+            return 10;
+        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
+            return 16;
         default:
             return 1; // conservative — bail will catch unsupported ops
     }

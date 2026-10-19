@@ -1,0 +1,46 @@
+' Geometric packed append, fused append(arr(i)), and Vector3 subtract-append.
+Attribute VB_Name = "TestPackedAppendGrow"
+
+Dim g_src As PackedVector3Array
+Dim g_dst As PackedVector3Array
+
+Sub _Ready()
+	Dim src As PackedVector3Array
+	Dim dst As PackedVector3Array
+	Dim i As Integer
+	src.resize(4)
+	src(0) = Vector3(1, 0, 0)
+	src(1) = Vector3(2, 0, 0)
+	src(2) = Vector3(3, 0, 0)
+	src(3) = Vector3(5, 1, 2)
+	For i = 0 To 3
+		dst.append(src(i))
+	Next
+	dst.append(src(1) - src(0))
+	If dst.size() = 5 And dst(0) = Vector3(1, 0, 0) And dst(3) = Vector3(5, 1, 2) And dst(4) = Vector3(1, 0, 0) Then
+		Print "PASS: fused_append_index_and_sub"
+	Else
+		Print "FAIL: fused_append_index_and_sub size=" & Str(dst.size())
+	End If
+
+	Dim grow As PackedVector3Array
+	For i = 0 To 299
+		grow.append(Vector3(i, i + 1, i + 2))
+	Next
+	If grow.size() = 300 And grow(0) = Vector3(0, 1, 2) And grow(299) = Vector3(299, 300, 301) Then
+		Print "PASS: packed_append_grow_300"
+	Else
+		Print "FAIL: packed_append_grow_300 size=" & Str(grow.size())
+	End If
+
+	g_src.resize(2)
+	g_src(0) = Vector3(8, 9, 10)
+	g_src(1) = Vector3(11, 13, 17)
+	g_dst.append(g_src(0))
+	g_dst.append(g_src(1) - g_src(0))
+	If g_dst.size() = 2 And g_dst(0) = Vector3(8, 9, 10) And g_dst(1) = Vector3(3, 4, 7) Then
+		Print "PASS: module_fused_append"
+	Else
+		Print "FAIL: module_fused_append size=" & Str(g_dst.size())
+	End If
+End Sub

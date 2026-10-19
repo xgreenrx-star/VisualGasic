@@ -167,6 +167,7 @@ private:
     bool try_emit_append(CallStatement *s);
     bool try_compile_packed_hp_state_for(ForStatement *f);
     bool try_compile_packed_nearest_for(ForStatement *f);
+    bool try_compile_packed_ribbon_for(ForStatement *f);
     bool is_nested_branch_loop(ForStatement* outer, String &sum_var, String &flag_var) const;
     bool is_nested_string_concat(ForStatement* outer, String &target_name, String &literal_value, ForStatement* &inner_out) const;
     bool is_nested_dict_keys_sum(ForStatement* outer, String &sum_var, String &dict_var, String &keys_var, String &iter_var) const;
