@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Ash Meridian — Part 1"
-config/description="Jonah Hale takes a Narcean coupling, wakes Feb, and seats the reflector before the shot lands."
+config/description="Jason explores Narcea with Orac, recovers a power coupler and accidentally awakens a dormant Field Enforcement Body."
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
 

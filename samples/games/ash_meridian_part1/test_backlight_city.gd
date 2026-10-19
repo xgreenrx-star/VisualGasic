@@ -28,12 +28,15 @@ func _run() -> void:
 	for i in 12:
 		await tap(game, int(game.call("CodeKey", i)))
 	check(game.get("dev_on"), "Hidden sequence opens the real terminal")
-	await tap(game, KEY_UP)
-	check(game.get("dev_i") == 14, "Up wraps to Backlight Yard")
-	await tap(game, KEY_DOWN)
-	check(game.get("dev_i") == 0, "Down wraps to the original first destination")
-	await tap(game, KEY_UP)
-	await tap(game, KEY_UP)
+	check(game.call("RowLabel", 1) == "LANDING" and game.call("RowLabel", 2) == "ELEVATOR" and game.call("RowLabel", 3) == "FEB", "Main list keeps landing, elevator, and FEB")
+	check(game.call("RowLabel", 4) == "BACKLIGHT YARD" and game.call("RowLabel", 5) == "ARCHIVE", "Backlight Yard stays on the main list")
+	for i in 5:
+		await tap(game, KEY_DOWN)
+	await tap(game, KEY_ENTER)
+	check(game.get("dev_page") == 1, "Archive opens from the main list")
+	for i in 9:
+		await tap(game, KEY_DOWN)
+	check(game.get("dev_i") == 13, "Archive selection lands on Backlight City")
 	await capture(game, "terminal")
 	await tap(game, KEY_ENTER)
 	await frames(game, 5)

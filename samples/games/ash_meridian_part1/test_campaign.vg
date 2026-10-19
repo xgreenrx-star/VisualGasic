@@ -1,0 +1,337 @@
+Option Explicit
+
+Dim game As Object
+Dim view As Object
+Dim campaign As Object
+Dim yard As Object
+Dim frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim initial As Dictionary
+Dim saved As Dictionary
+Dim prior_save As String
+Dim legacy_save As String
+Dim legacy_existed As Boolean
+Dim pause_seconds As Single
+Dim resume_state As Dictionary
+Dim restored_game As Object
+
+Sub check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub key(ByVal code As Integer, ByVal down As Boolean)
+	Dim event As Object
+	event = ClassDB.Instantiate("InputEventKey")
+	event.keycode = code
+	event.pressed = down
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+End Sub
+
+Function state_matches(ByVal actual As Dictionary, ByVal expected As Dictionary) As Boolean
+	Dim field_name As Variant
+	If actual.size() <> expected.size() Then Return False
+	For Each field_name In expected.keys()
+		If Not actual.has(field_name) Then Return False
+		If TypeName(expected(field_name)) = "Double" Or TypeName(expected(field_name)) = "Integer" Then
+			If Abs(actual(field_name) - expected(field_name)) > 0.000000001 Then Return False
+		ElseIf actual(field_name) <> expected(field_name) Then
+			Return False
+		End If
+	Next
+	Return True
+End Function
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_full = False
+	game.opt_detail = 1
+	view = game.GetNode("Presentation")
+	campaign = game.campaign
+	check(campaign.save_path = "user://ash_meridian_campaign.cfg", "campaign_default_save_path_initialized")
+	campaign.save_path = "user://ash_campaign_test_" & Str(OS.get_process_id()) & ".cfg"
+	legacy_existed = FileExists("user://ash_meridian_save.txt")
+	If legacy_existed Then legacy_save = ReadAllText("user://ash_meridian_save.txt")
+	game.phase = 12
+	game.title_i = 0
+End Sub
+
+Sub persistence_checks()
+	Dim invalid As Dictionary
+	Dim config As Object
+	Dim before As Dictionary
+	Dim error_path As String
+	Dim config_error As Integer
+	Dim table As Dictionary
+	check(game.campaign_active And game.phase = 18, "campaign_play_enters_backlight_yard")
+	check(campaign.orac_online And campaign.visit_number = 1 And yard.campaign_mode, "campaign_jason_orac_first_visit")
+	check(campaign.stage() = "first_salvage" And yard.message.contains("Jason") And yard.message.contains("ORAC"), "campaign_new_story_and_objective")
+	check(Not yard.message.contains("ZEN") And Not yard.message.contains("OFFLINE"), "campaign_no_ai_failure_on_arrival")
+	initial = campaign.snapshot(yard)
+	check(initial.size() = 32, "campaign_snapshot_has_all_fields")
+	yard.position_xz = Vector2(0, -4)
+	yard.use_object()
+	check(Not yard.completed And yard.message.contains("power coupler"), "campaign_launch_requirement_explained")
+	game.SaveRun()
+	check(game.save_msg = "CAMPAIGN SAVED" And FileExists(campaign.save_path), "campaign_atomic_save_succeeds")
+	check(Not FileExists(campaign.save_path & ".tmp"), "campaign_temporary_save_committed")
+	yard.position_xz = Vector2(-41, 36)
+	yard.use_object()
+	yard.position_xz = Vector2(0, 14)
+	yard.use_object()
+	yard.position_xz = Vector2(0, 10)
+	saved = campaign.snapshot(yard)
+	check(campaign.save_game(), "campaign_interior_journal_save")
+	yard.inventory("regulator") = True
+	yard.position_xz = Vector2(0, 3)
+	check(campaign.load_game(yard), "campaign_interior_load_succeeds")
+	check(campaign.snapshot(yard) = saved, "campaign_all_persistent_fields_round_trip")
+	check(yard.pending_room And campaign.orac_online And Not yard.inventory.has("regulator"), "campaign_restore_rebuilds_transients_without_inventing_items")
+	prior_save = ReadAllText(campaign.save_path)
+	before = campaign.snapshot(yard)
+	config = ClassDB.Instantiate("ConfigFile")
+	config_error = config.load(campaign.save_path)
+	check(config_error = 0, "campaign_fixture_reads_saved_document")
+	config.set_value("campaign", "version", 999)
+	config.save(campaign.save_path)
+	check(Not campaign.load_game(yard) And campaign.last_error.contains("version"), "campaign_rejects_future_version_explicitly")
+	check(campaign.snapshot(yard) = before, "campaign_invalid_version_does_not_mutate_session")
+	WriteAllText campaign.save_path, prior_save
+	invalid = saved.duplicate(True)
+	invalid("position_xz") = "not a position"
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_wrong_field_type")
+	invalid = saved.duplicate(True)
+	invalid("position_xz") = Vector2(900, 900)
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_out_of_bounds_player")
+	invalid = saved.duplicate(True)
+	table = invalid("inventory")
+	table("coupler") = True
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_coupler_without_awakening")
+	invalid = saved.duplicate(True)
+	invalid("floor_code") = "14abc"
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_invalid_floor_address")
+	invalid = saved.duplicate(True)
+	table = invalid("discovered")
+	table(0) = "9"
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_invalid_archive_symbol")
+	invalid = saved.duplicate(True)
+	invalid.erase("shield")
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_missing_field")
+	invalid = saved.duplicate(True)
+	invalid("inventory") = Array()
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_non_dictionary_inventory")
+	invalid = saved.duplicate(True)
+	invalid("collected") = 1
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_cell_count_without_inventory")
+	yard.place = "building"
+	yard.building_index = 7
+	yard.position_xz = Vector2(0, 21)
+	yard.start_lift("14242")
+	yard.transit_left = 2.5
+	saved = campaign.snapshot(yard)
+	check(campaign.save_game(), "campaign_save_during_lift")
+	yard.finish_lift()
+	check(campaign.load_game(yard) And campaign.snapshot(yard) = saved, "campaign_lift_destination_and_timer_restore")
+	yard.finish_lift()
+	yard.transit_left = 0
+	yard.position_xz = Vector2(3.4, 47)
+	yard.use_object()
+	yard.countdown = 187.5
+	yard.alarm_elapsed = 67.5
+	saved = campaign.snapshot(yard)
+	check(campaign.orac_online And campaign.stage() = "first_escape" And yard.message.contains("ORAC"), "campaign_coupler_wakes_feb_not_orac")
+	check(campaign.save_game(), "campaign_save_active_escape")
+	yard.countdown = 1
+	check(campaign.load_game(yard) And campaign.snapshot(yard) = saved, "campaign_escape_save_does_not_reset_alarm")
+	yard.tick(0.25, view)
+	check(Abs(yard.countdown - 187.25) < 0.001, "campaign_alarm_counts_real_seconds")
+	yard.failed = True
+	yard.countdown = 0
+	check(campaign.save_game() And campaign.load_game(yard) And yard.failed, "campaign_failed_escape_round_trip")
+	yard.retry_escape()
+	check(Not yard.awakening And Not yard.failed And Not yard.inventory.has("coupler") And yard.countdown = 255, "campaign_retry_restores_pre_pickup_checkpoint")
+	yard.position_xz = Vector2(3.4, 47)
+	yard.use_object()
+	error_path = campaign.save_path
+	campaign.save_path = "user://missing_campaign_test_" & Str(OS.get_process_id()) & "/save.cfg"
+	check(Not campaign.save_game() And campaign.last_error.contains("write"), "campaign_write_failure_is_visible")
+	campaign.save_path = error_path
+	prior_save = ReadAllText(campaign.save_path)
+	check(prior_save <> "" And Not FileExists(campaign.save_path & ".tmp"), "campaign_failed_write_preserves_committed_save")
+	saved = campaign.snapshot(yard)
+	game.dev_i = 14
+	game.WarpDev()
+	check(Not game.campaign_active And view.backlight_city <> yard, "campaign_dev_yard_has_separate_instance")
+	view.backlight_city.take_coupler()
+	view.backlight_city.inventory("regulator") = True
+	game.SaveRun()
+	check(game.save_msg.contains("DEV DEMO") And campaign.snapshot(yard) = saved, "campaign_dev_mutations_cannot_change_expedition")
+	check(ReadAllText(campaign.save_path) = prior_save, "campaign_dev_save_does_not_touch_campaign_file")
+	check(campaign.orac_online, "campaign_dev_travel_cannot_disable_orac")
+	game.ResumeCampaign()
+	check(game.campaign_active And view.backlight_city = yard And campaign.snapshot(yard) = saved, "campaign_resume_restores_same_expedition")
+	yard.place = "surface"
+	yard.floor_code = ""
+	yard.position_xz = Vector2(0, -4)
+	yard.use_object()
+	check(yard.completed And Not yard.inventory.has("regulator") And campaign.stage() = "first_departure", "campaign_coupler_alone_enables_first_departure")
+	saved = campaign.snapshot(yard)
+	check(campaign.save_game() And campaign.load_game(yard), "campaign_departure_checkpoint_round_trip")
+	check(campaign.snapshot(yard) = saved And campaign.orac_online, "campaign_departure_keeps_installed_coupler_and_orac")
+	check(campaign.stage() <> "return_ambush", "campaign_first_departure_does_not_start_old_fight")
+	check(FileExists("user://ash_meridian_save.txt") = legacy_existed, "campaign_does_not_create_or_delete_legacy_save")
+	If legacy_existed Then check(ReadAllText("user://ash_meridian_save.txt") = legacy_save, "campaign_legacy_save_bytes_unchanged")
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim directory As Object
+	Dim capture_directory As String
+	Dim config As Object
+	Dim restored_yard As Object
+	frame = frame + 1
+	If frame = 2 Then
+		key(KEY_ENTER, True)
+		game.set_process(True)
+	ElseIf frame = 4 Then
+		key(KEY_ENTER, False)
+	ElseIf frame = 6 Then
+		game.set_process(False)
+		check(game.phase = 0 And game.campaign_arrival And Not game.campaign_active, "campaign_play_opens_orac_approach")
+		game.phase = 10
+		game.bay_t = 7.5
+		game.set_process(True)
+	ElseIf frame = 7 Then
+		game.set_process(False)
+	ElseIf frame = 8 Then
+		yard = campaign.city
+		persistence_checks()
+		game.QueueRedraw()
+	ElseIf frame = 9 Then
+		key(KEY_ENTER, True)
+		game.set_process(True)
+	ElseIf frame = 10 Then
+		key(KEY_ENTER, False)
+	ElseIf frame = 11 Then
+		game.set_process(False)
+	ElseIf frame = 12 Then
+		check(yard.completed And yard.inventory.has("coupler"), "campaign_enter_does_not_restart_completed_expedition")
+		check(view.backlight_city = yard And yard.world.visible, "campaign_rendered_yard_restored")
+		check(yard.hud.city = yard And yard.campaign_mode, "campaign_hud_uses_campaign_instance")
+		If DisplayServer.get_name() <> "headless" Then
+			capture_directory = OS.get_environment("ASH_CAMPAIGN_CAPTURE")
+			If Len(capture_directory) > 0 Then check(GetViewport().get_texture().get_image().save_png(capture_directory & "/campaign-departure.png") = 0, "campaign_departure_capture")
+		End If
+		game.StartCampaign()
+		check(state_matches(campaign.snapshot(yard), initial) And view.campaign_yard = yard, "campaign_new_game_resets_all_persistent_fields")
+	ElseIf frame = 14 Then
+		key(KEY_Q, True)
+		game.set_process(True)
+	ElseIf frame = 16 Then
+		key(KEY_Q, False)
+	ElseIf frame = 18 Then
+		game.set_process(False)
+		check(yard.message.contains("ORAC") And yard.message.contains("depot workbenches"), "campaign_q_triggers_orac_context_scan")
+		If DisplayServer.get_name() <> "headless" Then
+			capture_directory = OS.get_environment("ASH_CAMPAIGN_CAPTURE")
+			If Len(capture_directory) > 0 Then check(GetViewport().get_texture().get_image().save_png(capture_directory & "/campaign-yard.png") = 0, "campaign_yard_capture")
+		End If
+		yard.place = "floor"
+		yard.building_index = 7
+		yard.floor_code = "14242"
+		yard.position_xz = Vector2(3.4, 47)
+		yard.use_object()
+		yard.countdown = 120
+		pause_seconds = yard.countdown
+		game.menu_on = True
+		game.set_process(True)
+	ElseIf frame = 22 Then
+		game.set_process(False)
+		check(yard.countdown = pause_seconds And campaign.orac_online, "campaign_pause_freezes_escape_without_disabling_orac")
+		game.menu_on = False
+		game.dev_i = 14
+		game.WarpDev()
+		resume_state = campaign.snapshot(yard)
+		key(KEY_F10, True)
+		game.set_process(True)
+	ElseIf frame = 24 Then
+		key(KEY_F10, False)
+	ElseIf frame = 26 Then
+		game.set_process(False)
+		check(game.campaign_active And view.backlight_city = yard And yard.countdown > 0 And yard.countdown <= pause_seconds, "campaign_f10_resumes_after_dev_travel")
+		game.SaveRun()
+		check(game.save_msg = "CAMPAIGN SAVED", "campaign_pause_save_dispatch")
+		saved = campaign.snapshot(yard)
+		pause_seconds = yard.countdown
+		yard.countdown = 2
+		game.phase = 12
+		game.campaign_active = False
+		game.title_i = 0
+		check(game.TitleCount() = 4 And game.TitleLabel(0) = "CONTINUE", "campaign_title_continue_uses_campaign_file")
+	ElseIf frame = 28 Then
+		key(KEY_ENTER, True)
+		game.set_process(True)
+	ElseIf frame = 30 Then
+		key(KEY_ENTER, False)
+	ElseIf frame = 32 Then
+		game.set_process(False)
+		check(game.campaign_active And game.phase = 18 And yard.countdown > 2 And yard.countdown <= pause_seconds And campaign.orac_online, "campaign_real_continue_restores_saved_escape")
+		resume_state = campaign.snapshot(yard)
+		prior_save = ReadAllText(campaign.save_path)
+		config = ClassDB.Instantiate("ConfigFile")
+		config.load(campaign.save_path)
+		config.set_value("campaign", "version", 999)
+		config.save(campaign.save_path)
+		game.phase = 12
+		game.campaign_active = False
+		game.title_i = 0
+	ElseIf frame = 34 Then
+		key(KEY_ENTER, True)
+		game.set_process(True)
+	ElseIf frame = 36 Then
+		key(KEY_ENTER, False)
+	ElseIf frame = 38 Then
+		game.set_process(False)
+		check(game.phase = 12 And Not game.campaign_active And game.save_msg.contains("version"), "campaign_bad_continue_stays_on_title_with_error")
+		check(campaign.snapshot(yard) = resume_state, "campaign_bad_continue_preserves_active_session")
+		WriteAllText campaign.save_path, prior_save
+		campaign.orac_online = False
+		check(Not campaign.save_game() And ReadAllText(campaign.save_path) = prior_save, "campaign_invalid_metadata_cannot_overwrite_save")
+		config = ClassDB.Instantiate("ConfigFile")
+		config.load(campaign.save_path)
+		config.set_value("campaign", "orac_online", False)
+		config.save(campaign.save_path)
+		check(Not campaign.load_game(yard) And campaign.last_error.contains("online"), "campaign_rejects_premature_orac_outage")
+		WriteAllText campaign.save_path, prior_save
+		restored_game = Load("res://main.tscn").instantiate()
+		add_child(restored_game)
+		restored_game.set_process(False)
+		restored_game.campaign.save_path = campaign.save_path
+		restored_game.LoadCampaign()
+		restored_yard = restored_game.campaign.city
+		check(restored_game.campaign_active And state_matches(restored_game.campaign.snapshot(restored_yard), saved), "campaign_cold_load_restores_complete_expedition")
+		check(restored_game.campaign.orac_online And restored_yard <> yard, "campaign_cold_load_uses_independent_scene")
+		restored_yard.audio.stop()
+		yard.audio.stop()
+		If view.backlight_yard <> Nothing Then
+			If view.backlight_yard.audio <> Nothing Then view.backlight_yard.audio.stop()
+		End If
+		directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+		directory.remove(campaign.save_path)
+	ElseIf frame = 40 Then
+		restored_game.queue_free()
+		restored_game = Nothing
+	ElseIf frame = 42 Then
+		Print "CAMPAIGN_RESULT=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

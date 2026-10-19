@@ -1,0 +1,225 @@
+Option Explicit
+
+Const SAVE_VERSION As Integer = 1
+Dim save_path As String = "user://ash_meridian_campaign.cfg"
+Dim last_error As String
+Dim city As Object
+Dim orac_online As Boolean = True
+Dim visit_number As Integer = 1
+
+Sub new_run(ByVal yard As Object)
+	city = yard
+	city.campaign_mode = True
+	city.reset()
+	orac_online = True
+	visit_number = 1
+	last_error = ""
+	city.notify("ORAC: Welcome to Narcea, Jason. Search the depots. We need a power coupler before a loaded departure.")
+End Sub
+
+Function stage() As String
+	If city.completed Then Return "first_departure"
+	If city.awakening Then Return "first_escape"
+	Return "first_salvage"
+End Function
+
+Function objective() As String
+	If city.completed Then Return "Coupler installed / first expedition complete"
+	If city.awakening Then Return "Return to the Ash and install the power coupler"
+	Return "Search depots and archives / locate a compatible power coupler"
+End Function
+
+Function snapshot(ByVal yard As Object) As Dictionary
+	Dim result As Dictionary
+	Dim field_names As Array
+	Dim field_name As String
+	Dim i As Integer
+	Dim value As Variant
+	result = New Dictionary
+	field_names = fields()
+	For i = 0 To field_names.size() - 1
+		field_name = field_names(i)
+		value = yard.get(field_name)
+		If TypeName(value) = "Dictionary" Then value = value.duplicate(True)
+		result.Add(field_name, value)
+	Next
+	Return result
+End Function
+
+Function fields() As Array
+	Return Array("position_xz", "heading", "velocity", "driving", "inspection", "buggy_position", "buggy_heading", "collected", "wheel_angle", "steering", "place", "building_index", "surface_position", "surface_heading", "discovered", "inventory", "visited", "keypad", "sequence", "floor_code", "transit_left", "transit_total", "lift_target", "awakening", "countdown", "alarm_elapsed", "alarm_pulse", "damage_cooldown", "shield", "completed", "failed", "launch_elapsed")
+End Function
+
+Function reject(ByVal reason As String) As Boolean
+	last_error = reason
+	Print "CAMPAIGN: " & reason
+	Return False
+End Function
+
+Function number_between(ByVal value As Variant, ByVal low As Double, ByVal high As Double) As Boolean
+	If TypeName(value) <> "Integer" And TypeName(value) <> "Double" Then Return False
+	Return value >= low And value <= high
+End Function
+
+Function point_valid(ByVal value As Variant, ByVal surface As Boolean) As Boolean
+	If TypeName(value) <> "Vector2" Then Return False
+	If surface Then Return value.x >= -118 And value.x <= 118 And value.y >= -12 And value.y <= 420
+	Return value.x >= -22 And value.x <= 22 And value.y >= 0 And value.y <= 58
+End Function
+
+Function code_valid(ByVal value As String, ByVal complete As Boolean) As Boolean
+	Dim i As Integer
+	If complete And Len(value) <> 5 Then Return False
+	If Len(value) > 5 Then Return False
+	For i = 0 To Len(value) - 1
+		If InStr("0123456789", Mid(value, i + 1, 1)) = 0 Then Return False
+	Next
+	Return True
+End Function
+
+Function validate(ByVal data As Variant, ByVal yard As Object) As Boolean
+	Dim field_names As Array
+	Dim field_name As Variant
+	Dim key As Variant
+	Dim expected As String
+	Dim has_coupler As Boolean
+	Dim items As Dictionary
+	Dim journal As Dictionary
+	Dim visits As Dictionary
+	Dim cell_count As Integer
+	If TypeName(data) <> "Dictionary" Then Return reject("Save has no valid expedition state.")
+	field_names = fields()
+	If data.size() <> field_names.size() Then Return reject("Save fields do not match this campaign version.")
+	For Each field_name In field_names
+		If Not data.has(field_name) Then Return reject("Save is missing " & field_name & ".")
+		expected = "Double"
+		If Array("position_xz", "buggy_position", "surface_position").has(field_name) Then expected = "Vector2"
+		If Array("driving", "keypad", "awakening", "completed", "failed").has(field_name) Then expected = "Boolean"
+		If Array("place", "sequence", "floor_code", "lift_target").has(field_name) Then expected = "String"
+		If Array("discovered", "inventory", "visited").has(field_name) Then expected = "Dictionary"
+		If expected = "Double" Then
+			If Not number_between(data(field_name), -1000000, 1000000) Then Return reject("Invalid number: " & field_name & ".")
+		ElseIf TypeName(data(field_name)) <> expected Then
+			Return reject("Invalid type: " & field_name & ".")
+		End If
+	Next
+	If data.place <> "surface" And data.place <> "building" And data.place <> "floor" And data.place <> "lift" Then Return reject("Unknown expedition location.")
+	If Not point_valid(data.position_xz, data.place = "surface") Then Return reject("Player position is outside the expedition.")
+	If Not point_valid(data.buggy_position, True) Or Not point_valid(data.surface_position, True) Then Return reject("Invalid parked vehicle or surface return position.")
+	If Not number_between(data.building_index, -1, 7) Or data.building_index <> Int(data.building_index) Then Return reject("Invalid building.")
+	If data.place <> "surface" And data.building_index < 0 Then Return reject("Interior has no surface destination.")
+	If data.place = "floor" Or data.place = "lift" Then
+		If data.building_index <> 7 Then Return reject("Underground travel must use the transit depot.")
+	End If
+	If data.driving And data.place <> "surface" Then Return reject("Vehicle cannot be inside an interior.")
+	If Not number_between(data.inspection, 0, 2) Or data.inspection <> Int(data.inspection) Then Return reject("Invalid camera mode.")
+	If Not number_between(data.velocity, -18, 18) Or Not number_between(data.shield, 0, 100) Then Return reject("Invalid vehicle speed or suit status.")
+	If Not number_between(data.collected, 0, 3) Or data.collected <> Int(data.collected) Then Return reject("Invalid cell count.")
+	If Not number_between(data.countdown, 0, 255) Or Not number_between(data.transit_left, 0, 4) Then Return reject("Invalid alarm or lift timer.")
+	If data.transit_total <> 3 And data.transit_total <> 4 Then Return reject("Invalid lift journey.")
+	If data.transit_left > data.transit_total Or (data.transit_left > 0 And data.place <> "lift") Then Return reject("Lift timer and location disagree.")
+	If data.place = "lift" And data.transit_left <= 0 Then Return reject("Lift journey has no time remaining.")
+	If data.place = "lift" And data.lift_target = "" Then Return reject("Lift journey has no destination.")
+	If data.alarm_elapsed < 0 Or data.launch_elapsed < 0 Or data.damage_cooldown < 0 Then Return reject("Negative elapsed timer.")
+	If Not code_valid(data.sequence, False) Then Return reject("Invalid keypad sequence.")
+	If data.place = "floor" And Not code_valid(data.floor_code, True) Then Return reject("Invalid stratum address.")
+	If data.floor_code <> "" And Not code_valid(data.floor_code, True) Then Return reject("Invalid saved stratum.")
+	If data.lift_target <> "" And data.lift_target <> "surface" And Not code_valid(data.lift_target, True) Then Return reject("Invalid lift destination.")
+	If data.keypad And (data.place <> "building" Or data.building_index <> 7 Or data.awakening) Then Return reject("Invalid keypad state.")
+	items = data("inventory")
+	journal = data("discovered")
+	visits = data("visited")
+	For Each key In items.keys()
+		If Not Array("regulator", "ignition", "coupler", "cell_0", "cell_1", "cell_2").has(key) Then Return reject("Unknown inventory item.")
+		If TypeName(items(key)) <> "Boolean" Then Return reject("Invalid inventory flag.")
+		If Not items(key) Then Return reject("Inactive inventory entry.")
+		If key.begins_with("cell_") Then cell_count = cell_count + 1
+	Next
+	If data.collected <> cell_count Then Return reject("Collected cells and inventory disagree.")
+	For Each key In journal.keys()
+		If Not number_between(key, 0, 4) Then Return reject("Invalid journal slot.")
+		If key <> Int(key) Then Return reject("Invalid journal index.")
+		If TypeName(journal(key)) <> "String" Then Return reject("Invalid journal symbol.")
+		If journal(key) <> yard.FEB_CODE.substr(key, 1) Then Return reject("Journal symbol does not match its archive.")
+	Next
+	For Each key In visits.keys()
+		If Not number_between(key, 0, 7) Then Return reject("Invalid visited depot.")
+		If key <> Int(key) Or TypeName(visits(key)) <> "Boolean" Then Return reject("Invalid depot visit.")
+	Next
+	has_coupler = items.has("coupler")
+	If data.awakening <> (has_coupler And Not data.completed) Then Return reject("Coupler and awakening state disagree.")
+	If data.completed And (Not has_coupler Or data.failed Or data.place <> "surface") Then Return reject("Invalid first departure state.")
+	If data.failed And Not data.awakening Then Return reject("Failure has no active escape.")
+	If Not data.failed And data.awakening And (data.countdown <= 0 Or data.shield <= 0) Then Return reject("Escape has expired without a failure state.")
+	If Not data.awakening And Not data.completed And (data.countdown <> 255 Or data.alarm_elapsed <> 0) Then Return reject("Dormant chamber has an active alarm.")
+	Return True
+End Function
+
+Function save_game() As Boolean
+	Dim config As Object
+	Dim directory As Object
+	Dim data As Dictionary
+	Dim error_code As Integer
+	Dim temporary As String
+	last_error = ""
+	If city Is Nothing Then Return reject("There is no expedition to save.")
+	If Not orac_online Or visit_number <> 1 Then Return reject("Only an online Orac on the first expedition can be saved by this build.")
+	data = snapshot(city)
+	If Not validate(data, city) Then Return False
+	config = ClassDB.Instantiate("ConfigFile")
+	config.set_value("campaign", "version", SAVE_VERSION)
+	config.set_value("campaign", "stage", stage())
+	config.set_value("campaign", "visit_number", visit_number)
+	config.set_value("campaign", "orac_online", orac_online)
+	config.set_value("campaign", "expedition", data)
+	temporary = save_path & ".tmp"
+	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+	If directory Is Nothing Then Return reject("Could not open the campaign save directory.")
+	error_code = config.save(temporary)
+	If error_code <> 0 Then
+		If FileExists(temporary) Then directory.remove(temporary)
+		Return reject("Could not write campaign save (error " & Str(error_code) & ").")
+	End If
+	error_code = directory.rename(temporary, save_path)
+	If error_code <> 0 Then
+		directory.remove(temporary)
+		Return reject("Could not replace campaign save (error " & Str(error_code) & "). Previous save retained.")
+	End If
+	Return True
+End Function
+
+Function load_game(ByVal yard As Object) As Boolean
+	Dim config As Object
+	Dim data As Variant
+	Dim field_name As Variant
+	Dim saved_stage As Variant
+	Dim expected_stage As String
+	Dim error_code As Integer
+	last_error = ""
+	config = ClassDB.Instantiate("ConfigFile")
+	error_code = config.load(save_path)
+	If error_code <> 0 Then Return reject("Could not read campaign save (error " & Str(error_code) & ").")
+	If config.get_value("campaign", "version", 0) <> SAVE_VERSION Then Return reject("Unsupported campaign save version. File left unchanged.")
+	If config.get_value("campaign", "visit_number", 0) <> 1 Then Return reject("This campaign build supports the first visit only.")
+	If config.get_value("campaign", "orac_online", False) <> True Then Return reject("Orac must remain online during the first expedition.")
+	data = config.get_value("campaign", "expedition", Nothing)
+	If Not validate(data, yard) Then Return False
+	expected_stage = "first_salvage"
+	If data.awakening Then expected_stage = "first_escape"
+	If data.completed Then expected_stage = "first_departure"
+	saved_stage = config.get_value("campaign", "stage", "")
+	If saved_stage <> expected_stage Then Return reject("Campaign stage and expedition state disagree.")
+	' Validate everything before changing the active expedition.
+	city = yard
+	city.campaign_mode = True
+	city.reset()
+	For Each field_name In fields()
+		city.set(field_name, data(field_name))
+	Next
+	city.pending_room = True
+	orac_online = True
+	visit_number = 1
+	If city.awakening And Not city.failed Then city.audio.play()
+	city.notify("ORAC: Expedition restored, Jason. " & objective())
+	Return True
+End Function

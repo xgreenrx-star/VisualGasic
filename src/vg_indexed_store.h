@@ -533,13 +533,17 @@ inline StoreResult expand_ribbon(Variant &edges, Variant &colors,
 	}
 	const int64_t e_n = e->size();
 	const int64_t c_n = c->size();
-	const int64_t last_i = to_inclusive - (to_inclusive & 1);
-	if (last_i < 0) {
+	int64_t limit = e_n < c_n ? e_n : c_n;
+	if (limit < 2) {
 		return STORE_OK;
 	}
-	if (last_i + 1 >= e_n || last_i + 1 >= c_n) {
-		loop_out = last_i;
-		return STORE_OUT_OF_RANGE;
+	int64_t last_i = to_inclusive - (to_inclusive & 1);
+	const int64_t max_i = (limit - 2) & ~int64_t(1);
+	if (last_i > max_i) {
+		last_i = max_i;
+	}
+	if (last_i < 0) {
+		return STORE_OK;
 	}
 	const int64_t pairs = (last_i / 2) + 1;
 	const int64_t add = pairs * 6;
@@ -557,10 +561,11 @@ inline StoreResult expand_ribbon(Variant &edges, Variant &colors,
 		on = bn;
 		oc = bc;
 		ou = bu;
-	} else {
-		if (bv < add || bn < add || bc < add || bu < add) {
-			return STORE_OUT_OF_RANGE;
-		}
+	} else if (bv < add || bn < add || bc < add || bu < add) {
+		v->resize(add);
+		n->resize(add);
+		vc->resize(add);
+		u->resize(add);
 	}
 	const Vector3 *ep = e->ptr();
 	const Color *cp = c->ptr();

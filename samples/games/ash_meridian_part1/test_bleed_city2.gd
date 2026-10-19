@@ -63,14 +63,13 @@ func _run() -> void:
 	for i in 12:
 		await tap(game, int(game.call("CodeKey", i)))
 	check(game.get("dev_on"), "Existing hidden key sequence opens the actual dev terminal")
-	await tap(game, KEY_UP)
-	check(game.get("dev_i") == 14, "Terminal navigation wraps up to Backlight Yard")
-	await tap(game, KEY_UP)
-	check(game.get("dev_i") == 13, "Another up step lands on Backlight City")
-	await tap(game, KEY_UP)
-	check(game.get("dev_i") == 12, "Another up step lands on Bleed City 3")
-	await tap(game, KEY_UP)
-	check(game.get("dev_i") == 11, "Another up step lands on Bleed City 2")
+	for i in 5:
+		await tap(game, KEY_DOWN)
+	await tap(game, KEY_ENTER)
+	check(game.get("dev_page") == 1 and game.call("RowLabel", 6) == "BLEED CITY", "Archive keeps Cursor's original city")
+	for i in 7:
+		await tap(game, KEY_DOWN)
+	check(game.get("dev_i") == 11, "Archive selection lands on Bleed City 2")
 	await capture(game, "terminal")
 	await tap(game, KEY_ENTER)
 	check(game.get("phase") == 15 and not game.get("dev_on"), "Actual terminal Enter opens Bleed City 2")

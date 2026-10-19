@@ -262,7 +262,11 @@ Sub _draw()
 	Else
 		_t5 = "COUPLER --"
 	End If
-	_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
+	If city.campaign_mode Then
+		_text(Vector2(22, 47), "JASON / ORAC ONLINE / POWER " & _t5 & " / SUIT " & Str(city.shield) & " / Q SCAN", 12)
+	Else
+		_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
+	End If
 	If Not driving Then
 		draw_rect(Rect2(0, 495, 960, 45), Color(0.005, 0.015, 0.025, 0.9))
 		_text(Vector2(20, 520), city.prompt(), 14)
@@ -287,13 +291,21 @@ Sub _draw()
 	End If
 	If city.awakening Then
 		draw_rect(Rect2(725, 120, 220, 82), Color(0.025, 0.005, 0.018, 0.92))
-		_text(Vector2(744, 142), "PURGE / ZEN ONLINE", 12, PINK)
+		If city.campaign_mode Then
+			_text(Vector2(744, 142), "PURGE / ORAC ONLINE", 12, PINK)
+		Else
+			_text(Vector2(744, 142), "PURGE / ZEN ONLINE", 12, PINK)
+		End If
 		glyph_string(Vector2(756, 157), PadInt(CeilInt(city.countdown), 3), 1.5, PINK)
 		If FMod(city.alarm_elapsed, 1.0) < 0.3 Then
 			draw_rect(Rect2(0, 0, 960, 540), Color(1, 0.03, 0.2, 0.055))
 		End If
 		If city.alarm_elapsed < 8 Then
-			_text(Vector2(360, 330), "ZEN: RUN!", 38, PINK)
+			If city.campaign_mode Then
+				_text(Vector2(340, 330), "ORAC: RUN!", 38, PINK)
+			Else
+				_text(Vector2(360, 330), "ZEN: RUN!", 38, PINK)
+			End If
 		End If
 	End If
 	If city.keypad Then
@@ -330,11 +342,21 @@ Sub _draw()
 		End If
 		_text(Vector2(210, 258), _t7, 28, AMBER)
 		If city.completed Then
-			_t8 = "Enter: restart prototype"
+			If city.campaign_mode Then
+				_t8 = "First expedition complete. Esc: save or return to title."
+			Else
+				_t8 = "Enter: restart prototype"
+			End If
 		Else
 			_t8 = "Enter: retry from the FEB chamber"
 		End If
 		_text(Vector2(210, 295), _t8, 18)
-		_text(Vector2(210, 332), "Chapter save unchanged. This is the exploration prototype.", 13)
+		If city.campaign_mode And city.completed Then
+			_text(Vector2(180, 332), "Flight and station chapters are not implemented in this build yet.", 13)
+		ElseIf city.campaign_mode Then
+			_text(Vector2(210, 332), "ORAC: Chamber checkpoint ready. Recover the coupler and run.", 13)
+		Else
+			_text(Vector2(210, 332), "Chapter save unchanged. This is the exploration prototype.", 13)
+		End If
 	End If
 End Sub

@@ -1,8 +1,5 @@
-' Ash Meridian — first level.
-' Cockpit: the reflector coupler burns out. Zen names Narcea.
-' The Ash lands. Zen fails. Jonah walks and drives a dead yard,
-' powers an elevator, and takes the coupler from Feb's stasis chamber.
-' The run back is a 3D canyon of rings.
+' Play opens on Orac's approach warning, then the landing.
+' Kept scenes stay on the dev terminal. Older scenes are under Archive.
 Option Explicit
 
 Const SW As Single = 960.0
@@ -30,7 +27,6 @@ Const PH_BLEED2 As Integer = 15
 Const PH_BLEED3 As Integer = 16
 Const PH_BACKLIGHT As Integer = 17
 Const PH_BACKLIGHT_YARD As Integer = 18
-Const DEV_LAST As Integer = 14
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -82,6 +78,9 @@ Dim edge_q As Boolean
 Dim ship_x As Single
 Dim ship_z As Single
 Dim ship_alt As Single
+Dim ship_pitch As Single
+Dim ship_yaw_aim As Single
+Dim ship_bank As Single
 Dim prev_x As Single
 Dim prev_z As Single
 Dim next_ring As Integer
@@ -109,6 +108,8 @@ Dim face_ink As Single
 Dim pod_glow As Single
 Dim dev_on As Boolean
 Dim dev_i As Integer
+Dim dev_row As Integer
+Dim dev_page As Integer
 Dim code_i As Integer
 
 Dim got(8) As Boolean
@@ -124,9 +125,13 @@ Dim clip_y As Single
 Dim clip_z As Single
 Dim presentation As Object
 Dim yard_build As Boolean
+Dim campaign As Object
+Dim campaign_active As Boolean
+Dim campaign_arrival As Boolean
 
 Sub _Ready()
 	presentation = GetNode("Presentation")
+	campaign = presentation.SpawnVg("res://campaign.vg", "RefCounted")
 	Call LoadOptions()
 	Call ApplyDisplay()
 	phase = PH_BOOT
@@ -142,13 +147,18 @@ Sub _Ready()
 	pod_glow = 0.0
 	dev_on = False
 	dev_i = 0
+	dev_row = 0
+	dev_page = 0
 	code_i = 0
 	Call InitJunk()
+	Call BakeAsh()
 	Set_Process(True)
 	Print("ASH MERIDIAN PART 1 READY")
 End Sub
 
 Sub StartRun()
+	campaign_active = False
+	campaign_arrival = False
 	phase = PH_INTRO
 	menu_on = False
 	clock = 0.0
@@ -183,6 +193,9 @@ Sub StartRun()
 	ship_x = 0.0
 	ship_z = 0.0
 	ship_alt = 0.0
+	ship_pitch = 0.0
+	ship_yaw_aim = 0.0
+	ship_bank = 0.0
 	next_ring = 0
 	ring_miss = 0
 	landing_failed = False
@@ -193,6 +206,36 @@ Sub StartRun()
 		got(i) = False
 	Next
 	Call InitJunk()
+End Sub
+
+Sub StartCampaign()
+	Dim yard As Object
+	yard = presentation.prepare_campaign_yard()
+	campaign.new_run(yard)
+	Call ResumeCampaign()
+	clock = 0
+End Sub
+
+Sub ResumeCampaign()
+	If campaign.city Is Nothing Then Exit Sub
+	Call presentation.activate_campaign_yard()
+	campaign_active = True
+	phase = PH_BACKLIGHT_YARD
+	dev_on = False
+	menu_on = False
+	code_i = 0
+	save_msg = ""
+	QueueRedraw()
+End Sub
+
+Sub LoadCampaign()
+	Dim yard As Object
+	yard = presentation.prepare_campaign_yard()
+	If campaign.load_game(yard) Then
+		Call ResumeCampaign()
+	Else
+		save_msg = campaign.last_error
+	End If
 End Sub
 
 Sub InitJunk()
@@ -287,6 +330,9 @@ Sub NoteCode(ByVal hit As Integer)
 		If code_i >= 12 Then
 			code_i = 0
 			dev_on = True
+			dev_page = 0
+			dev_row = 0
+			dev_i = 0
 		End If
 	ElseIf hit = CodeKey(0) Then
 		code_i = 1
@@ -295,13 +341,85 @@ Sub NoteCode(ByVal hit As Integer)
 	End If
 End Sub
 
+Function PageCount() As Integer
+	If dev_page = 0 Then
+		PageCount = 6
+	Else
+		PageCount = 11
+	End If
+End Function
+
+Function MainScene(ByVal row As Integer) As Integer
+	Dim id As Integer
+	id = 100
+	If row = 0 Then id = 0
+	If row = 1 Then id = 1
+	If row = 2 Then id = 4
+	If row = 3 Then id = 5
+	If row = 4 Then id = 14
+	MainScene = id
+End Function
+
+Function ArchiveScene(ByVal row As Integer) As Integer
+	Dim id As Integer
+	id = 101
+	If row = 0 Then id = 2
+	If row = 1 Then id = 3
+	If row = 2 Then id = 6
+	If row = 3 Then id = 7
+	If row = 4 Then id = 8
+	If row = 5 Then id = 9
+	If row = 6 Then id = 10
+	If row = 7 Then id = 11
+	If row = 8 Then id = 12
+	If row = 9 Then id = 13
+	ArchiveScene = id
+End Function
+
+Function SceneAt(ByVal row As Integer) As Integer
+	If dev_page = 0 Then
+		SceneAt = MainScene(row)
+	Else
+		SceneAt = ArchiveScene(row)
+	End If
+End Function
+
+Sub SyncDevRow()
+	Dim id As Integer
+	id = SceneAt(dev_row)
+	If id >= 0 Then dev_i = id
+End Sub
+
 Sub TickDev()
-	If IsKeyJustPressed(KEY_UP) Then dev_i = dev_i - 1
-	If IsKeyJustPressed(KEY_DOWN) Then dev_i = dev_i + 1
-	If dev_i < 0 Then dev_i = DEV_LAST
-	If dev_i > DEV_LAST Then dev_i = 0
-	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then Call WarpDev()
-	If IsKeyJustPressed(KEY_ESCAPE) Then dev_on = False
+	Dim id As Integer
+	If IsKeyJustPressed(KEY_UP) Then dev_row = dev_row - 1
+	If IsKeyJustPressed(KEY_DOWN) Then dev_row = dev_row + 1
+	If dev_row < 0 Then dev_row = PageCount() - 1
+	If dev_row >= PageCount() Then dev_row = 0
+	Call SyncDevRow()
+	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then
+		id = SceneAt(dev_row)
+		If id = 100 Then
+			dev_page = 1
+			dev_row = 0
+			Call SyncDevRow()
+		ElseIf id = 101 Then
+			dev_page = 0
+			dev_row = 0
+			Call SyncDevRow()
+		Else
+			Call WarpDev()
+		End If
+	End If
+	If IsKeyJustPressed(KEY_ESCAPE) Then
+		If dev_page = 1 Then
+			dev_page = 0
+			dev_row = 0
+			Call SyncDevRow()
+		Else
+			dev_on = False
+		End If
+	End If
 End Sub
 
 Function DevLabel(ByVal i As Integer) As String
@@ -314,9 +432,9 @@ Function DevLabel(ByVal i As Integer) As String
 	ElseIf i = 3 Then
 		DevLabel = "YARD"
 	ElseIf i = 4 Then
-		DevLabel = "SHAFT"
+		DevLabel = "ELEVATOR"
 	ElseIf i = 5 Then
-		DevLabel = "CHAMBER"
+		DevLabel = "FEB"
 	ElseIf i = 6 Then
 		DevLabel = "CANYON"
 	ElseIf i = 7 Then
@@ -409,6 +527,10 @@ End Sub
 
 Sub _Process(ByVal delta As Single)
 	Call presentation.sample_input()
+	If Not campaign_active And campaign.city <> Nothing And presentation.menu_tap(KEY_F10) Then
+		Call ResumeCampaign()
+		Exit Sub
+	End If
 	If dev_on Then
 		Call TickDev()
 		QueueRedraw()
@@ -453,7 +575,7 @@ Sub _Process(ByVal delta As Single)
 	If hurt > 0.0 Then hurt = hurt - delta
 	If scan_t > 0.0 Then scan_t = scan_t - delta
 	If phase = PH_INTRO Then
-		If clock > 34.0 Or (clock > 22.0 And (IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER))) Then
+		If clock > 36.0 Or (clock > 26.0 And (IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER))) Then
 			phase = PH_LAND
 			land_t = 0.0
 			clock = 0.0
@@ -466,7 +588,10 @@ Sub _Process(ByVal delta As Single)
 		Call TickApproach(delta)
 	ElseIf phase = PH_BAY Then
 		bay_t = bay_t + delta
-		If bay_t > 7.4 Then
+		If bay_t > 7.4 And campaign_arrival Then
+			campaign_arrival = False
+			Call StartCampaign()
+		ElseIf bay_t > 7.4 Then
 			phase = PH_GROUND
 			zen_dead = True
 			on_buggy = True
@@ -536,11 +661,18 @@ Sub TickApproach(ByVal delta As Single)
 	Dim old_alt As Single
 	Dim old_z As Single
 	Dim cross_t As Single
+	Dim blend As Single
+	Dim target_pitch As Single
+	Dim target_bank As Single
+	Dim target_yaw As Single
 	If landing_failed Then
 		If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
 			ship_x = 0.0
 			ship_alt = 0.0
 			ship_z = 0.0
+			ship_pitch = 0.0
+			ship_yaw_aim = 0.0
+			ship_bank = 0.0
 			next_ring = 0
 			ring_miss = 0
 			land_t = 0.0
@@ -558,6 +690,14 @@ Sub TickApproach(ByVal delta As Single)
 	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
 	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
 	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	blend = delta * 6.0
+	If blend > 1.0 Then blend = 1.0
+	target_bank = -steer * 0.85
+	target_yaw = -steer * 0.34
+	target_pitch = -lift * 0.36 - Abs(steer) * 0.24
+	ship_bank = ship_bank + (target_bank - ship_bank) * blend
+	ship_yaw_aim = ship_yaw_aim + (target_yaw - ship_yaw_aim) * blend
+	ship_pitch = ship_pitch + (target_pitch - ship_pitch) * blend
 	ship_x = ship_x + steer * delta * 2.35 + Sin(land_t * 1.7) * delta * 0.1
 	ship_alt = ship_alt + lift * delta * 4.6 + Sin(land_t * 2.3) * delta * 0.28
 	If ship_x > 1.15 Then ship_x = 1.15
@@ -585,7 +725,7 @@ Sub TickApproach(ByVal delta As Single)
 	If next_ring >= LAND_RINGS And ship_z > LAND_END Then
 		phase = PH_BAY
 		bay_t = 0.0
-		zen_dead = True
+		zen_dead = Not campaign_arrival
 	End If
 End Sub
 
@@ -1308,6 +1448,13 @@ Sub HullQuad(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal ax A
 	Call SolidFace(x - ax, y + ay0, z + az, x - bx, y + by0, z + bz, x + bx, y + by0, z + bz, x + ax, y + ay0, z + az, 0.5, 0.72, 0.92)
 End Sub
 
+Sub BakeAsh()
+	Call DrawShipAt(0.0, 0.0, 0.0, 1.0)
+	Call SolidFace(-0.72, 2.05, 1.5, 0.0, 2.62, 1.75, 0.0, 1.28, 4.35, -0.55, 1.62, 2.7, 0.75, 0.95, 1.0)
+	Call SolidFace(0.72, 2.05, 1.5, 0.55, 1.62, 2.7, 0.0, 1.28, 4.35, 0.0, 2.62, 1.75, 0.75, 0.95, 1.0)
+	Call presentation.adopt_ship()
+End Sub
+
 Sub DrawShipAt(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal sc As Single)
 	Dim n As Single
 	n = sc
@@ -1558,7 +1705,7 @@ Sub DrawYardBand(ByVal z0 As Single, ByVal z1 As Single)
 	End If
 	If 0.0 >= z0 And 0.0 < z1 Then
 		If cam_z < opt_view Then Call DrawPad()
-		If cam_z < opt_view + 8.0 Then Call DrawShipAt(0.0, 0.0, 0.0, 1.0)
+		If cam_z < opt_view + 8.0 Then Call presentation.place_ship(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 	End If
 	If Not on_buggy Then
 		If bz >= z0 And bz < z1 Then
@@ -2080,17 +2227,71 @@ Sub DrawSpan(ByVal az As Single)
 	Call presentation.bridge(az)
 End Sub
 
+Function LandCloud() As Single
+	Dim i As Integer
+	Dim cz As Single
+	Dim cx As Single
+	Dim near As Single
+	Dim y As Single
+	LandCloud = 0.0
+	y = GlideY(ship_z) + ship_alt
+	If y < 8.0 Or y > 26.0 Then Exit Function
+	For i = 0 To 7
+		cz = 40.0 + i * 38.0
+		If i Mod 2 = 0 Then
+			cx = -18.0
+		Else
+			cx = 16.0
+		End If
+		If Abs(ship_x * 7.0 - cx) < 28.0 Then
+			near = 1.0 - Abs(ship_z + 1.6 - cz) / 7.0
+			If near > LandCloud Then LandCloud = near
+		End If
+	Next
+End Function
+
+Function LandAlign() As Single
+	Dim dx As Single
+	Dim dy As Single
+	If next_ring >= LAND_RINGS Then
+		LandAlign = 0.0
+		Exit Function
+	End If
+	dx = (ship_x - RingOff(next_ring)) * 7.0
+	dy = ship_alt - RingLift(next_ring)
+	LandAlign = Sqr(dx * dx + dy * dy) / LAND_RADIUS
+End Function
+
 Sub DrawApproach()
 	Dim i As Integer
 	Dim rz As Single
 	Dim ry As Single
+	Dim cloud As Single
+	Dim shake As Single
+	Dim sx As Single
+	Dim sy As Single
+	Dim image As Object
+	Dim deck_image As Object
+	Dim cues As Array
+	Dim deck_state As Dictionary
+	Dim steer As Single
+	Dim lift As Single
+	' First-person from the Ash's flight deck. The camera sits on the ring-collision
+	' point and always looks straight down the glide slope (bank only rolls about the
+	' view axis), so a gate drawn around the screen-centre marker is a gate you clear.
+	cloud = LandCloud()
+	If cloud < 0.0 Then cloud = 0.0
+	shake = 0.7 + landing_speed * 0.045 + cloud * 5.0
+	If hurt > 0.0 Then shake = shake + hurt * 18.0
+	sx = (Sin(land_t * 43.0) + Sin(land_t * 71.3) * 0.6) * shake * 0.55
+	sy = (Sin(land_t * 53.7) + Sin(land_t * 89.1) * 0.5) * shake * 0.45
 	cam_x = ship_x * 7.0
-	cam_y = GlideY(ship_z) + ship_alt + 2.4
-	cam_z = ship_z - 8.0
+	cam_z = ship_z + 1.6
+	cam_y = GlideY(cam_z) + ship_alt
 	cam_yaw = 0.0
-	cam_pitch = -0.22
+	cam_pitch = -Atn(0.038)
 	Call DrawSky()
-	Call DrawShipAt(ship_x * 7.0, GlideY(ship_z) + ship_alt - 0.36, ship_z, 0.24)
+	Call presentation.place_ship(ship_x * 7.0, GlideY(ship_z) + ship_alt - 0.36, ship_z, 0.24, ship_pitch, ship_yaw_aim, ship_bank)
 	Call presentation.landing_clouds()
 	For i = 0 To LAND_RINGS - 1
 		rz = LAND_START + i * LAND_SPACING
@@ -2106,12 +2307,48 @@ Sub DrawApproach()
 	Call DrawRingFlat(0.0, 0.05, LAND_END + 8.0, 8.0, 1.0, 0.4, 0.15)
 	Call DrawTower(-18.0, LAND_END, 5.0, 11.0, 0.2, 0.85, 1.0, -1.0, 1)
 	Call DrawTower(12.0, LAND_END + 4.0, 4.5, 9.0, 1.0, 0.28, 0.75, 1.0, 2)
-	Call FlushFaces()
-	DrawString "A/D STEER  W/S LIFT   FLY THE ORANGE RING  " & Str(next_ring) & "/28", 150, 500, Color(0.4, 0.9, 1.0), 16
-	If ship_z > LAND_END * 0.65 Then
-		DrawString "ZEN  ####  THE COUPLER  ####", 250, 40, Color(1.0, 0.35, 0.3), 16
+	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, opt_view, ship_bank * 0.4)
+	draw_texture_rect(image, Rect2(-16.0 + sx, -9.0 + sy, SW + 32.0, SH + 18.0), False)
+	Call presentation.landing_external(ship_x * 7.0, GlideY(ship_z) + ship_alt + 1.1, ship_z - 3.6, 0.0, -0.2)
+	cues = Array()
+	For i = next_ring To next_ring + 3
+		If i < LAND_RINGS Then
+			rz = LAND_START + i * LAND_SPACING
+			cues.append(Vector3((RingOff(i) - ship_x) * 7.0, RingLift(i) - ship_alt, rz - ship_z))
+		End If
+	Next
+	steer = 0.0
+	lift = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
+	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
+	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	deck_state = New Dictionary
+	deck_state("t") = land_t
+	deck_state("cues") = cues
+	deck_state("gate") = next_ring
+	deck_state("rings") = LAND_RINGS
+	deck_state("miss") = ring_miss
+	deck_state("hurt") = hurt
+	deck_state("cloud") = cloud
+	deck_state("steer") = steer
+	deck_state("lift") = lift
+	deck_state("speed") = landing_speed
+	deck_state("alt") = GlideY(ship_z) + ship_alt
+	deck_state("range") = LAND_END - ship_z
+	deck_state("align") = LandAlign()
+	If landing_failed Then
+		deck_state("failed") = 1.0
 	Else
-		DrawString "ZEN  PAD IS UNDER THE LAST RING", 250, 40, Color(0.5, 0.9, 1.0), 16
+		deck_state("failed") = 0.0
+	End If
+	deck_image = presentation.landing_deck(deck_state)
+	DrawTexture deck_image, -20.0 + sx, -20.0 + sy
+	If cloud > 0.55 Then DrawRect 0, 0, SW, SH, Color(0.75, 0.82, 0.9, (cloud - 0.55) * 0.18)
+	If ship_z > LAND_END * 0.65 Then
+		DrawString "ORAC  THE SHELF IS THE LAST RING. DO NOT CLIMB FOR THE YARD.", 120, 40, Color(0.5, 0.9, 1.0), 16
+	Else
+		DrawString "ORAC  ORANGE IS THE GATE. THE BLUE RINGS ARE NOT YOURS YET.", 130, 40, Color(0.5, 0.9, 1.0), 16
 	End If
 	If ring_miss > 0 Then DrawString "HULL STRIKE " & Str(ring_miss) & "/2", 40, 75, Color(1.0, 0.4, 0.3), 16
 	If landing_failed Then
@@ -2134,7 +2371,7 @@ Sub DrawBay()
 	cam_z = -6.0
 	cam_yaw = -1.15
 	cam_pitch = -0.18
-	Call DrawShipAt(0.0, 0.0, 0.0, 1.0)
+	Call presentation.place_ship(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
 	Call DrawPad()
 	Call Seg(-1.1, 0.45, -4.15, -1.1 - gap * 2.2, 0.45, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
 	Call Seg(-1.1, 2.15, -4.15, -1.1 - gap * 2.2, 2.15, -4.15 - gap * 0.4, 0.7, 0.9, 1.0)
@@ -2147,11 +2384,11 @@ Sub DrawBay()
 	If bay_t > 3.1 Then Call DrawBuggyAt(6.4, 0.0, -4.0 - roll, PI)
 	Call FlushFaces()
 	If bay_t < 1.5 Then
-		DrawString "A MUFFLED SCREAM. THEN NOTHING.", 250, 48, Color(1.0, 0.4, 0.35), 16
+		DrawString "ORAC  GEAR DOWN. PUT HER ON THE SHELF, NOT THE ROOF.", 160, 48, Color(0.5, 0.9, 1.0), 16
 	ElseIf bay_t < 3.2 Then
 		DrawString "BAY OPEN", 420, 48, Color(0.4, 0.95, 1.0), 18
 	Else
-		DrawString "ZEN OFFLINE", 400, 48, Color(1.0, 0.35, 0.3), 18
+		DrawString "ORAC  WE ARE DOWN. I STILL SAY WE SHOULD LEAVE.", 200, 48, Color(0.5, 0.9, 1.0), 16
 	End If
 End Sub
 
@@ -2180,7 +2417,7 @@ End Function
 
 Function TitleCount() As Integer
 	TitleCount = 3
-	If FileExists("user://ash_meridian_save.txt") Then TitleCount = 4
+	If FileExists(campaign.save_path) Then TitleCount = 4
 End Function
 
 Function TitleLabel(ByVal i As Integer) As String
@@ -2253,6 +2490,14 @@ Sub ApplyDisplay()
 End Sub
 
 Sub SaveRun()
+	If campaign_active And phase = PH_BACKLIGHT_YARD Then
+		If campaign.save_game() Then
+			save_msg = "CAMPAIGN SAVED"
+		Else
+			save_msg = campaign.last_error
+		End If
+		Exit Sub
+	End If
 	If phase = PH_BACKLIGHT_YARD Then
 		save_msg = "BACKLIGHT YARD IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
 		Exit Sub
@@ -2337,9 +2582,10 @@ Sub TitleAct()
 	pick = title_i
 	If TitleCount() = 3 Then pick = pick + 1
 	If pick = 0 Then
-		Call LoadRun()
+		Call LoadCampaign()
 	ElseIf pick = 1 Then
 		Call StartRun()
+		campaign_arrival = True
 	ElseIf pick = 2 Then
 		opt_back = 0
 		opt_i = 0
@@ -2367,6 +2613,7 @@ Sub TickPause()
 			phase = PH_OPTS
 		Else
 			menu_on = False
+			campaign_active = False
 			phase = PH_TITLE
 			title_i = 0
 		End If
@@ -2489,19 +2736,41 @@ Sub DrawOptions()
 	DrawString "LEFT / RIGHT CHANGES A ROW", 320, 500, Color(0.4, 0.5, 0.55), 14
 End Sub
 
+Function RowLabel(ByVal row As Integer) As String
+	Dim id As Integer
+	Dim text As String
+	id = SceneAt(row)
+	text = DevLabel(0)
+	If id = 100 Then text = "ARCHIVE"
+	If id = 101 Then text = "BACK"
+	If id < 100 Then text = DevLabel(id)
+	RowLabel = text
+End Function
+
 Sub DrawDev()
 	Dim i As Integer
 	Dim y As Single
 	Dim first As Integer
+	Dim n As Integer
+	Dim title As String
+	Dim hint As String
+	n = PageCount()
+	If dev_page = 0 Then
+		title = "SCENES"
+		hint = "ENTER OPENS    ESC CLOSES"
+	Else
+		title = "ARCHIVE"
+		hint = "ENTER OPENS    ESC BACK"
+	End If
 	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0, 0.55)
 	DrawRect 280, 20, 400, 500, Color(0.02, 0.04, 0.06)
-	DrawString "TERMINAL", 390, 38, Color(0.5, 0.9, 1.0), 24
-	first = Max(0, dev_i - 12)
-	For i = first To Min(first + 12, DEV_LAST)
+	DrawString title, 400, 38, Color(0.5, 0.9, 1.0), 24
+	first = Max(0, dev_row - 12)
+	For i = first To Min(first + 12, n - 1)
 		y = 72.0 + (i - first) * 28.0
-		Call DrawPick(DevLabel(i), y, i = dev_i)
+		Call DrawPick(RowLabel(i), y, i = dev_row)
 	Next
-	DrawString Str(dev_i + 1) & "/" & Str(DEV_LAST + 1) & "   ENTER JUMPS   ESC CLOSES", 310, 490, Color(0.4, 0.5, 0.55), 14
+	DrawString hint, 330, 490, Color(0.4, 0.5, 0.55), 14
 End Sub
 
 Sub DrawPick(ByVal text As String, ByVal y As Single, ByVal on As Boolean)
@@ -2566,33 +2835,20 @@ Sub _Draw()
 		If phase = PH_GROUND Or phase = PH_CHAMBER Then Call DrawHud()
 	End If
 	If menu_on Then Call DrawPause()
+	If phase = PH_TITLE And save_msg <> "" Then DrawString save_msg, 24, 460, Color(1, 0.6, 0.3), 13
+	If Not campaign_active And phase > PH_LAND And phase <= PH_BAY Then DrawString "LEGACY CHAPTER / DEV REFERENCE", 24, 530, Color(0.5, 0.7, 0.8), 11
+	If Not campaign_active And campaign.city <> Nothing Then DrawString "F10 RETURN TO JASON'S CAMPAIGN", 24, 526, Color(0.5, 0.8, 0.9), 11
 	If dev_on Then Call DrawDev()
 	If opt_fps And phase <> PH_BOOT Then Call DrawFrame()
 End Sub
 
 Sub DrawLandTalk()
-	Dim who As String
 	Dim talk As String
-	Dim rad As Single
-	who = "ZEN"
-	talk = "Pad is under us."
-	If land_t > 2.0 Then talk = "I — the coupler — Jonah, I can't —"
-	If land_t > 4.2 Then talk = "####  hhkk  ####"
-	If land_t > 6.0 Then
-		who = "SPEAKER"
-		talk = "A muffled scream. Then nothing."
-	End If
-	If land_t > 7.6 Then
-		who = "ZEN"
-		talk = "OFFLINE"
-	End If
-	If land_t > 5.6 And land_t < 7.8 Then
-		rad = (land_t - 5.6) * 90.0
-		DrawArc 480, 300, rad, 0, PI * 2, 40, Color(1.0, 0.35, 0.3, 0.7), 2
-		DrawArc 480, 300, rad * 0.62, 0, PI * 2, 32, Color(1.0, 0.2, 0.25, 0.5), 1
-	End If
+	talk = "Orange ring only. Blue means you are early, not clever."
+	If land_t > 4.0 Then talk = "The beacon stays dark if you stay on this line."
+	If land_t > 9.0 Then talk = "North shelf. If you climb for the yard, you will miss it."
 	DrawRect 48, 430, 864, 78, Color(0.01, 0.01, 0.02)
-	DrawString who, 64, 442, Color(0.9, 0.4, 0.3), 14
+	DrawString "ORAC", 64, 442, Color(0.45, 0.9, 1.0), 14
 	DrawString talk, 64, 472, Color(0.9, 0.9, 0.92), 18
 End Sub
 
@@ -2607,41 +2863,36 @@ Sub DrawAshCockpit()
 	cockpit_image = presentation.cockpit_texture(clock, 84.0 + Sin(clock * 0.3) * 7.0, 820.0 - clock * 3.0, 1.0)
 	DrawTexture cockpit_image, 0, 0
 	alive = 1.0
-	If clock > 1.2 Then alive = 1.0 - (clock - 1.2) * 0.35
-	If alive < 0.15 Then alive = 0.15
-	DrawRect 408, 423, 144.0 * alive, 3, Color(1.0, 0.45, 0.15)
+	DrawRect 408, 423, 144.0 * alive, 3, Color(0.25, 0.85, 1.0)
 End Sub
 
 Sub DrawIntroLines()
 	Dim talk As String
 	Dim who As String
-	who = "ASH"
-	talk = "Reflector coupler is burning."
-	If clock >= 2.2 And clock < 6.5 Then
-		who = "JONAH"
-		talk = "Shit. Not again. Zen — deep search. I need air."
-	ElseIf clock >= 6.5 And clock < 10.5 Then
-		who = "ZEN"
-		talk = "Already running."
-	ElseIf clock >= 10.5 And clock < 14.5 Then
-		who = "ZEN"
-		talk = "Jonah. I have no safe world."
-	ElseIf clock >= 14.5 And clock < 19.5 Then
-		who = "JONAH"
-		talk = "Safe left with the coupler. If there is one mark, say it."
-	ElseIf clock >= 19.5 And clock < 23.0 Then
-		who = "ZEN"
-		talk = "You will not like the mark."
-	ElseIf clock >= 23.0 And clock < 28.0 Then
-		who = "ZEN"
-		talk = "Dark mass. Planet-sized. Meridian 4, radius 0.8, inclination 11."
-	ElseIf clock >= 28.0 Then
-		who = "ZEN"
-		talk = "Quarantine on the charts. Narcean beacon yard. I will not call it a landing."
+	who = "ORAC"
+	talk = "Turn the Ash around. Narcea is under a quarantine interlock. We were not invited."
+	If clock >= 5.0 And clock < 10.0 Then
+		who = "JASON"
+		talk = "The manifest pays the ship out. This could be the last heist I have to fly."
+	ElseIf clock >= 10.0 And clock < 15.0 Then
+		who = "ORAC"
+		talk = "Objection logged. I will run the approach. Do not confuse that with agreement."
+	ElseIf clock >= 15.0 And clock < 20.0 Then
+		who = "ORAC"
+		talk = "Scan is up. Ice shelves, a lit yard, and a shaft under the north pad."
+	ElseIf clock >= 20.0 And clock < 25.0 Then
+		who = "ORAC"
+		talk = "Their security beacon is answering. Killing it. The yard will not see us come in."
+	ElseIf clock >= 25.0 And clock < 30.0 Then
+		who = "ORAC"
+		talk = "North shelf is the only flat ground that is not a roof. I would not call it safe."
+	ElseIf clock >= 30.0 Then
+		who = "ORAC"
+		talk = "Course is locked to the rings. Leave it, and I cannot promise you the shelf."
 	End If
 	DrawString who, 24, 500, Color(0.45, 0.9, 1.0), 12
 	DrawString talk, 24, 518, Color(0.92, 0.92, 0.94), 14
-	If clock > 22.0 Then DrawString "SPACE", 860, 500, Color(0.45, 0.55, 0.6), 12
+	If clock > 26.0 Then DrawString "SPACE", 860, 500, Color(0.45, 0.55, 0.6), 12
 End Sub
 
 Sub DrawFilm()

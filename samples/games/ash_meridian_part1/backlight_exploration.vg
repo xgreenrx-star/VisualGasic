@@ -1,6 +1,7 @@
 ' Generated Visual Gasic port of backlight_exploration.vg
 Dim __ready As Boolean
 Dim yard_mode As Boolean
+Dim campaign_mode As Boolean
 Dim yard_scenery As Node3D
 Dim CYAN As Variant
 Dim PINK As Variant
@@ -369,10 +370,16 @@ Sub reset()
 	keypad = False
 	sequence = ""
 	floor_code = ""
+	floor_signature = ""
 	transit_left = 0
+	transit_total = 4
+	lift_target = ""
+	surface_position = Vector2(0, 0)
+	surface_heading = 0
 	awakening = False
 	countdown = 255
 	alarm_elapsed = 0
+	alarm_pulse = 0
 	damage_cooldown = 0
 	shield = 100
 	completed = False
@@ -388,7 +395,11 @@ Sub reset()
 	If atmosphere <> Nothing Then
 		atmosphere.fog_enabled = False
 	End If
-	notify("ZEN OFFLINE. Find a pressure regulator, ignition cell, and reflector coupler.")
+	If campaign_mode Then
+		notify("ORAC: Jason, check the archives for a descent address. A compatible power coupler is below this yard.")
+	Else
+		notify("ZEN OFFLINE. Find a pressure regulator, ignition cell, and reflector coupler.")
+	End If
 End Sub
 
 Function _freeze(ByVal view As Node, ByVal label As String) As MeshInstance3D
@@ -1249,7 +1260,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		If view.menu_tap(KEY_ENTER) Then
 			If failed Then
 				retry_escape()
-			Else
+			ElseIf Not campaign_mode Then
 				reset()
 			End If
 		End If
@@ -1297,6 +1308,17 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	End If
 	If view.menu_tap(KEY_E) Then
 		use_object()
+	End If
+	If campaign_mode And view.menu_tap(KEY_Q) Then
+		If awakening Then
+			notify("ORAC: The restart is spreading. Return to the transit lift, then the Ash. Stay behind cover.")
+		ElseIf place = "surface" Then
+			notify("ORAC: Scan the depot workbenches for salvage and address records. The Ash needs a power coupler before departure.")
+		ElseIf place = "building" Then
+			notify("ORAC: Examine the rear console with E. Archive symbols form an ordered five-symbol lift address.")
+		Else
+			notify("ORAC: A compatible power signature is in the military chamber. The entry lift is our way back.")
+		End If
 	End If
 	If place = "surface" Then
 		bleed_city_2_tick(delta, view)
@@ -2279,13 +2301,21 @@ Sub use_object()
 	End If
 	If place = "surface" Then
 		If position_xz.distance_to(SHIP) < 7 Then
-			If inventory.has("regulator") And inventory.has("ignition") And inventory.has("coupler") Then
+			If inventory.has("coupler") And (campaign_mode Or (inventory.has("regulator") And inventory.has("ignition"))) Then
 				completed = True
 				awakening = False
 				audio.stop()
-				notify("ZEN: Coupler seated. Engines live. We are leaving!")
+				If campaign_mode Then
+					notify("ORAC: Power coupler installed, Jason. Engines live. First expedition complete.")
+				Else
+					notify("ZEN: Coupler seated. Engines live. We are leaving!")
+				End If
 			Else
-				notify("ASH: NEED PRESSURE REGULATOR / IGNITION CELL / REFLECTOR COUPLER.")
+				If campaign_mode Then
+					notify("ORAC: Our old power coupler cannot support a loaded departure. Search the archives for access to its replacement.")
+				Else
+					notify("ASH: NEED PRESSURE REGULATOR / IGNITION CELL / REFLECTOR COUPLER.")
+				End If
 			End If
 			Exit Sub
 		End If
@@ -2308,7 +2338,11 @@ Sub use_object()
 	ElseIf place = "building" Then
 		If building_index = 7 And position_xz.distance_to(Vector2(0, 21)) < 3.2 Then
 			If awakening Then
-				notify("ZEN: No time for another descent. Get to the ship!")
+				If campaign_mode Then
+					notify("ORAC: No time for another descent, Jason. Get to the ship!")
+				Else
+					notify("ZEN: No time for another descent. Get to the ship!")
+				End If
 			Else
 				keypad = True
 				sequence = ""
@@ -2327,7 +2361,11 @@ Sub use_object()
 					notify("Already salvaged. No compatible parts remain in this workshop.")
 				Else
 					inventory(item) = True
-					notify("Recovered ship "  & item  & ". Other containers here are empty.")
+					If campaign_mode Then
+						notify("ORAC: Intact " & item & " recovered. Keep it for appraisal at the station.")
+					Else
+						notify("Recovered ship "  & item  & ". Other containers here are empty.")
+					End If
 					pending_room = True
 				End If
 			Else
@@ -2380,7 +2418,11 @@ Sub start_lift(ByVal target As String)
 	place = "lift"
 	pending_room = True
 	If target <> "surface" Then
-		_t1 = "ZEN OFFLINE / Lift descending."
+		If campaign_mode Then
+			_t1 = "ORAC: Lift descending. Address recorded. Keep the ascent route clear."
+		Else
+			_t1 = "ZEN OFFLINE / Lift descending."
+		End If
 	Else
 		_t1 = "Emergency ascent / returning to the surface lobby."
 	End If
@@ -2417,6 +2459,7 @@ Sub take_coupler()
 		Exit Sub
 	End If
 	inventory("coupler") = True
+	keypad = False
 	awakening = True
 	countdown = 255
 	alarm_elapsed = 0
@@ -2424,7 +2467,11 @@ Sub take_coupler()
 	If repair_part <> Nothing Then
 		repair_part.visible = False
 	End If
-	notify("ZEN: RUN!")
+	If campaign_mode Then
+		notify("ORAC: Jason, RUN! Removing the power coupler broke the isolation interlock!")
+	Else
+		notify("ZEN: RUN!")
+	End If
 	If audio <> Nothing Then
 		audio.play()
 	End If
@@ -2439,6 +2486,8 @@ Sub retry_escape()
 	awakening = False
 	countdown = 255
 	alarm_elapsed = 0
+	alarm_pulse = 0
+	If audio <> Nothing Then audio.stop()
 	place = "floor"
 	floor_code = FEB_CODE
 	building_index = 7
@@ -2469,7 +2518,11 @@ Sub _tick_turrets(ByVal delta As Single)
 				damage_cooldown = 2
 				turret_flashes(i) = 0.2
 				velocity = velocity * 0.55
-				notify("ZEN: Turrets are live! Stay behind the buildings!")
+				If campaign_mode Then
+					notify("ORAC: Turrets are live! Stay behind the buildings!")
+				Else
+					notify("ZEN: Turrets are live! Stay behind the buildings!")
+				End If
 				If shield = 0 Then
 					failed = True
 					audio.stop()
@@ -2527,6 +2580,7 @@ Function prompt() As String
 	Dim _t2 As Variant
 	Call EnsureInit()
 	If completed Then
+		If campaign_mode Then Return "FIRST EXPEDITION COMPLETE / Esc: save or return to title"
 		Return "SHIP REPAIRED / Enter: restart prototype"
 	End If
 	If failed Then
@@ -2540,6 +2594,7 @@ Function prompt() As String
 	End If
 	If place = "surface" Then
 		If position_xz.distance_to(SHIP) < 7 Then
+			If campaign_mode Then Return "E: install recovered power coupler and launch the Ash / Q: Orac scan"
 			Return "E: install recovered parts and launch the Ash"
 		End If
 		index = nearest_building(15)
@@ -2571,9 +2626,14 @@ Function prompt() As String
 		If inventory.has("coupler") Then
 			_t2 = "Coupler recovered. Return to the lift behind you!"
 		Else
-			_t2 = "E at the amber service socket: take reflector coupler / lift behind you"
+			If campaign_mode Then
+				_t2 = "E at the amber service socket: take power coupler / lift behind you"
+			Else
+				_t2 = "E at the amber service socket: take reflector coupler / lift behind you"
+			End If
 		End If
 		Return _t2
 	End If
+	If campaign_mode Then Return "Explore this floor / Q: Orac scan / E at entry: return to surface"
 	Return "Explore this floor / E at entry: return to the surface"
 End Function

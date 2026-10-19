@@ -24,6 +24,7 @@ Dim ship_instruments As Node2D
 Dim buggy_instruments As Node2D
 Dim stars As Node2D
 Dim clouds As MeshInstance3D
+Dim ship As MeshInstance3D
 Dim city2 As Node3D
 Dim city2_output As SubViewport
 Dim city2_antialiasing As Variant
@@ -33,6 +34,11 @@ Dim city3_antialiasing As Variant
 Dim backlight_city As Node3D
 Dim backlight_city_cache As Node3D
 Dim backlight_yard As Node3D
+Dim campaign_yard As Node3D
+Dim external_view As SubViewport
+Dim external_camera As Camera3D
+Dim deck_view As SubViewport
+Dim deck As Node2D
 
 
 Function Num(ByVal value As Variant) As Single
@@ -196,6 +202,8 @@ Sub EnsureInit()
 	CYAN = Color(0.18, 0.86, 1.0)
 	PINK = Color(1.0, 0.24, 0.78)
 	KEYS = Array(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_F, KEY_E, KEY_V, KEY_BACKSPACE, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9)
+	KEYS.append(KEY_Q)
+	KEYS.append(KEY_F10)
 	held = New Dictionary
 	taps = New Dictionary
 	yard_key = ""
@@ -261,7 +269,58 @@ Sub _ready()
 	buggy_instruments.buggy = True
 	buggy_view.add_child(buggy_instruments)
 	_create_clouds()
+	ship = ClassDB.Instantiate("MeshInstance3D")
+	ship.name = "AshHull"
+	ship.visible = False
+	ship.cast_shadow = 0
+	viewport.add_child(ship)
+	' The dashboard's external monitor shares the landing world but culls the
+	' cloud layer, so it shows the chase view without the weather.
+	external_view = ClassDB.Instantiate("SubViewport")
+	external_view.size = Vector2i(320, 180)
+	external_view.own_world_3d = False
+	external_view.world_3d = viewport.find_world_3d()
+	external_view.transparent_bg = True
+	external_view.handle_input_locally = False
+	external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(external_view)
+	external_camera = ClassDB.Instantiate("Camera3D")
+	external_camera.near = 0.1
+	external_camera.far = 400.0
+	external_camera.cull_mask = 1
+	external_camera.current = True
+	external_view.add_child(external_camera)
+	deck_view = ClassDB.Instantiate("SubViewport")
+	deck_view.size = Vector2i(1000, 580)
+	deck_view.transparent_bg = True
+	deck_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(deck_view)
+	deck = ClassDB.Instantiate("Node2D")
+	deck.set_script(Load("res://landing_deck.vg"))
+	deck.position = Vector2(20, 20)
+	deck_view.add_child(deck)
+	deck.external = external_view.get_texture()
 End Sub
+
+Function landing_external(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single) As Texture2D
+	Dim forward As Variant
+	Dim right As Variant
+	Call EnsureInit()
+	forward = Vector3(Sin(yaw) * Cos(pitch), Sin(pitch), Cos(yaw) * Cos(pitch))
+	right = Vector3(0, 1, 0).cross(forward).normalized()
+	external_camera.transform = Transform3D(Basis(right, forward.cross(right), -forward), Vector3(x, y, z))
+	external_camera.fov = camera.fov
+	external_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return external_view.get_texture()
+End Function
+
+Function landing_deck(ByVal state As Dictionary) As Texture2D
+	Call EnsureInit()
+	deck.update_deck(state)
+	deck_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	deck_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	Return deck_view.get_texture()
+End Function
 
 Sub _add_cached_art(ByVal target As SubViewport, ByVal script_path As String)
 	Dim art_view As Variant
@@ -305,56 +364,62 @@ End Function
 Sub _create_clouds()
 	Dim mesh As Variant
 	Dim cloud_vertices As PackedVector3Array
+	Dim cloud_uvs As PackedVector2Array
 	Dim cloud_colors As PackedColorArray
-	Dim cloud_normals As PackedVector3Array
-	Dim sphere As Variant
-	Dim sphere_arrays As Variant
-	Dim points As PackedVector3Array
-	Dim normals As PackedVector3Array
-	Dim indices As PackedInt32Array
-	Dim side As Variant
-	Dim center As Variant
+	Dim cloud_indices As PackedInt32Array
 	Dim arrays As Variant
 	Dim material As Variant
 	Dim shader As Variant
-	Dim _t0 As Variant
+	Dim x As Single
+	Dim z As Single
+	Dim tint As Color
+	Dim base As Integer
 	Call EnsureInit()
 	clouds = ClassDB.Instantiate("MeshInstance3D")
 	mesh = ClassDB.Instantiate("ArrayMesh")
-	sphere = ClassDB.Instantiate("SphereMesh")
-	sphere.radial_segments = 16
-	sphere.rings = 8
-	sphere_arrays = sphere.get_mesh_arrays()
-	points = sphere_arrays(Mesh.ARRAY_VERTEX)
-	normals = sphere_arrays(Mesh.ARRAY_NORMAL)
-	indices = sphere_arrays(Mesh.ARRAY_INDEX)
-	For i = 0 To (36 - 1)
-		If i  Mod  2 = 0 Then
-			side = -1.0
+	For i = 0 To (8 - 1)
+		z = 40.0 + i * 38.0
+		If i Mod 2 = 0 Then
+			x = -18.0
 		Else
-			side = 1.0
+			x = 16.0
 		End If
-		center = Vector3(side * (20 + Sin(i * 2.4) * 4), 22 - i * 0.48, 30 + i * 16)
-		For puff = 0 To (3 - 1)
-			For Each index In AsArray(indices)
-				cloud_vertices.append(center + Vector3(puff * 4 - 4, Sin(puff * 2.0), 0) + points(index) * Vector3(12, 3.5, 6))
-				cloud_normals.append(Vector3(normals(index).x / 12.0, normals(index).y / 3.5, normals(index).z / 6.0).normalized())
-				cloud_colors.append(Color(0.16 + puff * 0.006, 0.21 + puff * 0.008, 0.28 + puff * 0.01))
-			Next
-		Next
+		tint = Color(0.82 + (i Mod 3) * 0.06, 0.88, 0.96)
+		base = i * 4
+		cloud_vertices.append(Vector3(x - 28.0, 8.0, z))
+		cloud_vertices.append(Vector3(x + 28.0, 8.0, z))
+		cloud_vertices.append(Vector3(x + 28.0, 26.0, z))
+		cloud_vertices.append(Vector3(x - 28.0, 26.0, z))
+		cloud_uvs.append(Vector2(0.0, 1.0))
+		cloud_uvs.append(Vector2(1.0, 1.0))
+		cloud_uvs.append(Vector2(1.0, 0.0))
+		cloud_uvs.append(Vector2(0.0, 0.0))
+		cloud_colors.append(tint)
+		cloud_colors.append(tint)
+		cloud_colors.append(tint)
+		cloud_colors.append(tint)
+		cloud_indices.append(base)
+		cloud_indices.append(base + 1)
+		cloud_indices.append(base + 2)
+		cloud_indices.append(base)
+		cloud_indices.append(base + 2)
+		cloud_indices.append(base + 3)
 	Next
 	arrays = Array()
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays(Mesh.ARRAY_VERTEX) = cloud_vertices
-	arrays(Mesh.ARRAY_NORMAL) = cloud_normals
+	arrays(Mesh.ARRAY_TEX_UV) = cloud_uvs
 	arrays(Mesh.ARRAY_COLOR) = cloud_colors
+	arrays(Mesh.ARRAY_INDEX) = cloud_indices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	material = ClassDB.Instantiate("ShaderMaterial")
-	shader = ClassDB.Instantiate("Shader")
-	shader = Load("res://shaders/presentation_08.gdshader")
+	shader = Load("res://shaders/landing_clouds.gdshader")
 	material.shader = shader
 	mesh.surface_set_material(0, material)
 	clouds.mesh = mesh
+	clouds.cast_shadow = 0
+	clouds.extra_cull_margin = 80.0
+	clouds.layers = 2
 	clouds.visible = False
 	viewport.add_child(clouds)
 End Sub
@@ -362,6 +427,127 @@ End Sub
 Sub landing_clouds()
 	Call EnsureInit()
 	clouds.visible = True
+End Sub
+
+Sub adopt_ship()
+	Dim canopy As Variant
+	Dim canopy_mesh As Variant
+	Dim canopy_vertices As PackedVector3Array
+	Dim canopy_colors As PackedColorArray
+	Dim canopy_arrays As Variant
+	Dim canopy_material As Variant
+	Call EnsureInit()
+	ship.mesh = _mesh()
+	vertices.clear()
+	colors.clear()
+	edges.clear()
+	edge_colors.clear()
+	If ship.get_child_count() > 0 Then Exit Sub
+	canopy = ClassDB.Instantiate("MeshInstance3D")
+	canopy_mesh = ClassDB.Instantiate("ArrayMesh")
+	canopy_vertices.append(Vector3(-0.72, 2.05, 1.5))
+	canopy_vertices.append(Vector3(0.0, 2.62, 1.75))
+	canopy_vertices.append(Vector3(0.0, 1.28, 4.35))
+	canopy_vertices.append(Vector3(0.72, 2.05, 1.5))
+	canopy_vertices.append(Vector3(0.0, 1.28, 4.35))
+	canopy_vertices.append(Vector3(0.0, 2.62, 1.75))
+	canopy_colors.append(Color(0.55, 0.92, 1.0, 0.55))
+	canopy_colors.append(Color(0.75, 0.96, 1.0, 0.4))
+	canopy_colors.append(Color(0.85, 0.98, 1.0, 0.28))
+	canopy_colors.append(Color(0.55, 0.92, 1.0, 0.55))
+	canopy_colors.append(Color(0.85, 0.98, 1.0, 0.28))
+	canopy_colors.append(Color(0.75, 0.96, 1.0, 0.4))
+	canopy_arrays = Array()
+	canopy_arrays.resize(Mesh.ARRAY_MAX)
+	canopy_arrays(Mesh.ARRAY_VERTEX) = canopy_vertices
+	canopy_arrays(Mesh.ARRAY_COLOR) = canopy_colors
+	canopy_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, canopy_arrays)
+	canopy_material = ClassDB.Instantiate("StandardMaterial3D")
+	canopy_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	canopy_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	canopy_material.vertex_color_use_as_albedo = True
+	canopy_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	canopy_mesh.surface_set_material(0, canopy_material)
+	canopy.mesh = canopy_mesh
+	canopy.cast_shadow = 0
+	ship.add_child(canopy)
+	Call _attach_flames()
+	ship.visible = False
+End Sub
+
+Sub place_ship(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal sc As Single, ByVal pitch As Single, ByVal yaw As Single, ByVal roll As Single)
+	Call EnsureInit()
+	ship.visible = True
+	ship.position = Vector3(x, y, z)
+	ship.rotation = Vector3(pitch, yaw, roll)
+	ship.scale = Vector3(sc, sc, sc)
+End Sub
+
+Sub _attach_flames()
+	Dim flames As Variant
+	Dim mesh As Variant
+	Dim flame_vertices As PackedVector3Array
+	Dim flame_uvs As PackedVector2Array
+	Dim flame_indices As PackedInt32Array
+	Dim arrays As Variant
+	Dim material As Variant
+	Dim shader As Variant
+	Dim side As Single
+	Dim i As Integer
+	Dim base As Integer
+	flames = ClassDB.Instantiate("MeshInstance3D")
+	mesh = ClassDB.Instantiate("ArrayMesh")
+	For i = 0 To 1
+		If i = 0 Then
+			side = -1.8
+		Else
+			side = 1.8
+		End If
+		base = flame_vertices.size()
+		flame_vertices.append(Vector3(side, 0.2, -2.75))
+		flame_vertices.append(Vector3(side, 1.15, -2.75))
+		flame_vertices.append(Vector3(side, 0.85, -6.4))
+		flame_vertices.append(Vector3(side, 0.4, -6.4))
+		flame_uvs.append(Vector2(0.0, 0.0))
+		flame_uvs.append(Vector2(1.0, 0.0))
+		flame_uvs.append(Vector2(1.0, 1.0))
+		flame_uvs.append(Vector2(0.0, 1.0))
+		flame_indices.append(base)
+		flame_indices.append(base + 1)
+		flame_indices.append(base + 2)
+		flame_indices.append(base)
+		flame_indices.append(base + 2)
+		flame_indices.append(base + 3)
+		base = flame_vertices.size()
+		flame_vertices.append(Vector3(side - 0.48, 0.63, -2.75))
+		flame_vertices.append(Vector3(side + 0.48, 0.63, -2.75))
+		flame_vertices.append(Vector3(side + 0.22, 0.63, -6.4))
+		flame_vertices.append(Vector3(side - 0.22, 0.63, -6.4))
+		flame_uvs.append(Vector2(0.0, 0.0))
+		flame_uvs.append(Vector2(1.0, 0.0))
+		flame_uvs.append(Vector2(1.0, 1.0))
+		flame_uvs.append(Vector2(0.0, 1.0))
+		flame_indices.append(base)
+		flame_indices.append(base + 1)
+		flame_indices.append(base + 2)
+		flame_indices.append(base)
+		flame_indices.append(base + 2)
+		flame_indices.append(base + 3)
+	Next
+	arrays = Array()
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays(Mesh.ARRAY_VERTEX) = flame_vertices
+	arrays(Mesh.ARRAY_TEX_UV) = flame_uvs
+	arrays(Mesh.ARRAY_INDEX) = flame_indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	material = ClassDB.Instantiate("ShaderMaterial")
+	shader = Load("res://shaders/landing_flame.gdshader")
+	material.shader = shader
+	mesh.surface_set_material(0, material)
+	flames.mesh = mesh
+	flames.cast_shadow = 0
+	flames.extra_cull_margin = 4.0
+	ship.add_child(flames)
 End Sub
 
 Sub sample_input()
@@ -392,6 +578,7 @@ Sub begin_frame(Optional backlight_active As Variant = False)
 	world_mesh.visible = False
 	frame_mesh.visible = False
 	clouds.visible = False
+	If ship <> Nothing Then ship.visible = False
 	If Not backlight_active Then
 		If camera.environment <> Nothing Then
 			camera.environment = Nothing
@@ -419,6 +606,7 @@ Sub begin_frame(Optional backlight_active As Variant = False)
 		city3_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	End If
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	If external_view <> Nothing Then external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 End Sub
 
 Sub segment(ByVal a As Vector3, ByVal b As Vector3, ByVal color As Color)
@@ -458,14 +646,17 @@ End Sub
 Function _mesh() As ArrayMesh
 	Dim mesh As Variant
 	Dim arrays As Variant
+	Dim src_edges As PackedVector3Array
+	Dim src_colors As PackedColorArray
 	Dim line_vertices As PackedVector3Array
 	Dim line_normals As PackedVector3Array
 	Dim line_colors As PackedColorArray
 	Dim line_uvs As PackedVector2Array
-	Dim index As Variant
+	Dim n As Integer
+	Dim i As Integer
 	Call EnsureInit()
 	mesh = ClassDB.Instantiate("ArrayMesh")
-	If Not vertices.is_empty() Then
+	If vertices.size() > 0 Then
 		arrays = Array()
 		arrays.resize(Mesh.ARRAY_MAX)
 		arrays(Mesh.ARRAY_VERTEX) = vertices
@@ -473,16 +664,47 @@ Function _mesh() As ArrayMesh
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		mesh.surface_set_material(mesh.get_surface_count() - 1, face_material)
 	End If
-	If Not edges.is_empty() Then
-		For i = 0 To (edges.size() - 1) Step 2
-			For Each corner In Array(Vector2(0, -1), Vector2(0, 1), Vector2(1, 1), Vector2(0, -1), Vector2(1, 1), Vector2(1, -1))
-				index = i + Int(corner.x)
-				line_vertices.append(edges(index))
-				line_normals.append(edges(i + 1) - edges(i))
-				line_colors.append(edge_colors(index))
-				line_uvs.append(Vector2(corner.y, 0))
-			Next
+	If edges.size() > 0 Then
+		' Locals so the Step-2 ribbon body compiles to one native expand.
+		' Stop at the shorter even length so a deduped edge list cannot
+		' subscript past its colors.
+		src_edges = edges
+		src_colors = edge_colors
+		n = src_edges.size()
+		If src_colors.size() < n Then
+			n = src_colors.size()
+		End If
+		If (n Mod 2) = 1 Then
+			n = n - 1
+		End If
+		If n > 0 Then
+		For i = 0 To (n - 1) Step 2
+			line_vertices.append(src_edges(i))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i))
+			line_uvs.append(Vector2(-1, 0))
+			line_vertices.append(src_edges(i))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i))
+			line_uvs.append(Vector2(1, 0))
+			line_vertices.append(src_edges(i + 1))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i + 1))
+			line_uvs.append(Vector2(1, 0))
+			line_vertices.append(src_edges(i))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i))
+			line_uvs.append(Vector2(-1, 0))
+			line_vertices.append(src_edges(i + 1))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i + 1))
+			line_uvs.append(Vector2(1, 0))
+			line_vertices.append(src_edges(i + 1))
+			line_normals.append(src_edges(i + 1) - src_edges(i))
+			line_colors.append(src_colors(i + 1))
+			line_uvs.append(Vector2(-1, 0))
 		Next
+		End If
 		arrays = Array()
 		arrays.resize(Mesh.ARRAY_MAX)
 		arrays(Mesh.ARRAY_VERTEX) = line_vertices
@@ -710,6 +932,26 @@ Sub start_backlight_yard()
 	backlight_city.notify("BACKLIGHT YARD / Press halls, stepped towers and the deep transit depot.")
 End Sub
 
+Function prepare_campaign_yard() As Object
+	Call EnsureInit()
+	If campaign_yard = Nothing Then
+		campaign_yard = SpawnVg("res://backlight_exploration.vg", "Node3D")
+		campaign_yard.name = "CampaignYard"
+		campaign_yard.EnsureInit()
+		campaign_yard.yard_mode = True
+		campaign_yard.campaign_mode = True
+		viewport.add_child(campaign_yard)
+		campaign_yard.build(Me)
+		campaign_yard.deactivate()
+	End If
+	Return campaign_yard
+End Function
+
+Sub activate_campaign_yard()
+	Call leave_backlight()
+	backlight_city = campaign_yard
+End Sub
+
 Sub tick_backlight_city(ByVal delta As Single)
 	Call EnsureInit()
 	backlight_city.tick(delta, Me)
@@ -751,10 +993,11 @@ Sub end_yard()
 	edge_colors.clear()
 End Sub
 
-Function present(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal distance As Single) As Texture2D
+Function present(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal distance As Single, Optional roll As Variant = 0.0) As Texture2D
 	Dim antialiasing As Variant
 	Dim forward As Variant
 	Dim right As Variant
+	Dim up As Variant
 	Call EnsureInit()
 	antialiasing = Viewport.MSAA_DISABLED
 	If backlight_city <> Nothing And backlight_city.visible Then
@@ -769,7 +1012,12 @@ Function present(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal 
 	End If
 	forward = Vector3(Sin(yaw) * Cos(pitch), Sin(pitch), Cos(yaw) * Cos(pitch))
 	right = Vector3(0, 1, 0).cross(forward).normalized()
-	camera.transform = Transform3D(Basis(right, forward.cross(right), -forward), Vector3(x, y, z))
+	up = forward.cross(right)
+	If roll <> 0.0 Then
+		right = right * Cos(roll) + up * Sin(roll)
+		up = forward.cross(right)
+	End If
+	camera.transform = Transform3D(Basis(right, up, -forward), Vector3(x, y, z))
 	camera.fov = ((2.0 * Atan2(270.0 / 520.0, 1.0)) * 57.29577951308232)
 	camera.far = Max(distance, 50.0)
 	If Not edges.is_empty() Or Not vertices.is_empty() Then

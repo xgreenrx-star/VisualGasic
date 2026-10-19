@@ -124,6 +124,12 @@ func _run() -> void:
 		game.set("ship_alt", -0.4)
 		game.set("next_ring", 5)
 		game.set("landing_speed", 16.8)
+		if OS.get_environment("ASH_LAND_Z") != "":
+			game.set("ship_z", float(OS.get_environment("ASH_LAND_Z")))
+			game.set("next_ring", int((float(OS.get_environment("ASH_LAND_Z")) - 26.0) / 20.0) + 1)
+		if OS.get_environment("ASH_LAND_HURT") != "":
+			game.set("hurt", float(OS.get_environment("ASH_LAND_HURT")))
+			game.set("ring_miss", 1)
 	game.set("clock", 8.0)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	# Warm the geometry cache separately from steady-state camera frames.
@@ -159,6 +165,7 @@ func _run() -> void:
 							text_pixels += 1
 				check(text_pixels > 30, "Landing captions remain visible over the cloud scene")
 	await check_gameplay(game, renderer)
+	await check_landing_view(game, renderer)
 	await check_landing(game)
 	check_terminal(game)
 	await check_cache(game, renderer)
@@ -238,6 +245,38 @@ func check_cache(game: Node, renderer: Node) -> void:
 	await process_frame
 	check(renderer.rebuild_count == rebuilds + 3, "Detail changes refresh the cache")
 	check(renderer.world_mesh.mesh.surface_get_array_len(0) > 0, "Low detail retains opaque hull and building faces")
+
+func project_gate(game: Node, renderer: Node, ring: int, x_off: float, alt_off: float, bank: float) -> Dictionary:
+	game.call("StartRun")
+	game.set("phase", 1)
+	game.set("next_ring", ring)
+	var rz: float = 26.0 + ring * 20.0
+	game.set("ship_z", rz - 14.0)
+	game.set("ship_x", float(game.call("RingOff", ring)) + x_off / 7.0)
+	game.set("ship_alt", float(game.call("RingLift", ring)) + alt_off)
+	game.set("ship_bank", bank)
+	game.set("ship_yaw_aim", -0.34 * signf(bank))
+	game.set("ship_pitch", -0.36)
+	game.queue_redraw()
+	await process_frame
+	var camera: Camera3D = renderer.get("camera")
+	var centre := Vector3(float(game.call("RingOff", ring)) * 7.0, float(game.call("GlideY", rz)) + float(game.call("RingLift", ring)), rz)
+	var right_vec: Vector3 = camera.global_transform.basis.x.normalized()
+	var p: Vector2 = camera.unproject_position(centre)
+	var edge: Vector2 = camera.unproject_position(centre + right_vec * 2.15)
+	return {"offset": p - Vector2(480, 270), "radius": p.distance_to(edge)}
+
+func check_landing_view(game: Node, renderer: Node) -> void:
+	# The cockpit marker sits at the 3D view's centre; what the pilot sees must agree with TickApproach.
+	var deck: Node2D = renderer.get("deck")
+	check(deck.call("marker_centre") + deck.position - Vector2(20, 20) == Vector2(480, 270), "The cockpit marker is drawn at the 3D view's centre")
+	var aligned: Dictionary = await project_gate(game, renderer, 5, 0.0, 0.0, 0.6)
+	check(aligned.offset.length() < 2.0, "An aligned landing gate is centred on the cockpit marker even while banked")
+	var inside: Dictionary = await project_gate(game, renderer, 9, 1.6, -0.9, -0.5)
+	check(inside.offset.length() < inside.radius and inside.offset.x < 0.0 and inside.offset.y < 0.0, "A gate offset up-left but within reach still encloses the marker")
+	var outside: Dictionary = await project_gate(game, renderer, 9, 2.4, 0.0, 0.0)
+	check(outside.offset.length() > outside.radius, "A gate the hull would miss does not enclose the marker")
+	game.call("StartRun")
 
 func check_landing(game: Node) -> void:
 	game.call("StartRun")

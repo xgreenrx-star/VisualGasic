@@ -1,6 +1,11 @@
 # Ash Meridian — Part 1
 
-Jonah Hale brings the Ash down on Narcea. Zen fails on the way in. The coupling the ship needs is in a stasis chamber under the yard, with Feb still shut down inside it. Taking it brings Zen back, and the yard guns with her.
+Jason scavenges Narcea with Orac, the Ash's onboard assistant. The campaign
+uses Backlight Yard's buildings, materials, distance fog and sky. Orac remains
+online throughout this first expedition and helps Jason locate salvage and
+the power coupler needed for a loaded departure. Removing that coupler from
+the underground chamber breaks its isolation interlock and awakens the FEB
+(Field Enforcement Body).
 
 ## Play
 
@@ -9,6 +14,70 @@ Open this folder in Godot 4.6 with Visual Gasic enabled and press F5.
 ```bash
 ./Godot_v4.6.1-stable_linux.x86_64 --path samples/games/ash_meridian_part1
 ```
+
+### Current campaign increment
+
+**Play** starts with Orac's approach warning, then the landing rings. The
+landing is flown from the Ash's flight deck. The green marker in the centre of
+the canopy is exactly where the hull will cross; keep it inside the orange ring
+as the ring reaches you. The canopy shakes with speed,
+cloud banks and hull strikes, and the dashboard carries Orac's descent scope
+(upcoming rings), an external chase-camera monitor (no clouds), hull-stress and
+thrust traces, glide altitude, the gate counter and status lamps. Strikes crack
+the canopy and fill the monitors with static. When the bay opens, the buggy
+rolls out into Jason's Backlight Yard expedition with Orac online. Search the depot consoles for five ordered alien
+symbols, enter the address in the transit depot, explore underground, and
+recover the chamber's power coupler. Escape to the Ash before the 255-second
+alarm expires. The campaign launch gate requires the coupler, not the
+prototype's additional regulator and ignition parts.
+
+| Control | Campaign action |
+|---|---|
+| W / S, Up / Down | Walk or accelerate/brake/reverse the buggy |
+| A / D, Left / Right | Turn |
+| F | Enter/leave the buggy; cancel the lift keypad |
+| E | Enter/leave a depot, examine consoles, collect parts, use a lift or board the Ash |
+| Q | Ask Orac for a location-sensitive scan or escape hint |
+| 0–9, Backspace, Enter | Enter, correct and submit a five-symbol lift address |
+| V | Cycle street, district and buggy-inspection views |
+| Esc | Pause; resume, save, return to title or change options |
+| F10 | Resume the current campaign after visiting a dev destination |
+
+Campaign **Save** writes a validated, versioned
+`user://ash_meridian_campaign.cfg` through an adjacent temporary file and
+atomic replacement. **Continue** restores the expedition, including the
+parked buggy, interior/lift position, inventory, journal and remaining alarm
+time. Invalid or unsupported saves show an explanation rather than silently
+starting over. Legacy `user://ash_meridian_save.txt` saves are untouched and
+are not automatically migrated. Dev Backlight Yard is a separate instance;
+its reset, pickups and save command cannot alter the campaign expedition.
+
+This increment ends at the first-departure overlay. It does **not** start
+the old reflection encounter or restart the prototype. Finite saleable cargo,
+protected mission inventory, new underground gates/checkpoints, flight,
+station trading, the matched-component return contract and the return-only
+EMP/FEB encounter remain planned. Stacy remains Jason's partner.
+See the current [campaign revision](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md).
+
+Run the VG campaign regression (it uses a process-specific test save):
+
+```bash
+./Godot_v4.6.1-stable_linux.x86_64 --headless \
+  --path samples/games/ash_meridian_part1 \
+  --script /absolute/path/to/VisualGasic/test_proj/run_suite.gd \
+  -- res://test_campaign.vg
+```
+
+For rendered captures, create an output directory, set `ASH_CAMPAIGN_CAPTURE`
+to its absolute path, omit `--headless`, and add
+`--rendering-method gl_compatibility` (or run under `xvfb-run -a`).
+
+### Legacy chapter / dev reference
+
+The original chapter remains accessible through the dev terminal for reference.
+The following table documents that **superseded Jonah/Zen storyline**, not
+the default Play campaign. Its landing, canyon and reflection beats have not
+been connected to the revised campaign.
 
 | Beat | What you do |
 |---|---|
@@ -31,13 +100,14 @@ The pilot is Jonah Hale. The Ludo ring runner is only the canyon beat.
 
 ## Bleed City 2: reference-art district
 
-The dev terminal has separate **BLEED CITY** (Cursor's original),
-**BLEED CITY 2**, and **BLEED CITY 3** destinations. The chapter yard and
+The dev terminal keeps the live scenes on the first list. Older destinations,
+including **BLEED CITY** (Cursor's original), **BLEED CITY 2**, and **BLEED CITY 3**,
+are under **ARCHIVE**. The chapter yard and
 the earlier cities are unchanged. City 3 is the open scaffold district:
 see-through halls, a dark road with cyan rails, grid silos, and magenta
 searchlights.
 To open the existing hidden terminal, tap Up, Up, Down, Down, Left, Right,
-Left, Right, B, A, B, A. Select **BLEED CITY 2** and press Enter.
+Left, Right, B, A, B, A. Open **ARCHIVE**, select **BLEED CITY 2**, and press Enter.
 
 This is an independent, explorable art/asset demo, not a replacement chapter.
 The visual references are catalogued in [reference/ludo/README.md](reference/ludo/README.md).
@@ -93,11 +163,10 @@ pickups, collisions, pause/resume, return to Cursor's city, and mesh reuse.
 
 ### Backlight Yard
 
-The hidden terminal now has a separate **BACKLIGHT YARD** destination after
-Backlight City (destination 15, phase 18). Open it with Up, Up, Down, Down,
-Left, Right, Left, Right, B, A, B, A; Up from the first row selects the new
-destination, then Enter opens it. The terminal scrolls to keep the selection
-visible. The original yard and every existing city remain separate.
+The hidden terminal keeps **BACKLIGHT YARD** on the main scene list (phase 18).
+Open it with Up, Up, Down, Down, Left, Right, Left, Right, B, A, B, A, move to
+**BACKLIGHT YARD**, then Enter. **BACKLIGHT CITY** is in **ARCHIVE**. The original
+yard and every existing city remain separate.
 
 This district combines the chapter yard's stepped tower profiles and industrial
 press-hall architecture with Backlight's opaque satin shells, cyan circuit
@@ -302,7 +371,7 @@ ASH_VIEW=turret ASH_CAPTURE=/tmp/ash-turret.png xvfb-run -a \
   --rendering-method gl_compatibility --script test_part1.gd
 ```
 
-`ASH_VIEW` accepts `cockpit`, `landing`, `turret`, or `city`; unset it for the buggy's yard
+`ASH_VIEW` accepts `cockpit`, `landing`, `turret`, or `city`; with `landing`, `ASH_LAND_Z` moves the ship along the course (for example `188` is inside a cloud bank) and `ASH_LAND_HURT` (for example `0.8`) captures an active hull strike; unset it for the buggy's yard
 view. The checks restore the options file to its original bytes and do not
 write a game save. `YARD_FRAME_US` measures warmed redraws; `GAMEPLAY_FRAME_US`
 includes real process callbacks while holding W to drive the buggy. Neither

@@ -1,0 +1,290 @@
+' Ash flight deck for the landing approach. Presentation renders this into a
+' 1000x580 SubViewport (20 px bleed on every side) so part1 can shake the whole
+' cockpit without exposing its edges.
+Dim __ready As Boolean
+Dim CYAN As Variant
+Dim PINK As Variant
+Dim AMBER As Variant
+Dim RED As Variant
+Dim GREEN As Variant
+Dim INK As Variant
+Dim PANEL As Variant
+Dim external As Variant
+Dim state As Variant
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	CYAN = Color(0.2, 0.88, 1.0)
+	PINK = Color(1.0, 0.26, 0.78)
+	AMBER = Color(1.0, 0.58, 0.16)
+	RED = Color(1.0, 0.18, 0.24)
+	GREEN = Color(0.34, 1.0, 0.52)
+	INK = Color(0.008, 0.01, 0.022)
+	PANEL = Color(0.024, 0.03, 0.055)
+	state = New Dictionary
+End Sub
+
+Sub update_deck(ByVal next_state As Dictionary)
+	Call EnsureInit()
+	state = next_state
+	queue_redraw()
+End Sub
+
+Function S(ByVal key As String) As Single
+	If state.has(key) Then
+		S = state(key)
+	Else
+		S = 0.0
+	End If
+End Function
+
+Function Pad3(ByVal value As Integer) As String
+	Dim text As String
+	text = Str(value)
+	While Len(text) < 3
+		text = "0" & text
+	Wend
+	Pad3 = text
+End Function
+
+Function Pts(ByVal items As Array) As PackedVector2Array
+	Return PackedVector2Array(items)
+End Function
+
+Sub Glow(ByVal points As PackedVector2Array, ByVal color As Color, ByVal width As Single)
+	draw_polyline(points, Fade(color, 0.12), width + 5.0, True)
+	draw_polyline(points, color, width, True)
+End Sub
+
+Sub Bezel(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal color As Color)
+	draw_rect(Rect2(x - 4, y - 4, w + 8, h + 8), PANEL)
+	draw_rect(Rect2(x, y, w, h), INK)
+	Glow(Pts(Array(Vector2(x - 4, y - 4), Vector2(x + w + 4, y - 4), Vector2(x + w + 4, y + h + 4), Vector2(x - 4, y + h + 4), Vector2(x - 4, y - 4))), Fade(color, 0.7), 1.2)
+End Sub
+
+Sub Scanlines(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single)
+	Dim row As Single
+	row = y + 1.0
+	While row < y + h
+		draw_line(Vector2(x, row), Vector2(x + w, row), Color(0, 0, 0, 0.28), 1.0)
+		row = row + 3.0
+	Wend
+End Sub
+
+Sub Snow(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal amount As Single, ByVal seed As Single)
+	Dim i As Integer
+	Dim n As Integer
+	Dim px As Single
+	Dim py As Single
+	Dim v As Single
+	n = Int(amount * 260.0)
+	For i = 0 To n - 1
+		v = Abs(Sin(seed * 12.9898 + i * 78.233) * 43758.5453)
+		v = v - Int(v)
+		px = x + v * (w - 3.0)
+		v = Abs(Sin(seed * 39.3468 + i * 11.135) * 24634.6345)
+		v = v - Int(v)
+		py = y + v * (h - 2.0)
+		draw_rect(Rect2(px, py, 3, 2), Color(0.82, 0.86, 0.9, 0.35 + v * 0.5))
+	Next
+End Sub
+
+Function Fade(ByVal c As Color, ByVal a As Single) As Color
+	Fade = Color(c.r, c.g, c.b, c.a * a)
+End Function
+
+Sub Caption(ByVal font As Variant, ByVal x As Single, ByVal y As Single, ByVal text As String, ByVal size As Integer, ByVal color As Color)
+	draw_string(font, Vector2(x, y), text, 0, -1, size, color)
+End Sub
+
+Sub DrawCanopy(ByVal t As Single, ByVal miss As Integer, ByVal cloud As Single)
+	Dim i As Integer
+	Dim x As Single
+	' Glass catches cloud light: faint streaks drift outward while inside a bank.
+	If cloud > 0.05 Then
+		For i = 0 To 13
+			x = 220.0 + i * 41.0 + Sin(t * 3.0 + i) * 9.0
+			draw_line(Vector2(x, 90.0 + (i Mod 4) * 60.0), Vector2(x + (x - 480.0) * 0.08, 132.0 + (i Mod 4) * 60.0), Color(0.75, 0.88, 1.0, cloud * 0.22), 1.0, True)
+		Next
+	End If
+	draw_line(Vector2(240, 96), Vector2(330, 200), Color(0.6, 0.85, 1.0, 0.05), 6.0, True)
+	draw_line(Vector2(640, 92), Vector2(700, 160), Color(0.6, 0.85, 1.0, 0.04), 4.0, True)
+	If miss >= 1 Then
+		Glow(Pts(Array(Vector2(612, 118), Vector2(646, 104), Vector2(672, 130), Vector2(700, 112), Vector2(731, 126))), Color(0.86, 0.95, 1.0, 0.55), 1.0)
+		Glow(Pts(Array(Vector2(646, 104), Vector2(652, 74))), Color(0.86, 0.95, 1.0, 0.45), 1.0)
+		Glow(Pts(Array(Vector2(672, 130), Vector2(668, 168), Vector2(690, 196))), Color(0.86, 0.95, 1.0, 0.45), 1.0)
+	End If
+	' Frame: brow, two canopy posts with side glass beyond, and the coaming.
+	draw_polygon(Pts(Array(Vector2(-20, -20), Vector2(980, -20), Vector2(980, 50), Vector2(870, 50), Vector2(808, 80), Vector2(152, 80), Vector2(90, 50), Vector2(-20, 50))), PackedColorArray(Array(PANEL, PANEL, INK, INK, INK, INK, INK, INK)))
+	draw_polygon(Pts(Array(Vector2(-20, 50), Vector2(24, 54), Vector2(4, 404), Vector2(-20, 410))), PackedColorArray(Array(INK, INK, INK, INK)))
+	draw_polygon(Pts(Array(Vector2(980, 50), Vector2(936, 54), Vector2(956, 404), Vector2(980, 410))), PackedColorArray(Array(INK, INK, INK, INK)))
+	draw_polygon(Pts(Array(Vector2(90, 50), Vector2(152, 80), Vector2(200, 372), Vector2(132, 384))), PackedColorArray(Array(PANEL, INK, INK, PANEL)))
+	draw_polygon(Pts(Array(Vector2(870, 50), Vector2(808, 80), Vector2(760, 372), Vector2(828, 384))), PackedColorArray(Array(PANEL, INK, INK, PANEL)))
+	Glow(Pts(Array(Vector2(24, 54), Vector2(90, 50), Vector2(152, 80), Vector2(808, 80), Vector2(870, 50), Vector2(936, 54))), CYAN, 1.6)
+	Glow(Pts(Array(Vector2(152, 80), Vector2(200, 372))), CYAN, 1.6)
+	Glow(Pts(Array(Vector2(808, 80), Vector2(760, 372))), CYAN, 1.6)
+	Glow(Pts(Array(Vector2(90, 50), Vector2(132, 384))), Fade(PINK, 0.65), 1.0)
+	Glow(Pts(Array(Vector2(870, 50), Vector2(828, 384))), Fade(PINK, 0.65), 1.0)
+	Glow(Pts(Array(Vector2(24, 54), Vector2(4, 404))), Fade(CYAN, 0.55), 1.0)
+	Glow(Pts(Array(Vector2(936, 54), Vector2(956, 404))), Fade(CYAN, 0.55), 1.0)
+	For i = 0 To 5
+		draw_circle(Vector2(118 + i * 3.6, 120 + i * 48), 2.0, Fade(CYAN, 0.5))
+		draw_circle(Vector2(842 - i * 3.6, 120 + i * 48), 2.0, Fade(CYAN, 0.5))
+	Next
+End Sub
+
+Function marker_centre() As Vector2
+	Return Vector2(480, 270)
+End Function
+
+Sub DrawMarker(ByVal steer As Single, ByVal lift As Single)
+	Dim c As Vector2
+	c = marker_centre()
+	draw_arc(c, 11.0, 0.0, PI * 2.0, 24, Fade(GREEN, 0.85), 1.4, True)
+	draw_line(c + Vector2(-34, 0), c + Vector2(-13, 0), Fade(GREEN, 0.85), 1.4, True)
+	draw_line(c + Vector2(13, 0), c + Vector2(34, 0), Fade(GREEN, 0.85), 1.4, True)
+	draw_line(c + Vector2(0, -13), c + Vector2(0, -22), Fade(GREEN, 0.85), 1.4, True)
+	draw_line(c + Vector2(-48 + steer * 6, -lift * 6), c + Vector2(-40 + steer * 6, -lift * 6), Fade(GREEN, 0.5), 1.0)
+	draw_line(c + Vector2(40 + steer * 6, -lift * 6), c + Vector2(48 + steer * 6, -lift * 6), Fade(GREEN, 0.5), 1.0)
+End Sub
+
+Sub DrawDash(ByVal font As Variant, ByVal t As Single)
+	Dim alarm As Boolean
+	alarm = S("hurt") > 0.0 Or S("failed") > 0.5
+	draw_polygon(Pts(Array(Vector2(-20, 410), Vector2(4, 404), Vector2(132, 384), Vector2(200, 372), Vector2(760, 372), Vector2(828, 384), Vector2(956, 404), Vector2(980, 410), Vector2(980, 560), Vector2(-20, 560))), PackedColorArray(Array(PANEL, PANEL, PANEL, PANEL, PANEL, PANEL, PANEL, PANEL, INK, INK)))
+	draw_polygon(Pts(Array(Vector2(286, 372), Vector2(316, 356), Vector2(644, 356), Vector2(674, 372))), PackedColorArray(Array(INK, INK, INK, INK)))
+	Glow(Pts(Array(Vector2(4, 404), Vector2(132, 384), Vector2(200, 372), Vector2(286, 372), Vector2(316, 356), Vector2(644, 356), Vector2(674, 372), Vector2(760, 372), Vector2(828, 384), Vector2(956, 404))), CYAN, 1.8)
+	If alarm And Int(t * 6.0) Mod 2 = 0 Then
+		Glow(Pts(Array(Vector2(316, 356), Vector2(644, 356))), RED, 2.2)
+	Else
+		Glow(Pts(Array(Vector2(330, 360), Vector2(630, 360))), Fade(PINK, 0.6), 1.0)
+	End If
+	Caption(font, 410, 369, "ASH  //  DESCENT DECK", 10, Fade(CYAN, 0.8))
+	Call DrawScope(font, t)
+	Call DrawExternal(font, t)
+	Call DrawBank(font, t)
+End Sub
+
+Sub DrawScope(ByVal font As Variant, ByVal t As Single)
+	Dim c As Vector2
+	Dim i As Integer
+	Dim a As Single
+	Dim cue As Vector3
+	Dim p As Vector2
+	Dim cues As Variant
+	Dim r As Single
+	Call Bezel(22, 392, 244, 120, CYAN)
+	c = Vector2(144, 504)
+	For i = 1 To 4
+		draw_arc(c, i * 23.0, PI, PI * 2.0, 36, Fade(CYAN, 0.22 + i * 0.05), 1.0, True)
+	Next
+	draw_line(c, c + Vector2(-112, 0), Fade(CYAN, 0.3), 1.0)
+	draw_line(c, c + Vector2(112, 0), Fade(CYAN, 0.3), 1.0)
+	draw_line(c, c + Vector2(0, -96), Fade(CYAN, 0.3), 1.0)
+	a = PI + (t * 1.7 - Int(t * 1.7 / PI) * PI)
+	draw_line(c, c + Vector2(Cos(a), Sin(a)) * 94.0, Fade(GREEN, 0.55), 1.5, True)
+	cues = state.get("cues", Array())
+	For i = cues.size() - 1 To 0 Step -1
+		cue = cues(i)
+		r = cue.z / 90.0 * 94.0
+		If r > 94.0 Then r = 94.0
+		p = c + Vector2(cue.x * 9.0, -r)
+		If p.x < 34 Then p.x = 34
+		If p.x > 254 Then p.x = 254
+		If i = 0 Then
+			draw_circle(p, 5.0, AMBER)
+			draw_arc(p, 9.0 + Sin(t * 8.0) * 2.0, 0.0, PI * 2.0, 18, Fade(AMBER, 0.6), 1.0, True)
+		Else
+			draw_circle(p, 3.5, Fade(CYAN, 0.85))
+		End If
+	Next
+	draw_rect(Rect2(c.x - 5, c.y - 8, 10, 8), Fade(GREEN, 0.9))
+	Call Scanlines(22, 392, 244, 120)
+	Caption(font, 30, 410, "ORAC DESCENT SCOPE", 10, Fade(CYAN, 0.9))
+	Caption(font, 196, 410, "RNG " & Pad3(Int(S("range"))), 10, AMBER)
+	If S("hurt") > 0.0 Then Call Snow(22, 392, 244, 120, S("hurt"), Int(t * 20.0))
+End Sub
+
+Sub DrawExternal(ByVal font As Variant, ByVal t As Single)
+	Call Bezel(300, 392, 260, 124, PINK)
+	If external <> Nothing Then draw_texture_rect(external, Rect2(300, 392, 260, 124), False)
+	Call Scanlines(300, 392, 260, 124)
+	Caption(font, 308, 406, "EXT CAM 02  //  HULL", 10, Fade(PINK, 0.95))
+	If Int(t * 2.0) Mod 2 = 0 Then draw_circle(Vector2(548, 402), 3.5, RED)
+	If S("hurt") > 0.0 Then Call Snow(300, 392, 260, 124, S("hurt") * 1.4, Int(t * 24.0) + 7)
+	If S("cloud") > 0.35 Then Call Snow(300, 392, 260, 124, (S("cloud") - 0.35) * 0.5, Int(t * 18.0) + 3)
+End Sub
+
+Sub Wave(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal t As Single, ByVal freq As Single, ByVal jag As Single, ByVal square As Boolean, ByVal color As Color)
+	Dim pts As PackedVector2Array
+	Dim i As Integer
+	Dim v As Single
+	For i = 0 To 40
+		v = Sin(i * freq * 0.3 - t * 7.0)
+		If square Then
+			If v >= 0 Then
+				v = 0.8
+			Else
+				v = -0.8
+			End If
+		End If
+		v = v + Sin(i * 7.31 + t * 41.0) * jag
+		pts.append(Vector2(x + 4 + i * (w - 8) / 40.0, y + h * 0.58 - v * h * 0.26))
+	Next
+	draw_polyline(pts, Fade(color, 0.18), 4.0, True)
+	draw_polyline(pts, color, 1.3, True)
+End Sub
+
+Sub DrawBank(ByVal font As Variant, ByVal t As Single)
+	Dim jag As Single
+	Dim i As Integer
+	Dim lamp As Color
+	Dim align As Single
+	jag = S("hurt") * 0.9 + S("cloud") * 0.25 + S("miss") * 0.12
+	Call Bezel(596, 392, 164, 48, PINK)
+	Call Wave(596, 392, 164, 48, t, 2.2, jag, False, PINK)
+	Caption(font, 602, 404, "HULL STRESS", 9, Fade(PINK, 0.95))
+	Call Bezel(776, 392, 164, 48, CYAN)
+	Call Wave(776, 392, 164, 48, t * (1.0 + Abs(S("lift")) * 0.8), 3.4, jag * 0.4, True, CYAN)
+	Caption(font, 782, 404, "THRUST  " & Pad3(Int(S("speed") * 6.0)), 9, Fade(CYAN, 0.95))
+	Call Bezel(596, 452, 164, 48, GREEN)
+	Caption(font, 602, 464, "GLIDE ALT", 9, Fade(GREEN, 0.9))
+	Caption(font, 604, 494, Pad3(Int(S("alt") * 10.0)) & " DM", 22, GREEN)
+	draw_rect(Rect2(728, 458, 8, 36), Fade(GREEN, 0.15))
+	draw_rect(Rect2(728, 494 - Min(36.0, S("alt") * 1.5), 8, Min(36.0, S("alt") * 1.5)), GREEN)
+	Call Bezel(776, 452, 164, 48, AMBER)
+	Caption(font, 782, 464, "GATE", 9, Fade(AMBER, 0.9))
+	Caption(font, 784, 494, Pad3(Int(S("gate"))) & "/" & Pad3(Int(S("rings"))), 22, AMBER)
+	Call Scanlines(596, 392, 344, 108)
+	If S("hurt") > 0.0 Then
+		Call Snow(596, 392, 164, 48, S("hurt"), Int(t * 22.0) + 11)
+		Call Snow(776, 452, 164, 48, S("hurt") * 0.7, Int(t * 22.0) + 5)
+	End If
+	align = S("align")
+	For i = 0 To 5
+		lamp = Fade(GREEN, 0.85)
+		If i = 0 And align > 0.7 And Int(t * 5.0) Mod 2 = 0 Then lamp = AMBER
+		If i = 1 And S("miss") >= 1 Then lamp = RED
+		If i = 2 And S("miss") >= 2 Then lamp = RED
+		If i = 3 And S("cloud") > 0.2 Then lamp = Color(0.85, 0.9, 1.0)
+		If i = 4 And Int(t * 1.3 + 0.5) Mod 3 = 0 Then lamp = Color(0.05, 0.06, 0.08)
+		If i = 5 And S("hurt") > 0.0 And Int(t * 8.0) Mod 2 = 0 Then lamp = RED
+		draw_rect(Rect2(600 + i * 57, 510, 48, 12), Fade(lamp, 0.25))
+		draw_rect(Rect2(604 + i * 57, 513, 40, 6), lamp)
+	Next
+	Caption(font, 602, 534, "ALGN         STR1         STR2          WX           LNK          MSTR", 9, Fade(CYAN, 0.6))
+End Sub
+
+Sub _draw()
+	Dim font As Variant
+	Dim t As Single
+	Call EnsureInit()
+	font = ThemeDB.fallback_font
+	t = S("t")
+	Call DrawCanopy(t, Int(S("miss")), S("cloud"))
+	Call DrawMarker(S("steer"), S("lift"))
+	Call DrawDash(font, t)
+	Caption(font, 26, 532, "A/D STEER   W/S LIFT   THREAD THE ORANGE GATE", 10, Fade(CYAN, 0.7))
+	Caption(font, 300, 532, "SPD " & Pad3(Int(S("speed") * 3.6)) & " KPH", 10, Fade(CYAN, 0.7))
+End Sub
