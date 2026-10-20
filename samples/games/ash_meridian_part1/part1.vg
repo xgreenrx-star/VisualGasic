@@ -128,6 +128,8 @@ Dim yard_build As Boolean
 Dim campaign As Object
 Dim campaign_active As Boolean
 Dim campaign_arrival As Boolean
+Dim orac_said As String
+Dim orac_player As AudioStreamPlayer
 
 Sub _Ready()
 	presentation = GetNode("Presentation")
@@ -150,6 +152,11 @@ Sub _Ready()
 	dev_row = 0
 	dev_page = 0
 	code_i = 0
+	orac_said = ""
+	orac_player = ClassDB.Instantiate("AudioStreamPlayer")
+	orac_player.name = "OracPlayer"
+	orac_player.bus = "Master"
+	add_child(orac_player)
 	Call InitJunk()
 	Call BakeAsh()
 	Set_Process(True)
@@ -157,6 +164,8 @@ Sub _Ready()
 End Sub
 
 Sub StartRun()
+	Call OracStop()
+	orac_said = ""
 	campaign_active = False
 	campaign_arrival = False
 	phase = PH_INTRO
@@ -210,6 +219,9 @@ End Sub
 
 Sub StartCampaign()
 	Dim yard As Object
+	Call OracStop()
+	orac_said = ""
+	Call presentation.rest_landing_yard()
 	yard = presentation.prepare_campaign_yard()
 	campaign.new_run(yard)
 	Call ResumeCampaign()
@@ -723,9 +735,14 @@ Sub TickApproach(ByVal delta As Single)
 		End If
 	Wend
 	If next_ring >= LAND_RINGS And ship_z > LAND_END Then
-		phase = PH_BAY
-		bay_t = 0.0
-		zen_dead = Not campaign_arrival
+		If campaign_arrival Then
+			campaign_arrival = False
+			Call StartCampaign()
+		Else
+			phase = PH_BAY
+			bay_t = 0.0
+			zen_dead = True
+		End If
 	End If
 End Sub
 
@@ -2262,7 +2279,7 @@ Function LandAlign() As Single
 	LandAlign = Sqr(dx * dx + dy * dy) / LAND_RADIUS
 End Function
 
-Sub DrawApproach()
+Sub DrawApproach(Optional flight_captions As Variant = True)
 	Dim i As Integer
 	Dim rz As Single
 	Dim ry As Single
@@ -2276,6 +2293,7 @@ Sub DrawApproach()
 	Dim deck_state As Dictionary
 	Dim steer As Single
 	Dim lift As Single
+	Dim view_distance As Single
 	' First-person from the Ash's flight deck. The camera sits on the ring-collision
 	' point and always looks straight down the glide slope (bank only rolls about the
 	' view axis), so a gate drawn around the screen-centre marker is a gate you clear.
@@ -2291,11 +2309,16 @@ Sub DrawApproach()
 	cam_yaw = 0.0
 	cam_pitch = -Atn(0.038)
 	Call DrawSky()
+	view_distance = opt_view
+	If campaign_arrival Then
+		Call presentation.stage_landing_yard(LAND_END)
+		view_distance = 1200.0
+	End If
 	Call presentation.place_ship(ship_x * 7.0, GlideY(ship_z) + ship_alt - 0.36, ship_z, 0.24, ship_pitch, ship_yaw_aim, ship_bank)
 	Call presentation.landing_clouds()
 	For i = 0 To LAND_RINGS - 1
 		rz = LAND_START + i * LAND_SPACING
-		If i >= next_ring And rz < ship_z + opt_view + 20.0 Then
+		If i >= next_ring And rz < ship_z + view_distance + 20.0 Then
 			ry = GlideY(rz) + RingLift(i)
 			If i = next_ring Then
 				Call DrawHoop(RingOff(i) * 7.0, ry, rz, LAND_RADIUS, 1.0, 0.55, 0.15)
@@ -2304,10 +2327,12 @@ Sub DrawApproach()
 			End If
 		End If
 	Next
-	Call DrawRingFlat(0.0, 0.05, LAND_END + 8.0, 8.0, 1.0, 0.4, 0.15)
-	Call DrawTower(-18.0, LAND_END, 5.0, 11.0, 0.2, 0.85, 1.0, -1.0, 1)
-	Call DrawTower(12.0, LAND_END + 4.0, 4.5, 9.0, 1.0, 0.28, 0.75, 1.0, 2)
-	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, opt_view, ship_bank * 0.4)
+	If Not campaign_arrival Then
+		Call DrawRingFlat(0.0, 0.05, LAND_END + 8.0, 8.0, 1.0, 0.4, 0.15)
+		Call DrawTower(-18.0, LAND_END, 5.0, 11.0, 0.2, 0.85, 1.0, -1.0, 1)
+		Call DrawTower(12.0, LAND_END + 4.0, 4.5, 9.0, 1.0, 0.28, 0.75, 1.0, 2)
+	End If
+	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, view_distance, ship_bank * 0.4)
 	draw_texture_rect(image, Rect2(-16.0 + sx, -9.0 + sy, SW + 32.0, SH + 18.0), False)
 	Call presentation.landing_external(ship_x * 7.0, GlideY(ship_z) + ship_alt + 1.1, ship_z - 3.6, 0.0, -0.2)
 	cues = Array()
@@ -2324,7 +2349,11 @@ Sub DrawApproach()
 	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
 	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
 	deck_state = New Dictionary
-	deck_state("t") = land_t
+	If flight_captions Then
+		deck_state("t") = land_t
+	Else
+		deck_state("t") = clock
+	End If
 	deck_state("cues") = cues
 	deck_state("gate") = next_ring
 	deck_state("rings") = LAND_RINGS
@@ -2345,16 +2374,107 @@ Sub DrawApproach()
 	deck_image = presentation.landing_deck(deck_state)
 	DrawTexture deck_image, -20.0 + sx, -20.0 + sy
 	If cloud > 0.55 Then DrawRect 0, 0, SW, SH, Color(0.75, 0.82, 0.9, (cloud - 0.55) * 0.18)
-	If ship_z > LAND_END * 0.65 Then
-		DrawString "ORAC  THE SHELF IS THE LAST RING. DO NOT CLIMB FOR THE YARD.", 120, 40, Color(0.5, 0.9, 1.0), 16
-	Else
-		DrawString "ORAC  ORANGE IS THE GATE. THE BLUE RINGS ARE NOT YOURS YET.", 130, 40, Color(0.5, 0.9, 1.0), 16
-	End If
-	If ring_miss > 0 Then DrawString "HULL STRIKE " & Str(ring_miss) & "/2", 40, 75, Color(1.0, 0.4, 0.3), 16
+	If Not flight_captions Then Exit Sub
+	Call DrawOracLandTalk()
 	If landing_failed Then
 		DrawRect 150, 210, 660, 110, Color(0.025, 0.008, 0.025)
 		DrawString "APPROACH LOST - TWO HULL STRIKES", 240, 235, Color(1.0, 0.35, 0.5), 20
 		DrawString "ENTER / SPACE TO RETRY THE COURSE", 240, 280, Color(0.4, 0.95, 1.0), 17
+	End If
+End Sub
+
+Sub DrawOracLandTalk()
+	Dim talk As String
+	Dim tint As Variant
+	tint = Color(0.5, 0.9, 1.0)
+	If landing_failed Then
+		talk = "Approach dumped. The shelf fired. We are lucky the Ash is still a shape."
+		tint = Color(1.0, 0.35, 0.45)
+	ElseIf ring_miss > 0 Then
+		talk = "Fault. Fault. Beacon just painted us. Miss again and they erase the Ash."
+		tint = Color(1.0, 0.45, 0.35)
+	ElseIf ship_z > LAND_END * 0.65 Then
+		talk = "Last ring is the shelf. Stay on the orange. I cannot fly and hold the jam."
+	ElseIf land_t < 5.0 Then
+		talk = "I am at capacity holding the beacon override. You will steer from here, or we abort."
+	ElseIf land_t < 11.0 Then
+		talk = "It is not too late to turn back. Last chance. This is extremely dangerous."
+	ElseIf land_t < 18.0 Then
+		talk = "I have no spare cycles for a safe approach. Take the stick, or get us out."
+	Else
+		talk = "Orange is your gate. Blue means you are early. I am all jam from here to the shelf."
+	End If
+	DrawRect 16, 8, 928, 36, Color(0.01, 0.02, 0.04, 0.72)
+	DrawString "ORAC  " & talk, 28, 16, tint, 14
+	Call OracSpeak(talk)
+End Sub
+
+Sub OracStop()
+	If orac_player <> Nothing Then orac_player.stop()
+End Sub
+
+Sub OracPlayWav(ByVal wav_path As String)
+	Dim bytes As PackedByteArray
+	Dim pcm As PackedByteArray
+	Dim wav As AudioStreamWAV
+	If orac_player = Nothing Then Exit Sub
+	If Not FileExists(wav_path) Then Exit Sub
+	bytes = FileAccess.get_file_as_bytes(wav_path)
+	If bytes.size() <= 44 Then Exit Sub
+	pcm = bytes.slice(44)
+	wav = ClassDB.Instantiate("AudioStreamWAV")
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	wav.stereo = False
+	wav.data = pcm
+	orac_player.stop()
+	orac_player.stream = wav
+	orac_player.play()
+End Sub
+
+Function OracEspeakCmd() As String
+	If FileExists("/usr/bin/espeak-ng") Then
+		OracEspeakCmd = "/usr/bin/espeak-ng"
+	ElseIf FileExists("/usr/bin/espeak") Then
+		OracEspeakCmd = "/usr/bin/espeak"
+	Else
+		OracEspeakCmd = ""
+	End If
+End Function
+
+Sub OracSpeak(ByVal line As String)
+	Dim spoken As String
+	Dim args As PackedStringArray
+	Dim cmd As String
+	Dim wav_path As String
+	Dim output As Array
+	Dim exit_code As Integer
+	If DisplayServer.get_name() = "headless" Then Exit Sub
+	spoken = Trim(line)
+	If Left(spoken, 5) = "ORAC " Then spoken = Trim(Mid(spoken, 6))
+	If spoken = "" Then Exit Sub
+	If spoken = orac_said Then Exit Sub
+	orac_said = spoken
+	Call OracStop()
+	' espeak writes a wav. DisplayServer.tts_speak has a null synth on this Linux build.
+	cmd = OracEspeakCmd()
+	If cmd <> "" Then
+		wav_path = "/tmp/ash_orac_tts.wav"
+		args = PackedStringArray()
+		args.append("-v")
+		args.append("en-uk-rp")
+		args.append("-s")
+		args.append("132")
+		args.append("-p")
+		args.append("28")
+		args.append("-a")
+		args.append("160")
+		args.append("-w")
+		args.append(wav_path)
+		args.append(spoken)
+		output = Array()
+		exit_code = OS.execute(cmd, args, output, True, False)
+		If exit_code = 0 Then Call OracPlayWav(wav_path)
 	End If
 End Sub
 
@@ -2842,18 +2962,12 @@ Sub _Draw()
 	If opt_fps And phase <> PH_BOOT Then Call DrawFrame()
 End Sub
 
-Sub DrawLandTalk()
-	Dim talk As String
-	talk = "Orange ring only. Blue means you are early, not clever."
-	If land_t > 4.0 Then talk = "The beacon stays dark if you stay on this line."
-	If land_t > 9.0 Then talk = "North shelf. If you climb for the yard, you will miss it."
-	DrawRect 48, 430, 864, 78, Color(0.01, 0.01, 0.02)
-	DrawString "ORAC", 64, 442, Color(0.45, 0.9, 1.0), 14
-	DrawString talk, 64, 472, Color(0.9, 0.9, 0.92), 18
-End Sub
-
 Sub DrawIntro()
-	Call DrawAshCockpit()
+	If campaign_arrival Then
+		Call DrawApproach(False)
+	Else
+		Call DrawAshCockpit()
+	End If
 	Call DrawIntroLines()
 End Sub
 
@@ -2870,29 +2984,36 @@ Sub DrawIntroLines()
 	Dim talk As String
 	Dim who As String
 	who = "ORAC"
-	talk = "Turn the Ash around. Narcea is under a quarantine interlock. We were not invited."
+	talk = "Narcea is under quarantine interlock. We were not invited. Turn around while the Ash still can."
 	If clock >= 5.0 And clock < 10.0 Then
 		who = "JASON"
 		talk = "The manifest pays the ship out. This could be the last heist I have to fly."
 	ElseIf clock >= 10.0 And clock < 15.0 Then
 		who = "ORAC"
-		talk = "Objection logged. I will run the approach. Do not confuse that with agreement."
+		talk = "Oh, very well. I can override their beacons from here, but it will cost nearly everything I have."
 	ElseIf clock >= 15.0 And clock < 20.0 Then
 		who = "ORAC"
-		talk = "Scan is up. Ice shelves, a lit yard, and a shaft under the north pad."
+		talk = "Override is live. My CPU is at the ceiling. I cannot safely navigate the approach while I hold it."
 	ElseIf clock >= 20.0 And clock < 25.0 Then
 		who = "ORAC"
-		talk = "Their security beacon is answering. Killing it. The yard will not see us come in."
+		talk = "Jason: take the stick, or we abort. There is no third option while I keep their eyes dark."
 	ElseIf clock >= 25.0 And clock < 30.0 Then
 		who = "ORAC"
-		talk = "North shelf is the only flat ground that is not a roof. I would not call it safe."
+		talk = "This corridor is the only route beyond their sight. Extremely dangerous. Last chance to turn back."
 	ElseIf clock >= 30.0 Then
 		who = "ORAC"
-		talk = "Course is locked to the rings. Leave it, and I cannot promise you the shelf."
+		talk = "This is as close as I can get you. You steer from here. Orange gate only. Leave it, and I cannot save the shelf."
 	End If
-	DrawString who, 24, 500, Color(0.45, 0.9, 1.0), 12
-	DrawString talk, 24, 518, Color(0.92, 0.92, 0.94), 14
-	If clock > 26.0 Then DrawString "SPACE", 860, 500, Color(0.45, 0.55, 0.6), 12
+	DrawRect 16, 8, 928, 52, Color(0.01, 0.02, 0.04, 0.78)
+	DrawString who, 28, 16, Color(0.45, 0.9, 1.0), 12
+	DrawString talk, 28, 34, Color(0.92, 0.92, 0.94), 14
+	If clock > 26.0 Then DrawString "SPACE", 880, 16, Color(0.45, 0.55, 0.6), 12
+	If who = "ORAC" Then
+		Call OracSpeak(talk)
+	Else
+		Call OracStop()
+		orac_said = ""
+	End If
 End Sub
 
 Sub DrawFilm()

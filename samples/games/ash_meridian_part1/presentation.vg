@@ -605,6 +605,9 @@ Sub begin_frame(Optional backlight_active As Variant = False)
 		city3.visible = False
 		city3_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	End If
+	If campaign_yard <> Nothing And campaign_yard <> backlight_city Then
+		campaign_yard.visible = False
+	End If
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	If external_view <> Nothing Then external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 End Sub
@@ -930,6 +933,29 @@ Sub start_backlight_yard()
 	backlight_city = backlight_yard
 	backlight_city.reset()
 	backlight_city.notify("BACKLIGHT YARD / Press halls, stepped towers and the deep transit depot.")
+End Sub
+
+Sub stage_landing_yard(ByVal pad_z As Single)
+	Dim yard As Object
+	Call EnsureInit()
+	yard = prepare_campaign_yard()
+	yard.visible = True
+	yard.position = Vector3(0, 0, pad_z - yard.SHIP.y)
+	If yard.ship_model <> Nothing Then yard.ship_model.visible = False
+	If camera.environment <> yard.atmosphere Then camera.environment = yard.atmosphere
+	If viewport.transparent_bg Then viewport.transparent_bg = False
+End Sub
+
+Sub rest_landing_yard()
+	Call EnsureInit()
+	If campaign_yard = Nothing Then Exit Sub
+	campaign_yard.position = Vector3(0, 0, 0)
+	If campaign_yard.ship_model <> Nothing Then
+		campaign_yard.ship_model.visible = True
+		campaign_yard.ship_model.position = Vector3(campaign_yard.SHIP.x, 0, campaign_yard.SHIP.y)
+		campaign_yard.ship_model.rotation = Vector3(0, 0, 0)
+		campaign_yard.ship_model.scale = Vector3(1, 1, 1)
+	End If
 End Sub
 
 Function prepare_campaign_yard() As Object

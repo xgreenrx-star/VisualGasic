@@ -207,8 +207,10 @@ Sub _Process(ByVal delta As Single)
 	ElseIf frame = 6 Then
 		game.set_process(False)
 		check(game.phase = 0 And game.campaign_arrival And Not game.campaign_active, "campaign_play_opens_orac_approach")
-		game.phase = 10
-		game.bay_t = 7.5
+		game.phase = 1
+		game.next_ring = 28
+		game.ship_z = 600.0
+		game.landing_failed = False
 		game.set_process(True)
 	ElseIf frame = 7 Then
 		game.set_process(False)
