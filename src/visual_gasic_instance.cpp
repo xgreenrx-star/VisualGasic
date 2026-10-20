@@ -277,6 +277,38 @@ static Variant vg_classdb_call_static_unpacked(const String &p_class, const Stri
 	}
 }
 
+bool vg_classdb_find_static_method(const String &p_class, const String &p_method, String &r_name) {
+	if (p_class.is_empty() || p_method.is_empty() || !ClassDB::class_exists(p_class)) {
+		return false;
+	}
+	// ClassDB::get_method only sees GDExtension classes and errors on FileAccess.
+	// The engine method list has the real static flag. VB6 keywords capitalize
+	// Open/Close, so match the registered snake_case name too.
+	const String snake = p_method.to_snake_case();
+	const TypedArray<Dictionary> methods = ClassDB::class_get_method_list(p_class);
+	String fallback;
+	for (int i = 0; i < methods.size(); i++) {
+		const Dictionary info = methods[i];
+		const String name = info.get("name", Variant());
+		const int64_t flags = info.get("flags", (int64_t)0);
+		if ((flags & METHOD_FLAG_STATIC) == 0) {
+			continue;
+		}
+		if (name == p_method || name == snake) {
+			r_name = name;
+			return true;
+		}
+		if (fallback.is_empty() && name.nocasecmp_to(p_method) == 0) {
+			fallback = name;
+		}
+	}
+	if (fallback.is_empty()) {
+		return false;
+	}
+	r_name = fallback;
+	return true;
+}
+
 bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret) {
 	if (p_class.is_empty()) {
 		return false;
@@ -295,16 +327,12 @@ bool vg_try_classdb_static_method(const String &p_class, const String &p_method,
 			}
 		}
 	}
-	if (ClassDB::get_method(p_class, p_method) != nullptr) {
-		r_ret = vg_classdb_call_static_unpacked(p_class, p_method, p_args);
-		return true;
+	String call_name;
+	if (!vg_classdb_find_static_method(p_class, p_method, call_name)) {
+		return false;
 	}
-	const String snake = p_method.to_snake_case();
-	if (ClassDB::get_method(p_class, snake) != nullptr) {
-		r_ret = vg_classdb_call_static_unpacked(p_class, snake, p_args);
-		return true;
-	}
-	return false;
+	r_ret = vg_classdb_call_static_unpacked(p_class, call_name, p_args);
+	return true;
 }
 
 // Process-wide cache: Import "Foo.vg" must not re-tokenize/re-parse on every

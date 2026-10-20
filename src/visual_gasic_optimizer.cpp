@@ -149,6 +149,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 6-byte instructions (opcode + 1 const-pool [2] + 1 flag byte + 1 dest [2])
         case OP_BYREF_LOAD:                                           // [OP] [PNAME_LO] [PNAME_HI] [IS_GLOBAL] [DEST_LO] [DEST_HI]
             return 6;
+        case OP_CLASS_STATIC_CALL:                                    // [OP] [CLASS 2] [METHOD 2] [ARGC]
+            return 6;
 
         // 6-byte instructions (opcode + 1 const-pool [2] + 3 bytes)
         case OP_TASK_RUN_BEGIN:                                       // [OP] [NAME_LO] [NAME_HI] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO]

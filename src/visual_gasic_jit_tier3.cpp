@@ -199,6 +199,8 @@ static int opcode_size(uint8_t op) {
             return 10;
         case OP_PACKED_RIBBON_EXPAND_GLOBAL:
             return 16;
+        case OP_CLASS_STATIC_CALL:
+            return 6;
         default:
             return 1; // conservative — bail will catch unsupported ops
     }

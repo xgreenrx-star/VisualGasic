@@ -875,6 +875,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                             advance = 10; break;
                         case OP_PACKED_RIBBON_EXPAND_GLOBAL:
                             advance = 16; break;
+                        case OP_CLASS_STATIC_CALL:
+                            advance = 6; break;
                         // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
                         case OP_CONSTANT:
                         case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
@@ -1006,6 +1008,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ip += 10; break;
                 case OP_PACKED_RIBBON_EXPAND_GLOBAL:
                     ip += 16; break;
+                case OP_CLASS_STATIC_CALL:
+                    ip += 6; break;
                 case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
                     ip += 3; break;
                 case OP_CALL:

@@ -1,5 +1,5 @@
-' Regression: ClassName.StaticMethod() on ClassDB types (VGSystem, System alias)
-Extends Node
+' ClassName.method() must be a ClassDB static call in bytecode.
+' FileAccess.open used to compile as a method call on a null variable (Runtime 91).
 
 Sub _Ready()
 	Dim pathEnv As String
@@ -18,11 +18,37 @@ Sub _Ready()
 		Print "FAIL: system_alias_static_getenv empty"
 	End If
 
-	Dim path As String
-	path = Environ("PATH")
-	If Len(path) > 0 Then
+	Dim envPath As String
+	envPath = Environ("PATH")
+	If Len(envPath) > 0 Then
 		Print "PASS: environ_builtin_still_works"
 	Else
 		Print "FAIL: environ_builtin_still_works empty"
+	End If
+
+	Dim path As String
+	Dim f As Object
+	Dim bytes As PackedByteArray
+	path = "/tmp/vg_classdb_static_call.txt"
+	Set f = FileAccess.open(path, FileAccess.WRITE)
+	If f = Nothing Then
+		Print "FAIL: fileaccess_open"
+	Else
+		Print "PASS: fileaccess_open"
+		f.store_string("ok")
+		f.close()
+	End If
+	' Statement form, result discarded.
+	Call FileAccess.get_open_error()
+	bytes = FileAccess.get_file_as_bytes(path)
+	If bytes.size() = 2 Then
+		Print "PASS: fileaccess_get_file_as_bytes"
+	Else
+		Print "FAIL: fileaccess_get_file_as_bytes size=" & bytes.size()
+	End If
+	If bytes.slice(0).size() = 2 Then
+		Print "PASS: packed_slice"
+	Else
+		Print "FAIL: packed_slice"
 	End If
 End Sub

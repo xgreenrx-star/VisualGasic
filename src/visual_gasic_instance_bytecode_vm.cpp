@@ -2080,6 +2080,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         scan_ip += 6; break;
                     case OP_PACKED_RIBBON_EXPAND_LOCAL: // 6 slots + loop + cursor + flags
                         scan_ip += 9; break;
+                    case OP_CLASS_STATIC_CALL: // class16 + method16 + argc
+                        scan_ip += 5; break;
                     case OP_PACKED_RIBBON_EXPAND_GLOBAL: { // 6 names + loop + cursor + flags
                         if (scan_ip + 14 < code_size) {
                             for (int gi = 2; gi < 6; gi++) {
@@ -3015,6 +3017,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_PACKED_NEAREST_I64]   = &&vg_op_packed_nearest_i64;
         dispatch_table[OP_PACKED_RIBBON_EXPAND_LOCAL] = &&vg_op_packed_ribbon_expand_local;
         dispatch_table[OP_PACKED_RIBBON_EXPAND_GLOBAL] = &&vg_op_packed_ribbon_expand_global;
+        dispatch_table[OP_CLASS_STATIC_CALL] = &&vg_op_class_static_call;
         dispatch_table[OP_FOREACH_STEP]         = &&vg_op_foreach_step;
         dispatch_table[OP_NEW_PACKED_LITERAL]   = &&vg_op_new_packed_literal;
         dispatch_table[OP_PACKED_APPEND_LITERAL] = &&vg_op_packed_append_literal;
@@ -10344,6 +10347,42 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (obj) result = obj->is_class(String(class_v));
                 }
                 push_value(result);
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_class_static_call, OP_CLASS_STATIC_CALL): {
+                // Unbound ClassName.method(args). Operands: class idx, method idx, argc.
+                // Stack (top→bottom): argN … arg1.
+                if (vm.ip + 4 >= code_size) { success = false; goto cleanup; }
+                int class_idx = read_const_index();
+                int method_idx = read_const_index();
+                uint8_t arg_count = code[vm.ip++];
+                if (!ensure_stack(arg_count)) { success = false; goto cleanup; }
+                Array static_args;
+                static_args.resize(arg_count);
+                for (int ai = arg_count - 1; ai >= 0; ai--) {
+                    static_args[ai] = pop_value();
+                }
+                String static_class;
+                String static_method;
+                if (class_idx >= 0 && class_idx < chunk->constants.size()) {
+                    static_class = chunk->constants[class_idx];
+                }
+                if (method_idx >= 0 && method_idx < chunk->constants.size()) {
+                    static_method = chunk->constants[method_idx];
+                }
+                Variant static_ret;
+                if (!vg_try_classdb_static_method(static_class, static_method, static_args, static_ret)) {
+                    raise_error("Static method not found: " + static_class + "." + static_method, 438);
+                    if (try_recover_error(Variant())) { VG_BREAK; }
+                    success = false;
+                    goto cleanup;
+                }
+                if (error_state.has_error) {
+                    if (try_recover_error(Variant())) { VG_BREAK; }
+                    success = false;
+                    goto cleanup;
+                }
+                push_value(std::move(static_ret));
                 VG_BREAK;
             }
             VG_CASE(vg_op_method_call, OP_METHOD_CALL): {

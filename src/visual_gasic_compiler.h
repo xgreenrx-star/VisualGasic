@@ -184,6 +184,9 @@ private:
     bool try_emit_draw_texture_rect_f64(const Vector<ExpressionNode*> &args);
     bool try_emit_draw_call(CallStatement *s, SubDefinition *target_func, bool discard_result);
     bool try_emit_packed_append_literal(CallStatement *s);
+    // FileAccess.open(path, mode) and other ClassDB static methods. Returns
+    // false when the name is a real variable, a singleton, or not a static method.
+    bool try_emit_classdb_static_call(ExpressionNode *base, const String &method, const Vector<ExpressionNode *> &args, bool discard);
     SubDefinition *find_sub_by_name(const String &p_name) const;
     // Scalar local/param whose name is also a Sub or Function. The function's
     // own return variable is not a hide: Ink() inside Function Ink stays a call.

@@ -5,6 +5,8 @@
 #include "vg_classdb_globals.h"
 #include "vg_engine_builtins.h"
 #include "visual_gasic_godot_ctors.h"
+#include "visual_gasic_instance.h"
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/core/math.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -1647,6 +1649,49 @@ const Vector<ExpressionNode*> *VisualGasicCompiler::array_literal_elements(Expre
 // on the emitted bytes: whatever compile_expression resolved the names to
 // (block locals, Consts, enums, builtin constants, …) simply fails the test.
 // Returns true when the statement has been emitted (fused or not).
+bool VisualGasicCompiler::try_emit_classdb_static_call(ExpressionNode *base, const String &method, const Vector<ExpressionNode *> &args, bool discard) {
+    if (!current_chunk || !base || base->type != ExpressionNode::VARIABLE) {
+        return false;
+    }
+    // vg_classdb_call_static_unpacked only forwards eight arguments.
+    if (args.size() > 8) {
+        return false;
+    }
+    const String var_name = static_cast<VariableNode *>(base)->name;
+    const String key = var_name.to_lower();
+    // A declared variable, parameter, module global, or engine singleton
+    // keeps the ordinary method-call path. FileAccess is none of those.
+    if (local_slots.has(key) || param_vars.has(key) || non_local_names.has(key)) {
+        return false;
+    }
+    int frame = 0;
+    int offset = 0;
+    if (lookup_block_local(var_name, frame, offset)) {
+        return false;
+    }
+    const String resolved = vg_resolve_classdb_alias(var_name);
+    if (resolved.is_empty() || Engine::get_singleton()->has_singleton(resolved)) {
+        return false;
+    }
+    String call_name;
+    if (!vg_classdb_find_static_method(resolved, method, call_name)) {
+        return false;
+    }
+    for (int i = 0; i < args.size(); i++) {
+        compile_expression(args[i]);
+    }
+    const int class_idx = current_chunk->add_constant(resolved);
+    const int method_idx = current_chunk->add_constant(call_name);
+    emit_byte(OP_CLASS_STATIC_CALL);
+    emit_const_index(class_idx);
+    emit_const_index(method_idx);
+    emit_byte((uint8_t)args.size());
+    if (discard) {
+        emit_byte(OP_POP);
+    }
+    return true;
+}
+
 bool VisualGasicCompiler::try_emit_packed_append_literal(CallStatement *s) {
     if (!s || !s->base_object || s->method_name.nocasecmp_to("append_array") != 0 ||
             s->arguments.size() != 1 || s->base_object->type != ExpressionNode::VARIABLE) {
@@ -8169,6 +8214,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 // Method call on object — compile base + args, emit OP_METHOD_CALL
                 if (try_emit_append(s)) break;
                 if (try_emit_packed_append_literal(s)) break;
+                if (try_emit_classdb_static_call(s->base_object, s->method_name, s->arguments, true)) break;
                 compile_expression(s->base_object);
                 for (int i = 0; i < s->arguments.size(); i++) {
                     compile_expression(s->arguments[i]);
@@ -11352,6 +11398,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     }
                 }
                 // General obj.method(args) — emit OP_METHOD_CALL
+                if (try_emit_classdb_static_call(ma->base_object, ma->member_name, aa->indices, false)) break;
                 compile_expression(ma->base_object);
                 for (int i = 0; i < aa->indices.size(); i++) {
                     compile_expression(aa->indices[i]);
@@ -11749,6 +11796,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      break;
                  }
                  // Method call on object — compile base + args, emit OP_METHOD_CALL
+                 if (try_emit_classdb_static_call(call->base_object, call->method_name, call->arguments, false)) break;
                  compile_expression(call->base_object);
                  for (int i = 0; i < call->arguments.size(); i++) {
                      compile_expression(call->arguments[i]);

@@ -396,6 +396,11 @@ enum OpCode {
     // loop/cursor = 255 means unused local slot.
     OP_PACKED_RIBBON_EXPAND_LOCAL,
     OP_PACKED_RIBBON_EXPAND_GLOBAL,
+    // Unbound ClassName.method(args) — FileAccess.open, DirAccess.open, ….
+    // Singletons stay on OP_GET_GLOBAL. A Dim/param/module variable of the
+    // same name is not rewritten.
+    //   [CLASS_IDX(2)] [METHOD_IDX(2)] [ARG_COUNT]   stack: args… → result
+    OP_CLASS_STATIC_CALL,
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

@@ -910,6 +910,8 @@ public:
 // ClassDB type sentinels + static dispatch (VGSystem.GetEnv, ClassDB.Instantiate, …)
 String vg_resolve_classdb_alias(const String &p_name);
 Variant vg_classdb_type_sentinel(const String &p_name);
+// Engine ClassDB static method. r_name is the registered spelling (open, not Open).
+bool vg_classdb_find_static_method(const String &p_class, const String &p_method, String &r_name);
 bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret);
 
 namespace VisualGasicDebug {

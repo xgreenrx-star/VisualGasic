@@ -114,6 +114,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_PACKED_NEAREST_I64);
         OP_NAME_CASE(OP_PACKED_RIBBON_EXPAND_LOCAL);
         OP_NAME_CASE(OP_PACKED_RIBBON_EXPAND_GLOBAL);
+        OP_NAME_CASE(OP_CLASS_STATIC_CALL);
         OP_NAME_CASE(OP_FOREACH_STEP);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);
@@ -410,6 +411,8 @@ int opcode_operand_length(uint8_t op) {
         case OP_SET_DICT_GLOBAL:
         case OP_PARALLEL_FOR_BEGIN:
             return 3;
+        case OP_CLASS_STATIC_CALL: // class16 + method16 + argc
+            return 5;
         // 4-byte operand: 2x const16
         case OP_ARITH_SUM:
         case OP_APPEND_INDEX_GLOBAL:
