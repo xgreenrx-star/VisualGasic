@@ -21,6 +21,7 @@
 #include "visual_gasic_vector_draw_benchmark.h"
 #include "visual_gasic_test_runner.h"
 #include "visual_gasic_immediate.h"
+#include "visual_gasic_expression_evaluator.h"
 #include "visual_gasic_debugger.h"
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_form_designer.h"
@@ -237,6 +238,9 @@ void initialize_visual_gasic_module(ModuleInitializationLevel p_level) {
             vg_stack_value_selftest();
         }
 #endif
+        if (OS::get_singleton()->get_environment("VG_EXPR_EVAL_SELFTEST") == "1") {
+            vg_expression_evaluator_selftest();
+        }
     
         visual_gasic_loader.instantiate();
         ResourceLoader::get_singleton()->add_resource_format_loader(visual_gasic_loader);

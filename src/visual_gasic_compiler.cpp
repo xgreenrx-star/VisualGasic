@@ -11094,6 +11094,17 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             {
                 int frame = 0;
                 int offset = 0;
+                const bool shadowed = local_slots.has(lower_name) || param_vars.has(lower_name) ||
+                        lookup_block_local(v->name, frame, offset);
+                Variant folded;
+                if (!shadowed && vg_try_global_enum_value(v->name, folded)) {
+                    emit_constant(folded);
+                    break;
+                }
+            }
+            {
+                int frame = 0;
+                int offset = 0;
                 if (lookup_block_local(v->name, frame, offset)) {
                     emit_byte(OP_GET_BLOCK_LOCAL);
                     emit_byte((uint8_t)frame);

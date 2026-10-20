@@ -916,6 +916,8 @@ bool vg_classdb_find_static_method(const String &p_class, const String &p_method
 bool vg_try_variant_type_constant(const String &p_type, const String &p_member, Variant &r_out);
 // Key.KEY_ESCAPE, HorizontalAlignment.HORIZONTAL_ALIGNMENT_CENTER, Error.FAILED.
 bool vg_try_global_enum_constant(const String &p_enum, const String &p_member, Variant &r_out);
+// Bare Godot names: KEY_ESCAPE, HORIZONTAL_ALIGNMENT_CENTER, MOUSE_BUTTON_LEFT.
+bool vg_try_global_enum_value(const String &p_name, Variant &r_out);
 // Color, Vector2, String, and the other builtin Variant types (not ClassDB classes).
 bool vg_is_variant_type_name(const String &p_name);
 bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret);

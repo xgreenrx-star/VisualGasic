@@ -1,0 +1,102 @@
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Dim bumps As Integer
+
+Function Bump() As Boolean
+	bumps = bumps + 1
+	Bump = True
+End Function
+
+Function Poke(ByRef slot As Integer) As Integer
+	slot = 9
+	Poke = slot
+End Function
+
+Function HotKey() As Integer
+	HotKey = 4194305 + Vector2.AXIS_X
+End Function
+
+Function ShadowHAlign() As Integer
+	Dim HORIZONTAL_ALIGNMENT_CENTER As Integer
+	HORIZONTAL_ALIGNMENT_CENTER = 7
+	ShadowHAlign = HORIZONTAL_ALIGNMENT_CENTER
+End Function
+
+Function HotUp() As Integer
+	Dim up As Vector2
+	up = Vector2.UP
+	HotUp = up.y
+End Function
+
+Sub _Ready()
+	Call note(Color.html_is_valid("#ff0000") = True, "color_html_valid")
+	Dim red As Color
+	red = Color.from_hsv(0, 1, 1)
+	Call note(red.r > 0.9 And red.g < 0.1, "color_from_hsv")
+	Call note(String.num_int64(42) = "42", "string_num")
+
+	Dim painted As Color
+	painted = Color(1, 0, 0)
+	Call note(painted.r > 0.9 And painted.a > 0.9, "color_rgb")
+	painted = Color(1, 0, 0, 0.5)
+	Call note(painted.a > 0.4 And painted.a < 0.6, "color_rgba")
+
+	Dim vi As Vector2i
+	vi = Vector2i(3, 4)
+	Dim v As Vector2
+	v = Vector2(vi)
+	Call note(v.x = 3 And v.y = 4, "vector2_from_i")
+
+	Dim flat As Transform3D
+	flat = Transform3D()
+	Dim proj As Projection
+	proj = Projection(flat)
+	Call note(proj.x.x = 1, "projection_from_xform")
+
+	v = Vector2(1, 2)
+	v.x = 4
+	v.y = v.y + 1
+	Call note(v.x = 4 And v.y = 3, "vector2_write")
+
+	Dim d As Dictionary
+	d = New Dictionary
+	d(0) = 1
+	Call note(d(0.0) = 1, "dict_float_key")
+
+	Dim arr(2) As Integer
+	arr(1) = 0
+	Call Poke(arr(1))
+	Call note(arr(1) = 9, "byref_slot")
+
+	Call note(KEY_ESCAPE = 4194305, "bare_key_escape")
+	Call note(HORIZONTAL_ALIGNMENT_CENTER = 1, "bare_halign")
+	Call note(MOUSE_BUTTON_LEFT = 1, "bare_mouse_left")
+	Call note(ShadowHAlign() = 7, "shadow_halign")
+
+	bumps = 0
+	Dim eager As Boolean
+	eager = False And Bump()
+	Call note(bumps = 1, "and_eager")
+	bumps = 0
+	eager = False AndAlso Bump()
+	Call note(bumps = 0, "andalso_skip")
+
+	Dim i As Integer
+	Dim sum As Integer
+	sum = 0
+	For i = 1 To 6
+		sum = sum + HotKey()
+	Next
+	Call note(sum = 25165830, "jit_hot_key")
+	sum = 0
+	For i = 1 To 6
+		sum = sum + HotUp()
+	Next
+	Call note(sum = -6, "jit_vector_up")
+End Sub

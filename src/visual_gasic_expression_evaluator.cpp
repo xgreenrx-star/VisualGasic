@@ -106,6 +106,10 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         if (name.nocasecmp_to("math_tau") == 0) return (double)Math_TAU;
         // ── End fast constant path ──
         if (ctx.variables.has(name)) return ctx.variables[name];
+        {
+            Variant folded;
+            if (vg_try_global_enum_value(name, folded)) return folded;
+        }
         // Fallback to built-in VB6/Godot constants (matches the main
         // tree-walk evaluator's behavior in visual_gasic_instance_evaluate.inc).
         if (ctx.instance && ctx.instance->is_builtin_constant(name)) {
@@ -147,8 +151,15 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         // Color.White, Color.Red, etc. — named color constants
         if (ma->base_object->type == ExpressionNode::VARIABLE) {
             String base_name = ((VariableNode*)ma->base_object)->name;
-            if (base_name == "Color" && Color::find_named_color(ma->member_name) >= 0) {
-                return Color::named(ma->member_name);
+            if (!ctx.variables.has(base_name)) {
+                if (base_name == "Color" && Color::find_named_color(ma->member_name) >= 0) {
+                    return Color::named(ma->member_name);
+                }
+                Variant folded;
+                if (vg_try_variant_type_constant(base_name, ma->member_name, folded) ||
+                        vg_try_global_enum_constant(base_name, ma->member_name, folded)) {
+                    return folded;
+                }
             }
         }
         
@@ -379,6 +390,19 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         
         // For other EXPRESSION_CALL nodes with base_object, evaluate the base and dispatch
         if (call->base_object) {
+            if (call->base_object->type == ExpressionNode::VARIABLE) {
+                const String type_name = ((VariableNode *)call->base_object)->name;
+                if (!ctx.variables.has(type_name)) {
+                    Array static_args;
+                    for (int i = 0; i < call->arguments.size(); i++) {
+                        static_args.push_back(evaluate(call->arguments[i], ctx));
+                    }
+                    Variant static_ret;
+                    if (vg_try_classdb_static_method(type_name, call->method_name, static_args, static_ret)) {
+                        return static_ret;
+                    }
+                }
+            }
             Variant base = evaluate(call->base_object, ctx);
             // Evaluate arguments
             Array args;
@@ -514,4 +538,80 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         return result;
     }
     return Variant();
+}
+
+static void vg_expr_note(bool ok, const char *label) {
+	UtilityFunctions::print(ok ? String("PASS: ") + label : String("FAIL: ") + label);
+}
+
+void vg_expression_evaluator_selftest() {
+	Dictionary variables;
+	Dictionary open_files;
+	Ref<DirAccess> current_dir;
+	String dir_pattern;
+	bool option_compare_text = false;
+	Vector<Variant> with_stack;
+	VisualGasicExpressionEvaluator::Context ctx{
+		variables, nullptr, open_files, current_dir, dir_pattern,
+		option_compare_text, with_stack, nullptr
+	};
+
+	VariableNode *halign = new VariableNode();
+	halign->name = "HORIZONTAL_ALIGNMENT_CENTER";
+	vg_expr_note((int64_t)VisualGasicExpressionEvaluator::evaluate(halign, ctx) == 1, "expr_bare_halign");
+	delete halign;
+
+	MemberAccessNode *key = new MemberAccessNode();
+	VariableNode *key_base = new VariableNode();
+	key_base->name = "Key";
+	key->base_object = key_base;
+	key->member_name = "KEY_ESCAPE";
+	vg_expr_note((int64_t)VisualGasicExpressionEvaluator::evaluate(key, ctx) == 4194305, "expr_key_escape");
+	delete key;
+
+	MemberAccessNode *up = new MemberAccessNode();
+	VariableNode *up_base = new VariableNode();
+	up_base->name = "Vector2";
+	up->base_object = up_base;
+	up->member_name = "UP";
+	Variant up_val = VisualGasicExpressionEvaluator::evaluate(up, ctx);
+	vg_expr_note(up_val.get_type() == Variant::VECTOR2 && ((Vector2)up_val).y == -1.0, "expr_vector2_up");
+	delete up;
+
+	CallExpression *html = new CallExpression();
+	VariableNode *color_base = new VariableNode();
+	color_base->name = "Color";
+	html->base_object = color_base;
+	html->method_name = "html";
+	LiteralNode *hex = new LiteralNode();
+	hex->value = String("#ff0000");
+	html->arguments.push_back(hex);
+	Variant red = VisualGasicExpressionEvaluator::evaluate(html, ctx);
+	vg_expr_note(red.get_type() == Variant::COLOR && ((Color)red).r > 0.9, "expr_color_html");
+	delete html;
+
+	CallExpression *num = new CallExpression();
+	VariableNode *str_base = new VariableNode();
+	str_base->name = "String";
+	num->base_object = str_base;
+	num->method_name = "num_int64";
+	LiteralNode *forty_two = new LiteralNode();
+	forty_two->value = (int64_t)42;
+	num->arguments.push_back(forty_two);
+	vg_expr_note(String(VisualGasicExpressionEvaluator::evaluate(num, ctx)) == "42", "expr_string_num");
+	delete num;
+
+	variables["HORIZONTAL_ALIGNMENT_CENTER"] = (int64_t)7;
+	variables["Vector2"] = (int64_t)4;
+	VariableNode *shadow_name = new VariableNode();
+	shadow_name->name = "HORIZONTAL_ALIGNMENT_CENTER";
+	vg_expr_note((int64_t)VisualGasicExpressionEvaluator::evaluate(shadow_name, ctx) == 7, "expr_shadow_bare");
+	delete shadow_name;
+	MemberAccessNode *shadow_up = new MemberAccessNode();
+	VariableNode *shadow_base = new VariableNode();
+	shadow_base->name = "Vector2";
+	shadow_up->base_object = shadow_base;
+	shadow_up->member_name = "UP";
+	vg_expr_note(VisualGasicExpressionEvaluator::evaluate(shadow_up, ctx).get_type() != Variant::VECTOR2, "expr_shadow_type");
+	delete shadow_up;
 }

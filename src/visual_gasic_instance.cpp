@@ -439,21 +439,49 @@ static bool vg_try_variant_static_method(const String &p_type_name, const String
 
 #include "vg_global_enum_constants.inc"
 
+struct VgGlobalEnumMaps {
+	HashMap<String, int64_t> qualified;
+	HashMap<String, int64_t> bare;
+};
+
+static VgGlobalEnumMaps &vg_global_enum_maps() {
+	static VgGlobalEnumMaps maps;
+	static bool ready = false;
+	if (ready) {
+		return maps;
+	}
+	const int count = (int)(sizeof(vg_global_enum_constants) / sizeof(vg_global_enum_constants[0]));
+	for (int i = 0; i < count; i++) {
+		const VgGlobalEnumConstant &row = vg_global_enum_constants[i];
+		const String member = String(row.member).to_lower();
+		maps.qualified[String(row.enum_name).to_lower() + "." + member] = row.value;
+		if (!maps.bare.has(member)) {
+			maps.bare[member] = row.value;
+		}
+	}
+	ready = true;
+	return maps;
+}
+
 bool vg_try_global_enum_constant(const String &p_enum, const String &p_member, Variant &r_out) {
 	if (p_enum.is_empty() || p_member.is_empty()) {
 		return false;
 	}
-	static bool ready = false;
-	static HashMap<String, int64_t> values;
-	if (!ready) {
-		const int count = (int)(sizeof(vg_global_enum_constants) / sizeof(vg_global_enum_constants[0]));
-		for (int i = 0; i < count; i++) {
-			const VgGlobalEnumConstant &row = vg_global_enum_constants[i];
-			values[String(row.enum_name).to_lower() + "." + String(row.member).to_lower()] = row.value;
-		}
-		ready = true;
-	}
 	const String key = p_enum.to_lower() + "." + p_member.to_lower();
+	const HashMap<String, int64_t> &values = vg_global_enum_maps().qualified;
+	if (!values.has(key)) {
+		return false;
+	}
+	r_out = (int64_t)values[key];
+	return true;
+}
+
+bool vg_try_global_enum_value(const String &p_name, Variant &r_out) {
+	if (p_name.is_empty()) {
+		return false;
+	}
+	const HashMap<String, int64_t> &values = vg_global_enum_maps().bare;
+	const String key = p_name.to_lower();
 	if (!values.has(key)) {
 		return false;
 	}

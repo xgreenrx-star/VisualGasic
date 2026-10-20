@@ -34,4 +34,8 @@ public:
     static Variant evaluate(ExpressionNode* expr, Context& ctx);
 };
 
+// Headless check for the immediate-window evaluator. Runs when
+// VG_EXPR_EVAL_SELFTEST=1.
+void vg_expression_evaluator_selftest();
+
 #endif // VISUAL_GASIC_EXPRESSION_EVALUATOR_H

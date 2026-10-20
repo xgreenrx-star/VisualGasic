@@ -277,6 +277,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (variables.has(name)) {
             return variables[name];
         }
+        {
+            Variant folded;
+            if (vg_try_global_enum_value(name, folded)) {
+                return folded;
+            }
+        }
         if (Engine::get_singleton()->has_singleton(name)) {
             Object *singleton = Engine::get_singleton()->get_singleton(name);
             if (singleton) return Variant(singleton);
