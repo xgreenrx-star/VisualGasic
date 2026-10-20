@@ -912,6 +912,8 @@ String vg_resolve_classdb_alias(const String &p_name);
 Variant vg_classdb_type_sentinel(const String &p_name);
 // Engine ClassDB static method. r_name is the registered spelling (open, not Open).
 bool vg_classdb_find_static_method(const String &p_class, const String &p_method, String &r_name);
+// Vector2.UP, Vector3.AXIS_Y, Basis.IDENTITY, and the other builtin-type constants.
+bool vg_try_variant_type_constant(const String &p_type, const String &p_member, Variant &r_out);
 bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret);
 
 namespace VisualGasicDebug {

@@ -1,8 +1,7 @@
 ' =============================================================================
 ' RecentOps.vg — last 10 paths persisted to user://vg_hex_recent.txt
 ' =============================================================================
-' Uses ReadAllText / WriteAllText (not FileAccess.open — avoids Runtime 91 in
-' imported modules where ClassDB static dispatch can fail at Form_Load).
+' Uses ReadAllText / WriteAllText for the recent-path list.
 ' =============================================================================
 Attribute VB_Name = "RecentOps"
 Import "HexModel.vg"

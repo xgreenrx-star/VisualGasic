@@ -1,0 +1,38 @@
+' Vector2.UP and the other builtin-type constants are not ClassDB integer enums.
+
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim up As Vector2
+	Dim v3 As Vector3
+	Dim basis As Basis
+	Dim flat As Transform2D
+	up = Vector2.UP
+	Call note(up.y = -1, "vector2_up")
+	up = Vector2.DOWN
+	Call note(up.y = 1, "vector2_down")
+	up = Vector2.LEFT
+	Call note(up.x = -1, "vector2_left")
+	up = Vector2.RIGHT
+	Call note(up.x = 1, "vector2_right")
+	up = Vector2.ZERO
+	Call note(up.x = 0 And up.y = 0, "vector2_zero")
+	up = Vector2.ONE
+	Call note(up.x = 1 And up.y = 1, "vector2_one")
+	Call note(Vector2.AXIS_X = 0 And Vector2.AXIS_Y = 1, "vector2_axis")
+	v3 = Vector3.UP
+	Call note(v3.y = 1, "vector3_up")
+	v3 = Vector3.FORWARD
+	Call note(v3.z = -1, "vector3_forward")
+	Call note(Vector3.AXIS_Z = 2, "vector3_axis_z")
+	basis = Basis.IDENTITY
+	Call note(basis.x.x = 1 And basis.y.y = 1 And basis.z.z = 1, "basis_identity")
+	flat = Transform2D.IDENTITY
+	Call note(flat.origin.x = 0 And flat.origin.y = 0, "transform2d_identity")
+End Sub

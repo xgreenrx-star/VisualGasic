@@ -1,5 +1,6 @@
 ' ClassName.method() must be a ClassDB static call in bytecode.
 ' FileAccess.open used to compile as a method call on a null variable (Runtime 91).
+Import "classdb_static_import_helper.vg"
 
 Sub _Ready()
 	Dim pathEnv As String
@@ -51,4 +52,34 @@ Sub _Ready()
 	Else
 		Print "FAIL: packed_slice"
 	End If
+
+	' Assignment before the direct call: the type name must not become a nil local.
+	Dim gate As Variant
+	Set gate = FileAccess
+	If gate <> Nothing And gate.file_exists(path) = True Then
+		Print "PASS: fileaccess_sentinel"
+	Else
+		Print "FAIL: fileaccess_sentinel"
+	End If
+	If FileAccess.file_exists(path) = True Then
+		Print "PASS: fileaccess_after_sentinel"
+	Else
+		Print "FAIL: fileaccess_after_sentinel"
+	End If
+	If ImportedFileExists(path) = True Then
+		Print "PASS: fileaccess_imported"
+	Else
+		Print "FAIL: fileaccess_imported"
+	End If
+	If ShadowedFileAccess() = 4 Then
+		Print "PASS: fileaccess_name_can_be_a_variable"
+	Else
+		Print "FAIL: fileaccess_name_can_be_a_variable"
+	End If
 End Sub
+
+Function ShadowedFileAccess() As Integer
+	Dim FileAccess As Integer
+	FileAccess = 4
+	ShadowedFileAccess = FileAccess
+End Function

@@ -27,6 +27,7 @@
 #include <godot_cpp/classes/v_box_container.hpp>
 #include <godot_cpp/classes/display_server.hpp>
 #include <godot_cpp/classes/time.hpp>
+#include <godot_cpp/godot.hpp>
 #include <godot_cpp/variant/variant_internal.hpp>
 
 #include "visual_gasic_instance.h"
@@ -306,6 +307,78 @@ bool vg_classdb_find_static_method(const String &p_class, const String &p_method
 		return false;
 	}
 	r_name = fallback;
+	return true;
+}
+
+bool vg_try_variant_type_constant(const String &p_type, const String &p_member, Variant &r_out) {
+	struct TypeConsts {
+		const char *type_name;
+		GDExtensionVariantType type;
+		const char *names;
+	};
+	// Spaced tokens so "RIGHT" does not match inside "FORWARD".
+	static const TypeConsts k_types[] = {
+		{ "Vector2", GDEXTENSION_VARIANT_TYPE_VECTOR2, " AXIS_X AXIS_Y ZERO ONE INF LEFT RIGHT UP DOWN " },
+		{ "Vector2i", GDEXTENSION_VARIANT_TYPE_VECTOR2I, " AXIS_X AXIS_Y ZERO ONE LEFT RIGHT UP DOWN " },
+		{ "Vector3", GDEXTENSION_VARIANT_TYPE_VECTOR3, " AXIS_X AXIS_Y AXIS_Z ZERO ONE INF LEFT RIGHT UP DOWN FORWARD BACK " },
+		{ "Vector3i", GDEXTENSION_VARIANT_TYPE_VECTOR3I, " AXIS_X AXIS_Y AXIS_Z ZERO ONE LEFT RIGHT UP DOWN FORWARD BACK " },
+		{ "Vector4", GDEXTENSION_VARIANT_TYPE_VECTOR4, " AXIS_X AXIS_Y AXIS_Z AXIS_W ZERO ONE INF " },
+		{ "Vector4i", GDEXTENSION_VARIANT_TYPE_VECTOR4I, " AXIS_X AXIS_Y AXIS_Z AXIS_W ZERO ONE " },
+		{ "Quaternion", GDEXTENSION_VARIANT_TYPE_QUATERNION, " IDENTITY " },
+		{ "Basis", GDEXTENSION_VARIANT_TYPE_BASIS, " IDENTITY FLIP_X FLIP_Y FLIP_Z " },
+		{ "Transform2D", GDEXTENSION_VARIANT_TYPE_TRANSFORM2D, " IDENTITY FLIP_X FLIP_Y " },
+		{ "Transform3D", GDEXTENSION_VARIANT_TYPE_TRANSFORM3D, " IDENTITY FLIP_X FLIP_Y FLIP_Z " },
+		{ "Projection", GDEXTENSION_VARIANT_TYPE_PROJECTION, " IDENTITY PLANE_NEAR PLANE_FAR PLANE_LEFT PLANE_TOP PLANE_RIGHT PLANE_BOTTOM " },
+		{ "Plane", GDEXTENSION_VARIANT_TYPE_PLANE, " PLANE_XY PLANE_XZ PLANE_YZ " },
+	};
+	if (p_member.is_empty() || internal::gdextension_interface_variant_get_constant_value == nullptr) {
+		return false;
+	}
+	const String canon = p_member.to_upper();
+	const String needle = String(" ") + canon + " ";
+	const TypeConsts *found = nullptr;
+	for (const TypeConsts &entry : k_types) {
+		if (p_type.nocasecmp_to(entry.type_name) == 0 && String(entry.names).find(needle) >= 0) {
+			found = &entry;
+			break;
+		}
+	}
+	if (found == nullptr) {
+		return false;
+	}
+	// Axis and projection planes are builtin enums. variant_get_constant_value
+	// returns -1 for them because they are not in the constant table.
+	int enum_value = -1;
+	if (canon == "AXIS_X" || canon == "PLANE_NEAR") {
+		enum_value = 0;
+	} else if (canon == "AXIS_Y" || canon == "PLANE_FAR") {
+		enum_value = 1;
+	} else if (canon == "AXIS_Z" || canon == "PLANE_LEFT") {
+		enum_value = 2;
+	} else if (canon == "AXIS_W" || canon == "PLANE_TOP") {
+		enum_value = 3;
+	} else if (canon == "PLANE_RIGHT") {
+		enum_value = 4;
+	} else if (canon == "PLANE_BOTTOM") {
+		enum_value = 5;
+	}
+	if (enum_value >= 0 && (canon.begins_with("AXIS_") || canon.begins_with("PLANE_"))) {
+		r_out = (int64_t)enum_value;
+		return true;
+	}
+	const StringName cname(canon);
+	alignas(Variant) unsigned char raw[sizeof(Variant)];
+	internal::gdextension_interface_variant_get_constant_value(found->type, cname._native_ptr(), raw);
+	Variant *made = reinterpret_cast<Variant *>(raw);
+	r_out = *made;
+	made->~Variant();
+	// Missing names come back as the integer -1.
+	if (r_out.get_type() == Variant::NIL) {
+		return false;
+	}
+	if (r_out.get_type() == Variant::INT && (int64_t)r_out == (int64_t)-1) {
+		return false;
+	}
 	return true;
 }
 

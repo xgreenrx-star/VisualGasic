@@ -11095,6 +11095,18 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     break;
                 }
             }
+            // FileAccess, DirAccess, JSON, … are types, not implicit locals.
+            // A nil local makes `Set gate = FileAccess` then `gate.open` a
+            // method call on null. The VM's OP_GET_GLOBAL pushes the class sentinel.
+            if (!local_slots.has(lower_name) && !param_vars.has(lower_name) && !non_local_names.has(lower_name)) {
+                const String resolved_class = vg_resolve_classdb_alias(v->name);
+                if (!resolved_class.is_empty() && !Engine::get_singleton()->has_singleton(resolved_class)) {
+                    int gidx = current_chunk->add_constant(v->name);
+                    emit_byte(OP_GET_GLOBAL);
+                    emit_const_index(gidx);
+                    break;
+                }
+            }
             int slot = get_or_add_local(v->name, VT_UNKNOWN);
             if (slot >= 0) {
                 emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
@@ -11724,6 +11736,19 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         int cidx = current_chunk->add_constant(Variant((int)val));
                         emit_byte(OP_CONSTANT);
                         emit_const_index(cidx);
+                        resolved = true;
+                    }
+                }
+                // Vector2.UP / Basis.IDENTITY live on the builtin type, not ClassDB.
+                if (!resolved) {
+                    int frame = 0;
+                    int offset = 0;
+                    const String key = class_name.to_lower();
+                    const bool shadowed = local_slots.has(key) || param_vars.has(key) ||
+                            non_local_names.has(key) || lookup_block_local(class_name, frame, offset);
+                    Variant folded;
+                    if (!shadowed && vg_try_variant_type_constant(class_name, ma->member_name, folded)) {
+                        emit_constant(folded);
                         resolved = true;
                     }
                 }

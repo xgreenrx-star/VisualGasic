@@ -505,6 +505,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                      return (int)ClassDB::class_get_integer_constant(base_name, mname);
                  }
              }
+             if (!variables.has(base_name)) {
+                 Variant folded;
+                 if (vg_try_variant_type_constant(base_name, ma->member_name, folded)) {
+                     return folded;
+                 }
+             }
              
              // ── Imported module member access: ModuleName.Variable / .Constant (v4.3.0) ──
              if (module_registry.has(base_name)) {
