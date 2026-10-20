@@ -507,7 +507,8 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              }
              if (!variables.has(base_name)) {
                  Variant folded;
-                 if (vg_try_variant_type_constant(base_name, ma->member_name, folded)) {
+                 if (vg_try_variant_type_constant(base_name, ma->member_name, folded) ||
+                         vg_try_global_enum_constant(base_name, ma->member_name, folded)) {
                      return folded;
                  }
              }
@@ -1252,13 +1253,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                 // "Method is not static".
                 bool var_is_real_object = variables.has(var_name) &&
                     ((Variant)variables[var_name]).get_type() == Variant::OBJECT;
-                if (!var_is_real_object) {
+                if (!var_is_real_object && !variables.has(var_name)) {
                     const String resolved_class = vg_resolve_classdb_alias(var_name);
-                    if (!resolved_class.is_empty()) {
-                        Variant static_ret;
-                        if (vg_try_classdb_static_method(resolved_class, call->method_name, call_args, static_ret)) {
-                            return static_ret;
-                        }
+                    const String static_name = resolved_class.is_empty() ? var_name : resolved_class;
+                    Variant static_ret;
+                    if (vg_try_classdb_static_method(static_name, call->method_name, call_args, static_ret)) {
+                        return static_ret;
                     }
                 }
 				Variant enum_ret;

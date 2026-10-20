@@ -1670,18 +1670,24 @@ bool VisualGasicCompiler::try_emit_classdb_static_call(ExpressionNode *base, con
         return false;
     }
     const String resolved = vg_resolve_classdb_alias(var_name);
-    if (resolved.is_empty() || Engine::get_singleton()->has_singleton(resolved)) {
-        return false;
-    }
-    String call_name;
-    if (!vg_classdb_find_static_method(resolved, method, call_name)) {
+    String emit_class;
+    String emit_method;
+    if (!resolved.is_empty() && !Engine::get_singleton()->has_singleton(resolved) &&
+            vg_classdb_find_static_method(resolved, method, emit_method)) {
+        emit_class = resolved;
+    } else if (vg_is_variant_type_name(var_name)) {
+        // Color.html, String.num, and the other builtin-type static methods.
+        // They are not ClassDB classes, so the class lookup above misses them.
+        emit_class = var_name;
+        emit_method = method;
+    } else {
         return false;
     }
     for (int i = 0; i < args.size(); i++) {
         compile_expression(args[i]);
     }
-    const int class_idx = current_chunk->add_constant(resolved);
-    const int method_idx = current_chunk->add_constant(call_name);
+    const int class_idx = current_chunk->add_constant(emit_class);
+    const int method_idx = current_chunk->add_constant(emit_method);
     emit_byte(OP_CLASS_STATIC_CALL);
     emit_const_index(class_idx);
     emit_const_index(method_idx);
@@ -11477,7 +11483,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         "vector2", "vector2i", "vector3", "vector3i",
                         "vector4", "vector4i", "rect2", "rect2i",
                         "color", "transform2d", "transform3d",
-                        "basis", "quaternion", "plane", "aabb",
+                        "basis", "quaternion", "plane", "aabb", "projection",
                         nullptr
                     };
                     for (int _gi = 0; _godot_type_ctors[_gi]; ++_gi) {
@@ -11747,7 +11753,8 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     const bool shadowed = local_slots.has(key) || param_vars.has(key) ||
                             non_local_names.has(key) || lookup_block_local(class_name, frame, offset);
                     Variant folded;
-                    if (!shadowed && vg_try_variant_type_constant(class_name, ma->member_name, folded)) {
+                    if (!shadowed && (vg_try_variant_type_constant(class_name, ma->member_name, folded) ||
+                                vg_try_global_enum_constant(class_name, ma->member_name, folded))) {
                         emit_constant(folded);
                         resolved = true;
                     }
@@ -11913,7 +11920,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      "vector2", "vector2i", "vector3", "vector3i",
                      "vector4", "vector4i", "rect2", "rect2i",
                      "color", "transform2d", "transform3d",
-                     "basis", "quaternion", "plane", "aabb",
+                     "basis", "quaternion", "plane", "aabb", "projection",
                      "packedbytearray", "packedint32array", "packedint64array",
                      "packedfloat32array", "packedfloat64array", "packedstringarray",
                      "packedvector2array", "packedvector3array", "packedcolorarray",

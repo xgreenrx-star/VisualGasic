@@ -422,6 +422,21 @@ Vector<VisualGasicTokenizer::Token> VisualGasicTokenizer::tokenize(const String 
                 }
                 current++;
             }
+            // VB6 / Godot scientific form: 1e10, 1.5E-3, 2E+3.
+            // An 'e' with no exponent digits stays an identifier (1e is 1, then e).
+            if (current < length && (p_source_code[current] == 'e' || p_source_code[current] == 'E')) {
+                int look = current + 1;
+                if (look < length && (p_source_code[look] == '+' || p_source_code[look] == '-')) {
+                    look++;
+                }
+                if (look < length && is_digit(p_source_code[look])) {
+                    is_float = true;
+                    current = look;
+                    while (current < length && is_digit(p_source_code[current])) {
+                        current++;
+                    }
+                }
+            }
             String num_str = p_source_code.substr(start, current - start);
             // VB6 type suffixes: % Integer, & Long, ! Single, # Double, @ Currency
             if (current < length) {

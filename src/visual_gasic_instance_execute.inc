@@ -1152,13 +1152,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      // object keeps its instance methods.
                      bool var_is_real_object = variables.has(var_name) &&
                          ((Variant)variables[var_name]).get_type() == Variant::OBJECT;
-                     if (!var_is_real_object) {
+                     if (!var_is_real_object && !variables.has(var_name)) {
                          const String resolved_class = vg_resolve_classdb_alias(var_name);
-                         if (!resolved_class.is_empty()) {
-                             Variant static_ret;
-                             if (vg_try_classdb_static_method(resolved_class, s->method_name, call_args, static_ret)) {
-                                 break;
-                             }
+                         const String static_name = resolved_class.is_empty() ? var_name : resolved_class;
+                         Variant static_ret;
+                         if (vg_try_classdb_static_method(static_name, s->method_name, call_args, static_ret)) {
+                             break;
                          }
                      }
                  }

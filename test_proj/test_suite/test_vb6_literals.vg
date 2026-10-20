@@ -51,6 +51,24 @@ Sub _Ready()
 		Print "FAIL: hex_long_suffix: got " & Str(hx)
 	End If
 
+	If 1e2 = 100 And 2E+3 = 2000 Then
+		Print "PASS: scientific_positive"
+	Else
+		Print "FAIL: scientific_positive"
+	End If
+
+	If 1.5E-1 > 0.14 And 1.5E-1 < 0.16 Then
+		Print "PASS: scientific_negative"
+	Else
+		Print "FAIL: scientific_negative"
+	End If
+
+	If 1.0e2# > 99.9 And 1.0e2# < 100.1 Then
+		Print "PASS: scientific_double_suffix"
+	Else
+		Print "FAIL: scientific_double_suffix"
+	End If
+
 	' Print #1 must still tokenize as file number, not date
 	Dim fh As Integer = 1
 	If fh = 1 Then

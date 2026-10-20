@@ -319,16 +319,16 @@ bool vg_try_variant_type_constant(const String &p_type, const String &p_member, 
 	// Spaced tokens so "RIGHT" does not match inside "FORWARD".
 	static const TypeConsts k_types[] = {
 		{ "Vector2", GDEXTENSION_VARIANT_TYPE_VECTOR2, " AXIS_X AXIS_Y ZERO ONE INF LEFT RIGHT UP DOWN " },
-		{ "Vector2i", GDEXTENSION_VARIANT_TYPE_VECTOR2I, " AXIS_X AXIS_Y ZERO ONE LEFT RIGHT UP DOWN " },
-		{ "Vector3", GDEXTENSION_VARIANT_TYPE_VECTOR3, " AXIS_X AXIS_Y AXIS_Z ZERO ONE INF LEFT RIGHT UP DOWN FORWARD BACK " },
-		{ "Vector3i", GDEXTENSION_VARIANT_TYPE_VECTOR3I, " AXIS_X AXIS_Y AXIS_Z ZERO ONE LEFT RIGHT UP DOWN FORWARD BACK " },
+		{ "Vector2i", GDEXTENSION_VARIANT_TYPE_VECTOR2I, " AXIS_X AXIS_Y ZERO ONE MIN MAX LEFT RIGHT UP DOWN " },
+		{ "Vector3", GDEXTENSION_VARIANT_TYPE_VECTOR3, " AXIS_X AXIS_Y AXIS_Z ZERO ONE INF LEFT RIGHT UP DOWN FORWARD BACK MODEL_LEFT MODEL_RIGHT MODEL_TOP MODEL_BOTTOM MODEL_FRONT MODEL_REAR " },
+		{ "Vector3i", GDEXTENSION_VARIANT_TYPE_VECTOR3I, " AXIS_X AXIS_Y AXIS_Z ZERO ONE MIN MAX LEFT RIGHT UP DOWN FORWARD BACK " },
 		{ "Vector4", GDEXTENSION_VARIANT_TYPE_VECTOR4, " AXIS_X AXIS_Y AXIS_Z AXIS_W ZERO ONE INF " },
-		{ "Vector4i", GDEXTENSION_VARIANT_TYPE_VECTOR4I, " AXIS_X AXIS_Y AXIS_Z AXIS_W ZERO ONE " },
+		{ "Vector4i", GDEXTENSION_VARIANT_TYPE_VECTOR4I, " AXIS_X AXIS_Y AXIS_Z AXIS_W ZERO ONE MIN MAX " },
 		{ "Quaternion", GDEXTENSION_VARIANT_TYPE_QUATERNION, " IDENTITY " },
 		{ "Basis", GDEXTENSION_VARIANT_TYPE_BASIS, " IDENTITY FLIP_X FLIP_Y FLIP_Z " },
 		{ "Transform2D", GDEXTENSION_VARIANT_TYPE_TRANSFORM2D, " IDENTITY FLIP_X FLIP_Y " },
 		{ "Transform3D", GDEXTENSION_VARIANT_TYPE_TRANSFORM3D, " IDENTITY FLIP_X FLIP_Y FLIP_Z " },
-		{ "Projection", GDEXTENSION_VARIANT_TYPE_PROJECTION, " IDENTITY PLANE_NEAR PLANE_FAR PLANE_LEFT PLANE_TOP PLANE_RIGHT PLANE_BOTTOM " },
+		{ "Projection", GDEXTENSION_VARIANT_TYPE_PROJECTION, " IDENTITY ZERO PLANE_NEAR PLANE_FAR PLANE_LEFT PLANE_TOP PLANE_RIGHT PLANE_BOTTOM " },
 		{ "Plane", GDEXTENSION_VARIANT_TYPE_PLANE, " PLANE_XY PLANE_XZ PLANE_YZ " },
 	};
 	if (p_member.is_empty() || internal::gdextension_interface_variant_get_constant_value == nullptr) {
@@ -382,6 +382,85 @@ bool vg_try_variant_type_constant(const String &p_type, const String &p_member, 
 	return true;
 }
 
+static bool vg_lookup_variant_type(const String &p_name, Variant::Type &r_type) {
+	if (p_name.is_empty()) {
+		return false;
+	}
+	static bool ready = false;
+	static HashMap<String, int> names;
+	if (!ready) {
+		for (int i = 1; i < (int)Variant::VARIANT_MAX; i++) {
+			names[Variant::get_type_name((Variant::Type)i).to_lower()] = i;
+		}
+		ready = true;
+	}
+	const String key = p_name.to_lower();
+	if (!names.has(key)) {
+		return false;
+	}
+	r_type = (Variant::Type)(int)names[key];
+	return true;
+}
+
+bool vg_is_variant_type_name(const String &p_name) {
+	Variant::Type type = Variant::NIL;
+	return vg_lookup_variant_type(p_name, type);
+}
+
+static bool vg_try_variant_static_method(const String &p_type_name, const String &p_method, const Array &p_args, Variant &r_ret) {
+	Variant::Type type = Variant::NIL;
+	if (p_method.is_empty() || p_args.size() > 8 || !vg_lookup_variant_type(p_type_name, type)) {
+		return false;
+	}
+	const Variant *ptrs[8];
+	Variant storage[8];
+	for (int i = 0; i < p_args.size(); i++) {
+		storage[i] = p_args[i];
+		ptrs[i] = &storage[i];
+	}
+	const String snake = p_method.to_snake_case();
+	GDExtensionCallError err;
+	Variant result;
+	Variant::callp_static(type, StringName(p_method), ptrs, p_args.size(), result, err);
+	if (err.error != GDEXTENSION_CALL_OK && snake != p_method) {
+		Variant::callp_static(type, StringName(snake), ptrs, p_args.size(), result, err);
+	}
+	if (err.error == GDEXTENSION_CALL_ERROR_INVALID_METHOD) {
+		return false;
+	}
+	if (err.error != GDEXTENSION_CALL_OK) {
+		UtilityFunctions::push_error("Static call failed: ", p_type_name, ".", p_method);
+		r_ret = Variant();
+		return true;
+	}
+	r_ret = result;
+	return true;
+}
+
+#include "vg_global_enum_constants.inc"
+
+bool vg_try_global_enum_constant(const String &p_enum, const String &p_member, Variant &r_out) {
+	if (p_enum.is_empty() || p_member.is_empty()) {
+		return false;
+	}
+	static bool ready = false;
+	static HashMap<String, int64_t> values;
+	if (!ready) {
+		const int count = (int)(sizeof(vg_global_enum_constants) / sizeof(vg_global_enum_constants[0]));
+		for (int i = 0; i < count; i++) {
+			const VgGlobalEnumConstant &row = vg_global_enum_constants[i];
+			values[String(row.enum_name).to_lower() + "." + String(row.member).to_lower()] = row.value;
+		}
+		ready = true;
+	}
+	const String key = p_enum.to_lower() + "." + p_member.to_lower();
+	if (!values.has(key)) {
+		return false;
+	}
+	r_out = (int64_t)values[key];
+	return true;
+}
+
 bool vg_try_classdb_static_method(const String &p_class, const String &p_method, const Array &p_args, Variant &r_ret) {
 	if (p_class.is_empty()) {
 		return false;
@@ -402,7 +481,7 @@ bool vg_try_classdb_static_method(const String &p_class, const String &p_method,
 	}
 	String call_name;
 	if (!vg_classdb_find_static_method(p_class, p_method, call_name)) {
-		return false;
+		return vg_try_variant_static_method(p_class, p_method, p_args, r_ret);
 	}
 	r_ret = vg_classdb_call_static_unpacked(p_class, call_name, p_args);
 	return true;

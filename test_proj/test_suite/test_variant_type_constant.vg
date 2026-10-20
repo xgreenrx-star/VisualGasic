@@ -35,4 +35,41 @@ Sub _Ready()
 	Call note(basis.x.x = 1 And basis.y.y = 1 And basis.z.z = 1, "basis_identity")
 	flat = Transform2D.IDENTITY
 	Call note(flat.origin.x = 0 And flat.origin.y = 0, "transform2d_identity")
+	v3 = Vector3.MODEL_TOP
+	Call note(v3.y = 1, "vector3_model_top")
+	v3 = Vector3.MODEL_FRONT
+	Call note(v3.z = 1, "vector3_model_front")
+	v3 = Vector3.MODEL_LEFT
+	Call note(v3.x = 1, "vector3_model_left")
+	Dim lo As Vector2i
+	lo = Vector2i.MIN
+	Call note(lo.x < 0 And lo.y < 0, "vector2i_min")
+	lo = Vector2i.MAX
+	Call note(lo.x > 0 And lo.y > 0, "vector2i_max")
+	Dim lo3 As Vector3i
+	lo3 = Vector3i.MIN
+	Call note(lo3.z < 0, "vector3i_min")
+	Dim lo4 As Vector4i
+	lo4 = Vector4i.MAX
+	Call note(lo4.w > 0, "vector4i_max")
+	Dim ident As Projection
+	Dim zero As Projection
+	ident = Projection.IDENTITY
+	zero = Projection.ZERO
+	Call note(ident.x.x = 1 And zero.x.x = 0, "projection_identity_zero")
+	ident = Projection()
+	Call note(ident.x.x = 1, "projection_ctor")
+	Call note(Projection.PLANE_NEAR = 0 And Projection.PLANE_BOTTOM = 5, "projection_planes")
+	Dim q As Quaternion
+	q = Quaternion.IDENTITY
+	Call note(q.w = 1, "quaternion_identity")
+	Dim xy As Plane
+	xy = Plane.PLANE_XY
+	Call note(xy.normal.z = 1, "plane_xy")
+	Dim painted As Color
+	painted = Color.html("#ff0000")
+	Call note(painted.r > 0.9 And painted.g < 0.1, "color_html")
+	Call note(Key.KEY_ESCAPE = 4194305, "key_escape")
+	Call note(HorizontalAlignment.HORIZONTAL_ALIGNMENT_CENTER = 1, "halign_center")
+	Call note(MouseButton.MOUSE_BUTTON_LEFT = 1, "mouse_left")
 End Sub

@@ -12,6 +12,7 @@
 
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/quaternion.hpp>
+#include <godot_cpp/variant/projection.hpp>
 
 // Godot built-in types that can be constructed via type-constructor syntax
 // (e.g., Vector2(x, y), Rect2i(x, y, w, h), Color(r, g, b, a))
@@ -31,6 +32,7 @@ static const char* GODOT_TYPE_CONSTRUCTORS[] = {
     "quaternion",
     "plane",
     "aabb",
+    "projection",
     nullptr  // sentinel
 };
 
@@ -53,6 +55,7 @@ enum GodotCtorKind : int8_t {
     GODOT_CTOR_QUATERNION,
     GODOT_CTOR_PLANE,
     GODOT_CTOR_AABB,
+    GODOT_CTOR_PROJECTION,
 };
 
 // Case-insensitive name → kind.  One nocasecmp_to per table entry; no
@@ -204,6 +207,20 @@ inline Variant construct_godot_type_by_kind(GodotCtorKind kind, const Array& arg
         return Plane();
     }
     
+    if (kind == GODOT_CTOR_PROJECTION) {
+        if (args.size() == 1 && args[0].get_type() == Variant::TRANSFORM3D) {
+            return Projection((Transform3D)args[0]);
+        }
+        if (args.size() == 4 &&
+                args[0].get_type() == Variant::VECTOR4 &&
+                args[1].get_type() == Variant::VECTOR4 &&
+                args[2].get_type() == Variant::VECTOR4 &&
+                args[3].get_type() == Variant::VECTOR4) {
+            return Projection((Vector4)args[0], (Vector4)args[1], (Vector4)args[2], (Vector4)args[3]);
+        }
+        return Projection();
+    }
+
     if (kind == GODOT_CTOR_AABB) {
         // AABB() — at origin; AABB(position, size)
         if (args.size() >= 4) {
