@@ -37,6 +37,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_RESTORE_DATA: case OP_READ_DATA:
         case OP_LOAD_DATA: case OP_DATA_FROM_STRING: case OP_CLEAR_DATA:
         case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO_0:
+        case OP_RESUME: case OP_RESUME_NEXT: case OP_RESUME_CLEAR:
         case OP_NIL: case OP_TRUE: case OP_FALSE:
         case OP_NOP:
         case OP_STRING_REPEAT:   // stack-only: pops 2, pushes 1

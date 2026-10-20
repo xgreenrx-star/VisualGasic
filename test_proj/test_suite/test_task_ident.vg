@@ -1,0 +1,13 @@
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim task As Integer
+	task = 4
+	Call note(task = 4, "dim_task_name")
+End Sub

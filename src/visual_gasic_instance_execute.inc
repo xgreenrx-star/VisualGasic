@@ -2731,10 +2731,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         case STMT_RESUME: {
             ResumeStatement* s = (ResumeStatement*)stmt;
             if (s->resume_type == ResumeStatement::RESUME_NEXT) {
-                // Resume Next: clear error and continue to next statement
+                // Resume Next: continue at the statement after the one that raised.
                 error_state.has_error = false;
                 error_state.message = "";
                 error_state.code = 0;
+                if (error_state.resume_stmt >= 0) {
+                    resume_land = error_state.resume_stmt + 1;
+                    error_state.resume_stmt = -1;
+                }
             } else if (s->resume_type == ResumeStatement::RESUME_LABEL) {
                 // Resume <label>: clear error and jump to label
                 error_state.has_error = false;
@@ -2754,10 +2758,14 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                     }
                 }
             } else {
-                // Plain Resume: clear error (re-execute failing statement not supported in tree-walk)
+                // Plain Resume: re-execute the statement that raised.
                 error_state.has_error = false;
                 error_state.message = "";
                 error_state.code = 0;
+                if (error_state.resume_stmt >= 0) {
+                    resume_land = error_state.resume_stmt;
+                    error_state.resume_stmt = -1;
+                }
             }
             break;
         }

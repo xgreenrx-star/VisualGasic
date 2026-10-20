@@ -764,6 +764,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 if (error_state.mode == ErrorState::GOTO_LABEL) {
                     error_state.has_error = false;
                     if (func->label_map.has(error_state.label)) {
+                        error_state.resume_stmt = i;
                         int idx = (int)func->label_map[error_state.label];
                         i = idx - 1;
                         continue;
@@ -778,7 +779,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 break;
             }
 
-            if (jump_target != -1) {
+            if (resume_land >= 0) {
+                i = resume_land - 1;
+                resume_land = -1;
+            } else if (jump_target != -1) {
                 i = jump_target;
             }
         }

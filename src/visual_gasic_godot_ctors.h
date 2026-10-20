@@ -13,6 +13,9 @@
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/quaternion.hpp>
 #include <godot_cpp/variant/projection.hpp>
+#include <godot_cpp/variant/node_path.hpp>
+#include <godot_cpp/variant/string_name.hpp>
+#include <godot_cpp/variant/rid.hpp>
 
 // Godot built-in types that can be constructed via type-constructor syntax
 // (e.g., Vector2(x, y), Rect2i(x, y, w, h), Color(r, g, b, a))
@@ -33,6 +36,9 @@ static const char* GODOT_TYPE_CONSTRUCTORS[] = {
     "plane",
     "aabb",
     "projection",
+    "nodepath",
+    "stringname",
+    "rid",
     nullptr  // sentinel
 };
 
@@ -56,6 +62,9 @@ enum GodotCtorKind : int8_t {
     GODOT_CTOR_PLANE,
     GODOT_CTOR_AABB,
     GODOT_CTOR_PROJECTION,
+    GODOT_CTOR_NODEPATH,
+    GODOT_CTOR_STRINGNAME,
+    GODOT_CTOR_RID,
 };
 
 // Case-insensitive name → kind.  One nocasecmp_to per table entry; no
@@ -219,6 +228,24 @@ inline Variant construct_godot_type_by_kind(GodotCtorKind kind, const Array& arg
             return Projection((Vector4)args[0], (Vector4)args[1], (Vector4)args[2], (Vector4)args[3]);
         }
         return Projection();
+    }
+
+    if (kind == GODOT_CTOR_NODEPATH) {
+        if (args.size() >= 1) {
+            return NodePath(String(args[0]));
+        }
+        return NodePath();
+    }
+
+    if (kind == GODOT_CTOR_STRINGNAME) {
+        if (args.size() >= 1) {
+            return StringName(String(args[0]));
+        }
+        return StringName();
+    }
+
+    if (kind == GODOT_CTOR_RID) {
+        return RID();
     }
 
     if (kind == GODOT_CTOR_AABB) {

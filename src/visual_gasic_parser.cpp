@@ -1930,20 +1930,29 @@ Statement* VisualGasicParser::parse_statement() {
             return set_line(parse_await());
         }
         if (val == "task" || val == "thread") {
-            advance(); // consume "task" or "thread" (Thread is an alias for Task)
-            // Handle both "Task Run" and "Task.Run" syntax
-            if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == ".") {
-                advance(); // consume "."
+            // Task.Run / Task Run / Task Wait stay statements. A variable
+            // named task (task = 4, task.Field) falls through like Data.
+            VisualGasicTokenizer::Token next = peek(1);
+            bool dotted = next.type == VisualGasicTokenizer::TOKEN_OPERATOR && String(next.value) == ".";
+            String next_val = String(next.value).to_lower();
+            bool task_stmt = dotted || next_val == "run" || next_val == "wait" ||
+                    next_val == "waitall" || next_val == "waitany";
+            if (task_stmt) {
+                advance(); // consume "task" or "thread" (Thread is an alias for Task)
+                // Handle both "Task Run" and "Task.Run" syntax
+                if (check(VisualGasicTokenizer::TOKEN_OPERATOR) && String(peek().value) == ".") {
+                    advance(); // consume "."
+                }
+                next_val = String(peek().value).to_lower();
+                if (next_val == "run") {
+                    advance(); // consume "run"
+                    return set_line(parse_task_run());
+                } else if (next_val == "wait" || next_val == "waitall" || next_val == "waitany") {
+                    return set_line(parse_task_wait());
+                }
+                error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'/'Thread'");
+                return nullptr;
             }
-            String next_val = String(peek().value).to_lower();
-            if (next_val == "run") {
-                advance(); // consume "run"
-                return set_line(parse_task_run());
-            } else if (next_val == "wait" || next_val == "waitall" || next_val == "waitany") {
-                return set_line(parse_task_wait());
-            }
-            error("Expected 'Run', 'Wait', 'WaitAll', or 'WaitAny' after 'Task'/'Thread'");
-            return nullptr;
         }
         if (val == "lock") {
             advance(); // consume "lock"

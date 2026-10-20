@@ -254,6 +254,9 @@ void VisualGasicCompiler::emit_debug_line(int line) {
     if (line <= 0 || line == last_emitted_debug_line) {
         return;
     }
+    if (current_chunk) {
+        current_chunk->stmt_starts.push_back(current_chunk->code.size());
+    }
     current_line = line;
     emit_byte(OP_DEBUG_LINE);
     emit_byte((uint8_t)(line & 0xFF));
@@ -811,7 +814,12 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     }
     current_chunk->local_count = local_slots.size();
     emit_procedure_epilogue(sub->end_line);
-    
+    if (compile_ok) {
+        for (const KeyValue<String, int> &kv : label_positions) {
+            current_chunk->label_ips[kv.key] = kv.value;
+        }
+    }
+
     return compile_ok;
 }
 
@@ -10984,6 +10992,27 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             emit_byte((uint8_t)0);
             break;
         }
+        case STMT_RESUME: {
+            ResumeStatement* s = (ResumeStatement*)stmt;
+            if (s->resume_type == ResumeStatement::RESUME_NEXT) {
+                emit_byte(OP_RESUME_NEXT);
+            } else if (s->resume_type == ResumeStatement::RESUME_LABEL) {
+                emit_byte(OP_RESUME_CLEAR);
+                String key = s->label_name.to_lower();
+                if (label_positions.has(key)) {
+                    emit_loop(label_positions[key]);
+                } else {
+                    int jump_addr = emit_jump(OP_JUMP);
+                    if (!goto_forward_jumps.has(key)) {
+                        goto_forward_jumps[key] = Vector<int>();
+                    }
+                    goto_forward_jumps[key].push_back(jump_addr);
+                }
+            } else {
+                emit_byte(OP_RESUME);
+            }
+            break;
+        }
         default:
              UtilityFunctions::print("Compiler: Unsupported statement type ", stmt->type);
              compile_ok = false;
@@ -11495,6 +11524,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                         "vector4", "vector4i", "rect2", "rect2i",
                         "color", "transform2d", "transform3d",
                         "basis", "quaternion", "plane", "aabb", "projection",
+                        "nodepath", "stringname", "rid",
                         nullptr
                     };
                     for (int _gi = 0; _godot_type_ctors[_gi]; ++_gi) {
@@ -11932,6 +11962,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                      "vector4", "vector4i", "rect2", "rect2i",
                      "color", "transform2d", "transform3d",
                      "basis", "quaternion", "plane", "aabb", "projection",
+                     "nodepath", "stringname", "rid",
                      "packedbytearray", "packedint32array", "packedint64array",
                      "packedfloat32array", "packedfloat64array", "packedstringarray",
                      "packedvector2array", "packedvector3array", "packedcolorarray",

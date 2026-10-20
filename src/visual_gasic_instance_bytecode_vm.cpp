@@ -445,6 +445,7 @@ static bool vg_chunk_inline_eligible(BytecodeChunk *chunk, VisualGasic::SubDefin
             switch (code[ip]) {
                 case OP_SETUP_TRY: case OP_POP_TRY: case OP_THROW:
                 case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO: case OP_ON_ERROR_GOTO_0:
+                case OP_RESUME: case OP_RESUME_NEXT: case OP_RESUME_CLEAR:
                 case OP_GOSUB: case OP_RETURN_GOSUB:
                 case OP_PUSH_WITH: case OP_POP_WITH: case OP_GET_WITH:
                 case OP_AWAIT:
@@ -2179,9 +2180,31 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             if (push_default) push_value(default_val);
             return true;
         }
-        // Priority 3: On Error GoTo Label — return false so caller does
-        // goto cleanup → AST fallback handles the label jump.
-        // Also NONE mode: return false → abort.
+        // Priority 3: On Error GoTo Label. Jump to the handler and remember
+        // the statement that raised so Resume / Resume Next can return.
+        if (error_state.mode == ErrorState::GOTO_LABEL && chunk && chunk->label_ips.has(error_state.label.to_lower())) {
+            const int handler_ip = chunk->label_ips[error_state.label.to_lower()];
+            int stmt_start = 0;
+            int resume_next = code_size;
+            const Vector<int> &starts = chunk->stmt_starts;
+            for (int si = 0; si < starts.size(); si++) {
+                if (starts[si] <= last_opcode_offset) {
+                    stmt_start = starts[si];
+                } else {
+                    resume_next = starts[si];
+                    break;
+                }
+            }
+            error_state.resume_ip = stmt_start;
+            error_state.resume_next_ip = resume_next;
+            error_state.has_error = false;
+            if ((int)vm.stack.size() > stack_base) {
+                vm.stack.resize(stack_base);
+            }
+            vm.ip = handler_ip;
+            return true;
+        }
+        // NONE mode: return false → abort.
         
         // Exception Assistant: break into debugger on unhandled errors (VB6 style)
         if (error_state.mode == ErrorState::NONE && VisualGasicLanguage::get_break_on_error()) {
@@ -2930,6 +2953,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_ON_ERROR_RESUME_NEXT] = &&vg_op_on_error_resume_next;
         dispatch_table[OP_ON_ERROR_GOTO]        = &&vg_op_on_error_goto;
         dispatch_table[OP_ON_ERROR_GOTO_0]      = &&vg_op_on_error_goto_0;
+        dispatch_table[OP_RESUME]               = &&vg_op_resume;
+        dispatch_table[OP_RESUME_NEXT]          = &&vg_op_resume_next;
+        dispatch_table[OP_RESUME_CLEAR]         = &&vg_op_resume_clear;
         dispatch_table[OP_NIL]            = &&vg_op_nil;
         dispatch_table[OP_TRUE]           = &&vg_op_true;
         dispatch_table[OP_FALSE]          = &&vg_op_false;
@@ -9937,6 +9963,42 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // Disable error handling (On Error Goto 0)
                 error_state.mode = ErrorState::NONE;
                 error_state.label = "";
+                break;
+            }
+            VG_CASE(vg_op_resume, OP_RESUME): {
+                if (error_state.resume_ip < 0) {
+                    raise_error("Resume without error", 20);
+                    if (!try_recover_error(Variant(), false)) {
+                        success = false;
+                        goto cleanup;
+                    }
+                    break;
+                }
+                vm.ip = error_state.resume_ip;
+                error_state.resume_ip = -1;
+                error_state.resume_next_ip = -1;
+                error_state.has_error = false;
+                break;
+            }
+            VG_CASE(vg_op_resume_next, OP_RESUME_NEXT): {
+                if (error_state.resume_next_ip < 0) {
+                    raise_error("Resume without error", 20);
+                    if (!try_recover_error(Variant(), false)) {
+                        success = false;
+                        goto cleanup;
+                    }
+                    break;
+                }
+                vm.ip = error_state.resume_next_ip;
+                error_state.resume_ip = -1;
+                error_state.resume_next_ip = -1;
+                error_state.has_error = false;
+                break;
+            }
+            VG_CASE(vg_op_resume_clear, OP_RESUME_CLEAR): {
+                error_state.has_error = false;
+                error_state.resume_ip = -1;
+                error_state.resume_next_ip = -1;
                 break;
             }
             VG_CASE(vg_op_debug_line, OP_DEBUG_LINE): {

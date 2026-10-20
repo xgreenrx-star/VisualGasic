@@ -946,7 +946,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_CLOSE_FILE: case OP_LINE_INPUT: case OP_RETURN_GOSUB:
                         case OP_LOCK: case OP_UNLOCK: case OP_IS_CLASS:
                         case OP_RESTORE_DATA: case OP_READ_DATA: case OP_ON_ERROR_RESUME_NEXT:
-                        case OP_ON_ERROR_GOTO_0: case OP_PUSH_WITH: case OP_POP_WITH:
+                        case OP_ON_ERROR_GOTO_0: case OP_RESUME: case OP_RESUME_NEXT: case OP_RESUME_CLEAR:
+                        case OP_PUSH_WITH: case OP_POP_WITH:
                         case OP_GET_WITH: case OP_DICT_HAS_KEY: case OP_DICT_SIZE:
                         case OP_DICT_CLEAR_INPLACE: case OP_DICT_KEYS: case OP_DICT_VALUES:
                         case OP_DICT_ERASE: case OP_DICT_KEYS_CALL:

@@ -620,6 +620,7 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
     // calling a sibling/cross-object method) must not clobber the caller's
     // in-progress GoTo/GoSub state.
     int prev_jump = jump_target;
+    int prev_resume_land = resume_land;
 
     for (int i = 0; i < method->statements.size(); i++) {
         jump_target = -1;
@@ -649,6 +650,15 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         // call_internal()'s loop. Without this, a real runtime error partway
         // through a class method would silently continue running the rest
         // of the method's statements.
+        if (error_state.has_error && error_state.mode == ErrorState::GOTO_LABEL) {
+            error_state.has_error = false;
+            if (method->label_map.has(error_state.label)) {
+                error_state.resume_stmt = i;
+                int idx = (int)method->label_map[error_state.label];
+                i = idx - 1;
+                continue;
+            }
+        }
         if (error_state.has_error && error_state.mode == ErrorState::NONE) {
             break;
         }
@@ -660,12 +670,16 @@ void VisualGasicInstance::execute_class_method(ClassDefinition* cls, SubDefiniti
         // through to the next statement in sequence instead of jumping).
         // Mirrors the same pattern already used for module-level Subs in
         // call_internal() (visual_gasic_instance_call.inc).
-        if (jump_target != -1) {
+        if (resume_land >= 0) {
+            i = resume_land - 1;
+            resume_land = -1;
+        } else if (jump_target != -1) {
             i = jump_target;
         }
     }
 
     jump_target = prev_jump;
+    resume_land = prev_resume_land;
     
     // Get return value for functions
     if (method->type == SubDefinition::TYPE_FUNCTION) {

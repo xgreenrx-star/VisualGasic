@@ -450,6 +450,12 @@ private:
         int code = 0; // Added
         int error_line = 0; // Line number where error occurred (Erl)
         String error_file;  // Source file for error_line (Include-aware)
+        // Bytecode IP of the statement that raised, and of the following one.
+        // Resume / Resume Next read these. -1 means no handler entry yet.
+        int resume_ip = -1;
+        int resume_next_ip = -1;
+        // AST statement index of the statement that raised. -1 = none.
+        int resume_stmt = -1;
     } error_state;
 
     // Save/restore of error_state around a call.  A full `ErrorState copy =
@@ -559,6 +565,8 @@ private:
     
     SubDefinition* current_sub;
     int jump_target;
+    // AST Resume / Resume Next: next loop index is resume_land (before i++).
+    int resume_land = -1;
     
     Variant call_internal(const String& p_method, const Array& p_args, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr, VMState* p_vm = nullptr);
     // Part Z: Variant* fast overload — the hot bytecode OP_CALL path pops args

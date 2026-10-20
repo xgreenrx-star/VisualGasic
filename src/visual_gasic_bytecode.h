@@ -5,6 +5,7 @@
 #include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/templates/vector.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
 #include <vector>
 #include <deque>
 #include <string>
@@ -401,6 +402,9 @@ enum OpCode {
     // same name is not rewritten.
     //   [CLASS_IDX(2)] [METHOD_IDX(2)] [ARG_COUNT]   stack: args… → result
     OP_CLASS_STATIC_CALL,
+    OP_RESUME,         // [OP] - On Error handler: re-run the statement that raised
+    OP_RESUME_NEXT,    // [OP] - On Error handler: continue at the next statement
+    OP_RESUME_CLEAR,   // [OP] - Clear the raised error, then fall through (Resume label)
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
@@ -459,6 +463,12 @@ struct BytecodeChunk {
     // skip the scan entirely). See execute_bytecode().
     Vector<String> globals_written;
     bool globals_scan_done = false;
+
+    // Label name (lowered) → bytecode IP, and the IP of each OP_DEBUG_LINE.
+    // On Error GoTo jumps to the label; Resume / Resume Next use the
+    // statement boundaries. Copied with the chunk.
+    HashMap<String, int> label_ips;
+    Vector<int> stmt_starts;
 
     // try_jit_bytecode() keys its tier-2/3 lookups by the Sub name as a
     // std::string; built once per chunk instead of String::utf8() per call.

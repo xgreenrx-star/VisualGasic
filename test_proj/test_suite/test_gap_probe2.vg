@@ -1,0 +1,111 @@
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function Poke(ByRef slot As Integer) As Integer
+	slot = 9
+	Poke = slot
+End Function
+
+Function HotKey(ByVal n As Integer) As Integer
+	Dim k As Integer
+	k = n + 1
+	k = k - n
+	HotKey = k + KEY_ESCAPE
+End Function
+
+Function Caught() As Integer
+	On Error GoTo HandleError
+	Err.Raise 77, "Probe", "boom"
+	Caught = 0
+	Exit Function
+HandleError:
+	Caught = Err.Number
+End Function
+
+Function Resumed() As Integer
+	On Error GoTo HandleError
+	Err.Raise 88, "Probe", "boom"
+	Resumed = 3
+	Exit Function
+HandleError:
+	Resume Next
+End Function
+
+Sub _Ready()
+	Dim t As Transform3D
+	t = Transform3D()
+	t.origin.x = 4
+	Call note(t.origin.x = 4, "xform_origin_write")
+
+	Dim r As Rect2
+	r = Rect2(0, 0, 2, 3)
+	r.position.x = 1
+	Call note(r.position.x = 1 And r.size.x = 2, "rect_position_write")
+
+	Dim c As Color
+	c = Color(1, 0, 0, 1)
+	c.r = 0.25
+	Call note(c.r > 0.2 And c.r < 0.3 And c.g < 0.1, "color_component_write")
+
+	Dim verts(2) As Vector2
+	verts(1) = Vector2(1, 2)
+	verts(1).x = 9
+	Call note(verts(1).x = 9 And verts(1).y = 2, "array_vector_write")
+
+	Dim d As Dictionary
+	d = New Dictionary
+	d("k") = 1
+	Call Poke(d("k"))
+	Call note(d("k") = 9, "byref_dict_slot")
+
+	d("alpha") = 1
+	Dim keys As Variant
+	keys = d.Keys()
+	Call note(keys(0) = "k" Or keys(0) = "alpha", "dict_keys_index")
+
+	Call note(Caught() = 77, "on_error_goto")
+	Call note(Resumed() = 3, "on_error_resume_next_label")
+
+	Dim path As NodePath
+	path = NodePath("a/b")
+	Call note(path.get_name_count() = 2, "nodepath_ctor")
+	Dim sn As StringName
+	sn = StringName("foo")
+	Call note(sn = "foo", "stringname_ctor")
+	Dim id As RID
+	id = RID()
+	Call note(id.is_valid() = False, "rid_ctor")
+
+	Dim painted As Color
+	painted = Color.from_string("#ff0000", Color.BLACK)
+	Call note(painted.r > 0.9 And painted.g < 0.1, "color_from_string")
+	Dim ang As Vector2
+	ang = Vector2.from_angle(0)
+	Call note(ang.x > 0.9 And ang.y > -0.1 And ang.y < 0.1, "vector2_from_angle")
+	Call note(String.chr(65) = "A", "string_chr")
+
+	Dim bytes As PackedByteArray
+	bytes = PackedByteArray()
+	bytes.resize(8)
+	bytes(3) = 7
+	Call note(bytes.size() = 8 And bytes(3) = 7, "packed_resize")
+
+	Dim nums() As Integer
+	ReDim nums(1)
+	nums(0) = 3
+	ReDim Preserve nums(3)
+	Call note(nums(0) = 3 And UBound(nums) = 3, "redim_preserve")
+
+	Dim i As Integer
+	Dim sum As Integer
+	sum = 0
+	For i = 1 To 6
+		sum = sum + HotKey(i)
+	Next
+	Call note(sum = 25165836, "jit_hot_param")
+End Sub
