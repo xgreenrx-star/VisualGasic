@@ -1,0 +1,2614 @@
+[gd_scene load_steps=40 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/canyon_straight_collision.tscn" id="canyon"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/service_bridge_collision.tscn" id="bridge"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/covered_roof_collision.tscn" id="roof"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/security_gate.tscn" id="gate"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/relay_pylon_collision.tscn" id="pylon"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/open_causeway_collision.tscn" id="causeway"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/lattice_arch_collision.tscn" id="lattice"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/industrial_spire_collision.tscn" id="spire"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/broken_baffle.tscn" id="baffle"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/altitude_shutter.tscn" id="shutter"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/broken_baffle_1.tscn" id="baffle_1"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/altitude_shutter_1.tscn" id="shutter_1"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/broken_baffle_2.tscn" id="baffle_2"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/scenes/altitude_shutter_2.tscn" id="shutter_2"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_0.glb" id="model_route_batch_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/violet.tres" id="material_7"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_1.glb" id="model_route_batch_1"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_2.glb" id="model_route_batch_2"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_3.glb" id="model_route_batch_3"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_4.glb" id="model_route_batch_4"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_5.glb" id="model_route_batch_5"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_6.glb" id="model_route_batch_6"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_7.glb" id="model_route_batch_7"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_8.glb" id="model_route_batch_8"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_9.glb" id="model_route_batch_9"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_10.glb" id="model_route_batch_10"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_11.glb" id="model_route_batch_11"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_12.glb" id="model_route_batch_12"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_13.glb" id="model_route_batch_13"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_14.glb" id="model_route_batch_14"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_15.glb" id="model_route_batch_15"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_16.glb" id="model_route_batch_16"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_17.glb" id="model_route_batch_17"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/route_batch_18.glb" id="model_route_batch_18"]
+
+[node name="BlackChannel" type="Node3D"]
+metadata/asset_contract_version = 1
+metadata/gameplay_implemented = false
+
+[node name="Geometry" type="Node3D" parent="."]
+
+
+[node name="Channel000" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-0.52478, -0.02187, -18.93586)
+rotation = Vector3(0, 0.02771, 0)
+scale = Vector3(1, 1, 0.46757)
+
+[node name="Lattice0" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-0.52478, -0.02187, -18.93586)
+rotation = Vector3(0, 0.02771, 0)
+
+[node name="Spire0L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-125.47681, -20.02187, -15.47299)
+rotation = Vector3(0, 0.02771, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire0R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(124.42724, -20.02187, -22.39873)
+rotation = Vector3(0, 3.1693, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel001" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-2.27405, -0.09475, -63.48397)
+rotation = Vector3(0, 0.04777, 0)
+scale = Vector3(1, 1, 0.60711)
+
+[node name="Channel002" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-4.89796, -0.20408, -119.59184)
+rotation = Vector3(0, 0.04586, 0)
+scale = Vector3(1, 1, 0.70891)
+
+[node name="Channel003" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-7.34694, -0.30612, -183.67347)
+rotation = Vector3(0, 0.03124, 0)
+scale = Vector3(1, 1, 0.77297)
+
+[node name="Lattice3" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-7.34694, -0.30612, -183.67347)
+rotation = Vector3(0, 0.03124, 0)
+
+[node name="Spire3L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-210.24789, -56.30612, -177.33281)
+rotation = Vector3(0, 0.03124, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire3R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(195.55401, -56.30612, -190.01412)
+rotation = Vector3(0, 3.17283, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel004" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-8.57143, -0.35714, -252.14286)
+rotation = Vector3(0, 0.00501, 0)
+scale = Vector3(1, 1, 0.79966)
+
+[node name="Pylon4" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(50.42783, -14.35714, -252.43872)
+rotation = Vector3(0, 0.00501, 0)
+
+[node name="Channel005" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-7.52187, -0.31341, -321.41399)
+rotation = Vector3(0, -0.03559, 0)
+scale = Vector3(1, 1, 0.78978)
+
+[node name="Channel006" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-3.14869, -0.1312, -387.90087)
+rotation = Vector3(0, -0.09778, 0)
+scale = Vector3(1, 1, 0.74486)
+
+[node name="Lattice6" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-3.14869, -0.1312, -387.90087)
+rotation = Vector3(0, -0.09778, 0)
+
+[node name="Spire6L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-153.42742, -44.1312, -402.64211)
+rotation = Vector3(0, -0.09778, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire6R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(147.13004, -44.1312, -373.15964)
+rotation = Vector3(0, 3.04381, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel007" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(5.16035, 0.22595, -450.36443)
+rotation = Vector3(0, -0.16834, 0)
+scale = Vector3(1, 1, 0.71458)
+
+[node name="Channel008" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(17.05539, 0.75802, -511.13703)
+rotation = Vector3(0, -0.21796, 0)
+scale = Vector3(1, 1, 0.72177)
+
+[node name="Pylon8" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(74.65951, -13.24198, -498.37907)
+rotation = Vector3(0, -0.21796, 0)
+
+[node name="Channel009" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(31.83673, 1.42857, -572.04082)
+rotation = Vector3(0, -0.25798, 0)
+scale = Vector3(1, 1, 0.72999)
+
+[node name="Lattice9" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(31.83673, 1.42857, -572.04082)
+rotation = Vector3(0, -0.25798, 0)
+
+[node name="Spire9L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-189.5849, -30.57143, -630.46564)
+rotation = Vector3(0, -0.25798, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire9R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(253.25837, -30.57143, -513.61599)
+rotation = Vector3(0, 2.88361, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel010" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(48.97959, 2.19388, -633.16327)
+rotation = Vector3(0, -0.2887, 0)
+scale = Vector3(1, 1, 0.73852)
+
+[node name="Channel011" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(67.95918, 3.0102, -694.59184)
+rotation = Vector3(0, -0.31049, 0)
+scale = Vector3(1, 1, 0.74684)
+
+[node name="Channel012" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(88.25073, 3.83382, -756.41399)
+rotation = Vector3(0, -0.32372, 0)
+scale = Vector3(1, 1, 0.75458)
+
+[node name="Lattice12" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(88.25073, 3.83382, -756.41399)
+rotation = Vector3(0, -0.32372, 0)
+
+[node name="Spire12L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-79.55549, -16.16618, -812.7174)
+rotation = Vector3(0, -0.32372, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire12R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(256.05695, -16.16618, -700.11059)
+rotation = Vector3(0, 2.81787, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Pylon12" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(144.18613, -10.16618, -737.64619)
+rotation = Vector3(0, -0.32372, 0)
+
+[node name="Channel013" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(109.32945, 4.62099, -818.7172)
+rotation = Vector3(0, -0.32872, 0)
+scale = Vector3(1, 1, 0.76151)
+
+[node name="Channel014" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(130.83984, 5.3501, -877.64648)
+rotation = Vector3(0, -0.37367, 0)
+scale = Vector3(1, 1, 0.69158)
+
+[node name="Channel015" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(154.74609, 6.104, -933.19336)
+rotation = Vector3(0, -0.43799, 0)
+scale = Vector3(1, 1, 0.71476)
+
+[node name="Lattice15" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(154.74609, 6.104, -933.19336)
+rotation = Vector3(0, -0.43799, 0)
+
+[node name="Spire15L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(41.54518, -49.896, -986.208)
+rotation = Vector3(0, -0.43799, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire15R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(267.94701, -49.896, -880.17872)
+rotation = Vector3(0, 2.70361, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel016" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(182.05078, 6.93311, -989.18945)
+rotation = Vector3(0, -0.46906, 0)
+scale = Vector3(1, 1, 0.72912)
+
+[node name="Pylon16" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(234.67853, -7.06689, -962.51887)
+rotation = Vector3(0, -0.46906, 0)
+
+[node name="Channel017" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(210.64453, 7.77295, -1045.51758)
+rotation = Vector3(0, -0.4704, 0)
+scale = Vector3(1, 1, 0.73276)
+
+[node name="Channel018" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(238.41797, 8.55908, -1102.06055)
+rotation = Vector3(0, -0.4426, 0)
+scale = Vector3(1, 1, 0.72561)
+
+[node name="Spire18L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(54.97852, -35.44092, -1189.00287)
+rotation = Vector3(0, -0.4426, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire18R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(421.85742, -35.44092, -1015.11822)
+rotation = Vector3(0, 2.699, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel019" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(263.26172, 9.22705, -1158.70117)
+rotation = Vector3(0, -0.38336, 0)
+scale = Vector3(1, 1, 0.70932)
+
+[node name="Channel020" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(283.06641, 9.7124, -1215.32227)
+rotation = Vector3(0, -0.28794, 0)
+scale = Vector3(1, 1, 0.68762)
+
+[node name="Pylon20" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(339.63746, -4.2876, -1198.5677)
+rotation = Vector3(0, -0.28794, 0)
+
+[node name="Channel021" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(295.72266, 9.95068, -1271.80664)
+rotation = Vector3(0, -0.15057, 0)
+scale = Vector3(1, 1, 0.667)
+
+[node name="Spire21L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(146.43103, -22.04932, -1294.45636)
+rotation = Vector3(0, -0.15057, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire21R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(445.01428, -22.04932, -1249.15692)
+rotation = Vector3(0, 2.99103, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel022" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(300.08746, 9.85131, -1332.14286)
+rotation = Vector3(0, -0.00272, 0)
+scale = Vector3(1, 1, 0.74256)
+
+[node name="Channel023" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(296.50146, 9.36589, -1396.42857)
+rotation = Vector3(0, 0.11379, 0)
+scale = Vector3(1, 1, 0.74692)
+
+[node name="Channel024" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(285.91837, 8.56122, -1460.71429)
+rotation = Vector3(0, 0.21174, 0)
+scale = Vector3(1, 1, 0.75786)
+
+[node name="Spire24L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(62.03287, -11.43878, -1412.58652)
+rotation = Vector3(0, 0.21174, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire24R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(509.80387, -11.43878, -1508.84205)
+rotation = Vector3(0, 3.35334, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Pylon24" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(343.60066, -5.43878, -1473.11402)
+rotation = Vector3(0, 0.21174, 0)
+
+[node name="Channel025" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(269.38776, 7.55102, -1525)
+rotation = Vector3(0, 0.29083, 0)
+scale = Vector3(1, 1, 0.77191)
+
+[node name="Channel026" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(247.95918, 6.44898, -1589.28571)
+rotation = Vector3(0, 0.35204, 0)
+scale = Vector3(1, 1, 0.78631)
+
+[node name="Channel027" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(222.68222, 5.3688, -1653.57143)
+rotation = Vector3(0, 0.39682, 0)
+scale = Vector3(1, 1, 0.79898)
+
+[node name="Spire27L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(59.43593, -50.6312, -1585.16346)
+rotation = Vector3(0, 0.39682, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire27R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(385.9285, -50.6312, -1721.9794)
+rotation = Vector3(0, 3.53841, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel028" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(194.60641, 4.4242, -1717.85714)
+rotation = Vector3(0, 0.42652, 0)
+scale = Vector3(1, 1, 0.80846)
+
+[node name="Roof28" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(194.60641, 44.4242, -1717.85714)
+rotation = Vector3(0, 0.42652, 0)
+scale = Vector3(1, 1, 0.80846)
+
+[node name="Pylon28" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(248.32054, -9.5758, -1742.26601)
+rotation = Vector3(0, 0.42652, 0)
+
+[node name="Channel029" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(165.00977, 3.66113, -1778.125)
+rotation = Vector3(0, 0.48969, 0)
+scale = Vector3(1, 1, 0.73688)
+
+[node name="Roof29" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(165.00977, 43.66113, -1778.125)
+rotation = Vector3(0, 0.48969, 0)
+scale = Vector3(1, 1, 0.73688)
+
+[node name="Channel030" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(131.96289, 2.9502, -1834.375)
+rotation = Vector3(0, 0.57074, 0)
+scale = Vector3(1, 1, 0.76922)
+
+[node name="Spire30L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(26.77525, -41.0498, -1766.84308)
+rotation = Vector3(0, 0.57074, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire30R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(237.15053, -41.0498, -1901.90692)
+rotation = Vector3(0, 3.71233, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Roof30" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(131.96289, 42.9502, -1834.375)
+rotation = Vector3(0, 0.57074, 0)
+scale = Vector3(1, 1, 0.76922)
+
+[node name="Channel031" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(93.7793, 2.20215, -1890.625)
+rotation = Vector3(0, 0.62114, 0)
+scale = Vector3(1, 1, 0.79343)
+
+[node name="Roof31" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(93.7793, 42.20215, -1890.625)
+rotation = Vector3(0, 0.62114, 0)
+scale = Vector3(1, 1, 0.79343)
+
+[node name="Channel032" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(52.45117, 1.47559, -1946.875)
+rotation = Vector3(0, 0.64594, 0)
+scale = Vector3(1, 1, 0.80668)
+
+[node name="Roof32" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(52.45117, 41.47559, -1946.875)
+rotation = Vector3(0, 0.64594, 0)
+scale = Vector3(1, 1, 0.80668)
+
+[node name="Pylon32" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(99.56466, -12.52441, -1982.39006)
+rotation = Vector3(0, 0.64594, 0)
+
+[node name="Channel033" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(9.9707, 0.8291, -2003.125)
+rotation = Vector3(0, 0.64771, 0)
+scale = Vector3(1, 1, 0.80766)
+
+[node name="Spire33L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-151.91522, -31.1709, -1880.64256)
+rotation = Vector3(0, 0.64771, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire33R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(171.85663, -31.1709, -2125.60744)
+rotation = Vector3(0, 3.7893, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Roof33" parent="Geometry" instance=ExtResource("roof")]
+position = Vector3(9.9707, 40.8291, -2003.125)
+rotation = Vector3(0, 0.64771, 0)
+scale = Vector3(1, 1, 0.80766)
+
+[node name="Channel034" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-31.66992, 0.32129, -2059.375)
+rotation = Vector3(0, 0.62663, 0)
+scale = Vector3(1, 1, 0.79629)
+
+[node name="Channel035" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-70.47852, 0.01074, -2115.625)
+rotation = Vector3(0, 0.58051, 0)
+scale = Vector3(1, 1, 0.77365)
+
+[node name="Channel036" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-104.46289, -0.04395, -2171.875)
+rotation = Vector3(0, 0.50471, 0)
+scale = Vector3(1, 1, 0.74232)
+
+[node name="Lattice36" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-104.46289, -0.04395, -2171.875)
+rotation = Vector3(0, 0.50471, 0)
+
+[node name="Spire36L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-236.63561, -20.04395, -2098.85875)
+rotation = Vector3(0, 0.50471, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire36R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(27.70983, -20.04395, -2244.89125)
+rotation = Vector3(0, 3.6463, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Pylon36" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-52.81925, -14.04395, -2200.40453)
+rotation = Vector3(0, 0.50471, 0)
+
+[node name="Channel037" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-135.59767, 0.2828, -2232.14286)
+rotation = Vector3(0, 0.45179, 0)
+scale = Vector3(1, 1, 0.81724)
+
+[node name="Channel038" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-166.09329, 1.0758, -2296.42857)
+rotation = Vector3(0, 0.43402, 0)
+scale = Vector3(1, 1, 0.81099)
+
+[node name="Channel039" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-194.4898, 2.2449, -2360.71429)
+rotation = Vector3(0, 0.39759, 0)
+scale = Vector3(1, 1, 0.79921)
+
+[node name="Lattice39" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-194.4898, 2.2449, -2360.71429)
+rotation = Vector3(0, 0.39759, 0)
+
+[node name="Spire39L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-405.62712, -53.7551, -2272.04619)
+rotation = Vector3(0, 0.39759, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire39R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(16.64752, -53.7551, -2449.38238)
+rotation = Vector3(0, 3.53918, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel040" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-219.38776, 3.63265, -2425)
+rotation = Vector3(0, 0.34081, 0)
+scale = Vector3(1, 1, 0.78342)
+
+[node name="Pylon40" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-163.78119, -10.36735, -2444.72079)
+rotation = Vector3(0, 0.34081, 0)
+
+[node name="Channel041" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-239.38776, 5.08163, -2489.28571)
+rotation = Vector3(0, 0.26145, 0)
+scale = Vector3(1, 1, 0.76612)
+
+[node name="Channel042" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-253.09038, 6.4344, -2553.57143)
+rotation = Vector3(0, 0.15742, 0)
+scale = Vector3(1, 1, 0.75094)
+
+[node name="Lattice42" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-253.09038, 6.4344, -2553.57143)
+rotation = Vector3(0, 0.15742, 0)
+
+[node name="Spire42L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-427.90187, -37.5656, -2525.82357)
+rotation = Vector3(0, 0.15742, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire42R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-78.27889, -37.5656, -2581.31928)
+rotation = Vector3(0, 3.29901, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel043" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-259.09621, 7.53353, -2617.85714)
+rotation = Vector3(0, 0.02811, 0)
+scale = Vector3(1, 1, 0.74282)
+
+[node name="Channel044" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-256.81641, 8.30273, -2678.125)
+rotation = Vector3(0, -0.11271, 0)
+scale = Vector3(1, 1, 0.6626)
+
+[node name="Pylon44" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-198.1908, -5.69727, -2671.48891)
+rotation = Vector3(0, -0.11271, 0)
+
+[node name="Channel045" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-246.97266, 8.88086, -2734.375)
+rotation = Vector3(0, -0.23252, 0)
+scale = Vector3(1, 1, 0.67506)
+
+[node name="Lattice45" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-246.97266, 8.88086, -2734.375)
+rotation = Vector3(0, -0.23252, 0)
+
+[node name="Spire45L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-368.60869, -23.11914, -2763.17909)
+rotation = Vector3(0, -0.23252, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire45R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-125.33662, -23.11914, -2705.57091)
+rotation = Vector3(0, 2.90907, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel046" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-230.76172, 9.39258, -2790.625)
+rotation = Vector3(0, -0.32736, 0)
+scale = Vector3(1, 1, 0.69172)
+
+[node name="Channel047" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-209.35547, 9.81445, -2846.875)
+rotation = Vector3(0, -0.39893, 0)
+scale = Vector3(1, 1, 0.70878)
+
+[node name="Channel048" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-183.92578, 10.12305, -2903.125)
+rotation = Vector3(0, -0.44966, 0)
+scale = Vector3(1, 1, 0.72353)
+
+[node name="Spire48L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-366.74633, -9.87695, -2991.36131)
+rotation = Vector3(0, -0.44966, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire48R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-1.10523, -9.87695, -2814.88869)
+rotation = Vector3(0, 2.69193, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Pylon48" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-130.79074, -3.87695, -2877.47996)
+rotation = Vector3(0, -0.44966, 0)
+
+[node name="Channel049" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-155.64453, 10.29492, -2959.375)
+rotation = Vector3(0, -0.48181, 0)
+scale = Vector3(1, 1, 0.73413)
+
+[node name="Channel050" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-125.68359, 10.30664, -3015.625)
+rotation = Vector3(0, -0.49696, 0)
+scale = Vector3(1, 1, 0.73948)
+
+[node name="Channel051" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-95.21484, 10.13477, -3071.875)
+rotation = Vector3(0, -0.49589, 0)
+scale = Vector3(1, 1, 0.7391)
+
+[node name="Spire51L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-228.02654, -45.86523, -3143.72244)
+rotation = Vector3(0, -0.49589, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire51R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(37.59685, -45.86523, -3000.02756)
+rotation = Vector3(0, 2.64571, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel052" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-63.4375, 9.71875, -3127.9541)
+rotation = Vector3(0, -0.53488, 0)
+scale = Vector3(1, 1, 0.74984)
+
+[node name="Pylon52" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-12.678, -4.28125, -3097.87965)
+rotation = Vector3(0, -0.53488, 0)
+
+[node name="Channel053" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-27.8125, 9, -3183.61816)
+rotation = Vector3(0, -0.60258, 0)
+scale = Vector3(1, 1, 0.77362)
+
+[node name="Channel054" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(11.875, 8.01563, -3238.94043)
+rotation = Vector3(0, -0.64155, 0)
+scale = Vector3(1, 1, 0.79094)
+
+[node name="Spire54L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-171.59328, -35.98438, -3375.98199)
+rotation = Vector3(0, -0.64155, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire54R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(195.34328, -35.98438, -3101.89887)
+rotation = Vector3(0, 2.50005, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel055" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(53.75, 6.85938, -3294.21387)
+rotation = Vector3(0, -0.65506, 0)
+scale = Vector3(1, 1, 0.79961)
+
+[node name="Channel056" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(95.9375, 5.625, -3349.73145)
+rotation = Vector3(0, -0.64454, 0)
+scale = Vector3(1, 1, 0.79891)
+
+[node name="Pylon56" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(143.10077, -8.375, -3314.28252)
+rotation = Vector3(0, -0.64454, 0)
+
+[node name="Channel057" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(136.5625, 4.40625, -3405.78613)
+rotation = Vector3(0, -0.6095, 0)
+scale = Vector3(1, 1, 0.7894)
+
+[node name="Spire57L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-8.56541, -27.59375, -3507.1118)
+rotation = Vector3(0, -0.6095, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire57R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(281.69041, -27.59375, -3304.46047)
+rotation = Vector3(0, 2.53209, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel058" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(173.75, 3.29688, -3462.6709)
+rotation = Vector3(0, -0.54777, 0)
+scale = Vector3(1, 1, 0.77298)
+
+[node name="Channel059" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(205.625, 2.39063, -3520.67871)
+rotation = Vector3(0, -0.45582, 0)
+scale = Vector3(1, 1, 0.75324)
+
+[node name="Channel060" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(232.12891, 1.69727, -3580.05371)
+rotation = Vector3(0, -0.38358, 0)
+scale = Vector3(1, 1, 0.7481)
+
+[node name="Spire60L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(116.21274, -18.30273, -3626.8345)
+rotation = Vector3(0, -0.38358, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire60R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(348.04507, -18.30273, -3533.27292)
+rotation = Vector3(0, 2.75801, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Pylon60" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(286.84134, -12.30273, -3557.97318)
+rotation = Vector3(0, -0.38358, 0)
+
+[node name="Channel061" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(255.41016, 1.11914, -3640.7959)
+rotation = Vector3(0, -0.34857, 0)
+scale = Vector3(1, 1, 0.75317)
+
+[node name="Channel062" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(276.38672, 0.60742, -3702.66113)
+rotation = Vector3(0, -0.30526, 0)
+scale = Vector3(1, 1, 0.75392)
+
+[node name="Channel063" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(294.35547, 0.18555, -3765.35645)
+rotation = Vector3(0, -0.25287, 0)
+scale = Vector3(1, 1, 0.75112)
+
+[node name="Spire63L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(97.81134, -55.81445, -3816.1443)
+rotation = Vector3(0, -0.25287, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire63R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(490.8996, -55.81445, -3714.56859)
+rotation = Vector3(0, 2.88872, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel064" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(308.61328, -0.12305, -3828.58887)
+rotation = Vector3(0, -0.19043, 0)
+scale = Vector3(1, 1, 0.74579)
+
+[node name="Pylon64" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(366.54676, -14.12305, -3817.4214)
+rotation = Vector3(0, -0.19043, 0)
+
+[node name="Channel065" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(318.45703, -0.29492, -3892.06543)
+rotation = Vector3(0, -0.11691, 0)
+scale = Vector3(1, 1, 0.73919)
+
+[node name="Channel066" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(323.18359, -0.30664, -3955.49316)
+rotation = Vector3(0, -0.03145, 0)
+scale = Vector3(1, 1, 0.73293)
+
+[node name="Spire66L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(172.25825, -44.30664, -3960.24085)
+rotation = Vector3(0, -0.03145, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire66R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(474.10894, -44.30664, -3950.74547)
+rotation = Vector3(0, 3.11015, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel067" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(322.08984, -0.13477, -4018.5791)
+rotation = Vector3(0, 0.06641, 0)
+scale = Vector3(1, 1, 0.72897)
+
+[node name="Channel068" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(314.47188, 0.21948, -4077.77778)
+rotation = Vector3(0, 0.19645, 0)
+scale = Vector3(1, 1, 0.66297)
+
+[node name="Pylon68" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(372.3371, -13.78052, -4089.29367)
+rotation = Vector3(0, 0.19645, 0)
+
+[node name="Channel069" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(299.62963, 0.75309, -4133.33333)
+rotation = Vector3(0, 0.32353, 0)
+scale = Vector3(1, 1, 0.68329)
+
+[node name="Lattice69" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(299.62963, 0.75309, -4133.33333)
+rotation = Vector3(0, 0.32353, 0)
+
+[node name="Spire69L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(82.51016, -31.24691, -4060.5313)
+rotation = Vector3(0, 0.32353, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire69R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(516.7491, -31.24691, -4206.13537)
+rotation = Vector3(0, 3.46512, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel070" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(278.12071, 1.45953, -4188.88889)
+rotation = Vector3(0, 0.41368, 0)
+scale = Vector3(1, 1, 0.70493)
+
+[node name="Channel071" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(251.75583, 2.3059, -4244.44444)
+rotation = Vector3(0, 0.47171, 0)
+scale = Vector3(1, 1, 0.72257)
+
+[node name="Channel072" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(222.34568, 3.25926, -4300)
+rotation = Vector3(0, 0.5018, 0)
+scale = Vector3(1, 1, 0.733)
+
+[node name="Lattice72" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(222.34568, 3.25926, -4300)
+rotation = Vector3(0, 0.5018, 0)
+
+[node name="Spire72L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(67.16656, -16.74074, -4214.86222)
+rotation = Vector3(0, 0.5018, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire72R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(377.5248, -16.74074, -4385.13778)
+rotation = Vector3(0, 3.64339, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Pylon72" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(274.07205, -10.74074, -4328.37926)
+rotation = Vector3(0, 0.5018, 0)
+
+[node name="Channel073" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(191.70096, 4.28669, -4355.55556)
+rotation = Vector3(0, 0.50634, 0)
+scale = Vector3(1, 1, 0.73465)
+
+[node name="Channel074" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(161.63237, 5.35528, -4411.11111)
+rotation = Vector3(0, 0.48572, 0)
+scale = Vector3(1, 1, 0.72731)
+
+[node name="Channel075" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(133.95062, 6.4321, -4466.66667)
+rotation = Vector3(0, 0.43825, 0)
+scale = Vector3(1, 1, 0.71202)
+
+[node name="Lattice75" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(133.95062, 6.4321, -4466.66667)
+rotation = Vector3(0, 0.43825, 0)
+
+[node name="Spire75L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(20.76355, -49.5679, -4413.62246)
+rotation = Vector3(0, 0.43825, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire75R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(247.13768, -49.5679, -4519.71088)
+rotation = Vector3(0, 3.57984, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel076" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(110.46639, 7.48422, -4522.22222)
+rotation = Vector3(0, 0.36034, 0)
+scale = Vector3(1, 1, 0.69134)
+
+[node name="Pylon76" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(165.67725, -6.51578, -4543.02513)
+rotation = Vector3(0, 0.36034, 0)
+
+[node name="Channel077" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(90.53711, 8.58398, -4581.25)
+rotation = Vector3(0, 0.29404, 0)
+scale = Vector3(1, 1, 0.75315)
+
+[node name="Channel078" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(72.64648, 9.78711, -4643.75)
+rotation = Vector3(0, 0.26342, 0)
+scale = Vector3(1, 1, 0.74722)
+
+[node name="Lattice78" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(72.64648, 9.78711, -4643.75)
+rotation = Vector3(0, 0.26342, 0)
+
+[node name="Spire78L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-123.35102, -34.21289, -4590.89192)
+rotation = Vector3(0, 0.26342, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire78R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(268.64399, -34.21289, -4696.60808)
+rotation = Vector3(0, 3.40501, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel079" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(56.76758, 11.04883, -4706.25)
+rotation = Vector3(0, 0.23407, 0)
+scale = Vector3(1, 1, 0.74221)
+
+[node name="Channel080" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(42.7832, 12.3457, -4768.75)
+rotation = Vector3(0, 0.20609, 0)
+scale = Vector3(1, 1, 0.73803)
+
+[node name="Pylon80" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(100.53463, -1.6543, -4780.82366)
+rotation = Vector3(0, 0.20609, 0)
+
+[node name="Channel081" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(30.57617, 13.6543, -4831.25)
+rotation = Vector3(0, 0.17961, 0)
+scale = Vector3(1, 1, 0.7346)
+
+[node name="Lattice81" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(30.57617, 13.6543, -4831.25)
+rotation = Vector3(0, 0.17961, 0)
+
+[node name="Spire81L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-117.99487, -18.3457, -4804.27507)
+rotation = Vector3(0, 0.17961, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire81R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(179.14721, -18.3457, -4858.22493)
+rotation = Vector3(0, 3.3212, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel082" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(20.0293, 14.95117, -4893.75)
+rotation = Vector3(0, 0.15469, 0)
+scale = Vector3(1, 1, 0.73183)
+
+[node name="Channel083" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(11.02539, 16.21289, -4956.25)
+rotation = Vector3(0, 0.13143, 0)
+scale = Vector3(1, 1, 0.72962)
+
+[node name="Channel084" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(3.44727, 17.41602, -5018.75)
+rotation = Vector3(0, 0.10987, 0)
+scale = Vector3(1, 1, 0.72791)
+
+[node name="Lattice84" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(3.44727, 17.41602, -5018.75)
+rotation = Vector3(0, 0.10987, 0)
+
+[node name="Spire84L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-224.17199, -2.58398, -4993.64075)
+rotation = Vector3(0, 0.10987, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire84R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(231.06652, -2.58398, -5043.85925)
+rotation = Vector3(0, 3.25146, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Pylon84" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(62.09153, 3.41602, -5025.2192)
+rotation = Vector3(0, 0.10987, 0)
+
+[node name="Channel085" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-3.21289, 18.60254, -5081.0791)
+rotation = Vector3(0, 0.10301, 0)
+scale = Vector3(1, 1, 0.72385)
+
+[node name="Channel086" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-9.54102, 19.86035, -5142.99316)
+rotation = Vector3(0, 0.10069, 0)
+scale = Vector3(1, 1, 0.71858)
+
+[node name="Channel087" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-15.26367, 21.18262, -5204.56543)
+rotation = Vector3(0, 0.08463, 0)
+scale = Vector3(1, 1, 0.71558)
+
+[node name="Lattice87" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-15.26367, 21.18262, -5204.56543)
+rotation = Vector3(0, 0.08463, 0)
+
+[node name="Spire87L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-191.63024, -34.81738, -5189.60439)
+rotation = Vector3(0, 0.08463, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire87R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(161.1029, -34.81738, -5219.52647)
+rotation = Vector3(0, 3.22622, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel088" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-19.56055, 22.4873, -5266.08887)
+rotation = Vector3(0, 0.05482, 0)
+scale = Vector3(1, 1, 0.71526)
+
+[node name="Pylon88" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(39.35081, 8.4873, -5269.32175)
+rotation = Vector3(0, 0.05482, 0)
+
+[node name="Channel089" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-21.61133, 23.69238, -5327.85645)
+rotation = Vector3(0, 0.01166, 0)
+scale = Vector3(1, 1, 0.71841)
+
+[node name="Channel090" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-20.5957, 24.71582, -5390.16113)
+rotation = Vector3(0, -0.04393, 0)
+scale = Vector3(1, 1, 0.72611)
+
+[node name="Lattice90" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-20.5957, 24.71582, -5390.16113)
+rotation = Vector3(0, -0.04393, 0)
+
+[node name="Spire90L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-145.4751, -19.28418, -5395.65076)
+rotation = Vector3(0, -0.04393, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire90R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(104.28369, -19.28418, -5384.6715)
+rotation = Vector3(0, 3.09766, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel091" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-15.69336, 25.47559, -5453.2959)
+rotation = Vector3(0, -0.11037, 0)
+scale = Vector3(1, 1, 0.73971)
+
+[node name="Channel092" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-6.08398, 25.88965, -5517.55371)
+rotation = Vector3(0, -0.18536, 0)
+scale = Vector3(1, 1, 0.76066)
+
+[node name="Pylon92" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(51.90538, 11.88965, -5506.68016)
+rotation = Vector3(0, -0.18536, 0)
+
+[node name="Channel093" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(8.01097, 25.91221, -5579.45816)
+rotation = Vector3(0, -0.26552, 0)
+scale = Vector3(1, 1, 0.70892)
+
+[node name="Lattice93" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(8.01097, 25.91221, -5579.45816)
+rotation = Vector3(0, -0.26552, 0)
+
+[node name="Spire93L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-187.87497, -6.08779, -5632.72819)
+rotation = Vector3(0, -0.26552, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire93R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(203.89692, -6.08779, -5526.18813)
+rotation = Vector3(0, 2.87607, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel094" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(26.41975, 25.58025, -5638.88889)
+rotation = Vector3(0, -0.33392, 0)
+scale = Vector3(1, 1, 0.73385)
+
+[node name="Channel095" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(49.14952, 24.96433, -5699.24554)
+rotation = Vector3(0, -0.38556, 0)
+scale = Vector3(1, 1, 0.75607)
+
+[node name="Channel096" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(75.29492, 24.12209, -5760.32236)
+rotation = Vector3(0, -0.4229, 0)
+scale = Vector3(1, 1, 0.77412)
+
+[node name="Lattice96" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(75.29492, 24.12209, -5760.32236)
+rotation = Vector3(0, -0.4229, 0)
+
+[node name="Spire96L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-62.40234, 4.12209, -5822.29382)
+rotation = Vector3(0, -0.4229, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire96R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(212.99219, 4.12209, -5698.3509)
+rotation = Vector3(0, 2.71869, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Pylon96" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(129.09717, 10.12209, -5736.10834)
+rotation = Vector3(0, -0.4229, 0)
+
+[node name="Channel097" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(103.95062, 23.11111, -5821.91358)
+rotation = Vector3(0, -0.44781, 0)
+scale = Vector3(1, 1, 0.78705)
+
+[node name="Channel098" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(134.21125, 21.98903, -5883.81344)
+rotation = Vector3(0, -0.46152, 0)
+scale = Vector3(1, 1, 0.79425)
+
+[node name="Channel099" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(165.17147, 20.81344, -5945.81619)
+rotation = Vector3(0, -0.46471, 0)
+scale = Vector3(1, 1, 0.7954)
+
+[node name="Lattice99" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(165.17147, 20.81344, -5945.81619)
+rotation = Vector3(0, -0.46471, 0)
+
+[node name="Spire99L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-39.54355, -35.18656, -6048.44544)
+rotation = Vector3(0, -0.46471, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire99R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(369.88648, -35.18656, -5843.18693)
+rotation = Vector3(0, 2.67688, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel100" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(195.92593, 19.64198, -6007.71605)
+rotation = Vector3(0, -0.4575, 0)
+scale = Vector3(1, 1, 0.79042)
+
+[node name="Pylon100" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(248.85828, 5.64198, -5981.65524)
+rotation = Vector3(0, -0.4575, 0)
+
+[node name="Channel101" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(225.56927, 18.53224, -6069.30727)
+rotation = Vector3(0, -0.4395, 0)
+scale = Vector3(1, 1, 0.7795)
+
+[node name="Channel102" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(255.10288, 17.4225, -6130.55556)
+rotation = Vector3(0, -0.45906, 0)
+scale = Vector3(1, 1, 0.78301)
+
+[node name="Spire102L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(96.42764, -26.5775, -6208.98493)
+rotation = Vector3(0, -0.45906, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire102R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(413.77812, -26.5775, -6052.12618)
+rotation = Vector3(0, 2.68253, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel103" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(287.16049, 16.14815, -6191.66667)
+rotation = Vector3(0, -0.50658, 0)
+scale = Vector3(1, 1, 0.80092)
+
+[node name="Channel104" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(322.05761, 14.68861, -6252.77778)
+rotation = Vector3(0, -0.53096, 0)
+scale = Vector3(1, 1, 0.81113)
+
+[node name="Pylon104" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(372.93462, 0.68861, -6222.90253)
+rotation = Vector3(0, -0.53096, 0)
+
+[node name="Channel105" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(358.06584, 13.15089, -6313.88889)
+rotation = Vector3(0, -0.53396, 0)
+scale = Vector3(1, 1, 0.81243)
+
+[node name="Spire105L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(250.4659, -18.84911, -6377.5069)
+rotation = Vector3(0, -0.53396, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire105R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(465.66579, -18.84911, -6250.27087)
+rotation = Vector3(0, 2.60763, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel106" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(393.45679, 11.64198, -6375)
+rotation = Vector3(0, -0.5158, 0)
+scale = Vector3(1, 1, 0.8047)
+
+[node name="Channel107" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(426.50206, 10.26886, -6436.11111)
+rotation = Vector3(0, -0.47516, 0)
+scale = Vector3(1, 1, 0.7888)
+
+[node name="Channel108" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(455.47325, 9.13855, -6497.22222)
+rotation = Vector3(0, -0.40919, 0)
+scale = Vector3(1, 1, 0.76677)
+
+[node name="Spire108L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(269.23234, -10.86145, -6577.98932)
+rotation = Vector3(0, -0.40919, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire108R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(641.71416, -10.86145, -6416.45512)
+rotation = Vector3(0, 2.7324, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Pylon108" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(509.60238, -4.86145, -6473.74804)
+rotation = Vector3(0, -0.40919, 0)
+
+[node name="Channel109" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(478.64198, 8.35802, -6558.33333)
+rotation = Vector3(0, -0.31385, 0)
+scale = Vector3(1, 1, 0.74218)
+
+[node name="Channel110" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(494.27984, 8.03429, -6619.44444)
+rotation = Vector3(0, -0.18506, 0)
+scale = Vector3(1, 1, 0.72055)
+
+[node name="Channel111" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(501.87929, 8.25377, -6680.55556)
+rotation = Vector3(0, -0.06143, 0)
+scale = Vector3(1, 1, 0.71069)
+
+[node name="Spire111L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(351.16408, -47.74623, -6689.82513)
+rotation = Vector3(0, -0.06143, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire111R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(652.5945, -47.74623, -6671.28598)
+rotation = Vector3(0, 3.08017, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel112" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(502.83951, 9.01235, -6741.66667)
+rotation = Vector3(0, 0.03007, 0)
+scale = Vector3(1, 1, 0.70978)
+
+[node name="Pylon112" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(561.81284, -4.98765, -6743.4405)
+rotation = Vector3(0, 0.03007, 0)
+
+[node name="Channel113" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(498.36763, 10.22154, -6802.77778)
+rotation = Vector3(0, 0.11575, 0)
+scale = Vector3(1, 1, 0.71378)
+
+[node name="Channel114" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(488.79287, 11.77846, -6863.88889)
+rotation = Vector3(0, 0.19459, 0)
+scale = Vector3(1, 1, 0.72174)
+
+[node name="Spire114L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(264.1147, -32.22154, -6819.60888)
+rotation = Vector3(0, 0.19459, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire114R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(713.47104, -32.22154, -6908.1689)
+rotation = Vector3(0, 3.33618, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel115" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(474.44444, 13.58025, -6925)
+rotation = Vector3(0, 0.26604, 0)
+scale = Vector3(1, 1, 0.7327)
+
+[node name="Channel116" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(455.65158, 15.52401, -6986.11111)
+rotation = Vector3(0, 0.33001, 0)
+scale = Vector3(1, 1, 0.7458)
+
+[node name="Pylon116" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(511.46788, 1.52401, -7005.23023)
+rotation = Vector3(0, 0.33001, 0)
+
+[node name="Channel117" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(432.74348, 17.50686, -7047.22222)
+rotation = Vector3(0, 0.38668, 0)
+scale = Vector3(1, 1, 0.76024)
+
+[node name="Spire117L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(268.81228, -14.49314, -6980.47223)
+rotation = Vector3(0, 0.38668, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire117R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(596.67469, -14.49314, -7113.97221)
+rotation = Vector3(0, 3.52828, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel118" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(406.04938, 19.42593, -7108.33333)
+rotation = Vector3(0, 0.43644, 0)
+scale = Vector3(1, 1, 0.77533)
+
+[node name="Channel119" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(375.89849, 21.17833, -7169.44444)
+rotation = Vector3(0, 0.47977, 0)
+scale = Vector3(1, 1, 0.7905)
+
+[node name="Channel120" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(344.9136, 22.67731, -7224.90609)
+rotation = Vector3(0, 0.54462, 0)
+scale = Vector3(1, 1, 0.67956)
+
+[node name="Spire120L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(237.99828, 2.67731, -7160.14411)
+rotation = Vector3(0, 0.54462, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire120R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(451.82892, 2.67731, -7289.66807)
+rotation = Vector3(0, 3.68622, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Pylon120" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(395.37763, 8.67731, -7255.47374)
+rotation = Vector3(0, 0.54462, 0)
+
+[node name="Channel121" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(312.15627, 24.13298, -7274.56799)
+rotation = Vector3(0, 0.61993, 0)
+scale = Vector3(1, 1, 0.70658)
+
+[node name="Channel122" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(274.70323, 25.75131, -7323.98573)
+rotation = Vector3(0, 0.67604, 0)
+scale = Vector3(1, 1, 0.73157)
+
+[node name="Channel123" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(233.50113, 27.45342, -7373.27198)
+rotation = Vector3(0, 0.71592, 0)
+scale = Vector3(1, 1, 0.75285)
+
+[node name="Spire123L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(80.33935, -28.54658, -7240.04109)
+rotation = Vector3(0, 0.71592, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire123R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(386.66291, -28.54658, -7506.50286)
+rotation = Vector3(0, 3.85751, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel124" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(189.49662, 29.16041, -7422.53944)
+rotation = Vector3(0, 0.74184, 0)
+scale = Vector3(1, 1, 0.76931)
+
+[node name="Pylon124" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(232.99312, 15.16041, -7462.40239)
+rotation = Vector3(0, 0.74184, 0)
+
+[node name="Channel125" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(143.63636, 30.79339, -7471.90083)
+rotation = Vector3(0, 0.75535, 0)
+scale = Vector3(1, 1, 0.78025)
+
+[node name="Channel126" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(96.86702, 32.27348, -7521.46882)
+rotation = Vector3(0, 0.75735, 0)
+scale = Vector3(1, 1, 0.78536)
+
+[node name="Spire126L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-12.85813, -11.72652, -7417.73169)
+rotation = Vector3(0, 0.75735, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire126R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(206.59217, -11.72652, -7625.20595)
+rotation = Vector3(0, 3.89895, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel127" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(50.13524, 33.52179, -7571.35612)
+rotation = Vector3(0, 0.74814, 0)
+scale = Vector3(1, 1, 0.78458)
+
+[node name="Channel128" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(4.38768, 34.45943, -7621.67543)
+rotation = Vector3(0, 0.72745, 0)
+scale = Vector3(1, 1, 0.77813)
+
+[node name="Pylon128" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(48.45302, 20.45943, -7660.90865)
+rotation = Vector3(0, 0.72745, 0)
+
+[node name="Channel129" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-39.429, 35.00751, -7672.53944)
+rotation = Vector3(0, 0.69448, 0)
+scale = Vector3(1, 1, 0.76653)
+
+[node name="Lattice129" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-39.429, 35.00751, -7672.53944)
+rotation = Vector3(0, 0.69448, 0)
+
+[node name="Spire129L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-215.38979, 3.00751, -7525.98297)
+rotation = Vector3(0, 0.69448, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire129R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(136.53179, 3.00751, -7819.09592)
+rotation = Vector3(0, 3.83607, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel130" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-80.36814, 35.08715, -7724.06086)
+rotation = Vector3(0, 0.64787, 0)
+scale = Vector3(1, 1, 0.75064)
+
+[node name="Channel131" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-119.21863, 34.5988, -7776.33358)
+rotation = Vector3(0, 0.63046, 0)
+scale = Vector3(1, 1, 0.7521)
+
+[node name="Channel132" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-158.50488, 33.48835, -7829.35763)
+rotation = Vector3(0, 0.64469, 0)
+scale = Vector3(1, 1, 0.7686)
+
+[node name="Lattice132" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-158.50488, 33.48835, -7829.35763)
+rotation = Vector3(0, 0.64469, 0)
+
+[node name="Spire132L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-299.97814, 13.48835, -7722.98885)
+rotation = Vector3(0, 0.64469, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire132R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-17.03162, 13.48835, -7935.7264)
+rotation = Vector3(0, 3.78629, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Pylon132" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-111.34713, 19.48835, -7864.81388)
+rotation = Vector3(0, 0.64469, 0)
+
+[node name="Channel133" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-199.01578, 31.82156, -7883.03907)
+rotation = Vector3(0, 0.64823, 0)
+scale = Vector3(1, 1, 0.77832)
+
+[node name="Channel134" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-239.80466, 29.71788, -7937.26521)
+rotation = Vector3(0, 0.6416, 0)
+scale = Vector3(1, 1, 0.78116)
+
+[node name="Channel135" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-279.92487, 27.29677, -7991.92337)
+rotation = Vector3(0, 0.62474, 0)
+scale = Vector3(1, 1, 0.77727)
+
+[node name="Lattice135" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-279.92487, 27.29677, -7991.92337)
+rotation = Vector3(0, 0.62474, 0)
+
+[node name="Spire135L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-381.31395, -28.70323, -7918.81212)
+rotation = Vector3(0, 0.62474, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire135R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-178.53579, -28.70323, -8065.03461)
+rotation = Vector3(0, 3.76634, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel136" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-318.42975, 24.67769, -8046.90083)
+rotation = Vector3(0, 0.59701, 0)
+scale = Vector3(1, 1, 0.76704)
+
+[node name="Pylon136" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-269.63552, 10.67769, -8080.06893)
+rotation = Vector3(0, 0.59701, 0)
+
+[node name="Channel137" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-354.37265, 21.98009, -8102.0849)
+rotation = Vector3(0, 0.55714, 0)
+scale = Vector3(1, 1, 0.7511)
+
+[node name="Channel138" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-386.80691, 19.32344, -8157.36289)
+rotation = Vector3(0, 0.50326, 0)
+scale = Vector3(1, 1, 0.73045)
+
+[node name="Lattice138" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-386.80691, 19.32344, -8157.36289)
+rotation = Vector3(0, 0.50326, 0)
+
+[node name="Spire138L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-564.63792, -24.67656, -8059.45919)
+rotation = Vector3(0, 0.50326, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire138R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-208.97591, -24.67656, -8255.26658)
+rotation = Vector3(0, 3.64485, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel139" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-414.78588, 16.8272, -8212.62209)
+rotation = Vector3(0, 0.43282, 0)
+scale = Vector3(1, 1, 0.70657)
+
+[node name="Channel140" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-437.36289, 14.61082, -8267.74981)
+rotation = Vector3(0, 0.34277, 0)
+scale = Vector3(1, 1, 0.68159)
+
+[node name="Pylon140" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-381.79514, 0.61082, -8287.57972)
+rotation = Vector3(0, 0.34277, 0)
+
+[node name="Channel141" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-453.59128, 12.79376, -8322.63336)
+rotation = Vector3(0, 0.23003, 0)
+scale = Vector3(1, 1, 0.65848)
+
+[node name="Lattice141" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-453.59128, 12.79376, -8322.63336)
+rotation = Vector3(0, 0.23003, 0)
+
+[node name="Spire141L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-600.61372, -19.20624, -8288.20367)
+rotation = Vector3(0, 0.23003, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire141R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-306.56885, -19.20624, -8357.06305)
+rotation = Vector3(0, 3.37163, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel142" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-463.205, 11.31075, -8380.1125)
+rotation = Vector3(0, 0.10604, 0)
+scale = Vector3(1, 1, 0.7038)
+
+[node name="Channel143" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-466.245, 10.00675, -8440.5125)
+rotation = Vector3(0, -0.00545, 0)
+scale = Vector3(1, 1, 0.70392)
+
+[node name="Channel144" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-462.875, 8.85625, -8501.1875)
+rotation = Vector3(0, -0.10508, 0)
+scale = Vector3(1, 1, 0.7095)
+
+[node name="Lattice144" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-462.875, 8.85625, -8501.1875)
+rotation = Vector3(0, -0.10508, 0)
+
+[node name="Spire144L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-690.61182, -11.14375, -8525.20713)
+rotation = Vector3(0, -0.10508, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire144R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-235.13818, -11.14375, -8477.16787)
+rotation = Vector3(0, 3.03651, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Pylon144" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-404.20045, -5.14375, -8494.99904)
+rotation = Vector3(0, -0.10508, 0)
+
+[node name="Channel145" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-453.755, 7.86825, -8561.9875)
+rotation = Vector3(0, -0.19209, 0)
+scale = Vector3(1, 1, 0.71838)
+
+[node name="Channel146" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-439.545, 7.05175, -8622.7625)
+rotation = Vector3(0, -0.26669, 0)
+scale = Vector3(1, 1, 0.72865)
+
+[node name="Channel147" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-420.905, 6.41575, -8683.3625)
+rotation = Vector3(0, -0.32964, 0)
+scale = Vector3(1, 1, 0.73871)
+
+[node name="Lattice147" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-420.905, 6.41575, -8683.3625)
+rotation = Vector3(0, -0.32964, 0)
+
+[node name="Spire147L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-588.37502, -49.58425, -8740.65815)
+rotation = Vector3(0, -0.32964, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire147R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-253.43498, -49.58425, -8626.06685)
+rotation = Vector3(0, 2.81195, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel148" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-398.495, 5.96925, -8743.6375)
+rotation = Vector3(0, -0.38194, 0)
+scale = Vector3(1, 1, 0.74729)
+
+[node name="Pylon148" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-343.74636, -8.03075, -8721.64691)
+rotation = Vector3(0, -0.38194, 0)
+
+[node name="Channel149" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-372.975, 5.72125, -8803.4375)
+rotation = Vector3(0, -0.42458, 0)
+scale = Vector3(1, 1, 0.75339)
+
+[node name="Channel150" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-345.005, 5.68075, -8862.6125)
+rotation = Vector3(0, -0.45843, 0)
+scale = Vector3(1, 1, 0.75623)
+
+[node name="Lattice150" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-345.005, 5.68075, -8862.6125)
+rotation = Vector3(0, -0.45843, 0)
+
+[node name="Spire150L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-457.09843, -38.31925, -8917.93034)
+rotation = Vector3(0, -0.45843, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire150R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-232.91157, -38.31925, -8807.29466)
+rotation = Vector3(0, 2.68316, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel151" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-315.245, 5.85675, -8921.0125)
+rotation = Vector3(0, -0.48417, 0)
+scale = Vector3(1, 1, 0.75525)
+
+[node name="Channel152" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-284.35011, 6.25319, -8975.84523)
+rotation = Vector3(0, -0.54447, 0)
+scale = Vector3(1, 1, 0.70238)
+
+[node name="Pylon152" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-233.88142, -7.74681, -8945.28526)
+rotation = Vector3(0, -0.54447, 0)
+
+[node name="Channel153" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-250.30804, 6.89031, -9027.02855)
+rotation = Vector3(0, -0.62788, 0)
+scale = Vector3(1, 1, 0.7252)
+
+[node name="Lattice153" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-250.30804, 6.89031, -9027.02855)
+rotation = Vector3(0, -0.62788, 0)
+
+[node name="Spire153L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-414.59093, -25.10969, -9146.27674)
+rotation = Vector3(0, -0.62788, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire153R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-86.02515, -25.10969, -8907.78036)
+rotation = Vector3(0, 2.51371, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel154" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-211.34485, 7.77085, -9077.31029)
+rotation = Vector3(0, -0.68962, 0)
+scale = Vector3(1, 1, 0.7465)
+
+[node name="Channel155" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-168.58753, 8.85875, -9126.91585)
+rotation = Vector3(0, -0.7326, 0)
+scale = Vector3(1, 1, 0.76402)
+
+[node name="Channel156" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-123.16304, 10.11796, -9176.07062)
+rotation = Vector3(0, -0.75912, 0)
+scale = Vector3(1, 1, 0.7763)
+
+[node name="Spire156L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-232.70504, -9.88204, -9280.00112)
+rotation = Vector3(0, -0.75912, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire156R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-13.62103, -9.88204, -9072.14012)
+rotation = Vector3(0, 2.38248, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Pylon156" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(-80.36185, -3.88204, -9135.46202)
+rotation = Vector3(0, -0.75912, 0)
+
+[node name="Channel157" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-76.19835, 11.5124, -9225)
+rotation = Vector3(0, -0.77066, 0)
+scale = Vector3(1, 1, 0.7825)
+
+[node name="Channel158" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(-28.82044, 13.00601, -9273.92938)
+rotation = Vector3(0, -0.76792, 0)
+scale = Vector3(1, 1, 0.78226)
+
+[node name="Channel159" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(17.84373, 14.56273, -9323.08415)
+rotation = Vector3(0, -0.75082, 0)
+scale = Vector3(1, 1, 0.77565)
+
+[node name="Spire159L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-149.58489, -41.43727, -9479.31685)
+rotation = Vector3(0, -0.75082, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire159R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(185.27234, -41.43727, -9166.85144)
+rotation = Vector3(0, 2.39077, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel160" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(62.66717, 16.14651, -9372.68971)
+rotation = Vector3(0, -0.71849, 0)
+scale = Vector3(1, 1, 0.76322)
+
+[node name="Pylon160" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(107.08245, 2.14651, -9333.85309)
+rotation = Vector3(0, -0.71849, 0)
+
+[node name="Channel161" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(104.52292, 17.72126, -9422.97145)
+rotation = Vector3(0, -0.66929, 0)
+scale = Vector3(1, 1, 0.74601)
+
+[node name="Channel162" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(142.284, 19.25094, -9474.15477)
+rotation = Vector3(0, -0.6009, 0)
+scale = Vector3(1, 1, 0.72571)
+
+[node name="Spire162L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-3.70997, -24.74906, -9574.22855)
+rotation = Vector3(0, -0.6009, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire162R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(288.27797, -24.74906, -9374.081)
+rotation = Vector3(0, 2.54069, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel163" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(178.13, 20.8325, -9528.9875)
+rotation = Vector3(0, -0.55892, 0)
+scale = Vector3(1, 1, 0.78521)
+
+[node name="Channel164" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(214.37, 22.5525, -9587.3875)
+rotation = Vector3(0, -0.5519, 0)
+scale = Vector3(1, 1, 0.79252)
+
+[node name="Pylon164" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(264.61021, 8.5525, -9556.45336)
+rotation = Vector3(0, -0.5519, 0)
+
+[node name="Channel165" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(250.15, 24.3675, -9646.5625)
+rotation = Vector3(0, -0.53577, 0)
+scale = Vector3(1, 1, 0.79401)
+
+[node name="Spire165L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(142.6658, -7.6325, -9710.37588)
+rotation = Vector3(0, -0.53577, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire165R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(357.6342, -7.6325, -9582.74912)
+rotation = Vector3(0, 2.60582, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel166" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(284.63, 26.2475, -9706.3625)
+rotation = Vector3(0, -0.51021, 0)
+scale = Vector3(1, 1, 0.79003)
+
+[node name="Channel167" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(316.97, 28.1625, -9766.6375)
+rotation = Vector3(0, -0.47447, 0)
+scale = Vector3(1, 1, 0.78109)
+
+[node name="Channel168" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(346.33, 30.0825, -9827.2375)
+rotation = Vector3(0, -0.42742, 0)
+scale = Vector3(1, 1, 0.768)
+
+[node name="Spire168L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(161.59182, 10.0825, -9911.38502)
+rotation = Vector3(0, -0.42742, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire168R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(531.06818, 10.0825, -9743.08998)
+rotation = Vector3(0, 2.71418, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Pylon168" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(400.02238, 16.0825, -9802.78083)
+rotation = Vector3(0, -0.42742, 0)
+
+[node name="Channel169" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(371.87, 31.9775, -9888.0125)
+rotation = Vector3(0, -0.36754, 0)
+scale = Vector3(1, 1, 0.75185)
+
+[node name="Channel170" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(392.75, 33.8175, -9948.8125)
+rotation = Vector3(0, -0.29308, 0)
+scale = Vector3(1, 1, 0.73419)
+
+[node name="Channel171" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(408.13, 35.5725, -10009.4875)
+rotation = Vector3(0, -0.20223, 0)
+scale = Vector3(1, 1, 0.71703)
+
+[node name="Spire171L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(260.20728, -20.4275, -10039.81685)
+rotation = Vector3(0, -0.20223, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire171R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(556.05272, -20.4275, -9979.15815)
+rotation = Vector3(0, 2.93936, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel172" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(417.17, 37.2125, -10069.8875)
+rotation = Vector3(0, -0.09371, 0)
+scale = Vector3(1, 1, 0.70302)
+
+[node name="Pylon172" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(475.91116, 23.2125, -10064.36695)
+rotation = Vector3(0, -0.09371, 0)
+
+[node name="Channel173" parent="Geometry" instance=ExtResource("canyon")]
+position = Vector3(418.675, 38.69225, -10130)
+rotation = Vector3(0, 0.04414, 0)
+scale = Vector3(1, 1, 0.69853)
+
+[node name="Channel174" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(411.875, 39.98025, -10190)
+rotation = Vector3(0, 0.18051, 0)
+scale = Vector3(1, 1, 0.70824)
+
+[node name="Lattice174" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(411.875, 39.98025, -10190)
+rotation = Vector3(0, 0.18051, 0)
+
+[node name="Spire174L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(186.59587, -4.01975, -10148.88656)
+rotation = Vector3(0, 0.18051, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire174R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(637.15413, -4.01975, -10231.11344)
+rotation = Vector3(0, 3.32211, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel175" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(397.525, 41.10375, -10250)
+rotation = Vector3(0, 0.28763, 0)
+scale = Vector3(1, 1, 0.72469)
+
+[node name="Channel176" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(377.125, 42.11975, -10310)
+rotation = Vector3(0, 0.36678, 0)
+scale = Vector3(1, 1, 0.74245)
+
+[node name="Pylon176" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(432.20067, 28.11975, -10331.15824)
+rotation = Vector3(0, 0.36678, 0)
+
+[node name="Channel177" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(352.175, 43.08525, -10370)
+rotation = Vector3(0, 0.42077, 0)
+scale = Vector3(1, 1, 0.75764)
+
+[node name="Lattice177" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(352.175, 43.08525, -10370)
+rotation = Vector3(0, 0.42077, 0)
+
+[node name="Spire177L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(190.61409, 11.08525, -10297.70149)
+rotation = Vector3(0, 0.42077, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire177R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(513.73591, 11.08525, -10442.29851)
+rotation = Vector3(0, 3.56237, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Channel178" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(324.175, 44.05725, -10430)
+rotation = Vector3(0, 0.45225, 0)
+scale = Vector3(1, 1, 0.76777)
+
+[node name="Channel179" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(294.625, 45.09275, -10490)
+rotation = Vector3(0, 0.46298, 0)
+scale = Vector3(1, 1, 0.77146)
+
+[node name="Channel180" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(265.025, 46.24875, -10550)
+rotation = Vector3(0, 0.4536, 0)
+scale = Vector3(1, 1, 0.76823)
+
+[node name="Lattice180" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(265.025, 46.24875, -10550)
+rotation = Vector3(0, 0.4536, 0)
+
+[node name="Spire180L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(152.66545, 26.24875, -10495.22472)
+rotation = Vector3(0, 0.4536, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire180R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(377.38455, 26.24875, -10604.77528)
+rotation = Vector3(0, 3.59519, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Pylon180" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(318.05871, 32.24875, -10575.85393)
+rotation = Vector3(0, 0.4536, 0)
+
+[node name="Channel181" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(236.875, 47.58225, -10610)
+rotation = Vector3(0, 0.42355, 0)
+scale = Vector3(1, 1, 0.7585)
+
+[node name="Channel182" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(211.675, 49.15025, -10670)
+rotation = Vector3(0, 0.37113, 0)
+scale = Vector3(1, 1, 0.74358)
+
+[node name="Channel183" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(189.145, 50.94175, -10730)
+rotation = Vector3(0, 0.34718, 0)
+scale = Vector3(1, 1, 0.73757)
+
+[node name="Lattice183" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(189.145, 50.94175, -10730)
+rotation = Vector3(0, 0.34718, 0)
+
+[node name="Spire183L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-1.74336, -5.05825, -10660.93023)
+rotation = Vector3(0, 0.34718, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire183R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(380.03336, -5.05825, -10799.06977)
+rotation = Vector3(0, 3.48877, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel184" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(166.905, 52.86575, -10790)
+rotation = Vector3(0, 0.36271, 0)
+scale = Vector3(1, 1, 0.74141)
+
+[node name="Pylon184" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(222.06638, 38.86575, -10810.93375)
+rotation = Vector3(0, 0.36271, 0)
+
+[node name="Channel185" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(143.875, 54.88125, -10850)
+rotation = Vector3(0, 0.37026, 0)
+scale = Vector3(1, 1, 0.74335)
+
+[node name="Channel186" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(120.595, 57.00925, -10910)
+rotation = Vector3(0, 0.36997, 0)
+scale = Vector3(1, 1, 0.74328)
+
+[node name="Lattice186" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(120.595, 57.00925, -10910)
+rotation = Vector3(0, 0.36997, 0)
+
+[node name="Spire186L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-20.18784, 13.00925, -10855.39972)
+rotation = Vector3(0, 0.36997, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire186R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(261.37784, 13.00925, -10964.60028)
+rotation = Vector3(0, 3.51157, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Channel187" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(97.605, 59.27075, -10970)
+rotation = Vector3(0, 0.36184, 0)
+scale = Vector3(1, 1, 0.74119)
+
+[node name="Channel188" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(75.445, 61.68675, -11030)
+rotation = Vector3(0, 0.3457, 0)
+scale = Vector3(1, 1, 0.73722)
+
+[node name="Pylon188" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(130.95441, 47.68675, -11049.99264)
+rotation = Vector3(0, 0.3457, 0)
+
+[node name="Channel189" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(54.655, 64.27825, -11090)
+rotation = Vector3(0, 0.3213, 0)
+scale = Vector3(1, 1, 0.73163)
+
+[node name="Lattice189" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(54.655, 64.27825, -11090)
+rotation = Vector3(0, 0.3213, 0)
+
+[node name="Spire189L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-162.62605, 32.27825, -11017.68163)
+rotation = Vector3(0, 0.3213, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Spire189R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(271.93605, 32.27825, -11162.31837)
+rotation = Vector3(0, 3.46289, 0)
+scale = Vector3(1, 1.37, 1)
+
+[node name="Channel190" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(35.775, 67.06625, -11150)
+rotation = Vector3(0, 0.28824, 0)
+scale = Vector3(1, 1, 0.72481)
+
+[node name="Channel191" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(19.345, 70.07175, -11210)
+rotation = Vector3(0, 0.24608, 0)
+scale = Vector3(1, 1, 0.71733)
+
+[node name="Channel192" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(5.905, 73.31575, -11270)
+rotation = Vector3(0, 0.19435, 0)
+scale = Vector3(1, 1, 0.70991)
+
+[node name="Lattice192" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(5.905, 73.31575, -11270)
+rotation = Vector3(0, 0.19435, 0)
+
+[node name="Spire192L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-167.76273, 53.31575, -11235.8164)
+rotation = Vector3(0, 0.19435, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Spire192R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(179.57273, 53.31575, -11304.1836)
+rotation = Vector3(0, 3.33594, 0)
+scale = Vector3(1, 1.01, 1)
+
+[node name="Pylon192" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(63.79424, 59.31575, -11281.39453)
+rotation = Vector3(0, 0.19435, 0)
+
+[node name="Channel193" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-4.38957, 77.1845, -11334.97942)
+rotation = Vector3(0, 0.12484, 0)
+scale = Vector3(1, 1, 0.80737)
+
+[node name="Channel194" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-11.11111, 81.94444, -11407.40741)
+rotation = Vector3(0, 0.06219, 0)
+scale = Vector3(1, 1, 0.85461)
+
+[node name="Channel195" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-14.12894, 87.35254, -11483.53909)
+rotation = Vector3(0, 0.01773, 0)
+scale = Vector3(1, 1, 0.87894)
+
+[node name="Lattice195" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-14.12894, 87.35254, -11483.53909)
+rotation = Vector3(0, 0.01773, 0)
+
+[node name="Spire195L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-139.1093, 31.35254, -11481.32313)
+rotation = Vector3(0, 0.01773, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Spire195R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(110.85141, 31.35254, -11485.75506)
+rotation = Vector3(0, 3.15932, 0)
+scale = Vector3(1, 0.65, 1)
+
+[node name="Channel196" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-14.26612, 93.14129, -11560.90535)
+rotation = Vector3(0, -0.01418, 0)
+scale = Vector3(1, 1, 0.8789)
+
+[node name="Pylon196" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(44.72795, 79.14129, -11560.06855)
+rotation = Vector3(0, -0.01418, 0)
+
+[node name="Channel197" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-12.34568, 99.04321, -11637.03704)
+rotation = Vector3(0, -0.03661, 0)
+scale = Vector3(1, 1, 0.85362)
+
+[node name="Channel198" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-9.19067, 104.79081, -11709.46502)
+rotation = Vector3(0, -0.05094, 0)
+scale = Vector3(1, 1, 0.8026)
+
+[node name="Lattice198" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-9.19067, 104.79081, -11709.46502)
+rotation = Vector3(0, -0.05094, 0)
+
+[node name="Spire198L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-211.92739, 60.79081, -11719.80062)
+rotation = Vector3(0, -0.05094, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Spire198R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(193.54604, 60.79081, -11699.12942)
+rotation = Vector3(0, 3.09066, 0)
+scale = Vector3(1, 1.19, 1)
+
+[node name="Channel199" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-5.62414, 110.1166, -11775.72016)
+rotation = Vector3(0, -0.05696, 0)
+scale = Vector3(1, 1, 0.72555)
+
+[node name="Channel200" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-2.46914, 114.75309, -11833.33333)
+rotation = Vector3(0, -0.05204, 0)
+scale = Vector3(1, 1, 0.62236)
+
+[node name="Pylon200" parent="Geometry" instance=ExtResource("pylon")]
+position = Vector3(56.451, 100.75309, -11830.26458)
+rotation = Vector3(0, -0.05204, 0)
+
+[node name="Channel201" parent="Geometry" instance=ExtResource("causeway")]
+position = Vector3(-0.5487, 118.43278, -11879.83539)
+rotation = Vector3(0, -0.0272, 0)
+scale = Vector3(1, 1, 0.49317)
+
+[node name="Lattice201" parent="Geometry" instance=ExtResource("lattice")]
+position = Vector3(-0.5487, 118.43278, -11879.83539)
+rotation = Vector3(0, -0.0272, 0)
+
+[node name="Spire201L" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(-151.49283, 86.43278, -11883.94271)
+rotation = Vector3(0, -0.0272, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Spire201R" parent="Geometry" instance=ExtResource("spire")]
+position = Vector3(150.39543, 86.43278, -11875.72807)
+rotation = Vector3(0, 3.11439, 0)
+scale = Vector3(1, 0.83, 1)
+
+[node name="Bridge0" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(-7.22739, 33.69886, -179.84798)
+rotation = Vector3(0, 0.03124, 0)
+
+[node name="Bridge1" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(296.66904, 43.38125, -1394.96228)
+rotation = Vector3(0, 0.11379, 0)
+
+[node name="Bridge2" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(58.78012, 35.58024, -1938.47916)
+rotation = Vector3(0, 0.64594, 0)
+
+[node name="Bridge3" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(-253.64743, 42.60408, -2706.12083)
+rotation = Vector3(0, -0.11271, 0)
+
+[node name="Bridge4" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(-95.35404, 44.136, -3071.6177)
+rotation = Vector3(0, -0.49589, 0)
+
+[node name="Bridge5" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(-20.18824, 58.85078, -5399.43025)
+rotation = Vector3(0, -0.04393, 0)
+
+[node name="Bridge6" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(502.11923, 42.28617, -6684.45681)
+rotation = Vector3(0, -0.06143, 0)
+
+[node name="Bridge7" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(-443.6748, 47.95307, -8285.43718)
+rotation = Vector3(0, 0.34277, 0)
+
+[node name="Bridge8" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(304.37703, 61.38203, -9742.11851)
+rotation = Vector3(0, -0.47447, 0)
+
+[node name="Bridge9" parent="Geometry" instance=ExtResource("bridge")]
+position = Vector3(173.93262, 86.25944, -10771.48191)
+rotation = Vector3(0, 0.36271, 0)
+
+[node name="route_batch_0" parent="." instance=ExtResource("model_route_batch_0")]
+
+
+[node name="Mesh" parent="route_batch_0/route_batch_0" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_1" parent="." instance=ExtResource("model_route_batch_1")]
+
+
+[node name="Mesh" parent="route_batch_1/route_batch_1" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_2" parent="." instance=ExtResource("model_route_batch_2")]
+
+
+[node name="Mesh" parent="route_batch_2/route_batch_2" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_7")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_3" parent="." instance=ExtResource("model_route_batch_3")]
+
+
+[node name="Mesh" parent="route_batch_3/route_batch_3" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_4" parent="." instance=ExtResource("model_route_batch_4")]
+
+
+[node name="Mesh" parent="route_batch_4/route_batch_4" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_5" parent="." instance=ExtResource("model_route_batch_5")]
+
+
+[node name="Mesh" parent="route_batch_5/route_batch_5" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_2")
+surface_material_override/5 = ExtResource("material_7")
+
+[node name="route_batch_6" parent="." instance=ExtResource("model_route_batch_6")]
+
+
+[node name="Mesh" parent="route_batch_6/route_batch_6" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_7")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_7" parent="." instance=ExtResource("model_route_batch_7")]
+
+
+[node name="Mesh" parent="route_batch_7/route_batch_7" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_8" parent="." instance=ExtResource("model_route_batch_8")]
+
+
+[node name="Mesh" parent="route_batch_8/route_batch_8" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_9" parent="." instance=ExtResource("model_route_batch_9")]
+
+
+[node name="Mesh" parent="route_batch_9/route_batch_9" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_10" parent="." instance=ExtResource("model_route_batch_10")]
+
+
+[node name="Mesh" parent="route_batch_10/route_batch_10" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_7")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_11" parent="." instance=ExtResource("model_route_batch_11")]
+
+
+[node name="Mesh" parent="route_batch_11/route_batch_11" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_7")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_12" parent="." instance=ExtResource("model_route_batch_12")]
+
+
+[node name="Mesh" parent="route_batch_12/route_batch_12" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_13" parent="." instance=ExtResource("model_route_batch_13")]
+
+
+[node name="Mesh" parent="route_batch_13/route_batch_13" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_14" parent="." instance=ExtResource("model_route_batch_14")]
+
+
+[node name="Mesh" parent="route_batch_14/route_batch_14" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_15" parent="." instance=ExtResource("model_route_batch_15")]
+
+
+[node name="Mesh" parent="route_batch_15/route_batch_15" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_2")
+surface_material_override/5 = ExtResource("material_7")
+
+[node name="route_batch_16" parent="." instance=ExtResource("model_route_batch_16")]
+
+
+[node name="Mesh" parent="route_batch_16/route_batch_16" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_17" parent="." instance=ExtResource("model_route_batch_17")]
+
+
+[node name="Mesh" parent="route_batch_17/route_batch_17" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="route_batch_18" parent="." instance=ExtResource("model_route_batch_18")]
+
+
+[node name="Mesh" parent="route_batch_18/route_batch_18" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+surface_material_override/5 = ExtResource("material_2")
+
+[node name="Obstacles" type="Node3D" parent="."]
+
+
+[node name="baffle_0" parent="Obstacles" instance=ExtResource("baffle")]
+position = Vector3(14.02351, 23.06693, -4799.26646)
+rotation = Vector3(0, 0.17961, 0)
+
+[node name="baffle_1" parent="Obstacles" instance=ExtResource("baffle_1")]
+position = Vector3(33.79411, 35.8623, -5590.43158)
+rotation = Vector3(0, -0.26552, 0)
+
+[node name="baffle_2" parent="Obstacles" instance=ExtResource("baffle_2")]
+position = Vector3(389.82059, 20.98534, -6413.19054)
+rotation = Vector3(0, -0.5158, 0)
+
+[node name="baffle_3" parent="Obstacles" instance=ExtResource("baffle")]
+position = Vector3(348.81469, 33.34697, -7260.92898)
+rotation = Vector3(0, 0.54462, 0)
+
+[node name="baffle_4" parent="Obstacles" instance=ExtResource("baffle_1")]
+position = Vector3(-260.78697, 39.52876, -7928.5928)
+rotation = Vector3(0, 0.6416, 0)
+
+[node name="baffle_5" parent="Obstacles" instance=ExtResource("baffle_2")]
+position = Vector3(-366.96784, 15.8083, -8763.10353)
+rotation = Vector3(0, -0.38194, 0)
+
+[node name="baffle_6" parent="Obstacles" instance=ExtResource("baffle")]
+position = Vector3(131.71114, 29.57115, -9497.64172)
+rotation = Vector3(0, -0.6009, 0)
+
+[node name="baffle_7" parent="Obstacles" instance=ExtResource("baffle_1")]
+position = Vector3(395.94633, 52.19242, -10322.35467)
+rotation = Vector3(0, 0.36678, 0)
+
+[node name="baffle_8" parent="Obstacles" instance=ExtResource("baffle_2")]
+position = Vector3(15.63132, 76.91205, -11140.54642)
+rotation = Vector3(0, 0.28824, 0)
+
+[node name="shutter_0" parent="Obstacles" instance=ExtResource("shutter")]
+position = Vector3(494.69722, 8.94258, -6833.93)
+rotation = Vector3(0, 0.19459, 0)
+
+[node name="shutter_1" parent="Obstacles" instance=ExtResource("shutter_1")]
+position = Vector3(34.55952, 65.89469, -7588.13792)
+rotation = Vector3(0, 0.74814, 0)
+
+[node name="shutter_2" parent="Obstacles" instance=ExtResource("shutter_2")]
+position = Vector3(-456.1984, 10.47086, -8333.7663)
+rotation = Vector3(0, 0.23003, 0)
+
+[node name="shutter_3" parent="Obstacles" instance=ExtResource("shutter")]
+position = Vector3(-148.45133, 41.3954, -9149.29887)
+rotation = Vector3(0, -0.7326, 0)
+
+[node name="shutter_4" parent="Obstacles" instance=ExtResource("shutter_1")]
+position = Vector3(367.94108, 29.66295, -9877.80855)
+rotation = Vector3(0, -0.36754, 0)
+
+[node name="shutter_5" parent="Obstacles" instance=ExtResource("shutter_2")]
+position = Vector3(191.11619, 82.77073, -10724.55221)
+rotation = Vector3(0, 0.34718, 0)
+
+[node name="ServiceGate" parent="." instance=ExtResource("gate")]
+position = Vector3(305.36132, -0.05759, -3811.7187)
+rotation = Vector3(0, -0.19043, 0)
+
+[node name="Markers" type="Node3D" parent="."]
+
+
+[node name="entry" type="Marker3D" parent="Markers"]
+position = Vector3(0, 10, 0)
+rotation = Vector3(0, 0.02771, 0)
+metadata/distance = 0
+
+[node name="first_pursuit" type="Marker3D" parent="Markers"]
+position = Vector3(51.98236, 12.32621, -643.27357)
+rotation = Vector3(0, -0.2887, 0)
+metadata/distance = 650
+
+[node name="bridge_warning" type="Marker3D" parent="Markers"]
+position = Vector3(299.2747, 19.99164, -1295.21928)
+rotation = Vector3(0, -0.15057, 0)
+metadata/distance = 1350
+
+[node name="covered_channel" type="Marker3D" parent="Markers"]
+position = Vector3(211.10946, 14.92168, -1681.18824)
+rotation = Vector3(0, 0.39682, 0)
+metadata/distance = 1750
+
+[node name="gate_warning" type="Marker3D" parent="Markers"]
+position = Vector3(-1.48898, 10.66975, -2018.27134)
+rotation = Vector3(0, 0.64771, 0)
+metadata/distance = 2150
+
+[node name="sentinel_warning" type="Marker3D" parent="Markers"]
+position = Vector3(-59.86303, 10.0675, -2099.44046)
+rotation = Vector3(0, 0.58051, 0)
+metadata/distance = 2250
+
+[node name="service_gate" type="Marker3D" parent="Markers"]
+position = Vector3(305.36132, 9.94241, -3811.7187)
+rotation = Vector3(0, -0.19043, 0)
+metadata/distance = 4150
+
+[node name="relay_checkpoint" type="Marker3D" parent="Markers"]
+position = Vector3(217.2581, 28.83877, -6051.63021)
+rotation = Vector3(0, -0.4395, 0)
+metadata/distance = 6500
+
+[node name="breakout" type="Marker3D" parent="Markers"]
+position = Vector3(419.0921, 48.47433, -10120.55612)
+rotation = Vector3(0, 0.04414, 0)
+metadata/distance = 11200
+
+[node name="exit" type="Marker3D" parent="Markers"]
+position = Vector3(0, 130, -11900)
+rotation = Vector3(0, -0.0272, 0)
+metadata/distance = 13060.5871
+
+[node name="EnemySpawns" type="Node3D" parent="."]
+
+
+[node name="Needle0" type="Marker3D" parent="EnemySpawns"]
+position = Vector3(16.9385, 15.21624, -429.05903)
+rotation = Vector3(0, -0.16834, 0)
+metadata/distance = 450
+
+[node name="Needle1" type="Marker3D" parent="EnemySpawns"]
+position = Vector3(143.80395, 20.38124, -860.1054)
+rotation = Vector3(0, -0.37367, 0)
+metadata/distance = 900
+
+[node name="Needle2" type="Marker3D" parent="EnemySpawns"]
+position = Vector3(-75.28558, 14.92088, -2121.24933)
+rotation = Vector3(0, 0.58051, 0)
+metadata/distance = 2300
+
+[node name="SentinelSpawns" type="Node3D" parent="."]
+
+
+[node name="Sentinel0" type="Marker3D" parent="SentinelSpawns"]
+position = Vector3(-194.0483, 6.72817, -2256.86582)
+rotation = Vector3(0, 3.57561, 0)
+metadata/distance = 2450
+
+[node name="Sentinel1" type="Marker3D" parent="SentinelSpawns"]
+position = Vector3(-212.13504, 12.49955, -2563.46536)
+rotation = Vector3(0, 3.29901, 0)
+metadata/distance = 2750
+
+[node name="Sentinel2" type="Marker3D" parent="SentinelSpawns"]
+position = Vector3(-491.15617, 13.5757, -8589.67924)
+rotation = Vector3(0, 2.9495, 0)
+metadata/distance = 9400
+
+[node name="Sentinel3" type="Marker3D" parent="SentinelSpawns"]
+position = Vector3(451.68782, 41.90386, -10012.82389)
+rotation = Vector3(0, 2.93936, 0)
+metadata/distance = 11100

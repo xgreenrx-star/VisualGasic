@@ -1,0 +1,74 @@
+Option Explicit
+
+Dim host As Object
+Dim channel As Object
+Dim fire_t As Single
+Dim warn_t As Single
+Dim side As Single
+
+Sub bind(ByVal body As Object, ByVal encounter As Object)
+	host = body
+	channel = encounter
+	fire_t = 1.8
+	warn_t = 1.2
+	If host.global_position.x >= 0.0 Then
+		side = 1.0
+	Else
+		side = -1.0
+	End If
+End Sub
+
+Function HasLine(ByVal from_pos As Vector3, ByVal to_pos As Vector3) As Boolean
+	Dim space As Object
+	Dim query As Object
+	Dim hits As Dictionary
+	If host = Nothing Then
+		HasLine = False
+		Exit Function
+	End If
+	space = host.get_world_3d().direct_space_state
+	query = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+	query.collision_mask = 9
+	query.set("from", from_pos)
+	query.set("to", to_pos)
+	hits = space.intersect_ray(query)
+	HasLine = hits.size() = 0
+End Function
+
+Sub tick(ByVal delta As Single)
+	Dim target As Vector3
+	Dim lane As Vector3
+	Dim muzzle As Object
+	Dim aim As Vector3
+	Dim offset As Vector3
+	Dim sample As Dictionary
+	If host = Nothing Or channel = Nothing Then Exit Sub
+	If Not channel.running Then Exit Sub
+	If warn_t > 0.0 Then warn_t = warn_t - delta
+	sample = channel.SampleAt(channel.distance + 100.0)
+	offset = sample("right") * (14.0 * side) + Vector3(0, 1, 0) * 3.0
+	lane = sample("position") + offset
+	host.global_position = host.global_position.lerp(lane, ClampF(delta * (4.0 + channel.speed / 45.0), 0.0, 1.0))
+	target = channel.hull_node.global_position
+	If host.global_position.distance_to(target) > 1.0 Then host.look_at(target, Vector3(0, 1, 0))
+	If warn_t > 0.0 Then Exit Sub
+	If host.global_position.distance_to(target) < 18.0 Then Exit Sub
+	fire_t = fire_t - delta
+	If fire_t > 0.0 Then Exit Sub
+	muzzle = host.GetNode("MuzzleLeft")
+	aim = target + channel.tangent * channel.speed * 0.8
+	If HasLine(muzzle.global_position, aim) Then
+		channel.FireLaser(muzzle.global_position, aim, 0.8, muzzle)
+		channel.warning = "Needle laser lock. Break away from the amber aim line."
+		channel.warning_t = 0.8
+		fire_t = 3.8
+	Else
+		fire_t = 0.4
+	End If
+End Sub
+
+Function ClampF(ByVal value As Single, ByVal lo As Single, ByVal hi As Single) As Single
+	If value < lo Then value = lo
+	If value > hi Then value = hi
+	ClampF = value
+End Function

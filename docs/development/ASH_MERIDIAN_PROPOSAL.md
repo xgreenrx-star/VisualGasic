@@ -1,5 +1,254 @@
 # Ash Meridian
 
+The [unified story and gameplay approval draft](ASH_MERIDIAN_APPROVAL_DRAFT.md)
+records the latest proposed campaign, including the required two-elevator
+trace-cycle route, facility-only countdown and post-alliance Black Channel
+escape. These proposed refinements are for approval, not claims of shipped
+behavior. Earlier planning below is retained for implementation history.
+
+## Campaign revision: Jason's first and second visits
+
+This section supersedes the earlier Jonah/Zen/beacon storyline below. The
+earlier material is retained as historical design reference, not current canon.
+This is a campaign implementation plan, not a claim that the features already
+exist.
+
+### Agreed direction
+
+- Year: 2086. Player: Jason. Ship: the Ash, affectionately the Antique.
+- Ship AI: Orac. Orac stays available throughout the first landing, salvage
+  expedition, underground exploration and escape. The EMP on the second visit
+  is the first scripted loss of Orac.
+- Planet: Narcea, an abandoned technological world inside a military quarantine.
+- FEB: Field Enforcement Body. The dormant cyborg becomes Rob after the
+  confrontation and alliance, not before Jason knows him.
+- Stacy remains Jason's partner. A matched-component recovery contract, not
+  betrayal or stolen savings, motivates the second visit.
+- Backlight Yard is the campaign's default surface and visual language.
+  Spacecraft, stations and underground scenery use opaque surfaces, selective
+  cyan/amber illumination and the same art direction, not transparent wire hulls.
+- Read `samples/games/elite_wire_slice` for flight, docking and cargo techniques,
+  and `samples/apps/vector_crypt` for first-person traversal, environmental
+  gates and checkpoints. Do not edit either project, reference its `res://`
+  paths at runtime, or inherit its campaign, names or economy.
+- Introduce traversal, environmental gate puzzles and checkpoints first.
+  Gravity machinery is a later Narcean discovery; do not give Jason gravity
+  or portal tools during the first run.
+- All new game-owned executable code is VG. Native scenes, meshes and shaders
+  remain valid resources. Do not add new GDScript game controllers.
+
+### Approved future feature: void-road light-cycle expedition
+
+Recorded October 20, 2026. This is an accepted design for future implementation,
+not a shipped feature.
+
+#### Vehicle and setting
+
+- Place a Narcean maintenance cycle in a charging cradle near the end of the
+  Backlight Yard road, where the world appears to end over the void.
+- Use an original design inspired by the original 1982 *Tron* aesthetic:
+  a low enclosed shell, oversized wheel forms, dark opaque surfaces, luminous
+  edges and a bright vertical energy ribbon. Avoid the exposed-rider look of
+  the later film. Match Backlight Yard's backlit visual language.
+- The road is the approach to an unpowered bridge. Dormant infrastructure pylons
+  and a sealed salvage platform remain beyond the break.
+- The cycle projects a magnetic support field within the old bridge's field
+  network. It rides over the void on a flat support plane; it cannot fly freely
+  elsewhere. Sparse illuminated grid lines, pylons and the sky establish depth.
+
+#### Activation, riding and return
+
+- Jason finds a five-symbol activation sequence in a nearby maintenance building
+  and enters it at the cradle. The cycle opens, Jason boards and it undocks
+  automatically.
+- Use a fully 3D scene with crisp 90-degree turns and a brief banking animation.
+  Start with a slightly elevated chase camera so the cycle and nearby walls are
+  readable; a cockpit camera is a possible later addition.
+- Riding leaves a tall, glowing energy wall, not just a ground-level trace.
+  Crossing an older section of the rider's own trail destroys the cycle. Allow
+  clearance immediately behind the rear wheel to avoid instant self-collision.
+- Activate relay pylons to restore a power-routing circuit and open the salvage
+  platform. Orac identifies valuable reserve cells and explains why the cycle
+  can cross where the unpowered bridge cannot.
+- Returning through a clearly marked road-edge docking approach engages
+  autopilot. It stops trail emission, parks in the cradle and lets Jason out.
+- Player crash recovery, trail lifetime, arena bounds and detailed controls
+  still need specification before implementation.
+
+#### Campaign placement and FEB survival
+
+- Before the awakening, offer a quiet optional salvage expedition that teaches
+  the vehicle without an opponent. This does not replace the power coupler:
+  Jason must still retrieve that part from the FEB chamber.
+- After the awakening, a return to this route can trigger a duel with a remote
+  FEB security cycle. Prefer the return expedition or an optional encounter;
+  do not force a lengthy race into the existing 255-second escape.
+- The opponent is an unmanned vehicle controlled remotely by the FEB through
+  his restored network connection. Its apparent rider is a sealed control
+  housing. Destroying the cycle does not kill or resurrect the physical FEB.
+- On destruction, a brief signal exposure lets Orac identify the remote link:
+  "No biological signature in that wreck. That was a remote unit."
+  Jason: "So he's still down there."
+  Orac: "And now he knows you can drive."
+- Preserve the physical FEB for his later cobbled-spacecraft confrontation and
+  eventual alliance as Rob. Do not use resurrection or unexplained
+  invulnerability to justify his survival.
+
+### Black Channel: post-alliance flight encounter
+
+The October 21, 2026 art delivery provides original external models, static
+preview/route scenes, dialogue and an implementation specification for a
+Narcean industrial-canyon escape. It is not yet a playable encounter.
+
+Place it during the later repair survey, after the Jason/Rob alliance:
+recovering distribution hardware activates local defenses, forcing the Ash
+through a maintenance channel below their tracking coverage. Orac navigates;
+Rob requests a service-gate opening. This does not replace the first-visit
+escape, trigger its 255-second timer or resurrect the master planetary AI.
+
+Read the [Black Channel handoff](ASH_MERIDIAN_BLACK_CHANNEL_HANDOFF.md) for the
+asset contract and future integration. The assistant owns models and visual
+revisions; Cursor implements gameplay using them. All new game logic and game
+tests must be VG; no new GDScript without explicit user approval.
+
+### Proposed first-run objective and coupler logic
+
+The first expedition should be a voluntary salvage job, not an emergency
+landing caused by a dead AI. The Ash can reach Narcea normally. Its aging power
+coupler cannot safely sustain the next *loaded* departure, however, so Orac
+identifies replacement hardware while assessing profitable salvage.
+
+Keep two distinct inventories:
+
+1. **Saleable salvage:** finite finds with identifiers, descriptions, cargo
+   volume and sale value. Some rooms are empty or contain worthless junk.
+   One-time pickups cannot be farmed by leaving/re-entering an interior.
+2. **Mission/installed hardware:** the recovered power coupler and any installed
+   equipment. These never appear in the ordinary sell list. The installed
+   coupler must not later be confused with the energy cores used for the EVA.
+
+Orac explains the loaded-departure restriction before the player undertakes a
+long descent. Do not surprise them with an unexplained "launch disabled" gate.
+Remove the prototype's requirement to find three unrelated ship-repair parts;
+the existing workshop finds can become saleable technology instead.
+
+The coupler sits in the FEB chamber's service socket. Removing it breaks an
+isolation interlock and powers an emergency restart through the chamber's
+reserve bus. The effect is an accidental consequence of salvage, not Jason
+knowingly activating a cyborg. The player sees venting, warning lights, slow
+pod movement and a 255-second containment/purge countdown in alien symbols.
+Orac remains online, interprets the danger and urges Jason to run.
+
+The countdown concerns the facility, not a promise that the FEB can construct
+a spacecraft in 255 seconds. First-visit defenses may reactivate locally;
+the orbital EMP and ship-to-ship FEB attack are reserved for the return.
+
+### Playable sequence
+
+1. **Arrival and landing.** Establish the quarantine risk, salvage opportunity,
+   Jason/Orac relationship and ship condition. Use a Backlight-styled flight
+   approach and existing landing skills, then deploy the buggy in Backlight
+   Yard. Play must no longer route into the legacy Jonah chapter.
+2. **Surface scavenging.** Drive and walk between depots, inspect finite finds,
+   manage hold space and gather access clues. Orac provides contextual scans,
+   cargo assessments and status updates without revealing every solution.
+3. **Descent.** Assemble a five-symbol elevator address. Explore deterministic
+   underground sectors with clear entrances/exits, environmental gate puzzles
+   and safe checkpoints. Collision must agree with gate visibility. Closing a
+   gate must never trap the player at a restored checkpoint.
+4. **The chamber and escape.** Recover the mandatory coupler, accidentally start
+   the restart and escape via lift and buggy. A checkpoint precedes the
+   irreversible pickup; a failed escape restores consistent pickup, alarm,
+   puzzle and inventory state. Reach the Ash, install the coupler and launch.
+5. **Outbound flight and station.** Fly to an original station, dock, sell cargo,
+   pay immediate debts and service the Ash. Sale transactions are atomic and
+   cannot be repeated after loading. Include a message/exchange with Stacy.
+6. **The offer and elapsed time.** A buyer identifies the salvage serials as
+   part of a valuable matched assembly still on Narcea. Jason accepts a clearly
+   explained recovery contract. Station work/refit and travel explicitly take
+   several weeks, giving the FEB time to build its interceptor. Do not force a
+   return merely because the station has no other exit.
+7. **Return ambush.** On the second arrival only, the planetary defense EMP
+   knocks Orac and the Ash's powered systems offline. The FEB attacks under
+   its remaining security directive. Jason reflects the shot with the
+   previously established beryllium-polished inspection mirror.
+8. **Mutual rescue.** Both ships remain in danger. A manual radio conversation
+   establishes a truce. Jason performs the EVA and connects retained Narcean
+   energy cores to the FEB's drive; Rob supplies thrusters, clamps and technical
+   guidance. They restore Orac, escape orbit and become a crew.
+
+The mirror must be established as a tool before the ambush. A compatible core
+reserve must be aboard on the second visit (for example an explicitly retained
+engineering reserve, or contract-supplied material), not sold at the first
+station and silently recreated during the EVA.
+
+### Implementation boundaries and order
+
+1. **Campaign foundation and first expedition.** One canonical campaign state
+   owns stage, visit number, AI availability, objectives, inventory and
+   checkpoints. Make Backlight Yard the main Play route. Preserve old art
+   districts as dev scenes, isolated from campaign progression and saves.
+   Replace live Jonah/Zen dialogue and the offline-AI premise; do not just
+   change the labels while keeping the old behavior.
+2. **Salvage and underground.** Connect finite cargo, Orac scans, workshop
+   searches, gate puzzles, coupler pickup and first escape. Remove the
+   prototype's restart-only ending from the campaign path.
+3. **Space and station.** Implement flight/docking locally using the reference
+   techniques, with new Backlight-style assets and original station identity.
+   Add selling, service costs, Stacy's exchange, contract acceptance and the
+   explicit elapsed-time transition.
+4. **Second visit and alliance.** Gate the EMP on the campaign stage and visit
+   count; implement the reflection, manual communications, EVA and paired-ship
+   escape. The old immediate post-landing fight is not the campaign transition.
+5. **Persistence and end-to-end validation.** Persistence is a requirement of
+   each increment, not something to add only after all gameplay exists.
+
+Campaign saves need a versioned, validated format separate from legacy chapter
+and prototype saves. Persist at least stage, visit count, Orac state, cargo and
+credits, one-time pickups, installed coupler, journal/gates, chamber alarm and
+timer, safe location/buggy pose, station transactions, contract/time flags and
+encounter progress. Reconstruct transient meshes from state. Reject invalid
+versions with a visible explanation; never silently reset or overwrite them.
+Save atomically and keep legacy saves untouched until a documented migration
+policy exists.
+
+### Implementation status
+
+The first foundation increment routes Play to a separate campaign instance of
+Backlight Yard, already landed. Jason/Orac dialogue, context-sensitive Orac
+scans, the coupler-only launch requirement, first-visit alarm/retry, and
+versioned atomic save/Continue are implemented in VG. Dev destinations retain
+their reference behavior and cannot modify campaign state or saves.
+
+First departure currently ends at an explicit completion overlay. New finite
+cargo/protected inventory, underground gates/checkpoints, arrival/departure
+flight, station transactions, the return contract and the return-only EMP/FEB
+alliance sequence are **not implemented**. The acceptance checks below cover
+the whole planned campaign, not just this foundation increment.
+
+### Required acceptance checks
+
+- A new game reaches Backlight Yard, with Jason and Orac named consistently.
+- Orac remains online from first arrival through the first station; no old
+  "ZEN OFFLINE" or "AI comes back after pickup" text survives on the live path.
+- The coupler is required for first loaded departure, protected from sale and
+  removed from its socket exactly once.
+- Escape failure, pause, save/load and dev travel cannot duplicate cargo,
+  erase objective hardware, reset an active alarm or skip the awakening.
+- Puzzles are solvable from their clues and checkpoints are on a safe side
+  of any closing gate.
+- First launch enters flight, not a prototype restart or immediate FEB fight.
+- Station sale and debt/service deductions persist exactly once. Accepting the
+  matched-component contract and elapsed weeks unlocks the return.
+- Orac's EMP outage and FEB ambush occur only on the return; required mirror
+  and EVA power reserves are present through legitimate prior actions.
+- Test normal input-driven transitions as well as positioned scenarios.
+  Capture rendered views of ground, interiors, space and station.
+- Reference-project contents stay unchanged; the combined game runs without
+  loading their scenes, scripts or saves.
+
+## Historical proposal (superseded where it conflicts with the revision above)
+
 Working title. A wireframe space flight and planet-landing game. Space is flown in 3D. Metal cities are walked in 3D and read as 2D plates. Nothing in this document is a license to use Elite, Aliens, The Expanse, Doctor Who, Robotech, Macross, or The Terminator.
 
 ## What we are building on

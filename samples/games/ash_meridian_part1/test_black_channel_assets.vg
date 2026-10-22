@@ -1,0 +1,211 @@
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim frame As Integer
+Dim route As Object
+Dim validation_finished As Boolean
+Dim gate_validation_finished As Boolean
+
+Sub check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim names As Array
+	Dim asset_name As Variant
+	Dim packed_scene As Object
+	Dim instance As Object
+	names = Array("broken_baffle", "broken_baffle_1", "broken_baffle_2", "altitude_shutter", "altitude_shutter_1", "altitude_shutter_2", "canyon_straight", "open_causeway", "lattice_arch", "industrial_spire", "ash_flight", "service_bridge", "covered_roof", "security_gate", "needle_drone", "wall_sentinel", "relay_pylon", "black_channel_route", "preview", "asset_gallery")
+	For Each asset_name In names
+		packed_scene = Load("res://assets/black_channel/scenes/" & asset_name & ".tscn")
+		check(packed_scene <> Nothing, asset_name & "_loads")
+		If packed_scene <> Nothing Then
+			instance = packed_scene.instantiate()
+			check(instance <> Nothing, asset_name & "_instantiates")
+			If instance <> Nothing Then instance.free()
+		End If
+	Next
+	instance = Load("res://assets/black_channel/scenes/needle_drone.tscn").instantiate()
+	check(instance.GetNode("Visual/needle_drone/Mesh").get_surface_override_material(0).is_class("ShaderMaterial"), "backlight_material_override_applied")
+	check(instance.GetNode("MuzzleLeft").position.z < -4, "drone_muzzle_faces_negative_z")
+	check(instance.GetNode("EngineLeft").position.z > 3, "drone_engine_faces_positive_z")
+	check(instance.collision_layer = 4 And instance.collision_mask = 1, "drone_collision_contract")
+	instance.free()
+	instance = Load("res://assets/black_channel/scenes/wall_sentinel.tscn").instantiate()
+	check(instance.has_node("Yaw/Pitch/MuzzleLeft"), "turret_articulation_contract")
+	check(instance.has_node("Yaw/Pitch/MuzzleRight"), "turret_second_muzzle")
+	check(Not instance.GetNode("Yaw/Pitch").sync_to_physics, "turret_articulation_uses_manual_not_physics_sync")
+	instance.free()
+	instance = Load("res://assets/black_channel/scenes/security_gate.tscn").instantiate()
+	check(instance.GetNode("LeftDoor").position.x = -39, "left_gate_preview_open")
+	check(instance.GetNode("RightDoor").position.x = 39, "right_gate_preview_open")
+	check(instance.GetNode("LeftDoor").get_meta("closed_x") = -13, "left_gate_closed_position")
+	check(instance.GetNode("RightDoor").get_meta("closed_x") = 13, "right_gate_closed_position")
+	instance.free()
+	route = Load("res://assets/black_channel/scenes/black_channel_route.tscn").instantiate()
+	add_child(route)
+	check(route.GetNode("Markers").get_child_count() = 10, "route_event_markers")
+	check(route.GetNode("EnemySpawns").get_child_count() = 3, "route_spawn_markers")
+	check(route.GetNode("SentinelSpawns").get_child_count() = 4, "route_has_four_wall_turret_markers")
+	check(route.GetNode("Markers/exit").position.z < -5500, "route_has_full_length")
+	check(route.GetNode("ServiceGate").has_node("LeftDoor"), "route_gate_is_articulated")
+	check(route.get_meta("gameplay_implemented") = False, "assets_do_not_claim_gameplay")
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim parser As Object
+	Dim data As Dictionary
+	Dim sample As Variant
+	Dim samples As Array
+	Dim position As Vector3
+	Dim query As Object
+	Dim hits As Dictionary
+	Dim space As Object
+	Dim clear As Boolean
+	Dim grounded As Boolean
+	Dim shape_query As Object
+	Dim sphere As Object
+	Dim pose As Transform3D
+	Dim next_position As Vector3
+	Dim center As Vector3
+	Dim right As Vector3
+	Dim offset As Vector3
+	Dim offsets As Array
+	Dim contacts As Array
+	Dim fractions As Variant
+	Dim index As Integer
+	Dim lane As Integer
+	Dim envelope_clear As Boolean
+	Dim gate As Object
+	frame = frame + 1
+	If frame = 5 Then
+		parser = ClassDB.Instantiate("JSON")
+		check(parser.parse(ReadAllText("res://assets/black_channel/route.json")) = 0, "route_data_parses")
+		data = parser.get_data()
+		samples = data("samples")
+		check(data.length > 12000 And data.length < 15000, "route_length_contract")
+		check(data.samples.size() > 80, "route_has_dense_samples")
+		space = route.get_world_3d().direct_space_state
+		query = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+		query.collision_mask = 1
+		clear = True
+		grounded = True
+		For Each sample In samples
+			position = Vector3(sample.position(0), sample.position(1), sample.position(2))
+			query.set("from", position)
+			query.set("to", position + Vector3(0, -60, 0))
+			hits = space.intersect_ray(query)
+			If hits.size() = 0 Then grounded = False
+			query.set("from", position + Vector3(-6, 0, 0))
+			query.set("to", position + Vector3(6, 0, 0))
+			hits = space.intersect_ray(query)
+			If hits.size() <> 0 Then clear = False
+		Next
+		check(grounded, "floor_collision_exists_along_entire_route")
+		check(clear, "open_route_has_clear_center_lane")
+		sphere = ClassDB.Instantiate("SphereShape3D")
+		sphere.radius = data.player_clearance_radius
+		shape_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
+		shape_query.shape = sphere
+		shape_query.collision_mask = 1
+		envelope_clear = True
+		For index = 0 To samples.size() - 2
+			sample = samples(index)
+			position = Vector3(sample.position(0), sample.position(1), sample.position(2))
+			sample = samples(index + 1)
+			next_position = Vector3(sample.position(0), sample.position(1), sample.position(2))
+			right = (next_position - position).cross(Vector3(0, 1, 0)).normalized()
+			offsets = Array(Vector3(0, 0, 0), right * (sample.half_width - data.player_clearance_radius), right * (data.player_clearance_radius - sample.half_width), Vector3(0, sample.max_height, 0), Vector3(0, sample.min_height, 0))
+			For lane = 0 To offsets.size() - 1
+				offset = offsets(lane)
+				center = position + offset
+				pose = route.global_transform
+				pose.origin = center
+				shape_query.transform = pose
+				shape_query.motion = Vector3(0, 0, 0)
+				contacts = space.intersect_shape(shape_query)
+				If contacts.size() > 0 Then envelope_clear = False
+				shape_query.motion = next_position - position
+				fractions = space.cast_motion(shape_query)
+				If fractions(0) < 0.999 Then envelope_clear = False
+			Next
+		Next
+		check(envelope_clear, "six_metre_hull_sweep_clears_route_envelope")
+		Dim obstacle As Variant
+		Dim obstacle_rows As Array
+		Dim body As Object
+		Dim safe As Vector3
+		obstacle_rows = data("obstacles")
+		check(obstacle_rows.size() >= 8, "extended_course_has_multiple_real_obstacles")
+		shape_query.collision_mask = 8
+		For Each obstacle In obstacle_rows
+			body = route.GetNode("Obstacles/" & obstacle.id)
+			pose = Transform3D()
+			pose.origin = body.global_position
+			shape_query.transform = pose
+			shape_query.motion = Vector3(0, 0, 0)
+			contacts = space.intersect_shape(shape_query)
+			check(contacts.size() > 0, obstacle.id & "_has_solid_collision")
+			safe = body.to_global(Vector3(obstacle.safe_lateral - obstacle.blocked_side * 22.0, 0, 0))
+			pose.origin = safe
+			shape_query.transform = pose
+			contacts = space.intersect_shape(shape_query)
+			check(contacts.size() = 0, obstacle.id & "_safe_gap_fits_six_metre_hull")
+		Next
+		obstacle_rows = data("altitude_obstacles")
+		check(obstacle_rows.size() = 6, "final_third_has_six_altitude_shutters")
+		For Each obstacle In obstacle_rows
+			body = route.GetNode("Obstacles/" & obstacle.id)
+			pose = Transform3D()
+			pose.origin = body.global_position
+			shape_query.transform = pose
+			shape_query.motion = Vector3(0, 0, 0)
+			contacts = space.intersect_shape(shape_query)
+			check(contacts.size() > 0, obstacle.id & "_is_solid")
+			pose.origin = body.global_position + Vector3(0, obstacle.safe_height - obstacle.blocked_height, 0)
+			shape_query.transform = pose
+			shape_query.collision_mask = 9
+			contacts = space.intersect_shape(shape_query)
+			check(contacts.size() = 0, obstacle.id & "_safe_altitude_fits_six_metre_hull")
+			Dim wrong_height As Single
+			wrong_height = 0
+			If obstacle.safe_height < 0 Then wrong_height = 14
+			pose.origin = body.global_position + Vector3(0, wrong_height - obstacle.blocked_height, 0)
+			shape_query.transform = pose
+			shape_query.collision_mask = 8
+			contacts = space.intersect_shape(shape_query)
+			check(contacts.size() > 0, obstacle.id & "_wrong_altitude_is_blocked")
+		Next
+		gate = route.GetNode("ServiceGate")
+		query.set("from", gate.to_global(Vector3(0, 14, 20)))
+		query.set("to", gate.to_global(Vector3(0, 14, -20)))
+		hits = space.intersect_ray(query)
+		check(hits.size() = 0, "open_gate_collision_matches_aperture")
+		gate.GetNode("LeftDoor").position = Vector3(-13, 14, 0)
+		gate.GetNode("RightDoor").position = Vector3(13, 14, 0)
+		validation_finished = True
+	ElseIf frame = 8 Then
+		gate = route.GetNode("ServiceGate")
+		query = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+		query.collision_mask = 1
+		query.set("from", gate.to_global(Vector3(0, 14, 20)))
+		query.set("to", gate.to_global(Vector3(0, 14, -20)))
+		space = route.get_world_3d().direct_space_state
+		hits = space.intersect_ray(query)
+		check(hits.size() > 0, "moving_doors_also_moves_collision")
+		route.queue_free()
+		gate_validation_finished = True
+	ElseIf frame = 12 Then
+		check(validation_finished, "all_asset_validation_completed")
+		check(gate_validation_finished, "gate_validation_completed")
+		Print "BLACK_CHANNEL_RESULT=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

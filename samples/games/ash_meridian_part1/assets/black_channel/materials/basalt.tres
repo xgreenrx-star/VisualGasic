@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://assets/black_channel/materials/backlight_surface.gdshader" id="shader"]
+
+[resource]
+shader = ExtResource("shader")
+shader_parameter/base_color = Color(0.036, 0.052, 0.078, 1)
+shader_parameter/illuminated = false

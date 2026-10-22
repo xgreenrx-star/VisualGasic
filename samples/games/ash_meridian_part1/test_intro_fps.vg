@@ -1,0 +1,77 @@
+' MAX_FRAMES: 120
+Option Explicit
+
+Dim game As Object
+Dim frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim warm As Integer
+Dim samples As Integer
+Dim total_us As Integer
+Dim max_us As Integer
+Dim started As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.opt_fps = True
+	game.phase = 0
+	game.clock = 0.5
+	game.boot_t = 3.0
+	game.menu_on = False
+	game.dev_on = False
+	Dim hide As String
+	hide = OS.get_environment("ASH_INTRO_HIDE")
+	If hide = "stars" Then
+		game.GetNode("Presentation").stars.visible = False
+	ElseIf hide = "instruments" Then
+		game.GetNode("Presentation").ship_instruments.visible = False
+	ElseIf hide = "cockpit" Then
+		game.GetNode("Presentation").cockpit_view.visible = False
+	End If
+	Print "INTRO_HIDE=" & hide
+	game.set_process(True)
+	warm = 8
+	samples = 0
+	total_us = 0
+	max_us = 0
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim now As Integer
+	Dim elapsed As Integer
+	Dim avg As Integer
+	frame = frame + 1
+	If frame <= warm Then
+		started = Time.get_ticks_usec()
+		Exit Sub
+	End If
+	now = Time.get_ticks_usec()
+	elapsed = now - started
+	started = now
+	If elapsed > 0 And elapsed < 2000000 Then
+		samples = samples + 1
+		total_us = total_us + elapsed
+		If elapsed > max_us Then max_us = elapsed
+	End If
+	If samples >= 45 Then
+		avg = total_us / samples
+		Print "INTRO_FRAME_US avg=" & Str(avg) & " max=" & Str(max_us) & " speech=" & Str(game.opt_orac_voice)
+		check(game.phase = 0, "intro_scene_stays_active")
+		check(avg < 16000, "intro_average_frame_under_16ms")
+		check(max_us < 28000, "intro_spike_under_28ms")
+		game.queue_free()
+		Print "INTRO_FPS=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

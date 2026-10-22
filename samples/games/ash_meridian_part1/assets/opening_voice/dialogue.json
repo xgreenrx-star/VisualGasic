@@ -1,0 +1,44 @@
+[
+	{
+		"audio": "res://assets/opening_voice/line_0.wav",
+		"seconds": 5.23725,
+		"speaker": "ORAC",
+		"text": "Narcea's quarantine beacons are active. Cross their scan and they'll fire."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_1.wav",
+		"seconds": 3.509125,
+		"speaker": "JASON",
+		"text": "Those coordinates cost a man his life. I'm not leaving empty-handed."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_2.wav",
+		"seconds": 5.06954166666667,
+		"speaker": "ORAC",
+		"text": "I can blind the beacons. Unfortunately, that leaves nothing for the autopilot."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_3.wav",
+		"seconds": 2.049375,
+		"speaker": "JASON",
+		"text": "Then keep them blind. I'll fly."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_4.wav",
+		"seconds": 8.15316666666667,
+		"speaker": "ORAC",
+		"text": "Follow the orange gate. Blue rings show the route ahead. Miss once and they notice us. Miss twice and they fire."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_5.wav",
+		"seconds": 1.81183333333333,
+		"speaker": "JASON",
+		"text": "Orange gate. Understood."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_6.wav",
+		"seconds": 2.98920833333333,
+		"speaker": "ORAC",
+		"text": "You have control. Keep us in the corridor."
+	}
+]

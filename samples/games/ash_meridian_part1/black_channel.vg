@@ -1,0 +1,1486 @@
+Option Explicit
+
+Const SAVE_VERSION As Integer = 1
+Const MIN_SPEED As Single = 32.0
+Const NOMINAL_SPEED As Single = 90.0
+Const MAX_SPEED As Single = 240.0
+Const CLEAR_R As Single = 6.0
+Const GATE_CLOSED As Single = 13.0
+Const GATE_OPEN As Single = 39.0
+Const GATE_SECONDS As Single = 6.0
+Const GATE_REQUEST As Single = 2150.0
+Const GATE_AT As Single = 4150.0
+Const HULL_MAX As Single = 100.0
+
+Dim view As Object
+Dim mode As String
+Dim last_error As String
+Dim running As Boolean
+Dim completed As Boolean
+Dim failed As Boolean
+Dim finish_once As Boolean
+Dim auto_center As Boolean
+Dim auto_speed As Single
+Dim route_data As Dictionary
+Dim encounter_data As Dictionary
+Dim samples As Array
+Dim events As Array
+Dim dialogue As Array
+Dim length As Single
+Dim distance As Single
+Dim lateral As Single
+Dim height As Single
+Dim speed As Single
+Dim hull As Single
+Dim bank As Single
+Dim lift_rate As Single
+Dim checkpoint_id As String
+Dim checkpoint_distance As Single
+Dim fired As Dictionary
+Dim line_queue As Array
+Dim line_speaker As String
+Dim line_text As String
+Dim line_safety As Boolean
+Dim line_t As Single
+Dim line_waiting_voice As Boolean
+Dim warning As String
+Dim warning_t As Single
+Dim rim_t As Single
+Dim hurt_t As Single
+Dim shot_t As Single
+Dim gate_t As Single
+Dim gate_clear As Boolean
+Dim hold_gate As Boolean
+Dim nav_marker As Vector2
+Dim center As Vector3
+Dim tangent As Vector3
+Dim right_axis As Vector3
+Dim hull_node As Object
+Dim route_node As Object
+Dim env_node As Object
+Dim sun_node As Object
+Dim rim_node As Object
+Dim atmosphere As Object
+Dim enemies As Array
+Dim shots As Array
+Dim hud As Object
+Dim host As Object
+Dim flight_time As Single
+Dim engine_trails As Array
+Dim obstacles As Array
+Dim altitude_obstacles As Array
+Dim hull_query As Object
+Dim hull_space As Object
+Dim gate_amount As Single
+Dim sky_material As Object
+Dim ascent_time As Single
+Dim orbit_ready As Boolean
+Dim ascent_origin As Vector3
+Dim sample_search_steps As Integer
+Dim sample_positions As Array
+Dim sample_headings As Array
+Dim motion_material As Object
+Dim speech As Object
+Dim spoken_hazards As Dictionary
+Dim failure_reason As String
+
+Sub SpeakHazard()
+	Dim obstacle As Variant
+	Dim gap As Single
+	Dim text As String
+	Dim nearest As Single
+	Dim hazard_id As String
+	nearest = Max(650.0, speed * 4.0)
+	For Each obstacle In obstacles
+		gap = obstacle.distance - distance
+		If gap > 0 And gap < nearest Then
+			nearest = gap
+			hazard_id = obstacle.id
+			text = "Wreckage ahead. Pass left."
+			If obstacle.safe_lateral > 0 Then text = "Wreckage ahead. Pass right."
+		End If
+	Next
+	For Each obstacle In altitude_obstacles
+		gap = obstacle.distance - distance
+		If gap > 0 And gap < nearest Then
+			nearest = gap
+			hazard_id = obstacle.id
+			text = "Hanging wreckage. Dive below."
+			If obstacle.safe_height > 0 Then text = "Fallen wreckage. Climb above."
+		End If
+	Next
+	If hazard_id <> "" And Not spoken_hazards.has(hazard_id) Then
+		spoken_hazards(hazard_id) = True
+		Call DeferCrewLine()
+		speech.voice = "jason"
+		speech.say(text, 2)
+	End If
+End Sub
+
+Sub CacheRoute()
+	Dim i As Integer
+	Dim previous As Vector3
+	Dim following As Vector3
+	Dim item As Variant
+	sample_positions = Array()
+	sample_headings = Array()
+	For i = 0 To samples.size() - 1
+		item = samples(i)
+		previous = Vec3Of(item.position)
+		sample_positions.append(previous)
+	Next
+	For i = 0 To samples.size() - 1
+		previous = sample_positions(Max(0, i - 1))
+		following = sample_positions(Min(samples.size() - 1, i + 1))
+		sample_headings.append((following - previous).normalized())
+	Next
+End Sub
+
+Sub UpdateMotion()
+	Dim amount As Single
+	If motion_material = Nothing Then Exit Sub
+	amount = 1.0
+	If completed Then amount = 1.0 - ClampF(ascent_time / 18.0, 0.0, 1.0)
+	If Me.failed Then amount = 0.0
+	motion_material.set_shader_parameter("travel", distance + ascent_time * speed)
+	motion_material.set_shader_parameter("rush", ClampF(speed / MAX_SPEED, 0.0, 1.0))
+	motion_material.set_shader_parameter("strength", amount)
+	motion_material.set_shader_parameter("bank", bank)
+End Sub
+
+Function Vec3Of(ByVal value As Variant) As Vector3
+	Vec3Of = Vector3(value(0), value(1), value(2))
+End Function
+
+Function ClampF(ByVal value As Single, ByVal lo As Single, ByVal hi As Single) As Single
+	If value < lo Then value = lo
+	If value > hi Then value = hi
+	ClampF = value
+End Function
+
+Function LerpF(ByVal a As Single, ByVal b As Single, ByVal t As Single) As Single
+	LerpF = a + (b - a) * t
+End Function
+
+Function SafetyLine(ByVal event_id As String) As Boolean
+	SafetyLine = event_id = "first_pursuit" Or event_id = "bridge_warning" Or event_id = "sentinel_warning" Or event_id = "gate_warning" Or event_id = "covered_channel"
+End Function
+
+Function ParseJson(ByVal path As String) As Dictionary
+	Dim parser As Object
+	Dim data As Variant
+	parser = ClassDB.Instantiate("JSON")
+	If parser.parse(ReadAllText(path)) <> 0 Then
+		last_error = "Could not parse " & path & "."
+		ParseJson = New Dictionary
+		Exit Function
+	End If
+	data = parser.get_data()
+	If TypeName(data) <> "Dictionary" Then
+		last_error = path & " is not an object."
+		ParseJson = New Dictionary
+		Exit Function
+	End If
+	ParseJson = data
+End Function
+
+Function SampleAt(ByVal dist As Single) As Dictionary
+	Dim i As Integer
+	Dim a As Variant
+	Dim b As Variant
+	Dim span As Single
+	Dim t As Single
+	Dim pos As Vector3
+	Dim nxt As Vector3
+	Dim tan As Vector3
+	Dim right As Vector3
+	Dim row As Dictionary
+	Dim lo As Integer
+	Dim hi As Integer
+	Dim mid As Integer
+	If samples.size() < 2 Then
+		row = New Dictionary
+		row("position") = Vector3(0, 10, 0)
+		row("tangent") = Vector3(0, 0, -1)
+		row("right") = Vector3(1, 0, 0)
+		row("half_width") = 40.0
+		row("min_height") = -8.0
+		row("max_height") = 14.0
+		SampleAt = row
+		Exit Function
+	End If
+	dist = ClampF(dist, 0.0, length)
+	lo = 0
+	hi = samples.size() - 1
+	sample_search_steps = 0
+	While hi - lo > 1
+		sample_search_steps = sample_search_steps + 1
+		mid = Int((lo + hi) / 2)
+		If samples(mid).distance <= dist Then
+			lo = mid
+		Else
+			hi = mid
+		End If
+	Wend
+	i = lo
+	a = samples(i)
+	b = samples(i + 1)
+	span = b.distance - a.distance
+	t = 0.0
+	If span > 0.001 Then t = (dist - a.distance) / span
+	If t < 0.0 Then t = 0.0
+	If t > 1.0 Then t = 1.0
+	pos = sample_positions(i).lerp(sample_positions(i + 1), t)
+	nxt = sample_headings(i).lerp(sample_headings(i + 1), t)
+	If nxt.length() < 0.001 Then
+		tan = Vector3(0, 0, -1)
+	Else
+		tan = nxt.normalized()
+	End If
+	right = tan.cross(Vector3(0, 1, 0))
+	If right.length() < 0.001 Then
+		right = Vector3(1, 0, 0)
+	Else
+		right = right.normalized()
+	End If
+	row = New Dictionary
+	row("position") = pos
+	row("tangent") = tan
+	row("right") = right
+	row("half_width") = LerpF(a.half_width, b.half_width, t)
+	row("min_height") = LerpF(a.min_height, b.min_height, t)
+	row("max_height") = LerpF(a.max_height, b.max_height, t)
+	SampleAt = row
+End Function
+
+Function HazardCaption() As String
+	Dim obstacle As Variant
+	Dim gap As Single
+	Dim nearest As Single
+	Dim caption As String
+	If completed Or Me.failed Then Return ""
+	nearest = 950.0
+	For Each obstacle In obstacles
+		gap = obstacle.distance - distance
+		If gap > -15.0 And gap < nearest Then
+			nearest = gap
+			If obstacle.safe_lateral > 0 Then
+				caption = "WRECKAGE " & Str(Int(Max(0, gap))) & " M / PASS RIGHT"
+			Else
+				caption = "WRECKAGE " & Str(Int(Max(0, gap))) & " M / PASS LEFT"
+			End If
+		End If
+	Next
+	For Each obstacle In altitude_obstacles
+		gap = obstacle.distance - distance
+		If gap > -15.0 And gap < nearest Then
+			nearest = gap
+			If obstacle.safe_height > 0 Then
+				caption = "FALLEN SPAN " & Str(Int(Max(0, gap))) & " M / CLIMB ABOVE"
+			Else
+				caption = "HANGING WRECK " & Str(Int(Max(0, gap))) & " M / DIVE BELOW"
+			End If
+		End If
+	Next
+	Return caption
+End Function
+
+Function SafeHeight(ByVal dist As Single) As Single
+	Dim obstacle As Variant
+	Dim gap As Single
+	Dim weight As Single
+	For Each obstacle In altitude_obstacles
+		gap = obstacle.distance - dist
+		If gap > -120.0 And gap < 600.0 Then
+			weight = ClampF((600.0 - gap) / 300.0, 0.0, 1.0)
+			If gap < -30 Then weight = ClampF((gap + 120.0) / 90.0, 0.0, 1.0)
+			Return obstacle.safe_height * weight
+		End If
+	Next
+	Return 0.0
+End Function
+
+Function AutopilotLateral() As Single
+	Dim desired As Single
+	Dim shot As Variant
+	Dim sample As Dictionary
+	Dim target_offset As Single
+	Dim dodge As Single
+	desired = SafeLateral(distance)
+	dodge = 18.0
+	If Abs(desired) > 1.0 Then dodge = 12.0
+	For Each shot In shots
+		If shot("life") > 0 Then
+			sample = SampleAt(distance + speed * shot("charge"))
+			target_offset = (shot("target") - sample("position")).dot(sample("right"))
+			If Abs(target_offset - desired) < 12.0 Then
+				If target_offset >= desired Then
+					Return desired - dodge
+				Else
+					Return desired + dodge
+				End If
+			End If
+		End If
+	Next
+	Return desired
+End Function
+
+Function SafeLateral(ByVal dist As Single) As Single
+	Dim obstacle As Variant
+	Dim gap As Single
+	Dim weight As Single
+	For Each obstacle In obstacles
+		gap = obstacle.distance - dist
+		If gap > -150.0 And gap < 600.0 Then
+			weight = ClampF((600.0 - gap) / 300.0, 0.0, 1.0)
+			If gap < 0 Then weight = ClampF((gap + 150.0) / 150.0, 0.0, 1.0)
+			Return obstacle.safe_lateral * weight
+		End If
+	Next
+	Return 0.0
+End Function
+
+Sub DeferCrewLine()
+	Dim row As Dictionary
+	If line_text = "" Or line_safety Then Exit Sub
+	row = New Dictionary
+	row("speaker") = line_speaker
+	row("text") = line_text
+	row("event") = ""
+	row("safety") = False
+	line_queue.push_front(row)
+	If speech <> Nothing Then
+		If speech.current_priority = 0 Then speech.stop()
+	End If
+	line_t = 0
+	line_text = ""
+	line_speaker = ""
+	line_waiting_voice = False
+End Sub
+
+Sub QueueLine(ByVal speaker As String, ByVal text As String, ByVal event_id As String)
+	Dim row As Dictionary
+	Dim queued As Dictionary
+	Dim index As Integer
+	If SafetyLine(event_id) Then Call DeferCrewLine()
+	row = New Dictionary
+	row.Add("speaker", speaker)
+	row.Add("text", text)
+	row.Add("event", event_id)
+	row.Add("safety", SafetyLine(event_id))
+	If SafetyLine(event_id) Then
+		index = 0
+		While index < line_queue.size()
+			queued = line_queue(index)
+			If Not queued("safety") Then Exit While
+			index = index + 1
+		Wend
+		line_queue.insert(index, row)
+	Else
+		line_queue.append(row)
+	End If
+End Sub
+
+Sub QueueEventLines(ByVal event_id As String)
+	Dim row As Variant
+	For Each row In dialogue
+		If Str(row("event")) = event_id Then
+			If event_id = "service_gate" And Not gate_clear Then
+			Else
+				Call QueueLine(Str(row("speaker")), Str(row("text")), event_id)
+			End If
+		End If
+	Next
+End Sub
+
+Sub TickDialogue(ByVal delta As Single)
+	Dim row As Dictionary
+	Dim queued As Integer
+	If line_waiting_voice Then
+		If speech <> Nothing Then
+			If speech.enabled And speech.last_error = "" Then
+				If speech.busy() Then Exit Sub
+				line_t = 0
+			End If
+		End If
+		line_waiting_voice = False
+		If line_t <= 0 Then
+			line_text = ""
+			line_speaker = ""
+			line_safety = False
+		End If
+	End If
+	If line_t > 0.0 Then
+		line_t = line_t - delta
+		If line_t > 0.0 Then Exit Sub
+		line_text = ""
+		line_speaker = ""
+		line_safety = False
+	End If
+	If line_queue.size() = 0 Then Exit Sub
+	If speech <> Nothing Then
+		If speech.enabled And speech.busy() Then Exit Sub
+	End If
+	row = line_queue(0)
+	line_queue.remove_at(0)
+	line_speaker = row("speaker")
+	line_text = row("text")
+	line_safety = row("safety")
+	line_t = 3.4
+	If line_safety Then line_t = 4.2
+	If speech <> Nothing Then
+		If speech.enabled Then line_t = Max(line_t, Len(line_text) / 14.0)
+	End If
+	If speech <> Nothing Then
+		speech.voice = line_speaker
+		queued = speech.pending.size()
+		If line_safety Then
+			speech.say(line_text, 1)
+		Else
+			speech.say(line_text, 0)
+		End If
+		line_waiting_voice = speech.pending.size() > queued
+	End If
+End Sub
+
+Function DoorAperture() As Single
+	Dim left As Object
+	Dim inner As Single
+	If route_node = Nothing Then
+		DoorAperture = 0.0
+		Exit Function
+	End If
+	left = route_node.GetNode("ServiceGate/LeftDoor")
+	inner = left.position.x + GATE_CLOSED
+	If inner > 0.0 Then inner = 0.0
+	DoorAperture = 0.0 - inner
+End Function
+
+Function GateFits() As Boolean
+	GateFits = DoorAperture() >= CLEAR_R + Abs(lateral) + 1.0
+End Function
+
+Sub SetGate(ByVal amount As Single)
+	Dim left As Object
+	Dim right As Object
+	Dim left_x As Single
+	Dim right_x As Single
+	If route_node = Nothing Then Exit Sub
+	amount = ClampF(amount, 0.0, 1.0)
+	If Abs(amount - gate_amount) < 0.00001 Then Exit Sub
+	gate_amount = amount
+	left = route_node.GetNode("ServiceGate/LeftDoor")
+	right = route_node.GetNode("ServiceGate/RightDoor")
+	left.sync_to_physics = False
+	right.sync_to_physics = False
+	left_x = LerpF(0.0 - GATE_CLOSED, 0.0 - GATE_OPEN, amount)
+	right_x = LerpF(GATE_CLOSED, GATE_OPEN, amount)
+	left.position = Vector3(left_x, 14.0, 0.0)
+	right.position = Vector3(right_x, 14.0, 0.0)
+End Sub
+
+Sub CloseGate()
+	gate_t = 0.0
+	gate_clear = False
+	hold_gate = False
+	Call SetGate(0.0)
+End Sub
+
+Sub ClearShots()
+	Dim shot As Variant
+	For Each shot In shots
+		If shot.node <> Nothing Then shot.node.free()
+	Next
+	shots = Array()
+End Sub
+
+Sub ClearEnemies()
+	Dim enemy As Variant
+	Call ClearShots()
+	For Each enemy In enemies
+		If enemy.host <> Nothing Then enemy.host.free()
+	Next
+	enemies = Array()
+End Sub
+
+Sub BindEnemy(ByVal host_node As Object, ByVal kind As String, ByVal script_path As String)
+	Dim brain As Object
+	brain = view.SpawnVg(script_path, "Node")
+	brain.name = "Brain"
+	host_node.add_child(brain)
+	brain.bind(host_node, Me)
+	enemies.append(brain)
+End Sub
+
+Sub SpawnNeedles()
+	Dim packed As Object
+	Dim host_node As Object
+	Dim marker As Object
+	Dim names As Array
+	Dim marker_name As Variant
+	Dim brain As Object
+	Dim lane_side As Single
+	If enemies.size() > 0 Then Exit Sub
+	packed = Load("res://assets/black_channel/scenes/needle_drone.tscn")
+	If packed = Nothing Then Exit Sub
+	names = Array("Needle0", "Needle1")
+	lane_side = -1.0
+	For Each marker_name In names
+		marker = route_node.GetNode("EnemySpawns/" & marker_name)
+		host_node = packed.instantiate()
+		route_node.add_child(host_node)
+		host_node.global_transform = marker.global_transform
+		Call BindEnemy(host_node, "needle", "res://black_channel_needle.vg")
+		brain = enemies(enemies.size() - 1)
+		brain.side = lane_side
+		lane_side = 0.0 - lane_side
+	Next
+End Sub
+
+Sub SpawnSentinels()
+	Dim packed As Object
+	Dim host_node As Object
+	Dim marker As Object
+	Dim names As Array
+	Dim marker_name As Variant
+	Dim i As Integer
+	packed = Load("res://assets/black_channel/scenes/wall_sentinel.tscn")
+	If packed = Nothing Then Exit Sub
+	names = Array("Sentinel0", "Sentinel1", "Sentinel2", "Sentinel3")
+	i = 0
+	For Each marker_name In names
+		marker = route_node.GetNode("SentinelSpawns/" & marker_name)
+		host_node = packed.instantiate()
+		route_node.add_child(host_node)
+		host_node.global_transform = marker.global_transform
+		Call BindEnemy(host_node, "sentinel", "res://black_channel_sentinel.vg")
+		i = i + 1
+	Next
+End Sub
+
+Function LaserEnd(ByVal from_pos As Vector3, ByVal toward As Vector3) As Vector3
+	Dim query As Object
+	Dim hit As Dictionary
+	query = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+	query.collision_mask = 9
+	query.set("from", from_pos)
+	query.set("to", toward)
+	hit = hull_space.intersect_ray(query)
+	If hit.size() > 0 Then Return hit("position")
+	Return toward
+End Function
+
+Sub FireLaser(ByVal from_pos As Vector3, ByVal toward As Vector3, ByVal delay As Single, Optional emitter As Variant = Nothing)
+	Dim shot As Dictionary
+	Dim node As Object
+	Dim mesh As Object
+	Dim mat As Object
+	Dim dir As Vector3
+	If Not running Or shots.size() >= 4 Then Exit Sub
+	dir = toward - from_pos
+	If dir.length() < 0.2 Then Exit Sub
+	node = ClassDB.Instantiate("MeshInstance3D")
+	mesh = ClassDB.Instantiate("BoxMesh")
+	mesh.size = Vector3(1, 1, 1)
+	node.mesh = mesh
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = Load("res://assets/black_channel/materials/channel_laser.gdshader")
+	node.material_override = mat
+	node.cast_shadow = 0
+	If route_node <> Nothing Then route_node.add_child(node)
+	shot = New Dictionary
+	shot("node") = node
+	shot("from") = from_pos
+	shot("source") = emitter
+	shot("target") = toward + dir.normalized() * 40.0
+	shot("charge") = Max(0.0, delay)
+	shot("life") = 0.24
+	shot("fired") = False
+	Call PoseLaser(shot, False)
+	shots.append(shot)
+End Sub
+
+Sub PoseLaser(ByVal shot As Dictionary, ByVal active As Boolean)
+	Dim endpoint As Vector3
+	Dim span As Single
+	Dim width As Single
+	Dim node As Object
+	Dim source As Object
+	Dim up_axis As Vector3
+	source = shot("source")
+	If source <> Nothing Then shot("from") = source.global_position
+	endpoint = LaserEnd(shot("from"), shot("target"))
+	shot("endpoint") = endpoint
+	node = shot("node")
+	span = endpoint.distance_to(shot("from"))
+	width = 0.12
+	If active Then width = 0.65
+	node.global_position = (shot("from") + endpoint) * 0.5
+	up_axis = Vector3(0, 1, 0)
+	If span > 0.01 Then
+		If Abs((endpoint - shot("from")).normalized().dot(up_axis)) > 0.99 Then up_axis = Vector3(1, 0, 0)
+		node.look_at(endpoint, up_axis)
+	End If
+	node.scale = Vector3(width, width, Max(0.01, span))
+	node.material_override.set_shader_parameter("active", active)
+End Sub
+
+Sub TickShots(ByVal delta As Single)
+	Dim i As Integer
+	Dim shot As Dictionary
+	Dim keep As Array
+	Dim endpoint As Vector3
+	Dim segment As Vector3
+	Dim amount As Single
+	Dim closest As Vector3
+	Dim remaining As Single
+	keep = Array()
+	For i = 0 To shots.size() - 1
+		shot = shots(i)
+		remaining = delta
+		If shot("charge") > 0 Then
+			remaining = Max(0.0, delta - shot("charge"))
+			shot("charge") = Max(0.0, shot("charge") - delta)
+		End If
+		Call PoseLaser(shot, shot("charge") <= 0)
+		If shot("charge") <= 0 Then
+			If Not shot("fired") Then
+				shot("fired") = True
+			End If
+			endpoint = shot("endpoint")
+			segment = endpoint - shot("from")
+			amount = 0.0
+			If segment.length_squared() > 0.001 Then amount = ClampF((hull_node.global_position - shot("from")).dot(segment) / segment.length_squared(), 0.0, 1.0)
+			closest = shot("from") + segment * amount
+			If closest.distance_to(hull_node.global_position) < CLEAR_R + 0.35 Then
+				Call Hurt(22.0, "Security laser strike. Break away from the amber aim line.")
+				If Me.failed Then Exit Sub
+			End If
+			shot("life") = shot("life") - remaining
+		End If
+		If shot("life") <= 0.0 Then
+			shot.node.free()
+		Else
+			keep.append(shot)
+		End If
+	Next
+	shots = keep
+End Sub
+
+Sub TickEnemies(ByVal delta As Single)
+	Dim enemy As Variant
+	For Each enemy In enemies
+		enemy.tick(delta)
+	Next
+End Sub
+
+Function ExhaustMesh() As Object
+	Dim vertices As PackedVector3Array
+	Dim uvs As PackedVector2Array
+	Dim indices As PackedInt32Array
+	Dim arrays As Array
+	Dim mesh As Object
+	Dim material As Object
+	Dim i As Integer
+	vertices.append(Vector3(-0.65, 0, 0))
+	vertices.append(Vector3(0.65, 0, 0))
+	vertices.append(Vector3(0.22, 0, 1))
+	vertices.append(Vector3(-0.22, 0, 1))
+	vertices.append(Vector3(0, -0.65, 0))
+	vertices.append(Vector3(0, 0.65, 0))
+	vertices.append(Vector3(0, 0.22, 1))
+	vertices.append(Vector3(0, -0.22, 1))
+	For i = 0 To 1
+		uvs.append(Vector2(0, 0))
+		uvs.append(Vector2(1, 0))
+		uvs.append(Vector2(1, 1))
+		uvs.append(Vector2(0, 1))
+		indices.append(i * 4)
+		indices.append(i * 4 + 1)
+		indices.append(i * 4 + 2)
+		indices.append(i * 4)
+		indices.append(i * 4 + 2)
+		indices.append(i * 4 + 3)
+	Next
+	arrays = Array()
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays(Mesh.ARRAY_VERTEX) = vertices
+	arrays(Mesh.ARRAY_TEX_UV) = uvs
+	arrays(Mesh.ARRAY_INDEX) = indices
+	mesh = ClassDB.Instantiate("ArrayMesh")
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	material = ClassDB.Instantiate("ShaderMaterial")
+	material.shader = Load("res://shaders/landing_flame.gdshader")
+	mesh.surface_set_material(0, material)
+	Return mesh
+End Function
+
+Sub BuildWorld()
+	Dim packed As Object
+	Dim sky_mat As Object
+	Dim sky As Object
+	Dim shader As Object
+	Dim motion As Object
+	packed = Load("res://assets/black_channel/scenes/black_channel_route.tscn")
+	If packed = Nothing Then
+		last_error = "Missing res://assets/black_channel/scenes/black_channel_route.tscn"
+		Exit Sub
+	End If
+	route_node = packed.instantiate()
+	add_child(route_node)
+	shader = Load("res://assets/black_channel/materials/channel_sky.gdshader")
+	sky_mat = ClassDB.Instantiate("ShaderMaterial")
+	sky_mat.shader = shader
+	sky_material = sky_mat
+	sky = ClassDB.Instantiate("Sky")
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
+	sky.sky_material = sky_mat
+	atmosphere = ClassDB.Instantiate("Environment")
+	atmosphere.background_mode = 2
+	atmosphere.sky = sky
+	atmosphere.ambient_light_source = 2
+	atmosphere.reflected_light_source = 2
+	atmosphere.ambient_light_color = Color(0.34, 0.47, 0.64)
+	atmosphere.ambient_light_energy = 0.65
+	atmosphere.fog_enabled = True
+	atmosphere.fog_sky_affect = 0.0
+	atmosphere.fog_light_color = Color(0.055, 0.085, 0.13)
+	atmosphere.fog_density = 0.0018
+	env_node = ClassDB.Instantiate("WorldEnvironment")
+	env_node.environment = atmosphere
+	add_child(env_node)
+	sun_node = ClassDB.Instantiate("DirectionalLight3D")
+	sun_node.rotation_degrees = Vector3(-34, -28, 0)
+	sun_node.light_color = Color(0.56, 0.72, 1.0)
+	sun_node.light_energy = 1.3
+	add_child(sun_node)
+	rim_node = ClassDB.Instantiate("DirectionalLight3D")
+	rim_node.rotation_degrees = Vector3(-18, 130, 0)
+	rim_node.light_color = Color(0.6, 0.2, 0.35)
+	rim_node.light_energy = 0.65
+	add_child(rim_node)
+	hull_node = ClassDB.Instantiate("CharacterBody3D")
+	hull_node.name = "Ash"
+	hull_node.collision_layer = 2
+	hull_node.collision_mask = 13
+	Dim shape_node As Object
+	Dim sphere As Object
+	Dim vis As Object
+	shape_node = ClassDB.Instantiate("CollisionShape3D")
+	sphere = ClassDB.Instantiate("SphereShape3D")
+	sphere.radius = CLEAR_R
+	shape_node.shape = sphere
+	hull_node.add_child(shape_node)
+	packed = Load("res://assets/black_channel/scenes/ash_flight.tscn")
+	If packed = Nothing Then
+		last_error = "Missing Black Channel Ash flight model."
+		Exit Sub
+	End If
+	vis = packed.instantiate()
+	hull_node.add_child(vis)
+	engine_trails = Array()
+	Dim engine_x As Variant
+	Dim trail_mesh As Object
+	trail_mesh = ExhaustMesh()
+	For Each engine_x In Array(-3.4, 3.4)
+		shape_node = ClassDB.Instantiate("MeshInstance3D")
+		shape_node.mesh = trail_mesh
+		shape_node.cast_shadow = 0
+		shape_node.extra_cull_margin = 10.0
+		shape_node.position = Vector3(engine_x, 0, 4.9)
+		hull_node.add_child(shape_node)
+		engine_trails.append(shape_node)
+	Next
+	add_child(hull_node)
+	hull_space = route_node.get_world_3d().direct_space_state
+	hull_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
+	hull_query.shape = sphere
+	hull_query.collision_mask = 9
+	hud = view.SpawnVg("res://black_channel_hud.vg", "Node2D")
+	hud.name = "BlackChannelHud"
+	hud.channel = Me
+	speech = view.SpawnVg("res://flight_speech.vg", "Node")
+	speech.name = "FlightSpeech"
+	add_child(speech)
+	speech.load_recordings("res://assets/black_channel/voice/dialogue.json")
+	speech.configure(view.get_parent().opt_orac_voice)
+	speech.scene_heat = 1
+	motion_material = ClassDB.Instantiate("ShaderMaterial")
+	motion_material.shader = Load("res://assets/black_channel/materials/channel_motion.gdshader")
+	motion = ClassDB.Instantiate("ColorRect")
+	motion.name = "Slipstream"
+	motion.size = Vector2(960, 540)
+	motion.mouse_filter = 2
+	motion.show_behind_parent = True
+	motion.material = motion_material
+	hud.add_child(motion)
+End Sub
+
+Function HullBlocked(ByVal at As Vector3) As Boolean
+	Dim space As Object
+	Dim query As Object
+	Dim pose As Transform3D
+	Dim contacts As Array
+	If route_node = Nothing Then
+		HullBlocked = False
+		Exit Function
+	End If
+	space = hull_space
+	If space = Nothing Then
+		HullBlocked = False
+		Exit Function
+	End If
+	query = hull_query
+	pose = Transform3D()
+	pose.origin = at
+	query.transform = pose
+	query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(query)
+	HullBlocked = contacts.size() > 0
+End Function
+
+Function FlightPathBlocked(ByVal next_distance As Single) As Boolean
+	Dim query As Object
+	Dim space As Object
+	Dim pose As Transform3D
+	Dim sample As Dictionary
+	Dim at As Vector3
+	Dim previous As Vector3
+	Dim fractions As Variant
+	Dim contacts As Array
+	Dim steps As Integer
+	Dim i As Integer
+	Dim amount As Single
+	Dim start_offset As Vector3
+	If HullBlocked(hull_node.global_position) Then Return True
+	space = hull_space
+	query = hull_query
+	previous = hull_node.global_position
+	start_offset = previous - center
+	steps = Max(1, Int((next_distance - distance) / 12.0) + 1)
+	For i = 1 To steps
+		amount = CDbl(i) / steps
+		sample = SampleAt(LerpF(distance, next_distance, amount))
+		at = sample("position") + start_offset * (1.0 - amount) + (sample("right") * lateral + Vector3(0, height, 0)) * amount
+		pose = Transform3D()
+		pose.origin = previous
+		query.transform = pose
+		query.motion = at - previous
+		fractions = space.cast_motion(query)
+		If fractions(0) < 0.999 Then Return True
+		pose.origin = at
+		query.transform = pose
+		query.motion = Vector3(0, 0, 0)
+		contacts = space.intersect_shape(query)
+		If contacts.size() > 0 Then Return True
+		previous = at
+	Next
+	Return False
+End Function
+
+Sub Hurt(ByVal amount As Single, ByVal reason As String)
+	If hurt_t > 0.0 Then Exit Sub
+	hull = hull - amount
+	hurt_t = 0.55
+	warning = reason
+	warning_t = 2.2
+	If hull <= 0.0 Then
+		hull = 0.0
+		failed = True
+		running = False
+		failure_reason = reason
+		line_queue = Array()
+		line_text = ""
+		line_speaker = ""
+		line_t = 0.0
+		line_waiting_voice = False
+		speed = 0.0
+		Call ClearShots()
+		Call UpdateMotion()
+		If speech <> Nothing Then
+			speech.voice = "Orac"
+			speech.say("Hull lost. Press Enter or Space to retry the last checkpoint.", 3)
+		End If
+	End If
+End Sub
+
+Sub ApplyPose()
+	Dim sample As Dictionary
+	Dim pos As Vector3
+	sample = SampleAt(distance)
+	center = sample("position")
+	tangent = sample("tangent")
+	right_axis = sample("right")
+	pos = center + right_axis * lateral + Vector3(0, 1, 0) * height
+	If hull_node <> Nothing Then
+		hull_node.global_position = pos
+		If tangent.length() > 0.001 Then hull_node.look_at(pos + tangent, Vector3(0, 1, 0))
+		hull_node.rotate_object_local(Vector3(0, 0, 1), bank)
+	End If
+End Sub
+
+Sub FireEvents()
+	Dim row As Variant
+	Dim event_id As String
+	For Each row In events
+		event_id = Str(row.id)
+		If Not fired.has(event_id) And distance >= row.distance Then
+			fired.Add(event_id, True)
+			If event_id = "entry" Then
+				checkpoint_id = "entry"
+				checkpoint_distance = 0.0
+				Call QueueEventLines(event_id)
+			ElseIf event_id = "first_pursuit" Then
+				Call QueueEventLines(event_id)
+				Call SpawnNeedles()
+			ElseIf event_id = "covered_channel" Then
+				checkpoint_id = "covered_channel"
+				checkpoint_distance = 1750.0
+				Call QueueEventLines(event_id)
+			ElseIf event_id = "relay_checkpoint" Then
+				checkpoint_id = "relay_checkpoint"
+				checkpoint_distance = 6500.0
+				Call QueueEventLines(event_id)
+			ElseIf event_id = "sentinel_warning" Then
+				Call QueueEventLines(event_id)
+				Call SpawnSentinels()
+			ElseIf event_id = "service_gate" Then
+				If GateFits() Then
+					gate_clear = True
+					Call QueueEventLines(event_id)
+				End If
+			ElseIf event_id = "exit" Then
+				Call QueueEventLines(event_id)
+				Call finish_encounter()
+			Else
+				Call QueueEventLines(event_id)
+			End If
+		End If
+	Next
+End Sub
+
+Sub ReadStick(ByVal delta As Single)
+	Dim steer As Single
+	Dim lift As Single
+	Dim throttle As Single
+	Dim game As Object
+	Dim sample As Dictionary
+	Dim limit As Single
+	steer = 0.0
+	lift = 0.0
+	throttle = 0.0
+	If auto_speed > 0.0 Then
+		speed = auto_speed
+	Else
+		If IsKeyPressed(KEY_Q) Or IsKeyPressed(KEY_MINUS) Then throttle = throttle - 1.0
+		If IsKeyPressed(KEY_E) Or IsKeyPressed(KEY_EQUAL) Then throttle = throttle + 1.0
+		speed = speed + throttle * delta * 80.0
+	End If
+	speed = ClampF(speed, MIN_SPEED, MAX_SPEED)
+	If auto_center Then
+		lateral = LerpF(lateral, AutopilotLateral(), ClampF(delta * 4.0, 0.0, 1.0))
+		height = LerpF(height, SafeHeight(distance), ClampF(delta * 4.0, 0.0, 1.0))
+		steer = 0.0
+		lift = 0.0
+	Else
+		If view <> Nothing Then game = view.get_parent()
+		If game <> Nothing Then
+			steer = game.flight_steer
+			lift = game.flight_lift
+		End If
+		If steer = 0.0 Then
+			If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
+			If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
+		End If
+		If lift = 0.0 Then
+			If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
+			If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+		End If
+		lateral = lateral + steer * delta * 18.0
+		height = height + lift * delta * 12.0
+	End If
+	sample = SampleAt(distance)
+	limit = sample("half_width") - CLEAR_R
+	If limit < 4.0 Then limit = 4.0
+	If Abs(lateral) > limit Then
+		warning = "Corridor wall. Bring it back to centre."
+		warning_t = 0.8
+		If lateral > limit Then lateral = LerpF(lateral, limit, ClampF(delta * 6.0, 0.0, 1.0))
+		If lateral < 0.0 - limit Then lateral = LerpF(lateral, 0.0 - limit, ClampF(delta * 6.0, 0.0, 1.0))
+	End If
+	If height > sample("max_height") Then
+		warning = "Stay below the rim. Upper batteries are live."
+		warning_t = 0.8
+		height = LerpF(height, sample("max_height"), ClampF(delta * 5.0, 0.0, 1.0))
+		rim_t = rim_t + delta
+		If height > sample("max_height") + 3.0 And rim_t > 1.6 Then Call Hurt(40.0, "Rim batteries have a track.")
+	ElseIf height < sample("min_height") Then
+		warning = "Floor is close."
+		warning_t = 0.8
+		height = LerpF(height, sample("min_height"), ClampF(delta * 5.0, 0.0, 1.0))
+		rim_t = 0.0
+	Else
+		rim_t = 0.0
+	End If
+	bank = bank + ((0.0 - steer) * 0.55 - bank) * ClampF(delta * 5.0, 0.0, 1.0)
+	lift_rate = lift
+End Sub
+
+Sub TickGate(ByVal delta As Single)
+	Dim amount As Single
+	Dim remain As Single
+	If distance >= GATE_REQUEST Then
+		gate_t = gate_t + delta
+		If gate_t > GATE_SECONDS Then gate_t = GATE_SECONDS
+	End If
+	amount = 0.0
+	If GATE_SECONDS > 0.0 Then amount = gate_t / GATE_SECONDS
+	Call SetGate(amount)
+	hold_gate = False
+	If distance > GATE_AT - 90.0 And amount < 1.0 Then
+		remain = GATE_AT - 12.0 - distance
+		hold_gate = True
+		If remain < speed * 0.35 Then
+			speed = ClampF(remain / 0.35, 8.0, speed)
+			warning = "Hold short. The lock is still opening."
+			warning_t = 0.6
+		End If
+	End If
+	If distance >= GATE_AT And GateFits() And Not gate_clear Then
+		gate_clear = True
+		If Not fired.has("service_gate") Then fired.Add("service_gate", True)
+		Call QueueEventLines("service_gate")
+	End If
+End Sub
+
+Sub AimCamera(ByVal camera As Object)
+	Dim sample As Dictionary
+	Dim ahead As Vector3
+	Dim cam_pos As Vector3
+	Dim look As Vector3
+	Dim screen As Vector2
+	Dim rush As Single
+	If camera = Nothing Or hull_node = Nothing Then Exit Sub
+	rush = ClampF((speed - 45.0) / 195.0, 0.0, 1.0)
+	sample = SampleAt(distance + 80.0 + rush * 80.0)
+	ahead = sample("position")
+	ahead = ahead + sample("right") * SafeLateral(distance + 200.0)
+	ahead = ahead + Vector3(0, SafeHeight(distance + 200.0), 0)
+	cam_pos = hull_node.global_position - tangent * (18.0 + rush * 4.0) + Vector3(0, 1, 0) * 5.5 + right_axis * bank * 2.0
+	look = hull_node.global_position + tangent * 24.0
+	If completed Then
+		cam_pos = hull_node.global_position + Vector3(0, 5.5, 22)
+		look = hull_node.global_position + Vector3(0, 1.5, -30)
+		ahead = look
+	End If
+	camera.fov = 68.0 + rush * 24.0
+	camera.near = 0.2
+	camera.far = 1800.0
+	camera.current = True
+	' look_at preserves scale, including the legacy flight camera's reflection.
+	camera.transform = Transform3D()
+	camera.global_position = cam_pos
+	camera.look_at(look, Vector3(0, 1, 0))
+	camera.rotate_object_local(Vector3(0, 0, 1), bank * 0.65)
+	If completed Then
+		nav_marker = Vector2(-64, -64)
+		Exit Sub
+	End If
+	If camera.is_position_behind(ahead) Then
+		nav_marker = Vector2(-64, -64)
+	Else
+		screen = camera.unproject_position(ahead)
+		nav_marker = screen
+	End If
+End Sub
+
+Sub start_encounter(ByVal start_mode As String, ByVal context As Variant)
+	mode = start_mode
+	last_error = ""
+	running = False
+	completed = False
+	failed = False
+	finish_once = False
+	auto_center = False
+	auto_speed = 0.0
+	fired = New Dictionary
+	spoken_hazards = New Dictionary
+	failure_reason = ""
+	line_queue = Array()
+	enemies = Array()
+	shots = Array()
+	engine_trails = Array()
+	flight_time = 0.0
+	ascent_time = 0.0
+	orbit_ready = False
+	gate_amount = -1.0
+	line_text = ""
+	line_speaker = ""
+	line_t = 0.0
+	line_waiting_voice = False
+	warning = ""
+	warning_t = 0.0
+	rim_t = 0.0
+	hurt_t = 0.0
+	shot_t = 0.0
+	nav_marker = Vector2(480, 270)
+	view = get_parent()
+	If view <> Nothing Then
+		If view.get_class() = "SubViewport" Then view = view.get_parent()
+	End If
+	route_data = ParseJson("res://assets/black_channel/route.json")
+	If last_error <> "" Then Exit Sub
+	encounter_data = ParseJson("res://assets/black_channel/encounter.json")
+	If last_error <> "" Then Exit Sub
+	samples = route_data("samples")
+	obstacles = route_data("obstacles")
+	altitude_obstacles = route_data("altitude_obstacles")
+	events = route_data("events")
+	dialogue = encounter_data("dialogue")
+	length = route_data.length
+	If samples.size() < 8 Then
+		last_error = "Black Channel route has no samples."
+		Exit Sub
+	End If
+	Call CacheRoute()
+	Call BuildWorld()
+	If last_error <> "" Then
+		Print "BLACK_CHANNEL_ERROR: " & last_error
+		Call dispose()
+		Exit Sub
+	End If
+	If route_node = Nothing Then Exit Sub
+	Call CloseGate()
+	distance = 0.0
+	lateral = 0.0
+	height = 0.0
+	speed = NOMINAL_SPEED
+	hull = HULL_MAX
+	bank = 0.0
+	checkpoint_id = "entry"
+	checkpoint_distance = 0.0
+	Call ApplyPose()
+	running = True
+	Call FireEvents()
+	Call TickDialogue(0.0)
+	Call UpdateMotion()
+End Sub
+
+Sub tick(ByVal delta As Single)
+	Dim next_dist As Single
+	Dim sample As Dictionary
+	Dim game As Object
+	If view <> Nothing Then game = view.get_parent()
+	If speech <> Nothing And game <> Nothing Then speech.tick(game.menu_on Or game.dev_on)
+	If game <> Nothing Then
+		If game.menu_on Then Exit Sub
+	End If
+	If Not running Then
+		If hurt_t > 0 Then hurt_t = Max(0.0, hurt_t - delta)
+		Call TickDialogue(delta)
+		If completed Then
+			Call TickAscent(delta)
+		ElseIf Me.failed Then
+			If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then Call retry_checkpoint()
+		End If
+		Call UpdateMotion()
+		Exit Sub
+	End If
+	If delta < 0.0 Then delta = 0.0
+	If hurt_t > 0.0 Then hurt_t = hurt_t - delta
+	If shot_t > 0.0 Then shot_t = shot_t - delta
+	If warning_t > 0.0 Then
+		warning_t = warning_t - delta
+		If warning_t <= 0.0 Then warning = ""
+	End If
+	Call TickDialogue(delta)
+	flight_time = flight_time + delta
+	Call ReadStick(delta)
+	Call TickGate(delta)
+	next_dist = distance + speed * delta
+	If hold_gate And next_dist > GATE_AT - 8.0 And Not GateFits() Then next_dist = GATE_AT - 8.0
+	If next_dist > length Then next_dist = length
+	sample = SampleAt(next_dist)
+	If FlightPathBlocked(next_dist) Then
+		Call Hurt(16.0, "Hull contact.")
+	Else
+		distance = next_dist
+		center = sample("position")
+		tangent = sample("tangent")
+		right_axis = sample("right")
+		Call ApplyPose()
+	End If
+	Call FireEvents()
+	Call TickEnemies(delta)
+	Call TickShots(delta)
+	If running Then Call SpeakHazard()
+	Call UpdateMotion()
+	If hud <> Nothing Then hud.queue_redraw()
+End Sub
+
+Function snapshot() As Dictionary
+	Dim data As Dictionary
+	data = New Dictionary
+	data.Add("version", SAVE_VERSION)
+	data.Add("mode", mode)
+	data.Add("checkpoint", checkpoint_id)
+	data.Add("distance", distance)
+	data.Add("lateral", lateral)
+	data.Add("height", height)
+	data.Add("speed", speed)
+	data.Add("hull", hull)
+	data.Add("gate", gate_t)
+	data.Add("gate_clear", gate_clear)
+	data.Add("completed", completed)
+	data.Add("failed", failed)
+	data.Add("failure_reason", failure_reason)
+	data.Add("running", running)
+	data.Add("fired", fired.duplicate(True))
+	data.Add("ascent_time", ascent_time)
+	Return data
+End Function
+
+Function restore(ByVal data As Variant) As Boolean
+	If TypeName(data) <> "Dictionary" Then
+		last_error = "Black Channel save has no state."
+		Return False
+	End If
+	If data("version") <> SAVE_VERSION Then
+		last_error = "Unsupported Black Channel save version."
+		Return False
+	End If
+	Call ClearShots()
+	Call ClearEnemies()
+	If speech <> Nothing Then speech.stop()
+	spoken_hazards = New Dictionary
+	checkpoint_id = Str(data("checkpoint"))
+	checkpoint_distance = 0.0
+	If checkpoint_id = "covered_channel" Then checkpoint_distance = 1750.0
+	If checkpoint_id = "relay_checkpoint" Then checkpoint_distance = 6500.0
+	distance = data("distance")
+	lateral = data("lateral")
+	height = data("height")
+	speed = data("speed")
+	hull = data("hull")
+	gate_t = data("gate")
+	gate_clear = data("gate_clear")
+	completed = data("completed")
+	finish_once = completed
+	failed = data("failed")
+	failure_reason = ""
+	If data.has("failure_reason") Then failure_reason = Str(data("failure_reason"))
+	If Me.failed Then speed = 0.0
+	running = data("running")
+	fired = data("fired").duplicate(True)
+	ascent_time = 0.0
+	If data.has("ascent_time") Then ascent_time = ClampF(data("ascent_time"), 0.0, 40.0)
+	orbit_ready = False
+	Call SetGate(ClampF(gate_t / GATE_SECONDS, 0.0, 1.0))
+	If Not completed Then
+		If fired.has("first_pursuit") And distance >= 650.0 And distance < 1750.0 Then Call SpawnNeedles()
+		If fired.has("sentinel_warning") Then Call SpawnSentinels()
+		If sky_material <> Nothing Then sky_material.set_shader_parameter("ascent", 0.0)
+		route_node.visible = True
+		atmosphere.fog_enabled = True
+		atmosphere.fog_density = 0.0018
+	End If
+	Call ApplyPose()
+	If completed Then
+		ascent_origin = hull_node.global_position
+		Call TickAscent(0.0)
+	End If
+	Call UpdateMotion()
+	Return True
+End Function
+
+Sub retry_checkpoint()
+	Dim event_row As Variant
+	Call ClearShots()
+	Call ClearEnemies()
+	If speech <> Nothing Then speech.stop()
+	spoken_hazards = New Dictionary
+	failure_reason = ""
+	hurt_t = 0.0
+	distance = checkpoint_distance
+	lateral = 0.0
+	height = 0.0
+	speed = NOMINAL_SPEED
+	hull = HULL_MAX
+	bank = 0.0
+	failed = False
+	completed = False
+	finish_once = False
+	ascent_time = 0.0
+	orbit_ready = False
+	If sky_material <> Nothing Then sky_material.set_shader_parameter("ascent", 0.0)
+	If route_node <> Nothing Then route_node.visible = True
+	If atmosphere <> Nothing Then
+		atmosphere.fog_enabled = True
+		atmosphere.fog_density = 0.0018
+	End If
+	hold_gate = False
+	warning = ""
+	warning_t = 0.0
+	rim_t = 0.0
+	line_queue = Array()
+	line_text = ""
+	line_t = 0.0
+	line_waiting_voice = False
+	Call CloseGate()
+	If checkpoint_distance > GATE_AT Then
+		gate_t = GATE_SECONDS
+		gate_clear = True
+		Call SetGate(1.0)
+	End If
+	fired = New Dictionary
+	For Each event_row In events
+		If event_row.distance < checkpoint_distance - 0.5 Then fired(Str(event_row.id)) = True
+	Next
+	If checkpoint_id = "covered_channel" Then fired("covered_channel") = True
+	If checkpoint_id = "relay_checkpoint" Then fired("relay_checkpoint") = True
+	Call ApplyPose()
+	running = True
+	Call UpdateMotion()
+End Sub
+
+Sub finish_encounter()
+	If finish_once Then Exit Sub
+	finish_once = True
+	completed = True
+	running = False
+	failed = False
+	ascent_origin = hull_node.global_position
+	ascent_time = 0.0
+	orbit_ready = False
+	Call ClearShots()
+	Call ClearEnemies()
+	line_queue = Array()
+	line_t = 0.0
+	line_waiting_voice = False
+	line_text = ""
+	line_speaker = ""
+	Call QueueLine("Rob", "Clear of the batteries. Climb through the cloud layer; I have a local orbital track.", "ascent")
+	Call QueueLine("Orac", "Sublight is stable. Hold above the tracking grid while we prepare the exterior repair.", "ascent")
+End Sub
+
+Sub TickAscent(ByVal delta As Single)
+	Dim amount As Single
+	Dim climb As Single
+	Dim pos As Vector3
+	ascent_time = Min(40.0, ascent_time + Max(0.0, delta))
+	amount = ClampF(ascent_time / 24.0, 0.0, 1.0)
+	climb = amount * amount * (3.0 - 2.0 * amount)
+	pos = ascent_origin + Vector3(0, climb * 6000.0, -amount * 9000.0)
+	hull_node.global_position = pos
+	hull_node.look_at(pos + Vector3(0, Sin(amount * 3.14159) * 0.8, -1), Vector3(0, 1, 0))
+	bank = bank * Max(0.0, 1.0 - delta * 2.0)
+	nav_marker = Vector2(-64, -64)
+	If sky_material <> Nothing Then sky_material.set_shader_parameter("ascent", amount)
+	If atmosphere <> Nothing Then
+		atmosphere.fog_density = 0.0018 * (1.0 - climb)
+		atmosphere.fog_enabled = amount < 1.0
+	End If
+	If route_node <> Nothing Then route_node.visible = amount < 0.45
+	If amount >= 1.0 And Not orbit_ready Then
+		orbit_ready = True
+		line_queue = Array()
+		line_t = 0.0
+		line_waiting_voice = False
+		line_text = ""
+		line_speaker = ""
+		Call QueueLine("Orac", "Local orbit established. The component is secure. No tracking contacts.", "orbit")
+		Call QueueLine("Rob", "That was the last repair item. The outer drive housing must be isolated and depressurized before we fit it. We do that here, in vacuum.", "orbit")
+		Call QueueLine("Jason", "Hold this orbit. We finish the repairs before we try to leave.", "orbit")
+	End If
+End Sub
+
+Sub dispose()
+	running = False
+	If speech <> Nothing Then
+		speech.stop()
+		speech.free()
+		speech = Nothing
+	End If
+	Call ClearShots()
+	Call ClearEnemies()
+	engine_trails = Array()
+	hull_query = Nothing
+	hull_space = Nothing
+	sky_material = Nothing
+	motion_material = Nothing
+	If hull_node <> Nothing Then
+		hull_node.free()
+		hull_node = Nothing
+	End If
+	If route_node <> Nothing Then
+		route_node.free()
+		route_node = Nothing
+	End If
+	If env_node <> Nothing Then
+		env_node.free()
+		env_node = Nothing
+	End If
+	If sun_node <> Nothing Then
+		sun_node.free()
+		sun_node = Nothing
+	End If
+	If rim_node <> Nothing Then
+		rim_node.free()
+		rim_node = Nothing
+	End If
+	If hud <> Nothing Then
+		hud.free()
+		hud = Nothing
+	End If
+	atmosphere = Nothing
+End Sub
+
+Function render(ByVal presentation As Object) As Texture2D
+	Dim trail As Object
+	Dim trail_length As Single
+	If presentation = Nothing Then
+		render = Nothing
+		Exit Function
+	End If
+	visible = True
+	trail_length = 1.5 + ClampF(speed / MAX_SPEED, 0.0, 1.0) * 8.0
+	For Each trail In engine_trails
+		trail.scale = Vector3(1, 1, trail_length)
+		trail.position = Vector3(trail.position.x, 0, 4.9)
+	Next
+	If presentation.camera <> Nothing Then
+		presentation.camera.environment = atmosphere
+		Call AimCamera(presentation.camera)
+	End If
+	If presentation.viewport <> Nothing Then
+		If presentation.viewport.transparent_bg Then presentation.viewport.transparent_bg = False
+		If presentation.viewport.msaa_3d <> Viewport.MSAA_4X Then presentation.viewport.msaa_3d = Viewport.MSAA_4X
+		presentation.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		render = presentation.viewport.get_texture()
+	Else
+		render = Nothing
+	End If
+End Function
+
+Function Caption() As String
+	If last_error <> "" Then Return last_error
+	If Me.failed Then Return "HULL LOST / ENTER OR SPACE TO RETRY CHECKPOINT"
+	If speech <> Nothing Then
+		If speech.enabled And speech.player.playing Then
+			Return UCase(speech.playing_speaker) & ": " & speech.playing_text
+		End If
+	End If
+	If line_text <> "" Then
+		Caption = UCase(line_speaker) & ": " & line_text
+	ElseIf warning <> "" Then
+		Caption = warning
+	ElseIf completed Then
+		If orbit_ready Then
+			Caption = "NARCEA / LOCAL ORBIT / EXTERIOR REPAIR PENDING"
+		Else
+			Caption = "BATTERIES CLEAR / CLIMBING THROUGH THE CLOUD LAYER"
+		End If
+	Else
+		Caption = "BLACK CHANNEL"
+	End If
+End Function

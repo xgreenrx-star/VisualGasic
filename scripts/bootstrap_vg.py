@@ -1438,6 +1438,16 @@ def configure_piper(args) -> None:
         _run_companion_script(root / "install_piper.sh", "Piper TTS")
 
 
+def configure_kokoro(args) -> None:
+    if not getattr(args, "with_kokoro", False):
+        return
+    root = Path(__file__).resolve().parent
+    if platform.system() == "Windows":
+        _run_companion_script(root / "install_kokoro.ps1", "Kokoro TTS")
+    else:
+        _run_companion_script(root / "install_kokoro.sh", "Kokoro TTS")
+
+
 def configure_whisper(args) -> None:
     if not getattr(args, "with_whisper", False):
         return
@@ -1515,7 +1525,7 @@ def main() -> int:
 
     companion = parser.add_argument_group(
         "Companion tools (optional)",
-        "Cursor IDE pairing, Piper neural TTS, and local Whisper STT for Vibe Code. "
+        "Cursor IDE pairing, Kokoro neural TTS, and local Whisper STT for Vibe Code. "
         "Matches the Windows NSIS installer checkboxes.",
     )
     companion.add_argument(
@@ -1527,6 +1537,11 @@ def main() -> int:
         "--open-cursor-download",
         action="store_true",
         help="Open https://cursor.com/download in the browser (Cursor app is installed separately).",
+    )
+    companion.add_argument(
+        "--with-kokoro",
+        action="store_true",
+        help="Download Sherpa-ONNX + Kokoro-82M English voices (~350 MB on first run).",
     )
     companion.add_argument(
         "--with-piper",
@@ -1636,6 +1651,7 @@ def main() -> int:
 
     # Step 5c — Cursor MCP, Piper, Whisper (off by default; GUI/NSIS opt-in)
     configure_cursor_companion(args, project_dir)
+    configure_kokoro(args)
     configure_piper(args)
     configure_whisper(args)
 

@@ -27,6 +27,7 @@ Const PH_BLEED2 As Integer = 15
 Const PH_BLEED3 As Integer = 16
 Const PH_BACKLIGHT As Integer = 17
 Const PH_BACKLIGHT_YARD As Integer = 18
+Const PH_BLACK_CHANNEL As Integer = 19
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -101,6 +102,8 @@ Dim opt_detail As Integer
 Dim opt_vsync As Boolean
 Dim opt_shake As Boolean
 Dim opt_fps As Boolean
+Dim opt_orac_voice As Boolean
+Dim opt_flight_voice As Boolean
 Dim save_msg As String
 Dim last_dt As Single
 Dim key_cool As Single
@@ -130,8 +133,32 @@ Dim campaign_active As Boolean
 Dim campaign_arrival As Boolean
 Dim orac_said As String
 Dim orac_player As AudioStreamPlayer
+Dim orac_worker As Integer
+Dim orac_wav As String
+Dim orac_started As Integer
+Dim intro_lines As Array
+Dim intro_speakers As Array
+Dim intro_index As Integer
+Dim intro_elapsed As Single
+Dim intro_submitted As Boolean
+Dim intro_waiting_voice As Boolean
+Dim intro_audio As Array
+Dim intro_voice_error As String
+Dim speech As Object
+Dim mouse_was As Boolean
+Dim mouse_down As Boolean
+Dim mouse_tap As Boolean
+Dim mouse_pulse As Boolean
+Dim mouse_seen As Boolean
+Dim mouse_fly As Boolean
+Dim mouse_px As Single
+Dim mouse_py As Single
+Dim flight_steer As Single
+Dim flight_lift As Single
 
 Sub _Ready()
+	intro_lines = Array()
+	intro_audio = Array()
 	presentation = GetNode("Presentation")
 	campaign = presentation.SpawnVg("res://campaign.vg", "RefCounted")
 	Call LoadOptions()
@@ -153,19 +180,43 @@ Sub _Ready()
 	dev_page = 0
 	code_i = 0
 	orac_said = ""
+	orac_worker = 0
+	orac_wav = ""
+	orac_started = 0
+	mouse_was = False
+	mouse_down = False
+	mouse_tap = False
+	mouse_pulse = False
+	mouse_seen = False
+	mouse_fly = False
+	mouse_px = 0.0
+	mouse_py = 0.0
+	flight_steer = 0.0
+	flight_lift = 0.0
 	orac_player = ClassDB.Instantiate("AudioStreamPlayer")
 	orac_player.name = "OracPlayer"
 	orac_player.bus = "Master"
 	add_child(orac_player)
+	speech = presentation.SpawnVg("res://flight_speech.vg", "Node")
+	speech.name = "CrewSpeech"
+	add_child(speech)
+	speech.configure(opt_orac_voice)
 	Call InitJunk()
 	Call BakeAsh()
 	Set_Process(True)
+	SetProcessInput(True)
 	Print("ASH MERIDIAN PART 1 READY")
 End Sub
 
 Sub StartRun()
+	If presentation <> Nothing Then Call presentation.stop_black_channel()
 	Call OracStop()
 	orac_said = ""
+	Call ResetIntro()
+	mouse_fly = False
+	mouse_seen = False
+	mouse_pulse = False
+	mouse_tap = False
 	campaign_active = False
 	campaign_arrival = False
 	phase = PH_INTRO
@@ -355,7 +406,7 @@ End Sub
 
 Function PageCount() As Integer
 	If dev_page = 0 Then
-		PageCount = 6
+		PageCount = 7
 	Else
 		PageCount = 11
 	End If
@@ -369,6 +420,7 @@ Function MainScene(ByVal row As Integer) As Integer
 	If row = 2 Then id = 4
 	If row = 3 Then id = 5
 	If row = 4 Then id = 14
+	If row = 5 Then id = 15
 	MainScene = id
 End Function
 
@@ -409,7 +461,7 @@ Sub TickDev()
 	If dev_row < 0 Then dev_row = PageCount() - 1
 	If dev_row >= PageCount() Then dev_row = 0
 	Call SyncDevRow()
-	If IsKeyJustPressed(KEY_ENTER) Or IsKeyJustPressed(KEY_SPACE) Then
+	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
 		id = SceneAt(dev_row)
 		If id = 100 Then
 			dev_page = 1
@@ -463,8 +515,10 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "BLEED CITY 3"
 	ElseIf i = 13 Then
 		DevLabel = "BACKLIGHT CITY"
-	Else
+	ElseIf i = 14 Then
 		DevLabel = "BACKLIGHT YARD"
+	Else
+		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
 	End If
 End Function
 
@@ -534,11 +588,155 @@ Sub WarpDev()
 	ElseIf pick = 14 Then
 		phase = PH_BACKLIGHT_YARD
 		Call presentation.start_backlight_yard()
+	ElseIf pick = 15 Then
+		phase = PH_BLACK_CHANNEL
+		Call presentation.start_black_channel()
 	End If
 End Sub
 
+Sub NoteMouse(ByVal mx As Single, ByVal my As Single)
+	If mouse_seen Then
+		If Abs(mx - mouse_px) > 1.5 Or Abs(my - mouse_py) > 1.5 Then mouse_fly = True
+	End If
+	mouse_seen = True
+	mouse_px = mx
+	mouse_py = my
+End Sub
+
+Function CanvasMouse(ev As Variant) As Vector2
+	Dim pos As Vector2
+	Dim mapped As Vector2
+	pos = ev.position
+	If pos.x >= 0.0 And pos.x <= SW And pos.y >= 0.0 And pos.y <= SH Then
+		CanvasMouse = pos
+		Exit Function
+	End If
+	mapped = GetViewport().get_screen_transform() * pos
+	If mapped.x >= 0.0 And mapped.x <= SW And mapped.y >= 0.0 And mapped.y <= SH Then
+		CanvasMouse = mapped
+	Else
+		CanvasMouse = pos
+	End If
+End Function
+
+Sub _Input(ev As Variant)
+	Dim pos As Vector2
+	If ev Is InputEventMouseMotion Then
+		pos = CanvasMouse(ev)
+		Call NoteMouse(pos.x, pos.y)
+	ElseIf ev Is InputEventMouseButton Then
+		pos = CanvasMouse(ev)
+		Call NoteMouse(pos.x, pos.y)
+		If ev.button_index = 1 Then
+			If ev.pressed Then
+				If Not mouse_down Then mouse_pulse = True
+				mouse_down = True
+			Else
+				mouse_down = False
+			End If
+		End If
+	End If
+End Sub
+
+Sub PollMouse()
+	Dim held As Boolean
+	Dim mx As Single
+	Dim my As Single
+	held = Input.IsMouseButtonPressed(1)
+	If held Then mouse_down = True
+	mouse_tap = mouse_pulse Or (held And Not mouse_was)
+	mouse_pulse = False
+	mouse_was = mouse_down
+	mx = GetMouseX()
+	my = GetMouseY()
+	If mx >= 0.0 And mx <= SW And my >= 0.0 And my <= SH Then Call NoteMouse(mx, my)
+End Sub
+
+Function PickHit(ByVal y As Single) As Boolean
+	PickHit = mouse_px >= 300.0 And mouse_px <= 660.0 And mouse_py >= y - 6.0 And mouse_py <= y + 26.0
+End Function
+
+Function TitleY(ByVal i As Integer) As Single
+	TitleY = 220.0 + i * 48.0
+End Function
+
+Function PauseY(ByVal i As Integer) As Single
+	PauseY = 210.0 + i * 48.0
+End Function
+
+Function OptionY(ByVal i As Integer) As Single
+	If i = 0 Then
+		OptionY = 140.0
+	ElseIf i = 1 Then
+		OptionY = 190.0
+	ElseIf i = 2 Then
+		OptionY = 240.0
+	ElseIf i = 3 Then
+		OptionY = 290.0
+	ElseIf i = 4 Then
+		OptionY = 340.0
+	ElseIf i = 5 Then
+		OptionY = 385.0
+	ElseIf i = 6 Then
+		OptionY = 430.0
+	Else
+		OptionY = 475.0
+	End If
+End Function
+
+Sub ReadFlightStick()
+	Dim steer As Single
+	Dim lift As Single
+	Dim mx As Single
+	Dim my As Single
+	Dim dx As Single
+	Dim dy As Single
+	Dim dead As Single
+	Dim reach As Single
+	steer = 0.0
+	lift = 0.0
+	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
+	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
+	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
+	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	If mouse_fly Then
+		mx = mouse_px
+		my = mouse_py
+		If mx >= 0.0 And mx <= SW And my >= 0.0 And my <= SH Then
+			dead = 56.0
+			dx = mx - SW * 0.5
+			dy = SH * 0.5 - my
+			reach = SW * 0.5 - dead
+			If reach < 1.0 Then reach = 1.0
+			If dx > dead Then
+				steer = steer + (dx - dead) / reach
+			ElseIf dx < -dead Then
+				steer = steer + (dx + dead) / reach
+			End If
+			reach = SH * 0.5 - dead
+			If reach < 1.0 Then reach = 1.0
+			If dy > dead Then
+				lift = lift + (dy - dead) / reach
+			ElseIf dy < -dead Then
+				lift = lift + (dy + dead) / reach
+			End If
+		End If
+	End If
+	If steer > 1.0 Then steer = 1.0
+	If steer < -1.0 Then steer = -1.0
+	If lift > 1.0 Then lift = 1.0
+	If lift < -1.0 Then lift = -1.0
+	flight_steer = steer
+	flight_lift = lift
+End Sub
+
 Sub _Process(ByVal delta As Single)
+	Call OracTick()
 	Call presentation.sample_input()
+	Call PollMouse()
+	If phase = PH_BLACK_CHANNEL And presentation.black_channel <> Nothing Then
+		presentation.black_channel.speech.tick(menu_on Or dev_on)
+	End If
 	If Not campaign_active And campaign.city <> Nothing And presentation.menu_tap(KEY_F10) Then
 		Call ResumeCampaign()
 		Exit Sub
@@ -587,15 +785,7 @@ Sub _Process(ByVal delta As Single)
 	If hurt > 0.0 Then hurt = hurt - delta
 	If scan_t > 0.0 Then scan_t = scan_t - delta
 	If phase = PH_INTRO Then
-		If clock > 36.0 Or (clock > 26.0 And (IsKeyJustPressed(KEY_SPACE) Or IsKeyJustPressed(KEY_ENTER))) Then
-			phase = PH_LAND
-			land_t = 0.0
-			clock = 0.0
-			ship_x = 0.0
-			ship_z = 0.0
-			next_ring = 0
-			ring_miss = 0
-		End If
+		Call TickIntro(delta)
 	ElseIf phase = PH_LAND Then
 		Call TickApproach(delta)
 	ElseIf phase = PH_BAY Then
@@ -625,6 +815,22 @@ Sub _Process(ByVal delta As Single)
 		Call presentation.tick_bleed_city3(delta)
 	ElseIf phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
 		Call presentation.tick_backlight_city(delta)
+	ElseIf phase = PH_BLACK_CHANNEL Then
+		If presentation.menu_tap(KEY_V) Then
+			opt_orac_voice = Not opt_orac_voice
+			Call ApplySpeech()
+			Call SaveOptions()
+		End If
+		Call ReadFlightStick()
+		Call presentation.tick_black_channel(delta)
+		If presentation.black_channel <> Nothing Then
+			If presentation.black_channel.orbit_ready And presentation.menu_tap(KEY_ENTER) Then
+				dev_on = True
+				dev_page = 0
+				dev_row = 5
+				dev_i = 15
+			End If
+		End If
 	ElseIf phase = PH_DOWN Then
 		ride_t = ride_t + delta
 		If ride_t > 4.2 Then
@@ -678,7 +884,7 @@ Sub TickApproach(ByVal delta As Single)
 	Dim target_bank As Single
 	Dim target_yaw As Single
 	If landing_failed Then
-		If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+		If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Or mouse_tap Then
 			ship_x = 0.0
 			ship_alt = 0.0
 			ship_z = 0.0
@@ -696,12 +902,9 @@ Sub TickApproach(ByVal delta As Single)
 	old_alt = ship_alt
 	old_z = ship_z
 	land_t = land_t + delta
-	steer = 0.0
-	lift = 0.0
-	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
-	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
-	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
-	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	Call ReadFlightStick()
+	steer = flight_steer
+	lift = flight_lift
 	blend = delta * 6.0
 	If blend > 1.0 Then blend = 1.0
 	target_bank = -steer * 0.85
@@ -830,6 +1033,14 @@ Sub DrawBleed3()
 		DrawRect 0, 493, 960, 47, Color(0.005, 0.012, 0.02, 0.9)
 		DrawString "W/S MOVE  A/D TURN  F ENTER BUGGY  E TAKE AIR  V INSPECT / OVERVIEW", 28, 510, Color(0.55, 0.85, 0.9), 14
 	End If
+End Sub
+
+Sub DrawBlackChannel()
+	Dim image As Object
+	image = presentation.draw_black_channel()
+	If image <> Nothing Then DrawTexture image, 0, 0
+	image = presentation.black_channel_overlay()
+	If image <> Nothing Then DrawTexture image, 0, 0
 End Sub
 
 Sub DrawBacklight()
@@ -2321,10 +2532,12 @@ Sub DrawApproach(Optional flight_captions As Variant = True)
 		If i >= next_ring And rz < ship_z + view_distance + 20.0 Then
 			ry = GlideY(rz) + RingLift(i)
 			If i = next_ring Then
-				Call DrawHoop(RingOff(i) * 7.0, ry, rz, LAND_RADIUS, 1.0, 0.55, 0.15)
+				Call presentation.landing_ring(i, Vector3(RingOff(i) * 7.0, ry, rz), LAND_RADIUS, Color(1.0, 0.55, 0.15), True)
 			Else
-				Call DrawHoop(RingOff(i) * 7.0, ry, rz, LAND_RADIUS, 0.3, 0.95, 1.0)
+				Call presentation.landing_ring(i, Vector3(RingOff(i) * 7.0, ry, rz), LAND_RADIUS, Color(0.3, 0.95, 1.0), True)
 			End If
+		Else
+			Call presentation.landing_ring(i, Vector3(0, 0, 0), LAND_RADIUS, Color(0, 0, 0), False)
 		End If
 	Next
 	If Not campaign_arrival Then
@@ -2342,12 +2555,9 @@ Sub DrawApproach(Optional flight_captions As Variant = True)
 			cues.append(Vector3((RingOff(i) - ship_x) * 7.0, RingLift(i) - ship_alt, rz - ship_z))
 		End If
 	Next
-	steer = 0.0
-	lift = 0.0
-	If IsKeyPressed(KEY_A) Or IsKeyPressed(KEY_LEFT) Then steer = steer - 1.0
-	If IsKeyPressed(KEY_D) Or IsKeyPressed(KEY_RIGHT) Then steer = steer + 1.0
-	If IsKeyPressed(KEY_W) Or IsKeyPressed(KEY_UP) Then lift = lift + 1.0
-	If IsKeyPressed(KEY_S) Or IsKeyPressed(KEY_DOWN) Then lift = lift - 1.0
+	Call ReadFlightStick()
+	steer = flight_steer
+	lift = flight_lift
 	deck_state = New Dictionary
 	If flight_captions Then
 		deck_state("t") = land_t
@@ -2388,45 +2598,68 @@ Sub DrawOracLandTalk()
 	Dim tint As Variant
 	tint = Color(0.5, 0.9, 1.0)
 	If landing_failed Then
-		talk = "Approach dumped. The shelf fired. We are lucky the Ash is still a shape."
+		talk = "We've lost the corridor. Break off. We'll have to try that approach again."
 		tint = Color(1.0, 0.35, 0.45)
 	ElseIf ring_miss > 0 Then
-		talk = "Fault. Fault. Beacon just painted us. Miss again and they erase the Ash."
+		talk = "A beacon has our position. Stay inside the next orange gate. We cannot afford another miss."
 		tint = Color(1.0, 0.45, 0.35)
 	ElseIf ship_z > LAND_END * 0.65 Then
-		talk = "Last ring is the shelf. Stay on the orange. I cannot fly and hold the jam."
-	ElseIf land_t < 5.0 Then
-		talk = "I am at capacity holding the beacon override. You will steer from here, or we abort."
-	ElseIf land_t < 11.0 Then
-		talk = "It is not too late to turn back. Last chance. This is extremely dangerous."
-	ElseIf land_t < 18.0 Then
-		talk = "I have no spare cycles for a safe approach. Take the stick, or get us out."
+		talk = "The yard is ahead. Keep following the orange gate."
 	Else
-		talk = "Orange is your gate. Blue means you are early. I am all jam from here to the shelf."
+		talk = "Beacon interference holding. Follow the orange gate."
 	End If
 	DrawRect 16, 8, 928, 36, Color(0.01, 0.02, 0.04, 0.72)
 	DrawString "ORAC  " & talk, 28, 16, tint, 14
 	Call OracSpeak(talk)
 End Sub
 
-Sub OracStop()
-	If orac_player <> Nothing Then orac_player.stop()
-End Sub
+Function OracPlaying() As Boolean
+	If orac_player = Nothing Then
+		OracPlaying = False
+	Else
+		OracPlaying = orac_player.playing
+	End If
+End Function
+
+Function OracVoiceName() As String
+	OracVoiceName = "bm_george"
+End Function
+
+Function KokoroCache() As String
+	Dim home As String
+	If OS.get_name() = "Windows" Then
+		home = OS.get_environment("LOCALAPPDATA")
+		If home = "" Then home = OS.get_environment("USERPROFILE") & "/AppData/Local"
+		KokoroCache = home & "/VisualGasic/tts"
+	ElseIf OS.get_name() = "macOS" Then
+		KokoroCache = OS.get_environment("HOME") & "/Library/Application Support/visual_gasic/tts"
+	Else
+		KokoroCache = OS.get_environment("HOME") & "/.local/share/visual_gasic/tts"
+	End If
+End Function
+
+Function KokoroWrapper() As String
+	If OS.get_name() = "Windows" Then
+		KokoroWrapper = KokoroCache() & "/vg-tts.cmd"
+	Else
+		KokoroWrapper = KokoroCache() & "/vg-tts"
+	End If
+End Function
+
+Function KokoroReady() As Boolean
+	If FileExists(KokoroWrapper()) And FileExists(KokoroCache() & "/models/kokoro-en-v0_19/model.onnx") Then
+		KokoroReady = True
+	Else
+		KokoroReady = False
+	End If
+End Function
 
 Sub OracPlayWav(ByVal wav_path As String)
-	Dim bytes As PackedByteArray
-	Dim pcm As PackedByteArray
 	Dim wav As AudioStreamWAV
 	If orac_player = Nothing Then Exit Sub
 	If Not FileExists(wav_path) Then Exit Sub
-	bytes = FileAccess.get_file_as_bytes(wav_path)
-	If bytes.size() <= 44 Then Exit Sub
-	pcm = bytes.slice(44)
-	wav = ClassDB.Instantiate("AudioStreamWAV")
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = 22050
-	wav.stereo = False
-	wav.data = pcm
+	wav = AudioStreamWAV.load_from_file(wav_path)
+	If wav = Nothing Then Exit Sub
 	orac_player.stop()
 	orac_player.stream = wav
 	orac_player.play()
@@ -2442,40 +2675,59 @@ Function OracEspeakCmd() As String
 	End If
 End Function
 
-Sub OracSpeak(ByVal line As String)
+Sub ApplySpeech()
+	opt_flight_voice = opt_orac_voice
+	If speech <> Nothing Then speech.configure(opt_orac_voice)
+	If presentation <> Nothing Then
+		If presentation.black_channel <> Nothing Then
+			If presentation.black_channel.speech <> Nothing Then
+				presentation.black_channel.speech.configure(opt_orac_voice)
+				presentation.black_channel.speech.scene_heat = 1
+			End If
+		End If
+	End If
+End Sub
+
+Sub SpeakLine(ByVal who As String, ByVal line As String)
 	Dim spoken As String
-	Dim args As PackedStringArray
-	Dim cmd As String
-	Dim wav_path As String
-	Dim output As Array
-	Dim exit_code As Integer
+	Dim prio As Integer
+	Dim key As String
+	Dim queued As Integer
+	If Not opt_orac_voice Then Exit Sub
+	If speech = Nothing Then Exit Sub
 	If DisplayServer.get_name() = "headless" Then Exit Sub
 	spoken = Trim(line)
-	If Left(spoken, 5) = "ORAC " Then spoken = Trim(Mid(spoken, 6))
+	If Left(UCase(spoken), 5) = "ORAC " Then spoken = Trim(Mid(spoken, 6))
 	If spoken = "" Then Exit Sub
-	If spoken = orac_said Then Exit Sub
-	orac_said = spoken
-	Call OracStop()
-	' espeak writes a wav. DisplayServer.tts_speak has a null synth on this Linux build.
-	cmd = OracEspeakCmd()
-	If cmd <> "" Then
-		wav_path = "/tmp/ash_orac_tts.wav"
-		args = PackedStringArray()
-		args.append("-v")
-		args.append("en-uk-rp")
-		args.append("-s")
-		args.append("132")
-		args.append("-p")
-		args.append("28")
-		args.append("-a")
-		args.append("160")
-		args.append("-w")
-		args.append(wav_path)
-		args.append(spoken)
-		output = Array()
-		exit_code = OS.execute(cmd, args, output, True, False)
-		If exit_code = 0 Then Call OracPlayWav(wav_path)
+	key = UCase(Trim(who)) & ":" & spoken
+	If key = orac_said Then Exit Sub
+	prio = 0
+	If phase = PH_BLACK_CHANNEL And UCase(Trim(who)) <> "ORAC" Then prio = 1
+	speech.voice = who
+	queued = speech.pending.size()
+	speech.say(spoken, prio)
+	If speech.pending.size() > queued Then orac_said = key
+End Sub
+
+Sub OracStop()
+	If speech <> Nothing Then speech.stop()
+	If orac_worker > 0 Then
+		If OS.is_process_running(orac_worker) Then OS.kill(orac_worker)
+		orac_worker = 0
 	End If
+	If orac_wav <> "" Then
+		If FileExists(orac_wav) Then DirAccess.remove_absolute(orac_wav)
+		orac_wav = ""
+	End If
+	If orac_player <> Nothing Then orac_player.stop()
+End Sub
+
+Sub OracTick()
+	If speech <> Nothing Then speech.tick(menu_on Or dev_on Or phase = PH_OPTS)
+End Sub
+
+Sub OracSpeak(ByVal line As String)
+	Call SpeakLine("ORAC", line)
 End Sub
 
 Sub DrawBay()
@@ -2505,10 +2757,12 @@ Sub DrawBay()
 	Call FlushFaces()
 	If bay_t < 1.5 Then
 		DrawString "ORAC  GEAR DOWN. PUT HER ON THE SHELF, NOT THE ROOF.", 160, 48, Color(0.5, 0.9, 1.0), 16
+		Call SpeakLine("ORAC", "Gear down. Put her on the shelf, not the roof.")
 	ElseIf bay_t < 3.2 Then
 		DrawString "BAY OPEN", 420, 48, Color(0.4, 0.95, 1.0), 18
 	Else
 		DrawString "ORAC  WE ARE DOWN. I STILL SAY WE SHOULD LEAVE.", 200, 48, Color(0.5, 0.9, 1.0), 16
+		Call SpeakLine("ORAC", "We are down. I still say we should leave.")
 	End If
 End Sub
 
@@ -2566,14 +2820,16 @@ Function DetailName() As String
 End Function
 
 Sub LoadOptions()
+	Dim lines As Array
 	opt_full = True
 	opt_view = 100.0
 	opt_detail = 1
 	opt_vsync = True
 	opt_shake = True
 	opt_fps = False
+	opt_orac_voice = True
+	opt_flight_voice = True
 	If Not FileExists("user://ash_meridian_options.txt") Then Exit Sub
-	Dim lines As Array
 	lines = ReadLines("user://ash_meridian_options.txt")
 	If UBound(lines) < 5 Then Exit Sub
 	opt_full = Val(lines(0)) > 0.0
@@ -2582,6 +2838,11 @@ Sub LoadOptions()
 	opt_vsync = Val(lines(3)) > 0.0
 	opt_shake = Val(lines(4)) > 0.0
 	opt_fps = Val(lines(5)) > 0.0
+	If UBound(lines) >= 6 Then opt_orac_voice = Val(lines(6)) > 0.0
+	If UBound(lines) >= 7 Then
+		If Val(lines(7)) > 0.0 Then opt_orac_voice = True
+	End If
+	opt_flight_voice = opt_orac_voice
 	If opt_view < 50.0 Then opt_view = 50.0
 	If opt_view > 160.0 Then opt_view = 160.0
 	If opt_detail < 0 Then opt_detail = 0
@@ -2591,7 +2852,8 @@ End Sub
 Sub SaveOptions()
 	Dim body As String
 	body = BitOf(opt_full) & Chr(10) & Str(opt_view) & Chr(10) & Str(opt_detail) & Chr(10)
-	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps)
+	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps) & Chr(10) & BitOf(opt_orac_voice)
+	body = body & Chr(10) & BitOf(opt_flight_voice)
 	WriteAllText "user://ash_meridian_options.txt", body
 End Sub
 
@@ -2632,6 +2894,10 @@ Sub SaveRun()
 	End If
 	If phase = PH_BACKLIGHT Then
 		save_msg = "BACKLIGHT CITY IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
+	If phase = PH_BLACK_CHANNEL Then
+		save_msg = "BLACK CHANNEL IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
 		Exit Sub
 	End If
 	Dim body As String
@@ -2687,12 +2953,18 @@ End Sub
 
 Sub TickTitle()
 	Dim n As Integer
+	Dim i As Integer
 	n = TitleCount()
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then title_i = title_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then title_i = title_i + 1
 	If title_i < 0 Then title_i = n - 1
 	If title_i >= n Then title_i = 0
+	For i = 0 To n - 1
+		If PickHit(TitleY(i)) Then title_i = i
+	Next
 	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+		Call TitleAct()
+	ElseIf mouse_tap And PickHit(TitleY(title_i)) Then
 		Call TitleAct()
 	End If
 End Sub
@@ -2716,11 +2988,15 @@ Sub TitleAct()
 End Sub
 
 Sub TickPause()
+	Dim i As Integer
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then menu_i = menu_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then menu_i = menu_i + 1
 	If menu_i < 0 Then menu_i = 3
 	If menu_i > 3 Then menu_i = 0
-	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+	For i = 0 To 3
+		If PickHit(PauseY(i)) Then menu_i = i
+	Next
+	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Or (mouse_tap And PickHit(PauseY(menu_i))) Then
 		If menu_i = 0 Then
 			menu_on = False
 		ElseIf menu_i = 1 Then
@@ -2741,10 +3017,23 @@ Sub TickPause()
 End Sub
 
 Sub TickOptions()
+	Dim i As Integer
+	Dim mx As Single
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then opt_i = opt_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then opt_i = opt_i + 1
-	If opt_i < 0 Then opt_i = 6
-	If opt_i > 6 Then opt_i = 0
+	If opt_i < 0 Then opt_i = 7
+	If opt_i > 7 Then opt_i = 0
+	For i = 0 To 7
+		If PickHit(OptionY(i)) Then opt_i = i
+	Next
+	mx = mouse_px
+	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= 140.0 And mouse_py <= 176.0 Then
+		opt_i = 0
+		opt_view = 50.0 + (mx - 560.0) / 220.0 * 110.0
+		If opt_view < 50.0 Then opt_view = 50.0
+		If opt_view > 160.0 Then opt_view = 160.0
+		Call SaveOptions()
+	End If
 	If presentation.menu_tap(KEY_LEFT) Or presentation.menu_tap(KEY_A) Then
 		Call NudgeOption(-1.0)
 	End If
@@ -2752,9 +3041,15 @@ Sub TickOptions()
 		Call NudgeOption(1.0)
 	End If
 	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
-		If opt_i = 6 Then
+		If opt_i = 7 Then
 			Call CloseOptions()
 		Else
+			Call NudgeOption(1.0)
+		End If
+	ElseIf mouse_tap And PickHit(OptionY(opt_i)) Then
+		If opt_i = 7 Then
+			Call CloseOptions()
+		ElseIf opt_i <> 0 Or mx < 560.0 Then
 			Call NudgeOption(1.0)
 		End If
 	End If
@@ -2782,6 +3077,10 @@ Sub NudgeOption(ByVal dir As Single)
 		opt_shake = Not opt_shake
 	ElseIf opt_i = 5 Then
 		opt_fps = Not opt_fps
+	ElseIf opt_i = 6 Then
+		opt_orac_voice = Not opt_orac_voice
+		orac_said = ""
+		Call ApplySpeech()
 	End If
 	Call SaveOptions()
 End Sub
@@ -2816,10 +3115,10 @@ Sub DrawTitle()
 	DrawString "ASH MERIDIAN", 280, 90, Color(0.45, 0.92, 1.0), 36
 	DrawString "NARCEA", 430, 140, Color(0.8, 0.35, 0.65), 16
 	For i = 0 To TitleCount() - 1
-		y = 220.0 + i * 48.0
+		y = TitleY(i)
 		Call DrawPick(TitleLabel(i), y, i = title_i)
 	Next
-	DrawString "UP / DOWN     ENTER", 360, 470, Color(0.4, 0.5, 0.55), 14
+	DrawString "UP / DOWN     ENTER     MOUSE", 300, 470, Color(0.4, 0.5, 0.55), 14
 End Sub
 
 Sub DrawPause()
@@ -2851,9 +3150,10 @@ Sub DrawOptions()
 	Call DrawPick("SCREEN    " & screen, 240, opt_i = 2)
 	Call DrawPick("VSYNC     " & OnOff(opt_vsync), 290, opt_i = 3)
 	Call DrawPick("RIDE SHAKE    " & OnOff(opt_shake), 340, opt_i = 4)
-	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), 390, opt_i = 5)
-	Call DrawPick("BACK", 450, opt_i = 6)
-	DrawString "LEFT / RIGHT CHANGES A ROW", 320, 500, Color(0.4, 0.5, 0.55), 14
+	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), 385, opt_i = 5)
+	Call DrawPick("SPEECH      " & OnOff(opt_orac_voice), 430, opt_i = 6)
+	Call DrawPick("BACK", 475, opt_i = 7)
+	DrawString "LEFT / RIGHT CHANGES A ROW     MOUSE SELECTS", 250, 520, Color(0.4, 0.5, 0.55), 14
 End Sub
 
 Function RowLabel(ByVal row As Integer) As String
@@ -2910,7 +3210,7 @@ Sub DrawFrame()
 End Sub
 
 Sub _Draw()
-	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD)
+	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND))
 	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
 	If phase = PH_BOOT Then
 		Call DrawBoot()
@@ -2942,6 +3242,8 @@ Sub _Draw()
 		Call DrawBleed3()
 	ElseIf phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
 		Call DrawBacklight()
+	ElseIf phase = PH_BLACK_CHANNEL Then
+		Call DrawBlackChannel()
 	Else
 		Call ApplyCam()
 		If phase = PH_CHAMBER Then
@@ -2980,40 +3282,140 @@ Sub DrawAshCockpit()
 	DrawRect 408, 423, 144.0 * alive, 3, Color(0.25, 0.85, 1.0)
 End Sub
 
-Sub DrawIntroLines()
-	Dim talk As String
-	Dim who As String
-	who = "ORAC"
-	talk = "Narcea is under quarantine interlock. We were not invited. Turn around while the Ash still can."
-	If clock >= 5.0 And clock < 10.0 Then
-		who = "JASON"
-		talk = "The manifest pays the ship out. This could be the last heist I have to fly."
-	ElseIf clock >= 10.0 And clock < 15.0 Then
-		who = "ORAC"
-		talk = "Oh, very well. I can override their beacons from here, but it will cost nearly everything I have."
-	ElseIf clock >= 15.0 And clock < 20.0 Then
-		who = "ORAC"
-		talk = "Override is live. My CPU is at the ceiling. I cannot safely navigate the approach while I hold it."
-	ElseIf clock >= 20.0 And clock < 25.0 Then
-		who = "ORAC"
-		talk = "Jason: take the stick, or we abort. There is no third option while I keep their eyes dark."
-	ElseIf clock >= 25.0 And clock < 30.0 Then
-		who = "ORAC"
-		talk = "This corridor is the only route beyond their sight. Extremely dangerous. Last chance to turn back."
-	ElseIf clock >= 30.0 Then
-		who = "ORAC"
-		talk = "This is as close as I can get you. You steer from here. Orange gate only. Leave it, and I cannot save the shelf."
-	End If
-	DrawRect 16, 8, 928, 52, Color(0.01, 0.02, 0.04, 0.78)
-	DrawString who, 28, 16, Color(0.45, 0.9, 1.0), 12
-	DrawString talk, 28, 34, Color(0.92, 0.92, 0.94), 14
-	If clock > 26.0 Then DrawString "SPACE", 880, 16, Color(0.45, 0.55, 0.6), 12
-	If who = "ORAC" Then
-		Call OracSpeak(talk)
+Sub ResetIntro()
+	intro_speakers = Array("ORAC", "JASON", "ORAC", "JASON", "ORAC", "JASON", "ORAC")
+	intro_lines = Array( _
+		"Narcea's quarantine beacons are active. Cross their scan and they'll fire.", _
+		"Those coordinates cost a man his life. I'm not leaving empty-handed.", _
+		"I can blind the beacons. Unfortunately, that leaves nothing for the autopilot.", _
+		"Then keep them blind. I'll fly.", _
+		"Follow the orange gate. Blue rings show the route ahead. Miss once and they notice us. Miss twice and they fire.", _
+		"Orange gate. Understood.", _
+		"You have control. Keep us in the corridor.")
+	intro_index = 0
+	intro_elapsed = 0
+	intro_submitted = False
+	intro_waiting_voice = False
+	Call LoadOpeningVoices()
+End Sub
+
+Sub LoadOpeningVoices()
+	Dim parser As Object
+	Dim rows As Array
+	Dim row As Dictionary
+	Dim clip As Object
+	Dim i As Integer
+	If intro_audio.size() = intro_lines.size() Then Exit Sub
+	intro_audio = Array()
+	intro_voice_error = ""
+	parser = ClassDB.Instantiate("JSON")
+	If Not FileExists("res://assets/opening_voice/dialogue.json") Then
+		intro_voice_error = "Opening voice assets are missing. Using live speech."
+	ElseIf parser.parse(ReadAllText("res://assets/opening_voice/dialogue.json")) <> 0 Then
+		intro_voice_error = "Opening voice manifest is invalid. Using live speech."
 	Else
-		Call OracStop()
-		orac_said = ""
+		rows = parser.get_data()
+		If rows.size() <> intro_lines.size() Then
+			intro_voice_error = "Opening voice line count does not match the script. Using live speech."
+		Else
+			For i = 0 To rows.size() - 1
+				row = rows(i)
+				If row.get("text", "") <> intro_lines(i) Or row.get("speaker", "") <> intro_speakers(i) Then
+					intro_voice_error = "Opening voice text does not match line " & Str(i) & ". Re-bake the opening voices."
+					Exit For
+				End If
+				clip = Load(Str(row.get("audio", "")))
+				If clip = Nothing Then
+					intro_voice_error = "Opening voice clip is missing at line " & Str(i) & ". Using live speech."
+					Exit For
+				End If
+				intro_audio.append(clip)
+			Next
+		End If
 	End If
+	If intro_voice_error <> "" Then
+		intro_audio = Array()
+		Print "INTRO_VOICE_ERROR: " & intro_voice_error
+	End If
+End Sub
+
+Sub TickIntro(ByVal delta As Single)
+	Dim queued As Integer
+	Dim reading_time As Single
+	Dim i As Integer
+	Dim recording As Object
+	If menu_on Or dev_on Then Exit Sub
+	If intro_lines.size() = 0 Then Call ResetIntro()
+	If intro_index < 4 And (presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or mouse_tap) Then
+		Call OracStop()
+		intro_index = 4
+		intro_submitted = False
+		intro_elapsed = 0
+	End If
+	If Not intro_submitted Then
+		intro_submitted = True
+		intro_elapsed = 0
+		intro_waiting_voice = False
+		If opt_orac_voice And speech <> Nothing Then
+			If speech.enabled And ((speech.backend <> "" And speech.last_error = "") Or intro_audio.size() = intro_lines.size()) Then
+				queued = speech.pending.size()
+				For i = intro_index To intro_lines.size() - 1
+					speech.voice = intro_speakers(i)
+					recording = Nothing
+					If intro_audio.size() = intro_lines.size() Then recording = intro_audio(i)
+					speech.say(intro_lines(i), 0, recording)
+				Next
+				intro_waiting_voice = speech.pending.size() > queued
+			End If
+		End If
+		Exit Sub
+	End If
+	If intro_waiting_voice And opt_orac_voice And speech.enabled Then
+		If speech.last_error = "" Then
+			For i = intro_index To intro_lines.size() - 1
+				If speech.playing_text = intro_lines(i) Then intro_index = i
+			Next
+			If speech.busy() Then
+				intro_elapsed = 0
+				Exit Sub
+			End If
+			intro_elapsed = intro_elapsed + delta
+			If intro_elapsed < 0.18 Then Exit Sub
+		Else
+			speech.stop()
+			intro_waiting_voice = False
+			intro_elapsed = 0
+			Exit Sub
+		End If
+	Else
+		intro_elapsed = intro_elapsed + delta
+		reading_time = Max(2.0, Len(Str(intro_lines(intro_index))) / 16.0)
+		If intro_elapsed < reading_time Then Exit Sub
+	End If
+	If intro_index < intro_lines.size() - 1 Then
+		intro_index = intro_index + 1
+		intro_submitted = False
+	Else
+		phase = PH_LAND
+		land_t = 0
+		clock = 0
+		ship_x = 0
+		ship_z = 0
+		next_ring = 0
+		ring_miss = 0
+	End If
+End Sub
+
+Sub DrawIntroLines()
+	If intro_lines.size() = 0 Then Call ResetIntro()
+	DrawRect 16, 8, 928, 52, Color(0.01, 0.02, 0.04, 0.78)
+	DrawString Str(intro_speakers(intro_index)), 28, 16, Color(0.45, 0.9, 1.0), 12
+	DrawString Str(intro_lines(intro_index)), 28, 34, Color(0.92, 0.92, 0.94), 14
+	If intro_index < 4 Then DrawString "SPACE: BRIEFING", 810, 16, Color(0.45, 0.55, 0.6), 12
+	If speech <> Nothing Then
+		If speech.last_error <> "" Then DrawString "VOICE UNAVAILABLE / SUBTITLES ACTIVE", 28, 62, Color(1, 0.65, 0.2), 12
+	End If
+	If intro_voice_error <> "" Then DrawString "OPENING VOICE ASSETS UNAVAILABLE / SEE LOG", 28, 78, Color(1, 0.65, 0.2), 12
 End Sub
 
 Sub DrawFilm()

@@ -31,6 +31,39 @@ func tap_key(game: Node, code: Key) -> void:
 	key(code, false)
 	await tick_menu(game)
 
+func event_pos(game: Node, canvas_pos: Vector2) -> Vector2:
+	return game.get_viewport().get_screen_transform() * canvas_pos
+
+func send_mouse(ev: InputEvent) -> void:
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+
+func mouse_at(game: Node, canvas_pos: Vector2) -> void:
+	var pos := event_pos(game, canvas_pos)
+	var motion := InputEventMouseMotion.new()
+	motion.position = pos
+	motion.global_position = pos
+	send_mouse(motion)
+
+func click_at(game: Node, canvas_pos: Vector2) -> void:
+	mouse_at(game, canvas_pos)
+	var pos := event_pos(game, canvas_pos)
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = pos
+	down.global_position = pos
+	down.button_mask = MOUSE_BUTTON_MASK_LEFT
+	send_mouse(down)
+	await tick_menu(game)
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = pos
+	up.global_position = pos
+	send_mouse(up)
+	await tick_menu(game)
+
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -78,8 +111,29 @@ func _run() -> void:
 	check(game.get("opt_view") == 80.0, "D increases the selected option once")
 	game.set("opt_view", old_view)
 	game.set("opt_i", 6)
+	game.set("opt_orac_voice", false)
+	game.set("opt_flight_voice", false)
+	await tap_key(game, KEY_RIGHT)
+	check(game.get("opt_orac_voice"), "Right enables speech")
+	check(game.get("opt_flight_voice"), "Speech toggle keeps flight voice in sync")
+	await tap_key(game, KEY_LEFT)
+	check(not game.get("opt_orac_voice"), "Left disables speech")
+	check(not game.get("opt_flight_voice"), "Disabling speech mutes flight voice too")
+	game.set("opt_i", 7)
 	await tap_key(game, KEY_SPACE)
 	check(game.get("phase") == 12, "Space on Back returns to the title")
+	var options_row: int = 1 if int(game.call("TitleCount")) == 3 else 2
+	await click_at(game, Vector2(480, 220.0 + options_row * 48.0 + 8.0))
+	check(game.get("phase") == 13, "Clicking OPTIONS opens options")
+	await click_at(game, Vector2(480, 475))
+	check(game.get("phase") == 12, "Clicking BACK leaves options")
+	game.set("phase", 2)
+	game.set("menu_on", true)
+	game.set("menu_i", 0)
+	await click_at(game, Vector2(480, 306))
+	check(game.get("phase") == 13, "Clicking pause OPTIONS opens options")
+	await click_at(game, Vector2(480, 475))
+	check(game.get("phase") == 2 and game.get("menu_on"), "Clicking BACK restores the pause menu")
 	game.set("phase", 2)
 	game.set("menu_on", false)
 	await tap_key(game, KEY_ESCAPE)
@@ -100,6 +154,14 @@ func _run() -> void:
 	await tick_menu(game)
 	await tap_key(game, KEY_ESCAPE)
 	check(not game.get("menu_on"), "Escape resumes paused gameplay")
+	game.call("StartRun")
+	check(game.get("phase") == 0, "Play starts on the intro")
+	game.set("clock", 26.0)
+	await tap_key(game, KEY_SPACE)
+	check(game.get("phase") == 0, "Space before the last-chance line does not start the approach")
+	game.set("clock", 33.0)
+	await tap_key(game, KEY_SPACE)
+	check(game.get("phase") == 1, "Space after the last-chance line starts the approach")
 	game.call("StartRun")
 	game.set("phase", 2)
 	game.set("on_buggy", true)
@@ -283,6 +345,13 @@ func check_landing(game: Node) -> void:
 	game.set("phase", 1)
 	game.call("TickApproach", 0.1)
 	check(is_equal_approx(float(game.get("ship_z")), 1.6), "Landing begins at 16 units/s rather than the old 5.4")
+	game.set("mouse_fly", true)
+	var before_x: float = float(game.get("ship_x"))
+	mouse_at(game, Vector2(820, 270))
+	game.call("TickApproach", 0.1)
+	check(float(game.get("ship_x")) > before_x + 0.05, "Mouse right of centre steers the landing")
+	game.set("mouse_fly", false)
+	game.set("ship_x", 0.0)
 	game.set("ship_z", 45.95)
 	game.set("ship_x", -1.0)
 	game.set("next_ring", 1)

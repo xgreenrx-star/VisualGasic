@@ -1,0 +1,136 @@
+' MAX_FRAMES: 30000
+Option Explicit
+
+Dim game As Object
+Dim speech As Object
+Dim line_index As Integer
+Dim stem As String
+Dim output_path As String
+Dim started As Integer
+Dim manifest As Array
+Dim lines As Array
+Dim speakers As Array
+Dim voice_directory As String
+Dim prepared As Boolean
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.StartRun()
+	speech = game.speech
+	speech.configure(False)
+	manifest = Array()
+	voice_directory = "res://assets/opening_voice"
+	lines = game.intro_lines
+	speakers = game.intro_speakers
+	If OS.get_environment("ASH_BAKE_CHANNEL_VOICES") = "1" Then
+		voice_directory = "res://assets/black_channel/voice"
+		Dim parser As Object
+		Dim data As Dictionary
+		Dim rows As Array
+		Dim row As Dictionary
+		Dim i As Integer
+		Dim text As String
+		Dim speaker As String
+		parser = ClassDB.Instantiate("JSON")
+		If parser.parse(ReadAllText("res://assets/black_channel/encounter.json")) <> 0 Then
+			Print "OPENING_VOICE_ERROR: Could not parse Black Channel dialogue."
+			GetTree().quit(1)
+			Exit Sub
+		End If
+		data = parser.get_data()
+		rows = data("dialogue")
+		lines = Array()
+		speakers = Array()
+		For i = 0 To rows.size() - 1
+			row = rows(i)
+			text = Str(row.get("text", ""))
+			speaker = Str(row.get("speaker", ""))
+			lines.append(text)
+			speakers.append(speaker)
+		Next
+		rows = Array("Wreckage ahead. Pass left.", "Wreckage ahead. Pass right.", "Hanging wreckage. Dive below.", "Fallen wreckage. Climb above.")
+		For i = 0 To rows.size() - 1
+			text = Str(rows(i))
+			lines.append(text)
+			speakers.append("Jason")
+		Next
+		lines.append("Hull lost. Press Enter or Space to retry the last checkpoint.")
+		speakers.append("Orac")
+		lines.append("Clear of the batteries. Climb through the cloud layer; I have a local orbital track.")
+		speakers.append("Rob")
+		lines.append("Sublight is stable. Hold above the tracking grid while we prepare the exterior repair.")
+		speakers.append("Orac")
+		lines.append("Local orbit established. The component is secure. No tracking contacts.")
+		speakers.append("Orac")
+		lines.append("That was the last repair item. The outer drive housing must be isolated and depressurized before we fit it. We do that here, in vacuum.")
+		speakers.append("Rob")
+		lines.append("Hold this orbit. We finish the repairs before we try to leave.")
+		speakers.append("Jason")
+		voice_directory = "res://assets/black_channel/voice"
+		If lines.size() <> 24 Then
+			Print "OPENING_VOICE_ERROR: Expected 14 crew lines, five safety calls and five orbital lines."
+			GetTree().quit(1)
+			Exit Sub
+		End If
+	End If
+	If Not speech.KokoroReady() Then
+		Print "OPENING_VOICE_ERROR: Install the local Kokoro voice tools before baking."
+		GetTree().quit(1)
+		Exit Sub
+	End If
+	DirAccess.make_dir_recursive_absolute(voice_directory)
+	prepared = True
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim status As Integer
+	Dim row As Dictionary
+	Dim clip As Object
+	If Not prepared Then Exit Sub
+	If stem = "" Then
+		output_path = ProjectSettings.globalize_path(voice_directory & "/line_" & Str(line_index) & ".wav")
+		If OS.get_environment("ASH_BAKE_RESUME") = "1" And FileExists(output_path) Then
+			status = 1
+		Else
+			If Not speech.SubmitDaemonJob(lines(line_index), output_path, speakers(line_index), speech.DeliverySpeed(speakers(line_index), 0), 0.12) Then
+				Print "OPENING_VOICE_ERROR: Could not submit local voice job."
+				GetTree().quit(1)
+				Exit Sub
+			End If
+			stem = speech.job_stem
+			started = Time.get_ticks_msec()
+			Exit Sub
+		End If
+	End If
+	If stem <> "" Then status = speech.JobStatus(stem)
+	If status = 0 And Time.get_ticks_msec() - started < 60000 Then Exit Sub
+	If status <= 0 Then
+		Print "OPENING_VOICE_ERROR: Local generation failed for line " & Str(line_index)
+		GetTree().quit(1)
+		Exit Sub
+	End If
+	speech.job_stem = ""
+	clip = AudioStreamWAV.load_from_file(output_path)
+	If clip = Nothing Then
+		Print "OPENING_VOICE_ERROR: Could not decode generated clip."
+		GetTree().quit(1)
+		Exit Sub
+	End If
+	row = New Dictionary
+	row("speaker") = speakers(line_index)
+	row("text") = lines(line_index)
+	row("audio") = voice_directory & "/line_" & Str(line_index) & ".wav"
+	row("seconds") = clip.get_length()
+	manifest.append(row)
+	Print "OPENING_VOICE_BAKED=" & Str(line_index) & " seconds=" & Str(clip.get_length())
+	line_index = line_index + 1
+	stem = ""
+	If line_index >= lines.size() Then
+		WriteAllText voice_directory & "/dialogue.json", JSON.stringify(manifest, Chr(9))
+		game.queue_free()
+		Print "OPENING_VOICE_BAKED_ALL=" & Str(manifest.size())
+		GetTree().quit()
+	End If
+End Sub

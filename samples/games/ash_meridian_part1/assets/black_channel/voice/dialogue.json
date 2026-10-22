@@ -1,0 +1,146 @@
+[
+	{
+		"audio": "res://assets/black_channel/voice/line_0.wav",
+		"seconds": 3.086875,
+		"speaker": "Orac",
+		"text": "Good news: the distribution grid is working."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_1.wav",
+		"seconds": 1.11483333333333,
+		"speaker": "Jason",
+		"text": "And the bad news?"
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_2.wav",
+		"seconds": 6.82233333333333,
+		"speaker": "Rob",
+		"text": "It has recognized an unauthorized removal. Stay below the rim. The upper batteries cannot track us in the channel."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_3.wav",
+		"seconds": 7.517375,
+		"speaker": "Orac",
+		"text": "Two security needles. Unmanned. Amber lines mean a laser lock. Break away before they turn red."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_4.wav",
+		"seconds": 3.53179166666667,
+		"speaker": "Rob",
+		"text": "Service bridge ahead. Pass below it. Your hull will fit."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_5.wav",
+		"seconds": 4.93945833333333,
+		"speaker": "Orac",
+		"text": "Entering the covered section. Keep the nose steady; there is less room above us."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_6.wav",
+		"seconds": 5.66808333333333,
+		"speaker": "Rob",
+		"text": "Wall laser turrets. The amber line locks before the burst. Move off it, or use solid cover."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_7.wav",
+		"seconds": 2.207375,
+		"speaker": "Orac",
+		"text": "That is a closed gate, Rob."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_8.wav",
+		"seconds": 4.18791666666667,
+		"speaker": "Rob",
+		"text": "A service lock. I can request a maintenance opening. Center the ship."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_9.wav",
+		"seconds": 2.12958333333333,
+		"speaker": "Rob",
+		"text": "The opening is clear. Continue."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_10.wav",
+		"seconds": 9.07816666666667,
+		"speaker": "Orac",
+		"text": "Relay marker recorded. Broken machinery ahead. Watch the gaps and your altitude. Two more wall turrets in the final cut."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_11.wav",
+		"seconds": 5.471375,
+		"speaker": "Orac",
+		"text": "Tracking coverage is falling away. Stay low until we clear the last pylon."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_12.wav",
+		"seconds": 2.36804166666667,
+		"speaker": "Rob",
+		"text": "Clear of the batteries. You can climb."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_13.wav",
+		"seconds": 2.80591666666667,
+		"speaker": "Jason",
+		"text": "Next time we take something that is already unplugged."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_14.wav",
+		"seconds": 1.89379166666667,
+		"speaker": "Jason",
+		"text": "Wreckage ahead. Pass left."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_15.wav",
+		"seconds": 1.838125,
+		"speaker": "Jason",
+		"text": "Wreckage ahead. Pass right."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_16.wav",
+		"seconds": 1.997625,
+		"speaker": "Jason",
+		"text": "Hanging wreckage. Dive below."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_17.wav",
+		"seconds": 1.92425,
+		"speaker": "Jason",
+		"text": "Fallen wreckage. Climb above."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_18.wav",
+		"seconds": 4.59716666666667,
+		"speaker": "Orac",
+		"text": "Hull lost. Press Enter or Space to retry the last checkpoint."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_19.wav",
+		"seconds": 4.57116666666667,
+		"speaker": "Rob",
+		"text": "Clear of the batteries. Climb through the cloud layer; I have a local orbital track."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_20.wav",
+		"seconds": 5.63141666666667,
+		"speaker": "Orac",
+		"text": "Sublight is stable. Hold above the tracking grid while we prepare the exterior repair."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_21.wav",
+		"seconds": 5.90016666666667,
+		"speaker": "Orac",
+		"text": "Local orbit established. The component is secure. No tracking contacts."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_22.wav",
+		"seconds": 7.97970833333333,
+		"speaker": "Rob",
+		"text": "That was the last repair item. The outer drive housing must be isolated and depressurized before we fit it. We do that here, in vacuum."
+	},
+	{
+		"audio": "res://assets/black_channel/voice/line_23.wav",
+		"seconds": 3.3075,
+		"speaker": "Jason",
+		"text": "Hold this orbit. We finish the repairs before we try to leave."
+	}
+]

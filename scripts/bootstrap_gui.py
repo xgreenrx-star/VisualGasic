@@ -56,6 +56,7 @@ class _InstallOptions:
         # Companion tools (Cursor MCP, Piper, Whisper)
         self.with_cursor_mcp: bool = True
         self.open_cursor_download: bool = False
+        self.with_kokoro: bool = False
         self.with_piper: bool = False
         self.with_whisper: bool = False
 
@@ -162,6 +163,7 @@ class _InstallWorker(threading.Thread):
         comp = _CompanionArgs()
         comp.with_cursor_mcp = o.with_cursor_mcp
         comp.open_cursor_download = o.open_cursor_download
+        comp.with_kokoro = o.with_kokoro
         comp.with_piper = o.with_piper
         comp.with_whisper = o.with_whisper
         if comp.with_cursor_mcp:
@@ -170,6 +172,12 @@ class _InstallWorker(threading.Thread):
             bvg.configure_cursor_companion(comp, project_dir)
         except Exception as e:
             q.put(("log", f"(Cursor MCP setup failed: {e})"))
+        if comp.with_kokoro:
+            q.put(("step", "Installing Kokoro neural TTS (~350 MB)..."))
+            try:
+                bvg.configure_kokoro(comp)
+            except Exception as e:
+                q.put(("log", f"(Kokoro install failed: {e})"))
         if comp.with_piper:
             q.put(("step", "Installing Piper neural TTS (~340 MB)..."))
             try:
@@ -388,10 +396,17 @@ class InstallerApp:
             variable=self.open_cursor_var,
         ).pack(anchor="w", padx=self.PAD, pady=2)
 
+        self.kokoro_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            comp_box,
+            text="Install Kokoro neural TTS for natural Vibe Code / Orac voice (~350 MB)",
+            variable=self.kokoro_var,
+        ).pack(anchor="w", padx=self.PAD, pady=2)
+
         self.piper_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             comp_box,
-            text="Install Piper neural TTS for natural Vibe Code voice (~340 MB)",
+            text="Install Piper neural TTS (legacy fallback, ~340 MB)",
             variable=self.piper_var,
         ).pack(anchor="w", padx=self.PAD, pady=2)
 
@@ -525,6 +540,7 @@ class InstallerApp:
 
         o.with_cursor_mcp = self.cursor_mcp_var.get()
         o.open_cursor_download = self.open_cursor_var.get()
+        o.with_kokoro = self.kokoro_var.get()
         o.with_piper = self.piper_var.get()
         o.with_whisper = self.whisper_var.get()
 

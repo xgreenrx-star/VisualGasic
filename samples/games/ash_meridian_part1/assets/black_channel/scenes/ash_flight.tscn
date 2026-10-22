@@ -1,0 +1,37 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/ash_flight.glb" id="model_ash_flight"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/glass.tres" id="material_6"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/red.tres" id="material_5"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[node name="AshFlight" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_ash_flight")]
+
+
+[node name="Mesh" parent="Visual/ash_flight" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_6")
+surface_material_override/2 = ExtResource("material_0")
+surface_material_override/3 = ExtResource("material_5")
+surface_material_override/4 = ExtResource("material_3")
+surface_material_override/5 = ExtResource("material_4")
+
+[node name="EngineLeft" type="Marker3D" parent="."]
+position = Vector3(-3.4, 0, 4.9)
+
+[node name="EngineRight" type="Marker3D" parent="."]
+position = Vector3(3.4, 0, 4.9)

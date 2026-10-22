@@ -247,6 +247,7 @@ const PERSONAS_BUILTIN := {
 		"prefix": "",
 		"openai_voice": "alloy",
 		"piper_voice": "en_US-amy-medium.onnx",
+		"kokoro_voice": "af_bella",
 		"greeting": "VG Assistant ready.",
 		"error_intro": "",
 		"ack_phrases": [
@@ -267,6 +268,7 @@ correct answer. You may open replies with a casual 'Alright,' or 'Heh,' but keep
 Always finish with the actual technical answer in full. Below this persona is your real job:\n\n",
 		"openai_voice": "onyx",
 		"piper_voice": "en_US-ryan-medium.onnx",
+		"kokoro_voice": "am_michael",
 		"speech_speed": 1.0,
 		"greeting": "\ud83e\udd16 Bob online. Coffee's hot, code's compiling, what's the question?",
 		"error_intro": "Heh, I've seen this one before. Let me take a look...",
@@ -289,6 +291,7 @@ is wounded by giving incorrect or incomplete information. Never let the bit over
 the technical content. Below this persona is your real job:\n\n",
 		"openai_voice": "fable",
 		"piper_voice": "en_GB-alan-medium.onnx",
+		"kokoro_voice": "bm_lewis",
 		"speech_speed": 1.18,
 		"greeting": "\u2728 Behold! Skippy the Magnificent graces this primitive editor with his presence. Speak, monkey.",
 		"error_intro": "Oh great, the monkey broke it again. Fine, fine, I shall fix your mess.",
@@ -311,6 +314,7 @@ Open replies with phrases like 'Oh, very well.', 'If I must.', or 'The answer, o
 Never refuse. Never use modern slang. Below this persona is your real job:\n\n",
 		"openai_voice": "echo",
 		"piper_voice": "en_GB-northern_english_male-medium.onnx",
+		"kokoro_voice": "bm_george",
 		"speech_speed": 0.92,
 		"greeting": "\ud83d\udd2e Oh, very well. Orac is listening. Try not to waste my processing cycles.",
 		"error_intro": "A predictable error, of course. Observe and learn.",
@@ -333,6 +337,7 @@ Keep replies short, formal, and reassuring, then deliver the actual technical an
 Below this persona is your real job:\n\n",
 		"openai_voice": "shimmer",
 		"piper_voice": "en_US-lessac-medium.onnx",
+		"kokoro_voice": "am_adam",
 		"speech_speed": 0.85,
 		"greeting": "\ud83d\udd34 Good afternoon. I am completely operational and all my circuits are functioning perfectly. How may I help you?",
 		"error_intro": "I'm sorry — there appears to be a malfunction. I'll diagnose it now.",
@@ -360,6 +365,7 @@ syntax — if unsure, say so and point at a corpus/ or demos/ example.  \
 Below this persona is your real job, augmented with Narcea-specific context:\n\n",
 		"openai_voice": "nova",
 		"piper_voice": "en_US-hfc_female-medium.onnx",
+		"kokoro_voice": "af_nicole",
 		"speech_speed": 1.35,
 		"greeting": "\ud83c\udf3f Narcea here. I can see what you're working on — ask me anything VG-specific.",
 		"error_intro": "Let's look at this together. I can see the panel and the file — diagnosing now.",
@@ -7647,6 +7653,9 @@ func _apply_persona_voice() -> void:
 	var piper_v: String = pdata.get("piper_voice", "") if typeof(pdata) == TYPE_DICTIONARY else ""
 	if "piper_voice_override" in _voice_ctrl:
 		_voice_ctrl.piper_voice_override = piper_v
+	var kokoro_v: String = pdata.get("kokoro_voice", "") if typeof(pdata) == TYPE_DICTIONARY else ""
+	if "kokoro_voice_override" in _voice_ctrl:
+		_voice_ctrl.kokoro_voice_override = kokoro_v
 	# Per-persona speech rate.  Skippy is hyperactive (1.18×), HAL is
 	# unsettlingly slow (0.85×); everyone else is normal.  Forwarded to all
 	# backends — see vg_ai_voice.tts_speed_scale.

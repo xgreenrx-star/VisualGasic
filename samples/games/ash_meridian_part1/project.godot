@@ -15,6 +15,10 @@ config/description="Jason explores Narcea with Orac, recovers a power coupler an
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
 
+[audio]
+
+general/text_to_speech=true
+
 [autoload]
 
 VGDebugHandler="*res://addons/visual_gasic/vg_debug_handler.gd"

@@ -1,0 +1,127 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/open_causeway.glb" id="model_open_causeway"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/violet.tres" id="material_7"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(104, 4, 96)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_2"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_3"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_4"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_5"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_6"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_7"]
+size = Vector3(6, 8, 5)
+
+[sub_resource type="BoxShape3D" id="shape_8"]
+size = Vector3(6, 8, 5)
+
+[node name="OpenCauseway" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_open_causeway")]
+
+
+[node name="Mesh" parent="Visual/open_causeway" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_7")
+surface_material_override/3 = ExtResource("material_1")
+surface_material_override/4 = ExtResource("material_4")
+
+[node name="Floor" type="StaticBody3D" parent="."]
+position = Vector3(0, -16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("shape_0")
+
+[node name="ButtressL0" type="StaticBody3D" parent="."]
+position = Vector3(-48, -10, -36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressL0"]
+shape = SubResource("shape_1")
+
+[node name="ButtressL1" type="StaticBody3D" parent="."]
+position = Vector3(-48, -10, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressL1"]
+shape = SubResource("shape_2")
+
+[node name="ButtressL2" type="StaticBody3D" parent="."]
+position = Vector3(-48, -10, 12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressL2"]
+shape = SubResource("shape_3")
+
+[node name="ButtressL3" type="StaticBody3D" parent="."]
+position = Vector3(-48, -10, 36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressL3"]
+shape = SubResource("shape_4")
+
+[node name="ButtressR0" type="StaticBody3D" parent="."]
+position = Vector3(48, -10, -36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressR0"]
+shape = SubResource("shape_5")
+
+[node name="ButtressR1" type="StaticBody3D" parent="."]
+position = Vector3(48, -10, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressR1"]
+shape = SubResource("shape_6")
+
+[node name="ButtressR2" type="StaticBody3D" parent="."]
+position = Vector3(48, -10, 12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressR2"]
+shape = SubResource("shape_7")
+
+[node name="ButtressR3" type="StaticBody3D" parent="."]
+position = Vector3(48, -10, 36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ButtressR3"]
+shape = SubResource("shape_8")

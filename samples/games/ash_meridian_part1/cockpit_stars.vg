@@ -176,21 +176,24 @@ Sub _ready()
 End Sub
 
 Sub _draw()
-	Dim depth As Variant
-	Dim angle As Variant
-	Dim radius As Variant
-	Dim point As Variant
-	Dim brightness As Variant
+	Dim i As Integer
+	Dim star As Vector2
+	Dim depth As Single
+	Dim radius As Single
+	Dim point As Vector2
+	Dim brightness As Single
+	Dim drift As Single
 	Call EnsureInit()
-	For Each star In AsArray(stars)
-		depth = FPosMod(star.y + time_n * 0.035, 1.0)
-		angle = star.x
-		radius = 30 + depth * depth * 700
-		point = Vector2(480, 205) + Vector2(Cos(angle), Sin(angle)) * Vector2(radius, radius * 0.6)
+	drift = Num(time_n) * 0.035
+	For i = 0 To stars.size() - 1
+		star = stars(i)
+		depth = FPosMod(star.y + drift, 1.0)
+		radius = 30.0 + depth * depth * 700.0
+		point = Vector2(480.0, 205.0) + Vector2(Cos(star.x), Sin(star.x)) * Vector2(radius, radius * 0.6)
 		brightness = 0.35 + depth * 0.65
 		draw_circle(point, 0.6 + depth, Color(0.7 * brightness, 0.85 * brightness, brightness))
 		If depth > 0.65 Then
-			draw_line(point, point + (point - Vector2(480, 205)) * 0.012, Color(0.4, 0.65, 0.85, 0.4), 1, True)
+			draw_line(point, point + (point - Vector2(480.0, 205.0)) * 0.012, Color(0.4, 0.65, 0.85, 0.35), 1.0, False)
 		End If
 	Next
 End Sub

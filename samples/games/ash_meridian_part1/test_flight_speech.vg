@@ -1,0 +1,135 @@
+' MAX_FRAMES: 2000
+Option Explicit
+
+Dim game As Object
+Dim channel As Object
+Dim speech As Object
+Dim frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim live_started As Integer
+Dim live_test As Boolean
+Dim live_path As String
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	game.dev_i = 15
+	game.WarpDev()
+	channel = game.GetNode("Presentation").black_channel
+	speech = channel.speech
+	speech.capture_only = True
+	speech.configure(True)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim count As Integer
+	frame = frame + 1
+	If frame = 4 Then
+		speech.say("Crew line one.", 0)
+		speech.say("Crew line two.", 0)
+		speech.tick(True)
+		check(speech.spoken_count = 0 And speech.pending.size() = 2, "pause_prevents_speech_dispatch")
+		speech.tick(False)
+		check(speech.last_text = "Crew line one.", "crew_speech_is_queued_in_order")
+		count = speech.spoken_count
+		speech.player.stream = Load("res://assets/opening_voice/line_0.wav")
+		speech.player.play()
+		speech.ready_wav = "capture-only-ready-buffer"
+		speech.ready_text = "Prepared reply."
+		speech.ready_speaker = "JASON"
+		speech.tick(False)
+		check(speech.spoken_count = count And speech.pending.size() = 1, "occupied_ready_buffer_blocks_further_generation")
+		check(speech.ready_text = "Prepared reply." And speech.ready_speaker = "JASON", "prefetch_cannot_overwrite_prepared_jason_reply")
+		speech.ready_wav = ""
+		speech.player.stop()
+		speech.backend = "espeak"
+		check(speech.BackendVoice("JASON") = Str(ProjectSettings.get_setting("ash/flight_speech/linux_voice", "en-gb")), "espeak_uses_installed_voice_not_character_role")
+		speech.backend = "capture"
+		speech.say("Climb above.", 2)
+		speech.tick(False)
+		check(speech.last_text = "Climb above." And speech.pending.size() = 0, "hazard_interrupts_and_discards_stale_banter")
+		channel.distance = 7100
+		channel.SpeakHazard()
+		speech.tick(False)
+		check(speech.last_text = "Fallen wreckage. Climb above.", "authored_altitude_warning_is_spoken")
+		count = speech.spoken_count
+		channel.SpeakHazard()
+		speech.tick(False)
+		check(speech.spoken_count = count, "hazard_warning_is_not_repeated_every_frame")
+		channel.hurt_t = 0
+		channel.Hurt(100, "Needles have a firing solution.")
+		speech.tick(False)
+		check(InStr(speech.last_text, "Press Enter") > 0, "failure_speaks_retry_instruction")
+		game.QueueRedraw()
+	ElseIf frame = 7 Then
+		Dim capture As String
+		Dim image As Object
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-hull-lost.png") = 0, "failure_panel_capture")
+		End If
+		Dim press As Object
+		press = ClassDB.Instantiate("InputEventKey")
+		press.keycode = KEY_ENTER
+		press.physical_keycode = KEY_ENTER
+		press.pressed = True
+		Input.parse_input_event(press)
+		Input.flush_buffered_events()
+		game.set_process(True)
+	ElseIf frame = 9 Then
+		game.set_process(False)
+		check(channel.running And Not channel.failed And channel.hull = 100, "enter_retries_failed_encounter_through_actual_game_input")
+		Dim release As Object
+		release = ClassDB.Instantiate("InputEventKey")
+		release.keycode = KEY_ENTER
+		release.physical_keycode = KEY_ENTER
+		release.pressed = False
+		Input.parse_input_event(release)
+		check(speech.pending.size() = 0 And channel.spoken_hazards.size() = 0, "retry_clears_speech_and_resets_hazard_calls")
+		speech.configure(False)
+		speech.say("Muted.", 0)
+		check(speech.pending.size() = 0, "voice_toggle_mutes_new_speech")
+		live_test = OS.get_environment("ASH_SPEECH_LIVE") = "1"
+		If live_test Then
+			speech.capture_only = False
+			speech.configure(True)
+			If speech.backend <> "kokoro" And speech.backend <> "espeak" Then
+				check(False, "local_linux_backend_detected")
+			Else
+				check(True, "local_linux_backend_detected")
+			End If
+			speech.say("Flight voice ready. Climb above the shutter.", 0)
+			speech.tick(False)
+			check(speech.worker > 0, "speech_generation_runs_in_nonblocking_worker")
+			live_path = speech.wav_path
+			live_started = Time.get_ticks_msec()
+		End If
+	ElseIf frame > 9 Then
+		If live_test Then
+			speech.tick(False)
+			If Not speech.player.playing And Time.get_ticks_msec() - live_started < 20000 Then Exit Sub
+			check(speech.player.playing And speech.player.stream.get_length() > 0.5, "generated_wav_decodes_and_starts_playback")
+			check(speech.worker = 0 And speech.wav_path = "" And Not FileExists(live_path), "completed_worker_audio_file_is_cleaned_up")
+			live_test = False
+		End If
+		game.GetNode("Presentation").stop_black_channel()
+		game.queue_free()
+		Print "FLIGHT_SPEECH=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

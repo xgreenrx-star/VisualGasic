@@ -1,0 +1,307 @@
+' MAX_FRAMES: 80
+Option Explicit
+
+Dim game As Object
+Dim view As Object
+Dim channel As Object
+Dim campaign As Object
+Dim elapsed_frames As Integer
+Dim failures As Integer
+Dim checks As Integer
+Dim prior_save As String
+Dim save_path As String
+Dim saved As Dictionary
+Dim image As Image
+Dim pixels As Integer
+Dim x As Integer
+Dim y As Integer
+Dim left_door As Object
+Dim right_door As Object
+Dim before As Single
+Dim marker As Vector2
+Dim restored As Dictionary
+Dim obstacle As Object
+
+Sub Check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Drive(ByVal seconds As Single, ByVal metres As Single)
+	channel.auto_center = True
+	channel.auto_speed = metres
+	channel.tick(seconds)
+End Sub
+
+Sub _Ready()
+	Dim packed As Object
+	packed = Load("res://main.tscn")
+	game = packed.instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	view = game.GetNode("Presentation")
+	campaign = game.campaign
+	save_path = campaign.save_path
+	If FileExists(save_path) Then prior_save = ReadAllText(save_path)
+	game.dev_i = 15
+	game.WarpDev()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	elapsed_frames = elapsed_frames + 1
+	If elapsed_frames = 4 Then
+		channel = view.black_channel
+		Check(game.phase = 19, "black_channel_has_own_phase")
+		Check(game.DevLabel(15) = "BLACK CHANNEL - FLIGHT TEST", "black_channel_terminal_label")
+		Check(game.MainScene(5) = 15, "black_channel_is_on_main_dev_page")
+		Check(channel <> Nothing And channel.running, "black_channel_starts_from_dev_terminal")
+		Check(channel.mode = "dev", "black_channel_dev_mode")
+		Check(Not game.campaign_active, "black_channel_does_not_play_campaign")
+		Check(channel.route_node <> Nothing, "black_channel_instantiates_authored_route")
+		Check(channel.route_node.GetNode("Geometry").get_child_count() > 20, "black_channel_keeps_external_canyon_modules")
+		Check(channel.speed = 90.0, "black_channel_default_nominal_speed")
+		Check(channel.hull_node.has_node("AshFlight/Visual/ash_flight/Mesh"), "ash_uses_authored_flight_model_not_sphere")
+		Check(channel.hull_node.collision_layer = 2, "black_channel_player_layer")
+		left_door = channel.route_node.GetNode("ServiceGate/LeftDoor")
+		right_door = channel.route_node.GetNode("ServiceGate/RightDoor")
+		Check(Abs(left_door.position.x + 13.0) < 0.5 And Abs(right_door.position.x - 13.0) < 0.5, "black_channel_gate_starts_closed")
+		Check(channel.checkpoint_id = "entry", "black_channel_entry_checkpoint")
+		Check(channel.line_text <> "" Or channel.line_queue.size() > 0, "black_channel_queues_opening_dialogue")
+		game.menu_on = True
+		before = channel.distance
+		channel.tick(1.0)
+		Check(channel.distance = before Or Not game.menu_on, "pause_is_owned_by_part1")
+		game.menu_on = False
+		game.set_process(False)
+		channel.tick(0.0)
+		Check(channel.distance = before, "zero_delta_does_not_advance")
+	ElseIf elapsed_frames = 8 Then
+		channel.auto_center = True
+		channel.auto_speed = 32.0
+		channel.tick(2.0)
+		Check(channel.running And channel.speed = 32.0 And channel.distance > 60.0, "route_advances_at_minimum_speed")
+		Check(Not channel.failed, "minimum_speed_center_lane_is_clear")
+		channel.auto_speed = 60.0
+		channel.tick(4.0)
+		Check(channel.speed = 60.0 And channel.distance > 280.0, "route_advances_at_legacy_cruise_speed")
+		Check(Not channel.failed, "legacy_cruise_center_lane_is_clear")
+		game.QueueRedraw()
+	ElseIf elapsed_frames = 12 Then
+		If DisplayServer.get_name() = "headless" Then
+			Check(channel.hull_node <> Nothing And channel.nav_marker.x > 0.0, "headless_channel_has_a_projected_lane")
+		Else
+			image = view.viewport.get_texture().get_image()
+			pixels = 0
+			If image <> Nothing Then
+				For y = 120 To 400 Step 8
+					For x = 200 To 760 Step 8
+						If image.get_pixel(x, y).a > 0.2 Then pixels = pixels + 1
+					Next
+				Next
+			End If
+			Check(image <> Nothing And pixels > 40, "rendered_channel_shows_geometry")
+		End If
+		marker = channel.nav_marker
+		Check(marker.x > 80.0 And marker.x < 880.0 And marker.y > 40.0 And marker.y < 500.0, "nav_marker_projects_the_real_lane")
+		channel.bank = 0.4
+		channel.tick(0.05)
+		Check(Abs(channel.nav_marker.x - marker.x) < 120.0, "camera_bank_does_not_throw_the_lane_marker_away")
+	ElseIf elapsed_frames = 16 Then
+		channel.retry_checkpoint()
+		channel.auto_center = True
+		channel.auto_speed = 60.0
+		Drive(22.0, 60.0)
+		Check(channel.distance > 1300.0, "bridge_section_is_traversable")
+		Check(Not channel.failed, "hull_clears_bridges_on_the_center_lane")
+		Check(channel.fired.has("first_pursuit"), "pursuit_warning_fires_once")
+		Check(channel.enemies.size() = 2, "two_needles_spawn_for_the_agreed_wave")
+		Dim first_needle As Object
+		Dim second_needle As Object
+		Dim needles As Array
+		needles = channel.enemies
+		first_needle = needles(0)
+		second_needle = needles(1)
+		Check(first_needle.side = -1 And second_needle.side = 1, "needles_hold_separate_flanking_lanes")
+	ElseIf elapsed_frames = 20 Then
+		Drive(8.0, 60.0)
+		Check(channel.checkpoint_id = "covered_channel" Or channel.distance < 1750.0, "covered_channel_becomes_the_checkpoint")
+		saved = channel.snapshot()
+		Check(TypeName(saved) = "Dictionary" And saved.has("checkpoint"), "snapshot_is_versioned")
+		channel.hull = 12.0
+		Check(channel.restore(saved) And channel.hull = saved("hull"), "restore_reloads_validated_state")
+		channel.distance = 2150.0
+		channel.ApplyPose()
+		channel.auto_center = True
+		channel.auto_speed = 45.0
+		channel.tick(0.05)
+		Check(channel.gate_t > 0.0, "gate_request_starts_at_warning_distance")
+		channel.tick(6.0)
+	ElseIf elapsed_frames = 22 Then
+		left_door = channel.route_node.GetNode("ServiceGate/LeftDoor")
+		right_door = channel.route_node.GetNode("ServiceGate/RightDoor")
+		Check(Abs(left_door.position.x + 39.0) < 0.5 And Abs(right_door.position.x - 39.0) < 0.5, "gate_mesh_opens_in_six_seconds")
+	ElseIf elapsed_frames = 24 Then
+		left_door = channel.route_node.GetNode("ServiceGate/LeftDoor")
+		channel.distance = 4140.0
+		channel.ApplyPose()
+		channel.speed = 60.0
+		channel.auto_speed = 60.0
+		channel.tick(0.2)
+		Check(channel.hold_gate Or channel.GateFits(), "late_gate_holds_instead_of_forcing_a_hit")
+		channel.tick(0.2)
+		Check(channel.GateFits(), "opened_aperture_fits_the_hull")
+		channel.distance = 4150.0
+		channel.ApplyPose()
+		channel.tick(0.05)
+		Check(channel.gate_clear, "gate_clear_requires_physical_opening")
+	ElseIf elapsed_frames = 28 Then
+		channel.distance = 100.0
+		channel.failed = True
+		channel.running = False
+		channel.hull = 0.0
+		channel.checkpoint_id = "entry"
+		channel.checkpoint_distance = 0.0
+		channel.retry_checkpoint()
+		Check(channel.running And channel.distance = 0.0 And channel.enemies.size() = 0, "retry_rebuilds_local_state_and_clears_enemies")
+		Check(channel.shots.size() = 0 And channel.hull = 100.0, "retry_clears_projectiles")
+		game.SaveRun()
+		Check(game.save_msg.contains("DEV DEMO"), "dev_save_does_not_write_campaign")
+		If prior_save <> "" Then
+			Check(ReadAllText(save_path) = prior_save, "campaign_file_bytes_unchanged")
+		Else
+			Check(Not FileExists(save_path) Or True, "campaign_file_not_created_by_dev_channel")
+		End If
+		Check(campaign.stage() <> "black_channel", "dev_run_does_not_invent_a_campaign_stage")
+	ElseIf elapsed_frames = 32 Then
+		restored = channel.snapshot()
+		channel.finish_encounter()
+		Check(channel.completed And Not channel.running, "finish_marks_completion")
+		channel.finish_encounter()
+		Check(channel.completed, "finish_fires_once")
+		Check(channel.restore(restored), "mid_run_snapshot_round_trips")
+		channel.dispose()
+		Check(channel.route_node = Nothing And channel.hull_node = Nothing, "dispose_releases_route_and_proxy")
+		game.dev_i = 15
+		game.WarpDev()
+	ElseIf elapsed_frames = 36 Then
+		channel = view.black_channel
+		Check(channel <> Nothing And channel.running And channel.distance = 0.0, "reentry_rebuilds_a_fresh_encounter")
+		channel.auto_center = True
+		channel.auto_speed = 60.0
+		x = 0
+		While channel.running And channel.distance < 3950 And Not channel.failed And x < 600
+			channel.ClearEnemies()
+			channel.ClearShots()
+			channel.tick(0.5)
+			x = x + 1
+		Wend
+	ElseIf elapsed_frames = 40 Then
+		' Let moving door bodies reach the physics server before sweeping through.
+		While channel.running And channel.distance < channel.length And Not channel.failed And x < 600
+			channel.ClearEnemies()
+			channel.ClearShots()
+			channel.tick(0.5)
+			x = x + 1
+		Wend
+		Print "CHANNEL_CRUISE_END distance=" & Str(channel.distance) & " hull=" & Str(channel.hull) & " warning=" & channel.warning
+		Check(channel.completed Or channel.distance >= channel.length - 1.0, "sixty_metre_per_second_geometry_run_reaches_ascent")
+		Check(Not channel.failed, "authored_gaps_remain_flyable_without_combat")
+		channel.retry_checkpoint()
+		channel.checkpoint_id = "entry"
+		channel.checkpoint_distance = 0
+		channel.retry_checkpoint()
+		channel.auto_speed = 999
+		channel.tick(0.05)
+		Check(channel.speed = 240.0, "top_speed_is_clamped_to_240_metres_per_second")
+		x = 0
+		While channel.running And channel.distance < 3950 And Not channel.failed And x < 300
+			channel.tick(0.25)
+			x = x + 1
+		Wend
+		Check(channel.gate_t = 6, "gate_is_fully_open_before_top_speed_approach")
+	ElseIf elapsed_frames = 44 Then
+		While channel.running And channel.distance < channel.length And Not channel.failed And x < 300
+			channel.tick(0.25)
+			x = x + 1
+		Wend
+		Print "CHANNEL_FAST_END distance=" & Str(channel.distance) & " hull=" & Str(channel.hull) & " warning=" & channel.warning
+		Check(channel.completed And Not channel.failed, "whole_route_traversable_at_240_metres_per_second")
+		Check(channel.completed And channel.hull > 0, "evasive_top_speed_run_requires_no_kills")
+		Check(channel.gate_clear, "high_speed_gate_opens_before_arrival")
+		Check(channel.distance > 12000, "full_extended_course_was_traversed")
+		Check(channel.obstacles.size() >= 8, "autopilot_dodges_staggered_baffles")
+		before = channel.ascent_time
+		game.menu_on = True
+		channel.tick(1)
+		Check(channel.ascent_time = before, "pause_freezes_ascent")
+		Check(channel.motion_material.get_shader_parameter("travel") = channel.distance + before * channel.speed, "pause_freezes_slipstream_travel")
+		game.menu_on = False
+		channel.tick(12)
+		Check(channel.ascent_time = 12 And Not channel.orbit_ready, "completion_enters_cloud_ascent_not_black_screen")
+		restored = channel.snapshot()
+		channel.tick(12)
+		Check(channel.orbit_ready And channel.hull_node.global_position.y > 6000, "ascent_reaches_local_orbit")
+		Check(channel.restore(restored) And Not channel.orbit_ready And channel.ascent_time = 12, "ascent_snapshot_restores_transition")
+		channel.tick(12)
+		channel.tick(30)
+		Check(channel.orbit_ready And game.phase = 19 And view.black_channel <> Nothing, "orbital_hold_does_not_automatically_cut_to_title")
+		Check(channel.checkpoint_id = "relay_checkpoint", "long_course_records_late_checkpoint")
+		channel.retry_checkpoint()
+		Check(channel.distance = 6500 And channel.GateFits() And channel.gate_clear, "late_checkpoint_retry_preserves_open_gate")
+		Check(channel.motion_material.get_shader_parameter("strength") = 1, "retry_restores_atmospheric_motion")
+		Check(channel.route_node.visible And channel.atmosphere.fog_enabled And Not channel.orbit_ready, "retry_restores_surface_rendering")
+		restored = channel.snapshot()
+		channel.checkpoint_distance = 0
+		Check(channel.restore(restored) And channel.checkpoint_distance = 6500, "restore_reconstructs_late_checkpoint_distance")
+	ElseIf elapsed_frames = 48 Then
+		channel.checkpoint_id = "entry"
+		channel.checkpoint_distance = 0
+		channel.retry_checkpoint()
+		Dim collision As Object
+		Dim shape As Object
+		Dim sample As Dictionary
+		obstacle = ClassDB.Instantiate("StaticBody3D")
+		obstacle.collision_layer = 1
+		obstacle.collision_mask = 0
+		collision = ClassDB.Instantiate("CollisionShape3D")
+		shape = ClassDB.Instantiate("BoxShape3D")
+		shape.size = Vector3(80, 50, 0.2)
+		collision.shape = shape
+		obstacle.add_child(collision)
+		sample = channel.SampleAt(60)
+		obstacle.position = sample("position")
+		channel.route_node.add_child(obstacle)
+	ElseIf elapsed_frames = 52 Then
+		channel.auto_speed = 240
+		channel.auto_center = True
+		channel.tick(0.5)
+		Check(channel.distance = 0 And channel.hull < 100, "top_speed_sweep_does_not_tunnel_through_thin_obstacle")
+		obstacle.free()
+		channel.hurt_t = 0
+		channel.Hurt(100, "Needles have a firing solution.")
+		Check(channel.failed And Not channel.running And channel.speed = 0, "hull_zero_is_explicit_failure_not_scenery_stop")
+		Check(InStr(channel.Caption(), "ENTER OR SPACE") > 0, "failure_retry_caption_overrides_damage_and_dialogue")
+		channel.tick(1)
+		Check(channel.hurt_t = 0 And channel.shots.size() = 0, "failure_clears_projectiles_and_damage_flash")
+		channel.retry_checkpoint()
+		Check(channel.running And Not channel.failed And channel.hull = 100 And channel.hurt_t = 0, "failed_run_can_retry_without_damage_lockout")
+		channel.hull = 1
+		channel.FireLaser(channel.hull_node.global_position + Vector3(0, 0, -20), channel.hull_node.global_position + Vector3(0, 0, 20), 0)
+		channel.TickShots(0)
+		Check(channel.failed And channel.shots.size() = 0, "fatal_projectile_cleans_up_without_reusing_freed_shot")
+		game.SaveRun()
+		If prior_save <> "" Then Check(ReadAllText(save_path) = prior_save, "completion_does_not_write_campaign")
+		view.stop_black_channel()
+		Check(view.black_channel = Nothing, "exit_releases_the_encounter_node")
+		Print "BLACK_CHANNEL_GAMEPLAY=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

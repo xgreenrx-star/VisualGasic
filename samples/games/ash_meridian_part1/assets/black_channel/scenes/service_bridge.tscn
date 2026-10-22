@@ -1,0 +1,58 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/service_bridge.glb" id="model_service_bridge"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(110, 4, 9)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(5, 32, 9)
+
+[sub_resource type="BoxShape3D" id="shape_2"]
+size = Vector3(5, 32, 9)
+
+[node name="ServiceBridge" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_service_bridge")]
+
+
+[node name="Mesh" parent="Visual/service_bridge" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_0")
+surface_material_override/2 = ExtResource("material_3")
+surface_material_override/3 = ExtResource("material_2")
+
+[node name="Span" type="StaticBody3D" parent="."]
+position = Vector3(0, 0, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Span"]
+shape = SubResource("shape_0")
+
+[node name="Support0" type="StaticBody3D" parent="."]
+position = Vector3(-47, -16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Support0"]
+shape = SubResource("shape_1")
+
+[node name="Support1" type="StaticBody3D" parent="."]
+position = Vector3(47, -16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Support1"]
+shape = SubResource("shape_2")

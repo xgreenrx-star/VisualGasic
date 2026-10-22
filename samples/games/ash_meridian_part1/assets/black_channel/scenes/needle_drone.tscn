@@ -1,0 +1,65 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/needle_drone.glb" id="model_needle_drone"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/glass.tres" id="material_6"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/red.tres" id="material_5"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/violet.tres" id="material_7"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[sub_resource type="ConvexPolygonShape3D" id="hull"]
+points = PackedVector3Array(0, -0.65, -6, 1.8, -0.65, -2.8, 2, -0.65, 1.5, 1.1, -0.65, 3.2, -1.1, -0.65, 3.2, -2, -0.65, 1.5, -1.8, -0.65, -2.8, 0, 0.65, -6, 1.8, 0.65, -2.8, 2, 0.65, 1.5, 1.1, 0.65, 3.2, -1.1, 0.65, 3.2, -2, 0.65, 1.5, -1.8, 0.65, -2.8)
+
+[sub_resource type="BoxShape3D" id="wing"]
+size = Vector3(2.5, 0.5, 4.5)
+
+[node name="NeedleDrone" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+metadata/forward_axis = "-Z"
+
+[node name="Visual" parent="." instance=ExtResource("model_needle_drone")]
+
+
+[node name="Mesh" parent="Visual/needle_drone" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_6")
+surface_material_override/2 = ExtResource("material_0")
+surface_material_override/3 = ExtResource("material_5")
+surface_material_override/4 = ExtResource("material_7")
+surface_material_override/5 = ExtResource("material_3")
+
+[node name="HullCollision" type="CollisionShape3D" parent="."]
+shape = SubResource("hull")
+
+[node name="WingCollision0" type="CollisionShape3D" parent="."]
+position = Vector3(-3.2, -0.05, 0)
+shape = SubResource("wing")
+
+[node name="WingCollision1" type="CollisionShape3D" parent="."]
+position = Vector3(3.2, -0.05, 0)
+shape = SubResource("wing")
+
+[node name="MuzzleLeft" type="Marker3D" parent="."]
+position = Vector3(-2.7, -0.2, -4.5)
+
+[node name="MuzzleRight" type="Marker3D" parent="."]
+position = Vector3(2.7, -0.2, -4.5)
+
+[node name="EngineLeft" type="Marker3D" parent="."]
+position = Vector3(-1.2, 0, 3.5)
+
+[node name="EngineRight" type="Marker3D" parent="."]
+position = Vector3(1.2, 0, 3.5)
+
+[node name="AimPoint" type="Marker3D" parent="."]
+position = Vector3(0, 0, 0)

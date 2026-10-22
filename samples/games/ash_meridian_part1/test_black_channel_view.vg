@@ -1,0 +1,364 @@
+' MAX_FRAMES: 80
+Option Explicit
+
+Dim game As Object
+Dim view As Object
+Dim channel As Object
+Dim frame As Integer
+Dim failures As Integer
+Dim checks As Integer
+Dim inspections As Integer
+Dim draw_calls As Integer
+Dim motion_image As Object
+
+Sub inspect_heading_continuity()
+	Dim i As Integer
+	Dim knot As Variant
+	Dim before As Dictionary
+	Dim after As Dictionary
+	Dim alignment As Single
+	Dim worst As Single
+	worst = 1.0
+	For i = 1 To channel.samples.size() - 2
+		knot = channel.samples(i)
+		before = channel.SampleAt(knot.distance - 0.01)
+		after = channel.SampleAt(knot.distance + 0.01)
+		alignment = before("tangent").dot(after("tangent"))
+		worst = Min(worst, alignment)
+	Next
+	Print "CHANNEL_HEADING_MIN_DOT=" & Str(worst)
+	check(worst > 0.999999, "heading_has_no_sample_boundary_steps")
+End Sub
+
+Sub inspect_slipstream(ByVal image As Object)
+	Dim x As Integer
+	Dim y As Integer
+	Dim visible As Integer
+	Dim changed As Integer
+	Dim pixel As Color
+	Dim old_pixel As Color
+	For y = 110 To 470 Step 3
+		For x = 20 To 940 Step 3
+			If x < 300 Or x > 660 Then
+				pixel = image.get_pixel(x, y)
+				If pixel.a > 0.05 Then visible = visible + 1
+				old_pixel = motion_image.get_pixel(x, y)
+				If Abs(pixel.a - old_pixel.a) > 0.025 Then changed = changed + 1
+			End If
+		Next
+	Next
+	Print "CHANNEL_SLIPSTREAM visible=" & Str(visible) & " changed=" & Str(changed)
+	check(visible > 100, "slipstream_visible_at_screen_edges")
+	check(changed > 100, "slipstream_moves_when_travel_advances")
+End Sub
+
+Sub check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim texture As Object
+	Dim pose As Transform3D
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	view = game.GetNode("Presentation")
+	game.dev_i = 15
+	game.WarpDev()
+	channel = view.black_channel
+	check(channel.SafeHeight(7350) = 9 And channel.SafeHeight(8250) = -1, "late_course_requires_alternating_climb_and_dive")
+	channel.distance = 7100
+	check(InStr(channel.HazardCaption(), "CLIMB ABOVE") > 0, "nearest_altitude_hazard_has_clear_climb_warning")
+	channel.distance = 0
+	inspect_heading_continuity()
+	inspect_view()
+	texture = view.present(0, 10, 0, 0, 0, 1800)
+	pose = view.camera.transform
+	check(pose.basis.determinant() < 0, "transition_reproduces_legacy_camera_reflection")
+End Sub
+
+Sub inspect_view()
+	Dim camera As Object
+	Dim forward As Vector3
+	Dim ahead As Vector3
+	Dim sample As Dictionary
+	Dim texture As Object
+	Dim expected_forward As Vector3
+	Dim pose As Transform3D
+	Dim target_screen As Vector2
+	camera = view.camera
+	texture = channel.render(view)
+	sample = channel.SampleAt(channel.distance + 80)
+	ahead = sample("position")
+	forward = (camera.to_global(Vector3(0, 0, -1)) - camera.global_position).normalized()
+	Print "CHANNEL_VIEW distance=" & Str(channel.distance) & " camera=" & Str(camera.global_position) & " forward=" & Str(forward) & " tangent=" & Str(channel.tangent)
+	check(forward.dot(channel.tangent) > 0.95, "camera_faces_forward_along_route_" & Str(channel.distance))
+	check(Not camera.is_position_behind(ahead), "next_route_point_is_in_front_" & Str(channel.distance))
+	check((channel.hull_node.global_position - camera.global_position).dot(channel.tangent) > 0, "camera_is_behind_ship_" & Str(channel.distance))
+	expected_forward = (channel.hull_node.global_position + channel.tangent * 24 - camera.global_position).normalized()
+	target_screen = camera.unproject_position(channel.hull_node.global_position + channel.tangent * 24)
+	Print "CHANNEL_TARGET_SCREEN=" & Str(target_screen)
+	check(target_screen.distance_to(Vector2(480, 270)) < 0.5, "camera_target_projects_to_screen_center_" & Str(channel.distance))
+	check(forward.dot(expected_forward) > 0.9999, "camera_aim_matches_target_" & Str(channel.distance))
+	check((channel.hull_node.to_global(Vector3(0, 0, -1)) - channel.hull_node.global_position).normalized().dot(channel.tangent) > 0.9999, "hull_faces_route_" & Str(channel.distance))
+	pose = camera.global_transform
+	check(Abs(pose.basis.determinant() - 1) < 0.0001, "camera_is_not_mirrored_" & Str(channel.distance))
+	check((camera.to_global(Vector3(0, 1, 0)) - camera.global_position).normalized().dot(Vector3(0, 1, 0)) > 0.9, "camera_up_is_world_up_" & Str(channel.distance))
+	check(camera.unproject_position(channel.hull_node.global_position + channel.tangent * 24 + Vector3(0, 5, 0)).y < 270, "world_up_projects_above_center_" & Str(channel.distance))
+	inspections = inspections + 1
+End Sub
+
+Sub inspect_motion()
+	Dim before As Vector3
+	Dim forward As Vector3
+	Dim landmark As Vector3
+	Dim sample As Dictionary
+	Dim screen_before As Vector2
+	Dim screen_after As Vector2
+	Dim depth_before As Single
+	Dim texture As Object
+	before = channel.hull_node.global_position
+	forward = (view.camera.to_global(Vector3(0, 0, -1)) - view.camera.global_position).normalized()
+	sample = channel.SampleAt(channel.distance + 200)
+	landmark = sample("position") + sample("right") * 20
+	screen_before = view.camera.unproject_position(landmark)
+	depth_before = view.camera.global_position.distance_to(landmark)
+	channel.auto_center = True
+	channel.auto_speed = 45
+	channel.tick(1)
+	texture = channel.render(view)
+	screen_after = view.camera.unproject_position(landmark)
+	Print "CHANNEL_MOTION=" & Str(channel.hull_node.global_position - before)
+	check((channel.hull_node.global_position - before).dot(forward) > 40, "actual_tick_moves_toward_camera_forward")
+	check(view.camera.global_position.distance_to(landmark) < depth_before - 40, "fixed_landmark_approaches_camera")
+	check(screen_after.distance_to(Vector2(480, 270)) > screen_before.distance_to(Vector2(480, 270)), "fixed_landmark_expands_outward_during_flight")
+	channel.distance = 0
+	channel.ApplyPose()
+	texture = channel.render(view)
+End Sub
+
+Sub inspect_composite(ByVal image As Object, ByVal label As String)
+	Dim x As Integer
+	Dim y As Integer
+	Dim upper As Integer
+	Dim lower As Integer
+	Dim pixel As Color
+	For y = 315 To 490 Step 2
+		For x = 430 To 530 Step 2
+			pixel = image.get_pixel(Int(x * image.get_width() / 960.0), Int(y * image.get_height() / 540.0))
+			If pixel.r > 0.6 And pixel.g > 0.2 And pixel.b < 0.2 Then lower = lower + 1
+			pixel = image.get_pixel(Int(x * image.get_width() / 960.0), Int((540 - y) * image.get_height() / 540.0))
+			If pixel.r > 0.6 And pixel.g > 0.2 And pixel.b < 0.2 Then upper = upper + 1
+		Next
+	Next
+	Print "CHANNEL_COMPOSITE " & label & " lower=" & Str(lower) & " upper=" & Str(upper)
+	check(lower > 5 And lower > upper, "amber_floor_markings_below_not_above_horizon_" & label)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim image As Object
+	Dim capture As String
+	Dim distances As Array
+	Dim value As Variant
+	frame = frame + 1
+	If frame = 4 Then
+		inspect_view()
+		inspect_motion()
+	ElseIf frame = 6 Then
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If DisplayServer.get_name() <> "headless" Then
+			If capture <> "" Then
+				image = view.viewport.get_texture().get_image()
+				check(image.save_png(capture & "/channel-entry.png") = 0, "entry_capture")
+			End If
+			image = GetViewport().get_texture().get_image()
+			inspect_composite(image, "entry")
+			If capture <> "" Then check(image.save_png(capture & "/channel-composite.png") = 0, "composite_capture")
+		End If
+		channel.distance = 1900
+		channel.bank = 0.35
+		channel.ApplyPose()
+		inspect_view()
+		game.QueueRedraw()
+	ElseIf frame = 8 Then
+		inspect_view()
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = view.viewport.get_texture().get_image()
+			check(image.save_png(capture & "/channel-covered.png") = 0, "covered_capture")
+		End If
+	ElseIf frame = 9 Then
+		distances = Array(3100, 4500)
+		For Each value In distances
+			channel.distance = value
+			channel.bank = -0.35
+			channel.ApplyPose()
+			inspect_view()
+		Next
+		channel.distance = 152
+		channel.bank = 0
+		channel.ApplyPose()
+		channel.auto_center = True
+		channel.auto_speed = 45
+		game.set_process(True)
+	ElseIf frame > 9 And frame < 30 Then
+		Exit Sub
+	ElseIf frame = 30 Then
+		game.set_process(False)
+		Print "CHANNEL_GAME_LOOP distance=" & Str(channel.distance) & " phase=" & Str(game.phase) & " dev=" & Str(game.dev_on) & " menu=" & Str(game.menu_on) & " running=" & Str(channel.running) & " failed=" & Str(channel.failed) & " clock=" & Str(game.clock)
+		check(channel.distance > 152, "normal_game_loop_advances_along_route")
+		check((view.camera.to_global(Vector3(0, 1, 0)) - view.camera.global_position).normalized().dot(Vector3(0, 1, 0)) > 0.9, "normal_game_loop_camera_stays_upright")
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			inspect_composite(image, "live")
+			If capture <> "" Then check(image.save_png(capture & "/channel-live.png") = 0, "live_composite_capture")
+		End If
+		inspect_view()
+		Dim sample As Dictionary
+		sample = channel.SampleAt(channel.length - 1)
+		check(channel.sample_search_steps <= 9, "route_lookup_uses_logarithmic_search")
+		If DisplayServer.get_name() <> "headless" Then
+			draw_calls = Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+			Print "CHANNEL_DRAW_CALLS=" & Str(draw_calls)
+			check(draw_calls < 250, "batched_scenery_stays_below_250_draw_calls")
+		End If
+		channel.distance = 2233
+		channel.bank = 0
+		channel.ApplyPose()
+		game.QueueRedraw()
+	ElseIf frame = 32 Then
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-moving.png") = 0, "moving_composite_capture")
+			check(image.save_png(capture & "/channel-gantry.png") = 0, "connected_gantry_composite_capture")
+		End If
+		channel.distance = 600
+		channel.speed = 240
+		channel.bank = -0.35
+		channel.ApplyPose()
+		inspect_view()
+		check(Abs(view.camera.fov - 92) < 0.01, "top_speed_widens_fov_to_92_degrees")
+		check(channel.engine_trails.size() = 2, "ash_has_two_engine_trails")
+		Dim trails As Array
+		Dim exhaust As Object
+		trails = channel.engine_trails
+		exhaust = trails(0)
+		check(exhaust.mesh.surface_get_material(0).shader.resource_path = "res://shaders/landing_flame.gdshader", "exhaust_reuses_opening_red_flame_shader")
+		channel.UpdateMotion()
+		game.QueueRedraw()
+	ElseIf frame = 34 Then
+		If DisplayServer.get_name() <> "headless" Then motion_image = view.black_hud_view.get_texture().get_image()
+		channel.motion_material.set_shader_parameter("travel", channel.distance + 80)
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-fast.png") = 0, "top_speed_composite_capture")
+		End If
+		channel.distance = 4950
+		channel.bank = 0
+		channel.ApplyPose()
+		inspect_view()
+		check(channel.SafeLateral(5200) = 22, "first_baffle_cue_points_to_right_gap")
+		game.QueueRedraw()
+	ElseIf frame = 36 Then
+		If DisplayServer.get_name() <> "headless" Then
+			image = view.black_hud_view.get_texture().get_image()
+			inspect_slipstream(image)
+			capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+			If capture <> "" Then image.save_png(capture & "/channel-slipstream-hud.png")
+		End If
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-obstacle.png") = 0, "obstacle_composite_capture")
+		End If
+		channel.distance = 7120
+		channel.height = 9
+		channel.ApplyPose()
+		game.QueueRedraw()
+	ElseIf frame = 38 Then
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-altitude-challenge.png") = 0, "altitude_challenge_composite_capture")
+		End If
+		channel.distance = channel.length
+		channel.ApplyPose()
+		channel.finish_encounter()
+		channel.tick(8)
+		game.QueueRedraw()
+	ElseIf frame = 40 Then
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			check(image.save_png(capture & "/channel-ascent.png") = 0, "cloud_ascent_capture")
+		End If
+		channel.tick(16)
+		game.QueueRedraw()
+	ElseIf frame = 42 Then
+		check(channel.orbit_ready, "rendered_ending_reaches_orbit")
+		check(channel.motion_material.get_shader_parameter("strength") = 0, "atmospheric_slipstream_fades_out_in_orbit")
+		check(Not channel.route_node.visible, "distant_course_hidden_in_orbit")
+		game._Process(0)
+		check(game.phase = 19, "normal_game_loop_keeps_orbit_visible")
+		Print "CHANNEL_SKY ascent=" & Str(channel.sky_material.get_shader_parameter("ascent")) & " bg=" & Str(channel.atmosphere.background_mode) & " fog=" & Str(channel.atmosphere.fog_density) & " camera_env=" & Str(view.camera.environment = channel.atmosphere)
+		game.QueueRedraw()
+	ElseIf frame = 44 Then
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If DisplayServer.get_name() <> "headless" Then
+			image = view.viewport.get_texture().get_image()
+			Dim x As Integer
+			Dim y As Integer
+			Dim pixel As Color
+			Dim planet_pixels As Integer
+			Dim star_pixels As Integer
+			For y = 40 To 480 Step 3
+				For x = 40 To 920 Step 3
+					pixel = image.get_pixel(x, y)
+					If y > 320 And pixel.b > 0.04 And pixel.b > pixel.r * 1.3 Then planet_pixels = planet_pixels + 1
+					If y < 180 And pixel.r > 0.2 And pixel.g > 0.2 Then star_pixels = star_pixels + 1
+				Next
+			Next
+			Print "CHANNEL_ORBIT planet_pixels=" & Str(planet_pixels) & " stars=" & Str(star_pixels)
+			check(planet_pixels > 100, "orbital_view_has_visible_blue_planet_below")
+			check(star_pixels > 3, "orbital_view_has_visible_stars_above")
+			If capture <> "" Then
+				image = GetViewport().get_texture().get_image()
+				check(image.save_png(capture & "/channel-orbit.png") = 0, "orbit_composite_capture")
+			End If
+		End If
+		Dim key_event As Object
+		key_event = ClassDB.Instantiate("InputEventKey")
+		key_event.keycode = KEY_ENTER
+		key_event.physical_keycode = KEY_ENTER
+		key_event.pressed = True
+		Input.parse_input_event(key_event)
+		Input.flush_buffered_events()
+		game.set_process(True)
+	ElseIf frame = 46 Then
+		game.set_process(False)
+		check(game.dev_on And game.phase = 19 And view.black_channel = channel And channel.orbit_ready, "enter_opens_dev_menu_without_discarding_orbit")
+		Dim release_event As Object
+		release_event = ClassDB.Instantiate("InputEventKey")
+		release_event.keycode = KEY_ENTER
+		release_event.physical_keycode = KEY_ENTER
+		release_event.pressed = False
+		Input.parse_input_event(release_event)
+		view.stop_black_channel()
+		game.queue_free()
+	ElseIf frame = 47 Then
+		check(inspections = 9, "all_view_inspections_completed")
+		Print "BLACK_CHANNEL_VIEW=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

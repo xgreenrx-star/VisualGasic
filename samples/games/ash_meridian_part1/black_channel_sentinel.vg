@@ -1,0 +1,105 @@
+Option Explicit
+
+Dim host As Object
+Dim channel As Object
+Dim state As String
+Dim track_t As Single
+Dim charge_t As Single
+Dim commit_t As Single
+Dim committed As Vector3
+Dim yaw_node As Object
+Dim pitch_node As Object
+
+Sub bind(ByVal body As Object, ByVal encounter As Object)
+	host = body
+	channel = encounter
+	state = "idle"
+	track_t = 0.0
+	charge_t = 0.0
+	commit_t = 0.0
+	yaw_node = host.GetNode("Yaw")
+	pitch_node = host.GetNode("Yaw/Pitch")
+End Sub
+
+Function HasLine(ByVal from_pos As Vector3, ByVal to_pos As Vector3) As Boolean
+	Dim space As Object
+	Dim query As Object
+	Dim hits As Dictionary
+	space = host.get_world_3d().direct_space_state
+	query = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+	query.collision_mask = 9
+	query.set("from", from_pos)
+	query.set("to", to_pos)
+	hits = space.intersect_ray(query)
+	HasLine = hits.size() = 0
+End Function
+
+Sub AimToward(ByVal point As Vector3, ByVal delta As Single)
+	Dim local_point As Vector3
+	Dim yaw_angle As Single
+	Dim pitch_angle As Single
+	local_point = host.to_local(point)
+	yaw_angle = Atan2(0.0 - local_point.x, 0.0 - local_point.z)
+	If yaw_angle > 0.9 Then yaw_angle = 0.9
+	If yaw_angle < -0.9 Then yaw_angle = -0.9
+	yaw_node.rotation = Vector3(0.0, yaw_node.rotation.y + (yaw_angle - yaw_node.rotation.y) * ClampF(delta * 3.0, 0.0, 1.0), 0.0)
+	local_point = yaw_node.to_local(point)
+	pitch_angle = Atan2(local_point.y, Abs(local_point.z) + 0.01)
+	If pitch_angle > 0.35 Then pitch_angle = 0.35
+	If pitch_angle < -0.45 Then pitch_angle = -0.45
+	pitch_node.rotation = Vector3(pitch_node.rotation.x + (0.0 - pitch_angle - pitch_node.rotation.x) * ClampF(delta * 3.0, 0.0, 1.0), 0.0, 0.0)
+End Sub
+
+Sub tick(ByVal delta As Single)
+	Dim target As Vector3
+	Dim muzzle As Object
+	If host = Nothing Or channel = Nothing Then Exit Sub
+	If Not channel.running Then Exit Sub
+	target = channel.hull_node.global_position
+	muzzle = host.GetNode("Yaw/Pitch/MuzzleLeft")
+	If state = "idle" Then
+		If host.global_position.distance_to(target) < 520.0 Then
+			state = "tracking"
+			track_t = 0.8
+			channel.warning = "Sentinel sweep."
+			channel.warning_t = 0.9
+		End If
+	ElseIf state = "tracking" Then
+		Call AimToward(target, delta)
+		track_t = track_t - delta
+		If track_t <= 0.0 Then
+			If HasLine(muzzle.global_position, target) Then
+				state = "charging"
+				charge_t = 1.15
+			Else
+				state = "idle"
+			End If
+		End If
+	ElseIf state = "charging" Then
+		Call AimToward(target, delta)
+		charge_t = charge_t - delta
+		channel.warning = "Sentinel committed."
+		channel.warning_t = 0.4
+		If charge_t <= 0.0 Then
+			committed = target + channel.tangent * channel.speed * 0.9
+			state = "committed"
+			commit_t = 1.14
+			If HasLine(muzzle.global_position, committed) Then channel.FireLaser(muzzle.global_position, committed, 0.9, muzzle)
+		End If
+	ElseIf state = "committed" Then
+		commit_t = commit_t - delta
+		If commit_t <= 0.0 Then
+			state = "cooldown"
+			track_t = 2.8
+		End If
+	ElseIf state = "cooldown" Then
+		track_t = track_t - delta
+		If track_t <= 0 Then state = "idle"
+	End If
+End Sub
+
+Function ClampF(ByVal value As Single, ByVal lo As Single, ByVal hi As Single) As Single
+	If value < lo Then value = lo
+	If value > hi Then value = hi
+	ClampF = value
+End Function

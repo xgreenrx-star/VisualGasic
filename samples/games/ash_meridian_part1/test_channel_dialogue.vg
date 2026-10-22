@@ -1,0 +1,119 @@
+' MAX_FRAMES: 9000
+Option Explicit
+
+Dim game As Object
+Dim channel As Object
+Dim speech As Object
+Dim started As Integer
+Dim previous As String
+Dim heard As Dictionary
+Dim checks As Integer
+Dim failures As Integer
+Dim live As Boolean
+Dim previous_caption As String
+Dim interrupted As Boolean
+Dim rob_plays As Integer
+Dim last_spoken As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim rows As Array
+	Dim row As Dictionary
+	Dim i As Integer
+	Dim complete As Boolean
+	Dim clip As Object
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_orac_voice = True
+	game.dev_i = 15
+	game.WarpDev()
+	channel = game.GetNode("Presentation").black_channel
+	speech = channel.speech
+	speech.stop()
+	live = OS.get_environment("ASH_SPEECH_LIVE") = "1"
+	check(speech.recordings.size() = 24, "all_channel_crew_hazard_and_orbit_recordings_loaded")
+	rows = channel.dialogue
+	complete = True
+	For i = 0 To rows.size() - 1
+		row = rows(i)
+		clip = speech.recordings.get(speech.RecordingKey(Str(row("speaker")), Str(row("text"))), Nothing)
+		If clip = Nothing Then
+			complete = False
+		ElseIf clip.get_length() < 0.5 Then
+			complete = False
+		End If
+	Next
+	check(complete, "every_authored_crew_line_has_matching_decodable_recording")
+	If live Then
+		speech.backend = "recorded"
+		speech.command = ""
+	Else
+		speech.capture_only = True
+		speech.configure(True)
+	End If
+	channel.line_queue = Array()
+	channel.line_t = 0
+	channel.line_waiting_voice = False
+	channel.QueueEventLines("entry")
+	heard = New Dictionary
+	started = Time.get_ticks_msec()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim rows As Array
+	Dim row As Dictionary
+	Dim elapsed As Single
+	Dim i As Integer
+	Dim rows_pending As Array
+	Dim first As Dictionary
+	elapsed = (Time.get_ticks_msec() - started) / 1000.0
+	speech.tick(False)
+	If channel.line_text <> previous_caption Then
+		previous_caption = channel.line_text
+		Print "CHANNEL_CAPTION t=" & Str(elapsed) & " text=" & previous_caption & " pending=" & Str(speech.pending.size()) & " worker=" & Str(speech.worker)
+	End If
+	If speech.spoken_count <> last_spoken And (speech.player.playing Or Not live) Then
+		last_spoken = speech.spoken_count
+		previous = speech.playing_text
+		heard(previous) = True
+		Print "CHANNEL_AUDIO t=" & Str(elapsed) & " speaker=" & speech.playing_speaker & " text=" & previous
+		check(speech.worker = 0 And speech.job_stem = "", "channel_line_plays_without_runtime_synthesis")
+		If live Then check(channel.Caption() = UCase(speech.playing_speaker) & ": " & previous, "channel_caption_matches_actual_audio")
+		If InStr(previous, "It has recognized") > 0 Then rob_plays = rob_plays + 1
+		If speech.playing_speaker = "Rob" And Not interrupted Then
+			channel.QueueEventLines("bridge_warning")
+			rows_pending = channel.line_queue
+			first = rows_pending(0)
+			check(first("safety") And rows_pending.size() = 2, "urgent_warning_precedes_deferred_rob_reply")
+			channel.TickDialogue(0)
+			check(InStr(channel.line_text, "Service bridge") > 0, "safety_warning_interrupts_crew_without_waiting")
+			interrupted = True
+		End If
+	End If
+	channel.TickDialogue(delta)
+	If elapsed > 45 Or speech.last_error <> "" Or (elapsed > 1 And channel.line_queue.size() = 0 And channel.line_t <= 0 And Not speech.busy()) Then
+		rows = channel.dialogue
+		check(rows.size() >= 3, "entry_has_three_authored_lines")
+		For i = 0 To 2
+			row = rows(i)
+			check(heard.has(Str(row("text"))), "entry_audio_heard_" & Str(row("speaker")))
+		Next
+		check(rob_plays = 2, "rob_reply_resumes_after_urgent_warning_instead_of_being_lost")
+		check(heard.has("Service bridge ahead. Pass below it. Your hull will fit."), "subsequent_safety_dialogue_is_audible")
+		Print "CHANNEL_END elapsed=" & Str(elapsed) & " line=" & channel.line_text & " busy=" & Str(speech.busy()) & " job=" & speech.job_stem
+		check(speech.last_error = "", "entry_playback_has_no_speech_errors")
+		game.queue_free()
+		Print "CHANNEL_DIALOGUE=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

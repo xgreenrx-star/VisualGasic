@@ -1,0 +1,209 @@
+' MAX_FRAMES: 60
+Option Explicit
+
+Dim game As Object
+Dim channel As Object
+Dim view As Object
+Dim frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim wall As Object
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	view = game.GetNode("Presentation")
+	game.dev_i = 15
+	game.WarpDev()
+	channel = view.black_channel
+	channel.speech.configure(False)
+End Sub
+
+Sub capture(ByVal name As String)
+	Dim path As String
+	Dim image As Object
+	path = OS.get_environment("ASH_CHANNEL_CAPTURE")
+	If path <> "" And DisplayServer.get_name() <> "headless" Then
+		image = GetViewport().get_texture().get_image()
+		check(image.save_png(path & "/" & name & ".png") = 0, name & "_capture")
+	End If
+End Sub
+
+Sub advance_turret(ByVal brain As Object)
+	Dim i As Integer
+	For i = 1 To 40
+		brain.tick(0.1)
+		If channel.shots.size() > 0 Then Exit Sub
+	Next
+	Print "CHANNEL_TURRET_NOT_FIRED state=" & brain.state & " track=" & Str(brain.track_t) & " charge=" & Str(brain.charge_t)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim shots As Array
+	Dim beam As Dictionary
+	Dim body_shape As Object
+	Dim shape As Object
+	Dim endpoint As Vector3
+	Dim brains As Array
+	Dim brain As Object
+	Dim source As Object
+	Dim aim As Vector3
+	frame = frame + 1
+	If frame = 4 Then
+		channel.ClearEnemies()
+		channel.ClearShots()
+		channel.hull_node.global_position = Vector3(0, 1000, 0)
+		channel.FireLaser(Vector3(-30, 1000, -30), Vector3(0, 1000, 0), 0.8)
+		shots = channel.shots
+		beam = shots(0)
+		check(Not beam("fired") And beam("charge") = 0.8, "laser_has_explicit_telegraph_phase")
+		check(beam.node.mesh.is_class("BoxMesh"), "laser_is_continuous_beam_not_projectile_sphere")
+		channel.TickShots(0.4)
+		check(channel.hull = 100, "amber_telegraph_is_harmless")
+		channel.hull_node.global_position = Vector3(0, 1000, 22)
+		channel.TickShots(0.4)
+		check(channel.hull = 100, "moving_off_committed_line_dodges_laser")
+		check(beam("fired") And beam.node.material_override.get_shader_parameter("active"), "committed_laser_enters_visible_active_phase")
+		channel.TickShots(0.25)
+		check(channel.shots.size() = 0, "laser_burst_expires_and_releases_mesh")
+		channel.hull_node.global_position = Vector3(0, 1000, 0)
+		channel.FireLaser(Vector3(0, 1000, -30), Vector3(0, 1000, 0), 0.8)
+		channel.TickShots(0.8)
+		check(channel.hull = 78, "standing_in_fired_beam_causes_damage")
+		channel.TickShots(0.1)
+		check(channel.hull = 78, "one_burst_does_not_apply_damage_every_frame")
+		channel.ClearShots()
+		channel.hull = 100
+		channel.hurt_t = 0
+		source = ClassDB.Instantiate("Node3D")
+		channel.add_child(source)
+		source.global_position = Vector3(0, 1000, -30)
+		channel.FireLaser(source.global_position, Vector3(0, 1000, 0), 0.8, source)
+		source.global_position = Vector3(10, 1000, -30)
+		channel.TickShots(0.1)
+		shots = channel.shots
+		beam = shots(0)
+		check(beam("from").distance_to(source.global_position) < 0.01, "laser_source_follows_moving_enemy_muzzle")
+		channel.ClearShots()
+		source.free()
+		wall = ClassDB.Instantiate("StaticBody3D")
+		wall.collision_layer = 1
+		wall.collision_mask = 0
+		shape = ClassDB.Instantiate("BoxShape3D")
+		shape.size = Vector3(20, 20, 4)
+		body_shape = ClassDB.Instantiate("CollisionShape3D")
+		body_shape.shape = shape
+		wall.add_child(body_shape)
+		channel.add_child(wall)
+		wall.global_position = Vector3(0, 1000, -15)
+	ElseIf frame = 8 Then
+		endpoint = channel.LaserEnd(Vector3(0, 1000, -30), Vector3(0, 1000, 40))
+		check(endpoint.z < -16, "beam_endpoint_clips_to_cover")
+		channel.FireLaser(Vector3(0, 1000, -30), Vector3(0, 1000, 0), 0)
+		channel.TickShots(0.05)
+		check(channel.hull = 100, "solid_cover_blocks_laser_damage")
+		channel.ClearShots()
+		wall.free()
+		channel.SpawnSentinels()
+		check(channel.enemies.size() = 4, "four_wall_turrets_include_two_new_late_positions")
+		brains = channel.enemies
+		brain = brains(2)
+		brain.host.global_position = Vector3(30, 1000, -100)
+		channel.speed = 0
+		brain.tick(0.1)
+		check(brain.state = "tracking", "late_wall_turret_acquires_nearby_hull")
+		brain.tick(0.8)
+		check(brain.state = "charging", "wall_turret_checks_line_of_sight_before_charging")
+		brain.tick(1.15)
+		check(brain.state = "committed" And channel.shots.size() = 1, "wall_turret_controller_creates_laser")
+		shots = channel.shots
+		beam = shots(0)
+		aim = beam("target")
+		check(beam("charge") > 0.89 And channel.hull = 100, "wall_turret_exposes_harmless_point_nine_second_warning")
+		channel.hull_node.global_position = Vector3(20, 1000, 0)
+		brain.tick(0.2)
+		check(beam("target").distance_to(aim) < 0.01, "wall_turret_committed_aim_does_not_home")
+		brain.tick(1)
+		check(brain.state = "cooldown", "wall_turret_recovers_between_bursts")
+		channel.ClearEnemies()
+		check(channel.shots.size() = 0, "clearing_enemies_also_releases_attached_beams")
+		channel.distance = 1000
+		channel.speed = 180
+		channel.ApplyPose()
+		channel.SpawnNeedles()
+		brains = channel.enemies
+		brain = brains(0)
+		brain.tick(1.3)
+		brain.tick(0.6)
+		check(channel.shots.size() = 1, "mobile_needle_controller_fires_laser_not_projectile")
+		channel.ClearEnemies()
+		channel.distance = 5120
+		channel.lateral = 0
+		channel.height = 0
+		channel.speed = 180
+		channel.ApplyPose()
+		channel.UpdateMotion()
+		endpoint = channel.hull_node.global_position + channel.tangent * 160
+		channel.FireLaser(endpoint + channel.right_axis * 24 + Vector3(0, 6, 0), channel.hull_node.global_position + channel.right_axis * 15, 0.8)
+		game.QueueRedraw()
+	ElseIf frame = 11 Then
+		capture("channel-laser-lock")
+		channel.TickShots(0.8)
+		game.QueueRedraw()
+	ElseIf frame = 13 Then
+		capture("channel-laser-burst")
+		channel.ClearShots()
+		channel.distance = 7280
+		channel.height = 9
+		channel.ApplyPose()
+		game.QueueRedraw()
+	ElseIf frame = 16 Then
+		capture("channel-fractured-bridge")
+		channel.distance = 5920
+		channel.height = 0
+		channel.ApplyPose()
+		game.QueueRedraw()
+	ElseIf frame = 19 Then
+		capture("channel-wreckage-machinery")
+		channel.distance = 6820
+		channel.ApplyPose()
+		game.QueueRedraw()
+	ElseIf frame = 22 Then
+		capture("channel-wreckage-plates")
+		channel.distance = 9300
+		channel.ApplyPose()
+		channel.SpawnSentinels()
+		brains = channel.enemies
+		brain = brains(2)
+		advance_turret(brain)
+		Print "CHANNEL_TURRET_2 state=" & brain.state & " beams=" & Str(channel.shots.size())
+		check(brain.state = "committed" And channel.shots.size() = 1, "first_added_turret_engages_from_actual_canyon_mount")
+		game.QueueRedraw()
+	ElseIf frame = 25 Then
+		capture("channel-wall-turret")
+		channel.ClearEnemies()
+		channel.distance = 11000
+		channel.ApplyPose()
+		channel.SpawnSentinels()
+		brains = channel.enemies
+		brain = brains(3)
+		advance_turret(brain)
+		Print "CHANNEL_TURRET_3 state=" & brain.state & " beams=" & Str(channel.shots.size())
+		check(brain.state = "committed" And channel.shots.size() = 1, "second_added_turret_engages_from_actual_canyon_mount")
+		view.stop_black_channel()
+		game.queue_free()
+		Print "BLACK_CHANNEL_LASERS=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

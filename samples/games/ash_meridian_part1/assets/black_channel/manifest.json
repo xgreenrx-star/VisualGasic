@@ -1,0 +1,630 @@
+{
+  "version": 1,
+  "ownership": "Assistant-authored art. Cursor must not regenerate or replace models.",
+  "models": [
+    {
+      "id": "canyon_straight",
+      "model": "res://assets/black_channel/models/canyon_straight.glb",
+      "triangles": 964,
+      "min": [
+        -68,
+        -18,
+        -48
+      ],
+      "max": [
+        68,
+        68,
+        48
+      ],
+      "sha256": "cbd66159c85211610c7a8086125c497265dcca462b7d1325aa6f3ac863505d55"
+    },
+    {
+      "id": "open_causeway",
+      "model": "res://assets/black_channel/models/open_causeway.glb",
+      "triangles": 432,
+      "min": [
+        -52,
+        -18,
+        -48.06261
+      ],
+      "max": [
+        52,
+        -5.8,
+        48
+      ],
+      "sha256": "5ecb16b3f854a4b0c3ba106f5a631787b78e9b16b77317d04793f78adcaa990a"
+    },
+    {
+      "id": "lattice_arch",
+      "model": "res://assets/black_channel/models/lattice_arch.glb",
+      "triangles": 528,
+      "min": [
+        -61.5,
+        -21.5,
+        -25.5
+      ],
+      "max": [
+        61.5,
+        65.5,
+        1.5
+      ],
+      "sha256": "832a8dd61c0e4222ae958643e4d8e95693a714d33a9f93f38e595479b6fb4bdd"
+    },
+    {
+      "id": "industrial_spire",
+      "model": "res://assets/black_channel/models/industrial_spire.glb",
+      "triangles": 284,
+      "min": [
+        -23.14989,
+        -65.00571,
+        -21
+      ],
+      "max": [
+        23.14989,
+        148.06317,
+        22.15
+      ],
+      "sha256": "c7141a9fabc55b00b542e1ddfdf66418399dd0047128c336c2a9703eece9558f"
+    },
+    {
+      "id": "ash_flight",
+      "model": "res://assets/black_channel/models/ash_flight.glb",
+      "triangles": 232,
+      "min": [
+        -4.85,
+        -0.9,
+        -5.5
+      ],
+      "max": [
+        4.85,
+        1.57,
+        5.01516
+      ],
+      "sha256": "b0b63a56a97612a50e64591a24e66446dc3048140e7b9f0b1ebd789e87359b05"
+    },
+    {
+      "id": "service_bridge",
+      "model": "res://assets/black_channel/models/service_bridge.glb",
+      "triangles": 300,
+      "min": [
+        -55,
+        -32,
+        -4.85
+      ],
+      "max": [
+        55,
+        2.79,
+        4.85
+      ],
+      "sha256": "fb33ca97eb68d7ed2426b58ee0612d06a96d8fa54b90ecf60fe775c2fb71791f"
+    },
+    {
+      "id": "covered_roof",
+      "model": "res://assets/black_channel/models/covered_roof.glb",
+      "triangles": 132,
+      "min": [
+        -52,
+        -3.375,
+        -48
+      ],
+      "max": [
+        52,
+        2,
+        48
+      ],
+      "sha256": "dbaacf284c76ac8f28f5dd82018ccc975059fdf2d3153c37023c2f6905b41646"
+    },
+    {
+      "id": "gate_frame",
+      "model": "res://assets/black_channel/models/gate_frame.glb",
+      "triangles": 192,
+      "min": [
+        -36,
+        -16,
+        -6.225
+      ],
+      "max": [
+        36,
+        49,
+        6.25
+      ],
+      "sha256": "09f6b7a04cc1dfabce4eb9b2217d32458b171d50c9a35a106639d9c54d94063e"
+    },
+    {
+      "id": "gate_leaf",
+      "model": "res://assets/black_channel/models/gate_leaf.glb",
+      "triangles": 204,
+      "min": [
+        -13,
+        -28,
+        -1.5
+      ],
+      "max": [
+        13,
+        28,
+        2
+      ],
+      "sha256": "85267f24289844114da90a144904b60971162b54bba5bada0a65c22ded719ebc"
+    },
+    {
+      "id": "needle_drone",
+      "model": "res://assets/black_channel/models/needle_drone.glb",
+      "triangles": 232,
+      "min": [
+        -5.04476,
+        -0.65,
+        -6
+      ],
+      "max": [
+        5.04476,
+        1.225,
+        3.35
+      ],
+      "sha256": "9ed4cf9b675252a05f0d3a0ba7a9d80648ef9d8db26d7a470e7be86e0fcb5989"
+    },
+    {
+      "id": "sentinel_base",
+      "model": "res://assets/black_channel/models/sentinel_base.glb",
+      "triangles": 48,
+      "min": [
+        -4,
+        0,
+        -3.5
+      ],
+      "max": [
+        4,
+        2.8,
+        3.5
+      ],
+      "sha256": "0c9c6aefc46c7641b25a6ffb7b1946f13d5a224525b0ff2e9d818460bc575254"
+    },
+    {
+      "id": "sentinel_head",
+      "model": "res://assets/black_channel/models/sentinel_head.glb",
+      "triangles": 104,
+      "min": [
+        -2.8,
+        -1.2,
+        -6.7
+      ],
+      "max": [
+        2.8,
+        1.2,
+        2
+      ],
+      "sha256": "06384a6996ba051f3909b171f944798f034593700f03ed63a34772b6288adeeb"
+    },
+    {
+      "id": "relay_pylon",
+      "model": "res://assets/black_channel/models/relay_pylon.glb",
+      "triangles": 144,
+      "min": [
+        -5.32769,
+        0,
+        -4
+      ],
+      "max": [
+        5.32769,
+        37.10401,
+        4
+      ],
+      "sha256": "3edc72541f1dae0d112e5dcde00f8203b0be71b783fc3f4dca15ff247a256405"
+    },
+    {
+      "id": "broken_baffle",
+      "model": "res://assets/black_channel/models/broken_baffle.glb",
+      "triangles": 480,
+      "min": [
+        -20.79998,
+        -31.0991,
+        -4
+      ],
+      "max": [
+        20.79997,
+        31.0991,
+        4.7
+      ],
+      "sha256": "f6efcee32727fd2387baba0baae746b3052c113921b52074d7b5f73bd05361cd"
+    },
+    {
+      "id": "broken_baffle_1",
+      "model": "res://assets/black_channel/models/broken_baffle_1.glb",
+      "triangles": 672,
+      "min": [
+        -20.79998,
+        -31.07071,
+        -4
+      ],
+      "max": [
+        20.79998,
+        31.09687,
+        7.15
+      ],
+      "sha256": "80e0d567de65a0b84cbdaeb12c05895a82ddeb16d7c9274496b445b1c240bee4"
+    },
+    {
+      "id": "broken_baffle_2",
+      "model": "res://assets/black_channel/models/broken_baffle_2.glb",
+      "triangles": 344,
+      "min": [
+        -20.79996,
+        -27.59976,
+        -4
+      ],
+      "max": [
+        20.79998,
+        31.09976,
+        5.6
+      ],
+      "sha256": "11e2b56ba134771471ee21a50d0fb774f010f969a1f18b98f5abd429162751eb"
+    },
+    {
+      "id": "altitude_shutter",
+      "model": "res://assets/black_channel/models/altitude_shutter.glb",
+      "triangles": 632,
+      "min": [
+        -40.79983,
+        -10.09983,
+        -4
+      ],
+      "max": [
+        40.79983,
+        10.09983,
+        4.7
+      ],
+      "sha256": "a1315e4eac0cee63267fa23ee8f66a226c6784d50d6ed4509088faa66ffddeee"
+    },
+    {
+      "id": "altitude_shutter_1",
+      "model": "res://assets/black_channel/models/altitude_shutter_1.glb",
+      "triangles": 824,
+      "min": [
+        -40.79975,
+        -10.09963,
+        -4
+      ],
+      "max": [
+        40.79969,
+        10.0997,
+        7.15
+      ],
+      "sha256": "a948a0b98ac7f24930091d8345e971bd04bbdffbdec2daae5b8fdf2c2fff7c67"
+    },
+    {
+      "id": "altitude_shutter_2",
+      "model": "res://assets/black_channel/models/altitude_shutter_2.glb",
+      "triangles": 504,
+      "min": [
+        -40.79959,
+        -10.09991,
+        -4
+      ],
+      "max": [
+        40.79977,
+        10.09991,
+        5.6
+      ],
+      "sha256": "041360bf02099d86c58a4bd180318964ed3d6f155dc6dce1da3f7d8a0b772e42"
+    },
+    {
+      "id": "power_arc",
+      "model": "res://assets/black_channel/models/power_arc.glb",
+      "triangles": 120,
+      "min": [
+        -21.5,
+        -11,
+        -2
+      ],
+      "max": [
+        21.5,
+        5.08981,
+        2.14244
+      ],
+      "sha256": "e39961410705861ca1ce4f56e325b3664c64d86a250e8ccd17a9b5a116ea062f"
+    },
+    {
+      "id": "route_batch_0",
+      "model": "res://assets/black_channel/models/route_batch_0.glb",
+      "triangles": 10156,
+      "min": [
+        -233.8926,
+        -133.66292,
+        -744.61367
+      ],
+      "max": [
+        281.29329,
+        172.27511,
+        7.30983
+      ],
+      "sha256": "bc85ff9d1d2c3022321c05d11b6e4d75b891c9c36b62757a8e566e96d62b7eb5"
+    },
+    {
+      "id": "route_batch_1",
+      "model": "res://assets/black_channel/models/route_batch_1.glb",
+      "triangles": 11292,
+      "min": [
+        -108.5488,
+        -112.79771,
+        -1367.97073
+      ],
+      "max": [
+        471.22472,
+        140.75425,
+        -672.88512
+      ],
+      "sha256": "e2c5649f9a39355638e04ccb419284ac55d35ce100777ec8f631cc2314e701c9"
+    },
+    {
+      "id": "route_batch_2",
+      "model": "res://assets/black_channel/models/route_batch_2.glb",
+      "triangles": 14820,
+      "min": [
+        -182.92757,
+        -116.28696,
+        -2157.23911
+      ],
+      "max": [
+        536.70365,
+        191.40776,
+        -1353.08718
+      ],
+      "sha256": "f98c14025aa151474402e36d9a90ed18f838c9cebbd962762ca54f2d711565cb"
+    },
+    {
+      "id": "route_batch_3",
+      "model": "res://assets/black_channel/models/route_batch_3.glb",
+      "triangles": 8016,
+      "min": [
+        -453.9096,
+        -142.81292,
+        -2654.96017
+      ],
+      "max": [
+        57.99667,
+        149.09144,
+        -1997.92141
+      ],
+      "sha256": "cbee6c437bb1e1c58fdd9beb607a57a3730af1d2e7612592b71f46b17f93c9e3"
+    },
+    {
+      "id": "route_batch_4",
+      "model": "res://assets/black_channel/models/route_batch_4.glb",
+      "triangles": 13080,
+      "min": [
+        -397.22274,
+        -125.0422,
+        -3406.57059
+      ],
+      "max": [
+        227.14565,
+        166.86216,
+        -2640.67345
+      ],
+      "sha256": "e99052de8c02bb9bf6e7bf56ff782f5b9823e3abb8afe3c238beaf45acabb328"
+    },
+    {
+      "id": "route_batch_5",
+      "model": "res://assets/black_channel/models/route_batch_5.glb",
+      "triangles": 12860,
+      "min": [
+        -40.22676,
+        -133.17125,
+        -3935.23618
+      ],
+      "max": [
+        518.8549,
+        121.95005,
+        -3222.35092
+      ],
+      "sha256": "bbcb1a867fdfdf1560c7c96a83b360177efdd3b72fc86674449fb96f75bbe29e"
+    },
+    {
+      "id": "route_batch_6",
+      "model": "res://assets/black_channel/models/route_batch_6.glb",
+      "triangles": 10224,
+      "min": [
+        -8.9743,
+        -120.30474,
+        -4571.60999
+      ],
+      "max": [
+        545.23203,
+        171.59962,
+        -3918.19182
+      ],
+      "sha256": "679edc58f3373ec3dba5e40171507fc53a95d6bbd641148e953108e032220996"
+    },
+    {
+      "id": "route_batch_7",
+      "model": "res://assets/black_channel/models/route_batch_7.glb",
+      "triangles": 9544,
+      "min": [
+        -249.33591,
+        -111.56969,
+        -5243.55396
+      ],
+      "max": [
+        296.31868,
+        200.26255,
+        -4531.57976
+      ],
+      "sha256": "b76deea1ceefb3156257fcf8578aa5ffd93f4005f61781f2fc81dff6e5e176e6"
+    },
+    {
+      "id": "route_batch_8",
+      "model": "res://assets/black_channel/models/route_batch_8.glb",
+      "triangles": 8892,
+      "min": [
+        -216.02605,
+        -83.44459,
+        -5941.1048
+      ],
+      "max": [
+        243.19315,
+        170.10738,
+        -5228.95867
+      ],
+      "sha256": "6153d127e870aeaeaf051589c470d816258157f527f2fae0324dbecd8bdeb462"
+    },
+    {
+      "id": "route_batch_9",
+      "model": "res://assets/black_channel/models/route_batch_9.glb",
+      "triangles": 11516,
+      "min": [
+        -70.16524,
+        -124.24438,
+        -6606.40658
+      ],
+      "max": [
+        671.76563,
+        167.65998,
+        -5814.1062
+      ],
+      "sha256": "b208155d1a51941ffa583202e53258ad7552d0e356d1e9e4edcc5064b99bf2ed"
+    },
+    {
+      "id": "route_batch_10",
+      "model": "res://assets/black_channel/models/route_batch_10.glb",
+      "triangles": 13016,
+      "min": [
+        237.48815,
+        -121.27936,
+        -7234.49177
+      ],
+      "max": [
+        740.09758,
+        170.625,
+        -6503.45552
+      ],
+      "sha256": "acdd5b31f00b7a559b9e1a9acb58644fc299a9eaaf103bb3e96421374672b85f"
+    },
+    {
+      "id": "route_batch_11",
+      "model": "res://assets/black_channel/models/route_batch_11.glb",
+      "triangles": 12360,
+      "min": [
+        -246.50238,
+        -105.90338,
+        -7850.93128
+      ],
+      "max": [
+        482.38135,
+        205.85405,
+        -7129.20485
+      ],
+      "sha256": "84661303aab9f4f61110172e9b09f18a334cda6d08f2f91f17c338e734fc3f2c"
+    },
+    {
+      "id": "route_batch_12",
+      "model": "res://assets/black_channel/models/route_batch_12.glb",
+      "triangles": 8160,
+      "min": [
+        -594.91422,
+        -102.03335,
+        -8316.04032
+      ],
+      "max": [
+        13.97193,
+        163.03215,
+        -7691.3727
+      ],
+      "sha256": "e39bd0db8a92d8729e3ab16f58479a804d6d3de36689728d952dde2ad66d3d87"
+    },
+    {
+      "id": "route_batch_13",
+      "model": "res://assets/black_channel/models/route_batch_13.glb",
+      "triangles": 10420,
+      "min": [
+        -715.95731,
+        -115.24002,
+        -9031.61857
+      ],
+      "max": [
+        -202.34965,
+        191.70279,
+        -8261.3587
+      ],
+      "sha256": "4baaae1b9d0e20b6f98e3eb83c51ad8ba87c80c9ec2c27518818f0815ec256cb"
+    },
+    {
+      "id": "route_batch_14",
+      "model": "res://assets/black_channel/models/route_batch_14.glb",
+      "triangles": 11372,
+      "min": [
+        -446.33713,
+        -130.49509,
+        -9604.5538
+      ],
+      "max": [
+        319.89593,
+        161.40927,
+        -8877.2747
+      ],
+      "sha256": "d60ce6bc8a0e78c4efbe2079124513a271d3dd862adb5973b6dbcb912f1e3cc3"
+    },
+    {
+      "id": "route_batch_15",
+      "model": "res://assets/black_channel/models/route_batch_15.glb",
+      "triangles": 13160,
+      "min": [
+        100.49163,
+        -74.38224,
+        -10166.497
+      ],
+      "max": [
+        583.1798,
+        186.27767,
+        -9460.97435
+      ],
+      "sha256": "a7b7334e5168bc37d4df16daca7f1b2f4e01bc63a2d3a4b61c969be4dc6788a8"
+    },
+    {
+      "id": "route_batch_16",
+      "model": "res://assets/black_channel/models/route_batch_16.glb",
+      "triangles": 9688,
+      "min": [
+        -30.51626,
+        -93.07757,
+        -10841.72237
+      ],
+      "max": [
+        663.55064,
+        198.82679,
+        -10122.94025
+      ],
+      "sha256": "eeb799d00a2433f78301437ad5f26111c7dba1ad1f958bfdbc9bb1bd8b522bc0"
+    },
+    {
+      "id": "route_batch_17",
+      "model": "res://assets/black_channel/models/route_batch_17.glb",
+      "triangles": 8316,
+      "min": [
+        -194.38541,
+        -56.77957,
+        -11451.58104
+      ],
+      "max": [
+        300.39085,
+        235.12479,
+        -10747.58253
+      ],
+      "sha256": "c43869d01c94eba2965f2250fb4e9e1fbd9fc1dded37b8f48ead6dd6e0affef4"
+    },
+    {
+      "id": "route_batch_18",
+      "model": "res://assets/black_channel/models/route_batch_18.glb",
+      "triangles": 6720,
+      "min": [
+        -236.175,
+        -16.56599,
+        -11906.99881
+      ],
+      "max": [
+        217.79366,
+        236.98598,
+        -11440.43468
+      ],
+      "sha256": "9e53094ac9956961b3fd546b483906584aecc5456d39d639ffce6da126131f91"
+    }
+  ]
+}

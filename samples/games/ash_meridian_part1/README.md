@@ -59,6 +59,135 @@ station trading, the matched-component return contract and the return-only
 EMP/FEB encounter remain planned. Stacy remains Jason's partner.
 See the current [campaign revision](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md).
 
+### Opening dialogue and control handoff
+
+The opening uses seven shorter Orac/Jason exchanges, including the orange-gate
+briefing and Jason's acknowledgment. Subtitles follow the line actually playing,
+not a separate scene timer or the next synthesis job. The ship stays stationary
+until the final control-handoff line finishes. Space/Enter/click can skip the
+initial story exchange, but not the gate briefing. Pausing freezes the sequence;
+with speech disabled or unavailable, each caption gets a text-length reading
+interval before advancing.
+
+The fixed opening uses the locally generated original WAV recordings in
+`assets/opening_voice`, so it does not require an installed TTS engine or wait for
+voice generation between replies. Dynamic gameplay dialogue still uses the
+shared live-speech queue. The manifest is checked against the script's exact
+speaker/text pairs; missing or stale assets produce an `INTRO_VOICE_ERROR` log
+and an on-screen warning, with live speech/subtitles as fallback.
+
+The recordings were generated locally using Kokoro `kokoro-en-v0_19`, with
+`bm_george` for Orac and `am_adam` for Jason. The installed model distribution
+carries the Apache-2.0 license and references
+[hexgrad/Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
+Only generated dialogue audio is included here, not model weights or a runtime.
+The dialogue is original; no audio from the reference video is used.
+
+After editing `ResetIntro` in [part1.vg](part1.vg), regenerate the matching
+recordings with the developer-only [baking tool](tools/bake_opening_voice.vg).
+This requires the existing local Kokoro tools:
+
+```bash
+ASH_SPEECH_LIVE=1 "$GODOT" --headless --max-fps 60 \
+  --path samples/games/ash_meridian_part1 \
+  --script "$PWD/test_proj/run_suite.gd" -- res://tools/bake_opening_voice.vg
+"$GODOT" --headless --editor --import --path samples/games/ash_meridian_part1
+```
+
+Run [test_intro_dialogue.vg](test_intro_dialogue.vg) through the VG suite runner
+for deterministic queue, subtitle, pause, mute, fallback and safe-skip checks.
+Set `ASH_SPEECH_LIVE=1` for actual recorded playback through the normal campaign
+game loop, including all seven voices, no synthesis worker, a maximum 1.5-second
+inter-line gap and the final flight handoff. This test deliberately disables
+the TTS backend to verify that the recordings are self-contained. Use
+`ASH_CHANNEL_CAPTURE` with an existing directory to capture the gate caption.
+
+### Landing cockpit performance
+
+The landing/arrival cockpit retains its static canopy, bezels, scope grid,
+scanlines and labels as cached canvas commands. Live instruments, cloud
+reflections, cracks and interference still update. Landing rings share two
+cached meshes instead of rebuilding their ribbon geometry each frame. The
+staged yard is no longer hidden, shown and repositioned every frame.
+
+On the local Intel OpenGL compatibility renderer, the campaign landing profile
+improved from approximately 58 ms frames to 17-18 ms p95 frames. The screenshot's
+intro cockpit and normal moving landing both passed a 33.34 ms p95 smoke budget.
+These are short warmed runs with speech disabled, not a universal 60 FPS
+guarantee or a measurement of voice generation.
+
+Run [test_landing_performance.vg](test_landing_performance.vg) through the existing
+VG suite runner with rendering enabled. Set `ASH_LANDING_PROFILE=intro` to
+profile the campaign intro cockpit or `ASH_LANDING_PROFILE=live` for the normal
+moving game loop. Optional `ASH_LANDING_BUDGET_MS` enforces a machine-specific
+p95 wall-clock frame budget; without it, timings are diagnostic. Set
+`ASH_CHANNEL_CAPTURE` to an existing absolute directory for normal and damaged
+cockpit captures. The test also verifies mesh reuse, ring progression, retained
+art, damage state and ring cleanup on scene exit.
+
+### Black Channel flight encounter
+
+The [Black Channel asset kit](assets/black_channel/README.md) supplies original
+external canyon/security models, an assembled route and static preview scenes.
+It is playable through **BLACK CHANNEL - FLIGHT TEST** in the main developer
+terminal. Campaign integration is still pending: the intended setting is the
+end of the post-alliance Narcean repair-item hunt, not the first escape.
+The route alternates exposed causeways, industrial spires, diagonal gantries
+and enclosed cuts. The visible Ash reuses the opening ship's red/orange flame
+shader at both engines, not solid cyan bars. Camera FOV, perspective slipstream
+lines, passing dust fragments and thin edge mist reinforce motion without
+covering the flight path. Q/E throttle spans **32-240 m/s**
+(864 km/h maximum), starting at 90 m/s. W/S controls lift and A/D banks laterally.
+The extended course is **13.06 km**, with nine alternating wreckage obstacles,
+left/right hazard cues, ten service bridges and a late checkpoint at 6500 m.
+After that checkpoint, six fractured spans alternate climb-over and
+dive-under passages between the lateral wrecks. HUD warnings and the navigation
+cue identify the safe altitude; W/S controls it. The early course, checkpoints
+and enemy damage remain unchanged. Three original variants per wreckage family
+use torn plates, bent girders and per-shard convex collision, not solid boxes.
+Needles now fire amber-telegraphed lasers with short red bursts. Four ledge
+turrets include two new late threats at 9400 and 11100 m; evade the committed
+line or use solid cover. Animated power pulses, additional distant industrial
+flashes, drifting shader fog and electrical arcs outside the flight lane add
+visual activity.
+Flight speech reads every crew line and gives priority to short directional
+hazard warnings. Options **SPEECH** (and **V** in Black Channel) turns all
+dialogue on or off; subtitles stay on. Kokoro keeps the voice model loaded so
+lines start quickly; Orac stays measured while Jason and Rob tighten up in the
+channel. Missing voices are reported visibly and in the log.
+Black Channel's fixed crew exchanges, obstacle calls, hull-loss instruction
+and orbital dialogue use bundled, locally generated recordings with the same
+Kokoro model/voice provenance as the opening. This includes Rob's answer to
+Jason's "And the bad news?" Subtitles wait for actual playback, and urgent
+warnings defer an interrupted crew line rather than dropping it. Flight itself
+does not wait for optional banter.
+
+To re-bake these 24 lines, use the opening bake command above with
+`ASH_BAKE_CHANNEL_VOICES=1`, then import the project. Do not set
+`ASH_BAKE_RESUME=1` when changing dialogue: it is only for resuming an interrupted,
+unchanged bake. The exact speaker/text pair selects each clip; unrecorded
+dynamic text still uses live TTS.
+Run [test_channel_dialogue.vg](test_channel_dialogue.vg) with
+`ASH_SPEECH_LIVE=1` to verify actual Orac/Jason/Rob playback with the TTS backend
+disabled, caption alignment and Rob's reply resuming after a safety warning.
+At zero hull, a central **HULL LOST** panel explains the stop and shows
+**Enter/Space to retry the last checkpoint**.
+At the end, a **24-second automatic ascent** passes through clouds into a
+starfield, revealing Narcea below. The ship holds in local orbit while the
+crew prepares to fit the last recovered repair item in the isolated,
+depressurized exterior drive housing. Repairs finish in space, not on another
+salvage trip; this holding scene is not yet system departure or a playable EVA.
+Enter opens the developer menu over the orbital scene. Static scenery is
+batched and distance-culled; flight sampling and physics queries avoid repeated
+linear scans and shape allocation. Cached, interpolated headings remove the
+old orientation steps at route-sample boundaries. Slipstream animation follows
+travelled distance, freezes on pause and fades away during ascent.
+The [Cursor handoff](../../../docs/development/ASH_MERIDIAN_BLACK_CHANNEL_HANDOFF.md)
+specifies story, integration, ownership and acceptance tests. Cursor implements
+gameplay in VG; model creation and visual revisions remain with the assistant.
+The [unified approval draft](../../../docs/development/ASH_MERIDIAN_APPROVAL_DRAFT.md)
+includes the proposed full campaign and Black Channel story placement.
+
 Run the VG campaign regression (it uses a process-specific test save):
 
 ```bash

@@ -1,0 +1,59 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/altitude_shutter_2.glb" id="model_altitude_shutter_2"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_0"]
+points = PackedVector3Array(-40.7, -5.2, -4, -37.5, -8.4, -4, -14.96667, -7.4, -4, -13.96667, 3.6, -4, -17.16667, 6.8, -4, -39.7, 5.8, -4, -40.7, -5.2, 4, -37.5, -8.4, 4, -14.96667, -7.4, 4, -13.96667, 3.6, 4, -17.16667, 6.8, 4, -39.7, 5.8, 4)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_1"]
+points = PackedVector3Array(-13.36667, -7.2, -3, -11.36667, -9.2, -3, 12.36667, -8.2, -3, 13.36667, 8, -3, 11.36667, 10, -3, -12.36667, 9, -3, -13.36667, -7.2, 3, -11.36667, -9.2, 3, 12.36667, -8.2, 3, 13.36667, 8, 3, 11.36667, 10, 3, -12.36667, 9, 3)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_2"]
+points = PackedVector3Array(13.96667, -7.4, -3.5, 16.56667, -10, -3.5, 39.7, -9, -3.5, 40.7, 5.8, -3.5, 38.1, 8.4, -3.5, 14.96667, 7.4, -3.5, 13.96667, -7.4, 3.5, 16.56667, -10, 3.5, 39.7, -9, 3.5, 40.7, 5.8, 3.5, 38.1, 8.4, 3.5, 14.96667, 7.4, 3.5)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_3"]
+points = PackedVector3Array(-38.80165, -6.6761, 0.30463, -38.83578, -6.6761, 1.70421, -39.19835, -5.3239, 1.69537, -39.16422, -5.3239, 0.29579, 2.19835, 4.3239, 1.30463, 2.16422, 4.3239, 2.70421, 1.80165, 5.6761, 2.69537, 1.83578, 5.6761, 1.29579)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_4"]
+points = PackedVector3Array(1.80978, 4.31662, 1.30949, 1.88743, 4.31662, 2.70733, 2.19022, 5.68338, 2.69051, 2.11257, 5.68338, 1.29267, 37.80978, -3.68338, -0.69051, 37.88743, -3.68338, 0.70733, 38.19022, -2.31662, 0.69051, 38.11257, -2.31662, -0.70733)
+
+[node name="AltitudeShutter" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_altitude_shutter_2")]
+
+
+[node name="Mesh" parent="Visual/altitude_shutter_2" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_4")
+surface_material_override/2 = ExtResource("material_2")
+surface_material_override/3 = ExtResource("material_0")
+
+[node name="Solid" type="StaticBody3D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="Shard0" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_0")
+
+[node name="Shard1" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_1")
+
+[node name="Shard2" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_2")
+
+[node name="Shard3" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_3")
+
+[node name="Shard4" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_4")

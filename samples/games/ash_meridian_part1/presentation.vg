@@ -23,6 +23,8 @@ Dim buggy_view As SubViewport
 Dim ship_instruments As Node2D
 Dim buggy_instruments As Node2D
 Dim stars As Node2D
+Dim star_view As SubViewport
+Dim star_tick As Integer
 Dim clouds As MeshInstance3D
 Dim ship As MeshInstance3D
 Dim city2 As Node3D
@@ -35,10 +37,14 @@ Dim backlight_city As Node3D
 Dim backlight_city_cache As Node3D
 Dim backlight_yard As Node3D
 Dim campaign_yard As Node3D
+Dim black_channel As Node3D
+Dim black_hud_view As SubViewport
 Dim external_view As SubViewport
 Dim external_camera As Camera3D
 Dim deck_view As SubViewport
 Dim deck As Node2D
+Dim landing_rings As Array
+Dim landing_ring_meshes As Dictionary
 
 
 Function Num(ByVal value As Variant) As Single
@@ -205,10 +211,13 @@ Sub EnsureInit()
 	KEYS.append(KEY_Q)
 	KEYS.append(KEY_F10)
 	held = New Dictionary
+	landing_rings = Array()
+	landing_ring_meshes = New Dictionary
 	taps = New Dictionary
 	yard_key = ""
 	building_yard = False
 	rebuild_count = 0
+	star_tick = -1
 	city2_antialiasing = Viewport.MSAA_2X
 	city3_antialiasing = Viewport.MSAA_2X
 End Sub
@@ -217,6 +226,7 @@ Sub _ready()
 	Dim shader As Variant
 	Dim halo As Variant
 	Dim halo_shader As Variant
+	Dim star_canvas As Variant
 	Call EnsureInit()
 	viewport = ClassDB.Instantiate("SubViewport")
 	viewport.size = Vector2i(960, 540)
@@ -251,9 +261,19 @@ Sub _ready()
 	cockpit_view.transparent_bg = True
 	cockpit_view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(cockpit_view)
+	star_view = ClassDB.Instantiate("SubViewport")
+	star_view.size = Vector2i(960, 540)
+	star_view.transparent_bg = True
+	star_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(star_view)
 	stars = ClassDB.Instantiate("Node2D")
 	stars.set_script(Load("res://cockpit_stars.vg"))
-	cockpit_view.add_child(stars)
+	star_view.add_child(stars)
+	star_canvas = ClassDB.Instantiate("TextureRect")
+	star_canvas.texture = star_view.get_texture()
+	star_canvas.size = Vector2(960, 540)
+	star_canvas.mouse_filter = 2
+	cockpit_view.add_child(star_canvas)
 	_add_cached_art(cockpit_view, "res://cockpit_art.vg")
 	ship_instruments = ClassDB.Instantiate("Node2D")
 	ship_instruments.set_script(Load("res://cockpit_instruments.vg"))
@@ -342,9 +362,16 @@ Sub _add_cached_art(ByVal target As SubViewport, ByVal script_path As String)
 End Sub
 
 Function cockpit_texture(ByVal t As Single, ByVal speed As Single, ByVal height As Single, ByVal alert As Single) As Texture2D
+	Dim tick As Integer
 	Call EnsureInit()
-	stars.time_n = t
-	stars.queue_redraw()
+	tick = Int(t * 12.0)
+	If tick <> star_tick Then
+		star_tick = tick
+		stars.time_n = t
+		stars.queue_redraw()
+		star_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		star_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	End If
 	ship_instruments.update_readings(t, speed, 0, height, alert, 0)
 	' UPDATE_ONCE leaves the property at ONCE after the render, so assigning
 	' ONCE again does not schedule another frame.
@@ -569,7 +596,8 @@ Function menu_tap(ByVal code As Integer) As Boolean
 	Return hit
 End Function
 
-Sub begin_frame(Optional backlight_active As Variant = False)
+Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_active As Variant = False, Optional landing_active As Variant = False)
+	Dim ring As Object
 	Call EnsureInit()
 	vertices.clear()
 	colors.clear()
@@ -579,13 +607,16 @@ Sub begin_frame(Optional backlight_active As Variant = False)
 	frame_mesh.visible = False
 	clouds.visible = False
 	If ship <> Nothing Then ship.visible = False
-	If Not backlight_active Then
+	If Not backlight_active And Not channel_active And Not landing_active Then
 		If camera.environment <> Nothing Then
 			camera.environment = Nothing
 		End If
 		If Not viewport.transparent_bg Then
 			viewport.transparent_bg = True
 		End If
+	End If
+	If black_channel <> Nothing And Not channel_active Then
+		black_channel.visible = False
 	End If
 	If backlight_city <> Nothing Then
 		backlight_city.deactivate()
@@ -605,11 +636,55 @@ Sub begin_frame(Optional backlight_active As Variant = False)
 		city3.visible = False
 		city3_output.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	End If
-	If campaign_yard <> Nothing And campaign_yard <> backlight_city Then
+	If campaign_yard <> Nothing And campaign_yard <> backlight_city And Not landing_active Then
 		campaign_yard.visible = False
 	End If
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	If external_view <> Nothing Then external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	For Each ring In landing_rings
+		If Not landing_active And ring.visible Then ring.visible = False
+	Next
+End Sub
+
+Sub landing_ring(ByVal index As Integer, ByVal center As Vector3, ByVal radius As Single, ByVal color As Color, ByVal enabled As Boolean)
+	Dim ring As Object
+	Dim key As String
+	Dim saved_edges As PackedVector3Array
+	Dim saved_edge_colors As PackedColorArray
+	Dim saved_vertices As PackedVector3Array
+	Dim saved_colors As PackedColorArray
+	Dim mesh As Object
+	While landing_rings.size() <= index
+		ring = ClassDB.Instantiate("MeshInstance3D")
+		ring.cast_shadow = 0
+		ring.visible = False
+		viewport.add_child(ring)
+		landing_rings.append(ring)
+	Wend
+	ring = landing_rings(index)
+	If ring.visible <> enabled Then ring.visible = enabled
+	If Not enabled Then Exit Sub
+	key = Str(radius) & "/" & Str(color)
+	If Not landing_ring_meshes.has(key) Then
+		saved_edges = edges
+		saved_edge_colors = edge_colors
+		saved_vertices = vertices
+		saved_colors = colors
+		edges = PackedVector3Array()
+		edge_colors = PackedColorArray()
+		vertices = PackedVector3Array()
+		colors = PackedColorArray()
+		Call hoop(0, 0, 0, radius, color)
+		mesh = _mesh()
+		landing_ring_meshes(key) = mesh
+		edges = saved_edges
+		edge_colors = saved_edge_colors
+		vertices = saved_vertices
+		colors = saved_colors
+	End If
+	mesh = landing_ring_meshes(key)
+	If ring.mesh <> mesh Then ring.mesh = mesh
+	If ring.position <> center Then ring.position = center
 End Sub
 
 Sub segment(ByVal a As Vector3, ByVal b As Vector3, ByVal color As Color)
@@ -939,9 +1014,13 @@ Sub stage_landing_yard(ByVal pad_z As Single)
 	Dim yard As Object
 	Call EnsureInit()
 	yard = prepare_campaign_yard()
-	yard.visible = True
-	yard.position = Vector3(0, 0, pad_z - yard.SHIP.y)
-	If yard.ship_model <> Nothing Then yard.ship_model.visible = False
+	If Not yard.visible Then yard.visible = True
+	Dim landing_position As Vector3
+	landing_position = Vector3(0, 0, pad_z - yard.SHIP.y)
+	If yard.position <> landing_position Then yard.position = landing_position
+	If yard.ship_model <> Nothing Then
+		If yard.ship_model.visible Then yard.ship_model.visible = False
+	End If
 	If camera.environment <> yard.atmosphere Then camera.environment = yard.atmosphere
 	If viewport.transparent_bg Then viewport.transparent_bg = False
 End Sub
@@ -1006,6 +1085,75 @@ End Function
 Function backlight_status() As String
 	Call EnsureInit()
 	Return backlight_city.prompt()
+End Function
+
+Sub stop_black_channel()
+	Call EnsureInit()
+	If black_channel <> Nothing Then
+		black_channel.dispose()
+		black_channel.free()
+		black_channel = Nothing
+	End If
+	If black_hud_view <> Nothing Then
+		black_hud_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	End If
+	If camera <> Nothing Then
+		If camera.environment <> Nothing Then camera.environment = Nothing
+	End If
+End Sub
+
+Sub start_black_channel()
+	Call EnsureInit()
+	Call leave_backlight()
+	Call stop_black_channel()
+	black_channel = SpawnVg("res://black_channel.vg", "Node3D")
+	black_channel.name = "BlackChannel"
+	viewport.add_child(black_channel)
+	black_channel.start_encounter("dev", New Dictionary)
+	If black_hud_view = Nothing Then
+		black_hud_view = ClassDB.Instantiate("SubViewport")
+		black_hud_view.size = Vector2i(960, 540)
+		black_hud_view.transparent_bg = True
+		black_hud_view.disable_3d = True
+		black_hud_view.handle_input_locally = False
+		black_hud_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		add_child(black_hud_view)
+	End If
+	If black_channel.hud <> Nothing Then
+		If black_channel.hud.get_parent() <> black_hud_view Then
+			If black_channel.hud.get_parent() <> Nothing Then black_channel.hud.get_parent().remove_child(black_channel.hud)
+			black_hud_view.add_child(black_channel.hud)
+		End If
+	End If
+End Sub
+
+Sub tick_black_channel(ByVal delta As Single)
+	Call EnsureInit()
+	If black_channel <> Nothing Then black_channel.tick(delta)
+End Sub
+
+Function draw_black_channel() As Texture2D
+	Call EnsureInit()
+	If black_channel = Nothing Then
+		draw_black_channel = viewport.get_texture()
+		Exit Function
+	End If
+	black_channel.visible = True
+	draw_black_channel = black_channel.render(Me)
+End Function
+
+Function black_channel_overlay() As Texture2D
+	Call EnsureInit()
+	If black_hud_view = Nothing Then
+		black_channel_overlay = Nothing
+		Exit Function
+	End If
+	If black_channel <> Nothing Then
+		If black_channel.hud <> Nothing Then black_channel.hud.queue_redraw()
+	End If
+	black_hud_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	black_hud_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+	black_channel_overlay = black_hud_view.get_texture()
 End Function
 
 Sub end_yard()

@@ -1,0 +1,41 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/relay_pylon.glb" id="model_relay_pylon"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(10, 4, 8)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(5, 26, 4)
+
+[node name="RelayPylon" type="Node3D"]
+
+
+[node name="Foot" type="StaticBody3D" parent="."]
+position = Vector3(0, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Foot"]
+shape = SubResource("shape_0")
+
+[node name="Tower" type="StaticBody3D" parent="."]
+position = Vector3(0, 17, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Tower"]
+shape = SubResource("shape_1")
+
+[node name="Signal" type="Marker3D" parent="."]
+position = Vector3(0, 32, 0)

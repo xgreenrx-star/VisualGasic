@@ -53,6 +53,7 @@ cp "$ROOT/scripts/bootstrap_gui.py" "$BUILD_DIR/bootstrap_gui.py"
 # Optional Piper TTS / Whisper STT downloaders — invoked from the NSI
 # installer when the user ticks the matching checkboxes on the Ollama
 # page.  Always shipped (they're tiny) so users can re-run them later.
+cp "$ROOT/scripts/install_kokoro.ps1" "$BUILD_DIR/install_kokoro.ps1"
 cp "$ROOT/scripts/install_piper.ps1" "$BUILD_DIR/install_piper.ps1"
 cp "$ROOT/scripts/install_whisper.ps1" "$BUILD_DIR/install_whisper.ps1"
 

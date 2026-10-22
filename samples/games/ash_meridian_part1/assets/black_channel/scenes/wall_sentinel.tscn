@@ -1,0 +1,83 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/sentinel_base.glb" id="model_sentinel_base"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/sentinel_head.glb" id="model_sentinel_head"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/red.tres" id="material_5"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(8, 2.8, 7)
+
+[sub_resource type="BoxShape3D" id="head"]
+size = Vector3(5.6, 2.4, 5)
+
+[sub_resource type="BoxShape3D" id="barrel"]
+size = Vector3(0.65, 0.7, 5)
+
+[node name="WallSentinel" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_sentinel_base")]
+
+
+[node name="Mesh" parent="Visual/sentinel_base" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_1")
+surface_material_override/2 = ExtResource("material_4")
+
+[node name="BaseCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 1.4, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BaseCollision"]
+shape = SubResource("shape_0")
+
+[node name="Yaw" type="Node3D" parent="."]
+position = Vector3(0, 3.5, 0)
+
+[node name="Pitch" type="AnimatableBody3D" parent="Yaw"]
+collision_layer = 4
+collision_mask = 0
+sync_to_physics = false
+
+[node name="Visual" parent="Yaw/Pitch" instance=ExtResource("model_sentinel_head")]
+
+
+[node name="Mesh" parent="Yaw/Pitch/Visual/sentinel_head" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_0")
+surface_material_override/2 = ExtResource("material_5")
+surface_material_override/3 = ExtResource("material_4")
+
+[node name="Collision" type="CollisionShape3D" parent="Yaw/Pitch"]
+position = Vector3(0, 0, -0.5)
+shape = SubResource("head")
+
+[node name="BarrelCollision0" type="CollisionShape3D" parent="Yaw/Pitch"]
+position = Vector3(-1.8, -0.25, -4)
+shape = SubResource("barrel")
+
+[node name="BarrelCollision1" type="CollisionShape3D" parent="Yaw/Pitch"]
+position = Vector3(1.8, -0.25, -4)
+shape = SubResource("barrel")
+
+[node name="MuzzleLeft" type="Marker3D" parent="Yaw/Pitch"]
+position = Vector3(-1.8, -0.25, -6.8)
+
+[node name="MuzzleRight" type="Marker3D" parent="Yaw/Pitch"]
+position = Vector3(1.8, -0.25, -6.8)
+
+[node name="AimPoint" type="Marker3D" parent="Yaw/Pitch"]
+position = Vector3(0, 0, 0)

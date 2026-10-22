@@ -1,0 +1,59 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/broken_baffle.glb" id="model_broken_baffle"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_0"]
+points = PackedVector3Array(-20.7, -26, -3, -15.7, -31, -3, -8.3, -30, -3, -7.3, 26, -3, -12.3, 31, -3, -19.7, 30, -3, -20.7, -26, 3, -15.7, -31, 3, -8.3, -30, 3, -7.3, 26, 3, -12.3, 31, 3, -19.7, 30, 3)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_1"]
+points = PackedVector3Array(-6.7, -17, -3.5, 0.3, -24, -3.5, 5.7, -23, -3.5, 6.7, 19, -3.5, -0.3, 26, -3.5, -5.7, 25, -3.5, -6.7, -17, 3.5, 0.3, -24, 3.5, 5.7, -23, 3.5, 6.7, 19, 3.5, -0.3, 26, 3.5, -5.7, 25, 3.5)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_2"]
+points = PackedVector3Array(7.3, -18.5, -4, 16.3, -27.5, -4, 19.7, -26.5, -4, 20.7, 12, -4, 11.7, 21, -4, 8.3, 20, -4, 7.3, -18.5, 4, 16.3, -27.5, 4, 19.7, -26.5, 4, 20.7, 12, 4, 11.7, 21, 4, 8.3, 20, 4)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_3"]
+points = PackedVector3Array(-18.30643, -26.60655, 0.12191, -18.36446, -26.60655, 1.92097, -19.69357, -25.39345, 1.87809, -19.63554, -25.39345, 0.07903, 12.69357, 7.39345, 1.12191, 12.63554, 7.39345, 2.92097, 11.30643, 8.60655, 2.87809, 11.36446, 8.60655, 1.07903)
+
+[sub_resource type="ConvexPolygonShape3D" id="shard_4"]
+points = PackedVector3Array(12.50943, 7.66915, 0.88151, 13.07864, 7.66915, 2.58914, 11.49057, 8.33085, 3.11849, 10.92136, 8.33085, 1.41086, 18.50943, 23.66915, -1.11849, 19.07864, 23.66915, 0.58914, 17.49057, 24.33085, 1.11849, 16.92136, 24.33085, -0.58914)
+
+[node name="BrokenBaffle" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_broken_baffle")]
+
+
+[node name="Mesh" parent="Visual/broken_baffle" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_4")
+surface_material_override/2 = ExtResource("material_2")
+surface_material_override/3 = ExtResource("material_0")
+
+[node name="Solid" type="StaticBody3D" parent="."]
+collision_layer = 8
+collision_mask = 0
+
+[node name="Shard0" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_0")
+
+[node name="Shard1" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_1")
+
+[node name="Shard2" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_2")
+
+[node name="Shard3" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_3")
+
+[node name="Shard4" type="CollisionShape3D" parent="Solid"]
+shape = SubResource("shard_4")

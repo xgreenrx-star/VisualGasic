@@ -1,0 +1,69 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/covered_roof.glb" id="model_covered_roof"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(104, 4, 96)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(100, 1.2, 1.6)
+
+[sub_resource type="BoxShape3D" id="shape_2"]
+size = Vector3(100, 1.2, 1.6)
+
+[sub_resource type="BoxShape3D" id="shape_3"]
+size = Vector3(100, 1.2, 1.6)
+
+[sub_resource type="BoxShape3D" id="shape_4"]
+size = Vector3(100, 1.2, 1.6)
+
+[node name="CoveredRoof" type="Node3D"]
+
+
+[node name="Ceiling" type="StaticBody3D" parent="."]
+position = Vector3(0, 0, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Ceiling"]
+shape = SubResource("shape_0")
+
+[node name="Rib0" type="StaticBody3D" parent="."]
+position = Vector3(0, -2.6, -36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Rib0"]
+shape = SubResource("shape_1")
+
+[node name="Rib1" type="StaticBody3D" parent="."]
+position = Vector3(0, -2.6, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Rib1"]
+shape = SubResource("shape_2")
+
+[node name="Rib2" type="StaticBody3D" parent="."]
+position = Vector3(0, -2.6, 12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Rib2"]
+shape = SubResource("shape_3")
+
+[node name="Rib3" type="StaticBody3D" parent="."]
+position = Vector3(0, -2.6, 36)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Rib3"]
+shape = SubResource("shape_4")

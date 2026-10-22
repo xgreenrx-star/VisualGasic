@@ -1,0 +1,198 @@
+' MAX_FRAMES: 12000
+Option Explicit
+
+Dim game As Object
+Dim speech As Object
+Dim frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim live As Boolean
+Dim seen As Dictionary
+Dim previous_index As Integer
+Dim began As Integer
+Dim gap_started As Integer
+Dim max_gap_ms As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.StartRun()
+	speech = game.speech
+	speech.capture_only = True
+	speech.configure(True)
+	game.opt_orac_voice = True
+	seen = New Dictionary
+	live = OS.get_environment("ASH_SPEECH_LIVE") = "1"
+	began = Time.get_ticks_msec()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim lines As Array
+	Dim speakers As Array
+	Dim row As Dictionary
+	Dim queue As Array
+	Dim i As Integer
+	Dim index As Integer
+	frame = frame + 1
+	If frame = 4 Then
+		lines = game.intro_lines
+		speakers = game.intro_speakers
+		check(lines.size() = 7 And speakers(1) = "JASON" And speakers(3) = "JASON", "opening_has_jason_replies_and_clear_briefing")
+		check(game.intro_audio.size() = 7 And game.intro_voice_error = "", "all_opening_voice_assets_match_current_script")
+		game.TickIntro(0.01)
+		queue = speech.pending
+		row = queue(0)
+		check(row("speaker") = "ORAC" And row("text") = lines(0), "subtitle_and_queued_line_share_same_source")
+		game.TickIntro(60)
+		check(game.intro_index = 0 And game.phase = 0 And game.ship_z = 0, "generation_delay_cannot_advance_subtitle_or_start_flight")
+		game.menu_on = True
+		speech.tick(True)
+		game.TickIntro(2)
+		check(game.intro_index = 0 And speech.paused, "pause_freezes_opening_audio_and_subtitle_sequence")
+		game.menu_on = False
+		speech.tick(False)
+		speech.worker = 1
+		game.TickIntro(60)
+		check(game.intro_index = 0, "pending_worker_keeps_current_subtitle")
+		speech.worker = 0
+		check(speech.pending.size() = 6, "following_lines_are_queued_for_audio_prefetch")
+		game.TickIntro(0.2)
+		check(game.intro_index = 0, "subtitle_follows_playback_not_next_synthesis_job")
+		queue = speech.pending
+		row = queue(0)
+		check(row("speaker") = "JASON" And speech.KokoroSpeakerId(row("speaker")) = 5, "jason_reply_is_queued_with_his_own_voice")
+		For i = 1 To 6
+			speech.tick(False)
+			speech.worker = 1
+			game.TickIntro(0.01)
+			check(game.intro_index = i, "subtitle_tracks_played_line_" & Str(i))
+			check(game.phase = 0 And game.ship_z = 0, "flight_waits_for_dialogue_line_" & Str(i))
+			If i = 6 Then
+				speech.worker = 1
+				game.TickIntro(100)
+				check(game.phase = 0, "handoff_waits_until_final_control_line_finishes")
+			End If
+			speech.worker = 0
+			game.TickIntro(0.2)
+		Next
+		check(game.phase = 1 And game.ship_z = 0 And game.land_t = 0, "flight_begins_only_after_complete_briefing")
+		game.StartRun()
+		speech.configure(False)
+		game.opt_orac_voice = False
+		game.TickIntro(0.01)
+		game.TickIntro(0.1)
+		check(game.intro_index = 0, "muted_intro_has_readable_subtitle_duration")
+		For i = 0 To 6
+			If i > 0 Then game.TickIntro(0.01)
+			game.TickIntro(30)
+		Next
+		check(game.phase = 1, "muted_intro_finishes_without_waiting_for_audio")
+		game.StartRun()
+		speech.configure(True)
+		game.opt_orac_voice = True
+		game.TickIntro(0.01)
+		speech.last_error = "Injected worker failure."
+		speech.pending = Array()
+		game.TickIntro(0.2)
+		check(Not game.intro_waiting_voice And game.intro_index = 0, "speech_failure_falls_back_to_current_readable_subtitle")
+		game.TickIntro(30)
+		check(game.intro_index = 1, "speech_failure_does_not_deadlock_intro")
+		game.StartRun()
+		speech.configure(True)
+		game.TickIntro(0.01)
+		Dim press As Object
+		press = ClassDB.Instantiate("InputEventKey")
+		press.keycode = KEY_SPACE
+		press.pressed = True
+		Input.parse_input_event(press)
+		Input.flush_buffered_events()
+		game.presentation.sample_input()
+		game.TickIntro(0.01)
+		check(game.intro_index = 4 And game.phase = 0, "skip_moves_to_mandatory_gate_briefing_not_flight")
+		queue = speech.pending
+		row = queue(0)
+		check(queue.size() = 3 And InStr(row("text"), "orange gate") > 0, "skip_replaces_old_audio_with_briefing_and_handoff")
+		press = ClassDB.Instantiate("InputEventKey")
+		press.keycode = KEY_SPACE
+		press.pressed = False
+		Input.parse_input_event(press)
+		Input.flush_buffered_events()
+		game.presentation.sample_input()
+		game.StartRun()
+		If live Then
+			game.campaign_arrival = True
+			speech.capture_only = False
+			speech.configure(False)
+			speech.enabled = True
+			speech.backend = ""
+			speech.last_error = "No system voice installed."
+			check(game.intro_audio.size() = 7, "opening_recordings_work_without_installed_tts_backend")
+			previous_index = 0
+			began = Time.get_ticks_msec()
+			game.set_process(True)
+		Else
+			Call finish()
+		End If
+	ElseIf frame > 4 And live Then
+		lines = game.intro_lines
+		speakers = game.intro_speakers
+		index = game.intro_index
+		If speech.player.playing Then
+			If gap_started > 0 Then
+				max_gap_ms = Max(max_gap_ms, Time.get_ticks_msec() - gap_started)
+				gap_started = 0
+			End If
+			If Not seen.has(index) Then
+				seen(index) = True
+				check(speech.playing_text = lines(index), "live_subtitle_matches_playing_line_" & Str(index))
+				Print "INTRO_VOICE speaker=" & Str(speakers(index)) & " seconds=" & Str(speech.player.stream.get_length())
+				check(speech.player.stream.get_length() > 0.5, "live_line_has_decodable_audio_" & Str(index))
+				check(speech.worker = 0 And speech.job_stem = "", "recorded_line_needs_no_runtime_synthesis_" & Str(index))
+				If index = 4 And OS.get_environment("ASH_CHANNEL_CAPTURE") <> "" And DisplayServer.get_name() <> "headless" Then
+					Dim image As Object
+					image = GetViewport().get_texture().get_image()
+					check(image.save_png(OS.get_environment("ASH_CHANNEL_CAPTURE") & "/intro-gate-briefing.png") = 0, "gate_briefing_caption_capture")
+				End If
+			End If
+		ElseIf seen.size() > 0 And game.phase = 0 And gap_started = 0 Then
+			gap_started = Time.get_ticks_msec()
+		End If
+		If speech.last_error <> "" And game.intro_submitted Then
+			check(False, "live_speech_error_" & speech.last_error)
+			Call finish()
+			Exit Sub
+		End If
+		If index <> previous_index Then
+			check(seen.has(previous_index), "live_line_completes_before_transition_" & Str(previous_index))
+		End If
+		previous_index = index
+		If game.phase = 1 Then
+			check(seen.has(index) And Not speech.busy(), "final_live_audio_finishes_before_flight")
+			check(game.land_t < 0.2, "normal_game_loop_holds_flight_until_final_line_finishes")
+		End If
+		If game.phase = 1 Or Time.get_ticks_msec() - began > 120000 Then
+			check(game.phase = 1 And seen.size() = 7, "all_seven_lines_including_jason_play_before_flight")
+			Print "INTRO_AUDIO_MAX_GAP_MS=" & Str(max_gap_ms)
+			check(max_gap_ms < 1500, "prefetch_avoids_large_between_line_gaps")
+			Call finish()
+		End If
+	End If
+End Sub
+
+Sub finish()
+	speech.stop()
+	game.queue_free()
+	Print "INTRO_DIALOGUE=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub

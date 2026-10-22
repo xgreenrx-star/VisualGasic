@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "id": "black_channel",
+  "status": "gameplay_not_implemented",
+  "campaign_gate": {
+    "requires": ["rob_allied", "orac_online", "distribution_component_secured", "final_repair_item_secured", "other_repair_items_secured"],
+    "excludes": ["first_visit_escape", "orbital_ambush", "eva_rescue"]
+  },
+  "dialogue": [
+    {"event": "entry", "speaker": "Orac", "text": "Good news: the distribution grid is working."},
+    {"event": "entry", "speaker": "Jason", "text": "And the bad news?"},
+    {"event": "entry", "speaker": "Rob", "text": "It has recognized an unauthorized removal. Stay below the rim. The upper batteries cannot track us in the channel."},
+    {"event": "first_pursuit", "speaker": "Orac", "text": "Two security needles. Unmanned. Amber lines mean a laser lock. Break away before they turn red."},
+    {"event": "bridge_warning", "speaker": "Rob", "text": "Service bridge ahead. Pass below it. Your hull will fit."},
+    {"event": "covered_channel", "speaker": "Orac", "text": "Entering the covered section. Keep the nose steady; there is less room above us."},
+    {"event": "sentinel_warning", "speaker": "Rob", "text": "Wall laser turrets. The amber line locks before the burst. Move off it, or use solid cover."},
+    {"event": "gate_warning", "speaker": "Orac", "text": "That is a closed gate, Rob."},
+    {"event": "gate_warning", "speaker": "Rob", "text": "A service lock. I can request a maintenance opening. Center the ship."},
+    {"event": "service_gate", "speaker": "Rob", "text": "The opening is clear. Continue."},
+    {"event": "relay_checkpoint", "speaker": "Orac", "text": "Relay marker recorded. Broken machinery ahead. Watch the gaps and your altitude. Two more wall turrets in the final cut."},
+    {"event": "breakout", "speaker": "Orac", "text": "Tracking coverage is falling away. Stay low until we clear the last pylon."},
+    {"event": "exit", "speaker": "Rob", "text": "Clear of the batteries. You can climb."},
+    {"event": "exit", "speaker": "Jason", "text": "Next time we take something that is already unplugged."}
+  ],
+  "suggested_waves": [
+    {"event": "first_pursuit", "enemy": "needle_drone", "count": 2, "max_active": 2},
+    {"event": "sentinel_warning", "enemy": "wall_sentinel", "count": 4, "max_active": 4}
+  ],
+  "gate": {
+    "request_event": "gate_warning",
+    "opening_seconds": 6,
+    "clearance_event": "service_gate",
+    "block_progress_until_physically_clear": true,
+    "allow_closing_behind_player": false
+  },
+  "checkpoints": ["entry", "covered_channel", "relay_checkpoint"],
+  "completion_effects": ["black_channel_completed", "hold_local_orbit_with_final_item", "exterior_drive_repair_pending"],
+  "notes": [
+    "Future campaign flags above are proposed contracts, not properties that currently exist in campaign.vg.",
+    "Event service_gate dialogue is conditional on actual door clearance, not merely route distance.",
+    "Abrasive wall contact and enemy projectiles need separate cooldowns.",
+    "Do not start the first-visit 255-second countdown here.",
+    "No racing opponents, score multiplier, required kills or master-AI resurrection."
+  ]
+}

@@ -1,0 +1,59 @@
+Option Explicit
+
+Dim channel As Object
+
+Sub _Draw()
+	Dim marker As Vector2
+	Dim speed_line As String
+	Dim font As Object
+	If channel = Nothing Then Exit Sub
+	font = ThemeDB.fallback_font
+	draw_rect(Rect2(0, 0, 960, 58), Color(0.01, 0.03, 0.05, 0.82))
+	draw_rect(Rect2(0, 492, 960, 48), Color(0.01, 0.03, 0.05, 0.88))
+	draw_string(font, Vector2(24, 28), channel.Caption(), 0, -1, 16, Color(0.7, 0.92, 1.0))
+	speed_line = "HULL " & Str(Int(channel.hull)) & "    " & Str(Int(channel.speed)) & " M/S    " & Str(Int(channel.distance)) & " / " & Str(Int(channel.length)) & " M"
+	draw_string(font, Vector2(24, 48), speed_line, 0, -1, 13, Color(0.55, 0.8, 0.85))
+	If channel.speech <> Nothing Then
+		If channel.speech.enabled Then
+			draw_string(font, Vector2(825, 48), "VOICE ON", 0, -1, 12, Color(0.55, 0.8, 0.85))
+		Else
+			draw_string(font, Vector2(825, 48), "VOICE OFF", 0, -1, 12, Color(0.55, 0.8, 0.85))
+		End If
+		If channel.speech.last_error <> "" Then
+			draw_string(font, Vector2(24, 112), "VOICE UNAVAILABLE / SUBTITLES ACTIVE / SEE LOG", 0, -1, 12, Color(1, 0.65, 0.2))
+		End If
+	End If
+	If channel.HazardCaption() <> "" Then
+		draw_rect(Rect2(20, 66, 390, 28), Color(0.01, 0.025, 0.04, 0.85))
+		draw_string(font, Vector2(28, 85), channel.HazardCaption(), 0, -1, 15, Color(1.0, 0.65, 0.15))
+	End If
+	If channel.running And channel.shots.size() > 0 Then
+		draw_rect(Rect2(610, 66, 330, 28), Color(0.06, 0.02, 0.01, 0.86))
+		draw_string(font, Vector2(620, 85), "LASER LOCK / BREAK OFF AMBER LINE", 0, -1, 13, Color(1, 0.5, 0.1))
+	End If
+	If channel.failed Then
+		draw_rect(Rect2(170, 175, 620, 175), Color(0.04, 0.01, 0.015, 0.94))
+		draw_string(font, Vector2(205, 215), "HULL LOST - FLIGHT STOPPED", 0, -1, 24, Color(1, 0.35, 0.2))
+		draw_string(font, Vector2(205, 248), channel.failure_reason, 0, -1, 16, Color(0.9, 0.8, 0.75))
+		draw_string(font, Vector2(205, 283), "ENTER / SPACE: RETRY LAST CHECKPOINT", 0, -1, 18, Color(0.6, 0.95, 1))
+		draw_string(font, Vector2(205, 318), "CHECKPOINT: " & UCase(channel.checkpoint_id), 0, -1, 14, Color(0.55, 0.8, 0.85))
+		draw_string(font, Vector2(24, 522), "ENTER / SPACE RETRY    ESC PAUSE    V VOICE", 0, -1, 14, Color(0.55, 0.85, 0.9))
+	ElseIf channel.completed Then
+		If channel.orbit_ready Then
+			draw_string(font, Vector2(24, 522), "FINAL ITEM SECURED / EVA REPAIR PENDING    ENTER RETURN TO DEV MENU", 0, -1, 13, Color(0.55, 0.85, 0.9))
+		Else
+			draw_string(font, Vector2(24, 522), "AUTOMATIC ASCENT    CLOUD LAYER TO LOCAL ORBIT    ESC PAUSE", 0, -1, 13, Color(0.55, 0.85, 0.9))
+		End If
+	Else
+		draw_string(font, Vector2(24, 522), "W/S LIFT   A/D BANK   Q/E THROTTLE   ESC PAUSE   V VOICE", 0, -1, 13, Color(0.55, 0.85, 0.9))
+	End If
+	draw_rect(Rect2(700, 510, 230, 4), Color(0.08, 0.2, 0.27))
+	draw_rect(Rect2(700, 510, 230.0 * channel.speed / 240.0, 4), Color(0.1, 0.85, 1.0))
+	draw_string(font, Vector2(700, 535), Str(Int(channel.speed * 3.6)) & " KM/H   /   864 MAX", 0, -1, 12, Color(0.55, 0.85, 0.9))
+	marker = channel.nav_marker
+	If marker.x > 8.0 And marker.x < 952.0 And marker.y > 8.0 And marker.y < 532.0 Then
+		draw_rect(Rect2(marker.x - 7.0, marker.y - 7.0, 14.0, 14.0), Color(0.2, 0.95, 1.0, 0.18))
+		draw_rect(Rect2(marker.x - 2.0, marker.y - 2.0, 4.0, 4.0), Color(0.45, 1.0, 1.0))
+	End If
+	If channel.hurt_t > 0.0 Then draw_rect(Rect2(0, 0, 960, 540), Color(1.0, 0.05, 0.05, 0.12))
+End Sub

@@ -1,0 +1,647 @@
+Option Explicit
+
+Dim enabled As Boolean
+Dim capture_only As Boolean
+Dim backend As String
+Dim voice As String
+Dim command As String
+Dim pending As Array
+Dim player As Object
+Dim worker As Integer
+Dim wav_path As String
+Dim paused As Boolean
+Dim current_priority As Integer
+Dim last_text As String
+Dim spoken_count As Integer
+Dim last_error As String
+Dim worker_started As Integer
+Dim scene_heat As Integer
+Dim job_stem As String
+Dim ready_wav As String
+Dim abandon As Boolean
+Dim last_speed As Single
+Dim playing_text As String
+Dim playing_speaker As String
+Dim generated_speaker As String
+Dim ready_text As String
+Dim ready_speaker As String
+Dim recordings As Dictionary
+
+Sub _Ready()
+	pending = Array()
+	recordings = New Dictionary
+	player = ClassDB.Instantiate("AudioStreamPlayer")
+	player.name = "FlightVoice"
+	add_child(player)
+	scene_heat = 0
+	job_stem = ""
+	ready_wav = ""
+	abandon = False
+	last_speed = 1.0
+End Sub
+
+Sub ReportError(ByVal message As String)
+	last_error = message
+	Print "FLIGHT_SPEECH_ERROR: " & message
+End Sub
+
+Function RecordingKey(ByVal speaker As String, ByVal text As String) As String
+	Return LCase(Trim(speaker)) & Chr(9) & text
+End Function
+
+Function load_recordings(ByVal manifest_path As String) As Boolean
+	Dim parser As Object
+	Dim rows As Array
+	Dim row As Dictionary
+	Dim i As Integer
+	Dim clip As Object
+	Dim path As String
+	Dim text As String
+	Dim speaker As String
+	recordings = New Dictionary
+	If Not FileExists(manifest_path) Then
+		Call ReportError("Voice recording manifest is missing: " & manifest_path)
+		Return False
+	End If
+	parser = ClassDB.Instantiate("JSON")
+	If parser.parse(ReadAllText(manifest_path)) <> 0 Then
+		Call ReportError("Voice recording manifest is invalid: " & manifest_path)
+		Return False
+	End If
+	If Not IsArray(parser.get_data()) Then
+		Call ReportError("Voice recording manifest must contain an array: " & manifest_path)
+		Return False
+	End If
+	rows = parser.get_data()
+	For i = 0 To rows.size() - 1
+		row = rows(i)
+		text = Str(row.get("text", ""))
+		speaker = Str(row.get("speaker", ""))
+		path = Str(row.get("audio", ""))
+		If text = "" Or speaker = "" Or Not FileExists(path) Then
+			recordings = New Dictionary
+			Call ReportError("Voice recording entry is incomplete or missing audio: " & manifest_path)
+			Return False
+		End If
+		clip = Load(path)
+		If clip = Nothing Then
+			recordings = New Dictionary
+			Call ReportError("Could not load voice recording: " & path)
+			Return False
+		End If
+		recordings(RecordingKey(speaker, text)) = clip
+	Next
+	Return recordings.size() > 0
+End Function
+
+Sub configure(ByVal active As Boolean)
+	Dim voices As Array
+	Dim entry As Variant
+	Call stop()
+	enabled = active
+	backend = ""
+	command = ""
+	last_error = ""
+	If capture_only Then
+		backend = "capture"
+		Exit Sub
+	End If
+	If KokoroReady() Then
+		If DisplayServer.get_name() <> "headless" Or OS.get_environment("ASH_SPEECH_LIVE") = "1" Then
+			Call StartDaemon()
+		End If
+	End If
+	If Not enabled Then Exit Sub
+	If DisplayServer.get_name() = "headless" And OS.get_environment("ASH_SPEECH_LIVE") <> "1" Then Exit Sub
+	If KokoroReady() Then
+		backend = "kokoro"
+		command = KokoroWrapper()
+		If voice = "" Then voice = "bm_george"
+		Exit Sub
+	End If
+	If OS.get_name() = "Linux" Then
+		If FileExists("/usr/bin/espeak-ng") Then command = "/usr/bin/espeak-ng"
+		If command = "" And FileExists("/usr/bin/espeak") Then command = "/usr/bin/espeak"
+		If command <> "" Then
+			backend = "espeak"
+			voice = Str(ProjectSettings.get_setting("ash/flight_speech/linux_voice", "en-gb"))
+			Exit Sub
+		End If
+	End If
+	voices = DisplayServer.tts_get_voices()
+	voice = Str(ProjectSettings.get_setting("ash/flight_speech/native_voice", ""))
+	For Each entry In voices
+		If voice = "" And Left(Str(entry("language")), 2) = "en" Then voice = Str(entry("id"))
+	Next
+	For Each entry In voices
+		If Str(entry("id")) = voice Then
+			backend = "native"
+			Exit Sub
+		End If
+	Next
+	If recordings.size() > 0 Then
+		backend = "recorded"
+	Else
+		Call ReportError("No usable speech voice. Install an English system voice or espeak-ng on Linux. Subtitles remain available.")
+	End If
+End Sub
+
+Sub stop()
+	pending = Array()
+	abandon = True
+	If job_stem = "" And worker > 1 Then
+		If OS.is_process_running(worker) Then OS.kill(worker)
+	End If
+	worker = 0
+	If player <> Nothing Then player.stop()
+	If backend = "native" Then DisplayServer.tts_stop()
+	If wav_path <> "" Then
+		If FileExists(wav_path) Then DirAccess.remove_absolute(wav_path)
+		wav_path = ""
+	End If
+	If ready_wav <> "" Then
+		If FileExists(ready_wav) Then DirAccess.remove_absolute(ready_wav)
+		ready_wav = ""
+	End If
+	If job_stem <> "" Then Call DropJobFiles(job_stem)
+	current_priority = 0
+	playing_text = ""
+	playing_speaker = ""
+	ready_text = ""
+	ready_speaker = ""
+End Sub
+
+Sub say(ByVal text As String, ByVal priority As Integer, Optional recording As Variant = Nothing)
+	Dim row As Dictionary
+	If Not enabled Or Trim(text) = "" Then Exit Sub
+	If recording = Nothing Then recording = recordings.get(RecordingKey(voice, text), Nothing)
+	If recording = Nothing And backend = "recorded" Then
+		Call ReportError("No voice recording for " & voice & ": " & text)
+		Exit Sub
+	End If
+	If backend = "" And recording = Nothing Then Exit Sub
+	If priority > 0 Then
+		If priority >= current_priority Then
+			Call stop()
+			enabled = True
+		Else
+			Exit Sub
+		End If
+	End If
+	If pending.size() >= 8 Then Exit Sub
+	If recording <> Nothing Then last_error = ""
+	row = New Dictionary
+	row("text") = text
+	row("priority") = priority
+	row("speaker") = voice
+	row("speed") = DeliverySpeed(voice, priority)
+	row("silence") = DeliverySilence(voice, priority)
+	row("recording") = recording
+	pending.append(row)
+End Sub
+
+Function busy() As Boolean
+	If pending.size() > 0 Or worker > 0 Or job_stem <> "" Or ready_wav <> "" Then Return True
+	If player <> Nothing Then
+		If player.playing Then Return True
+	End If
+	If backend = "native" Then Return DisplayServer.tts_is_speaking()
+	Return False
+End Function
+
+Function BackendVoice(ByVal speaker As String) As String
+	If backend = "espeak" Then
+		Return Str(ProjectSettings.get_setting("ash/flight_speech/linux_voice", "en-gb"))
+	End If
+	Dim selected As String
+	Dim entry As Variant
+	Dim voices As Array
+	selected = Str(ProjectSettings.get_setting("ash/flight_speech/native_voice", ""))
+	voices = DisplayServer.tts_get_voices()
+	For Each entry In voices
+		If Str(entry("id")) = speaker Or Str(entry("id")) = selected Then Return Str(entry("id"))
+	Next
+	For Each entry In voices
+		If Left(Str(entry("language")), 2) = "en" Then Return Str(entry("id"))
+	Next
+	Return ""
+End Function
+
+Sub tick(ByVal should_pause As Boolean)
+	Dim row As Dictionary
+	Dim args As PackedStringArray
+	Dim wav As Object
+	Dim status As Integer
+	If should_pause <> paused Then
+		paused = should_pause
+		player.stream_paused = paused
+		If backend = "native" Then
+			If paused Then
+				DisplayServer.tts_pause()
+			Else
+				DisplayServer.tts_resume()
+			End If
+		End If
+	End If
+	If paused Or Not enabled Then Exit Sub
+	If backend = "native" And DisplayServer.tts_is_speaking() Then Exit Sub
+	If job_stem <> "" Then
+		status = JobStatus(job_stem)
+		If status = 0 Then
+			If Time.get_ticks_msec() - worker_started > 30000 Then
+				Call DropJobFiles(job_stem)
+				job_stem = ""
+				worker = 0
+				Call ReportError("Speech generation timed out. Subtitles remain available.")
+			End If
+			Exit Sub
+		End If
+		job_stem = ""
+		worker = 0
+		If abandon Then
+			abandon = False
+			If wav_path <> "" And FileExists(wav_path) Then DirAccess.remove_absolute(wav_path)
+			wav_path = ""
+		ElseIf status > 0 And FileExists(wav_path) Then
+			If player.playing Then
+				If ready_wav <> "" And FileExists(ready_wav) Then DirAccess.remove_absolute(ready_wav)
+				ready_wav = wav_path
+				ready_text = last_text
+				ready_speaker = generated_speaker
+				wav_path = ""
+			Else
+				Call PlayWav(wav_path)
+				wav_path = ""
+			End If
+		Else
+			If wav_path <> "" And FileExists(wav_path) Then DirAccess.remove_absolute(wav_path)
+			wav_path = ""
+			If status < 0 Then Call ReportError("Speech worker produced no audio.")
+		End If
+	ElseIf worker > 0 Then
+		If OS.is_process_running(worker) Then
+			If Time.get_ticks_msec() - worker_started > 30000 Then
+				OS.kill(worker)
+				worker = 0
+				Call ReportError("Speech generation timed out. Subtitles remain available.")
+			End If
+			Exit Sub
+		End If
+		worker = 0
+		If abandon Then
+			abandon = False
+			If wav_path <> "" And FileExists(wav_path) Then DirAccess.remove_absolute(wav_path)
+			wav_path = ""
+		ElseIf FileExists(wav_path) Then
+			If player.playing Then
+				If ready_wav <> "" And FileExists(ready_wav) Then DirAccess.remove_absolute(ready_wav)
+				ready_wav = wav_path
+				ready_text = last_text
+				ready_speaker = generated_speaker
+				wav_path = ""
+			Else
+				Call PlayWav(wav_path)
+				wav_path = ""
+			End If
+		Else
+			Call ReportError("Speech worker produced no audio.")
+			wav_path = ""
+		End If
+	End If
+	If Not player.playing And ready_wav <> "" Then
+		playing_text = ready_text
+		playing_speaker = ready_speaker
+		Call PlayWav(ready_wav)
+		ready_wav = ""
+	End If
+	If worker > 0 Or job_stem <> "" Then Exit Sub
+	If ready_wav <> "" Then Exit Sub
+	If player.playing Then
+		If pending.size() = 0 Then Exit Sub
+		row = pending(0)
+		If row("recording") <> Nothing Then Exit Sub
+	Else
+		If backend = "native" Then
+			If DisplayServer.tts_is_speaking() Then Exit Sub
+		End If
+		current_priority = 0
+		If pending.size() = 0 Then Exit Sub
+	End If
+	row = pending(0)
+	pending.remove_at(0)
+	last_text = Str(row("text"))
+	generated_speaker = Str(row("speaker"))
+	current_priority = row("priority")
+	last_speed = row("speed")
+	spoken_count = spoken_count + 1
+	abandon = False
+	If row("recording") <> Nothing And Not capture_only Then
+		playing_text = last_text
+		playing_speaker = generated_speaker
+		player.stream = row("recording")
+		player.play()
+	ElseIf backend = "native" Then
+		playing_text = last_text
+		playing_speaker = generated_speaker
+		DisplayServer.tts_speak(last_text, BackendVoice(Str(row("speaker"))), 100, 1.0, last_speed, spoken_count, False)
+	ElseIf backend = "kokoro" Then
+		wav_path = ProjectSettings.globalize_path("user://flight-voice-" & Str(OS.get_process_id()) & "-" & Str(Time.get_ticks_usec()) & ".wav")
+		If SubmitDaemonJob(last_text, wav_path, Str(row("speaker")), row("speed"), row("silence")) Then
+			worker = 1
+			worker_started = Time.get_ticks_msec()
+		Else
+			args = KokoroArgs(last_text, wav_path, Str(row("speaker")), row("speed"))
+			worker = OS.create_process(command, args, False)
+			worker_started = Time.get_ticks_msec()
+			If worker <= 0 Then Call ReportError("Could not start the Kokoro speech worker.")
+		End If
+	ElseIf backend = "espeak" Then
+		wav_path = ProjectSettings.globalize_path("user://flight-voice-" & Str(OS.get_process_id()) & "-" & Str(Time.get_ticks_usec()) & ".wav")
+		args = PackedStringArray()
+		args.append("-v")
+		args.append(BackendVoice(Str(row("speaker"))))
+		args.append("-s")
+		args.append(Str(EspeakRate(row("speed"))))
+		args.append("-w")
+		args.append(wav_path)
+		args.append(last_text)
+		worker = OS.create_process(command, args, False)
+		worker_started = Time.get_ticks_msec()
+		If worker <= 0 Then Call ReportError("Could not start the local speech worker.")
+	ElseIf backend = "capture" Then
+		playing_text = last_text
+		playing_speaker = generated_speaker
+	End If
+End Sub
+
+Sub PlayWav(ByVal path As String)
+	Dim wav As Object
+	If path = "" Then Exit Sub
+	If FileExists(path) Then
+		wav = AudioStreamWAV.load_from_file(path)
+		DirAccess.remove_absolute(path)
+		If wav <> Nothing Then
+			If path <> ready_wav Then
+				playing_text = last_text
+				playing_speaker = generated_speaker
+			End If
+			player.stream = wav
+			player.play()
+		Else
+			Call ReportError("Could not decode generated speech audio.")
+		End If
+	End If
+End Sub
+
+Function IsOrac(ByVal speaker As String) As Boolean
+	Dim key As String
+	key = LCase(Trim(speaker))
+	If key = "orac" Or key = "bm_george" Then
+		IsOrac = True
+	Else
+		IsOrac = False
+	End If
+End Function
+
+Function DeliveryHeat(ByVal speaker As String, ByVal priority As Integer) As Integer
+	Dim heat As Integer
+	heat = priority
+	If scene_heat > heat Then heat = scene_heat
+	If IsOrac(speaker) Then heat = 0
+	DeliveryHeat = heat
+End Function
+
+Function DeliverySpeed(ByVal speaker As String, ByVal priority As Integer) As Single
+	Dim heat As Integer
+	heat = DeliveryHeat(speaker, priority)
+	If IsOrac(speaker) Then
+		DeliverySpeed = 0.92
+	ElseIf heat >= 3 Then
+		DeliverySpeed = 1.16
+	ElseIf heat >= 2 Then
+		DeliverySpeed = 1.32
+	ElseIf heat >= 1 Then
+		DeliverySpeed = 1.22
+	Else
+		DeliverySpeed = 1.08
+	End If
+End Function
+
+Function DeliverySilence(ByVal speaker As String, ByVal priority As Integer) As Single
+	Dim heat As Integer
+	heat = DeliveryHeat(speaker, priority)
+	If IsOrac(speaker) Then
+		DeliverySilence = 0.40
+	ElseIf heat >= 3 Then
+		DeliverySilence = 0.10
+	ElseIf heat >= 2 Then
+		DeliverySilence = 0.05
+	ElseIf heat >= 1 Then
+		DeliverySilence = 0.07
+	Else
+		DeliverySilence = 0.16
+	End If
+End Function
+
+Function EspeakRate(ByVal speed As Single) As Integer
+	Dim rate As Integer
+	rate = Int(175.0 * speed)
+	If rate < 120 Then rate = 120
+	If rate > 260 Then rate = 260
+	EspeakRate = rate
+End Function
+
+Function KokoroCache() As String
+	Dim home As String
+	If OS.get_name() = "Windows" Then
+		home = OS.get_environment("LOCALAPPDATA")
+		If home = "" Then home = OS.get_environment("USERPROFILE") & "/AppData/Local"
+		KokoroCache = home & "/VisualGasic/tts"
+	ElseIf OS.get_name() = "macOS" Then
+		KokoroCache = OS.get_environment("HOME") & "/Library/Application Support/visual_gasic/tts"
+	Else
+		KokoroCache = OS.get_environment("HOME") & "/.local/share/visual_gasic/tts"
+	End If
+End Function
+
+Function KokoroWrapper() As String
+	If OS.get_name() = "Windows" Then
+		KokoroWrapper = KokoroCache() & "/vg-tts.cmd"
+	Else
+		KokoroWrapper = KokoroCache() & "/vg-tts"
+	End If
+End Function
+
+Function KokoroDaemon() As String
+	If OS.get_name() = "Windows" Then
+		KokoroDaemon = KokoroCache() & "/vg-tts-daemon.cmd"
+	Else
+		KokoroDaemon = KokoroCache() & "/vg-tts-daemon"
+	End If
+End Function
+
+Function KokoroQueue() As String
+	KokoroQueue = KokoroCache() & "/queue"
+End Function
+
+Function KokoroReady() As Boolean
+	Dim model As String
+	model = KokoroCache() & "/models/kokoro-en-v0_19/model.onnx"
+	If FileExists(KokoroWrapper()) And FileExists(model) Then
+		KokoroReady = True
+	Else
+		KokoroReady = False
+	End If
+End Function
+
+Function DaemonAlive() As Boolean
+	Dim pid As Integer
+	If Not FileExists(KokoroQueue() & "/pid") Then
+		DaemonAlive = False
+		Exit Function
+	End If
+	pid = ReadPidFile()
+	If pid > 0 Then
+		DaemonAlive = OS.is_process_running(pid)
+	Else
+		DaemonAlive = False
+	End If
+End Function
+
+Function ReadPidFile() As Integer
+	Dim f As Object
+	f = FileAccess.open(KokoroQueue() & "/pid", 1)
+	If f = Nothing Then
+		ReadPidFile = 0
+	Else
+		ReadPidFile = Int(Val(f.get_as_text()))
+	End If
+End Function
+
+Sub StartDaemon()
+	Dim args As PackedStringArray
+	Dim root As String
+	If Not FileExists(KokoroDaemon()) Then Exit Sub
+	DirAccess.make_dir_recursive_absolute(KokoroQueue())
+	If DaemonAlive() Then Exit Sub
+	root = KokoroCache() & "/models/kokoro-en-v0_19"
+	args = PackedStringArray()
+	args.append(root & "/model.onnx")
+	args.append(root & "/voices.bin")
+	args.append(root & "/tokens.txt")
+	args.append(root & "/espeak-ng-data")
+	args.append(KokoroQueue())
+	OS.create_process(KokoroDaemon(), args, False)
+End Sub
+
+Function SubmitDaemonJob(ByVal text As String, ByVal wav As String, ByVal speaker As String, ByVal speed As Single, ByVal silence As Single) As Boolean
+	Dim body As String
+	Dim stem As String
+	Dim tmp As String
+	Dim req As String
+	If Not FileExists(KokoroDaemon()) Then
+		SubmitDaemonJob = False
+		Exit Function
+	End If
+	Call StartDaemon()
+	DirAccess.make_dir_recursive_absolute(KokoroQueue())
+	stem = KokoroQueue() & "/j" & Str(OS.get_process_id()) & "-" & Str(Time.get_ticks_usec())
+	If speed < 0.5 Then speed = 0.5
+	If speed > 2.0 Then speed = 2.0
+	If silence < 0.02 Then silence = 0.02
+	If silence > 1.0 Then silence = 1.0
+	body = "sid=" & Str(KokoroSpeakerId(speaker)) & Chr(10)
+	body = body & "speed=" & Str(speed) & Chr(10)
+	body = body & "silence=" & Str(silence) & Chr(10)
+	body = body & "out=" & wav & Chr(10)
+	body = body & "text=" & Replace(Replace(text, Chr(10), " "), Chr(13), " ") & Chr(10)
+	tmp = stem & ".tmp"
+	req = stem & ".req"
+	WriteAllText tmp, body
+	If DirAccess.rename_absolute(tmp, req) <> 0 Then
+		If FileExists(tmp) Then DirAccess.remove_absolute(tmp)
+		WriteAllText req, body
+	End If
+	job_stem = stem
+	SubmitDaemonJob = True
+End Function
+
+Function JobStatus(ByVal stem As String) As Integer
+	If stem = "" Then
+		JobStatus = -1
+		Exit Function
+	End If
+	If FileExists(stem & ".ok") Then
+		DirAccess.remove_absolute(stem & ".ok")
+		If FileExists(stem & ".req") Then DirAccess.remove_absolute(stem & ".req")
+		JobStatus = 1
+	ElseIf FileExists(stem & ".err") Then
+		DirAccess.remove_absolute(stem & ".err")
+		If FileExists(stem & ".req") Then DirAccess.remove_absolute(stem & ".req")
+		JobStatus = -1
+	Else
+		JobStatus = 0
+	End If
+End Function
+
+Sub DropJobFiles(ByVal stem As String)
+	If stem = "" Then Exit Sub
+	If FileExists(stem & ".req") Then DirAccess.remove_absolute(stem & ".req")
+	If FileExists(stem & ".tmp") Then DirAccess.remove_absolute(stem & ".tmp")
+	If FileExists(stem & ".ok") Then DirAccess.remove_absolute(stem & ".ok")
+	If FileExists(stem & ".err") Then DirAccess.remove_absolute(stem & ".err")
+	job_stem = ""
+End Sub
+
+Function KokoroSpeakerId(ByVal name As String) As Integer
+	Dim key As String
+	key = LCase(Trim(name))
+	If key = "af" Then
+		KokoroSpeakerId = 0
+	ElseIf key = "af_bella" Then
+		KokoroSpeakerId = 1
+	ElseIf key = "af_nicole" Then
+		KokoroSpeakerId = 2
+	ElseIf key = "af_sarah" Then
+		KokoroSpeakerId = 3
+	ElseIf key = "af_sky" Then
+		KokoroSpeakerId = 4
+	ElseIf key = "am_adam" Or key = "jason" Then
+		KokoroSpeakerId = 5
+	ElseIf key = "am_michael" Or key = "rob" Then
+		KokoroSpeakerId = 6
+	ElseIf key = "bf_emma" Then
+		KokoroSpeakerId = 7
+	ElseIf key = "bf_isabella" Then
+		KokoroSpeakerId = 8
+	ElseIf key = "bm_lewis" Then
+		KokoroSpeakerId = 10
+	Else
+		KokoroSpeakerId = 9
+	End If
+End Function
+
+Function KokoroArgs(ByVal text As String, ByVal wav As String, ByVal speaker As String, ByVal speed As Single) As PackedStringArray
+	Dim args As PackedStringArray
+	Dim root As String
+	Dim rate As String
+	root = KokoroCache() & "/models/kokoro-en-v0_19"
+	If speed < 0.5 Then speed = 0.5
+	If speed > 2.0 Then speed = 2.0
+	rate = Str(speed)
+	args = PackedStringArray()
+	args.append("--kokoro-model=" & root & "/model.onnx")
+	args.append("--kokoro-voices=" & root & "/voices.bin")
+	args.append("--kokoro-tokens=" & root & "/tokens.txt")
+	args.append("--kokoro-data-dir=" & root & "/espeak-ng-data")
+	args.append("--num-threads=2")
+	args.append("--sid=" & Str(KokoroSpeakerId(speaker)))
+	args.append("--speed=" & rate)
+	args.append("--output-filename=" & wav)
+	args.append(text)
+	KokoroArgs = args
+End Function
+
+Sub _ExitTree()
+	Call stop()
+End Sub

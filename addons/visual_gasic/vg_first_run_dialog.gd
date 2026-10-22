@@ -205,7 +205,7 @@ func _build_step2(root: VBoxContainer) -> void:
 	_step2_panel.add_child(_cb_cursor_mcp)
 
 	var companion_hint := Label.new()
-	companion_hint.text = "Piper (natural TTS) and Whisper (local mic STT) install via the VisualGasic bootstrap installer or install.sh — not bundled in the Asset Library addon."
+	companion_hint.text = "Kokoro (neural TTS) and Whisper (local mic STT) install via scripts/install_kokoro.sh and the VisualGasic bootstrap installer — not bundled in the Asset Library addon."
 	companion_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	companion_hint.add_theme_color_override("font_color", Color(0.72, 0.72, 0.76))
 	_step2_panel.add_child(companion_hint)

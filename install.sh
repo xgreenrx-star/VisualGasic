@@ -282,21 +282,21 @@ echo "    cd /path/to/project"
 echo "    vg install"
 echo ""
 
-# ── Optional: Piper neural TTS for Vibe Code voice mode ──────────────────────
-if [[ -t 0 && -t 1 && "${VG_INSTALL_PIPER:-}" != "0" ]]; then
-    echo -e "  ${BOLD}Optional:${NC} natural-sounding voice for Vibe Code (~340 MB download)"
-    echo "    The default OS TTS (espeak / say) is robotic. Piper voices match"
-    echo "    each persona (Bob = American, Skippy = British, Orac = Yorkshire, etc.)"
+# ── Optional: Kokoro neural TTS for Vibe Code / Ash voice ────────────────────
+if [[ -t 0 && -t 1 && "${VG_INSTALL_KOKORO:-}" != "0" ]]; then
+    echo -e "  ${BOLD}Optional:${NC} natural-sounding Kokoro voices (~350 MB download)"
+    echo "    The default OS TTS (espeak / say / SAPI) is robotic. Kokoro-82M"
+    echo "    runs offline on Windows, Linux, and macOS. Orac = British male."
     echo ""
-    read -r -p "  Install Piper neural TTS now? [y/N] " ans
+    read -r -p "  Install Kokoro neural TTS now? [y/N] " ans
     if [[ "$ans" =~ ^[Yy]$ ]]; then
-        if [[ -f "$VG_GLOBAL_DIR/scripts/install_piper.sh" ]]; then
-            bash "$VG_GLOBAL_DIR/scripts/install_piper.sh"
+        if [[ -f "$VG_GLOBAL_DIR/scripts/install_kokoro.sh" ]]; then
+            bash "$VG_GLOBAL_DIR/scripts/install_kokoro.sh"
         else
-            curl -fsSL "$REPO_URL/raw/main/scripts/install_piper.sh" | bash
+            curl -fsSL "$REPO_URL/raw/main/scripts/install_kokoro.sh" | bash
         fi
     else
-        info "Skipped. Run later with: bash <(curl -sSL $REPO_URL/raw/main/scripts/install_piper.sh)"
+        info "Skipped. Run later with: bash <(curl -sSL $REPO_URL/raw/main/scripts/install_kokoro.sh)"
     fi
     echo ""
 fi

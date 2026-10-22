@@ -1,0 +1,101 @@
+' MAX_FRAMES: 12000
+Option Explicit
+
+Dim game As Object
+Dim channel As Object
+Dim frames As Integer
+Dim elapsed As Single
+Dim checks As Integer
+Dim failures As Integer
+Dim tick_times As Array
+Dim frame_times As Array
+Dim max_draw_calls As Integer
+Dim realtime As Boolean
+Dim previous_hull As Single
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	game.dev_i = 15
+	game.WarpDev()
+	channel = game.GetNode("Presentation").black_channel
+	channel.auto_center = True
+	channel.auto_speed = 240
+	tick_times = Array()
+	frame_times = Array()
+	realtime = OS.get_environment("ASH_CHANNEL_REALTIME") = "1"
+	previous_hull = channel.hull
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim start As Integer
+	Dim calls As Integer
+	Dim image As Object
+	Dim capture As String
+	Dim p95 As Integer
+	Dim step_time As Single
+	Dim profile_complete As Boolean
+	frames = frames + 1
+	If frames < 5 Then Exit Sub
+	start = Time.get_ticks_usec()
+	step_time = 0.1
+	If realtime Then step_time = delta
+	channel.tick(step_time)
+	If channel.hull < previous_hull Then
+		Print "CHANNEL_FLIGHT_CONTACT distance=" & Str(channel.distance) & " lateral=" & Str(channel.lateral) & " hull=" & Str(channel.hull) & " warning=" & channel.warning
+		previous_hull = channel.hull
+	End If
+	If frames > 25 Then
+		tick_times.append(Time.get_ticks_usec() - start)
+		frame_times.append(delta * 1000.0)
+	End If
+	game.QueueRedraw()
+	If DisplayServer.get_name() <> "headless" Then
+		calls = Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		max_draw_calls = Max(max_draw_calls, calls)
+	End If
+	elapsed = elapsed + step_time
+	profile_complete = realtime And elapsed >= 20
+	If channel.failed Or channel.orbit_ready Or elapsed > 120 Or profile_complete Then
+		If realtime Then
+			check(profile_complete And Not channel.failed, "twenty_second_realtime_profile_completes")
+			check(channel.distance > 4700, "realtime_flight_advances_at_240_metres_per_second")
+		Else
+			check(channel.completed And channel.orbit_ready And Not channel.failed, "continuous_rendered_flight_reaches_orbital_hold")
+			check(channel.distance > 13000, "continuous_flight_traverses_extended_course")
+		End If
+		check(channel.gate_clear, "continuous_flight_passes_physical_gate")
+		check(game.phase = 19, "continuous_flight_stays_in_encounter")
+		If DisplayServer.get_name() <> "headless" Then check(max_draw_calls < 250, "entire_course_render_budget_below_250_draw_calls")
+		tick_times.sort()
+		frame_times.sort()
+		p95 = Int(tick_times.size() * 0.95)
+		Print "CHANNEL_FLIGHT_PROFILE frames=" & Str(frames) & " simulated_seconds=" & Str(elapsed) & " tick_p95_us=" & Str(tick_times(p95)) & " frame_p95_ms=" & Str(frame_times(p95)) & " max_draw_calls=" & Str(max_draw_calls)
+		capture = OS.get_environment("ASH_CHANNEL_CAPTURE")
+		If capture <> "" And DisplayServer.get_name() <> "headless" Then
+			image = GetViewport().get_texture().get_image()
+			If realtime Then
+				check(image.save_png(capture & "/channel-realtime-flight.png") = 0, "realtime_flight_capture")
+			Else
+				check(image.save_png(capture & "/channel-continuous-orbit.png") = 0, "continuous_orbit_capture")
+			End If
+		End If
+		game.GetNode("Presentation").stop_black_channel()
+		game.queue_free()
+		Print "BLACK_CHANNEL_FLIGHT=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

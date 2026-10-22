@@ -17,6 +17,8 @@ echo "=== M9 installer smoke (static) ==="
 
 python3 "$ROOT/scripts/bootstrap_vg.py" --help | grep -q -- '--with-cursor-mcp' \
   || fail "bootstrap_vg.py missing --with-cursor-mcp"
+python3 "$ROOT/scripts/bootstrap_vg.py" --help | grep -q -- '--with-kokoro' \
+  || fail "bootstrap_vg.py missing --with-kokoro"
 python3 "$ROOT/scripts/bootstrap_vg.py" --help | grep -q -- '--with-piper' \
   || fail "bootstrap_vg.py missing --with-piper"
 python3 "$ROOT/scripts/bootstrap_vg.py" --help | grep -q -- '--with-whisper' \
@@ -27,6 +29,8 @@ grep -q 'InstallCursorMcp' "$ROOT/scripts/windows_installer.nsi" \
   || fail "windows_installer.nsi missing Cursor MCP wizard"
 grep -q '\-\-with-cursor-mcp' "$ROOT/scripts/windows_installer.nsi" \
   || fail "windows_installer.nsi does not pass --with-cursor-mcp to bootstrap"
+grep -q '\-\-with-kokoro' "$ROOT/scripts/windows_installer.nsi" \
+  || fail "windows_installer.nsi does not pass --with-kokoro to bootstrap"
 ok "Windows NSIS Cursor + bootstrap wiring"
 
 grep -q 'with_cursor_mcp' "$ROOT/scripts/bootstrap_gui.py" \
@@ -73,10 +77,10 @@ grep -q 'PLATFORM_SKIP_FILES' "$ROOT/run_test_suite.sh" \
   || fail "missing prepare_ci_gdextension_windows.sh"
 ok "M8 Declare/DllImport parser wiring"
 
-for f in install_piper.sh install_whisper.sh install_piper.ps1 install_whisper.ps1; do
+for f in install_kokoro.sh install_kokoro.ps1 install_piper.sh install_whisper.sh install_piper.ps1 install_whisper.ps1; do
   [[ -f "$ROOT/scripts/$f" ]] || fail "missing scripts/$f"
 done
-ok "Piper/Whisper install scripts present"
+ok "Kokoro/Piper/Whisper install scripts present"
 
 if [[ "${1:-}" == "--ffi" ]]; then
   echo ""

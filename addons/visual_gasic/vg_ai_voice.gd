@@ -10,6 +10,7 @@ extends Node
 ##                 "off"     → disabled
 ##
 ##   TTS backends: "openai"  → /v1/audio/speech (returns mp3)
+##                 "kokoro"  → local Sherpa-ONNX + Kokoro-82M (returns wav)
 ##                 "piper"   → local `piper` binary on PATH (returns wav)
 ##                 "system"  → OS-native (espeak / SAPI / `say`)  — last resort
 ##                 "off"     → disabled
@@ -21,6 +22,7 @@ extends Node
 ## Settings are persisted in user://vg_ai_voice.cfg.
 
 const AIProviders := preload("res://addons/visual_gasic/vg_ai_providers.gd")
+const VgTtsKokoro := preload("res://addons/visual_gasic/vg_tts_kokoro.gd")
 
 const CFG_PATH := "user://vg_ai_voice.cfg"
 const RECORD_BUS_NAME := "VGRecord"
@@ -93,7 +95,7 @@ var _speech_filter = null            # lazy-loaded vg_ai_speech_filter
 # Settings (loaded from CFG_PATH)
 var vad_enabled: bool = true              # auto-stop on silence
 var stt_backend: String = "openai"        # "openai" | "whisper" | "off"
-var tts_backend: String = "openai"        # "openai" | "piper" | "system" | "off"
+var tts_backend: String = "openai"        # "openai" | "kokoro" | "piper" | "system" | "off"
 var tts_voice: String = OPENAI_TTS_DEFAULT_VOICE
 var auto_speak_replies: bool = false
 # Default to "whisper-cli" (the actual binary name shipped by
@@ -109,9 +111,16 @@ var piper_voice_path: String = ""         # e.g. "/usr/share/piper/en_US-amy-low
 # configure the voices folder once.  Empty = use piper_voice_path as-is.
 var piper_voice_override: String = ""
 
+# Per-persona Kokoro speaker name (af_bella, bm_george, …). Empty = bm_george.
+var kokoro_voice_override: String = ""
+var _kokoro_wav_path: String = ""
+var _kokoro_started_ms: int = 0
+var _kokoro_job: String = ""
+var _kokoro_daemon: bool = false
+
 # Speech rate scale.  1.0 = normal; >1 = faster; <1 = slower.  Forwarded to
 # every backend that supports it: OpenAI `speed` (clamped 0.25..4.0),
-# Piper `--length-scale` (inverse \u2014 length-scale 1/scale), espeak `-s WPM`
+# Kokoro `--speed`, Piper `--length-scale` (inverse), espeak `-s WPM`
 # (175 * scale), macOS `say -r WPM`, SAPI `$s.Rate` (-10..10 mapped from
 # log2 of scale).  The AI panel sets this from the active persona so
 # Skippy can sound manic and HAL can sound serene.
@@ -119,6 +128,7 @@ var tts_speed_scale: float = 1.0
 
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 func _ready() -> void:
+	set_process(false)
 	_load_settings()
 	_setup_audio()
 	_setup_http()
@@ -207,6 +217,7 @@ func _load_settings() -> void:
 	# configured (i.e. the cloud path would fail anyway).
 	_autodetect_whisper(had_cfg)
 	_autodetect_piper(had_cfg)
+	_autodetect_kokoro(had_cfg)
 
 func _autodetect_whisper(had_cfg: bool) -> void:
 	# Resolve binary if the configured one is missing.
@@ -323,6 +334,17 @@ func _autodetect_piper(had_cfg: bool) -> void:
 	var has_openai_key := not AIProviders.load_api_key("openai").is_empty()
 	if not had_cfg and local_ready and not has_openai_key and tts_backend == "openai":
 		tts_backend = "piper"
+
+func _autodetect_kokoro(had_cfg: bool) -> void:
+	if not VgTtsKokoro.is_ready():
+		return
+	var has_openai_key := not AIProviders.load_api_key("openai").is_empty()
+	# Prefer Kokoro over eSpeak whenever the pack is installed and the
+	# cloud path would fail. Keep an explicit piper/openai choice.
+	if tts_backend == "openai" and not has_openai_key:
+		tts_backend = "kokoro"
+	elif not had_cfg and tts_backend == "piper":
+		tts_backend = "kokoro"
 
 func _windows_profile_dir() -> String:
 	var profile := OS.get_environment("USERPROFILE")
@@ -526,27 +548,37 @@ func speak(text: String) -> void:
 	if _is_speaking:
 		stop_speaking()
 	# Effective backend: if OpenAI is selected (default) but no key is
-	# configured, silently fall back to system TTS (espeak / say / SAPI)
-	# so voice mode works out of the box for users who haven't bought an
-	# OpenAI key yet. Same fallback if `piper` is selected but the binary
-	# is missing.
+	# configured, use local Kokoro, then Piper, then system TTS.
 	var effective: String = tts_backend
 	if effective == "openai":
 		var key: String = AIProviders.load_api_key("openai") if AIProviders else ""
 		if key.is_empty():
-			effective = "system"
+			effective = _local_tts_backend()
+	elif effective == "kokoro":
+		if not VgTtsKokoro.is_ready():
+			effective = _local_tts_backend()
 	elif effective == "piper":
 		if not _binary_exists(piper_path):
-			effective = "system"
+			effective = _local_tts_backend()
 	match effective:
 		"openai":
 			_speak_openai(text)
+		"kokoro":
+			_speak_kokoro(text)
 		"piper":
 			_speak_piper(text)
 		"system":
 			_speak_system(text)
 		_:
 			speech_failed.emit("Unknown TTS backend: %s" % tts_backend)
+
+
+func _local_tts_backend() -> String:
+	if VgTtsKokoro.is_ready():
+		return "kokoro"
+	if _binary_exists(piper_path) and not piper_voice_path.is_empty():
+		return "piper"
+	return "system"
 
 func stop_speaking() -> void:
 	# Tier 2.5c: clear the sentence queue and streaming buffer so no further
@@ -563,9 +595,19 @@ func stop_speaking() -> void:
 	#    on Linux/macOS/Windows — espeak / say / powershell SAPI).  Without
 	#    this Narcea kept talking after the user clicked Stop because the
 	#    OS process owns its own audio path.
-	if _tts_pid > 0:
+	if _tts_pid > 0 and not _kokoro_daemon:
 		OS.kill(_tts_pid)
 		_tts_pid = -1
+	_tts_pid = -1
+	if not _kokoro_job.is_empty():
+		VgTtsKokoro.cancel_job(_kokoro_job)
+		_kokoro_job = ""
+	_kokoro_daemon = false
+	if not _kokoro_wav_path.is_empty():
+		if FileAccess.file_exists(_kokoro_wav_path):
+			DirAccess.remove_absolute(_kokoro_wav_path)
+		_kokoro_wav_path = ""
+	set_process(false)
 	if _is_speaking:
 		_is_speaking = false
 		speech_finished.emit()
@@ -941,6 +983,92 @@ func _on_tts_finished() -> void:
 	speech_finished.emit()
 	# Tier 2.5c: play the next queued sentence immediately.
 	_dequeue_and_speak()
+
+# ─── TTS: local Kokoro (Sherpa-ONNX) ────────────────────────────────────────
+func _speak_kokoro(text: String) -> void:
+	if not VgTtsKokoro.is_ready():
+		speech_failed.emit("Kokoro TTS is not installed. Run scripts/install_kokoro.sh")
+		return
+	var temp := OS.get_user_data_dir().path_join("vg_voice_tmp")
+	DirAccess.make_dir_recursive_absolute(temp)
+	var wav_path := temp.path_join("kokoro-%d.wav" % Time.get_ticks_usec())
+	if load("res://addons/visual_gasic/vg_expectations.gd").new().blocks_ai_write(wav_path):
+		speech_failed.emit("protected expectation: %s" % wav_path)
+		return
+	var speaker := kokoro_voice_override
+	if speaker.strip_edges().is_empty():
+		speaker = "bm_george"
+	_is_speaking = true
+	speech_started.emit()
+	_kokoro_wav_path = wav_path
+	_kokoro_started_ms = Time.get_ticks_msec()
+	_kokoro_job = VgTtsKokoro.submit_job(text, wav_path, speaker, tts_speed_scale, 0.2)
+	if not _kokoro_job.is_empty():
+		_kokoro_daemon = true
+		_tts_pid = 1
+		set_process(true)
+		return
+	_kokoro_daemon = false
+	var args := VgTtsKokoro.build_args(text, wav_path, speaker, tts_speed_scale)
+	_tts_pid = OS.create_process(VgTtsKokoro.wrapper_path(), args, false)
+	if _tts_pid <= 0:
+		_is_speaking = false
+		_kokoro_wav_path = ""
+		speech_failed.emit("Could not start the Kokoro speech worker.")
+		return
+	set_process(true)
+
+
+func _process(_delta: float) -> void:
+	if _kokoro_wav_path.is_empty():
+		set_process(false)
+		return
+	if _kokoro_daemon:
+		var status := VgTtsKokoro.job_status(_kokoro_job)
+		if status == 0:
+			if Time.get_ticks_msec() - _kokoro_started_ms > 30000:
+				stop_speaking()
+				speech_failed.emit("Kokoro speech timed out. Subtitles remain available.")
+			return
+		_kokoro_job = ""
+		_kokoro_daemon = false
+		_tts_pid = -1
+		if status < 0:
+			var failed := _kokoro_wav_path
+			_kokoro_wav_path = ""
+			set_process(false)
+			_is_speaking = false
+			if FileAccess.file_exists(failed):
+				DirAccess.remove_absolute(failed)
+			speech_failed.emit("Kokoro produced no audio.")
+			return
+	elif _tts_pid > 0:
+		if OS.is_process_running(_tts_pid):
+			if Time.get_ticks_msec() - _kokoro_started_ms > 30000:
+				stop_speaking()
+				speech_failed.emit("Kokoro speech timed out. Subtitles remain available.")
+			return
+		_tts_pid = -1
+	else:
+		set_process(false)
+		return
+	var path := _kokoro_wav_path
+	_kokoro_wav_path = ""
+	_tts_pid = -1
+	set_process(false)
+	if not FileAccess.file_exists(path):
+		_is_speaking = false
+		speech_failed.emit("Kokoro produced no audio.")
+		return
+	var wav: AudioStreamWAV = AudioStreamWAV.load_from_file(path)
+	DirAccess.remove_absolute(path)
+	if wav == null:
+		_is_speaking = false
+		speech_failed.emit("Could not decode Kokoro audio.")
+		return
+	_tts_player.stream = wav
+	_tts_player.play()
+
 
 # ─── TTS: local piper ───────────────────────────────────────────────────────
 func _speak_piper(text: String) -> void:

@@ -65,6 +65,7 @@ Var MakeShortcuts
 Var RegisterVgFiles
 Var InstallOllama
 Var OllamaModel
+Var InstallKokoro
 Var InstallPiper
 Var InstallWhisper
 Var InstallCursorMcp
@@ -83,6 +84,7 @@ Var hCtlGemini
 Var hCtlOllamaEnable
 Var hCtlOllamaModel
 Var hCtlOllamaInfo
+Var hCtlKokoroEnable
 Var hCtlPiperEnable
 Var hCtlWhisperEnable
 Var hCtlCursorMcp
@@ -117,6 +119,7 @@ Function .onInit
     StrCpy $GeminiKey ""
     StrCpy $InstallOllama "0"
     StrCpy $OllamaModel ""
+    StrCpy $InstallKokoro "0"
     StrCpy $InstallPiper "0"
     StrCpy $InstallWhisper "0"
     StrCpy $InstallCursorMcp "1"
@@ -346,12 +349,12 @@ Function OllamaPage
         "Tip: 'Auto-recommend' lets the installer pick the best fit using your CPU, RAM, and GPU. Pick a specific model if you know what your machine can handle. You can change the model later by running 'ollama pull <name>' from a terminal."
     Pop $0
 
-    ; Piper opt-in (~340 MB total: binary + 5 persona voice models).
+    ; Kokoro opt-in (~350 MB: Sherpa-ONNX runtime + English voice pack).
     ${NSD_CreateCheckbox} 0 122u 100% 12u \
-        "Install Piper neural TTS so Vibe Code voice replies sound natural (~400 MB)"
-    Pop $hCtlPiperEnable
+        "Install Kokoro neural TTS so Vibe Code / Orac voice replies sound natural (~350 MB)"
+    Pop $hCtlKokoroEnable
     ${NSD_CreateLabel} 16u 136u 100% 24u \
-        "Without Piper, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Piper voices match each persona (Bob, Skippy, Orac, HAL)."
+        "Without Kokoro, voice mode falls back to the OS's built-in TTS (espeak / SAPI), which is robotic. Kokoro-82M runs offline on Windows, Linux, and macOS."
     Pop $0
 
     ; Whisper opt-in (~85 MB: prebuilt whisper.cpp binary + tiny.en model).
@@ -406,11 +409,11 @@ Function OllamaPageLeave
         StrCpy $OllamaModel ""
     ${EndIf}
 
-    ${NSD_GetState} $hCtlPiperEnable $0
+    ${NSD_GetState} $hCtlKokoroEnable $0
     ${If} $0 == ${BST_CHECKED}
-        StrCpy $InstallPiper "1"
+        StrCpy $InstallKokoro "1"
     ${Else}
-        StrCpy $InstallPiper "0"
+        StrCpy $InstallKokoro "0"
     ${EndIf}
 
     ${NSD_GetState} $hCtlWhisperEnable $0
@@ -481,8 +484,8 @@ Section "VisualGasic first-time installer" SecMain
     ${If} $OpenCursorDownload == "1"
         StrCpy $0 "$0 --open-cursor-download"
     ${EndIf}
-    ${If} $InstallPiper == "1"
-        StrCpy $0 "$0 --with-piper"
+    ${If} $InstallKokoro == "1"
+        StrCpy $0 "$0 --with-kokoro"
     ${EndIf}
     ${If} $InstallWhisper == "1"
         StrCpy $0 "$0 --with-whisper"

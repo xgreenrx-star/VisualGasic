@@ -1,0 +1,128 @@
+' MAX_FRAMES: 240
+Option Explicit
+
+Dim game As Object
+Dim frame As Integer
+Dim times As Array
+Dim process_times As Array
+Dim draw_calls As Integer
+Dim previous_frame As Integer
+Dim checks As Integer
+Dim failures As Integer
+Dim first_mesh As Object
+Dim first_art As Object
+Dim first_overlay As Object
+Dim ring As Object
+Dim mode As String
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub capture(ByVal name As String)
+	Dim path As String
+	path = OS.get_environment("ASH_CHANNEL_CAPTURE")
+	If path <> "" And DisplayServer.get_name() <> "headless" Then
+		check(GetViewport().get_texture().get_image().save_png(path & "/" & name & ".png") = 0, name & "_capture")
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	game.dev_i = 1
+	game.WarpDev()
+	game.campaign_arrival = True
+	game.set_process(False)
+	game.ship_z = 0
+	game.land_t = 1
+	game.menu_on = False
+	game.dev_on = False
+	mode = OS.get_environment("ASH_LANDING_PROFILE")
+	If mode = "intro" Then
+		game.phase = 0
+		game.clock = 20
+	ElseIf mode = "live" Then
+		game.set_process(True)
+	End If
+	times = Array()
+	process_times = Array()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim view As Object
+	Dim index As Integer
+	Dim now As Integer
+	Dim budget As Single
+	Dim rings As Array
+	Dim clear As Boolean
+	frame = frame + 1
+	view = game.GetNode("Presentation")
+	now = Time.get_ticks_usec()
+	If frame > 15 And frame <= 105 Then
+		times.append((now - previous_frame) / 1000.0)
+		process_times.append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000)
+		draw_calls = Max(draw_calls, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+	End If
+	previous_frame = now
+	game.land_t = game.land_t + delta
+	game.QueueRedraw()
+	If frame = 15 Then
+		first_art = view.deck.cached_art
+		first_overlay = view.deck.cached_overlay
+		rings = view.landing_rings
+		ring = rings(0)
+		first_mesh = ring.mesh
+	ElseIf frame = 105 Then
+		times.sort()
+		process_times.sort()
+		index = Int(times.size() * 0.95)
+		Print "LANDING_PROFILE mode=" & mode & " phase=" & Str(game.phase) & " frame_p95_ms=" & Str(times(index)) & " process_p95_ms=" & Str(process_times(index)) & " draws=" & Str(draw_calls)
+		If mode = "intro" Then
+			check(game.phase = 0, "profiles_campaign_intro_landing_cockpit")
+		Else
+			check(game.phase = 1, "profiles_actual_campaign_landing")
+		End If
+		If mode = "live" Then check(game.ship_z > 0 And game.land_t > 1, "normal_game_process_advances_landing")
+		game.set_process(False)
+		check(view.deck.cached_art = first_art And view.deck.cached_overlay = first_overlay, "dashboard_art_nodes_reused_across_frames")
+		check(first_art.show_behind_parent And Not first_overlay.show_behind_parent, "cached_trim_and_scanlines_preserve_composition_order")
+		check(ring.mesh = first_mesh, "landing_ring_mesh_reused_across_frames")
+		check(view.landing_ring_meshes.size() = 2, "all_landing_rings_share_two_color_meshes")
+		check(view.landing_rings.size() = 28, "all_authored_landing_rings_retained")
+		check(view.campaign_yard.visible And Not view.campaign_yard.ship_model.visible, "landing_keeps_yard_visible_without_duplicate_parked_ship")
+		If DisplayServer.get_name() <> "headless" And OS.get_environment("ASH_LANDING_BUDGET_MS") <> "" Then
+			budget = Val(OS.get_environment("ASH_LANDING_BUDGET_MS"))
+			check(times(index) < budget, "landing_frame_p95_within_requested_budget")
+		End If
+		capture("landing-optimized")
+		game.next_ring = 1
+		game.ring_miss = 1
+		game.hurt = 0.5
+		game.phase = 1
+	ElseIf frame = 110 Then
+		check(Not ring.visible, "passed_ring_disappears")
+		rings = view.landing_rings
+		ring = rings(1)
+		check(ring.visible And ring.mesh = first_mesh, "next_ring_reuses_amber_mesh")
+		check(view.deck.S("miss") = 1 And view.deck.S("hurt") = 0.5, "damage_and_cracks_remain_live_over_cached_art")
+		capture("landing-optimized-damage")
+		view.begin_frame()
+		clear = True
+		For Each ring In view.landing_rings
+			If ring.visible Then clear = False
+		Next
+		check(clear, "landing_rings_hidden_on_scene_exit")
+		game.queue_free()
+		Print "LANDING_PERFORMANCE=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

@@ -1,0 +1,111 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/gate_frame.glb" id="model_gate_frame"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/gate_leaf.glb" id="model_gate_leaf"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/facet.tres" id="material_2"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(10, 64, 12)
+
+[sub_resource type="BoxShape3D" id="shape_1"]
+size = Vector3(10, 64, 12)
+
+[sub_resource type="BoxShape3D" id="shape_2"]
+size = Vector3(72, 6, 12)
+
+[sub_resource type="BoxShape3D" id="door"]
+size = Vector3(26, 56, 3)
+
+[node name="SecurityGate" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_gate_frame")]
+
+
+[node name="Mesh" parent="Visual/gate_frame" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_4")
+surface_material_override/2 = ExtResource("material_3")
+surface_material_override/3 = ExtResource("material_1")
+
+[node name="Pier0" type="StaticBody3D" parent="."]
+position = Vector3(-31, 16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Pier0"]
+shape = SubResource("shape_0")
+
+[node name="Pier1" type="StaticBody3D" parent="."]
+position = Vector3(31, 16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Pier1"]
+shape = SubResource("shape_1")
+
+[node name="Lintel" type="StaticBody3D" parent="."]
+position = Vector3(0, 46, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Lintel"]
+shape = SubResource("shape_2")
+
+[node name="LeftDoor" type="AnimatableBody3D" parent="."]
+position = Vector3(-39, 14, 0)
+collision_layer = 1
+collision_mask = 0
+metadata/closed_x = -13
+metadata/open_x = -39
+
+[node name="Visual" parent="LeftDoor" instance=ExtResource("model_gate_leaf")]
+
+
+[node name="Mesh" parent="LeftDoor/Visual/gate_leaf" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_4")
+surface_material_override/2 = ExtResource("material_2")
+
+[node name="Collision" type="CollisionShape3D" parent="LeftDoor"]
+shape = SubResource("door")
+
+[node name="RightDoor" type="AnimatableBody3D" parent="."]
+position = Vector3(39, 14, 0)
+collision_layer = 1
+collision_mask = 0
+metadata/closed_x = 13
+metadata/open_x = 39
+
+[node name="Visual" parent="RightDoor" instance=ExtResource("model_gate_leaf")]
+
+
+[node name="Mesh" parent="RightDoor/Visual/gate_leaf" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_1")
+surface_material_override/1 = ExtResource("material_4")
+surface_material_override/2 = ExtResource("material_2")
+
+[node name="Collision" type="CollisionShape3D" parent="RightDoor"]
+shape = SubResource("door")
+
+[node name="Approach" type="Marker3D" parent="."]
+position = Vector3(0, 10, 80)
+
+[node name="Clearance" type="Marker3D" parent="."]
+position = Vector3(0, 10, -30)

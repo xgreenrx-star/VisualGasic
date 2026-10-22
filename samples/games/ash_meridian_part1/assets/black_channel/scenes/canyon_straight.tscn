@@ -1,0 +1,62 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/black_channel/models/canyon_straight.glb" id="model_canyon_straight"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/basalt.tres" id="material_0"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/cyan.tres" id="material_3"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/amber.tres" id="material_4"]
+
+[ext_resource type="Material" path="res://assets/black_channel/materials/armor.tres" id="material_1"]
+
+[sub_resource type="BoxShape3D" id="shape_0"]
+size = Vector3(136, 4, 96)
+
+[sub_resource type="ConvexPolygonShape3D" id="cliff_0"]
+points = PackedVector3Array(-48, -14, -48, -68, -14, -48, -68, 68, -48, -58, 68, -48, -50, 40, -48, -45, 11, -48, -48, -14, 48, -68, -14, 48, -68, 68, 48, -58, 68, 48, -50, 40, 48, -45, 11, 48)
+
+[sub_resource type="ConvexPolygonShape3D" id="cliff_1"]
+points = PackedVector3Array(48, -14, -48, 68, -14, -48, 68, 68, -48, 58, 68, -48, 50, 40, -48, 45, 11, -48, 48, -14, 48, 68, -14, 48, 68, 68, 48, 58, 68, 48, 50, 40, 48, 45, 11, 48)
+
+[node name="CanyonStraight" type="Node3D"]
+
+
+[node name="Visual" parent="." instance=ExtResource("model_canyon_straight")]
+
+
+[node name="Mesh" parent="Visual/canyon_straight" index="0"]
+visibility_range_end = 1900.0
+visibility_range_end_margin = 150.0
+surface_material_override/0 = ExtResource("material_0")
+surface_material_override/1 = ExtResource("material_3")
+surface_material_override/2 = ExtResource("material_4")
+surface_material_override/3 = ExtResource("material_1")
+
+[node name="Floor" type="StaticBody3D" parent="."]
+position = Vector3(0, -16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("shape_0")
+
+[node name="Cliff0" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Cliff0"]
+shape = SubResource("cliff_0")
+
+[node name="Cliff1" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="Cliff1"]
+shape = SubResource("cliff_1")
+
+[node name="Entry" type="Marker3D" parent="."]
+position = Vector3(0, 10, 48)
+
+[node name="Exit" type="Marker3D" parent="."]
+position = Vector3(0, 10, -48)
