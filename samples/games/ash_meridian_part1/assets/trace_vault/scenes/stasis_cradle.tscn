@@ -1,0 +1,274 @@
+[gd_scene load_steps=20 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e4"]
+
+[sub_resource type="CylinderMesh" id="s0"]
+top_radius = 1.35
+bottom_radius = 1.5
+height = 0.32
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxShape3D" id="s1"]
+size = Vector3(2.4, 0.32, 2.4)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(1.9, 3.4, 0.42)
+
+[sub_resource type="BoxShape3D" id="s3"]
+size = Vector3(1.9, 3.4, 0.42)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(2.7, 0.35, 2)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(0.22, 3.4, 0.4)
+
+[sub_resource type="BoxMesh" id="s6"]
+size = Vector3(0.035, 3.1, 0.035)
+
+[sub_resource type="BoxShape3D" id="s7"]
+size = Vector3(0.22, 3.4, 0.4)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(0.55, 0.13, 0.22)
+
+[sub_resource type="BoxMesh" id="s9"]
+size = Vector3(0.13, 0.23, 0.14)
+
+[sub_resource type="BoxMesh" id="s10"]
+size = Vector3(0.65, 1.6, 0.65)
+
+[sub_resource type="BoxShape3D" id="s11"]
+size = Vector3(0.65, 1.6, 0.65)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(0.44, 0.42, 0.04)
+
+[sub_resource type="CylinderMesh" id="s13"]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.06
+radial_segments = 24
+rings = 1
+
+[node name="stasis_cradle" type="Node3D"]
+
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.16, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="BaseCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.16, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BaseCollision"]
+shape = SubResource("s1")
+
+[node name="BackSpine" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.9, 0.75)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="BackCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 1.9, 0.75)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BackCollision"]
+shape = SubResource("s3")
+
+[node name="Crown" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.65, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Post-1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.16, 1.9, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="ColdSeam-1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.04, 1.9, -0.23)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="PostCollision-1" type="StaticBody3D" parent="."]
+position = Vector3(-1.16, 1.9, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="PostCollision-1"]
+shape = SubResource("s7")
+
+[node name="Post1" type="MeshInstance3D" parent="."]
+position = Vector3(1.16, 1.9, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="ColdSeam1" type="MeshInstance3D" parent="."]
+position = Vector3(1.04, 1.9, -0.23)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="PostCollision1" type="StaticBody3D" parent="."]
+position = Vector3(1.16, 1.9, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="PostCollision1"]
+shape = SubResource("s7")
+
+[node name="ClampPivots" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="UpperLeft" type="Node3D" parent="ClampPivots"]
+position = Vector3(-1.05, 2.5, -0.32)
+
+
+[node name="Arm" type="MeshInstance3D" parent="ClampPivots/UpperLeft"]
+position = Vector3(0.25, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Contact" type="MeshInstance3D" parent="ClampPivots/UpperLeft"]
+position = Vector3(0.5, 0, -0.06)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="LowerLeft" type="Node3D" parent="ClampPivots"]
+position = Vector3(-1.05, 1, -0.32)
+
+
+[node name="Arm" type="MeshInstance3D" parent="ClampPivots/LowerLeft"]
+position = Vector3(0.25, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Contact" type="MeshInstance3D" parent="ClampPivots/LowerLeft"]
+position = Vector3(0.5, 0, -0.06)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="UpperRight" type="Node3D" parent="ClampPivots"]
+position = Vector3(1.05, 2.5, -0.32)
+
+
+[node name="Arm" type="MeshInstance3D" parent="ClampPivots/UpperRight"]
+position = Vector3(-0.25, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Contact" type="MeshInstance3D" parent="ClampPivots/UpperRight"]
+position = Vector3(-0.5, 0, -0.06)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="LowerRight" type="Node3D" parent="ClampPivots"]
+position = Vector3(1.05, 1, -0.32)
+
+
+[node name="Arm" type="MeshInstance3D" parent="ClampPivots/LowerRight"]
+position = Vector3(-0.25, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Contact" type="MeshInstance3D" parent="ClampPivots/LowerRight"]
+position = Vector3(-0.5, 0, -0.06)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="VentSockets" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="Left" type="Marker3D" parent="VentSockets"]
+position = Vector3(-0.8, 0.35, -0.55)
+
+
+[node name="Right" type="Marker3D" parent="VentSockets"]
+position = Vector3(0.8, 0.35, -0.55)
+
+
+[node name="FigureMount" type="Marker3D" parent="."]
+position = Vector3(0, 0.32, 0)
+
+
+[node name="CouplerSocket" type="Marker3D" parent="."]
+position = Vector3(1.85, 1.2, -0.83)
+rotation_degrees = Vector3(-90, 0, 0)
+
+[node name="WarningPanel" type="Marker3D" parent="."]
+position = Vector3(0, 3.95, -0.1)
+
+
+[node name="SocketHousing" type="MeshInstance3D" parent="."]
+position = Vector3(1.85, 0.8, -0.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="SocketCollision" type="StaticBody3D" parent="."]
+position = Vector3(1.85, 0.8, -0.4)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="SocketCollision"]
+shape = SubResource("s11")
+
+[node name="SocketTrim" type="MeshInstance3D" parent="."]
+position = Vector3(1.85, 1.2, -0.74)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="SocketRecess" type="MeshInstance3D" parent="."]
+position = Vector3(1.85, 1.2, -0.79)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e4")
+cast_shadow = 0

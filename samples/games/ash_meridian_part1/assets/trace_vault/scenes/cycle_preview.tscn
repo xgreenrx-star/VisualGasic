@@ -1,0 +1,55 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e0"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/trace_cycle.tscn" id="e1"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/security_cycle.tscn" id="e2"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(18, 0.4, 18)
+
+[sub_resource type="Environment" id="s1"]
+background_mode = 1
+background_color = Color(0.016, 0.013, 0.033, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.59, 0.75, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 0
+
+[node name="cycle_preview" type="Node3D"]
+
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.2, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Cycle" parent="." instance=ExtResource("e1")]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Remote" parent="." instance=ExtResource("e2")]
+position = Vector3(-3.5, 0, 3)
+rotation_degrees = Vector3(0, 165, 0)
+
+[node name="Environment" type="WorldEnvironment" parent="."]
+environment = SubResource("s1")
+
+[node name="Key" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_color = Color(0.6, 0.78, 1, 1)
+light_energy = 1.6
+
+[node name="Rim" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-24, 135, 0)
+light_color = Color(0.65, 0.28, 0.42, 1)
+light_energy = 1.0
+
+[node name="Camera" type="Camera3D" parent="."]
+position = Vector3(6, 3.6, -8)
+rotation_degrees = Vector3(-16, 140, 0)
+fov = 38.0
+current = true

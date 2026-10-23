@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#191426"/><stop offset="1" stop-color="#050a11"/></linearGradient>
+    <linearGradient id="metal" x2="1" y2="1"><stop stop-color="#52677a"/><stop offset=".45" stop-color="#223244"/><stop offset="1" stop-color="#101722"/></linearGradient>
+    <linearGradient id="haze" x2="0" y2="1"><stop stop-color="#5dbcc8" stop-opacity="0"/><stop offset="1" stop-color="#5dbcc8" stop-opacity=".18"/></linearGradient>
+    <pattern id="grille" width="14" height="10" patternUnits="userSpaceOnUse"><path d="M0 5H11" stroke="#668495" stroke-width="2"/></pattern>
+    <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+    <g id="feb" stroke-linejoin="round">
+      <path d="M-25 16L-20-24 5-37 33-17 27 20 8 30Z" fill="url(#metal)" stroke="#91a7b7" stroke-width="2"/>
+      <path d="M-19-3L5-10 24-4" fill="none" stroke="#ffb14c" stroke-width="5"/>
+      <path d="M-11 24L-12 42 20 42 17 23" fill="#111e29" stroke="#4b6172" stroke-width="2"/>
+      <path d="M-50 39L-19 31 8 43 39 30 64 55 43 132 12 151-42 131-64 66Z" fill="url(#metal)" stroke="#60788c" stroke-width="3"/>
+      <path d="M-41 48L-7 61-7 105-36 115-47 75Z" fill="#101d29" stroke="#507381"/>
+      <path d="M3 60L29 48 47 65 32 110 5 118Z" fill="#243b4b" stroke="#86b8c3"/>
+      <path d="M-28 54V95M13 64V101" stroke="#65e2df" stroke-width="3"/>
+      <path d="M-59 51L-88 60-91 112-73 127-56 107Z" fill="#233442" stroke="#687f8e" stroke-width="3"/>
+      <path d="M-86 117L-102 172-90 207-60 209-52 177-63 122Z" fill="url(#metal)" stroke="#8091a0" stroke-width="3"/>
+      <path d="M-83 201L-88 229-76 238-66 222-56 233-48 224-57 199" fill="#273d49" stroke="#6a8c9a" stroke-width="2"/>
+      <path d="M63 52L100 66 105 123 83 132 56 112Z" fill="#2d3c4b" stroke="#8393a2" stroke-width="3"/>
+      <path d="M83 116L113 122 126 194 108 211 79 196 70 148Z" fill="url(#metal)" stroke="#7d8e9d" stroke-width="3"/>
+      <path d="M88 139L107 144 115 181 95 183Z" fill="url(#grille)"/>
+      <path d="M91 199H114" stroke="#ffb14c" stroke-width="7"/>
+      <path d="M-39 139L10 156 40 141 45 177 15 196-39 181Z" fill="#263848" stroke="#677e90" stroke-width="3"/>
+      <path d="M-36 182L-8 191-9 257-37 271-54 245Z" fill="url(#metal)" stroke="#8195a5" stroke-width="3"/>
+      <path d="M14 195L40 180 56 245 41 272 11 255Z" fill="url(#metal)" stroke="#8195a5" stroke-width="3"/>
+      <path d="M-41 267L-10 260-7 326-22 351-57 344-58 324Z" fill="#1a2a39" stroke="#6e8798" stroke-width="3"/>
+      <path d="M12 262L43 271 59 326 56 348 24 350 9 330Z" fill="#1a2a39" stroke="#6e8798" stroke-width="3"/>
+      <path d="M-54 342L-20 346-14 366-67 366Z M24 345L57 342 75 365 21 365Z" fill="#263b4b" stroke="#8a9fac" stroke-width="3"/>
+      <path d="M-39 284L-34 322M34 284L40 322" stroke="#50c7cf" stroke-width="3"/>
+      <text x="-28" y="126" font-family="DejaVu Sans,sans-serif" fill="#a4b7c5" font-size="11" stroke="none">FEB / 04</text>
+    </g>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <g font-family="DejaVu Sans,sans-serif">
+    <text x="50" y="48" fill="#77edf1" font-size="15" letter-spacing="5">ASH MERIDIAN / DEEP INSTALLATION</text>
+    <text x="50" y="96" fill="#edf5fa" font-size="36" letter-spacing="2">THE VAULT / FIELD ENFORCEMENT BODY</text>
+    <text x="1550" y="54" text-anchor="end" fill="#ffb34c" font-size="14">NEW PROPOSAL / EARLIER REFERENCE NOT LOCATED</text>
+    <path d="M50 114H1550" stroke="#3d5362"/>
+    <rect x="50" y="140" width="960" height="620" fill="#070e17" stroke="#344c5c"/>
+    <path d="M50 140L280 225H786L1010 140M50 760L278 593H786L1010 760" fill="#151d2c" stroke="#465169"/>
+    <path d="M50 295L280 310M50 488L280 456M1010 295L786 310M1010 488L786 456" stroke="#254553" stroke-width="3"/>
+    <path d="M110 147L313 232V596L111 744M209 147L350 232M949 147L751 232V596L949 744M851 147L716 232" fill="none" stroke="#304758" stroke-width="15"/>
+    <path d="M116 153L320 238V588L118 739M943 153L744 238V588L941 739" fill="none" stroke="#5ccdd8" stroke-width="3"/>
+    <path d="M283 595L355 556H711L785 595 859 684H207Z" fill="#162232" stroke="#627b8d" stroke-width="2"/>
+    <path d="M222 678L299 610H763L845 678M270 635H795" fill="none" stroke="#f3aa48" stroke-width="2"/>
+    <path d="M397 270L423 236H643L672 270 665 577 640 606H425L399 574Z" fill="#141e2c" stroke="#8295a7" stroke-width="4"/>
+    <path d="M414 268L440 251H629L652 268V567L630 589H440L417 568Z" fill="#0b141e" stroke="#4f818f" stroke-width="2"/>
+    <path d="M425 272V563M640 272V563" stroke="#8aecef" stroke-width="5"/>
+    <path d="M425 272V563M640 272V563" stroke="#8aecef" stroke-width="10" filter="url(#glow)" opacity=".4"/>
+    <use xlink:href="#feb" transform="translate(528 320) scale(.67)"/>
+    <path d="M432 281H631M433 563H630" stroke="#a7eeec" stroke-width="5"/>
+    <path d="M403 299H444V319H401M663 299H621V319H664M403 489H447V509H403M664 489H622V509H664" fill="#496375" stroke="#a1b6bc" stroke-width="2"/>
+    <path d="M454 260V282M483 260V282M512 260V282M542 260V282M571 260V282M600 260V282" stroke="#324d60" stroke-width="6"/>
+    <path d="M437 521H628V552H437Z" fill="url(#haze)"/>
+    <path d="M405 567L357 612M663 567L711 612" stroke="#304c5c" stroke-width="15"/>
+    <path d="M405 567L357 612M663 567L711 612" stroke="#759aab" stroke-width="3"/>
+    <path d="M688 449L754 438 778 463V539L707 557 685 531Z" fill="url(#metal)" stroke="#8e9a9c" stroke-width="2"/>
+    <path d="M702 460L745 454 760 468 717 479Z" fill="#ffc36c"/>
+    <path d="M713 489V523L752 513V481" fill="#0b1720" stroke="#dc9949" stroke-width="3"/>
+    <path d="M296 420L350 411 372 433V553L314 567 294 545Z" fill="url(#metal)" stroke="#5e7d8b"/>
+    <path d="M309 434L339 429V480L309 487Z" fill="#54cecf"/>
+    <path d="M318 513L346 505M318 526L346 518M318 539L346 531" stroke="#dca552" stroke-width="4"/>
+    <path d="M386 213H680L700 227H371Z" fill="#253544" stroke="#829ba7"/>
+    <text x="458" y="223" fill="#7de9ed" font-size="10" letter-spacing="4">ISOLATION / 04</text>
+    <text x="73" y="174" fill="#93b6c8" font-size="14">01 / VAULT COMPOSITION / ENTRANCE VIEW</text>
+    <text x="73" y="730" fill="#9fb4c4" font-size="14">Opaque architecture / narrow glass strips / cyan standby / amber isolation</text>
+    <rect x="1040" y="140" width="510" height="620" fill="#0a111c" stroke="#344c5c"/>
+    <text x="1065" y="175" fill="#7ee7ee" font-size="16">02 / FEB / PROPOSED 2.65 M</text>
+    <use xlink:href="#feb" transform="translate(1280 264) scale(1.03)"/>
+    <path d="M1103 246V643M1095 246H1111M1095 643H1111" stroke="#5a768b"/>
+    <text x="1063" y="694" fill="#b1c1d1" font-size="15">Service hand + integrated thermal emitter.</text>
+    <text x="1063" y="722" fill="#b1c1d1" font-size="15">A damaged guardian, not a faceless monster.</text>
+    <g font-size="16">
+      <rect x="50" y="790" width="480" height="160" rx="5" fill="#0c1621" stroke="#3c626e"/>
+      <text x="72" y="822" fill="#7de9ed" letter-spacing="2">STANDBY / INVESTIGATE</text>
+      <text x="72" y="858" fill="#b9c8d6">Cold seams. Closed cradle. Motionless hands.</text>
+      <text x="72" y="887" fill="#b9c8d6">Reserve cores sit outside the service interlock.</text>
+      <text x="72" y="916" fill="#b9c8d6">Coupler console faces the escape route.</text>
+      <rect x="560" y="790" width="480" height="160" rx="5" fill="#1b1715" stroke="#9d773c"/>
+      <text x="582" y="822" fill="#ffb34c" letter-spacing="2">ISOLATION LOST / 255</text>
+      <text x="582" y="858" fill="#d3c7b6">Amber pulses. Clamps release in sequence.</text>
+      <text x="582" y="887" fill="#d3c7b6">Vents spill low mist; head lifts toward Jason.</text>
+      <text x="582" y="916" fill="#d3c7b6">Checkpoint before pickup. Orac stays online.</text>
+      <rect x="1070" y="790" width="480" height="160" rx="5" fill="#20131e" stroke="#8e4958"/>
+      <text x="1092" y="822" fill="#ff7585" letter-spacing="2">REMOTE ENFORCEMENT / RETURN</text>
+      <text x="1092" y="858" fill="#d7beca">FEB remains underground during the chase.</text>
+      <text x="1092" y="887" fill="#d7beca">An unmanned red cycle pursues Jason.</text>
+      <text x="1092" y="916" fill="#d7beca">Its destruction never kills or resurrects FEB.</text>
+    </g>
+    <text x="50" y="977" fill="#788c9e" font-size="13">ORIGINAL VECTOR CONCEPT / NOT THE RECOVERED USER REFERENCE / NO FINAL CHARACTER OR GAMEPLAY APPROVAL IMPLIED</text>
+  </g>
+</svg>

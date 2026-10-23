@@ -1,0 +1,44 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/void_crossing.tscn" id="e0"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/trace_cycle.tscn" id="e1"]
+
+[sub_resource type="Environment" id="s0"]
+background_mode = 1
+background_color = Color(0.016, 0.013, 0.033, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.59, 0.75, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 0
+
+[node name="crossing_preview" type="Node3D"]
+
+
+[node name="Crossing" parent="." instance=ExtResource("e0")]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Cycle" parent="." instance=ExtResource("e1")]
+position = Vector3(-10, 0, 85)
+rotation_degrees = Vector3(0, 30, 0)
+
+[node name="Environment" type="WorldEnvironment" parent="."]
+environment = SubResource("s0")
+
+[node name="Key" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_color = Color(0.6, 0.78, 1, 1)
+light_energy = 1.6
+
+[node name="Rim" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-24, 135, 0)
+light_color = Color(0.65, 0.28, 0.42, 1)
+light_energy = 1.0
+
+[node name="Camera" type="Camera3D" parent="."]
+position = Vector3(58, 72, 145)
+rotation_degrees = Vector3(-27, 18, 0)
+fov = 65.0
+far = 800.0
+current = true

@@ -1,0 +1,672 @@
+[gd_scene load_steps=34 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/red.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e4"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/white.tres" id="e5"]
+
+[sub_resource type="BoxShape3D" id="s0"]
+size = Vector3(1.12, 1.25, 4.1)
+
+[sub_resource type="CylinderMesh" id="s1"]
+top_radius = 0.48
+bottom_radius = 0.58
+height = 2.45
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(0.66, 0.18, 2.4)
+
+[sub_resource type="BoxMesh" id="s3"]
+size = Vector3(0.84, 0.46, 2.15)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.84, 0.22, 1.27)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(0.88, 0.3, 1.12)
+
+[sub_resource type="CylinderMesh" id="s6"]
+top_radius = 0.51
+bottom_radius = 0.51
+height = 0.55
+radial_segments = 24
+rings = 1
+
+[sub_resource type="CylinderMesh" id="s7"]
+top_radius = 0.42
+bottom_radius = 0.42
+height = 0.045
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s8"]
+inner_radius = 0.37
+outer_radius = 0.39
+rings = 24
+ring_segments = 8
+
+[sub_resource type="CylinderMesh" id="s9"]
+top_radius = 0.19
+bottom_radius = 0.19
+height = 0.05
+radial_segments = 24
+rings = 1
+
+[sub_resource type="CylinderMesh" id="s10"]
+top_radius = 0.055
+bottom_radius = 0.055
+height = 0.025
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(0.025, 0.06, 0.07)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(0.78, 0.36, 1.25)
+
+[sub_resource type="BoxMesh" id="s13"]
+size = Vector3(0.72, 0.32, 0.04)
+
+[sub_resource type="BoxMesh" id="s14"]
+size = Vector3(0.76, 0.05, 1)
+
+[sub_resource type="BoxMesh" id="s15"]
+size = Vector3(0.025, 0.25, 0.9)
+
+[sub_resource type="BoxMesh" id="s16"]
+size = Vector3(0.018, 0.018, 1)
+
+[sub_resource type="BoxMesh" id="s17"]
+size = Vector3(0.22, 0.38, 1.38)
+
+[sub_resource type="BoxMesh" id="s18"]
+size = Vector3(0.025, 0.025, 1.32)
+
+[sub_resource type="BoxMesh" id="s19"]
+size = Vector3(0.022, 0.11, 0.045)
+
+[sub_resource type="BoxMesh" id="s20"]
+size = Vector3(0.03, 0.17, 0.09)
+
+[sub_resource type="BoxMesh" id="s21"]
+size = Vector3(0.09, 0.45, 0.16)
+
+[sub_resource type="BoxMesh" id="s22"]
+size = Vector3(0.12, 0.05, 0.04)
+
+[sub_resource type="BoxMesh" id="s23"]
+size = Vector3(0.23, 0.11, 0.07)
+
+[sub_resource type="CylinderMesh" id="s24"]
+top_radius = 0.09
+bottom_radius = 0.09
+height = 0.1
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s25"]
+size = Vector3(0.42, 0.46, 0.23)
+
+[sub_resource type="BoxMesh" id="s26"]
+size = Vector3(0.035, 0.34, 0.012)
+
+[node name="security_cycle" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+
+[node name="VisualRoot" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="HullCollision" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.65, 0)
+shape = SubResource("s0")
+
+[node name="LowerChassis" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.68, 0)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Keel" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.34, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Spine" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.93, 0.12)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="NoseWedge" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.86, -1.28)
+rotation_degrees = Vector3(-15, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="TailWedge" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.94, 1.18)
+rotation_degrees = Vector3(14, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="FrontWheelPivot" type="Node3D" parent="VisualRoot"]
+position = Vector3(0, 0.51, -1.38)
+
+
+[node name="Tread" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Drum-1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.29, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rim-1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.32, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hub-1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.34, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s9")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Lock-1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.375, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s10")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="WheelTab-1_0" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.35, 0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.35, 0, 0.3)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_2" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.35, -0.3, 0)
+rotation_degrees = Vector3(180, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_3" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(-0.35, 0, -0.3)
+rotation_degrees = Vector3(270, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Drum1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.29, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rim1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.32, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hub1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.34, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s9")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Lock1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.375, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s10")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="WheelTab1_0" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.35, 0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_1" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.35, 0, 0.3)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_2" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.35, -0.3, 0)
+rotation_degrees = Vector3(180, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_3" type="MeshInstance3D" parent="VisualRoot/FrontWheelPivot"]
+position = Vector3(0.35, 0, -0.3)
+rotation_degrees = Vector3(270, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="RearWheelPivot" type="Node3D" parent="VisualRoot"]
+position = Vector3(0, 0.51, 1.35)
+
+
+[node name="Tread" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Drum-1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.29, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rim-1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.32, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hub-1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.34, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s9")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Lock-1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.375, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s10")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="WheelTab-1_0" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.35, 0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.35, 0, 0.3)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_2" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.35, -0.3, 0)
+rotation_degrees = Vector3(180, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab-1_3" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(-0.35, 0, -0.3)
+rotation_degrees = Vector3(270, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Drum1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.29, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rim1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.32, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hub1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.34, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s9")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Lock1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.375, 0, 0)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("s10")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="WheelTab1_0" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.35, 0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_1" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.35, 0, 0.3)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_2" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.35, -0.3, 0)
+rotation_degrees = Vector3(180, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="WheelTab1_3" type="MeshInstance3D" parent="VisualRoot/RearWheelPivot"]
+position = Vector3(0.35, 0, -0.3)
+rotation_degrees = Vector3(270, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="CanopyPivot" type="Node3D" parent="VisualRoot"]
+position = Vector3(0, 1.14, 0.65)
+
+
+[node name="Capsule" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(0, 0.12, -0.55)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Windshield" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(0, 0.17, -1.2)
+rotation_degrees = Vector3(-30, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Roof" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(0, 0.32, -0.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Window-1" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(-0.402, 0.14, -0.55)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="CanopySeam-1" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(-0.41, 0.29, -0.52)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="SideHousing-1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.49, 0.72, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="LowerSeam-1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.61, 0.51, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s18")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Vent-1_0" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, -0.45)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent-1_1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, -0.29)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent-1_2" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, -0.13)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent-1_3" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, 0.03)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent-1_4" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, 0.19)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent-1_5" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.607, 0.76, 0.35)
+rotation_degrees = Vector3(0, 0, 15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="ServiceLatch-1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.62, 0.9, -0.53)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s20")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Fork-1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.38, 0.72, -1.38)
+rotation_degrees = Vector3(-22, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="TailLight-1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.26, 1.04, 1.75)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s22")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Window1" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(0.402, 0.14, -0.55)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="CanopySeam1" type="MeshInstance3D" parent="VisualRoot/CanopyPivot"]
+position = Vector3(0.41, 0.29, -0.52)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="SideHousing1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.49, 0.72, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="LowerSeam1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.61, 0.51, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s18")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Vent1_0" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, -0.45)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent1_1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, -0.29)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent1_2" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, -0.13)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent1_3" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, 0.03)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent1_4" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, 0.19)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Vent1_5" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.607, 0.76, 0.35)
+rotation_degrees = Vector3(0, 0, -15)
+mesh = SubResource("s19")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="ServiceLatch1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.62, 0.9, -0.53)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s20")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Fork1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.38, 0.72, -1.38)
+rotation_degrees = Vector3(-22, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="TailLight1" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.26, 1.04, 1.75)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s22")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="WorkLamp" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.24, 0.94, -1.94)
+rotation_degrees = Vector3(-15, 0, 0)
+mesh = SubResource("s23")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="OffsetSensor" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.22, 0.94, -1.94)
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("s24")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Projector" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 0.7, 1.94)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s25")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="EmitterSlit-0.12" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(-0.12, 0.72, 2.065)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="EmitterSlit0.12" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0.12, 0.72, 2.065)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="TraceEmitter" type="Marker3D" parent="."]
+position = Vector3(0, 0.1, 2.1)
+
+
+[node name="Seat" type="Marker3D" parent="."]
+position = Vector3(0, 0.66, 0.2)
+
+
+[node name="ExitPoint" type="Marker3D" parent="."]
+position = Vector3(1.4, 0, 0.2)
+
+
+[node name="CameraTarget" type="Marker3D" parent="."]
+position = Vector3(0, 1.05, -0.2)
+

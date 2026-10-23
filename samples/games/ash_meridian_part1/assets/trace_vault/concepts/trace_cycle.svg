@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#141322"/><stop offset="1" stop-color="#03080f"/></linearGradient>
+    <linearGradient id="shell" x2=".3" y2="1"><stop stop-color="#526273"/><stop offset=".4" stop-color="#233041"/><stop offset="1" stop-color="#0a101b"/></linearGradient>
+    <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#194354"/><stop offset="1" stop-color="#07131c"/></linearGradient>
+    <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#36dce8" stop-opacity=".05"/><stop offset=".9" stop-color="#36dce8" stop-opacity=".3"/><stop offset="1" stop-color="#b2ffff" stop-opacity=".8"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" fill="none" stroke="#2d3345" stroke-width=".6"/></pattern>
+    <filter id="glow" x="-.4" y="-.4" width="1.8" height="1.8"><feGaussianBlur stdDeviation="4"/></filter>
+    <g id="wheel">
+      <circle r="89" fill="#060b12" stroke="#455469" stroke-width="12"/>
+      <circle r="68" fill="#172330" stroke="#83e9ed" stroke-width="4"/>
+      <circle r="51" fill="#0b131e" stroke="#374556" stroke-width="16"/>
+      <path d="M-46-22L0-45 46-22 46 22 0 45-46 22Z" fill="#202e3d" stroke="#5a7584" stroke-width="2"/>
+      <circle r="13" fill="#ffb34c"/>
+      <path d="M-69-8H-56M56 8H69M-8-69V-56M8 56V69" stroke="#ffb34c" stroke-width="5"/>
+    </g>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="30" y="120" width="1540" height="830" fill="url(#grid)" opacity=".5"/>
+  <g font-family="DejaVu Sans,sans-serif">
+    <text x="50" y="48" fill="#77edf1" font-size="15" letter-spacing="5">ASH MERIDIAN / NARCEAN FIELD MAINTENANCE</text>
+    <text x="50" y="96" fill="#eef5fa" font-size="36" letter-spacing="2">TRACE CYCLE / DESIGN STUDY 01</text>
+    <text x="1550" y="54" text-anchor="end" fill="#ffb34c" font-size="14">CONCEPT ONLY / NOT A GAME MODEL</text>
+    <path d="M50 114H1550" stroke="#3d5362"/>
+    <text x="60" y="155" fill="#7d91a4" font-size="14">01 / ENCLOSED MAINTENANCE VEHICLE / SIDE ELEVATION</text>
+    <path d="M90 460H1160" stroke="#42dce4" stroke-width="2" opacity=".4"/>
+    <ellipse cx="640" cy="454" rx="450" ry="18" fill="#40e5ea" opacity=".08"/>
+    <use xlink:href="#wheel" x="350" y="361"/>
+    <use xlink:href="#wheel" x="949" y="361"/>
+    <path d="M239 332L277 249 424 224 509 170 719 176 808 234 974 260 1064 318 1056 357 1009 371 997 316 952 287 895 306 860 391 447 391 409 310 358 282 301 305 290 363 244 368Z" fill="url(#shell)" stroke="#67818d" stroke-width="3"/>
+    <path d="M462 231L523 187 700 194 766 241 716 260 478 257Z" fill="url(#glass)" stroke="#77e9ed" stroke-width="3"/>
+    <path d="M582 190L567 257M692 195L713 256" stroke="#354c5b" stroke-width="8"/>
+    <path d="M449 274L737 276 818 312 801 367 469 367Z" fill="#101b29" stroke="#3c5261" stroke-width="2"/>
+    <path d="M486 284L715 286 755 306H498Z" fill="#314355"/>
+    <path d="M496 329H746M496 340H746M496 351H686" stroke="#62778a" stroke-width="3"/>
+    <path d="M281 257L424 237 501 180M745 195L812 244 974 271 1030 308M447 381H846" fill="none" stroke="#5ae6eb" stroke-width="4"/>
+    <path d="M281 257L424 237 501 180M745 195L812 244 974 271 1030 308M447 381H846" fill="none" stroke="#5ae6eb" stroke-width="7" filter="url(#glow)" opacity=".5"/>
+    <path d="M806 300L851 304 829 365 802 363Z" fill="#ffad43"/>
+    <path d="M246 291L265 287 250 328 235 330Z" fill="#ffad43"/>
+    <path d="M1028 309L1055 318 1051 335 1021 331Z" fill="#c9fcff"/>
+    <rect x="203" y="293" width="25" height="70" rx="4" fill="#243541" stroke="#83e9ed"/>
+    <path d="M207 299V352M216 299V352" stroke="#83e9ed" stroke-width="3"/>
+    <path d="M76 232L202 293V362H76Z" fill="url(#wall)" stroke="#4dd8e3" stroke-width="1"/>
+    <text x="553" y="319" fill="#96aebd" font-size="13" letter-spacing="3">FIELD / 07</text>
+    <g fill="none" stroke="#73899b" stroke-width="1">
+      <path d="M600 182V147H851"/><path d="M1038 333H1140V265H1220"/>
+      <path d="M215 363V420H142"/><path d="M805 358L1102 439H1217"/>
+      <path d="M252 486H1050M252 479V493M1050 479V493"/>
+    </g>
+    <g fill="#b2c3d0" font-size="14">
+      <text x="865" y="151">SEALED CANOPY / NO EXPOSED RIDER</text>
+      <text x="1233" y="254">OFFSET SENSOR</text><text x="1233" y="276">AND WORK LAMP</text>
+      <text x="61" y="414">SPLIT TRACE EMITTER</text>
+      <text x="1233" y="434">AMBER SERVICE</text><text x="1233" y="456">RELEASE LEVER</text>
+      <text x="630" y="508" text-anchor="middle">PROPOSED LENGTH 4.2 M / HEIGHT 1.55 M / WIDTH 1.35 M</text>
+    </g>
+    <rect x="50" y="545" width="700" height="395" rx="8" fill="#090e19" stroke="#2f4654"/>
+    <text x="73" y="577" fill="#79e8ed" font-size="16">02 / TRACE ON = NETWORK DIAGNOSTIC MODE</text>
+    <path d="M88 841L322 653 700 726 477 898Z" fill="#141e30" stroke="#59657c"/>
+    <path d="M147 794L394 835 597 709M214 740L461 783M281 686L528 730M202 862L405 669M334 884L537 696" fill="none" stroke="#41b9c7" opacity=".4"/>
+    <path d="M155 790L329 819 456 734 578 757" fill="none" stroke="#ffb34c" stroke-width="6"/>
+    <path d="M155 790V742L329 771 456 686 578 709V757L456 734 329 819Z" fill="url(#wall)" stroke="#60e9ef"/>
+    <g fill="#d7fbff" stroke="#57e2e7" stroke-width="2">
+      <path d="M130 762V703L148 686 166 700V767Z"/><path d="M559 735V674L577 659 595 675V741Z"/>
+    </g>
+    <g font-size="14" fill="#afc2d1">
+      <text x="78" y="614">Restore relay links on the outbound crossing.</text>
+      <text x="78" y="636">The diagnostic field becomes a hazard behind you.</text>
+      <text x="78" y="919">Cyan = valid trace / amber = unresolved link / red = enforcement</text>
+    </g>
+    <rect x="775" y="545" width="775" height="395" rx="8" fill="#090e19" stroke="#2f4654"/>
+    <text x="800" y="577" fill="#79e8ed" font-size="16">03 / BACKLIGHT MATERIAL AND SILHOUETTE RULES</text>
+    <g font-size="18" fill="#d2dce7">
+      <text x="802" y="627">Opaque graphite panels; broad, readable masses.</text>
+      <text x="802" y="669">Recessed wheel drums, not solid glowing discs.</text>
+      <text x="802" y="711">Cyan seam light; amber latches and diagnostics.</text>
+      <text x="802" y="753">Offset work lamp; separate rear field projector.</text>
+      <text x="802" y="795">Red remote unit uses the same maintenance chassis.</text>
+      <text x="802" y="837">Tall walls, crisp turns, sparse floor references.</text>
+    </g>
+    <rect x="805" y="873" width="110" height="30" fill="#1c2939" stroke="#607386"/>
+    <rect x="932" y="873" width="110" height="30" fill="#56e5ec"/>
+    <rect x="1059" y="873" width="110" height="30" fill="#ffb34c"/>
+    <rect x="1186" y="873" width="110" height="30" fill="#ed5263"/>
+    <rect x="1313" y="873" width="110" height="30" fill="#684880"/>
+    <text x="50" y="975" fill="#788c9e" font-size="13">ORIGINAL VECTOR CONCEPT / PROPORTIONS AND MECHANICS SUBJECT TO APPROVAL / NO THIRD-PARTY ART EMBEDDED</text>
+  </g>
+</svg>

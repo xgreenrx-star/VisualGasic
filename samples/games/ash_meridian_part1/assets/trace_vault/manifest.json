@@ -1,0 +1,257 @@
+{
+  "version": 1,
+  "status": "original_model_kit_for_isolated_integration",
+  "format": "Native Godot scenes and primitive mesh resources, no runtime generator or external model dependencies",
+  "ownership": "Assistant-authored art. Cursor implements VG behavior, never regenerates or replaces these models.",
+  "collision": {
+    "scenery_layer": 1,
+    "cycle_layer": 2,
+    "cycle_mask": 1
+  },
+  "assets": [
+    {
+      "id": "trace_cycle",
+      "scene": "res://assets/trace_vault/scenes/trace_cycle.tscn",
+      "role": "Movable cycle. Wheel/canopy pivots are under VisualRoot; emitter and collision do not bank.",
+      "nominal_dimensions": [
+        1.35,
+        1.55,
+        4.2
+      ],
+      "markers": [
+        "TraceEmitter",
+        "Seat",
+        "ExitPoint",
+        "CameraTarget"
+      ],
+      "mesh_instances": 73,
+      "sha256": "7237e2d014a71b54a3947d82be15efafde0920544438ce98f1b8cd0309d86949"
+    },
+    {
+      "id": "security_cycle",
+      "scene": "res://assets/trace_vault/scenes/security_cycle.tscn",
+      "role": "Movable cycle. Wheel/canopy pivots are under VisualRoot; emitter and collision do not bank.",
+      "nominal_dimensions": [
+        1.35,
+        1.55,
+        4.2
+      ],
+      "markers": [
+        "TraceEmitter",
+        "Seat",
+        "ExitPoint",
+        "CameraTarget"
+      ],
+      "mesh_instances": 73,
+      "sha256": "f18d2ed339e33823123307aeead5379ed35f42874eb0c75420e355e6eef7ea4a"
+    },
+    {
+      "id": "cycle_cradle",
+      "scene": "res://assets/trace_vault/scenes/cycle_cradle.tscn",
+      "role": "Open approach is -Z; drive +Z to DockPose, then rotate to -Z before launch. No automatic docking logic.",
+      "nominal_dimensions": [
+        6,
+        1.5,
+        6.6
+      ],
+      "markers": [
+        "DockPose",
+        "ApproachStart",
+        "ApproachEnd",
+        "ExitPoint",
+        "Console"
+      ],
+      "mesh_instances": 16,
+      "sha256": "f72df351f40c59d76f31d30e95afee1c8a71a3d29b4e5b253c9dfaf16ef53ad4"
+    },
+    {
+      "id": "relay_pylon",
+      "scene": "res://assets/trace_vault/scenes/relay_pylon.tscn",
+      "role": "Sample LinkSocket; do not navigate the cycle through solid pylon collision.",
+      "nominal_dimensions": [
+        2.7,
+        4.3,
+        2.7
+      ],
+      "markers": [
+        "LinkSocket",
+        "StatusAnchor"
+      ],
+      "mesh_instances": 6,
+      "sha256": "3b035226665251b6e6a7800a2e906563c5929cf6a82c0aca7e0ddd73c991392a"
+    },
+    {
+      "id": "feb",
+      "scene": "res://assets/trace_vault/scenes/feb.tscn",
+      "role": "Awakening rig only. Pivot head and arms; no locomotion skeleton or gameplay collision.",
+      "nominal_dimensions": [
+        1.65,
+        2.65,
+        0.72
+      ],
+      "markers": [
+        "VisualRoot/ThermalArmPivot/ThermalSocket",
+        "CameraTarget"
+      ],
+      "mesh_instances": 43,
+      "sha256": "41de65768a0ad8717143268ee8c9c78971af28ec5f8e6c1c3733eb3768ad2ee0"
+    },
+    {
+      "id": "stasis_cradle",
+      "scene": "res://assets/trace_vault/scenes/stasis_cradle.tscn",
+      "role": "Standby cradle. Insert FEB at FigureMount. Clamp rotations are independent. No transparent shell or active particle system.",
+      "nominal_dimensions": [
+        4,
+        3.9,
+        3
+      ],
+      "markers": [
+        "VentSockets/Left",
+        "VentSockets/Right",
+        "FigureMount",
+        "CouplerSocket",
+        "WarningPanel"
+      ],
+      "mesh_instances": 18,
+      "sha256": "fdd4d414534a701d32a75d70a83e3bbc2c518dcd6150a9356b0e7b83dd60d80a"
+    },
+    {
+      "id": "power_coupler",
+      "scene": "res://assets/trace_vault/scenes/power_coupler.tscn",
+      "role": "Removable coupler prop; inventory/pickup logic belongs to controller.",
+      "nominal_dimensions": [
+        0.34,
+        0.55,
+        0.34
+      ],
+      "markers": [
+        "Grip"
+      ],
+      "mesh_instances": 6,
+      "sha256": "2045240b428b72bcb45bb5ed56e0f6bb8dd0b516707aa8e30a69df709da7467c"
+    },
+    {
+      "id": "core_bank",
+      "scene": "res://assets/trace_vault/scenes/core_bank.tscn",
+      "role": "Three separately hideable core props; finite collection must be controlled in VG.",
+      "nominal_dimensions": [
+        2.3,
+        1.2,
+        1
+      ],
+      "markers": [
+        "Core0/Pickup",
+        "Core1/Pickup",
+        "Core2/Pickup"
+      ],
+      "mesh_instances": 10,
+      "sha256": "27898b0a7e97f7ecc69e4afa358cc51b92294b43fb4846120c795e60e6ea91b1"
+    },
+    {
+      "id": "vault_room",
+      "scene": "res://assets/trace_vault/scenes/vault_room.tscn",
+      "role": "Authored vault shell. Open 4.4m entrance at +Z; straight clear escape aisle. Props inserted separately at markers.",
+      "nominal_dimensions": [
+        18.5,
+        6.6,
+        26.5
+      ],
+      "markers": [
+        "Entrance",
+        "Exit",
+        "Console",
+        "CoreBank",
+        "StasisMount"
+      ],
+      "mesh_instances": 56,
+      "sha256": "c1ec3de7e360c1eddc88b6b77ac49b623d60524b8e2b32f84bf22bc60d726b60"
+    },
+    {
+      "id": "deep_lift_lobby",
+      "scene": "res://assets/trace_vault/scenes/deep_lift_lobby.tscn",
+      "role": "Separate deep-lift landing. Cabin is a static art group; VG owns transfer/fade, not moving StaticBody3D physics.",
+      "nominal_dimensions": [
+        10.4,
+        4,
+        10.4
+      ],
+      "markers": [
+        "Entrance",
+        "LiftPose",
+        "Console"
+      ],
+      "mesh_instances": 15,
+      "sha256": "e4db1bf5152742120bed1923cf25aff2d6758e8bd98345fda7f2bce575dd7aed"
+    },
+    {
+      "id": "cycle_preview",
+      "scene": "res://assets/trace_vault/scenes/cycle_preview.tscn",
+      "role": "Close art inspection: player front/side and remote rear.",
+      "nominal_dimensions": [
+        18,
+        3,
+        18
+      ],
+      "markers": [],
+      "mesh_instances": 1,
+      "sha256": "4ba70e30888db1d0ccf0d936476a6a364dc5e96cb1dd75bed922a9ea1be02a0e"
+    },
+    {
+      "id": "vault_preview",
+      "scene": "res://assets/trace_vault/scenes/vault_preview.tscn",
+      "role": "Assembled static vault preview, not a controller.",
+      "nominal_dimensions": [
+        18.5,
+        6.6,
+        26.5
+      ],
+      "markers": [],
+      "mesh_instances": 0,
+      "sha256": "0cdca3e8422ad74fc2b5792d9fe4dda40f176e47b6cf551beecb21a0da98d118"
+    },
+    {
+      "id": "asset_gallery",
+      "scene": "res://assets/trace_vault/scenes/asset_gallery.tscn",
+      "role": "Art review gallery only; does not modify Play.",
+      "nominal_dimensions": [
+        24,
+        5,
+        24
+      ],
+      "markers": [],
+      "mesh_instances": 1,
+      "sha256": "7d373933a81793bb93dc0c8b2388a73dec9711bcb4a904e878fb4ab5adfc7656"
+    },
+    {
+      "id": "void_crossing",
+      "scene": "res://assets/trace_vault/scenes/void_crossing.tscn",
+      "role": "Isolated static support field with boundaries and both docks. No controller, trails or enemy logic. Not wired into campaign.",
+      "nominal_dimensions": [
+        174,
+        21,
+        242
+      ],
+      "markers": [
+        "PlayerSpawn",
+        "SecuritySpawn",
+        "NearExit",
+        "FarLift"
+      ],
+      "mesh_instances": 51,
+      "sha256": "82839fd41082f81ff3e5d4abf8e8eec9836d48dc523d604ad9f46c0f506283e8"
+    },
+    {
+      "id": "crossing_preview",
+      "scene": "res://assets/trace_vault/scenes/crossing_preview.tscn",
+      "role": "Static whole-field overview.",
+      "nominal_dimensions": [
+        174,
+        21,
+        242
+      ],
+      "markers": [],
+      "mesh_instances": 0,
+      "sha256": "881252cc2c0bf917aa5239ab3de89b595271c1c46f511e4a2496598888d5ad23"
+    }
+  ]
+}

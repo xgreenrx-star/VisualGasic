@@ -1,0 +1,131 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(2.3, 1.2, 0.8)
+
+[sub_resource type="BoxShape3D" id="s1"]
+size = Vector3(2.3, 1.2, 0.8)
+
+[sub_resource type="CylinderMesh" id="s2"]
+top_radius = 0.16
+bottom_radius = 0.16
+height = 0.62
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s3"]
+inner_radius = 0.155
+outer_radius = 0.175
+rings = 24
+ring_segments = 8
+
+[node name="core_bank" type="Node3D"]
+
+
+[node name="Cabinet" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.6, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="CabinetCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.6, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="CabinetCollision"]
+shape = SubResource("s1")
+
+[node name="Core0" type="Node3D" parent="."]
+position = Vector3(-0.65, 0.85, -0.46)
+
+
+[node name="Shell" type="MeshInstance3D" parent="Core0"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Band-0.23" type="MeshInstance3D" parent="Core0"]
+position = Vector3(0, -0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Band0.23" type="MeshInstance3D" parent="Core0"]
+position = Vector3(0, 0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Pickup" type="Marker3D" parent="Core0"]
+position = Vector3(0, 0.15, -0.25)
+
+
+[node name="Core1" type="Node3D" parent="."]
+position = Vector3(0, 0.85, -0.46)
+
+
+[node name="Shell" type="MeshInstance3D" parent="Core1"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Band-0.23" type="MeshInstance3D" parent="Core1"]
+position = Vector3(0, -0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Band0.23" type="MeshInstance3D" parent="Core1"]
+position = Vector3(0, 0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Pickup" type="Marker3D" parent="Core1"]
+position = Vector3(0, 0.15, -0.25)
+
+
+[node name="Core2" type="Node3D" parent="."]
+position = Vector3(0.65, 0.85, -0.46)
+
+
+[node name="Shell" type="MeshInstance3D" parent="Core2"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Band-0.23" type="MeshInstance3D" parent="Core2"]
+position = Vector3(0, -0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Band0.23" type="MeshInstance3D" parent="Core2"]
+position = Vector3(0, 0.23, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Pickup" type="Marker3D" parent="Core2"]
+position = Vector3(0, 0.15, -0.25)
+

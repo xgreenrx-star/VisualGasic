@@ -1,0 +1,110 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e3"]
+
+[sub_resource type="CylinderMesh" id="s0"]
+top_radius = 1.1
+bottom_radius = 1.35
+height = 0.36
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxShape3D" id="s1"]
+size = Vector3(2.2, 0.5, 2.2)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(0.9, 3.5, 0.9)
+
+[sub_resource type="BoxShape3D" id="s3"]
+size = Vector3(0.9, 3.5, 0.9)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.05, 2.9, 0.035)
+
+[sub_resource type="CylinderMesh" id="s5"]
+top_radius = 0.9
+bottom_radius = 0.9
+height = 0.35
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s6"]
+inner_radius = 0.62
+outer_radius = 0.73
+rings = 24
+ring_segments = 8
+
+[node name="relay_pylon" type="Node3D"]
+
+
+[node name="Foot" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.18, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="BaseCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 0.25, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BaseCollision"]
+shape = SubResource("s1")
+
+[node name="Column" type="MeshInstance3D" parent="."]
+position = Vector3(0, 2.1, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="ColumnCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 2, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ColumnCollision"]
+shape = SubResource("s3")
+
+[node name="Seam-0.5" type="MeshInstance3D" parent="."]
+position = Vector3(-0.5, 2.1, 0.46)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Seam0.5" type="MeshInstance3D" parent="."]
+position = Vector3(0.5, 2.1, 0.46)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Crown" type="MeshInstance3D" parent="."]
+position = Vector3(0, 4, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="StatusLamp" type="MeshInstance3D" parent="."]
+position = Vector3(0, 4.2, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="LinkSocket" type="Marker3D" parent="."]
+position = Vector3(0, 0.2, 1.8)
+
+
+[node name="StatusAnchor" type="Marker3D" parent="."]
+position = Vector3(0, 4.4, 0)
+

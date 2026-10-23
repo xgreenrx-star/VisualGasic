@@ -1,0 +1,72 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e2"]
+
+[sub_resource type="CylinderMesh" id="s0"]
+top_radius = 0.14
+bottom_radius = 0.14
+height = 0.44
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s1"]
+inner_radius = 0.13
+outer_radius = 0.165
+rings = 24
+ring_segments = 8
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(0.3, 0.09, 0.1)
+
+[node name="power_coupler" type="Node3D"]
+
+
+[node name="Cartridge" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.22, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Ring0.04" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.04, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Ring0.13" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.13, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Ring0.31" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.31, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Ring0.4" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.4, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Handle" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Grip" type="Marker3D" parent="."]
+position = Vector3(0, 0.5, 0)
+

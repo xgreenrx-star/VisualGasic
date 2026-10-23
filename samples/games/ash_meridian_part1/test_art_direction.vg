@@ -1,0 +1,42 @@
+' MAX_FRAMES: 10
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim texture As Object
+	Dim pixels As Object
+	Dim stretch_mode As Integer
+	Dim path As String
+	path = Str(ProjectSettings.get_setting("application/boot_splash/image", ""))
+	check(path = "res://assets/branding/lucid_splash.png", "game_uses_custom_music_credit_boot_image")
+	stretch_mode = ProjectSettings.get_setting("application/boot_splash/stretch_mode")
+	check(stretch_mode = 1, "splash_preserves_native_aspect_ratio")
+	check(ProjectSettings.get_setting("application/boot_splash/minimum_display_time") = 2500, "music_credit_visible_for_minimum_two_and_half_seconds")
+	texture = Load(path)
+	check(texture <> Nothing, "custom_splash_decodes")
+	If texture <> Nothing Then
+		check(texture.get_width() = 960 And texture.get_height() = 540, "splash_matches_game_canvas_dimensions")
+		pixels = texture.get_image()
+		check(pixels.get_pixel(10, 520).r < 0.05, "music_credit_has_black_background_margin")
+	End If
+	texture = Load("res://assets/trace_vault/concepts/trace_cycle.png")
+	check(texture <> Nothing, "cycle_concept_png_decodes")
+	If texture <> Nothing Then check(texture.get_width() = 1600 And texture.get_height() = 1000, "cycle_concept_sheet_dimensions")
+	texture = Load("res://assets/trace_vault/concepts/feb_vault.png")
+	check(texture <> Nothing, "feb_vault_concept_png_decodes")
+	If texture <> Nothing Then check(texture.get_width() = 1600 And texture.get_height() = 1000, "feb_vault_concept_sheet_dimensions")
+	Print "ART_DIRECTION=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub

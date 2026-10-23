@@ -1,0 +1,558 @@
+[gd_scene load_steps=26 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e4"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(18, 0.5, 26)
+
+[sub_resource type="BoxShape3D" id="s1"]
+size = Vector3(18, 0.5, 26)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(18, 0.4, 26)
+
+[sub_resource type="BoxShape3D" id="s3"]
+size = Vector3(18, 0.4, 26)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.5, 6, 26)
+
+[sub_resource type="BoxShape3D" id="s5"]
+size = Vector3(0.5, 6, 26)
+
+[sub_resource type="BoxMesh" id="s6"]
+size = Vector3(0.45, 6, 0.3)
+
+[sub_resource type="BoxMesh" id="s7"]
+size = Vector3(0.025, 4.8, 0.035)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(8, 0.25, 0.3)
+
+[sub_resource type="BoxMesh" id="s9"]
+size = Vector3(0.04, 0.025, 23)
+
+[sub_resource type="BoxMesh" id="s10"]
+size = Vector3(6.8, 6, 0.5)
+
+[sub_resource type="BoxShape3D" id="s11"]
+size = Vector3(6.8, 6, 0.5)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(18, 6, 0.5)
+
+[sub_resource type="BoxShape3D" id="s13"]
+size = Vector3(18, 6, 0.5)
+
+[sub_resource type="BoxMesh" id="s14"]
+size = Vector3(4.4, 1.5, 0.5)
+
+[sub_resource type="BoxShape3D" id="s15"]
+size = Vector3(4.4, 1.5, 0.5)
+
+[sub_resource type="BoxMesh" id="s16"]
+size = Vector3(1.25, 1.3, 0.8)
+
+[sub_resource type="BoxMesh" id="s17"]
+size = Vector3(1.1, 0.06, 0.65)
+
+[sub_resource type="BoxShape3D" id="s18"]
+size = Vector3(1.25, 1.3, 0.8)
+
+[sub_resource type="BoxMesh" id="s19"]
+size = Vector3(0.07, 4.4, 0.07)
+
+[node name="vault_room" type="Node3D"]
+
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.25, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="FloorCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.25, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="FloorCollision"]
+shape = SubResource("s1")
+
+[node name="Ceiling" type="MeshInstance3D" parent="."]
+position = Vector3(0, 6.4, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="CeilingCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 6.4, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="CeilingCollision"]
+shape = SubResource("s3")
+
+[node name="Wall-1" type="MeshInstance3D" parent="."]
+position = Vector3(-9, 3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="WallCollision-1" type="StaticBody3D" parent="."]
+position = Vector3(-9, 3, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="WallCollision-1"]
+shape = SubResource("s5")
+
+[node name="Rib-1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, -11)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, -11)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, -11)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, -7.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, -7.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, -7.5)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, -4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, -4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, -4)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, -0.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, -0.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, -0.5)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_4" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, 3)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_4" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, 3)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_4" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, 3)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_5" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, 6.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_5" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, 6.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_5" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, 6.5)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib-1_6" type="MeshInstance3D" parent="."]
+position = Vector3(-8.6, 3, 10)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam-1_6" type="MeshInstance3D" parent="."]
+position = Vector3(-8.33, 3.2, 10)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib-1_6" type="MeshInstance3D" parent="."]
+position = Vector3(-4.6, 6.1, 10)
+rotation_degrees = Vector3(0, 0, -3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="FloorGuide-1" type="MeshInstance3D" parent="."]
+position = Vector3(-2.2, 0.015, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="FrontPanel-1" type="MeshInstance3D" parent="."]
+position = Vector3(-5.6, 3, 13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="FrontCollision-1" type="StaticBody3D" parent="."]
+position = Vector3(-5.6, 3, 13)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="FrontCollision-1"]
+shape = SubResource("s11")
+
+[node name="Wall1" type="MeshInstance3D" parent="."]
+position = Vector3(9, 3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="WallCollision1" type="StaticBody3D" parent="."]
+position = Vector3(9, 3, 0)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="WallCollision1"]
+shape = SubResource("s5")
+
+[node name="Rib1_0" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, -11)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_0" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, -11)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_0" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, -11)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_1" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, -7.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_1" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, -7.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_1" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, -7.5)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_2" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, -4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_2" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, -4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_2" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, -4)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_3" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, -0.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_3" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, -0.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_3" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, -0.5)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_4" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, 3)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_4" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, 3)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_4" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, 3)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_5" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, 6.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_5" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, 6.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_5" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, 6.5)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Rib1_6" type="MeshInstance3D" parent="."]
+position = Vector3(8.6, 3, 10)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RibSeam1_6" type="MeshInstance3D" parent="."]
+position = Vector3(8.33, 3.2, 10)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="RoofRib1_6" type="MeshInstance3D" parent="."]
+position = Vector3(4.6, 6.1, 10)
+rotation_degrees = Vector3(0, 0, 3)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="FloorGuide1" type="MeshInstance3D" parent="."]
+position = Vector3(2.2, 0.015, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="FrontPanel1" type="MeshInstance3D" parent="."]
+position = Vector3(5.6, 3, 13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="FrontCollision1" type="StaticBody3D" parent="."]
+position = Vector3(5.6, 3, 13)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="FrontCollision1"]
+shape = SubResource("s11")
+
+[node name="BackWall" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3, -13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="BackCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 3, -13)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BackCollision"]
+shape = SubResource("s13")
+
+[node name="Lintel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.25, 13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="LintelCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, 5.25, 13)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="LintelCollision"]
+shape = SubResource("s15")
+
+[node name="ServiceConsole" type="MeshInstance3D" parent="."]
+position = Vector3(3.9, 0.65, -5.8)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="ServiceScreen" type="MeshInstance3D" parent="."]
+position = Vector3(3.9, 1.35, -5.8)
+rotation_degrees = Vector3(15, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="ConsoleCollision" type="StaticBody3D" parent="."]
+position = Vector3(3.9, 0.65, -5.8)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="ConsoleCollision"]
+shape = SubResource("s18")
+
+[node name="DoorSeam-2.1" type="MeshInstance3D" parent="."]
+position = Vector3(-2.1, 2.2, 12.7)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="DoorSeam2.1" type="MeshInstance3D" parent="."]
+position = Vector3(2.1, 2.2, 12.7)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Entrance" type="Marker3D" parent="."]
+position = Vector3(0, 0, 11.5)
+
+
+[node name="Exit" type="Marker3D" parent="."]
+position = Vector3(0, 0, 14.5)
+
+
+[node name="Console" type="Marker3D" parent="."]
+position = Vector3(3.9, 1.4, -5.4)
+
+
+[node name="CoreBank" type="Marker3D" parent="."]
+position = Vector3(-4.5, 0, -7)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="StasisMount" type="Marker3D" parent="."]
+position = Vector3(0, 0, -9.5)
+rotation_degrees = Vector3(0, 180, 0)

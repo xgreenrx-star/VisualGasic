@@ -10,35 +10,37 @@
 
 ## Changelog
 
-Paste this into the version changelog. Same Markdown shape as the 5.6.0-beta1 submission.
+Copy the block below into **Version Changelog** on store.godotengine.org. Same rules as 5.5.0-beta2.1: Markdown preview, no BBCode, no `•` bullets, no `#` headings. Blank line before each list. Each line starts with `-` and a space. Use `**bold**` and backticks for code.
 
-**VisualGasic 5.7.0-beta.2** — October 17, 2026
-Godot **4.6+** · Bug-fix beta (not stable v6)
+```markdown
+**VisualGasic 5.7.0-beta.2** — October 17, 2026  
+Bug-fix beta on 5.7.0-beta.1 · Godot 4.6+ · Linux / Windows / macOS / Web binaries in this zip
 
-## Summary
+**Summary**
 
-Bug-fix update on the 5.7.0 beta. Releases will slow down: funds are exhausted, other projects come first, and occasional bug fixes continue. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
+Releases will slow down. Funds are exhausted and other projects come first. Occasional bug fixes will continue. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
 
-## Fixed
+**Fixed**
 
-- A local or parameter that hides a Sub or Function reports error **328**, Ambiguous name detected, instead of error 91. Recursion through the function's own name still works. `Color(...)` still constructs when a local is only named `color`.
-- `color.r` on a Color variable reads the component. `Color.Red` is still the named constant.
-- Dense integer Select Case keeps every case. A jump-table body is no longer deleted or left as an invalid opcode.
-- Typed Array returns, a long Backlight City warp stall, re-entrant Whenever callbacks, save formatting, and inline palette clicks.
+- A local or parameter that hides a Sub or Function reports error **328**, Ambiguous name detected, instead of error 91. Recursion through the function's own name still works. `Color(...)` still constructs when a local is only named `color`
+- `color.r` on a Color variable reads the component. `Color.Red` is still the named constant
+- Dense integer Select Case keeps every case. A jump-table body is no longer deleted or left as an invalid opcode
+- Typed Array returns, a long Backlight City warp stall, re-entrant Whenever callbacks, save formatting, and inline palette clicks
 
-## Changed
+**Changed**
 
-- A full city build uses about **2.7×** GDScript's instruction count, down from about 5×. It is not faster than GDScript yet.
-- Ash Meridian Part 1, including Backlight Yard, is in the separate examples download. This ZIP installs only the addon.
+- A full city build uses about **2.7×** GDScript's instruction count, down from about 5×. It is not faster than GDScript yet
+- Ash Meridian Part 1, including Backlight Yard, is in the separate examples download. This ZIP installs only the addon
 
-## Upgrade
+**Upgrade**
 
-- Replace the whole `addons/visual_gasic/` folder. Godot **4.6.1** is the baseline. Mac builds are unsigned.
+- Replace the whole `addons/visual_gasic/` folder. Godot **4.6.1** is the baseline. Mac builds are unsigned
 
-## Links
+**Links**
 
 - Release notes: https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2
 - Download: https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.2/VisualGasic_AssetLibrary_v5.7.0-beta.2.zip
+```
 
 ## Short description
 

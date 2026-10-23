@@ -1,0 +1,230 @@
+' MAX_FRAMES: 8
+' Isolated Trace Cycle stage/save tests. Play stays on campaign version 1.
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim campaign As Object
+Dim yard As Object
+Dim route As Object
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function spawn_ref(ByVal path As String) As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("RefCounted")
+	node.SetScript(Load(path))
+	Return node
+End Function
+
+Function spawn_yard() As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("Node3D")
+	node.SetScript(Load("res://backlight_exploration.vg"))
+	node.EnsureInit()
+	Return node
+End Function
+
+Function full_journal() As Dictionary
+	Dim journal As Dictionary
+	Dim code As String
+	Dim i As Integer
+	journal = New Dictionary
+	code = "14242"
+	For i = 0 To 4
+		journal.Add(i, code.substr(i, 1))
+	Next
+	Return journal
+End Function
+
+Sub play_contract_checks()
+	check(campaign.SAVE_VERSION = 1 And campaign.fields().size() = 32, "play_keeps_version_1_and_exact_field_set")
+	campaign.new_run(yard)
+	check(campaign.stage() = "first_salvage" And campaign.stage() <> "yard_archives", "play_new_run_stays_on_first_salvage")
+	yard.place = "building"
+	yard.building_index = 7
+	yard.keypad = True
+	yard.sequence = "14242"
+	yard.submit_sequence()
+	check(yard.place = "lift" And yard.lift_target = "14242", "play_yard_lift_still_reaches_chamber_code")
+	yard.finish_lift()
+	check(yard.place = "floor" And yard.floor_code = yard.FEB_CODE, "play_default_lift_still_uses_chamber_address")
+End Sub
+
+Sub symbol_and_lift_checks()
+	Dim journal As Dictionary
+	Dim partial As Dictionary
+	Dim storage As Dictionary
+	Dim maintenance As Dictionary
+	Dim laboratory As Dictionary
+	Dim rooms As Array
+	Call route.reset()
+	journal = full_journal()
+	partial = journal.duplicate(True)
+	partial.erase(4)
+	check(Not route.can_activate_cradle(partial, "14242"), "partial_journal_cannot_unlock_cradle")
+	check(Not route.can_activate_cradle(journal, "1424"), "partial_entry_cannot_unlock_cradle")
+	check(Not route.can_activate_cradle(journal, "11111"), "incorrect_entry_cannot_unlock_cradle")
+	check(Not route.can_activate_cradle(journal, ""), "empty_entry_cannot_unlock_cradle")
+	check(route.can_activate_cradle(journal, "14242"), "ordered_five_symbols_unlock_cradle")
+	check(Not route.allow_yard_lift("14242"), "yard_lift_cannot_reach_deep_chamber")
+	check(route.last_error.contains("local storage"), "blocked_deep_lift_explains_local_only")
+	check(route.allow_yard_lift("11111") And route.allow_yard_lift("22222") And route.allow_yard_lift("33333"), "yard_lift_keeps_local_storage_maintenance_lab")
+	check(route.allow_yard_lift("surface"), "yard_lift_can_return_to_surface")
+	check(Not route.allow_deep_lift("14242"), "far_lift_sealed_before_outbound_dock")
+	check(route.local_code_is_placeholder("11111") And route.local_code_is_placeholder("22222") And route.local_code_is_placeholder("33333"), "local_lift_codes_are_development_placeholders")
+	storage = route.local_destination("11111")
+	maintenance = route.local_destination("22222")
+	laboratory = route.local_destination("33333")
+	rooms = route.local_destinations()
+	check(storage("id") = "storage" And storage("purpose").contains("empty cargo"), "storage_destination_is_finite_salvage")
+	check(maintenance("id") = "maintenance" And maintenance("purpose").contains("Trace Cycle"), "maintenance_destination_explains_trace_cycle")
+	check(laboratory("id") = "laboratory" And laboratory("purpose").contains("FEB"), "laboratory_destination_foreshadows_feb")
+	check(rooms.size() = 3, "three_distinct_local_destinations")
+End Sub
+
+Sub stage_flow_checks()
+	Call route.reset()
+	check(route.stage_name = "yard_archives" And route.checkpoint_id = "near_cradle", "route_starts_in_yard_archives")
+	check(route.advance("symbols_entered") And route.stage_name = "outbound_ready", "symbols_open_outbound_ready")
+	check(route.advance("outbound_boarded") And route.riding, "boarding_starts_outbound_crossing")
+	check(route.advance("outbound_docked") And route.stage_name = "vault_facility" And route.checkpoint_id = "vault", "dock_opens_separate_far_lift")
+	check(route.allow_deep_lift("14242"), "far_lift_opens_after_outbound_dock")
+	check(route.take_core() And route.take_core() And route.take_core(), "vault_cores_are_collectable")
+	check(Not route.take_core(), "core_bank_is_finite")
+	check(route.cores = 3 And route.can_sell("regulator") And Not route.can_sell("coupler"), "cores_and_coupler_are_distinct")
+	check(Not route.can_sell("cell_0") And Not route.can_sell("reserve") And route.reserve_protected, "protected_reserve_cannot_be_sold")
+	check(Not route.timer_started, "timer_does_not_start_before_interlock")
+	check(route.advance("coupler_taken") And route.stage_name = "first_escape", "coupler_starts_facility_escape")
+	check(route.timer_started And route.timer_remaining = 255 And route.advance("coupler_taken"), "coupler_pickup_is_idempotent")
+	check(route.advance("facility_exited") And route.checkpoint_id = "far_dock" And Not route.timer_started, "timer_stops_at_facility_boundary")
+	check(route.advance("security_destroyed") And route.feb_alive And route.security_destroyed, "remote_cycle_kill_leaves_physical_feb_alive")
+	check(route.advance("near_docked") And Not route.riding, "escape_without_a_kill_reaches_near_dock")
+	check(route.advance("coupler_installed") And route.stage_name = "first_departure", "near_dock_installs_coupler")
+	check(Not route.allow_emp() And route.feb_display_name() = "FEB" And route.orac_online, "no_first_visit_emp_or_rob_name")
+End Sub
+
+Sub retry_and_save_checks()
+	Dim saved As Dictionary
+	Dim v1 As Dictionary
+	Dim invalid As Dictionary
+	Call route.reset()
+	Call route.advance("symbols_entered")
+	Call route.advance("outbound_boarded")
+	Call route.advance("outbound_docked")
+	Call route.advance("coupler_taken")
+	route.timer_remaining = 90
+	Call route.retry()
+	check(route.stage_name = "vault_facility" And Not route.coupler_taken And route.timer_remaining = 255, "vault_retry_restores_pre_pickup")
+	Call route.advance("coupler_taken")
+	Call route.advance("facility_exited")
+	route.timer_remaining = 12
+	Call route.retry()
+	check(route.keeps_coupler_on_retry() And route.coupler_taken And route.timer_remaining = 12, "chase_retry_keeps_coupler_and_consumed_timer")
+	check(route.stage_name = "return_crossing" And route.feb_alive, "chase_retry_does_not_replay_vault")
+	saved = route.snapshot()
+	check(route.validate_snapshot(saved) And saved.size() = route.fields().size(), "route_snapshot_has_exact_fields")
+	invalid = saved.duplicate(True)
+	invalid.erase("feb_alive")
+	check(Not route.validate_snapshot(invalid), "route_rejects_missing_field")
+	invalid = saved.duplicate(True)
+	invalid("feb_alive") = False
+	invalid("security_destroyed") = True
+	check(Not route.validate_snapshot(invalid), "route_rejects_dead_feb_after_cycle_kill")
+	Call route.reset()
+	v1 = campaign.snapshot(yard)
+	v1("awakening") = False
+	v1("completed") = False
+	check(route.can_adopt_expedition(v1) And route.adopt_expedition(v1) And route.stage_name = "yard_archives", "v1_salvage_migrates_explicitly")
+	v1("awakening") = True
+	check(Not route.can_adopt_expedition(v1) And route.last_error.contains("File left unchanged") And route.last_error.contains("Play route"), "v1_escape_is_rejected_and_kept_on_legacy_route")
+	v1("awakening") = False
+	v1("completed") = True
+	check(Not route.can_adopt_expedition(v1) And route.last_error.contains("completed"), "v1_completed_old_route_is_rejected")
+	v1("completed") = False
+	v1("inventory") = New Dictionary
+	v1("inventory")("coupler") = True
+	check(Not route.can_adopt_expedition(v1) And route.last_error.contains("coupler") And route.last_error.contains("File left unchanged"), "v1_coupler_possession_is_rejected")
+End Sub
+
+Sub riding_save_checks()
+	Dim saved As Dictionary
+	Call route.reset()
+	Call route.advance("symbols_entered")
+	Call route.advance("outbound_boarded")
+	check(route.riding And route.riding_save_notice().contains("last safe dock"), "manual_riding_save_explains_dock_restore")
+	saved = route.persistable_snapshot()
+	check(Not saved.riding And saved.checkpoint = "near_cradle" And saved.stage = "outbound_ready", "persistable_riding_save_keeps_last_safe_dock")
+	check(route.apply_snapshot(route.snapshot()) And Not route.riding And route.checkpoint_id = "near_cradle", "raw_riding_snapshot_restores_to_dock")
+	check(route.restore_notice().contains("last safe dock"), "restore_message_does_not_claim_mid_ride_resume")
+	Call route.advance("outbound_boarded")
+	Call route.advance("outbound_docked")
+	Call route.advance("coupler_taken")
+	Call route.advance("facility_exited")
+	saved = route.persistable_snapshot()
+	check(saved.checkpoint = "far_dock" And Not saved.riding, "return_riding_save_keeps_far_dock")
+End Sub
+
+Sub controller_guard_checks()
+	Dim before As Variant
+	Call route.reset()
+	Call yard.reset()
+	yard.campaign_mode = True
+	before = yard.failed
+	check(Not route.has_controller(), "controller_starts_unbound")
+	check(Not route.read_yard_failed(yard), "absent_controller_cannot_read_yard_failed")
+	check(Not route.write_yard_failed(yard, True), "absent_controller_cannot_write_yard_failed")
+	check(yard.failed = before, "absent_controller_leaves_yard_failed_unchanged")
+	Call route.bind_controller(Nothing)
+	check(Not route.has_controller() And yard.failed = before, "nothing_bind_uses_is_nothing_without_touching_failed")
+	Call route.bind_controller(route)
+	check(route.has_controller(), "explicit_bind_marks_controller_ready")
+	check(route.write_yard_failed(yard, True) And yard.failed = True, "bound_controller_can_write_escape_flag")
+	check(route.read_yard_failed(yard) = True, "bound_controller_can_read_escape_flag")
+	Call route.clear_controller()
+	check(route.write_yard_failed(yard, False) = False And yard.failed = True, "cleared_controller_cannot_change_yard_failed")
+	yard.failed = False
+End Sub
+
+Sub campaign_hook_checks()
+	Dim path As String
+	Dim config As Object
+	Dim directory As Object
+	path = "user://ash_trace_route_test_" & Str(OS.get_process_id()) & ".cfg"
+	campaign.save_path = path
+	campaign.new_run(yard)
+	check(campaign.save_game() And FileExists(path), "play_save_still_succeeds")
+	config = ClassDB.Instantiate("ConfigFile")
+	config.load(path)
+	check(config.get_value("campaign", "version", 0) = 1, "play_save_stays_version_1")
+	check(Not config.has_section("trace_route"), "play_save_has_no_trace_section")
+	config.set_value("campaign", "version", 2)
+	config.save(path)
+	check(Not campaign.load_game(yard) And campaign.last_error.contains("version"), "play_rejects_version_2_without_silent_reset")
+	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+	directory.remove(path)
+End Sub
+
+Sub _Ready()
+	campaign = spawn_ref("res://campaign.vg")
+	route = spawn_ref("res://trace_route.vg")
+	yard = spawn_yard()
+	Call route.reset()
+	play_contract_checks()
+	symbol_and_lift_checks()
+	stage_flow_checks()
+	retry_and_save_checks()
+	riding_save_checks()
+	controller_guard_checks()
+	campaign_hook_checks()
+	Print "TRACE_ROUTE=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub

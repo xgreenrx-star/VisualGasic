@@ -1,0 +1,76 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/vault_room.tscn" id="e0"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/stasis_cradle.tscn" id="e1"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/feb.tscn" id="e2"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/core_bank.tscn" id="e3"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/power_coupler.tscn" id="e4"]
+
+[sub_resource type="Environment" id="s0"]
+background_mode = 1
+background_color = Color(0.016, 0.013, 0.033, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.59, 0.75, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 0
+
+[node name="vault_preview" type="Node3D"]
+
+
+[node name="Vault" parent="." instance=ExtResource("e0")]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Stasis" parent="." instance=ExtResource("e1")]
+position = Vector3(0, 0, -9.5)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="FEB" parent="." instance=ExtResource("e2")]
+position = Vector3(0, 0.32, -9.5)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="Cores" parent="." instance=ExtResource("e3")]
+position = Vector3(-4.5, 0, -7)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="Coupler" parent="." instance=ExtResource("e4")]
+position = Vector3(-1.85, 1.2, -8.67)
+rotation_degrees = Vector3(90, 0, 0)
+
+[node name="Isolation" type="Label3D" parent="."]
+position = Vector3(0, 4.3, -9.3)
+text = "ISOLATION / 04"
+font_size = 64
+pixel_size = 0.006
+modulate = Color(0.45, 0.85, 0.92, 1)
+no_depth_test = false
+billboard = 1
+
+[node name="Environment" type="WorldEnvironment" parent="."]
+environment = SubResource("s0")
+
+[node name="Key" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_color = Color(0.6, 0.78, 1, 1)
+light_energy = 1.6
+
+[node name="Rim" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-24, 135, 0)
+light_color = Color(0.65, 0.28, 0.42, 1)
+light_energy = 1.0
+
+[node name="VaultFill" type="OmniLight3D" parent="."]
+position = Vector3(0, 3.5, -6)
+light_color = Color(0.6, 0.8, 1, 1)
+light_energy = 5.0
+omni_range = 22.0
+
+[node name="Camera" type="Camera3D" parent="."]
+position = Vector3(3.5, 2.6, -1.7)
+rotation_degrees = Vector3(-7, 24, 0)
+fov = 62.0
+current = true

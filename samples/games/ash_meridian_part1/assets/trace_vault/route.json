@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "units": "metres",
+  "forward": "-Z",
+  "up": "+Y",
+  "scene": "res://assets/trace_vault/scenes/void_crossing.tscn",
+  "support_bounds": {
+    "min": [
+      -80,
+      -120
+    ],
+    "max": [
+      80,
+      120
+    ],
+    "axes": [
+      "x",
+      "z"
+    ]
+  },
+  "ride_y": 0,
+  "clearance_radius": 0.75,
+  "cycle_length": 4.2,
+  "near_dock": [
+    0,
+    0,
+    105
+  ],
+  "far_dock": [
+    0,
+    0,
+    -105
+  ],
+  "relay_order": [
+    "Relay0/LinkSocket",
+    "Relay1/LinkSocket",
+    "Relay2/LinkSocket"
+  ],
+  "relay_capture_radius": 3.5,
+  "maximum_proposed_speed": 64,
+  "warning": "Art layout only. Validate reachability and collision sweeps in VG before choosing gameplay balance."
+}

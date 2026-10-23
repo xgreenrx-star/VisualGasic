@@ -17,6 +17,45 @@ Open this folder in Godot 4.6 with Visual Gasic enabled and press F5.
 
 ### Current campaign increment
 
+The project boot splash uses the user-selected image copied from
+`scratch/Lucid_Music/lucid_banner.jpg`, with the added credit
+**Music by Lucid nod**. Its game-owned source and composed 960x540 splash are in
+`assets/branding`; the source sketch is preserved unchanged. This replaces the
+game's engine boot image, not the Godot editor's own splash. The splash keeps
+its aspect ratio and has a 2.5-second minimum display time.
+
+Trace Cycle and FEB-vault now have a **first-pass script-free 3D kit**, not
+implemented gameplay. See the [cycle sheet](assets/trace_vault/concepts/trace_cycle.png),
+[vault/FEB sheet](assets/trace_vault/concepts/feb_vault.png) and
+[Cursor handoff](../../../docs/development/ASH_MERIDIAN_TRACE_VAULT_HANDOFF.md).
+The assistant owns original models/art; Cursor owns VG gameplay and tests.
+The existing campaign still uses its procedural FEB/cradle prototype.
+The new native [model scenes](assets/trace_vault/scenes) include player/remote
+cycles, docking cradle, relays, articulated FEB/stasis cradle, removable coupler,
+core bank, vault and separate deep-lift landing. The 160x240 m support field has
+two docks and three relay sockets. Four static previews show the assembled art.
+No direct film references are intended in the game.
+`trace_route.vg` and `test_trace_route.vg` hold the isolated stage/save contract.
+Play and campaign save version 1 are unchanged. Local lift codes `11111` /
+`22222` / `33333` are development placeholders for storage, maintenance and
+laboratory rooms. First-release riding saves restore the last safe dock only.
+Those three local interiors are still unauthored. The new deep-lift landing is
+separate from them. The next Cursor increment is an isolated TRACE CYCLE dev
+destination; no new destination or campaign version 2 is included in this art drop.
+
+Open [cycle_preview.tscn](assets/trace_vault/scenes/cycle_preview.tscn),
+[vault_preview.tscn](assets/trace_vault/scenes/vault_preview.tscn),
+[asset_gallery.tscn](assets/trace_vault/scenes/asset_gallery.tscn) or
+[crossing_preview.tscn](assets/trace_vault/scenes/crossing_preview.tscn) in Godot
+and run that scene to review it without changing Play.
+[test_trace_models.vg](test_trace_models.vg) passes 128/128 resource, marker,
+geometry and articulation checks. This is not a chase performance or balance
+test. The assistant maintains the offline original-art source:
+
+```bash
+node samples/games/ash_meridian_part1/tools/build_trace_vault.mjs --check
+```
+
 **Play** starts with Orac's approach warning, then the landing rings. The
 landing is flown from the Ash's flight deck. The green marker in the centre of
 the canopy is exactly where the hull will cross; keep it inside the orange ring
@@ -196,6 +235,8 @@ Run the VG campaign regression (it uses a process-specific test save):
   --script /absolute/path/to/VisualGasic/test_proj/run_suite.gd \
   -- res://test_campaign.vg
 ```
+
+The isolated Trace Cycle stage/save checks are `res://test_trace_route.vg`.
 
 For rendered captures, create an output directory, set `ASH_CAMPAIGN_CAPTURE`
 to its absolute path, omit `--headless`, and add

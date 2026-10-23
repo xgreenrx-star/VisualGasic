@@ -1,0 +1,103 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e0"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/trace_cycle.tscn" id="e1"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/security_cycle.tscn" id="e2"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/cycle_cradle.tscn" id="e3"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/relay_pylon.tscn" id="e4"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/stasis_cradle.tscn" id="e5"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/feb.tscn" id="e6"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/core_bank.tscn" id="e7"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(24, 0.6, 24)
+
+[sub_resource type="Environment" id="s1"]
+background_mode = 1
+background_color = Color(0.016, 0.013, 0.033, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.59, 0.75, 1)
+ambient_light_energy = 0.8
+tonemap_mode = 0
+
+[node name="asset_gallery" type="Node3D"]
+
+
+[node name="Plinth" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="TraceCycle" parent="." instance=ExtResource("e1")]
+position = Vector3(-4.4, 0, 3.2)
+rotation_degrees = Vector3(0, 150, 0)
+
+[node name="SecurityCycle" parent="." instance=ExtResource("e2")]
+position = Vector3(-0.5, 0, 3)
+rotation_degrees = Vector3(0, 150, 0)
+
+[node name="Cradle" parent="." instance=ExtResource("e3")]
+position = Vector3(-4.4, 0, -4.8)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="Pylon" parent="." instance=ExtResource("e4")]
+position = Vector3(6.1, 0, -4)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Stasis" parent="." instance=ExtResource("e5")]
+position = Vector3(3, 0, 0)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="FEB" parent="." instance=ExtResource("e6")]
+position = Vector3(3, 0.32, 0)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="CoreBank" parent="." instance=ExtResource("e7")]
+position = Vector3(7.1, 0, 3.3)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="TraceLabel" type="Label3D" parent="."]
+position = Vector3(-4.5, 0.5, 6)
+text = "TRACE / MAINTENANCE"
+font_size = 40
+pixel_size = 0.006
+modulate = Color(0.45, 0.85, 0.92, 1)
+no_depth_test = false
+billboard = 1
+
+[node name="SecurityLabel" type="Label3D" parent="."]
+position = Vector3(-0.5, 0.5, 5.7)
+text = "REMOTE / ENFORCEMENT"
+font_size = 34
+pixel_size = 0.006
+modulate = Color(0.45, 0.85, 0.92, 1)
+no_depth_test = false
+billboard = 1
+
+[node name="Environment" type="WorldEnvironment" parent="."]
+environment = SubResource("s1")
+
+[node name="Key" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_color = Color(0.6, 0.78, 1, 1)
+light_energy = 1.6
+
+[node name="Rim" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-24, 135, 0)
+light_color = Color(0.65, 0.28, 0.42, 1)
+light_energy = 1.0
+
+[node name="Camera" type="Camera3D" parent="."]
+position = Vector3(11, 8, 15)
+rotation_degrees = Vector3(-25, 28, 0)
+fov = 60.0
+current = true

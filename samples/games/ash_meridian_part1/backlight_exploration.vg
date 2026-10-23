@@ -327,7 +327,7 @@ Sub EnsureInit()
 	message = ""
 	message_left = 0.0
 	completed = False
-	failed = False
+	Me.failed = False
 	visual_time = 0.0
 	launch_elapsed = 0.0
 	pending_room = True
@@ -387,7 +387,7 @@ Sub reset()
 	If ship_model <> Nothing Then
 		ship_model.position.y = 0
 	End If
-	failed = False
+	Me.failed = False
 	pending_room = True
 	If audio <> Nothing Then
 		audio.stop()
@@ -1253,12 +1253,12 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	Dim throttle As Variant
 	Call EnsureInit()
 	message_left = Max(0, message_left - delta)
-	If completed Or failed Then
+	If completed Or Me.failed Then
 		If completed Then
 			launch_elapsed = launch_elapsed + delta
 		End If
 		If view.menu_tap(KEY_ENTER) Then
-			If failed Then
+			If Me.failed Then
 				retry_escape()
 			ElseIf Not campaign_mode Then
 				reset()
@@ -1275,7 +1275,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 			audio.play()
 		End If
 		If countdown <= 0 Then
-			failed = True
+			Me.failed = True
 			audio.stop()
 			notify("PURGE COMPLETE. Enter retries from the chamber checkpoint.")
 			Exit Sub
@@ -2296,7 +2296,7 @@ Sub use_object()
 	Dim item As Variant
 	Dim _t0 As Variant
 	Call EnsureInit()
-	If completed Or failed Or transit_left > 0 Then
+	If completed Or Me.failed Or transit_left > 0 Then
 		Exit Sub
 	End If
 	If place = "surface" Then
@@ -2479,7 +2479,7 @@ End Sub
 
 Sub retry_escape()
 	Call EnsureInit()
-	failed = False
+	Me.failed = False
 	shield = 100
 	damage_cooldown = 0
 	inventory.erase("coupler")
@@ -2524,7 +2524,7 @@ Sub _tick_turrets(ByVal delta As Single)
 					notify("ZEN: Turrets are live! Stay behind the buildings!")
 				End If
 				If shield = 0 Then
-					failed = True
+					Me.failed = True
 					audio.stop()
 					notify("SUIT BREACHED. Enter retries the chamber checkpoint.")
 				End If
@@ -2583,7 +2583,7 @@ Function prompt() As String
 		If campaign_mode Then Return "FIRST EXPEDITION COMPLETE / Esc: save or return to title"
 		Return "SHIP REPAIRED / Enter: restart prototype"
 	End If
-	If failed Then
+	If Me.failed Then
 		Return "ESCAPE FAILED / Enter: chamber checkpoint"
 	End If
 	If transit_left > 0 Then

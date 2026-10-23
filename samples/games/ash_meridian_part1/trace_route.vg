@@ -1,0 +1,437 @@
+' Isolated Trace Cycle / vault stage contract.
+' Play stays on campaign save version 1 until a test or dest enables this route.
+' Concepts only: no cycle/vault models, no GDScript, no other sample games.
+Option Explicit
+
+Const SAVE_VERSION As Integer = 1
+Const CRADLE_CODE As String = "14242"
+Const DEEP_CODE As String = "14242"
+Const STORAGE_CODE As String = "11111"
+Const MAINTENANCE_CODE As String = "22222"
+Const LABORATORY_CODE As String = "33333"
+
+Dim last_error As String
+Dim stage_name As String
+Dim checkpoint_id As String
+Dim cradle_unlocked As Boolean
+Dim outbound_complete As Boolean
+Dim vault_entered As Boolean
+Dim facility_cleared As Boolean
+Dim security_destroyed As Boolean
+Dim feb_alive As Boolean
+Dim reserve_protected As Boolean
+Dim coupler_taken As Boolean
+Dim timer_started As Boolean
+Dim timer_remaining As Single
+Dim riding As Boolean
+Dim cores As Integer
+Dim visit_number As Integer
+Dim orac_online As Boolean
+Dim local_codes As Array
+Dim controller As Object
+Dim controller_bound As Boolean
+
+' Empty first-visit route. The physical FEB starts alive and stays alive.
+Sub reset()
+	last_error = ""
+	stage_name = "yard_archives"
+	checkpoint_id = "near_cradle"
+	cradle_unlocked = False
+	outbound_complete = False
+	vault_entered = False
+	facility_cleared = False
+	security_destroyed = False
+	feb_alive = True
+	reserve_protected = True
+	coupler_taken = False
+	timer_started = False
+	timer_remaining = 255.0
+	riding = False
+	cores = 0
+	visit_number = 1
+	orac_online = True
+	local_codes = Array(STORAGE_CODE, MAINTENANCE_CODE, LABORATORY_CODE)
+	controller_bound = False
+	Call clear_controller()
+End Sub
+
+' Established guard: Is Nothing after an explicit bind, never <> Nothing on an unset Object.
+Sub clear_controller()
+	controller_bound = False
+End Sub
+
+Sub bind_controller(ByVal module As Object)
+	If module Is Nothing Then
+		Call clear_controller()
+		Exit Sub
+	End If
+	controller = module
+	controller_bound = True
+End Sub
+
+Function has_controller() As Boolean
+	If Not controller_bound Then Return False
+	If controller Is Nothing Then Return False
+	Return True
+End Function
+
+' Absent controllers must not read or write the yard escape flag.
+Function read_yard_failed(ByVal yard As Object) As Boolean
+	If Not has_controller() Then Return False
+	If yard Is Nothing Then Return False
+	Return yard.failed
+End Function
+
+Function write_yard_failed(ByVal yard As Object, ByVal value As Boolean) As Boolean
+	If Not has_controller() Then Return False
+	If yard Is Nothing Then Return False
+	yard.failed = value
+	Return True
+End Function
+
+Function fields() As Array
+	Return Array("stage", "checkpoint", "cradle_unlocked", "outbound_complete", "vault_entered", "facility_cleared", "security_destroyed", "feb_alive", "reserve_protected", "coupler_taken", "timer_started", "timer_remaining", "riding", "cores")
+End Function
+
+Function snapshot() As Dictionary
+	Dim result As Dictionary
+	result = New Dictionary
+	result.Add("stage", stage_name)
+	result.Add("checkpoint", checkpoint_id)
+	result.Add("cradle_unlocked", cradle_unlocked)
+	result.Add("outbound_complete", outbound_complete)
+	result.Add("vault_entered", vault_entered)
+	result.Add("facility_cleared", facility_cleared)
+	result.Add("security_destroyed", security_destroyed)
+	result.Add("feb_alive", feb_alive)
+	result.Add("reserve_protected", reserve_protected)
+	result.Add("coupler_taken", coupler_taken)
+	result.Add("timer_started", timer_started)
+	result.Add("timer_remaining", timer_remaining)
+	result.Add("riding", riding)
+	result.Add("cores", cores)
+	Return result
+End Function
+
+Function reject(ByVal reason As String) As Boolean
+	last_error = reason
+	Return False
+End Function
+
+' Exact five archive slots, each matching the cradle sequence.
+Function journal_complete(ByVal discovered As Dictionary) As Boolean
+	Dim i As Integer
+	If TypeName(discovered) <> "Dictionary" Then Return False
+	For i = 0 To 4
+		If Not discovered.has(i) Then Return False
+		If discovered(i) <> CRADLE_CODE.substr(i, 1) Then Return False
+	Next
+	Return True
+End Function
+
+' Cradle unlock requires the full ordered journal plus the exact five-symbol entry.
+Function can_activate_cradle(ByVal discovered As Dictionary, ByVal sequence As String) As Boolean
+	If sequence = "" Or Len(sequence) <> 5 Then Return reject("The cradle needs the complete five-symbol sequence.")
+	If Not journal_complete(discovered) Then Return reject("The cradle stays locked until all five archive symbols are copied in order.")
+	If sequence <> CRADLE_CODE Then Return reject("Incorrect sequence. The cradle stays locked.")
+	Return True
+End Function
+
+' Building 7 is local transit only. 14242 does not reach the FEB chamber.
+Function allow_yard_lift(ByVal target As String) As Boolean
+	If target = "surface" Then Return True
+	If target = DEEP_CODE Then Return reject("ORAC: This lift only serves local storage, maintenance and the laboratory. The chamber is beyond the crossing.")
+	If local_codes.size() = 0 Then local_codes = Array(STORAGE_CODE, MAINTENANCE_CODE, LABORATORY_CODE)
+	If local_codes.has(target) Then Return True
+	Return reject("Unknown local stratum.")
+End Function
+
+' Development placeholders only. Final addresses wait for room signage and clue placement.
+Function local_code_is_placeholder(ByVal code As String) As Boolean
+	If local_codes.size() = 0 Then local_codes = Array(STORAGE_CODE, MAINTENANCE_CODE, LABORATORY_CODE)
+	Return local_codes.has(code)
+End Function
+
+Function local_destination(ByVal code As String) As Dictionary
+	Dim dest As Dictionary
+	dest = New Dictionary
+	dest.Add("code", code)
+	dest.Add("placeholder", True)
+	If code = STORAGE_CODE Then
+		dest.Add("id", "storage")
+		dest.Add("title", "Local storage")
+		dest.Add("purpose", "Finite salvage and empty cargo racks.")
+	ElseIf code = MAINTENANCE_CODE Then
+		dest.Add("id", "maintenance")
+		dest.Add("title", "Maintenance")
+		dest.Add("purpose", "Bridge diagnostics explaining the Trace Cycle.")
+	ElseIf code = LABORATORY_CODE Then
+		dest.Add("id", "laboratory")
+		dest.Add("title", "Laboratory")
+		dest.Add("purpose", "Stasis research and foreshadowing of the FEB.")
+	Else
+		dest.Add("id", "")
+		dest.Add("title", "")
+		dest.Add("purpose", "")
+		dest("placeholder") = False
+	End If
+	Return dest
+End Function
+
+Function local_destinations() As Array
+	Return Array(local_destination(STORAGE_CODE), local_destination(MAINTENANCE_CODE), local_destination(LABORATORY_CODE))
+End Function
+
+' Far lift opens only after the outbound dock.
+Function allow_deep_lift(ByVal target As String) As Boolean
+	If Not outbound_complete Then Return reject("The far lift is sealed until the outbound dock.")
+	If target = "surface" Or target = DEEP_CODE Then Return True
+	Return reject("The far lift only serves the vault and the return lobby.")
+End Function
+
+Function can_sell(ByVal item As String) As Boolean
+	If item = "coupler" Or item = "reserve" Then Return False
+	If item.begins_with("cell_") Or item = "core" Then Return False
+	Return True
+End Function
+
+Function take_core() As Boolean
+	If stage_name <> "vault_facility" Then Return reject("Cores are in the vault equipment bank.")
+	If cores >= 3 Then Return reject("The core bank is empty.")
+	cores = cores + 1
+	Return True
+End Function
+
+Function allow_emp() As Boolean
+	Return visit_number >= 2
+End Function
+
+Function feb_display_name() As String
+	Return "FEB"
+End Function
+
+Function keeps_coupler_on_retry() As Boolean
+	Return checkpoint_id = "far_dock"
+End Function
+
+Function validate_snapshot(ByVal data As Variant) As Boolean
+	Dim field_names As Array
+	Dim field_name As Variant
+	If TypeName(data) <> "Dictionary" Then Return reject("Trace Cycle save has no route state.")
+	field_names = fields()
+	If data.size() <> field_names.size() Then Return reject("Trace Cycle save fields do not match this route version.")
+	For Each field_name In field_names
+		If Not data.has(field_name) Then Return reject("Trace Cycle save is missing " & field_name & ".")
+	Next
+	If Not Array("yard_archives", "outbound_ready", "outbound_crossing", "vault_facility", "first_escape", "return_crossing", "near_dock", "first_departure").has(data.stage) Then Return reject("Unknown Trace Cycle stage.")
+	If Not Array("near_cradle", "vault", "far_dock").has(data.checkpoint) Then Return reject("Unknown Trace Cycle checkpoint.")
+	If TypeName(data.cradle_unlocked) <> "Boolean" Or TypeName(data.feb_alive) <> "Boolean" Then Return reject("Invalid Trace Cycle flag.")
+	If data.cores < 0 Or data.cores > 3 Then Return reject("Invalid core count.")
+	If data.timer_remaining < 0 Or data.timer_remaining > 255 Then Return reject("Invalid facility timer.")
+	If data.riding And data.stage <> "outbound_crossing" And data.stage <> "return_crossing" Then Return reject("Riding flag and stage disagree.")
+	If data.coupler_taken And data.stage = "yard_archives" Then Return reject("Coupler cannot appear during yard archives.")
+	If data.security_destroyed And data.feb_alive = False Then Return reject("Destroying the remote cycle cannot kill the physical FEB.")
+	If Not data.reserve_protected Then Return reject("Protected engineering reserve cannot be cleared.")
+	If data.timer_started And data.stage <> "first_escape" Then Return reject("Facility timer is only live during the underground escape.")
+	If data.stage = "first_escape" And Not data.timer_started Then Return reject("Escape has no facility timer.")
+	If data.checkpoint = "far_dock" And Not data.facility_cleared Then Return reject("Far-dock checkpoint requires a finished facility escape.")
+	If visit_number <> 1 Then Return reject("This route increment is first-visit only.")
+	If Not orac_online Then Return reject("Orac must remain online during the first expedition.")
+	Return True
+End Function
+
+Function apply_snapshot(ByVal data As Dictionary) As Boolean
+	Dim was_riding As Boolean
+	If Not validate_snapshot(data) Then Return False
+	was_riding = data.riding
+	last_error = ""
+	stage_name = data.stage
+	checkpoint_id = data.checkpoint
+	cradle_unlocked = data.cradle_unlocked
+	outbound_complete = data.outbound_complete
+	vault_entered = data.vault_entered
+	facility_cleared = data.facility_cleared
+	security_destroyed = data.security_destroyed
+	feb_alive = data.feb_alive
+	reserve_protected = data.reserve_protected
+	coupler_taken = data.coupler_taken
+	timer_started = data.timer_started
+	timer_remaining = data.timer_remaining
+	riding = data.riding
+	cores = data.cores
+	If was_riding Then
+		Call restore_to_last_dock()
+		last_error = "Restored to the last safe dock. The exact crossing position, trails and both vehicles were not saved."
+	End If
+	Return True
+End Function
+
+Sub restore_to_last_dock()
+	riding = False
+	If last_safe_dock() = "far_dock" Then
+		stage_name = "return_crossing"
+		checkpoint_id = "far_dock"
+		Exit Sub
+	End If
+	If last_safe_dock() = "vault" Then
+		stage_name = "vault_facility"
+		checkpoint_id = "vault"
+		Exit Sub
+	End If
+	stage_name = "outbound_ready"
+	checkpoint_id = "near_cradle"
+	If Not cradle_unlocked Then stage_name = "yard_archives"
+End Sub
+
+' First-release riding saves keep the last safe dock only.
+Function last_safe_dock() As String
+	If checkpoint_id = "far_dock" Then Return "far_dock"
+	If checkpoint_id = "vault" Then Return "vault"
+	Return "near_cradle"
+End Function
+
+Function riding_save_notice() As String
+	If Not riding Then Return ""
+	Return "Save will restore the last safe dock, not this exact crossing. Trails, both vehicles and collision state are not stored mid-ride."
+End Function
+
+Function persistable_snapshot() As Dictionary
+	Dim data As Dictionary
+	data = snapshot()
+	If Not riding Then Return data
+	data("riding") = False
+	If checkpoint_id = "far_dock" Then
+		data("stage") = "return_crossing"
+		data("checkpoint") = "far_dock"
+	ElseIf checkpoint_id = "vault" Then
+		data("stage") = "vault_facility"
+		data("checkpoint") = "vault"
+	Else
+		data("stage") = "outbound_ready"
+		data("checkpoint") = "near_cradle"
+	End If
+	Return data
+End Function
+
+Function restore_notice() As String
+	Return last_error
+End Function
+
+' Version-1 Play salvage can move into yard archives. Escape, departure and coupler possession cannot.
+Function can_adopt_expedition(ByVal data As Dictionary) As Boolean
+	If TypeName(data) <> "Dictionary" Then Return reject("Save has no expedition state to migrate.")
+	If data.awakening Then Return reject("This first-visit escape used the old yard-lift chamber. It cannot migrate into the Trace Cycle vault. File left unchanged and remains playable on the current Play route.")
+	If data.completed Then Return reject("This completed first-visit save used the old yard-lift chamber. It cannot migrate into the Trace Cycle vault. File left unchanged and remains playable on the current Play route.")
+	If TypeName(data.inventory) = "Dictionary" Then
+		If data.inventory.has("coupler") Then Return reject("A coupler from the old chamber route cannot migrate silently. File left unchanged and remains playable on the current Play route.")
+	End If
+	Return True
+End Function
+
+Function adopt_expedition(ByVal data As Dictionary) As Boolean
+	If Not can_adopt_expedition(data) Then Return False
+	Call reset()
+	Return True
+End Function
+
+Function advance(ByVal event_id As String) As Boolean
+	last_error = ""
+	If event_id = "symbols_entered" Then
+		If stage_name <> "yard_archives" Then Return reject("The cradle is not waiting for a sequence.")
+		cradle_unlocked = True
+		stage_name = "outbound_ready"
+		checkpoint_id = "near_cradle"
+		Return True
+	End If
+	If event_id = "outbound_boarded" Then
+		If stage_name <> "outbound_ready" Then Return reject("The cycle is not ready to board.")
+		riding = True
+		stage_name = "outbound_crossing"
+		Return True
+	End If
+	If event_id = "outbound_docked" Then
+		If stage_name <> "outbound_crossing" Then Return reject("Outbound docking is not available.")
+		riding = False
+		outbound_complete = True
+		vault_entered = True
+		stage_name = "vault_facility"
+		checkpoint_id = "vault"
+		Return True
+	End If
+	If event_id = "coupler_taken" Then
+		If coupler_taken Then Return True
+		If stage_name <> "vault_facility" Then Return reject("The coupler is still isolated.")
+		coupler_taken = True
+		timer_started = True
+		timer_remaining = 255.0
+		stage_name = "first_escape"
+		checkpoint_id = "vault"
+		Return True
+	End If
+	If event_id = "facility_exited" Then
+		If stage_name <> "first_escape" Then Return reject("The facility boundary is not open.")
+		timer_started = False
+		facility_cleared = True
+		riding = True
+		stage_name = "return_crossing"
+		checkpoint_id = "far_dock"
+		Return True
+	End If
+	If event_id = "security_destroyed" Then
+		If stage_name <> "return_crossing" Then Return reject("No remote cycle is active.")
+		security_destroyed = True
+		feb_alive = True
+		Return True
+	End If
+	If event_id = "near_docked" Then
+		If stage_name <> "return_crossing" Then Return reject("The near dock is not ready.")
+		riding = False
+		stage_name = "near_dock"
+		checkpoint_id = "far_dock"
+		Return True
+	End If
+	If event_id = "coupler_installed" Then
+		If stage_name <> "near_dock" Then Return reject("The Ash is not ready for the coupler.")
+		If Not coupler_taken Then Return reject("No coupler to install.")
+		timer_started = False
+		riding = False
+		stage_name = "first_departure"
+		Return True
+	End If
+	Return reject("Unknown Trace Cycle event.")
+End Function
+
+' Retry restores the active checkpoint. Chase retries keep the consumed timer.
+Sub retry()
+	last_error = ""
+	riding = False
+	If checkpoint_id = "far_dock" Then
+		stage_name = "return_crossing"
+		riding = True
+		timer_started = False
+		facility_cleared = True
+		coupler_taken = True
+		feb_alive = True
+		Exit Sub
+	End If
+	If checkpoint_id = "vault" Then
+		stage_name = "vault_facility"
+		coupler_taken = False
+		timer_started = False
+		timer_remaining = 255.0
+		facility_cleared = False
+		security_destroyed = False
+		feb_alive = True
+		Exit Sub
+	End If
+	stage_name = "yard_archives"
+	If cradle_unlocked Then stage_name = "outbound_ready"
+	outbound_complete = False
+	vault_entered = False
+	facility_cleared = False
+	security_destroyed = False
+	coupler_taken = False
+	timer_started = False
+	timer_remaining = 255.0
+	feb_alive = True
+End Sub

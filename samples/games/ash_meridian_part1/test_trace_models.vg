@@ -1,0 +1,135 @@
+' MAX_FRAMES: 10
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim mesh_count As Integer
+Dim collision_count As Integer
+Dim scripted_count As Integer
+Dim invalid_count As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub inspect_tree(ByVal node As Object)
+	Dim children As Array
+	Dim child As Object
+	Dim mesh As Object
+	Dim bounds As AABB
+	Dim i As Integer
+	If Not (node.get_script() Is Nothing) Then scripted_count = scripted_count + 1
+	If node.is_class("MeshInstance3D") Then
+		mesh_count = mesh_count + 1
+		mesh = node.mesh
+		If mesh Is Nothing Then
+			invalid_count = invalid_count + 1
+		Else
+			bounds = mesh.get_aabb()
+			If bounds.size.x <= 0 Or bounds.size.y <= 0 Or bounds.size.z <= 0 Then invalid_count = invalid_count + 1
+			If node.material_override Is Nothing Then invalid_count = invalid_count + 1
+		End If
+	End If
+	If node.is_class("CollisionShape3D") Then
+		collision_count = collision_count + 1
+		If node.shape Is Nothing Then invalid_count = invalid_count + 1
+	End If
+	children = node.get_children()
+	For i = 0 To children.size() - 1
+		child = children(i)
+		inspect_tree(child)
+	Next
+End Sub
+
+Function instance_asset(ByVal name As String) As Object
+	Dim packed As Object
+	Dim model As Object
+	packed = Load("res://assets/trace_vault/scenes/" & name & ".tscn")
+	check(Not (packed Is Nothing), name & "_loads")
+	If packed Is Nothing Then Return Nothing
+	model = packed.instantiate()
+	check(Not (model Is Nothing), name & "_instantiates")
+	If model Is Nothing Then Return Nothing
+	check(model.scale = Vector3(1, 1, 1), name & "_unit_scale")
+	mesh_count = 0
+	collision_count = 0
+	scripted_count = 0
+	invalid_count = 0
+	inspect_tree(model)
+	check(scripted_count = 0, name & "_script_free")
+	check(invalid_count = 0 And mesh_count > 0, name & "_valid_geometry_and_materials")
+	Return model
+End Function
+
+Sub cycle_checks(ByVal name As String)
+	Dim model As Object
+	Dim pivot As Object
+	Dim anchor As Object
+	Dim start As Vector3
+	model = instance_asset(name)
+	If model Is Nothing Then Exit Sub
+	check(model.is_class("CharacterBody3D"), name & "_movement_root")
+	check(model.collision_layer = 2 And model.collision_mask = 1, name & "_collision_contract")
+	check(collision_count = 1, name & "_single_body_proxy")
+	check(model.has_node("VisualRoot/CanopyPivot") And model.has_node("VisualRoot/FrontWheelPivot") And model.has_node("VisualRoot/RearWheelPivot"), name & "_visual_pivots")
+	check(model.has_node("Seat") And model.has_node("ExitPoint") And model.has_node("CameraTarget"), name & "_boarding_anchors")
+	anchor = model.get_node("TraceEmitter")
+	check(Abs(anchor.position.z - 2.1) < 0.0001, name & "_emitter_behind_hull")
+	start = anchor.position
+	pivot = model.get_node("VisualRoot")
+	pivot.rotation.z = 0.25
+	check(anchor.position = start, name & "_banking_does_not_move_emitter")
+	anchor = model.get_node("HullCollision")
+	check(Abs(anchor.shape.size.z - 4.1) < 0.0001 And Abs(anchor.shape.size.x - 1.12) < 0.0001, name & "_collision_dimensions")
+	model.free()
+End Sub
+
+Sub _Ready()
+	Dim names As Array
+	Dim model As Object
+	Dim anchor As Object
+	Dim i As Integer
+	cycle_checks("trace_cycle")
+	cycle_checks("security_cycle")
+	names = Array("cycle_cradle", "relay_pylon", "feb", "stasis_cradle", "power_coupler", "core_bank", "vault_room", "deep_lift_lobby", "void_crossing", "cycle_preview", "asset_gallery", "vault_preview", "crossing_preview")
+	For i = 0 To names.size() - 1
+		model = instance_asset(names(i))
+		If Not (model Is Nothing) Then model.free()
+	Next
+	model = instance_asset("cycle_cradle")
+	check(model.has_node("DockPose") And model.has_node("ApproachStart") And model.has_node("ApproachEnd"), "cradle_approach_markers")
+	check(model.has_node("ClampLeft") And model.has_node("ClampRight") And model.has_node("Console"), "cradle_movable_clamps_and_console")
+	model.free()
+	model = instance_asset("feb")
+	check(model.has_node("VisualRoot/HeadPivot") And model.has_node("VisualRoot/ServiceArmPivot") And model.has_node("VisualRoot/ThermalArmPivot"), "feb_awakening_rig")
+	anchor = model.get_node("VisualRoot/ThermalArmPivot")
+	anchor.rotation.x = -0.5
+	anchor = model.get_node("VisualRoot/HeadPivot")
+	check(anchor.rotation = Vector3(0, 0, 0), "feb_arm_articulation_independent_of_head")
+	model.free()
+	model = instance_asset("stasis_cradle")
+	check(model.has_node("FigureMount") And model.has_node("ClampPivots") And model.has_node("VentSockets") And model.has_node("CouplerSocket") And model.has_node("WarningPanel"), "stasis_attachment_contract")
+	model.free()
+	model = instance_asset("vault_room")
+	check(collision_count = 9, "vault_separate_floor_walls_lintel_console_no_solid_room_hull")
+	check(model.has_node("Entrance") And model.has_node("Exit") And model.has_node("Console") And model.has_node("CoreBank") And model.has_node("StasisMount"), "vault_interaction_contract")
+	anchor = model.get_node("LintelCollision/Collision")
+	check(Abs(anchor.shape.size.x - 4.4) < 0.0001, "vault_clear_four_point_four_metre_doorway")
+	model.free()
+	model = instance_asset("void_crossing")
+	check(model.has_node("NearCradle") And model.has_node("FarCradle") And model.has_node("FarLift") And model.has_node("SecuritySpawn"), "crossing_docks_lift_enemy_anchors")
+	check(model.has_node("Relay0/LinkSocket") And model.has_node("Relay1/LinkSocket") And model.has_node("Relay2/LinkSocket"), "crossing_three_relay_sockets")
+	anchor = model.get_node("SupportCollision/Collision")
+	check(anchor.shape.size = Vector3(160, 0.2, 240), "crossing_real_support_collision_dimensions")
+	anchor = model.get_node("SupportCollision")
+	check(Abs(anchor.position.y + 0.1) < 0.0001, "crossing_support_surface_at_zero")
+	model.free()
+	Print "TRACE_MODELS=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub
