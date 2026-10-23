@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.3] - 2026-10-23
+
+Compiler, packed-mesh, and Ash Meridian sample beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.3.md).
+Releases keep slowing down: funds are exhausted, other projects take
+priority, and occasional bug fixes continue. Stable v6.0 is still the goal
+for early 2027. Bug reports and feature requests are welcome.
+
+### Fixed
+
+- `On Error Resume Next` continues after the handler. `NodePath`,
+  `StringName`, and `RID` construct. A variable named `task` is not the
+  `Task` keyword.
+- Godot constants and enums fold (`Vector2.UP`, `FileAccess`,
+  `Key.KEY_ESCAPE`, `HORIZONTAL_ALIGNMENT_CENTER`, `Projection()`,
+  `Color.html`). `ClassDB` static calls such as `FileAccess.open` compile.
+- Dictionary parameters index as dictionaries. Packed size writes no longer
+  corrupt mesh buffers.
+- Packed index/append and ribbon `For` loops compile in-place. Select Case
+  jump tables keep every case on Windows release/MSVC builds.
+- Yard escape state uses `Me.failed` so an unset object cannot alias the
+  campaign failure flag.
+
+### Changed
+
+- Ash Meridian Part 1: VG yard/campaign, Black Channel dest, Kokoro speech,
+  Trace Cycle vault kit and isolated route contract. Play stays on campaign
+  save version 1.
+- Boot splash uses the Lucid sketch with the credit Music by Lucid nod.
+
 ## [5.7.0-beta.2] - 2026-10-17
 
 Bug-fix beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.2.md).

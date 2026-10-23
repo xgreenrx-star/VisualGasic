@@ -4,18 +4,18 @@ Status of the VisualGasic listing on the [Godot Asset Library](https://godotengi
 
 ---
 
-## Current submission materials (v5.7.0-beta.2)
+## Current submission materials (v5.7.0-beta.3)
 
 | Field | Value |
 |-------|--------|
-| **Version prepared** | 5.7.0-beta.2 (listing update and moderator approval pending) |
+| **Version prepared** | 5.7.0-beta.3 (listing update and moderator approval pending) |
 | **Godot version** | 4.6+ |
 | **License** | GPL v3.0 |
-| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.7.0-beta.2.zip` |
+| **Download source** | GitHub Release — `VisualGasic_AssetLibrary_v5.7.0-beta.3.zip` |
 | **Listing state** | **Live** (store) — submit version update for moderator approval |
 
-Copy for this update: [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md).
-Previous copy remains in [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.1.md).
+Copy for this update: [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.3.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.3.md).
+Previous copy remains in [`ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md`](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.2.md).
 Use Markdown, not BBCode. The description distinguishes the addon-only store
 ZIP from the separate examples download and identifies the release as a beta.
 
@@ -47,8 +47,8 @@ Use these values when submitting updates:
 | **Godot Version** | 4.6 |
 | **Repository URL** | https://github.com/xgreenrx-star/VisualGasic |
 | **Issues URL** | https://github.com/xgreenrx-star/VisualGasic/issues |
-| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.1/VisualGasic_AssetLibrary_v5.7.0-beta.1.zip` |
-| **Version** | 5.7.0-beta.1 |
+| **Download URL** | `https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.3/VisualGasic_AssetLibrary_v5.7.0-beta.3.zip` |
+| **Version** | 5.7.0-beta.3 |
 | **Icon URL** | https://raw.githubusercontent.com/xgreenrx-star/VisualGasic/main/addons/visual_gasic/icon.svg |
 | **Download Method** | GitHub Release |
 

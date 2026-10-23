@@ -1,7 +1,7 @@
 # VisualGasic — Game systems and tools on Godot, with a power layer GDScript doesn't ship.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.7.0--beta.2-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2)
+[![Version](https://img.shields.io/badge/version-5.7.0--beta.3-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.3)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1_baseline-purple.svg)](docs/compatibility/GODOT_4_7_2.md)
 
@@ -62,7 +62,7 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ## 🗺️ Where we're headed
 
-VG is a public beta. Current release: **v5.7.0-beta.2** ([notes](RELEASE_NOTES_v5.7.0-beta.2.md)). Releases slow down after this beta: funds are exhausted, other projects take priority, and occasional bug fixes continue. Stable v6.0 is still the goal for the end of 2026 or early 2027. Bug reports and feature requests are welcome.
+VG is a public beta. Current release: **v5.7.0-beta.3** ([notes](RELEASE_NOTES_v5.7.0-beta.3.md)). Releases keep slowing down: funds are exhausted, other projects take priority, and occasional bug fixes continue. Stable v6.0 is still the goal for early 2027. Bug reports and feature requests are welcome.
 
 The language, JIT compiler, and debugger work. The Form Designer is experimental Alpha, not the default editor. Here is the explicit priority list:
 
@@ -96,7 +96,7 @@ The language, JIT compiler, and debugger work. The Form Designer is experimental
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.7.0-beta.1 — Public beta** (on the road to **VG6** stable). [Downloads and installers](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.1) · [Release notes](RELEASE_NOTES_v5.7.0-beta.1.md) · [Crystal Caverns](samples/showcases/crystal_caverns/README.md) · [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md). Back up projects before upgrading; known limitations remain documented.
+> 🚀 **v5.7.0-beta.3 — Public beta** (on the road to **VG6** stable). [Downloads and installers](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.3) · [Release notes](RELEASE_NOTES_v5.7.0-beta.3.md) · [Ash Meridian Part 1](samples/games/ash_meridian_part1/README.md) · [Crystal Caverns](samples/showcases/crystal_caverns/README.md) · [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md). Back up projects before upgrading; known limitations remain documented.
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 

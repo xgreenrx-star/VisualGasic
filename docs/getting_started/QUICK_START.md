@@ -2,7 +2,7 @@
 
 Welcome! This guide covers three ways to use VG: building UI, creating 2D games, and using AI (Narcea) to speed up development.
 
-**Requires Godot 4.6.1+** with the VisualGasic plugin enabled. Current public beta: **v5.6.0-beta1**.
+**Requires Godot 4.6.1+** with the VisualGasic plugin enabled. Current public beta: **v5.7.0-beta.3**.
 
 ---
 

@@ -242,6 +242,19 @@ ordering when two timers become due during the same engine frame.
 
 ### Current evidence and remaining work
 
+#### October 23: 5.7.0-beta.3 compiler and Ash Meridian sample
+
+Compiler, packed-mesh, and Ash Meridian sample preview on the 5.7.0 line.
+[Notes](../../RELEASE_NOTES_v5.7.0-beta.3.md),
+[Asset Library text](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.3.md),
+and [Facebook draft](../community/FACEBOOK_RELEASE_5.7.0-beta.3.md).
+Tag `v5.7.0-beta.3` runs the Release workflow: Linux, Windows, universal macOS,
+Web, installers, offline bundles, and the Asset Library ZIP, then a draft
+prerelease. Publish the draft only after that workflow is green.
+Releases keep slowing down. Stable v6.0 is still the goal for early 2027.
+Bug reports and feature requests stay welcome. An Ash Meridian gameplay
+video is planned for YouTube and is not part of this tag.
+
 #### October 17: 5.7.0-beta.2 bug-fix beta
 
 Bug-fix preview on the 5.7.0 line.

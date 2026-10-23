@@ -1,6 +1,6 @@
 # VisualGasic: Getting Started
 
-**Current version**: v5.7.0-beta.2 · **Godot**: 4.6.1+
+**Current version**: v5.7.0-beta.3 · **Godot**: 4.6.1+
 
 Welcome to **VisualGasic** — a VB6-style `.vg` language that runs as a C++ GDExtension inside Godot 4.6. This guide takes you from installation to your first working program.
 
@@ -18,13 +18,14 @@ cd VisualGasic && ./scripts/bootstrap_install.sh
 
 **Or install from Godot's Asset Library** (Method 0 in the [Installation Guide](INSTALLATION.md)) — search **VisualGasic** in the AssetLib tab, install, enable the plugin, restart Godot.
 
-**Or grab a pre-built installer from the [latest GitHub Release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.2):**
+**Or grab a pre-built installer from the [latest GitHub Release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.3):**
 
 | Platform | Installer |
 |----------|-----------|
-| 🐧 Linux x86_64 | `VisualGasic-Installer-v5.7.0-beta.2-x86_64.AppImage` |
-| 🪟 Windows x64 | `VisualGasic-Installer-v5.7.0-beta.2-x86_64.exe` |
-| 🔧 Manual (BYO Godot) | `VisualGasic_AssetLibrary_v5.7.0-beta.2.zip` — or install from Godot AssetLib |
+| 🐧 Linux x86_64 | `VisualGasic-Installer-v5.7.0-beta.3-x86_64.AppImage` |
+| 🪟 Windows x64 | `VisualGasic-Installer-v5.7.0-beta.3-x86_64.exe` |
+| 🍎 macOS Intel / Apple Silicon | `VisualGasic-Installer-v5.7.0-beta.3-macos-universal.zip` (unsigned) |
+| 🔧 Manual (BYO Godot) | `VisualGasic_AssetLibrary_v5.7.0-beta.3.zip` — or install from Godot AssetLib |
 
 > **Portable platform zips** are no longer published. Install Godot 4.6.1+, then use AssetLib or a release zip above.
 
@@ -106,6 +107,8 @@ Open any demo and press F5. Canonical copies live under both `demos/` and `sampl
 
 | Demo | Location | What it shows |
 |------|----------|---------------|
+| Ash Meridian Part 1 | `samples/games/ash_meridian_part1/` | 3D yard, campaign save, Black Channel dest |
+| Crystal Caverns | `samples/showcases/crystal_caverns/` | DATA sprites, Whenever, original shaders |
 | Pong | `demos/2D_Games/Pong/` | Basic 2D physics, input, scoring |
 | Snake | `demos/2D_Games/Snake/` | Grid movement, game loop |
 | Space Shooter | `demos/2D_Games/Space_Shooter/` | Spawning, Lambdas, Parallel For |
@@ -133,7 +136,7 @@ For a guided walkthrough, see the [Game Development Tutorial](../tutorials/GAME_
 | IDE keyboard shortcuts | [IDE Shortcuts](../manual/IDE_SHORTCUTS.md) |
 | Debugging guide | [Debugging](../manual/debugging.md) |
 | Performance benchmarks | [Performance](../manual/performance.md) |
-| What's new | [Changelog](../../CHANGELOG.md) · [v5.7.0-beta.2 Release Notes](../../RELEASE_NOTES_v5.7.0-beta.2.md) |
+| What's new | [Changelog](../../CHANGELOG.md) · [v5.7.0-beta.3 Release Notes](../../RELEASE_NOTES_v5.7.0-beta.3.md) |
 
 ---
 

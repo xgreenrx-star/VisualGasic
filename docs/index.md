@@ -6,7 +6,7 @@ Welcome to the official documentation of **Visual Gasic**, the free and open sou
 
 ## Getting Started
 
-The **Getting Started** series covers Visual Gasic on **Godot 4.6.1+** (current public beta: **v5.7.0-beta.2**).
+The **Getting Started** series covers Visual Gasic on **Godot 4.6.1+** (current public beta: **v5.7.0-beta.3**).
 
 *   [Quick Start](getting_started/QUICK_START.md) — forms, 2D, Narcea
 *   [Get Started Guide](guides/GET_STARTED.md) — installers + learning paths

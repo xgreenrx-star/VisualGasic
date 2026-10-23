@@ -193,7 +193,7 @@ jobs:
             args+=(--target "$GITHUB_SHA")
           fi
           gh release create "v${version}" --draft "${args[@]}" \
-            --title "VisualGasic v${version} — Bug fixes" \
+            --title "VisualGasic v${version}" \
             --notes-file "RELEASE_NOTES_v${version}.md" \
             release/v${version}/*.zip release/v${version}/*.exe \
             release/v${version}/VisualGasic-Installer-v${version}-x86_64.AppImage release/v${version}/SHA256SUMS \
