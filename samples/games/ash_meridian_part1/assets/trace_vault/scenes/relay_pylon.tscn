@@ -1,110 +1,338 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
 
-[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e1"]
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e1"]
 
-[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e2"]
 
 [ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e3"]
 
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e4"]
+
 [sub_resource type="CylinderMesh" id="s0"]
-top_radius = 1.1
-bottom_radius = 1.35
+top_radius = 1.95
+bottom_radius = 1.95
+height = 0.06
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s1"]
+inner_radius = 1.72
+outer_radius = 1.86
+rings = 24
+ring_segments = 8
+
+[sub_resource type="CylinderMesh" id="s2"]
+top_radius = 1.05
+bottom_radius = 1.05
+height = 0.02
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s3"]
+size = Vector3(0.08, 0.02, 1.1)
+
+[sub_resource type="CylinderMesh" id="s4"]
+top_radius = 0.85
+bottom_radius = 1
 height = 0.36
 radial_segments = 24
 rings = 1
 
-[sub_resource type="BoxShape3D" id="s1"]
-size = Vector3(2.2, 0.5, 2.2)
+[sub_resource type="BoxShape3D" id="s5"]
+size = Vector3(1.8, 0.5, 1.8)
 
-[sub_resource type="BoxMesh" id="s2"]
+[sub_resource type="BoxMesh" id="s6"]
 size = Vector3(0.9, 3.5, 0.9)
 
-[sub_resource type="BoxShape3D" id="s3"]
+[sub_resource type="BoxShape3D" id="s7"]
 size = Vector3(0.9, 3.5, 0.9)
 
-[sub_resource type="BoxMesh" id="s4"]
+[sub_resource type="BoxMesh" id="s8"]
 size = Vector3(0.05, 2.9, 0.035)
 
-[sub_resource type="CylinderMesh" id="s5"]
+[sub_resource type="CylinderMesh" id="s9"]
 top_radius = 0.9
 bottom_radius = 0.9
 height = 0.35
 radial_segments = 24
 rings = 1
 
-[sub_resource type="TorusMesh" id="s6"]
+[sub_resource type="TorusMesh" id="s10"]
 inner_radius = 0.62
 outer_radius = 0.73
 rings = 24
 ring_segments = 8
 
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(0.06, 0.03, 22)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(0.828794, 0.025, 0.1)
+
 [node name="relay_pylon" type="Node3D"]
 
 
-[node name="Foot" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.18, 0)
+[node name="HandshakePad" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.03, 0)
 rotation_degrees = Vector3(0, 0, 0)
 mesh = SubResource("s0")
 material_override = ExtResource("e0")
 cast_shadow = 0
 
-[node name="BaseCollision" type="StaticBody3D" parent="."]
+[node name="PadRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.075, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="MastWell" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.065, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="PadLaneMark-1" type="MeshInstance3D" parent="."]
+position = Vector3(-1.35, 0.075, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="PadLaneMark1" type="MeshInstance3D" parent="."]
+position = Vector3(1.35, 0.075, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Mast" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="Foot" type="MeshInstance3D" parent="Mast"]
+position = Vector3(0, 0.18, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="BaseCollision" type="StaticBody3D" parent="Mast"]
 position = Vector3(0, 0.25, 0)
 collision_layer = 1
 collision_mask = 0
 
-[node name="Collision" type="CollisionShape3D" parent="BaseCollision"]
-shape = SubResource("s1")
+[node name="Collision" type="CollisionShape3D" parent="Mast/BaseCollision"]
+shape = SubResource("s5")
 
-[node name="Column" type="MeshInstance3D" parent="."]
+[node name="Column" type="MeshInstance3D" parent="Mast"]
 position = Vector3(0, 2.1, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s2")
-material_override = ExtResource("e1")
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
 cast_shadow = 0
 
-[node name="ColumnCollision" type="StaticBody3D" parent="."]
+[node name="ColumnCollision" type="StaticBody3D" parent="Mast"]
 position = Vector3(0, 2, 0)
 collision_layer = 1
 collision_mask = 0
 
-[node name="Collision" type="CollisionShape3D" parent="ColumnCollision"]
-shape = SubResource("s3")
+[node name="Collision" type="CollisionShape3D" parent="Mast/ColumnCollision"]
+shape = SubResource("s7")
 
-[node name="Seam-0.5" type="MeshInstance3D" parent="."]
+[node name="Seam-0.5_-0.46" type="MeshInstance3D" parent="Mast"]
+position = Vector3(-0.5, 2.1, -0.46)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Seam-0.5_0.46" type="MeshInstance3D" parent="Mast"]
 position = Vector3(-0.5, 2.1, 0.46)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s4")
-material_override = ExtResource("e2")
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
 cast_shadow = 0
 
-[node name="Seam0.5" type="MeshInstance3D" parent="."]
+[node name="Seam0.5_-0.46" type="MeshInstance3D" parent="Mast"]
+position = Vector3(0.5, 2.1, -0.46)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Seam0.5_0.46" type="MeshInstance3D" parent="Mast"]
 position = Vector3(0.5, 2.1, 0.46)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s4")
-material_override = ExtResource("e2")
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
 cast_shadow = 0
 
-[node name="Crown" type="MeshInstance3D" parent="."]
+[node name="Crown" type="MeshInstance3D" parent="Mast"]
 position = Vector3(0, 4, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s5")
+mesh = SubResource("s9")
 material_override = ExtResource("e0")
 cast_shadow = 0
 
-[node name="StatusLamp" type="MeshInstance3D" parent="."]
+[node name="StatusLamp" type="MeshInstance3D" parent="Mast"]
 position = Vector3(0, 4.2, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s6")
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="StatusAnchor" type="Marker3D" parent="Mast"]
+position = Vector3(0, 4.4, 0)
+
+
+[node name="Lane" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="Rail-1_-1.8" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-1.8, 0.02, -13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rail-1_1.8" type="MeshInstance3D" parent="Lane"]
+position = Vector3(1.8, 0.02, -13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Chevron-1_5_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, -5.275)
+rotation_degrees = Vector3(0, 138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_5_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, -5.275)
+rotation_degrees = Vector3(0, 41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_10_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, -10.275)
+rotation_degrees = Vector3(0, 138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_10_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, -10.275)
+rotation_degrees = Vector3(0, 41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_15_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, -15.275)
+rotation_degrees = Vector3(0, 138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_15_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, -15.275)
+rotation_degrees = Vector3(0, 41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_20_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, -20.275)
+rotation_degrees = Vector3(0, 138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron-1_20_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, -20.275)
+rotation_degrees = Vector3(0, 41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Rail1_-1.8" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-1.8, 0.02, 13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Rail1_1.8" type="MeshInstance3D" parent="Lane"]
+position = Vector3(1.8, 0.02, 13)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Chevron1_5_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, 5.275)
+rotation_degrees = Vector3(0, -138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_5_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, 5.275)
+rotation_degrees = Vector3(0, -41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_10_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, 10.275)
+rotation_degrees = Vector3(0, -138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_10_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, 10.275)
+rotation_degrees = Vector3(0, -41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_15_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, 15.275)
+rotation_degrees = Vector3(0, -138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_15_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, 15.275)
+rotation_degrees = Vector3(0, -41.576129, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_20_-1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(-0.31, 0.025, 20.275)
+rotation_degrees = Vector3(0, -138.423871, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Chevron1_20_1" type="MeshInstance3D" parent="Lane"]
+position = Vector3(0.31, 0.025, 20.275)
+rotation_degrees = Vector3(0, -41.576129, 0)
+mesh = SubResource("s12")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="LinkSocket" type="Marker3D" parent="."]
-position = Vector3(0, 0.2, 1.8)
-
-
-[node name="StatusAnchor" type="Marker3D" parent="."]
-position = Vector3(0, 4.4, 0)
+position = Vector3(0, 0.2, 0)
 

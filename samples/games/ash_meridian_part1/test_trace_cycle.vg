@@ -1,0 +1,684 @@
+' MAX_FRAMES: 140
+' Isolated Trace Cycle F6/dest model-test. Play and campaign saves stay on v1.
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim scene As Object
+Dim game As Object
+Dim view As Object
+Dim campaign As Object
+Dim elapsed_frames As Integer
+Dim prior_save As String
+Dim save_path As String
+Dim packed As Object
+Dim before As Vector3
+Dim d30 As Single
+Dim d60 As Single
+Dim d120 As Single
+Dim heading0 As Single
+Dim i As Integer
+Dim rf_phase As Integer
+Dim rf_wait As Integer
+Dim rf_unknown As Boolean
+Dim rf_bridged As Boolean
+Dim rf_started As Boolean
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function MakeScene() As Object
+	Dim node As Object
+	packed = Load("res://trace_cycle_test.tscn")
+	check(Not (packed Is Nothing), "trace_cycle_test_scene_loads")
+	node = packed.instantiate()
+	add_child(node)
+	node.start_test("test")
+	MakeScene = node
+End Function
+
+Sub Drive(ByVal seconds As Single, ByVal dt As Single)
+	Dim steps As Integer
+	Dim n As Integer
+	n = Int(seconds / dt + 0.5)
+	For steps = 1 To n
+		scene.tick(dt)
+	Next
+End Sub
+
+Sub _Ready()
+	scene = MakeScene()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	elapsed_frames = elapsed_frames + 1
+	If elapsed_frames = 4 Then
+		Call BoardingChecks()
+	ElseIf elapsed_frames = 6 Then
+		Call PauseAndTurnChecks()
+	ElseIf elapsed_frames = 8 Then
+		Call RateChecks()
+	ElseIf elapsed_frames = 12 Then
+		Call WallChecks()
+	ElseIf elapsed_frames = 16 Then
+		Call WallHitChecks()
+		Call LayTrailForCollision()
+	ElseIf elapsed_frames = 18 Then
+		Call OldTrailHitChecks()
+	ElseIf elapsed_frames = 20 Then
+		Call TurnFacingChecks()
+		Call RemoteTurnChecks()
+		Call DockInspectChecks()
+	ElseIf elapsed_frames = 21 Then
+		Call RelayGuidanceChecks()
+		Call TraceToggleChecks()
+		Call GoalClarityChecks()
+	ElseIf elapsed_frames = 22 Then
+		Call FacilityChecks()
+	ElseIf elapsed_frames = 24 Then
+		Call StartRealFrameRide()
+	ElseIf elapsed_frames >= 25 And elapsed_frames <= 120 Then
+		Call StepRealFrameRide()
+	ElseIf elapsed_frames = 122 Then
+		Call FinishRealFrameRide()
+	ElseIf elapsed_frames = 126 Then
+		Call DestAndCleanupChecks()
+	ElseIf elapsed_frames = 134 Then
+		Print "TRACE_CYCLE=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub
+
+Sub BoardingChecks()
+	Dim near_map As Vector2
+	Dim far_map As Vector2
+	check(scene.running And scene.ride_state = "docked", "starts_safely_docked")
+	check(scene.map_relays.size() = 3 And scene.map_docks.size() = 2, "dashboard_retains_relay_and_dock_marker_handles")
+	check(scene.map_captures.size() = 3 And scene.map_relay_labs.size() = 3, "tactical_has_capture_regions_and_relay_numbers")
+	check(scene.map_dock_labs.size() = 2 And scene.map_bounds <> Nothing, "tactical_labels_docks_and_field_boundary")
+	check(scene.relay_rings.size() = 3 And scene.relay_nums.size() = 3, "relay_guides_retain_ring_and_number_handles")
+	near_map = scene.MapPoint(Vector3(0, 0, 105))
+	far_map = scene.MapPoint(Vector3(0, 0, -105))
+	check(near_map.y > far_map.y, "tactical_outbound_runs_from_bottom_to_top")
+	check(scene.map_relays(0).position.distance_to(scene.MapPoint(scene.crossing.get_node("Relay0/LinkSocket").global_position)) < 0.01, "first_relay_marker_uses_socket_world_position")
+	check(scene.dock_id = "near", "starts_at_near_cradle")
+	check(Abs(scene.player.global_position.z - 105.0) < 0.05, "uses_near_dockpose_world_transform")
+	check(scene.crossing <> Nothing And scene.crossing.has_node("Relay0/LinkSocket"), "instances_void_crossing")
+	check(scene.player.has_node("VisualRoot/CanopyPivot") And scene.player.has_node("TraceEmitter"), "uses_authored_player_cycle")
+	check(scene.speed = 32.0 And scene.relays = 0, "default_speed_and_quiet_relays")
+	check(scene.route.stage_name = "outbound_ready" And Not scene.route.riding, "route_authority_starts_outbound_ready")
+	check(scene.Caption().contains("DOCKED") Or scene.ride_state = "docked", "overlay_reports_docked_state")
+	check(scene.canopy.rotation.x < -0.4, "canopy_opens_while_parked")
+	scene.launch()
+	scene.tick(0.2)
+	check(scene.ride_state = "boarding", "e_boards_with_brief_close")
+	scene.tick(0.4)
+	check(scene.ride_state = "riding" And scene.route.riding, "launch_advances_outbound_boarded")
+	check(Abs(scene.canopy.rotation.x) < 0.2, "canopy_closes_before_riding")
+	check(scene.ride_camera.cull_mask = 1 + 4, "cockpit_camera_hides_cycle_shell_shows_cockpit")
+	check(scene.player.get_node("VisualRoot/LowerChassis").layers = 2, "cycle_shell_stays_on_monitor_layer")
+	check(scene.camera_target.has_node("Cockpit") And scene.camera_target.get_node("Cockpit/Windscreen/Glass").layers = 4, "bike_cockpit_mounted_on_rider_eye_layer")
+	check((scene.exterior_camera.cull_mask And 4) = 0, "exterior_monitor_does_not_render_cockpit")
+	check(scene.vault <> Nothing And scene.vault.has_node("Vault/WallCollision1") And scene.vault.get_node("Vault/WallCollision1").collision_layer = 0, "hidden_vault_preview_does_not_block_the_crossing")
+	check(scene.ext_screen <> Nothing And scene.map_screen <> Nothing, "binnacle_screens_use_authored_markers")
+	check(scene.cockpit.has_node("ExteriorScreen/Feed") And scene.cockpit.has_node("TacticalScreen/Feed"), "exterior_and_tactical_feeds_sit_on_binnacle_markers")
+	check(scene.ext_frame <> Nothing And scene.map_frame <> Nothing And scene.ext_title.text = "EXTERNAL", "cockpit_hud_keeps_framed_external_and_tactical_screens")
+	check(scene.ext_rect.modulate.a < 0.8 And scene.ext_rect.modulate.a > 0.4, "view_screens_are_slightly_transparent")
+	scene.RefreshHud()
+	check(scene.hud_speed.text.contains("M/S") And scene.hud_trace.text.contains("TRACE"), "windscreen_hud_shows_speed_and_trace")
+	check(scene.exterior_view <> Nothing And scene.exterior_camera <> Nothing, "dashboard_has_live_exterior_viewport")
+	check(scene.exterior_camera.current, "exterior_monitor_has_its_own_current_camera")
+	check(scene.hud_panel.position.y >= 360.0, "debug_panel_is_not_on_the_windshield")
+	check(scene.ride_camera.global_position.distance_to(scene.camera_target.global_position) < 0.35, "riding_uses_first_person_camera")
+	Drive(1.0, 1.0 / 60.0)
+	check(scene.ride_state = "riding" And scene.last_crash = "", "straight_launch_clears_the_near_cradle")
+	check(scene.player.global_position.z < 96.0, "straight_launch_leaves_the_dock_channel")
+	check(scene.NextHint().contains("LINK 1"), "next_relay_bearing_is_on_the_instruments")
+End Sub
+
+Sub PauseAndTurnChecks()
+	before = scene.player.global_position
+	heading0 = scene.heading
+	scene.paused = True
+	scene.tick(0.5)
+	check(scene.player.global_position.distance_to(before) < 0.001, "pause_freezes_motion")
+	check(scene.heading = heading0, "pause_ignores_turns")
+	scene.paused = False
+	scene.request_turn(-1)
+	check(Abs(scene.heading + 1.5708) < 0.05, "edge_left_is_ninety_degrees")
+	check(scene.GrowSpan() < 0.6, "first_turn_does_not_bridge_trail_across_hull")
+	scene.request_turn(-1)
+	check(Abs(Abs(scene.heading) - 3.14159) < 0.05, "second_edge_turn_is_one_eighty")
+	check(scene.GrowSpan() < 0.6, "second_turn_restarts_emitter_without_cyan_span")
+	check(Abs(scene.visual.rotation.z) > 0.02, "bank_is_on_visual_root_only")
+	check(scene.emitter.position = Vector3(0, 0.1, 2.1), "banking_does_not_move_emitter")
+	scene.retry_run()
+	check(scene.ride_state = "docked" And scene.relays = 0 And scene.trail_count = 0, "retry_clears_trails_speed_relays")
+	check(Abs(scene.player.global_position.z - 105.0) < 0.05, "retry_restores_near_dock")
+End Sub
+
+Sub RateChecks()
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(1.0, 1.0 / 30.0)
+	d30 = scene.distance_travelled
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(1.0, 1.0 / 60.0)
+	d60 = scene.distance_travelled
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(1.0, 1.0 / 120.0)
+	d120 = scene.distance_travelled
+	check(Abs(d30 - 32.0) < 0.6, "thirty_hz_covers_speed_times_time")
+	check(Abs(d30 - d60) < 0.35 And Abs(d60 - d120) < 0.35, "thirty_sixty_one_twenty_hz_agree")
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	scene.NudgeSpeed(16.0)
+	check(Abs(scene.speed - 48.0) < 0.05, "throttle_raises_cruise_speed")
+	scene.NudgeSpeed(80.0)
+	check(Abs(scene.speed - 64.0) < 0.05, "throttle_stops_at_max_speed")
+	scene.NudgeSpeed(-80.0)
+	check(Abs(scene.speed - 24.0) < 0.05, "throttle_stops_at_min_speed")
+	scene.RefreshThrottle()
+	check(scene.throttle_fill <> Nothing And Abs(scene.throttle_fill.size.x) < 0.05, "throttle_bar_matches_minimum_speed")
+	scene.NudgeSpeed(40.0)
+	check(Abs(scene.speed - 64.0) < 0.05 And scene.throttle_fill.size.x > 200.0, "throttle_bar_fills_at_max_speed")
+End Sub
+
+Sub WallChecks()
+	scene.retry_run()
+	scene.clear_test_walls()
+	scene.place_test_wall(0.0, 50.0, 24.0, 2.0, 0.22)
+End Sub
+
+Sub WallHitChecks()
+	scene.force_pose(0.0, 53.2, 0.0)
+	scene.begin_riding()
+	scene.speed = 64.0
+	scene.tick(1.0 / 30.0)
+	check(scene.ride_state = "crashed" And scene.last_crash = "wall", "max_speed_sweep_hits_thin_wall")
+	scene.retry_run()
+	scene.force_pose(0.0, -117.4, 0.0)
+	scene.begin_riding()
+	scene.speed = 64.0
+	scene.tick(1.0 / 30.0)
+	check(scene.ride_state = "crashed" And (scene.last_crash = "boundary" Or scene.last_crash = "wall"), "max_speed_sweep_hits_support_boundary")
+End Sub
+
+Sub LayTrailForCollision()
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(0.7, 1.0 / 60.0)
+	check(scene.ride_state = "riding" And scene.trail_count > 0, "rear_clearance_does_not_hit_new_trail")
+	check(scene.TrailHasEnds(0), "committed_trails_store_segment_endpoints")
+	scene.request_turn(1)
+	scene.request_turn(1)
+	scene.tick(0.04)
+	check(scene.ride_state = "riding", "short_reverse_clears_unarmed_rear_segment")
+End Sub
+
+Sub OldTrailHitChecks()
+	Drive(0.45, 1.0 / 60.0)
+	check(scene.ride_state = "crashed" And scene.last_crash = "trail", "old_self_trail_collides_after_turnaround")
+End Sub
+
+Sub TurnFacingChecks()
+	Dim nose As Vector3
+	Dim travel As Vector3
+	Dim tail As Vector3
+	Dim start As Vector3
+	scene.retry_run()
+	scene.force_pose(0.0, 40.0, 0.0)
+	scene.begin_riding()
+	scene.request_turn(1)
+	nose = scene.player.to_global(Vector3(0, 0, -1)) - scene.player.global_position
+	travel = scene.ForwardOf(scene.heading)
+	check(nose.dot(travel) > 0.99 And travel.x > 0.99, "right_turn_model_faces_travel_direction")
+	check(Abs(scene.AngleDelta(scene.HeadingOf(scene.player), scene.heading)) < 0.01, "heading_of_round_trips_node_yaw")
+	tail = scene.emitter.global_position - scene.player.global_position
+	check(tail.dot(travel) < -1.5, "right_turn_emitter_stays_behind_rider")
+	start = scene.player.global_position
+	scene.speed = 20.0
+	Drive(0.3, 1.0 / 60.0)
+	check(scene.ride_state = "riding" And scene.player.global_position.x - start.x > 3.0, "right_turn_drives_right_without_phantom_hit")
+	scene.request_turn(-1)
+	scene.request_turn(-1)
+	nose = scene.player.to_global(Vector3(0, 0, -1)) - scene.player.global_position
+	travel = scene.ForwardOf(scene.heading)
+	check(nose.dot(travel) > 0.99 And travel.x < -0.99, "left_turn_model_faces_travel_direction")
+End Sub
+
+Sub RemoteTurnChecks()
+	Dim nose As Vector3
+	Dim travel As Vector3
+	Dim tail As Vector3
+	Dim start As Vector3
+	Dim relay As Object
+	scene.reset_run()
+	scene.force_pose(20.0, 0.0, 0.0)
+	scene.begin_riding()
+	scene.route.facility_cleared = True
+	scene.enemy_state = "hunt"
+	scene.enemy_turn_t = 0.0
+	scene.remote.global_position = Vector3(0.0, 0.0, 0.0)
+	scene.enemy_heading = 0.0
+	scene.remote.rotation = Vector3(0.0, 0.0, 0.0)
+	scene.TickEnemy(0.05)
+	travel = scene.ForwardOf(scene.enemy_heading)
+	nose = scene.remote.to_global(Vector3(0, 0, -1)) - scene.remote.global_position
+	check(scene.enemy_heading > 1.0 And scene.enemy_heading < 2.2, "remote_snaps_toward_the_player")
+	check(nose.dot(travel) > 0.99, "remote_model_faces_travel_after_yaw_fix")
+	If scene.enemy_emitter <> Nothing Then
+		tail = scene.enemy_emitter.global_position - scene.remote.global_position
+		check(tail.dot(travel) < -1.5, "remote_emitter_stays_behind_after_turn")
+	End If
+	start = scene.remote.global_position
+	scene.enemy_speed = 32.0
+	For i = 1 To 20
+		scene.TickEnemy(1.0 / 60.0)
+	Next
+	check(scene.enemy_state = "hunt" And scene.remote.global_position.x - start.x > 4.0, "remote_drives_the_snapped_heading_without_phantom_wreck")
+	relay = scene.crossing.get_node("Relay1")
+	scene.force_pose(relay.global_position.x, relay.global_position.z - 40.0, 0.0)
+	scene.route.facility_cleared = True
+	scene.enemy_state = "hunt"
+	scene.enemy_turn_t = 0.0
+	scene.enemy_speed = 32.0
+	scene.remote.global_position = Vector3(relay.global_position.x, 0.0, relay.global_position.z + 12.0)
+	scene.enemy_heading = 0.0
+	scene.remote.rotation = Vector3(0.0, 0.0, 0.0)
+	check(scene.EnemyLaneHazard(0.0), "relay1_lane_is_a_remote_hazard")
+	scene.TickEnemy(0.05)
+	check(Abs(scene.AngleDelta(scene.enemy_heading, 0.0)) > 0.4, "remote_turns_instead_of_entering_relay_lane")
+End Sub
+
+Sub DockInspectChecks()
+	scene.retry_run()
+	scene.relays = 3
+	scene.force_pose(0.0, -92.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(1.3, 1.0 / 60.0)
+	check(scene.ride_state = "docked" And scene.dock_id = "far", "three_relays_then_far_cradle_dock")
+	check(Not scene.route.riding And scene.route.stage_name <> "vault_facility", "far_dock_does_not_start_vault_or_timer")
+	scene.retry_run()
+	check(scene.dock_id = "near" And scene.ride_state = "docked", "retry_after_far_dock_restores_near")
+	scene.set_inspect(1)
+	check(scene.ride_state = "inspect" And scene.inspect_subject = 1, "inspect_player_while_docked")
+	scene.set_inspect(2)
+	check(scene.inspect_subject = 2 And scene.remote.visible, "inspect_parked_remote_cycle")
+	scene.set_inspect(3)
+	check(scene.vault.visible And Not scene.crossing.visible, "inspect_vault_preview_hides_crossing")
+	check(Not scene.vault.get_node("Camera").current, "preview_camera_does_not_override_ride_camera")
+	scene.set_inspect(0)
+	check(scene.ride_state = "docked" And scene.dock_id = "near" And scene.crossing.visible, "leaving_inspect_restores_the_same_dock")
+End Sub
+
+Sub RelayGuidanceChecks()
+	Dim socket As Object
+	Dim n As Integer
+	scene.retry_run()
+	socket = scene.crossing.get_node("Relay2/LinkSocket")
+	scene.force_pose(socket.global_position.x, socket.global_position.z, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	scene.tick(0.05)
+	check(scene.relays = 0, "relay_order_rejects_a_later_socket")
+	scene.retry_run()
+	socket = scene.crossing.get_node("Relay0/LinkSocket")
+	check(scene.crossing.has_node("Relay0/Mast/ColumnCollision") And scene.crossing.has_node("Relay0/Lane"), "relay_has_sinking_mast_and_lit_lane")
+	check(Not scene.RelayMastDown(0), "relay_mast_starts_solid")
+	scene.force_pose(socket.global_position.x, socket.global_position.z + 24.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 64.0
+	scene.tick(1.0 / 30.0)
+	check(scene.RelayMastDown(0) And scene.NextHint().begins_with("TRACE ON"), "holding_the_lane_starts_trace_on_handshake")
+	check(scene.last_cue = "arm", "lane_entry_plays_arm_tick")
+	n = 0
+	While n < 30 And scene.relays = 0 And scene.ride_state = "riding"
+		scene.tick(1.0 / 30.0)
+		n = n + 1
+	Wend
+	check(scene.relays = 1 And scene.ride_state = "riding" And scene.crash_reason = "", "lane_run_links_over_the_sunk_mast_at_max_speed")
+	check(scene.last_cue = "capture" And scene.pad_flash_i = 0 And scene.pulse_t > 0.0, "capture_chime_and_pad_flash")
+	check(scene.hud_pulse.color.a > 0.05, "windscreen_pulses_on_trace_on")
+	check(scene.RelayMastDown(0), "linked_relay_mast_stays_down")
+	scene.retry_run()
+	check(Not scene.RelayMastDown(0), "retry_raises_the_mast")
+	scene.force_pose(socket.global_position.x - 22.0, socket.global_position.z, 1.5708)
+	scene.begin_riding()
+	scene.speed = 32.0
+	n = 0
+	While n < 60 And scene.ride_state = "riding"
+		scene.tick(1.0 / 30.0)
+		n = n + 1
+	Wend
+	check(scene.relays = 0 And scene.crash_reason = "pylon", "cross_lane_approach_hits_named_pylon")
+	check(scene.CrashAdvice() <> "unidentified obstacle", "pylon_crash_is_not_unknown")
+	check(scene.crossing.has_node("Relay0/LinkSocket/CaptureRing") And scene.crossing.has_node("Relay2/LinkSocket/CaptureRing"), "capture_rings_mark_the_link_sockets")
+End Sub
+
+Sub TraceToggleChecks()
+	Dim n As Integer
+	Dim before_turn As Integer
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim c As Vector3
+	Dim gap As Single
+	Dim socket As Object
+	scene.retry_run()
+	scene.clear_trails()
+	scene.force_pose(0.0, 30.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	For n = 1 To 8
+		scene.tick(1.0 / 30.0)
+	Next
+	before_turn = scene.trails.size()
+	scene.request_turn(1)
+	For n = 1 To 8
+		scene.tick(1.0 / 30.0)
+	Next
+	gap = 99.0
+	If scene.trails.size() > before_turn And before_turn > 0 Then
+		a = scene.trails(before_turn).get_meta("b")
+		b = scene.trails(before_turn + 1).get_meta("a")
+		gap = a.distance_to(b)
+		c = scene.trails(before_turn - 1).get_meta("b")
+		gap = Max(gap, c.distance_to(scene.trails(before_turn).get_meta("a")))
+	End If
+	check(gap < 0.01, "turn_corner_trail_is_continuous")
+	scene.retry_run()
+	socket = scene.crossing.get_node("Relay0/LinkSocket")
+	scene.force_pose(socket.global_position.x, socket.global_position.z + 24.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 64.0
+	n = 0
+	While n < 30 And scene.relays = 0 And scene.ride_state = "riding"
+		scene.tick(1.0 / 30.0)
+		n = n + 1
+	Wend
+	check(scene.relays = 1 And scene.trails.size() > 0, "toggle_setup_links_relay_and_lays_trace")
+	scene.force_pose(70.0, 95.0, 0.0)
+	scene.speed = 24.0
+	scene.trace_off()
+	check(scene.last_cue = "shutdown" And scene.pulse_t > 0.0, "shutdown_plays_cue_and_flash")
+	check(scene.TraceShuttingDown() And Not scene.TraceIsOff() And scene.trails.size() > 0 And scene.relays = 1, "trace_off_waits_for_shutdown_countdown")
+	check(scene.NextHint() = "SHUTTING DOWN TRACE  5", "shutdown_counts_down_from_five")
+	For n = 1 To 120
+		If scene.ride_state = "riding" Then scene.tick(1.0 / 30.0)
+	Next
+	check(scene.TraceShuttingDown() And scene.NextHint() = "SHUTTING DOWN TRACE  1" And scene.trails.size() > 0, "trace_stays_live_during_countdown")
+	Dim lit_seen As Boolean
+	Dim dark_seen As Boolean
+	For n = 1 To 32
+		If scene.ride_state = "riding" Then scene.tick(1.0 / 30.0)
+		If scene.TraceShuttingDown() And scene.TracePower() > 0.9 Then lit_seen = True
+		If scene.TraceShuttingDown() And scene.TracePower() < 0.1 Then dark_seen = True
+	Next
+	check(lit_seen And dark_seen, "trace_blinks_out_before_wipe")
+	check(scene.TracePowerFor(0.0) = 1.0 And scene.TracePowerFor(4.0) > 0.75, "trace_powered_while_on")
+	check(scene.TraceIsOff() And scene.trails.size() = 0 And scene.relays = 0, "trace_off_erases_field_and_resets_relays")
+	check(scene.last_cue = "wipe", "trace_off_wipe_plays_cue")
+	check(scene.NextHint().begins_with("TRACE OFF") And InStr(scene.Caption(), "TRACE OFF") > 0, "trace_off_is_shown_on_hud")
+	For n = 1 To 30
+		If scene.ride_state = "riding" Then scene.tick(1.0 / 30.0)
+	Next
+	check(scene.TraceIsOff() And scene.trails.size() = 0 And scene.ride_state = "riding", "no_trace_while_off")
+	scene.route.facility_cleared = True
+	scene.enemy_state = "hunt"
+	scene.have_enemy_emit = True
+	scene.last_enemy_emit = scene.remote.global_position
+	scene.enemy_turn_t = 0.0
+	For n = 1 To 24
+		scene.TickEnemy(1.0 / 30.0)
+	Next
+	check(scene.trails.size() = 0 And scene.TraceIsOff(), "enemy_lays_no_trace_while_field_is_off")
+	For n = 1 To 50
+		If scene.ride_state = "riding" Then scene.tick(1.0 / 30.0)
+	Next
+	check(Not scene.TraceIsOff() And scene.trails.size() > 0 And scene.ride_state = "riding", "trace_turns_back_on_after_delay")
+	check(scene.relays = 0 And scene.NextHint().begins_with("LINK 1"), "restart_requires_beacon_one")
+	scene.trace_off()
+	scene.retry_run()
+	check(Not scene.TraceIsOff() And Not scene.TraceShuttingDown(), "retry_clears_trace_off")
+End Sub
+
+Sub GoalClarityChecks()
+	Dim n As Integer
+	scene.retry_run()
+	scene.force_pose(0.0, 60.0, 0.0)
+	scene.begin_riding()
+	check(scene.Objective().begins_with("OBJECTIVE  LINK RELAY 1"), "objective_names_next_relay")
+	check(Not scene.FarBeaconLit(), "far_beacon_dark_before_field_linked")
+	scene.relays = 2
+	scene.field_open_t = 0.0
+	scene.relays = 3
+	scene.field_open_t = 4.0
+	scene.tick(1.0 / 30.0)
+	check(scene.NextHint() = "ALL 3 LINKED  FAR DOCK OPEN", "third_link_announces_far_dock")
+	check(InStr(scene.Objective(), "FAR DOCK") > 0, "objective_points_at_far_dock")
+	check(scene.FarBeaconLit(), "far_beacon_lights_after_field_linked")
+	scene.field_open_t = 0.0
+	scene.force_pose(30.0, -110.0, 0.0)
+	check(InStr(scene.NextHint(), "ENTER FROM SOUTH") > 0, "dock_hint_warns_when_north_of_entrance")
+	scene.force_pose(40.0, -112.0, -1.5707963)
+	scene.speed = 32.0
+	For n = 1 To 150
+		If scene.ride_state = "riding" Then scene.tick(1.0 / 30.0)
+	Next
+	check(scene.crash_reason = "lift" And InStr(scene.CrashAdvice(), "FAR dock") > 0, "lift_building_crash_is_named")
+	check(scene.StarCount() >= 500 And scene.StarCount() <= 700, "parallax_starfield_built")
+	check(scene.capture_stream <> Nothing And scene.wipe_stream <> Nothing And scene.cue_player <> Nothing, "trace_cue_bank_is_ready")
+	scene.retry_run()
+End Sub
+
+Sub StartRealFrameRide()
+	rf_phase = 0
+	rf_wait = 0
+	rf_unknown = False
+	rf_bridged = False
+	rf_started = True
+	scene.reset_run()
+	scene.launch()
+End Sub
+
+Sub StepRealFrameRide()
+	If Not rf_started Then Exit Sub
+	If scene Is Nothing Then Exit Sub
+	scene.tick(1.0 / 60.0)
+	If scene.last_crash = "unknown" Then rf_unknown = True
+	If rf_phase = 0 Then
+		If scene.ride_state = "riding" And scene.player.global_position.z < 85.0 Then
+			If scene.GrowSpan() >= 4.2 Then rf_bridged = True
+			scene.request_turn(-1)
+			If scene.GrowSpan() >= 0.6 Then rf_bridged = True
+			rf_phase = 1
+			rf_wait = 0
+		End If
+	ElseIf rf_phase = 1 Then
+		rf_wait = rf_wait + 1
+		If rf_wait >= 24 Then
+			scene.request_turn(1)
+			If scene.GrowSpan() >= 0.6 Then rf_bridged = True
+			rf_phase = 2
+			rf_wait = 0
+		End If
+	ElseIf rf_phase = 2 Then
+		rf_wait = rf_wait + 1
+		If rf_wait >= 24 Then
+			scene.request_turn(-1)
+			scene.request_turn(-1)
+			If scene.GrowSpan() >= 0.6 Then rf_bridged = True
+			rf_phase = 3
+			rf_wait = 0
+		End If
+	ElseIf rf_phase = 3 Then
+		rf_wait = rf_wait + 1
+		If scene.ride_state = "crashed" Or rf_wait >= 80 Then rf_phase = 4
+	End If
+End Sub
+
+Sub FinishRealFrameRide()
+	check(Not rf_unknown, "real_frame_turns_do_not_report_unknown_hits")
+	check(Not rf_bridged, "real_frame_turns_do_not_span_cyan_across_the_hull")
+	If scene.ride_state = "crashed" Then
+		check(scene.last_crash = "trail" And scene.last_crash_path.contains("Trail"), "real_frame_return_names_the_old_trail")
+	Else
+		check(scene.ride_state = "riding", "real_frame_zigzag_stays_playable_when_trail_is_missed")
+	End If
+End Sub
+
+Sub FacilityChecks()
+	Dim lift As Object
+	Dim to_lift As Vector2
+	Dim fwd As Vector3
+	Dim before As Vector3
+	scene.retry_run()
+	scene.relays = 3
+	scene.force_pose(0.0, -92.0, 0.0)
+	scene.begin_riding()
+	scene.speed = 32.0
+	Drive(1.3, 1.0 / 60.0)
+	check(scene.ride_state = "docked" And scene.dock_id = "far", "facility_starts_from_far_dock")
+	scene.enter_lift()
+	check(scene.ride_state = "on_foot" And scene.area_name = "lobby", "dismount_enters_far_lift")
+	check(scene.cluster_hud <> Nothing And Not scene.cluster_hud.visible, "on_foot_hides_the_bike_cluster")
+	lift = scene.crossing.get_node("FarLift")
+	to_lift = Vector2(lift.global_position.x - scene.walker.global_position.x, lift.global_position.z - scene.walker.global_position.z)
+	fwd = scene.ForwardOf(scene.walk_heading)
+	check(to_lift.length() > 0.5 And Vector2(fwd.x, fwd.z).dot(to_lift.normalized()) > 0.6, "dismount_faces_the_deep_lift")
+	check(Not scene.WalkBlocked(scene.walker.global_position), "dismount_stands_on_open_ground")
+	before = scene.walker.global_position
+	scene.WalkForward(2.0)
+	check(scene.walker.global_position.distance_to(before) > 1.0, "dismount_can_walk_forward")
+	check(scene.route.stage_name = "vault_facility" And scene.route.checkpoint_id = "vault", "lift_opens_vault_checkpoint")
+	check(scene.route.allow_deep_lift("14242"), "far_lift_serves_vault_after_outbound")
+	check(scene.OnWalkDeck(scene.walker.global_position), "far_apron_is_a_walk_deck")
+	scene.walker.global_position = Vector3(0.0, 0.0, -80.0)
+	check(Not scene.OnWalkDeck(scene.walker.global_position), "far_apron_does_not_cover_the_void")
+	scene.TickWalk(0.05)
+	check(scene.ride_state = "falling", "stepping_off_the_far_apron_starts_a_fall")
+	For i = 1 To 50
+		scene.tick(0.05)
+	Next
+	check(scene.ride_state = "crashed" And scene.last_crash = "fall", "void_fall_is_fatal")
+	scene.enter_vault()
+	check(scene.area_name = "vault" And scene.play_vault.visible And Not scene.crossing.visible, "cabin_transfer_reaches_authored_vault")
+	check(scene.play_vault.has_node("VaultLift/Cabin") And scene.play_vault.has_node("VaultLift/LiftPose"), "vault_return_lift_is_instanced")
+	check(scene.walker.global_position.z - scene.play_vault.global_position.z < 12.0, "vault_entry_stands_inside_the_room")
+	check(scene.ForwardOf(scene.walk_heading).z < -0.5, "vault_entry_faces_the_chamber")
+	check(scene.take_core_slot(0) And scene.route.cores = 1, "core_pickup_hides_one_cell")
+	check(Not scene.route.timer_started, "cores_do_not_break_isolation")
+	heading0 = scene.walk_heading
+	check(scene.stasis.get_node("Capsule/LidLeft").rotation.y = 0 And Not scene.stasis.get_node("Capsule/Fog/CrackFog").emitting And Not scene.stasis.get_node("Capsule/LidLeft/Seam").visible, "pod_sealed_before_coupler")
+	scene.take_coupler()
+	check(scene.route.timer_started And scene.route.stage_name = "first_escape", "coupler_starts_facility_timer")
+	check(Abs(scene.AngleDelta(scene.walk_heading, heading0)) < 0.02, "coupler_leaves_player_facing")
+	check(scene.ForwardOf(scene.walk_heading).z < -0.5, "coupler_does_not_turn_toward_the_exit")
+	check(Not scene.coupler.visible, "coupler_prop_hides_on_take")
+	scene.tick(2.0)
+	check(scene.route.timer_remaining < 254, "timer_counts_only_during_escape")
+	check(scene.stasis.get_node("Capsule/Fog/CrackFog").emitting And scene.stasis.get_node("Capsule/Fog/BaseFogLeft").emitting, "pod_fog_leaks_after_coupler")
+	check(scene.stasis.get_node("Capsule/LidLeft").rotation.y > 0.02 And scene.stasis.get_node("Capsule/LidLeft").rotation.y < 0.3, "pod_lids_crack_slowly")
+	check(scene.stasis.get_node("ClampPivots/UpperLeft").rotation.y < -1.4 And scene.stasis.get_node("ClampPivots/LowerRight").rotation.y > 1.4, "pod_clamps_retract_first")
+	scene.tick(2.5)
+	check(scene.stasis.get_node("Capsule/LidLeft").rotation.y > 0.8 And scene.stasis.get_node("Capsule/LidRight").rotation.y < -0.8, "pod_lids_swing_open")
+	check(scene.stasis.get_node("Capsule/LidRight/Seam").visible, "pod_crack_seam_glows")
+	check(scene.feb.get_node("VisualRoot/HeadPivot").rotation.y > 0.1, "feb_stirs_after_pod_opens")
+	scene.exit_facility()
+	check(scene.route.checkpoint_id = "far_dock" And Not scene.route.timer_started, "exit_stops_timer_at_facility_boundary")
+	check(scene.ride_state = "on_foot" And scene.area_name = "lobby", "escape_returns_on_foot_at_far_dock")
+	check(scene.dock_id = "far" And scene.walker.visible And scene.player.visible, "cycle_stays_parked_until_boarded")
+	check(scene.enemy_state = "idle", "chase_waits_until_the_cycle_is_boarded")
+	scene.BoardCycle()
+	check(scene.ride_state = "boarding" And scene.enemy_state = "telegraph", "board_starts_the_return_chase")
+	check(Abs(scene.remote.global_position.x) > 20.0, "chase_remote_starts_off_the_straight_line")
+	check(Abs(scene.ForwardOf(scene.enemy_heading).x) > 0.7, "chase_remote_cuts_across_the_return_path")
+	check(scene.route.feb_alive, "remote_cycle_does_not_kill_the_feb")
+	scene.begin_riding()
+	scene.force_pose(0.0, -90.0, PI)
+	scene.enemy_state = "hunt"
+	scene.enemy_turn_t = 0.0
+	scene.remote.global_position = Vector3(-30.0, 0.0, -40.0)
+	scene.enemy_heading = PI
+	scene.TickEnemy(0.05)
+	check(Abs(scene.ForwardOf(scene.enemy_heading).x) > 0.7, "hunt_cuts_across_a_straight_escape")
+	scene.StartParking("near")
+	check(scene.enemy_state = "burst" And Not (scene.burst_mat Is Nothing), "safe_near_dock_explodes_the_remote_cycle")
+	scene.retry_run()
+	check(scene.route.coupler_taken And scene.route.checkpoint_id = "far_dock", "chase_retry_keeps_coupler")
+	check(scene.route.feb_alive And scene.dock_id = "far", "chase_retry_does_not_replay_vault")
+End Sub
+
+Sub DestAndCleanupChecks()
+	Dim saved As String
+	packed = Load("res://main.tscn")
+	game = packed.instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	view = game.GetNode("Presentation")
+	campaign = game.campaign
+	save_path = campaign.save_path
+	If FileExists(save_path) Then prior_save = ReadAllText(save_path)
+	check(game.DevLabel(16) = "TRACE CYCLE", "trace_cycle_terminal_label")
+	check(game.MainScene(6) = 16, "trace_cycle_is_on_main_dev_page")
+	check(game.MainScene(5) = 15, "black_channel_row_unchanged")
+	check(game.DevLabel(18) = "VAULT" And game.MainScene(3) = 18, "vault_dest_is_on_the_main_page")
+	check(game.DevLabel(5) = "FEB" And game.ArchiveScene(2) = 5, "legacy_feb_chamber_is_archived")
+	game.dev_i = 16
+	game.WarpDev()
+	check(game.phase = 20, "trace_cycle_has_own_phase")
+	check(Not game.campaign_active, "trace_cycle_dest_does_not_play_campaign")
+	check(view.trace_cycle <> Nothing And view.trace_cycle.running, "trace_cycle_starts_from_dev_terminal")
+	check(view.trace_cycle.mode = "dev" And view.trace_cycle.ride_state = "docked", "dest_starts_docked_for_model_review")
+	game.menu_on = True
+	before = view.trace_cycle.player.global_position
+	view.trace_cycle.begin_riding()
+	view.trace_cycle.tick(0.5)
+	check(view.trace_cycle.player.global_position.distance_to(before) < 0.001, "dest_pause_is_owned_by_part1")
+	game.menu_on = False
+	game.SaveRun()
+	check(game.save_msg.contains("DEV DEMO"), "dev_save_does_not_write_campaign")
+	If prior_save <> "" Then
+		check(ReadAllText(save_path) = prior_save, "campaign_file_bytes_unchanged")
+	Else
+		check(Not FileExists(save_path), "campaign_file_not_created_by_trace_cycle")
+	End If
+	view.stop_trace_cycle()
+	check(view.trace_cycle Is Nothing, "dest_stop_releases_controller")
+	game.dev_i = 18
+	game.WarpDev()
+	check(view.trace_cycle <> Nothing And view.trace_cycle.mode = "far_dock", "vault_dest_starts_trace_cycle_at_far_dock")
+	check(view.trace_cycle.dock_id = "far" And view.trace_cycle.ride_state = "docked" And view.trace_cycle.relays = 3, "vault_dest_skips_the_outbound_crossing")
+	check(view.trace_cycle.route.outbound_complete And view.trace_cycle.route.allow_deep_lift("14242"), "vault_dest_opens_the_far_lift")
+	view.trace_cycle.enter_lift()
+	check(view.trace_cycle.ride_state = "on_foot" And view.trace_cycle.area_name = "lobby", "vault_dest_can_walk_into_the_deep_lift")
+	view.stop_trace_cycle()
+	scene.dispose()
+	check(scene.crossing Is Nothing And scene.player Is Nothing, "first_dispose_releases_crossing_and_cycle")
+	scene.start_test("test")
+	check(scene.running And scene.crossing <> Nothing, "reentry_rebuilds_world")
+	scene.dispose()
+	check(scene.crossing Is Nothing And scene.trail_count = 0, "second_dispose_cleans_trails")
+	game.queue_free()
+End Sub

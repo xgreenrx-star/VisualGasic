@@ -11,6 +11,7 @@ Const GATE_SECONDS As Single = 6.0
 Const GATE_REQUEST As Single = 2150.0
 Const GATE_AT As Single = 4150.0
 Const HULL_MAX As Single = 100.0
+Const HULL_VIEW_LAYER As Integer = 4
 
 Dim view As Object
 Dim mode As String
@@ -83,6 +84,8 @@ Dim motion_material As Object
 Dim speech As Object
 Dim spoken_hazards As Dictionary
 Dim failure_reason As String
+Dim view_kind As String
+Dim hull_vis As Object
 
 Sub SpeakHazard()
 	Dim obstacle As Variant
@@ -777,7 +780,9 @@ Sub BuildWorld()
 		Exit Sub
 	End If
 	vis = packed.instantiate()
+	vis.name = "AshFlight"
 	hull_node.add_child(vis)
+	hull_vis = vis
 	engine_trails = Array()
 	Dim engine_x As Variant
 	Dim trail_mesh As Object
@@ -792,6 +797,7 @@ Sub BuildWorld()
 		engine_trails.append(shape_node)
 	Next
 	add_child(hull_node)
+	Call ApplyMeshLayers(hull_node, HULL_VIEW_LAYER)
 	hull_space = route_node.get_world_3d().direct_space_state
 	hull_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
 	hull_query.shape = sphere
@@ -1053,6 +1059,104 @@ Sub TickGate(ByVal delta As Single)
 	End If
 End Sub
 
+Function CockpitView() As Boolean
+	CockpitView = view_kind = "cockpit"
+End Function
+
+Sub SetViewKind(ByVal kind As String)
+	If kind = "cockpit" Then
+		view_kind = "cockpit"
+	Else
+		view_kind = "chase"
+	End If
+	Call ApplyViewKind()
+End Sub
+
+Sub ApplyMeshLayers(ByVal node As Object, ByVal layer As Integer)
+	Dim i As Integer
+	If node = Nothing Then Exit Sub
+	If node.get_class() = "MeshInstance3D" Then node.layers = layer
+	For i = 0 To node.get_child_count() - 1
+		Call ApplyMeshLayers(node.get_child(i), layer)
+	Next
+End Sub
+
+Sub ApplyViewKind()
+	Dim cam As Object
+	If hull_vis <> Nothing Then hull_vis.visible = True
+	If view = Nothing Then Exit Sub
+	cam = view.camera
+	If cam <> Nothing Then
+		If CockpitView() Then
+			cam.cull_mask = 1
+		Else
+			cam.cull_mask = 1048575
+		End If
+	End If
+	If view.external_camera <> Nothing Then
+		If CockpitView() Then
+			view.external_camera.cull_mask = 1 + HULL_VIEW_LAYER
+		Else
+			view.external_camera.cull_mask = 1
+		End If
+	End If
+End Sub
+
+Function DeckState(ByVal t As Single, ByVal steer As Single, ByVal lift As Single) As Dictionary
+	Dim data As Dictionary
+	Dim cues As Array
+	Dim i As Integer
+	Dim ahead As Single
+	Dim sample As Dictionary
+	data = New Dictionary
+	cues = Array()
+	For i = 1 To 4
+		ahead = distance + i * 90.0
+		If ahead > length Then ahead = length
+		sample = SampleAt(ahead)
+		cues.append(Vector3(SafeLateral(ahead) - lateral, SafeHeight(ahead) - height, ahead - distance))
+	Next
+	data("t") = t
+	data("cues") = cues
+	data("gate") = Int(distance / 1000.0)
+	data("rings") = Int(length / 1000.0)
+	If hull < 50.0 Then
+		data("miss") = 2.0
+	ElseIf hull < 80.0 Then
+		data("miss") = 1.0
+	Else
+		data("miss") = 0.0
+	End If
+	data("hurt") = hurt_t
+	If Me.failed Then
+		data("failed") = 1.0
+	Else
+		data("failed") = 0.0
+	End If
+	data("cloud") = 0.0
+	data("steer") = steer
+	data("lift") = lift
+	data("speed") = speed
+	data("alt") = 12.0 + height
+	data("range") = length - distance
+	data("align") = ClampF(1.0 - Abs(lateral) / 8.0, 0.0, 1.0)
+	DeckState = data
+End Function
+
+Sub AimExternal(ByVal presentation As Object)
+	Dim cam_pos As Vector3
+	Dim look As Vector3
+	If presentation = Nothing Or hull_node = Nothing Then Exit Sub
+	If completed Then
+		cam_pos = hull_node.global_position + Vector3(0, 5.5, 22)
+		look = hull_node.global_position + Vector3(0, 1.5, -30)
+	Else
+		cam_pos = hull_node.global_position - tangent * 14.0 + Vector3(0, 3.6, 0) + right_axis * bank * 1.6
+		look = hull_node.global_position + tangent * 2.0
+	End If
+	Call presentation.aim_external(cam_pos, look, 52.0)
+End Sub
+
 Sub AimCamera(ByVal camera As Object)
 	Dim sample As Dictionary
 	Dim ahead As Vector3
@@ -1066,15 +1170,27 @@ Sub AimCamera(ByVal camera As Object)
 	ahead = sample("position")
 	ahead = ahead + sample("right") * SafeLateral(distance + 200.0)
 	ahead = ahead + Vector3(0, SafeHeight(distance + 200.0), 0)
-	cam_pos = hull_node.global_position - tangent * (18.0 + rush * 4.0) + Vector3(0, 1, 0) * 5.5 + right_axis * bank * 2.0
-	look = hull_node.global_position + tangent * 24.0
-	If completed Then
-		cam_pos = hull_node.global_position + Vector3(0, 5.5, 22)
-		look = hull_node.global_position + Vector3(0, 1.5, -30)
-		ahead = look
+	If CockpitView() Then
+		cam_pos = hull_node.global_position + tangent * 2.2 + Vector3(0, 1.15, 0)
+		look = hull_node.global_position + tangent * 36.0 + Vector3(0, 0.35, 0)
+		If completed Then
+			cam_pos = hull_node.global_position + Vector3(0, 1.2, -2.4)
+			look = hull_node.global_position + Vector3(0, -2.5, -40)
+			ahead = look
+		End If
+		camera.fov = 54.0 + rush * 16.0
+		camera.near = 0.08
+	Else
+		cam_pos = hull_node.global_position - tangent * (18.0 + rush * 4.0) + Vector3(0, 1, 0) * 5.5 + right_axis * bank * 2.0
+		look = hull_node.global_position + tangent * 24.0
+		If completed Then
+			cam_pos = hull_node.global_position + Vector3(0, 5.5, 22)
+			look = hull_node.global_position + Vector3(0, 1.5, -30)
+			ahead = look
+		End If
+		camera.fov = 68.0 + rush * 24.0
+		camera.near = 0.2
 	End If
-	camera.fov = 68.0 + rush * 24.0
-	camera.near = 0.2
 	camera.far = 1800.0
 	camera.current = True
 	' look_at preserves scale, including the legacy flight camera's reflection.
@@ -1124,6 +1240,12 @@ Sub start_encounter(ByVal start_mode As String, ByVal context As Variant)
 	hurt_t = 0.0
 	shot_t = 0.0
 	nav_marker = Vector2(480, 270)
+	view_kind = "chase"
+	If TypeName(context) = "Dictionary" Then
+		If context.has("view") Then
+			If context("view") = "cockpit" Then view_kind = "cockpit"
+		End If
+	End If
 	view = get_parent()
 	If view <> Nothing Then
 		If view.get_class() = "SubViewport" Then view = view.get_parent()
@@ -1160,6 +1282,7 @@ Sub start_encounter(ByVal start_mode As String, ByVal context As Variant)
 	checkpoint_id = "entry"
 	checkpoint_distance = 0.0
 	Call ApplyPose()
+	Call ApplyViewKind()
 	running = True
 	Call FireEvents()
 	Call TickDialogue(0.0)
@@ -1433,6 +1556,7 @@ Sub dispose()
 		hud = Nothing
 	End If
 	atmosphere = Nothing
+	hull_vis = Nothing
 End Sub
 
 Function render(ByVal presentation As Object) As Texture2D
@@ -1451,6 +1575,11 @@ Function render(ByVal presentation As Object) As Texture2D
 	If presentation.camera <> Nothing Then
 		presentation.camera.environment = atmosphere
 		Call AimCamera(presentation.camera)
+	End If
+	If CockpitView() Then
+		Call AimExternal(presentation)
+	ElseIf presentation.external_view <> Nothing Then
+		presentation.external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	End If
 	If presentation.viewport <> Nothing Then
 		If presentation.viewport.transparent_bg Then presentation.viewport.transparent_bg = False

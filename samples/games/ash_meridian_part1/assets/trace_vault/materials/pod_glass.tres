@@ -1,0 +1,13 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+transparency = 1
+cull_mode = 2
+albedo_color = Color(0.55, 0.85, 1, 0.16)
+metallic = 0.2
+roughness = 0.08
+emission_enabled = true
+emission = Color(0.1, 0.45, 0.6, 1)
+emission_energy_multiplier = 0.25
+rim_enabled = true
+rim = 0.6

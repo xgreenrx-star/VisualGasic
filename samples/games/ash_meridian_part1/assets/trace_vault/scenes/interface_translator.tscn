@@ -1,0 +1,258 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/suit_dark.tres" id="e4"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(0.16, 0.022, 0.1)
+
+[sub_resource type="BoxMesh" id="s1"]
+size = Vector3(0.164, 0.004, 0.004)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(0.004, 0.004, 0.104)
+
+[sub_resource type="BoxMesh" id="s3"]
+size = Vector3(0.11, 0.002, 0.075)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.0924, 0.004, 0.0024)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(0.015985, 0.004, 0.0024)
+
+[sub_resource type="BoxMesh" id="s6"]
+size = Vector3(0.0352, 0.004, 0.0024)
+
+[sub_resource type="BoxMesh" id="s7"]
+size = Vector3(0.0222, 0.004, 0.0024)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(0.0144, 0.004, 0.0024)
+
+[sub_resource type="SphereMesh" id="s9"]
+radius = 0.012
+height = 0.012
+radial_segments = 20
+rings = 10
+is_hemisphere = true
+
+[sub_resource type="TorusMesh" id="s10"]
+inner_radius = 0.012
+outer_radius = 0.016
+rings = 24
+ring_segments = 8
+
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(0.17, 0.012, 0.018)
+
+[node name="interface_translator" type="Node3D"]
+
+
+[node name="Slate" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Bezel_topX-1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.013, -0.05)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Bezel_topX1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.013, 0.05)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Bezel_topZ-1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.08, 0.013, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Bezel_topZ1" type="MeshInstance3D" parent="."]
+position = Vector3(0.08, 0.013, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Screen" type="MeshInstance3D" parent="."]
+position = Vector3(-0.012, 0.0125, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Readout" type="Node3D" parent="."]
+position = Vector3(-0.012, 0.0145, 0)
+rotation_degrees = Vector3(-90, 0, 0)
+
+[node name="S0" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0, 0.0156, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.03965, 0.0078, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.03055, 0.0078, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.03965, -0.0078, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S4" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.03055, -0.0078, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S5" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.0351, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s6")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S6" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.01625, 0.0078, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S7" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.00715, 0.0078, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S8" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.0026, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S9" type="MeshInstance3D" parent="Readout"]
+position = Vector3(-0.0117, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S10" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.00715, -0.0078, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S11" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.01625, -0.0078, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s5")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S12" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.0026, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S13" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.0208, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S14" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.0117, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S15" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.0351, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="S16" type="MeshInstance3D" parent="Readout"]
+position = Vector3(0.0351, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s6")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="LensGlass" type="MeshInstance3D" parent="."]
+position = Vector3(0.062, 0.016, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="LensRing" type="MeshInstance3D" parent="."]
+position = Vector3(0.062, 0.012, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Strap-1" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.02, -0.035)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Strap1" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.02, 0.035)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="LensPoint" type="Marker3D" parent="."]
+position = Vector3(0.062, 0.03, 0)
+
+
+[node name="Grip" type="Marker3D" parent="."]
+position = Vector3(0, -0.03, 0)
+

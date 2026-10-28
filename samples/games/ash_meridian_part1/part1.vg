@@ -28,6 +28,7 @@ Const PH_BLEED3 As Integer = 16
 Const PH_BACKLIGHT As Integer = 17
 Const PH_BACKLIGHT_YARD As Integer = 18
 Const PH_BLACK_CHANNEL As Integer = 19
+Const PH_TRACE_CYCLE As Integer = 20
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -209,7 +210,10 @@ Sub _Ready()
 End Sub
 
 Sub StartRun()
-	If presentation <> Nothing Then Call presentation.stop_black_channel()
+	If presentation <> Nothing Then
+		Call presentation.stop_black_channel()
+		Call presentation.stop_trace_cycle()
+	End If
 	Call OracStop()
 	orac_said = ""
 	Call ResetIntro()
@@ -406,9 +410,9 @@ End Sub
 
 Function PageCount() As Integer
 	If dev_page = 0 Then
-		PageCount = 7
+		PageCount = 10
 	Else
-		PageCount = 11
+		PageCount = 12
 	End If
 End Function
 
@@ -418,9 +422,12 @@ Function MainScene(ByVal row As Integer) As Integer
 	If row = 0 Then id = 0
 	If row = 1 Then id = 1
 	If row = 2 Then id = 4
-	If row = 3 Then id = 5
+	If row = 3 Then id = 18
 	If row = 4 Then id = 14
 	If row = 5 Then id = 15
+	If row = 6 Then id = 16
+	If row = 7 Then id = 17
+	If row = 8 Then id = 19
 	MainScene = id
 End Function
 
@@ -429,14 +436,15 @@ Function ArchiveScene(ByVal row As Integer) As Integer
 	id = 101
 	If row = 0 Then id = 2
 	If row = 1 Then id = 3
-	If row = 2 Then id = 6
-	If row = 3 Then id = 7
-	If row = 4 Then id = 8
-	If row = 5 Then id = 9
-	If row = 6 Then id = 10
-	If row = 7 Then id = 11
-	If row = 8 Then id = 12
-	If row = 9 Then id = 13
+	If row = 2 Then id = 5
+	If row = 3 Then id = 6
+	If row = 4 Then id = 7
+	If row = 5 Then id = 8
+	If row = 6 Then id = 9
+	If row = 7 Then id = 10
+	If row = 8 Then id = 11
+	If row = 9 Then id = 12
+	If row = 10 Then id = 13
 	ArchiveScene = id
 End Function
 
@@ -517,6 +525,16 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "BACKLIGHT CITY"
 	ElseIf i = 14 Then
 		DevLabel = "BACKLIGHT YARD"
+	ElseIf i = 15 Then
+		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
+	ElseIf i = 16 Then
+		DevLabel = "TRACE CYCLE"
+	ElseIf i = 17 Then
+		DevLabel = "BLACK CHANNEL - COCKPIT"
+	ElseIf i = 18 Then
+		DevLabel = "VAULT"
+	ElseIf i = 19 Then
+		DevLabel = "TRACE YARD"
 	Else
 		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
 	End If
@@ -590,7 +608,19 @@ Sub WarpDev()
 		Call presentation.start_backlight_yard()
 	ElseIf pick = 15 Then
 		phase = PH_BLACK_CHANNEL
-		Call presentation.start_black_channel()
+		Call presentation.start_black_channel("chase")
+	ElseIf pick = 16 Then
+		phase = PH_TRACE_CYCLE
+		Call presentation.start_trace_cycle()
+	ElseIf pick = 17 Then
+		phase = PH_BLACK_CHANNEL
+		Call presentation.start_black_channel("cockpit")
+	ElseIf pick = 18 Then
+		phase = PH_TRACE_CYCLE
+		Call presentation.start_trace_cycle_as("far_dock")
+	ElseIf pick = 19 Then
+		phase = PH_TRACE_CYCLE
+		Call presentation.start_trace_cycle_as("yard")
 	End If
 End Sub
 
@@ -821,16 +851,30 @@ Sub _Process(ByVal delta As Single)
 			Call ApplySpeech()
 			Call SaveOptions()
 		End If
+		If presentation.menu_tap(KEY_C) And presentation.black_channel <> Nothing Then
+			If presentation.black_channel.CockpitView() Then
+				Call presentation.black_channel.SetViewKind("chase")
+			Else
+				Call presentation.black_channel.SetViewKind("cockpit")
+			End If
+		End If
 		Call ReadFlightStick()
 		Call presentation.tick_black_channel(delta)
 		If presentation.black_channel <> Nothing Then
 			If presentation.black_channel.orbit_ready And presentation.menu_tap(KEY_ENTER) Then
 				dev_on = True
 				dev_page = 0
-				dev_row = 5
-				dev_i = 15
+				If presentation.black_channel.CockpitView() Then
+					dev_row = 7
+					dev_i = 17
+				Else
+					dev_row = 5
+					dev_i = 15
+				End If
 			End If
 		End If
+	ElseIf phase = PH_TRACE_CYCLE Then
+		Call presentation.tick_trace_cycle(delta)
 	ElseIf phase = PH_DOWN Then
 		ride_t = ride_t + delta
 		If ride_t > 4.2 Then
@@ -1037,9 +1081,32 @@ End Sub
 
 Sub DrawBlackChannel()
 	Dim image As Object
+	Dim channel As Object
+	Dim deck_state As Dictionary
+	Dim shake As Single
+	Dim sx As Single
+	Dim sy As Single
 	image = presentation.draw_black_channel()
 	If image <> Nothing Then DrawTexture image, 0, 0
+	channel = presentation.black_channel
+	If channel <> Nothing Then
+		If channel.CockpitView() Then
+			Call ReadFlightStick()
+			shake = 0.4 + channel.speed * 0.008 + channel.hurt_t * 18.0
+			sx = (Sin(clock * 43.0) + Sin(clock * 71.3) * 0.6) * shake * 0.55
+			sy = (Sin(clock * 53.7) + Sin(clock * 89.1) * 0.5) * shake * 0.45
+			deck_state = channel.DeckState(clock, flight_steer, flight_lift)
+			image = presentation.landing_deck(deck_state)
+			If image <> Nothing Then DrawTexture image, -20.0 + sx, -20.0 + sy
+		End If
+	End If
 	image = presentation.black_channel_overlay()
+	If image <> Nothing Then DrawTexture image, 0, 0
+End Sub
+
+Sub DrawTraceCycle()
+	Dim image As Object
+	image = presentation.draw_trace_cycle()
 	If image <> Nothing Then DrawTexture image, 0, 0
 End Sub
 
@@ -2900,6 +2967,10 @@ Sub SaveRun()
 		save_msg = "BLACK CHANNEL IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
 		Exit Sub
 	End If
+	If phase = PH_TRACE_CYCLE Then
+		save_msg = "TRACE CYCLE IS A DEV DEMO - CHAPTER SAVE UNCHANGED"
+		Exit Sub
+	End If
 	Dim body As String
 	body = "v1" & Chr(10) & Str(phase) & Chr(10) & Str(px) & Chr(10) & Str(pz) & Chr(10) & Str(yaw)
 	body = body & Chr(10) & BitOf(on_buggy) & Chr(10) & Str(bx) & Chr(10) & Str(bz) & Chr(10) & Str(byaw)
@@ -3210,7 +3281,7 @@ Sub DrawFrame()
 End Sub
 
 Sub _Draw()
-	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND))
+	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE)
 	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
 	If phase = PH_BOOT Then
 		Call DrawBoot()
@@ -3244,6 +3315,8 @@ Sub _Draw()
 		Call DrawBacklight()
 	ElseIf phase = PH_BLACK_CHANNEL Then
 		Call DrawBlackChannel()
+	ElseIf phase = PH_TRACE_CYCLE Then
+		Call DrawTraceCycle()
 	Else
 		Call ApplyCam()
 		If phase = PH_CHAMBER Then

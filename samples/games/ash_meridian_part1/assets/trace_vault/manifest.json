@@ -5,6 +5,7 @@
   "ownership": "Assistant-authored art. Cursor implements VG behavior, never regenerates or replaces these models.",
   "collision": {
     "scenery_layer": 1,
+    "invisible_support_layer": 4,
     "cycle_layer": 2,
     "cycle_mask": 1
   },
@@ -46,6 +47,23 @@
       "sha256": "f18d2ed339e33823123307aeead5379ed35f42874eb0c75420e355e6eef7ea4a"
     },
     {
+      "id": "trace_cockpit",
+      "scene": "res://assets/trace_vault/scenes/trace_cockpit.tscn",
+      "role": "First-person bike cockpit art. Parent to cycle CameraTarget; put on a render layer only the riding camera sees. HUD Label3D text is controller-owned.",
+      "nominal_dimensions": [
+        1.3,
+        0.6,
+        0.6
+      ],
+      "markers": [
+        "ExteriorScreen",
+        "TacticalScreen",
+        "RiderEye"
+      ],
+      "mesh_instances": 70,
+      "sha256": "731cdbe7f839be8e097165209cb9984e778a6d85e235781ec663960587b3ded8"
+    },
+    {
       "id": "cycle_cradle",
       "scene": "res://assets/trace_vault/scenes/cycle_cradle.tscn",
       "role": "Open approach is -Z; drive +Z to DockPose, then rotate to -Z before launch. No automatic docking logic.",
@@ -67,23 +85,23 @@
     {
       "id": "relay_pylon",
       "scene": "res://assets/trace_vault/scenes/relay_pylon.tscn",
-      "role": "Sample LinkSocket; do not navigate the cycle through solid pylon collision.",
+      "role": "Trace-On relay. Lane is local +/-Z. Controller lowers Mast and disables Mast/*Collision when the rider holds the lane; LinkSocket is the pad centre.",
       "nominal_dimensions": [
-        2.7,
+        3.9,
         4.3,
-        2.7
+        44
       ],
       "markers": [
-        "LinkSocket",
-        "StatusAnchor"
+        "Mast/StatusAnchor",
+        "LinkSocket"
       ],
-      "mesh_instances": 6,
-      "sha256": "3b035226665251b6e6a7800a2e906563c5929cf6a82c0aca7e0ddd73c991392a"
+      "mesh_instances": 33,
+      "sha256": "a4218f0a73c36db43f054b10c40c9396a3bc165da6be420868f348d539bbb68f"
     },
     {
-      "id": "feb",
-      "scene": "res://assets/trace_vault/scenes/feb.tscn",
-      "role": "Awakening rig only. Pivot head and arms; no locomotion skeleton or gameplay collision.",
+      "id": "greg",
+      "scene": "res://assets/trace_vault/scenes/greg.tscn",
+      "role": "Greg: heavy service robot reserved for a later part. Same pivot rig as the old FEB stand-in; not used by the Trace Cycle scene.",
       "nominal_dimensions": [
         1.65,
         2.65,
@@ -94,12 +112,28 @@
         "CameraTarget"
       ],
       "mesh_instances": 43,
-      "sha256": "41de65768a0ad8717143268ee8c9c78971af28ec5f8e6c1c3733eb3768ad2ee0"
+      "sha256": "a06a99f1158ecfbc83316a271d3f3e524b58e588e158b219f1d02ae09962b51e"
+    },
+    {
+      "id": "feb",
+      "scene": "res://assets/trace_vault/scenes/feb.tscn",
+      "role": "Human FEB in a Trace suit. Awakening rig only: HeadPivot and two independent arm pivots; no locomotion skeleton or gameplay collision.",
+      "nominal_dimensions": [
+        0.56,
+        1.88,
+        0.34
+      ],
+      "markers": [
+        "VisualRoot/ThermalArmPivot/ThermalSocket",
+        "CameraTarget"
+      ],
+      "mesh_instances": 60,
+      "sha256": "42332d8ae602e929531946371dd3ba678dd030ea7492b1797cb808e67a5369cb"
     },
     {
       "id": "stasis_cradle",
       "scene": "res://assets/trace_vault/scenes/stasis_cradle.tscn",
-      "role": "Standby cradle. Insert FEB at FigureMount. Clamp rotations are independent. No transparent shell or active particle system.",
+      "role": "Standby cradle with a glass stasis capsule. Insert FEB at FigureMount. Capsule/LidLeft and Capsule/LidRight pivot on Y at the side hinges; Capsule/Fog/* are idle CPUParticles3D emitters. Clamp rotations are independent. Collision unchanged.",
       "nominal_dimensions": [
         4,
         3.9,
@@ -112,8 +146,8 @@
         "CouplerSocket",
         "WarningPanel"
       ],
-      "mesh_instances": 18,
-      "sha256": "fdd4d414534a701d32a75d70a83e3bbc2c518dcd6150a9356b0e7b83dd60d80a"
+      "mesh_instances": 46,
+      "sha256": "e2e0ceb76bb5b56bdb4a331217c191e8a15abf99b9cdccd8250c0f73270b4292"
     },
     {
       "id": "power_coupler",
@@ -169,10 +203,10 @@
     {
       "id": "deep_lift_lobby",
       "scene": "res://assets/trace_vault/scenes/deep_lift_lobby.tscn",
-      "role": "Separate deep-lift landing. Cabin is a static art group; VG owns transfer/fade, not moving StaticBody3D physics.",
+      "role": "Separate deep-lift landing in Trace grid panels. Cabin is a static art group with interior controls and light; VG owns transfer/fade, not moving StaticBody3D physics. Collision bodies unchanged.",
       "nominal_dimensions": [
         10.4,
-        4,
+        5.4,
         10.4
       ],
       "markers": [
@@ -180,8 +214,8 @@
         "LiftPose",
         "Console"
       ],
-      "mesh_instances": 15,
-      "sha256": "e4db1bf5152742120bed1923cf25aff2d6758e8bd98345fda7f2bce575dd7aed"
+      "mesh_instances": 276,
+      "sha256": "b46c4ee6790856f1c61f053ad0838ae6aff8d0557291f56dfa71abdb3977e71d"
     },
     {
       "id": "cycle_preview",
@@ -207,7 +241,7 @@
       ],
       "markers": [],
       "mesh_instances": 0,
-      "sha256": "0cdca3e8422ad74fc2b5792d9fe4dda40f176e47b6cf551beecb21a0da98d118"
+      "sha256": "0b10b2b79787732820eb241b9d5bbb0c69a2ca96d0bdb8fe1c2c44626fef9041"
     },
     {
       "id": "asset_gallery",
@@ -220,16 +254,16 @@
       ],
       "markers": [],
       "mesh_instances": 1,
-      "sha256": "7d373933a81793bb93dc0c8b2388a73dec9711bcb4a904e878fb4ab5adfc7656"
+      "sha256": "0b6cd817ad1b29d2fd80f67d1eef35a714e10ef83669aeaf582e02e0251be656"
     },
     {
       "id": "void_crossing",
       "scene": "res://assets/trace_vault/scenes/void_crossing.tscn",
-      "role": "Isolated static support field with boundaries and both docks. No controller, trails or enemy logic. Not wired into campaign.",
+      "role": "Open void between cliff banks at Z=+/-100. Invisible layer-4 support only; no floor/grid mesh at riding height. Non-colliding ruins and patchy haze far below; shader-lit distant land at Y=-460. Docks and marker transforms unchanged.",
       "nominal_dimensions": [
-        174,
-        21,
-        242
+        210,
+        150,
+        344
       ],
       "markers": [
         "PlayerSpawn",
@@ -237,21 +271,189 @@
         "NearExit",
         "FarLift"
       ],
-      "mesh_instances": 51,
-      "sha256": "82839fd41082f81ff3e5d4abf8e8eec9836d48dc523d604ad9f46c0f506283e8"
+      "mesh_instances": 143,
+      "sha256": "5c868fe9d8e7c814fff6eaf5fa7f45269f61e49e5323a397568a362f9b7c05e8"
+    },
+    {
+      "id": "interface_translator",
+      "scene": "res://assets/trace_vault/scenes/interface_translator.tscn",
+      "role": "Interface Translator item. Possession gates English glosses on interface-script signs (metadata text_kind = \"interface\"); high script still needs the FEB.",
+      "nominal_dimensions": [
+        0.17,
+        0.05,
+        0.1
+      ],
+      "markers": [
+        "LensPoint",
+        "Grip"
+      ],
+      "mesh_instances": 27,
+      "sha256": "56eca026e3c1522608bc58ee26e8dde97aef2ccd245cdae8aa441f7b552175ae"
+    },
+    {
+      "id": "translator_post",
+      "scene": "res://assets/trace_vault/scenes/translator_post.tscn",
+      "role": "Where the translator is found (placement open). Hide Translator after pickup; PickupPoint is the on-foot E prompt.",
+      "nominal_dimensions": [
+        0.5,
+        1.6,
+        0.6
+      ],
+      "markers": [
+        "PickupPoint"
+      ],
+      "mesh_instances": 38,
+      "sha256": "2d317daba5a85a04edce2a76f050e8d224c3727524ebd9b763e14bcc7738895d"
+    },
+    {
+      "id": "release_lock",
+      "scene": "res://assets/trace_vault/scenes/release_lock.tscn",
+      "role": "Cradle release lock. Controller writes entered numeral glyphs into Face/Entry0..3, swaps ClampLight to cyan on release, and shows Key*/Gloss only while the translator is held. Dev code 2741.",
+      "nominal_dimensions": [
+        0.62,
+        1.55,
+        0.5
+      ],
+      "markers": [
+        "UsePoint",
+        "DisplayPoint"
+      ],
+      "mesh_instances": 82,
+      "sha256": "68e14171edb4317ac009e7932a2065eb4e1cc715b4dd2b3f36f3534e91fa9fc0"
+    },
+    {
+      "id": "service_tag",
+      "scene": "res://assets/trace_vault/scenes/service_tag.tscn",
+      "role": "Code clue for the yard dock cradle. Without the translator only strokes show; with it, Line0/Gloss and Line1/Gloss read \"CRADLE RELEASE: TWO SEVEN FOUR ONE\". Numbers are spelled out, so keypad glyphs cannot be shape-matched.",
+      "nominal_dimensions": [
+        1.5,
+        0.86,
+        0.05
+      ],
+      "markers": [],
+      "mesh_instances": 87,
+      "sha256": "ff3b2da1c81c9876962117c076d1639d912ffe185d2338bdeac0c22565935368"
+    },
+    {
+      "id": "relay_beacon",
+      "scene": "res://assets/trace_vault/scenes/relay_beacon.tscn",
+      "role": "Relay/dock locator column. Controller sets Beam/Halo material_override to beacon_cyan (available), beacon_dim (spent), beacon_white (dock) or beacon_amber (vault unlocked), and hides it until discovered beyond 600 m.",
+      "nominal_dimensions": [
+        9,
+        160,
+        9
+      ],
+      "markers": [
+        "Top"
+      ],
+      "mesh_instances": 3,
+      "sha256": "09e0a9eccc54380f12bcd1324e172e0488d390b16cc531b79a91272683febedb"
+    },
+    {
+      "id": "yard_dock",
+      "scene": "res://assets/trace_vault/scenes/yard_dock.tscn",
+      "role": "Yard end-of-road dock. Cradle rotated so the open approach faces the void (+Z). The cycle launches through the gate in the yard rim; BoardPoint is the on-foot E prompt from the road.",
+      "nominal_dimensions": [
+        17,
+        6.5,
+        24
+      ],
+      "markers": [
+        "ReleasePoint",
+        "DockPose",
+        "BoardPoint",
+        "GatePose",
+        "ChargeDisplay"
+      ],
+      "mesh_instances": 136,
+      "sha256": "e5591a20418e3d41d2784b30fb305321cc780ed0bef11f38e0a3e2d20def010b"
+    },
+    {
+      "id": "yard_proxy",
+      "scene": "res://assets/trace_vault/scenes/yard_proxy.tscn",
+      "role": "Static silhouette of the Backlight yard in yard coordinates (+Z north, road on X=0, lift head at the north end). Visual only; the real yard replaces it in a later campaign-v2 merge.",
+      "nominal_dimensions": [
+        236,
+        70,
+        432
+      ],
+      "markers": [],
+      "mesh_instances": 79,
+      "sha256": "83935b53fb3b1fb0e6ec9f411e45c3b34e01deed02ac6cc5bad640dbf5de6868"
+    },
+    {
+      "id": "yard_void_field",
+      "scene": "res://assets/trace_vault/scenes/yard_void_field.tscn",
+      "role": "Backlight yard void field (yard coordinates). Invisible layer-4 support across the whole field; the yard is ringed by a collidable rim with one gate at the end-of-road dock. Vault island ~600 m north-east behind three ordered relays; three free recharge relays ring the yard; two empty dock slots. Beacons are additive, unlit and non-colliding.",
+      "nominal_dimensions": [
+        1520,
+        160,
+        1540
+      ],
+      "markers": [
+        "TranslatorPoint",
+        "FarYardDock",
+        "DockSlotWest",
+        "DockSlotSouth",
+        "PlayerSpawn",
+        "BoardPoint",
+        "SecuritySpawn",
+        "VaultLift"
+      ],
+      "mesh_instances": 161,
+      "sha256": "73ff478c18ebc5ef4edc490d0cde9090715d100188a0d2be14d0ad782476ee7a"
+    },
+    {
+      "id": "yard_field_preview",
+      "scene": "res://assets/trace_vault/scenes/yard_field_preview.tscn",
+      "role": "Static overview of the yard void field.",
+      "nominal_dimensions": [
+        1520,
+        160,
+        1540
+      ],
+      "markers": [],
+      "mesh_instances": 0,
+      "sha256": "ab61aca8abb7219a6ed585da9384fd6ad4cdc656f97fdad0e17bf7089a82ed53"
+    },
+    {
+      "id": "backlight_cycle_combined",
+      "scene": "res://assets/trace_vault/scenes/backlight_cycle_combined.tscn",
+      "role": "Combined Backlight yard + trace cycle scene, with the far secondary yard dock retained for later campaign use.",
+      "nominal_dimensions": [
+        1520,
+        160,
+        1540
+      ],
+      "markers": [],
+      "mesh_instances": 0,
+      "sha256": "afadc3682b9c65f5827d57373a17c9feba28fca022ebf27c8484b30c96eac977"
     },
     {
       "id": "crossing_preview",
       "scene": "res://assets/trace_vault/scenes/crossing_preview.tscn",
-      "role": "Static whole-field overview.",
+      "role": "Static cliff-to-cliff void overview with distant ruins and haze.",
       "nominal_dimensions": [
-        174,
-        21,
-        242
+        210,
+        150,
+        344
       ],
       "markers": [],
       "mesh_instances": 0,
       "sha256": "881252cc2c0bf917aa5239ab3de89b595271c1c46f511e4a2496598888d5ad23"
+    },
+    {
+      "id": "translator_preview",
+      "scene": "res://assets/trace_vault/scenes/translator_preview.tscn",
+      "role": "Translator, release lock, service tag and pickup post close-up.",
+      "nominal_dimensions": [
+        4,
+        3,
+        4
+      ],
+      "markers": [],
+      "mesh_instances": 0,
+      "sha256": "b8d35b9345517254e145e07b4b5b415c5482681f9c99515ee008b9415de3c11b"
     }
   ]
 }

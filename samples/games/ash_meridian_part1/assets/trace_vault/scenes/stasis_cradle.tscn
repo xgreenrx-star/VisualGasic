@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
 
@@ -6,9 +6,15 @@
 
 [ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
 
-[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e3"]
+[ext_resource type="Material" path="res://assets/trace_vault/materials/pod_glass.tres" id="e3"]
 
-[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e4"]
+[ext_resource type="Material" path="res://assets/trace_vault/materials/white.tres" id="e4"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/fog_puff.tres" id="e5"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e6"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e7"]
 
 [sub_resource type="CylinderMesh" id="s0"]
 top_radius = 1.35
@@ -39,21 +45,82 @@ size = Vector3(0.035, 3.1, 0.035)
 size = Vector3(0.22, 3.4, 0.4)
 
 [sub_resource type="BoxMesh" id="s8"]
-size = Vector3(0.55, 0.13, 0.22)
+size = Vector3(0.246108, 1.98, 0.022)
 
-[sub_resource type="BoxMesh" id="s9"]
-size = Vector3(0.13, 0.23, 0.14)
+[sub_resource type="CylinderMesh" id="s9"]
+top_radius = 0.6799999999999999
+bottom_radius = 0.6799999999999999
+height = 0.2
+radial_segments = 24
+rings = 1
 
-[sub_resource type="BoxMesh" id="s10"]
-size = Vector3(0.65, 1.6, 0.65)
+[sub_resource type="TorusMesh" id="s10"]
+inner_radius = 0.59
+outer_radius = 0.65
+rings = 24
+ring_segments = 8
 
-[sub_resource type="BoxShape3D" id="s11"]
-size = Vector3(0.65, 1.6, 0.65)
+[sub_resource type="CylinderMesh" id="s11"]
+top_radius = 0.6799999999999999
+bottom_radius = 0.6799999999999999
+height = 0.22
+radial_segments = 24
+rings = 1
 
-[sub_resource type="BoxMesh" id="s12"]
-size = Vector3(0.44, 0.42, 0.04)
+[sub_resource type="CylinderMesh" id="s12"]
+top_radius = 0.32
+bottom_radius = 0.6799999999999999
+height = 0.28
+radial_segments = 24
+rings = 1
 
 [sub_resource type="CylinderMesh" id="s13"]
+top_radius = 0.5599999999999999
+bottom_radius = 0.5599999999999999
+height = 0.02
+radial_segments = 24
+rings = 1
+
+[sub_resource type="CylinderMesh" id="s14"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 2.08
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s15"]
+size = Vector3(0.01, 1.94, 0.01)
+
+[sub_resource type="BoxMesh" id="s16"]
+size = Vector3(0.04, 0.5, 0.03)
+
+[sub_resource type="QuadMesh" id="s17"]
+size = Vector2(0.55, 0.55)
+
+[sub_resource type="Gradient" id="s18"]
+offsets = PackedFloat32Array(0, 0.2, 0.7, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.8, 1, 1, 1, 0.35, 1, 1, 1, 0)
+
+[sub_resource type="Curve" id="s19"]
+_data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="BoxMesh" id="s20"]
+size = Vector3(0.45, 0.13, 0.22)
+
+[sub_resource type="BoxMesh" id="s21"]
+size = Vector3(0.08, 0.23, 0.12)
+
+[sub_resource type="BoxMesh" id="s22"]
+size = Vector3(0.65, 1.6, 0.65)
+
+[sub_resource type="BoxShape3D" id="s23"]
+size = Vector3(0.65, 1.6, 0.65)
+
+[sub_resource type="BoxMesh" id="s24"]
+size = Vector3(0.44, 0.42, 0.04)
+
+[sub_resource type="CylinderMesh" id="s25"]
 top_radius = 0.16
 bottom_radius = 0.16
 height = 0.06
@@ -144,26 +211,304 @@ collision_mask = 0
 [node name="Collision" type="CollisionShape3D" parent="PostCollision1"]
 shape = SubResource("s7")
 
+[node name="Capsule" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="BackShell0" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(-0.588471, 1.51, 0.077054)
+rotation_degrees = Vector3(0, 281.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell1" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(-0.498882, 1.51, 0.293342)
+rotation_degrees = Vector3(0, 303.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell2" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(-0.333342, 1.51, 0.458882)
+rotation_degrees = Vector3(0, 326.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell3" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(-0.117054, 1.51, 0.548471)
+rotation_degrees = Vector3(0, 348.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell4" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0.117054, 1.51, 0.548471)
+rotation_degrees = Vector3(0, 371.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell5" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0.333342, 1.51, 0.458882)
+rotation_degrees = Vector3(0, 393.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell6" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0.498882, 1.51, 0.293342)
+rotation_degrees = Vector3(0, 416.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="BackShell7" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0.588471, 1.51, 0.077054)
+rotation_degrees = Vector3(0, 438.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Plinth" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 0.42, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="PlinthLight" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 0.53, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Cap" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 2.61, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Dome" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 2.86, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="CapLight" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 2.49, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="FrostCore" type="MeshInstance3D" parent="Capsule"]
+position = Vector3(0, 2.505, -0.04)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="LidLeft" type="Node3D" parent="Capsule"]
+position = Vector3(-0.6, 0, -0.04)
+
+
+[node name="Pane0" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.482946, 1.51, -0.588471)
+rotation_degrees = Vector3(0, 191.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane1" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.266658, 1.51, -0.498882)
+rotation_degrees = Vector3(0, 213.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane2" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.101118, 1.51, -0.333342)
+rotation_degrees = Vector3(0, 236.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane3" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.011529, 1.51, -0.117054)
+rotation_degrees = Vector3(0, 258.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hinge" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0, 1.51, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Seam" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.6, 1.51, -0.604)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Handle" type="MeshInstance3D" parent="Capsule/LidLeft"]
+position = Vector3(0.15459, 1.51, -0.44541)
+rotation_degrees = Vector3(0, -45, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="LidRight" type="Node3D" parent="Capsule"]
+position = Vector3(0.6, 0, -0.04)
+
+
+[node name="Pane0" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.011529, 1.51, -0.117054)
+rotation_degrees = Vector3(0, 101.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane1" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.101118, 1.51, -0.333342)
+rotation_degrees = Vector3(0, 123.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane2" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.266658, 1.51, -0.498882)
+rotation_degrees = Vector3(0, 146.25, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Pane3" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.482946, 1.51, -0.588471)
+rotation_degrees = Vector3(0, 168.75, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Hinge" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(0, 1.51, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Seam" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.6, 1.51, -0.604)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Handle" type="MeshInstance3D" parent="Capsule/LidRight"]
+position = Vector3(-0.15459, 1.51, -0.44541)
+rotation_degrees = Vector3(0, 45, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Fog" type="Node3D" parent="Capsule"]
+position = Vector3(0, 0, 0)
+
+
+[node name="CrackFog" type="CPUParticles3D" parent="Capsule/Fog"]
+position = Vector3(0, 1.51, -0.67)
+material_override = ExtResource("e5")
+cast_shadow = 0
+emitting = false
+amount = 34
+lifetime = 4.0
+mesh = SubResource("s17")
+emission_shape = 3
+emission_box_extents = Vector3(0.02, 0.891, 0.02)
+direction = Vector3(0, -0.25, -1)
+spread = 30.0
+gravity = Vector3(0, -0.12, 0)
+initial_velocity_min = 0.12
+initial_velocity_max = 0.4
+damping_min = 0.05
+damping_max = 0.12
+scale_amount_min = 0.7
+scale_amount_max = 1.6
+scale_amount_curve = SubResource("s19")
+color_ramp = SubResource("s18")
+
+[node name="BaseFogLeft" type="CPUParticles3D" parent="Capsule/Fog"]
+position = Vector3(-0.8, 0.35, -0.55)
+material_override = ExtResource("e5")
+cast_shadow = 0
+emitting = false
+amount = 16
+lifetime = 4.0
+mesh = SubResource("s17")
+emission_shape = 3
+emission_box_extents = Vector3(0.18, 0.04, 0.12)
+direction = Vector3(-0.4, 0, -1)
+spread = 30.0
+gravity = Vector3(0, -0.12, 0)
+initial_velocity_min = 0.12
+initial_velocity_max = 0.4
+damping_min = 0.05
+damping_max = 0.12
+scale_amount_min = 0.7
+scale_amount_max = 1.6
+scale_amount_curve = SubResource("s19")
+color_ramp = SubResource("s18")
+
+[node name="BaseFogRight" type="CPUParticles3D" parent="Capsule/Fog"]
+position = Vector3(0.8, 0.35, -0.55)
+material_override = ExtResource("e5")
+cast_shadow = 0
+emitting = false
+amount = 16
+lifetime = 4.0
+mesh = SubResource("s17")
+emission_shape = 3
+emission_box_extents = Vector3(0.18, 0.04, 0.12)
+direction = Vector3(0.4, 0, -1)
+spread = 30.0
+gravity = Vector3(0, -0.12, 0)
+initial_velocity_min = 0.12
+initial_velocity_max = 0.4
+damping_min = 0.05
+damping_max = 0.12
+scale_amount_min = 0.7
+scale_amount_max = 1.6
+scale_amount_curve = SubResource("s19")
+color_ramp = SubResource("s18")
+
 [node name="ClampPivots" type="Node3D" parent="."]
 position = Vector3(0, 0, 0)
 
 
 [node name="UpperLeft" type="Node3D" parent="ClampPivots"]
-position = Vector3(-1.05, 2.5, -0.32)
+position = Vector3(-1.05, 2.2, -0.32)
 
 
 [node name="Arm" type="MeshInstance3D" parent="ClampPivots/UpperLeft"]
-position = Vector3(0.25, 0, 0)
+position = Vector3(0.2, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+mesh = SubResource("s20")
 material_override = ExtResource("e1")
 cast_shadow = 0
 
 [node name="Contact" type="MeshInstance3D" parent="ClampPivots/UpperLeft"]
-position = Vector3(0.5, 0, -0.06)
+position = Vector3(0.43, 0, -0.04)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
+mesh = SubResource("s21")
+material_override = ExtResource("e6")
 cast_shadow = 0
 
 [node name="LowerLeft" type="Node3D" parent="ClampPivots"]
@@ -171,35 +516,35 @@ position = Vector3(-1.05, 1, -0.32)
 
 
 [node name="Arm" type="MeshInstance3D" parent="ClampPivots/LowerLeft"]
-position = Vector3(0.25, 0, 0)
+position = Vector3(0.2, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+mesh = SubResource("s20")
 material_override = ExtResource("e1")
 cast_shadow = 0
 
 [node name="Contact" type="MeshInstance3D" parent="ClampPivots/LowerLeft"]
-position = Vector3(0.5, 0, -0.06)
+position = Vector3(0.43, 0, -0.04)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
+mesh = SubResource("s21")
+material_override = ExtResource("e6")
 cast_shadow = 0
 
 [node name="UpperRight" type="Node3D" parent="ClampPivots"]
-position = Vector3(1.05, 2.5, -0.32)
+position = Vector3(1.05, 2.2, -0.32)
 
 
 [node name="Arm" type="MeshInstance3D" parent="ClampPivots/UpperRight"]
-position = Vector3(-0.25, 0, 0)
+position = Vector3(-0.2, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+mesh = SubResource("s20")
 material_override = ExtResource("e1")
 cast_shadow = 0
 
 [node name="Contact" type="MeshInstance3D" parent="ClampPivots/UpperRight"]
-position = Vector3(-0.5, 0, -0.06)
+position = Vector3(-0.43, 0, -0.04)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
+mesh = SubResource("s21")
+material_override = ExtResource("e6")
 cast_shadow = 0
 
 [node name="LowerRight" type="Node3D" parent="ClampPivots"]
@@ -207,17 +552,17 @@ position = Vector3(1.05, 1, -0.32)
 
 
 [node name="Arm" type="MeshInstance3D" parent="ClampPivots/LowerRight"]
-position = Vector3(-0.25, 0, 0)
+position = Vector3(-0.2, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+mesh = SubResource("s20")
 material_override = ExtResource("e1")
 cast_shadow = 0
 
 [node name="Contact" type="MeshInstance3D" parent="ClampPivots/LowerRight"]
-position = Vector3(-0.5, 0, -0.06)
+position = Vector3(-0.43, 0, -0.04)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
+mesh = SubResource("s21")
+material_override = ExtResource("e6")
 cast_shadow = 0
 
 [node name="VentSockets" type="Node3D" parent="."]
@@ -247,7 +592,7 @@ position = Vector3(0, 3.95, -0.1)
 [node name="SocketHousing" type="MeshInstance3D" parent="."]
 position = Vector3(1.85, 0.8, -0.4)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s10")
+mesh = SubResource("s22")
 material_override = ExtResource("e0")
 cast_shadow = 0
 
@@ -257,18 +602,18 @@ collision_layer = 1
 collision_mask = 0
 
 [node name="Collision" type="CollisionShape3D" parent="SocketCollision"]
-shape = SubResource("s11")
+shape = SubResource("s23")
 
 [node name="SocketTrim" type="MeshInstance3D" parent="."]
 position = Vector3(1.85, 1.2, -0.74)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s12")
-material_override = ExtResource("e3")
+mesh = SubResource("s24")
+material_override = ExtResource("e6")
 cast_shadow = 0
 
 [node name="SocketRecess" type="MeshInstance3D" parent="."]
 position = Vector3(1.85, 1.2, -0.79)
 rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("s13")
-material_override = ExtResource("e4")
+mesh = SubResource("s25")
+material_override = ExtResource("e7")
 cast_shadow = 0

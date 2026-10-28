@@ -43,6 +43,7 @@ rotation_degrees = Vector3(90, 0, 0)
 
 [node name="Isolation" type="Label3D" parent="."]
 position = Vector3(0, 4.3, -9.3)
+rotation_degrees = Vector3(0, 0, 0)
 text = "ISOLATION / 04"
 font_size = 64
 pixel_size = 0.006

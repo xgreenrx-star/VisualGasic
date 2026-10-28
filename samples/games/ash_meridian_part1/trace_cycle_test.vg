@@ -1,0 +1,5393 @@
+' Isolated Trace Cycle dest. F6 and TRACE CYCLE share this controller.
+' Play and campaign saves stay on version 1. Far lift, vault and return chase
+' are dest-only until campaign version 2.
+' October 25: first-person ride, dual dashboard, honest crashes, link sockets.
+Option Explicit
+
+Const PI As Single = 3.14159265
+Const MIN_SPEED As Single = 24.0
+Const START_SPEED As Single = 32.0
+Const MAX_SPEED As Single = 64.0
+Const RELAY_RADIUS As Single = 2.0
+Const RELAY_LANE_HALF As Single = 1.8
+Const RELAY_ARM_RANGE As Single = 30.0
+Const RELAY_RING_RADIUS As Single = 2.4
+Const MAST_SINK As Single = 4.7
+Const MAST_RATE As Single = 3.6
+Const TRACE_OFF_TIME As Single = 2.4
+Const TRACE_SHUTDOWN_TIME As Single = 5.0
+Const CYCLE_LENGTH As Single = 4.2
+Const ARM_TRAIL As Single = 5.0
+Const STEP_LIMIT As Single = 1.5
+Const WHEEL_R As Single = 0.42
+Const SHELL_LAYER As Integer = 2
+Const FLOOR_LAYER As Integer = 4
+Const COCKPIT_LAYER As Integer = 4
+Const NO_COCKPIT_MASK As Integer = 1048571
+Const MAP_W As Single = 262.0
+Const MAP_H As Single = 136.0
+Const HUD_SCREEN_W As Single = 286.0
+Const HUD_SCREEN_H As Single = 160.0
+
+Dim mode As String
+Dim host As Object
+Dim route As Object
+Dim crossing As Object
+Dim player As Object
+Dim remote As Object
+Dim vault As Object
+Dim ride_camera As Object
+Dim env_node As Object
+Dim atmosphere As Object
+Dim night_sky As Object
+Dim trail_glow As Object
+Dim trail_glow_red As Object
+Dim flash_lights As Array
+Dim trace_power As Single
+Dim flash_t As Single
+Dim flash_next As Single
+Dim flash_tint As Color
+Dim sun_node As Object
+Dim rim_node As Object
+Dim hud_layer As Object
+Dim cluster_hud As Object
+Dim cockpit As Object
+Dim hud_speed As Object
+Dim hud_trace As Object
+Dim hud_hint As Object
+Dim tactical_view As Object
+Dim ext_screen As Object
+Dim map_screen As Object
+Dim motion_params As Object
+Dim motion_result As Object
+Dim physics_srv As Object
+Dim hud_panel As Object
+Dim hud_label As Object
+Dim throttle_back As Object
+Dim throttle_fill As Object
+Dim throttle_lab As Object
+Dim trail_root As Object
+Dim visual As Object
+Dim canopy As Object
+Dim front_wheel As Object
+Dim rear_wheel As Object
+Dim emitter As Object
+Dim camera_target As Object
+Dim cyan_mat As Object
+Dim amber_mat As Object
+Dim world_ready As Boolean
+Dim debug_hud As Boolean
+Dim ignore_input As Boolean
+Dim paused As Boolean
+Dim auto_speed As Single
+Dim ride_state As String
+Dim dock_id As String
+Dim inspect_subject As Integer
+Dim inspect_return As String
+Dim speed As Single
+Dim heading As Single
+Dim bank As Single
+Dim canopy_open As Single
+Dim wheel_spin As Single
+Dim relays As Integer
+Dim distance_travelled As Single
+Dim trail_count As Integer
+Dim crash_reason As String
+Dim crash_path As String
+Dim crash_point As Vector3
+Dim last_crash As String
+Dim last_crash_path As String
+Dim board_t As Single
+Dim park_t As Single
+Dim park_from As Vector3
+Dim park_from_h As Single
+Dim orbit_yaw As Single
+Dim orbit_pitch As Single
+Dim orbit_dist As Single
+Dim cam_pos As Vector3
+Dim cam_ready As Boolean
+Dim grow_mesh As Object
+Dim grow_box As Object
+Dim last_emit As Vector3
+Dim have_emit As Boolean
+Dim trails As Array
+Dim trail_born As Array
+Dim test_walls As Array
+Dim running As Boolean
+Dim hull_query As Object
+Dim hull_col As Object
+Dim play_vault As Object
+Dim vault_lift As Object
+Dim stasis As Object
+Dim feb As Object
+Dim pod_t As Single
+Dim pod_active As Boolean
+Dim pod_fog_on As Boolean
+Dim core_bank As Object
+Dim coupler As Object
+Dim walker As Object
+Dim walk_heading As Single
+Dim area_name As String
+Dim prompt As String
+Dim red_mat As Object
+Dim enemy_heading As Single
+Dim enemy_speed As Single
+Dim enemy_state As String
+Dim enemy_travel As Single
+Dim enemy_turn_t As Single
+Dim chase_t As Single
+Dim last_enemy_emit As Vector3
+Dim have_enemy_emit As Boolean
+Dim enemy_emitter As Object
+Dim enemy_query As Object
+Dim enemy_col As Object
+Dim walk_query As Object
+Dim walk_shape As Object
+Dim exterior_view As Object
+Dim exterior_camera As Object
+Dim ext_rect As Object
+Dim ext_frame As Object
+Dim map_frame As Object
+Dim ext_title As Object
+Dim glass_label As Object
+Dim crash_label As Object
+Dim objective_label As Object
+Dim dock_beacons As Array
+Dim star_field As Object
+Dim field_open_t As Single
+Dim strip_label As Object
+Dim map_panel As Object
+Dim map_player As Object
+Dim map_enemy As Object
+Dim map_crash As Object
+Dim map_hint As Object
+Dim map_trails As Object
+Dim map_enemy_trails As Object
+Dim map_relays As Array
+Dim map_docks As Array
+Dim relay_rings As Array
+Dim relay_nums As Array
+Dim relay_masts As Array
+Dim relay_drop As Array
+Dim relay_armed As Array
+Dim cue_player As Object
+Dim capture_stream As Object
+Dim arm_stream As Object
+Dim wipe_stream As Object
+Dim last_cue As String
+Dim pulse_t As Single
+Dim pad_flash_i As Integer
+Dim hud_pulse As Object
+Dim gpu_checked As Boolean
+Dim gpu_is_low As Boolean
+Dim trace_on_t As Single
+Dim trace_off_t As Single
+Dim trace_shutdown_t As Single
+Dim floor_rids As Array
+Dim near_cradle_rids As Array
+Dim far_cradle_rids As Array
+Dim rid_bucket As Array
+Dim crash_safe As Single
+Dim crash_unsafe As Single
+Dim crash_normal As Vector3
+Dim crash_motion As Vector3
+Dim map_grow As Object
+Dim map_bounds As Object
+Dim map_land_near As Object
+Dim map_land_far As Object
+Dim map_lift As Object
+Dim map_heading As Object
+Dim map_enemy_heading As Object
+Dim map_captures As Array
+Dim map_relay_labs As Array
+Dim map_dock_labs As Array
+Dim map_legend As Object
+Dim walk_fall As Single
+Dim explode_t As Single
+Dim burst_mat As Object
+Dim yard_field As Boolean
+Dim field_cfg As Object
+Dim charge As Single
+Dim charge_cap As Single
+Dim charge_trace_extra As Single
+Dim charge_relay_gain As Single
+Dim charge_cooldown As Single
+Dim charge_dock_refill As Single
+Dim charge_low As Single
+Dim charge_crit As Single
+Dim charge_crit_cap As Single
+Dim charge_fail_window As Single
+Dim charge_fail_t As Single
+Dim charge_warned_low As Boolean
+Dim beacon_vis As Single
+Dim self_discover_m As Single
+Dim list_scan_m As Single
+Dim list_scan_cost As Single
+Dim radar_radius As Single
+Dim field_min_x As Single
+Dim field_max_x As Single
+Dim field_min_z As Single
+Dim field_max_z As Single
+Dim yard_min_x As Single
+Dim yard_max_x As Single
+Dim yard_min_z As Single
+Dim yard_max_z As Single
+Dim last_safe_dock As String
+Dim goto_i As Integer
+Dim return_forced As Boolean
+Dim discovered As Array
+Dim free_names As Array
+Dim free_spent As Array
+Dim free_armed As Array
+Dim free_masts As Array
+Dim free_drop As Array
+Dim beacon_cyan As Object
+Dim beacon_dim As Object
+Dim beacon_white As Object
+Dim beacon_amber As Object
+Dim map_range As Object
+Dim map_yard As Object
+Dim map_chevrons As Array
+Dim inventory As Dictionary
+Dim translator_start_owned As Boolean
+Dim cradle_released As Boolean
+Dim yard_save_released As Boolean
+Dim yard_save_translator As Boolean
+Dim lock_open As Boolean
+Dim lock_entry As String
+Dim lock_flash_t As Single
+Dim lock_node As Object
+Dim gloss_age As Dictionary
+Dim gloss_range_m As Single
+Dim cradle_code As String
+Dim trans_signs As Array
+Dim trans_lock_path As String
+Dim trans_tag_path As String
+Dim trans_post_path As String
+Dim trans_point_path As String
+Dim nearby_hud As String
+Dim script_hud As Object
+
+Sub _Ready()
+	If GetTree() Is Nothing Then Exit Sub
+	If GetTree().current_scene = Me Then Call start_test("f6")
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If mode = "f6" Then Call tick(delta)
+End Sub
+
+Sub start_test(ByVal start_mode As String)
+	mode = start_mode
+	yard_field = start_mode = "yard" Or start_mode = "yard_test"
+	ignore_input = start_mode = "test" Or start_mode = "yard_test"
+	paused = False
+	debug_hud = False
+	auto_speed = 0.0
+	running = False
+	host = Nothing
+	inventory = New Dictionary
+	gloss_age = New Dictionary
+	translator_start_owned = True
+	cradle_released = False
+	yard_save_released = False
+	yard_save_translator = False
+	lock_open = False
+	lock_entry = ""
+	lock_flash_t = 0.0
+	nearby_hud = ""
+	cradle_code = "2741"
+	gloss_range_m = 6.0
+	trans_signs = Array()
+	trans_lock_path = "YardDock/ReleaseLock"
+	trans_tag_path = "ServiceTag"
+	trans_post_path = "TranslatorPost"
+	trans_point_path = "TranslatorPoint"
+	If get_parent() <> Nothing Then
+		If get_parent().get_class() = "SubViewport" Then
+			host = get_parent().get_parent()
+		End If
+	End If
+	Call EnsureWorld()
+	If ride_camera <> Nothing Then ride_camera.current = mode = "f6"
+	set_process(mode = "f6")
+	Call reset_run()
+	If start_mode = "far_dock" Then Call SkipToFarDock()
+	running = True
+End Sub
+
+' Dest skip: already at the far cradle with the field linked, so the vault
+' can be reviewed without riding the outbound crossing.
+Sub SkipToFarDock()
+	If route Is Nothing Then Exit Sub
+	If route.stage_name = "outbound_ready" Then route.advance("outbound_boarded")
+	If route.stage_name = "outbound_crossing" Then route.advance("outbound_docked")
+	relays = 3
+	If relay_armed.size() >= 3 Then relay_armed = Array(False, False, False)
+	Call UpdateRelayMasts(0.0)
+	Call ApplyDock("far")
+	ride_state = "docked"
+	dock_id = "far"
+	area_name = "crossing"
+	inspect_return = "far"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Sub EnsureWorld()
+	Dim packed As Object
+	If world_ready Then Exit Sub
+	route = ClassDB.Instantiate("RefCounted")
+	route.SetScript(Load("res://trace_route.vg"))
+	cyan_mat = Load("res://assets/trace_vault/materials/cyan.tres")
+	amber_mat = Load("res://assets/trace_vault/materials/amber.tres")
+	red_mat = Load("res://assets/trace_vault/materials/red.tres")
+	trail_glow = MakeTraceGlow(Color(0.25, 0.95, 1.0, 1))
+	trail_glow_red = MakeTraceGlow(Color(1.0, 0.14, 0.2, 1))
+	atmosphere = ClassDB.Instantiate("Environment")
+	atmosphere.background_mode = 1
+	atmosphere.background_color = Color(0.016, 0.013, 0.033, 1)
+	night_sky = ClassDB.Instantiate("Sky")
+	night_sky.sky_material = Load("res://assets/trace_vault/materials/trace_sky.tres")
+	night_sky.radiance_size = 1
+	If night_sky.sky_material <> Nothing Then
+		atmosphere.sky = night_sky
+		atmosphere.background_mode = 2
+	End If
+	atmosphere.ambient_light_source = 3
+	atmosphere.ambient_light_color = Color(0.45, 0.59, 0.75, 1)
+	atmosphere.ambient_light_energy = 0.8
+	atmosphere.glow_enabled = True
+	atmosphere.glow_intensity = 1.5
+	atmosphere.glow_strength = 1.3
+	atmosphere.glow_bloom = 0.1
+	atmosphere.glow_hdr_threshold = 0.95
+	atmosphere.glow_blend_mode = 1
+	atmosphere.set_glow_level(1, 1.0)
+	atmosphere.set_glow_level(2, 1.0)
+	atmosphere.set_glow_level(3, 0.8)
+	atmosphere.set_glow_level(4, 0.6)
+	If LowGpu() Then
+		atmosphere.glow_intensity = 1.1
+		atmosphere.glow_strength = 1.05
+		atmosphere.glow_bloom = 0.04
+		atmosphere.set_glow_level(5, 0.0)
+		atmosphere.set_glow_level(6, 0.0)
+	Else
+		atmosphere.set_glow_level(5, 0.6)
+		atmosphere.set_glow_level(6, 0.35)
+	End If
+	atmosphere.fog_enabled = True
+	atmosphere.fog_light_color = Color(0.1, 0.075, 0.18, 1)
+	atmosphere.fog_light_energy = 1.0
+	atmosphere.fog_density = 0.0016
+	atmosphere.fog_sky_affect = 0.0
+	atmosphere.fog_height = -12.0
+	atmosphere.fog_height_density = 0.02
+	env_node = ClassDB.Instantiate("WorldEnvironment")
+	env_node.environment = atmosphere
+	add_child(env_node)
+	sun_node = ClassDB.Instantiate("DirectionalLight3D")
+	sun_node.rotation_degrees = Vector3(-42, -28, 0)
+	sun_node.light_color = Color(0.6, 0.78, 1, 1)
+	sun_node.light_energy = 1.6
+	add_child(sun_node)
+	rim_node = ClassDB.Instantiate("DirectionalLight3D")
+	rim_node.rotation_degrees = Vector3(-24, 135, 0)
+	rim_node.light_color = Color(0.65, 0.28, 0.42, 1)
+	rim_node.light_energy = 1.0
+	add_child(rim_node)
+	If yard_field Then
+		Call LoadYardConfig()
+		packed = Load(Str(field_cfg("scene")))
+		crossing = packed.instantiate()
+		crossing.name = "YardVoidField"
+	Else
+		packed = Load("res://assets/trace_vault/scenes/void_crossing.tscn")
+		crossing = packed.instantiate()
+		crossing.name = "VoidCrossing"
+	End If
+	add_child(crossing)
+	Call MuteCameras(crossing)
+	Call QuietFloors(crossing)
+	rid_bucket = Array()
+	Call CollectBodyRids(crossing, "Support")
+	Call CollectBodyRids(crossing, "Deck")
+	floor_rids = rid_bucket
+	rid_bucket = Array()
+	If crossing.has_node("NearCradle") Then
+		Call CollectBodyRids(crossing.get_node("NearCradle"), "Side")
+	ElseIf crossing.has_node("YardDock/Cradle") Then
+		Call CollectBodyRids(crossing.get_node("YardDock/Cradle"), "Side")
+	End If
+	near_cradle_rids = rid_bucket
+	rid_bucket = Array()
+	If crossing.has_node("FarCradle") Then
+		Call CollectBodyRids(crossing.get_node("FarCradle"), "Side")
+	ElseIf crossing.has_node("VaultCradle") Then
+		Call CollectBodyRids(crossing.get_node("VaultCradle"), "Side")
+	End If
+	far_cradle_rids = rid_bucket
+	packed = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
+	player = packed.instantiate()
+	player.name = "TraceCycle"
+	player.motion_mode = 1
+	add_child(player)
+	visual = player.get_node("VisualRoot")
+	canopy = player.get_node("VisualRoot/CanopyPivot")
+	front_wheel = player.get_node("VisualRoot/FrontWheelPivot")
+	rear_wheel = player.get_node("VisualRoot/RearWheelPivot")
+	emitter = player.get_node("TraceEmitter")
+	camera_target = player.get_node("CameraTarget")
+	hull_col = player.get_node("HullCollision")
+	player.safe_margin = 0.001
+	hull_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
+	hull_query.shape = hull_col.shape
+	hull_query.collision_mask = 1
+	hull_query.margin = 0.04
+	hull_query.collide_with_areas = False
+	hull_query.exclude = Array(player.get_rid())
+	If visual <> Nothing Then Call ApplyMeshLayers(visual, SHELL_LAYER)
+	packed = Load("res://assets/trace_vault/scenes/trace_cockpit.tscn")
+	cockpit = packed.instantiate()
+	cockpit.name = "Cockpit"
+	camera_target.add_child(cockpit)
+	Call ApplyMeshLayers(cockpit, COCKPIT_LAYER)
+	hud_speed = cockpit.get_node("Windscreen/HudAnchor/HudSpeed")
+	hud_trace = cockpit.get_node("Windscreen/HudAnchor/HudTrace")
+	hud_hint = cockpit.get_node("Windscreen/HudAnchor/HudHint")
+	motion_params = ClassDB.Instantiate("PhysicsTestMotionParameters3D")
+	motion_result = ClassDB.Instantiate("PhysicsTestMotionResult3D")
+	physics_srv = Engine.get_singleton("PhysicsServer3D")
+	packed = Load("res://assets/trace_vault/scenes/security_cycle.tscn")
+	remote = packed.instantiate()
+	remote.name = "RemoteCycle"
+	remote.motion_mode = 1
+	add_child(remote)
+	Call PlaceRemote()
+	packed = Load("res://assets/trace_vault/scenes/vault_preview.tscn")
+	vault = packed.instantiate()
+	vault.name = "VaultPreview"
+	vault.visible = False
+	add_child(vault)
+	Call MuteCameras(vault)
+	Call SetCollisionEnabled(vault, False)
+	If vault.has_node("Environment") Then vault.get_node("Environment").environment = Nothing
+	Call AssembleFacility()
+	Call MakeAbyssFlashes()
+	Call MakeDockBeacons()
+	Call MakeStarfield()
+	Call MakeCueBank()
+	Call MakeWalker()
+	If remote <> Nothing Then
+		If remote.has_node("TraceEmitter") Then enemy_emitter = remote.get_node("TraceEmitter")
+		If remote.has_node("HullCollision") Then
+			enemy_col = remote.get_node("HullCollision")
+			enemy_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
+			enemy_query.shape = enemy_col.shape
+			enemy_query.collision_mask = 1
+			enemy_query.exclude = Array(remote.get_rid())
+		End If
+	End If
+	trail_root = ClassDB.Instantiate("Node3D")
+	trail_root.name = "Trails"
+	add_child(trail_root)
+	grow_box = ClassDB.Instantiate("BoxMesh")
+	grow_box.size = Vector3(0.16, 1.05, 0.2)
+	grow_mesh = ClassDB.Instantiate("MeshInstance3D")
+	grow_mesh.mesh = grow_box
+	grow_mesh.material_override = trail_glow
+	grow_mesh.cast_shadow = 0
+	grow_mesh.visible = False
+	grow_mesh.layers = SHELL_LAYER
+	trail_root.add_child(grow_mesh)
+	ride_camera = ClassDB.Instantiate("Camera3D")
+	ride_camera.name = "RideCamera"
+	ride_camera.fov = 68.0
+	ride_camera.near = 0.05
+	ride_camera.far = 420.0
+	If yard_field Then ride_camera.far = 2800.0
+	ride_camera.cull_mask = 1
+	ride_camera.current = False
+	add_child(ride_camera)
+	Call MakeExteriorMonitor()
+	Call MakeDashboard()
+	Call MakeRelayGuides()
+	If yard_field Then
+		Call MakeFreeRelayGuides()
+		Call MakeYardRadar()
+		Call BindYardTranslation()
+	End If
+	Call MountBinnacleScreens()
+	trails = Array()
+	trail_born = Array()
+	test_walls = Array()
+	world_ready = True
+End Sub
+
+Sub ApplyMeshLayers(ByVal node As Object, ByVal layer As Integer)
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.get_class() = "MeshInstance3D" Or node.get_class() = "Label3D" Then node.layers = layer
+	For i = 0 To node.get_child_count() - 1
+		Call ApplyMeshLayers(node.get_child(i), layer)
+	Next
+End Sub
+
+Sub CollectBodyRids(ByVal node As Object, ByVal prefix As String)
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.get_class() = "StaticBody3D" Then
+		If Str(node.name).begins_with(prefix) Then rid_bucket.append(node.get_rid())
+	End If
+	For i = 0 To node.get_child_count() - 1
+		Call CollectBodyRids(node.get_child(i), prefix)
+	Next
+End Sub
+
+Sub QuietFloors(ByVal node As Object)
+	Dim i As Integer
+	Dim nm As String
+	If node Is Nothing Then Exit Sub
+	If node.get_class() = "StaticBody3D" Then
+		nm = Str(node.name)
+		If nm.begins_with("Deck") Then node.collision_layer = FLOOR_LAYER
+	End If
+	For i = 0 To node.get_child_count() - 1
+		Call QuietFloors(node.get_child(i))
+	Next
+End Sub
+
+Sub MakeExteriorMonitor()
+	exterior_view = ClassDB.Instantiate("SubViewport")
+	exterior_view.name = "ExteriorMonitor"
+	exterior_view.size = Vector2i(524, 264)
+	exterior_view.own_world_3d = False
+	exterior_view.transparent_bg = True
+	exterior_view.handle_input_locally = False
+	exterior_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(exterior_view)
+	exterior_view.world_3d = get_world_3d()
+	exterior_camera = ClassDB.Instantiate("Camera3D")
+	exterior_camera.name = "ExteriorCamera"
+	exterior_camera.fov = 52.0
+	exterior_camera.near = 0.12
+	exterior_camera.far = 420.0
+	exterior_camera.cull_mask = NO_COCKPIT_MASK
+	exterior_camera.current = True
+	exterior_view.add_child(exterior_camera)
+End Sub
+
+Function MakeLabel(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal size As Integer, ByVal col As Color) As Object
+	Dim lab As Object
+	lab = ClassDB.Instantiate("Label")
+	lab.position = Vector2(x, y)
+	lab.size = Vector2(w, h)
+	lab.add_theme_font_size_override("font_size", size)
+	lab.add_theme_color_override("font_color", col)
+	lab.mouse_filter = 2
+	MakeLabel = lab
+End Function
+
+Function MakeSwatch(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single, ByVal col As Color) As Object
+	Dim box As Object
+	box = ClassDB.Instantiate("ColorRect")
+	box.position = Vector2(x, y)
+	box.size = Vector2(w, h)
+	box.color = col
+	box.mouse_filter = 2
+	MakeSwatch = box
+End Function
+
+Sub AddChamferPoints(ByVal line As Object, ByVal w As Single, ByVal h As Single, ByVal cut As Single)
+	line.add_point(Vector2(cut, 0.0))
+	line.add_point(Vector2(w - cut, 0.0))
+	line.add_point(Vector2(w, cut))
+	line.add_point(Vector2(w, h - cut))
+	line.add_point(Vector2(w - cut, h))
+	line.add_point(Vector2(cut, h))
+	line.add_point(Vector2(0.0, h - cut))
+	line.add_point(Vector2(0.0, cut))
+End Sub
+
+Function MakeHudFrame(ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single) As Object
+	Dim root As Object
+	Dim glass As Object
+	Dim outer As Object
+	Dim inner As Object
+	Dim cut As Single
+	cut = 14.0
+	root = ClassDB.Instantiate("Control")
+	root.position = Vector2(x, y)
+	root.size = Vector2(w, h)
+	root.mouse_filter = 2
+	glass = MakeSwatch(6.0, 6.0, w - 12.0, h - 12.0, Color(0.01, 0.03, 0.05, 0.9))
+	root.add_child(glass)
+	outer = ClassDB.Instantiate("Line2D")
+	outer.width = 3.0
+	outer.default_color = Color(0.28, 0.78, 0.92, 0.95)
+	outer.closed = True
+	outer.antialiased = True
+	Call AddChamferPoints(outer, w, h, cut)
+	root.add_child(outer)
+	inner = ClassDB.Instantiate("Line2D")
+	inner.width = 1.0
+	inner.default_color = Color(0.55, 0.95, 1.0, 0.45)
+	inner.closed = True
+	inner.antialiased = True
+	inner.position = Vector2(6.0, 6.0)
+	Call AddChamferPoints(inner, w - 12.0, h - 12.0, cut - 5.0)
+	root.add_child(inner)
+	MakeHudFrame = root
+End Function
+
+Sub MakeClusterHousing()
+	Dim body As Object
+	Dim edge As Object
+	Dim slot As Object
+	cluster_hud = ClassDB.Instantiate("Control")
+	cluster_hud.name = "ClusterHousing"
+	cluster_hud.mouse_filter = 2
+	hud_layer.add_child(cluster_hud)
+	body = ClassDB.Instantiate("Polygon2D")
+	body.polygon = PackedVector2Array(Array(Vector2(150, 540), Vector2(176, 380), Vector2(212, 360), Vector2(748, 360), Vector2(784, 380), Vector2(810, 540)))
+	body.color = Color(0.035, 0.05, 0.075, 0.96)
+	cluster_hud.add_child(body)
+	edge = ClassDB.Instantiate("Line2D")
+	edge.width = 2.0
+	edge.antialiased = True
+	edge.default_color = Color(0.3, 0.85, 1.0, 0.9)
+	edge.add_point(Vector2(150, 540))
+	edge.add_point(Vector2(176, 380))
+	edge.add_point(Vector2(212, 360))
+	edge.add_point(Vector2(748, 360))
+	edge.add_point(Vector2(784, 380))
+	edge.add_point(Vector2(810, 540))
+	cluster_hud.add_child(edge)
+	edge = ClassDB.Instantiate("Line2D")
+	edge.width = 1.0
+	edge.default_color = Color(0.3, 0.85, 1.0, 0.25)
+	edge.add_point(Vector2(216, 365))
+	edge.add_point(Vector2(744, 365))
+	cluster_hud.add_child(edge)
+	slot = MakeSwatch(476.0, 400.0, 8.0, 3.0, Color(1.0, 0.6, 0.2, 0.85))
+	cluster_hud.add_child(slot)
+	slot = MakeSwatch(476.0, 408.0, 8.0, 3.0, Color(0.3, 0.85, 1.0, 0.6))
+	cluster_hud.add_child(slot)
+End Sub
+
+Sub AddMapGrid(ByVal host As Object, ByVal w As Single, ByVal h As Single)
+	Dim i As Integer
+	Dim line As Object
+	For i = 1 To 11
+		line = ClassDB.Instantiate("Line2D")
+		line.width = 1.0
+		line.default_color = Color(0.22, 0.58, 0.68, 0.28)
+		line.add_point(Vector2(w * i / 12.0, 0.0))
+		line.add_point(Vector2(w * i / 12.0, h))
+		host.add_child(line)
+	Next
+	For i = 1 To 7
+		line = ClassDB.Instantiate("Line2D")
+		line.width = 1.0
+		line.default_color = Color(0.22, 0.58, 0.68, 0.28)
+		line.add_point(Vector2(0.0, h * i / 8.0))
+		line.add_point(Vector2(w, h * i / 8.0))
+		host.add_child(line)
+	Next
+End Sub
+
+Sub MakeDashboard()
+	Dim i As Integer
+	Dim marker As Object
+	hud_layer = ClassDB.Instantiate("CanvasLayer")
+	hud_layer.layer = 12
+	add_child(hud_layer)
+	hud_panel = MakeSwatch(0.0, 388.0, 960.0, 152.0, Color(0.02, 0.03, 0.05, 0.0))
+	hud_layer.add_child(hud_panel)
+	glass_label = MakeLabel(16.0, 8.0, 928.0, 36.0, 15, Color(0.72, 0.94, 1.0, 0.92))
+	hud_layer.add_child(glass_label)
+	crash_label = MakeLabel(180.0, 188.0, 600.0, 48.0, 18, Color(1.0, 0.78, 0.42, 1.0))
+	crash_label.horizontal_alignment = 1
+	hud_layer.add_child(crash_label)
+	objective_label = MakeLabel(130.0, 40.0, 700.0, 30.0, 17, Color(1.0, 0.86, 0.42, 1.0))
+	objective_label.horizontal_alignment = 1
+	hud_layer.add_child(objective_label)
+	hud_pulse = MakeSwatch(0.0, 0.0, 960.0, 360.0, Color(0.35, 0.95, 1.0, 0.0))
+	hud_pulse.mouse_filter = 2
+	hud_layer.add_child(hud_pulse)
+	hud_label = MakeLabel(16.0, 44.0, 928.0, 120.0, 14, Color(0.62, 0.92, 1.0, 1.0))
+	hud_label.visible = False
+	hud_layer.add_child(hud_label)
+	script_hud = ClassDB.Instantiate("Node2D")
+	script_hud.name = "NarceanHud"
+	script_hud.position = Vector2(24.0, 72.0)
+	hud_layer.add_child(script_hud)
+	Call MakeClusterHousing()
+	ext_frame = MakeHudFrame(186.0, 372.0, HUD_SCREEN_W, HUD_SCREEN_H)
+	hud_layer.add_child(ext_frame)
+	ext_rect = ClassDB.Instantiate("TextureRect")
+	ext_rect.position = Vector2(12, 20)
+	ext_rect.size = Vector2(HUD_SCREEN_W - 24.0, HUD_SCREEN_H - 28.0)
+	ext_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ext_rect.stretch_mode = 0
+	ext_rect.mouse_filter = 2
+	ext_rect.modulate = Color(0.86, 0.96, 1.0, 0.74)
+	If exterior_view <> Nothing Then ext_rect.texture = exterior_view.get_texture()
+	ext_frame.add_child(ext_rect)
+	ext_title = MakeLabel(0.0, 6.0, HUD_SCREEN_W, 18.0, 11, Color(0.78, 0.94, 1.0, 0.82))
+	ext_title.horizontal_alignment = 1
+	ext_title.text = "EXTERNAL"
+	ext_frame.add_child(ext_title)
+	strip_label = MakeLabel(300.0, 400.0, 384.0, 128.0, 16, Color(0.78, 0.96, 1.0, 1.0))
+	hud_layer.add_child(strip_label)
+	map_frame = MakeHudFrame(488.0, 372.0, HUD_SCREEN_W, HUD_SCREEN_H)
+	hud_layer.add_child(map_frame)
+	marker = MakeLabel(0.0, 6.0, HUD_SCREEN_W, 18.0, 11, Color(0.78, 0.94, 1.0, 0.82))
+	marker.horizontal_alignment = 1
+	marker.text = "TACTICAL"
+	map_frame.add_child(marker)
+	map_panel = MakeSwatch(12.0, 20.0, MAP_W, MAP_H, Color(0.015, 0.07, 0.1, 0.55))
+	map_frame.add_child(map_panel)
+	Call AddMapGrid(map_panel, MAP_W, MAP_H)
+	map_bounds = ClassDB.Instantiate("Line2D")
+	map_bounds.width = 1.0
+	map_bounds.default_color = Color(0.45, 0.55, 0.65, 0.7)
+	map_bounds.closed = True
+	map_panel.add_child(map_bounds)
+	map_land_near = ClassDB.Instantiate("Line2D")
+	map_land_near.width = 1.2
+	map_land_near.default_color = Color(0.55, 0.48, 0.4, 0.85)
+	map_panel.add_child(map_land_near)
+	map_land_far = ClassDB.Instantiate("Line2D")
+	map_land_far.width = 1.2
+	map_land_far.default_color = Color(0.55, 0.48, 0.4, 0.85)
+	map_panel.add_child(map_land_far)
+	map_grow = ClassDB.Instantiate("Line2D")
+	map_grow.width = 1.4
+	map_grow.default_color = Color(0.45, 1.0, 1.0, 0.55)
+	map_grow.antialiased = True
+	map_panel.add_child(map_grow)
+	map_trails = map_grow
+	map_enemy_trails = ClassDB.Instantiate("Line2D")
+	map_enemy_trails.width = 1.4
+	map_enemy_trails.default_color = Color(0.95, 0.28, 0.32, 0.4)
+	map_panel.add_child(map_enemy_trails)
+	map_captures = Array()
+	map_relays = Array()
+	map_relay_labs = Array()
+	For i = 0 To 2
+		marker = MakeSwatch(0.0, 0.0, 10.0, 7.0, Color(1.0, 0.82, 0.28, 0.22))
+		map_panel.add_child(marker)
+		map_captures.append(marker)
+		marker = MakeSwatch(0.0, 0.0, 6.0, 6.0, Color(0.45, 0.5, 0.55, 0.9))
+		map_panel.add_child(marker)
+		map_relays.append(marker)
+		marker = MakeLabel(0.0, 0.0, 14.0, 12.0, 9, Color(0.95, 0.9, 0.7, 1.0))
+		map_panel.add_child(marker)
+		map_relay_labs.append(marker)
+	Next
+	map_docks = Array()
+	map_dock_labs = Array()
+	For i = 0 To 1
+		marker = MakeSwatch(0.0, 0.0, 7.0, 7.0, Color(0.7, 0.74, 0.8, 0.95))
+		map_panel.add_child(marker)
+		map_docks.append(marker)
+		marker = MakeLabel(0.0, 0.0, 28.0, 12.0, 9, Color(0.82, 0.86, 0.9, 1.0))
+		map_panel.add_child(marker)
+		map_dock_labs.append(marker)
+	Next
+	map_lift = MakeSwatch(0.0, 0.0, 5.0, 5.0, Color(0.7, 0.55, 0.25, 0.95))
+	map_panel.add_child(map_lift)
+	map_player = MakeSwatch(0.0, 0.0, 6.0, 6.0, Color(0.35, 0.95, 1.0, 1.0))
+	map_panel.add_child(map_player)
+	map_heading = ClassDB.Instantiate("Line2D")
+	map_heading.width = 1.6
+	map_heading.default_color = Color(0.35, 0.95, 1.0, 1.0)
+	map_panel.add_child(map_heading)
+	map_enemy = MakeSwatch(0.0, 0.0, 6.0, 6.0, Color(0.95, 0.32, 0.3, 1.0))
+	map_enemy.visible = False
+	map_panel.add_child(map_enemy)
+	map_enemy_heading = ClassDB.Instantiate("Line2D")
+	map_enemy_heading.width = 1.4
+	map_enemy_heading.default_color = Color(0.95, 0.32, 0.3, 1.0)
+	map_enemy_heading.visible = False
+	map_panel.add_child(map_enemy_heading)
+	map_crash = MakeSwatch(0.0, 0.0, 8.0, 8.0, Color(1.0, 0.82, 0.2, 1.0))
+	map_crash.visible = False
+	map_panel.add_child(map_crash)
+	map_legend = MakeLabel(4.0, MAP_H - 16.0, MAP_W - 8.0, 14.0, 9, Color(0.7, 0.78, 0.72, 0.85))
+	map_panel.add_child(map_legend)
+	map_hint = map_legend
+	Call DrawStaticMap()
+	throttle_back = MakeSwatch(370.0, 508.0, 220.0, 7.0, Color(0.08, 0.18, 0.24, 0.88))
+	hud_layer.add_child(throttle_back)
+	throttle_fill = MakeSwatch(370.0, 508.0, 44.0, 7.0, Color(0.15, 0.88, 1.0, 0.95))
+	hud_layer.add_child(throttle_fill)
+	throttle_lab = MakeLabel(370.0, 518.0, 220.0, 16.0, 11, Color(0.7, 0.92, 1.0, 0.92))
+	throttle_lab.horizontal_alignment = 1
+	hud_layer.add_child(throttle_lab)
+	Call RefreshThrottle()
+End Sub
+
+Sub DrawStaticMap()
+	Dim a As Vector2
+	Dim b As Vector2
+	If map_bounds <> Nothing Then
+		map_bounds.clear_points()
+		a = MapPoint(Vector3(-80.0, 0.0, -120.0)) + Vector2(3, 3)
+		b = MapPoint(Vector3(80.0, 0.0, 120.0)) + Vector2(3, 3)
+		map_bounds.add_point(Vector2(a.x, a.y))
+		map_bounds.add_point(Vector2(b.x, a.y))
+		map_bounds.add_point(Vector2(b.x, b.y))
+		map_bounds.add_point(Vector2(a.x, b.y))
+	End If
+	If map_land_near <> Nothing Then
+		map_land_near.clear_points()
+		a = MapPoint(Vector3(-80.0, 0.0, 100.0)) + Vector2(3, 3)
+		b = MapPoint(Vector3(80.0, 0.0, 100.0)) + Vector2(3, 3)
+		map_land_near.add_point(a)
+		map_land_near.add_point(b)
+	End If
+	If map_land_far <> Nothing Then
+		map_land_far.clear_points()
+		a = MapPoint(Vector3(-80.0, 0.0, -100.0)) + Vector2(3, 3)
+		b = MapPoint(Vector3(80.0, 0.0, -100.0)) + Vector2(3, 3)
+		map_land_far.add_point(a)
+		map_land_far.add_point(b)
+	End If
+	If map_legend <> Nothing Then map_legend.text = "N FAR   1-2-3 LINK   AMBER NOW"
+End Sub
+
+Sub MountBinnacleScreens()
+	Dim marker As Object
+	If cockpit Is Nothing Then Exit Sub
+	tactical_view = ClassDB.Instantiate("SubViewport")
+	tactical_view.name = "TacticalMonitor"
+	tactical_view.size = Vector2i(Int(MAP_W), Int(MAP_H))
+	tactical_view.disable_3d = True
+	tactical_view.transparent_bg = True
+	tactical_view.handle_input_locally = False
+	tactical_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(tactical_view)
+	If cockpit.has_node("ExteriorScreen") And exterior_view <> Nothing Then
+		marker = cockpit.get_node("ExteriorScreen")
+		ext_screen = MakeScreenQuad(marker, exterior_view.get_texture(), 0.22, 0.12)
+		ext_screen.visible = False
+	End If
+	If cockpit.has_node("TacticalScreen") Then
+		marker = cockpit.get_node("TacticalScreen")
+		map_screen = MakeScreenQuad(marker, tactical_view.get_texture(), 0.22, 0.12)
+		map_screen.visible = False
+	End If
+	If strip_label <> Nothing Then strip_label.visible = False
+	If hud_panel <> Nothing Then hud_panel.visible = False
+End Sub
+
+Function MakeScreenQuad(ByVal marker As Object, ByVal tex As Variant, ByVal w As Single, ByVal h As Single) As Object
+	Dim mesh_node As Object
+	Dim quad As Object
+	Dim mat As Object
+	mesh_node = ClassDB.Instantiate("MeshInstance3D")
+	mesh_node.name = "Feed"
+	quad = ClassDB.Instantiate("QuadMesh")
+	quad.size = Vector2(w, h)
+	mesh_node.mesh = quad
+	mat = ClassDB.Instantiate("StandardMaterial3D")
+	mat.shading_mode = 0
+	mat.cull_mode = 2
+	mat.transparency = 1
+	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.62)
+	mat.albedo_texture = tex
+	mesh_node.material_override = mat
+	mesh_node.cast_shadow = 0
+	mesh_node.layers = COCKPIT_LAYER
+	mesh_node.rotation_degrees = Vector3(-38.0, 0.0, 0.0)
+	marker.add_child(mesh_node)
+	MakeScreenQuad = mesh_node
+End Function
+
+Sub MakeRelayGuides()
+	Dim i As Integer
+	Dim socket As Object
+	Dim ring As Object
+	Dim mesh As Object
+	Dim num As Object
+	Dim names As Array
+	If crossing Is Nothing Then Exit Sub
+	relay_rings = Array()
+	relay_nums = Array()
+	relay_masts = Array()
+	relay_drop = Array(0.0, 0.0, 0.0)
+	relay_armed = Array(False, False, False)
+	names = Array("Relay0/LinkSocket", "Relay1/LinkSocket", "Relay2/LinkSocket")
+	For i = 0 To 2
+		relay_masts.append(crossing.get_node("Relay" & Str(i) & "/Mast"))
+		socket = crossing.get_node(names(i))
+		ring = ClassDB.Instantiate("MeshInstance3D")
+		ring.name = "CaptureRing"
+		mesh = ClassDB.Instantiate("TorusMesh")
+		mesh.inner_radius = RELAY_RING_RADIUS - 0.22
+		mesh.outer_radius = RELAY_RING_RADIUS
+		mesh.rings = 24
+		mesh.ring_segments = 12
+		ring.mesh = mesh
+		If amber_mat <> Nothing Then ring.material_override = amber_mat
+		ring.cast_shadow = 0
+		ring.rotation_degrees = Vector3(90, 0, 0)
+		ring.position = Vector3(0.0, RELAY_RING_RADIUS - 0.5, 0.0)
+		socket.add_child(ring)
+		relay_rings.append(ring)
+		num = ClassDB.Instantiate("Label3D")
+		num.name = "RelayNumber"
+		num.text = Str(i + 1)
+		num.font_size = 42
+		num.billboard = 1
+		num.modulate = Color(0.95, 0.82, 0.35, 1.0)
+		num.outline_size = 8
+		num.position = Vector3(0.0, RELAY_RING_RADIUS * 2.0 + 0.6, 0.0)
+		socket.add_child(num)
+		relay_nums.append(num)
+	Next
+End Sub
+
+Function CockpitCam() As Boolean
+	If ride_state = "inspect" Then Return False
+	If ride_state = "on_foot" Then Return False
+	If ride_state = "falling" Then Return False
+	Return True
+End Function
+
+Function RideExclude() As Array
+	Dim list As Array
+	Dim i As Integer
+	list = Array()
+	If player <> Nothing Then list.append(player.get_rid())
+	For i = 0 To floor_rids.size() - 1
+		list.append(floor_rids(i))
+	Next
+	If DockClearance() Then
+		If dock_id = "far" Or dock_id = "vault" Then
+			For i = 0 To far_cradle_rids.size() - 1
+				list.append(far_cradle_rids(i))
+			Next
+		Else
+			For i = 0 To near_cradle_rids.size() - 1
+				list.append(near_cradle_rids(i))
+			Next
+		End If
+	End If
+	RideExclude = list
+End Function
+
+Function DockClearance() As Boolean
+	If ride_state = "boarding" Or ride_state = "parking" Then Return True
+	If ride_state = "riding" And distance_travelled < CYCLE_LENGTH + 4.0 Then Return True
+	Return False
+End Function
+
+Function MapPoint(ByVal p As Vector3) As Vector2
+	Dim cx As Single
+	Dim cz As Single
+	Dim span As Single
+	If yard_field And player <> Nothing Then
+		cx = player.global_position.x
+		cz = player.global_position.z
+		span = radar_radius
+		If span < 1.0 Then span = 400.0
+		MapPoint = Vector2((p.x - cx + span) * (MAP_W / (span * 2.0)) - 3.0, (p.z - cz + span) * (MAP_H / (span * 2.0)) - 3.0)
+		Exit Function
+	End If
+	MapPoint = Vector2((p.x + 80.0) * (MAP_W / 160.0) - 3.0, (p.z + 120.0) * (MAP_H / 240.0) - 3.0)
+End Function
+
+Sub MuteCameras(ByVal node As Object)
+	Dim children As Array
+	Dim child As Object
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.is_class("Camera3D") Then node.current = False
+	children = node.get_children()
+	For i = 0 To children.size() - 1
+		child = children(i)
+		Call MuteCameras(child)
+	Next
+End Sub
+
+Sub SetCollisionEnabled(ByVal node As Object, ByVal on As Boolean)
+	Dim children As Array
+	Dim child As Object
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.is_class("CollisionObject3D") Then
+		If Not node.has_meta("trace_col_layer") Then
+			node.set_meta("trace_col_layer", node.collision_layer)
+			node.set_meta("trace_col_mask", node.collision_mask)
+		End If
+		If on Then
+			node.collision_layer = node.get_meta("trace_col_layer")
+			node.collision_mask = node.get_meta("trace_col_mask")
+		Else
+			node.collision_layer = 0
+			node.collision_mask = 0
+		End If
+	End If
+	children = node.get_children()
+	For i = 0 To children.size() - 1
+		child = children(i)
+		Call SetCollisionEnabled(child, on)
+	Next
+End Sub
+
+Sub PlaceRemote()
+	Dim spawn As Object
+	If remote Is Nothing Or crossing Is Nothing Then Exit Sub
+	Call ClearRemoteBurst()
+	spawn = crossing.get_node("SecuritySpawn")
+	remote.global_transform = spawn.global_transform
+	remote.global_position = Vector3(remote.global_position.x, 0, remote.global_position.z)
+	enemy_heading = HeadingOf(spawn)
+	remote.rotation = Vector3(0.0, 0.0 - enemy_heading, 0.0)
+End Sub
+
+Sub AssembleFacility()
+	Dim packed As Object
+	Dim mount As Object
+	play_vault = ClassDB.Instantiate("Node3D")
+	play_vault.name = "PlayVault"
+	play_vault.visible = False
+	add_child(play_vault)
+	packed = Load("res://assets/trace_vault/scenes/vault_room.tscn")
+	play_vault.add_child(packed.instantiate())
+	play_vault.get_child(0).name = "Room"
+	play_vault.global_position = Vector3(0.0, 0.0, -280.0)
+	packed = Load("res://assets/trace_vault/scenes/deep_lift_lobby.tscn")
+	vault_lift = packed.instantiate()
+	vault_lift.name = "VaultLift"
+	play_vault.add_child(vault_lift)
+	' Door is at room z=+13 facing +Z. Rotate the lobby 180 so its open
+	' front meets that doorway instead of leaving the chamber in the void.
+	vault_lift.position = Vector3(0.0, 0.0, 18.0)
+	vault_lift.rotation = Vector3(0.0, PI, 0.0)
+	packed = Load("res://assets/trace_vault/scenes/stasis_cradle.tscn")
+	stasis = packed.instantiate()
+	stasis.name = "Stasis"
+	play_vault.add_child(stasis)
+	mount = play_vault.get_node("Room/StasisMount")
+	stasis.global_transform = mount.global_transform
+	packed = Load("res://assets/trace_vault/scenes/feb.tscn")
+	feb = packed.instantiate()
+	feb.name = "FEB"
+	play_vault.add_child(feb)
+	feb.global_transform = stasis.get_node("FigureMount").global_transform
+	packed = Load("res://assets/trace_vault/scenes/core_bank.tscn")
+	core_bank = packed.instantiate()
+	core_bank.name = "Cores"
+	play_vault.add_child(core_bank)
+	core_bank.global_transform = play_vault.get_node("Room/CoreBank").global_transform
+	packed = Load("res://assets/trace_vault/scenes/power_coupler.tscn")
+	coupler = packed.instantiate()
+	coupler.name = "Coupler"
+	play_vault.add_child(coupler)
+	coupler.global_transform = stasis.get_node("CouplerSocket").global_transform
+	Call MuteCameras(play_vault)
+	Call PosePod(0.0)
+	Call SetCollisionEnabled(play_vault, False)
+End Sub
+
+Sub MakeWalker()
+	walker = ClassDB.Instantiate("Node3D")
+	walker.name = "Walker"
+	walker.visible = False
+	add_child(walker)
+	walk_shape = ClassDB.Instantiate("SphereShape3D")
+	walk_shape.radius = 0.42
+	walk_query = ClassDB.Instantiate("PhysicsShapeQueryParameters3D")
+	walk_query.shape = walk_shape
+	walk_query.collision_mask = 1
+End Sub
+
+Sub RestoreVaultProps()
+	Dim i As Integer
+	If core_bank <> Nothing Then
+		For i = 0 To 2
+			If core_bank.has_node("Core" & Str(i)) Then core_bank.get_node("Core" & Str(i)).visible = True
+		Next
+	End If
+	If coupler <> Nothing Then coupler.visible = True
+	pod_active = False
+	pod_t = 0.0
+	pod_fog_on = False
+	Call PosePod(0.0)
+End Sub
+
+' Stasis capsule sequence after the coupler is pulled (seconds since take):
+' clamps retract 0-0.7, seam flickers from 0.5, fog from 1.0, lids crack 1.2-2.6
+' then swing open to 2.6-6.0, FEB stirs 3.0-5.0, fog stops at 9.0.
+Function PodEase(ByVal a As Single, ByVal b As Single, ByVal t As Single) As Single
+	Dim u As Single
+	u = (t - a) / (b - a)
+	If u < 0 Then u = 0
+	If u > 1 Then u = 1
+	PodEase = u * u * (3.0 - 2.0 * u)
+End Function
+
+Sub SetPodRotation(ByVal path As String, ByVal value As Vector3)
+	If stasis Is Nothing Then Exit Sub
+	If stasis.has_node(path) Then stasis.get_node(path).rotation = value
+End Sub
+
+Sub PosePod(ByVal t As Single)
+	Dim c As Single
+	Dim lid As Single
+	Dim w As Single
+	Dim seam As Boolean
+	Dim fog As Boolean
+	Dim emitters As Array
+	Dim i As Integer
+	c = PodEase(0.0, 0.7, t) * 1.48
+	Call SetPodRotation("ClampPivots/UpperLeft", Vector3(0, -c, 0))
+	Call SetPodRotation("ClampPivots/LowerLeft", Vector3(0, -c, 0))
+	Call SetPodRotation("ClampPivots/UpperRight", Vector3(0, c, 0))
+	Call SetPodRotation("ClampPivots/LowerRight", Vector3(0, c, 0))
+	lid = PodEase(1.2, 2.6, t) * 0.14 + PodEase(2.6, 6.0, t) * 1.6
+	Call SetPodRotation("Capsule/LidLeft", Vector3(0, lid, 0))
+	Call SetPodRotation("Capsule/LidRight", Vector3(0, -lid, 0))
+	seam = t >= 0.5
+	If t < 1.4 And seam Then seam = (Int(t * 17.0) Mod 3) <> 0
+	If stasis <> Nothing Then
+		If stasis.has_node("Capsule/LidLeft/Seam") Then stasis.get_node("Capsule/LidLeft/Seam").visible = seam
+		If stasis.has_node("Capsule/LidRight/Seam") Then stasis.get_node("Capsule/LidRight/Seam").visible = seam
+		fog = t >= 1.0 And t < 9.0
+		If fog <> pod_fog_on Or t <= 0 Then
+			pod_fog_on = fog
+			If stasis.has_node("Capsule/Fog") Then
+				emitters = stasis.get_node("Capsule/Fog").get_children()
+				For i = 0 To emitters.size() - 1
+					emitters(i).emitting = fog
+				Next
+			End If
+		End If
+	End If
+	If feb <> Nothing Then
+		w = PodEase(3.0, 5.0, t)
+		If feb.has_node("VisualRoot/HeadPivot") Then feb.get_node("VisualRoot/HeadPivot").rotation = Vector3(0.18, 0.25, 0) * w
+		If feb.has_node("VisualRoot/ServiceArmPivot") Then feb.get_node("VisualRoot/ServiceArmPivot").rotation = Vector3(0.35, 0.1, 0) * w
+		If feb.has_node("VisualRoot/ThermalArmPivot") Then feb.get_node("VisualRoot/ThermalArmPivot").rotation = Vector3(-0.45, 0, 0.12) * w
+	End If
+End Sub
+
+Sub TickPod(ByVal delta As Single)
+	If Not pod_active Then Exit Sub
+	pod_t = pod_t + delta
+	Call PosePod(pod_t)
+	If pod_t > 10.0 Then pod_active = False
+End Sub
+
+Function MarkerGap(ByVal node As Object) As Single
+	Dim a As Vector3
+	Dim b As Vector3
+	If node Is Nothing Or walker Is Nothing Then
+		MarkerGap = 99.0
+		Exit Function
+	End If
+	a = walker.global_position
+	b = node.global_position
+	MarkerGap = Vector2(a.x - b.x, a.z - b.z).length()
+End Function
+
+Sub PlaceWalker(ByVal node As Object, ByVal yaw As Single)
+	Dim origin As Vector3
+	If walker Is Nothing Or node Is Nothing Then Exit Sub
+	origin = node.global_position
+	walker.visible = True
+	walker.global_position = Vector3(origin.x, 0.0, origin.z)
+	walk_heading = WrapAngle(yaw)
+	cam_ready = False
+End Sub
+
+Function WalkBlocked(ByVal origin As Vector3) As Boolean
+	Dim space As Object
+	Dim pose As Transform3D
+	Dim contacts As Array
+	WalkBlocked = False
+	If walker Is Nothing Or walk_query Is Nothing Then Exit Function
+	space = walker.get_world_3d().direct_space_state
+	If space Is Nothing Then Exit Function
+	pose = Transform3D(Basis(), Vector3(origin.x, 0.9, origin.z))
+	walk_query.transform = pose
+	walk_query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(walk_query)
+	WalkBlocked = contacts.size() > 0
+End Function
+
+' Walkable pads only. SupportCollision is ride physics across the void, not a floor.
+Function OnWalkDeck(ByVal origin As Vector3) As Boolean
+	Dim local As Vector3
+	Dim lobby As Object
+	OnWalkDeck = False
+	If yard_field And area_name <> "vault" Then
+		If crossing Is Nothing Then Exit Function
+		If origin.x >= yard_min_x - 0.2 And origin.x <= yard_max_x + 0.2 And origin.z >= yard_min_z - 0.2 And origin.z <= yard_max_z + 0.2 Then
+			OnWalkDeck = True
+			Exit Function
+		End If
+		If crossing.has_node("DeepLiftLobby") Then
+			lobby = crossing.get_node("DeepLiftLobby")
+			local = lobby.to_local(origin)
+			If Abs(local.x) <= 5.2 And Abs(local.z) <= 5.2 Then
+				OnWalkDeck = True
+				Exit Function
+			End If
+		End If
+		If crossing.has_node("VaultCradle") Then
+			local = crossing.get_node("VaultCradle").to_local(origin)
+			If Abs(local.x) <= 12.0 And Abs(local.z) <= 14.0 Then
+				OnWalkDeck = True
+				Exit Function
+			End If
+		End If
+		If crossing.has_node("YardDock") Then
+			local = crossing.get_node("YardDock").to_local(origin)
+			If Abs(local.x) <= 9.0 And Abs(local.z) <= 13.0 Then
+				OnWalkDeck = True
+				Exit Function
+			End If
+		End If
+		Exit Function
+	End If
+	If area_name = "vault" Then
+		If play_vault Is Nothing Then Exit Function
+		local = play_vault.to_local(origin)
+		If Abs(local.x) <= 9.2 And Abs(local.z) <= 13.2 Then
+			OnWalkDeck = True
+			Exit Function
+		End If
+		If vault_lift Is Nothing Then Exit Function
+		local = vault_lift.to_local(origin)
+		If Abs(local.x) <= 5.2 And Abs(local.z) <= 5.2 Then OnWalkDeck = True
+		Exit Function
+	End If
+	If Abs(origin.x) <= 18.2 And origin.z <= -99.6 And origin.z >= -122.4 Then
+		OnWalkDeck = True
+		Exit Function
+	End If
+	If crossing Is Nothing Then Exit Function
+	If Not crossing.has_node("DeepLiftLobby") Then Exit Function
+	lobby = crossing.get_node("DeepLiftLobby")
+	local = lobby.to_local(origin)
+	If Abs(local.x) <= 5.2 And Abs(local.z) <= 5.2 Then OnWalkDeck = True
+End Function
+
+Sub BeginFall()
+	If ride_state = "falling" Or ride_state = "crashed" Then Exit Sub
+	If walker Is Nothing Then Exit Sub
+	ride_state = "falling"
+	walk_fall = 2.0
+	crash_point = walker.global_position
+	prompt = ""
+End Sub
+
+Sub TickFall(ByVal delta As Single)
+	Dim origin As Vector3
+	If walker Is Nothing Then Exit Sub
+	walk_fall = walk_fall + delta * 26.0
+	origin = walker.global_position
+	origin.y = origin.y - walk_fall * delta
+	walker.global_position = origin
+	If origin.y < -18.0 Or walk_fall > 32.0 Then
+		crash_point = origin
+		Call MarkCrash("fall")
+	End If
+End Sub
+
+' Dismount beside the cycle, then step onto open ground facing the lift
+' so W walks toward it instead of into the cradle rails.
+Sub PlaceWalkerFacing(ByVal from_node As Object, ByVal toward As Object)
+	Dim origin As Vector3
+	Dim target As Vector3
+	Dim dir As Vector3
+	Dim span As Single
+	Dim i As Integer
+	If walker Is Nothing Or from_node Is Nothing Then Exit Sub
+	origin = from_node.global_position
+	If toward <> Nothing Then
+		target = toward.global_position
+	Else
+		target = origin + Vector3(0.0, 0.0, -8.0)
+	End If
+	dir = Vector3(target.x - origin.x, 0.0, target.z - origin.z)
+	span = dir.length()
+	If span < 0.05 Then
+		dir = ForwardOf(0.0)
+	Else
+		dir = dir / span
+	End If
+	walk_heading = Atan2(dir.x, 0.0 - dir.z)
+	origin = Vector3(origin.x + dir.x * 3.4, 0.0, origin.z + dir.z * 3.4)
+	For i = 1 To 10
+		If Not WalkBlocked(origin) Then Exit For
+		origin = Vector3(origin.x + dir.x * 0.7, 0.0, origin.z + dir.z * 0.7)
+	Next
+	walker.visible = True
+	walker.global_position = origin
+	cam_ready = False
+End Sub
+
+Sub WalkForward(ByVal dist As Single)
+	Dim fwd As Vector3
+	fwd = ForwardOf(walk_heading)
+	Call MoveWalk(Vector3(fwd.x * dist, 0.0, fwd.z * dist))
+End Sub
+
+Sub FaceWalkerToward(ByVal node As Object)
+	Dim dir As Vector3
+	If walker Is Nothing Or node Is Nothing Then Exit Sub
+	dir = node.global_position - walker.global_position
+	dir.y = 0.0
+	If dir.length() < 0.05 Then Exit Sub
+	walk_heading = Atan2(dir.x, 0.0 - dir.z)
+End Sub
+
+Sub RevealField()
+	area_name = "crossing"
+	If crossing <> Nothing Then crossing.visible = True
+	If play_vault <> Nothing Then play_vault.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	If walker <> Nothing Then walker.visible = False
+	If player <> Nothing Then player.visible = True
+End Sub
+
+Sub enter_lift()
+	Dim pose As Object
+	If ride_state <> "docked" And ride_state <> "on_foot" Then Exit Sub
+	If dock_id <> "far" And dock_id <> "vault" And area_name <> "lobby" Then Exit Sub
+	If route.stage_name = "outbound_crossing" Then route.advance("outbound_docked")
+	ride_state = "on_foot"
+	area_name = "lobby"
+	If crossing <> Nothing Then crossing.visible = True
+	If play_vault <> Nothing Then play_vault.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	If player <> Nothing Then player.visible = True
+	If walker <> Nothing Then walker.visible = True
+	If crossing.has_node("FarLift") Then
+		pose = crossing.get_node("FarLift")
+	Else
+		pose = crossing.get_node("VaultLift")
+	End If
+	If crossing.has_node("FarCradle/ExitPoint") Then
+		Call PlaceWalkerFacing(crossing.get_node("FarCradle/ExitPoint"), pose)
+	ElseIf crossing.has_node("VaultCradle/ExitPoint") Then
+		Call PlaceWalkerFacing(crossing.get_node("VaultCradle/ExitPoint"), pose)
+	Else
+		Call PlaceWalkerFacing(pose, pose)
+	End If
+	prompt = "E DEEP LIFT"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Sub enter_vault()
+	Dim pose As Object
+	If Not route.allow_deep_lift("14242") Then Exit Sub
+	ride_state = "on_foot"
+	area_name = "vault"
+	If crossing <> Nothing Then crossing.visible = False
+	If play_vault <> Nothing Then play_vault.visible = True
+	Call SetCollisionEnabled(play_vault, True)
+	If player <> Nothing Then player.visible = False
+	pose = play_vault.get_node("Room/Entrance")
+	If play_vault.has_node("Room/StasisMount") Then
+		Call PlaceWalkerFacing(pose, play_vault.get_node("Room/StasisMount"))
+	Else
+		Call PlaceWalker(pose, 0.0)
+	End If
+	prompt = "E TAKE CORE / COUPLER"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Function take_core_slot(ByVal slot As Integer) As Boolean
+	Dim prop As Object
+	If area_name <> "vault" Then Return False
+	If Not route.take_core() Then Return False
+	If core_bank <> Nothing Then
+		If core_bank.has_node("Core" & Str(slot)) Then
+			prop = core_bank.get_node("Core" & Str(slot))
+			prop.visible = False
+		End If
+	End If
+	take_core_slot = True
+End Function
+
+Sub take_coupler()
+	If area_name <> "vault" Then Exit Sub
+	If Not route.advance("coupler_taken") Then Exit Sub
+	If coupler <> Nothing Then coupler.visible = False
+	pod_t = 0.0
+	pod_active = True
+	Call PosePod(0.0)
+	prompt = "E EXIT  255"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Sub exit_facility()
+	If area_name <> "vault" Then Exit Sub
+	If Not route.timer_started And Not route.coupler_taken Then Exit Sub
+	If Not route.advance("facility_exited") Then Exit Sub
+	ride_state = "on_foot"
+	dock_id = VaultDockId()
+	area_name = "lobby"
+	If crossing <> Nothing Then crossing.visible = True
+	If play_vault <> Nothing Then play_vault.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	If player <> Nothing Then player.visible = True
+	Call ApplyDock(VaultDockId())
+	If crossing.has_node("FarLift") And crossing.has_node("FarCradle") Then
+		Call PlaceWalkerFacing(crossing.get_node("FarLift"), crossing.get_node("FarCradle"))
+	ElseIf crossing.has_node("VaultLift") And crossing.has_node("VaultCradle") Then
+		Call PlaceWalkerFacing(crossing.get_node("VaultLift"), crossing.get_node("VaultCradle"))
+	End If
+	If walker <> Nothing Then walker.visible = True
+	prompt = "E BOARD THE CYCLE"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Sub BoardCycle()
+	If ride_state <> "on_foot" Then Exit Sub
+	If Not route.facility_cleared Then Exit Sub
+	If walker <> Nothing Then walker.visible = False
+	If player <> Nothing Then player.visible = True
+	area_name = "crossing"
+	Call ApplyDock(VaultDockId())
+	ride_state = "boarding"
+	board_t = 0.45
+	prompt = ""
+	Call BeginChaseSignal()
+End Sub
+
+Sub BeginChaseSignal()
+	enemy_state = "telegraph"
+	chase_t = 1.6
+	have_enemy_emit = False
+	Call PlaceChaseRemote()
+	If remote <> Nothing Then remote.visible = True
+End Sub
+
+Sub PlaceChaseRemote()
+	If remote Is Nothing Then Exit Sub
+	Call ClearRemoteBurst()
+	If yard_field Then
+		Call PlaceRemote()
+		enemy_heading = WrapAngle(heading + PI * 0.5)
+		remote.rotation = Vector3(0.0, 0.0 - enemy_heading, 0.0)
+		enemy_speed = START_SPEED + 10.0
+		Exit Sub
+	End If
+	remote.global_position = Vector3(-38.0, 0.0, -36.0)
+	enemy_heading = PI * 0.5
+	remote.rotation = Vector3(0.0, 0.0 - enemy_heading, 0.0)
+	enemy_speed = START_SPEED + 10.0
+End Sub
+
+Sub RestoreVault()
+	Call clear_trails()
+	route.retry()
+	Call RestoreVaultProps()
+	Call enter_vault()
+	crash_reason = ""
+	ride_state = "on_foot"
+End Sub
+
+Sub RestoreChase()
+	Call clear_trails()
+	route.retry()
+	Call RevealField()
+	Call ApplyDock(VaultDockId())
+	ride_state = "docked"
+	dock_id = VaultDockId()
+	Call BeginChaseSignal()
+	crash_reason = ""
+	cam_ready = False
+End Sub
+
+Sub reset_run()
+	Call clear_trails()
+	Call clear_test_walls()
+	route.reset()
+	route.advance("symbols_entered")
+	ride_state = "docked"
+	dock_id = HomeDock()
+	inspect_subject = 0
+	inspect_return = "near"
+	speed = START_SPEED
+	bank = 0.0
+	canopy_open = 1.0
+	wheel_spin = 0.0
+	relays = 0
+	trace_on_t = 0.0
+	trace_off_t = 0.0
+	trace_shutdown_t = 0.0
+	field_open_t = 0.0
+	last_cue = ""
+	pulse_t = 0.0
+	pad_flash_i = -1
+	If relay_armed.size() >= 3 Then relay_armed = Array(False, False, False)
+	Call UpdateRelayMasts(0.0)
+	distance_travelled = 0.0
+	crash_reason = ""
+	crash_path = ""
+	crash_point = Vector3(0, 0, 0)
+	last_crash = ""
+	last_crash_path = ""
+	board_t = 0.0
+	park_t = 0.0
+	orbit_yaw = 2.4
+	orbit_pitch = 0.32
+	orbit_dist = 9.5
+	cam_ready = False
+	have_emit = False
+	area_name = "crossing"
+	prompt = ""
+	walk_heading = 0.0
+	enemy_state = "idle"
+	enemy_speed = START_SPEED
+	enemy_travel = 0.0
+	enemy_turn_t = 0.0
+	chase_t = 0.0
+	walk_fall = 0.0
+	explode_t = 0.0
+	have_enemy_emit = False
+	If crossing <> Nothing Then crossing.visible = True
+	If vault <> Nothing Then vault.visible = False
+	Call SetCollisionEnabled(vault, False)
+	If play_vault <> Nothing Then play_vault.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	If walker <> Nothing Then walker.visible = False
+	If player <> Nothing Then player.visible = True
+	If remote <> Nothing Then
+		remote.visible = True
+		Call PlaceRemote()
+	End If
+	Call RestoreVaultProps()
+	Call ApplyDock(HomeDock())
+	If yard_field Then Call ResetYardRun()
+	Call ApplyVisuals(0.0)
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
+End Sub
+
+Function DockPose(ByVal which As String) As Object
+	If yard_field Then
+		If which = "far" Or which = "vault" Or which = "far_yard" Then
+			DockPose = crossing.get_node("VaultCradle/DockPose")
+		Else
+			DockPose = crossing.get_node("YardDock/DockPose")
+		End If
+		Exit Function
+	End If
+	If which = "far" Then
+		DockPose = crossing.get_node("FarCradle/DockPose")
+	Else
+		DockPose = crossing.get_node("NearCradle/DockPose")
+	End If
+End Function
+
+Function RelayRoot(ByVal path As String) As String
+	Dim i As Integer
+	i = path.find("/")
+	If i < 0 Then
+		RelayRoot = path
+	Else
+		RelayRoot = path.substr(0, i)
+	End If
+End Function
+
+Function HomeDock() As String
+	If yard_field Then
+		HomeDock = "yard_dock"
+	Else
+		HomeDock = "near"
+	End If
+End Function
+
+Function VaultDockId() As String
+	If yard_field Then
+		VaultDockId = "vault"
+	Else
+		VaultDockId = "far"
+	End If
+End Function
+
+Function HeadingOf(ByVal node As Object) As Single
+	Dim fwd As Vector3
+	fwd = node.to_global(Vector3(0.0, 0.0, -1.0)) - node.global_position
+	HeadingOf = Atan2(fwd.x, 0.0 - fwd.z)
+End Function
+
+Function WrapAngle(ByVal value As Single) As Single
+	While value > PI
+		value = value - PI * 2.0
+	Wend
+	While value < 0.0 - PI
+		value = value + PI * 2.0
+	Wend
+	WrapAngle = value
+End Function
+
+Function AngleDelta(ByVal from_h As Single, ByVal to_h As Single) As Single
+	AngleDelta = WrapAngle(to_h - from_h)
+End Function
+
+Function ForwardOf(ByVal yaw As Single) As Vector3
+	ForwardOf = Vector3(Sin(yaw), 0.0, 0.0 - Cos(yaw))
+End Function
+
+Sub ApplyDock(ByVal which As String)
+	Dim pose As Object
+	Dim origin As Vector3
+	pose = DockPose(which)
+	If pose Is Nothing Then Exit Sub
+	origin = pose.global_transform.origin
+	player.global_position = Vector3(origin.x, 0.0, origin.z)
+	heading = HeadingOf(pose)
+	player.rotation = Vector3(0.0, 0.0 - heading, 0.0)
+	dock_id = which
+	speed = START_SPEED
+	have_emit = False
+	last_safe_dock = which
+End Sub
+
+Sub begin_riding()
+	If ride_state = "riding" Then Exit Sub
+	If route.stage_name = "outbound_ready" Then route.advance("outbound_boarded")
+	ride_state = "riding"
+	inspect_subject = 0
+	canopy_open = 0.0
+	If auto_speed >= MIN_SPEED Then
+		speed = auto_speed
+	ElseIf speed < MIN_SPEED Then
+		speed = START_SPEED
+	End If
+	have_emit = False
+End Sub
+
+Sub launch()
+	If ride_state = "crashed" Then Exit Sub
+	If ride_state = "inspect" Then Exit Sub
+	If ride_state = "parking" Then Exit Sub
+	If ride_state <> "docked" And ride_state <> "boarding" Then Exit Sub
+	If yard_field And Not cradle_released And (dock_id = "yard_dock" Or dock_id = "near") Then Exit Sub
+	ride_state = "boarding"
+	board_t = 0.45
+End Sub
+
+Sub retry_run()
+	last_crash = crash_reason
+	If route.checkpoint_id = "far_dock" Then
+		Call RestoreChase()
+		Exit Sub
+	End If
+	If route.checkpoint_id = "vault" Then
+		Call RestoreVault()
+		Exit Sub
+	End If
+	Call reset_run()
+End Sub
+
+Sub CloseTrailAtEmitter()
+	Dim pos As Vector3
+	If Not have_emit Then Exit Sub
+	If emitter Is Nothing Then Exit Sub
+	pos = Vector3(emitter.global_position.x, 0.55, emitter.global_position.z)
+	If last_emit.distance_to(pos) >= 0.08 Then Call CommitTrail(last_emit, pos)
+	If grow_mesh <> Nothing Then grow_mesh.visible = False
+End Sub
+
+Function EmitPoint(ByVal src As Object) As Vector3
+	If src Is Nothing Then
+		EmitPoint = Vector3(0, 0.55, 0)
+		Exit Function
+	End If
+	EmitPoint = Vector3(src.global_position.x, 0.55, src.global_position.z)
+End Function
+
+' Light cycles swing around the trace emitter so a turn leaves a sharp,
+' unbroken corner instead of a hull-length gap.
+Sub PivotOnEmitter(ByVal body As Object, ByVal src As Object, ByVal keep As Vector3)
+	Dim now As Vector3
+	If body Is Nothing Or src Is Nothing Then Exit Sub
+	now = EmitPoint(src)
+	body.global_position = body.global_position + Vector3(keep.x - now.x, 0.0, keep.z - now.z)
+End Sub
+
+Sub RestartTrail()
+	If emitter Is Nothing Then
+		have_emit = False
+		Exit Sub
+	End If
+	last_emit = Vector3(emitter.global_position.x, 0.55, emitter.global_position.z)
+	have_emit = True
+	If grow_mesh <> Nothing Then grow_mesh.visible = False
+End Sub
+
+Sub request_turn(ByVal dir As Integer)
+	Dim corner As Vector3
+	If ride_state <> "riding" Then Exit Sub
+	If dir = 0 Then Exit Sub
+	corner = EmitPoint(emitter)
+	If have_emit And trace_off_t <= 0.0 Then
+		If last_emit.distance_to(corner) >= 0.08 Then Call CommitTrail(last_emit, corner)
+		If grow_mesh <> Nothing Then grow_mesh.visible = False
+	End If
+	If dir > 0 Then
+		heading = WrapAngle(heading + PI * 0.5)
+		bank = bank + 0.22
+	Else
+		heading = WrapAngle(heading - PI * 0.5)
+		bank = bank - 0.22
+	End If
+	player.rotation = Vector3(0.0, 0.0 - heading, 0.0)
+	Call PivotOnEmitter(player, emitter, corner)
+	If visual <> Nothing Then visual.rotation = Vector3(0.0, 0.0, bank)
+	If have_emit And trace_off_t <= 0.0 Then
+		last_emit = corner
+	Else
+		Call RestartTrail()
+	End If
+	Call CheckRestOverlap()
+End Sub
+
+Sub set_inspect(ByVal subject As Integer)
+	If subject <= 0 Then
+		If ride_state = "inspect" Then
+			ride_state = "docked"
+			inspect_subject = 0
+			cam_ready = False
+			If vault <> Nothing Then vault.visible = False
+			Call SetCollisionEnabled(vault, False)
+			If crossing <> Nothing Then crossing.visible = True
+			If player <> Nothing Then player.visible = True
+			Call ApplyDock(inspect_return)
+		End If
+		Exit Sub
+	End If
+	If ride_state <> "docked" And ride_state <> "inspect" Then Exit Sub
+	If ride_state = "docked" Then inspect_return = dock_id
+	ride_state = "inspect"
+	inspect_subject = subject
+	cam_ready = False
+	If subject > 3 Then inspect_subject = 1
+	orbit_yaw = 2.4
+	orbit_pitch = 0.32
+	If inspect_subject = 3 Then orbit_dist = 14.0
+	If inspect_subject <> 3 Then orbit_dist = 9.5
+	If vault <> Nothing Then vault.visible = inspect_subject = 3
+	If inspect_subject = 3 Then
+		Call SetCollisionEnabled(vault, True)
+	Else
+		Call SetCollisionEnabled(vault, False)
+	End If
+	If play_vault <> Nothing Then play_vault.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	If crossing <> Nothing Then crossing.visible = inspect_subject <> 3
+	If player <> Nothing Then player.visible = inspect_subject <> 3
+	If remote <> Nothing Then remote.visible = True
+	If vault <> Nothing Then Call MuteCameras(vault)
+	paused = False
+End Sub
+
+Function IsPaused() As Boolean
+	Dim game As Object
+	If paused Then Return True
+	If host Is Nothing Then Return False
+	game = host.get_parent()
+	If game Is Nothing Then Return False
+	If game.menu_on Then Return True
+	If game.dev_on Then Return True
+	Return False
+End Function
+
+Function Tap(ByVal code As Integer) As Boolean
+	If ignore_input Then Return False
+	If IsPaused() Then Return False
+	Return IsKeyJustPressed(code)
+End Function
+
+Function Held(ByVal code As Integer) As Boolean
+	If ignore_input Then Return False
+	If IsPaused() Then Return False
+	Return IsKeyPressed(code)
+End Function
+
+Sub ReadPlayer(ByVal delta As Single)
+	If ignore_input Then Exit Sub
+	If IsPaused() Then Exit Sub
+	If mode = "f6" And IsKeyJustPressed(KEY_ESCAPE) Then
+		paused = Not paused
+		Exit Sub
+	End If
+	If Tap(KEY_F3) Then
+		debug_hud = Not debug_hud
+		If hud_label <> Nothing Then hud_label.visible = debug_hud
+	End If
+	If ride_state = "inspect" Then
+		If Held(KEY_A) Or Held(KEY_LEFT) Then orbit_yaw = orbit_yaw + delta * 1.4
+		If Held(KEY_D) Or Held(KEY_RIGHT) Then orbit_yaw = orbit_yaw - delta * 1.4
+		If Held(KEY_W) Or Held(KEY_UP) Then orbit_dist = orbit_dist - delta * 8.0
+		If Held(KEY_S) Or Held(KEY_DOWN) Then orbit_dist = orbit_dist + delta * 8.0
+		If orbit_dist < 4.0 Then orbit_dist = 4.0
+		If orbit_dist > 28.0 Then orbit_dist = 28.0
+		If Tap(KEY_1) Then Call set_inspect(1)
+		If Tap(KEY_2) Then Call set_inspect(2)
+		If Tap(KEY_3) Then Call set_inspect(3)
+		If Tap(KEY_I) Then Call set_inspect(0)
+		If Tap(KEY_R) Then Call retry_run()
+		Exit Sub
+	End If
+	If Tap(KEY_R) Then
+		Call retry_run()
+		Exit Sub
+	End If
+	If ride_state = "docked" And Tap(KEY_I) Then
+		Call set_inspect(1)
+		Exit Sub
+	End If
+	If ride_state = "docked" And Tap(KEY_1) Then Call set_inspect(1)
+	If ride_state = "docked" And Tap(KEY_2) Then Call set_inspect(2)
+	If ride_state = "docked" And Tap(KEY_3) Then Call set_inspect(3)
+	If ride_state = "on_foot" Then
+		If lock_open Then
+			Call ReadLockKeys()
+			Exit Sub
+		End If
+		If Tap(KEY_E) Then Call InteractFoot()
+		If Held(KEY_A) Or Held(KEY_LEFT) Then walk_heading = WrapAngle(walk_heading - delta * 2.2)
+		If Held(KEY_D) Or Held(KEY_RIGHT) Then walk_heading = WrapAngle(walk_heading + delta * 2.2)
+		Exit Sub
+	End If
+	If ride_state = "docked" Or ride_state = "boarding" Then
+		If Tap(KEY_E) Then
+			If (dock_id = "far" Or dock_id = "vault") And Not route.facility_cleared Then
+				Call enter_lift()
+			Else
+				Call launch()
+			End If
+		End If
+	End If
+	If ride_state = "riding" Or ride_state = "docked" Or ride_state = "boarding" Then Call ApplyThrottle(delta)
+	If yard_field Then
+		If Tap(KEY_Q) Then Call ListScan()
+		If Tap(KEY_TAB) Then Call CycleGoto()
+	End If
+	If ride_state <> "riding" Then Exit Sub
+	If Tap(KEY_A) Or Tap(KEY_LEFT) Then Call request_turn(-1)
+	If Tap(KEY_D) Or Tap(KEY_RIGHT) Then Call request_turn(1)
+	If Tap(KEY_T) Then Call trace_off()
+End Sub
+
+' T requests a shutdown; the trace stays live for the countdown so it cannot
+' be used to dodge an imminent crash.
+Sub trace_off()
+	If ride_state <> "riding" Or trace_off_t > 0.0 Or trace_shutdown_t > 0.0 Then Exit Sub
+	trace_shutdown_t = TRACE_SHUTDOWN_TIME
+	last_cue = "shutdown"
+	pulse_t = 0.35
+	Call PlayCue(wipe_stream)
+End Sub
+
+Function TraceShuttingDown() As Boolean
+	TraceShuttingDown = trace_shutdown_t > 0.0
+End Function
+
+Sub WipeTrace()
+	Dim i As Integer
+	trace_shutdown_t = 0.0
+	Call clear_trails()
+	have_enemy_emit = False
+	trace_on_t = 0.0
+	trace_off_t = TRACE_OFF_TIME
+	If Not route.facility_cleared Then
+		relays = 0
+		For i = 0 To relay_armed.size() - 1
+			relay_armed(i) = False
+		Next
+	End If
+	last_cue = "wipe"
+	pulse_t = 0.45
+	pad_flash_i = -1
+	Call PlayCue(wipe_stream)
+End Sub
+
+Function TraceIsOff() As Boolean
+	TraceIsOff = trace_off_t > 0.0
+End Function
+
+Function ClampSpeed(ByVal value As Single) As Single
+	Dim top As Single
+	If value < MIN_SPEED Then value = MIN_SPEED
+	top = MAX_SPEED
+	If yard_field And charge <= charge_crit Then top = charge_crit_cap
+	If value > top Then value = top
+	ClampSpeed = value
+End Function
+
+Sub NudgeSpeed(ByVal amount As Single)
+	If auto_speed >= MIN_SPEED Then Exit Sub
+	speed = ClampSpeed(speed + amount)
+	Call RefreshThrottle()
+End Sub
+
+Sub ApplyThrottle(ByVal delta As Single)
+	If auto_speed >= MIN_SPEED Then Exit Sub
+	If Held(KEY_W) Or Held(KEY_UP) Then Call NudgeSpeed(delta * 40.0)
+	If Held(KEY_S) Or Held(KEY_DOWN) Then Call NudgeSpeed(0.0 - delta * 40.0)
+	If Tap(KEY_EQUAL) Or Tap(KEY_PLUS) Or Tap(KEY_KP_ADD) Then Call NudgeSpeed(8.0)
+	If Tap(KEY_MINUS) Or Tap(KEY_KP_SUBTRACT) Then Call NudgeSpeed(0.0 - 8.0)
+	If Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_UP) Then Call NudgeSpeed(4.0)
+	If Input.is_mouse_button_pressed(MOUSE_BUTTON_WHEEL_DOWN) Then Call NudgeSpeed(0.0 - 4.0)
+End Sub
+
+Sub RefreshThrottle()
+	Dim frac As Single
+	Dim show_bar As Boolean
+	show_bar = ride_state = "riding" Or ride_state = "docked" Or ride_state = "boarding"
+	If throttle_back <> Nothing Then throttle_back.visible = show_bar
+	If throttle_fill <> Nothing Then
+		frac = (speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
+		If frac < 0.0 Then frac = 0.0
+		If frac > 1.0 Then frac = 1.0
+		throttle_fill.size = Vector2(220.0 * frac, 7.0)
+		throttle_fill.visible = show_bar
+	End If
+	If throttle_lab <> Nothing Then
+		throttle_lab.text = "W/S  " & Str(Int(speed + 0.5)) & " M/S"
+		throttle_lab.visible = show_bar
+	End If
+End Sub
+
+Sub tick(ByVal delta As Single)
+	If Not world_ready Then Call EnsureWorld()
+	If Not running Then
+		Call RefreshHud()
+		Exit Sub
+	End If
+	If delta < 0 Then delta = 0
+	If auto_speed >= MIN_SPEED And ride_state = "riding" Then speed = auto_speed
+	Call ReadPlayer(delta)
+	If IsPaused() Then
+		Call ApplyVisuals(0.0)
+		Call AimRideCamera(delta)
+		Call RefreshHud()
+		Exit Sub
+	End If
+	If route.timer_started Then
+		route.timer_remaining = route.timer_remaining - delta
+		If route.timer_remaining < 0 Then route.timer_remaining = 0
+		If route.timer_remaining <= 0 Then Call MarkCrash("lockdown")
+	End If
+	If ride_state = "boarding" Then
+		board_t = board_t - delta
+		canopy_open = board_t / 0.45
+		If canopy_open < 0 Then canopy_open = 0
+		If board_t <= 0 Then Call begin_riding()
+	ElseIf ride_state = "parking" Then
+		Call TickParking(delta)
+	ElseIf ride_state = "riding" Then
+		Call TickRiding(delta)
+	ElseIf ride_state = "on_foot" Then
+		Call TickWalk(delta)
+	ElseIf ride_state = "falling" Then
+		Call TickFall(delta)
+	ElseIf ride_state = "docked" Or ride_state = "inspect" Then
+		canopy_open = canopy_open + (1.0 - canopy_open) * Min(1.0, delta * 6.0)
+	End If
+	Call TickEnemy(delta)
+	Call TickBurst(delta)
+	Call TickAbyssFlash(delta)
+	Call TickTracePower()
+	Call TickBeacons()
+	Call TickPod(delta)
+	If yard_field Then
+		Call TickCharge(delta)
+		Call TickYardNav(delta)
+		Call RefreshYardBeacons()
+		Call TickGloss(delta)
+		Call TickLockFlash(delta)
+	End If
+	Call ApplyVisuals(delta)
+	Call AimRideCamera(delta)
+	Call RefreshHud()
+End Sub
+
+Sub TickRiding(ByVal delta As Single)
+	Dim motion As Vector3
+	Dim before As Vector3
+	Dim after As Vector3
+	Dim fwd As Vector3
+	Dim travel As Single
+	Dim dx As Single
+	Dim dz As Single
+	If delta <= 0 Then Exit Sub
+	speed = ClampSpeed(speed)
+	player.rotation = Vector3(0.0, 0.0 - heading, 0.0)
+	fwd = ForwardOf(heading)
+	travel = speed * delta
+	motion = Vector3(fwd.x * travel, 0.0, fwd.z * travel)
+	before = player.global_position
+	Call UpdateRelayMasts(delta)
+	Call MoveSwept(motion)
+	If ride_state <> "riding" Then Exit Sub
+	after = player.global_position
+	dx = after.x - before.x
+	dz = after.z - before.z
+	distance_travelled = distance_travelled + Sqr(dx * dx + dz * dz)
+	Call SnapFloor()
+	If trace_shutdown_t > 0.0 Then
+		trace_shutdown_t = trace_shutdown_t - delta
+		If trace_shutdown_t <= 0.0 Then Call WipeTrace()
+	End If
+	If trace_off_t > 0.0 Then
+		trace_off_t = Max(0.0, trace_off_t - delta)
+		have_emit = False
+		If grow_mesh <> Nothing Then grow_mesh.visible = False
+	Else
+		Call UpdateTrails()
+	End If
+	If yard_field Then
+		If trace_off_t <= 0.0 Then
+			Call CaptureRelays(before, after)
+			Call CaptureFreeRelays(before, after)
+		End If
+		If route.facility_cleared Then
+			Call ConsiderNamedDock("yard_dock")
+		ElseIf relays >= 3 Then
+			Call ConsiderNamedDock("vault")
+		End If
+	ElseIf route.facility_cleared Then
+		Call ConsiderNearDock()
+	ElseIf trace_off_t <= 0.0 Then
+		Call CaptureRelays(before, after)
+		Call ConsiderFarDock()
+	End If
+End Sub
+
+Sub MoveSwept(ByVal motion As Vector3)
+	Dim step As Vector3
+	Dim space As Object
+	Dim fractions As Variant
+	Dim pose As Transform3D
+	Dim origin As Vector3
+	Dim i As Integer
+	Dim span As Single
+	Dim step_len As Single
+	Dim safe As Single
+	Dim unsafe As Single
+	Dim rx As Single
+	Dim rz As Single
+	Dim sx As Single
+	Dim sz As Single
+	rx = motion.x
+	rz = motion.z
+	If player Is Nothing Then Exit Sub
+	space = player.get_world_3d().direct_space_state
+	If space Is Nothing Or hull_query Is Nothing Or hull_col Is Nothing Then
+		player.global_position = player.global_position + Vector3(rx, 0.0, rz)
+		Exit Sub
+	End If
+	hull_query.exclude = RideExclude()
+	For i = 1 To 10
+		span = Sqr(rx * rx + rz * rz)
+		If span < 0.0004 Then Exit Sub
+		step_len = span
+		If step_len > STEP_LIMIT Then step_len = STEP_LIMIT
+		sx = rx * (step_len / span)
+		sz = rz * (step_len / span)
+		step = Vector3(sx, 0.0, sz)
+		pose = hull_col.global_transform
+		safe = 1.0
+		unsafe = 1.0
+		If physics_srv <> Nothing And motion_params <> Nothing And motion_result <> Nothing Then
+			motion_params.from = player.global_transform
+			motion_params.motion = step
+			motion_params.margin = 0.04
+			motion_params.exclude_bodies = RideExclude()
+			If physics_srv.body_test_motion(player.get_rid(), motion_params, motion_result) Then
+				safe = motion_result.get_collision_safe_fraction()
+				unsafe = motion_result.get_collision_unsafe_fraction()
+			End If
+		Else
+			hull_query.transform = pose
+			hull_query.motion = step
+			fractions = space.cast_motion(hull_query)
+			If Not (fractions Is Nothing) Then
+				If fractions.size() > 0 Then safe = fractions(0)
+				If fractions.size() > 1 Then unsafe = fractions(1)
+			End If
+		End If
+		If safe < 0.999 Then
+			If safe < 0 Then safe = 0
+			If unsafe < safe Then unsafe = safe
+			If unsafe > 1.0 Then unsafe = 1.0
+			origin = player.global_position
+			player.global_position = Vector3(origin.x + sx * safe, 0.0, origin.z + sz * safe)
+			Call ResolveSweepHit(space, pose, step, safe, unsafe)
+			Exit Sub
+		End If
+		origin = player.global_position
+		player.global_position = Vector3(origin.x + sx, 0.0, origin.z + sz)
+		rx = rx - sx
+		rz = rz - sz
+	Next
+End Sub
+
+Sub CheckRestOverlap()
+	Dim space As Object
+	Dim contacts As Array
+	If player Is Nothing Or hull_query Is Nothing Or hull_col Is Nothing Then Exit Sub
+	space = player.get_world_3d().direct_space_state
+	If space Is Nothing Then Exit Sub
+	hull_query.exclude = RideExclude()
+	hull_query.transform = hull_col.global_transform
+	hull_query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(hull_query)
+	If contacts.size() > 0 Then Call CrashIntoCollider(contacts(0)("collider"), space.get_rest_info(hull_query))
+End Sub
+
+Sub ResolveSweepHit(ByVal space As Object, ByVal start_pose As Transform3D, ByVal step As Vector3, ByVal safe As Single, ByVal unsafe As Single)
+	Dim pose As Transform3D
+	Dim contacts As Array
+	Dim rest As Dictionary
+	Dim who As Object
+	Dim origin As Vector3
+	Dim ident As Single
+	Dim dump As String
+	crash_point = Vector3(0, 0, 0)
+	crash_safe = safe
+	crash_unsafe = unsafe
+	crash_motion = step
+	crash_normal = Vector3(0, 1, 0)
+	who = Nothing
+	If physics_srv <> Nothing And motion_result <> Nothing Then
+		who = motion_result.get_collider()
+		crash_point = motion_result.get_collision_point()
+		crash_normal = motion_result.get_collision_normal()
+	End If
+	ident = unsafe
+	If ident <= safe Then ident = safe + 0.04
+	If ident > 1.0 Then ident = 1.0
+	pose = start_pose
+	origin = start_pose.origin
+	pose.origin = Vector3(origin.x + step.x * ident, origin.y, origin.z + step.z * ident)
+	hull_query.transform = pose
+	hull_query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(hull_query)
+	rest = space.get_rest_info(hull_query)
+	If who Is Nothing And contacts.size() > 0 Then who = contacts(0)("collider")
+	If who Is Nothing And Not (rest Is Nothing) Then
+		If rest.size() > 0 Then
+			If rest.has("collider") Then who = rest("collider")
+			If rest.has("point") Then crash_point = rest("point")
+			If rest.has("normal") Then crash_normal = rest("normal")
+		End If
+	ElseIf Not (rest Is Nothing) Then
+		If rest.size() > 0 Then
+			If rest.has("point") Then crash_point = rest("point")
+			If rest.has("normal") Then crash_normal = rest("normal")
+		End If
+	End If
+	dump = "safe=" & Str(safe) & " unsafe=" & Str(unsafe) & " mask=" & Str(hull_query.collision_mask) & " excl=" & Str(hull_query.exclude.size()) & " start=" & Str(start_pose.origin) & " step=" & Str(step)
+	If who <> Nothing Then
+		Call CrashIntoCollider(who, rest)
+		If crash_path = "" Then crash_path = dump
+		If last_crash_path = "" Then last_crash_path = dump
+	Else
+		Call MarkCrash("unknown", dump)
+	End If
+End Sub
+
+Sub SnapFloor()
+	Dim p As Vector3
+	p = player.global_position
+	If yard_field Then
+		If p.x < field_min_x - 0.2 Or p.x > field_max_x + 0.2 Or p.z < field_min_z - 0.2 Or p.z > field_max_z + 0.2 Then
+			Call MarkCrash("field boundary")
+			Exit Sub
+		End If
+	ElseIf Abs(p.x) > 80.2 Or Abs(p.z) > 120.2 Then
+		Call MarkCrash("boundary")
+		Exit Sub
+	End If
+	player.global_position = Vector3(p.x, 0.0, p.z)
+End Sub
+
+Sub CrashIntoCollider(ByVal who As Object, Optional rest As Variant = Nothing)
+	Dim reason As String
+	Dim evidence As String
+	Dim nm As String
+	Dim parent As Object
+	Dim info As Dictionary
+	reason = "unknown"
+	evidence = "unidentified-collider"
+	If who <> Nothing Then
+		parent = who.get_parent()
+		If parent <> Nothing Then
+			If Str(parent.name).begins_with("Trail") Then who = parent
+			If Str(parent.name).begins_with("Boundary") Then who = parent
+			If Str(parent.name).begins_with("TestWall") Then who = parent
+			If Str(parent.name).begins_with("Relay") Then who = parent
+			If Str(parent.name).begins_with("Rim") Then who = parent
+		End If
+		nm = Str(who.name)
+		evidence = ColliderPath(who)
+		If nm.begins_with("Trail") Then reason = "trail"
+		If nm.begins_with("Boundary") Then reason = "boundary"
+		If nm.begins_with("TestWall") Then reason = "wall"
+		If nm.begins_with("Side") Then reason = "cradle"
+		If nm.begins_with("Column") Or nm.begins_with("Base") Or nm.begins_with("Relay") Then reason = "pylon"
+		If nm.begins_with("Support") Or nm.begins_with("Deck") Then reason = "floor"
+		If evidence.find("DeepLiftLobby") >= 0 Then reason = "lift"
+		If yard_field Then
+			If nm.begins_with("Rim") Or evidence.find("YardRim") >= 0 Then reason = "yard rim"
+			If nm.begins_with("Boundary") Or evidence.find("Boundary") >= 0 Then reason = "field boundary"
+		End If
+	End If
+	If Not (rest Is Nothing) Then
+		info = rest
+		If info.size() > 0 Then
+			If info.has("point") Then crash_point = info("point")
+			If info.has("normal") Then crash_normal = info("normal")
+		End If
+	End If
+	Call MarkCrash(reason, evidence)
+End Sub
+
+Function ProbeCollider(ByVal space As Object, ByVal at As Vector3, ByVal motion As Vector3) As Object
+	Dim ray As Object
+	Dim hit As Dictionary
+	Dim span As Single
+	Dim nx As Single
+	Dim nz As Single
+	ProbeCollider = Nothing
+	If space Is Nothing Then Exit Function
+	span = Sqr(motion.x * motion.x + motion.z * motion.z)
+	If span < 0.0001 Then Exit Function
+	nx = motion.x / span
+	nz = motion.z / span
+	ray = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+	ray.from = Vector3(at.x - nx * 0.4, 0.65, at.z - nz * 0.4)
+	ray.to = Vector3(at.x + nx * 3.2, 0.65, at.z + nz * 3.2)
+	ray.collision_mask = 1
+	ray.exclude = RideExclude()
+	hit = space.intersect_ray(ray)
+	If hit Is Nothing Then Exit Function
+	If hit.size() = 0 Then Exit Function
+	ProbeCollider = hit("collider")
+End Function
+
+Function ColliderPath(ByVal who As Object) As String
+	If who Is Nothing Then
+		ColliderPath = "none"
+		Exit Function
+	End If
+	ColliderPath = Str(who.get_path())
+End Function
+
+Sub MarkCrash(ByVal reason As String, Optional evidence As Variant = "")
+	If ride_state = "crashed" Then Exit Sub
+	ride_state = "crashed"
+	crash_reason = reason
+	crash_path = Str(evidence)
+	If crash_point = Vector3(0, 0, 0) Then
+		If walker <> Nothing And walker.visible Then
+			crash_point = walker.global_position
+		ElseIf player <> Nothing Then
+			crash_point = player.global_position
+		End If
+	End If
+	last_crash = reason
+	last_crash_path = crash_path
+	have_emit = False
+	If grow_mesh <> Nothing Then grow_mesh.visible = False
+End Sub
+
+Function SegmentHitsDisk(ByVal ax As Single, ByVal az As Single, ByVal bx As Single, ByVal bz As Single, ByVal qx As Single, ByVal qz As Single, ByVal radius As Single) As Boolean
+	Dim dx As Single
+	Dim dz As Single
+	Dim span As Single
+	Dim t As Single
+	Dim px As Single
+	Dim pz As Single
+	dx = bx - ax
+	dz = bz - az
+	span = dx * dx + dz * dz
+	If span < 0.0001 Then
+		SegmentHitsDisk = (ax - qx) * (ax - qx) + (az - qz) * (az - qz) <= radius * radius
+		Exit Function
+	End If
+	t = ((qx - ax) * dx + (qz - az) * dz) / span
+	If t < 0.0 Then t = 0.0
+	If t > 1.0 Then t = 1.0
+	px = ax + dx * t
+	pz = az + dz * t
+	SegmentHitsDisk = (px - qx) * (px - qx) + (pz - qz) * (pz - qz) <= radius * radius
+End Function
+
+Sub CaptureRelays(ByVal before As Vector3, ByVal after As Vector3)
+	Dim names As Array
+	Dim socket As Object
+	Dim q As Vector3
+	If relays >= 3 Then Exit Sub
+	If crossing Is Nothing Then Exit Sub
+	names = Array("Relay0/LinkSocket", "Relay1/LinkSocket", "Relay2/LinkSocket")
+	socket = crossing.get_node(names(relays))
+	If socket Is Nothing Then Exit Sub
+	q = socket.global_position
+	If relay_armed.size() > relays Then
+		If Not relay_armed(relays) Then Exit Sub
+	End If
+	If SegmentHitsDisk(before.x, before.z, after.x, after.z, q.x, q.z, RELAY_RADIUS) Then
+		relays = relays + 1
+		trace_on_t = 1.6
+		pulse_t = 1.6
+		pad_flash_i = relays - 1
+		last_cue = "capture"
+		Call PlayCue(capture_stream)
+		If relays >= 3 Then field_open_t = 4.0
+		If yard_field Then Call GainCharge(charge_relay_gain)
+	End If
+End Sub
+
+Function InLaneAt(ByVal i As Integer, ByVal pos As Vector3, ByVal h As Single) As Boolean
+	Dim relay As Object
+	Dim lp As Vector3
+	Dim lf As Vector3
+	InLaneAt = False
+	If crossing Is Nothing Then Exit Function
+	relay = crossing.get_node("Relay" & Str(i))
+	If relay Is Nothing Then Exit Function
+	lp = relay.to_local(pos)
+	lf = relay.to_local(pos + ForwardOf(h)) - lp
+	If Abs(lp.x) > RELAY_LANE_HALF Then Exit Function
+	If Abs(lp.z) > RELAY_ARM_RANGE Then Exit Function
+	If Abs(lf.z) < 0.9 Then Exit Function
+	If lp.z * lf.z > 0.0 And Abs(lp.z) > RELAY_RADIUS Then Exit Function
+	InLaneAt = True
+End Function
+
+Function InRelayLane(ByVal i As Integer) As Boolean
+	InRelayLane = False
+	If player Is Nothing Then Exit Function
+	InRelayLane = InLaneAt(i, player.global_position, heading)
+End Function
+
+Function EnemyLaneHazard(ByVal h As Single) As Boolean
+	Dim i As Integer
+	Dim relay As Object
+	Dim lp As Vector3
+	Dim probe As Vector3
+	EnemyLaneHazard = False
+	If remote Is Nothing Or crossing Is Nothing Then Exit Function
+	probe = remote.global_position + ForwardOf(h) * 6.0
+	For i = 0 To 2
+		relay = crossing.get_node("Relay" & Str(i))
+		If relay Is Nothing Then
+		Else
+			lp = relay.to_local(probe)
+			If Abs(lp.x) <= RELAY_LANE_HALF + 0.7 And Abs(lp.z) <= 22.0 Then
+				EnemyLaneHazard = True
+				Exit Function
+			End If
+		End If
+	Next
+End Function
+
+Sub UpdateRelayMasts(ByVal delta As Single)
+	Dim i As Integer
+	Dim target As Single
+	Dim d As Single
+	Dim near As Boolean
+	Dim relay As Object
+	If relay_masts.size() < 3 Then Exit Sub
+	If trace_on_t > 0.0 Then trace_on_t = Max(0.0, trace_on_t - delta)
+	If field_open_t > 0.0 Then field_open_t = Max(0.0, field_open_t - delta)
+	If pulse_t > 0.0 Then pulse_t = Max(0.0, pulse_t - delta)
+	For i = 0 To 2
+		relay = crossing.get_node("Relay" & Str(i))
+		near = False
+		If player <> Nothing And relay <> Nothing Then near = Vector2(player.global_position.x - relay.global_position.x, player.global_position.z - relay.global_position.z).length() < 7.0
+		If i = relays And ride_state = "riding" And trace_off_t <= 0.0 Then
+			If InRelayLane(i) Then
+				If Not relay_armed(i) Then
+					last_cue = "arm"
+					Call PlayCue(arm_stream)
+				End If
+				relay_armed(i) = True
+			ElseIf Not near Then
+				relay_armed(i) = False
+			End If
+		ElseIf i >= relays Then
+			relay_armed(i) = False
+		End If
+		target = 0.0
+		If i < relays Or relay_armed(i) Then target = 1.0
+		d = relay_drop(i)
+		If delta <= 0.0 Then
+			d = target
+		ElseIf d < target Then
+			d = Min(target, d + MAST_RATE * delta)
+		ElseIf d > target Then
+			d = Max(target, d - MAST_RATE * 0.5 * delta)
+		End If
+		relay_drop(i) = d
+		Call ApplyMast(i, d, target > 0.5 Or d > 0.02)
+	Next
+End Sub
+
+Sub ApplyMast(ByVal i As Integer, ByVal d As Single, ByVal open_lane As Boolean)
+	Dim mast As Object
+	Dim layer As Integer
+	mast = relay_masts(i)
+	If mast Is Nothing Then Exit Sub
+	mast.position = Vector3(0.0, 0.0 - MAST_SINK * d, 0.0)
+	layer = 1
+	If open_lane Then layer = 0
+	mast.get_node("ColumnCollision").collision_layer = layer
+	mast.get_node("BaseCollision").collision_layer = layer
+End Sub
+
+Function RelayMastDown(ByVal i As Integer) As Boolean
+	RelayMastDown = False
+	If relay_masts.size() <= i Then Exit Function
+	RelayMastDown = relay_masts(i).get_node("ColumnCollision").collision_layer = 0
+End Function
+
+Sub ConsiderFarDock()
+	Dim pose As Object
+	Dim approach As Object
+	Dim p As Vector3
+	Dim q As Vector3
+	Dim gap As Single
+	Dim aim As Single
+	If relays < 3 Then Exit Sub
+	pose = DockPose("far")
+	approach = crossing.get_node("FarCradle/ApproachEnd")
+	p = player.global_position
+	q = approach.global_position
+	gap = Vector2(p.x - q.x, p.z - q.z).length()
+	aim = Abs(AngleDelta(heading, HeadingOf(approach)))
+	If gap > 4.5 Then
+		q = pose.global_position
+		gap = Vector2(p.x - q.x, p.z - q.z).length()
+		aim = Abs(AngleDelta(heading, HeadingOf(pose)))
+		If gap > 5.5 Or aim > 0.7 Then Exit Sub
+	ElseIf aim > 0.6 Then
+		Exit Sub
+	End If
+	Call StartParking("far")
+End Sub
+
+Sub ConsiderNearDock()
+	Dim pose As Object
+	Dim approach As Object
+	Dim p As Vector3
+	Dim q As Vector3
+	Dim gap As Single
+	Dim aim As Single
+	If Not route.facility_cleared Then Exit Sub
+	pose = DockPose("near")
+	approach = crossing.get_node("NearCradle/ApproachEnd")
+	p = player.global_position
+	q = approach.global_position
+	gap = Vector2(p.x - q.x, p.z - q.z).length()
+	aim = Abs(AngleDelta(heading, HeadingOf(approach)))
+	If gap > 4.5 Then
+		q = pose.global_position
+		gap = Vector2(p.x - q.x, p.z - q.z).length()
+		aim = Abs(AngleDelta(heading, HeadingOf(pose)))
+		If gap > 5.5 Or aim > 0.7 Then Exit Sub
+	ElseIf aim > 0.6 Then
+		Exit Sub
+	End If
+	Call StartParking("near")
+End Sub
+
+Sub InteractFoot()
+	Dim i As Integer
+	Dim node As Object
+	If yard_field And area_name = "crossing" Then
+		Call InteractYardDock()
+		Exit Sub
+	End If
+	If area_name = "lobby" Then
+		If route.facility_cleared Then
+			If MarkerGap(player) < 4.2 Then
+				Call BoardCycle()
+			ElseIf crossing.has_node("FarCradle/ExitPoint") Then
+				If MarkerGap(crossing.get_node("FarCradle/ExitPoint")) < 3.2 Then Call BoardCycle()
+			End If
+			Exit Sub
+		End If
+		node = crossing.get_node("DeepLiftLobby/LiftPose")
+		If MarkerGap(node) < 3.2 Or MarkerGap(crossing.get_node("DeepLiftLobby/Console")) < 3.2 Then Call enter_vault()
+		Exit Sub
+	End If
+	If area_name <> "vault" Then Exit Sub
+	If route.coupler_taken Then
+		If MarkerGap(play_vault.get_node("Room/Exit")) < 3.5 Then
+			Call exit_facility()
+		ElseIf vault_lift <> Nothing Then
+			If MarkerGap(vault_lift.get_node("LiftPose")) < 3.2 Then Call exit_facility()
+		End If
+		Exit Sub
+	End If
+	If coupler <> Nothing Then
+		If MarkerGap(coupler) < 2.4 Then
+			Call take_coupler()
+			Exit Sub
+		End If
+	End If
+	For i = 0 To 2
+		If core_bank <> Nothing Then
+			If core_bank.has_node("Core" & Str(i) & "/Pickup") Then
+				node = core_bank.get_node("Core" & Str(i) & "/Pickup")
+				If MarkerGap(node) < 2.2 And core_bank.get_node("Core" & Str(i)).visible Then
+					Call take_core_slot(i)
+					Exit Sub
+				End If
+			End If
+		End If
+	Next
+End Sub
+
+Sub TickWalk(ByVal delta As Single)
+	Dim motion As Vector3
+	Dim fwd As Vector3
+	Dim pace As Single
+	If lock_open Then
+		Call RefreshYardWalkPrompt()
+		Exit Sub
+	End If
+	pace = 0.0
+	If Held(KEY_W) Or Held(KEY_UP) Then pace = pace + 6.2
+	If Held(KEY_S) Or Held(KEY_DOWN) Then pace = pace - 4.0
+	fwd = ForwardOf(walk_heading)
+	motion = Vector3(fwd.x * pace * delta, 0.0, fwd.z * pace * delta)
+	Call MoveWalk(motion)
+	If walker <> Nothing Then
+		If Not OnWalkDeck(walker.global_position) Then
+			Call BeginFall()
+			Exit Sub
+		End If
+	End If
+	If area_name = "lobby" Then
+		If route.facility_cleared Then
+			prompt = "E BOARD THE CYCLE"
+		Else
+			prompt = "E DEEP LIFT"
+		End If
+	ElseIf yard_field And area_name = "crossing" Then
+		Call RefreshYardWalkPrompt()
+	ElseIf route.coupler_taken Then
+		prompt = "E EXIT   " & Str(Int(route.timer_remaining + 0.5))
+	Else
+		prompt = "E TAKE CORE / COUPLER"
+	End If
+End Sub
+
+Sub MoveWalk(ByVal motion As Vector3)
+	Dim space As Object
+	Dim pose As Transform3D
+	Dim origin As Vector3
+	Dim contacts As Array
+	If walker Is Nothing Then Exit Sub
+	origin = walker.global_position + motion
+	If walk_query Is Nothing Then
+		walker.global_position = Vector3(origin.x, 0.0, origin.z)
+		Exit Sub
+	End If
+	space = walker.get_world_3d().direct_space_state
+	If space Is Nothing Then
+		walker.global_position = Vector3(origin.x, 0.0, origin.z)
+		Exit Sub
+	End If
+	pose = Transform3D(Basis(), Vector3(origin.x, 0.9, origin.z))
+	walk_query.transform = pose
+	walk_query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(walk_query)
+	If contacts.size() > 0 Then Exit Sub
+	walker.global_position = Vector3(origin.x, 0.0, origin.z)
+End Sub
+
+Sub TickEnemy(ByVal delta As Single)
+	Dim snapped As Single
+	Dim motion As Vector3
+	Dim fwd As Vector3
+	Dim before As Vector3
+	If remote Is Nothing Then Exit Sub
+	If enemy_state = "telegraph" Then
+		chase_t = chase_t - delta
+		If chase_t <= 0 Then enemy_state = "hunt"
+		Exit Sub
+	End If
+	If enemy_state <> "hunt" Then Exit Sub
+	If ride_state <> "riding" Then Exit Sub
+	If Not route.facility_cleared Then Exit Sub
+	If TraceIsOff() Then have_enemy_emit = False
+	enemy_turn_t = enemy_turn_t - delta
+	snapped = EnemyHuntHeading()
+	If EnemyLaneHazard(snapped) Then
+		If Not EnemyLaneHazard(WrapAngle(snapped + PI * 0.5)) Then
+			snapped = WrapAngle(snapped + PI * 0.5)
+		ElseIf Not EnemyLaneHazard(WrapAngle(snapped - PI * 0.5)) Then
+			snapped = WrapAngle(snapped - PI * 0.5)
+		End If
+	End If
+	If enemy_turn_t <= 0 And Abs(AngleDelta(enemy_heading, snapped)) > 0.4 Then
+		before = EmitPoint(enemy_emitter)
+		If have_enemy_emit And enemy_emitter <> Nothing And Not TraceIsOff() Then
+			If last_enemy_emit.distance_to(before) >= 0.08 Then Call CommitTrail(last_enemy_emit, before, red_mat)
+		End If
+		enemy_heading = snapped
+		enemy_turn_t = 0.55
+		remote.rotation = Vector3(0.0, 0.0 - enemy_heading, 0.0)
+		If enemy_emitter <> Nothing Then
+			Call PivotOnEmitter(remote, enemy_emitter, before)
+			last_enemy_emit = before
+			If Not TraceIsOff() Then have_enemy_emit = True
+		End If
+		Call CheckEnemyRestOverlap()
+	End If
+	fwd = ForwardOf(enemy_heading)
+	motion = Vector3(fwd.x * enemy_speed * delta, 0.0, fwd.z * enemy_speed * delta)
+	before = remote.global_position
+	Call MoveEnemy(motion)
+	If enemy_state <> "hunt" Then Exit Sub
+	enemy_travel = enemy_travel + before.distance_to(remote.global_position)
+	If Not TraceIsOff() Then Call UpdateEnemyTrails()
+End Sub
+
+' Cut across the player's path so a straight return ride hits a red wall.
+Function EnemyHuntHeading() As Single
+	Dim fwd As Vector3
+	Dim right As Vector3
+	Dim dx As Single
+	Dim dz As Single
+	Dim along As Single
+	Dim side As Single
+	Dim cut As Single
+	If remote Is Nothing Or player Is Nothing Then
+		EnemyHuntHeading = enemy_heading
+		Exit Function
+	End If
+	fwd = ForwardOf(heading)
+	right = Vector3(0.0 - fwd.z, 0.0, fwd.x)
+	dx = remote.global_position.x - player.global_position.x
+	dz = remote.global_position.z - player.global_position.z
+	along = dx * fwd.x + dz * fwd.z
+	side = dx * right.x + dz * right.z
+	If Abs(side) > 5.0 Then
+		If side > 0.0 Then
+			cut = WrapAngle(heading - PI * 0.5)
+		Else
+			cut = WrapAngle(heading + PI * 0.5)
+		End If
+	ElseIf along > 8.0 Then
+		cut = WrapAngle(heading + PI * 0.5)
+	Else
+		cut = heading
+	End If
+	EnemyHuntHeading = cut
+End Function
+
+Function EnemyExclude() As Array
+	Dim list As Array
+	Dim i As Integer
+	list = Array()
+	If remote <> Nothing Then list.append(remote.get_rid())
+	If player <> Nothing Then list.append(player.get_rid())
+	For i = 0 To floor_rids.size() - 1
+		list.append(floor_rids(i))
+	Next
+	EnemyExclude = list
+End Function
+
+Sub CheckEnemyRestOverlap()
+	Dim space As Object
+	Dim contacts As Array
+	If remote Is Nothing Or enemy_query Is Nothing Or enemy_col Is Nothing Then Exit Sub
+	space = remote.get_world_3d().direct_space_state
+	If space Is Nothing Then Exit Sub
+	enemy_query.exclude = EnemyExclude()
+	enemy_query.transform = enemy_col.global_transform
+	enemy_query.motion = Vector3(0, 0, 0)
+	contacts = space.intersect_shape(enemy_query)
+	If contacts.size() > 0 Then Call WreckEnemy()
+End Sub
+
+Sub MoveEnemy(ByVal motion As Vector3)
+	Dim space As Object
+	Dim pose As Transform3D
+	Dim origin As Vector3
+	Dim contacts As Array
+	Dim fractions As Variant
+	Dim safe As Single
+	Dim rx As Single
+	Dim rz As Single
+	Dim span As Single
+	Dim step_len As Single
+	Dim sx As Single
+	Dim sz As Single
+	Dim i As Integer
+	If remote Is Nothing Then Exit Sub
+	rx = motion.x
+	rz = motion.z
+	If yard_field Then
+		If remote.global_position.x + rx < field_min_x - 0.2 Or remote.global_position.x + rx > field_max_x + 0.2 Or remote.global_position.z + rz < field_min_z - 0.2 Or remote.global_position.z + rz > field_max_z + 0.2 Then
+			Call WreckEnemy()
+			Exit Sub
+		End If
+	ElseIf Abs(remote.global_position.x + rx) > 80.2 Or Abs(remote.global_position.z + rz) > 120.2 Then
+		Call WreckEnemy()
+		Exit Sub
+	End If
+	If enemy_query Is Nothing Then
+		remote.global_position = remote.global_position + Vector3(rx, 0.0, rz)
+		Exit Sub
+	End If
+	space = remote.get_world_3d().direct_space_state
+	If space Is Nothing Then
+		remote.global_position = remote.global_position + Vector3(rx, 0.0, rz)
+		Exit Sub
+	End If
+	enemy_query.exclude = EnemyExclude()
+	For i = 1 To 10
+	span = Sqr(rx * rx + rz * rz)
+	If span < 0.0004 Then Exit Sub
+	step_len = span
+	If step_len > STEP_LIMIT Then step_len = STEP_LIMIT
+	sx = rx * (step_len / span)
+	sz = rz * (step_len / span)
+	If physics_srv <> Nothing And motion_params <> Nothing And motion_result <> Nothing Then
+		motion_params.from = remote.global_transform
+		motion_params.motion = Vector3(sx, 0.0, sz)
+		motion_params.margin = 0.04
+		motion_params.exclude_bodies = EnemyExclude()
+		If physics_srv.body_test_motion(remote.get_rid(), motion_params, motion_result) Then
+			safe = motion_result.get_collision_safe_fraction()
+			If safe < 0.999 Then
+				Call WreckEnemy()
+				Exit Sub
+			End If
+		End If
+		remote.global_position = remote.global_position + Vector3(sx, 0.0, sz)
+		rx = rx - sx
+		rz = rz - sz
+	Else
+		Exit For
+	End If
+	Next
+	If physics_srv <> Nothing Then Exit Sub
+	pose = enemy_col.global_transform
+	enemy_query.transform = pose
+	enemy_query.motion = Vector3(sx, 0.0, sz)
+	fractions = space.cast_motion(enemy_query)
+	safe = 1.0
+	If Not (fractions Is Nothing) Then
+		If fractions.size() > 0 Then safe = fractions(0)
+	End If
+	If safe < 0.999 Then
+		Call WreckEnemy()
+		Exit Sub
+	End If
+	origin = remote.global_position
+	enemy_query.transform = pose
+	enemy_query.motion = Vector3(0, 0, 0)
+	pose.origin = Vector3(origin.x + sx, pose.origin.y, origin.z + sz)
+	enemy_query.transform = pose
+	contacts = space.intersect_shape(enemy_query)
+	If contacts.size() > 0 Then
+		Call WreckEnemy()
+		Exit Sub
+	End If
+	remote.global_position = Vector3(origin.x + sx, 0.0, origin.z + sz)
+End Sub
+
+Sub WreckEnemy()
+	If enemy_state = "wrecked" Or enemy_state = "burst" Then Exit Sub
+	enemy_state = "wrecked"
+	route.advance("security_destroyed")
+	have_enemy_emit = False
+End Sub
+
+Sub ExplodeRemote()
+	Dim packed As Object
+	If remote Is Nothing Then Exit Sub
+	If enemy_state = "burst" Then Exit Sub
+	enemy_state = "burst"
+	explode_t = 0.0
+	have_enemy_emit = False
+	route.advance("security_destroyed")
+	If Not remote.has_meta("trace_col_layer") Then
+		remote.set_meta("trace_col_layer", remote.collision_layer)
+		remote.set_meta("trace_col_mask", remote.collision_mask)
+	End If
+	remote.collision_layer = 0
+	remote.collision_mask = 0
+	If burst_mat Is Nothing Then
+		packed = Load("res://assets/trace_vault/cycle_breakup.gdshader")
+		If Not (packed Is Nothing) Then
+			burst_mat = ClassDB.Instantiate("ShaderMaterial")
+			burst_mat.shader = packed
+			burst_mat.set_shader_parameter("tint", Color(1.0, 0.16, 0.14, 1))
+			burst_mat.set_shader_parameter("energy", 4.6)
+		End If
+	End If
+	If burst_mat <> Nothing Then
+		burst_mat.set_shader_parameter("burst", 0.0)
+		Call PaintRemoteBurst(remote, burst_mat)
+	End If
+	Call PlayCue(wipe_stream)
+End Sub
+
+Sub TickBurst(ByVal delta As Single)
+	Dim amount As Single
+	If enemy_state <> "burst" Then Exit Sub
+	explode_t = explode_t + delta
+	amount = explode_t / 1.35
+	If amount > 1.0 Then amount = 1.0
+	If burst_mat <> Nothing Then burst_mat.set_shader_parameter("burst", amount)
+	If explode_t >= 1.35 Then
+		enemy_state = "wrecked"
+		If remote <> Nothing Then remote.visible = False
+	End If
+End Sub
+
+Sub PaintRemoteBurst(ByVal node As Object, ByVal mat As Object)
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.get_class() = "MeshInstance3D" Then node.material_override = mat
+	For i = 0 To node.get_child_count() - 1
+		Call PaintRemoteBurst(node.get_child(i), mat)
+	Next
+End Sub
+
+Sub ClearRemoteBurst()
+	explode_t = 0.0
+	If remote Is Nothing Then Exit Sub
+	Call PaintRemoteBurst(remote, Nothing)
+	remote.visible = True
+	If remote.has_meta("trace_col_layer") Then
+		remote.collision_layer = remote.get_meta("trace_col_layer")
+		remote.collision_mask = remote.get_meta("trace_col_mask")
+	End If
+End Sub
+
+Sub UpdateEnemyTrails()
+	Dim pos As Vector3
+	Dim gap As Single
+	If enemy_emitter Is Nothing Then Exit Sub
+	pos = enemy_emitter.global_position
+	pos = Vector3(pos.x, 0.55, pos.z)
+	If Not have_enemy_emit Then
+		last_enemy_emit = pos
+		have_enemy_emit = True
+		Exit Sub
+	End If
+	gap = last_enemy_emit.distance_to(pos)
+	If gap >= 0.55 Then
+		Call CommitTrail(last_enemy_emit, pos, red_mat)
+		last_enemy_emit = pos
+	End If
+End Sub
+
+Sub StartParking(ByVal which As String)
+	ride_state = "parking"
+	dock_id = which
+	park_t = 0.0
+	park_from = player.global_position
+	park_from_h = heading
+	have_emit = False
+	If grow_mesh <> Nothing Then grow_mesh.visible = False
+	route.riding = False
+	If (which = "near" Or which = "yard_dock") And route.facility_cleared Then Call ExplodeRemote()
+End Sub
+
+Sub TickParking(ByVal delta As Single)
+	Dim pose As Object
+	Dim origin As Vector3
+	Dim amount As Single
+	Dim yaw As Single
+	pose = DockPose(dock_id)
+	origin = pose.global_transform.origin
+	park_t = park_t + delta
+	amount = park_t / 0.8
+	If amount > 1.0 Then amount = 1.0
+	player.global_position = Vector3(park_from.x + (origin.x - park_from.x) * amount, 0.0, park_from.z + (origin.z - park_from.z) * amount)
+	yaw = park_from_h + AngleDelta(park_from_h, HeadingOf(pose)) * amount
+	heading = WrapAngle(yaw)
+	player.rotation = Vector3(0.0, 0.0 - heading, 0.0)
+	canopy_open = amount
+	If amount >= 1.0 Then
+		Call ApplyDock(dock_id)
+		ride_state = "docked"
+		canopy_open = 1.0
+		If (dock_id = "near" Or dock_id = "yard_dock") And route.stage_name = "return_crossing" Then route.advance("near_docked")
+	End If
+End Sub
+
+Function NearbyArmedTrail() As Boolean
+	Dim i As Integer
+	Dim body As Object
+	Dim p As Vector3
+	Dim q As Vector3
+	Dim dx As Single
+	Dim dz As Single
+	p = player.global_position
+	For i = 0 To trails.size() - 1
+		body = trails(i)
+		If body.get_meta("armed") Then
+			q = body.global_position
+			dx = p.x - q.x
+			dz = p.z - q.z
+			If Sqr(dx * dx + dz * dz) < 4.5 Then Return True
+		End If
+	Next
+	Return False
+End Function
+
+Function GrowSpan() As Single
+	Dim pos As Vector3
+	If Not have_emit Or emitter Is Nothing Then
+		GrowSpan = 0.0
+		Exit Function
+	End If
+	pos = Vector3(emitter.global_position.x, 0.55, emitter.global_position.z)
+	GrowSpan = last_emit.distance_to(pos)
+End Function
+
+Function TrailHasEnds(ByVal i As Integer) As Boolean
+	If i < 0 Or i >= trails.size() Then
+		TrailHasEnds = False
+		Exit Function
+	End If
+	TrailHasEnds = trails(i).has_meta("a") And trails(i).has_meta("b") And trails(i).has_meta("map_line")
+End Function
+
+Function armed_count() As Integer
+	Dim i As Integer
+	Dim n As Integer
+	n = 0
+	For i = 0 To trails.size() - 1
+		If trails(i).get_meta("armed") Then n = n + 1
+	Next
+	armed_count = n
+End Function
+
+Sub UpdateTrails()
+	Dim pos As Vector3
+	Dim gap As Single
+	Dim i As Integer
+	Dim body As Object
+	If emitter Is Nothing Then Exit Sub
+	pos = emitter.global_position
+	pos = Vector3(pos.x, 0.55, pos.z)
+	If Not have_emit Then
+		last_emit = pos
+		have_emit = True
+		Call DrawGrow(last_emit, pos)
+		Exit Sub
+	End If
+	gap = last_emit.distance_to(pos)
+	If gap >= 0.55 Then
+		Call CommitTrail(last_emit, pos)
+		last_emit = pos
+	End If
+	Call DrawGrow(last_emit, pos)
+	For i = 0 To trails.size() - 1
+		If Not trails(i).get_meta("armed") Then
+			If distance_travelled - trail_born(i) >= ARM_TRAIL Then
+				If Not HullCovers(trails(i)) Then Call ArmTrail(trails(i))
+			End If
+		End If
+	Next
+End Sub
+
+' A segment only turns solid after the hull has left it; arming under the
+' bike would start the sweep inside the wall and the physics query skips it.
+Function HullCovers(ByVal body As Object) As Boolean
+	Dim pa As Vector3
+	Dim pb As Vector3
+	Dim k As Integer
+	Dim q As Vector3
+	HullCovers = False
+	If player Is Nothing Or body Is Nothing Then Exit Function
+	pa = body.get_meta("a")
+	pb = body.get_meta("b")
+	For k = 0 To 4
+		q = player.to_local(pa + (pb - pa) * (k / 4.0))
+		If Abs(q.x) < 1.0 And Abs(q.z) < CYCLE_LENGTH * 0.5 + 0.4 Then
+			HullCovers = True
+			Exit Function
+		End If
+	Next
+End Function
+
+Sub ArmTrail(ByVal body As Object)
+	Dim shape_node As Object
+	Dim box As Object
+	Dim mesh_node As Object
+	If body Is Nothing Then Exit Sub
+	If body.get_meta("armed") Then Exit Sub
+	mesh_node = body.get_node("Mesh")
+	shape_node = ClassDB.Instantiate("CollisionShape3D")
+	shape_node.name = "Collision"
+	box = ClassDB.Instantiate("BoxShape3D")
+	If mesh_node <> Nothing Then
+		box.size = mesh_node.mesh.size
+	Else
+		box.size = Vector3(0.18, 1.15, 0.55)
+	End If
+	shape_node.shape = box
+	body.add_child(shape_node)
+	body.set_meta("armed", True)
+End Sub
+
+Sub DrawGrow(ByVal a As Vector3, ByVal b As Vector3)
+	Dim span As Single
+	span = a.distance_to(b)
+	If span < 0.04 Or grow_box Is Nothing Then
+		If grow_mesh <> Nothing Then grow_mesh.visible = False
+		Exit Sub
+	End If
+	grow_box.size = Vector3(0.16, 1.05, span)
+	grow_mesh.visible = True
+	grow_mesh.global_position = (a + b) * 0.5
+	If b.distance_to(a) > 0.001 Then grow_mesh.look_at(b, Vector3(0, 1, 0))
+End Sub
+
+Sub CommitTrail(ByVal a As Vector3, ByVal b As Vector3, Optional mat As Variant = Nothing)
+	Dim body As Object
+	Dim mesh_node As Object
+	Dim mesh As Object
+	Dim span As Single
+	Dim paint As Object
+	span = a.distance_to(b)
+	If span < 0.08 Then Exit Sub
+	paint = cyan_mat
+	If Not (mat Is Nothing) Then paint = mat
+	body = ClassDB.Instantiate("StaticBody3D")
+	body.name = "Trail" & Str(trail_count)
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.set_meta("armed", False)
+	If paint = red_mat Then
+		body.set_meta("side", "enemy")
+	Else
+		body.set_meta("side", "player")
+	End If
+	body.set_meta("a", a)
+	body.set_meta("b", b)
+	mesh_node = ClassDB.Instantiate("MeshInstance3D")
+	mesh_node.name = "Mesh"
+	mesh = ClassDB.Instantiate("BoxMesh")
+	mesh.size = Vector3(0.16, 1.05, span)
+	mesh_node.mesh = mesh
+	mesh_node.material_override = GlowPaint(paint)
+	mesh_node.cast_shadow = 0
+	body.add_child(mesh_node)
+	trail_root.add_child(body)
+	body.global_position = (a + b) * 0.5
+	If b.distance_to(a) > 0.001 Then body.look_at(b, Vector3(0, 1, 0))
+	Call AttachMapSegment(body, a, b, paint)
+	trails.append(body)
+	trail_born.append(distance_travelled)
+	trail_count = trail_count + 1
+End Sub
+
+' Tall light pillars over the docks so the next destination reads across the void.
+Sub MakeDockBeacons()
+	Dim names As Array
+	Dim tints As Array
+	Dim i As Integer
+	Dim beam As Object
+	Dim mesh As Object
+	Dim at As Vector3
+	dock_beacons = Array()
+	If crossing Is Nothing Then Exit Sub
+	names = Array("FarCradle", "NearCradle")
+	tints = Array(Color(1.0, 0.72, 0.22, 1), Color(0.3, 1.0, 0.75, 1))
+	For i = 0 To 1
+		If crossing.has_node(names(i)) Then
+			mesh = ClassDB.Instantiate("CylinderMesh")
+			mesh.top_radius = 0.15
+			mesh.bottom_radius = 0.55
+			mesh.height = 140.0
+			mesh.radial_segments = 10
+			mesh.rings = 1
+			mesh.cap_top = False
+			mesh.cap_bottom = False
+			beam = ClassDB.Instantiate("MeshInstance3D")
+			beam.name = "DockBeacon" & Str(i)
+			beam.mesh = mesh
+			beam.cast_shadow = 0
+			beam.material_override = MakeTraceGlow(tints(i))
+			' Readable from across the void without whiting out the cockpit up close.
+			If beam.material_override.is_class("ShaderMaterial") Then beam.material_override.set_shader_parameter("energy", 1.3)
+			add_child(beam)
+			at = crossing.get_node(names(i)).global_position
+			beam.global_position = Vector3(at.x, 70.0, at.z)
+			beam.visible = False
+			dock_beacons.append(beam)
+		End If
+	Next
+End Sub
+
+Sub TickBeacons()
+	Dim far_on As Boolean
+	Dim near_on As Boolean
+	If dock_beacons.size() < 2 Or route Is Nothing Then Exit Sub
+	far_on = relays >= 3 And Not route.facility_cleared And Not (ride_state = "docked" And dock_id = "far") And area_name <> "vault" And area_name <> "lobby"
+	near_on = route.facility_cleared And route.stage_name <> "near_dock" And area_name <> "vault"
+	dock_beacons(0).visible = far_on
+	dock_beacons(1).visible = near_on
+End Sub
+
+Function FarBeaconLit() As Boolean
+	FarBeaconLit = False
+	If dock_beacons.size() < 1 Then Exit Function
+	FarBeaconLit = dock_beacons(0).visible
+End Function
+
+' Real 3D stars between 220 m and 900 m so turning and riding give parallax.
+Sub MakeStarfield()
+	Dim mm As Object
+	Dim dot As Object
+	Dim mat As Object
+	Dim i As Integer
+	Dim n As Integer
+	Dim dir As Vector3
+	Dim r As Single
+	Dim k As Single
+	Dim tint As Color
+	n = 700
+	If LowGpu() Then n = 500
+	dot = ClassDB.Instantiate("SphereMesh")
+	dot.radius = 1.0
+	dot.height = 2.0
+	dot.radial_segments = 6
+	dot.rings = 3
+	mat = ClassDB.Instantiate("StandardMaterial3D")
+	mat.shading_mode = 0
+	mat.vertex_color_use_as_albedo = True
+	mat.disable_fog = True
+	dot.material = mat
+	mm = ClassDB.Instantiate("MultiMesh")
+	mm.transform_format = 1
+	mm.use_colors = True
+	mm.mesh = dot
+	mm.instance_count = n
+	Randomize 4242
+	For i = 0 To n - 1
+		dir = Vector3(Rnd() * 2.0 - 1.0, Rnd() * 1.3 - 0.15, Rnd() * 2.0 - 1.0)
+		If dir.length() < 0.05 Then dir = Vector3(0, 1, 0)
+		dir = dir.normalized()
+		r = 220.0 + Rnd() * Rnd() * 680.0
+		k = r * (0.0016 + Rnd() * 0.0022)
+		mm.set_instance_transform(i, Transform3D(Basis(Vector3(k, 0, 0), Vector3(0, k, 0), Vector3(0, 0, k)), dir * r))
+		tint = Color(0.75, 0.85, 1.0, 1)
+		If Rnd() < 0.25 Then tint = Color(1.0, 0.86, 0.62, 1)
+		If Rnd() < 0.1 Then tint = Color(0.6, 1.0, 1.0, 1)
+		k = 1.2 + Rnd() * Rnd() * 3.5
+		mm.set_instance_color(i, Color(tint.r * k, tint.g * k, tint.b * k, 1))
+	Next
+	Randomize
+	star_field = ClassDB.Instantiate("MultiMeshInstance3D")
+	star_field.name = "StarField"
+	star_field.multimesh = mm
+	star_field.cast_shadow = 0
+	add_child(star_field)
+End Sub
+
+Function StarCount() As Integer
+	StarCount = 0
+	If star_field Is Nothing Then Exit Function
+	StarCount = star_field.multimesh.instance_count
+End Function
+
+Function LowGpu() As Boolean
+	Dim rs As Object
+	Dim adapter As String
+	Dim kind As Integer
+	LowGpu = False
+	If gpu_checked Then
+		LowGpu = gpu_is_low
+		Exit Function
+	End If
+	gpu_checked = True
+	gpu_is_low = False
+	rs = Engine.get_singleton("RenderingServer")
+	If rs <> Nothing Then
+		adapter = LCase(Str(rs.get_video_adapter_name()))
+		kind = rs.get_video_adapter_type()
+		If InStr(adapter, "llvmpipe") > 0 Then gpu_is_low = True
+		If InStr(adapter, "lavapipe") > 0 Then gpu_is_low = True
+		If InStr(adapter, "swiftshader") > 0 Then gpu_is_low = True
+		If InStr(adapter, "intel") > 0 Then gpu_is_low = True
+		If InStr(adapter, "uhd") > 0 Then gpu_is_low = True
+		If InStr(adapter, "mali") > 0 Then gpu_is_low = True
+		If InStr(adapter, "adreno") > 0 Then gpu_is_low = True
+		If kind = 4 Then gpu_is_low = True
+	End If
+	LowGpu = gpu_is_low
+End Function
+
+Function MakeTone(ByVal hz1 As Single, ByVal hz2 As Single, ByVal seconds As Single, ByVal chirp As Boolean) As Object
+	Dim wav As Object
+	Dim samples As PackedByteArray
+	Dim i As Integer
+	Dim n As Integer
+	Dim t As Single
+	Dim env As Single
+	Dim hz As Single
+	Dim value As Integer
+	Dim rate As Integer
+	rate = 22050
+	n = Int(seconds * rate)
+	If n < 8 Then n = 8
+	wav = ClassDB.Instantiate("AudioStreamWAV")
+	wav.format = AudioStreamWAV.FORMAT_16_BITS
+	wav.mix_rate = rate
+	samples = PackedByteArray()
+	samples.resize(n * 2)
+	For i = 0 To n - 1
+		t = i / 22050.0
+		env = 1.0
+		If t < 0.008 Then env = t / 0.008
+		If seconds - t < 0.03 Then env = env * Max(0.0, (seconds - t) / 0.03)
+		If chirp Then
+			hz = hz1 + (hz2 - hz1) * (t / seconds)
+		ElseIf t < seconds * 0.45 Then
+			hz = hz1
+		Else
+			hz = hz2
+		End If
+		value = Int(Sin(PI * 2.0 * hz * t) * env * 11000.0)
+		samples.encode_s16(i * 2, value)
+	Next
+	wav.data = samples
+	MakeTone = wav
+End Function
+
+Sub PlayCue(ByVal stream As Object)
+	If cue_player Is Nothing Or stream Is Nothing Then Exit Sub
+	cue_player.stream = stream
+	cue_player.play()
+End Sub
+
+Sub MakeCueBank()
+	cue_player = ClassDB.Instantiate("AudioStreamPlayer")
+	cue_player.name = "TraceCues"
+	cue_player.volume_db = -10.0
+	add_child(cue_player)
+	capture_stream = MakeTone(880.0, 1320.0, 0.18, False)
+	arm_stream = MakeTone(1560.0, 1560.0, 0.05, False)
+	wipe_stream = MakeTone(420.0, 140.0, 0.32, True)
+	last_cue = ""
+	pulse_t = 0.0
+	pad_flash_i = -1
+End Sub
+
+Function MakeTraceGlow(ByVal tint As Color) As Object
+	Dim mat As Object
+	Dim glow_shader As Object
+	glow_shader = Load("res://assets/trace_vault/trace_glow.gdshader")
+	If glow_shader Is Nothing Then
+		mat = ClassDB.Instantiate("StandardMaterial3D")
+		mat.shading_mode = 0
+		mat.albedo_color = Color(tint.r * 2.4, tint.g * 2.4, tint.b * 2.4, 1)
+		Return mat
+	End If
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = glow_shader
+	mat.set_shader_parameter("tint", tint)
+	Return mat
+End Function
+
+' 1 while the trace is powered; during the last 2 s of shutdown it stutters
+' faster and faster, then the walls blink out when the field is wiped.
+Function TracePowerFor(ByVal remaining As Single) As Single
+	Dim u As Single
+	If remaining <= 0.0 Then
+		TracePowerFor = 1.0
+		Exit Function
+	End If
+	If remaining > 2.0 Then
+		TracePowerFor = 0.75 + 0.25 * (remaining - 2.0) / 3.0
+		Exit Function
+	End If
+	u = 2.0 - remaining
+	If Sin(u * u * 26.0 + u * 6.0) > 0.0 Then
+		TracePowerFor = 0.95
+	Else
+		TracePowerFor = 0.06
+	End If
+End Function
+
+Sub TickTracePower()
+	trace_power = TracePowerFor(trace_shutdown_t)
+	If trail_glow <> Nothing And trail_glow.is_class("ShaderMaterial") Then trail_glow.set_shader_parameter("power", trace_power)
+	If trail_glow_red <> Nothing And trail_glow_red.is_class("ShaderMaterial") Then trail_glow_red.set_shader_parameter("power", trace_power)
+End Sub
+
+Function TracePower() As Single
+	TracePower = trace_power
+End Function
+
+Function GlowPaint(ByVal paint As Object) As Object
+	If paint = red_mat And trail_glow_red <> Nothing Then Return trail_glow_red
+	If paint = cyan_mat And trail_glow <> Nothing Then Return trail_glow
+	Return paint
+End Function
+
+' Storm light in the abyss: brief violet/cyan flashes that also light the fog.
+Sub MakeAbyssFlashes()
+	Dim i As Integer
+	Dim lamp As Object
+	flash_lights = Array()
+	For i = 0 To 2
+		lamp = ClassDB.Instantiate("OmniLight3D")
+		lamp.name = "AbyssFlash" & Str(i)
+		lamp.omni_range = 160.0
+		lamp.light_energy = 0.0
+		lamp.shadow_enabled = False
+		add_child(lamp)
+		lamp.global_position = Vector3(-60.0 + i * 60.0, -70.0, 50.0 - i * 60.0)
+		flash_lights.append(lamp)
+	Next
+	flash_t = 0.0
+	flash_next = 2.5
+End Sub
+
+Sub TickAbyssFlash(ByVal delta As Single)
+	Dim i As Integer
+	Dim k As Single
+	Dim lamp As Object
+	If flash_lights.size() < 3 Or atmosphere Is Nothing Then Exit Sub
+	flash_next = flash_next - delta
+	If flash_next <= 0.0 Then
+		flash_t = 0.55
+		flash_next = 2.0 + Rnd() * 5.0
+		If Rnd() < 0.5 Then
+			flash_tint = Color(0.55, 0.35, 1.0, 1)
+		Else
+			flash_tint = Color(0.3, 0.85, 1.0, 1)
+		End If
+		i = Int(Rnd() * 3.0)
+		If i > 2 Then i = 2
+		flash_lights(i).global_position = Vector3(-70.0 + Rnd() * 140.0, -60.0 - Rnd() * 40.0, -90.0 + Rnd() * 180.0)
+		flash_lights(i).set_meta("hot", True)
+		flash_lights(i).light_color = flash_tint
+	End If
+	k = 0.0
+	If flash_t > 0.0 Then
+		flash_t = Max(0.0, flash_t - delta)
+		k = flash_t / 0.55
+		k = k * (0.6 + 0.4 * Sin(flash_t * 60.0))
+	End If
+	For i = 0 To 2
+		lamp = flash_lights(i)
+		If lamp.has_meta("hot") And k > 0.0 Then
+			lamp.light_energy = 9.0 * k
+		Else
+			lamp.light_energy = 0.0
+			If lamp.has_meta("hot") And k <= 0.0 Then lamp.remove_meta("hot")
+		End If
+	Next
+	atmosphere.fog_light_color = Color(0.1, 0.075, 0.18, 1).lerp(flash_tint, k * 0.15)
+End Sub
+
+Sub AttachMapSegment(ByVal body As Object, ByVal a As Vector3, ByVal b As Vector3, ByVal paint As Object)
+	Dim line As Object
+	If map_panel Is Nothing Or body Is Nothing Then Exit Sub
+	line = ClassDB.Instantiate("Line2D")
+	line.width = 1.6
+	If paint = red_mat Then
+		line.default_color = Color(0.95, 0.28, 0.32, 0.9)
+	Else
+		line.default_color = Color(0.25, 0.92, 1.0, 0.9)
+	End If
+	line.antialiased = True
+	line.add_point(MapPoint(a) + Vector2(3, 3))
+	line.add_point(MapPoint(b) + Vector2(3, 3))
+	map_panel.add_child(line)
+	body.set_meta("map_line", line)
+End Sub
+
+Sub clear_trails()
+	Dim body As Object
+	Dim i As Integer
+	For i = 0 To trails.size() - 1
+		body = trails(i)
+		If body <> Nothing Then
+			If body.has_meta("map_line") Then
+				If body.get_meta("map_line") <> Nothing Then body.get_meta("map_line").free()
+			End If
+			body.free()
+		End If
+	Next
+	trails = Array()
+	trail_born = Array()
+	trail_count = 0
+	have_emit = False
+	If grow_mesh <> Nothing Then grow_mesh.visible = False
+End Sub
+
+Sub place_test_wall(ByVal x As Single, ByVal z As Single, ByVal sx As Single, ByVal sy As Single, ByVal sz As Single)
+	Dim body As Object
+	Dim shape_node As Object
+	Dim box As Object
+	body = ClassDB.Instantiate("StaticBody3D")
+	body.name = "TestWall" & Str(test_walls.size())
+	body.collision_layer = 1
+	body.collision_mask = 0
+	shape_node = ClassDB.Instantiate("CollisionShape3D")
+	box = ClassDB.Instantiate("BoxShape3D")
+	box.size = Vector3(sx, sy, sz)
+	shape_node.shape = box
+	body.add_child(shape_node)
+	add_child(body)
+	body.global_position = Vector3(x, sy * 0.5, z)
+	test_walls.append(body)
+End Sub
+
+Sub clear_test_walls()
+	Dim body As Object
+	Dim i As Integer
+	For i = 0 To test_walls.size() - 1
+		body = test_walls(i)
+		If body <> Nothing Then body.free()
+	Next
+	test_walls = Array()
+End Sub
+
+Sub force_pose(ByVal x As Single, ByVal z As Single, ByVal yaw As Single)
+	heading = WrapAngle(yaw)
+	player.global_position = Vector3(x, 0.0, z)
+	player.rotation = Vector3(0.0, 0.0 - heading, 0.0)
+	have_emit = False
+	cam_ready = False
+End Sub
+
+Sub ApplyVisuals(ByVal delta As Single)
+	Dim want As Single
+	If player Is Nothing Then Exit Sub
+	If ride_state = "riding" Then
+		want = 0.0
+	ElseIf ride_state = "boarding" Then
+		want = canopy_open
+	Else
+		want = 1.0
+	End If
+	If ride_state <> "boarding" And ride_state <> "parking" Then
+		canopy_open = canopy_open + (want - canopy_open) * Min(1.0, delta * 8.0)
+	End If
+	If canopy <> Nothing Then canopy.rotation = Vector3(0.0 - 1.08 * canopy_open, 0.0, 0.0)
+	bank = bank * Max(0.0, 1.0 - delta * 5.0)
+	If bank > 0.28 Then bank = 0.28
+	If bank < -0.28 Then bank = -0.28
+	If visual <> Nothing Then visual.rotation = Vector3(0.0, 0.0, bank)
+	If ride_state = "riding" Then wheel_spin = wheel_spin + (speed * delta) / WHEEL_R
+	If front_wheel <> Nothing Then front_wheel.rotation = Vector3(wheel_spin, 0.0, 0.0)
+	If rear_wheel <> Nothing Then rear_wheel.rotation = Vector3(wheel_spin, 0.0, 0.0)
+	Call PoseClamps()
+End Sub
+
+Sub PoseClamps()
+	Dim left As Object
+	Dim right As Object
+	Dim amount As Single
+	If crossing Is Nothing Then Exit Sub
+	amount = 0.0
+	If ride_state = "docked" Or ride_state = "inspect" Then amount = 0.22
+	If yard_field Then
+		If dock_id = "vault" And crossing.has_node("VaultCradle/ClampLeft") Then
+			left = crossing.get_node("VaultCradle/ClampLeft")
+			right = crossing.get_node("VaultCradle/ClampRight")
+		ElseIf crossing.has_node("YardDock/Cradle/ClampLeft") Then
+			left = crossing.get_node("YardDock/Cradle/ClampLeft")
+			right = crossing.get_node("YardDock/Cradle/ClampRight")
+			If Not cradle_released Then
+				amount = 0.22
+			ElseIf ride_state = "on_foot" Then
+				amount = 0.0
+			End If
+		End If
+	Else
+		left = crossing.get_node("NearCradle/ClampLeft")
+		right = crossing.get_node("NearCradle/ClampRight")
+		If dock_id = "far" Then
+			left = crossing.get_node("FarCradle/ClampLeft")
+			right = crossing.get_node("FarCradle/ClampRight")
+		End If
+	End If
+	If left <> Nothing Then left.rotation = Vector3(0.0, 0.0, 0.0 - amount)
+	If right <> Nothing Then right.rotation = Vector3(0.0, 0.0, amount)
+End Sub
+
+Function LookPoint() As Vector3
+	If ride_state = "inspect" And inspect_subject = 2 And remote <> Nothing Then
+		LookPoint = remote.global_position + Vector3(0, 1.05, 0)
+		Exit Function
+	End If
+	If ride_state = "inspect" And inspect_subject = 3 Then
+		LookPoint = Vector3(0.0, 1.6, -6.0)
+		Exit Function
+	End If
+	If camera_target <> Nothing Then
+		LookPoint = camera_target.global_position
+	Else
+		LookPoint = player.global_position + Vector3(0, 1.05, 0)
+	End If
+End Function
+
+Sub AimRideCamera(ByVal delta As Single)
+	Dim look As Vector3
+	Dim desired As Vector3
+	Dim blend As Single
+	Dim fwd As Vector3
+	If ride_camera Is Nothing Then Exit Sub
+	look = LookPoint()
+	If ride_state = "inspect" Then
+		desired = look + Vector3(Sin(orbit_yaw) * Cos(orbit_pitch), Sin(orbit_pitch), Cos(orbit_yaw) * Cos(orbit_pitch)) * orbit_dist
+		ride_camera.fov = 52.0
+		ride_camera.cull_mask = NO_COCKPIT_MASK
+		If Not cam_ready Then
+			cam_pos = desired
+			cam_ready = True
+		Else
+			blend = Min(1.0, delta * 4.2)
+			cam_pos = cam_pos + (desired - cam_pos) * blend
+		End If
+		ride_camera.global_position = cam_pos
+		If look.distance_to(cam_pos) > 0.05 Then ride_camera.look_at(look, Vector3(0, 1, 0))
+	ElseIf (ride_state = "on_foot" Or ride_state = "falling") And walker <> Nothing Then
+		look = walker.global_position + Vector3(0.0, 1.55, 0.0)
+		desired = look - ForwardOf(walk_heading) * 0.12
+		ride_camera.fov = 60.0
+		ride_camera.cull_mask = NO_COCKPIT_MASK
+		cam_pos = desired
+		cam_ready = True
+		ride_camera.global_position = cam_pos
+		If look.distance_to(cam_pos) > 0.05 Then ride_camera.look_at(look, Vector3(0, 1, 0))
+	Else
+		If camera_target <> Nothing Then
+			desired = camera_target.global_position
+		Else
+			desired = player.global_position + Vector3(0.0, 1.05, -0.2)
+		End If
+		fwd = ForwardOf(heading)
+		look = desired + fwd * 14.0 + Vector3(0.0, -0.06, 0.0)
+		cam_pos = desired
+		cam_ready = True
+		ride_camera.fov = 68.0
+		ride_camera.cull_mask = 1 + COCKPIT_LAYER
+		ride_camera.global_position = cam_pos
+		If look.distance_to(cam_pos) > 0.05 Then ride_camera.look_at(look, Vector3(0, 1, 0))
+	End If
+	If mode = "f6" Then ride_camera.current = True
+	Call AimExterior()
+	Call RefreshRelayArt()
+	Call RefreshTactical()
+End Sub
+
+Sub AimExterior()
+	Dim look As Vector3
+	Dim desired As Vector3
+	If exterior_camera Is Nothing Then Exit Sub
+	If player Is Nothing Then Exit Sub
+	look = player.global_position + Vector3(0.0, 1.05, 0.0)
+	desired = look + Vector3(0.0, 2.3, 0.0) - ForwardOf(heading) * 6.4
+	exterior_camera.global_position = desired
+	If look.distance_to(desired) > 0.05 Then exterior_camera.look_at(look, Vector3(0, 1, 0))
+	exterior_camera.cull_mask = NO_COCKPIT_MASK
+	exterior_camera.current = True
+End Sub
+
+Function NextSocket() As Object
+	Dim names As Array
+	If crossing Is Nothing Then
+		NextSocket = Nothing
+		Exit Function
+	End If
+	If relays >= 3 Then
+		If yard_field Then
+			If route.facility_cleared Then
+				NextSocket = crossing.get_node("YardDock/Cradle/ApproachEnd")
+			Else
+				NextSocket = crossing.get_node("VaultCradle/ApproachEnd")
+			End If
+		ElseIf route.facility_cleared Then
+			NextSocket = crossing.get_node("NearCradle/ApproachEnd")
+		Else
+			NextSocket = crossing.get_node("FarCradle/ApproachEnd")
+		End If
+		Exit Function
+	End If
+	names = Array("Relay0/LinkSocket", "Relay1/LinkSocket", "Relay2/LinkSocket")
+	NextSocket = crossing.get_node(names(relays))
+End Function
+
+Function BearingWord(ByVal from_h As Single, ByVal to_h As Single) As String
+	Dim gap As Single
+	gap = AngleDelta(from_h, to_h)
+	If Abs(gap) < 0.4 Then
+		BearingWord = "AHEAD"
+	ElseIf gap > 0.0 Then
+		BearingWord = "RIGHT"
+	Else
+		BearingWord = "LEFT"
+	End If
+End Function
+
+Function NextHint() As String
+	Dim socket As Object
+	Dim p As Vector3
+	Dim q As Vector3
+	Dim yaw As Single
+	Dim dist As Single
+	If player Is Nothing Then
+		NextHint = ""
+		Exit Function
+	End If
+	socket = NextSocket()
+	If socket Is Nothing Then
+		NextHint = ""
+		Exit Function
+	End If
+	p = player.global_position
+	q = socket.global_position
+	dist = Vector2(p.x - q.x, p.z - q.z).length()
+	yaw = Atan2(q.x - p.x, p.z - q.z)
+	If yard_field And charge_fail_t > 0.0 Then
+		NextHint = "CONTAINMENT FAILURE  " & Str(Int(charge_fail_t * 10.0 + 0.99) / 10.0) & "s"
+		Exit Function
+	End If
+	If yard_field Then
+		NextHint = GotoHud() & "  RANGE " & Str(Int(RangeMeters() + 0.5)) & "m"
+		If NoReturn() Then NextHint = NextHint & "  NO RETURN"
+		Exit Function
+	End If
+	If trace_shutdown_t > 0.0 Then
+		NextHint = "SHUTTING DOWN TRACE  " & Str(Int(trace_shutdown_t + 0.999))
+		Exit Function
+	End If
+	If trace_off_t > 0.0 Then
+		NextHint = "TRACE OFF  FIELD RESET  " & Str(Int(trace_off_t * 10.0 + 0.99) / 10.0) & "s"
+		Exit Function
+	End If
+	If trace_on_t > 0.0 Then
+		NextHint = "TRACE ON  LINK " & Str(relays) & " OK"
+		Exit Function
+	End If
+	If relays >= 3 Then
+		If field_open_t > 0.0 Then
+			NextHint = "ALL 3 LINKED  FAR DOCK OPEN"
+			Exit Function
+		End If
+		NextHint = "FAR DOCK  " & Str(Int(dist + 0.5)) & "m  " & BearingWord(heading, yaw)
+		If p.z < q.z - 1.0 Then NextHint = NextHint & "  ENTER FROM SOUTH"
+		Exit Function
+	End If
+	If relay_armed.size() > relays Then
+		If relay_armed(relays) Then
+			NextHint = "TRACE ON  HOLD LANE " & Str(Int(dist + 0.5)) & "m"
+			Exit Function
+		End If
+	End If
+	NextHint = "LINK " & Str(relays + 1) & "  " & Str(Int(dist + 0.5)) & "m  " & BearingWord(heading, yaw)
+	If dist < 45.0 Then NextHint = NextHint & "  USE LANE"
+End Function
+
+Sub RefreshRelayArt()
+	Dim i As Integer
+	Dim ring As Object
+	Dim num As Object
+	Dim flash As Single
+	For i = 0 To relay_rings.size() - 1
+		ring = relay_rings(i)
+		num = relay_nums(i)
+		flash = 1.0
+		If i = pad_flash_i And pulse_t > 0.0 Then flash = 1.0 + 0.42 * pulse_t * Abs(Sin(pulse_t * 16.0))
+		If ring <> Nothing Then ring.scale = Vector3(flash, flash, flash)
+		If i < relays Then
+			If cyan_mat <> Nothing Then ring.material_override = cyan_mat
+			If num <> Nothing Then num.modulate = Color(0.35, 0.95, 1.0, 0.55)
+		ElseIf i = relays Then
+			If amber_mat <> Nothing Then ring.material_override = amber_mat
+			If num <> Nothing Then num.modulate = Color(1.0, 0.84, 0.32, 1.0)
+		Else
+			If amber_mat <> Nothing Then ring.material_override = amber_mat
+			If num <> Nothing Then num.modulate = Color(0.55, 0.55, 0.6, 0.55)
+		End If
+	Next
+End Sub
+
+Sub PlaceMapDot(ByVal box As Object, ByVal p As Vector3)
+	Dim at As Vector2
+	If box Is Nothing Then Exit Sub
+	at = MapPoint(p)
+	box.position = at
+End Sub
+
+Sub PlaceHeading(ByVal line As Object, ByVal p As Vector3, ByVal yaw As Single)
+	Dim nose As Vector3
+	If line Is Nothing Then Exit Sub
+	Dim c As Vector2
+	Dim d As Vector2
+	Dim side As Vector2
+	nose = p + ForwardOf(yaw) * 10.0
+	c = MapPoint(p) + Vector2(3, 3)
+	d = MapPoint(nose) + Vector2(3, 3) - c
+	If d.length() < 0.001 Then Exit Sub
+	d = d.normalized()
+	side = Vector2(0.0 - d.y, d.x)
+	line.clear_points()
+	line.add_point(c + d * 4.0 + side * 4.0)
+	line.add_point(c + d * 9.0)
+	line.add_point(c + d * 4.0 - side * 4.0)
+End Sub
+
+Sub RefreshTactical()
+	Dim i As Integer
+	Dim p As Vector3
+	Dim show_dash As Boolean
+	Dim cap_w As Single
+	Dim cap_h As Single
+	Dim at As Vector2
+	show_dash = ride_state <> "inspect" And ride_state <> "on_foot" And ride_state <> "falling"
+	If hud_panel <> Nothing Then hud_panel.visible = False
+	If strip_label <> Nothing Then strip_label.visible = False
+	If cluster_hud <> Nothing Then cluster_hud.visible = show_dash
+	If ext_frame <> Nothing Then ext_frame.visible = show_dash
+	If map_frame <> Nothing Then map_frame.visible = show_dash
+	If ext_rect <> Nothing Then ext_rect.visible = show_dash
+	If map_panel <> Nothing Then map_panel.visible = show_dash
+	If glass_label <> Nothing Then glass_label.visible = Not show_dash
+	If Not show_dash Then Exit Sub
+	If yard_field Then
+		Call RefreshYardRadar()
+		Exit Sub
+	End If
+	cap_w = RELAY_LANE_HALF * 2.0 * (MAP_W / 160.0)
+	cap_h = RELAY_ARM_RANGE * 2.0 * (MAP_H / 240.0)
+	If player <> Nothing Then
+		Call PlaceMapDot(map_player, player.global_position)
+		Call PlaceHeading(map_heading, player.global_position, heading)
+	End If
+	If crossing <> Nothing And map_docks.size() >= 2 Then
+		Call PlaceMapDot(map_docks(0), crossing.get_node("NearCradle").global_position)
+		Call PlaceMapDot(map_docks(1), crossing.get_node("FarCradle").global_position)
+		If map_dock_labs.size() >= 2 Then
+			map_dock_labs(0).text = "NEAR"
+			map_dock_labs(0).position = MapPoint(crossing.get_node("NearCradle").global_position) + Vector2(8, -2)
+			map_dock_labs(1).text = "FAR"
+			map_dock_labs(1).position = MapPoint(crossing.get_node("FarCradle").global_position) + Vector2(8, -2)
+		End If
+		If map_lift <> Nothing And crossing.has_node("DeepLiftLobby") Then Call PlaceMapDot(map_lift, crossing.get_node("DeepLiftLobby").global_position)
+		For i = 0 To 2
+			p = crossing.get_node("Relay" & Str(i) & "/LinkSocket").global_position
+			Call PlaceMapDot(map_relays(i), p)
+			at = MapPoint(p)
+			If map_captures.size() > i Then
+				map_captures(i).size = Vector2(cap_w, cap_h)
+				map_captures(i).position = at + Vector2(3.0 - cap_w * 0.5, 3.0 - cap_h * 0.5)
+			End If
+			If map_relay_labs.size() > i Then
+				map_relay_labs(i).text = Str(i + 1)
+				map_relay_labs(i).position = at + Vector2(8, -8)
+			End If
+			If i < relays Then
+				map_relays(i).color = Color(0.25, 0.9, 1.0, 1.0)
+				If map_captures.size() > i Then map_captures(i).color = Color(0.25, 0.9, 1.0, 0.12)
+			ElseIf i = relays Then
+				map_relays(i).color = Color(1.0, 0.82, 0.28, 1.0)
+				If map_captures.size() > i Then map_captures(i).color = Color(1.0, 0.82, 0.28, 0.28)
+			Else
+				map_relays(i).color = Color(0.4, 0.45, 0.5, 0.8)
+				If map_captures.size() > i Then map_captures(i).color = Color(0.5, 0.5, 0.55, 0.1)
+			End If
+		Next
+	End If
+	If remote <> Nothing And (enemy_state = "telegraph" Or enemy_state = "hunt" Or enemy_state = "burst") Then
+		map_enemy.visible = True
+		map_enemy_heading.visible = True
+		Call PlaceMapDot(map_enemy, remote.global_position)
+		Call PlaceHeading(map_enemy_heading, remote.global_position, enemy_heading)
+	ElseIf map_enemy <> Nothing Then
+		map_enemy.visible = False
+		If map_enemy_heading <> Nothing Then map_enemy_heading.visible = False
+	End If
+	If ride_state = "crashed" Then
+		map_crash.visible = True
+		Call PlaceMapDot(map_crash, crash_point)
+	ElseIf map_crash <> Nothing Then
+		map_crash.visible = False
+	End If
+	If map_grow <> Nothing Then
+		map_grow.clear_points()
+		If have_emit And ride_state = "riding" And emitter <> Nothing Then
+			map_grow.add_point(MapPoint(last_emit) + Vector2(3, 3))
+			map_grow.add_point(MapPoint(emitter.global_position) + Vector2(3, 3))
+		End If
+	End If
+	If map_legend <> Nothing Then map_legend.text = "FAR N   1-2-3 LINK   T TRACE OFF"
+End Sub
+
+' One line telling the player what the run wants from them right now.
+Function Objective() As String
+	Objective = ""
+	If route Is Nothing Then Exit Function
+	If ride_state = "crashed" Then Exit Function
+	If ride_state = "inspect" Then Exit Function
+	If area_name = "vault" And ride_state = "on_foot" Then
+		If route.coupler_taken Then
+			Objective = "OBJECTIVE  CARRY THE COUPLER OUT - WALK TO THE EXIT, PRESS E"
+		Else
+			Objective = "OBJECTIVE  TAKE THE CORE AND THE COUPLER - PRESS E"
+		End If
+		Exit Function
+	End If
+	If area_name = "lobby" And ride_state = "on_foot" Then
+		If route.facility_cleared Then
+			Objective = "OBJECTIVE  WALK TO THE CYCLE - PRESS E"
+		Else
+			Objective = "OBJECTIVE  WALK INTO THE DEEP LIFT - PRESS E"
+		End If
+		Exit Function
+	End If
+	If route.stage_name = "near_dock" Then
+		Objective = "COUPLER SECURE - TRACE CYCLE TEST COMPLETE"
+		Exit Function
+	End If
+	If route.facility_cleared Then
+		Objective = "OBJECTIVE  OUTRUN THE RED CYCLE - RETURN TO THE NEAR DOCK"
+		Exit Function
+	End If
+	If ride_state = "docked" And dock_id = "far" Then
+		Objective = "OBJECTIVE  PRESS E - TAKE THE DEEP LIFT TO THE VAULT"
+		Exit Function
+	End If
+	If relays >= 3 Then
+		Objective = "OBJECTIVE  FIELD LINKED - RIDE INTO THE FAR DOCK UNDER THE BEACON"
+		Exit Function
+	End If
+	Objective = "OBJECTIVE  LINK RELAY " & Str(relays + 1) & " OF 3 - RIDE ITS LIT LANE"
+End Function
+
+Function Caption() As String
+	Dim trace As String
+	Dim inspect As String
+	If ride_state = "riding" And trace_off_t <= 0.0 Then
+		trace = "TRACE ON"
+	Else
+		trace = "TRACE OFF"
+	End If
+	inspect = ""
+	If ride_state = "inspect" Then
+		If inspect_subject = 1 Then inspect = "  INSPECT PLAYER"
+		If inspect_subject = 2 Then inspect = "  INSPECT REMOTE"
+		If inspect_subject = 3 Then inspect = "  INSPECT VAULT"
+	End If
+	Caption = UCase(ride_state) & "  SPEED " & Str(Int(speed + 0.5)) & "  RELAY " & Str(relays) & "/3  " & trace & inspect
+End Function
+
+Function CrashAdvice() As String
+	If crash_reason = "pylon" Then
+		CrashAdvice = "ride the lit lane - the mast sinks for you"
+	ElseIf crash_reason = "cradle" Then
+		CrashAdvice = "stay in the dock channel"
+	ElseIf crash_reason = "trail" Then
+		CrashAdvice = "old trace wall"
+	ElseIf crash_reason = "boundary" Then
+		CrashAdvice = "support-field limit"
+	ElseIf crash_reason = "lockdown" Then
+		CrashAdvice = "facility timer"
+	ElseIf crash_reason = "lift" Then
+		CrashAdvice = "deep-lift building - park in the FAR dock, then walk"
+	ElseIf crash_reason = "fall" Then
+		CrashAdvice = "stay on the dock - the void has no floor"
+	ElseIf crash_reason = "yard rim" Then
+		CrashAdvice = "yard containment rail - leave through the dock gate"
+	ElseIf crash_reason = "field boundary" Then
+		CrashAdvice = "containment edge of the support field"
+	ElseIf crash_reason = "containment" Then
+		CrashAdvice = "charge spent - reach a dock or relay"
+	ElseIf crash_reason = "unknown" Then
+		CrashAdvice = "unidentified obstacle"
+	Else
+		CrashAdvice = crash_reason
+	End If
+End Function
+
+Sub RefreshHud()
+	Dim lines As String
+	Dim glass As String
+	Dim toast As String
+	If glass_label Is Nothing Then Exit Sub
+	If ride_state = "crashed" Then
+		glass = "CRASH  " & UCase(crash_reason) & "   R RETRY"
+		toast = UCase(crash_reason) & "  ·  " & CrashAdvice()
+	ElseIf ride_state = "inspect" Then
+		glass = "MODEL INSPECTION   1 PLAYER  2 REMOTE  3 VAULT   I BACK"
+		toast = ""
+	ElseIf ride_state = "on_foot" Then
+		glass = prompt & "   W/S MOVE  A/D TURN"
+		If nearby_hud <> "" Then glass = glass & "   " & nearby_hud
+		toast = ""
+	ElseIf ride_state = "falling" Then
+		glass = "FALLING"
+		toast = ""
+	ElseIf ride_state = "docked" Then
+		If dock_id = "far" And Not route.facility_cleared Then
+			glass = "E FAR LIFT   I INSPECT   R RETRY"
+		ElseIf dock_id = "far" And route.facility_cleared Then
+			glass = "E BOARD RETURN CHASE   R RETRY"
+		ElseIf route.stage_name = "near_dock" Then
+			glass = "COUPLER SECURE   R RETRY"
+		Else
+			glass = "E LAUNCH   W/S SPEED   I INSPECT"
+		End If
+		toast = ""
+	Else
+		glass = NextHint() & "   W/S SPEED   A/D TURN"
+		toast = ""
+	End If
+	glass_label.text = glass
+	If objective_label <> Nothing Then
+		objective_label.text = Objective()
+		If field_open_t > 0.0 Then
+			objective_label.modulate = Color(1, 1, 1, 0.55 + 0.45 * Abs(Sin(field_open_t * 7.0)))
+		Else
+			objective_label.modulate = Color(1, 1, 1, 0.9)
+		End If
+	End If
+	If hud_pulse <> Nothing Then
+		If pulse_t > 0.0 Then
+			If last_cue = "wipe" Or last_cue = "shutdown" Then
+				hud_pulse.color = Color(0.55, 0.82, 1.0, 0.28 * Min(1.0, pulse_t / 0.35))
+			Else
+				hud_pulse.color = Color(0.35, 0.95, 1.0, 0.12 + 0.16 * Abs(Sin(pulse_t * 18.0)))
+			End If
+		Else
+			hud_pulse.color = Color(0.35, 0.95, 1.0, 0.0)
+		End If
+	End If
+	If crash_label <> Nothing Then
+		crash_label.text = toast
+		crash_label.visible = ride_state = "crashed"
+	End If
+	If strip_label <> Nothing Then
+		lines = Str(Int(speed + 0.5)) & " m/s" & Chr(10)
+		lines = lines & "TRACE  " & Str(relays) & "/3" & Chr(10)
+		lines = lines & NextHint() & Chr(10)
+		If ride_state = "riding" Then
+			lines = lines & "TRACE ON"
+		Else
+			lines = lines & UCase(ride_state)
+		End If
+		strip_label.text = lines
+	End If
+	Call RefreshThrottle()
+	If hud_speed <> Nothing Then
+		hud_speed.text = Str(Int(speed + 0.5)) & " M/S"
+		hud_trace.text = "TRACE " & Str(relays) & "/3"
+		If ride_state = "riding" Then
+			hud_hint.text = UCase(NextHint())
+		Else
+			hud_hint.text = UCase(ride_state)
+		End If
+	End If
+	If hud_label Is Nothing Then Exit Sub
+	hud_label.visible = debug_hud
+	If Not debug_hud Then Exit Sub
+	lines = "TRACE CYCLE  " & UCase(area_name) & "  " & UCase(enemy_state) & Chr(10)
+	lines = lines & Caption() & "  DOCK " & UCase(dock_id) & "  CORES " & Str(route.cores) & Chr(10)
+	If ride_state = "crashed" Then
+		lines = lines & "CRASH " & UCase(crash_reason) & "  " & crash_path & "  @ " & Str(Int(crash_point.x)) & "," & Str(Int(crash_point.z)) & Chr(10)
+	End If
+	If mode = "f6" Then
+		lines = lines & "F3 DEBUG   ESC PAUSE   F6 CURRENT SCENE"
+	Else
+		lines = lines & "F3 DEBUG   ESC PAUSE   F10 CAMPAIGN   DEV SAVE UNCHANGED"
+	End If
+	hud_label.text = lines
+End Sub
+
+Function render(ByVal presentation As Object) As Texture2D
+	If presentation Is Nothing Then
+		render = Nothing
+		Exit Function
+	End If
+	visible = True
+	If ride_camera <> Nothing Then ride_camera.current = False
+	If presentation.camera <> Nothing Then
+		presentation.camera.environment = atmosphere
+		If ride_camera <> Nothing Then
+			presentation.camera.global_transform = ride_camera.global_transform
+			presentation.camera.fov = ride_camera.fov
+			presentation.camera.cull_mask = ride_camera.cull_mask
+			presentation.camera.near = ride_camera.near
+		End If
+		presentation.camera.current = True
+	End If
+	If presentation.viewport <> Nothing Then
+		If presentation.viewport.transparent_bg Then presentation.viewport.transparent_bg = False
+		If presentation.viewport.msaa_3d <> Viewport.MSAA_4X Then presentation.viewport.msaa_3d = Viewport.MSAA_4X
+		presentation.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		render = presentation.viewport.get_texture()
+	Else
+		render = Nothing
+	End If
+End Function
+
+Sub LoadYardConfig()
+	Dim txt As String
+	Dim charge_cfg As Object
+	Dim nav As Object
+	Dim bounds As Object
+	Dim yard As Object
+	Dim mats As Object
+	txt = ReadAllText("res://assets/trace_vault/yard_field.json")
+	If txt = "" Then txt = FileAccess.get_file_as_string("res://assets/trace_vault/yard_field.json")
+	field_cfg = JsonParse(txt)
+	charge_cfg = field_cfg("proposed_charge")
+	charge_cap = charge_cfg("capacity")
+	charge_trace_extra = charge_cfg("trace_on_extra")
+	charge_relay_gain = charge_cfg("relay_gain")
+	charge_cooldown = charge_cfg("relay_cooldown_s")
+	charge_dock_refill = charge_cfg("dock_refill_s")
+	charge_low = charge_cfg("low")
+	charge_crit = charge_cfg("critical")
+	charge_crit_cap = charge_cfg("critical_speed_cap")
+	charge_fail_window = charge_cfg("failure_window_s")
+	nav = field_cfg("proposed_navigation")
+	beacon_vis = nav("beacon_visible_m")
+	self_discover_m = nav("self_discover_m")
+	list_scan_m = nav("list_scan_radius_m")
+	list_scan_cost = nav("list_scan_cost")
+	radar_radius = nav("radar_radius_m")
+	bounds = field_cfg("field_bounds")
+	field_min_x = bounds("min")(0)
+	field_min_z = bounds("min")(1)
+	field_max_x = bounds("max")(0)
+	field_max_z = bounds("max")(1)
+	yard = field_cfg("yard_rect")
+	yard_min_x = yard("min")(0)
+	yard_min_z = yard("min")(1)
+	yard_max_x = yard("max")(0)
+	yard_max_z = yard("max")(1)
+	free_names = field_cfg("free_relays")
+	mats = field_cfg("beacon_materials")
+	beacon_cyan = Load("res://assets/trace_vault/materials/" & Str(mats("available")) & ".tres")
+	beacon_dim = Load("res://assets/trace_vault/materials/" & Str(mats("spent")) & ".tres")
+	beacon_white = Load("res://assets/trace_vault/materials/" & Str(mats("dock")) & ".tres")
+	beacon_amber = Load("res://assets/trace_vault/materials/" & Str(mats("vault_unlocked")) & ".tres")
+	Call LoadTranslationConfig()
+End Sub
+
+Sub ResetYardRun()
+	charge = charge_cap
+	charge_fail_t = 0.0
+	charge_warned_low = False
+	goto_i = 0
+	return_forced = False
+	last_safe_dock = "yard_dock"
+	free_spent = Array(0.0, 0.0, 0.0)
+	free_armed = Array(False, False, False)
+	free_drop = Array(0.0, 0.0, 0.0)
+	discovered = Array("YardDock")
+	lock_open = False
+	lock_entry = ""
+	lock_flash_t = 0.0
+	If gloss_age Is Nothing Then gloss_age = New Dictionary
+	gloss_age.clear()
+	If ignore_input Then
+		cradle_released = True
+		If translator_start_owned Then Call GiveTranslator()
+	Else
+		cradle_released = yard_save_released
+		If yard_save_translator Or translator_start_owned Then Call GiveTranslator()
+	End If
+	Call ClearLockEntries()
+	Call ApplyLockLight()
+	Call HideTranslatorPickup()
+	If player <> Nothing Then Call PaintRemoteBurst(player, Nothing)
+	If Not ignore_input And Not cradle_released Then Call BeginYardDockWalk()
+End Sub
+
+Function narcean_hash(ByVal w As String) As Long
+	Dim h As Long
+	Dim i As Integer
+	Dim u As String
+	u = UCase(w)
+	h = 2166136261
+	For i = 1 To Len(u)
+		h = h Xor Asc(Mid(u, i, 1))
+		h = (h * 16777619) And 4294967295
+	Next
+	Return h
+End Function
+
+Function narcean_cell(ByVal h As Long, ByVal i As Integer) As Integer
+	Dim v As Long
+	v = Int(h / (2 ^ ((i * 5) Mod 27))) Mod 64
+	If v = 0 Then v = 42
+	Return v
+End Function
+
+Function NarceanCellCount(ByVal w As String) As Integer
+	Dim n As Integer
+	n = Int((Len(w) + 1) / 2)
+	If n < 1 Then n = 1
+	NarceanCellCount = n
+End Function
+
+Function BitOn(ByVal pattern As Integer, ByVal bit As Integer) As Boolean
+	BitOn = (Int(pattern / (2 ^ bit)) Mod 2) = 1
+End Function
+
+Sub narcean_word(ByVal parent As Object, ByVal at As Vector2, ByVal w As String, Optional scale As Variant = 1.0, Optional color As Variant)
+	Dim h As Long
+	Dim cells As Integer
+	Dim i As Integer
+	Dim bit As Integer
+	Dim pattern As Integer
+	Dim origin As Vector2
+	Dim col As Color
+	If parent Is Nothing Then Exit Sub
+	If color Is Nothing Then
+		col = Color(0.55, 0.97, 1.0, 1.0)
+	Else
+		col = color
+	End If
+	w = UCase(w)
+	h = narcean_hash(w)
+	cells = NarceanCellCount(w)
+	For i = 0 To cells - 1
+		origin = at + Vector2(i * 18.0 * scale, 0.0)
+		pattern = narcean_cell(h, i)
+		For bit = 0 To 5
+			If BitOn(pattern, bit) Then Call DrawNarceanStroke(parent, origin, bit, scale, col)
+		Next
+	Next
+	Call AddNarceanLine(parent, at + Vector2(0.0, -3.0 * scale), at + Vector2(cells * 18.0 * scale - 4.0 * scale, -3.0 * scale), scale, col)
+End Sub
+
+Sub narcean_line(ByVal parent As Object, ByVal at As Vector2, ByVal line As String, Optional scale As Variant = 1.0, Optional color As Variant)
+	Dim parts As PackedStringArray
+	Dim i As Integer
+	Dim cursor As Vector2
+	Dim w As String
+	If parent Is Nothing Then Exit Sub
+	cursor = at
+	parts = line.split(" ")
+	For i = 0 To parts.size() - 1
+		w = parts(i)
+		If w <> "" Then
+			Call narcean_word(parent, cursor, w, scale, color)
+			cursor = cursor + Vector2((NarceanCellCount(w) * 18.0 + 10.0) * scale, 0.0)
+		End If
+	Next
+End Sub
+
+Sub DrawNarceanStroke(ByVal parent As Object, ByVal at As Vector2, ByVal bit As Integer, ByVal scale As Single, ByVal col As Color)
+	If bit = 0 Then
+		Call AddNarceanLine(parent, at + Vector2(0.0, 0.0) * scale, at + Vector2(7.0, 6.0) * scale, scale, col)
+		Call AddNarceanLine(parent, at + Vector2(7.0, 6.0) * scale, at + Vector2(14.0, 0.0) * scale, scale, col)
+	ElseIf bit = 1 Then
+		Call AddNarceanLine(parent, at + Vector2(0.0, 18.0) * scale, at + Vector2(7.0, 12.0) * scale, scale, col)
+		Call AddNarceanLine(parent, at + Vector2(7.0, 12.0) * scale, at + Vector2(14.0, 18.0) * scale, scale, col)
+	ElseIf bit = 2 Then
+		Call AddNarceanLine(parent, at + Vector2(0.0, 2.0) * scale, at + Vector2(0.0, 16.0) * scale, scale, col)
+	ElseIf bit = 3 Then
+		Call AddNarceanLine(parent, at + Vector2(14.0, 2.0) * scale, at + Vector2(14.0, 16.0) * scale, scale, col)
+	ElseIf bit = 4 Then
+		Call AddNarceanLine(parent, at + Vector2(3.0, 9.0) * scale, at + Vector2(11.0, 9.0) * scale, scale, col)
+	ElseIf bit = 5 Then
+		Call AddNarceanLine(parent, at + Vector2(7.0, -3.0) * scale, at + Vector2(7.0, 21.0) * scale, scale, col)
+	End If
+End Sub
+
+Sub AddNarceanLine(ByVal parent As Object, ByVal a As Vector2, ByVal b As Vector2, ByVal scale As Single, ByVal col As Color)
+	Dim line As Object
+	line = ClassDB.Instantiate("Line2D")
+	line.width = 1.7 * scale
+	line.default_color = col
+	line.antialiased = True
+	line.add_point(a)
+	line.add_point(b)
+	parent.add_child(line)
+End Sub
+
+Sub ClearNarceanHud()
+	Dim kids As Array
+	Dim i As Integer
+	If script_hud Is Nothing Then Exit Sub
+	kids = script_hud.get_children()
+	For i = 0 To kids.size() - 1
+		kids(i).free()
+	Next
+End Sub
+
+Function TranslatorOwned() As Boolean
+	If inventory Is Nothing Then Return False
+	If Not inventory.has("translator") Then Return False
+	Return inventory("translator")
+End Function
+
+Sub GiveTranslator()
+	If inventory Is Nothing Then inventory = New Dictionary
+	inventory("translator") = True
+	Call HideTranslatorPickup()
+End Sub
+
+Sub TakeTranslator()
+	Call GiveTranslator()
+	yard_save_translator = True
+	nearby_hud = "Interface lexicon linked. I can read their labels. Their prose is beyond it."
+	prompt = nearby_hud
+End Sub
+
+Sub RememberYardCheckpoint()
+	yard_save_released = cradle_released
+	yard_save_translator = TranslatorOwned()
+End Sub
+
+Sub LoadTranslationConfig()
+	Dim trans As Object
+	If field_cfg Is Nothing Then Exit Sub
+	If Not field_cfg.has("translation") Then Exit Sub
+	trans = field_cfg("translation")
+	translator_start_owned = trans("start_owned_in_dest")
+	gloss_range_m = trans("gloss_range_m")
+	cradle_code = Str(trans("cradle_code_dev"))
+	trans_lock_path = Str(trans("cradle_lock"))
+	trans_tag_path = Str(trans("code_clue"))
+	trans_post_path = Str(trans("translator_post"))
+	If trans.has("translator_point") Then
+		trans_point_path = Str(trans("translator_point"))
+	Else
+		trans_point_path = "TranslatorPoint"
+	End If
+	trans_signs = trans("signs")
+End Sub
+
+Sub BindYardTranslation()
+	If crossing Is Nothing Then Exit Sub
+	If crossing.has_node(trans_lock_path) Then lock_node = crossing.get_node(trans_lock_path)
+	Call HideTranslatorPickup()
+	Call ApplyLockLight()
+End Sub
+
+Sub HideTranslatorPickup()
+	Dim prop As Object
+	If crossing Is Nothing Then Exit Sub
+	If Not crossing.has_node(trans_post_path & "/Translator") Then Exit Sub
+	prop = crossing.get_node(trans_post_path & "/Translator")
+	prop.visible = Not TranslatorOwned()
+End Sub
+
+Function ViewerPos() As Vector3
+	If (ride_state = "on_foot" Or ride_state = "falling") And walker <> Nothing Then
+		If walker.visible Then
+			ViewerPos = walker.global_position
+			Exit Function
+		End If
+	End If
+	If player <> Nothing Then
+		ViewerPos = player.global_position
+	Else
+		ViewerPos = Vector3(0.0, 0.0, 0.0)
+	End If
+End Function
+
+Function NodeGap(ByVal node As Object) As Single
+	Dim a As Vector3
+	Dim b As Vector3
+	If node Is Nothing Then
+		NodeGap = 99.0
+		Exit Function
+	End If
+	a = ViewerPos()
+	b = node.global_position
+	NodeGap = Vector2(a.x - b.x, a.z - b.z).length()
+End Function
+
+Function SignKind(ByVal sign As Object) As String
+	If sign Is Nothing Then Return ""
+	If Not sign.has_meta("text_kind") Then Return ""
+	SignKind = Str(sign.get_meta("text_kind"))
+End Function
+
+Function SignGloss(ByVal sign As Object) As String
+	If sign Is Nothing Then Return ""
+	If Not sign.has_meta("gloss") Then Return ""
+	SignGloss = Str(sign.get_meta("gloss"))
+End Function
+
+Function SignScript(ByVal sign As Object) As String
+	If sign Is Nothing Then Return ""
+	If Not sign.has_meta("script") Then Return SignGloss(sign)
+	SignScript = Str(sign.get_meta("script"))
+End Function
+
+Sub TickGloss(ByVal delta As Single)
+	Dim i As Integer
+	Dim path As String
+	Dim sign As Object
+	Dim gloss As Object
+	Dim kind As String
+	Dim dist As Single
+	Dim age As Single
+	Dim in_range As Boolean
+	Dim owned As Boolean
+	Dim key_path As String
+	Dim decoded As Boolean
+	Dim high_seen As Boolean
+	Dim script_line As String
+	If Not yard_field Then Exit Sub
+	If crossing Is Nothing Then Exit Sub
+	If gloss_age Is Nothing Then gloss_age = New Dictionary
+	owned = TranslatorOwned()
+	nearby_hud = ""
+	high_seen = False
+	script_line = ""
+	decoded = False
+	If trans_signs Is Nothing Then trans_signs = Array()
+	For i = 0 To trans_signs.size() - 1
+		path = Str(trans_signs(i))
+		If Not crossing.has_node(path) Then GoTo NextSign
+		sign = crossing.get_node(path)
+		kind = SignKind(sign)
+		dist = NodeGap(sign)
+		in_range = dist <= gloss_range_m
+		If kind = "high" Then
+			If sign.has_node("Gloss") Then sign.get_node("Gloss").visible = False
+			If in_range Then high_seen = True
+			If gloss_age.has(path) Then gloss_age.erase(path)
+			GoTo NextSign
+		End If
+		If owned And in_range Then
+			If gloss_age.has(path) Then
+				age = gloss_age(path) + delta
+			Else
+				age = delta
+			End If
+			gloss_age(path) = age
+			Call FlickerScript(sign, age)
+			If sign.has_node("Gloss") Then
+				gloss = sign.get_node("Gloss")
+				If age >= 0.4 Then
+					gloss.visible = True
+					decoded = True
+					If nearby_hud = "" Then
+						nearby_hud = SignGloss(sign)
+					ElseIf InStr(nearby_hud, SignGloss(sign)) < 1 Then
+						nearby_hud = nearby_hud & ": " & SignGloss(sign)
+					End If
+				End If
+			End If
+		Else
+			If gloss_age.has(path) Then gloss_age.erase(path)
+			Call FlickerScript(sign, 1.0)
+			If sign.has_node("Gloss") Then sign.get_node("Gloss").visible = False
+			If in_range And kind = "interface" Then
+				If script_line = "" Then script_line = SignScript(sign)
+			End If
+		End If
+NextSign:
+	Next
+	If lock_node <> Nothing Then
+		in_range = NodeGap(lock_node) <= gloss_range_m
+		For i = 0 To 9
+			key_path = "key_" & Str(i)
+			If lock_node.has_node("Face/Key" & Str(i) & "/Gloss") Then
+				gloss = lock_node.get_node("Face/Key" & Str(i) & "/Gloss")
+				If owned And in_range Then
+					If gloss_age.has(key_path) Then
+						age = gloss_age(key_path) + delta
+					Else
+						age = delta
+					End If
+					gloss_age(key_path) = age
+					gloss.visible = age >= 0.4
+				Else
+					If gloss_age.has(key_path) Then gloss_age.erase(key_path)
+					gloss.visible = False
+				End If
+			End If
+		Next
+	End If
+	If nearby_hud = "" Then
+		If high_seen Then
+			nearby_hud = "HIGH SCRIPT · NEEDS A READER"
+		ElseIf script_line <> "" Then
+			nearby_hud = "NARCEAN SCRIPT"
+		ElseIf lock_open And Not owned Then
+			nearby_hud = "NARCEAN SCRIPT"
+		End If
+	End If
+	Call RefreshNarceanHud(script_line, decoded)
+End Sub
+
+Sub FlickerScript(ByVal sign As Object, ByVal age As Single)
+	Dim scr As Object
+	Dim pulse As Single
+	If sign Is Nothing Then Exit Sub
+	If Not sign.has_node("Script") Then Exit Sub
+	scr = sign.get_node("Script")
+	If age < 0.4 Then
+		pulse = 0.3 + 0.7 * Abs(Sin(age * 28.0))
+		scr.modulate = Color(1.0, 1.0, 1.0, pulse)
+	Else
+		scr.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	End If
+End Sub
+
+Sub RefreshNarceanHud(ByVal script_line As String, ByVal decoded As Boolean)
+	Call ClearNarceanHud()
+	If script_hud Is Nothing Then Exit Sub
+	script_hud.visible = nearby_hud <> "" Or script_line <> ""
+	If Not decoded And script_line <> "" And Not TranslatorOwned() Then Call narcean_line(script_hud, Vector2(0.0, 0.0), script_line, 0.7)
+End Sub
+
+Sub TickLockFlash(ByVal delta As Single)
+	If lock_flash_t <= 0.0 Then Exit Sub
+	lock_flash_t = lock_flash_t - delta
+	If lock_flash_t < 0.0 Then lock_flash_t = 0.0
+	Call ApplyLockLight()
+End Sub
+
+Sub ApplyLockLight()
+	Dim lamp As Object
+	If lock_node Is Nothing Then Exit Sub
+	If Not lock_node.has_node("Face/ClampLight") Then Exit Sub
+	lamp = lock_node.get_node("Face/ClampLight")
+	If cradle_released Then
+		lamp.material_override = cyan_mat
+	ElseIf lock_flash_t > 0.0 Then
+		lamp.material_override = red_mat
+	Else
+		lamp.material_override = red_mat
+	End If
+End Sub
+
+Sub ClearLockEntries()
+	Dim i As Integer
+	Dim entry As Object
+	Dim kids As Array
+	Dim n As Integer
+	If lock_node Is Nothing Then Exit Sub
+	For i = 0 To 3
+		If lock_node.has_node("Face/Entry" & Str(i) & "/Glyph") Then
+			lock_node.get_node("Face/Entry" & Str(i) & "/Glyph").free()
+		End If
+		If lock_node.has_node("Face/Entry" & Str(i)) Then
+			entry = lock_node.get_node("Face/Entry" & Str(i))
+			kids = entry.get_children()
+			For n = 0 To kids.size() - 1
+				If kids(n).name = "Glyph" Then kids(n).free()
+			Next
+		End If
+	Next
+End Sub
+
+Sub PaintLockEntry(ByVal slot As Integer, ByVal digit As Integer)
+	Dim src As Object
+	Dim copy As Object
+	Dim entry As Object
+	If lock_node Is Nothing Then Exit Sub
+	If slot < 0 Or slot > 3 Then Exit Sub
+	If Not lock_node.has_node("Face/Entry" & Str(slot)) Then Exit Sub
+	If Not lock_node.has_node("Face/Key" & Str(digit) & "/Glyph") Then Exit Sub
+	entry = lock_node.get_node("Face/Entry" & Str(slot))
+	If entry.has_node("Glyph") Then entry.get_node("Glyph").free()
+	src = lock_node.get_node("Face/Key" & Str(digit) & "/Glyph")
+	copy = src.duplicate()
+	copy.name = "Glyph"
+	entry.add_child(copy)
+	copy.position = Vector3(0.0, 0.0, 0.0)
+End Sub
+
+Sub OpenCradleLock()
+	If cradle_released Then Exit Sub
+	lock_open = True
+	lock_entry = ""
+	Call ClearLockEntries()
+	If TranslatorOwned() Then
+		prompt = "CRADLE LOCK  0-9 ENTER  F CANCEL"
+	Else
+		prompt = "NARCEAN SCRIPT"
+	End If
+End Sub
+
+Sub EnterCradleDigit(ByVal digit As Integer)
+	If cradle_released Then Exit Sub
+	If digit < 0 Or digit > 9 Then Exit Sub
+	If lock_entry.length() >= 4 Then Exit Sub
+	lock_open = True
+	lock_entry = lock_entry & Str(digit)
+	Call PaintLockEntry(lock_entry.length() - 1, digit)
+	If TranslatorOwned() Then prompt = "CRADLE LOCK  " & lock_entry
+End Sub
+
+Sub EnterCradleCode(ByVal code As String)
+	Dim i As Integer
+	Dim ch As String
+	lock_entry = ""
+	Call ClearLockEntries()
+	For i = 0 To code.length() - 1
+		ch = code.substr(i, 1)
+		If ch >= "0" And ch <= "9" Then Call EnterCradleDigit(Int(ch))
+	Next
+End Sub
+
+Sub SubmitCradleLock()
+	If cradle_released Then Exit Sub
+	If lock_entry = cradle_code Then
+		Call ReleaseCradle()
+	Else
+		Call FailCradleLock()
+	End If
+End Sub
+
+Sub ReleaseCradle()
+	cradle_released = True
+	lock_open = False
+	lock_entry = cradle_code
+	lock_flash_t = 0.0
+	Call RememberYardCheckpoint()
+	Call ApplyLockLight()
+	prompt = "E BOARD THE CYCLE"
+	nearby_hud = ""
+End Sub
+
+Sub FailCradleLock()
+	lock_entry = ""
+	Call ClearLockEntries()
+	lock_flash_t = 0.35
+	Call ApplyLockLight()
+	If TranslatorOwned() Then
+		prompt = "CLAMP HOLD"
+		nearby_hud = "CLAMP HOLD"
+	Else
+		prompt = "NARCEAN SCRIPT"
+		nearby_hud = "NARCEAN SCRIPT"
+	End If
+End Sub
+
+Sub ReadLockKeys()
+	Dim digit As Integer
+	For digit = 0 To 9
+		If Tap(KEY_0 + digit) Or Tap(KEY_KP_0 + digit) Then
+			Call EnterCradleDigit(digit)
+			Exit Sub
+		End If
+	Next
+	If Tap(KEY_BACKSPACE) Then
+		If lock_entry.length() > 0 Then
+			lock_entry = lock_entry.substr(0, lock_entry.length() - 1)
+			Call ClearLockEntries()
+			For digit = 0 To lock_entry.length() - 1
+				Call PaintLockEntry(digit, Int(lock_entry.substr(digit, 1)))
+			Next
+		End If
+		Exit Sub
+	End If
+	If Tap(KEY_ENTER) Then
+		Call SubmitCradleLock()
+		Exit Sub
+	End If
+	If Tap(KEY_F) Then
+		lock_open = False
+		Call RefreshYardWalkPrompt()
+	End If
+End Sub
+
+Sub BeginYardDockWalk()
+	Dim pose As Object
+	If crossing Is Nothing Then Exit Sub
+	ride_state = "on_foot"
+	area_name = "crossing"
+	dock_id = "yard_dock"
+	If player <> Nothing Then player.visible = True
+	If crossing.has_node("YardDock/ReleasePoint") Then
+		pose = crossing.get_node("YardDock/ReleasePoint")
+	ElseIf crossing.has_node("YardDock/BoardPoint") Then
+		pose = crossing.get_node("YardDock/BoardPoint")
+	Else
+		pose = crossing.get_node("YardDock/DockPose")
+	End If
+	Call PlaceWalker(pose, HeadingOf(pose))
+	Call RefreshYardWalkPrompt()
+	Call AimRideCamera(0.05)
+End Sub
+
+Sub BoardYardCycle()
+	If ride_state <> "on_foot" Then Exit Sub
+	If Not cradle_released Then
+		If TranslatorOwned() Then
+			prompt = "CLAMP HOLD"
+		Else
+			prompt = "NARCEAN SCRIPT"
+		End If
+		Exit Sub
+	End If
+	If walker <> Nothing Then walker.visible = False
+	If player <> Nothing Then player.visible = True
+	area_name = "crossing"
+	Call ApplyDock("yard_dock")
+	ride_state = "boarding"
+	board_t = 0.45
+	prompt = ""
+	lock_open = False
+End Sub
+
+Function NearTranslatorPickup() As Boolean
+	NearTranslatorPickup = False
+	If crossing Is Nothing Then Exit Function
+	If crossing.has_node(trans_point_path) Then
+		If NodeGap(crossing.get_node(trans_point_path)) < 3.2 Then
+			NearTranslatorPickup = True
+			Exit Function
+		End If
+	End If
+	If crossing.has_node(trans_post_path & "/PickupPoint") Then
+		If NodeGap(crossing.get_node(trans_post_path & "/PickupPoint")) < 2.6 Then NearTranslatorPickup = True
+	End If
+End Function
+
+Sub InteractYardDock()
+	If Not TranslatorOwned() Then
+		If NearTranslatorPickup() Then
+			Call TakeTranslator()
+			Exit Sub
+		End If
+	End If
+	If Not cradle_released Then
+		If lock_node <> Nothing Then
+			If NodeGap(lock_node) < 2.8 Then
+				Call OpenCradleLock()
+				Exit Sub
+			End If
+		End If
+		If crossing.has_node("YardDock/ReleasePoint") Then
+			If NodeGap(crossing.get_node("YardDock/ReleasePoint")) < 2.8 Then
+				Call OpenCradleLock()
+				Exit Sub
+			End If
+		End If
+		Call BoardYardCycle()
+		Exit Sub
+	End If
+	If crossing.has_node("YardDock/BoardPoint") Then
+		If NodeGap(crossing.get_node("YardDock/BoardPoint")) < 3.2 Then
+			Call BoardYardCycle()
+			Exit Sub
+		End If
+	End If
+	If NodeGap(player) < 4.2 Then Call BoardYardCycle()
+End Sub
+
+Sub RefreshYardWalkPrompt()
+	If lock_open Then
+		If TranslatorOwned() Then
+			prompt = "CRADLE LOCK  " & lock_entry & "  ENTER / F"
+		Else
+			prompt = "NARCEAN SCRIPT"
+		End If
+		Exit Sub
+	End If
+	If Not TranslatorOwned() Then
+		If NearTranslatorPickup() Then
+			prompt = "E TAKE TRANSLATOR"
+			Exit Sub
+		End If
+	End If
+	If Not cradle_released Then
+		If lock_node <> Nothing Then
+			If NodeGap(lock_node) < 2.8 Then
+				prompt = "E RELEASE LOCK"
+				Exit Sub
+			End If
+		End If
+		If TranslatorOwned() Then
+			prompt = "CLAMP HOLD"
+		Else
+			prompt = "NARCEAN SCRIPT"
+		End If
+		Exit Sub
+	End If
+	prompt = "E BOARD THE CYCLE"
+End Sub
+
+Function ChargeDrainFor(ByVal spd As Single) As Single
+	ChargeDrainFor = 0.6 + spd * spd / 1800.0
+End Function
+
+Function ChargeDrainRate() As Single
+	Dim rate As Single
+	rate = ChargeDrainFor(speed)
+	If Not TraceIsOff() Then rate = rate + charge_trace_extra
+	ChargeDrainRate = rate
+End Function
+
+Function RangeMeters() As Single
+	Dim rate As Single
+	rate = ChargeDrainRate()
+	If rate < 0.001 Then
+		RangeMeters = 9999.0
+		Exit Function
+	End If
+	RangeMeters = charge / rate * speed
+End Function
+
+Function NoReturn() As Boolean
+	Dim dist As Single
+	dist = NearestChargeDistance()
+	If dist < 0.01 Then
+		NoReturn = False
+		Exit Function
+	End If
+	NoReturn = dist > RangeMeters() * 0.9
+End Function
+
+Sub GainCharge(ByVal amount As Single)
+	charge = charge + amount
+	If charge > charge_cap Then charge = charge_cap
+	If charge < 0.0 Then charge = 0.0
+	If charge > 0.0 Then charge_fail_t = 0.0
+	If charge > charge_low Then charge_warned_low = False
+End Sub
+
+Sub TickCharge(ByVal delta As Single)
+	Dim rate As Single
+	If Not yard_field Then Exit Sub
+	If ride_state = "docked" Or ride_state = "parking" Or ride_state = "inspect" Then
+		If charge_dock_refill > 0.001 Then Call GainCharge(charge_cap * delta / charge_dock_refill)
+		charge_fail_t = 0.0
+		Exit Sub
+	End If
+	If ride_state <> "riding" Then Exit Sub
+	rate = ChargeDrainRate()
+	Call GainCharge(0.0 - rate * delta)
+	If charge <= charge_low And Not charge_warned_low Then
+		charge_warned_low = True
+		last_cue = "low"
+		Call PlayCue(arm_stream)
+		return_forced = True
+	End If
+	If charge <= 0.0 Then
+		charge = 0.0
+		If charge_fail_t <= 0.0 Then charge_fail_t = charge_fail_window
+		charge_fail_t = charge_fail_t - delta
+		If charge_fail_t <= 0.0 Then
+			charge_fail_t = 0.0
+			Call ExplodePlayerContainment()
+		End If
+	Else
+		charge_fail_t = 0.0
+	End If
+End Sub
+
+Sub ExplodePlayerContainment()
+	Dim packed As Object
+	If burst_mat Is Nothing Then
+		packed = Load("res://assets/trace_vault/cycle_breakup.gdshader")
+		If Not (packed Is Nothing) Then
+			burst_mat = ClassDB.Instantiate("ShaderMaterial")
+			burst_mat.shader = packed
+			burst_mat.set_shader_parameter("tint", Color(1.0, 0.45, 0.12, 1))
+			burst_mat.set_shader_parameter("energy", 4.6)
+		End If
+	End If
+	If burst_mat <> Nothing And player <> Nothing Then
+		burst_mat.set_shader_parameter("burst", 0.45)
+		Call PaintRemoteBurst(player, burst_mat)
+	End If
+	Call MarkCrash("containment")
+End Sub
+
+Function ItemDiscovered(ByVal name As String) As Boolean
+	Dim i As Integer
+	ItemDiscovered = False
+	For i = 0 To discovered.size() - 1
+		If discovered(i) = name Then
+			ItemDiscovered = True
+			Exit Function
+		End If
+	Next
+End Function
+
+Sub DiscoverItem(ByVal name As String)
+	If ItemDiscovered(name) Then Exit Sub
+	discovered.append(name)
+End Sub
+
+Function DistToNode(ByVal path As String) As Single
+	Dim node As Object
+	DistToNode = 9999.0
+	If crossing Is Nothing Or player Is Nothing Then Exit Function
+	If Not crossing.has_node(path) Then Exit Function
+	node = crossing.get_node(path)
+	DistToNode = Vector2(player.global_position.x - node.global_position.x, player.global_position.z - node.global_position.z).length()
+End Function
+
+Sub TickYardNav(ByVal delta As Single)
+	Dim i As Integer
+	Dim names As Array
+	If Not yard_field Then Exit Sub
+	Call DiscoverNear(self_discover_m)
+	For i = 0 To free_spent.size() - 1
+		If free_spent(i) > 0.0 Then
+			free_spent(i) = free_spent(i) - delta
+			If free_spent(i) < 0.0 Then free_spent(i) = 0.0
+		End If
+	Next
+	Call TickFreeMasts(delta)
+	If return_forced And charge <= charge_low Then goto_i = 1
+End Sub
+
+Sub DiscoverNear(ByVal radius As Single)
+	Dim i As Integer
+	Dim names As Array
+	names = Array("YardDock", "VaultCradle", "Relay0", "Relay1", "Relay2", "RelayWest", "RelaySouth", "RelayEast")
+	For i = 0 To names.size() - 1
+		If DistToNode(names(i)) <= radius Then Call DiscoverItem(names(i))
+	Next
+End Sub
+
+Sub ListScan()
+	If Not yard_field Then Exit Sub
+	If charge < list_scan_cost Then Exit Sub
+	Call GainCharge(0.0 - list_scan_cost)
+	Call DiscoverNear(list_scan_m)
+	last_cue = "list"
+	pulse_t = 0.35
+	Call PlayCue(arm_stream)
+End Sub
+
+Function NearestChargeDistance() As Single
+	Dim best As Single
+	Dim d As Single
+	Dim i As Integer
+	Dim names As Array
+	best = 9999.0
+	d = DistToNode("YardDock")
+	If d < best Then best = d
+	d = DistToNode("VaultCradle")
+	If d < best Then best = d
+	names = Array("Relay0", "Relay1", "Relay2", "RelayWest", "RelaySouth", "RelayEast")
+	For i = 0 To names.size() - 1
+		If Not RelaySpent(names(i)) Then
+			d = DistToNode(names(i))
+			If d < best Then best = d
+		End If
+	Next
+	NearestChargeDistance = best
+End Function
+
+Function RelaySpent(ByVal name As String) As Boolean
+	Dim i As Integer
+	Dim ids As Array
+	RelaySpent = False
+	If name = "Relay0" Then RelaySpent = relays > 0
+	If name = "Relay1" Then RelaySpent = relays > 1
+	If name = "Relay2" Then RelaySpent = relays > 2
+	ids = Array("RelayWest", "RelaySouth", "RelayEast")
+	For i = 0 To ids.size() - 1
+		If ids(i) = name And free_spent.size() > i Then
+			If free_spent(i) > 0.0 Then RelaySpent = True
+		End If
+	Next
+End Function
+
+Sub CycleGoto()
+	goto_i = goto_i + 1
+	If goto_i > 2 Then goto_i = 0
+	return_forced = False
+End Sub
+
+Function GotoHud() As String
+	Dim dist As Single
+	Dim label As String
+	Dim path As String
+	path = GotoPath()
+	dist = DistToNode(path)
+	label = GotoTitle()
+	If return_forced And charge <= charge_low Then
+		If path = "YardDock" Then
+			GotoHud = "RETURN YARD  " & Str(Int(dist + 0.5)) & "m"
+			Exit Function
+		End If
+		GotoHud = "RETURN  " & label & "  " & Str(Int(dist + 0.5)) & "m"
+		Exit Function
+	End If
+	GotoHud = "GOTO " & label & "  " & Str(Int(dist + 0.5)) & "m"
+End Function
+
+Function GotoTitle() As String
+	If goto_i = 0 Then
+		If relays < 3 Then
+			GotoTitle = "LINK " & Str(relays + 1)
+		Else
+			GotoTitle = "VAULT"
+		End If
+	ElseIf goto_i = 1 Then
+		GotoTitle = "DOCK"
+	Else
+		GotoTitle = "RELAY"
+	End If
+End Function
+
+Function GotoPath() As String
+	Dim i As Integer
+	Dim names As Array
+	Dim best As String
+	Dim best_d As Single
+	Dim d As Single
+	If goto_i = 0 Then
+		If relays < 3 Then
+			GotoPath = "Relay" & Str(relays)
+		Else
+			GotoPath = "VaultCradle"
+		End If
+		Exit Function
+	End If
+	If goto_i = 1 Then
+		If DistToNode("YardDock") <= DistToNode("VaultCradle") Then
+			GotoPath = "YardDock"
+		Else
+			GotoPath = "VaultCradle"
+		End If
+		Exit Function
+	End If
+	names = Array("RelayWest", "RelaySouth", "RelayEast", "Relay0", "Relay1", "Relay2")
+	best = "RelayWest"
+	best_d = 9999.0
+	For i = 0 To names.size() - 1
+		If Not RelaySpent(names(i)) Then
+			d = DistToNode(names(i))
+			If d < best_d Then
+				best_d = d
+				best = names(i)
+			End If
+		End If
+	Next
+	GotoPath = best
+End Function
+
+Sub MakeFreeRelayGuides()
+	Dim i As Integer
+	Dim path As String
+	Dim socket As Object
+	Dim name As String
+	free_masts = Array()
+	If crossing Is Nothing Then Exit Sub
+	If free_names.size() < 3 Then free_names = Array("RelayWest/LinkSocket", "RelaySouth/LinkSocket", "RelayEast/LinkSocket")
+	For i = 0 To free_names.size() - 1
+		path = Str(free_names(i))
+		name = RelayRoot(path)
+		If crossing.has_node(name & "/Mast") Then free_masts.append(crossing.get_node(name & "/Mast"))
+		If crossing.has_node(path) Then socket = crossing.get_node(path)
+	Next
+	free_spent = Array(0.0, 0.0, 0.0)
+	free_armed = Array(False, False, False)
+	free_drop = Array(0.0, 0.0, 0.0)
+End Sub
+
+Function InLaneNamed(ByVal relay_name As String, ByVal pos As Vector3, ByVal h As Single) As Boolean
+	Dim relay As Object
+	Dim lp As Vector3
+	Dim lf As Vector3
+	InLaneNamed = False
+	If crossing Is Nothing Then Exit Function
+	If Not crossing.has_node(relay_name) Then Exit Function
+	relay = crossing.get_node(relay_name)
+	lp = relay.to_local(pos)
+	lf = relay.to_local(pos + ForwardOf(h)) - lp
+	If Abs(lp.x) > RELAY_LANE_HALF Then Exit Function
+	If Abs(lp.z) > RELAY_ARM_RANGE Then Exit Function
+	If Abs(lf.z) < 0.9 Then Exit Function
+	If lp.z * lf.z > 0.0 And Abs(lp.z) > RELAY_RADIUS Then Exit Function
+	InLaneNamed = True
+End Function
+
+Sub CaptureFreeRelays(ByVal before As Vector3, ByVal after As Vector3)
+	Dim i As Integer
+	Dim path As String
+	Dim name As String
+	Dim socket As Object
+	Dim q As Vector3
+	If crossing Is Nothing Then Exit Sub
+	If free_names.size() < 1 Then Exit Sub
+	For i = 0 To free_names.size() - 1
+		If free_spent.size() > i Then
+			If free_spent(i) > 0.0 Then
+			Else
+				path = Str(free_names(i))
+				name = RelayRoot(path)
+				If free_armed.size() > i Then
+					If Not free_armed(i) Then
+					ElseIf crossing.has_node(path) Then
+						socket = crossing.get_node(path)
+						q = socket.global_position
+						If SegmentHitsDisk(before.x, before.z, after.x, after.z, q.x, q.z, RELAY_RADIUS) Then
+							Call GainCharge(charge_relay_gain)
+							free_spent(i) = charge_cooldown
+							free_armed(i) = False
+							last_cue = "capture"
+							pulse_t = 1.0
+							Call PlayCue(capture_stream)
+						End If
+					End If
+				End If
+			End If
+		End If
+	Next
+End Sub
+
+Sub TickFreeMasts(ByVal delta As Single)
+	Dim i As Integer
+	Dim name As String
+	Dim path As String
+	Dim target As Single
+	Dim d As Single
+	If free_masts.size() < 1 Then Exit Sub
+	For i = 0 To free_names.size() - 1
+		path = Str(free_names(i))
+		name = RelayRoot(path)
+		If ride_state = "riding" And trace_off_t <= 0.0 And free_spent(i) <= 0.0 Then
+			If InLaneNamed(name, player.global_position, heading) Then
+				If Not free_armed(i) Then
+					last_cue = "arm"
+					Call PlayCue(arm_stream)
+				End If
+				free_armed(i) = True
+			Else
+				If DistToNode(name) > 7.0 Then free_armed(i) = False
+			End If
+		Else
+			free_armed(i) = False
+		End If
+		target = 0.0
+		If free_armed(i) Or free_spent(i) > 0.0 Then target = 1.0
+		d = free_drop(i)
+		If d < target Then d = Min(target, d + MAST_RATE * delta)
+		If d > target Then d = Max(target, d - MAST_RATE * 0.5 * delta)
+		free_drop(i) = d
+		If free_masts.size() > i Then
+			If Not (free_masts(i) Is Nothing) Then
+				free_masts(i).position = Vector3(0.0, 0.0 - MAST_SINK * d, 0.0)
+			End If
+		End If
+	Next
+End Sub
+
+Sub ConsiderNamedDock(ByVal which As String)
+	Dim pose As Object
+	Dim approach As Object
+	Dim p As Vector3
+	Dim q As Vector3
+	Dim gap As Single
+	Dim aim As Single
+	Dim path As String
+	pose = DockPose(which)
+	If pose Is Nothing Then Exit Sub
+	If which = "vault" Or which = "far_yard" Then
+		path = "VaultCradle/ApproachEnd"
+	Else
+		path = "YardDock/Cradle/ApproachEnd"
+	End If
+	p = player.global_position
+	If crossing.has_node(path) Then
+		approach = crossing.get_node(path)
+		q = approach.global_position
+		gap = Vector2(p.x - q.x, p.z - q.z).length()
+		aim = Abs(AngleDelta(heading, HeadingOf(approach)))
+		If gap > 4.5 Then
+			q = pose.global_position
+			gap = Vector2(p.x - q.x, p.z - q.z).length()
+			aim = Abs(AngleDelta(heading, HeadingOf(pose)))
+			If gap > 5.5 Or aim > 0.7 Then Exit Sub
+		ElseIf aim > 0.6 Then
+			Exit Sub
+		End If
+	Else
+		q = pose.global_position
+		gap = Vector2(p.x - q.x, p.z - q.z).length()
+		aim = Abs(AngleDelta(heading, HeadingOf(pose)))
+		If gap > 5.5 Or aim > 0.7 Then Exit Sub
+	End If
+	Call StartParking(which)
+End Sub
+
+Sub PaintBeacon(ByVal path As String, ByVal mat As Object)
+	Dim node As Object
+	If crossing Is Nothing Then Exit Sub
+	If Not crossing.has_node(path) Then Exit Sub
+	node = crossing.get_node(path)
+	If node.has_node("Beam") And mat <> Nothing Then node.get_node("Beam").material_override = mat
+	If node.has_node("Halo") And mat <> Nothing Then node.get_node("Halo").material_override = mat
+End Sub
+
+Sub SetBeaconVisible(ByVal path As String, ByVal on As Boolean)
+	If crossing Is Nothing Then Exit Sub
+	If crossing.has_node(path) Then crossing.get_node(path).visible = on
+End Sub
+
+Sub RefreshYardBeacons()
+	Dim i As Integer
+	Dim names As Array
+	Dim dist As Single
+	Dim show As Boolean
+	Dim mat As Object
+	If Not yard_field Then Exit Sub
+	Call PaintBeacon("YardDockBeacon", beacon_white)
+	If relays >= 3 Then
+		Call PaintBeacon("VaultBeacon", beacon_amber)
+	Else
+		Call PaintBeacon("VaultBeacon", beacon_white)
+	End If
+	names = Array("Relay0", "Relay1", "Relay2", "RelayWest", "RelaySouth", "RelayEast")
+	For i = 0 To names.size() - 1
+		If RelaySpent(names(i)) Then
+			mat = beacon_dim
+		Else
+			mat = beacon_cyan
+		End If
+		Call PaintBeacon(names(i) & "Beacon", mat)
+	Next
+	names = Array("YardDock", "VaultCradle", "Relay0", "Relay1", "Relay2", "RelayWest", "RelaySouth", "RelayEast")
+	For i = 0 To names.size() - 1
+		dist = DistToNode(names(i))
+		show = ItemDiscovered(names(i)) Or dist <= beacon_vis
+		If names(i) = "YardDock" Then
+			Call SetBeaconVisible("YardDockBeacon", show)
+		ElseIf names(i) = "VaultCradle" Then
+			Call SetBeaconVisible("VaultBeacon", show)
+		Else
+			Call SetBeaconVisible(names(i) & "Beacon", show)
+		End If
+	Next
+End Sub
+
+Sub MakeYardRadar()
+	map_range = ClassDB.Instantiate("Line2D")
+	map_range.width = 1.0
+	map_range.default_color = Color(0.3, 0.85, 1.0, 0.45)
+	If map_panel <> Nothing Then map_panel.add_child(map_range)
+	map_yard = ClassDB.Instantiate("Line2D")
+	map_yard.width = 1.0
+	map_yard.default_color = Color(0.85, 0.82, 0.45, 0.7)
+	If map_panel <> Nothing Then map_panel.add_child(map_yard)
+	map_chevrons = Array()
+End Sub
+
+Sub RefreshYardRadar()
+	Dim i As Integer
+	Dim ang As Single
+	Dim p As Vector3
+	Dim at As Vector2
+	Dim names As Array
+	If map_player <> Nothing And player <> Nothing Then
+		Call PlaceMapDot(map_player, player.global_position)
+		Call PlaceHeading(map_heading, player.global_position, heading)
+	End If
+	If map_range <> Nothing Then
+		map_range.clear_points()
+		For i = 0 To 24
+			ang = i * PI * 2.0 / 24.0
+			p = player.global_position + Vector3(Cos(ang) * RangeMeters() * 0.25, 0.0, Sin(ang) * RangeMeters() * 0.25)
+			at = MapPoint(p) + Vector2(3, 3)
+			map_range.add_point(at)
+		Next
+	End If
+	If map_yard <> Nothing Then
+		map_yard.clear_points()
+		map_yard.add_point(MapPoint(Vector3(yard_min_x, 0, yard_min_z)) + Vector2(3, 3))
+		map_yard.add_point(MapPoint(Vector3(yard_max_x, 0, yard_min_z)) + Vector2(3, 3))
+		map_yard.add_point(MapPoint(Vector3(yard_max_x, 0, yard_max_z)) + Vector2(3, 3))
+		map_yard.add_point(MapPoint(Vector3(yard_min_x, 0, yard_max_z)) + Vector2(3, 3))
+		map_yard.add_point(MapPoint(Vector3(yard_min_x, 0, yard_min_z)) + Vector2(3, 3))
+	End If
+	If map_docks.size() >= 2 Then
+		Call PlaceMapDot(map_docks(0), crossing.get_node("YardDock").global_position)
+		Call PlaceMapDot(map_docks(1), crossing.get_node("VaultCradle").global_position)
+	End If
+	names = Array("Relay0", "Relay1", "Relay2")
+	If map_relays.size() >= 3 Then
+		For i = 0 To 2
+			If ItemDiscovered(names(i)) Then Call PlaceMapDot(map_relays(i), crossing.get_node(names(i)).global_position)
+		Next
+	End If
+End Sub
+
+Sub dispose()
+	running = False
+	Call clear_trails()
+	Call clear_test_walls()
+	If grow_mesh <> Nothing Then
+		grow_mesh.free()
+		grow_mesh = Nothing
+	End If
+	grow_box = Nothing
+	If trail_root <> Nothing Then
+		trail_root.free()
+		trail_root = Nothing
+	End If
+	If player <> Nothing Then
+		player.free()
+		player = Nothing
+	End If
+	hull_col = Nothing
+	hull_query = Nothing
+	If remote <> Nothing Then
+		remote.free()
+		remote = Nothing
+	End If
+	If vault <> Nothing Then
+		vault.free()
+		vault = Nothing
+	End If
+	If play_vault <> Nothing Then
+		play_vault.free()
+		play_vault = Nothing
+	End If
+	vault_lift = Nothing
+	If walker <> Nothing Then
+		walker.free()
+		walker = Nothing
+	End If
+	stasis = Nothing
+	feb = Nothing
+	core_bank = Nothing
+	coupler = Nothing
+	enemy_emitter = Nothing
+	enemy_query = Nothing
+	enemy_col = Nothing
+	walk_query = Nothing
+	walk_shape = Nothing
+	red_mat = Nothing
+	If crossing <> Nothing Then
+		crossing.free()
+		crossing = Nothing
+	End If
+	If ride_camera <> Nothing Then
+		ride_camera.free()
+		ride_camera = Nothing
+	End If
+	If tactical_view <> Nothing Then
+		tactical_view.free()
+		tactical_view = Nothing
+	End If
+	If exterior_view <> Nothing Then
+		exterior_view.free()
+		exterior_view = Nothing
+	End If
+	exterior_camera = Nothing
+	ext_rect = Nothing
+	ext_frame = Nothing
+	map_frame = Nothing
+	ext_title = Nothing
+	ext_screen = Nothing
+	map_screen = Nothing
+	motion_params = Nothing
+	motion_result = Nothing
+	physics_srv = Nothing
+	cockpit = Nothing
+	hud_speed = Nothing
+	hud_trace = Nothing
+	hud_hint = Nothing
+	If hud_layer <> Nothing Then
+		hud_layer.free()
+		hud_layer = Nothing
+	End If
+	If env_node <> Nothing Then
+		env_node.free()
+		env_node = Nothing
+	End If
+	If sun_node <> Nothing Then
+		sun_node.free()
+		sun_node = Nothing
+	End If
+	If rim_node <> Nothing Then
+		rim_node.free()
+		rim_node = Nothing
+	End If
+	hud_panel = Nothing
+	hud_label = Nothing
+	glass_label = Nothing
+	throttle_back = Nothing
+	throttle_fill = Nothing
+	throttle_lab = Nothing
+	crash_label = Nothing
+	strip_label = Nothing
+	map_panel = Nothing
+	map_player = Nothing
+	map_enemy = Nothing
+	map_crash = Nothing
+	map_hint = Nothing
+	map_trails = Nothing
+	map_enemy_trails = Nothing
+	map_grow = Nothing
+	map_bounds = Nothing
+	map_land_near = Nothing
+	map_land_far = Nothing
+	map_lift = Nothing
+	map_heading = Nothing
+	map_enemy_heading = Nothing
+	map_legend = Nothing
+	map_captures = Array()
+	map_relay_labs = Array()
+	map_dock_labs = Array()
+	map_relays = Array()
+	map_docks = Array()
+	relay_masts = Array()
+	relay_rings = Array()
+	relay_nums = Array()
+	floor_rids = Array()
+	near_cradle_rids = Array()
+	far_cradle_rids = Array()
+	atmosphere = Nothing
+	night_sky = Nothing
+	trail_glow = Nothing
+	trail_glow_red = Nothing
+	flash_lights = Array()
+	dock_beacons = Array()
+	star_field = Nothing
+	objective_label = Nothing
+	hud_pulse = Nothing
+	cluster_hud = Nothing
+	If cue_player <> Nothing Then
+		cue_player.free()
+		cue_player = Nothing
+	End If
+	capture_stream = Nothing
+	arm_stream = Nothing
+	wipe_stream = Nothing
+	visual = Nothing
+	canopy = Nothing
+	front_wheel = Nothing
+	rear_wheel = Nothing
+	emitter = Nothing
+	camera_target = Nothing
+	cyan_mat = Nothing
+	amber_mat = Nothing
+	burst_mat = Nothing
+	route = Nothing
+	world_ready = False
+End Sub

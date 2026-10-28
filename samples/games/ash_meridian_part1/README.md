@@ -24,32 +24,69 @@ The project boot splash uses the user-selected image copied from
 game's engine boot image, not the Godot editor's own splash. The splash keeps
 its aspect ratio and has a 2.5-second minimum display time.
 
-Trace Cycle and FEB-vault now have a **first-pass script-free 3D kit**, not
-implemented gameplay. See the [cycle sheet](assets/trace_vault/concepts/trace_cycle.png),
+Trace Cycle has an isolated dest so the supplied kit can be ridden, taken
+through the far lift and vault, then chased on the return crossing. It does
+not change Play. The ride is first-person; a live exterior feed and a flat
+tactical map sit in the dashboard. A/D is a 90-degree left/right turn. Relays
+are numbered link sockets to pass through, not pylons to ram.
+Open [trace_cycle_test.tscn](trace_cycle_test.tscn) and press **F6**, or choose
+**TRACE CYCLE** on the development destination menu (F5, then the dest list).
+**VAULT** starts already docked at the far cradle so the lift/FEB pickup can be
+reviewed without riding the crossing. The legacy wireframe **FEB** chamber is
+under **ARCHIVE**.
+The scene instances `void_crossing.tscn` and docks `trace_cycle.tscn` at
+`NearCradle/DockPose`. Campaign save version 1 is never loaded or written.
+See the [cycle sheet](assets/trace_vault/concepts/trace_cycle.png),
 [vault/FEB sheet](assets/trace_vault/concepts/feb_vault.png) and
 [Cursor handoff](../../../docs/development/ASH_MERIDIAN_TRACE_VAULT_HANDOFF.md).
 The assistant owns original models/art; Cursor owns VG gameplay and tests.
 The existing campaign still uses its procedural FEB/cradle prototype.
-The new native [model scenes](assets/trace_vault/scenes) include player/remote
+The native [model scenes](assets/trace_vault/scenes) include player/remote
 cycles, docking cradle, relays, articulated FEB/stasis cradle, removable coupler,
 core bank, vault and separate deep-lift landing. The 160x240 m support field has
-two docks and three relay sockets. Four static previews show the assembled art.
+two docks and three relay sockets. Four static previews remain available.
+The crossing now has open space between cliff banks instead of a rendered
+floor/grid. Distant ruins, faint lights and layered patchy haze are far below
+the ride height; they are non-colliding depth scenery, not traversable ground.
+Invisible support uses collision bit value 4, outside the ride obstacle mask.
+The tactical map runs outbound from bottom to top and retains its relay/dock
+markers after initialization. Unknown-collision and cyan turn-artifact reports
+remain open for Cursor; see the latest corrective section in the handoff.
 No direct film references are intended in the game.
 `trace_route.vg` and `test_trace_route.vg` hold the isolated stage/save contract.
 Play and campaign save version 1 are unchanged. Local lift codes `11111` /
 `22222` / `33333` are development placeholders for storage, maintenance and
 laboratory rooms. First-release riding saves restore the last safe dock only.
-Those three local interiors are still unauthored. The new deep-lift landing is
-separate from them. The next Cursor increment is an isolated TRACE CYCLE dev
-destination; no new destination or campaign version 2 is included in this art drop.
+Those three local interiors are still unauthored. Campaign version 2 and
+Play wiring still wait; the TRACE CYCLE dest now includes the far lift,
+vault/FEB pickup and return chase as an isolated review.
 
 Open [cycle_preview.tscn](assets/trace_vault/scenes/cycle_preview.tscn),
 [vault_preview.tscn](assets/trace_vault/scenes/vault_preview.tscn),
 [asset_gallery.tscn](assets/trace_vault/scenes/asset_gallery.tscn) or
-[crossing_preview.tscn](assets/trace_vault/scenes/crossing_preview.tscn) in Godot
+[crossing_preview.tscn](assets/trace_vault/scenes/crossing_preview.tscn),
+[yard_field_preview.tscn](assets/trace_vault/scenes/yard_field_preview.tscn) (the proposed
+yard-wide void field, art only) or
+[backlight_cycle_combined.tscn](assets/trace_vault/scenes/backlight_cycle_combined.tscn)
+(combined Backlight yard + trace cycle scene, with the far secondary dock) or
+[translator_preview.tscn](assets/trace_vault/scenes/translator_preview.tscn) (Interface
+Translator, release lock and code clue, art only) in Godot
 and run that scene to review it without changing Play.
-[test_trace_models.vg](test_trace_models.vg) passes 128/128 resource, marker,
-geometry and articulation checks. This is not a chase performance or balance
+[test_trace_models.vg](test_trace_models.vg) passes 317/317 resource, marker, Narcean-script,
+geometry and articulation checks. [test_trace_cycle.vg](test_trace_cycle.vg)
+covers the F6/dest ride at 181/181 (including the stasis capsule crack-open/fog sequence), including real-frame turn, trail-span,
+model-faces-travel and named-collision checks. While riding, the camera sees the
+original bike cockpit ([trace_cockpit.tscn](assets/trace_vault/scenes/trace_cockpit.tscn)):
+a clear raked windscreen with a cyan rim and glass HUD (speed, trace count,
+next relay), plus a binnacle, bars and grips. It is on render layer 3, so the
+exterior monitor never shows it. Relays use a Trace-On handshake: ride
+into a relay's lit lane (cyan rails, amber chevrons) toward the next relay
+and its mast sinks so you pass over the pad and link. A cross-lane
+approach hits the solid mast and reports a pylon crash. A gold objective line
+always states the next step. After the third link, an amber beacon marks the
+far dock; enter it from the south. Then press E for the deep lift, take the
+core and coupler in the vault, and ride back under the green near-dock beacon.
+This is not a chase performance or balance
 test. The assistant maintains the offline original-art source:
 
 ```bash
@@ -81,6 +118,23 @@ prototype's additional regulator and ignition parts.
 | V | Cycle street, district and buggy-inspection views |
 | Esc | Pause; resume, save, return to title or change options |
 | F10 | Resume the current campaign after visiting a dev destination |
+
+### TRACE CYCLE model test (F6 or dest)
+
+This is an isolated review scene, not the finished chase. Normal Play is unchanged.
+
+| Control | Trace Cycle action |
+|---|---|
+| E | Board and launch from a dock after the canopy closes |
+| W / S | Adjust speed between 24 and 64 (starts at 32) |
+| A / D | Request a 90-degree turn (edge, not analog steer) |
+| R | Retry the isolated run: trails, speed, relays and dock |
+| I | Model inspection while docked (pauses riding) |
+| 1 / 2 / 3 | Inspect player cycle, parked remote cycle, or vault preview |
+| A / D, W / S | Orbit / zoom while inspecting |
+| F3 | Verbose crash/collider diagnostics (off the windshield by default) |
+| Esc | Pause (F5 dest uses the game pause menu; F6 toggles locally) |
+| F10 | Return to Jason's campaign after a dest visit |
 
 Campaign **Save** writes a validated, versioned
 `user://ash_meridian_campaign.cfg` through an adjacent temporary file and
@@ -169,8 +223,15 @@ art, damage state and ring cleanup on scene exit.
 The [Black Channel asset kit](assets/black_channel/README.md) supplies original
 external canyon/security models, an assembled route and static preview scenes.
 It is playable through **BLACK CHANNEL - FLIGHT TEST** in the main developer
-terminal. Campaign integration is still pending: the intended setting is the
+terminal. **BLACK CHANNEL - COCKPIT** is the same isolated course from the Ash
+flight deck used at the start of Play: the opening canopy, Orac scope and
+live EXT CAM 02 hull monitor overlay the canyon. The windscreen looks forward
+from the deck; the dashboard camera still shows the Ash. **C** switches
+between cockpit and chase. Campaign
+integration is still pending: the intended setting is the
 end of the post-alliance Narcean repair-item hunt, not the first escape.
+Flight controls are unchanged. C is cockpit/chase only; it does not change
+Play, saves or the chase-camera dest.
 The route alternates exposed causeways, industrial spires, diagonal gantries
 and enclosed cuts. The visible Ash reuses the opening ship's red/orange flame
 shader at both engines, not solid cyan bars. Camera FOV, perspective slipstream
@@ -237,6 +298,8 @@ Run the VG campaign regression (it uses a process-specific test save):
 ```
 
 The isolated Trace Cycle stage/save checks are `res://test_trace_route.vg`.
+The playable model-test scene checks are `res://test_trace_cycle.vg`.
+The cockpit dest checks are `res://test_black_channel_cockpit.vg`.
 
 For rendered captures, create an output directory, set `ASH_CAMPAIGN_CAPTURE`
 to its absolute path, omit `--headless`, and add
@@ -271,7 +334,7 @@ The pilot is Jonah Hale. The Ludo ring runner is only the canyon beat.
 ## Bleed City 2: reference-art district
 
 The dev terminal keeps the live scenes on the first list. Older destinations,
-including **BLEED CITY** (Cursor's original), **BLEED CITY 2**, and **BLEED CITY 3**,
+including the legacy **FEB** chamber (level 14242), **BLEED CITY** (Cursor's original), **BLEED CITY 2**, and **BLEED CITY 3**,
 are under **ARCHIVE**. The chapter yard and
 the earlier cities are unchanged. City 3 is the open scaffold district:
 see-through halls, a dark road with cyan rails, grid silos, and magenta
@@ -548,3 +611,5 @@ includes real process callbacks while holding W to drive the buggy. Neither
 headless timing nor software-OpenGL timing guarantees FPS on another machine.
 The regression also keyboard-steers the entire landing course and checks hull
 strikes, retry, bay entry, and (with a display) changing gauge and star pixels.
+
+Trace Cycle: press **T** to shut the trace down. After a 5-second countdown the field is wiped and relays reset. The trace then returns and you restart at beacon 1.

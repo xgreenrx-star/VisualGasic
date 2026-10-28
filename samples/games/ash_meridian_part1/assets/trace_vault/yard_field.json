@@ -1,0 +1,273 @@
+{
+  "version": 2,
+  "units": "metres",
+  "frame": "backlight_yard",
+  "forward": "+Z north",
+  "up": "+Y",
+  "scene": "res://assets/trace_vault/scenes/yard_void_field.tscn",
+  "field_bounds": {
+    "min": [
+      -760,
+      -560
+    ],
+    "max": [
+      760,
+      980
+    ],
+    "axes": [
+      "x",
+      "z"
+    ]
+  },
+  "yard_rect": {
+    "min": [
+      -118,
+      -12
+    ],
+    "max": [
+      118,
+      420
+    ]
+  },
+  "rim_gate_x": [
+    7,
+    23
+  ],
+  "rim_collision_prefix": "YardRim/Rim",
+  "support_collision_layer": 4,
+  "ride_y": 0,
+  "docks": {
+    "yard_dock": {
+      "node": "YardDock",
+      "position": [
+        15,
+        0,
+        414
+      ],
+      "exit_heading": "+Z"
+    },
+    "vault": {
+      "node": "VaultCradle",
+      "position": [
+        360,
+        0,
+        860
+      ],
+      "approach_heading": "+Z"
+    },
+    "far_yard": {
+      "node": "VaultCradle",
+      "position": [
+        360,
+        0,
+        860
+      ],
+      "approach_heading": "+Z",
+      "note": "Alias for the secondary yard dock kept for later campaign use."
+    }
+  },
+  "relay_order": [
+    "Relay0/LinkSocket",
+    "Relay1/LinkSocket",
+    "Relay2/LinkSocket"
+  ],
+  "free_relays": [
+    "RelayWest/LinkSocket",
+    "RelaySouth/LinkSocket",
+    "RelayEast/LinkSocket"
+  ],
+  "dock_slots": [
+    "DockSlotWest",
+    "DockSlotSouth"
+  ],
+  "beacon_materials": {
+    "available": "beacon_cyan",
+    "spent": "beacon_dim",
+    "dock": "beacon_white",
+    "vault_unlocked": "beacon_amber"
+  },
+  "proposed_charge": {
+    "capacity": 100,
+    "drain_per_second": "0.6 + speed^2/1800",
+    "trace_on_extra": 0.25,
+    "relay_gain": 40,
+    "relay_cooldown_s": 45,
+    "dock_refill_s": 2,
+    "low": 30,
+    "critical": 15,
+    "critical_speed_cap": 40,
+    "failure_window_s": 2.5
+  },
+  "proposed_navigation": {
+    "beacon_visible_m": 600,
+    "self_discover_m": 250,
+    "list_scan_radius_m": 900,
+    "list_scan_cost": 4,
+    "radar_radius_m": 400
+  },
+  "translation": {
+    "item": "translator",
+    "start_owned_in_dest": true,
+    "gloss_range_m": 6,
+    "cradle_code_dev": "2741",
+    "cradle_lock": "YardDock/ReleaseLock",
+    "code_clue": "ServiceTag",
+    "translator_post": "TranslatorPost",
+    "sign_contract": "Node3D with metadata text_kind (\"interface\" | \"high\"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Translator reveals interface Gloss only; high script waits for the FEB.",
+    "signs": [
+      "YardDock/GateSign",
+      "YardDock/RoadSign",
+      "YardDock/Directive",
+      "ServiceTag/Line0",
+      "ServiceTag/Line1",
+      "TranslatorPost/PostLabel",
+      "DeepLiftLobby/Sign",
+      "DeepLiftLobby/Cabin/IndicatorOut",
+      "DeepLiftLobby/Cabin/IndicatorIn",
+      "DeepLiftLobby/Cabin/ControlPanel/ScreenText"
+    ],
+    "word_hash": {
+      "algorithm": "FNV-1a 32-bit over upper-case ASCII",
+      "cells": "max(1, ceil(len/2))",
+      "cell_pattern": "(hash >> ((i*5) % 27)) & 63, 0 -> 42",
+      "paths": [
+        [
+          [
+            0,
+            0
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            14,
+            0
+          ]
+        ],
+        [
+          [
+            0,
+            18
+          ],
+          [
+            7,
+            12
+          ],
+          [
+            14,
+            18
+          ]
+        ],
+        [
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            16
+          ]
+        ],
+        [
+          [
+            14,
+            2
+          ],
+          [
+            14,
+            16
+          ]
+        ],
+        [
+          [
+            3,
+            9
+          ],
+          [
+            11,
+            9
+          ]
+        ],
+        [
+          [
+            7,
+            -3
+          ],
+          [
+            7,
+            21
+          ]
+        ]
+      ],
+      "shared_top_bar_y": -3
+    },
+    "numeral_patterns": [
+      15,
+      21,
+      38,
+      56,
+      41,
+      26,
+      52,
+      35,
+      29,
+      51
+    ],
+    "number_words": [
+      "ZERO",
+      "ONE",
+      "TWO",
+      "THREE",
+      "FOUR",
+      "FIVE",
+      "SIX",
+      "SEVEN",
+      "EIGHT",
+      "NINE"
+    ],
+    "fixtures": {
+      "TRACE": {
+        "hash": 746199118,
+        "cells": [
+          14,
+          2,
+          6
+        ]
+      },
+      "DOCK": {
+        "hash": 705141978,
+        "cells": [
+          26,
+          38
+        ]
+      },
+      "CRADLE": {
+        "hash": 2808997754,
+        "cells": [
+          58,
+          59,
+          57
+        ]
+      },
+      "RELEASE": {
+        "hash": 3061884318,
+        "cells": [
+          30,
+          44,
+          41,
+          1
+        ]
+      },
+      "SEVEN": {
+        "hash": 406371166,
+        "cells": [
+          30,
+          26,
+          46
+        ]
+      }
+    }
+  },
+  "warning": "Proposed defaults for the isolated TRACE YARD dest. Play and campaign version 1 are unchanged."
+}

@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://assets/trace_vault/trace_panel.gdshader" id="panel"]
+
+[resource]
+shader = ExtResource("panel")
+shader_parameter/minor_cell = 1.0
+shader_parameter/major_cell = 5.0
+shader_parameter/minor_strength = 0.14
+shader_parameter/line_energy = 2.2

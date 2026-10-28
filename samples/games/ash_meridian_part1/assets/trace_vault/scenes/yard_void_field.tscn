@@ -1,0 +1,1515 @@
+[gd_scene load_steps=62 format=3]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/yard_proxy.tscn" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e2"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/yard_dock.tscn" id="e3"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/service_tag.tscn" id="e4"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/trace_floor.tres" id="e5"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e6"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e7"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/translator_post.tscn" id="e8"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/relay_beacon.tscn" id="e9"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/bank_rock.tres" id="e10"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/cycle_cradle.tscn" id="e11"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/deep_lift_lobby.tscn" id="e12"]
+
+[ext_resource type="PackedScene" path="res://assets/trace_vault/scenes/relay_pylon.tscn" id="e13"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/depth.tres" id="e14"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/depth_light.tres" id="e15"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/abyss_haze.tres" id="e16"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/abyss_floor.tres" id="e17"]
+
+[sub_resource type="BoxShape3D" id="s0"]
+size = Vector3(1520, 0.2, 1540)
+
+[sub_resource type="BoxMesh" id="s1"]
+size = Vector3(236, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(236, 0.05, 0.08)
+
+[sub_resource type="BoxShape3D" id="s3"]
+size = Vector3(236, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.35, 1.2, 432)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(0.08, 0.05, 432)
+
+[sub_resource type="BoxShape3D" id="s6"]
+size = Vector3(0.35, 1.2, 432)
+
+[sub_resource type="BoxMesh" id="s7"]
+size = Vector3(125, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(125, 0.05, 0.08)
+
+[sub_resource type="BoxShape3D" id="s9"]
+size = Vector3(125, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s10"]
+size = Vector3(95, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(95, 0.05, 0.08)
+
+[sub_resource type="BoxShape3D" id="s12"]
+size = Vector3(95, 1.2, 0.35)
+
+[sub_resource type="BoxMesh" id="s13"]
+size = Vector3(8.6, 0.2, 6.2)
+
+[sub_resource type="BoxMesh" id="s14"]
+size = Vector3(0.35, 3.4, 6.2)
+
+[sub_resource type="BoxMesh" id="s15"]
+size = Vector3(8.6, 3.4, 0.35)
+
+[sub_resource type="BoxMesh" id="s16"]
+size = Vector3(2.9, 3.2, 0.18)
+
+[sub_resource type="BoxMesh" id="s17"]
+size = Vector3(0.08, 3, 0.06)
+
+[sub_resource type="BoxMesh" id="s18"]
+size = Vector3(70, 32, 56)
+
+[sub_resource type="BoxMesh" id="s19"]
+size = Vector3(30, 0.5, 22)
+
+[sub_resource type="BoxMesh" id="s20"]
+size = Vector3(16, 10, 18)
+
+[sub_resource type="BoxMesh" id="s21"]
+size = Vector3(0.12, 7.2, 0.05)
+
+[sub_resource type="BoxMesh" id="s22"]
+size = Vector3(18, 14, 20)
+
+[sub_resource type="BoxMesh" id="s23"]
+size = Vector3(0.12, 10.08, 0.05)
+
+[sub_resource type="BoxMesh" id="s24"]
+size = Vector3(12, 24, 12)
+
+[sub_resource type="BoxMesh" id="s25"]
+size = Vector3(0.12, 17.28, 0.05)
+
+[sub_resource type="BoxMesh" id="s26"]
+size = Vector3(2.4, 0.08, 0.12)
+
+[sub_resource type="CylinderMesh" id="s27"]
+top_radius = 0.18
+bottom_radius = 0.18
+height = 8
+radial_segments = 24
+rings = 1
+
+[sub_resource type="CylinderMesh" id="s28"]
+top_radius = 0.85
+bottom_radius = 0.85
+height = 0.4
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s29"]
+inner_radius = 6
+outer_radius = 6.3
+rings = 24
+ring_segments = 8
+
+[sub_resource type="BoxMesh" id="s30"]
+size = Vector3(0.3, 0.05, 1540)
+
+[sub_resource type="BoxMesh" id="s31"]
+size = Vector3(1520, 0.05, 0.3)
+
+[sub_resource type="BoxShape3D" id="s32"]
+size = Vector3(1, 4, 1542)
+
+[sub_resource type="BoxShape3D" id="s33"]
+size = Vector3(1522, 4, 1)
+
+[sub_resource type="BoxMesh" id="s34"]
+size = Vector3(14, 8, 26)
+
+[sub_resource type="CylinderMesh" id="s35"]
+top_radius = 1.2
+bottom_radius = 2.6
+height = 28
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s36"]
+size = Vector3(0.9, 0.3, 0.12)
+
+[sub_resource type="BoxMesh" id="s37"]
+size = Vector3(16, 8, 26)
+
+[sub_resource type="BoxMesh" id="s38"]
+size = Vector3(18, 8, 26)
+
+[sub_resource type="BoxMesh" id="s39"]
+size = Vector3(20, 8, 26)
+
+[sub_resource type="BoxMesh" id="s40"]
+size = Vector3(22, 8, 26)
+
+[sub_resource type="PlaneMesh" id="s41"]
+size = Vector2(1720, 1740)
+
+[sub_resource type="PlaneMesh" id="s42"]
+size = Vector2(9000, 9000)
+
+[node name="yard_void_field" type="Node3D"]
+
+
+[node name="SupportCollision" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.1, 210)
+collision_layer = 4
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="SupportCollision"]
+shape = SubResource("s0")
+
+[node name="Yard" parent="." instance=ExtResource("e0")]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="YardRim" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="RimSouth" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(0, 0.6, -12)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RimSouthLine" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(0, 1.22, -12)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RimSouthCollision" type="StaticBody3D" parent="YardRim"]
+position = Vector3(0, 0.6, -12)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="YardRim/RimSouthCollision"]
+shape = SubResource("s3")
+
+[node name="RimWest" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(-118, 0.6, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RimWestLine" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(-118, 1.22, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RimWestCollision" type="StaticBody3D" parent="YardRim"]
+position = Vector3(-118, 0.6, 204)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="YardRim/RimWestCollision"]
+shape = SubResource("s6")
+
+[node name="RimEast" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(118, 0.6, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RimEastLine" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(118, 1.22, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RimEastCollision" type="StaticBody3D" parent="YardRim"]
+position = Vector3(118, 0.6, 204)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="YardRim/RimEastCollision"]
+shape = SubResource("s6")
+
+[node name="RimNorthWest" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(-55.5, 0.6, 420)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RimNorthWestLine" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(-55.5, 1.22, 420)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RimNorthWestCollision" type="StaticBody3D" parent="YardRim"]
+position = Vector3(-55.5, 0.6, 420)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="YardRim/RimNorthWestCollision"]
+shape = SubResource("s9")
+
+[node name="RimNorthEast" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(70.5, 0.6, 420)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RimNorthEastLine" type="MeshInstance3D" parent="YardRim"]
+position = Vector3(70.5, 1.22, 420)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RimNorthEastCollision" type="StaticBody3D" parent="YardRim"]
+position = Vector3(70.5, 0.6, 420)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="YardRim/RimNorthEastCollision"]
+shape = SubResource("s12")
+
+[node name="YardDock" parent="." instance=ExtResource("e3")]
+position = Vector3(15, 0, 414)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="ServiceTag" parent="." instance=ExtResource("e4")]
+position = Vector3(2.6, 1.7, 397.95)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="TranslatorHideout" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="Floor" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(39, -0.15, 41.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Wall-1" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(34.7, 1.65, 41.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Wall1" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(43.3, 1.65, 41.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="BackWall" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(39, 1.65, 44.35)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Roof" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(39, 3.28, 41.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="DoorFrame" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(39, 1.7, 38.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="DoorLineL" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(37.72, 1.65, 38.36)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="DoorLineR" type="MeshInstance3D" parent="TranslatorHideout"]
+position = Vector3(40.28, 1.65, 38.36)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="TranslatorPost" parent="." instance=ExtResource("e8")]
+position = Vector3(39, 0, 40)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="TranslatorPoint" type="Marker3D" parent="."]
+position = Vector3(39, 0, 36)
+
+
+[node name="YardDockBeacon" parent="." instance=ExtResource("e9")]
+position = Vector3(15, 0, 416)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="FarYard" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="VaultIsland" type="MeshInstance3D" parent="."]
+position = Vector3(360, -16.3, 881)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s18")
+material_override = ExtResource("e10")
+cast_shadow = 0
+
+[node name="VaultApron" type="MeshInstance3D" parent="."]
+position = Vector3(360, -0.29, 864)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="FarYardHallWest" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(344, 5, 881)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="FarYardHallWestLine" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(347.68, 4.2, 871.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="FarYardHallEast" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(380, 7, 880)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s22")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="FarYardHallEastLine" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(384.14, 5.88, 869.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s23")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="FarYardTower" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(362, 12, 901)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s24")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="FarYardTowerLine" type="MeshInstance3D" parent="FarYard"]
+position = Vector3(364.76, 10.08, 894.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s25")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="VaultEdgeLamp0" type="MeshInstance3D" parent="."]
+position = Vector3(332, 0.06, 853.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="VaultEdgeLamp1" type="MeshInstance3D" parent="."]
+position = Vector3(346, 0.06, 853.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="VaultEdgeLamp2" type="MeshInstance3D" parent="."]
+position = Vector3(360, 0.06, 853.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="VaultEdgeLamp3" type="MeshInstance3D" parent="."]
+position = Vector3(374, 0.06, 853.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="VaultEdgeLamp4" type="MeshInstance3D" parent="."]
+position = Vector3(388, 0.06, 853.1)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s26")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="VaultCradle" parent="." instance=ExtResource("e11")]
+position = Vector3(360, 0, 860)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="FarYardDock" type="Marker3D" parent="."]
+position = Vector3(360, 0, 860)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="DeepLiftLobby" parent="." instance=ExtResource("e12")]
+position = Vector3(375, 0, 867)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="VaultBeacon" parent="." instance=ExtResource("e9")]
+position = Vector3(352, 0, 870)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay0" parent="." instance=ExtResource("e13")]
+position = Vector3(40, 0, 520)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay0Beacon" parent="." instance=ExtResource("e9")]
+position = Vector3(40, 0, 520)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay0Suspension" type="MeshInstance3D" parent="."]
+position = Vector3(40, -4, 520)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="Relay0Anchor" type="MeshInstance3D" parent="."]
+position = Vector3(40, -8, 520)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Relay1" parent="." instance=ExtResource("e13")]
+position = Vector3(180, 0, 640)
+rotation_degrees = Vector3(0, 90, 0)
+
+[node name="Relay1Beacon" parent="." instance=ExtResource("e9")]
+position = Vector3(180, 0, 640)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay1Suspension" type="MeshInstance3D" parent="."]
+position = Vector3(180, -4, 640)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="Relay1Anchor" type="MeshInstance3D" parent="."]
+position = Vector3(180, -8, 640)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Relay2" parent="." instance=ExtResource("e13")]
+position = Vector3(300, 0, 760)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay2Beacon" parent="." instance=ExtResource("e9")]
+position = Vector3(300, 0, 760)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="Relay2Suspension" type="MeshInstance3D" parent="."]
+position = Vector3(300, -4, 760)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="Relay2Anchor" type="MeshInstance3D" parent="."]
+position = Vector3(300, -8, 760)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RelayWest" parent="." instance=ExtResource("e13")]
+position = Vector3(-420, 0, 200)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="RelayWestBeacon" parent="." instance=ExtResource("e9")]
+position = Vector3(-420, 0, 200)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="RelayWestSuspension" type="MeshInstance3D" parent="."]
+position = Vector3(-420, -4, 200)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="RelayWestAnchor" type="MeshInstance3D" parent="."]
+position = Vector3(-420, -8, 200)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RelaySouth" parent="." instance=ExtResource("e13")]
+position = Vector3(0, 0, -360)
+rotation_degrees = Vector3(0, 90, 0)
+
+[node name="RelaySouthBeacon" parent="." instance=ExtResource("e9")]
+position = Vector3(0, 0, -360)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="RelaySouthSuspension" type="MeshInstance3D" parent="."]
+position = Vector3(0, -4, -360)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="RelaySouthAnchor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -8, -360)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="RelayEast" parent="." instance=ExtResource("e13")]
+position = Vector3(520, 0, 120)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="RelayEastBeacon" parent="." instance=ExtResource("e9")]
+position = Vector3(520, 0, 120)
+rotation_degrees = Vector3(0, 0, 0)
+
+[node name="RelayEastSuspension" type="MeshInstance3D" parent="."]
+position = Vector3(520, -4, 120)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s27")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="RelayEastAnchor" type="MeshInstance3D" parent="."]
+position = Vector3(520, -8, 120)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s28")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="DockSlotWest" type="Marker3D" parent="."]
+position = Vector3(-640, 0, 210)
+
+
+[node name="DockSlotWestRing" type="MeshInstance3D" parent="."]
+position = Vector3(-640, -0.4, 210)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s29")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="DockSlotSouth" type="Marker3D" parent="."]
+position = Vector3(0, 0, -480)
+
+
+[node name="DockSlotSouthRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.4, -480)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s29")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="BoundaryX-1" type="MeshInstance3D" parent="."]
+position = Vector3(-760, 0, 210)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s30")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="BoundaryZ-1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, -560)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s31")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="BoundaryXCollision-1" type="StaticBody3D" parent="."]
+position = Vector3(-760.5, 2, 210)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BoundaryXCollision-1"]
+shape = SubResource("s32")
+
+[node name="BoundaryZCollision-1" type="StaticBody3D" parent="."]
+position = Vector3(0, 2, -560.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BoundaryZCollision-1"]
+shape = SubResource("s33")
+
+[node name="BoundaryX1" type="MeshInstance3D" parent="."]
+position = Vector3(760, 0, 210)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s30")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="BoundaryZ1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 980)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s31")
+material_override = ExtResource("e7")
+cast_shadow = 0
+
+[node name="BoundaryXCollision1" type="StaticBody3D" parent="."]
+position = Vector3(760.5, 2, 210)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BoundaryXCollision1"]
+shape = SubResource("s32")
+
+[node name="BoundaryZCollision1" type="StaticBody3D" parent="."]
+position = Vector3(0, 2, 980.5)
+collision_layer = 1
+collision_mask = 0
+
+[node name="Collision" type="CollisionShape3D" parent="BoundaryZCollision1"]
+shape = SubResource("s33")
+
+[node name="AbyssDepth" type="Node3D" parent="."]
+position = Vector3(0, 0, 0)
+
+
+[node name="Ruin0" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(260, -85, 210)
+rotation_degrees = Vector3(7, 0, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower0" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(265, -70, 207)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window0" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(265, -59, 205.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin1" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-263, -98, 463)
+rotation_degrees = Vector3(7, 29, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower1" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-258, -83, 460)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window1" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-258, -72, 458.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin2" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(40, -111, -265)
+rotation_degrees = Vector3(7, 58, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower2" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(45, -96, -268)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window2" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(45, -85, -269.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin3" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(335, -124, 669)
+rotation_degrees = Vector3(7, 87, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower3" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(340, -109, 666)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window3" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(340, -98, 664.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin4" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-638, -85, 91)
+rotation_degrees = Vector3(7, 116, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower4" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-633, -70, 88)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window4" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-633, -59, 86.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin5" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(629, -98, -210)
+rotation_degrees = Vector3(7, 145, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower5" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(634, -83, -213)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window5" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(634, -72, -214.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin6" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-84, -111, 537)
+rotation_degrees = Vector3(7, 174, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower6" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-79, -96, 534)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window6" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-79, -85, 532.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin7" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-193, -124, -180)
+rotation_degrees = Vector3(7, 23, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower7" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-188, -109, -183)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window7" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-188, -98, -184.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin8" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(485, -85, 396)
+rotation_degrees = Vector3(7, 52, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower8" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(490, -70, 393)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window8" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(490, -59, 391.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin9" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-567, -98, 456)
+rotation_degrees = Vector3(7, 81, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower9" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-562, -83, 453)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window9" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-562, -72, 451.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin10" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(301, -111, -465)
+rotation_degrees = Vector3(7, 110, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower10" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(306, -96, -468)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window10" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(306, -85, -469.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin11" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(86, -124, 498)
+rotation_degrees = Vector3(7, 139, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower11" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(91, -109, 495)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window11" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(91, -98, 493.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin12" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-332, -85, 8)
+rotation_degrees = Vector3(7, 168, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower12" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-327, -70, 5)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window12" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-327, -59, 3.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin13" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(470, -98, 102)
+rotation_degrees = Vector3(7, 17, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower13" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(475, -83, 99)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window13" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(475, -72, 97.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin14" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-332, -111, 706)
+rotation_degrees = Vector3(7, 46, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower14" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-327, -96, 703)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window14" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-327, -85, 701.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin15" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-87, -124, -493)
+rotation_degrees = Vector3(7, 75, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower15" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-82, -109, -496)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window15" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-82, -98, -497.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin16" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(590, -85, 732)
+rotation_degrees = Vector3(7, 104, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower16" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(595, -70, 729)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window16" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(595, -59, 727.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin17" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-349, -98, 225)
+rotation_degrees = Vector3(7, 133, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower17" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-344, -83, 222)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window17" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-344, -72, 220.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin18" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(316, -111, -120)
+rotation_degrees = Vector3(7, 162, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower18" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(321, -96, -123)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window18" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(321, -85, -124.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin19" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-25, -124, 780)
+rotation_degrees = Vector3(7, 11, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower19" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-20, -109, 777)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window19" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-20, -98, 775.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin20" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-410, -85, -306)
+rotation_degrees = Vector3(7, 40, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower20" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-405, -70, -309)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window20" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-405, -59, -310.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin21" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(730, -98, 313)
+rotation_degrees = Vector3(7, 69, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower21" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(735, -83, 310)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window21" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(735, -72, 308.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin22" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-258, -111, 398)
+rotation_degrees = Vector3(7, 98, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower22" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-253, -96, 395)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window22" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-253, -85, 393.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin23" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(90, -124, -211)
+rotation_degrees = Vector3(7, 127, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower23" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(95, -109, -214)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window23" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(95, -98, -215.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin24" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(253, -85, 673)
+rotation_degrees = Vector3(7, 156, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower24" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(258, -70, 670)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window24" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(258, -59, 668.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin25" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-576, -98, 17)
+rotation_degrees = Vector3(7, 5, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower25" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-571, -83, 14)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window25" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-571, -72, 12.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin26" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(637, -111, -99)
+rotation_degrees = Vector3(7, 34, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower26" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(642, -96, -102)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window26" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(642, -85, -103.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin27" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-108, -124, 480)
+rotation_degrees = Vector3(7, 63, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower27" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-103, -109, 477)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window27" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-103, -98, 475.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin28" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-127, -85, -161)
+rotation_degrees = Vector3(7, 92, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower28" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-122, -70, -164)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window28" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-122, -59, -165.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin29" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(419, -98, 441)
+rotation_degrees = Vector3(7, 121, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower29" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(424, -83, 438)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window29" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(424, -72, 436.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin30" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-551, -111, 363)
+rotation_degrees = Vector3(7, 150, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower30" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-546, -96, 360)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window30" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-546, -85, 358.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin31" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(361, -124, -379)
+rotation_degrees = Vector3(7, 179, -5)
+mesh = SubResource("s37")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower31" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(366, -109, -382)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window31" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(366, -98, -383.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin32" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(129, -85, 1001)
+rotation_degrees = Vector3(7, 28, -5)
+mesh = SubResource("s38")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower32" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(134, -70, 998)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window32" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(134, -59, 996.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin33" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-270, -98, -9)
+rotation_degrees = Vector3(7, 57, -5)
+mesh = SubResource("s39")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower33" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-265, -83, -12)
+rotation_degrees = Vector3(0, 0, -12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window33" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-265, -72, -13.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin34" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(437, -111, 172)
+rotation_degrees = Vector3(7, 86, -5)
+mesh = SubResource("s40")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower34" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(442, -96, 169)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window34" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(442, -85, 167.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Ruin35" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-363, -124, 622)
+rotation_degrees = Vector3(7, 115, -5)
+mesh = SubResource("s34")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="BrokenTower35" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-358, -109, 619)
+rotation_degrees = Vector3(0, 0, 12)
+mesh = SubResource("s35")
+material_override = ExtResource("e14")
+cast_shadow = 0
+
+[node name="Window35" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(-358, -98, 617.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s36")
+material_override = ExtResource("e15")
+cast_shadow = 0
+
+[node name="Haze0" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(0, -30, 210)
+mesh = SubResource("s41")
+material_override = ExtResource("e16")
+cast_shadow = 0
+
+[node name="Haze1" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(0, -54, 210)
+mesh = SubResource("s41")
+material_override = ExtResource("e16")
+cast_shadow = 0
+
+[node name="Haze2" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(0, -78, 210)
+mesh = SubResource("s41")
+material_override = ExtResource("e16")
+cast_shadow = 0
+
+[node name="AbyssFloor" type="MeshInstance3D" parent="AbyssDepth"]
+position = Vector3(0, -460, 210)
+mesh = SubResource("s42")
+material_override = ExtResource("e17")
+cast_shadow = 0
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+position = Vector3(15, 0, 414)
+rotation_degrees = Vector3(0, 180, 0)
+
+[node name="BoardPoint" type="Marker3D" parent="."]
+position = Vector3(11.8, 0, 412)
+
+
+[node name="SecuritySpawn" type="Marker3D" parent="."]
+position = Vector3(400, 0, 830)
+rotation_degrees = Vector3(0, 90, 0)
+
+[node name="VaultLift" type="Marker3D" parent="."]
+position = Vector3(375, 0, 862.8)
+

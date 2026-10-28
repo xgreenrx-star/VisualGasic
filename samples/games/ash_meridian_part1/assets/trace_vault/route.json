@@ -21,6 +21,13 @@
   "ride_y": 0,
   "clearance_radius": 0.75,
   "cycle_length": 4.2,
+  "void_gap_z": [
+    -100,
+    100
+  ],
+  "support_collision_layer": 4,
+  "presentation": "Open void; solid land only at the near and far banks. No continuous visual support field.",
+  "abyss": "Non-colliding ruined structures below Y=-45; patchy haze at Y=-30/-54/-78. These are scenery, never traversable floor.",
   "near_dock": [
     0,
     0,
@@ -36,7 +43,9 @@
     "Relay1/LinkSocket",
     "Relay2/LinkSocket"
   ],
-  "relay_capture_radius": 3.5,
+  "relay_capture_radius": 2,
+  "relay_lane_half_width": 1.8,
+  "relay_lane_axis": "local Z",
   "maximum_proposed_speed": 64,
   "warning": "Art layout only. Validate reachability and collision sweeps in VG before choosing gameplay balance."
 }

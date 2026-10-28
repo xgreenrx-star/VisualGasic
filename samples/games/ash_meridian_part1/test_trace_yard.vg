@@ -1,0 +1,266 @@
+' MAX_FRAMES: 40
+' Isolated TRACE YARD dest. Play and TRACE CYCLE stay unchanged.
+Option Explicit
+
+Const PI As Single = 3.14159265
+
+Dim checks As Integer
+Dim failures As Integer
+Dim scene As Object
+Dim game As Object
+Dim view As Object
+Dim packed As Object
+Dim before As Single
+Dim elapsed_frames As Integer
+Dim i As Integer
+Dim camp As Object
+Dim gate As Object
+Dim directive As Object
+Dim tag As Object
+Dim key_gloss As Object
+Dim start_pos As Vector3
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Drive(ByVal seconds As Single, ByVal dt As Single)
+	Dim steps As Integer
+	Dim n As Integer
+	n = Int(seconds / dt + 0.5)
+	For steps = 1 To n
+		scene.tick(dt)
+	Next
+End Sub
+
+Sub _Ready()
+	packed = Load("res://trace_cycle_test.tscn")
+	check(Not (packed Is Nothing), "trace_yard_scene_loads")
+	scene = packed.instantiate()
+	add_child(scene)
+	scene.start_test("yard_test")
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	elapsed_frames = elapsed_frames + 1
+	If elapsed_frames = 4 Then
+		Call WorldChecks()
+		Call ChargeChecks()
+		Call NavChecks()
+		Call TranslatorChecks()
+		Call WalkChecks()
+		Call CrashChecks()
+		Call DestChecks()
+		Print "TRACE_YARD=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub
+
+Sub WorldChecks()
+	check(scene.yard_field And scene.running, "yard_mode_starts")
+	check(scene.crossing.name = "YardVoidField", "loads_yard_void_field_not_the_crossing")
+	check(scene.crossing.has_node("YardDock/DockPose") And scene.crossing.has_node("VaultCradle/DockPose"), "yard_and_vault_docks_present")
+	check(scene.dock_id = "yard_dock" And scene.ride_state = "docked", "spawns_docked_at_yard_dock")
+	check(Abs(scene.player.global_position.x - 15.0) < 1.5 And Abs(scene.player.global_position.z - 414.0) < 1.5, "cycle_sits_on_player_spawn")
+	check(scene.charge = scene.charge_cap And scene.charge_cap = 100.0, "charge_starts_full_from_json")
+	check(scene.list_scan_m = 900.0 And scene.list_scan_cost = 4.0 And scene.radar_radius = 400.0, "navigation_values_come_from_json")
+	check(scene.field_min_x = -760.0 And scene.field_max_z = 980.0, "field_bounds_come_from_json")
+	check(scene.OnWalkDeck(Vector3(0.0, 0.0, 200.0)), "yard_deck_is_walkable")
+	check(scene.OnWalkDeck(Vector3(2.6, 0.0, 398.0)), "service_tag_stands_on_the_yard")
+	check(scene.crossing.has_node("TranslatorHideout/BackWall") And scene.crossing.has_node("TranslatorPoint"), "translator_hideout_is_in_the_archive_bay")
+	check(scene.OnWalkDeck(Vector3(39.0, 0.0, 36.0)) And scene.OnWalkDeck(Vector3(39.0, 0.0, 40.0)), "translator_hideout_stands_on_the_yard")
+	check(scene.crossing.has_node("FarYardDock") And Abs(scene.DockPose("far_yard").global_position.x - scene.DockPose("vault").global_position.x) < 0.01, "far_yard_dock_aliases_the_vault_cradle")
+	check(Not scene.OnWalkDeck(Vector3(0.0, 0.0, -80.0)), "void_south_of_the_yard_is_not_a_walk_deck")
+End Sub
+
+Sub WalkChecks()
+	scene.ignore_input = False
+	scene.yard_save_released = False
+	scene.cradle_released = False
+	scene.reset_run()
+	check(scene.ride_state = "on_foot" And scene.OnWalkDeck(scene.walker.global_position), "yard_dest_stands_on_the_dock")
+	start_pos = scene.walker.global_position
+	scene.WalkForward(18.0)
+	scene.TickWalk(0.05)
+	check(scene.ride_state = "on_foot" And scene.OnWalkDeck(scene.walker.global_position) And scene.walker.global_position.distance_to(start_pos) > 10.0, "walking_the_yard_road_does_not_fall")
+	scene.walker.global_position = Vector3(0.0, 0.0, -80.0)
+	scene.TickWalk(0.05)
+	check(scene.ride_state = "falling", "stepping_off_the_yard_starts_a_fall")
+	scene.ignore_input = True
+	scene.cradle_released = True
+	scene.reset_run()
+End Sub
+
+Sub ChargeChecks()
+	check(Abs(scene.ChargeDrainFor(24.0) - 0.92) < 0.01, "drain_at_24")
+	check(Abs(scene.ChargeDrainFor(40.0) - 1.49) < 0.02, "drain_at_40")
+	check(Abs(scene.ChargeDrainFor(64.0) - 2.88) < 0.02, "drain_at_64")
+	scene.trace_off_t = 1.0
+	scene.speed = 24.0
+	scene.charge = 100.0
+	scene.ride_state = "riding"
+	scene.TickCharge(1.0)
+	check(Abs(scene.charge - (100.0 - 0.92)) < 0.05, "tick_drain_matches_cruise_rate")
+	scene.trace_off_t = 0.0
+	scene.charge = 50.0
+	before = scene.charge
+	scene.GainCharge(scene.charge_relay_gain)
+	check(Abs(scene.charge - before - 40.0) < 0.01, "relay_capture_adds_forty")
+	scene.charge = 90.0
+	scene.GainCharge(40.0)
+	check(scene.charge = 100.0, "charge_caps_at_one_hundred")
+	scene.free_spent = Array(0.0, 0.0, 0.0)
+	scene.free_armed = Array(True, False, False)
+	scene.CaptureFreeRelays(Vector3(-421.0, 0.0, 200.0), Vector3(-419.0, 0.0, 200.0))
+	check(scene.free_spent(0) = scene.charge_cooldown And scene.charge_cooldown = 45.0, "free_relay_enters_spent_cooldown")
+	scene.ride_state = "docked"
+	scene.charge = 20.0
+	scene.TickCharge(scene.charge_dock_refill)
+	check(scene.charge >= 99.0, "dock_refills_to_full_in_two_seconds")
+	scene.ride_state = "riding"
+	scene.charge = 15.0
+	scene.speed = 64.0
+	check(scene.ClampSpeed(64.0) = 40.0, "critical_caps_speed_at_40")
+	scene.charge = 50.0
+	check(scene.ClampSpeed(64.0) = 64.0, "full_charge_keeps_max_speed")
+	scene.charge = 0.0
+	scene.charge_fail_t = 0.0
+	scene.TickCharge(0.05)
+	check(scene.charge_fail_t > 2.0, "empty_charge_opens_containment_window")
+	scene.GainCharge(40.0)
+	check(scene.charge_fail_t = 0.0 And scene.charge >= 40.0, "relay_inside_window_saves_the_cycle")
+	scene.charge = 0.0
+	scene.charge_fail_t = 0.05
+	scene.TickCharge(0.1)
+	check(scene.ride_state = "crashed" And scene.last_crash = "containment", "containment_failure_explodes")
+	scene.retry_run()
+	check(scene.ride_state = "docked" And scene.dock_id = "yard_dock" And scene.charge = 100.0, "explosion_respawns_at_last_dock_full")
+End Sub
+
+Sub NavChecks()
+	scene.reset_run()
+	check(scene.ItemDiscovered("YardDock") And Not scene.ItemDiscovered("RelayEast"), "yard_dock_starts_discovered")
+	before = scene.charge
+	scene.ListScan()
+	check(Abs(scene.charge - (before - 4.0)) < 0.01, "list_scan_costs_four")
+	check(scene.ItemDiscovered("Relay0") And scene.ItemDiscovered("RelaySouth"), "list_reveals_items_inside_900m")
+	check(Not scene.ItemDiscovered("DockSlotWest"), "list_does_not_reveal_empty_dock_slots")
+	scene.goto_i = 0
+	scene.CycleGoto()
+	check(scene.goto_i = 1 And scene.GotoPath() = "YardDock", "goto_cycles_to_nearest_dock")
+	scene.CycleGoto()
+	check(scene.goto_i = 2, "goto_cycles_to_nearest_available_relay")
+	scene.CycleGoto()
+	check(scene.goto_i = 0 And scene.GotoTitle().begins_with("LINK"), "goto_returns_to_next_vault_relay")
+	scene.charge = 30.0
+	scene.charge_warned_low = False
+	scene.return_forced = False
+	scene.ride_state = "riding"
+	scene.trace_off_t = 1.0
+	scene.speed = 24.0
+	scene.TickCharge(0.05)
+	check(scene.return_forced And InStr(scene.GotoHud(), "RETURN") > 0, "low_charge_switches_to_return")
+End Sub
+
+Sub TranslatorChecks()
+	check(scene.narcean_hash("TRACE") = 746199118 And scene.narcean_hash("CRADLE") = 2808997754 And scene.narcean_hash("RELEASE") = 3061884318, "word_hash_matches_fixtures")
+	check(scene.narcean_cell(scene.narcean_hash("TRACE"), 0) = 14 And scene.narcean_cell(scene.narcean_hash("TRACE"), 1) = 2 And scene.narcean_cell(scene.narcean_hash("TRACE"), 2) = 6, "word_hash_cells_trace")
+	check(scene.narcean_cell(scene.narcean_hash("DOCK"), 1) = 38 And scene.narcean_cell(scene.narcean_hash("RELEASE"), 3) = 1 And scene.narcean_cell(scene.narcean_hash("SEVEN"), 0) = 30, "word_hash_cells_dock_release_seven")
+	scene.reset_run()
+	scene.inventory.erase("translator")
+	scene.TickGloss(0.5)
+	gate = scene.crossing.get_node("YardDock/GateSign/Gloss")
+	directive = scene.crossing.get_node("YardDock/Directive/Gloss")
+	tag = scene.crossing.get_node("ServiceTag/Line1/Gloss")
+	key_gloss = scene.lock_node.get_node("Face/Key0/Gloss")
+	check(Not gate.visible, "interface_gloss_hidden_without_translator")
+	check(Not directive.visible, "high_script_never_glossed")
+	check(Not key_gloss.visible, "keypad_digit_glosses_hidden_without_translator")
+	scene.GiveTranslator()
+	scene.TickGloss(0.5)
+	check(gate.visible, "interface_gloss_only_with_translator_in_range")
+	check(Not directive.visible, "high_script_never_glossed_with_translator")
+	check(Not tag.visible, "interface_gloss_not_shown_out_of_range")
+	scene.inventory.erase("translator")
+	scene.ride_state = "on_foot"
+	scene.PlaceWalker(scene.crossing.get_node("ServiceTag"), 0.0)
+	scene.TickGloss(0.5)
+	check(Not tag.visible And InStr(scene.nearby_hud, "NARCEAN") > 0, "tag_unreadable_without_translator")
+	scene.GiveTranslator()
+	scene.TickGloss(0.5)
+	check(tag.visible And InStr(scene.nearby_hud, "TWO SEVEN FOUR ONE") > 0, "tag_reads_code_with_translator")
+	scene.inventory.erase("translator")
+	scene.HideTranslatorPickup()
+	scene.ride_state = "on_foot"
+	scene.PlaceWalker(scene.crossing.get_node("TranslatorPoint"), 0.0)
+	check(scene.NearTranslatorPickup(), "translator_point_is_the_walk_up")
+	scene.InteractYardDock()
+	check(scene.TranslatorOwned(), "translator_pickup_at_archive_doorway")
+	scene.reset_run()
+	scene.cradle_released = False
+	scene.EnterCradleCode("0000")
+	scene.SubmitCradleLock()
+	check(Not scene.cradle_released And scene.lock_flash_t > 0.0, "wrong_code_refused")
+	scene.EnterCradleCode("2741")
+	scene.SubmitCradleLock()
+	check(scene.cradle_released And scene.cradle_code = "2741", "correct_code_releases_cradle")
+	scene.ignore_input = False
+	scene.reset_run()
+	check(scene.cradle_released, "release_persists_across_checkpoint")
+	scene.ignore_input = True
+	scene.cradle_released = False
+	scene.ride_state = "docked"
+	scene.launch()
+	check(scene.ride_state = "docked", "boarding_refused_until_released")
+	scene.ReleaseCradle()
+	scene.launch()
+	check(scene.ride_state = "boarding", "released_cradle_allows_boarding")
+	camp = ClassDB.Instantiate("RefCounted")
+	camp.SetScript(Load("res://campaign.vg"))
+	check(camp.fields().size() = 32 And Not camp.fields().has("translator"), "translator_adds_no_expedition_save_field")
+	scene.ignore_input = True
+	scene.cradle_released = True
+	scene.reset_run()
+End Sub
+
+Sub CrashChecks()
+	scene.reset_run()
+	scene.begin_riding()
+	scene.force_pose(0.0, -6.0, 0.0)
+	scene.speed = 48.0
+	Drive(0.6, 1.0 / 30.0)
+	check(scene.ride_state = "crashed" And scene.last_crash = "yard rim", "rim_crash_is_named")
+	scene.reset_run()
+	scene.begin_riding()
+	scene.force_pose(752.0, 210.0, PI * 0.5)
+	scene.speed = 48.0
+	Drive(1.2, 1.0 / 30.0)
+	check(scene.ride_state = "crashed" And scene.last_crash = "field boundary", "boundary_crash_is_named")
+End Sub
+
+Sub DestChecks()
+	packed = Load("res://main.tscn")
+	game = packed.instantiate()
+	add_child(game)
+	game.set_process(False)
+	view = game.GetNode("Presentation")
+	check(game.DevLabel(19) = "TRACE YARD" And game.MainScene(8) = 19, "trace_yard_dest_is_on_the_main_page")
+	check(game.DevLabel(16) = "TRACE CYCLE" And game.MainScene(6) = 16, "crossing_dest_is_unchanged")
+	game.dev_i = 19
+	game.WarpDev()
+	check(view.trace_cycle <> Nothing And view.trace_cycle.yard_field And view.trace_cycle.mode = "yard", "trace_yard_starts_from_dev_terminal")
+	check(view.trace_cycle.dock_id = "yard_dock", "trace_yard_dest_starts_at_the_yard_dock")
+	check(view.trace_cycle.TranslatorOwned() And Not view.trace_cycle.cradle_released, "trace_yard_dest_owns_translator_and_locks_the_cradle")
+	view.stop_trace_cycle()
+	game.dev_i = 16
+	game.WarpDev()
+	check(view.trace_cycle <> Nothing And Not view.trace_cycle.yard_field And view.trace_cycle.mode = "dev", "trace_cycle_dest_still_loads_the_crossing")
+	view.stop_trace_cycle()
+	game.free()
+End Sub

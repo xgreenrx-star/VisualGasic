@@ -1,0 +1,53 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/beacon_cyan.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e1"]
+
+[sub_resource type="CylinderMesh" id="s0"]
+top_radius = 0.5
+bottom_radius = 1.6
+height = 160
+radial_segments = 24
+rings = 1
+
+[sub_resource type="CylinderMesh" id="s1"]
+top_radius = 1.2
+bottom_radius = 4.5
+height = 60
+radial_segments = 24
+rings = 1
+
+[sub_resource type="TorusMesh" id="s2"]
+inner_radius = 3.4
+outer_radius = 3.7
+rings = 24
+ring_segments = 8
+
+[node name="relay_beacon" type="Node3D"]
+
+
+[node name="Beam" type="MeshInstance3D" parent="."]
+position = Vector3(0, 80, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Halo" type="MeshInstance3D" parent="."]
+position = Vector3(0, 30, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="GroundRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.06, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Top" type="Marker3D" parent="."]
+position = Vector3(0, 160, 0)
+

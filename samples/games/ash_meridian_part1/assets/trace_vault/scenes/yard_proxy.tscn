@@ -1,0 +1,654 @@
+[gd_scene load_steps=33 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/trace_floor.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/bank_rock.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e4"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/white.tres" id="e5"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e6"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(236, 6, 432)
+
+[sub_resource type="BoxMesh" id="s1"]
+size = Vector3(216, 16, 412)
+
+[sub_resource type="CylinderMesh" id="s2"]
+top_radius = 2
+bottom_radius = 6
+height = 100
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s3"]
+size = Vector3(12, 22, 8.64)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.14, 15.4, 0.05)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(15, 30, 10.8)
+
+[sub_resource type="BoxMesh" id="s6"]
+size = Vector3(0.14, 21, 0.05)
+
+[sub_resource type="BoxMesh" id="s7"]
+size = Vector3(18, 38, 12.96)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(0.14, 26.6, 0.05)
+
+[sub_resource type="BoxMesh" id="s9"]
+size = Vector3(12, 46, 8.64)
+
+[sub_resource type="BoxMesh" id="s10"]
+size = Vector3(0.14, 32.2, 0.05)
+
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(15, 22, 10.8)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(18, 30, 12.96)
+
+[sub_resource type="BoxMesh" id="s13"]
+size = Vector3(12, 38, 8.64)
+
+[sub_resource type="BoxMesh" id="s14"]
+size = Vector3(15, 46, 10.8)
+
+[sub_resource type="BoxMesh" id="s15"]
+size = Vector3(18, 22, 12.96)
+
+[sub_resource type="BoxMesh" id="s16"]
+size = Vector3(12, 30, 8.64)
+
+[sub_resource type="BoxMesh" id="s17"]
+size = Vector3(15, 38, 10.8)
+
+[sub_resource type="BoxMesh" id="s18"]
+size = Vector3(18, 46, 12.96)
+
+[sub_resource type="BoxMesh" id="s19"]
+size = Vector3(22, 9, 24)
+
+[sub_resource type="CylinderMesh" id="s20"]
+top_radius = 3
+bottom_radius = 3
+height = 16
+radial_segments = 24
+rings = 1
+
+[sub_resource type="BoxMesh" id="s21"]
+size = Vector3(32, 2.5, 3)
+
+[sub_resource type="BoxMesh" id="s22"]
+size = Vector3(0.16, 0.03, 420)
+
+[sub_resource type="BoxMesh" id="s23"]
+size = Vector3(8, 8, 8)
+
+[sub_resource type="BoxMesh" id="s24"]
+size = Vector3(0.24, 7.5, 0.05)
+
+[node name="yard_proxy" type="Node3D"]
+
+
+[node name="Deck" type="MeshInstance3D" parent="."]
+position = Vector3(0, -3, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="Underside" type="MeshInstance3D" parent="."]
+position = Vector3(0, -14, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Root0" type="MeshInstance3D" parent="."]
+position = Vector3(-60, -70, 30)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Root1" type="MeshInstance3D" parent="."]
+position = Vector3(60, -70, 100)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Root2" type="MeshInstance3D" parent="."]
+position = Vector3(-60, -70, 170)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Root3" type="MeshInstance3D" parent="."]
+position = Vector3(60, -70, 240)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Root4" type="MeshInstance3D" parent="."]
+position = Vector3(-60, -70, 310)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Root5" type="MeshInstance3D" parent="."]
+position = Vector3(60, -70, 380)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Tower-1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-82, 11, 16.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_0" type="MeshInstance3D" parent="."]
+position = Vector3(-79.96, 8.8, 11.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_0" type="MeshInstance3D" parent="."]
+position = Vector3(82, 11, 16.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_0" type="MeshInstance3D" parent="."]
+position = Vector3(84.04, 8.8, 11.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-83.5, 15, 51.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-80.95, 12, 45.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_1" type="MeshInstance3D" parent="."]
+position = Vector3(83.5, 15, 51.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_1" type="MeshInstance3D" parent="."]
+position = Vector3(86.05, 12, 45.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-85, 19, 86.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_2" type="MeshInstance3D" parent="."]
+position = Vector3(-81.94, 15.2, 79.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_2" type="MeshInstance3D" parent="."]
+position = Vector3(85, 19, 86.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_2" type="MeshInstance3D" parent="."]
+position = Vector3(88.06, 15.2, 79.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-82, 23, 118.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_3" type="MeshInstance3D" parent="."]
+position = Vector3(-79.96, 18.4, 113.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_3" type="MeshInstance3D" parent="."]
+position = Vector3(82, 23, 118.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s9")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_3" type="MeshInstance3D" parent="."]
+position = Vector3(84.04, 18.4, 113.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_4" type="MeshInstance3D" parent="."]
+position = Vector3(-83.5, 11, 153.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_4" type="MeshInstance3D" parent="."]
+position = Vector3(-80.95, 8.8, 147.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_4" type="MeshInstance3D" parent="."]
+position = Vector3(83.5, 11, 153.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_4" type="MeshInstance3D" parent="."]
+position = Vector3(86.05, 8.8, 147.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_5" type="MeshInstance3D" parent="."]
+position = Vector3(-85, 15, 188.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_5" type="MeshInstance3D" parent="."]
+position = Vector3(-81.94, 12, 181.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_5" type="MeshInstance3D" parent="."]
+position = Vector3(85, 15, 188.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s12")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_5" type="MeshInstance3D" parent="."]
+position = Vector3(88.06, 12, 181.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_6" type="MeshInstance3D" parent="."]
+position = Vector3(-82, 19, 220.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_6" type="MeshInstance3D" parent="."]
+position = Vector3(-79.96, 15.2, 215.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_6" type="MeshInstance3D" parent="."]
+position = Vector3(82, 19, 220.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_6" type="MeshInstance3D" parent="."]
+position = Vector3(84.04, 15.2, 215.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_7" type="MeshInstance3D" parent="."]
+position = Vector3(-83.5, 23, 255.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_7" type="MeshInstance3D" parent="."]
+position = Vector3(-80.95, 18.4, 249.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_7" type="MeshInstance3D" parent="."]
+position = Vector3(83.5, 23, 255.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s14")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_7" type="MeshInstance3D" parent="."]
+position = Vector3(86.05, 18.4, 249.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_8" type="MeshInstance3D" parent="."]
+position = Vector3(-85, 11, 290.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_8" type="MeshInstance3D" parent="."]
+position = Vector3(-81.94, 8.8, 283.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_8" type="MeshInstance3D" parent="."]
+position = Vector3(85, 11, 290.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s15")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_8" type="MeshInstance3D" parent="."]
+position = Vector3(88.06, 8.8, 283.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_9" type="MeshInstance3D" parent="."]
+position = Vector3(-82, 15, 322.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_9" type="MeshInstance3D" parent="."]
+position = Vector3(-79.96, 12, 317.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_9" type="MeshInstance3D" parent="."]
+position = Vector3(82, 15, 322.32)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s16")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_9" type="MeshInstance3D" parent="."]
+position = Vector3(84.04, 12, 317.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_10" type="MeshInstance3D" parent="."]
+position = Vector3(-83.5, 19, 357.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_10" type="MeshInstance3D" parent="."]
+position = Vector3(-80.95, 15.2, 351.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_10" type="MeshInstance3D" parent="."]
+position = Vector3(83.5, 19, 357.4)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s17")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_10" type="MeshInstance3D" parent="."]
+position = Vector3(86.05, 15.2, 351.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower-1_11" type="MeshInstance3D" parent="."]
+position = Vector3(-85, 23, 392.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s18")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace-1_11" type="MeshInstance3D" parent="."]
+position = Vector3(-81.94, 18.4, 385.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Tower1_11" type="MeshInstance3D" parent="."]
+position = Vector3(85, 23, 392.48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s18")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="TowerTrace1_11" type="MeshInstance3D" parent="."]
+position = Vector3(88.06, 18.4, 385.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s10")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="PressHall0" type="MeshInstance3D" parent="."]
+position = Vector3(-41, 4.5, 48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall1" type="MeshInstance3D" parent="."]
+position = Vector3(39, 4.5, 48)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall2" type="MeshInstance3D" parent="."]
+position = Vector3(-41, 4.5, 142)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall3" type="MeshInstance3D" parent="."]
+position = Vector3(39, 4.5, 142)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall4" type="MeshInstance3D" parent="."]
+position = Vector3(-41, 4.5, 236)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall5" type="MeshInstance3D" parent="."]
+position = Vector3(39, 4.5, 236)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall6" type="MeshInstance3D" parent="."]
+position = Vector3(-41, 4.5, 330)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="PressHall7" type="MeshInstance3D" parent="."]
+position = Vector3(39, 4.5, 330)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s19")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Silo-64_70" type="MeshInstance3D" parent="."]
+position = Vector3(-64, 8, 70)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo-64_164" type="MeshInstance3D" parent="."]
+position = Vector3(-64, 8, 164)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo-64_258" type="MeshInstance3D" parent="."]
+position = Vector3(-64, 8, 258)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo-64_352" type="MeshInstance3D" parent="."]
+position = Vector3(-64, 8, 352)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo64_70" type="MeshInstance3D" parent="."]
+position = Vector3(64, 8, 70)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo64_164" type="MeshInstance3D" parent="."]
+position = Vector3(64, 8, 164)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo64_258" type="MeshInstance3D" parent="."]
+position = Vector3(64, 8, 258)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Silo64_352" type="MeshInstance3D" parent="."]
+position = Vector3(64, 8, 352)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s20")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="GateArch88" type="MeshInstance3D" parent="."]
+position = Vector3(0, 12.25, 89.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="GateArch182" type="MeshInstance3D" parent="."]
+position = Vector3(0, 12.25, 183.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="GateArch276" type="MeshInstance3D" parent="."]
+position = Vector3(0, 12.25, 277.5)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s21")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="RoadLine-6.5" type="MeshInstance3D" parent="."]
+position = Vector3(-6.5, 0.03, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s22")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="RoadLine6.5" type="MeshInstance3D" parent="."]
+position = Vector3(6.5, 0.03, 204)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s22")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="LiftHead" type="MeshInstance3D" parent="."]
+position = Vector3(0, 4, 402)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s23")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="LiftHeadLine" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.8, 397.97)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s24")
+material_override = ExtResource("e6")
+cast_shadow = 0

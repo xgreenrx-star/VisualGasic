@@ -1,0 +1,107 @@
+' MAX_FRAMES: 24
+' Isolated Black Channel cockpit dest. Play and campaign saves stay on v1.
+Option Explicit
+
+Dim game As Object
+Dim view As Object
+Dim channel As Object
+Dim campaign As Object
+Dim elapsed_frames As Integer
+Dim failures As Integer
+Dim checks As Integer
+Dim prior_save As String
+Dim save_path As String
+Dim camera As Object
+Dim hull_pos As Vector3
+Dim cam_pos As Vector3
+Dim offset As Vector3
+Dim overlay As Object
+
+Sub Check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim packed As Object
+	packed = Load("res://main.tscn")
+	game = packed.instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_orac_voice = False
+	game.opt_flight_voice = False
+	view = game.GetNode("Presentation")
+	campaign = game.campaign
+	save_path = campaign.save_path
+	If FileExists(save_path) Then prior_save = ReadAllText(save_path)
+	game.dev_i = 17
+	game.WarpDev()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	elapsed_frames = elapsed_frames + 1
+	If elapsed_frames = 4 Then
+		channel = view.black_channel
+		Check(game.phase = 19, "cockpit_dest_uses_black_channel_phase")
+		Check(game.DevLabel(17) = "BLACK CHANNEL - COCKPIT", "cockpit_terminal_label")
+		Check(game.MainScene(7) = 17, "cockpit_is_on_main_dev_page")
+		Check(game.MainScene(5) = 15, "chase_flight_test_row_unchanged")
+		Check(Not game.campaign_active, "cockpit_dest_does_not_play_campaign")
+		Check(channel <> Nothing And channel.running, "cockpit_starts_from_dev_terminal")
+		Check(channel.CockpitView() And channel.view_kind = "cockpit", "dest_starts_in_cockpit_view")
+		Check(channel.hull_vis <> Nothing And channel.hull_vis.visible, "ash_hull_stays_visible_for_the_monitor")
+		Check(channel.hull_node.GetNode("AshFlight/Visual/ash_flight/Mesh").layers = 4, "ash_mesh_uses_monitor_layer")
+		channel.render(view)
+		camera = view.camera
+		hull_pos = channel.hull_node.global_position
+		cam_pos = camera.global_position
+		offset = cam_pos - hull_pos
+		Check(offset.dot(offset) < 25.0, "cockpit_camera_sits_in_the_flight_deck")
+		Check((hull_pos - cam_pos).dot(channel.tangent) < 0.5, "cockpit_camera_is_not_the_chase_rig")
+		Check(camera.fov < 62.0, "cockpit_fov_is_tighter_than_chase")
+		Check(camera.cull_mask = 1, "windscreen_does_not_draw_the_hull")
+		Check(view.external_camera.cull_mask = 5, "external_monitor_includes_the_ash")
+		Check(view.external_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS, "external_monitor_is_live")
+		offset = view.external_camera.transform.origin - hull_pos
+		Check(Abs(view.external_camera.transform.basis.determinant() - 1.0) < 0.0001, "external_monitor_is_not_mirrored")
+		Check(view.external_camera.transform.basis.x.dot(channel.right_axis) > 0.5, "external_monitor_keeps_ship_right_on_the_right")
+		Check((hull_pos - view.external_camera.transform.origin).dot(channel.tangent) > 0.0, "external_monitor_looks_from_behind_the_ash")
+		Check(offset.dot(offset) > 160.0 And offset.dot(offset) < 360.0, "external_monitor_stands_off_the_hull")
+		overlay = view.landing_deck(channel.DeckState(0.2, 0, 0))
+		Check(overlay <> Nothing, "cockpit_uses_opening_flight_deck")
+		Check(view.deck.external <> Nothing, "flight_deck_has_live_external_monitor")
+		Check(Abs(view.deck.S("speed") - channel.speed) < 0.1, "flight_deck_reads_channel_speed")
+		game.SaveRun()
+		Check(game.save_msg.contains("DEV DEMO"), "cockpit_dev_save_does_not_write_campaign")
+		If prior_save <> "" Then
+			Check(ReadAllText(save_path) = prior_save, "cockpit_dest_leaves_campaign_file_unchanged")
+		Else
+			Check(Not FileExists(save_path), "cockpit_dest_does_not_create_campaign_file")
+		End If
+	ElseIf elapsed_frames = 8 Then
+		Call channel.SetViewKind("chase")
+		channel.render(view)
+		Check(Not channel.CockpitView() And channel.hull_vis.visible, "c_toggles_back_to_chase")
+		Check(view.camera.fov > 66.0, "chase_fov_restored")
+		Check(view.camera.cull_mask <> 1, "chase_camera_sees_the_hull")
+		offset = view.camera.global_position - channel.hull_node.global_position
+		Check(offset.dot(offset) > 144.0, "chase_camera_returns_behind_the_ash")
+		Call channel.SetViewKind("cockpit")
+		channel.render(view)
+		Check(channel.CockpitView() And view.camera.cull_mask = 1, "cockpit_toggle_hides_hull_from_the_windscreen")
+	ElseIf elapsed_frames = 12 Then
+		game.dev_i = 15
+		game.WarpDev()
+	ElseIf elapsed_frames = 16 Then
+		channel = view.black_channel
+		Check(channel <> Nothing And Not channel.CockpitView(), "flight_test_dest_still_starts_chase")
+		Print "BLACK_CHANNEL_COCKPIT=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+	End If
+End Sub

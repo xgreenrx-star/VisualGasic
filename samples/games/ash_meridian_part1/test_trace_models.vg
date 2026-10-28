@@ -32,7 +32,8 @@ Sub inspect_tree(ByVal node As Object)
 			invalid_count = invalid_count + 1
 		Else
 			bounds = mesh.get_aabb()
-			If bounds.size.x <= 0 Or bounds.size.y <= 0 Or bounds.size.z <= 0 Then invalid_count = invalid_count + 1
+			If bounds.size.x <= 0 Or bounds.size.z <= 0 Then invalid_count = invalid_count + 1
+			If bounds.size.y <= 0 And Not mesh.is_class("PlaneMesh") Then invalid_count = invalid_count + 1
 			If node.material_override Is Nothing Then invalid_count = invalid_count + 1
 		End If
 	End If
@@ -46,6 +47,38 @@ Sub inspect_tree(ByVal node As Object)
 		inspect_tree(child)
 	Next
 End Sub
+
+Function sign_ok(ByVal root As Object, ByVal path As String, ByVal kind As String) As Boolean
+	Dim sg As Object
+	If Not root.has_node(path) Then Return False
+	sg = root.get_node(path)
+	If Not sg.has_meta("text_kind") Then Return False
+	If sg.get_meta("text_kind") <> kind Then Return False
+	If Not sg.has_node("Script/S0") Then Return False
+	If Not sg.has_node("Gloss") Then Return False
+	If sg.get_node("Gloss").visible Then Return False
+	Return sg.get_meta("gloss") = sg.get_node("Gloss").text
+End Function
+
+Function narcean_hash(ByVal w As String) As Long
+	Dim h As Long
+	Dim i As Integer
+	Dim u As String
+	u = UCase(w)
+	h = 2166136261
+	For i = 1 To Len(u)
+		h = h Xor Asc(Mid(u, i, 1))
+		h = (h * 16777619) And 4294967295
+	Next
+	Return h
+End Function
+
+Function narcean_cell(ByVal h As Long, ByVal i As Integer) As Integer
+	Dim v As Long
+	v = Int(h / (2 ^ ((i * 5) Mod 27))) Mod 64
+	If v = 0 Then v = 42
+	Return v
+End Function
 
 Function instance_asset(ByVal name As String) As Object
 	Dim packed As Object
@@ -92,16 +125,27 @@ End Sub
 
 Sub _Ready()
 	Dim names As Array
+	Dim nm As Variant
 	Dim model As Object
 	Dim anchor As Object
 	Dim i As Integer
 	cycle_checks("trace_cycle")
 	cycle_checks("security_cycle")
-	names = Array("cycle_cradle", "relay_pylon", "feb", "stasis_cradle", "power_coupler", "core_bank", "vault_room", "deep_lift_lobby", "void_crossing", "cycle_preview", "asset_gallery", "vault_preview", "crossing_preview")
+	names = Array("cycle_cradle", "relay_pylon", "feb", "greg", "stasis_cradle", "power_coupler", "core_bank", "vault_room", "deep_lift_lobby", "void_crossing", "cycle_preview", "asset_gallery", "vault_preview", "crossing_preview", "relay_beacon", "yard_dock", "yard_proxy", "yard_void_field", "yard_field_preview", "backlight_cycle_combined")
 	For i = 0 To names.size() - 1
 		model = instance_asset(names(i))
 		If Not (model Is Nothing) Then model.free()
 	Next
+	model = instance_asset("trace_cockpit")
+	check(collision_count = 0, "cockpit_has_no_collision")
+	check(model.has_node("Windscreen/Glass") And model.has_node("Windscreen/Rim0") And model.has_node("Windscreen/RimLight0"), "cockpit_windscreen_glass_and_cyan_rim")
+	check(model.has_node("Windscreen/HudAnchor/HudSpeed") And model.has_node("Windscreen/HudAnchor/HudTrace") And model.has_node("Windscreen/HudAnchor/HudHint"), "cockpit_hud_text_anchors")
+	check(model.has_node("Binnacle/BinnacleScreen") And model.has_node("Grip-1") And model.has_node("Grip1") And model.has_node("TopClamp"), "cockpit_bike_bars_and_binnacle")
+	anchor = model.get_node("Windscreen/Glass")
+	check(anchor.material_override.transparency = 1 And anchor.material_override.albedo_color.a < 0.2, "cockpit_glass_is_clear")
+	anchor = model.get_node("Windscreen")
+	check(anchor.position.z < -0.6 And model.get_node("Grip1").position.x > 0.3, "cockpit_screen_ahead_of_eye_grips_outboard")
+	model.free()
 	model = instance_asset("cycle_cradle")
 	check(model.has_node("DockPose") And model.has_node("ApproachStart") And model.has_node("ApproachEnd"), "cradle_approach_markers")
 	check(model.has_node("ClampLeft") And model.has_node("ClampRight") And model.has_node("Console"), "cradle_movable_clamps_and_console")
@@ -116,6 +160,22 @@ Sub _Ready()
 	model = instance_asset("stasis_cradle")
 	check(model.has_node("FigureMount") And model.has_node("ClampPivots") And model.has_node("VentSockets") And model.has_node("CouplerSocket") And model.has_node("WarningPanel"), "stasis_attachment_contract")
 	model.free()
+	model = instance_asset("stasis_cradle")
+	check(collision_count = 5, "stasis_capsule_adds_no_collision")
+	check(model.has_node("Capsule/LidLeft/Seam") And model.has_node("Capsule/LidRight/Seam") And model.has_node("Capsule/BackShell0"), "stasis_capsule_lids_and_seam")
+	anchor = model.get_node("Capsule/Fog/CrackFog")
+	check(anchor.is_class("CPUParticles3D") And Not anchor.emitting And model.get_node("Capsule/Fog").get_child_count() = 3, "stasis_fog_emitters_idle")
+	model.free()
+	model = instance_asset("feb")
+	check(model.has_node("VisualRoot/HeadPivot/Helmet") And model.has_node("VisualRoot/BackDiscRing") And model.has_node("VisualRoot/ThermalArmPivot/ThermalSocket") And model.has_node("CameraTarget"), "feb_human_trace_suit")
+	model.free()
+	model = instance_asset("greg")
+	check(model.has_node("VisualRoot/HeadPivot") And model.has_node("VisualRoot/ThermalArmPivot/ThermalSocket"), "greg_keeps_old_robot_rig")
+	model.free()
+	model = instance_asset("deep_lift_lobby")
+	check(collision_count = 7, "lobby_detail_adds_no_collision")
+	check(model.has_node("Cabin/ControlPanel/Button3_0") And model.has_node("Cabin/CabinLight") And model.has_node("Cabin/IndicatorOut") And model.has_node("CallPanel"), "lobby_lift_controls_visible")
+	model.free()
 	model = instance_asset("vault_room")
 	check(collision_count = 9, "vault_separate_floor_walls_lintel_console_no_solid_room_hull")
 	check(model.has_node("Entrance") And model.has_node("Exit") And model.has_node("Console") And model.has_node("CoreBank") And model.has_node("StasisMount"), "vault_interaction_contract")
@@ -129,7 +189,88 @@ Sub _Ready()
 	check(anchor.shape.size = Vector3(160, 0.2, 240), "crossing_real_support_collision_dimensions")
 	anchor = model.get_node("SupportCollision")
 	check(Abs(anchor.position.y + 0.1) < 0.0001, "crossing_support_surface_at_zero")
+	check(anchor.collision_layer = 4, "invisible_support_excluded_from_cycle_obstacle_mask")
+	check(Not model.has_node("SupportField") And Not model.has_node("GridX0") And Not model.has_node("GridZ0"), "no_visual_floor_or_grid_over_void")
+	check(model.has_node("NearLand") And model.has_node("FarLand"), "land_exists_only_on_two_banks")
+	anchor = model.get_node("NearLand")
+	check(Abs(anchor.position.z - anchor.mesh.size.z / 2.0 - 100.0) < 0.0001, "near_land_ends_at_void_edge")
+	anchor = model.get_node("FarLand")
+	check(Abs(anchor.position.z + anchor.mesh.size.z / 2.0 + 100.0) < 0.0001, "far_land_begins_beyond_void")
+	check(model.has_node("AbyssDepth/Ruin0") And model.has_node("AbyssDepth/Haze2"), "void_has_distant_ruins_and_layered_haze")
+	anchor = model.get_node("AbyssDepth/Haze0")
+	check(anchor.position.y <= -30, "haze_is_far_below_riding_height")
 	model.free()
+	model = instance_asset("relay_beacon")
+	check(collision_count = 0 And model.has_node("Beam") And model.has_node("GroundRing"), "beacon_is_visual_only")
+	anchor = model.get_node("Beam")
+	check(anchor.material_override.blend_mode = 1 And anchor.material_override.shading_mode = 0, "beacon_additive_unlit")
+	model.free()
+	model = instance_asset("yard_proxy")
+	check(collision_count = 0 And model.has_node("Deck") And model.has_node("LiftHead"), "yard_proxy_visual_only")
+	model.free()
+	model = instance_asset("yard_dock")
+	check(model.has_node("DockPose") And model.has_node("BoardPoint") And model.has_node("GatePose") And model.has_node("Cradle/DockPose"), "yard_dock_markers")
+	anchor = model.get_node("Cradle")
+	check(Abs(Abs(anchor.rotation_degrees.y) - 180) < 0.01, "yard_dock_cradle_opens_to_void")
+	check(collision_count = 3, "yard_dock_adds_only_cradle_collision")
+	model.free()
+	model = instance_asset("yard_void_field")
+	check(model.has_node("YardDock/DockPose") And model.has_node("VaultCradle/DockPose") And model.has_node("DeepLiftLobby") And model.has_node("VaultLift"), "field_yard_and_vault_docks")
+	check(model.has_node("FarYardDock") And model.has_node("FarYard/FarYardHallWest"), "field_far_secondary_yard_is_present")
+	check(model.has_node("Relay0/LinkSocket") And model.has_node("Relay1/LinkSocket") And model.has_node("Relay2/LinkSocket"), "field_vault_relay_chain")
+	check(model.has_node("RelayWest/LinkSocket") And model.has_node("RelaySouth/LinkSocket") And model.has_node("RelayEast/LinkSocket"), "field_free_recharge_relays")
+	check(model.has_node("Relay0Beacon") And model.has_node("RelayEastBeacon") And model.has_node("YardDockBeacon") And model.has_node("VaultBeacon"), "field_beacon_per_relay_and_dock")
+	check(model.has_node("DockSlotWest") And model.has_node("DockSlotSouth"), "field_empty_dock_slots")
+	For Each nm In Array("Relay0", "Relay1", "Relay2", "RelayWest", "RelaySouth", "RelayEast")
+		anchor = model.get_node(nm)
+		check(Abs(Abs(anchor.rotation_degrees.y) - Int(Abs(anchor.rotation_degrees.y) / 90.0 + 0.5) * 90.0) < 0.05, nm & "_lane_axis_aligned")
+	Next
+	anchor = model.get_node("SupportCollision/Collision")
+	check(anchor.shape.size = Vector3(1520, 0.2, 1540) And model.get_node("SupportCollision").collision_layer = 4, "field_support_covers_field_on_layer_4")
+	check(model.has_node("YardRim/RimSouthCollision") And model.has_node("YardRim/RimNorthWestCollision") And model.has_node("YardRim/RimNorthEastCollision"), "field_yard_rim_collision")
+	anchor = model.get_node("YardRim/RimNorthWestCollision")
+	check(anchor.position.x + anchor.get_node("Collision").shape.size.x / 2.0 <= 7.01, "rim_gap_west_of_gate")
+	anchor = model.get_node("YardRim/RimNorthEastCollision")
+	check(anchor.position.x - anchor.get_node("Collision").shape.size.x / 2.0 >= 22.99, "rim_gap_east_of_gate")
+	anchor = model.get_node("YardDock")
+	check(anchor.position.x > 7 And anchor.position.x < 23, "yard_dock_inside_rim_gate")
+	anchor = model.get_node("AbyssDepth/Haze0")
+	check(anchor.position.y <= -30 And Not model.has_node("SupportField"), "field_void_has_no_visual_floor")
+	model.free()
+	model = instance_asset("release_lock")
+	check(collision_count = 0 And model.has_node("UsePoint") And model.has_node("DisplayPoint") And model.has_node("Face/ClampLight"), "release_lock_markers_no_collision")
+	For i = 0 To 9
+		check(model.has_node("Face/Key" & Str(i) & "/Glyph/S0") And Not model.get_node("Face/Key" & Str(i) & "/Gloss").visible And model.get_node("Face/Key" & Str(i) & "/Gloss").text = Str(i), "release_key_" & Str(i) & "_glyph_and_hidden_digit")
+	Next
+	check(model.has_node("Face/Slot3") And model.has_node("Face/Entry3"), "release_lock_four_code_slots")
+	model.free()
+	model = instance_asset("service_tag")
+	check(sign_ok(model, "Line0", "interface") And sign_ok(model, "Line1", "interface"), "service_tag_interface_signs")
+	check(model.get_node("Line1").get_meta("gloss") = "TWO SEVEN FOUR ONE", "service_tag_spells_dev_code_2741")
+	model.free()
+	model = instance_asset("interface_translator")
+	check(model.has_node("LensPoint") And model.has_node("Grip") And model.has_node("Readout/S0"), "translator_markers_and_readout")
+	model.free()
+	model = instance_asset("translator_post")
+	check(model.has_node("Translator") And model.has_node("PickupPoint") And sign_ok(model, "PostLabel", "interface"), "translator_post_pickup")
+	model.free()
+	model = instance_asset("yard_dock")
+	check(sign_ok(model, "GateSign", "interface") And sign_ok(model, "RoadSign", "interface"), "yard_dock_signs_are_narcean")
+	check(sign_ok(model, "Directive", "high"), "yard_dock_high_script_directive")
+	check(model.has_node("ReleaseLock/UsePoint") And model.has_node("ReleasePoint"), "yard_dock_release_lock")
+	model.free()
+	model = instance_asset("deep_lift_lobby")
+	check(sign_ok(model, "Sign", "interface") And sign_ok(model, "Cabin/IndicatorOut", "interface") And sign_ok(model, "Cabin/IndicatorIn", "interface") And sign_ok(model, "Cabin/ControlPanel/ScreenText", "interface"), "lobby_signs_are_narcean")
+	model.free()
+	model = instance_asset("yard_void_field")
+	check(model.has_node("ServiceTag/Line1") And model.has_node("TranslatorPost/PickupPoint") And model.has_node("YardDock/ReleaseLock"), "field_places_translator_clue_and_lock")
+	check(model.has_node("TranslatorHideout/BackWall") And model.has_node("TranslatorPoint"), "field_hides_translator_in_archive_bay")
+	model.free()
+	model = instance_asset("translator_preview")
+	model.free()
+	check(narcean_hash("TRACE") = 746199118 And narcean_hash("CRADLE") = 2808997754, "narcean_hash_matches_generator")
+	check(narcean_cell(narcean_hash("TRACE"), 0) = 14 And narcean_cell(narcean_hash("TRACE"), 1) = 2 And narcean_cell(narcean_hash("TRACE"), 2) = 6, "narcean_cells_trace")
+	check(narcean_cell(narcean_hash("RELEASE"), 3) = 1 And narcean_cell(narcean_hash("DOCK"), 1) = 38, "narcean_cells_release_dock")
 	Print "TRACE_MODELS=" & Str(checks - failures) & "/" & Str(checks)
 	GetTree().quit(failures)
 End Sub

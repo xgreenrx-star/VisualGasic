@@ -1,0 +1,848 @@
+[gd_scene load_steps=22 format=3]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/trace_wall.tres" id="e0"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/cyan.tres" id="e1"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e2"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/dark.tres" id="e3"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/facet.tres" id="e4"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/amber.tres" id="e5"]
+
+[ext_resource type="Material" path="res://assets/trace_vault/materials/red.tres" id="e6"]
+
+[sub_resource type="BoxMesh" id="s0"]
+size = Vector3(0.62, 1.1, 0.42)
+
+[sub_resource type="BoxMesh" id="s1"]
+size = Vector3(0.638, 0.018, 0.018)
+
+[sub_resource type="BoxMesh" id="s2"]
+size = Vector3(0.018, 0.018, 0.438)
+
+[sub_resource type="BoxMesh" id="s3"]
+size = Vector3(0.018, 1.118, 0.018)
+
+[sub_resource type="BoxMesh" id="s4"]
+size = Vector3(0.6, 0.42, 0.04)
+
+[sub_resource type="BoxMesh" id="s5"]
+size = Vector3(0.46, 0.09, 0.006)
+
+[sub_resource type="BoxMesh" id="s6"]
+size = Vector3(0.07, 0.004, 0.003)
+
+[sub_resource type="BoxMesh" id="s7"]
+size = Vector3(0.004, 0.07, 0.003)
+
+[sub_resource type="BoxMesh" id="s8"]
+size = Vector3(0.08, 0.08, 0.012)
+
+[sub_resource type="BoxMesh" id="s9"]
+size = Vector3(0.034943, 0.00544, 0.003264)
+
+[sub_resource type="BoxMesh" id="s10"]
+size = Vector3(0.05024, 0.00544, 0.003264)
+
+[sub_resource type="BoxMesh" id="s11"]
+size = Vector3(0.03104, 0.00544, 0.003264)
+
+[sub_resource type="BoxMesh" id="s12"]
+size = Vector3(0.08224, 0.00544, 0.003264)
+
+[sub_resource type="BoxMesh" id="s13"]
+size = Vector3(0.04, 0.06, 0.006)
+
+[node name="release_lock" type="Node3D"]
+
+
+[node name="Pedestal" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.55, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s0")
+material_override = ExtResource("e0")
+cast_shadow = 0
+
+[node name="PedestalEdge_topX-1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.1, -0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_topX1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.1, 0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s1")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_topZ-1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 1.1, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_topZ1" type="MeshInstance3D" parent="."]
+position = Vector3(0.31, 1.1, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s2")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_V-1_-1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.55, -0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_V-1_1" type="MeshInstance3D" parent="."]
+position = Vector3(-0.31, 0.55, 0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_V1_-1" type="MeshInstance3D" parent="."]
+position = Vector3(0.31, 0.55, -0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="PedestalEdge_V1_1" type="MeshInstance3D" parent="."]
+position = Vector3(0.31, 0.55, 0.21)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s3")
+material_override = ExtResource("e1")
+cast_shadow = 0
+
+[node name="Face" type="Node3D" parent="."]
+position = Vector3(0, 1.34, 0.05)
+rotation_degrees = Vector3(-35, 0, 0)
+
+[node name="Plate" type="MeshInstance3D" parent="Face"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s4")
+material_override = ExtResource("e2")
+cast_shadow = 0
+
+[node name="Display" type="MeshInstance3D" parent="Face"]
+position = Vector3(0, 0.14, 0.022)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s5")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Slot0" type="Node3D" parent="Face"]
+position = Vector3(-0.15, 0.14, 0.026)
+
+
+[node name="EdgeY-1" type="MeshInstance3D" parent="Face/Slot0"]
+position = Vector3(0, -0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeY1" type="MeshInstance3D" parent="Face/Slot0"]
+position = Vector3(0, 0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX-1" type="MeshInstance3D" parent="Face/Slot0"]
+position = Vector3(-0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX1" type="MeshInstance3D" parent="Face/Slot0"]
+position = Vector3(0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Entry0" type="Node3D" parent="Face"]
+position = Vector3(-0.15, 0.14, 0.03)
+
+
+[node name="Slot1" type="Node3D" parent="Face"]
+position = Vector3(-0.05, 0.14, 0.026)
+
+
+[node name="EdgeY-1" type="MeshInstance3D" parent="Face/Slot1"]
+position = Vector3(0, -0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeY1" type="MeshInstance3D" parent="Face/Slot1"]
+position = Vector3(0, 0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX-1" type="MeshInstance3D" parent="Face/Slot1"]
+position = Vector3(-0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX1" type="MeshInstance3D" parent="Face/Slot1"]
+position = Vector3(0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Entry1" type="Node3D" parent="Face"]
+position = Vector3(-0.05, 0.14, 0.03)
+
+
+[node name="Slot2" type="Node3D" parent="Face"]
+position = Vector3(0.05, 0.14, 0.026)
+
+
+[node name="EdgeY-1" type="MeshInstance3D" parent="Face/Slot2"]
+position = Vector3(0, -0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeY1" type="MeshInstance3D" parent="Face/Slot2"]
+position = Vector3(0, 0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX-1" type="MeshInstance3D" parent="Face/Slot2"]
+position = Vector3(-0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX1" type="MeshInstance3D" parent="Face/Slot2"]
+position = Vector3(0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Entry2" type="Node3D" parent="Face"]
+position = Vector3(0.05, 0.14, 0.03)
+
+
+[node name="Slot3" type="Node3D" parent="Face"]
+position = Vector3(0.15, 0.14, 0.026)
+
+
+[node name="EdgeY-1" type="MeshInstance3D" parent="Face/Slot3"]
+position = Vector3(0, -0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeY1" type="MeshInstance3D" parent="Face/Slot3"]
+position = Vector3(0, 0.033, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s6")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX-1" type="MeshInstance3D" parent="Face/Slot3"]
+position = Vector3(-0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="EdgeX1" type="MeshInstance3D" parent="Face/Slot3"]
+position = Vector3(0.033, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s7")
+material_override = ExtResource("e4")
+cast_shadow = 0
+
+[node name="Entry3" type="Node3D" parent="Face"]
+position = Vector3(0.15, 0.14, 0.03)
+
+
+[node name="Key0" type="Node3D" parent="Face"]
+position = Vector3(-0.2, 0, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key0"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key0"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(-0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S4" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(-0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S5" type="MeshInstance3D" parent="Face/Key0/Glyph"]
+position = Vector3(0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key0"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "0"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key1" type="Node3D" parent="Face"]
+position = Vector3(-0.1, 0, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key1"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key1"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key1/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key1/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key1/Glyph"]
+position = Vector3(-0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key1/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key1"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "1"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key2" type="Node3D" parent="Face"]
+position = Vector3(0, 0, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key2"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key2"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key2/Glyph"]
+position = Vector3(-0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key2/Glyph"]
+position = Vector3(0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key2/Glyph"]
+position = Vector3(-0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key2/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key2"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "2"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key3" type="Node3D" parent="Face"]
+position = Vector3(0.1, 0, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key3"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key3"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key3/Glyph"]
+position = Vector3(0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key3/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key3/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key3"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "3"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key4" type="Node3D" parent="Face"]
+position = Vector3(0.2, 0, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key4"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key4"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key4/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key4/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key4/Glyph"]
+position = Vector3(0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key4/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key4"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "4"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key5" type="Node3D" parent="Face"]
+position = Vector3(-0.2, -0.11, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key5"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key5"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key5/Glyph"]
+position = Vector3(-0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key5/Glyph"]
+position = Vector3(0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key5/Glyph"]
+position = Vector3(0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key5/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key5"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "5"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key6" type="Node3D" parent="Face"]
+position = Vector3(-0.1, -0.11, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key6"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key6"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key6/Glyph"]
+position = Vector3(-0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key6/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key6/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key6"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "6"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key7" type="Node3D" parent="Face"]
+position = Vector3(0, -0.11, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key7"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key7"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key7/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key7/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key7/Glyph"]
+position = Vector3(-0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key7/Glyph"]
+position = Vector3(0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S4" type="MeshInstance3D" parent="Face/Key7/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key7"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "7"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key8" type="Node3D" parent="Face"]
+position = Vector3(0.1, -0.11, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key8"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key8"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key8/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key8/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key8/Glyph"]
+position = Vector3(-0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key8/Glyph"]
+position = Vector3(0.0224, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s10")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S4" type="MeshInstance3D" parent="Face/Key8/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key8"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "8"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="Key9" type="Node3D" parent="Face"]
+position = Vector3(0.2, -0.11, 0.022)
+
+
+[node name="Cap" type="MeshInstance3D" parent="Face/Key9"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s8")
+material_override = ExtResource("e3")
+cast_shadow = 0
+
+[node name="Glyph" type="Node3D" parent="Face/Key9"]
+position = Vector3(0, 0.005, 0.008)
+
+
+[node name="S0" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(-0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S1" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(0.0112, 0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S2" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(-0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S3" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(0.0112, -0.0192, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s9")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S4" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s11")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="S5" type="MeshInstance3D" parent="Face/Key9/Glyph"]
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
+material_override = ExtResource("e5")
+cast_shadow = 0
+
+[node name="Gloss" type="Label3D" parent="Face/Key9"]
+position = Vector3(0.026, -0.03, 0.008)
+text = "9"
+font_size = 24
+pixel_size = 0.0007
+modulate = Color(0.55, 0.97, 1, 1)
+billboard = 0
+visible = false
+
+[node name="ClampLight" type="MeshInstance3D" parent="Face"]
+position = Vector3(0.25, 0.14, 0.024)
+rotation_degrees = Vector3(0, 0, 0)
+mesh = SubResource("s13")
+material_override = ExtResource("e6")
+cast_shadow = 0
+
+[node name="UsePoint" type="Marker3D" parent="."]
+position = Vector3(0, 0, 0.9)
+
+
+[node name="DisplayPoint" type="Marker3D" parent="."]
+position = Vector3(0, 1.43, 0.12)
+
