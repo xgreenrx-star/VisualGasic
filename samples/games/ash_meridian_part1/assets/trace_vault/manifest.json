@@ -1,7 +1,7 @@
 {
   "version": 1,
   "status": "original_model_kit_for_isolated_integration",
-  "format": "Native Godot scenes and primitive mesh resources, no runtime generator or external model dependencies",
+  "format": "Native Godot scenes and primitive mesh resources, no runtime generator. Exception: FEB body pieces in meshes/*.obj are cut by tools/feb_mesh.py from the CC0 Blender Human Base Meshes bundle v1.0.0",
   "ownership": "Assistant-authored art. Cursor implements VG behavior, never regenerates or replaces these models.",
   "collision": {
     "scenery_layer": 1,
@@ -127,8 +127,8 @@
         "VisualRoot/ThermalArmPivot/ThermalSocket",
         "CameraTarget"
       ],
-      "mesh_instances": 60,
-      "sha256": "42332d8ae602e929531946371dd3ba678dd030ea7492b1797cb808e67a5369cb"
+      "mesh_instances": 11,
+      "sha256": "79af4ffaca14e9e07ddbf3fd843544479ef5c1a474ee3d8b3368473e4ac735cf"
     },
     {
       "id": "stasis_cradle",
@@ -146,8 +146,8 @@
         "CouplerSocket",
         "WarningPanel"
       ],
-      "mesh_instances": 46,
-      "sha256": "e2e0ceb76bb5b56bdb4a331217c191e8a15abf99b9cdccd8250c0f73270b4292"
+      "mesh_instances": 59,
+      "sha256": "454d4cad5c18eea21c56999904ad52420e75924a835737ff039fde389561cb28"
     },
     {
       "id": "power_coupler",

@@ -1,0 +1,488 @@
+' Boot terminal: a Narcean kernel log on a green CRT. Orac translates it for a
+' moment (cradle and override codes flash past as an easter egg), the text
+' corrupts back to glyphs under a static surge, and the face intro pushes
+' through the static (brightest lines first). PUSH_THROUGH = False restores the
+' alternate ending: the tube collapses to a dot and the face irises open from
+' it. part1.vg owns it while phase = PH_BOOT.
+Option Explicit
+
+Const T_ON As Single = 0.35
+Const T_ORAC As Single = 3.3
+Const T_SWEEP0 As Single = 3.45
+Const T_SWEEP1 As Single = 4.15
+Const T_CORRUPT As Single = 4.85
+Const T_COLLAPSE As Single = 5.3
+Const T_LINE As Single = 5.52
+Const T_DOT As Single = 5.72
+Const T_DONE As Single = 5.9
+Const REVEAL_LEN As Single = 0.7
+Const PUSH_THROUGH As Boolean = True
+Const PUSH_LEN As Single = 1.6
+Const LEFT As Single = 40.0
+Const TOP As Single = 62.0
+Const ROW_H As Single = 22.0
+Const FONT_PX As Integer = 17
+
+Dim width_px As Single
+Dim height_px As Single
+Dim t As Single
+Dim finished_boot As Boolean
+Dim revealing As Boolean
+Dim reveal_t As Single
+Dim reduced As Boolean
+Dim crt As Object
+Dim crt_mat As Object
+Dim sfx As Object
+Dim mono As Object
+Dim cell_w As Single
+Dim log_text As Variant
+Dim log_time As Variant
+Dim log_kind As Variant
+Dim char_segs As Variant
+Dim row_alien As Variant
+Dim row_eng As Variant
+Dim row_mix As Variant
+Dim cache_step As Integer
+Dim banner_segs As PackedVector2Array
+
+Sub Setup(ByVal w As Single, ByVal h As Single, ByVal reduced_motion As Boolean)
+	width_px = w
+	height_px = h
+	reduced = reduced_motion
+	t = 0.0
+	finished_boot = False
+	revealing = False
+	reveal_t = 0.0
+	cache_step = -1
+	mono = ClassDB.Instantiate("SystemFont")
+	mono.font_names = PackedStringArray(Array("DejaVu Sans Mono", "Liberation Mono", "Consolas", "Menlo", "Courier New", "monospace"))
+	cell_w = mono.get_string_size("M", 0, -1, FONT_PX).x
+	If cell_w < 4.0 Then
+		mono = ThemeDB.fallback_font
+		cell_w = mono.get_string_size("M", 0, -1, FONT_PX).x
+	End If
+	Call BuildLog()
+	banner_segs = AlienRun("NARCEA//YARD CONSOLE tty0  lattice-14", 0.0)
+	crt = ClassDB.Instantiate("ColorRect")
+	crt.name = "BootCRT"
+	crt.position = Vector2(0, 0)
+	crt.size = Vector2(w, h)
+	crt.mouse_filter = 2
+	crt_mat = ClassDB.Instantiate("ShaderMaterial")
+	crt_mat.shader = Load("res://shaders/boot_crt.gdshader")
+	crt_mat.set_shader_parameter("aspect", Vector2(w / h, 1.0))
+	crt.material = crt_mat
+	add_child(crt)
+	' One track per ending, timed to this file's line and cut times (tools/boot_audio.py).
+	sfx = ClassDB.Instantiate("AudioStreamPlayer")
+	sfx.name = "BootSfx"
+	sfx.volume_db = -3.0
+	If PUSH_THROUGH Then
+		If FileExists("res://assets/boot/boot_terminal_push.ogg") Then sfx.stream = Load("res://assets/boot/boot_terminal_push.ogg")
+	Else
+		If FileExists("res://assets/boot/boot_terminal_collapse.ogg") Then sfx.stream = Load("res://assets/boot/boot_terminal_collapse.ogg")
+	End If
+	add_child(sfx)
+	If Not (sfx.stream Is Nothing) Then sfx.play()
+	Call PushShader()
+End Sub
+
+Function DoneTime() As Single
+	If PUSH_THROUGH Then Return T_COLLAPSE
+	Return T_DONE
+End Function
+
+Function RevealLen() As Single
+	If PUSH_THROUGH Then Return PUSH_LEN
+	Return REVEAL_LEN
+End Function
+
+Sub SyncAudio()
+	If sfx Is Nothing Then Exit Sub
+	If sfx.stream Is Nothing Then Exit Sub
+	If Not sfx.playing Then Exit Sub
+	If Abs(sfx.get_playback_position() - t) > 0.12 Then sfx.seek(t)
+End Sub
+
+Sub BuildLog()
+	log_text = Array()
+	log_time = Array()
+	log_kind = Array()
+	char_segs = Array()
+	row_alien = Array()
+	row_eng = Array()
+	row_mix = Array()
+	Call AddLine(0.42, "NARCEA YARD KERNEL 7.14.2-cradle (lattice-14) #1 SMP", 0)
+	Call AddLine(0.56, "[    0.000000] boot: root=/yard/core ro quiet face=wake", 0)
+	Call AddLine(0.70, "[    0.004112] mem: 64 lattice banks, 0 faulted", 0)
+	Call AddLine(0.78, "[    0.009877] bus: yard_bus0 online - 14 nodes", 0)
+	Call AddLine(0.95, "[    0.031208] lumen: backlight grid phase 1/3 locked", 0)
+	Call AddLine(1.02, "[    0.031990] lumen: backlight grid phase 2/3 locked", 0)
+	Call AddLine(1.09, "[    0.032655] lumen: backlight grid phase 3/3 locked", 0)
+	Call AddLine(1.34, "[    0.118400] lift: shaft index rebuilt - 5 shafts, 1 dead", 0)
+	Call AddLine(1.50, "[    0.140021] trace: cycle bay sealed, cradle lock armed", 0)
+	Call AddLine(1.61, "[    0.152770] trace: cradle code ........ 2741", 2)
+	Call AddLine(1.80, "[    0.201554] deep: lift 14242 route held", 2)
+	Call AddLine(1.97, "[    0.240081] feb: stasis pod 01 ......... nominal", 0)
+	Call AddLine(2.14, "[    0.266310] feb: AI core 41.7 - UNSTABLE", 3)
+	Call AddLine(2.30, "[    0.301902] maint: override seq UUDDLRLRBABA", 2)
+	Call AddLine(2.49, "[    0.344118] sec: defence grid standby", 0)
+	Call AddLine(2.66, "[    0.389000] net: foreign peer on carrier 7 - ASH/ORAC", 0)
+	Call AddLine(2.84, "[    0.412664] sec: subject JASON not in registry", 3)
+	Call AddLine(3.04, "[    0.455120] feb: face link ............ ESTABLISHED", 3)
+	Call AddLine(4.28, "orac> overlay holding. Jason, something is waking up.", 4)
+End Sub
+
+Sub AddLine(ByVal at As Single, ByVal text As String, ByVal kind As Integer)
+	Dim segs As Variant
+	Dim run As PackedVector2Array
+	Dim i As Integer
+	log_time.append(at)
+	log_text.append(text)
+	log_kind.append(kind)
+	segs = Array()
+	run = PackedVector2Array()
+	For i = 0 To Len(text) - 1
+		segs.append(GlyphSegs(text.unicode_at(i), i * cell_w))
+		run.append_array(segs(i))
+	Next
+	char_segs.append(segs)
+	row_alien.append(run)
+	row_eng.append("")
+	row_mix.append(PackedVector2Array())
+End Sub
+
+' One Narcean stroke glyph per character, a fixed substitution cipher built on
+' the six strokes the yard HUD uses. Points are pairs for draw_multiline.
+Function GlyphSegs(ByVal code As Integer, ByVal x As Single) As PackedVector2Array
+	Dim out As PackedVector2Array
+	Dim bits As Integer
+	out = PackedVector2Array()
+	If code = 32 Then Return out
+	bits = ((code * 37 + 11) Mod 63) + 1
+	If bits And 1 Then
+		out.append(Vector2(x, -13.0))
+		out.append(Vector2(x + 4.55, -9.1))
+		out.append(Vector2(x + 4.55, -9.1))
+		out.append(Vector2(x + 9.1, -13.0))
+	End If
+	If bits And 2 Then
+		out.append(Vector2(x, -1.3))
+		out.append(Vector2(x + 4.55, -5.2))
+		out.append(Vector2(x + 4.55, -5.2))
+		out.append(Vector2(x + 9.1, -1.3))
+	End If
+	If bits And 4 Then
+		out.append(Vector2(x, -11.7))
+		out.append(Vector2(x, -2.6))
+	End If
+	If bits And 8 Then
+		out.append(Vector2(x + 9.1, -11.7))
+		out.append(Vector2(x + 9.1, -2.6))
+	End If
+	If bits And 16 Then
+		out.append(Vector2(x + 1.95, -7.15))
+		out.append(Vector2(x + 7.15, -7.15))
+	End If
+	If bits And 32 Then
+		out.append(Vector2(x + 4.55, -14.95))
+		out.append(Vector2(x + 4.55, 0.65))
+	End If
+	Return out
+End Function
+
+Function AlienRun(ByVal text As String, ByVal x0 As Single) As PackedVector2Array
+	Dim out As PackedVector2Array
+	Dim i As Integer
+	out = PackedVector2Array()
+	For i = 0 To Len(text) - 1
+		out.append_array(GlyphSegs(text.unicode_at(i), x0 + i * cell_w))
+	Next
+	Return out
+End Function
+
+Function Hash(ByVal n As Integer) As Single
+	Dim v As Single
+	v = Sin(n * 12.9898 + 4.1414) * 43758.5453
+	Return v - Int(v)
+End Function
+
+Function SweepY() As Single
+	Dim k As Single
+	If t <= T_SWEEP0 Then Return -100.0
+	k = (t - T_SWEEP0) / (T_SWEEP1 - T_SWEEP0)
+	If k > 1.0 Then k = 1.0
+	Return TOP - 30.0 + k * (height_px - TOP + 90.0)
+End Function
+
+Function CorruptK() As Single
+	Dim k As Single
+	If t < T_CORRUPT Then Return 0.0
+	k = (t - T_CORRUPT) / (T_COLLAPSE - T_CORRUPT)
+	If k > 1.0 Then k = 1.0
+	Return k
+End Function
+
+' Rebuild each row's English/alien split at 20 Hz so the per-character work
+' only happens during the sweep and the corruption, not every frame.
+Sub RefreshRows()
+	Dim stepn As Integer
+	Dim sweep As Single
+	Dim corrupt As Single
+	Dim r As Integer
+	Dim c As Integer
+	Dim y As Single
+	Dim p As Single
+	Dim text As String
+	Dim eng As String
+	Dim mix As PackedVector2Array
+	stepn = Int(t * 20.0)
+	If stepn = cache_step Then Exit Sub
+	cache_step = stepn
+	sweep = SweepY()
+	corrupt = CorruptK()
+	For r = 0 To log_text.size() - 1
+		text = log_text(r)
+		y = TOP + r * ROW_H
+		If log_kind(r) = 4 Then
+			p = 1.0
+		Else
+			p = (sweep - y) / 50.0
+		End If
+		If p <= 0.0 And corrupt <= 0.0 Then
+			row_eng(r) = ""
+			row_mix(r) = row_alien(r)
+		ElseIf p >= 1.2 And corrupt <= 0.0 Then
+			row_eng(r) = text
+			row_mix(r) = PackedVector2Array()
+		Else
+			eng = ""
+			mix = PackedVector2Array()
+			For c = 0 To Len(text) - 1
+				If Hash(r * 131 + c) < p And Hash(r * 977 + c * 7 + 5) >= corrupt * 1.15 Then
+					eng = eng & text.substr(c, 1)
+				Else
+					eng = eng & " "
+					mix.append_array(char_segs(r)(c))
+				End If
+			Next
+			row_eng(r) = eng
+			row_mix(r) = mix
+		End If
+	Next
+End Sub
+
+Sub Skip()
+	If revealing Or finished_boot Then Exit Sub
+	If PUSH_THROUGH Then
+		If t < T_CORRUPT + 0.15 Then t = T_CORRUPT + 0.15
+	Else
+		If t < T_COLLAPSE Then t = T_COLLAPSE
+	End If
+	Call SyncAudio()
+End Sub
+
+Sub BeginReveal()
+	revealing = True
+	reveal_t = 0.0
+	Call PushShader()
+	queue_redraw()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If delta > 0.1 Then delta = 0.1
+	If revealing Then
+		reveal_t = reveal_t + delta
+		Call PushShader()
+		If PUSH_THROUGH Then queue_redraw()
+		If reveal_t >= RevealLen() Then queue_free()
+		Exit Sub
+	End If
+	t = t + delta
+	If t >= DoneTime() Then
+		t = DoneTime()
+		finished_boot = True
+	End If
+	Call SyncAudio()
+	Call PushShader()
+	queue_redraw()
+End Sub
+
+Function Ease(ByVal a As Single, ByVal b As Single) As Single
+	Dim k As Single
+	If b <= a Then Return 1.0
+	k = (t - a) / (b - a)
+	If k < 0.0 Then k = 0.0
+	If k > 1.0 Then k = 1.0
+	Return k * k * (3.0 - 2.0 * k)
+End Function
+
+Sub PushShader()
+	Dim stat As Single
+	Dim sy As Single
+	Dim sx As Single
+	Dim fade As Single
+	Dim k As Single
+	If crt_mat Is Nothing Then Exit Sub
+	crt_mat.set_shader_parameter("time_s", t + reveal_t)
+	If revealing And PUSH_THROUGH Then
+		k = reveal_t / PUSH_LEN
+		If k > 1.0 Then k = 1.0
+		crt_mat.set_shader_parameter("reveal", -1.0)
+		crt_mat.set_shader_parameter("push", k * k * (3.0 - 2.0 * k))
+		crt_mat.set_shader_parameter("squeeze_x", 1.0)
+		crt_mat.set_shader_parameter("squeeze_y", 1.0)
+		crt_mat.set_shader_parameter("fade", 1.0)
+		crt_mat.set_shader_parameter("crt_amt", 1.0 - k)
+		If reduced Then
+			crt_mat.set_shader_parameter("static_amt", 0.0)
+			crt_mat.set_shader_parameter("tear", 0.0)
+		Else
+			crt_mat.set_shader_parameter("static_amt", 0.9 * (1.0 - k) * Sqrt(1.0 - k))
+			crt_mat.set_shader_parameter("tear", 0.05 * (1.0 - k) * (1.0 - k))
+		End If
+		Exit Sub
+	End If
+	crt_mat.set_shader_parameter("push", -1.0)
+	If revealing Then
+		k = reveal_t / REVEAL_LEN
+		If k > 1.0 Then k = 1.0
+		k = 1.0 - (1.0 - k) * (1.0 - k)
+		crt_mat.set_shader_parameter("squeeze_x", 1.0)
+		crt_mat.set_shader_parameter("squeeze_y", 1.0)
+		crt_mat.set_shader_parameter("tear", 0.0)
+		crt_mat.set_shader_parameter("fade", 1.0)
+		If reduced Then
+			crt_mat.set_shader_parameter("reveal", 1.0)
+			crt_mat.set_shader_parameter("crt_amt", 0.0)
+			crt_mat.set_shader_parameter("static_amt", 0.0)
+			crt_mat.set_shader_parameter("fade", k)
+		Else
+			crt_mat.set_shader_parameter("reveal", k)
+			crt_mat.set_shader_parameter("crt_amt", 1.0 - k)
+			crt_mat.set_shader_parameter("static_amt", 0.5 * (1.0 - k))
+		End If
+		Exit Sub
+	End If
+	crt_mat.set_shader_parameter("reveal", -1.0)
+	crt_mat.set_shader_parameter("crt_amt", 1.0)
+	stat = 0.14
+	If t < T_ON Then stat = 0.6 - 0.46 * Ease(0.0, T_ON)
+	If t >= T_ORAC And t < T_SWEEP0 + 0.1 Then stat = 0.32
+	stat = stat + 0.75 * CorruptK()
+	sy = 1.0
+	sx = 1.0
+	fade = 1.0
+	If reduced Then
+		stat = 0.0
+		crt_mat.set_shader_parameter("tear", 0.0)
+		If PUSH_THROUGH Then
+			fade = 1.0 - Ease(T_CORRUPT, T_COLLAPSE)
+		Else
+			fade = 1.0 - Ease(T_COLLAPSE, T_DONE)
+		End If
+	ElseIf PUSH_THROUGH Then
+		crt_mat.set_shader_parameter("tear", 0.05 * CorruptK())
+		If t < T_ON Then sy = 0.004 + 0.996 * Ease(0.0, T_ON)
+	Else
+		crt_mat.set_shader_parameter("tear", 0.05 * CorruptK())
+		If t < T_ON Then sy = 0.004 + 0.996 * Ease(0.0, T_ON)
+		If t >= T_COLLAPSE Then sy = 1.0 - 0.995 * Ease(T_COLLAPSE, T_LINE)
+		If t >= T_LINE Then sx = 1.0 - 0.996 * Ease(T_LINE, T_DOT)
+		If t >= T_DOT Then stat = 0.0
+	End If
+	crt_mat.set_shader_parameter("static_amt", stat)
+	crt_mat.set_shader_parameter("squeeze_y", sy)
+	crt_mat.set_shader_parameter("squeeze_x", sx)
+	crt_mat.set_shader_parameter("fade", fade)
+End Sub
+
+Sub _Draw()
+	Dim green As Color
+	Dim dim_green As Color
+	Dim egg As Color
+	Dim warn As Color
+	Dim orac As Color
+	Dim ink As Color
+	Dim r As Integer
+	Dim y As Single
+	Dim shown As Integer
+	Dim sweep As Single
+	Dim pct As Integer
+	Dim banner As String
+	Dim k As Single
+	Dim jx As Single
+	If revealing Then
+		' Push-through: the last corrupted rows linger and shake apart over the face.
+		If Not PUSH_THROUGH Or reduced Then Exit Sub
+		k = 1.0 - reveal_t / (PUSH_LEN * 0.4)
+		If k <= 0.0 Then Exit Sub
+		For r = 0 To log_text.size() - 1
+			If row_mix(r).size() > 0 Then
+				jx = (Hash(r * 53 + Int(reveal_t * 30.0)) - 0.5) * 40.0 * (1.0 - k)
+				draw_set_transform(Vector2(LEFT + jx, TOP + r * ROW_H), 0.0, Vector2(1, 1))
+				draw_multiline(row_mix(r), Color(0.42, 1.0, 0.55, k * 0.8), 1.6)
+			End If
+		Next
+		draw_set_transform(Vector2(0, 0), 0.0, Vector2(1, 1))
+		Exit Sub
+	End If
+	green = Color(0.42, 1.0, 0.55)
+	dim_green = Color(0.2, 0.62, 0.3)
+	egg = Color(0.82, 1.0, 0.74)
+	warn = Color(1.0, 0.86, 0.45)
+	orac = Color(0.45, 0.92, 1.0)
+	draw_rect(Rect2(0, 0, width_px, height_px), Color(0.012, 0.04, 0.02))
+	If t >= T_DOT Then Exit Sub
+	Call RefreshRows()
+	sweep = SweepY()
+
+	' Top bar: Narcean console header, replaced by Orac's overlay banner.
+	If t < T_ORAC Then
+		draw_rect(Rect2(0, 0, width_px, 30), Color(0.05, 0.16, 0.08))
+		draw_set_transform(Vector2(LEFT, 21), 0.0, Vector2(1, 1))
+		If banner_segs.size() > 0 Then draw_multiline(banner_segs, dim_green, 1.2)
+		draw_set_transform(Vector2(0, 0), 0.0, Vector2(1, 1))
+	Else
+		draw_rect(Rect2(0, 0, width_px, 30), Color(0.03, 0.16, 0.2))
+		pct = Int(100.0 * (sweep - TOP + 30.0) / (height_px - TOP + 90.0))
+		If pct < 0 Then pct = 0
+		If pct > 100 Then pct = 100
+		banner = "ORAC // LINGUISTIC OVERLAY   NARCEAN > STANDARD   " & Str(pct) & "%"
+		If CorruptK() > 0.0 Then banner = "ORAC // OVERLAY REJECTED - CARRIER SEIZED"
+		If CorruptK() <= 0.0 Or Int(t * 14.0) Mod 2 = 0 Then
+			draw_string(mono, Vector2(LEFT, 21), banner, 0, -1, FONT_PX, orac)
+		End If
+	End If
+
+	shown = 0
+	For r = 0 To log_text.size() - 1
+		If log_time(r) <= t Then
+			shown = r + 1
+			y = TOP + r * ROW_H
+			ink = green
+			If row_eng(r) <> "" Then
+				If log_kind(r) = 2 Then ink = egg
+				If log_kind(r) = 3 Then ink = warn
+			End If
+			If log_kind(r) = 4 Then ink = orac
+			If row_mix(r).size() > 0 Then
+				draw_set_transform(Vector2(LEFT, y), 0.0, Vector2(1, 1))
+				draw_multiline(row_mix(r), ink, 1.6)
+				draw_set_transform(Vector2(0, 0), 0.0, Vector2(1, 1))
+			End If
+			If row_eng(r) <> "" Then draw_string(mono, Vector2(LEFT, y), row_eng(r), 0, -1, FONT_PX, ink)
+		End If
+	Next
+
+	' Blinking block cursor under the last line.
+	If Int(t * 3.0) Mod 2 = 0 And t >= T_ON Then
+		draw_rect(Rect2(LEFT, TOP + shown * ROW_H - 14.0, cell_w, 17.0), green)
+	End If
+
+	' Orac's scan line sweeping down the tube.
+	If t > T_SWEEP0 And t < T_SWEEP1 + 0.1 Then
+		draw_rect(Rect2(0, sweep - 10.0, width_px, 20.0), Color(0.45, 0.92, 1.0, 0.07))
+		draw_rect(Rect2(0, sweep - 1.0, width_px, 2.0), Color(0.6, 0.96, 1.0, 0.85))
+	End If
+End Sub

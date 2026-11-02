@@ -1,0 +1,174 @@
+' Isolated small Narcean AI face preview. Open this scene and press F6.
+' Space pause, 1 idle / 2 talk / 3 breakdown, V voice, Up/Down size.
+Option Explicit
+
+Dim face As Object
+Dim clock As Single
+Dim paused As Boolean
+Dim keys As Dictionary
+Dim last_error As String
+Dim resume_guard As Boolean
+Dim voice_demo As Boolean
+Dim face_size As Single
+
+Sub _Ready()
+	keys = New Dictionary
+	clock = 0.0
+	paused = False
+	last_error = ""
+	voice_demo = False
+	face_size = 240.0
+	face = ClassDB.Instantiate("Node2D")
+	face.name = "NarceanAiFace"
+	face.SetScript(Load("res://narcean_ai_face.vg"))
+	add_child(face)
+	If Not face.load_face("res://assets/ai_face/alien_face_small.json") Then last_error = face.last_error
+	face.set_mode("idle")
+	Call ApplyClock()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Call HandleKeys()
+	Call AdvanceClock(delta)
+	Call ApplyClock()
+	QueueRedraw()
+	If face <> Nothing Then face.QueueRedraw()
+End Sub
+
+Sub AdvanceClock(ByVal delta As Single)
+	If paused Then
+		resume_guard = True
+		Exit Sub
+	End If
+	If resume_guard Then
+		If delta > 0.08 Then delta = 0.0167
+		resume_guard = False
+	End If
+	If delta < 0 Then delta = 0
+	clock = clock + delta
+End Sub
+
+Sub Tick(ByVal delta As Single)
+	Call AdvanceClock(delta)
+	Call ApplyClock()
+End Sub
+
+Function Tap(ByVal code As Integer) As Boolean
+	Dim down As Boolean
+	Dim was As Boolean
+	down = IsKeyPressed(code)
+	was = False
+	If keys.has(code) Then was = keys(code)
+	keys(code) = down
+	Tap = down And Not was
+End Function
+
+Sub HandleKeys()
+	If Tap(KEY_SPACE) Then paused = Not paused
+	If Tap(KEY_R) Then Call Replay()
+	If Tap(KEY_1) Then Call Inspect("idle")
+	If Tap(KEY_2) Then Call Inspect("talk")
+	If Tap(KEY_3) Then Call Inspect("breakdown")
+	If Tap(KEY_V) Then voice_demo = Not voice_demo
+	If Tap(KEY_UP) Then
+		face_size = face_size + 40.0
+		If face_size > 480.0 Then face_size = 480.0
+	End If
+	If Tap(KEY_DOWN) Then
+		face_size = face_size - 40.0
+		If face_size < 120.0 Then face_size = 120.0
+	End If
+	If Tap(KEY_M) Then
+		If face <> Nothing Then face.set_reduced_motion(Not face.reduced_motion)
+	End If
+	If Tap(KEY_ESCAPE) Then
+		If Input.get_mouse_mode() <> 0 Then Input.set_mouse_mode(0)
+	End If
+End Sub
+
+Sub Inspect(ByVal name As String)
+	clock = 0.0
+	If face <> Nothing Then
+		face.set_mode(name)
+		face.set_time(0)
+	End If
+	If name <> "talk" Then voice_demo = False
+End Sub
+
+Sub Replay()
+	clock = 0.0
+	paused = False
+	If face <> Nothing Then face.reset()
+	Call ApplyClock()
+End Sub
+
+Sub ApplyClock()
+	Dim voice As Single
+	If face Is Nothing Then Exit Sub
+	face.face_size = face_size
+	face.set_time(clock)
+	If voice_demo Or face.ModeName() = "talk" Then
+		If voice_demo Then
+			voice = 0.5 + 0.5 * Sin(clock * 4.0)
+		Else
+			voice = voice_level_hold()
+		End If
+		face.set_voice_level(voice)
+	End If
+End Sub
+
+Function voice_level_hold() As Single
+	voice_level_hold = face.voice_level
+End Function
+
+Function Footer() As String
+	Dim motion As String
+	Dim hold As String
+	If face Is Nothing Then
+		Footer = "FACE UNAVAILABLE"
+		Exit Function
+	End If
+	If face.reduced_motion Then
+		motion = "REDUCED"
+	Else
+		motion = "FULL"
+	End If
+	If paused Then
+		hold = "PAUSE"
+	Else
+		hold = "PLAY"
+	End If
+	Footer = UCase(face.ModeName()) & "  " & Str(Int(face_size)) & "px  " & hold & "  " & motion & "    SPACE pause  1 idle  2 talk  3 breakdown  V voice  UP/DOWN size"
+	If last_error <> "" Then Footer = last_error
+End Function
+
+Sub Cleanup()
+	paused = True
+	set_process(False)
+	If face <> Nothing Then
+		face.queue_free()
+		face = Nothing
+	End If
+End Sub
+
+Sub _ExitTree()
+	Call Cleanup()
+End Sub
+
+Sub _Draw()
+	Dim size As Vector2
+	Dim vp As Object
+	Dim w As Single
+	Dim h As Single
+	vp = GetViewport()
+	If vp Is Nothing Then
+		size = Vector2(960, 540)
+	Else
+		size = vp.get_visible_rect().size
+	End If
+	w = size.x
+	h = size.y
+	DrawRect 0, 0, w, h, Color(0, 0, 0)
+	DrawRect 0, h - 28, w, 28, Color(0.02, 0.03, 0.04, 0.92)
+	DrawString Footer(), 16, h - 10, Color(0.45, 0.72, 0.78), 12
+End Sub

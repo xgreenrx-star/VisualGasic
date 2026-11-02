@@ -29,6 +29,7 @@ Const PH_BACKLIGHT As Integer = 17
 Const PH_BACKLIGHT_YARD As Integer = 18
 Const PH_BLACK_CHANNEL As Integer = 19
 Const PH_TRACE_CYCLE As Integer = 20
+Const PH_FACE_INTRO As Integer = 21
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -91,6 +92,7 @@ Dim landing_failed As Boolean
 Dim landing_speed As Single
 Dim bay_t As Single
 Dim boot_t As Single
+Dim boot_term As Object
 Dim menu_on As Boolean
 Dim menu_i As Integer
 Dim title_i As Integer
@@ -105,6 +107,18 @@ Dim opt_shake As Boolean
 Dim opt_fps As Boolean
 Dim opt_orac_voice As Boolean
 Dim opt_flight_voice As Boolean
+Dim opt_reduced As Boolean
+Dim face_player As Object
+Dim face_audio As Object
+Dim face_played As Boolean
+Dim face_started As Boolean
+Dim face_skipping As Boolean
+Dim face_skip_t As Single
+Dim face_title_a As Single
+Dim face_reduced As Boolean
+Dim face_reduced_t As Single
+Dim face_use_ogg As Boolean
+Dim title_ink As Single
 Dim save_msg As String
 Dim last_dt As Single
 Dim key_cool As Single
@@ -156,6 +170,8 @@ Dim mouse_px As Single
 Dim mouse_py As Single
 Dim flight_steer As Single
 Dim flight_lift As Single
+Dim look_dx As Single
+Dim look_dy As Single
 
 Sub _Ready()
 	intro_lines = Array()
@@ -166,6 +182,7 @@ Sub _Ready()
 	Call ApplyDisplay()
 	phase = PH_BOOT
 	boot_t = 0.0
+	Call StartBootTerminal()
 	menu_on = False
 	title_i = 0
 	menu_i = 0
@@ -202,6 +219,12 @@ Sub _Ready()
 	speech.name = "CrewSpeech"
 	add_child(speech)
 	speech.configure(opt_orac_voice)
+	face_played = False
+	face_started = False
+	face_skipping = False
+	face_title_a = 1.0
+	title_ink = 1.0
+	face_use_ogg = False
 	Call InitJunk()
 	Call BakeAsh()
 	Set_Process(True)
@@ -652,6 +675,11 @@ End Function
 Sub _Input(ev As Variant)
 	Dim pos As Vector2
 	If ev Is InputEventMouseMotion Then
+		If Input.mouse_mode = Input.MOUSE_MODE_CAPTURED Then
+			look_dx = look_dx + ev.relative.x
+			look_dy = look_dy + ev.relative.y
+			Exit Sub
+		End If
 		pos = CanvasMouse(ev)
 		Call NoteMouse(pos.x, pos.y)
 	ElseIf ev Is InputEventMouseButton Then
@@ -666,6 +694,40 @@ Sub _Input(ev As Variant)
 			End If
 		End If
 	End If
+End Sub
+
+' Vector Crypt style mouse look: capture the pointer only while walking, so
+' menus, keypads, the buggy and the cycle keep a normal cursor.
+Function WantsMouseLook() As Boolean
+	WantsMouseLook = False
+	If DisplayServer.get_name() = "headless" Then Exit Function
+	If menu_on Or dev_on Then Exit Function
+	If phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
+		If presentation.backlight_city <> Nothing Then WantsMouseLook = presentation.backlight_city.wants_mouse_look()
+	ElseIf phase = PH_TRACE_CYCLE Then
+		If presentation.trace_cycle <> Nothing Then WantsMouseLook = presentation.trace_cycle.WantsMouseLook()
+	End If
+End Function
+
+Sub SyncMouseLook()
+	Dim want As Boolean
+	Dim captured As Boolean
+	want = WantsMouseLook()
+	captured = Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	presentation.look_dx = 0.0
+	presentation.look_dy = 0.0
+	presentation.look_click = False
+	If want And Not captured Then
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	ElseIf captured And Not want Then
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	ElseIf want Then
+		presentation.look_dx = look_dx
+		presentation.look_dy = look_dy
+		presentation.look_click = mouse_tap
+	End If
+	look_dx = 0.0
+	look_dy = 0.0
 End Sub
 
 Sub PollMouse()
@@ -696,21 +758,23 @@ End Function
 
 Function OptionY(ByVal i As Integer) As Single
 	If i = 0 Then
-		OptionY = 140.0
+		OptionY = 128.0
 	ElseIf i = 1 Then
-		OptionY = 190.0
+		OptionY = 172.0
 	ElseIf i = 2 Then
-		OptionY = 240.0
+		OptionY = 216.0
 	ElseIf i = 3 Then
-		OptionY = 290.0
+		OptionY = 260.0
 	ElseIf i = 4 Then
-		OptionY = 340.0
+		OptionY = 304.0
 	ElseIf i = 5 Then
-		OptionY = 385.0
+		OptionY = 348.0
 	ElseIf i = 6 Then
-		OptionY = 430.0
+		OptionY = 392.0
+	ElseIf i = 7 Then
+		OptionY = 436.0
 	Else
-		OptionY = 475.0
+		OptionY = 480.0
 	End If
 End Function
 
@@ -764,6 +828,7 @@ Sub _Process(ByVal delta As Single)
 	Call OracTick()
 	Call presentation.sample_input()
 	Call PollMouse()
+	Call SyncMouseLook()
 	If phase = PH_BLACK_CHANNEL And presentation.black_channel <> Nothing Then
 		presentation.black_channel.speech.tick(menu_on Or dev_on)
 	End If
@@ -784,13 +849,27 @@ Sub _Process(ByVal delta As Single)
 	last_dt = delta
 	clock = clock + delta
 	If key_cool > 0.0 Then key_cool = key_cool - delta
+	If phase <> PH_TITLE And phase <> PH_FACE_INTRO Then Call FreeFacePlayer()
+	If phase <> PH_BOOT And Not (boot_term Is Nothing) Then Call ReleaseBootTerminal()
 	If phase = PH_BOOT Then
 		boot_t = boot_t + delta
-		If boot_t > 2.4 Then phase = PH_TITLE
+		If boot_term Is Nothing Then
+			Call BeginTitleOrFace()
+		Else
+			If mouse_tap Or presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_ESCAPE) Then boot_term.Skip()
+			If boot_term.finished_boot Then Call BeginTitleOrFace()
+		End If
+		QueueRedraw()
+		Exit Sub
+	End If
+	If phase = PH_FACE_INTRO Then
+		Call TickFaceIntro(delta)
 		QueueRedraw()
 		Exit Sub
 	End If
 	If phase = PH_TITLE Then
+		title_ink = 1.0
+		face_title_a = 1.0
 		Call TickTitle()
 		QueueRedraw()
 		Exit Sub
@@ -2896,6 +2975,7 @@ Sub LoadOptions()
 	opt_fps = False
 	opt_orac_voice = True
 	opt_flight_voice = True
+	opt_reduced = False
 	If Not FileExists("user://ash_meridian_options.txt") Then Exit Sub
 	lines = ReadLines("user://ash_meridian_options.txt")
 	If UBound(lines) < 5 Then Exit Sub
@@ -2909,6 +2989,7 @@ Sub LoadOptions()
 	If UBound(lines) >= 7 Then
 		If Val(lines(7)) > 0.0 Then opt_orac_voice = True
 	End If
+	If UBound(lines) >= 8 Then opt_reduced = Val(lines(8)) > 0.0
 	opt_flight_voice = opt_orac_voice
 	If opt_view < 50.0 Then opt_view = 50.0
 	If opt_view > 160.0 Then opt_view = 160.0
@@ -2920,7 +3001,7 @@ Sub SaveOptions()
 	Dim body As String
 	body = BitOf(opt_full) & Chr(10) & Str(opt_view) & Chr(10) & Str(opt_detail) & Chr(10)
 	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps) & Chr(10) & BitOf(opt_orac_voice)
-	body = body & Chr(10) & BitOf(opt_flight_voice)
+	body = body & Chr(10) & BitOf(opt_flight_voice) & Chr(10) & BitOf(opt_reduced)
 	WriteAllText "user://ash_meridian_options.txt", body
 End Sub
 
@@ -3081,8 +3162,8 @@ Sub TickPause()
 		Else
 			menu_on = False
 			campaign_active = False
-			phase = PH_TITLE
 			title_i = 0
+			Call EnterTitle()
 		End If
 	End If
 End Sub
@@ -3092,13 +3173,13 @@ Sub TickOptions()
 	Dim mx As Single
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then opt_i = opt_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then opt_i = opt_i + 1
-	If opt_i < 0 Then opt_i = 7
-	If opt_i > 7 Then opt_i = 0
-	For i = 0 To 7
+	If opt_i < 0 Then opt_i = 8
+	If opt_i > 8 Then opt_i = 0
+	For i = 0 To 8
 		If PickHit(OptionY(i)) Then opt_i = i
 	Next
 	mx = mouse_px
-	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= 140.0 And mouse_py <= 176.0 Then
+	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(0) And mouse_py <= OptionY(0) + 36.0 Then
 		opt_i = 0
 		opt_view = 50.0 + (mx - 560.0) / 220.0 * 110.0
 		If opt_view < 50.0 Then opt_view = 50.0
@@ -3112,13 +3193,13 @@ Sub TickOptions()
 		Call NudgeOption(1.0)
 	End If
 	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
-		If opt_i = 7 Then
+		If opt_i = 8 Then
 			Call CloseOptions()
 		Else
 			Call NudgeOption(1.0)
 		End If
 	ElseIf mouse_tap And PickHit(OptionY(opt_i)) Then
-		If opt_i = 7 Then
+		If opt_i = 8 Then
 			Call CloseOptions()
 		ElseIf opt_i <> 0 Or mx < 560.0 Then
 			Call NudgeOption(1.0)
@@ -3152,6 +3233,8 @@ Sub NudgeOption(ByVal dir As Single)
 		opt_orac_voice = Not opt_orac_voice
 		orac_said = ""
 		Call ApplySpeech()
+	ElseIf opt_i = 7 Then
+		opt_reduced = Not opt_reduced
 	End If
 	Call SaveOptions()
 End Sub
@@ -3162,34 +3245,208 @@ Sub CloseOptions()
 		phase = held_phase
 		menu_on = True
 	Else
-		phase = PH_TITLE
+		Call EnterTitle()
 	End If
 End Sub
 
-Sub DrawBoot()
-	Dim warm As Variant
-	Dim w As Single
-	w = boot_t / 2.4 * 420.0
-	If w > 420.0 Then w = 420.0
-	DrawString "ASH MERIDIAN", 280, 170, Color(0.45, 0.92, 1.0), 36
-	DrawString "WAKING THE YARD", 360, 230, Color(0.85, 0.35, 0.7), 16
-	DrawRect 270, 300, 420, 10, Color(0.08, 0.1, 0.14)
-	DrawRect 270, 300, w, 10, Color(0.3, 0.9, 1.0)
-	warm = Array(Vector2(70, 430), Vector2(150, 400), Vector2(170, 470), Vector2(60, 460))
-	DrawPolygon warm, Color(0.04, 0.1, 0.14)
-	DrawArc 480, 250, 18, 0.0, PI * 2.0, 28, Color(0.25, 0.75, 0.95), 1
+Sub FreeFacePlayer()
+	If face_player <> Nothing Then
+		If face_player.is_playing() Then face_player.stop()
+		face_player.queue_free()
+		face_player = Nothing
+	End If
+	If face_audio <> Nothing Then
+		If face_audio.playing Then face_audio.stop()
+		face_audio.queue_free()
+		face_audio = Nothing
+	End If
+	face_started = False
+	face_skipping = False
+	face_reduced = False
 End Sub
+
+Function FacePos() As Single
+	If face_player Is Nothing Then
+		FacePos = 0.0
+		Exit Function
+	End If
+	FacePos = face_player.stream_position
+End Function
+
+Sub StartFaceVideo()
+	Dim stream As Object
+	Call FreeFacePlayer()
+	stream = Load("res://assets/ai_face/intro_alien_holo.ogv")
+	If stream Is Nothing Then
+		Call EnterTitle()
+		Exit Sub
+	End If
+	face_player = ClassDB.Instantiate("VideoStreamPlayer")
+	face_player.name = "FaceIntro"
+	face_player.stream = stream
+	face_player.position = Vector2(0, 0)
+	face_player.size = Vector2(SW, SH)
+	face_player.expand = True
+	face_player.mouse_filter = 2
+	face_player.show_behind_parent = True
+	face_player.bus = "Master"
+	face_player.volume_db = 0.0
+	add_child(face_player)
+	Connect face_player, "finished", "OnFaceVideoFinished"
+	If face_use_ogg Then
+		face_player.volume_db = -80.0
+		face_audio = ClassDB.Instantiate("AudioStreamPlayer")
+		face_audio.name = "FaceIntroAudio"
+		face_audio.stream = Load("res://assets/ai_face/intro_alien_holo.ogg")
+		face_audio.bus = "Master"
+		add_child(face_audio)
+		If face_audio.stream <> Nothing Then face_audio.play()
+	End If
+	face_player.play()
+	face_started = True
+End Sub
+
+Sub StartBootTerminal()
+	boot_term = presentation.SpawnVg("res://boot_terminal.vg", "Node2D")
+	boot_term.name = "BootTerminal"
+	add_child(boot_term)
+	boot_term.Setup(SW, SH, opt_reduced)
+End Sub
+
+' A finished terminal stays alive briefly while the face video pushes through
+' its static; an interrupted one (tests, warps) is dropped at once.
+Sub ReleaseBootTerminal()
+	If boot_term Is Nothing Then Exit Sub
+	If boot_term.finished_boot Then
+		boot_term.BeginReveal()
+	Else
+		boot_term.queue_free()
+	End If
+	boot_term = Nothing
+End Sub
+
+Sub BeginTitleOrFace()
+	Call ReleaseBootTerminal()
+	If face_played Then
+		Call EnterTitle()
+		Exit Sub
+	End If
+	phase = PH_FACE_INTRO
+	face_skipping = False
+	face_skip_t = 0.0
+	face_title_a = 0.0
+	title_ink = 0.0
+	If opt_reduced Then
+		face_reduced = True
+		face_reduced_t = 0.0
+		Exit Sub
+	End If
+	Call StartFaceVideo()
+End Sub
+
+Sub EnterTitle()
+	Call FreeFacePlayer()
+	phase = PH_TITLE
+	face_title_a = 1.0
+	title_ink = 1.0
+End Sub
+
+Sub SkipFaceIntro()
+	If face_played And phase = PH_TITLE Then Exit Sub
+	If opt_reduced Or face_reduced Or face_player Is Nothing Then
+		face_played = True
+		Call EnterTitle()
+		Exit Sub
+	End If
+	If FacePos() >= 14.6 Then
+		face_played = True
+		Call EnterTitle()
+		Exit Sub
+	End If
+	face_skipping = True
+	face_skip_t = 0.0
+End Sub
+
+Sub OnFaceVideoFinished()
+	If phase <> PH_FACE_INTRO Then Exit Sub
+	face_played = True
+	Call EnterTitle()
+End Sub
+
+Sub TickFaceIntro(ByVal delta As Single)
+	Dim pos As Single
+	Dim u As Single
+	If face_reduced Then
+		face_reduced_t = face_reduced_t + delta
+		face_title_a = ClampTitle(face_reduced_t / 1.0)
+		title_ink = face_title_a
+		If face_title_a > 0.001 Then Call TickTitle()
+		If face_reduced_t >= 1.0 Then
+			face_played = True
+			Call EnterTitle()
+		End If
+		Exit Sub
+	End If
+	If face_player Is Nothing Then
+		Call EnterTitle()
+		Exit Sub
+	End If
+	If face_skipping Then
+		face_skip_t = face_skip_t + delta
+		u = face_skip_t / 0.4
+		If u > 1.0 Then u = 1.0
+		face_player.volume_db = -40.0 * u
+		If face_audio <> Nothing Then face_audio.volume_db = -40.0 * u
+		face_player.modulate = Color(1.0 - u, 1.0 - u, 1.0 - u, 1.0)
+		face_title_a = u
+		title_ink = u
+		If u > 0.001 Then Call TickTitle()
+		If u >= 1.0 Then
+			face_played = True
+			Call EnterTitle()
+		End If
+		Exit Sub
+	End If
+	If Not face_player.is_playing() And face_started Then
+		face_played = True
+		Call EnterTitle()
+		Exit Sub
+	End If
+	pos = FacePos()
+	If pos >= 14.6 Then
+		face_title_a = ClampTitle((pos - 14.6) / 1.4)
+		title_ink = face_title_a
+		face_played = True
+		Call TickTitle()
+	Else
+		If mouse_tap Or presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_ESCAPE) Then
+			Call SkipFaceIntro()
+			Exit Sub
+		End If
+		face_title_a = 0.0
+		title_ink = 0.0
+	End If
+End Sub
+
+Function ClampTitle(ByVal value As Single) As Single
+	If value < 0.0 Then value = 0.0
+	If value > 1.0 Then value = 1.0
+	ClampTitle = value * value * (3.0 - 2.0 * value)
+End Function
 
 Sub DrawTitle()
 	Dim i As Integer
 	Dim y As Single
-	DrawString "ASH MERIDIAN", 280, 90, Color(0.45, 0.92, 1.0), 36
-	DrawString "NARCEA", 430, 140, Color(0.8, 0.35, 0.65), 16
+	Dim a As Single
+	a = title_ink
+	If a <= 0.001 Then Exit Sub
+	DrawString "ASH MERIDIAN", 280, 90, Color(0.45 * a, 0.92 * a, 1.0 * a, a), 36
+	DrawString "NARCEA", 430, 140, Color(0.8 * a, 0.35 * a, 0.65 * a, a), 16
 	For i = 0 To TitleCount() - 1
 		y = TitleY(i)
 		Call DrawPick(TitleLabel(i), y, i = title_i)
 	Next
-	DrawString "UP / DOWN     ENTER     MOUSE", 300, 470, Color(0.4, 0.5, 0.55), 14
+	DrawString "UP / DOWN     ENTER     MOUSE", 300, 470, Color(0.4 * a, 0.5 * a, 0.55 * a, a), 14
 End Sub
 
 Sub DrawPause()
@@ -3212,18 +3469,19 @@ Sub DrawOptions()
 		screen = "WINDOW"
 	End If
 	DrawString "OPTIONS", 390, 70, Color(0.5, 0.9, 1.0), 28
-	Call DrawPick("VIEW DISTANCE", 140, opt_i = 0)
+	Call DrawPick("VIEW DISTANCE", OptionY(0), opt_i = 0)
 	bar = (opt_view - 50.0) / 110.0 * 220.0
-	DrawRect 560, 148, 220, 8, Color(0.1, 0.12, 0.16)
-	DrawRect 560, 148, bar, 8, Color(0.3, 0.85, 1.0)
-	DrawString Str(Int(opt_view)) & " M", 800, 140, Color(0.7, 0.85, 0.9), 16
-	Call DrawPick("DETAIL    " & DetailName(), 190, opt_i = 1)
-	Call DrawPick("SCREEN    " & screen, 240, opt_i = 2)
-	Call DrawPick("VSYNC     " & OnOff(opt_vsync), 290, opt_i = 3)
-	Call DrawPick("RIDE SHAKE    " & OnOff(opt_shake), 340, opt_i = 4)
-	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), 385, opt_i = 5)
-	Call DrawPick("SPEECH      " & OnOff(opt_orac_voice), 430, opt_i = 6)
-	Call DrawPick("BACK", 475, opt_i = 7)
+	DrawRect 560, OptionY(0) + 8, 220, 8, Color(0.1, 0.12, 0.16)
+	DrawRect 560, OptionY(0) + 8, bar, 8, Color(0.3, 0.85, 1.0)
+	DrawString Str(Int(opt_view)) & " M", 800, OptionY(0), Color(0.7, 0.85, 0.9), 16
+	Call DrawPick("DETAIL    " & DetailName(), OptionY(1), opt_i = 1)
+	Call DrawPick("SCREEN    " & screen, OptionY(2), opt_i = 2)
+	Call DrawPick("VSYNC     " & OnOff(opt_vsync), OptionY(3), opt_i = 3)
+	Call DrawPick("RIDE SHAKE    " & OnOff(opt_shake), OptionY(4), opt_i = 4)
+	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), OptionY(5), opt_i = 5)
+	Call DrawPick("SPEECH      " & OnOff(opt_orac_voice), OptionY(6), opt_i = 6)
+	Call DrawPick("REDUCED MOTION    " & OnOff(opt_reduced), OptionY(7), opt_i = 7)
+	Call DrawPick("BACK", OptionY(8), opt_i = 8)
 	DrawString "LEFT / RIGHT CHANGES A ROW     MOUSE SELECTS", 250, 520, Color(0.4, 0.5, 0.55), 14
 End Sub
 
@@ -3265,11 +3523,15 @@ Sub DrawDev()
 End Sub
 
 Sub DrawPick(ByVal text As String, ByVal y As Single, ByVal on As Boolean)
+	Dim a As Single
+	a = title_ink
+	If a <= 0.0 Then a = 1.0
+	If phase <> PH_FACE_INTRO And phase <> PH_TITLE Then a = 1.0
 	If on Then
-		DrawRect 300, y - 6, 360, 32, Color(0.06, 0.16, 0.22)
-		DrawString text, 320, y, Color(0.55, 0.95, 1.0), 20
+		DrawRect 300, y - 6, 360, 32, Color(0.06 * a, 0.16 * a, 0.22 * a, a)
+		DrawString text, 320, y, Color(0.55 * a, 0.95 * a, 1.0 * a, a), 20
 	Else
-		DrawString text, 320, y, Color(0.55, 0.62, 0.68), 18
+		DrawString text, 320, y, Color(0.55 * a, 0.62 * a, 0.68 * a, a), 18
 	End If
 End Sub
 
@@ -3282,9 +3544,14 @@ End Sub
 
 Sub _Draw()
 	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE)
-	DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
+	If phase <> PH_FACE_INTRO Then
+		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
+	ElseIf face_player Is Nothing Then
+		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
+	End If
 	If phase = PH_BOOT Then
-		Call DrawBoot()
+	ElseIf phase = PH_FACE_INTRO Then
+		Call DrawTitle()
 	ElseIf phase = PH_TITLE Then
 		Call DrawTitle()
 	ElseIf phase = PH_OPTS Then

@@ -40,6 +40,7 @@ Dim steering As Variant
 Dim camera_position As Variant
 Dim camera_heading As Variant
 Dim camera_pitch As Variant
+Dim look_pitch As Single
 Dim neon As ShaderMaterial
 Dim points As PackedVector3Array
 Dim shades As PackedColorArray
@@ -57,6 +58,7 @@ Dim dashboard As Node2D
 Dim dashboard_view As SubViewport
 Dim antialiasing As Variant
 Dim buildings As Array
+Dim dead_lifts As Array
 Dim turrets As Array
 Dim turret_flashes As Array
 Dim turret_beams As Array
@@ -298,6 +300,7 @@ Sub EnsureInit()
 	optics = Array()
 	antialiasing = Viewport.MSAA_2X
 	buildings = Array()
+	dead_lifts = Array()
 	turrets = Array()
 	turret_flashes = Array()
 	turret_beams = Array()
@@ -368,6 +371,7 @@ Sub reset()
 	inventory.clear()
 	visited.clear()
 	keypad = False
+	look_pitch = 0.0
 	sequence = ""
 	floor_code = ""
 	floor_signature = ""
@@ -1116,15 +1120,65 @@ Function blocked(ByVal point As Vector2, ByVal radius As Single) As Boolean
 End Function
 
 Sub move_distance(ByVal distance As Single)
-	Dim delta As Variant
+	Call EnsureInit()
+	move_vector(Vector2(Sin(heading), Cos(heading)) * distance)
+End Sub
+
+' Right-hand side of the view in the XZ plane; matches present()'s camera basis.
+Sub move_strafe(ByVal distance As Single)
+	Call EnsureInit()
+	move_vector(Vector2(Cos(heading), -Sin(heading)) * distance)
+End Sub
+
+Function wants_mouse_look() As Boolean
+	Call EnsureInit()
+	If driving Or keypad Or inspection <> 0 Then Return False
+	If completed Or Me.failed Or transit_left > 0 Then Return False
+	Return True
+End Function
+
+' Vector Crypt walk: W/S move, A/D or arrows turn, Q/E strafe, mouse looks.
+Sub walk_controls(ByVal delta As Single, ByVal view As Node)
+	Dim turn As Single
+	Dim throttle As Single
+	Dim strafe As Single
+	turn = Num(Input.is_physical_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_RIGHT))
+	turn = turn - Num(Input.is_physical_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_LEFT))
+	throttle = Num(Input.is_physical_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_UP))
+	throttle = throttle - Num(Input.is_physical_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_DOWN))
+	strafe = Num(Input.is_physical_key_pressed(KEY_E) Or Input.is_key_pressed(KEY_E))
+	strafe = strafe - Num(Input.is_physical_key_pressed(KEY_Q) Or Input.is_key_pressed(KEY_Q))
+	heading = heading + turn * delta * 1.7 + view.look_dx * 0.0042
+	look_pitch = look_pitch - view.look_dy * 0.0036
+	If look_pitch > 1.1 Then look_pitch = 1.1
+	If look_pitch < -1.1 Then look_pitch = -1.1
+	If throttle <> 0 Then move_distance(throttle * 5.0 * delta)
+	If strafe <> 0 Then move_strafe(strafe * 4.2 * delta)
+End Sub
+
+' F / left click: the buggy when it is the only thing in reach, else use_object.
+Sub interact_foot()
+	Call EnsureInit()
+	If driving Then
+		interact_vehicle()
+		Exit Sub
+	End If
+	If place = "surface" And position_xz.distance_to(buggy_position) < 3.8 Then
+		If position_xz.distance_to(SHIP) >= 7 And nearest_building() < 0 And nearest_dead_lift() < 0 Then
+			interact_vehicle()
+			Exit Sub
+		End If
+	End If
+	use_object()
+End Sub
+
+Sub move_vector(ByVal delta As Vector2)
 	Dim steps As Variant
 	Dim radius As Variant
 	Dim step_n As Variant
 	Dim x As Variant
 	Dim z As Variant
-	Dim _t0 As Variant
 	Call EnsureInit()
-	delta = Vector2(Sin(heading), Cos(heading)) * distance
 	steps = Max(1, CeilInt(delta.length() / 0.25))
 	If driving Then
 		radius = 1.4
@@ -1162,6 +1216,7 @@ Sub interact_vehicle()
 		Next
 	ElseIf position_xz.distance_to(buggy_position) < 3.8 Then
 		driving = True
+		look_pitch = 0.0
 		position_xz = buggy_position
 		heading = buggy_heading
 		velocity = 0
@@ -1198,13 +1253,12 @@ Sub bleed_city_2_tick(ByVal delta As Single, ByVal view As Node)
 	If view.menu_tap(KEY_V) Then
 		inspection = (inspection + 1)  Mod  3
 	End If
-	If view.menu_tap(KEY_F) Then
-		interact_vehicle()
-	End If
-	If view.menu_tap(KEY_E) Then
-		collect_bottle()
-	End If
 	If inspection <> 0 Then
+		Exit Sub
+	End If
+	If Not driving Then
+		walk_controls(delta, view)
+		steering = MoveToward(steering, 0.0, delta * 2)
 		Exit Sub
 	End If
 	turn = Num(Input.is_physical_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_RIGHT))
@@ -1306,16 +1360,16 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		End If
 		Exit Sub
 	End If
-	If view.menu_tap(KEY_E) Then
-		use_object()
+	If view.menu_tap(KEY_F) Or view.look_click Then
+		interact_foot()
 	End If
-	If campaign_mode And view.menu_tap(KEY_Q) Then
+	If campaign_mode And view.menu_tap(KEY_H) Then
 		If awakening Then
 			notify("ORAC: The restart is spreading. Return to the transit lift, then the Ash. Stay behind cover.")
 		ElseIf place = "surface" Then
 			notify("ORAC: Scan the depot workbenches for salvage and address records. The Ash needs a power coupler before departure.")
 		ElseIf place = "building" Then
-			notify("ORAC: Examine the rear console with E. Archive symbols form an ordered five-symbol lift address.")
+			notify("ORAC: Examine the rear console with F. Archive symbols form an ordered five-symbol lift address.")
 		Else
 			notify("ORAC: A compatible power signature is in the military chamber. The entry lift is our way back.")
 		End If
@@ -1323,14 +1377,8 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	If place = "surface" Then
 		bleed_city_2_tick(delta, view)
 	Else
-		view.menu_tap(KEY_F)
 		view.menu_tap(KEY_V)
-		turn = Num(Input.is_key_pressed(KEY_D) Or Input.is_physical_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_RIGHT))
-		turn = turn - Num(Input.is_key_pressed(KEY_A) Or Input.is_physical_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_LEFT))
-		throttle = Num(Input.is_key_pressed(KEY_W) Or Input.is_physical_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_UP))
-		throttle = throttle - Num(Input.is_key_pressed(KEY_S) Or Input.is_physical_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_DOWN))
-		heading = heading + turn * delta * 1.7
-		move_distance(throttle * 5.5 * delta)
+		walk_controls(delta, view)
 	End If
 	_tick_turrets(delta)
 End Sub
@@ -1366,7 +1414,7 @@ Function render(ByVal view As Node, ByVal time_n As Single, ByVal distance As Si
 	Else
 		camera_position = Vector3(position_xz.x, 1.65, position_xz.y)
 		camera_heading = heading
-		camera_pitch = -0.06
+		camera_pitch = -0.06 + look_pitch
 	End If
 	If inspection = 0 Then
 		_t1 = distance
@@ -1605,11 +1653,14 @@ Sub _gate(ByVal z As Single)
 		solids.append(Rect2(x - 2.7, z, 5.4, 3.4))
 		_box(Vector3(x - 1.6, 1.2, z - 0.03), Vector3(3.2, 8.5, 0.025), INK)
 		For Each offset In Array(-0.9, 0.9)
-			_trace(Array(Vector3(offset, 1.6, -0.06), Vector3(offset, 8.3, -0.06), Vector3(offset * 0.45, 9.6, -0.06), Vector3(offset * 0.45, 12, -0.06)), 0.14, GOLD, transform)
+			_trace(Array(Vector3(offset, 1.6, -0.06), Vector3(offset, 8.3, -0.06), Vector3(offset * 0.45, 9.6, -0.06), Vector3(offset * 0.45, 12, -0.06)), 0.14, INK, transform)
 		Next
 		For Each y In Array(2.0, 2.6, 3.2)
-			_box(Vector3(x - 0.4, y, z - 0.07), Vector3(0.8, 0.19, 0.04), GOLD * 0.9, True)
+			_box(Vector3(x - 0.4, y, z - 0.07), Vector3(0.8, 0.19, 0.04), INK)
 		Next
+		_box(Vector3(x - 0.7, 1.4, z - 0.08), Vector3(1.1, 6.2, 0.06), SHELL * 0.55)
+		_box(Vector3(x + 0.15, 1.9, z - 0.1), Vector3(1.05, 5.4, 0.06), SHELL * 0.4)
+		register_dead_lift(Vector2(x, z))
 	Next
 	_box(Vector3(-15.3, 12, z), Vector3(30.6, 2.0, 3.4), SHELL)
 	_box(Vector3(-10, 12.5, z - 0.04), Vector3(20, 0.9, 0.03), INK)
@@ -1731,6 +1782,8 @@ Sub _transit_court()
 			_prism(PackedVector2Array(Array(Vector2(-1.6, 0), Vector2(1.6, 0), Vector2(0.9, 3.2), Vector2(-0.9, 3.2))), 2.4, SHELL, transform)
 			_box(center + Vector3(-1.05, 3.2, -1.4), Vector3(2.1, 0.26, 2.8), INK)
 			_box(center + Vector3(-0.67, 1.5, -1.22), Vector3(1.34, 1.15, 0.025), INK)
+			_box(center + Vector3(-0.85, 0.2, -1.28), Vector3(0.7, 2.2, 0.08), SHELL * 0.55)
+			_box(center + Vector3(-0.05, 0.55, -1.32), Vector3(0.72, 1.7, 0.08), SHELL * 0.4)
 			If side > 0 Then
 				_t0 = 2
 			Else
@@ -1739,9 +1792,10 @@ Sub _transit_court()
 			digit = 1 + i + (_t0)
 			_digit(center + Vector3(-0.30, 1.62, -1.25), digit)
 			solids.append(Rect2(center.x - 1.6, center.z - 1.2, 3.2, 2.4))
-			_annulus(center + Vector3(0, 5.5, 0), 1.45, 0.14, GOLD)
-			_trace(Array(Vector3(-0.36, 6.3, 0), Vector3(0, 6.72, 0), Vector3(0.36, 6.3, 0)), 0.10, GOLD, Transform3D(Basis(), center))
-			_box(center + Vector3(-0.05, 5.9, 0), Vector3(0.1, 0.7, 0.05), GOLD, True)
+			_annulus(center + Vector3(0, 5.5, 0), 1.45, 0.14, INK)
+			_trace(Array(Vector3(-0.36, 6.3, 0), Vector3(0, 6.72, 0), Vector3(0.36, 6.3, 0)), 0.10, INK, Transform3D(Basis(), center))
+			_box(center + Vector3(-0.05, 5.9, 0), Vector3(0.1, 0.7, 0.05), INK)
+			register_dead_lift(Vector2(center.x, center.z))
 		Next
 		_box(Vector3(side * 10.2 - 0.14, 0.012, 89), Vector3(0.28, 0.025, 31), GOLD * 0.75, True)
 	Next
@@ -2018,7 +2072,11 @@ Function backlight_city_render_style(ByVal view As Node, ByVal time_n As Single,
 		End If
 		camera_position = Vector3(position_xz.x, _t2, position_xz.y)
 		camera_heading = heading
-		camera_pitch = -0.025
+		If driving Then
+			camera_pitch = -0.025
+		Else
+			camera_pitch = -0.025 + look_pitch
+		End If
 	End If
 	If inspection = 0 Then
 		_t3 = distance
@@ -2264,6 +2322,42 @@ Function nearest_building(Optional max_distance As Variant = 3.5) As Integer
 	Return nearest
 End Function
 
+Sub register_dead_lift(ByVal door As Vector2)
+	Dim entry As Dictionary
+	Call EnsureInit()
+	entry = New Dictionary
+	entry("door") = door
+	dead_lifts.append(entry)
+End Sub
+
+Function nearest_dead_lift(Optional max_distance As Variant = 3.5) As Integer
+	Dim nearest As Variant
+	Dim best As Variant
+	Dim door As Vector2
+	Dim distance As Variant
+	Call EnsureInit()
+	nearest = -1
+	best = max_distance
+	For i = 0 To (dead_lifts.size() - 1)
+		door = dead_lifts(i).door
+		distance = position_xz.distance_to(door)
+		If distance < best Then
+			best = distance
+			nearest = i
+		End If
+	Next
+	Return nearest
+End Function
+
+Sub inspect_dead_lift()
+	Call EnsureInit()
+	If campaign_mode Then
+		notify("ORAC: That lift is dead, Jason. The car is jammed in the shaft. Use the working transit depot.")
+	Else
+		notify("Lift is dead. Doors jammed. Use the working transit depot.")
+	End If
+End Sub
+
 Sub enter_building(ByVal index As Integer)
 	Call EnsureInit()
 	If driving Or place <> "surface" Or index < 0 Or index >= buildings.size() Then
@@ -2278,7 +2372,7 @@ Sub enter_building(ByVal index As Integer)
 	inspection = 0
 	visited(index) = True
 	pending_room = True
-	notify(Str(buildings(index).label)  & " / E examines objects; E at the entry returns outside.")
+	notify(Str(buildings(index).label)  & " / F examines objects; F at the entry returns outside.")
 End Sub
 
 Sub leave_building()
@@ -2326,6 +2420,10 @@ Sub use_object()
 			Else
 				enter_building(index)
 			End If
+			Exit Sub
+		End If
+		If nearest_dead_lift() >= 0 Then
+			inspect_dead_lift()
 			Exit Sub
 		End If
 		collect_bottle()
@@ -2440,7 +2538,7 @@ Sub finish_lift()
 		If awakening Then
 			_t0 = "Surface lobby. Exit behind the entry marker and return to the Ash."
 		Else
-			_t0 = "Surface lobby. E at the entry returns outside."
+			_t0 = "Surface lobby. F at the entry returns outside."
 		End If
 		notify(_t0)
 	Else
@@ -2594,46 +2692,49 @@ Function prompt() As String
 	End If
 	If place = "surface" Then
 		If position_xz.distance_to(SHIP) < 7 Then
-			If campaign_mode Then Return "E: install recovered power coupler and launch the Ash / Q: Orac scan"
-			Return "E: install recovered parts and launch the Ash"
+			If campaign_mode Then Return "F: install recovered power coupler and launch the Ash / H: Orac scan"
+			Return "F: install recovered parts and launch the Ash"
 		End If
 		index = nearest_building(15)
 		If index >= 0 Then
 			If driving Then
 				_t0 = " / F: park first"
 			Else
-				_t0 = " / E at the door: enter"
+				_t0 = " / F at the door: enter"
 			End If
 			Return Str(buildings(index).label) + (_t0)
 		End If
-		Return "W/S MOVE  A/D TURN  F BUGGY  E INTERACT  V INSPECT"
+		If nearest_dead_lift(8) >= 0 Then
+			Return "DAMAGED LIFT / F: inspect"
+		End If
+		Return "W/S MOVE  A/D TURN  Q/E STRAFE  MOUSE LOOK  F USE  V INSPECT"
 	End If
 	If position_xz.distance_to(Vector2(0, 2)) < 4 Then
 		If place = "building" Then
-			_t1 = "E: return outside"
+			_t1 = "F: return outside"
 		Else
-			_t1 = "E: call emergency ascent"
+			_t1 = "F: call emergency ascent"
 		End If
 		Return _t1
 	End If
 	If place = "building" Then
 		If building_index = 7 Then
-			Return "E at rear panel: five-symbol destination / journal at left"
+			Return "F at rear panel: five-symbol destination / journal at left"
 		End If
-		Return "E at the rear workbench: search / entry behind you"
+		Return "F at the rear workbench: search / entry behind you"
 	End If
 	If floor_code = FEB_CODE Then
 		If inventory.has("coupler") Then
 			_t2 = "Coupler recovered. Return to the lift behind you!"
 		Else
 			If campaign_mode Then
-				_t2 = "E at the amber service socket: take power coupler / lift behind you"
+				_t2 = "F at the amber service socket: take power coupler / lift behind you"
 			Else
-				_t2 = "E at the amber service socket: take reflector coupler / lift behind you"
+				_t2 = "F at the amber service socket: take reflector coupler / lift behind you"
 			End If
 		End If
 		Return _t2
 	End If
-	If campaign_mode Then Return "Explore this floor / Q: Orac scan / E at entry: return to surface"
-	Return "Explore this floor / E at entry: return to the surface"
+	If campaign_mode Then Return "Explore this floor / H: Orac scan / F at entry: return to surface"
+	Return "Explore this floor / F at entry: return to the surface"
 End Function

@@ -263,7 +263,7 @@ Sub _draw()
 		_t5 = "COUPLER --"
 	End If
 	If city.campaign_mode Then
-		_text(Vector2(22, 47), "JASON / ORAC ONLINE / POWER " & _t5 & " / SUIT " & Str(city.shield) & " / Q SCAN", 12)
+		_text(Vector2(22, 47), "JASON / ORAC ONLINE / POWER " & _t5 & " / SUIT " & Str(city.shield) & " / H SCAN", 12)
 	Else
 		_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
 	End If
@@ -271,7 +271,7 @@ Sub _draw()
 		draw_rect(Rect2(0, 495, 960, 45), Color(0.005, 0.015, 0.025, 0.9))
 		_text(Vector2(20, 520), city.prompt(), 14)
 	Else
-		_text(Vector2(225, 86), "F EXIT / E USE / V INSPECT", 12)
+		_text(Vector2(225, 86), "F EXIT / V INSPECT", 12)
 	End If
 	If city.message_left > 0 Then
 		draw_rect(Rect2(14, 72, 932, 38), Color(0.005, 0.01, 0.02, 0.87))

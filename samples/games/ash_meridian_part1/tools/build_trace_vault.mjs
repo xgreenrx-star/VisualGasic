@@ -71,6 +71,21 @@ for (const [id, props] of [
 shader = ExtResource("panel")
 ${props}
 `);
+for (const [id, part] of [['feb_suit_body', 0], ['feb_suit_arm', 1], ['feb_suit_head', 2], ['feb_suit_helmet', 3]]) emit(`materials/${id}.tres`, `[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="${res}/feb_suit.gdshader" id="suit"]
+
+[resource]
+shader = ExtResource("suit")
+shader_parameter/part = ${part}
+`);
+emit('materials/feb_eye.tres', `[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="${res}/feb_eye.gdshader" id="eye"]
+
+[resource]
+shader = ExtResource("eye")
+`);
 emit('materials/pod_glass.tres', `[gd_resource type="StandardMaterial3D" format=3]
 
 [resource]
@@ -86,26 +101,14 @@ rim_enabled = true
 rim = 0.6
 `);
 // Soft round puff for the stasis fog particles; fades via the emitter colour ramp.
-emit('materials/fog_puff.tres', `[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+// Additive shader fog: puffs can only add light, so no dark sorting blobs against the pod glass.
+emit('materials/fog_puff.tres', `[gd_resource type="ShaderMaterial" load_steps=2 format=3]
 
-[sub_resource type="Gradient" id="g"]
-offsets = PackedFloat32Array(0, 1)
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
-
-[sub_resource type="GradientTexture2D" id="t"]
-gradient = SubResource("g")
-fill = 1
-fill_from = Vector2(0.5, 0.5)
-fill_to = Vector2(1, 0.5)
+[ext_resource type="Shader" path="${res}/fog_puff.gdshader" id="fog"]
 
 [resource]
-transparency = 1
-shading_mode = 0
-cull_mode = 2
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.72, 0.92, 1, 0.42)
-albedo_texture = SubResource("t")
-billboard_mode = 3
+render_priority = 1
+shader = ExtResource("fog")
 `);
 // Additive light columns for relays/docks; the controller swaps the material to show state.
 for (const [id, color] of [['beacon_cyan', '0.2, 0.9, 1'], ['beacon_white', '0.85, 0.95, 1'], ['beacon_amber', '1, 0.55, 0.15'], ['beacon_dim', '0.12, 0.22, 0.28']]) emit(`materials/${id}.tres`, `[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
@@ -518,61 +521,34 @@ albedo_color = Color(0.32, 0.82, 1, 0.075)
 	s.save([1.65, 2.65, 0.72], 'Greg: heavy service robot reserved for a later part. Same pivot rig as the old FEB stand-in; not used by the Trace Cycle scene.');
 }
 {
-	// FEB: a human program in a pale Trace suit with cyan circuit lines. Front is -Z.
+	// FEB: a human program in a black Trace suit with cyan circuit lines. Front is -Z.
+	// Body pieces are cut from the CC0 Blender Human Base Meshes (tools/feb_mesh.py) and
+	// placed so each piece's object space is the figure frame; feb_suit.gdshader draws the lines.
+	const rig = JSON.parse(fs.readFileSync(path.join(root, 'meshes/feb_rig.json'), 'utf8'));
 	const s = new Scene('feb');
 	s.group('VisualRoot');
 	const V = 'VisualRoot';
-	for (const side of [-1, 1]) {
-		const x = side * 0.1;
-		s.capsule(`Thigh${side}`, [x, 0.71, 0], 0.075, 0.46, 'suit', V);
-		s.sphere(`Knee${side}`, [x, 0.49, -0.01], 0.065, 'suit_dark', V);
-		s.capsule(`Shin${side}`, [x, 0.28, 0], 0.06, 0.44, 'suit', V);
-		s.box(`Boot${side}`, [x, 0.045, -0.035], [0.11, 0.09, 0.26], 'suit_dark', V);
-		s.box(`BootLine${side}`, [x, 0.092, -0.035], [0.112, 0.008, 0.262], 'cyan', V);
-		s.box(`ThighLine${side}`, [x + side * 0.022, 0.72, -0.072], [0.01, 0.34, 0.01], 'cyan', V);
-		s.box(`ShinLine${side}`, [x + side * 0.018, 0.29, -0.058], [0.01, 0.3, 0.01], 'cyan', V);
-		s.box(`OuterLegLine${side}`, [x + side * 0.074, 0.5, 0], [0.01, 0.8, 0.012], 'cyan', V);
-	}
-	s.cylinder('Hips', [0, 0.93, 0], 0.15, 0.17, 'suit', V, [0, 0, 0], 0.125);
-	s.box('HipLine', [0, 0.9, -0.14], [0.2, 0.01, 0.01], 'cyan', V);
-	s.cylinder('Waist', [0, 1.08, 0], 0.115, 0.22, 'suit', V, [0, 0, 0], 0.13);
-	s.torus('Belt', [0, 1.0, 0], 0.118, 0.134, 'cyan', V);
-	s.capsule('Chest', [0, 1.31, 0], 0.155, 0.48, 'suit', V);
-	s.capsule('Shoulders', [0, 1.49, 0], 0.08, 0.44, 'suit', V, [0, 0, 90]);
-	s.box('Collar', [0, 1.54, 0], [0.16, 0.04, 0.13], 'suit_dark', V);
-	for (const side of [-1, 1]) {
-		s.box(`ChestV${side}`, [side * 0.055, 1.37, -0.148], [0.012, 0.22, 0.01], 'cyan', V, [0, 0, side * 24]);
-		s.box(`RibLine${side}`, [side * 0.12, 1.24, -0.105], [0.01, 0.2, 0.01], 'cyan', V, [0, side * 30, 0]);
-	}
-	s.box('SternumLine', [0, 1.18, -0.148], [0.012, 0.18, 0.01], 'cyan', V);
-	s.cylinder('ChestCore', [0, 1.27, -0.152], 0.028, 0.012, 'white', V, [90, 0, 0]);
-	s.cylinder('BackDisc', [0, 1.36, 0.16], 0.1, 0.02, 'suit_dark', V, [90, 0, 0]);
-	s.torus('BackDiscRing', [0, 1.36, 0.172], 0.078, 0.098, 'cyan', V, [90, 0, 0]);
-	s.cylinder('Neck', [0, 1.6, 0], 0.048, 0.12, 'skin', V);
-	const head = s.group('HeadPivot', V, [0, 1.64, 0]);
-	s.sphere('Skull', [0, 0.11, 0.005], 0.1, 'skin', head, [0, 0, 0], 0.24);
-	s.sphere('Helmet', [0, 0.125, 0.012], 0.108, 'suit', head, [0, 0, 0], 0.108, true);
-	s.torus('HelmetBrim', [0, 0.128, 0.012], 0.104, 0.114, 'cyan', head);
-	s.box('HelmetRidge', [0, 0.232, 0.01], [0.02, 0.022, 0.2], 'suit_dark', head);
-	s.box('RidgeLine', [0, 0.244, 0.01], [0.006, 0.006, 0.19], 'cyan', head);
-	for (const side of [-1, 1]) {
-		s.box(`EarGuard${side}`, [side * 0.1, 0.1, 0.015], [0.022, 0.09, 0.07], 'suit', head);
-		s.box(`EarLine${side}`, [side * 0.112, 0.1, 0.015], [0.004, 0.06, 0.04], 'cyan', head);
-		s.box(`Eye${side}`, [side * 0.034, 0.112, -0.094], [0.026, 0.009, 0.008], 'hair', head);
-		s.box(`Brow${side}`, [side * 0.034, 0.13, -0.096], [0.03, 0.007, 0.01], 'hair', head);
-	}
-	s.box('Nose', [0, 0.088, -0.103], [0.018, 0.04, 0.02], 'skin', head, [-10, 0, 0]);
-	s.box('Mouth', [0, 0.046, -0.094], [0.036, 0.006, 0.008], 'hair', head);
-	s.box('Jaw', [0, 0.03, -0.035], [0.12, 0.05, 0.11], 'skin', head);
-	for (const [name, side] of [['ServiceArmPivot', -1], ['ThermalArmPivot', 1]]) {
-		const arm = s.group(name, V, [side * 0.22, 1.49, 0]);
-		s.torus('ShoulderRing', [side * 0.01, 0, 0], 0.062, 0.082, 'cyan', arm, [0, 0, 90]);
-		s.capsule('UpperArm', [side * 0.02, -0.17, 0], 0.055, 0.32, 'suit', arm, [0, 0, side * 4]);
-		s.capsule('Forearm', [side * 0.035, -0.45, -0.01], 0.047, 0.3, 'suit', arm);
-		s.box('ArmLine', [side * 0.083, -0.3, 0], [0.008, 0.5, 0.01], 'cyan', arm);
-		s.box('Glove', [side * 0.035, -0.65, -0.01], [0.055, 0.11, 0.075], 'suit_dark', arm);
-		s.torus('Cuff', [side * 0.035, -0.58, -0.01], 0.05, 0.064, side < 0 ? 'cyan' : 'amber', arm);
-		if (side > 0) s.marker('ThermalSocket', [0.035, -0.62, -0.01], arm);
+	const piece = (name, file, mat, parent, pivot = [0, 0, 0]) => {
+		const id = s.resource('ArrayMesh', `${res}/meshes/${file}.obj`);
+		const m = s.resource('Material', `${res}/materials/${mat}.tres`);
+		s.pieces++;
+		s.node(name, 'MeshInstance3D', parent, `position = ${vec(pivot.map(v => -v))}\nmesh = ExtResource("${id}")\nmaterial_override = ExtResource("${m}")\ncast_shadow = 0`);
+	};
+	piece('Body', 'feb_body', 'feb_suit_body', V);
+	s.cylinder('ChestCore', [0, 1.27, rig.chest_z_127 - 0.004], 0.022, 0.008, 'white', V, [90, 0, 0]);
+	s.cylinder('BackDisc', [0, 1.36, rig.back_z_136 + 0.004], 0.085, 0.014, 'suit_dark', V, [90, 0, 0]);
+	s.torus('BackDiscRing', [0, 1.36, rig.back_z_136 + 0.012], 0.066, 0.078, 'cyan', V, [90, 0, 0]);
+	const head = s.group('HeadPivot', V, rig.head_pivot);
+	piece('Head', 'feb_head', 'feb_suit_head', head, rig.head_pivot);
+	piece('Eyes', 'feb_eyes', 'feb_eye', head, rig.head_pivot);
+	piece('Helmet', 'feb_helmet', 'feb_suit_helmet', head, rig.head_pivot);
+	for (const [name, side, key] of [['ServiceArmPivot', -1, 'arm_l'], ['ThermalArmPivot', 1, 'arm_r']]) {
+		const a = rig[key];
+		const arm = s.group(name, V, a.pivot);
+		piece('Arm', `feb_${key}`, 'feb_suit_arm', arm, a.pivot);
+		// Dark joint filler: hides the torso cut edge when the arm pivots during the awakening pose.
+		s.sphere(`ShoulderJoint${side}`, a.pivot.map((v, i) => v - [side * 0.03, 0.035, 0][i]), 0.075, 'suit_dark', V);
+		if (side > 0) s.marker('ThermalSocket', a.hand.map((v, i) => v - a.pivot[i]), arm);
 	}
 	s.marker('CameraTarget', [0, 1.5, 0]);
 	s.save([0.56, 1.88, 0.34], 'Human FEB in a Trace suit. Awakening rig only: HeadPivot and two independent arm pivots; no locomotion skeleton or gameplay collision.');
@@ -620,13 +596,13 @@ albedo_color = Color(0.32, 0.82, 1, 0.075)
 	// Fog emitters stay idle until the controller sets `emitting` when the coupler is pulled.
 	const fogGroup = s.group('Fog', cap);
 	const fogMat = s.resource('Material', `${res}/materials/fog_puff.tres`);
-	const quad = s.subresource('QuadMesh', 'size = Vector2(0.55, 0.55)');
+	const quad = s.subresource('QuadMesh', 'size = Vector2(0.8, 0.8)');
 	const ramp = s.subresource('Gradient', 'offsets = PackedFloat32Array(0, 0.2, 0.7, 1)\ncolors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.8, 1, 1, 1, 0.35, 1, 1, 1, 0)');
 	const grow = s.subresource('Curve', '_data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]\npoint_count = 2');
 	for (const [name, pos, extents, amount, dir] of [
-		['CrackFog', [0, yc, zc - R - 0.03], [0.02, H * 0.45, 0.02], 34, [0, -0.25, -1]],
-		['BaseFogLeft', [-0.8, 0.35, -0.55], [0.18, 0.04, 0.12], 16, [-0.4, 0, -1]],
-		['BaseFogRight', [0.8, 0.35, -0.55], [0.18, 0.04, 0.12], 16, [0.4, 0, -1]],
+		['CrackFog', [0, yc, zc - R - 0.03], [0.02, H * 0.45, 0.02], 48, [0, -0.25, -1]],
+		['BaseFogLeft', [-0.8, 0.35, -0.55], [0.18, 0.04, 0.12], 24, [-0.4, 0, -1]],
+		['BaseFogRight', [0.8, 0.35, -0.55], [0.18, 0.04, 0.12], 24, [0.4, 0, -1]],
 	]) {
 		s.node(name, 'CPUParticles3D', fogGroup, `position = ${vec(pos)}\nmaterial_override = ExtResource("${fogMat}")\ncast_shadow = 0\nemitting = false\namount = ${amount}\nlifetime = 4.0\nmesh = SubResource("${quad}")\nemission_shape = 3\nemission_box_extents = ${vec(extents)}\ndirection = ${vec(dir)}\nspread = 30.0\ngravity = Vector3(0, -0.12, 0)\ninitial_velocity_min = 0.12\ninitial_velocity_max = 0.4\ndamping_min = 0.05\ndamping_max = 0.12\nscale_amount_min = 0.7\nscale_amount_max = 1.6\nscale_amount_curve = SubResource("${grow}")\ncolor_ramp = SubResource("${ramp}")`);
 	}
@@ -644,7 +620,10 @@ albedo_color = Color(0.32, 0.82, 1, 0.075)
 	s.marker('WarningPanel', [0, 3.95, -0.1]);
 	s.box('SocketHousing', [1.85, 0.8, -0.4], [0.65, 1.6, 0.65], 'armor');
 	s.body('SocketCollision', [1.85, 0.8, -0.4], [0.65, 1.6, 0.65]);
-	s.box('SocketTrim', [1.85, 1.2, -0.74], [0.44, 0.42, 0.04], 'amber');
+	// Dark faceplate with a thin amber frame and recess ring, so the coupler socket reads as a lit port, not a slab.
+	s.box('SocketTrim', [1.85, 1.2, -0.74], [0.44, 0.42, 0.04], 'facet');
+	s.outline('SocketFrame', [1.85, 1.2, -0.765], [0.4, 0.38, 0.0], 'amber', '.', 0.014, ['top', 'bottom', 'vertical']);
+	s.torus('SocketRing', [1.85, 1.2, -0.77], 0.165, 0.185, 'amber', '.', [90, 0, 0]);
 	s.cylinder('SocketRecess', [1.85, 1.2, -0.79], 0.16, 0.06, 'dark', '.', [90, 0, 0]);
 	s.save([4.0, 3.9, 3], 'Standby cradle with a glass stasis capsule. Insert FEB at FigureMount. Capsule/LidLeft and Capsule/LidRight pivot on Y at the side hinges; Capsule/Fog/* are idle CPUParticles3D emitters. Clamp rotations are independent. Collision unchanged.');
 }
@@ -1212,7 +1191,7 @@ const gateX = [7, 23];
 
 emit('manifest.json', JSON.stringify({
 	version: 1, status: 'original_model_kit_for_isolated_integration',
-	format: 'Native Godot scenes and primitive mesh resources, no runtime generator or external model dependencies',
+	format: 'Native Godot scenes and primitive mesh resources, no runtime generator. Exception: FEB body pieces in meshes/*.obj are cut by tools/feb_mesh.py from the CC0 Blender Human Base Meshes bundle v1.0.0',
 	ownership: 'Assistant-authored art. Cursor implements VG behavior, never regenerates or replaces these models.',
 	collision: { scenery_layer: 1, invisible_support_layer: 4, cycle_layer: 2, cycle_mask: 1 },
 	assets,

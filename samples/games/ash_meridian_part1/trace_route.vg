@@ -30,6 +30,7 @@ Dim orac_online As Boolean
 Dim local_codes As Array
 Dim controller As Object
 Dim controller_bound As Boolean
+Dim alias_yard_docks As Boolean
 
 ' Empty first-visit route. The physical FEB starts alive and stays alive.
 Sub reset()
@@ -52,6 +53,7 @@ Sub reset()
 	orac_online = True
 	local_codes = Array(STORAGE_CODE, MAINTENANCE_CODE, LABORATORY_CODE)
 	controller_bound = False
+	alias_yard_docks = False
 	Call clear_controller()
 End Sub
 
@@ -97,7 +99,7 @@ Function snapshot() As Dictionary
 	Dim result As Dictionary
 	result = New Dictionary
 	result.Add("stage", stage_name)
-	result.Add("checkpoint", checkpoint_id)
+	result.Add("checkpoint", ExternalCheckpoint(checkpoint_id))
 	result.Add("cradle_unlocked", cradle_unlocked)
 	result.Add("outbound_complete", outbound_complete)
 	result.Add("vault_entered", vault_entered)
@@ -224,7 +226,7 @@ Function validate_snapshot(ByVal data As Variant) As Boolean
 		If Not data.has(field_name) Then Return reject("Trace Cycle save is missing " & field_name & ".")
 	Next
 	If Not Array("yard_archives", "outbound_ready", "outbound_crossing", "vault_facility", "first_escape", "return_crossing", "near_dock", "first_departure").has(data.stage) Then Return reject("Unknown Trace Cycle stage.")
-	If Not Array("near_cradle", "vault", "far_dock").has(data.checkpoint) Then Return reject("Unknown Trace Cycle checkpoint.")
+	If Not Array("near_cradle", "vault", "far_dock", "yard_dock").has(data.checkpoint) Then Return reject("Unknown Trace Cycle checkpoint.")
 	If TypeName(data.cradle_unlocked) <> "Boolean" Or TypeName(data.feb_alive) <> "Boolean" Then Return reject("Invalid Trace Cycle flag.")
 	If data.cores < 0 Or data.cores > 3 Then Return reject("Invalid core count.")
 	If data.timer_remaining < 0 Or data.timer_remaining > 255 Then Return reject("Invalid facility timer.")
@@ -234,7 +236,7 @@ Function validate_snapshot(ByVal data As Variant) As Boolean
 	If Not data.reserve_protected Then Return reject("Protected engineering reserve cannot be cleared.")
 	If data.timer_started And data.stage <> "first_escape" Then Return reject("Facility timer is only live during the underground escape.")
 	If data.stage = "first_escape" And Not data.timer_started Then Return reject("Escape has no facility timer.")
-	If data.checkpoint = "far_dock" And Not data.facility_cleared Then Return reject("Far-dock checkpoint requires a finished facility escape.")
+	If InternalCheckpoint(data.checkpoint, data.facility_cleared) = "far_dock" And Not data.facility_cleared Then Return reject("Far-dock checkpoint requires a finished facility escape.")
 	If visit_number <> 1 Then Return reject("This route increment is first-visit only.")
 	If Not orac_online Then Return reject("Orac must remain online during the first expedition.")
 	Return True
@@ -246,7 +248,7 @@ Function apply_snapshot(ByVal data As Dictionary) As Boolean
 	was_riding = data.riding
 	last_error = ""
 	stage_name = data.stage
-	checkpoint_id = data.checkpoint
+	checkpoint_id = InternalCheckpoint(data.checkpoint, data.facility_cleared)
 	cradle_unlocked = data.cradle_unlocked
 	outbound_complete = data.outbound_complete
 	vault_entered = data.vault_entered
@@ -283,6 +285,36 @@ Sub restore_to_last_dock()
 	If Not cradle_unlocked Then stage_name = "yard_archives"
 End Sub
 
+' TRACE YARD persist names. Crossing dest keeps near_cradle / far_dock.
+Function ExternalCheckpoint(ByVal name As String) As String
+	If Not alias_yard_docks Then
+		ExternalCheckpoint = name
+		Exit Function
+	End If
+	If name = "near_cradle" Then
+		ExternalCheckpoint = "yard_dock"
+		Exit Function
+	End If
+	If name = "far_dock" Then
+		ExternalCheckpoint = "vault"
+		Exit Function
+	End If
+	ExternalCheckpoint = name
+End Function
+
+' Read yard_dock as near_cradle. After escape, TRACE YARD vault means the dock.
+Function InternalCheckpoint(ByVal name As String, ByVal cleared As Boolean) As String
+	If name = "yard_dock" Then
+		InternalCheckpoint = "near_cradle"
+		Exit Function
+	End If
+	If alias_yard_docks And name = "vault" And cleared Then
+		InternalCheckpoint = "far_dock"
+		Exit Function
+	End If
+	InternalCheckpoint = name
+End Function
+
 ' First-release riding saves keep the last safe dock only.
 Function last_safe_dock() As String
 	If checkpoint_id = "far_dock" Then Return "far_dock"
@@ -302,13 +334,13 @@ Function persistable_snapshot() As Dictionary
 	data("riding") = False
 	If checkpoint_id = "far_dock" Then
 		data("stage") = "return_crossing"
-		data("checkpoint") = "far_dock"
+		data("checkpoint") = ExternalCheckpoint("far_dock")
 	ElseIf checkpoint_id = "vault" Then
 		data("stage") = "vault_facility"
-		data("checkpoint") = "vault"
+		data("checkpoint") = ExternalCheckpoint("vault")
 	Else
 		data("stage") = "outbound_ready"
-		data("checkpoint") = "near_cradle"
+		data("checkpoint") = ExternalCheckpoint("near_cradle")
 	End If
 	Return data
 End Function

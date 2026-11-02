@@ -19,6 +19,11 @@ Dim yard_key As Variant
 Dim building_yard As Variant
 Dim rebuild_count As Variant
 Dim cockpit_view As SubViewport
+' Mouse look for on-foot scenes: part1 fills these once per frame while the
+' pointer is captured; walk controllers read them during their tick.
+Dim look_dx As Single
+Dim look_dy As Single
+Dim look_click As Boolean
 Dim buggy_view As SubViewport
 Dim ship_instruments As Node2D
 Dim buggy_instruments As Node2D
@@ -211,6 +216,7 @@ Sub EnsureInit()
 	PINK = Color(1.0, 0.24, 0.78)
 	KEYS = Array(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_F, KEY_E, KEY_V, KEY_BACKSPACE, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9)
 	KEYS.append(KEY_Q)
+	KEYS.append(KEY_H)
 	KEYS.append(KEY_F10)
 	KEYS.append(KEY_R)
 	KEYS.append(KEY_I)

@@ -123,10 +123,18 @@ Dim feb As Object
 Dim pod_t As Single
 Dim pod_active As Boolean
 Dim pod_fog_on As Boolean
+Dim pod_sfx As Object
+Dim orac_alert As Object
+Dim orac_alerted As Boolean
+Dim orac_sub_t As Single
 Dim core_bank As Object
 Dim coupler As Object
 Dim walker As Object
 Dim walk_heading As Single
+Dim walk_pitch As Single
+Dim f6_look_dx As Single
+Dim f6_look_dy As Single
+Dim f6_click_was As Boolean
 Dim area_name As String
 Dim prompt As String
 Dim red_mat As Object
@@ -293,6 +301,7 @@ Sub start_test(ByVal start_mode As String)
 	yard_save_released = False
 	yard_save_translator = False
 	lock_open = False
+	walk_pitch = 0.0
 	lock_entry = ""
 	lock_flash_t = 0.0
 	nearby_hud = ""
@@ -1118,6 +1127,10 @@ Sub RestoreVaultProps()
 	pod_active = False
 	pod_t = 0.0
 	pod_fog_on = False
+	orac_alerted = False
+	orac_sub_t = 0.0
+	If pod_sfx <> Nothing Then pod_sfx.stop()
+	If orac_alert <> Nothing Then orac_alert.stop()
 	Call PosePod(0.0)
 End Sub
 
@@ -1181,6 +1194,21 @@ Sub TickPod(ByVal delta As Single)
 	If Not pod_active Then Exit Sub
 	pod_t = pod_t + delta
 	Call PosePod(pod_t)
+	If pod_t >= 5.0 And Not orac_alerted Then
+		orac_alerted = True
+		orac_sub_t = 4.0
+		If orac_alert <> Nothing Then
+			If orac_alert.stream <> Nothing Then orac_alert.play()
+		End If
+		Call RefreshHud()
+	End If
+	If orac_sub_t > 0.0 Then
+		orac_sub_t = orac_sub_t - delta
+		If orac_sub_t <= 0.0 Then
+			orac_sub_t = 0.0
+			Call RefreshHud()
+		End If
+	End If
 	If pod_t > 10.0 Then pod_active = False
 End Sub
 
@@ -1382,7 +1410,7 @@ Sub enter_lift()
 	Else
 		Call PlaceWalkerFacing(pose, pose)
 	End If
-	prompt = "E DEEP LIFT"
+	prompt = "F DEEP LIFT"
 	Call AimRideCamera(0.05)
 	Call RefreshHud()
 End Sub
@@ -1402,7 +1430,7 @@ Sub enter_vault()
 	Else
 		Call PlaceWalker(pose, 0.0)
 	End If
-	prompt = "E TAKE CORE / COUPLER"
+	prompt = "F TAKE CORE / COUPLER"
 	Call AimRideCamera(0.05)
 	Call RefreshHud()
 End Sub
@@ -1426,8 +1454,13 @@ Sub take_coupler()
 	If coupler <> Nothing Then coupler.visible = False
 	pod_t = 0.0
 	pod_active = True
+	orac_alerted = False
+	orac_sub_t = 0.0
 	Call PosePod(0.0)
-	prompt = "E EXIT  255"
+	If pod_sfx <> Nothing Then
+		If pod_sfx.stream <> Nothing Then pod_sfx.play()
+	End If
+	prompt = "F EXIT  255"
 	Call AimRideCamera(0.05)
 	Call RefreshHud()
 End Sub
@@ -1450,7 +1483,7 @@ Sub exit_facility()
 		Call PlaceWalkerFacing(crossing.get_node("VaultLift"), crossing.get_node("VaultCradle"))
 	End If
 	If walker <> Nothing Then walker.visible = True
-	prompt = "E BOARD THE CYCLE"
+	prompt = "F BOARD THE CYCLE"
 	Call AimRideCamera(0.05)
 	Call RefreshHud()
 End Sub
@@ -1458,6 +1491,7 @@ End Sub
 Sub BoardCycle()
 	If ride_state <> "on_foot" Then Exit Sub
 	If Not route.facility_cleared Then Exit Sub
+	If route.stage_name = "near_dock" Then Exit Sub
 	If walker <> Nothing Then walker.visible = False
 	If player <> Nothing Then player.visible = True
 	area_name = "crossing"
@@ -1517,6 +1551,7 @@ Sub reset_run()
 	Call clear_trails()
 	Call clear_test_walls()
 	route.reset()
+	If yard_field Then route.alias_yard_docks = True
 	route.advance("symbols_entered")
 	ride_state = "docked"
 	dock_id = HomeDock()
@@ -1822,13 +1857,75 @@ Function Held(ByVal code As Integer) As Boolean
 	Return IsKeyPressed(code)
 End Function
 
+' Vector Crypt style mouse look while on foot. In the campaign part1 owns
+' pointer capture and hands deltas over via host; F6 runs capture here.
+Function WantsMouseLook() As Boolean
+	If ignore_input Or Not running Then Return False
+	If IsPaused() Then Return False
+	If ride_state <> "on_foot" Then Return False
+	If lock_open Then Return False
+	Return True
+End Function
+
+Sub _Input(ByVal ev As Object)
+	If mode <> "f6" Then Exit Sub
+	If Input.mouse_mode <> Input.MOUSE_MODE_CAPTURED Then Exit Sub
+	If ev Is InputEventMouseMotion Then
+		f6_look_dx = f6_look_dx + ev.relative.x
+		f6_look_dy = f6_look_dy + ev.relative.y
+	End If
+End Sub
+
+Sub SyncF6Mouse()
+	Dim want As Boolean
+	If DisplayServer.get_name() = "headless" Then Exit Sub
+	want = WantsMouseLook()
+	If want And Input.mouse_mode <> Input.MOUSE_MODE_CAPTURED Then
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		f6_look_dx = 0.0
+		f6_look_dy = 0.0
+	ElseIf Not want And Input.mouse_mode = Input.MOUSE_MODE_CAPTURED Then
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	End If
+End Sub
+
+Function LookClick() As Boolean
+	Dim down As Boolean
+	If mode = "f6" Then
+		down = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		LookClick = down And Not f6_click_was And Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		f6_click_was = down
+		Exit Function
+	End If
+	If host Is Nothing Then Return False
+	Return host.look_click
+End Function
+
+Sub ApplyMouseLook()
+	Dim dx As Single
+	Dim dy As Single
+	If mode = "f6" Then
+		dx = f6_look_dx
+		dy = f6_look_dy
+		f6_look_dx = 0.0
+		f6_look_dy = 0.0
+	ElseIf Not (host Is Nothing) Then
+		dx = host.look_dx
+		dy = host.look_dy
+	End If
+	walk_heading = WrapAngle(walk_heading + dx * 0.0042)
+	walk_pitch = walk_pitch - dy * 0.0036
+	If walk_pitch > 1.1 Then walk_pitch = 1.1
+	If walk_pitch < -1.1 Then walk_pitch = -1.1
+End Sub
+
 Sub ReadPlayer(ByVal delta As Single)
 	If ignore_input Then Exit Sub
-	If IsPaused() Then Exit Sub
 	If mode = "f6" And IsKeyJustPressed(KEY_ESCAPE) Then
 		paused = Not paused
 		Exit Sub
 	End If
+	If IsPaused() Then Exit Sub
 	If Tap(KEY_F3) Then
 		debug_hud = Not debug_hud
 		If hud_label <> Nothing Then hud_label.visible = debug_hud
@@ -1863,15 +1960,19 @@ Sub ReadPlayer(ByVal delta As Single)
 			Call ReadLockKeys()
 			Exit Sub
 		End If
-		If Tap(KEY_E) Then Call InteractFoot()
+		If Tap(KEY_F) Or LookClick() Then Call InteractFoot()
 		If Held(KEY_A) Or Held(KEY_LEFT) Then walk_heading = WrapAngle(walk_heading - delta * 2.2)
 		If Held(KEY_D) Or Held(KEY_RIGHT) Then walk_heading = WrapAngle(walk_heading + delta * 2.2)
+		Call ApplyMouseLook()
 		Exit Sub
 	End If
 	If ride_state = "docked" Or ride_state = "boarding" Then
-		If Tap(KEY_E) Then
+		If Tap(KEY_E) Or Tap(KEY_F) Then
 			If (dock_id = "far" Or dock_id = "vault") And Not route.facility_cleared Then
 				Call enter_lift()
+			ElseIf ride_state = "docked" And route.stage_name = "near_dock" Then
+				Call DismountAtNearDock()
+				Exit Sub
 			Else
 				Call launch()
 			End If
@@ -1977,6 +2078,7 @@ Sub tick(ByVal delta As Single)
 	If delta < 0 Then delta = 0
 	If auto_speed >= MIN_SPEED And ride_state = "riding" Then speed = auto_speed
 	Call ReadPlayer(delta)
+	If mode = "f6" Then Call SyncF6Mouse()
 	If IsPaused() Then
 		Call ApplyVisuals(0.0)
 		Call AimRideCamera(delta)
@@ -2517,6 +2619,7 @@ End Sub
 Sub InteractFoot()
 	Dim i As Integer
 	Dim node As Object
+	If route.stage_name = "near_dock" Then Exit Sub
 	If yard_field And area_name = "crossing" Then
 		Call InteractYardDock()
 		Exit Sub
@@ -2565,16 +2668,22 @@ End Sub
 Sub TickWalk(ByVal delta As Single)
 	Dim motion As Vector3
 	Dim fwd As Vector3
+	Dim side As Vector3
 	Dim pace As Single
+	Dim strafe As Single
 	If lock_open Then
 		Call RefreshYardWalkPrompt()
 		Exit Sub
 	End If
 	pace = 0.0
+	strafe = 0.0
 	If Held(KEY_W) Or Held(KEY_UP) Then pace = pace + 6.2
 	If Held(KEY_S) Or Held(KEY_DOWN) Then pace = pace - 4.0
+	If Held(KEY_E) Then strafe = strafe + 4.6
+	If Held(KEY_Q) Then strafe = strafe - 4.6
 	fwd = ForwardOf(walk_heading)
-	motion = Vector3(fwd.x * pace * delta, 0.0, fwd.z * pace * delta)
+	side = Vector3(Cos(walk_heading), 0.0, Sin(walk_heading))
+	motion = Vector3((fwd.x * pace + side.x * strafe) * delta, 0.0, (fwd.z * pace + side.z * strafe) * delta)
 	Call MoveWalk(motion)
 	If walker <> Nothing Then
 		If Not OnWalkDeck(walker.global_position) Then
@@ -2584,16 +2693,16 @@ Sub TickWalk(ByVal delta As Single)
 	End If
 	If area_name = "lobby" Then
 		If route.facility_cleared Then
-			prompt = "E BOARD THE CYCLE"
+			prompt = "F BOARD THE CYCLE"
 		Else
-			prompt = "E DEEP LIFT"
+			prompt = "F DEEP LIFT"
 		End If
 	ElseIf yard_field And area_name = "crossing" Then
 		Call RefreshYardWalkPrompt()
 	ElseIf route.coupler_taken Then
-		prompt = "E EXIT   " & Str(Int(route.timer_remaining + 0.5))
+		prompt = "F EXIT   " & Str(Int(route.timer_remaining + 0.5))
 	Else
-		prompt = "E TAKE CORE / COUPLER"
+		prompt = "F TAKE CORE / COUPLER"
 	End If
 End Sub
 
@@ -3295,6 +3404,15 @@ Sub MakeCueBank()
 	capture_stream = MakeTone(880.0, 1320.0, 0.18, False)
 	arm_stream = MakeTone(1560.0, 1560.0, 0.05, False)
 	wipe_stream = MakeTone(420.0, 140.0, 0.32, True)
+	pod_sfx = ClassDB.Instantiate("AudioStreamPlayer")
+	pod_sfx.name = "PodAwakenSfx"
+	pod_sfx.volume_db = -4.0
+	If FileExists("res://assets/trace_vault/audio/pod_awaken.ogg") Then pod_sfx.stream = Load("res://assets/trace_vault/audio/pod_awaken.ogg")
+	add_child(pod_sfx)
+	orac_alert = ClassDB.Instantiate("AudioStreamPlayer")
+	orac_alert.name = "OracAlert"
+	If FileExists("res://assets/trace_vault/audio/orac_run.ogg") Then orac_alert.stream = Load("res://assets/trace_vault/audio/orac_run.ogg")
+	add_child(orac_alert)
 	last_cue = ""
 	pulse_t = 0.0
 	pad_flash_i = -1
@@ -3575,7 +3693,9 @@ Sub AimRideCamera(ByVal delta As Single)
 		If look.distance_to(cam_pos) > 0.05 Then ride_camera.look_at(look, Vector3(0, 1, 0))
 	ElseIf (ride_state = "on_foot" Or ride_state = "falling") And walker <> Nothing Then
 		look = walker.global_position + Vector3(0.0, 1.55, 0.0)
-		desired = look - ForwardOf(walk_heading) * 0.12
+		fwd = ForwardOf(walk_heading)
+		desired = look - fwd * 0.12
+		look = desired + Vector3(fwd.x * Cos(walk_pitch), Sin(walk_pitch), fwd.z * Cos(walk_pitch))
 		ride_camera.fov = 60.0
 		ride_camera.cull_mask = NO_COCKPIT_MASK
 		cam_pos = desired
@@ -3854,17 +3974,17 @@ Function Objective() As String
 	If ride_state = "inspect" Then Exit Function
 	If area_name = "vault" And ride_state = "on_foot" Then
 		If route.coupler_taken Then
-			Objective = "OBJECTIVE  CARRY THE COUPLER OUT - WALK TO THE EXIT, PRESS E"
+			Objective = "OBJECTIVE  CARRY THE COUPLER OUT - WALK TO THE EXIT, PRESS F"
 		Else
-			Objective = "OBJECTIVE  TAKE THE CORE AND THE COUPLER - PRESS E"
+			Objective = "OBJECTIVE  TAKE THE CORE AND THE COUPLER - PRESS F"
 		End If
 		Exit Function
 	End If
 	If area_name = "lobby" And ride_state = "on_foot" Then
 		If route.facility_cleared Then
-			Objective = "OBJECTIVE  WALK TO THE CYCLE - PRESS E"
+			Objective = "OBJECTIVE  WALK TO THE CYCLE - PRESS F"
 		Else
-			Objective = "OBJECTIVE  WALK INTO THE DEEP LIFT - PRESS E"
+			Objective = "OBJECTIVE  WALK INTO THE DEEP LIFT - PRESS F"
 		End If
 		Exit Function
 	End If
@@ -3956,7 +4076,7 @@ Sub RefreshHud()
 		ElseIf dock_id = "far" And route.facility_cleared Then
 			glass = "E BOARD RETURN CHASE   R RETRY"
 		ElseIf route.stage_name = "near_dock" Then
-			glass = "COUPLER SECURE   R RETRY"
+			glass = "COUPLER SECURE   E DISMOUNT   R RETRY"
 		Else
 			glass = "E LAUNCH   W/S SPEED   I INSPECT"
 		End If
@@ -3965,6 +4085,7 @@ Sub RefreshHud()
 		glass = NextHint() & "   W/S SPEED   A/D TURN"
 		toast = ""
 	End If
+	If toast = "" And orac_sub_t > 0.0 Then toast = "ORAC: OH, THIS IS BAD. DEFENCE GRIDS COMING ONLINE. RUN!"
 	glass_label.text = glass
 	If objective_label <> Nothing Then
 		objective_label.text = Objective()
@@ -3987,7 +4108,7 @@ Sub RefreshHud()
 	End If
 	If crash_label <> Nothing Then
 		crash_label.text = toast
-		crash_label.visible = ride_state = "crashed"
+		crash_label.visible = ride_state = "crashed" Or orac_sub_t > 0.0
 	End If
 	If strip_label <> Nothing Then
 		lines = Str(Int(speed + 0.5)) & " m/s" & Chr(10)
@@ -4571,7 +4692,7 @@ Sub ReleaseCradle()
 	lock_flash_t = 0.0
 	Call RememberYardCheckpoint()
 	Call ApplyLockLight()
-	prompt = "E BOARD THE CYCLE"
+	prompt = "F BOARD THE CYCLE"
 	nearby_hud = ""
 End Sub
 
@@ -4615,6 +4736,31 @@ Sub ReadLockKeys()
 		lock_open = False
 		Call RefreshYardWalkPrompt()
 	End If
+End Sub
+
+' The run is over once the cycle is parked at the near dock: E steps the rider off.
+Sub DismountAtNearDock()
+	Dim pose As Object
+	If ride_state <> "docked" Or route.stage_name <> "near_dock" Then Exit Sub
+	If crossing Is Nothing Then Exit Sub
+	ride_state = "on_foot"
+	speed = 0.0
+	If player <> Nothing Then player.visible = True
+	If yard_field And crossing.has_node("YardDock/BoardPoint") Then
+		pose = crossing.get_node("YardDock/BoardPoint")
+		Call PlaceWalker(pose, HeadingOf(pose))
+	ElseIf yard_field And crossing.has_node("YardDock/ReleasePoint") Then
+		pose = crossing.get_node("YardDock/ReleasePoint")
+		Call PlaceWalker(pose, HeadingOf(pose))
+	ElseIf crossing.has_node("NearCradle/ExitPoint") Then
+		pose = crossing.get_node("NearCradle/ExitPoint")
+		Call PlaceWalker(pose, HeadingOf(pose))
+	Else
+		Call PlaceWalkerFacing(DockPose(dock_id), Nothing)
+	End If
+	prompt = "CYCLE PARKED"
+	Call AimRideCamera(0.05)
+	Call RefreshHud()
 End Sub
 
 Sub BeginYardDockWalk()
@@ -4713,14 +4859,14 @@ Sub RefreshYardWalkPrompt()
 	End If
 	If Not TranslatorOwned() Then
 		If NearTranslatorPickup() Then
-			prompt = "E TAKE TRANSLATOR"
+			prompt = "F TAKE TRANSLATOR"
 			Exit Sub
 		End If
 	End If
 	If Not cradle_released Then
 		If lock_node <> Nothing Then
 			If NodeGap(lock_node) < 2.8 Then
-				prompt = "E RELEASE LOCK"
+				prompt = "F RELEASE LOCK"
 				Exit Sub
 			End If
 		End If
@@ -4731,7 +4877,7 @@ Sub RefreshYardWalkPrompt()
 		End If
 		Exit Sub
 	End If
-	prompt = "E BOARD THE CYCLE"
+	prompt = "F BOARD THE CYCLE"
 End Sub
 
 Function ChargeDrainFor(ByVal spd As Single) As Single

@@ -1,0 +1,158 @@
+' MAX_FRAMES: 30
+' Small FEB face + opening video load. Does not touch Play campaign saves.
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim preview As Object
+Dim face As Object
+Dim packed As Object
+Dim game As Object
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub SpawnPreview()
+	packed = Load("res://ai_face_preview.tscn")
+	preview = packed.instantiate()
+	add_child(preview)
+	preview.set_process(False)
+	face = preview.face
+End Sub
+
+Sub SpawnGame()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_full = False
+End Sub
+
+Function StreamLen(ByVal path As String) As Single
+	Dim player As Object
+	player = ClassDB.Instantiate("VideoStreamPlayer")
+	player.stream = Load(path)
+	StreamLen = player.get_stream_length()
+	player.free()
+End Function
+
+Sub _Ready()
+	Dim stream As Object
+	Dim audio As Object
+	Dim player As Object
+	Dim x0 As Single
+	Dim y0 As Single
+	Dim h0 As Single
+	Dim h1 As Single
+	Dim before As Single
+	Dim term As Object
+	Dim i As Integer
+	stream = Load("res://assets/ai_face/intro_alien_holo.ogv")
+	check(stream <> Nothing, "intro_video_loads")
+	check(stream.get_class() = "VideoStreamTheora", "intro_video_is_theora")
+	player = ClassDB.Instantiate("VideoStreamPlayer")
+	player.stream = stream
+	check(player.get_stream_length() > 15.9 And player.get_stream_length() < 16.1, "intro_video_length_is_16s")
+	player.free()
+	audio = Load("res://assets/ai_face/intro_alien_holo.ogg")
+	check(audio <> Nothing, "intro_audio_ogg_loads")
+	SpawnPreview()
+	check(packed <> Nothing And preview <> Nothing, "preview_scene_loads")
+	check(face <> Nothing, "preview_instantiates_reusable_face_script")
+	check(face.load_face("res://assets/ai_face/alien_face_small.json"), "small_json_loads")
+	check(face.last_error = "", "small_json_has_no_load_error")
+	check(face.feature_count() = 30, "small_face_has_30_features")
+	check(face.segment_count() = 203, "small_face_has_203_segments")
+	check(face.iris_count() = 2, "small_face_has_two_irises")
+	check(face.in_up.size() + face.in_lo.size() >= 8, "mouth_polygon_has_eight_plus_points")
+	check(face.VerticesFinite(), "posed_points_finite_at_rest")
+	face.set_open(0)
+	h0 = face.MouthHeight()
+	face.set_open(1)
+	h1 = face.MouthHeight()
+	check(Abs((h1 - h0) - face.jaw_drop) / face.jaw_drop < 0.25, "mouth_taller_by_about_jaw_drop")
+	face.set_mode("talk")
+	face.set_time(0)
+	face.set_reduced_motion(True)
+	face.set_voice_level(0)
+	check(face.open_amount() >= 0 And face.open_amount() <= 0.001, "voice_clamps_low")
+	face.set_voice_level(0.5)
+	check(Abs(face.open_amount() - 0.5) < 0.04, "voice_keeps_mid_value")
+	face.set_voice_level(1)
+	check(face.open_amount() >= 0.999 And face.open_amount() <= 1.001, "voice_clamps_high")
+	face.set_voice_level(-3)
+	check(face.open_amount() >= 0 And face.open_amount() <= 0.001, "voice_clamps_negative")
+	face.set_voice_level(9)
+	check(face.open_amount() >= 0.999 And face.open_amount() <= 1.001, "voice_clamps_over_one")
+	face.set_mode("idle")
+	face.set_open(0)
+	face.set_time(1.25)
+	x0 = face.PosedX(0, 0)
+	y0 = face.PosedY(0, 0)
+	face.set_time(1.25)
+	check(Abs(face.PosedX(0, 0) - x0) < 0.0001 And Abs(face.PosedY(0, 0) - y0) < 0.0001, "same_time_is_deterministic")
+	face.reset()
+	check(face.anim_time <= 0.0001 And face.open_amount() <= 0.001, "reset_restarts")
+	face.set_time(1.25)
+	check(Abs(face.PosedX(0, 0) - x0) < 0.0001, "replay_does_not_drift")
+	face.set_mode("breakdown")
+	face.set_time(2.0)
+	check(face.FaceVisibility() <= 0.004, "breakdown_end_is_invisible")
+	preview.Replay()
+	preview.Tick(1.2)
+	check(preview.clock > 1.1 And preview.clock < 1.3, "preview_clock_advances")
+	preview.paused = True
+	before = preview.clock
+	preview.Tick(10.0)
+	check(Abs(preview.clock - before) < 0.0001, "pause_does_not_catch_up")
+	preview.paused = False
+	preview.Tick(0.2)
+	check(preview.clock < before + 0.06, "resume_caps_delta")
+	preview.Cleanup()
+	check(preview.face Is Nothing, "cleanup_releases_face")
+	SpawnGame()
+	check(game.phase = 11, "part1_starts_on_boot")
+	term = game.GetNode("BootTerminal")
+	check(term <> Nothing, "boot_terminal_spawns")
+	check(term.GetNode("BootSfx").stream <> Nothing, "boot_audio_loads")
+	term.set_process(False)
+	term.t = 1.0
+	term.Skip()
+	check(term.t > 4.9 And term.t < 5.3 And Not term.finished_boot, "boot_skip_jumps_to_carrier_surge")
+	For i = 1 To 5
+		term._Process(0.1)
+	Next
+	check(term.finished_boot, "boot_finishes_at_push_cut")
+	term.BeginReveal()
+	For i = 1 To 20
+		term._Process(0.1)
+	Next
+	check(term.reveal_t >= 1.6 And term.is_queued_for_deletion(), "boot_push_frees_terminal")
+	game.boot_t = 2.5
+	game.BeginTitleOrFace()
+	check(game.phase = 21, "boot_hands_off_to_face_intro")
+	game.SkipFaceIntro()
+	check(game.face_skipping, "skip_starts_menu_fade")
+	game.TickFaceIntro(0.5)
+	check(game.phase = 12 And game.face_played, "skip_opens_title_once")
+	check(game.face_title_a >= 0.99, "title_is_live_after_skip")
+	game.BeginTitleOrFace()
+	check(game.phase = 12 And game.face_played, "returning_to_title_does_not_replay_intro")
+	game.face_played = False
+	game.opt_reduced = True
+	game.BeginTitleOrFace()
+	check(game.phase = 21 And (game.face_player Is Nothing Or game.face_reduced), "reduced_motion_skips_video")
+	game.face_reduced_t = 1.0
+	game.TickFaceIntro(0.05)
+	check(game.phase = 12 And game.face_played, "reduced_motion_reaches_title")
+	game.queue_free()
+	Print "AI_FACE=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub

@@ -1,6 +1,17 @@
 # Ash Meridian: Trace Cycle, vault and return chase
 
+> **October 31 route/underground direction:** use
+> [Underground levels and route consolidation](ASH_MERIDIAN_UNDERGROUND_HANDOFF.md)
+> for the current plan. It supersedes conflicting progression guidance below.
+> The older combined preview still uses the yard proxy; the actual Play merge
+> and removal of its old local FEB chamber are not implemented.
+
 ## Status and ownership
+
+The November 1 [AI face opening handoff](ASH_MERIDIAN_AI_FACE_HANDOFF.md)
+(v2: holographic alien face → mouth tunnel → title menu) defines a separate
+animation task for the opening and later FEB AI display.
+It does not replace the FEB character model or alter the campaign route.
 
 Prepared October 23, 2026 at the user's request to split work with Cursor.
 This includes the first script-free 3D model kit and an implementation handoff.

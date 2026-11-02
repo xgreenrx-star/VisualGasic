@@ -1,0 +1,88 @@
+' MAX_FRAMES: 24
+' Capture the opening at 3, 9, 14.8 and 16.5 s with the live title.
+Option Explicit
+
+Dim game As Object
+Dim times As Array
+Dim labels As Array
+Dim step As Integer
+Dim out_dir As String
+Dim checks As Integer
+Dim failures As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	times = Array(3.0, 9.0, 14.8, 16.5)
+	labels = Array("03s", "09s", "148s", "165s")
+	step = 0
+	out_dir = OS.get_environment("ASH_FACE_CAPTURE")
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	game.opt_full = False
+	game.boot_t = 2.5
+	game.opt_reduced = False
+	game.BeginTitleOrFace()
+	If game.face_player <> Nothing Then game.face_player.paused = True
+	If DisplayServer.get_name() = "headless" Then
+		Print "AI_FACE_CAPTURE skipped (headless)"
+		GetTree().quit(0)
+	End If
+End Sub
+
+Sub SeekIntro(ByVal seconds As Single)
+	If seconds >= 16.0 Then
+		game.face_played = True
+		game.EnterTitle()
+		Exit Sub
+	End If
+	If game.face_player <> Nothing Then
+		game.face_player.stream_position = seconds
+		If seconds >= 14.6 Then
+			game.face_title_a = game.ClampTitle((seconds - 14.6) / 1.4)
+			game.title_ink = game.face_title_a
+			game.face_played = True
+		Else
+			game.face_title_a = 0.0
+			game.title_ink = 0.0
+		End If
+		game.face_player.QueueRedraw()
+	End If
+	game.QueueRedraw()
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Dim image As Object
+	Dim path As String
+	Dim idx As Integer
+	If step < 0 Then Exit Sub
+	If step >= times.size() * 2 Then
+		Print "AI_FACE_CAPTURE=" & Str(checks - failures) & "/" & Str(checks)
+		GetTree().quit(failures)
+		step = -1
+		Exit Sub
+	End If
+	idx = Int(step / 2)
+	If step Mod 2 = 0 Then
+		Call SeekIntro(times(idx))
+		step = step + 1
+		Exit Sub
+	End If
+	If out_dir <> "" Then
+		image = GetViewport().get_texture().get_image()
+		path = out_dir & "/intro_" & labels(idx) & ".png"
+		check(image.save_png(path) = 0, "capture_" & labels(idx))
+		Print "WROTE " & path
+	End If
+	step = step + 1
+End Sub

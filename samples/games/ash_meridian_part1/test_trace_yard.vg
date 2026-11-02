@@ -19,6 +19,7 @@ Dim directive As Object
 Dim tag As Object
 Dim key_gloss As Object
 Dim start_pos As Vector3
+Dim saved As Dictionary
 
 Sub check(ByVal ok As Boolean, ByVal label As String)
 	checks = checks + 1
@@ -227,6 +228,23 @@ Sub TranslatorChecks()
 	scene.ignore_input = True
 	scene.cradle_released = True
 	scene.reset_run()
+	saved = scene.route.snapshot()
+	check(scene.route.alias_yard_docks And saved("checkpoint") = "yard_dock", "yard_checkpoint_persists_as_yard_dock")
+	saved("checkpoint") = "near_cradle"
+	check(scene.route.apply_snapshot(saved) And scene.route.checkpoint_id = "near_cradle", "legacy_near_cradle_reads_as_yard_home")
+	check(scene.route.ExternalCheckpoint("near_cradle") = "yard_dock", "near_cradle_alias_writes_yard_dock")
+	saved = scene.route.snapshot()
+	saved("checkpoint") = "far_dock"
+	saved("stage") = "return_crossing"
+	saved("facility_cleared") = True
+	saved("coupler_taken") = True
+	saved("outbound_complete") = True
+	saved("vault_entered") = True
+	saved("riding") = False
+	saved("timer_started") = False
+	check(scene.route.apply_snapshot(saved) And scene.route.checkpoint_id = "far_dock" And scene.route.ExternalCheckpoint("far_dock") = "vault", "legacy_far_dock_reads_as_vault")
+	saved("checkpoint") = "vault"
+	check(scene.route.apply_snapshot(saved) And scene.route.checkpoint_id = "far_dock", "cleared_vault_checkpoint_restores_the_dock_chase")
 End Sub
 
 Sub CrashChecks()
@@ -242,6 +260,16 @@ Sub CrashChecks()
 	scene.speed = 48.0
 	Drive(1.2, 1.0 / 30.0)
 	check(scene.ride_state = "crashed" And scene.last_crash = "field boundary", "boundary_crash_is_named")
+	scene.reset_run()
+	before = scene.charge
+	scene.route.facility_cleared = True
+	scene.ride_state = "riding"
+	scene.BeginChaseSignal()
+	check(scene.remote.global_position.distance_to(scene.DockPose("vault").global_position) < 80.0, "chase_spawns_at_the_vault_dock")
+	check(scene.remote.global_position.distance_to(scene.DockPose("yard_dock").global_position) > 200.0, "chase_does_not_spawn_at_the_yard_dock")
+	scene.enemy_state = "hunt"
+	scene.TickEnemy(1.0)
+	check(Abs(scene.charge - before) < 0.001, "enemy_ignores_charge")
 End Sub
 
 Sub DestChecks()

@@ -1,0 +1,468 @@
+' Small Narcean AI face for in-game screens. Points carry pose weights.
+' Not used for the opening video. Do not wire into the FEB scene yet.
+Option Explicit
+
+Const PI As Single = 3.14159265
+Const SMALL_PATH As String = "res://assets/ai_face/alien_face_small.json"
+Const BREAK_LEN As Single = 2.0
+
+Dim loaded As Boolean
+Dim last_error As String
+Dim kind As String
+Dim canvas As Single
+Dim rest_fx As Single
+Dim rest_fy As Single
+Dim mouth_y As Single
+Dim jaw_drop As Single
+Dim upper_lift As Single
+Dim corner_push As Single
+Dim features As Dictionary
+Dim feat_names As Array
+Dim bold As Dictionary
+Dim irises As Array
+Dim in_up As Array
+Dim in_lo As Array
+Dim nfeat As Integer
+Dim nseg As Integer
+Dim anim_time As Single
+Dim reduced_motion As Boolean
+Dim mode As String
+Dim open_o As Single
+Dim voice_level As Single
+Dim vis As Single
+Dim face_size As Single
+Dim draw_w As Single
+Dim draw_h As Single
+Dim base_s As Single
+Dim flicker As Boolean
+
+Sub reset()
+	anim_time = 0.0
+	open_o = 0.0
+	voice_level = 0.0
+	vis = 1.0
+	flicker = False
+	If mode = "" Then mode = "idle"
+	Call EvalPose()
+End Sub
+
+Sub set_time(ByVal seconds As Single)
+	If seconds < 0.0 Then seconds = 0.0
+	anim_time = seconds
+	Call EvalPose()
+End Sub
+
+Sub set_reduced_motion(ByVal flag As Boolean)
+	reduced_motion = flag
+	Call EvalPose()
+End Sub
+
+Sub set_open(ByVal amount As Single)
+	open_o = Clamp01(amount)
+	Call EvalPose()
+End Sub
+
+Sub set_voice_level(ByVal amount As Single)
+	voice_level = Clamp01(amount)
+	open_o = voice_level
+	Call EvalPose()
+End Sub
+
+Function VoiceLevel() As Single
+	VoiceLevel = voice_level
+End Function
+
+Function open_amount() As Single
+	open_amount = open_o
+End Function
+
+Sub set_mode(ByVal name As String)
+	If name = "idle" Or name = "talk" Or name = "breakdown" Then
+		mode = name
+		last_error = ""
+	Else
+		last_error = "Unknown face mode: " & name
+		If mode = "" Then mode = "idle"
+	End If
+	Call EvalPose()
+End Sub
+
+Function ModeName() As String
+	If mode = "" Then mode = "idle"
+	ModeName = mode
+End Function
+
+Function FaceVisibility() As Single
+	FaceVisibility = vis
+End Function
+
+Function feature_count() As Integer
+	feature_count = nfeat
+End Function
+
+Function segment_count() As Integer
+	segment_count = nseg
+End Function
+
+Function iris_count() As Integer
+	If irises = Nothing Then
+		iris_count = 0
+	Else
+		iris_count = irises.size()
+	End If
+End Function
+
+Function Clamp01(ByVal value As Single) As Single
+	If value < 0.0 Then value = 0.0
+	If value > 1.0 Then value = 1.0
+	Clamp01 = value
+End Function
+
+Function Smaller(ByVal a As Single, ByVal b As Single) As Single
+	If a < b Then
+		Smaller = a
+	Else
+		Smaller = b
+	End If
+End Function
+
+Function Bigger(ByVal a As Single, ByVal b As Single) As Single
+	If a > b Then
+		Bigger = a
+	Else
+		Bigger = b
+	End If
+End Function
+
+Function load_face(ByVal path As String) As Boolean
+	Dim parser As Object
+	Dim data As Variant
+	Dim i As Integer
+	Dim nm As String
+	Dim pl As Array
+	loaded = False
+	last_error = ""
+	nfeat = 0
+	nseg = 0
+	parser = ClassDB.Instantiate("JSON")
+	If parser.parse(ReadAllText(path)) <> 0 Then
+		last_error = "Could not parse " & path & "."
+		load_face = False
+		Exit Function
+	End If
+	data = parser.get_data()
+	If TypeName(data) <> "Dictionary" Then
+		last_error = path & " is not an object."
+		load_face = False
+		Exit Function
+	End If
+	If Str(data("format")) <> "ash_meridian_ai_face_small" Then
+		last_error = path & " has the wrong format."
+		load_face = False
+		Exit Function
+	End If
+	kind = Str(data("kind"))
+	canvas = data("canvas")
+	rest_fx = data("rest_focus")(0)
+	rest_fy = data("rest_focus")(1)
+	mouth_y = data("mouth_y")
+	jaw_drop = data("jaw_drop")
+	upper_lift = data("upper_lift")
+	corner_push = data("corner_push")
+	features = data("features")
+	irises = data("irises")
+	feat_names = features.keys()
+	nfeat = feat_names.size()
+	If nfeat < 8 Then
+		last_error = path & " is missing feature polylines."
+		load_face = False
+		Exit Function
+	End If
+	If Not features.has("in_up") Or Not features.has("in_lo") Then
+		last_error = path & " is missing the mouth hole polylines."
+		load_face = False
+		Exit Function
+	End If
+	in_up = features("in_up")
+	in_lo = features("in_lo")
+	If in_up.size() + in_lo.size() < 8 Then
+		last_error = path & " mouth polygon has too few points."
+		load_face = False
+		Exit Function
+	End If
+	If irises.size() <> 2 Then
+		last_error = path & " needs two irises."
+		load_face = False
+		Exit Function
+	End If
+	nseg = 0
+	For i = 0 To nfeat - 1
+		nm = Str(feat_names(i))
+		pl = features(nm)
+		If pl.size() >= 2 Then nseg = nseg + pl.size() - 1
+	Next
+	bold = New Dictionary
+	If data.has("bold_features") Then
+		For i = 0 To data("bold_features").size() - 1
+			nm = Str(data("bold_features")(i))
+			bold(nm) = True
+		Next
+	End If
+	mode = "idle"
+	face_size = 240.0
+	loaded = True
+	Call reset()
+	load_face = True
+End Function
+
+Sub PosePoint(ByVal x As Single, ByVal y As Single, ByVal jw As Single, ByVal uw As Single, ByRef ox As Single, ByRef oy As Single)
+	Dim lat As Single
+	Dim c As Single
+	lat = x - 500.0
+	c = Bigger(0.0, 1.0 - Abs(Abs(lat) - 75.0) / 55.0) * Bigger(0.0, 1.0 - Abs(y - mouth_y) / 30.0)
+	If lat = 0.0 Then
+		ox = x
+	Else
+		ox = x + Sgn(lat) * corner_push * open_o * c
+	End If
+	oy = y + jaw_drop * open_o * jw - upper_lift * open_o * uw
+End Sub
+
+Sub EvalPose()
+	Dim jitter As Single
+	If mode = "talk" Then
+		jitter = 0.0
+		If Not reduced_motion Then jitter = 0.035 * Sin(anim_time * 37.0)
+		open_o = Clamp01(voice_level + jitter)
+	End If
+	If mode = "breakdown" Then
+		vis = 1.0 - Clamp01(anim_time / BREAK_LEN)
+	Else
+		vis = 1.0
+	End If
+	flicker = False
+	If mode = "idle" And Not reduced_motion Then
+		If Int(anim_time * 60.0) Mod 173 = 11 Then flicker = True
+	End If
+End Sub
+
+Function ScreenOf(ByVal lx As Single, ByVal ly As Single) As Vector2
+	Dim s As Single
+	Dim breath As Single
+	breath = 1.0
+	If mode = "idle" And Not reduced_motion Then breath = 1.0 + 0.01 * Sin(anim_time * 1.4)
+	s = base_s * breath
+	ScreenOf = Vector2((lx - rest_fx) * s + draw_w * 0.5, (ly - rest_fy) * s + draw_h * 0.5)
+End Function
+
+Function PosedFeature(ByVal nm As String) As PackedVector2Array
+	Dim pl As Array
+	Dim pts As Array
+	Dim i As Integer
+	Dim p As Variant
+	Dim x As Single
+	Dim y As Single
+	Dim drift As Single
+	Dim idx As Integer
+	pts = Array()
+	If Not features.has(nm) Then
+		PosedFeature = PackedVector2Array()
+		Exit Function
+	End If
+	pl = features(nm)
+	idx = 0
+	For i = 0 To feat_names.size() - 1
+		If Str(feat_names(i)) = nm Then idx = i
+	Next
+	drift = 0.0
+	If mode = "breakdown" Then drift = (1.0 - vis) * 48.0
+	For i = 0 To pl.size() - 1
+		p = pl(i)
+		Call PosePoint(p(0), p(1), p(2), p(3), x, y)
+		If drift > 0.0 Then
+			x = x + Sin(idx * 1.7 + 0.4) * drift
+			y = y + Cos(idx * 1.1 + 0.9) * drift
+		End If
+		pts.append(ScreenOf(x, y))
+	Next
+	PosedFeature = PackedVector2Array(pts)
+End Function
+
+Function MouthHeight() As Single
+	Dim i As Integer
+	Dim p As Variant
+	Dim x As Single
+	Dim y As Single
+	Dim mn As Single
+	Dim mx As Single
+	mn = 10000.0
+	mx = -10000.0
+	For i = 0 To in_up.size() - 1
+		p = in_up(i)
+		Call PosePoint(p(0), p(1), p(2), p(3), x, y)
+		If y < mn Then mn = y
+		If y > mx Then mx = y
+	Next
+	For i = 0 To in_lo.size() - 1
+		p = in_lo(i)
+		Call PosePoint(p(0), p(1), p(2), p(3), x, y)
+		If y < mn Then mn = y
+		If y > mx Then mx = y
+	Next
+	MouthHeight = mx - mn
+End Function
+
+Function PosedX(ByVal feat As Integer, ByVal pt As Integer) As Single
+	Dim p As Variant
+	Dim x As Single
+	Dim y As Single
+	If feat < 0 Or feat >= nfeat Then
+		PosedX = 0.0
+		Exit Function
+	End If
+	p = features(feat_names(feat))(pt)
+	Call PosePoint(p(0), p(1), p(2), p(3), x, y)
+	PosedX = x
+End Function
+
+Function PosedY(ByVal feat As Integer, ByVal pt As Integer) As Single
+	Dim p As Variant
+	Dim x As Single
+	Dim y As Single
+	If feat < 0 Or feat >= nfeat Then
+		PosedY = 0.0
+		Exit Function
+	End If
+	p = features(feat_names(feat))(pt)
+	Call PosePoint(p(0), p(1), p(2), p(3), x, y)
+	PosedY = y
+End Function
+
+Function VerticesFinite() As Boolean
+	Dim i As Integer
+	Dim x As Single
+	VerticesFinite = False
+	If Not loaded Then Exit Function
+	For i = 0 To nfeat - 1
+		x = PosedX(i, 0)
+		If x <> x Then Exit Function
+	Next
+	VerticesFinite = True
+End Function
+
+Sub DrawFeature(ByVal nm As String)
+	Dim pts As PackedVector2Array
+	Dim col As Color
+	Dim core As Single
+	Dim glow As Color
+	pts = PosedFeature(nm)
+	If pts.size() < 2 Then Exit Sub
+	If mode = "breakdown" Then
+		col = Color(1.0, 170.0 / 255.0, 60.0 / 255.0, vis)
+	Else
+		col = Color(225.0 / 255.0, 250.0 / 255.0, 255.0 / 255.0, vis)
+	End If
+	If bold.has(nm) Then
+		core = 2.5
+	Else
+		core = 1.5
+	End If
+	glow = Color(60.0 / 255.0, 220.0 / 255.0, 255.0 / 255.0, 0.15 * vis)
+	DrawPolyline pts, glow, 5.0
+	DrawPolyline pts, col, core
+End Sub
+
+Sub DrawIrises()
+	Dim i As Integer
+	Dim iris As Variant
+	Dim x As Single
+	Dim y As Single
+	Dim q As Vector2
+	Dim rr As Single
+	Dim drift_x As Single
+	Dim drift_y As Single
+	Dim col As Color
+	If vis <= 0.01 Then Exit Sub
+	drift_x = 0.0
+	drift_y = 0.0
+	If mode = "idle" And Not reduced_motion Then
+		drift_x = 3.0 * Sin(anim_time * 0.55)
+		drift_y = 2.0 * Cos(anim_time * 0.41)
+	End If
+	col = Color(150.0 / 255.0, 255.0 / 255.0, 235.0 / 255.0, vis)
+	For i = 0 To irises.size() - 1
+		iris = irises(i)
+		Call PosePoint(iris(0) + drift_x, iris(1) + drift_y, 0.0, 0.0, x, y)
+		q = ScreenOf(x, y)
+		rr = iris(2) * base_s
+		DrawArc q.x, q.y, rr, 0.0, PI * 2.0, 24, col, 2.0
+		DrawArc q.x, q.y, rr * 0.42, 0.0, PI * 2.0, 18, col, 2.0
+	Next
+End Sub
+
+Sub DrawBreakdownNoise()
+	Dim i As Integer
+	Dim a As Vector2
+	Dim b As Vector2
+	Dim col As Color
+	If mode <> "breakdown" Then Exit Sub
+	If vis <= 0.02 Then Exit Sub
+	col = Color(1.0, 170.0 / 255.0, 60.0 / 255.0, 0.45 * vis)
+	For i = 0 To 5
+		a = ScreenOf(420.0 + i * 18.0, 200.0 + Sin(i * 2.1 + anim_time) * 80.0)
+		b = ScreenOf(580.0 - i * 14.0, 780.0 + Cos(i * 1.4 + anim_time) * 60.0)
+		DrawLine a.x, a.y, b.x, b.y, col, 1.0
+	Next
+End Sub
+
+Sub DrawScan()
+	Dim i As Integer
+	Dim top As Single
+	Dim bot As Single
+	Dim left As Single
+	Dim right As Single
+	If vis <= 0.02 Then Exit Sub
+	left = draw_w * 0.5 - face_size * 0.55
+	right = draw_w * 0.5 + face_size * 0.55
+	top = draw_h * 0.5 - face_size * 0.6
+	bot = draw_h * 0.5 + face_size * 0.6
+	For i = Int(top) To Int(bot) Step 4
+		DrawLine left, i, right, i, Color(0.0, 0.0, 0.0, 0.22 * vis), 1.0
+	Next
+End Sub
+
+Sub DrawFrame(ByVal width As Single, ByVal height_px As Single)
+	Dim i As Integer
+	If width < 8.0 Then width = 960.0
+	If height_px < 8.0 Then height_px = 540.0
+	draw_w = width
+	draw_h = height_px
+	If face_size < 120.0 Then face_size = 120.0
+	If face_size > 480.0 Then face_size = 480.0
+	base_s = face_size / 1000.0 * 0.92
+	If Not loaded Then
+		If last_error <> "" Then DrawString last_error, 24, 40, Color(1, 0.4, 0.3), 14
+		Exit Sub
+	End If
+	Call EvalPose()
+	If vis <= 0.004 Then Exit Sub
+	If flicker Then Exit Sub
+	For i = 0 To nfeat - 1
+		Call DrawFeature(Str(feat_names(i)))
+	Next
+	Call DrawIrises()
+	Call DrawBreakdownNoise()
+	Call DrawScan()
+End Sub
+
+Sub _Draw()
+	Dim size As Vector2
+	Dim vp As Object
+	vp = GetViewport()
+	If vp Is Nothing Then
+		size = Vector2(960, 540)
+	Else
+		size = vp.get_visible_rect().size
+	End If
+	Call DrawFrame(size.x, size.y)
+End Sub
