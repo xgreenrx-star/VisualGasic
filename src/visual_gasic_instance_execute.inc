@@ -1319,6 +1319,12 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                              break;
                          }
 
+                         {
+                             Variant virt_ret;
+                             if (call_vg_engine_virtual(obj, s->method_name, call_args, virt_ret)) {
+                                 break;
+                             }
+                         }
                          if (obj->has_method(resolved_method)) {
                              obj->callv(resolved_method, call_args);
                          } else if (obj->has_method(s->method_name)) {
@@ -2534,7 +2540,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         dispatch_builtin_call(s->method_name, call_args, stmt_found);
                         if (!stmt_found) {
                             if (owner) {
-                                if (owner->has_method(s->method_name)) {
+                                Variant virt_ret;
+                                if (call_vg_engine_virtual(owner, s->method_name, call_args, virt_ret)) {
+                                    found = true;
+                                } else if (owner->has_method(s->method_name)) {
                                      owner->callv(s->method_name, call_args);
                                 } else {
                                      String snake = s->method_name.to_snake_case();
@@ -3445,6 +3454,21 @@ static String vg_snake_to_pascal_method(const String &method) {
         }
     }
     return result;
+}
+
+bool VisualGasicInstance::call_vg_engine_virtual(Object *obj, const String &method, const Array &args, Variant &r_ret) {
+    if (!obj || method.is_empty() || method[0] != '_') {
+        return false;
+    }
+    const String ml = method.to_lower();
+    const bool virt = ml == "_process" || ml == "_ready" || ml == "_draw" ||
+            ml == "_physicsprocess" || ml == "_physics_process";
+    if (!virt) {
+        return false;
+    }
+    // ScriptInstance::call swallows these names (engine echo after notification).
+    // Invoke the VG sub directly so obj._Process(delta) from another script runs.
+    return try_call_vg_owner_method(obj, method, args, r_ret);
 }
 
 bool VisualGasicInstance::try_call_vg_owner_method(Object *obj, const String &method, const Array &args, Variant &r_ret) {

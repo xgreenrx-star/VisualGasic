@@ -813,6 +813,8 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (found) return v_ret;
 
              if (owner) {
+                 Variant virt_ret;
+                 if (call_vg_engine_virtual(owner, func_name, call_args, virt_ret)) return virt_ret;
                  if (owner->has_method(func_name)) return owner->callv(func_name, call_args);
                  String snake = func_name.to_snake_case();
                  if (owner->has_method(snake)) {
@@ -1367,6 +1369,12 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     if (try_vg_vector_canvas_call(obj, call->method_name, call_args, canvas_ret)) {
                         return canvas_ret;
                     }
+                    {
+                        Variant virt_ret;
+                        if (call_vg_engine_virtual(obj, call->method_name, call_args, virt_ret)) {
+                            return virt_ret;
+                        }
+                    }
                     if (obj->has_method(call->method_name)) {
                         return obj->callv(call->method_name, call_args);
                     }
@@ -1895,6 +1903,10 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         }
 
         if (owner) {
+             Variant virt_ret;
+             if (call_vg_engine_virtual(owner, call->method_name, call_args, virt_ret)) {
+                 return virt_ret;
+             }
              if (owner->has_method(call->method_name)) {
                  return owner->callv(call->method_name, call_args);
              }

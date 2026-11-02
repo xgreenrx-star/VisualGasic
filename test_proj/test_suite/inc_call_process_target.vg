@@ -1,0 +1,27 @@
+' Target for test_call_process.vg. Another script calls _Process on this node.
+Attribute VB_Name = "CallProcessTarget"
+
+Dim hits As Integer
+Dim last_delta As Single
+Dim ready_hits As Integer
+
+Sub _Ready()
+	ready_hits = ready_hits + 1
+End Sub
+
+Sub _Process(delta As Single)
+	hits = hits + 1
+	last_delta = delta
+End Sub
+
+Function HitCount() As Integer
+	Return hits
+End Function
+
+Function LastDelta() As Single
+	Return last_delta
+End Function
+
+Function ReadyCount() As Integer
+	Return ready_hits
+End Function

@@ -6967,7 +6967,11 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             if (!stmt_found && owner) {
                                 // Fallback: try calling the method on the owner node
                                 // (matches AST interpreter's STMT_CALL fallback at end)
-                                if (owner->has_method(method)) {
+                                Variant virt_ret;
+                                if (call_vg_engine_virtual(owner, method, args, virt_ret)) {
+                                    call_ret = virt_ret;
+                                    _pc_resolved_deep = true;
+                                } else if (owner->has_method(method)) {
                                     call_ret = owner->callv(method, args);
                                     _pc_resolved_deep = true;
                                 } else {
@@ -10659,6 +10663,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             } else if ((ml == "drawcircle" || ml == "draw_circle") && args.size() >= 2 && vgfast::vtype(args[0]) == Variant::VECTOR2) {
                                 Color col = args.size() > 2 ? Color(args[2]) : Color(1, 1, 1, 1);
                                 VisualGasicInstance::safe_canvas_draw_circle(ci, (Vector2)args[0], (float)args[1], col);
+                                handled = true;
+                            }
+                        }
+                        if (!handled) {
+                            Variant virt_ret;
+                            if (call_vg_engine_virtual(obj, method, args, virt_ret)) {
+                                call_ret = virt_ret;
                                 handled = true;
                             }
                         }

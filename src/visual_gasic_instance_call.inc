@@ -1439,6 +1439,10 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // already dispatched by our notification() handler.  Without these guards,
     // Godot's virtual-method dispatch calls them a SECOND time via call(),
     // causing double execution per frame.
+    // VG code that writes obj._Process(delta) does not come through here: the
+    // AST walker and bytecode OP_METHOD_CALL use call_vg_engine_virtual(),
+    // which runs the sub via call_internal. A call that does reach this guard
+    // is the engine echo and must stay a no-op.
     // NOTE: _input and _unhandled_input are NOT dispatched via notification —
     // they arrive exclusively through call(), so they must NOT be guarded here.
     {

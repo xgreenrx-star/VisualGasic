@@ -1,0 +1,63 @@
+' Regression: obj._Process / obj._process from another VG script must run the sub.
+' Godot also calls _process after notification(); that echo stays a no-op so
+' entering the tree still runs _Ready once.
+' MAX_FRAMES: 8
+Attribute VB_Name = "TestCallProcess"
+
+Sub _Ready()
+	Dim target As Object
+	Set target = ClassDB.Instantiate("Node2D")
+	target.name = "ProcessTarget"
+
+	Dim scr As Object
+	Set scr = Load("res://test_suite/inc_call_process_target.vg")
+	target.set_script(scr)
+
+	' Not in the tree yet, so Godot has not sent NOTIFICATION_PROCESS.
+	target._Process(0.5)
+	If target.HitCount() = 1 Then
+		Print "PASS: call_process_pascal"
+	Else
+		Print "FAIL: call_process_pascal: " & Str(target.HitCount())
+	End If
+
+	target._process(0.25)
+	If target.HitCount() = 2 Then
+		Print "PASS: call_process_snake"
+	Else
+		Print "FAIL: call_process_snake: " & Str(target.HitCount())
+	End If
+
+	Dim delta_err As Single
+	delta_err = target.LastDelta() - 0.25
+	If delta_err < 0 Then
+		delta_err = 0 - delta_err
+	End If
+	If delta_err < 0.001 Then
+		Print "PASS: call_process_delta"
+	Else
+		Print "FAIL: call_process_delta: " & Str(target.LastDelta())
+	End If
+
+	target._Ready()
+	If target.ReadyCount() = 1 Then
+		Print "PASS: call_ready"
+	Else
+		Print "FAIL: call_ready: " & Str(target.ReadyCount())
+	End If
+
+	AddChild target
+	If target.ReadyCount() = 2 Then
+		Print "PASS: ready_engine_once"
+	Else
+		Print "FAIL: ready_engine_once: " & Str(target.ReadyCount())
+	End If
+
+	If target.HitCount() = 2 Then
+		Print "PASS: process_not_doubled_on_enter"
+	Else
+		Print "FAIL: process_not_doubled_on_enter: " & Str(target.HitCount())
+	End If
+
+	Print "TEST_COMPLETE"
+End Sub

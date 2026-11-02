@@ -846,6 +846,11 @@ public:
     // Dispatch obj.Method(args) to a VG Sub/Function on another node's VisualGasicInstance
     // (e.g. Bullet.vg calling enemy.take_hit on an Enemy.vg CharacterBody2D).
     static bool try_call_vg_owner_method(Object *obj, const String &method, const Array &args, Variant &r_ret);
+    // _Process/_Ready/_Draw/_PhysicsProcess are swallowed in ScriptInstance::call
+    // because Godot emits that call in addition to notification(). A VG
+    // obj._Process(delta) must still run the sub. Returns true only when the
+    // name is one of those virtuals and a VG instance actually ran it.
+    static bool call_vg_engine_virtual(Object *obj, const String &method, const Array &args, Variant &r_ret);
     // canvas.DrawRect must queue — never CanvasItem.draw_rect outside _draw().
     static bool try_vg_vector_canvas_call(Object *obj, const String &method, const Array &args, Variant &r_ret);
     void register_class(ClassDefinition* cls);

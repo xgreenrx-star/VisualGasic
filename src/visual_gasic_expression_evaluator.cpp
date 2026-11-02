@@ -262,6 +262,10 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
                     for (int i = 0; i < oa->arguments.size(); i++) {
                         call_args.push_back(evaluate(oa->arguments[i], ctx));
                     }
+                    Variant virt_ret;
+                    if (VisualGasicInstance::call_vg_engine_virtual(obj, oa->member_name, call_args, virt_ret)) {
+                        return virt_ret;
+                    }
                     return obj->callv(oa->member_name, call_args);
                 }
             }
@@ -418,6 +422,10 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
             if (base.get_type() == Variant::OBJECT) {
                 Object* obj = base;
                 if (obj) {
+                    Variant virt_ret;
+                    if (VisualGasicInstance::call_vg_engine_virtual(obj, call->method_name, args, virt_ret)) {
+                        return virt_ret;
+                    }
                     if (obj->has_method(call->method_name)) {
                         return obj->callv(call->method_name, args);
                     }
