@@ -1,0 +1,187 @@
+' MAX_FRAMES: 80
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim frames As Integer
+Dim game As Object
+Dim view As Object
+Dim scene As Object
+Dim yard As Object
+Dim before As Vector2
+Dim saved As String
+Dim save_path As String
+Dim capture_path As String
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	view = game.presentation
+	save_path = game.campaign.save_path
+	If FileExists(save_path) Then saved = ReadAllText(save_path)
+	capture_path = OS.get_environment("ASH_TRACE_ESCAPE_CAPTURE")
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	frames = frames + 1
+	If frames = 4 Then
+		Call EscapeChecks()
+		Print "TRACE_YARD_ESCAPE=" & Str(checks - failures) & "/" & Str(checks)
+		If capture_path = "" Then
+			game.queue_free()
+			GetTree().quit(failures)
+		Else
+			yard.retry_trace_escape()
+			yard.render_style(view, 0, 420, 1)
+			game.QueueRedraw()
+		End If
+	ElseIf capture_path <> "" And frames = 10 Then
+		game.GetViewport().get_texture().get_image().save_png(capture_path & "-dock.png")
+		yard.position_xz = yard.buggy_position
+		yard.interact_vehicle()
+		yard.render_style(view, 1, 420, 1)
+		game.QueueRedraw()
+	ElseIf capture_path <> "" And frames = 16 Then
+		game.GetViewport().get_texture().get_image().save_png(capture_path & "-buggy.png")
+		yard.driving = False
+		yard.position_xz = Vector2(11, 360)
+		yard.heading = PI
+		yard.escape_grace = 0
+		yard.turrets(4).rotation.y = Atan2(30, 20)
+		yard.TickEscapeTurrets(1.6)
+		yard.position_xz = Vector2(11, 355)
+		yard.heading = -PI * 0.5
+		yard.render_style(view, 2, 420, 1)
+		game.QueueRedraw()
+	ElseIf capture_path <> "" And frames = 22 Then
+		game.GetViewport().get_texture().get_image().save_png(capture_path & "-turrets.png")
+		yard.TickEscapeTurrets(1.0)
+		yard.render_style(view, 2.2, 420, 1)
+		game.QueueRedraw()
+	ElseIf capture_path <> "" And frames = 28 Then
+		game.GetViewport().get_texture().get_image().save_png(capture_path & "-firing.png")
+		game.queue_free()
+		GetTree().quit(failures)
+	End If
+End Sub
+
+Sub EscapeChecks()
+	Dim pick As Integer
+	Dim step_n As Integer
+	For Each pick In Array(16, 18, 19)
+		game.dev_i = pick
+		game.WarpDev()
+		scene = view.trace_cycle
+		scene.ignore_input = True
+		check(scene.yard_field And scene.crossing.has_node("YardDock"), "destination_" & Str(pick) & "_returns_to_yard")
+		If pick <> 18 Then scene.SkipToFarDock()
+		scene.GiveTranslator()
+		scene.lift_code_known = True
+		scene.route.take_core()
+		scene.route.take_core()
+		scene.route.advance("coupler_taken")
+		scene.route.advance("facility_exited")
+		scene.StartParking("yard_dock")
+		scene.tick(1.0)
+		check(scene.ride_state = "docked" And scene.route.stage_name = "near_dock", "destination_" & Str(pick) & "_docks_after_escape")
+		scene.DismountAtNearDock()
+		game.dev_on = False
+		game.menu_on = False
+		game._Process(0.05)
+		check(game.phase = 18 And view.trace_cycle Is Nothing, "destination_" & Str(pick) & "_hands_off_to_yard")
+		yard = view.backlight_city
+		check(yard.trace_escape And Not game.campaign_active, "escape_is_session_only_not_campaign")
+		check(yard.position_xz.distance_to(Vector2(11.8, 412)) < 0.1, "handoff_keeps_yard_dock_position")
+		check(yard.escape_dock <> Nothing And yard.escape_cycle <> Nothing, "return_dock_and_parked_cycle_remain_visible")
+		check(yard.inventory.has("coupler") And yard.inventory("cores") = 2 And yard.inventory("reserve_protected"), "recovered_hardware_transfers")
+		check(yard.inventory("translator") And yard.inventory("lift_code_known"), "translator_and_address_transfer")
+	Next
+	check(yard.turrets.size() = 6 And yard.vehicle <> Nothing And yard.ship_model <> Nothing, "escape_reuses_six_turrets_buggy_and_ash")
+	check(yard.escape_helmet <> Nothing And yard.escape_readout <> Nothing, "escape_preserves_helmet_frame_and_orac_readout")
+	check(Not yard.blocked(yard.position_xz, 0.35) And Not yard.blocked(yard.buggy_position, 1.4), "dock_and_parked_buggy_are_clear")
+	game.menu_on = True
+	before = yard.position_xz
+	game._Process(2.0)
+	check(yard.escape_grace = 8.0 And yard.position_xz = before, "pause_freezes_yard_escape")
+	game.menu_on = False
+	yard.countdown = 1.0
+	yard.tick(2.0, view)
+	check(Not yard.failed And yard.countdown = 1.0 And yard.shield = 100, "no_facility_timer_or_damage_during_boarding_grace")
+	yard.position_xz = yard.buggy_position + Vector2(0, 2)
+	yard.interact_foot()
+	check(yard.driving And Abs(yard.heading - PI) < 0.001, "buggy_boards_facing_south")
+	before = yard.position_xz
+	yard.move_distance(18.0)
+	check(yard.position_xz.y < before.y - 15.0, "buggy_can_leave_dock_on_southbound_road")
+	yard.retry_trace_escape()
+	check(Not yard.failed And yard.shield = 100, "fatal_hit_retry_clears_failure_and_restores_suit")
+	check(Not yard.driving And Not yard.failed And yard.inventory("cores") = 2 And yard.inventory("coupler"), "dock_retry_preserves_recovered_items")
+	check(yard.buggy_position.distance_to(Vector2(11, 399)) < 0.01 And yard.escape_grace = 8, "retry_restores_buggy_and_grace")
+	yard.escape_grace = 0
+	yard.position_xz = Vector2(0, 64)
+	yard.turrets(0).rotation.y = PI * 0.5
+	yard.TickEscapeTurrets(1.6)
+	check(yard.turret_states(0) = "locked" And yard.turret_flashes(0) > 0 And yard.shield = 100, "turret_telegraphs_before_damage")
+	yard.render_style(view, 0, 420, 1)
+	check(yard.turret_beams(0).visible And yard.turret_beams(0).scale.x = 2, "locked_warning_beam_is_rendered")
+	yard.position_xz = Vector2(0, 70)
+	yard.TickEscapeTurrets(1.0)
+	check(yard.shield = 100 And yard.turret_states(0) = "cooldown", "moving_off_committed_shot_dodges_it")
+	yard.render_style(view, 1, 420, 1)
+	check(yard.turret_beams(0).visible And yard.turret_beams(0).scale.x = 12 And yard.turret_beams(0).material_override.albedo_color.g < 0.1, "firing_pulse_is_thick_and_red")
+	check(Not yard._line_clear(Vector2(19, 40), Vector2(65, 40)), "solid_press_hall_blocks_turret_sight")
+	yard.ResetEscapeTurrets()
+	yard.position_xz = Vector2(0, 64)
+	yard.turrets(0).rotation.y = PI * 0.5
+	yard.TickEscapeTurrets(1.6)
+	yard.TickEscapeTurrets(1.0)
+	check(yard.shield = 80, "standing_in_locked_shot_takes_survivable_damage")
+	yard.shield = 20
+	yard.damage_cooldown = 0
+	yard.ResetEscapeTurrets()
+	yard.TickEscapeTurrets(1.6)
+	yard.TickEscapeTurrets(1.0)
+	check(yard.failed And yard.prompt().contains("yard dock"), "fatal_shot_offers_dock_retry")
+	view.taps(KEY_ENTER) = True
+	yard.tick(0.05, view)
+	check(Not yard.failed And yard.shield = 100, "fatal_hit_retry_restores_suit_and_clears_failure")
+	yard.position_xz = yard.buggy_position + Vector2(0, 2)
+	yard.interact_foot()
+	For step_n = 1 To 444
+		yard.move_distance(0.9)
+		yard.tick(0.05, view)
+	Next
+	check(yard.position_xz.y < 7 And Not yard.failed And yard.shield >= 60, "continuous_southbound_drive_reaches_ship_under_turret_fire")
+	yard.move_vector(Vector2(-11, 0))
+	check(yard.position_xz.distance_to(yard.SHIP) < 7, "ship_service_position_is_reachable_from_road")
+	yard.driving = True
+	yard.use_object()
+	check(Not yard.completed, "must_park_before_installing_coupler")
+	yard.driving = False
+	yard.use_object()
+	check(yard.completed And Not yard.awakening And yard.inventory("reserve_protected"), "coupler_installs_and_takeoff_stops_attacks")
+	yard.tick(3.0, view)
+	yard.render_style(view, 3.0, 420, 0)
+	check(yard.ship_model.position.y > 4.0, "ash_visibly_lifts_off")
+	game.SaveRun()
+	check(game.save_msg.contains("DEV DEMO"), "yard_escape_does_not_write_campaign")
+	If saved <> "" Then
+		check(ReadAllText(save_path) = saved, "campaign_save_bytes_unchanged")
+	Else
+		check(Not FileExists(save_path), "escape_does_not_create_campaign_save")
+	End If
+	yard.retry_trace_escape()
+	check(Not yard.completed And yard.launch_elapsed = 0 And yard.ship_model.position.y = 0, "new_escape_clears_departure_state")
+End Sub

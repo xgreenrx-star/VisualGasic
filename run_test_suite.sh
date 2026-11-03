@@ -251,7 +251,7 @@ for vg_file in "${TEST_FILES[@]}"; do
         # Show failure details
         echo "$output" | grep "^FAIL:" | while read -r line; do
             echo -e "       ${RED}$line${NC}"
-        done
+        done || true
         FAILED_FILES+=("$fname")
     else
         echo -e "  ${GREEN}OK${NC}   $fname  (${GREEN}$pass_count passed${NC})"

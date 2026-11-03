@@ -137,6 +137,32 @@ Sub persistence_checks()
 	invalid = saved.duplicate(True)
 	invalid("collected") = 1
 	check(Not campaign.validate(invalid, yard), "campaign_rejects_cell_count_without_inventory")
+	yard.place = "floor"
+	yard.building_index = 7
+	yard.floor_code = "52914"
+	yard.position_xz = Vector2(0, -4.8)
+	yard.pack("gold_bar") = 2
+	yard.pack("psionic_screwdriver") = 1
+	yard.stratum("codes")("66038") = True
+	yard.radiation = 12.5
+	check(campaign.validate(campaign.snapshot(yard), yard), "campaign_accepts_deep_stratum_lift_car_position")
+	check(campaign.save_game(), "campaign_save_in_deep_stratum")
+	yard.pack.clear()
+	yard.radiation = 0
+	check(campaign.load_game(yard), "campaign_deep_stratum_load_succeeds")
+	check(yard.pack("gold_bar") = 2 And yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_pack_round_trip")
+	check(yard.stratum("codes").has("66038") And Abs(yard.radiation - 12.5) < 0.001, "campaign_stratum_progress_round_trip")
+	table = New Dictionary
+	table("laser_cannon") = 1
+	check(Not campaign.stratum_valid(table, New Dictionary, 0, yard), "campaign_rejects_unknown_pack_item")
+	table = New Dictionary
+	table("gold_bar") = 0
+	check(Not campaign.stratum_valid(table, New Dictionary, 0, yard), "campaign_rejects_empty_pack_count")
+	invalid = campaign.snapshot(yard)
+	invalid("position_xz") = Vector2(40, 10)
+	check(Not campaign.validate(invalid, yard), "campaign_rejects_out_of_bounds_deep_position")
+	yard.pack.clear()
+	yard.radiation = 0
 	yard.place = "building"
 	yard.building_index = 7
 	yard.position_xz = Vector2(0, 21)

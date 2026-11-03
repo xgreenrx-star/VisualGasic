@@ -46,6 +46,7 @@ Dim campaign_yard As Node3D
 Dim black_channel As Node3D
 Dim black_hud_view As SubViewport
 Dim trace_cycle As Node3D
+Dim trace_escape_yard As Node3D
 Dim external_view As SubViewport
 Dim external_camera As Camera3D
 Dim deck_view As SubViewport
@@ -1222,6 +1223,69 @@ Sub tick_trace_cycle(ByVal delta As Single)
 	Call EnsureInit()
 	If trace_cycle <> Nothing Then trace_cycle.tick(delta)
 End Sub
+
+Function begin_trace_yard_escape() As Boolean
+	Dim recovered As Dictionary
+	Dim origin As Vector2
+	Dim yaw As Single
+	Dim packed As Object
+	Dim dock As Object
+	Dim parked_cycle As Object
+	If trace_cycle Is Nothing Then Return False
+	If trace_cycle.route.stage_name <> "near_dock" Or trace_cycle.ride_state <> "on_foot" Then Return False
+	If Not trace_cycle.yard_field Then
+		trace_cycle.prompt = "RETURN DOCK HAS NO YARD CONNECTION"
+		Return False
+	End If
+	recovered = trace_cycle.inventory.duplicate()
+	recovered("coupler") = trace_cycle.route.coupler_taken
+	recovered("cores") = trace_cycle.route.cores
+	recovered("reserve_protected") = trace_cycle.route.reserve_protected
+	recovered("lift_code_known") = trace_cycle.lift_code_known
+	origin = Vector2(trace_cycle.walker.global_position.x, trace_cycle.walker.global_position.z)
+	yaw = PI - trace_cycle.walk_heading
+	If trace_escape_yard Is Nothing Then
+		trace_escape_yard = SpawnVg("res://backlight_exploration.vg", "Node3D")
+		trace_escape_yard.name = "TraceEscapeYard"
+		trace_escape_yard.EnsureInit()
+		trace_escape_yard.yard_mode = True
+		trace_escape_yard.campaign_mode = True
+		viewport.add_child(trace_escape_yard)
+		trace_escape_yard.build(Me)
+		packed = Load("res://assets/trace_vault/scenes/yard_dock.tscn")
+		dock = packed.instantiate()
+		dock.name = "ReturnTraceDock"
+		trace_escape_yard.add_child(dock)
+		dock.position = Vector3(15, 0, 414)
+		trace_escape_yard.escape_dock = dock
+		trace_escape_yard.surface_solids.append(Rect2(22.7, 419.7, 0.6, 0.6))
+		trace_escape_yard.surface_solids.append(Rect2(6.7, 419.7, 0.6, 0.6))
+		trace_escape_yard.surface_solids.append(Rect2(12.675, 411.1, 0.45, 5.8))
+		trace_escape_yard.surface_solids.append(Rect2(16.875, 411.1, 0.45, 5.8))
+		trace_escape_yard.escape_helmet = trace_cycle.helmet_rim.duplicate()
+		trace_escape_yard.escape_helmet.z_index = -1
+		trace_escape_yard.hud.add_child(trace_escape_yard.escape_helmet)
+		trace_escape_yard.escape_readout = trace_cycle.visor_panel.duplicate()
+		trace_escape_yard.hud.add_child(trace_escape_yard.escape_readout)
+		trace_escape_yard.escape_readout.get_child(3).visible = False
+		trace_escape_yard.escape_message = trace_escape_yard.escape_readout.get_node("OracVisorTranslation")
+		trace_escape_yard.escape_message.position = Vector2(18, 18)
+		trace_escape_yard.escape_message.size = Vector2(384, 84)
+		trace_escape_yard.escape_message.visible = True
+	End If
+	If trace_escape_yard.escape_cycle <> Nothing Then trace_escape_yard.escape_cycle.queue_free()
+	parked_cycle = trace_cycle.player.duplicate()
+	parked_cycle.name = "ParkedTraceCycle"
+	trace_escape_yard.add_child(parked_cycle)
+	parked_cycle.global_transform = trace_cycle.player.global_transform
+	trace_escape_yard.escape_cycle = parked_cycle
+	Call leave_backlight()
+	backlight_city = trace_escape_yard
+	Call trace_escape_yard.start_trace_escape(recovered, origin, yaw)
+	Call stop_trace_cycle()
+	camera.current = True
+	Return True
+End Function
 
 Function draw_trace_cycle() As Texture2D
 	Call EnsureInit()

@@ -1,0 +1,46 @@
+Option Explicit
+' Regression: tier-2 JIT decoded a slot by the type of its LAST store in IR
+' order. `If v > f Then R = f + 1 Else R = f` (f from Int() is F64) stored
+' I64 bits in one branch and F64 in the other, so after the second call
+' (when the JIT compiles) CeilInt(16.25) returned 0 instead of 17.
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+    If ok Then
+        Print "PASS: " & label
+    Else
+        Print "FAIL: " & label
+    End If
+End Sub
+
+Function CeilInt(ByVal value As Single) As Integer
+    Dim f As Integer
+    f = Int(value)
+    If value > f Then CeilInt = f + 1 Else CeilInt = f
+End Function
+
+Function PickMixed(ByVal flag As Integer) As Double
+    Dim r As Double
+    If flag > 0 Then
+        r = flag * 2
+    Else
+        r = 0.5
+    End If
+    PickMixed = r
+End Function
+
+Sub _Ready()
+    Dim i As Integer
+    Dim ok As Boolean
+    ok = True
+    For i = 1 To 5
+        If CeilInt(16.25) <> 17 Then ok = False
+        If CeilInt(3) <> 3 Then ok = False
+    Next
+    Check(ok, "jit_mixed_ceil_int")
+    ok = True
+    For i = 1 To 5
+        If PickMixed(4) <> 8 Then ok = False
+        If PickMixed(0) <> 0.5 Then ok = False
+    Next
+    Check(ok, "jit_mixed_branch_store")
+End Sub

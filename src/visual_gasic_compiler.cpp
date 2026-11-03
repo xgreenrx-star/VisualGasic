@@ -1128,6 +1128,9 @@ void VisualGasicCompiler::collect_used_vars_expr(ExpressionNode* expr) {
         case ExpressionNode::EXPRESSION_CALL: {
             CallExpression* c = (CallExpression*)expr;
             if (c->base_object) collect_used_vars_expr(c->base_object);
+            // `d("key")` / `arr(i)` parse as calls named after the variable; count
+            // the name as a read so DCE keeps stores like `d = other`.
+            else used_vars.insert(c->method_name.to_lower());
             for (int i = 0; i < c->arguments.size(); i++) collect_used_vars_expr(c->arguments[i]);
             break;
         }

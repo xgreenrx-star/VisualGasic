@@ -133,6 +133,19 @@ pad = (osc(np.full(N, 110), "sine") + osc(np.full(N, 164.8), "sine") + osc(np.fu
 pad *= env([(14.3, 0), (14.9, 1), (16, 0)])
 L += pad; R += pad
 
+# CRT carrier and eye servos duck into a short electrical inhale before the jaw.
+carrier_rng = np.random.default_rng(103)
+carrier = hp(carrier_rng.standard_normal(N), 3200)
+carrier *= env([(0, 0), (0.5, 0.012), (3.8, 0.012), (4.4, 0.002), (6.4, 0)])
+L += carrier; R += np.roll(carrier, 230)
+for start in (1.68, 2.08):
+    eye = np.sin(2*np.pi*(740*t+90*t*t))
+    eye *= env([(start, 0), (start+0.12, 0.025), (start+0.42, 0)])
+    L += eye*0.8; R += eye
+inhale = bp(carrier_rng.standard_normal(N), 470, 2.4)
+inhale *= env([(3.95, 0), (4.45, 0.10), (4.78, 0)])
+L += inhale; R += inhale*0.85
+
 # Metallic room reverb, master, fades.
 ir_n = int(1.8 * SR)
 ir = rng.standard_normal((2, ir_n)) * np.exp(-np.linspace(0, 7, ir_n))

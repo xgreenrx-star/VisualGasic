@@ -238,12 +238,21 @@ def tunnel_layer(D,P,mc,msz,tunnel,size,SS):
     lay=ImageChops.lighter(lay,lay.filter(ImageFilter.GaussianBlur(6)))
     return lay
 
-def render(D,V,T,E,o,cam,W=960,H=720,holo=False,tunnel=0.0,label=""):
+def render(D,V,T,E,o,cam,W=960,H=720,holo=False,tunnel=0.0,label="",
+           yaw=0.0,roll=0.0,eyes=(1.0,1.0),gaze=0.0):
     SS=2; size=(W*SS,H*SS)
     zoom,fx,fy=cam
     base=min(W,H)/1000*0.92
     def P(p):
         x,y=p; s=base*zoom
+        for eye,((ex,ey),_) in zip(eyes,D["irises"]):
+            weight=math.exp(-((x-ex)/78)**4-((y-ey)/46)**4)
+            y=ey+(y-ey)*(1-(1-eye)*weight)
+        depth=height(D,x,y)*190
+        x=CX+(x-CX)*math.cos(yaw)+depth*math.sin(yaw)
+        dx,dy=x-CX,y-490
+        x=CX+dx*math.cos(roll)-dy*math.sin(roll)
+        y=490+dx*math.sin(roll)+dy*math.cos(roll)
         return ((x-fx)*s+W/2)*SS,((y-fy)*s+H/2)*SS
     PV=[pose(D,tuple(v),o) for v in V]; S=[P(p) for p in PV]
     mouth=[pose(D,p,o) for p in D["F"]["in_up"]+list(reversed(D["F"]["in_lo"]))]
@@ -265,10 +274,11 @@ def render(D,V,T,E,o,cam,W=960,H=720,holo=False,tunnel=0.0,label=""):
     for k,pl in D["F"].items():
         w=SS*(3 if k in("contour","lip_up","lip_lo","eye_r","eye_l") else 2)
         dl.line([P(pose(D,p,o)) for p in pl],fill=(225,250,255),width=w)
-    for (c,r) in D["irises"]:
+    for eye,(c,r) in zip(eyes,D["irises"]):
+        if eye<0.08: continue
         for rr,ww in ((r,2),(r*0.42,3)):
-            q=P(c); s_=rr*base*zoom*SS
-            dl.ellipse([q[0]-s_,q[1]-s_,q[0]+s_,q[1]+s_],outline=(150,255,235) if D["kind"]=="alien" else (230,255,255),width=SS*ww)
+            ring=[P((c[0]+gaze+rr*math.cos(a),c[1]+rr*math.sin(a))) for a in np.linspace(0,2*math.pi,49)]
+            dl.line(ring,fill=(150,255,235) if D["kind"]=="alien" else (230,255,255),width=SS*ww)
     face=ImageChops.add(fill,lines)
     if holo:
         scan=Image.new("L",size,255); ds=ImageDraw.Draw(scan)

@@ -61,9 +61,11 @@ Function number_between(ByVal value As Variant, ByVal low As Double, ByVal high 
 	Return value >= low And value <= high
 End Function
 
-Function point_valid(ByVal value As Variant, ByVal surface As Boolean) As Boolean
+Function point_valid(ByVal value As Variant, ByVal surface As Boolean, Optional ByVal deep_floor As Boolean = False) As Boolean
 	If TypeName(value) <> "Vector2" Then Return False
 	If surface Then Return value.x >= -118 And value.x <= 118 And value.y >= -12 And value.y <= 420
+	' Deep Stratum floors are up to 60 x 80 and include the lift car behind z = 0.
+	If deep_floor Then Return value.x >= -31 And value.x <= 31 And value.y >= -7.5 And value.y <= 81
 	Return value.x >= -22 And value.x <= 22 And value.y >= 0 And value.y <= 58
 End Function
 
@@ -104,7 +106,7 @@ Function validate(ByVal data As Variant, ByVal yard As Object) As Boolean
 		End If
 	Next
 	If data.place <> "surface" And data.place <> "building" And data.place <> "floor" And data.place <> "lift" Then Return reject("Unknown expedition location.")
-	If Not point_valid(data.position_xz, data.place = "surface") Then Return reject("Player position is outside the expedition.")
+	If Not point_valid(data.position_xz, data.place = "surface", data.place = "floor" And yard.deep.is_level(data.floor_code)) Then Return reject("Player position is outside the expedition.")
 	If Not point_valid(data.buggy_position, True) Or Not point_valid(data.surface_position, True) Then Return reject("Invalid parked vehicle or surface return position.")
 	If Not number_between(data.building_index, -1, 7) Or data.building_index <> Int(data.building_index) Then Return reject("Invalid building.")
 	If data.place <> "surface" And data.building_index < 0 Then Return reject("Interior has no surface destination.")
@@ -113,7 +115,7 @@ Function validate(ByVal data As Variant, ByVal yard As Object) As Boolean
 	End If
 	If data.driving And data.place <> "surface" Then Return reject("Vehicle cannot be inside an interior.")
 	If Not number_between(data.inspection, 0, 2) Or data.inspection <> Int(data.inspection) Then Return reject("Invalid camera mode.")
-	If Not number_between(data.velocity, -18, 18) Or Not number_between(data.shield, 0, 100) Then Return reject("Invalid vehicle speed or suit status.")
+	If Not number_between(data.velocity, -22, 22) Or Not number_between(data.shield, 0, 100) Then Return reject("Invalid vehicle speed or suit status.")
 	If Not number_between(data.collected, 0, 3) Or data.collected <> Int(data.collected) Then Return reject("Invalid cell count.")
 	If Not number_between(data.countdown, 0, 255) Or Not number_between(data.transit_left, 0, 4) Then Return reject("Invalid alarm or lift timer.")
 	If data.transit_total <> 3 And data.transit_total <> 4 Then Return reject("Invalid lift journey.")
@@ -155,6 +157,32 @@ Function validate(ByVal data As Variant, ByVal yard As Object) As Boolean
 	Return True
 End Function
 
+' Optional [stratum] section: pack counts, Deep Stratum progress and absorbed
+' radiation. Saves without it (older builds) load with an empty pack.
+Function stratum_valid(ByVal pack As Variant, ByVal state As Variant, ByVal rad As Variant, ByVal yard As Object) As Boolean
+	Dim key As Variant
+	Dim sub_key As Variant
+	If TypeName(pack) <> "Dictionary" Or TypeName(state) <> "Dictionary" Then Return reject("Invalid Deep Stratum section.")
+	For Each key In pack.keys()
+		If TypeName(key) <> "String" Then Return reject("Invalid pack entry.")
+		If Not yard.deep.ITEMS.has(key) Then Return reject("Unknown pack item: " & key & ".")
+		If TypeName(pack(key)) <> "Integer" Then Return reject("Invalid pack count.")
+		If pack(key) < 1 Or pack(key) > 99 Then Return reject("Invalid pack count.")
+	Next
+	For Each sub_key In Array("codes", "taken", "hacked")
+		If state.has(sub_key) Then
+			If TypeName(state(sub_key)) <> "Dictionary" Then Return reject("Invalid Deep Stratum progress.")
+		End If
+	Next
+	If state.has("codes") Then
+		For Each key In state("codes").keys()
+			If Not code_valid(key, True) Then Return reject("Invalid recovered lift code.")
+		Next
+	End If
+	If Not number_between(rad, 0, 1000) Then Return reject("Invalid radiation dose.")
+	Return True
+End Function
+
 Function save_game() As Boolean
 	Dim config As Object
 	Dim directory As Object
@@ -172,6 +200,10 @@ Function save_game() As Boolean
 	config.set_value("campaign", "visit_number", visit_number)
 	config.set_value("campaign", "orac_online", orac_online)
 	config.set_value("campaign", "expedition", data)
+	If Not stratum_valid(city.pack, city.stratum, CDbl(city.radiation), city) Then Return False
+	config.set_value("stratum", "pack", city.pack.duplicate(True))
+	config.set_value("stratum", "state", city.stratum.duplicate(True))
+	config.set_value("stratum", "radiation", CDbl(city.radiation))
 	temporary = save_path & ".tmp"
 	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
 	If directory Is Nothing Then Return reject("Could not open the campaign save directory.")
@@ -195,6 +227,9 @@ Function load_game(ByVal yard As Object) As Boolean
 	Dim saved_stage As Variant
 	Dim expected_stage As String
 	Dim error_code As Integer
+	Dim saved_pack As Variant
+	Dim saved_state As Variant
+	Dim saved_rad As Variant
 	last_error = ""
 	config = ClassDB.Instantiate("ConfigFile")
 	error_code = config.load(save_path)
@@ -209,6 +244,10 @@ Function load_game(ByVal yard As Object) As Boolean
 	If data.completed Then expected_stage = "first_departure"
 	saved_stage = config.get_value("campaign", "stage", "")
 	If saved_stage <> expected_stage Then Return reject("Campaign stage and expedition state disagree.")
+	saved_pack = config.get_value("stratum", "pack", New Dictionary)
+	saved_state = config.get_value("stratum", "state", New Dictionary)
+	saved_rad = config.get_value("stratum", "radiation", 0.0)
+	If Not stratum_valid(saved_pack, saved_state, saved_rad, yard) Then Return False
 	' Validate everything before changing the active expedition.
 	city = yard
 	city.campaign_mode = True
@@ -216,6 +255,10 @@ Function load_game(ByVal yard As Object) As Boolean
 	For Each field_name In fields()
 		city.set(field_name, data(field_name))
 	Next
+	city.pack = saved_pack.duplicate(True)
+	city.stratum = saved_state.duplicate(True)
+	city.radiation = saved_rad
+	city.deep.ensure_state(city)
 	city.pending_room = True
 	orac_online = True
 	visit_number = 1

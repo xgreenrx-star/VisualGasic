@@ -107,13 +107,13 @@
   },
   "translation": {
     "item": "translator",
-    "start_owned_in_dest": true,
+    "start_owned_in_preview": true,
     "gloss_range_m": 6,
     "cradle_code_dev": "2741",
     "cradle_lock": "YardDock/ReleaseLock",
     "code_clue": "ServiceTag",
     "translator_post": "TranslatorPost",
-    "sign_contract": "Node3D with metadata text_kind (\"interface\" | \"high\"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Translator reveals interface Gloss only; high script waits for the FEB.",
+    "sign_contract": "Node3D with metadata text_kind (\"interface\" | \"high\"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Collected translator enables helmet translations only; world Gloss stays hidden. High script waits for the FEB.",
     "signs": [
       "YardDock/GateSign",
       "YardDock/RoadSign",

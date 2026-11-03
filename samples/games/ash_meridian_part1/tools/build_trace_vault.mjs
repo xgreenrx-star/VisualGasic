@@ -1141,9 +1141,9 @@ const gateX = [7, 23];
 		proposed_charge: { capacity: 100, drain_per_second: '0.6 + speed^2/1800', trace_on_extra: 0.25, relay_gain: 40, relay_cooldown_s: 45, dock_refill_s: 2, low: 30, critical: 15, critical_speed_cap: 40, failure_window_s: 2.5 },
 		proposed_navigation: { beacon_visible_m: 600, self_discover_m: 250, list_scan_radius_m: 900, list_scan_cost: 4, radar_radius_m: 400 },
 		translation: {
-			item: 'translator', start_owned_in_dest: true, gloss_range_m: 6,
+			item: 'translator', start_owned_in_preview: true, gloss_range_m: 6,
 			cradle_code_dev: CRADLE_CODE, cradle_lock: 'YardDock/ReleaseLock', code_clue: 'ServiceTag', translator_post: 'TranslatorPost',
-			sign_contract: 'Node3D with metadata text_kind ("interface" | "high"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Translator reveals interface Gloss only; high script waits for the FEB.',
+			sign_contract: 'Node3D with metadata text_kind ("interface" | "high"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Collected translator enables helmet translations only; world Gloss stays hidden. High script waits for the FEB.',
 			signs: ['YardDock/GateSign', 'YardDock/RoadSign', 'YardDock/Directive', 'ServiceTag/Line0', 'ServiceTag/Line1', 'TranslatorPost/PostLabel', 'DeepLiftLobby/Sign', 'DeepLiftLobby/Cabin/IndicatorOut', 'DeepLiftLobby/Cabin/IndicatorIn', 'DeepLiftLobby/Cabin/ControlPanel/ScreenText'],
 			word_hash: { algorithm: 'FNV-1a 32-bit over upper-case ASCII', cells: 'max(1, ceil(len/2))', cell_pattern: '(hash >> ((i*5) % 27)) & 63, 0 -> 42', paths: GLYPH_PATHS, shared_top_bar_y: -3 },
 			numeral_patterns: NUMERAL_PATTERNS,

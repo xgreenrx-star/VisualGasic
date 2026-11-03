@@ -55,6 +55,7 @@ Sub _Process(ByVal delta As Single)
 		Call ChargeChecks()
 		Call NavChecks()
 		Call TranslatorChecks()
+		Call LiftProgressionChecks()
 		Call WalkChecks()
 		Call CrashChecks()
 		Call DestChecks()
@@ -175,6 +176,7 @@ Sub TranslatorChecks()
 	check(scene.narcean_cell(scene.narcean_hash("DOCK"), 1) = 38 And scene.narcean_cell(scene.narcean_hash("RELEASE"), 3) = 1 And scene.narcean_cell(scene.narcean_hash("SEVEN"), 0) = 30, "word_hash_cells_dock_release_seven")
 	scene.reset_run()
 	scene.inventory.erase("translator")
+	check(scene.translation_t = 0.0 And Not scene.visor_label.visible And Not scene.visor_panel.visible, "new_run_clears_visor_interference_and_stale_text")
 	scene.TickGloss(0.5)
 	gate = scene.crossing.get_node("YardDock/GateSign/Gloss")
 	directive = scene.crossing.get_node("YardDock/Directive/Gloss")
@@ -185,7 +187,7 @@ Sub TranslatorChecks()
 	check(Not key_gloss.visible, "keypad_digit_glosses_hidden_without_translator")
 	scene.GiveTranslator()
 	scene.TickGloss(0.5)
-	check(gate.visible, "interface_gloss_only_with_translator_in_range")
+	check(Not gate.visible And scene.visor_panel.visible And scene.visor_label.text.contains("TRANSLATED:"), "english_translation_is_visor_only")
 	check(Not directive.visible, "high_script_never_glossed_with_translator")
 	check(Not tag.visible, "interface_gloss_not_shown_out_of_range")
 	scene.inventory.erase("translator")
@@ -193,9 +195,18 @@ Sub TranslatorChecks()
 	scene.PlaceWalker(scene.crossing.get_node("ServiceTag"), 0.0)
 	scene.TickGloss(0.5)
 	check(Not tag.visible And InStr(scene.nearby_hud, "NARCEAN") > 0, "tag_unreadable_without_translator")
+	check(scene.visor_label.text.contains("LEXICON OFFLINE") And Not scene.visor_label.text.contains("TWO SEVEN FOUR ONE"), "visor_does_not_leak_translation_without_lexicon")
 	scene.GiveTranslator()
 	scene.TickGloss(0.5)
-	check(tag.visible And InStr(scene.nearby_hud, "TWO SEVEN FOUR ONE") > 0, "tag_reads_code_with_translator")
+	check(Not tag.visible And InStr(scene.nearby_hud, "TWO SEVEN FOUR ONE") > 0, "tag_reads_code_in_visor_not_in_world")
+	check(Not key_gloss.visible, "keypad_english_never_becomes_physical_signage")
+	scene.nearby_hud = ""
+	scene.RefreshVisorTranslation()
+	check(Not scene.visor_panel.visible, "helmet_readout_hides_without_translation_or_message")
+	scene.orac_sub_t = 1.0
+	scene.RefreshVisorTranslation()
+	check(scene.visor_panel.visible And scene.visor_label.text.begins_with("ORAC:"), "orac_message_opens_same_readout_without_nearby_sign")
+	scene.orac_sub_t = 0.0
 	scene.inventory.erase("translator")
 	scene.HideTranslatorPickup()
 	scene.ride_state = "on_foot"
@@ -284,11 +295,80 @@ Sub DestChecks()
 	game.WarpDev()
 	check(view.trace_cycle <> Nothing And view.trace_cycle.yard_field And view.trace_cycle.mode = "yard", "trace_yard_starts_from_dev_terminal")
 	check(view.trace_cycle.dock_id = "yard_dock", "trace_yard_dest_starts_at_the_yard_dock")
-	check(view.trace_cycle.TranslatorOwned() And Not view.trace_cycle.cradle_released, "trace_yard_dest_owns_translator_and_locks_the_cradle")
+	check(Not view.trace_cycle.TranslatorOwned() And Not view.trace_cycle.cradle_released And Not view.trace_cycle.progression_skip, "normal_yard_requires_translator_pickup_and_locks_cradle")
 	view.stop_trace_cycle()
 	game.dev_i = 16
 	game.WarpDev()
-	check(view.trace_cycle <> Nothing And Not view.trace_cycle.yard_field And view.trace_cycle.mode = "dev", "trace_cycle_dest_still_loads_the_crossing")
+	check(view.trace_cycle <> Nothing And view.trace_cycle.yard_field And view.trace_cycle.mode = "dev", "trace_cycle_dest_uses_yard_connected_crossing")
 	view.stop_trace_cycle()
 	game.free()
+End Sub
+
+Sub LiftProgressionChecks()
+	scene.progression_skip = False
+	scene.yard_save_translator = False
+	scene.yard_save_released = False
+	scene.inventory.erase("translator")
+	scene.lift_code_known = False
+	scene.lift_authorized = False
+	scene.ignore_input = False
+	scene.reset_run()
+	check(Not scene.TranslatorOwned() And scene.crossing.get_node("TranslatorPost/Translator").visible, "normal_run_shows_uncollected_translator")
+	check(Not scene.crossing.get_node("Yard/PressHall1").visible And Not scene.crossing.get_node("TranslatorHideout/DoorFrame").visible And scene.crossing.has_node("TranslatorHideout/ArchiveDoorHeader"), "archive_bay_is_not_hidden_inside_proxy_building")
+	check(scene.Objective().contains("TRANSLATOR"), "fresh_run_objective_points_to_translator")
+	scene.cradle_released = True
+	scene.BoardYardCycle()
+	check(scene.ride_state = "on_foot", "cannot_leave_yard_without_translator_and_lift_clue")
+	scene.cradle_released = False
+	scene.PlaceWalker(scene.crossing.get_node("LiftAddressClue"), 0.0)
+	scene.TickGloss(0.5)
+	check(Not scene.lift_code_known And Not scene.visor_label.text.contains("ONE FOUR TWO FOUR TWO"), "archive_address_cannot_be_decoded_before_pickup")
+	scene.PlaceWalker(scene.crossing.get_node("TranslatorPoint"), 0.0)
+	scene.InteractYardDock()
+	check(scene.TranslatorOwned() And Not scene.crossing.get_node("TranslatorPost/Translator").visible, "archive_pickup_enables_lexicon_and_removes_object")
+	check(scene.Objective().contains("REAR WALL"), "pickup_advances_objective_to_address_clue")
+	scene.PlaceWalker(scene.crossing.get_node("LiftAddressClue"), 0.0)
+	scene.TickGloss(0.5)
+	check(scene.lift_code_known And scene.nearby_hud.contains("ONE FOUR TWO FOUR TWO"), "archive_clue_scans_five_digit_lift_address")
+	check(Not scene.crossing.get_node("LiftAddressClue/Line1/Gloss").visible, "lift_address_english_only_in_helmet")
+	scene.reset_run()
+	check(scene.TranslatorOwned() And scene.lift_code_known, "retry_preserves_collected_lexicon_and_scanned_address")
+	scene.route.outbound_complete = True
+	scene.route.stage_name = "vault_facility"
+	scene.ride_state = "docked"
+	scene.dock_id = "vault"
+	scene.enter_lift()
+	scene.walker.global_position = scene.crossing.get_node("DeepLiftLobby/LiftPose").global_position
+	scene.StartVaultLift(False)
+	check(scene.ride_state = "on_foot" And Not scene.lift_authorized, "normal_lift_cannot_bypass_address_entry")
+	scene.InteractFoot()
+	check(scene.lift_lock_open And scene.visor_label.text.contains("ARCHIVE: 14242"), "far_lift_opens_helmet_keypad_with_scanned_journal")
+	scene.EnterLiftDigit(2)
+	scene.EnterLiftDigit(7)
+	scene.EnterLiftDigit(4)
+	scene.EnterLiftDigit(1)
+	scene.SubmitLiftCode()
+	check(Not scene.lift_authorized And scene.lift_lock_status = "ADDRESS REJECTED", "bike_release_code_does_not_unlock_lift")
+	scene.lift_code_known = False
+	scene.lift_entry = "14242"
+	scene.SubmitLiftCode()
+	check(Not scene.lift_authorized And scene.lift_lock_status.contains("NOT SCANNED"), "lift_requires_discovered_archive_clue")
+	scene.lift_code_known = True
+	scene.inventory.erase("translator")
+	scene.SubmitLiftCode()
+	check(Not scene.lift_authorized And scene.lift_lock_status = "LEXICON OFFLINE", "lift_translation_requires_physical_pickup")
+	scene.GiveTranslator()
+	scene.lift_entry = ""
+	scene.EnterLiftDigit(1)
+	scene.EnterLiftDigit(4)
+	scene.EnterLiftDigit(2)
+	scene.EnterLiftDigit(4)
+	scene.EnterLiftDigit(2)
+	scene.SubmitLiftCode()
+	check(scene.lift_authorized And scene.ride_state = "lift" And Not scene.lift_lock_open, "scanned_correct_address_starts_real_lift_ride")
+	scene.tick(5.5)
+	check(scene.area_name = "vault" And scene.TranslatorOwned(), "translator_inventory_carries_into_vault")
+	scene.progression_skip = True
+	scene.ignore_input = True
+	scene.reset_run()
 End Sub

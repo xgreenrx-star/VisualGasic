@@ -43,6 +43,28 @@ and sweep, the static surge, a hard thunk on the cut, and a decaying hiss
 tail. Click, Space, Enter or Esc skips to the static surge. Reduced motion
 removes static and tearing and fades instead.
 
+The 16-second face film continues inside a recessed CRT surround with curved
+edges, green phosphor noise and moving scan bands. The same face starts turned
+away with closed eyes, opens its eyes unevenly, looks toward the viewer and
+turns to hold eye contact before the jaw opens at 4.8 seconds. A faint signal
+echo settles, the carrier quiets into an electrical inhale, then the existing
+robotic scream and mouth-tunnel plunge take over. The CRT bands bend toward
+the mouth and the surround fades out during entry. Reduced motion still skips
+the film; the live title fade and skip controls are unchanged.
+Offline sources are in `tools/ai_face`: `render_video.py`, `face.py` and
+`scream.py`. `test_render_video.py` checks the wake timing, deterministic CRT
+noise, render dimensions and final black frame. Rebuild with Python plus NumPy,
+SciPy, Pillow and FFmpeg (use a temporary directory for the PNG frames):
+
+```bash
+python3 tools/ai_face/render_video.py /tmp/ash-face-frames 60 alien holo
+python3 tools/ai_face/scream.py /tmp/ash-face-audio.wav
+ffmpeg -y -framerate 60 -i /tmp/ash-face-frames/f%04d.png -i /tmp/ash-face-audio.wav -c:v libtheora -q:v 7 -pix_fmt yuv444p -c:a libvorbis -q:a 6 -t 16 assets/ai_face/intro_alien_holo.ogv
+ffmpeg -y -i assets/ai_face/intro_alien_holo.ogv -vn -c:a copy assets/ai_face/intro_alien_holo.ogg
+ffmpeg -v warning -i assets/ai_face/intro_alien_holo.ogv -f null -
+python3 -m unittest discover -s tools/ai_face -p 'test_*.py'
+```
+
 Trace Cycle has an isolated dest so the supplied kit can be ridden, taken
 through the far lift and vault, then chased on the return crossing. It does
 not change Play. The ride is first-person; a live exterior feed and a flat
@@ -53,8 +75,11 @@ Open [trace_cycle_test.tscn](trace_cycle_test.tscn) and press **F6**, or choose
 **VAULT** starts already docked at the far cradle so the lift/FEB pickup can be
 reviewed without riding the crossing. The legacy wireframe **FEB** chamber is
 under **ARCHIVE**.
-The scene instances `void_crossing.tscn` and docks `trace_cycle.tscn` at
-`NearCradle/DockPose`. Campaign save version 1 is never loaded or written.
+The TRACE CYCLE, VAULT and TRACE YARD menu destinations use
+`yard_void_field.tscn`, with the near cradle at `YardDock/DockPose` on the
+yard's north rim. The smaller `void_crossing.tscn` remains an automated
+crossing fixture and static art preview. Campaign save version 1 is never
+loaded or written by these destinations.
 See the [cycle sheet](assets/trace_vault/concepts/trace_cycle.png),
 [vault/FEB sheet](assets/trace_vault/concepts/feb_vault.png) and
 [Cursor handoff](../../../docs/development/ASH_MERIDIAN_TRACE_VAULT_HANDOFF.md).
@@ -78,7 +103,7 @@ Play and campaign save version 1 are unchanged. Local lift codes `11111` /
 laboratory rooms. First-release riding saves restore the last safe dock only.
 Those three local interiors are still unauthored. Campaign version 2 and
 Play wiring still wait; the TRACE CYCLE dest now includes the far lift,
-vault/FEB pickup and return chase as an isolated review.
+vault/FEB pickup, return chase and surface buggy escape as an isolated review.
 
 Open [cycle_preview.tscn](assets/trace_vault/scenes/cycle_preview.tscn),
 [vault_preview.tscn](assets/trace_vault/scenes/vault_preview.tscn),
@@ -93,7 +118,7 @@ Translator, release lock and code clue, art only) in Godot
 and run that scene to review it without changing Play.
 [test_trace_models.vg](test_trace_models.vg) passes 317/317 resource, marker, Narcean-script,
 geometry and articulation checks. [test_trace_cycle.vg](test_trace_cycle.vg)
-covers the F6/dest ride at 181/181 (including the stasis capsule crack-open/fog sequence), including real-frame turn, trail-span,
+covers the crossing fixture and menu destinations at 248/248 (including helmet HUD, underground enclosure, visor translation interference, in-cabin lift arrivals, the stasis capsule and dodgeable vault defence), including real-frame turn, trail-span,
 model-faces-travel and named-collision checks. While riding, the camera sees the
 original bike cockpit ([trace_cockpit.tscn](assets/trace_vault/scenes/trace_cockpit.tscn)):
 a clear raked windscreen with a cyan rim and glass HUD (speed, trace count,
@@ -105,6 +130,99 @@ approach hits the solid mast and reports a pylon crash. A gold objective line
 always states the next step. After the third link, an amber beacon marks the
 far dock; enter it from the south. Then press E for the deep lift, take the
 core and coupler in the vault, and ride back under the green near-dock beacon.
+The Trace Cycle/vault lift now uses a 5.4-second cabin ride in both directions:
+doors close for 0.7 seconds, the cabin and on-foot camera travel 32 metres
+through a stationary, window-visible illuminated shaft over 4 seconds, then
+the cabin docks at the destination before its doors reopen. The player remains
+inside, facing out toward the vault or surface lobby, and walks out manually.
+The cabin's native floor indicator uses Narcean stroke glyphs only. There is no
+second English sign: Orac translates nearby interface labels in a screen-space
+helmet readout, including `00 - SURFACE DOCK` and
+`B04 - ISOLATION VAULT`. Floor glyphs use the same word-hash/stroke encoding as
+the other Narcean signs. World-space English gloss labels stay hidden, including
+keypad digits; the yard still requires the translator lexicon and high script
+remains unreadable. Nearby multi-line clues remain grouped in the visor.
+The readout uses translucent dark glass with a cyan chamfered frame, a glyph
+row and a compact `TRANSLATED:` line. It appears for nearby text or Orac messages,
+then hides when neither is present. Orac's spoken escape warning uses this same
+panel, with priority over translation interference. Dark helmet edges frame
+the on-foot/lift view without covering the centre; they are hidden in inspection
+and bike-cockpit views.
+Taking the coupler activates FEB interference: a repeating 3.2-second cycle
+allows 1.2 seconds of readable reacquisition, 1 second of corrupted characters
+and small horizontal jitter, then 1 second of translation-link loss. Only the
+visor changes; the native lettering stays stable. Interference persists through
+the return lift and escape, pauses with gameplay, and clears on a fresh run.
+Objectives, controls and defence warnings remain readable. The translator
+ownership and clue checks in [test_trace_yard.vg](test_trace_yard.vg) pass 97/97.
+Normal combined-yard mode (`yard`, including TRACE YARD) starts without the
+translator. Collect the Interface Translator with F at the archive bay doorway
+(yard x=39, z=36); the physical pickup disappears and Orac's interface lexicon
+works throughout the crossing and vault. Scan the Narcean address plaque on the
+bay's rear wall (x=39, z=44.12) to record the five-symbol lift address **14242**.
+The objectives guide these steps before the cycle can be boarded. The nearby
+yard service tag's **2741** is a separate bike-cradle release code.
+At the far lift, F opens a helmet keypad: 0-9 to enter the address, Backspace
+to edit, Enter to submit, F to cancel. The scanned address is retained in the
+readout as an archive note. Missing lexicon, an unscanned clue, and incorrect
+addresses are rejected; successful entry starts the normal travelling lift.
+Pickup, clue and lift authorization survive in-scene retries; they are not new
+campaign-save fields. A new controller starts a fresh search. `yard_test` and
+standalone crossing/vault previews explicitly skip progression; normal `yard`
+does not. The older campaign's five archive-symbol puzzle is unchanged.
+At docking, the travel shell is hidden and the authored landing cabin supplies
+the floor and walls, avoiding overlapping surfaces. The animated doors remain.
+The underground landing has an instance-specific roof, upper walls and portal
+header: the shared outdoor lobby asset was open above, exposing the star sky.
+The surface lobby remains outdoors.
+A motor loop accompanies the ride. Mouse/A/D look remains available; movement and interaction are locked
+until arrival. Pause stops both travel and motor audio. This is separate from
+the campaign yard's procedural lift; both now have visible travel.
+Taking the coupler wakes the FEB at 65% animation/audio speed. Orac warns at
+8 seconds; the visible vault defence emitter stays offline until
+16 seconds. It needs 2 seconds of clear sight to acquire the player, then
+marks a fixed floor position for 1.5 seconds before firing. Move at least
+1.4 metres off that position or break sight behind either solid cyan-topped
+pillar to avoid the shot. Each shot has a visible beam and a recovery window;
+the first hit warns and flashes red, the second is fatal. On-foot deaths keep
+the on-foot camera and show the cause rather than switching into the cycle
+cockpit. The return lift ends targeting; R retries the existing checkpoint.
+The damage flash fades within 0.9 seconds in walking, lift and cycle states.
+Both crossing dock aprons support walking after dismount; leaving their edges
+still drops the player into the void.
+
+### Return to Backlight Yard and surface escape
+
+In the main developer menu, **TRACE CYCLE**, **VAULT** and **TRACE YARD** now
+continue after the return chase. Dock, then press F (E also dismounts). Control
+passes to the playable Backlight Yard at the same yard-side dock coordinates,
+not to an empty cliff-bank platform. The native dock and parked cycle remain;
+the detailed yard replaces the crossing's static yard silhouette.
+The buggy is parked just ahead at `(11, 399)`, facing south toward the Ash.
+Orac's messages use the same helmet readout and the on-foot helmet frame remains.
+
+There are eight seconds to reach the buggy before the six surface turrets
+begin tracking. F boards it, W accelerates, S brakes/reverses, A/D steers,
+and F parks/exits. Follow the road south to the Ash at `(0, -5)`. Turrets
+acquire a clear target, show a fixed amber beam for 0.9 seconds, then fire a
+brief thick red pulse at that committed position. Keep moving off the beam or
+use solid buildings to break sight. A hit removes 20 suit points and slows
+the buggy; it is not an invisible instant-death timer.
+
+At the Ash, park and exit with F, then F at the ship installs the recovered
+coupler and starts its visible lift-off. The surface escape has no reused
+underground purge countdown. Pause freezes it. Enter after a fatal hit restores
+the yard-dock checkpoint, suit and parked buggy, keeping the translator, scanned
+address, coupler, cores and protected reserve; it does not replay the vault or
+cycle chase. This remains session-only development progress, not campaign-save
+integration or a replacement for normal Play.
+
+[test_trace_yard_escape.vg](test_trace_yard_escape.vg) exercises all three menu
+handoffs, retained hardware, safe buggy boarding, telegraphed/dodgeable shots,
+building cover, pause, dock retries, the complete southbound drive and takeoff.
+Run it through the existing VG suite runner. Set
+`ASH_TRACE_ESCAPE_CAPTURE=/tmp/ash-yard-escape` with rendering enabled to retain
+dock, buggy, targeting and firing screenshots.
 This is not a chase performance or balance
 test. The assistant maintains the offline original-art source:
 
@@ -166,10 +284,54 @@ starting over. Legacy `user://ash_meridian_save.txt` saves are untouched and
 are not automatically migrated. Dev Backlight Yard is a separate instance;
 its reset, pickups and save command cannot alter the campaign expedition.
 
+### Deep Stratum
+
+The building-7 transit depot lift reaches six underground floors
+([deep_stratum.vg](deep_stratum.vg)). The player rides inside the lift car;
+the doors open onto the floor and a floor display shows the level. No floor
+shows the sky. Five-symbol addresses are recovered from consoles, and F at a
+console reads it through Orac's visor translation:
+
+| Address | Floor | Layout |
+|---|---|---|
+| 14242 | B04 Military Chamber | The FEB and the power coupler |
+| 31707 | B05 Maintenance Concourse | Open pillared hall; derelict Trace Cycle; rad meter, star chart, sealed store |
+| 52914 | B06 Service Warrens | Procedural maze of hallways with timed traps; psionic screwdriver, sealed rooms (buggy armour, supplies) |
+| 66038 | B07 Cistern | Tall reservoir with waterfalls, plants and ledges; ship scanner, relic, core gem |
+| 80451 | B08 Inverted Vault | Gravity-flip pads and sentry sweeps; grade-3 vault (ship shield, buggy boost) |
+| 93162 | B09 Fractured Deep | Pits, sparks and radiation zones; jetpack room |
+
+Returning to the surface is never automatic: in the lift car, F opens the
+keypad and the ascent address **70315** must be entered (it is on the first
+transit index console). The keypad lists the addresses already recovered.
+The derelict Trace Cycle on B05 is cold scenery; the player's own cycle stays
+docked in the Backlight Yard.
+
+The **psionic screwdriver** (Orac's name for a Narcean lock-coupling kit)
+opens sealed doors: F at the door, then F/Space when the cycling glyph matches
+the lit slot. Each door grade adds slots and the lock re-keys after a time
+limit; Backspace aborts. **I** opens the pack. W/S selects an item and Enter
+uses consumables: med gel restores 40 suit integrity and anti-rad purges 60
+units of radiation. Each item has a resale value, but the HUD does not show
+it. The jetpack thrusts while Space is held in the air and recharges on the
+ground. The buggy upgrades take effect while they are in the pack: boost
+raises the buggy's top speed from 18 to 22, and armour reduces turret hits
+by 40% while driving. The ship modules are cargo for a later chapter.
+
+Hazards (trip lasers, pulse barriers, crushers, vents, sentries, sparks,
+radiation and pits) damage the suit. A fatal hit returns the player to the lift car with half integrity.
+After the coupler wakes the FEB, the visor translation glitches. The pack,
+recovered codes, opened doors, collected pickups and radiation dose are saved
+in an optional `[stratum]` section of the campaign save. Older saves without
+that section load with an empty pack.
+
+`res://test_deep_stratum.vg` checks layouts, collision, lift codes, pickups,
+hacking, gravity, hazards and upgrades. `res://test_campaign.vg` checks the
+stratum save round trip.
+
 This increment ends at the first-departure overlay. It does **not** start
-the old reflection encounter or restart the prototype. Finite saleable cargo,
-protected mission inventory, new underground gates/checkpoints, flight,
-station trading, the matched-component return contract and the return-only
+the old reflection encounter or restart the prototype. Flight,
+station trading of salvage, the matched-component return contract and the return-only
 EMP/FEB encounter remain planned. Stacy remains Jason's partner.
 See the current [campaign revision](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md).
 

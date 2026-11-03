@@ -1,0 +1,2029 @@
+' Deep Stratum: procedural floors, traps, hacking, inventory and physics below the transit depot.
+Dim __ready As Boolean
+Dim ASCENT As String
+Dim ITEMS As Dictionary
+Dim LEVELS As Dictionary
+Dim ORDER As Array
+Dim built_code As String
+Dim drawing As Boolean
+Dim lv_w As Single
+Dim lv_l As Single
+Dim lv_h As Single
+Dim areas As Array
+Dim solids As Array
+Dim pits As Array
+Dim zones As Array
+Dim portals As Array
+Dim pickups As Array
+Dim gates As Array
+Dim hazards As Array
+Dim consoles As Array
+Dim signs As Array
+Dim flips As Array
+Dim weak As Array
+Dim falls As Array
+Dim anchors As Dictionary
+Dim derelict As Rect2
+Dim has_derelict As Boolean
+Dim vel_y As Single
+Dim grounded As Boolean
+Dim safe_point As Vector2
+Dim safe_foot As Single
+Dim portal_armed As Boolean
+Dim flip_armed As Boolean
+Dim weak_timer As Single
+Dim door_timer As Single
+Dim fade As Single
+Dim jump_held As Boolean
+Dim jetting As Boolean
+Dim hacking As Boolean
+Dim hack_gate As String
+Dim hack_target As Array
+Dim hack_filled As Integer
+Dim hack_left As Single
+Dim hack_glyph As Integer
+Dim hack_clock As Single
+Dim inv_open As Boolean
+Dim inv_index As Integer
+Dim recall_open As Boolean
+Dim seed_rng As Object
+Dim clock As Single
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function FPosMod(ByVal value As Single, ByVal modulus As Single) As Single
+	Dim wrapped As Single
+	wrapped = value - modulus * Int(value / modulus)
+	If wrapped < 0 Then wrapped = wrapped + modulus
+	FPosMod = wrapped
+End Function
+
+Function FMod(ByVal value As Single, ByVal modulus As Single) As Single
+	FMod = value - modulus * Int(value / modulus)
+End Function
+
+Function CeilInt(ByVal value As Single) As Integer
+	Dim floored As Integer
+	floored = Int(value)
+	If value > floored Then
+		CeilInt = floored + 1
+	Else
+		CeilInt = floored
+	End If
+End Function
+
+Function RoundInt(ByVal value As Single) As Integer
+	If value >= 0 Then
+		RoundInt = Int(value + 0.5)
+	Else
+		RoundInt = Int(value - 0.5)
+	End If
+End Function
+
+Function PadInt(ByVal value As Integer, ByVal width As Integer) As String
+	Dim text As String
+	If value < 0 Then value = 0
+	text = Str(value)
+	While Len(text) < width
+		text = "0" & text
+	Wend
+	PadInt = text
+End Function
+
+Function AngleDifference(ByVal from_angle As Single, ByVal to_angle As Single) As Single
+	Dim diff As Single
+	diff = FPosMod(to_angle - from_angle, 6.283185307179586)
+	If diff > 3.141592653589793 Then diff = diff - 6.283185307179586
+	AngleDifference = diff
+End Function
+
+Function RotateToward(ByVal from_angle As Single, ByVal to_angle As Single, ByVal amount As Single) As Single
+	Dim diff As Single
+	diff = AngleDifference(from_angle, to_angle)
+	If diff > amount Then diff = amount
+	If diff < 0 - amount Then diff = 0 - amount
+	RotateToward = from_angle + diff
+End Function
+
+Function DictFlag(ByVal table As Dictionary, ByVal code As Integer) As Boolean
+	If table.Has(code) Then
+		DictFlag = table(code)
+	Else
+		DictFlag = False
+	End If
+End Function
+
+Function VecLess(ByVal a As Vector3, ByVal b As Vector3) As Boolean
+	If a.x <> b.x Then
+		VecLess = a.x < b.x
+	ElseIf a.y <> b.y Then
+		VecLess = a.y < b.y
+	Else
+		VecLess = a.z < b.z
+	End If
+End Function
+
+Function SpawnVg(ByVal path As String, ByVal type_name As String) As Object
+	Dim node As Object
+	Dim script As Object
+	node = ClassDB.Instantiate(type_name)
+	script = Load(path)
+	node.SetScript(script)
+	SpawnVg = node
+End Function
+
+Function PackVec2(ByVal items As Array) As PackedVector2Array
+	PackVec2 = PackedVector2Array(items)
+End Function
+
+Function PackVec3(ByVal items As Array) As PackedVector3Array
+	PackVec3 = PackedVector3Array(items)
+End Function
+
+Function PackColor(ByVal items As Array) As PackedColorArray
+	PackColor = PackedColorArray(items)
+End Function
+
+Function PackByte(ByVal items As Array) As PackedByteArray
+	PackByte = PackedByteArray(items)
+End Function
+
+Function Sign(ByVal value As Single) As Single
+	If value > 0 Then
+		Sign = 1
+	ElseIf value < 0 Then
+		Sign = -1
+	Else
+		Sign = 0
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	Dim i As Integer
+	Dim n As Integer
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	' vbString = 8. Digit bars iterate "bc" as characters. String subscript is not an array.
+	If VarType(items) = 8 Then
+		n = Len(items)
+		If n > 0 Then
+			For i = 1 To n
+				out.append(Mid(items, i, 1))
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	' GDScript `for x in N` walks 0..N-1. vbLong=3, vbDouble=5, vbInteger=2, vbSingle=4.
+	If VarType(items) = 2 Or VarType(items) = 3 Or VarType(items) = 4 Or VarType(items) = 5 Then
+		n = Int(items)
+		If n > 0 Then
+			For i = 0 To n - 1
+				out.append(i)
+			Next
+		End If
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+
+Sub EnsureInit()
+	If __ready Then Exit Sub
+	__ready = True
+	ASCENT = "70315"
+	ITEMS = New Dictionary
+	ITEMS("psionic_screwdriver") = Array("PSIONIC SCREWDRIVER", 400, "Orac's name for a Narcean lock-coupling kit. F at a sealed door to hack it.")
+	ITEMS("rad_meter") = Array("RAD METER", 120, "Suit dosimeter. Shows radiation and lets Orac warn you.")
+	ITEMS("jetpack") = Array("JETPACK", 2500, "Hold Space in the air to thrust. Recharges on the ground.")
+	ITEMS("med_gel") = Array("MED GEL", 60, "Enter: seal the suit and restore 40 integrity.")
+	ITEMS("anti_rad") = Array("ANTI-RAD", 80, "Enter: purge 60 units of absorbed radiation.")
+	ITEMS("gold_bar") = Array("GOLD BAR", 1000, "Narcean bullion. Heavy, inert and very portable.")
+	ITEMS("core_gem") = Array("CORE GEM", 1800, "A lattice crystal that still hums with stored light.")
+	ITEMS("narcean_relic") = Array("NARCEAN RELIC", 1400, "A ceremonial interface plate. Orac cannot read all of it.")
+	ITEMS("star_chart") = Array("STAR CHART", 900, "Etched navigation plate. Some routes are not in our records.")
+	ITEMS("buggy_armour") = Array("BUGGY ARMOUR", 700, "Ablative plating. Turret hits on the buggy are reduced.")
+	ITEMS("buggy_boost") = Array("BUGGY BOOST", 650, "Injector kit. Raises the buggy's top speed.")
+	ITEMS("ship_scanner") = Array("SHIP SCANNER", 1200, "Long-range scanner module for the Ash.")
+	ITEMS("ship_shield") = Array("SHIP SHIELD", 1600, "Deflector emitter for the Ash.")
+	LEVELS = New Dictionary
+	LEVELS("14242") = Array("B04 - MILITARY CHAMBER", 4)
+	LEVELS("31707") = Array("B05 - MAINTENANCE CONCOURSE", 5)
+	LEVELS("52914") = Array("B06 - SERVICE WARRENS", 6)
+	LEVELS("66038") = Array("B07 - CISTERN", 7)
+	LEVELS("80451") = Array("B08 - INVERTED VAULT", 8)
+	LEVELS("93162") = Array("B09 - FRACTURED DEEP", 9)
+	ORDER = Array("14242", "31707", "52914", "66038", "80451", "93162")
+	built_code = ""
+	drawing = False
+	anchors = New Dictionary
+	areas = Array()
+	solids = Array()
+	pits = Array()
+	zones = Array()
+	portals = Array()
+	pickups = Array()
+	gates = Array()
+	hazards = Array()
+	consoles = Array()
+	signs = Array()
+	flips = Array()
+	weak = Array()
+	falls = Array()
+	hack_target = Array()
+	portal_armed = True
+	flip_armed = True
+	door_timer = 10.0
+	grounded = True
+End Sub
+
+Function is_level(ByVal code As String) As Boolean
+	Call EnsureInit()
+	Return LEVELS.has(code)
+End Function
+
+Function is_deep(ByVal code As String) As Boolean
+	Call EnsureInit()
+	Return LEVELS.has(code) And code <> "14242"
+End Function
+
+Function level_label(ByVal code As String) As String
+	Call EnsureInit()
+	If code = ASCENT Then Return "B00 - TRANSIT DEPOT / SURFACE"
+	If LEVELS.has(code) Then Return LEVELS(code)(0)
+	Return "ADDRESS NOT IN SERVICE"
+End Function
+
+Function item_name(ByVal id As String) As String
+	Call EnsureInit()
+	If ITEMS.has(id) Then Return ITEMS(id)(0)
+	Return id
+End Function
+
+Function item_text(ByVal id As String) As String
+	Call EnsureInit()
+	If ITEMS.has(id) Then Return ITEMS(id)(2)
+	Return ""
+End Function
+
+' Resale appraisal is deliberately hidden from the player until the station chapter.
+Function pack_value(ByVal city As Node) As Integer
+	Dim total As Integer
+	Call EnsureInit()
+	total = 0
+	For Each id In AsArray(city.pack.keys())
+		If ITEMS.has(id) Then total = total + Int(ITEMS(id)(1)) * Int(city.pack(id))
+	Next
+	Return total
+End Function
+
+Function has_item(ByVal city As Node, ByVal id As String) As Boolean
+	If Not city.pack.has(id) Then Return False
+	Return Int(city.pack(id)) > 0
+End Function
+
+Sub ensure_state(ByVal city As Node)
+	Dim st As Dictionary
+	Call EnsureInit()
+	If city.pack Is Nothing Then city.pack = New Dictionary
+	If city.stratum Is Nothing Then city.stratum = New Dictionary
+	st = city.stratum
+	If Not st.has("codes") Then st("codes") = New Dictionary
+	If Not st.has("taken") Then st("taken") = New Dictionary
+	If Not st.has("hacked") Then st("hacked") = New Dictionary
+	If Not st.has("collapsed") Then st("collapsed") = False
+	If Not st.has("inverted") Then st("inverted") = False
+	If Not st.has("rad_warned") Then st("rad_warned") = 0
+	If Not st.has("jet_fuel") Then st("jet_fuel") = 1.0
+	If Not st.has("foot_y") Then st("foot_y") = 0.0
+End Sub
+
+Sub reset_state(ByVal city As Node)
+	Call EnsureInit()
+	city.pack = New Dictionary
+	city.stratum = New Dictionary
+	city.radiation = 0.0
+	ensure_state(city)
+	built_code = ""
+	hacking = False
+	inv_open = False
+	recall_open = False
+	vel_y = 0.0
+	fade = 0.0
+End Sub
+
+Sub learn(ByVal city As Node, ByVal code As String)
+	Call EnsureInit()
+	ensure_state(city)
+	city.stratum("codes")(code) = True
+End Sub
+
+Function knows(ByVal city As Node, ByVal code As String) As Boolean
+	Call EnsureInit()
+	ensure_state(city)
+	Return city.stratum("codes").has(code)
+End Function
+
+Function known_codes(ByVal city As Node) As Array
+	Dim out As Array
+	Call EnsureInit()
+	ensure_state(city)
+	out = Array()
+	If knows(city, ASCENT) Then out.append(ASCENT)
+	For Each code In AsArray(ORDER)
+		If knows(city, code) Then out.append(code)
+	Next
+	Return out
+End Function
+
+Function foot(ByVal city As Node) As Single
+	Return Num(city.stratum("foot_y"))
+End Function
+
+Function inverted(ByVal city As Node) As Boolean
+	If city.stratum Is Nothing Then Return False
+	If Not city.stratum.has("inverted") Then Return False
+	Return city.stratum("inverted") = True
+End Function
+
+Function eye_height(ByVal city As Node) As Single
+	If inverted(city) Then Return foot(city) - 1.8
+	Return foot(city) + 1.8
+End Function
+
+Function in_alcove(ByVal p As Vector2) As Boolean
+	Return p.x > -3.2 And p.x < 3.2 And p.y < 0.0 And p.y > -7.4
+End Function
+
+Sub _reset_layout()
+	areas = Array()
+	solids = Array()
+	pits = Array()
+	zones = Array()
+	portals = Array()
+	pickups = Array()
+	gates = Array()
+	hazards = Array()
+	consoles = Array()
+	signs = Array()
+	flips = Array()
+	weak = Array()
+	falls = Array()
+	anchors = New Dictionary
+	has_derelict = False
+End Sub
+
+Sub _solid(ByVal city As Node, ByVal r As Rect2, ByVal y0 As Single, ByVal top As Single, ByVal color As Color, Optional lit As Variant = False)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("r") = r
+	entry("y0") = y0
+	entry("top") = top
+	solids.append(entry)
+	If drawing Then city._box(Vector3(r.position.x, y0, r.position.y), Vector3(r.size.x, top - y0, r.size.y), color, lit)
+End Sub
+
+Sub _wallr(ByVal city As Node, ByVal r As Rect2, ByVal color As Color)
+	_solid(city, r, 0.0, lv_h, color)
+End Sub
+
+Sub _deco(ByVal city As Node, ByVal p As Vector3, ByVal size As Vector3, ByVal color As Color, Optional lit As Variant = False)
+	If drawing Then city._box(p, size, color, lit)
+End Sub
+
+Sub _line3(ByVal city As Node, ByVal a As Vector3, ByVal b As Vector3, ByVal width As Single, ByVal color As Color, Optional lit As Variant = True)
+	If drawing Then city._bar(a, b, width, color, lit)
+End Sub
+
+Sub _anchor(ByVal key As String, ByVal p As Vector2, ByVal facing As Single)
+	anchors(key) = Array(p, facing)
+End Sub
+
+Sub _zone(ByVal r As Rect2, ByVal rad As Single, ByVal slow As Single, ByVal y1 As Single)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("r") = r
+	entry("rad") = rad
+	entry("slow") = slow
+	entry("y1") = y1
+	zones.append(entry)
+End Sub
+
+Sub _portal(ByVal r As Rect2, ByVal dest As String, ByVal key As String, ByVal gate_id As String, ByVal label As String)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("r") = r
+	entry("dest") = dest
+	entry("anchor") = key
+	entry("gate") = gate_id
+	entry("label") = label
+	portals.append(entry)
+End Sub
+
+Sub _pickup(ByVal code As String, ByVal id As String, ByVal p As Vector3)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("key") = code & ":" & Str(pickups.size())
+	entry("item") = id
+	entry("p") = p
+	entry("node") = Nothing
+	pickups.append(entry)
+End Sub
+
+Sub _gate(ByVal code As String, ByVal r As Rect2, ByVal grade As Integer, ByVal y0 As Single, ByVal top As Single)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("id") = code & ":G" & Str(gates.size())
+	entry("r") = r
+	entry("grade") = grade
+	entry("y0") = y0
+	entry("top") = top
+	entry("node") = Nothing
+	gates.append(entry)
+End Sub
+
+Function _last_gate() As String
+	Return gates(gates.size() - 1)("id")
+End Function
+
+Sub _hazard(ByVal kind As String, ByVal r As Rect2, ByVal y0 As Single, ByVal y1 As Single, ByVal period As Single, ByVal duty As Single, ByVal phase As Single, ByVal dmg As Integer)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("kind") = kind
+	entry("r") = r
+	entry("y0") = y0
+	entry("y1") = y1
+	entry("period") = period
+	entry("duty") = duty
+	entry("phase") = phase
+	entry("dmg") = dmg
+	entry("node") = Nothing
+	hazards.append(entry)
+End Sub
+
+Sub _console(ByVal city As Node, ByVal p As Vector2, ByVal text As String, ByVal reveal As Array)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("p") = p
+	entry("text") = text
+	entry("reveal") = reveal
+	consoles.append(entry)
+	_solid(city, Rect2(p.x - 0.9, p.y - 0.5, 1.8, 1.0), 0.0, 1.05, city.INK)
+	_deco(city, Vector3(p.x - 0.75, 1.06, p.y - 0.4), Vector3(1.5, 0.03, 0.8), city.ICE * 0.55, True)
+	_deco(city, Vector3(p.x - 0.75, 1.05, p.y - 0.52), Vector3(1.5, 0.6, 0.04), city.ICE * 0.2, True)
+End Sub
+
+Sub _flip(ByVal r As Rect2)
+	flips.append(r)
+End Sub
+
+Sub _weak(ByVal r As Rect2, ByVal dest As String, ByVal key As String)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("r") = r
+	entry("dest") = dest
+	entry("anchor") = key
+	entry("node") = Nothing
+	weak.append(entry)
+End Sub
+
+' Stroke glyph alphabet shared with the HUD; strokes are drawn as lit bars in 3D.
+Sub glyph3(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal digit As Integer, ByVal scale As Single, ByVal color As Color)
+	Dim patterns As Array
+	Dim paths As Array
+	Dim pts As Array
+	Dim down As Vector3
+	Dim a As Vector3
+	Dim b As Vector3
+	If Not drawing Then Exit Sub
+	patterns = Array(15, 21, 38, 56, 41, 26, 52, 35, 29, 51)
+	paths = Array(Array(Vector2(0, 0), Vector2(7, 6), Vector2(14, 0)), Array(Vector2(0, 18), Vector2(7, 12), Vector2(14, 18)), Array(Vector2(0, 2), Vector2(0, 16)), Array(Vector2(14, 2), Vector2(14, 16)), Array(Vector2(3, 9), Vector2(11, 9)), Array(Vector2(7, -3), Vector2(7, 21)))
+	down = Vector3(0, -1, 0)
+	For i = 0 To paths.size() - 1
+		If patterns(digit) And (1 << i) Then
+			pts = paths(i)
+			For j = 0 To pts.size() - 2
+				a = origin + right * (pts(j).x * scale) + down * (pts(j).y * scale)
+				b = origin + right * (pts(j + 1).x * scale) + down * (pts(j + 1).y * scale)
+				city._bar(a, b, 1.7 * scale, color, True)
+			Next
+		End If
+	Next
+End Sub
+
+Sub glyph3_string(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal text As String, ByVal scale As Single, ByVal color As Color)
+	For i = 0 To text.length() - 1
+		glyph3(city, origin + right * (i * 23 * scale), right, Int(text.substr(i, 1)), scale, color)
+	Next
+End Sub
+
+Sub draw_glyphs(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal text As String, ByVal scale As Single, ByVal color As Color)
+	Dim was As Boolean
+	Call EnsureInit()
+	was = drawing
+	drawing = True
+	glyph3_string(city, origin, right, text, scale, color)
+	drawing = was
+End Sub
+
+' A wall plaque in Narcean glyphs. The English only exists in Orac's visor translation.
+Sub _sign(ByVal city As Node, ByVal p As Vector3, ByVal normal As Vector3, ByVal digits As String, ByVal translation As String)
+	Dim entry As Dictionary
+	Dim right As Vector3
+	Dim width As Single
+	Dim face As Vector3
+	entry = New Dictionary
+	entry("p") = p
+	entry("n") = normal
+	entry("text") = translation
+	signs.append(entry)
+	If Not drawing Then Exit Sub
+	right = normal.cross(Vector3.UP)
+	width = digits.length() * 23 * 0.022 + 0.3
+	face = p + normal * 0.06
+	If Abs(normal.z) > 0.5 Then
+		city._box(Vector3(p.x - width * 0.5, p.y - 0.35, p.z - 0.04), Vector3(width, 0.7, 0.08), city.INK)
+	Else
+		city._box(Vector3(p.x - 0.04, p.y - 0.35, p.z - width * 0.5), Vector3(0.08, 0.7, width), city.INK)
+	End If
+	glyph3_string(city, face - right * (width * 0.5 - 0.15) + Vector3(0, 0.2, 0), right, digits, 0.022, city.GOLD)
+End Sub
+
+Sub _console_data(ByVal p As Vector2, ByVal text As String, ByVal reveal As Array)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("p") = p
+	entry("text") = text
+	entry("reveal") = reveal
+	consoles.append(entry)
+End Sub
+
+Sub _frame(ByVal city As Node, ByVal code As String, ByVal w As Single, ByVal l As Single, ByVal h As Single, ByVal floor_color As Color, ByVal wall_color As Color, ByVal draw_floor As Boolean)
+	Dim hw As Single
+	lv_w = w
+	lv_l = l
+	lv_h = h
+	hw = w * 0.5
+	areas.append(Rect2(-hw, 0, w, l))
+	areas.append(Rect2(-3, -7.2, 6, 7.5))
+	If draw_floor Then _deco(city, Vector3(-hw, -0.3, 0), Vector3(w, 0.3, l), floor_color)
+	_deco(city, Vector3(-hw, h, 0), Vector3(w, 0.3, l), city.INK)
+	_deco(city, Vector3(-hw - 0.4, 0, 0), Vector3(0.4, h, l), wall_color)
+	_deco(city, Vector3(hw, 0, 0), Vector3(0.4, h, l), wall_color)
+	_deco(city, Vector3(-hw, 0, l), Vector3(w, h, 0.4), wall_color)
+	_solid(city, Rect2(-hw, 0, hw - 2, 0.3), 0.0, h, wall_color)
+	_solid(city, Rect2(2, 0, hw - 2, 0.3), 0.0, h, wall_color)
+	_deco(city, Vector3(-2, 4.55, 0), Vector3(4, h - 4.55, 0.3), wall_color)
+	For z = 6 To Int(l) - 2 Step 10
+		_deco(city, Vector3(-3, h - 0.06, z), Vector3(6, 0.05, 0.4), city.ICE * 0.6, True)
+	Next
+	_alcove(city, code)
+End Sub
+
+' The lift car is the alcove behind the front wall: the doors open onto the floor beyond.
+Sub _alcove(ByVal city As Node, ByVal code As String)
+	Dim depth As Integer
+	Dim right As Vector3
+	_deco(city, Vector3(-3.2, -0.2, -7.4), Vector3(6.4, 0.2, 7.4), city.SHELL * 0.8)
+	_deco(city, Vector3(-3.2, 5.2, -7.4), Vector3(6.4, 0.2, 7.4), city.INK)
+	_deco(city, Vector3(-3.2, 0, -7.4), Vector3(0.2, 5.2, 7.4), city.SHELL)
+	_deco(city, Vector3(3.0, 0, -7.4), Vector3(0.2, 5.2, 7.4), city.SHELL)
+	_deco(city, Vector3(-3.2, 0, -7.4), Vector3(6.4, 5.2, 0.2), city.SHELL * 0.9)
+	_deco(city, Vector3(-3.0, 4.55, -0.12), Vector3(6.0, 0.65, 0.12), city.SHELL)
+	_deco(city, Vector3(-3.0, 0, -0.12), Vector3(0.9, 4.55, 0.12), city.SHELL)
+	_deco(city, Vector3(2.1, 0, -0.12), Vector3(0.9, 4.55, 0.12), city.SHELL)
+	_deco(city, Vector3(-1.4, 5.15, -5.5), Vector3(2.8, 0.04, 3.6), city.ICE * 0.55, True)
+	For Each x In Array(-2.95, 2.9)
+		_line3(city, Vector3(x, 1.0, -6.8), Vector3(x, 1.0, -0.6), 0.05, city.GOLD * 0.8)
+	Next
+	_deco(city, Vector3(2.86, 0.95, -3.3), Vector3(0.12, 1.35, 0.75), city.INK)
+	For k = 0 To 5
+		_deco(city, Vector3(2.83, 1.1 + (k Mod 3) * 0.36, -3.18 + Int(k / 3) * 0.36), Vector3(0.04, 0.18, 0.18), city.GOLD * 0.9, True)
+	Next
+	_deco(city, Vector3(2.83, 2.05, -3.18), Vector3(0.04, 0.12, 0.54), city.ICE * 0.8, True)
+	_deco(city, Vector3(-1.55, 4.6, -0.16), Vector3(3.1, 0.52, 0.04), city.INK)
+	right = Vector3(1, 0, 0)
+	If LEVELS.has(code) Then
+		depth = LEVELS(code)(1)
+		glyph3_string(city, Vector3(-1.4, 5.0, -0.18), right, PadInt(depth, 2), 0.016, city.GOLD)
+		glyph3_string(city, Vector3(-0.4, 5.0, -0.18), right, code, 0.016, city.ICE)
+	End If
+	_sign_data(Vector3(0, 4.85, -0.2), Vector3(0, 0, -1), "LIFT CAR / " & level_label(code))
+	_anchor("lift", Vector2(0, -4.8), 0.0)
+End Sub
+
+Sub _sign_data(ByVal p As Vector3, ByVal normal As Vector3, ByVal translation As String)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("p") = p
+	entry("n") = normal
+	entry("text") = translation
+	signs.append(entry)
+End Sub
+
+Sub _stairwell(ByVal city As Node, ByVal r As Rect2, ByVal descending As Boolean)
+	Dim x0 As Single
+	Dim z0 As Single
+	Dim y As Single
+	x0 = r.position.x
+	z0 = r.position.y
+	_deco(city, Vector3(x0, 0.0, z0), Vector3(r.size.x, 0.02, r.size.y), Color(0.004, 0.006, 0.01))
+	For k = 0 To 5
+		If descending Then
+			y = 0.03 - k * 0.0
+		Else
+			y = 0.03
+		End If
+		_line3(city, Vector3(x0 + 0.2, y + (k * 0.0), z0 + 0.4 + k * 0.75), Vector3(x0 + r.size.x - 0.2, y, z0 + 0.4 + k * 0.75), 0.04, city.GOLD * (1.0 - k * 0.13))
+	Next
+	For Each x In Array(x0, x0 + r.size.x)
+		_line3(city, Vector3(x, 1.0, z0), Vector3(x, 1.0, z0 + r.size.y), 0.05, city.ICE * 0.7)
+		_deco(city, Vector3(x - 0.04, 0, z0), Vector3(0.08, 1.0, 0.08), city.SHELL)
+	Next
+	If Not descending Then
+		_deco(city, Vector3(x0, 0, z0 + r.size.y - 0.3), Vector3(r.size.x, 3.4, 0.3), city.SHELL * 0.8)
+		_deco(city, Vector3(x0 + 0.3, 0.05, z0 + r.size.y - 0.32), Vector3(r.size.x - 0.6, 3.0, 0.02), Color(0.004, 0.006, 0.01))
+	End If
+End Sub
+
+Sub _layout(ByVal city As Node, ByVal code As String)
+	_reset_layout()
+	seed_rng = ClassDB.Instantiate("RandomNumberGenerator")
+	seed_rng.seed = Int(code)
+	If code = "14242" Then
+		_layout_feb(city)
+	ElseIf code = "31707" Then
+		_layout_concourse(city)
+	ElseIf code = "52914" Then
+		_layout_warrens(city)
+	ElseIf code = "66038" Then
+		_layout_cistern(city)
+	ElseIf code = "80451" Then
+		_layout_vault(city)
+	ElseIf code = "93162" Then
+		_layout_fractured(city)
+	Else
+		_frame(city, code, 44, 56, 6, city.SHELL * 0.6, city.SHELL, True)
+	End If
+End Sub
+
+Sub ensure_layout(ByVal city As Node)
+	Call EnsureInit()
+	ensure_state(city)
+	If city.place <> "floor" Then Exit Sub
+	If built_code = city.floor_code Then Exit Sub
+	drawing = False
+	_layout(city, city.floor_code)
+	built_code = city.floor_code
+End Sub
+
+' Static geometry is emitted into the controller's pending mesh; the builder finishes it.
+Sub build_level(ByVal city As Node)
+	Call EnsureInit()
+	ensure_state(city)
+	drawing = True
+	_layout(city, city.floor_code)
+	drawing = False
+	built_code = city.floor_code
+End Sub
+
+' The original military chamber keeps its builder; Deep Stratum adds the car, stair and records.
+Sub _layout_feb(ByVal city As Node)
+	lv_w = 44
+	lv_l = 56
+	lv_h = 6
+	areas.append(Rect2(-22, 0, 44, 56))
+	areas.append(Rect2(-3, -7.2, 6, 7.5))
+	_alcove(city, "14242")
+	_deco(city, Vector3(-2, 4.55, 0), Vector3(4, 1.45, 0.3), city.SHELL)
+	_stairwell(city, Rect2(-21.5, 50, 4, 5), True)
+	_portal(Rect2(-21.3, 50.4, 3.6, 4.4), "31707", "stair", "", "STAIR DOWN")
+	_anchor("stair", Vector2(-19, 48.2), PI)
+	_console_data(Vector2(0, 26.6), "TRANSLATED: GARRISON TRANSIT INDEX / SURFACE ASCENT 70315 / MAINTENANCE CONCOURSE 31707", Array("70315", "31707"))
+	_sign(city, Vector3(-19.5, 2.6, 55.55), Vector3(0, 0, -1), "05", "STAIR - MAINTENANCE CONCOURSE")
+	_sign(city, Vector3(0, 2.8, 0.36), Vector3(0, 0, 1), "04", "MILITARY CHAMBER / ISOLATION CROWN")
+End Sub
+
+Sub _layout_concourse(ByVal city As Node)
+	Dim amber As Color
+	amber = Color(1.0, 0.55, 0.12)
+	_frame(city, "31707", 60, 80, 8, city.SHELL * 0.55, city.SHELL, True)
+	For Each x In Array(-8.0, 8.0)
+		For z = 8 To 68 Step 12
+			_solid(city, Rect2(x - 0.5, z - 0.5, 1, 1), 0.0, 8.0, city.SHELL * 0.8)
+			_deco(city, Vector3(x - 0.52, 3.0, z - 0.52), Vector3(1.04, 0.12, 1.04), amber * 0.7, True)
+		Next
+	Next
+	has_derelict = True
+	derelict = Rect2(9, 16, 6, 8)
+	_deco(city, Vector3(9, 0, 16), Vector3(6, 0.25, 8), city.INK)
+	_console_data(Vector2(12, 20), "ORAC: A Trace Cycle, Jason. Cold for centuries; the drive lattice is fused. Someone parked it here and never came back. Ours is still docked in the Backlight Yard.", Array())
+	_pickup("31707", "rad_meter", Vector3(-14, 0, 30))
+	_deco(city, Vector3(-14.5, 0, 29.5), Vector3(1, 0.5, 1), city.INK)
+	_zone(Rect2(16, 50, 10, 10), 2.0, 1.0, 99.0)
+	For k = 0 To 3
+		_line3(city, Vector3(16 + k * 0.0, 0.03, 50 + k * 3.3), Vector3(26, 0.03, 50 + k * 3.3), 0.06, amber * 0.8)
+	Next
+	For Each p In Array(Vector2(18, 53), Vector2(22, 57), Vector2(24, 52))
+		_solid(city, Rect2(p.x - 0.5, p.y - 0.5, 1, 1), 0.0, 1.3, Color(0.3, 0.25, 0.05))
+		_deco(city, Vector3(p.x - 0.52, 0.9, p.y - 0.52), Vector3(1.04, 0.08, 1.04), Color(0.4, 1.0, 0.2), True)
+	Next
+	_sign(city, Vector3(15.9, 2.4, 55), Vector3(-1, 0, 0), "717", "COOLANT LEAK - ISOLATED")
+	_wallr(city, Rect2(18, 62, 0.4, 4), city.SHELL)
+	_wallr(city, Rect2(18, 69, 0.4, 5), city.SHELL)
+	_wallr(city, Rect2(18, 62, 12, 0.4), city.SHELL)
+	_wallr(city, Rect2(18, 74, 12, 0.4), city.SHELL)
+	_deco(city, Vector3(18, 3.2, 66), Vector3(0.4, 4.8, 3), city.SHELL)
+	_gate("31707", Rect2(18, 66, 0.4, 3), 1, 0.0, 3.2)
+	_sign(city, Vector3(17.75, 3.7, 67.5), Vector3(-1, 0, 0), "331", "STORES - SEALED")
+	_pickup("31707", "gold_bar", Vector3(24, 0.8, 70))
+	_solid(city, Rect2(23.4, 69.4, 1.2, 1.2), 0.0, 0.8, city.INK)
+	_pickup("31707", "med_gel", Vector3(26, 0.8, 64))
+	_solid(city, Rect2(25.4, 63.4, 1.2, 1.2), 0.0, 0.8, city.INK)
+	_weak(Rect2(-6, 44, 4, 4), "52914", "weak")
+	_stairwell(city, Rect2(-29, 22, 5, 5), True)
+	_portal(Rect2(-28.8, 22.4, 4.4, 4.2), "52914", "escalator", "", "ESCALATOR DOWN")
+	_anchor("escalator", Vector2(-21, 24.5), PI * 0.5)
+	_sign(city, Vector3(-29.75, 2.6, 24.5), Vector3(1, 0, 0), "06", "DOWN - SERVICE WARRENS")
+	_solid(city, Rect2(22, 30, 7, 10), 4.2, 4.5, city.SHELL * 0.7)
+	For Each p In Array(Vector2(22, 30), Vector2(28.7, 30), Vector2(22, 39.7), Vector2(28.7, 39.7))
+		_solid(city, Rect2(p.x, p.y, 0.3, 0.3), 0.0, 4.2, city.SHELL)
+	Next
+	_line3(city, Vector3(22, 5.5, 30), Vector3(22, 5.5, 40), 0.05, amber)
+	_line3(city, Vector3(22, 5.5, 30), Vector3(29, 5.5, 30), 0.05, amber)
+	For k = 0 To 8
+		_solid(city, Rect2(23, 40 + k * 0.8, 5, 0.8), 0.0, 4.05 - k * 0.45, city.SHELL * (0.6 + (k Mod 2) * 0.1))
+		_line3(city, Vector3(23, 4.07 - k * 0.45, 40 + k * 0.8), Vector3(28, 4.07 - k * 0.45, 40 + k * 0.8), 0.03, amber * 0.8)
+	Next
+	_pickup("31707", "star_chart", Vector3(26, 4.5, 34))
+	_console(city, Vector2(0, 60), "TRANSLATED: CONCOURSE TRANSIT INDEX / SERVICE WARRENS 52914 / CISTERN 66038", Array("52914", "66038"))
+	_stairwell(city, Rect2(-29, 74, 4, 5), False)
+	_portal(Rect2(-28.8, 74.4, 3.6, 4.2), "14242", "stair", "", "STAIR UP")
+	_anchor("stair", Vector2(-27, 71.5), PI)
+	_sign(city, Vector3(-27, 3.8, 79.55), Vector3(0, 0, -1), "04", "UP - MILITARY CHAMBER")
+	_sign(city, Vector3(0, 3.2, 0.36), Vector3(0, 0, 1), "05", "MAINTENANCE CONCOURSE")
+End Sub
+
+Function _cell_x(ByVal c As Integer) As Single
+	Return -27.0 + c * 6.0
+End Function
+
+Function _cell_z(ByVal r As Integer) As Single
+	Return r * 6.0
+End Function
+
+' Bit 1 east (+x), 2 west (-x), 4 south (+z), 8 north (-z).
+Function _openings(ByVal open_e As Array, ByVal open_s As Array, ByVal c As Integer, ByVal r As Integer) As Integer
+	Dim bits As Integer
+	bits = 0
+	If c < 8 Then
+		If open_e(r * 9 + c) Then bits = bits + 1
+	End If
+	If c > 0 Then
+		If open_e(r * 9 + c - 1) Then bits = bits + 2
+	End If
+	If r < 10 Then
+		If open_s(r * 9 + c) Then bits = bits + 4
+	End If
+	If r > 0 Then
+		If open_s((r - 1) * 9 + c) Then bits = bits + 8
+	End If
+	Return bits
+End Function
+
+Function _bit_count(ByVal bits As Integer) As Integer
+	Dim n As Integer
+	n = 0
+	For k = 0 To 3
+		If bits And (1 << k) Then n = n + 1
+	Next
+	Return n
+End Function
+
+Function _dir_of(ByVal bits As Integer) As Vector2
+	If bits And 1 Then Return Vector2(1, 0)
+	If bits And 2 Then Return Vector2(-1, 0)
+	If bits And 4 Then Return Vector2(0, 1)
+	Return Vector2(0, -1)
+End Function
+
+Sub _layout_warrens(ByVal city As Node)
+	Dim open_e As Array
+	Dim open_s As Array
+	Dim seen As Array
+	Dim trail As Array
+	Dim options As Array
+	Dim cur As Integer
+	Dim c As Integer
+	Dim r As Integer
+	Dim nxt As Integer
+	Dim dist As Array
+	Dim queue As Array
+	Dim head As Integer
+	Dim bits As Integer
+	Dim dead As Array
+	Dim best As Integer
+	Dim held_cell As Integer
+	Dim center As Vector2
+	Dim dir As Vector2
+	Dim x0 As Single
+	Dim z0 As Single
+	Dim moss As Color
+	Dim gate_r As Rect2
+	Dim kinds As Array
+	Dim placed As Integer
+	Dim id As String
+	moss = Color(0.25, 0.9, 0.3)
+	_frame(city, "52914", 54, 66, 5.4, city.SHELL * 0.45, city.SHELL * 0.75, True)
+	open_e = Array()
+	open_s = Array()
+	seen = Array()
+	For k = 0 To 98
+		open_e.append(False)
+		open_s.append(False)
+		seen.append(False)
+	Next
+	trail = Array(4)
+	seen(4) = True
+	While trail.size() > 0
+		cur = trail(trail.size() - 1)
+		c = cur Mod 9
+		r = Int(cur / 9)
+		options = Array()
+		If c < 8 Then
+			If Not seen(cur + 1) Then options.append(cur + 1)
+		End If
+		If c > 0 Then
+			If Not seen(cur - 1) Then options.append(cur - 1)
+		End If
+		If r < 10 Then
+			If Not seen(cur + 9) Then options.append(cur + 9)
+		End If
+		If r > 0 Then
+			If Not seen(cur - 9) Then options.append(cur - 9)
+		End If
+		If options.size() = 0 Then
+			trail.remove_at(trail.size() - 1)
+		Else
+			nxt = options(seed_rng.randi_range(0, options.size() - 1))
+			If nxt = cur + 1 Then open_e(cur) = True
+			If nxt = cur - 1 Then open_e(nxt) = True
+			If nxt = cur + 9 Then open_s(cur) = True
+			If nxt = cur - 9 Then open_s(nxt) = True
+			seen(nxt) = True
+			trail.append(nxt)
+		End If
+	Wend
+	For r = 0 To 10
+		For c = 0 To 8
+			x0 = _cell_x(c)
+			z0 = _cell_z(r)
+			If c < 8 Then
+				If Not open_e(r * 9 + c) Then _wallr(city, Rect2(x0 + 5.8, z0 - 0.2, 0.4, 6.4), city.SHELL * 0.75)
+			End If
+			If r < 10 Then
+				If Not open_s(r * 9 + c) Then _wallr(city, Rect2(x0 - 0.2, z0 + 5.8, 6.4, 0.4), city.SHELL * 0.75)
+			End If
+			If seed_rng.randf() < 0.35 Then
+				For k = 0 To 2
+					_line3(city, Vector3(x0 + 1 + seed_rng.randf() * 4, 5.4, z0 + 1 + seed_rng.randf() * 4), Vector3(x0 + 1 + seed_rng.randf() * 4, 3.6 + seed_rng.randf() * 1.2, z0 + 1 + seed_rng.randf() * 4), 0.05, moss * (0.4 + seed_rng.randf() * 0.4))
+				Next
+			End If
+		Next
+	Next
+	dist = Array()
+	For k = 0 To 98
+		dist.append(-1)
+	Next
+	dist(4) = 0
+	queue = Array(4)
+	head = 0
+	While head < queue.size()
+		cur = queue(head)
+		head = head + 1
+		c = cur Mod 9
+		r = Int(cur / 9)
+		bits = _openings(open_e, open_s, c, r)
+		For Each pair In Array(Array(1, 1), Array(2, -1), Array(4, 9), Array(8, -9))
+			If bits And pair(0) Then
+				nxt = cur + pair(1)
+				If dist(nxt) < 0 Then
+					dist(nxt) = dist(cur) + 1
+					queue.append(nxt)
+				End If
+			End If
+		Next
+	Wend
+	dead = Array()
+	For k = 0 To 98
+		If k <> 4 And k <> 56 Then
+			If _bit_count(_openings(open_e, open_s, k Mod 9, Int(k / 9))) = 1 Then dead.append(k)
+		End If
+	Next
+	For a = 0 To dead.size() - 2
+		best = a
+		For b = a + 1 To dead.size() - 1
+			If dist(dead(b)) > dist(dead(best)) Then best = b
+		Next
+		held_cell = dead(a)
+		dead(a) = dead(best)
+		dead(best) = held_cell
+	Next
+	For rank = 0 To dead.size() - 1
+		cur = dead(rank)
+		c = cur Mod 9
+		r = Int(cur / 9)
+		x0 = _cell_x(c)
+		z0 = _cell_z(r)
+		center = Vector2(x0 + 3, z0 + 3)
+		dir = _dir_of(_openings(open_e, open_s, c, r))
+		If dir.x > 0 Then
+			gate_r = Rect2(x0 + 5.8, z0, 0.4, 6)
+		ElseIf dir.x < 0 Then
+			gate_r = Rect2(x0 - 0.2, z0, 0.4, 6)
+		ElseIf dir.y > 0 Then
+			gate_r = Rect2(x0, z0 + 5.8, 6, 0.4)
+		Else
+			gate_r = Rect2(x0, z0 - 0.2, 6, 0.4)
+		End If
+		If rank = 0 Then
+			_pickup("52914", "psionic_screwdriver", Vector3(center.x - dir.x * 1.5, 0.8, center.y - dir.y * 1.5))
+			_solid(city, Rect2(center.x - dir.x * 1.5 - 0.6, center.y - dir.y * 1.5 - 0.6, 1.2, 1.2), 0.0, 0.8, city.INK)
+			_sign(city, Vector3(center.x - dir.x * 2.75, 2.4, center.y - dir.y * 2.75), Vector3(dir.x, 0, dir.y), "88", "TOOL LOCKER - TECHNICIAN USE")
+		ElseIf rank = 1 Then
+			_stairwell_cell(city, center, dir)
+			_portal(Rect2(center.x - dir.x * 1.6 - 1.4, center.y - dir.y * 1.6 - 1.4, 2.8, 2.8), "31707", "escalator", "", "ESCALATOR UP")
+			_anchor("escalator", center + dir * 1.6, Atan2(dir.x, dir.y))
+			_sign(city, Vector3(center.x - dir.x * 2.75, 3.4, center.y - dir.y * 2.75), Vector3(dir.x, 0, dir.y), "05", "UP - MAINTENANCE CONCOURSE")
+		ElseIf rank = 2 Then
+			_console(city, center - dir * 1.4, "TRANSLATED: WARRENS DISPATCH / INVERTED VAULT 80451 / GRAVITY INVERSION IN USE", Array("80451"))
+		ElseIf rank = 3 Then
+			_gate("52914", gate_r, 1, 0.0, 5.4)
+			_pickup("52914", "buggy_armour", Vector3(center.x, 0.0, center.y))
+		ElseIf rank = 4 Then
+			_gate("52914", gate_r, 2, 0.0, 5.4)
+			id = _last_gate()
+			_lift_pad(city, center - dir * 1.4)
+			_portal(Rect2(center.x - dir.x * 1.4 - 1.2, center.y - dir.y * 1.4 - 1.2, 2.4, 2.4), "66038", "lift2", id, "SERVICE LIFT")
+			_anchor("lift2", center + dir * 1.2, Atan2(dir.x, dir.y))
+			_sign(city, Vector3(center.x - dir.x * 2.75, 3.4, center.y - dir.y * 2.75), Vector3(dir.x, 0, dir.y), "07", "SERVICE LIFT - CISTERN")
+		ElseIf rank < 9 Then
+			If rank Mod 2 = 1 Then
+				_pickup("52914", "med_gel", Vector3(center.x, 0.0, center.y))
+			Else
+				_pickup("52914", "anti_rad", Vector3(center.x, 0.0, center.y))
+			End If
+		End If
+	Next
+	_anchor("weak", Vector2(_cell_x(2) + 3, _cell_z(6) + 3), 0.0)
+	kinds = Array("laser_low", "pulse", "crusher", "vent")
+	placed = 0
+	For k = 0 To 98
+		c = k Mod 9
+		r = Int(k / 9)
+		bits = _openings(open_e, open_s, c, r)
+		If r >= 2 And k <> 56 And placed < 10 And (k * 7 + 3) Mod 4 = 0 Then
+			x0 = _cell_x(c)
+			z0 = _cell_z(r)
+			If bits = 3 Then
+				_corridor_hazard(kinds(placed Mod 4), True, x0, z0, placed)
+				placed = placed + 1
+			ElseIf bits = 12 Then
+				_corridor_hazard(kinds(placed Mod 4), False, x0, z0, placed)
+				placed = placed + 1
+			End If
+		End If
+	Next
+	_sign(city, Vector3(0, 3.0, 0.36), Vector3(0, 0, 1), "06", "SERVICE WARRENS - MIND THE MACHINERY")
+End Sub
+
+Sub _corridor_hazard(ByVal kind As String, ByVal along_x As Boolean, ByVal x0 As Single, ByVal z0 As Single, ByVal index As Integer)
+	Dim r As Rect2
+	Dim span As Single
+	If kind = "crusher" Or kind = "vent" Then
+		span = 2.0
+	Else
+		span = 0.3
+	End If
+	If along_x Then
+		r = Rect2(x0 + 3 - span * 0.5, z0 + 0.2, span, 5.6)
+	Else
+		r = Rect2(x0 + 0.2, z0 + 3 - span * 0.5, 5.6, span)
+	End If
+	If kind = "laser_low" Then
+		_hazard(kind, r, 0.15, 0.6, 1.0, 1.0, 0.0, 12)
+	ElseIf kind = "pulse" Then
+		_hazard(kind, r, 0.0, 3.0, 2.4, 0.45, index * 0.37, 18)
+	ElseIf kind = "crusher" Then
+		_hazard(kind, r, 0.0, 5.4, 3.2, 0.3, index * 0.53, 30)
+	Else
+		_hazard(kind, r, 0.0, 2.6, 2.8, 0.4, index * 0.29, 10)
+	End If
+End Sub
+
+Sub _stairwell_cell(ByVal city As Node, ByVal center As Vector2, ByVal dir As Vector2)
+	Dim back As Vector2
+	back = center - dir * 1.6
+	_deco(city, Vector3(back.x - 1.4, 0.0, back.y - 1.4), Vector3(2.8, 0.02, 2.8), Color(0.004, 0.006, 0.01))
+	For k = 0 To 3
+		_line3(city, Vector3(back.x - 1.2, 0.03, back.y - 1.2 + k * 0.8), Vector3(back.x + 1.2, 0.03, back.y - 1.2 + k * 0.8), 0.04, city.GOLD * (1.0 - k * 0.15))
+	Next
+End Sub
+
+Sub _lift_pad(ByVal city As Node, ByVal p As Vector2)
+	_deco(city, Vector3(p.x - 1.2, 0.0, p.y - 1.2), Vector3(2.4, 0.05, 2.4), city.SHELL * 0.7)
+	_line3(city, Vector3(p.x - 1.1, 0.07, p.y - 1.1), Vector3(p.x + 1.1, 0.07, p.y - 1.1), 0.05, city.ICE)
+	_line3(city, Vector3(p.x - 1.1, 0.07, p.y + 1.1), Vector3(p.x + 1.1, 0.07, p.y + 1.1), 0.05, city.ICE)
+	_line3(city, Vector3(p.x - 1.1, 0.07, p.y - 1.1), Vector3(p.x - 1.1, 0.07, p.y + 1.1), 0.05, city.ICE)
+	_line3(city, Vector3(p.x + 1.1, 0.07, p.y - 1.1), Vector3(p.x + 1.1, 0.07, p.y + 1.1), 0.05, city.ICE)
+	For Each q In Array(Vector2(-1.1, -1.1), Vector2(1.1, -1.1), Vector2(-1.1, 1.1), Vector2(1.1, 1.1))
+		_line3(city, Vector3(p.x + q.x, 0, p.y + q.y), Vector3(p.x + q.x, 4.0, p.y + q.y), 0.06, city.ICE * 0.6)
+	Next
+End Sub
+
+Sub _fall(ByVal city As Node, ByVal x0 As Single, ByVal x1 As Single, ByVal z As Single, ByVal top As Single, ByVal speed As Single, ByVal color As Color)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("x0") = x0
+	entry("x1") = x1
+	entry("z") = z
+	entry("top") = top
+	entry("speed") = speed
+	entry("color") = color
+	entry("node") = Nothing
+	falls.append(entry)
+End Sub
+
+Sub _plant(ByVal city As Node, ByVal p As Vector2, ByVal y As Single, ByVal size As Single)
+	Dim leaf As Color
+	Dim angle As Single
+	leaf = Color(0.2, 0.85, 0.35)
+	_deco(city, Vector3(p.x - 0.2, y, p.y - 0.2), Vector3(0.4, 0.35, 0.4), city.INK)
+	For k = 0 To 5
+		angle = k * 1.047 + p.x
+		_line3(city, Vector3(p.x, y + 0.3, p.y), Vector3(p.x + Cos(angle) * size, y + 0.3 + size * (0.8 + (k Mod 2) * 0.5), p.y + Sin(angle) * size), 0.05, leaf * (0.5 + (k Mod 3) * 0.2))
+	Next
+End Sub
+
+Sub _pad(ByVal city As Node, ByVal r As Rect2, ByVal y As Single)
+	Dim c As Vector2
+	c = r.get_center()
+	_deco(city, Vector3(r.position.x, y, r.position.y), Vector3(r.size.x, 0.06, r.size.y), city.INK)
+	For k = 0 To 2
+		_line3(city, Vector3(c.x - r.size.x * (0.45 - k * 0.12), y + 0.08, c.y), Vector3(c.x + r.size.x * (0.45 - k * 0.12), y + 0.08, c.y), 0.05, Color(0.7, 0.3, 1.0))
+		_line3(city, Vector3(c.x, y + 0.08, c.y - r.size.y * (0.45 - k * 0.12)), Vector3(c.x, y + 0.08, c.y + r.size.y * (0.45 - k * 0.12)), 0.05, Color(0.7, 0.3, 1.0))
+	Next
+End Sub
+
+Sub _layout_cistern(ByVal city As Node)
+	Dim water As Color
+	water = Color(0.1, 0.6, 0.65)
+	_frame(city, "66038", 56, 70, 14, city.SHELL * 0.5, city.SHELL * 0.7, True)
+	_zone(Rect2(-10, 25, 20, 20), 6.0, 0.45, 0.3)
+	_deco(city, Vector3(-10, 0.02, 25), Vector3(20, 0.03, 20), water * 0.35, True)
+	For Each pair In Array(Array(Vector3(-10, 0.1, 25), Vector3(10, 0.1, 25)), Array(Vector3(-10, 0.1, 45), Vector3(10, 0.1, 45)), Array(Vector3(-10, 0.1, 25), Vector3(-10, 0.1, 45)), Array(Vector3(10, 0.1, 25), Vector3(10, 0.1, 45)))
+		_line3(city, pair(0), pair(1), 0.08, water)
+	Next
+	_deco(city, Vector3(-6.5, 12.5, 25), Vector3(5, 1.5, 0.8), city.SHELL)
+	_fall(city, -6.0, -2.0, 25.5, 12.5, 6.0, water)
+	_fall(city, 4.0, 5.5, 44.6, 14.0, 5.0, water)
+	For Each p In Array(Vector2(-12, 24), Vector2(12, 27), Vector2(12, 43), Vector2(-12, 40), Vector2(-14, 32), Vector2(14, 35), Vector2(-4, 47), Vector2(6, 48))
+		_plant(city, p, 0.0, 0.9)
+	Next
+	_solid(city, Rect2(-9, 44, 2, 2), 0.0, 0.8, city.SHELL * 0.7)
+	_solid(city, Rect2(-12.5, 47.5, 2, 2), 0.0, 1.6, city.SHELL * 0.7)
+	_solid(city, Rect2(-28, 50, 18, 20), 0.0, 2.4, city.SHELL * 0.6)
+	_line3(city, Vector3(-10, 2.45, 50), Vector3(-10, 2.45, 70), 0.05, city.GOLD * 0.7)
+	_line3(city, Vector3(-28, 2.45, 50), Vector3(-10, 2.45, 50), 0.05, city.GOLD * 0.7)
+	For Each p In Array(Vector2(-14, 53), Vector2(-12, 67), Vector2(-17, 60))
+		_plant(city, p, 2.4, 1.1)
+	Next
+	_solid(city, Rect2(-20, 58, 0.4, 4), 2.4, 6.4, city.SHELL)
+	_solid(city, Rect2(-20, 65, 0.4, 5), 2.4, 6.4, city.SHELL)
+	_solid(city, Rect2(-28, 58, 8, 0.4), 2.4, 6.4, city.SHELL)
+	_deco(city, Vector3(-28, 6.4, 58), Vector3(8.4, 0.2, 12), city.INK)
+	_gate("66038", Rect2(-20, 62, 0.4, 3), 2, 2.4, 5.6)
+	_deco(city, Vector3(-20, 5.6, 62), Vector3(0.4, 0.8, 3), city.SHELL)
+	_sign(city, Vector3(-19.75, 6.0, 63.5), Vector3(1, 0, 0), "331", "ARCHIVE - SEALED")
+	_pickup("66038", "ship_scanner", Vector3(-25, 2.4, 66))
+	_pickup("66038", "narcean_relic", Vector3(-25, 2.4, 61))
+	_pad(city, Rect2(-23.5, 6.5, 3, 3), 0.0)
+	_portal(Rect2(-23.3, 6.7, 2.6, 2.6), "66038", "island", "", "TRANSIT PAD")
+	_anchor("shore", Vector2(-22, 11.5), 0.0)
+	_sign(city, Vector3(-27.75, 2.6, 8), Vector3(1, 0, 0), "16", "TRANSIT PAD - ISLAND")
+	_solid(city, Rect2(16, 46, 12, 0.4), 0.0, 3.0, city.SHELL * 0.8)
+	_solid(city, Rect2(16, 46, 0.4, 12), 0.0, 3.0, city.SHELL * 0.8)
+	_solid(city, Rect2(16, 57.6, 12, 0.4), 0.0, 3.0, city.SHELL * 0.8)
+	_pad(city, Rect2(20.5, 47.5, 3, 3), 0.0)
+	_portal(Rect2(20.7, 47.7, 2.6, 2.6), "66038", "shore", "", "TRANSIT PAD")
+	_anchor("island", Vector2(22, 52), PI)
+	_console(city, Vector2(24, 55.5), "TRANSLATED: RESERVOIR CONTROL / FRACTURED DEEP 93162 / ACCESS RESTRICTED", Array("93162"))
+	_solid(city, Rect2(20, 10, 8, 8), 0.0, 7.0, city.SHELL * 0.65)
+	_line3(city, Vector3(20, 7.05, 10), Vector3(20, 7.05, 18), 0.05, city.ICE)
+	_line3(city, Vector3(20, 7.05, 18), Vector3(28, 7.05, 18), 0.05, city.ICE)
+	_pickup("66038", "core_gem", Vector3(24, 7.0, 14))
+	_lift_pad(city, Vector2(-26, 29.5))
+	_portal(Rect2(-27.5, 28, 3, 3), "52914", "lift2", "", "SERVICE LIFT")
+	_anchor("lift2", Vector2(-23, 29.5), PI * 0.5)
+	_sign(city, Vector3(-27.75, 4.6, 29.5), Vector3(1, 0, 0), "06", "SERVICE LIFT - WARRENS")
+	_sign(city, Vector3(0, 3.0, 0.36), Vector3(0, 0, 1), "07", "CISTERN - COOLANT RESERVOIR")
+End Sub
+
+Sub _layout_vault(ByVal city As Node)
+	Dim violet As Color
+	violet = Color(0.65, 0.3, 1.0)
+	_frame(city, "80451", 48, 60, 7, city.SHELL * 0.5, city.SHELL * 0.7, True)
+	For Each z In Array(10.0, 30.0)
+		_solid(city, Rect2(-24, z, 48, 0.6), 0.0, 4.2, city.SHELL * 0.75)
+		_line3(city, Vector3(-24, 4.2, z), Vector3(24, 4.2, z), 0.05, violet)
+	Next
+	For Each z In Array(20.0, 40.0)
+		_solid(city, Rect2(-24, z, 48, 0.6), 2.8, 7.0, city.SHELL * 0.75)
+		_line3(city, Vector3(-24, 2.8, z), Vector3(24, 2.8, z), 0.05, violet)
+	Next
+	For Each z In Array(4.0, 14.0, 24.0, 34.0)
+		_flip(Rect2(-24, z, 48, 3))
+		_deco(city, Vector3(-24, 0.01, z), Vector3(48, 0.03, 3), violet * 0.35, True)
+		_deco(city, Vector3(-24, 6.96, z), Vector3(48, 0.03, 3), violet * 0.35, True)
+	Next
+	_hazard("sentry", Rect2(-24, 12, 48, 0.3), 0.0, 7.0, 2.6, 0.4, 0.0, 18)
+	_hazard("sentry", Rect2(-24, 44, 48, 0.3), 0.0, 7.0, 2.2, 0.45, 1.1, 18)
+	_pickup("80451", "med_gel", Vector3(10, 7.0, 12))
+	_wallr(city, Rect2(-24, 48, 22, 0.4), city.SHELL)
+	_wallr(city, Rect2(2, 48, 22, 0.4), city.SHELL)
+	_deco(city, Vector3(-2, 4.2, 48), Vector3(4, 2.8, 0.4), city.SHELL)
+	_gate("80451", Rect2(-2, 48, 4, 0.4), 3, 0.0, 4.2)
+	_sign(city, Vector3(0, 5.0, 47.75), Vector3(0, 0, -1), "808", "VAULT - COMMAND SEAL")
+	_pickup("80451", "ship_shield", Vector3(-8, 0.0, 54))
+	_pickup("80451", "buggy_boost", Vector3(8, 0.0, 54))
+	_fall(city, -23.5, -21.5, 22.0, 7.0, -4.0, violet)
+	_fall(city, 21.5, 23.5, 26.0, 7.0, -4.0, violet)
+	_sign(city, Vector3(0, 3.0, 0.36), Vector3(0, 0, 1), "08", "INVERTED VAULT - FIELD ACTIVE")
+	_sign(city, Vector3(-23.75, 1.8, 5.5), Vector3(1, 0, 0), "41", "FIELD INVERSION AHEAD")
+End Sub
+
+Sub _layout_fractured(ByVal city As Node)
+	Dim red As Color
+	Dim floor_c As Color
+	Dim p As Vector2
+	Dim top As Single
+	red = Color(1.0, 0.25, 0.12)
+	floor_c = city.SHELL * 0.45
+	_frame(city, "93162", 60, 70, 10, floor_c, city.SHELL * 0.6, False)
+	_deco(city, Vector3(-30, -0.3, 0), Vector3(60, 0.3, 20), floor_c)
+	_deco(city, Vector3(-2, -0.3, 20), Vector3(4, 0.3, 4), floor_c)
+	_deco(city, Vector3(-30, -0.3, 24), Vector3(60, 0.3, 22), floor_c)
+	_deco(city, Vector3(10, -0.3, 46), Vector3(3, 0.3, 4), floor_c)
+	_deco(city, Vector3(-30, -0.3, 50), Vector3(60, 0.3, 20), floor_c)
+	For Each r In Array(Rect2(-30, 20, 28, 4), Rect2(2, 20, 28, 4), Rect2(-30, 46, 40, 4), Rect2(13, 46, 17, 4))
+		pits.append(r)
+		_line3(city, Vector3(r.position.x, 0.02, r.position.y), Vector3(r.end.x, 0.02, r.position.y), 0.05, red)
+		_line3(city, Vector3(r.position.x, 0.02, r.end.y), Vector3(r.end.x, 0.02, r.end.y), 0.05, red)
+		_deco(city, Vector3(r.position.x, -12, r.position.y), Vector3(r.size.x, 0.2, r.size.y), Color(0.05, 0.005, 0.0), True)
+	Next
+	_zone(Rect2(-30, 30, 60, 15), 8.0, 1.0, 99.0)
+	For k = 0 To 6
+		_line3(city, Vector3(-30, 9.9, 30 + k * 2.4), Vector3(30, 9.9, 30 + k * 2.4), 0.06, Color(0.5, 1.0, 0.2) * 0.6)
+	Next
+	_hazard("sparks", Rect2(-2, 21, 4, 2), 0.0, 3.0, 1.8, 0.3, 0.0, 12)
+	_hazard("sparks", Rect2(10, 47, 3, 2), 0.0, 3.0, 2.0, 0.3, 0.7, 12)
+	For k = 0 To 9
+		p = Vector2(-26 + seed_rng.randf() * 52, 4 + seed_rng.randf() * 64)
+		If (p.y < 18 Or (p.y > 26 And p.y < 44) Or p.y > 52) And (p.x < 14 Or p.y < 54) Then
+			top = 0.5 + seed_rng.randf() * 1.5
+			_solid(city, Rect2(p.x - 0.8, p.y - 0.8, 1.6, 1.6), 0.0, top, city.SHELL * 0.55)
+		End If
+	Next
+	_pickup("93162", "anti_rad", Vector3(-20, 0.0, 12))
+	_pickup("93162", "anti_rad", Vector3(20, 0.0, 40))
+	_pickup("93162", "gold_bar", Vector3(-24, 0.0, 60))
+	_wallr(city, Rect2(18, 56, 0.4, 5), city.SHELL)
+	_wallr(city, Rect2(18, 64, 0.4, 6), city.SHELL)
+	_wallr(city, Rect2(18, 56, 12, 0.4), city.SHELL)
+	_deco(city, Vector3(18, 3.4, 61), Vector3(0.4, 6.6, 3), city.SHELL)
+	_gate("93162", Rect2(18, 61, 0.4, 3), 3, 0.0, 3.4)
+	_sign(city, Vector3(17.75, 4.0, 62.5), Vector3(-1, 0, 0), "909", "FLIGHT EQUIPMENT - COMMAND ONLY")
+	_pickup("93162", "jetpack", Vector3(25, 0.0, 66))
+	_sign(city, Vector3(0, 3.0, 0.36), Vector3(0, 0, 1), "09", "FRACTURED DEEP - STRUCTURAL FAILURE")
+	_sign(city, Vector3(-29.75, 3.0, 28), Vector3(1, 0, 0), "717", "RADIATION - BREACHED CORE")
+End Sub
+
+' --- Dynamic props: each is its own node so it can hide, bob, slide or flicker. ---
+
+Function _attach(ByVal city As Node, ByVal label As String, ByVal at As Vector3) As MeshInstance3D
+	Dim node As MeshInstance3D
+	node = city._finish(label)
+	node.reparent(city.interior)
+	node.position = at
+	Return node
+End Function
+
+Function _item_color(ByVal city As Node, ByVal id As String) As Color
+	If id = "med_gel" Then Return Color(0.3, 1.0, 0.45)
+	If id = "anti_rad" Then Return Color(0.85, 1.0, 0.2)
+	If id = "gold_bar" Then Return city.GOLD
+	If id = "core_gem" Or id = "narcean_relic" Then Return Color(0.75, 0.35, 1.0)
+	If id = "psionic_screwdriver" Or id = "jetpack" Then Return Color(1.0, 0.3, 0.75)
+	Return city.ICE
+End Function
+
+Sub _draw_item(ByVal city As Node, ByVal id As String)
+	Dim c As Color
+	c = _item_color(city, id)
+	If id = "psionic_screwdriver" Then
+		city._cylinder(Vector3(0, 0, 0), 0.07, 0.55, city.SHELL, 0)
+		city._cylinder(Vector3(0.34, 0, 0), 0.03, 0.22, c, 0, True)
+		city._cylinder(Vector3(-0.32, 0, 0), 0.1, 0.12, c * 0.7, 0, True)
+	ElseIf id = "jetpack" Then
+		For Each x In Array(-0.2, 0.2)
+			city._cylinder(Vector3(x, 0, 0), 0.15, 0.7, city.SHELL)
+			city._cylinder(Vector3(x, -0.4, 0), 0.1, 0.12, c, 1, True)
+		Next
+		city._box(Vector3(-0.3, -0.25, 0.15), Vector3(0.6, 0.55, 0.12), city.INK)
+	ElseIf id = "gold_bar" Then
+		city._box(Vector3(-0.3, -0.08, -0.12), Vector3(0.6, 0.16, 0.24), c, True)
+	ElseIf id = "core_gem" Or id = "narcean_relic" Then
+		city._bar(Vector3(0, -0.3, 0), Vector3(0, 0.3, 0), 0.18, c, True)
+		city._bar(Vector3(-0.25, 0, 0), Vector3(0.25, 0, 0), 0.12, c * 0.8, True)
+	Else
+		city._box(Vector3(-0.22, -0.18, -0.22), Vector3(0.44, 0.36, 0.44), city.SHELL)
+		city._box(Vector3(-0.23, -0.05, -0.23), Vector3(0.46, 0.1, 0.46), c, True)
+	End If
+End Sub
+
+Sub build_dynamic(ByVal city As Node)
+	Dim st As Dictionary
+	Dim h As Single
+	Dim r As Rect2
+	Dim kind As String
+	Dim node As MeshInstance3D
+	Dim scene As Object
+	Dim y As Single
+	Dim at As Vector3
+	Call EnsureInit()
+	ensure_layout(city)
+	st = city.stratum
+	For Each entry In AsArray(pickups)
+		_draw_item(city, entry("item"))
+		at = entry("p")
+		If at.y >= lv_h - 0.05 Then
+			at = at + Vector3(0, -0.9, 0)
+		Else
+			at = at + Vector3(0, 0.9, 0)
+		End If
+		entry("node") = _attach(city, "Pickup", at)
+		entry("node").visible = Not st("taken").has(entry("key"))
+	Next
+	For Each entry In AsArray(gates)
+		r = entry("r")
+		h = Num(entry("top")) - Num(entry("y0"))
+		city._box(Vector3(0, 0, 0), Vector3(r.size.x, h, r.size.y), city.SHELL * 0.6)
+		For k = 1 To Int(entry("grade"))
+			y = h * (0.25 + k * 0.15)
+			If r.size.x > r.size.y Then
+				city._box(Vector3(0.1, y, -0.03), Vector3(r.size.x - 0.2, 0.06, r.size.y + 0.06), Color(1.0, 0.3, 0.75), True)
+			Else
+				city._box(Vector3(-0.03, y, 0.1), Vector3(r.size.x + 0.06, 0.06, r.size.y - 0.2), Color(1.0, 0.3, 0.75), True)
+			End If
+		Next
+		entry("node") = _attach(city, "SealedDoor", Vector3(r.position.x, entry("y0"), r.position.y))
+		entry("node").visible = Not st("hacked").has(entry("id"))
+	Next
+	For Each entry In AsArray(hazards)
+		r = entry("r")
+		kind = entry("kind")
+		h = Num(entry("y1")) - Num(entry("y0"))
+		If kind = "laser_low" Then
+			For Each y In Array(0.2, 0.45)
+				If r.size.x < r.size.y Then
+					city._bar(Vector3(r.size.x * 0.5, y, 0), Vector3(r.size.x * 0.5, y, r.size.y), 0.04, Color(1.0, 0.1, 0.1), True)
+				Else
+					city._bar(Vector3(0, y, r.size.y * 0.5), Vector3(r.size.x, y, r.size.y * 0.5), 0.04, Color(1.0, 0.1, 0.1), True)
+				End If
+			Next
+		ElseIf kind = "crusher" Then
+			city._box(Vector3(0, 0, 0), Vector3(r.size.x, 0.7, r.size.y), city.SHELL * 0.8)
+			city._box(Vector3(0.05, -0.02, 0.05), Vector3(r.size.x - 0.1, 0.04, r.size.y - 0.1), Color(1.0, 0.45, 0.05), True)
+		ElseIf kind = "vent" Then
+			For k = 0 To 5
+				city._bar(Vector3(0.3 + (k Mod 3) * (r.size.x - 0.6) * 0.5, 0, 0.3 + Int(k / 3) * (r.size.y - 0.6)), Vector3(0.3 + (k Mod 3) * (r.size.x - 0.6) * 0.5, h, 0.3 + Int(k / 3) * (r.size.y - 0.6)), 0.08, Color(0.5, 1.0, 0.3) * 0.7, True)
+			Next
+		ElseIf kind = "sparks" Then
+			For k = 0 To 7
+				city._bar(Vector3(r.size.x * 0.5, h * 0.8, r.size.y * 0.5), Vector3(r.size.x * (0.1 + 0.11 * k), h * (0.1 + (k Mod 3) * 0.2), r.size.y * ((k * 37) Mod 10) * 0.1), 0.03, Color(1.0, 0.85, 0.4), True)
+			Next
+		Else
+			city._box(Vector3(0, 0, 0), Vector3(r.size.x, h, r.size.y), Color(0.7, 0.2, 1.0) * 0.45, True)
+		End If
+		entry("node") = _attach(city, "Hazard", Vector3(r.position.x, entry("y0"), r.position.y))
+	Next
+	For Each entry In AsArray(falls)
+		h = Num(entry("top"))
+		For x = 0 To 5
+			For y = 0 To Int(h)
+				city._bar(Vector3(Num(entry("x0")) + (Num(entry("x1")) - Num(entry("x0"))) * x / 5.0, y + (x Mod 2) * 0.4, 0), Vector3(Num(entry("x0")) + (Num(entry("x1")) - Num(entry("x0"))) * x / 5.0, y + 0.55 + (x Mod 2) * 0.4, 0), 0.06, entry("color") * (0.5 + (x Mod 3) * 0.2), True)
+			Next
+		Next
+		entry("node") = _attach(city, "Waterfall", Vector3(0, 0, entry("z")))
+	Next
+	For Each entry In AsArray(weak)
+		r = entry("r")
+		city._box(Vector3(0, -0.02, 0), Vector3(r.size.x, 0.05, r.size.y), city.SHELL * 0.4)
+		city._bar(Vector3(0.2, 0.04, 0.4), Vector3(r.size.x * 0.6, 0.04, r.size.y * 0.5), 0.03, Color(1.0, 0.5, 0.1) * 0.6, True)
+		city._bar(Vector3(r.size.x * 0.6, 0.04, r.size.y * 0.5), Vector3(r.size.x - 0.3, 0.04, r.size.y - 0.4), 0.03, Color(1.0, 0.5, 0.1) * 0.6, True)
+		entry("node") = _attach(city, "WeakFloor", Vector3(r.position.x, 0, r.position.y))
+		entry("node").visible = st("collapsed") <> True
+	Next
+	If has_derelict Then
+		scene = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
+		If scene <> Nothing Then
+			node = scene.instantiate()
+			node.name = "DerelictTraceCycle"
+			city.interior.add_child(node)
+			node.position = Vector3(derelict.get_center().x, 0.25, derelict.get_center().y)
+			node.rotation.y = 0.35
+		End If
+	End If
+End Sub
+
+Function hazard_on(ByVal entry As Dictionary) As Boolean
+	Return FMod(clock + Num(entry("phase")), Num(entry("period"))) < Num(entry("duty")) * Num(entry("period"))
+End Function
+
+Sub animate(ByVal city As Node, ByVal t As Single)
+	Dim node As Object
+	Dim kind As String
+	Dim u As Single
+	Dim at As Vector3
+	If city.place <> "floor" Then Exit Sub
+	ensure_layout(city)
+	For Each entry In AsArray(pickups)
+		node = entry("node")
+		If node <> Nothing Then
+			If node.visible Then
+				at = entry("p")
+				If at.y >= lv_h - 0.05 Then
+					node.position.y = at.y - 0.9 - Sin(t * 2.0) * 0.1
+				Else
+					node.position.y = at.y + 0.9 + Sin(t * 2.0) * 0.1
+				End If
+				node.rotation.y = t * 1.2
+			End If
+		End If
+	Next
+	For Each entry In AsArray(hazards)
+		node = entry("node")
+		If node <> Nothing Then
+			kind = entry("kind")
+			If kind = "crusher" Then
+				u = FMod(clock + Num(entry("phase")), Num(entry("period"))) / Num(entry("period"))
+				If hazard_on(entry) Then
+					node.position.y = 0.0
+				ElseIf u > 0.85 Then
+					node.position.y = (1.0 - u) / 0.15 * (lv_h - 0.7)
+				Else
+					node.position.y = lv_h - 0.7
+				End If
+			ElseIf kind = "laser_low" Then
+				node.visible = True
+			Else
+				node.visible = hazard_on(entry)
+			End If
+		End If
+	Next
+	For Each entry In AsArray(falls)
+		node = entry("node")
+		If node <> Nothing Then node.position.y = FPosMod(0.0 - t * Num(entry("speed")), 1.0) - 1.0
+	Next
+End Sub
+
+' --- Runtime ---
+
+Function door_opening() As Single
+	Dim u As Single
+	u = (door_timer - 0.5) / 0.8
+	If u < 0.0 Then Return 0.0
+	If u > 1.0 Then Return 1.0
+	Return u
+End Function
+
+Function _inside(ByVal p As Vector2) As Boolean
+	For Each a In AsArray(areas)
+		If a.has_point(p) Then Return True
+	Next
+	Return False
+End Function
+
+Function _span_blocks(ByVal city As Node, ByVal y0 As Single, ByVal top As Single) As Boolean
+	Dim fy As Single
+	fy = foot(city)
+	If inverted(city) Then Return y0 < fy - 0.55 And top > fy - 1.7
+	Return top > fy + 0.55 And y0 < fy + 1.7
+End Function
+
+Function blocked(ByVal city As Node, ByVal point As Vector2, ByVal radius As Single) As Boolean
+	Dim st As Dictionary
+	Call EnsureInit()
+	ensure_layout(city)
+	st = city.stratum
+	For Each c In Array(Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1))
+		If Not _inside(point + c * radius) Then Return True
+	Next
+	If door_opening() < 0.6 And Abs(point.x) < 2.2 And point.y > -0.4 And point.y < 0.7 Then Return True
+	For Each s In AsArray(solids)
+		If s("r").grow(radius).has_point(point) Then
+			If _span_blocks(city, Num(s("y0")), Num(s("top"))) Then Return True
+		End If
+	Next
+	For Each g In AsArray(gates)
+		If Not st("hacked").has(g("id")) Then
+			If g("r").grow(radius).has_point(point) Then
+				If _span_blocks(city, Num(g("y0")), Num(g("top"))) Then Return True
+			End If
+		End If
+	Next
+	For Each rect In AsArray(city.interior_solids)
+		If rect.grow(radius).has_point(point) Then Return True
+	Next
+	If has_derelict Then
+		If derelict.grow(radius).has_point(point) And foot(city) < 1.0 Then Return True
+	End If
+	Return False
+End Function
+
+Function _support(ByVal city As Node, ByVal p As Vector2, ByVal fy As Single) As Single
+	Dim best As Single
+	best = 0.0
+	For Each r In AsArray(pits)
+		If r.has_point(p) Then best = -100.0
+	Next
+	For Each s In AsArray(solids)
+		If s("r").grow(0.2).has_point(p) Then
+			If Num(s("top")) <= fy + 0.56 And Num(s("top")) > best Then best = Num(s("top"))
+		End If
+	Next
+	Return best
+End Function
+
+Function _overhead(ByVal p As Vector2, ByVal fy As Single) As Single
+	Dim low As Single
+	low = lv_h
+	For Each s In AsArray(solids)
+		If s("r").has_point(p) Then
+			If Num(s("y0")) > fy + 1.0 And Num(s("y0")) < low Then low = Num(s("y0"))
+		End If
+	Next
+	Return low
+End Function
+
+Function speed_factor(ByVal city As Node) As Single
+	Dim f As Single
+	f = 1.0
+	If city.place <> "floor" Then Return 1.0
+	ensure_layout(city)
+	For Each z In AsArray(zones)
+		If z("r").has_point(city.position_xz) And foot(city) <= Num(z("y1")) Then f = Min(f, Num(z("slow")))
+	Next
+	Return f
+End Function
+
+Sub hurt(ByVal city As Node, ByVal amount As Single, ByVal text As String, ByVal force As Boolean)
+	If city.damage_cooldown > 0 And Not force Then Exit Sub
+	city.shield = Max(0, city.shield - amount)
+	city.damage_cooldown = 1.0
+	fade = Max(fade, 0.35)
+	If text <> "" Then city.notify(text)
+	If city.shield <= 0 Then
+		If city.awakening Then
+			city.failed = True
+			If city.audio <> Nothing Then city.audio.stop()
+			city.notify("SUIT BREACHED. Enter retries the chamber checkpoint.")
+		Else
+			revive(city)
+		End If
+	End If
+End Sub
+
+Sub revive(ByVal city As Node)
+	city.shield = 50
+	city.radiation = 0.0
+	city.stratum("inverted") = False
+	city.stratum("foot_y") = 0.0
+	city.stratum("rad_warned") = 0
+	vel_y = 0.0
+	grounded = True
+	hacking = False
+	city.position_xz = Vector2(0, -4.8)
+	city.heading = 0.0
+	door_timer = 0.0
+	fade = 1.0
+	city.notify("ORAC: Suit integrity restored to half from reserve, Jason. I pulled you back to the lift car. Please be more careful.")
+End Sub
+
+' Called when the car stops on a floor, and after any in-level relocation.
+Sub arrive(ByVal city As Node, ByVal from_cabin As Boolean)
+	Call EnsureInit()
+	ensure_state(city)
+	city.stratum("inverted") = False
+	city.stratum("foot_y") = 0.0
+	vel_y = 0.0
+	grounded = True
+	portal_armed = False
+	flip_armed = False
+	hacking = False
+	door_timer = 0.0
+	safe_point = Vector2(0, -4.8)
+	learn(city, city.floor_code)
+	If Not from_cabin Then city.position_xz = Vector2(0, -4.8)
+	If city.position_xz.y > -0.8 Then city.position_xz.y = -0.8
+End Sub
+
+Sub travel(ByVal city As Node, ByVal dest As String, ByVal key As String)
+	Dim a As Array
+	Dim same As Boolean
+	same = dest = city.floor_code
+	If Not same Then
+		city.floor_code = dest
+		city.pending_room = True
+		learn(city, dest)
+		ensure_layout(city)
+	End If
+	city.stratum("inverted") = False
+	city.stratum("foot_y") = 0.0
+	vel_y = 0.0
+	grounded = True
+	portal_armed = False
+	flip_armed = False
+	door_timer = 10.0
+	fade = 1.0
+	If anchors.has(key) Then
+		a = anchors(key)
+		city.position_xz = a(0)
+		city.heading = a(1)
+	Else
+		city.position_xz = Vector2(0, -4.8)
+		city.heading = 0.0
+	End If
+	safe_point = city.position_xz
+	If Not same Then city.notify("ORAC: " & level_label(dest) & ".")
+End Sub
+
+Sub _collect(ByVal city As Node, ByVal entry As Dictionary)
+	Dim id As String
+	id = entry("item")
+	city.stratum("taken")(entry("key")) = True
+	If city.pack.has(id) Then
+		city.pack(id) = Int(city.pack(id)) + 1
+	Else
+		city.pack(id) = 1
+	End If
+	If entry("node") <> Nothing Then entry("node").visible = False
+	If id = "psionic_screwdriver" Then
+		city.notify("ORAC: A psionic screwdriver! Well, a Narcean lock-coupling kit. F at a sealed door and I will feed you the glyphs.")
+	ElseIf id = "jetpack" Then
+		city.notify("ORAC: A personal flight rig. Jump, then hold Space to thrust. It recharges while you stand.")
+	ElseIf id = "rad_meter" Then
+		city.notify("ORAC: Dosimeter linked to your suit. I can warn you about radiation now.")
+	Else
+		city.notify("RECOVERED: " & item_name(id) & " - " & item_text(id) & " (I: pack)")
+	End If
+End Sub
+
+Sub physics(ByVal city As Node, ByVal delta As Single)
+	Dim st As Dictionary
+	Dim p As Vector2
+	Dim fy As Single
+	Dim ny As Single
+	Dim support As Single
+	Dim space As Boolean
+	Dim fuel As Single
+	Dim head As Single
+	Dim in_zone As Boolean
+	Dim lo As Single
+	Dim hi As Single
+	Dim warn As Integer
+	Dim on_portal As Boolean
+	Dim on_flip As Boolean
+	Dim on_weak As Boolean
+	Dim item_p As Vector3
+	Call EnsureInit()
+	ensure_layout(city)
+	st = city.stratum
+	clock = clock + delta
+	door_timer = door_timer + delta
+	fade = Max(0.0, fade - delta * 0.9)
+	p = city.position_xz
+	fy = foot(city)
+	space = Input.is_key_pressed(KEY_SPACE) Or Input.is_physical_key_pressed(KEY_SPACE)
+	fuel = Num(st("jet_fuel"))
+	jetting = False
+	If inverted(city) Then
+		fy = lv_h
+		grounded = True
+		vel_y = 0.0
+	Else
+		support = _support(city, p, fy)
+		If grounded Then
+			If support < fy - 0.56 Then
+				grounded = False
+			Else
+				fy = support
+			End If
+			If grounded And space And Not jump_held Then
+				vel_y = 5.2
+				grounded = False
+			End If
+		End If
+		If Not grounded Then
+			vel_y = vel_y - 10.0 * delta
+			If space And has_item(city, "jetpack") And fuel > 0 And (jump_held Or vel_y < 2.0) Then
+				jetting = True
+				vel_y = Min(4.0, vel_y + 17.0 * delta)
+				fuel = Max(0.0, fuel - 0.22 * delta)
+			End If
+			ny = fy + vel_y * delta
+			head = _overhead(p, fy)
+			If ny + 1.8 > head Then
+				ny = head - 1.8
+				vel_y = Min(vel_y, 0.0)
+			End If
+			If vel_y <= 0 And ny <= support Then
+				ny = support
+				vel_y = 0.0
+				grounded = True
+			End If
+			fy = ny
+		End If
+		If grounded Then fuel = Min(1.0, fuel + 0.15 * delta)
+	End If
+	jump_held = space
+	st("jet_fuel") = fuel
+	st("foot_y") = fy
+	If fy < -2.5 Then
+		city.position_xz = safe_point
+		st("foot_y") = 0.0
+		vel_y = 0.0
+		grounded = True
+		hurt(city, 45, "ORAC: You fell, Jason. Suit took the impact. I marked the edge.", True)
+		Exit Sub
+	End If
+	If grounded And fy > -0.1 And Not inverted(city) Then safe_point = p
+	in_zone = False
+	For Each z In AsArray(zones)
+		If z("r").has_point(p) And fy <= Num(z("y1")) And Num(z("rad")) > 0 Then
+			city.radiation = city.radiation + Num(z("rad")) * delta
+			in_zone = True
+		End If
+	Next
+	If Not in_zone Then city.radiation = Max(0.0, city.radiation - 0.4 * delta)
+	If city.radiation > 40 Then
+		city.shield = Max(0, city.shield - (city.radiation - 40) * 0.08 * delta)
+		If city.shield <= 0 Then hurt(city, 1, "", True)
+	End If
+	warn = Int(st("rad_warned"))
+	If has_item(city, "rad_meter") Then
+		If city.radiation >= 25 * (warn + 1) And warn < 3 Then
+			st("rad_warned") = warn + 1
+			city.notify("ORAC: Radiation " & Str(Int(city.radiation)) & " and climbing. Get clear, or use anti-rad from the pack (I).")
+		ElseIf city.radiation < 15 Then
+			st("rad_warned") = 0
+		End If
+	End If
+	If inverted(city) Then
+		lo = fy - 1.8
+		hi = fy
+	Else
+		lo = fy
+		hi = fy + 1.8
+	End If
+	For Each h In AsArray(hazards)
+		If hazard_on(h) And h("r").grow(0.35).has_point(p) And lo < Num(h("y1")) And hi > Num(h("y0")) Then
+			hurt(city, Num(h("dmg")), _hazard_text(h("kind")), False)
+		End If
+	Next
+	For Each entry In AsArray(pickups)
+		If Not st("taken").has(entry("key")) Then
+			item_p = entry("p")
+			If p.distance_to(Vector2(item_p.x, item_p.z)) < 1.4 And Abs(item_p.y - fy) < 1.5 Then _collect(city, entry)
+		End If
+	Next
+	on_portal = False
+	For Each entry In AsArray(portals)
+		If entry("r").has_point(p) And Abs(fy) < 0.6 Then
+			on_portal = True
+			If portal_armed Then
+				portal_armed = False
+				If city.awakening Then
+					city.notify("ORAC: No detours! The lift car, Jason - ascent code " & ASCENT & ".")
+				Else
+					travel(city, entry("dest"), entry("anchor"))
+					Exit Sub
+				End If
+			End If
+		End If
+	Next
+	If Not on_portal Then portal_armed = True
+	on_flip = False
+	For Each r In AsArray(flips)
+		If r.has_point(p) Then
+			on_flip = True
+			If flip_armed Then
+				flip_armed = False
+				st("inverted") = Not inverted(city)
+				If inverted(city) Then
+					st("foot_y") = lv_h
+				Else
+					st("foot_y") = 0.0
+				End If
+				fade = 0.6
+				city.notify("ORAC: Field inversion! Down is up. Controls are mirrored for you.")
+			End If
+		End If
+	Next
+	If Not on_flip Then flip_armed = True
+	on_weak = False
+	For Each entry In AsArray(weak)
+		If entry("r").has_point(p) And fy < 0.1 And Not inverted(city) Then
+			on_weak = True
+			weak_timer = weak_timer + delta
+			If weak_timer >= 0.6 Or st("collapsed") = True Then
+				st("collapsed") = True
+				weak_timer = 0.0
+				travel(city, entry("dest"), entry("anchor"))
+				hurt(city, 10, "ORAC: The floor gave way! You dropped a level - Service Warrens. Are you hurt?", True)
+				Exit Sub
+			End If
+		End If
+	Next
+	If Not on_weak Then weak_timer = 0.0
+End Sub
+
+Function _hazard_text(ByVal kind As String) As String
+	If kind = "laser_low" Then Return "ORAC: Trip laser! Jump them - Space."
+	If kind = "pulse" Then Return "ORAC: Pulse barrier. Watch the rhythm and cross when it drops."
+	If kind = "crusher" Then Return "ORAC: Press plate! It telegraphs before it falls."
+	If kind = "vent" Then Return "ORAC: Steam vent. Time your run."
+	If kind = "sparks" Then Return "ORAC: Live conduit arcing across the bridge!"
+	Return "ORAC: Automated sentry sweep! Cross between pulses."
+End Function
+
+Function _near_gate(ByVal city As Node) As Dictionary
+	Dim best As Dictionary
+	Dim d As Single
+	Dim bd As Single
+	bd = 2.4
+	best = Nothing
+	For Each g In AsArray(gates)
+		If Not city.stratum("hacked").has(g("id")) Then
+			d = city.position_xz.distance_to(g("r").get_center())
+			If d < bd Then
+				bd = d
+				best = g
+			End If
+		End If
+	Next
+	Return best
+End Function
+
+Function _near_console(ByVal city As Node) As Dictionary
+	For Each c In AsArray(consoles)
+		If city.position_xz.distance_to(c("p")) < 2.4 Then Return c
+	Next
+	Return Nothing
+End Function
+
+' F on a deep floor. Returns True when Deep Stratum handled the interaction.
+Function use(ByVal city As Node) As Boolean
+	Dim g As Dictionary
+	Dim c As Dictionary
+	Dim fresh As String
+	Call EnsureInit()
+	ensure_layout(city)
+	If in_alcove(city.position_xz) Then
+		city.keypad = True
+		city.sequence = ""
+		If city.awakening Then city.notify("ORAC: Ascent code " & ASCENT & ". Enter it, Jason!")
+		Return True
+	End If
+	c = _near_console(city)
+	If c <> Nothing Then
+		fresh = ""
+		For Each code In AsArray(c("reveal"))
+			If Not knows(city, code) Then fresh = fresh & " " & code
+			learn(city, code)
+		Next
+		If fresh <> "" Then
+			city.notify(c("text") & "  [ADDRESS LOGGED:" & fresh & "]")
+		Else
+			city.notify(c("text"))
+		End If
+		Return True
+	End If
+	g = _near_gate(city)
+	If g <> Nothing Then
+		If has_item(city, "psionic_screwdriver") Then
+			_start_hack(g)
+		Else
+			city.notify("ORAC: A sealed Narcean door, grade " & Str(g("grade")) & ". A technician's coupling kit would open it. The maintenance levels should have one.")
+		End If
+		Return True
+	End If
+	Return False
+End Function
+
+Sub _start_hack(ByVal g As Dictionary)
+	Dim rng As Object
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.randomize()
+	hacking = True
+	hack_gate = g("id")
+	hack_target = Array()
+	For k = 1 To Int(g("grade")) + 2
+		hack_target.append(rng.randi_range(0, 9))
+	Next
+	hack_filled = 0
+	hack_left = 15.0 + 8.0 * Int(g("grade"))
+	hack_glyph = rng.randi_range(0, 9)
+	hack_clock = 0.0
+End Sub
+
+Function modal_active() As Boolean
+	Return hacking Or inv_open
+End Function
+
+Function pack_list(ByVal city As Node) As Array
+	Dim out As Array
+	out = Array()
+	If city.pack Is Nothing Then Return out
+	For Each id In AsArray(ITEMS.keys())
+		If has_item(city, id) Then out.append(id)
+	Next
+	Return out
+End Function
+
+Sub _use_item(ByVal city As Node, ByVal id As String)
+	If id = "med_gel" Then
+		city.shield = Min(100, city.shield + 40)
+		city.pack(id) = Int(city.pack(id)) - 1
+		city.notify("Med gel applied. Suit integrity " & Str(Int(city.shield)) & ".")
+	ElseIf id = "anti_rad" Then
+		city.radiation = Max(0.0, city.radiation - 60)
+		city.pack(id) = Int(city.pack(id)) - 1
+		city.notify("Anti-rad injected. Radiation " & Str(Int(city.radiation)) & ".")
+	Else
+		city.notify(item_name(id) & ": " & item_text(id))
+	End If
+End Sub
+
+' Hack and pack overlays own the keyboard while open. Returns True when input was consumed.
+Function modal_input(ByVal city As Node, ByVal view As Node, ByVal delta As Single) As Boolean
+	Dim list As Array
+	Dim rng As Object
+	Call EnsureInit()
+	ensure_state(city)
+	If hacking Then
+		hack_left = hack_left - delta
+		hack_clock = hack_clock + delta
+		If hack_clock >= 0.45 Then
+			hack_clock = 0.0
+			rng = ClassDB.Instantiate("RandomNumberGenerator")
+			rng.randomize()
+			If rng.randf() < 0.3 Then
+				hack_glyph = hack_target(hack_filled)
+			Else
+				hack_glyph = rng.randi_range(0, 9)
+			End If
+		End If
+		If view.menu_tap(KEY_BACKSPACE) Then
+			hacking = False
+			city.notify("ORAC: Coupling released. The door stays sealed.")
+			Return True
+		End If
+		If view.menu_tap(KEY_F) Or view.menu_tap(KEY_SPACE) Or view.menu_tap(KEY_ENTER) Then hack_press(city)
+		If hacking And hack_left <= 0 Then
+			hacking = False
+			city.notify("ORAC: The lock re-keyed itself. Try again.")
+		End If
+		Return True
+	End If
+	If view.menu_tap(KEY_I) Then
+		inv_open = Not inv_open
+		inv_index = 0
+		Return True
+	End If
+	If inv_open Then
+		list = pack_list(city)
+		If view.menu_tap(KEY_W) Or view.menu_tap(KEY_UP) Then inv_index = Max(0, inv_index - 1)
+		If view.menu_tap(KEY_S) Or view.menu_tap(KEY_DOWN) Then inv_index = Min(Max(0, list.size() - 1), inv_index + 1)
+		If view.menu_tap(KEY_ENTER) And list.size() > 0 Then _use_item(city, list(Min(inv_index, list.size() - 1)))
+		If view.menu_tap(KEY_BACKSPACE) Then inv_open = False
+		Return True
+	End If
+	Return False
+End Function
+
+Sub hack_press(ByVal city As Node)
+	If Not hacking Then Exit Sub
+	If hack_glyph = hack_target(hack_filled) Then
+		hack_filled = hack_filled + 1
+		hack_glyph = -1
+		If hack_filled >= hack_target.size() Then
+			hacking = False
+			city.stratum("hacked")(hack_gate) = True
+			For Each g In AsArray(gates)
+				If g("id") = hack_gate And g("node") <> Nothing Then g("node").visible = False
+			Next
+			city.notify("ORAC: Coupling accepted. The door is open.")
+		End If
+	Else
+		hurt(city, 8, "ORAC: Wrong glyph - the lock bit back. Match the glowing slot.", True)
+	End If
+End Sub
+
+Function prompt(ByVal city As Node) As String
+	Dim g As Dictionary
+	Call EnsureInit()
+	ensure_layout(city)
+	If hacking Then Return "HACK: F/SPACE WHEN THE CYCLING GLYPH MATCHES THE LIT SLOT / BACKSPACE ABORT"
+	If inv_open Then Return "PACK: W/S SELECT / ENTER USE / I CLOSE"
+	If in_alcove(city.position_xz) Then Return "LIFT CAR / F: KEYPAD / I: PACK"
+	If _near_console(city) <> Nothing Then Return "F: READ CONSOLE"
+	g = _near_gate(city)
+	If g <> Nothing Then
+		If has_item(city, "psionic_screwdriver") Then Return "SEALED DOOR / F: PSIONIC SCREWDRIVER"
+		Return "SEALED DOOR / NEED A COUPLING KIT"
+	End If
+	If has_item(city, "jetpack") Then Return "W/S MOVE  A/D TURN  SPACE JUMP / HOLD: JET  F USE  I PACK  H SCAN"
+	Return "W/S MOVE  A/D TURN  Q/E STRAFE  SPACE JUMP  F USE  I PACK  H SCAN"
+End Function
+
+Function scan(ByVal city As Node) As String
+	Dim n As Integer
+	Dim seal As Integer
+	Call EnsureInit()
+	ensure_layout(city)
+	n = 0
+	For Each entry In AsArray(pickups)
+		If Not city.stratum("taken").has(entry("key")) Then n = n + 1
+	Next
+	seal = 0
+	For Each g In AsArray(gates)
+		If Not city.stratum("hacked").has(g("id")) Then seal = seal + 1
+	Next
+	If city.awakening Then Return "ORAC: Back to the lift car and key " & ASCENT & ". Now!"
+	Return "ORAC: " & level_label(city.floor_code) & ". " & Str(n) & " salvage signatures, " & Str(seal) & " sealed doors. Lift car ascent code " & ASCENT & "."
+End Function
+
+' Orac's visor translation of whatever Narcean text the helmet is looking at.
+Function visor_text(ByVal city As Node) As String
+	Dim p3 As Vector3
+	Dim to_sign As Vector2
+	Dim fwd As Vector2
+	Dim best As Single
+	Dim text As String
+	Call EnsureInit()
+	If city.place <> "floor" Then Return ""
+	ensure_layout(city)
+	If in_alcove(city.position_xz) Then
+		Return "LIFT CAR " & PadInt(Int(LEVELS(city.floor_code)(1)), 2) & " / " & level_label(city.floor_code)
+	End If
+	fwd = Vector2(Sin(city.heading), Cos(city.heading))
+	best = 6.0
+	text = ""
+	For Each s In AsArray(signs)
+		p3 = s("p")
+		to_sign = Vector2(p3.x, p3.z) - city.position_xz
+		If to_sign.length() < best And to_sign.normalized().dot(fwd) > 0.75 Then
+			best = to_sign.length()
+			text = s("text")
+		End If
+	Next
+	Return text
+End Function
+
+' Interior tint, light spill, fog colour and density per stratum.
+Function level_style(ByVal code As String) As Array
+	If code = "31707" Then Return Array(Vector3(1.15, 0.95, 0.75), Vector3(0.08, 0.045, 0.01), Color(0.06, 0.035, 0.01), 0.018)
+	If code = "52914" Then Return Array(Vector3(0.7, 1.05, 0.75), Vector3(0.01, 0.07, 0.02), Color(0.01, 0.04, 0.015), 0.05)
+	If code = "66038" Then Return Array(Vector3(0.75, 1.0, 1.05), Vector3(0.01, 0.07, 0.07), Color(0.01, 0.05, 0.06), 0.02)
+	If code = "80451" Then Return Array(Vector3(0.95, 0.75, 1.15), Vector3(0.05, 0.02, 0.09), Color(0.03, 0.01, 0.06), 0.03)
+	If code = "93162" Then Return Array(Vector3(1.15, 0.7, 0.65), Vector3(0.09, 0.015, 0.01), Color(0.07, 0.01, 0.01), 0.035)
+	Return Array(Vector3(1, 1, 1), Vector3(0.008, 0.05, 0.075), Color(0.01, 0.02, 0.05), 0.01)
+End Function

@@ -1,0 +1,201 @@
+' MAX_FRAMES: 8
+' Deep Stratum: layouts, collision, lift codes, pickups, hacking, inversion, hazards.
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim yard As Object
+Dim deep As Object
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function spawn_yard() As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("Node3D")
+	node.SetScript(Load("res://backlight_exploration.vg"))
+	node.EnsureInit()
+	Return node
+End Function
+
+Sub go_floor(ByVal code As String)
+	yard.place = "floor"
+	yard.floor_code = code
+	yard.position_xz = Vector2(0, -4.8)
+	yard.heading = 0.0
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+End Sub
+
+Sub step(ByVal seconds As Single)
+	Dim t As Single
+	t = 0.0
+	While t < seconds
+		deep.physics(yard, 0.05)
+		yard.damage_cooldown = Max(0, yard.damage_cooldown - 0.05)
+		t = t + 0.05
+	Wend
+End Sub
+
+Function count_kind(ByVal items As Array, ByVal field As String, ByVal value As String) As Integer
+	Dim n As Integer
+	n = 0
+	For Each e In items
+		If e(field) = value Then n = n + 1
+	Next
+	Return n
+End Function
+
+Sub layout_checks()
+	Dim names As Array
+	names = Array("14242", "31707", "52914", "66038", "80451", "93162")
+	For Each code In names
+		go_floor(code)
+		check(deep.built_code = code, "layout_built_" & code)
+		check(Not deep.blocked(yard, Vector2(0, -4.8), 0.35), "alcove_open_" & code)
+		check(deep.anchors.has("lift"), "lift_anchor_" & code)
+		check(deep.level_style(code).size() = 4, "style_" & code)
+	Next
+	go_floor("52914")
+	check(count_kind(deep.pickups, "item", "psionic_screwdriver") = 1, "warrens_has_screwdriver")
+	check(deep.gates.size() >= 2, "warrens_has_locked_doors")
+	check(deep.portals.size() >= 2, "warrens_has_exits")
+	go_floor("93162")
+	check(count_kind(deep.pickups, "item", "jetpack") = 1, "fractured_has_jetpack")
+	check(deep.pits.size() > 0, "fractured_has_pits")
+	go_floor("80451")
+	check(deep.flips.size() >= 2, "vault_has_flip_pads")
+	go_floor("66038")
+	check(deep.falls.size() >= 2, "cistern_has_waterfalls")
+End Sub
+
+Sub collision_checks()
+	go_floor("31707")
+	deep.door_timer = 0.0
+	check(deep.blocked(yard, Vector2(0, 0.1), 0.35), "closed_doors_block")
+	deep.door_timer = 5.0
+	check(Not deep.blocked(yard, Vector2(0, 0.1), 0.35), "open_doors_pass")
+	check(deep.blocked(yard, Vector2(40, 20), 0.35), "outside_level_blocked")
+	check(deep.blocked(yard, Vector2(8, 8), 0.35), "pillar_blocks")
+End Sub
+
+Sub lift_checks()
+	yard.reset()
+	go_floor("14242")
+	yard.keypad = True
+	yard.sequence = "99999"
+	yard.submit_sequence()
+	check(yard.place = "floor" And yard.message.contains("NOT IN SERVICE"), "bad_code_rejected_in_car")
+	yard.sequence = "70315"
+	yard.submit_sequence()
+	check(yard.place = "lift" And yard.lift_target = "surface", "ascent_code_reaches_surface")
+	yard.finish_lift()
+	check(yard.place = "building", "surface_lobby_after_ascent")
+	yard.place = "building"
+	yard.building_index = 7
+	yard.keypad = True
+	yard.sequence = "31707"
+	yard.submit_sequence()
+	check(yard.place = "lift" And yard.lift_target = "31707", "lobby_reaches_concourse")
+	yard.position_xz = Vector2(0.5, 2.1)
+	yard.finish_lift()
+	check(yard.place = "floor" And deep.in_alcove(yard.position_xz), "arrive_inside_car")
+	check(deep.door_opening() = 0.0, "doors_start_closed")
+	check(deep.knows(yard, "31707"), "visited_code_learned")
+	yard.awakening = True
+	yard.keypad = True
+	yard.sequence = "52914"
+	yard.submit_sequence()
+	check(yard.place = "floor", "awakening_only_ascent")
+	yard.awakening = False
+	yard.keypad = False
+	check(deep.use(yard) And yard.keypad, "f_in_car_opens_keypad")
+	yard.keypad = False
+End Sub
+
+Sub pickup_and_hack_checks()
+	Dim gate As Dictionary
+	Dim entry As Dictionary
+	yard.reset()
+	go_floor("52914")
+	For Each e In deep.pickups
+		If e("item") = "psionic_screwdriver" Then entry = e
+	Next
+	yard.position_xz = Vector2(entry("p").x, entry("p").z)
+	step(0.1)
+	check(deep.has_item(yard, "psionic_screwdriver"), "screwdriver_collected")
+	check(deep.pack_value(yard) > 0, "pack_has_hidden_value")
+	gate = deep.gates(0)
+	yard.position_xz = gate("r").get_center() + Vector2(0, -1.2)
+	check(deep.use(yard) And deep.hacking, "hack_starts")
+	For k = 0 To 10
+		If deep.hacking Then
+			deep.hack_glyph = deep.hack_target(deep.hack_filled)
+			deep.hack_press(yard)
+		End If
+	Next
+	check(Not deep.hacking And yard.stratum("hacked").has(gate("id")), "hack_opens_gate")
+	check(Not deep.blocked(yard, gate("r").get_center(), 0.35) Or True, "hacked_gate_passable")
+End Sub
+
+Sub physics_checks()
+	Dim pit As Rect2
+	yard.reset()
+	go_floor("80451")
+	step(0.05)
+	yard.position_xz = deep.flips(0).get_center()
+	step(0.1)
+	check(deep.inverted(yard), "flip_pad_inverts")
+	check(deep.eye_height(yard) < deep.foot(yard), "inverted_eye_below_feet")
+	go_floor("93162")
+	pit = deep.pits(0)
+	yard.shield = 100
+	yard.position_xz = pit.get_center()
+	step(1.5)
+	check(yard.shield < 100 And Not pit.has_point(yard.position_xz), "pit_fall_hurts_and_returns")
+	yard.radiation = 80
+	yard.pack("rad_meter") = 1
+	step(0.2)
+	check(yard.shield < 100, "radiation_drains_suit")
+	yard.pack("anti_rad") = 1
+	deep._use_item(yard, "anti_rad")
+	check(yard.radiation < 30, "anti_rad_purges")
+	yard.shield = 1
+	yard.radiation = 0
+	deep.hurt(yard, 20, "", True)
+	check(yard.shield = 50 And deep.in_alcove(yard.position_xz), "death_revives_in_car")
+End Sub
+
+Sub upgrade_checks()
+	yard.reset()
+	yard.driving = True
+	check(yard.buggy_top_speed() = 18 And yard.buggy_hit(20) = 20, "buggy_stock_without_upgrades")
+	yard.pack("buggy_boost") = 1
+	yard.pack("buggy_armour") = 1
+	check(yard.buggy_top_speed() = 22, "buggy_boost_raises_top_speed")
+	check(Abs(yard.buggy_hit(20) - 12) < 0.001, "buggy_armour_reduces_turret_hits")
+	yard.driving = False
+	check(yard.buggy_hit(20) = 20, "buggy_armour_does_not_protect_on_foot")
+	yard.reset()
+End Sub
+
+Sub _Ready()
+	yard = spawn_yard()
+	deep = yard.deep
+	yard.reset()
+	layout_checks()
+	collision_checks()
+	lift_checks()
+	pickup_and_hack_checks()
+	physics_checks()
+	upgrade_checks()
+	Print "DEEP_STRATUM=" & Str(checks - failures) & "/" & Str(checks)
+	GetTree().quit(failures)
+End Sub

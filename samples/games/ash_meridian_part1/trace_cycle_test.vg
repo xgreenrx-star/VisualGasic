@@ -118,6 +118,29 @@ Dim hull_query As Object
 Dim hull_col As Object
 Dim play_vault As Object
 Dim vault_lift As Object
+Dim lift_shaft As Object
+Dim lift_cabin As Object
+Dim lift_shell As Object
+Dim lift_left As Object
+Dim lift_right As Object
+Dim lift_display As Object
+Dim visor_label As Object
+Dim visor_panel As Object
+Dim visor_glyphs As Object
+Dim visor_glyph_source As String
+Dim helmet_rim As Object
+Dim visor_signs As Array
+Dim translation_t As Single
+Dim progression_skip As Boolean
+Dim lift_code_known As Boolean
+Dim lift_authorized As Boolean
+Dim lift_lock_open As Boolean
+Dim lift_entry As String
+Dim lift_lock_status As String
+Dim lift_motor As Object
+Dim lift_elapsed As Single
+Dim lift_up As Boolean
+Dim lift_arrived As Boolean
 Dim stasis As Object
 Dim feb As Object
 Dim pod_t As Single
@@ -127,6 +150,14 @@ Dim pod_sfx As Object
 Dim orac_alert As Object
 Dim orac_alerted As Boolean
 Dim orac_sub_t As Single
+Dim defence_emitter As Object
+Dim defence_beam As Object
+Dim defence_mark As Object
+Dim defence_state As String
+Dim defence_t As Single
+Dim defence_target As Vector3
+Dim defence_hits As Integer
+Dim crash_on_foot As Boolean
 Dim core_bank As Object
 Dim coupler As Object
 Dim walker As Object
@@ -287,7 +318,12 @@ End Sub
 
 Sub start_test(ByVal start_mode As String)
 	mode = start_mode
-	yard_field = start_mode = "yard" Or start_mode = "yard_test"
+	yard_field = start_mode = "yard" Or start_mode = "yard_test" Or start_mode = "dev" Or start_mode = "far_dock" Or start_mode = "f6"
+	progression_skip = start_mode <> "yard"
+	lift_code_known = False
+	lift_authorized = False
+	lift_lock_open = False
+	lift_entry = ""
 	ignore_input = start_mode = "test" Or start_mode = "yard_test"
 	paused = False
 	debug_hud = False
@@ -732,6 +768,33 @@ Sub MakeDashboard()
 	script_hud.name = "NarceanHud"
 	script_hud.position = Vector2(24.0, 72.0)
 	hud_layer.add_child(script_hud)
+	helmet_rim = ClassDB.Instantiate("Node2D")
+	helmet_rim.name = "HelmetRim"
+	hud_layer.add_child(helmet_rim)
+	For i = 0 To 1
+		marker = ClassDB.Instantiate("Polygon2D")
+		marker.polygon = PackedVector2Array(Array(Vector2(0, 0), Vector2(92, 0), Vector2(40, 18), Vector2(16, 86), Vector2(12, 454), Vector2(42, 516), Vector2(160, 540), Vector2(0, 540)))
+		marker.color = Color(0.015, 0.025, 0.04, 0.85)
+		If i = 1 Then
+			marker.position = Vector2(960, 0)
+			marker.scale = Vector2(-1, 1)
+		End If
+		helmet_rim.add_child(marker)
+	Next
+	visor_panel = MakeHudFrame(270.0, 400.0, 420.0, 116.0)
+	visor_panel.name = "HelmetReadout"
+	visor_panel.get_child(0).color = Color(0.01, 0.045, 0.065, 0.68)
+	visor_panel.visible = False
+	hud_layer.add_child(visor_panel)
+	visor_glyphs = ClassDB.Instantiate("Node2D")
+	visor_glyph_source = ""
+	visor_glyphs.position = Vector2(18, 19)
+	visor_panel.add_child(visor_glyphs)
+	visor_label = MakeLabel(18.0, 44.0, 384.0, 62.0, 14, Color(0.55, 0.97, 1.0))
+	visor_label.name = "OracVisorTranslation"
+	visor_label.autowrap_mode = 3
+	visor_label.visible = False
+	visor_panel.add_child(visor_label)
 	Call MakeClusterHousing()
 	ext_frame = MakeHudFrame(186.0, 372.0, HUD_SCREEN_W, HUD_SCREEN_H)
 	hud_layer.add_child(ext_frame)
@@ -964,6 +1027,8 @@ Function CockpitCam() As Boolean
 	If ride_state = "inspect" Then Return False
 	If ride_state = "on_foot" Then Return False
 	If ride_state = "falling" Then Return False
+	If ride_state = "lift" Then Return False
+	If ride_state = "crashed" And crash_on_foot Then Return False
 	Return True
 End Function
 
@@ -1078,6 +1143,7 @@ Sub AssembleFacility()
 	' front meets that doorway instead of leaving the chamber in the void.
 	vault_lift.position = Vector3(0.0, 0.0, 18.0)
 	vault_lift.rotation = Vector3(0.0, PI, 0.0)
+	Call MakeUndergroundEnclosure()
 	packed = Load("res://assets/trace_vault/scenes/stasis_cradle.tscn")
 	stasis = packed.instantiate()
 	stasis.name = "Stasis"
@@ -1101,7 +1167,380 @@ Sub AssembleFacility()
 	coupler.global_transform = stasis.get_node("CouplerSocket").global_transform
 	Call MuteCameras(play_vault)
 	Call PosePod(0.0)
+	Call MakeVaultDefence()
+	Call MakeVaultLift()
+	If yard_field Then Call MakeLiftAddressClue()
+	Call PaintFloorScript(vault_lift.get_node("Cabin/IndicatorIn"), "B04 - ISOLATION VAULT")
+	Call PaintFloorScript(crossing.get_node("DeepLiftLobby/Cabin/IndicatorIn"), "00 - SURFACE DOCK")
+	visor_signs = Array()
+	Call CollectVisorSigns(crossing)
+	Call CollectVisorSigns(play_vault)
 	Call SetCollisionEnabled(play_vault, False)
+End Sub
+
+Sub MakeLiftAddressClue()
+	Dim clue As Object
+	Dim packed As Object
+	Dim node As Object
+	' The coarse yard silhouette fills the archive bay; use its detailed interior instead.
+	crossing.get_node("Yard/PressHall1").visible = False
+	crossing.get_node("TranslatorHideout/DoorFrame").visible = False
+	node = DefenceMesh(crossing.get_node("TranslatorHideout"), Vector3(39, 3.1, 38.48), Vector3(2.9, 0.3, 0.18), Load("res://assets/trace_vault/materials/armor.tres"))
+	node.name = "ArchiveDoorHeader"
+	packed = Load("res://assets/trace_vault/scenes/service_tag.tscn")
+	clue = packed.instantiate()
+	clue.name = "LiftAddressClue"
+	crossing.add_child(clue)
+	clue.position = Vector3(39, 1.65, 44.12)
+	clue.rotation = Vector3(0, PI, 0)
+	Call PaintFloorScript(clue.get_node("Line0"), "VAULT LIFT ADDRESS")
+	Call PaintFloorScript(clue.get_node("Line1"), "ONE FOUR TWO FOUR TWO")
+End Sub
+
+Sub MakeUndergroundEnclosure()
+	Dim node As Object
+	Dim paint As Object
+	Dim side As Integer
+	paint = Load("res://assets/trace_vault/materials/armor.tres")
+	' The shared outdoor landing has no roof. Enclose only its underground instance.
+	node = DefenceMesh(vault_lift, Vector3(0, 5.9, 0), Vector3(10.4, 0.3, 10.4), paint)
+	node.name = "UndergroundRoof"
+	For side = -1 To 1 Step 2
+		node = DefenceMesh(vault_lift, Vector3(side * 5, 4.9, 0), Vector3(0.4, 2.0, 10.4), paint)
+	Next
+	node = DefenceMesh(vault_lift, Vector3(0, 4.9, -5), Vector3(10.4, 2.0, 0.4), paint)
+	node = DefenceMesh(vault_lift, Vector3(0, 4.7, 5), Vector3(10.4, 2.4, 0.4), paint)
+	node.name = "UndergroundPortalHeader"
+End Sub
+
+Sub MakeVaultLift()
+	Dim node As Object
+	Dim paint As Object
+	Dim stream As Object
+	Dim i As Integer
+	Dim y As Single
+	paint = Load("res://assets/trace_vault/materials/armor.tres")
+	lift_shaft = ClassDB.Instantiate("Node3D")
+	lift_shaft.name = "TravelShaft"
+	add_child(lift_shaft)
+	lift_shaft.position = Vector3(60, 0, -280)
+	node = DefenceMesh(lift_shaft, Vector3(0, -14, -4), Vector3(7, 42, 0.3), paint)
+	node = DefenceMesh(lift_shaft, Vector3(-3.2, -14, 0), Vector3(0.3, 42, 8), paint)
+	node = DefenceMesh(lift_shaft, Vector3(3.2, -14, 0), Vector3(0.3, 42, 8), paint)
+	For i = 0 To 20
+		y = 4.0 - i * 2.0
+		node = DefenceMesh(lift_shaft, Vector3(0, y, -3.6), Vector3(5, 0.08, 0.12), GlowPaint(cyan_mat))
+		node = DefenceMesh(lift_shaft, Vector3(-2.5, y, 0), Vector3(0.1, 0.08, 6), GlowPaint(cyan_mat))
+		node = DefenceMesh(lift_shaft, Vector3(2.5, y, 0), Vector3(0.1, 0.08, 6), GlowPaint(cyan_mat))
+	Next
+	lift_cabin = ClassDB.Instantiate("Node3D")
+	lift_cabin.name = "MovingCabin"
+	lift_shaft.add_child(lift_cabin)
+	lift_shell = ClassDB.Instantiate("Node3D")
+	lift_shell.name = "TravelShell"
+	lift_cabin.add_child(lift_shell)
+	node = DefenceMesh(lift_shell, Vector3(0, -0.15, 0), Vector3(4.4, 0.3, 5), paint)
+	node = DefenceMesh(lift_shell, Vector3(0, 3.45, 0), Vector3(4.4, 0.2, 5), paint)
+	node = DefenceMesh(lift_shell, Vector3(0, 1.5, 2.5), Vector3(4.4, 3, 0.2), paint)
+	For i = 0 To 1
+		y = -2.1 + i * 4.2
+		node = DefenceMesh(lift_shell, Vector3(y, 0.45, 0), Vector3(0.2, 0.9, 5), paint)
+		node = DefenceMesh(lift_shell, Vector3(y, 2.7, 0), Vector3(0.2, 0.6, 5), paint)
+		node = DefenceMesh(lift_shell, Vector3(y, 1.0, 0), Vector3(0.08, 0.06, 4.8), GlowPaint(cyan_mat))
+	Next
+	lift_left = ClassDB.Instantiate("Node3D")
+	lift_right = ClassDB.Instantiate("Node3D")
+	lift_cabin.add_child(lift_left)
+	lift_cabin.add_child(lift_right)
+	node = DefenceMesh(lift_left, Vector3(-1, 0.5, -2.4), Vector3(2, 1, 0.12), paint)
+	node = DefenceMesh(lift_left, Vector3(-1, 2.65, -2.4), Vector3(2, 0.7, 0.12), paint)
+	node = DefenceMesh(lift_right, Vector3(1, 0.5, -2.4), Vector3(2, 1, 0.12), paint)
+	node = DefenceMesh(lift_right, Vector3(1, 2.65, -2.4), Vector3(2, 0.7, 0.12), paint)
+	node = DefenceMesh(lift_left, Vector3(-0.02, 1.5, -2.4), Vector3(0.04, 3, 0.14), GlowPaint(amber_mat))
+	node = DefenceMesh(lift_right, Vector3(0.02, 1.5, -2.4), Vector3(0.04, 3, 0.14), GlowPaint(amber_mat))
+	lift_display = vault_lift.get_node("Cabin/IndicatorIn").duplicate()
+	lift_display.name = "NarceanFloorIndicator"
+	lift_cabin.add_child(lift_display)
+	lift_display.position = Vector3(0, 3.18, -2.247)
+	lift_display.rotation = Vector3(0, 0, 0)
+	lift_display.get_node("Gloss").visible = False
+	node = DefenceMesh(lift_shell, Vector3(0, 3.18, -2.3), Vector3(1.9, 0.4, 0.06), paint)
+	lift_motor = ClassDB.Instantiate("AudioStreamPlayer")
+	lift_motor.name = "LiftMotor"
+	lift_motor.volume_db = -22.0
+	stream = MakeTone(80, 80, 0.2, False)
+	stream.loop_mode = 1
+	stream.loop_begin = 0
+	stream.loop_end = 4410
+	lift_motor.stream = stream
+	add_child(lift_motor)
+	lift_shaft.visible = False
+End Sub
+
+Sub CancelVaultLift()
+	If lift_shaft <> Nothing Then lift_shaft.visible = False
+	If lift_cabin <> Nothing Then lift_cabin.visible = False
+	If vault_lift <> Nothing Then vault_lift.get_node("Cabin").visible = True
+	If crossing <> Nothing Then
+		If crossing.has_node("DeepLiftLobby/Cabin") Then crossing.get_node("DeepLiftLobby/Cabin").visible = True
+	End If
+	If lift_motor <> Nothing Then lift_motor.stop()
+	lift_elapsed = 0.0
+	lift_arrived = False
+End Sub
+
+Sub StartVaultLift(ByVal ascending As Boolean)
+	If ride_state <> "on_foot" Then Exit Sub
+	If ascending Then
+		If area_name <> "vault" Or Not route.coupler_taken Then Exit Sub
+	Else
+		If area_name <> "lobby" Or Not route.allow_deep_lift("14242") Then Exit Sub
+		If Not progression_skip And Not lift_authorized Then
+			lift_lock_status = "ACCESS LOCKED - ENTER YARD ARCHIVE ADDRESS"
+			prompt = lift_lock_status
+			Exit Sub
+		End If
+	End If
+	Call CancelVaultLift()
+	lift_up = ascending
+	Call PaintFloorScript(lift_display, FloorTranslation())
+	lift_elapsed = 0.0
+	lift_cabin.reparent(lift_shaft)
+	lift_cabin.transform = Transform3D()
+	lift_cabin.visible = True
+	lift_shell.visible = True
+	lift_display.visible = True
+	ride_state = "lift"
+	area_name = "lift"
+	crossing.visible = False
+	play_vault.visible = False
+	player.visible = False
+	Call SetCollisionEnabled(play_vault, False)
+	defence_beam.visible = False
+	defence_mark.visible = False
+	lift_shaft.visible = True
+	walk_heading = 0.0
+	walk_pitch = 0.0
+	lift_motor.stream_paused = False
+	lift_motor.play()
+	Call PlayCue(arm_stream)
+	Call TickVaultLift(0.0)
+	Call AimRideCamera(0.0)
+	Call RefreshHud()
+End Sub
+
+Sub DockVaultLift()
+	Dim lobby As Object
+	Dim pose As Object
+	If lift_up Then
+		area_name = "vault"
+		Call exit_facility()
+		lobby = crossing.get_node("DeepLiftLobby")
+	Else
+		Call enter_vault()
+		lobby = vault_lift
+	End If
+	' The authored landing supplies the floor and walls; never overlay two shells.
+	lobby.get_node("Cabin").visible = True
+	lift_shell.visible = False
+	lift_display.visible = False
+	pose = lobby.get_node("LiftPose")
+	Call PlaceWalker(pose, 0.0)
+	Call FaceWalkerToward(lobby.get_node("Entrance"))
+	lift_cabin.reparent(Me)
+	lift_cabin.global_position = walker.global_position
+	lift_cabin.global_rotation = Vector3(0, -walk_heading, 0)
+	lift_shaft.visible = False
+	lift_arrived = True
+	ride_state = "lift"
+	area_name = "lift"
+	Call AimRideCamera(0.0)
+End Sub
+
+Sub TickVaultLift(ByVal delta As Single)
+	Dim u As Single
+	Dim y As Single
+	Dim opening As Single
+	lift_elapsed = lift_elapsed + delta
+	u = PodEase(0.7, 4.7, lift_elapsed)
+	y = -32.0 * u
+	If lift_up Then y = -32.0 * (1.0 - u)
+	If Not lift_arrived Then lift_cabin.position = Vector3(0, y, 0)
+	If lift_elapsed >= 4.7 And Not lift_arrived Then Call DockVaultLift()
+	walker.global_position = lift_cabin.global_position
+	opening = 1.0 - PodEase(0.0, 0.7, lift_elapsed)
+	opening = Max(opening, PodEase(4.7, 5.4, lift_elapsed))
+	lift_left.position = Vector3(-1.9 * opening, 0, 0)
+	lift_right.position = Vector3(1.9 * opening, 0, 0)
+	If lift_elapsed >= 5.4 Then
+		lift_motor.stop()
+		Call PlayCue(capture_stream)
+		ride_state = "on_foot"
+		If lift_up Then
+			area_name = "lobby"
+		Else
+			area_name = "vault"
+		End If
+	End If
+End Sub
+
+Function DefenceMesh(ByVal parent As Object, ByVal at As Vector3, ByVal size As Vector3, ByVal paint As Object) As Object
+	Dim node As Object
+	Dim mesh As Object
+	node = ClassDB.Instantiate("MeshInstance3D")
+	mesh = ClassDB.Instantiate("BoxMesh")
+	mesh.size = size
+	node.mesh = mesh
+	node.material_override = paint
+	node.cast_shadow = 0
+	parent.add_child(node)
+	node.position = at
+	Return node
+End Function
+
+Sub MakeVaultDefence()
+	Dim body As Object
+	Dim shape As Object
+	Dim col As Object
+	Dim mesh As Object
+	Dim i As Integer
+	Dim x As Single
+	defence_emitter = DefenceMesh(play_vault, Vector3(0, 3.0, -5), Vector3(1, 1, 1), Load("res://assets/trace_vault/materials/armor.tres"))
+	defence_emitter.name = "DefenceEmitter"
+	mesh = ClassDB.Instantiate("SphereMesh")
+	mesh.radius = 0.42
+	mesh.height = 0.84
+	defence_emitter.mesh = mesh
+	col = ClassDB.Instantiate("MeshInstance3D")
+	mesh = ClassDB.Instantiate("SphereMesh")
+	mesh.radius = 0.14
+	mesh.height = 0.28
+	col.mesh = mesh
+	col.material_override = GlowPaint(red_mat)
+	defence_emitter.add_child(col)
+	col.position = Vector3(0, 0, 0.4)
+	defence_beam = DefenceMesh(play_vault, Vector3(0, 0, 0), Vector3(1, 1, 1), GlowPaint(red_mat))
+	defence_beam.name = "DefenceBeam"
+	defence_mark = DefenceMesh(play_vault, Vector3(0, 0.04, 0), Vector3(2.8, 0.04, 2.8), GlowPaint(red_mat))
+	defence_mark.name = "DefenceTarget"
+	For i = 0 To 1
+		x = -3.0 + i * 6.0
+		body = ClassDB.Instantiate("StaticBody3D")
+		body.name = "DefenceCover" & Str(i)
+		body.collision_layer = 1
+		body.collision_mask = 0
+		play_vault.add_child(body)
+		body.position = Vector3(x, 1.5, 2)
+		mesh = ClassDB.Instantiate("CylinderMesh")
+		mesh.top_radius = 1.2
+		mesh.bottom_radius = 1.2
+		mesh.height = 3.0
+		col = ClassDB.Instantiate("MeshInstance3D")
+		col.mesh = mesh
+		col.material_override = Load("res://assets/trace_vault/materials/armor.tres")
+		body.add_child(col)
+		shape = ClassDB.Instantiate("CylinderShape3D")
+		shape.radius = 1.2
+		shape.height = 3.0
+		col = ClassDB.Instantiate("CollisionShape3D")
+		col.shape = shape
+		body.add_child(col)
+		col = DefenceMesh(body, Vector3(0, 1.52, 0), Vector3(1.7, 0.06, 1.7), GlowPaint(cyan_mat))
+	Next
+	Call ResetDefence()
+End Sub
+
+Sub ResetDefence()
+	defence_state = "offline"
+	defence_t = 0.0
+	defence_hits = 0
+	If defence_beam <> Nothing Then defence_beam.visible = False
+	If defence_mark <> Nothing Then defence_mark.visible = False
+End Sub
+
+Function DefenceClear(ByVal target As Vector3) As Boolean
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim ray As Object
+	Dim hit As Dictionary
+	a = defence_emitter.position
+	b = target - play_vault.global_position
+	' These solid full-height cylinders also block sight before the physics sync.
+	If SegmentHitsDisk(a.x, a.z, b.x, b.z, -3.0, 2.0, 1.2) Then Return False
+	If SegmentHitsDisk(a.x, a.z, b.x, b.z, 3.0, 2.0, 1.2) Then Return False
+	ray = ClassDB.Instantiate("PhysicsRayQueryParameters3D")
+	ray.from = defence_emitter.global_position
+	ray.to = target + Vector3(0, 1.3, 0)
+	ray.collision_mask = 1
+	hit = get_world_3d().direct_space_state.intersect_ray(ray)
+	Return hit.size() = 0
+End Function
+
+Sub AimDefenceBeam(ByVal target As Vector3, ByVal width As Single)
+	Dim a As Vector3
+	Dim b As Vector3
+	a = defence_emitter.global_position
+	b = target + Vector3(0, 0.15, 0)
+	defence_beam.global_position = (a + b) * 0.5
+	defence_beam.scale = Vector3(width, width, a.distance_to(b))
+	defence_beam.look_at(b, Vector3(0, 1, 0))
+	defence_beam.visible = True
+End Sub
+
+Sub TickDefence(ByVal delta As Single)
+	If ride_state = "crashed" Then Exit Sub
+	If area_name <> "vault" Or ride_state <> "on_foot" Then
+		defence_state = "offline"
+		defence_t = 0.0
+		defence_beam.visible = False
+		defence_mark.visible = False
+		Exit Sub
+	End If
+	If pod_t < 16.0 Then Exit Sub
+	If defence_state = "offline" Then defence_state = "tracking"
+	defence_t = defence_t + delta
+	If defence_state = "tracking" Then
+		If Not DefenceClear(walker.global_position) Then
+			defence_t = 0.0
+			defence_beam.visible = False
+			Exit Sub
+		End If
+		defence_beam.material_override = GlowPaint(amber_mat)
+		Call AimDefenceBeam(walker.global_position, 0.025)
+		If defence_t >= 2.0 Then
+			defence_target = walker.global_position
+			defence_mark.global_position = Vector3(defence_target.x, 0.04, defence_target.z)
+			defence_mark.visible = True
+			defence_state = "locked"
+			defence_t = 0.0
+			Call PlayCue(arm_stream)
+		End If
+	ElseIf defence_state = "locked" Then
+		Call AimDefenceBeam(defence_target, 0.06)
+		If defence_t >= 1.5 Then
+			defence_state = "firing"
+			defence_t = 0.0
+			defence_beam.material_override = GlowPaint(red_mat)
+			Call AimDefenceBeam(defence_target, 0.3)
+			Call PlayCue(wipe_stream)
+			If walker.global_position.distance_to(defence_target) < 1.4 And DefenceClear(walker.global_position) Then
+				defence_hits = defence_hits + 1
+				last_cue = "defence_hit"
+				pulse_t = 0.9
+				If defence_hits >= 2 Then Call MarkCrash("defence", "vault defence emitter")
+			End If
+		End If
+	ElseIf defence_state = "firing" Then
+		If defence_t >= 0.7 Then
+			defence_beam.visible = False
+			defence_mark.visible = False
+			defence_state = "cooldown"
+			defence_t = 0.0
+		End If
+	ElseIf defence_t >= 2.0 Then
+		defence_state = "tracking"
+		defence_t = 0.0
+	End If
 End Sub
 
 Sub MakeWalker()
@@ -1118,6 +1557,7 @@ End Sub
 
 Sub RestoreVaultProps()
 	Dim i As Integer
+	Call CancelVaultLift()
 	If core_bank <> Nothing Then
 		For i = 0 To 2
 			If core_bank.has_node("Core" & Str(i)) Then core_bank.get_node("Core" & Str(i)).visible = True
@@ -1126,9 +1566,17 @@ Sub RestoreVaultProps()
 	If coupler <> Nothing Then coupler.visible = True
 	pod_active = False
 	pod_t = 0.0
+	translation_t = 0.0
+	lift_lock_open = False
+	lift_entry = ""
+	lift_lock_status = ""
+	nearby_hud = ""
+	If visor_label <> Nothing Then visor_label.visible = False
+	If visor_panel <> Nothing Then visor_panel.visible = False
 	pod_fog_on = False
 	orac_alerted = False
 	orac_sub_t = 0.0
+	Call ResetDefence()
 	If pod_sfx <> Nothing Then pod_sfx.stop()
 	If orac_alert <> Nothing Then orac_alert.stop()
 	Call PosePod(0.0)
@@ -1136,12 +1584,12 @@ End Sub
 
 ' Stasis capsule sequence after the coupler is pulled (seconds since take):
 ' clamps retract 0-0.7, seam flickers from 0.5, fog from 1.0, lids crack 1.2-2.6
-' then swing open to 2.6-6.0, FEB stirs 3.0-5.0, fog stops at 9.0.
+' then swing open to 2.6-6.0, FEB stirs 3.0-5.0 and keeps breathing, fog stops at 9.0.
+' Pod animation/audio run at 65% speed. The visible defence emitter has its own
+' grace period, sightline, fixed-position warning and dodgeable shot.
 Function PodEase(ByVal a As Single, ByVal b As Single, ByVal t As Single) As Single
 	Dim u As Single
-	u = (t - a) / (b - a)
-	If u < 0 Then u = 0
-	If u > 1 Then u = 1
+	u = Max(0.0, Min(1.0, (t - a) / (b - a)))
 	PodEase = u * u * (3.0 - 2.0 * u)
 End Function
 
@@ -1183,18 +1631,49 @@ Sub PosePod(ByVal t As Single)
 		End If
 	End If
 	If feb <> Nothing Then
-		w = PodEase(3.0, 5.0, t)
-		If feb.has_node("VisualRoot/HeadPivot") Then feb.get_node("VisualRoot/HeadPivot").rotation = Vector3(0.18, 0.25, 0) * w
-		If feb.has_node("VisualRoot/ServiceArmPivot") Then feb.get_node("VisualRoot/ServiceArmPivot").rotation = Vector3(0.35, 0.1, 0) * w
-		If feb.has_node("VisualRoot/ThermalArmPivot") Then feb.get_node("VisualRoot/ThermalArmPivot").rotation = Vector3(-0.45, 0, 0.12) * w
+		Call PoseFeb(t)
+	End If
+End Sub
+
+Sub PoseFeb(ByVal t As Single)
+	Dim w As Single
+	Dim breath As Single
+	Dim node As Object
+	w = PodEase(3.0, 5.0, t)
+	breath = 0.0
+	If t > 2.6 Then breath = Sin(t * 1.7)
+	If feb.has_node("VisualRoot") Then
+		node = feb.get_node("VisualRoot")
+		node.position = Vector3(0.0, breath * 0.016 * w, 0.0)
+		node.rotation = Vector3(0.0, Sin(t * 0.35) * 0.05 * w, 0.0)
+	End If
+	If feb.has_node("VisualRoot/ChestCore") Then
+		node = feb.get_node("VisualRoot/ChestCore")
+		node.scale = Vector3(1.0, 1.0 + breath * 0.05 * w, 1.0)
+	End If
+	If feb.has_node("VisualRoot/HeadPivot") Then
+		node = feb.get_node("VisualRoot/HeadPivot")
+		node.rotation = Vector3(0.1 + Sin(t * 0.62) * 0.045, 0.2 + Sin(t * 0.4) * 0.06, Sin(t * 0.48) * 0.03) * w
+	End If
+	If feb.has_node("VisualRoot/HeadPivot/Eyes") Then
+		node = feb.get_node("VisualRoot/HeadPivot/Eyes")
+		node.scale = Vector3(1.0, 1.0, 1.0 + Abs(breath) * 0.08 * w)
+	End If
+	If feb.has_node("VisualRoot/ServiceArmPivot") Then
+		node = feb.get_node("VisualRoot/ServiceArmPivot")
+		node.rotation = Vector3(0.28 + Sin(t * 0.5) * 0.07, 0.08 + Sin(t * 0.33) * 0.04, Sin(t * 0.41) * 0.04) * w
+	End If
+	If feb.has_node("VisualRoot/ThermalArmPivot") Then
+		node = feb.get_node("VisualRoot/ThermalArmPivot")
+		node.rotation = Vector3(-0.32 + Sin(t * 0.46 + 1.1) * 0.08, Sin(t * 0.29) * 0.04, 0.08 + Sin(t * 0.37) * 0.05) * w
 	End If
 End Sub
 
 Sub TickPod(ByVal delta As Single)
 	If Not pod_active Then Exit Sub
 	pod_t = pod_t + delta
-	Call PosePod(pod_t)
-	If pod_t >= 5.0 And Not orac_alerted Then
+	Call PosePod(pod_t * 0.65)
+	If pod_t >= 8.0 And Not orac_alerted Then
 		orac_alerted = True
 		orac_sub_t = 4.0
 		If orac_alert <> Nothing Then
@@ -1209,7 +1688,8 @@ Sub TickPod(ByVal delta As Single)
 			Call RefreshHud()
 		End If
 	End If
-	If pod_t > 10.0 Then pod_active = False
+	Call TickDefence(delta)
+	If pod_t > 10.0 And area_name <> "vault" Then pod_active = False
 End Sub
 
 Function MarkerGap(ByVal node As Object) As Single
@@ -1296,7 +1776,7 @@ Function OnWalkDeck(ByVal origin As Vector3) As Boolean
 		If Abs(local.x) <= 5.2 And Abs(local.z) <= 5.2 Then OnWalkDeck = True
 		Exit Function
 	End If
-	If Abs(origin.x) <= 18.2 And origin.z <= -99.6 And origin.z >= -122.4 Then
+	If Abs(origin.x) <= 18.2 And Abs(origin.z) >= 99.6 And Abs(origin.z) <= 122.4 Then
 		OnWalkDeck = True
 		Exit Function
 	End If
@@ -1456,6 +1936,7 @@ Sub take_coupler()
 	pod_active = True
 	orac_alerted = False
 	orac_sub_t = 0.0
+	Call ResetDefence()
 	Call PosePod(0.0)
 	If pod_sfx <> Nothing Then
 		If pod_sfx.stream <> Nothing Then pod_sfx.play()
@@ -1862,7 +2343,7 @@ End Function
 Function WantsMouseLook() As Boolean
 	If ignore_input Or Not running Then Return False
 	If IsPaused() Then Return False
-	If ride_state <> "on_foot" Then Return False
+	If ride_state <> "on_foot" And ride_state <> "lift" Then Return False
 	If lock_open Then Return False
 	Return True
 End Function
@@ -1948,6 +2429,12 @@ Sub ReadPlayer(ByVal delta As Single)
 		Call retry_run()
 		Exit Sub
 	End If
+	If ride_state = "lift" Then
+		If Held(KEY_A) Or Held(KEY_LEFT) Then walk_heading = WrapAngle(walk_heading - delta * 2.2)
+		If Held(KEY_D) Or Held(KEY_RIGHT) Then walk_heading = WrapAngle(walk_heading + delta * 2.2)
+		Call ApplyMouseLook()
+		Exit Sub
+	End If
 	If ride_state = "docked" And Tap(KEY_I) Then
 		Call set_inspect(1)
 		Exit Sub
@@ -1956,6 +2443,10 @@ Sub ReadPlayer(ByVal delta As Single)
 	If ride_state = "docked" And Tap(KEY_2) Then Call set_inspect(2)
 	If ride_state = "docked" And Tap(KEY_3) Then Call set_inspect(3)
 	If ride_state = "on_foot" Then
+		If lift_lock_open Then
+			Call ReadLiftKeys()
+			Exit Sub
+		End If
 		If lock_open Then
 			Call ReadLockKeys()
 			Exit Sub
@@ -2080,17 +2571,22 @@ Sub tick(ByVal delta As Single)
 	Call ReadPlayer(delta)
 	If mode = "f6" Then Call SyncF6Mouse()
 	If IsPaused() Then
+		If lift_motor <> Nothing Then lift_motor.stream_paused = True
 		Call ApplyVisuals(0.0)
 		Call AimRideCamera(delta)
 		Call RefreshHud()
 		Exit Sub
 	End If
+	If lift_motor <> Nothing Then lift_motor.stream_paused = False
+	If pulse_t > 0.0 Then pulse_t = Max(0.0, pulse_t - delta)
 	If route.timer_started Then
 		route.timer_remaining = route.timer_remaining - delta
 		If route.timer_remaining < 0 Then route.timer_remaining = 0
 		If route.timer_remaining <= 0 Then Call MarkCrash("lockdown")
 	End If
-	If ride_state = "boarding" Then
+	If ride_state = "lift" Then
+		Call TickVaultLift(delta)
+	ElseIf ride_state = "boarding" Then
 		board_t = board_t - delta
 		canopy_open = board_t / 0.45
 		If canopy_open < 0 Then canopy_open = 0
@@ -2116,9 +2612,9 @@ Sub tick(ByVal delta As Single)
 		Call TickCharge(delta)
 		Call TickYardNav(delta)
 		Call RefreshYardBeacons()
-		Call TickGloss(delta)
 		Call TickLockFlash(delta)
 	End If
+	Call TickGloss(delta)
 	Call ApplyVisuals(delta)
 	Call AimRideCamera(delta)
 	Call RefreshHud()
@@ -2399,6 +2895,8 @@ End Function
 
 Sub MarkCrash(ByVal reason As String, Optional evidence As Variant = "")
 	If ride_state = "crashed" Then Exit Sub
+	crash_on_foot = ride_state = "on_foot" Or ride_state = "falling" Or ride_state = "lift"
+	If ride_state = "lift" And lift_motor <> Nothing Then lift_motor.stop()
 	ride_state = "crashed"
 	crash_reason = reason
 	crash_path = Str(evidence)
@@ -2515,7 +3013,6 @@ Sub UpdateRelayMasts(ByVal delta As Single)
 	If relay_masts.size() < 3 Then Exit Sub
 	If trace_on_t > 0.0 Then trace_on_t = Max(0.0, trace_on_t - delta)
 	If field_open_t > 0.0 Then field_open_t = Max(0.0, field_open_t - delta)
-	If pulse_t > 0.0 Then pulse_t = Max(0.0, pulse_t - delta)
 	For i = 0 To 2
 		relay = crossing.get_node("Relay" & Str(i))
 		near = False
@@ -2634,15 +3131,24 @@ Sub InteractFoot()
 			Exit Sub
 		End If
 		node = crossing.get_node("DeepLiftLobby/LiftPose")
-		If MarkerGap(node) < 3.2 Or MarkerGap(crossing.get_node("DeepLiftLobby/Console")) < 3.2 Then Call enter_vault()
+		If MarkerGap(node) < 3.2 Or MarkerGap(crossing.get_node("DeepLiftLobby/Console")) < 3.2 Then
+			If Not progression_skip And Not lift_authorized Then
+				lift_lock_open = True
+				lift_entry = ""
+				lift_lock_status = "ENTER FIVE-SYMBOL ADDRESS"
+				Call RefreshVisorTranslation()
+			Else
+				Call StartVaultLift(False)
+			End If
+		End If
 		Exit Sub
 	End If
 	If area_name <> "vault" Then Exit Sub
 	If route.coupler_taken Then
 		If MarkerGap(play_vault.get_node("Room/Exit")) < 3.5 Then
-			Call exit_facility()
+			Call StartVaultLift(True)
 		ElseIf vault_lift <> Nothing Then
-			If MarkerGap(vault_lift.get_node("LiftPose")) < 3.2 Then Call exit_facility()
+			If MarkerGap(vault_lift.get_node("LiftPose")) < 3.2 Then Call StartVaultLift(True)
 		End If
 		Exit Sub
 	End If
@@ -2671,6 +3177,7 @@ Sub TickWalk(ByVal delta As Single)
 	Dim side As Vector3
 	Dim pace As Single
 	Dim strafe As Single
+	If lift_lock_open Then Exit Sub
 	If lock_open Then
 		Call RefreshYardWalkPrompt()
 		Exit Sub
@@ -3407,6 +3914,7 @@ Sub MakeCueBank()
 	pod_sfx = ClassDB.Instantiate("AudioStreamPlayer")
 	pod_sfx.name = "PodAwakenSfx"
 	pod_sfx.volume_db = -4.0
+	pod_sfx.pitch_scale = 0.65
 	If FileExists("res://assets/trace_vault/audio/pod_awaken.ogg") Then pod_sfx.stream = Load("res://assets/trace_vault/audio/pod_awaken.ogg")
 	add_child(pod_sfx)
 	orac_alert = ClassDB.Instantiate("AudioStreamPlayer")
@@ -3677,6 +4185,7 @@ Sub AimRideCamera(ByVal delta As Single)
 	Dim blend As Single
 	Dim fwd As Vector3
 	If ride_camera Is Nothing Then Exit Sub
+	If ride_state = "crashed" And crash_on_foot Then Exit Sub
 	look = LookPoint()
 	If ride_state = "inspect" Then
 		desired = look + Vector3(Sin(orbit_yaw) * Cos(orbit_pitch), Sin(orbit_pitch), Cos(orbit_yaw) * Cos(orbit_pitch)) * orbit_dist
@@ -3691,7 +4200,7 @@ Sub AimRideCamera(ByVal delta As Single)
 		End If
 		ride_camera.global_position = cam_pos
 		If look.distance_to(cam_pos) > 0.05 Then ride_camera.look_at(look, Vector3(0, 1, 0))
-	ElseIf (ride_state = "on_foot" Or ride_state = "falling") And walker <> Nothing Then
+	ElseIf (ride_state = "on_foot" Or ride_state = "falling" Or ride_state = "lift") And walker <> Nothing Then
 		look = walker.global_position + Vector3(0.0, 1.55, 0.0)
 		fwd = ForwardOf(walk_heading)
 		desired = look - fwd * 0.12
@@ -3887,7 +4396,7 @@ Sub RefreshTactical()
 	Dim cap_w As Single
 	Dim cap_h As Single
 	Dim at As Vector2
-	show_dash = ride_state <> "inspect" And ride_state <> "on_foot" And ride_state <> "falling"
+	show_dash = CockpitCam()
 	If hud_panel <> Nothing Then hud_panel.visible = False
 	If strip_label <> Nothing Then strip_label.visible = False
 	If cluster_hud <> Nothing Then cluster_hud.visible = show_dash
@@ -3968,10 +4477,19 @@ End Sub
 
 ' One line telling the player what the run wants from them right now.
 Function Objective() As String
+	If ride_state = "lift" Then
+		Objective = "OBJECTIVE  RIDE THE LIFT - DOORS OPEN AT ARRIVAL"
+		Exit Function
+	End If
 	Objective = ""
 	If route Is Nothing Then Exit Function
 	If ride_state = "crashed" Then Exit Function
 	If ride_state = "inspect" Then Exit Function
+	If yard_field And Not progression_skip And Not route.vault_entered Then
+		If Not TranslatorOwned() Then Return "OBJECTIVE  FIND THE INTERFACE TRANSLATOR IN THE YARD ARCHIVE BAY"
+		If Not lift_code_known Then Return "OBJECTIVE  SCAN THE LIFT ADDRESS ON THE ARCHIVE BAY'S REAR WALL"
+		If Not cradle_released Then Return "OBJECTIVE  READ THE YARD SERVICE TAG AND RELEASE THE CYCLE"
+	End If
 	If area_name = "vault" And ride_state = "on_foot" Then
 		If route.coupler_taken Then
 			Objective = "OBJECTIVE  CARRY THE COUPLER OUT - WALK TO THE EXIT, PRESS F"
@@ -3989,7 +4507,11 @@ Function Objective() As String
 		Exit Function
 	End If
 	If route.stage_name = "near_dock" Then
-		Objective = "COUPLER SECURE - TRACE CYCLE TEST COMPLETE"
+		If yard_field Then
+			Objective = "BACKLIGHT YARD - DISMOUNT, REACH THE BUGGY AND RETURN TO THE ASH"
+		Else
+			Objective = "COUPLER SECURE - TRACE CYCLE TEST COMPLETE"
+		End If
 		Exit Function
 	End If
 	If route.facility_cleared Then
@@ -4035,6 +4557,8 @@ Function CrashAdvice() As String
 		CrashAdvice = "support-field limit"
 	ElseIf crash_reason = "lockdown" Then
 		CrashAdvice = "facility timer"
+	ElseIf crash_reason = "defence" Then
+		CrashAdvice = "beam hit - dodge the mark or use the cyan pillars"
 	ElseIf crash_reason = "lift" Then
 		CrashAdvice = "deep-lift building - park in the FAR dock, then walk"
 	ElseIf crash_reason = "fall" Then
@@ -4059,13 +4583,16 @@ Sub RefreshHud()
 	If glass_label Is Nothing Then Exit Sub
 	If ride_state = "crashed" Then
 		glass = "CRASH  " & UCase(crash_reason) & "   R RETRY"
+		If crash_on_foot Then glass = "DOWNED  " & UCase(crash_reason) & "   R RETRY"
 		toast = UCase(crash_reason) & "  ·  " & CrashAdvice()
+	ElseIf ride_state = "lift" Then
+		glass = "LIFT TRANSIT   MOUSE / A/D LOOK"
+		toast = ""
 	ElseIf ride_state = "inspect" Then
 		glass = "MODEL INSPECTION   1 PLAYER  2 REMOTE  3 VAULT   I BACK"
 		toast = ""
 	ElseIf ride_state = "on_foot" Then
 		glass = prompt & "   W/S MOVE  A/D TURN"
-		If nearby_hud <> "" Then glass = glass & "   " & nearby_hud
 		toast = ""
 	ElseIf ride_state = "falling" Then
 		glass = "FALLING"
@@ -4085,8 +4612,15 @@ Sub RefreshHud()
 		glass = NextHint() & "   W/S SPEED   A/D TURN"
 		toast = ""
 	End If
-	If toast = "" And orac_sub_t > 0.0 Then toast = "ORAC: OH, THIS IS BAD. DEFENCE GRIDS COMING ONLINE. RUN!"
+	If toast = "" And area_name = "vault" And ride_state = "on_foot" And orac_alerted Then
+		toast = "GRID ARMING - REACH THE LIFT; CYAN PILLARS ARE COVER"
+		If defence_state = "tracking" Then toast = "LASER TRACKING - BREAK SIGHT BEHIND A CYAN PILLAR"
+		If defence_state = "locked" Then toast = "SHOT LOCKED - MOVE OFF THE RED FLOOR MARK NOW!"
+		If defence_state = "firing" Or defence_state = "cooldown" Then toast = "DEFENCE SHOT - KEEP MOVING TOWARD THE LIFT"
+		If defence_hits > 0 Then toast = "HIT 1/2 - " & toast
+	End If
 	glass_label.text = glass
+	Call RefreshVisorTranslation()
 	If objective_label <> Nothing Then
 		objective_label.text = Objective()
 		If field_open_t > 0.0 Then
@@ -4097,7 +4631,9 @@ Sub RefreshHud()
 	End If
 	If hud_pulse <> Nothing Then
 		If pulse_t > 0.0 Then
-			If last_cue = "wipe" Or last_cue = "shutdown" Then
+			If last_cue = "defence_hit" Then
+				hud_pulse.color = Color(1.0, 0.08, 0.04, 0.38 * Min(1.0, pulse_t / 0.9))
+			ElseIf last_cue = "wipe" Or last_cue = "shutdown" Then
 				hud_pulse.color = Color(0.55, 0.82, 1.0, 0.28 * Min(1.0, pulse_t / 0.35))
 			Else
 				hud_pulse.color = Color(0.35, 0.95, 1.0, 0.12 + 0.16 * Abs(Sin(pulse_t * 18.0)))
@@ -4108,7 +4644,7 @@ Sub RefreshHud()
 	End If
 	If crash_label <> Nothing Then
 		crash_label.text = toast
-		crash_label.visible = ride_state = "crashed" Or orac_sub_t > 0.0
+		crash_label.visible = toast <> ""
 	End If
 	If strip_label <> Nothing Then
 		lines = Str(Int(speed + 0.5)) & " m/s" & Chr(10)
@@ -4237,10 +4773,14 @@ Sub ResetYardRun()
 	gloss_age.clear()
 	If ignore_input Then
 		cradle_released = True
-		If translator_start_owned Then Call GiveTranslator()
+		If progression_skip And translator_start_owned Then Call GiveTranslator()
 	Else
-		cradle_released = yard_save_released
-		If yard_save_translator Or translator_start_owned Then Call GiveTranslator()
+		cradle_released = yard_save_released Or mode = "dev" Or mode = "far_dock" Or mode = "f6"
+		If yard_save_translator Or (progression_skip And translator_start_owned) Then
+			Call GiveTranslator()
+		Else
+			inventory.erase("translator")
+		End If
 	End If
 	Call ClearLockEntries()
 	Call ApplyLockLight()
@@ -4344,6 +4884,13 @@ End Sub
 
 Sub AddNarceanLine(ByVal parent As Object, ByVal a As Vector2, ByVal b As Vector2, ByVal scale As Single, ByVal col As Color)
 	Dim line As Object
+	Dim span As Vector2
+	If parent.is_class("Node3D") Then
+		span = b - a
+		line = DefenceMesh(parent, Vector3((a.x + b.x) * 0.5, -(a.y + b.y) * 0.5, 0), Vector3(span.length(), 1.7 * scale, 0.8 * scale), GlowPaint(cyan_mat))
+		line.rotation.z = Atan2(-span.y, span.x)
+		Exit Sub
+	End If
 	line = ClassDB.Instantiate("Line2D")
 	line.width = 1.7 * scale
 	line.default_color = col
@@ -4351,6 +4898,30 @@ Sub AddNarceanLine(ByVal parent As Object, ByVal a As Vector2, ByVal b As Vector
 	line.add_point(a)
 	line.add_point(b)
 	parent.add_child(line)
+End Sub
+
+Sub PaintFloorScript(ByVal sign As Object, ByVal text As String)
+	Dim script As Object
+	Dim children As Array
+	Dim words As PackedStringArray
+	Dim width As Single
+	Dim unit As Single
+	Dim i As Integer
+	script = sign.get_node("Script")
+	children = script.get_children()
+	For i = 0 To children.size() - 1
+		children(i).free()
+	Next
+	words = text.split(" ")
+	width = 0.0
+	For i = 0 To words.size() - 1
+		width = width + NarceanCellCount(words(i)) * 18.0 + 10.0
+	Next
+	unit = 1.6 / width
+	Call narcean_line(script, Vector2(-0.8, -9.0 * unit), text, unit)
+	sign.set_meta("script", text)
+	sign.set_meta("gloss", text)
+	sign.get_node("Gloss").visible = False
 End Sub
 
 Sub ClearNarceanHud()
@@ -4392,7 +4963,7 @@ Sub LoadTranslationConfig()
 	If field_cfg Is Nothing Then Exit Sub
 	If Not field_cfg.has("translation") Then Exit Sub
 	trans = field_cfg("translation")
-	translator_start_owned = trans("start_owned_in_dest")
+	translator_start_owned = trans("start_owned_in_preview")
 	gloss_range_m = trans("gloss_range_m")
 	cradle_code = Str(trans("cradle_code_dev"))
 	trans_lock_path = Str(trans("cradle_lock"))
@@ -4422,7 +4993,7 @@ Sub HideTranslatorPickup()
 End Sub
 
 Function ViewerPos() As Vector3
-	If (ride_state = "on_foot" Or ride_state = "falling") And walker <> Nothing Then
+	If (ride_state = "on_foot" Or ride_state = "falling" Or ride_state = "lift") And walker <> Nothing Then
 		If walker.visible Then
 			ViewerPos = walker.global_position
 			Exit Function
@@ -4465,6 +5036,49 @@ Function SignScript(ByVal sign As Object) As String
 	SignScript = Str(sign.get_meta("script"))
 End Function
 
+Sub CollectVisorSigns(ByVal node As Object)
+	Dim children As Array
+	Dim i As Integer
+	If node Is Nothing Then Exit Sub
+	If node.has_meta("text_kind") Then visor_signs.append(node)
+	If node.name = "Gloss" Then node.visible = False
+	children = node.get_children()
+	For i = 0 To children.size() - 1
+		Call CollectVisorSigns(children(i))
+	Next
+End Sub
+
+Function FloorTranslation() As String
+	If lift_up Then Return "00 - SURFACE DOCK"
+	Return "B04 - ISOLATION VAULT"
+End Function
+
+Function TranslationPhase() As Integer
+	If Not route.coupler_taken Then Return 0
+	Return Int(translation_t * 5.0) Mod 16
+End Function
+
+Function VisorTranslation(ByVal text As String) As String
+	Dim phase As Integer
+	Dim i As Integer
+	Dim damaged As String
+	phase = TranslationPhase()
+	If Not route.coupler_taken Then Return "TRANSLATED: " & text
+	If phase >= 11 Then Return "TRANSLATED: [ LINK LOST ]" & vbLf & "FEB OVERRIDE"
+	If phase >= 6 Then
+		damaged = ""
+		For i = 1 To Len(text)
+			If (i + phase) Mod 3 = 0 Then
+				damaged = damaged & "#"
+			Else
+				damaged = damaged & Mid(text, i, 1)
+			End If
+		Next
+		Return "TRANSLATED: " & damaged & vbLf & "SIGNAL CONTESTED"
+	End If
+	Return "TRANSLATED: " & text & vbLf & "REACQUIRING"
+End Function
+
 Sub TickGloss(ByVal delta As Single)
 	Dim i As Integer
 	Dim path As String
@@ -4479,22 +5093,25 @@ Sub TickGloss(ByVal delta As Single)
 	Dim decoded As Boolean
 	Dim high_seen As Boolean
 	Dim script_line As String
-	If Not yard_field Then Exit Sub
+	Dim nearest As Single
+	Dim sign_group As Object
 	If crossing Is Nothing Then Exit Sub
+	If route.coupler_taken Then translation_t = translation_t + delta
 	If gloss_age Is Nothing Then gloss_age = New Dictionary
 	owned = TranslatorOwned()
+	If Not yard_field And progression_skip Then owned = True
 	nearby_hud = ""
 	high_seen = False
 	script_line = ""
 	decoded = False
-	If trans_signs Is Nothing Then trans_signs = Array()
-	For i = 0 To trans_signs.size() - 1
-		path = Str(trans_signs(i))
-		If Not crossing.has_node(path) Then GoTo NextSign
-		sign = crossing.get_node(path)
+	nearest = gloss_range_m + 1.0
+	sign_group = Nothing
+	For i = 0 To visor_signs.size() - 1
+		sign = visor_signs(i)
+		path = Str(sign.get_instance_id())
 		kind = SignKind(sign)
 		dist = NodeGap(sign)
-		in_range = dist <= gloss_range_m
+		in_range = dist <= gloss_range_m And sign.is_visible_in_tree()
 		If kind = "high" Then
 			If sign.has_node("Gloss") Then sign.get_node("Gloss").visible = False
 			If in_range Then high_seen = True
@@ -4508,22 +5125,27 @@ Sub TickGloss(ByVal delta As Single)
 				age = delta
 			End If
 			gloss_age(path) = age
-			Call FlickerScript(sign, age)
 			If sign.has_node("Gloss") Then
 				gloss = sign.get_node("Gloss")
+				gloss.visible = False
 				If age >= 0.4 Then
-					gloss.visible = True
 					decoded = True
-					If nearby_hud = "" Then
+					If sign.get_parent().name = "LiftAddressClue" And sign.name = "Line1" Then
+						lift_code_known = True
+						nearby_hud = "LIFT ADDRESS / " & SignGloss(sign)
+						nearest = -1.0
+					End If
+					If dist < nearest - 0.05 Then
+						nearest = dist
+						sign_group = sign.get_parent()
 						nearby_hud = SignGloss(sign)
-					ElseIf InStr(nearby_hud, SignGloss(sign)) < 1 Then
-						nearby_hud = nearby_hud & ": " & SignGloss(sign)
+					ElseIf sign.get_parent() = sign_group And Abs(dist - nearest) < 0.05 Then
+						If InStr(nearby_hud, SignGloss(sign)) < 1 Then nearby_hud = nearby_hud & " / " & SignGloss(sign)
 					End If
 				End If
 			End If
 		Else
 			If gloss_age.has(path) Then gloss_age.erase(path)
-			Call FlickerScript(sign, 1.0)
 			If sign.has_node("Gloss") Then sign.get_node("Gloss").visible = False
 			If in_range And kind = "interface" Then
 				If script_line = "" Then script_line = SignScript(sign)
@@ -4544,7 +5166,7 @@ NextSign:
 						age = delta
 					End If
 					gloss_age(key_path) = age
-					gloss.visible = age >= 0.4
+					gloss.visible = False
 				Else
 					If gloss_age.has(key_path) Then gloss_age.erase(key_path)
 					gloss.visible = False
@@ -4561,28 +5183,67 @@ NextSign:
 			nearby_hud = "NARCEAN SCRIPT"
 		End If
 	End If
+	If ride_state = "lift" And owned Then nearby_hud = FloorTranslation()
+	If ride_state = "on_foot" And owned Then
+		If area_name = "vault" Then
+			If walker.global_position.distance_to(vault_lift.get_node("LiftPose").global_position) < 1.8 Then nearby_hud = "B04 - ISOLATION VAULT"
+		ElseIf area_name = "lobby" Then
+			If walker.global_position.distance_to(crossing.get_node("DeepLiftLobby/LiftPose").global_position) < 1.8 Then nearby_hud = "00 - SURFACE DOCK"
+		End If
+	End If
 	Call RefreshNarceanHud(script_line, decoded)
+	Call RefreshVisorTranslation()
 End Sub
 
-Sub FlickerScript(ByVal sign As Object, ByVal age As Single)
-	Dim scr As Object
-	Dim pulse As Single
-	If sign Is Nothing Then Exit Sub
-	If Not sign.has_node("Script") Then Exit Sub
-	scr = sign.get_node("Script")
-	If age < 0.4 Then
-		pulse = 0.3 + 0.7 * Abs(Sin(age * 28.0))
-		scr.modulate = Color(1.0, 1.0, 1.0, pulse)
-	Else
-		scr.modulate = Color(1.0, 1.0, 1.0, 1.0)
+Sub RefreshVisorTranslation()
+	Dim phase As Integer
+	Dim source As String
+	Dim children As Array
+	Dim i As Integer
+	If visor_label Is Nothing Then Exit Sub
+	helmet_rim.visible = Not CockpitCam() And ride_state <> "inspect"
+	visor_label.visible = nearby_hud <> "" And ride_state <> "inspect" And ride_state <> "crashed"
+	If orac_sub_t > 0.0 And ride_state <> "crashed" Then visor_label.visible = True
+	If lift_lock_open Then visor_label.visible = True
+	visor_panel.visible = visor_label.visible
+	If Not visor_label.visible Then Exit Sub
+	source = nearby_hud
+	If source = "" Then source = "[ NO LABEL IN RANGE ]"
+	visor_label.text = VisorTranslation(source)
+	If yard_field And Not TranslatorOwned() Then visor_label.text = "TRANSLATED: [ LEXICON OFFLINE ]"
+	If visor_glyph_source <> nearby_hud Then
+		children = visor_glyphs.get_children()
+		For i = 0 To children.size() - 1
+			children(i).free()
+		Next
+		visor_glyph_source = nearby_hud
+		If nearby_hud <> "" Then Call narcean_line(visor_glyphs, Vector2(0, 0), nearby_hud, Min(0.6, 32.0 / Len(nearby_hud)))
+	End If
+	visor_label.position = Vector2(18, 44)
+	visor_label.modulate = Color(0.55, 0.97, 1.0, 0.95)
+	If route.coupler_taken Then
+		phase = TranslationPhase()
+		If phase >= 6 Then
+			visor_label.position = Vector2(18.0 + ((phase Mod 3) - 1) * 2.0, 44.0)
+			visor_label.modulate = Color(1.0, 0.57, 0.25, 0.85)
+		End If
+	End If
+	If orac_sub_t > 0.0 Then
+		visor_label.text = "ORAC: Defence grids coming online. RUN!"
+		visor_label.modulate = Color(0.75, 0.96, 1.0, 1.0)
+		visor_label.position = Vector2(18, 44)
+	End If
+	If lift_lock_open Then
+		visor_label.text = "LIFT ADDRESS: " & lift_entry & vbLf & lift_lock_status & vbLf & "0-9 ENTER / BACKSPACE / F CANCEL"
+		If lift_code_known Then visor_label.text = "ARCHIVE: 14242   LIFT: " & lift_entry & vbLf & lift_lock_status & vbLf & "0-9 ENTER / BACKSPACE / F CANCEL"
+		If Not TranslatorOwned() Then visor_label.text = "LEXICON OFFLINE - FIND INTERFACE TRANSLATOR"
 	End If
 End Sub
 
 Sub RefreshNarceanHud(ByVal script_line As String, ByVal decoded As Boolean)
 	Call ClearNarceanHud()
 	If script_hud Is Nothing Then Exit Sub
-	script_hud.visible = nearby_hud <> "" Or script_line <> ""
-	If Not decoded And script_line <> "" And Not TranslatorOwned() Then Call narcean_line(script_hud, Vector2(0.0, 0.0), script_line, 0.7)
+	script_hud.visible = False
 End Sub
 
 Sub TickLockFlash(ByVal delta As Single)
@@ -4653,6 +5314,49 @@ Sub OpenCradleLock()
 	Else
 		prompt = "NARCEAN SCRIPT"
 	End If
+End Sub
+
+Sub EnterLiftDigit(ByVal digit As Integer)
+	If Not lift_lock_open Or Not TranslatorOwned() Then Exit Sub
+	If digit < 0 Or digit > 9 Or Len(lift_entry) >= 5 Then Exit Sub
+	lift_entry = lift_entry & Str(digit)
+	lift_lock_status = "ENTER FIVE-SYMBOL ADDRESS"
+End Sub
+
+Sub SubmitLiftCode()
+	If Not lift_lock_open Then Exit Sub
+	If Not TranslatorOwned() Then
+		lift_lock_status = "LEXICON OFFLINE"
+	ElseIf Not lift_code_known Then
+		lift_lock_status = "ADDRESS NOT SCANNED - SEARCH THE YARD ARCHIVE"
+	ElseIf lift_entry <> "14242" Then
+		lift_lock_status = "ADDRESS REJECTED"
+		lift_entry = ""
+	Else
+		lift_authorized = True
+		lift_lock_open = False
+		Call StartVaultLift(False)
+	End If
+	Call RefreshVisorTranslation()
+End Sub
+
+Sub ReadLiftKeys()
+	Dim digit As Integer
+	For digit = 0 To 9
+		If Tap(KEY_0 + digit) Or Tap(KEY_KP_0 + digit) Then
+			Call EnterLiftDigit(digit)
+			Call RefreshVisorTranslation()
+			Exit Sub
+		End If
+	Next
+	If Tap(KEY_BACKSPACE) Then
+		If Len(lift_entry) > 0 Then lift_entry = Left(lift_entry, Len(lift_entry) - 1)
+	ElseIf Tap(KEY_ENTER) Then
+		Call SubmitLiftCode()
+	ElseIf Tap(KEY_F) Then
+		lift_lock_open = False
+	End If
+	Call RefreshVisorTranslation()
 End Sub
 
 Sub EnterCradleDigit(ByVal digit As Integer)
@@ -4744,6 +5448,7 @@ Sub DismountAtNearDock()
 	If ride_state <> "docked" Or route.stage_name <> "near_dock" Then Exit Sub
 	If crossing Is Nothing Then Exit Sub
 	ride_state = "on_foot"
+	area_name = "crossing"
 	speed = 0.0
 	If player <> Nothing Then player.visible = True
 	If yard_field And crossing.has_node("YardDock/BoardPoint") Then
@@ -4784,6 +5489,10 @@ End Sub
 
 Sub BoardYardCycle()
 	If ride_state <> "on_foot" Then Exit Sub
+	If Not progression_skip And (Not TranslatorOwned() Or Not lift_code_known) Then
+		prompt = "SEARCH THE ARCHIVE BAY - TRANSLATOR AND LIFT ADDRESS REQUIRED"
+		Exit Sub
+	End If
 	If Not cradle_released Then
 		If TranslatorOwned() Then
 			prompt = "CLAMP HOLD"
@@ -5384,6 +6093,17 @@ End Sub
 
 Sub dispose()
 	running = False
+	Call CancelVaultLift()
+	If lift_cabin <> Nothing Then lift_cabin.free()
+	If lift_shaft <> Nothing Then lift_shaft.free()
+	lift_shaft = Nothing
+	lift_cabin = Nothing
+	lift_shell = Nothing
+	lift_left = Nothing
+	lift_right = Nothing
+	lift_display = Nothing
+	If lift_motor <> Nothing Then lift_motor.free()
+	lift_motor = Nothing
 	Call clear_trails()
 	Call clear_test_walls()
 	If grow_mesh <> Nothing Then
@@ -5419,6 +6139,9 @@ Sub dispose()
 		walker = Nothing
 	End If
 	stasis = Nothing
+	defence_emitter = Nothing
+	defence_beam = Nothing
+	defence_mark = Nothing
 	feb = Nothing
 	core_bank = Nothing
 	coupler = Nothing
@@ -5477,6 +6200,11 @@ Sub dispose()
 	hud_panel = Nothing
 	hud_label = Nothing
 	glass_label = Nothing
+	visor_label = Nothing
+	visor_panel = Nothing
+	visor_glyphs = Nothing
+	helmet_rim = Nothing
+	visor_signs = Array()
 	throttle_back = Nothing
 	throttle_fill = Nothing
 	throttle_lab = Nothing

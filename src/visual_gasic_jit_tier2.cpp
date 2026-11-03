@@ -2410,6 +2410,77 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         }
     }
     
+    // local_slot_type follows IR order, so the last store in program text
+    // decides how the host decodes a slot. When branches store different
+    // types (`If v > f Then R = f + 1 Else R = f` with f an F64 from Int()),
+    // an I64 store's raw bits were read back as a double (17 -> 0). Give each
+    // mixed slot one storage type and convert at the stores and loads that
+    // disagree.
+    {
+        std::unordered_map<int, uint8_t> seen; // bit0 I64, bit1 F64
+        for (const IRInst &q : ir) {
+            if (q.local_slot < 0) continue;
+            IRType t;
+            if (q.op == IROp::STORE_LOCAL) t = get_vreg_type(q.src1);
+            else if (q.op == IROp::LOAD_LOCAL) t = q.type;
+            else continue;
+            seen[q.local_slot] |= (t == IRType::F64) ? 2 : 1;
+        }
+        std::unordered_map<int, IRType> canon;
+        for (const auto &kv : seen) {
+            if (kv.second != 3) continue;
+            canon[kv.first] = i64_pinned_slots.count(kv.first) ? IRType::I64 : IRType::F64;
+        }
+        if (!canon.empty()) {
+            std::vector<IRInst> out;
+            out.reserve(ir.size() + 8);
+            for (const IRInst &q : ir) {
+                auto cit = (q.local_slot >= 0) ? canon.find(q.local_slot) : canon.end();
+                if (cit == canon.end() || (q.op != IROp::STORE_LOCAL && q.op != IROp::LOAD_LOCAL)) {
+                    out.push_back(q);
+                    continue;
+                }
+                IRType want = cit->second;
+                if (q.op == IROp::STORE_LOCAL) {
+                    IRType have = (get_vreg_type(q.src1) == IRType::F64) ? IRType::F64 : IRType::I64;
+                    IRInst st = q;
+                    if (have != want) {
+                        IRInst cv;
+                        cv.op = (want == IRType::F64) ? IROp::I64_TO_F64 : IROp::F64_TO_I64;
+                        cv.type = want;
+                        cv.dest = next_vreg++;
+                        set_vreg_type(cv.dest, want);
+                        cv.src1 = q.src1;
+                        cv.bc_offset = q.bc_offset;
+                        out.push_back(cv);
+                        st.src1 = cv.dest;
+                    }
+                    out.push_back(st);
+                } else {
+                    IRType have = (q.type == IRType::F64) ? IRType::F64 : IRType::I64;
+                    if (have == want) {
+                        out.push_back(q);
+                        continue;
+                    }
+                    IRInst ld = q;
+                    ld.type = want;
+                    ld.dest = next_vreg++;
+                    set_vreg_type(ld.dest, want);
+                    out.push_back(ld);
+                    IRInst cv;
+                    cv.op = (want == IRType::F64) ? IROp::F64_TO_I64 : IROp::I64_TO_F64;
+                    cv.type = have;
+                    cv.dest = q.dest;
+                    cv.src1 = ld.dest;
+                    cv.bc_offset = q.bc_offset;
+                    out.push_back(cv);
+                }
+            }
+            ir.swap(out);
+            for (const auto &kv : canon) local_slot_type[kv.first] = kv.second;
+        }
+    }
+
     vreg_count = next_vreg;
     total_slots = next_global_slot; // local_count + virtual global count
     slot_is_f64.assign(total_slots > 0 ? total_slots : 0, 0);

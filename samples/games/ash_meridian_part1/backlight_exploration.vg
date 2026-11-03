@@ -70,6 +70,7 @@ Dim pod_figure As MeshInstance3D
 Dim repair_part As MeshInstance3D
 Dim mist As MeshInstance3D
 Dim lift_doors As Array
+Dim lift_car As Node3D
 Dim hud As Node2D
 Dim hud_view As SubViewport
 Dim audio As AudioStreamPlayer
@@ -103,6 +104,21 @@ Dim ship_model As MeshInstance3D
 Dim launch_elapsed As Variant
 Dim pending_room As Variant
 Dim interior_builder As Variant
+Dim trace_escape As Boolean
+Dim escape_grace As Single
+Dim escape_inventory As Dictionary
+Dim escape_dock As Node3D
+Dim escape_cycle As Node3D
+Dim turret_lock_times As Array
+Dim turret_targets As Array
+Dim turret_states As Array
+Dim escape_helmet As Node2D
+Dim escape_readout As Control
+Dim escape_message As Label
+Dim deep As Object
+Dim pack As Dictionary
+Dim stratum As Dictionary
+Dim radiation As Single
 
 
 Function Num(ByVal value As Variant) As Single
@@ -335,6 +351,11 @@ Sub EnsureInit()
 	launch_elapsed = 0.0
 	pending_room = True
 	interior_builder = SpawnVg("res://backlight_interiors.vg", "RefCounted")
+	pack = New Dictionary
+	stratum = New Dictionary
+	radiation = 0.0
+	deep = SpawnVg("res://deep_stratum.vg", "RefCounted")
+	deep.reset_state(Me)
 End Sub
 
 Sub bleed_city_2_reset()
@@ -364,6 +385,11 @@ End Sub
 
 Sub reset()
 	Call EnsureInit()
+	trace_escape = False
+	If escape_dock <> Nothing Then escape_dock.visible = False
+	If escape_cycle <> Nothing Then escape_cycle.visible = False
+	If escape_helmet <> Nothing Then escape_helmet.visible = False
+	If escape_readout <> Nothing Then escape_readout.visible = False
 	backlight_city_reset()
 	place = "surface"
 	building_index = -1
@@ -388,6 +414,7 @@ Sub reset()
 	shield = 100
 	completed = False
 	launch_elapsed = 0
+	deep.reset_state(Me)
 	If ship_model <> Nothing Then
 		ship_model.position.y = 0
 	End If
@@ -404,6 +431,50 @@ Sub reset()
 	Else
 		notify("ZEN OFFLINE. Find a pressure regulator, ignition cell, and reflector coupler.")
 	End If
+End Sub
+
+Sub start_trace_escape(ByVal recovered As Dictionary, ByVal origin As Vector2, ByVal yaw As Single)
+	Call reset()
+	failed = False
+	shield = 100
+	completed = False
+	launch_elapsed = 0.0
+	If ship_model <> Nothing Then ship_model.position = Vector3(SHIP.x, 0, SHIP.y)
+	trace_escape = True
+	escape_inventory = recovered.duplicate()
+	inventory = recovered.duplicate()
+	position_xz = origin
+	heading = yaw
+	buggy_position = Vector2(11, 399)
+	buggy_heading = PI
+	driving = False
+	awakening = True
+	escape_grace = 8.0
+	damage_cooldown = 0.0
+	inspection = 0
+	If escape_dock <> Nothing Then escape_dock.visible = True
+	If escape_cycle <> Nothing Then escape_cycle.visible = True
+	Call ResetEscapeTurrets()
+	notify("ORAC: Backlight Yard. The restart is spreading. Buggy ahead; follow the road south to the Ash!")
+End Sub
+
+Sub ResetEscapeTurrets()
+	Dim n As Integer
+	turret_lock_times = Array()
+	turret_targets = Array()
+	turret_states = Array()
+	For n = 0 To turrets.size() - 1
+		turret_lock_times.append(0.0)
+		turret_targets.append(Vector2(0, 0))
+		turret_states.append("tracking")
+		turret_flashes(n) = 0.0
+		turret_beams(n).material_override = Load("res://assets/trace_vault/materials/amber.tres")
+	Next
+End Sub
+
+Sub retry_trace_escape()
+	Call start_trace_escape(escape_inventory, Vector2(11.8, 412), PI)
+	notify("ORAC: Dock checkpoint restored. The coupler is safe. Get in the buggy and head south.")
 End Sub
 
 Function _freeze(ByVal view As Node, ByVal label As String) As MeshInstance3D
@@ -1098,6 +1169,7 @@ Function blocked(ByVal point As Vector2, ByVal radius As Single) As Boolean
 	Dim _t0 As Variant
 	Dim _t1 As Variant
 	Call EnsureInit()
+	If place = "floor" Then Return deep.blocked(Me, point, radius)
 	If place = "surface" Then
 		bounds = CITY_BOUNDS
 	Else
@@ -1142,18 +1214,33 @@ Sub walk_controls(ByVal delta As Single, ByVal view As Node)
 	Dim turn As Single
 	Dim throttle As Single
 	Dim strafe As Single
+	Dim look_x As Single
+	Dim look_y As Single
+	Dim pace As Single
 	turn = Num(Input.is_physical_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_D) Or Input.is_key_pressed(KEY_RIGHT))
 	turn = turn - Num(Input.is_physical_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_A) Or Input.is_key_pressed(KEY_LEFT))
 	throttle = Num(Input.is_physical_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_W) Or Input.is_key_pressed(KEY_UP))
 	throttle = throttle - Num(Input.is_physical_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_S) Or Input.is_key_pressed(KEY_DOWN))
 	strafe = Num(Input.is_physical_key_pressed(KEY_E) Or Input.is_key_pressed(KEY_E))
 	strafe = strafe - Num(Input.is_physical_key_pressed(KEY_Q) Or Input.is_key_pressed(KEY_Q))
-	heading = heading + turn * delta * 1.7 + view.look_dx * 0.0042
-	look_pitch = look_pitch - view.look_dy * 0.0036
+	look_x = view.look_dx
+	look_y = view.look_dy
+	pace = 1.0
+	If place = "floor" Then
+		pace = deep.speed_factor(Me)
+		If deep.inverted(Me) Then
+			turn = -turn
+			strafe = -strafe
+			look_x = -look_x
+			look_y = -look_y
+		End If
+	End If
+	heading = heading + turn * delta * 1.7 + look_x * 0.0042
+	look_pitch = look_pitch - look_y * 0.0036
 	If look_pitch > 1.1 Then look_pitch = 1.1
 	If look_pitch < -1.1 Then look_pitch = -1.1
-	If throttle <> 0 Then move_distance(throttle * 5.0 * delta)
-	If strafe <> 0 Then move_strafe(strafe * 4.2 * delta)
+	If throttle <> 0 Then move_distance(throttle * 5.0 * pace * delta)
+	If strafe <> 0 Then move_strafe(strafe * 4.2 * pace * delta)
 End Sub
 
 ' F / left click: the buggy when it is the only thing in reach, else use_object.
@@ -1279,7 +1366,7 @@ Sub bleed_city_2_tick(ByVal delta As Single, ByVal view As Node)
 	steering = MoveToward(steering, _t1, delta * 2)
 	If driving Then
 		If throttle > 0 Then
-			_t2 = 18
+			_t2 = buggy_top_speed()
 		Else
 			_t2 = 6
 		End If
@@ -1313,14 +1400,18 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		End If
 		If view.menu_tap(KEY_ENTER) Then
 			If Me.failed Then
-				retry_escape()
+				If trace_escape Then
+					Call retry_trace_escape()
+				Else
+					retry_escape()
+				End If
 			ElseIf Not campaign_mode Then
 				reset()
 			End If
 		End If
 		Exit Sub
 	End If
-	If awakening Then
+	If awakening And Not trace_escape Then
 		countdown = Max(0, countdown - delta)
 		alarm_elapsed = alarm_elapsed + delta
 		alarm_pulse = alarm_pulse - delta
@@ -1336,12 +1427,16 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		End If
 	End If
 	damage_cooldown = Max(0, damage_cooldown - delta)
+	If trace_escape Then escape_grace = Max(0.0, escape_grace - delta)
 	If transit_left > 0 Then
 		transit_left = Max(0, transit_left - delta)
 		If transit_left <= 0 Then
 			finish_lift()
 		End If
 		Exit Sub
+	End If
+	If Not keypad And Not driving And Not trace_escape Then
+		If deep.modal_input(Me, view, delta) Then Exit Sub
 	End If
 	If keypad Then
 		For digit = 0 To (10 - 1)
@@ -1364,12 +1459,16 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		interact_foot()
 	End If
 	If campaign_mode And view.menu_tap(KEY_H) Then
-		If awakening Then
+		If trace_escape Then
+			notify("ORAC: Ash at the south landing pad. F boards the buggy; W accelerates. Dodge the amber targeting beams or use buildings as cover.")
+		ElseIf awakening Then
 			notify("ORAC: The restart is spreading. Return to the transit lift, then the Ash. Stay behind cover.")
 		ElseIf place = "surface" Then
 			notify("ORAC: Scan the depot workbenches for salvage and address records. The Ash needs a power coupler before departure.")
 		ElseIf place = "building" Then
 			notify("ORAC: Examine the rear console with F. Archive symbols form an ordered five-symbol lift address.")
+		ElseIf place = "floor" Then
+			notify(deep.scan(Me))
 		Else
 			notify("ORAC: A compatible power signature is in the military chamber. The entry lift is our way back.")
 		End If
@@ -1379,6 +1478,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	Else
 		view.menu_tap(KEY_V)
 		walk_controls(delta, view)
+		If place = "floor" Then deep.physics(Me, delta)
 	End If
 	_tick_turrets(delta)
 End Sub
@@ -2106,6 +2206,11 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 	Dim index As Variant
 	Dim opening As Variant
 	Dim elapsed As Variant
+	Dim ride_u As Single
+	Dim ride_y As Single
+	Dim ride_pitch As Single
+	Dim style As Array
+	Dim fog_tint As Color
 	Dim _t0 As Variant
 	Dim _t1 As Variant
 	Dim _t2 As Variant
@@ -2117,7 +2222,7 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		build(view)
 	End If
 	visual_time = time_n
-	If awakening And FMod(alarm_elapsed, 1.0) < 0.15 Then
+	If awakening And Not trace_escape And FMod(alarm_elapsed, 1.0) < 0.15 Then
 		_t0 = 1.0
 	Else
 		_t0 = 0.0
@@ -2145,6 +2250,18 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 	For Each turret In AsArray(turrets)
 		turret.visible = outdoors
 	Next
+	If escape_dock <> Nothing Then escape_dock.visible = outdoors And trace_escape
+	If escape_cycle <> Nothing Then escape_cycle.visible = outdoors And trace_escape
+	If escape_helmet <> Nothing Then escape_helmet.visible = outdoors And trace_escape And Not driving And inspection = 0
+	If escape_readout <> Nothing Then
+		escape_readout.visible = trace_escape And message_left > 0 And Not completed And Not Me.failed
+		If driving Then
+			escape_readout.position = Vector2(270, 112)
+		Else
+			escape_readout.position = Vector2(270, 366)
+		End If
+		If escape_message <> Nothing Then escape_message.text = message
+	End If
 	For i = 0 To (turret_beams.size() - 1)
 		turret_beams(i).visible = outdoors And turret_flashes(i) > 0
 	Next
@@ -2157,13 +2274,57 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		_t1 = 0
 	End If
 	atmosphere.fog_density = _t1
+	If place = "floor" Or place = "lift" Then
+		atmosphere.background_mode = Environment.BG_COLOR
+		atmosphere.background_color = Color(0.004, 0.006, 0.01)
+	Else
+		atmosphere.background_mode = Environment.BG_SKY
+	End If
+	If place = "floor" Then
+		style = deep.level_style(floor_code)
+		fog_tint = style(2)
+		shell_material.set_shader_parameter("interior_tint", style(0))
+		shell_material.set_shader_parameter("spill_color", style(1))
+		shell_material.set_shader_parameter("fog_color", Vector3(fog_tint.r, fog_tint.g, fog_tint.b))
+		shell_material.set_shader_parameter("depth_fog", style(3))
+		atmosphere.background_color = fog_tint
+		deep.animate(Me, time_n)
+	Else
+		shell_material.set_shader_parameter("interior_tint", Vector3(1, 1, 1))
+		shell_material.set_shader_parameter("spill_color", Vector3(0.008, 0.05, 0.075))
+		shell_material.set_shader_parameter("depth_fog", 0.0)
+	End If
 	If Not outdoors Then
 		If place = "floor" And floor_code = FEB_CODE Then
 			_t2 = 0.09
 		Else
 			_t2 = -0.03
 		End If
-		view.present(position_xz.x, 1.8, position_xz.y, heading, _t2, 90)
+		ride_y = 0.0
+		ride_pitch = 0.0
+		If place = "lift" And Not (lift_car Is Nothing) And transit_total > 0 Then
+			ride_u = 1.0 - transit_left / transit_total
+			If ride_u < 0.0 Then ride_u = 0.0
+			If ride_u > 1.0 Then ride_u = 1.0
+			ride_u = ride_u * ride_u * (3.0 - 2.0 * ride_u)
+			If lift_target = "surface" Then
+				ride_y = (ride_u - 1.0) * 32.0
+				ride_pitch = Sin((1.0 - transit_left / transit_total) * PI) * 0.08
+			Else
+				ride_y = 0.0 - ride_u * 32.0
+				ride_pitch = 0.0 - Sin((1.0 - transit_left / transit_total) * PI) * 0.08
+			End If
+			lift_car.position = Vector3(0.0, ride_y, 0.0)
+		End If
+		If place = "floor" Then
+			If deep.inverted(Me) Then
+				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, 0.0 - (_t2 + look_pitch), 90, PI)
+			Else
+				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, _t2 + look_pitch, 90)
+			End If
+		Else
+			view.present(position_xz.x, 1.8 + ride_y, position_xz.y, heading, _t2 + ride_pitch, 90)
+		End If
 	End If
 	If inspection = 1 And outdoors Then
 		view.present(106, 96, -30, -0.29, -0.28, 520)
@@ -2195,6 +2356,8 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		If transit_left > 0 Then
 			elapsed = transit_total - transit_left
 			opening = Max(1 - elapsed * 2, 1 - transit_left * 2)
+		ElseIf place = "floor" Then
+			opening = deep.door_opening()
 		End If
 		If i = 0 Then
 			_t5 = -1
@@ -2217,6 +2380,17 @@ Function cockpit_texture(ByVal time_n As Single) As Texture2D
 	dashboard.queue_redraw()
 	dashboard_view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	Return dashboard_view.get_texture()
+End Function
+
+' Deep Stratum buggy upgrades apply as soon as they are in the pack.
+Function buggy_top_speed() As Single
+	If deep.has_item(Me, "buggy_boost") Then Return 22.0
+	Return 18.0
+End Function
+
+Function buggy_hit(ByVal amount As Single) As Single
+	If driving And deep.has_item(Me, "buggy_armour") Then Return amount * 0.6
+	Return amount
 End Function
 
 Sub notify(ByVal text As String)
@@ -2393,13 +2567,22 @@ Sub use_object()
 	If completed Or Me.failed Or transit_left > 0 Then
 		Exit Sub
 	End If
+	If place = "floor" Then
+		If deep.use(Me) Then Exit Sub
+	End If
 	If place = "surface" Then
 		If position_xz.distance_to(SHIP) < 7 Then
+			If trace_escape And driving Then
+				notify("ORAC: Park and step out with F. Then F at the Ash's service position installs the coupler.")
+				Exit Sub
+			End If
 			If inventory.has("coupler") And (campaign_mode Or (inventory.has("regulator") And inventory.has("ignition"))) Then
 				completed = True
 				awakening = False
 				audio.stop()
-				If campaign_mode Then
+				If trace_escape Then
+					notify("ORAC: Coupler installed. Engines live. Clearing the yard!")
+				ElseIf campaign_mode Then
 					notify("ORAC: Power coupler installed, Jason. Engines live. First expedition complete.")
 				Else
 					notify("ZEN: Coupler seated. Engines live. We are leaving!")
@@ -2411,6 +2594,10 @@ Sub use_object()
 					notify("ASH: NEED PRESSURE REGULATOR / IGNITION CELL / REFLECTOR COUPLER.")
 				End If
 			End If
+			Exit Sub
+		End If
+		If trace_escape Then
+			notify("ORAC: No time for another depot. Reach the buggy and drive south to the Ash.")
 			Exit Sub
 		End If
 		index = nearest_building()
@@ -2427,12 +2614,8 @@ Sub use_object()
 			Exit Sub
 		End If
 		collect_bottle()
-	ElseIf position_xz.distance_to(Vector2(0, 2)) < 3 Then
-		If place = "building" Then
-			leave_building()
-		Else
-			start_lift("surface")
-		End If
+	ElseIf place = "building" And position_xz.distance_to(Vector2(0, 2)) < 3 Then
+		leave_building()
 	ElseIf place = "building" Then
 		If building_index = 7 And position_xz.distance_to(Vector2(0, 21)) < 3.2 Then
 			If awakening Then
@@ -2472,8 +2655,6 @@ Sub use_object()
 		End If
 	ElseIf floor_code = FEB_CODE And position_xz.distance_to(Vector2(3.4, 47)) < 3 Then
 		take_coupler()
-	ElseIf position_xz.distance_to(Vector2(0, 26)) < 3 Then
-		notify("Dead monitoring console. This floor contains no compatible ship parts.")
 	End If
 End Sub
 
@@ -2486,6 +2667,7 @@ Sub enter_symbol(ByVal symbol As String)
 End Sub
 
 Sub submit_sequence()
+	Dim code As String
 	Call EnsureInit()
 	If Not keypad Then
 		Exit Sub
@@ -2494,8 +2676,33 @@ Sub submit_sequence()
 		notify("The destination requires exactly five symbols.")
 		Exit Sub
 	End If
-	keypad = False
-	start_lift(sequence)
+	code = sequence
+	sequence = ""
+	If place = "floor" Then
+		If code = deep.ASCENT Then
+			keypad = False
+			start_lift("surface")
+		ElseIf awakening Then
+			notify("ORAC: Not now! Surface ascent is " & deep.ASCENT & ".")
+		ElseIf code = floor_code Then
+			notify("LIFT CAR: ALREADY AT " & deep.level_label(code) & ".")
+		ElseIf deep.is_level(code) Then
+			keypad = False
+			start_lift(code)
+		Else
+			notify("LIFT CAR: ADDRESS NOT IN SERVICE.")
+		End If
+		Exit Sub
+	End If
+	If deep.is_level(code) Then
+		keypad = False
+		deep.learn(Me, code)
+		start_lift(code)
+	ElseIf code = deep.ASCENT Then
+		notify("LIFT: THIS CAR IS ALREADY AT THE TRANSIT DEPOT.")
+	Else
+		notify("LIFT: ADDRESS NOT IN SERVICE.")
+	End If
 End Sub
 
 Sub start_lift(ByVal target As String)
@@ -2511,8 +2718,12 @@ Sub start_lift(ByVal target As String)
 	transit_left = transit_total
 	inspection = 0
 	keypad = False
-	position_xz = Vector2(0, 2)
-	heading = 0
+	If place = "floor" Then
+		position_xz = Vector2(ClampF(position_xz.x, -2.4, 2.4), ClampF(position_xz.y + 6.9, 0.8, 5.8))
+	Else
+		position_xz = Vector2(0, 2)
+		heading = 0
+	End If
 	place = "lift"
 	pending_room = True
 	If target <> "surface" Then
@@ -2544,9 +2755,13 @@ Sub finish_lift()
 	Else
 		place = "floor"
 		floor_code = lift_target
-		position_xz = Vector2(0, 3)
-		heading = 0
-		notify("Stratum reached. The lift behind you can return to the surface.")
+		position_xz = Vector2(ClampF(position_xz.x, -2.4, 2.4), ClampF(position_xz.y - 6.9, -6.6, -1.0))
+		deep.arrive(Me, True)
+		If campaign_mode Then
+			notify("ORAC: " & deep.level_label(floor_code) & ". F in the car opens the keypad.")
+		Else
+			notify("Stratum reached: " & deep.level_label(floor_code) & ".")
+		End If
 	End If
 	pending_room = True
 End Sub
@@ -2565,8 +2780,9 @@ Sub take_coupler()
 	If repair_part <> Nothing Then
 		repair_part.visible = False
 	End If
+	deep.learn(Me, deep.ASCENT)
 	If campaign_mode Then
-		notify("ORAC: Jason, RUN! Removing the power coupler broke the isolation interlock!")
+		notify("ORAC: Jason, RUN! Removing the power coupler broke the isolation interlock! Lift car, ascent code " & deep.ASCENT & "!")
 	Else
 		notify("ZEN: RUN!")
 	End If
@@ -2586,6 +2802,9 @@ Sub retry_escape()
 	alarm_elapsed = 0
 	alarm_pulse = 0
 	If audio <> Nothing Then audio.stop()
+	radiation = 0.0
+	stratum("inverted") = False
+	stratum("foot_y") = 0.0
 	place = "floor"
 	floor_code = FEB_CODE
 	building_index = 7
@@ -2604,6 +2823,10 @@ Sub _tick_turrets(ByVal delta As Single)
 	Dim point As Variant
 	Dim offset As Variant
 	Call EnsureInit()
+	If trace_escape Then
+		Call TickEscapeTurrets(delta)
+		Exit Sub
+	End If
 	For i = 0 To (turrets.size() - 1)
 		turret = turrets(i)
 		turret_flashes(i) = Max(0, turret_flashes(i) - delta)
@@ -2612,7 +2835,7 @@ Sub _tick_turrets(ByVal delta As Single)
 		If awakening And place = "surface" Then
 			turret.rotation.y = RotateToward(turret.rotation.y, Atan2(offset.x, offset.y), delta * 0.8)
 			If offset.length() < 34 And damage_cooldown <= 0 And Abs(AngleDifference(turret.rotation.y, Atan2(offset.x, offset.y))) < 0.12 And _line_clear(point, position_xz) Then
-				shield = Max(0, shield - 12)
+				shield = Max(0, shield - buggy_hit(12))
 				damage_cooldown = 2
 				turret_flashes(i) = 0.2
 				velocity = velocity * 0.55
@@ -2629,6 +2852,66 @@ Sub _tick_turrets(ByVal delta As Single)
 			End If
 		Else
 			turret.rotation.y = Sin(visual_time * 0.35 + i) * 0.9
+		End If
+	Next
+End Sub
+
+Sub TickEscapeTurrets(ByVal delta As Single)
+	Dim n As Integer
+	Dim gun As Object
+	Dim point As Vector2
+	Dim offset As Vector2
+	Dim target As Vector2
+	Dim angle As Single
+	Dim distance As Single
+	Dim state As String
+	If escape_grace > 0 Or completed Or Me.failed Or place <> "surface" Then Exit Sub
+	For n = 0 To turrets.size() - 1
+		gun = turrets(n)
+		point = Vector2(gun.position.x, gun.position.z)
+		offset = position_xz - point
+		state = turret_states(n)
+		turret_flashes(n) = Max(0.0, turret_flashes(n) - delta)
+		turret_lock_times(n) = turret_lock_times(n) + delta
+		If state = "tracking" Then
+			angle = Atan2(offset.x, offset.y)
+			gun.rotation.y = RotateToward(gun.rotation.y, angle, delta * 1.2)
+			If offset.length() > 90 Or Not _line_clear(point, position_xz) Then
+				turret_lock_times(n) = 0.0
+			ElseIf Abs(AngleDifference(gun.rotation.y, angle)) < 0.15 And turret_lock_times(n) >= 1.5 Then
+				turret_targets(n) = position_xz
+				gun.rotation.y = angle
+				turret_states(n) = "locked"
+				turret_lock_times(n) = 0.0
+				turret_flashes(n) = 0.9
+				turret_beams(n).material_override = Load("res://assets/trace_vault/materials/amber.tres")
+				turret_beams(n).scale.z = Max(0.1, (offset.length() - 3.2) / 26.8)
+				turret_beams(n).scale.x = 2.0
+				notify("ORAC: Shot locked! Move before they fire!")
+			End If
+		ElseIf state = "locked" And turret_lock_times(n) >= 0.9 Then
+			target = turret_targets(n)
+			distance = position_xz.distance_to(target)
+			turret_states(n) = "cooldown"
+			turret_lock_times(n) = 0.0
+			turret_flashes(n) = 0.22
+			turret_beams(n).material_override = Load("res://assets/trace_vault/materials/red.tres")
+			turret_beams(n).scale.x = 12.0
+			If distance < 2.5 And damage_cooldown <= 0 And _line_clear(point, position_xz) Then
+				shield = Max(0, shield - buggy_hit(20))
+				damage_cooldown = 1.5
+				velocity = velocity * 0.7
+				notify("ORAC: Hit! Keep moving; the buildings block their shots!")
+				If shield <= 0 Then
+					Me.failed = True
+					If audio <> Nothing Then audio.stop()
+					notify("SUIT BREACHED. Enter retries from the yard dock with the coupler.")
+					Exit Sub
+				End If
+			End If
+		ElseIf state = "cooldown" And turret_lock_times(n) >= 2.5 Then
+			turret_states(n) = "tracking"
+			turret_lock_times(n) = 0.0
 		End If
 	Next
 End Sub
@@ -2662,6 +2945,7 @@ Sub _sync_room()
 	interior.name = "SeparateInterior"
 	add_child(interior)
 	lift_doors.clear()
+	lift_car = Nothing
 	interior_solids.clear()
 	pod_figure = Nothing
 	repair_part = Nothing
@@ -2678,19 +2962,31 @@ Function prompt() As String
 	Dim _t2 As Variant
 	Call EnsureInit()
 	If completed Then
+		If trace_escape Then Return "ASH DEPARTING / FIRST EXPEDITION ESCAPE COMPLETE / Esc: return to title"
 		If campaign_mode Then Return "FIRST EXPEDITION COMPLETE / Esc: save or return to title"
 		Return "SHIP REPAIRED / Enter: restart prototype"
 	End If
 	If Me.failed Then
+		If trace_escape Then Return "ESCAPE FAILED / Enter: yard dock checkpoint"
 		Return "ESCAPE FAILED / Enter: chamber checkpoint"
 	End If
 	If transit_left > 0 Then
 		Return "LIFT IN TRANSIT / Doors locked"
 	End If
 	If keypad Then
+		If place = "floor" Then Return "LIFT CAR / 0-9 ADDRESS / BACKSPACE ERASE / ENTER TRAVEL / F CANCEL"
 		Return "0-9 SELECT GLYPH / BACKSPACE ERASE / ENTER TRAVEL / F CANCEL"
 	End If
 	If place = "surface" Then
+		If trace_escape Then
+			If position_xz.distance_to(SHIP) < 7 Then
+				If driving Then Return "ASH LANDING PAD / F: park and leave buggy"
+				Return "F: install coupler and launch the Ash"
+			End If
+			If Not driving And position_xz.distance_to(buggy_position) < 3.8 Then Return "F: enter buggy / W/S drive / A/D steer"
+			If driving Then Return "DRIVE SOUTH TO THE ASH / W/S throttle / A/D steer / F park / DODGE AMBER BEAMS"
+			Return "REACH THE BUGGY AHEAD / W/S walk / mouse look / F use / BUILDINGS ARE COVER"
+		End If
 		If position_xz.distance_to(SHIP) < 7 Then
 			If campaign_mode Then Return "F: install recovered power coupler and launch the Ash / H: Orac scan"
 			Return "F: install recovered parts and launch the Ash"
@@ -2709,13 +3005,19 @@ Function prompt() As String
 		End If
 		Return "W/S MOVE  A/D TURN  Q/E STRAFE  MOUSE LOOK  F USE  V INSPECT"
 	End If
-	If position_xz.distance_to(Vector2(0, 2)) < 4 Then
-		If place = "building" Then
-			_t1 = "F: return outside"
-		Else
-			_t1 = "F: call emergency ascent"
+	If place = "floor" Then
+		If deep.modal_active() Or deep.in_alcove(position_xz) Then Return deep.prompt(Me)
+		If floor_code = FEB_CODE Then
+			If awakening Then Return "COUPLER RECOVERED / RUN TO THE LIFT CAR / F: KEYPAD / ASCENT " & deep.ASCENT
+			If position_xz.distance_to(Vector2(3.4, 47)) < 4 And Not inventory.has("coupler") Then
+				If campaign_mode Then Return "F at the amber service socket: take power coupler"
+				Return "F at the amber service socket: take reflector coupler"
+			End If
 		End If
-		Return _t1
+		Return deep.prompt(Me)
+	End If
+	If place = "building" And position_xz.distance_to(Vector2(0, 2)) < 4 Then
+		Return "F: return outside"
 	End If
 	If place = "building" Then
 		If building_index = 7 Then

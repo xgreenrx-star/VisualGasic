@@ -1,0 +1,54 @@
+Option Explicit
+' Regression: `d = other` must not be dead-code-eliminated when the only later
+' read of d uses call syntax (`d("key")`), e.g. after a For Each search.
+Dim items As Array
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+    If ok Then
+        Print "PASS: " & label
+    Else
+        Print "FAIL: " & label
+    End If
+End Sub
+
+Sub FindInForEach()
+    Dim entry As Dictionary
+    For Each e In items
+        If e("item") = "b" Then entry = e
+    Next
+    Check(entry("item") = "b", "dce_dict_for_each_find")
+End Sub
+
+Sub CopyFromVariant()
+    Dim entry As Dictionary
+    Dim tmp As Variant
+    tmp = items(1)
+    entry = tmp
+    Check(entry("p").x = 4, "dce_dict_copy_from_variant")
+End Sub
+
+Sub CopyInsideFor()
+    Dim entry As Dictionary
+    Dim i As Integer
+    Dim e As Variant
+    For i = 0 To 1
+        e = items(i)
+        entry = e
+    Next
+    Check(entry("item") = "b", "dce_dict_copy_inside_for")
+End Sub
+
+Sub _Ready()
+    Dim a As Dictionary
+    Dim b As Dictionary
+    a = New Dictionary
+    a("item") = "a"
+    a("p") = Vector3(1, 2, 3)
+    b = New Dictionary
+    b("item") = "b"
+    b("p") = Vector3(4, 5, 6)
+    items = Array(a, b)
+    FindInForEach()
+    CopyFromVariant()
+    CopyInsideFor()
+End Sub

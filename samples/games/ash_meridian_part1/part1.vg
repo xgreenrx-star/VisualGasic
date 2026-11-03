@@ -954,6 +954,10 @@ Sub _Process(ByVal delta As Single)
 		End If
 	ElseIf phase = PH_TRACE_CYCLE Then
 		Call presentation.tick_trace_cycle(delta)
+		If presentation.begin_trace_yard_escape() Then
+			phase = PH_BACKLIGHT_YARD
+			on_buggy = False
+		End If
 	ElseIf phase = PH_DOWN Then
 		ride_t = ride_t + delta
 		If ride_t > 4.2 Then
