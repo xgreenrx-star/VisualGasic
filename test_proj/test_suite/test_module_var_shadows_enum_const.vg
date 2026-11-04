@@ -1,0 +1,18 @@
+' Module-level Dim/Const named like a Godot global enum constant (FAILED, OK, ...)
+' must resolve to the module symbol, not the folded engine constant.
+Dim failed As Integer
+Dim ok As Integer
+Const ERR_BUSY = 77
+
+Sub _Ready()
+    failed = 0
+    ok = 5
+    If failed = 0 Then Print "PASS: module_dim_failed" Else Print "FAIL: module_dim_failed got " & CStr(failed)
+    If ok = 5 Then Print "PASS: module_dim_ok" Else Print "FAIL: module_dim_ok got " & CStr(ok)
+    If ERR_BUSY = 77 Then Print "PASS: module_const_err_busy" Else Print "FAIL: module_const_err_busy got " & CStr(ERR_BUSY)
+    If FAILED_X() = 1 Then Print "PASS: unshadowed_enum_constant" Else Print "FAIL: unshadowed_enum_constant"
+End Sub
+
+Function FAILED_X() As Integer
+    FAILED_X = ERR_UNAVAILABLE - 1
+End Function

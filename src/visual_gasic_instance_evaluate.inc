@@ -1984,7 +1984,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
                  // "Nothing" keyword — null check
                  if (class_name.nocasecmp_to("Nothing") == 0) {
-                     return l.get_type() == Variant::NIL;
+                     return (l.get_type() == Variant::NIL || (l.get_type() == Variant::OBJECT && (Object *)l == nullptr));
                  }
              }
              
@@ -1993,7 +1993,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              
              // Null check: obj Is Nothing
              if (r.get_type() == Variant::NIL) {
-                 return l.get_type() == Variant::NIL;
+                 return (l.get_type() == Variant::NIL || (l.get_type() == Variant::OBJECT && (Object *)l == nullptr));
              }
              
              // String class name (from variable that resolved to a string)
@@ -2029,7 +2029,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
                  // "Nothing" keyword — null check
                  if (class_name.nocasecmp_to("Nothing") == 0) {
-                     return l.get_type() != Variant::NIL;
+                     return !(l.get_type() == Variant::NIL || (l.get_type() == Variant::OBJECT && (Object *)l == nullptr));
                  }
              }
 
@@ -2038,7 +2038,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 
              // Null check: obj IsNot Nothing
              if (r.get_type() == Variant::NIL) {
-                 return l.get_type() != Variant::NIL;
+                 return !(l.get_type() == Variant::NIL || (l.get_type() == Variant::OBJECT && (Object *)l == nullptr));
              }
 
              // String class name (from variable that resolved to a string)

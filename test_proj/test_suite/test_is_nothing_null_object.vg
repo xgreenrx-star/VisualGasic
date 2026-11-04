@@ -1,0 +1,34 @@
+Option Explicit
+' Regression: a Godot property holding a null Ref (Camera3D.environment after
+' being cleared) is an OBJECT-typed Variant with a null pointer. `Is Nothing`
+' must treat it as Nothing on both the bytecode and AST tree-walk paths.
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+    If ok Then
+        Print "PASS: " & label
+    Else
+        Print "FAIL: " & label
+    End If
+End Sub
+
+Sub ProbeByRef(ByRef hits As Integer, ByVal cam As Object)
+    hits = 0
+    If cam.environment Is Nothing Then hits = hits + 1
+    If Not (cam.environment IsNot Nothing) Then hits = hits + 1
+    If True And cam.environment Is Nothing Then hits = hits + 1
+End Sub
+
+Sub _Ready()
+    Dim cam As Object
+    Dim hits As Integer
+    cam = ClassDB.Instantiate("Camera3D")
+    cam.environment = ClassDB.Instantiate("Environment")
+    Check(cam.environment IsNot Nothing, "set_environment_is_something")
+    cam.environment = Nothing
+    Check(cam.environment Is Nothing, "cleared_environment_is_nothing")
+    Check(Not (cam.environment IsNot Nothing), "cleared_environment_not_isnot")
+    hits = 0
+    Call ProbeByRef(hits, cam)
+    Check(hits = 3, "ast_path_null_object_is_nothing")
+    cam.free()
+End Sub

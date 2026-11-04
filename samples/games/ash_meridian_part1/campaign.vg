@@ -61,11 +61,12 @@ Function number_between(ByVal value As Variant, ByVal low As Double, ByVal high 
 	Return value >= low And value <= high
 End Function
 
-Function point_valid(ByVal value As Variant, ByVal surface As Boolean, Optional ByVal deep_floor As Boolean = False) As Boolean
+Function point_valid(ByVal value As Variant, ByVal surface As Boolean, Optional ByVal deep_floor As Boolean = False, Optional ByVal floor_code As String = "") As Boolean
 	If TypeName(value) <> "Vector2" Then Return False
 	If surface Then Return value.x >= -118 And value.x <= 118 And value.y >= -12 And value.y <= 420
-	' Deep Stratum floors are up to 60 x 80 and include the lift car behind z = 0.
-	If deep_floor Then Return value.x >= -31 And value.x <= 31 And value.y >= -7.5 And value.y <= 81
+	' Deep Stratum floors include the lift car behind z = 0; only the 240 x 288 undercity exceeds 70 x 90.
+	If deep_floor And floor_code = "88216" Then Return value.x >= -121 And value.x <= 121 And value.y >= -7.5 And value.y <= 290
+	If deep_floor Then Return value.x >= -36 And value.x <= 36 And value.y >= -7.5 And value.y <= 91
 	Return value.x >= -22 And value.x <= 22 And value.y >= 0 And value.y <= 58
 End Function
 
@@ -106,7 +107,7 @@ Function validate(ByVal data As Variant, ByVal yard As Object) As Boolean
 		End If
 	Next
 	If data.place <> "surface" And data.place <> "building" And data.place <> "floor" And data.place <> "lift" Then Return reject("Unknown expedition location.")
-	If Not point_valid(data.position_xz, data.place = "surface", data.place = "floor" And yard.deep.is_level(data.floor_code)) Then Return reject("Player position is outside the expedition.")
+	If Not point_valid(data.position_xz, data.place = "surface", data.place = "floor" And yard.deep.is_level(data.floor_code), data.floor_code) Then Return reject("Player position is outside the expedition.")
 	If Not point_valid(data.buggy_position, True) Or Not point_valid(data.surface_position, True) Then Return reject("Invalid parked vehicle or surface return position.")
 	If Not number_between(data.building_index, -1, 7) Or data.building_index <> Int(data.building_index) Then Return reject("Invalid building.")
 	If data.place <> "surface" And data.building_index < 0 Then Return reject("Interior has no surface destination.")
@@ -178,6 +179,21 @@ Function stratum_valid(ByVal pack As Variant, ByVal state As Variant, ByVal rad 
 		For Each key In state("codes").keys()
 			If Not code_valid(key, True) Then Return reject("Invalid recovered lift code.")
 		Next
+	End If
+	For Each sub_key In Array("levers", "car_pos")
+		If state.has(sub_key) Then
+			If TypeName(state(sub_key)) <> "Dictionary" Then Return reject("Invalid Deep Stratum progress.")
+		End If
+	Next
+	If state.has("car_pos") Then
+		For Each key In state("car_pos").keys()
+			If TypeName(state("car_pos")(key)) <> "Array" Then Return reject("Invalid groundcar position.")
+			If state("car_pos")(key).size() <> 3 Then Return reject("Invalid groundcar position.")
+			If Not number_between(state("car_pos")(key)(0), -121, 121) Or Not number_between(state("car_pos")(key)(1), 0, 290) Then Return reject("Invalid groundcar position.")
+		Next
+	End If
+	If state.has("powered") Then
+		If TypeName(state("powered")) <> "Boolean" Then Return reject("Invalid undercity power state.")
 	End If
 	If Not number_between(rad, 0, 1000) Then Return reject("Invalid radiation dose.")
 	Return True

@@ -3,6 +3,7 @@ Dim __ready As Boolean
 Dim CYAN As Variant
 Dim AMBER As Variant
 Dim PINK As Variant
+Dim VIOLET As Variant
 Dim city As Node
 
 
@@ -167,6 +168,7 @@ Sub EnsureInit()
 	CYAN = Color(0.4, 0.85, 1.0)
 	AMBER = Color(1.0, 0.65, 0.22)
 	PINK = Color(1.0, 0.3, 0.65)
+	VIOLET = Color(0.7, 0.35, 1.0)
 End Sub
 
 Sub _text(ByVal at As Vector2, ByVal text As String, Optional size As Variant = 14, Optional color As Variant)
@@ -504,17 +506,43 @@ Sub draw_stratum()
 		If deep.hack_glyph >= 0 Then glyph(Vector2(462, 288), deep.hack_glyph, 2.2, PINK)
 		_text(Vector2(274, 372), "LOCK RE-KEYS IN " & Str(CeilInt(deep.hack_left)) & "s", 13, AMBER)
 	End If
+	' Narcean terminal: the machine's own script; Orac has no lexicon for it.
+	If deep.term_open Then
+		draw_rect(Rect2(250, 110, 460, 330), Color(0.02, 0.008, 0.04, 0.95))
+		draw_rect(Rect2(250, 110, 460, 330), VIOLET * 0.6, False)
+		draw_rect(Rect2(262, 122, 436, 24), Color(0.02, 0.09, 0.12, 0.42))
+		_text(Vector2(270, 139), "TRANSLATED: [NO LEXICON MATCH]", 12, CYAN * 0.8)
+		For i = 0 To deep.term_log.size() - 1
+			text = deep.term_log(i)
+			If text.begins_with(">") Then
+				glyph_string(Vector2(690 - (text.length() - 1) * 23 * 0.6, 162 + i * 28), text.substr(1), 0.6, CYAN)
+			Else
+				glyph_string(Vector2(274, 162 + i * 28), text.substr(1), 0.6, VIOLET)
+			End If
+		Next
+		draw_line(Vector2(262, 394), Vector2(698, 394), VIOLET * 0.4, 1.0)
+		glyph_string(Vector2(274, 404), deep.term_input, 0.7, CYAN)
+		If Int(Time.get_ticks_msec() / 400) Mod 2 = 0 Then draw_rect(Rect2(276 + deep.term_input.length() * 23 * 0.7, 404, 9, 15), CYAN * 0.7)
+	End If
 End Sub
 
 Sub draw_known_codes()
 	Dim codes As Array
+	Dim pitch As Integer
 	If city.place <> "floor" And city.place <> "lift" Then Exit Sub
 	codes = city.deep.known_codes(city)
 	If codes.size() = 0 Then Exit Sub
-	draw_rect(Rect2(14, 140, 200, 34 + codes.size() * 40), Color(0.01, 0.025, 0.04, 0.94))
+	pitch = 40
+	If codes.size() >= 8 Then pitch = 26
+	draw_rect(Rect2(14, 140, 200, 34 + codes.size() * pitch), Color(0.01, 0.025, 0.04, 0.94))
 	_text(Vector2(26, 162), "KNOWN ADDRESSES", 12)
 	For i = 0 To codes.size() - 1
-		glyph_string(Vector2(28, 178 + i * 40), codes(i), 0.55)
-		_text(Vector2(26, 205 + i * 40), city.deep.level_label(codes(i)), 9, CYAN * 0.85)
+		If pitch < 40 Then
+			glyph_string(Vector2(28, 174 + i * pitch), codes(i), 0.42)
+			_text(Vector2(96, 186 + i * pitch), city.deep.level_label(codes(i)), 9, CYAN * 0.85)
+		Else
+			glyph_string(Vector2(28, 178 + i * pitch), codes(i), 0.55)
+			_text(Vector2(26, 205 + i * pitch), city.deep.level_label(codes(i)), 9, CYAN * 0.85)
+		End If
 	Next
 End Sub

@@ -90,6 +90,21 @@ Sub _Process(ByVal delta As Single)
 		Check(Not yard.driving, "backlight_yard_buggy_exit")
 		game.SaveRun()
 		Check(game.save_msg = "BACKLIGHT YARD IS A DEV DEMO - CHAPTER SAVE UNCHANGED", "backlight_yard_save_protection")
+		Check(yard.cycle_dock <> Nothing And yard.parked_trace <> Nothing, "backlight_yard_trace_cycle_dock_built")
+		Check(yard.blocked(Vector2(12.9, 414), 0.2) And Not yard.blocked(Vector2(15, 409), 0.4), "backlight_yard_trace_dock_collision")
+		yard.yard_scenery.update_scene(yard, 0.0, True)
+		Check(yard.light_material.get_shader_parameter("glow_gain") < 0.5, "backlight_yard_lights_dim_without_grid")
+		yard.position_xz = Vector2(15, 409)
+		Check(InStr(yard.prompt(), "TRACE CYCLE") > 0, "backlight_yard_trace_dock_prompt")
+		yard.use_object()
+		Check(yard.message.contains("auxiliary power") And Not yard.wants_trace_cycle, "backlight_yard_trace_dock_unpowered")
+		yard.stratum("powered") = True
+		yard.yard_scenery.update_scene(yard, 0.0, True)
+		Check(yard.light_material.get_shader_parameter("glow_gain") > 1.2, "backlight_yard_lights_bright_with_grid")
+		yard.use_object()
+		Check(yard.wants_trace_cycle, "backlight_yard_trace_dock_powered_requests_ride")
+		yard.wants_trace_cycle = False
+		yard.stratum.erase("powered")
 		yard.position_xz = Vector2(0, 9)
 		yard.heading = 0
 	ElseIf elapsed_frames = 20 Then

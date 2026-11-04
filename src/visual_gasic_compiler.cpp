@@ -6950,10 +6950,15 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
         BinaryOpNode* b = (BinaryOpNode*)expr;
         ValueType lt = infer_type(b->left);
         ValueType rt = infer_type(b->right);
+        // An unknown operand may be a Vector2/Vector3/Color, so `v * 0.25` or
+        // `v / 4` must not be typed float (it would route `s = s + v * 0.25`
+        // through OP_ADD_LOCAL_F64_STACK and zero the vector).
+        bool l_num = (lt == VT_INT || lt == VT_FLOAT);
+        bool r_num = (rt == VT_INT || rt == VT_FLOAT);
+        if (!l_num || !r_num) return VT_UNKNOWN;
         if (b->op == "/") return VT_FLOAT;
         if (lt == VT_FLOAT || rt == VT_FLOAT) return VT_FLOAT;
-        if (lt == VT_INT && rt == VT_INT) return VT_INT;
-        return VT_UNKNOWN;
+        return VT_INT;
     }
     if (expr->type == ExpressionNode::ARRAY_ACCESS) {
         ArrayAccessNode* aa = (ArrayAccessNode*)expr;
@@ -11126,8 +11131,16 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             {
                 int frame = 0;
                 int offset = 0;
-                const bool shadowed = local_slots.has(lower_name) || param_vars.has(lower_name) ||
+                bool shadowed = local_slots.has(lower_name) || param_vars.has(lower_name) ||
                         lookup_block_local(v->name, frame, offset);
+				if (!shadowed && current_module) {
+					for (int mi = 0; mi < current_module->variables.size() && !shadowed; mi++) {
+						shadowed = current_module->variables[mi]->name.nocasecmp_to(v->name) == 0;
+					}
+					for (int mi = 0; mi < current_module->constants.size() && !shadowed; mi++) {
+						shadowed = current_module->constants[mi]->name.nocasecmp_to(v->name) == 0;
+					}
+				}
                 Variant folded;
                 if (!shadowed && vg_try_global_enum_value(v->name, folded)) {
                     emit_constant(folded);

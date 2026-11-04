@@ -73,6 +73,7 @@ Dim altitude_obstacles As Array
 Dim hull_query As Object
 Dim hull_space As Object
 Dim gate_amount As Single
+Dim snd As Object
 Dim sky_material As Object
 Dim ascent_time As Single
 Dim orbit_ready As Boolean
@@ -649,6 +650,7 @@ Sub TickShots(ByVal delta As Single)
 		If shot("charge") <= 0 Then
 			If Not shot("fired") Then
 				shot("fired") = True
+				If snd <> Nothing Then snd.fire("ship_laser", -5.0)
 			End If
 			endpoint = shot("endpoint")
 			segment = endpoint - shot("from")
@@ -886,6 +888,7 @@ End Function
 
 Sub Hurt(ByVal amount As Single, ByVal reason As String)
 	If hurt_t > 0.0 Then Exit Sub
+	If snd <> Nothing Then snd.fire("hull_hit", 0.0)
 	hull = hull - amount
 	hurt_t = 0.55
 	warning = reason
@@ -1298,6 +1301,7 @@ Sub tick(ByVal delta As Single)
 	If game <> Nothing Then
 		If game.menu_on Then Exit Sub
 	End If
+	Call TickSound(delta)
 	If Not running Then
 		If hurt_t > 0 Then hurt_t = Max(0.0, hurt_t - delta)
 		Call TickDialogue(delta)
@@ -1517,8 +1521,29 @@ Sub TickAscent(ByVal delta As Single)
 	End If
 End Sub
 
+Sub TickSound(ByVal delta As Single)
+	Dim level As Single
+	If snd = Nothing Then
+		snd = ClassDB.Instantiate("Node")
+		snd.SetScript(Load("res://game_audio.vg"))
+		add_child(snd)
+		snd.setup()
+	End If
+	If Me.failed Then
+		snd.set_music("")
+	Else
+		snd.set_music("black_channel")
+	End If
+	snd.tick_music(delta)
+	level = 0.0
+	If running Then level = 0.45 + 0.55 * ClampF(speed / MAX_SPEED, 0.0, 1.0)
+	If completed Then level = 0.9
+	snd.hum("ship_engine_loop", level, 0.75 + 0.6 * ClampF(speed / MAX_SPEED, 0.0, 1.0), delta)
+End Sub
+
 Sub dispose()
 	running = False
+	If snd <> Nothing Then snd.silence()
 	If speech <> Nothing Then
 		speech.stop()
 		speech.free()

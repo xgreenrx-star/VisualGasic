@@ -1,0 +1,40 @@
+Option Explicit
+' Regression: `s = s + v * k` / `s = s + v / n` with a Vector2 operand must not
+' be inferred as float and routed through the in-place F64 accumulate opcode.
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+    If ok Then
+        Print "PASS: " & label
+    Else
+        Print "FAIL: " & label
+    End If
+End Sub
+
+Sub _Ready()
+    Dim center As Variant
+    Dim cv As Vector2
+    Dim v As Vector2
+    Dim t As Variant
+    Dim f As Double
+    Dim profile As PackedVector2Array
+    v = Vector2(4, 8)
+    center = Vector2(1, 1)
+    center = center + v * 0.25
+    Check(center = Vector2(2, 3), "variant_accum_vec_mul_float")
+    cv = Vector2(1, 1)
+    cv = cv + v / 4
+    Check(cv = Vector2(2, 3), "typed_accum_vec_div_int")
+    t = v * 0.25
+    center = Vector2(1, 1)
+    center = center + t
+    Check(center = Vector2(2, 3), "variant_accum_variant_vec")
+    f = 1.0
+    f = f + 3 / 2
+    Check(f = 2.5, "float_accum_still_float")
+    profile = PackedVector2Array(Array(Vector2(0, 9), Vector2(5, 14), Vector2(17, 14), Vector2(22, 9)))
+    center = Vector2(0, 0)
+    For Each p In profile
+        center = center + p / profile.size()
+    Next
+    Check(center = Vector2(11, 11.5), "centroid_accum")
+End Sub

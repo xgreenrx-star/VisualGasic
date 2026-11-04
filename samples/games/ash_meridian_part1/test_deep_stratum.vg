@@ -55,7 +55,7 @@ End Function
 
 Sub layout_checks()
 	Dim names As Array
-	names = Array("14242", "31707", "52914", "66038", "80451", "93162")
+	names = Array("14242", "31707", "52914", "66038", "80451", "93162", "40404", "58120", "36912", "88216")
 	For Each code In names
 		go_floor(code)
 		check(deep.built_code = code, "layout_built_" & code)
@@ -73,7 +73,59 @@ Sub layout_checks()
 	go_floor("80451")
 	check(deep.flips.size() >= 2, "vault_has_flip_pads")
 	go_floor("66038")
-	check(deep.falls.size() >= 2, "cistern_has_waterfalls")
+	check(deep.falls.size() >= 2, "cistern_has_waterfalls")	go_floor("93162")
+	check(console_reveals("40404"), "fractured_console_reveals_annex")
+End Sub
+
+Function console_reveals(ByVal code As String) As Boolean
+	For Each c In deep.consoles
+		For Each r In c("reveal")
+			If r = code Then Return True
+		Next
+	Next
+	Return False
+End Function
+
+' Flood fill over 0.5 m sample points: every room but the sealed closet is reachable from the car.
+Sub yellow_checks()
+	Dim seen As Dictionary
+	Dim queue As Array
+	Dim head As Integer
+	Dim cur As Vector2
+	Dim nxt As Vector2
+	Dim rooms As Dictionary
+	Dim key As String
+	Dim same As Boolean
+	go_floor("40404")
+	deep.door_timer = 5.0
+	check(deep.level_label("40404") = "B10 - YELLOW ROOMS", "annex_label")
+	check(deep.lamps.size() > 0, "annex_has_flicker_lamps")
+	check(deep.solids.size() > 40, "annex_has_partitions")
+	check(count_kind(deep.pickups, "item", "core_gem") = 1 And deep.gates.size() = 1, "annex_sealed_closet")
+	seen = New Dictionary
+	rooms = New Dictionary
+	queue = Array(Vector2(0.25, 0.75))
+	seen("0.25,0.75") = True
+	head = 0
+	While head < queue.size()
+		cur = queue(head)
+		head = head + 1
+		rooms(Str(Int((cur.x + 30) / 6)) & ":" & Str(Int(cur.y / 6))) = True
+		For Each d In Array(Vector2(0.5, 0), Vector2(-0.5, 0), Vector2(0, 0.5), Vector2(0, -0.5))
+			nxt = cur + d
+			key = Str(nxt.x) & "," & Str(nxt.y)
+			If nxt.x > -30 And nxt.x < 30 And nxt.y > 0 And nxt.y < 72 And Not seen.has(key) Then
+				seen(key) = True
+				If Not deep.blocked(yard, nxt, 0.25) Then queue.append(nxt)
+			End If
+		Next
+	Wend
+	check(rooms.size() = 119, "annex_all_rooms_reachable_" & Str(rooms.size()))
+	check(Not rooms.has("9:11"), "annex_closet_sealed")
+	same = deep.solids.size() > 0
+	go_floor("93162")
+	go_floor("40404")
+	check(same And deep.solids.size() > 40 And deep.lamps.size() > 0, "annex_layout_rebuilds")
 End Sub
 
 Sub collision_checks()
@@ -186,6 +238,339 @@ Sub upgrade_checks()
 	yard.reset()
 End Sub
 
+' Multi-level flood fill on a grid: key "x,z,floor" so stacked decks are separate nodes.
+Function reach(ByVal start As Vector2, ByVal fy0 As Single, ByVal bounds As Rect2, ByVal grid As Single) As Dictionary
+	Dim seen As Dictionary
+	Dim queue As Array
+	Dim feet As Array
+	Dim head As Integer
+	Dim cur As Vector2
+	Dim nxt As Vector2
+	Dim fy As Single
+	Dim nfy As Single
+	Dim key As String
+	Dim d As Vector2
+	seen = New Dictionary
+	queue = Array(start)
+	feet = Array(fy0)
+	seen(Str(start.x) & "," & Str(start.y) & "," & Str(Int(Round(fy0)))) = fy0
+	head = 0
+	While head < queue.size()
+		cur = queue(head)
+		fy = feet(head)
+		head = head + 1
+		For Each d In Array(Vector2(grid, 0), Vector2(0 - grid, 0), Vector2(0, grid), Vector2(0, 0 - grid))
+			nxt = cur + d
+			If bounds.has_point(nxt) Then
+				yard.stratum("foot_y") = fy
+				If Not deep.blocked(yard, nxt, 0.25) And Not deep.blocked(yard, cur + d * 0.5, 0.25) Then
+					nfy = deep._support(yard, nxt, fy)
+					If nfy > -50 Then
+						key = Str(nxt.x) & "," & Str(nxt.y) & "," & Str(Int(Round(nfy)))
+						If Not seen.has(key) Then
+							seen(key) = nfy
+							queue.append(nxt)
+							feet.append(nfy)
+						End If
+					End If
+				End If
+			End If
+		Next
+	Wend
+	yard.stratum("foot_y") = fy0
+	Return seen
+End Function
+
+Function reached(ByVal seen As Dictionary, ByVal p As Vector2, ByVal y As Single, ByVal radius As Single) As Boolean
+	Dim parts As PackedStringArray
+	For Each k In seen.keys()
+		parts = k.split(",")
+		If Vector2(parts(0).to_float(), parts(1).to_float()).distance_to(p) <= radius Then
+			If Abs(deep.Num(seen(k)) - y) < 0.8 Then Return True
+		End If
+	Next
+	Return False
+End Function
+
+Function stand(ByVal p As Vector2, ByVal y As Single) As Boolean
+	yard.position_xz = p
+	yard.stratum("foot_y") = y
+	Return True
+End Function
+
+Sub archive_checks()
+	Dim seen As Dictionary
+	go_floor("40404")
+	check(console_reveals("58120"), "annex_console_reveals_archive")
+	go_floor("58120")
+	deep.door_timer = 5.0
+	check(deep.level_label("58120") = "B11 - ARCHIVE OFFICES", "archive_label")
+	check(deep.terminals.size() >= 3, "archive_has_terminals")
+	check(deep.gates.size() = 1, "archive_has_vault")
+	check(console_reveals("36912"), "archive_console_reveals_gallery")
+	check(deep.waters.size() >= 1, "archive_has_flood")
+	check(count_kind(deep.hazards, "kind", "tile") >= 4, "archive_has_pulse_tiles")
+	seen = reach(Vector2(0, 0.5), 0.0, Rect2(-32, 0, 64, 84), 1.0)
+	check(reached(seen, Vector2(0, 10), 0.0, 2.0), "archive_reception_reachable")
+	check(reached(seen, Vector2(-18, 81), 0.0, 2.0), "archive_console_reachable")
+	check(reached(seen, Vector2(16, 80), 0.0, 1.5), "archive_flood_room_reachable")
+	check(Not reached(seen, Vector2(26, 62), 0.0, 1.0), "archive_vault_sealed")
+End Sub
+
+Sub terminal_checks()
+	Dim k As Integer
+	Dim first As String
+	Dim t As Dictionary
+	go_floor("58120")
+	t = deep.terminals(0)
+	stand(t("p") + Vector2(0, -1.2), deep.Num(t("y")))
+	check(deep.use(yard) And deep.term_open, "terminal_opens")
+	check(deep.term_log.size() = 1 And deep.term_log(0).begins_with("<"), "terminal_greets")
+	deep.term_input = "1234"
+	deep.term_submit(yard)
+	check(deep.term_log.size() = 3 And deep.term_log(1) = ">1234" And deep.term_log(2).begins_with("<"), "terminal_replies")
+	first = deep.term_log(2)
+	deep.term_input = "1234"
+	deep.term_submit(yard)
+	check(deep.term_log(4) = first, "terminal_reply_stable")
+	For k = 1 To 6
+		deep.term_input = Str(k)
+		deep.term_submit(yard)
+	Next
+	check(deep.term_log.size() = 8, "terminal_log_capped")
+	deep.term_input = ""
+	deep.term_submit(yard)
+	check(deep.term_log.size() = 8, "terminal_ignores_empty")
+	deep.term_open = False
+End Sub
+
+Sub garden_checks()
+	Dim seen As Dictionary
+	Dim k As Integer
+	Dim e As Dictionary
+	Dim w As Dictionary
+	Dim live As Boolean
+	Dim tile As Dictionary
+	Dim hit As Boolean
+	yard.reset()
+	go_floor("36912")
+	deep.door_timer = 5.0
+	check(deep.level_label("36912") = "B12 - VERDANT GALLERY", "garden_label")
+	check(console_reveals("88216"), "garden_console_reveals_undercity")
+	check(deep.gates.size() = 1, "garden_has_greenhouse")
+	seen = reach(Vector2(0, 0.5), 0.0, Rect2(-35, 0, 70, 90), 1.0)
+	check(reached(seen, Vector2(0, 57), 3.0, 2.0), "garden_terrace_reachable")
+	check(reached(seen, Vector2(-28, 85), 6.0, 2.5), "garden_upper_console_reachable")
+	check(reached(seen, Vector2(-15, 81), 6.0, 2.0), "garden_upper_gold_reachable")
+	check(Not reached(seen, Vector2(-30, 22), 0.0, 1.0), "garden_greenhouse_sealed")
+	w = Nothing
+	For Each e In deep.waters
+		If Int(e("link")) >= 0 Then w = e
+	Next
+	check(w <> Nothing, "garden_water_linked_to_cable")
+	yard.shield = 100
+	yard.damage_cooldown = 0
+	yard.stratum("foot_y") = 0.0
+	yard.position_xz = w("r").get_center()
+	live = False
+	For k = 0 To 200
+		deep.clock = k * 0.05
+		If deep.water_live(w) Then
+			live = True
+			Exit For
+		End If
+	Next
+	check(live, "garden_cable_arcs")
+	deep._city_physics(yard, 0.05)
+	check(yard.shield < 100, "garden_live_water_shocks")
+	tile = Nothing
+	For Each e In deep.hazards
+		If e("kind") = "tile" Then tile = e
+	Next
+	check(tile <> Nothing, "garden_has_pulse_tiles")
+	hit = False
+	For k = 0 To 200
+		deep.clock = k * 0.05
+		If deep.tile_warning(tile) Then hit = True
+	Next
+	check(hit, "tile_warns_before_pulse")
+	yard.shield = 100
+End Sub
+
+Sub undercity_checks()
+	Dim seen As Dictionary
+	Dim k As Integer
+	Dim l As Dictionary
+	Dim t0 As Integer
+	Dim s0 As Single
+	Dim moved As Boolean
+	Dim car As Dictionary
+	Dim lift As Dictionary
+	Dim sun As Array
+	Dim found As String
+	Dim said As String
+	Dim sg As Dictionary
+	yard.reset()
+	t0 = Time.get_ticks_msec()
+	go_floor("88216")
+	Print "UNDERCITY_BUILD_MS=" & Str(Time.get_ticks_msec() - t0)
+	deep.door_timer = 5.0
+	check(deep.level_label("88216") = "B13 - UNDERCITY TRANSIT", "undercity_label")
+	check(deep.trains.size() = 3, "undercity_three_lines")
+	check(deep.levers.size() = 3, "undercity_three_levers")
+	check(deep.cars.size() = 12, "undercity_twelve_cars")
+	check(deep.boards.size() >= 6, "undercity_boards")
+	check(deep.screens.size() > 0 And deep.neons.size() > 0, "undercity_plaza_signage")
+	check(deep.lifts_in.size() >= 1, "undercity_tower_lift")
+	check(Not deep.grid_power And deep.view_far(yard) >= 300, "undercity_starts_dark_far_view")
+	yard.pending_room = True
+	yard._sync_room()
+	check(yard.room_mesh <> Nothing, "undercity_shell_built")
+	If yard.room_mesh <> Nothing Then check(yard.room_mesh.get_child_count() > 8, "undercity_shell_chunked_for_culling")
+	deep.ensure_layout(yard)
+	seen = reach(Vector2(0, 0.5), 0.0, Rect2(-60, -1, 64, 160), 1.0)
+	check(reached(seen, Vector2(-20, 14), 0.5, 1.5), "undercity_platform_reachable")
+	check(reached(seen, Vector2(0, 46), 6.0, 2.0), "undercity_stairs_reach_street")
+	check(reached(seen, Vector2(-23, 145), 6.0, 2.0), "undercity_substation_reachable")
+	' Dark board refuses service
+	stand(deep.boards(0)("p") + Vector2(0, 1.0), deep.Num(deep.boards(0)("y")))
+	yard.message = ""
+	check(deep.use(yard) And yard.message.contains("no service"), "board_dark_without_power")
+	' Trains parked while dark
+	s0 = deep.train_s(deep.trains(0))
+	deep.clock = deep.clock + 20
+	check(deep.train_s(deep.trains(0)) = s0, "trains_parked_without_power")
+	' Car is dead while dark
+	car = deep.cars(0)
+	stand(deep._car_pos(yard, car) + Vector2(2.4, 0), 6.0)
+	yard.message = ""
+	check(deep.use(yard) And yard.message.contains("flat"), "car_dead_without_power")
+	' Levers
+	For Each l In deep.levers
+		stand(l("p") + Vector2(0, -1.0), 6.0)
+		deep.use(yard)
+	Next
+	check(deep.grid_power And yard.stratum("powered") = True, "levers_power_grid")
+	stand(deep.levers(0)("p") + Vector2(0, -1.0), 6.0)
+	yard.message = ""
+	deep.use(yard)
+	check(yard.message.contains("already"), "lever_already_routed")
+	moved = False
+	s0 = deep.train_s(deep.trains(0))
+	For k = 1 To 40
+		deep.clock = deep.clock + 1.0
+		If Abs(deep.train_s(deep.trains(0)) - s0) > 1 Then moved = True
+	Next
+	check(moved, "trains_run_with_power")
+	stand(deep._poly_at(deep.trains(0)("pts"), deep.train_s(deep.trains(0)))(0), 0.0)
+	yard.shield = 100
+	yard.damage_cooldown = 0
+	deep._city_physics(yard, 0.05)
+	check(yard.shield < 100, "live_train_hits_player")
+	yard.shield = 100
+	' Car hack, drive, exit
+	yard.pack("psionic_screwdriver") = 1
+	stand(deep._car_pos(yard, car) + Vector2(2.4, 0), 6.0)
+	check(deep.use(yard) And deep.hacking, "car_hack_starts")
+	For k = 0 To 10
+		If deep.hacking Then
+			deep.hack_glyph = deep.hack_target(deep.hack_filled)
+			deep.hack_press(yard)
+		End If
+	Next
+	check(yard.stratum("hacked").has(car("id")), "car_hacked")
+	check(deep.use(yard) And deep.driving(), "car_entered")
+	check(deep.speed_factor(yard) > 2, "car_is_fast")
+	yard.position_xz = yard.position_xz + Vector2(0, 4)
+	deep._city_physics(yard, 0.05)
+	check(yard.stratum("car_pos").has(car("id")), "car_pos_recorded")
+	deep.use(yard)
+	check(Not deep.driving(), "car_exited")
+	check(deep._car_pos(yard, car).distance_to(car("p")) > 3, "car_stays_where_parked")
+	' Board travel
+	stand(deep.boards(0)("p") + Vector2(0, 1.0), deep.Num(deep.boards(0)("y")))
+	yard.message = ""
+	check(deep.use(yard) And yard.message.contains("All aboard"), "board_travels_with_power")
+	' Tower lift
+	lift = deep.lifts_in(0)
+	stand(lift("p"), deep.Num(lift("low")))
+	deep.use(yard)
+	check(Abs(deep.foot(yard) - deep.Num(lift("high"))) < 1.0, "tower_lift_up")
+	stand(lift("p"), deep.Num(lift("high")))
+	deep.use(yard)
+	check(Abs(deep.foot(yard) - deep.Num(lift("low"))) < 1.0, "tower_lift_down")
+	' Sky: clock-driven sun, rooftop holograms, graffiti on the boundary walls
+	deep.sun_override = True
+	deep.sun_hour = 12.0
+	sun = deep.sun_state(yard)
+	check(sun(2) And Abs(sun(0).x) < 1.0 And sun(0).y > 54 And sun(1).x > 0.9, "sun_noon_overhead")
+	deep.sun_hour = 6.5
+	sun = deep.sun_state(yard)
+	check(sun(2) And sun(0).x > 100 And sun(1).x < 0.6, "sun_rises_in_east_dim")
+	deep.sun_hour = 17.5
+	check(deep.sun_state(yard)(0).x < -100, "sun_sets_in_west")
+	deep.sun_hour = 22.0
+	sun = deep.sun_state(yard)
+	check(Not sun(2) And sun(1).length() = 0, "sun_dark_at_night")
+	check(deep.level_style("88216")(0).x < 1.0, "night_style_not_red")
+	deep.sun_hour = 12.0
+	check(deep.level_style("88216")(0).x > 1.05, "day_style_red_shift")
+	deep.sun_override = False
+	check(deep.holos.size() >= 4 And deep.holos(0)("kind") = "face", "holograms_placed")
+	found = ""
+	For Each sg In deep.signs
+		If sg("text").begins_with("GRAFFITI:") Then found = found & "|" & sg("text")
+	Next
+	check(found.contains("DON'T TRUST THE FLIES"), "graffiti_flies")
+	check(found.contains("NO ONE IS LEFT"), "graffiti_no_one_left")
+	check(found.contains("THINKING MACHINES") And found.contains("PANIC"), "graffiti_anti_ai_panic")
+	stand(Vector2(40, 160), 6.0)
+	yard.heading = PI * 0.5
+	deep.clock = 0.0
+	said = deep.visor_text(yard)
+	deep.clock = 5.5
+	check(said.begins_with("NARCEAN BROADCAST") And deep.visor_text(yard) <> said, "face_holo_broadcast_cycles")
+	' Rebuild keeps power and car state
+	go_floor("58120")
+	go_floor("88216")
+	check(deep.grid_power And deep._car_pos(yard, car).distance_to(car("p")) > 3, "undercity_state_persists")
+	yard.reset()
+End Sub
+
+Sub audio_checks()
+	Dim bus As Object
+	Dim before As Integer
+	bus = ClassDB.Instantiate("Node")
+	bus.SetScript(Load("res://game_audio.vg"))
+	yard.add_child(bus)
+	bus.setup()
+	yard.sfx_bus = bus
+	check(bus.stream_for("res://assets/audio/sfx/key_press.ogg") <> Nothing And bus.stream_for("res://assets/audio/music/undercity_dark.ogg") <> Nothing, "audio_assets_load")
+	go_floor("88216")
+	bus.update(yard, 0.1)
+	check(bus.music_name = "undercity_dark" And bus.deck.stream <> Nothing And bus.deck.stream.get("loop") = True, "audio_undercity_music_loops")
+	check(bus.surface_for(yard) = "concrete", "audio_undercity_concrete")
+	go_floor("58120")
+	bus.update(yard, 0.1)
+	check(bus.music_name = "stratum_deep" And bus.surface_for(yard) = "metal", "audio_music_leaves_with_floor")
+	before = bus.pool_next
+	yard.position_xz = yard.position_xz + Vector2(0, 1.0)
+	bus.update(yard, 0.1)
+	yard.position_xz = yard.position_xz + Vector2(0, 1.0)
+	bus.update(yard, 0.1)
+	check(bus.pool_next <> before, "audio_footstep_fires")
+	before = bus.pool_next
+	yard.position_xz = yard.position_xz + Vector2(0, 20.0)
+	bus.update(yard, 0.1)
+	check(bus.pool_next = before, "audio_teleport_no_footstep")
+	before = bus.pool_next
+	yard.sfx("lever_pull")
+	check(bus.pool_next <> before, "audio_sfx_hook")
+	yard.sfx_bus = Nothing
+	bus.queue_free()
+	yard.reset()
+End Sub
+
 Sub _Ready()
 	yard = spawn_yard()
 	deep = yard.deep
@@ -196,6 +581,12 @@ Sub _Ready()
 	pickup_and_hack_checks()
 	physics_checks()
 	upgrade_checks()
+	yellow_checks()
+	archive_checks()
+	terminal_checks()
+	garden_checks()
+	undercity_checks()
+	audio_checks()
 	Print "DEEP_STRATUM=" & Str(checks - failures) & "/" & Str(checks)
 	GetTree().quit(failures)
 End Sub

@@ -49,6 +49,8 @@ Function state_matches(ByVal actual As Dictionary, ByVal expected As Dictionary)
 	Return True
 End Function
 
+Dim audio_music As Single
+
 Sub _Ready()
 	game = Load("res://main.tscn").instantiate()
 	add_child(game)
@@ -58,6 +60,14 @@ Sub _Ready()
 	game.opt_detail = 1
 	view = game.GetNode("Presentation")
 	campaign = game.campaign
+	check(game.opt_music >= 0.0 And game.opt_music <= 1.0 And game.opt_sfx >= 0.0 And game.opt_sfx <= 1.0, "options_audio_levels_loaded")
+	check(AudioServer.get_bus_index("Music") >= 0 And AudioServer.get_bus_index("SFX") >= 0, "options_audio_buses_created")
+	audio_music = game.opt_music
+	game.opt_music = 0.5
+	game.ApplyAudio()
+	check(Abs(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")) + 6.02) < 0.1, "options_music_slider_sets_bus_db")
+	game.opt_music = audio_music
+	game.ApplyAudio()
 	check(campaign.save_path = "user://ash_meridian_campaign.cfg", "campaign_default_save_path_initialized")
 	campaign.save_path = "user://ash_campaign_test_" & Str(OS.get_process_id()) & ".cfg"
 	legacy_existed = FileExists("user://ash_meridian_save.txt")
@@ -161,6 +171,23 @@ Sub persistence_checks()
 	invalid = campaign.snapshot(yard)
 	invalid("position_xz") = Vector2(40, 10)
 	check(Not campaign.validate(invalid, yard), "campaign_rejects_out_of_bounds_deep_position")
+	invalid("floor_code") = "88216"
+	invalid("position_xz") = Vector2(100, 200)
+	check(campaign.validate(invalid, yard), "campaign_accepts_undercity_wide_position")
+	table = New Dictionary
+	table("levers") = New Dictionary
+	table("levers")("88216:L0") = True
+	table("powered") = True
+	table("car_pos") = New Dictionary
+	table("car_pos")("88216:C0") = Array(12.5, 40.25, 1.5)
+	check(campaign.stratum_valid(New Dictionary, table, 0, yard), "campaign_accepts_undercity_grid_and_cars")
+	table("car_pos")("88216:C0") = Array(500.0, 40.0, 0.0)
+	check(Not campaign.stratum_valid(New Dictionary, table, 0, yard), "campaign_rejects_out_of_bounds_car")
+	table("car_pos")("88216:C0") = Array(1.0, 2.0)
+	check(Not campaign.stratum_valid(New Dictionary, table, 0, yard), "campaign_rejects_short_car_entry")
+	table("car_pos") = New Dictionary
+	table("powered") = "yes"
+	check(Not campaign.stratum_valid(New Dictionary, table, 0, yard), "campaign_rejects_non_boolean_power")
 	yard.pack.clear()
 	yard.radiation = 0
 	yard.place = "building"

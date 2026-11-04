@@ -65,10 +65,13 @@ Sub build(ByVal city As Object, ByVal view As Object)
 	Next
 	For Each x In Array(-64, 64)
 		For Each z In Array(70, 164, 258, 352)
-			city._cylinder(Vector3(x, 0, z), 3, 16, city.SHELL)
+			' _cylinder is centre-based: centre y=8 seats the 16 m column on the ground.
+			city._cylinder(Vector3(x, 8, z), 3, 16, city.SHELL)
 			city.solids.append(Rect2(x - 3, z - 3, 6, 6))
 			city._cylinder(Vector3(x, 12, z), 3.05, 0.18, city.GOLD, 1, True)
-			city._trace(Array(Vector3(x, 14, z), Vector3(x - 8, 14, z), Vector3(x - 8, 4, z)), 0.45, city.SHELL)
+			city._box(Vector3(x - 10.5, 13.6, z - 0.35), Vector3(7.6, 0.7, 0.7), city.SHELL)
+			city._box(Vector3(x - 10.8, 12.7, z - 0.9), Vector3(2.6, 0.9, 1.8), city.SHELL * 1.2)
+			city._box(Vector3(x - 10.6, 12.62, z - 0.75), Vector3(2.2, 0.1, 1.5), city.GOLD, True)
 		Next
 	Next
 	city._box(Vector3(-10, 0.02, -11), Vector3(20, 0.12, 16), city.INK)
@@ -108,9 +111,16 @@ Sub update_scene(ByVal city As Object, ByVal time_n As Single, ByVal outdoors As
 	If outdoors Then
 		city.shell_material.set_shader_parameter("yard_haze", 1.0)
 		city.light_material.set_shader_parameter("yard_haze", 1.0)
+		' Surface lamps and trims run off the undercity grid: near-dark until it is routed, then overdriven.
+		If city.grid_live() Then
+			city.light_material.set_shader_parameter("glow_gain", 1.45)
+		Else
+			city.light_material.set_shader_parameter("glow_gain", 0.14)
+		End If
 	Else
 		city.shell_material.set_shader_parameter("yard_haze", 0.0)
 		city.light_material.set_shader_parameter("yard_haze", 0.0)
+		city.light_material.set_shader_parameter("glow_gain", 1.0)
 	End If
 	For i = 0 To doors.size() - 1
 		p = door_origins(i)

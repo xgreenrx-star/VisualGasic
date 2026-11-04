@@ -108,6 +108,8 @@ Dim opt_fps As Boolean
 Dim opt_orac_voice As Boolean
 Dim opt_flight_voice As Boolean
 Dim opt_reduced As Boolean
+Dim opt_music As Single
+Dim opt_sfx As Single
 Dim face_player As Object
 Dim face_audio As Object
 Dim face_played As Boolean
@@ -180,6 +182,7 @@ Sub _Ready()
 	campaign = presentation.SpawnVg("res://campaign.vg", "RefCounted")
 	Call LoadOptions()
 	Call ApplyDisplay()
+	Call ApplyAudio()
 	phase = PH_BOOT
 	boot_t = 0.0
 	Call StartBootTerminal()
@@ -757,25 +760,7 @@ Function PauseY(ByVal i As Integer) As Single
 End Function
 
 Function OptionY(ByVal i As Integer) As Single
-	If i = 0 Then
-		OptionY = 128.0
-	ElseIf i = 1 Then
-		OptionY = 172.0
-	ElseIf i = 2 Then
-		OptionY = 216.0
-	ElseIf i = 3 Then
-		OptionY = 260.0
-	ElseIf i = 4 Then
-		OptionY = 304.0
-	ElseIf i = 5 Then
-		OptionY = 348.0
-	ElseIf i = 6 Then
-		OptionY = 392.0
-	ElseIf i = 7 Then
-		OptionY = 436.0
-	Else
-		OptionY = 480.0
-	End If
+	OptionY = 106.0 + i * 38.0
 End Function
 
 Sub ReadFlightStick()
@@ -924,6 +909,14 @@ Sub _Process(ByVal delta As Single)
 		Call presentation.tick_bleed_city3(delta)
 	ElseIf phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
 		Call presentation.tick_backlight_city(delta)
+		If presentation.backlight_city <> Nothing Then
+			If presentation.backlight_city.wants_trace_cycle Then
+				presentation.backlight_city.wants_trace_cycle = False
+				phase = PH_TRACE_CYCLE
+				on_buggy = False
+				Call presentation.start_trace_cycle_as("yard")
+			End If
+		End If
 	ElseIf phase = PH_BLACK_CHANNEL Then
 		If presentation.menu_tap(KEY_V) Then
 			opt_orac_voice = Not opt_orac_voice
@@ -2980,6 +2973,8 @@ Sub LoadOptions()
 	opt_orac_voice = True
 	opt_flight_voice = True
 	opt_reduced = False
+	opt_music = 0.8
+	opt_sfx = 0.8
 	If Not FileExists("user://ash_meridian_options.txt") Then Exit Sub
 	lines = ReadLines("user://ash_meridian_options.txt")
 	If UBound(lines) < 5 Then Exit Sub
@@ -2994,9 +2989,13 @@ Sub LoadOptions()
 		If Val(lines(7)) > 0.0 Then opt_orac_voice = True
 	End If
 	If UBound(lines) >= 8 Then opt_reduced = Val(lines(8)) > 0.0
+	If UBound(lines) >= 10 Then
+		opt_music = ClampLevel(Val(lines(9)))
+		opt_sfx = ClampLevel(Val(lines(10)))
+	End If
 	opt_flight_voice = opt_orac_voice
 	If opt_view < 50.0 Then opt_view = 50.0
-	If opt_view > 160.0 Then opt_view = 160.0
+	If opt_view > 600.0 Then opt_view = 600.0
 	If opt_detail < 0 Then opt_detail = 0
 	If opt_detail > 2 Then opt_detail = 2
 End Sub
@@ -3006,6 +3005,7 @@ Sub SaveOptions()
 	body = BitOf(opt_full) & Chr(10) & Str(opt_view) & Chr(10) & Str(opt_detail) & Chr(10)
 	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps) & Chr(10) & BitOf(opt_orac_voice)
 	body = body & Chr(10) & BitOf(opt_flight_voice) & Chr(10) & BitOf(opt_reduced)
+	body = body & Chr(10) & Str(opt_music) & Chr(10) & Str(opt_sfx)
 	WriteAllText "user://ash_meridian_options.txt", body
 End Sub
 
@@ -3021,6 +3021,38 @@ Sub ApplyDisplay()
 	Else
 		DisplayServer.window_set_vsync_mode(0)
 	End If
+End Sub
+
+Function ClampLevel(ByVal v As Single) As Single
+	If v < 0.0 Then v = 0.0
+	If v > 1.0 Then v = 1.0
+	ClampLevel = v
+End Function
+
+Function AudioBus(ByVal bus_name As String) As Integer
+	Dim idx As Integer
+	idx = AudioServer.get_bus_index(bus_name)
+	If idx = -1 Then
+		AudioServer.add_bus()
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, bus_name)
+		AudioServer.set_bus_send(idx, "Master")
+	End If
+	AudioBus = idx
+End Function
+
+Function LevelDb(ByVal v As Single) As Single
+	If v <= 0.001 Then
+		LevelDb = -80.0
+	Else
+		LevelDb = 20.0 * Log(v) / Log(10.0)
+	End If
+End Function
+
+' Music and SFX sliders drive the shared buses that game_audio routes into.
+Sub ApplyAudio()
+	AudioServer.set_bus_volume_db(AudioBus("Music"), LevelDb(opt_music))
+	AudioServer.set_bus_volume_db(AudioBus("SFX"), LevelDb(opt_sfx))
 End Sub
 
 Sub SaveRun()
@@ -3177,19 +3209,31 @@ Sub TickOptions()
 	Dim mx As Single
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then opt_i = opt_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then opt_i = opt_i + 1
-	If opt_i < 0 Then opt_i = 8
-	If opt_i > 8 Then opt_i = 0
-	For i = 0 To 8
+	If opt_i < 0 Then opt_i = 10
+	If opt_i > 10 Then opt_i = 0
+	For i = 0 To 10
 		If PickHit(OptionY(i)) Then opt_i = i
 	Next
 	mx = mouse_px
 	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(0) And mouse_py <= OptionY(0) + 36.0 Then
 		opt_i = 0
-		opt_view = 50.0 + (mx - 560.0) / 220.0 * 110.0
+		opt_view = 50.0 + (mx - 560.0) / 220.0 * 550.0
 		If opt_view < 50.0 Then opt_view = 50.0
-		If opt_view > 160.0 Then opt_view = 160.0
+		If opt_view > 600.0 Then opt_view = 600.0
 		Call SaveOptions()
 	End If
+	For i = 8 To 9
+		If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(i) And mouse_py <= OptionY(i) + 36.0 Then
+			opt_i = i
+			If i = 8 Then
+				opt_music = ClampLevel((mx - 560.0) / 220.0)
+			Else
+				opt_sfx = ClampLevel((mx - 560.0) / 220.0)
+			End If
+			Call ApplyAudio()
+			Call SaveOptions()
+		End If
+	Next
 	If presentation.menu_tap(KEY_LEFT) Or presentation.menu_tap(KEY_A) Then
 		Call NudgeOption(-1.0)
 	End If
@@ -3197,15 +3241,15 @@ Sub TickOptions()
 		Call NudgeOption(1.0)
 	End If
 	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
-		If opt_i = 8 Then
+		If opt_i = 10 Then
 			Call CloseOptions()
 		Else
 			Call NudgeOption(1.0)
 		End If
 	ElseIf mouse_tap And PickHit(OptionY(opt_i)) Then
-		If opt_i = 8 Then
+		If opt_i = 10 Then
 			Call CloseOptions()
-		ElseIf opt_i <> 0 Or mx < 560.0 Then
+		ElseIf (opt_i <> 0 And opt_i <> 8 And opt_i <> 9) Or mx < 560.0 Then
 			Call NudgeOption(1.0)
 		End If
 	End If
@@ -3216,9 +3260,9 @@ End Sub
 
 Sub NudgeOption(ByVal dir As Single)
 	If opt_i = 0 Then
-		opt_view = opt_view + dir * 10.0
+		opt_view = opt_view + dir * 25.0
 		If opt_view < 50.0 Then opt_view = 50.0
-		If opt_view > 160.0 Then opt_view = 160.0
+		If opt_view > 600.0 Then opt_view = 600.0
 	ElseIf opt_i = 1 Then
 		opt_detail = opt_detail + Int(dir)
 		If opt_detail < 0 Then opt_detail = 0
@@ -3239,6 +3283,12 @@ Sub NudgeOption(ByVal dir As Single)
 		Call ApplySpeech()
 	ElseIf opt_i = 7 Then
 		opt_reduced = Not opt_reduced
+	ElseIf opt_i = 8 Then
+		opt_music = ClampLevel(opt_music + dir * 0.1)
+		Call ApplyAudio()
+	ElseIf opt_i = 9 Then
+		opt_sfx = ClampLevel(opt_sfx + dir * 0.1)
+		Call ApplyAudio()
 	End If
 	Call SaveOptions()
 End Sub
@@ -3474,7 +3524,7 @@ Sub DrawOptions()
 	End If
 	DrawString "OPTIONS", 390, 70, Color(0.5, 0.9, 1.0), 28
 	Call DrawPick("VIEW DISTANCE", OptionY(0), opt_i = 0)
-	bar = (opt_view - 50.0) / 110.0 * 220.0
+	bar = (opt_view - 50.0) / 550.0 * 220.0
 	DrawRect 560, OptionY(0) + 8, 220, 8, Color(0.1, 0.12, 0.16)
 	DrawRect 560, OptionY(0) + 8, bar, 8, Color(0.3, 0.85, 1.0)
 	DrawString Str(Int(opt_view)) & " M", 800, OptionY(0), Color(0.7, 0.85, 0.9), 16
@@ -3485,8 +3535,17 @@ Sub DrawOptions()
 	Call DrawPick("FRAME RATE    " & OnOff(opt_fps), OptionY(5), opt_i = 5)
 	Call DrawPick("SPEECH      " & OnOff(opt_orac_voice), OptionY(6), opt_i = 6)
 	Call DrawPick("REDUCED MOTION    " & OnOff(opt_reduced), OptionY(7), opt_i = 7)
-	Call DrawPick("BACK", OptionY(8), opt_i = 8)
+	Call DrawLevel("MUSIC", 8, opt_music)
+	Call DrawLevel("EFFECTS", 9, opt_sfx)
+	Call DrawPick("BACK", OptionY(10), opt_i = 10)
 	DrawString "LEFT / RIGHT CHANGES A ROW     MOUSE SELECTS", 250, 520, Color(0.4, 0.5, 0.55), 14
+End Sub
+
+Sub DrawLevel(ByVal label As String, ByVal row As Integer, ByVal level As Single)
+	Call DrawPick(label, OptionY(row), opt_i = row)
+	DrawRect 560, OptionY(row) + 8, 220, 8, Color(0.1, 0.12, 0.16)
+	DrawRect 560, OptionY(row) + 8, level * 220.0, 8, Color(0.3, 0.85, 1.0)
+	DrawString Str(Int(level * 100.0 + 0.5)) & " %", 800, OptionY(row), Color(0.7, 0.85, 0.9), 16
 End Sub
 
 Function RowLabel(ByVal row As Integer) As String

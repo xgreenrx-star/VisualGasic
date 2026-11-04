@@ -214,7 +214,7 @@ Sub build(ByVal city As Node)
 	If Not legacy Then
 		city.deep.build_level(city)
 		city.floor_signature = "deep:" & city.floor_code
-		city.room_mesh = city._finish("InteriorShell")
+		city.room_mesh = city._finish_chunked("InteriorShell", 48.0)
 		city.room_mesh.reparent(city.interior)
 		_lift(city, True)
 		city.deep.build_dynamic(city)

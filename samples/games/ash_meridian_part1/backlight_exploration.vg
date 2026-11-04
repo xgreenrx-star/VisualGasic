@@ -74,6 +74,7 @@ Dim lift_car As Node3D
 Dim hud As Node2D
 Dim hud_view As SubViewport
 Dim audio As AudioStreamPlayer
+Dim sfx_bus As Object
 Dim alarm_stream As AudioStreamWAV
 Dim place As Variant
 Dim building_index As Variant
@@ -109,6 +110,9 @@ Dim escape_grace As Single
 Dim escape_inventory As Dictionary
 Dim escape_dock As Node3D
 Dim escape_cycle As Node3D
+Dim cycle_dock As Node3D
+Dim parked_trace As Node3D
+Dim wants_trace_cycle As Boolean
 Dim turret_lock_times As Array
 Dim turret_targets As Array
 Dim turret_states As Array
@@ -744,6 +748,7 @@ Sub build(ByVal view As Node)
 	_ship()
 	ship_model = _finish("StrandedAsh")
 	ship_model.position = Vector3(SHIP.x, 0, SHIP.y)
+	If yard_mode Then _build_cycle_dock()
 	surface_solids = solids.duplicate()
 	hud_view = ClassDB.Instantiate("SubViewport")
 	hud_view.size = Vector2i(960, 540)
@@ -1303,6 +1308,7 @@ Sub interact_vehicle()
 		Next
 	ElseIf position_xz.distance_to(buggy_position) < 3.8 Then
 		driving = True
+		sfx("vehicle_on", -3.0)
 		look_pitch = 0.0
 		position_xz = buggy_position
 		heading = buggy_heading
@@ -1394,6 +1400,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	Dim throttle As Variant
 	Call EnsureInit()
 	message_left = Max(0, message_left - delta)
+	If sfx_bus <> Nothing Then sfx_bus.update(Me, delta)
 	If completed Or Me.failed Then
 		If completed Then
 			launch_elapsed = launch_elapsed + delta
@@ -1713,6 +1720,90 @@ Function _finish(ByVal label As String) As MeshInstance3D
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(instance)
 	Return instance
+End Function
+
+' Splits the pending shell geometry into CELL x CELL metre chunks so each one can
+' be frustum-culled; a single huge mesh is always drawn whichever way you face.
+Function _finish_chunked(ByVal label As String, ByVal cell As Single) As MeshInstance3D
+	Dim root As Object
+	Dim buckets As Dictionary
+	Dim layer As Integer
+	Dim src_p As PackedVector3Array
+	Dim src_c As PackedColorArray
+	Dim src_n As PackedVector3Array
+	Dim n As Integer
+	Dim t As Integer
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim c As Vector3
+	Dim key As String
+	Dim bucket As Array
+	Dim arrays As Array
+	Dim mesh As Object
+	Dim part As Object
+	Dim k As Variant
+	Call EnsureInit()
+	buckets = New Dictionary
+	For layer = 0 To 1
+		If layer = 0 Then
+			src_p = points
+			src_c = shades
+			src_n = normals
+		Else
+			src_p = light_points
+			src_c = light_shades
+			src_n = light_normals
+		End If
+		n = src_p.size() / 3
+		For t = 0 To n - 1
+			a = src_p(t * 3)
+			b = src_p(t * 3 + 1)
+			c = src_p(t * 3 + 2)
+			key = Str(Int(Floor((a.x + b.x + c.x) / (3.0 * cell)))) & "_" & Str(Int(Floor((a.z + b.z + c.z) / (3.0 * cell))))
+			If Not buckets.has(key) Then
+				bucket = Array(PackedVector3Array(), PackedColorArray(), PackedVector3Array(), PackedVector3Array(), PackedColorArray(), PackedVector3Array())
+				buckets(key) = bucket
+			End If
+			bucket = buckets(key)
+			bucket(layer * 3).append_array(src_p.slice(t * 3, t * 3 + 3))
+			bucket(layer * 3 + 1).append_array(src_c.slice(t * 3, t * 3 + 3))
+			bucket(layer * 3 + 2).append_array(src_n.slice(t * 3, t * 3 + 3))
+		Next
+	Next
+	points.clear()
+	shades.clear()
+	normals.clear()
+	light_points.clear()
+	light_shades.clear()
+	light_normals.clear()
+	root = ClassDB.Instantiate("MeshInstance3D")
+	root.name = label
+	add_child(root)
+	For Each k In buckets.keys()
+		bucket = buckets(k)
+		mesh = ClassDB.Instantiate("ArrayMesh")
+		For layer = 0 To 1
+			If bucket(layer * 3).size() > 0 Then
+				arrays = Array()
+				arrays.resize(Mesh.ARRAY_MAX)
+				arrays(Mesh.ARRAY_VERTEX) = bucket(layer * 3)
+				arrays(Mesh.ARRAY_NORMAL) = bucket(layer * 3 + 2)
+				arrays(Mesh.ARRAY_COLOR) = bucket(layer * 3 + 1)
+				mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+				If layer = 1 Then
+					mesh.surface_set_material(mesh.get_surface_count() - 1, light_material)
+				Else
+					mesh.surface_set_material(mesh.get_surface_count() - 1, shell_material)
+				End If
+			End If
+		Next
+		part = ClassDB.Instantiate("MeshInstance3D")
+		part.name = label & "_" & k
+		part.mesh = mesh
+		part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(part)
+	Next
+	Return root
 End Function
 
 Sub _materials()
@@ -2116,6 +2207,7 @@ End Sub
 Sub deactivate()
 	Call EnsureInit()
 	backlight_city_deactivate()
+	If sfx_bus <> Nothing Then sfx_bus.silence()
 	If hud_view <> Nothing Then
 		hud_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	End If
@@ -2139,6 +2231,8 @@ Function backlight_city_render_style(ByVal view As Node, ByVal time_n As Single,
 		view.camera.environment = atmosphere
 	End If
 	If detail = 0 Then
+		antialiasing = Viewport.MSAA_DISABLED
+	ElseIf place = "floor" And floor_code = "88216" Then
 		antialiasing = Viewport.MSAA_DISABLED
 	Else
 		antialiasing = Viewport.MSAA_2X
@@ -2211,6 +2305,7 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 	Dim ride_pitch As Single
 	Dim style As Array
 	Dim fog_tint As Color
+	Dim sun As Array
 	Dim _t0 As Variant
 	Dim _t1 As Variant
 	Dim _t2 As Variant
@@ -2252,6 +2347,8 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 	Next
 	If escape_dock <> Nothing Then escape_dock.visible = outdoors And trace_escape
 	If escape_cycle <> Nothing Then escape_cycle.visible = outdoors And trace_escape
+	If cycle_dock <> Nothing Then cycle_dock.visible = outdoors And Not trace_escape
+	If parked_trace <> Nothing Then parked_trace.visible = outdoors And Not trace_escape
 	If escape_helmet <> Nothing Then escape_helmet.visible = outdoors And trace_escape And Not driving And inspection = 0
 	If escape_readout <> Nothing Then
 		escape_readout.visible = trace_escape And message_left > 0 And Not completed And Not Me.failed
@@ -2288,11 +2385,15 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		shell_material.set_shader_parameter("fog_color", Vector3(fog_tint.r, fog_tint.g, fog_tint.b))
 		shell_material.set_shader_parameter("depth_fog", style(3))
 		atmosphere.background_color = fog_tint
+		sun = deep.sun_state(Me)
+		shell_material.set_shader_parameter("sun_pos", sun(0))
+		shell_material.set_shader_parameter("sun_color", sun(1))
 		deep.animate(Me, time_n)
 	Else
 		shell_material.set_shader_parameter("interior_tint", Vector3(1, 1, 1))
 		shell_material.set_shader_parameter("spill_color", Vector3(0.008, 0.05, 0.075))
 		shell_material.set_shader_parameter("depth_fog", 0.0)
+		shell_material.set_shader_parameter("sun_color", Vector3(0, 0, 0))
 	End If
 	If Not outdoors Then
 		If place = "floor" And floor_code = FEB_CODE Then
@@ -2318,9 +2419,9 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		End If
 		If place = "floor" Then
 			If deep.inverted(Me) Then
-				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, 0.0 - (_t2 + look_pitch), 90, PI)
+				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, 0.0 - (_t2 + look_pitch), deep.view_far(Me), PI)
 			Else
-				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, _t2 + look_pitch, 90)
+				view.present(position_xz.x, deep.eye_height(Me), position_xz.y, heading, _t2 + look_pitch, deep.view_far(Me))
 			End If
 		Else
 			view.present(position_xz.x, 1.8 + ride_y, position_xz.y, heading, _t2 + ride_pitch, 90)
@@ -2463,6 +2564,9 @@ Sub _create_audio()
 	audio = ClassDB.Instantiate("AudioStreamPlayer")
 	audio.volume_db = -20
 	add_child(audio)
+	sfx_bus = SpawnVg("res://game_audio.vg", "Node")
+	add_child(sfx_bus)
+	sfx_bus.setup()
 	alarm_stream = ClassDB.Instantiate("AudioStreamWAV")
 	alarm_stream.format = AudioStreamWAV.FORMAT_16_BITS
 	alarm_stream.mix_rate = 22050
@@ -2475,6 +2579,10 @@ Sub _create_audio()
 	Next
 	alarm_stream.data = samples
 	audio.stream = alarm_stream
+End Sub
+
+Sub sfx(ByVal name As String, Optional ByVal vol_db As Single = 0.0)
+	If sfx_bus <> Nothing Then sfx_bus.fire(name, vol_db)
 End Sub
 
 Function nearest_building(Optional max_distance As Variant = 3.5) As Integer
@@ -2571,6 +2679,10 @@ Sub use_object()
 		If deep.use(Me) Then Exit Sub
 	End If
 	If place = "surface" Then
+		If near_cycle_dock() Then
+			use_cycle_dock()
+			Exit Sub
+		End If
 		If position_xz.distance_to(SHIP) < 7 Then
 			If trace_escape And driving Then
 				notify("ORAC: Park and step out with F. Then F at the Ash's service position installs the coupler.")
@@ -2580,6 +2692,7 @@ Sub use_object()
 				completed = True
 				awakening = False
 				audio.stop()
+				sfx("ship_ignite", 0.0)
 				If trace_escape Then
 					notify("ORAC: Coupler installed. Engines live. Clearing the yard!")
 				ElseIf campaign_mode Then
@@ -2664,6 +2777,7 @@ Sub enter_symbol(ByVal symbol As String)
 		Exit Sub
 	End If
 	sequence = sequence + symbol
+	sfx("key_press", -4.0)
 End Sub
 
 Sub submit_sequence()
@@ -2673,6 +2787,7 @@ Sub submit_sequence()
 		Exit Sub
 	End If
 	If sequence.length() <> 5 Then
+		sfx("key_reject", -4.0)
 		notify("The destination requires exactly five symbols.")
 		Exit Sub
 	End If
@@ -2683,13 +2798,16 @@ Sub submit_sequence()
 			keypad = False
 			start_lift("surface")
 		ElseIf awakening Then
+			sfx("key_reject", -4.0)
 			notify("ORAC: Not now! Surface ascent is " & deep.ASCENT & ".")
 		ElseIf code = floor_code Then
+			sfx("key_reject", -4.0)
 			notify("LIFT CAR: ALREADY AT " & deep.level_label(code) & ".")
 		ElseIf deep.is_level(code) Then
 			keypad = False
 			start_lift(code)
 		Else
+			sfx("key_reject", -4.0)
 			notify("LIFT CAR: ADDRESS NOT IN SERVICE.")
 		End If
 		Exit Sub
@@ -2699,8 +2817,10 @@ Sub submit_sequence()
 		deep.learn(Me, code)
 		start_lift(code)
 	ElseIf code = deep.ASCENT Then
+		sfx("key_reject", -4.0)
 		notify("LIFT: THIS CAR IS ALREADY AT THE TRANSIT DEPOT.")
 	Else
+		sfx("key_reject", -4.0)
 		notify("LIFT: ADDRESS NOT IN SERVICE.")
 	End If
 End Sub
@@ -2718,6 +2838,9 @@ Sub start_lift(ByVal target As String)
 	transit_left = transit_total
 	inspection = 0
 	keypad = False
+	sfx("key_accept", -4.0)
+	sfx("lift_doors", -3.0)
+	If sfx_bus <> Nothing Then sfx_bus.lift_motor(transit_total)
 	If place = "floor" Then
 		position_xz = Vector2(ClampF(position_xz.x, -2.4, 2.4), ClampF(position_xz.y + 6.9, 0.8, 5.8))
 	Else
@@ -2741,6 +2864,8 @@ End Sub
 Sub finish_lift()
 	Dim _t0 As Variant
 	Call EnsureInit()
+	sfx("lift_chime", -3.0)
+	sfx("lift_doors", -3.0)
 	If lift_target = "surface" Then
 		place = "building"
 		floor_code = ""
@@ -2838,6 +2963,8 @@ Sub _tick_turrets(ByVal delta As Single)
 				shield = Max(0, shield - buggy_hit(12))
 				damage_cooldown = 2
 				turret_flashes(i) = 0.2
+				turret_sound("turret_fire", turret, -2.0)
+				_hit_sound()
 				velocity = velocity * 0.55
 				If campaign_mode Then
 					notify("ORAC: Turrets are live! Stay behind the buildings!")
@@ -2887,6 +3014,7 @@ Sub TickEscapeTurrets(ByVal delta As Single)
 				turret_beams(n).material_override = Load("res://assets/trace_vault/materials/amber.tres")
 				turret_beams(n).scale.z = Max(0.1, (offset.length() - 3.2) / 26.8)
 				turret_beams(n).scale.x = 2.0
+				turret_sound("turret_lock", gun, 0.0)
 				notify("ORAC: Shot locked! Move before they fire!")
 			End If
 		ElseIf state = "locked" And turret_lock_times(n) >= 0.9 Then
@@ -2897,7 +3025,9 @@ Sub TickEscapeTurrets(ByVal delta As Single)
 			turret_flashes(n) = 0.22
 			turret_beams(n).material_override = Load("res://assets/trace_vault/materials/red.tres")
 			turret_beams(n).scale.x = 12.0
+			turret_sound("turret_fire", gun, 0.0)
 			If distance < 2.5 And damage_cooldown <= 0 And _line_clear(point, position_xz) Then
+				_hit_sound()
 				shield = Max(0, shield - buggy_hit(20))
 				damage_cooldown = 1.5
 				velocity = velocity * 0.7
@@ -2914,6 +3044,67 @@ Sub TickEscapeTurrets(ByVal delta As Single)
 			turret_lock_times(n) = 0.0
 		End If
 	Next
+End Sub
+
+Sub turret_sound(ByVal snd As String, ByVal gun As Object, ByVal vol_db As Single)
+	If sfx_bus = Nothing Then Exit Sub
+	sfx_bus.fire_at(snd, gun.global_position + Vector3(0, 3, 0), vol_db, 22.0)
+End Sub
+
+Sub _hit_sound()
+	If driving Then
+		sfx("hull_hit", 0.0)
+	Else
+		sfx("hurt", 0.0)
+	End If
+	sfx("laser_hit", -4.0)
+End Sub
+
+' Undercity grid state; the yard's lamps and the trace-cycle cradle share that feed.
+Function grid_live() As Boolean
+	If trace_escape Then Return True
+	If deep = Nothing Then Return False
+	Return deep.powered(Me)
+End Function
+
+' Yard trace-cycle cradle (same footprint as the return dock): rides out to the FEB crossing.
+Sub _build_cycle_dock()
+	Dim packed As Object
+	packed = Load("res://assets/trace_vault/scenes/yard_dock.tscn")
+	If packed <> Nothing Then
+		cycle_dock = packed.instantiate()
+		cycle_dock.name = "YardTraceDock"
+		add_child(cycle_dock)
+		cycle_dock.position = Vector3(15, 0, 414)
+	End If
+	packed = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
+	If packed <> Nothing Then
+		parked_trace = packed.instantiate()
+		parked_trace.name = "YardTraceCycle"
+		add_child(parked_trace)
+		parked_trace.position = Vector3(15, 0, 414)
+		parked_trace.rotation.y = PI
+	End If
+	solids.append(Rect2(22.7, 419.7, 0.6, 0.6))
+	solids.append(Rect2(6.7, 419.7, 0.6, 0.6))
+	solids.append(Rect2(12.675, 411.1, 0.45, 5.8))
+	solids.append(Rect2(16.875, 411.1, 0.45, 5.8))
+End Sub
+
+Function near_cycle_dock() As Boolean
+	If cycle_dock = Nothing Or trace_escape Or driving Or place <> "surface" Then Return False
+	Return position_xz.distance_to(Vector2(15, 409)) < 4.5
+End Function
+
+Sub use_cycle_dock()
+	If grid_live() Then
+		wants_trace_cycle = True
+		sfx("vehicle_on", -2.0)
+		notify("ORAC: Main feed is live. Cradle clamps releasing - mount up, Jason.")
+	Else
+		sfx("hack_fail", -6.0)
+		notify("ORAC: There's some auxiliary power to the dock terminal, but the main power appears to be turned off.")
+	End If
 End Sub
 
 Function _line_clear(ByVal a As Vector2, ByVal b As Vector2) As Boolean
@@ -2986,6 +3177,10 @@ Function prompt() As String
 			If Not driving And position_xz.distance_to(buggy_position) < 3.8 Then Return "F: enter buggy / W/S drive / A/D steer"
 			If driving Then Return "DRIVE SOUTH TO THE ASH / W/S throttle / A/D steer / F park / DODGE AMBER BEAMS"
 			Return "REACH THE BUGGY AHEAD / W/S walk / mouse look / F use / BUILDINGS ARE COVER"
+		End If
+		If near_cycle_dock() Then
+			If grid_live() Then Return "TRACE CYCLE CRADLE / F: release clamps and ride"
+			Return "TRACE CYCLE CRADLE / F: dock terminal"
 		End If
 		If position_xz.distance_to(SHIP) < 7 Then
 			If campaign_mode Then Return "F: install recovered power coupler and launch the Ash / H: Orac scan"

@@ -242,6 +242,7 @@ Sub _ready()
 	viewport = ClassDB.Instantiate("SubViewport")
 	viewport.size = Vector2i(960, 540)
 	viewport.own_world_3d = True
+	viewport.audio_listener_enable_3d = True
 	viewport.transparent_bg = True
 	viewport.handle_input_locally = False
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED

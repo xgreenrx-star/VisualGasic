@@ -5,6 +5,8 @@ uniform vec3 interior_tint = vec3(1.0);
 uniform vec3 spill_color = vec3(0.008, 0.05, 0.075);
 uniform float depth_fog = 0.0;
 uniform vec3 fog_color = vec3(0.0);
+uniform vec3 sun_pos = vec3(0.0);
+uniform vec3 sun_color = vec3(0.0);
 varying vec3 world_point;
 varying vec3 world_normal;
 void vertex() {
@@ -30,6 +32,10 @@ void fragment() {
 	}
 	float spill = exp(-abs(abs(world_point.x) - 6.5) * 0.7);
 	satin += spill_color * spill * max(n.y, 0.0);
+	vec3 to_sun = sun_pos - world_point;
+	float sun_d = max(length(to_sun), 0.001);
+	float sun_key = max(dot(n, to_sun / sun_d), 0.0);
+	satin += sun_color * (0.04 + sun_key * 0.32) / (1.0 + sun_d * sun_d / 12100.0);
 	float haze = 1.0 - exp(-length(VERTEX) * 0.0018);
 	vec3 surface_color = mix(satin, vec3(0.065, 0.065, 0.12), haze);
 	float fog_distance = max(distance(CAMERA_POSITION_WORLD, world_point) - 28.0, 0.0) / 155.0;
