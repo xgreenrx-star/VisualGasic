@@ -10,6 +10,8 @@ uniform float eye_r = 1.0;
 uniform float eye_l = 1.0;
 uniform float gaze = 0.0;
 uniform float power = 0.0;
+// 0..1 projector fault: torn rows, chromatic fringe and dropouts.
+uniform float glitch_amt = 0.0;
 uniform float scale = 0.0175;
 uniform vec3 tint = vec3(0.45, 1.0, 1.0);
 instance uniform float fade = 1.0;
@@ -50,6 +52,7 @@ void vertex() {
 	q.y = lid(q, IRIS_R, eye_r, q.y);
 	q.y = lid(q, IRIS_L, eye_l, q.y);
 	canvas = q;
+	q.x += glitch_amt * 60.0 * (h1(floor(q.y / 22.0) + floor(TIME * 24.0)) - 0.5);
 	VERTEX = vec3((q.x - 500.0) * scale, -(q.y - 490.0) * scale, VERTEX.z);
 }
 
@@ -57,7 +60,7 @@ void fragment() {
 	float scan = 0.5 + 0.5 * step(0.0, sin(canvas.y * 0.8 - TIME * 6.0));
 	float band = smoothstep(0.93, 1.0, sin(canvas.y * 0.012 - TIME * 1.6));
 	float row = floor(canvas.y / 22.0);
-	float tear = step(0.96, h1(floor(TIME * 9.0) + row * 0.37));
+	float tear = step(0.96 - glitch_amt * 0.5, h1(floor(TIME * 9.0) + row * 0.37));
 	float flick = 0.86 + 0.14 * sin(TIME * 41.0) * sin(TIME * 7.3);
 	float glitch = step(0.975, h1(floor(TIME * 6.0)));
 	float live = mix(glitch * 0.5, 1.0, clamp(power, 0.0, 1.0));
@@ -71,5 +74,7 @@ void fragment() {
 	}
 	col *= tint * scan * flick * iris_on;
 	col += tint * band * 0.12 * COLOR.rgb + vec3(0.6, 0.9, 1.0) * tear * 0.08;
-	ALBEDO = col * live * fade;
+	float drop = 1.0 - glitch_amt * step(0.6, h1(floor(TIME * 30.0) + row));
+	col = mix(col, col.brg * vec3(1.4, 0.6, 1.6), glitch_amt * step(0.5, h1(row + floor(TIME * 20.0))));
+	ALBEDO = drop * col * live * fade;
 }

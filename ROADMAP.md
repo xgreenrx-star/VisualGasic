@@ -81,6 +81,20 @@ Full notes: [`RELEASE_NOTES_v5.4.0-beta2.md`](RELEASE_NOTES_v5.4.0-beta2.md)
 | R8 | **Allowlisted doc gaps (17)** | — | track only | `ConnectSignal`/`DisconnectSignal` deprecated names, `DataFile`/`LoadData` statement-level (not globals), `shutdown` instance method, `Speaker.Bus` alias, `Sprite Data` IDE feature — see audit report |
 | R9 | **VB6-first API gap audit (game samples + manual)** | Medium | M9 / 5.5.0 | ~1–2 days — catalog where sample `.vg` uses raw Godot (`DisplayServer`, `Input.mouse_mode`, `GetTree().Quit`) vs VB6-shaped builtins (`End`, `Screen.FullScreen`, `Connect`); decide per symbol: add VG wrapper, document in `docs/GODOT_PROGRAMMING_MANUAL.md` only, or keep Godot-native with Narcea guidance. Do **not** duplicate full Godot docs — manual links patterns; engine owns behavior. |
 
+### 🐞 Known failing regression fixtures (found Nov 4 2026)
+
+These fail on the committed engine as well (13 assertions, 6 files; 1496 pass). They are not caused by the Undercity work. Fix each, then confirm with `./run_test_suite.sh --vg-only`.
+
+| # | Fixture | Failing checks / error | Priority |
+|---|---------|------------------------|----------|
+| B1 | `test_packed_append_grow.vg` | "Invalid packed array append" at line 19: `dst.append(src(i))` on an undeclared `PackedVector3Array` local | High |
+| B2 | `test_remove_at.vg` | `Array.RemoveAt(a, -1)` static call fails with "Unsupported array base type" | Medium |
+| B3 | `test_lambda_block.vg` | `lambda_block_nested`, `lambda_block_early_return` return `<null>` | Medium |
+| B4 | `test_gap_probe.vg` | `projection_from_xform`, `dict_float_key` | Medium |
+| B5 | `test_gap_probe2.vg` | `rect_position_write`, `array_vector_write`, `on_error_goto`, `on_error_resume_next_label` | High |
+| B6 | `test_variant_type_constant.vg` | `basis_identity`, `projection_identity_zero`, `projection_ctor` | Medium |
+| B7 | `[]` / `{}` literals | `a = []` then `a.append(x)` raises "Invalid packed array append"; `d = {}` then `d("k") = v` raises "Trusted dictionary assignment base is not a dictionary". `Array()` / `New Dictionary` work | Medium |
+
 ---
 
 ## ✅ Recently Completed Features

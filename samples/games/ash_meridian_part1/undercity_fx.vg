@@ -1,0 +1,1199 @@
+' B13 Undercity eye candy: the power-up wave, puddles, sun shafts, steam, drips, dust, tower
+' windows, patrol drones, fly swarms, banners, sparks and the faults that make the city feel alive.
+' Spawned lazily by deep_stratum (fx_module) and rebuilt with every room build. It has its own RNG so
+' it never disturbs the layout's seeded stream, and keeps no reference to deep between calls.
+
+Dim dp As Object
+Dim rng As Object
+Dim wave_t0 As Single
+Dim wave_on As Boolean
+Dim wave_pushed As Boolean
+Dim fired As Dictionary
+Dim built As Boolean
+Dim glow_mat As Object
+Dim window_mat As Object
+Dim puddle_mat As Object
+Dim shafts As Array
+Dim steam As Array
+Dim drip_node As Object
+Dim dust_node As Object
+Dim dust_mat As Object
+Dim drones As Array
+Dim wrecks As Array
+Dim swarms As Array
+Dim banners As Array
+Dim sparks As Array
+Dim spark_next As Integer
+Dim pools As Dictionary
+Dim slow_t As Single
+Dim dust_t As Single
+Dim drip_t As Single
+Dim chirp_t As Single
+Dim note As String
+Dim note_until As Single
+Dim fly_noted As Boolean
+Dim screens_settled As Boolean
+Dim last_t As Single
+
+
+Function Num(ByVal value As Variant) As Single
+	If value = True Then
+		Num = 1.0
+	ElseIf value = False Then
+		Num = 0.0
+	Else
+		Num = value
+	End If
+End Function
+
+Function AsArray(ByVal items As Variant) As Array
+	Dim out As Array
+	out = Array()
+	If items = Nothing Then
+		AsArray = out
+		Exit Function
+	End If
+	For i = 0 To items.size() - 1
+		out.append(items(i))
+	Next
+	AsArray = out
+End Function
+
+Function now_s() As Single
+	Return Time.get_ticks_msec() / 1000.0
+End Function
+
+Function wave_origin() As Vector3
+	Return Vector3(-23.0, 6.0, 135.0)
+End Function
+
+' --- Power-up wave: everything lights in a ring spreading from the transfer station. ---
+Sub start_wave()
+	wave_t0 = now_s()
+	wave_on = True
+	wave_pushed = False
+	screens_settled = False
+	fired = New Dictionary
+End Sub
+
+Function wave_radius() As Single
+	Dim r As Single
+	If Not wave_on Then Return 100000.0
+	r = (now_s() - wave_t0) * 40.0
+	If r > 300.0 Then
+		wave_on = False
+		Return 100000.0
+	End If
+	Return r
+End Function
+
+' Seconds since the wave reached p: negative before it arrives, large when no wave is running.
+Function reach_age(ByVal p As Vector3) As Single
+	Dim r As Single
+	r = wave_radius()
+	If r > 99999.0 Then Return 1000.0
+	Return (r - Vector2(p.x + 23.0, p.z - 135.0).length()) / 40.0
+End Function
+
+' --- Hooks called from deep_stratum ---
+Function neon_visible(ByVal entry As Dictionary, ByVal vis As Boolean, ByVal t As Single) As Boolean
+	Dim age As Single
+	If Not vis Then Return False
+	age = reach_age(entry("p"))
+	If age < 0 Then Return False
+	If age < 1.2 Then Return Sin(t * 47.0 + Num(entry("phase"))) > 0.2
+	If entry.has("out_until") Then
+		If t < Num(entry("out_until")) Then Return Sin(t * 61.0 + Num(entry("phase"))) > 0.93
+	End If
+	Return True
+End Function
+
+Function holo_power(ByVal entry As Dictionary) As Single
+	Dim age As Single
+	age = reach_age(entry("c"))
+	If age < 0 Then Return 0.0
+	If age < 1.0 Then
+		If Sin(age * 90.0) > 0 Then Return age
+		Return 0.0
+	End If
+	Return 1.0
+End Function
+
+Function holo_glitch(ByVal entry As Dictionary) As Single
+	If Not entry.has("g_until") Then Return 0.0
+	If last_t < Num(entry("g_until")) Then Return Num(entry("g_amt"))
+	Return 0.0
+End Function
+
+Function visor_note(ByVal city As Node) As String
+	If note <> "" And now_s() < note_until Then Return note
+	Return ""
+End Function
+
+Sub _say(ByVal text As String, ByVal secs As Single)
+	note = text
+	note_until = now_s() + secs
+End Sub
+
+' --- Build ---
+Sub build(ByVal city As Node)
+	dp = city.deep
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 88216
+	If Not wave_on Then fired = New Dictionary
+	shafts = Array()
+	steam = Array()
+	drones = Array()
+	wrecks = Array()
+	swarms = Array()
+	banners = Array()
+	sparks = Array()
+	pools = New Dictionary
+	spark_next = 0
+	drip_node = Nothing
+	dust_node = Nothing
+	slow_t = -1.0
+	dust_t = -1.0
+	wave_pushed = False
+	screens_settled = False
+	_build_glow(city)
+	_build_puddles(city)
+	_build_shafts(city)
+	_build_steam(city)
+	_build_drips(city)
+	_build_dust(city)
+	_build_windows(city)
+	_build_drones(city)
+	_build_wrecks(city)
+	_build_swarms(city)
+	_build_banners(city)
+	_build_sparks(city)
+	_build_pools(city)
+	built = True
+	dp = Nothing
+End Sub
+
+Function _shader_mat(ByVal path As String) As Object
+	Dim m As Object
+	m = ClassDB.Instantiate("ShaderMaterial")
+	m.shader = Load(path)
+	Return m
+End Function
+
+Function _instance(ByVal city As Node, ByVal label As String, ByVal mesh As Object, ByVal mat As Object, ByVal at As Vector3) As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("MeshInstance3D")
+	node.name = label
+	node.mesh = mesh
+	node.material_override = mat
+	node.cast_shadow = 0
+	city.interior.add_child(node)
+	node.position = at
+	Return node
+End Function
+
+' Lit room geometry swaps to the wave/flow shader.
+Sub _build_glow(ByVal city As Node)
+	Dim root As Object
+	Dim mesh As Object
+	Dim m As Object
+	Dim lid As Integer
+	glow_mat = _shader_mat("res://shaders/undercity_glow.gdshader")
+	If dp.grid_power Then glow_mat.set_shader_parameter("pulse", 1.0)
+	root = city.room_mesh
+	If root = Nothing Or city.light_material = Nothing Then Exit Sub
+	lid = city.light_material.get_instance_id()
+	For Each part In root.get_children()
+		If part.is_class("MeshInstance3D") Then
+			mesh = part.mesh
+			If mesh <> Nothing Then
+				For i = 0 To mesh.get_surface_count() - 1
+					m = mesh.surface_get_material(i)
+					If m <> Nothing Then
+						If m.get_instance_id() = lid Then part.set_surface_override_material(i, glow_mat)
+					End If
+				Next
+			End If
+		End If
+	Next
+End Sub
+
+Function _street_spot(ByVal x0 As Single, ByVal x1 As Single, ByVal z0 As Single, ByVal z1 As Single, ByVal margin As Single) As Vector2
+	Dim p As Vector2
+	For k = 1 To 40
+		p = Vector2(rng.randf_range(x0, x1), rng.randf_range(z0, z1))
+		If dp._uc_street(p) And dp._uc_street(p + Vector2(margin, margin)) And dp._uc_street(p - Vector2(margin, margin)) And dp._uc_street(p + Vector2(margin, 0 - margin)) And dp._uc_street(p + Vector2(0 - margin, margin)) Then Return p
+	Next
+	Return Vector2(-9999, -9999)
+End Function
+
+Function _palette() As Array
+	Return Array(Color(0.2, 0.85, 1.0), Color(1.0, 0.2, 0.7), Color(1.0, 0.6, 0.15), Color(0.5, 1.0, 0.3), Color(0.6, 0.35, 1.0))
+End Function
+
+Sub _flat_quad(ByVal st As Object, ByVal c As Vector2, ByVal a As Single, ByVal b As Single, ByVal ang As Single, ByVal y As Single, ByVal col As Color)
+	Dim u As Vector2
+	Dim v As Vector2
+	Dim pts As Array
+	Dim uvs As Array
+	u = Vector2(Cos(ang), Sin(ang)) * a
+	v = Vector2(0 - Sin(ang), Cos(ang)) * b
+	pts = Array(c - u - v, c + u - v, c + u + v, c - u + v)
+	uvs = Array(Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1))
+	For Each i In Array(0, 1, 2, 0, 2, 3)
+		st.set_color(col)
+		st.set_uv(uvs(i))
+		st.set_normal(Vector3(0, 1, 0))
+		st.add_vertex(Vector3(pts(i).x, y, pts(i).y))
+	Next
+End Sub
+
+' Rain-slick puddles on the street; their neon streaks come alive with the grid.
+Sub _build_puddles(ByVal city As Node)
+	Dim st As Object
+	Dim p As Vector2
+	Dim s As Single
+	Dim pal As Array
+	Dim n As Integer
+	pal = _palette()
+	st = ClassDB.Instantiate("SurfaceTool")
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	n = 0
+	For k = 1 To 70
+		s = rng.randf_range(1.2, 3.0)
+		p = _street_spot(-118, 118, 2, 286, s)
+		If p.x > -9000 Then
+			_flat_quad(st, p, s * rng.randf_range(1.0, 1.8), s, rng.randf() * 3.14, 6.015, pal(rng.randi_range(0, pal.size() - 1)))
+			n = n + 1
+		End If
+	Next
+	If n = 0 Then Exit Sub
+	puddle_mat = _shader_mat("res://shaders/undercity_puddle.gdshader")
+	If dp.grid_power Then puddle_mat.set_shader_parameter("power", 1.0)
+	_instance(city, "Puddles", st.commit(), puddle_mat, Vector3(0, 0, 0))
+End Sub
+
+' God-rays hanging under the artificial sun; they follow it across the ceiling.
+Sub _build_shafts(ByVal city As Node)
+	Dim cyl As Object
+	Dim node As Object
+	Dim mat As Object
+	Dim sun As Object
+	sun = dp.sun_node
+	If sun = Nothing Then Exit Sub
+	For k = 0 To 2
+		cyl = ClassDB.Instantiate("CylinderMesh")
+		cyl.top_radius = 1.2 + k * 0.5
+		cyl.bottom_radius = 8.0 + k * 4.0
+		cyl.height = 46.0
+		cyl.cap_top = False
+		cyl.cap_bottom = False
+		cyl.radial_segments = 20
+		cyl.rings = 1
+		mat = _shader_mat("res://shaders/undercity_shaft.gdshader")
+		mat.set_shader_parameter("len", 46.0)
+		mat.set_shader_parameter("tint", Color(1.0, 0.22 + k * 0.05, 0.08))
+		node = ClassDB.Instantiate("MeshInstance3D")
+		node.name = "SunShaft"
+		node.mesh = cyl
+		node.material_override = mat
+		node.cast_shadow = 0
+		sun.add_child(node)
+		node.position = Vector3((k - 1) * 3.0, -24.5, (k - 1) * -2.0)
+		node.rotation = Vector3((k - 1) * 0.1, 0, (k - 1) * 0.14)
+		shafts.append(mat)
+	Next
+End Sub
+
+Function _soft_dot() As Object
+	Dim g As Object
+	Dim tex As Object
+	g = ClassDB.Instantiate("Gradient")
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	tex = ClassDB.Instantiate("GradientTexture2D")
+	tex.gradient = g
+	tex.fill = 1
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	tex.width = 32
+	tex.height = 32
+	Return tex
+End Function
+
+Function _fade_ramp(ByVal a As Color, ByVal b As Color) As Object
+	Dim g As Object
+	g = ClassDB.Instantiate("Gradient")
+	g.set_color(0, a)
+	g.set_color(1, b)
+	Return g
+End Function
+
+Function _billboard_mat(ByVal tex As Object, ByVal additive As Boolean) As Object
+	Dim m As Object
+	m = ClassDB.Instantiate("StandardMaterial3D")
+	m.shading_mode = 0
+	m.transparency = 1
+	If additive Then m.blend_mode = 1
+	m.billboard_mode = 3
+	m.vertex_color_use_as_albedo = True
+	m.no_depth_test = False
+	If tex <> Nothing Then m.albedo_texture = tex
+	Return m
+End Function
+
+' Street grates breathing steam; emitters only run near the player.
+Sub _build_steam(ByVal city As Node)
+	Dim p As Vector2
+	Dim node As Object
+	Dim quad As Object
+	Dim mat As Object
+	Dim entry As Dictionary
+	Dim spots As Array
+	Dim ok As Boolean
+	quad = ClassDB.Instantiate("QuadMesh")
+	quad.size = Vector2(1.6, 1.6)
+	mat = _billboard_mat(_soft_dot(), False)
+	spots = Array()
+	For k = 1 To 60
+		If spots.size() >= 14 Then Exit For
+		p = _street_spot(-116, 116, 4, 284, 1.5)
+		ok = (p.x > -9000)
+		For Each q In spots
+			If q.distance_to(p) < 25 Then ok = False
+		Next
+		If ok Then spots.append(p)
+	Next
+	For Each q In spots
+		city._box(Vector3(q.x - 0.9, 6.0, q.y - 0.6), Vector3(1.8, 0.04, 1.2), city.INK)
+		For j = 0 To 4
+			city._box(Vector3(q.x - 0.8 + j * 0.38, 6.03, q.y - 0.5), Vector3(0.12, 0.02, 1.0), Color(1.0, 0.35, 0.08) * 0.25, True)
+		Next
+	Next
+	If spots.size() > 0 Then dp._attach(city, "SteamGrates", Vector3(0, 0, 0))
+	For Each q In spots
+		node = ClassDB.Instantiate("CPUParticles3D")
+		node.name = "Steam"
+		node.amount = 22
+		node.lifetime = 3.5
+		node.mesh = quad
+		node.material_override = mat
+		node.emission_shape = 1
+		node.emission_sphere_radius = 0.5
+		node.direction = Vector3(0, 1, 0)
+		node.spread = 14.0
+		node.initial_velocity_min = 1.2
+		node.initial_velocity_max = 2.4
+		node.gravity = Vector3(0.15, 0.3, 0.0)
+		node.damping_min = 0.3
+		node.damping_max = 0.6
+		node.scale_amount_min = 1.0
+		node.scale_amount_max = 2.6
+		node.color_ramp = _fade_ramp(Color(0.55, 0.62, 0.7, 0.22), Color(0.4, 0.45, 0.55, 0.0))
+		node.emitting = False
+		city.interior.add_child(node)
+		node.position = Vector3(q.x, 6.05, q.y)
+		entry = New Dictionary
+		entry("p") = Vector3(q.x, 6.5, q.y)
+		entry("node") = node
+		steam.append(entry)
+	Next
+End Sub
+
+' Condensation dripping from the cavern roof: one MultiMesh, animated in the shader.
+Sub _build_drips(ByVal city As Node)
+	Dim mm As Object
+	Dim box As Object
+	Dim p As Vector2
+	Dim n As Integer
+	Dim pts As Array
+	pts = Array()
+	For k = 1 To 600
+		If pts.size() >= 260 Then Exit For
+		p = Vector2(rng.randf_range(-118, 118), rng.randf_range(2, 286))
+		If dp._uc_street(p) Then pts.append(p)
+	Next
+	n = pts.size()
+	If n = 0 Then Exit Sub
+	box = ClassDB.Instantiate("BoxMesh")
+	box.size = Vector3(0.025, 0.14, 0.025)
+	mm = ClassDB.Instantiate("MultiMesh")
+	mm.transform_format = 1
+	mm.use_custom_data = True
+	mm.mesh = box
+	mm.instance_count = n
+	For i = 0 To n - 1
+		mm.set_instance_transform(i, Transform3D(Basis(), Vector3(pts(i).x, 0, pts(i).y)))
+		mm.set_instance_custom_data(i, Color(rng.randf(), rng.randf_range(0.08, 0.3), 0, 0))
+	Next
+	drip_node = ClassDB.Instantiate("MultiMeshInstance3D")
+	drip_node.name = "CeilingDrips"
+	drip_node.multimesh = mm
+	drip_node.material_override = _shader_mat("res://shaders/undercity_drip.gdshader")
+	drip_node.cast_shadow = 0
+	drip_node.custom_aabb = AABB(Vector3(-120, 0, 0), Vector3(240, 62, 290))
+	city.interior.add_child(drip_node)
+End Sub
+
+' Airborne dust around the player, lit by whatever glows nearby.
+Sub _build_dust(ByVal city As Node)
+	Dim quad As Object
+	quad = ClassDB.Instantiate("QuadMesh")
+	quad.size = Vector2(0.05, 0.05)
+	dust_mat = _shader_mat("res://shaders/undercity_dust.gdshader")
+	dust_node = ClassDB.Instantiate("CPUParticles3D")
+	dust_node.name = "Dust"
+	dust_node.amount = 360
+	dust_node.lifetime = 9.0
+	dust_node.preprocess = 9.0
+	dust_node.local_coords = False
+	dust_node.mesh = quad
+	dust_node.material_override = dust_mat
+	dust_node.emission_shape = 3
+	dust_node.emission_box_extents = Vector3(16, 6, 16)
+	dust_node.direction = Vector3(1, 0.2, 0)
+	dust_node.spread = 180.0
+	dust_node.initial_velocity_min = 0.05
+	dust_node.initial_velocity_max = 0.25
+	dust_node.gravity = Vector3(0, -0.02, 0)
+	dust_node.color_ramp = _fade_ramp(Color(1, 1, 1, 1), Color(1, 1, 1, 0))
+	city.interior.add_child(dust_node)
+	dust_node.position = Vector3(city.position_xz.x, 8.0, city.position_xz.y)
+End Sub
+
+' Procedural windows: one quad per tower face; lit, flickering, silhouetted and a few terminals.
+Sub _build_windows(ByVal city As Node)
+	Dim mm As Object
+	Dim quad As Object
+	Dim faces As Array
+	Dim r As Rect2
+	Dim y0 As Single
+	Dim y1 As Single
+	Dim c As Vector3
+	Dim n As Vector3
+	Dim right As Vector3
+	Dim w As Single
+	Dim f As Array
+	Dim skip As Boolean
+	Dim sc As Vector3
+	Dim node As Object
+	faces = Array()
+	For Each tw In AsArray(dp.towers)
+		r = tw("r")
+		y0 = Num(tw("base")) + 4.0
+		y1 = Num(tw("base")) + Num(tw("h")) - 1.5
+		If y1 - y0 > 3.0 Then
+			For Each side In Array(0, 1, 2, 3)
+				If side = 0 Then
+					n = Vector3(0, 0, -1)
+					c = Vector3(r.get_center().x, (y0 + y1) * 0.5, r.position.y - 0.05)
+					w = r.size.x - 1.2
+				ElseIf side = 1 Then
+					n = Vector3(0, 0, 1)
+					c = Vector3(r.get_center().x, (y0 + y1) * 0.5, r.end.y + 0.05)
+					w = r.size.x - 1.2
+				ElseIf side = 2 Then
+					n = Vector3(-1, 0, 0)
+					c = Vector3(r.position.x - 0.05, (y0 + y1) * 0.5, r.get_center().y)
+					w = r.size.y - 1.2
+				Else
+					n = Vector3(1, 0, 0)
+					c = Vector3(r.end.x + 0.05, (y0 + y1) * 0.5, r.get_center().y)
+					w = r.size.y - 1.2
+				End If
+				skip = (w < 2.0 Or Abs(c.x) > 119.5 Or c.z > 287.5)
+				For Each s In AsArray(dp.screens)
+					sc = s("c")
+					If Abs((sc - c).dot(n)) < 0.6 And Abs((sc - c).dot(n.cross(Vector3.UP))) < w * 0.5 + Num(s("w")) * 0.5 Then skip = True
+				Next
+				If Not skip Then faces.append(Array(c, n, w, y1 - y0, tw("glow")))
+			Next
+		End If
+	Next
+	If faces.size() = 0 Then Exit Sub
+	quad = ClassDB.Instantiate("QuadMesh")
+	quad.size = Vector2(1, 1)
+	mm = ClassDB.Instantiate("MultiMesh")
+	mm.transform_format = 1
+	mm.use_colors = True
+	mm.use_custom_data = True
+	mm.mesh = quad
+	mm.instance_count = faces.size()
+	For i = 0 To faces.size() - 1
+		f = faces(i)
+		n = f(1)
+		right = Vector3.UP.cross(n)
+		mm.set_instance_transform(i, Transform3D(Basis(right * Num(f(2)), Vector3(0, Num(f(3)), 0), n), f(0)))
+		mm.set_instance_color(i, f(4))
+		mm.set_instance_custom_data(i, Color(Int(Num(f(2)) / 2.4), Int(Num(f(3)) / 3.2), rng.randf() * 50.0, 0))
+	Next
+	window_mat = _shader_mat("res://shaders/undercity_window.gdshader")
+	If dp.grid_power Then window_mat.set_shader_parameter("power", 1.0)
+	node = ClassDB.Instantiate("MultiMeshInstance3D")
+	node.name = "TowerWindows"
+	node.multimesh = mm
+	node.material_override = window_mat
+	node.cast_shadow = 0
+	city.interior.add_child(node)
+End Sub
+
+Function _cone(ByVal top_r As Single, ByVal bottom_r As Single, ByVal h As Single) As Object
+	Dim cyl As Object
+	cyl = ClassDB.Instantiate("CylinderMesh")
+	cyl.top_radius = top_r
+	cyl.bottom_radius = bottom_r
+	cyl.height = h
+	cyl.cap_top = False
+	cyl.cap_bottom = False
+	cyl.radial_segments = 16
+	cyl.rings = 1
+	Return cyl
+End Function
+
+Function _plain(ByVal col As Color) As Object
+	Dim m As Object
+	m = ClassDB.Instantiate("StandardMaterial3D")
+	m.shading_mode = 0
+	m.albedo_color = col
+	Return m
+End Function
+
+' Patrol drones sweeping the streets with scan beams.
+Sub _build_drones(ByVal city As Node)
+	Dim routes As Array
+	Dim node As Object
+	Dim box As Object
+	Dim part As Object
+	Dim beam As Object
+	Dim mat As Object
+	Dim entry As Dictionary
+	Dim rt As Array
+	routes = Array(Array(Vector2(-45, 160), Vector2(10, 70), 26.0, 0.11), Array(Vector2(0, 110), Vector2(60, 8), 30.0, -0.08), Array(Vector2(-90, 210), Vector2(8, 55), 22.0, 0.13), Array(Vector2(30, 250), Vector2(45, 12), 34.0, -0.1))
+	For Each rt In routes
+		node = ClassDB.Instantiate("Node3D")
+		node.name = "PatrolDrone"
+		city.interior.add_child(node)
+		box = ClassDB.Instantiate("BoxMesh")
+		box.size = Vector3(1.4, 0.35, 1.4)
+		part = ClassDB.Instantiate("MeshInstance3D")
+		part.mesh = box
+		part.material_override = _plain(Color(0.03, 0.035, 0.045))
+		node.add_child(part)
+		box = ClassDB.Instantiate("BoxMesh")
+		box.size = Vector3(1.6, 0.06, 0.12)
+		For Each ang In Array(0.785, -0.785)
+			part = ClassDB.Instantiate("MeshInstance3D")
+			part.mesh = box
+			part.material_override = _plain(Color(0.2, 0.9, 1.0))
+			node.add_child(part)
+			part.rotation.y = ang
+			part.position.y = 0.2
+		Next
+		box = ClassDB.Instantiate("BoxMesh")
+		box.size = Vector3(0.22, 0.22, 0.22)
+		part = ClassDB.Instantiate("MeshInstance3D")
+		part.mesh = box
+		part.material_override = _plain(Color(1.0, 0.08, 0.05))
+		node.add_child(part)
+		part.position.y = -0.25
+		mat = _shader_mat("res://shaders/undercity_shaft.gdshader")
+		mat.set_shader_parameter("tint", Color(0.3, 0.9, 1.0))
+		mat.set_shader_parameter("len", 24.0)
+		mat.set_shader_parameter("strength", 2.2)
+		beam = ClassDB.Instantiate("MeshInstance3D")
+		beam.mesh = _cone(0.2, 3.2, 24.0)
+		beam.material_override = mat
+		beam.cast_shadow = 0
+		node.add_child(beam)
+		beam.position.y = -12.3
+		entry = New Dictionary
+		entry("c") = rt(0)
+		entry("rad") = rt(1)
+		entry("y") = Num(rt(2))
+		entry("w") = Num(rt(3))
+		entry("node") = node
+		entry("beam") = mat
+		entry("lamp") = part
+		entry("foot") = Vector3(rt(0).x, 6.2, rt(0).y)
+		entry("alert") = -100.0
+		If city.sfx_bus <> Nothing Then entry("snd") = city.sfx_bus.attach_loop(node, "drone_hum", -6.0, 6.0)
+		drones.append(entry)
+	Next
+End Sub
+
+' Two drones that fell out of the sky and still spark.
+Sub _build_wrecks(ByVal city As Node)
+	Dim node As Object
+	Dim entry As Dictionary
+	For Each w In Array(Array(Vector2(-42, 185), 0.6), Array(Vector2(93, 75), -0.4))
+		city._box(Vector3(-0.7, 0.0, -0.7), Vector3(1.4, 0.35, 1.4), Color(0.03, 0.035, 0.045))
+		city._bar(Vector3(-0.8, 0.4, -0.1), Vector3(0.6, 0.4, 0.5), 0.08, Color(0.2, 0.9, 1.0) * 0.25, True)
+		city._bar(Vector3(0.6, 0.2, -0.6), Vector3(1.6, 0.05, -1.1), 0.06, Color(0.2, 0.9, 1.0) * 0.15, True)
+		city._box(Vector3(-0.1, 0.36, -0.1), Vector3(0.2, 0.2, 0.2), Color(1.0, 0.08, 0.05) * 0.5, True)
+		node = dp._attach(city, "DroneWreck", Vector3(w(0).x, 6.05, w(0).y))
+		node.rotation = Vector3(0.25, Num(w(1)), 0.4)
+		entry = New Dictionary
+		entry("p") = Vector3(w(0).x, 6.5, w(0).y)
+		entry("next") = 0.0
+		wrecks.append(entry)
+	Next
+End Sub
+
+' Fly swarms around the surveillance cameras. A few of the flies have red eyes.
+Sub _build_swarms(ByVal city As Node)
+	Dim spots As Array
+	Dim c As Vector3
+	Dim node As Object
+	Dim mm As Object
+	Dim quad As Object
+	Dim mat As Object
+	Dim entry As Dictionary
+	Dim n As Integer
+	spots = Array(Array(Vector3(-82.5, 10.6, 67.5), True), Array(Vector3(7.5, 10.6, 217.5), True), Array(Vector3(37.5, 10.6, 102.5), True), Array(Vector3(-37.5, 10.6, 252.5), True), Array(Vector3(-118.6, 9.2, 66.5), False))
+	For Each sp In spots
+		c = sp(0)
+		If sp(1) Then
+			city._box(Vector3(c.x - 0.08, 6.0, c.z - 0.08), Vector3(0.16, c.y - 6.0 - 0.3, 0.16), city.INK)
+			city._box(Vector3(c.x - 0.25, c.y - 0.45, c.z - 0.35), Vector3(0.5, 0.35, 0.7), Color(0.04, 0.045, 0.05))
+			city._box(Vector3(c.x - 0.08, c.y - 0.35, c.z + 0.34), Vector3(0.16, 0.16, 0.04), Color(1.0, 0.05, 0.03), True)
+		End If
+	Next
+	dp._attach(city, "SwarmCameras", Vector3(0, 0, 0))
+	quad = ClassDB.Instantiate("QuadMesh")
+	quad.size = Vector2(0.07, 0.07)
+	For Each sp In spots
+		c = sp(0)
+		n = 70
+		mm = ClassDB.Instantiate("MultiMesh")
+		mm.transform_format = 1
+		mm.use_custom_data = True
+		mm.mesh = quad
+		mm.instance_count = n
+		For i = 0 To n - 1
+			mm.set_instance_transform(i, Transform3D())
+			mm.set_instance_custom_data(i, Color(rng.randf(), rng.randf(), rng.randf(), rng.randf()))
+		Next
+		mat = _shader_mat("res://shaders/undercity_swarm.gdshader")
+		node = ClassDB.Instantiate("MultiMeshInstance3D")
+		node.name = "FlySwarm"
+		node.multimesh = mm
+		node.material_override = mat
+		node.cast_shadow = 0
+		node.custom_aabb = AABB(Vector3(-10, -6, -10), Vector3(20, 16, 20))
+		city.interior.add_child(node)
+		node.position = c + Vector3(0, 0.6, 0)
+		entry = New Dictionary
+		entry("p") = c
+		entry("mat") = mat
+		entry("scatter") = 0.0
+		swarms.append(entry)
+	Next
+End Sub
+
+' Torn cloth banners on cables strung between facing towers.
+Sub _build_banners(ByVal city As Node)
+	Dim towers As Array
+	Dim a As Dictionary
+	Dim b As Dictionary
+	Dim ra As Rect2
+	Dim rb As Rect2
+	Dim cands As Array
+	Dim lo As Single
+	Dim hi As Single
+	Dim gap As Single
+	Dim y As Single
+	Dim cd As Array
+	Dim plane As Object
+	Dim mat As Object
+	Dim node As Object
+	Dim pal As Array
+	Dim mid As Single
+	Dim entry As Dictionary
+	Dim pick As Integer
+	towers = AsArray(dp.towers)
+	cands = Array()
+	For i = 0 To towers.size() - 1
+		For j = 0 To towers.size() - 1
+			If i <> j Then
+				a = towers(i)
+				b = towers(j)
+				ra = a("r")
+				rb = b("r")
+				y = Min(Num(a("base")) + Num(a("h")), Num(b("base")) + Num(b("h"))) - 7.0
+				If y > 30.0 Then y = 30.0
+				gap = rb.position.y - ra.end.y
+				lo = Max(ra.position.x, rb.position.x)
+				hi = Min(ra.end.x, rb.end.x)
+				If gap > 8 And gap < 22 And hi - lo > 6 And y > 14 Then cands.append(Array(Vector3((lo + hi) * 0.5, y, ra.end.y), Vector3((lo + hi) * 0.5, y, rb.position.y), a("glow")))
+				gap = rb.position.x - ra.end.x
+				lo = Max(ra.position.y, rb.position.y)
+				hi = Min(ra.end.y, rb.end.y)
+				If gap > 8 And gap < 22 And hi - lo > 6 And y > 14 Then cands.append(Array(Vector3(ra.end.x, y, (lo + hi) * 0.5), Vector3(rb.position.x, y, (lo + hi) * 0.5), a("glow")))
+			End If
+		Next
+	Next
+	pal = _palette()
+	For k = 1 To 8
+		If cands.size() = 0 Then Exit For
+		pick = rng.randi_range(0, cands.size() - 1)
+		cd = cands(pick)
+		cands.remove_at(pick)
+		city._bar(cd(0), cd(1), 0.05, Color(0.05, 0.05, 0.06), False)
+		gap = cd(0).distance_to(cd(1))
+		plane = ClassDB.Instantiate("PlaneMesh")
+		plane.orientation = 2
+		plane.size = Vector2(gap - 2.5, 6.0)
+		plane.subdivide_width = 10
+		plane.subdivide_depth = 8
+		mat = _shader_mat("res://shaders/undercity_banner.gdshader")
+		mat.set_shader_parameter("half_h", 3.0)
+		mat.set_shader_parameter("seed", rng.randf() * 10.0)
+		mat.set_shader_parameter("cloth", Color(rng.randf_range(0.15, 0.35), rng.randf_range(0.03, 0.12), rng.randf_range(0.04, 0.12)))
+		mat.set_shader_parameter("print_col", pal(rng.randi_range(0, pal.size() - 1)))
+		mat.set_shader_parameter("light_col", cd(2) * 0.35)
+		If dp.grid_power Then mat.set_shader_parameter("power", 1.0)
+		node = ClassDB.Instantiate("MeshInstance3D")
+		node.name = "Banner"
+		node.mesh = plane
+		node.material_override = mat
+		node.cast_shadow = 0
+		city.interior.add_child(node)
+		node.position = (cd(0) + cd(1)) * 0.5 - Vector3(0, 3.05, 0)
+		If Abs(cd(1).z - cd(0).z) > Abs(cd(1).x - cd(0).x) Then node.rotation.y = PI * 0.5
+		banners.append(node)
+	Next
+	If banners.size() > 0 Then dp._attach(city, "BannerCables", Vector3(0, 0, 0))
+End Sub
+
+Sub _build_sparks(ByVal city As Node)
+	Dim box As Object
+	Dim mat As Object
+	Dim node As Object
+	box = ClassDB.Instantiate("QuadMesh")
+	box.size = Vector2(0.06, 0.06)
+	mat = _billboard_mat(Nothing, True)
+	For k = 0 To 5
+		node = ClassDB.Instantiate("CPUParticles3D")
+		node.name = "Sparks"
+		node.amount = 26
+		node.lifetime = 0.7
+		node.one_shot = True
+		node.explosiveness = 0.92
+		node.emitting = False
+		node.local_coords = False
+		node.mesh = box
+		node.material_override = mat
+		node.direction = Vector3(0, 1, 0)
+		node.spread = 70.0
+		node.initial_velocity_min = 2.5
+		node.initial_velocity_max = 6.0
+		node.gravity = Vector3(0, -9.8, 0)
+		node.color_ramp = _fade_ramp(Color(1.0, 0.95, 0.6, 1), Color(1.0, 0.3, 0.05, 0))
+		city.interior.add_child(node)
+		sparks.append(node)
+	Next
+End Sub
+
+Sub fire_sparks(ByVal city As Node, ByVal p As Vector3, ByVal sound As Boolean)
+	Dim node As Object
+	If sparks.size() = 0 Then Exit Sub
+	node = sparks(spark_next)
+	spark_next = (spark_next + 1) Mod sparks.size()
+	node.position = p
+	node.restart()
+	node.emitting = True
+	If sound And city.sfx_bus <> Nothing Then city.sfx_bus.fire_at("spark_crackle", p, -4.0, 4.0)
+End Sub
+
+' Loop anchors that hop to the nearest emitter of their kind.
+Sub _build_pools(ByVal city As Node)
+	Dim bus As Object
+	Dim list As Array
+	Dim node As Object
+	bus = city.sfx_bus
+	If bus = Nothing Then Exit Sub
+	For Each spec In Array(Array("neon_buzz", 2, -10.0, 2.0), Array("steam_hiss", 2, -8.0, 3.0), Array("fly_buzz", 1, -6.0, 1.5))
+		list = Array()
+		For k = 1 To spec(1)
+			node = ClassDB.Instantiate("Node3D")
+			node.name = "FxAudio"
+			city.interior.add_child(node)
+			list.append(Array(node, bus.attach_loop(node, spec(0), Num(spec(2)), Num(spec(3)))))
+		Next
+		pools(spec(0)) = list
+	Next
+End Sub
+
+' Move each anchor of a pool to one of the nearest points (Array of Vector3); pause the rest.
+Sub _place_pool(ByVal name_key As String, ByVal pts As Array, ByVal me_p As Vector3, ByVal reach As Single)
+	Dim list As Array
+	Dim used As Dictionary
+	Dim best As Integer
+	Dim bd As Single
+	Dim d As Single
+	Dim snd As Object
+	If Not pools.has(name_key) Then Exit Sub
+	list = pools(name_key)
+	used = New Dictionary
+	For Each slot In list
+		best = -1
+		bd = reach
+		For i = 0 To pts.size() - 1
+			If Not used.has(i) Then
+				d = pts(i).distance_to(me_p)
+				If d < bd Then
+					bd = d
+					best = i
+				End If
+			End If
+		Next
+		snd = slot(1)
+		If best >= 0 Then
+			used(best) = True
+			slot(0).position = pts(best)
+			If snd <> Nothing Then snd.stream_paused = False
+		ElseIf snd <> Nothing Then
+			snd.stream_paused = True
+		End If
+	Next
+End Sub
+
+' --- Per frame ---
+Sub animate(ByVal city As Node, ByVal t As Single)
+	Dim me_p As Vector3
+	Dim live As Boolean
+	Dim r As Single
+	If Not built Then Exit Sub
+	dp = city.deep
+	last_t = t
+	live = dp.grid_power
+	me_p = Vector3(city.position_xz.x, dp.foot(city) + 1.6, city.position_xz.y)
+	r = wave_radius()
+	If wave_on Or Not wave_pushed Then
+		If glow_mat <> Nothing Then
+			glow_mat.set_shader_parameter("wave_radius", r)
+			If live Then glow_mat.set_shader_parameter("pulse", 1.0)
+		End If
+		If window_mat <> Nothing Then window_mat.set_shader_parameter("wave_radius", r)
+		_relays(city, r, me_p)
+		wave_pushed = Not wave_on
+	End If
+	_screens(city, t, live)
+	_lights(city, t, me_p, live)
+	_drones(city, t, me_p, live)
+	_swarm_tick(city, me_p)
+	If dust_node <> Nothing Then dust_node.position = Vector3(me_p.x, me_p.y, me_p.z)
+	For Each sm In shafts
+		sm.set_shader_parameter("strength", dp.sun_glow())
+	Next
+	If t - slow_t > 0.5 Or t < slow_t Then
+		slow_t = t
+		_slow(city, t, me_p, live)
+	End If
+	If t - dust_t > 1.0 Or t < dust_t Then
+		dust_t = t
+		_dust_lights(city, me_p, live)
+	End If
+	dp = Nothing
+End Sub
+
+' Relays clunk as the wave passes each tower near the player.
+Sub _relays(ByVal city As Node, ByVal r As Single, ByVal me_p As Vector3)
+	Dim tw As Dictionary
+	Dim c As Vector3
+	Dim key As String
+	Dim list As Array
+	If Not wave_on Or city.sfx_bus = Nothing Then Exit Sub
+	list = dp.towers
+	For i = 0 To list.size() - 1
+		tw = list(i)
+		c = Vector3(tw("r").get_center().x, 8.0, tw("r").get_center().y)
+		key = "t" & Str(i)
+		If Not fired.has(key) And reach_age(c) >= 0 Then
+			fired(key) = True
+			If c.distance_to(me_p) < 70 Then city.sfx_bus.fire_at("relay_clunk", c, -2.0, 6.0)
+		End If
+	Next
+End Sub
+
+Sub _screens(ByVal city As Node, ByVal t As Single, ByVal live As Boolean)
+	Dim age As Single
+	Dim mat As Object
+	Dim key As String
+	Dim busy As Boolean
+	Dim list As Array
+	Dim sc As Dictionary
+	If screens_settled Or Not live Then Exit Sub
+	busy = False
+	list = dp.screens
+	For i = 0 To list.size() - 1
+		sc = list(i)
+		If sc("node") <> Nothing Then
+			mat = sc("node").material_override
+			age = reach_age(sc("c"))
+			If age < 0 Then
+				mat.set_shader_parameter("power", 0.0)
+				busy = True
+			Else
+				mat.set_shader_parameter("power", 1.0)
+				mat.set_shader_parameter("boot", Min(1.0, age / 1.6))
+				If age < 1.6 Then busy = True
+				key = "s" & Str(i)
+				If Not fired.has(key) And age < 50 Then
+					fired(key) = True
+					If city.sfx_bus <> Nothing Then city.sfx_bus.fire_at("screen_boot", sc("c"), -2.0, 8.0)
+				End If
+			End If
+		End If
+	Next
+	screens_settled = Not busy
+End Sub
+
+' Up to six fake point lights on the shell: moving trains, plaza screens, drone footprints.
+Sub _lights(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal live As Boolean)
+	Dim cand As Array
+	Dim pos As PackedColorArray
+	Dim col As PackedColorArray
+	Dim node As Object
+	Dim c As Vector3
+	Dim hue As Single
+	Dim best As Integer
+	Dim bd As Single
+	Dim d As Single
+	Dim tint As Color
+	Dim more As Boolean
+	cand = Array()
+	If live Then
+		For Each tr In AsArray(dp.trains)
+			If tr.has("moving") Then
+				If tr("moving") Then
+					node = tr("nodes")(1)
+					If node <> Nothing Then
+						tint = tr("color")
+						cand.append(Array(node.position + Vector3(0, 2.0, 0), 16.0, Color(tint.r, tint.g, tint.b, 1.3)))
+					End If
+				End If
+			End If
+		Next
+		For Each s In AsArray(dp.screens)
+			c = s("c")
+			If c.x > 100 And reach_age(c) > 0 Then
+				hue = (t * 0.04 + Num(s("seed")) * 0.13) * 6.2831
+				tint = Color(0.6 + 0.4 * Sin(hue), 0.6 + 0.4 * Sin(hue + 2.1), 0.6 + 0.4 * Sin(hue + 4.2))
+				cand.append(Array(c + s("n") * 7.0, 34.0, Color(tint.r, tint.g, tint.b, 0.55)))
+			End If
+		Next
+	End If
+	For Each dr In drones
+		cand.append(Array(dr("foot"), 7.0, Color(0.3, 0.9, 1.0, 0.9)))
+	Next
+	pos = PackedColorArray()
+	col = PackedColorArray()
+	more = True
+	While more And pos.size() < 6 And cand.size() > 0
+		best = 0
+		bd = 1000000.0
+		For i = 0 To cand.size() - 1
+			d = cand(i)(0).distance_to(me_p) - Num(cand(i)(1))
+			If d < bd Then
+				bd = d
+				best = i
+			End If
+		Next
+		If bd > 40 Then
+			more = False
+		Else
+			c = cand(best)(0)
+			pos.append(Color(c.x, c.y, c.z, Num(cand(best)(1))))
+			col.append(cand(best)(2))
+			cand.remove_at(best)
+		End If
+	Wend
+	While pos.size() < 6
+		pos.append(Color(0, -1000, 0, 1))
+		col.append(Color(0, 0, 0, 0))
+	Wend
+	If city.shell_material = Nothing Then Exit Sub
+	city.shell_material.set_shader_parameter("pl_pos", pos)
+	city.shell_material.set_shader_parameter("pl_col", col)
+	city.shell_material.set_shader_parameter("pl_count", 6)
+End Sub
+
+Sub _drones(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal live As Boolean)
+	Dim a As Single
+	Dim p As Vector3
+	Dim c As Vector2
+	Dim rad As Vector2
+	Dim node As Object
+	Dim on_street As Boolean
+	on_street = (me_p.y < 10.0)
+	For Each dr In drones
+		a = t * Num(dr("w")) + Num(dr("y"))
+		c = dr("c")
+		rad = dr("rad")
+		p = Vector3(c.x + Cos(a) * rad.x, Num(dr("y")) + Sin(t * 0.7 + a) * 0.6, c.y + Sin(a) * rad.y)
+		node = dr("node")
+		node.position = p
+		node.rotation.y = 0 - a
+		node.rotation.z = Sin(t * 1.3 + a) * 0.08
+		dr("foot") = Vector3(p.x, 6.2, p.z)
+		dr("lamp").visible = (Sin(t * 6.0 + a) > 0.3 Or t - Num(dr("alert")) < 3.0)
+		If on_street And Vector2(p.x - me_p.x, p.z - me_p.z).length() < 3.6 Then
+			If t - Num(dr("alert")) > 25.0 Or t < Num(dr("alert")) Then
+				dr("alert") = t
+				dr("beam").set_shader_parameter("tint", Color(1.0, 0.15, 0.1))
+				If city.sfx_bus <> Nothing Then city.sfx_bus.fire_at("drone_chirp", p, 0.0, 6.0)
+				_say("DRONE SCAN: UNREGISTERED MIND LOGGED. REPORT TO YOUR TRANSIT HALL.", 4.0)
+			End If
+		ElseIf t - Num(dr("alert")) > 3.0 Then
+			dr("beam").set_shader_parameter("tint", Color(0.3, 0.9, 1.0))
+		End If
+	Next
+End Sub
+
+Sub _swarm_tick(ByVal city As Node, ByVal me_p As Vector3)
+	Dim d As Single
+	Dim want As Single
+	Dim s As Single
+	For Each sw In swarms
+		d = sw("p").distance_to(me_p)
+		want = 0.0
+		If d < 6.0 Then want = 1.0
+		s = Num(sw("scatter"))
+		If Abs(want - s) > 0.001 Then
+			If want > s Then
+				s = Min(want, s + 0.08)
+			Else
+				s = Max(want, s - 0.01)
+			End If
+			sw("scatter") = s
+			sw("mat").set_shader_parameter("scatter", s)
+		End If
+		If want > 0.5 And Not fly_noted Then
+			fly_noted = True
+			_say("THE FLIES SCATTER... AND REFORM AROUND THE CAMERA. THEY WERE NOT LOOKING AT IT.", 5.0)
+		End If
+	Next
+End Sub
+
+' Every half second: steam emitters, audio anchors, neon short-outs, holo faults, drips, sparks.
+Sub _slow(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal live As Boolean)
+	Dim pts As Array
+	Dim cars As Object
+	Dim near As Array
+	Dim p As Vector3
+	Dim e As Dictionary
+	Dim node As Object
+	Dim p2 As Vector2
+	pts = Array()
+	For Each sm In steam
+		sm("node").emitting = (sm("p").distance_to(me_p) < 60.0)
+		pts.append(sm("p"))
+	Next
+	_place_pool("steam_hiss", pts, me_p, 30.0)
+	pts = Array()
+	near = Array()
+	For Each ne In AsArray(dp.neons)
+		p = ne("p") - Vector3(0, 1.0, 0)
+		If live And ne("node") <> Nothing Then
+			If ne("node").visible Then pts.append(p)
+		End If
+		If p.distance_to(me_p) < 40.0 Then near.append(ne)
+	Next
+	_place_pool("neon_buzz", pts, me_p, 22.0)
+	pts = Array()
+	For Each sw In swarms
+		pts.append(sw("p"))
+	Next
+	_place_pool("fly_buzz", pts, me_p, 18.0)
+	If live And near.size() > 0 And rng.randf() < 0.12 Then
+		e = near(rng.randi_range(0, near.size() - 1))
+		If reach_age(e("p")) > 2.0 Then
+			e("out_until") = t + rng.randf_range(0.6, 2.4)
+			fire_sparks(city, e("p") - Vector3(0, 0.5, 0), False)
+			If city.sfx_bus <> Nothing Then city.sfx_bus.fire_at("neon_crackle", e("p"), -3.0, 4.0)
+		End If
+	End If
+	For Each h In AsArray(dp.holos)
+		If live Then
+			If Not h.has("g_next") Then h("g_next") = t + rng.randf_range(4.0, 14.0)
+			If t > Num(h("g_next")) Or Num(h("g_next")) - t > 30.0 Then
+				h("g_until") = t + rng.randf_range(0.15, 0.6)
+				h("g_amt") = rng.randf_range(0.5, 1.0)
+				h("g_next") = t + rng.randf_range(7.0, 20.0)
+				If city.sfx_bus <> Nothing And h("c").distance_to(me_p) < 60.0 Then city.sfx_bus.fire_at("holo_glitch", h("c"), -2.0, 8.0)
+			End If
+		End If
+	Next
+	If t > drip_t Or drip_t - t > 10.0 Then
+		drip_t = t + rng.randf_range(1.2, 3.5)
+		p2 = city.position_xz + Vector2(rng.randf_range(-9, 9), rng.randf_range(-9, 9))
+		If city.sfx_bus <> Nothing And me_p.y < 10.0 And dp._uc_street(p2) Then city.sfx_bus.fire_at("drip", Vector3(p2.x, 6.0, p2.y), -8.0, 3.0)
+	End If
+	For Each w In wrecks
+		If t > Num(w("next")) Or Num(w("next")) - t > 10.0 Then
+			w("next") = t + rng.randf_range(1.5, 5.0)
+			If w("p").distance_to(me_p) < 50 Then fire_sparks(city, w("p"), w("p").distance_to(me_p) < 25)
+		End If
+	Next
+	If live Then
+		For Each tr In AsArray(dp.trains)
+			If tr.has("moving") Then
+				If tr("moving") And rng.randf() < 0.3 Then
+					cars = tr("nodes")
+					node = Nothing
+					If cars.size() > 0 Then node = cars(rng.randi_range(0, cars.size() - 1))
+					If node <> Nothing Then
+						If node.position.distance_to(me_p) < 60 Then fire_sparks(city, node.position + Vector3(rng.randf_range(-1.3, 1.3), 0.15, 0), node.position.distance_to(me_p) < 30)
+					End If
+				End If
+			End If
+		Next
+	End If
+End Sub
+
+' Dust lights: nearest glowing things around the player.
+Sub _dust_lights(ByVal city As Node, ByVal me_p As Vector3, ByVal live As Boolean)
+	Dim cand As Array
+	Dim pos As PackedColorArray
+	Dim col As PackedColorArray
+	Dim sun As Array
+	Dim c As Vector3
+	Dim tint As Color
+	If dust_mat = Nothing Then Exit Sub
+	cand = Array()
+	sun = dp.sun_state(city)
+	If sun(2) Then cand.append(Array(sun(0) - Vector3(0, 20, 0), 60.0, Color(sun(1).x, sun(1).y, sun(1).z) * 0.6))
+	For Each dr In drones
+		cand.append(Array(dr("foot") + Vector3(0, 3, 0), 6.0, Color(0.3, 0.9, 1.0)))
+	Next
+	If live Then
+		For Each h In AsArray(dp.holos)
+			tint = h("color")
+			cand.append(Array(h("c"), 26.0, tint * 0.8))
+		Next
+		For Each s In AsArray(dp.screens)
+			cand.append(Array(s("c") + s("n") * 4.0, 20.0, Color(0.9, 0.5, 0.9) * 0.6))
+		Next
+		For Each ne In AsArray(dp.neons)
+			tint = ne("color")
+			cand.append(Array(ne("p"), 9.0, tint * 0.7))
+		Next
+	End If
+	pos = PackedColorArray()
+	col = PackedColorArray()
+	For Each cd In cand
+		c = cd(0)
+		If pos.size() < 8 And c.distance_to(me_p) < Num(cd(1)) + 18.0 Then
+			pos.append(Color(c.x, c.y, c.z, Num(cd(1))))
+			col.append(cd(2))
+		End If
+	Next
+	While pos.size() < 8
+		pos.append(Color(0, -1000, 0, 1))
+		col.append(Color(0, 0, 0))
+	Wend
+	dust_mat.set_shader_parameter("glow_p", pos)
+	dust_mat.set_shader_parameter("glow_c", col)
+	dust_mat.set_shader_parameter("glow_n", 8)
+End Sub

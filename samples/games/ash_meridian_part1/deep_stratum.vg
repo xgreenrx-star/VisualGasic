@@ -73,6 +73,9 @@ Dim face_mesh As Variant
 Dim face_shader As Variant
 Dim sun_node As Variant
 Dim sun_mats As Array
+Dim fx As Object
+Dim towers As Array
+Dim tags As Array
 Dim sun_override As Boolean
 Dim sun_hour As Single
 
@@ -443,6 +446,8 @@ Sub _reset_layout()
 	holos = Array()
 	sun_node = Nothing
 	sun_mats = Array()
+	towers = Array()
+	tags = Array()
 	anchors = New Dictionary
 	has_derelict = False
 End Sub
@@ -1685,6 +1690,15 @@ Function _uc_street(ByVal p As Vector2) As Boolean
 	Return t = 0 Or t = 1
 End Function
 
+' Audio: what the floor under the player sounds like. B13: "tunnel" below street level, "hollow" on a
+' street slab over a tunnel, else "smooth". Other floors are steel decks.
+Function ground_sound(ByVal city As Node) As String
+	If city.floor_code <> "88216" Then Return "metal"
+	If foot(city) < 5.0 Then Return "tunnel"
+	If _uc_at(city.position_xz) = 1 Then Return "hollow"
+	Return "smooth"
+End Function
+
 Function _uc_clear(ByVal r As Rect2) As Boolean
 	Dim ok As Boolean
 	Dim t As Integer
@@ -2344,7 +2358,39 @@ Sub _uc_boundary(ByVal city As Node)
 	_graffiti(city, Vector3(119.85, 10.5, 210), Vector3(-1, 0, 0), "48803 3175", 0.06, red, 0.05, "GRAFFITI: DON'T TRUST THE FLIES")
 	_spray_fly(city, Vector3(119.85, 8.4, 216), Vector3(-1, 0, 0), 1.3, red)
 	_graffiti(city, Vector3(119.85, 10.0, 260), Vector3(-1, 0, 0), "0 2 1063", 0.06, blue, -0.02, "GRAFFITI: NO ONE IS COMING")
+	' Holographic tags someone wired into the wall projectors, high above the paint.
+	_holo_tag(Vector3(-119.6, 26.0, 135), Vector3(1, 0, 0), "7714 06 2209", 0.1, Color(0.3, 1.0, 0.6), False, "HOLO-TAG: WHO TURNED THE LIGHTS ON?")
+	_holo_tag(Vector3(119.6, 25.0, 85), Vector3(-1, 0, 0), "48803 0 48803", 0.1, Color(1.0, 0.25, 0.5), False, "HOLO-TAG: THE FLIES ARE NOT FLIES")
+	_holo_tag(Vector3(67, 26.0, 287.6), Vector3(0, 0, -1), "5513 9072 61", 0.1, Color(0.4, 0.6, 1.0), False, "HOLO-TAG: WE HEAR THEM IN THE WIRES")
+	_holo_tag(Vector3(-67, 24.0, 287.6), Vector3(0, 0, -1), "3 0 3 0 1 66", 0.1, Color(1.0, 0.75, 0.2), False, "HOLO-TAG: COUNT THE STATIONS. ONE IS MISSING.")
+	_holo_tag(Vector3(-119.6, 31.0, 235), Vector3(1, 0, 0), "0 2 0 2 0 2 0 2 0 2", 0.09, Color(1.0, 0.15, 0.1), True, "HOLO-TAG: NO ONE IS LEFT")
 End Sub
+
+' A projected tag: glyphs built with the props and run through the holo-tag shader; scroll ones crawl.
+Sub _holo_tag(ByVal p As Vector3, ByVal normal As Vector3, ByVal digits As String, ByVal scale As Single, ByVal color As Color, ByVal scroll As Boolean, ByVal translation As String)
+	Dim entry As Dictionary
+	entry = New Dictionary
+	entry("p") = p
+	entry("n") = normal
+	entry("digits") = digits
+	entry("scale") = scale
+	entry("color") = color
+	entry("scroll") = scroll
+	entry("node") = Nothing
+	tags.append(entry)
+	_sign_data(p, normal, translation)
+	signs(signs.size() - 1)("range") = 45.0
+End Sub
+
+Function fx_module() As Object
+	Dim script As Object
+	If fx = Nothing Then
+		fx = ClassDB.Instantiate("RefCounted")
+		script = Load("res://undercity_fx.vg")
+		fx.SetScript(script)
+	End If
+	Return fx
+End Function
 
 ' Spray-painted Narcean: jittered strokes in a slanted line with paint drips. Spaces leave gaps.
 Sub _graffiti(ByVal city As Node, ByVal p As Vector3, ByVal normal As Vector3, ByVal digits As String, ByVal scale As Single, ByVal color As Color, ByVal tilt As Single, ByVal translation As String)
@@ -2692,6 +2738,7 @@ Sub power_up(ByVal city As Node)
 	city.sfx("grid_powerup")
 	city.pending_room = True
 	fade = 1.0
+	If city.floor_code = "88216" Then fx_module().start_wave()
 	city.notify("ORAC: Transfer complete! The whole undercity just woke up - trains, lamps, signage, and those groundcars. Hack one and we can drive.")
 End Sub
 
@@ -2983,7 +3030,7 @@ Sub _rail(ByVal city As Node, ByVal r As Rect2, ByVal y As Single, ByVal glow As
 	End If
 End Sub
 
-' Solid skyscraper with Tron edge glow, window bands when powered and a storefront band.
+' Solid skyscraper with Tron edge glow and a storefront band; undercity_fx adds the window grid.
 Sub _tower(ByVal city As Node, ByVal r As Rect2, ByVal base As Single, ByVal h As Single, ByVal glow As Color, ByVal store As Color)
 	Dim top As Single
 	Dim edge As Color
@@ -2993,8 +3040,15 @@ Sub _tower(ByVal city As Node, ByVal r As Rect2, ByVal base As Single, ByVal h A
 	Dim z0 As Single
 	Dim z1 As Single
 	Dim y As Single
+	Dim rec As Dictionary
 	top = base + h
 	_solid(city, r, base, top, Color(0.012, 0.016, 0.026))
+	rec = New Dictionary
+	rec("r") = r
+	rec("base") = base
+	rec("h") = h
+	rec("glow") = glow
+	towers.append(rec)
 	If Not drawing Then Exit Sub
 	x0 = r.position.x - 0.03
 	x1 = r.end.x + 0.03
@@ -3014,14 +3068,6 @@ Sub _tower(ByVal city As Node, ByVal r As Rect2, ByVal base As Single, ByVal h A
 	Next
 	If grid_power Then
 		city._box(Vector3(x0 - 0.02, base + 0.6, z0 - 0.02), Vector3(x1 - x0 + 0.04, 2.2, z1 - z0 + 0.04), store * 0.55, True)
-		y = base + 5.0
-		While y < top - 1.5
-			city._bar(Vector3(x0 + 0.6, y, z0 - 0.02), Vector3(x1 - 0.6, y, z0 - 0.02), 0.1, win, True)
-			city._bar(Vector3(x0 + 0.6, y, z1 + 0.02), Vector3(x1 - 0.6, y, z1 + 0.02), 0.1, win, True)
-			city._bar(Vector3(x0 - 0.02, y, z0 + 0.6), Vector3(x0 - 0.02, y, z1 - 0.6), 0.1, win, True)
-			city._bar(Vector3(x1 + 0.02, y, z0 + 0.6), Vector3(x1 + 0.02, y, z1 - 0.6), 0.1, win, True)
-			y = y + 3.2
-		Wend
 	Else
 		city._box(Vector3(x0 - 0.02, base + 0.6, z0 - 0.02), Vector3(x1 - x0 + 0.04, 2.2, z1 - z0 + 0.04), store * 0.06, True)
 	End If
@@ -3183,6 +3229,10 @@ Sub _build_city_props(ByVal city As Node)
 	Dim live As Boolean
 	Dim was As Boolean
 	Dim n As Vector3
+	Dim dead As Integer
+	Dim right As Vector3
+	Dim ch As String
+	Dim sc As Single
 	st = city.stratum
 	live = grid_power
 	For Each entry In AsArray(levers)
@@ -3211,8 +3261,13 @@ Sub _build_city_props(ByVal city As Node)
 	For Each entry In AsArray(neons)
 		was = drawing
 		drawing = True
+		dead = Int(Abs(Num(entry("phase")) * 7.0)) Mod entry("digits").length()
 		For k = 0 To entry("digits").length() - 1
-			glyph3(city, Vector3(0, 0, 0) - entry("right") * (7 * Num(entry("scale"))) - Vector3(0, k * 24 * Num(entry("scale")), 0), entry("right"), Int(entry("digits").substr(k, 1)), Num(entry("scale")), entry("color"))
+			If k = dead And entry("digits").length() > 2 Then
+				glyph3(city, Vector3(0, 0, 0) - entry("right") * (7 * Num(entry("scale"))) - Vector3(0, k * 24 * Num(entry("scale")), 0), entry("right"), Int(entry("digits").substr(k, 1)), Num(entry("scale")), entry("color") * 0.1)
+			Else
+				glyph3(city, Vector3(0, 0, 0) - entry("right") * (7 * Num(entry("scale"))) - Vector3(0, k * 24 * Num(entry("scale")), 0), entry("right"), Int(entry("digits").substr(k, 1)), Num(entry("scale")), entry("color"))
+			End If
 		Next
 		drawing = was
 		entry("node") = _attach(city, "Neon", entry("p"))
@@ -3250,6 +3305,25 @@ Sub _build_city_props(ByVal city As Node)
 	End If
 	For Each entry In AsArray(holos)
 		_build_holo(city, entry)
+	Next
+	For Each entry In AsArray(tags)
+		was = drawing
+		drawing = True
+		right = entry("n").cross(Vector3.UP)
+		sc = Num(entry("scale"))
+		For k = 0 To entry("digits").length() - 1
+			ch = entry("digits").substr(k, 1)
+			If ch <> " " Then glyph3(city, right * ((k - entry("digits").length() * 0.5) * 23 * sc) + Vector3(0, 9 * sc, 0), right, Int(ch), sc, entry("color"))
+		Next
+		drawing = was
+		entry("node") = _attach(city, "HoloTag", entry("p") + entry("n") * 0.6)
+		mat = ClassDB.Instantiate("ShaderMaterial")
+		mat.shader = Load("res://shaders/undercity_tag.gdshader")
+		mat.set_shader_parameter("axis", right)
+		mat.set_shader_parameter("centre", entry("p").dot(right))
+		mat.set_shader_parameter("seed", entry("p").z * 0.37 + entry("p").x * 0.11)
+		If entry("scroll") Then mat.set_shader_parameter("half_width", 9.0)
+		entry("node").material_override = mat
 	Next
 	If city.floor_code = "88216" Then _build_sun(city)
 End Sub
@@ -3720,6 +3794,10 @@ Sub _animate_city(ByVal city As Node, ByVal t As Single)
 	Dim s As Single
 	Dim at As Array
 	Dim list As Array
+	Dim vis As Boolean
+	Dim uc As Boolean
+	Dim span As Single
+	uc = (city.floor_code = "88216")
 	For Each entry In AsArray(trains)
 		s = train_s(entry)
 		list = entry("nodes")
@@ -3747,7 +3825,16 @@ Sub _animate_city(ByVal city As Node, ByVal t As Single)
 	For Each entry In AsArray(neons)
 		node = entry("node")
 		If node <> Nothing Then
-			node.visible = grid_power And Sin(t * 2.3 + Num(entry("phase"))) + Sin(t * 13.0 + Num(entry("phase")) * 2.0) * 0.5 > -0.8
+			vis = (grid_power And Sin(t * 2.3 + Num(entry("phase"))) + Sin(t * 13.0 + Num(entry("phase")) * 2.0) * 0.5 > -0.8)
+			If uc And fx <> Nothing Then vis = fx.neon_visible(entry, vis, t)
+			node.visible = vis
+		End If
+	Next
+	For Each entry In AsArray(tags)
+		node = entry("node")
+		If node <> Nothing And entry("scroll") Then
+			span = entry("digits").length() * 23 * Num(entry("scale")) + 18.0
+			node.position = entry("p") + entry("n") * 0.6 + entry("n").cross(Vector3.UP) * (FPosMod(t * 2.2, span) - span * 0.5)
 		End If
 	Next
 	For Each entry In AsArray(waters)
@@ -3758,6 +3845,7 @@ Sub _animate_city(ByVal city As Node, ByVal t As Single)
 		_animate_holo(city, entry, t)
 	Next
 	_update_sun(city)
+	If uc And fx <> Nothing Then fx.animate(city, t)
 End Sub
 
 Sub _animate_holo(ByVal city As Node, ByVal entry As Dictionary, ByVal t As Single)
@@ -3770,12 +3858,20 @@ Sub _animate_holo(ByVal city As Node, ByVal entry As Dictionary, ByVal t As Sing
 	Dim talk As Single
 	Dim blink As Single
 	Dim pw As Single
+	Dim g As Single
 	If entry("node") = Nothing Then Exit Sub
 	pw = 0.0
+	g = 0.0
 	If grid_power Then pw = 1.0
+	If fx <> Nothing And city.floor_code = "88216" Then
+		pw = pw * fx.holo_power(entry)
+		g = fx.holo_glitch(entry)
+	End If
 	For Each m In AsArray(entry("mats"))
 		m.set_shader_parameter("power", pw)
+		m.set_shader_parameter("glitch_amt", g)
 	Next
+	If g > 0 Then t = Int(t * 5.0) / 5.0
 	If entry.has("snd") Then
 		If entry("snd") <> Nothing Then entry("snd").stream_paused = pw < 0.5
 	End If
@@ -3973,6 +4069,7 @@ Sub build_dynamic(ByVal city As Node)
 	End If
 	_build_city_props(city)
 	_attach_sounds(city)
+	If city.floor_code = "88216" Then fx_module().build(city)
 	If has_derelict Then
 		scene = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
 		If scene <> Nothing Then
@@ -4587,7 +4684,6 @@ Function use(ByVal city As Node) As Boolean
 			End If
 		Else
 			car_id = e("id")
-			city.sfx("vehicle_on", -3.0)
 			city.position_xz = _car_pos(city, e)
 			city.heading = _car_heading(city, e)
 			city.notify("ORAC: Drive with W/S, steer A/D. F to get out.")
@@ -4817,6 +4913,10 @@ Function visor_text(ByVal city As Node) As String
 	ensure_layout(city)
 	If in_alcove(city.position_xz) Then
 		Return "LIFT CAR " & PadInt(Int(LEVELS(city.floor_code)(1)), 2) & " / " & level_label(city.floor_code)
+	End If
+	If fx <> Nothing And city.floor_code = "88216" Then
+		text = fx.visor_note(city)
+		If text <> "" Then Return text
 	End If
 	fwd = Vector2(Sin(city.heading), Cos(city.heading))
 	best = 6.0

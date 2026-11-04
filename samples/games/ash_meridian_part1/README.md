@@ -359,6 +359,33 @@ day it tints the city red. The city's edge is a wall of lit panels covered in
 graffiti. Translated, it reads as anti-AI slogans, panic, "NO ONE IS LEFT" and
 "DON'T TRUST THE FLIES".
 
+`undercity_fx.vg` adds the B13 ambience. `deep_stratum` loads it on demand and
+rebuilds it with each room. It uses its own RNG, so the seeded layout is
+unchanged.
+
+- **Power-up wave.** Pulling the last lever sends a ring of light out from the
+  transfer station. Lamps, neon, holograms, tower windows and the plaza screens
+  switch on as the ring reaches them, and relays clunk near the player. After
+  that, light pulses run along the building edges.
+- **Street.** Wet puddles reflect the neon once the grid is on. Grates puff
+  steam, and only the ones near the player emit. Water drips from the cavern
+  roof, and dust drifts around the player, tinted by nearby light sources.
+- **Sun.** Light shafts hang under the artificial sun and follow it along its
+  track.
+- **Towers.** Procedural windows: some lit, some flickering, some with
+  silhouettes, and a few showing terminal screens. Torn banners hang on cables
+  strung between facing towers.
+- **Faults.** Some neon signs have one dead glyph, and signs short out at
+  random and throw sparks. Holograms glitch and stutter. Moving trains spark
+  at the wheels.
+- **Patrols.** Drones sweep the streets with scan beams, and two crashed
+  drones still spark. Fly swarms circle the surveillance cameras, and a few of
+  the flies have red eyes. The swarms scatter when the player comes close.
+- **Graffiti.** Holographic tags on the city-edge wall. "NO ONE IS LEFT"
+  scrolls. The visor translates the tags.
+- **Lighting.** At most six fake point lights on the city shell: moving trains,
+  plaza screens and drone footprints.
+
 Returning to the surface is never automatic: in the lift car, F opens the
 keypad and the ascent address **70315** must be entered (it is on the first
 transit index console). The keypad lists the addresses already recovered.
@@ -405,6 +432,8 @@ libvorbis.
 cd tools/audio
 python3 sfx.py              # footsteps, keypad, lift, levers, grid power-up
 python3 sfx2.py             # vehicles, trains, holograms, lasers, hacking, ship
+python3 sfx3.py             # vehicle layers: idle, coast, tyres, skid, brake, thumps
+python3 sfx4.py             # Undercity ambience: neon, steam, drones, flies, drips, relays
 python3 music_undercity.py  # assets/audio/music/undercity_dark.ogg
 python3 music2.py           # yard_dread, stratum_deep, chase, black_channel
 ```
@@ -414,8 +443,12 @@ python3 music2.py           # yard_dread, stratum_deep, chase, black_channel
 - A pool of one-shot players, plus positional (3D) one-shots and attached loops.
 - Footsteps every 1.7 m walked. The surface sets the sound: concrete outside and in
   the Undercity, tile in buildings, metal on Deep Stratum floors.
-- A dedicated lift-motor player and one drive loop (buggy, Undercity cars, jetpack,
-  ship engine) whose level and pitch follow speed.
+- A dedicated lift-motor player and one drive loop (jetpack, ship engine) whose
+  level and pitch follow speed.
+- A layered vehicle mix for the buggy and Undercity cars (see below).
+- An `Echo` bus (reverb, routed to SFX) for footsteps and vehicle sounds. The
+  wet level follows the location: none on the surface, light in buildings and
+  the lift, more on Deep Stratum floors, and most in B13 tunnels.
 - A two-deck music crossfade.
 - `Music`, `SFX` and `Ambience` buses. Ambience is routed through SFX.
 
@@ -434,13 +467,35 @@ Hooks:
 
 - Keypad, lift doors, lift motor and arrival chime.
 - B13 transfer station lever pulls and the grid power-up.
-- Buggy and Undercity cars: electric-motor loop; vehicle start-up.
+- Buggy and Undercity cars: see the vehicle mix below.
 - Undercity trains: positional rumble and horn; holograms hum, and the talking
   face plays a soft alien murmur.
+- Undercity ambience: neon buzz and crackle, steam hiss, drone hum and chirps,
+  fly buzz, drips, sparks, screen boot-ups, relay clunks and hologram glitches.
+  Looping sounds move to the nearest source of their kind.
 - Hacking kit ticks, success and failure; alien terminals; pickups; jetpack.
 - Yard turrets: lock-on and shots from the turret position; hits on foot or in
   the buggy; ship ignition at launch.
 - Black Channel: ship engine hum, laser shots and hull hits.
+
+Vehicle mix (`update_vehicle` / `tick_vehicle` in `game_audio.vg`):
+
+- Layers: idle hum at standstill, load whine under throttle, coast whine with
+  the throttle released, a tyre bed and a skid squeal. Each layer fades toward
+  its target level.
+- Motor pitch climbs with speed and dips once at half speed (a gear step).
+- Tyre bed by ground: gravel on the surface (with random stone knocks),
+  smooth Undercity streets, hollow over the B13 tunnels, metal elsewhere.
+  `deep_stratum.ground_sound` picks the Undercity surface.
+- Skid squeal when turning hard at speed.
+- One-shots: regenerative-brake whir on braking or a sudden drop in speed,
+  a thump on collisions and kerb steps, and a shut-down sound on exit.
+- A damaged buggy (low shield) stutters with motor pops. The `buggy_boost`
+  upgrade makes it run cleaner.
+- Hacked Undercity cars use a lower motor and idle, detuned per car id, with
+  an alien start chime and a power-down chime.
+- A turret lock-on in the Yard adds interference crackle and pitch wobble
+  while driving.
 
 Options **MUSIC** and **EFFECTS** set the Music and SFX bus levels (0-100%,
 arrow keys step 10%, mouse drags the bar). They are saved with the other
@@ -452,7 +507,8 @@ bouzouki tremolo, tolling bells, an organ and a gliding Moog-style lead
 section. The other tracks use the same palette at different tempos.
 Playback is skipped while the node is outside the scene tree.
 `res://test_deep_stratum.vg` checks that the assets load, that music
-switches with the floor, and that footsteps and sound-effect hooks fire.
+switches with the floor, that footsteps and sound-effect hooks fire, and
+that the vehicle layers, one-shots and per-car detune behave as described.
 
 Menu input is sampled once per game frame in the presentation adapter. The VG
 menu handlers consume those samples directly, so holding Enter cannot activate

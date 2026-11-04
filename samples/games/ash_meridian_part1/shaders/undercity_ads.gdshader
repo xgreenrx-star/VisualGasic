@@ -6,6 +6,8 @@ render_mode unshaded, cull_disabled, fog_disabled;
 // dead panel with faint residual static; power = 1 runs the ad loop.
 uniform float power = 0.0;
 uniform float seed = 1.0;
+// 0..1 while the screen cold-boots after the power wave reaches it (1 = done).
+uniform float boot = 1.0;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7)) + seed * 17.13) * 43758.5453);
@@ -96,5 +98,9 @@ void fragment() {
 	float noise = hash(floor(uv * vec2(160.0, 90.0)) + floor(t * 24.0));
 	col = mix(col, vec3(noise) * 0.6, 0.06);
 	vec3 dead = vec3(noise) * 0.035 * step(0.97, hash1(floor(t * 3.0)) + noise * 0.05) + vec3(0.004, 0.006, 0.012);
-	ALBEDO = mix(dead, col * 1.6, clamp(power, 0.0, 1.0));
+	float b = clamp(boot, 0.0, 1.0);
+	float line = smoothstep(0.02, 0.0, abs(uv.y - 0.5) - b * 0.5) * step(b, 0.3);
+	float roll = step(0.3, b) * step(fract(uv.y * 3.0 - t * 4.0), 0.1) * (1.0 - b);
+	vec3 booting = mix(vec3(0.02, 0.05, 0.08) * noise, col * 1.6, smoothstep(0.35, 0.95, b)) + vec3(0.7, 0.9, 1.0) * (line * 1.4 + roll * 0.5);
+	ALBEDO = mix(dead, booting, clamp(power, 0.0, 1.0));
 }

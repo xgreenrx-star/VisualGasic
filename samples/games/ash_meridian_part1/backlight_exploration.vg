@@ -2388,12 +2388,14 @@ Function render_style(ByVal view As Node, ByVal time_n As Single, ByVal distance
 		sun = deep.sun_state(Me)
 		shell_material.set_shader_parameter("sun_pos", sun(0))
 		shell_material.set_shader_parameter("sun_color", sun(1))
+		shell_material.set_shader_parameter("pl_count", 0)
 		deep.animate(Me, time_n)
 	Else
 		shell_material.set_shader_parameter("interior_tint", Vector3(1, 1, 1))
 		shell_material.set_shader_parameter("spill_color", Vector3(0.008, 0.05, 0.075))
 		shell_material.set_shader_parameter("depth_fog", 0.0)
 		shell_material.set_shader_parameter("sun_color", Vector3(0, 0, 0))
+		shell_material.set_shader_parameter("pl_count", 0)
 	End If
 	If Not outdoors Then
 		If place = "floor" And floor_code = FEB_CODE Then
@@ -3015,6 +3017,7 @@ Sub TickEscapeTurrets(ByVal delta As Single)
 				turret_beams(n).scale.z = Max(0.1, (offset.length() - 3.2) / 26.8)
 				turret_beams(n).scale.x = 2.0
 				turret_sound("turret_lock", gun, 0.0)
+				If driving And sfx_bus <> Nothing Then sfx_bus.interference()
 				notify("ORAC: Shot locked! Move before they fire!")
 			End If
 		ElseIf state = "locked" And turret_lock_times(n) >= 0.9 Then

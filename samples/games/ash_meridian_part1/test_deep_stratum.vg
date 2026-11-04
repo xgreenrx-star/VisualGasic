@@ -534,7 +534,145 @@ Sub undercity_checks()
 	go_floor("58120")
 	go_floor("88216")
 	check(deep.grid_power And deep._car_pos(yard, car).distance_to(car("p")) > 3, "undercity_state_persists")
+	fx_checks()
 	yard.reset()
+End Sub
+
+Function count_named(ByVal root As Object, ByVal prefix As String) As Integer
+	Dim n As Integer
+	Dim i As Integer
+	n = 0
+	If root = Nothing Then Return 0
+	If CStr(root.name).begins_with(prefix) Then n = 1
+	For i = 0 To root.get_child_count() - 1
+		n = n + count_named(root.get_child(i), prefix)
+	Next
+	Return n
+End Function
+
+Sub fx_checks()
+	Dim fx As Object
+	Dim tagged As String
+	Dim sg As Dictionary
+	Dim names As Array
+	Dim nm As String
+	Dim missing As String
+	Dim t As Single
+	Dim far As Vector3
+	fx = deep.fx
+	check(fx <> Nothing, "fx_module_loaded")
+	If fx = Nothing Then Exit Sub
+	names = Array("Puddles", "TowerWindows", "CeilingDrips", "Dust", "PatrolDrone", "FlySwarm", "Banner", "Steam", "SunShaft", "HoloTag")
+	missing = ""
+	For Each nm In names
+		If count_named(yard.interior, nm) = 0 Then missing = missing & " " & nm
+	Next
+	If missing <> "" Then Print "FX_MISSING:" & missing
+	check(missing = "", "fx_nodes_built")
+	tagged = ""
+	For Each sg In deep.signs
+		If sg("text").begins_with("HOLO-TAG:") Then tagged = tagged & "|" & sg("text")
+	Next
+	check(tagged.contains("THE FLIES ARE NOT FLIES") And tagged.contains("NO ONE IS LEFT"), "fx_holo_tags")
+	t = fx.now_s()
+	fx.wave_t0 = t
+	fx.wave_on = True
+	far = Vector3(0, 6, 250)
+	check(fx.reach_age(far) < 0, "fx_wave_not_arrived")
+	fx.wave_t0 = t - 20.0
+	check(fx.reach_age(far) > 0, "fx_wave_arrived")
+	fx.animate(yard, t)
+	check(ResourceLoader.Exists("res://assets/audio/sfx/drone_hum.ogg") And ResourceLoader.Exists("res://assets/audio/sfx/relay_clunk.ogg"), "fx_audio_present")
+End Sub
+
+Function layer_on(ByVal bus As Object, ByVal role As String) As Boolean
+	Return deep.Num(bus.vlevels(role)) > 0.05
+End Function
+
+Sub drive_frames(ByVal bus As Object, ByVal kind As String, ByVal speed As Single, ByVal accel As Boolean, ByVal braking As Boolean, ByVal yaw As Single, ByVal ground As String, ByVal n As Integer)
+	For k = 1 To n
+		bus.tick_vehicle(kind, speed, accel, braking, yaw, ground, 100.0, True, 0.05)
+	Next
+End Sub
+
+Sub vehicle_audio_checks(ByVal bus As Object)
+	Dim names As Array
+	Dim ok As Boolean
+	Dim i As Integer
+	Dim n As String
+	names = Array("buggy_idle", "buggy_coast", "car_motor", "car_idle", "tyre_gravel", "tyre_smooth", "tyre_hollow", "tyre_skid", "regen_brake", "buggy_thump", "buggy_knock", "motor_pop", "vehicle_off", "car_start", "car_off", "motor_interference")
+	ok = True
+	For Each n In names
+		If bus.stream_for("res://assets/audio/sfx/" & n & ".ogg") = Nothing Then ok = False
+	Next
+	check(ok, "veh_audio_assets_load")
+	check(bus.motor_pitch(0.49) > bus.motor_pitch(0.51) And bus.motor_pitch(1.0) > bus.motor_pitch(0.49) And bus.motor_pitch(0.2) > bus.motor_pitch(0.0), "veh_pitch_climbs_with_gear_step")
+	check(bus.stutter_rate("buggy", 30.0, False) > bus.stutter_rate("buggy", 100.0, False) And bus.stutter_rate("buggy", 100.0, True) < bus.stutter_rate("buggy", 100.0, False) And bus.stutter_rate("car", 100.0, False) < bus.stutter_rate("buggy", 100.0, False), "veh_stutter_damage_and_upgrade")
+	check(bus.skid_amount(1.3, 18.0) > 0.5 And bus.skid_amount(0.3, 18.0) = 0.0 And bus.skid_amount(1.3, 4.0) = 0.0, "veh_skid_needs_speed_and_turn")
+	check(bus.id_detune("U1:C3") <> bus.id_detune("U1:C4") And bus.id_detune("U1:C3") >= 0.86 And bus.id_detune("U1:C3") <= 1.04, "veh_car_detune_per_id")
+	drive_frames(bus, "buggy", 0.0, False, False, 0.0, "gravel", 20)
+	check(layer_on(bus, "idle") And Not layer_on(bus, "load") And Not layer_on(bus, "coast"), "veh_idle_at_standstill")
+	drive_frames(bus, "buggy", 16.0, True, False, 0.0, "gravel", 30)
+	check(layer_on(bus, "load") And Not layer_on(bus, "coast") And layer_on(bus, "tyre") And bus.vplayers("tyre").stream = bus.loop_stream("tyre_gravel"), "veh_load_and_gravel_under_throttle")
+	check(bus.vplayers("load").pitch_scale > 1.1, "veh_whine_pitched_up_at_speed")
+	drive_frames(bus, "buggy", 16.0, False, False, 0.0, "gravel", 30)
+	check(layer_on(bus, "coast") And Not layer_on(bus, "load"), "veh_coast_off_throttle")
+	drive_frames(bus, "buggy", 16.0, True, False, 1.3, "smooth", 30)
+	check(layer_on(bus, "skid") And bus.vplayers("tyre").stream = bus.loop_stream("tyre_smooth"), "veh_skid_and_surface_switch")
+	drive_frames(bus, "buggy", 14.0, False, True, 0.0, "smooth", 1)
+	check(bus.last_event = "regen_brake", "veh_regen_brake")
+	drive_frames(bus, "buggy", 16.0, True, False, 0.0, "smooth", 10)
+	drive_frames(bus, "buggy", 1.0, True, False, 0.0, "smooth", 1)
+	check(bus.last_event = "hull_hit" Or bus.last_event = "buggy_thump", "veh_collision_thump")
+	bus.interference()
+	check(bus.last_event = "motor_interference" And bus.veh_jam > 0.0, "veh_turret_interference")
+	bus.veh_cut = 0.0
+	ok = False
+	For i = 1 To 400
+		bus.tick_vehicle("buggy", 16.0, True, False, 0.0, "smooth", 0.0, False, 0.05)
+		If bus.veh_cut > 0.0 Then ok = True
+	Next
+	check(ok, "veh_damaged_motor_stutters")
+	drive_frames(bus, "", 0.0, False, False, 0.0, "", 1)
+	check(bus.last_event = "vehicle_off", "veh_shutdown_sound")
+	drive_frames(bus, "", 0.0, False, False, 0.0, "", 40)
+	check(Not layer_on(bus, "idle") And Not bus.vplayers("load").playing, "veh_layers_fade_out")
+	drive_frames(bus, "car", 10.0, True, False, 0.0, "hollow", 20)
+	check(bus.vplayers("load").stream = bus.loop_stream("car_motor") And bus.vplayers("tyre").stream = bus.loop_stream("tyre_hollow"), "veh_car_motor_and_hollow_slab")
+	drive_frames(bus, "", 0.0, False, False, 0.0, "", 1)
+	check(bus.last_event = "car_off", "veh_car_shutdown_chime")
+	' Ground and echo on B13.
+	go_floor("88216")
+	stand(Vector2(-70, 40), 6.0)
+	check(deep.ground_sound(yard) = "hollow", "veh_ground_hollow_over_tunnel")
+	stand(Vector2(0, 100), 6.0)
+	check(deep.ground_sound(yard) = "smooth", "veh_ground_smooth_street")
+	stand(Vector2(-70, 40), 1.0)
+	check(deep.ground_sound(yard) = "tunnel" And bus.echo_for(yard) >= 0.45, "veh_tunnel_echo")
+	stand(Vector2(0, 100), 6.0)
+	For i = 1 To 40
+		bus.update(yard, 0.1)
+	Next
+	check(bus.echo_reverb() <> Nothing And bus.echo_reverb().wet > 0.2, "veh_undercity_reverb_wet")
+	' Live drive through update(): a hacked car on B13.
+	bus.force_accel = 1
+	bus.force_brake = 0
+	deep.car_id = "U1:C3"
+	For i = 1 To 10
+		yard.position_xz = yard.position_xz + Vector2(0, 1.0)
+		bus.update(yard, 0.1)
+	Next
+	check(bus.veh_kind = "car" And layer_on(bus, "load") And bus.veh_detune = bus.id_detune("U1:C3"), "veh_update_drives_car_layers")
+	yard.stratum("foot_y") = 7.0
+	yard.position_xz = yard.position_xz + Vector2(0, 1.0)
+	bus.update(yard, 0.1)
+	check(bus.last_event = "buggy_thump", "veh_kerb_bump")
+	yard.stratum("foot_y") = 6.0
+	deep.car_id = ""
+	bus.update(yard, 0.1)
+	check(bus.last_event = "car_off", "veh_update_exit_car")
+	bus.force_accel = -1
+	bus.force_brake = -1
 End Sub
 
 Sub audio_checks()
@@ -553,19 +691,20 @@ Sub audio_checks()
 	go_floor("58120")
 	bus.update(yard, 0.1)
 	check(bus.music_name = "stratum_deep" And bus.surface_for(yard) = "metal", "audio_music_leaves_with_floor")
-	before = bus.pool_next
+	before = bus.epool_next
 	yard.position_xz = yard.position_xz + Vector2(0, 1.0)
 	bus.update(yard, 0.1)
 	yard.position_xz = yard.position_xz + Vector2(0, 1.0)
 	bus.update(yard, 0.1)
-	check(bus.pool_next <> before, "audio_footstep_fires")
-	before = bus.pool_next
+	check(bus.epool_next <> before, "audio_footstep_fires")
+	before = bus.epool_next
 	yard.position_xz = yard.position_xz + Vector2(0, 20.0)
 	bus.update(yard, 0.1)
-	check(bus.pool_next = before, "audio_teleport_no_footstep")
+	check(bus.epool_next = before, "audio_teleport_no_footstep")
 	before = bus.pool_next
 	yard.sfx("lever_pull")
 	check(bus.pool_next <> before, "audio_sfx_hook")
+	vehicle_audio_checks(bus)
 	yard.sfx_bus = Nothing
 	bus.queue_free()
 	yard.reset()

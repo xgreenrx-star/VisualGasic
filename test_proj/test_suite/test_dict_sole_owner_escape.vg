@@ -1,0 +1,87 @@
+' Regression: a `Dim d As Dictionary` local is a sole-owner VGDict slot.
+' Return / Select / Try / For Each must revoke that so the real Dictionary
+' leaves the frame, and `arr.append(Func(x))` must not be read as `arr(x)`.
+Attribute VB_Name = "TestDictSoleOwnerEscape"
+
+Function MakeTag(ByVal t As String) As Dictionary
+	Dim d As Dictionary
+	d = New Dictionary
+	d("txt") = t
+	Return d
+End Function
+
+Function MakeInSelect(ByVal k As Integer) As Dictionary
+	Dim d As Dictionary
+	d = New Dictionary
+	d("k") = k
+	Select Case k
+		Case 1
+			Return d
+	End Select
+	Return Nothing
+End Function
+
+Function MakeInTry() As Dictionary
+	Dim d As Dictionary
+	d = New Dictionary
+	d("t") = 7
+	Try
+		Return d
+	Catch e
+	End Try
+End Function
+
+Function Three() As Integer
+	Return 3
+End Function
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim r As Dictionary
+	r = MakeTag("a")
+	Check((r.size() = 1), "dict_return_keeps_keys")
+	Check((CStr(r("txt")) = "a"), "dict_return_value")
+
+	r = MakeInSelect(1)
+	Check((r.size() = 1), "dict_return_in_select")
+	r = MakeInTry()
+	Check((r.size() = 1), "dict_return_in_try")
+
+	Dim items As Array
+	items = Array()
+	items.append(CStr(4))
+	items.append(Three())
+	items.append(MakeTag("x1"))
+	items.append(MakeTag("x2"))
+	Check((items.size() = 4), "append_call_arg_count")
+	Check((CStr(items(0)) = "4"), "append_builtin_call_arg")
+	Check((items(1) = 3), "append_user_call_arg")
+
+	Dim sg As Dictionary
+	Dim hits As Integer
+	Dim n As Integer
+	hits = 0
+	For n = 2 To 3
+		sg = items(n)
+		If CStr(sg("txt")).begins_with("x") Then hits = hits + 1
+	Next n
+	Check((hits = 2), "append_dict_call_arg")
+
+	Dim tags As Array
+	Dim tg As Dictionary
+	tags = Array()
+	tags.append(MakeTag("y1"))
+	tags.append(MakeTag("y2"))
+	hits = 0
+	For Each tg In tags
+		If CStr(tg("txt")).begins_with("y") Then hits = hits + 1
+	Next tg
+	Check((hits = 2), "for_each_typed_dict_item")
+End Sub

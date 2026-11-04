@@ -7,6 +7,10 @@ uniform float depth_fog = 0.0;
 uniform vec3 fog_color = vec3(0.0);
 uniform vec3 sun_pos = vec3(0.0);
 uniform vec3 sun_color = vec3(0.0);
+// B13 fake point lights (train headlights, plaza screen spill): xyz + range, rgb + gain.
+uniform int pl_count = 0;
+uniform vec4 pl_pos[6];
+uniform vec4 pl_col[6];
 varying vec3 world_point;
 varying vec3 world_normal;
 void vertex() {
@@ -36,6 +40,12 @@ void fragment() {
 	float sun_d = max(length(to_sun), 0.001);
 	float sun_key = max(dot(n, to_sun / sun_d), 0.0);
 	satin += sun_color * (0.04 + sun_key * 0.32) / (1.0 + sun_d * sun_d / 12100.0);
+	for (int i = 0; i < pl_count; i++) {
+		vec3 to_l = pl_pos[i].xyz - world_point;
+		float ld = max(length(to_l), 0.001);
+		float fall = 1.0 - clamp(ld / pl_pos[i].w, 0.0, 1.0);
+		satin += pl_col[i].rgb * pl_col[i].a * fall * fall * (0.25 + 0.75 * max(dot(n, to_l / ld), 0.0));
+	}
 	float haze = 1.0 - exp(-length(VERTEX) * 0.0018);
 	vec3 surface_color = mix(satin, vec3(0.065, 0.065, 0.12), haze);
 	float fog_distance = max(distance(CAMERA_POSITION_WORLD, world_point) - 28.0, 0.0) / 155.0;

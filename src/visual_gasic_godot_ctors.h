@@ -207,11 +207,13 @@ inline Variant construct_godot_type_by_kind(GodotCtorKind kind, const Array& arg
     if (kind == GODOT_CTOR_PLANE) {
         // Plane() — at origin; Plane(normal, d) or Plane(a, b, c, d)
         if (args.size() >= 4) return Plane((float)args[0], (float)args[1], (float)args[2], (float)args[3]);
-        if (args.size() >= 2) {
-            // Assume Vector3 normal + distance
-            Vector3 normal((float)args[0], args.size() > 1 ? (float)args[1] : 0.0f, args.size() > 2 ? (float)args[2] : 0.0f);
-            float d = (float)args[args.size() >= 3 ? 3 : 1];
-            return Plane(normal, d);
+        if (args.size() >= 2 && args[0].get_type() == Variant::VECTOR3) {
+            // Plane(normal, d), Plane(normal, point) or Plane(p1, p2, p3)
+            if (args.size() >= 3 && args[1].get_type() == Variant::VECTOR3 && args[2].get_type() == Variant::VECTOR3) {
+                return Plane((Vector3)args[0], (Vector3)args[1], (Vector3)args[2]);
+            }
+            if (args[1].get_type() == Variant::VECTOR3) return Plane((Vector3)args[0], (Vector3)args[1]);
+            return Plane((Vector3)args[0], (float)args[1]);
         }
         return Plane();
     }
@@ -255,10 +257,8 @@ inline Variant construct_godot_type_by_kind(GodotCtorKind kind, const Array& arg
             Vector3 size((float)args[3], args.size() > 4 ? (float)args[4] : 0.0f, args.size() > 5 ? (float)args[5] : 0.0f);
             return AABB(pos, size);
         }
-        if (args.size() >= 2) {
-            Vector3 pos((float)args[0], args.size() > 1 ? (float)args[1] : 0.0f, args.size() > 2 ? (float)args[2] : 0.0f);
-            Vector3 size((float)args[3], args.size() > 4 ? (float)args[4] : 0.0f, args.size() > 5 ? (float)args[5] : 0.0f);
-            return AABB(pos, size);
+        if (args.size() == 2 && args[0].get_type() == Variant::VECTOR3 && args[1].get_type() == Variant::VECTOR3) {
+            return AABB((Vector3)args[0], (Vector3)args[1]);
         }
         return AABB();
     }

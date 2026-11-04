@@ -1,0 +1,31 @@
+' Regression: AABB(Vector3, Vector3) read past its argument list and
+' Plane(normal, d) treated the Vector3 as a float.
+Attribute VB_Name = "TestAabbPlaneCtors"
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim box As AABB
+	box = AABB(Vector3(1, 2, 3), Vector3(4, 5, 6))
+	Check((box.position = Vector3(1, 2, 3)), "aabb_two_vec_position")
+	Check((box.size = Vector3(4, 5, 6)), "aabb_two_vec_size")
+
+	Dim flat As AABB
+	flat = AABB(1, 2, 3, 4, 5, 6)
+	Check((flat.size = Vector3(4, 5, 6)), "aabb_six_float")
+
+	Dim p1 As Plane
+	p1 = Plane(Vector3(0, 1, 0), 2.5)
+	Check((p1.normal = Vector3(0, 1, 0)), "plane_normal_d_normal")
+	Check((Abs(p1.d - 2.5) < 0.0001), "plane_normal_d_distance")
+
+	Dim p2 As Plane
+	p2 = Plane(Vector3(0, 1, 0), Vector3(0, 4, 0))
+	Check((Abs(p2.d - 4) < 0.0001), "plane_normal_point")
+End Sub

@@ -2003,6 +2003,15 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
         }
         case STMT_FOR_EACH: {
             ForEachStatement* s = (ForEachStatement*)stmt;
+            // The loop variable receives existing elements, and iterating a
+            // dict needs the real Dictionary rather than a VGDict slot.
+            String item = s->variable_name.to_lower();
+            if (sole_owner_dict_vars.has(item)) escaped.insert(item);
+            if (s->collection && s->collection->type == ExpressionNode::VARIABLE) {
+                String coll = ((VariableNode*)s->collection)->name.to_lower();
+                if (sole_owner_dict_vars.has(coll)) escaped.insert(coll);
+            }
+            _check_expr_escapes(s->collection, escaped);
             for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
             break;
         }
@@ -2054,7 +2063,67 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             }
             break;
         }
+        case STMT_RETURN: {
+            // `Return d` hands the value to the caller; a VGDict pool slot
+            // cannot leave the frame, so the variable must be a real Dictionary.
+            ReturnStatement* s = (ReturnStatement*)stmt;
+            if (s->return_value && s->return_value->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)s->return_value)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) escaped.insert(name);
+            }
+            _check_expr_escapes(s->return_value, escaped);
+            break;
+        }
+        case STMT_SELECT: {
+            SelectStatement* s = (SelectStatement*)stmt;
+            _check_expr_escapes(s->expression, escaped);
+            for (int c = 0; c < s->cases.size(); c++) {
+                CaseBlock* cb = s->cases[c];
+                if (!cb) continue;
+                for (int i = 0; i < cb->values.size(); i++) _check_expr_escapes(cb->values[i], escaped);
+                for (int i = 0; i < cb->range_ends.size(); i++) _check_expr_escapes(cb->range_ends[i], escaped);
+                for (int i = 0; i < cb->body.size(); i++) _check_dict_escapes(cb->body[i], escaped);
+            }
+            break;
+        }
+        case STMT_WITH: {
+            WithStatement* s = (WithStatement*)stmt;
+            if (s->expression && s->expression->type == ExpressionNode::VARIABLE) {
+                String name = ((VariableNode*)s->expression)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) escaped.insert(name);
+            }
+            _check_expr_escapes(s->expression, escaped);
+            for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
+            break;
+        }
+        case STMT_TRY: {
+            TryStatement* s = (TryStatement*)stmt;
+            for (int i = 0; i < s->try_block.size(); i++) _check_dict_escapes(s->try_block[i], escaped);
+            for (int i = 0; i < s->catch_block.size(); i++) _check_dict_escapes(s->catch_block[i], escaped);
+            for (int i = 0; i < s->finally_block.size(); i++) _check_dict_escapes(s->finally_block[i], escaped);
+            break;
+        }
+        case STMT_LABEL:
+        case STMT_GOTO:
+        case STMT_ON_ERROR:
+        case STMT_EXIT:
+        case STMT_CONTINUE:
+        case STMT_CONST:
+        case STMT_DO_EVENTS:
+        case STMT_REDIM:
+        case STMT_ERASE:
+        case STMT_PASS:
+        case STMT_STOP:
+        case STMT_GOSUB:
+        case STMT_RETURN_GOSUB:
+        case STMT_RESUME:
+        case STMT_RESTORE:
+        case STMT_CLEAR_DATA:
+            break;
         default:
+            // Unanalysed statement kinds may alias or hand out a dict;
+            // fall back to real Dictionaries rather than risk a stale slot.
+            for (const String &name : sole_owner_dict_vars) escaped.insert(name);
             break;
     }
 }
@@ -3447,6 +3516,11 @@ bool VisualGasicCompiler::try_emit_append(CallStatement *s) {
         if (dictionary_vars.has(src_key) || is_buffer_var(src_name)) {
             return false;
         }
+        // `Foo(x)` parses like `arr(x)` and `item("k")` may be a Dictionary read;
+        // the opcode coerces the index to int, so only declared arrays qualify.
+        if (!array_vars.has(src_key)) {
+            return false;
+        }
         int src_slot = get_or_add_local(src_name, VT_UNKNOWN);
         if (src_slot >= 256) {
             return false;
@@ -4109,6 +4183,10 @@ bool VisualGasicCompiler::try_compile_packed_ribbon_for(ForStatement *f) {
     auto packed_off = [&](ExpressionNode *e, const String &base, String &arr, int64_t &off) -> bool {
         ExpressionNode *idx = nullptr;
         if (!_vg_packed_index_expr(e, arr, idx)) {
+            return false;
+        }
+        const String arr_key = arr.to_lower();
+        if (!array_vars.has(arr_key)) {
             return false;
         }
         return loop_off(idx, base, off);
