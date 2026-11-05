@@ -59,7 +59,8 @@ Sub _Process(ByVal delta As Single)
 		Check(yard.blocked(Vector2(119, 50), 0.4), "backlight_yard_boundary_collision")
 		For i = 0 To 7
 			door = yard.buildings(i).door
-			Check(Not yard.blocked(door, 0.4) And Not yard.blocked(door - Vector2(0, 3), 0.4), "backlight_yard_door_clear_" & Str(i))
+			Check(Not yard.blocked(door - Vector2(0, 3), 0.4), "backlight_yard_door_approach_" & Str(i))
+			Check(yard.blocked(door + Vector2(0, -0.4), 0.15), "backlight_yard_door_closed_" & Str(i))
 		Next
 		yard.position_xz = Vector2(0, 90)
 		yard.heading = 0
@@ -129,11 +130,16 @@ Sub _Process(ByVal delta As Single)
 		End If
 		yard.position_xz = Vector2(-41, 33)
 	ElseIf elapsed_frames = 32 Then
-		Check(yard.yard_scenery.doors(0).position.x < yard.yard_scenery.door_origins(0).x - 2.0, "backlight_yard_door_opens_on_approach")
-		Check(yard.yard_scenery.doors(0).GetChild(0).position.x > 6.2, "backlight_yard_both_leaves_slide")
+		Check(yard.yard_scenery.doors(0).position.distance_to(yard.yard_scenery.door_origins(0)) < 0.01, "backlight_yard_door_stays_closed")
+		Check(Abs(yard.yard_scenery.doors(0).GetChild(0).position.x - 2.2) < 0.05, "backlight_yard_leaves_stay_shut")
+		Check(yard.blocked(yard.buildings(0).door + Vector2(0, -0.4), 0.15), "backlight_yard_doorway_is_solid")
+		yard.position_xz = yard.buildings(0).door + Vector2(0, -1.6)
+		yard.use_object()
+		Check(yard.place = "building", "backlight_yard_use_enters_real_room")
+		yard.leave_building()
 		directory = OS.get_environment("ASH_YARD_CAPTURE")
 		If Len(directory) > 0 And DisplayServer.get_name() <> "headless" Then
-			Check(yard.optics.back().get_texture().get_image().save_png(directory & "/door-open.png") = 0, "backlight_yard_open_door_capture")
+			Check(yard.optics.back().get_texture().get_image().save_png(directory & "/door-closed.png") = 0, "backlight_yard_closed_door_capture")
 		End If
 		yard.position_xz = Vector2(0, 100)
 		yard.inspection = 1

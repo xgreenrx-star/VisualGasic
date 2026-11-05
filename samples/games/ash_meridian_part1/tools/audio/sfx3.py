@@ -11,7 +11,7 @@ import os
 import sys
 import numpy as np
 from dsp import SR, t_axis, lp, hp, bp, env_ad, sweep, saw, square, fade_edges, write_ogg
-from sfx import modes, burst, thud, finish, ramp_np
+from sfx import modes, burst, thud, finish, finish_loop, ramp_np
 from sfx2 import make_loop, noise, lfo
 
 rng = np.random.default_rng(7331)
@@ -28,7 +28,7 @@ def buggy_idle():
 	x = lp(x, 3000)
 	x += bp(noise(sec + 0.3), 4000, 7000) * 0.03 * lfo(t, 0.31, 0.6)
 	x *= lfo(t, 0.66, 0.12)
-	return finish(make_loop(x, sec), 0.45)
+	return finish_loop(make_loop(x, sec), 0.45)
 
 
 def buggy_coast():
@@ -42,7 +42,7 @@ def buggy_coast():
 	tick = lp(tick, 2500) * 3.0
 	hiss = bp(noise(sec + 0.3), 2500, 5500) * 0.05
 	x = lp(0.5 * whine, 1400) + tick + hiss + lp(noise(sec + 0.3), 70) * 0.6
-	return finish(make_loop(x, sec), 0.5)
+	return finish_loop(make_loop(x, sec), 0.5)
 
 
 def car_motor():
@@ -55,7 +55,7 @@ def car_motor():
 	ring = np.sin(ph * 6.13) * np.sin(2 * np.pi * 7.0 * t) * 0.3
 	glass = np.sin(ph * 13.7) * 0.08 * lfo(t, 0.5, 0.5)
 	x = lp(body * 0.5 + ring, 1800) + glass + lp(noise(sec + 0.3), 110) * 1.1
-	return finish(make_loop(x, sec), 0.7)
+	return finish_loop(make_loop(x, sec), 0.7)
 
 
 def car_idle():
@@ -65,7 +65,7 @@ def car_idle():
 	x = np.sin(2 * np.pi * 46 * t) * 0.5 * lfo(t, 0.5, 0.3) + np.sin(2 * np.pi * 69.3 * t) * 0.2
 	for f, a in ((1395, 0.05), (1402, 0.05), (2093, 0.03)):
 		x += np.sin(2 * np.pi * f * t) * a * lfo(t, 0.17, 0.8, f)
-	return finish(make_loop(x, sec), 0.45)
+	return finish_loop(make_loop(x, sec), 0.45)
 
 
 # ---------------------------------------------------------------- tyres
@@ -79,7 +79,7 @@ def tyre_gravel():
 	x += bp(grains, 1500, 6000, 2) * 6.0
 	x += lp(noise(sec + 0.3), 160) * 0.8
 	x *= lfo(np.arange(n) / SR, 3.1, 0.2)
-	return finish(make_loop(x, sec), 0.6)
+	return finish_loop(make_loop(x, sec), 0.6)
 
 
 def tyre_smooth():
@@ -88,7 +88,7 @@ def tyre_smooth():
 	t = t_axis(sec + 0.3)
 	x = bp(noise(sec + 0.3), 600, 4500) * 0.35 + lp(noise(sec + 0.3), 220) * 0.6
 	x += np.sin(2 * np.pi * 210 * t) * 0.05
-	return finish(make_loop(x, sec), 0.5)
+	return finish_loop(make_loop(x, sec), 0.5)
 
 
 def tyre_hollow():
@@ -105,7 +105,7 @@ def tyre_hollow():
 				k = thud(0.35, 90, 45, 0.09) + modes([210, 480], [0.08, 0.05], 0.35, rng) * 0.3
 				m = min(len(k), n - i)
 				x[i:i + m] += k[:m] * 1.5
-	return finish(make_loop(x, sec), 0.7)
+	return finish_loop(make_loop(x, sec), 0.7)
 
 
 def tyre_skid():
@@ -117,7 +117,7 @@ def tyre_skid():
 	sq = np.sin(ph) + 0.5 * np.sin(2.01 * ph) + 0.25 * np.sin(3.03 * ph)
 	sq *= 0.6 + 0.4 * lfo(t, 11.0, 0.5)
 	scrub = bp(noise(sec + 0.3), 1200, 5000) * 0.5
-	return finish(make_loop(0.35 * sq + scrub, sec), 0.6)
+	return finish_loop(make_loop(0.35 * sq + scrub, sec), 0.6)
 
 
 # ---------------------------------------------------------------- one-shots

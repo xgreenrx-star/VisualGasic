@@ -104,8 +104,6 @@ End Sub
 
 Sub update_scene(ByVal city As Object, ByVal time_n As Single, ByVal outdoors As Boolean)
 	Dim i As Integer
-	Dim opening As Single
-	Dim p As Vector3
 	Me.visible = outdoors
 	sky_material.set_shader_parameter("sky_time", time_n)
 	If outdoors Then
@@ -122,11 +120,10 @@ Sub update_scene(ByVal city As Object, ByVal time_n As Single, ByVal outdoors As
 		city.light_material.set_shader_parameter("yard_haze", 0.0)
 		city.light_material.set_shader_parameter("glow_gain", 1.0)
 	End If
+	' Doors stay shut. The hall behind them is an empty shell; F at the doorway enters the real room.
 	For i = 0 To doors.size() - 1
-		p = door_origins(i)
-		opening = ClampF((7 - city.position_xz.distance_to(Vector2(p.x + 2.2, p.z))) / 3, 0, 1)
-		doors(i).position = p + Vector3(-2.05 * opening, 0, 0)
-		doors(i).GetChild(0).position.x = 2.2 + 4.1 * opening
+		doors(i).position = door_origins(i)
+		doors(i).GetChild(0).position.x = 2.2
 	Next
 End Sub
 
@@ -152,6 +149,7 @@ Sub press_hall(ByVal city As Object, ByVal p As Vector3, ByVal index As Integer)
 		city._trace(Array(Vector3(x, 1, -0.08), Vector3(x, 7.5, -0.08), Vector3(11 + (x - 11) * 0.65, 11, -0.08)), 0.10, city.ICE, transform)
 	Next
 	city.solids.append(Rect2(p.x, p.z, 8.8, 1))
+	city.solids.append(Rect2(p.x + 8.8, p.z + 0.45, 4.4, 0.55))
 	city.solids.append(Rect2(p.x + 13.2, p.z, 8.8, 1))
 	city.solids.append(Rect2(p.x, p.z + 1, 1, 23))
 	city.solids.append(Rect2(p.x + 21, p.z + 1, 1, 23))

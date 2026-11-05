@@ -10,7 +10,7 @@ import os
 import sys
 import numpy as np
 from dsp import SR, t_axis, lp, hp, bp, env_ad, sweep, saw, square, fade_edges, write_ogg
-from sfx import modes, burst, finish
+from sfx import modes, burst, finish, finish_loop
 from sfx2 import make_loop, noise, lfo
 
 rng = np.random.default_rng(88216)
@@ -36,7 +36,7 @@ def neon_buzz():
 	x = 0.6 * square(2 * np.pi * 120 * t, 0.5) + 0.3 * saw(2 * np.pi * 240 * t)
 	x = bp(x, 150, 3500) * lfo(t, 0.9, 0.35) * lfo(t, 7.3, 0.12)
 	x += ticks(sec + 0.3, 9) * 0.5
-	return finish(make_loop(x, sec), 0.4)
+	return finish_loop(make_loop(x, sec), 0.4)
 
 
 def steam_hiss():
@@ -45,7 +45,7 @@ def steam_hiss():
 	t = t_axis(sec + 0.3)
 	x = bp(noise(sec + 0.3), 900, 7000) * lfo(t, 0.333, 0.45) * lfo(t, 2.1, 0.12)
 	x += lp(noise(sec + 0.3), 180) * 1.5 * lfo(t, 0.666, 0.6)
-	return finish(make_loop(x, sec), 0.45)
+	return finish_loop(make_loop(x, sec), 0.45)
 
 
 def drone_hum():
@@ -57,7 +57,7 @@ def drone_hum():
 		x += a * np.sin(2 * np.pi * f * t + rng.uniform(0, 6))
 	x += bp(noise(sec + 0.3), 300, 1200) * 0.25 * lfo(t, 2.5, 0.5)
 	x += np.sin(2 * np.pi * 1300 * t) * 0.03 * lfo(t, 0.5, 0.9)
-	return finish(make_loop(x, sec), 0.45)
+	return finish_loop(make_loop(x, sec), 0.45)
 
 
 def fly_buzz():
@@ -70,7 +70,7 @@ def fly_buzz():
 		ph = 2 * np.pi * np.cumsum(f) / SR
 		x += saw(ph) * np.clip(np.sin(2 * np.pi * rng.uniform(0.5, 1.5) * t + rng.uniform(0, 6)), 0, 1)
 	x = bp(x, 150, 2500)
-	return finish(make_loop(x, sec), 0.4)
+	return finish_loop(make_loop(x, sec), 0.4)
 
 
 # ---------------------------------------------------------------- one-shots

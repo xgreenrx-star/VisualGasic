@@ -26,6 +26,7 @@ Dim drive_last As Vector2
 Dim drive_track As Boolean
 Dim jet_level As Single
 Dim listener_ok As Boolean
+Dim silenced As Boolean
 Dim music_name As String
 Dim stride_left As Single
 Dim last_pos As Vector2
@@ -78,7 +79,7 @@ Sub setup()
 		pool.append(p)
 	Next
 	pool3d = Array()
-	For i = 0 To 5
+	For i = 0 To 11
 		q = ClassDB.Instantiate("AudioStreamPlayer3D")
 		q.bus = "SFX"
 		q.unit_size = 8.0
@@ -88,9 +89,11 @@ Sub setup()
 	Next
 	deck = ClassDB.Instantiate("AudioStreamPlayer")
 	deck.bus = "Music"
+	deck.playback_type = 1
 	add_child(deck)
 	old_deck = ClassDB.Instantiate("AudioStreamPlayer")
 	old_deck.bus = "Music"
+	old_deck.playback_type = 1
 	add_child(old_deck)
 	motor = ClassDB.Instantiate("AudioStreamPlayer")
 	motor.bus = "SFX"
@@ -157,7 +160,7 @@ Sub ensure_echo()
 	rv = ClassDB.Instantiate("AudioEffectReverb")
 	rv.room_size = 0.75
 	rv.damping = 0.35
-	rv.predelay_msec = 60.0
+	rv.predelay_msec = 20.0
 	rv.spread = 0.8
 	rv.wet = 0.0
 	rv.dry = 1.0
@@ -193,12 +196,25 @@ Function stream_for(ByVal path As String) As Object
 	Return s
 End Function
 
+' First idle player at or after start (round robin); steals start only when every voice is busy.
+Function free_voice(ByVal list As Array, ByVal start As Integer) As Integer
+	Dim n As Integer
+	Dim k As Integer
+	n = list.size()
+	For i = 0 To n - 1
+		k = (start + i) Mod n
+		If Not list(k).playing Then Return k
+	Next
+	Return start
+End Function
+
 Sub fire(ByVal name As String, Optional ByVal vol_db As Single = 0.0, Optional ByVal pitch As Single = 1.0)
 	Dim s As Object
 	Dim p As AudioStreamPlayer
 	If Not ready_ok Then Exit Sub
 	s = stream_for(SFX_DIR & name & ".ogg")
 	If s = Nothing Then Exit Sub
+	pool_next = free_voice(pool, pool_next)
 	p = pool(pool_next)
 	pool_next = (pool_next + 1) Mod pool.size()
 	p.stream = s
@@ -222,6 +238,7 @@ Sub vfire(ByVal snd As String, Optional ByVal vol_db As Single = 0.0, Optional B
 	last_event = snd
 	s = stream_for(SFX_DIR & snd & ".ogg")
 	If s = Nothing Then Exit Sub
+	epool_next = free_voice(epool, epool_next)
 	p = epool(epool_next)
 	epool_next = (epool_next + 1) Mod epool.size()
 	p.stream = s
@@ -237,6 +254,7 @@ Sub fire_at(ByVal snd As String, ByVal at As Vector3, Optional ByVal vol_db As S
 	If Not ready_ok Then Exit Sub
 	s = stream_for(SFX_DIR & snd & ".ogg")
 	If s = Nothing Then Exit Sub
+	pool3d_next = free_voice(pool3d, pool3d_next)
 	q = pool3d(pool3d_next)
 	pool3d_next = (pool3d_next + 1) Mod pool3d.size()
 	q.stream = s
@@ -260,6 +278,8 @@ Function attach_loop(ByVal parent As Node, ByVal snd As String, ByVal vol_db As 
 	q.volume_db = vol_db
 	q.unit_size = unit
 	q.max_distance = unit * 14.0
+	q.playback_type = 1
+	q.doppler_tracking = 0
 	q.bus = "Ambience"
 	q.autoplay = True
 	parent.add_child(q)
@@ -270,6 +290,8 @@ End Function
 ' Stops everything this explorer owns; called when it is deactivated.
 Sub silence()
 	If Not ready_ok Then Exit Sub
+	If silenced Then Exit Sub
+	silenced = True
 	deck.stop()
 	old_deck.stop()
 	music_name = ""
@@ -384,18 +406,25 @@ Sub set_music(ByVal track As String)
 	Dim s As Object
 	Dim spare As AudioStreamPlayer
 	If Not ready_ok Then Exit Sub
-	If track = music_name Then Exit Sub
+	If track = music_name Then
+		If track <> "" And is_inside_tree() And Not deck.playing Then deck.play()
+		Exit Sub
+	End If
+	s = Nothing
+	If track <> "" Then
+		s = stream_for(MUSIC_DIR & track & ".ogg")
+		If s = Nothing Then Exit Sub
+		s.set("loop", True)
+	End If
 	music_name = track
 	spare = old_deck
 	old_deck = deck
 	deck = spare
 	deck.stop()
 	If track = "" Then Exit Sub
-	s = stream_for(MUSIC_DIR & track & ".ogg")
-	If s = Nothing Then Exit Sub
-	s.set("loop", True)
 	deck.stream = s
 	deck.volume_db = SILENT_DB
+	deck.playback_type = 1
 	If is_inside_tree() Then deck.play()
 End Sub
 
@@ -660,7 +689,9 @@ Sub update(ByVal city As Node, ByVal delta As Single)
 	Dim speed As Single
 	Dim amb As Integer
 	If Not ready_ok Then Exit Sub
+	silenced = False
 	If Not listener_ok And is_inside_tree() Then
+		get_viewport().audio_listener_enable_2d = True
 		get_viewport().audio_listener_enable_3d = True
 		listener_ok = True
 	End If

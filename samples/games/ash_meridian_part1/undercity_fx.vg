@@ -818,43 +818,104 @@ Sub _build_pools(ByVal city As Node)
 			node = ClassDB.Instantiate("Node3D")
 			node.name = "FxAudio"
 			city.interior.add_child(node)
-			list.append(Array(node, bus.attach_loop(node, spec(0), Num(spec(2)), Num(spec(3)))))
+			' Slot: node, player, base dB, goal point, has goal, fade level (0-1).
+			list.append(Array(node, bus.attach_loop(node, spec(0), Num(spec(2)), Num(spec(3))), Num(spec(2)), Vector3(0, 0, 0), False, 0.0))
 		Next
 		pools(spec(0)) = list
 	Next
 End Sub
 
-' Move each anchor of a pool to one of the nearest points (Array of Vector3); pause the rest.
+' Pick goal points for a pool's anchors: an anchor keeps its point while it is still lit and in reach
+' (no swapping), free anchors take the nearest unused point. The hop itself is faded in _fade_pools.
 Sub _place_pool(ByVal name_key As String, ByVal pts As Array, ByVal me_p As Vector3, ByVal reach As Single)
 	Dim list As Array
+	Dim slot As Array
 	Dim used As Dictionary
+	Dim keep As Dictionary
 	Dim best As Integer
 	Dim bd As Single
 	Dim d As Single
-	Dim snd As Object
+	Dim g As Vector3
 	If Not pools.has(name_key) Then Exit Sub
 	list = pools(name_key)
 	used = New Dictionary
-	For Each slot In list
-		best = -1
-		bd = reach
-		For i = 0 To pts.size() - 1
-			If Not used.has(i) Then
-				d = pts(i).distance_to(me_p)
-				If d < bd Then
-					bd = d
-					best = i
+	keep = New Dictionary
+	For k = 0 To list.size() - 1
+		slot = list(k)
+		If slot(4) Then
+			g = slot(3)
+			If g.distance_to(me_p) < reach + 4.0 Then
+				For i = 0 To pts.size() - 1
+					If Not used.has(i) Then
+						If pts(i).distance_to(g) < 0.5 Then
+							used(i) = True
+							keep(k) = True
+							Exit For
+						End If
+					End If
+				Next
+			End If
+		End If
+	Next
+	For k = 0 To list.size() - 1
+		If Not keep.has(k) Then
+			slot = list(k)
+			best = -1
+			bd = reach
+			For i = 0 To pts.size() - 1
+				If Not used.has(i) Then
+					d = pts(i).distance_to(me_p)
+					If d < bd Then
+						bd = d
+						best = i
+					End If
+				End If
+			Next
+			If best >= 0 Then
+				used(best) = True
+				slot(3) = pts(best)
+				slot(4) = True
+			Else
+				slot(4) = False
+			End If
+		End If
+	Next
+End Sub
+
+' Per frame: fade an anchor out before it hops (or pauses), then back in at its new spot.
+Sub _fade_pools(ByVal dt As Single)
+	Dim slot As Array
+	Dim node As Object
+	Dim snd As Object
+	Dim lv As Single
+	Dim at_goal As Boolean
+	Dim g As Vector3
+	For Each key In pools.keys()
+		For Each s_any In pools(key)
+			slot = s_any
+			node = slot(0)
+			snd = slot(1)
+			If snd <> Nothing Then
+				lv = slot(5)
+				g = slot(3)
+				at_goal = slot(4) And node.position.distance_to(g) < 0.05
+				If at_goal And Not snd.stream_paused Then
+					If lv < 1.0 Then lv = Min(1.0, lv + dt * 3.0)
+				ElseIf lv > 0.0 Then
+					lv = Max(0.0, lv - dt * 4.0)
+				ElseIf slot(4) Then
+					node.position = g
+					snd.volume_db = Num(slot(2)) - 60.0
+					snd.stream_paused = False
+				Else
+					snd.stream_paused = True
+				End If
+				If lv <> slot(5) Then
+					slot(5) = lv
+					snd.volume_db = Num(slot(2)) + 8.685889 * Log(Max(lv, 0.001))
 				End If
 			End If
 		Next
-		snd = slot(1)
-		If best >= 0 Then
-			used(best) = True
-			slot(0).position = pts(best)
-			If snd <> Nothing Then snd.stream_paused = False
-		ElseIf snd <> Nothing Then
-			snd.stream_paused = True
-		End If
 	Next
 End Sub
 
@@ -865,6 +926,7 @@ Sub animate(ByVal city As Node, ByVal t As Single)
 	Dim r As Single
 	If Not built Then Exit Sub
 	dp = city.deep
+	If t > last_t And t - last_t < 0.5 Then _fade_pools(t - last_t)
 	last_t = t
 	live = dp.grid_power
 	me_p = Vector3(city.position_xz.x, dp.foot(city) + 1.6, city.position_xz.y)
@@ -1019,6 +1081,18 @@ Sub _lights(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal 
 	city.shell_material.set_shader_parameter("pl_count", 6)
 End Sub
 
+' Roof height where a tower occupies p, or 0 over open street.
+Function _roof_top(ByVal p As Vector2) As Single
+	Dim rec As Dictionary
+	Dim top As Single
+	top = 0.0
+	If dp = Nothing Then Return 0.0
+	For Each rec In AsArray(dp.towers)
+		If rec("r").has_point(p) Then top = Max(top, Num(rec("base")) + Num(rec("h")))
+	Next
+	Return top
+End Function
+
 Sub _drones(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal live As Boolean)
 	Dim a As Single
 	Dim p As Vector3
@@ -1026,17 +1100,26 @@ Sub _drones(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal 
 	Dim rad As Vector2
 	Dim node As Object
 	Dim on_street As Boolean
+	Dim roof As Single
 	on_street = (me_p.y < 10.0)
 	For Each dr In drones
 		a = t * Num(dr("w")) + Num(dr("y"))
 		c = dr("c")
 		rad = dr("rad")
 		p = Vector3(c.x + Cos(a) * rad.x, Num(dr("y")) + Sin(t * 0.7 + a) * 0.6, c.y + Sin(a) * rad.y)
+		roof = _roof_top(Vector2(p.x, p.z))
 		node = dr("node")
+		If roof > 0.0 Then
+			p.y = Max(p.y, roof + 2.4)
+			dr("beam").set_shader_parameter("strength", 0.0)
+			dr("foot") = Vector3(p.x, -40.0, p.z)
+		Else
+			dr("beam").set_shader_parameter("strength", 2.2)
+			dr("foot") = Vector3(p.x, 6.2, p.z)
+		End If
 		node.position = p
 		node.rotation.y = 0 - a
 		node.rotation.z = Sin(t * 1.3 + a) * 0.08
-		dr("foot") = Vector3(p.x, 6.2, p.z)
 		dr("lamp").visible = (Sin(t * 6.0 + a) > 0.3 Or t - Num(dr("alert")) < 3.0)
 		If on_street And Vector2(p.x - me_p.x, p.z - me_p.z).length() < 3.6 Then
 			If t - Num(dr("alert")) > 25.0 Or t < Num(dr("alert")) Then
@@ -1095,9 +1178,8 @@ Sub _slow(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal li
 	near = Array()
 	For Each ne In AsArray(dp.neons)
 		p = ne("p") - Vector3(0, 1.0, 0)
-		If live And ne("node") <> Nothing Then
-			If ne("node").visible Then pts.append(p)
-		End If
+		' Every neon, not just the ones lit right now: flicker must not make the buzz anchors hop.
+		If live And ne("node") <> Nothing Then pts.append(p)
 		If p.distance_to(me_p) < 40.0 Then near.append(ne)
 	Next
 	_place_pool("neon_buzz", pts, me_p, 22.0)
@@ -1128,7 +1210,7 @@ Sub _slow(ByVal city As Node, ByVal t As Single, ByVal me_p As Vector3, ByVal li
 	If t > drip_t Or drip_t - t > 10.0 Then
 		drip_t = t + rng.randf_range(1.2, 3.5)
 		p2 = city.position_xz + Vector2(rng.randf_range(-9, 9), rng.randf_range(-9, 9))
-		If city.sfx_bus <> Nothing And me_p.y < 10.0 And dp._uc_street(p2) Then city.sfx_bus.fire_at("drip", Vector3(p2.x, 6.0, p2.y), -8.0, 3.0)
+		If city.sfx_bus <> Nothing And me_p.y < 10.0 And dp._uc_street(p2) Then city.sfx_bus.fire_at("drip", Vector3(p2.x, 6.0, p2.y), -14.0, 3.0)
 	End If
 	For Each w In wrecks
 		If t > Num(w("next")) Or Num(w("next")) - t > 10.0 Then

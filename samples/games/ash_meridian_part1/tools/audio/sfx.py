@@ -93,6 +93,11 @@ def finish(x, peak):
 	return fade_edges(normalize(x, peak), 0.0005, 0.02)
 
 
+def finish_loop(x, peak):
+	"""Loops are already cross-faded into themselves; an edge fade would dip to silence on every repeat."""
+	return normalize(x, peak)
+
+
 def key_press():
 	n = int(0.11 * SR)
 	tone = square(sweep(1500, 980, n), 0.3) * env_ad(n, 0.001, 0.03)

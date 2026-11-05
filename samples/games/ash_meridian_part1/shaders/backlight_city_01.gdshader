@@ -44,7 +44,13 @@ void fragment() {
 		vec3 to_l = pl_pos[i].xyz - world_point;
 		float ld = max(length(to_l), 0.001);
 		float fall = 1.0 - clamp(ld / pl_pos[i].w, 0.0, 1.0);
-		satin += pl_col[i].rgb * pl_col[i].a * fall * fall * (0.25 + 0.75 * max(dot(n, to_l / ld), 0.0));
+		// Floors take the pool of light. Walls only light when the lamp is close, so a street
+		// search light cannot brighten the inside of a building through the shell.
+		float lit_face = step(0.35, n.y);
+		if (fall > 0.55) {
+			lit_face = 1.0;
+		}
+		satin += pl_col[i].rgb * pl_col[i].a * fall * fall * (0.25 + 0.75 * max(dot(n, to_l / ld), 0.0)) * lit_face;
 	}
 	float haze = 1.0 - exp(-length(VERTEX) * 0.0018);
 	vec3 surface_color = mix(satin, vec3(0.065, 0.065, 0.12), haze);

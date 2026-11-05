@@ -54,6 +54,7 @@ Dim grid As Dictionary
 Dim terminals As Array
 Dim waters As Array
 Dim levers As Array
+Dim gauges As Array
 Dim cars As Array
 Dim trains As Array
 Dim boards As Array
@@ -437,6 +438,7 @@ Sub _reset_layout()
 	terminals = Array()
 	waters = Array()
 	levers = Array()
+	gauges = Array()
 	cars = Array()
 	trains = Array()
 	boards = Array()
@@ -1699,6 +1701,17 @@ Function ground_sound(ByVal city As Node) As String
 	Return "smooth"
 End Function
 
+' Street lamps stand on the kerb, never in the roadway of a crossing avenue or cross street.
+Function _uc_in_crossing(ByVal p As Vector2) As Boolean
+	For Each ax In Array(-90.0, -45.0, 0.0, 45.0, 90.0)
+		If Abs(p.x - ax) < 4.5 Then Return True
+	Next
+	For Each cz In Array(60.0, 110.0, 160.0, 210.0, 260.0)
+		If Abs(p.y - cz) < 4.5 Then Return True
+	Next
+	Return False
+End Function
+
 Function _uc_clear(ByVal r As Rect2) As Boolean
 	Dim ok As Boolean
 	Dim t As Integer
@@ -2103,7 +2116,7 @@ Sub _layout_undercity(ByVal city As Node)
 		For z = 8 To 280 Step 16
 			For Each sd In Array(-5.4, 5.4)
 				p = Vector2(ax + sd, z)
-				If _uc_street(p) Then _street_lamp(city, p, Vector2(-sd / 5.4, 0), white)
+				If _uc_street(p) And Not _uc_in_crossing(p) Then _street_lamp(city, p, Vector2(-sd / 5.4, 0), white)
 			Next
 		Next
 	Next
@@ -2112,7 +2125,7 @@ Sub _layout_undercity(ByVal city As Node)
 		For x = -112 To 112 Step 16
 			For Each sd In Array(-5.4, 5.4)
 				p = Vector2(x, cz + sd)
-				If _uc_street(p) Then _street_lamp(city, p, Vector2(0, -sd / 5.4), white)
+				If _uc_street(p) And Not _uc_in_crossing(p) Then _street_lamp(city, p, Vector2(0, -sd / 5.4), white)
 			Next
 		Next
 	Next
@@ -2165,10 +2178,9 @@ Sub _layout_undercity(ByVal city As Node)
 	_lever(city, "88216", Vector2(-23, 146))
 	_lever(city, "88216", Vector2(-16, 146))
 	_terminal(city, "88216", Vector2(-13, 126), Vector2(-1, 0), "4471", 6.0)
-	_solid(city, Rect2(-33, 128, 4, 6), 6.0, 9.5, city.INK)
-	_solid(city, Rect2(-19, 128, 4, 6), 6.0, 9.5, city.INK)
-	_line3(city, Vector3(-33, 9.52, 131), Vector3(-29, 9.52, 131), 0.06, amber)
-	_line3(city, Vector3(-19, 9.52, 131), Vector3(-15, 9.52, 131), 0.06, amber)
+	_transformer(city, Rect2(-33, 128, 4, 6), amber)
+	_transformer(city, Rect2(-19, 128, 4, 6), amber)
+	_station_fitout(city, amber)
 	_pickup("88216", "med_gel", Vector3(-26, 6.0, 124))
 	_sign(city, Vector3(-23, 10.9, 119.5), Vector3(0, 0, -1), "4471", "POWER TRANSFER STATION")
 
@@ -2707,17 +2719,346 @@ Sub term_submit(ByVal city As Node)
 	term_input = ""
 End Sub
 
+' Station light level: full when the grid is up, a faint standby glow while it is dead.
+Function amber_dim(ByVal c As Color) As Color
+	If grid_power Then Return c
+	Return c * 0.14
+End Function
+
+' Axis-aligned panel whose front face sits at c, facing a horizontal normal.
+Sub _plate(ByVal city As Node, ByVal c As Vector3, ByVal normal As Vector3, ByVal w As Single, ByVal h As Single, ByVal depth As Single, ByVal color As Color, ByVal lit As Boolean)
+	Dim mid As Vector3
+	If Not drawing Then Exit Sub
+	mid = c - normal * (depth * 0.5)
+	If Abs(normal.x) > 0.5 Then
+		city._box(mid - Vector3(depth * 0.5, h * 0.5, w * 0.5), Vector3(depth, h, w), color, lit)
+	Else
+		city._box(mid - Vector3(w * 0.5, h * 0.5, depth * 0.5), Vector3(w, h, depth), color, lit)
+	End If
+End Sub
+
+Sub _ring(ByVal city As Node, ByVal c As Vector3, ByVal right As Vector3, ByVal radius As Single, ByVal width As Single, ByVal color As Color, ByVal segs As Integer)
+	Dim a0 As Single
+	Dim a1 As Single
+	For k = 0 To segs - 1
+		a0 = k * 6.2831853 / segs
+		a1 = (k + 1) * 6.2831853 / segs
+		city._bar(c + right * (Cos(a0) * radius) + Vector3.UP * (Sin(a0) * radius), c + right * (Cos(a1) * radius) + Vector3.UP * (Sin(a1) * radius), width, color, True)
+	Next
+End Sub
+
+' Analog meter: bezel, scale ticks and an overload band. The needle is a prop that animate() swings.
+Sub _gauge(ByVal city As Node, ByVal c As Vector3, ByVal normal As Vector3, ByVal radius As Single, ByVal lever_id As String, ByVal base As Single, ByVal phase As Single)
+	Dim entry As Dictionary
+	Dim right As Vector3
+	Dim dir As Vector3
+	Dim a As Single
+	Dim tick As Color
+	entry = New Dictionary
+	entry("p") = c + normal * 0.05
+	entry("n") = normal
+	entry("r") = radius
+	entry("lever") = lever_id
+	entry("base") = base
+	entry("phase") = phase
+	entry("node") = Nothing
+	gauges.append(entry)
+	If Not drawing Then Exit Sub
+	right = normal.cross(Vector3.UP)
+	_plate(city, c + normal * 0.01, normal, radius * 2.3, radius * 2.3, 0.04, Color(0.06, 0.065, 0.075), False)
+	_plate(city, c + normal * 0.02, normal, radius * 1.9, radius * 1.9, 0.01, amber_dim(Color(0.85, 0.8, 0.62)) * 0.22, True)
+	_ring(city, c + normal * 0.03, right, radius, 0.035, Color(0.5, 0.52, 0.56) * 0.45, 16)
+	tick = amber_dim(Color(0.95, 0.9, 0.75))
+	For k = 0 To 8
+		a = -2.1 + k * 0.525
+		dir = Vector3.UP * Cos(a) + right * Sin(a)
+		If k >= 7 Then
+			city._bar(c + normal * 0.035 + dir * (radius * 0.72), c + normal * 0.035 + dir * (radius * 0.92), 0.04, amber_dim(Color(1.0, 0.15, 0.08)), True)
+		Else
+			city._bar(c + normal * 0.035 + dir * (radius * 0.78), c + normal * 0.035 + dir * (radius * 0.92), 0.022, tick, True)
+		End If
+	Next
+End Sub
+
+' Oil-cooled transformer: radiator fins, porcelain bushings with bus bars to the ceiling tray, hazard plate.
+Sub _transformer(ByVal city As Node, ByVal r As Rect2, ByVal amber As Color)
+	Dim cx As Single
+	Dim cz As Single
+	Dim zz As Single
+	Dim fin As Color
+	Dim gr As Rect2
+	_solid(city, r, 6.0, 9.5, city.INK)
+	If Not drawing Then Exit Sub
+	cx = r.position.x + r.size.x * 0.5
+	cz = r.position.y + r.size.y * 0.5
+	fin = Color(0.045, 0.05, 0.06)
+	zz = r.position.y + 0.35
+	While zz < r.end.y - 0.3
+		city._box(Vector3(r.position.x - 0.3, 6.35, zz - 0.03), Vector3(0.3, 2.8, 0.06), fin)
+		city._box(Vector3(r.end.x, 6.35, zz - 0.03), Vector3(0.3, 2.8, 0.06), fin)
+		zz = zz + 0.42
+	Wend
+	city._bar(Vector3(r.position.x - 0.3, 9.2, r.position.y + 0.3), Vector3(r.position.x - 0.3, 9.2, r.end.y - 0.3), 0.08, fin * 1.5, False)
+	city._bar(Vector3(r.end.x + 0.3, 9.2, r.position.y + 0.3), Vector3(r.end.x + 0.3, 9.2, r.end.y - 0.3), 0.08, fin * 1.5, False)
+	city._bar(Vector3(r.position.x, 9.52, cz), Vector3(r.end.x, 9.52, cz), 0.06, amber, True)
+	For Each dz In Array(-1.8, 0.0, 1.8)
+		city._bar(Vector3(cx, 9.5, cz + dz), Vector3(cx, 10.6, cz + dz), 0.12, Color(0.3, 0.26, 0.22), False)
+		For k = 0 To 3
+			city._box(Vector3(cx - 0.22, 9.62 + k * 0.24, cz + dz - 0.22), Vector3(0.44, 0.08, 0.44), Color(0.42, 0.38, 0.32) * 0.6)
+		Next
+		city._box(Vector3(cx - 0.1, 10.55, cz + dz - 0.1), Vector3(0.2, 0.14, 0.2), amber_dim(amber), True)
+		city._bar(Vector3(cx, 10.65, cz + dz), Vector3(cx, 13.2, cz + dz), 0.08, amber_dim(Color(0.85, 0.45, 0.15)) * 0.8, True)
+	Next
+	_plate(city, Vector3(cx, 8.3, r.position.y), Vector3(0, 0, -1), 1.0, 0.75, 0.03, Color(1.0, 0.72, 0.05) * 0.45, True)
+	city._bar(Vector3(cx + 0.12, 8.58, r.position.y - 0.04), Vector3(cx - 0.08, 8.3, r.position.y - 0.04), 0.06, Color(0.02, 0.02, 0.02), False)
+	city._bar(Vector3(cx - 0.08, 8.3, r.position.y - 0.04), Vector3(cx + 0.08, 8.3, r.position.y - 0.04), 0.06, Color(0.02, 0.02, 0.02), False)
+	city._bar(Vector3(cx + 0.08, 8.3, r.position.y - 0.04), Vector3(cx - 0.12, 8.02, r.position.y - 0.04), 0.06, Color(0.02, 0.02, 0.02), False)
+	For Each g In Array(0.6, 0.9)
+		gr = r.grow(g)
+		city._bar(Vector3(gr.position.x, 6.02, gr.position.y), Vector3(gr.end.x, 6.02, gr.position.y), 0.12, Color(1.0, 0.72, 0.05) * 0.4, True)
+		city._bar(Vector3(gr.position.x, 6.02, gr.end.y), Vector3(gr.end.x, 6.02, gr.end.y), 0.12, Color(1.0, 0.72, 0.05) * 0.4, True)
+		city._bar(Vector3(gr.position.x, 6.02, gr.position.y), Vector3(gr.position.x, 6.02, gr.end.y), 0.12, Color(1.0, 0.72, 0.05) * 0.4, True)
+		city._bar(Vector3(gr.end.x, 6.02, gr.position.y), Vector3(gr.end.x, 6.02, gr.end.y), 0.12, Color(1.0, 0.72, 0.05) * 0.4, True)
+	Next
+End Sub
+
+' Deterministic readout digits (seed_rng would shift the rest of the city's random layout).
+Function _readout(ByVal seed As Integer, ByVal n As Integer) As String
+	Dim out As String
+	Dim h As Integer
+	out = ""
+	h = seed * 7919 + 13
+	For k = 1 To n
+		h = (h * 1103 + 12345) Mod 99991
+		out = out & Str(h Mod 10)
+	Next
+	Return out
+End Function
+
+' Everything else in the transfer station: mimic board, switchgear row, monitor desk, trays, pipes, lights.
+Sub _station_fitout(ByVal city As Node, ByVal amber As Color)
+	Dim n As Vector3
+	Dim right As Vector3
+	Dim live As Color
+	Dim cab As Color
+	Dim c As Vector3
+	Dim z As Single
+	Dim u0 As Single
+	Dim u1 As Single
+	Dim v0 As Single
+	Dim v1 As Single
+	Dim hgt As Single
+	Dim col As Color
+	Dim bg As Color
+	cab = Color(0.035, 0.04, 0.05)
+	' Switchgear row along the west wall.
+	For i = 0 To 9
+		z = 123.6 + i * 2.1
+		_solid(city, Rect2(-35.6, z, 0.8, 1.9), 6.0, 9.2, cab)
+		_gauge(city, Vector3(-34.8, 8.4, z + 0.5), Vector3(1, 0, 0), 0.26, "", 0.1 + (i Mod 4) * 0.35, i * 1.7)
+	Next
+	' Monitor desk along the east wall.
+	_solid(city, Rect2(-11.5, 131.5, 1.1, 13), 6.0, 7.0, cab)
+	_solid(city, Rect2(-10.9, 131.5, 0.5, 13), 7.0, 7.3, cab)
+	If Not drawing Then Exit Sub
+	n = Vector3(1, 0, 0)
+	For i = 0 To 9
+		z = 123.6 + i * 2.1
+		city._bar(Vector3(-34.78, 9.05, z + 0.1), Vector3(-34.78, 9.05, z + 1.8), 0.05, amber_dim(amber), True)
+		city._bar(Vector3(-34.78, 6.08, z + 0.1), Vector3(-34.78, 6.08, z + 1.8), 0.04, amber_dim(amber) * 0.5, True)
+		For k = 0 To 4
+			city._bar(Vector3(-34.78, 6.35 + k * 0.15, z + 0.25), Vector3(-34.78, 6.35 + k * 0.15, z + 0.75), 0.05, Color(0.1, 0.11, 0.13), False)
+			city._bar(Vector3(-34.78, 6.35 + k * 0.15, z + 1.15), Vector3(-34.78, 6.35 + k * 0.15, z + 1.65), 0.05, Color(0.1, 0.11, 0.13), False)
+		Next
+		city._bar(Vector3(-34.77, 7.2, z + 0.85), Vector3(-34.77, 7.7, z + 0.85), 0.04, Color(0.4, 0.42, 0.45) * 0.4, True)
+		city._bar(Vector3(-34.77, 7.2, z + 1.05), Vector3(-34.77, 7.7, z + 1.05), 0.04, Color(0.4, 0.42, 0.45) * 0.4, True)
+		bg = Color(0.004, 0.008, 0.006)
+		If grid_power Then bg = Color(0.0, 0.07, 0.035)
+		_plate(city, Vector3(-34.8, 8.4, z + 1.4), n, 0.66, 0.32, 0.03, bg, True)
+		If grid_power Then glyph3_string(city, Vector3(-34.76, 8.48, z + 1.15), Vector3(0, 0, 1), _readout(i, 3), 0.0068, Color(0.35, 1.0, 0.55))
+		For k = 0 To 2
+			col = Color(0.05, 0.05, 0.05)
+			If grid_power Then
+				col = Color(0.25, 1.0, 0.4)
+				If k = 2 And i Mod 3 = 0 Then col = Color(1.0, 0.65, 0.1)
+			ElseIf k = 2 Then
+				col = Color(1.0, 0.12, 0.06)
+			End If
+			city._box(Vector3(-34.8, 7.82, z + 1.15 + k * 0.2), Vector3(0.05, 0.1, 0.1), col, True)
+		Next
+		city._bar(Vector3(-35.2, 9.2, z + 0.95), Vector3(-35.2, 13.2, z + 0.95), 0.1, Color(0.02, 0.02, 0.025), False)
+	Next
+	' Mimic diagram over the breaker bank: feed, bus, three breakers, transformers, out to the undercity.
+	n = Vector3(0, 0, -1)
+	right = Vector3(1, 0, 0)
+	_plate(city, Vector3(-23, 11.4, 149.6), n, 20.0, 3.4, 0.2, Color(0.02, 0.025, 0.03), False)
+	For Each yy In Array(9.7, 13.1)
+		city._bar(Vector3(-33.05, yy, 149.38), Vector3(-12.95, yy, 149.38), 0.12, Color(0.07, 0.075, 0.09), False)
+	Next
+	For Each xx In Array(-33.0, -13.0)
+		city._bar(Vector3(xx, 9.7, 149.38), Vector3(xx, 13.1, 149.38), 0.12, Color(0.07, 0.075, 0.09), False)
+	Next
+	live = Color(1.0, 0.2, 0.08) * 0.55
+	If grid_power Then live = Color(0.25, 1.0, 0.6)
+	_ring(city, Vector3(-32.2, 12.4, 149.37), right, 0.28, 0.05, live, 14)
+	city._bar(Vector3(-31.92, 12.4, 149.37), Vector3(-14.2, 12.4, 149.37), 0.07, live, True)
+	city._bar(Vector3(-14.2, 12.4, 149.37), Vector3(-13.5, 12.4, 149.37), 0.07, live, True)
+	city._bar(Vector3(-13.5, 12.4, 149.37), Vector3(-13.8, 12.6, 149.37), 0.07, live, True)
+	city._bar(Vector3(-13.5, 12.4, 149.37), Vector3(-13.8, 12.2, 149.37), 0.07, live, True)
+	For Each xx In Array(-30.0, -23.0, -16.0)
+		city._bar(Vector3(xx, 12.4, 149.37), Vector3(xx, 11.55, 149.37), 0.06, live, True)
+		city._bar(Vector3(xx - 0.2, 11.55, 149.37), Vector3(xx + 0.2, 11.55, 149.37), 0.05, live, True)
+		city._bar(Vector3(xx - 0.2, 11.15, 149.37), Vector3(xx + 0.2, 11.15, 149.37), 0.05, live, True)
+		city._bar(Vector3(xx - 0.2, 11.55, 149.37), Vector3(xx - 0.2, 11.15, 149.37), 0.05, live, True)
+		city._bar(Vector3(xx + 0.2, 11.55, 149.37), Vector3(xx + 0.2, 11.15, 149.37), 0.05, live, True)
+		city._bar(Vector3(xx, 11.15, 149.37), Vector3(xx, 10.9, 149.37), 0.06, live, True)
+		_ring(city, Vector3(xx, 10.72, 149.37), right, 0.18, 0.04, live, 12)
+		_ring(city, Vector3(xx, 10.46, 149.37), right, 0.18, 0.04, live, 12)
+		city._bar(Vector3(xx, 10.28, 149.37), Vector3(xx, 9.85, 149.37), 0.06, live, True)
+	Next
+	glyph3_string(city, Vector3(-32.6, 13.0, 149.36), right, "4471", 0.01, amber_dim(amber))
+	glyph3_string(city, Vector3(-15.2, 13.0, 149.36), right, "88216", 0.01, amber_dim(amber))
+	For k = 0 To 15
+		col = Color(1.0, 0.15, 0.06) * 0.7
+		If grid_power Then
+			col = Color(0.25, 1.0, 0.45)
+			If k Mod 5 = 2 Then col = Color(1.0, 0.65, 0.1)
+		ElseIf k Mod 4 <> 0 Then
+			col = Color(0.04, 0.04, 0.04)
+		End If
+		city._box(Vector3(-31.6 + k * 1.1, 9.85, 149.36), Vector3(0.14, 0.1, 0.03), col, True)
+	Next
+	' Monitor desk: button field and four screens on the east wall.
+	For k = 0 To 27
+		col = Color(0.06, 0.06, 0.07)
+		If grid_power Then
+			col = Color(0.2, 0.9, 1.0) * 0.6
+			If k Mod 4 = 1 Then col = Color(1.0, 0.6, 0.1) * 0.7
+			If k Mod 7 = 3 Then col = Color(1.0, 0.15, 0.1) * 0.7
+		End If
+		city._box(Vector3(-11.35 + (k Mod 2) * 0.3, 7.01, 132.0 + Int(k / 2) * 0.9), Vector3(0.18, 0.05, 0.18), col, True)
+	Next
+	city._bar(Vector3(-11.52, 7.0, 131.5), Vector3(-11.52, 7.0, 144.5), 0.05, amber_dim(amber) * 0.7, True)
+	n = Vector3(-1, 0, 0)
+	right = Vector3(0, 0, -1)
+	For m = 0 To 3
+		c = Vector3(-10.4, 8.75, 142.8 - m * 3.2)
+		bg = Color(0.004, 0.006, 0.008)
+		If grid_power Then bg = Color(0.005, 0.045, 0.04)
+		_plate(city, c, n, 2.9, 1.8, 0.08, bg, True)
+		city._bar(c + Vector3(-0.1, 0.95, 1.5), c + Vector3(-0.1, 0.95, -1.5), 0.12, Color(0.07, 0.075, 0.09), False)
+		city._bar(c + Vector3(-0.1, -0.95, 1.5), c + Vector3(-0.1, -0.95, -1.5), 0.12, Color(0.07, 0.075, 0.09), False)
+		city._bar(c + Vector3(-0.1, 0.95, 1.5), c + Vector3(-0.1, -0.95, 1.5), 0.12, Color(0.07, 0.075, 0.09), False)
+		city._bar(c + Vector3(-0.1, 0.95, -1.5), c + Vector3(-0.1, -0.95, -1.5), 0.12, Color(0.07, 0.075, 0.09), False)
+		c = c + Vector3(-0.1, 0, 0)
+		If Not grid_power Then
+			city._box(c + Vector3(-0.02, -0.75, -1.25), Vector3(0.03, 0.06, 0.06), Color(1.0, 0.12, 0.06), True)
+		ElseIf m = 0 Then
+			city._bar(c + right * -1.3, c + right * 1.3, 0.015, Color(0.2, 0.5, 0.45), True)
+			For Each ph In Array(0.0, 2.094, 4.189)
+				col = Color(0.3, 1.0, 0.5)
+				If ph > 1.0 Then col = Color(1.0, 0.65, 0.15)
+				If ph > 3.0 Then col = Color(0.3, 0.85, 1.0)
+				For k = 0 To 23
+					u0 = -1.3 + k * (2.6 / 24)
+					u1 = u0 + 2.6 / 24
+					city._bar(c + right * u0 + Vector3.UP * (Sin(u0 * 5.0 + ph) * 0.55), c + right * u1 + Vector3.UP * (Sin(u1 * 5.0 + ph) * 0.55), 0.03, col, True)
+				Next
+			Next
+		ElseIf m = 1 Then
+			city._bar(c + right * -1.25 + Vector3.UP * -0.7, c + right * 1.25 + Vector3.UP * -0.7, 0.02, Color(0.2, 0.5, 0.45), True)
+			For k = 0 To 9
+				hgt = 0.35 + 0.95 * Abs(Sin(k * 1.7 + 0.4))
+				col = Color(0.3, 0.85, 1.0)
+				If hgt > 1.15 Then col = Color(1.0, 0.65, 0.15)
+				city._bar(c + right * (-1.1 + k * 0.245) + Vector3.UP * -0.68, c + right * (-1.1 + k * 0.245) + Vector3.UP * (-0.68 + hgt), 0.14, col, True)
+			Next
+		ElseIf m = 2 Then
+			For k = 0 To 5
+				glyph3_string(city, c + right * -1.25 + Vector3.UP * (0.72 - k * 0.27), right, _readout(m * 10 + k, 9 - (k Mod 3) * 2), 0.0068, Color(0.35, 1.0, 0.55))
+			Next
+		Else
+			_ring(city, c, right, 0.75, 0.025, Color(0.3, 1.0, 0.5), 20)
+			_ring(city, c, right, 0.4, 0.02, Color(0.3, 1.0, 0.5) * 0.6, 16)
+			city._bar(c + right * -0.8, c + right * 0.8, 0.015, Color(0.3, 1.0, 0.5) * 0.5, True)
+			city._bar(c + Vector3.UP * -0.8, c + Vector3.UP * 0.8, 0.015, Color(0.3, 1.0, 0.5) * 0.5, True)
+			city._bar(c, c + right * 0.53 + Vector3.UP * 0.53, 0.03, Color(0.5, 1.0, 0.6), True)
+			For k = 0 To 4
+				city._box(c + right * (Sin(k * 2.3) * 0.6) + Vector3.UP * (Cos(k * 1.9) * 0.55) - Vector3(0.02, 0.04, 0.04), Vector3(0.03, 0.08, 0.08), Color(1.0, 0.65, 0.15), True)
+			Next
+		End If
+	Next
+	' Overhead cable trays, the pipe run over the door, light fixtures and walkway paint.
+	city._box(Vector3(-35.6, 13.15, 146.9), Vector3(25.2, 0.08, 0.8), Color(0.06, 0.065, 0.08))
+	For Each xx In Array(-31.0, -17.0)
+		city._box(Vector3(xx - 0.4, 13.15, 121.0), Vector3(0.8, 0.08, 25.9), Color(0.06, 0.065, 0.08))
+		city._bar(Vector3(xx - 0.4, 13.3, 121.0), Vector3(xx - 0.4, 13.3, 146.9), 0.04, Color(0.1, 0.11, 0.13), False)
+		city._bar(Vector3(xx + 0.4, 13.3, 121.0), Vector3(xx + 0.4, 13.3, 146.9), 0.04, Color(0.1, 0.11, 0.13), False)
+	Next
+	For Each yy In Array(11.6, 12.15)
+		city._bar(Vector3(-35.6, yy, 120.7), Vector3(-10.4, yy, 120.7), 0.26, Color(0.07, 0.075, 0.085), False)
+		For k = 0 To 8
+			city._box(Vector3(-34.6 + k * 3.0, yy - 0.2, 120.5), Vector3(0.14, 0.4, 0.4), Color(0.1, 0.105, 0.12))
+		Next
+	Next
+	col = Color(1.0, 0.12, 0.06) * 0.6
+	If grid_power Then col = Color(0.85, 0.9, 1.0)
+	For Each xx In Array(-27.5, -18.5)
+		For Each zz In Array(123.0, 132.0, 141.0)
+			city._box(Vector3(xx - 0.2, 13.48, zz), Vector3(0.4, 0.06, 3.0), Color(0.05, 0.055, 0.065))
+			city._box(Vector3(xx - 0.12, 13.44, zz + 0.1), Vector3(0.24, 0.04, 2.8), col, True)
+		Next
+	Next
+	For Each xx In Array(-27.4, -20.6)
+		z = 121.5
+		While z < 144.5
+			city._box(Vector3(xx - 0.06, 6.005, z), Vector3(0.12, 0.02, 1.0), Color(1.0, 0.72, 0.05) * 0.35, True)
+			z = z + 1.6
+		Wend
+	Next
+End Sub
+
 ' Transfer levers. All three on routes the deep grid into the undercity.
 Sub _lever(ByVal city As Node, ByVal code As String, ByVal p As Vector2)
 	Dim entry As Dictionary
+	Dim face As Single
+	Dim steel As Color
+	Dim trim As Color
+	Dim a0 As Single
+	Dim a1 As Single
 	entry = New Dictionary
 	entry("id") = code & ":L" & Str(levers.size())
 	entry("p") = p
 	entry("y") = 6.0
 	entry("node") = Nothing
 	levers.append(entry)
-	_solid(city, Rect2(p.x - 0.45, p.y - 0.3, 0.9, 0.6), 6.0, 7.1, city.INK)
-	_deco(city, Vector3(p.x - 0.6, 7.1, p.y - 0.12), Vector3(1.2, 1.6, 0.24), city.SHELL * 0.5)
+	' Breaker housing the handle pivots on, and the switch cabinet behind it.
+	face = p.y + 0.85
+	_solid(city, Rect2(p.x - 0.45, p.y - 0.3, 0.9, 0.75), 6.0, 7.0, city.INK)
+	_solid(city, Rect2(p.x - 0.85, face, 1.7, 0.5), 6.0, 9.7, Color(0.03, 0.035, 0.045))
+	_gauge(city, Vector3(p.x, 8.95, face), Vector3(0, 0, -1), 0.3, entry("id"), 0.15 + 0.3 * levers.size(), p.x)
+	If Not drawing Then Exit Sub
+	steel = Color(0.32, 0.34, 0.38)
+	trim = amber_dim(Color(1.0, 0.6, 0.15))
+	For Each sx In Array(-0.34, 0.34)
+		For k = 0 To 5
+			a0 = -0.8 + k * 0.32
+			a1 = a0 + 0.32
+			city._bar(Vector3(p.x + sx, 7.0 + Cos(a0) * 1.08, p.y + Sin(a0) * 1.08), Vector3(p.x + sx, 7.0 + Cos(a1) * 1.08, p.y + Sin(a1) * 1.08), 0.05, steel, False)
+		Next
+		city._bar(Vector3(p.x + sx, 7.0, p.y), Vector3(p.x + sx, 7.0 + Cos(0.8) * 1.08, p.y - Sin(0.8) * 1.08), 0.04, steel * 0.7, False)
+		city._bar(Vector3(p.x + sx, 7.0, p.y), Vector3(p.x + sx, 7.0 + Cos(0.8) * 1.08, p.y + Sin(0.8) * 1.08), 0.04, steel * 0.7, False)
+	Next
+	city._box(Vector3(p.x - 0.42, 7.0 + Cos(0.8) * 1.08 - 0.05, p.y - Sin(0.8) * 1.08 - 0.05), Vector3(0.84, 0.1, 0.1), Color(0.2, 1.0, 0.45) * 0.5, True)
+	city._box(Vector3(p.x - 0.42, 7.0 + Cos(0.8) * 1.08 - 0.05, p.y + Sin(0.8) * 1.08 - 0.05), Vector3(0.84, 0.1, 0.1), Color(1.0, 0.15, 0.08) * 0.5, True)
+	For k = 0 To 4
+		city._bar(Vector3(p.x - 0.35, 6.3 + k * 0.12, p.y - 0.31), Vector3(p.x + 0.35, 6.3 + k * 0.12, p.y - 0.31), 0.035, Color(0.09, 0.1, 0.12), False)
+	Next
+	city._bar(Vector3(p.x - 0.86, 9.72, face - 0.01), Vector3(p.x + 0.86, 9.72, face - 0.01), 0.06, trim, True)
+	city._bar(Vector3(p.x - 0.86, 6.05, face - 0.01), Vector3(p.x + 0.86, 6.05, face - 0.01), 0.06, trim * 0.6, True)
+	glyph3(city, Vector3(p.x - 0.09, 9.55, face - 0.02), Vector3(1, 0, 0), levers.size(), 0.013, trim)
+	city._box(Vector3(p.x - 0.55, 7.35, face - 0.03), Vector3(1.1, 0.5, 0.03), Color(0.05, 0.055, 0.065))
+	city._bar(Vector3(p.x, 9.7, face + 0.25), Vector3(p.x, 13.2, face + 0.25), 0.16, Color(0.02, 0.02, 0.025), False)
 End Sub
 
 Function lever_on(ByVal city As Node, ByVal entry As Dictionary) As Boolean
@@ -2751,6 +3092,10 @@ Sub pull_lever(ByVal city As Node, ByVal entry As Dictionary)
 	city.stratum("levers")(entry("id")) = True
 	city.sfx("lever_pull", -2.0)
 	If entry("node") <> Nothing Then entry("node").rotation.x = -0.7
+	If entry.has("lamp_on") Then
+		If entry("lamp_on") <> Nothing Then entry("lamp_on").visible = True
+		If entry("lamp_off") <> Nothing Then entry("lamp_off").visible = False
+	End If
 	n = 0
 	For Each l In AsArray(levers)
 		If lever_on(city, l) Then n = n + 1
@@ -2905,6 +3250,19 @@ Function train_s(ByVal tr As Dictionary) As Single
 	If u < 6.0 + run_t Then Return 18.0 + (u - 6.0) * 14.0
 	If u < 12.0 + run_t Then Return 18.0 + span_len
 	Return 18.0 + span_len - (u - 12.0 - run_t) * 14.0
+End Function
+
+' True while the train is between stations (same timetable as train_s).
+Function train_moving(ByVal tr As Dictionary) As Boolean
+	Dim run_t As Single
+	Dim u As Single
+	If Not grid_power Then Return False
+	run_t = (Num(tr("total")) - 36.0) / 14.0
+	u = FPosMod(clock + Num(tr("phase")), 2.0 * (run_t + 6.0))
+	If u < 6.0 Then Return False
+	If u < 6.0 + run_t Then Return True
+	If u < 12.0 + run_t Then Return False
+	Return True
 End Function
 
 ' Closest point of a train to p: Array(distance, centre point, direction).
@@ -3236,14 +3594,34 @@ Sub _build_city_props(ByVal city As Node)
 	st = city.stratum
 	live = grid_power
 	For Each entry In AsArray(levers)
-		city._box(Vector3(-0.06, 0.0, -0.06), Vector3(0.12, 1.1, 0.12), city.SHELL)
-		city._box(Vector3(-0.16, 1.0, -0.16), Vector3(0.32, 0.3, 0.32), Color(1.0, 0.55, 0.1), True)
-		entry("node") = _attach(city, "TransferLever", Vector3(entry("p").x, 7.15, entry("p").y))
+		' T-handle knife switch: pivot hub, twin steel arms, insulated grip with hazard bands.
+		city._box(Vector3(-0.3, -0.1, -0.1), Vector3(0.6, 0.2, 0.2), Color(0.12, 0.13, 0.15))
+		city._box(Vector3(-0.36, -0.06, -0.06), Vector3(0.06, 0.12, 0.12), Color(1.0, 0.55, 0.1) * 0.6, True)
+		city._box(Vector3(0.3, -0.06, -0.06), Vector3(0.06, 0.12, 0.12), Color(1.0, 0.55, 0.1) * 0.6, True)
+		city._bar(Vector3(-0.2, 0.0, 0.0), Vector3(-0.2, 1.0, 0.0), 0.07, Color(0.42, 0.44, 0.48))
+		city._bar(Vector3(0.2, 0.0, 0.0), Vector3(0.2, 1.0, 0.0), 0.07, Color(0.42, 0.44, 0.48))
+		city._bar(Vector3(-0.2, 0.45, 0.0), Vector3(0.2, 0.45, 0.0), 0.05, Color(0.3, 0.32, 0.36))
+		city._bar(Vector3(-0.27, 1.0, 0.0), Vector3(0.27, 1.0, 0.0), 0.13, Color(0.04, 0.04, 0.045))
+		city._bar(Vector3(-0.29, 1.0, 0.0), Vector3(-0.22, 1.0, 0.0), 0.14, Color(1.0, 0.72, 0.05) * 0.7, True)
+		city._bar(Vector3(0.22, 1.0, 0.0), Vector3(0.29, 1.0, 0.0), 0.14, Color(1.0, 0.72, 0.05) * 0.7, True)
+		entry("node") = _attach(city, "TransferLever", Vector3(entry("p").x, 7.0, entry("p").y))
 		If lever_on(city, entry) Then
 			entry("node").rotation.x = -0.7
 		Else
 			entry("node").rotation.x = 0.7
 		End If
+		city._box(Vector3(-0.08, -0.08, -0.03), Vector3(0.16, 0.16, 0.04), Color(1.0, 0.12, 0.06), True)
+		entry("lamp_off") = _attach(city, "LeverLampOff", Vector3(entry("p").x - 0.38, 8.25, entry("p").y + 0.83))
+		city._box(Vector3(-0.08, -0.08, -0.03), Vector3(0.16, 0.16, 0.04), Color(0.2, 1.0, 0.4), True)
+		entry("lamp_on") = _attach(city, "LeverLampOn", Vector3(entry("p").x + 0.38, 8.25, entry("p").y + 0.83))
+		entry("lamp_off").visible = Not lever_on(city, entry)
+		entry("lamp_on").visible = lever_on(city, entry)
+	Next
+	For Each entry In AsArray(gauges)
+		city._bar(Vector3(0, -0.12 * Num(entry("r")), 0), Vector3(0, 0.84 * Num(entry("r")), 0), 0.03, Color(1.0, 0.45, 0.12), True)
+		city._box(Vector3(-0.04, -0.04, -0.04), Vector3(0.08, 0.08, 0.08), Color(0.1, 0.1, 0.11))
+		entry("node") = _attach(city, "GaugeNeedle", entry("p"))
+		_set_needle(entry, -2.0)
 	Next
 	For Each entry In AsArray(cars)
 		_draw_car(city, entry("tint"), live)
@@ -3670,6 +4048,17 @@ Function _face_mesh() As Object
 	Return face_mesh
 End Function
 
+' alien_murmur.ogg loudness at 20 Hz (0-9), measured from the asset; drives the face's mouth.
+Const MURMUR_ENV = "752121124667762123433003566765101578612444321000000000000000001333211224332100234331012234331015889730022434321023443200234343201233332003443001343200246887641000000003330233203577"
+
+Function _murmur_open(ByVal voice As Object) As Single
+	Dim k As Integer
+	If voice = Nothing Then Return 0.0
+	If Not voice.playing Or voice.stream_paused Then Return 0.0
+	k = Int(voice.get_playback_position() * 20.0) Mod Len(MURMUR_ENV)
+	Return (Asc(Mid(MURMUR_ENV, k + 1, 1)) - 48) / 9.0 * 0.68
+End Function
+
 ' Looks down at the player (or sweeps the street when dark), blinks, talks, and the words fall out.
 Sub _animate_face(ByVal city As Node, ByVal entry As Dictionary, ByVal t As Single, ByVal pw As Single)
 	Dim parts As Dictionary
@@ -3687,6 +4076,8 @@ Sub _animate_face(ByVal city As Node, ByVal entry As Dictionary, ByVal t As Sing
 	Dim talk As Single
 	Dim lids As Single
 	Dim ph As Single
+	Dim gate As Single
+	Dim held As Single
 	parts = entry("parts")
 	head = parts("head")
 	mat = entry("mats")(0)
@@ -3707,29 +4098,42 @@ Sub _animate_face(ByVal city As Node, ByVal entry As Dictionary, ByVal t As Sing
 	entry("look") = look
 	entry("t_last") = t
 	head.look_at(c + look * 10.0, Vector3(0, 1, 0), True)
-	' Speak in sentences that match the visor's five-second broadcast lines.
-	talk = 0.0
-	If FPosMod(t, 5.0) < 3.9 Then talk = Abs(Sin(t * 8.5) * Sin(t * 2.3)) * 0.6 + 0.08
+	' The power wave flickers the hologram for a second. Pausing the voice on every flicker
+	' restarts the murmur before the phrase finishes, so the gate moves slowly.
+	gate = 0.0
+	If entry.has("voice_on") Then gate = Num(entry("voice_on"))
+	If pw >= 0.5 Then
+		gate = Min(1.0, gate + dt * 3.0)
+	Else
+		gate = Max(0.0, gate - dt * 3.0)
+	End If
+	entry("voice_on") = gate
+	' Lip-sync to the murmur loop; without a voice, speak in five-second broadcast lines.
+	node = Nothing
+	If entry.has("voice") Then node = entry("voice")
+	If node <> Nothing Then
+		If gate < 0.15 Then
+			If Not node.stream_paused Then node.stream_paused = True
+		ElseIf gate > 0.85 Then
+			If node.stream_paused Then node.stream_paused = False
+		End If
+		talk = _murmur_open(node)
+	Else
+		talk = 0.0
+		If FPosMod(t, 5.0) < 3.9 Then talk = Abs(Sin(t * 8.5) * Sin(t * 2.3)) * 0.6 + 0.08
+	End If
+	held = 0.0
+	If entry.has("mouth") Then held = Num(entry("mouth"))
+	talk = held + (talk - held) * Min(1.0, dt * 14.0)
+	entry("mouth") = talk
 	lids = 1.0
 	If FPosMod(t, 4.7) < 0.16 Then lids = 0.04
-	If pw < 0.5 Then
-		talk = 0.0
-		lids = 0.0
+	If gate < 0.2 Then
+		talk = talk * (gate / 0.2)
+		lids = lids * (gate / 0.2)
 	End If
 	mat.set_shader_parameter("mouth_open", talk)
 	mat.set_shader_parameter("eye_r", lids)
-	If entry.has("voice") Then
-		node = entry("voice")
-		If node <> Nothing Then
-			node.stream_paused = pw < 0.5
-			If talk > 0 Then
-				ph = -8.0 + talk * 12.0
-			Else
-				ph = -40.0
-			End If
-			node.volume_db = node.volume_db + (ph - node.volume_db) * Min(1.0, dt * 6.0)
-		End If
-	End If
 	mat.set_shader_parameter("eye_l", lids)
 	mat.set_shader_parameter("gaze", Sin(t * 0.7) * 9.0)
 	mouth = head.to_global(Vector3(0, (490.0 - 735.0 - 160.0 * talk * 0.5) * 0.0175, 1.1 * 190.0 * 0.0175))
@@ -4099,7 +4503,7 @@ Sub _attach_sounds(ByVal city As Node)
 	For Each entry In AsArray(holos)
 		If entry("node") <> Nothing Then
 			entry("snd") = bus.attach_loop(entry("node"), "holo_hum", -6.0, 9.0)
-			If entry("kind") = "face" Then entry("voice") = bus.attach_loop(entry("node"), "alien_murmur", -40.0, 16.0)
+			If entry("kind") = "face" Then entry("voice") = bus.attach_loop(entry("node"), "alien_murmur", -2.0, 24.0)
 		End If
 	Next
 End Sub
@@ -4109,8 +4513,7 @@ Sub _train_sound(ByVal city As Node, ByVal entry As Dictionary, ByVal s As Singl
 	Dim snd As Object
 	Dim car As Object
 	If Not entry.has("snd") Then Exit Sub
-	moving = grid_power And Num(entry("s_prev")) >= 0 And Abs(s - Num(entry("s_prev"))) > 0.0005
-	entry("s_prev") = s
+	moving = train_moving(entry)
 	snd = entry("snd")
 	If snd <> Nothing Then snd.stream_paused = Not moving
 	If city.sfx_bus <> Nothing And moving <> entry("moving") Then
@@ -4181,7 +4584,41 @@ Sub animate(ByVal city As Node, ByVal t As Single)
 		node = entry("node")
 		If node <> Nothing Then node.position.y = FPosMod(0.0 - t * Num(entry("speed")), 1.0) - 1.0
 	Next
+	If gauges.size() > 0 Then
+		If Rect2(-40, 116, 34, 38).has_point(city.position_xz) Then _animate_gauges(city, t)
+	End If
 	_animate_city(city, t)
+End Sub
+
+' Needle angle is measured from straight up, positive toward the face's right; -2.1 is the zero stop.
+Sub _set_needle(ByVal entry As Dictionary, ByVal a As Single)
+	Dim node As Object
+	Dim nrm As Vector3
+	node = entry("node")
+	If node = Nothing Then Exit Sub
+	nrm = entry("n")
+	If Abs(nrm.x) > 0.5 Then
+		node.rotation.x = Sign(nrm.x) * a
+	Else
+		node.rotation.z = Sign(nrm.z) * a
+	End If
+End Sub
+
+Sub _animate_gauges(ByVal city As Node, ByVal t As Single)
+	Dim live As Boolean
+	Dim ph As Single
+	For Each entry In AsArray(gauges)
+		live = grid_power
+		If entry("lever") <> "" Then
+			If city.stratum.has("levers") Then live = city.stratum("levers").has(entry("lever"))
+		End If
+		If live Then
+			ph = Num(entry("phase"))
+			_set_needle(entry, Num(entry("base")) + 0.12 * Sin(t * 1.3 + ph) + 0.035 * Sin(t * 11.0 + ph * 3.0))
+		Else
+			_set_needle(entry, -2.05 + 0.02 * Sin(t * 7.0 + Num(entry("phase"))))
+		End If
+	Next
 End Sub
 
 ' --- Runtime ---

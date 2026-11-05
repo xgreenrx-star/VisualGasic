@@ -242,6 +242,7 @@ Sub _ready()
 	viewport = ClassDB.Instantiate("SubViewport")
 	viewport.size = Vector2i(960, 540)
 	viewport.own_world_3d = True
+	viewport.audio_listener_enable_2d = True
 	viewport.audio_listener_enable_3d = True
 	viewport.transparent_bg = True
 	viewport.handle_input_locally = False
@@ -656,7 +657,12 @@ Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_a
 		trace_cycle.visible = False
 	End If
 	If backlight_city <> Nothing Then
-		backlight_city.deactivate()
+		' Every frame hides the city until the draw shows it again; only a real exit silences its audio.
+		If backlight_active Then
+			backlight_city.backlight_city_deactivate()
+		Else
+			backlight_city.deactivate()
+		End If
 		If backlight_city.audio <> Nothing Then
 			If Not backlight_active Then
 				backlight_city.audio.stop()

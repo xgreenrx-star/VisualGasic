@@ -10,7 +10,7 @@ import os
 import sys
 import numpy as np
 from dsp import SR, t_axis, lp, hp, bp, env_ad, sweep, saw, square, sweep_lp, fade_edges, write_ogg
-from sfx import modes, burst, thud, finish, ramp_np
+from sfx import modes, burst, thud, finish, finish_loop, ramp_np
 
 rng = np.random.default_rng(4242)
 
@@ -49,7 +49,7 @@ def buggy_motor():
 	hiss = bp(noise(sec + 0.3), 1800, 6000) * 0.12 * lfo(t, 0.5, 0.2)
 	rumble = lp(noise(sec + 0.3), 90) * 1.4
 	x = 0.5 * whine + pwm + lp(gear, 900) + hiss + rumble
-	return finish(make_loop(x, sec), 0.7)
+	return finish_loop(make_loop(x, sec), 0.7)
 
 
 def vehicle_on():
@@ -79,7 +79,7 @@ def train_loop():
 			if i < n:
 				clack = thud(0.25, 140, 60, 0.05) + modes([620, 1430, 2210], [0.04, 0.03, 0.02], 0.25, rng) * 0.4
 				x[i:i + len(clack)] += clack[:n - i] * 1.6
-	return finish(make_loop(x, sec, 0.3), 0.75)
+	return finish_loop(make_loop(x, sec, 0.3), 0.75)
 
 
 def train_horn():
@@ -122,7 +122,7 @@ def holo_hum():
 	crack = (rng.uniform(size=len(t)) > 0.99975) * rng.uniform(-1, 1, len(t))
 	crack = bp(crack, 1500, 7000) * 3
 	x = buzz * lfo(t, 7.1, 0.12) + shimmer + crack
-	return finish(make_loop(x, sec), 0.6)
+	return finish_loop(make_loop(x, sec), 0.6)
 
 
 def _glottal(f0, n):
@@ -161,7 +161,7 @@ def alien_murmur():
 	ring = np.sin(2 * np.pi * 31 * t)
 	out = out * (0.85 + 0.15 * ring)
 	out = hp(out, 120)
-	return finish(make_loop(out, sec, 0.4), 0.55)
+	return finish_loop(make_loop(out, sec, 0.4), 0.55)
 
 
 # ---------------------------------------------------------------- weapons and damage
@@ -262,7 +262,7 @@ def ship_engine_loop():
 	x = lp(x, 500) * lfo(t, 0.5, 0.15)
 	x += np.sin(2 * np.pi * 737 * t) * 0.06 + np.sin(2 * np.pi * 741 * t) * 0.06
 	x += lp(noise(sec + 0.3), 250) * 2.2 + bp(noise(sec + 0.3), 900, 3000) * 0.12
-	return finish(make_loop(x, sec, 0.3), 0.75)
+	return finish_loop(make_loop(x, sec, 0.3), 0.75)
 
 
 # ---------------------------------------------------------------- interaction
@@ -329,7 +329,7 @@ def jetpack_loop():
 	t = t_axis(sec + 0.25)
 	x = bp(noise(sec + 0.25), 300, 5000) * 0.6 + lp(noise(sec + 0.25), 180) * 2.5
 	x *= lfo(t, 18.0, 0.25) * lfo(t, 2.0, 0.1)
-	return finish(make_loop(x, sec, 0.25), 0.7)
+	return finish_loop(make_loop(x, sec, 0.25), 0.7)
 
 
 def land():
