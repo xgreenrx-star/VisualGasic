@@ -3541,7 +3541,7 @@ bool VisualGasicCompiler::try_emit_append(CallStatement *s) {
     if (dictionary_vars.has(key) || is_buffer_var(name)) {
         return false;
     }
-    if (!array_vars.has(key) && !local_slots.has(key) && !param_vars.has(key)) {
+    if (!array_vars.has(key)) {
         return false;
     }
     int dst_slot = get_or_add_local(name, VT_UNKNOWN);

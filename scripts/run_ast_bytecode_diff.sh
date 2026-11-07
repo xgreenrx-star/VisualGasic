@@ -157,9 +157,11 @@ runtime_errors_match() {
 		test_await_error_continuation.vg) expected='876|_Ready|9|test_await_error_continuation.vg' ;;
 		test_try_explicit_catch.vg) expected='877|_Ready|7|test_try_explicit_catch.vg' ;;
 	esac
-	local actual count parsed_count
-	count=$(grep -c '^\[VG Runtime Error' "$log" || true)
-	actual=$(sed -nE 's/^\[VG Runtime Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) \(([^)]+)\)$/\1|\2|\3|\4/p' "$log" | sort)
+	local actual count parsed_count kind="Runtime"
+	if [[ -n "$expected" ]]; then kind="(Runtime|Handled)"; fi
+	count=$(grep -cE "^\\[VG $kind Error" "$log" || true)
+	actual=$(grep -E "^\\[VG $kind Error" "$log" |
+		sed -nE 's/^\[VG (Runtime|Handled) Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) \(([^,)]+)(, caught by enclosing handler|, handled by On Error)?\)$/\2|\3|\4|\5/p' | sort || true)
 	parsed_count=$(printf '%s\n' "$actual" | grep -c '.' || true)
 	[[ "$count" -eq "$parsed_count" && "$actual" == "$expected" ]]
 }

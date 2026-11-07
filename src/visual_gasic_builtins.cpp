@@ -1477,30 +1477,12 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
     // Plane(a, b, c, d) plane equation | Plane(normal_vec3, d) | Plane(normal_vec3)
     if (METHOD_IS("plane")) {
         r_handled = true;
-        if (args.size() == 0) return Plane();
-        if (args.size() == 1) {
-            Vector3 n = args[0];
-            return Plane(n, 0.0f);
-        }
-        if (args.size() == 2) {
-            Vector3 n = args[0];
-            return Plane(n, (real_t)(double)args[1]);
-        }
-        if (args.size() == 4) {
-            return Plane((real_t)(double)args[0], (real_t)(double)args[1], (real_t)(double)args[2], (real_t)(double)args[3]);
-        }
-        return Plane();
+        return construct_godot_type("Plane", args);
     }
     // AABB() | AABB(position_vec3, size_vec3)
     if (METHOD_IS("aabb")) {
         r_handled = true;
-        if (args.size() == 0) return AABB();
-        if (args.size() == 2) {
-            Vector3 pos = args[0];
-            Vector3 size = args[1];
-            return AABB(pos, size);
-        }
-        return AABB();
+        return construct_godot_type("AABB", args);
     }
     // NewRNG([seed]) — fresh RandomNumberGenerator (per-stream RNG)
     if (METHOD_IS("newrng")) {

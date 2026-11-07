@@ -271,6 +271,24 @@ writeback, indexed side-effect, dictionary-key and lambda regressions.
 Serialized compute/draw preflight passed the unchanged configured limits.
 These local checks do not replace the new candidate's remote release gates.
 
+Candidate `a4d39c84` was superseded after local hardening found AST constructor
+overload drift, missing Option Explicit For Each declarations and StringBuilder
+Append entering an array-only opcode. Its remote run `42334988236` was canceled,
+not accepted as sign-off. The expected-error parity checker was also updated
+to recognize the runtime's handled-error diagnostic format while still comparing
+exact error numbers, procedure names, lines and source files for those fixtures.
+After repair, all nine affected parity fixtures and the 80-example default
+corpus passed.
+
+The complete parity rerun matched all 260 runnable fixtures with zero failed
+assertions, mismatches or execution failures; eight dedicated-harness/platform
+fixtures were excluded, not counted as passing. Native smoke/builtin runners
+completed their expected checks, but the developer demo still emitted Bosca
+autoload parse diagnostics, so those runners do not establish error-free full
+plugin startup. Serialized performance preflight passed both configured limits.
+Do not run benchmark processes concurrently with staging scripts that replace
+the loaded extension binary.
+
 The release matrix must include Linux/Windows editor, debug and release builds,
 macOS Intel and Apple Silicon slices merged into universal frameworks, Web,
 patched music libraries, the Godot Asset Library addon ZIP, all installers and

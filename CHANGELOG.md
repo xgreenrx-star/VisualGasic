@@ -28,6 +28,10 @@ New native binaries are required; replace the whole addon when upgrading.
   Indexed member assignment evaluates each index once in both execution paths.
 - Basis members use columns, and Projection members/constants are readable
   in the VM. Default native value-type declarations construct their values.
+- AST AABB/Plane builtins share the bytecode constructor overloads.
+- AST For Each declares its element/index variables under Option Explicit.
+- StringBuilder Append retains ordinary method dispatch rather than entering
+  an array-only append opcode.
 - Explicit VG-to-VG lifecycle calls run without weakening the engine's
   duplicate-notification guard.
 - Dictionary returns, For Each variables/collections and nested control-flow

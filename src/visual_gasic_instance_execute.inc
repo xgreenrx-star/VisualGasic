@@ -521,6 +521,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
              ForEachStatement* s = (ForEachStatement*)stmt;
              Variant col = evaluate_expression(s->collection);
              bool has_index = !s->index_variable_name.is_empty();
+             if (!variables.has(s->variable_name)) variables[s->variable_name] = Variant();
+             if (has_index && !variables.has(s->index_variable_name)) {
+                 variables[s->index_variable_name] = Variant();
+             }
 
              // Packed arrays iterate like Arrays — the bytecode VM and the
              // Await continuation already accept them; the tiers must agree.

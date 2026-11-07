@@ -44,6 +44,7 @@ folder when upgrading. These fixes require the new native binaries.
 - **Append and packed-loop fast paths distinguish arrays from calls and
   dictionaries.** A function result or string-keyed dictionary read is no
   longer treated as an integer array index by these optimizations.
+  StringBuilder `Append` remains an ordinary method call, not an array append.
 - **Tier-2 JIT handles mixed integer/float local stores across branches.**
   Values no longer become zero or incorrect numbers because one branch's
   integer bits are decoded as the other branch's floating-point storage.
@@ -58,6 +59,9 @@ folder when upgrading. These fixes require the new native binaries.
   `AABB(position, size)` accepts two Vector3 values; Plane supports a normal
   plus distance, normal plus point, or three points without converting
   Vector3 arguments to scalars or reading outside the argument list.
+  AST builtin dispatch shares the same overload implementation as bytecode.
+- **AST `For Each` respects `Option Explicit`.** The loop element and optional
+  index are declared before assignment, matching bytecode behavior.
 
 Regression fixtures accompany these changes. CI exercises the runtime suite,
 AST/default parity, corpus, malformed-source mutations, editor lifecycle,

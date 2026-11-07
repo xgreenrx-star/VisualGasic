@@ -22,6 +22,8 @@ add BBCode or heading markers.
 - Optimized error-handler labels and Resume Next boundaries remain valid
 - Rect/indexed value-type member edits write back and evaluate indices once
 - Basis columns and Projection members/constants work in bytecode
+- AST geometry constructors share bytecode overloads; For Each declares its loop variables
+- StringBuilder Append is no longer miscompiled as array append
 - Explicit VG-to-VG lifecycle calls no longer disappear behind the duplicate engine-notification guard
 - Dictionary returns, iteration and nested control-flow escape analysis preserve ordinary Dictionary values
 - Dead-store analysis keeps assignments used by indexed dictionary reads
