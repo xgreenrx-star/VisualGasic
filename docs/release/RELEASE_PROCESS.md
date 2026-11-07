@@ -289,6 +289,19 @@ plugin startup. Serialized performance preflight passed both configured limits.
 Do not run benchmark processes concurrently with staging scripts that replace
 the loaded extension binary.
 
+Candidate `8aadab03`, Release run `42336896313`, passed the runtime,
+hardening and reference gates and built every platform, including universal
+macOS and its Python smoke. Packaging was blocked by one stale Crystal Caverns
+assertion: it expected the former edited spawn at (1, 10), while the current
+authored DATA places the player at (1, 1). The editor regression no longer edits
+the cave's spawn. The assertion now checks the actual authored position; no
+gameplay or runtime behavior changed. The complete local headless matrix passed:
+226 editor checks, and in each of default/AST modes, 81 gameplay, 278 effects
+and 95 sound checks. The editor success message now reports its actual count.
+The local Asset Library smoke completed its expected checks but also emitted
+the developer-demo Bosca diagnostics noted above; it is not clean packaged-addon
+startup certification. This candidate still requires a new same-SHA remote run.
+
 The release matrix must include Linux/Windows editor, debug and release builds,
 macOS Intel and Apple Silicon slices merged into universal frameworks, Web,
 patched music libraries, the Godot Asset Library addon ZIP, all installers and

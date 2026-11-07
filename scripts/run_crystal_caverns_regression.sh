@@ -48,7 +48,7 @@ if [[ "$rc" -ne 0 ]] ||
 	tail -n 35 "$editor_log" >&2
 	exit 1
 fi
-echo "PASS: Crystal Caverns editor/$RENDER_MODE (190 checks); $editor_log"
+echo "PASS: Crystal Caverns editor/$RENDER_MODE (226 checks); $editor_log"
 for mode in default ast; do
 	log="$OUT_DIR/$mode.log"
 	environment=(env -u VG_FORCE_AST)
