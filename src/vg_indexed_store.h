@@ -488,7 +488,9 @@ inline StoreResult append_sub_index(Variant &dst, Variant &src, int64_t idx_left
 		if (left_sr != STORE_OK) return left_sr;
 		const StoreResult right_sr = load(src, idx_right, rv);
 		if (right_sr != STORE_OK) return right_sr;
-		if (st == Variant::PACKED_VECTOR2_ARRAY) {
+		if (st == Variant::PACKED_VECTOR3_ARRAY) {
+			vgfast::raw_init_vector3(&lv, vgfast::vvec3(lv) - vgfast::vvec3(rv));
+		} else if (st == Variant::PACKED_VECTOR2_ARRAY) {
 			vgfast::raw_init_vector2(&lv, vgfast::vvec2(lv) - vgfast::vvec2(rv));
 		} else {
 			vgfast::raw_init_color(&lv, vgfast::vcolor(lv) - vgfast::vcolor(rv));
@@ -625,4 +627,3 @@ inline StoreResult expand_ribbon(Variant &edges, Variant &colors,
 } // namespace vgidx
 
 #endif // VG_INDEXED_STORE_H
-

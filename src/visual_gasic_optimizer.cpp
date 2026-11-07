@@ -546,6 +546,30 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
     }
     old_to_new.write[chunk->code.size()] = chunk->code.size() - shift;
 
+    // Remap offset-valued side tables (label_ips, stmt_starts) through the same
+    // old->new mapping used for jump offsets. These are consumed at runtime by
+    // try_recover_error (On Error GoTo handler ip + Resume/Resume-Next statement
+    // boundaries); without remapping they point at stale pre-compaction offsets.
+    {
+        const int old_size = chunk->code.size();
+        auto remap_offset = [&](int off) -> int {
+            if (off < 0) return 0;
+            if (off >= old_size) return old_to_new[old_size];
+            int mapped = old_to_new[off];
+            if (mapped >= 0) return mapped;
+            for (int t = off; t < old_size; t++) {
+                if (old_to_new[t] >= 0) return old_to_new[t];
+            }
+            return old_to_new[old_size];
+        };
+        for (KeyValue<String, int>& kv : chunk->label_ips) {
+            kv.value = remap_offset(kv.value);
+        }
+        for (int i = 0; i < chunk->stmt_starts.size(); i++) {
+            chunk->stmt_starts.write[i] = remap_offset(chunk->stmt_starts[i]);
+        }
+    }
+
     // Fix jump offsets
     for (int ip = 0; ip < chunk->code.size();) {
         uint8_t op = chunk->code[ip];
@@ -958,6 +982,17 @@ bool VisualGasicOptimizer::pass_dead_code_elimination(BytecodeChunk* chunk, Stat
             }
         }
         ip += instruction_size(code, ip);
+    }
+
+    // On Error GoTo / GoTo-label handler blocks are reachable only through the
+    // runtime label_ips map, never through a static jump instruction. Treat each
+    // label target as a reachable entry point so a handler that follows an
+    // unconditional exit (e.g. the code after `Exit Sub` before the label) is
+    // not mistaken for dead code and NOP'd out.
+    for (const KeyValue<String, int>& kv : chunk->label_ips) {
+        if (kv.value >= 0 && kv.value < code.size()) {
+            jump_targets.insert(kv.value);
+        }
     }
 
     // Step 2: scan for unreachable code after unconditional exits

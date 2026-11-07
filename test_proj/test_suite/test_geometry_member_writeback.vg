@@ -1,0 +1,36 @@
+Option Explicit
+
+Dim calls As Integer
+
+Function IndexOnce() As Integer
+	calls = calls + 1
+	Return 1
+End Function
+
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim points(2) As Vector2
+	points(1) = Vector2(2, 3)
+	points(IndexOnce()).x = 9
+	Call note(calls = 1 And points(1).x = 9 And points(1).y = 3, "member_index_evaluated_once")
+	Dim rect As Rect2
+	rect = Rect2(2, 3, 4, 5)
+	rect.position.x = 8
+	Call note(rect.position.x = 8 And rect.size.y = 5, "rect_nested_write")
+	Dim b As Basis
+	b = Basis(Vector3(1, 2, 3), Vector3(4, 5, 6), Vector3(7, 8, 9))
+	Call note(b.x = Vector3(1, 2, 3) And b.y = Vector3(4, 5, 6), "basis_column_read")
+	b.x = Vector3(9, 8, 7)
+	Call note(b.x = Vector3(9, 8, 7) And b.y = Vector3(4, 5, 6), "basis_column_write")
+	Dim p As Projection
+	p = Projection()
+	p.x.x = 2
+	Call note(p.x.x = 2 And p.y.y = 1, "projection_nested_write")
+End Sub

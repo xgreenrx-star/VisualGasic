@@ -15,6 +15,13 @@ add BBCode or heading markers.
 ```markdown
 **VisualGasic 5.7.0-beta.4 - bug-fix beta**
 
+- Optimized local/module lambda calls preserve nested block bodies and early returns
+- Numeric and dynamically typed dictionary keys retain their identity
+- Packed Vector3 subtraction/append works on the engine-backed path
+- VG namespace methods such as Array.RemoveAt precede Godot static dispatch
+- Optimized error-handler labels and Resume Next boundaries remain valid
+- Rect/indexed value-type member edits write back and evaluate indices once
+- Basis columns and Projection members/constants work in bytecode
 - Explicit VG-to-VG lifecycle calls no longer disappear behind the duplicate engine-notification guard
 - Dictionary returns, iteration and nested control-flow escape analysis preserve ordinary Dictionary values
 - Dead-store analysis keeps assignments used by indexed dictionary reads

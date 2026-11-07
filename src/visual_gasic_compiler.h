@@ -56,6 +56,7 @@ private:
     HashMap<String, ValueType> local_types;
     HashMap<String, Variant> local_const_map;  // Procedure-scoped Const name → inlined value
     HashSet<String> array_vars;
+    HashSet<String> string_key_arrays;
     HashSet<String> param_vars;  // Parameter names — needed for array-access disambiguation
     HashSet<String> dictionary_vars;
     HashSet<String> trusted_dictionary_vars;

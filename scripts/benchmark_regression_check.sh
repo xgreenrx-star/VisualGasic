@@ -22,7 +22,8 @@ FAIL=0
 check_suite() {
 	local label="$1"
 	local file="$2"
-	python3 - "$label" "$file" "$MAX_RATIO" <<'PY' || FAIL=1
+	local max_ratio="${3:-$MAX_RATIO}"
+	python3 - "$label" "$file" "$max_ratio" <<'PY' || FAIL=1
 import re, sys
 label, path, max_ratio = sys.argv[1], sys.argv[2], float(sys.argv[3])
 text = open(path, encoding="utf-8", errors="replace").read()
@@ -88,4 +89,4 @@ if [[ "$FAIL" -ne 0 ]]; then
 	echo "Benchmark regression check failed." >&2
 	exit 1
 fi
-echo "All published workloads: VG within ${MAX_RATIO}x of GDScript (or faster)."
+echo "All published workloads: VG within ${MAX_RATIO}x compute / ${DRAW_MAX_RATIO}x draw of GDScript (or faster)."

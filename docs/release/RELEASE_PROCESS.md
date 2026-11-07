@@ -251,6 +251,26 @@ describe the affected behavior and upgrade requirements. Publication remains
 blocked until the same-candidate Release gates and extracted archive smoke pass.
 Prior main-branch CI failures are not sign-off.
 
+Candidate `63821b82`, Release run `42322676248`, built every native target,
+the Web targets, patched music and both universal macOS architectures.
+Apple metadata verification and the macOS Python smoke passed. Packaging was
+blocked by the Linux runtime suite (1498 passed, 11 failed across five fixtures);
+this run is not release sign-off. Repairs must be rebuilt on a new candidate.
+
+Local preflight found two additional gate-maintenance issues: the draw check
+ignored its configured `DRAW_MAX_RATIO`, and the bytecode baseline still included
+three unused CSE store/load pairs removed by commit `842ea562`. The benchmark
+checker now uses the separate configured draw limit; no limit was raised.
+The canonical dump generator refreshed the reviewed baseline: constants and
+all other opcode counts are unchanged, and compute/draw checksums and the
+configured 1.15 compute / 1.35 draw limits passed on Godot 4.6.1.
+
+After the repairs, the local Godot 4.6.1 default suite passed 1524/1524
+assertions across 260 fixtures. Focused AST checks passed the geometry member
+writeback, indexed side-effect, dictionary-key and lambda regressions.
+Serialized compute/draw preflight passed the unchanged configured limits.
+These local checks do not replace the new candidate's remote release gates.
+
 The release matrix must include Linux/Windows editor, debug and release builds,
 macOS Intel and Apple Silicon slices merged into universal frameworks, Web,
 patched music libraries, the Godot Asset Library addon ZIP, all installers and

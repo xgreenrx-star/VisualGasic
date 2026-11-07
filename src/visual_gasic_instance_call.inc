@@ -3083,6 +3083,42 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
     } 
     else if (target->type == ExpressionNode::MEMBER_ACCESS) {
          MemberAccessNode* ma = (MemberAccessNode*)target;
+         ExpressionNode *root = ma->base_object;
+         while (root && root->type == ExpressionNode::MEMBER_ACCESS) {
+             root = ((MemberAccessNode*)root)->base_object;
+         }
+         Vector<ExpressionNode*> *indices = nullptr;
+         if (root && root->type == ExpressionNode::ARRAY_ACCESS) {
+             indices = &((ArrayAccessNode*)root)->indices;
+         } else if (root && root->type == ExpressionNode::EXPRESSION_CALL &&
+                 is_byref_writeback_target(root)) {
+             indices = &((CallExpression*)root)->arguments;
+         }
+         bool freeze_indices = false;
+         if (indices) {
+             for (int i = 0; i < indices->size(); i++) {
+                 if ((*indices)[i]->type != ExpressionNode::LITERAL) freeze_indices = true;
+             }
+         }
+         if (freeze_indices) {
+             // Read and recursive writeback must use the same evaluated indices.
+             ExpressionNode *frozen = target->duplicate();
+             ExpressionNode *frozen_root = frozen;
+             while (frozen_root->type == ExpressionNode::MEMBER_ACCESS) {
+                 frozen_root = ((MemberAccessNode*)frozen_root)->base_object;
+             }
+             Vector<ExpressionNode*> &frozen_indices = frozen_root->type == ExpressionNode::ARRAY_ACCESS
+                     ? ((ArrayAccessNode*)frozen_root)->indices : ((CallExpression*)frozen_root)->arguments;
+             for (int i = 0; i < indices->size(); i++) {
+                 LiteralNode *literal = new LiteralNode();
+                 literal->value = evaluate_expression((*indices)[i]);
+                 delete frozen_indices[i];
+                 frozen_indices.write[i] = literal;
+             }
+             assign_to_target(frozen, val);
+             delete frozen;
+             return;
+         }
          Variant base = evaluate_expression(ma->base_object);
 
          // Error on Nothing/Null base — user likely has a typo or control doesn't exist

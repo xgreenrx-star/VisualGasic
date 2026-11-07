@@ -6,6 +6,28 @@ folder when upgrading. These fixes require the new native binaries.
 
 ## Runtime and compiler fixes
 
+- **Lambda calls survive optimized Variant indexing.** Local and module-level
+  lambda values are invoked, not read as ordinary dictionaries. Nested block
+  lambdas and their early returns have regression coverage.
+- **Numeric dictionary keys retain their identity.** Integer keys and
+  whole-number float keys refer to the same entry, while string keys and
+  fractional keys remain distinct. Dictionaries with numeric or dynamically
+  typed keys no longer use the string-key-only frame-local pool.
+- **Packed Vector3 subtraction/append works on the engine-backed path.**
+  Appending a difference such as `dst.append(src(1) - src(0))` no longer
+  incorrectly attempts Color subtraction.
+- **VG namespace methods take precedence over Godot static dispatch.**
+  Calls such as `Array.RemoveAt(a, -1)` return the array result instead of
+  being dispatched as an incompatible Godot type-static call.
+- **Optimized error handlers retain valid instruction targets.** `On Error
+  GoTo` handlers survive dead-code elimination, and bytecode compaction remaps
+  handler labels and `Resume Next` statement boundaries.
+- **Value-type member assignments write back through their containers.**
+  Rect positions and vectors stored in arrays retain component edits. Indexed
+  member assignments evaluate their indices once in bytecode and AST execution.
+- **Basis and Projection member access matches Godot.** Basis axes are columns,
+  not rows; Projection columns and constants are available to bytecode.
+  Native value-type declarations receive constructed defaults.
 - **Explicit calls to VG lifecycle procedures work.** A VG script calling
   another VG node's `_Process`, `_Ready`, `_Draw`, or `_PhysicsProcess`
   reaches that procedure instead of being discarded as a duplicate engine

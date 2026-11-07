@@ -1,7 +1,7 @@
 {
   "entries": [
     {
-      "code": "[126, 4, 0, 0, 0, 0, 6, 3, 126, 5, 0, 0, 0, 0, 6, 4, 126, 6, 0, 0, 0, 0, 6, 5, 126, 8, 0, 5, 1, 0, 1, 0, 22, 1, 0, 6, 6, 5, 6, 5, 0, 0, 1, 0, 22, 1, 0, 6, 7, 5, 7, 5, 5, 35, 2, 0, 3, 0, 6, 5, 126, 14, 0, 5, 5, 6, 2, 126, 15, 0, 77]",
+      "code": "[126, 4, 0, 0, 0, 0, 6, 3, 126, 5, 0, 0, 0, 0, 6, 4, 126, 6, 0, 0, 0, 0, 6, 5, 126, 8, 0, 5, 1, 0, 1, 0, 22, 1, 0, 5, 0, 0, 1, 0, 22, 1, 0, 5, 5, 35, 2, 0, 3, 0, 6, 5, 126, 14, 0, 5, 5, 6, 2, 126, 15, 0, 77]",
       "constants": [
         0,
         1,
@@ -150,30 +150,10 @@
           ]
         },
         {
-          "detail": "slot[6]=__cse_0",
-          "line": 8,
-          "name": "OP_SET_LOCAL",
-          "offset": 35,
-          "opcode": 6,
-          "operands": [
-            6
-          ]
-        },
-        {
-          "detail": "slot[6]=__cse_0",
-          "line": 8,
-          "name": "OP_GET_LOCAL",
-          "offset": 37,
-          "opcode": 5,
-          "operands": [
-            6
-          ]
-        },
-        {
           "detail": "slot[0]=iterations",
           "line": 8,
           "name": "OP_GET_LOCAL",
-          "offset": 39,
+          "offset": 35,
           "opcode": 5,
           "operands": [
             0
@@ -183,7 +163,7 @@
           "detail": "const[1]=1",
           "line": 8,
           "name": "OP_CONSTANT",
-          "offset": 41,
+          "offset": 37,
           "opcode": 0,
           "operands": [
             1,
@@ -194,7 +174,7 @@
           "detail": "const[1]=1",
           "line": 8,
           "name": "OP_SUB_I64_CONST",
-          "offset": 44,
+          "offset": 40,
           "opcode": 22,
           "operands": [
             1,
@@ -202,30 +182,10 @@
           ]
         },
         {
-          "detail": "slot[7]=__cse_1",
-          "line": 8,
-          "name": "OP_SET_LOCAL",
-          "offset": 47,
-          "opcode": 6,
-          "operands": [
-            7
-          ]
-        },
-        {
-          "detail": "slot[7]=__cse_1",
-          "line": 8,
-          "name": "OP_GET_LOCAL",
-          "offset": 49,
-          "opcode": 5,
-          "operands": [
-            7
-          ]
-        },
-        {
           "detail": "slot[5]=s",
           "line": 8,
           "name": "OP_GET_LOCAL",
-          "offset": 51,
+          "offset": 43,
           "opcode": 5,
           "operands": [
             5
@@ -235,7 +195,7 @@
           "detail": "k=const[2]=3, c=const[3]=-7",
           "line": 8,
           "name": "OP_ARITH_SUM",
-          "offset": 53,
+          "offset": 45,
           "opcode": 35,
           "operands": [
             2,
@@ -248,7 +208,7 @@
           "detail": "slot[5]=s",
           "line": 8,
           "name": "OP_SET_LOCAL",
-          "offset": 58,
+          "offset": 50,
           "opcode": 6,
           "operands": [
             5
@@ -258,7 +218,7 @@
           "detail": "",
           "line": 14,
           "name": "OP_DEBUG_LINE",
-          "offset": 60,
+          "offset": 52,
           "opcode": 126,
           "operands": [
             14,
@@ -269,7 +229,7 @@
           "detail": "slot[5]=s",
           "line": 14,
           "name": "OP_GET_LOCAL",
-          "offset": 63,
+          "offset": 55,
           "opcode": 5,
           "operands": [
             5
@@ -279,7 +239,7 @@
           "detail": "slot[2]=BenchArithmetic",
           "line": 14,
           "name": "OP_SET_LOCAL",
-          "offset": 65,
+          "offset": 57,
           "opcode": 6,
           "operands": [
             2
@@ -289,7 +249,7 @@
           "detail": "",
           "line": 15,
           "name": "OP_DEBUG_LINE",
-          "offset": 67,
+          "offset": 59,
           "opcode": 126,
           "operands": [
             15,
@@ -300,7 +260,7 @@
           "detail": "",
           "line": 15,
           "name": "OP_RETURN",
-          "offset": 70,
+          "offset": 62,
           "opcode": 77,
           "operands": []
         }
@@ -358,14 +318,6 @@
         8,
         8,
         8,
-        8,
-        8,
-        8,
-        8,
-        8,
-        8,
-        8,
-        8,
         14,
         14,
         14,
@@ -392,7 +344,7 @@
       "local_types": "[1, 1, 1, 1, 1, 1, 0, 0]"
     },
     {
-      "code": "[126, 18, 0, 0, 0, 0, 6, 3, 126, 19, 0, 0, 0, 0, 6, 4, 126, 20, 0, 0, 0, 0, 6, 5, 126, 21, 0, 0, 1, 0, 82, 6, 6, 5, 1, 0, 1, 0, 22, 1, 0, 6, 7, 5, 7, 0, 1, 0, 19, 41, 6, 6, 126, 28, 0, 5, 6, 37, 5, 0, 0, 1, 0, 22, 1, 0, 6, 8, 5, 8, 0, 1, 0, 19, 23, 5, 5, 19, 6, 5, 126, 34, 0, 5, 5, 6, 2, 126, 35, 0, 77]",
+      "code": "[126, 18, 0, 0, 0, 0, 6, 3, 126, 19, 0, 0, 0, 0, 6, 4, 126, 20, 0, 0, 0, 0, 6, 5, 126, 21, 0, 0, 1, 0, 82, 6, 6, 5, 1, 0, 1, 0, 22, 1, 0, 6, 7, 5, 7, 0, 1, 0, 19, 41, 6, 6, 126, 28, 0, 5, 6, 37, 5, 0, 0, 1, 0, 22, 1, 0, 0, 1, 0, 19, 23, 5, 5, 19, 6, 5, 126, 34, 0, 5, 5, 6, 2, 126, 35, 0, 77]",
       "constants": [
         0,
         1
@@ -686,34 +638,40 @@
           ]
         },
         {
-          "detail": "slot[8]=__cse_1",
-          "line": 28,
-          "name": "OP_SET_LOCAL",
-          "offset": 66,
-          "opcode": 6,
-          "operands": [
-            8
-          ]
-        },
-        {
-          "detail": "slot[8]=__cse_1",
-          "line": 28,
-          "name": "OP_GET_LOCAL",
-          "offset": 68,
-          "opcode": 5,
-          "operands": [
-            8
-          ]
-        },
-        {
           "detail": "const[1]=1",
           "line": 28,
           "name": "OP_CONSTANT",
-          "offset": 70,
+          "offset": 66,
           "opcode": 0,
           "operands": [
             1,
             0
+          ]
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_ADD_I64",
+          "offset": 69,
+          "opcode": 19,
+          "operands": []
+        },
+        {
+          "detail": "",
+          "line": 28,
+          "name": "OP_MUL_I64",
+          "offset": 70,
+          "opcode": 23,
+          "operands": []
+        },
+        {
+          "detail": "slot[5]=s",
+          "line": 28,
+          "name": "OP_GET_LOCAL",
+          "offset": 71,
+          "opcode": 5,
+          "operands": [
+            5
           ]
         },
         {
@@ -725,36 +683,10 @@
           "operands": []
         },
         {
-          "detail": "",
-          "line": 28,
-          "name": "OP_MUL_I64",
-          "offset": 74,
-          "opcode": 23,
-          "operands": []
-        },
-        {
-          "detail": "slot[5]=s",
-          "line": 28,
-          "name": "OP_GET_LOCAL",
-          "offset": 75,
-          "opcode": 5,
-          "operands": [
-            5
-          ]
-        },
-        {
-          "detail": "",
-          "line": 28,
-          "name": "OP_ADD_I64",
-          "offset": 77,
-          "opcode": 19,
-          "operands": []
-        },
-        {
           "detail": "slot[5]=s",
           "line": 28,
           "name": "OP_SET_LOCAL",
-          "offset": 78,
+          "offset": 74,
           "opcode": 6,
           "operands": [
             5
@@ -764,7 +696,7 @@
           "detail": "",
           "line": 34,
           "name": "OP_DEBUG_LINE",
-          "offset": 80,
+          "offset": 76,
           "opcode": 126,
           "operands": [
             34,
@@ -775,7 +707,7 @@
           "detail": "slot[5]=s",
           "line": 34,
           "name": "OP_GET_LOCAL",
-          "offset": 83,
+          "offset": 79,
           "opcode": 5,
           "operands": [
             5
@@ -785,7 +717,7 @@
           "detail": "slot[2]=BenchArraySum",
           "line": 34,
           "name": "OP_SET_LOCAL",
-          "offset": 85,
+          "offset": 81,
           "opcode": 6,
           "operands": [
             2
@@ -795,7 +727,7 @@
           "detail": "",
           "line": 35,
           "name": "OP_DEBUG_LINE",
-          "offset": 87,
+          "offset": 83,
           "opcode": 126,
           "operands": [
             35,
@@ -806,7 +738,7 @@
           "detail": "",
           "line": 35,
           "name": "OP_RETURN",
-          "offset": 90,
+          "offset": 86,
           "opcode": 77,
           "operands": []
         }
@@ -864,10 +796,6 @@
         21,
         21,
         21,
-        28,
-        28,
-        28,
-        28,
         28,
         28,
         28,

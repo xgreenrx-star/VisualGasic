@@ -1,0 +1,40 @@
+Option Explicit
+
+Sub note(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim d As Dictionary
+	d = New Dictionary
+	d(0) = 10
+	d(0.0) = 20
+	d("0") = 30
+	d(1.5) = 40
+	d(1) = 50
+	Call note(d(0) = 20 And d(0.0) = 20, "dict_integral_float_key")
+	Call note(d("0") = 30, "dict_string_key_distinct")
+	Call note(d(1.5) = 40 And d(1) = 50, "dict_fractional_key_distinct")
+
+	Dim key As Variant
+	key = 2.0
+	Dim dynamic As Dictionary
+	dynamic = New Dictionary
+	dynamic(key) = 60
+	Call note(dynamic(2) = 60, "dict_variant_key")
+	key = "two"
+	dynamic(key) = 70
+	Call note(dynamic("two") = 70 And dynamic(2.0) = 60, "dict_variant_key_changes_type")
+
+	Dim keys(0) As String
+	keys = Array(3)
+	Dim replaced As Dictionary
+	replaced = New Dictionary
+	replaced(keys(0)) = 80
+	replaced("3") = 90
+	Call note(replaced(3) = 80 And replaced("3") = 90, "dict_reassigned_key_array")
+End Sub

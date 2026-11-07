@@ -8019,12 +8019,19 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (member == "origin") result = t.origin;
                     else if (member == "basis") result = t.basis;
                 } else if (vgfast::vtype(base) == Variant::BASIS) {
-                    // Pass 1: Basis.x / .y / .z (rows)
                     Basis b = base;
                     String member = cache.primary_string.to_lower();
-                    if (member == "x") result = b.rows[0];
-                    else if (member == "y") result = b.rows[1];
-                    else if (member == "z") result = b.rows[2];
+                    if (member == "x") result = b.get_column(0);
+                    else if (member == "y") result = b.get_column(1);
+                    else if (member == "z") result = b.get_column(2);
+                    else vg_try_variant_type_constant("Basis", cache.primary_string, result);
+                } else if (vgfast::vtype(base) == Variant::PROJECTION) {
+                    bool valid = false;
+                    result = base.get_named(cache.primary_name, valid);
+                    if (!valid) {
+                        result = base.get_named(cache.primary_string.to_lower(), valid);
+                    }
+                    if (!valid) vg_try_variant_type_constant("Projection", cache.primary_string, result);
                 } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     // Pass 1: Vector4.x/y/z/w
                     Vector4 v = base;
@@ -8829,6 +8836,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (member == "b" || member == "blue") col.b = (float)(double)value;
                     else if (member == "a" || member == "alpha") col.a = (float)(double)value;
                     push_value(col);
+                } else if (vgfast::vtype(base) == Variant::RECT2 ||
+                        vgfast::vtype(base) == Variant::RECT2I ||
+                        vgfast::vtype(base) == Variant::PROJECTION) {
+                    bool valid = false;
+                    base.set_named(cache.primary_string.to_lower(), value, valid);
+                    if (!valid) {
+                        raise_error("Invalid member assignment: " + cache.primary_string, 438);
+                        if (try_recover_error(Variant(), false)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(base);
                 } else if (vgfast::vtype(base) == Variant::QUATERNION) {
                     Quaternion q = base;
                     String member = cache.primary_string.to_lower();
@@ -8868,9 +8887,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::BASIS) {
                     Basis b = base;
                     String member = cache.primary_string.to_lower();
-                    if (member == "x") b.rows[0] = (Vector3)value;
-                    else if (member == "y") b.rows[1] = (Vector3)value;
-                    else if (member == "z") b.rows[2] = (Vector3)value;
+                    if (member == "x") b.set_column(0, (Vector3)value);
+                    else if (member == "y") b.set_column(1, (Vector3)value);
+                    else if (member == "z") b.set_column(2, (Vector3)value);
                     push_value(b);
                 } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     Vector4 v = base;
@@ -10458,7 +10477,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     static_method = chunk->constants[method_idx];
                 }
                 Variant static_ret;
-                if (!vg_try_classdb_static_method(static_class, static_method, static_args, static_ret)) {
+                if (!VisualGasicBuiltins::call_builtin_for_base_variable(this, static_class, static_method, static_args, static_ret) &&
+                        !vg_try_classdb_static_method(static_class, static_method, static_args, static_ret)) {
                     raise_error("Static method not found: " + static_class + "." + static_method, 438);
                     if (try_recover_error(Variant())) { VG_BREAK; }
                     success = false;

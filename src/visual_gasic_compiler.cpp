@@ -364,6 +364,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     dictionary_vars.clear();
     trusted_dictionary_vars.clear();
     sole_owner_dict_vars.clear();
+    string_key_arrays.clear();
     array_types.clear();
     array_bound_vars.clear();
     local_slots.clear();
@@ -888,6 +889,7 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 }
                 array_vars.insert(key);
                 String t = s->type_name.to_lower();
+                if (t == "string") string_key_arrays.insert(key);
                 if (t == "integer" || t == "long" || t == "longlong") array_types[key] = VT_INT;
                 else if (t == "single" || t == "double") array_types[key] = VT_FLOAT;
                 String bound = extract_bound_var(s->array_sizes[0]);
@@ -918,6 +920,7 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 // Register "Dim X As Array" / Packed*Array — dynamic arrays
                 else if (t == "array" || vg_is_packed_array_type(t)) {
                     array_vars.insert(s->variable_name.to_lower());
+                    if (t == "packedstringarray") string_key_arrays.insert(s->variable_name.to_lower());
                 }
                 // M5: MemoryBuffer type — fast byte buffer stored as PackedByteArray
                 else if (t == "memorybuffer" || t == "buffer") {
@@ -966,6 +969,9 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
         }
         case STMT_ASSIGNMENT: {
             AssignmentStatement *s = (AssignmentStatement *)stmt;
+            if (s->target && s->target->type == ExpressionNode::VARIABLE) {
+                string_key_arrays.erase(((VariableNode*)s->target)->name.to_lower());
+            }
             if (s->target && s->target->type == ExpressionNode::VARIABLE && s->value && s->value->type == ExpressionNode::NEW) {
                 NewNode *n = (NewNode *)s->value;
                 if (n->class_name.nocasecmp_to("Dictionary") == 0) {
@@ -1807,6 +1813,25 @@ bool VisualGasicCompiler::is_buffer_var(const String &name) const {
 // If a dictionary variable appears in any "escaping" context, add it to
 // `escaped` so we fall back to Godot Dictionary (safe but slower).
 
+static bool _vg_string_dict_key(ExpressionNode *expr, const HashSet<String> &string_arrays) {
+    if (!expr) return false;
+    if (expr->type == ExpressionNode::LITERAL) {
+        return ((LiteralNode*)expr)->value.get_type() == Variant::STRING;
+    }
+    if (expr->type == ExpressionNode::ARRAY_ACCESS) {
+        ArrayAccessNode *aa = (ArrayAccessNode*)expr;
+        return aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                aa->indices.size() == 1 &&
+                string_arrays.has(((VariableNode*)aa->base)->name.to_lower());
+    }
+    if (expr->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression*)expr;
+        return !call->base_object && call->arguments.size() == 1 &&
+                string_arrays.has(call->method_name.to_lower());
+    }
+    return expr->type == ExpressionNode::BINARY_OP && ((BinaryOpNode*)expr)->op == "&";
+}
+
 void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<String> &escaped) const {
     if (!expr) return;
     switch (expr->type) {
@@ -1825,13 +1850,26 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
         }
         case ExpressionNode::ARRAY_ACCESS: {
             ArrayAccessNode* aa = (ArrayAccessNode*)expr;
-            // dict(key) is a read — base doesn't escape
+            if (aa->base && aa->base->type == ExpressionNode::VARIABLE) {
+                const String name = ((VariableNode*)aa->base)->name.to_lower();
+                if (sole_owner_dict_vars.has(name)) {
+                    for (int i = 0; i < aa->indices.size(); i++) {
+                        if (!_vg_string_dict_key(aa->indices[i], string_key_arrays)) escaped.insert(name);
+                    }
+                }
+            }
             for (int i = 0; i < aa->indices.size(); i++)
                 _check_expr_escapes(aa->indices[i], escaped);
             break;
         }
         case ExpressionNode::EXPRESSION_CALL: {
             CallExpression* c = (CallExpression*)expr;
+            if (!c->base_object && sole_owner_dict_vars.has(c->method_name.to_lower())) {
+                // The frame-local dictionary pool supports string keys only.
+                for (int i = 0; i < c->arguments.size(); i++) {
+                    if (!_vg_string_dict_key(c->arguments[i], string_key_arrays)) escaped.insert(c->method_name.to_lower());
+                }
+            }
             // Method call on a dict var (e.g. ages.Count()) requires a real Dictionary
             if (c->base_object && c->base_object->type == ExpressionNode::VARIABLE) {
                 String name = ((VariableNode*)c->base_object)->name.to_lower();
@@ -7733,7 +7771,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                             compile_ok = false;
                             break;
                         }
-                        init_val = Variant();
+                        init_val = construct_godot_type(s->type_name, Array());
                     }
                 } else {
                     init_val = Variant();
@@ -8203,7 +8241,38 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      }
                  }
                  // Emit: compile root.
-                 compile_expression(root);
+                 VariableNode indexed_base;
+                 VariableNode saved_index;
+                 VariableNode saved_value;
+                 ArrayAccessNode indexed_root;
+                 bool indexed_writeback = false;
+                 ExpressionNode *index_expr = nullptr;
+                 if (root && root->type == ExpressionNode::ARRAY_ACCESS) {
+                     ArrayAccessNode *aa = (ArrayAccessNode*)root;
+                     if (aa->base && aa->base->type == ExpressionNode::VARIABLE && aa->indices.size() == 1) {
+                         indexed_base.name = ((VariableNode*)aa->base)->name;
+                         index_expr = aa->indices[0];
+                     }
+                 } else if (root && root->type == ExpressionNode::EXPRESSION_CALL) {
+                     CallExpression *call = (CallExpression*)root;
+                     if (!call->base_object && call->arguments.size() == 1 &&
+                             (array_vars.has(call->method_name.to_lower()) || dictionary_vars.has(call->method_name.to_lower()))) {
+                         indexed_base.name = call->method_name;
+                         index_expr = call->arguments[0];
+                     }
+                 }
+                 if (index_expr) {
+                     saved_index.name = "__member_index_" + String::num_int64(temp_local_id++);
+                     int index_slot = get_or_add_local(saved_index.name, VT_UNKNOWN);
+                     compile_expression(index_expr);
+                     emit_bytes(OP_SET_LOCAL, (uint8_t)index_slot);
+                     indexed_root.base = &indexed_base;
+                     indexed_root.indices.push_back(&saved_index);
+                     indexed_writeback = true;
+                     compile_expression(&indexed_root);
+                 } else {
+                     compile_expression(root);
+                 }
                  // For each intermediate member (all except the last):
                  //   DUP ; GET_MEMBER mi
                  for (int i = 0; i < member_chain.size() - 1; i++) {
@@ -8229,7 +8298,19 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  // result of a call), we simply discard — Object refs are
                  // shared so the writes already took effect.
                  bool stored = false;
-                 if (root && root->type == ExpressionNode::VARIABLE) {
+                 if (indexed_writeback) {
+                     saved_value.name = "__member_value_" + String::num_int64(temp_local_id++);
+                     int value_slot = get_or_add_local(saved_value.name, VT_UNKNOWN);
+                     emit_bytes(OP_SET_LOCAL, (uint8_t)value_slot);
+                     AssignmentStatement writeback;
+                     writeback.line = s->line;
+                     writeback.target = &indexed_root;
+                     writeback.value = &saved_value;
+                     compile_statement(&writeback);
+                     writeback.target = nullptr;
+                     writeback.value = nullptr;
+                     stored = true;
+                 } else if (root && root->type == ExpressionNode::VARIABLE) {
                      VariableNode *base_var = (VariableNode *)root;
                      int slot = get_or_add_local(base_var->name, VT_UNKNOWN);
                      if (slot >= 0) {
@@ -8245,6 +8326,8 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  if (!stored) {
                      emit_byte(OP_POP);
                  }
+                 indexed_root.base = nullptr;
+                 indexed_root.indices.clear();
              } else {
                  compile_ok = false;
              }

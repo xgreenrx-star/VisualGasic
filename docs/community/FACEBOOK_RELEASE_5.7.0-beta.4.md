@@ -6,6 +6,10 @@ This update repairs dictionary returns and indexed reads, array-append
 optimization mistakes, mixed integer/float storage in the JIT, scaled vector
 accumulation, explicit calls between VG lifecycle procedures, enum-name
 shadowing, null-object checks, and AABB/Plane constructors.
+It also fixes optimized lambda calls, numeric dictionary key identity,
+packed Vector3 subtraction/append, and VG namespace calls such as Array.RemoveAt.
+Optimized error-handler targets, Rect/array component writeback, Basis columns
+and Projection member access are repaired as well.
 
 New native binaries are required. Back up your project, close Godot and replace
 the entire addon folder when upgrading.

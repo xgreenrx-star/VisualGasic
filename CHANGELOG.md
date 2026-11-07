@@ -14,6 +14,20 @@ New native binaries are required; replace the whole addon when upgrading.
 
 ### Fixed
 
+- Optimized local and module-level Variant indexing invokes lambda values
+  instead of treating their callable dictionaries as ordinary key lookups.
+- Numeric and dynamically typed dictionary keys use ordinary Dictionary
+  storage; the string-key-only frame-local pool no longer changes key identity.
+- Fused packed Vector3 subtraction/append works with the engine-backed
+  packed-array path.
+- Static calls honor VG builtin namespace methods such as `Array.RemoveAt`
+  before falling back to Godot type-static dispatch.
+- Optimizer compaction remaps error-handler labels and statement boundaries;
+  dead-code elimination retains label-reachable handlers.
+- Rect and indexed value-type member assignments write back correctly.
+  Indexed member assignment evaluates each index once in both execution paths.
+- Basis members use columns, and Projection members/constants are readable
+  in the VM. Default native value-type declarations construct their values.
 - Explicit VG-to-VG lifecycle calls run without weakening the engine's
   duplicate-notification guard.
 - Dictionary returns, For Each variables/collections and nested control-flow

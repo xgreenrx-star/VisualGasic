@@ -1,6 +1,8 @@
 ' M8 — multi-line lambda with a nested arrow lambda and Return.
 Option Explicit
 
+Dim module_lambda As Variant
+
 Sub _Ready()
     Dim scale As Variant
     scale = Lambda(n)
@@ -27,5 +29,12 @@ Sub _Ready()
         Print "PASS: lambda_block_early_return"
     Else
         Print "FAIL: lambda_block_early_return got " & CStr(got)
+    End If
+
+    module_lambda = Lambda(x) => x + 3
+    If module_lambda(4) = 7 Then
+        Print "PASS: lambda_module_variant_call"
+    Else
+        Print "FAIL: lambda_module_variant_call"
     End If
 End Sub
