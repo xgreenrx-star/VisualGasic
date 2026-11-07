@@ -7,6 +7,14 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/vg-archive-smoke.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 unzip -q "$OUT/VisualGasic_AssetLibrary_v$VERSION.zip" -d "$WORK"
 test ! -L "$WORK/addons/visual_gasic/bin"
+grep -Fx "version=\"$VERSION\"" "$WORK/addons/visual_gasic/plugin.cfg"
+for target in editor template_debug template_release; do
+  framework="$WORK/addons/visual_gasic/bin/libvisualgasic.macos.$target.framework"
+  test -s "$framework/libvisualgasic.macos.$target"
+  test -s "$framework/Info.plist"
+  grep -A1 '<key>VGReleaseVersion</key>' "$framework/Info.plist" | grep -F "<string>$VERSION</string>"
+  grep -A1 '<key>CFBundleShortVersionString</key>' "$framework/Info.plist" | grep -F "<string>${VERSION%%-*}</string>"
+done
 cat > "$WORK/project.godot" <<'EOF'
 config_version=5
 [application]

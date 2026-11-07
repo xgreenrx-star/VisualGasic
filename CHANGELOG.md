@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.7.0-beta.4] - 2026-11-06
+
+Bug-fix beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.4.md).
+New native binaries are required; replace the whole addon when upgrading.
+
+### Fixed
+
+- Explicit VG-to-VG lifecycle calls run without weakening the engine's
+  duplicate-notification guard.
+- Dictionary returns, For Each variables/collections and nested control-flow
+  escapes no longer leak optimized frame-local storage into ordinary values.
+- Dead-store analysis recognizes indexed dictionary reads. Append and
+  packed-loop fast paths require known arrays, not calls or dictionary keys.
+- Tier-2 JIT canonicalizes mixed integer/float local storage across branches.
+- Scaled vector accumulation retains vector types.
+- Module variables/constants shadow Godot enum constants.
+- Null object Variants compare with Nothing on affected AST paths.
+- AABB and Plane constructors preserve Vector3 arguments.
+
 ## [5.7.0-beta.3] - 2026-10-23
 
 Compiler, packed-mesh, and Ash Meridian sample beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.3.md).

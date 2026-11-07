@@ -76,6 +76,27 @@ jobs:
             fi
           done
 
+      - name: Stamp and verify Apple framework version
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          numeric="${version%%-*}"
+          bundle_version="$numeric"
+          if [[ "$version" == *-beta.* ]]; then
+            bundle_version="${numeric}b${version##*.}"
+          fi
+          framework="demo/bin/libvisualgasic.macos.${{ matrix.target }}.framework"
+          binary="$framework/libvisualgasic.macos.${{ matrix.target }}"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string libvisualgasic.macos.${{ matrix.target }}" "$framework/Info.plist"
+          target="${{ matrix.target }}"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string org.visualgasic.${target//_/-}" "$framework/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundlePackageType string FMWK" "$framework/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $numeric" "$framework/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $bundle_version" "$framework/Info.plist"
+          /usr/libexec/PlistBuddy -c "Add :VGReleaseVersion string $version" "$framework/Info.plist"
+          plutil -lint "$framework/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :VGReleaseVersion' "$framework/Info.plist")" = "$version"
+
       - name: Upload architecture slice
         uses: actions/upload-artifact@v4
         with:
@@ -170,6 +191,9 @@ jobs:
             test -f "$arm_slice"
             test -f "$x86_slice"
             mkdir -p "$framework"
+            diff "slices/macos-${target}-arm64-slice/Info.plist" \
+              "slices/macos-${target}-x86_64-slice/Info.plist"
+            cp "slices/macos-${target}-arm64-slice/Info.plist" "$framework/Info.plist"
             lipo -create "$arm_slice" "$x86_slice" -output "$universal"
             mkdir -p "$framework/Libraries"
             diff <(cd "slices/macos-${target}-arm64-slice/Libraries" && ls *.dylib) \
@@ -184,6 +208,8 @@ jobs:
             codesign --force --sign - "$universal"
             lipo -info "$universal"
             lipo "$universal" -verify_arch arm64 x86_64
+            plutil -lint "$framework/Info.plist"
+            otool -arch all -L "$universal"
             echo "Packaged universal framework: $framework"
           done
           cd release && zip -r ../VisualGasic-macos-universal.zip macos/

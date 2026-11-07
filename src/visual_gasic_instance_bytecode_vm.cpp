@@ -4939,6 +4939,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 // coerce it to an integer packed-array index.
                 if (vgfast::vtype(base) == Variant::DICTIONARY) {
                     const Dictionary *dict_ptr = VariantInternal::get_dictionary(&base);
+                    // A Variant local may hold a lambda (callable) dict. A call
+                    // such as fn(arg) on a local is compiled to an index op, so
+                    // dispatch to invoke_lambda instead of a plain key lookup
+                    // (matches the OP_GET_ARRAY and AST-interpreter paths).
+                    if (dict_ptr->has("__vg_lambda") && (bool)(*dict_ptr)["__vg_lambda"]) {
+                        Dictionary lam = *dict_ptr;
+                        Array call_args;
+                        call_args.push_back(idxv);
+                        vm.stack.pop_back();
+                        push_value(invoke_lambda(lam, call_args));
+                        break;
+                    }
                     idxv = dict_ptr->get(vg_dictionary_key(idxv), Variant());
                     break;
                 }
@@ -5022,6 +5034,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 if (vgfast::vtype(*gp) == Variant::DICTIONARY) {
                     const Dictionary *dict_ptr = VariantInternal::get_dictionary(gp);
+                    // Module-level Variant holding a lambda: dispatch a call
+                    // fn(arg) to invoke_lambda rather than a plain key lookup.
+                    if (dict_ptr->has("__vg_lambda") && (bool)(*dict_ptr)["__vg_lambda"]) {
+                        Dictionary lam = *dict_ptr;
+                        Array call_args;
+                        call_args.push_back(key);
+                        push_value(invoke_lambda(lam, call_args));
+                        break;
+                    }
                     push_value(dict_ptr->get(vg_dictionary_key(key), Variant()));
                     break;
                 }

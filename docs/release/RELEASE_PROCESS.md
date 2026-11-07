@@ -242,6 +242,29 @@ ordering when two timers become due during the same engine frame.
 
 ### Current evidence and remaining work
 
+#### November 6: 5.7.0-beta.4 bug-fix candidate
+
+The next candidate is `v5.7.0-beta.4`, focused on runtime/compiler fixes rather
+than sample-game promotion. [Release notes](../../RELEASE_NOTES_v5.7.0-beta.4.md)
+and [Asset Library submission copy](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.4.md)
+describe the affected behavior and upgrade requirements. Publication remains
+blocked until the same-candidate Release gates and extracted archive smoke pass.
+Prior main-branch CI failures are not sign-off.
+
+The release matrix must include Linux/Windows editor, debug and release builds,
+macOS Intel and Apple Silicon slices merged into universal frameworks, Web,
+patched music libraries, the Godot Asset Library addon ZIP, all installers and
+offline bundles, examples/docs, checksums and source identity. The macOS workflow
+stamps `Info.plist` with the numeric short version, Apple-compatible beta build
+version and full VG release string, checks matching metadata between slices,
+and verifies both architectures. Archive smoke checks addon/framework identity.
+This does not make the command launcher Developer ID signed or notarized.
+
+The website's download links, installation guide, addon metadata, VERSION and
+changelog must agree with the final release. Check the deployed Pages content
+and actual asset URLs after publication. Uploading the addon ZIP is not a
+Godot store submission or approval.
+
 #### October 23: 5.7.0-beta.3 compiler and Ash Meridian sample
 
 Compiler, packed-mesh, and Ash Meridian sample preview on the 5.7.0 line.
