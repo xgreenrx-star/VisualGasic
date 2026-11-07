@@ -244,11 +244,33 @@ ordering when two timers become due during the same engine frame.
 
 #### November 6: 5.7.0-beta.4 bug-fix candidate
 
-The next candidate is `v5.7.0-beta.4`, focused on runtime/compiler fixes rather
+Published November 7 as a [public prerelease](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.4),
+not a stable/latest release. Annotated tag `v5.7.0-beta.4` points to
+`b7b1754bfa11cc0cda59fcb19291a8b0d4c6c71c`, matching `BUILD_COMMIT.txt`.
+[Release run 42340219594](https://github.com/xgreenrx-star/VisualGasic/actions/runs/42340219594)
+passed all gates, native/Web/music builds, universal Apple metadata checks,
+macOS Python smoke and packaging. All 15 uploaded assets were downloaded again:
+every checksum and ZIP integrity check passed, and the actual addon passed clean
+Godot 4.6.1 editor import and runtime smoke without unexpected errors or leaks.
+Linux AppImage and Windows EXE extraction confirmed matching addon versions
+and native payload hashes. All three downloaded macOS frameworks and bundled
+dependencies contain Intel and Apple Silicon slices, with `5.7.0`, `5.7.0b4`
+and `5.7.0-beta.4` metadata. Installer execution on Windows/macOS was not
+certified by Linux payload inspection.
+
+All 15 public download URLs, published source identity/checksums and deployed
+website beta4 links were checked after publication. Uploaded release notes use
+absolute tagged documentation links. Tag push started redundant run
+`42342933830` on the same already-verified SHA; it was canceled to preserve
+the verified assets, not to bypass a failed gate. The Asset Library addon ZIP
+is published; authenticated store submission and moderator approval remain
+separate. The macOS setup remains unsigned and not notarized.
+
+The release is `v5.7.0-beta.4`, focused on runtime/compiler fixes rather
 than sample-game promotion. [Release notes](../../RELEASE_NOTES_v5.7.0-beta.4.md)
 and [Asset Library submission copy](../../ASSET_LIBRARY_CHANGELOG_5.7.0-beta.4.md)
-describe the affected behavior and upgrade requirements. Publication remains
-blocked until the same-candidate Release gates and extracted archive smoke pass.
+describe the affected behavior and upgrade requirements. Publication required
+the same-candidate Release gates and extracted archive smoke to pass.
 Prior main-branch CI failures are not sign-off.
 
 Candidate `63821b82`, Release run `42322676248`, built every native target,
@@ -300,7 +322,8 @@ gameplay or runtime behavior changed. The complete local headless matrix passed:
 and 95 sound checks. The editor success message now reports its actual count.
 The local Asset Library smoke completed its expected checks but also emitted
 the developer-demo Bosca diagnostics noted above; it is not clean packaged-addon
-startup certification. This candidate still requires a new same-SHA remote run.
+startup certification. The replacement candidate's successful remote run and
+clean packaged-addon smoke are recorded above.
 
 The release matrix must include Linux/Windows editor, debug and release builds,
 macOS Intel and Apple Silicon slices merged into universal frameworks, Web,
