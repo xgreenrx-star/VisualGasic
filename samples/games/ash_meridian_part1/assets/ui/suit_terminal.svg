@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1920" height="1080" viewBox="0 0 960 540">
+  <defs>
+    <linearGradient id="sleeve" x2="1" y2="0">
+      <stop stop-color="#0a1113"/><stop offset=".35" stop-color="#263032"/><stop offset=".65" stop-color="#1b2527"/><stop offset="1" stop-color="#080f11"/>
+    </linearGradient>
+    <linearGradient id="strap" x2="0" y2="1">
+      <stop stop-color="#181c1d"/><stop offset=".3" stop-color="#292e2d"/><stop offset=".8" stop-color="#151a1a"/><stop offset="1" stop-color="#080c0d"/>
+    </linearGradient>
+    <linearGradient id="edge" x2=".95" y2="1">
+      <stop stop-color="#b5b4a1"/><stop offset=".15" stop-color="#757b6f"/><stop offset=".55" stop-color="#5a635b"/><stop offset="1" stop-color="#323d37"/>
+    </linearGradient>
+    <linearGradient id="deck" x1=".15" x2=".85" y2="1">
+      <stop stop-color="#a1a491"/><stop offset=".42" stop-color="#818975"/><stop offset=".85" stop-color="#717b69"/><stop offset="1" stop-color="#586352"/>
+    </linearGradient>
+    <linearGradient id="hood" x1=".1" x2=".8" y2="1">
+      <stop stop-color="#9b9e8d"/><stop offset=".45" stop-color="#636e60"/><stop offset="1" stop-color="#414c42"/>
+    </linearGradient>
+    <linearGradient id="recess" x1=".1" x2=".9" y2="1">
+      <stop stop-color="#070e0c"/><stop offset=".5" stop-color="#1d2921"/><stop offset="1" stop-color="#414f40"/>
+    </linearGradient>
+    <linearGradient id="key-rim" x1=".1" x2=".7" y2="1">
+      <stop stop-color="#c1c0ac"/><stop offset=".18" stop-color="#808877"/><stop offset=".75" stop-color="#6b7565"/><stop offset="1" stop-color="#343f35"/>
+    </linearGradient>
+    <linearGradient id="key-top" x2=".4" y2="1">
+      <stop stop-color="#354138"/><stop offset=".4" stop-color="#212e25"/><stop offset="1" stop-color="#17251e"/>
+    </linearGradient>
+    <radialGradient id="light" cx=".2" cy="0" r="1">
+      <stop stop-color="#eef0d5" stop-opacity=".08"/><stop offset="1" stop-color="#eef0d5" stop-opacity="0"/>
+    </radialGradient>
+    <g id="key">
+      <rect width="29" height="17" rx="2.8" fill="#121c15"/>
+      <rect x="1" y=".6" width="27" height="14.8" rx="2.1" fill="url(#key-rim)"/>
+      <rect x="2.2" y="1.8" width="24.6" height="11.8" rx="1.7" fill="url(#key-top)"/>
+      <path d="M4 13.8H25" stroke="#111b15" stroke-width=".6"/>
+    </g>
+    <g id="keyrow">
+      <use xlink:href="#key"/><use xlink:href="#key" x="31"/><use xlink:href="#key" x="62"/>
+      <use xlink:href="#key" x="93"/><use xlink:href="#key" x="124"/><use xlink:href="#key" x="155"/>
+      <use xlink:href="#key" x="186"/><use xlink:href="#key" x="217"/><use xlink:href="#key" x="248"/>
+      <use xlink:href="#key" x="279"/><use xlink:href="#key" x="310"/><use xlink:href="#key" x="341"/>
+    </g>
+    <g id="screw">
+      <circle r="2.4" fill="#263328"/><circle cx="-.3" cy="-.5" r="1.7" fill="#828e76"/>
+      <path d="M-1.1-.2H1" stroke="#1b291d" stroke-width=".7"/>
+    </g>
+  </defs>
+  <rect width="960" height="540" fill="#070d0e"/>
+  <path d="M300-20Q238 25 236 89L231 465Q238 528 280 560H685Q731 520 728 462L723 77Q718 12 663-20Z" fill="url(#sleeve)"/>
+  <path d="M251 72L249 468M714 72L716 468" fill="none" stroke="#334042" stroke-width="1.2" opacity=".3"/>
+  <g fill="url(#strap)" stroke="#07100e" stroke-width="2">
+    <rect x="219" y="122" width="521" height="47" rx="7"/><rect x="219" y="402" width="521" height="47" rx="7"/>
+  </g>
+  <g stroke="#69715e" stroke-width=".5" opacity=".17">
+    <path d="M225 129H733M225 134H733M225 139H733M225 144H733M225 149H733M225 154H733M225 159H733"/>
+    <path d="M225 409H733M225 414H733M225 419H733M225 424H733M225 429H733M225 434H733M225 439H733"/>
+  </g>
+  <g fill="#4a554b" stroke="#14241b" stroke-width="2">
+    <rect x="233" y="128" width="24" height="34" rx="3"/><rect x="703" y="128" width="24" height="34" rx="3"/>
+    <rect x="233" y="408" width="24" height="34" rx="3"/><rect x="703" y="408" width="24" height="34" rx="3"/>
+  </g>
+  <path d="M290 10H679Q701 10 704 35V511Q702 537 679 539H295Q267 537 267 512V35Q266 15 290 10Z" fill="#020605" opacity=".8"/>
+  <path d="M286 9H673Q692 9 696 31L699 504Q697 529 674 532H288Q266 530 262 507L261 34Q263 12 286 9Z" fill="#35443a"/>
+  <path d="M280 8H669Q688 8 690 28V499Q689 518 671 520H280Q264 518 264 500V29Q265 10 280 8Z" fill="url(#edge)"/>
+  <path d="M280 13H667Q682 13 683 29V493Q683 510 668 511H281Q270 511 270 496V30Q270 15 280 13Z" fill="url(#deck)"/>
+  <path d="M276 16Q275 12 287 11H668Q684 12 686 28" fill="none" stroke="#d3d4b8" stroke-opacity=".5" stroke-width="1"/>
+  <path d="M272 392H681M272 395H681" stroke="#334c35" stroke-width=".7" opacity=".65"/>
+  <path d="M283 10H669L682 24V372L674 386H278L272 376V25Z" fill="#2c3b30" opacity=".9"/>
+  <path d="M283 10H669L679 23V369L672 381H280L276 371V24Z" fill="url(#hood)"/>
+  <path d="M284 15H666Q673 15 674 24V366Q674 375 665 376H285Q280 374 280 366V25Q280 17 284 15Z" fill="url(#recess)"/>
+  <rect x="284" y="22" width="391" height="352" rx="12" fill="#121d18"/>
+  <rect x="287" y="27" width="386" height="345" rx="13" fill="#030b09"/>
+  <path d="M281 368V24Q281 16 287 16H666" fill="none" stroke="#d4d7ba" stroke-width=".7" opacity=".45"/>
+  <path d="M283 379H671M284 382H670M285 385H669" stroke="#1a2e20" stroke-width=".6" opacity=".8"/>
+  <g stroke="#1e3525" stroke-width="1.5" opacity=".8">
+    <path d="M689 44V58M689 68V82M689 92V106M689 116V130M689 140V154M689 164V178M689 188V202M689 212V226M689 236V250M689 260V274M689 284V298M689 308V322"/>
+  </g>
+  <rect x="281" y="410" width="398" height="96" rx="7" fill="#b1b59c" opacity=".5"/>
+  <rect x="281" y="409" width="398" height="96" rx="7" fill="url(#recess)"/>
+  <rect x="284" y="412" width="392" height="90" rx="5" fill="#16271d"/>
+  <g>
+    <use xlink:href="#keyrow" x="289" y="415"/><use xlink:href="#keyrow" x="291" y="432"/>
+    <use xlink:href="#keyrow" x="289" y="449"/><use xlink:href="#keyrow" x="291" y="466"/>
+  </g>
+  <g font-family="DejaVu Sans Mono" font-size="8.5" fill="#dedec5">
+    <text y="425" x="294 325 356 387 418 449 480 511 542 573 604 635">1234567890-=</text>
+    <text y="442" x="296 327 358 389 420 451 482 513 544 575 606 637">QWERTYUIOP[]</text>
+    <text y="459" x="294 325 356 387 418 449 480 511 542 573 604 635">ASDFGHJKL;'#</text>
+    <text y="476" x="296 327 358 389 420 451 482 513 544 575 606 637">ZXCVBNM,./&lt;&gt;</text>
+  </g>
+  <g font-family="DejaVu Sans Mono" font-size="5" fill="#a2af94">
+    <text y="422" x="310 341 372 403 434 465 496 527 558 589 620 651">!@#$%^&amp;*()_+</text>
+    <text y="473" x="527 558 589">&lt;&gt;?</text>
+  </g>
+  <g fill="url(#key-rim)" stroke="#0f2115" stroke-width="1.5">
+    <rect x="290" y="484" width="35" height="16" rx="2"/><rect x="328" y="484" width="45" height="16" rx="2"/>
+    <rect x="376" y="484" width="173" height="16" rx="2"/><rect x="552" y="484" width="38" height="16" rx="2"/>
+    <rect x="593" y="484" width="74" height="16" rx="2"/>
+  </g>
+  <g fill="url(#key-top)">
+    <rect x="292" y="486" width="31" height="11" rx="1"/><rect x="330" y="486" width="41" height="11" rx="1"/>
+    <rect x="378" y="486" width="169" height="11" rx="1"/><rect x="554" y="486" width="34" height="11" rx="1"/>
+    <rect x="595" y="486" width="70" height="11" rx="1"/>
+  </g>
+  <g font-family="DejaVu Sans Mono" font-size="7" fill="#dedec5">
+    <text x="298" y="494">F1</text><text x="334" y="494">SHIFT</text><text x="445" y="494">SPACE</text>
+    <text x="560" y="494">DEL</text><text x="610" y="494">ENTER</text>
+  </g>
+  <g transform="translate(367 390)">
+    <use xlink:href="#key" transform="scale(.8 1)"/><use xlink:href="#key" transform="translate(25) scale(.8 1)"/>
+    <use xlink:href="#key" transform="translate(50) scale(.8 1)"/><use xlink:href="#key" transform="translate(75) scale(.8 1)"/>
+    <path d="M13 5L8 8L13 11M34 5L39 8L34 11M59 10L63 6L67 10M84 6L88 10L92 6" fill="none" stroke="#c3cdb3" stroke-width="1"/>
+  </g>
+  <rect x="557" y="392" width="37" height="16" rx="7" fill="#2a2519"/>
+  <rect x="558" y="391" width="35" height="14" rx="7" fill="#674c39"/>
+  <path d="M563 392H587" stroke="#9e7c56" stroke-opacity=".5" stroke-width=".6"/>
+  <g font-family="DejaVu Sans Mono" font-size="7" fill="#263f2b">
+    <text x="291" y="401">SUIT / 04</text><text x="623" y="401">1541</text>
+  </g>
+  <text x="567" y="401" font-family="DejaVu Sans Mono" font-size="6" fill="#d0bb92">LINK</text>
+  <circle cx="659" cy="397" r="2.5" fill="#1c3119"/><circle cx="658.7" cy="396.5" r="1.7" fill="#9dba60"/>
+  <use xlink:href="#screw" x="278" y="504"/><use xlink:href="#screw" x="681" y="504"/>
+  <path d="M272 497L274 501M670 506H675M281 388L293 388M685 31V39" stroke="#d1d2b2" stroke-width=".5" opacity=".45"/>
+  <path d="M265 31V499M691 32V498" stroke="#142a1b" stroke-width=".7" opacity=".65"/>
+  <rect x="269" y="12" width="417" height="500" rx="14" fill="url(#light)"/>
+</svg>

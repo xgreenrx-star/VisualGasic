@@ -1,0 +1,604 @@
+Option Explicit
+
+Dim transcript As Array
+Dim program As Dictionary
+Dim variables As Dictionary
+Dim memory As Dictionary
+Dim palette As Array
+Dim border_index As Integer
+Dim background_index As Integer
+Dim text_index As Integer
+Dim last_error As String
+Dim loading As Boolean
+Dim load_left As Single
+Dim load_name As String
+Dim loaded_hack As Boolean
+Dim directory_loaded As Boolean
+Dim launch_hack As Boolean
+Dim request_emulator As Boolean
+Dim guidance As String
+Dim running As Boolean
+Dim instructions As Array
+Dim instruction_lines As Array
+Dim pc As Integer
+Dim steps As Integer
+Dim loops As Array
+Dim expr As String
+Dim expr_pos As Integer
+
+Sub reset_terminal()
+	transcript = Array()
+	program = New Dictionary
+	variables = New Dictionary
+	memory = New Dictionary
+	instructions = Array()
+	instruction_lines = Array()
+	loops = Array()
+	palette = Array(Color8(0,0,0), Color8(255,255,255), Color8(136,0,0), Color8(170,255,238), Color8(204,68,204), Color8(0,204,85), Color8(0,0,170), Color8(238,238,119), Color8(221,136,85), Color8(102,68,0), Color8(255,119,119), Color8(51,51,51), Color8(119,119,119), Color8(170,255,102), Color8(0,136,255), Color8(187,187,187))
+	border_index = 14
+	background_index = 6
+	text_index = 14
+	last_error = ""
+	loading = False
+	loaded_hack = False
+	directory_loaded = False
+	launch_hack = False
+	request_emulator = False
+	running = False
+	guidance = "Type LOAD " & Chr(34) & "FAST HACK'EM" & Chr(34) & ",8,1. I can read the replies; only you can operate the programmer. Do try to make that arrangement efficient."
+	write_line("**** SUIT FIELD BASIC ****")
+	write_line("64K RAM / COMMANDER +4 CONNECTED")
+	write_line("TYPE HELP FOR COMMANDS")
+	write_line("READY.")
+End Sub
+
+Sub write_line(ByVal text As String)
+	If text = "" Then
+		transcript.append("")
+	Else
+		While Len(text) > 38
+			transcript.append(Left(text, 38))
+			text = Mid(text, 39)
+		Wend
+		transcript.append(text)
+	End If
+	While transcript.size() > 18
+		transcript.remove_at(0)
+	Wend
+End Sub
+
+Sub fail(ByVal message As String)
+	If last_error <> "" Then Exit Sub
+	last_error = "?" & message & " ERROR"
+	If running And pc < instruction_lines.size() Then last_error = last_error & " IN " & Str(instruction_lines(pc))
+	write_line(last_error)
+	running = False
+End Sub
+
+Function parts(ByVal text As String, ByVal separator As String) As Array
+	Dim result As Array
+	Dim quoted As Boolean
+	Dim piece As String
+	Dim ch As String
+	Dim i As Integer
+	result = Array()
+	piece = ""
+	quoted = False
+	For i = 1 To Len(text)
+		ch = Mid(text, i, 1)
+		If ch = Chr(34) Then quoted = Not quoted
+		If ch = separator And Not quoted Then
+			result.append(Trim(piece))
+			piece = ""
+		Else
+			piece = piece & ch
+		End If
+	Next
+	result.append(Trim(piece))
+	If quoted Then fail("SYNTAX")
+	Return result
+End Function
+
+Function is_digit(ByVal ch As String) As Boolean
+	Return Len(ch) = 1 And ch >= "0" And ch <= "9"
+End Function
+
+Function is_letter(ByVal ch As String) As Boolean
+	Return Len(ch) = 1 And ch >= "A" And ch <= "Z"
+End Function
+
+Function valid_name(ByVal text As String) As Boolean
+	Dim i As Integer
+	If text = "" Then Return False
+	If Not is_letter(Left(text, 1)) Then Return False
+	For i = 2 To Len(text)
+		If Not is_letter(Mid(text, i, 1)) And Not is_digit(Mid(text, i, 1)) Then Return False
+	Next
+	Return True
+End Function
+
+Sub skip_spaces()
+	While expr_pos <= Len(expr) And Mid(expr, expr_pos, 1) = " "
+		expr_pos = expr_pos + 1
+	Wend
+End Sub
+
+Function atom(ByVal depth As Integer) As Double
+	Dim ch As String
+	Dim token As String
+	Dim start_pos As Integer
+	Dim value As Double
+	If depth > 24 Then
+		fail("FORMULA TOO COMPLEX")
+		Return 0
+	End If
+	skip_spaces()
+	ch = Mid(expr, expr_pos, 1)
+	If ch = "+" Or ch = "-" Then
+		expr_pos = expr_pos + 1
+		value = atom(depth + 1)
+		If ch = "-" Then value = -value
+		Return value
+	End If
+	If ch = "(" Then
+		expr_pos = expr_pos + 1
+		value = sum_expr(depth + 1)
+		skip_spaces()
+		If Mid(expr, expr_pos, 1) <> ")" Then
+			fail("SYNTAX")
+		Else
+			expr_pos = expr_pos + 1
+		End If
+		Return value
+	End If
+	start_pos = expr_pos
+	If is_digit(ch) Or ch = "." Then
+		While expr_pos <= Len(expr) And (is_digit(Mid(expr, expr_pos, 1)) Or Mid(expr, expr_pos, 1) = ".")
+			expr_pos = expr_pos + 1
+		Wend
+		token = Mid(expr, start_pos, expr_pos - start_pos)
+		If Not token.is_valid_float() Then
+			fail("SYNTAX")
+			Return 0
+		End If
+		Return Val(token)
+	End If
+	While expr_pos <= Len(expr) And (is_letter(Mid(expr, expr_pos, 1)) Or is_digit(Mid(expr, expr_pos, 1)))
+		expr_pos = expr_pos + 1
+	Wend
+	token = Mid(expr, start_pos, expr_pos - start_pos)
+	If token = "PEEK" Then
+		skip_spaces()
+		If Mid(expr, expr_pos, 1) <> "(" Then
+			fail("SYNTAX")
+			Return 0
+		End If
+		expr_pos = expr_pos + 1
+		value = sum_expr(depth + 1)
+		skip_spaces()
+		If Mid(expr, expr_pos, 1) <> ")" Then fail("SYNTAX")
+		expr_pos = expr_pos + 1
+		If value < 0 Or value > 65535 Or value <> Int(value) Then
+			fail("ILLEGAL QUANTITY")
+			Return 0
+		End If
+		If value = 53280 Then Return border_index
+		If value = 53281 Then Return background_index
+		If value = 646 Then Return text_index
+		Return memory.get(Int(value), 0)
+	End If
+	If Not valid_name(token) Then
+		fail("SYNTAX")
+		Return 0
+	End If
+	Return variables.get(token, 0)
+End Function
+
+Function product_expr(ByVal depth As Integer) As Double
+	Dim value As Double
+	Dim right_value As Double
+	Dim op As String
+	value = atom(depth)
+	skip_spaces()
+	While last_error = "" And (Mid(expr, expr_pos, 1) = "*" Or Mid(expr, expr_pos, 1) = "/")
+		op = Mid(expr, expr_pos, 1)
+		expr_pos = expr_pos + 1
+		right_value = atom(depth)
+		If op = "*" Then
+			value = value * right_value
+		ElseIf right_value = 0 Then
+			fail("DIVISION BY ZERO")
+		Else
+			value = value / right_value
+		End If
+		skip_spaces()
+	Wend
+	Return value
+End Function
+
+Function sum_expr(ByVal depth As Integer) As Double
+	Dim value As Double
+	Dim right_value As Double
+	Dim op As String
+	value = product_expr(depth)
+	skip_spaces()
+	While last_error = "" And (Mid(expr, expr_pos, 1) = "+" Or Mid(expr, expr_pos, 1) = "-")
+		op = Mid(expr, expr_pos, 1)
+		expr_pos = expr_pos + 1
+		right_value = product_expr(depth)
+		If op = "+" Then
+			value = value + right_value
+		Else
+			value = value - right_value
+		End If
+		skip_spaces()
+	Wend
+	Return value
+End Function
+
+Function number(ByVal source As String) As Double
+	Dim value As Double
+	expr = UCase(Trim(source))
+	expr_pos = 1
+	value = sum_expr(0)
+	skip_spaces()
+	If expr_pos <= Len(expr) Then fail("SYNTAX")
+	If value <> value Or Abs(value) > 1000000000000000 Then fail("ILLEGAL QUANTITY")
+	Return value
+End Function
+
+Function ordered_lines() As Array
+	Dim result As Array
+	result = program.keys()
+	result.sort()
+	Return result
+End Function
+
+Sub list_program()
+	Dim line_no As Variant
+	If directory_loaded Then
+		write_line("0 " & Chr(34) & "MARK'S FIELD DISK" & Chr(34) & " 01 2A")
+		write_line("24 " & Chr(34) & "FAST HACK'EM" & Chr(34) & " PRG")
+		write_line("4  " & Chr(34) & "DEMO" & Chr(34) & " PRG")
+		write_line("636 BLOCKS FREE.")
+	Else
+		For Each line_no In ordered_lines()
+			write_line(Str(line_no) & " " & program(line_no))
+		Next
+	End If
+End Sub
+
+Sub start_program()
+	Dim line_no As Variant
+	Dim statement As Variant
+	instructions = Array()
+	instruction_lines = Array()
+	loops = Array()
+	variables = New Dictionary
+	For Each line_no In ordered_lines()
+		For Each statement In parts(program(line_no), ":")
+			instructions.append(statement)
+			instruction_lines.append(line_no)
+		Next
+	Next
+	If last_error <> "" Then Exit Sub
+	pc = 0
+	steps = 0
+	running = instructions.size() > 0
+End Sub
+
+Sub execute_statement(ByVal source As String)
+	Dim upper As String
+	Dim body As String
+	Dim fields As Array
+	Dim piece As Variant
+	Dim output As String
+	Dim value As Double
+	Dim address As Double
+	Dim equal_pos As Integer
+	Dim to_pos As Integer
+	Dim step_pos As Integer
+	Dim name As String
+	Dim frame As Dictionary
+	Dim finish_value As Double
+	Dim stride As Double
+	Dim j As Integer
+	Dim nesting As Integer
+	upper = UCase(Trim(source))
+	If upper = "" Or Left(upper, 3) = "REM" Then Exit Sub
+	If upper = "END" Or upper = "STOP" Then
+		running = False
+		Exit Sub
+	End If
+	If Left(upper, 5) = "PRINT" Or Left(upper, 1) = "?" Then
+		body = Trim(Mid(source, 6))
+		If Left(upper, 1) = "?" Then body = Trim(Mid(source, 2))
+		fields = parts(body, ";")
+		output = ""
+		For Each piece In fields
+			If piece <> "" Then
+				If Left(piece, 1) = Chr(34) And Right(piece, 1) = Chr(34) And Len(piece) >= 2 Then
+					output = output & Mid(piece, 2, Len(piece) - 2)
+				Else
+					value = number(piece)
+					output = output & Str(value)
+				End If
+			End If
+		Next
+		If last_error = "" Then write_line(output)
+		Exit Sub
+	End If
+	If Left(upper, 4) = "POKE" Then
+		fields = parts(Mid(upper, 5), ",")
+		If fields.size() <> 2 Then
+			fail("SYNTAX")
+			Exit Sub
+		End If
+		address = number(fields(0))
+		value = number(fields(1))
+		If last_error <> "" Then Exit Sub
+		If address < 0 Or address > 65535 Or address <> Int(address) Or value < 0 Or value > 255 Or value <> Int(value) Then
+			fail("ILLEGAL QUANTITY")
+			Exit Sub
+		End If
+		memory(Int(address)) = Int(value)
+		If address = 53280 Then border_index = Int(value) Mod 16
+		If address = 53281 Then background_index = Int(value) Mod 16
+		If address = 646 Then text_index = Int(value) Mod 16
+		Exit Sub
+	End If
+	If Left(upper, 4) = "GOTO" Then
+		If Not running Then
+			fail("ILLEGAL DIRECT")
+			Exit Sub
+		End If
+		value = number(Mid(upper, 5))
+		For j = 0 To instruction_lines.size() - 1
+			If instruction_lines(j) = value Then
+				pc = j - 1
+				Exit Sub
+			End If
+		Next
+		fail("UNDEF'D STATEMENT")
+		Exit Sub
+	End If
+	If Left(upper, 3) = "FOR" Then
+		If Not running Then
+			fail("ILLEGAL DIRECT")
+			Exit Sub
+		End If
+		equal_pos = InStr(upper, "=")
+		to_pos = InStr(upper, " TO ")
+		step_pos = InStr(upper, " STEP ")
+		If equal_pos < 5 Or to_pos <= equal_pos Then
+			fail("SYNTAX")
+			Exit Sub
+		End If
+		name = Trim(Mid(upper, 4, equal_pos - 4))
+		If Not valid_name(name) Then
+			fail("SYNTAX")
+			Exit Sub
+		End If
+		value = number(Mid(upper, equal_pos + 1, to_pos - equal_pos - 1))
+		stride = 1
+		If step_pos > to_pos Then
+			finish_value = number(Mid(upper, to_pos + 4, step_pos - to_pos - 4))
+			stride = number(Mid(upper, step_pos + 6))
+		Else
+			finish_value = number(Mid(upper, to_pos + 4))
+		End If
+		If last_error <> "" Then Exit Sub
+		If stride = 0 Or loops.size() >= 16 Then
+			fail("ILLEGAL QUANTITY")
+			Exit Sub
+		End If
+		variables(name) = value
+		If (stride > 0 And value > finish_value) Or (stride < 0 And value < finish_value) Then
+			nesting = 0
+			For j = pc + 1 To instructions.size() - 1
+				body = UCase(Trim(instructions(j)))
+				If Left(body, 3) = "FOR" Then nesting = nesting + 1
+				If Left(body, 4) = "NEXT" Then
+					If nesting = 0 Then
+						pc = j
+						Exit Sub
+					End If
+					nesting = nesting - 1
+				End If
+			Next
+			fail("FOR WITHOUT NEXT")
+			Exit Sub
+		End If
+		frame = New Dictionary
+		frame("name") = name
+		frame("end") = finish_value
+		frame("step") = stride
+		frame("pc") = pc
+		loops.append(frame)
+		Exit Sub
+	End If
+	If Left(upper, 4) = "NEXT" Then
+		If Not running Or loops.size() = 0 Then
+			fail("NEXT WITHOUT FOR")
+			Exit Sub
+		End If
+		frame = loops(loops.size() - 1)
+		name = Trim(Mid(upper, 5))
+		If name <> "" And name <> frame("name") Then
+			fail("NEXT WITHOUT FOR")
+			Exit Sub
+		End If
+		name = frame("name")
+		value = variables(name) + frame("step")
+		variables(name) = value
+		If (frame("step") > 0 And value <= frame("end")) Or (frame("step") < 0 And value >= frame("end")) Then
+			pc = frame("pc")
+		Else
+			loops.remove_at(loops.size() - 1)
+		End If
+		Exit Sub
+	End If
+	body = upper
+	If Left(body, 4) = "LET " Then body = Trim(Mid(body, 5))
+	equal_pos = InStr(body, "=")
+	If equal_pos > 1 Then
+		name = Trim(Left(body, equal_pos - 1))
+		If Not valid_name(name) Then
+			fail("SYNTAX")
+			Exit Sub
+		End If
+		value = number(Mid(body, equal_pos + 1))
+		If last_error = "" Then variables(name) = value
+	Else
+		fail("SYNTAX")
+	End If
+End Sub
+
+Sub submit(ByVal source As String)
+	Dim upper As String
+	Dim fields As Array
+	Dim statement As Variant
+	Dim i As Integer
+	Dim line_no As Integer
+	Dim filename As String
+	If running Or loading Then Exit Sub
+	source = Trim(source)
+	If source = "" Then Exit Sub
+	last_error = ""
+	write_line(source)
+	upper = UCase(source)
+	If is_digit(Left(source, 1)) Then
+		i = 1
+		While i <= Len(source) And is_digit(Mid(source, i, 1))
+			i = i + 1
+		Wend
+		If i > 6 Then
+			fail("ILLEGAL QUANTITY")
+			Exit Sub
+		End If
+		line_no = Val(Left(source, i - 1))
+		If line_no > 63999 Then
+			fail("ILLEGAL QUANTITY")
+			Exit Sub
+		End If
+		directory_loaded = False
+		loaded_hack = False
+		If Trim(Mid(source, i)) = "" Then
+			program.erase(line_no)
+		ElseIf program.size() >= 100 And Not program.has(line_no) Then
+			fail("OUT OF MEMORY")
+		Else
+			program(line_no) = Trim(Mid(source, i))
+		End If
+		Exit Sub
+	End If
+	If upper = "HELP" Then
+		write_line("LOAD " & Chr(34) & "$" & Chr(34) & ",8 THEN LIST")
+		write_line("LOAD " & Chr(34) & "FAST HACK'EM" & Chr(34) & ",8,1")
+		write_line("SYS 49152 STARTS LOADED FAST HACK'EM")
+		write_line("LOAD " & Chr(34) & "DEMO" & Chr(34) & ",8 THEN RUN")
+		write_line("LIST RUN NEW PRINT LET FOR NEXT GOTO")
+		write_line("POKE / PEEK: 53280, 53281, 646")
+		write_line("ESC: BREAK / F2: RETURN TO TERMINAL")
+		write_line("C64: OPTIONAL USER-ROM EMULATOR")
+	ElseIf upper = "NEW" Then
+		program.clear()
+		variables.clear()
+		loaded_hack = False
+		directory_loaded = False
+	ElseIf upper = "LIST" Then
+		list_program()
+	ElseIf upper = "RUN" Then
+		If directory_loaded Or loaded_hack Then
+			fail("NOT BASIC")
+		Else
+			start_program()
+		End If
+	ElseIf upper = "C64" Then
+		request_emulator = True
+	ElseIf upper = "SYS 49152" Then
+		If loaded_hack Then
+			launch_hack = True
+			guidance = ""
+		Else
+			fail("PROGRAM NOT LOADED")
+		End If
+	ElseIf Left(upper, 4) = "LOAD" Then
+		fields = parts(Trim(Mid(upper, 5)), ",")
+		If fields.size() < 2 Or fields.size() > 3 Then
+			fail("SYNTAX")
+		ElseIf fields(1) <> "8" Then
+			fail("DEVICE NOT PRESENT")
+		Else
+			If fields.size() = 3 Then
+				If fields(2) <> "1" And fields(2) <> "0" Then
+					fail("SYNTAX")
+					Exit Sub
+				End If
+			End If
+			filename = fields(0)
+			If filename = Chr(34) & "$" & Chr(34) Then
+				load_name = "$"
+			ElseIf filename = Chr(34) & "FAST HACK'EM" & Chr(34) Or filename = Chr(34) & "*" & Chr(34) Then
+				load_name = "FAST HACK'EM"
+			ElseIf filename = Chr(34) & "DEMO" & Chr(34) Then
+				load_name = "DEMO"
+			Else
+				fail("FILE NOT FOUND")
+			End If
+			If last_error = "" Then
+				loading = True
+				load_left = 1.5
+				write_line("SEARCHING FOR " & load_name)
+				write_line("LOADING")
+			End If
+		End If
+	Else
+		For Each statement In parts(source, ":")
+			If last_error = "" Then execute_statement(statement)
+		Next
+	End If
+	If Not running And Not loading And Not launch_hack Then write_line("READY.")
+End Sub
+
+Sub break_program()
+	If Not running Then Exit Sub
+	write_line("BREAK IN " & Str(instruction_lines(pc)))
+	running = False
+	write_line("READY.")
+End Sub
+
+Sub tick(ByVal delta As Single)
+	Dim i As Integer
+	If loading Then
+		load_left = load_left - Max(0.0, delta)
+		If load_left <= 0 Then
+			loading = False
+			program.clear()
+			directory_loaded = load_name = "$"
+			loaded_hack = load_name = "FAST HACK'EM"
+			If load_name = "DEMO" Then
+				program(10) = "FOR I=1 TO 5"
+				program(20) = "PRINT " & Chr(34) & "HELLO JASON " & Chr(34) & ";I"
+				program(30) = "NEXT I"
+			End If
+			write_line("READY.")
+			If loaded_hack Then guidance = "Loaded. Type SYS 49152. That starts Fast Hack'em; staring at READY. does not."
+		End If
+	End If
+	If Not running Then Exit Sub
+	For i = 1 To 32
+		If Not running Then Exit Sub
+		If pc >= instructions.size() Then
+			If loops.size() > 0 Then fail("FOR WITHOUT NEXT")
+			running = False
+		ElseIf steps >= 10000 Then
+			fail("EXECUTION LIMIT")
+		Else
+			execute_statement(instructions(pc))
+			pc = pc + 1
+			steps = steps + 1
+		End If
+		If Not running Then write_line("READY.")
+	Next
+End Sub

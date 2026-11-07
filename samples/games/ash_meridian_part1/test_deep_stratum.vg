@@ -504,6 +504,10 @@ Sub undercity_checks()
 	deep.sun_hour = 12.0
 	sun = deep.sun_state(yard)
 	check(sun(2) And Abs(sun(0).x) < 1.0 And sun(0).y > 54 And sun(1).x > 0.9, "sun_noon_overhead")
+	check(Abs(deep.dome_height(0, 144) - 86.0) < 0.01, "dome_crown_86m")
+	check(Abs(deep.dome_height(-120, 144) - 60.0) < 0.01 And Abs(deep.dome_height(0, 288) - 60.0) < 0.01, "dome_meets_retaining_walls")
+	check(Abs(deep.dome_height(-45, 70) - deep.dome_height(45, 218)) < 0.01, "dome_symmetric")
+	check(Abs(sun(0).y - deep.dome_height(sun(0).x, sun(0).z) + 5.0) < 0.01, "sun_carriage_follows_dome")
 	deep.sun_hour = 6.5
 	sun = deep.sun_state(yard)
 	check(sun(2) And sun(0).x > 100 And sun(1).x < 0.6, "sun_rises_in_east_dim")
@@ -534,6 +538,8 @@ Sub undercity_checks()
 	go_floor("58120")
 	go_floor("88216")
 	check(deep.grid_power And deep._car_pos(yard, car).distance_to(car("p")) > 3, "undercity_state_persists")
+	yard.pending_room = True
+	yard._sync_room()
 	fx_checks()
 	yard.reset()
 End Sub
@@ -559,6 +565,12 @@ Sub fx_checks()
 	Dim missing As String
 	Dim t As Single
 	Dim far As Vector3
+	Dim pool As Dictionary
+	Dim surface As Object
+	Dim sample As Integer
+	Dim live_seen As Boolean
+	Dim calm_seen As Boolean
+	Dim previous_clock As Single
 	fx = deep.fx
 	check(fx <> Nothing, "fx_module_loaded")
 	If fx = Nothing Then Exit Sub
@@ -569,6 +581,28 @@ Sub fx_checks()
 	Next
 	If missing <> "" Then Print "FX_MISSING:" & missing
 	check(missing = "", "fx_nodes_built")
+	pool = deep.waters(0)
+	surface = pool("material")
+	check(surface <> Nothing And pool("node").name = "FloodWater", "flood_surface_built")
+	If surface = Nothing Then Exit Sub
+	check(surface.shader.resource_path = "res://shaders/undercity_puddle.gdshader" And surface.get_shader_parameter("rectangular"), "flood_shares_puddle_shader")
+	check(pool("node").mesh.size = pool("r").size And Abs(pool("node").position.y - pool("y") - 0.015) < 0.001, "flood_surface_covers_pool")
+	deep.animate(yard, 0.0)
+	check(surface.get_shader_parameter("electrical") = 1.0 * Int(deep.water_live(pool)), "flood_arc_matches_hazard")
+	check(surface.get_shader_parameter("reflection_tint") = pool("reflection"), "flood_reflection_uses_room_palette")
+	previous_clock = deep.clock
+	For sample = 0 To 200
+		deep.clock = sample * 0.05
+		deep._animate_city(yard, 0.0)
+		If deep.water_live(pool) Then
+			live_seen = surface.get_shader_parameter("electrical") = 1.0
+		Else
+			calm_seen = surface.get_shader_parameter("electrical") = 0.0
+		End If
+		If live_seen And calm_seen Then Exit For
+	Next
+	check(live_seen And calm_seen, "flood_arcs_turn_on_and_off_without_replacing_water")
+	deep.clock = previous_clock
 	tagged = ""
 	For Each sg In deep.signs
 		If sg("text").begins_with("HOLO-TAG:") Then tagged = tagged & "|" & sg("text")
@@ -606,8 +640,9 @@ Sub vehicle_audio_checks(ByVal bus As Object)
 		If bus.stream_for("res://assets/audio/sfx/" & n & ".ogg") = Nothing Then ok = False
 	Next
 	check(ok, "veh_audio_assets_load")
-	check(bus.motor_pitch(0.49) > bus.motor_pitch(0.51) And bus.motor_pitch(1.0) > bus.motor_pitch(0.49) And bus.motor_pitch(0.2) > bus.motor_pitch(0.0), "veh_pitch_climbs_with_gear_step")
-	check(bus.stutter_rate("buggy", 30.0, False) > bus.stutter_rate("buggy", 100.0, False) And bus.stutter_rate("buggy", 100.0, True) < bus.stutter_rate("buggy", 100.0, False) And bus.stutter_rate("car", 100.0, False) < bus.stutter_rate("buggy", 100.0, False), "veh_stutter_damage_and_upgrade")
+	check(bus.motor_pitch(0.49) < bus.motor_pitch(0.51) And Abs(bus.motor_pitch(0.51) - bus.motor_pitch(0.49)) < 0.02 And bus.motor_pitch(1.0) > bus.motor_pitch(0.49) And bus.motor_pitch(0.2) > bus.motor_pitch(0.0), "veh_pitch_climbs_without_gear_discontinuity")
+	check(bus.stutter_rate("buggy", 100.0, False) = 0.0 And bus.stutter_rate("car", 100.0, False) = 0.0 And bus.stutter_rate("buggy", 75.0, False) = 0.0, "veh_healthy_motor_has_no_random_dropouts")
+	check(bus.stutter_rate("buggy", 30.0, False) > 0.0 And bus.stutter_rate("buggy", 30.0, True) < bus.stutter_rate("buggy", 30.0, False) And bus.stutter_rate("car", 30.0, False) < bus.stutter_rate("buggy", 30.0, False), "veh_stutter_damage_and_upgrade")
 	check(bus.skid_amount(1.3, 18.0) > 0.5 And bus.skid_amount(0.3, 18.0) = 0.0 And bus.skid_amount(1.3, 4.0) = 0.0, "veh_skid_needs_speed_and_turn")
 	check(bus.id_detune("U1:C3") <> bus.id_detune("U1:C4") And bus.id_detune("U1:C3") >= 0.86 And bus.id_detune("U1:C3") <= 1.04, "veh_car_detune_per_id")
 	drive_frames(bus, "buggy", 0.0, False, False, 0.0, "gravel", 20)
@@ -624,6 +659,10 @@ Sub vehicle_audio_checks(ByVal bus As Object)
 	drive_frames(bus, "buggy", 16.0, True, False, 0.0, "smooth", 10)
 	drive_frames(bus, "buggy", 1.0, True, False, 0.0, "smooth", 1)
 	check(bus.last_event = "hull_hit" Or bus.last_event = "buggy_thump", "veh_collision_thump")
+	bus.last_event = ""
+	drive_frames(bus, "buggy", 16.0, True, False, 0.0, "smooth", 400)
+	check(bus.veh_cut = 0.0 And bus.last_event <> "motor_pop", "veh_healthy_cruise_never_pops_or_cuts")
+	check(bus.vplayers("load").volume_db <= -6.0, "veh_motor_mix_retains_headroom")
 	bus.interference()
 	check(bus.last_event = "motor_interference" And bus.veh_jam > 0.0, "veh_turret_interference")
 	bus.veh_cut = 0.0
@@ -678,6 +717,8 @@ End Sub
 Sub audio_checks()
 	Dim bus As Object
 	Dim before As Integer
+	Dim step_index As Integer
+	Dim music_setting As Single
 	bus = ClassDB.Instantiate("Node")
 	bus.SetScript(Load("res://game_audio.vg"))
 	yard.add_child(bus)
@@ -687,8 +728,35 @@ Sub audio_checks()
 	go_floor("88216")
 	bus.update(yard, 0.1)
 	check(bus.music_name = "undercity_dark" And bus.deck.stream <> Nothing And bus.deck.stream.get("loop") = True, "audio_undercity_music_loops")
+	check(deep.fx_module().window_mat.get_shader_parameter("light_cycle_seconds") = 24.0, "fx_windows_use_slow_24_second_cycle")
+	music_setting = AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music"))
+	yard.stratum("powered") = True
+	yard.position_xz = Vector2(90, 160)
+	check(deep.face_voice_focus(yard) = 1.0, "audio_face_focus_full_near_broadcast")
+	bus.update_music_focus(yard, 0.1)
+	check(bus.music_duck_db > 0.0 And bus.music_duck_db < 2.0, "audio_face_duck_fades_in")
+	For step_index = 1 To 60
+		bus.update_music_focus(yard, 0.1)
+		bus.tick_music(0.1)
+	Next
+	check(Abs(bus.music_duck_db - 12.0) < 0.01 And Abs(bus.deck.volume_db + 18.0) < 0.01, "audio_face_ducks_music_by_12_db")
+	yard.position_xz = Vector2(45, 160)
+	check(Abs(deep.face_voice_focus(yard) - 0.5) < 0.01, "audio_face_focus_tapers_with_distance")
+	yard.position_xz = Vector2(0, 0)
+	bus.update_music_focus(yard, 0.1)
+	check(bus.music_duck_db > 11.0 And bus.music_duck_db < 12.0, "audio_face_music_restores_gradually_on_leaving")
+	For step_index = 1 To 60
+		bus.update_music_focus(yard, 0.1)
+		bus.tick_music(0.1)
+	Next
+	check(bus.music_duck_db = 0.0 And Abs(bus.deck.volume_db + 6.0) < 0.01, "audio_face_music_restores_outside_area")
+	check(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")) = music_setting, "audio_face_duck_preserves_music_slider")
+	yard.position_xz = Vector2(90, 160)
+	yard.stratum("powered") = False
+	check(deep.face_voice_focus(yard) = 0.0, "audio_unpowered_face_does_not_duck")
 	check(bus.surface_for(yard) = "concrete", "audio_undercity_concrete")
 	go_floor("58120")
+	check(deep.face_voice_focus(yard) = 0.0, "audio_other_floors_do_not_duck")
 	bus.update(yard, 0.1)
 	check(bus.music_name = "stratum_deep" And bus.surface_for(yard) = "metal", "audio_music_leaves_with_floor")
 	before = bus.epool_next

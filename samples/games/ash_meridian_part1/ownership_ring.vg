@@ -1,0 +1,1287 @@
+' Standalone dev prototype. No campaign inventory, ownership or alerts are changed.
+Option Explicit
+
+Const PI As Single = 3.14159265
+Dim stage As String
+Dim practice As Boolean
+Dim untimed As Boolean
+Dim board_number As Integer
+Dim selected As Integer
+Dim pulses As Integer
+Dim remaining As Single
+Dim elapsed As Single
+Dim defense_step As Integer
+Dim kinds As Array
+Dim routes As Array
+Dim owners As Array
+Dim player_network As Array
+Dim enemy_network As Array
+Dim powered As Dictionary
+Dim generators As Array
+Dim solution As Array
+Dim notice As String
+Dim flash_port As Integer
+Dim flash_left As Single
+Dim solution_verified As Boolean
+Dim signals As Array
+Dim impact_left As Array
+Dim impact_side As Array
+Dim fx_clock As Single
+Dim audio_pool As Array
+Dim audio_cache As Dictionary
+Dim audio_next As Integer
+Dim audio_paused As Boolean
+Dim last_sound As String
+Dim sound_count As Integer
+Const CONNECT_SECONDS As Single = 4.5
+Const FLOW_SECONDS As Single = 0.65
+Dim countdown As Single
+Dim connections As Array
+Dim sim_left As Single
+Dim sim_tick As Integer
+Dim next_defense As Integer
+Dim last_count As Integer
+Dim crt As Object
+Dim crt_mat As Object
+Dim housing As Object
+Dim reduced_motion As Boolean
+Dim display_time As Single
+Dim help_open As Boolean
+Dim loader_step As Integer
+Dim loader_text As String
+Dim loader_message As String
+Dim loader_wait As Single
+Dim loader_entry As Object
+Dim terminal As Object
+Dim emulator As Object
+Dim orac_message As String
+Dim orac_last As String
+Dim terminal_feedback As Object
+Dim orac_dialogue As Object
+Dim terminal_error_seen As String
+Const GLASS_X As Single = 288
+Const GLASS_Y As Single = 30
+Const GLASS_SCALE As Single = 0.64
+Const DISPLAY_WIDTH As Integer = 600
+Const DISPLAY_HEIGHT As Integer = 530
+
+Sub setup_display()
+	If crt <> Nothing Then Exit Sub
+	housing = ClassDB.Instantiate("Sprite2D")
+	housing.name = "SuitTerminalCase"
+	housing.texture = ImageTexture.create_from_image(Image.load_from_file("res://assets/ui/suit_terminal.png"))
+	If housing.texture = Nothing Then Print "ERROR: Fast Hack'em suit terminal housing could not be loaded."
+	housing.centered = False
+	housing.scale = Vector2(0.5, 0.5)
+	housing.show_behind_parent = True
+	add_child(housing)
+	crt = ClassDB.Instantiate("ColorRect")
+	crt.name = "HackCRT"
+	crt.position = Vector2(GLASS_X, GLASS_Y)
+	crt.size = Vector2(DISPLAY_WIDTH * GLASS_SCALE, DISPLAY_HEIGHT * GLASS_SCALE)
+	crt.mouse_filter = 2
+	crt_mat = ClassDB.Instantiate("ShaderMaterial")
+	crt_mat.shader = Load("res://shaders/hack_crt.gdshader")
+	If crt_mat.shader = Nothing Then Print "ERROR: Fast Hack'em CRT shader could not be loaded."
+	crt.material = crt_mat
+	add_child(crt)
+	loader_entry = Load("res://suit_screen_editor.gd").new()
+	loader_entry.name = "LoaderCommandInput"
+	loader_entry.position = Vector2(GLASS_X + 22, GLASS_Y + 260)
+	loader_entry.size = Vector2(340, 25)
+	loader_entry.max_length = 120
+	loader_entry.keep_editing_on_text_submit = True
+	loader_entry.modulate = Color(1, 1, 1, 0)
+	loader_entry.visible = False
+	add_child(loader_entry)
+	terminal_feedback = Load("res://suit_terminal_feedback.gd").new()
+	terminal_feedback.name = "TerminalFeedback"
+	add_child(terminal_feedback)
+	orac_dialogue = Load("res://suit_orac_dialogue.gd").new()
+	orac_dialogue.name = "OracCommentary"
+	add_child(orac_dialogue)
+End Sub
+
+Sub update_display()
+	If crt_mat Is Nothing Then Exit Sub
+	crt_mat.set_shader_parameter("time_s", display_time)
+	crt_mat.set_shader_parameter("reduced_motion", reduced_motion)
+End Sub
+
+Sub setup_audio()
+	Dim player As Object
+	Dim name As Variant
+	Dim i As Integer
+	If audio_pool <> Nothing Then Exit Sub
+	audio_pool = Array()
+	audio_cache = New Dictionary
+	For Each name In Array("hack_tick", "hack_ok", "hack_fail", "term_key", "key_accept", "key_reject", "screen_boot", "drone_chirp")
+		audio_cache(name) = Load("res://assets/audio/sfx/" & name & ".ogg")
+		If audio_cache(name) = Nothing Then Print "ERROR: Ownership Ring missing sound: " & name
+	Next
+	For i = 0 To 7
+		player = ClassDB.Instantiate("AudioStreamPlayer")
+		player.bus = "SFX"
+		add_child(player)
+		audio_pool.append(player)
+	Next
+	audio_next = 0
+End Sub
+
+Sub play_feedback(ByVal name As String, Optional pitch As Single = 1.0, Optional level As Single = -15.0)
+	Dim player As Object
+	setup_audio()
+	If audio_paused Then Exit Sub
+	If audio_cache(name) = Nothing Then Exit Sub
+	player = audio_pool(audio_next)
+	audio_next = (audio_next + 1) Mod audio_pool.size()
+	player.stop()
+	player.stream = audio_cache(name)
+	player.pitch_scale = pitch
+	player.volume_db = level
+	player.play()
+	last_sound = name
+	sound_count = sound_count + 1
+End Sub
+
+Sub set_feedback_paused(ByVal paused As Boolean)
+	Dim player As Variant
+	paused = paused Or (help_open And stage = "RUNNING")
+	If audio_paused = paused Then Exit Sub
+	audio_paused = paused
+	If audio_pool Is Nothing Then Exit Sub
+	For Each player In audio_pool
+		player.stream_paused = paused
+	Next
+End Sub
+
+Sub reset_feedback()
+	Dim i As Integer
+	Dim player As Variant
+	signals = Array()
+	impact_left = Array()
+	impact_side = Array()
+	For i = 0 To 11
+		impact_left.append(0.0)
+		impact_side.append(0)
+	Next
+	If audio_pool <> Nothing Then
+		For Each player In audio_pool
+			player.stop()
+		Next
+	End If
+	last_sound = ""
+	sound_count = 0
+	fx_clock = 0.0
+End Sub
+
+Sub queue_packet(ByVal port As Integer, ByVal origin As Integer, ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer, ByVal allegiance As Integer)
+	Dim packet As Dictionary
+	packet = New Dictionary
+	packet("port") = port
+	packet("origin") = origin
+	packet("row") = row
+	packet("tier") = tier
+	packet("side") = side
+	packet("age") = 0.0
+	packet("hit") = False
+	packet("allegiance") = allegiance
+	signals.append(packet)
+End Sub
+
+Sub advance_feedback(ByVal delta As Single)
+	Dim i As Integer
+	Dim packet As Dictionary
+	Dim sector As Integer
+	delta = Max(0.0, delta)
+	fx_clock = fx_clock + delta
+	For i = 0 To 11
+		impact_left(i) = Max(0.0, impact_left(i) - delta)
+	Next
+	For i = signals.size() - 1 To 0 Step -1
+		packet = signals(i)
+		packet("age") = packet("age") + delta
+		If packet("age") >= 0.18 And Not packet("hit") Then
+			packet("hit") = True
+			If packet("tier") < 2 Then
+				pass_component(packet)
+			Else
+				sector = target_sector(packet("row"), packet("side"))
+				claim_sector(sector, packet("allegiance"))
+				impact_left(sector) = 0.4
+				impact_side(sector) = packet("side")
+				play_feedback("key_accept", 1.1 + 0.03 * sector, -28.0)
+			End If
+		End If
+		If packet("age") >= 0.4 Then signals.remove_at(i)
+	Next
+End Sub
+
+Sub start()
+	get_parent().OracStop()
+	get_parent().orac_said = ""
+	If emulator <> Nothing Then emulator.stop_emulator()
+	loader_step = 0
+	loader_text = ""
+	loader_message = ""
+	orac_message = ""
+	orac_last = ""
+	setup_display()
+	orac_dialogue.reset_dialogue()
+	terminal_error_seen = ""
+	loader_entry.visible = False
+	reduced_motion = get_parent().opt_reduced
+	display_time = 0.0
+	setup_audio()
+	set_feedback_paused(False)
+	practice = False
+	untimed = False
+	board_number = 0
+	new_board()
+	update_display()
+End Sub
+
+Sub start_loader()
+	start()
+	If terminal = Nothing Then
+		terminal = get_parent().presentation.SpawnVg("res://suit_basic.vg", "Node")
+		add_child(terminal)
+		emulator = get_parent().presentation.SpawnVg("res://suit_c64.vg", "Node")
+		add_child(emulator)
+	End If
+	terminal.reset_terminal()
+	loader_step = 1
+	loader_wait = 0
+	help_open = False
+	update_orac()
+	loader_entry.reset_screen_cursor()
+	loader_entry.visible = True
+	loader_entry.grab_focus()
+	QueueRedraw()
+End Sub
+
+Sub update_orac()
+	If terminal.guidance <> orac_last Then
+		orac_last = terminal.guidance
+		orac_dialogue.instruction(terminal.guidance)
+	End If
+End Sub
+
+Sub leave_terminal()
+	If orac_dialogue = Nothing Then Exit Sub
+	terminal_feedback.defender_voice.reset_round()
+	get_parent().OracStop()
+	orac_dialogue.reset_dialogue()
+	If emulator <> Nothing Then emulator.stop_emulator()
+	If terminal <> Nothing Then
+		terminal.running = False
+		terminal.loading = False
+	End If
+	loader_step = 0
+	orac_message = ""
+	loader_entry.release_focus()
+	loader_entry.visible = False
+End Sub
+
+Function loader_command() As String
+	If loader_step = 1 Then Return "LOAD " & Chr(34) & "FAST HACK'EM" & Chr(34) & ",8,1"
+	Return "SYS 49152"
+End Function
+
+Sub loader_submit()
+	Dim submitted As String
+	Dim old_palette As Array
+	If loader_step <> 1 And loader_step <> 3 Then Exit Sub
+	If emulator.active Then
+		If emulator.finish_line(loader_text) Then
+			loader_entry.text = ""
+			loader_text = ""
+			loader_message = ""
+		Else
+			loader_message = "C64 BUSY / BOOTING - PLEASE WAIT"
+		End If
+		Exit Sub
+	End If
+	loader_entry.store_row()
+	submitted = UCase(Trim(loader_text))
+	old_palette = Array(terminal.border_index, terminal.background_index, terminal.text_index)
+	terminal.submit(loader_text)
+	loader_message = terminal.last_error
+	terminal_error_seen = terminal.last_error
+	If terminal.last_error <> "" Then
+		play_feedback("key_reject", 0.8, -20.0)
+		orac_dialogue.command_error(terminal.last_error)
+		Exit Sub
+	End If
+	loader_text = ""
+	loader_entry.reset_screen_cursor()
+	If terminal.loading Then
+		loader_step = 2
+		loader_wait = 0
+	ElseIf terminal.launch_hack Then
+		loader_step = 0
+		new_board()
+		help_open = True
+		loader_message = ""
+		orac_message = ""
+		get_parent().OracStop()
+		loader_entry.release_focus()
+		loader_entry.visible = False
+	End If
+	If terminal.request_emulator Then
+		terminal.request_emulator = False
+		If emulator.start_emulator() Then
+			terminal.guidance = "The C64 is isolated from the programmer. F2 returns to the service terminal."
+		Else
+			terminal.write_line(emulator.last_error)
+			terminal.write_line("READY.")
+			loader_message = emulator.last_error
+		End If
+	End If
+	update_orac()
+	If submitted = "LIST" And terminal.directory_loaded Then orac_dialogue.remark("directory")
+	If terminal.border_index <> old_palette(0) Or terminal.background_index <> old_palette(1) Or terminal.text_index <> old_palette(2) Then orac_dialogue.remark("colour")
+	If submitted = "RUN" And terminal.running Then orac_dialogue.remark("program")
+	play_feedback("key_accept", 0.9, -18.0)
+	QueueRedraw()
+End Sub
+
+Sub clear_signals()
+	Dim i As Integer
+	owners = Array()
+	powered = New Dictionary
+	generators = Array()
+	For i = 0 To 11
+		owners.append(0)
+	Next
+End Sub
+
+Function component(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer) As Dictionary
+	If side = 1 Then
+		component = player_network(tier)(row)
+	Else
+		component = enemy_network(tier)(row)
+	End If
+End Function
+
+Sub place_component(ByVal network As Array, ByVal tier As Integer, ByVal row As Integer, ByVal kind As String)
+	Dim gate As Dictionary
+	Dim offset As Integer
+	row = (row + board_number) Mod 12
+	gate = New Dictionary
+	gate("kind") = kind
+	gate("row") = row
+	network(tier)(row) = gate
+	If kind = "FORK" Or kind = "JOIN" Then
+		For offset = -1 To 1
+			network(tier)((row + offset + 12) Mod 12) = gate
+		Next
+	End If
+End Sub
+
+Function build_network() As Array
+	Dim network As Array
+	Dim rows As Array
+	Dim tier As Integer
+	Dim row As Integer
+	Dim gate As Dictionary
+	network = Array()
+	For tier = 0 To 1
+		rows = Array()
+		For row = 0 To 11
+			gate = New Dictionary
+			gate("kind") = "LINK"
+			gate("row") = row
+			rows.append(gate)
+		Next
+		network.append(rows)
+	Next
+	place_component(network, 0, 0, "FORK")
+	place_component(network, 0, 3, "FORK")
+	place_component(network, 0, 6, "JOIN")
+	place_component(network, 0, 8, "INVERT")
+	place_component(network, 0, 9, "LATCH")
+	place_component(network, 0, 10, "DEAD")
+	place_component(network, 1, 1, "FORK")
+	place_component(network, 1, 4, "FORK")
+	place_component(network, 1, 7, "LATCH")
+	place_component(network, 1, 8, "INVERT")
+	Return network
+End Function
+
+Function accepts_input(ByVal gate As Dictionary, ByVal row As Integer) As Boolean
+	If gate("kind") = "FORK" Then Return row = gate("row")
+	If gate("kind") = "JOIN" Then Return row <> gate("row")
+	Return True
+End Function
+
+Function component_outputs(ByVal gate As Dictionary) As Array
+	Dim row As Integer
+	row = gate("row")
+	If gate("kind") = "DEAD" Then Return Array()
+	If gate("kind") = "FORK" Then Return Array((row + 11) Mod 12, (row + 1) Mod 12)
+	Return Array(row)
+End Function
+
+Function power_key(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer) As String
+	Return Str(side) & ":" & Str(tier) & ":" & Str(row)
+End Function
+
+Function input_live(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer) As Boolean
+	Dim key As String
+	key = power_key(row, tier, side)
+	If Not powered.has(key) Then Return False
+	Return powered(key) > fx_clock
+End Function
+
+Function component_live(ByVal gate As Dictionary, ByVal tier As Integer, ByVal side As Integer) As Boolean
+	Dim row As Integer
+	row = gate("row")
+	If gate("kind") = "JOIN" Then Return input_live((row + 11) Mod 12, tier, side) And input_live((row + 1) Mod 12, tier, side)
+	If gate("kind") = "LATCH" And powered.has(power_key(row, tier + 2, side)) Then Return True
+	If gate("kind") = "DEAD" Then Return False
+	Return input_live(row, tier, side)
+End Function
+
+Sub pass_component(ByVal packet As Dictionary)
+	Dim gate As Dictionary
+	Dim row As Integer
+	Dim tier As Integer
+	Dim side As Integer
+	Dim allegiance As Integer
+	Dim dest As Variant
+	Dim key As String
+	Dim generator As Dictionary
+	row = packet("row")
+	tier = packet("tier")
+	side = packet("side")
+	allegiance = packet("allegiance")
+	gate = component(row, tier, side)
+	If Not accepts_input(gate, row) Then Exit Sub
+	powered(power_key(row, tier, side)) = fx_clock + FLOW_SECONDS + 0.15
+	If gate("kind") = "JOIN" Then
+		If Not input_live((gate("row") + 11) Mod 12, tier, side) Then Exit Sub
+		If Not input_live((gate("row") + 1) Mod 12, tier, side) Then Exit Sub
+	End If
+	If gate("kind") = "INVERT" Then allegiance = -allegiance
+	If gate("kind") = "LATCH" Then
+		key = power_key(row, tier + 2, side)
+		If Not powered.has(key) Then
+			powered(key) = 1
+			generator = New Dictionary
+			generator("port") = packet("port")
+			generator("row") = row
+			generator("tier") = tier
+			generator("side") = side
+			generator("allegiance") = allegiance
+			generator("next") = FLOW_SECONDS
+			generators.append(generator)
+		End If
+	End If
+	For Each dest In component_outputs(gate)
+		queue_packet(packet("port"), row, dest, tier + 1, side, allegiance)
+	Next
+End Sub
+
+Function route_paths(ByVal port As Integer) As Array
+	Dim paths As Array
+	Dim following As Array
+	Dim path As Variant
+	Dim gate As Dictionary
+	Dim dest As Variant
+	Dim tier As Integer
+	Dim polarity As Integer
+	paths = Array(Array(port, 1))
+	For tier = 0 To 1
+		following = Array()
+		For Each path In paths
+			gate = component(path(0), tier, 1)
+			If accepts_input(gate, path(0)) Then
+				polarity = path(1)
+				If gate("kind") = "INVERT" Then polarity = -polarity
+				For Each dest In component_outputs(gate)
+					following.append(Array(dest, polarity))
+				Next
+			End If
+		Next
+		paths = following
+	Next
+	Return paths
+End Function
+
+Sub new_board()
+	Dim i As Integer
+	Dim targets As Array
+	Dim path As Variant
+	Dim gate As Dictionary
+	terminal_feedback.defender_voice.reset_round()
+	player_network = build_network()
+	enemy_network = build_network()
+	kinds = Array()
+	routes = Array()
+	solution = Array(board_number Mod 12, (3 + board_number) Mod 12, (8 + board_number) Mod 12, (9 + board_number) Mod 12)
+	For i = 0 To 11
+		gate = component(i, 0, 1)
+		If accepts_input(gate, i) Then
+			kinds.append(gate("kind"))
+		Else
+			kinds.append("DEAD")
+		End If
+		targets = Array()
+		For Each path In route_paths(i)
+			If path(1) = 1 Then targets.append(path(0))
+		Next
+		routes.append(targets)
+	Next
+	clear_signals()
+	solution_verified = verify_solution()
+	clear_signals()
+	stage = "COUNTDOWN"
+	help_open = True
+	selected = 0
+	pulses = 4
+	remaining = 20.0
+	elapsed = 0.0
+	defense_step = 0
+	flash_port = -1
+	flash_left = 0.0
+	reset_feedback()
+	set_feedback_paused(False)
+	connections = Array()
+	countdown = 5.0
+	sim_left = 0.0
+	sim_tick = 0
+	next_defense = 16
+	last_count = 5
+	notice = "Read the guide, then press ENTER to inspect the circuit."
+	If Not solution_verified Then
+		stage = "ERROR"
+		notice = "BOARD ERROR: no verified four-pulse solution. ENTER retries."
+		Print "ERROR: Ownership Ring board failed solution verification."
+	End If
+	QueueRedraw()
+End Sub
+
+Sub claim_sector(ByVal sector As Integer, ByVal side As Integer)
+	Dim previous As Integer
+	previous = owners(sector)
+	owners(sector) = side
+	If stage = "RUNNING" And previous <> side Then
+		If side = 1 Then
+			terminal_feedback.defender_voice.acquired(score(1), previous = -1)
+		ElseIf previous = 1 Then
+			terminal_feedback.defender_voice.say("insult")
+		End If
+	End If
+End Sub
+
+Function target_sector(ByVal sector As Integer, ByVal side As Integer) As Integer
+	If side < 0 Then
+		target_sector = (sector + 1) Mod 12
+	Else
+		target_sector = sector
+	End If
+End Function
+
+Sub send_connection(ByVal connection As Dictionary)
+	queue_packet(connection("port"), connection("port"), connection("port"), 0, connection("side"), connection("side"))
+End Sub
+
+Sub connect_line(ByVal port As Integer, ByVal side As Integer)
+	Dim connection As Dictionary
+	Dim entry As Variant
+	For Each entry In connections
+		If entry("port") = port And entry("side") = side Then
+			entry("left") = CONNECT_SECONDS
+			entry("next") = FLOW_SECONDS
+			send_connection(entry)
+			Exit Sub
+		End If
+	Next
+	connection = New Dictionary
+	connection("port") = port
+	connection("side") = side
+	connection("left") = CONNECT_SECONDS
+	connection("next") = FLOW_SECONDS
+	connections.append(connection)
+	send_connection(connection)
+End Sub
+
+Function defender_port() As Integer
+	Dim port As Integer
+	Dim sector As Variant
+	Dim merit As Integer
+	Dim best As Integer
+	Dim best_port As Integer
+	Dim dest As Integer
+	best = -100
+	best_port = 0
+	For port = 0 To 11
+		merit = 0
+		For Each sector In routes(port)
+			dest = target_sector(sector, -1)
+			merit = merit + 2
+			If owners(dest) = 1 Then merit = merit + 3
+			If owners(dest) = -1 Then merit = merit - 1
+		Next
+		If kinds(port) = "JOIN" Then merit = -5
+		If kinds(port) = "LATCH" Then merit = merit + 1
+		If connection_live(port, -1) Then merit = merit - 10
+		If merit > best Then
+			best = merit
+			best_port = port
+		End If
+	Next
+	Return best_port
+End Function
+
+Function score(ByVal side As Integer) As Integer
+	Dim total As Integer
+	Dim owner As Variant
+	total = 0
+	For Each owner In owners
+		If owner = side Then total = total + 1
+	Next
+	Return total
+End Function
+
+' A four-connector witness traverses both circuit stages.
+Function verify_solution() As Boolean
+	Dim i As Integer
+	Dim port As Variant
+	Dim sector As Variant
+	clear_signals()
+	For Each port In solution
+		For Each sector In routes(port)
+			claim_sector(sector, 1)
+		Next
+	Next
+	Return solution.size() = 4 And score(1) >= 7
+End Function
+
+Sub begin_round()
+	If stage <> "COUNTDOWN" Or help_open Then Exit Sub
+	stage = "RUNNING"
+	terminal_feedback.defender_voice.begin_round()
+	notice = "CONNECT circuits. Cyan streams inward; orange streams outward. Highest score at timeout wins."
+	play_feedback("screen_boot", 1.2, -18.0)
+End Sub
+
+Sub move_port(ByVal direction As Integer)
+	selected = (selected + direction + 12) Mod 12
+	play_feedback("term_key", 0.85 + selected * 0.035, -22.0)
+End Sub
+
+Function fire() As Boolean
+	If help_open Or loader_step > 0 Then Return False
+	If stage = "COUNTDOWN" Then begin_round()
+	If stage <> "RUNNING" Or pulses <= 0 Then Return False
+	pulses = pulses - 1
+	connect_line(selected, 1)
+	flash_port = selected
+	flash_left = 0.4
+	play_feedback("hack_tick", 1.15, -12.0)
+	If kinds(selected) = "LATCH" Then play_feedback("key_accept", 0.75, -16.0)
+	If kinds(selected) = "INVERT" Or kinds(selected) = "DEAD" Then play_feedback("key_reject", 0.85, -18.0)
+	If kinds(selected) = "JOIN" Then play_feedback("term_key", 0.8, -16.0)
+	notice = "CONNECTED " & Str(selected + 1) & ": " & kinds(selected) & ". Signal stream stays live."
+	If kinds(selected) = "INVERT" Then notice = "POLARITY CHANGE: follow the next stage; a second inverter restores your colour."
+	If kinds(selected) = "DEAD" Then notice = "DEAD TRACE: no connection. Pulse spent."
+	If kinds(selected) = "JOIN" Then notice = "JOIN: keep BOTH neighboring inputs powered together, not two shots on one port."
+	If kinds(selected) = "DEAD" Then orac_dialogue.remark("dead_trace")
+	If kinds(selected) = "JOIN" Then orac_dialogue.remark("join")
+	If kinds(selected) = "LATCH" Then orac_dialogue.remark("repeater")
+	If kinds(selected) = "DEAD" Then terminal_feedback.defender_voice.say("insult")
+	Return True
+End Function
+
+Sub finish_round()
+	If stage <> "RUNNING" Then Exit Sub
+	connections.clear()
+	signals.clear()
+	generators.clear()
+	powered.clear()
+	If score(1) > score(-1) Then
+		stage = "WIN"
+		play_feedback("hack_ok", 1.0, -13.0)
+		notice = "OWNERSHIP ACCEPTED. Sandbox groundcar unlocked (simulation only)."
+	ElseIf score(1) = score(-1) Then
+		stage = "TIE"
+		play_feedback("drone_chirp", 1.3, -18.0)
+		notice = Str(score(1)) & "-" & Str(score(-1)) & " TIE. Fresh board, no alert or penalty."
+	Else
+		stage = "LOSS"
+		play_feedback("hack_fail", 0.8, -15.0)
+		If practice Then
+			notice = "Practice lost. No alert. Try different paths."
+		Else
+			notice = "LOCAL ALERT (SIMULATED): disconnect, break sight and leave the area."
+		End If
+	End If
+	orac_dialogue.remark(LCase(stage), True)
+	terminal_feedback.defender_voice.result(stage)
+End Sub
+
+Sub disconnect_round()
+	If stage <> "RUNNING" And stage <> "COUNTDOWN" Then Exit Sub
+	stage = "DISCONNECTED"
+	terminal_feedback.defender_voice.reset_round()
+	signals.clear()
+	connections.clear()
+	generators.clear()
+	powered.clear()
+	play_feedback("key_reject", 0.6, -20.0)
+	notice = "Disconnected. Dev sandbox only: no alert, ownership or save changes."
+End Sub
+
+Sub advance(ByVal delta As Single)
+	Dim i As Integer
+	Dim connection As Dictionary
+	Dim consumed As Single
+	Dim port As Integer
+	Dim generator As Dictionary
+	delta = Max(0.0, delta)
+	orac_dialogue.advance(delta)
+	display_time = display_time + delta
+	update_display()
+	If loader_step > 0 Then
+		loader_entry.editable = loader_step <> 2 And Not terminal.running
+		If loader_text <> loader_entry.text Then
+			loader_text = loader_entry.text
+			play_feedback("term_key", 1.0, -26.0)
+		End If
+		If emulator.active Then
+			emulator.tick(delta)
+		Else
+			terminal.tick(delta)
+			If terminal.last_error <> terminal_error_seen Then
+				terminal_error_seen = terminal.last_error
+				If terminal_error_seen <> "" Then orac_dialogue.command_error(terminal_error_seen)
+			End If
+		End If
+		If loader_step = 2 Then
+			loader_wait = loader_wait + delta
+			If Not terminal.loading Then
+				loader_step = 3
+				loader_entry.reset_screen_cursor()
+				loader_message = terminal.last_error
+				update_orac()
+			End If
+		End If
+		Exit Sub
+	End If
+	If help_open Then Exit Sub
+	If stage = "COUNTDOWN" Then
+		consumed = Min(delta, countdown)
+		countdown = Max(0.0, countdown - consumed)
+		delta = delta - consumed
+		If Int(countdown + 0.99) <> last_count Then
+			last_count = Int(countdown + 0.99)
+			play_feedback("term_key", 0.8 + last_count * 0.1, -18.0)
+		End If
+		If countdown <= 0 Then begin_round()
+	End If
+	If stage <> "RUNNING" Then
+		advance_feedback(delta)
+		Exit Sub
+	End If
+	sim_left = sim_left + delta
+	While sim_left >= 0.049999 And stage = "RUNNING"
+		sim_left = Max(0.0, sim_left - 0.05)
+		sim_tick = sim_tick + 1
+		advance_feedback(0.05)
+		For i = connections.size() - 1 To 0 Step -1
+			connection = connections(i)
+			connection("left") = connection("left") - 0.05
+			connection("next") = connection("next") - 0.05
+			If connection("left") <= 0 Then
+				connections.remove_at(i)
+			ElseIf connection("next") <= 0.0001 Then
+				connection("next") = connection("next") + FLOW_SECONDS
+				send_connection(connection)
+				play_feedback("hack_tick", 0.9 + connection("side") * 0.2, -28.0)
+			End If
+		Next
+		For Each generator In generators
+			generator("next") = generator("next") - 0.05
+			If generator("next") <= 0.0001 Then
+				generator("next") = generator("next") + FLOW_SECONDS
+				queue_packet(generator("port"), generator("row"), generator("row"), generator("tier") + 1, generator("side"), generator("allegiance"))
+			End If
+		Next
+		If Not practice And defense_step < 4 And sim_tick >= next_defense Then
+			port = defender_port()
+			connect_line(port, -1)
+			defense_step = defense_step + 1
+			next_defense = next_defense + 88
+			play_feedback("drone_chirp", 0.7 + defense_step * 0.12, -14.0)
+		End If
+		elapsed = sim_tick * 0.05
+		If Not (practice And untimed) Then remaining = Max(0.0, 20.0 - elapsed)
+		If remaining <= 0.0 Then
+			finish_round()
+		End If
+	Wend
+End Sub
+
+Sub tick(ByVal view As Node, ByVal delta As Single)
+	reduced_motion = get_parent().opt_reduced
+	If loader_step > 0 Then
+		If Not loader_entry.has_focus() Then loader_entry.grab_focus()
+		If view.menu_tap(KEY_F2) And emulator.active Then
+			emulator.stop_emulator()
+			loader_message = ""
+			terminal.guidance = "Back on the service terminal. Load Fast Hack'em when you're ready."
+			update_orac()
+		End If
+		If view.menu_tap(KEY_ESCAPE) Then terminal.break_program()
+		advance(delta)
+		If view.menu_tap(KEY_ENTER) Then loader_submit()
+		QueueRedraw()
+		Exit Sub
+	End If
+	If view.menu_tap(KEY_F2) And terminal <> Nothing Then
+		get_parent().OracStop()
+		loader_step = 3
+		help_open = False
+		terminal.launch_hack = False
+		terminal.write_line("READY.")
+		terminal.guidance = "Type SYS 49152 to restart Fast Hack'em."
+		loader_entry.text = ""
+		loader_entry.visible = True
+		loader_entry.grab_focus()
+		update_orac()
+		QueueRedraw()
+		Exit Sub
+	End If
+	If view.menu_tap(KEY_F1) Then
+		set_help(Not help_open)
+		update_display()
+		Exit Sub
+	End If
+	If help_open Then
+		If view.menu_tap(KEY_ENTER) Then
+			set_help(False)
+		ElseIf stage = "COUNTDOWN" Then
+			If view.menu_tap(KEY_UP) Then practice = Not practice
+			If view.menu_tap(KEY_DOWN) And practice Then untimed = Not untimed
+		End If
+		display_time = display_time + Max(0.0, delta)
+		update_display()
+		QueueRedraw()
+		Exit Sub
+	End If
+	advance(delta)
+	If stage = "COUNTDOWN" Or stage = "RUNNING" Then
+		If view.menu_tap(KEY_LEFT) Or view.menu_tap(KEY_A) Then move_port(-1)
+		If view.menu_tap(KEY_RIGHT) Or view.menu_tap(KEY_D) Then move_port(1)
+	End If
+	If view.menu_tap(KEY_BACKSPACE) Then
+		disconnect_round()
+	ElseIf stage = "COUNTDOWN" Then
+		If view.menu_tap(KEY_UP) Then
+			practice = Not practice
+			notice = "Mode changed. Inspect before connecting."
+		End If
+		If view.menu_tap(KEY_DOWN) And practice Then untimed = Not untimed
+		If view.menu_tap(KEY_SPACE) Then fire()
+		If view.menu_tap(KEY_ENTER) Then begin_round()
+	ElseIf stage = "RUNNING" Then
+		If view.menu_tap(KEY_SPACE) Then fire()
+	ElseIf view.menu_tap(KEY_ENTER) Then
+		board_number = board_number + 1
+		new_board()
+	End If
+	update_display()
+	QueueRedraw()
+End Sub
+
+Sub set_help(ByVal opened As Boolean)
+	help_open = opened
+	set_feedback_paused(False)
+	QueueRedraw()
+End Sub
+
+Function ring_point(ByVal sector As Single, ByVal radius As Single) As Vector2
+	Dim angle As Single
+	angle = sector * PI / 6.0 - PI / 2.0
+	Return Vector2(280.0 + Cos(angle) * radius, 280.0 + Sin(angle) * radius)
+End Function
+
+Function owner_color(ByVal side As Integer) As Color
+	If side = 1 Then Return Color(0.35, 0.9, 1.0)
+	If side = -1 Then Return Color(1.0, 0.5, 0.25)
+	Return Color(0.25, 0.32, 0.46)
+End Function
+
+Function component_help(ByVal kind As String) As String
+	If kind = "FORK" Then Return "Middle input splits to its TWO neighbors."
+	If kind = "LATCH" Then Return "Repeater: keeps sending, NOT an ownership lock."
+	If kind = "INVERT" Then Return "Flips colour here. Follow the next stage."
+	If kind = "JOIN" Then Return "BOTH neighboring inputs feed the middle."
+	If kind = "DEAD" Then Return "Capped wire: signal stops at the bar."
+	Return "Streams into ONE sector for 4.5 seconds."
+End Function
+
+Function component_name(ByVal kind As String) As String
+	If kind = "FORK" Then Return "SPLIT"
+	If kind = "LATCH" Then Return "REPEATER"
+	If kind = "DEAD" Then Return "STOP"
+	Return kind
+End Function
+
+Function stage_radius(ByVal tier As Integer, ByVal side As Integer) As Single
+	If tier = 2 Then Return 134
+	If side = 1 Then Return 200 - (tier + 1) * 22
+	Return 54 + (tier + 1) * 26
+End Function
+
+Function input_radius(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer) As Single
+	Dim radius As Single
+	Dim gate As Dictionary
+	radius = stage_radius(tier, side)
+	If tier < 2 Then
+		gate = component(row, tier, side)
+		If Not accepts_input(gate, row) Or gate("kind") = "DEAD" Then radius = radius + side * 7
+	End If
+	Return radius
+End Function
+
+Function trace_point(ByVal origin As Integer, ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer, ByVal progress As Single) As Vector2
+	Dim offset As Integer
+	Dim start_radius As Single
+	Dim end_radius As Single
+	Dim distance As Single
+	Dim arc_length As Single
+	Dim last_length As Single
+	offset = ((row - origin + 18) Mod 12) - 6
+	origin = target_sector(origin, side)
+	start_radius = stage_radius(tier - 1, side)
+	end_radius = input_radius(row, tier, side)
+	arc_length = Abs(offset) * PI / 6 * start_radius
+	last_length = Abs(start_radius - end_radius)
+	distance = Max(0.0, Min(1.0, progress)) * (arc_length + last_length)
+	If arc_length > 0 And distance < arc_length Then Return ring_point(origin + offset * distance / arc_length, start_radius)
+	distance = distance - arc_length
+	Return ring_point(target_sector(row, side), start_radius + (end_radius - start_radius) * distance / last_length)
+End Function
+
+Sub draw_trace(ByVal origin As Integer, ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer, ByVal col As Color, ByVal width As Single)
+	Dim a As Vector2
+	Dim b As Vector2
+	Dim step_index As Integer
+	a = trace_point(origin, row, tier, side, 0)
+	For step_index = 1 To 24
+		b = trace_point(origin, row, tier, side, step_index / 24.0)
+		draw_line(a, b, col, width)
+		a = b
+	Next
+End Sub
+
+Sub draw_signal_flow()
+	Dim packet As Variant
+	Dim point As Vector2
+	Dim tail As Vector2
+	Dim progress As Single
+	Dim col As Color
+	Dim trail As Integer
+	For Each packet In signals
+		If packet("age") < 0.18 Then
+			progress = packet("age") / 0.18
+			col = owner_color(packet("allegiance"))
+			draw_trace(packet("origin"), packet("row"), packet("tier"), packet("side"), Color(col.r, col.g, col.b, 0.6), 3)
+			For trail = 0 To 4
+				point = trace_point(packet("origin"), packet("row"), packet("tier"), packet("side"), Max(0.0, progress - trail * 0.035))
+				draw_circle(point, Max(1, 3.5 - trail * 0.5), col)
+			Next
+			point = trace_point(packet("origin"), packet("row"), packet("tier"), packet("side"), progress)
+			draw_circle(point, 2, Color(0.95, 1, 1))
+		End If
+	Next
+End Sub
+
+Function connection_live(ByVal port As Integer, ByVal side As Integer) As Boolean
+	Dim connection As Variant
+	For Each connection In connections
+		If connection("port") = port And connection("side") = side Then Return True
+	Next
+	Return False
+End Function
+
+Sub draw_port(ByVal port As Integer, ByVal highlight As Boolean, ByVal side As Integer)
+	Dim source As Vector2
+	Dim dest As Vector2
+	Dim col As Color
+	Dim width As Single
+	col = Color(0.2, 0.38, 0.54)
+	If side = -1 Then
+		col = Color(0.46, 0.26, 0.17)
+	End If
+	width = 1.0
+	If connection_live(port, side) Then
+		col = owner_color(side)
+		width = 2
+	End If
+	If highlight Then
+		col = Color(1, 0.92, 0.45)
+		width = 2
+	End If
+	draw_trace(port, port, 0, side, col, width)
+	source = ring_point(target_sector(port, side), stage_radius(-1, side))
+	draw_arc(source, 5, 0, PI * 2, 12, col, width)
+	If side = 1 Then
+		dest = ring_point(port, 224)
+		dest.y = Max(81.0, Min(479.0, dest.y))
+		DrawString Str(port + 1), dest.x - 6, dest.y - 8, col, 13
+	End If
+End Sub
+
+Sub draw_network(ByVal side As Integer)
+	Dim row As Integer
+	Dim tier As Integer
+	Dim gate As Dictionary
+	Dim kind As String
+	Dim col As Color
+	Dim pos As Vector2
+	Dim a As Vector2
+	Dim b As Vector2
+	Dim radius As Single
+	Dim angle As Single
+	Dim dest As Variant
+	Dim input_row As Integer
+	For tier = 0 To 1
+		For row = 0 To 11
+			gate = component(row, tier, side)
+			col = Color(0.2, 0.38, 0.54)
+			If side = -1 Then col = Color(0.46, 0.26, 0.17)
+			If input_live(row, tier, side) Then col = owner_color(side)
+			radius = stage_radius(tier, side)
+			If Not accepts_input(gate, row) Or gate("kind") = "DEAD" Then
+				a = ring_point(target_sector(row, side) - 0.06, input_radius(row, tier, side))
+				b = ring_point(target_sector(row, side) + 0.06, input_radius(row, tier, side))
+				draw_line(a, b, Color(1, 0.4, 0.4), 3)
+			End If
+			If gate("row") = row Then
+				kind = gate("kind")
+				If component_live(gate, tier, side) Then col = owner_color(side)
+				If kind = "FORK" Or kind = "JOIN" Then
+					angle = target_sector(row, side) * PI / 6 - PI / 2
+					draw_arc(Vector2(280, 280), radius, angle - PI / 6, angle + PI / 6, 32, col, 3)
+					For input_row = -1 To 1
+						pos = ring_point(target_sector((row + input_row + 12) Mod 12, side), radius)
+						draw_circle(pos, 3, col)
+					Next
+				End If
+				If kind = "LATCH" Then draw_repeater(row, tier, side, col)
+				For Each dest In component_outputs(gate)
+					draw_trace(dest, dest, tier + 1, side, col, 1)
+				Next
+			End If
+		Next
+	Next
+End Sub
+
+Function repeater_points(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer) As Array
+	Dim angle As Single
+	Dim centre As Vector2
+	Dim radial As Vector2
+	Dim tangent As Vector2
+	angle = target_sector(row, side) * PI / 6 - PI / 2
+	centre = ring_point(target_sector(row, side), stage_radius(tier, side))
+	radial = Vector2(Cos(angle), Sin(angle))
+	tangent = Vector2(-radial.y, radial.x)
+	Return Array(centre - radial * 6, centre - radial * 6 + tangent * 11, centre + radial * 6 + tangent * 11, centre + radial * 6)
+End Function
+
+Sub draw_repeater(ByVal row As Integer, ByVal tier As Integer, ByVal side As Integer, ByVal col As Color)
+	Dim points As Array
+	Dim i As Integer
+	Dim gate As Dictionary
+	Dim progress As Single
+	Dim edge As Integer
+	Dim point As Vector2
+	points = repeater_points(row, tier, side)
+	For i = 0 To 2
+		draw_line(points(i), points(i + 1), col, 3)
+	Next
+	draw_circle(points(0), 2.5, col)
+	draw_circle(points(3), 2.5, col)
+	gate = component(row, tier, side)
+	If Not reduced_motion And component_live(gate, tier, side) Then
+		progress = (fx_clock / FLOW_SECONDS - Int(fx_clock / FLOW_SECONDS)) * 3
+		edge = Min(2, Int(progress))
+		point = points(edge).lerp(points(edge + 1), progress - edge)
+		draw_circle(point, 3, Color(0.95, 1, 1))
+	End If
+End Sub
+
+Sub draw_help()
+	Dim ink As Color
+	Dim muted As Color
+	Dim mode_name As String
+	ink = Color(0.76, 0.86, 0.96)
+	muted = Color(0.47, 0.62, 0.76)
+	DrawString "FAST HACK'EM", 35, 25, ink, 30
+	DrawString "1541 / OPERATOR GUIDE", 35, 62, muted, 16
+	draw_line(Vector2(35, 91), Vector2(565, 91), muted, 1)
+	DrawString "Most sectors at timeout wins. Equal = tie.", 35, 108, ink, 19
+	DrawString "CYAN = YOU     AMBER = DEFENDER", 35, 136, Color(0.48, 0.83, 0.9), 18
+	DrawString "A / D or LEFT / RIGHT     Select input", 35, 180, ink, 19
+	DrawString "SPACE                    Connect (4 shots)", 35, 207, ink, 19
+	DrawString "BACKSPACE                Disconnect", 35, 234, ink, 19
+	DrawString "Follow the wires through both stages.", 35, 277, ink, 19
+	DrawString "Splits feed the two neighboring lines.", 35, 304, muted, 18
+	DrawString "Joins need two different live inputs.", 35, 329, muted, 18
+	DrawString "Red bars stop the signal.", 35, 354, muted, 18
+	DrawString "Box-loop wires repeat. Inverters swap colour.", 35, 379, muted, 18
+	If stage = "COUNTDOWN" Then
+		mode_name = "LIVE / 20 SEC"
+		If practice Then mode_name = "PRACTICE / 20 SEC"
+		If practice And untimed Then mode_name = "PRACTICE / UNTIMED"
+		DrawString "UP: mode   DOWN: practice timer", 35, 418, muted, 16
+		DrawString mode_name, 35, 443, ink, 18
+		DrawString "ENTER: start     F1: close guide", 35, 482, Color(0.92, 0.86, 0.58), 21
+	Else
+		DrawString "MATCH PAUSED / connectors and time retained", 35, 429, muted, 17
+		DrawString "ENTER or F1: return to circuit", 35, 482, Color(0.92, 0.86, 0.58), 21
+	End If
+End Sub
+
+Sub draw_loader()
+	Dim ink As Color
+	Dim i As Integer
+	Dim bg As Color
+	ink = terminal.palette(terminal.text_index)
+	bg = terminal.palette(terminal.background_index)
+	DrawRect 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, terminal.palette(terminal.border_index)
+	DrawRect 20, 20, 560, 490, bg
+	If emulator.active Then
+		draw_texture_rect(emulator.texture, Rect2(20, 30, 560, 397), False)
+		DrawString "C64 / F2: service terminal", 30, 448, ink, 17
+		If loader_message <> "" Then DrawString loader_message, 30, 470, ink, 16
+	Else
+		loader_entry.draw_screen(Me, ink, reduced_motion)
+	End If
+End Sub
+
+Sub draw_orac_overlay()
+	Dim words As Array
+	Dim word As Variant
+	Dim line As String
+	Dim y As Integer
+	If orac_message = "" Then Exit Sub
+	DrawRect 20, 75, 250, 258, Color(0.015, 0.035, 0.05, 0.94)
+	DrawString "ORAC / SUIT COMMS", 32, 90, Color(0.4, 0.85, 0.9), 17
+	words = orac_message.split(" ")
+	line = ""
+	y = 127
+	For Each word In words
+		If Len(line) + Len(word) > 27 Then
+			DrawString line, 32, y, Color(0.8, 0.88, 0.9), 16
+			y = y + 23
+			line = ""
+		End If
+		If line <> "" Then line = line & " "
+		line = line & word
+	Next
+	If line <> "" Then DrawString line, 32, y, Color(0.8, 0.88, 0.9), 16
+End Sub
+
+Sub draw_board()
+	Dim i As Integer
+	Dim pos As Vector2
+	Dim col As Color
+	Dim tag As String
+	Dim angle As Single
+	Dim attack_sector As Integer
+	Dim attack_wait As Single
+	Dim beat As Single
+	For i = 0 To 11
+		draw_port(i, False, 1)
+		draw_port(i, False, -1)
+	Next
+	draw_network(1)
+	draw_network(-1)
+	draw_port(selected, True, 1)
+	For i = 0 To 11
+		col = owner_color(owners(i))
+		angle = i * PI / 6.0 - PI / 2.0
+		draw_arc(Vector2(280, 280), 134, angle - 0.21, angle + 0.21, 12, col, 18)
+		pos = ring_point(i, 134)
+		tag = "-"
+		If owners(i) = 1 Then tag = "P"
+		If owners(i) = -1 Then tag = "D"
+		DrawString tag, pos.x - 4, pos.y - 8, Color(0.01, 0.02, 0.06), 14
+		If impact_left(i) > 0 Then
+			col = owner_color(impact_side(i))
+			draw_arc(Vector2(280, 280), 145 + (0.9 - impact_left(i)) * 8, angle - 0.21, angle + 0.21, 12, Color(col.r, col.g, col.b, impact_left(i)), 4)
+		End If
+	Next
+	If stage = "RUNNING" And Not practice And defense_step < 4 Then
+		attack_sector = target_sector(defender_port(), -1)
+		attack_wait = next_defense * 0.05 - elapsed
+		If attack_wait < 1.0 Then
+			For i = 0 To 1
+				pos = ring_point((attack_sector + i) Mod 12, 95)
+				beat = 4 + 2 * Sin(fx_clock * 16)
+				draw_arc(pos, beat, 0, PI * 2, 16, Color(1, 0.4, 0.2), 2)
+			Next
+		End If
+	End If
+	draw_signal_flow()
+	draw_arc(Vector2(280, 280), 60, 0, PI * 2, 48, Color(0.8, 0.4, 0.25), 2)
+	If stage = "COUNTDOWN" Then
+		DrawString "GET READY", 242, 255, Color(1, 0.85, 0.35), 14
+		DrawString Str(Int(countdown + 0.99)), 268, 276, Color(1, 0.95, 0.5), 30
+	ElseIf stage = "WIN" Then
+		DrawString "YOU WIN", 248, 266, owner_color(1), 14
+		DrawString Str(score(1)) & " - " & Str(score(-1)), 254, 289, owner_color(1), 14
+	ElseIf stage = "TIE" Then
+		DrawString "TIE", 265, 266, Color(0.8, 0.85, 0.9), 14
+		DrawString Str(score(1)) & " - " & Str(score(-1)), 254, 289, Color(0.8, 0.85, 0.9), 14
+	ElseIf stage = "LOSS" Then
+		DrawString "DEFENDER WINS", 226, 266, owner_color(-1), 14
+		DrawString Str(score(1)) & " - " & Str(score(-1)), 254, 289, owner_color(-1), 14
+	Else
+		DrawString "DEFENDER", 244, 266, Color(1, 0.65, 0.4), 14
+		DrawString Str(score(-1)) & " / 12", 254, 289, Color(1, 0.65, 0.4), 14
+	End If
+End Sub
+
+Sub draw_game()
+	Dim time_label As String
+	Dim status As String
+	DrawString "P " & Str(score(1)) & " : " & Str(score(-1)) & " D", 35, 25, Color(0.72, 0.85, 0.95), 22
+	time_label = Str(Int(remaining + 0.99)) & " SEC"
+	If practice And untimed Then time_label = "UNTIMED"
+	If stage = "COUNTDOWN" Then time_label = "READY " & Str(Int(countdown + 0.99))
+	DrawString time_label, 265, 26, Color(0.9, 0.85, 0.6), 20
+	DrawString "LINKS " & Str(pulses), 460, 28, Color(0.52, 0.8, 0.86), 18
+	draw_set_transform(Vector2(GLASS_X + 8.8 * GLASS_SCALE, GLASS_Y - 26.2 * GLASS_SCALE), 0.0, Vector2(GLASS_SCALE * 1.04, GLASS_SCALE * 1.04))
+	draw_board()
+	draw_set_transform(Vector2(GLASS_X, GLASS_Y), 0.0, Vector2(GLASS_SCALE, GLASS_SCALE))
+	If stage = "COUNTDOWN" Then
+		status = "SPACE: connect now    F1: help"
+	ElseIf stage = "RUNNING" Then
+		status = "INPUT " & Str(selected + 1) & "     A/D  SPACE     F1: help"
+	Else
+		status = stage & "    ENTER: fresh board    F1: help"
+	End If
+	DrawString status, 35, 487, Color(0.68, 0.8, 0.88), 18
+End Sub
+
+Sub _Draw()
+	If owners Is Nothing Then Exit Sub
+	If owners.size() <> 12 Then Exit Sub
+	draw_set_transform(Vector2(GLASS_X, GLASS_Y), 0.0, Vector2(GLASS_SCALE, GLASS_SCALE))
+	DrawRect 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, Color(0.012, 0.022, 0.052)
+	If loader_step > 0 Then
+		draw_loader()
+	ElseIf help_open Then
+		draw_help()
+	Else
+		draw_game()
+	End If
+	draw_set_transform(Vector2(0, 0), 0.0, Vector2(1, 1))
+	draw_orac_overlay()
+End Sub

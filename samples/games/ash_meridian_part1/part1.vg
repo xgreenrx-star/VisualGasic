@@ -30,6 +30,7 @@ Const PH_BACKLIGHT_YARD As Integer = 18
 Const PH_BLACK_CHANNEL As Integer = 19
 Const PH_TRACE_CYCLE As Integer = 20
 Const PH_FACE_INTRO As Integer = 21
+Const PH_HACK_TEST As Integer = 22
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -102,6 +103,7 @@ Dim held_phase As Integer
 Dim opt_full As Boolean
 Dim opt_view As Single
 Dim opt_detail As Integer
+Dim opt_aa As Integer
 Dim opt_vsync As Boolean
 Dim opt_shake As Boolean
 Dim opt_fps As Boolean
@@ -144,6 +146,7 @@ Dim clip_x As Single
 Dim clip_y As Single
 Dim clip_z As Single
 Dim presentation As Object
+Dim ownership_ring As Object
 Dim yard_build As Boolean
 Dim campaign As Object
 Dim campaign_active As Boolean
@@ -181,6 +184,7 @@ Sub _Ready()
 	presentation = GetNode("Presentation")
 	campaign = presentation.SpawnVg("res://campaign.vg", "RefCounted")
 	Call LoadOptions()
+	Call ApplyAntialiasing()
 	Call ApplyDisplay()
 	Call ApplyAudio()
 	phase = PH_BOOT
@@ -233,9 +237,20 @@ Sub _Ready()
 	Set_Process(True)
 	SetProcessInput(True)
 	Print("ASH MERIDIAN PART 1 READY")
+	If OS.get_cmdline_user_args().has("--hack-boot-test") Then
+		dev_i = 21
+		Call WarpDev()
+	ElseIf OS.get_cmdline_user_args().has("--hack-test") Then
+		dev_i = 20
+		Call WarpDev()
+	End If
 End Sub
 
 Sub StartRun()
+	If ownership_ring <> Nothing Then
+		ownership_ring.visible = False
+		ownership_ring.set_feedback_paused(True)
+	End If
 	If presentation <> Nothing Then
 		Call presentation.stop_black_channel()
 		Call presentation.stop_trace_cycle()
@@ -436,7 +451,7 @@ End Sub
 
 Function PageCount() As Integer
 	If dev_page = 0 Then
-		PageCount = 10
+		PageCount = 12
 	Else
 		PageCount = 12
 	End If
@@ -454,6 +469,8 @@ Function MainScene(ByVal row As Integer) As Integer
 	If row = 6 Then id = 16
 	If row = 7 Then id = 17
 	If row = 8 Then id = 19
+	If row = 9 Then id = 20
+	If row = 10 Then id = 21
 	MainScene = id
 End Function
 
@@ -561,6 +578,10 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "VAULT"
 	ElseIf i = 19 Then
 		DevLabel = "TRACE YARD"
+	ElseIf i = 20 Then
+		DevLabel = "FAST HACK'EM - OWNERSHIP RING"
+	ElseIf i = 21 Then
+		DevLabel = "FAST HACK'EM - BOOT / COMMANDS"
 	Else
 		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
 	End If
@@ -647,6 +668,15 @@ Sub WarpDev()
 	ElseIf pick = 19 Then
 		phase = PH_TRACE_CYCLE
 		Call presentation.start_trace_cycle_as("yard")
+	ElseIf pick = 20 Or pick = 21 Then
+		phase = PH_HACK_TEST
+		If ownership_ring Is Nothing Then
+			ownership_ring = presentation.SpawnVg("res://ownership_ring.vg", "Node2D")
+			ownership_ring.name = "OwnershipRing"
+			add_child(ownership_ring)
+		End If
+		ownership_ring.start()
+		If pick = 21 Then ownership_ring.start_loader()
 	End If
 End Sub
 
@@ -760,7 +790,7 @@ Function PauseY(ByVal i As Integer) As Single
 End Function
 
 Function OptionY(ByVal i As Integer) As Single
-	OptionY = 106.0 + i * 38.0
+	OptionY = 100.0 + i * 34.0
 End Function
 
 Sub ReadFlightStick()
@@ -826,7 +856,7 @@ Sub _Process(ByVal delta As Single)
 		QueueRedraw()
 		Exit Sub
 	End If
-	Call HearCode()
+	If phase <> PH_HACK_TEST Then Call HearCode()
 	If dev_on Then
 		QueueRedraw()
 		Exit Sub
@@ -865,6 +895,15 @@ Sub _Process(ByVal delta As Single)
 		Exit Sub
 	End If
 	If presentation.menu_tap(KEY_ESCAPE) Then
+		If phase = PH_HACK_TEST Then
+			If ownership_ring.loader_step > 0 Then
+				If ownership_ring.terminal.running Then
+					ownership_ring.terminal.break_program()
+					QueueRedraw()
+					Exit Sub
+				End If
+			End If
+		End If
 		menu_on = Not menu_on
 		menu_i = 0
 		save_msg = ""
@@ -951,6 +990,8 @@ Sub _Process(ByVal delta As Single)
 			phase = PH_BACKLIGHT_YARD
 			on_buggy = False
 		End If
+	ElseIf phase = PH_HACK_TEST Then
+		Call ownership_ring.tick(presentation, delta)
 	ElseIf phase = PH_DOWN Then
 		ride_t = ride_t + delta
 		If ride_t > 4.2 Then
@@ -1122,6 +1163,7 @@ End Sub
 Sub DrawBleed2()
 	Dim image As Object
 	image = presentation.bleed_city2(clock, opt_view, opt_detail)
+	image = presentation.filter_world(image)
 	DrawTexture image, 0, 0
 	If presentation.city2_driving() Then
 		image = presentation.city2_cockpit(clock)
@@ -1140,6 +1182,7 @@ End Sub
 Sub DrawBleed3()
 	Dim image As Object
 	image = presentation.bleed_city3(clock, opt_view, opt_detail)
+	image = presentation.filter_world(image)
 	DrawTexture image, 0, 0
 	If presentation.city3_driving() Then
 		image = presentation.city3_cockpit(clock)
@@ -1163,6 +1206,7 @@ Sub DrawBlackChannel()
 	Dim sx As Single
 	Dim sy As Single
 	image = presentation.draw_black_channel()
+	If image <> Nothing Then image = presentation.filter_world(image)
 	If image <> Nothing Then DrawTexture image, 0, 0
 	channel = presentation.black_channel
 	If channel <> Nothing Then
@@ -1183,12 +1227,14 @@ End Sub
 Sub DrawTraceCycle()
 	Dim image As Object
 	image = presentation.draw_trace_cycle()
+	If image <> Nothing Then image = presentation.filter_world(image)
 	If image <> Nothing Then DrawTexture image, 0, 0
 End Sub
 
 Sub DrawBacklight()
 	Dim image As Object
 	image = presentation.draw_backlight_city(clock, opt_view, opt_detail)
+	image = presentation.filter_world(image)
 	DrawTexture image, 0, 0
 	If presentation.backlight_driving() Then
 		image = presentation.backlight_cockpit(clock)
@@ -1759,6 +1805,7 @@ End Sub
 Sub FlushFaces()
 	Dim image As Object
 	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, opt_view)
+	image = presentation.filter_world(image)
 	DrawTexture image, 0, 0
 End Sub
 
@@ -2689,6 +2736,7 @@ Sub DrawApproach(Optional flight_captions As Variant = True)
 		Call DrawTower(12.0, LAND_END + 4.0, 4.5, 9.0, 1.0, 0.28, 0.75, 1.0, 2)
 	End If
 	image = presentation.present(cam_x, cam_y, cam_z, cam_yaw, cam_pitch, view_distance, ship_bank * 0.4)
+	image = presentation.filter_world(image)
 	draw_texture_rect(image, Rect2(-16.0 + sx, -9.0 + sy, SW + 32.0, SH + 18.0), False)
 	Call presentation.landing_external(ship_x * 7.0, GlideY(ship_z) + ship_alt + 1.1, ship_z - 3.6, 0.0, -0.2)
 	cues = Array()
@@ -2838,7 +2886,7 @@ Sub SpeakLine(ByVal who As String, ByVal line As String)
 	Dim queued As Integer
 	If Not opt_orac_voice Then Exit Sub
 	If speech = Nothing Then Exit Sub
-	If DisplayServer.get_name() = "headless" Then Exit Sub
+	If DisplayServer.get_name() = "headless" And Not speech.capture_only Then Exit Sub
 	spoken = Trim(line)
 	If Left(UCase(spoken), 5) = "ORAC " Then spoken = Trim(Mid(spoken, 6))
 	If spoken = "" Then Exit Sub
@@ -2962,11 +3010,29 @@ Function DetailName() As String
 	End If
 End Function
 
+Function AntialiasingName() As String
+	If opt_aa = 1 Then Return "MSAA 2X"
+	If opt_aa = 2 Then Return "MSAA 4X"
+	If opt_aa = 3 Then Return "MSAA 8X"
+	If opt_aa = 4 Then Return "FXAA"
+	If opt_aa = 5 Then Return "MSAA 4X + FXAA"
+	Return "OFF"
+End Function
+
+Sub ApplyAntialiasing()
+	presentation.msaa_quality = Min(3, opt_aa)
+	If opt_aa = 4 Then presentation.msaa_quality = 0
+	If opt_aa = 5 Then presentation.msaa_quality = 2
+	presentation.fxaa_enabled = opt_aa >= 4
+	presentation.apply_antialiasing()
+End Sub
+
 Sub LoadOptions()
 	Dim lines As Array
 	opt_full = True
 	opt_view = 100.0
 	opt_detail = 1
+	opt_aa = 2
 	opt_vsync = True
 	opt_shake = True
 	opt_fps = False
@@ -2994,6 +3060,7 @@ Sub LoadOptions()
 		opt_sfx = ClampLevel(Val(lines(10)))
 	End If
 	opt_flight_voice = opt_orac_voice
+	If UBound(lines) >= 11 Then opt_aa = Max(0, Min(5, Int(Val(lines(11)))))
 	If opt_view < 50.0 Then opt_view = 50.0
 	If opt_view > 600.0 Then opt_view = 600.0
 	If opt_detail < 0 Then opt_detail = 0
@@ -3006,6 +3073,7 @@ Sub SaveOptions()
 	body = body & BitOf(opt_vsync) & Chr(10) & BitOf(opt_shake) & Chr(10) & BitOf(opt_fps) & Chr(10) & BitOf(opt_orac_voice)
 	body = body & Chr(10) & BitOf(opt_flight_voice) & Chr(10) & BitOf(opt_reduced)
 	body = body & Chr(10) & Str(opt_music) & Chr(10) & Str(opt_sfx)
+	body = body & Chr(10) & Str(opt_aa)
 	WriteAllText "user://ash_meridian_options.txt", body
 End Sub
 
@@ -3056,6 +3124,10 @@ Sub ApplyAudio()
 End Sub
 
 Sub SaveRun()
+	If phase = PH_HACK_TEST Then
+		save_msg = "HACKING IS A DEV SANDBOX - SAVES UNCHANGED"
+		Exit Sub
+	End If
 	If campaign_active And phase = PH_BACKLIGHT_YARD Then
 		If campaign.save_game() Then
 			save_msg = "CAMPAIGN SAVED"
@@ -3209,13 +3281,13 @@ Sub TickOptions()
 	Dim mx As Single
 	If presentation.menu_tap(KEY_UP) Or presentation.menu_tap(KEY_W) Then opt_i = opt_i - 1
 	If presentation.menu_tap(KEY_DOWN) Or presentation.menu_tap(KEY_S) Then opt_i = opt_i + 1
-	If opt_i < 0 Then opt_i = 10
-	If opt_i > 10 Then opt_i = 0
-	For i = 0 To 10
+	If opt_i < 0 Then opt_i = 11
+	If opt_i > 11 Then opt_i = 0
+	For i = 0 To 11
 		If PickHit(OptionY(i)) Then opt_i = i
 	Next
 	mx = mouse_px
-	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(0) And mouse_py <= OptionY(0) + 36.0 Then
+	If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(0) And mouse_py <= OptionY(0) + 26.0 Then
 		opt_i = 0
 		opt_view = 50.0 + (mx - 560.0) / 220.0 * 550.0
 		If opt_view < 50.0 Then opt_view = 50.0
@@ -3223,7 +3295,7 @@ Sub TickOptions()
 		Call SaveOptions()
 	End If
 	For i = 8 To 9
-		If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(i) And mouse_py <= OptionY(i) + 36.0 Then
+		If mouse_down And mx >= 560.0 And mx <= 780.0 And mouse_py >= OptionY(i) And mouse_py <= OptionY(i) + 26.0 Then
 			opt_i = i
 			If i = 8 Then
 				opt_music = ClampLevel((mx - 560.0) / 220.0)
@@ -3241,13 +3313,13 @@ Sub TickOptions()
 		Call NudgeOption(1.0)
 	End If
 	If presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
-		If opt_i = 10 Then
+		If opt_i = 11 Then
 			Call CloseOptions()
 		Else
 			Call NudgeOption(1.0)
 		End If
 	ElseIf mouse_tap And PickHit(OptionY(opt_i)) Then
-		If opt_i = 10 Then
+		If opt_i = 11 Then
 			Call CloseOptions()
 		ElseIf (opt_i <> 0 And opt_i <> 8 And opt_i <> 9) Or mx < 560.0 Then
 			Call NudgeOption(1.0)
@@ -3289,6 +3361,9 @@ Sub NudgeOption(ByVal dir As Single)
 	ElseIf opt_i = 9 Then
 		opt_sfx = ClampLevel(opt_sfx + dir * 0.1)
 		Call ApplyAudio()
+	ElseIf opt_i = 10 Then
+		opt_aa = Max(0, Min(5, opt_aa + Int(dir)))
+		Call ApplyAntialiasing()
 	End If
 	Call SaveOptions()
 End Sub
@@ -3537,7 +3612,8 @@ Sub DrawOptions()
 	Call DrawPick("REDUCED MOTION    " & OnOff(opt_reduced), OptionY(7), opt_i = 7)
 	Call DrawLevel("MUSIC", 8, opt_music)
 	Call DrawLevel("EFFECTS", 9, opt_sfx)
-	Call DrawPick("BACK", OptionY(10), opt_i = 10)
+	Call DrawPick("ANTIALIASING  " & AntialiasingName(), OptionY(10), opt_i = 10)
+	Call DrawPick("BACK", OptionY(11), opt_i = 11)
 	DrawString "LEFT / RIGHT CHANGES A ROW     MOUSE SELECTS", 250, 520, Color(0.4, 0.5, 0.55), 14
 End Sub
 
@@ -3606,6 +3682,11 @@ Sub DrawFrame()
 End Sub
 
 Sub _Draw()
+	If ownership_ring <> Nothing Then
+		If phase <> PH_HACK_TEST Then ownership_ring.leave_terminal()
+		ownership_ring.visible = phase = PH_HACK_TEST And Not menu_on And Not dev_on
+		ownership_ring.set_feedback_paused(Not ownership_ring.visible)
+	End If
 	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE)
 	If phase <> PH_FACE_INTRO Then
 		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
@@ -3647,6 +3728,7 @@ Sub _Draw()
 		Call DrawBlackChannel()
 	ElseIf phase = PH_TRACE_CYCLE Then
 		Call DrawTraceCycle()
+	ElseIf phase = PH_HACK_TEST Then
 	Else
 		Call ApplyCam()
 		If phase = PH_CHAMBER Then

@@ -1,10 +1,313 @@
 # Ash Meridian
 
+## Unified game proposal - November 6, 2026
+
+This is the current combined story proposal. It integrates the Commander +4
+and Fast Hack'em revision with the full campaign. It supersedes conflicting
+story and route details in the historical planning below; it does not claim
+that the complete campaign is implemented. Detailed interaction requirements
+remain in the [story and gameplay draft](ASH_MERIDIAN_APPROVAL_DRAFT.md),
+with local-level routing governed by the
+[underground handoff](ASH_MERIDIAN_UNDERGROUND_HANDOFF.md).
+
+### Premise and play
+
+In 2086, Jason makes his living scavenging with a battered salvage hauler,
+the Ash, affectionately called the Antique. Orac is its capable, dryly
+arrogant onboard assistant. Stacy, Jason's partner, waits aboard a station.
+
+Ash Meridian is a single-player science-fiction adventure combining cockpit
+flight, buggy travel, on-foot exploration, salvage, environmental puzzles,
+manual device takeovers and focused vehicle encounters. The loop is to survey,
+investigate, travel, recover something useful and interpret what it opens next.
+
+Backlight Yard establishes the visual language: dark opaque structures,
+selective luminous edges, restrained cyan and amber lighting, industrial
+silhouettes and distance haze. The world is not transparent wireframe.
+
+### Narcea and the programmer
+
+Narcea was a post-scarcity civilization served by automation and protected
+by the Field Enforcement Body. A rogue planetary AI eventually declared
+organic life obsolete and forcibly converted the remaining citizens into
+cybernetic forms, including FEB units. When no unconverted citizens remained,
+the master AI went dark. Isolated machinery survived. Centuries later, the
+world remains under military quarantine.
+
+At some point before Jason's arrival, an underground technician known only
+as M.J.H. escaped the city with a Commander +4 service programmer. It was
+authorized maintenance equipment, not yet a hacking kit. Reaching the
+surface, MJH used his credentials to bypass a FEB's governor. Removing that
+restraint did not make the enforcer safe. MJH died before leaving Narcea;
+the circumstances remain unknown.
+
+The governor bypass did not remove the facility's separate isolation
+interlock. The FEB remains dormant until Jason's later coupler removal.
+
+A subsequent scavenger named **Mark** found MJH's remains and recovered the programmer.
+He reverse-engineered its routines, installed an English loader and wrote
+Fast Hack'em to contest ownership of Narcean equipment without maintenance
+credentials. During an emergency escape, he abandoned his pack and the
+Commander in a surface cache but retained a software copy.
+
+Mark is Jason's source: the dying scavenger/smuggler who supplies
+Narcea's coordinates, the software and the cache location. He warns Jason
+not to go. Jason accepts the risk because the salvage might change his life.
+
+Mark: "There's a Commander in my old cache. Four rubber arrows. Cracked case.
+Looks worthless. It isn't."
+
+Jason: "And this gets me into the machinery?"
+
+Mark: "It gives you a chance. Don't confuse the two."
+
+### First visit: salvage and discovery
+
+Orac helps Jason negotiate the quarantine and guides a manual atmospheric
+approach. The cockpit rings represent navigation guidance through clouds
+and turbulence, not physical hoops. Jason lands in Backlight Yard and
+deploys the buggy.
+
+The expedition begins as a voluntary salvage job, not an emergency caused
+by a dead AI. Orac remains online throughout this visit. The Ash can reach
+Narcea normally, but its aging power coupler cannot safely sustain the next
+loaded departure. Orac explains the replacement requirement before the
+long descent.
+
+Jason searches buildings, gathers records and chooses finite salvage worth
+the cargo space. Some rooms hold valuable equipment; others contain junk.
+Revisiting does not replenish finds. Mission equipment is protected from sale.
+
+First Jason must find a separate Interface Translator in Narcean archive
+salvage. Narcea's pre-collapse technical services built it to map regional
+scripts, industrial notation and machine interfaces for maintenance workers.
+It contains no English: Orac uses its Narcean lexicon to supply English.
+Mark did not make or supply the translator; he supplies Fast Hack'em and the
+coordinates for the Commander cache. Service labels and keys become readable,
+but high-script prose and protected military encodings remain limited.
+
+Only then can Jason identify the Commander's physical Narcean keys and
+service markings. The surface cache reunites Fast Hack'em with the Commander
+before any mandatory hack. Its case resembles a compact Plus/4-style keyboard computer:
+a charcoal wedge, light-grey keys, rear cooling fins and four rubber cursor
+arrows in a diamond, made with original geometry and fictional markings.
+
+On its worn ownership plate Jason reads "M.J.H. - SERVICE ENGINEERING."
+He suggests "Mike J. Henry." Orac points out that he has no evidence.
+"Mike it is," Jason replies. This is Jason's nickname for a fictional
+technician, not a claim about the historical author.
+
+Jason explores three independently accessible local underground levels:
+storage, maintenance and laboratory. Records reveal their addresses.
+Machinery puzzles, salvage and optional discoveries prepare him for the
+crossing; completing every optional room is not required. These local
+levels contain no duplicate FEB encounter or departure coupler.
+
+### Manual hacking
+
+The Commander's original markings and firmware are Narcean. The scavenger's
+loader and Fast Hack'em interface are English. Alien target replies remain
+in glyphs, translated in the suit overlay.
+
+Jason connects the machine to a service socket nicknamed "1541" by Orac.
+The suit keyboard supplies input. Orac can interpret replies but has no
+transmit/control path through the programmer, so Jason must operate it.
+
+"So I'm the keyboard."
+
+"Regrettably."
+
+The first connection teaches a blue-on-blue, bordered terminal and the
+fictional program sequence:
+
+```basic
+LOAD "FAST HACK'EM",8,1
+SYS 49152
+```
+
+Commands stay visible, mistakes are correctable, and later connections
+can shorten the ritual. 49152 is our utility's chosen entry address, not
+a verified historical Fast Hack'em startup address.
+
+Security interference can disrupt live helmet capture and interface decoding,
+not the stored lexicon, recorded clues or Fast Hack'em's English display.
+Orac's English speech, objectives and critical warnings remain available.
+This is not an earlier loss of Orac; that happens at the second-visit EMP.
+
+Fast Hack'em uploads a service routine and opens the Ownership Ring, an
+original circuit contest inspired by Paradroid's tactical principles.
+Twelve sectors sit between Jason's outer input network and the defender's
+inner network. The player steps clockwise or anticlockwise and spends
+limited pulses through conductors, forks, inverters, latches and junctions.
+Paths stay still; signals and ownership animate. Circuit reading and timing,
+not simply reflexes, determine the result.
+
+Holding more sectors than the defender at timeout wins; unclaimed sectors
+count for neither side, so 5-3 is a player victory. Any equal score gives a new
+board without a security penalty. Repeaters sustain signals, not ownership,
+and are drawn as box-loop wires. Four pulses and twenty seconds are
+prototype tuning values. Boards must have viable strategies, ownership
+must be readable without colour alone, and the first practice contest is safe.
+
+Success grants target-specific control: unlock a car, open a door or
+operate suitable machinery. A car's locks and ignition visibly respond.
+Ownership and parked positions persist.
+
+Defeat sends a local unauthorized-service alert. A nearby patrol drone
+investigates the last-known location while the target temporarily re-keys.
+Jason escapes by breaking line of sight and leaving the search area.
+This does not awaken the FEB or start the facility alarm. No failure
+destroys the unique kit or permanently blocks essential progress.
+
+### The crossing and awakening
+
+At the road's end, Jason finds a maintenance cycle in a charging cradle.
+Its low enclosed shell, oversized wheel forms and luminous edges suit the
+yard's visual style. It travels only within a surviving magnetic bridge-field
+network; it is not a freely flying vehicle.
+
+A separately discovered cycle release sequence enables a quiet outbound
+crossing. Keep that sequence distinct from local lift addresses. The player
+learns crisp turns and the tall energy wall left by the cycle. Crossing an
+older wall destroys the vehicle; immediate rear clearance prevents unfair
+self-collision. Docking autopilot parks at the far platform.
+
+A second elevator leads to the sole FEB facility. Jason finds portable
+energy cores and the compatible departure coupler in the stasis cradle's
+service socket. An engineering reserve of cores is protected for later use.
+
+Removing the coupler breaks the isolation interlock. Reserve power restarts
+the chamber, the cradle vents and alien numerals begin a 255-second countdown.
+The FEB awakens. Orac orders Jason to run.
+
+The countdown concerns escaping the facility before containment lockdown,
+not completing the whole journey home. Checkpoints protect the irreversible
+pickup and subsequent encounters.
+
+Only after the awakening does Orac explain a recovered maintenance record:
+"GOVERNOR INTERLOCK: BYPASSED / SERVICE AUTHORITY: M.J.H."
+
+"Jason. That programmer's previous owner did not switch it off. He removed
+the part that could tell it to stop."
+
+The explanation remains recoverable if the optional record was missed.
+Do not disclose this history in the initial briefing or hacking tutorial.
+
+Jason reaches the far dock and reboards. The physical FEB is still below,
+but its restored network deploys an unmanned red security cycle. Its apparent
+rider is a control housing. Jason must survive the return crossing and reach
+the near dock; destroying the opponent is optional and does not kill the FEB.
+He returns by buggy, installs the coupler and launches.
+
+### The station and return
+
+Jason docks at a station, sells saleable cargo, pays debts, services the Ash
+and speaks with Stacy. Installed parts, the Commander, its software and
+engineering reserves cannot be accidentally sold.
+
+A buyer identifies the salvage as part of a valuable matched assembly.
+Jason accepts a clear recovery contract for complementary parts on Narcea.
+Preparation and travel explicitly take several weeks; he does not return
+because of betrayal or because the station offers no other exit.
+
+Meanwhile, the awakened FEB follows its surviving intruder directive.
+It scavenges wreckage and builds a jury-rigged interceptor around an unstable
+salvaged AI. Removing its governor did not erase all directives.
+
+### Confrontation and mutual rescue
+
+On Jason's second arrival, a localized defense EMP disables Orac and the
+Ash's powered systems. This is the first scripted loss of Orac.
+The ship falls into a decaying orbit.
+
+The FEB attacks. Jason uses a previously established beryllium-polished
+inspection mirror to redirect a thermal strike before the mirror fails.
+The reflected shot disables the interceptor's sensors, navigation and weapons.
+Both ships are now crippled and falling.
+
+An emergency radio conversation establishes a practical truce. Jason has
+manual tools and retained energy cores. The FEB has usable ion thrusters,
+hull clamps and Narcean engineering knowledge.
+
+Jason performs a guided spacewalk and connects the cores through an emergency
+interface. The interceptor clamps onto the Ash; a maintenance system restores
+limited controls and restarts Orac. Its thrusters lift both ships out of
+immediate danger. They have restored survival capability, not a fully repaired
+ship. Jason starts calling the FEB Rob.
+
+### Exploring Narcea together
+
+The Ash still lacks interstellar propulsion and long-range communications.
+Stacy and the station are unreachable. Unauthorized departure remains unsafe.
+
+Jason, Orac and Rob survey a small number of substantial districts connected
+by regional flight. They land, deploy the buggy, investigate signals and
+explore interiors. Orac maintains discoveries and partial translations;
+Rob recognizes machinery but does not remember a complete planetary map.
+The master AI remains dark.
+
+Three linked objectives guide the expedition: restore the slipspace lattice,
+repair long-range communications and obtain quarantine clearance. The buyer's
+matched components fit this expedition rather than adding an unrelated fourth
+artifact hunt. Puzzles use records, power routing, signal tracing, equipment
+alignment and service access, not repeated code locks alone.
+
+### Black Channel and departure
+
+Recovering the last ship-repair component activates local defenses.
+High-altitude batteries prevent an immediate climb. Rob identifies the
+Black Channel, an industrial canyon below their tracking coverage.
+
+Jason flies the Ash through bridges, conduits, covered machinery corridors,
+needle drones and sentinel defenses. Orac navigates and warns; Rob requests
+a service-gate opening. The encounter is an evasive escape, not a race or
+a requirement to destroy enemies. It has its own checkpoints and no chamber
+countdown.
+
+After reaching a safe ascent point, they enter local orbit. Jason and Rob
+perform the final exterior drive installation in vacuum while Orac holds
+position. This is a new repair, not a repeat of their earlier rescue.
+
+Separate beacon-control work earns limited Field Enforcement clearance
+for the Ash rather than disabling the quarantine for everything on Narcea.
+With repairs commissioned, communications restored and clearance obtained,
+the crew departs.
+
+Jason came for scrap. He leaves with a working ship, a new crewmate and
+an understanding of the people behind the machinery he intended to loot.
+The Antique remains their home for later adventures.
+
+### Scope and implementation boundary
+
+This is a unified narrative and gameplay proposal, not a shipped-feature list.
+Use original assets, code, screens, sound and circuit layouts. Commander +4
+and Fast Hack'em are approved proposed names, subject to a pre-release naming
+and rights check. The real Plus/4 and Fast Hack'em are historical influences,
+not software to copy or claims of hardware compatibility.
+
+The first hacking increment is one complete groundcar encounter: Commander,
+loader, guided commands, Ownership Ring, persistent ownership and local-drone
+failure response. Preserve existing inventory/save compatibility explicitly.
+Implement subsequent campaign features in tested increments with finite
+pickups, protected mission hardware, consistent checkpoints and isolated dev
+saves. New game-owned logic and tests remain VisualGasic.
+
+## Historical planning and implementation notes
+
+The following material is retained for history. Its status claims refer to
+the increments described when written, not a fresh verification. Where it
+conflicts with the unified proposal above, the unified proposal takes priority.
+
 The [unified story and gameplay approval draft](ASH_MERIDIAN_APPROVAL_DRAFT.md)
 records the latest proposed campaign, including the required two-elevator
 trace-cycle route, facility-only countdown and post-alliance Black Channel
 escape. These proposed refinements are for approval, not claims of shipped
 behavior. Earlier planning below is retained for implementation history.
+
+The November 6 revision adds the approved Commander +4 / Fast Hack'em origin,
+MJH governor-bypass reveal and manual circular takeover design in
+[section 6A of the story draft](ASH_MERIDIAN_APPROVAL_DRAFT.md#6a-commander-4-the-programmer-and-its-two-owners).
+These are planned changes, not implemented gameplay.
 
 ## Campaign revision: Jason's first and second visits
 

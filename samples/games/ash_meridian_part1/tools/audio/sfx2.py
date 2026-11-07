@@ -38,18 +38,14 @@ def lfo(t, hz, depth, phase=0.0):
 # ---------------------------------------------------------------- vehicles
 
 def buggy_motor():
-	"""Electric drive at cruise: inverter whine with PWM sidebands, gear mesh, tyre hiss. Pitched by speed in game."""
+	"""Smooth electric drive; periodic phase modulation keeps the loop seam continuous."""
 	sec = 2.0
-	t = t_axis(sec + 0.3)
-	f = 180.0 * lfo(t, 1.5, 0.004)
-	ph = 2 * np.pi * np.cumsum(f) / SR
-	whine = np.sin(ph) + 0.5 * np.sin(2 * ph + 0.3) + 0.3 * np.sin(3.01 * ph) + 0.22 * np.sin(5.03 * ph)
-	pwm = 0.18 * np.sin(ph * 7.5) * np.sin(2 * np.pi * 3.5 * t)
-	gear = 0.35 * saw(ph * 0.25) * lfo(t, 6.0, 0.3)
-	hiss = bp(noise(sec + 0.3), 1800, 6000) * 0.12 * lfo(t, 0.5, 0.2)
-	rumble = lp(noise(sec + 0.3), 90) * 1.4
-	x = 0.5 * whine + pwm + lp(gear, 900) + hiss + rumble
-	return finish_loop(make_loop(x, sec), 0.7)
+	t = t_axis(sec)
+	ph = 2 * np.pi * 180 * t + 0.35 * np.sin(2 * np.pi * t)
+	whine = np.sin(ph) + 0.3 * np.sin(2 * ph + 0.3) + 0.1 * np.sin(3 * ph)
+	inverter = 0.035 * np.sin(2 * np.pi * 1350 * t) * lfo(t, 1.0, 0.12)
+	body = 0.18 * np.sin(2 * np.pi * 45 * t)
+	return finish_loop(0.5 * whine + inverter + body, 0.6)
 
 
 def vehicle_on():

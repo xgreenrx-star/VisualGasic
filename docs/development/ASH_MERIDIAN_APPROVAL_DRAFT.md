@@ -2,11 +2,22 @@
 
 ## Story and Gameplay Approval Draft
 
-Revision: October 21, 2026
+Revision: November 6, 2026
 
 This document describes the proposed complete campaign. It is not a claim that
 every feature is implemented. It incorporates the required void crossing,
 the Jason/Rob alliance, planetary surveying and the Black Channel escape.
+
+The [unified game proposal](ASH_MERIDIAN_PROPOSAL.md#unified-game-proposal---november-6-2026)
+combines this revision into a continuous campaign narrative. This document
+retains the detailed story and interaction requirements.
+
+The November 6 Commander +4 / Fast Hack'em story and interaction design below
+is approved direction for future implementation, not shipped behavior. For
+local-level routing, the [October 31 underground handoff](ASH_MERIDIAN_UNDERGROUND_HANDOFF.md)
+supersedes older route/code details in this draft: the three local levels are
+available before the cycle, and the sole FEB encounter is at the far-dock
+facility. The programmer's history does not introduce another FEB encounter.
 
 ## 1. Overview
 
@@ -93,8 +104,26 @@ returns to Narcea.
 
 ## 5. First visit: atmospheric approach
 
-Jason obtains Narcea's coordinates from a dying smuggler. Their military-grade
-encryption suggests that valuable technology lies behind the quarantine.
+Jason obtains Narcea's coordinates from **Mark**, a dying scavenger who also smuggled
+salvage through the quarantine. This is the same contact previously described
+as the dying smuggler, not an additional character. The coordinates'
+military-grade encryption suggests that valuable technology lies behind the
+quarantine.
+
+Mark barely survived Narcea. He warns Jason not to follow him, but
+passes on a suit-readable copy of Fast Hack'em and the location of a surface
+cache containing a Commander +4 service programmer. Forced to abandon his pack
+during his escape, he left the hardware behind but retained a software copy.
+The cache location remains recoverable through the suit briefing or records;
+it is not a one-time spoken clue.
+
+Mark: "There's a Commander in my old cache. Four rubber arrows. Cracked
+case. Looks worthless. It isn't."
+Jason: "And this gets me into the machinery?"
+Mark: "It gives you a chance. Don't confuse the two."
+
+Jason knowingly accepts the risk. The warning establishes the need for the
+kit without revealing the dormant FEB, its governor or the coupler interlock.
 
 Orac suppresses the quarantine beacons' tracking and identification systems,
 leaving Jason to fly the atmospheric approach manually.
@@ -121,8 +150,11 @@ Doors still respond. Lights burn without an obvious supply. Terminals display
 unfamiliar writing. Orac can identify useful hardware and interpret fragments,
 but military systems refuse its access.
 
-The player gathers five ordered symbols from maintenance and archive records.
-These unlock a trace cycle at the road's end.
+Records reveal addresses for the local storage, maintenance and laboratory
+levels, all available before the cycle. A separate discoverable release
+sequence unlocks the cycle at the road's end. Keep lift addresses and cycle
+release codes distinct; older five-symbol progression is not authority for
+silently unlocking both.
 
 The yard's ordinary transit lift serves local storage, maintenance and laboratory
 areas. It does not lead directly to the FEB. A separate elevator, beyond the
@@ -131,6 +163,292 @@ broken bridge, reaches the deeper installation.
 Before that journey, Orac explains that the Ash's aging power coupler cannot
 safely support a loaded departure. A compatible replacement has been detected
 below the far platform.
+
+### 6A. Commander +4: the programmer and its two owners
+
+#### The original owner
+
+Long before Jason's visit, an underground technician identified only as
+**M.J.H.** escaped the city with a **Commander +4 service programmer**.
+The original unit was legitimate maintenance equipment: it uploaded firmware,
+diagnosed controllers and changed settings using authorized service access.
+It was not yet a hacking device.
+
+MJH reached the surface and used maintenance credentials to bypass the FEB's
+governor. The change succeeded, but removing a restraint did not make the FEB
+safe or friendly. MJH died before leaving Narcea; the exact circumstances of
+his death are not established here.
+
+The governor bypass is distinct from the chamber's isolation interlock. It
+does not awaken the FEB during Jason's exploration. The enforcer remains
+dormant until Jason removes the coupler at the far-dock facility. The bypass
+also does not remove every surviving directive or prevent the later alliance.
+
+#### The second owner
+
+Mark, the scavenger who later becomes Jason's source, found MJH's remains and recovered
+the Commander. He reverse-engineered its service routines and wrote
+**Fast Hack'em**, an intrusion utility capable of contesting Narcean controllers'
+ownership without the original maintenance credentials.
+
+He added an English bootloader and interface to the alien hardware. During
+his eventual emergency escape, he cached or abandoned the programmer with his
+pack on the surface. He escaped with a software copy, not the physical unit.
+Jason must reunite that software with the recovered programmer.
+
+The player-facing acquisition sequence is:
+
+**Find the Interface Translator -> recover the cache -> inspect the Commander
+-> load Fast Hack'em -> complete a safe practice takeover -> use the kit on
+real devices.**
+
+Place the cache before the first mandatory hack. The Commander and software
+are protected mission equipment, not saleable or consumable salvage.
+
+#### The translator's maker and discovery
+
+The Interface Translator is a separate Narcean discovery, not equipment
+supplied by the scavenger and not part of his English software. It was built
+by Narcea's pre-collapse technical services for maintenance personnel working
+across regional writing systems, industrial notation and machine interfaces.
+Its maker is that technical-services organization; no individual inventor
+or named manufacturer is established.
+
+The module contains Narcean script mappings and a service lexicon, not English.
+Orac supplies English interpretation using those mappings. This is why a
+local Narcean tool can help him translate a language unfamiliar to Jason.
+It supports service labels and key legends, not unrestricted high-script
+prose or every military encoding.
+
+Jason must find it before recovering/operating the Commander: the scavenger's
+English loader does not translate its physical Narcean key legends or socket
+markings. Orac first needs the lexicon to identify those controls. The source
+provides Fast Hack'em and cache coordinates only.
+
+Security interference disrupts the live helmet capture/interface decoding
+path. It does not erase the local lexicon, previously copied clues or English
+software, and it does not turn off Orac. His dialogue, objectives, control
+instructions and critical escape warnings remain readable. A recorded address
+stays available even if its original sign can no longer be decoded live.
+The second-visit EMP remains the first scripted shutdown of Orac.
+
+#### Jason's nickname for MJH
+
+A worn ownership plate reads:
+
+```text
+M.J.H.
+SERVICE ENGINEERING
+```
+
+Jason: "MJH. Mike J. Henry?"
+Orac: "You have no evidence that those letters mean that."
+Jason: "Mike it is."
+
+"Mike J. Henry" is Jason's speculative nickname for the fictional technician.
+His actual name remains unknown. Mark, not MJH, wrote this fictional
+Fast Hack'em. Do not imply that the historical software author died on Narcea.
+
+#### Hardware and screen language
+
+Model the Commander +4 after the visual character of the Commodore Plus/4:
+a low charcoal wedge, recessed light-grey keyboard, prominent rear cooling
+fins, a narrow identification strip and four rubber cursor keys in a diamond.
+Use original vector-style geometry and fictional markings, not copied logos.
+The Plus/4 is a visual reference, not a claim of C64 software compatibility.
+
+Jason's separate suit terminal supplies the English keyboard and the screen
+on which Fast Hack'em runs; it is not the Commander programmer itself.
+Its visual direction is a narrow forearm-mounted field computer with a
+shaded grey-green casing, raised CRT hood, recessed curved glass, casing
+seams, vents and suit mounting straps. The English keyboard uses small dark
+chiclet keys with light inset outlines, secondary shifted legends and
+distinct Space, Enter and F1 keys, not a flat cartoon keyboard grid.
+Physical direction/connect controls sit between the screen and keyboard.
+Cem Tezcan's
+[Handheld Retro PC / Commodore HX-64](https://cemtezcan.com/projects/dOqA8K)
+is a mood and industrial-design reference only: create original geometry,
+markings and artwork, not a reproduction of that design.
+The glass has restrained scanlines, phosphor softness, edge darkening,
+fine animated snow and a slow interference band. Keep the wiring readable,
+confine effects to the glass and disable moving interference with Reduced
+Motion. The circular takeover board uses its actual wires, junctions and
+stop bars, without added component pictograms or a symbol legend.
+Fast Hack'em initially shows its operator guide. Enter switches to a focused
+game screen and begins the pre-match countdown; the circuit fills the glass
+with only essential score/time/connector status. F1 opens or closes the
+guide, and Enter returns from it. While help is visible the countdown,
+packets, defender and match audio pause; resuming preserves the exact match
+state. Keep explanatory panels off the game screen.
+
+The original case markings and service firmware are Narcean. The scavenger's
+replacement bootloader and Fast Hack'em interface are English. Target-device
+replies remain Narcean, with Orac's English translation in the suit overlay.
+Show a brief alien self-test followed by an English blue-on-blue, bordered
+40-column terminal with a memory report and blinking block cursor.
+
+```text
+COMMANDER +4
+FIELD SERVICE SYSTEM
+
+FAST HACK'EM
+SERVICE BRIDGE READY
+```
+
+#### Manual connection and Orac's limit
+
+Jason connects the Commander to a device's service socket and uses the suit
+keyboard to send input through it. Orac can read and translate the replies
+but has no transmit/control path through the programmer. English software
+does not remove that hardware limitation. Orac cannot type the commands or
+play the takeover contest for Jason.
+
+Keep all of Orac's advice and translations in the suit comms overlay outside
+the terminal glass, with spoken delivery when Speech is enabled. Only Jason's
+keystrokes and the computer's own replies belong on the CRT. The dev prototype
+now provides a ROM-free field BASIC shell: virtual disk directory via
+`LOAD "$",8` / `LIST`, an editable demonstration program, numbered BASIC
+programs, numeric variables/loops and screen-colour POKEs. It is an explicitly
+bounded compatibility subset, not a claim of full C64 emulation.
+
+As an optional isolated mode, `C64` starts the existing native emulator in the
+same display when the player supplies the three required ROM files in a
+`roms/` folder. No ROMs are packaged or fetched. This line-input adapter runs
+real BASIC but has no virtual drive, SID output or Fast Hack'em bridge; F2
+returns to the fictional service shell. Neither mode gives Orac a control
+path. See the prototype README for supported commands, limits and ROM setup.
+
+The contextual right-hand suit display shows Orac's original detailed
+transparent electronics model during terminal use, then the existing
+full-resolution Narcean holographic face during the takeover contest.
+Retain the established alien identity and triangulated facial detail rather
+than introducing a new stylized face. Orac's circuit illumination responds
+to his speech; the target face blinks and reacts to contest activity.
+These are suit displays outside the computer glass, not a control connection.
+The terminal uses a screen-positioned blinking block cursor, four-way screen
+editing and visible key depression; Reduced Motion suppresses decorative
+animation and keeps the cursor steady.
+
+Orac's original dialogue should be technically useful and socially
+unhelpful: he corrects the premise, supplies the necessary fact and makes
+his impatience clear without turning every sentence into an insult. He
+does not praise routine competence, manufacture certainty or pretend to
+control the programmer. Occasional reluctant acknowledgement makes the
+condescension more effective than uninterrupted abuse. Terminal and takeover
+comments react to specific actions, rotate variants and remain rate-limited
+so the character does not obscure instructions or drown out the contest.
+
+Orac: "A service socket. My translator identifies it as '1541.' The Commander
+can talk to it. I can read the replies, but I cannot drive that interface."
+Jason: "So I'm the keyboard."
+Orac: "Regrettably."
+
+"1541" is Orac's translated nickname, not the historical name of a connector:
+the Commodore 1541 used the serial IEC bus. The historical Fast Hack'em was a
+disk-copying/nibbling/editing utility; its ability to upload routines to drive
+controllers inspires our fictional service-program upload, not its gameplay.
+
+Orac guides Jason through the first load:
+
+```basic
+LOAD "FAST HACK'EM",8,1
+SYS 49152
+```
+
+49152 is the chosen entry address for our fictional utility, not a verified
+historical Fast Hack'em startup address. The player types ordinary characters;
+the English loader echoes them. Alien target replies use glyphs and translation.
+Keep the requested command visible, allow correction, and do not require
+memorizing punctuation or an unreadable alphabet. After the first complete
+ritual, offer a shortened reconnect/load sequence.
+
+#### Ownership Ring: the takeover contest
+
+Use an original circular circuit contest inspired by Paradroid's resource
+allocation and circuit-reading principles, not a reproduction of its board,
+artwork or code. This replaces the existing cycling-glyph interaction.
+
+- Twelve contested ownership sectors sit between two concentric networks.
+  Jason injects from the outer rim; the defender injects from the inner hub.
+- Inspect the circuit before committing. Keep paths fixed during each round;
+  animate pulses and sector ownership, not the entire diagram.
+- Left/Right or A/D steps anticlockwise/clockwise through input ports.
+  Space injects a pulse; Backspace disconnects. Mouse selection is optional.
+- Conductors feed sectors; forks split signals; inverters change allegiance;
+  repeaters sustain signals, not ownership (visible box-loop wires);
+  junctions require two inputs; burned traces are
+  visible dead ends. Introduce these gradually.
+- A starting prototype uses four player pulses and roughly twenty seconds.
+  These are tuning values, not final balance. The defender contests sectors.
+- Hold more sectors than the defender when time expires to win. Unclaimed
+  sectors count for neither side: 5-3 is a player victory. Any equal score
+  creates a fresh board without a security penalty. A lower player score
+  is a defeat. Explain the scoring before the first live attempt.
+- Generate boards with a verified viable player strategy. Difficulty comes
+  from readable circuit choices and defender behaviour, not impossible seeds.
+- Show ownership through colour plus shapes/patterns. Teach the first contest
+  safely, without pursuit. Exact balance and accessibility timing options
+  must be settled during the prototype.
+
+#### Victory, failure and persistence
+
+Victory grants the target-specific permission: a groundcar unlocks and enables
+its ignition; a maintenance door opens; other suitable targets can redirect a
+camera, disable a barrier or release a freight platform. Show a physical
+indicator change, confirmation sound and explicit next action.
+
+Orac, after a car takeover: "Ownership accepted. Disconnect the Commander.
+Try not to reverse into anything."
+
+Retain F to enter/exit cars and the existing driving controls. Save granted
+ownership, opened gates and vehicle positions without awarding duplicates.
+
+A defeat causes a local unauthorized-service alert, not the planetary alarm.
+The screen warns Jason, the controller temporarily re-keys, and a nearby
+patrol drone investigates the last-known location. Orac: "It sent your
+location. Disconnect. Move." Jason escapes by leaving the search area and
+breaking line of sight; a drone that cannot reacquire him returns to patrol.
+Do not spawn a pursuer on top of him or require combat.
+
+Keep the FEB dormant and the coupler-triggered surprise intact. Local hack
+failures never start the chamber countdown, awaken the FEB or revive the
+master AI. Before city power is restored, gate powered-vehicle hacking or
+provide an explicitly weaker battery-backed response. Safe practice has no
+pursuit penalty. A loss, voluntary disconnect or reload must never strand
+the player or destroy the unique kit. Resolve abort/alert timing and retry
+cooldowns explicitly during implementation.
+
+#### Reveal order
+
+1. Mark supplies software, a cache location and a warning, not the translator.
+2. Jason finds the Narcean Interface Translator; Orac can identify service keys.
+3. Jason recovers the Commander, finds MJH's plate and learns the manual takeover.
+4. Later evidence identifies a governor bypass authorized by M.J.H.
+5. Only after the FEB awakens does Orac explain its significance:
+   "Jason. That programmer's previous owner did not switch it off. He removed
+   the part that could tell it to stop."
+
+Keep the governor record optional for progression, but its explanation
+recoverable later. Do not expose this spoiler in the initial mission card,
+pickup description or first hacking tutorial.
+
+#### Implementation boundary and references
+
+First build one complete groundcar encounter: original Commander prop,
+English loader, guided commands, Ownership Ring, saved ownership, and a
+local-drone search on defeat. Expand target types only after that loop works.
+Preserve existing saves using the legacy `psionic_screwdriver` inventory key
+or an explicit migration; the displayed name becomes Commander +4.
+
+Create original code, screen artwork, models, sounds and circuits. Retain
+Commander +4 and Fast Hack'em as the approved proposed names, with a
+name/rights check before public release; this does not authorize copying
+historical software or branding.
+
+Historical references:
+[Plus/4 photographs and hardware](https://en.wikipedia.org/wiki/Plus/4),
+[Fast Hack'em history](https://en.wikipedia.org/wiki/Fast_Hack%27em),
+[Paradroid takeover rules](https://www.c64-wiki.com/wiki/Paradroid#Hints).
 
 ## 7. The void crossing
 

@@ -241,6 +241,7 @@ Sub EnsureInit()
 	__ready = True
 	ASCENT = "70315"
 	ITEMS = New Dictionary
+	ITEMS("interface_translator") = Array("INTERFACE TRANSLATOR", 0, "Narcean technicians' script lexicon. Orac supplies English; security can disrupt live readings, not recorded clues.")
 	ITEMS("psionic_screwdriver") = Array("PSIONIC SCREWDRIVER", 400, "Orac's name for a Narcean lock-coupling kit. F at a sealed door to hack it.")
 	ITEMS("rad_meter") = Array("RAD METER", 120, "Suit dosimeter. Shows radiation and lets Orac warn you.")
 	ITEMS("jetpack") = Array("JETPACK", 2500, "Hold Space in the air to thrust. Recharges on the ground.")
@@ -340,6 +341,16 @@ End Function
 Function has_item(ByVal city As Node, ByVal id As String) As Boolean
 	If Not city.pack.has(id) Then Return False
 	Return Int(city.pack(id)) > 0
+End Function
+
+Function interface_lexicon_ready(ByVal city As Node) As Boolean
+	If Not city.campaign_mode And Not city.yard_mode Then Return True
+	Return has_item(city, "interface_translator")
+End Function
+
+Function pickup_readable(ByVal city As Node, ByVal entry As Dictionary) As Boolean
+	If entry("item") <> "psionic_screwdriver" Then Return True
+	Return interface_lexicon_ready(city)
 End Function
 
 Sub ensure_state(ByVal city As Node)
@@ -648,16 +659,18 @@ Sub _frame(ByVal city As Node, ByVal code As String, ByVal w As Single, ByVal l 
 	areas.append(Rect2(-hw, 0, w, l))
 	areas.append(Rect2(-3, -7.2, 6, 7.5))
 	If draw_floor Then _deco(city, Vector3(-hw, -0.3, 0), Vector3(w, 0.3, l), floor_color)
-	_deco(city, Vector3(-hw, h, 0), Vector3(w, 0.3, l), city.INK)
+	If code <> "88216" Then _deco(city, Vector3(-hw, h, 0), Vector3(w, 0.3, l), city.INK)
 	_deco(city, Vector3(-hw - 0.4, 0, 0), Vector3(0.4, h, l), wall_color)
 	_deco(city, Vector3(hw, 0, 0), Vector3(0.4, h, l), wall_color)
 	_deco(city, Vector3(-hw, 0, l), Vector3(w, h, 0.4), wall_color)
 	_solid(city, Rect2(-hw, 0, hw - 2, 0.3), 0.0, h, wall_color)
 	_solid(city, Rect2(2, 0, hw - 2, 0.3), 0.0, h, wall_color)
 	_deco(city, Vector3(-2, 4.55, 0), Vector3(4, h - 4.55, 0.3), wall_color)
-	For z = 6 To Int(l) - 2 Step 10
-		_deco(city, Vector3(-3, h - 0.06, z), Vector3(6, 0.05, 0.4), city.ICE * 0.6, True)
-	Next
+	If code <> "88216" Then
+		For z = 6 To Int(l) - 2 Step 10
+			_deco(city, Vector3(-3, h - 0.06, z), Vector3(6, 0.05, 0.4), city.ICE * 0.6, True)
+		Next
+	End If
 	_alcove(city, code)
 End Sub
 
@@ -1196,7 +1209,7 @@ Sub _layout_cistern(ByVal city As Node)
 	water = Color(0.1, 0.6, 0.65)
 	_frame(city, "66038", 56, 70, 14, city.SHELL * 0.5, city.SHELL * 0.7, True)
 	_zone(Rect2(-10, 25, 20, 20), 6.0, 0.45, 0.3)
-	_deco(city, Vector3(-10, 0.02, 25), Vector3(20, 0.03, 20), water * 0.35, True)
+	_water(city, Rect2(-10, 25, 20, 20), 0.05, -1, water, city.SHELL * 0.7, False)
 	For Each pair In Array(Array(Vector3(-10, 0.1, 25), Vector3(10, 0.1, 25)), Array(Vector3(-10, 0.1, 45), Vector3(10, 0.1, 45)), Array(Vector3(-10, 0.1, 25), Vector3(-10, 0.1, 45)), Array(Vector3(10, 0.1, 25), Vector3(10, 0.1, 45)))
 		_line3(city, pair(0), pair(1), 0.08, water)
 	Next
@@ -1545,7 +1558,7 @@ Sub _layout_archive(ByVal city As Node)
 	_tiles(city, Rect2(3.6, 46.6, 26.4, 4.8), 2.6)
 	_sign(city, Vector3(3.2, 3.4, 49), Vector3(-1, 0, 0), "717", "SECURITY FLOOR - PULSE ACTIVE")
 	link = _cable(city, Vector2(11, 70), 2.8, 0.4)
-	_water(city, Rect2(3.4, 56, 16.4, 27.8), 0.04, link)
+	_water(city, Rect2(3.4, 56, 16.4, 27.8), 0.04, link, glow, wall)
 	_solid(city, Rect2(5, 74, 3, 6), 0.0, 0.9, wall * 0.5)
 	_pickup("58120", "anti_rad", Vector3(16, 0.0, 80))
 	_sign(city, Vector3(10.5, 3.4, 52.2), Vector3(0, 0, 1), "40", "STAFF REST")
@@ -1618,7 +1631,7 @@ Sub _layout_garden(ByVal city As Node)
 	_sign(city, Vector3(-11, 3.0, 41.4), Vector3(0, 0, -1), "717", "IRRIGATION GRID - PULSE ACTIVE")
 	' Flooded lower beds and the waterfall.
 	link = _cable(city, Vector2(24, 52), 2.6, 0.0)
-	_water(city, Rect2(10.2, 40, 24.6, 49.8), 0.05, link)
+	_water(city, Rect2(10.2, 40, 24.6, 49.8), 0.05, link, leaf * 0.75 + grow * 0.25, stone)
 	_deco(city, Vector3(15, 15.0, 89.0), Vector3(8, 1.0, 1.0), stone)
 	_fall(city, 16.0, 22.0, 89.6, 15.0, 6.0, water)
 	_pickup("36912", "med_gel", Vector3(30, 0.0, 84))
@@ -2249,12 +2262,13 @@ Function sun_state(ByVal city As Node) As Array
 	If h < 6.0 Or h >= 18.0 Then Return Array(Vector3(-114, 52, 160), Vector3(0, 0, 0), False, 0.0)
 	u = (h - 6.0) / 12.0
 	lift = Sin(u * PI)
-	Return Array(Vector3(112.0 - 224.0 * u, 50.0 + 5.0 * lift, 160.0), Vector3(1.0, 0.22, 0.1) * sun_glow(), True, u)
+	Return Array(Vector3(112.0 - 224.0 * u, dome_height(112.0 - 224.0 * u, 160.0) - 5.0, 160.0), Vector3(1.0, 0.22, 0.1) * sun_glow(), True, u)
 End Function
 
 ' A projected advert: a roof emitter, the beam is built with the props.
 Sub _holo(ByVal city As Node, ByVal kind As String, ByVal c As Vector3, ByVal src As Vector3, ByVal size As Single, ByVal color As Color, ByVal translation As String)
 	Dim entry As Dictionary
+	Dim roof_y As Single
 	entry = New Dictionary
 	entry("kind") = kind
 	entry("c") = c
@@ -2268,8 +2282,10 @@ Sub _holo(ByVal city As Node, ByVal kind As String, ByVal c As Vector3, ByVal sr
 	_sign_data(c, Vector3(0, 0, 1), translation)
 	signs(signs.size() - 1)("range") = 90.0
 	If Not drawing Then Exit Sub
+	roof_y = lv_h
+	If city.floor_code = "88216" Then roof_y = dome_height(src.x, src.z)
 	If src.y > lv_h - 2.0 Then
-		city._box(Vector3(src.x - 1.6, src.y - 0.1, src.z - 1.6), Vector3(3.2, lv_h - src.y + 0.1, 3.2), city.INK)
+		city._box(Vector3(src.x - 1.6, src.y - 0.1, src.z - 1.6), Vector3(3.2, roof_y - src.y + 0.1, 3.2), city.INK)
 		city._box(Vector3(src.x - 0.8, src.y - 0.24, src.z - 0.8), Vector3(1.6, 0.14, 1.6), color, True)
 		city._bar(Vector3(src.x - 1.6, src.y - 0.1, src.z - 1.6), Vector3(src.x + 1.6, src.y - 0.1, src.z - 1.6), 0.06, color * 0.6, True)
 		city._bar(Vector3(src.x - 1.6, src.y - 0.1, src.z + 1.6), Vector3(src.x + 1.6, src.y - 0.1, src.z + 1.6), 0.06, color * 0.6, True)
@@ -2281,26 +2297,61 @@ Sub _holo(ByVal city As Node, ByVal kind As String, ByVal c As Vector3, ByVal sr
 	city._bar(Vector3(src.x - 1.2, src.y + 0.5, src.z + 1.2), Vector3(src.x + 1.2, src.y + 0.5, src.z + 1.2), 0.06, color * 0.6, True)
 End Sub
 
-' Roof ribs, warning lamps at the joints and the sun's ceiling track with its two docks.
+Function dome_height(ByVal x As Single, ByVal z As Single) As Single
+	Dim u As Single
+	Dim v As Single
+	u = Max(-1.0, Min(1.0, x / 120.0))
+	v = Max(-1.0, Min(1.0, (z - 144.0) / 144.0))
+	Return 60.0 + 26.0 * Cos(u * PI * 0.5) * Cos(v * PI * 0.5)
+End Function
+
+' A continuous shallow dome meets the retaining walls at 60 m; ribs follow its curvature.
 Sub _uc_sky(ByVal city As Node)
 	Dim rib As Color
+	Dim x0 As Single
+	Dim x1 As Single
+	Dim z0 As Single
+	Dim z1 As Single
+	Dim a As Vector3
+	Dim b As Vector3
+	Dim c As Vector3
+	Dim d As Vector3
 	If Not drawing Then Exit Sub
 	rib = Color(0.03, 0.032, 0.04)
+	For x = 0 To 39
+		x0 = -120.0 + x * 6.0
+		x1 = x0 + 6.0
+		For z = 0 To 47
+			z0 = z * 6.0
+			z1 = z0 + 6.0
+			a = Vector3(x0, dome_height(x0, z0), z0)
+			b = Vector3(x1, dome_height(x1, z0), z0)
+			c = Vector3(x1, dome_height(x1, z1), z1)
+			d = Vector3(x0, dome_height(x0, z1), z1)
+			city._quad(a, b, c, d, Color(0.018, 0.022, 0.032), False, Vector3(0, -1, 0))
+		Next
+	Next
 	For x = -96 To 96 Step 24
-		city._box(Vector3(x - 0.6, lv_h - 1.6, 0), Vector3(1.2, 1.6, lv_l), rib)
+		For z = 0 To 282 Step 6
+			city._bar(Vector3(x, dome_height(x, z) - 0.5, z), Vector3(x, dome_height(x, z + 6) - 0.5, z + 6), 0.6, rib)
+		Next
 	Next
 	For z = 24 To 264 Step 24
-		city._box(Vector3(-lv_w * 0.5, lv_h - 1.2, z - 0.5), Vector3(lv_w, 1.2, 1.0), rib)
+		For x = -120 To 114 Step 6
+			city._bar(Vector3(x, dome_height(x, z) - 0.5, z), Vector3(x + 6, dome_height(x + 6, z) - 0.5, z), 0.6, rib)
+		Next
 	Next
 	For x = -96 To 96 Step 48
 		For z = 24 To 264 Step 48
-			city._box(Vector3(x - 0.25, lv_h - 1.85, z - 0.25), Vector3(0.5, 0.25, 0.5), Color(1.0, 0.12, 0.08) * 0.7, True)
+			city._box(Vector3(x - 0.25, dome_height(x, z) - 1.0, z - 0.25), Vector3(0.5, 0.25, 0.5), Color(1.0, 0.12, 0.08) * 0.7, True)
 		Next
 	Next
-	city._box(Vector3(-116, lv_h - 2.4, 159.4), Vector3(232, 0.5, 1.2), city.INK)
-	city._bar(Vector3(-116, lv_h - 2.45, 160), Vector3(116, lv_h - 2.45, 160), 0.12, Color(1.0, 0.25, 0.1) * 0.35, True)
+	For x = -116 To 110 Step 6
+		city._bar(Vector3(x, dome_height(x, 160) - 2.0, 160), Vector3(x + 6, dome_height(x + 6, 160) - 2.0, 160), 0.6, city.INK)
+		city._bar(Vector3(x, dome_height(x, 160) - 2.45, 160), Vector3(x + 6, dome_height(x + 6, 160) - 2.45, 160), 0.12, Color(1.0, 0.25, 0.1) * 0.35, True)
+	Next
 	For Each sx In Array(-1.0, 1.0)
-		city._box(Vector3(sx * 116 - 4, 42, 152), Vector3(8, lv_h - 42, 16), Color(0.025, 0.028, 0.036))
+		city._box(Vector3(sx * 116 - 4, 42, 152), Vector3(8, dome_height(sx * 116, 160) - 42, 16), Color(0.025, 0.028, 0.036))
 		city._bar(Vector3(sx * 116 - 4.05, 42.2, 152), Vector3(sx * 116 - 4.05, 42.2, 168), 0.15, Color(1.0, 0.3, 0.1) * 0.6, True)
 		city._bar(Vector3(sx * 116 + 4.05, 42.2, 152), Vector3(sx * 116 + 4.05, 42.2, 168), 0.15, Color(1.0, 0.3, 0.1) * 0.6, True)
 	Next
@@ -2611,16 +2662,21 @@ Function _cable(ByVal city As Node, ByVal p As Vector2, ByVal period As Single, 
 End Function
 
 ' Standing water: slows you and conducts the linked cable while it arcs.
-Sub _water(ByVal city As Node, ByVal r As Rect2, ByVal y As Single, ByVal link As Integer)
+Sub _water(ByVal city As Node, ByVal r As Rect2, ByVal y As Single, ByVal link As Integer, Optional reflection As Variant, Optional room As Variant, Optional slow_zone As Boolean = True)
 	Dim entry As Dictionary
+	If reflection = Nothing Then reflection = Color(0.2, 0.85, 1.0)
+	If room = Nothing Then room = Color(0.02, 0.025, 0.04)
 	entry = New Dictionary
 	entry("r") = r
 	entry("y") = y
 	entry("link") = link
 	entry("node") = Nothing
+	entry("material") = Nothing
+	entry("reflection") = reflection
+	entry("room") = room
 	waters.append(entry)
-	_zone(r, 0.0, 0.55, y + 0.3)
-	_deco(city, Vector3(r.position.x, y - 0.02, r.position.y), Vector3(r.size.x, 0.02, r.size.y), Color(0.1, 0.55, 0.65) * 0.28, True)
+	If slow_zone Then _zone(r, 0.0, 0.55, y + 0.3)
+	_deco(city, Vector3(r.position.x, y - 0.02, r.position.y), Vector3(r.size.x, 0.02, r.size.y), Color(0.018, 0.024, 0.03))
 End Sub
 
 Function water_live(ByVal entry As Dictionary) As Boolean
@@ -3652,10 +3708,25 @@ Sub _build_city_props(ByVal city As Node)
 		entry("node").visible = live
 	Next
 	For Each entry In AsArray(waters)
-		For k = 0 To 3
-			city._bar(Vector3(0.3, 0.0, 0.2 + k * 0.25), Vector3(entry("r").size.x - 0.3, 0.0, 0.2 + k * 0.25 + 0.4), 0.03, Color(0.4, 0.9, 1.0) * 0.5, True)
-		Next
-		entry("node") = _attach(city, "WaterRipple", Vector3(entry("r").position.x, Num(entry("y")) + 0.01, entry("r").position.y))
+		quad = ClassDB.Instantiate("QuadMesh")
+		quad.size = entry("r").size
+		mat = ClassDB.Instantiate("ShaderMaterial")
+		mat.shader = Load("res://shaders/undercity_puddle.gdshader")
+		mat.set_shader_parameter("rectangular", True)
+		mat.set_shader_parameter("reflection_tint", entry("reflection"))
+		mat.set_shader_parameter("room_tint", entry("room") * 0.18)
+		mat.set_shader_parameter("power", 1.0)
+		If city.floor_code = "88216" And Not grid_power Then mat.set_shader_parameter("power", 0.0)
+		node = ClassDB.Instantiate("MeshInstance3D")
+		node.name = "FloodWater"
+		node.mesh = quad
+		node.material_override = mat
+		node.cast_shadow = 0
+		city.interior.add_child(node)
+		node.position = Vector3(entry("r").get_center().x, Num(entry("y")) + 0.015, entry("r").get_center().y)
+		node.rotation.x = -PI * 0.5
+		entry("node") = node
+		entry("material") = mat
 	Next
 	If screens.size() > 0 Then
 		If ad_shader = Nothing Then ad_shader = Load("res://shaders/undercity_ads.gdshader")
@@ -4175,8 +4246,8 @@ Sub _build_sun(ByVal city As Node)
 	smat.shading_mode = 0
 	smat.albedo_color = Color(0.06, 0.03, 0.03)
 	box = ClassDB.Instantiate("BoxMesh")
-	box.size = Vector3(0.7, 8.0, 0.7)
-	_holo_part(sun_node, box, Vector3(0, 7.0, 0), Vector3(1, 1, 1), smat)
+	box.size = Vector3(0.7, 1.8, 0.7)
+	_holo_part(sun_node, box, Vector3(0, 2.1, 0), Vector3(1, 1, 1), smat)
 	box = ClassDB.Instantiate("BoxMesh")
 	box.size = Vector3(4.0, 0.5, 1.6)
 	_holo_part(sun_node, box, Vector3(0, 3.4, 0), Vector3(1, 1, 1), smat)
@@ -4242,8 +4313,14 @@ Sub _animate_city(ByVal city As Node, ByVal t As Single)
 		End If
 	Next
 	For Each entry In AsArray(waters)
-		node = entry("node")
-		If node <> Nothing Then node.position.z = entry("r").position.y + FPosMod(t * 0.4, 1.0) * (entry("r").size.y - 1.2)
+		If entry("material") <> Nothing Then
+			If water_live(entry) Then
+				entry("material").set_shader_parameter("electrical", 1.0)
+			Else
+				entry("material").set_shader_parameter("electrical", 0.0)
+			End If
+			If uc Then entry("material").set_shader_parameter("sun_color", sun_state(city)(1))
+		End If
 	Next
 	For Each entry In AsArray(holos)
 		_animate_holo(city, entry, t)
@@ -4485,6 +4562,24 @@ Sub build_dynamic(ByVal city As Node)
 		End If
 	End If
 End Sub
+
+Function face_voice_focus(ByVal city As Node) As Single
+	Dim entry As Dictionary
+	Dim center As Vector3
+	Dim distance As Single
+	Dim focus As Single
+	If city.place <> "floor" Or city.floor_code <> "88216" Then Return 0.0
+	If Not powered(city) Then Return 0.0
+	focus = 0.0
+	For Each entry In AsArray(holos)
+		If entry("kind") = "face" Then
+			center = entry("c")
+			distance = city.position_xz.distance_to(Vector2(center.x, center.z))
+			focus = Max(focus, Max(0.0, Min(1.0, (65.0 - distance) / 40.0)))
+		End If
+	Next
+	Return focus
+End Function
 
 ' 3D loops on moving trains and hologram projectors; the talking face gets a murmur voice.
 Sub _attach_sounds(ByVal city As Node)
@@ -4814,6 +4909,10 @@ End Sub
 
 Sub _collect(ByVal city As Node, ByVal entry As Dictionary)
 	Dim id As String
+	If Not pickup_readable(city, entry) Then
+		city.notify("ORAC: I cannot identify these service keys. Find the Interface Translator in a yard archive first; leave the programmer here.")
+		Exit Sub
+	End If
 	id = entry("item")
 	city.stratum("taken")(entry("key")) = True
 	If city.pack.has(id) Then
@@ -4954,7 +5053,7 @@ Sub physics(ByVal city As Node, ByVal delta As Single)
 	For Each entry In AsArray(pickups)
 		If Not st("taken").has(entry("key")) Then
 			item_p = entry("p")
-			If p.distance_to(Vector2(item_p.x, item_p.z)) < 1.4 And Abs(item_p.y - fy) < 1.5 Then _collect(city, entry)
+			If p.distance_to(Vector2(item_p.x, item_p.z)) < 1.4 And Abs(item_p.y - fy) < 1.5 And pickup_readable(city, entry) Then _collect(city, entry)
 		End If
 	Next
 	_city_physics(city, delta)
@@ -5062,6 +5161,14 @@ Function use(ByVal city As Node) As Boolean
 		If city.awakening Then city.notify("ORAC: Ascent code " & ASCENT & ". Enter it, Jason!")
 		Return True
 	End If
+	For Each entry In AsArray(pickups)
+		If Not city.stratum("taken").has(entry("key")) And Not pickup_readable(city, entry) Then
+			If city.position_xz.distance_to(Vector2(entry("p").x, entry("p").z)) < 1.4 And Abs(entry("p").y - foot(city)) < 1.5 Then
+				_collect(city, entry)
+				Return True
+			End If
+		End If
+	Next
 	c = _near_console(city)
 	If c <> Nothing Then
 		fresh = ""
@@ -5113,7 +5220,9 @@ Function use(ByVal city As Node) As Boolean
 		If Not grid_power Then
 			city.notify("ORAC: A Narcean groundcar. Its cells are flat - nothing on this grid has power.")
 		ElseIf Not city.stratum("hacked").has(e("id")) Then
-			If has_item(city, "psionic_screwdriver") Then
+			If Not interface_lexicon_ready(city) Then
+				city.notify("ORAC: Find the Interface Translator in a yard archive first. I cannot read the programmer's Narcean keys without its lexicon.")
+			ElseIf has_item(city, "psionic_screwdriver") Then
 				city.sfx("hack_tick", -4.0)
 				_start_hack(e)
 			Else
@@ -5129,7 +5238,9 @@ Function use(ByVal city As Node) As Boolean
 	End If
 	g = _near_gate(city)
 	If g <> Nothing Then
-		If has_item(city, "psionic_screwdriver") Then
+		If Not interface_lexicon_ready(city) Then
+			city.notify("ORAC: Find the Interface Translator in a yard archive first. I cannot read the programmer's Narcean keys without its lexicon.")
+		ElseIf has_item(city, "psionic_screwdriver") Then
 			city.sfx("hack_tick", -4.0)
 			_start_hack(g)
 		Else
@@ -5304,15 +5415,22 @@ Function prompt(ByVal city As Node) As String
 		Return "DEPARTURES / NO SERVICE"
 	End If
 	If _near_tower_lift(city) <> Nothing Then Return "TOWER LIFT / F: RIDE"
+	For Each entry In AsArray(pickups)
+		If Not city.stratum("taken").has(entry("key")) And Not pickup_readable(city, entry) Then
+			If city.position_xz.distance_to(Vector2(entry("p").x, entry("p").z)) < 1.4 And Abs(entry("p").y - foot(city)) < 1.5 Then Return "UNREADABLE SERVICE KEYS / F: INSPECT / FIND INTERFACE TRANSLATOR IN YARD ARCHIVES"
+		End If
+	Next
 	g = _near_car(city)
 	If g <> Nothing Then
 		If Not grid_power Then Return "GROUNDCAR / NO POWER"
 		If city.stratum("hacked").has(g("id")) Then Return "GROUNDCAR / F: DRIVE"
+		If Not interface_lexicon_ready(city) Then Return "GROUNDCAR / NEED INTERFACE TRANSLATOR BEFORE PROGRAMMER"
 		If has_item(city, "psionic_screwdriver") Then Return "GROUNDCAR / F: PSIONIC SCREWDRIVER"
 		Return "GROUNDCAR / KEYED - NEED A COUPLING KIT"
 	End If
 	g = _near_gate(city)
 	If g <> Nothing Then
+		If Not interface_lexicon_ready(city) Then Return "SEALED DOOR / NEED INTERFACE TRANSLATOR BEFORE PROGRAMMER"
 		If has_item(city, "psionic_screwdriver") Then Return "SEALED DOOR / F: PSIONIC SCREWDRIVER"
 		Return "SEALED DOOR / NEED A COUPLING KIT"
 	End If
@@ -5347,6 +5465,7 @@ Function visor_text(ByVal city As Node) As String
 	Dim reach As Single
 	Call EnsureInit()
 	If city.place <> "floor" Then Return ""
+	If Not interface_lexicon_ready(city) Then Return ""
 	ensure_layout(city)
 	If in_alcove(city.position_xz) Then
 		Return "LIFT CAR " & PadInt(Int(LEVELS(city.floor_code)(1)), 2) & " / " & level_label(city.floor_code)

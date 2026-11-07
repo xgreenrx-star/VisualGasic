@@ -14,7 +14,7 @@ Sub new_run(ByVal yard As Object)
 	orac_online = True
 	visit_number = 1
 	last_error = ""
-	city.notify("ORAC: Welcome to Narcea, Jason. Search the depots. We need a power coupler before a loaded departure.")
+	city.notify("ORAC: Welcome to Narcea, Jason. Start at a lit yard building; F at the door, then F at its rear workbench.")
 End Sub
 
 Function stage() As String
@@ -24,9 +24,7 @@ Function stage() As String
 End Function
 
 Function objective() As String
-	If city.completed Then Return "Coupler installed / first expedition complete"
-	If city.awakening Then Return "Return to the Ash and install the power coupler"
-	Return "Search depots and archives / locate a compatible power coupler"
+	Return city.mission_objective()
 End Function
 
 Function snapshot(ByVal yard As Object) As Dictionary
@@ -246,6 +244,7 @@ Function load_game(ByVal yard As Object) As Boolean
 	Dim saved_pack As Variant
 	Dim saved_state As Variant
 	Dim saved_rad As Variant
+	Dim restored_lexicon As Boolean
 	last_error = ""
 	config = ClassDB.Instantiate("ConfigFile")
 	error_code = config.load(save_path)
@@ -272,6 +271,8 @@ Function load_game(ByVal yard As Object) As Boolean
 		city.set(field_name, data(field_name))
 	Next
 	city.pack = saved_pack.duplicate(True)
+	restored_lexicon = city.deep.has_item(city, "psionic_screwdriver") And Not city.deep.has_item(city, "interface_translator")
+	If restored_lexicon Then city.pack("interface_translator") = 1
 	city.stratum = saved_state.duplicate(True)
 	city.radiation = saved_rad
 	city.deep.ensure_state(city)
@@ -279,6 +280,10 @@ Function load_game(ByVal yard As Object) As Boolean
 	orac_online = True
 	visit_number = 1
 	If city.awakening And Not city.failed Then city.audio.play()
-	city.notify("ORAC: Expedition restored, Jason. " & objective())
+	If restored_lexicon Then
+		city.notify("ORAC: Legacy programmer lexicon restored as an Interface Translator. Your existing equipment remains usable. " & objective())
+	Else
+		city.notify("ORAC: Expedition restored, Jason. " & objective())
+	End If
 	Return True
 End Function

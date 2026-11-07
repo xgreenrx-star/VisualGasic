@@ -60,6 +60,7 @@ Sub _Ready()
 	game.opt_detail = 1
 	view = game.GetNode("Presentation")
 	campaign = game.campaign
+	aa_checks()
 	check(game.opt_music >= 0.0 And game.opt_music <= 1.0 And game.opt_sfx >= 0.0 And game.opt_sfx <= 1.0, "options_audio_levels_loaded")
 	check(AudioServer.get_bus_index("Music") >= 0 And AudioServer.get_bus_index("SFX") >= 0, "options_audio_buses_created")
 	audio_music = game.opt_music
@@ -76,6 +77,111 @@ Sub _Ready()
 	game.title_i = 0
 End Sub
 
+Sub aa_checks()
+	Dim previous As Integer
+	Dim mode As Integer
+	Dim names As Array
+	Dim samples As Array
+	Dim source As Object
+	Dim result As Object
+	previous = game.opt_aa
+	names = Array("OFF", "MSAA 2X", "MSAA 4X", "MSAA 8X", "FXAA", "MSAA 4X + FXAA")
+	samples = Array(0, 1, 2, 3, 0, 2)
+	For mode = 0 To 5
+		game.opt_aa = mode
+		game.ApplyAntialiasing()
+		check(game.AntialiasingName() = names(mode), "options_aa_label_" & Str(mode))
+		check(view.viewport.msaa_3d = samples(mode) And view.fxaa_enabled = (mode >= 4), "options_aa_applied_" & Str(mode))
+	Next
+	source = view.viewport.get_texture()
+	result = view.filter_world(source)
+	check(result <> source And view.fxaa_canvas.texture = source, "options_fxaa_filters_world_texture")
+	check(view.fxaa_view.disable_3d And view.fxaa_canvas.material.shader.resource_path = "res://shaders/world_fxaa.gdshader", "options_fxaa_uses_canvas_pass")
+	game.opt_aa = 0
+	game.ApplyAntialiasing()
+	check(view.filter_world(source) = source And view.fxaa_view.render_target_update_mode = SubViewport.UPDATE_DISABLED, "options_fxaa_off_bypasses_pass")
+	check(game.OptionY(11) + 26.0 < 520.0 And game.OptionY(1) - game.OptionY(0) > 32.0, "options_aa_row_and_back_fit")
+	game.opt_aa = previous
+	game.ApplyAntialiasing()
+End Sub
+
+Sub mission_checks()
+	Dim i As Integer
+	Dim lines As Array
+	Dim text As String
+	Dim entry_text As Variant
+	Dim font As Object
+	font = ThemeDB.fallback_font
+	check(Not yard.mission_briefing_visible(), "campaign_briefing_hidden_at_touchdown")
+	check(view.KEYS.has(KEY_F1), "campaign_f1_registered_for_input")
+	key(KEY_F1, True)
+	view.sample_input()
+	yard.tick(0.0, view)
+	key(KEY_F1, False)
+	view.sample_input()
+	check(yard.mission_briefing_visible(), "campaign_briefing_toggle_opens")
+	lines = yard.mission_briefing()
+	check(lines.size() = 4 And lines(0).contains("Jason") And lines(0).contains("scavenger") And lines(1).contains("assistant"), "campaign_briefing_identifies_player_and_orac")
+	check(lines(2).contains("cannot leave loaded") And lines(2).contains("below the yard") And lines(3).contains("door and press F"), "campaign_briefing_explains_mission_and_first_action")
+	For Each entry_text In lines
+		check(font.get_string_size(entry_text, 0, -1, 12).x <= 709, "campaign_briefing_line_fits_card")
+	Next
+	text = campaign.objective()
+	check(text.contains("workbenches") And text.contains("lift code") And text.contains("Interface Translator before the programmer") And Not text.contains("FEB") And Not text.contains("alarm"), "campaign_initial_job_explains_translator_and_glyphs_without_spoilers")
+	yard.message_left = 0
+	check(yard.mission_briefing_visible() And campaign.objective() = text, "campaign_guidance_outlasts_notifications")
+	yard.driving = True
+	check(yard.mission_briefing_visible() And campaign.objective() = text, "campaign_guidance_available_in_buggy")
+	yard.driving = False
+	yard.place = "building"
+	yard.building_index = 0
+	yard.position_xz = Vector2(0, 14)
+	yard.use_object()
+	check(yard.deep.has_item(yard, "interface_translator") And yard.message.contains("Narcean technicians") And yard.message.contains("I supply the English"), "campaign_first_archive_finds_narcean_lexicon")
+	check(yard.discovered(0) = yard.FEB_CODE.substr(0, 1), "campaign_translator_pickup_also_records_archive")
+	yard.use_object()
+	check(yard.pack("interface_translator") = 1, "campaign_translator_cannot_be_farmed")
+	yard.place = "surface"
+	check(yard.mission_briefing_visible() And campaign.objective().contains("1/5"), "campaign_briefing_remains_available_after_first_archive")
+	yard.toggle_briefing()
+	check(Not yard.mission_briefing_visible(), "campaign_briefing_toggle_closes")
+	yard.toggle_briefing()
+	check(yard.mission_briefing_visible(), "campaign_briefing_can_be_reopened")
+	For i = 1 To 4
+		yard.discovered(i) = yard.FEB_CODE.substr(i, 1)
+	Next
+	check(campaign.objective().contains("rear lift panel") And campaign.objective().contains("left to right"), "campaign_full_journal_directs_to_transit")
+	yard.place = "lift"
+	check(campaign.objective().contains("underground records"), "campaign_lift_job_keeps_search_direction")
+	yard.place = "floor"
+	yard.floor_code = "31707"
+	check(campaign.objective().contains("learned addresses"), "campaign_intermediate_floor_job_explains_progression")
+	yard.floor_code = "88216"
+	check(campaign.objective().contains("three bus levers"), "campaign_dark_city_job_explains_transfer_station")
+	yard.stratum("levers")("88216:L0") = True
+	check(campaign.objective().contains("three bus levers"), "campaign_partial_bus_job_stays_until_powered")
+	yard.stratum("powered") = True
+	check(campaign.objective().begins_with("Grid restored."), "campaign_powered_city_job_advances")
+	yard.floor_code = yard.FEB_CODE
+	check(campaign.objective().contains("amber service socket"), "campaign_coupler_floor_job_names_interaction")
+	yard.awakening = True
+	check(campaign.objective().begins_with("Return to the Ash."), "campaign_awakened_job_directs_escape")
+	yard.failed = True
+	check(campaign.objective().contains("retry"), "campaign_failed_job_names_checkpoint")
+	yard.failed = False
+	yard.completed = True
+	check(campaign.objective().contains("expedition complete"), "campaign_completed_job_retires_search")
+	campaign.new_run(yard)
+	lines = yard.hud.wrap_lines("CURRENT JOB: " & campaign.objective(), 112)
+	check(lines.size() <= 2, "campaign_job_fits_two_line_header")
+	For Each entry_text In lines
+		check(font.get_string_size(entry_text, 0, -1, 12).x <= 916, "campaign_job_line_fits_header")
+	Next
+	yard.trace_escape = True
+	check(Not yard.mission_briefing_visible(), "campaign_briefing_hidden_in_trace_escape")
+	yard.trace_escape = False
+End Sub
+
 Sub persistence_checks()
 	Dim invalid As Dictionary
 	Dim config As Object
@@ -87,6 +193,8 @@ Sub persistence_checks()
 	check(campaign.orac_online And campaign.visit_number = 1 And yard.campaign_mode, "campaign_jason_orac_first_visit")
 	check(campaign.stage() = "first_salvage" And yard.message.contains("Jason") And yard.message.contains("ORAC"), "campaign_new_story_and_objective")
 	check(Not yard.message.contains("ZEN") And Not yard.message.contains("OFFLINE"), "campaign_no_ai_failure_on_arrival")
+	mission_checks()
+	translator_checks()
 	initial = campaign.snapshot(yard)
 	check(initial.size() = 32, "campaign_snapshot_has_all_fields")
 	yard.position_xz = Vector2(0, 396)
@@ -99,6 +207,7 @@ Sub persistence_checks()
 	game.SaveRun()
 	check(game.save_msg = "CAMPAIGN SAVED" And FileExists(campaign.save_path), "campaign_atomic_save_succeeds")
 	check(Not FileExists(campaign.save_path & ".tmp"), "campaign_temporary_save_committed")
+	check(campaign.load_game(yard) And Not yard.mission_briefing_visible(), "campaign_load_before_first_archive_keeps_briefing_closed")
 	yard.position_xz = Vector2(-41, 36)
 	yard.use_object()
 	yard.position_xz = Vector2(0, 14)
@@ -110,6 +219,8 @@ Sub persistence_checks()
 	yard.position_xz = Vector2(0, 3)
 	check(campaign.load_game(yard), "campaign_interior_load_succeeds")
 	check(campaign.snapshot(yard) = saved, "campaign_all_persistent_fields_round_trip")
+	check(yard.deep.has_item(yard, "interface_translator") And Not yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_found_translator_saves_before_programmer")
+	check(Not yard.mission_briefing_visible() And campaign.objective().contains("1/5"), "campaign_loaded_archive_keeps_briefing_retired")
 	check(yard.pending_room And campaign.orac_online And Not yard.inventory.has("regulator"), "campaign_restore_rebuilds_transients_without_inventing_items")
 	prior_save = ReadAllText(campaign.save_path)
 	before = campaign.snapshot(yard)
@@ -161,6 +272,7 @@ Sub persistence_checks()
 	yard.radiation = 0
 	check(campaign.load_game(yard), "campaign_deep_stratum_load_succeeds")
 	check(yard.pack("gold_bar") = 2 And yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_pack_round_trip")
+	check(yard.deep.has_item(yard, "interface_translator"), "campaign_translator_persists_with_programmer")
 	check(yard.stratum("codes").has("66038") And Abs(yard.radiation - 12.5) < 0.001, "campaign_stratum_progress_round_trip")
 	table = New Dictionary
 	table("laser_cannon") = 1
@@ -248,6 +360,72 @@ Sub persistence_checks()
 	check(campaign.stage() <> "return_ambush", "campaign_first_departure_does_not_start_old_fight")
 	check(FileExists("user://ash_meridian_save.txt") = legacy_existed, "campaign_does_not_create_or_delete_legacy_save")
 	If legacy_existed Then check(ReadAllText("user://ash_meridian_save.txt") = legacy_save, "campaign_legacy_save_bytes_unchanged")
+End Sub
+
+Sub translator_checks()
+	Dim deep As Object
+	Dim entry As Dictionary
+	Dim candidate As Dictionary
+	deep = yard.deep
+	campaign.new_run(yard)
+	check(Not deep.interface_lexicon_ready(yard), "campaign_no_translator_from_source")
+	check(campaign.save_game() And campaign.load_game(yard) And Not deep.has_item(yard, "interface_translator"), "campaign_empty_save_does_not_grant_translator")
+	yard.place = "floor"
+	yard.floor_code = "52914"
+	yard.position_xz = Vector2(0, -4.8)
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+	check(deep.visor_text(yard) = "", "campaign_no_live_translation_without_lexicon")
+	yard.pack("psionic_screwdriver") = 1
+	yard.position_xz = deep.gates(0)("r").get_center() + Vector2(0, -1.2)
+	check(deep.use(yard) And Not deep.hacking And yard.message.contains("Interface Translator"), "campaign_programmer_cannot_hack_without_lexicon")
+	yard.pack.erase("psionic_screwdriver")
+	yard.floor_code = "88216"
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+	yard.stratum("powered") = True
+	deep.grid_power = True
+	yard.stratum("foot_y") = 6.0
+	yard.position_xz = deep._car_pos(yard, deep.cars(0)) + Vector2(2.4, 0)
+	yard.pack("psionic_screwdriver") = 1
+	check(deep.use(yard) And Not deep.hacking And yard.message.contains("Interface Translator"), "campaign_car_hack_requires_lexicon")
+	yard.pack.erase("psionic_screwdriver")
+	yard.floor_code = "52914"
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+	For Each candidate In deep.pickups
+		If candidate("item") = "psionic_screwdriver" Then entry = candidate
+	Next
+	check(entry <> Nothing, "campaign_programmer_fixture_exists")
+	If entry <> Nothing Then
+		yard.position_xz = Vector2(entry("p").x, entry("p").z)
+		deep.physics(yard, 0.05)
+		check(Not deep.has_item(yard, "psionic_screwdriver") And Not yard.stratum("taken").has(entry("key")), "campaign_programmer_not_autocollected_before_translator")
+		check(deep.prompt(yard).contains("FIND INTERFACE TRANSLATOR"), "campaign_unreadable_programmer_prompt")
+		check(deep.use(yard) And yard.message.contains("Find the Interface Translator"), "campaign_unreadable_programmer_explained_on_use")
+		yard.place = "building"
+		yard.building_index = 0
+		yard.position_xz = Vector2(0, 14)
+		yard.use_object()
+		yard.place = "floor"
+		yard.position_xz = Vector2(entry("p").x, entry("p").z)
+		deep._collect(yard, entry)
+		check(deep.has_item(yard, "psionic_screwdriver") And yard.stratum("taken").has(entry("key")), "campaign_translator_enables_programmer_recovery")
+	End If
+	yard.position_xz = Vector2(0, -4.8)
+	check(deep.visor_text(yard) <> "", "campaign_lexicon_enables_live_translation")
+	yard.awakening = True
+	yard.alarm_elapsed = 0.4
+	check(yard.hud.visor_glitch("NARCEAN SERVICE LABEL") <> "NARCEAN SERVICE LABEL", "campaign_security_disrupts_live_readout")
+	check(yard.mission_objective().begins_with("Return to the Ash.") And yard.discovered(0) = yard.FEB_CODE.substr(0, 1), "campaign_interference_preserves_english_objective_and_recorded_clue")
+	campaign.new_run(yard)
+	yard.pack("psionic_screwdriver") = 1
+	check(campaign.save_game(), "campaign_legacy_programmer_fixture_saved")
+	check(campaign.load_game(yard) And deep.has_item(yard, "interface_translator"), "campaign_legacy_programmer_gains_lexicon_on_load")
+	check(yard.message.contains("Legacy programmer lexicon restored"), "campaign_legacy_lexicon_migration_explained")
+	check(campaign.save_game(), "campaign_migrated_lexicon_saves")
+	check(campaign.load_game(yard) And yard.pack("interface_translator") = 1, "campaign_migrated_lexicon_load_is_idempotent")
+	campaign.new_run(yard)
 End Sub
 
 Sub _Process(ByVal delta As Single)

@@ -528,6 +528,7 @@ Sub _build_windows(ByVal city As Node)
 		mm.set_instance_custom_data(i, Color(Int(Num(f(2)) / 2.4), Int(Num(f(3)) / 3.2), rng.randf() * 50.0, 0))
 	Next
 	window_mat = _shader_mat("res://shaders/undercity_window.gdshader")
+	window_mat.set_shader_parameter("light_cycle_seconds", 24.0)
 	If dp.grid_power Then window_mat.set_shader_parameter("power", 1.0)
 	node = ClassDB.Instantiate("MultiMeshInstance3D")
 	node.name = "TowerWindows"
@@ -948,6 +949,7 @@ Sub animate(ByVal city As Node, ByVal t As Single)
 	For Each sm In shafts
 		sm.set_shader_parameter("strength", dp.sun_glow())
 	Next
+	If puddle_mat <> Nothing Then puddle_mat.set_shader_parameter("sun_color", dp.sun_state(city)(1))
 	If t - slow_t > 0.5 Or t < slow_t Then
 		slow_t = t
 		_slow(city, t, me_p, live)

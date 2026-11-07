@@ -1,0 +1,620 @@
+' MAX_FRAMES: 8
+Option Explicit
+
+Dim game As Object
+Dim ring As Object
+Dim view As Object
+Dim checks As Integer
+Dim failures As Integer
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub tap(ByVal code As Integer)
+	view.taps.clear()
+	view.taps(code) = True
+	ring.tick(view, 0.0)
+	view.taps.clear()
+End Sub
+
+Function find_kind(ByVal name As String) As Integer
+	Dim i As Integer
+	For i = 0 To 11
+		If ring.kinds(i) = name Then Return i
+	Next
+	Return -1
+End Function
+
+Sub practice_round()
+	ring.start()
+	ring.practice = True
+	ring.untimed = True
+	ring.set_help(False)
+	ring.begin_round()
+End Sub
+
+Sub help_checks()
+	Dim signal_age As Single
+	Dim clock_before As Single
+	Dim defense_before As Integer
+	ring.start()
+	check(ring.help_open And ring.stage = "COUNTDOWN", "startup_opens_operator_guide")
+	ring.advance(60.0)
+	check(ring.countdown = 5 And ring.remaining = 20 And ring.defense_step = 0, "startup_guide_never_runs_countdown_or_defender")
+	check(Not ring.fire() And ring.pulses = 4, "startup_cannot_spend_connectors_behind_guide")
+	tap(KEY_SPACE)
+	tap(KEY_LEFT)
+	check(ring.help_open And ring.selected = 0 And ring.pulses = 4, "guide_ignores_gameplay_keys")
+	tap(KEY_ENTER)
+	check(Not ring.help_open And ring.stage = "COUNTDOWN" And ring.countdown = 5 And ring.pulses = 4, "enter_shows_board_without_spending_time_or_connector")
+	ring.advance(1.0)
+	tap(KEY_F1)
+	ring.advance(8.0)
+	check(ring.help_open And ring.countdown = 4, "f1_freezes_opening_countdown")
+	tap(KEY_F1)
+	check(Not ring.help_open And ring.countdown = 4, "f1_returns_to_same_countdown")
+	tap(KEY_SPACE)
+	ring.advance(0.1)
+	signal_age = ring.signals(0)("age")
+	clock_before = ring.remaining
+	defense_before = ring.defense_step
+	tap(KEY_F1)
+	check(ring.help_open And ring.audio_paused And ring.audio_pool((ring.audio_next + 7) Mod 8).stream_paused, "help_pauses_running_audio")
+	ring.set_feedback_paused(False)
+	check(ring.audio_paused, "parent_visibility_cannot_unpause_help_audio")
+	ring.advance(10.0)
+	tap(KEY_SPACE)
+	tap(KEY_RIGHT)
+	tap(KEY_BACKSPACE)
+	check(ring.remaining = clock_before And ring.signals(0)("age") = signal_age And ring.defense_step = defense_before, "help_freezes_packets_timer_and_defender")
+	check(ring.stage = "RUNNING" And ring.pulses = 3 And ring.selected = 0, "help_blocks_connect_move_and_abort")
+	tap(KEY_ENTER)
+	check(Not ring.help_open And Not ring.audio_paused And ring.remaining = clock_before, "enter_resumes_without_resetting_running_match")
+	ring.advance(0.55)
+	check(ring.score(1) > 0, "suspended_packets_resume_after_help")
+	ring.finish_round()
+	tap(KEY_F1)
+	check(ring.help_open, "f1_available_on_result_screen")
+	tap(KEY_ENTER)
+	check(Not ring.help_open And ring.stage <> "COUNTDOWN", "leaving_result_help_does_not_retry")
+	tap(KEY_ENTER)
+	check(ring.help_open And ring.stage = "COUNTDOWN" And ring.pulses = 4, "fresh_board_returns_to_startup_guide")
+End Sub
+
+Sub loader_checks()
+	game.dev_i = 21
+	game.WarpDev()
+	check(game.phase = 22 And ring.loader_step = 1 And Not ring.help_open, "boot_dev_entry_opens_command_sequence")
+	ring.advance(20.0)
+	check(ring.countdown = 5 And ring.defense_step = 0 And Not ring.fire(), "loader_does_not_run_match_or_spend_connectors")
+	ring.loader_entry.text = "LOAD WRONG"
+	tap(KEY_ENTER)
+	check(ring.loader_step = 1 And ring.loader_message.contains("SYNTAX ERROR") And ring.loader_text = "LOAD WRONG", "wrong_loader_command_stays_editable")
+	ring.loader_entry.text = "load " & Chr(34) & "fast hack'em" & Chr(34) & ",8,1"
+	tap(KEY_ENTER)
+	check(ring.loader_step = 2 And ring.loader_text = "", "load_command_accepts_lowercase_and_starts_loading")
+	ring.advance(1.6)
+	check(ring.loader_step = 3 And ring.loader_command() = "SYS 49152", "load_completes_and_prompts_sys_command")
+	ring.loader_entry.text = "SYS 49152"
+	tap(KEY_ENTER)
+	check(ring.loader_step = 0 And ring.help_open And ring.countdown = 5, "sys_launches_operator_guide_without_running_match")
+	tap(KEY_ENTER)
+	check(Not ring.help_open And ring.pulses = 4, "loader_flows_into_existing_help_and_game")
+	ring.start()
+	check(ring.loader_step = 0 And ring.help_open, "direct_game_entry_still_skips_loader")
+End Sub
+
+Sub board_checks()
+	Dim seed As Integer
+	Dim port As Variant
+	For seed = 0 To 23
+		ring.start()
+		ring.board_number = seed
+		ring.new_board()
+		check(ring.solution_verified And ring.solution.size() = 4, "staged_four_connector_witness_" & Str(seed))
+		check(ring.score(1) = 0 And ring.signals.size() = 0 And ring.connections.size() = 0, "witness_no_state_or_audio_side_effects_" & Str(seed))
+		ring.set_help(False)
+		ring.begin_round()
+		ring.advance(19.1)
+		For Each port In ring.solution
+			ring.selected = port
+			ring.fire()
+		Next
+		ring.advance(1.0)
+		check(ring.stage = "WIN" And ring.score(1) >= 7 And ring.pulses = 0, "actual_live_winning_strategy_" & Str(seed))
+	Next
+End Sub
+
+Sub command(ByVal text As String)
+	ring.loader_entry.text = text
+	tap(KEY_ENTER)
+End Sub
+
+Sub terminal_checks()
+	Dim basic As Object
+	Dim i As Integer
+	Dim screen_line As Variant
+	game.opt_orac_voice = True
+	game.speech.capture_only = True
+	game.speech.configure(True)
+	ring.start_loader()
+	basic = ring.terminal
+	check(game.speech.pending.size() = 1 And game.speech.pending(0)("speaker") = "ORAC", "boot_queues_existing_orac_speech_once")
+	ring.tick(view, 0.1)
+	check(game.speech.pending.size() = 1, "orac_hint_does_not_repeat_each_frame")
+	check(ring.orac_message.contains("only you") And ring.loader_message = "", "orac_guidance_is_separate_from_computer_output")
+	For Each screen_line In basic.transcript
+		check(Not screen_line.contains("ORAC") And Not screen_line.contains("only you"), "computer_does_not_print_orac_dialogue")
+	Next
+	command("SYS 49152")
+	check(ring.loader_step > 0 And basic.last_error.contains("PROGRAM NOT LOADED"), "sys_requires_actual_loaded_utility")
+	command("LOAD " & Chr(34) & "$" & Chr(34) & ",8")
+	ring.advance(1.6)
+	command("LIST")
+	check(basic.directory_loaded And basic.transcript.has("24 " & Chr(34) & "FAST HACK'EM" & Chr(34) & " PRG"), "directory_load_and_list")
+	command("LOAD " & Chr(34) & "MISSING" & Chr(34) & ",8")
+	check(basic.last_error.contains("FILE NOT FOUND"), "missing_virtual_disk_file_reports_error")
+	command("LOAD " & Chr(34) & "$" & Chr(34) & ",9")
+	check(basic.last_error.contains("DEVICE NOT PRESENT"), "missing_device_reports_error")
+	command("NEW")
+	command("30 NEXT I")
+	command("10 FOR I=1 TO 5")
+	command("20 PRINT I")
+	command("LIST")
+	check(basic.transcript.has("10 FOR I=1 TO 5"), "numbered_programs_list_in_order")
+	command("RUN")
+	ring.advance(0.1)
+	check(Not basic.running And basic.last_error = "" And basic.variables("I") = 6, "numbered_for_next_program_completes")
+	check(basic.transcript.has("1") And basic.transcript.has("5"), "basic_loop_prints_actual_numbers")
+	command("20")
+	check(Not basic.program.has(20), "bare_line_number_deletes_line")
+	command("NEW")
+	command("A=2+3*4:PRINT A")
+	check(basic.variables("A") = 14 And basic.transcript.has("14"), "numeric_variables_and_operator_precedence")
+	command("PRINT -(2+3)*4")
+	check(basic.last_error = "" And basic.transcript.has("-20"), "unary_and_parenthesized_expressions")
+	command("PRINT " & Chr(34) & "A:B;C" & Chr(34))
+	check(basic.transcript.has("A:B;C"), "separators_inside_strings_are_literal")
+	command("POKE 53280,2:POKE 53281,0:POKE 646,5")
+	check(basic.border_index = 2 And basic.background_index = 0 And basic.text_index = 5, "colour_pokes_change_rendered_palette_state")
+	command("POKE 1024,42:PRINT PEEK(1024)")
+	check(basic.transcript.has("42"), "sandbox_memory_poke_and_peek")
+	command("PRINT PEEK(53280)")
+	check(basic.transcript.has("2"), "peek_reads_border_colour")
+	command("POKE 53281,256")
+	check(basic.last_error.contains("ILLEGAL QUANTITY") And basic.background_index = 0, "invalid_poke_preserves_screen_state")
+	command("PRINT 1/0")
+	check(basic.last_error.contains("DIVISION BY ZERO"), "division_by_zero_reports_error")
+	command("PRINT 1..2")
+	check(basic.last_error.contains("SYNTAX"), "invalid_numeric_literal_is_not_silently_zero")
+	command("PRINT (((((((((((((((((((((((((((1)))))))))))))))))))))))))))")
+	check(basic.last_error.contains("FORMULA TOO COMPLEX"), "expression_depth_is_bounded")
+	command("NEW")
+	command("10 FOR I=3 TO 1 STEP -1:PRINT I:NEXT I")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error = "" And Not basic.running And basic.variables("I") = 0, "descending_loop_and_colon_statements")
+	command("NEW")
+	command("10 FOR I=5 TO 1")
+	command("20 PRINT 99")
+	command("30 NEXT I")
+	command("40 A=7")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error = "" And basic.variables("A") = 7 And basic.variables("I") = 5, "empty_for_range_skips_body")
+	command("NEW")
+	command("10 A=0:FOR I=1 TO 2:FOR J=1 TO 3")
+	command("20 A=A+1:NEXT J:NEXT I")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error = "" And basic.variables("A") = 6 And Not basic.running, "nested_loops_use_distinct_return_addresses")
+	command("NEW")
+	command("10 FOR I=1 TO 2 STEP 0")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error.contains("ILLEGAL QUANTITY"), "zero_step_reports_error_instead_of_hanging")
+	command("NEW")
+	command("10 FOR")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error.contains("SYNTAX"), "malformed_for_reports_basic_syntax_error")
+	command("NEW")
+	command("10 GOTO 999")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error.contains("UNDEF'D STATEMENT"), "missing_goto_target_is_explicit_error")
+	command("NEW")
+	For i = 1 To 100
+		command(Str(i) & " REM TEST")
+	Next
+	command("101 REM OVER LIMIT")
+	check(basic.program.size() = 100 And basic.last_error.contains("OUT OF MEMORY"), "program_storage_limit_is_enforced")
+	command("100 PRINT 5")
+	check(basic.last_error = "" And basic.program(100) = "PRINT 5", "full_program_still_allows_line_replacement")
+	command("NEW")
+	command("10 GOTO 10")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.running And basic.steps = 32, "run_is_budgeted_per_frame")
+	tap(KEY_ESCAPE)
+	check(Not basic.running, "escape_breaks_basic_loop")
+	command("RUN")
+	For i = 1 To 315
+		ring.advance(0.01)
+	Next
+	check(Not basic.running And basic.last_error.contains("EXECUTION LIMIT"), "infinite_program_hits_explicit_execution_limit")
+	command("NEW")
+	command("10 NEXT I")
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error.contains("NEXT WITHOUT FOR") And basic.last_error.contains("IN 10"), "runtime_error_has_basic_line_number")
+	command("LOAD " & Chr(34) & "DEMO" & Chr(34) & ",8")
+	ring.advance(1.6)
+	command("RUN")
+	ring.advance(0.1)
+	check(basic.last_error = "" And basic.transcript.has("HELLO JASON 5"), "disk_demo_is_a_real_editable_basic_program")
+	ring.emulator.rom_root = "user://missing-c64-roms/"
+	command("C64")
+	check(Not ring.emulator.active And ring.loader_message.contains("ROMS MISSING") And ring.loader_step > 0, "missing_optional_roms_leave_service_terminal_usable")
+	command("LOAD " & Chr(34) & "FAST HACK'EM" & Chr(34) & ",8,1")
+	ring.advance(1.6)
+	check(ring.orac_message.contains("SYS 49152") And game.speech.pending.size() = 1 And game.speech.pending(0)("text").contains("SYS 49152"), "load_completion_replaces_obsolete_speech_with_sys_hint")
+	command("SYS 49152")
+	check(ring.loader_step = 0 And ring.help_open And ring.orac_message = "" And game.speech.pending.size() = 0, "launch_clears_guidance_and_pending_speech")
+	tap(KEY_F2)
+	check(ring.loader_step = 3 And ring.loader_entry.visible, "f2_returns_from_hack_to_computer")
+	game.opt_orac_voice = False
+	ring.start_loader()
+	check(game.speech.pending.size() = 0 And ring.orac_message <> "", "speech_off_retains_overlay_without_queueing_voice")
+	ring.start()
+	game.speech.capture_only = False
+End Sub
+
+Sub countdown_checks()
+	ring.start()
+	ring.set_help(False)
+	check(ring.stage = "COUNTDOWN" And Not ring.practice And Not ring.untimed, "default_live_countdown_not_passive_practice")
+	ring.advance(2.0)
+	check(ring.stage = "COUNTDOWN" And ring.countdown = 3 And ring.remaining = 20, "countdown_does_not_spend_match_time")
+	tap(KEY_SPACE)
+	check(ring.stage = "RUNNING" And ring.pulses = 3 And ring.connections.size() = 1, "first_connection_skips_countdown_and_starts")
+	ring.start()
+	ring.set_help(False)
+	ring.advance(5.5)
+	check(ring.stage = "RUNNING" And Abs(ring.remaining - 19.5) < 0.06, "countdown_auto_starts_with_exact_remainder")
+	ring.advance(2.0)
+	check(ring.defense_step > 0 And ring.score(-1) > 0, "default_defender_fights_without_player_input")
+	ring.start()
+	ring.set_help(False)
+	tap(KEY_LEFT)
+	check(ring.selected = 11, "countdown_can_select_port")
+	tap(KEY_D)
+	check(ring.selected = 0, "selection_wraps")
+	tap(KEY_UP)
+	tap(KEY_DOWN)
+	check(ring.practice And ring.untimed, "practice_and_untimed_are_explicit_options")
+	tap(KEY_ENTER)
+	check(ring.stage = "RUNNING" And ring.pulses = 4, "enter_starts_without_spending_connector")
+End Sub
+
+Sub circuit_checks()
+	Dim port As Integer
+	Dim step_index As Integer
+	Dim player_seen As Boolean
+	Dim enemy_seen As Boolean
+	practice_round()
+	ring.fire()
+	check(ring.signals.size() = 1 And ring.score(1) = 0, "one_packet_before_split_not_three_precomputed_routes")
+	ring.advance(0.2)
+	check(ring.signals.size() = 3 And ring.signals(1)("tier") = 1, "fork_creates_two_outputs_only_at_component")
+	check(ring.signals(1)("row") = 11 And ring.signals(2)("row") = 1, "split_uses_neighbor_lines_not_middle_output")
+	ring.advance(0.2)
+	check(ring.score(1) = 0, "second_stage_is_traversed_before_capture")
+	ring.advance(0.2)
+	check(ring.score(1) = 3 And ring.owners(11) = 1 And ring.owners(0) = 1 And ring.owners(2) = 1, "cascaded_splits_have_real_three_endpoint_topology")
+	ring.advance(1.0)
+	check(ring.signals.size() >= 3 And ring.connections.size() = 1, "connected_line_keeps_sending_packets")
+	ring.claim_sector(0, -1)
+	ring.advance(0.7)
+	check(ring.owners(0) = 1, "repeated_player_flow_recaptures_sector")
+	ring.advance(4.0)
+	check(ring.connections.size() = 0, "ordinary_connector_expires")
+	ring.claim_sector(0, -1)
+	ring.advance(2.0)
+	check(ring.owners(0) = -1 And ring.signals.size() = 0, "expired_line_no_longer_recaptures")
+	practice_round()
+	port = find_kind("LATCH")
+	ring.selected = port
+	ring.fire()
+	ring.advance(0.6)
+	ring.claim_sector(9, -1)
+	check(ring.owners(9) = -1, "repeater_does_not_lock_sector_against_enemy")
+	ring.advance(0.7)
+	check(ring.owners(9) = 1 And ring.generators.size() = 1, "repeater_recaptures_by_sending_real_packets")
+	ring.advance(5.0)
+	check(Not ring.connection_live(port, 1) And ring.generators.size() = 1, "repeater_is_at_component_not_source_connector")
+	check(ring.component_live(ring.component(9, 0, 1), 0, 1), "active_repeater_stays_visibly_powered_after_source_expires")
+	ring.advance(31.0)
+	check(ring.generators.size() = 1 And ring.signals.size() > 0, "untimed_repeater_never_expires")
+	ring.connect_line(8, -1)
+	For step_index = 1 To 40
+		ring.advance(0.05)
+		If ring.owners(9) = 1 Then player_seen = True
+		If ring.owners(9) = -1 Then enemy_seen = True
+	Next
+	check(player_seen And enemy_seen, "opposing_live_flow_contests_a_repeater_sector")
+	practice_round()
+	ring.selected = find_kind("INVERT")
+	ring.fire()
+	ring.advance(0.2)
+	check(ring.signals(1)("allegiance") = -1, "first_inverter_changes_packet_colour_at_gate")
+	ring.advance(0.4)
+	check(ring.owners(8) = 1 And ring.score(-1) = 0, "second_inline_inverter_restores_colour")
+	practice_round()
+	ring.connect_line(8, -1)
+	ring.advance(0.6)
+	check(ring.owners(9) = -1, "enemy_traverses_both_polarity_stages")
+	practice_round()
+	ring.selected = 10
+	ring.fire()
+	ring.advance(1.0)
+	check(ring.score(1) = 0 And ring.score(-1) = 0 And ring.pulses = 3 And ring.signals.size() <= 2, "stop_never_emits_downstream_packet")
+	practice_round()
+	ring.selected = 1
+	ring.fire()
+	ring.advance(1.0)
+	check(ring.score(1) = 0, "unused_split_neighbor_input_is_capped_not_a_bypass")
+	practice_round()
+	ring.selected = 3
+	ring.fire()
+	ring.advance(1.0)
+	check(ring.score(1) = 2 And ring.owners(3) = 1 And ring.owners(5) = 1 And ring.owners(2) = 0, "second_stage_stop_blocks_only_its_branch")
+	practice_round()
+	ring.selected = 5
+	ring.fire()
+	ring.advance(1.0)
+	ring.fire()
+	ring.advance(0.6)
+	check(ring.score(1) = 0, "two_shots_on_same_join_input_cannot_open_gate")
+	check(Not ring.component_live(ring.component(6, 0, 1), 0, 1), "partial_join_stays_visibly_closed")
+	ring.selected = 7
+	ring.fire()
+	ring.advance(0.6)
+	check(ring.score(1) = 1 And ring.owners(6) = 1, "two_independent_join_inputs_feed_only_middle_output")
+	check(ring.component_live(ring.component(6, 0, 1), 0, 1), "completed_join_lights_its_shared_bar")
+	ring.pulses = 0
+	check(Not ring.fire(), "no_free_connectors")
+	ring.advance(30.0)
+	check(ring.stage = "RUNNING" And ring.remaining = 20 And ring.signals.size() = 0, "untimed_practice_does_not_auto_finish_at_zero_ammo")
+	tap(KEY_BACKSPACE)
+	check(ring.stage = "DISCONNECTED" And ring.connections.size() = 0 And ring.signals.size() = 0 And ring.generators.size() = 0, "abort_stops_all_streams")
+	tap(KEY_ENTER)
+	check(ring.stage = "COUNTDOWN" And ring.pulses = 4, "retry_restarts_countdown_and_inventory")
+	practice_round()
+	ring.connect_line(5, 1)
+	ring.advance(6.0)
+	ring.connect_line(7, 1)
+	ring.advance(1.0)
+	check(ring.score(1) = 0, "join_rejects_non_overlapping_expired_input")
+End Sub
+
+Sub defender_checks()
+	Dim expected As Array
+	Dim i As Integer
+	Dim port As Integer
+	ring.start()
+	ring.set_help(False)
+	ring.begin_round()
+	ring.advance(1.4)
+	check(ring.defense_step = 1 And ring.score(-1) = 3, "defender_connects_and_forks_early")
+	port = ring.defender_port()
+	check(ring.routes(port).size() > 0 And ring.kinds(port) <> "DEAD", "defender_reads_both_stages_instead_of_bad_ports")
+	ring.advance(18.6)
+	check(ring.stage = "LOSS" And ring.defense_step = 4 And ring.notice.contains("SIMULATED"), "defender_contests_whole_match")
+	expected = ring.owners.duplicate()
+	ring.start()
+	ring.set_help(False)
+	ring.begin_round()
+	For i = 1 To 400
+		ring.advance(0.05)
+	Next
+	check(ring.stage = "LOSS" And ring.owners = expected And ring.defense_step = 4, "fixed_tick_defender_independent_of_frame_size")
+	practice_round()
+	ring.connect_line(0, -1)
+	ring.advance(0.6)
+	ring.claim_sector(3, 1)
+	ring.advance(0.7)
+	check(ring.owners(3) = -1, "enemy_stream_recaptures_player_territory")
+	check(ring.signals(0)("side") = -1 And ring.signals(0)("port") = 0, "defender_has_real_inner_port_routes")
+End Sub
+
+Sub geometry_checks()
+	Dim point As Vector2
+	Dim center As Vector2
+	Dim row As Integer
+	Dim tier As Integer
+	Dim side As Integer
+	Dim valid As Boolean
+	center = Vector2(280, 280)
+	ring.start()
+	check(ring.target_sector(0, 1) = 0 And ring.target_sector(0, -1) = 1, "player_enemy_sector_mapping_distinct")
+	valid = True
+	For side = -1 To 1 Step 2
+		For row = 0 To 11
+			For tier = 0 To 2
+				point = ring.trace_point(row, (row + 1) Mod 12, tier, side, 1.0)
+				If point.distance_to(ring.ring_point(ring.target_sector((row + 1) Mod 12, side), ring.input_radius((row + 1) Mod 12, tier, side))) > 0.001 Then valid = False
+			Next
+		Next
+	Next
+	check(valid, "both_networks_all_stage_endpoints_match_geometry")
+	check(ring.input_radius(1, 0, 1) = ring.stage_radius(0, 1) + 7 And ring.input_radius(10, 0, -1) = ring.stage_radius(0, -1) - 7, "capped_input_has_visible_gap_from_junction_on_both_sides")
+	point = ring.trace_point(0, 11, 1, 1, 0.5)
+	check(Abs(point.distance_to(center) - ring.stage_radius(0, 1)) < 0.01 And point.x < 280, "wrap_split_uses_short_neighbor_arc_not_full_ring_bus")
+	point = ring.trace_point(0, 1, 1, -1, 0.5)
+	check(Abs(point.distance_to(center) - ring.stage_radius(0, -1)) < 0.01, "enemy_split_follows_its_local_junction")
+	check(ring.component_help("LATCH").contains("NOT an ownership lock"), "repeater_explains_no_permanent_territory_lock")
+End Sub
+
+Sub feedback_checks()
+	Dim names As Array
+	Dim kind As Variant
+	Dim valid As Boolean
+	Dim count_before As Integer
+	ring.start()
+	check(ring.crt <> Nothing And ring.crt.name = "HackCRT" And ring.crt.mouse_filter = 2, "crt_is_local_non_interactive_display_child")
+	check(ring.crt.position = Vector2(288, 30) And ring.crt.size = Vector2(384, 339.2), "crt_matches_narrow_forearm_terminal_glass_bounds")
+	check(ring.housing.get_class() = "Sprite2D" And ring.housing.texture.get_size() = Vector2(1920, 1080), "original_housing_artwork_loaded_once_as_texture")
+	check(ring.housing.scale = Vector2(0.5, 0.5) And ring.housing.show_behind_parent, "housing_sits_behind_crt_at_correct_scale")
+	check(ring.crt_mat.shader <> Nothing, "crt_shader_loaded")
+	game.opt_reduced = True
+	ring.tick(view, 0.1)
+	check(ring.reduced_motion And ring.crt_mat.get_shader_parameter("reduced_motion"), "existing_reduced_motion_disables_animated_crt_interference")
+	check(ring.crt_mat.get_shader_parameter("time_s") > 0, "crt_clock_advances_during_opening_countdown")
+	game.opt_reduced = False
+	ring.tick(view, 0.0)
+	check(Not ring.crt_mat.get_shader_parameter("reduced_motion"), "crt_restores_normal_effects_when_reduced_motion_off")
+	ring.start()
+	valid = True
+	For Each kind In ring.audio_cache.keys()
+		If ring.audio_cache(kind) = Nothing Then valid = False
+	Next
+	check(valid And ring.audio_pool.size() = 8 And ring.audio_pool(0).bus = "SFX", "bounded_audio_pool_and_effects_bus")
+	names = Array("FORK", "LINK", "LATCH", "JOIN", "INVERT", "DEAD")
+	For Each kind In names
+		check(ring.component_help(kind).length() > 10, "component_description_" & kind)
+	Next
+	ring.set_help(False)
+	ring.begin_round()
+	ring.fire()
+	ring.advance(0.6)
+	check(ring.impact_left(0) > 0 And ring.impact_side(0) = 1, "arrival_flashes_owned_sector")
+	ring.advance(2.0)
+	check(ring.sound_count > 5 And ring.signals.size() > 3, "recurring_streams_have_recurring_electronic_feedback")
+	ring.set_feedback_paused(True)
+	count_before = ring.sound_count
+	ring.play_feedback("hack_tick")
+	check(ring.sound_count = count_before And ring.audio_pool(0).stream_paused, "pause_suspends_feedback")
+	ring.set_feedback_paused(False)
+	check(Not ring.audio_pool(0).stream_paused, "resume_restores_feedback")
+	ring.new_board()
+	check(ring.signals.size() = 0 And ring.connections.size() = 0 And ring.sound_count = 0, "retry_clears_feedback_and_streams")
+End Sub
+
+Sub result_checks()
+	Dim i As Integer
+	Dim player_count As Integer
+	Dim defender_count As Integer
+	Dim expected As String
+	Dim points As Array
+	practice_round()
+	For i = 0 To 11
+		If i < 6 Then
+			ring.owners(i) = 1
+		Else
+			ring.owners(i) = -1
+		End If
+	Next
+	ring.finish_round()
+	check(ring.stage = "TIE" And ring.notice.contains("no alert"), "six_six_tie")
+	practice_round()
+	For i = 0 To 5
+		ring.owners(i) = 1
+	Next
+	ring.finish_round()
+	check(ring.stage = "WIN" And ring.last_sound = "hack_ok", "six_plus_neutrals_is_win")
+	practice_round()
+	For i = 0 To 6
+		ring.owners(i) = 1
+	Next
+	ring.finish_round()
+	check(ring.stage = "WIN" And ring.last_sound = "hack_ok", "seven_exactly_wins")
+	check(Not ring.fire(), "cannot_connect_after_result")
+	check(ring.connections.size() = 0 And ring.signals.size() = 0, "result_stops_contested_streams")
+	For player_count = 0 To 12
+		For defender_count = 0 To 12 - player_count
+			practice_round()
+			For i = 0 To 11
+				ring.owners(i) = 0
+				If i < player_count Then ring.owners(i) = 1
+				If i >= player_count And i < player_count + defender_count Then ring.owners(i) = -1
+			Next
+			expected = "TIE"
+			If player_count > defender_count Then expected = "WIN"
+			If player_count < defender_count Then expected = "LOSS"
+			ring.finish_round()
+			check(ring.stage = expected, "score_comparison_" & Str(player_count) & "_" & Str(defender_count))
+		Next
+	Next
+	points = ring.repeater_points(9, 0, 1)
+	check(points.size() = 4 And points(0).distance_to(points(1)) > 10 And points(1).distance_to(points(2)) > 10, "repeater_has_visible_box_loop_geometry")
+End Sub
+
+Sub _Ready()
+	Dim legacy_before As String
+	Dim campaign_before As String
+	Dim old_save_exists As Boolean
+	Dim campaign_exists As Boolean
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	view = game.GetNode("Presentation")
+	game.dev_page = 0
+	check(game.PageCount() = 12 And game.MainScene(9) = 20 And game.MainScene(10) = 21 And game.MainScene(11) = 100, "dev_menu_game_boot_and_archive_destinations")
+	game.dev_i = 20
+	game.WarpDev()
+	ring = game.ownership_ring
+	check(game.phase = 22 And Not game.campaign_active And ring <> Nothing, "warp_isolated_ring")
+	old_save_exists = FileExists("user://ash_meridian_save.txt")
+	campaign_exists = FileExists(game.campaign.save_path)
+	If old_save_exists Then legacy_before = ReadAllText("user://ash_meridian_save.txt")
+	If campaign_exists Then campaign_before = ReadAllText(game.campaign.save_path)
+	game.SaveRun()
+	check(game.save_msg.contains("SAVES UNCHANGED"), "save_explains_sandbox")
+	check(FileExists("user://ash_meridian_save.txt") = old_save_exists And FileExists(game.campaign.save_path) = campaign_exists, "no_saves_created")
+	If old_save_exists Then check(ReadAllText("user://ash_meridian_save.txt") = legacy_before, "legacy_save_unchanged")
+	If campaign_exists Then check(ReadAllText(game.campaign.save_path) = campaign_before, "campaign_save_unchanged")
+	loader_checks()
+	terminal_checks()
+	help_checks()
+	board_checks()
+	countdown_checks()
+	circuit_checks()
+	defender_checks()
+	geometry_checks()
+	feedback_checks()
+	result_checks()
+	ring.start()
+	game.menu_on = True
+	game._Process(5.0)
+	check(ring.countdown = 5, "pause_freezes_countdown")
+	game.menu_on = False
+	game.dev_on = True
+	game._Process(5.0)
+	check(ring.countdown = 5, "dev_menu_freezes_countdown")
+	game.dev_on = False
+	ring.set_help(False)
+	ring.begin_round()
+	ring.fire()
+	game._Process(1.0)
+	check(ring.remaining < 20 And ring.signals.size() > 0, "main_loop_advances_recurring_streams")
+	game.menu_on = True
+	game._Process(3.0)
+	check(Abs(ring.remaining - 19.0) < 0.01, "pause_freezes_running_stream_timeline")
+	game.menu_on = False
+	game.dev_i = 1
+	game.WarpDev()
+	check(game.phase = 1 And Not ring.visible And Not ring.housing.is_visible_in_tree() And ring.audio_paused, "leaving_hides_housing_and_mutes_ring")
+	game.dev_i = 20
+	game.WarpDev()
+	check(game.ownership_ring = ring And ring.stage = "COUNTDOWN" And ring.help_open And Not ring.practice, "reentry_clean_startup_guide")
+	Print "Ownership Ring: " & Str(checks - failures) & "/" & Str(checks) & " passed"
+	If failures > 0 Then GetTree().Quit(1)
+End Sub

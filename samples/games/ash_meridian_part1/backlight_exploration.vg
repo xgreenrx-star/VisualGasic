@@ -2,6 +2,7 @@
 Dim __ready As Boolean
 Dim yard_mode As Boolean
 Dim campaign_mode As Boolean
+Dim briefing_open As Boolean
 Dim yard_scenery As Node3D
 Dim CYAN As Variant
 Dim PINK As Variant
@@ -389,6 +390,7 @@ End Sub
 
 Sub reset()
 	Call EnsureInit()
+	briefing_open = False
 	trace_escape = False
 	If escape_dock <> Nothing Then escape_dock.visible = False
 	If escape_cycle <> Nothing Then escape_cycle.visible = False
@@ -1400,6 +1402,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	Dim throttle As Variant
 	Call EnsureInit()
 	message_left = Max(0, message_left - delta)
+	If view.menu_tap(KEY_F1) Then toggle_briefing()
 	If sfx_bus <> Nothing Then sfx_bus.update(Me, delta)
 	If completed Or Me.failed Then
 		If completed Then
@@ -2230,13 +2233,7 @@ Function backlight_city_render_style(ByVal view As Node, ByVal time_n As Single,
 	If view.camera.environment <> atmosphere Then
 		view.camera.environment = atmosphere
 	End If
-	If detail = 0 Then
-		antialiasing = Viewport.MSAA_DISABLED
-	ElseIf place = "floor" And floor_code = "88216" Then
-		antialiasing = Viewport.MSAA_DISABLED
-	Else
-		antialiasing = Viewport.MSAA_2X
-	End If
+	antialiasing = view.msaa_quality
 	vehicle.position = Vector3(buggy_position.x, 0, buggy_position.y)
 	vehicle.rotation.y = buggy_heading
 	vehicle.visible = Not driving Or inspection <> 0
@@ -2745,6 +2742,13 @@ Sub use_object()
 			End If
 		ElseIf position_xz.distance_to(Vector2(0, 14)) < 3 Then
 			If building_index < 5 Then
+				If (campaign_mode Or yard_mode) And Not deep.has_item(Me, "interface_translator") Then
+					pack("interface_translator") = 1
+					discovered(building_index) = FEB_CODE.substr(building_index, 1)
+					notify("ORAC: A Narcean technicians' Interface Translator. Its lexicon maps service scripts; I supply the English. I can now read the programmer's keys. Archive glyph copied to the journal.")
+					sfx("pickup", -3.0)
+					Exit Sub
+				End If
 				discovered(building_index) = FEB_CODE.substr(building_index, 1)
 				notify(CLUES(building_index)  & " Copied to the five-slot journal.")
 			ElseIf building_index = 5 Or building_index = 6 Then
@@ -3079,6 +3083,10 @@ Sub _build_cycle_dock()
 		cycle_dock.name = "YardTraceDock"
 		add_child(cycle_dock)
 		cycle_dock.position = Vector3(15, 0, 414)
+		' The shared cradle's deck is flush with y=0; the yard already has a floor there.
+		cycle_dock.get_node("Cradle/Base").position.y = -0.14
+		cycle_dock.get_node("Cradle/Guide-1").position.y = 0.075
+		cycle_dock.get_node("Cradle/Guide1").position.y = 0.075
 	End If
 	packed = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
 	If packed <> Nothing Then
@@ -3148,6 +3156,44 @@ Sub _sync_room()
 		interior_builder.build(Me)
 	End If
 End Sub
+
+Function mission_guidance_enabled() As Boolean
+	Return (campaign_mode Or yard_mode) And Not trace_escape
+End Function
+
+Function mission_briefing_visible() As Boolean
+	Return mission_guidance_enabled() And briefing_open And Not completed And Not Me.failed
+End Function
+
+Sub toggle_briefing()
+	If mission_guidance_enabled() Then briefing_open = Not briefing_open
+End Sub
+
+Function mission_briefing() As Array
+	If Not campaign_mode Then Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is the Ash's onboard assistant, guiding you over the ship link.", "Find ship parts in the yard and a replacement power coupler below it before departure.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
+	Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is the Ash's onboard assistant, guiding you over the ship link.", "The Ash cannot leave loaded without a replacement power coupler from below the yard.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
+End Function
+
+Function mission_objective() As String
+	If completed Then Return "Coupler installed. The Ash is away. First expedition complete."
+	If Me.failed Then Return "Escape failed. Press Enter to retry from the chamber checkpoint."
+	If Not campaign_mode And inventory.has("coupler") Then
+		If Not inventory.has("regulator") Or Not inventory.has("ignition") Then Return "Coupler recovered. Search the yard workshops for the pressure regulator and ignition cell, then return to the Ash."
+	End If
+	If awakening Or inventory.has("coupler") Then Return "Return to the Ash. Use the lift car to ascend, then press F at the ship to install the coupler."
+	If mission_guidance_enabled() And Not deep.has_item(Me, "interface_translator") Then Return "Search yard archive workbenches with F for the Interface Translator before the programmer. Copy five glyphs for the lift code (" & Str(discovered.size()) & "/5)."
+	If place = "floor" Then
+		If floor_code = "88216" Then
+			If Not deep.powered(Me) Then Return "Undercity is dark. Find the transfer station and press F at all three bus levers to restore the streets."
+			Return "Grid restored. Explore the Undercity, scan records with H, and keep searching for the power coupler."
+		End If
+		If floor_code = FEB_CODE Then Return "Search this floor for the replacement power coupler. Press F at the amber service socket to recover it."
+		Return "Search this floor for salvage and address records. H: Orac scan. Use learned addresses at the lift to go deeper."
+	End If
+	If place = "lift" Then Return "Follow the descent address. Search underground records for the replacement power coupler and deeper lift addresses."
+	If discovered.size() >= 5 Then Return "Five glyphs copied. Enter Deep Transit, use its rear lift panel with F, and enter the journal glyphs left to right."
+	Return "Search the yard buildings; F at rear workbenches copies glyphs. Five glyphs form the Deep Transit lift code (" & Str(discovered.size()) & "/5)."
+End Function
 
 Function prompt() As String
 	Dim index As Variant

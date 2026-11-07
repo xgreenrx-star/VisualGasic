@@ -9,6 +9,7 @@ demo/.godot/
 demos/**/roms/*.bin
 demos/**/roms/*.gba
 demos/**/roms/*.rom
+samples/games/ash_meridian_part1/roms/
 
 # SCons
 .sconsign.dblite

@@ -214,6 +214,7 @@ Sub TranslatorChecks()
 	check(scene.NearTranslatorPickup(), "translator_point_is_the_walk_up")
 	scene.InteractYardDock()
 	check(scene.TranslatorOwned(), "translator_pickup_at_archive_doorway")
+	check(scene.nearby_hud.contains("Narcean technicians") And scene.nearby_hud.contains("I supply the English"), "translator_origin_explains_english_interpretation")
 	scene.reset_run()
 	scene.cradle_released = False
 	scene.EnterCradleCode("0000")

@@ -1,0 +1,108 @@
+Option Explicit
+
+Dim machine As Object
+Dim texture As Object
+Dim active As Boolean
+Dim last_error As String
+Dim rom_root As String
+Dim frame_left As Single
+Dim boot_frames As Integer
+Dim queued_text As String
+Dim queued_index As Integer
+Dim direct_keys As Boolean
+
+Function start_emulator() As Boolean
+	Dim basic_path As String
+	Dim kernal_path As String
+	Dim char_path As String
+	Dim selected_root As String
+	last_error = ""
+	active = False
+	selected_root = rom_root
+	If selected_root = "" Then
+		selected_root = "res://roms/"
+		If FileExists("user://roms/basic.901226-01.bin") And FileExists("user://roms/kernal.901227-03.bin") And FileExists("user://roms/characters.901225-01.bin") Then selected_root = "user://roms/"
+	End If
+	basic_path = selected_root & "basic.901226-01.bin"
+	kernal_path = selected_root & "kernal.901227-03.bin"
+	char_path = selected_root & "characters.901225-01.bin"
+	If Not FileExists(basic_path) Or Not FileExists(kernal_path) Or Not FileExists(char_path) Then
+		last_error = "C64 ROMS MISSING. SEE ROM SETUP IN README."
+		Return False
+	End If
+	If FileAccess.get_file_as_bytes(basic_path).size() <> 8192 Or FileAccess.get_file_as_bytes(kernal_path).size() <> 8192 Or FileAccess.get_file_as_bytes(char_path).size() <> 4096 Then
+		last_error = "C64 ROM SIZE ERROR: NEED 8K/8K/4K."
+		Return False
+	End If
+	If Not ClassDB.class_exists("VGC64Machine") Then
+		last_error = "NATIVE C64 CORE UNAVAILABLE IN THIS BUILD."
+		Return False
+	End If
+	machine = ClassDB.Instantiate("VGC64Machine")
+	If Not machine.LoadROMs(basic_path, kernal_path, char_path) Then
+		last_error = "C64 ROM LOAD FAILED."
+		machine = Nothing
+		Return False
+	End If
+	machine.Reset()
+	frame_left = 0
+	boot_frames = 0
+	queued_text = ""
+	queued_index = 1
+	direct_keys = False
+	texture = ImageTexture.create_from_image(machine.GetFramebuffer())
+	active = True
+	Return True
+End Function
+
+Function queue_key(ByVal code As Integer) As Boolean
+	If Not active Or boot_frames < 250 Then Return False
+	If Len(queued_text) - queued_index > 240 Then Return False
+	direct_keys = True
+	queued_text = queued_text & Chr(code)
+	If queued_text.length() = 1 Then queued_index = 1
+	Return True
+End Function
+
+Function finish_line(ByVal text As String) As Boolean
+	If direct_keys Then Return queue_key(13)
+	Return submit(text)
+End Function
+
+Function submit(ByVal text As String) As Boolean
+	If Not active Or boot_frames < 250 Or queued_text <> "" Then Return False
+	queued_text = UCase(text) & Chr(13)
+	queued_index = 1
+	Return True
+End Function
+
+Sub tick(ByVal delta As Single)
+	Dim count As Integer
+	Dim ch As Integer
+	If Not active Then Exit Sub
+	frame_left = Min(frame_left + Max(0.0, delta), 0.1)
+	While frame_left >= 0.02
+		frame_left = frame_left - 0.02
+		machine.RunFrame()
+		boot_frames = boot_frames + 1
+		If boot_frames >= 250 And queued_text <> "" And machine.PeekRAM(198) = 0 Then
+			count = 0
+			While count < 10 And queued_index <= Len(queued_text)
+				ch = Asc(Mid(queued_text, queued_index, 1))
+				machine.PokeRAM(631 + count, ch)
+				count = count + 1
+				queued_index = queued_index + 1
+			Wend
+			machine.PokeRAM(198, count)
+			If queued_index > Len(queued_text) Then queued_text = ""
+		End If
+	Wend
+	texture.update(machine.GetFramebuffer())
+End Sub
+
+Sub stop_emulator()
+	active = False
+	machine = Nothing
+	texture = Nothing
+	queued_text = ""
+End Sub

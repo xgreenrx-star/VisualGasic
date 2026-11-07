@@ -1,0 +1,133 @@
+extends SceneTree
+
+var failures := 0
+
+func check(ok: bool, label: String) -> void:
+	print("PASS: " if ok else "FAIL: ", label)
+	if not ok:
+		failures += 1
+
+func _initialize() -> void:
+	call_deferred("run")
+
+func run() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.set_process(false)
+	game.set("opt_orac_voice", true)
+	var speech: Object = game.get("speech")
+	speech.set("capture_only", true)
+	speech.call("configure", true)
+	game.set("dev_i", 21)
+	game.call("WarpDev")
+	var ring: Object = game.get("ownership_ring")
+	var dialogue: Node = ring.get("orac_dialogue")
+	var terminal: Object = ring.get("terminal")
+	check(not dialogue.call("remark", "syntax"), "optional_barks_never_interrupt_boot_instruction")
+	game.call("OracStop")
+	game.set("orac_said", "")
+	dialogue.call("reset_dialogue")
+	ring.set("loader_text", "LOAD WRONG")
+	ring.call("loader_submit")
+	check(dialogue.get("last_event") == "syntax", "real_invalid_command_triggers_syntax_comment")
+	var first := str(dialogue.get("last_line"))
+	check(ring.get("orac_message") == "" and dialogue.get("awaiting_line") == first, "commentary_waits_for_actual_voice_not_generation")
+	check(not dialogue.call("remark", "colour"), "cooldown_prevents_rapid_comment_spam")
+	dialogue.call("advance", 20)
+	check(ring.get("orac_message") == "", "slow_generation_does_not_show_or_expire_commentary")
+	speech.call("tick", false)
+	dialogue.call("advance", 0)
+	check(ring.get("orac_message") == first, "commentary_appears_when_playback_starts")
+	check(speech.get("playing_speaker") == "ORAC", "comment_uses_existing_orac_speech_option")
+	check(not terminal.get("transcript").has(first), "personality_never_prints_dialogue_on_computer")
+	game.call("OracStop")
+	dialogue.call("advance", 14)
+	check(dialogue.call("remark", "syntax"), "commentary_recovers_after_cooldown")
+	check(str(dialogue.get("last_line")) != first, "repeated_event_rotates_original_lines")
+	check(dialogue.call("remark", "win", true) and dialogue.get("last_event") == "win", "result_takes_priority_over_optional_commentary")
+	check(speech.get("pending").size() == 1, "result_replaces_stale_speech_without_queue_buildup")
+	speech.call("tick", false)
+	dialogue.call("advance", 0)
+	game.call("OracStop")
+	dialogue.call("advance", 13)
+	check(ring.get("orac_message") == "", "optional_subtitle_expires")
+	game.set("opt_orac_voice", false)
+	game.call("OracStop")
+	dialogue.call("reset_dialogue")
+	check(dialogue.call("remark", "loss", true), "speech_disabled_still_shows_character_subtitles")
+	check(speech.get("pending").is_empty(), "speech_disabled_does_not_queue_character_voice")
+	game.set("opt_orac_voice", true)
+	dialogue.call("reset_dialogue")
+	dialogue.call("remark", "syntax")
+	game.call("OracStop")
+	speech.set("last_error", "Test synthesis failure")
+	dialogue.call("advance", 0)
+	check(ring.get("orac_message") == dialogue.get("last_line"), "synthesis_failure_keeps_comment_readable")
+	speech.set("last_error", "")
+	game.set("opt_orac_voice", false)
+	dialogue.call("reset_dialogue")
+	ring.set("loader_text", "POKE 1024,65")
+	ring.call("loader_submit")
+	check(dialogue.get("last_event") == "", "ordinary_memory_poke_does_not_claim_colour_change")
+	ring.set("loader_text", "POKE 53281,2")
+	ring.call("loader_submit")
+	check(dialogue.get("last_event") == "colour", "actual_palette_change_triggers_colour_comment")
+	var bank: Dictionary = dialogue.LINES
+	var unique := {}
+	var line_count := 0
+	for event_name in bank:
+		check(bank[event_name].size() >= 2, "multiple_variants_" + event_name)
+		for line in bank[event_name]:
+			check(not unique.has(line) and line.length() < 220, "unique_bounded_line_" + str(line_count))
+			unique[line] = true
+			line_count += 1
+	check(line_count >= 30, "at_least_thirty_original_contextual_lines")
+	game.call("OracStop")
+	speech.set("capture_only", false)
+	speech.set("backend", "espeak")
+	var cache_text := "Suit cache validation " + str(OS.get_process_id()) + "-" + str(Time.get_ticks_usec())
+	var path: String = dialogue.call("cache_path", cache_text, speech)
+	var clip := AudioStreamWAV.new()
+	clip.format = AudioStreamWAV.FORMAT_16_BITS
+	clip.mix_rate = 22050
+	var samples := PackedByteArray()
+	samples.resize(44100)
+	clip.data = samples
+	speech.get("player").stream = clip
+	speech.get("player").play()
+	speech.set("playing_speaker", "ORAC")
+	speech.set("playing_text", cache_text)
+	dialogue.call("advance", 0)
+	check(FileAccess.file_exists(path), "played_suit_voice_is_saved_persistently")
+	game.call("OracStop")
+	dialogue.call("register_cached_line", cache_text, speech)
+	speech.set("voice", "ORAC")
+	speech.call("say", cache_text, 0)
+	var start := Time.get_ticks_msec()
+	speech.call("tick", false)
+	check(speech.get("player").playing and speech.get("worker") == 0 and Time.get_ticks_msec() - start < 100, "cached_suit_voice_starts_under_100ms_without_synthesis")
+	game.call("OracStop")
+	var recordings: Dictionary = speech.get("recordings")
+	var original_command: String = speech.get("command")
+	speech.set("command", original_command + "-changed-for-cache-test")
+	dialogue.call("register_cached_line", cache_text, speech)
+	check(not recordings.has(speech.call("RecordingKey", "ORAC", cache_text)), "changed_voice_backend_does_not_reuse_stale_registered_clip")
+	speech.set("command", original_command)
+	recordings.erase(speech.call("RecordingKey", "ORAC", cache_text))
+	check(DirAccess.remove_absolute(path) == OK, "temporary_cache_fixture_cleaned")
+	speech.set("capture_only", true)
+	speech.call("configure", true)
+	ring.call("start")
+	ring.call("set_help", false)
+	ring.call("begin_round")
+	var owners: Array = ring.get("owners")
+	for index in range(7):
+		owners[index] = 1
+	ring.call("finish_round")
+	check(dialogue.get("last_event") == "win" and ring.get("stage") == "WIN", "real_hack_result_triggers_matching_character_comment")
+	ring.call("leave_terminal")
+	check(ring.get("orac_message") == "" and speech.get("pending").is_empty(), "leaving_hack_clears_commentary_even_without_terminal")
+	game.queue_free()
+	await process_frame
+	print("SUIT_ORAC_DIALOGUE_COMPLETED: ", line_count, " lines; ", failures, " failures")
+	quit(failures)

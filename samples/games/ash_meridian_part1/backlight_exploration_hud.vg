@@ -212,6 +212,8 @@ End Sub
 
 Sub _draw()
 	Dim driving As Boolean
+	Dim mission_offset As Integer
+	Dim mission_lines As Array
 	Dim title As Variant
 	Dim at As Variant
 	Dim _t0 As Variant
@@ -224,8 +226,10 @@ Sub _draw()
 	Dim _t7 As Variant
 	Dim _t8 As Variant
 	Call EnsureInit()
+	mission_offset = 0
+	If city.mission_guidance_enabled() Then mission_offset = 50
 	driving = city.driving And city.place = "surface" And city.inspection = 0
-	draw_rect(Rect2(0, 0, 960, 64), Color(0.005, 0.015, 0.025, 0.87))
+	draw_rect(Rect2(0, 0, 960, 64 + mission_offset), Color(0.005, 0.015, 0.025, 0.87))
 	If city.place = "lift" Then
 		_t0 = "DEEP TRANSIT / LIFT"
 	Else
@@ -269,31 +273,62 @@ Sub _draw()
 	Else
 		_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
 	End If
-	If Not driving Then
+	If mission_offset > 0 Then
+		_text(Vector2(830, 47), "F1 BRIEFING", 12)
+		mission_lines = wrap_lines("CURRENT JOB: " & city.mission_objective(), 112)
+		For i = 0 To mission_lines.size() - 1
+			_text(Vector2(22, 80 + i * 18), mission_lines(i), 12, AMBER)
+		Next
+	End If
+	If Not driving Or mission_offset > 0 Then
 		draw_rect(Rect2(0, 495, 960, 45), Color(0.005, 0.015, 0.025, 0.9))
-		_text(Vector2(20, 520), city.prompt(), 14)
+		If driving Then
+			_text(Vector2(20, 520), "W/S DRIVE / A/D STEER / F EXIT / V INSPECT", 14)
+		Else
+			_text(Vector2(20, 520), city.prompt(), 14)
+		End If
 	Else
 		If city.trace_escape Then
 			_text(Vector2(225, 86), "ASH: SOUTH / W ACCELERATE / A/D STEER / F PARK", 12)
 		Else
-			_text(Vector2(225, 86), "F EXIT / V INSPECT", 12)
+			_text(Vector2(225, 86 + mission_offset), "F EXIT / V INSPECT", 12)
 		End If
 	End If
 	If city.message_left > 0 And Not city.trace_escape Then
-		draw_rect(Rect2(14, 72, 932, 38), Color(0.005, 0.01, 0.02, 0.87))
-		_text(Vector2(24, 96), city.message, 13, AMBER)
+		draw_rect(Rect2(14, 72 + mission_offset, 932, 38), Color(0.005, 0.01, 0.02, 0.87))
+		If mission_offset > 0 Then
+			mission_lines = wrap_lines(city.message, 112)
+			For i = 0 To mission_lines.size() - 1
+				_text(Vector2(24, 86 + mission_offset + i * 16), mission_lines(i), 13, AMBER)
+			Next
+		Else
+			_text(Vector2(24, 96), city.message, 13, AMBER)
+		End If
+	End If
+	If city.mission_briefing_visible() Then
+		draw_rect(Rect2(205, 166, 741, 134), Color(0.005, 0.015, 0.025, 0.94))
+		_text(Vector2(221, 188), "ORAC / EXPEDITION BRIEFING / F1 CLOSE", 14, AMBER)
+		mission_lines = city.mission_briefing()
+		For i = 0 To mission_lines.size() - 1
+			_text(Vector2(221, 212 + i * 23), mission_lines(i), 12)
+		Next
 	End If
 	If Not driving And Not city.trace_escape And city.place <> "floor" Then
-		draw_rect(Rect2(14, 126, 170, 121), Color(0.005, 0.01, 0.02, 0.8))
-		_text(Vector2(26, 148), "DESCENT JOURNAL", 12)
+		draw_rect(Rect2(14, 126 + mission_offset, 170, 121), Color(0.005, 0.01, 0.02, 0.8))
+		_text(Vector2(26, 148 + mission_offset), "DESCENT JOURNAL", 12)
 		For i = 0 To (5 - 1)
-			at = Vector2(27 + i * 29, 165)
+			at = Vector2(27 + i * 29, 165 + mission_offset)
 			draw_rect(Rect2(at - Vector2(4, 4), Vector2(25, 31)), CYAN * 0.3, False)
 			If city.discovered.has(i) Then
 				glyph(at, Int(city.discovered(i)), 1.0)
 			End If
 		Next
-		_text(Vector2(25, 226), "Search the five archives.", 11)
+		If mission_offset > 0 Then
+			_text(Vector2(25, 220 + mission_offset), "BUILDINGS -> GLYPHS", 10)
+			_text(Vector2(25, 238 + mission_offset), "5 GLYPHS = LIFT CODE", 10)
+		Else
+			_text(Vector2(25, 226), "Search the five archives.", 11)
+		End If
 	End If
 	If city.trace_escape Then
 		draw_rect(Rect2(725, 120, 220, 64), Color(0.005, 0.025, 0.035, 0.8))

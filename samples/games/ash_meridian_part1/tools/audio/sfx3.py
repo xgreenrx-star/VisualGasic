@@ -20,29 +20,22 @@ rng = np.random.default_rng(7331)
 # ---------------------------------------------------------------- motor loops
 
 def buggy_idle():
-	"""Standstill: a thin capacitor-bank whine with a slow, uneasy beat and contactor buzz."""
+	"""Quiet capacitor hum without square-wave buzz or high-frequency noise."""
 	sec = 3.0
-	t = t_axis(sec + 0.3)
-	x = np.sin(2 * np.pi * 2310 * t) * 0.18 + np.sin(2 * np.pi * 2317.5 * t) * 0.14
-	x += np.sin(2 * np.pi * 120 * t) * 0.35 + 0.15 * square(2 * np.pi * 60 * t, 0.2)
-	x = lp(x, 3000)
-	x += bp(noise(sec + 0.3), 4000, 7000) * 0.03 * lfo(t, 0.31, 0.6)
-	x *= lfo(t, 0.66, 0.12)
-	return finish_loop(make_loop(x, sec), 0.45)
+	t = t_axis(sec)
+	x = 0.35 * np.sin(2 * np.pi * 120 * t) + 0.16 * np.sin(2 * np.pi * 60 * t)
+	x += 0.025 * np.sin(2 * np.pi * 1800 * t)
+	x *= lfo(t, 2.0 / 3.0, 0.06)
+	return finish_loop(x, 0.35)
 
 
 def buggy_coast():
-	"""Off-throttle: the same drive whine, softer and hollow, with a faint regen hiss and freewheel tick."""
+	"""Off-throttle drive whine with no synthetic freewheel clicks."""
 	sec = 2.0
-	t = t_axis(sec + 0.3)
-	f = 180.0 * lfo(t, 0.9, 0.006)
-	ph = 2 * np.pi * np.cumsum(f) / SR
-	whine = np.sin(ph) + 0.25 * np.sin(2 * ph + 0.7) + 0.18 * np.sin(3.98 * ph)
-	tick = (np.sin(ph * 0.125) > 0.995).astype(float)
-	tick = lp(tick, 2500) * 3.0
-	hiss = bp(noise(sec + 0.3), 2500, 5500) * 0.05
-	x = lp(0.5 * whine, 1400) + tick + hiss + lp(noise(sec + 0.3), 70) * 0.6
-	return finish_loop(make_loop(x, sec), 0.5)
+	t = t_axis(sec)
+	ph = 2 * np.pi * 180 * t + 0.2 * np.sin(2 * np.pi * t)
+	whine = np.sin(ph) + 0.18 * np.sin(2 * ph + 0.7) + 0.06 * np.sin(4 * ph)
+	return finish_loop(0.5 * whine + 0.1 * np.sin(2 * np.pi * 45 * t), 0.4)
 
 
 def car_motor():

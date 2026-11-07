@@ -36,6 +36,10 @@ Dim ship As MeshInstance3D
 Dim city2 As Node3D
 Dim city2_output As SubViewport
 Dim city2_antialiasing As Variant
+Dim msaa_quality As Integer = 2
+Dim fxaa_enabled As Boolean
+Dim fxaa_view As SubViewport
+Dim fxaa_canvas As Object
 Dim city3 As Node3D
 Dim city3_output As SubViewport
 Dim city3_antialiasing As Variant
@@ -219,6 +223,8 @@ Sub EnsureInit()
 	KEYS.append(KEY_Q)
 	KEYS.append(KEY_H)
 	KEYS.append(KEY_F10)
+	KEYS.append(KEY_F1)
+	KEYS.append(KEY_F2)
 	KEYS.append(KEY_R)
 	KEYS.append(KEY_I)
 	KEYS.append(KEY_C)
@@ -1329,23 +1335,43 @@ Sub end_yard()
 	edge_colors.clear()
 End Sub
 
+Sub apply_antialiasing()
+	If viewport = Nothing Then Exit Sub
+	If viewport.msaa_3d <> msaa_quality Then viewport.msaa_3d = msaa_quality
+End Sub
+
+Function filter_world(ByVal source As Texture2D) As Texture2D
+	Dim mat As Object
+	If Not fxaa_enabled Then
+		If fxaa_view <> Nothing Then fxaa_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		Return source
+	End If
+	If fxaa_view = Nothing Then
+		fxaa_view = ClassDB.Instantiate("SubViewport")
+		fxaa_view.disable_3d = True
+		fxaa_view.transparent_bg = True
+		add_child(fxaa_view)
+		fxaa_canvas = ClassDB.Instantiate("TextureRect")
+		fxaa_canvas.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fxaa_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		mat = ClassDB.Instantiate("ShaderMaterial")
+		mat.shader = Load("res://shaders/world_fxaa.gdshader")
+		fxaa_canvas.material = mat
+		fxaa_view.add_child(fxaa_canvas)
+	End If
+	fxaa_view.size = Vector2i(source.get_width(), source.get_height())
+	fxaa_canvas.size = Vector2(fxaa_view.size)
+	fxaa_canvas.texture = source
+	fxaa_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return fxaa_view.get_texture()
+End Function
+
 Function present(ByVal x As Single, ByVal y As Single, ByVal z As Single, ByVal yaw As Single, ByVal pitch As Single, ByVal distance As Single, Optional roll As Variant = 0.0) As Texture2D
-	Dim antialiasing As Variant
 	Dim forward As Variant
 	Dim right As Variant
 	Dim up As Variant
 	Call EnsureInit()
-	antialiasing = Viewport.MSAA_DISABLED
-	If backlight_city <> Nothing And backlight_city.visible Then
-		antialiasing = backlight_city.antialiasing
-	ElseIf city3 <> Nothing And city3.visible Then
-		antialiasing = city3_antialiasing
-	ElseIf city2 <> Nothing And city2.visible Then
-		antialiasing = city2_antialiasing
-	End If
-	If viewport.msaa_3d <> antialiasing Then
-		viewport.msaa_3d = antialiasing
-	End If
+	Call apply_antialiasing()
 	forward = Vector3(Sin(yaw) * Cos(pitch), Sin(pitch), Cos(yaw) * Cos(pitch))
 	right = Vector3(0, 1, 0).cross(forward).normalized()
 	up = forward.cross(right)

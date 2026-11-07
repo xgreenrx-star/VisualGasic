@@ -15,6 +15,351 @@ are not yet implemented; current Play still has the old underground chamber.
 
 ## Play
 
+### Story document and approved hacking revision
+
+The [unified game proposal](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md#unified-game-proposal---november-6-2026)
+combines the full campaign with the Commander history in one narrative.
+The [complete story and gameplay draft](../../../docs/development/ASH_MERIDIAN_APPROVAL_DRAFT.md)
+retains detailed requirements. Its November 6 revision records the approved
+[Commander +4 / Fast Hack'em history and interaction design](../../../docs/development/ASH_MERIDIAN_APPROVAL_DRAFT.md#6a-commander-4-the-programmer-and-its-two-owners):
+MJH's original maintenance programmer, the surviving scavenger's English
+software, Jason's manual suit-keyboard connection, the Ownership Ring contest
+and local patrol-drone alerts on failure. The governor-bypass explanation is
+withheld until after the FEB awakens. The complete encounter is **planned**;
+the campaign still uses the psionic screwdriver and cycling-glyph hack
+described below. The implemented translation prerequisite and compatibility
+handling are described next.
+
+**November 6 translation prerequisite increment:** in Play and the Backlight
+Yard development destination, the first searched archive workbench yields a
+single Interface Translator and still copies its normal journal glyph.
+Narcean technical services built its script/maintenance lexicon; Orac supplies
+the English, rather than the module containing an alien-to-English dictionary.
+The scavenger does not supply it. The current maintenance-level coupling kit
+cannot be collected or used for a new hack before this discovery; prompts
+direct an early visitor back to the yard archives without consuming the pickup.
+Live deep-floor visor translation also requires the lexicon. Standalone legacy
+Deep Stratum fixtures retain their ungated preview behaviour.
+
+The translator is saved as `interface_translator` in the existing pack section.
+Loading an older campaign already owning `psionic_screwdriver` explicitly
+restores its lexicon as a translator, with a notification, so previously
+usable equipment is not stranded. No extra campaign field or version change
+is needed. Saves without a programmer do not gain a free translator.
+The separate TRACE YARD controller retains its existing archive-bay pickup
+and inventory flag, with the same origin explained on collection.
+
+Security interference affects live visor decoding, not recorded journal
+glyphs, objectives, controls or Orac's English messages. The planned Commander
+model/cache, English loader and local-drone failure response
+are **not implemented by this prerequisite increment**. The Ownership Ring
+now has the separate dev prototype described below. The current kit's
+name, location and campaign cycling-glyph game remain until the next increment.
+
+### Fast Hack'em development test
+
+The **FAST HACK'EM - OWNERSHIP RING** destination on the dev terminal's main
+SCENES page opens the new circular hacking prototype immediately. Open the
+terminal with **Up, Up, Down, Down, Left, Right, Left, Right, B, A, B, A**,
+select that destination and press Enter. Alternatively launch directly:
+
+```bash
+godot --path samples/games/ash_meridian_part1 -- --hack-test
+```
+
+For the earlier boot-and-command sequence, select **FAST HACK'EM - BOOT /
+COMMANDS** on the same dev page, or use `--hack-boot-test` instead.
+Type `LOAD "FAST HACK'EM",8,1`, press Enter, wait for the load, then type
+`SYS 49152` and press Enter. Orac gives the requested commands in the **suit
+comms overlay outside the glass**, and speaks through the existing Orac voice
+pipeline when **Speech** is enabled. He never writes to the computer display
+or supplies keyboard input. Backspace corrects input; errors stay on the
+computer transcript and leave the input editable. SYS opens the operator
+guide below. This entry is
+isolated from campaign inventory and saves, just like the direct board test.
+
+#### Field BASIC terminal
+
+This ROM-free service shell is a deliberately small C64-style BASIC, **not
+a C64 emulator**. It accepts commands rather than enforcing a two-line script:
+
+```basic
+LOAD "$",8
+LIST
+LOAD "DEMO",8
+RUN
+NEW
+10 FOR I=1 TO 5
+20 PRINT "HELLO ";I
+30 NEXT I
+LIST
+RUN
+POKE 53280,2
+POKE 53281,0
+POKE 646,5
+```
+
+- `HELP` lists commands. The virtual field disk contains `FAST HACK'EM` and
+  an editable `DEMO` BASIC listing; `LOAD "*",8,1` selects Fast Hack'em.
+- Numbered lines insert/replace program lines; a bare number deletes a line.
+  `LIST`, `NEW`, `RUN`, numeric variables/`LET`, `PRINT` (strings, expressions,
+  semicolon joining), `FOR/TO/STEP/NEXT`, `GOTO`, `REM`, `END` and `STOP` work.
+  Expressions support parentheses, unary signs and `+ - * /`.
+- `POKE 53280,n`, `POKE 53281,n` and `POKE 646,n` change the actual border,
+  background and text palette. Other POKEs affect a private sandbox memory
+  dictionary, not the host or a real C64; `PEEK(address)` reads it.
+- `Esc` breaks a running BASIC program; otherwise it opens the pause menu.
+  Execution yields after 32 statements per frame and reports an error after
+  10,000 statements. Programs allow 100 lines, 16 nested loops, expression
+  nesting of 24 and numeric magnitudes up to 10^15. Input is limited to 120
+  characters and wraps across 38-column screen rows.
+- The cursor is a blinking block immediately below `READY.`, not a detached
+  bottom input bar. All four arrows move through screen text and blank cells.
+  Move up to an earlier command or listed program line, overwrite characters
+  and press Return to execute/store the edited line. Home/End and Backspace
+  use the native editor. Reduced Motion keeps the block steady.
+- The illustrated chiclet keys depress when typed (including the cursor,
+  Return, Space and Delete keys); held keys remain down until released.
+- This subset has no arrays, string variables, `IF`, `GOSUB`, arbitrary
+  machine-code `SYS`, filesystem access or saved programs. Unsupported input
+  produces an explicit error. Programs and POKEs reset on a fresh dev entry.
+- `SYS 49152` requires Fast Hack'em to be loaded. **F2** returns from the
+  hacking screen to the service terminal; a subsequent SYS starts a fresh
+  match. The existing direct board shortcut remains unchanged.
+
+#### Optional real C64 mode
+
+Type **`C64`** at the service prompt to start the existing native
+`VGC64Machine` inside the same CRT. It uses real BASIC/KERNAL/character ROMs,
+not the subset above. No ROMs are included or downloaded by this feature.
+Install your own legally obtained ROM files under `roms/` in this game folder:
+
+| Filename | Exact size |
+|---|---:|
+| `basic.901226-01.bin` | 8192 bytes |
+| `kernal.901227-03.bin` | 8192 bytes |
+| `characters.901225-01.bin` | 4096 bytes |
+
+For exported games, use `user://roms/` in Godot's application user-data folder;
+a complete set there takes precedence over `res://roms/`. Missing, unreadable
+or incorrectly sized ROMs report an error and leave the service shell usable.
+Do not add ROMs to source control or redistribute them with the game.
+
+Allow about five seconds for boot, then type at the real machine's blinking
+cursor and press Enter. Printable keys, all four cursor directions, Home,
+Delete and Return go through the real KERNAL keyboard buffer; typing and
+screen editing appear directly in its framebuffer, with no second input bar.
+This is not a full keyboard-matrix/joystick frontend. It adds no disk drive,
+cartridge loader or SID audio. The service shell's virtual directory and
+Fast Hack'em upload are **not** attached to the emulated machine. **F2**
+returns to the service shell and releases the emulator; starting `C64`
+again cold-boots it. Pause/dev menus freeze execution; changing scenes ends
+the terminal session. Orac still has no input path in either mode.
+
+#### Contextual suit display
+
+The right-hand suit panel shows an original dimensional logic-core model
+while the terminal is active: clear casing, horizontal tube banks, circuit
+cards, bundled cables and ribbed conduits. Its illuminated circuits pulse
+more strongly during Orac's speech, with rate-limited original electronic
+chatter through the Effects bus. The model is original geometry; no reference
+photographs, television footage or recordings are bundled.
+Six internal indicator bulbs and three coloured local lights pulse
+independently, illuminating the case interior; Reduced Motion holds them
+steady.
+
+During Fast Hack'em, the panel switches to the **existing full-detail Narcean
+alien face** from `assets/ai_face/alien_face.json`, not the reduced
+`alien_face_small.json` or a replacement character. All 335 mesh vertices,
+571 shaded triangles, 908 wire edges and 30 feature polylines are retained.
+The face blinks, drifts its gaze and reacts to circuit attacks and ownership
+changes. Reduced Motion stops decorative core movement/pulsing and facial
+blinking/drift. Both panels remain outside the CRT and show no Orac transmit
+or computer-control capability.
+Portraits update at up to 20 Hz independently of input and game simulation.
+The detailed face's shaded triangles use one indexed render batch rather
+than hundreds of separate polygon submissions; its geometry is not reduced.
+`test_suit_panel_performance.gd` measures gameplay with the face visible and
+hidden to separate portrait overhead from the remaining board-rendering cost.
+Ring controls remain Left/A counter-clockwise and Right/D clockwise.
+
+#### Narcean defender voice
+
+The takeover defender uses short edited phrases from the original Undercity
+`alien_murmur.ogg` synthetic voice, not English TTS or a new translated script.
+Different rhythms and pitches convey threats at connection, mocking insults
+after wasted paths or recaptured sectors, shock when Jason steals a sector
+or reaches four, curses at seven sectors or defeat, and gloating on a failed
+takeover. These are fictional alien utterances, not a fully specified language.
+No glyphs, English translations or speech subtitles are drawn.
+
+The existing Speech option gates the voice; its player uses the SFX bus and
+plays at -3 dB (six dB above its initial level), ducking to -12 dB under Orac.
+Optional taunts have a four-second cooldown with no queue.
+Shock and majority reactions each occur once per round; results supersede
+unfinished phrases. Help/pause freezes playback, and terminal mode, disconnect,
+new boards and scene exit stop it.
+
+The full-detail face follows the measured source-audio envelope at the actual
+playback position, with jaw/lip motion, subtle head movement, blinking and
+angry/startled eye poses. Reduced Motion keeps the face steady without muting
+speech. Portrait rendering retains the existing 20 Hz limit and mesh batching.
+`test_suit_defender_voice.gd` checks events, playback, variants, lip/head poses,
+pause, speech gating and cleanup.
+
+#### Orac dialogue direction
+
+Suit-terminal commentary is original writing, not dialogue copied from
+*Blake's 7*. Orac treats himself as an independent analyst, not a cheerful
+assistant: exact terminology, impatient corrections, reluctant approval and
+no social cushioning. His technical observation should remain useful even
+when his delivery is condescending. Avoid constant insults, modern meme
+phrasing, unexplained omniscience and claims that he can operate the programmer.
+
+The contextual bank in `suit_orac_dialogue.gd` rotates variants for syntax
+errors, missing files, premature SYS, BASIC failures/limits, directories,
+palette experiments, program execution, stopped paths, joins, repeaters and
+win/loss/tie results. Optional comments have a 14-second cooldown, expire
+after at least 12 seconds (never while that voice is still playing) and never
+queue behind active speech or interrupt required instructions. Commentary
+appears when playback actually starts, not when synthesis is requested.
+Essential command instructions remain immediately readable. Generated suit
+Orac clips are cached locally under `user://suit-orac-voice/` for instant reuse;
+cache keys include text, backend, voice and delivery settings. First-time
+uncached speech still requires local synthesis. Results replace stale commentary.
+No periodic idle nagging is
+scheduled; Speech-off retains subtitles without queuing voice. Scene exit
+clears both. `test_suit_orac_dialogue.gd` covers routing, variety, cooldown,
+subtitle expiry and speech gating.
+
+To prepare all fixed suit Orac lines in advance using the installed local
+Kokoro/espeak backend, run from this sample directory:
+
+```bash
+ASH_SPEECH_LIVE=1 godot --headless --audio-driver Dummy --path . \
+  --script res://tools/precache_suit_orac.gd
+```
+
+This performs offline generation without changing the selected voice or
+shipping generated audio. It skips existing clips and verifies that a cached
+line starts in under 100 ms without a synthesis job. Preparation can take
+several minutes on a CPU. New instructions supersede obsolete queued guidance;
+Orac's activity lights now follow playback, not the synthesis request.
+
+Tests: `test_ownership_ring.vg` covers the shell, bounded interpreter, speech
+gating and game integration. `test_suit_terminal_input.gd` exercises actual
+keyboard events and rendering. `test_suit_c64.gd` checks ROM loading and,
+when `ASH_C64_ROM_DIR` points to your ROM folder, real boot, POKEs and a BASIC
+loop. The graphical input test accepts the same variable for a C64 round trip;
+`ASH_TERMINAL_CAPTURE_DIR` optionally selects an existing screenshot directory.
+
+The sandbox opens on an **operator guide**, with no running match timer.
+**Enter** closes the guide and shows the circuit with a five-second countdown.
+**F1** toggles the guide from the circuit or result screen; **Enter** also
+returns from help. Opening help freezes the countdown, packets, defender
+and match audio without resetting connectors or ownership.
+
+On the game screen, **A/D or Left/Right** selects an outer port. **Space** installs a connector,
+ends the opening countdown immediately and starts the fight; otherwise the
+fight begins automatically when the countdown reaches zero. **Enter** starts
+early without spending a connector. Both sides have four connectors.
+Both networks have **two component stages**, not direct port-to-sector
+shortcuts:
+
+- **SPLIT:** the middle input feeds the two neighboring output lines, not its
+  own middle output. A later split can branch these again.
+- **JOIN:** both neighboring inputs must be powered at the same time to feed
+  the middle output. Repeated shots on one input cannot substitute for the
+  other; expired input power does not count.
+- **STOP:** a red perpendicular cap ends the wire before the junction, with
+  a visible gap. Packets stop there; there is no hidden route through it.
+  Unused inputs of splits and joins are capped as well.
+- **REPEATER:** an activated generator keeps emitting after its incoming
+  connector expires. It does **not** make a sector immune to enemy signals.
+- **INVERT:** the triangle/bubble changes colour at that stage. Two inverters
+  in succession restore the original colour.
+- **LINK:** an ordinary uninterrupted wire.
+
+There are no added component pictograms or symbol legend. Read the actual
+wires, junctions and stop bars; follow both stages to determine an input's
+final destinations. Cyan
+player packets travel inward, orange defender packets travel outward, and
+arrivals flash the destination. Splits and joins have their own short local
+arcs connecting adjacent lines, rather than a shared whole-board bus or
+diagonal chords. Packets branch only when they reach a component, and use the
+same paths as the drawn wires. Sector labels **P / D / -** show player,
+defender or neutral ownership without relying on colour.
+The dedicated game screen fills the glass with the circuit and only essential
+score, time, connector count and a short F1 prompt. Pre-attack markers remain
+on the inner network. Detailed instructions live on the separate guide,
+not beside the board.
+
+An installed connector sends a packet every 0.65 seconds for 4.5 seconds;
+activated repeaters remain powered until the match ends. Each circuit stage
+takes 0.2 seconds at the fixed simulation tick rate. Ownership changes
+when packets reach the ownership ring, and recurring streams can recapture
+enemy sectors, including sectors supplied by repeaters. Marks remain in their
+last owner's colour after a stream expires.
+The defender reads its own inner network and connects useful circuits from
+0.8 seconds onward, targeting player territory where possible. It uses the
+same components, recurring flow, connector budget and expiration rules.
+
+Existing original electronic SFX provide selection ticks, injection bursts,
+lock/charge feedback, defender chirps and win/loss cues through the **Effects**
+volume bus. A bounded eight-voice pool allows overlapping shots without
+restarting every branch's sound. Pause, menus and leaving the sandbox suspend
+its audio; retry clears old packets and sounds. There are no imported
+Paradroid graphics or recordings. Circuit behavior was checked against the
+local reference video around 47 seconds and the original developer's
+[description of the transfer game](https://programmingconceptsblog.blogspot.com/2017/04/the-paradroid-transfer-game.html).
+
+The game is presented inside Jason's narrow forearm terminal: an original
+shaded grey-green housing with a stepped CRT hood, casing seams, vents,
+mounting straps and recessed English chiclet keys. The dark keytops have
+light inset outlines, small shifted legends and separate Space/Enter/F1 keys
+instead of the previous flat keyboard grid. The visual reference is Cem Tezcan's
+[Handheld Retro PC / Commodore HX-64](https://cemtezcan.com/projects/dOqA8K);
+no artwork, logos or model assets from that project are included.
+The glass-only shader adds scanlines, subtle phosphor glow, vignette, fine
+snow and a slow interference band. **Reduced Motion** in Options disables
+the animated interference; the housing and keyboard remain unfiltered.
+This is the suit's display/input terminal, separate from the Commander +4
+service programmer connected to the target.
+
+The housing is one static texture rather than per-frame procedural drawing.
+Its editable original source is `assets/ui/suit_terminal.svg`; regenerate
+the runtime texture with:
+
+```bash
+inkscape samples/games/ash_meridian_part1/assets/ui/suit_terminal.svg \
+  --export-type=png \
+  --export-filename=samples/games/ash_meridian_part1/assets/ui/suit_terminal.png
+```
+
+Own more sectors than the defender when the twenty-second match ends to win.
+Unclaimed sectors count for neither side: 5-3 wins; 3-5 loses; any equal
+score (including 0-0) is a tie. The centre shows the result and final score.
+**Up** switches to optional safe practice on the startup guide or during the opening countdown;
+**Down** toggles its timer. Untimed practice keeps streams running until
+**Backspace** disconnects; spending all connectors does not end it.
+Each rotated board is tested against an actual winning late-connection
+strategy through the defender's final stream. These timings and the four
+connectors per side are prototype balance, not a claim of exact historical
+Paradroid difficulty. **Backspace** disconnects; **Enter** after a result
+opens a fresh board's guide; Enter then reveals its countdown.
+Any tied score has no penalty. **Esc** pauses; the dev terminal can change scenes.
+**F10** returns to the retained campaign when one exists.
+The existing hidden developer-menu sequence also works on the startup guide,
+live board, result screen and focused service terminal. It opens the same dev
+menu without restarting the current board. Held-key repeats do not advance it.
+
+This is a board/controls prototype, not a finished encounter: ownership and
+local alerts are simulated text only, and no car or pursuing drone is spawned.
+It does not include the Commander prop or campaign
+integration. Existing campaign hacks are unchanged. Neither Save nor retries
+write campaign or legacy chapter saves. Logic and integration coverage lives
+in `test_ownership_ring.vg`.
+
 Open this folder in Godot 4.6 with Visual Gasic enabled and press F5.
 
 ```bash
@@ -22,6 +367,42 @@ Open this folder in Godot 4.6 with Visual Gasic enabled and press F5.
 ```
 
 ### Current campaign increment
+
+Press **F1** to open or close the four-line Orac briefing. It is hidden by default,
+does not pause gameplay, and remains available after searching archives.
+It identifies Jason as a scavenger, Orac as the Ash's
+onboard assistant, and the replacement power coupler needed for a loaded
+departure. It also explains the first action: walk to a lit building door,
+press **F** to enter, then **F** at its rear workbench to search.
+
+The **CURRENT JOB** readout stays beneath the HUD header independently of timed
+messages and nearby interaction prompts. It explains the five building glyphs
+and Deep Transit lift code, advances to underground address exploration, and
+directs Jason to all three transfer-station bus levers while the Undercity is
+unpowered. Once power is restored it resumes the coupler search; recovery changes
+the job to returning to the Ash. Jobs derive from existing progress, so saves
+need no migration. New games and Continue start with the briefing closed.
+The briefing does not reveal the coupler's isolation interlock or FEB.
+The **BACKLIGHT YARD** development destination also shows the briefing and current
+job; its briefing retains the prototype's additional ship-parts requirement.
+It remains a development demo and cannot overwrite the campaign save. Other
+development destinations retain their existing HUD.
+
+The yard-only cradle deck sits above the yard floor, with its luminous guides
+raised to match; the shared crossing cradle and its collision are unchanged.
+Buggy idle, loaded drive and coast loops use smooth periodic tones without
+synthetic freewheel clicks, square-wave buzz or noise layers. Healthy motors do
+not randomly pop or drop out, and pitch rises continuously with speed. Damage
+and turret interference retain their distinct fault cues. Gravel remains audible
+at a reduced level rather than masking the electric motor. Audio synthesis
+regressions run with `python3 -m unittest discover -s tools/audio -p 'test_*.py'`.
+
+Undercity window-light changes use staggered 24-second intervals with roughly
+two-second fades; isolated terminal windows breathe slowly instead of blinking.
+Near the powered talking-face hologram, music fades down by up to 12 dB within
+25 metres horizontally, tapering to normal at 65 metres. Leaving the area,
+switching floors or losing grid power restores the score gradually. This uses
+the music players' levels and does not change the player's saved volume sliders.
 
 The project boot splash uses the user-selected image copied from
 `scratch/Lucid_Music/lucid_banner.jpg`, with the added credit
@@ -518,6 +899,23 @@ Options **VIEW DISTANCE** sets the camera far plane from 50 m to 600 m (arrow
 keys step 25 m; default 100 m). At 600 m the whole Backlight Yard (236 x 432 m)
 stays in view. Bleed City and the legacy chapter also use this value to cull
 props, so long distances cost frame time there.
+
+Options **ANTIALIASING** is independent of Detail: Off, MSAA 2x, MSAA 4x
+(default), MSAA 8x, FXAA, or MSAA 4x + FXAA. MSAA smooths geometry edges;
+the custom FXAA pass filters only the world image, not the separately drawn HUD
+or menus. Existing options files without an AA setting default to MSAA 4x.
+This project uses Godot's Compatibility renderer; built-in TAA is unavailable,
+and DLAA is not integrated. Procedural window edges and water ripples also use
+distance filtering to reduce subpixel shimmer.
+
+The Undercity ceiling is a continuous ribbed dome, rising from 60 m at the
+retaining walls to 86 m at its crown. The sun carriage follows the curved roof.
+Player movement limits remain unchanged. Street puddles and indoor flood pools
+share a water shader, including pools carrying electrical hazards. Indoor
+surfaces use their room's palette; electrical arcs add to, rather than replace,
+the water shading. Reflections are procedural approximations, not planar
+reflections of scene geometry. Hazard timing and existing movement penalties
+are unchanged.
 
 Run the focused checks from the repository root:
 

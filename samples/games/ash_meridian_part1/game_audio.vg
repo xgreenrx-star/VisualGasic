@@ -28,6 +28,7 @@ Dim jet_level As Single
 Dim listener_ok As Boolean
 Dim silenced As Boolean
 Dim music_name As String
+Dim music_duck_db As Single
 Dim stride_left As Single
 Dim last_pos As Vector2
 Dim tracking As Boolean
@@ -394,12 +395,27 @@ Function city_driving(ByVal city As Node) As Boolean
 End Function
 
 Sub tick_music(ByVal delta As Single)
+	Dim target As Single
 	If Not ready_ok Then Exit Sub
-	If deck.playing Then deck.volume_db = Min(MUSIC_DB, deck.volume_db + FADE_DB_PER_S * delta)
+	target = MUSIC_DB - music_duck_db
+	deck.volume_db = deck.volume_db + Max(-FADE_DB_PER_S * delta, Min(FADE_DB_PER_S * delta, target - deck.volume_db))
 	If old_deck.playing Then
 		old_deck.volume_db = old_deck.volume_db - FADE_DB_PER_S * delta
 		If old_deck.volume_db <= SILENT_DB Then old_deck.stop()
 	End If
+End Sub
+
+Sub update_music_focus(ByVal city As Node, ByVal delta As Single)
+	Dim target As Single
+	Dim rate As Single
+	Dim previous As Single
+	target = 0.0
+	If city.place = "floor" And city.deep <> Nothing Then target = 12.0 * city.deep.face_voice_focus(city)
+	rate = 12.0
+	If target < music_duck_db Then rate = 4.0
+	previous = music_duck_db
+	music_duck_db = music_duck_db + Max(-rate * delta, Min(rate * delta, target - music_duck_db))
+	If old_deck.playing Then old_deck.volume_db = old_deck.volume_db - Max(0.0, music_duck_db - previous)
 End Sub
 
 Sub set_music(ByVal track As String)
@@ -430,18 +446,16 @@ End Sub
 
 ' --- Vehicle layer -------------------------------------------------------------------------
 
-' Electric drive whine: climbs with speed, with a stepped "gear change" dip at half speed.
+' Electric drive whine: continuous pitch across the full speed range.
 Function motor_pitch(ByVal s As Single) As Single
-	If s < 0.5 Then Return 0.7 + 1.1 * s
-	Return 0.95 + 1.2 * (s - 0.5)
+	Return 0.7 + 0.85 * Max(0.0, Min(1.0, s))
 End Function
 
-' Dropouts per second while under load: old motor, worse when the shield (hull) is hurt.
+' Electrical faults are damage cues, not part of healthy cruising.
 Function stutter_rate(ByVal kind As String, ByVal health As Single, ByVal clean As Boolean) As Single
 	Dim r As Single
-	r = 0.05
-	If kind = "car" Then r = 0.015
-	r = r + 0.3 * Max(0.0, 1.0 - health / 100.0)
+	r = 0.3 * Max(0.0, 1.0 - health / 75.0)
+	If kind = "car" Then r = r * 0.5
 	If clean Then r = r * 0.25
 	Return r
 End Function
@@ -579,7 +593,7 @@ Sub tick_vehicle(ByVal kind As String, ByVal speed As Single, ByVal accel As Boo
 	skid_t = skid_amount(yaw, veh_smooth)
 	If ground = "gravel" Then
 		skid_t = skid_t * 0.6
-		If s > 0.3 And rng.randf() < delta * 1.6 * s Then vfire("buggy_knock", -13.0 + rng.randf_range(-2.0, 2.0), rng.randf_range(0.8, 1.2))
+		If s > 0.3 And rng.randf() < delta * 1.6 * s Then vfire("buggy_knock", -20.0 + rng.randf_range(-2.0, 2.0), rng.randf_range(0.8, 1.2))
 	End If
 	motor_snd = "buggy_motor"
 	idle_snd = "buggy_idle"
@@ -587,11 +601,11 @@ Sub tick_vehicle(ByVal kind As String, ByVal speed As Single, ByVal accel As Boo
 		motor_snd = "car_motor"
 		idle_snd = "car_idle"
 	End If
-	set_layer("idle", idle_snd, idle_t, veh_detune, -6.0, delta)
-	set_layer("load", motor_snd, load_t, pitch, -3.0, delta)
-	set_layer("coast", "buggy_coast", coast_t, pitch * 0.98, -4.0, delta)
+	set_layer("idle", idle_snd, idle_t, veh_detune, -9.0, delta)
+	set_layer("load", motor_snd, load_t, pitch, -6.0, delta)
+	set_layer("coast", "buggy_coast", coast_t, pitch * 0.98, -8.0, delta)
 	If ground = "gravel" Then
-		set_layer("tyre", "tyre_gravel", tyre_t, 0.85 + 0.4 * s, 0.0, delta)
+		set_layer("tyre", "tyre_gravel", tyre_t, 0.85 + 0.4 * s, -8.0, delta)
 	Else
 		set_layer("tyre", tyre_loop(ground), tyre_t, 0.8 + 0.5 * s, -6.0, delta)
 	End If
@@ -698,6 +712,7 @@ Sub update(ByVal city As Node, ByVal delta As Single)
 	amb = AudioServer.get_bus_index("Ambience")
 	If AudioServer.is_bus_mute(amb) Then AudioServer.set_bus_mute(amb, False)
 	set_music(music_for(city))
+	update_music_focus(city, delta)
 	tick_music(delta)
 	on_wheels = city_driving(city) And Not city.completed
 	If on_wheels Then

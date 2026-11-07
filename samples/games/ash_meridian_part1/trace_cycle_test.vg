@@ -4702,7 +4702,7 @@ Function render(ByVal presentation As Object) As Texture2D
 	End If
 	If presentation.viewport <> Nothing Then
 		If presentation.viewport.transparent_bg Then presentation.viewport.transparent_bg = False
-		If presentation.viewport.msaa_3d <> Viewport.MSAA_4X Then presentation.viewport.msaa_3d = Viewport.MSAA_4X
+		presentation.apply_antialiasing()
 		presentation.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		render = presentation.viewport.get_texture()
 	Else
@@ -4949,7 +4949,7 @@ End Sub
 Sub TakeTranslator()
 	Call GiveTranslator()
 	yard_save_translator = True
-	nearby_hud = "Interface lexicon linked. I can read their labels. Their prose is beyond it."
+	nearby_hud = "Narcean technicians' lexicon linked. It maps service scripts; I supply the English. Labels and keys, not high-script prose."
 	prompt = nearby_hud
 End Sub
 
