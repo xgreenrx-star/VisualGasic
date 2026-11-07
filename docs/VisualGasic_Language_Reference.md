@@ -3649,7 +3649,7 @@ Called when the node and all its children have entered the scene tree. Use for i
 
 **Description**
 
-Axis-aligned bounding box in 3D. Used for visibility culling, region tests. Methods: .HasPoint(p), .Intersects(other), .GetCenter(), .Grow(by), .Encloses(other), .GetVolume().
+Axis-aligned bounding box in 3D. Used for visibility culling, region tests. `AABB(position, size)` takes two Vector3 values; neither argument is converted to a scalar. Methods: .HasPoint(p), .Intersects(other), .GetCenter(), .Grow(by), .Encloses(other), .GetVolume().
 
 **Example**
 
@@ -4133,16 +4133,17 @@ These limitations are not a claim of complete async language support.
 
 **Syntax**
 
-    Basis() | Basis(quaternion)
+    Basis() | Basis(quaternion) | Basis(axis, angle) | Basis(xAxis, yAxis, zAxis)
 
 **Description**
 
-Creates a 3x3 rotation/scale matrix used inside Transform3D. Pass a Quaternion to build a rotation-only Basis. Methods like .Scaled(v), .Rotated(axis, angle), .Inverse(), .Orthonormalized() are available on the result.
+Creates a 3x3 rotation/scale matrix used inside Transform3D. Pass a Quaternion for a rotation-only Basis, an axis and an angle, or three Vector3 columns. As of v5.7.0-beta.4 the axes match Godot: `.x`, `.y`, and `.z` are columns, not rows. Methods like .Scaled(v), .Rotated(axis, angle), .Inverse(), .Orthonormalized() are available on the result.
 
 **Example**
 
     Dim b = Basis(QuaternionFromEuler(0, 0.5, 0))
     Dim b2 = b.Scaled(Vector3(2, 2, 2))
+    Dim forward = b.z   ' column, the same axis Godot uses
 
 **See Also** — [Quaternion](#quaternion), [QuaternionFromEuler](#quaternionfromeuler), [Transform2D](#transform2d), [Transform3D](#transform3d), [Plane](#plane), [AABB](#aabb), [Slerp](#slerp)
 
@@ -10149,11 +10150,11 @@ Applies a rotational impulse to a RigidBody. For 2D pass a number, for 3D pass a
 
 **Syntax**
 
-    Plane() | Plane(normalVec3) | Plane(normalVec3, d) | Plane(a, b, c, d)
+    Plane() | Plane(normal, distance) | Plane(normal, point) | Plane(point1, point2, point3) | Plane(a, b, c, d)
 
 **Description**
 
-Infinite plane defined by a normal vector and signed distance from origin. Used for clipping, side-of-plane tests, and raycast results. Methods include .IsPointOver(p), .DistanceTo(p), .Intersect3(plane2, plane3).
+Infinite plane defined by a normal vector and signed distance from origin. Vector forms keep their Vector3 arguments: a normal plus a distance, a normal plus a point on the plane, or three points. The four-number form is `Plane(a, b, c, d)`. Constants `Plane.PLANE_XY`, `Plane.PLANE_XZ`, and `Plane.PLANE_YZ` are readable. Used for clipping, side-of-plane tests, and raycast results. Methods include .IsPointOver(p), .DistanceTo(p), .Intersect3(plane2, plane3).
 
 **Example**
 
@@ -10234,6 +10235,27 @@ Plays a sound effect from the specified resource path.
 Returns **-1** if `(x, y)` is outside the buffer.
 
 **See Also** — [PSet](#pset), [GET (QuickBASIC graphics)](#get-quickbasic-graphics), [SCREEN (QuickBASIC)](#screen-quickbasic)
+
+---
+
+## Projection
+
+**Purpose** — A 4x4 projection matrix.
+
+**Syntax**
+
+    Projection() | Projection(transform3d) | Projection(xAxis, yAxis, zAxis, wAxis)
+
+**Description**
+
+Godot's 4x4 camera projection. An empty call is the default. Pass a Transform3D, or four Vector4 columns. Columns are readable, and these constants are available: `IDENTITY`, `ZERO`, `PLANE_NEAR`, `PLANE_FAR`, `PLANE_LEFT`, `PLANE_TOP`, `PLANE_RIGHT`, `PLANE_BOTTOM`.
+
+**Example**
+
+    Dim p = Projection(camera.Transform)
+    Print p.x
+
+**See Also** — [Transform3D](#transform3d), [Basis](#basis), [Plane](#plane)
 
 ---
 

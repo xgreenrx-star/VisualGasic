@@ -271,14 +271,15 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.7.0-beta.3) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.7.0-beta.4) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
-| **v5.7.0-beta.3** | [RELEASE_NOTES_v5.7.0-beta.3.md](../RELEASE_NOTES_v5.7.0-beta.3.md) | **Current public beta** — compiler, packed mesh, Ash Meridian Part 1. Releases keep slowing down; stable v6.0 is still the goal for early 2027. |
+| **v5.7.0-beta.4** | [RELEASE_NOTES_v5.7.0-beta.4.md](../RELEASE_NOTES_v5.7.0-beta.4.md) | **Current public beta** — dictionary keys, lambda calls, packed Vector3 append, JIT numeric storage, Basis/Projection, AABB/Plane constructors, lifecycle calls. Stable v6.0 is still the goal for early 2027. |
+| **v5.7.0-beta.3** | [RELEASE_NOTES_v5.7.0-beta.3.md](../RELEASE_NOTES_v5.7.0-beta.3.md) | Compiler, packed mesh, Ash Meridian Part 1. |
 | **v5.7.0-beta.2** | [RELEASE_NOTES_v5.7.0-beta.2.md](../RELEASE_NOTES_v5.7.0-beta.2.md) | Bug-fix beta: ambiguous procedure names, Color component reads, typed Array returns, Whenever re-entry. |
 | **v5.7.0-beta.1** | [RELEASE_NOTES_v5.7.0-beta.1.md](../RELEASE_NOTES_v5.7.0-beta.1.md) | Crystal Caverns, DATA sprite editing, core correctness. |
 | **v5.4.0-beta2** | [RELEASE_NOTES_v5.4.0-beta2.md](../RELEASE_NOTES_v5.4.0-beta2.md) | Buffer type, `Let` block scope, optimizer hints, Narcea Tier A/B, Python typed msgpack, AST Godot ctors, 916/916 tests. |

@@ -2,8 +2,8 @@
 
 *The definitive guide to using VisualGasic in Godot game development*
 
-Version 3.0.0  
-Updated: September 2026
+Version 3.1.0  
+Updated: November 2026 — tracks public beta v5.7.0-beta.4 on Godot 4.6.1+
 
 ---
 
@@ -224,7 +224,9 @@ If you know VB6, VBA, or classic BASIC, the **`.vg` language** is the supported 
 
 ### The VisualGasic Development Environment
 
-For **v6.0 stable**, the supported surface is **Godot 4.6+** with Visual Gasic panels (Code Navigator, Properties, Toolbox, Vibe Code / Narcea, debugger). See [VG IDE Alpha](manual/VG_IDE_ALPHA.md) for what is **experimental Alpha** (legacy standalone **Visual Gasic IDE** screen and classic Form Designer behind `vg/enable_experimental_plugins`).
+For **v6.0 stable**, the supported surface is **Godot 4.6.1+** with Visual Gasic panels (Code Navigator, Properties, Toolbox, Vibe Code / Narcea, debugger). See [VG IDE Alpha](manual/VG_IDE_ALPHA.md) for what is **experimental Alpha** (legacy standalone **Visual Gasic IDE** screen and classic Form Designer behind `vg/enable_experimental_plugins`).
+
+Geometry constructors (`AABB`, `Basis`, `Plane`, `Projection`, `Transform3D`) and their members are specified in the [Programmer's Reference](VisualGasic_Language_Reference.md). As of v5.7.0-beta.4, Basis and Projection axes are Godot columns, and `AABB` / `Plane` keep Vector3 arguments instead of turning them into numbers.
 
 VisualGasic includes RAD tooling on that path:
 
@@ -415,7 +417,7 @@ Access via **Project > Tools**:
 
 ## Performance Best Practices
 
-VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. See the full report and methodology in [docs/manual/performance.md](docs/manual/performance.md).
+VisualGasic focuses on high performance in hot paths while preserving Gasic-style readability. Below is a benchmark snapshot (Godot 4.5.1 headless, v2.5). All 11 benchmarks faster than GDScript. See the full report and methodology in [manual/performance.md](manual/performance.md).
 
 ```mermaid
 xychart-beta

@@ -1,6 +1,6 @@
 # Godot Functions Quick Reference
 
-Essential Godot functions for VisualGasic game development.
+Essential Godot functions for VisualGasic game development. Current public beta: **v5.7.0-beta.4** (Godot 4.6.1+). Geometry types are in the [Programmer's Reference](../VisualGasic_Language_Reference.md).
 
 
 ## Table of Contents

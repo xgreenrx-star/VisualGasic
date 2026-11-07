@@ -111,15 +111,15 @@ If the project matters to you, support helps move v6.0 forward faster. Current f
 
 ## 📥 Download & install
 
-**Latest engine build:** [v5.6.0-beta1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.6.0-beta1) — installers + Asset Library zip (Godot 4.6.1+). **Windows x64 JIT ships here for the first time** — feedback welcome.
+**Latest engine build:** [v5.7.0-beta.4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.4) — installers, offline bundles, and the Asset Library zip (Godot 4.6.1+). This is a bug-fix beta. Replace the whole addon when upgrading.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.6.0-beta1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-v5.6.0-beta1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
-| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.6.0-beta1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-v5.6.0-beta1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
-| 🍏 **macOS (Intel & Apple Silicon)** | *not yet available* — use the `vg` CLI for now | Cross-compiled `.dmg` planned; needs a tester. |
-| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.6.0-beta1**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic_AssetLibrary_v5.6.0-beta1.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. Portable platform zips are **no longer published**. |
-| 🌐 **Offline bundle** (Godot included) | [linux-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-Offline-v5.6.0-beta1-linux-x86_64.zip) · [windows-x86_64.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.6.0-beta1/VisualGasic-Installer-Offline-v5.6.0-beta1-windows-x86_64.zip) | No internet needed during install — ships Godot 4.6.1 inside. |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.7.0-beta.4-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-v5.7.0-beta.4-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.7.0-beta.4-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-v5.7.0-beta.4-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🍏 **macOS (Intel & Apple Silicon)** | [VisualGasic-Installer-v5.7.0-beta.4-macos-universal.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-v5.7.0-beta.4-macos-universal.zip) | Unsigned launcher, not a notarized `.dmg`. Control-click and choose Open. Python 3 is required. |
+| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.7.0-beta.4**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic_AssetLibrary_v5.7.0-beta.4.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. |
+| 🌐 **Offline bundle** (Godot included) | [linux](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-Offline-v5.7.0-beta.4-linux-x86_64.zip) · [windows](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-Offline-v5.7.0-beta.4-windows-x86_64.zip) · [macOS](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic-Installer-Offline-v5.7.0-beta.4-macos-universal.zip) | No internet needed during install. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
 
@@ -392,7 +392,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.4.0-beta2):** Linux AppImage and Windows `.exe` one-shot installers are shipped — see the [Download & install](#-download--install) section at the top of this README. macOS `.dmg` is still in progress; on macOS use the `vg` CLI or unzip the release for now.
+> 🚧 **Installer status (v5.7.0-beta.4):** Linux AppImage, Windows `.exe`, and an unsigned macOS setup ZIP are on the [release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.4). A notarized macOS `.dmg` is still not shipped.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -406,7 +406,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub release (all platforms):**
 
-Download the AppImage/exe installer from [v5.4.0-beta2](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.4.0-beta2), or — if you already have Godot 4.6.1+ — install from the **Asset Library** or download the [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic_AssetLibrary_v5.4.0-beta2.zip) / [addon zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.4.0-beta2/VisualGasic-v5.4.0-beta2.zip) and copy `addons/visual_gasic/` into your project. Release notes: [v5.4.0-beta2](RELEASE_NOTES_v5.4.0-beta2.md).
+Download the installer for your platform from [v5.7.0-beta.4](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.7.0-beta.4), or — if you already have Godot 4.6.1+ — install from the **Asset Library** or download the [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.7.0-beta.4/VisualGasic_AssetLibrary_v5.7.0-beta.4.zip) and copy `addons/visual_gasic/` into your project. Release notes: [v5.7.0-beta.4](RELEASE_NOTES_v5.7.0-beta.4.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -614,9 +614,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.6.0-beta1` (Current Public Beta)
+**Current Version**: `v5.7.0-beta.4` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.6.0-beta1 release notes](RELEASE_NOTES_v5.6.0-beta1.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.7.0-beta.4 release notes](RELEASE_NOTES_v5.7.0-beta.4.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -649,9 +649,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v5.2.0)** - Community testing of `v5.4.0-beta2` ongoing
-- **macOS `.dmg` graphical installer** — Linux AppImage and Windows `.exe` are shipped; macOS still WIP
-- **Asset Library** - Publish to Godot Asset Library
+- **Stable Release (v6.0)** — still the goal for early 2027. The current public beta is `v5.7.0-beta.4`.
+- **macOS `.dmg` graphical installer** — an unsigned universal setup ZIP ships with beta.4; a notarized `.dmg` does not
+- **Asset Library** — the listing exists; each beta still needs its own moderator update
 - **WebAssembly Validation** - Verify HTML5 export compatibility
 
 ## 📄 **License**

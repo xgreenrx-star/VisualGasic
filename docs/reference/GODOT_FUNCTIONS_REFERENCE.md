@@ -2,7 +2,9 @@
 
 This document provides a complete reference for Godot-specific builtin functions available in Visual Gasic (PascalCase VB-style names). Snake_case equivalents (`get_tree`, `emit_signal`, …) are also supported and appear in IDE intellisense under **Godot API**.
 
-**Authoritative sources:** [VisualGasic Language Reference](../VisualGasic_Language_Reference.md) (Part II) for full command coverage; this file focuses on Godot game-dev globals. Signal wiring uses **`Connect(node, signal, handler)`** — not `ConnectSignal` (legacy name in older examples).
+**Current public beta:** v5.7.0-beta.4 on Godot 4.6.1+.
+
+**Authoritative sources:** [VisualGasic Language Reference](../VisualGasic_Language_Reference.md) (Part II) for full command coverage, including `AABB`, `Basis`, `Plane`, and `Projection`; this file focuses on Godot game-dev globals. Signal wiring uses **`Connect(node, signal, handler)`** — not `ConnectSignal` (legacy name in older examples).
 
 ---
 

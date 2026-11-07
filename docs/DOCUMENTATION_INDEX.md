@@ -7,7 +7,7 @@
 ## Getting Started
 
 - [QUICK_START.md](getting_started/QUICK_START.md) - **Fast path** — forms, 2D games, Narcea
-- [GET_STARTED.md](guides/GET_STARTED.md) - Installers (v5.6.0-beta1), first script, learning paths
+- [GET_STARTED.md](guides/GET_STARTED.md) - Installers (v5.7.0-beta.4), first script, learning paths
 - [Introduction](getting_started/introduction.md) - What is VisualGasic? Why use it?
 - [Installation](getting_started/installation.md) - Install scripts, manual setup, `vg` CLI
 - [Nodes and Scenes](getting_started/nodes_and_scenes.md) - Godot's building blocks

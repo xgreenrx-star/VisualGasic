@@ -313,8 +313,8 @@ opposite way from travel. The 4.1 m hull swept sideways into fresh trail/relay
 geometry (UNKNOWN crashes), the rear emitter sat beside the camera (cyan
 block), and the map trail ran ahead of the marker. All seven player/remote
 yaw writes now use `0.0 - heading`. `HeadingOf()` now derives forward with
-`to_global(Vector3(0, 0, -1))`, because VG's `basis.z` returns a Basis row,
-not GDScript's column vector. Five regression checks fail on the old code and
+`to_global(Vector3(0, 0, -1))`. That call does not depend on Basis members.
+Before v5.7.0-beta.4, `basis.z` returned a row; from beta.4 on, Basis axes are Godot columns. Five regression checks fail on the old code and
 pass now (`right_turn_*`, `left_turn_*`, `heading_of_round_trips_node_yaw`).
 Real-frame capture: launch, right turn, two left turns, no crash or block.
 
