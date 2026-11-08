@@ -23,6 +23,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# A new compile bail must call bail_to_ast("reason") and add that reason below.
+# Raw `compile_ok = false` is a silent AST fallback.
+if grep -n 'compile_ok = false' src/visual_gasic_compiler.cpp; then
+	echo "FAIL: silent compile_ok = false in the compiler; use bail_to_ast" >&2
+	exit 1
+fi
+
 TEST_DIR="test_proj/test_suite"
 RUNNER="run_suite.gd"
 TIMEOUT_SECS="${TIMEOUT_SECS:-20}"
@@ -149,6 +156,8 @@ extract_assertions() {
 runtime_errors_match() {
 	local log="$1" name="$2" expected=""
 	case "$name" in
+		test_unhandled_process_error.vg)
+			expected='901|_Process|25|test_unhandled_process_error.vg' ;;
 		test_error_handling.vg)
 			expected=$'100|_Ready|10|test_error_handling.vg\n200|_Ready|24|test_error_handling.vg\n300|_Ready|55|test_error_handling.vg\n400|_Ready|74|test_error_handling.vg' ;;
 		test_try_cross_module.vg) expected='501|Boom|3|test_try_raise_helper.vg' ;;
@@ -164,6 +173,22 @@ runtime_errors_match() {
 		sed -nE 's/^\[VG (Runtime|Handled) Error ([0-9]+)\].*Sub: ([^ ]+) Line: ([0-9]+) \(([^,)]+)(, caught by enclosing handler|, handled by On Error)?\)$/\2|\3|\4|\5/p' | sort || true)
 	parsed_count=$(printf '%s\n' "$actual" | grep -c '.' || true)
 	[[ "$count" -eq "$parsed_count" && "$actual" == "$expected" ]]
+}
+
+# Named reasons from bail_to_ast. "unnamed" is the bucket for older bails.
+fallback_reasons_ok() {
+	local log="$1" reason
+	while IFS= read -r reason; do
+		[[ -z "$reason" ]] && continue
+		case "$reason" in
+			unnamed) ;;
+			"ByRef index expression is not pure") ;;
+			"record Get/Put stays on the AST walker (fixed 128-byte string records)") ;;
+			"Try/Finally rethrow slot") ;;
+			*) return 1 ;;
+		esac
+	done < <(grep -E '^\[VG AST Fallback\]' "$log" | sed -nE 's/^\[VG AST Fallback\] .* \| //p' | sort -u)
+	return 0
 }
 
 MISMATCHES=0
@@ -212,6 +237,8 @@ for fname in "${TEST_FILES[@]}"; do
 		! grep -q "$completion" "$ast_raw" ||
 		! runtime_errors_match "$bc_raw" "$fname" ||
 		! runtime_errors_match "$ast_raw" "$fname" ||
+		! fallback_reasons_ok "$bc_raw" ||
+		! fallback_reasons_ok "$ast_raw" ||
 		grep -qE '^SCRIPT ERROR:|^ERROR:.*(Failed to load|Cannot open)|handle_crash:|Segmentation fault|Aborted' "$bc_raw" "$ast_raw"; then
 		echo "  EXEC-FAIL  $fname  (bc rc=$bc_rc ast rc=$ast_rc; inspect raw logs)"
 		EXEC_FAILURES=$((EXEC_FAILURES + 1))

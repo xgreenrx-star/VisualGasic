@@ -2152,11 +2152,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
              if (has_form_load && !Engine::get_singleton()->is_editor_hint()) {
                  bool found;
                  call_internal("Form_Load", Array(), found);
-                 // Clear any runtime error from Form_Load so it doesn't
-                 // pollute subsequent button-click dispatches.  The error
-                 // was already handled (Exception Assistant or msgbox) inside
-                 // call_internal / try_recover_error.
-                 error_state.has_error = false;
+                 report_unhandled_error("Form_Load");
              }
          }
 
@@ -2164,7 +2160,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (script.is_valid() && script->_has_method("_Ready") && !Engine::get_singleton()->is_editor_hint()) {
              bool found;
              call_internal("_Ready", Array(), found);
-             error_state.has_error = false;  // Same cleanup as Form_Load above
+             report_unhandled_error("_Ready");
          }
          
          // Run Auto-Wire again for nodes created in _Ready/Form_Load (Dynamic Controls)
@@ -2185,6 +2181,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
          if (script.is_valid() && script->_has_method("Form_Unload")) {
              bool found;
              call_internal("Form_Unload", Array(), found);
+             report_unhandled_error("Form_Unload");
          }
 
          release_canvas_draw_delegate_for_helper_script();
@@ -2192,6 +2189,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
     else if (p_what == Node::NOTIFICATION_PROCESS) {
          // Skip _Process in editor mode. QB present runs after _Process so one
          // frame of PSet/LINE/_Display becomes a single texture upload.
+         bool frame_failed = false;
          if (!Engine::get_singleton()->is_editor_hint()) {
          if (script.is_valid() && script->_has_method("_Process")) {
              double delta = 0.0;
@@ -2206,16 +2204,18 @@ void VisualGasicInstance::notification(int32_t p_what) {
              
              bool found;
              call_internal("_Process", args, found);
+             frame_failed = error_state.has_error && error_state.mode == ErrorState::NONE;
+             report_unhandled_error("_Process");
              
              // Trigger redraw if script has a draw method
-             if (owner && (script->_has_method("_Draw") || script->_has_method("OnDraw"))) {
+             if (!frame_failed && owner && (script->_has_method("_Draw") || script->_has_method("OnDraw"))) {
                  if (CanvasItem *ci = get_draw_canvas_item()) {
                      ci->queue_redraw();
                  }
              }
          }
          }
-         VGQbScreen::present(this);
+         if (!frame_failed) VGQbScreen::present(this);
     }
     else if (p_what == Node::NOTIFICATION_PHYSICS_PROCESS) {
          // Skip _PhysicsProcess in editor mode
@@ -2235,6 +2235,7 @@ void VisualGasicInstance::notification(int32_t p_what) {
              
              bool found;
              call_internal("_PhysicsProcess", args, found);
+             report_unhandled_error("_PhysicsProcess");
          }
     }
     // Handle Drawing

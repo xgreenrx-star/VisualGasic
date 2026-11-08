@@ -66,10 +66,15 @@ VG is a public beta. Current release: **v5.7.0-beta.4** ([notes](RELEASE_NOTES_v
 
 The language, JIT compiler, and debugger work. The Form Designer is experimental Alpha, not the default editor. Here is the explicit priority list:
 
-**Fixing now (these block the positioning story):**
-- Unhandled errors corrupt app state — demos that hit a bug should fail gracefully, not freeze
-- Double-click ignores existing `.tscn` signal connections — directly undermines AI+VG workflow
-- Phantom button double-press on blocking async calls
+**Fixing now:**
+- Brotato cold import can abort in `realloc` while reimporting Kenney fonts. Classified on Linux Godot 4.7.2 (stripped binary, worker thread, no VG frames). Not an editor-leak cleanup.
+- Editor font, viewport, and ObjectDB teardown diagnostics on Godot 4.7.2.
+- Older compiler AST fallbacks still report `unnamed` until each site is classified. A new silent `compile_ok = false` fails the differential suite.
+
+**Fixed on main after 5.7.0-beta.4:**
+- An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`, `Form_Unload`, or `_Draw` reports the line, skips the rest of that callback, and leaves later frames and other scripts running.
+- `Try`/`Finally` with no `Catch` runs `Finally` and then the error propagates, on both the AST walker and the bytecode VM.
+- Record Get/Put and a ByRef index that calls something stay on the AST walker and name that fallback.
 
 **Recently shipped (5.6.0-beta1):**
 - **Windows x64 native JIT** — Tier 2/3 first public ship; feedback wanted (`VG_JIT=0` to disable)

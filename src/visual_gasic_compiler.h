@@ -49,6 +49,8 @@ private:
     // Exit Sub / Exit Function jump here so stepping lands on End Sub / End Function.
     Vector<int> procedure_exit_jumps;
     bool compile_ok;
+    String ast_fallback_reason;
+    void bail_to_ast(const char *reason);
     // Reorder name:=value arguments onto the callee's parameter list.
     bool reorder_named_arguments(const String &method_name, Vector<ExpressionNode*> &args, Vector<String> &names);
 

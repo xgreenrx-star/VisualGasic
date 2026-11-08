@@ -443,7 +443,7 @@ static bool vg_chunk_inline_eligible(BytecodeChunk *chunk, VisualGasic::SubDefin
         int ip = 0;
         while (ip < code.size()) {
             switch (code[ip]) {
-                case OP_SETUP_TRY: case OP_POP_TRY: case OP_THROW:
+                case OP_SETUP_TRY: case OP_POP_TRY: case OP_THROW: case OP_RETHROW:
                 case OP_ON_ERROR_RESUME_NEXT: case OP_ON_ERROR_GOTO: case OP_ON_ERROR_GOTO_0:
                 case OP_RESUME: case OP_RESUME_NEXT: case OP_RESUME_CLEAR:
                 case OP_GOSUB: case OP_RETURN_GOSUB:
@@ -2971,6 +2971,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_SETUP_TRY]      = &&vg_op_setup_try;
         dispatch_table[OP_POP_TRY]        = &&vg_op_pop_try;
         dispatch_table[OP_THROW]          = &&vg_op_throw;
+        dispatch_table[OP_RETHROW]        = &&vg_op_rethrow;
         dispatch_table[OP_DUP]            = &&vg_op_dup;
         dispatch_table[OP_ARRAY_RESIZE]   = &&vg_op_array_resize;
         dispatch_table[OP_NEW_OBJECT]     = &&vg_op_new_object;
@@ -10953,6 +10954,21 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!try_recover_error(Variant(), false)) {
                     // A caller may catch this; the top-level dispatcher reports
                     // errors that remain unhandled after propagation.
+                    success = false;
+                    goto cleanup;
+                }
+                VG_BREAK;
+            }
+            VG_CASE(vg_op_rethrow, OP_RETHROW): {
+                String msg = "Application error";
+                int err_code = 0;
+                if (variables.has("Err") && variables["Err"].get_type() == Variant::DICTIONARY) {
+                    Dictionary d = variables["Err"];
+                    if (d.has("Description")) msg = String(d["Description"]);
+                    if (d.has("Number")) err_code = (int)d["Number"];
+                }
+                raise_error(msg, err_code);
+                if (!try_recover_error(Variant(), false)) {
                     success = false;
                     goto cleanup;
                 }

@@ -118,6 +118,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_RESUME);
         OP_NAME_CASE(OP_RESUME_NEXT);
         OP_NAME_CASE(OP_RESUME_CLEAR);
+        OP_NAME_CASE(OP_RETHROW);
         OP_NAME_CASE(OP_FOREACH_STEP);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);

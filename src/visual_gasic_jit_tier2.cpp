@@ -938,7 +938,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                         case OP_GREATER: case OP_LESS: case OP_GREATER_EQUAL:
                         case OP_LESS_EQUAL: case OP_NIL: case OP_TRUE: case OP_FALSE:
                         case OP_PRINT: case OP_DEBUG_PRINT: case OP_RETURN: case OP_RETURN_VALUE:
-                        case OP_DUP: case OP_NEW_DICT: case OP_THROW:
+                        case OP_DUP: case OP_NEW_DICT: case OP_THROW: case OP_RETHROW:
                         case OP_POP_TRY: case OP_ADD_I64: case OP_SUB_I64: case OP_MUL_I64:
                         case OP_ADD_F64: case OP_SUB_F64: case OP_MUL_F64: case OP_DIV_F64:
                         case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64:

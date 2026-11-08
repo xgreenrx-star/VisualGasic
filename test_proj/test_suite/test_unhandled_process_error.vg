@@ -1,0 +1,37 @@
+' MAX_FRAMES: 12
+' One unhandled Raise in _Process must report and let later frames run.
+Attribute VB_Name = "TestUnhandledProcessError"
+
+Dim frames As Integer
+Dim after As Integer
+Dim kept_going As Boolean
+Dim peer As Object
+
+Sub _Ready()
+    frames = 0
+    after = 0
+    kept_going = False
+    Set peer = ClassDB.Instantiate("Node2D")
+    peer.name = "ProcessPeer"
+    Dim scr As Object
+    Set scr = Load("res://test_suite/inc_unhandled_process_peer.vg")
+    peer.set_script(scr)
+    AddChild peer
+End Sub
+
+Sub _Process(delta As Single)
+    frames = frames + 1
+    If frames = 1 Then
+        Raise 901, "process boom"
+        after = after + 1
+    Else
+        kept_going = True
+    End If
+    If frames = 4 Then
+        If after = 0 And kept_going And peer.HitCount() >= 2 Then
+            Print "PASS: unhandled process stops one frame and continues"
+        Else
+            Print "FAIL: unhandled process after=" & Str(after) & " hits=" & Str(peer.HitCount())
+        End If
+    End If
+End Sub

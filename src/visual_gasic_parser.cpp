@@ -6352,6 +6352,7 @@ TryStatement* VisualGasicParser::parse_try() {
     
     // Catch Block
     if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).to_lower() == "catch") {
+        s->has_catch = true;
         advance(); // Eat Catch
         
         VisualGasicTokenizer::Token vars = peek();

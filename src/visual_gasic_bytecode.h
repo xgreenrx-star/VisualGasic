@@ -405,6 +405,7 @@ enum OpCode {
     OP_RESUME,         // [OP] - On Error handler: re-run the statement that raised
     OP_RESUME_NEXT,    // [OP] - On Error handler: continue at the next statement
     OP_RESUME_CLEAR,   // [OP] - Clear the raised error, then fall through (Resume label)
+    OP_RETHROW,        // [OP] - Raise variables["Err"] again after Finally
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

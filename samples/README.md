@@ -37,7 +37,9 @@ The Linux runtime and existing native extension binaries were tested on Godot
 harness, all 15 quarantined projects were corrected and restored. They passed
 60 bounded startup checks across both engines and both execution modes;
 ten projects also passed 40 focused behavioral checks. Cold-import problems
-in the Brotato projects and an unclassified editor-import crash remain. See the
+in the Brotato projects remain. One copied import aborted in `realloc`
+during Kenney font reimport; the stripped Godot binary showed no VG frame.
+See the
 [compatibility report and project matrix](../docs/compatibility/GODOT_4_7_2.md).
 
 Headless startup does not certify rendering, gameplay, device APIs or exports.

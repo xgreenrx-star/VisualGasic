@@ -807,8 +807,9 @@ struct TryStatement : public Statement {
     Vector<Statement*> catch_block;
     Vector<Statement*> finally_block;
     String catch_var_name;
+    bool has_catch;
     
-    TryStatement() : Statement(STMT_TRY) {}
+    TryStatement() : Statement(STMT_TRY), has_catch(false) {}
     ~TryStatement() {
         for(int i=0; i<try_block.size(); i++) if(try_block[i]) delete try_block[i];
         for(int i=0; i<catch_block.size(); i++) if(catch_block[i]) delete catch_block[i];

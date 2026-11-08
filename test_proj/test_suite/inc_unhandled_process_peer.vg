@@ -1,0 +1,12 @@
+' Peer node that must keep running after the host script raises.
+Attribute VB_Name = "UnhandledProcessPeer"
+
+Dim hits As Integer
+
+Sub _Process(delta As Single)
+    hits = hits + 1
+End Sub
+
+Function HitCount() As Integer
+    HitCount = hits
+End Function

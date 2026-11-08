@@ -1,0 +1,39 @@
+' Finally without Catch runs, then the caller's Catch sees the error.
+Attribute VB_Name = "TestTryFinallyRethrow"
+
+Dim cleaned As Boolean
+Dim after_raise As Integer
+Dim after_call As Integer
+
+Function Boom() As Integer
+    Try
+        Raise 902, "finally propagates"
+        after_raise = after_raise + 1
+    Finally
+        cleaned = True
+    End Try
+    Boom = 7
+End Function
+
+Sub _Ready()
+    cleaned = False
+    after_raise = 0
+    after_call = 0
+    Dim number As Integer
+    number = 0
+    Dim caught As Boolean
+    caught = False
+    Try
+        Dim n As Integer
+        n = Boom()
+        after_call = after_call + 1
+    Catch ex
+        caught = True
+        number = ex.Number
+    End Try
+    If cleaned And caught And number = 902 And after_raise = 0 And after_call = 0 Then
+        Print "PASS: finally runs then the caller catches"
+    Else
+        Print "FAIL: finally rethrow cleaned=" & CStr(cleaned) & " caught=" & CStr(caught) & " n=" & Str(number) & " after=" & Str(after_raise) & "/" & Str(after_call)
+    End If
+End Sub

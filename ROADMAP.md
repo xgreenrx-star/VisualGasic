@@ -1,9 +1,9 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: September 8, 2026  
-**Current Version**: 5.4.0-beta2 (on `main`; tag at Oct 15 cut) — see [`CHANGELOG.md`](CHANGELOG.md) for the full set  
-**Current Scope**: M0–M9 milestones (Jul 2026 – Jan 2027 stable release)  
-**Next Cut**: 5.5.0-beta1 (Nov 2026) — M7 close-out + M9 prep — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
+**Last Updated**: November 7, 2026  
+**Current Version**: 5.7.0-beta.4, plus the unreleased engine fixes in [Engine status](#engine-status-november-7-2026) — see [`CHANGELOG.md`](CHANGELOG.md)  
+**Current Scope**: Godot IDE integration through stable v6.0 (early 2027)  
+**Next Cut**: not scheduled; bug-fix betas continue — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
 **Roadmap Scope**:
 - ✅ **M0–M9 milestones** (Jul 2026 – Jan 1 2027): Current active development
@@ -12,7 +12,24 @@
 - 🌌 **v7.0+ Out-of-Scope** (lines ~1100+): Explicitly mothballed until post-v6.0 stable
 - **VG Standalone IDE Shell**: Mothballed behind `vg/enable_experimental_plugins` — focus is Godot IDE integration only (Toolbox, Properties, Code Navigator, autocomplete, Narcea Vibe Code)
 
-This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.**
+This document outlines the planned improvements and features for Visual Gasic. Items are prioritized by impact and development effort. **Aspirational items live in v6.0 / v7.0 sections — do not pull them forward.** Older milestone tables below stay as history.
+
+---
+
+## Engine status (November 7, 2026)
+
+On `main` after v5.7.0-beta.4, not yet in a tagged release:
+
+- An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`, `Form_Unload`, or `_Draw`/`OnDraw` reports the line, skips the rest of that callback, and leaves later frames and other scripts running.
+- `Try`/`Finally` with no `Catch` runs `Finally`, then the error propagates. The AST walker and the bytecode VM both do this (`OP_RETHROW`).
+- Compiler bails go through `bail_to_ast`. A raw `compile_ok = false` fails `scripts/run_ast_bytecode_diff.sh`. Record Get/Put and a ByRef index that calls something name their AST fallback. Older bails still say `unnamed`.
+- Linux `VG_JIT=0` and `VG_JIT=3` agreed on the checksum in `test_proj/test_suite/test_jit_tier3_numeric.vg`. `VG_JIT=3` compiled that function with the tier-2 native compiler. Windows Tier 3 is unchanged.
+
+Still open:
+
+- A copied Brotato project aborted in `realloc(): invalid next size` on a Godot worker while reimporting Kenney pixel fonts (Linux 4.7.2, stripped binary, no VG frame). That is not an editor-leak cleanup.
+- Editor font, viewport, and ObjectDB teardown diagnostics on 4.7.2.
+- Naming the remaining `unnamed` AST fallbacks.
 
 ---
 

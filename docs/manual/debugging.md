@@ -182,6 +182,10 @@ procedure, file and line but does not open a blocking native dialog. A defined
 waiting for a desktop dialog even when they inherit a display environment.
 Explicit `MsgBox` calls are separate and should not be used in unattended code.
 
+An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`,
+`Form_Unload`, or `_Draw`/`OnDraw` is reported, the rest of that callback is
+skipped, and later frames and other scripts keep running.
+
 ---
 
 ## Variables Panel

@@ -1,0 +1,31 @@
+' Numeric checksum for VG_JIT=0 versus VG_JIT=3. Not a speed claim.
+' MAX_FRAMES: 4
+Attribute VB_Name = "TestJitTier3Numeric"
+
+Function Accumulate(n As Integer) As Integer
+    Dim i As Integer
+    Dim total As Integer
+    total = 0
+    For i = 1 To n
+        total = (total + i * 3 - 1) Mod 1000003
+    Next i
+    Accumulate = total
+End Function
+
+Sub _Ready()
+    Dim i As Integer
+    Dim got As Integer
+    Dim ok As Boolean
+    ok = True
+    For i = 1 To 8
+        got = Accumulate(200000)
+        If got <> 920003 Then
+            ok = False
+        End If
+    Next i
+    If ok Then
+        Print "PASS: jit numeric checksum"
+    Else
+        Print "FAIL: jit numeric checksum " & Str(got)
+    End If
+End Sub

@@ -2659,7 +2659,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             active_try_depth--;
             
             bool error_handled = false;
-            if (error_state.has_error && error_state.mode == ErrorState::NONE) {
+            if (s->has_catch && error_state.has_error && error_state.mode == ErrorState::NONE) {
                  // Check if we need to capture the exception in a variable
                  if (!s->catch_var_name.is_empty()) {
                       Dictionary ex;

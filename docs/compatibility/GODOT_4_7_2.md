@@ -122,10 +122,14 @@ persisted widget/music repairs, and numeric/string death actions.
 **Remaining limits:** cold editor imports can still report debugger attachment
 and RID/font/viewport teardown diagnostics. Abrupt frame-limited shutdown can
 warn about autoplay audio resources; the orderly behavioral host stops audio
-and waits before quitting. The historical Brotato heap-corruption crash classification,
-interactive gameplay, hardware input, mobile permissions and exports remain
-separate work. This campaign does not claim that all possible VG defects have
-been eliminated.
+and waits before quitting. On November 7, 2026 a copied Brotato import under
+gdb aborted with `realloc(): invalid next size` on Godot worker thread 7 while
+reimporting `Kenney_Pixel.ttf` and `Kenney_Mini_Square.ttf`. The 4.7.2 binary
+is stripped, so the frames above `realloc` have no VG symbols. That classifies
+one heap abort; it does not fix it, and it is not a reason to start editor-leak
+cleanup. Interactive gameplay, hardware input, mobile permissions and exports
+remain separate work. This campaign does not claim that all possible VG defects
+have been eliminated.
 
 ### Dictionary frame follow-up
 
@@ -780,8 +784,10 @@ corrected in the corpus and repository README files.
 
 ## Next steps before full upgrade certification
 
-1. Investigate the 2D Brotato import crash with a useful native backtrace and
-   a controlled cold-import reproduction; compare both engines.
+1. Attribute the Brotato `realloc(): invalid next size` abort with a
+   symbolized Godot. The November 7, 2026 gdb run on a copied project died in
+   libc during Kenney font reimport; the stripped 4.7.2 binary showed no VG
+   frame. Do not start leak cleanup from that trace.
 2. Verify debugger-plugin shutdown/session ownership on 4.7.2 and fix only
    after establishing the lifecycle cause.
 3. Repair the baseline sample and corpus defects above in a separate bug

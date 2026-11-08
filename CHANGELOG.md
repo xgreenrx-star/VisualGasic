@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`, `Form_Unload`, or `_Draw`/`OnDraw` reports the procedure and line, skips the rest of that callback, and leaves later frames and other scripts running.
+- `Try`/`Finally` with no `Catch` runs `Finally` and then rethrows. The AST walker and the bytecode VM (`OP_RETHROW`) both propagate the error to a caller that has a handler.
+
+### Changed
+
+- Compiler bails go through `bail_to_ast`. `scripts/run_ast_bytecode_diff.sh` fails if a raw `compile_ok = false` remains. Record Get/Put and an impure ByRef index name their AST fallback; older bails still say `unnamed`.
+- A copied Brotato import on Godot 4.7.2 aborted in `realloc(): invalid next size` on a worker thread while reimporting Kenney pixel fonts. The Godot binary is stripped, so the frames above `realloc` are addresses only. Leak cleanup stays parked.
+- Linux `VG_JIT=0` and `VG_JIT=3` returned the same checksum from `test_jit_tier3_numeric.vg`. `VG_JIT=3` compiled that function with the tier-2 native compiler.
+
 ## [5.7.0-beta.4] - 2026-11-06
 
 Bug-fix beta. [Release notes](RELEASE_NOTES_v5.7.0-beta.4.md).

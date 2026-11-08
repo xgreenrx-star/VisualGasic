@@ -5785,11 +5785,15 @@ void VisualGasicInstance::run_canvas_draw_handlers() {
 	begin_draw_batch();
 	bool found = false;
 	Array args;
+	const char *draw_name = nullptr;
 	if (script->_has_method("_Draw")) {
+		draw_name = "_Draw";
 		call_internal("_Draw", args, found);
 	} else if (script->_has_method("OnDraw")) {
+		draw_name = "OnDraw";
 		call_internal("OnDraw", args, found);
 	}
+	if (draw_name) report_unhandled_error(String(draw_name));
 	end_draw_batch_flush();
 	if (CanvasItem *ci = get_draw_canvas_item()) {
 		if (VGVectorCanvas2D *vc = Object::cast_to<VGVectorCanvas2D>(ci)) {

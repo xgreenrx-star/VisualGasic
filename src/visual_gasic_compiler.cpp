@@ -192,6 +192,13 @@ static bool vg_is_packed_array_type(const String &t) {
 VisualGasicCompiler::VisualGasicCompiler() : current_chunk(nullptr), current_line(0), last_emitted_debug_line(-1), compile_ok(true) {
 }
 
+void VisualGasicCompiler::bail_to_ast(const char *reason) {
+    compile_ok=false;
+    if (ast_fallback_reason.is_empty() && reason && reason[0] != '\0') {
+        ast_fallback_reason = String(reason);
+    }
+}
+
 VisualGasicCompiler::~VisualGasicCompiler() {
 }
 
@@ -341,13 +348,13 @@ bool VisualGasicCompiler::reorder_named_arguments(const String &method_name, Vec
     SubDefinition *target = resolve_call_target(method_name, args.size());
     if (!target) {
         UtilityFunctions::printerr("Named arguments require a known Sub or Function: ", method_name);
-        compile_ok = false;
+        bail_to_ast("unnamed");
         return false;
     }
     String err;
     if (!VisualGasic::reorder_named_arguments_onto(target, args, names, &err)) {
         UtilityFunctions::printerr(err);
-        compile_ok = false;
+        bail_to_ast("unnamed");
         return false;
     }
     return true;
@@ -359,6 +366,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     procedure_exit_jumps.clear();
     current_module = module;
     compile_ok = true;
+    ast_fallback_reason = String();
     array_vars.clear();
     param_vars.clear();
     dictionary_vars.clear();
@@ -809,7 +817,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
         compile_statement(stmt);
         if (!compile_ok) {
-            // Unsupported construct - AST interpreter will handle this sub
+            UtilityFunctions::print("[VG AST Fallback] ", sub->name, " | ",
+                    ast_fallback_reason.is_empty() ? String("unnamed") : ast_fallback_reason);
             break;
         }
     }
@@ -7425,7 +7434,7 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
             if (aa->indices.size() != 1 || !aa->base || aa->base->type != ExpressionNode::VARIABLE) continue;
 			// Index calls can overwrite captures; retain the AST write-back path.
 			if (!is_pure_expr(aa->indices[0])) {
-				compile_ok = false;
+				bail_to_ast("ByRef index expression is not pure");
 				return;
 			}
             VariableNode* base_var = (VariableNode*)aa->base;
@@ -7460,7 +7469,7 @@ void VisualGasicCompiler::emit_byref_writebacks(SubDefinition* target_func, cons
                 continue;
             }
 			if (!is_pure_expr(call->arguments[0])) {
-				compile_ok = false;
+				bail_to_ast("ByRef index expression is not pure");
 				return;
 			}
             int slot = get_or_add_local(argname, VT_UNKNOWN);
@@ -7545,14 +7554,14 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             
             // Static variables are not supported in bytecode - fall back to interpreter
             if (s->is_static) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
             if (s->is_block_scoped) {
                 if (block_scope_stack.is_empty()) {
                     UtilityFunctions::print("Compiler: Let declaration outside For/If/While block");
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                     break;
                 }
                 ValueType vt = VT_UNKNOWN;
@@ -7646,7 +7655,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
 
             if (s->array_sizes.size() > 0) {
                 if (s->array_sizes.size() != 1) {
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                     break;
                 }
                 
@@ -7667,7 +7676,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                         }
                         if (is_struct) {
                             // Arrays of structs require runtime handling - fall back to interpreter
-                            compile_ok = false;
+                            bail_to_ast("unnamed");
                             break;
                         }
                     }
@@ -7768,7 +7777,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                         }
                         if (is_struct) {
                             // Structs require runtime prototype instantiation - fall back to interpreter
-                            compile_ok = false;
+                            bail_to_ast("unnamed");
                             break;
                         }
                         init_val = construct_godot_type(s->type_name, Array());
@@ -8025,11 +8034,11 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
              } else if (s->target->type == ExpressionNode::ARRAY_ACCESS) {
                  ArrayAccessNode* aa = (ArrayAccessNode*)s->target;
                  if (aa->indices.size() != 1) {
-                     compile_ok = false;
+                     bail_to_ast("unnamed");
                      break;
                  }
                  if (aa->base->type != ExpressionNode::VARIABLE) {
-                     compile_ok = false;
+                     bail_to_ast("unnamed");
                      break;
                  }
                  VariableNode* v = (VariableNode*)aa->base;
@@ -8109,7 +8118,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
              } else if (s->target->type == ExpressionNode::EXPRESSION_CALL) {
                  CallExpression* call = (CallExpression*)s->target;
                  if (call->base_object || call->arguments.size() != 1) {
-                     compile_ok = false;
+                     bail_to_ast("unnamed");
                      break;
                  }
                  VariableNode tmp;
@@ -8162,7 +8171,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
              } else if (s->target->type == ExpressionNode::MEMBER_ACCESS) {
                  MemberAccessNode *ma = (MemberAccessNode *)s->target;
                  if (!ma->base_object) {
-                     compile_ok = false;
+                     bail_to_ast("unnamed");
                      break;
                  }
                  // Walk the LHS chain from outside in, collecting member
@@ -8182,7 +8191,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  while (root && root->type == ExpressionNode::MEMBER_ACCESS) {
                      MemberAccessNode *inner = (MemberAccessNode *)root;
                      if (!inner->base_object) {
-                         compile_ok = false;
+                         bail_to_ast("unnamed");
                          break;
                      }
                      member_chain.push_back(inner->member_name);
@@ -8224,7 +8233,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                              "(...) -- the getter returns a snapshot, not a live handle. ",
                              "Use the matching setter verb instead "
                              "(e.g. Cell.Set, Theme.Set, Material.SetParam).");
-                         compile_ok = false;
+                         bail_to_ast("unnamed");
                          break;
                      }
                  }
@@ -8329,7 +8338,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  indexed_root.base = nullptr;
                  indexed_root.indices.clear();
              } else {
-                 compile_ok = false;
+                 bail_to_ast("unnamed");
              }
              break;
         }
@@ -8424,7 +8433,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     // ParamArray still requires the interpreter (the fast
                     // path can't marshal a variadic trailing array).
                     if (target_func->parameters[j].is_param_array) {
-                        compile_ok = false;
+                        bail_to_ast("unnamed");
                         break;
                     }
                     // NOTE: ByRef params with variable arguments no longer
@@ -8455,7 +8464,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         case STMT_FOR: {
             ForStatement* f = (ForStatement*)stmt;
             if (!f->from_val || !f->to_val) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             if (try_compile_packed_ribbon_for(f)) {
@@ -8568,12 +8577,12 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             ForStatement* interop_inner = nullptr;
             if (kEnableLoopFusions && is_interop_loop(f, interop_sum, interop_prefix, interop_inner)) {
                 if (!interop_inner || !interop_inner->to_val) {
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                     break;
                 }
                 int sum_slot = get_or_add_local(interop_sum, VT_INT);
                 if (sum_slot < 0) {
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                     break;
                 }
                 // Push inner_to, outer_to, prefix_value onto stack
@@ -9491,7 +9500,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         case STMT_WHILE: {
             WhileStatement* s = (WhileStatement*)stmt;
             if (!s->condition) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             
@@ -9527,7 +9536,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         case STMT_IF: {
             IfStatement* s = (IfStatement*)stmt;
             if (!s->condition) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -9552,7 +9561,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             ReDimStatement* s = (ReDimStatement*)stmt;
             if (s->array_sizes.size() != 1) {
                 // Multi-dimensional ReDim not yet supported in bytecode
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -9646,7 +9655,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(jump_addr);
             } else {
                 UtilityFunctions::print("Compiler: Unsupported exit type", s->exit_type);
-                compile_ok = false;
+                bail_to_ast("unnamed");
             }
             break;
         }
@@ -9721,7 +9730,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         // M6: Try O(1) jump table dispatch
         if (try_compile_jump_table(s)) break;
             if (!s->expression) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             
@@ -9763,7 +9772,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                             else if (comp_op == "<=") emit_byte(OP_LESS_EQUAL);
                             else if (comp_op == "<>") emit_byte(OP_NOT_EQUAL);
                             else if (comp_op == "=") emit_byte(OP_EQUAL);
-                            else { compile_ok = false; break; }
+                            else { bail_to_ast("unnamed"); break; }
                             int match_jump = emit_jump(OP_JUMP_IF_TRUE);
                             case_match_jumps.push_back(match_jump);
                         } else if (has_range) {
@@ -9913,7 +9922,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // Hidden variables: __osc_dir_<var> (1 or -1), __osc_cyc_<var> (cycle count)
             OscillateStatement* os = (OscillateStatement*)stmt;
             if (!os->from_val || !os->to_val) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10081,7 +10090,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // If "As counter" is used, the user variable mirrors __repeat_i.
             RepeatStatement* rp = (RepeatStatement*)stmt;
             if (!rp->count_val) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10182,7 +10191,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // modular indexing: element = collection[i Mod Len(collection)]
             CycleStatement* cy = (CycleStatement*)stmt;
             if (!cy->collection || !cy->count_val || cy->element_name.is_empty()) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10290,7 +10299,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // Seconds mode: tracks last-fire time, fires when elapsed >= N.
             EveryStatement* ev = (EveryStatement*)stmt;
             if (!ev->interval_val) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10409,7 +10418,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             //   6. OP_POP (discard final return)
             TweenStatement* tw = (TweenStatement*)stmt;
             if (!tw->target_node || !tw->to_val || !tw->duration) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10423,7 +10432,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // Step 1: target_node.create_tween() → Tween on stack
 			int target_slot = get_or_add_local("__tween_target_" + String::num_int64(temp_local_id++), VT_UNKNOWN);
 			if (target_slot < 0) {
-				compile_ok = false;
+				bail_to_ast("unnamed");
 				break;
 			}
             compile_expression(tw->target_node);
@@ -10556,13 +10565,13 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                                 emit_const_index(idx);
                             }
                         } else {
-                            compile_ok = false;
+                            bail_to_ast("unnamed");
                         }
                     } else {
-                        compile_ok = false;
+                        bail_to_ast("unnamed");
                     }
                 } else {
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                 }
             }
             break;
@@ -10589,7 +10598,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // running the body bytecode with its own locals[] copy.
             ParallelForStatement* pf = (ParallelForStatement*)stmt;
             if (!pf->start_expr || !pf->end_expr) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10655,7 +10664,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // For Each var In collection ... Next
             ForEachStatement* s = (ForEachStatement*)stmt;
             if (!s->collection) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10666,7 +10675,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             int var_slot   = get_or_add_local(s->variable_name, VT_UNKNOWN);
             temp_local_id++;
             if (coll_slot < 0 || idx_slot < 0) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
 
@@ -10788,7 +10797,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // With expression ... End With
             WithStatement* s = (WithStatement*)stmt;
             if (!s->expression) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             // Evaluate the With expression and push onto With context stack
@@ -10808,7 +10817,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             // Continue For / Continue Do / Continue While / Continue Oscillate
             ContinueStatement* cont = (ContinueStatement*)stmt;
             if (loop_continue_targets.is_empty()) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             int target = loop_continue_targets[loop_continue_targets.size() - 1];
@@ -10858,6 +10867,35 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         case STMT_TRY: {
             // Try ... Catch [ex] ... Finally ... End Try
             TryStatement* s = (TryStatement*)stmt;
+            if (!s->has_catch) {
+                String slot_name = String("__vg_rethrow_") + String::num_int64(current_chunk->code.size());
+                int rethrow_slot = get_or_add_local(slot_name, VT_UNKNOWN);
+                if (rethrow_slot < 0 || rethrow_slot > 255) {
+                    bail_to_ast("Try/Finally rethrow slot");
+                    break;
+                }
+                emit_constant((int64_t)0);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)rethrow_slot);
+                int setup_try = emit_jump(OP_SETUP_TRY);
+                for (int i = 0; i < s->try_block.size(); i++) {
+                    compile_statement(s->try_block[i]);
+                }
+                emit_byte(OP_POP_TRY);
+                int jump_finally = emit_jump(OP_JUMP);
+                patch_jump(setup_try);
+                emit_byte(OP_POP);
+                emit_constant((int64_t)1);
+                emit_bytes(OP_SET_LOCAL, (uint8_t)rethrow_slot);
+                patch_jump(jump_finally);
+                for (int i = 0; i < s->finally_block.size(); i++) {
+                    compile_statement(s->finally_block[i]);
+                }
+                emit_bytes(OP_GET_LOCAL, (uint8_t)rethrow_slot);
+                int skip_rethrow = emit_jump(OP_JUMP_IF_FALSE);
+                emit_byte(OP_RETHROW);
+                patch_jump(skip_rethrow);
+                break;
+            }
             
             // Allocate a local for the catch variable if provided
             int catch_var_slot = -1;
@@ -10936,8 +10974,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         }
 		case STMT_GET_FILE:
 		case STMT_PUT_FILE:
-			// Record I/O currently uses the AST file table and string serializer.
-			compile_ok = false;
+			bail_to_ast("record Get/Put stays on the AST walker (fixed 128-byte string records)");
 			break;
         case STMT_OPEN: {
             // Open "path" For mode As #filenum
@@ -11184,7 +11221,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         }
         default:
              UtilityFunctions::print("Compiler: Unsupported statement type ", stmt->type);
-             compile_ok = false;
+             bail_to_ast("unnamed");
              break;
     }
 }
@@ -11206,7 +11243,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     emit_byte(OP_ADDRESS_OF);
                 } else {
                     UtilityFunctions::print("Compiler: AddressOf requires a method name");
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                 }
                 break;
             }
@@ -11223,7 +11260,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 // Unary plus is a no-op.
             } else {
                 UtilityFunctions::print("Compiler: Unsupported unary op ", u->op);
-                compile_ok = false;
+                bail_to_ast("unnamed");
             }
             break;
         }
@@ -11492,7 +11529,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 else if (b->op == ">>") emit_byte(OP_SHR); // Right bit-shift
                 else {
                     UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
-                    compile_ok = false;
+                    bail_to_ast("unnamed");
                 }
 
                 if (cse_slot >= 0) {
@@ -11589,7 +11626,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             else if (b->op == ">>") emit_byte(OP_SHR); // Right bit-shift
             else {
                 UtilityFunctions::print("Compiler: Unsupported binary op ", b->op);
-                compile_ok = false;
+                bail_to_ast("unnamed");
             }
             break;
         }
@@ -11832,7 +11869,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             }
             // ── True array/dict access ──
             if (aa->indices.size() != 1) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             // ── M5: MemoryBuffer READ fast path ──
@@ -12081,7 +12118,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
              if (!_is_self_return_call && !_is_shadowed_godot_ctor &&
                  (array_vars.has(call_name) || dictionary_vars.has(call_name) || local_slots.has(call_name) || param_vars.has(call_name) || is_buffer_var(call->method_name))) {
                  if (call->arguments.size() != 1) {
-                     compile_ok = false;
+                     bail_to_ast("unnamed");
                      break;
                  }
                  // Treat as array access
@@ -12309,7 +12346,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // IIf(condition, true_value, false_value)
             IIfNode* iif = (IIfNode*)expr;
             if (!iif->condition || !iif->true_part || !iif->false_part) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             
@@ -12344,7 +12381,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
             // TypeOf expr Is ClassName → compile expr, push class name, OP_IS_CLASS
             TypeCheckExpression* tc = (TypeCheckExpression*)expr;
             if (!tc->expression || !tc->check_type) {
-                compile_ok = false;
+                bail_to_ast("unnamed");
                 break;
             }
             compile_expression(tc->expression);
@@ -12406,7 +12443,7 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
         default:
              UtilityFunctions::print("Compiler: Unsupported expression type ", expr->type);
              emit_byte(OP_NIL);
-               compile_ok = false;
+               bail_to_ast("unnamed");
              break;
     }
 }

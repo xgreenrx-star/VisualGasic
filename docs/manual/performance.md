@@ -115,7 +115,7 @@ Tier 2/3 cover a **narrow** subset of bytecode (mostly numeric control flow). St
 
 - **Default (unset)** on x86-64 desktop — normal play and shipping on Linux/Windows; semantics match the interpreter.
 - **`VG_JIT=0`** when bisecting a bug, comparing speed, or on platforms without `VG_JIT_NATIVE`.
-- **`VG_JIT=3`** when profiling tight call chains (inlining); Linux is the primary dev/test host; Windows Tier 3 is implemented but **needs real-world benchmark confirmation**.
+- **`VG_JIT=3`** when profiling tight call chains (inlining); Linux is the primary dev/test host; Windows Tier 3 is implemented but **needs real-world benchmark confirmation**. On November 7, 2026, Linux `VG_JIT=0` and `VG_JIT=3` both returned checksum 920003 from `test_jit_tier3_numeric.vg`. The `VG_JIT=3` log showed the tier-2 compiler emitting `Accumulate`. That checks numeric agreement and native compilation; it does not by itself prove call-graph fusion.
 
 JIT validation: `test_proj/test_suite/test_jit_tier3.vg`, `test_jit_object_arg.vg`, `test_byref_project.vg`, and `engine_lab/benchmarks/jit_*.vg` (run with `VG_JIT=2` or `3` as appropriate).
 

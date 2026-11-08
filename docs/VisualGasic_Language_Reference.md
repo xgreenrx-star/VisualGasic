@@ -985,6 +985,7 @@ End Sub
 - `Try` wraps code that might raise an exception
 - `Catch` handles exceptions (optionally typed, defaults to all)
 - `Finally` runs regardless of success or failure — use for cleanup
+- `Try`/`Finally` with no `Catch` still runs `Finally`, then the error propagates to the caller
 - Multiple `Catch` blocks handle different exception types
 - Nested `Try/Catch` blocks are allowed for granular error handling
 - `Throw` re-raises the current exception or throws a new one
@@ -7159,7 +7160,7 @@ Fills a rectangular region of an Image with a color. Faster than per-pixel loops
 
 **Description**
 
-Code in the Finally block always executes, whether or not an error occurred. Use for cleanup (closing files, etc.).
+Code in the Finally block always executes, whether or not an error occurred. Use for cleanup (closing files, etc.). With no `Catch`, the error propagates after `Finally`.
 
 **Example**
 
