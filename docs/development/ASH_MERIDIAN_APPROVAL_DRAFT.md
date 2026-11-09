@@ -2,7 +2,7 @@
 
 ## Story and Gameplay Approval Draft
 
-Revision: November 6, 2026
+Revision: November 9, 2026
 
 This document describes the proposed complete campaign. It is not a claim that
 every feature is implemented. It incorporates the required void crossing,
@@ -18,6 +18,10 @@ local-level routing, the [October 31 underground handoff](ASH_MERIDIAN_UNDERGROU
 supersedes older route/code details in this draft: the three local levels are
 available before the cycle, and the sole FEB encounter is at the far-dock
 facility. The programmer's history does not introduce another FEB encounter.
+The optional resistance-club/launch-deck discovery adds evidence and a second
+historical FEB to the backstory, not another live encounter. The local
+defense FEB Jason awakens (later Rob) is the converted MJH; this is a late
+reveal, not new routing.
 
 ## 1. Overview
 
@@ -166,35 +170,91 @@ below the far platform.
 
 ### 6A. Commander +4: the programmer and its two owners
 
-#### The original owner
+#### The resistance club and MJH's assignment
 
-Long before Jason's visit, an underground technician identified only as
-**M.J.H.** escaped the city with a **Commander +4 service programmer**.
-The original unit was legitimate maintenance equipment: it uploaded firmware,
-diagnosed controllers and changed settings using authorized service access.
-It was not yet a hacking device.
+During the planetary AI's forced conversion of Narcea's citizens, a
+resistance formed. Its members needed places to meet, share plans and keep
+some ordinary social life. Illegal underground clubs served both purposes.
+The AI was aware of them but considered them nuisances, not serious threats,
+and generally looked the other way.
 
-MJH reached the surface and used maintenance credentials to bypass the FEB's
-governor. The change succeeded, but removing a restraint did not make the FEB
-safe or friendly. MJH died before leaving Narcea; the exact circumstances of
-his death are not established here.
+One club occupied a disused train tunnel. It was concealed by a graffiti
+trail and a disguised maintenance entrance. Its dance floor, salvaged lights,
+repaired speaker stacks and layered alien tags should feel like a community
+space that happened to shelter resistance work—not a formal command bunker.
+The visual design should favor strong vector silhouettes, glyphs and lighting
+over detailed crowds or character animation.
 
-The governor bypass is distinct from the chamber's isolation interlock. It
-does not awaken the FEB during Jason's exploration. The enforcer remains
-dormant until Jason removes the coupler at the far-dock facility. The bypass
-also does not remove every surviving directive or prevent the later alliance.
+Underground technician **M.J.H.** used this club while planning an escape.
+His assignment was to reach the surface, befriend a local FEB and bypass its
+inhibitor/governor. A concealed telepad in the club connected to an abandoned
+surface launch deck. The FEB he was assigned to (the **flight FEB**) was
+essential to the plan: after its governor was bypassed with authorized
+maintenance access, it could fly the escape ship and carry Narceans off-world.
+
+The **Commander +4 service programmer** was legitimate maintenance equipment
+for uploading firmware, diagnosing controllers and changing settings with
+authorized credentials. MJH used it to bypass the flight FEB's governor. It
+was not yet a hacking device.
+
+The launch deck is now empty: the ship is gone, the cradle is vacant and
+blast damage and fragments suggest an explosion. Leave a scorched service
+harness bearing MJH's mark, a dead transponder and a damaged recording that
+cuts off after MJH says he cannot reach the ship. The combined evidence should
+make Jason conclude that MJH died and the ship was destroyed. Do not show a
+body or an authoritative death record; the conclusion should feel convincing,
+but be capable of being overturned.
+
+#### Author-facing truth: two distinct FEBs, and Rob is MJH
+
+The flight FEB and the **local defense FEB** are different units. The flight
+FEB piloted the ship carrying the Narceans off the planet.
+
+MJH never reached the ship. Security forces captured him on the way to the
+deck. The planetary AI converted him in haste into a governed defense FEB,
+suppressed his identity and ordered him to destroy the launch he had helped
+plan. That converted unit is the local defense FEB. It attacked the departing
+ship, but the attack was not fully successful: the damaged ship escaped with
+the other Narceans aboard, without MJH. Once the planetary AI stopped
+responding, the converted MJH returned to the local stasis pod and waited for
+instruction for thousands of years. It is the dormant unit Jason encounters
+at the far-dock facility and later calls Rob.
+
+Keep the distinction, the successful departure and the capture out of the
+first club/launch-deck reveal. Jason should leave believing MJH died in the
+attack; in a sense he did. Much later, a flight record establishes that the
+ship escaped without MJH, and Rob's returning memories establish that MJH was
+captured, converted and made to attack it. The ship's destination and
+ultimate fate can remain unknown.
+
+Rob's identity file is corrupted at awakening. Neither the Commander nor any
+record simply announces "this unit is MJH." Seed small, deniable fragments
+instead: Rob handles Narcean service routines with unexplained familiarity,
+hesitates over the Commander or its plate and reacts to the club's music if
+he hears it. The music fragment must have an equivalent outside the optional
+club so the reveal never depends on that excursion.
+
+The flight FEB's governor bypass is not an explanation for Jason's FEB.
+The local defense FEB still has its own intact governor and a separate
+facility isolation interlock. Removing the coupler breaks the interlock and
+awakens it; Jason must later work out how to bypass this unit's governor.
+That is a present-day challenge, not a repeat of MJH's maintenance procedure,
+and bypassing the governor does not erase every surviving directive or
+automatically make the FEB safe or friendly.
 
 #### The second owner
 
-Mark, the scavenger who later becomes Jason's source, found MJH's remains and recovered
-the Commander. He reverse-engineered its service routines and wrote
-**Fast Hack'em**, an intrusion utility capable of contesting Narcean controllers'
-ownership without the original maintenance credentials.
+MJH dropped the Commander during his capture. Scavenger **Mark**, who later
+becomes Jason's source, found it in a surface cache. There were no remains or
+reliable account of its original owner's fate. Mark reverse-engineered the
+service routines and wrote **Fast Hack'em**, an intrusion utility capable of
+contesting Narcean controllers' ownership without the original maintenance
+credentials.
 
-He added an English bootloader and interface to the alien hardware. During
-his eventual emergency escape, he cached or abandoned the programmer with his
-pack on the surface. He escaped with a software copy, not the physical unit.
-Jason must reunite that software with the recovered programmer.
+Mark added an English bootloader and interface to the alien hardware. During
+his own eventual emergency escape, he abandoned the physical Commander with
+his pack in a surface cache but retained a software copy. Jason must reunite
+that software with the recovered programmer.
 
 The player-facing acquisition sequence is:
 
@@ -246,8 +306,11 @@ Orac: "You have no evidence that those letters mean that."
 Jason: "Mike it is."
 
 "Mike J. Henry" is Jason's speculative nickname for the fictional technician.
-His actual name remains unknown. Mark, not MJH, wrote this fictional
-Fast Hack'em. Do not imply that the historical software author died on Narcea.
+His actual name remains unknown. The late reveal that Rob is MJH means
+Jason's two nicknames, "Mike" and "Rob," name the same person; Rob may choose
+which to keep. Mark, not MJH, wrote this
+fictional Fast Hack'em. Do not imply that the historical software author died
+on Narcea.
 
 #### Hardware and screen language
 
@@ -422,15 +485,31 @@ cooldowns explicitly during implementation.
 
 1. Mark supplies software, a cache location and a warning, not the translator.
 2. Jason finds the Narcean Interface Translator; Orac can identify service keys.
-3. Jason recovers the Commander, finds MJH's plate and learns the manual takeover.
-4. Later evidence identifies a governor bypass authorized by M.J.H.
-5. Only after the FEB awakens does Orac explain its significance:
-   "Jason. That programmer's previous owner did not switch it off. He removed
-   the part that could tell it to stop."
+3. Jason finds the graffiti trail, hidden club, telepad and empty launch deck
+   if he explores that optional route. Early records establish MJH's plan but
+   leave the result unclear.
+4. Jason recovers the Commander and finds MJH's plate. Treat "Mike J. Henry"
+   as speculation.
+5. The scorched service harness, dead transponder, missing ship, blast damage
+   and recording that ends after MJH says he cannot reach the ship make Jason
+   conclude MJH died and the ship was destroyed.
+6. Later evidence establishes that MJH bypassed the flight FEB's governor.
+   Do not conflate this unit with Jason's local defense FEB.
+7. After the local defense FEB awakens, Orac can explain the old bypass as
+   precedent—not proof that this unit's governor is already bypassed:
+   "Someone removed the flight unit's governor. Yours is still intact, Jason."
+8. After the rescue, Rob shows small, deniable signs of familiarity with
+   Narcean service routines, the Commander and (if heard) the club's music.
+   Nobody draws the conclusion yet.
+9. A flight record reveals the ship escaped without MJH. During or shortly
+   after the governor bypass, Rob's suppressed memories return: MJH was
+   captured, converted and made to attack the escape he planned, then returned
+   to stasis after the planetary AI stopped answering. Rob is MJH. The ship's
+   later destination and fate remain unknown.
 
-Keep the governor record optional for progression, but its explanation
-recoverable later. Do not expose this spoiler in the initial mission card,
-pickup description or first hacking tutorial.
+Keep discoveries optional for progression but make their essential meaning
+recoverable later. Do not expose the two-FEB reveal in the initial mission
+card, pickup description or first hacking tutorial.
 
 #### Implementation boundary and references
 
@@ -598,6 +677,36 @@ danger.
 The rescue restores survival capability, not every damaged system.
 
 Jason calls the FEB Rob. They become a crew.
+
+### Rob's governor: a consensual joint bypass
+
+The local defense FEB's governor is still active after the rescue. Rob can
+choose a practical truce and help Jason, but some old restrictions still
+constrain what he can do. Before the longer survey begins, Rob explains the
+conflict and proposes bypassing the governor. Jason does not decide to
+reprogram him on his own.
+
+Jason connects the Commander and runs Fast Hack'em to expose the governor's
+control path. This is a deliberate, bounded manual hacking encounter, not an
+automatic upload. Rob supplies a live internal diagnostic and must authorize
+the final severance himself; Fast Hack'em cannot make that choice for him.
+Jason operates the interface while Rob risks a permanent change to his own
+systems. Both must participate for the bypass to succeed.
+
+Success removes the governor's restriction, not Rob's personality or
+surviving directives. He is freer to choose, not magically harmless or
+owned by Jason. The bypass strengthens their working relationship but does
+not replace earned trust.
+
+Jason is unknowingly using MJH's own programmer to free MJH. Removing the
+governor loosens its suppression of Rob's identity memories: in the final
+severance or shortly after, Rob recognizes the Commander's service routines as
+his own work and recovers his first clear memory of being MJH. Let the full
+reveal follow Rob's choice to be free, not motivate it. Rob does not simply
+become MJH again; he recognizes who he was, grieves the escape he was made to
+attack and decides who he is now. Failure is recoverable and does not kill Rob,
+reinstate the hostile loop or block the campaign. Do not have Mark perform
+the change remotely or let the governor conveniently fail on its own.
 
 ## 13. Stranded over Narcea
 
