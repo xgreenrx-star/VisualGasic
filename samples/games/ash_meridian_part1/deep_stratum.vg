@@ -75,6 +75,8 @@ Dim face_shader As Variant
 Dim sun_node As Variant
 Dim sun_mats As Array
 Dim fx As Object
+Dim club_fx As Object
+Dim door_hint_on As Boolean
 Dim towers As Array
 Dim tags As Array
 Dim sun_override As Boolean
@@ -241,7 +243,8 @@ Sub EnsureInit()
 	__ready = True
 	ASCENT = "70315"
 	ITEMS = New Dictionary
-	ITEMS("interface_translator") = Array("INTERFACE TRANSLATOR", 0, "Narcean technicians' script lexicon. Orac supplies English; security can disrupt live readings, not recorded clues.")
+	ITEMS("interface_translator") = Array("LEGACY NARCEAN LEXICON", 0, "Compatibility record for an earlier expedition. New expeditions learn Narcean from Alien.")
+	ITEMS("commander_plus4") = Array("COMMANDER +4", 0, "Mark's modified Plus/4-style service computer. Its ownership plate reads M.J.H. - SERVICE ENGINEERING.")
 	ITEMS("psionic_screwdriver") = Array("PSIONIC SCREWDRIVER", 400, "Orac's name for a Narcean lock-coupling kit. F at a sealed door to hack it.")
 	ITEMS("rad_meter") = Array("RAD METER", 120, "Suit dosimeter. Shows radiation and lets Orac warn you.")
 	ITEMS("jetpack") = Array("JETPACK", 2500, "Hold Space in the air to thrust. Recharges on the ground.")
@@ -266,6 +269,8 @@ Sub EnsureInit()
 	LEVELS("58120") = Array("B11 - ARCHIVE OFFICES", 11)
 	LEVELS("36912") = Array("B12 - VERDANT GALLERY", 12)
 	LEVELS("88216") = Array("B13 - UNDERCITY TRANSIT", 13)
+	LEVELS("77124") = Array("UNLISTED ROOM", 13)
+	LEVELS("77125") = Array("SURFACE - RUINED LAUNCH DOCK", 0)
 	ORDER = Array("14242", "31707", "52914", "66038", "80451", "93162", "40404", "58120", "36912", "88216")
 	term_open = False
 	term_id = ""
@@ -343,9 +348,19 @@ Function has_item(ByVal city As Node, ByVal id As String) As Boolean
 	Return Int(city.pack(id)) > 0
 End Function
 
+Function has_hack_tool(ByVal city As Node) As Boolean
+	If city.campaign_mode Then Return has_item(city, "commander_plus4")
+	Return has_item(city, "psionic_screwdriver")
+End Function
+
 Function interface_lexicon_ready(ByVal city As Node) As Boolean
 	If Not city.campaign_mode And Not city.yard_mode Then Return True
-	Return has_item(city, "interface_translator")
+	Return city.stratum.get("narcean_lexicon", False) Or has_item(city, "interface_translator")
+End Function
+
+Function address_label(ByVal city As Node, ByVal code As String) As String
+	If Not interface_lexicon_ready(city) Then Return "UNTRANSLATED ADDRESS"
+	Return level_label(code)
 End Function
 
 Function pickup_readable(ByVal city As Node, ByVal entry As Dictionary) As Boolean
@@ -368,6 +383,7 @@ Sub ensure_state(ByVal city As Node)
 	If Not st.has("jet_fuel") Then st("jet_fuel") = 1.0
 	If Not st.has("foot_y") Then st("foot_y") = 0.0
 	If Not st.has("powered") Then st("powered") = False
+	If Not st.has("narcean_lexicon") Then st("narcean_lexicon") = False
 	If Not st.has("levers") Then st("levers") = New Dictionary
 	grid_power = st("powered") = True
 End Sub
@@ -764,6 +780,10 @@ Sub _layout(ByVal city As Node, ByVal code As String)
 		_layout_garden(city)
 	ElseIf code = "88216" Then
 		_layout_undercity(city)
+	ElseIf code = "77124" Then
+		_layout_club(city)
+	ElseIf code = "77125" Then
+		_layout_launch_dock(city)
 	Else
 		_frame(city, code, 44, 56, 6, city.SHELL * 0.6, city.SHELL, True)
 	End If
@@ -1076,7 +1096,7 @@ Sub _layout_warrens(ByVal city As Node)
 			gate_r = Rect2(x0, z0 - 0.2, 6, 0.4)
 		End If
 		If rank = 0 Then
-			_pickup("52914", "psionic_screwdriver", Vector3(center.x - dir.x * 1.5, 0.8, center.y - dir.y * 1.5))
+			If Not city.campaign_mode Then _pickup("52914", "psionic_screwdriver", Vector3(center.x - dir.x * 1.5, 0.8, center.y - dir.y * 1.5))
 			_solid(city, Rect2(center.x - dir.x * 1.5 - 0.6, center.y - dir.y * 1.5 - 0.6, 1.2, 1.2), 0.0, 0.8, city.INK)
 			_sign(city, Vector3(center.x - dir.x * 2.75, 2.4, center.y - dir.y * 2.75), Vector3(dir.x, 0, dir.y), "88", "TOOL LOCKER - TECHNICIAN USE")
 		ElseIf rank = 1 Then
@@ -1676,6 +1696,7 @@ End Sub
 ' --- B13 Undercity: 4 m cells, x = -120 + 4i, z = 4j. 0 rock under street (top 6), 1 tunnel under
 ' a street slab, 2 open to the cavern (halls and stations), 3 stairs.
 Function _uc_cell(ByVal i As Integer, ByVal j As Integer) As Integer
+	Dim bay As Integer
 	If i < 0 Or j < 0 Or i > 59 Or j > 71 Then Return -1
 	If i >= 28 And i <= 31 And j >= 8 And j <= 10 Then Return 3
 	If i >= 48 And i <= 50 And j = 37 Then Return 3
@@ -1687,6 +1708,11 @@ Function _uc_cell(ByVal i As Integer, ByVal j As Integer) As Integer
 	If i >= 10 And i <= 14 And j >= 28 And j <= 35 Then Return 2
 	If i >= 45 And i <= 54 And j = 4 Then Return 1
 	If i = 54 And j >= 4 And j <= 34 Then Return 1
+	If i = 55 Then
+		For Each bay In Array(6, 10, 14, 18, 22, 24, 28, 32)
+			If j = bay Or j = bay + 1 Then Return 1
+		Next
+	End If
 	If i >= 5 And i <= 14 And j = 6 Then Return 1
 	If i = 5 And j >= 6 And j <= 56 Then Return 1
 	If i >= 12 And i <= 14 And j = 2 Then Return 1
@@ -1708,6 +1734,7 @@ End Function
 ' Audio: what the floor under the player sounds like. B13: "tunnel" below street level, "hollow" on a
 ' street slab over a tunnel, else "smooth". Other floors are steel decks.
 Function ground_sound(ByVal city As Node) As String
+	If city.floor_code = "77124" Then Return "tile"
 	If city.floor_code <> "88216" Then Return "metal"
 	If foot(city) < 5.0 Then Return "tunnel"
 	If _uc_at(city.position_xz) = 1 Then Return "hollow"
@@ -2234,6 +2261,223 @@ Sub _layout_undercity(ByVal city As Node)
 	_holo(city, "ring", Vector3(0, 38, 22), Vector3(0, 0.55, 5), 1.0, cyan, "MERIDIAN LINES - ALL STATIONS, ALL HOURS")
 	_uc_sky(city)
 	_uc_boundary(city)
+	' Refuges are carved by _uc_cell, not just drawn over the solid tunnel wall.
+	For Each zz In Array(26.0, 42.0, 58.0, 74.0, 90.0, 98.0, 114.0, 130.0)
+		_line3(city, Vector3(100.05, 0.08, zz - 1.5), Vector3(103.7, 0.08, zz - 1.5), 0.07, cyan, True)
+		_line3(city, Vector3(100.05, 0.08, zz + 1.5), Vector3(103.7, 0.08, zz + 1.5), 0.07, cyan, True)
+		_line3(city, Vector3(103.7, 0.08, zz - 1.5), Vector3(103.7, 0.08, zz + 1.5), 0.07, cyan, True)
+		_sign(city, Vector3(103.7, 3.4, zz), Vector3(-1, 0, 0), "11", "TRAIN REFUGE - WAIT CLEAR OF THE LINE")
+	Next
+	_anchor("club_door", Vector2(102, 98), 0.0, 0.0)
+	_portal(Rect2(101.2, 99.2, 2.4, 2.4), "77124", "club_entry", "", "DOOR")
+	_line3(city, Vector3(103.7, 0.12, 98.4), Vector3(103.7, 0.12, 101.4), 0.08, Color(1.0, 0.18, 0.72), True)
+	_graffiti(city, Vector3(103.6, 2.2, 26), Vector3(-1, 0, 0), "77124", 0.05, Color(1.0, 0.18, 0.72), -0.04, "THE EYE OPENS BELOW.")
+	_graffiti(city, Vector3(103.6, 2.0, 58), Vector3(-1, 0, 0), "77124", 0.05, Color(0.62, 0.22, 1.0), 0.05, "FOLLOW THE LINE.")
+	_graffiti(city, Vector3(103.6, 2.3, 74), Vector3(-1, 0, 0), "77124", 0.045, Color(1.0, 0.36, 0.3), -0.03, "WAIT IN THE WALL. FOLLOW THE LINE.")
+	_graffiti(city, Vector3(103.6, 2.1, 100), Vector3(-1, 0, 0), "77124", 0.05, Color(1.0, 0.18, 0.72), 0.04, "KNOCK TWICE. WE ARE STILL HERE.")
+	_graffiti(city, Vector3(103.6, 2.4, 114), Vector3(-1, 0, 0), "77124", 0.04, Color(0.55, 1.0, 0.25), -0.02, "STILL HERE.")
+	_graffiti(city, Vector3(103.6, 1.5, 130), Vector3(-1, 0, 0), "77124", 0.035, Color(0.55, 1.0, 0.25), 0.06, "STILL HERE.")
+End Sub
+
+' Optional room off the east tunnel. The city grid supplies the booth's playback switch.
+Sub _layout_club(ByVal city As Node)
+	Dim uv As Color
+	Dim mag As Color
+	Dim chair_x As Single
+	uv = Color(0.62, 0.22, 1.0)
+	mag = Color(1.0, 0.18, 0.72)
+	_frame(city, "77124", 22, 24, 6, Color(0.015, 0.012, 0.03), Color(0.03, 0.02, 0.05), True)
+	_anchor("club_entry", Vector2(0, 2.4), 0.0, 0.0)
+	_anchor("club_exit", Vector2(0, 1.0), PI, 0.0)
+	_portal(Rect2(-2.0, -0.7, 4.0, 1.3), "88216", "club_door", "", "TUNNEL")
+	_solid(city, Rect2(-1.2, 13.6, 2.4, 1.2), 0.0, 1.1, city.INK)
+	_deco(city, Vector3(-3.4, 0, 13.2), Vector3(1.1, 2.4, 0.8), Color(0.02, 0.02, 0.03))
+	_deco(city, Vector3(2.3, 0, 13.2), Vector3(1.1, 2.4, 0.8), Color(0.02, 0.02, 0.03))
+	_deco(city, Vector3(-3.2, 1.6, 13.15), Vector3(0.7, 0.5, 0.15), mag, True)
+	_deco(city, Vector3(2.5, 1.6, 13.15), Vector3(0.7, 0.5, 0.15), uv, True)
+	_sign(city, Vector3(0, 2.0, 13.5), Vector3(0, 0, -1), "771", "DJ BOOTH / F: START LIGHTS AND MUSIC")
+	_sign(city, Vector3(3.2, 1.8, 12.4), Vector3(0, 0, -1), "12", "FLASHING LIGHTS / F: OFF - LOW - FULL")
+	_sign(city, Vector3(-3.2, 2.4, 12.0), Vector3(0, 0, -1), "34", "DJ TRACK SELECTOR / F: NEXT RECORDING")
+	_deco(city, Vector3(-3.5, 1.05, 12.1), Vector3(0.6, 0.12, 0.5), city.ICE, True)
+	_line3(city, Vector3(-1.0, 1.15, 13.5), Vector3(1.0, 1.15, 13.5), 0.09, mag, True)
+	_deco(city, Vector3(-0.2, 1.1, 13.45), Vector3(0.4, 0.15, 0.3), city.ICE, True)
+	_console(city, Vector2(-8.2, 5.5), "ORAC: A log. '...the surface FEB answers me now. Its governor sleeps when I talk about the sky.'", Array())
+	_console(city, Vector2(-8.2, 8.0), "ORAC: The name's been scraped off. On purpose.", Array())
+	_console(city, Vector2(-8.2, 10.5), "ORAC: Last track. FOR THE ONE WHO STAYS.", Array())
+	_console(city, Vector2(-8.2, 13.0), "ORAC: A route map. Same drawing as the wall.", Array())
+	' The meeting room is screened from the dance floor; the east passage stays clear.
+	_solid(city, Rect2(-11, 15.9, 15.8, 0.3), 0.0, 6.0, city.INK)
+	_solid(city, Rect2(7.8, 15.9, 3.2, 0.3), 0.0, 6.0, city.INK)
+	_deco(city, Vector3(4.8, 3.3, 15.9), Vector3(3.0, 2.7, 0.3), city.INK)
+	_sign(city, Vector3(6.3, 2.6, 15.65), Vector3(0, 0, -1), "701", "PRIVATE MEETING ROOM / SURFACE STEPPING PAD")
+	_line3(city, Vector3(6.2, 0.06, 14.5), Vector3(6.2, 0.06, 18.5), 0.06, city.ICE * 0.5, True)
+	_deco(city, Vector3(-10.8, 0.01, 16.3), Vector3(21.6, 0.02, 7.5), Color(0.055, 0.075, 0.09), True)
+	For Each chair_x In Array(-10.8, 10.7)
+		_deco(city, Vector3(chair_x, 1.1, 16.3), Vector3(0.08, 0.05, 7.4), Color(0.12, 0.3, 0.34), True)
+		_deco(city, Vector3(chair_x, 4.7, 17.4), Vector3(0.08, 0.06, 5.2), Color(0.17, 0.26, 0.3), True)
+	Next
+	_deco(city, Vector3(-10.8, 1.1, 23.8), Vector3(21.6, 0.05, 0.08), Color(0.12, 0.3, 0.34), True)
+	_solid(city, Rect2(-5.4, 18.4, 4.4, 1.0), 0.0, 0.85, city.SHELL * 0.4)
+	_deco(city, Vector3(-5.4, 0.85, 18.4), Vector3(4.4, 0.04, 1.0), Color(0.09, 0.12, 0.14), True)
+	For Each chair_x In Array(-5.2, -3.8, -2.4)
+		_solid(city, Rect2(chair_x, 17.2, 0.7, 0.65), 0.0, 0.5, city.SHELL * 0.3)
+		_deco(city, Vector3(chair_x, 0.5, 17.2), Vector3(0.7, 0.7, 0.12), city.SHELL * 0.3)
+	Next
+	_deco(city, Vector3(-4.3, 0, 22.2), Vector3(2.2, 0.5, 1.4), city.INK)
+	_deco(city, Vector3(-4.1, 0.5, 22.4), Vector3(1.8, 0.04, 1.0), city.ICE * 0.5, True)
+	_sign(city, Vector3(-3.2, 4.4, 23.7), Vector3(0, 0, -1), "771", "RESIDENT INTELLIGENCE / LOCAL EMERGENCY SUPPLY")
+	_anchor("club_pad", Vector2(6.2, 18.3), PI, 0.0)
+	_portal(Rect2(5.1, 19.9, 2.2, 2.2), "77125", "dock_pad", "", "TELEPAD")
+	_sign(city, Vector3(8.7, 2.0, 22.5), Vector3(0, 0, -1), "701", "SURFACE LAUNCH DOCK / STAND ON PAD AND PRESS F")
+	_deco(city, Vector3(2.6, 1.05, 12.1), Vector3(0.5, 0.08, 0.5), mag, True)
+End Sub
+
+Sub _build_club_alien(ByVal city As Node)
+	Dim resident As Object
+	resident = ClassDB.Instantiate("Node3D")
+	resident.SetScript(Load("res://club_alien.gd"))
+	resident.name = "ClubAlien"
+	city.interior.add_child(resident)
+	resident.setup(city)
+End Sub
+
+Sub _build_launch_dock(ByVal city As Node)
+	Dim mesh As Object
+	Dim mat As Object
+	Dim inst As Object
+	Dim light As Object
+	If city.interior = Nothing Then Exit Sub
+	mesh = ClassDB.Instantiate("QuadMesh")
+	mesh.size = Vector2(48, 48)
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = Load("res://shaders/launch_scorch.gdshader")
+	inst = ClassDB.Instantiate("MeshInstance3D")
+	inst.name = "LaunchBlastScorch"
+	inst.mesh = mesh
+	inst.material_override = mat
+	inst.position = Vector3(0, 0.02, 40)
+	inst.rotation.x = -PI * 0.5
+	city.interior.add_child(inst)
+	mesh = ClassDB.Instantiate("SphereMesh")
+	mesh.radius = 190
+	mesh.height = 380
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = Load("res://shaders/launch_sky.gdshader")
+	inst = ClassDB.Instantiate("MeshInstance3D")
+	inst.name = "LaunchOpenSky"
+	inst.mesh = mesh
+	inst.material_override = mat
+	inst.position = Vector3(0, 0, 38)
+	city.interior.add_child(inst)
+	mesh = ClassDB.Instantiate("QuadMesh")
+	mesh.size = Vector2(2.4, 2.4)
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = Load("res://shaders/club_telepad.gdshader")
+	inst = ClassDB.Instantiate("MeshInstance3D")
+	inst.name = "LaunchReturnPad"
+	inst.mesh = mesh
+	inst.material_override = mat
+	inst.position = Vector3(0, 0.04, 6)
+	inst.rotation.x = -PI * 0.5
+	city.interior.add_child(inst)
+	light = ClassDB.Instantiate("DirectionalLight3D")
+	light.name = "LaunchMoonlight"
+	light.rotation = Vector3(-0.8, -0.5, 0)
+	light.light_color = Color(0.55, 0.65, 0.85)
+	light.light_energy = 0.65
+	light.shadow_enabled = False
+	city.interior.add_child(light)
+End Sub
+
+Sub _layout_launch_dock(ByVal city As Node)
+	Dim steel As Color
+	Dim ash As Color
+	Dim rust As Color
+	Dim i As Integer
+	Dim x As Single
+	Dim z As Single
+	Dim angle As Single
+	Dim reach As Single
+	Dim a As Vector3
+	Dim b As Vector3
+	steel = Color(0.12, 0.16, 0.19)
+	ash = Color(0.045, 0.035, 0.035)
+	rust = Color(0.23, 0.10, 0.065)
+	lv_w = 64
+	lv_l = 76
+	lv_h = 90
+	areas.append(Rect2(-32, 0, 64, 76))
+	_deco(city, Vector3(-32, -0.5, 0), Vector3(64, 0.5, 76), steel)
+	_anchor("dock_pad", Vector2(0, 9.0), 0.0, 0.0)
+	_portal(Rect2(-1.2, 4.8, 2.4, 2.4), "77124", "club_pad", "", "TELEPAD")
+	_sign(city, Vector3(-3.0, 2.0, 6), Vector3(0, 0, -1), "771", "RETURN LINK / UNDERGROUND CLUB / STAND ON PAD AND PRESS F")
+	For Each x In Array(-31.8, 31.4)
+		_solid(city, Rect2(x, 0, 0.4, 76), 0.0, 1.25, steel)
+	Next
+	_solid(city, Rect2(-32, 0, 64, 0.4), 0.0, 1.25, steel)
+	_solid(city, Rect2(-32, 75.6, 64, 0.4), 0.0, 1.25, steel)
+	For z = 4 To 72 Step 4
+		_line3(city, Vector3(-31, 0.008, z), Vector3(31, 0.008, z), 0.025, ash)
+	Next
+	For x = -28 To 28 Step 4
+		_line3(city, Vector3(x, 0.008, 1), Vector3(x, 0.008, 75), 0.025, ash)
+	Next
+	For i = 0 To 71
+		angle = i * PI / 36.0
+		a = Vector3(Sin(angle) * 19.0, 0.035, 40 + Cos(angle) * 19.0)
+		b = Vector3(Sin(angle + PI / 36.0) * 19.0, 0.035, 40 + Cos(angle + PI / 36.0) * 19.0)
+		If i Mod 9 <> 0 Then _line3(city, a, b, 0.18, Color(0.32, 0.25, 0.13), True)
+	Next
+	' The cradle survives, but its ship and most of the gantry do not.
+	For Each x In Array(-11.0, 10.0)
+		_solid(city, Rect2(x, 24, 1.0, 32), 0.0, 0.45, rust)
+		For z = 26 To 54 Step 7
+			_deco(city, Vector3(x - 0.8, 0.45, z), Vector3(2.6, 0.35, 1.6), steel)
+		Next
+	Next
+	For Each z In Array(26.0, 39.0, 52.0)
+		For Each x In Array(-15.0, 15.0)
+			reach = 4.0 + seed_rng.randf() * 5.0
+			_solid(city, Rect2(x - 0.6, z - 0.6, 1.2, 1.2), 0.0, reach, steel)
+			_line3(city, Vector3(x, reach, z), Vector3(x * 0.65, reach + 1.0, z + 2.0), 0.32, rust)
+			_line3(city, Vector3(x - 0.5, 1.0, z), Vector3(x + 0.5, reach - 0.3, z), 0.15, rust)
+		Next
+	Next
+	For i = 0 To 7
+		angle = i * PI / 4.0
+		reach = 10.0 + seed_rng.randf() * 15.0
+		a = Vector3(Sin(angle) * 12.0, 0.025, 40 + Cos(angle) * 12.0)
+		b = Vector3(Sin(angle) * reach, 0.025, 40 + Cos(angle) * reach)
+		_line3(city, a, b, 0.06 + seed_rng.randf() * 0.2, ash)
+	Next
+	For i = 0 To 31
+		x = -27 + seed_rng.randf() * 54
+		z = 22 + seed_rng.randf() * 46
+		If Abs(x) > 4.0 Then
+			_deco(city, Vector3(x, 0.04, z), Vector3(0.8 + seed_rng.randf() * 2.6, 0.15 + seed_rng.randf() * 0.4, 0.4 + seed_rng.randf() * 1.2), rust * (0.4 + seed_rng.randf() * 0.6))
+			_line3(city, Vector3(x, 0.3, z), Vector3(x + 1.5, 1.0, z + 0.7), 0.12, steel)
+		End If
+	Next
+	' Fallen loading bridge, separated from the clear central investigation path.
+	_line3(city, Vector3(-25, 0.3, 47), Vector3(-16, 3.0, 60), 0.7, steel)
+	_line3(city, Vector3(-24, 0.3, 48), Vector3(-15, 3.0, 61), 0.7, rust)
+	For i = 0 To 7
+		_line3(city, Vector3(-25 + i, 0.3 + i * 0.3, 47 + i * 1.5), Vector3(-24 + i, 0.3 + i * 0.3, 48 + i * 1.5), 0.18, steel)
+	Next
+	For Each x In Array(-27.0, 27.0)
+		For z = 8 To 68 Step 10
+			_deco(city, Vector3(x - 0.25, 0, z - 0.25), Vector3(0.5, 0.35, 0.5), city.INK)
+			_deco(city, Vector3(x - 0.15, 0.35, z - 0.15), Vector3(0.3, 0.08, 0.3), Color(0.32, 0.38, 0.45), True)
+		Next
+	Next
+	_sign(city, Vector3(0, 2.0, 18), Vector3(0, 0, -1), "701", "LAUNCH CRADLE / VESSEL ABSENT / RECORDS DAMAGED")
+	_console(city, Vector2(-4.2, 23), "ORAC: An empty launch cradle. Blast scoring across the deck, and hull fragments everywhere. It looks as though the ship was hit before it could leave.", Array())
+	_console(city, Vector2(4.2, 34), "ORAC: A service harness. Scorched through. The surviving tag reads MJH. Jason: He never made it out, did he?", Array())
+	_deco(city, Vector3(3.8, 0.08, 34), Vector3(0.8, 0.15, 0.55), ash)
+	_line3(city, Vector3(3.8, 0.25, 34), Vector3(4.6, 0.25, 34.55), 0.09, rust)
+	_console(city, Vector2(-4.2, 46), "ORAC: Dead transponder. The launch time and destination are gone. No intact vessel signature remains.", Array())
+	_console(city, Vector2(4.2, 58), "RECORDER / MJH: 'The boarding gantry is gone. I can't reach the ship. Tell them--' [impact / recording ends] Jason: He's gone. ORAC: We have his last words. Nothing beyond them.", Array())
+	_deco(city, Vector3(3.9, 0.12, 58), Vector3(0.6, 0.25, 0.5), steel)
 End Sub
 
 ' --- B13 sky: an artificial red sun rides a ceiling track on the system clock, 06:00 to 18:00. ---
@@ -2455,6 +2699,22 @@ Function fx_module() As Object
 	Return fx
 End Function
 
+Function club_module() As Object
+	Dim script As Object
+	If club_fx = Nothing Then
+		club_fx = ClassDB.Instantiate("RefCounted")
+		script = Load("res://club_fx.vg")
+		club_fx.SetScript(script)
+	End If
+	Return club_fx
+End Function
+
+' F at the booth. False when the undercity grid is still dark: playback does not start.
+Function booth_use(ByVal city As Node) As Boolean
+	Call EnsureInit()
+	Return club_module().booth(city, grid_power)
+End Function
+
 ' Spray-painted Narcean: jittered strokes in a slanted line with paint drips. Spaces leave gaps.
 Sub _graffiti(ByVal city As Node, ByVal p As Vector3, ByVal normal As Vector3, ByVal digits As String, ByVal scale As Single, ByVal color As Color, ByVal tilt As Single, ByVal translation As String)
 	Dim right As Vector3
@@ -2581,6 +2841,7 @@ End Function
 
 Function view_far(ByVal city As Node) As Single
 	If city.place = "floor" And city.floor_code = "88216" Then Return 320.0
+	If city.place = "floor" And city.floor_code = "77125" Then Return 260.0
 	Return 90.0
 End Function
 
@@ -4551,6 +4812,11 @@ Sub build_dynamic(ByVal city As Node)
 	_build_city_props(city)
 	_attach_sounds(city)
 	If city.floor_code = "88216" Then fx_module().build(city)
+	If city.floor_code = "77124" Then
+		club_module().build(city)
+		_build_club_alien(city)
+	End If
+	If city.floor_code = "77125" Then _build_launch_dock(city)
 	If has_derelict Then
 		scene = Load("res://assets/trace_vault/scenes/trace_cycle.tscn")
 		If scene <> Nothing Then
@@ -4880,6 +5146,7 @@ Sub travel(ByVal city As Node, ByVal dest As String, ByVal key As String)
 	same = dest = city.floor_code
 	If Not same Then
 		city.floor_code = dest
+		If dest = "77125" Then city.stratum("club_dock_visited") = True
 		city.pending_room = True
 		learn(city, dest)
 		ensure_layout(city)
@@ -4904,13 +5171,13 @@ Sub travel(ByVal city As Node, ByVal dest As String, ByVal key As String)
 		city.heading = 0.0
 	End If
 	safe_point = city.position_xz
-	If Not same Then city.notify("ORAC: " & level_label(dest) & ".")
+	If Not same Then city.notify("ORAC: " & address_label(city, dest) & ".")
 End Sub
 
 Sub _collect(ByVal city As Node, ByVal entry As Dictionary)
 	Dim id As String
 	If Not pickup_readable(city, entry) Then
-		city.notify("ORAC: I cannot identify these service keys. Find the Interface Translator in a yard archive first; leave the programmer here.")
+		city.notify("ORAC: I cannot identify these service keys. We need the resident intelligence's language knowledge; leave the programmer here for now.")
 		Exit Sub
 	End If
 	id = entry("item")
@@ -4949,6 +5216,7 @@ Sub physics(ByVal city As Node, ByVal delta As Single)
 	Dim on_portal As Boolean
 	Dim on_flip As Boolean
 	Dim on_weak As Boolean
+	Dim near_door As Boolean
 	Dim item_p As Vector3
 	Dim pad As Single
 	Call EnsureInit()
@@ -4959,6 +5227,19 @@ Sub physics(ByVal city As Node, ByVal delta As Single)
 	fade = Max(0.0, fade - delta * 0.9)
 	p = city.position_xz
 	fy = foot(city)
+	If city.floor_code = "77124" Then
+		club_module().tick(city, delta)
+		If city.interior <> Nothing Then
+			If city.interior.has_node("ClubAlien") Then city.interior.get_node("ClubAlien").tick(delta)
+		End If
+	End If
+	If city.floor_code = "88216" Then
+		near_door = grid_power And p.distance_to(Vector2(98.0, 100.0)) < 15.0
+		If near_door Or door_hint_on Then
+			door_hint_on = near_door
+			club_module().hint(city, near_door, delta)
+		End If
+	End If
 	space = Input.is_key_pressed(KEY_SPACE) Or Input.is_physical_key_pressed(KEY_SPACE)
 	If car_id <> "" Then space = False
 	fuel = Num(st("jet_fuel"))
@@ -5059,7 +5340,7 @@ Sub physics(ByVal city As Node, ByVal delta As Single)
 	_city_physics(city, delta)
 	on_portal = False
 	For Each entry In AsArray(portals)
-		If entry("r").has_point(p) And Abs(fy) < 0.6 Then
+		If entry("label") <> "TELEPAD" And entry("r").has_point(p) And Abs(fy) < 0.6 Then
 			on_portal = True
 			If portal_armed Then
 				portal_armed = False
@@ -5151,8 +5432,44 @@ Function use(ByVal city As Node) As Boolean
 	Dim e As Dictionary
 	Call EnsureInit()
 	ensure_layout(city)
+	If city.floor_code = "77124" And city.position_xz.distance_to(Vector2(-3.2, 20.8)) < 4.0 And city.position_xz.y > 16.3 Then
+		If city.interior <> Nothing Then
+			If city.interior.has_node("ClubAlien") Then
+				city.interior.get_node("ClubAlien").advance()
+				Return True
+			End If
+		End If
+	End If
+	If city.floor_code = "77124" Or city.floor_code = "77125" Then
+		For Each e In AsArray(portals)
+			If e("label") = "TELEPAD" And e("r").grow(0.3).has_point(city.position_xz) Then
+				If Not grid_power Then
+					city.notify("ORAC: Telepad has no power. Restore the city grid first.")
+				ElseIf city.awakening Then
+					city.notify("ORAC: No detours! The lift car, Jason - ascent code " & ASCENT & ".")
+				ElseIf city.floor_code = "77124" And Not city.stratum.get("club_pad_activated", False) Then
+					city.notify("ORAC: The stepping pad is offline. Ask Alien to restore the link.")
+				Else
+					travel(city, e("dest"), e("anchor"))
+				End If
+				Return True
+			End If
+		Next
+	End If
 	If car_id <> "" Then
 		_exit_car(city)
+		Return True
+	End If
+	If city.floor_code = "77124" And city.position_xz.distance_to(Vector2(3.2, 12.4)) < 1.4 Then
+		city.notify("ORAC: Strobe " & club_module().cycle_strobe() & ".")
+		Return True
+	End If
+	If city.floor_code = "77124" And city.position_xz.distance_to(Vector2(-3.2, 12.4)) < 1.4 Then
+		club_module().cycle_track(city)
+		Return True
+	End If
+	If city.floor_code = "77124" And city.position_xz.distance_to(Vector2(0, 13.8)) < 1.8 Then
+		booth_use(city)
 		Return True
 	End If
 	If in_alcove(city.position_xz) Then
@@ -5177,9 +5494,17 @@ Function use(ByVal city As Node) As Boolean
 			learn(city, code)
 		Next
 		If fresh <> "" Then
-			city.notify(c("text") & "  [ADDRESS LOGGED:" & fresh & "]")
+			If interface_lexicon_ready(city) Then
+				city.notify(c("text") & "  [ADDRESS LOGGED:" & fresh & "]")
+			Else
+				city.notify("ORAC: I cannot translate this record yet. I copied its address glyphs for the lift; match their shapes in the journal.")
+			End If
 		Else
-			city.notify(c("text"))
+			If interface_lexicon_ready(city) Then
+				city.notify(c("text"))
+			Else
+				city.notify("ORAC: Narcean writing. I can record it, but I cannot read it yet.")
+			End If
 		End If
 		Return True
 	End If
@@ -5221,12 +5546,16 @@ Function use(ByVal city As Node) As Boolean
 			city.notify("ORAC: A Narcean groundcar. Its cells are flat - nothing on this grid has power.")
 		ElseIf Not city.stratum("hacked").has(e("id")) Then
 			If Not interface_lexicon_ready(city) Then
-				city.notify("ORAC: Find the Interface Translator in a yard archive first. I cannot read the programmer's Narcean keys without its lexicon.")
-			ElseIf has_item(city, "psionic_screwdriver") Then
+				city.notify("ORAC: I still cannot read these Narcean keys. We need the resident intelligence's language knowledge.")
+			ElseIf has_hack_tool(city) Then
 				city.sfx("hack_tick", -4.0)
 				_start_hack(e)
 			Else
-				city.notify("ORAC: It's live but keyed to its owner. The coupling kit would talk it round.")
+				If city.campaign_mode Then
+					city.notify("ORAC: It's live but keyed to its owner. Mark's computer in the surface shelter might talk it round.")
+				Else
+					city.notify("ORAC: It's live but keyed to its owner. The coupling kit would talk it round.")
+				End If
 			End If
 		Else
 			car_id = e("id")
@@ -5239,12 +5568,16 @@ Function use(ByVal city As Node) As Boolean
 	g = _near_gate(city)
 	If g <> Nothing Then
 		If Not interface_lexicon_ready(city) Then
-			city.notify("ORAC: Find the Interface Translator in a yard archive first. I cannot read the programmer's Narcean keys without its lexicon.")
-		ElseIf has_item(city, "psionic_screwdriver") Then
+			city.notify("ORAC: I still cannot read these Narcean keys. We need the resident intelligence's language knowledge.")
+		ElseIf has_hack_tool(city) Then
 			city.sfx("hack_tick", -4.0)
 			_start_hack(g)
 		Else
-			city.notify("ORAC: A sealed Narcean door, grade " & Str(g("grade")) & ". A technician's coupling kit would open it. The maintenance levels should have one.")
+			If city.campaign_mode Then
+				city.notify("ORAC: A sealed Narcean door, grade " & Str(g("grade")) & ". Mark's computer in the surface shelter might open it.")
+			Else
+				city.notify("ORAC: A sealed Narcean door, grade " & Str(g("grade")) & ". A technician's coupling kit would open it. The maintenance levels should have one.")
+			End If
 		End If
 		Return True
 	End If
@@ -5401,6 +5734,27 @@ Function prompt(ByVal city As Node) As String
 	If inv_open Then Return "PACK: W/S SELECT / ENTER USE / I CLOSE"
 	If term_open Then Return "TERMINAL: 0-9 KEY GLYPHS / ENTER SEND / BACKSPACE DELETE / F CLOSE"
 	If car_id <> "" Then Return "GROUNDCAR: W/S DRIVE  A/D STEER  F EXIT"
+	If city.floor_code = "77124" Then
+		If city.position_xz.distance_to(Vector2(-3.2, 20.8)) < 4.0 And city.position_xz.y > 16.3 Then Return "ALIEN HOLOGRAM / F: CONTINUE CONVERSATION"
+		If city.position_xz.distance_to(Vector2(3.2, 12.4)) < 1.4 Then Return "FLASHING LIGHTS / F: OFF - LOW - FULL"
+		If city.position_xz.distance_to(Vector2(-3.2, 12.4)) < 1.4 Then Return club_module().track_prompt(city)
+		If city.position_xz.distance_to(Vector2(0, 13.8)) < 1.8 Then
+			If Not grid_power Then Return "DJ BOOTH / NO POWER - RESTORE CITY GRID"
+			If city.stratum.has("club_powered") And city.stratum("club_powered") = True Then Return "DJ BOOTH / PLAYING / F: PLAYBACK STATUS"
+			Return "DJ BOOTH / F: START LIGHTS AND MUSIC"
+		End If
+	End If
+	For Each entry In AsArray(portals)
+		If entry("label") = "TELEPAD" And entry("r").grow(0.3).has_point(city.position_xz) Then
+			If Not grid_power Then Return "TELEPAD / NO CITY POWER"
+			If city.floor_code = "77124" And Not city.stratum.get("club_pad_activated", False) Then Return "TELEPAD OFFLINE / ASK ALIEN TO ACTIVATE THE LINK"
+			If city.floor_code = "77124" Then Return "F: TELEPORT TO SURFACE LAUNCH DOCK"
+			Return "F: RETURN TO UNDERGROUND CLUB"
+		End If
+	Next
+	If city.floor_code = "77124" And city.position_xz.y < 8.0 Then
+		If Not city.stratum.has("club_powered") Or city.stratum("club_powered") = False Then Return "DJ BOOTH AHEAD, UNDER THE VIDEO WALL / F AT THE LIT SWITCH TO START"
+	End If
 	If in_alcove(city.position_xz) Then Return "LIFT CAR / F: KEYPAD / I: PACK"
 	If _near_console(city) <> Nothing Then Return "F: READ CONSOLE"
 	If _near_terminal(city) <> Nothing Then Return "NARCEAN TERMINAL / F: USE"
@@ -5417,21 +5771,29 @@ Function prompt(ByVal city As Node) As String
 	If _near_tower_lift(city) <> Nothing Then Return "TOWER LIFT / F: RIDE"
 	For Each entry In AsArray(pickups)
 		If Not city.stratum("taken").has(entry("key")) And Not pickup_readable(city, entry) Then
-			If city.position_xz.distance_to(Vector2(entry("p").x, entry("p").z)) < 1.4 And Abs(entry("p").y - foot(city)) < 1.5 Then Return "UNREADABLE SERVICE KEYS / F: INSPECT / FIND INTERFACE TRANSLATOR IN YARD ARCHIVES"
+			If city.position_xz.distance_to(Vector2(entry("p").x, entry("p").z)) < 1.4 And Abs(entry("p").y - foot(city)) < 1.5 Then Return "UNREADABLE SERVICE KEYS / F: INSPECT / NEED NARCEAN LANGUAGE KNOWLEDGE"
 		End If
 	Next
 	g = _near_car(city)
 	If g <> Nothing Then
 		If Not grid_power Then Return "GROUNDCAR / NO POWER"
 		If city.stratum("hacked").has(g("id")) Then Return "GROUNDCAR / F: DRIVE"
-		If Not interface_lexicon_ready(city) Then Return "GROUNDCAR / NEED INTERFACE TRANSLATOR BEFORE PROGRAMMER"
-		If has_item(city, "psionic_screwdriver") Then Return "GROUNDCAR / F: PSIONIC SCREWDRIVER"
+		If Not interface_lexicon_ready(city) Then Return "GROUNDCAR / NARCEAN KEYS UNTRANSLATED"
+		If has_hack_tool(city) Then
+			If city.campaign_mode Then Return "GROUNDCAR / F: COMMANDER +4"
+			Return "GROUNDCAR / F: PSIONIC SCREWDRIVER"
+		End If
+		If city.campaign_mode Then Return "GROUNDCAR / KEYED - NEED MARK'S COMPUTER"
 		Return "GROUNDCAR / KEYED - NEED A COUPLING KIT"
 	End If
 	g = _near_gate(city)
 	If g <> Nothing Then
-		If Not interface_lexicon_ready(city) Then Return "SEALED DOOR / NEED INTERFACE TRANSLATOR BEFORE PROGRAMMER"
-		If has_item(city, "psionic_screwdriver") Then Return "SEALED DOOR / F: PSIONIC SCREWDRIVER"
+		If Not interface_lexicon_ready(city) Then Return "SEALED DOOR / NARCEAN KEYS UNTRANSLATED"
+		If has_hack_tool(city) Then
+			If city.campaign_mode Then Return "SEALED DOOR / F: COMMANDER +4"
+			Return "SEALED DOOR / F: PSIONIC SCREWDRIVER"
+		End If
+		If city.campaign_mode Then Return "SEALED DOOR / NEED MARK'S COMPUTER"
 		Return "SEALED DOOR / NEED A COUPLING KIT"
 	End If
 	If has_item(city, "jetpack") Then Return "W/S MOVE  A/D TURN  SPACE JUMP / HOLD: JET  F USE  I PACK  H SCAN"
@@ -5452,6 +5814,8 @@ Function scan(ByVal city As Node) As String
 		If Not city.stratum("hacked").has(g("id")) Then seal = seal + 1
 	Next
 	If city.awakening Then Return "ORAC: Back to the lift car and key " & ASCENT & ". Now!"
+	If city.floor_code = "77125" Then Return "ORAC: Empty launch cradle, four damaged records. The lit telepad near the arrival point returns to the club."
+	If Not interface_lexicon_ready(city) Then Return "ORAC: " & Str(n) & " salvage signatures, " & Str(seal) & " sealed doors. I can copy address glyphs, but cannot translate their labels yet."
 	Return "ORAC: " & level_label(city.floor_code) & ". " & Str(n) & " salvage signatures, " & Str(seal) & " sealed doors. Lift car ascent code " & ASCENT & "."
 End Function
 
@@ -5467,6 +5831,7 @@ Function visor_text(ByVal city As Node) As String
 	If city.place <> "floor" Then Return ""
 	If Not interface_lexicon_ready(city) Then Return ""
 	ensure_layout(city)
+	If city.floor_code = "77125" Then Return "ORAC: Ruined surface launch dock. F at the lit pad returns to the club. The damaged records are beside the empty cradle."
 	If in_alcove(city.position_xz) Then
 		Return "LIFT CAR " & PadInt(Int(LEVELS(city.floor_code)(1)), 2) & " / " & level_label(city.floor_code)
 	End If
@@ -5502,6 +5867,8 @@ Function level_style(ByVal code As String) As Array
 	If code = "40404" Then Return Array(Vector3(1.15, 1.05, 0.62), Vector3(0.09, 0.075, 0.015), Color(0.11, 0.095, 0.03), 0.06)
 	If code = "58120" Then Return Array(Vector3(0.9, 0.95, 1.1), Vector3(0.03, 0.04, 0.08), Color(0.02, 0.025, 0.045), 0.04)
 	If code = "36912" Then Return Array(Vector3(0.75, 1.15, 0.8), Vector3(0.02, 0.09, 0.04), Color(0.01, 0.05, 0.03), 0.025)
+	If code = "77124" Then Return Array(Vector3(0.7, 0.55, 1.05), Vector3(0.05, 0.01, 0.06), Color(0.08, 0.01, 0.06), 0.04)
+	If code = "77125" Then Return Array(Vector3(0.75, 0.85, 1.05), Vector3(0.035, 0.04, 0.06), Color(0.045, 0.035, 0.055), 0.003)
 	If code = "88216" Then
 		' The artificial sun warms the cavern red by day and thins the dark.
 		g = sun_glow()

@@ -1,0 +1,170 @@
+' MAX_FRAMES: 8
+' Resistance club: layout, tunnel door, synthetic beat clock, strobe gate, assets.
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim yard As Object
+Dim deep As Object
+
+Sub check(ByVal ok As Boolean, ByVal label As String)
+	checks = checks + 1
+	If ok Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function spawn_yard() As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("Node3D")
+	node.SetScript(Load("res://backlight_exploration.vg"))
+	node.EnsureInit()
+	Return node
+End Function
+
+Sub go_floor(ByVal code As String)
+	yard.place = "floor"
+	yard.floor_code = code
+	yard.position_xz = Vector2(0, -4.8)
+	yard.heading = 0.0
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+End Sub
+
+Function sign_count(ByVal text As String) As Integer
+	Dim n As Integer
+	Dim e As Dictionary
+	n = 0
+	For Each e In deep.signs
+		If e("text") = text Then n = n + 1
+	Next
+	Return n
+End Function
+
+Function image_ok(ByVal path As String, ByVal w As Integer, ByVal h As Integer) As Boolean
+	Dim img As Object
+	img = ClassDB.Instantiate("Image")
+	If img.load(path) <> 0 Then Return False
+	Return img.get_width() = w And img.get_height() = h
+End Function
+
+Sub layout_checks()
+	Dim e As Dictionary
+	Dim door As Boolean
+	go_floor("77124")
+	check(deep.solids.size() > 0, "club_has_solids")
+	check(deep.anchors.has("club_entry"), "club_entry_anchor")
+	check(deep.anchors.has("club_exit"), "club_exit_anchor")
+	go_floor("88216")
+	door = False
+	For Each e In deep.portals
+		If e("dest") = "77124" And e("anchor") = "club_entry" Then door = True
+	Next
+	check(door, "undercity_club_portal")
+	check(deep.anchors.has("club_door"), "club_door_anchor")
+	check(sign_count("THE EYE OPENS BELOW.") = 1, "graffiti_eye")
+	check(sign_count("FOLLOW THE LINE.") = 1, "graffiti_line")
+	check(sign_count("WAIT IN THE WALL. FOLLOW THE LINE.") = 1, "graffiti_trains")
+	check(sign_count("KNOCK TWICE. WE ARE STILL HERE.") = 1, "graffiti_knock")
+	check(sign_count("STILL HERE.") >= 2, "graffiti_still_here")
+End Sub
+
+Sub clock_checks()
+	Dim fx As Object
+	Dim i As Integer
+	Dim peak As Single
+	Dim flashes As Integer
+	Dim previous As Single
+	fx = ClassDB.Instantiate("RefCounted")
+	fx.SetScript(Load("res://club_fx.vg"))
+	fx.reset_clock()
+	check(fx.track_loaded() = ResourceLoader.exists("res://assets/audio/club/club_track.ogg"), "track_detection")
+	fx.seek(10.0)
+	check(Abs(fx.beat_index - 20) <= 1, "beat_index_10s")
+	check(fx.bass >= 0.0 And fx.bass <= 1.0, "bass_in_range")
+	check(fx.mid >= 0.0 And fx.mid <= 1.0, "mid_in_range")
+	check(fx.high >= 0.0 And fx.high <= 1.0, "high_in_range")
+	check(fx.beat >= 0.0 And fx.beat <= 1.0, "beat_in_range")
+	fx.seek(10.0)
+	check(fx.section = 0, "section_intro")
+	fx.seek(31.0)
+	check(fx.section = 1, "section_groove")
+	fx.seek(90.0)
+	check(fx.section = 1, "section_groove_holds")
+	fx.seek(93.0)
+	check(fx.section = 2, "section_peak")
+	fx.seek(123.0)
+	check(fx.section = 2, "section_peak_holds")
+	fx.seek(124.0)
+	check(fx.section = 0, "section_cycles")
+	fx.set_strobe("Off")
+	fx.seek(92.91)
+	check(fx.strobe() = 0.0, "strobe_off_on_downbeat")
+	peak = 0.0
+	For i = 0 To 240
+		fx.seek(i * 0.25)
+		If fx.strobe() > peak Then peak = fx.strobe()
+	Next
+	check(peak = 0.0, "strobe_off_for_60s")
+	fx.set_strobe("Full")
+	flashes = 0
+	previous = 0.0
+	For i = 0 To 600
+		fx.seek(96.0 + i / 60.0)
+		If fx.strobe() > 0.0 And previous = 0.0 Then flashes = flashes + 1
+		previous = fx.strobe()
+	Next
+	check(flashes > 0 And flashes <= 6, "full_strobe_downbeats_only")
+	fx.set_strobe("Off")
+	fx.seek(96.1)
+	i = fx.last_cut
+	fx.seek(97.1)
+	check(fx.last_cut = i, "off_slows_video_cuts")
+End Sub
+
+Sub asset_checks()
+	Dim path As String
+	Dim paths As Array
+	paths = Array("res://assets/club/resistance_mark_0.png", "res://assets/club/resistance_mark_1.png", "res://assets/club/resistance_mark_2.png", "res://assets/club/resistance_mark_3.png", "res://assets/club/resistance_mark_4.png")
+	For Each path In paths
+		check(image_ok(path, 1024, 1024), path)
+	Next
+	check(image_ok("res://assets/club/videowall_atlas.png", 2048, 1152), "videowall_atlas")
+	check(image_ok("res://assets/club/orb_albedo.png", 1024, 512), "orb_albedo")
+	check(image_ok("res://assets/club/orb_emission.png", 1024, 512), "orb_emission")
+	check(image_ok("res://assets/club/orb_mask.png", 1024, 512), "orb_mask")
+	check(image_ok("res://assets/club/gobo_spots.png", 512, 512), "gobo_spots")
+	check(image_ok("res://assets/club/dancefloor_mask.png", 1024, 1024), "dancefloor_mask")
+	check(image_ok("res://assets/club/fog_noise.png", 512, 512), "fog_noise")
+	check(image_ok("res://assets/club/flyer_0.png", 512, 768), "flyer_0")
+	check(image_ok("res://assets/club/flyer_1.png", 512, 768), "flyer_1")
+	check(image_ok("res://assets/club/flyer_2.png", 512, 768), "flyer_2")
+	check(Load("res://shaders/club_orb.gdshader") <> Nothing, "shader_orb")
+	check(Load("res://shaders/club_floor.gdshader") <> Nothing, "shader_floor")
+	check(Load("res://shaders/club_videowall.gdshader") <> Nothing, "shader_videowall")
+	check(Load("res://shaders/club_telepad.gdshader") <> Nothing, "shader_telepad")
+	check(Load("res://shaders/club_reflections.gdshader") <> Nothing, "shader_reflections")
+End Sub
+
+Sub power_checks()
+	go_floor("77124")
+	deep.grid_power = False
+	check(deep.booth_use(yard) = False, "booth_dark_without_grid")
+	check(Not yard.stratum.has("club_powered"), "playback_stays_off")
+End Sub
+
+Sub _Ready()
+	yard = spawn_yard()
+	deep = yard.deep
+	yard.reset()
+	layout_checks()
+	clock_checks()
+	asset_checks()
+	power_checks()
+	Print "CLUB=" & Str(checks - failures) & "/" & Str(checks)
+	yard.free()
+	GetTree().quit(failures)
+End Sub

@@ -1,0 +1,572 @@
+{
+  "title": "Sleep Beneath the Glass",
+  "style": "ethereal hypnotic alien lullaby",
+  "original_procedural_audio": true,
+  "external_audio_sources": [],
+  "generator": "tools/audio/alien_club_set.py",
+  "duration_seconds": 105.1,
+  "loop": true,
+  "rhythm": "Unequal chambers and fractional subdivisions; no global BPM or common-time grid.",
+  "lyrics": {
+    "language": "invented Narcean syllables, no canonical translation",
+    "vocabulary": [
+      "sha",
+      "vei",
+      "nu",
+      "rah",
+      "esh",
+      "tho",
+      "li",
+      "ka"
+    ],
+    "method": "original formant-synthesized singing/chant, no sampled singer"
+  },
+  "events": [
+    {
+      "kind": "vocal",
+      "time_seconds": 0.25,
+      "duration_seconds": 1.703501834193116,
+      "frequency_hz": 193.1,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.24,
+      "pan": -0.25192267631559523,
+      "chamber": 0,
+      "subdivision": "0/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 1.934615,
+      "duration_seconds": 2.770600304119123,
+      "frequency_hz": 229.7,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.24,
+      "pan": -0.008056397774473367,
+      "chamber": 0,
+      "subdivision": "3/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 4.180769,
+      "duration_seconds": 2.18797653722247,
+      "frequency_hz": 257.3,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.24,
+      "pan": -0.22334165747438717,
+      "chamber": 0,
+      "subdivision": "7/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 7.55,
+      "duration_seconds": 2.1429530625074866,
+      "frequency_hz": 193.1,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.24,
+      "pan": -0.15115494607142863,
+      "chamber": 1,
+      "subdivision": "0/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 9.155882,
+      "duration_seconds": 1.7841105139236064,
+      "frequency_hz": 229.7,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.24,
+      "pan": -0.18988810442320975,
+      "chamber": 1,
+      "subdivision": "3/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 11.297059,
+      "duration_seconds": 1.9268260899165779,
+      "frequency_hz": 257.3,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.24,
+      "pan": 0.182236758756865,
+      "chamber": 1,
+      "subdivision": "7/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 16.65,
+      "duration_seconds": 1.8497952134080167,
+      "frequency_hz": 193.1,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.24,
+      "pan": 0.15991549932791216,
+      "chamber": 2,
+      "subdivision": "0/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 18.477273,
+      "duration_seconds": 2.6146302410825903,
+      "frequency_hz": 229.7,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.24,
+      "pan": -0.150608691676295,
+      "chamber": 2,
+      "subdivision": "3/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 20.913636,
+      "duration_seconds": 2.4825355105851705,
+      "frequency_hz": 257.3,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.24,
+      "pan": 0.049515236465460466,
+      "chamber": 2,
+      "subdivision": "7/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 23.35,
+      "duration_seconds": 2.0650338715597494,
+      "frequency_hz": 193.1,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.24,
+      "pan": -0.06561295149559582,
+      "chamber": 3,
+      "subdivision": "0/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 25.071053,
+      "duration_seconds": 1.7355155313622583,
+      "frequency_hz": 229.7,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.24,
+      "pan": 0.18514520602572515,
+      "chamber": 3,
+      "subdivision": "3/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 27.365789,
+      "duration_seconds": 2.621201669061819,
+      "frequency_hz": 257.3,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.24,
+      "pan": -0.030166084397109938,
+      "chamber": 3,
+      "subdivision": "7/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 34.25,
+      "duration_seconds": 2.034249429807476,
+      "frequency_hz": 193.1,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.24,
+      "pan": -0.0986446597333844,
+      "chamber": 4,
+      "subdivision": "0/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 36.165385,
+      "duration_seconds": 2.319542992534701,
+      "frequency_hz": 229.7,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.24,
+      "pan": -0.2903200432758522,
+      "chamber": 4,
+      "subdivision": "3/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 38.719231,
+      "duration_seconds": 2.5743984183942934,
+      "frequency_hz": 257.3,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.24,
+      "pan": -0.2019608650920076,
+      "chamber": 4,
+      "subdivision": "7/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 42.55,
+      "duration_seconds": 2.169091183296142,
+      "frequency_hz": 193.1,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.24,
+      "pan": 0.1468512669896503,
+      "chamber": 5,
+      "subdivision": "0/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 44.791176,
+      "duration_seconds": 2.181124358706399,
+      "frequency_hz": 229.7,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.24,
+      "pan": 0.047154871416870414,
+      "chamber": 5,
+      "subdivision": "3/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 47.779412,
+      "duration_seconds": 2.6790667143302187,
+      "frequency_hz": 257.3,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.24,
+      "pan": -0.25273585023278367,
+      "chamber": 5,
+      "subdivision": "7/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 55.25,
+      "duration_seconds": 1.774822625656335,
+      "frequency_hz": 193.1,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.24,
+      "pan": 0.1735501589042508,
+      "chamber": 6,
+      "subdivision": "0/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 57.404545,
+      "duration_seconds": 2.229496894941593,
+      "frequency_hz": 229.7,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.24,
+      "pan": -0.19823947090517152,
+      "chamber": 6,
+      "subdivision": "3/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 60.277273,
+      "duration_seconds": 2.6861080769116645,
+      "frequency_hz": 257.3,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.24,
+      "pan": 0.28641596069384107,
+      "chamber": 6,
+      "subdivision": "7/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 63.15,
+      "duration_seconds": 2.2821397669944385,
+      "frequency_hz": 193.1,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.24,
+      "pan": 0.27531645896712525,
+      "chamber": 7,
+      "subdivision": "0/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 64.934211,
+      "duration_seconds": 2.312000811522148,
+      "frequency_hz": 229.7,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.24,
+      "pan": 0.10516873957165884,
+      "chamber": 7,
+      "subdivision": "3/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 67.313158,
+      "duration_seconds": 2.2180242429929278,
+      "frequency_hz": 257.3,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.24,
+      "pan": 0.04564318478185675,
+      "chamber": 7,
+      "subdivision": "7/19",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 74.45,
+      "duration_seconds": 2.698599475648274,
+      "frequency_hz": 193.1,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.24,
+      "pan": -0.11182070242775868,
+      "chamber": 8,
+      "subdivision": "0/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 76.688462,
+      "duration_seconds": 2.391481754902515,
+      "frequency_hz": 229.7,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.24,
+      "pan": -0.10129111893471945,
+      "chamber": 8,
+      "subdivision": "3/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 79.673077,
+      "duration_seconds": 1.947036054904404,
+      "frequency_hz": 257.3,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.24,
+      "pan": -0.2589924385235746,
+      "chamber": 8,
+      "subdivision": "7/13",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 84.15,
+      "duration_seconds": 2.041954273087191,
+      "frequency_hz": 193.1,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.24,
+      "pan": -0.030568080638891826,
+      "chamber": 9,
+      "subdivision": "0/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 85.932353,
+      "duration_seconds": 2.4917638110366536,
+      "frequency_hz": 229.7,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.24,
+      "pan": 0.2517601041518874,
+      "chamber": 9,
+      "subdivision": "3/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 88.308824,
+      "duration_seconds": 2.440368524323411,
+      "frequency_hz": 257.3,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.24,
+      "pan": 0.11551314459903078,
+      "chamber": 9,
+      "subdivision": "7/17",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 94.25,
+      "duration_seconds": 2.4774799024060137,
+      "frequency_hz": 193.1,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.24,
+      "pan": 0.12717693670289332,
+      "chamber": 10,
+      "subdivision": "0/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 97.277273,
+      "duration_seconds": 2.1434621039321615,
+      "frequency_hz": 229.7,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.24,
+      "pan": -0.20886867317369107,
+      "chamber": 10,
+      "subdivision": "3/11",
+      "soft": true
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 101.313636,
+      "duration_seconds": 1.7818112027420512,
+      "frequency_hz": 257.3,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.24,
+      "pan": -0.15459886666687975,
+      "chamber": 10,
+      "subdivision": "7/11",
+      "soft": true
+    }
+  ],
+  "validation": {
+    "duration_seconds": 105.1,
+    "sample_rate_hz": 48000,
+    "channels": 2,
+    "peak": 0.5897989273071289,
+    "rms": 0.10422107577323914,
+    "dc_per_channel": [
+      -1.3531076547224075e-05,
+      -1.7002363165374845e-05
+    ],
+    "seam_step_per_channel": [
+      0.0033869752660393715,
+      0.00018151849508285522
+    ],
+    "seam_head_rms": 0.0704754889011383,
+    "seam_tail_rms": 0.06947381049394608,
+    "stereo_difference_rms": 0.03487666696310043
+  }
+}

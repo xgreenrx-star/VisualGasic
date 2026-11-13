@@ -133,6 +133,7 @@ Dim visor_signs As Array
 Dim translation_t As Single
 Dim progression_skip As Boolean
 Dim lift_code_known As Boolean
+Dim release_code_known As Boolean
 Dim lift_authorized As Boolean
 Dim lift_lock_open As Boolean
 Dim lift_entry As String
@@ -306,6 +307,7 @@ Dim trans_post_path As String
 Dim trans_point_path As String
 Dim nearby_hud As String
 Dim script_hud As Object
+Dim glyph_reference As String
 
 Sub _Ready()
 	If GetTree() Is Nothing Then Exit Sub
@@ -321,6 +323,7 @@ Sub start_test(ByVal start_mode As String)
 	yard_field = start_mode = "yard" Or start_mode = "yard_test" Or start_mode = "dev" Or start_mode = "far_dock" Or start_mode = "f6"
 	progression_skip = start_mode <> "yard"
 	lift_code_known = False
+	release_code_known = False
 	lift_authorized = False
 	lift_lock_open = False
 	lift_entry = ""
@@ -1194,7 +1197,7 @@ Sub MakeLiftAddressClue()
 	clue.position = Vector3(39, 1.65, 44.12)
 	clue.rotation = Vector3(0, PI, 0)
 	Call PaintFloorScript(clue.get_node("Line0"), "VAULT LIFT ADDRESS")
-	Call PaintFloorScript(clue.get_node("Line1"), "ONE FOUR TWO FOUR TWO")
+	Call PaintFloorScript(clue.get_node("Line1"), "14242")
 End Sub
 
 Sub MakeUndergroundEnclosure()
@@ -4486,9 +4489,8 @@ Function Objective() As String
 	If ride_state = "crashed" Then Exit Function
 	If ride_state = "inspect" Then Exit Function
 	If yard_field And Not progression_skip And Not route.vault_entered Then
-		If Not TranslatorOwned() Then Return "OBJECTIVE  FIND THE INTERFACE TRANSLATOR IN THE YARD ARCHIVE BAY"
 		If Not lift_code_known Then Return "OBJECTIVE  SCAN THE LIFT ADDRESS ON THE ARCHIVE BAY'S REAR WALL"
-		If Not cradle_released Then Return "OBJECTIVE  READ THE YARD SERVICE TAG AND RELEASE THE CYCLE"
+		If Not cradle_released Then Return "OBJECTIVE  MATCH THE SERVICE TAG'S SYMBOLS AT THE CYCLE RELEASE"
 	End If
 	If area_name = "vault" And ride_state = "on_foot" Then
 		If route.coupler_taken Then
@@ -4811,6 +4813,7 @@ End Function
 
 Function NarceanCellCount(ByVal w As String) As Integer
 	Dim n As Integer
+	If w.is_valid_int() Then Return Len(w)
 	n = Int((Len(w) + 1) / 2)
 	If n < 1 Then n = 1
 	NarceanCellCount = n
@@ -4828,6 +4831,7 @@ Sub narcean_word(ByVal parent As Object, ByVal at As Vector2, ByVal w As String,
 	Dim pattern As Integer
 	Dim origin As Vector2
 	Dim col As Color
+	Dim patterns As Array
 	If parent Is Nothing Then Exit Sub
 	If color Is Nothing Then
 		col = Color(0.55, 0.97, 1.0, 1.0)
@@ -4837,14 +4841,19 @@ Sub narcean_word(ByVal parent As Object, ByVal at As Vector2, ByVal w As String,
 	w = UCase(w)
 	h = narcean_hash(w)
 	cells = NarceanCellCount(w)
+	patterns = Array(15, 21, 38, 56, 41, 26, 52, 35, 29, 51)
 	For i = 0 To cells - 1
 		origin = at + Vector2(i * 18.0 * scale, 0.0)
-		pattern = narcean_cell(h, i)
+		If w.is_valid_int() Then
+			pattern = patterns(Int(w.substr(i, 1)))
+		Else
+			pattern = narcean_cell(h, i)
+		End If
 		For bit = 0 To 5
 			If BitOn(pattern, bit) Then Call DrawNarceanStroke(parent, origin, bit, scale, col)
 		Next
 	Next
-	Call AddNarceanLine(parent, at + Vector2(0.0, -3.0 * scale), at + Vector2(cells * 18.0 * scale - 4.0 * scale, -3.0 * scale), scale, col)
+	If Not w.is_valid_int() Then Call AddNarceanLine(parent, at + Vector2(0.0, -3.0 * scale), at + Vector2(cells * 18.0 * scale - 4.0 * scale, -3.0 * scale), scale, col)
 End Sub
 
 Sub narcean_line(ByVal parent As Object, ByVal at As Vector2, ByVal line As String, Optional scale As Variant = 1.0, Optional color As Variant)
@@ -4928,6 +4937,7 @@ Sub ClearNarceanHud()
 	Dim kids As Array
 	Dim i As Integer
 	If script_hud Is Nothing Then Exit Sub
+	glyph_reference = ""
 	kids = script_hud.get_children()
 	For i = 0 To kids.size() - 1
 		kids(i).free()
@@ -4947,9 +4957,7 @@ Sub GiveTranslator()
 End Sub
 
 Sub TakeTranslator()
-	Call GiveTranslator()
-	yard_save_translator = True
-	nearby_hud = "Narcean technicians' lexicon linked. It maps service scripts; I supply the English. Labels and keys, not high-script prose."
+	nearby_hud = "ORAC: No language module here. I can copy matching symbols, but I cannot translate them."
 	prompt = nearby_hud
 End Sub
 
@@ -4980,6 +4988,7 @@ End Sub
 Sub BindYardTranslation()
 	If crossing Is Nothing Then Exit Sub
 	If crossing.has_node(trans_lock_path) Then lock_node = crossing.get_node(trans_lock_path)
+	If crossing.has_node(trans_tag_path & "/Line1") Then Call PaintFloorScript(crossing.get_node(trans_tag_path & "/Line1"), cradle_code)
 	Call HideTranslatorPickup()
 	Call ApplyLockLight()
 End Sub
@@ -4989,7 +4998,7 @@ Sub HideTranslatorPickup()
 	If crossing Is Nothing Then Exit Sub
 	If Not crossing.has_node(trans_post_path & "/Translator") Then Exit Sub
 	prop = crossing.get_node(trans_post_path & "/Translator")
-	prop.visible = Not TranslatorOwned()
+	prop.visible = False
 End Sub
 
 Function ViewerPos() As Vector3
@@ -5112,6 +5121,8 @@ Sub TickGloss(ByVal delta As Single)
 		kind = SignKind(sign)
 		dist = NodeGap(sign)
 		in_range = dist <= gloss_range_m And sign.is_visible_in_tree()
+		If in_range And sign.get_parent().name = "LiftAddressClue" And sign.name = "Line1" Then lift_code_known = True
+		If in_range And sign.get_parent().name = "ServiceTag" And sign.name = "Line1" Then release_code_known = True
 		If kind = "high" Then
 			If sign.has_node("Gloss") Then sign.get_node("Gloss").visible = False
 			If in_range Then high_seen = True
@@ -5201,6 +5212,7 @@ Sub RefreshVisorTranslation()
 	Dim children As Array
 	Dim i As Integer
 	If visor_label Is Nothing Then Exit Sub
+	If Not TranslatorOwned() Then Call RefreshGlyphReference()
 	helmet_rim.visible = Not CockpitCam() And ride_state <> "inspect"
 	visor_label.visible = nearby_hud <> "" And ride_state <> "inspect" And ride_state <> "crashed"
 	If orac_sub_t > 0.0 And ride_state <> "crashed" Then visor_label.visible = True
@@ -5236,13 +5248,72 @@ Sub RefreshVisorTranslation()
 	If lift_lock_open Then
 		visor_label.text = "LIFT ADDRESS: " & lift_entry & vbLf & lift_lock_status & vbLf & "0-9 ENTER / BACKSPACE / F CANCEL"
 		If lift_code_known Then visor_label.text = "ARCHIVE: 14242   LIFT: " & lift_entry & vbLf & lift_lock_status & vbLf & "0-9 ENTER / BACKSPACE / F CANCEL"
-		If Not TranslatorOwned() Then visor_label.text = "LEXICON OFFLINE - FIND INTERFACE TRANSLATOR"
+		If Not TranslatorOwned() Then
+			visor_label.text = "COPIED SYMBOLS / MATCH SHAPES BELOW" & vbLf & lift_lock_status & vbLf & "0-9 SELECT KEY POSITIONS / ENTER SEND / F CANCEL"
+			If Not lift_code_known Then visor_label.text = "NO COPIED ADDRESS / SCAN ARCHIVE REAR WALL" & vbLf & lift_lock_status & vbLf & "0-9 SELECT KEY POSITIONS / ENTER SEND / F CANCEL"
+		End If
+	End If
+	If Not TranslatorOwned() And Not lift_lock_open And Not lock_open And lift_code_known Then
+		If nearby_hud = "NARCEAN SCRIPT" Then visor_label.text = "ORAC: Symbol shapes recorded. I cannot translate them yet."
+	End If
+	If Not TranslatorOwned() And lock_open Then
+		visor_label.visible = True
+		visor_panel.visible = True
+		visor_label.text = "MATCH THE TAG'S SYMBOLS / 0-9 SELECT KEY POSITIONS / ENTER SEND / F CANCEL"
+		If Not release_code_known Then visor_label.text = "COPY THE SERVICE TAG'S SYMBOLS FIRST / 0-9 SELECT KEY POSITIONS / ENTER SEND / F CANCEL"
+	End If
+End Sub
+
+Sub RefreshGlyphReference()
+	Dim digits As String
+	Dim signature As String
+	Dim i As Integer
+	Dim label As Object
+	Dim panel As Object
+	If script_hud Is Nothing Then Exit Sub
+	script_hud.visible = lock_open Or lift_lock_open Or (lift_code_known And nearby_hud = "NARCEAN SCRIPT")
+	If Not script_hud.visible Then Exit Sub
+	digits = ""
+	If lift_code_known And Not lock_open Then digits = "14242"
+	If lock_open And release_code_known Then digits = cradle_code
+	signature = digits & ":" & Str(lock_open) & ":" & Str(lift_lock_open) & ":" & lift_entry & ":" & lock_entry
+	If glyph_reference = signature Then Exit Sub
+	Call ClearNarceanHud()
+	glyph_reference = signature
+	panel = MakeSwatch(0, 55, 240, 70, Color(0.01, 0.025, 0.04, 0.94))
+	panel.name = "GlyphReferencePanel"
+	If lock_open Or lift_lock_open Then panel.size = Vector2(240, 200)
+	script_hud.add_child(panel)
+	label = MakeLabel(12, 62, 210, 18, 11, Color(0.55, 0.97, 1.0, 1.0))
+	label.text = "COPIED SYMBOLS"
+	script_hud.add_child(label)
+	Call narcean_line(script_hud, Vector2(20, 88), digits, 1.0)
+	If lock_open Or lift_lock_open Then
+		label = MakeLabel(12, 113, 210, 18, 11, Color(0.55, 0.97, 1.0, 1.0))
+		label.text = "KEYBOARD POSITIONS"
+		script_hud.add_child(label)
+		For i = 0 To 9
+			label = MakeLabel(20 + i * 16.2, 134, 18, 18, 12, Color(0.55, 0.97, 1.0, 1.0))
+			label.text = Str(i)
+			script_hud.add_child(label)
+		Next
+		Call narcean_line(script_hud, Vector2(20, 162), "0123456789", 0.9)
+		label = MakeLabel(12, 189, 210, 18, 11, Color(0.55, 0.97, 1.0, 1.0))
+		label.text = "INPUT"
+		script_hud.add_child(label)
+		If lift_lock_open Then
+			Call narcean_line(script_hud, Vector2(20, 215), lift_entry, 1.0)
+		Else
+			Call narcean_line(script_hud, Vector2(20, 215), lock_entry, 1.0)
+		End If
 	End If
 End Sub
 
 Sub RefreshNarceanHud(ByVal script_line As String, ByVal decoded As Boolean)
-	Call ClearNarceanHud()
 	If script_hud Is Nothing Then Exit Sub
+	If Not TranslatorOwned() Then Exit Sub
+	Call ClearNarceanHud()
+	glyph_reference = ""
 	script_hud.visible = False
 End Sub
 
@@ -5317,7 +5388,7 @@ Sub OpenCradleLock()
 End Sub
 
 Sub EnterLiftDigit(ByVal digit As Integer)
-	If Not lift_lock_open Or Not TranslatorOwned() Then Exit Sub
+	If Not lift_lock_open Then Exit Sub
 	If digit < 0 Or digit > 9 Or Len(lift_entry) >= 5 Then Exit Sub
 	lift_entry = lift_entry & Str(digit)
 	lift_lock_status = "ENTER FIVE-SYMBOL ADDRESS"
@@ -5325,9 +5396,7 @@ End Sub
 
 Sub SubmitLiftCode()
 	If Not lift_lock_open Then Exit Sub
-	If Not TranslatorOwned() Then
-		lift_lock_status = "LEXICON OFFLINE"
-	ElseIf Not lift_code_known Then
+	If Not lift_code_known Then
 		lift_lock_status = "ADDRESS NOT SCANNED - SEARCH THE YARD ARCHIVE"
 	ElseIf lift_entry <> "14242" Then
 		lift_lock_status = "ADDRESS REJECTED"
@@ -5489,8 +5558,8 @@ End Sub
 
 Sub BoardYardCycle()
 	If ride_state <> "on_foot" Then Exit Sub
-	If Not progression_skip And (Not TranslatorOwned() Or Not lift_code_known) Then
-		prompt = "SEARCH THE ARCHIVE BAY - TRANSLATOR AND LIFT ADDRESS REQUIRED"
+	If Not progression_skip And Not lift_code_known Then
+		prompt = "SEARCH THE ARCHIVE BAY - COPY THE LIFT ADDRESS SYMBOLS"
 		Exit Sub
 	End If
 	If Not cradle_released Then
@@ -5526,12 +5595,6 @@ Function NearTranslatorPickup() As Boolean
 End Function
 
 Sub InteractYardDock()
-	If Not TranslatorOwned() Then
-		If NearTranslatorPickup() Then
-			Call TakeTranslator()
-			Exit Sub
-		End If
-	End If
 	If Not cradle_released Then
 		If lock_node <> Nothing Then
 			If NodeGap(lock_node) < 2.8 Then
@@ -5565,12 +5628,6 @@ Sub RefreshYardWalkPrompt()
 			prompt = "NARCEAN SCRIPT"
 		End If
 		Exit Sub
-	End If
-	If Not TranslatorOwned() Then
-		If NearTranslatorPickup() Then
-			prompt = "F TAKE TRANSLATOR"
-			Exit Sub
-		End If
 	End If
 	If Not cradle_released Then
 		If lock_node <> Nothing Then

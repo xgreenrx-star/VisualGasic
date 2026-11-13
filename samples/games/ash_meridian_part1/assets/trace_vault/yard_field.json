@@ -113,7 +113,7 @@
     "cradle_lock": "YardDock/ReleaseLock",
     "code_clue": "ServiceTag",
     "translator_post": "TranslatorPost",
-    "sign_contract": "Node3D with metadata text_kind (\"interface\" | \"high\"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Collected translator enables helmet translations only; world Gloss stays hidden. High script waits for the FEB.",
+    "sign_contract": "Node3D with metadata text_kind (\"interface\" | \"high\"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). New runs copy numeral glyph shapes without translation; no physical translator pickup. The translator inventory flag supports legacy/preview states only. Alien supplies Orac's service lexicon in the exploration campaign. World Gloss stays hidden. High script waits for the FEB.",
     "signs": [
       "YardDock/GateSign",
       "YardDock/RoadSign",

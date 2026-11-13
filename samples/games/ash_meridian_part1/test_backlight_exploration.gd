@@ -188,7 +188,7 @@ func _run() -> void:
 	city.position_xz = Vector2(3.4, 45.5)
 	await tap(game, KEY_E)
 	check(city.inventory.has("coupler") and city.awakening and city.countdown > 254, "Actual part interaction starts the 255-second awakening")
-	check(not city.repair_part.visible and city.message == "ZEN: RUN!", "Part disappears and Zen urgently returns online")
+	check(not city.repair_part.visible and city.message == "ORAC: RUN!", "Part disappears and Orac tells Jason to run")
 	city.take_coupler()
 	check(city.countdown <= 255, "Repeated part use cannot reset or extend the escape")
 	city.position_xz = Vector2(0, 39)

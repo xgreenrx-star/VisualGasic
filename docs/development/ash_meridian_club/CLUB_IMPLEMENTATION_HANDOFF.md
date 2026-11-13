@@ -1,12 +1,115 @@
 # Ash Meridian — Resistance Club: Implementation Handoff (for Cursor)
 
-Status: art and plan complete; **no game code written yet**. This document is the
-build spec. Canon lives in [ASH_MERIDIAN_PROPOSAL.md](../ASH_MERIDIAN_PROPOSAL.md)
-(optional club section) and [ASH_MERIDIAN_APPROVAL_DRAFT.md](../ASH_MERIDIAN_APPROVAL_DRAFT.md)
+Status: working club baseline implemented; visual/refuge revision tested.
+The detailed specs below also include remaining polish targets, not a claim that
+every proposed effect has shipped. Canon lives in [ASH_MERIDIAN_PROPOSAL.md](../ASH_MERIDIAN_PROPOSAL.md)
+(club section) and [ASH_MERIDIAN_APPROVAL_DRAFT.md](../ASH_MERIDIAN_APPROVAL_DRAFT.md)
 (§6A, reveal order). Route constraints: [ASH_MERIDIAN_UNDERGROUND_HANDOFF.md](../ASH_MERIDIAN_UNDERGROUND_HANDOFF.md).
 
-Music is **not delivered yet**. Every effect must run from a synthetic beat clock
-now and switch to real audio analysis automatically when the track file appears.
+Commissioned music is **not delivered yet**. An original procedural alien
+prototype now occupies the drop-in track slot; it can be replaced later.
+The synthetic clock remains the no-track fallback.
+
+### Current implementation
+
+- [deep_stratum.vg](../../../samples/games/ash_meridian_part1/deep_stratum.vg):
+  club floor `77124`, eight carved refuge bays on the live east train tunnel,
+  at x = 100..104, z = 24..32 / 40..48 / 56..64 / 72..80 / 88..104 /
+  112..120 / 128..136 (the two bays near the door join).
+  The door is at approximately (102, 100); return anchor (102, 98) is off-track.
+- [club_fx.vg](../../../samples/games/ash_meridian_part1/club_fx.vg):
+  rotating/tilting orb, eight sweeping translucent cone beams, four moving
+  spotlights, animated multicolor floor, animated atlas/kaleidoscope video wall,
+  moving simulated reflection spots and three horizontal ground-fog layers.
+  Reflections use additive surface overlays, not renderer-dependent projectors.
+- Off suppresses white strobing, fixes the main effects' pulse level, slows
+  floor/screen animation and limits screen cuts to once every eight seconds.
+  Low remains the default. Synthetic fallback strobing fires only on peak-section
+  bar downbeats (about 0.52 Hz at 124 BPM). Real-audio mode uses band energy and
+  onset pulses without imposing a 4/4 white-flash grid. Measured onsets trigger
+  120 ms flashes: Low intensity 0.35 with a minimum 3-second interval, Full
+  intensity 1.0 with a minimum 1.8-second interval. Floor, orb, beams and moving
+  spotlights receive the flash; Off suppresses it completely.
+- Rig/audio references are discarded when the interior changes; re-entry
+  rebuilds the rig and restores powered playback.
+- City grid power supplies the **DJ booth switch**. Press F at the lit console
+  under the video wall to start lights and music; the arrival hint and local
+  translated sign identify it. The playback choice persists across visits.
+  Until the commissioned track is installed, the procedural alien prototype plays.
+  The normal exploration score is suppressed in the club. Footsteps use the
+  existing tile samples rather than ringing metal-grating samples.
+- A separate track selector at (-3.2, 12.4), left of the booth, cycles four
+  named recordings with F. `club_track` stores the index in `city.stratum`;
+  booth and tunnel-leak players reload the chosen recording on re-entry.
+  Selection resets onset/flash analysis without changing the saved booth
+  start state. Missing recordings report an explicit notification.
+  `club_track.ogg` is the eerie instrumental with irregular 808-style sub kicks;
+  `club_lullaby.ogg` is an ethereal vocal lullaby; `club_fracture.ogg` is the
+  harder vocal/rap-like bass piece; `club_undertow.ogg` is the heavier
+  growling/dubstep-like track. All loop at 105.1 seconds without a global BPM.
+  Invented Narcean syllables use original formant synthesis, not sampled voices.
+  Generate the first with `tools/audio/alien_club.py`, the other three with
+  `tools/audio/alien_club_set.py`. Matching JSON sidecars record events,
+  vocabulary, arrangement and decoded-loop checks. Run both matching unittest
+  files under `tools/audio/` for deterministic, spectral and encoded-loop tests.
+- Floor `77125` is the ruined surface launch dock. Stand on the club telepad
+  and press F; the dock pad returns to `club_pad`. Both require city grid power,
+  neither requires a key. There is no lift or required campaign progression here.
+  Empty cradle, broken trusses, collapsed loading bridge, hull fragments and
+  blast scoring imply destruction without confirming the escape's actual outcome.
+  Four evidence consoles preserve the MJH apparent-death reading.
+- The club shell is now 22 x 24 m. A partition at z = 16 separates the
+  meeting room; the clear right-hand doorway spans x = 4.8..7.8.
+  Follow its marked route from the DJ booth. The pad is at (6.2, 21),
+  with `club_pad` returning to (6.2, 18.3), safely off its trigger.
+  Emergency floor/edge lighting and abandoned meeting furniture remain visible
+  without city power. Club music switches to the existing low-pass `ClubDoor`
+  bus at reduced volume inside the room.
+- [club_alien.gd](../../../samples/games/ash_meridian_part1/club_alien.gd)
+  supplies **Alien**, the original male resident intelligence. It reuses the
+  full human face mesh in two batched surfaces, not thousands of VG draw calls.
+  A cyan hologram shader supplies scanlines and simple mouth motion. Both
+  surfaces smoothly track the player's position in yaw (up to 77 degrees)
+  and pitch, returning to neutral outside the room.
+  420 deterministic curved hair strands create a full crown and disheveled,
+  outward-swept sides. Hair is batched into the existing wire surface so it
+  follows the head without extra nodes, surfaces or per-frame mesh rebuilding.
+  Proximity starts one Narcean greeting; F advances Jason/Orac's language sample
+  and Alien's rapid adoption of English. A trust exchange follows: Jason's
+  resemblance to former visitors is Alien's uncertain impression, not established
+  species history. Orac denies resistance membership. Alien helps by choice:
+  the visitors ask rather than command, and companionship relieves his isolation.
+  Keep the original dry, muddled humour, unreliable memory and underlying sadness.
+  Alien then gives Orac a Narcean service lexicon; only afterwards are song
+  titles (attributed to Orac) and Narcean record meanings available.
+  `alien_english`, `narcean_lexicon`, `club_dock_visited` and `alien_dock_discussed` live in
+  `city.stratum`; interior destruction stops voice automatically.
+  Speech-off retains subtitles. Alien sets `club_pad_activated` when explaining
+  and restoring the pad link (`activate_pad` dialogue event); outbound travel checks this flag.
+  It persists across visits, so no repeat conversation or key is needed.
+  Older English-only states resume the trust/lexicon exchange. Repeat dialogue
+  also restores the pad link for earlier saves.
+  The dock return pad is never conversation-gated.
+  The club pad shader is dormant until both activation and city power are present.
+  No future character-identity reveal belongs in this encounter.
+- Original synthetic dialogue audio is bundled in `assets/audio/club/alien/`.
+  Edit `assets/ai_face/club_alien_dialogue.json`, then run
+  `node tools/audio/build_club_alien.mjs` from the sample directory to regenerate
+  it locally through `tools/audio/bake_club_alien.gd`, the game's
+  `flight_speech.vg` Kokoro speaker mapping/daemon, and `ffmpeg`. Set `GODOT_BIN`
+  to override the default repository Godot executable. Jason uses the existing
+  `am_adam` profile and delivery, Orac `bm_george`, and Alien `bm_lewis` at
+  speed 0.94 with 0.32 sentence silence. No eSpeak fallback or robotic filter
+  is accepted by the baker. `voices.json` records speaker IDs, text and delivery
+  for regression checks. Those tools are build-time only:
+  shipped playback needs no network, TTS installation or API credentials.
+  These are neural synthetic voices, not actor imitations. Regenerate clips whenever
+  the speech text changes, and import the project before testing.
+- Headless regression:
+  `./Godot_v4.6.1-stable_linux.x86_64 --headless --audio-driver Dummy --path samples/games/ash_meridian_part1 --script test_club_visual.gd`
+  from the repository root. Add `-- --capture` and omit `--headless` for rendered
+  animation checks and club/dock/refuge/backroom screenshots in `user://`.
+  Import the project in Godot first so the textures/audio are available.
 
 ---
 
@@ -20,9 +123,10 @@ now and switch to real audio analysis automatically when the track file appears.
 - MJH was captured before boarding and converted into the governed **local
   defense FEB** that attacked the ship. That FEB is Rob. The player must not
   learn this here; the club only seeds deniable hints.
-- The club is **optional**. It is not a fourth required level, and no story beat
-  may depend on visiting it. The club track is Rob's memory motif, and a
-  non-club equivalent exists elsewhere.
+- The backroom language exchange is now a progression destination, replacing
+  the surface translator hunt. Early access uses visible glyph copying, not
+  translation or programmer operation. The dock excursion remains optional.
+  The club track is Rob's memory motif; a non-club equivalent exists elsewhere.
 - No crowds, no NPCs, no cinematics. The room is abandoned. The effects
   rig boots up and plays the last set on a loop. Records (§9) carry the narrative.
 
@@ -39,18 +143,17 @@ Legend (the Narcean digit next to each white dot in the plan image):
 | 3 | Hidden door alcove | Cyan mark painted over the amber service sign (`resistance_mark_3`). Warm magenta light leaks under the door once powered |
 | 4 | Dance floor + orb | Hex floor, orb hangs above centre |
 | 5 | DJ booth + video wall | Booth console = power/playback interaction |
-| 6 | Telepad room | Portal ripple pad, leads to the surface launch deck (later level) |
+| 6 | Telepad room | Portal ripple pad, F leads to the ruined surface launch dock |
 | 7 | Lounge / records | MJH recordings, flyers, data consoles |
 
 Tunnel concept: ![tunnel](tunnel_entrance_concept.png)
 
-**Placement (recommended; verify in-game):** B13 Undercity, floor code `88216`
+**Placement:** B13 Undercity, floor code `88216`
 in [deep_stratum.vg](../../../samples/games/ash_meridian_part1/deep_stratum.vg).
 - `_uc_cell()` marks tunnel cells as type `1`.
 - The east run `i = 54, j = 4..34` (world x ≈ 96, z ≈ 16–136) is a live train
   line (`_train` path 1 runs along x = 98).
-- Put the hidden door on that tunnel wall, around z ≈ 100. Use a tunnel cell, not
-  a station.
+- The door is inside the side refuge around z ≈ 100, not on the track or station.
 
 **Implementation pattern:** make the club its own floor code, for example `"77124"`.
 - Add a `_layout_club(city)` function and an `ElseIf code = "77124"` branch in
@@ -73,7 +176,7 @@ light leak and an audible muffled bass once powered (§5.5).
 Orac translates on look, reusing the `_graffiti(..., translation)` pattern. Suggested lines:
 - 0: "GRAFFITI: THE EYE OPENS BELOW."
 - 1: "FOLLOW THE LINE."
-- 2: "KEEP WALKING. DON'T STOP FOR TRAINS."
+- 2: "WAIT IN THE WALL. FOLLOW THE LINE."
 - 3: "KNOCK TWICE. WE ARE STILL HERE."
 - 4: "STILL HERE."
 
@@ -221,24 +324,12 @@ generates audio procedurally in [game_audio.vg](../../../samples/games/ash_merid
 
 ### 5.4 Power-up interaction
 
-The club is dark until it is powered.
-1. The player enters the club. It is unlit except for emergency strips and the
-   light leaking from the dead booth.
-2. If B13 `grid_power` is already on (`power_up()` at
-   [deep_stratum.vg](../../../samples/games/ash_meridian_part1/deep_stratum.vg)
-   around line 3132), the booth console is live. Otherwise the booth shows a
-   "no power" glyph, and Orac says: "Dead. Whoever ran this place wired it into
-   the city grid."
-3. The player interacts with the booth. The boot sequence then runs:
-   1. Video wall CRT flicker, reusing the `boot_crt.gdshader` style.
-   2. Floor tiles light from the centre outward.
-   3. Orb motor spins up over 3 s.
-   4. Fog machines hiss.
-   5. The track (or synthetic set) fades in.
-
-   Orac: "It's still got the last set loaded. Someone left in a hurry."
-4. It stays on for the session. Save the state in
-   `city.stratum("club_powered")`.
+The city grid (`city.stratum("powered")`) supplies the room, but the DJ booth
+switch starts playback. F at the lit switch under the video wall sets
+`club_powered`; re-entry restores playback only when both flags are true.
+Clear arrival and nearby interaction prompts explain this two-stage setup.
+Power loss stops playback without forgetting the booth choice.
+F at the separate strobe control cycles Off/Low/Full.
 
 ### 5.5 Through-door hint
 
@@ -336,12 +427,10 @@ the bloom and vector post pass from Vector Crypt (§7).
 
 ### 6.7 Telepad (#6)
 
-- Port `portal_ripple.gdshader` from Vector Crypt. It is idle when the
-  club is unpowered. When powered, it shows a slow ripple, but is **inert** in
-  this pass.
-- Interacting with it gives Orac: "Telepad. Destination locked - surface
-  coordinates. Needs an access key." It becomes the route to the surface launch
-  deck in a later task. The launch deck is not part of this handoff.
+- The ripple shader identifies the outbound and return pads. Standing on a pad
+  and pressing F travels between club `77124` and surface dock `77125`.
+- City grid power is required; DJ playback is independent. No access key is
+  required. Pads do not auto-trigger or bounce the player back on arrival.
 
 ## 7. Borrow from Vector Crypt (`samples/apps/vector_crypt`)
 
@@ -407,7 +496,7 @@ regression afterwards.
 ## 11. Acceptance criteria
 
 - [ ] The door can be found with or without the clue trail.
-- [ ] The club is dark before power, and the boot sequence plays after the booth interaction.
+- [ ] City power supplies the booth; F at its clearly marked switch starts playback.
 - [ ] All effects (orb, floor, wall, fog, beams, strobe, speakers, door pulse)
       respond visibly to the synthetic clock now.
 - [ ] Dropping in `club_track.ogg` switches to spectrum-driven features with no
@@ -421,10 +510,12 @@ regression afterwards.
 
 - Confirm the door location (B13 east line) and the club floor code.
 - Confirm the room reconciles with the underground handoff's three local levels.
-  It does so by being an optional side floor, not a required level.
+  The backroom language exchange replaces the translator hunt; dock exploration
+  and evidence collection remain optional side content.
 - Music: supply `club_track.ogg`, plus the BPM if known. Rob's non-club motif
   variant is a separate asset.
-- The surface launch deck (destination of the telepad) is a separate task.
+- The surface launch deck is implemented as optional floor `77125`; later
+  escape/reveal content remains outside this club excursion.
 
 ## 13. Visual references
 

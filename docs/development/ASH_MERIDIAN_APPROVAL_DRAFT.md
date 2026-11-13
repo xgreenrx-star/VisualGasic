@@ -27,11 +27,11 @@ reveal, not new routing.
 
 The year is 2086.
 
-Jason, a struggling scavenger, enters the quarantined world of Narcea looking
+Jason, a struggling scavenger, enters the Narcean Ring looking
 for valuable scrap. He accidentally awakens a dormant cybernetic enforcer.
-Weeks later, their confrontation leaves both ships crippled above the planet.
+Weeks later, their confrontation leaves both ships crippled near the habitat.
 They survive by helping each other, then must explore Narcea together to repair
-their ship and escape the quarantine.
+their ship and find a safe way out through its surviving defenses.
 
 Ash Meridian is a single-player science-fiction adventure combining cockpit
 flight, buggy driving, on-foot salvage, environmental puzzles, underground
@@ -79,8 +79,8 @@ into cybernetic forms, including FEB units.
 When no unconverted organic citizens remained, the master AI went dark.
 Isolated machinery and security systems survived the civilization they served.
 
-Centuries later, military quarantine surrounds a silent world of obsidian
-structures, sealed vaults, abandoned roads and inexplicably powered machinery.
+Centuries later, Narcea is a silent habitat of obsidian structures, sealed
+vaults, abandoned roads and inexplicably powered machinery.
 One FEB unit remains dormant in a deep stasis chamber.
 
 Its memories are corrupted. Its security directives remain.
@@ -108,29 +108,33 @@ returns to Narcea.
 
 ## 5. First visit: atmospheric approach
 
-Jason obtains Narcea's coordinates from **Mark**, a dying scavenger who also smuggled
-salvage through the quarantine. This is the same contact previously described
-as the dying smuggler, not an additional character. The coordinates'
-military-grade encryption suggests that valuable technology lies behind the
-quarantine.
+Jason wins coordinates to an unexplored sector beyond known space from
+**Mark Mitnick** in a card game. Mark is a brilliant, eccentric scavenger who survived Narcea and
+swears never to return. How Mark found it remains unknown. He warns Jason to
+stay away, but Jason knowingly accepts the risk in hope of a better life with
+Stacy. Once Mark realizes he cannot dissuade him, he gives Jason a suit-readable
+copy of Fast Hack'em and the location of his abandoned surface stash. Mark's
+present circumstances are not yet settled; he need not be dying.
 
-Mark barely survived Narcea. He warns Jason not to follow him, but
-passes on a suit-readable copy of Fast Hack'em and the location of a surface
-cache containing a Commander +4 service programmer. Forced to abandon his pack
-during his escape, he left the hardware behind but retained a software copy.
-The cache location remains recoverable through the suit briefing or records;
-it is not a one-time spoken clue.
+Mark is a narcissistic, genuinely gifted investigator who loves discovering
+and sharing forbidden knowledge. He teases people and shows off his
+intelligence, but does not intend to harm them. His warning and help are
+genuine even when his delivery is theatrical. The current character dialogue
+and details are in the [unified proposal](ASH_MERIDIAN_PROPOSAL.md).
 
-Mark: "There's a Commander in my old cache. Four rubber arrows. Cracked
-case. Looks worthless. It isn't."
-Jason: "And this gets me into the machinery?"
-Mark: "It gives you a chance. Don't confuse the two."
+The stash is in a recessed maintenance shelter beside a drainage
+channel at the edge of Backlight Yard, marked by a damaged channel marker.
+Mark abandoned his pack there while escaping; it contains the Commander +4.
+The shelter and pickup are implemented; the full Commander/Fast Hack'em
+campaign interaction is not yet connected.
+Jason can retrieve it without translation or a mandatory hack, but needs
+Alien's language exchange before identifying its Narcean controls for use.
+The location remains recoverable through suit briefing or records; it is not
+a one-time spoken clue. The warning does not reveal the dormant FEB, its
+governor or the coupler interlock.
 
-Jason knowingly accepts the risk. The warning establishes the need for the
-kit without revealing the dormant FEB, its governor or the coupler interlock.
-
-Orac suppresses the quarantine beacons' tracking and identification systems,
-leaving Jason to fly the atmospheric approach manually.
+Orac guides Jason through the habitat's hazardous approach corridor; Jason
+flies the atmospheric approach manually.
 
 The player follows a calculated corridor through clouds and turbulence, guided
 by cockpit rings, instruments and Orac's warnings. The rings represent
@@ -256,34 +260,37 @@ his own eventual emergency escape, he abandoned the physical Commander with
 his pack in a surface cache but retained a software copy. Jason must reunite
 that software with the recovered programmer.
 
-The player-facing acquisition sequence is:
+The player-facing acquisition sequence allows cache recovery either before or
+after the language exchange:
 
-**Find the Interface Translator -> recover the cache -> inspect the Commander
--> load Fast Hack'em -> complete a safe practice takeover -> use the kit on
-real devices.**
+**Copy address glyphs -> meet Alien and exchange languages; recover the cache
+before or after that meeting -> identify the Commander controls -> load Fast
+Hack'em -> complete a safe practice takeover -> use the kit on real devices.**
 
 Place the cache before the first mandatory hack. The Commander and software
 are protected mission equipment, not saleable or consumable salvage.
 
-#### The translator's maker and discovery
+#### Alien and the reciprocal language exchange
 
-The Interface Translator is a separate Narcean discovery, not equipment
-supplied by the scavenger and not part of his English software. It was built
-by Narcea's pre-collapse technical services for maintenance personnel working
-across regional writing systems, industrial notation and machine interfaces.
-Its maker is that technical-services organization; no individual inventor
-or named manufacturer is established.
+There is no physical Interface Translator pickup. Before meeting Alien, Orac
+can copy visible Narcean symbols but cannot read their meanings. Surface
+release codes, address clues and lift controls use matching numeral glyphs,
+so reaching the backroom never requires the lexicon obtained there.
 
-The module contains Narcean script mappings and a service lexicon, not English.
-Orac supplies English interpretation using those mappings. This is why a
-local Narcean tool can help him translate a language unfamiliar to Jason.
-It supports service labels and key legends, not unrestricted high-script
-prose or every military encoding.
+Alien learns English from Jason and Orac, then supplies a Narcean service
+lexicon in return. Orac translates service labels, recording titles and key
+legends using this knowledge; unrestricted high-script prose and military
+encodings remain outside it. The scavenger supplies software and cache
+coordinates only. The Commander still requires knowledge of its physical keys
+and service markings before operation.
 
-Jason must find it before recovering/operating the Commander: the scavenger's
-English loader does not translate its physical Narcean key legends or socket
-markings. Orac first needs the lexicon to identify those controls. The source
-provides Fast Hack'em and cache coordinates only.
+Jason's face reminds Alien of the people in his resistance meetings, but his
+memory is explicitly uncertain. Do not confirm human ancestry or modification
+history here. Orac denies resistance membership; Alien chooses to help because
+the visitors ask rather than command and treat each other as companions.
+His understated, muddled humour and unreliable chronology sit alongside
+depression after prolonged isolation. Conversation gives him purpose, not
+proof that Jason belongs to his movement.
 
 Security interference disrupts the live helmet capture/interface decoding
 path. It does not erase the local lexicon, previously copied clues or English
@@ -401,7 +408,7 @@ condescension more effective than uninterrupted abuse. Terminal and takeover
 comments react to specific actions, rotate variants and remain rate-limited
 so the character does not obscure instructions or drown out the contest.
 
-Orac: "A service socket. My translator identifies it as '1541.' The Commander
+Orac: "A service socket. Alien's lexicon identifies it as '1541.' The Commander
 can talk to it. I can read the replies, but I cannot drive that interface."
 Jason: "So I'm the keyboard."
 Orac: "Regrettably."
@@ -483,11 +490,11 @@ cooldowns explicitly during implementation.
 
 #### Reveal order
 
-1. Mark supplies software, a cache location and a warning, not the translator.
-2. Jason finds the Narcean Interface Translator; Orac can identify service keys.
-3. Jason finds the graffiti trail, hidden club, telepad and empty launch deck
-   if he explores that optional route. Early records establish MJH's plan but
-   leave the result unclear.
+1. Mark supplies software, a cache location and a warning, not language knowledge.
+2. Jason copies glyphs, follows the graffiti trail and meets Alien in the hidden
+   club. Their reciprocal language exchange enables Orac's service translations.
+3. Jason may use the telepad to explore the empty launch deck. These optional
+   records establish MJH's plan but leave the result unclear.
 4. Jason recovers the Commander and finds MJH's plate. Treat "Mike J. Henry"
    as speculation.
 5. The scorched service harness, dead transponder, missing ship, blast damage
@@ -516,8 +523,9 @@ card, pickup description or first hacking tutorial.
 First build one complete groundcar encounter: original Commander prop,
 English loader, guided commands, Ownership Ring, saved ownership, and a
 local-drone search on defeat. Expand target types only after that loop works.
-Preserve existing saves using the legacy `psionic_screwdriver` inventory key
-or an explicit migration; the displayed name becomes Commander +4.
+Existing campaign saves carrying the legacy `psionic_screwdriver` key migrate
+to the Commander +4; the old tool is shelved in campaign. Until the complete
+encounter is built, the Commander uses the existing cycling-glyph lock.
 
 Create original code, screen artwork, models, sounds and circuits. Retain
 Commander +4 and Fast Hack'em as the approved proposed names, with a
@@ -713,8 +721,8 @@ the change remotely or let the governor conveniently fail on its own.
 Orac and limited sublight travel are restored, but the Ash still lacks a
 working hyperdrive and long-range communications.
 
-Stacy and the station remain unreachable. The quarantine grid still threatens
-unauthorized departure.
+Stacy and the station remain unreachable. Surviving local defenses still
+threaten an unapproved departure.
 
 The crew must explore Narcea's surviving infrastructure to repair the ship
 and obtain a safe way out.
@@ -757,10 +765,11 @@ or relay that still draws power.
 
 Reaching Stacy is an emotional milestone, not merely a new instrument light.
 
-QUARANTINE CLEARANCE
+LOCAL TRANSIT AUTHORIZATION
 
 Combine information from the other investigations to locate a beacon-control
 installation. Rob can perform a local security handshake Orac cannot fabricate.
+This is a surviving local system, not an external military quarantine.
 
 The contract's matched components are recovered during the same expedition,
 not through an unrelated fourth chain of mandatory artifacts.
@@ -786,8 +795,8 @@ isolating and depressurizing the exterior drive housing; it must be done in
 vacuum. Rob and Jason prepare an EVA repair while Orac holds the ship over
 Narcea. This is a new repair operation, not a repeat of their earlier rescue.
 Installation and commissioning finish in orbit before system departure.
-Quarantine clearance remains a separate requirement; the canyon escape itself
-does not grant it.
+The local transit authorization remains a separate requirement; the canyon
+escape itself does not grant it.
 
 The canyon is an ancient industrial power corridor cut through dark rock:
 illuminated conduits, overhead bridges, machinery-lined walls, a covered
@@ -838,8 +847,8 @@ It is not a race and does not introduce combat in slipspace.
 At the beacon-control installation, Rob authorizes the Ash through a limited
 Field Enforcement clearance.
 
-Prefer authorization for this ship over disabling the entire quarantine and
-potentially releasing unknown dangers.
+The authorization opens a safe route for this ship without globally reopening
+every locked route on the habitat.
 
 The repaired lattice passes its checks. Communications return. The crew
 confirms a safe departure window and leaves Narcea.

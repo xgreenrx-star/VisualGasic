@@ -435,7 +435,7 @@ Sub reset()
 	If campaign_mode Then
 		notify("ORAC: Jason, check the archives for a descent address. A compatible power coupler is below this yard.")
 	Else
-		notify("ZEN OFFLINE. Find a pressure regulator, ignition cell, and reflector coupler.")
+		notify("ORAC: Find a pressure regulator, ignition cell, and reflector coupler.")
 	End If
 End Sub
 
@@ -2678,6 +2678,18 @@ Sub use_object()
 		If deep.use(Me) Then Exit Sub
 	End If
 	If place = "surface" Then
+		If campaign_mode And Not trace_escape And position_xz.distance_to(Vector2(20, 30)) < 3.0 Then
+			If driving Then
+				notify("ORAC: Park and step out before searching Mark's shelter.")
+			ElseIf deep.has_item(Me, "commander_plus4") Then
+				notify("ORAC: We've already recovered Mark's computer. The rest of the pack is empty.")
+			Else
+				pack("commander_plus4") = 1
+				sfx("pickup", -3.0)
+				notify("ORAC: Mark's computer. The plate reads M.J.H. - SERVICE ENGINEERING. Its Narcean keys are unfamiliar; keep it safe.")
+			End If
+			Exit Sub
+		End If
 		If near_cycle_dock() Then
 			use_cycle_dock()
 			Exit Sub
@@ -2697,7 +2709,7 @@ Sub use_object()
 				ElseIf campaign_mode Then
 					notify("ORAC: Power coupler installed, Jason. Engines live. First expedition complete.")
 				Else
-					notify("ZEN: Coupler seated. Engines live. We are leaving!")
+					notify("ORAC: Coupler seated. Engines live. We are leaving!")
 				End If
 			Else
 				If campaign_mode Then
@@ -2734,7 +2746,7 @@ Sub use_object()
 				If campaign_mode Then
 					notify("ORAC: No time for another descent, Jason. Get to the ship!")
 				Else
-					notify("ZEN: No time for another descent. Get to the ship!")
+					notify("ORAC: No time for another descent. Get to the ship!")
 				End If
 			Else
 				keypad = True
@@ -2742,15 +2754,12 @@ Sub use_object()
 			End If
 		ElseIf position_xz.distance_to(Vector2(0, 14)) < 3 Then
 			If building_index < 5 Then
-				If (campaign_mode Or yard_mode) And Not deep.has_item(Me, "interface_translator") Then
-					pack("interface_translator") = 1
-					discovered(building_index) = FEB_CODE.substr(building_index, 1)
-					notify("ORAC: A Narcean technicians' Interface Translator. Its lexicon maps service scripts; I supply the English. I can now read the programmer's keys. Archive glyph copied to the journal.")
-					sfx("pickup", -3.0)
-					Exit Sub
-				End If
 				discovered(building_index) = FEB_CODE.substr(building_index, 1)
-				notify(CLUES(building_index)  & " Copied to the five-slot journal.")
+				If deep.interface_lexicon_ready(Me) Then
+					notify(CLUES(building_index) & " Copied to the five-slot journal.")
+				Else
+					notify("ORAC: I cannot read the inscription, but this symbol repeats beside the lift controls. Shape copied to the five-slot journal.")
+				End If
 			ElseIf building_index = 5 Or building_index = 6 Then
 				If building_index = 5 Then
 					item = "regulator"
@@ -2808,7 +2817,7 @@ Sub submit_sequence()
 			notify("ORAC: Not now! Surface ascent is " & deep.ASCENT & ".")
 		ElseIf code = floor_code Then
 			sfx("key_reject", -4.0)
-			notify("LIFT CAR: ALREADY AT " & deep.level_label(code) & ".")
+			notify("LIFT CAR: ALREADY AT " & deep.address_label(Me, code) & ".")
 		ElseIf deep.is_level(code) Then
 			keypad = False
 			start_lift(code)
@@ -2859,7 +2868,7 @@ Sub start_lift(ByVal target As String)
 		If campaign_mode Then
 			_t1 = "ORAC: Lift descending. Address recorded. Keep the ascent route clear."
 		Else
-			_t1 = "ZEN OFFLINE / Lift descending."
+			_t1 = "ORAC: Lift descending."
 		End If
 	Else
 		_t1 = "Emergency ascent / returning to the surface lobby."
@@ -2889,9 +2898,9 @@ Sub finish_lift()
 		position_xz = Vector2(ClampF(position_xz.x, -2.4, 2.4), ClampF(position_xz.y - 6.9, -6.6, -1.0))
 		deep.arrive(Me, True)
 		If campaign_mode Then
-			notify("ORAC: " & deep.level_label(floor_code) & ". F in the car opens the keypad.")
+			notify("ORAC: " & deep.address_label(Me, floor_code) & ". F in the car opens the keypad.")
 		Else
-			notify("Stratum reached: " & deep.level_label(floor_code) & ".")
+			notify("Stratum reached: " & deep.address_label(Me, floor_code) & ".")
 		End If
 	End If
 	pending_room = True
@@ -2915,7 +2924,7 @@ Sub take_coupler()
 	If campaign_mode Then
 		notify("ORAC: Jason, RUN! Removing the power coupler broke the isolation interlock! Lift car, ascent code " & deep.ASCENT & "!")
 	Else
-		notify("ZEN: RUN!")
+		notify("ORAC: RUN!")
 	End If
 	If audio <> Nothing Then
 		audio.play()
@@ -2972,11 +2981,7 @@ Sub _tick_turrets(ByVal delta As Single)
 				turret_sound("turret_fire", turret, -2.0)
 				_hit_sound()
 				velocity = velocity * 0.55
-				If campaign_mode Then
-					notify("ORAC: Turrets are live! Stay behind the buildings!")
-				Else
-					notify("ZEN: Turrets are live! Stay behind the buildings!")
-				End If
+				notify("ORAC: Turrets are live! Stay behind the buildings!")
 				If shield = 0 Then
 					Me.failed = True
 					audio.stop()
@@ -3171,7 +3176,7 @@ End Sub
 
 Function mission_briefing() As Array
 	If Not campaign_mode Then Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is the Ash's onboard assistant, guiding you over the ship link.", "Find ship parts in the yard and a replacement power coupler below it before departure.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
-	Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is the Ash's onboard assistant, guiding you over the ship link.", "The Ash cannot leave loaded without a replacement power coupler from below the yard.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
+	Return Array("You are Jason, a scavenger. Mark lost the Narcea coordinates to you in a card game.", "Orac is the Ash's onboard assistant. Mark warned you not to come, then gave you his stash location.", "The Ash cannot leave loaded without a replacement power coupler from below the yard.", "Mark's stash: east of the road, near the broken amber drain marker. F searches the shelter.")
 End Function
 
 Function mission_objective() As String
@@ -3181,16 +3186,18 @@ Function mission_objective() As String
 		If Not inventory.has("regulator") Or Not inventory.has("ignition") Then Return "Coupler recovered. Search the yard workshops for the pressure regulator and ignition cell, then return to the Ash."
 	End If
 	If awakening Or inventory.has("coupler") Then Return "Return to the Ash. Use the lift car to ascend, then press F at the ship to install the coupler."
-	If mission_guidance_enabled() And Not deep.has_item(Me, "interface_translator") Then Return "Search yard archive workbenches with F for the Interface Translator before the programmer. Copy five glyphs for the lift code (" & Str(discovered.size()) & "/5)."
 	If place = "floor" Then
 		If floor_code = "88216" Then
 			If Not deep.powered(Me) Then Return "Undercity is dark. Find the transfer station and press F at all three bus levers to restore the streets."
+			If Not deep.interface_lexicon_ready(Me) Then Return "Grid restored. Follow the eye marks along the east train tunnel. Use its refuge bays; investigate the hidden room for a working intelligence."
 			Return "Grid restored. Explore the Undercity, scan records with H, and keep searching for the power coupler."
 		End If
 		If floor_code = FEB_CODE Then Return "Search this floor for the replacement power coupler. Press F at the amber service socket to recover it."
+		If Not deep.interface_lexicon_ready(Me) Then Return "Copy address glyphs from records and match them at the lift. Explore deeper for someone who understands Narcean."
 		Return "Search this floor for salvage and address records. H: Orac scan. Use learned addresses at the lift to go deeper."
 	End If
 	If place = "lift" Then Return "Follow the descent address. Search underground records for the replacement power coupler and deeper lift addresses."
+	If campaign_mode And Not deep.has_item(Me, "commander_plus4") Then Return "Recover Mark's computer. Park east of the road, near the broken amber drain marker, and search the shelter with F."
 	If discovered.size() >= 5 Then Return "Five glyphs copied. Enter Deep Transit, use its rear lift panel with F, and enter the journal glyphs left to right."
 	Return "Search the yard buildings; F at rear workbenches copies glyphs. Five glyphs form the Deep Transit lift code (" & Str(discovered.size()) & "/5)."
 End Function
@@ -3226,6 +3233,11 @@ Function prompt() As String
 			If Not driving And position_xz.distance_to(buggy_position) < 3.8 Then Return "F: enter buggy / W/S drive / A/D steer"
 			If driving Then Return "DRIVE SOUTH TO THE ASH / W/S throttle / A/D steer / F park / DODGE AMBER BEAMS"
 			Return "REACH THE BUGGY AHEAD / W/S walk / mouse look / F use / BUILDINGS ARE COVER"
+		End If
+		If campaign_mode And position_xz.distance_to(Vector2(20, 30)) < 3.0 Then
+			If driving Then Return "MARK'S SHELTER / F: park before searching"
+			If deep.has_item(Me, "commander_plus4") Then Return "MARK'S SHELTER / F: inspect"
+			Return "MARK'S SHELTER / F: search abandoned pack"
 		End If
 		If near_cycle_dock() Then
 			If grid_live() Then Return "TRACE CYCLE CRADLE / F: release clamps and ride"

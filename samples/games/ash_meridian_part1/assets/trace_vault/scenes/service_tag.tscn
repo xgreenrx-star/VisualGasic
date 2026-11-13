@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Material" path="res://assets/trace_vault/materials/armor.tres" id="e0"]
 
@@ -44,9 +44,18 @@ size = Vector3(0.15934, 0.01054, 0.006324)
 size = Vector3(0.43214, 0.01054, 0.006324)
 
 [sub_resource type="BoxMesh" id="s11"]
-size = Vector3(0.20894, 0.01054, 0.006324)
+size = Vector3(0.098276, 0.0153, 0.00918)
 
 [sub_resource type="BoxMesh" id="s12"]
+size = Vector3(0.1413, 0.0153, 0.00918)
+
+[sub_resource type="BoxMesh" id="s13"]
+size = Vector3(0.2313, 0.0153, 0.00918)
+
+[sub_resource type="BoxMesh" id="s14"]
+size = Vector3(0.0873, 0.0153, 0.00918)
+
+[sub_resource type="BoxMesh" id="s15"]
 size = Vector3(0.03, 0.03, 0.01)
 
 [node name="service_tag" type="Node3D"]
@@ -407,284 +416,137 @@ visible = false
 position = Vector3(0, -0.12, 0.028)
 rotation_degrees = Vector3(0, 0, 0)
 metadata/text_kind = "interface"
-metadata/script = "TWO SEVEN FOUR ONE"
-metadata/gloss = "TWO SEVEN FOUR ONE"
+metadata/script = "2741"
+metadata/gloss = "2741"
 
 [node name="Script" type="Node3D" parent="Line1"]
 position = Vector3(0, 0, 0)
 
 
 [node name="S0" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.465, 0.0744, 0)
-rotation_degrees = Vector3(0, 0, 0)
+position = Vector3(-0.2745, -0.054, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
 mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S1" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.5425, 0.0372, 0)
+position = Vector3(-0.2115, -0.054, 0)
 rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S2" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.4991, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
+position = Vector3(-0.306, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S3" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.4774, 0, 0)
+position = Vector3(-0.243, 0, 0)
 rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
+mesh = SubResource("s13")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S4" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.4309, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
+position = Vector3(-0.1125, 0.054, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S5" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.3875, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
+position = Vector3(-0.0495, 0.054, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S6" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.1364, 0.0744, 0)
-rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s5")
+position = Vector3(-0.1125, -0.054, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S7" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.2697, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
+position = Vector3(-0.0495, -0.054, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S8" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.2263, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
+position = Vector3(-0.081, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s13")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S9" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.2914, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
+position = Vector3(0.0495, 0.054, 0)
+rotation_degrees = Vector3(0, 0, -40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S10" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.2046, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
+position = Vector3(0.1125, 0.054, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S11" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.248, 0, 0)
-rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+position = Vector3(0.144, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S12" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.1581, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
+position = Vector3(0.081, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s13")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S13" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.1147, -0.0372, 0)
+position = Vector3(0.2115, 0.054, 0)
 rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S14" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.093, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
+position = Vector3(0.2745, 0.054, 0)
+rotation_degrees = Vector3(0, 0, 40.601295)
+mesh = SubResource("s11")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S15" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.1364, 0, 0)
-rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
+position = Vector3(0.18, 0, 0)
+rotation_degrees = Vector3(0, 0, -90)
+mesh = SubResource("s12")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="S16" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.0465, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S17" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.0031, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S18" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.0682, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S19" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.0186, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S20" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(-0.0248, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S21" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.1922, 0.0744, 0)
+position = Vector3(0.243, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s11")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S22" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.1147, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S23" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.1581, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S24" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.093, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S25" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.1364, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s9")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S26" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.2263, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S27" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.2697, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S28" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.2046, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S29" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.248, 0, 0)
-rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s8")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S30" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.465, 0.0744, 0)
-rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s11")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S31" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.3875, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S32" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.4309, 0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S33" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.3875, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, 40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S34" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.4309, -0.0372, 0)
-rotation_degrees = Vector3(0, 0, -40.601295)
-mesh = SubResource("s6")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S35" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.3658, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S36" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.4526, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
-material_override = ExtResource("e3")
-cast_shadow = 0
-
-[node name="S37" type="MeshInstance3D" parent="Line1/Script"]
-position = Vector3(0.5642, 0, 0)
-rotation_degrees = Vector3(0, 0, -90)
-mesh = SubResource("s7")
+mesh = SubResource("s14")
 material_override = ExtResource("e3")
 cast_shadow = 0
 
 [node name="Gloss" type="Label3D" parent="Line1"]
-position = Vector3(0, -0.12772, 0.01)
-text = "TWO SEVEN FOUR ONE"
+position = Vector3(0, -0.1854, 0.01)
+text = "2741"
 font_size = 24
-pixel_size = 0.00341
+pixel_size = 0.00495
 modulate = Color(0.55, 0.97, 1, 1)
 outline_size = 6
 no_depth_test = false
@@ -694,13 +556,13 @@ visible = false
 [node name="Bolt-1" type="MeshInstance3D" parent="."]
 position = Vector3(-0.68, 0.36, 0.025)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s12")
+mesh = SubResource("s15")
 material_override = ExtResource("e4")
 cast_shadow = 0
 
 [node name="Bolt1" type="MeshInstance3D" parent="."]
 position = Vector3(0.68, 0.36, 0.025)
 rotation_degrees = Vector3(0, 0, 0)
-mesh = SubResource("s12")
+mesh = SubResource("s15")
 material_override = ExtResource("e4")
 cast_shadow = 0

@@ -340,21 +340,13 @@ Sub _draw()
 		End If
 	ElseIf city.awakening Then
 		draw_rect(Rect2(725, 120, 220, 82), Color(0.025, 0.005, 0.018, 0.92))
-		If city.campaign_mode Then
-			_text(Vector2(744, 142), "PURGE / ORAC ONLINE", 12, PINK)
-		Else
-			_text(Vector2(744, 142), "PURGE / ZEN ONLINE", 12, PINK)
-		End If
+		_text(Vector2(744, 142), "PURGE / ORAC ONLINE", 12, PINK)
 		glyph_string(Vector2(756, 157), PadInt(CeilInt(city.countdown), 3), 1.5, PINK)
 		If FMod(city.alarm_elapsed, 1.0) < 0.3 Then
 			draw_rect(Rect2(0, 0, 960, 540), Color(1, 0.03, 0.2, 0.055))
 		End If
 		If city.alarm_elapsed < 8 Then
-			If city.campaign_mode Then
-				_text(Vector2(340, 330), "ORAC: RUN!", 38, PINK)
-			Else
-				_text(Vector2(360, 330), "ZEN: RUN!", 38, PINK)
-			End If
+			_text(Vector2(340, 330), "ORAC: RUN!", 38, PINK)
 		End If
 	End If
 	If city.place = "floor" Then Call draw_stratum()
@@ -522,10 +514,13 @@ Sub draw_stratum()
 			If Int(city.pack(id)) > 1 Then _text(at + Vector2(400, 0), "x" & Str(Int(city.pack(id))), 13)
 		Next
 	End If
-	' Psionic screwdriver.
 	If deep.hacking Then
 		draw_rect(Rect2(250, 150, 460, 250), Color(0.015, 0.01, 0.035, 0.96))
-		_text(Vector2(274, 180), "PSIONIC SCREWDRIVER / LOCK COUPLING", 15, PINK)
+		If city.campaign_mode Then
+			_text(Vector2(274, 180), "COMMANDER +4 / LOCK COUPLING", 15, PINK)
+		Else
+			_text(Vector2(274, 180), "PSIONIC SCREWDRIVER / LOCK COUPLING", 15, PINK)
+		End If
 		For i = 0 To deep.hack_target.size() - 1
 			at = Vector2(290 + i * 62, 214)
 			If i < deep.hack_filled Then
@@ -574,10 +569,10 @@ Sub draw_known_codes()
 	For i = 0 To codes.size() - 1
 		If pitch < 40 Then
 			glyph_string(Vector2(28, 174 + i * pitch), codes(i), 0.42)
-			_text(Vector2(96, 186 + i * pitch), city.deep.level_label(codes(i)), 9, CYAN * 0.85)
+			_text(Vector2(96, 186 + i * pitch), city.deep.address_label(city, codes(i)), 9, CYAN * 0.85)
 		Else
 			glyph_string(Vector2(28, 178 + i * pitch), codes(i), 0.55)
-			_text(Vector2(26, 205 + i * pitch), city.deep.level_label(codes(i)), 9, CYAN * 0.85)
+			_text(Vector2(26, 205 + i * pitch), city.deep.address_label(city, codes(i)), 9, CYAN * 0.85)
 		End If
 	Next
 End Sub

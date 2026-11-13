@@ -1,4 +1,4 @@
-' Play opens on Orac's approach warning, then the landing.
+' Play shows the opening once. Skip or finish it, then Orac's approach and the landing.
 ' Kept scenes stay on the dev terminal. Older scenes are under Archive.
 Option Explicit
 
@@ -31,6 +31,7 @@ Const PH_BLACK_CHANNEL As Integer = 19
 Const PH_TRACE_CYCLE As Integer = 20
 Const PH_FACE_INTRO As Integer = 21
 Const PH_HACK_TEST As Integer = 22
+Const PH_OPENING As Integer = 23
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -122,6 +123,12 @@ Dim face_title_a As Single
 Dim face_reduced As Boolean
 Dim face_reduced_t As Single
 Dim face_use_ogg As Boolean
+Dim opening_player As Object
+Dim opening_from As Array
+Dim opening_to As Array
+Dim opening_text As Array
+Dim opening_started As Boolean
+Dim opening_grace As Single
 Dim title_ink As Single
 Dim save_msg As String
 Dim last_dt As Single
@@ -232,6 +239,11 @@ Sub _Ready()
 	face_title_a = 1.0
 	title_ink = 1.0
 	face_use_ogg = False
+	opening_from = Array()
+	opening_to = Array()
+	opening_text = Array()
+	opening_started = False
+	opening_grace = 0.0
 	Call InitJunk()
 	Call BakeAsh()
 	Set_Process(True)
@@ -451,7 +463,7 @@ End Sub
 
 Function PageCount() As Integer
 	If dev_page = 0 Then
-		PageCount = 12
+		PageCount = 13
 	Else
 		PageCount = 12
 	End If
@@ -471,6 +483,7 @@ Function MainScene(ByVal row As Integer) As Integer
 	If row = 8 Then id = 19
 	If row = 9 Then id = 20
 	If row = 10 Then id = 21
+	If row = 12 Then id = 22
 	MainScene = id
 End Function
 
@@ -582,6 +595,8 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "FAST HACK'EM - OWNERSHIP RING"
 	ElseIf i = 21 Then
 		DevLabel = "FAST HACK'EM - BOOT / COMMANDS"
+	ElseIf i = 22 Then
+		DevLabel = "NIGHT CLUB"
 	Else
 		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
 	End If
@@ -677,6 +692,13 @@ Sub WarpDev()
 		End If
 		ownership_ring.start()
 		If pick = 21 Then ownership_ring.start_loader()
+	ElseIf pick = 22 Then
+		phase = PH_BACKLIGHT_YARD
+		Call presentation.start_backlight_yard()
+		presentation.backlight_city.place = "floor"
+		presentation.backlight_city.stratum("powered") = True
+		presentation.backlight_city.deep.travel(presentation.backlight_city, "77124", "club_entry")
+		presentation.backlight_city.notify("NIGHT CLUB / entrance. F at the far booth. Strobe switch is on the right.")
 	End If
 End Sub
 
@@ -865,6 +887,7 @@ Sub _Process(ByVal delta As Single)
 	clock = clock + delta
 	If key_cool > 0.0 Then key_cool = key_cool - delta
 	If phase <> PH_TITLE And phase <> PH_FACE_INTRO Then Call FreeFacePlayer()
+	If phase <> PH_OPENING Then Call FreeOpening()
 	If phase <> PH_BOOT And Not (boot_term Is Nothing) Then Call ReleaseBootTerminal()
 	If phase = PH_BOOT Then
 		boot_t = boot_t + delta
@@ -879,6 +902,11 @@ Sub _Process(ByVal delta As Single)
 	End If
 	If phase = PH_FACE_INTRO Then
 		Call TickFaceIntro(delta)
+		QueueRedraw()
+		Exit Sub
+	End If
+	If phase = PH_OPENING Then
+		Call TickOpening(delta)
 		QueueRedraw()
 		Exit Sub
 	End If
@@ -1581,7 +1609,7 @@ Sub TickChamber(ByVal delta As Single)
 	If use_e And Not have_device Then
 		have_device = True
 		alarm_t = 0.01
-		scan_line = "ZEN: RUN!"
+		scan_line = "ORAC: RUN!"
 		scan_t = 4.0
 	End If
 	If have_device Then alarm_t = alarm_t + delta
@@ -2517,9 +2545,9 @@ Sub DrawHud()
 				n = n + 1
 			End If
 		Next
-		If zen_dead And Not have_device Then DrawString "ZEN OFFLINE", 730, 32, Color(1.0, 0.4, 0.35), 13
+		If zen_dead And Not have_device Then DrawString "ORAC ONLINE", 730, 32, Color(0.5, 0.9, 1.0), 13
 		If have_device Then
-			DrawString "ZEN: RUN - RETURN TO THE ASH", 300, 109, Color(1.0, 0.4, 0.35), 14
+			DrawString "ORAC: RUN - RETURN TO THE ASH", 300, 109, Color(1.0, 0.4, 0.35), 14
 		ElseIf Not got(0) Then
 			DrawString "CELL: NORTH / PRESS HALL", 320, 109, Color(0.7, 0.85, 0.9), 13
 		End If
@@ -2539,9 +2567,9 @@ Sub DrawHud()
 		End If
 	Next
 	If zen_dead And Not have_device Then
-		DrawString "ZEN OFFLINE", 24, 46, Color(0.8, 0.3, 0.25), 14
+		DrawString "ORAC ONLINE", 24, 46, Color(0.5, 0.9, 1.0), 14
 	ElseIf have_device Then
-		DrawString "ZEN: RUN", 24, 46, Color(1.0, 0.35, 0.3), 16
+		DrawString "ORAC: RUN", 24, 46, Color(1.0, 0.35, 0.3), 16
 	End If
 	If phase = PH_GROUND Then
 		If on_buggy Then
@@ -2555,7 +2583,7 @@ Sub DrawHud()
 		If Not have_device Then
 			DrawString "LEVEL 14242. FEB IS IN THE POD. E TAKES THE COUPLER.", 24, 508, Color(0.8, 0.7, 0.5), 14
 		Else
-			DrawString "ZEN: RUN!   E RIDES THE LIFT UP.", 24, 508, Color(1.0, 0.4, 0.35), 16
+			DrawString "ORAC: RUN!   E RIDES THE LIFT UP.", 24, 508, Color(1.0, 0.4, 0.35), 16
 		End If
 	ElseIf phase = PH_ESCAPE Then
 		DrawString "A / D  THROUGH THE RINGS. THE ASH IS AHEAD.", 24, 508, Color(0.9, 0.6, 0.3), 14
@@ -3236,8 +3264,7 @@ Sub TitleAct()
 	If pick = 0 Then
 		Call LoadCampaign()
 	ElseIf pick = 1 Then
-		Call StartRun()
-		campaign_arrival = True
+		Call BeginPlay()
 	ElseIf pick = 2 Then
 		opt_back = 0
 		opt_i = 0
@@ -3376,6 +3403,158 @@ Sub CloseOptions()
 	Else
 		Call EnterTitle()
 	End If
+End Sub
+
+Sub BeginPlay()
+	If opt_reduced Or OpeningSeen() Then
+		Call StartRun()
+		campaign_arrival = True
+		Exit Sub
+	End If
+	Call StartOpening()
+End Sub
+
+Function OpeningSeen() As Boolean
+	If Not FileExists("user://ash_meridian_opening.txt") Then
+		OpeningSeen = False
+		Exit Function
+	End If
+	OpeningSeen = Trim(ReadAllText("user://ash_meridian_opening.txt")) = "seen"
+End Function
+
+Sub MarkOpeningSeen()
+	WriteAllText "user://ash_meridian_opening.txt", "seen"
+End Sub
+
+Sub FreeOpening()
+	If opening_player <> Nothing Then
+		If opening_player.is_playing() Then opening_player.stop()
+		opening_player.queue_free()
+		opening_player = Nothing
+	End If
+	opening_started = False
+	opening_grace = 0.0
+End Sub
+
+Function CueSeconds(ByVal text As String) As Single
+	text = Trim(text)
+	If Len(text) < 12 Then
+		CueSeconds = 0.0
+		Exit Function
+	End If
+	CueSeconds = Val(Mid(text, 1, 2)) * 3600.0 + Val(Mid(text, 4, 2)) * 60.0 + Val(Mid(text, 7, 2)) + Val(Mid(text, 10, 3)) / 1000.0
+End Function
+
+Sub LoadOpeningCues()
+	Dim lines As Array
+	Dim i As Integer
+	Dim line As String
+	Dim arrow As Integer
+	Dim caption As String
+	opening_from = Array()
+	opening_to = Array()
+	opening_text = Array()
+	If Not FileExists("res://assets/opening_cinematic/opening.srt") Then Exit Sub
+	lines = ReadLines("res://assets/opening_cinematic/opening.srt")
+	i = 0
+	Do While i <= UBound(lines)
+		line = Trim(lines(i))
+		arrow = InStr(line, "-->")
+		If arrow > 1 Then
+			caption = ""
+			opening_from.append(CueSeconds(Mid(line, 1, arrow - 1)))
+			opening_to.append(CueSeconds(Mid(line, arrow + 3, 16)))
+			i = i + 1
+			Do While i <= UBound(lines)
+				If Trim(lines(i)) = "" Then Exit Do
+				If caption <> "" Then caption = caption & " "
+				caption = caption & Trim(lines(i))
+				i = i + 1
+			Loop
+			opening_text.append(caption)
+		End If
+		i = i + 1
+	Loop
+End Sub
+
+Sub StartOpening()
+	Dim stream As Object
+	Call FreeOpening()
+	stream = Load("res://assets/opening_cinematic/opening.ogv")
+	If stream Is Nothing Then
+		Call StartRun()
+		campaign_arrival = True
+		Exit Sub
+	End If
+	phase = PH_OPENING
+	menu_on = False
+	Call LoadOpeningCues()
+	opening_player = ClassDB.Instantiate("VideoStreamPlayer")
+	opening_player.name = "OpeningCut"
+	opening_player.stream = stream
+	opening_player.position = Vector2(0, 0)
+	opening_player.size = Vector2(SW, SH)
+	opening_player.expand = True
+	opening_player.mouse_filter = 2
+	opening_player.show_behind_parent = True
+	opening_player.bus = "Master"
+	opening_player.volume_db = 0.0
+	add_child(opening_player)
+	Connect opening_player, "finished", "OnOpeningFinished"
+	opening_player.play()
+	opening_started = True
+	opening_grace = 0.0
+End Sub
+
+Sub FinishOpening()
+	If phase <> PH_OPENING Then Exit Sub
+	phase = PH_INTRO
+	Call MarkOpeningSeen()
+	Call FreeOpening()
+	Call StartRun()
+	campaign_arrival = True
+End Sub
+
+Sub OnOpeningFinished()
+	Call FinishOpening()
+End Sub
+
+Sub TickOpening(ByVal delta As Single)
+	If opening_player Is Nothing Then
+		Call FinishOpening()
+		Exit Sub
+	End If
+	If mouse_tap Or presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_ESCAPE) Then
+		Call FinishOpening()
+		Exit Sub
+	End If
+	opening_grace = opening_grace + delta
+	If opening_started And opening_grace > 0.5 And Not opening_player.is_playing() Then
+		Call FinishOpening()
+	End If
+End Sub
+
+Function OpeningCaption() As String
+	Dim i As Integer
+	Dim t As Single
+	OpeningCaption = ""
+	If opening_player Is Nothing Then Exit Function
+	If opening_text.size() = 0 Then Exit Function
+	t = opening_player.stream_position
+	For i = 0 To opening_text.size() - 1
+		If t >= opening_from(i) And t <= opening_to(i) Then
+			OpeningCaption = opening_text(i)
+			Exit Function
+		End If
+	Next
+End Function
+
+Sub DrawOpening()
+	Dim caption As String
+	caption = OpeningCaption()
+	DrawRect 0, 456, SW, 84, Color(0.0, 0.0, 0.0, 0.62)
+	If caption <> "" Then DrawString caption, 28, 478, Color(0.93, 0.95, 0.96), 16
+	DrawString "ESC, SPACE, ENTER, OR CLICK TO SKIP", 250, 508, Color(0.45, 0.78, 0.82), 14
 End Sub
 
 Sub FreeFacePlayer()
@@ -3688,14 +3867,18 @@ Sub _Draw()
 		ownership_ring.set_feedback_paused(Not ownership_ring.visible)
 	End If
 	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE)
-	If phase <> PH_FACE_INTRO Then
+	If phase <> PH_FACE_INTRO And phase <> PH_OPENING Then
 		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
-	ElseIf face_player Is Nothing Then
+	ElseIf phase = PH_FACE_INTRO And face_player Is Nothing Then
+		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
+	ElseIf phase = PH_OPENING And opening_player Is Nothing Then
 		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
 	End If
 	If phase = PH_BOOT Then
 	ElseIf phase = PH_FACE_INTRO Then
 		Call DrawTitle()
+	ElseIf phase = PH_OPENING Then
+		Call DrawOpening()
 	ElseIf phase = PH_TITLE Then
 		Call DrawTitle()
 	ElseIf phase = PH_OPTS Then
@@ -3768,13 +3951,15 @@ Sub DrawAshCockpit()
 End Sub
 
 Sub ResetIntro()
-	intro_speakers = Array("ORAC", "JASON", "ORAC", "JASON", "ORAC", "JASON", "ORAC")
+	intro_speakers = Array("ORAC", "JASON", "ORAC", "JASON", "ORAC", "JASON", "ORAC", "JASON", "ORAC")
 	intro_lines = Array( _
-		"Narcea's quarantine beacons are active. Cross their scan and they'll fire.", _
-		"Those coordinates cost a man his life. I'm not leaving empty-handed.", _
-		"I can blind the beacons. Unfortunately, that leaves nothing for the autopilot.", _
-		"Then keep them blind. I'll fly.", _
-		"Follow the orange gate. Blue rings show the route ahead. Miss once and they notice us. Miss twice and they fire.", _
+		"Mark lost those coordinates to you in a card game. He told you not to come.", _
+		"He survived. If this works, Stacy and I get a better life.", _
+		"He also left you a stash near the yard. I have the location saved.", _
+		"Then let's find it. Take us down.", _
+		"I can't. While Mark's codes make us appear as a maintenance drone, I have to answer every challenge the defense grid sends. It's complex and relentless. It takes everything I have. You'll have to fly.", _
+		"Then I'll fly.", _
+		"Follow the orange gate. Blue rings show the route ahead. Miss once and the old defenses notice us. Miss twice and they fire.", _
 		"Orange gate. Understood.", _
 		"You have control. Keep us in the corridor.")
 	intro_index = 0
@@ -3831,9 +4016,9 @@ Sub TickIntro(ByVal delta As Single)
 	Dim recording As Object
 	If menu_on Or dev_on Then Exit Sub
 	If intro_lines.size() = 0 Then Call ResetIntro()
-	If intro_index < 4 And (presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or mouse_tap) Then
+	If intro_index < 6 And (presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or mouse_tap) Then
 		Call OracStop()
-		intro_index = 4
+		intro_index = 6
 		intro_submitted = False
 		intro_elapsed = 0
 	End If

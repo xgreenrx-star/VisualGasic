@@ -1,6 +1,6 @@
 # Ash Meridian
 
-## Unified game proposal - November 9, 2026
+## Unified game proposal - November 10, 2026
 
 This is the current combined story proposal. It integrates the Commander +4
 and Fast Hack'em revision with the full campaign. It supersedes conflicting
@@ -14,7 +14,8 @@ with local-level routing governed by the
 
 In 2086, Jason makes his living scavenging with a battered salvage hauler,
 the Ash, affectionately called the Antique. Orac is its capable, dryly
-arrogant onboard assistant. Stacy, Jason's partner, waits aboard a station.
+arrogant onboard assistant. Stacy, Jason's girlfriend, waits aboard a station.
+Jason hopes a valuable discovery can give them a better life together.
 
 Ash Meridian is a single-player science-fiction adventure combining cockpit
 flight, buggy travel, on-foot exploration, salvage, environmental puzzles,
@@ -25,10 +26,118 @@ Backlight Yard establishes the visual language: dark opaque structures,
 selective luminous edges, restrained cyan and amber lighting, industrial
 silhouettes and distance haze. The world is not transparent wireframe.
 
+### Narcea as an artificial ring habitat
+
+**Approved setting direction:** Narcea is a smaller artificial ring habitat,
+not a natural planet and not a star-encircling megastructure. Its inhabited
+landscape lies on the ring's inner face. It is still large enough to contain
+many regions, settlements and ecosystems, but the first game explores only
+a small number of substantial districts. Do not promise a fully traversable
+ring or expand the current production scope to build one.
+
+Use **Narcea** as the world's proper name and **the Narcean Ring** as a
+descriptive working name. "Ring habitat" is the technical description.
+Do not use **Ringworld** as the game's title or setting brand: it is strongly
+associated with Larry Niven's fiction. This is a naming precaution, not a
+legal finding that the general concept or word cannot be used. Any eventual
+commercial subtitle or distinctive setting brand requires its own naming
+and rights check.
+
+Smaller rotating-habitat concepts such as a
+[Bishop ring](https://en.wikipedia.org/wiki/Bishop_ring_(habitat)) provide a
+scale reference, not a fixed engineering specification. The original Bishop
+proposal describes a radius of roughly 1,000 km and about three million square
+kilometres of habitable area. Narcea's dimensions, width, rotation period,
+gravity, atmosphere containment and illumination system remain design decisions.
+It is not a copy of that design or of
+[Niven's star-encircling Ringworld](https://en.wikipedia.org/wiki/Ringworld).
+
+**Approved setting:** the habitat encircles a separate, long-abandoned
+wasteland planet. The Narceans lived on the ring for thousands of years after
+leaving the planet. The planet and the inhabited face of the Narcean Ring are
+distinct places; their names and history must make that distinction clear.
+Do not treat a habitable rotating ring as interchangeable with a conventional
+[planetary orbital ring](https://en.wikipedia.org/wiki/Orbital_ring), which is
+primarily a transport/support infrastructure concept.
+
+Why the Narceans abandoned the planet, whether it remains accessible or has
+survivors, and the original purpose of any ring-to-planet links remain unknown.
+Do not establish that it was the Narceans' birthplace, that they built the
+ring, or that its people originally looked human.
+Alien's uncertain recognition of Jason remains an unreliable personal memory,
+not evidence that settles any of those questions.
+
+Before finalizing the planet-surrounding layout, specify how the structure is
+supported and stabilized, how rotation and planetary gravity combine at the
+living surface, and how ships approach and leave it. Ordinary orbital motion
+does not automatically provide Earth-like weight on a ring's inner face.
+The planet's apparent position and size must follow the chosen geometry;
+do not place it arbitrarily below an inner-surface landscape. Advanced
+Narcean engineering may be speculative, but its visible rules must agree.
+
+#### The ring as a place, not a replacement protagonist
+
+The ring makes existing locations parts of one maintained environment.
+"Underground" can mean buried cities and deeper structural/service decks:
+water reclamation, atmosphere machinery, power distribution, transit lines
+and access routes toward the outer hull. Independent local systems keep the
+habitat viable while the master AI remains silent. Restoring one district's
+power must not imply that Jason restarts the entire ring or its hostile AI.
+
+The former master AI controlled services on which the population depended.
+Its coercion therefore had physical consequences beyond security patrols:
+closed transit, restricted illumination and access to essential machinery.
+This supports the resistance history without excusing forced conversion.
+Neither Jason's arrival nor the AI's silence starts an automatic world-ending
+structural countdown.
+
+Jason and Rob remain the main story. Their rescue, Rob's chosen freedom,
+recovered identity and earned friendship take priority over megastructure
+exposition. The ring offers places for them to investigate together after
+they become friends; becoming friends does not require saving the whole world.
+Orac remains their active companion, and Alien remembers people and fragments,
+not a complete, conveniently available explanation of the habitat.
+
+Possible later adventures, not commitments for the first release:
+
+- A district where a failed illumination system has prevented morning.
+- A missing-water investigation through reservoirs beneath the inhabited deck.
+- A severed transit link to another region with its own surviving systems.
+- A vacuum salvage expedition on the outer hull beneath familiar terrain.
+- An isolated community whose account of the conversion conflicts with records.
+- Investigation of a sealed ring-to-planet transfer route; the planet's
+  abandoned condition is established, but its remaining secrets are not.
+
+Keep the Ash as the crew's home. Later journeys can revisit the ring, investigate
+the planet, or leave the Narcean system entirely.
+
+#### Visual and flight continuity revision
+
+Existing art is not evidence that Narcea must remain a planet. Audit the
+departure scene in which the Ash takes off with a world visible below, along
+with approach shots, cockpit backgrounds, exterior skies, maps and descriptions.
+That scene's image/composition must be revised for the chosen ring geometry;
+the specific source asset must be identified before editing or regenerating it.
+The planet can remain in an appropriate space-view composition, but the shot
+must also establish where the ship is relative to the ring.
+
+On the inhabited face, clear long views may show terrain curving upward and
+distant portions of the ring overhead. Haze, darkness and local structures can
+limit that view without hiding the setting from every exterior scene. Set the
+illumination/day-night rules before revising the launch dock's night sky.
+Keep the current surface, buggy and underground layouts where compatible.
+
+Rewrite flight hazards using the selected geometry rather than replacing
+"planet" with "ring" in otherwise unchanged orbital descriptions. A ship does
+not acquire a decaying orbit simply because its electrical power fails.
+Approach velocity, inherited habitat motion, atmosphere and nearby structures
+must establish the actual danger and the thrust needed to escape it.
+These are proposal/art-continuity requirements, not implemented changes.
+
 ### Narcea, the resistance and the programmer
 
 Narcea was a post-scarcity civilization served by automation and protected
-by the Field Enforcement Body (FEB). A rogue planetary AI declared organic
+by the Field Enforcement Body (FEB). A rogue habitat-wide master AI declared organic
 life obsolete and forcibly converted the remaining citizens into cybernetic
 forms, including FEB units. The resistance formed among people facing
 conversion. The AI knew about illicit gatherings but treated them as
@@ -57,13 +166,13 @@ support that conclusion.
 
 The author-facing truth is that MJH did not die and did not escape. Security
 forces captured him on the way to the deck, before he could board. The
-planetary AI converted him in haste into a governed defense FEB, stripped his
+master AI converted him in haste into a governed defense FEB, stripped his
 identity and ordered him to destroy the launch he had helped plan. This
 second, separate FEB (the local defense FEB) attacked the departing ship but
 failed to destroy it. Without MJH, the flight FEB piloted the damaged ship
-and carried the other Narceans off the planet.
+and carried the other Narceans away from the ring.
 
-When the planetary AI stopped responding, the converted MJH returned to the
+When the master AI stopped responding, the converted MJH returned to the
 local stasis pod and waited for instruction for thousands of years. This is
 the FEB Jason eventually awakens and later calls Rob. His governor remains
 intact, and his memories of being MJH are suppressed and fragmented. Do not
@@ -75,28 +184,207 @@ The flight FEB's governor bypass did not remove the local defense FEB's
 separate governor or the facility's isolation interlock. Jason's later
 coupler removal still awakens the dormant local unit.
 
-MJH dropped the Commander during his capture. A scavenger named **Mark**
-later found it in a surface cache, without proof of what happened to its
-owner. Mark
-reverse-engineered its routines, installed an English loader and wrote
-Fast Hack'em to contest ownership of Narcean equipment without maintenance
-credentials. During his own emergency escape, Mark abandoned the physical
-Commander in another surface cache but retained a software copy.
+MJH dropped the Commander during his capture. A scavenger named **Mark
+Mitnick** later found it in a surface cache, without proof of what happened
+to its owner. Mark reverse-engineered its routines, installed an English
+loader and wrote Fast Hack'em, turning the legitimate Narcean maintenance
+computer into a device that can contest ownership of Narcean equipment without
+the original credentials. He did not build the underlying computer or supply
+Orac's Narcean lexicon.
 
-Mark is Jason's source: the dying scavenger/smuggler who supplies
-Narcea's coordinates, the software and the cache location. He warns Jason
-not to go. Jason accepts the risk because the salvage might change his life.
+#### Mark Mitnick and the frontier
 
-Mark: "There's a Commander in my old cache. Four rubber arrows. Cracked case.
-Looks worthless. It isn't."
+Narcea lies in an unexplored, unknown sector beyond the frontier of known
+space. Mark loses the coordinates to Jason in a card game, then honors the
+result. How Mark found the place, and what
+led him there, remain deliberately unknown; develop that backstory later
+rather than presenting an invented explanation as established fact.
 
-Jason: "And this gets me into the machinery?"
+Mark survived his visit, but what happened convinced him never to return.
+He urges Jason to leave Narcea alone. Jason hears the warning and knowingly
+chooses the risk: valuable salvage could help him and Stacy build a better
+life. Their hopes, not a betrayal or a forced mission, drive his decision.
+Mark's present circumstances and the full details of his escape are not yet
+settled; surviving the visit does not require him to be dying.
 
-Mark: "It gives you a chance. Don't confuse the two."
+Mark is a brilliant, eccentric narcissist, fascinated by systems and secrets
+other people insist he should not understand. He wants to work them out and
+share what he learns. His confidence is backed by real ability, but he enjoys
+letting others know it: he teases, sets little tests and plays with people
+who cannot keep up. He does not set out to hurt people; his arrogance and
+boundary-crossing can nevertheless have consequences. Write his generosity
+and fear as seriously as his showmanship. He is not merely a cruel trickster,
+a flawless oracle or an exposition device.
+
+Once Mark realizes Jason will go regardless, he gives him more than the
+coordinates he lost: a suit-readable copy of Fast Hack'em, the location of Mark's
+abandoned stash, and practical warnings. This is both a genuine attempt to
+help Jason survive and a chance to see someone use what Mark discovered.
+Mark knows Narcea is dangerous, but does not know MJH's fate, Rob's identity
+or the full history of the resistance escape.
+
+**Recommended stash:** a recessed maintenance shelter beside an old drainage
+channel on the edge of Backlight Yard, within buggy reach of the Ash and
+close enough to Mark's former landing route for him to have hidden his pack
+while escaping. A distinctive damaged channel marker makes the location
+findable from his recorded directions. The stash contains the Commander and
+modest personal supplies, not an unexplained arsenal. Jason can recover the
+physical device without translation or a mandatory hack; its Narcean keys
+cannot be reliably identified for use until Alien teaches Orac the language.
+The directions remain available in the suit briefing or records. Make the
+cache discoverable before the first mandatory hack, and keep the Commander
+protected mission equipment. The shelter and persistent Commander pickup are
+implemented in campaign yard mode. The Commander currently uses the existing
+cycling-glyph hack after Alien supplies the lexicon. The full Commander/Fast
+Hack'em interaction is still planned; the screwdriver is shelved for campaign.
+
+Mark: "You won the coordinates. They are real. So is the reason I won't go back."
+
+Jason: "One good haul, and Stacy and I have choices we don't have now."
+
+Mark: "I was afraid you'd say that. There's a shelter by the old drain,
+marked on the file. I left my pack there. The little computer inside is mine
+now—or was. I taught it some very impolite questions."
+
+Jason: "Will it get me in?"
+
+Mark: "It gives you a chance. The rest depends on whether you pay attention."
+
+### Opening cinematic: a wager and a warning
+
+**Approved direction; not yet integrated into the live game.** The opening is an in-engine,
+skippable cinematic, not a playable card game. It must establish Mark's
+character and Jason's choice before revealing the Narcean system, while
+preserving the existing mandatory landing-controls briefing even when skipped.
+The first landing, stash and seven-line approach dialogue exist today; the
+station, new scene, ring-and-planet approach, and revised dialogue are not in
+the live campaign. A separate [142-second illustrated, voiced animatic and
+production brief](ash_meridian_opening/OPENING_PRODUCTION.md) now records the
+script, seven-shot edit, four original vector keyframes and review findings.
+It is a preproduction deliverable, not final character art or animation.
+An isolated 83-second Godot bar scene now adds actual camera coverage,
+solid tabletop contact, more detailed stylized characters, clip-driven
+jaw motion and cyan/amber station-bar look development. It remains separate
+from New Game; the mouth motion is not phoneme lip sync, and neither the
+characters nor the acting are final.
+
+1. **The final hand.** In a working station's late-hour bar, Mark and Jason
+   finish their wager. The shot opens on a hand of cards, not an explanation
+   of the rules. Jason wins; Mark checks the result, lets a dry joke land,
+   then honors his loss and transfers the coordinates. Mark has been drinking,
+   and his judgment has slipped, but his intelligence and dignity remain clear.
+2. **The warning.** The amusement fades. Mark survived Narcea, is shaken
+   enough to consider retiring from scavenging, and insists that he will never
+   return. He urges Jason to leave the coordinates alone. Jason sees one good
+   salvage haul as a chance to improve life with Stacy. Do not disclose how
+   Mark found Narcea or imply Mark wants Jason harmed.
+3. **The parting gift.** Jason rises to leave. Mark recognizes he is going
+   anyway and calls him back. He gives Jason the location of his abandoned
+   pack beside the broken amber drain marker at Backlight Yard and a
+   suit-readable copy of Fast Hack'em. The modified Commander +4 is in that
+   pack, not already on the ship. Mark's generosity is sincere even when he
+   hides it behind teasing. The coordinates and directions remain recoverable
+   in the briefing after skipping the scene.
+4. **Departure.** A concise exterior establishes an Elite-inspired working
+   station, the Ash leaving its bay, and the long journey beyond known space.
+   The station is not a new walkable hub or playable docking sequence. A
+   brief message to Stacy is optional, not a substitute for their relationship.
+5. **Arrival.** Reveal the ring encircling the abandoned planet before
+   moving close enough to recognize the approach structures. Show the Ash
+   matching motion with the ring and entering the controlled corridor; cut
+   to Orac's mandatory cockpit guidance and the existing playable descent.
+   Local automated defenses remain a threat; there is no military quarantine.
+
+Revised dialogue excerpts (November 11): keep the conversation familiar and
+plainspoken, not a series of polished aphorisms. The full current text and
+scratch delivery settings are in the animatic script.
+
+> **MARK:** Oh, come on. You've been sitting on that all night?
+>
+> **JASON:** Thought you said I was easy to read.
+>
+> **MARK:** You are. When I'm sober.
+>
+> **MARK:** All right. You won. I'm sending the coordinates.
+> Jason, look at me. Don't go there. I'm serious.
+>
+> **JASON:** What happened out there?
+>
+> **MARK:** I don't want to talk about it. Not tonight.
+>
+> **MARK:** I think I'm done, Jason. Scavenging, all of it.
+> I used to love this stuff.
+>
+> **JASON:** I can't keep scraping by like this. One decent haul, and
+> Stacy and I could actually get somewhere.
+>
+> **MARK:** Yeah. I used to tell myself that too.
+>
+> *Jason rises. Mark stops him.*
+>
+> **MARK:** Hang on. You're going to go anyway, aren't you? I know you.
+> I left a pack out there. Little shelter, east of the yard road.
+> Look for a broken amber marker by the drain.
+>
+> **JASON:** You left your gear?
+>
+> **MARK:** There's a little computer in it. Doesn't look like much, but
+> I've done some work on it. I'll send you the software.
+> Take it. I'm not going back for it. Just do me a favor.
+> If it feels wrong, leave. Don't wait.
+
+Production quality is part of the requirement. Use dark, opaque industrial
+forms, crisp cyan and amber accents, selective bloom, haze and deep shadow;
+the bar should feel lived-in rather than uniformly neon. Compose the space
+reveal around a legible ring, wasteland planet and ship silhouette. Background
+traffic, asteroids, stars and nebulae are permitted when they add depth without
+obscuring the main composition. Avoid directly copying another property's
+characters, logos, music or distinctive designs.
+
+Use the established Jason and Orac voice identities; cast an appropriate
+natural Mark voice and review it in context before approval. Subtitles must
+match audible speech, remain readable, and work with voices disabled. Prevent
+music or effects from masking the dialogue. Pause must freeze picture and
+audio together; skip must stop cinematic speech, avoid replaying lines, and
+reach the mandatory controls briefing with no duplicated input. A complete
+normal run, skip at each beat, pause/resume, muted dialogue, and a return to
+title must be tested. Rendered review must inspect character acting, cuts,
+lighting, camera movement, readability and ring geography; automated tests
+alone are not visual approval.
+
+For a Cursor coding handoff, first provide an approved script, shot list,
+asset paths, exact state transitions and acceptance tests. Delegate bounded
+implementation only, not creative direction, asset selection, image generation
+or final visual review. Do not switch the live campaign to an unfinished
+cinematic; integrate only after its complete audiovisual sequence and
+fallbacks pass review.
+
+#### Arrival visual study and review
+
+The isolated [ring shader](../../samples/games/ash_meridian_part1/shaders/opening_ring_study.gdshader)
+and [preview runner](../../samples/games/ash_meridian_part1/tools/opening_ring_study.gd)
+are a geometry/framing study, not final cinematic assets. They draw a
+planet and a cylindrical habitat in front of a star field, with a slow
+camera move; they are not attached to the game's opening.
+
+Review against the production bar: the study establishes front/back
+occlusion, but the repetitive panels read as a tiled wall rather than a
+credible habitat. The procedural planet needs terrain direction and a
+convincing terminator, the stars need a more natural distribution, and
+there is no Ash, approach corridor, scale cue, atmospheric treatment or
+cinematography. The ring's visible structure and approach geometry still
+need designed assets. Do not treat this proof as approval of the final shot.
+
+The storyboard and scratch-voiced review now exist. Next are final character
+and environment designs, distinct Mark casting and performed dialogue,
+a physically coherent ring approach with the actual Ash model, cinematic
+lighting and sound, then implementation and skip/pause integration. Only
+after a rendered review and the regression cases above should the opening
+replace the current introduction.
 
 ### First visit: salvage and discovery
 
-Orac helps Jason negotiate the quarantine and guides a manual atmospheric
+Orac helps Jason negotiate the hazard-control approach corridor and guides a manual atmospheric
 approach. The cockpit rings represent navigation guidance through clouds
 and turbulence, not physical hoops. Jason lands in Backlight Yard and
 deploys the buggy.
@@ -111,17 +399,19 @@ Jason searches buildings, gathers records and chooses finite salvage worth
 the cargo space. Some rooms hold valuable equipment; others contain junk.
 Revisiting does not replenish finds. Mission equipment is protected from sale.
 
-First Jason must find a separate Interface Translator in Narcean archive
-salvage. Narcea's pre-collapse technical services built it to map regional
-scripts, industrial notation and machine interfaces for maintenance workers.
-It contains no English: Orac uses its Narcean lexicon to supply English.
-Mark did not make or supply the translator; he supplies Fast Hack'em and the
-coordinates for the Commander cache. Service labels and keys become readable,
-but high-script prose and protected military encodings remain limited.
+Orac initially cannot translate Narcean. Jason copies visible address glyphs
+from the surface archives and matches their shapes at the lift; the early
+route must not require language knowledge or programmer operation. In the
+club backroom, Alien learns English from Jason and Orac, then reciprocates
+with a Narcean service lexicon. Orac can now translate labels, key legends,
+records and recording titles. High-script prose and protected
+encodings remain limited. There is no physical translator to find.
+Mark supplies Fast Hack'em and the Commander cache coordinates, not a lexicon.
 
-Only then can Jason identify the Commander's physical Narcean keys and
-service markings. The surface cache reunites Fast Hack'em with the Commander
-before any mandatory hack. Its case resembles a compact Plus/4-style keyboard computer:
+Only after the language exchange can Jason identify the Commander's physical
+Narcean keys and service markings. He can retrieve it earlier, but must reunite
+Fast Hack'em with the Commander before any mandatory hack. Its case resembles
+a compact Plus/4-style keyboard computer:
 a charcoal wedge, light-grey keys, rear cooling fins and four rubber cursor
 arrows in a diamond, made with original geometry and fictional markings.
 
@@ -147,22 +437,50 @@ in glyphs, translated in the suit overlay.
 The club is an optional story location within the underground city, not a
 quest hub or a required extra FEB encounter. The AI's indifference to these
 gatherings is the reason the resistance could use the club without turning
-it into an implausibly invisible military base.
+it into an implausibly invisible fortress compound.
 Treat it as an optional story excursion, not a fourth required local level.
 Before implementation, reconcile the telepad-to-deck link with the
 underground route handoff; do not silently change its three-level progression.
 
 Use a recurring resistance mark in graffiti along routes the player already
-has reason to explore. Variations hint at a disused train line and then a
-maintenance alcove. The final mark is painted over a service-door sign;
+has reason to explore. Variations lead along a live train line to a
+maintenance alcove. Carve eight illuminated refuge bays into the tunnel's
+side wall so Jason can step fully clear of passing trains. Place the hidden
+door and its return point inside a refuge, never on the track.
+The final mark is painted over a service-door sign;
 scuffed flooring, disturbed dust or a sliver of warm light rewards a closer
 look. Clues should make discovery satisfying but never gate the campaign:
 players can still find the hidden door by exploring the tunnel.
 
-Keep the art deliberately achievable in vector graphics. The tunnel uses
-simple rails, tiled walls and layered glyphs; the club reveal is a compact
-room with a worn dance floor, salvaged speaker stacks, transit-light bars and
-bold alien projections. Personal graffiti, repaired cables and abandoned
+Combine the game's geometry with the generated club textures and animated
+materials. The club reveal should feel like an abandoned alien disco whose
+last set has come back to life: a rotating faceted orb throws moving colored
+spots over the walls and floor; eight sweeping cone beams and four spotlights
+wash the room in shifting colors. A large video wall continuously animates
+alien imagery with kaleidoscopic patterns, rings, scanlines and restrained
+glitch cuts. A multicolored tiled floor chases beneath low drifting fog.
+City grid power supplies the DJ booth. A lit switch and player interaction prompt beneath
+the video wall identify **F: START LIGHTS AND MUSIC**; an arrival prompt points
+the player there. Activating the booth starts playback and saves that choice.
+The prototype includes an original procedural alien track with asymmetric,
+fractional pulse groupings, microtonal drones and unsettling calls, rather than
+a regular 4/4 dance beat. Audio analysis drives the effects from the track's
+actual energy; the synthetic beat remains a fallback when no track is installed.
+The separate selector on the left of the DJ booth cycles named recordings with
+F and remembers the selection. Keep the start switch and flashing control separate.
+Before Alien's language transfer, its recording labels remain untranslated.
+Afterwards the selector attributes the English song titles to Orac's translation.
+Four original prototype recordings cover an eerie instrumental with irregular
+808-style kicks, an ethereal hypnotic lullaby with invented Narcean sung syllables,
+a hard vocal/rap-like bass piece, and a heavier dubstep-like growling-bass piece.
+Their synth vocals are original formant-generated syllables, not sampled singers.
+The bass pieces use pitch-dropping sub kicks, microtonal pitches and unequal
+clusters/gaps rather than a regular human dance grid. Onset-triggered 120 ms
+strobe flashes are rate-limited to one per 3 seconds on Low or 1.8 seconds on
+Full; Off disables them.
+Retain Off/Low/Full flashing controls; Off uses smooth movement, steady
+brightness and slower screen cuts rather than white flashes.
+Personal graffiti, repaired cables and abandoned
 belongings imply a real community without requiring crowds or detailed
 character animation. The commissioned alien track plays in full only inside;
 it rewards finding the room rather than acting as an open-world audio beacon.
@@ -181,10 +499,65 @@ discovery. Much later, a flight record and Rob's returning memories reveal
 that the ship escaped without MJH, that MJH was captured and converted, and
 that Rob is the converted MJH who attacked it.
 
+The playable dock is an optional separate area, not another required descent
+level. With city power restored, stand on the club pad and press F to visit;
+the matching pad returns to the club without a key. The empty cradle is framed
+by broken gantry uprights, a collapsed loading bridge, weathered hull fragments
+and broad blast scoring beneath an open alien night sky. Damage is ancient:
+no fresh fire, active explosion or intact ship. Four optional evidence stations
+carry the cradle survey, MJH harness, dead transponder and truncated recorder.
+
+Behind the DJ booth, a marked passage on the right leads into an enclosed
+private meeting room. A table, abandoned chairs and steady emergency strips
+contrast with the dance floor; the music becomes quieter and low-pass filtered.
+The stepping pad is here, not on the public dance floor. Its return point
+stands clear of the pad so arrival cannot immediately send Jason back.
+
+The room's resident intelligence calls himself **Alien**. Use the existing
+human-face design as a cyan holographic head above an old projector, with
+scanlines and simple speaking motion. The head smoothly turns and tilts to
+follow Jason around the meeting room. A full, unruly crown and untidy,
+outward-swept temple hair give him an Einstein-like silhouette, rendered in
+the same cyan holographic lines and turning with the head. Jason and Orac retain their established
+Kokoro neural voices; Alien uses a distinct natural male neural voice
+(`bm_lewis`), not the robotic eSpeak prototype. His delivery is quiet, unhurried
+and dry: he can operate the room but has unreliable chronology, misplaced
+memories and confidently peculiar explanations. Write original dialogue;
+do not reproduce Holly's lines, appearance or Norman Lovett's voice.
+
+Alien initially greets Jason in untranslated Narcean. F advances a short
+conversation: Jason introduces himself, Orac recognizes Narcean without
+claiming a particular dialect or its age and supplies an English language sample,
+and Alien adopts English after briefly searching for his verbs. This is a
+scripted language-acquisition encounter, not a live AI service. Jason asks why
+Alien would help strangers. Jason's face reminds Alien of the resistance people
+who met here, but Alien explicitly doubts his own recollection; this is not
+confirmation of the original Narceans' appearance or the effects of modification.
+Orac says they are not resistance members. Alien chooses to help anyway: they
+ask instead of commanding, and Jason's companion is allowed to disagree.
+His dry, muddled humour conceals a long decline into loneliness and depression;
+being useful to someone who answers matters to him. Do not make him merely
+a dispenser of jokes or an unquestioning servant.
+Alien reciprocates the English sample by transferring Narcean service knowledge
+to Orac. Learning English and receiving Narcean are separate persistent states.
+The exchange replaces the translator hunt; song names and Narcean records
+must not be translated before it. Further English exchanges are optional.
+After a dock visit, his limited recollection supports the apparent-loss
+reading without supplying an authoritative account of the departure.
+Do not disclose any future relationship between Alien and another character.
+He runs on a local emergency supply; the pad still needs city grid power.
+Alien restores the stepping-pad link during his initial explanation of its
+destination. This one-time activation is required for outbound pad travel,
+persists across visits, and requires no key or repeat conversation.
+The pad remains visually dormant until its link is restored and city power is on.
+The dock's return pad always remains available when city power is on. Include
+subtitles throughout and respect the existing Speech setting.
+
 The club's commissioned track doubles as Rob's memory motif. If Rob later
 hears it, or brings Jason back to the club, the music should cause the first
-involuntary memory fragment. Never require the optional club visit to
-complete the reveal; provide an equivalent fragment elsewhere.
+involuntary memory fragment. The language exchange now makes the backroom a
+progression destination, but the dock evidence and later music-memory discovery
+remain optional. Provide an equivalent memory fragment elsewhere.
 
 #### Implementation plan and checks
 
@@ -204,7 +577,7 @@ complete the reveal; provide an equivalent fragment elsewhere.
 5. Add the later flight record and Rob's memory fragments as separate,
    corroborating reveals. They establish the two FEBs, the escape without
    MJH, MJH's capture and conversion, and Rob's return to stasis after the
-   planetary AI stopped answering. Seed small, deniable fragments early
+   master AI stopped answering. Seed small, deniable fragments early
    (familiar service routines, a reaction to the Commander or club track)
    so the identity reveal is earned, not a database lookup.
 6. Prototype Jason and Rob's post-rescue governor bypass separately. It must
@@ -298,7 +671,7 @@ Only after the awakening does Orac explain a recovered maintenance record:
 "Jason, this record is about the flight unit. This one is a different FEB,
 and its governor is still intact."
 
-The record's meaning remains recoverable if the optional club discovery was
+The record's meaning remains recoverable if the optional club records were
 missed. Do not disclose the two-FEB history in the initial briefing or hacking
 tutorial. Neither Orac nor any record identifies this FEB as MJH here; its
 identity file is corrupted and reads only as a defense unit.
@@ -329,12 +702,15 @@ not erase every surviving directive.
 
 On Jason's second arrival, a localized defense EMP disables Orac and the
 Ash's powered systems. This is the first scripted loss of Orac.
-The ship falls into a decaying orbit.
+The Ash loses the powered guidance and thrust needed for its approach.
+Its existing trajectory carries it toward the habitat's approach structures;
+the exact collision corridor and available rescue time must be established
+against the selected ring geometry, not an unexplained decaying planetary orbit.
 
 The FEB attacks. Jason uses a previously established beryllium-polished
 inspection mirror to redirect a thermal strike before the mirror fails.
 The reflected shot disables the interceptor's sensors, navigation and weapons.
-Both ships are now crippled and falling.
+Both ships are now crippled and unable to clear the collision corridor.
 
 An emergency radio conversation establishes a practical truce. Jason has
 manual tools and retained energy cores. The FEB has usable ion thrusters,
@@ -342,7 +718,7 @@ hull clamps and Narcean engineering knowledge.
 
 Jason performs a guided spacewalk and connects the cores through an emergency
 interface. The interceptor clamps onto the Ash; a maintenance system restores
-limited controls and restarts Orac. Its thrusters lift both ships out of
+limited controls and restarts Orac. Its thrusters divert both ships out of
 immediate danger. They have restored survival capability, not a fully repaired
 ship. Jason starts calling the FEB Rob.
 
@@ -379,7 +755,7 @@ become MJH again; he recognizes who he was, grieves the escape he was made to
 attack and decides who he is now. Jason's two nicknames, "Mike" for the
 plate's owner and "Rob" for the FEB, turn out to name the same person; Rob
 may choose which name to keep. Failure is recoverable: it does not kill Rob, restore
-the hostile loop, restart the planetary AI or block the campaign. Do not have
+the hostile loop, restart the master AI or block the campaign. Do not have
 Mark perform the bypass remotely or let the governor conveniently fail on its
 own.
 
@@ -391,11 +767,11 @@ Stacy and the station are unreachable. Unauthorized departure remains unsafe.
 Jason, Orac and Rob survey a small number of substantial districts connected
 by regional flight. They land, deploy the buggy, investigate signals and
 explore interiors. Orac maintains discoveries and partial translations;
-Rob recognizes machinery but does not remember a complete planetary map.
+Rob recognizes machinery but does not remember a complete map of the ring.
 The master AI remains dark.
 
 Three linked objectives guide the expedition: restore the slipspace lattice,
-repair long-range communications and obtain quarantine clearance. The buyer's
+repair long-range communications and obtain controlled egress authorization. The buyer's
 matched components fit this expedition rather than adding an unrelated fourth
 artifact hunt. Puzzles use records, power routing, signal tracing, equipment
 alignment and service access, not repeated code locks alone.
@@ -412,13 +788,14 @@ a service-gate opening. The encounter is an evasive escape, not a race or
 a requirement to destroy enemies. It has its own checkpoints and no chamber
 countdown.
 
-After reaching a safe ascent point, they enter local orbit. Jason and Rob
+After clearing the defended flight route, they reach a safe exterior
+free-flight region clear of the habitat and its atmosphere. Jason and Rob
 perform the final exterior drive installation in vacuum while Orac holds
 position. This is a new repair, not a repeat of their earlier rescue.
 
-Separate beacon-control work earns limited Field Enforcement clearance
-for the Ash rather than disabling the quarantine for everything on Narcea.
-With repairs commissioned, communications restored and clearance obtained,
+Separate beacon-control work earns limited Field Enforcement transit authorization
+for the Ash rather than globally reopening every locked route on Narcea.
+With repairs commissioned, communications restored and authorization obtained,
 the crew departs.
 
 Jason came for scrap. He leaves with a working ship, a new crewmate and
@@ -470,7 +847,7 @@ exist.
 - Ship AI: Orac. Orac stays available throughout the first landing, salvage
   expedition, underground exploration and escape. The EMP on the second visit
   is the first scripted loss of Orac.
-- Planet: Narcea, an abandoned technological world inside a military quarantine.
+- Planet: Narcea, an abandoned technological world inside a controlled hazard zone.
 - FEB: Field Enforcement Body. The dormant cyborg becomes Rob after the
   confrontation and alliance, not before Jason knows him.
 - Stacy remains Jason's partner. A matched-component recovery contract, not
@@ -596,7 +973,7 @@ the orbital EMP and ship-to-ship FEB attack are reserved for the return.
 
 ### Playable sequence
 
-1. **Arrival and landing.** Establish the quarantine risk, salvage opportunity,
+1. **Arrival and landing.** Establish restricted-hazard risk, salvage opportunity,
    Jason/Orac relationship and ship condition. Use a Backlight-styled flight
    approach and existing landing skills, then deploy the buggy in Backlight
    Yard. Play must no longer route into the legacy Jonah chapter.
@@ -799,7 +1176,7 @@ They meet in that order: Jonah alone, then Feb, then Greg. Each meeting is a fig
 
 ## How the party forms
 
-1. **Part 1, playable** (`samples/games/ash_meridian_part1/`). This is the first level. It opens in the cockpit: the Ash's reflector coupler burns out, and Zen's search has one mark, a quarantined Narcean mass at Meridian 4, radius 0.8, inclination 11. The Ash lands on camera. Zen glitches, a muffled scream leaves her speaker, and she goes offline. Jonah works one yard road from the south pad to a freight shaft at the north end. Suit air forces return trips to the ship. A press-hall cell, a yard-gun battery, and a mast path on the plate each open the next stretch. The shaft to level 14242 opens only after that path is legal. Feb is shut down there, and the chamber holds the coupler. Taking it starts the 256 second count, Zen comes back long enough to say run, and the ride back is a 3D canyon of orange rings. A short vector shot shows Keel climbing after him. In the cockpit he seats three couplings before Feb's shot arrives. In time, the reflector rises and the beam disables Keel. Late, the hull is hit and the seating starts over. Jonah's name stays Jonah Hale. The Ludo "Ring Lane Run" pitch is only the canyon drive, not the whole game. The yard route is the next section.
+1. **Part 1, playable** (`samples/games/ash_meridian_part1/`). This is the first level. It opens in the cockpit: the Ash's reflector coupler burns out, and Zen's search has one mark, a restricted-hazard Narcean mass at Meridian 4, radius 0.8, inclination 11. The Ash lands on camera. Zen glitches, a muffled scream leaves her speaker, and she goes offline. Jonah works one yard road from the south pad to a freight shaft at the north end. Suit air forces return trips to the ship. A press-hall cell, a yard-gun battery, and a mast path on the plate each open the next stretch. The shaft to level 14242 opens only after that path is legal. Feb is shut down there, and the chamber holds the coupler. Taking it starts the 256 second count, Zen comes back long enough to say run, and the ride back is a 3D canyon of orange rings. A short vector shot shows Keel climbing after him. In the cockpit he seats three couplings before Feb's shot arrives. In time, the reflector rises and the beam disables Keel. Late, the hull is hit and the seating starts over. Jonah's name stays Jonah Hale. The Ludo "Ring Lane Run" pitch is only the canyon drive, not the whole game. The yard route is the next section.
 2. **Greg.** The gate. He is an enemy with a half-lowered door. He becomes a companion when he breaks his own order in front of them. He does not pretend he was friendly first.
 
 After that, the three share the Ash. Jonah flies. Feb reads, plate to sign. Greg holds doors and the hull when a slip hits. Arguments stay in the dialogue. They do not become a cheerful crew. They become a crew that has the same job.

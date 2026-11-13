@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ash Meridian — Opening animatic</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#060b12;color:#d4e2e5;font:15px system-ui,sans-serif}
+header,main,footer{max-width:1440px;margin:auto}header{padding:24px 24px 16px;display:flex;justify-content:space-between;gap:20px;align-items:end}
+h1{font-size:23px;font-weight:500;letter-spacing:5px;margin:0 0 7px}p{margin:0;color:#91a7b2;line-height:1.6}
+.tag{font:11px monospace;letter-spacing:2px;color:#e3b77b;text-align:right}
+main{padding:0 24px}#stage{aspect-ratio:16/9;position:relative;overflow:hidden;background:#02050a;border:1px solid #263d49}
+.frame{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;will-change:transform,opacity}
+.matte{position:absolute;left:0;right:0;height:9%;background:#03060a;z-index:2}.top{top:0}.bottom{bottom:0}
+#shot{position:absolute;top:3.3%;left:3%;z-index:3;font:11px monospace;letter-spacing:2px;color:#9eb3bd}
+#caption{position:absolute;bottom:10%;left:15%;right:15%;z-index:3;text-align:center;text-shadow:0 2px 6px #000;min-height:60px}
+#speaker{display:block;color:#f5c990;font:12px monospace;letter-spacing:3px;margin-bottom:8px}#words{font-size:clamp(15px,1.5vw,23px);line-height:1.45;background:#03090dc9;box-shadow:0 0 16px 8px #03090da0;box-decoration-break:clone}
+#finish{position:absolute;inset:0;background:#020811e8;z-index:4;display:none;place-content:center;text-align:center;padding:12%}
+#finish h2{color:#d8e6e9;font-weight:400;letter-spacing:4px}#finish p{max-width:650px}
+.controls{padding:15px 0;display:flex;gap:12px;flex-wrap:wrap;align-items:center}button{background:#10232d;border:1px solid #36515e;color:#d2e7ec;padding:10px 15px;cursor:pointer;border-radius:3px}button:hover,button:focus-visible{border-color:#79d3dc;outline:2px solid #79d3dc;outline-offset:2px}button:disabled{opacity:.5;cursor:wait}input{accent-color:#68c0cb}#seek{flex:1;min-width:160px}#time{font:12px monospace;min-width:95px}.options{display:flex;gap:22px;align-items:center;flex-wrap:wrap;color:#a6bbc3;font-size:12px}
+#error{display:none;color:#ffd2af;background:#492719;padding:16px;white-space:pre-wrap}#shots{display:flex;gap:7px;flex-wrap:wrap;margin:15px 0}#shots button{font:11px monospace;padding:8px 11px}#shots button[aria-current=true]{border-color:#e4b979;color:#e4b979}
+.review{padding:22px 0 35px;border-top:1px solid #203641;display:grid;grid-template-columns:1fr 1fr;gap:25px;font-size:13px}.review h2{font-size:13px;color:#d3dfe2;letter-spacing:2px;text-transform:uppercase}.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-bottom:24px}.gallery img{width:100%;border:1px solid #28434f}.gallery a{color:#a7c7d0;font-size:11px;text-decoration:none}.gallery span{display:block;padding:7px 0}footer{padding:0 24px 25px;font-size:11px;color:#8aa2ae}@media(max-width:700px){header{display:block}.tag{text-align:left;margin-top:12px}.review{grid-template-columns:1fr}.gallery{grid-template-columns:1fr 1fr}#caption{left:8%;right:8%;min-height:40px}}
+</style>
+</head>
+<body>
+<header><div><h1>ASH MERIDIAN</h1><p>A wager and a warning · Opening cinematic study</p></div><div class="tag">PREPRODUCTION / ILLUSTRATED ANIMATIC<br>NOT FINAL CHARACTER ART OR ANIMATION</div></header>
+<main>
+<div id="error" role="alert"></div>
+<section id="stage" aria-label="Opening cinematic preview">
+ <img class="frame" id="a" alt=""><img class="frame" id="b" alt="">
+ <div class="matte top"></div><div class="matte bottom"></div><div id="shot"></div>
+ <div id="caption" aria-live="off"><span id="speaker"></span><span id="words"></span></div>
+ <div id="finish"><h2>YOU HAVE CONTROL</h2><p>Animatic ends here. In the game this leads to the mandatory cockpit-controls briefing, then the existing landing. This review does not launch the game.</p></div>
+</section>
+<div class="controls">
+ <button id="play">Play with voices</button><button id="restart">Restart</button><button id="skip">Skip cinematic</button>
+ <input id="seek" aria-label="Timeline" type="range" min="0" max="1" step=".05" value="0"><output id="time">0:00 / 0:00</output>
+</div>
+<div class="options">
+ <label><input id="voice" type="checkbox" checked> Dialogue</label>
+ <label><input id="ambience" type="checkbox"> Quiet ambience study</label>
+ <label>Dialogue level <input id="volume" aria-label="Dialogue volume" type="range" min="0" max="1" step=".05" value=".9"></label>
+ <span>Space: play/pause · Escape: skip · Subtitles remain visible with dialogue off</span>
+</div>
+<nav id="shots" aria-label="Jump to shot"></nav>
+<section class="review">
+ <div><h2>What this review establishes</h2><p>The story, approximate dialogue rhythm, framing, color relationships and transition from an intimate wager to an enormous abandoned place. The drawings are original vector storyboard keyframes; camera moves and dissolves are editorial studies, not finished animation.</p></div>
+ <div><h2>Provisional visual scale</h2><p>The Narcean Ring is framed at a 1,000 km outer radius around a 440 km radius world. The Ash is about 10.5 m long and 9.7 m wide; the wide shot keeps it under 3% of the ring's apparent diameter, while the close approach fits it through a 20 m clear opening. These are visual targets, not locked engineering specifications.</p></div>
+ <div><h2>Not approved for the game</h2><p>Mark's voice is a temporary neural audition sharing Rob's existing profile; it needs a distinct final casting. Facial acting, hand action, lip sync, ship motion, physical ring geometry and final score are not represented. Do not mistake camera movement across a drawing for those finished shots.</p></div>
+</section>
+<section class="gallery" aria-label="Full resolution keyframes">
+ <a href="table.svg" target="_blank"><img src="table.svg" alt="Mark facing Jason across a cyan-edged card table"><span>01 — The last hand</span></a>
+ <a href="station.svg" target="_blank"><img src="station.svg" alt="The Ash departing a faceted industrial station"><span>02 — Departure</span></a>
+ <a href="arrival.svg" target="_blank"><img src="arrival.svg" alt="A structural ring encircles a desolate planet"><span>03 — Beyond the frontier</span></a>
+ <a href="approach.svg" target="_blank"><img src="approach.svg" alt="The Ash approaches an amber-lit service entry in the habitat hull"><span>04 — The approach</span></a>
+</section>
+</main>
+<footer>Local review · No external assets, analytics or network services · Neural scratch dialogue is not a recorded actor performance</footer>
+<script src="review-data.js"></script>
+<script>
+'use strict';
+const data = globalThis.OPENING_REVIEW;
+const $ = id => document.getElementById(id);
+let playing = false, position = 0, last = performance.now(), activeId = '', loading = false, voicesReady = false;
+let context, bedGain, noiseGain;
+const clips = new Map(), frames = [$('a'), $('b')], images = new Map();
+function fail(error) {
+  pause();
+  $('error').style.display = 'block';
+  $('error').textContent = 'Preview stopped: ' + error.message;
+}
+function setLabel() { $('play').textContent = loading ? 'Loading voices…' : playing ? 'Pause' : 'Play'; }
+function stopSpeech() { for (const clip of clips.values()) clip.pause(); activeId = ''; }
+function pause() { playing = false; stopSpeech(); updateBed(); setLabel(); }
+function updateBed() {
+  if (!context) return;
+  const enabled = playing && $('ambience').checked;
+  const station = position < (data.shots.find(s => s.id === 'arrival')?.at ?? 0);
+  bedGain.gain.setTargetAtTime(enabled ? .018 : 0, context.currentTime, .35);
+  noiseGain.gain.setTargetAtTime(enabled ? (station ? .009 : .003) : 0, context.currentTime, .35);
+}
+function createBed() {
+  if (context) return;
+  context = new AudioContext();
+  bedGain = context.createGain(); bedGain.gain.value = 0; bedGain.connect(context.destination);
+  [48, 72.3, 96.1].forEach((frequency, index) => {
+    const oscillator = context.createOscillator(), level = context.createGain();
+    oscillator.frequency.value = frequency; level.gain.value = 1 / (index + 2);
+    oscillator.connect(level).connect(bedGain); oscillator.start();
+  });
+  noiseGain = context.createGain(); noiseGain.gain.value = 0; noiseGain.connect(context.destination);
+  const buffer = context.createBuffer(1, context.sampleRate * 4, context.sampleRate);
+  const channel = buffer.getChannelData(0);
+  let state = 0;
+  for (let i = 0; i < channel.length; i++) { state = state * .98 + (Math.random() * 2 - 1) * .02; channel[i] = state; }
+  const source = context.createBufferSource(), filter = context.createBiquadFilter();
+  source.buffer = buffer; source.loop = true; filter.type = 'lowpass'; filter.frequency.value = 450;
+  source.connect(filter).connect(noiseGain); source.start();
+}
+async function preload() {
+  if (voicesReady) return;
+  loading = true; $('play').disabled = true; setLabel();
+  try {
+    await Promise.all(data.lines.map(line => new Promise((resolve, reject) => {
+      const clip = new Audio(line.source);
+      clips.set(line.id, clip);
+      clip.preload = 'auto';
+      const timeout = setTimeout(() => reject(new Error('Audio load timed out: ' + line.audio)), 20000);
+      clip.addEventListener('canplaythrough', () => { clearTimeout(timeout); clips.set(line.id, clip); resolve(); }, { once:true });
+      clip.addEventListener('error', () => { clearTimeout(timeout); reject(new Error('Cannot load ' + line.audio + ': ' + (clip.error?.message ?? 'unknown audio error'))); }, { once:true });
+      clip.load();
+    })));
+    voicesReady = true;
+  } finally { loading = false; $('play').disabled = false; setLabel(); }
+}
+async function play() {
+  if (loading) return;
+  try {
+    $('error').style.display = 'none';
+    if ($('voice').checked) await preload();
+    if ($('ambience').checked) { createBed(); await context.resume(); }
+    if (position >= data.duration) position = 0;
+    last = performance.now(); playing = true; updateBed(); setLabel();
+  } catch (error) { fail(error); }
+}
+function seek(to) { stopSpeech(); position = Math.max(0, Math.min(data.duration, to)); last = performance.now(); render(); updateBed(); }
+function clock(seconds) { return Math.floor(seconds/60) + ':' + String(Math.floor(seconds%60)).padStart(2,'0'); }
+function layer(image, shot, at, opacity) {
+  const u = Math.max(0, Math.min(1, (at-shot.at)/shot.duration));
+  const t = u*u*(3-2*u);
+  const values = shot.from.map((v,i) => v+(shot.to[i]-v)*t);
+  if (image.dataset.source !== shot.image) { image.src = shot.image; image.dataset.source = shot.image; }
+  image.style.transformOrigin = `${values[1]}% ${values[2]}%`;
+  image.style.transform = `scale(${values[0]})`;
+  image.style.opacity = opacity;
+}
+function render() {
+  const index = Math.max(0, data.shots.findLastIndex(s => s.at <= position));
+  const shot = data.shots[index], previous = data.shots[Math.max(0,index-1)];
+  const dissolve = index === 0 ? 1 : Math.min(1,(position-shot.at)/1.1);
+  layer(frames[0], previous, position, 1-dissolve);
+  layer(frames[1], shot, position, dissolve);
+  $('shot').textContent = shot.label;
+  const line = data.lines.find(l => position >= l.at && position < l.at+l.seconds);
+  $('speaker').textContent = line?.speaker ?? '';
+  $('words').textContent = line?.text ?? '';
+  $('finish').style.display = position >= data.duration ? 'grid' : 'none';
+  $('seek').value = position;
+  $('time').textContent = `${clock(position)} / ${clock(data.duration)}`;
+  document.querySelectorAll('#shots button').forEach((b,i) => b.setAttribute('aria-current',String(i===index)));
+  if (playing && $('voice').checked && line) {
+    const clip = clips.get(line.id);
+    if (!clip) { fail(new Error('Dialogue was not loaded. Pause and resume to retry.')); return; }
+    clip.volume = Number($('volume').value);
+    if (activeId !== line.id) {
+      stopSpeech(); activeId = line.id; clip.currentTime = Math.min(clip.duration,position-line.at);
+      clip.play().catch(fail);
+    }
+  } else if (activeId) stopSpeech();
+}
+function tick(now) {
+  if (playing) {
+    position = Math.min(data.duration,position+(now-last)/1000);
+    if (position >= data.duration) pause();
+  }
+  last = now; render(); requestAnimationFrame(tick);
+}
+if (!data) {
+  fail(new Error('Missing review-data.js. Run tools/build_opening_animatic.mjs after baking voices.'));
+} else {
+  $('seek').max = data.duration;
+  for (const shot of data.shots) {
+    const image = new Image();
+    image.onerror = () => fail(new Error('Cannot load keyframe ' + shot.image));
+    image.src = shot.image; images.set(shot.image,image);
+    const button = document.createElement('button'); button.textContent = shot.label;
+    button.addEventListener('click',() => seek(shot.at)); $('shots').appendChild(button);
+  }
+  $('play').addEventListener('click',() => playing ? pause() : play());
+  $('restart').addEventListener('click',() => { pause(); seek(0); });
+  $('skip').addEventListener('click',() => { pause(); seek(data.duration); });
+  $('seek').addEventListener('input',event => seek(Number(event.target.value)));
+  $('voice').addEventListener('change',() => { if (playing) { pause(); play(); } });
+  $('ambience').addEventListener('change',async () => {
+    try { if ($('ambience').checked) { createBed(); await context.resume(); } updateBed(); }
+    catch(error) { fail(error); }
+  });
+  document.addEventListener('keydown',event => {
+    if (/INPUT|BUTTON/.test(event.target.tagName)) return;
+    if (event.code === 'Space') { event.preventDefault(); playing ? pause() : play(); }
+    if (event.code === 'Escape') { pause(); seek(data.duration); }
+  });
+  document.addEventListener('visibilitychange',() => { if (document.hidden) pause(); });
+  const initial = new URLSearchParams(location.search).get('shot');
+  if (initial) seek(data.shots.find(s => s.id === initial)?.at ?? 0);
+  render(); requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>

@@ -70,7 +70,7 @@ Implementation in `part1.vg`:
    `presentation.SpawnVg`. All of it is uncommitted. **Keep the phase and its
    boot → intro → title flow, skip and play-once logic.** Replace only the live face
    node playback with the video below. The engine boot splash
-   (`assets/branding/lucid_splash.png`, "Music by Lucid nod") is untouched.
+   (`assets/branding/narcean_logo.png`) is separate from the face film.
 2. In that phase, create one `VideoStreamPlayer` with
    `ClassDB.Instantiate("VideoStreamPlayer")`, set its stream to
    `Load("res://assets/ai_face/intro_alien_holo.ogv")`, and give it a size of

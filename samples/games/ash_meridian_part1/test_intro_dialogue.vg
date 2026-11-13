@@ -48,8 +48,10 @@ Sub _Process(ByVal delta As Single)
 	If frame = 4 Then
 		lines = game.intro_lines
 		speakers = game.intro_speakers
-		check(lines.size() = 7 And speakers(1) = "JASON" And speakers(3) = "JASON", "opening_has_jason_replies_and_clear_briefing")
-		check(game.intro_audio.size() = 7 And game.intro_voice_error = "", "all_opening_voice_assets_match_current_script")
+		check(lines.size() = 9 And speakers(1) = "JASON" And speakers(3) = "JASON" And speakers(5) = "JASON", "opening_has_jason_replies_and_clear_briefing")
+		check(speakers(4) = "ORAC" And lines(4).contains("maintenance drone") And lines(4).contains("You'll have to fly"), "orac_explains_why_jason_must_fly")
+		check(lines(0).contains("card game") And lines(1).contains("He survived") And lines(2).contains("stash"), "opening_establishes_mark_card_game_warning_and_stash")
+		check(game.intro_audio.size() = 9 And game.intro_voice_error = "", "all_opening_voice_assets_match_current_script")
 		game.TickIntro(0.01)
 		queue = speech.pending
 		row = queue(0)
@@ -66,19 +68,19 @@ Sub _Process(ByVal delta As Single)
 		game.TickIntro(60)
 		check(game.intro_index = 0, "pending_worker_keeps_current_subtitle")
 		speech.worker = 0
-		check(speech.pending.size() = 6, "following_lines_are_queued_for_audio_prefetch")
+		check(speech.pending.size() = 8, "following_lines_are_queued_for_audio_prefetch")
 		game.TickIntro(0.2)
 		check(game.intro_index = 0, "subtitle_follows_playback_not_next_synthesis_job")
 		queue = speech.pending
 		row = queue(0)
 		check(row("speaker") = "JASON" And speech.KokoroSpeakerId(row("speaker")) = 5, "jason_reply_is_queued_with_his_own_voice")
-		For i = 1 To 6
+		For i = 1 To 8
 			speech.tick(False)
 			speech.worker = 1
 			game.TickIntro(0.01)
 			check(game.intro_index = i, "subtitle_tracks_played_line_" & Str(i))
 			check(game.phase = 0 And game.ship_z = 0, "flight_waits_for_dialogue_line_" & Str(i))
-			If i = 6 Then
+			If i = 8 Then
 				speech.worker = 1
 				game.TickIntro(100)
 				check(game.phase = 0, "handoff_waits_until_final_control_line_finishes")
@@ -93,7 +95,7 @@ Sub _Process(ByVal delta As Single)
 		game.TickIntro(0.01)
 		game.TickIntro(0.1)
 		check(game.intro_index = 0, "muted_intro_has_readable_subtitle_duration")
-		For i = 0 To 6
+		For i = 0 To 8
 			If i > 0 Then game.TickIntro(0.01)
 			game.TickIntro(30)
 		Next
@@ -119,7 +121,7 @@ Sub _Process(ByVal delta As Single)
 		Input.flush_buffered_events()
 		game.presentation.sample_input()
 		game.TickIntro(0.01)
-		check(game.intro_index = 4 And game.phase = 0, "skip_moves_to_mandatory_gate_briefing_not_flight")
+		check(game.intro_index = 6 And game.phase = 0, "skip_moves_to_mandatory_gate_briefing_not_flight")
 		queue = speech.pending
 		row = queue(0)
 		check(queue.size() = 3 And InStr(row("text"), "orange gate") > 0, "skip_replaces_old_audio_with_briefing_and_handoff")
@@ -137,7 +139,7 @@ Sub _Process(ByVal delta As Single)
 			speech.enabled = True
 			speech.backend = ""
 			speech.last_error = "No system voice installed."
-			check(game.intro_audio.size() = 7, "opening_recordings_work_without_installed_tts_backend")
+			check(game.intro_audio.size() = 9, "opening_recordings_work_without_installed_tts_backend")
 			previous_index = 0
 			began = Time.get_ticks_msec()
 			game.set_process(True)
@@ -159,7 +161,7 @@ Sub _Process(ByVal delta As Single)
 				Print "INTRO_VOICE speaker=" & Str(speakers(index)) & " seconds=" & Str(speech.player.stream.get_length())
 				check(speech.player.stream.get_length() > 0.5, "live_line_has_decodable_audio_" & Str(index))
 				check(speech.worker = 0 And speech.job_stem = "", "recorded_line_needs_no_runtime_synthesis_" & Str(index))
-				If index = 4 And OS.get_environment("ASH_CHANNEL_CAPTURE") <> "" And DisplayServer.get_name() <> "headless" Then
+				If index = 6 And OS.get_environment("ASH_CHANNEL_CAPTURE") <> "" And DisplayServer.get_name() <> "headless" Then
 					Dim image As Object
 					image = GetViewport().get_texture().get_image()
 					check(image.save_png(OS.get_environment("ASH_CHANNEL_CAPTURE") & "/intro-gate-briefing.png") = 0, "gate_briefing_caption_capture")
@@ -182,7 +184,7 @@ Sub _Process(ByVal delta As Single)
 			check(game.land_t < 0.2, "normal_game_loop_holds_flight_until_final_line_finishes")
 		End If
 		If game.phase = 1 Or Time.get_ticks_msec() - began > 120000 Then
-			check(game.phase = 1 And seen.size() = 7, "all_seven_lines_including_jason_play_before_flight")
+			check(game.phase = 1 And seen.size() = 9, "all_nine_lines_including_jason_play_before_flight")
 			Print "INTRO_AUDIO_MAX_GAP_MS=" & Str(max_gap_ms)
 			check(max_gap_ms < 1500, "prefetch_avoids_large_between_line_gaps")
 			Call finish()

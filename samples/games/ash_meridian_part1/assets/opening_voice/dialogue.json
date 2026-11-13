@@ -1,43 +1,55 @@
 [
 	{
 		"audio": "res://assets/opening_voice/line_0.wav",
-		"seconds": 5.23725,
+		"seconds": 4.967,
 		"speaker": "ORAC",
-		"text": "Narcea's quarantine beacons are active. Cross their scan and they'll fire."
+		"text": "Mark lost those coordinates to you in a card game. He told you not to come."
 	},
 	{
 		"audio": "res://assets/opening_voice/line_1.wav",
-		"seconds": 3.509125,
+		"seconds": 3.18308333333333,
 		"speaker": "JASON",
-		"text": "Those coordinates cost a man his life. I'm not leaving empty-handed."
+		"text": "He survived. If this works, Stacy and I get a better life."
 	},
 	{
 		"audio": "res://assets/opening_voice/line_2.wav",
-		"seconds": 5.06954166666667,
+		"seconds": 4.65254166666667,
 		"speaker": "ORAC",
-		"text": "I can blind the beacons. Unfortunately, that leaves nothing for the autopilot."
+		"text": "He also left you a stash near the yard. I have the location saved."
 	},
 	{
 		"audio": "res://assets/opening_voice/line_3.wav",
-		"seconds": 2.049375,
+		"seconds": 2.084625,
 		"speaker": "JASON",
-		"text": "Then keep them blind. I'll fly."
+		"text": "Then let's find it. Take us down."
 	},
 	{
 		"audio": "res://assets/opening_voice/line_4.wav",
-		"seconds": 8.15316666666667,
+		"seconds": 13.1291666666667,
 		"speaker": "ORAC",
-		"text": "Follow the orange gate. Blue rings show the route ahead. Miss once and they notice us. Miss twice and they fire."
+		"text": "I can't. While Mark's codes make us appear as a maintenance drone, I have to answer every challenge the defense grid sends. It's complex and relentless. It takes everything I have. You'll have to fly."
 	},
 	{
 		"audio": "res://assets/opening_voice/line_5.wav",
-		"seconds": 1.81183333333333,
+		"seconds": 0.91525,
+		"speaker": "JASON",
+		"text": "Then I'll fly."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_6.wav",
+		"seconds": 9.23341666666667,
+		"speaker": "ORAC",
+		"text": "Follow the orange gate. Blue rings show the route ahead. Miss once and the old defenses notice us. Miss twice and they fire."
+	},
+	{
+		"audio": "res://assets/opening_voice/line_7.wav",
+		"seconds": 1.81404166666667,
 		"speaker": "JASON",
 		"text": "Orange gate. Understood."
 	},
 	{
-		"audio": "res://assets/opening_voice/line_6.wav",
-		"seconds": 2.98920833333333,
+		"audio": "res://assets/opening_voice/line_8.wav",
+		"seconds": 2.990125,
 		"speaker": "ORAC",
 		"text": "You have control. Keep us in the corridor."
 	}

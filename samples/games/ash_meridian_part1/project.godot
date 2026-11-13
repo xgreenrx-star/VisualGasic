@@ -15,8 +15,9 @@ config/description="Jason explores Narcea with Orac, recovers a power coupler an
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0, 0, 0, 1)
-boot_splash/image="res://assets/branding/lucid_splash.png"
+boot_splash/image="res://assets/branding/narcean_logo.png"
 boot_splash/minimum_display_time=2500
+boot_splash/stretch_mode=1
 
 [audio]
 

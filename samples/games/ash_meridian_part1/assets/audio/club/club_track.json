@@ -1,0 +1,1227 @@
+{
+  "title": "The Membrane Remembers",
+  "generator": "tools/audio/alien_club.py",
+  "seed": 910731,
+  "original_procedural_audio": true,
+  "external_audio_sources": [],
+  "duration_seconds": 105.1,
+  "loop": true,
+  "loop_start_sample": 0,
+  "loop_end_sample_exclusive": 5044800,
+  "sample_rate_hz": 48000,
+  "channels": 2,
+  "rhythm": {
+    "meter": "unmetered asymmetric chamber cycle; no common-time beat",
+    "chamber_lengths_seconds": [
+      7.3,
+      9.1,
+      6.7,
+      10.9,
+      8.3,
+      12.7,
+      7.9,
+      11.3,
+      9.7,
+      10.1,
+      11.1
+    ],
+    "subdivisions": [
+      13,
+      11,
+      17,
+      19
+    ],
+    "description": "Unequal chambers, fractional onsets with deterministic drift; some membrane events cross chamber boundaries. Events are musical onsets, not a regular beat map. Centered 808-style sub kicks form unequal clusters and gaps, with microtonal pitch drops. No global BPM."
+  },
+  "tuning": "Non-equal-tempered frequency ratios; drones quantized only to loop-period FFT bins",
+  "layers": [
+    "irregular pitch-dropping 808-style sub kicks",
+    "microtonal beating drones",
+    "irregular resonant membrane pulses",
+    "synthetic gliding organic calls",
+    "inharmonic glass",
+    "circular spectral atmosphere"
+  ],
+  "seam_method": "periodic bed; wrapped voice tails, cross-delays and circular diffusion; no master fade",
+  "events": [
+    {
+      "kind": "sub_kick",
+      "time_seconds": 0.198847,
+      "duration_seconds": 1.209566,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5914664737751039,
+      "chamber": 0,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 0.774602,
+      "duration_seconds": 1.088913,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5015532717058527,
+      "chamber": 0,
+      "subdivision": "1/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 1.043929,
+      "duration_seconds": 2.246974,
+      "frequency_hz": 89.3,
+      "pan": 0.3380827808718676,
+      "gain": 0.1481643446300608,
+      "chamber": 0,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 1.203676,
+      "duration_seconds": 1.316611,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.5785318340593893,
+      "chamber": 10,
+      "subdivision": "12/11"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 1.4089,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": -0.4534127793937476,
+      "gain": 0.052,
+      "chamber": 0
+    },
+    {
+      "kind": "call",
+      "time_seconds": 2.701,
+      "duration_seconds": 6.826173,
+      "frequency_hz": 181.3,
+      "pan": -0.610311643125166,
+      "gain": 0.105,
+      "chamber": 0
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 2.850125,
+      "duration_seconds": 1.988744,
+      "frequency_hz": 107.1,
+      "pan": 0.3428319510298843,
+      "gain": 0.1782701985654076,
+      "chamber": 0,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 3.011449,
+      "duration_seconds": 1.087042,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.6012678343243164,
+      "chamber": 0,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 4.204061,
+      "duration_seconds": 1.215922,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.6371649715238163,
+      "chamber": 10,
+      "subdivision": "15/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 5.127299,
+      "duration_seconds": 1.962243,
+      "frequency_hz": 142.6,
+      "pan": 0.54513148979048,
+      "gain": 0.18520920160122636,
+      "chamber": 0,
+      "subdivision": "9/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 5.231282,
+      "duration_seconds": 1.359629,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.5775605819594427,
+      "chamber": 0,
+      "subdivision": "9/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 5.3363,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": 0.7422581246258302,
+      "gain": 0.052,
+      "chamber": 0
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 7.459391,
+      "duration_seconds": 1.021412,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.6455469646612574,
+      "chamber": 1,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 8.10265,
+      "duration_seconds": 1.264627,
+      "frequency_hz": 89.3,
+      "pan": 0.7417041713587593,
+      "gain": 0.1772287234758395,
+      "chamber": 1,
+      "subdivision": "1/11"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 9.0563,
+      "duration_seconds": 4.7,
+      "frequency_hz": 569.3,
+      "pan": -0.6776253926975857,
+      "gain": 0.052,
+      "chamber": 1
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 9.60004,
+      "duration_seconds": 1.170026,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.526526794499923,
+      "chamber": 1,
+      "subdivision": "4/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 10.125599,
+      "duration_seconds": 1.353079,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.522222020448351,
+      "chamber": 1,
+      "subdivision": "5/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 10.60149,
+      "duration_seconds": 1.344727,
+      "frequency_hz": 107.1,
+      "pan": 0.3134088246173894,
+      "gain": 0.13228259174203905,
+      "chamber": 1,
+      "subdivision": "4/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 13.917443,
+      "duration_seconds": 1.094747,
+      "frequency_hz": 142.6,
+      "pan": 0.479468929194927,
+      "gain": 0.1364861470048507,
+      "chamber": 1,
+      "subdivision": "8/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 13.936626,
+      "duration_seconds": 1.439428,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.6166105307072243,
+      "chamber": 1,
+      "subdivision": "12/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 13.9521,
+      "duration_seconds": 4.7,
+      "frequency_hz": 569.3,
+      "pan": 0.6659171163968716,
+      "gain": 0.052,
+      "chamber": 1
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 15.523991,
+      "duration_seconds": 1.08658,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.6384792433884583,
+      "chamber": 1,
+      "subdivision": "15/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 16.332035,
+      "duration_seconds": 1.441167,
+      "frequency_hz": 107.1,
+      "pan": 0.2992977275532205,
+      "gain": 0.1877518963074742,
+      "chamber": 2,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 16.555872,
+      "duration_seconds": 0.887018,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.6503866796686244,
+      "chamber": 2,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 17.566982,
+      "duration_seconds": 1.610536,
+      "frequency_hz": 142.6,
+      "pan": -0.09923594725979434,
+      "gain": 0.17252705181203148,
+      "chamber": 2,
+      "subdivision": "3/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 17.6931,
+      "duration_seconds": 4.7,
+      "frequency_hz": 733.7,
+      "pan": 0.7439496922776905,
+      "gain": 0.052,
+      "chamber": 2
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 17.782979,
+      "duration_seconds": 0.970797,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.5097746994993504,
+      "chamber": 2,
+      "subdivision": "2/11"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 18.879,
+      "duration_seconds": 7.465502,
+      "frequency_hz": 213.1,
+      "pan": 0.42228408096726866,
+      "gain": 0.105,
+      "chamber": 2
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 19.112351,
+      "duration_seconds": 1.161631,
+      "frequency_hz": 79.9,
+      "pan": 0.2536367082165536,
+      "gain": 0.16176174556235856,
+      "chamber": 2,
+      "subdivision": "7/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 20.849083,
+      "duration_seconds": 1.085949,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5389204872428236,
+      "chamber": 2,
+      "subdivision": "7/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 21.041128,
+      "duration_seconds": 1.837053,
+      "frequency_hz": 63.7,
+      "pan": 0.08011346467087255,
+      "gain": 0.1591765310565947,
+      "chamber": 2,
+      "subdivision": "12/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 21.2977,
+      "duration_seconds": 4.7,
+      "frequency_hz": 733.7,
+      "pan": -0.7117035845936712,
+      "gain": 0.052,
+      "chamber": 2
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 22.326338,
+      "duration_seconds": 1.37289,
+      "frequency_hz": 89.3,
+      "pan": 0.15387048519025837,
+      "gain": 0.20250085234241566,
+      "chamber": 2,
+      "subdivision": "15/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 23.091481,
+      "duration_seconds": 1.460216,
+      "frequency_hz": 142.6,
+      "pan": 0.5776213289239818,
+      "gain": 0.20607569870303388,
+      "chamber": 3,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 23.307453,
+      "duration_seconds": 1.154731,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.538898280022363,
+      "chamber": 3,
+      "subdivision": "0/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 23.868292,
+      "duration_seconds": 1.587182,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5458683440798464,
+      "chamber": 3,
+      "subdivision": "1/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 24.761541,
+      "duration_seconds": 1.723642,
+      "frequency_hz": 79.9,
+      "pan": -0.12075428998087112,
+      "gain": 0.20925686741724714,
+      "chamber": 3,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 25.2037,
+      "duration_seconds": 4.7,
+      "frequency_hz": 881.9,
+      "pan": -0.447815908313109,
+      "gain": 0.052,
+      "chamber": 3
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 26.138244,
+      "duration_seconds": 1.278031,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5219294564581398,
+      "chamber": 3,
+      "subdivision": "5/19"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 27.133,
+      "duration_seconds": 6.746774,
+      "frequency_hz": 157.9,
+      "pan": 0.28437046544540523,
+      "gain": 0.105,
+      "chamber": 3
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 27.341421,
+      "duration_seconds": 1.366254,
+      "frequency_hz": 63.7,
+      "pan": -0.7476624785369342,
+      "gain": 0.16835035744842422,
+      "chamber": 3,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 28.43714,
+      "duration_seconds": 1.592559,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5224322534041872,
+      "chamber": 3,
+      "subdivision": "9/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 30.648387,
+      "duration_seconds": 1.459017,
+      "frequency_hz": 89.3,
+      "pan": -0.37331744560696073,
+      "gain": 0.18162439960264162,
+      "chamber": 3,
+      "subdivision": "9/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 31.0679,
+      "duration_seconds": 4.7,
+      "frequency_hz": 881.9,
+      "pan": 0.44171452210122064,
+      "gain": 0.052,
+      "chamber": 3
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 34.16601,
+      "duration_seconds": 1.532443,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5546676584453332,
+      "chamber": 4,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 34.358941,
+      "duration_seconds": 2.294163,
+      "frequency_hz": 79.9,
+      "pan": -0.18280718181792555,
+      "gain": 0.16711578681594372,
+      "chamber": 4,
+      "subdivision": "1/19"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 35.6019,
+      "duration_seconds": 4.7,
+      "frequency_hz": 643.1,
+      "pan": 0.4496991762059679,
+      "gain": 0.052,
+      "chamber": 4
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 35.777531,
+      "duration_seconds": 1.766488,
+      "frequency_hz": 63.7,
+      "pan": -0.5231678725144724,
+      "gain": 0.19700890831151652,
+      "chamber": 4,
+      "subdivision": "4/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 36.764982,
+      "duration_seconds": 1.368464,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5330211049463932,
+      "chamber": 4,
+      "subdivision": "4/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 37.347516,
+      "duration_seconds": 1.205806,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5137203714144088,
+      "chamber": 4,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 37.533895,
+      "duration_seconds": 1.934813,
+      "frequency_hz": 89.3,
+      "pan": -0.28947584982264807,
+      "gain": 0.16027767429117826,
+      "chamber": 4,
+      "subdivision": "8/19"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 40.0673,
+      "duration_seconds": 4.7,
+      "frequency_hz": 643.1,
+      "pan": -0.4967857574883725,
+      "gain": 0.052,
+      "chamber": 4
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 41.837082,
+      "duration_seconds": 1.353122,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.5757511292762227,
+      "chamber": 4,
+      "subdivision": "12/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 42.309334,
+      "duration_seconds": 1.243427,
+      "frequency_hz": 63.7,
+      "pan": 0.1085205904818235,
+      "gain": 0.20961248369072308,
+      "chamber": 5,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 42.508134,
+      "duration_seconds": 0.961241,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5921226715804084,
+      "chamber": 5,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 43.731476,
+      "duration_seconds": 0.889814,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.6249105662768913,
+      "chamber": 4,
+      "subdivision": "15/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 43.993887,
+      "duration_seconds": 1.001955,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5854315482603283,
+      "chamber": 5,
+      "subdivision": "2/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 44.7511,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": -0.2802278818128775,
+      "gain": 0.052,
+      "chamber": 5
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 45.15557,
+      "duration_seconds": 1.33426,
+      "frequency_hz": 89.3,
+      "pan": 0.044437134385654,
+      "gain": 0.13201393620216884,
+      "chamber": 5,
+      "subdivision": "3/13"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 46.999,
+      "duration_seconds": 7.132502,
+      "frequency_hz": 247.7,
+      "pan": -0.5747608944816465,
+      "gain": 0.105,
+      "chamber": 5
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 47.739774,
+      "duration_seconds": 0.856062,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.6262590383490595,
+      "chamber": 5,
+      "subdivision": "7/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 49.220846,
+      "duration_seconds": 2.052152,
+      "frequency_hz": 107.1,
+      "pan": -0.394102118767578,
+      "gain": 0.1457960647591884,
+      "chamber": 5,
+      "subdivision": "7/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 51.5837,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": 0.7255597842321497,
+      "gain": 0.052,
+      "chamber": 5
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 53.983857,
+      "duration_seconds": 1.700931,
+      "frequency_hz": 142.6,
+      "pan": -0.24571161159657506,
+      "gain": 0.15233623914603645,
+      "chamber": 5,
+      "subdivision": "12/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 55.025425,
+      "duration_seconds": 2.393175,
+      "frequency_hz": 89.3,
+      "pan": -0.46382339932170746,
+      "gain": 0.1313231067446887,
+      "chamber": 6,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 55.208426,
+      "duration_seconds": 1.582288,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5281367680223424,
+      "chamber": 6,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 55.924102,
+      "duration_seconds": 1.262215,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.5560519409296231,
+      "chamber": 6,
+      "subdivision": "1/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 56.361118,
+      "duration_seconds": 2.253103,
+      "frequency_hz": 107.1,
+      "pan": -0.3028014727599013,
+      "gain": 0.14648736972648801,
+      "chamber": 6,
+      "subdivision": "2/11"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 56.5247,
+      "duration_seconds": 4.7,
+      "frequency_hz": 569.3,
+      "pan": 0.8248515661015898,
+      "gain": 0.052,
+      "chamber": 6
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 56.924386,
+      "duration_seconds": 1.885411,
+      "frequency_hz": 79.9,
+      "pan": -0.24459810954446837,
+      "gain": 0.20909967601797985,
+      "chamber": 5,
+      "subdivision": "15/13"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 57.923,
+      "duration_seconds": 8.256145,
+      "frequency_hz": 213.1,
+      "pan": 0.2753438977882766,
+      "gain": 0.105,
+      "chamber": 6
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 58.540433,
+      "duration_seconds": 1.316008,
+      "frequency_hz": 142.6,
+      "pan": -0.7664317935301318,
+      "gain": 0.20052950837448025,
+      "chamber": 6,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 58.742318,
+      "duration_seconds": 1.01007,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.570103605561141,
+      "chamber": 6,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 60.7749,
+      "duration_seconds": 4.7,
+      "frequency_hz": 569.3,
+      "pan": 0.2865238732783344,
+      "gain": 0.052,
+      "chamber": 6
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 61.410347,
+      "duration_seconds": 2.197885,
+      "frequency_hz": 79.9,
+      "pan": -0.159327349281828,
+      "gain": 0.20569779727354948,
+      "chamber": 6,
+      "subdivision": "9/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 61.634912,
+      "duration_seconds": 1.500935,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5319678278808143,
+      "chamber": 6,
+      "subdivision": "9/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 63.094993,
+      "duration_seconds": 1.334994,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.578644715313315,
+      "chamber": 7,
+      "subdivision": "0/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 63.494159,
+      "duration_seconds": 2.314196,
+      "frequency_hz": 107.1,
+      "pan": 0.29970146367380623,
+      "gain": 0.16345070756221178,
+      "chamber": 7,
+      "subdivision": "1/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 65.0809,
+      "duration_seconds": 4.7,
+      "frequency_hz": 733.7,
+      "pan": -0.46338368399865276,
+      "gain": 0.052,
+      "chamber": 7
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 65.459135,
+      "duration_seconds": 1.31523,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.5912990771978689,
+      "chamber": 7,
+      "subdivision": "4/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 65.519009,
+      "duration_seconds": 1.408391,
+      "frequency_hz": 142.6,
+      "pan": -0.11770396750424827,
+      "gain": 0.14322669017028858,
+      "chamber": 7,
+      "subdivision": "4/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 66.049078,
+      "duration_seconds": 1.204702,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5132861901921204,
+      "chamber": 7,
+      "subdivision": "5/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 68.214717,
+      "duration_seconds": 2.302709,
+      "frequency_hz": 79.9,
+      "pan": -0.3289726292095367,
+      "gain": 0.13140510864290583,
+      "chamber": 7,
+      "subdivision": "8/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 70.233942,
+      "duration_seconds": 0.853414,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5325952255446605,
+      "chamber": 7,
+      "subdivision": "12/19"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 71.1603,
+      "duration_seconds": 4.7,
+      "frequency_hz": 733.7,
+      "pan": -0.39123871087963824,
+      "gain": 0.052,
+      "chamber": 7
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 72.021334,
+      "duration_seconds": 1.165953,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5020833982926032,
+      "chamber": 7,
+      "subdivision": "15/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 74.160595,
+      "duration_seconds": 1.587518,
+      "frequency_hz": 142.6,
+      "pan": -0.2525817098915788,
+      "gain": 0.15054691715262988,
+      "chamber": 8,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 74.370599,
+      "duration_seconds": 1.125391,
+      "frequency_hz": 43.9,
+      "pan": 0.0,
+      "gain": 0.5099496592550645,
+      "chamber": 8,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 75.8821,
+      "duration_seconds": 0.928424,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.6551432087929614,
+      "chamber": 8,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 76.0721,
+      "duration_seconds": 4.7,
+      "frequency_hz": 881.9,
+      "pan": -0.5318085437129144,
+      "gain": 0.052,
+      "chamber": 8
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 76.375319,
+      "duration_seconds": 1.312284,
+      "frequency_hz": 79.9,
+      "pan": 0.3484577669471711,
+      "gain": 0.19379336220335347,
+      "chamber": 8,
+      "subdivision": "3/13"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 77.789,
+      "duration_seconds": 6.297488,
+      "frequency_hz": 181.3,
+      "pan": -0.6216947600811823,
+      "gain": 0.105,
+      "chamber": 8
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 79.473104,
+      "duration_seconds": 1.345563,
+      "frequency_hz": 63.7,
+      "pan": 0.18005649605255036,
+      "gain": 0.13282372228187844,
+      "chamber": 8,
+      "subdivision": "7/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 79.570238,
+      "duration_seconds": 1.157776,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5360349869259085,
+      "chamber": 8,
+      "subdivision": "7/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 81.2907,
+      "duration_seconds": 4.7,
+      "frequency_hz": 881.9,
+      "pan": -0.8593943676092555,
+      "gain": 0.052,
+      "chamber": 8
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 83.080273,
+      "duration_seconds": 2.089599,
+      "frequency_hz": 89.3,
+      "pan": -0.7275815308376727,
+      "gain": 0.14068712714371379,
+      "chamber": 8,
+      "subdivision": "12/13"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 83.840538,
+      "duration_seconds": 2.120713,
+      "frequency_hz": 79.9,
+      "pan": 0.017105787599595024,
+      "gain": 0.2042495337079494,
+      "chamber": 9,
+      "subdivision": "0/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 84.058157,
+      "duration_seconds": 1.080607,
+      "frequency_hz": 58.7,
+      "pan": 0.0,
+      "gain": 0.5528852594615561,
+      "chamber": 9,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 84.704568,
+      "duration_seconds": 1.200859,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.5387833525841078,
+      "chamber": 9,
+      "subdivision": "1/17"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 84.925583,
+      "duration_seconds": 2.114583,
+      "frequency_hz": 63.7,
+      "pan": -0.23965693620572137,
+      "gain": 0.18597717844867917,
+      "chamber": 9,
+      "subdivision": "2/19"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 85.373752,
+      "duration_seconds": 1.797373,
+      "frequency_hz": 107.1,
+      "pan": -0.3958604608680785,
+      "gain": 0.16580820442985406,
+      "chamber": 8,
+      "subdivision": "15/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 85.8493,
+      "duration_seconds": 4.7,
+      "frequency_hz": 643.1,
+      "pan": 0.725851090521586,
+      "gain": 0.052,
+      "chamber": 9
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 86.641803,
+      "duration_seconds": 1.073058,
+      "frequency_hz": 89.3,
+      "pan": -0.266154086586605,
+      "gain": 0.1382249140520354,
+      "chamber": 9,
+      "subdivision": "5/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 87.033603,
+      "duration_seconds": 1.006096,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.5911017674128531,
+      "chamber": 9,
+      "subdivision": "5/17"
+    },
+    {
+      "kind": "call",
+      "time_seconds": 87.637,
+      "duration_seconds": 6.88545,
+      "frequency_hz": 247.7,
+      "pan": 0.16290011160907514,
+      "gain": 0.105,
+      "chamber": 9
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 88.613784,
+      "duration_seconds": 1.266536,
+      "frequency_hz": 107.1,
+      "pan": 0.3421402737126782,
+      "gain": 0.21612523314454732,
+      "chamber": 9,
+      "subdivision": "9/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 89.403275,
+      "duration_seconds": 0.911835,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.5536651919970595,
+      "chamber": 9,
+      "subdivision": "9/17"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 91.2831,
+      "duration_seconds": 4.7,
+      "frequency_hz": 643.1,
+      "pan": 0.7167294883115394,
+      "gain": 0.052,
+      "chamber": 9
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 94.203299,
+      "duration_seconds": 1.604448,
+      "frequency_hz": 39.7,
+      "pan": 0.0,
+      "gain": 0.6531432983569181,
+      "chamber": 10,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 94.884649,
+      "duration_seconds": 1.38895,
+      "frequency_hz": 63.7,
+      "pan": -0.45281182184097607,
+      "gain": 0.1478655832928198,
+      "chamber": 10,
+      "subdivision": "1/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 96.1423,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": -0.5996836474628611,
+      "gain": 0.052,
+      "chamber": 10
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 97.436636,
+      "duration_seconds": 1.718707,
+      "frequency_hz": 89.3,
+      "pan": -0.3504954982510869,
+      "gain": 0.16494005198801642,
+      "chamber": 10,
+      "subdivision": "4/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 98.229931,
+      "duration_seconds": 0.949225,
+      "frequency_hz": 46.3,
+      "pan": 0.0,
+      "gain": 0.6284924535226197,
+      "chamber": 10,
+      "subdivision": "4/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 99.193339,
+      "duration_seconds": 1.595179,
+      "frequency_hz": 53.1,
+      "pan": 0.0,
+      "gain": 0.6044218177898377,
+      "chamber": 10,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 100.86123,
+      "duration_seconds": 2.305831,
+      "frequency_hz": 107.1,
+      "pan": 0.12536908822449122,
+      "gain": 0.21126204649081412,
+      "chamber": 10,
+      "subdivision": "8/13"
+    },
+    {
+      "kind": "glass",
+      "time_seconds": 102.1141,
+      "duration_seconds": 4.7,
+      "frequency_hz": 417.1,
+      "pan": 0.7172666017814102,
+      "gain": 0.052,
+      "chamber": 10
+    },
+    {
+      "kind": "membrane",
+      "time_seconds": 105.090551,
+      "duration_seconds": 1.978634,
+      "frequency_hz": 63.7,
+      "pan": -0.28575638141677884,
+      "gain": 0.1957897689398207,
+      "chamber": 0,
+      "subdivision": "0/13"
+    }
+  ],
+  "validation": {
+    "source": {
+      "duration_seconds": 105.1,
+      "sample_rate_hz": 48000,
+      "channels": 2,
+      "peak": 0.5799999833106995,
+      "rms": 0.08316054195165634,
+      "dc_per_channel": [
+        2.774770413438432e-09,
+        -5.4446469555102794e-09
+      ],
+      "seam_step_per_channel": [
+        0.0015565715730190277,
+        0.00024355947971343994
+      ],
+      "seam_head_rms": 0.09120241552591324,
+      "seam_tail_rms": 0.05557497590780258,
+      "stereo_difference_rms": 0.03079412877559662
+    },
+    "decoded_vorbis": {
+      "duration_seconds": 105.1,
+      "sample_rate_hz": 48000,
+      "channels": 2,
+      "peak": 0.5849246978759766,
+      "rms": 0.08339697867631912,
+      "dc_per_channel": [
+        1.1510484000609722e-05,
+        1.3073365153104533e-05
+      ],
+      "seam_step_per_channel": [
+        0.0018891990184783936,
+        6.343424320220947e-05
+      ],
+      "seam_head_rms": 0.0911078229546547,
+      "seam_tail_rms": 0.05559853836894035,
+      "stereo_difference_rms": 0.030913135036826134
+    }
+  }
+}

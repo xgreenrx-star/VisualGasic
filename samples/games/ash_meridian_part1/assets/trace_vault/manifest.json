@@ -324,15 +324,15 @@
     {
       "id": "service_tag",
       "scene": "res://assets/trace_vault/scenes/service_tag.tscn",
-      "role": "Code clue for the yard dock cradle. Without the translator only strokes show; with it, Line0/Gloss and Line1/Gloss read \"CRADLE RELEASE: TWO SEVEN FOUR ONE\". Numbers are spelled out, so keypad glyphs cannot be shape-matched.",
+      "role": "Code clue for the yard dock cradle. Numeral strokes match the release keypad. Players can copy the shapes before acquiring language knowledge; English Gloss labels remain hidden in play.",
       "nominal_dimensions": [
         1.5,
         0.86,
         0.05
       ],
       "markers": [],
-      "mesh_instances": 87,
-      "sha256": "ff3b2da1c81c9876962117c076d1639d912ffe185d2338bdeac0c22565935368"
+      "mesh_instances": 66,
+      "sha256": "160a11ff0c9ae0c73f734552e00ea55837f1d96c4e688da08c6feb2db3adb382"
     },
     {
       "id": "relay_beacon",

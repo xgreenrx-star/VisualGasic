@@ -188,7 +188,7 @@ Sub say(ByVal text As String, ByVal priority As Integer, Optional recording As V
 			Exit Sub
 		End If
 	End If
-	If pending.size() >= 8 Then Exit Sub
+	If pending.size() >= 12 Then Exit Sub
 	If recording <> Nothing Then last_error = ""
 	row = New Dictionary
 	row("text") = text

@@ -151,6 +151,25 @@ Sub ensure_buses()
 	bus_named("SFX", "Master")
 	bus_named("Ambience", "SFX")
 	ensure_echo()
+	ensure_club()
+End Sub
+
+' Club music bus, plus a low-passed door bus so the tunnel only hears the kick.
+Sub ensure_club()
+	Dim idx As Integer
+	Dim fx As Object
+	idx = bus_named("Club", "Master")
+	If AudioServer.get_bus_effect_count(idx) = 0 Then
+		fx = ClassDB.Instantiate("AudioEffectSpectrumAnalyzer")
+		fx.buffer_length = 0.2
+		AudioServer.add_bus_effect(idx, fx)
+	End If
+	idx = bus_named("ClubDoor", "Master")
+	If AudioServer.get_bus_effect_count(idx) = 0 Then
+		fx = ClassDB.Instantiate("AudioEffectLowPassFilter")
+		fx.cutoff_hz = 200.0
+		AudioServer.add_bus_effect(idx, fx)
+	End If
 End Sub
 
 Sub ensure_echo()
@@ -365,6 +384,7 @@ End Sub
 Function surface_for(ByVal city As Node) As String
 	If city.place = "building" Then Return "tile"
 	If city.place = "floor" Then
+		If city.floor_code = "77124" Then Return "tile"
 		If city.floor_code = "88216" Then Return "concrete"
 		Return "metal"
 	End If
@@ -379,6 +399,8 @@ Function music_for(ByVal city As Node) As String
 	If city.completed Then Return ""
 	If city.place = "lift" Then Return music_name
 	If city.place = "floor" Then
+		If city.floor_code = "77124" Then Return ""
+		If city.floor_code = "77125" Then Return ""
 		If city.floor_code = "88216" Then Return "undercity_dark"
 		Return "stratum_deep"
 	End If

@@ -1,0 +1,222 @@
+[
+	{
+		"audio": "voice/01.ogg",
+		"backend": "kokoro",
+		"id": "01",
+		"profile": "am_michael",
+		"seconds": 2.654375,
+		"silence": 0.16,
+		"speaker": "MARK",
+		"speed": 1.02,
+		"text": "Oh, come on. You've been sitting on that all night?"
+	},
+	{
+		"audio": "voice/02.ogg",
+		"backend": "kokoro",
+		"id": "02",
+		"profile": "JASON",
+		"seconds": 1.781583,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.02,
+		"text": "Thought you said I was easy to read."
+	},
+	{
+		"audio": "voice/03.ogg",
+		"backend": "kokoro",
+		"id": "03",
+		"profile": "am_michael",
+		"seconds": 1.961333,
+		"silence": 0.18,
+		"speaker": "MARK",
+		"speed": 1.01,
+		"text": "You are. When I'm sober."
+	},
+	{
+		"audio": "voice/04.ogg",
+		"backend": "kokoro",
+		"id": "04",
+		"profile": "am_michael",
+		"seconds": 2.780625,
+		"silence": 0.26,
+		"speaker": "MARK",
+		"speed": 0.98,
+		"text": "All right... you won. I'll send the coordinates."
+	},
+	{
+		"audio": "voice/05.ogg",
+		"backend": "kokoro",
+		"id": "05",
+		"profile": "am_michael",
+		"seconds": 4.02525,
+		"silence": 0.32,
+		"speaker": "MARK",
+		"speed": 0.93,
+		"text": "Jason. Look at me. Don't go there. I'm serious."
+	},
+	{
+		"audio": "voice/06.ogg",
+		"backend": "kokoro",
+		"id": "06",
+		"profile": "JASON",
+		"seconds": 1.176125,
+		"silence": 0.18,
+		"speaker": "JASON",
+		"speed": 1.0,
+		"text": "What happened out there?"
+	},
+	{
+		"audio": "voice/07.ogg",
+		"backend": "kokoro",
+		"id": "07",
+		"profile": "am_michael",
+		"seconds": 2.481417,
+		"silence": 0.3,
+		"speaker": "MARK",
+		"speed": 0.94,
+		"text": "I don't want to talk about it. Not tonight."
+	},
+	{
+		"audio": "voice/08.ogg",
+		"backend": "kokoro",
+		"id": "08",
+		"profile": "am_michael",
+		"seconds": 5.155917,
+		"silence": 0.34,
+		"speaker": "MARK",
+		"speed": 0.92,
+		"text": "I think I'm done, Jason. I just... don't have it in me anymore. I used to love this work."
+	},
+	{
+		"audio": "voice/09.ogg",
+		"backend": "kokoro",
+		"id": "09",
+		"profile": "JASON",
+		"seconds": 4.905667,
+		"silence": 0.2,
+		"speaker": "JASON",
+		"speed": 0.98,
+		"text": "I'm tired of scraping by. One good haul, and Stacy and I might actually get somewhere."
+	},
+	{
+		"audio": "voice/10.ogg",
+		"backend": "kokoro",
+		"id": "10",
+		"profile": "am_michael",
+		"seconds": 2.357083,
+		"silence": 0.34,
+		"speaker": "MARK",
+		"speed": 0.93,
+		"text": "Yeah... I used to tell myself that too."
+	},
+	{
+		"audio": "voice/11.ogg",
+		"backend": "kokoro",
+		"id": "11",
+		"profile": "am_michael",
+		"seconds": 2.964833,
+		"silence": 0.2,
+		"speaker": "MARK",
+		"speed": 1.02,
+		"text": "Wait... you're going anyway, aren't you? I know you."
+	},
+	{
+		"audio": "voice/12.ogg",
+		"backend": "kokoro",
+		"id": "12",
+		"profile": "am_michael",
+		"seconds": 5.89425,
+		"silence": 0.18,
+		"speaker": "MARK",
+		"speed": 1.0,
+		"text": "My pack's still out there. Little shelter, east of the yard road. Broken amber marker by the drain."
+	},
+	{
+		"audio": "voice/13.ogg",
+		"backend": "kokoro",
+		"id": "13",
+		"profile": "JASON",
+		"seconds": 1.227083,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.0,
+		"text": "You left your gear?"
+	},
+	{
+		"audio": "voice/14.ogg",
+		"backend": "kokoro",
+		"id": "14",
+		"profile": "am_michael",
+		"seconds": 4.711917,
+		"silence": 0.16,
+		"speaker": "MARK",
+		"speed": 1.04,
+		"text": "There's a computer in there. Looks like junk. It isn't. I'll send you the software."
+	},
+	{
+		"audio": "voice/15.ogg",
+		"backend": "kokoro",
+		"id": "15",
+		"profile": "am_michael",
+		"seconds": 5.340458,
+		"silence": 0.32,
+		"speaker": "MARK",
+		"speed": 0.93,
+		"text": "Take it. I'm not going back. But listen... if it feels wrong, you leave. Right away."
+	},
+	{
+		"audio": "voice/16.ogg",
+		"backend": "kokoro",
+		"id": "16",
+		"profile": "JASON",
+		"seconds": 5.423292,
+		"silence": 0.2,
+		"speaker": "JASON",
+		"speed": 0.99,
+		"text": "Hey, Stace, it's me. I'm heading out. Might be out of range for a while. I'll call you when I can."
+	},
+	{
+		"audio": "voice/17.ogg",
+		"backend": "kokoro",
+		"id": "17",
+		"profile": "ORAC",
+		"seconds": 4.033417,
+		"silence": 0.2,
+		"speaker": "ORAC",
+		"speed": 0.98,
+		"text": "Well, Mark wasn't making it up. Still, no one's answering us."
+	},
+	{
+		"audio": "voice/18.ogg",
+		"backend": "kokoro",
+		"id": "18",
+		"profile": "JASON",
+		"seconds": 1.686417,
+		"silence": 0.18,
+		"speaker": "JASON",
+		"speed": 1.0,
+		"text": "He didn't mention it was this big."
+	},
+	{
+		"audio": "voice/19.ogg",
+		"backend": "kokoro",
+		"id": "19",
+		"profile": "ORAC",
+		"seconds": 3.708333,
+		"silence": 0.18,
+		"speaker": "ORAC",
+		"speed": 1.0,
+		"text": "I've found a way in. Give me a moment to match its rotation."
+	},
+	{
+		"audio": "voice/20.ogg",
+		"backend": "kokoro",
+		"id": "20",
+		"profile": "JASON",
+		"seconds": 1.892708,
+		"silence": 0.18,
+		"speaker": "JASON",
+		"speed": 1.0,
+		"text": "All right. Let's have a look."
+	}
+]

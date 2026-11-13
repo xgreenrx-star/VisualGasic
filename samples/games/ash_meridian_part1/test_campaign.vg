@@ -75,6 +75,9 @@ Sub _Ready()
 	If legacy_existed Then legacy_save = ReadAllText("user://ash_meridian_save.txt")
 	game.phase = 12
 	game.title_i = 0
+	game.opt_reduced = False
+	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+	If directory <> Nothing Then directory.remove("ash_meridian_opening.txt")
 End Sub
 
 Sub aa_checks()
@@ -121,26 +124,27 @@ Sub mission_checks()
 	view.sample_input()
 	check(yard.mission_briefing_visible(), "campaign_briefing_toggle_opens")
 	lines = yard.mission_briefing()
-	check(lines.size() = 4 And lines(0).contains("Jason") And lines(0).contains("scavenger") And lines(1).contains("assistant"), "campaign_briefing_identifies_player_and_orac")
-	check(lines(2).contains("cannot leave loaded") And lines(2).contains("below the yard") And lines(3).contains("door and press F"), "campaign_briefing_explains_mission_and_first_action")
+	check(lines.size() = 4 And lines(0).contains("Jason") And lines(0).contains("card game") And lines(1).contains("assistant"), "campaign_briefing_identifies_player_and_card_game")
+	check(lines(2).contains("cannot leave loaded") And lines(2).contains("below the yard") And lines(3).contains("broken amber drain marker"), "campaign_briefing_explains_mission_and_stash")
 	For Each entry_text In lines
 		check(font.get_string_size(entry_text, 0, -1, 12).x <= 709, "campaign_briefing_line_fits_card")
 	Next
 	text = campaign.objective()
-	check(text.contains("workbenches") And text.contains("lift code") And text.contains("Interface Translator before the programmer") And Not text.contains("FEB") And Not text.contains("alarm"), "campaign_initial_job_explains_translator_and_glyphs_without_spoilers")
+	check(text.contains("Mark's computer") And text.contains("amber drain marker"), "campaign_initial_job_directs_to_stash")
 	yard.message_left = 0
 	check(yard.mission_briefing_visible() And campaign.objective() = text, "campaign_guidance_outlasts_notifications")
 	yard.driving = True
 	check(yard.mission_briefing_visible() And campaign.objective() = text, "campaign_guidance_available_in_buggy")
 	yard.driving = False
+	yard.pack("commander_plus4") = 1
 	yard.place = "building"
 	yard.building_index = 0
 	yard.position_xz = Vector2(0, 14)
 	yard.use_object()
-	check(yard.deep.has_item(yard, "interface_translator") And yard.message.contains("Narcean technicians") And yard.message.contains("I supply the English"), "campaign_first_archive_finds_narcean_lexicon")
+	check(Not yard.deep.interface_lexicon_ready(yard) And yard.message.contains("cannot read"), "campaign_first_archive_copies_glyph_without_translation")
 	check(yard.discovered(0) = yard.FEB_CODE.substr(0, 1), "campaign_translator_pickup_also_records_archive")
 	yard.use_object()
-	check(yard.pack("interface_translator") = 1, "campaign_translator_cannot_be_farmed")
+	check(Not yard.pack.has("interface_translator"), "campaign_no_physical_translator_in_archive")
 	yard.place = "surface"
 	check(yard.mission_briefing_visible() And campaign.objective().contains("1/5"), "campaign_briefing_remains_available_after_first_archive")
 	yard.toggle_briefing()
@@ -155,13 +159,16 @@ Sub mission_checks()
 	check(campaign.objective().contains("underground records"), "campaign_lift_job_keeps_search_direction")
 	yard.place = "floor"
 	yard.floor_code = "31707"
-	check(campaign.objective().contains("learned addresses"), "campaign_intermediate_floor_job_explains_progression")
+	check(campaign.objective().contains("Copy address glyphs"), "campaign_intermediate_floor_job_explains_untranslated_progression")
 	yard.floor_code = "88216"
 	check(campaign.objective().contains("three bus levers"), "campaign_dark_city_job_explains_transfer_station")
 	yard.stratum("levers")("88216:L0") = True
 	check(campaign.objective().contains("three bus levers"), "campaign_partial_bus_job_stays_until_powered")
 	yard.stratum("powered") = True
 	check(campaign.objective().begins_with("Grid restored."), "campaign_powered_city_job_advances")
+	check(campaign.objective().contains("eye marks"), "campaign_powered_city_job_directs_to_resident_intelligence")
+	yard.stratum("narcean_lexicon") = True
+	check(campaign.objective().contains("power coupler"), "campaign_translated_city_job_resumes_salvage")
 	yard.floor_code = yard.FEB_CODE
 	check(campaign.objective().contains("amber service socket"), "campaign_coupler_floor_job_names_interaction")
 	yard.awakening = True
@@ -195,6 +202,7 @@ Sub persistence_checks()
 	check(Not yard.message.contains("ZEN") And Not yard.message.contains("OFFLINE"), "campaign_no_ai_failure_on_arrival")
 	mission_checks()
 	translator_checks()
+	yard.pack("commander_plus4") = 1
 	initial = campaign.snapshot(yard)
 	check(initial.size() = 32, "campaign_snapshot_has_all_fields")
 	yard.position_xz = Vector2(0, 396)
@@ -219,7 +227,7 @@ Sub persistence_checks()
 	yard.position_xz = Vector2(0, 3)
 	check(campaign.load_game(yard), "campaign_interior_load_succeeds")
 	check(campaign.snapshot(yard) = saved, "campaign_all_persistent_fields_round_trip")
-	check(yard.deep.has_item(yard, "interface_translator") And Not yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_found_translator_saves_before_programmer")
+	check(Not yard.deep.interface_lexicon_ready(yard) And Not yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_copied_glyph_save_does_not_invent_translation")
 	check(Not yard.mission_briefing_visible() And campaign.objective().contains("1/5"), "campaign_loaded_archive_keeps_briefing_retired")
 	check(yard.pending_room And campaign.orac_online And Not yard.inventory.has("regulator"), "campaign_restore_rebuilds_transients_without_inventing_items")
 	prior_save = ReadAllText(campaign.save_path)
@@ -265,14 +273,15 @@ Sub persistence_checks()
 	yard.pack("gold_bar") = 2
 	yard.pack("psionic_screwdriver") = 1
 	yard.stratum("codes")("66038") = True
+	yard.stratum("narcean_lexicon") = True
 	yard.radiation = 12.5
 	check(campaign.validate(campaign.snapshot(yard), yard), "campaign_accepts_deep_stratum_lift_car_position")
 	check(campaign.save_game(), "campaign_save_in_deep_stratum")
 	yard.pack.clear()
 	yard.radiation = 0
 	check(campaign.load_game(yard), "campaign_deep_stratum_load_succeeds")
-	check(yard.pack("gold_bar") = 2 And yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_pack_round_trip")
-	check(yard.deep.has_item(yard, "interface_translator"), "campaign_translator_persists_with_programmer")
+	check(yard.pack("gold_bar") = 2 And yard.deep.has_item(yard, "commander_plus4") And Not yard.deep.has_item(yard, "psionic_screwdriver"), "campaign_pack_round_trip_and_old_tool_migration")
+	check(yard.deep.interface_lexicon_ready(yard), "campaign_language_knowledge_persists_with_programmer")
 	check(yard.stratum("codes").has("66038") And Abs(yard.radiation - 12.5) < 0.001, "campaign_stratum_progress_round_trip")
 	table = New Dictionary
 	table("laser_cannon") = 1
@@ -366,20 +375,49 @@ Sub translator_checks()
 	Dim deep As Object
 	Dim entry As Dictionary
 	Dim candidate As Dictionary
+	Dim config As Object
+	Dim legacy_state As Dictionary
+	Dim gate As Dictionary
+	Dim car As Dictionary
+	Dim k As Integer
 	deep = yard.deep
 	campaign.new_run(yard)
 	check(Not deep.interface_lexicon_ready(yard), "campaign_no_translator_from_source")
 	check(campaign.save_game() And campaign.load_game(yard) And Not deep.has_item(yard, "interface_translator"), "campaign_empty_save_does_not_grant_translator")
+	check(yard.blocked(Vector2(17.2, 30), 0.1) And yard.blocked(Vector2(20, 32.2), 0.1) And Not yard.blocked(Vector2(20, 27), 0.4) And Not yard.blocked(Vector2(20, 29), 0.4), "campaign_stash_walls_and_open_approach")
+	yard.position_xz = Vector2(20, 26)
+	yard.heading = 0
+	yard.driving = False
+	yard.move_distance(3)
+	check(yard.position_xz.y > 28, "campaign_stash_reachable_on_foot")
+	yard.place = "surface"
+	yard.position_xz = Vector2(20, 30)
+	yard.driving = True
+	check(yard.prompt().contains("park"), "campaign_stash_requires_player_to_park")
+	yard.use_object()
+	check(Not deep.has_item(yard, "commander_plus4"), "campaign_cannot_recover_stash_from_buggy")
+	yard.driving = False
+	check(yard.prompt().contains("search abandoned pack"), "campaign_stash_has_interaction_prompt")
+	yard.use_object()
+	check(deep.has_item(yard, "commander_plus4") And Not deep.interface_lexicon_ready(yard), "campaign_stash_recovered_without_language")
+	check(yard.message.contains("M.J.H.") And yard.message.contains("Narcean keys"), "campaign_stash_identifies_plate_without_translation")
+	yard.use_object()
+	check(yard.pack("commander_plus4") = 1, "campaign_stash_cannot_be_farmed")
+	check(campaign.save_game() And campaign.load_game(yard) And yard.pack("commander_plus4") = 1, "campaign_stash_survives_save_and_load")
+	yard.use_object()
+	check(yard.pack("commander_plus4") = 1, "campaign_stash_remains_empty_after_load")
 	yard.place = "floor"
 	yard.floor_code = "52914"
 	yard.position_xz = Vector2(0, -4.8)
 	deep.arrive(yard, False)
 	deep.ensure_layout(yard)
 	check(deep.visor_text(yard) = "", "campaign_no_live_translation_without_lexicon")
-	yard.pack("psionic_screwdriver") = 1
+	check(deep.address_label(yard, "52914") = "UNTRANSLATED ADDRESS", "campaign_journal_does_not_translate_copied_address_names")
+	yard.position_xz = deep.consoles(0)("p")
+	check(deep.use(yard) And Not yard.message.contains("TRANSLATED:") And yard.message.contains("copied"), "campaign_console_copies_addresses_without_translating_record")
+	check(deep.knows(yard, "80451"), "campaign_untranslated_address_enters_journal")
 	yard.position_xz = deep.gates(0)("r").get_center() + Vector2(0, -1.2)
-	check(deep.use(yard) And Not deep.hacking And yard.message.contains("Interface Translator"), "campaign_programmer_cannot_hack_without_lexicon")
-	yard.pack.erase("psionic_screwdriver")
+	check(deep.use(yard) And Not deep.hacking And yard.message.contains("language knowledge"), "campaign_programmer_cannot_hack_without_lexicon")
 	yard.floor_code = "88216"
 	deep.arrive(yard, False)
 	deep.ensure_layout(yard)
@@ -387,31 +425,56 @@ Sub translator_checks()
 	deep.grid_power = True
 	yard.stratum("foot_y") = 6.0
 	yard.position_xz = deep._car_pos(yard, deep.cars(0)) + Vector2(2.4, 0)
-	yard.pack("psionic_screwdriver") = 1
-	check(deep.use(yard) And Not deep.hacking And yard.message.contains("Interface Translator"), "campaign_car_hack_requires_lexicon")
-	yard.pack.erase("psionic_screwdriver")
+	check(deep.use(yard) And Not deep.hacking And yard.message.contains("language knowledge"), "campaign_car_hack_requires_lexicon")
 	yard.floor_code = "52914"
 	deep.arrive(yard, False)
 	deep.ensure_layout(yard)
 	For Each candidate In deep.pickups
 		If candidate("item") = "psionic_screwdriver" Then entry = candidate
 	Next
-	check(entry <> Nothing, "campaign_programmer_fixture_exists")
-	If entry <> Nothing Then
-		yard.position_xz = Vector2(entry("p").x, entry("p").z)
-		deep.physics(yard, 0.05)
-		check(Not deep.has_item(yard, "psionic_screwdriver") And Not yard.stratum("taken").has(entry("key")), "campaign_programmer_not_autocollected_before_translator")
-		check(deep.prompt(yard).contains("FIND INTERFACE TRANSLATOR"), "campaign_unreadable_programmer_prompt")
-		check(deep.use(yard) And yard.message.contains("Find the Interface Translator"), "campaign_unreadable_programmer_explained_on_use")
-		yard.place = "building"
-		yard.building_index = 0
-		yard.position_xz = Vector2(0, 14)
-		yard.use_object()
-		yard.place = "floor"
-		yard.position_xz = Vector2(entry("p").x, entry("p").z)
-		deep._collect(yard, entry)
-		check(deep.has_item(yard, "psionic_screwdriver") And yard.stratum("taken").has(entry("key")), "campaign_translator_enables_programmer_recovery")
-	End If
+	check(entry.size() = 0, "campaign_screwdriver_not_placed_in_warrens")
+	yard.place = "building"
+	yard.building_index = 0
+	yard.position_xz = Vector2(0, 14)
+	yard.use_object()
+	check(Not deep.interface_lexicon_ready(yard), "campaign_archive_does_not_supply_language")
+	yard.stratum("narcean_lexicon") = True
+	yard.place = "floor"
+	gate = deep.gates(0)
+	yard.position_xz = gate("r").get_center() + Vector2(0, -1.2)
+	yard.pack.erase("commander_plus4")
+	yard.pack("psionic_screwdriver") = 1
+	check(deep.use(yard) And Not deep.hacking And yard.message.contains("Mark's computer"), "campaign_screwdriver_cannot_replace_commander")
+	yard.pack.erase("psionic_screwdriver")
+	yard.pack("commander_plus4") = 1
+	check(deep.prompt(yard).contains("COMMANDER +4") And deep.use(yard) And deep.hacking, "campaign_commander_hacks_after_language_transfer")
+	For k = 0 To 10
+		If deep.hacking Then
+			deep.hack_glyph = deep.hack_target(deep.hack_filled)
+			deep.hack_press(yard)
+		End If
+	Next
+	check(Not deep.hacking And yard.stratum("hacked").has(gate("id")), "campaign_commander_opens_locked_door")
+	yard.floor_code = "88216"
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+	deep.grid_power = True
+	yard.stratum("foot_y") = 6.0
+	car = deep.cars(0)
+	yard.position_xz = deep._car_pos(yard, car) + Vector2(2.4, 0)
+	check(deep.prompt(yard).contains("COMMANDER +4") And deep.use(yard) And deep.hacking, "campaign_commander_starts_car_hack")
+	For k = 0 To 10
+		If deep.hacking Then
+			deep.hack_glyph = deep.hack_target(deep.hack_filled)
+			deep.hack_press(yard)
+		End If
+	Next
+	check(Not deep.hacking And yard.stratum("hacked").has(car("id")), "campaign_commander_unlocks_car")
+	yard.building_index = 7
+	check(campaign.save_game() And campaign.load_game(yard) And yard.stratum("hacked").has(gate("id")) And yard.stratum("hacked").has(car("id")), "campaign_commander_hacks_survive_save")
+	yard.floor_code = "52914"
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
 	yard.position_xz = Vector2(0, -4.8)
 	check(deep.visor_text(yard) <> "", "campaign_lexicon_enables_live_translation")
 	yard.awakening = True
@@ -421,10 +484,20 @@ Sub translator_checks()
 	campaign.new_run(yard)
 	yard.pack("psionic_screwdriver") = 1
 	check(campaign.save_game(), "campaign_legacy_programmer_fixture_saved")
-	check(campaign.load_game(yard) And deep.has_item(yard, "interface_translator"), "campaign_legacy_programmer_gains_lexicon_on_load")
+	check(campaign.load_game(yard) And Not deep.interface_lexicon_ready(yard) And deep.has_item(yard, "commander_plus4") And Not deep.has_item(yard, "psionic_screwdriver"), "campaign_old_tool_migrates_without_inventing_language")
+	config = ClassDB.Instantiate("ConfigFile")
+	config.load(campaign.save_path)
+	legacy_state = config.get_value("stratum", "state")
+	legacy_state.erase("narcean_lexicon")
+	config.set_value("stratum", "state", legacy_state)
+	config.save(campaign.save_path)
+	check(campaign.load_game(yard) And deep.interface_lexicon_ready(yard) And deep.has_item(yard, "commander_plus4") And Not deep.has_item(yard, "psionic_screwdriver") And Not deep.has_item(yard, "interface_translator"), "campaign_legacy_programmer_gains_learned_lexicon_on_load")
 	check(yard.message.contains("Legacy programmer lexicon restored"), "campaign_legacy_lexicon_migration_explained")
 	check(campaign.save_game(), "campaign_migrated_lexicon_saves")
-	check(campaign.load_game(yard) And yard.pack("interface_translator") = 1, "campaign_migrated_lexicon_load_is_idempotent")
+	check(campaign.load_game(yard) And yard.stratum.get("narcean_lexicon", False), "campaign_migrated_lexicon_load_is_idempotent")
+	campaign.new_run(yard)
+	yard.pack("interface_translator") = 1
+	check(campaign.save_game() And campaign.load_game(yard) And deep.interface_lexicon_ready(yard) And Not yard.pack.has("interface_translator"), "campaign_legacy_translator_migrates_to_knowledge")
 	campaign.new_run(yard)
 End Sub
 
@@ -441,6 +514,9 @@ Sub _Process(ByVal delta As Single)
 		key(KEY_ENTER, False)
 	ElseIf frame = 6 Then
 		game.set_process(False)
+		check(game.phase = 23 And game.opening_player <> Nothing, "play_starts_the_opening_cut")
+		check(game.opening_text.size() = 20 And Abs(game.opening_from(0) - 2.0) < 0.01 And Abs(game.opening_to(19) - 137.243) < 0.01, "opening_subtitles_loaded")
+		game.FinishOpening()
 		check(game.phase = 0 And game.campaign_arrival And Not game.campaign_active, "campaign_play_opens_orac_approach")
 		game.phase = 1
 		game.next_ring = 28
@@ -568,6 +644,8 @@ Sub _Process(ByVal delta As Single)
 		restored_game.queue_free()
 		restored_game = Nothing
 	ElseIf frame = 42 Then
+		directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+		If directory <> Nothing Then directory.remove("ash_meridian_opening.txt")
 		Print "CAMPAIGN_RESULT=" & Str(checks - failures) & "/" & Str(checks)
 		GetTree().quit(failures)
 	End If

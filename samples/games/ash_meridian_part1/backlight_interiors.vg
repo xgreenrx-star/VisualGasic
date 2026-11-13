@@ -216,7 +216,7 @@ Sub build(ByVal city As Node)
 		city.floor_signature = "deep:" & city.floor_code
 		city.room_mesh = city._finish_chunked("InteriorShell", 48.0)
 		city.room_mesh.reparent(city.interior)
-		_lift(city, True)
+		If city.floor_code <> "77125" Then _lift(city, True)
 		city.deep.build_dynamic(city)
 		city.interior.visible = True
 		Exit Sub

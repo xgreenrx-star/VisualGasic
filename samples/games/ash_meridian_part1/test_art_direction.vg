@@ -20,16 +20,16 @@ Sub _Ready()
 	Dim stretch_mode As Integer
 	Dim path As String
 	path = Str(ProjectSettings.get_setting("application/boot_splash/image", ""))
-	check(path = "res://assets/branding/lucid_splash.png", "game_uses_custom_music_credit_boot_image")
+	check(path = "res://assets/branding/narcean_logo.png", "game_uses_narcean_logo_boot_image")
 	stretch_mode = ProjectSettings.get_setting("application/boot_splash/stretch_mode")
 	check(stretch_mode = 1, "splash_preserves_native_aspect_ratio")
-	check(ProjectSettings.get_setting("application/boot_splash/minimum_display_time") = 2500, "music_credit_visible_for_minimum_two_and_half_seconds")
+	check(ProjectSettings.get_setting("application/boot_splash/minimum_display_time") = 2500, "logo_visible_for_minimum_two_and_half_seconds")
 	texture = Load(path)
 	check(texture <> Nothing, "custom_splash_decodes")
 	If texture <> Nothing Then
-		check(texture.get_width() = 960 And texture.get_height() = 540, "splash_matches_game_canvas_dimensions")
+		check(texture.get_width() = 1024 And texture.get_height() = 1024, "splash_uses_copied_logo_dimensions")
 		pixels = texture.get_image()
-		check(pixels.get_pixel(10, 520).r < 0.05, "music_credit_has_black_background_margin")
+		check(pixels.get_pixel(10, 520).r < 0.05, "logo_has_black_background_margin")
 	End If
 	texture = Load("res://assets/trace_vault/concepts/trace_cycle.png")
 	check(texture <> Nothing, "cycle_concept_png_decodes")

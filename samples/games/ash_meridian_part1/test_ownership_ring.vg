@@ -567,7 +567,7 @@ Sub _Ready()
 	game.set_process(False)
 	view = game.GetNode("Presentation")
 	game.dev_page = 0
-	check(game.PageCount() = 12 And game.MainScene(9) = 20 And game.MainScene(10) = 21 And game.MainScene(11) = 100, "dev_menu_game_boot_and_archive_destinations")
+	check(game.PageCount() = 13 And game.MainScene(9) = 20 And game.MainScene(10) = 21 And game.MainScene(11) = 100 And game.MainScene(12) = 22 And game.DevLabel(22) = "NIGHT CLUB", "dev_menu_game_boot_and_archive_destinations")
 	game.dev_i = 20
 	game.WarpDev()
 	ring = game.ownership_ring
@@ -615,6 +615,10 @@ Sub _Ready()
 	game.dev_i = 20
 	game.WarpDev()
 	check(game.ownership_ring = ring And ring.stage = "COUNTDOWN" And ring.help_open And Not ring.practice, "reentry_clean_startup_guide")
+	game.dev_i = 22
+	game.WarpDev()
+	check(game.phase = 18 And game.presentation.backlight_city.place = "floor" And game.presentation.backlight_city.floor_code = "77124", "night_club_dev_shortcut")
+	check(game.presentation.backlight_city.position_xz.distance_to(Vector2(0, 2.4)) < 0.2 And game.presentation.backlight_city.deep.grid_power = True, "night_club_dev_entrance_powered")
 	Print "Ownership Ring: " & Str(checks - failures) & "/" & Str(checks) & " passed"
 	If failures > 0 Then GetTree().Quit(1)
 End Sub

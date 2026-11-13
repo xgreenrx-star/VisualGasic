@@ -15,6 +15,39 @@ are not yet implemented; current Play still has the old underground chamber.
 
 ## Play
 
+**Opening cinematic preproduction:** the separate
+[141-second voiced animatic](assets/opening_cinematic/index.html) and
+[production/storyboard brief](../../../docs/development/ash_meridian_opening/OPENING_PRODUCTION.md)
+cover Mark's wager, warning, station departure and the ring approach. Open
+the HTML in a browser and press Play. It is an illustrated review, not final
+character animation; the live game still uses its existing opening. The
+[central MP4 review export](../../../docs/development/ash_meridian_opening/renders/ash_meridian_opening_animatic_v05.mp4)
+is the complete illustrated cut.
+
+**In-engine bar staging:** open [opening_bar_study.tscn](opening_bar_study.tscn)
+for an isolated 82.35-second 3D pass with the revised dialogue and reverse
+coverage. Hands are intentionally hidden at lap level after review found the
+procedural hand pose unconvincing; no visible hand reaches for the coordinate
+device. Revision 4 adjusts phrase pauses and pacing, while the neural voices
+remain scratch performances rather than finished acting. The look-development
+pass adds smoother stylized faces, blinking, clip-driven mouth motion, shaped
+jackets, and a detailed cyan/amber bar. It starts paused; Play, Mute,
+scrubbing, Space pause and Escape skip are available. The character meshes
+are staging assets, not final cinematic characters or phoneme lip sync.
+The separate [rigged-character study](../../../docs/development/ash_meridian_opening/character_audition/README.md)
+records the earlier silent tests and the rejected CC0 poker-table review
+(`ash_meridian_opening_poker_v01.mp4`, kept as a failure reference only).
+The current 3D review is [ash_meridian_opening_v07.mp4](../../../docs/development/ash_meridian_opening/renders/gate7/ash_meridian_opening_v07.mp4),
+with a [subtitle sidecar](../../../docs/development/ash_meridian_opening/renders/gate7/ash_meridian_opening_v07.srt).
+It keeps the accepted gate 6 character animation and adds a rebuilt bar,
+glassware, and a true-scale Narcean ring with an atmosphere. The ship descends through the ring's clouds to the Backlight Yard landing gate.
+Play shows that cut before Orac's approach warning. Escape, Space, Enter, or a
+click skips it, and either skipping or letting it finish is remembered, so the
+next Play goes straight to the approach.
+The [central review export](../../../docs/development/ash_meridian_opening/renders/ash_meridian_opening_bar_v04.mp4)
+is separate from runtime assets. Movie capture hides the review controls. See
+the production brief above for launch, capture and regression-test commands.
+
 ### Story document and approved hacking revision
 
 The [unified game proposal](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md#unified-game-proposal---november-6-2026)
@@ -26,28 +59,37 @@ MJH's original maintenance programmer, the surviving scavenger's English
 software, Jason's manual suit-keyboard connection, the Ownership Ring contest
 and local patrol-drone alerts on failure. The governor-bypass explanation is
 withheld until after the FEB awakens. The complete encounter is **planned**;
-the campaign still uses the psionic screwdriver and cycling-glyph hack
+the campaign currently uses the Commander with the cycling-glyph hack
 described below. The implemented translation prerequisite and compatibility
 handling are described next.
 
-**November 6 translation prerequisite increment:** in Play and the Backlight
-Yard development destination, the first searched archive workbench yields a
-single Interface Translator and still copies its normal journal glyph.
-Narcean technical services built its script/maintenance lexicon; Orac supplies
-the English, rather than the module containing an alien-to-English dictionary.
-The scavenger does not supply it. The current maintenance-level coupling kit
-cannot be collected or used for a new hack before this discovery; prompts
-direct an early visitor back to the yard archives without consuming the pickup.
-Live deep-floor visor translation also requires the lexicon. Standalone legacy
-Deep Stratum fixtures retain their ungated preview behaviour.
+**Mark's stash:** Jason won Narcea's coordinates from Mark Mitnick in a card
+game. Mark survived his visit, warned Jason away, and gave him the stash
+location when Jason decided to go anyway. In campaign play, press F1 for the
+directions: east of the yard road, near the broken amber drain marker. Park,
+walk into the small shelter and press F to recover the Commander +4. It is
+protected in the pack and persists in campaign saves; translation is not needed
+to pick it up. The full Commander/Fast Hack'em campaign encounter is not yet
+connected. The screwdriver is shelved in campaign; older saves carrying it
+receive the Commander instead. It remains in the standalone deep-stratum
+prototype for compatibility.
 
-The translator is saved as `interface_translator` in the existing pack section.
-Loading an older campaign already owning `psionic_screwdriver` explicitly
-restores its lexicon as a translator, with a notification, so previously
-usable equipment is not stranded. No extra campaign field or version change
-is needed. Saves without a programmer do not gain a free translator.
-The separate TRACE YARD controller retains its existing archive-bay pickup
-and inventory flag, with the same origin explained on collection.
+**Language progression:** Orac cannot initially translate Narcean. Archive
+workbenches copy visible glyphs into the journal without explaining their
+meaning. Match those shapes at early locks and lifts; no translator pickup
+is present. Address consoles likewise copy shapes without exposing their
+translated records. Reach Alien in the club backroom: he learns English,
+explains why he chooses to help, and gives Orac a Narcean service lexicon.
+Only then do visor translations, song titles and the programmer's service keys
+become readable. Standalone Deep Stratum previews remain intentionally ungated.
+
+Language knowledge persists as `stratum.narcean_lexicon`, separately from
+`alien_english`. Older saves with an Interface Translator migrate it to learned
+knowledge. Older programmer-only saves retain usable equipment through the
+existing explicit compatibility migration. New empty saves gain no translation.
+An older English-only encounter can resume the conversation and receive the
+missing lexicon. TRACE YARD retains its translator flag for legacy/preview
+states, not as a new-run pickup or an early lift requirement.
 
 Security interference affects live visor decoding, not recorded journal
 glyphs, objectives, controls or Orac's English messages. The planned Commander
@@ -404,12 +446,14 @@ Near the powered talking-face hologram, music fades down by up to 12 dB within
 switching floors or losing grid power restores the score gradually. This uses
 the music players' levels and does not change the player's saved volume sliders.
 
-The project boot splash uses the user-selected image copied from
-`scratch/Lucid_Music/lucid_banner.jpg`, with the added credit
-**Music by Lucid nod**. Its game-owned source and composed 960x540 splash are in
-`assets/branding`; the source sketch is preserved unchanged. This replaces the
-game's engine boot image, not the Godot editor's own splash. The splash keeps
-its aspect ratio and has a 2.5-second minimum display time.
+The project boot splash uses the Narcean Technologies logo at
+`assets/branding/narcean_logo.png`. That PNG is converted from the unchanged
+copy `assets/branding/narcean_logo.jpg`, taken from
+`scratch/Lucid_Music/NarceanTech_logo1.jpg`. Godot only accepts a PNG for the
+boot splash. The earlier Lucid sketch remains in that folder and is no longer
+the boot image. This replaces the game's engine boot image, not the Godot
+editor's own splash. The square logo keeps its aspect ratio on the black boot
+background and has a 2.5-second minimum display time.
 
 After the splash, `boot_terminal.vg` plays a ~5-second green CRT boot log
 (`shaders/boot_crt.gdshader`) written in Narcean glyphs. Orac's overlay sweeps
@@ -521,7 +565,7 @@ second English sign: Orac translates nearby interface labels in a screen-space
 helmet readout, including `00 - SURFACE DOCK` and
 `B04 - ISOLATION VAULT`. Floor glyphs use the same word-hash/stroke encoding as
 the other Narcean signs. World-space English gloss labels stay hidden, including
-keypad digits; the yard still requires the translator lexicon and high script
+keypad digits; normal yard play uses glyph copying before language acquisition, and high script
 remains unreadable. Nearby multi-line clues remain grouped in the visor.
 The readout uses translucent dark glass with a cyan chamfered frame, a glyph
 row and a compact `TRANSLATED:` line. It appears for nearby text or Orac messages,
@@ -534,20 +578,20 @@ allows 1.2 seconds of readable reacquisition, 1 second of corrupted characters
 and small horizontal jitter, then 1 second of translation-link loss. Only the
 visor changes; the native lettering stays stable. Interference persists through
 the return lift and escape, pauses with gameplay, and clears on a fresh run.
-Objectives, controls and defence warnings remain readable. The translator
-ownership and clue checks in [test_trace_yard.vg](test_trace_yard.vg) pass 97/97.
+Objectives, controls and defence warnings remain readable. Language ownership
+and clue checks are covered by [test_trace_yard.vg](test_trace_yard.vg).
 Normal combined-yard mode (`yard`, including TRACE YARD) starts without the
-translator. Collect the Interface Translator with F at the archive bay doorway
-(yard x=39, z=36); the physical pickup disappears and Orac's interface lexicon
-works throughout the crossing and vault. Scan the Narcean address plaque on the
-bay's rear wall (x=39, z=44.12) to record the five-symbol lift address **14242**.
+lexicon. Scan the Narcean address plaque on the archive bay's rear wall
+(x=39, z=44.12) to copy the five-symbol lift address (developer value **14242**).
+The helmet stores glyph shapes, not an English translation.
 The objectives guide these steps before the cycle can be boarded. The nearby
 yard service tag's **2741** is a separate bike-cradle release code.
 At the far lift, F opens a helmet keypad: 0-9 to enter the address, Backspace
-to edit, Enter to submit, F to cancel. The scanned address is retained in the
-readout as an archive note. Missing lexicon, an unscanned clue, and incorrect
-addresses are rejected; successful entry starts the normal travelling lift.
-Pickup, clue and lift authorization survive in-scene retries; they are not new
+to edit, Enter to submit, F to cancel. A glyph reference row maps keyboard
+positions to visible shapes, with copied and entered glyph rows. Unscanned
+clues and incorrect addresses are rejected; language knowledge is not required.
+Successful entry starts the normal travelling lift.
+The clue and lift authorization survive in-scene retries; they are not new
 campaign-save fields. A new controller starts a fresh search. `yard_test` and
 standalone crossing/vault previews explicitly skip progression; normal `yard`
 does not. The older campaign's five archive-symbol puzzle is unchanged.
@@ -691,7 +735,7 @@ console reads it through Orac's visor translation.
 | 70315 | B00 Transit Depot / Surface | B04 garrison transit index console | Ascent code; the only way back to the surface |
 | 14242 | B04 Military Chamber | Backlight Yard, rear wall of the cycle bay (x=39, z=44.12) | The FEB and the power coupler |
 | 31707 | B05 Maintenance Concourse | B04 garrison transit index console | Open pillared hall; derelict Trace Cycle; rad meter, star chart, sealed store |
-| 52914 | B06 Service Warrens | B05 concourse transit index console | Procedural maze of hallways with timed traps; psionic screwdriver, sealed rooms (buggy armour, supplies) |
+| 52914 | B06 Service Warrens | B05 concourse transit index console | Procedural maze of hallways with timed traps and sealed rooms (buggy armour, supplies) |
 | 66038 | B07 Cistern | B05 concourse transit index console | Tall reservoir with waterfalls, plants and ledges; ship scanner, relic, core gem |
 | 80451 | B08 Inverted Vault | B06 warrens dispatch console | Gravity-flip pads and sentry sweeps; grade-3 vault (ship shield, buggy boost) |
 | 93162 | B09 Fractured Deep | B07 reservoir control console | Pits, sparks and radiation zones; jetpack room |
@@ -708,7 +752,7 @@ B10 is a 60 x 72 m grid of 6 m rooms with wallpapered partitions, damp
 carpet, a dropped tile ceiling and fluorescent panels. Some panels flicker,
 and a low mains hum plays on the floor. Glow lines along the wall bases and
 floor grid keep the Tron look. Every room is reachable, apart from the sealed
-annex closet in the far corner, which needs the psionic screwdriver.
+annex closet in the far corner, which needs the Commander and language knowledge in campaign.
 
 B11 terminals are Narcean machines, not Orac. F at a terminal opens it;
 0-9 key glyphs, Enter sends, Backspace deletes and F closes. The terminal
@@ -723,7 +767,7 @@ the plaza screens and the neon light up. The trains then run, and a moving
 train hurts the player on the tracks. Station boards (F) send the player to
 Neon Crossing (line 1, beside the plaza), Spire Terminus (line 2) or Halt
 Junction (line 3). The Meridian tower has a lift to its roof. Cars must be
-hacked with the psionic screwdriver; F enters and leaves, and W/S/A/D drive.
+hacked with the Commander after the language transfer; F enters and leaves, and W/S/A/D drive.
 The power state, hacked cars and where they are parked are saved.
 
 Four projectors cast 3D scanline holograms under the ceiling. The largest
@@ -773,8 +817,8 @@ transit index console). The keypad lists the addresses already recovered.
 The derelict Trace Cycle on B05 is cold scenery; the player's own cycle stays
 docked in the Backlight Yard.
 
-The **psionic screwdriver** (Orac's name for a Narcean lock-coupling kit)
-opens sealed doors: F at the door, then F/Space when the cycling glyph matches
+In campaign, **Mark's Commander +4** opens sealed doors once Orac has learned
+the Narcean language: F at the door, then F/Space when the cycling glyph matches
 the lit slot. Each door grade adds slots and the lock re-keys after a time
 limit; Backspace aborts. **I** opens the pack. W/S selects an item and Enter
 uses consumables: med gel restores 40 suit integrity and anti-rad purges 60
@@ -907,6 +951,63 @@ or menus. Existing options files without an AA setting default to MSAA 4x.
 This project uses Godot's Compatibility renderer; built-in TAA is unavailable,
 and DLAA is not integrated. Procedural window edges and water ripples also use
 distance filtering to reduce subpixel shimmer.
+
+The optional resistance club is reached from the Undercity's east train tunnel;
+use the marked side refuges to wait clear of trains. Once the city grid is on,
+walk to the **DJ booth beneath the video wall** and press **F** at its lit
+switch to start the lights and music. The control on the right cycles flashing
+lights Off/Low/Full. Real musical onsets trigger 120 ms flashes with minimum
+intervals of 3 seconds (Low) or 1.8 seconds (Full); Off disables them.
+The separate **track selector on the left of the booth** shows the current title;
+press **F** there to cycle recordings. Your selection persists across visits,
+including the muffled music outside. Changing tracks does not bypass the booth
+power switch. The club uses tiled-floor footsteps and suppresses the normal
+exploration score.
+
+Take the marked passage **to the right of the DJ booth** into the private
+meeting room. Its resident intelligence, **Alien**, appears as a human
+holographic head. Approach him for an untranslated Narcean greeting; press
+**F** near him to continue the conversation. Jason and Orac supply a language
+sample and he quickly switches to English, remembering it on later visits.
+Jason asks why he would help. Alien's uncertain memory that Jason resembles
+former resistance visitors is not a species-history reveal. Orac denies membership; Alien chooses
+to help people who ask instead of ordering him, and is quietly glad to have
+someone to answer him. He then gives Orac the Narcean service lexicon. Until
+this transfer, song labels and Narcean records remain untranslated; afterwards,
+song titles are explicitly Orac's translations.
+Jason and Orac use the same local Kokoro neural voices as the rest of the game
+(`am_adam` and `bm_george`). Alien uses the distinct male `bm_lewis` voice
+with a slower, dry delivery, without the previous eSpeak voice or robotic filter.
+His head smoothly turns and tilts toward the player within the meeting room,
+then settles forward when the player leaves.
+The Speech option also controls these voices; subtitles remain available.
+Alien's projector has emergency power, independent of the city grid.
+
+The backroom telepad reaches the **ruined surface launch dock**: stand on the
+ripple pad and press **F**. Alien must first restore its link during the initial
+conversation; it then stays available without asking him again. No key is required;
+city power is. The dock has no
+ship, only an empty cradle, broken gantries, hull debris and ancient blast
+damage. Four consoles hold the optional evidence records. The matching pad near
+the arrival point returns to the club. This detour does not change the required
+descent route.
+
+Four original prototype tracks are installed, each a 105.1-second stereo loop:
+
+| Track | Arrangement |
+|---|---|
+| The Membrane Remembers | Eerie drones and organic calls with pitch-dropping 808-style kicks in uneven clusters |
+| Sleep Beneath the Glass | Ethereal, hypnotic lullaby with sustained invented Narcean vocal syllables; no kick pattern |
+| Teeth of the Relay | Short alien vocal/rap-like phrases, hard sub kicks and fractured bass |
+| The Floor Answers | Heavier dubstep-like growls, sub kicks and alien chants |
+
+These are synthesized prototype compositions, including formant-synthesized
+vocal syllables, not sampled singers or English songs. Unequal 7.3-12.7-second
+chambers, fractional subdivisions and microtonal tuning avoid a global BPM or
+regular 4/4 grid. Lights follow the selected recording's actual audio energy.
+Generators: `tools/audio/alien_club.py` and `tools/audio/alien_club_set.py`;
+tests: `tools/audio/test_alien_club.py` and `tools/audio/test_alien_club_set.py`.
+Each recording has a matching JSON sidecar documenting its events and validation.
 
 The Undercity ceiling is a continuous ribbed dome, rising from 60 m at the
 retaining walls to 86 m at its crown. The sun carriage follows the curved roof.

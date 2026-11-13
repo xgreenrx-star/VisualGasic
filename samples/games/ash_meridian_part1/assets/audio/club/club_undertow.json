@@ -1,0 +1,2057 @@
+{
+  "title": "The Floor Answers",
+  "style": "alien dubstep / growling bass",
+  "original_procedural_audio": true,
+  "external_audio_sources": [],
+  "generator": "tools/audio/alien_club_set.py",
+  "duration_seconds": 105.1,
+  "loop": true,
+  "rhythm": "Unequal chambers and fractional subdivisions; no global BPM or common-time grid.",
+  "lyrics": {
+    "language": "invented Narcean syllables, no canonical translation",
+    "vocabulary": [
+      "sha",
+      "vei",
+      "nu",
+      "rah",
+      "esh",
+      "tho",
+      "li",
+      "ka"
+    ],
+    "method": "original formant-synthesized singing/chant, no sampled singer"
+  },
+  "events": [
+    {
+      "kind": "sub_kick",
+      "time_seconds": 0.007286,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 0.25,
+      "duration_seconds": 0.21016478171062647,
+      "frequency_hz": 98.3,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": -0.26147706450197405,
+      "chamber": 0,
+      "subdivision": "0/13",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 0.811538,
+      "duration_seconds": 0.23989161560993072,
+      "frequency_hz": 117.1,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": -0.2844354373485083,
+      "chamber": 0,
+      "subdivision": "1/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 1.103783,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 1.259091,
+      "duration_seconds": 0.3024000953473439,
+      "frequency_hz": 87.9,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": -0.05353964867192845,
+      "chamber": 10,
+      "subdivision": "12/11",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 1.679,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.14748185496108002,
+      "chamber": 0
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 2.496154,
+      "duration_seconds": 0.3488106871586348,
+      "frequency_hz": 87.9,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": -0.26811981711627303,
+      "chamber": 0,
+      "subdivision": "4/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 2.80411,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 2.987534,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "14/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 3.394237,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "6/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 4.180769,
+      "duration_seconds": 0.37508591368628375,
+      "frequency_hz": 98.3,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": 0.28766713614867573,
+      "chamber": 0,
+      "subdivision": "7/13",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 4.453,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": -0.03491666416787895,
+      "chamber": 0
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 5.303846,
+      "duration_seconds": 0.24507111562097889,
+      "frequency_hz": 117.1,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.28047683736036483,
+      "chamber": 0,
+      "subdivision": "9/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 5.633321,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "10/13"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 6.059,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": 0.19521344137729607,
+      "chamber": 0
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 6.988462,
+      "duration_seconds": 0.3212767404850602,
+      "frequency_hz": 87.9,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": 0.024380605774151798,
+      "chamber": 0,
+      "subdivision": "12/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 7.310902,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 7.55,
+      "duration_seconds": 0.272891007315483,
+      "frequency_hz": 98.3,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": -0.10786156837936356,
+      "chamber": 1,
+      "subdivision": "0/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 7.85639,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 0,
+      "subdivision": "14/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 8.085294,
+      "duration_seconds": 0.2247901650157092,
+      "frequency_hz": 117.1,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.0525045309998029,
+      "chamber": 1,
+      "subdivision": "1/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 8.364368,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "2/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 9.393,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.18399149738511672,
+      "chamber": 1
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 9.691176,
+      "duration_seconds": 0.19313460917867764,
+      "frequency_hz": 87.9,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": -0.23785149086755578,
+      "chamber": 1,
+      "subdivision": "4/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 9.977153,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "5/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 10.514349,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "6/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 11.297059,
+      "duration_seconds": 0.36844858850006057,
+      "frequency_hz": 98.3,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.17682636185571507,
+      "chamber": 1,
+      "subdivision": "7/17",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 12.367647,
+      "duration_seconds": 0.24098827171724682,
+      "frequency_hz": 117.1,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": -0.16623973094012195,
+      "chamber": 1,
+      "subdivision": "9/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 12.651512,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "10/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 12.851,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.1562000126935583,
+      "chamber": 1
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 13.973529,
+      "duration_seconds": 0.3758700713503169,
+      "frequency_hz": 87.9,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": 0.27655669061548177,
+      "chamber": 1,
+      "subdivision": "12/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 14.769498,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 1,
+      "subdivision": "14/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 14.853,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.192811357984568,
+      "chamber": 1
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 16.432767,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 16.65,
+      "duration_seconds": 0.31949607758944976,
+      "frequency_hz": 98.3,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.06940451667298098,
+      "chamber": 2,
+      "subdivision": "0/11",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 17.259091,
+      "duration_seconds": 0.30125232030064464,
+      "frequency_hz": 117.1,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": -0.018235755028039924,
+      "chamber": 2,
+      "subdivision": "1/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 17.604242,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "2/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 17.941,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.1015182355256687,
+      "chamber": 2
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 19.086364,
+      "duration_seconds": 0.22441451126585613,
+      "frequency_hz": 87.9,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": 0.15262486007440407,
+      "chamber": 2,
+      "subdivision": "4/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 19.461342,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 20.061913,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "6/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 20.487,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": -0.10203367498968215,
+      "chamber": 2
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 20.913636,
+      "duration_seconds": 0.33724212147671,
+      "frequency_hz": 98.3,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.27492030603892953,
+      "chamber": 2,
+      "subdivision": "7/11",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 21.961,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": -0.1469876146385171,
+      "chamber": 2
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 22.131818,
+      "duration_seconds": 0.373925896549098,
+      "frequency_hz": 117.1,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.15380471134697304,
+      "chamber": 2,
+      "subdivision": "9/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 22.52726,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "10/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 23.109656,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "0/19"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 23.35,
+      "duration_seconds": 0.3181299917439929,
+      "frequency_hz": 98.3,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.22858182681173383,
+      "chamber": 3,
+      "subdivision": "0/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 23.923684,
+      "duration_seconds": 0.2759428112681388,
+      "frequency_hz": 117.1,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.10440562119045899,
+      "chamber": 3,
+      "subdivision": "1/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 23.959091,
+      "duration_seconds": 0.2826615429454934,
+      "frequency_hz": 87.9,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": -0.23665907680863307,
+      "chamber": 2,
+      "subdivision": "12/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 24.245785,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "2/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 24.890134,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 2,
+      "subdivision": "14/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 25.607,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": -0.162544577605581,
+      "chamber": 3
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 25.644737,
+      "duration_seconds": 0.2386552450589214,
+      "frequency_hz": 87.9,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": -0.02443735275924619,
+      "chamber": 3,
+      "subdivision": "4/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 25.957745,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "5/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 26.565618,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "6/19"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 27.365789,
+      "duration_seconds": 0.28577675366433886,
+      "frequency_hz": 98.3,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.19425885815468721,
+      "chamber": 3,
+      "subdivision": "7/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 28.513158,
+      "duration_seconds": 0.3126679543652898,
+      "frequency_hz": 117.1,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": -0.18671935626325364,
+      "chamber": 3,
+      "subdivision": "9/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 28.824644,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "10/19"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 29.749,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.1131749454994086,
+      "chamber": 3
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 30.234211,
+      "duration_seconds": 0.37075884730461317,
+      "frequency_hz": 87.9,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.2659829351701541,
+      "chamber": 3,
+      "subdivision": "12/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 31.161985,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 3,
+      "subdivision": "14/19"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 32.147,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.0748670691480737,
+      "chamber": 3
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 34.032534,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 34.25,
+      "duration_seconds": 0.3483036044945995,
+      "frequency_hz": 98.3,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.17656308789072225,
+      "chamber": 4,
+      "subdivision": "0/13",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 34.888462,
+      "duration_seconds": 0.362272666440855,
+      "frequency_hz": 117.1,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": 0.2152213862426367,
+      "chamber": 4,
+      "subdivision": "1/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 35.249567,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 35.909,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.0035528973122847807,
+      "chamber": 4
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 36.803846,
+      "duration_seconds": 0.30742928666576796,
+      "frequency_hz": 87.9,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": 0.11487084646171447,
+      "chamber": 4,
+      "subdivision": "4/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 37.219945,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 37.794376,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "6/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 38.719231,
+      "duration_seconds": 0.22258393087218079,
+      "frequency_hz": 98.3,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": 0.15667795013374292,
+      "chamber": 4,
+      "subdivision": "7/13",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 39.063,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": 0.054323339307465746,
+      "chamber": 4
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 39.996154,
+      "duration_seconds": 0.24689673180870303,
+      "frequency_hz": 117.1,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": -0.2834121558692424,
+      "chamber": 4,
+      "subdivision": "9/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 40.409228,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "10/13"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 40.889,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": -0.19103815583283512,
+      "chamber": 4
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 41.911538,
+      "duration_seconds": 0.34605797172920166,
+      "frequency_hz": 87.9,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.29207327504528585,
+      "chamber": 4,
+      "subdivision": "12/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 42.312633,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 42.55,
+      "duration_seconds": 0.37681989200474986,
+      "frequency_hz": 98.3,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": 0.020685838661919198,
+      "chamber": 5,
+      "subdivision": "0/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 42.954998,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 4,
+      "subdivision": "14/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 43.297059,
+      "duration_seconds": 0.3361743068005266,
+      "frequency_hz": 117.1,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": 0.08249280099991058,
+      "chamber": 5,
+      "subdivision": "1/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 43.818094,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "2/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 45.221,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.025786549774883344,
+      "chamber": 5
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 45.538235,
+      "duration_seconds": 0.32615940667088406,
+      "frequency_hz": 87.9,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.2338143808779139,
+      "chamber": 5,
+      "subdivision": "4/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 46.035449,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "5/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 46.805871,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "6/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 47.779412,
+      "duration_seconds": 0.21090218560240245,
+      "frequency_hz": 98.3,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.10728558753874828,
+      "chamber": 5,
+      "subdivision": "7/17",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 49.273529,
+      "duration_seconds": 0.19017016538888218,
+      "frequency_hz": 117.1,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": -0.12472719307852334,
+      "chamber": 5,
+      "subdivision": "9/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 49.734615,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "10/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 50.047,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.022304738932426293,
+      "chamber": 5
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 51.514706,
+      "duration_seconds": 0.2624154578503074,
+      "frequency_hz": 87.9,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.22781965214428465,
+      "chamber": 5,
+      "subdivision": "12/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 52.766297,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 5,
+      "subdivision": "14/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 52.841,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.1590685867219777,
+      "chamber": 5
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 55.03039,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 55.25,
+      "duration_seconds": 0.28624003581514856,
+      "frequency_hz": 98.3,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": -0.21512931933528356,
+      "chamber": 6,
+      "subdivision": "0/11",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 55.968182,
+      "duration_seconds": 0.321745915243017,
+      "frequency_hz": 117.1,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": 0.23371522308682297,
+      "chamber": 6,
+      "subdivision": "1/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 56.429818,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "2/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 56.817,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": -0.13630228660697435,
+      "chamber": 6
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 58.122727,
+      "duration_seconds": 0.36223563494473493,
+      "frequency_hz": 87.9,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.20010451324454465,
+      "chamber": 6,
+      "subdivision": "4/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 58.561575,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 59.347425,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "6/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 59.819,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": -0.13012585375788022,
+      "chamber": 6
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 60.277273,
+      "duration_seconds": 0.2246247737742392,
+      "frequency_hz": 98.3,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": 0.18283371164155093,
+      "chamber": 6,
+      "subdivision": "7/11",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 61.557,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.14411778624402435,
+      "chamber": 6
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 61.713636,
+      "duration_seconds": 0.22251619655596297,
+      "frequency_hz": 117.1,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.14231145956126062,
+      "chamber": 6,
+      "subdivision": "9/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 62.172883,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "10/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 62.903694,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "0/19"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 63.15,
+      "duration_seconds": 0.22441333180587264,
+      "frequency_hz": 98.3,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": -0.1406401456685633,
+      "chamber": 7,
+      "subdivision": "0/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 63.744737,
+      "duration_seconds": 0.2761064452848126,
+      "frequency_hz": 117.1,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.12360163930047721,
+      "chamber": 7,
+      "subdivision": "1/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 63.868182,
+      "duration_seconds": 0.2210981896336945,
+      "frequency_hz": 87.9,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": 0.23604200346585374,
+      "chamber": 6,
+      "subdivision": "12/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 64.078916,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "2/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 65.075308,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 6,
+      "subdivision": "14/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 65.499,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": -0.1681743530786302,
+      "chamber": 7
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 65.528947,
+      "duration_seconds": 0.3304457332442098,
+      "frequency_hz": 87.9,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": 0.19235586246507963,
+      "chamber": 7,
+      "subdivision": "4/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 65.855947,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "5/19"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 66.464275,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "6/19"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 67.313158,
+      "duration_seconds": 0.20621818070828685,
+      "frequency_hz": 98.3,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": -0.15529389094841353,
+      "chamber": 7,
+      "subdivision": "7/19",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 68.502632,
+      "duration_seconds": 0.23007127100857327,
+      "frequency_hz": 117.1,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.0422701235416465,
+      "chamber": 7,
+      "subdivision": "9/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 68.848301,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "10/19"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 69.793,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.13241078163085362,
+      "chamber": 7
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 70.286842,
+      "duration_seconds": 0.3575849765548005,
+      "frequency_hz": 87.9,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.07808787274929513,
+      "chamber": 7,
+      "subdivision": "12/19",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 71.192049,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 7,
+      "subdivision": "14/19"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 72.279,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": -0.14548840357773557,
+      "chamber": 7
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 74.226787,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "0/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 74.45,
+      "duration_seconds": 0.37272195420279175,
+      "frequency_hz": 98.3,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": 0.15665739999913497,
+      "chamber": 8,
+      "subdivision": "0/13",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 75.196154,
+      "duration_seconds": 0.3143647751281686,
+      "frequency_hz": 117.1,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": 0.18744374470674735,
+      "chamber": 8,
+      "subdivision": "1/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 75.675982,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "2/13"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 76.431,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": -0.1783836853854966,
+      "chamber": 8
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 77.434615,
+      "duration_seconds": 0.3003515242787571,
+      "frequency_hz": 87.9,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.24257947263761087,
+      "chamber": 8,
+      "subdivision": "4/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 77.893766,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "5/13"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 78.68256,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "6/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 79.673077,
+      "duration_seconds": 0.27884305299056555,
+      "frequency_hz": 98.3,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": 0.06254126405589078,
+      "chamber": 8,
+      "subdivision": "7/13",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 80.117,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.10287058056279069,
+      "chamber": 8
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 81.165385,
+      "duration_seconds": 0.27310103101963673,
+      "frequency_hz": 117.1,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.2409120507048142,
+      "chamber": 8,
+      "subdivision": "9/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 81.687878,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "10/13"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 82.251,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.17365589734717818,
+      "chamber": 8
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 83.403846,
+      "duration_seconds": 0.2797772860807639,
+      "frequency_hz": 87.9,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": -0.04509338275679592,
+      "chamber": 8,
+      "subdivision": "12/13",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 83.885904,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "0/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 84.15,
+      "duration_seconds": 0.2542747201807942,
+      "frequency_hz": 98.3,
+      "word": "rah",
+      "formants": [
+        700,
+        1100
+      ],
+      "gain": 0.3,
+      "pan": 0.19698612761163176,
+      "chamber": 9,
+      "subdivision": "0/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 84.635243,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 8,
+      "subdivision": "14/13"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 84.744118,
+      "duration_seconds": 0.20125882303816534,
+      "frequency_hz": 117.1,
+      "word": "esh",
+      "formants": [
+        500,
+        1900
+      ],
+      "gain": 0.3,
+      "pan": -0.06224239414151378,
+      "chamber": 9,
+      "subdivision": "1/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 85.060675,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "2/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 86.223,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.012587475835681261,
+      "chamber": 9
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 86.526471,
+      "duration_seconds": 0.24647268095242306,
+      "frequency_hz": 87.9,
+      "word": "tho",
+      "formants": [
+        500,
+        900
+      ],
+      "gain": 0.3,
+      "pan": -0.12488226392042728,
+      "chamber": 9,
+      "subdivision": "4/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 86.889207,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "5/17"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 87.436531,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "6/17"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 88.308824,
+      "duration_seconds": 0.24282677606945846,
+      "frequency_hz": 98.3,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": 0.18962871794051256,
+      "chamber": 9,
+      "subdivision": "7/17",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 89.497059,
+      "duration_seconds": 0.3519636600907019,
+      "frequency_hz": 117.1,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": -0.21061542981719944,
+      "chamber": 9,
+      "subdivision": "9/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 89.818226,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "10/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 90.061,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.03187350149084231,
+      "chamber": 9
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 91.279412,
+      "duration_seconds": 0.2128780409874924,
+      "frequency_hz": 87.9,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": 0.028448495353879055,
+      "chamber": 9,
+      "subdivision": "12/17",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 92.196774,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 9,
+      "subdivision": "14/17"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 92.283,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": 0.005448220009504151,
+      "chamber": 9
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 93.996494,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "0/11"
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 94.25,
+      "duration_seconds": 0.273315227203913,
+      "frequency_hz": 98.3,
+      "word": "li",
+      "formants": [
+        300,
+        2400
+      ],
+      "gain": 0.3,
+      "pan": -0.005985418610437554,
+      "chamber": 10,
+      "subdivision": "0/11",
+      "soft": false
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 95.259091,
+      "duration_seconds": 0.30170245820364555,
+      "frequency_hz": 117.1,
+      "word": "ka",
+      "formants": [
+        800,
+        1300
+      ],
+      "gain": 0.3,
+      "pan": 0.23627629109694098,
+      "chamber": 10,
+      "subdivision": "1/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 96.023301,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "2/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 96.553,
+      "duration_seconds": 2.3,
+      "frequency_hz": 56.9,
+      "gain": 0.3,
+      "pan": 0.07145203436638858,
+      "chamber": 10
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 98.286364,
+      "duration_seconds": 0.3098984014606428,
+      "frequency_hz": 87.9,
+      "word": "sha",
+      "formants": [
+        750,
+        1200
+      ],
+      "gain": 0.3,
+      "pan": -0.19374194589780086,
+      "chamber": 10,
+      "subdivision": "4/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 99.050253,
+      "duration_seconds": 1.2,
+      "frequency_hz": 38.9,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "5/11"
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 100.044067,
+      "duration_seconds": 1.2,
+      "frequency_hz": 43.7,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "6/11"
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 100.771,
+      "duration_seconds": 2.3,
+      "frequency_hz": 47.1,
+      "gain": 0.3,
+      "pan": 0.06314469493897712,
+      "chamber": 10
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 101.313636,
+      "duration_seconds": 0.3232019072453108,
+      "frequency_hz": 98.3,
+      "word": "vei",
+      "formants": [
+        450,
+        2200
+      ],
+      "gain": 0.3,
+      "pan": -0.2081877081162093,
+      "chamber": 10,
+      "subdivision": "7/11",
+      "soft": false
+    },
+    {
+      "kind": "growl",
+      "time_seconds": 103.213,
+      "duration_seconds": 2.3,
+      "frequency_hz": 41.3,
+      "gain": 0.3,
+      "pan": 0.1620889923502244,
+      "chamber": 10
+    },
+    {
+      "kind": "vocal",
+      "time_seconds": 103.331818,
+      "duration_seconds": 0.30258762060606603,
+      "frequency_hz": 117.1,
+      "word": "nu",
+      "formants": [
+        350,
+        850
+      ],
+      "gain": 0.3,
+      "pan": 0.08540954355877184,
+      "chamber": 10,
+      "subdivision": "9/11",
+      "soft": false
+    },
+    {
+      "kind": "sub_kick",
+      "time_seconds": 104.085522,
+      "duration_seconds": 1.2,
+      "frequency_hz": 51.3,
+      "gain": 0.7,
+      "pan": 0.0,
+      "chamber": 10,
+      "subdivision": "10/11"
+    }
+  ],
+  "validation": {
+    "duration_seconds": 105.1,
+    "sample_rate_hz": 48000,
+    "channels": 2,
+    "peak": 0.5787166953086853,
+    "rms": 0.13011546432971954,
+    "dc_per_channel": [
+      1.2493734175222926e-05,
+      -1.9880186300724745e-05
+    ],
+    "seam_step_per_channel": [
+      0.0029994193464517593,
+      0.004815304186195135
+    ],
+    "seam_head_rms": 0.2387944608926773,
+    "seam_tail_rms": 0.05377117544412613,
+    "stereo_difference_rms": 0.016235757619142532
+  }
+}

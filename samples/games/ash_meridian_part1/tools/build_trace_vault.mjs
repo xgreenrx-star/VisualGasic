@@ -943,16 +943,15 @@ const CRADLE_CODE = '2741';
 	s.save([0.62, 1.55, 0.5], `Cradle release lock. Controller writes entered numeral glyphs into Face/Entry0..3, swaps ClampLight to cyan on release, and shows Key*/Gloss only while the translator is held. Dev code ${CRADLE_CODE}.`);
 }
 {
-	// Service tag carrying the cradle code as spelled-out interface-script words.
+	// Numeral strokes match the keypad without requiring a translated lexicon.
 	const s = new Scene('service_tag');
 	s.box('Plate', [0, 0, 0], [1.5, 0.86, 0.04], 'armor');
 	s.outline('PlateEdge', [0, 0, 0], [1.5, 0.86, 0.04], 'amber', '.', 0.012, ['top', 'bottom', 'vertical']);
 	s.box('Face', [0, 0, 0.022], [1.42, 0.78, 0.004], 'dark');
-	const words = [...CRADLE_CODE].map(d => NUMBER_WORDS[+d]).join(' ');
 	narceanSign(s, 'Line0', 'CRADLE RELEASE', 'CRADLE RELEASE', [0, 0.22, 0.028], { unit: 0.0062, mat: 'amber', glossSize: 24 });
-	narceanSign(s, 'Line1', words, words, [0, -0.12, 0.028], { unit: 0.0062, glossSize: 24 });
+	narceanSign(s, 'Line1', CRADLE_CODE, CRADLE_CODE, [0, -0.12, 0.028], { unit: 0.009, glossSize: 24 });
 	for (const x of [-1, 1]) s.box(`Bolt${x}`, [x * 0.68, 0.36, 0.025], [0.03, 0.03, 0.01], 'facet');
-	s.save([1.5, 0.86, 0.05], `Code clue for the yard dock cradle. Without the translator only strokes show; with it, Line0/Gloss and Line1/Gloss read "CRADLE RELEASE: ${words}". Numbers are spelled out, so keypad glyphs cannot be shape-matched.`);
+	s.save([1.5, 0.86, 0.05], 'Code clue for the yard dock cradle. Numeral strokes match the release keypad. Players can copy the shapes before acquiring language knowledge; English Gloss labels remain hidden in play.');
 }
 {
 	// Navigation beacon: unshaded additive column plus ground ring; no lights, no collision.
@@ -1143,7 +1142,7 @@ const gateX = [7, 23];
 		translation: {
 			item: 'translator', start_owned_in_preview: true, gloss_range_m: 6,
 			cradle_code_dev: CRADLE_CODE, cradle_lock: 'YardDock/ReleaseLock', code_clue: 'ServiceTag', translator_post: 'TranslatorPost',
-			sign_contract: 'Node3D with metadata text_kind ("interface" | "high"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). Collected translator enables helmet translations only; world Gloss stays hidden. High script waits for the FEB.',
+			sign_contract: 'Node3D with metadata text_kind ("interface" | "high"), script, gloss; children Script (strokes) and Gloss (hidden Label3D). New runs copy numeral glyph shapes without translation; no physical translator pickup. The translator inventory flag supports legacy/preview states only. Alien supplies Orac\'s service lexicon in the exploration campaign. World Gloss stays hidden. High script waits for the FEB.',
 			signs: ['YardDock/GateSign', 'YardDock/RoadSign', 'YardDock/Directive', 'ServiceTag/Line0', 'ServiceTag/Line1', 'TranslatorPost/PostLabel', 'DeepLiftLobby/Sign', 'DeepLiftLobby/Cabin/IndicatorOut', 'DeepLiftLobby/Cabin/IndicatorIn', 'DeepLiftLobby/Cabin/ControlPanel/ScreenText'],
 			word_hash: { algorithm: 'FNV-1a 32-bit over upper-case ASCII', cells: 'max(1, ceil(len/2))', cell_pattern: '(hash >> ((i*5) % 27)) & 63, 0 -> 42', paths: GLYPH_PATHS, shared_top_bar_y: -3 },
 			numeral_patterns: NUMERAL_PATTERNS,

@@ -14,7 +14,7 @@ Sub new_run(ByVal yard As Object)
 	orac_online = True
 	visit_number = 1
 	last_error = ""
-	city.notify("ORAC: Welcome to Narcea, Jason. Start at a lit yard building; F at the door, then F at its rear workbench.")
+	city.notify("ORAC: Welcome to Narcea, Jason. Mark's shelter is east of the road, near the broken amber drain marker. Park and search it with F.")
 End Sub
 
 Function stage() As String
@@ -190,9 +190,11 @@ Function stratum_valid(ByVal pack As Variant, ByVal state As Variant, ByVal rad 
 			If Not number_between(state("car_pos")(key)(0), -121, 121) Or Not number_between(state("car_pos")(key)(1), 0, 290) Then Return reject("Invalid groundcar position.")
 		Next
 	End If
-	If state.has("powered") Then
-		If TypeName(state("powered")) <> "Boolean" Then Return reject("Invalid undercity power state.")
-	End If
+	For Each key In Array("powered", "narcean_lexicon", "alien_english", "club_pad_activated")
+		If state.has(key) Then
+			If TypeName(state(key)) <> "Boolean" Then Return reject("Invalid Deep Stratum state: " & key & ".")
+		End If
+	Next
 	If Not number_between(rad, 0, 1000) Then Return reject("Invalid radiation dose.")
 	Return True
 End Function
@@ -245,6 +247,7 @@ Function load_game(ByVal yard As Object) As Boolean
 	Dim saved_state As Variant
 	Dim saved_rad As Variant
 	Dim restored_lexicon As Boolean
+	Dim restored_commander As Boolean
 	last_error = ""
 	config = ClassDB.Instantiate("ConfigFile")
 	error_code = config.load(save_path)
@@ -271,9 +274,13 @@ Function load_game(ByVal yard As Object) As Boolean
 		city.set(field_name, data(field_name))
 	Next
 	city.pack = saved_pack.duplicate(True)
-	restored_lexicon = city.deep.has_item(city, "psionic_screwdriver") And Not city.deep.has_item(city, "interface_translator")
-	If restored_lexicon Then city.pack("interface_translator") = 1
+	restored_lexicon = Not saved_state.has("narcean_lexicon") And city.deep.has_item(city, "psionic_screwdriver") And Not city.deep.has_item(city, "interface_translator")
+	restored_commander = city.deep.has_item(city, "psionic_screwdriver") And Not city.deep.has_item(city, "commander_plus4")
+	If restored_commander Then city.pack("commander_plus4") = 1
+	If city.pack.has("psionic_screwdriver") Then city.pack.erase("psionic_screwdriver")
 	city.stratum = saved_state.duplicate(True)
+	If restored_lexicon Or city.deep.has_item(city, "interface_translator") Then city.stratum("narcean_lexicon") = True
+	If city.pack.has("interface_translator") Then city.pack.erase("interface_translator")
 	city.radiation = saved_rad
 	city.deep.ensure_state(city)
 	city.pending_room = True
@@ -281,7 +288,9 @@ Function load_game(ByVal yard As Object) As Boolean
 	visit_number = 1
 	If city.awakening And Not city.failed Then city.audio.play()
 	If restored_lexicon Then
-		city.notify("ORAC: Legacy programmer lexicon restored as an Interface Translator. Your existing equipment remains usable. " & objective())
+		city.notify("ORAC: Legacy programmer lexicon restored as learned language knowledge. Mark's computer replaces the old tool. " & objective())
+	ElseIf restored_commander Then
+		city.notify("ORAC: Mark's computer replaces the old hacking tool in this saved expedition. " & objective())
 	Else
 		city.notify("ORAC: Expedition restored, Jason. " & objective())
 	End If

@@ -1,0 +1,859 @@
+' Resistance club playback and audio-reactive effects.
+Option Explicit
+
+Dim rng As Object
+Dim t As Single
+Dim bpm As Single
+Dim beat_offset As Single
+Dim beat_index As Integer
+Dim beat_phase As Single
+Dim bar_phase As Single
+Dim bass As Single
+Dim mid As Single
+Dim high As Single
+Dim beat As Single
+Dim section As Integer
+Dim strobe_mode As String
+Dim strobe_value As Single
+Dim playing As Boolean
+Dim hinting As Boolean
+Dim panel As Integer
+Dim last_cut As Integer
+Dim split_left As Integer
+Dim buses_ready As Boolean
+Dim built As Boolean
+Dim orb_mat As Object
+Dim floor_mat As Object
+Dim wall_mat As Object
+Dim beam_mat As Object
+Dim fog_mat As Object
+Dim orb_light As Object
+Dim door_light As Object
+Dim player As Object
+Dim door_player As Object
+Dim hat_player As Object
+Dim bass_smooth As Single
+Dim bass_peak As Single
+Dim last_bass As Single
+Dim onset_gaps As Array
+Dim last_onset As Single
+Dim orb_node As Object
+Dim beam_pivots As Array
+Dim moving_lights As Array
+Dim reflection_mat As Object
+Dim interior_id As Integer
+Dim sample_delta As Single
+Dim last_flash As Single
+Dim track_index As Integer
+Dim track_paths As Array
+Dim track_titles As Array
+Dim pad_mat As Object
+
+Sub EnsureInit()
+	If rng <> Nothing Then Exit Sub
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 77124
+	track_paths = Array("res://assets/audio/club/club_track.ogg", "res://assets/audio/club/club_lullaby.ogg", "res://assets/audio/club/club_fracture.ogg", "res://assets/audio/club/club_undertow.ogg")
+	track_titles = Array("THE MEMBRANE REMEMBERS", "SLEEP BENEATH THE GLASS", "TEETH OF THE RELAY", "THE FLOOR ANSWERS")
+	track_index = 0
+	bpm = 124.0
+	beat_offset = 0.0
+	strobe_mode = "Low"
+	panel = 0
+	last_cut = -1
+	split_left = 0
+	playing = False
+	hinting = False
+	built = False
+	buses_ready = False
+	bass_smooth = 0.0
+	bass_peak = 0.05
+	last_bass = 0.0
+	last_onset = -1.0
+	last_flash = -10.0
+	onset_gaps = Array()
+	beam_pivots = Array()
+	moving_lights = Array()
+	_read_sidecar()
+	_apply()
+End Sub
+
+Sub reset_clock()
+	Call EnsureInit()
+	t = 0.0
+	last_cut = -1
+	split_left = 0
+	playing = False
+	bass_smooth = 0.0
+	bass_peak = 0.05
+	last_bass = 0.0
+	last_onset = -1.0
+	last_flash = -10.0
+	onset_gaps = Array()
+	_read_sidecar()
+	_apply()
+End Sub
+
+Function track_loaded() As Boolean
+	Call EnsureInit()
+	Return ResourceLoader.exists(track_paths(track_index))
+End Function
+
+Function track_name() As String
+	Call EnsureInit()
+	Return track_titles(track_index)
+End Function
+
+Function track_prompt(ByVal city As Node) As String
+	If Not city.deep.interface_lexicon_ready(city) Then Return "NARCEAN RECORDING LABEL / UNTRANSLATED / F: NEXT RECORDING"
+	Return "ORAC TRANSLATION: " & track_name() & " / F: NEXT RECORDING"
+End Function
+
+Sub cycle_track(ByVal city As Node)
+	Dim next_index As Integer
+	Call EnsureInit()
+	_bind_interior(city)
+	If Not city.stratum.get("powered", False) Then
+		city.notify("ORAC: The track selector needs city power.")
+		Exit Sub
+	End If
+	next_index = (track_index + 1) Mod track_paths.size()
+	If Not ResourceLoader.exists(track_paths(next_index)) Then
+		city.notify("ORAC: That recording is unavailable.")
+		Exit Sub
+	End If
+	track_index = next_index
+	city.stratum("club_track") = track_index
+	reset_clock()
+	If player <> Nothing Then
+		player.stop()
+		player.stream = Load(track_paths(track_index))
+		player.stream.loop = True
+	End If
+	If door_player <> Nothing Then
+		door_player.stop()
+		door_player.stream = Load(track_paths(track_index))
+		door_player.stream.loop = True
+	End If
+	_sync_power(city)
+	_push()
+	city.notify(track_prompt(city))
+End Sub
+
+Sub set_strobe(ByVal mode As String)
+	Call EnsureInit()
+	If mode = "Off" Or mode = "Low" Or mode = "Full" Then strobe_mode = mode
+End Sub
+
+Function cycle_strobe() As String
+	Call EnsureInit()
+	If strobe_mode = "Off" Then
+		strobe_mode = "Low"
+	ElseIf strobe_mode = "Low" Then
+		strobe_mode = "Full"
+	Else
+		strobe_mode = "Off"
+	End If
+	Return strobe_mode
+End Function
+
+Function strobe() As Single
+	Call EnsureInit()
+	If strobe_mode = "Off" Then Return 0.0
+	Return strobe_value
+End Function
+
+Sub seek(ByVal seconds As Single)
+	Call EnsureInit()
+	t = seconds
+	_apply()
+End Sub
+
+Function booth(ByVal city As Node, ByVal powered As Boolean) As Boolean
+	Call EnsureInit()
+	If Not powered Then
+		playing = False
+		city.notify("ORAC: Dead. Whoever ran this place wired it into the city grid.")
+		Return False
+	End If
+	_bind_interior(city)
+	city.stratum("club_powered") = True
+	playing = True
+	If Not city.stratum.has("club_notice") Then
+		city.stratum("club_notice") = True
+		city.notify("ORAC: Flashing lights are set to Low. Say if you want them off.")
+	End If
+	If track_loaded() Then
+		city.notify("ORAC: Playback restored. Lights and music are on. The separate control to your right changes the flashing lights.")
+	Else
+		city.notify("ORAC: The light rig is running. Only a quiet test beat is installed; the full music track isn't available yet.")
+	End If
+	_ensure_player(city)
+	If track_loaded() And player <> Nothing Then
+		If Not player.playing Then player.play()
+	End If
+	_push()
+	Return True
+End Function
+
+Sub hint(ByVal city As Node, ByVal near As Boolean, ByVal delta As Single)
+	Call EnsureInit()
+	_bind_interior(city)
+	hinting = near
+	If near Then
+		t = t + delta
+		_apply()
+		_ensure_leak(city)
+		_ensure_door_player(city)
+		If door_player <> Nothing Then
+			door_player.volume_db = -22.0
+			_pulse(door_player, hat_player)
+		End If
+	Else
+		If door_player <> Nothing Then door_player.playing = False
+	End If
+	If door_light <> Nothing Then
+		door_light.visible = near
+		If near Then door_light.light_energy = 0.2 + beat * 1.6
+	End If
+End Sub
+
+Sub tick(ByVal city As Node, ByVal delta As Single)
+	Call EnsureInit()
+	_bind_interior(city)
+	_sync_power(city)
+	sample_delta = delta
+	If playing And track_loaded() And player <> Nothing Then
+		t = player.get_playback_position()
+	Else
+		t = t + delta
+	End If
+	_apply()
+	If playing Then
+		_ensure_player(city)
+		_pulse(player, Nothing)
+		If player <> Nothing Then
+			If city.position_xz.y > 16.3 Then
+				player.bus = "ClubDoor"
+				player.volume_db = -16.0
+			Else
+				player.bus = "Club"
+				If track_loaded() Then player.volume_db = -6.0
+			End If
+		End If
+	End If
+	_push()
+End Sub
+
+Sub build(ByVal city As Node)
+	Dim rig As Object
+	Dim mesh As Object
+	Dim inst As Object
+	Dim i As Integer
+	Dim ang As Single
+	Dim pivot As Object
+	Dim lamp As Object
+	Call EnsureInit()
+	If city.interior = Nothing Then Exit Sub
+	_bind_interior(city)
+	If city.interior.has_node("ClubRig") Then Exit Sub
+	_ensure_buses()
+	rig = ClassDB.Instantiate("Node3D")
+	rig.name = "ClubRig"
+	city.interior.add_child(rig)
+	orb_mat = _shader_mat("res://shaders/club_orb.gdshader")
+	floor_mat = _shader_mat("res://shaders/club_floor.gdshader")
+	wall_mat = _shader_mat("res://shaders/club_videowall.gdshader")
+	beam_mat = _shader_mat("res://shaders/club_beam.gdshader")
+	fog_mat = _shader_mat("res://shaders/club_fog.gdshader")
+	reflection_mat = _shader_mat("res://shaders/club_reflections.gdshader")
+	If orb_mat <> Nothing Then
+		_tex(orb_mat, "albedo", "res://assets/club/orb_albedo.png")
+		_tex(orb_mat, "emission_tex", "res://assets/club/orb_emission.png")
+		_tex(orb_mat, "mask_tex", "res://assets/club/orb_mask.png")
+		mesh = ClassDB.Instantiate("SphereMesh")
+		mesh.radius = 0.7
+		mesh.height = 1.4
+		mesh.radial_segments = 24
+		mesh.rings = 12
+		orb_node = _mesh(rig, mesh, orb_mat, Vector3(0, 4.2, 8))
+	End If
+	If floor_mat <> Nothing Then
+		_tex(floor_mat, "mask_tex", "res://assets/club/dancefloor_mask.png")
+		mesh = ClassDB.Instantiate("QuadMesh")
+		mesh.size = Vector2(8, 8)
+		inst = _mesh(rig, mesh, floor_mat, Vector3(0, 0.04, 8))
+		inst.rotation.x = -PI * 0.5
+	End If
+	If wall_mat <> Nothing Then
+		_tex(wall_mat, "atlas", "res://assets/club/videowall_atlas.png")
+		mesh = ClassDB.Instantiate("QuadMesh")
+		mesh.size = Vector2(8, 2.25)
+		_mesh(rig, mesh, wall_mat, Vector3(0, 3.2, 15.6))
+	End If
+	If beam_mat <> Nothing Then
+		For i = 0 To 7
+			ang = i * PI * 0.25
+			pivot = ClassDB.Instantiate("Node3D")
+			pivot.position = Vector3(Sin(ang) * 3.2, 5.2, 8 + Cos(ang) * 3.2)
+			rig.add_child(pivot)
+			beam_pivots.append(pivot)
+			mesh = ClassDB.Instantiate("CylinderMesh")
+			mesh.top_radius = 0.035
+			mesh.bottom_radius = 0.85
+			mesh.height = 4.7
+			mesh.radial_segments = 12
+			inst = _mesh(pivot, mesh, beam_mat, Vector3(0, -2.35, 0))
+			If i Mod 2 = 0 Then
+				lamp = ClassDB.Instantiate("SpotLight3D")
+				lamp.rotation.x = -PI * 0.5
+				lamp.spot_range = 11.0
+				lamp.spot_angle = 24.0
+				lamp.shadow_enabled = False
+				pivot.add_child(lamp)
+				moving_lights.append(lamp)
+			End If
+		Next
+	End If
+	If reflection_mat <> Nothing Then
+		mesh = ClassDB.Instantiate("QuadMesh")
+		mesh.size = Vector2(20, 15)
+		inst = _mesh(rig, mesh, reflection_mat, Vector3(0, 0.065, 8))
+		inst.rotation.x = -PI * 0.5
+		For i = 0 To 1
+			mesh = ClassDB.Instantiate("QuadMesh")
+			mesh.size = Vector2(15, 5.2)
+			inst = _mesh(rig, mesh, reflection_mat, Vector3(-10.94 + i * 21.88, 2.7, 8))
+			inst.rotation.y = PI * 0.5
+		Next
+	End If
+	If fog_mat <> Nothing Then
+		_tex(fog_mat, "noise_tex", "res://assets/club/fog_noise.png")
+		For i = 0 To 2
+			mesh = ClassDB.Instantiate("QuadMesh")
+			mesh.size = Vector2(15, 11)
+			inst = _mesh(rig, mesh, fog_mat, Vector3(0, 0.25 + i * 0.18, 8))
+			inst.rotation.x = -PI * 0.5
+		Next
+	End If
+	mesh = ClassDB.Instantiate("QuadMesh")
+	mesh.size = Vector2(2.2, 2.2)
+	pad_mat = _shader_mat("res://shaders/club_telepad.gdshader")
+	inst = _mesh(rig, mesh, pad_mat, Vector3(6.2, 0.05, 21))
+	If inst <> Nothing Then inst.rotation.x = -PI * 0.5
+	_flyer(rig, "res://assets/club/flyer_0.png", Vector3(-9.2, 2.2, 4))
+	_flyer(rig, "res://assets/club/flyer_1.png", Vector3(-9.2, 2.2, 8))
+	_flyer(rig, "res://assets/club/flyer_2.png", Vector3(9.2, 2.2, 6))
+	orb_light = ClassDB.Instantiate("OmniLight3D")
+	orb_light.omni_range = 9.0
+	orb_light.light_color = Color(1.0, 0.18, 0.72)
+	orb_light.shadow_enabled = False
+	orb_light.position = Vector3(0, 4.2, 8)
+	rig.add_child(orb_light)
+	_motes(rig, Vector3(0, 1.2, 8))
+	_motes(rig, Vector3(0, 2.4, 12))
+	built = True
+	_sync_power(city)
+	_push()
+End Sub
+
+Sub _sync_power(ByVal city As Node)
+	If pad_mat <> Nothing Then
+		pad_mat.set_shader_parameter("link_power", 0.0)
+		If city.stratum.get("powered", False) And city.stratum.get("club_pad_activated", False) Then pad_mat.set_shader_parameter("link_power", 1.0)
+	End If
+	playing = False
+	If city.stratum.has("powered") And city.stratum("powered") = True Then
+		If city.stratum.has("club_powered") Then playing = city.stratum("club_powered") = True
+	End If
+	If Not playing Then
+		If player <> Nothing Then player.stop()
+		Exit Sub
+	End If
+	_ensure_player(city)
+	If track_loaded() And player <> Nothing Then
+		If Not player.playing Then player.play()
+	End If
+End Sub
+
+Sub _bind_interior(ByVal city As Node)
+	If city.interior = Nothing Then Exit Sub
+	If interior_id = city.interior.get_instance_id() Then Exit Sub
+	interior_id = city.interior.get_instance_id()
+	track_index = Int(city.stratum.get("club_track", 0))
+	If track_index < 0 Or track_index >= track_paths.size() Then
+		city.notify("ORAC: Saved club recording index is invalid; selecting the first recording.")
+		track_index = 0
+		city.stratum("club_track") = 0
+	End If
+	reset_clock()
+	beam_pivots = Array()
+	moving_lights = Array()
+	orb_node = Nothing
+	orb_light = Nothing
+	player = Nothing
+	door_player = Nothing
+	hat_player = Nothing
+	door_light = Nothing
+	orb_mat = Nothing
+	floor_mat = Nothing
+	wall_mat = Nothing
+	beam_mat = Nothing
+	fog_mat = Nothing
+	reflection_mat = Nothing
+	pad_mat = Nothing
+	playing = False
+	built = False
+End Sub
+
+Sub _apply()
+	Dim period As Single
+	Dim bar As Integer
+	Dim bar_in As Integer
+	Dim kick As Single
+	Dim hat As Single
+	Dim swell As Single
+	Dim cut As Integer
+	If bpm < 90.0 Then bpm = 124.0
+	If bpm > 150.0 Then bpm = 124.0
+	period = 60.0 / bpm
+	beat_index = Int((t + beat_offset) / period)
+	If beat_index < 0 Then beat_index = 0
+	beat_phase = (t + beat_offset) / period - beat_index
+	If beat_phase < 0.0 Then beat_phase = 0.0
+	bar = Int(beat_index / 4)
+	bar_in = bar Mod 64
+	If bar_in < 0 Then bar_in = bar_in + 64
+	If bar_in < 16 Then
+		section = 0
+	ElseIf bar_in < 48 Then
+		section = 1
+	Else
+		section = 2
+	End If
+	bar_phase = (beat_index Mod 4) / 4.0 + beat_phase / 4.0
+	If beat_phase < 0.12 Then
+		kick = 1.0 - beat_phase / 0.12
+	Else
+		kick = 0.0
+	End If
+	If beat_phase > 0.46 And beat_phase < 0.62 Then
+		hat = 1.0 - Abs(beat_phase - 0.54) / 0.08
+	Else
+		hat = 0.0
+	End If
+	swell = 0.5 + 0.5 * Sin((bar Mod 16) * 0.392699)
+	bass = kick * 0.75 + swell * 0.35
+	If bass < 0.0 Then bass = 0.0
+	If bass > 1.0 Then bass = 1.0
+	mid = 0.5 + 0.5 * Sin(t * 0.37)
+	If mid < 0.0 Then mid = 0.0
+	If mid > 1.0 Then mid = 1.0
+	high = hat * 0.8
+	If rng <> Nothing Then high = high + rng.randf() * 0.12
+	If high < 0.0 Then high = 0.0
+	If high > 1.0 Then high = 1.0
+	If beat_phase < 0.08 Then
+		beat = 1.0
+	Else
+		beat = 0.0
+	End If
+	If (bar Mod 8) = 7 And beat_phase < 0.2 Then beat = 1.0
+	strobe_value = 0.0
+	If strobe_mode <> "Off" And section = 2 And (beat_index Mod 4) = 0 And beat_phase < 0.05 Then
+		If strobe_mode = "Full" Then strobe_value = 1.0
+		If strobe_mode = "Low" Then strobe_value = 0.35
+	End If
+	If strobe_mode = "Off" Then
+		cut = Int(t / 8.0)
+	ElseIf track_loaded() Then
+		cut = Int(t / 5.3)
+	ElseIf section = 2 Then
+		cut = Int(beat_index / 2)
+	Else
+		cut = bar
+	End If
+	If cut <> last_cut Then
+		last_cut = cut
+		_next_panel()
+		split_left = 2
+	End If
+End Sub
+
+Sub _next_panel()
+	Dim pick As Integer
+	Dim guard As Integer
+	Dim again As Boolean
+	If rng = Nothing Then Exit Sub
+	guard = 0
+	again = True
+	While again And guard < 6
+		If rng.randi() Mod 11 = 0 Then
+			If rng.randi() Mod 2 = 0 Then
+				pick = 4
+			Else
+				pick = 10
+			End If
+		Else
+			pick = rng.randi() Mod 16
+		End If
+		guard = guard + 1
+		again = pick = panel
+	Wend
+	panel = pick
+End Sub
+
+Sub _push()
+	Dim shown As Single
+	Dim split As Single
+	Dim hue As Single
+	Dim active As Single
+	Dim pulse As Single
+	Dim i As Integer
+	Dim phase As Single
+	active = 0.0
+	If playing Then active = 1.0
+	pulse = bass
+	If strobe_mode = "Off" Then pulse = 0.3
+	shown = strobe()
+	If Not playing Then shown = 0.0
+	If split_left > 0 Then
+		split = 0.004
+		split_left = split_left - 1
+	Else
+		split = 0.0
+	End If
+	hue = 0.5 + 0.5 * Sin(t * 0.7)
+	If orb_node <> Nothing Then orb_node.rotation = Vector3(0.12 * Sin(t * 0.31), t * 0.55, 0.1 * Cos(t * 0.27))
+	If orb_mat <> Nothing Then
+		orb_mat.set_shader_parameter("spin", t * 0.025)
+		orb_mat.set_shader_parameter("energy", 0.8 + pulse * 1.6 + shown)
+		If Not playing Then orb_mat.set_shader_parameter("energy", 0.02)
+	End If
+	If floor_mat <> Nothing Then
+		floor_mat.set_shader_parameter("beat", beat)
+		floor_mat.set_shader_parameter("section", section)
+		floor_mat.set_shader_parameter("strobe", shown)
+		floor_mat.set_shader_parameter("time", t)
+		floor_mat.set_shader_parameter("power", active)
+		floor_mat.set_shader_parameter("pulse", pulse)
+		floor_mat.set_shader_parameter("reduced", strobe_mode = "Off")
+	End If
+	If wall_mat <> Nothing Then
+		wall_mat.set_shader_parameter("panel", panel)
+		wall_mat.set_shader_parameter("split", split)
+		wall_mat.set_shader_parameter("time", t)
+		wall_mat.set_shader_parameter("bass", pulse)
+		wall_mat.set_shader_parameter("reduced", strobe_mode = "Off")
+		If playing Then
+			wall_mat.set_shader_parameter("energy", 1.0)
+		Else
+			wall_mat.set_shader_parameter("energy", 0.0)
+		End If
+	End If
+	If beam_mat <> Nothing Then
+		If playing Then
+			beam_mat.set_shader_parameter("energy", 0.35 + pulse * 0.4 + shown * 0.3)
+		Else
+			beam_mat.set_shader_parameter("energy", 0.0)
+		End If
+		beam_mat.set_shader_parameter("beam_color", Vector3(0.62 + hue * 0.38, 0.18, 0.72 + (1.0 - hue) * 0.2))
+		beam_mat.set_shader_parameter("time", t)
+	End If
+	For i = 0 To beam_pivots.size() - 1
+		phase = i * PI * 0.25
+		beam_pivots(i).rotation = Vector3(Sin(t * 0.63 + phase) * 0.48, t * 0.2, Cos(t * 0.47 + phase) * 0.48)
+	Next
+	For i = 0 To moving_lights.size() - 1
+		phase = t * 0.5 + i * PI * 0.5
+		moving_lights(i).light_color = Color(0.55 + 0.45 * Sin(phase), 0.5 + 0.45 * Sin(phase + 2.1), 0.55 + 0.45 * Sin(phase + 4.2))
+		moving_lights(i).light_energy = active * (2.0 + pulse * 2.5 + shown * 4.0)
+	Next
+	If reflection_mat <> Nothing Then
+		reflection_mat.set_shader_parameter("time", t)
+		reflection_mat.set_shader_parameter("power", active)
+		reflection_mat.set_shader_parameter("pulse", pulse)
+	End If
+	If fog_mat <> Nothing Then
+		fog_mat.set_shader_parameter("time", t)
+		If playing Then
+			fog_mat.set_shader_parameter("density", 0.08 + bass * 0.12)
+		Else
+			fog_mat.set_shader_parameter("density", 0.02)
+		End If
+	End If
+	If orb_light <> Nothing Then orb_light.light_energy = active * (0.7 + pulse * 1.6 + shown)
+End Sub
+
+Sub _read_sidecar()
+	Dim txt As String
+	Dim parsed As Variant
+	bpm = 124.0
+	beat_offset = 0.0
+	If Not FileAccess.file_exists(Replace(track_paths(track_index), ".ogg", ".json")) Then Exit Sub
+	txt = FileAccess.get_file_as_string(Replace(track_paths(track_index), ".ogg", ".json"))
+	If txt = "" Then Exit Sub
+	parsed = JSON.parse_string(txt)
+	If parsed = Nothing Then Exit Sub
+	If parsed.has("bpm") Then bpm = parsed("bpm")
+	If parsed.has("offset") Then beat_offset = parsed("offset")
+	If bpm < 90.0 Or bpm > 150.0 Then bpm = 124.0
+End Sub
+
+Sub _note_onset(ByVal raw As Single)
+	Dim gap As Single
+	Dim period As Single
+	Dim i As Integer
+	Dim acc As Single
+	period = 60.0 / bpm
+	If raw > last_bass * 1.4 And raw > 0.08 Then
+		If last_onset < 0.0 Or t < last_onset Or (t - last_onset) >= 0.35 Then
+			If last_onset >= 0.0 Then
+				gap = t - last_onset
+				onset_gaps.append(gap)
+				If onset_gaps.size() > 16 Then onset_gaps.remove_at(0)
+			End If
+			last_onset = t
+		End If
+	End If
+	last_bass = raw
+	If onset_gaps.size() >= 4 And Not FileAccess.file_exists(Replace(track_paths(track_index), ".ogg", ".json")) Then
+		acc = 0.0
+		For i = 0 To onset_gaps.size() - 1
+			acc = acc + onset_gaps(i)
+		Next
+		acc = acc / onset_gaps.size()
+		If acc > 0.05 Then bpm = 60.0 / acc
+		If bpm < 90.0 Then bpm = 90.0
+		If bpm > 150.0 Then bpm = 150.0
+	End If
+End Sub
+
+Sub _audio_strobe()
+	Dim interval As Single
+	Dim strength As Single
+	strobe_value = 0.0
+	If Not playing Or strobe_mode = "Off" Then Exit Sub
+	interval = 3.0
+	strength = 0.35
+	If strobe_mode = "Full" Then
+		interval = 1.8
+		strength = 1.0
+	End If
+	If t < last_flash Then last_flash = -10.0
+	If last_onset >= 0.0 And t >= last_onset And t - last_onset < 0.12 Then
+		If last_onset - last_flash >= interval Then last_flash = last_onset
+	End If
+	If t >= last_flash And t - last_flash < 0.12 Then strobe_value = strength
+End Sub
+
+Sub _sample_spectrum()
+	Dim idx As Integer
+	Dim inst As Object
+	Dim mag As Vector2
+	Dim raw As Single
+	Dim target As Single
+	If Not track_loaded() Then Exit Sub
+	If Not buses_ready Then Exit Sub
+	idx = AudioServer.get_bus_index("Club")
+	If idx < 0 Then Exit Sub
+	inst = AudioServer.get_bus_effect_instance(idx, 0)
+	If inst = Nothing Then Exit Sub
+	mag = inst.get_magnitude_for_frequency_range(20.0, 140.0, 1)
+	raw = mag.length()
+	If raw > bass_peak Then bass_peak = raw
+	If bass_peak > 0.0001 Then raw = raw / bass_peak
+	If raw > 1.0 Then raw = 1.0
+	If raw > bass_smooth Then
+		target = 0.03
+	Else
+		target = 0.25
+	End If
+	bass_smooth = bass_smooth + (raw - bass_smooth) * Min(1.0, sample_delta / target)
+	If bass_smooth < 0.0 Then bass_smooth = 0.0
+	If bass_smooth > 1.0 Then bass_smooth = 1.0
+	bass = bass_smooth
+	mag = inst.get_magnitude_for_frequency_range(140.0, 1800.0, 1)
+	mid = mag.length() / bass_peak
+	If mid < 0.0 Then mid = 0.0
+	If mid > 1.0 Then mid = 1.0
+	mag = inst.get_magnitude_for_frequency_range(1800.0, 8000.0, 1)
+	high = mag.length() / bass_peak
+	If high < 0.0 Then high = 0.0
+	If high > 1.0 Then high = 1.0
+	_note_onset(raw)
+	beat = 0.0
+	If last_onset >= 0.0 And t >= last_onset Then beat = Max(0.0, 1.0 - (t - last_onset) / 0.2)
+	_audio_strobe()
+End Sub
+
+Sub _ensure_buses()
+	Dim idx As Integer
+	Dim fx As Object
+	If buses_ready Then Exit Sub
+	idx = AudioServer.get_bus_index("Club")
+	If idx = -1 Then
+		AudioServer.add_bus()
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, "Club")
+		AudioServer.set_bus_send(idx, "Master")
+	End If
+	If AudioServer.get_bus_effect_count(idx) = 0 Then
+		fx = ClassDB.Instantiate("AudioEffectSpectrumAnalyzer")
+		fx.buffer_length = 0.2
+		AudioServer.add_bus_effect(idx, fx)
+	End If
+	idx = AudioServer.get_bus_index("ClubDoor")
+	If idx = -1 Then
+		AudioServer.add_bus()
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, "ClubDoor")
+		AudioServer.set_bus_send(idx, "Master")
+		fx = ClassDB.Instantiate("AudioEffectLowPassFilter")
+		fx.cutoff_hz = 200.0
+		AudioServer.add_bus_effect(idx, fx)
+	End If
+	buses_ready = True
+End Sub
+
+Sub _ensure_player(ByVal city As Node)
+	If player <> Nothing Then Exit Sub
+	If city.interior = Nothing Then Exit Sub
+	_ensure_buses()
+	player = ClassDB.Instantiate("AudioStreamPlayer3D")
+	player.name = "ClubBooth"
+	player.bus = "Club"
+	player.unit_size = 8.0
+	player.max_distance = 28.0
+	player.attenuation_filter_cutoff_hz = 5000.0
+	player.attenuation_filter_db = -18.0
+	player.position = Vector3(0, 2.2, 14)
+	If track_loaded() Then
+		player.stream = Load(track_paths(track_index))
+		player.stream.loop = True
+		player.volume_db = -6.0
+	Else
+		player.stream = Load("res://assets/audio/club/club_tick.wav")
+		player.volume_db = -28.0
+	End If
+	city.interior.add_child(player)
+	If track_loaded() And playing Then player.play()
+End Sub
+
+Sub _ensure_door_player(ByVal city As Node)
+	If door_player <> Nothing Then Exit Sub
+	If city.interior = Nothing Then Exit Sub
+	_ensure_buses()
+	door_player = ClassDB.Instantiate("AudioStreamPlayer3D")
+	door_player.name = "ClubDoorLeak"
+	door_player.bus = "ClubDoor"
+	door_player.unit_size = 6.0
+	door_player.max_distance = 18.0
+	door_player.volume_db = -22.0
+	door_player.position = Vector3(102, 1.4, 100)
+	If track_loaded() Then
+		door_player.stream = Load(track_paths(track_index))
+		door_player.stream.loop = True
+	Else
+		door_player.stream = Load("res://assets/audio/club/club_tick.wav")
+	End If
+	city.interior.add_child(door_player)
+	hat_player = ClassDB.Instantiate("AudioStreamPlayer3D")
+	hat_player.bus = "ClubDoor"
+	hat_player.volume_db = -32.0
+	hat_player.position = Vector3(102, 1.6, 100)
+	hat_player.stream = Load("res://assets/audio/club/club_hat.wav")
+	city.interior.add_child(hat_player)
+End Sub
+
+Sub _ensure_leak(ByVal city As Node)
+	If door_light <> Nothing Then Exit Sub
+	If city.interior = Nothing Then Exit Sub
+	door_light = ClassDB.Instantiate("OmniLight3D")
+	door_light.name = "ClubDoorLeakLight"
+	door_light.position = Vector3(102, 2.2, 100)
+	door_light.omni_range = 7.0
+	door_light.light_color = Color(1.0, 0.18, 0.72)
+	door_light.shadow_enabled = False
+	door_light.visible = False
+	city.interior.add_child(door_light)
+End Sub
+
+Sub _pulse(ByVal kick As Object, ByVal hat As Object)
+	If track_loaded() Then
+		If kick <> Nothing Then
+			If Not kick.playing Then kick.play()
+		End If
+		If playing Then _sample_spectrum()
+		Exit Sub
+	End If
+	If kick = Nothing Then Exit Sub
+	If kick.stream = Nothing Then Exit Sub
+	If beat > 0.8 And Not kick.playing Then kick.play()
+	If hat <> Nothing And high > 0.7 And Not hat.playing Then hat.play()
+End Sub
+
+Function _shader_mat(ByVal path As String) As Object
+	Dim mat As Object
+	Dim shader As Object
+	shader = Load(path)
+	If shader = Nothing Then Return Nothing
+	mat = ClassDB.Instantiate("ShaderMaterial")
+	mat.shader = shader
+	Return mat
+End Function
+
+Sub _tex(ByVal mat As Object, ByVal uniform_name As String, ByVal path As String)
+	Dim tex As Object
+	tex = Load(path)
+	If tex <> Nothing Then mat.set_shader_parameter(uniform_name, tex)
+End Sub
+
+Function _mesh(ByVal rig As Object, ByVal mesh As Object, ByVal mat As Object, ByVal p As Vector3) As Object
+	Dim inst As Object
+	If mesh = Nothing Or mat = Nothing Then Return Nothing
+	inst = ClassDB.Instantiate("MeshInstance3D")
+	inst.mesh = mesh
+	inst.material_override = mat
+	inst.position = p
+	rig.add_child(inst)
+	Return inst
+End Function
+
+Sub _flyer(ByVal rig As Object, ByVal path As String, ByVal p As Vector3)
+	Dim mat As Object
+	Dim mesh As Object
+	Dim inst As Object
+	mat = ClassDB.Instantiate("StandardMaterial3D")
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_texture = Load(path)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mesh = ClassDB.Instantiate("QuadMesh")
+	mesh.size = Vector2(0.7, 1.05)
+	inst = ClassDB.Instantiate("MeshInstance3D")
+	inst.mesh = mesh
+	inst.material_override = mat
+	inst.position = p
+	If p.x < 0 Then
+		inst.rotation.y = PI * 0.5
+	Else
+		inst.rotation.y = -PI * 0.5
+	End If
+	rig.add_child(inst)
+End Sub
+
+Sub _motes(ByVal rig As Object, ByVal p As Vector3)
+	Dim motes As Object
+	Dim mat As Object
+	motes = ClassDB.Instantiate("GPUParticles3D")
+	motes.amount = 24
+	motes.lifetime = 1.6
+	motes.position = p
+	mat = ClassDB.Instantiate("ParticleProcessMaterial")
+	mat.emission_shape = 1
+	mat.emission_sphere_radius = 1.4
+	mat.gravity = Vector3(0, 0.2, 0)
+	motes.process_material = mat
+	motes.emitting = True
+	rig.add_child(motes)
+End Sub

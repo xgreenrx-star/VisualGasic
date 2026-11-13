@@ -1,0 +1,212 @@
+[
+	{
+		"audio": "res://assets/audio/club/alien/intro_0.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "Va resh. Nara vekh tala. Ish ven nar."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_1.ogg",
+		"backend": "kokoro",
+		"profile": "JASON",
+		"sid": 5,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.08,
+		"text": "Hello? Can you understand me? My name is Jason."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_2.ogg",
+		"backend": "kokoro",
+		"profile": "ORAC",
+		"sid": 9,
+		"silence": 0.4,
+		"speaker": "ORAC",
+		"speed": 0.92,
+		"text": "He's speaking Narcean. I'll send him an English language sample. Jason. Human. English."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_3.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "Zha. Jay son. English. One moment. I appear to have put the verbs somewhere."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_4.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "There. English. You may call me Alien. You are early. Or extraordinarily late. My calendar has become decorative."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_5.ogg",
+		"backend": "kokoro",
+		"profile": "JASON",
+		"sid": 5,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.08,
+		"text": "You don't know us. Why are you helping?"
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_6.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "Your face. You look like the people who met here. The resistance. I think. I remember faces better than dates. Although some of the faces may have been chairs."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_7.ogg",
+		"backend": "kokoro",
+		"profile": "ORAC",
+		"sid": 9,
+		"silence": 0.4,
+		"speaker": "ORAC",
+		"speed": 0.92,
+		"text": "We're not members of your resistance. Jason and I only just found this place."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_8.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "Well, you asked instead of issuing orders. And your companion is allowed to disagree. That used to be quite a radical arrangement. You needn't join anything. I can choose to help."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_9.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "I kept this room ready for them. After a while I stopped expecting anyone. Then I stopped noticing when a while had passed. It's rather nice to be useful to someone who answers."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_10.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "You gave me English. I can give your companion Narcean. Service scripts, grammar, the local vocabulary. Sending it now. Do keep a copy. I have mislaid entire centuries."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_11.ogg",
+		"backend": "kokoro",
+		"profile": "ORAC",
+		"sid": 9,
+		"silence": 0.4,
+		"speaker": "ORAC",
+		"speed": 0.92,
+		"text": "Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_12.ogg",
+		"backend": "kokoro",
+		"profile": "JASON",
+		"sid": 5,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.08,
+		"text": "What is this room? Does that stepping pad still work?"
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_13.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "Private meetings. I kept the room ready. The stepping pad goes to the surface launch dock. I'll restore the link. There. It works. I am less certain about the dock."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/intro_14.ogg",
+		"backend": "kokoro",
+		"profile": "ORAC",
+		"sid": 9,
+		"silence": 0.4,
+		"speaker": "ORAC",
+		"speed": 0.92,
+		"text": "We can check it ourselves. Jason, stand on the pad and press F."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/repeat_0.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "I used to coordinate all the meetings. Now I coordinate the chairs. They are much more punctual."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/repeat_1.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "The pad is behind you. I'll make sure the link is active. There. Stand on it and use the control. I have left the return link open. I do occasionally finish things."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/returned_0.ogg",
+		"backend": "kokoro",
+		"profile": "JASON",
+		"sid": 5,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.08,
+		"text": "The dock is destroyed. I don't think they made it."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/returned_1.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "There were people waiting to leave."
+	},
+	{
+		"audio": "res://assets/audio/club/alien/returned_2.ogg",
+		"backend": "kokoro",
+		"profile": "JASON",
+		"sid": 5,
+		"silence": 0.16,
+		"speaker": "JASON",
+		"speed": 1.08,
+		"text": "Do you remember them?"
+	},
+	{
+		"audio": "res://assets/audio/club/alien/returned_3.ogg",
+		"backend": "kokoro",
+		"profile": "bm_lewis",
+		"sid": 10,
+		"silence": 0.32,
+		"speaker": "ALIEN",
+		"speed": 0.94,
+		"text": "I remember keeping the room ready."
+	}
+]

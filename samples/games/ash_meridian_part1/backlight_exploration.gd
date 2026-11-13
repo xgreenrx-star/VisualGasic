@@ -85,7 +85,7 @@ func reset() -> void:
 		audio.stop()
 	if atmosphere != null:
 		atmosphere.fog_enabled = false
-	notify("ZEN OFFLINE. Find a pressure regulator, ignition cell, and reflector coupler.")
+	notify("ORAC: Find a pressure regulator, ignition cell, and reflector coupler.")
 
 func notify(text: String) -> void:
 	message = text
@@ -282,7 +282,7 @@ func use_object() -> void:
 				completed = true
 				awakening = false
 				audio.stop()
-				notify("ZEN: Coupler seated. Engines live. We are leaving!")
+				notify("ORAC: Coupler seated. Engines live. We are leaving!")
 			else:
 				notify("ASH: NEED PRESSURE REGULATOR / IGNITION CELL / REFLECTOR COUPLER.")
 			return
@@ -302,7 +302,7 @@ func use_object() -> void:
 	elif place == "building":
 		if building_index == 7 and position_xz.distance_to(Vector2(0, 21)) < 3.2:
 			if awakening:
-				notify("ZEN: No time for another descent. Get to the ship!")
+				notify("ORAC: No time for another descent. Get to the ship!")
 			else:
 				keypad = true
 				sequence = ""
@@ -349,7 +349,7 @@ func start_lift(target: String) -> void:
 	heading = 0
 	place = "lift"
 	pending_room = true
-	notify("ZEN OFFLINE / Lift descending." if target != "surface" else "Emergency ascent / returning to the surface lobby.")
+	notify("ORAC: Lift descending." if target != "surface" else "Emergency ascent / returning to the surface lobby.")
 
 func finish_lift() -> void:
 	if lift_target == "surface":
@@ -376,7 +376,7 @@ func take_coupler() -> void:
 	alarm_pulse = 0
 	if repair_part != null:
 		repair_part.visible = false
-	notify("ZEN: RUN!")
+	notify("ORAC: RUN!")
 	if audio != null:
 		audio.play()
 
@@ -468,7 +468,7 @@ func _tick_turrets(delta: float) -> void:
 				damage_cooldown = 2
 				turret_flashes[i] = 0.2
 				velocity *= 0.55
-				notify("ZEN: Turrets are live! Stay behind the buildings!")
+				notify("ORAC: Turrets are live! Stay behind the buildings!")
 				if shield == 0:
 					failed = true
 					audio.stop()

@@ -1,0 +1,46 @@
+{
+  "version": 4,
+  "title": "A wager and a warning",
+  "status": "Preproduction animatic; not the live campaign opening",
+  "visualScale": {
+    "ringOuterRadiusKm": 1000,
+    "ringInnerRadiusKm": 750,
+    "planetRadiusKm": 440,
+    "ashLengthM": 10.5,
+    "ashWingspanM": 9.7,
+    "arrivalCameraToAshM": 300,
+    "arrivalCameraToRingKm": 1000,
+    "serviceOpeningClearWidthM": 20
+  },
+  "shots": [
+    {"id":"table","image":"table.svg","label":"01 / THE LAST HAND","duration":10,"from":[1.02,50,48],"to":[1.10,48,50]},
+    {"id":"warning","image":"table.svg","label":"02 / THE WARNING","duration":21,"from":[1.15,61,40],"to":[1.25,63,38]},
+    {"id":"choice","image":"table.svg","label":"03 / THE CHOICE","duration":17,"from":[1.09,45,46],"to":[1.16,46,44]},
+    {"id":"gift","image":"table.svg","label":"04 / THE PARTING GIFT","duration":32,"from":[1.06,50,54],"to":[1.13,52,55]},
+    {"id":"departure","image":"station.svg","label":"05 / DEPARTURE","duration":18,"from":[1.00,50,50],"to":[1.09,47,51]},
+    {"id":"arrival","image":"arrival.svg","label":"06 / BEYOND THE FRONTIER","duration":23,"from":[1.00,50,50],"to":[1.09,53,48]},
+    {"id":"approach","image":"approach.svg","label":"07 / THE APPROACH","duration":18,"from":[1.00,50,50],"to":[1.11,52,48]}
+  ],
+  "lines": [
+    {"id":"01","at":2,"shot":"table","speaker":"MARK","profile":"am_michael","text":"Oh, come on. You've been sitting on that all night?","gap":0.3,"speed":1.02,"silence":0.16},
+    {"id":"02","at":6,"shot":"table","speaker":"JASON","profile":"JASON","text":"Thought you said I was easy to read.","gap":0.35,"speed":1.02,"silence":0.16},
+    {"id":"03","at":10,"shot":"warning","speaker":"MARK","profile":"am_michael","text":"You are. When I'm sober.","gap":0.7,"speed":1.01,"silence":0.18},
+    {"id":"04","at":14,"shot":"warning","speaker":"MARK","profile":"am_michael","text":"All right... you won. I'll send the coordinates.","gap":0.6,"speed":0.98,"silence":0.26},
+    {"id":"05","at":19,"shot":"warning","speaker":"MARK","profile":"am_michael","text":"Jason. Look at me. Don't go there. I'm serious.","gap":0.75,"speed":0.93,"silence":0.32},
+    {"id":"06","at":24,"shot":"warning","speaker":"JASON","profile":"JASON","text":"What happened out there?","gap":0.45,"speed":1.0,"silence":0.18},
+    {"id":"07","at":27,"shot":"warning","speaker":"MARK","profile":"am_michael","text":"I don't want to talk about it. Not tonight.","gap":1.0,"speed":0.94,"silence":0.3},
+    {"id":"08","at":32,"shot":"choice","speaker":"MARK","profile":"am_michael","text":"I think I'm done, Jason. I just... don't have it in me anymore. I used to love this work.","gap":0.8,"speed":0.92,"silence":0.34},
+    {"id":"09","at":39,"shot":"choice","speaker":"JASON","profile":"JASON","text":"I'm tired of scraping by. One good haul, and Stacy and I might actually get somewhere.","gap":0.65,"speed":0.98,"silence":0.2},
+    {"id":"10","at":45,"shot":"choice","speaker":"MARK","profile":"am_michael","text":"Yeah... I used to tell myself that too.","gap":1.15,"speed":0.93,"silence":0.34},
+    {"id":"11","at":50,"shot":"gift","speaker":"MARK","profile":"am_michael","text":"Wait... you're going anyway, aren't you? I know you.","gap":0.65,"speed":1.02,"silence":0.2},
+    {"id":"12","at":56,"shot":"gift","speaker":"MARK","profile":"am_michael","text":"My pack's still out there. Little shelter, east of the yard road. Broken amber marker by the drain.","gap":0.5,"speed":1.0,"silence":0.18},
+    {"id":"13","at":64,"shot":"gift","speaker":"JASON","profile":"JASON","text":"You left your gear?","gap":0.3,"speed":1.0,"silence":0.16},
+    {"id":"14","at":67,"shot":"gift","speaker":"MARK","profile":"am_michael","text":"There's a computer in there. Looks like junk. It isn't. I'll send you the software.","gap":0.7,"speed":1.04,"silence":0.16},
+    {"id":"15","at":75,"shot":"gift","speaker":"MARK","profile":"am_michael","text":"Take it. I'm not going back. But listen... if it feels wrong, you leave. Right away.","gap":1.5,"speed":0.93,"silence":0.32},
+    {"id":"16","at":85,"shot":"departure","speaker":"JASON","profile":"JASON","text":"Hey, Stace, it's me. I'm heading out. Might be out of range for a while. I'll call you when I can.","gap":1.5,"speed":0.99,"silence":0.2},
+    {"id":"17","at":105,"shot":"arrival","speaker":"ORAC","profile":"ORAC","text":"Well, Mark wasn't making it up. Still, no one's answering us.","gap":1.1,"speed":0.98,"silence":0.2},
+    {"id":"18","at":114,"shot":"arrival","speaker":"JASON","profile":"JASON","text":"He didn't mention it was this big.","gap":1.5,"speed":1.0,"silence":0.18},
+    {"id":"19","at":125,"shot":"approach","speaker":"ORAC","profile":"ORAC","text":"I've found a way in. Give me a moment to match its rotation.","gap":0.65,"speed":1.0,"silence":0.18},
+    {"id":"20","at":133,"shot":"approach","speaker":"JASON","profile":"JASON","text":"All right. Let's have a look.","gap":1.5,"speed":1.0,"silence":0.18}
+  ]
+}

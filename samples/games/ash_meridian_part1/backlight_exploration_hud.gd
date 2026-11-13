@@ -61,12 +61,12 @@ func _draw() -> void:
 		_text(Vector2(25, 226), "Search the five archives.", 11)
 	if city.awakening:
 		draw_rect(Rect2(725, 120, 220, 82), Color(0.025, 0.005, 0.018, 0.92))
-		_text(Vector2(744, 142), "PURGE / ZEN ONLINE", 12, PINK)
+		_text(Vector2(744, 142), "PURGE / ORAC ONLINE", 12, PINK)
 		glyph_string(Vector2(756, 157), "%03d" % ceili(city.countdown), 1.5, PINK)
 		if fmod(city.alarm_elapsed, 1.0) < 0.3:
 			draw_rect(Rect2(0, 0, 960, 540), Color(1, 0.03, 0.2, 0.055))
 		if city.alarm_elapsed < 8:
-			_text(Vector2(360, 330), "ZEN: RUN!", 38, PINK)
+			_text(Vector2(340, 330), "ORAC: RUN!", 38, PINK)
 	if city.keypad:
 		draw_rect(Rect2(220, 140, 520, 330), Color(0.01, 0.025, 0.04, 0.98))
 		_text(Vector2(247, 171), "DEEP TRANSIT / FIVE-SYMBOL ADDRESS", 17)
