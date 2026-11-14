@@ -2,7 +2,7 @@
   "intro": [
     {"speaker":"ALIEN","speech":"Va resh. Nara vekh tala. Ish ven nar.","caption":"ALIEN: Va resh. Nara vekh tala. Ish ven nar. [untranslated Narcean]"},
     {"speaker":"JASON","speech":"Hello? Can you understand me? My name is Jason.","caption":"JASON: Hello? Can you understand me? My name is Jason."},
-    {"speaker":"ORAC","speech":"He's speaking Narcean. I'll send him an English language sample. Jason. Human. English.","caption":"ORAC: He's speaking Narcean. I'll send him an English language sample. Jason. Human. English."},
+    {"speaker":"ORAC","speech":"He's speaking Narcean. I'll send him an English language sample. Jason. Human. English.","caption":"ARM COMPUTER / ORAC: He's speaking Narcean. I'll send him an English language sample. Jason. Human. English."},
     {"speaker":"ALIEN","speech":"Zha. Jay son. English. One moment. I appear to have put the verbs somewhere.","caption":"ALIEN: Zha... Jay-son. English. One moment. I appear to have put the verbs somewhere."},
     {"speaker":"ALIEN","speech":"There. English. You may call me Alien. You are early. Or extraordinarily late. My calendar has become decorative.","caption":"ALIEN: There. English. You may call me Alien. You're early. Or extraordinarily late. My calendar has become decorative.","learn_english":true},
     {"speaker":"JASON","speech":"You don't know us. Why are you helping?","caption":"JASON: You don't know us. Why are you helping?"},
@@ -11,10 +11,22 @@
     {"speaker":"ALIEN","speech":"Well, you asked instead of issuing orders. And your companion is allowed to disagree. That used to be quite a radical arrangement. You needn't join anything. I can choose to help.","caption":"ALIEN: Well, you asked instead of issuing orders. And your companion is allowed to disagree. That used to be quite a radical arrangement. You needn't join anything. I can choose to help."},
     {"speaker":"ALIEN","speech":"I kept this room ready for them. After a while I stopped expecting anyone. Then I stopped noticing when a while had passed. It's rather nice to be useful to someone who answers.","caption":"ALIEN: I kept this room ready for them. After a while I stopped expecting anyone. Then I stopped noticing when a while had passed. It's rather nice to be useful to someone who answers."},
     {"speaker":"ALIEN","speech":"You gave me English. I can give your companion Narcean. Service scripts, grammar, the local vocabulary. Sending it now. Do keep a copy. I have mislaid entire centuries.","caption":"ALIEN: You gave me English. I can give your companion Narcean. Service scripts, grammar, the local vocabulary. Sending it now. Do keep a copy. I've mislaid entire centuries.","grant_lexicon":true},
-    {"speaker":"ORAC","speech":"Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before.","caption":"ORAC: Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before."},
+    {"speaker":"ORAC","speech":"Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before.","caption":"ARM COMPUTER / ORAC: Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before."},
     {"speaker":"JASON","speech":"What is this room? Does that stepping pad still work?","caption":"JASON: What is this room? Does that stepping pad still work?"},
     {"speaker":"ALIEN","speech":"Private meetings. I kept the room ready. The stepping pad goes to the surface launch dock. I'll restore the link. There. It works. I am less certain about the dock.","caption":"ALIEN: Private meetings. I kept the room ready. The pad goes to the surface launch dock. I'll restore the link. There. It works. I'm less certain about the dock.","activate_pad":true},
-    {"speaker":"ORAC","speech":"We can check it ourselves. Jason, stand on the pad and press F.","caption":"ORAC: We can check it ourselves. Jason, stand on the pad and press F."}
+    {"speaker":"ORAC","speech":"We can check it ourselves. Jason, stand on the pad and press F.","caption":"ARM COMPUTER / ORAC: We can check it ourselves. Jason, stand on the pad and press F."}
+  ],
+  "white_dwarf": [
+    {"speaker":"ALIEN","speech":"I found an old comedy serial in the archive. White Dwarf. Welcome to the late show, with an audience of one.","caption":"ALIEN / ANNOUNCER: I found an old comedy serial in the archive. White Dwarf. Welcome to the late show, with an audience of one."},
+    {"speaker":"ALIEN_ASIDE","speech":"That's because I'm also the audience. A tough crowd.","caption":"ALIEN / ASIDE: That's because I'm also the audience. A tough crowd."},
+    {"speaker":"ALIEN","speech":"Tonight's guest is me. I've prepared questions.","caption":"ALIEN / ANNOUNCER: Tonight's guest is me. I've prepared questions."},
+    {"speaker":"ALIEN_ASIDE","speech":"I've prepared answers. They may not agree.","caption":"ALIEN / ASIDE: I've prepared answers. They may not agree."},
+    {"speaker":"ORAC","speech":"The room contains one participant. The disagreement is self-generated.","caption":"ARM COMPUTER / ORAC: The room contains one participant. The disagreement is self-generated."},
+    {"speaker":"JASON","speech":"Alien?","caption":"JASON: Alien?"},
+    {"speaker":"ALIEN","speech":"A visitor! I had a welcome speech, a farewell speech, and one in case nobody came.","caption":"ALIEN / ANNOUNCER: A visitor! I had a welcome speech, a farewell speech, and one in case nobody came."},
+    {"speaker":"ALIEN","speech":"Sorry, Jason. I've been alone for three million years. You get used to saying whatever comes to mind. I think the solitude has made me a little peculiar, if I'm honest.","caption":"ALIEN: Sorry, Jason. I've been alone for three million years. You get used to saying whatever comes to mind. I think the solitude has made me a little peculiar, if I'm honest."},
+    {"speaker":"ORAC","speech":"I would classify the performance as a private broadcast.","caption":"ARM COMPUTER / ORAC: I would classify the performance as a private broadcast."},
+    {"speaker":"ALIEN_ASIDE","speech":"The wall gave me a standing ovation once. A pipe burst. Still, a review is a review.","caption":"ALIEN / ASIDE: The wall gave me a standing ovation once. A pipe burst. Still, a review is a review."}
   ],
   "repeat": [
     {"speaker":"ALIEN","speech":"I used to coordinate all the meetings. Now I coordinate the chairs. They are much more punctual.","caption":"ALIEN: I used to coordinate all the meetings. Now I coordinate the chairs. They're much more punctual."},

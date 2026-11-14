@@ -151,7 +151,7 @@ func tick(delta: float) -> void:
 		if not city.get("stratum").get("alien_english", false):
 			advance()
 	var mouth := 0.0
-	if player.playing and subtitle.begins_with("ALIEN:"):
+	if player.playing and subtitle.begins_with("ALIEN"):
 		mouth = 0.22 + 0.22 * sin(clock * 13.0) + 0.12 * sin(clock * 23.0)
 	for material in face_materials:
 		material.set_shader_parameter("clock", clock)
@@ -180,26 +180,38 @@ func advance() -> void:
 	var state: Dictionary = city.get("stratum")
 	if index < 0:
 		if state.get("alien_english", false):
-			if not state.get("narcean_lexicon", false):
+			if not state.get("alien_white_dwarf_seen", false):
+				section = "white_dwarf"
+				index = -1
+			elif not state.get("narcean_lexicon", false):
 				section = "intro"
 				index = 4
 			else:
 				section = _return_section(state)
+	elif section == "intro" and index == 4 and state.get("alien_english", false) and not state.get("alien_white_dwarf_seen", false):
+		section = "white_dwarf"
+		index = -1
+	elif section == "white_dwarf" and index >= dialogue[section].size() - 1:
+		section = "intro"
+		index = 4
 	index += 1
 	if index >= dialogue[section].size():
 		section = _return_section(state)
 		index = 0
 	var line: Dictionary = dialogue[section][index]
 	player.position = Vector3(-3.2, 2.7, 22.8)
-	if line["speaker"] != "ALIEN":
+	if not line["speaker"].begins_with("ALIEN"):
 		var listener: Vector2 = city.get("position_xz")
-		player.position = Vector3(listener.x, 1.7, listener.y)
+		var state: Dictionary = city.get("stratum")
+		player.position = Vector3(listener.x, 1.7 + float(state.get("foot_y", 0.0)), listener.y)
 	if line.get("learn_english", false):
 		state["alien_english"] = true
 	if line.get("grant_lexicon", false):
 		state["narcean_lexicon"] = true
 	if line.get("activate_pad", false):
 		state["club_pad_activated"] = true
+	if section == "white_dwarf" and index == dialogue[section].size() - 1:
+		state["alien_white_dwarf_seen"] = true
 	if section == "returned" and index == 3:
 		state["alien_dock_discussed"] = true
 	var path := VOICES + section + "_" + str(index) + ".ogg"

@@ -190,7 +190,7 @@ Function stratum_valid(ByVal pack As Variant, ByVal state As Variant, ByVal rad 
 			If Not number_between(state("car_pos")(key)(0), -121, 121) Or Not number_between(state("car_pos")(key)(1), 0, 290) Then Return reject("Invalid groundcar position.")
 		Next
 	End If
-	For Each key In Array("powered", "narcean_lexicon", "alien_english", "club_pad_activated", "feb_governor_bypassed")
+	For Each key In Array("powered", "narcean_lexicon", "alien_english", "alien_white_dwarf_seen", "club_pad_activated", "feb_governor_bypassed", "lift_index_loaded")
 		If state.has(key) Then
 			If TypeName(state(key)) <> "Boolean" Then Return reject("Invalid Deep Stratum state: " & key & ".")
 		End If

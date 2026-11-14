@@ -987,9 +987,17 @@ to help people who ask instead of ordering him, and is quietly glad to have
 someone to answer him. He then gives Orac the Narcean service lexicon. Until
 this transfer, song labels and Narcean records remain untranslated; afterwards,
 song titles are explicitly Orac's translations.
+After Orac first gives Alien an English sample, Alien's one-time first-visit
+conversation includes an original performance of the archive comedy *White
+Dwarf*: Alien switches between an announcer voice and a conspiratorial aside,
+then Jason interrupts. Alien apologizes for talking to himself after three
+million years alone. Orac's replies are spatially played from Jason's arm
+computer speaker. The exchange is original and does not quote or imitate
+another show's dialogue.
 Jason and Orac use the same local Kokoro neural voices as the rest of the game
 (`am_adam` and `bm_george`). Alien uses the distinct male `bm_lewis` voice
-with a slower, dry delivery, without the previous eSpeak voice or robotic filter.
+with a slower, dry delivery; the aside uses a separate male voice. These use
+baked Kokoro recordings, not the previous eSpeak voice or robotic filter.
 His head smoothly turns and tilts toward the player within the meeting room,
 then settles forward when the player leaves.
 The Speech option also controls these voices; subtitles remain available.

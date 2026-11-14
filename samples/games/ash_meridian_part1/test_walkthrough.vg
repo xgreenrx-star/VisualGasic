@@ -71,11 +71,15 @@ Sub RunWalkthrough()
 	Dim i As Integer
 	Dim entry As Dictionary
 	Dim alien As Object
+	Dim banter As Array
+	Dim dialogue_line As Dictionary
 	Dim portal As Dictionary
 	Dim address As String
 	Dim archive_ok As Boolean
 	Dim power_ok As Boolean
 	Dim alien_ok As Boolean
+	Dim city_address_ok As Boolean
+	Dim index_ok As Boolean
 	Dim governor_ok As Boolean
 	Dim route_timer As Single
 	Dim saved_before_takeoff As String
@@ -103,6 +107,10 @@ Sub RunWalkthrough()
 	Dim cycle_cores As Integer
 	Dim cycle_coupler As Boolean
 	Dim distinct_cradle_ok As Boolean
+	Dim banter_ok As Boolean
+	Dim arm_source_ok As Boolean
+	Dim aside_voice_ok As Boolean
+	Dim banter_after_english As Boolean
 	Dim status As String
 
 	game.StartRun()
@@ -197,18 +205,35 @@ Sub RunWalkthrough()
 	yard.position_xz = Vector2(102.4, 100.4)
 	yard.deep.physics(yard, 0.05)
 	yard._sync_room()
+	alien = Nothing
 	If yard.floor_code = "77124" Then
 		yard.position_xz = Vector2(-3.2, 20.8)
-		For i = 1 To 14
+		If yard.interior <> Nothing Then
+			If yard.interior.has_node("ClubAlien") Then alien = yard.interior.get_node("ClubAlien")
+		End If
+		banter_after_english = True
+		For i = 1 To 40
 			yard.deep.use(yard)
+			If alien <> Nothing And alien.section = "white_dwarf" Then
+				banter_after_english = banter_after_english And yard.stratum.get("alien_english", False)
+				If alien.index = 1 Then
+					dialogue_line = alien.dialogue("white_dwarf")(alien.index)
+					aside_voice_ok = dialogue_line("speaker") = "ALIEN_ASIDE" And alien.player.position = Vector3(-3.2, 2.7, 22.8) And FileExists("res://assets/audio/club/alien/white_dwarf_1.ogg")
+				ElseIf alien.index = 4 Then
+					dialogue_line = alien.dialogue("white_dwarf")(alien.index)
+					arm_source_ok = dialogue_line("speaker") = "ORAC" And dialogue_line("caption").begins_with("ARM COMPUTER / ORAC:") And alien.player.position.distance_to(Vector3(yard.position_xz.x, 1.7 + yard.stratum.get("foot_y", 0.0), yard.position_xz.y)) < 0.01 And FileExists("res://assets/audio/club/alien/white_dwarf_4.ogg")
+				End If
+			End If
+			If alien <> Nothing And alien.section = "intro" And alien.index >= 14 And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False) Then Exit For
 		Next
 	End If
-	alien = Nothing
-	If yard.interior <> Nothing Then
-		If yard.interior.has_node("ClubAlien") Then alien = yard.interior.get_node("ClubAlien")
+	banter_ok = False
+	If alien <> Nothing Then
+		banter = alien.dialogue.get("white_dwarf", Array())
+		banter_ok = banter.size() = 10 And banter(0)("speech").contains("White Dwarf") And banter_after_english And yard.stratum.get("alien_white_dwarf_seen", False)
 	End If
-	alien_ok = yard.floor_code = "77124" And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False)
-	Call step_result(5, status_of(alien_ok), "Alien conversation uses repeated F interactions; English, Narcean lexicon and pad link=" & Str(alien_ok))
+	alien_ok = yard.floor_code = "77124" And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False) And banter_ok And arm_source_ok And aside_voice_ok
+	Call step_result(5, status_of(alien_ok), "Orac teaches English before Alien's one-time White Dwarf soliloquy; arm-speaker cue=" & Str(arm_source_ok) & ", distinct aside voice=" & Str(aside_voice_ok) & ", lexicon/pad=" & Str(alien_ok))
 
 	return_ok = False
 	If yard.floor_code = "77124" And yard.stratum.get("club_pad_activated", False) Then
