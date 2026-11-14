@@ -271,7 +271,7 @@ Sub _draw()
 	If city.campaign_mode Then
 		_text(Vector2(22, 47), "JASON / ORAC ONLINE / POWER " & _t5 & " / SUIT " & Str(city.shield) & " / H SCAN", 12)
 	Else
-		_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT " & Str(city.shield), 12)
+		_text(Vector2(22, 47), "SHIP: "  & (_t3)  & " / "  & (_t4)  & " / "  & (_t5)  & "    SUIT "  & Str(city.shield), 12)
 	End If
 	If mission_offset > 0 Then
 		_text(Vector2(830, 47), "F1 BRIEFING", 12)
@@ -385,7 +385,9 @@ Sub _draw()
 		End If
 		_text(Vector2(210, 258), _t7, 28, AMBER)
 		If city.completed Then
-			If city.trace_escape Then
+			If city.departure_saved Then
+				_t8 = "LEVEL 1 COMPLETE / Esc: return to title."
+			ElseIf city.trace_escape Then
 				_t8 = "First expedition escape complete. Esc: return to title."
 			ElseIf city.campaign_mode Then
 				_t8 = "First expedition complete. Esc: save or return to title."
@@ -400,7 +402,9 @@ Sub _draw()
 			End If
 		End If
 		_text(Vector2(210, 295), _t8, 18)
-		If city.trace_escape Then
+		If city.departure_saved Then
+			_text(Vector2(210, 332), "Departure saved. Continue resumes Level 1 complete.", 13)
+		ElseIf city.trace_escape Then
 			_text(Vector2(210, 332), "Recovered hardware retained. Campaign save unchanged.", 13)
 		ElseIf city.campaign_mode And city.completed Then
 			_text(Vector2(180, 332), "Flight and station chapters are not implemented in this build yet.", 13)
@@ -413,6 +417,94 @@ Sub _draw()
 	If city.place = "floor" And city.deep.fade > 0.0 Then
 		draw_rect(Rect2(0, 0, 960, 540), Color(0, 0, 0, ClampF(city.deep.fade, 0.0, 1.0)))
 	End If
+	If city.plus4_menu_open Then draw_plus4_menu()
+End Sub
+
+Sub draw_plus4_menu()
+	Dim modules As Array
+	Dim row_y As Single
+	Dim link_status As String
+	Dim governor_status As String
+	Dim i As Integer
+	Call EnsureInit()
+	modules = Array("MODULE MAP", "POWER REGULATION", "THERMAL CONTROL", "GOVERNOR CONTROL", "EVENT LOG")
+	draw_rect(Rect2(0, 0, 960, 540), Color(0.005, 0.008, 0.012, 0.78))
+	draw_rect(Rect2(112, 52, 736, 436), Color(0.035, 0.043, 0.048, 0.99))
+	draw_rect(Rect2(112, 52, 736, 436), Color(0.72, 0.43, 0.18), False, 1.5)
+	draw_rect(Rect2(128, 68, 704, 46), Color(0.075, 0.082, 0.082))
+	_text(Vector2(144, 88), "M.J.H. / WRIST LINK", 17, AMBER)
+	_text(Vector2(144, 104), "COMMANDER +4    /    1541 SERVICE PORT    /    TRANSLATION ONLINE", 10, Color(0.67, 0.68, 0.63))
+	If city.can_edit_feb_governor() Then
+		link_status = "LINK: FEB UNIT 07"
+	Else
+		link_status = "LINK: LOCAL / NO FEB"
+	End If
+	_text(Vector2(677, 91), link_status, 11, CYAN)
+	draw_rect(Rect2(136, 128, 248, 306), Color(0.018, 0.025, 0.028))
+	_text(Vector2(151, 151), "SYSTEM BUS", 11, Color(0.72, 0.43, 0.18))
+	For i = 0 To modules.size() - 1
+		row_y = 166 + i * 44
+		If city.plus4_menu_selection = i Then
+			draw_rect(Rect2(145, row_y - 19, 229, 34), Color(0.20, 0.12, 0.055))
+			draw_rect(Rect2(145, row_y - 19, 3, 34), AMBER)
+			_text(Vector2(157, row_y), "> " & modules(i), 12, Color(0.94, 0.78, 0.48))
+		Else
+			_text(Vector2(157, row_y), modules(i), 12, Color(0.62, 0.66, 0.63))
+		End If
+	Next
+	draw_line(Vector2(402, 128), Vector2(402, 434), Color(0.30, 0.26, 0.20), 1.0)
+	If city.plus4_menu_page = 0 Then
+		_text(Vector2(427, 158), "MODULE MAP / SERVICE BUS", 15, AMBER)
+		_text(Vector2(427, 195), "Select a subsystem to inspect its controller.", 12, Color(0.75, 0.77, 0.72))
+		_text(Vector2(427, 231), "The Plus/4 is connected through its local", 12, Color(0.65, 0.69, 0.66))
+		_text(Vector2(427, 250), "maintenance interface. Changes require a", 12, Color(0.65, 0.69, 0.66))
+		_text(Vector2(427, 269), "valid device link and operator confirmation.", 12, Color(0.65, 0.69, 0.66))
+	ElseIf city.plus4_menu_selection = 3 Then
+		If city.stratum.get("feb_governor_bypassed", False) Then
+			governor_status = "ISOLATED / LIMITS DISABLED"
+		Else
+			governor_status = "ACTIVE / OUTPUT RESTRICTED"
+		End If
+		_text(Vector2(427, 158), "GOVERNOR MODULE / FEB UNIT 07", 15, AMBER)
+		_text(Vector2(427, 179), "ORAC: 1541 port detected. Connecting Plus/4 now.", 11, Color(0.80, 0.83, 0.77))
+		_text(Vector2(427, 193), "SAFETY INTERLOCK: " & governor_status, 12, Color(0.88, 0.80, 0.62))
+		_text(Vector2(427, 221), "1541 PORT: CONNECTED / REMOTE COMMAND: REJECTED", 11, Color(0.67, 0.69, 0.65))
+		_text(Vector2(427, 249), "Orac: Local maintenance bypass required.", 12, Color(0.72, 0.75, 0.70))
+		If city.can_edit_feb_governor() Then
+			draw_rect(Rect2(427, 283, 326, 42), Color(0.11, 0.18, 0.17), False, 1.2)
+			If city.stratum.get("feb_governor_bypassed", False) Then
+				_text(Vector2(444, 309), "GOVERNOR ALREADY ISOLATED", 12, CYAN)
+			Else
+				_text(Vector2(444, 309), "ENTER / EDIT GOVERNOR PARAMETERS", 11, CYAN)
+			End If
+		Else
+			_text(Vector2(427, 304), "LOCAL LINK REQUIRED: STAND BY THE FEB SOCKET", 11, AMBER)
+		End If
+	Else
+		_text(Vector2(427, 158), modules(city.plus4_menu_selection), 15, AMBER)
+		If city.plus4_menu_selection = 1 Then
+			_text(Vector2(427, 195), "SHIP POWER BUS: NOMINAL", 12, Color(0.75, 0.77, 0.72))
+		ElseIf city.plus4_menu_selection = 2 Then
+			_text(Vector2(427, 195), "THERMAL REGULATOR: NOMINAL", 12, Color(0.75, 0.77, 0.72))
+		ElseIf city.plus4_menu_selection = 4 Then
+			_text(Vector2(427, 195), "No recent local service events.", 12, Color(0.75, 0.77, 0.72))
+		Else
+			_text(Vector2(427, 195), "Select a module from the service bus.", 12, Color(0.75, 0.77, 0.72))
+		End If
+		_text(Vector2(427, 230), "READ-ONLY STATUS", 10, Color(0.72, 0.43, 0.18))
+	End If
+	If city.plus4_menu_page = 2 Then
+		draw_rect(Rect2(0, 0, 960, 540), Color(0, 0, 0, 0.58))
+		draw_rect(Rect2(220, 155, 520, 230), Color(0.045, 0.035, 0.025, 1.0))
+		draw_rect(Rect2(220, 155, 520, 230), AMBER, False, 1.4)
+		_text(Vector2(252, 193), "CONFIRM GOVERNOR ISOLATION", 18, AMBER)
+		_text(Vector2(252, 232), "WARNING: SAFETY GOVERNOR DISABLED.", 13, Color(1.0, 0.73, 0.36))
+		_text(Vector2(252, 256), "The FEB may act outside its operating limits.", 12, Color(0.82, 0.80, 0.73))
+		_text(Vector2(252, 301), "ENTER / CONFIRM BYPASS", 13, CYAN)
+		_text(Vector2(252, 330), "BACKSPACE / RETURN TO MODULE", 11, Color(0.68, 0.69, 0.65))
+	End If
+	draw_rect(Rect2(128, 446, 704, 26), Color(0.075, 0.082, 0.082))
+	_text(Vector2(146, 464), "UP/DOWN SELECT    ENTER OPEN / CONFIRM    BACKSPACE BACK    TAB / ESC CLOSE", 10, Color(0.78, 0.73, 0.62))
 End Sub
 
 ' Orac's helmet readout: Narcean glyphs in view, re-rendered in English. The FEB contests the link once awake.

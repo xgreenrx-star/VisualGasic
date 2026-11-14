@@ -76,8 +76,6 @@ Sub _Ready()
 	game.phase = 12
 	game.title_i = 0
 	game.opt_reduced = False
-	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
-	If directory <> Nothing Then directory.remove("ash_meridian_opening.txt")
 End Sub
 
 Sub aa_checks()
@@ -161,16 +159,21 @@ Sub mission_checks()
 	yard.floor_code = "31707"
 	check(campaign.objective().contains("Copy address glyphs"), "campaign_intermediate_floor_job_explains_untranslated_progression")
 	yard.floor_code = "88216"
-	check(campaign.objective().contains("three bus levers"), "campaign_dark_city_job_explains_transfer_station")
+	yard.pack.erase("commander_plus4")
+	check(campaign.objective().contains("Commander +4") And campaign.objective().contains("hack"), "campaign_dark_city_job_explains_commander_hack_requirement")
+	yard.pack("commander_plus4") = 1
+	check(campaign.objective().contains("Hack") And campaign.objective().contains("three bus levers"), "campaign_dark_city_job_explains_hack_and_levers")
 	yard.stratum("levers")("88216:L0") = True
 	check(campaign.objective().contains("three bus levers"), "campaign_partial_bus_job_stays_until_powered")
+	yard.stratum("hacked")("88216:GRID") = True
+	check(Not campaign.objective().contains("hack") And campaign.objective().contains("three bus levers"), "campaign_hack_advances_objective_to_bus_routing")
 	yard.stratum("powered") = True
 	check(campaign.objective().begins_with("Grid restored."), "campaign_powered_city_job_advances")
 	check(campaign.objective().contains("eye marks"), "campaign_powered_city_job_directs_to_resident_intelligence")
 	yard.stratum("narcean_lexicon") = True
 	check(campaign.objective().contains("power coupler"), "campaign_translated_city_job_resumes_salvage")
 	yard.floor_code = yard.FEB_CODE
-	check(campaign.objective().contains("amber service socket"), "campaign_coupler_floor_job_names_interaction")
+	check(campaign.objective().contains("Plus/4") And campaign.objective().contains("governor"), "campaign_coupler_floor_job_requires_governor_bypass")
 	yard.awakening = True
 	check(campaign.objective().begins_with("Return to the Ash."), "campaign_awakened_job_directs_escape")
 	yard.failed = True
@@ -202,6 +205,7 @@ Sub persistence_checks()
 	check(Not yard.message.contains("ZEN") And Not yard.message.contains("OFFLINE"), "campaign_no_ai_failure_on_arrival")
 	mission_checks()
 	translator_checks()
+	governor_menu_checks()
 	yard.pack("commander_plus4") = 1
 	initial = campaign.snapshot(yard)
 	check(initial.size() = 32, "campaign_snapshot_has_all_fields")
@@ -323,6 +327,7 @@ Sub persistence_checks()
 	yard.finish_lift()
 	yard.transit_left = 0
 	yard.position_xz = Vector2(3.4, 47)
+	yard.stratum("feb_governor_bypassed") = True
 	yard.use_object()
 	yard.countdown = 187.5
 	yard.alarm_elapsed = 67.5
@@ -361,6 +366,7 @@ Sub persistence_checks()
 	yard.place = "surface"
 	yard.floor_code = ""
 	yard.position_xz = Vector2(0, -4)
+	yard.stratum("feb_governor_bypassed") = True
 	yard.use_object()
 	check(yard.completed And Not yard.inventory.has("regulator") And campaign.stage() = "first_departure", "campaign_coupler_alone_enables_first_departure")
 	saved = campaign.snapshot(yard)
@@ -501,6 +507,43 @@ Sub translator_checks()
 	campaign.new_run(yard)
 End Sub
 
+Sub governor_menu_checks()
+	yard.campaign_mode = True
+	yard.place = "floor"
+	yard.floor_code = yard.FEB_CODE
+	yard.position_xz = Vector2(3.4, 47)
+	yard.inventory.erase("coupler")
+	yard.stratum("feb_governor_bypassed") = False
+	yard.pack("commander_plus4") = 1
+	yard.stratum("narcean_lexicon") = False
+	yard.interact_foot()
+	check(Not yard.plus4_menu_open And yard.message.contains("1541") And Not yard.inventory.has("coupler"), "coupler_attempt_explains_governor_and_1541_port")
+	yard.stratum("narcean_lexicon") = True
+	yard.interact_foot()
+	check(yard.plus4_menu_open And yard.message.contains("1541") And yard.message.contains("Plus/4"), "coupler_attempt_opens_translated_wrist_service_screen")
+	yard.take_coupler()
+	check(Not yard.inventory.has("coupler") And Not yard.awakening, "direct_coupler_take_still_requires_governor_bypass")
+	yard.plus4_menu_selection = 3
+	yard.activate_plus4_menu()
+	check(yard.plus4_menu_page = 1, "field_service_opens_governor_module")
+	yard.activate_plus4_menu()
+	check(yard.plus4_menu_page = 2 And Not yard.stratum.get("feb_governor_bypassed", False), "governor_change_requires_explicit_confirmation")
+	yard.position_xz = Vector2(0, 20)
+	yard.activate_plus4_menu()
+	check(Not yard.stratum.get("feb_governor_bypassed", False) And yard.message.contains("local maintenance link"), "governor_bypass_requires_local_feb_link")
+	yard.position_xz = Vector2(3.4, 47)
+	yard.plus4_menu_open = True
+	yard.plus4_menu_page = 2
+	yard.plus4_menu_selection = 3
+	yard.activate_plus4_menu()
+	check(yard.stratum.get("feb_governor_bypassed", False), "confirmed_local_bypass_disables_feb_governor")
+	yard.take_coupler()
+	check(yard.inventory.has("coupler") And yard.awakening, "isolated_governor_allows_coupler_recovery")
+	yard.building_index = 7
+	check(campaign.save_game() And campaign.load_game(yard) And yard.stratum.get("feb_governor_bypassed", False), "governor_bypass_persists_in_campaign_save")
+	campaign.new_run(yard)
+End Sub
+
 Sub _Process(ByVal delta As Single)
 	Dim directory As Object
 	Dim capture_directory As String
@@ -516,7 +559,10 @@ Sub _Process(ByVal delta As Single)
 		game.set_process(False)
 		check(game.phase = 23 And game.opening_player <> Nothing, "play_starts_the_opening_cut")
 		check(game.opening_text.size() = 20 And Abs(game.opening_from(0) - 2.0) < 0.01 And Abs(game.opening_to(19) - 137.243) < 0.01, "opening_subtitles_loaded")
-		game.FinishOpening()
+		key(KEY_B, True)
+		check(game.opening_skip, "any_key_skips_the_opening")
+		game.TickOpening(0.016)
+		key(KEY_B, False)
 		check(game.phase = 0 And game.campaign_arrival And Not game.campaign_active, "campaign_play_opens_orac_approach")
 		game.phase = 1
 		game.next_ring = 28
@@ -562,6 +608,7 @@ Sub _Process(ByVal delta As Single)
 		yard.building_index = 7
 		yard.floor_code = "14242"
 		yard.position_xz = Vector2(3.4, 47)
+		yard.stratum("feb_governor_bypassed") = True
 		yard.use_object()
 		yard.countdown = 120
 		pause_seconds = yard.countdown
@@ -644,8 +691,6 @@ Sub _Process(ByVal delta As Single)
 		restored_game.queue_free()
 		restored_game = Nothing
 	ElseIf frame = 42 Then
-		directory = ClassDB.class_call_static("DirAccess", "open", "user://")
-		If directory <> Nothing Then directory.remove("ash_meridian_opening.txt")
 		Print "CAMPAIGN_RESULT=" & Str(checks - failures) & "/" & Str(checks)
 		GetTree().quit(failures)
 	End If

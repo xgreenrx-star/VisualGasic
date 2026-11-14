@@ -100,6 +100,7 @@ Dim shield As Variant
 Dim message As Variant
 Dim message_left As Variant
 Dim completed As Variant
+Dim departure_saved As Boolean
 Dim failed As Variant
 Dim visual_time As Variant
 Dim ship_model As MeshInstance3D
@@ -114,6 +115,9 @@ Dim escape_cycle As Node3D
 Dim cycle_dock As Node3D
 Dim parked_trace As Node3D
 Dim wants_trace_cycle As Boolean
+Dim plus4_menu_open As Boolean
+Dim plus4_menu_page As Integer
+Dim plus4_menu_selection As Integer
 Dim turret_lock_times As Array
 Dim turret_targets As Array
 Dim turret_states As Array
@@ -351,9 +355,13 @@ Sub EnsureInit()
 	message = ""
 	message_left = 0.0
 	completed = False
+	departure_saved = False
 	Me.failed = False
 	visual_time = 0.0
 	launch_elapsed = 0.0
+	plus4_menu_open = False
+	plus4_menu_page = 0
+	plus4_menu_selection = 0
 	pending_room = True
 	interior_builder = SpawnVg("res://backlight_interiors.vg", "RefCounted")
 	pack = New Dictionary
@@ -392,6 +400,7 @@ Sub reset()
 	Call EnsureInit()
 	briefing_open = False
 	trace_escape = False
+	plus4_menu_open = False
 	If escape_dock <> Nothing Then escape_dock.visible = False
 	If escape_cycle <> Nothing Then escape_cycle.visible = False
 	If escape_helmet <> Nothing Then escape_helmet.visible = False
@@ -444,6 +453,7 @@ Sub start_trace_escape(ByVal recovered As Dictionary, ByVal origin As Vector2, B
 	failed = False
 	shield = 100
 	completed = False
+	departure_saved = False
 	launch_elapsed = 0.0
 	If ship_model <> Nothing Then ship_model.position = Vector3(SHIP.x, 0, SHIP.y)
 	trace_escape = True
@@ -1404,6 +1414,24 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	message_left = Max(0, message_left - delta)
 	If view.menu_tap(KEY_F1) Then toggle_briefing()
 	If sfx_bus <> Nothing Then sfx_bus.update(Me, delta)
+	If plus4_menu_open Then
+		If view.menu_tap(KEY_ESCAPE) Or view.menu_tap(KEY_TAB) Then
+			plus4_menu_open = False
+		ElseIf view.menu_tap(KEY_UP) Or view.menu_tap(KEY_W) Then
+			If plus4_menu_page = 0 Then plus4_menu_selection = (plus4_menu_selection + 4) Mod 5
+		ElseIf view.menu_tap(KEY_DOWN) Or view.menu_tap(KEY_S) Then
+			If plus4_menu_page = 0 Then plus4_menu_selection = (plus4_menu_selection + 1) Mod 5
+		ElseIf view.menu_tap(KEY_BACKSPACE) Then
+			If plus4_menu_page > 0 Then
+				plus4_menu_page = plus4_menu_page - 1
+			Else
+				plus4_menu_open = False
+			End If
+		ElseIf view.menu_tap(KEY_ENTER) Or view.menu_tap(KEY_SPACE) Then
+			Call activate_plus4_menu()
+		End If
+		Exit Sub
+	End If
 	If completed Or Me.failed Then
 		If completed Then
 			launch_elapsed = launch_elapsed + delta
@@ -1491,6 +1519,30 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		If place = "floor" Then deep.physics(Me, delta)
 	End If
 	_tick_turrets(delta)
+End Sub
+
+Function can_edit_feb_governor() As Boolean
+	Return campaign_mode And deep.has_item(Me, "commander_plus4") And deep.interface_lexicon_ready(Me) And place = "floor" And floor_code = FEB_CODE And position_xz.distance_to(Vector2(3.4, 47)) < 8.0
+End Function
+
+Sub activate_plus4_menu()
+	If Not plus4_menu_open Then Exit Sub
+	If plus4_menu_page = 0 Then
+		plus4_menu_page = 1
+	ElseIf plus4_menu_page = 1 And plus4_menu_selection = 3 Then
+		plus4_menu_page = 2
+	ElseIf plus4_menu_page = 2 Then
+		If Not can_edit_feb_governor() Then
+			notify("ORAC: No local maintenance link to the FEB. Stand beside its service socket before changing the governor.")
+		ElseIf stratum.get("feb_governor_bypassed", False) Then
+			notify("ORAC: The FEB governor is already isolated.")
+		Else
+			stratum("feb_governor_bypassed") = True
+			notify("ORAC: Governor isolated. The FEB is no longer constrained by its safety limits.")
+		End If
+		plus4_menu_open = False
+		plus4_menu_page = 0
+	End If
 End Sub
 
 Function render(ByVal view As Node, ByVal time_n As Single, ByVal distance As Single) As Texture2D
@@ -2782,7 +2834,20 @@ Sub use_object()
 			End If
 		End If
 	ElseIf floor_code = FEB_CODE And position_xz.distance_to(Vector2(3.4, 47)) < 3 Then
-		take_coupler()
+		If campaign_mode And Not stratum.get("feb_governor_bypassed", False) Then
+			If Not deep.has_item(Me, "commander_plus4") Then
+				notify("ORAC: The coupler interlock is protected by a governor module. There's a 1541 service port here, but we need Mark's Plus/4 to connect.")
+			ElseIf Not deep.interface_lexicon_ready(Me) Then
+				notify("ORAC: The coupler interlock is protected by a governor module. I can see a 1541 service port, but I can't translate the FEB's controls yet.")
+			Else
+				notify("ORAC: The coupler interlock is protected by a governor module. That's a 1541 service port - try connecting Mark's Plus/4.")
+				plus4_menu_open = True
+				plus4_menu_page = 0
+				plus4_menu_selection = 3
+			End If
+		Else
+			take_coupler()
+		End If
 	End If
 End Sub
 
@@ -2909,6 +2974,10 @@ End Sub
 Sub take_coupler()
 	Call EnsureInit()
 	If inventory.has("coupler") Then
+		Exit Sub
+	End If
+	If campaign_mode And Not stratum.get("feb_governor_bypassed", False) Then
+		notify("ORAC: The FEB governor is still enforcing the isolation interlock. Disable it from Mark's Plus/4 before taking the coupler.")
 		Exit Sub
 	End If
 	inventory("coupler") = True
@@ -3188,11 +3257,20 @@ Function mission_objective() As String
 	If awakening Or inventory.has("coupler") Then Return "Return to the Ash. Use the lift car to ascend, then press F at the ship to install the coupler."
 	If place = "floor" Then
 		If floor_code = "88216" Then
-			If Not deep.powered(Me) Then Return "Undercity is dark. Find the transfer station and press F at all three bus levers to restore the streets."
+			If Not deep.powered(Me) Then
+				If Not deep.power_station_hacked(Me) Then
+					If Not deep.has_hack_tool(Me) Then Return "Undercity is dark. Recover Mark's Commander +4, then hack the transfer station's control bus."
+					Return "Undercity is dark. Hack the transfer station's control bus, then route all three bus levers."
+				End If
+				Return "Transfer authority accepted. Route all three bus levers to restore the streets."
+			End If
 			If Not deep.interface_lexicon_ready(Me) Then Return "Grid restored. Follow the eye marks along the east train tunnel. Use its refuge bays; investigate the hidden room for a working intelligence."
 			Return "Grid restored. Explore the Undercity, scan records with H, and keep searching for the power coupler."
 		End If
-		If floor_code = FEB_CODE Then Return "Search this floor for the replacement power coupler. Press F at the amber service socket to recover it."
+		If floor_code = FEB_CODE Then
+			If campaign_mode And Not stratum.get("feb_governor_bypassed", False) Then Return "The FEB governor holds the coupler interlock. Try the service socket to connect Mark's Plus/4 and isolate the governor."
+			Return "Search this floor for the replacement power coupler. Press F at the amber service socket to recover it."
+		End If
 		If Not deep.interface_lexicon_ready(Me) Then Return "Copy address glyphs from records and match them at the lift. Explore deeper for someone who understands Narcean."
 		Return "Search this floor for salvage and address records. H: Orac scan. Use learned addresses at the lift to go deeper."
 	End If
@@ -3266,6 +3344,7 @@ Function prompt() As String
 		If floor_code = FEB_CODE Then
 			If awakening Then Return "COUPLER RECOVERED / RUN TO THE LIFT CAR / F: KEYPAD / ASCENT " & deep.ASCENT
 			If position_xz.distance_to(Vector2(3.4, 47)) < 4 And Not inventory.has("coupler") Then
+				If campaign_mode And Not stratum.get("feb_governor_bypassed", False) Then Return "F: attempt coupler removal / governor interlock protected"
 				If campaign_mode Then Return "F at the amber service socket: take power coupler"
 				Return "F at the amber service socket: take reflector coupler"
 			End If

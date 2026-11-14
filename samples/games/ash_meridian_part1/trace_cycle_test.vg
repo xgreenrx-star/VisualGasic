@@ -5377,6 +5377,11 @@ End Sub
 
 Sub OpenCradleLock()
 	If cradle_released Then Exit Sub
+	If Not release_code_known Then
+		prompt = "COPY THE SERVICE TAG'S SYMBOLS FIRST"
+		nearby_hud = "SERVICE TAG NOT COPIED"
+		Exit Sub
+	End If
 	lock_open = True
 	lock_entry = ""
 	Call ClearLockEntries()

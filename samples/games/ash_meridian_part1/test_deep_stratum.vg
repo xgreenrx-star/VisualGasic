@@ -445,12 +445,32 @@ Sub undercity_checks()
 	stand(deep._car_pos(yard, car) + Vector2(2.4, 0), 6.0)
 	yard.message = ""
 	check(deep.use(yard) And yard.message.contains("flat"), "car_dead_without_power")
-	' Levers
+	' The transfer controls require their own Commander/coupling-kit contest.
+	stand(deep.levers(0)("p") + Vector2(0, -1.0), 6.0)
+	yard.message = ""
+	deep.use(yard)
+	check(Not deep.grid_power And Not deep.hacking And yard.message.contains("coupling kit"), "transfer_station_locked_without_hack_tool")
+	yard.campaign_mode = True
+	yard.pack("commander_plus4") = 1
+	yard.stratum("narcean_lexicon") = False
+	deep.use(yard)
+	check(deep.hacking And Not deep.grid_power, "commander_hacks_transfer_station_before_translation_or_bus_routes")
+	For k = 0 To 10
+		If deep.hacking Then
+			deep.hack_glyph = deep.hack_target(deep.hack_filled)
+			deep.hack_press(yard)
+		End If
+	Next
+	check(Not deep.hacking And yard.stratum("hacked").has("88216:GRID") And Not deep.grid_power, "transfer_station_hack_unlocks_controls_without_powering_grid")
+	' Three physical levers still route the buses after the hack.
 	For Each l In deep.levers
 		stand(l("p") + Vector2(0, -1.0), 6.0)
 		deep.use(yard)
 	Next
 	check(deep.grid_power And yard.stratum("powered") = True, "levers_power_grid")
+	yard.campaign_mode = False
+	yard.pack.erase("commander_plus4")
+	yard.pack("psionic_screwdriver") = 1
 	stand(deep.levers(0)("p") + Vector2(0, -1.0), 6.0)
 	yard.message = ""
 	deep.use(yard)

@@ -219,7 +219,7 @@ Sub EnsureInit()
 	__ready = True
 	CYAN = Color(0.18, 0.86, 1.0)
 	PINK = Color(1.0, 0.24, 0.78)
-	KEYS = Array(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_F, KEY_E, KEY_V, KEY_BACKSPACE, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9)
+	KEYS = Array(KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_W, KEY_A, KEY_S, KEY_D, KEY_ENTER, KEY_SPACE, KEY_ESCAPE, KEY_F, KEY_E, KEY_V, KEY_TAB, KEY_BACKSPACE, KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_KP_0, KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9)
 	KEYS.append(KEY_Q)
 	KEYS.append(KEY_H)
 	KEYS.append(KEY_F10)
@@ -1295,6 +1295,14 @@ Function begin_trace_yard_escape() As Boolean
 	Call leave_backlight()
 	backlight_city = trace_escape_yard
 	Call trace_escape_yard.start_trace_escape(recovered, origin, yaw)
+	If campaign_yard <> Nothing Then
+		trace_escape_yard.pack = campaign_yard.pack.duplicate(True)
+		trace_escape_yard.stratum = campaign_yard.stratum.duplicate(True)
+		trace_escape_yard.radiation = campaign_yard.radiation
+		trace_escape_yard.discovered = campaign_yard.discovered.duplicate(True)
+		trace_escape_yard.visited = campaign_yard.visited.duplicate(True)
+		trace_escape_yard.deep.ensure_state(trace_escape_yard)
+	End If
 	Call stop_trace_cycle()
 	camera.current = True
 	Return True

@@ -217,15 +217,7 @@ Sub TranslatorChecks()
 	check(Not scene.crossing.get_node("TranslatorPost/Translator").visible, "obsolete_language_pickup_hidden")
 	scene.reset_run()
 	scene.cradle_released = False
-	scene.EnterCradleCode("0000")
-	scene.SubmitCradleLock()
-	check(Not scene.cradle_released And scene.lock_flash_t > 0.0, "wrong_code_refused")
-	scene.EnterCradleCode("2741")
-	scene.SubmitCradleLock()
-	check(scene.cradle_released And scene.cradle_code = "2741", "correct_code_releases_cradle")
-	scene.ignore_input = False
-	scene.reset_run()
-	check(scene.cradle_released, "release_persists_across_checkpoint")
+	scene.release_code_known = False
 	scene.ignore_input = True
 	scene.cradle_released = False
 	scene.ride_state = "docked"
@@ -389,4 +381,28 @@ Sub LiftProgressionChecks()
 	scene.progression_skip = True
 	scene.ignore_input = True
 	scene.reset_run()
+	scene.progression_skip = False
+	scene.yard_save_translator = False
+	scene.yard_save_released = False
+	scene.inventory.erase("translator")
+	scene.ignore_input = False
+	scene.reset_run()
+	scene.cradle_released = False
+	scene.release_code_known = False
+	scene.OpenCradleLock()
+	check(Not scene.lock_open And Not scene.cradle_released And scene.prompt.contains("SERVICE TAG"), "cradle_keypad_requires_service_tag_scan")
+	scene.PlaceWalker(scene.crossing.get_node("ServiceTag"), 0.0)
+	scene.TickGloss(0.5)
+	check(scene.release_code_known, "service_tag_scan_unlocks_distinct_cradle_code")
+	scene.PlaceWalker(scene.crossing.get_node("YardDock/ReleasePoint"), 0.0)
+	scene.OpenCradleLock()
+	check(scene.lock_open, "cradle_keypad_opens_after_service_tag_scan")
+	scene.EnterCradleCode("0000")
+	scene.SubmitCradleLock()
+	check(Not scene.cradle_released And scene.lock_flash_t > 0.0, "wrong_code_refused")
+	scene.EnterCradleCode("2741")
+	scene.SubmitCradleLock()
+	check(scene.cradle_released And scene.cradle_code = "2741", "correct_code_releases_cradle")
+	scene.reset_run()
+	check(scene.cradle_released, "release_persists_across_checkpoint")
 End Sub

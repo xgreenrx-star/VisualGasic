@@ -41,9 +41,8 @@ The current 3D review is [ash_meridian_opening_v07.mp4](../../../docs/developmen
 with a [subtitle sidecar](../../../docs/development/ash_meridian_opening/renders/gate7/ash_meridian_opening_v07.srt).
 It keeps the accepted gate 6 character animation and adds a rebuilt bar,
 glassware, and a true-scale Narcean ring with an atmosphere. The ship descends through the ring's clouds to the Backlight Yard landing gate.
-Play shows that cut before Orac's approach warning. Escape, Space, Enter, or a
-click skips it, and either skipping or letting it finish is remembered, so the
-next Play goes straight to the approach.
+Play shows that cut before Orac's approach warning. Any key or mouse click
+skips it, and the next Play shows it again.
 The [central review export](../../../docs/development/ash_meridian_opening/renders/ash_meridian_opening_bar_v04.mp4)
 is separate from runtime assets. Movie capture hides the review controls. See
 the production brief above for launch, capture and regression-test commands.
@@ -58,10 +57,15 @@ retains detailed requirements. Its November 6 revision records the approved
 MJH's original maintenance programmer, the surviving scavenger's English
 software, Jason's manual suit-keyboard connection, the Ownership Ring contest
 and local patrol-drone alerts on failure. The governor-bypass explanation is
-withheld until after the FEB awakens. The complete encounter is **planned**;
-the campaign currently uses the Commander with the cycling-glyph hack
-described below. The implemented translation prerequisite and compatibility
-handling are described next.
+withheld until after the FEB awakens. The campaign now has a separate
+Commander +4 **Field Service** screen for the FEB governor: after Alien gives
+Orac the Narcean lexicon, try the coupler at the FEB's amber service socket.
+Orac identifies the governor-protected interlock and 1541 port, then opens the
+wrist service screen when Mark's Plus/4 is available. Select Governor Control
+and confirm the bypass beside the FEB before taking the coupler. Other
+Commander subsystems are read-only. This is separate from Mark's supplied English
+software and from the cycling-glyph access-control hack. The fuller
+Ownership Ring contest and patrol-drone consequences remain planned.
 
 **Mark's stash:** Jason won Narcea's coordinates from Mark Mitnick in a card
 game. Mark survived his visit, warned Jason away, and gave him the stash
@@ -69,8 +73,9 @@ location when Jason decided to go anyway. In campaign play, press F1 for the
 directions: east of the yard road, near the broken amber drain marker. Park,
 walk into the small shelter and press F to recover the Commander +4. It is
 protected in the pack and persists in campaign saves; translation is not needed
-to pick it up. The full Commander/Fast Hack'em campaign encounter is not yet
-connected. The screwdriver is shelved in campaign; older saves carrying it
+to pick it up. The Field Service menu appears after Orac learns Narcean and
+Jason attempts the protected coupler; its governor bypass is saved as expedition state. The screwdriver
+is shelved in campaign; older saves carrying it
 receive the Commander instead. It remains in the standalone deep-stratum
 prototype for compatibility.
 
@@ -585,7 +590,9 @@ lexicon. Scan the Narcean address plaque on the archive bay's rear wall
 (x=39, z=44.12) to copy the five-symbol lift address (developer value **14242**).
 The helmet stores glyph shapes, not an English translation.
 The objectives guide these steps before the cycle can be boarded. The nearby
-yard service tag's **2741** is a separate bike-cradle release code.
+yard service tag's four glyphs are a separate bike-cradle code (**2741**),
+not the five-symbol lift/archive address (**14242**). The service tag must be
+scanned before its keypad accepts input; a wrong code is rejected.
 At the far lift, F opens a helmet keypad: 0-9 to enter the address, Backspace
 to edit, Enter to submit, F to cancel. A glyph reference row maps keyboard
 positions to visible shapes, with copied and entered glyph rows. Unscanned
@@ -620,9 +627,11 @@ still drops the player into the void.
 
 In the campaign yard the player's Trace Cycle sits in a cradle at the north
 end, beside the lift head, at `(15, 414)`; stand at about `(15, 409)` and press
-F. Until the B13 Undercity transfer-station levers are thrown, the yard runs
-on auxiliary power: the backlit surfaces are dimmed (`glow_gain` 0.14) and the
-cradle terminal only reports that main power is off. Once the grid is live,
+F. The B13 Undercity transfer station requires a Commander glyph-timing hack
+before its three physical bus levers can be routed. Until all three levers are
+thrown, the yard runs on auxiliary power: the backlit surfaces are dimmed
+(`glow_gain` 0.14) and the cradle terminal only reports that main power is off.
+Once the grid is live,
 the yard lights come up brighter than before (`glow_gain` 1.45), and F
 releases the clamps and starts the Trace Cycle ride. `res://test_backlight_yard.vg`
 covers the cradle placement, prompt and power gating.
@@ -762,7 +771,10 @@ arcs on a timer.
 
 B13 starts dark: trains are parked, the station boards refuse travel, and the
 cars are dead. The power transfer station on the street level (north of the
-central hall, x -30..-16, z 146) has three levers. When all three are pulled, the street lamps,
+central hall, x -30..-16, z 146) has three bus levers behind a Commander
+glyph-timing hack. After Alien transfers the Narcean lexicon, Jason must
+complete the station's moving-glyph contest, then route all three levers.
+When all three are pulled, the street lamps,
 the plaza screens and the neon light up. The trains then run, and a moving
 train hurts the player on the tracks. Station boards (F) send the player to
 Neon Crossing (line 1, beside the plaza), Spire Terminus (line 2) or Halt

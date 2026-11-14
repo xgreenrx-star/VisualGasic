@@ -1,4 +1,4 @@
-' Play shows the opening once. Skip or finish it, then Orac's approach and the landing.
+' Play shows the opening. Any key or click skips it, then Orac's approach and the landing.
 ' Kept scenes stay on the dev terminal. Older scenes are under Archive.
 Option Explicit
 
@@ -129,6 +129,7 @@ Dim opening_to As Array
 Dim opening_text As Array
 Dim opening_started As Boolean
 Dim opening_grace As Single
+Dim opening_skip As Boolean
 Dim title_ink As Single
 Dim save_msg As String
 Dim last_dt As Single
@@ -244,6 +245,7 @@ Sub _Ready()
 	opening_text = Array()
 	opening_started = False
 	opening_grace = 0.0
+	opening_skip = False
 	Call InitJunk()
 	Call BakeAsh()
 	Set_Process(True)
@@ -729,6 +731,13 @@ End Function
 
 Sub _Input(ev As Variant)
 	Dim pos As Vector2
+	If phase = PH_OPENING Then
+		If ev Is InputEventKey Then
+			If ev.pressed And Not ev.echo Then opening_skip = True
+		ElseIf ev Is InputEventMouseButton Then
+			If ev.pressed Then opening_skip = True
+		End If
+	End If
 	If ev Is InputEventMouseMotion Then
 		If Input.mouse_mode = Input.MOUSE_MODE_CAPTURED Then
 			look_dx = look_dx + ev.relative.x
@@ -923,6 +932,15 @@ Sub _Process(ByVal delta As Single)
 		Exit Sub
 	End If
 	If presentation.menu_tap(KEY_ESCAPE) Then
+		If phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD Then
+			If presentation.backlight_city <> Nothing Then
+				If presentation.backlight_city.plus4_menu_open Then
+					presentation.backlight_city.plus4_menu_open = False
+					QueueRedraw()
+					Exit Sub
+				End If
+			End If
+		End If
 		If phase = PH_HACK_TEST Then
 			If ownership_ring.loader_step > 0 Then
 				If ownership_ring.terminal.running Then
@@ -982,6 +1000,12 @@ Sub _Process(ByVal delta As Single)
 				phase = PH_TRACE_CYCLE
 				on_buggy = False
 				Call presentation.start_trace_cycle_as("yard")
+			ElseIf campaign_active And campaign.city <> presentation.backlight_city And presentation.backlight_city.trace_escape And presentation.backlight_city.completed Then
+				If campaign.complete_first_departure(presentation.backlight_city) Then
+					save_msg = "LEVEL 1 COMPLETE / CAMPAIGN SAVED"
+				Else
+					save_msg = campaign.last_error
+				End If
 			End If
 		End If
 	ElseIf phase = PH_BLACK_CHANNEL Then
@@ -3406,24 +3430,12 @@ Sub CloseOptions()
 End Sub
 
 Sub BeginPlay()
-	If opt_reduced Or OpeningSeen() Then
+	If opt_reduced Then
 		Call StartRun()
 		campaign_arrival = True
 		Exit Sub
 	End If
 	Call StartOpening()
-End Sub
-
-Function OpeningSeen() As Boolean
-	If Not FileExists("user://ash_meridian_opening.txt") Then
-		OpeningSeen = False
-		Exit Function
-	End If
-	OpeningSeen = Trim(ReadAllText("user://ash_meridian_opening.txt")) = "seen"
-End Function
-
-Sub MarkOpeningSeen()
-	WriteAllText "user://ash_meridian_opening.txt", "seen"
 End Sub
 
 Sub FreeOpening()
@@ -3434,6 +3446,7 @@ Sub FreeOpening()
 	End If
 	opening_started = False
 	opening_grace = 0.0
+	opening_skip = False
 End Sub
 
 Function CueSeconds(ByVal text As String) As Single
@@ -3504,12 +3517,12 @@ Sub StartOpening()
 	opening_player.play()
 	opening_started = True
 	opening_grace = 0.0
+	opening_skip = False
 End Sub
 
 Sub FinishOpening()
 	If phase <> PH_OPENING Then Exit Sub
 	phase = PH_INTRO
-	Call MarkOpeningSeen()
 	Call FreeOpening()
 	Call StartRun()
 	campaign_arrival = True
@@ -3524,7 +3537,7 @@ Sub TickOpening(ByVal delta As Single)
 		Call FinishOpening()
 		Exit Sub
 	End If
-	If mouse_tap Or presentation.menu_tap(KEY_SPACE) Or presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_ESCAPE) Then
+	If opening_skip Or mouse_tap Then
 		Call FinishOpening()
 		Exit Sub
 	End If
@@ -3554,7 +3567,7 @@ Sub DrawOpening()
 	caption = OpeningCaption()
 	DrawRect 0, 456, SW, 84, Color(0.0, 0.0, 0.0, 0.62)
 	If caption <> "" Then DrawString caption, 28, 478, Color(0.93, 0.95, 0.96), 16
-	DrawString "ESC, SPACE, ENTER, OR CLICK TO SKIP", 250, 508, Color(0.45, 0.78, 0.82), 14
+	DrawString "ANY KEY OR CLICK TO SKIP", 330, 508, Color(0.45, 0.78, 0.82), 14
 End Sub
 
 Sub FreeFacePlayer()

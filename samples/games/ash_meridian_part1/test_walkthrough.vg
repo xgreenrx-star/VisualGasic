@@ -1,0 +1,407 @@
+' MAX_FRAMES: 120
+' Normal Play campaign walkthrough; saves are restored before exit.
+Option Explicit
+
+Dim game As Object
+Dim view As Object
+Dim yard As Object
+Dim trace_scene As Object
+Dim escape_yard As Object
+Dim restored_game As Object
+Dim campaign_config As Object
+Dim saved_data As Variant
+Dim directory As Object
+Dim save_path As String
+Dim saved_text As String
+Dim had_save As Boolean
+Dim failures As Integer
+Dim checks As Integer
+Dim frame As Integer
+
+Function status_of(ByVal ok As Boolean) As String
+	If ok Then Return "PASS"
+	Return "FAIL"
+End Function
+
+Sub step_result(ByVal step_n As Integer, ByVal status As String, ByVal detail As String)
+	checks = checks + 1
+	If status = "FAIL" Then failures = failures + 1
+	Print "STEP " & Str(step_n) & " " & status & ": " & detail
+End Sub
+
+Sub restore_campaign_save()
+	If save_path = "" Then Exit Sub
+	If had_save Then
+		WriteAllText save_path, saved_text
+	ElseIf FileExists(save_path) Then
+		directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+		If directory <> Nothing Then directory.remove(save_path)
+	End If
+End Sub
+
+Sub _Ready()
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	game.opt_fps = False
+	view = game.presentation
+	save_path = game.campaign.save_path
+	had_save = FileExists(save_path)
+	If had_save Then saved_text = ReadAllText(save_path)
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	frame = frame + 1
+	If frame = 4 Then
+		Call RunWalkthrough()
+		Call restore_campaign_save()
+		If had_save Then
+			Print "CAMPAIGN_SAVE_RESTORED=" & Str(FileExists(save_path) And ReadAllText(save_path) = saved_text)
+		Else
+			Print "CAMPAIGN_SAVE_RESTORED=" & Str(Not FileExists(save_path))
+		End If
+		Print "WALKTHROUGH=" & Str(checks - failures) & "/" & Str(checks)
+		If restored_game <> Nothing Then restored_game.queue_free()
+		game.queue_free()
+		GetTree().quit(failures)
+	End If
+End Sub
+
+Sub RunWalkthrough()
+	Dim i As Integer
+	Dim entry As Dictionary
+	Dim alien As Object
+	Dim portal As Dictionary
+	Dim address As String
+	Dim archive_ok As Boolean
+	Dim power_ok As Boolean
+	Dim alien_ok As Boolean
+	Dim governor_ok As Boolean
+	Dim route_timer As Single
+	Dim saved_before_takeoff As String
+	Dim save_ok As Boolean
+	Dim takeoff_save_completed As Boolean
+	Dim return_ok As Boolean
+	Dim local_cycle_ok As Boolean
+	Dim cycle_persist_ok As Boolean
+	Dim vault_ok As Boolean
+	Dim escape_ok As Boolean
+	Dim takeoff_ok As Boolean
+	Dim continue_ok As Boolean
+	Dim post_save_same As Boolean
+	Dim completed_state_ok As Boolean
+	Dim translator_at_cycle As Boolean
+	Dim power_at_escape As Boolean
+	Dim stash_at_escape As Boolean
+	Dim alien_at_escape As Boolean
+	Dim translator_at_escape As Boolean
+	Dim old_alarm_before_trace As Boolean
+	Dim digit As Integer
+	Dim coupler_timer As Single
+	Dim alarm_started As Boolean
+	Dim cycle_stage As String
+	Dim cycle_cores As Integer
+	Dim cycle_coupler As Boolean
+	Dim distinct_cradle_ok As Boolean
+	Dim status As String
+
+	game.StartRun()
+	game.campaign_arrival = True
+	game.intro_index = game.intro_lines.size() - 1
+	game.intro_submitted = True
+	game.phase = 1
+	game.next_ring = 28
+	game.ship_z = 597.0
+	game.TickApproach(0.01)
+	If game.phase = 18 And game.campaign_active Then
+		Call step_result(1, "PASS", "normal campaign_arrival landing handoff starts Backlight Yard; the intro and 28 ring crossings were fast-forwarded. PH_BAY is the non-campaign fallback, not this Play handoff.")
+	Else
+		Call step_result(1, "FAIL", "landing completion did not call StartCampaign / enter Backlight Yard")
+		Call step_result(2, "FAIL", "campaign yard was not created")
+		Call step_result(3, "FAIL", "no yard available")
+		Call step_result(4, "FAIL", "no yard available")
+		Call step_result(5, "FAIL", "no yard available")
+		Call step_result(6, "FAIL", "no yard available")
+	old_alarm_before_trace = yard.awakening
+		Call step_result(7, "FAIL", "no yard available")
+		Call step_result(8, "MISSING", "no yard available")
+		Call step_result(9, "FAIL", "trace trace_scene did not start")
+		Call step_result(10, "FAIL", "no escape yard available")
+		Call step_result(11, "MISSING", "takeoff transition not reached")
+		Exit Sub
+	End If
+
+	yard = game.campaign.city
+	yard.position_xz = Vector2(20, 30)
+	yard.use_object()
+	Call step_result(2, status_of(yard.deep.has_item(yard, "commander_plus4")), "F at Mark's shelter (20,30); commander_plus4=" & Str(yard.deep.has_item(yard, "commander_plus4")))
+
+	address = ""
+	archive_ok = True
+	For i = 0 To 4
+		yard.position_xz = yard.buildings(i).door
+		yard.use_object()
+		If yard.place <> "building" Then archive_ok = False
+		yard.position_xz = Vector2(0, 14)
+		yard.use_object()
+		If Not yard.discovered.has(i) Then
+			archive_ok = False
+		Else
+			address = address & Str(yard.discovered(i))
+		End If
+		yard.leave_building()
+	Next
+	Call step_result(3, status_of(archive_ok And address = yard.FEB_CODE), "five real archive interactions record address " & address & " (FEB chamber address " & yard.FEB_CODE & ")")
+
+	yard.position_xz = yard.buildings(7).door
+	yard.use_object()
+	yard.position_xz = Vector2(0, 21)
+	yard.use_object()
+	yard.sequence = "88216"
+	yard.submit_sequence()
+	archive_ok = yard.place = "lift" And yard.lift_target = "88216"
+	If archive_ok Then
+		yard.finish_lift()
+		yard.transit_left = 0
+	End If
+	archive_ok = archive_ok And yard.place = "floor" And yard.floor_code = "88216"
+	Call step_result(3, status_of(archive_ok), "transit depot accepts 88216 to B13; this is separate from the five archive glyphs 14242")
+
+	yard.deep.ensure_layout(yard)
+	power_ok = yard.deep.levers.size() = 3
+	If power_ok Then
+		entry = yard.deep.levers(0)
+		yard.position_xz = entry("p") + Vector2(0, -1.0)
+		yard.stratum("foot_y") = 6.0
+		power_ok = yard.deep.use(yard) And yard.deep.hacking And Not yard.deep.powered(yard)
+		For i = 0 To 10
+			If yard.deep.hacking Then
+				yard.deep.hack_glyph = yard.deep.hack_target(yard.deep.hack_filled)
+				yard.deep.hack_press(yard)
+			End If
+		Next
+		power_ok = power_ok And Not yard.deep.hacking And yard.deep.power_station_hacked(yard) And Not yard.deep.powered(yard)
+	End If
+	For i = 0 To yard.deep.levers.size() - 1
+		entry = yard.deep.levers(i)
+		yard.position_xz = entry("p") + Vector2(0, -1.0)
+		yard.stratum("foot_y") = 6.0
+		If Not yard.deep.use(yard) Then power_ok = False
+	Next
+	yard.stratum("foot_y") = 0.0
+	power_ok = power_ok And yard.deep.powered(yard) And yard.stratum("powered") = True
+	Call step_result(4, status_of(power_ok), "Commander glyph hack unlocks the B13 transfer controls; all three physical levers then route power; levers=" & Str(yard.deep.levers.size()) & ", powered=" & Str(yard.deep.powered(yard)))
+
+	yard.position_xz = Vector2(0, -4.8)
+	yard.deep.physics(yard, 0.05)
+	yard.position_xz = Vector2(102.4, 100.4)
+	yard.deep.physics(yard, 0.05)
+	yard._sync_room()
+	If yard.floor_code = "77124" Then
+		yard.position_xz = Vector2(-3.2, 20.8)
+		For i = 1 To 14
+			yard.deep.use(yard)
+		Next
+	End If
+	alien = Nothing
+	If yard.interior <> Nothing Then
+		If yard.interior.has_node("ClubAlien") Then alien = yard.interior.get_node("ClubAlien")
+	End If
+	alien_ok = yard.floor_code = "77124" And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False)
+	Call step_result(5, status_of(alien_ok), "Alien conversation uses repeated F interactions; English, Narcean lexicon and pad link=" & Str(alien_ok))
+
+	return_ok = False
+	If yard.floor_code = "77124" And yard.stratum.get("club_pad_activated", False) Then
+		yard.position_xz = Vector2(6.2, 20.8)
+		yard.deep.use(yard)
+		yard._sync_room()
+		return_ok = yard.floor_code = "77125" And yard.stratum.get("club_dock_visited", False)
+		If return_ok Then
+			For Each portal In yard.deep.portals
+				If portal("label") = "TELEPAD" Then yard.position_xz = portal("r").get_center()
+			Next
+			yard.deep.use(yard)
+			yard._sync_room()
+			return_ok = yard.floor_code = "77124"
+		End If
+		If return_ok Then
+			yard.position_xz = Vector2(0, 10)
+			yard.deep.physics(yard, 0.05)
+			yard.position_xz = Vector2(0, 0)
+			yard.deep.physics(yard, 0.05)
+			yard._sync_room()
+			return_ok = yard.floor_code = "88216"
+		End If
+		If return_ok Then
+			yard.position_xz = Vector2(0, -4.8)
+			yard.deep.use(yard)
+			yard.sequence = "70315"
+			yard.submit_sequence()
+			return_ok = yard.place = "lift" And yard.lift_target = "surface"
+			If return_ok Then
+				yard.finish_lift()
+				yard.transit_left = 0
+				yard.leave_building()
+				return_ok = yard.place = "surface" And yard.deep.powered(yard)
+			End If
+		End If
+	End If
+	Call step_result(6, status_of(return_ok), "club pad reaches ruined launch dock; return pads, B13 club exit and 70315 ascent restore the same powered yard")
+	old_alarm_before_trace = yard.awakening
+	governor_ok = False
+	If return_ok Then
+		yard.place = "floor"
+		yard.floor_code = yard.FEB_CODE
+		yard.position_xz = Vector2(3.4, 47)
+		yard.inventory.erase("coupler")
+		yard.stratum("feb_governor_bypassed") = False
+		yard.interact_foot()
+		governor_ok = yard.plus4_menu_open
+		If governor_ok Then
+			yard.plus4_menu_selection = 3
+			yard.activate_plus4_menu()
+			yard.activate_plus4_menu()
+			yard.activate_plus4_menu()
+			governor_ok = yard.stratum.get("feb_governor_bypassed", False)
+		End If
+		yard.place = "surface"
+		If governor_ok Then game.SaveRun()
+	End If
+	save_ok = return_ok And governor_ok And game.save_msg = "CAMPAIGN SAVED" And FileExists(save_path)
+	If save_ok Then saved_before_takeoff = ReadAllText(save_path)
+	Call step_result(7, status_of(return_ok And save_ok), "back at surface; powered=" & Str(yard.deep.powered(yard)) & ", stash=" & Str(yard.deep.has_item(yard, "commander_plus4")) & ", FEB governor bypassed=" & Str(governor_ok) & "; old alarm active=" & Str(old_alarm_before_trace) & "; campaign save=" & game.save_msg)
+
+	yard.position_xz = Vector2(15, 409)
+	yard.use_object()
+	If yard.wants_trace_cycle Then game._Process(0.05)
+	trace_scene = view.trace_cycle
+	If trace_scene <> Nothing Then
+		Call step_result(9, "PASS", "powered cradle handoff enters phase " & Str(game.phase) & "; outbound route stage=" & trace_scene.route.stage_name)
+	Else
+		Call step_result(9, "FAIL", "powered cradle did not create the Trace Cycle")
+		Call step_result(10, "FAIL", "no trace route or return yard available")
+		Call step_result(11, "MISSING", "takeoff not reached")
+		Exit Sub
+	End If
+
+	translator_at_cycle = trace_scene.inventory.has("translator")
+	trace_scene.PlaceWalker(trace_scene.crossing.get_node("LiftAddressClue"), 0.0)
+	trace_scene.TickGloss(0.5)
+	trace_scene.PlaceWalker(trace_scene.crossing.get_node("ServiceTag"), 0.0)
+	trace_scene.TickGloss(0.5)
+	trace_scene.PlaceWalker(trace_scene.crossing.get_node("YardDock/ReleasePoint"), 0.0)
+	trace_scene.InteractFoot()
+	If trace_scene.lock_open Then
+		For i = 1 To 4
+			trace_scene.EnterCradleDigit(Int(Mid("1424", i, 1)))
+		Next
+		trace_scene.SubmitCradleLock()
+		distinct_cradle_ok = Not trace_scene.cradle_released And trace_scene.lock_flash_t > 0.0
+		For i = 1 To 4
+			trace_scene.EnterCradleDigit(Int(Mid("2741", i, 1)))
+		Next
+		trace_scene.SubmitCradleLock()
+		distinct_cradle_ok = distinct_cradle_ok And trace_scene.cradle_released
+	End If
+	If trace_scene.cradle_released Then
+		trace_scene.BoardYardCycle()
+		trace_scene.tick(0.5)
+	End If
+	local_cycle_ok = trace_scene.lift_code_known And trace_scene.release_code_known And distinct_cradle_ok And trace_scene.cradle_released And trace_scene.route.stage_name = "outbound_crossing"
+	Call step_result(8, status_of(local_cycle_ok), "scan service-tag glyphs, reject archive prefix 1424, enter distinct cradle code 2741; outbound=" & trace_scene.route.stage_name)
+	If Not local_cycle_ok Then
+		Call step_result(10, "FAIL", "local archive/cradle progression blocked the ride")
+		Call step_result(11, "MISSING", "takeoff not reached")
+		Exit Sub
+	End If
+
+	trace_scene.SkipToFarDock()
+	trace_scene.enter_lift()
+	trace_scene.walker.global_position = trace_scene.crossing.get_node("DeepLiftLobby/LiftPose").global_position
+	trace_scene.InteractFoot()
+	address = "14242"
+	If trace_scene.lift_lock_open Then
+		For i = 1 To Len(address)
+			digit = Int(Mid(address, i, 1))
+			trace_scene.EnterLiftDigit(digit)
+		Next
+		trace_scene.SubmitLiftCode()
+	End If
+	trace_scene.TickVaultLift(6.1)
+	vault_ok = trace_scene.area_name = "vault" And trace_scene.route.stage_name = "vault_facility"
+	If vault_ok Then
+		vault_ok = trace_scene.take_core_slot(0) And trace_scene.take_core_slot(1)
+		trace_scene.take_coupler()
+		route_timer = trace_scene.route.timer_remaining
+		alarm_started = trace_scene.route.timer_started
+		trace_scene.StartVaultLift(True)
+		trace_scene.TickVaultLift(6.1)
+	End If
+	vault_ok = vault_ok And trace_scene.route.coupler_taken And trace_scene.route.cores = 2 And alarm_started And Abs(route_timer - 255.0) < 0.01
+	If vault_ok Then
+		trace_scene.BoardCycle()
+		trace_scene.StartParking("near")
+		trace_scene.TickParking(1.0)
+		vault_ok = trace_scene.route.stage_name = "near_dock" And trace_scene.ride_state = "docked"
+	End If
+	If vault_ok Then
+		trace_scene.DismountAtNearDock()
+		cycle_stage = trace_scene.route.stage_name
+		cycle_cores = trace_scene.route.cores
+		cycle_coupler = trace_scene.route.coupler_taken
+		If view.begin_trace_yard_escape() Then game.phase = 18
+	End If
+	escape_yard = view.backlight_city
+	escape_ok = vault_ok And escape_yard <> Nothing And escape_yard.trace_escape And view.trace_cycle Is Nothing
+	If escape_yard <> Nothing Then
+		power_at_escape = escape_yard.deep.powered(escape_yard)
+		stash_at_escape = escape_yard.deep.has_item(escape_yard, "commander_plus4")
+		alien_at_escape = escape_yard.stratum.get("alien_english", False) And escape_yard.stratum.get("narcean_lexicon", False)
+		translator_at_escape = escape_yard.inventory.has("translator")
+		escape_ok = escape_ok And escape_yard.inventory.get("coupler", False) And escape_yard.inventory.get("cores", 0) = 2
+	End If
+	Call step_result(10, status_of(escape_ok), "vault=" & Str(vault_ok) & ", Trace stage=" & cycle_stage & ", cores=" & Str(cycle_cores) & ", coupler=" & Str(cycle_coupler) & ", 255s timer=" & Str(route_timer) & "; return flags: power=" & Str(power_at_escape) & ", stash=" & Str(stash_at_escape) & ", alien/lexicon=" & Str(alien_at_escape) & ", translator in cycle/yard=" & Str(translator_at_cycle) & "/" & Str(translator_at_escape) & ", lift address transferred=" & Str(escape_yard.inventory.get("lift_code_known", False)) & ", escape yard=" & Str(escape_yard.trace_escape))
+	If Not escape_ok Then
+		Call step_result(11, "MISSING", "takeoff not reached")
+		Exit Sub
+	End If
+
+	escape_yard.retry_trace_escape()
+	escape_yard.position_xz = escape_yard.buggy_position + Vector2(0, 2)
+	escape_yard.interact_foot()
+	For i = 1 To 444
+		escape_yard.move_distance(0.9)
+		escape_yard.tick(0.05, view)
+	Next
+	escape_yard.move_vector(Vector2(-11, 0))
+	escape_yard.driving = False
+	escape_yard.position_xz = escape_yard.SHIP
+	escape_yard.interact_foot()
+	escape_yard.tick(3.0, view)
+	escape_yard.render_style(view, 3.0, 420, 0)
+	takeoff_ok = escape_yard.completed And Not escape_yard.awakening And escape_yard.ship_model.position.y > 4.0
+	If Not takeoff_ok Then
+		Call step_result(11, "FAIL", "southbound buggy / park / F at the Ash did not complete takeoff; pos=" & Str(escape_yard.position_xz) & ", ship=" & Str(escape_yard.SHIP) & ", gap=" & Str(escape_yard.position_xz.distance_to(escape_yard.SHIP)) & ", driving=" & Str(escape_yard.driving) & ", shield=" & Str(escape_yard.shield) & ", failed=" & Str(escape_yard.failed) & ", completed=" & Str(escape_yard.completed) & ", awakening=" & Str(escape_yard.awakening) & ", launch=" & Str(escape_yard.launch_elapsed) & ", ship_y=" & Str(escape_yard.ship_model.position.y))
+		Exit Sub
+	End If
+
+	game._Process(0.01)
+	post_save_same = FileExists(save_path) And ReadAllText(save_path) = saved_before_takeoff
+	takeoff_save_completed = False
+	If FileExists(save_path) Then
+		restored_game = Load("res://main.tscn").instantiate()
+		add_child(restored_game)
+		restored_game.set_process(False)
+		restored_game.LoadCampaign()
+		continue_ok = restored_game.campaign.city <> Nothing And restored_game.phase = 18 And restored_game.campaign.stage() = "first_departure"
+		If continue_ok Then
+			takeoff_save_completed = restored_game.campaign.city.completed And restored_game.campaign.city.departure_saved
+			completed_state_ok = restored_game.campaign.city.deep.has_item(restored_game.campaign.city, "commander_plus4") And restored_game.campaign.city.stratum.get("powered", False) And restored_game.campaign.city.stratum.get("narcean_lexicon", False) And restored_game.campaign.city.stratum.get("feb_governor_bypassed", False)
+		End If
+	End If
+	If takeoff_ok And Not post_save_same And continue_ok And takeoff_save_completed And completed_state_ok Then
+		Call step_result(11, "PASS", "takeoff auto-commits first_departure; Continue restores Level 1 complete with the Commander, power, lexicon, and governor-bypass state intact")
+	Else
+		Call step_result(11, "FAIL", "takeoff completed=" & Str(takeoff_ok) & ", save changed=" & Str(Not post_save_same) & ", Continue loaded first_departure=" & Str(continue_ok) & ", completed save=" & Str(takeoff_save_completed) & ", prior campaign state preserved=" & Str(completed_state_ok))
+	End If
+End Sub

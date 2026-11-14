@@ -190,7 +190,7 @@ Function stratum_valid(ByVal pack As Variant, ByVal state As Variant, ByVal rad 
 			If Not number_between(state("car_pos")(key)(0), -121, 121) Or Not number_between(state("car_pos")(key)(1), 0, 290) Then Return reject("Invalid groundcar position.")
 		Next
 	End If
-	For Each key In Array("powered", "narcean_lexicon", "alien_english", "club_pad_activated")
+	For Each key In Array("powered", "narcean_lexicon", "alien_english", "club_pad_activated", "feb_governor_bypassed")
 		If state.has(key) Then
 			If TypeName(state(key)) <> "Boolean" Then Return reject("Invalid Deep Stratum state: " & key & ".")
 		End If
@@ -233,6 +233,30 @@ Function save_game() As Boolean
 		directory.remove(temporary)
 		Return reject("Could not replace campaign save (error " & Str(error_code) & "). Previous save retained.")
 	End If
+	Return True
+End Function
+
+Function complete_first_departure(ByVal departure_yard As Object) As Boolean
+	If city Is Nothing Then Return reject("There is no campaign to complete.")
+	If departure_yard Is Nothing Then Return reject("The departure yard is missing.")
+	If Not departure_yard.campaign_mode Or Not departure_yard.trace_escape Then Return reject("The first-departure transition requires the campaign escape yard.")
+	If Not departure_yard.completed Or departure_yard.failed Or Not departure_yard.inventory.get("coupler", False) Then Return reject("The Ash has not completed a valid departure.")
+	departure_yard.pack = city.pack.duplicate(True)
+	departure_yard.stratum = city.stratum.duplicate(True)
+	departure_yard.radiation = city.radiation
+	departure_yard.discovered = city.discovered.duplicate(True)
+	departure_yard.visited = city.visited.duplicate(True)
+	departure_yard.inventory = New Dictionary
+	departure_yard.inventory("coupler") = True
+	departure_yard.awakening = False
+	departure_yard.completed = True
+	departure_yard.failed = False
+	departure_yard.departure_saved = False
+	departure_yard.deep.ensure_state(departure_yard)
+	city = departure_yard
+	If Not save_game() Then Return False
+	departure_yard.departure_saved = True
+	departure_yard.notify("ORAC: Level 1 departure saved. We are clear of the yard.")
 	Return True
 End Function
 
@@ -283,6 +307,7 @@ Function load_game(ByVal yard As Object) As Boolean
 	If city.pack.has("interface_translator") Then city.pack.erase("interface_translator")
 	city.radiation = saved_rad
 	city.deep.ensure_state(city)
+	city.departure_saved = city.completed
 	city.pending_room = True
 	orac_online = True
 	visit_number = 1

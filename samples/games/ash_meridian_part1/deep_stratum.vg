@@ -2839,6 +2839,11 @@ Function powered(ByVal city As Node) As Boolean
 	Return city.stratum("powered") = True
 End Function
 
+Function power_station_hacked(ByVal city As Node) As Boolean
+	Call ensure_state(city)
+	Return city.stratum("hacked").has("88216:GRID")
+End Function
+
 Function view_far(ByVal city As Node) As Single
 	If city.place = "floor" And city.floor_code = "88216" Then Return 320.0
 	If city.place = "floor" And city.floor_code = "77125" Then Return 260.0
@@ -3402,6 +3407,10 @@ End Sub
 
 Sub pull_lever(ByVal city As Node, ByVal entry As Dictionary)
 	Dim n As Integer
+	If city.floor_code = "88216" And Not power_station_hacked(city) Then
+		city.notify("ORAC: The transfer station bus controls are owner-locked. Hack the control bus first.")
+		Exit Sub
+	End If
 	If lever_on(city, entry) Then
 		city.notify("ORAC: That bus is already routed.")
 		Exit Sub
@@ -5515,7 +5524,21 @@ Function use(ByVal city As Node) As Boolean
 	End If
 	e = _near_lever(city)
 	If e <> Nothing Then
-		pull_lever(city, e)
+		If city.floor_code = "88216" And Not power_station_hacked(city) Then
+			If has_hack_tool(city) Then
+				g = New Dictionary
+				g("id") = "88216:GRID"
+				g("grade") = 2
+				city.sfx("hack_tick", -4.0)
+				_start_hack(g)
+			ElseIf city.campaign_mode Then
+				city.notify("ORAC: The transfer station is owner-locked. Mark's computer can contest its control bus.")
+			Else
+				city.notify("ORAC: The transfer station is owner-locked. A technician's coupling kit can contest its control bus.")
+			End If
+		Else
+			pull_lever(city, e)
+		End If
 		Return True
 	End If
 	e = _near_board(city)
@@ -5712,7 +5735,9 @@ Sub hack_press(ByVal city As Node)
 			For Each g In AsArray(gates)
 				If g("id") = hack_gate And g("node") <> Nothing Then g("node").visible = False
 			Next
-			If hack_gate.contains(":C") Then
+			If hack_gate = "88216:GRID" Then
+				city.notify("ORAC: Transfer authority accepted. Route all three buses at the unlocked controls.")
+			ElseIf hack_gate.contains(":C") Then
 				city.sfx("vehicle_on", -4.0)
 				city.notify("ORAC: Ignition handshake accepted. She's ours - F to climb in.")
 			Else
@@ -5760,6 +5785,11 @@ Function prompt(ByVal city As Node) As String
 	If _near_terminal(city) <> Nothing Then Return "NARCEAN TERMINAL / F: USE"
 	g = _near_lever(city)
 	If g <> Nothing Then
+		If city.floor_code = "88216" And Not power_station_hacked(city) Then
+			If has_hack_tool(city) Then Return "TRANSFER STATION / F: HACK CONTROL BUS"
+			If city.campaign_mode Then Return "TRANSFER STATION / NEED MARK'S COMPUTER"
+			Return "TRANSFER STATION / NEED COUPLING KIT"
+		End If
 		If lever_on(city, g) Then Return "TRANSFER LEVER / ROUTED"
 		Return "TRANSFER LEVER / F: PULL"
 	End If

@@ -2,7 +2,7 @@
 
 ## Story and Gameplay Approval Draft
 
-Revision: November 9, 2026
+Revision: November 13, 2026
 
 This document describes the proposed complete campaign. It is not a claim that
 every feature is implemented. It incorporates the required void crossing,
@@ -12,9 +12,12 @@ The [unified game proposal](ASH_MERIDIAN_PROPOSAL.md#unified-game-proposal---nov
 combines this revision into a continuous campaign narrative. This document
 retains the detailed story and interaction requirements.
 
-The November 6 Commander +4 / Fast Hack'em story and interaction design below
-is approved direction for future implementation, not shipped behavior. For
-local-level routing, the [October 31 underground handoff](ASH_MERIDIAN_UNDERGROUND_HANDOFF.md)
+The broader Commander +4 / Fast Hack'em story and interaction design below
+remains approved direction for future implementation, not shipped behavior.
+The limited Commander wrist service screen and pre-coupler FEB governor
+bypass are implemented in campaign mode; the ownership contests are still
+future work. For local-level routing, the
+[October 31 underground handoff](ASH_MERIDIAN_UNDERGROUND_HANDOFF.md)
 supersedes older route/code details in this draft: the three local levels are
 available before the cycle, and the sole FEB encounter is at the far-dock
 facility. The programmer's history does not introduce another FEB encounter.
@@ -125,8 +128,10 @@ and details are in the [unified proposal](ASH_MERIDIAN_PROPOSAL.md).
 The stash is in a recessed maintenance shelter beside a drainage
 channel at the edge of Backlight Yard, marked by a damaged channel marker.
 Mark abandoned his pack there while escaping; it contains the Commander +4.
-The shelter and pickup are implemented; the full Commander/Fast Hack'em
-campaign interaction is not yet connected.
+The shelter and pickup are implemented. After Orac learns Narcean, a coupler
+attempt opens the Commander wrist service screen at the FEB's 1541 port;
+Jason can bypass that FEB's governor before removing the coupler. The wider
+Commander/Fast Hack'em ownership contests are not yet connected.
 Jason can retrieve it without translation or a mandatory hack, but needs
 Alien's language exchange before identifying its Narcean controls for use.
 The location remains recoverable through suit briefing or records; it is not
@@ -159,10 +164,11 @@ unfamiliar writing. Orac can identify useful hardware and interpret fragments,
 but military systems refuse its access.
 
 Records reveal addresses for the local storage, maintenance and laboratory
-levels, all available before the cycle. A separate discoverable release
-sequence unlocks the cycle at the road's end. Keep lift addresses and cycle
-release codes distinct; older five-symbol progression is not authority for
-silently unlocking both.
+levels, all available before the cycle. A four-symbol service tag at the road's
+end reveals the separate Trace Cycle cradle code, 2741. Jason must copy the
+tag's glyphs before the keypad accepts the entry. Keep this release code
+distinct from the five-symbol 14242 archive/lift address; solving one must not
+silently unlock the other.
 
 The yard's ordinary transit lift serves local storage, maintenance and laboratory
 areas. It does not lead directly to the FEB. A separate elevator, beyond the
@@ -239,12 +245,15 @@ he hears it. The music fragment must have an equivalent outside the optional
 club so the reveal never depends on that excursion.
 
 The flight FEB's governor bypass is not an explanation for Jason's FEB.
-The local defense FEB still has its own intact governor and a separate
-facility isolation interlock. Removing the coupler breaks the interlock and
-awakens it; Jason must later work out how to bypass this unit's governor.
-That is a present-day challenge, not a repeat of MJH's maintenance procedure,
-and bypassing the governor does not erase every surviving directive or
-automatically make the FEB safe or friendly.
+The local defense FEB has its own governor and a separate facility isolation
+interlock. After Alien gives Orac the Narcean lexicon, Jason's first attempt
+to remove the coupler reveals the protected interlock and its 1541 service
+port. Orac suggests connecting Mark's Commander +4; its wrist service screen
+lets Jason inspect and bypass the local governor before he removes the
+coupler. This is a limited maintenance change, not a personality rewrite:
+surviving directives remain, and the bypass neither awakens the FEB nor makes
+it automatically safe or friendly. Removing the coupler still breaks the
+facility interlock and awakens it.
 
 #### The second owner
 
@@ -502,17 +511,19 @@ cooldowns explicitly during implementation.
    conclude MJH died and the ship was destroyed.
 6. Later evidence establishes that MJH bypassed the flight FEB's governor.
    Do not conflate this unit with Jason's local defense FEB.
-7. After the local defense FEB awakens, Orac can explain the old bypass as
-   precedent—not proof that this unit's governor is already bypassed:
-   "Someone removed the flight unit's governor. Yours is still intact, Jason."
+7. After Alien teaches Orac Narcean, Jason's coupler attempt reveals the local
+   FEB's governor restriction, isolation interlock and 1541 service port.
+   Orac suggests connecting the Commander. Jason bypasses the governor at the
+   wrist screen before taking the coupler; surviving directives remain and
+   the broken interlock still awakens the FEB.
 8. After the rescue, Rob shows small, deniable signs of familiarity with
    Narcean service routines, the Commander and (if heard) the club's music.
    Nobody draws the conclusion yet.
-9. A flight record reveals the ship escaped without MJH. During or shortly
-   after the governor bypass, Rob's suppressed memories return: MJH was
-   captured, converted and made to attack the escape he planned, then returned
-   to stasis after the planetary AI stopped answering. Rob is MJH. The ship's
-   later destination and fate remain unknown.
+9. A flight record reveals the ship escaped without MJH. Later, as trust and
+   service access deepen, Rob's suppressed memories return: MJH was captured,
+   converted and made to attack the escape he planned, then returned to stasis
+   after the planetary AI stopped answering. Rob is MJH. The ship's later
+   destination and fate remain unknown.
 
 Keep discoveries optional for progression but make their essential meaning
 recoverable later. Do not expose the two-FEB reveal in the initial mission
@@ -548,9 +559,9 @@ oversized wheel forms and luminous edges.
 It cannot fly freely. Its support system operates inside the bridge's surviving
 magnetic-field network.
 
-Jason enters the recovered sequence, boards and undocks. The outbound crossing
-quietly teaches movement, crisp 90-degree turns, field boundaries and the tall
-energy wall left behind the vehicle.
+Jason scans the service tag, enters its four-symbol code, then boards and
+undocks. The outbound crossing quietly teaches movement, crisp 90-degree turns,
+field boundaries and the tall energy wall left behind the vehicle.
 
 Crossing an older section of a light wall destroys the cycle and rider. Immediate
 rear clearance prevents collision with a wall the instant it is emitted.
@@ -577,7 +588,8 @@ These are distinct resources:
 - A compatible engineering reserve remains aboard for the later rescue and
   cannot accidentally be sold.
 
-Jason overrides the service console and removes the coupler.
+With the local governor bypassed, Jason removes the coupler at the service
+console.
 
 The removal breaks an isolation interlock. An emergency reserve circuit
 restarts the chamber. The cradle vents. Warning lights pulse. Alien numerals
@@ -614,48 +626,45 @@ and launches the Ash.
 Destroying the remote cycle does not kill the physical FEB or require a later
 resurrection.
 
-## 10. The gap: weeks, not minutes
+## 10. Level 1 ending: the station and the other half
 
-Jason reaches a station, docks, sells saleable cargo, pays debts, services the
-Ash and speaks with Stacy.
+After the Ash clears Narcea, Jason reaches a space station. He docks, sells
+ordinary salvage, pays debts, services the Ash and speaks with Stacy.
+Installed equipment, the Commander +4, its software and protected engineering
+reserves are excluded from the ordinary sell list.
 
-Installed equipment and protected engineering reserves are excluded from the
-ordinary sell list.
+A buyer examines one of Jason's recovered Narcean artifacts and recognizes
+its serial pattern as half of a matched assembly. The buyer offers a
+life-changing sum or a replacement ship in exchange for the missing half,
+which remains on Narcea. Jason accepts the deal because the reward could
+change his and Stacy's future, and the other half is a specific recovery
+target, not an unexplained new quest. The station scene closes Level 1 on
+that commitment: the offer and unseen counterpart are the cliffhanger.
 
-A buyer recognizes the recovered serial numbers as part of a valuable matched
-assembly. Complementary components remain on Narcea. Jason accepts a clearly
-explained recovery contract.
+Station repairs, preparations and travel make the return plausible. Weeks
+pass, not minutes. During the interval, the awakened FEB scavenges wreckage
+and constructs a jury-rigged interceptor around a salvaged, unstable AI.
+Jason's earlier governor bypass has loosened its restrictions but did not
+erase its surviving intruder directive or restore its identity.
 
-Station work, preparations and travel explicitly take several weeks.
+## 11. Level 2 opening: the inspection-mirror ambush
 
-On Narcea, the awakened FEB is alone. Its surviving directive requires it to
-intercept the intruder. It scavenges wreckage and constructs a jury-rigged
-interceptor around a salvaged, unstable AI.
+Level 2 opens as Jason returns to Narcea to recover the artifact's other half.
+A localized defense EMP fires during approach. Orac shuts down for the first
+scripted time, and the Ash loses powered guidance and thrust. Its established
+trajectory now carries it toward the habitat's approach structures; specify
+the collision corridor and rescue window for the ring's geometry rather than
+using an unexplained decaying planetary orbit.
 
-Jason flies the Ash. The FEB builds the interceptor. They have not physically
-met during the first expedition.
-
-## 11. Second visit: decaying orbit
-
-The Ash returns. The reactivated defense network fires a localized EMP.
-
-Orac shuts down for the first scripted time. Main electronics, shields and
-propulsion controls fail. Jason is stranded in a decaying orbit.
-
-The FEB attacks and lines up a thermal strike against the cockpit.
-
-Jason reaches for a beryllium-polished inspection mirror, established earlier
-as an ordinary maintenance tool.
-
-Within the game's science-fiction rules, the mirror can briefly redirect the
-beam before its surface fails. Jason aligns it, and the reflected strike
+The FEB attacks and lines up a laser strike on the cockpit. Jason reaches for
+the beryllium-polished inspection mirror, established earlier as ordinary
+maintenance equipment. Within the setting's science-fiction rules, the mirror
+briefly redirects the beam before its surface fails. The reflected strike
 disables the interceptor's sensors, navigation and weapons.
 
-Both ships are crippled and falling.
-
-This is a short, readable emergency interaction: recognize the tool, position
-it and align it in time. Provide a checkpoint rather than an obscure,
-irreversible inventory puzzle.
+Both ships are crippled and falling. This is a short, readable emergency
+interaction: recognize the tool, position it and align it in time. Provide a
+checkpoint rather than an obscure, irreversible inventory puzzle.
 
 ## 12. Mutual rescue and the alliance
 
@@ -686,35 +695,42 @@ The rescue restores survival capability, not every damaged system.
 
 Jason calls the FEB Rob. They become a crew.
 
-### Rob's governor: a consensual joint bypass
+The opening Level 2 objective is to make the Ash flightworthy, then enter the
+Black Channel. Rob knows the concealed industrial route leads to the region
+where the artifact's matching half was taken. The channel is their way to the
+recovery site, not a new unrelated salvage detour. Its later use in the
+campaign must build on this first passage rather than replay the same escape
+encounter unchanged.
 
-The local defense FEB's governor is still active after the rescue. Rob can
-choose a practical truce and help Jason, but some old restrictions still
-constrain what he can do. Before the longer survey begins, Rob explains the
-conflict and proposes bypassing the governor. Jason does not decide to
-reprogram him on his own.
+### The bypass, Rob's choice and the reveal
 
-Jason connects the Commander and runs Fast Hack'em to expose the governor's
-control path. This is a deliberate, bounded manual hacking encounter, not an
-automatic upload. Rob supplies a live internal diagnostic and must authorize
-the final severance himself; Fast Hack'em cannot make that choice for him.
-Jason operates the interface while Rob risks a permanent change to his own
-systems. Both must participate for the bypass to succeed.
+Jason's limited Commander bypass occurred during Level 1, before the coupler
+was removed. It disabled the local defense FEB's governor restriction, not its
+stored directives, identity suppression or facility isolation interlock. The
+coupler removal still awakened the unit into a hostile response. The earlier
+bypass helps the FEB question that response, but does not make it friendly or
+obedient to Jason.
 
-Success removes the governor's restriction, not Rob's personality or
-surviving directives. He is freer to choose, not magically harmless or
-owned by Jason. The bypass strengthens their working relationship but does
-not replace earned trust.
+After the inspection-mirror emergency and mutual rescue, the FEB has a real
+choice: continue treating Jason as an intruder or cooperate with the person
+who could have left it disabled. Its cooperation is an act of agency and the
+beginning of earned trust, not an automatic side effect of Jason's
+programming. Jason starts calling the FEB Rob as they agree to work together.
 
-Jason is unknowingly using MJH's own programmer to free MJH. Removing the
-governor loosens its suppression of Rob's identity memories: in the final
-severance or shortly after, Rob recognizes the Commander's service routines as
-his own work and recovers his first clear memory of being MJH. Let the full
-reveal follow Rob's choice to be free, not motivate it. Rob does not simply
-become MJH again; he recognizes who he was, grieves the escape he was made to
-attack and decides who he is now. Failure is recoverable and does not kill Rob,
-reinstate the hostile loop or block the campaign. Do not have Mark perform
-the change remotely or let the governor conveniently fail on its own.
+The later Commander +4 / Fast Hack'em work is not a second governor bypass.
+It can diagnose damaged Narcean systems and contest ownership, but it must not
+silently rewrite Rob or repeat the Level 1 operation. Rob retains practical
+engineering knowledge and surviving directives; neither tool nor dialogue
+turns him into a harmless or owned character.
+
+Jason has unknowingly used MJH's own programmer on the FEB that was once MJH.
+The limited bypass loosens suppression of Rob's identity memories: during the
+later evidence-led reveal, Rob recognizes the Commander's service routines as
+his own work and recovers his first clear memory of being MJH. Let that reveal
+follow Rob's choice to cooperate, not motivate it. Rob does not simply become
+MJH again; he recognizes who he was, grieves the escape he was made to attack
+and decides who he is now. Jason's nicknames "Mike" and "Rob" turn out to
+refer to the same person; Rob may choose which name to keep.
 
 ## 13. Stranded over Narcea
 
@@ -774,15 +790,18 @@ This is a surviving local system, not an external military quarantine.
 The contract's matched components are recovered during the same expedition,
 not through an unrelated fourth chain of mandatory artifacts.
 
-## 16. Black Channel: the industrial-canyon escape
+## 16. Later Black Channel: the industrial-canyon escape
 
-At the end of the repair-item hunt, the crew restores a distribution installation
-to release the last required piece of ship hardware. All other repair items are
+The first Level 2 passage through the Black Channel takes the crew toward the
+region where the artifact's matching half was taken. This later flight occurs
+after the repair-item hunt: the crew restores a distribution installation to
+release the last required piece of ship hardware. All other repair items are
 already aboard. This is not followed by another mandatory surface salvage trip.
 
 Removing it activates local security. High-altitude batteries make a direct
 climb unsafe. Rob identifies a maintenance channel beneath their tracking
-coverage.
+coverage. This is a distinct return encounter, not a replay of the initial
+passage through the channel.
 
 Orac: "Good news: the distribution grid is working."
 Jason: "And the bad news?"
