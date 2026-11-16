@@ -67,6 +67,8 @@ private:
     HashMap<String, ValueType> array_types;
     HashMap<String, String> array_bound_vars;
     HashSet<String> typed_locals;
+    HashSet<String> declared_string_vars;  // String locals, params and block locals: assignment stores the VB display string
+    HashSet<String> declared_float_vars;  // Single/Double locals, params and block locals: assignment stores a Double
     HashSet<String> declared_int_vars;  // Integer/Long locals, params and block locals: assignment rounds (VB6 CLng)
     HashSet<String> non_local_names;
     HashSet<String> used_vars;
@@ -133,6 +135,11 @@ private:
     ValueType get_local_type(const String &name) const;
     bool is_declared_integer_var(const String &name) const;
     bool emit_vb_integer_coercion(const String &name, ExpressionNode *value);
+    bool is_declared_float_var(const String &name) const;
+    bool emit_vb_float_coercion(const String &name, ExpressionNode *value);
+    bool is_declared_string_var(const String &name) const;
+    bool emit_vb_string_coercion(const String &name, ExpressionNode *value);
+    void compile_assign_value(ExpressionNode *value);
     uint8_t to_local_type(ValueType type) const;
 
     void collect_locals(Statement* stmt);

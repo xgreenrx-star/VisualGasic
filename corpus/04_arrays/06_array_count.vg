@@ -31,5 +31,5 @@ End Sub
 ' Integer array Count: 5
 ' Integer array Length: 5
 ' String array Count: 3
-' UBound+1 matches Count: true
+' UBound+1 matches Count: True
 ' Double array Count: 4

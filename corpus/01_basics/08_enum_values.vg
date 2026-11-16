@@ -39,5 +39,5 @@ End Sub
 ' Delivery: shipped
 ' State count: 3
 ' State name: Shipped
-' Can edit: true
-' Is admin: false
+' Can edit: True
+' Is admin: False

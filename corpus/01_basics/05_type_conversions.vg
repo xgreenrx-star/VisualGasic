@@ -29,6 +29,6 @@ End Sub
 ' CInt("42")   = 42
 ' CSng("3.14") = 3.14
 ' CStr(99)     = 99
-' CBool("True") = true
+' CBool("True") = True
 ' Invalid integer: not a number; using 0
 ' Bad parse fell back to: 0

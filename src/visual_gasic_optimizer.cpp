@@ -53,6 +53,9 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_PUSH_WITH: case OP_POP_WITH: case OP_GET_WITH:
         case OP_POP_TRY: case OP_THROW: case OP_RETHROW:
         case OP_DUP:
+        case OP_COPY_RECORD:
+        case OP_TO_F64:
+        case OP_TO_STR:
         case OP_ARRAY_RESIZE:
         case OP_LOCK: case OP_UNLOCK:                                 // [OP] — threading mutex
         case OP_PARALLEL_FOR_END: case OP_TASK_RUN_END:               // [OP] — body-end markers

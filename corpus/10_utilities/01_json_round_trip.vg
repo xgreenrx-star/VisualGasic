@@ -19,4 +19,4 @@ End Sub
 ' Expected output:
 ' Name: Ada
 ' Volume: 75
-' Enabled: true
+' Enabled: True

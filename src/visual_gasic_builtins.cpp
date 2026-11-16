@@ -374,20 +374,7 @@ static String &get_cwd() {
 }
 
 static String variant_to_cstr(const Variant &src) {
-    switch (src.get_type()) {
-        case Variant::INT:
-            return String::num_int64((int64_t)src);
-        case Variant::FLOAT: {
-            double value = (double)src;
-            double rounded = Math::round(value);
-            if (Math::is_equal_approx(value, rounded)) {
-                return String::num_int64((int64_t)rounded);
-            }
-            return String::num(value);
-        }
-        default:
-            return String(src);
-    }
+    return VisualGasicInstance::vb_display_string(src);
 }
 
 Variant builtin_cint(const Variant &v, VisualGasicInstance *instance) {
@@ -5599,6 +5586,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         r_handled = true;
         Variant value = args[0];
         String fmt = args.size() > 1 ? String(args[1]) : "";
+        if (fmt.is_empty() && value.get_type() != Variant::STRING) {
+            return VisualGasicInstance::vb_display_string(value);
+        }
         
         // Date/Time formatting
         if (value.get_type() == Variant::STRING && (String(value).contains("/") || String(value).contains(":"))) {

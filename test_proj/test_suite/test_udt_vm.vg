@@ -1,0 +1,187 @@
+Attribute VB_Name = "TestUdtVm"
+' User-defined Type records: locals, arrays, coercion, copies, nesting.
+Option Explicit
+
+Type Pt
+    X As Integer
+    Y As Integer
+End Type
+
+Type Item
+    Title As String
+    Qty As Integer
+    Price As Double
+    Code As String * 4
+    Origin As Pt
+End Type
+
+Dim passed As Integer
+Dim failed As Integer
+Dim GItem As Item
+Dim GPt As Pt
+
+Sub StorePt(p As Pt)
+    GPt = p
+    p.X = 999
+End Sub
+
+Sub ModByVal(ByVal p As Pt)
+    p.X = 555
+End Sub
+
+Function CopyX(p As Pt) As Integer
+    Dim i As Integer
+    Dim total As Integer
+    For i = 1 To 3
+        total = total + p.X
+    Next
+    CopyX = total
+End Function
+
+Sub AssertEqual(actual As Variant, expected As Variant, label As String)
+    If CStr(actual) = CStr(expected) Then
+        passed = passed + 1
+        Print "PASS: " & label
+    Else
+        failed = failed + 1
+        Print "FAIL: " & label & " - expected " & CStr(expected) & ", got " & CStr(actual)
+    End If
+End Sub
+
+Function MakePt(ByVal x As Integer, ByVal y As Integer) As Pt
+    Dim p As Pt
+    p.X = x
+    p.Y = y
+    MakePt = p
+End Function
+
+Sub BumpPt(p As Pt)
+    p.X = p.X + 100
+End Sub
+
+Function SumLoop(ByVal n As Integer) As Integer
+    Dim p As Pt
+    Dim i As Integer
+    For i = 1 To n
+        p.X = p.X + i
+    Next
+    SumLoop = p.X
+End Function
+
+Sub SetLowerX(p As Pt)
+    p.x = 9
+End Sub
+
+Sub SetItemQty(it As Item, ByVal v As Double)
+    it.Qty = v
+End Sub
+
+Sub SetItemCode(it As Item, ByVal s As String)
+    it.Code = s
+End Sub
+
+Function MakeNewItem() As Variant
+    Dim q
+    q = New Item
+    q.Qty = 7
+    MakeNewItem = q
+End Function
+
+Sub _Ready()
+    passed = 0
+    failed = 0
+
+    Dim it As Item
+    AssertEqual it.Qty, 0, "default Integer member"
+    AssertEqual it.Title, "", "default String member"
+    AssertEqual it.Origin.X, 0, "nested default"
+    AssertEqual Len(it.Code), 4, "fixed string default length"
+
+    it.Title = "Notebook"
+    it.Qty = 3
+    it.Price = 2.5
+    AssertEqual it.Qty * it.Price, 7.5, "member arithmetic"
+
+    it.Qty = 3.7
+    AssertEqual it.Qty, 4, "Integer member coerces"
+    it.Code = "ABCDEFG"
+    AssertEqual it.Code, "ABCD", "fixed string truncates"
+    it.Code = "Z"
+    AssertEqual it.Code, "Z   ", "fixed string pads"
+
+    it.Origin.X = 7
+    it.Origin.Y = 9
+    AssertEqual it.Origin.X + it.Origin.Y, 16, "nested member set"
+
+    Dim a As Pt
+    Dim b As Pt
+    a.X = 1
+    b = a
+    b.X = 2
+    AssertEqual a.X, 1, "UDT assignment copies"
+    AssertEqual b.X, 2, "UDT copy is independent"
+
+    Dim q As Pt
+    q = MakePt(5, 6)
+    AssertEqual q.X * 10 + q.Y, 56, "UDT function return"
+
+    BumpPt q
+    AssertEqual q.X, 105, "ByRef UDT parameter"
+
+    Dim pts(3) As Pt
+    pts(2).X = 42
+    AssertEqual pts(2).X, 42, "UDT array element set"
+    AssertEqual pts(1).X, 0, "UDT array element independent"
+    pts(1) = pts(2)
+    pts(1).X = 1
+    AssertEqual pts(2).X, 42, "UDT array element copy"
+
+    AssertEqual SumLoop(10), 55, "UDT in loop"
+
+    GItem.Qty = 2
+    GItem.Origin.Y = 3
+    AssertEqual GItem.Qty + GItem.Origin.Y, 5, "module UDT"
+
+    Dim s As Pt
+    s.X = 11
+    StorePt s
+    AssertEqual GPt.X, 11, "global UDT assignment from param copies"
+    AssertEqual s.X, 999, "ByRef UDT param still writes back"
+
+    Dim v As Pt
+    v.X = 3
+    ModByVal v
+    AssertEqual v.X, 3, "ByVal UDT param is a copy"
+
+    Dim k As Integer
+    Dim acc As Integer
+    For k = 1 To 200
+        acc = acc + CopyX(v)
+    Next
+    AssertEqual acc, 1800, "hot UDT member read"
+
+    SetLowerX GPt
+    AssertEqual GPt.X, 9, "member names are case-insensitive (write)"
+    AssertEqual GPt.x, 9, "member names are case-insensitive (read)"
+
+    SetItemQty GItem, 2.5
+    AssertEqual GItem.Qty, 2, "param member set rounds to even"
+    AssertEqual TypeName(GItem.Qty), "Integer", "param member set keeps Integer"
+    SetItemCode GItem, "ab"
+    AssertEqual "[" & GItem.Code & "]", "[ab  ]", "param fixed string pads"
+    SetItemCode GItem, "abcdefg"
+    AssertEqual "[" & GItem.Code & "]", "[abcd]", "param fixed string truncates"
+
+    Dim r
+    r = MakeNewItem()
+    AssertEqual r.Qty, 7, "New Type sets member"
+    AssertEqual "[" & r.Code & "]", "[    ]", "New Type fixed string default"
+    AssertEqual r.Origin.X, 0, "New Type nested default"
+
+    Print "Results: " & passed & " passed, " & failed & " failed"
+    If failed = 0 Then
+        Print "PASS: all UDT tests"
+    Else
+        Print "FAIL: UDT tests"
+    End If
+End Sub

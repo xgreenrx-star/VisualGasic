@@ -1113,7 +1113,11 @@ void VisualGasicInstance::on_script_reloaded() {
 		}
 		added.insert(v->name.to_lower());
 		if (v->array_sizes.size() == 0) {
-			variables[v->name] = vg_module_default_for_declared_type(v->type);
+			if (struct_prototypes.has(v->type)) {
+				variables[v->name] = ((Dictionary)struct_prototypes[v->type]).duplicate(true);
+			} else {
+				variables[v->name] = vg_module_default_for_declared_type(v->type);
+			}
 			note_ast_decl(nullptr, v->name, v->type);
 		}
 		if (v->is_with_events) {
@@ -1682,6 +1686,15 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                 }
             }
 
+            // Module-level `Dim g As SomeType` ran before the prototypes
+            // existed; give each scalar UDT variable its own record now.
+            for (int i = 0; i < vs->ast_root->variables.size(); i++) {
+                VariableDefinition *v = vs->ast_root->variables[i];
+                if (v->array_sizes.size() > 0 || !struct_prototypes.has(v->type)) continue;
+                if (variables.has(v->name) && variables[v->name].get_type() == Variant::DICTIONARY) continue;
+                variables[v->name] = ((Dictionary)struct_prototypes[v->type]).duplicate(true);
+            }
+
             // Also execute global statements (like Dims not captured in definitions, or Options)
             // Warning: Don't execute imperative code here if untrusted? 
             // Basic usually has static declarative section.
@@ -2220,7 +2233,7 @@ Variant VisualGasicInstance::coerce_to_type(const Variant &val, const String &ty
     } else if (tl == "single" || tl == "float" || tl == "double" || tl == "float32" || tl == "float64") {
         return Variant((double)val);
     } else if (tl == "string") {
-        return Variant(String(val));
+        return Variant(vb_display_string(val));
     } else if (tl == "boolean" || tl == "bool") {
         return Variant(val.booleanize());
     }
@@ -2239,12 +2252,13 @@ StructDefinition* VisualGasicInstance::find_struct_definition(const String &name
     return nullptr;
 }
 
-Variant VisualGasicInstance::coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val) {
+Variant VisualGasicInstance::coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val, String *r_member_name) {
     StructDefinition *def = find_struct_definition(struct_type);
     if (!def) return val;
     
     for (int i = 0; i < def->members.size(); i++) {
         if (def->members[i].name.nocasecmp_to(member_name) == 0) {
+            if (r_member_name) *r_member_name = def->members[i].name;
             String mtype = def->members[i].type;
             int fixed_len = def->members[i].fixed_length;
             

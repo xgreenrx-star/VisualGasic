@@ -43,5 +43,5 @@ Sub _Ready()
     Dim control As Object = ClassDB.Instantiate("Control")
     Me.AddChild(control)
     control.Visible = False
-    If CStr(control.Visible) = "false" Then Print "PASS: nested VG property alias" Else Print "FAIL: nested VG property alias"
+    If CStr(control.Visible) = "False" Then Print "PASS: nested VG property alias" Else Print "FAIL: nested VG property alias"
 End Sub

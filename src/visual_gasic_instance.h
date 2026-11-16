@@ -4,6 +4,7 @@
 #include "visual_gasic_script.h"
 #include "visual_gasic_bytecode.h"
 #include "visual_gasic_ast.h"
+#include <cstdio>
 #include <godot_cpp/core/object.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
@@ -361,6 +362,29 @@ public:
         int64_t fi = (int64_t)f;
         return (fi % 2 == 0) ? fi : fi + 1;
     }
+    // VB6 display form of a Double: 15 significant digits, E notation
+    // below 1E-04 or from 1E+15 ("3", "0.3", "1E+20", "-1.5E-07").
+    static String vb_format_double(double d) {
+        if (d == 0.0) return String("0");
+        if (!Math::is_finite(d)) return String(Variant(d));
+        char buf[40];
+        snprintf(buf, sizeof(buf), "%.15g", d);
+        for (char *p = buf; *p; p++) {
+            if (*p == 'e') *p = 'E';
+        }
+        return String(buf);
+    }
+    // VB6 implicit string conversion (&, Print, CStr, String targets).
+    static String vb_display_string(const Variant &v) {
+        switch (v.get_type()) {
+            case Variant::STRING: return v;
+            case Variant::INT: return String::num_int64((int64_t)v);
+            case Variant::FLOAT: return vb_format_double((double)v);
+            case Variant::BOOL: return (bool)v ? String("True") : String("False");
+            case Variant::NIL: return String();
+            default: return String(v);
+        }
+    }
     static inline Variant vb_to_integer(const Variant &v) {
         switch (v.get_type()) {
             case Variant::INT: return v;
@@ -382,10 +406,32 @@ private:
     Dictionary struct_prototypes;  // Name -> Dictionary(default prototype)
     // Hidden key stored in each struct dictionary instance to track its type
     static constexpr const char* STRUCT_TYPE_KEY_CSTR = "__vg_type__";
+    // User Type records are values: a ByVal bind gets its own copy.
+    static Variant copy_if_record(const Variant &v) {
+        if (v.get_type() == Variant::DICTIONARY) {
+            Dictionary d = v;
+            if (d.has(STRUCT_TYPE_KEY_CSTR)) {
+                return d.duplicate(true);
+            }
+        }
+        return v;
+    }
     // Look up a StructDefinition by name from the current script AST
     StructDefinition* find_struct_definition(const String &name) const;
     // Coerce a value for strict struct member assignment; returns coerced value
-    Variant coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val);
+    // r_member_name (optional) receives the declared spelling of the member.
+    Variant coerce_struct_member(const String &struct_type, const String &member_name, const Variant &val, String *r_member_name = nullptr);
+    // Case-insensitive read of a user Type member; Nil when absent.
+    static Variant record_member_ci(const Dictionary &d, const String &member_name) {
+        if (!d.has(STRUCT_TYPE_KEY_CSTR)) return Variant();
+        const Array keys = d.keys();
+        for (int i = 0; i < keys.size(); i++) {
+            if (keys[i].get_type() == Variant::STRING && String(keys[i]).nocasecmp_to(member_name) == 0) {
+                return d[keys[i]];
+            }
+        }
+        return Variant();
+    }
     
     // Class system storage
     struct FastKeyCacheEntry {
@@ -639,6 +685,13 @@ private:
     void note_ast_decl(const SubDefinition *p_sub, const String &p_name, const String &p_type) {
         String t = p_type.to_lower();
         ast_untyped_decls[ast_decl_key(p_sub, p_name)] = t.is_empty() || t == "variant" || t == "object";
+        ast_string_decls[ast_decl_key(p_sub, p_name)] = t == "string";
+    }
+    HashMap<String, bool> ast_string_decls;
+    bool ast_decl_is_string(const String &p_name) const {
+        const bool *b = ast_string_decls.getptr(ast_decl_key(current_sub, p_name));
+        if (!b && current_sub) b = ast_string_decls.getptr(ast_decl_key(nullptr, p_name));
+        return b && *b;
     }
     bool ast_decl_is_untyped(const String &p_name) const {
         const bool *b = ast_untyped_decls.getptr(ast_decl_key(current_sub, p_name));

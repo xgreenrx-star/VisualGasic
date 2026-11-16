@@ -50,5 +50,5 @@ End Sub
 ' Expected output:
 ' Player ready
 ' Moved to x=60
-' Visible: false
+' Visible: False
 ' Tint applied

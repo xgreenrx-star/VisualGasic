@@ -578,6 +578,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              if (ma->member_name.nocasecmp_to("Keys") == 0) return d.keys();
              if (ma->member_name.nocasecmp_to("Items") == 0) return d.values();
              if (d.has(ma->member_name)) return d[ma->member_name];
+             if (d.has(STRUCT_TYPE_KEY_CSTR)) return record_member_ci(d, ma->member_name);
          }
          
          // Generic Variant Member Access (Object, Vector2, etc.)
@@ -1044,7 +1045,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (base.get_type() == Variant::DICTIONARY) {
             Dictionary d = base;
             if (d.has(oa->member_name)) return d[oa->member_name];
-            return Variant();
+            return record_member_ci(d, oa->member_name);
         }
         bool valid = false;
         Variant ret = base.get_named(oa->member_name, valid);
@@ -2076,7 +2077,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         bool valid;
         
         if (op == "&") {
-             return String(l) + String(r);
+             return vb_display_string(l) + vb_display_string(r);
         }
 
         if (op == "**" || op == "^") {

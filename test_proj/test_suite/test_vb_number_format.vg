@@ -1,0 +1,62 @@
+Dim gPass As Integer
+Dim gFail As Integer
+
+Sub Check(nm As String, got As Variant, want As Variant)
+    If got = want Then
+        gPass = gPass + 1
+        Print "PASS: " & nm
+    Else
+        gFail = gFail + 1
+        Print "FAIL: " & nm & " got=[" & got & "] want=[" & want & "]"
+    End If
+End Sub
+
+Function Half(n As Integer) As Double
+    Dim d As Double
+    d = n
+    d = d / 2
+    d = d / 2
+    d = d / 2
+    Half = d
+End Function
+
+Sub _Ready()
+    Dim d As Double
+    d = 3
+    Check "whole double concat", "A=" & d, "A=3"
+    Check "whole double CStr", CStr(d), "3"
+    Check "Str whole double", Str(d), "3"
+    Check "Format no fmt", Format(d), "3"
+    Dim f As Double
+    f = 1.5
+    f = f + 1.5
+    Check "computed double", "C=" & f, "C=3"
+    Check "folded double", "D=" & (1.5 + 1.5), "D=3"
+    Dim s As String
+    s = d
+    Check "double to String var", s, "3"
+    Check "String var type", TypeName(s), "String"
+    Check "fraction", "" & 2.25, "2.25"
+    Check "negative fraction", "" & (0 - 0.5), "-0.5"
+    Check "third", CStr(1 / 3), "0.333333333333333"
+    Check "near-integer", CStr(3.000001), "3.000001"
+    Check "large E", CStr(1E+20), "1E+20"
+    Check "small E", CStr(0.00001), "1E-05"
+    Check "bool concat", "" & True, "True"
+    Check "bool false concat", "" & (1 = 2), "False"
+    Check "integer concat", "" & 42, "42"
+    Check "Half", Half(5), 0.625
+    Check "Half display", "" & Half(5), "0.625"
+    Dim n As Integer
+    n = 7
+    Dim e As Double
+    e = n
+    Check "int to Double type", TypeName(e), "Double"
+    e = e / 2
+    Check "int to Double divide", e, 3.5
+    If gFail = 0 Then
+        Print "PASS: all number format tests"
+    Else
+        Print "FAIL: " & gFail & " number format tests failed"
+    End If
+End Sub

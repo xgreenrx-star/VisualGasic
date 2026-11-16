@@ -385,6 +385,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     local_const_map.clear();
     typed_locals.clear();
     declared_int_vars.clear();
+    declared_float_vars.clear();
+    declared_string_vars.clear();
     pending_vector_draw_skip = 0;
     non_local_names.clear();
     used_vars.clear();
@@ -592,6 +594,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
         else if (t == "single" || t == "double") pvt = VT_FLOAT;
         if (vg_is_integer_type_name(t) && !sub->parameters[i].is_param_array) declared_int_vars.insert(pkey);
+        if ((t == "single" || t == "double") && !sub->parameters[i].is_param_array) declared_float_vars.insert(pkey);
+        if (t == "string" && !sub->parameters[i].is_param_array) declared_string_vars.insert(pkey);
         mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
     }
 
@@ -933,6 +937,89 @@ bool VisualGasicCompiler::is_declared_integer_var(const String &name) const {
     return false;
 }
 
+// User Type records are values: assigning one from a place (variable,
+// element, member) must not alias the source.
+void VisualGasicCompiler::compile_assign_value(ExpressionNode *value) {
+	compile_expression(value);
+	if (!value || !current_module || current_module->structs.is_empty()) {
+		return;
+	}
+	switch (value->type) {
+		case ExpressionNode::VARIABLE:
+		case ExpressionNode::ARRAY_ACCESS:
+		case ExpressionNode::MEMBER_ACCESS:
+		case ExpressionNode::EXPRESSION_CALL:
+		case ExpressionNode::ME:
+			emit_byte(OP_COPY_RECORD);
+			break;
+		default:
+			break;
+	}
+}
+
+bool VisualGasicCompiler::is_declared_float_var(const String &name) const {
+    String key = name.to_lower();
+    if (declared_float_vars.has(key)) return true;
+    int frame = 0;
+    int offset = 0;
+    if (local_slots.has(key) || param_vars.has(key) || lookup_block_local(name, frame, offset)) return false;
+    if (!current_module) return false;
+    for (int i = 0; i < current_module->variables.size(); i++) {
+        VariableDefinition *v = current_module->variables[i];
+        if (v && v->array_sizes.is_empty() && v->name.to_lower() == key) {
+            String t = v->type.to_lower();
+            return t == "single" || t == "double";
+        }
+    }
+    return false;
+}
+
+bool VisualGasicCompiler::is_declared_string_var(const String &name) const {
+    String key = name.to_lower();
+    if (declared_string_vars.has(key)) return true;
+    int frame = 0;
+    int offset = 0;
+    if (local_slots.has(key) || param_vars.has(key) || lookup_block_local(name, frame, offset)) return false;
+    if (!current_module) return false;
+    for (int i = 0; i < current_module->variables.size(); i++) {
+        VariableDefinition *v = current_module->variables[i];
+        if (v && v->array_sizes.is_empty() && v->name.to_lower() == key) {
+            return v->type.to_lower() == "string";
+        }
+    }
+    return false;
+}
+
+static bool vg_expr_yields_string(ExpressionNode *value) {
+    if (!value) return false;
+    if (value->type == ExpressionNode::LITERAL) {
+        return ((LiteralNode *)value)->value.get_type() == Variant::STRING;
+    }
+    if (value->type == ExpressionNode::BINARY_OP) {
+        return ((BinaryOpNode *)value)->op == "&";
+    }
+    return false;
+}
+
+// Typed String targets hold the VB display form of a number or Boolean.
+// Returns true when a conversion was emitted.
+bool VisualGasicCompiler::emit_vb_string_coercion(const String &name, ExpressionNode *value) {
+    if (!is_declared_string_var(name)) return false;
+    if (vg_expr_yields_string(value)) return false;
+    if (value && value->type == ExpressionNode::VARIABLE && is_declared_string_var(((VariableNode *)value)->name)) return false;
+    emit_byte(OP_TO_STR);
+    return true;
+}
+
+// Typed Single/Double targets hold a Double even when the value is an
+// Integer. Returns true when a conversion was emitted.
+bool VisualGasicCompiler::emit_vb_float_coercion(const String &name, ExpressionNode *value) {
+    if (!is_declared_float_var(name)) return false;
+    if (infer_type(value) == VT_FLOAT) return false;
+    emit_byte(OP_TO_F64);
+    return true;
+}
+
 // Typed Integer/Long targets round a non-integer value like VB6 CLng
 // (ties to even). Returns true when a coercion call was emitted.
 bool VisualGasicCompiler::emit_vb_integer_coercion(const String &name, ExpressionNode *value) {
@@ -1030,6 +1117,16 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                     declared_int_vars.insert(key);
                 } else {
                     declared_int_vars.erase(key);
+                }
+                if (vt == VT_FLOAT) {
+                    declared_float_vars.insert(key);
+                } else {
+                    declared_float_vars.erase(key);
+                }
+                if (s->type_name.to_lower() == "string") {
+                    declared_string_vars.insert(key);
+                } else {
+                    declared_string_vars.erase(key);
                 }
             }
             break;
@@ -3574,7 +3671,7 @@ bool VisualGasicCompiler::try_emit_set_index(const String &arr_name, ExpressionN
         return false;
     }
     compile_expression(index);
-    compile_expression(value);
+    compile_assign_value(value);
     if (slot >= 0) {
         emit_bytes(OP_SET_INDEX_LOCAL, (uint8_t)slot);
     } else {
@@ -5381,7 +5478,7 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 Variant::evaluate(Variant::OP_DIVIDE, a, c, res, valid);
             }
         }
-        else if (b->op == "&") { valid = true; res = String(a) + String(c); }
+        else if (b->op == "&") { valid = true; res = VisualGasicInstance::vb_display_string(a) + VisualGasicInstance::vb_display_string(c); }
         else if (b->op == "=") Variant::evaluate(Variant::OP_EQUAL, a, c, res, valid);
         else if (b->op == "<") Variant::evaluate(Variant::OP_LESS, a, c, res, valid);
         else if (b->op == ">") Variant::evaluate(Variant::OP_GREATER, a, c, res, valid);
@@ -7644,9 +7741,15 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     else if (t == "single" || t == "double") vt = VT_FLOAT;
                 }
                 int offset = allocate_block_local(s->variable_name, vt);
+                if (s->type_name.to_lower() == "string") {
+                    declared_string_vars.insert(s->variable_name.to_lower());
+                }
                 if (s->initializer) {
                     compile_expression(s->initializer);
-                    emit_vb_integer_coercion(s->variable_name, s->initializer);
+                    if (!emit_vb_integer_coercion(s->variable_name, s->initializer) &&
+                            !emit_vb_float_coercion(s->variable_name, s->initializer)) {
+                        emit_vb_string_coercion(s->variable_name, s->initializer);
+                    }
                 } else if (vt == VT_INT) {
                     emit_constant(Variant((int64_t)0));
                 } else {
@@ -8092,12 +8195,15 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                         }
                     }
                 }
-                compile_expression(s->value);
+                compile_assign_value(s->value);
                 {
                     int frame = 0;
                     int offset = 0;
                     if (lookup_block_local(tv->name, frame, offset)) {
-                        emit_vb_integer_coercion(tv->name, s->value);
+                        if (!emit_vb_integer_coercion(tv->name, s->value) &&
+                                !emit_vb_float_coercion(tv->name, s->value)) {
+                            emit_vb_string_coercion(tv->name, s->value);
+                        }
                         emit_byte(OP_SET_BLOCK_LOCAL);
                         emit_byte((uint8_t)frame);
                         emit_byte((uint8_t)offset);
@@ -8105,7 +8211,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     }
                 }
                  bool coerced_int = emit_vb_integer_coercion(tv->name, s->value);
-                 int slot = get_or_add_local(tv->name, coerced_int ? VT_INT : infer_type(s->value));
+                 bool coerced_float = !coerced_int && emit_vb_float_coercion(tv->name, s->value);
+                 if (!coerced_int && !coerced_float) emit_vb_string_coercion(tv->name, s->value);
+                 int slot = get_or_add_local(tv->name, coerced_int ? VT_INT : (coerced_float ? VT_FLOAT : infer_type(s->value)));
                  if (slot >= 0) {
                      emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                  } else {
@@ -8133,7 +8241,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      if (slot >= 0 && slot < 16) {
                          // Don't push base onto stack — go directly with key+value
                          compile_expression(aa->indices[0]);
-                         compile_expression(s->value);
+                         compile_assign_value(s->value);
                          emit_bytes(OP_SET_VGDICT_LOCAL, (uint8_t)slot);
                          break;
                      }
@@ -8144,7 +8252,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      int bslot = get_or_add_local(v->name, VT_UNKNOWN);
                      if (bslot >= 0) {
                          compile_expression(aa->indices[0]);  // offset
-                         compile_expression(s->value);        // value
+                         compile_assign_value(s->value);        // value
                          emit_bytes(OP_BUF_WRITE8, (uint8_t)bslot);
                          break;
                      }
@@ -8153,7 +8261,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      // PokeByte into one opcode instead of OP_GET_GLOBAL(implicit
                      // via base push) + OP_SET_ARRAY.
                      compile_expression(aa->indices[0]);  // offset
-                     compile_expression(s->value);        // value
+                     compile_assign_value(s->value);        // value
                      int name_idx = current_chunk->add_constant(v->name);
                      emit_byte(OP_SET_GLOBAL_BUF8);
                      emit_const_index(name_idx);
@@ -8164,7 +8272,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  }
                  compile_expression(aa->base);
                  compile_expression(aa->indices[0]);
-                 compile_expression(s->value);
+                 compile_assign_value(s->value);
                  bool unchecked = false;
                  if (!loop_vars.is_empty() && aa->indices[0]->type == ExpressionNode::VARIABLE) {
                      String loop_var = loop_vars[loop_vars.size() - 1].to_lower();
@@ -8219,7 +8327,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                  if (trusted_dict || fast_dict) {
                      // Emit key and value only - don't load the dictionary variable
                      compile_expression(call->arguments[0]);
-                     compile_expression(s->value);
+                     compile_assign_value(s->value);
                      
                      int slot = get_or_add_local(call->method_name, VT_UNKNOWN);
                      // ── Sole-owner VGDict fast path ──
@@ -8237,7 +8345,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      // Original path for arrays
                      compile_expression(&tmp);
                      compile_expression(call->arguments[0]);
-                     compile_expression(s->value);
+                     compile_assign_value(s->value);
                      uint8_t opcode = fast_array ? OP_SET_ARRAY_FAST : OP_SET_ARRAY;
                      emit_byte(opcode);
                      emit_byte(1);
@@ -8373,7 +8481,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      emit_const_index(mi_idx);
                  }
                  // Push value.
-                 compile_expression(s->value);
+                 compile_assign_value(s->value);
                  // SET_MEMBER on the way back up: innermost first, then
                  // outwards. This propagates value-type modifications
                  // through every parent.
@@ -12569,6 +12677,9 @@ int VisualGasicCompiler::allocate_block_local(const String &name, ValueType vt) 
     }
     if (vt == VT_INT) {
         declared_int_vars.insert(key);
+    }
+    if (vt == VT_FLOAT) {
+        declared_float_vars.insert(key);
     }
     return offset;
 }

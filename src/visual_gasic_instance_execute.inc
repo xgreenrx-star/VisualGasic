@@ -193,10 +193,10 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             // Build combined output string
             String output;
             if (s->expression) {
-                output += String(evaluate_expression(s->expression));
+                output += vb_display_string(evaluate_expression(s->expression));
             }
             for (int ei = 0; ei < s->extra_expressions.size(); ei++) {
-                output += String(evaluate_expression(s->extra_expressions[ei]));
+                output += vb_display_string(evaluate_expression(s->extra_expressions[ei]));
             }
             if (s->file_number) {
                 int fn = evaluate_expression(s->file_number);
@@ -245,7 +245,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         } else if (val.get_type() == Variant::BOOL) {
                             line += ((bool)val) ? "#TRUE#" : "#FALSE#";
                         } else {
-                            line += String(val);
+                            line += vb_display_string(val);
                         }
                     }
                     fa->store_line(line);
@@ -488,6 +488,11 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             // fallback value and carry on.
             if (error_state.has_error && error_state.mode != ErrorState::RESUME_NEXT) {
                 break;
+            }
+            // VB6 Type records have value semantics: `b = a` copies.
+            if (val.get_type() == Variant::DICTIONARY) {
+                Dictionary dv = val;
+                if (dv.has(STRUCT_TYPE_KEY_CSTR)) val = dv.duplicate(true);
             }
             assign_to_target(s->target, val);
             break;

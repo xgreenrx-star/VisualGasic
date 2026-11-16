@@ -455,6 +455,11 @@ bool Tier3::lower_callee(BytecodeChunk* chunk,
                 break;
             }
 
+            case OP_COPY_RECORD: {
+                // Records never reach typed JIT values; nothing to copy.
+                ip += 1;
+                break;
+            }
             case OP_DUP: {
                 ip += 1;
                 if (value_stack.empty()) { return false; }

@@ -2464,7 +2464,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     case 3:
                         if (st == Variant::STRING) dst = std::move(src);
-                        else dst = Variant((String)src);
+                        else dst = Variant(VisualGasicInstance::vb_display_string(src));
                         break;
                     case 4:
                         if (st == Variant::BOOL) vgfast::assign(dst, src);
@@ -2472,6 +2472,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         break;
                     default:
                         if (vgfast::g_layout_ok && vgfast::is_pod_type(st)) vgfast::assign(dst, src);
+                        else if (st == Variant::DICTIONARY && !params_r[i].is_by_ref) dst = VisualGasicInstance::copy_if_record(src);
                         else dst = std::move(src);
                         break;
                 }
@@ -2864,6 +2865,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_THROW]          = &&vg_op_throw;
         dispatch_table[OP_RETHROW]        = &&vg_op_rethrow;
         dispatch_table[OP_DUP]            = &&vg_op_dup;
+        dispatch_table[OP_COPY_RECORD]    = &&vg_op_copy_record;
+        dispatch_table[OP_TO_F64]         = &&vg_op_to_f64;
+        dispatch_table[OP_TO_STR]         = &&vg_op_to_str;
         dispatch_table[OP_ARRAY_RESIZE]   = &&vg_op_array_resize;
         dispatch_table[OP_NEW_OBJECT]     = &&vg_op_new_object;
         // v2.10.0 File I/O + GoSub
@@ -3054,6 +3058,36 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_dup, OP_DUP): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
                 push_value(vm.stack[vm.stack.size() - 1]);
+                break;
+            }
+            VG_CASE(vg_op_to_f64, OP_TO_F64): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant &top = vm.stack.back();
+                const Variant::Type tt = vgfast::vtype(top);
+                if (tt == Variant::INT) {
+                    vgfast::set_float(top, (double)vgfast::vint(top));
+                } else if (tt != Variant::FLOAT) {
+                    top = Variant((double)top);
+                }
+                break;
+            }
+            VG_CASE(vg_op_to_str, OP_TO_STR): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant &top = vm.stack.back();
+                if (vgfast::vtype(top) != Variant::STRING) {
+                    top = Variant(vb_display_string(top));
+                }
+                break;
+            }
+            VG_CASE(vg_op_copy_record, OP_COPY_RECORD): {
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                Variant &top = vm.stack.back();
+                if (top.get_type() == Variant::DICTIONARY) {
+                    Dictionary rec = top;
+                    if (rec.has(STRUCT_TYPE_KEY_CSTR)) {
+                        top = rec.duplicate(true);
+                    }
+                }
                 break;
             }
             VG_CASE(vg_op_array_resize, OP_ARRAY_RESIZE): {
@@ -3363,12 +3397,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     bool found_struct = false;
                     for (int i = 0; i < script->ast_root->structs.size(); i++) {
                         if (script->ast_root->structs[i]->name.nocasecmp_to(class_name) == 0) {
-                            Dictionary d;
                             StructDefinition* def = script->ast_root->structs[i];
-                            for (int m = 0; m < def->members.size(); m++) {
-                                d[def->members[m].name] = Variant();
+                            if (struct_prototypes.has(def->name)) {
+                                push_value(((Dictionary)struct_prototypes[def->name]).duplicate(true));
+                            } else {
+                                Dictionary d;
+                                for (int m = 0; m < def->members.size(); m++) {
+                                    d[def->members[m].name] = Variant();
+                                }
+                                push_value(d);
                             }
-                            push_value(d);
                             found_struct = true;
                             break;
                         }
@@ -4358,7 +4396,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vgfast::vtype(a) == Variant::STRING && vgfast::vtype(b) == Variant::STRING) {
                     push_value(Variant(String(a) + String(b)));
                 } else {
-                    push_value(Variant(String(a) + String(b)));
+                    push_value(Variant(vb_display_string(a) + vb_display_string(b)));
                 }
                 break;
             }
@@ -7038,7 +7076,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_print, OP_PRINT): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
-                Variant val = pop_value();
+                Variant val = vb_display_string(pop_value());
                 UtilityFunctions::print(val);
                 VGQbScreen::note_console_print(this, String(val), true);
                 if (owner) {
@@ -7060,7 +7098,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             VG_CASE(vg_op_debug_print, OP_DEBUG_PRINT): {
                 // Debug.Print → route to Immediate Window via debugger protocol
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
-                Variant val = pop_value();
+                Variant val = vb_display_string(pop_value());
                 UtilityFunctions::print(val);  // Also print to Output console
                 EngineDebugger* engine_debugger = EngineDebugger::get_singleton();
                 if (engine_debugger && engine_debugger->is_active()) {
@@ -7933,7 +7971,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (member.nocasecmp_to("Count") == 0) result = dict->size();
                     else if (member.nocasecmp_to("Keys") == 0) result = dict->keys();
                     else if (member.nocasecmp_to("Items") == 0 || member.nocasecmp_to("Values") == 0) result = dict->values();
-                    else result = dict->get(cache.primary_string, Variant());
+                    else if (dict->has(cache.primary_string)) result = dict->get(cache.primary_string, Variant());
+                    else result = record_member_ci(*dict, member);
                 } else if (vgfast::vtype(base) == Variant::ARRAY) {
                     const Array *arr = VariantInternal::get_array(&base);
                     String member = cache.primary_string;
@@ -8890,7 +8929,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 if (vgfast::vtype(base) == Variant::DICTIONARY) {
                     Dictionary *dict = VariantInternal::get_dictionary(&base);
-                    (*dict)[cache.primary_string] = value;
+                    if (dict->has(STRUCT_TYPE_KEY_CSTR)) {
+                        String member_name = cache.primary_string;
+                        value = coerce_struct_member((*dict)[STRUCT_TYPE_KEY_CSTR], member_name, value, &member_name);
+                        (*dict)[member_name] = value;
+                    } else {
+                        (*dict)[cache.primary_string] = value;
+                    }
                     push_value(base);  // Push modified dictionary back
                 } else if (vgfast::vtype(base) == Variant::VECTOR2) {
                     // Value types need to be reconstructed

@@ -412,6 +412,9 @@ enum OpCode {
     //   [OP] [VAR_SLOT] [LIM_SLOT] [OFF_HI] [OFF_LO]
     // The JIT tiers lower a de-fused copy (VisualGasicOptimizer::defuse_for_jit).
     OP_FOR_INC_LE_LOOP,
+    OP_COPY_RECORD,    // [OP] - Replace TOS with a deep copy when it is a user Type record
+    OP_TO_F64,         // [OP] - Convert TOS to Double (Single/Double assignment target)
+    OP_TO_STR,         // [OP] - Convert TOS to its VB display string (String assignment target)
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

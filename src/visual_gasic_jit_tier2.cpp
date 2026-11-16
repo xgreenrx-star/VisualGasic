@@ -1842,6 +1842,26 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            case OP_TO_F64: {
+                if (vstack.empty()) return false;
+                int src = vstack.back();
+                if (get_vreg_type(src) != IRType::F64) {
+                    vstack.pop_back();
+                    int conv = next_vreg++;
+                    set_vreg_type(conv, IRType::F64);
+                    IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                    cv.dest = conv; cv.src1 = src; cv.bc_offset = ip;
+                    ir.push_back(cv);
+                    vstack.push_back(conv);
+                }
+                ip += 1;
+                break;
+            }
+            case OP_COPY_RECORD: {
+                // Records never reach typed JIT values; nothing to copy.
+                ip += 1;
+                break;
+            }
             case OP_DUP: {
                 if (vstack.empty()) return false;
                 int top = vstack.back();

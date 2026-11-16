@@ -508,13 +508,16 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                         break;
                     case 3:
                         if (st == Variant::STRING) _fast_args.construct_copy(i, src);
-                        else _fast_args.construct_copy(i, Variant((String)src));
+                        else _fast_args.construct_copy(i, Variant(vb_display_string(src)));
                         break;
                     case 4:
                         if (st == Variant::BOOL) _fast_args.construct_copy(i, src);
                         else _fast_args.construct_copy(i, Variant((bool)src));
                         break;
-                    default: _fast_args.construct_copy(i, src); break;   // 0/6 = no coercion
+                    default:   // 0/6 = no coercion
+                        if (st == Variant::DICTIONARY && !params_r[i].is_by_ref) _fast_args.construct_copy(i, copy_if_record(src));
+                        else _fast_args.construct_copy(i, src);
+                        break;
                 }
                 continue;
             }
@@ -525,9 +528,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = vb_to_integer(val);
                     else if (t == "single" || t == "double") val = (double)val;
-                    else if (t == "string") val = (String)val;
+                    else if (t == "string") val = vb_display_string(val);
                     else if (t == "boolean") val = (bool)val;
                 }
+                if (!param.is_by_ref) val = copy_if_record(val);
                 _fast_args.construct_move(i, std::move(val));
             } else if (param.is_optional) {
                 _fast_args.construct_copy(i, param.default_value);
@@ -582,7 +586,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                     switch (chunk_for_locals->fast_param_coerce[i]) {
                         case 1: val = vb_to_integer(val); break;
                         case 2: val = (double)val;  break;
-                        case 3: val = (String)val;  break;
+                        case 3: val = vb_display_string(val);  break;
                         case 4: val = (bool)val;    break;
                         default: break;
                     }
@@ -590,9 +594,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                     String t = param.type_hint.to_lower();
                     if (t == "integer" || t == "long") val = vb_to_integer(val);
                     else if (t == "single" || t == "double") val = (double)val;
-                    else if (t == "string") val = (String)val;
+                    else if (t == "string") val = vb_display_string(val);
                     else if (t == "boolean") val = (bool)val;
                 }
+                if (!param.is_by_ref) val = copy_if_record(val);
                 variables[param.name] = val;
             } else {
                 if (param.is_optional) {
@@ -2594,6 +2599,8 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
              coerce = true;
          } else if (target_type == Variant::STRING && source_type == Variant::STRING) {
              coerce = true;
+         } else if (target_type == Variant::STRING && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL) && ast_decl_is_string(name)) {
+             coerce = true;
          } else if (target_type == Variant::BOOL && (source_type == Variant::BOOL || source_type == Variant::INT)) {
              coerce = true;
          }
@@ -2607,7 +2614,7 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
              } else if (target_type == Variant::FLOAT) {
                  variables[name] = (double)val;
              } else if (target_type == Variant::STRING) {
-                 variables[name] = (String)val;
+                 variables[name] = vb_display_string(val);
              } else if (target_type == Variant::BOOL) {
                  variables[name] = (bool)val;
              }
@@ -3289,9 +3296,12 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              // Strict struct member type checking
              if (dict.has(STRUCT_TYPE_KEY_CSTR)) {
                  String struct_type = dict[STRUCT_TYPE_KEY_CSTR];
-                 val = coerce_struct_member(struct_type, ma->member_name, val);
+                 String member_name = ma->member_name;
+                 val = coerce_struct_member(struct_type, member_name, val, &member_name);
+                 dict[member_name] = val;
+             } else {
+                 dict[ma->member_name] = val;
              }
-             dict[ma->member_name] = val;
              // Dictionaries are RefCounted handles, so modification sticks.
          } 
          else if (base.get_type() == Variant::OBJECT) {

@@ -498,7 +498,7 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         Variant result;
         bool valid;
         if (op == "&") {
-            return String(l) + String(r);
+            return VisualGasicInstance::vb_display_string(l) + VisualGasicInstance::vb_display_string(r);
         }
         if (op == "**") {
             return UtilityFunctions::pow(l, r);
