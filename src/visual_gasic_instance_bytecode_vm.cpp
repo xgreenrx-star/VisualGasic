@@ -1812,6 +1812,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
             }
         }
+        {
+            // In place: evaluate straight from the two stack slots into a raw
+            // result buffer (the engine placement-constructs it), then drop
+            // the right operand and overwrite the left.  Skips two moved-out
+            // operand Variants, a NIL result and their destructor calls.
+            alignas(Variant) unsigned char result_raw[sizeof(Variant)];
+            GDExtensionBool valid = false;
+            const size_t top = vm.stack.size() - 1;
+            internal::gdextension_interface_variant_evaluate((GDExtensionVariantOperator)op,
+                    vm.stack[top - 1]._native_ptr(), vm.stack[top]._native_ptr(), result_raw, &valid);
+            if (valid) {
+                vm.stack.pop_back();
+                Variant &slot = vm.stack[top - 1];
+                if (!vgfast::is_pod_type(vgfast::vtype(slot))) slot.~Variant();
+                memcpy((void *)&slot, result_raw, sizeof(Variant));
+                return true;
+            }
+            reinterpret_cast<Variant *>(result_raw)->~Variant();
+        }
         Variant b = pop_value();
         Variant a = pop_value();
         Variant result;
@@ -2778,6 +2797,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_JUMP_IF_FALSE]  = &&vg_op_jump_if_false;
         dispatch_table[OP_JUMP_IF_TRUE]   = &&vg_op_jump_if_true;
         dispatch_table[OP_LOOP]           = &&vg_op_loop;
+        dispatch_table[OP_FOR_INC_LE_LOOP] = &&vg_op_for_inc_le_loop;
         dispatch_table[OP_CALL]           = &&vg_op_call;
         dispatch_table[OP_RETURN]         = &&vg_op_return;
         dispatch_table[OP_RETURN_VALUE]   = &&vg_op_return_value;
@@ -5518,11 +5538,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_not, OP_NOT): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
+                if (vgfast::vtype(vm.stack.back()) == Variant::BOOL) {
+                    vgfast::set_bool(vm.stack.back(), !vgfast::vbool(vm.stack.back()));
+                    break;
+                }
                 push_value(!to_bool(pop_value()));
                 break;
             }
             VG_CASE(vg_op_and, OP_AND): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
+                {
+                    Variant &bv = vm.stack.back();
+                    Variant &av = vm.stack[vm.stack.size() - 2];
+                    if (vgfast::vtype(av) == Variant::BOOL && vgfast::vtype(bv) == Variant::BOOL) {
+                        const bool r = vgfast::vbool(av) && vgfast::vbool(bv);
+                        vm.stack.pop_back();
+                        vgfast::set_bool(vm.stack.back(), r);
+                        break;
+                    }
+                }
                 Variant b = pop_value();
                 Variant a = pop_value();
                 // VB6: bitwise when both operands are numeric, logical otherwise
@@ -5536,6 +5570,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_or, OP_OR): {
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
+                {
+                    Variant &bv = vm.stack.back();
+                    Variant &av = vm.stack[vm.stack.size() - 2];
+                    if (vgfast::vtype(av) == Variant::BOOL && vgfast::vtype(bv) == Variant::BOOL) {
+                        const bool r = vgfast::vbool(av) || vgfast::vbool(bv);
+                        vm.stack.pop_back();
+                        vgfast::set_bool(vm.stack.back(), r);
+                        break;
+                    }
+                }
                 Variant b = pop_value();
                 Variant a = pop_value();
                 if ((vgfast::vtype(a) == Variant::INT || vgfast::vtype(a) == Variant::FLOAT) &&
@@ -5610,6 +5654,32 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 uint8_t lo = code[vm.ip++];
                 int offset = (hi << 8) | lo;
                 vm.ip -= offset;
+                break;
+            }
+            VG_CASE(vg_op_for_inc_le_loop, OP_FOR_INC_LE_LOOP): {
+                // INC_LOCAL_I64 var; LOOP → header (GET_LOCAL var, GET_LOCAL lim,
+                // LESS_EQUAL_I64, JUMP_IF_FALSE exit), with the header's test done
+                // here: continue at the body or fall through to the exit.
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                const uint8_t var_slot = code[vm.ip];
+                const uint8_t lim_slot = code[vm.ip + 1];
+                const int offset = (code[vm.ip + 2] << 8) | code[vm.ip + 3];
+                vm.ip += 4;
+                sync_local_i64(var_slot, read_local_i64(var_slot) + 1);
+                int64_t cur;
+                int64_t lim;
+                if (!needs_var_sync || isolated_locals) {
+                    const Variant &cv = locals[var_slot];
+                    const Variant &lv = locals[lim_slot];
+                    cur = (vgfast::vtype(cv) == Variant::INT) ? vgfast::vint(cv) : to_int(cv);
+                    lim = (vgfast::vtype(lv) == Variant::INT) ? vgfast::vint(lv) : to_int(lv);
+                } else {
+                    cur = to_int(read_local(var_slot));
+                    lim = to_int(read_local(lim_slot));
+                }
+                if (cur <= lim) {
+                    vm.ip -= offset;
+                }
                 break;
             }
             VG_CASE(vg_op_foreach_step, OP_FOREACH_STEP): {
@@ -7289,6 +7359,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 if (!ensure_stack(2)) { success = false; goto cleanup; }
+                {
+                    // In place on the operand stack: one engine keyed lookup
+                    // (getptr + placement copy) instead of popping copies of
+                    // key/base, a normalized key copy, a NIL default and a
+                    // Dictionary::get method-bind call.
+                    const size_t top = vm.stack.size() - 1;
+                    Variant &key_ref = vm.stack[top];
+                    Variant &base_ref = vm.stack[top - 1];
+                    if (vgfast::vtype(base_ref) == Variant::DICTIONARY) {
+                        alignas(Variant) unsigned char result_raw[sizeof(Variant)];
+                        GDExtensionBool valid = false;
+                        if (vgfast::vtype(key_ref) == Variant::FLOAT) {
+                            Variant norm_key = vg_dictionary_key(key_ref);
+                            internal::gdextension_interface_variant_get_keyed(base_ref._native_ptr(), norm_key._native_ptr(), result_raw, &valid);
+                        } else {
+                            internal::gdextension_interface_variant_get_keyed(base_ref._native_ptr(), key_ref._native_ptr(), result_raw, &valid);
+                        }
+                        vm.stack.pop_back();
+                        Variant &slot = vm.stack[top - 1];
+                        if (!vgfast::is_pod_type(vgfast::vtype(slot))) slot.~Variant();
+                        memcpy((void *)&slot, result_raw, sizeof(Variant));
+                        break;
+                    }
+                }
                 Variant key_var = pop_value();
                 Variant base = pop_value();
                 if (op == OP_GET_DICT_FAST) {
@@ -7771,6 +7865,28 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
+                {
+                    // Tuple axis reads overwrite the inline payload in place.
+                    Variant &top = vm.stack.back();
+                    const Variant::Type bt = vgfast::vtype(top);
+                    if (vgfast::g_layout_ok) {
+                        if (bt == Variant::VECTOR2 && (cache.axis == 0 || cache.axis == 1)) {
+                            const double r = (double)vgfast::vvec2(top)[cache.axis];
+                            vgfast::set_float(top, r);
+                            break;
+                        }
+                        if (bt == Variant::VECTOR3 && cache.axis >= 0 && cache.axis <= 2) {
+                            const double r = (double)vgfast::vvec3(top)[cache.axis];
+                            vgfast::set_float(top, r);
+                            break;
+                        }
+                        if (bt == Variant::COLOR && cache.color_axis >= 0) {
+                            const double r = (double)vgfast::vcolor(top).components[cache.color_axis];
+                            vgfast::set_float(top, r);
+                            break;
+                        }
+                    }
+                }
                 Variant base = pop_value();
                 {
                     const Variant::Type bt = vgfast::vtype(base);
@@ -8709,6 +8825,37 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
+                if (vgfast::g_layout_ok) {
+                    // Numeric axis write into a tuple: patch the base slot in
+                    // place and drop the value slot.
+                    Variant &vv = vm.stack.back();
+                    Variant *bp = &vm.stack[vm.stack.size() - 2];
+                    const Variant::Type vt = vgfast::vtype(vv);
+                    const Variant::Type bt = vgfast::vtype(*bp);
+                    if (vt == Variant::INT || vt == Variant::FLOAT) {
+                        const double d = vgfast::vnum(vv);
+                        bool done = true;
+                        if (bt == Variant::VECTOR2 && (cache.axis == 0 || cache.axis == 1)) {
+                            Vector2 v = vgfast::vvec2(*bp);
+                            v[cache.axis] = (real_t)d;
+                            vgfast::raw_init_vector2(bp, v);
+                        } else if (bt == Variant::VECTOR3 && cache.axis >= 0 && cache.axis <= 2) {
+                            Vector3 v = vgfast::vvec3(*bp);
+                            v[cache.axis] = (real_t)d;
+                            vgfast::raw_init_vector3(bp, v);
+                        } else if (bt == Variant::COLOR && cache.color_axis >= 0) {
+                            Color c = vgfast::vcolor(*bp);
+                            c.components[cache.color_axis] = (float)d;
+                            vgfast::raw_init_color(bp, c);
+                        } else {
+                            done = false;
+                        }
+                        if (done) {
+                            vm.stack.pop_back();
+                            break;
+                        }
+                    }
+                }
                 Variant value = pop_value();
                 Variant base = pop_value();
                 {

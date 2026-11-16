@@ -161,8 +161,10 @@ bool Tier3::lower_callee(BytecodeChunk* chunk,
                          int label_offset) {
     // Simplified IR generation for the callee, matching Tier 2 encoding.
     // BytecodeChunk uses: Vector<uint8_t> code, Vector<Variant> constants.
-    const uint8_t* bc = chunk->code.ptr();
-    int bc_size = chunk->code.size();
+    Vector<uint8_t> defused_code;
+    const Vector<uint8_t> &bc_code = VisualGasicOptimizer::defuse_for_jit(chunk->code, defused_code) ? defused_code : chunk->code;
+    const uint8_t* bc = bc_code.ptr();
+    int bc_size = bc_code.size();
     int vreg = vreg_base;
     int ip = 0;
     int label_count = 0;
@@ -211,7 +213,7 @@ bool Tier3::lower_callee(BytecodeChunk* chunk,
                     }
                     break;
                 default:
-                    scan_ip += VisualGasicOptimizer::instruction_size(chunk->code, scan_ip);
+                    scan_ip += VisualGasicOptimizer::instruction_size(bc_code, scan_ip);
                     break;
             }
         }

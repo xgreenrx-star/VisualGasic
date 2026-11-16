@@ -108,6 +108,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_APPEND_GLOBAL:
             return 3;
         case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL: // [OP] [DST 2] [SRC 2]
+        case OP_FOR_INC_LE_LOOP:                                      // [OP] [VAR] [LIM] [OFF 2]
             return 5;
 
         // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)
@@ -1198,6 +1199,93 @@ bool VisualGasicOptimizer::pass_strip_debug_lines(BytecodeChunk* chunk, Stats& s
 //  Main Optimizer Entry Point
 // ============================================================================
 
+int VisualGasicOptimizer::fuse_for_loops(BytecodeChunk *chunk) {
+    if (!chunk) return 0;
+    Vector<uint8_t> &code = chunk->code;
+    const int n = code.size();
+    if (n < 13) return 0;
+    std::vector<int> starts;
+    std::vector<uint8_t> targeted(n + 1, 0);
+    for (int ip = 0; ip < n;) {
+        starts.push_back(ip);
+        const uint8_t op = code[ip];
+        const int len = instruction_size(code, ip);
+        if (len <= 0) return 0;
+        if (is_jump_op(op)) {
+            const int t = resolve_jump(code, ip);
+            if (t >= 0 && t <= n) targeted[t] = 1;
+        } else if (op == OP_GOSUB && ip + 2 < n) {
+            const int t = (code[ip + 1] << 8) | code[ip + 2];
+            if (t >= 0 && t <= n) targeted[t] = 1;
+        } else if (op == OP_JUMP_TABLE && ip + 9 <= n) {
+            const int table_end = ip + len;
+            auto mark = [&](int at) {
+                const int16_t off = (int16_t)((int)code[at] | ((int)code[at + 1] << 8));
+                const int t = table_end + (int)off;
+                if (t >= 0 && t <= n) targeted[t] = 1;
+            };
+            mark(ip + 5);
+            const int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
+            for (int s = 0; s < num_cases && ip + 9 + s * 2 + 1 < n; s++) mark(ip + 9 + s * 2);
+        }
+        ip += len;
+    }
+    for (int i = 0; i < chunk->stmt_starts.size(); i++) {
+        const int s = chunk->stmt_starts[i];
+        if (s >= 0 && s <= n) targeted[s] |= 2;
+    }
+    int fused = 0;
+    for (size_t k = 0; k + 1 < starts.size(); k++) {
+        const int inc = starts[k];
+        if (code[inc] != OP_INC_LOCAL_I64 || starts[k + 1] != inc + 2) continue;
+        const int lp = inc + 2;
+        if (code[lp] != OP_LOOP || lp + 2 >= n) continue;
+        if (targeted[lp]) continue;
+        const int header = lp + 3 - ((code[lp + 1] << 8) | code[lp + 2]);
+        if (header < 0 || header + 8 > n) continue;
+        const uint8_t var = code[inc + 1];
+        if (code[header] != OP_GET_LOCAL || code[header + 1] != var) continue;
+        if (code[header + 2] != OP_GET_LOCAL) continue;
+        if (code[header + 4] != OP_LESS_EQUAL_I64 || code[header + 5] != OP_JUMP_IF_FALSE) continue;
+        const int exit_target = header + 8 + ((code[header + 6] << 8) | code[header + 7]);
+        if (exit_target != lp + 3) continue;
+        const int body = header + 8;
+        const int back = (inc + 5) - body;
+        if (back <= 0 || back > 0xFFFF) continue;
+        const uint8_t lim = code[header + 3];
+        code.write[inc] = OP_FOR_INC_LE_LOOP;
+        code.write[inc + 1] = var;
+        code.write[inc + 2] = lim;
+        code.write[inc + 3] = (uint8_t)((back >> 8) & 0xFF);
+        code.write[inc + 4] = (uint8_t)(back & 0xFF);
+        fused++;
+    }
+    return fused;
+}
+
+bool VisualGasicOptimizer::defuse_for_jit(const Vector<uint8_t> &code, Vector<uint8_t> &out) {
+    const int n = code.size();
+    bool any = false;
+    for (int ip = 0; ip < n;) {
+        if (code[ip] == OP_FOR_INC_LE_LOOP && ip + 4 < n) {
+            if (!any) {
+                out = code;
+                any = true;
+            }
+            const int body = ip + 5 - ((code[ip + 3] << 8) | code[ip + 4]);
+            const int header = body - 8;
+            const int back = (ip + 5) - header;
+            out.write[ip] = OP_INC_LOCAL_I64;
+            out.write[ip + 1] = code[ip + 1];
+            out.write[ip + 2] = OP_LOOP;
+            out.write[ip + 3] = (uint8_t)((back >> 8) & 0xFF);
+            out.write[ip + 4] = (uint8_t)(back & 0xFF);
+        }
+        ip += instruction_size(code, ip);
+    }
+    return any;
+}
+
 VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk, bool strip_debug) {
     Stats stats;
     if (!chunk || chunk->code.size() == 0) return stats;
@@ -1236,6 +1324,12 @@ VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk,
 
         if (!any_changed) break;
     }
+
+    static const bool fuse_for = [] {
+        const char *e = std::getenv("VG_NO_FOR_FUSE");
+        return !(e && e[0] == '1');
+    }();
+    if (fuse_for) fuse_for_loops(chunk);
 
     stats.total_bytes_after = chunk->code.size();
     if (check_lengths) verify_instruction_lengths(chunk, "post-opt");
@@ -1294,6 +1388,8 @@ bool VisualGasicOptimizer::verify_instruction_lengths(const BytecodeChunk *chunk
             if (at + 2 < size) target = at + 3 + ((code[at + 1] << 8) | code[at + 2]);
         } else if (op == OP_LOOP) {
             if (at + 2 < size) target = at + 3 - ((code[at + 1] << 8) | code[at + 2]);
+        } else if (op == OP_FOR_INC_LE_LOOP) {
+            if (at + 4 < size) target = at + 5 - ((code[at + 3] << 8) | code[at + 4]);
         }
         if (target >= 0 && (target > size || !boundary[target])) {
             UtilityFunctions::print("[VG_OPLEN] ", phase, " ", vg_opcode_name(op), "@", at, " target ", target,

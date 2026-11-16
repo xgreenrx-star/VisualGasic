@@ -146,6 +146,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_JUMP_IF_FALSE);
         OP_NAME_CASE(OP_JUMP_IF_TRUE);
         OP_NAME_CASE(OP_LOOP);
+        OP_NAME_CASE(OP_FOR_INC_LE_LOOP);
         OP_NAME_CASE(OP_CALL);
         OP_NAME_CASE(OP_CALL_BUILTIN);
         OP_NAME_CASE(OP_RETURN);
@@ -487,6 +488,15 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_JUMP_IF_TRUE:
         case OP_LOOP:
             return describe_jump_target(op, operands, offset);
+        case OP_FOR_INC_LE_LOOP:
+            if (operands.size() >= 4) {
+                int delta = (int(operands[2]) << 8) | int(operands[3]);
+                return vformat("%s++ <= %s -> %04d",
+                    describe_local_slot(chunk, int(operands[0])),
+                    describe_local_slot(chunk, int(operands[1])),
+                    offset + 5 - delta);
+            }
+            break;
         case OP_CALL:
             // [NAME_LO] [NAME_HI] [ARG_COUNT]
             if (operands.size() >= 3) {

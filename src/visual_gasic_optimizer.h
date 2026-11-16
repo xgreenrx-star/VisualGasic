@@ -57,6 +57,14 @@ public:
     // Debug self-check (VG_OPLEN_CHECK=1); returns false on a length desync.
     static bool verify_instruction_lengths(const BytecodeChunk *chunk, const char *phase);
 
+    // Final same-length pass: INC_LOCAL_I64 v + LOOP back to a
+    // "GET_LOCAL v, GET_LOCAL lim, LESS_EQUAL_I64, JUMP_IF_FALSE" header
+    // becomes OP_FOR_INC_LE_LOOP.  Returns the number of loops fused.
+    static int fuse_for_loops(BytecodeChunk *chunk);
+    // Inverse rewrite (the JIT tiers lower the unfused form).  Returns false
+    // when the code holds no fused op (out is left untouched).
+    static bool defuse_for_jit(const Vector<uint8_t> &code, Vector<uint8_t> &out);
+
 private:
 
     // Helper: is this opcode a push-only instruction (puts exactly 1 value on stack)?

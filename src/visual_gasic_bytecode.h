@@ -406,6 +406,12 @@ enum OpCode {
     OP_RESUME_NEXT,    // [OP] - On Error handler: continue at the next statement
     OP_RESUME_CLEAR,   // [OP] - Clear the raised error, then fall through (Resume label)
     OP_RETHROW,        // [OP] - Raise variables["Err"] again after Finally
+    // Fused For back-edge (post-optimizer, same length as INC_LOCAL_I64 + LOOP):
+    //   var += 1; if var <= lim goto (ip_after - offset) — the body start just
+    //   past the header's GET_LOCAL var / GET_LOCAL lim / LESS_EQUAL_I64 / JIF.
+    //   [OP] [VAR_SLOT] [LIM_SLOT] [OFF_HI] [OFF_LO]
+    // The JIT tiers lower a de-fused copy (VisualGasicOptimizer::defuse_for_jit).
+    OP_FOR_INC_LE_LOOP,
 
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };

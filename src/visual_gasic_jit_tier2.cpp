@@ -818,8 +818,12 @@ static int read_u16(const uint8_t* code, int ip) {
 bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
                            std::vector<std::pair<std::string, int>>& global_slots, int& total_slots,
                            std::vector<uint8_t>& slot_is_f64, void* inst, const std::string &fn_name) {
-    const uint8_t* code = chunk->code.ptr();
-    int size = chunk->code.size();
+    // The VM fuses For back-edges into OP_FOR_INC_LE_LOOP; lower the
+    // equivalent INC_LOCAL_I64 + LOOP form from a private copy.
+    Vector<uint8_t> defused_code;
+    const Vector<uint8_t> &bc_code = VisualGasicOptimizer::defuse_for_jit(chunk->code, defused_code) ? defused_code : chunk->code;
+    const uint8_t* code = bc_code.ptr();
+    int size = bc_code.size();
     int next_vreg = 0;
     
     // Simulated value stack → maps to virtual registers
@@ -890,7 +894,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     break;
                 }
                 default:
-                    ip += VisualGasicOptimizer::instruction_size(chunk->code, ip);
+                    ip += VisualGasicOptimizer::instruction_size(bc_code, ip);
                     break;
             }
         }
@@ -914,7 +918,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     || op == OP_ADD_LOCAL_I64_CONST || op == OP_SUB_LOCAL_I64_CONST) {
                 if (ip + 1 < size) i64_pinned_slots.insert(code[ip + 1]);
             }
-            ip += VisualGasicOptimizer::instruction_size(chunk->code, ip);
+            ip += VisualGasicOptimizer::instruction_size(bc_code, ip);
         }
     }
     
