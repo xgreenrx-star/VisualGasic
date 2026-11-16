@@ -4,6 +4,8 @@
 #include "visual_gasic_jit_tier2.h"
 #include "visual_gasic_instance.h"
 #include "visual_gasic_builtins.h"
+#include "visual_gasic_optimizer.h"
+#include <memory>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cmath>
 #include <cctype>
@@ -138,6 +140,35 @@ Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &
         return Variant();
     }
     return call_internal(method, args, handled);
+}
+
+Variant VisualGasicInstance::jit_invoke_user_call(const String &method, const Variant *args, int argc, bool &handled, JitCallSiteMemo &memo) {
+    handled = false;
+    refresh_script_caches();
+    if (memo.inst != this || memo.generation != _member_cache_generation) {
+        memo.inst = this;
+        memo.generation = _member_cache_generation;
+        memo.has_res = false;
+    }
+    if (memo.has_res) {
+        return call_internal(method, args, argc, handled, &memo.res);
+    }
+    bool draw_found = false;
+    if (try_dispatch_draw_call(method, args, argc, draw_found) && draw_found) {
+        handled = true;
+        return Variant();
+    }
+    Variant r = call_internal(method, args, argc, handled);
+    if (handled && memo.generation == _member_cache_generation) {
+        const String key = method.to_lower() + "#" + String::num_int64(argc);
+        if (const CallResolutionCacheEntry *cr = _call_resolution_cache.getptr(key)) {
+            if (cr->resolved) {
+                memo.res = *cr;
+                memo.has_res = true;
+            }
+        }
+    }
+    return r;
 }
 
 // Tier-2 lowers every OP_CALL to a RUNTIME_CALL whose result is kept as an
@@ -858,119 +889,9 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     ip += 3;
                     break;
                 }
-                default: {
-                    // Skip based on opcode operand count
-                    // Most opcodes: 1 byte op + variable operands
-                    // We use a simplified skip — if we encounter an unknown opcode, bail
-                    int advance = 1;
-                    switch (op) {
-                        // 2-byte opcodes (op + 1 byte operand, no const pool index)
-                        case OP_GET_LOCAL: case OP_SET_LOCAL:
-                        case OP_CALL_BUILTIN: case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
-                        case OP_OPEN_FILE: case OP_INC_LOCAL_I64:
-                        case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
-                        case OP_GET_ARRAY: case OP_SET_ARRAY:
-                        case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
-                        case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
-                        case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
-                        case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
-                        case OP_PUSH_SCOPE:
-                        case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
-                        case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
-                            advance = 2; break;
-                        case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
-                            advance = 3; break;
-                        case OP_PACKED_RIBBON_EXPAND_LOCAL:
-                            advance = 10; break;
-                        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
-                            advance = 16; break;
-                        case OP_CLASS_STATIC_CALL:
-                            advance = 6; break;
-                        // 3-byte opcodes (op + 2-byte const index, or other 2-byte operands)
-                        case OP_CONSTANT:
-                        case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
-                        case OP_GET_GLOBAL: case OP_SET_GLOBAL:
-                        case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
-                        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
-                        case OP_GET_MEMBER: case OP_SET_MEMBER:
-                        case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
-                        case OP_SET_DICT_LOCAL:
-                        case OP_ITER_ARRAY:
-                        case OP_PRINT_FILE: case OP_WRITE_FILE: case OP_INPUT_FILE:
-                        case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
-                        case OP_ON_ERROR_GOTO: case OP_GOSUB:
-                        case OP_CONSTANT_LONG:
-                        case OP_COERCE_TYPE:
-                            advance = 3; break;
-                        case OP_DEBUG_LINE:
-                            advance = 3; break;
-                        case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
-                        case OP_SETUP_TRY:
-                            advance = 3; break;
-                        // 4-byte opcodes (op + 2-byte const index + 1 byte operand, etc.)
-                        case OP_CALL: case OP_METHOD_CALL:
-                        case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-                        case OP_SET_DICT_GLOBAL:
-                        case OP_RAISE_EVENT:
-                        case OP_NEW_OBJECT:
-                        case OP_NEW_PACKED_LITERAL:
-                        case OP_STRING_REPEAT_OUTER:
-                        case OP_PARALLEL_FOR_BEGIN:
-                            advance = 4; break;
-                        case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
-                            advance = 5; break;
-                        case OP_PACKED_APPEND_LITERAL:   // 9 header bytes + COUNT slots
-                            advance = (ip + 6 < size) ? 9 + code[ip + 6] : 1; break;
-                        case OP_JUMP_TABLE:              // 9 header bytes + COUNT*2 offsets
-                            if (ip + 9 <= size) {
-                                int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
-                                advance = 9 + num_cases * 2;
-                            }
-                            break;
-                        // 5-byte opcodes
-                        case OP_ARITH_SUM:
-                        case OP_ACCUM_I64_MULADD_CONST:
-                            advance = 5; break;
-                        // 6-byte opcodes
-                        case OP_TASK_RUN_BEGIN:
-                        case OP_BYREF_LOAD:
-                        case OP_FOREACH_STEP:
-                            advance = 6; break;
-                        // 8-byte opcodes
-                        case OP_ALLOC_FILL_REPEAT_I64:
-                            advance = 8; break;
-                        // 1-byte opcodes
-                        case OP_POP: case OP_ADD: case OP_SUBTRACT: case OP_MULTIPLY:
-                        case OP_DIVIDE: case OP_NEGATE: case OP_CONCAT: case OP_MOD:
-                        case OP_INT_DIVIDE: case OP_POWER: case OP_NOT: case OP_AND:
-                        case OP_OR: case OP_XOR: case OP_EQUAL: case OP_NOT_EQUAL:
-                        case OP_GREATER: case OP_LESS: case OP_GREATER_EQUAL:
-                        case OP_LESS_EQUAL: case OP_NIL: case OP_TRUE: case OP_FALSE:
-                        case OP_PRINT: case OP_DEBUG_PRINT: case OP_RETURN: case OP_RETURN_VALUE:
-                        case OP_DUP: case OP_NEW_DICT: case OP_THROW: case OP_RETHROW:
-                        case OP_POP_TRY: case OP_ADD_I64: case OP_SUB_I64: case OP_MUL_I64:
-                        case OP_ADD_F64: case OP_SUB_F64: case OP_MUL_F64: case OP_DIV_F64:
-                        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64:
-                        case OP_STOP: case OP_LIKE: case OP_LEN: case OP_ABS: case OP_SGN:
-                        case OP_CLOSE_FILE: case OP_LINE_INPUT: case OP_RETURN_GOSUB:
-                        case OP_LOCK: case OP_UNLOCK: case OP_IS_CLASS:
-                        case OP_RESTORE_DATA: case OP_READ_DATA: case OP_ON_ERROR_RESUME_NEXT:
-                        case OP_ON_ERROR_GOTO_0: case OP_RESUME: case OP_RESUME_NEXT: case OP_RESUME_CLEAR:
-                        case OP_PUSH_WITH: case OP_POP_WITH:
-                        case OP_GET_WITH: case OP_DICT_HAS_KEY: case OP_DICT_SIZE:
-                        case OP_DICT_CLEAR_INPLACE: case OP_DICT_KEYS: case OP_DICT_VALUES:
-                        case OP_DICT_ERASE: case OP_DICT_KEYS_CALL:
-                        case OP_ARRAY_RESIZE: case OP_AWAIT:
-                        case OP_PARALLEL_FOR_END: case OP_TASK_RUN_END:
-                            advance = 1; break;
-                        case OP_TASK_WAIT: case OP_BRANCH_SUM:
-                            advance = 2; break;
-                        default:
-                            advance = 1; break;
-                    }
-                    ip += advance;
+                default:
+                    ip += VisualGasicOptimizer::instruction_size(chunk->code, ip);
                     break;
-                }
             }
         }
     }
@@ -989,63 +910,11 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         int ip = 0;
         while (ip < size) {
             uint8_t op = code[ip];
-            switch (op) {
-                case OP_INC_LOCAL_I64:
-                    i64_pinned_slots.insert(code[ip + 1]);
-                    ip += 2; break;
-                case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
-                    i64_pinned_slots.insert(code[ip + 1]);
-                    ip += 2; break;
-                case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-                    i64_pinned_slots.insert(code[ip + 1]);
-                    ip += 4; break;
-                case OP_DEBUG_LINE:
-                    ip += 3; break;
-                case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
-                    ip += 3; break;
-                case OP_CONSTANT: case OP_GET_GLOBAL: case OP_SET_GLOBAL:
-                case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
-                    ip += 3; break;
-                case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
-                    ip += 5; break;
-                case OP_GET_LOCAL: case OP_SET_LOCAL:
-                case OP_PUSH_SCOPE:
-                case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
-                    ip += 2; break;
-                case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
-                    ip += 3; break;
-                case OP_PACKED_RIBBON_EXPAND_LOCAL:
-                    ip += 10; break;
-                case OP_PACKED_RIBBON_EXPAND_GLOBAL:
-                    ip += 16; break;
-                case OP_CLASS_STATIC_CALL:
-                    ip += 6; break;
-                case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
-                    ip += 3; break;
-                case OP_CALL:
-                    ip += 4; break;
-                case OP_CALL_BUILTIN:
-                    ip += 3; break;
-                case OP_CONSTANT_LONG:
-                    ip += 3; break;
-                case OP_ACCUM_I64_MULADD_CONST:
-                    ip += 5; break;
-                case OP_BYREF_LOAD:
-                case OP_FOREACH_STEP:
-                    ip += 6; break;
-                case OP_PACKED_APPEND_LITERAL:
-                    ip += (ip + 6 < size) ? 9 + code[ip + 6] : 1; break;
-                case OP_JUMP_TABLE:
-                    if (ip + 9 <= size) {
-                        int num_cases = (int)code[ip + 7] | ((int)code[ip + 8] << 8);
-                        ip += 9 + num_cases * 2;
-                    } else {
-                        ip += 1;
-                    }
-                    break;
-                default:
-                    ip += 1; break;
+            if (op == OP_INC_LOCAL_I64 || op == OP_ADD_LOCAL_I64_STACK || op == OP_SUB_LOCAL_I64_STACK
+                    || op == OP_ADD_LOCAL_I64_CONST || op == OP_SUB_LOCAL_I64_CONST) {
+                if (ip + 1 < size) i64_pinned_slots.insert(code[ip + 1]);
             }
+            ip += VisualGasicOptimizer::instruction_size(chunk->code, ip);
         }
     }
     
@@ -1397,6 +1266,59 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 break;
             }
             
+            // OP_ADD_LOCAL_F64_STACK / OP_SUB_LOCAL_F64_STACK:
+            //   [OP] [SLOT] — pop TOS as delta, locals[slot] ±= delta (as Double)
+            // OP_ADD_LOCAL_F64_CONST / OP_SUB_LOCAL_F64_CONST:
+            //   [OP] [SLOT] [CONST_IDX] — locals[slot] ±= constants[idx]
+            case OP_ADD_LOCAL_F64_STACK: case OP_SUB_LOCAL_F64_STACK:
+            case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST: {
+                const bool is_const = (op == OP_ADD_LOCAL_F64_CONST || op == OP_SUB_LOCAL_F64_CONST);
+                const bool is_add = (op == OP_ADD_LOCAL_F64_STACK || op == OP_ADD_LOCAL_F64_CONST);
+                int slot = code[ip + 1];
+                if (i64_pinned_slots.count(slot)) return false;
+                int delta;
+                if (is_const) {
+                    int cidx = (code[ip + 3] << 8) | code[ip + 2];
+                    if (cidx >= chunk->constants.size()) return false;
+                    Variant cv = chunk->constants[cidx];
+                    if (cv.get_type() != Variant::FLOAT && cv.get_type() != Variant::INT) return false;
+                    delta = next_vreg++;
+                    set_vreg_type(delta, IRType::F64);
+                    IRInst c; c.op = IROp::CONST_F64; c.type = IRType::F64;
+                    c.dest = delta; c.imm_f64 = (double)cv; c.bc_offset = ip;
+                    ir.push_back(c);
+                } else {
+                    if (vstack.empty()) return false;
+                    delta = vstack.back(); vstack.pop_back();
+                    if (get_vreg_type(delta) == IRType::VOID) return false;
+                    if (get_vreg_type(delta) != IRType::F64) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::F64);
+                        IRInst cv; cv.op = IROp::I64_TO_F64; cv.type = IRType::F64;
+                        cv.dest = conv; cv.src1 = delta; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        delta = conv;
+                    }
+                }
+                int loaded = next_vreg++;
+                set_vreg_type(loaded, IRType::F64);
+                { IRInst ld; ld.op = IROp::LOAD_LOCAL; ld.type = IRType::F64;
+                  ld.dest = loaded; ld.local_slot = slot; ld.bc_offset = ip;
+                  ir.push_back(ld); }
+                int result = next_vreg++;
+                set_vreg_type(result, IRType::F64);
+                { IRInst ar; ar.type = IRType::F64; ar.dest = result;
+                  ar.src1 = loaded; ar.src2 = delta; ar.bc_offset = ip;
+                  ar.op = is_add ? IROp::ADD_F64 : IROp::SUB_F64;
+                  ir.push_back(ar); }
+                { IRInst st; st.op = IROp::STORE_LOCAL; st.src1 = result;
+                  st.local_slot = slot; st.bc_offset = ip;
+                  ir.push_back(st); }
+                local_slot_type[slot] = IRType::F64;
+                ip += is_const ? 4 : 2;
+                break;
+            }
+
             // OP_ACCUM_I64_MULADD_CONST:
             //   [OP] [S_SLOT(1)] [J_SLOT(1)] [K_LO] [K_HI] — locals[s] += locals[j] * K
             case OP_ACCUM_I64_MULADD_CONST: {
@@ -2788,54 +2710,69 @@ static int64_t host_call(int64_t name_ptr, int64_t argc, int64_t bits_ptr, int64
     jit_sync_globals(true);
     const int64_t *bits = reinterpret_cast<const int64_t *>(bits_ptr);
     const int64_t *kinds = reinterpret_cast<const int64_t *>(kind_ptr);
-    Array args;
-    args.resize((int)argc);
+    Variant argv[8];
     for (int i = 0; i < (int)argc; i++) {
         int kind = kinds ? (int)kinds[i] : 0;
         if (kind == 2) {
             const char *s = reinterpret_cast<const char *>(bits[i]);
-            args[i] = String(s ? s : "");
+            argv[i] = String(s ? s : "");
         } else if (kind == 1) {
             double d = 0;
             memcpy(&d, &bits[i], 8);
-            args[i] = d;
+            argv[i] = d;
         } else {
-            args[i] = bits[i];
+            argv[i] = bits[i];
         }
     }
-    String method(reinterpret_cast<const char *>(name_ptr));
     bool handled = false;
     Variant r;
     // Per-site memo: name_ptr is a C string owned by the compiled function
     // (stable for its lifetime) and both builtin cascades decide r_handled
     // purely on (name, argc).  Once a site has fallen through both cascades
-    // to a user Sub, skip the ~450-entry strcmp walks on every later call —
-    // they made an empty JIT'd `Sub` call cost ~15 µs vs 0.5 µs interpreted.
+    // to a user Sub, skip the ~450-entry strcmp walks on every later call.
     // The name's leading bytes are kept alongside the pointer so a freed and
-    // re-used code buffer cannot inherit a stale decision.
-    struct HostCallMemo { int64_t name_ptr; int64_t argc; uint64_t name_prefix; bool user_sub; };
-    static thread_local std::vector<HostCallMemo> s_host_call_memo;
+    // re-used code buffer cannot inherit a stale decision.  Entries are heap
+    // nodes: a nested host_call may append while an outer call still holds
+    // its entry's resolution.
+    struct HostCallMemo {
+        int64_t name_ptr;
+        int64_t argc;
+        uint64_t name_prefix;
+        String method;
+        VisualGasicInstance::JitCallSiteMemo site;
+    };
+    static thread_local std::vector<std::unique_ptr<HostCallMemo>> s_host_call_memo;
     uint64_t name_prefix = 0;
     {
         const char *nm = reinterpret_cast<const char *>(name_ptr);
         size_t nl = std::strlen(nm);
         memcpy(&name_prefix, nm, nl < 8 ? nl : 8);
     }
-    bool known_user_sub = false;
-    for (const HostCallMemo &m : s_host_call_memo) {
-        if (m.name_ptr == name_ptr && m.argc == argc && m.name_prefix == name_prefix) { known_user_sub = m.user_sub; break; }
+    HostCallMemo *memo = nullptr;
+    for (const std::unique_ptr<HostCallMemo> &m : s_host_call_memo) {
+        if (m->name_ptr == name_ptr && m->argc == argc && m->name_prefix == name_prefix) { memo = m.get(); break; }
     }
-    if (!known_user_sub) {
+    if (!memo) {
+        String method(reinterpret_cast<const char *>(name_ptr));
+        Array args;
+        args.resize((int)argc);
+        for (int i = 0; i < (int)argc; i++) {
+            args[i] = argv[i];
+        }
         r = VisualGasicBuiltins::call_builtin_expr_evaluated(vi, method, args, handled);
         if (!handled) {
             VisualGasicBuiltins::call_builtin(vi, method, args, r, handled);
         }
-    }
-    if (!handled) {
-        r = vi->jit_invoke_call(method, args, handled);
-        if (handled && !known_user_sub && s_host_call_memo.size() < 4096) {
-            s_host_call_memo.push_back({ name_ptr, argc, name_prefix, true });
+        if (!handled) {
+            VisualGasicInstance::JitCallSiteMemo site;
+            r = vi->jit_invoke_user_call(method, argv, (int)argc, handled, site);
+            if (handled && s_host_call_memo.size() < 4096) {
+                std::unique_ptr<HostCallMemo> m(new HostCallMemo{ name_ptr, argc, name_prefix, method, site });
+                s_host_call_memo.push_back(std::move(m));
+            }
         }
+    } else {
+        r = vi->jit_invoke_user_call(memo->method, argv, (int)argc, handled, memo->site);
     }
     g_jit_frame = saved;
     jit_sync_globals(false);

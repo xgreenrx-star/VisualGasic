@@ -12,6 +12,13 @@ End Function
 Function Revision() As Integer
 	Return 2
 End Function
+Dim ticks As Integer = 100
+Sub _Process(ByVal delta As Double)
+	ticks = ticks + 1
+End Sub
+Function TickCount() As Integer
+	Return ticks
+End Function
 """
 
 class ReferenceCanvas extends Node2D:
@@ -132,6 +139,12 @@ func run() -> void:
 		check(second_identity == probe.get_instance_id(), "cached native owner call resolves")
 		for i in range(4):
 			check(probe.call("Revision") == 1, "numeric function warms up correctly")
+			check(probe.call("revision") == 1, "snake_case external call resolves")
+			check(probe.call("get_instance_id") == probe.get_instance_id(), "native method falls through VG call cache")
+		root.add_child(probe)
+		await process_frame
+		await process_frame
+		check(not probe.has_method("TickCount"), "no frame hook before reload")
 		script.source_code = RELOADED_SOURCE
 		check(script.reload(true) == OK, "reload succeeds")
 		check(not probe.has_method("RollShopWeapons"), "reload removes cached method")
@@ -139,6 +152,14 @@ func run() -> void:
 		check(probe.call("NativeIdentity") == 77, "reload invalidates native owner-call memo")
 		for i in range(4):
 			check(probe.call("Revision") == 2, "reload invalidates compiled numeric function")
+			check(probe.call("revision") == 2, "reload invalidates external call cache")
+			check(probe.call("get_instance_id") == 77, "reload invalidates negative external call cache")
+		var ticks_before: int = probe.call("TickCount")
+		check(ticks_before >= 100, "reload initializes added module Dim on live instance")
+		await process_frame
+		await process_frame
+		await process_frame
+		check(int(probe.call("TickCount")) >= ticks_before + 2, "reload enables _Process frame hook")
 		probe.free()
 	await measure(ReferenceCanvas.new(), "GDScript")
 	for style in [1, 2]:

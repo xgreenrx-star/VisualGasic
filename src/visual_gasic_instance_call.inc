@@ -274,6 +274,10 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     // restore) from every single call.  The Dictionary's exact-key .has() maps to a
     // case-sensitive linear scan (saved_locals_has); N is tiny (params+locals).
     Vector<Pair<String, Variant>> saved_locals;
+    // AST-only bodies (no compiled chunk): every Dim / loop variable name, so
+    // callee-introduced locals are erased at exit instead of leaking into
+    // module scope (and shadowing owner properties via instance get()).
+    Vector<String> ast_only_local_names;
     auto saved_locals_has = [&saved_locals](const String &n) -> bool {
         for (int _i = 0; _i < saved_locals.size(); _i++)
             if (saved_locals[_i].first == n) return true;
@@ -374,43 +378,58 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 }
                 return false;
             }
-            static void save_loop_var(const String &name, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod) {
-                if (all_vars.has(name) && !is_module_var(mod, name))
+            static void save_loop_var(const String &name, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod, Vector<String> &names) {
+                if (is_module_var(mod, name)) return;
+                names.push_back(name);
+                if (all_vars.has(name))
                     vars.push_back({name, all_vars[name]});
             }
-            static void scan(const Vector<Statement*>& stmts, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod) {
+            static void scan(const Vector<Statement*>& stmts, Vector<Pair<String, Variant>>& vars, const Dictionary& all_vars, const ModuleNode *mod, Vector<String> &names) {
                 for(int i=0; i<stmts.size(); i++) {
                     if (!stmts[i]) continue;
                     if (stmts[i]->type == STMT_DIM) {
                         DimStatement* ds = (DimStatement*)stmts[i];
+                        names.push_back(ds->variable_name);
                         if (all_vars.has(ds->variable_name))
                             vars.push_back({ds->variable_name, all_vars[ds->variable_name]});
                     } else if (stmts[i]->type == STMT_IF) {
                         IfStatement* ifs = (IfStatement*)stmts[i];
-                        scan(ifs->then_branch, vars, all_vars, mod);
-                        scan(ifs->else_branch, vars, all_vars, mod);
+                        scan(ifs->then_branch, vars, all_vars, mod, names);
+                        scan(ifs->else_branch, vars, all_vars, mod, names);
                     } else if (stmts[i]->type == STMT_FOR) {
                         ForStatement* fs = (ForStatement*)stmts[i];
-                        save_loop_var(fs->variable_name, vars, all_vars, mod);
-                        scan(fs->body, vars, all_vars, mod);
+                        save_loop_var(fs->variable_name, vars, all_vars, mod, names);
+                        scan(fs->body, vars, all_vars, mod, names);
                     } else if (stmts[i]->type == STMT_WHILE) {
-                        scan(((WhileStatement*)stmts[i])->body, vars, all_vars, mod);
+                        scan(((WhileStatement*)stmts[i])->body, vars, all_vars, mod, names);
                     } else if (stmts[i]->type == STMT_DO) {
-                        scan(((DoStatement*)stmts[i])->body, vars, all_vars, mod);
+                        scan(((DoStatement*)stmts[i])->body, vars, all_vars, mod, names);
                     } else if (stmts[i]->type == STMT_FOR_EACH) {
                         ForEachStatement* fes = (ForEachStatement*)stmts[i];
-                        save_loop_var(fes->variable_name, vars, all_vars, mod);
-                        scan(fes->body, vars, all_vars, mod);
+                        save_loop_var(fes->variable_name, vars, all_vars, mod, names);
+                        scan(fes->body, vars, all_vars, mod, names);
                     } else if (stmts[i]->type == STMT_OSCILLATE) {
                         OscillateStatement* oss = (OscillateStatement*)stmts[i];
-                        save_loop_var(oss->variable_name, vars, all_vars, mod);
-                        scan(oss->body, vars, all_vars, mod);
+                        save_loop_var(oss->variable_name, vars, all_vars, mod, names);
+                        scan(oss->body, vars, all_vars, mod, names);
+                    } else if (stmts[i]->type == STMT_WITH) {
+                        scan(((WithStatement*)stmts[i])->body, vars, all_vars, mod, names);
+                    } else if (stmts[i]->type == STMT_SELECT) {
+                        SelectStatement *ss = (SelectStatement*)stmts[i];
+                        for (int c = 0; c < ss->cases.size(); c++) {
+                            if (ss->cases[c]) scan(ss->cases[c]->body, vars, all_vars, mod, names);
+                        }
+                    } else if (stmts[i]->type == STMT_TRY) {
+                        TryStatement *ts = (TryStatement*)stmts[i];
+                        scan(ts->try_block, vars, all_vars, mod, names);
+                        scan(ts->catch_block, vars, all_vars, mod, names);
+                        scan(ts->finally_block, vars, all_vars, mod, names);
                     }
                 }
             }
         };
         const ModuleNode *scan_module = (owning_module && owning_module->ast) ? owning_module->ast : cached_ast_root;
-        DimScanner::scan(func->statements, saved_locals, variables, scan_module);
+        DimScanner::scan(func->statements, saved_locals, variables, scan_module, ast_only_local_names);
     }
     
     // Fast-call convention (v6.0): when the compiled chunk flagged fast_params,
@@ -960,6 +979,12 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
         }
     }
 
+    for (int i = 0; i < ast_only_local_names.size(); i++) {
+        if (!saved_locals_has(ast_only_local_names[i])) {
+            variables.erase(ast_only_local_names[i]);
+        }
+    }
+
     // Store captured ByRef parameter values for the caller's write-back
     // (AST STMT_CALL and bytecode OP_BYREF_LOAD).  Bytecode subs already
     // stashed captures from callee locals in execute_bytecode() before
@@ -972,13 +997,109 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 }
 
 void VisualGasicInstance::call(const StringName &p_method, const Variant *const *p_args, GDExtensionInt p_argcount, Variant *r_return, GDExtensionCallError *r_error) {
-    // Block all script execution in editor mode
-    if (Engine::get_singleton()->is_editor_hint()) {
+    // Block all script execution in editor mode.  Fixed for the process.
+    static const bool _vg_call_editor_hint = Engine::get_singleton()->is_editor_hint();
+    if (_vg_call_editor_hint) {
         if (r_return) *r_return = Variant();
         r_error->error = GDEXTENSION_CALL_OK;
         return;
     }
-    
+
+    // Engine → VG fast path (signals, Callable.call, GDScript n.call(...)).
+    // The slow path below compares the name against a dozen StringName
+    // literals (each built under the global StringName mutex), lowercases it
+    // twice, copies the args into an Array and re-resolves the Sub by a
+    // lowercased "name#argc" key: ~20-40x GDScript's cost for an empty call.
+    refresh_script_caches();
+    ExternalCallEntry *_ext = _external_call_cache.getptr(p_method);
+    if (!_ext) {
+        ExternalCallEntry entry;
+        const String m = p_method;
+        static const char *const _vg_slow_names[] = {
+            "_vg_resume_ast", "_vg_resume_coroutine", "_vg_get_all_variables",
+            "_vg_get_variable", "_vg_set_variable", "_vg_get_whenever_sections",
+            "_vg_set_whenever_active", "_vg_profiler_enable", "_vg_profiler_get_report",
+            "_vg_profiler_clear", "_OnSignal", "_OnArraySignal", "_OnGuiInput",
+        };
+        bool slow = false;
+        for (const char *sn : _vg_slow_names) {
+            if (m == sn) { slow = true; break; }
+        }
+        if (!slow) {
+            const String ml = m.to_lower();
+            if (ml == "_ready" || ml == "_process" || ml == "_physics_process" || ml == "_draw") {
+                entry.kind = ExternalCallEntry::GUARD;
+            } else {
+                entry.kind = ExternalCallEntry::NORMAL;
+                entry.note_input = (ml == "_input" || ml == "_unhandled_input");
+                entry.redraw_on_input = ml.find("input") >= 0;
+            }
+        }
+        _ext = &_external_call_cache.insert(p_method, entry)->value;
+    }
+    if (_ext->kind == ExternalCallEntry::GUARD) {
+        if (r_return) *r_return = Variant();
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    if (_ext->kind == ExternalCallEntry::NORMAL && _ext->miss_argc == (int)p_argcount) {
+        // Known miss: untyped GDScript `obj.call(...)`, `obj.set(...)`, etc.
+        // ask the script instance first for every native method, so a miss
+        // must be as cheap as possible before Godot falls back to ClassDB.
+        if (_ext->note_input && p_argcount > 0) {
+            VGQbScreen::note_input(this, *p_args[0]);
+        }
+        r_error->error = GDEXTENSION_CALL_ERROR_INVALID_METHOD;
+        return;
+    }
+    if (_ext->kind == ExternalCallEntry::NORMAL && _ext->argc == (int)p_argcount) {
+        // Copy what is needed after the callee runs: a nested call can insert
+        // into (rehash) or clear the map.  `pre` is only read by call_internal
+        // before the callee executes (same contract as OP_CALL's memo).
+        // HashMap values are node-allocated, so a rehash does not move them;
+        // only clear()/erase() (script reload inside the callee) would.  With
+        // `pre` set, call_internal reads the name only before the callee runs,
+        // so the entry's String can be borrowed; otherwise take a copy.
+        const bool redraw_on_input = _ext->redraw_on_input;
+        const CallResolutionCacheEntry *pre = _ext->has_pre ? &_ext->pre : nullptr;
+        vgfast::OptString resolved_copy;
+        const String *resolved_p = &_ext->resolved_name;
+        if (!pre) {
+            resolved_copy.set_copy(_ext->resolved_name);
+            resolved_p = &resolved_copy.get();
+        }
+        if (_ext->note_input && p_argcount > 0) {
+            VGQbScreen::note_input(this, *p_args[0]);
+        }
+        constexpr int _EXT_INLINE = 8;
+        Variant ext_inline[_EXT_INLINE];
+        Vector<Variant> ext_heap;
+        Variant *ext_args = ext_inline;
+        if (p_argcount > _EXT_INLINE) { ext_heap.resize(p_argcount); ext_args = ext_heap.ptrw(); }
+        for (int i = 0; i < (int)p_argcount; i++) ext_args[i] = *p_args[i];
+        bool ext_found = false;
+        Variant ret = call_internal(*resolved_p, ext_args, (int)p_argcount, ext_found, pre);
+        if (ext_found) {
+            if (r_return) *r_return = ret;
+            r_error->error = GDEXTENSION_CALL_OK;
+            if (error_state.has_error) {
+                report_unhandled_error(String(p_method));
+            }
+            if (redraw_on_input && owner && script.is_valid()) {
+                if (script->_has_method("_Draw") || script->_has_method("OnDraw")) {
+                    if (CanvasItem *ci = get_draw_canvas_item()) {
+                        ci->queue_redraw();
+                    }
+                }
+            }
+            return;
+        }
+        // Not found (nothing ran): forget the memo and take the full path.
+        _external_call_cache.erase(p_method);
+        _ext = nullptr;
+    }
+    const bool _ext_resolvable = _ext && _ext->kind == ExternalCallEntry::NORMAL;
+
     // Coroutine resume callback (v4.2.0) — invoked by signal/timer one-shot
 	if (p_method == StringName("_vg_resume_ast")) {
 		if (p_argcount > 0) resume_ast_coroutine((int64_t)*p_args[p_argcount - 1]);
@@ -1461,6 +1582,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // Convert Godot snake_case to VG PascalCase for multi-word virtuals
     // e.g. "_unhandled_input" → "_UnhandledInput"
     String vg_method = godot_snake_to_vg_pascal(String(p_method));
+    String resolved_name = vg_method;
     Variant ret = call_internal(vg_method, args, found);
 
     // If PascalCase lookup failed, try the original method name.
@@ -1469,7 +1591,8 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     // conversion strips internal underscores ("_OnBodyEntered") which
     // won't match the actual sub name.
     if (!found && vg_method != String(p_method)) {
-        ret = call_internal(String(p_method), args, found);
+        resolved_name = String(p_method);
+        ret = call_internal(resolved_name, args, found);
     }
 
     // GDScript callers (e.g. Shop.gd on a VG autoload) use snake_case for
@@ -1477,7 +1600,30 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
     if (!found) {
         String user_pascal = vg_snake_to_pascal_method(String(p_method));
         if (user_pascal != String(p_method)) {
+            resolved_name = user_pascal;
             ret = call_internal(user_pascal, args, found);
+        }
+    }
+
+    if (found && _ext_resolvable) {
+        // Look the entry up again: the callee may have rehashed the map.
+        if (ExternalCallEntry *e = _external_call_cache.getptr(p_method)) {
+            e->argc = (int)p_argcount;
+            e->resolved_name = resolved_name;
+            e->has_pre = false;
+            const String res_key = resolved_name.to_lower() + "#" + String::num_int64(p_argcount);
+            if (const CallResolutionCacheEntry *cr = _call_resolution_cache.getptr(res_key)) {
+                if (cr->resolved) {
+                    e->pre = *cr;
+                    e->has_pre = true;
+                }
+            }
+        }
+    }
+
+    if (!found && _ext_resolvable) {
+        if (ExternalCallEntry *e = _external_call_cache.getptr(p_method)) {
+            e->miss_argc = (int)p_argcount;
         }
     }
 
@@ -2193,8 +2339,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
          // Skip _Process in editor mode. QB present runs after _Process so one
          // frame of PSet/LINE/_Display becomes a single texture upload.
          bool frame_failed = false;
-         if (!Engine::get_singleton()->is_editor_hint()) {
-         if (script.is_valid() && script->_has_method("_Process")) {
+         static const bool _vg_proc_editor_hint = Engine::get_singleton()->is_editor_hint();
+         if (!_vg_proc_editor_hint) {
+         if (script.is_valid() && prepare_frame_hook(_hook_process, "_Process").exists) {
              double delta = 0.0;
              if (owner) {
                  Node* node = Object::cast_to<Node>(owner);
@@ -2202,16 +2349,13 @@ void VisualGasicInstance::notification(int32_t p_what) {
              }
              delta = VisualGasicLanguage::adjust_process_delta(delta);
              
-             Array args; 
-             args.push_back(delta);
-             
-             bool found;
-             call_internal("_Process", args, found);
+             Variant arg = delta;
+             run_frame_hook(_hook_process, "_Process", &arg, 1);
              frame_failed = error_state.has_error && error_state.mode == ErrorState::NONE;
-             report_unhandled_error("_Process");
+             if (error_state.has_error) report_unhandled_error("_Process");
              
              // Trigger redraw if script has a draw method
-             if (!frame_failed && owner && (script->_has_method("_Draw") || script->_has_method("OnDraw"))) {
+             if (!frame_failed && owner && script.is_valid() && (prepare_frame_hook(_hook_draw, "_Draw").exists || prepare_frame_hook(_hook_ondraw, "OnDraw").exists)) {
                  if (CanvasItem *ci = get_draw_canvas_item()) {
                      ci->queue_redraw();
                  }
@@ -2222,10 +2366,11 @@ void VisualGasicInstance::notification(int32_t p_what) {
     }
     else if (p_what == Node::NOTIFICATION_PHYSICS_PROCESS) {
          // Skip _PhysicsProcess in editor mode
-         if (Engine::get_singleton()->is_editor_hint()) {
+         static const bool _vg_phys_editor_hint = Engine::get_singleton()->is_editor_hint();
+         if (_vg_phys_editor_hint) {
              return;
          }
-         if (script.is_valid() && script->_has_method("_PhysicsProcess")) {
+         if (script.is_valid() && prepare_frame_hook(_hook_physics, "_PhysicsProcess").exists) {
              double delta = 0.0;
              if (owner) {
                  Node* node = Object::cast_to<Node>(owner);
@@ -2233,12 +2378,9 @@ void VisualGasicInstance::notification(int32_t p_what) {
              }
              delta = VisualGasicLanguage::adjust_process_delta(delta);
              
-             Array args; 
-             args.push_back(delta);
-             
-             bool found;
-             call_internal("_PhysicsProcess", args, found);
-             report_unhandled_error("_PhysicsProcess");
+             Variant arg = delta;
+             run_frame_hook(_hook_physics, "_PhysicsProcess", &arg, 1);
+             if (error_state.has_error) report_unhandled_error("_PhysicsProcess");
          }
     }
     // Handle Drawing
@@ -2322,24 +2464,19 @@ static GDExtensionBool instance_has_method(GDExtensionScriptInstanceDataPtr p_in
     VisualGasicInstance *instance = (VisualGasicInstance *)p_instance;
     const StringName &name = *(const StringName *)p_name;
     
-    // Check for internal debug methods
-    if (name == StringName("_vg_get_all_variables") ||
+    Ref<Script> s = instance->get_script();
+    VisualGasicScript *script = Object::cast_to<VisualGasicScript>(s.ptr());
+    if (script) {
+        return script->instance_has_method(name);
+    }
+    return name == StringName("_vg_get_all_variables") ||
         name == StringName("_vg_get_variable") ||
         name == StringName("_vg_set_variable") ||
         name == StringName("_vg_get_whenever_sections") ||
         name == StringName("_vg_set_whenever_active") ||
         name == StringName("_vg_profiler_enable") ||
         name == StringName("_vg_profiler_get_report") ||
-        name == StringName("_vg_profiler_clear")) {
-        return true;
-    }
-    
-    Ref<Script> s = instance->get_script();
-    VisualGasicScript *script = Object::cast_to<VisualGasicScript>(s.ptr());
-    if (script) {
-        return script->_has_method(name);
-    }
-    return false;
+        name == StringName("_vg_profiler_clear");
 }
 
 static void instance_call(GDExtensionScriptInstanceDataPtr p_instance, GDExtensionConstStringNamePtr p_method, const GDExtensionConstVariantPtr *p_args, GDExtensionInt p_argcount, GDExtensionVariantPtr r_return, GDExtensionCallError *r_error) {
@@ -3229,6 +3366,12 @@ void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) 
              if (!valid) {
                  // Try snake_case fallback
                  base.set_named(ma->member_name.to_snake_case(), val, valid);
+             }
+             if (!valid && base.get_type() == Variant::COLOR) {
+                 // Same Red/Green/Blue/Alpha aliases the bytecode VM accepts.
+                 const String lm = ma->member_name.to_lower();
+                 const char *ch = lm == "red" ? "r" : lm == "green" ? "g" : lm == "blue" ? "b" : lm == "alpha" ? "a" : nullptr;
+                 if (ch) base.set_named(ch, val, valid);
              }
 
              if (valid) {

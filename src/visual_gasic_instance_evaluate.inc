@@ -605,6 +605,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
               ret = base.get_named(ma->member_name.to_lower(), valid);
               if (valid) return ret;
          }
+        if (!valid && base.get_type() == Variant::COLOR) {
+            const String _lm = ma->member_name.to_lower();
+            const char *_ch = _lm == "red" ? "r" : _lm == "green" ? "g" : _lm == "blue" ? "b" : _lm == "alpha" ? "a" : nullptr;
+            if (_ch) { ret = base.get_named(_ch, valid); if (valid) return ret; }
+        }
          
          if (base.get_type() == Variant::OBJECT) {
              Object* obj = base;
@@ -1046,6 +1051,11 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
         if (valid) return ret;
         ret = base.get_named(oa->member_name.to_lower(), valid);
         if (valid) return ret;
+        if (!valid && base.get_type() == Variant::COLOR) {
+            const String _lm = oa->member_name.to_lower();
+            const char *_ch = _lm == "red" ? "r" : _lm == "green" ? "g" : _lm == "blue" ? "b" : _lm == "alpha" ? "a" : nullptr;
+            if (_ch) { ret = base.get_named(_ch, valid); if (valid) return ret; }
+        }
         if (base.get_type() == Variant::OBJECT) {
             Object* obj = base;
             if (obj) {

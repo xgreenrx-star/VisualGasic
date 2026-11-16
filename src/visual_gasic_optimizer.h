@@ -54,6 +54,9 @@ public:
     // table; the VM's inline-call eligibility scan walks chunks with it).
     static int instruction_size(const Vector<uint8_t>& code, int ip);
 
+    // Debug self-check (VG_OPLEN_CHECK=1); returns false on a length desync.
+    static bool verify_instruction_lengths(const BytecodeChunk *chunk, const char *phase);
+
 private:
 
     // Helper: is this opcode a push-only instruction (puts exactly 1 value on stack)?

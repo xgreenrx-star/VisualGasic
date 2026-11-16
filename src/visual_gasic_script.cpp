@@ -298,155 +298,6 @@ String opcode_name(uint8_t op) {
     }
 }
 
-int opcode_operand_length(uint8_t op) {
-    switch (op) {
-        // 1-byte operand: local slots, arg counts, flags
-        case OP_GET_LOCAL:
-        case OP_SET_LOCAL:
-        case OP_ADD_LOCAL_I64_STACK:
-        case OP_SUB_LOCAL_I64_STACK:
-        case OP_ADD_LOCAL_F64_STACK:
-        case OP_SUB_LOCAL_F64_STACK:
-        case OP_INC_LOCAL_I64:
-        case OP_GET_ARRAY_I64_LOCAL:
-        case OP_SET_ARRAY_I64_LOCAL:
-        case OP_GET_INDEX_LOCAL:
-        case OP_SET_INDEX_LOCAL:
-        case OP_APPEND_LOCAL:
-        case OP_BRANCH_SUM:
-        case OP_GET_ARRAY:
-        case OP_SET_ARRAY:
-        case OP_GET_ARRAY_UNCHECKED:
-        case OP_SET_ARRAY_UNCHECKED:
-        case OP_GET_ARRAY_FAST:
-        case OP_SET_ARRAY_FAST:
-        case OP_GET_ARRAY_FAST_UNCHECKED:
-        case OP_SET_ARRAY_FAST_UNCHECKED:
-        case OP_GET_DICT_FAST:
-        case OP_SET_DICT_FAST:
-        case OP_GET_DICT_TRUSTED:
-        case OP_SET_DICT_TRUSTED:
-        case OP_DRAW_RECT:
-        case OP_DRAW_LINE:
-        case OP_NEW_VGDICT:
-        case OP_GET_VGDICT_LOCAL:
-        case OP_SET_VGDICT_LOCAL:
-            return 1;
-        case OP_DRAW_RECT_F64:
-            return 11;
-        case OP_DRAW_LINE_F64:
-            return 6;
-        case OP_DRAW_RECT_GRID_IDX:
-            return 19;
-        case OP_DRAW_LINE_GRID_IDX:
-            return 22;
-        case OP_DRAW_CIRCLE_GRID_IDX:
-            return 22;
-        case OP_DRAW_TEXTURE_RECT_GRID_IDX:
-            return 19;
-        case OP_DRAW_CIRCLE_F64:
-            return 6;
-        case OP_DRAW_TEXTURE_RECT_F64:
-            return 11;
-        case OP_DRAW_RECT_GRID_LOOP:
-            return 24;
-        case OP_DRAW_LINE_GRID_LOOP:
-            return 27;
-        case OP_DRAW_CIRCLE_GRID_LOOP:
-            return 28;
-        case OP_DRAW_TEXTURE_RECT_GRID_LOOP:
-            return 24;
-        case OP_DRAW_POLYLINE_GRID_LOOP:
-            return 19;
-        case OP_DRAW_RECT_OFFSET_LOOP:
-            return 37;
-        case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
-            return 24;
-        // 2-byte operand: single 16-bit constant pool index
-        case OP_CONSTANT:
-        case OP_CONSTANT_LONG:
-        case OP_GET_GLOBAL:
-        case OP_SET_GLOBAL:
-        case OP_GET_MEMBER:
-        case OP_SET_MEMBER:
-        case OP_ADD_I64_CONST:
-        case OP_SUB_I64_CONST:
-        case OP_MUL_I64_CONST:
-        case OP_REGISTER_WHENEVER:
-        case OP_SUSPEND_WHENEVER:
-        case OP_RESUME_WHENEVER:
-        case OP_ON_ERROR_GOTO:
-        case OP_COERCE_TYPE:
-        case OP_GET_GLOBAL_BUF8:
-        case OP_SET_GLOBAL_BUF8:
-        case OP_GET_INDEX_GLOBAL:
-        case OP_SET_INDEX_GLOBAL:
-        case OP_APPEND_GLOBAL:
-            return 2;
-        // 2-byte operand: non-const pairs (jump offsets, local+count, etc.)
-        case OP_JUMP:
-        case OP_JUMP_IF_FALSE:
-        case OP_JUMP_IF_TRUE:
-        case OP_LOOP:
-        case OP_CALL_BUILTIN:
-        case OP_SETUP_TRY:
-        case OP_DEBUG_LINE:
-        case OP_GOSUB:
-        case OP_ITER_ARRAY:
-        case OP_SET_DICT_LOCAL:
-        case OP_APPEND_INDEX_LOCAL:
-        case OP_APPEND_SUB_INDEX_LOCAL:
-            return 2;
-        // 5-byte operand: const16 param-name + 1-byte is_global flag + 2-byte dest
-        case OP_BYREF_LOAD:
-            return 5;
-        // 3-byte operand: const16 + 1 byte count/slot
-        case OP_CALL:
-        case OP_METHOD_CALL:
-        case OP_NEW_OBJECT:
-        case OP_NEW_PACKED_LITERAL:
-        case OP_RAISE_EVENT:
-        case OP_ADD_LOCAL_I64_CONST:
-        case OP_SUB_LOCAL_I64_CONST:
-        case OP_ADD_LOCAL_F64_CONST:
-        case OP_SUB_LOCAL_F64_CONST:
-        case OP_STRING_REPEAT_OUTER:
-        case OP_INTEROP_SET_NAME_LEN:
-        case OP_SET_DICT_GLOBAL:
-        case OP_PARALLEL_FOR_BEGIN:
-            return 3;
-        case OP_CLASS_STATIC_CALL: // class16 + method16 + argc
-            return 5;
-        // 4-byte operand: 2x const16
-        case OP_ARITH_SUM:
-        case OP_APPEND_INDEX_GLOBAL:
-        case OP_APPEND_SUB_INDEX_GLOBAL:
-            return 4;
-        // 4-byte operand: 1 local + 1 const16
-        case OP_ACCUM_I64_MULADD_CONST:
-            return 4;
-        // 5-byte operand: const16 + flag + body_len16
-        case OP_TASK_RUN_BEGIN:
-            return 5;
-        // 7-byte operand: 3 local + const16 + 2 local
-        case OP_ALLOC_FILL_REPEAT_I64:
-            return 7;
-        case OP_PACKED_HP_STATE_TICK:
-            return 4;
-        case OP_PACKED_NEAREST_I64:
-            return 6;
-        case OP_PACKED_RIBBON_EXPAND_LOCAL:
-            return 9;
-        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
-            return 15;
-        // 5-byte operand: 3 local slots + exit16
-        case OP_FOREACH_STEP:
-            return 5;
-        default:
-            return 0;
-    }
-}
-
 String describe_jump_target(uint8_t op, const Array &operands, int offset) {
     if (operands.size() < 2) {
         return String();
@@ -866,8 +717,13 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     // parser destructor (parser is a member and will be destroyed
     // after this object).
     parser.clear_tracked_nodes();
+    const bool had_previous_ast = ast_root != nullptr;
     if (ast_root) delete ast_root;
 	method_names_lower.clear();
+	{
+		std::lock_guard<std::mutex> lock(has_method_cache_mutex);
+		has_method_cache.clear();
+	}
     
     String path = get_path();
     if (path.is_empty()) {
@@ -894,6 +750,10 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
 		for (int i = 0; i < ast_root->subs.size(); i++) {
 			method_names_lower.insert(ast_root->subs[i]->name.to_lower());
 		}
+	}
+	{
+		std::lock_guard<std::mutex> lock(has_method_cache_mutex);
+		has_method_cache.clear();
 	}
     if (OS::get_singleton()->has_environment("VG_VERBOSE_INIT")) {
         UtilityFunctions::print("[VG] Parse completed, errors: ", parser.errors.size());
@@ -961,11 +821,53 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
             }
         }
     }
+
+    // Live instances still hold module state built from the old AST.
+    if (had_previous_ast) {
+        VisualGasicDebug::notify_script_reloaded(this);
+    }
     
     return OK;
 }
 
+uint8_t VisualGasicScript::lookup_has_method_flags(const StringName &p_method) const {
+	{
+		std::lock_guard<std::mutex> lock(has_method_cache_mutex);
+		if (const uint8_t *f = has_method_cache.getptr(p_method)) {
+			return *f;
+		}
+	}
+	uint8_t flags = 0;
+	if (_has_method_uncached(p_method)) {
+		flags = 3;
+	} else {
+		static const char *const debug_hooks[] = {
+			"_vg_get_all_variables", "_vg_get_variable", "_vg_set_variable",
+			"_vg_get_whenever_sections", "_vg_set_whenever_active",
+			"_vg_profiler_enable", "_vg_profiler_get_report", "_vg_profiler_clear",
+		};
+		const String m = p_method;
+		for (const char *h : debug_hooks) {
+			if (m == h) {
+				flags = 2;
+				break;
+			}
+		}
+	}
+	std::lock_guard<std::mutex> lock(has_method_cache_mutex);
+	has_method_cache.insert(p_method, flags);
+	return flags;
+}
+
 bool VisualGasicScript::_has_method(const StringName &p_method) const {
+	return (lookup_has_method_flags(p_method) & 1) != 0;
+}
+
+bool VisualGasicScript::instance_has_method(const StringName &p_method) const {
+	return (lookup_has_method_flags(p_method) & 2) != 0;
+}
+
+bool VisualGasicScript::_has_method_uncached(const StringName &p_method) const {
     if (ScriptExtension::_has_method(p_method)) {
         return true;
     }
@@ -1369,14 +1271,7 @@ Dictionary VisualGasicScript::debug_dump_bytecode(const String &entry_point) {
         int line_number = (ip < chunk->lines.size()) ? chunk->lines[ip] : -1;
         inst["line"] = line_number;
 
-        int operand_len = opcode_operand_length(op);
-        if (op == OP_PACKED_APPEND_LITERAL && ip + 6 < chunk->code.size()) {
-            operand_len = 8 + chunk->code[ip + 6]; // header + COUNT element slots
-        }
-        if (op == OP_JUMP_TABLE && ip + 8 < chunk->code.size()) {
-            int num_cases = (int)chunk->code[ip + 7] | ((int)chunk->code[ip + 8] << 8);
-            operand_len = 8 + num_cases * 2; // 8 operand bytes of header + OFF16*COUNT
-        }
+        int operand_len = VisualGasicOptimizer::instruction_size(chunk->code, ip) - 1;
         Array operands;
         for (int i = 0; i < operand_len && (ip + 1 + i) < chunk->code.size(); i++) {
             operands.push_back((int)chunk->code[ip + 1 + i]);

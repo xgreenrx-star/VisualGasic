@@ -1,6 +1,9 @@
 #include "visual_gasic_optimizer.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
+#include <cstdlib>
+
+String vg_opcode_name(uint8_t op);
 
 using namespace godot;
 
@@ -215,12 +218,20 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
             return 29;
         case OP_DRAW_TEXTURE_RECT_GRID_LOOP:
             return 25;
-        case OP_DRAW_POLYLINE_GRID_LOOP:
-            return 19;
+        case OP_DRAW_POLYLINE_GRID_LOOP:                              // [OP] [CS] [COLS 4] [CELL 4] [W f32] [COL 2] [ADD 4]
+            return 20;
         case OP_DRAW_RECT_OFFSET_LOOP:
             return 38;
-        case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:
-            return 24;
+        case OP_VECTOR_UNIFORM_RECT_GRID_LOOP:                        // [OP] [CS] [COLS 4] [CELL 4] [W f32] [H f32] [COL 2] [FILLED] [ADD 4]
+            return 25;
+        case OP_PUSH_SCOPE:                                           // [OP] [BLOCK_N]
+            return 2;
+        case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:             // [OP] [FRAME] [OFFSET]
+            return 3;
+        case OP_OPEN_FILE:                                            // [OP] [MODE]
+        case OP_PRINT_FILE:                                           // [OP] [ARG_COUNT]
+        case OP_WRITE_FILE:                                           // [OP] [ARG_COUNT]
+            return 2;
 
         default:
             // Unknown opcode — assume 1 byte (safest)
@@ -1191,6 +1202,12 @@ VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk,
     Stats stats;
     if (!chunk || chunk->code.size() == 0) return stats;
 
+    static const bool check_lengths = [] {
+        const char *e = std::getenv("VG_OPLEN_CHECK");
+        return e && e[0] == '1';
+    }();
+    if (check_lengths) verify_instruction_lengths(chunk, "pre-opt");
+
     stats.total_bytes_before = chunk->code.size();
 
     // Run optimization passes in a fixed-point loop (max 8 iterations)
@@ -1221,5 +1238,69 @@ VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk,
     }
 
     stats.total_bytes_after = chunk->code.size();
+    if (check_lengths) verify_instruction_lengths(chunk, "post-opt");
     return stats;
+}
+
+// VG_OPLEN_CHECK=1: walk the chunk with instruction_size() and require every
+// statement start and jump target to land on an instruction boundary.
+bool VisualGasicOptimizer::verify_instruction_lengths(const BytecodeChunk *chunk, const char *phase) {
+    const Vector<uint8_t> &code = chunk->code;
+    const int size = code.size();
+    Vector<uint8_t> boundary;
+    boundary.resize(size + 1);
+    memset(boundary.ptrw(), 0, size + 1);
+    Vector<int> starts;
+    int ip = 0;
+    bool ok = true;
+    while (ip < size) {
+        boundary.write[ip] = 1;
+        starts.push_back(ip);
+        int len = instruction_size(code, ip);
+        ip += len;
+    }
+    if (ip != size) {
+        UtilityFunctions::print("[VG_OPLEN] ", phase, " walk overran end: ", ip, " vs size ", size,
+                " last op ", starts.is_empty() ? String("?") : vg_opcode_name(code[starts[starts.size() - 1]]));
+        ok = false;
+    } else {
+        boundary.write[size] = 1;
+    }
+    auto prev_op_name = [&](int pos) -> String {
+        String names;
+        for (int i = starts.size() - 1; i >= 0; i--) {
+            if (starts[i] < pos) {
+                names = vg_opcode_name(code[starts[i]]) + "@" + itos(starts[i]);
+                if (i > 0) names = vg_opcode_name(code[starts[i - 1]]) + "@" + itos(starts[i - 1]) + " " + names;
+                break;
+            }
+        }
+        return names;
+    };
+    for (int i = 0; i < chunk->stmt_starts.size(); i++) {
+        int s = chunk->stmt_starts[i];
+        if (s < 0 || s > size) continue;
+        if (!boundary[s]) {
+            UtilityFunctions::print("[VG_OPLEN] ", phase, " stmt start ", s, " not on boundary; preceding ", prev_op_name(s));
+            ok = false;
+            break;
+        }
+    }
+    for (int i = 0; i < starts.size(); i++) {
+        int at = starts[i];
+        uint8_t op = code[at];
+        int target = -1;
+        if (op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE) {
+            if (at + 2 < size) target = at + 3 + ((code[at + 1] << 8) | code[at + 2]);
+        } else if (op == OP_LOOP) {
+            if (at + 2 < size) target = at + 3 - ((code[at + 1] << 8) | code[at + 2]);
+        }
+        if (target >= 0 && (target > size || !boundary[target])) {
+            UtilityFunctions::print("[VG_OPLEN] ", phase, " ", vg_opcode_name(op), "@", at, " target ", target,
+                    " not on boundary; preceding ", prev_op_name(target));
+            ok = false;
+            break;
+        }
+    }
+    return ok;
 }

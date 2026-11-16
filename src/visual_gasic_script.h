@@ -6,6 +6,8 @@
 #include <godot_cpp/classes/script_extension.hpp>
 #include <godot_cpp/classes/script_language.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/templates/hash_map.hpp>
+#include <mutex>
 #include "visual_gasic_tokenizer.h"
 #include "visual_gasic_parser.h" 
 #include "visual_gasic_bytecode.h"
@@ -44,6 +46,14 @@ class VisualGasicScript : public ScriptExtension {
     // may trigger compilation of other functions, which would invalidate pointers in a vector.
     std::list<CompiledEntry> bytecode_cache;
 	HashSet<String> method_names_lower;
+	// has_method is asked by the engine for every untyped call / signal
+	// connect and used to build several StringNames (global mutex) plus a
+	// to_lower per query.  Memoized per parse; bit0 = script method,
+	// bit1 = instance-level (also true for the _vg_* debug hooks).
+	mutable HashMap<StringName, uint8_t> has_method_cache;
+	mutable std::mutex has_method_cache_mutex;
+	uint8_t lookup_has_method_flags(const StringName &p_method) const;
+	bool _has_method_uncached(const StringName &p_method) const;
 
 public:
     String include_host_path_hint; // format loader: path for Include when get_path() is empty
@@ -73,6 +83,7 @@ public:
     virtual void _set_source_code(const String &p_code) override;
     virtual Error _reload(bool p_keep_state) override;
     virtual bool _has_method(const StringName &p_method) const override;
+    bool instance_has_method(const StringName &p_method) const;
     virtual Dictionary _get_method_info(const StringName &p_method) const override;
     virtual bool _is_tool() const override;
     virtual bool _is_valid() const override;

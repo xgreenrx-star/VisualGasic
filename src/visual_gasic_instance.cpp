@@ -627,6 +627,22 @@ void unregister_instance(VisualGasicInstance* instance) {
     vg_debug_active_instances.erase(instance);
 }
 
+void notify_script_reloaded(VisualGasicScript *p_script) {
+    std::vector<VisualGasicInstance *> targets;
+    {
+        std::lock_guard<std::mutex> lock(vg_debug_instance_registry_mutex);
+        for (auto *inst : vg_debug_active_instances) {
+            if (inst && inst->get_script().ptr() == p_script) {
+                targets.push_back(inst);
+            }
+        }
+    }
+    // Hot reload runs on the main thread, the same thread that frees instances.
+    for (auto *inst : targets) {
+        inst->on_script_reloaded();
+    }
+}
+
 VisualGasicInstance* get_instance_for_owner(godot::Object *owner) {
     if (!owner) {
         return nullptr;
@@ -1059,11 +1075,70 @@ bool VisualGasicInstance::refresh_script_caches() {
 	_member_cache_by_chunk.clear();
 	_call_resolution_cache.clear();
 	_engine_call_cache.clear();
+	_external_call_cache.clear();
 	_member_cache_generation = script->bytecode_generation;
 	_member_cache_last_chunk = nullptr;
 	_member_cache_last_ptr = nullptr;
 	cached_ast_root = script->ast_root;
 	return true;
+}
+
+void VisualGasicInstance::on_script_reloaded() {
+	if (!script.is_valid() || !script->ast_root) {
+		return;
+	}
+	refresh_script_caches();
+	ModuleNode *root = script->ast_root;
+	cached_ast_root = root;
+	option_compare_text = root->option_compare_text;
+
+	// Constants and enum members may have changed value; existing module
+	// variables keep their runtime state.
+	for (int ci = 0; ci < root->constants.size(); ci++) {
+		ConstStatement *c = root->constants[ci];
+		variables[c->name] = evaluate_expression(c->value);
+	}
+	for (int ei = 0; ei < root->enums.size(); ei++) {
+		EnumDefinition *ed = root->enums[ei];
+		for (int em = 0; em < ed->values.size(); em++) {
+			variables[ed->values[em].name] = ed->values[em].value;
+		}
+	}
+
+	HashSet<String> added;
+	for (int i = 0; i < root->variables.size(); i++) {
+		VariableDefinition *v = root->variables[i];
+		if (variables.has(v->name)) {
+			continue;
+		}
+		added.insert(v->name.to_lower());
+		if (v->array_sizes.size() == 0) {
+			variables[v->name] = vg_module_default_for_declared_type(v->type);
+		}
+		if (v->is_with_events) {
+			with_events_vars[v->name] = true;
+		}
+	}
+	if (!added.is_empty()) {
+		variables.generation++;
+		whenever_init_suppress = true;
+		for (int i = 0; i < root->global_statements.size(); i++) {
+			Statement *stmt = root->global_statements[i];
+			if (stmt->type == STMT_DIM && added.has(static_cast<DimStatement *>(stmt)->variable_name.to_lower())) {
+				execute_statement(stmt);
+			}
+		}
+		whenever_init_suppress = false;
+	}
+
+	// A handler added by the reload needs its engine callback switched on.
+	Node *node = Object::cast_to<Node>(owner);
+	if (node && node->is_inside_tree()) {
+		if (!node->is_processing() && script->_has_method("_Process")) node->set_process(true);
+		if (!node->is_physics_processing() && script->_has_method("_PhysicsProcess")) node->set_physics_process(true);
+		if (!node->is_processing_input() && script->_has_method("_Input")) node->set_process_input(true);
+		if (!node->is_processing_unhandled_input() && script->_has_method("_UnhandledInput")) node->set_process_unhandled_input(true);
+	}
 }
 
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
@@ -5811,23 +5886,54 @@ bool VisualGasicInstance::try_call_enum_method(const String &p_enum, const Strin
 #include "visual_gasic_vector_canvas.h"
 #include <godot_cpp/classes/engine.hpp>
 
+VisualGasicInstance::FrameHook &VisualGasicInstance::prepare_frame_hook(FrameHook &p_hook, const char *p_name) {
+	refresh_script_caches();
+	if (p_hook.gen != _member_cache_generation || p_hook.gen == 0) {
+		p_hook = FrameHook();
+		p_hook.gen = _member_cache_generation;
+		p_hook.exists = script.is_valid() && script->_has_method(p_name);
+		p_hook.name = p_name;
+	}
+	return p_hook;
+}
+
+bool VisualGasicInstance::run_frame_hook(FrameHook &p_hook, const char *p_name, const Variant *p_args, int p_argc) {
+	bool found = false;
+	if (p_hook.has_pre) {
+		// Pre-resolved: the name is only read before the callee runs.
+		call_internal(p_hook.name, p_args, p_argc, found, &p_hook.pre);
+		return found;
+	}
+	const String name = p_hook.name;
+	call_internal(name, p_args, p_argc, found, nullptr);
+	if (found && !p_hook.has_pre && p_hook.gen == _member_cache_generation) {
+		const String key = name.to_lower() + "#" + String::num_int64(p_argc);
+		if (const CallResolutionCacheEntry *cr = _call_resolution_cache.getptr(key)) {
+			if (cr->resolved) {
+				p_hook.pre = *cr;
+				p_hook.has_pre = true;
+			}
+		}
+	}
+	return found;
+}
+
 void VisualGasicInstance::run_canvas_draw_handlers() {
-	if (Engine::get_singleton()->is_editor_hint()) {
+	static const bool _vg_draw_editor_hint = Engine::get_singleton()->is_editor_hint();
+	if (_vg_draw_editor_hint) {
 		return;
 	}
 	if (!script.is_valid()) {
 		return;
 	}
 	begin_draw_batch();
-	bool found = false;
-	Array args;
 	const char *draw_name = nullptr;
-	if (script->_has_method("_Draw")) {
+	if (prepare_frame_hook(_hook_draw, "_Draw").exists) {
 		draw_name = "_Draw";
-		call_internal("_Draw", args, found);
-	} else if (script->_has_method("OnDraw")) {
+		run_frame_hook(_hook_draw, draw_name, nullptr, 0);
+	} else if (prepare_frame_hook(_hook_ondraw, "OnDraw").exists) {
 		draw_name = "OnDraw";
-		call_internal("OnDraw", args, found);
+		run_frame_hook(_hook_ondraw, draw_name, nullptr, 0);
 	}
 	if (draw_name) report_unhandled_error(String(draw_name));
 	end_draw_batch_flush();

@@ -527,6 +527,38 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     non_local_names.insert("left");
     non_local_names.insert("top");
 
+    // Bare owner properties of the `Inherits` native class (Position, Rotation,
+    // Visible, Modulate, ...) are VB6 owner properties, not implicit locals.
+    // Without this `Position = v` in an `Inherits Node2D` script compiled to an
+    // OP_SET_LOCAL of a throwaway slot and the node never moved.
+    // Params, procedure Dims and the Function return name still shadow these.
+    if (module && !module->inherits_path.is_empty() &&
+            module->inherits_path.find("/") == -1 && module->inherits_path.find(".") == -1) {
+        static HashMap<String, Vector<String>> s_owner_prop_cache;
+        const String base_class = module->inherits_path;
+        if (!s_owner_prop_cache.has(base_class)) {
+            Vector<String> names;
+            if (ClassDB::class_exists(base_class)) {
+                TypedArray<Dictionary> props = ClassDB::class_get_property_list(base_class, false);
+                const int skip = PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP;
+                for (int pi = 0; pi < props.size(); pi++) {
+                    Dictionary pd = props[pi];
+                    if ((int)pd.get("usage", 0) & skip) continue;
+                    String pn = String(pd.get("name", "")).to_lower();
+                    if (pn.is_empty() || pn.contains("/") || pn.begins_with("_")) continue;
+                    names.push_back(pn);
+                    if (pn.contains("_")) names.push_back(pn.replace("_", ""));
+                }
+            }
+            s_owner_prop_cache[base_class] = names;
+        }
+        const Vector<String> &owner_props = s_owner_prop_cache[base_class];
+        const String sub_key = sub->name.to_lower();
+        for (int pi = 0; pi < owner_props.size(); pi++) {
+            if (owner_props[pi] != sub_key) non_local_names.insert(owner_props[pi]);
+        }
+    }
+
     for (int i = 0; i < sub->parameters.size(); i++) {
         const String pkey = sub->parameters[i].name.to_lower();
         // Give each param its own local slot (assigned in order → slots
@@ -817,7 +849,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
         compile_statement(stmt);
         if (!compile_ok) {
-            UtilityFunctions::print("[VG AST Fallback] ", sub->name, " | ",
+            // Diagnostic only — must not pollute program stdout (Print output).
+            UtilityFunctions::print_verbose("[VG AST Fallback] ", sub->name, " | ",
                     ast_fallback_reason.is_empty() ? String("unnamed") : ast_fallback_reason);
             break;
         }

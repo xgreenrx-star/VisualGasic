@@ -146,6 +146,39 @@ private:
     };
     HashMap<String, CallResolutionCacheEntry> _call_resolution_cache;
 
+    // Engine-facing call() memo, keyed by the caller's StringName.  Settles
+    // once per method name what the slow path would do: SLOW (special
+    // _vg_* / _OnSignal / … handlers), GUARD (engine echo of a virtual that
+    // notification() already dispatches) or NORMAL (user Sub, with the VG name
+    // that resolved and its module-level resolution).  Cleared with the other
+    // caches in refresh_script_caches().
+    struct ExternalCallEntry {
+        enum Kind : uint8_t { SLOW, GUARD, NORMAL };
+        Kind kind = SLOW;
+        int argc = -1;                   // -1 = NORMAL name not yet resolved
+        int miss_argc = -1;              // arity known to resolve to no VG Sub
+        bool note_input = false;         // _input / _unhandled_input
+        bool redraw_on_input = false;    // name contains "input"
+        bool has_pre = false;
+        String resolved_name;
+        CallResolutionCacheEntry pre;
+    };
+    HashMap<StringName, ExternalCallEntry> _external_call_cache;
+    // Per-frame engine hooks (_Process / _PhysicsProcess / _Draw / OnDraw):
+    // existence and callee resolution memoized per bytecode generation so a
+    // frame does not pay _has_method's StringName builds + to_lower and the
+    // "name#argc" resolution-key concat.
+    struct FrameHook {
+        uint32_t gen = 0;
+        bool exists = false;
+        bool has_pre = false;
+        String name;
+        CallResolutionCacheEntry pre;
+    };
+    FrameHook _hook_process, _hook_physics, _hook_draw, _hook_ondraw;
+    FrameHook &prepare_frame_hook(FrameHook &p_hook, const char *p_name);
+    bool run_frame_hook(FrameHook &p_hook, const char *p_name, const Variant *p_args, int p_argc);
+
     // Per-constant-slot memo used by the bytecode VM (OP_CALL / OP_GET_MEMBER /
     // OP_SET_MEMBER / OP_GET_GLOBAL / OP_METHOD_CALL / OP_NEW_OBJECT).  A chunk's
     // constant pool is immutable, so everything derived from a name at slot
@@ -165,6 +198,11 @@ private:
         bool initialized = false;
         String primary_string;
         StringName primary_name;
+        // Lowercased name and component index for value-type member access
+        // (x/y/z/w and r/g/b/a/red/green/blue/alpha → 0..3, else -1).
+        String lower_string;
+        int8_t axis = -1;
+        int8_t color_axis = -1;
         bool snake_computed = false;
         bool has_snake = false;
         StringName snake_name;
@@ -690,6 +728,16 @@ public:
     Variant dispatch_expr_compat_call(const String &p_method, const Array &p_args, bool &r_found);
     // JIT host calls into user Subs. Builtins stay on the public builtin dispatcher.
     Variant jit_invoke_call(const String &method, const Array &args, bool &handled);
+    // Per JIT call site: the resolved user callee, valid for one instance and
+    // script generation. Lets a hot native loop skip draw-name lowering and the
+    // name#argc resolution probe, as the VM's OP_CALL site memo does.
+    struct JitCallSiteMemo {
+        const void *inst = nullptr;
+        uint32_t generation = 0;
+        bool has_res = false;
+        CallResolutionCacheEntry res;
+    };
+    Variant jit_invoke_user_call(const String &method, const Variant *args, int argc, bool &handled, JitCallSiteMemo &memo);
     Variant jit_byref_capture(const String &name, bool &found) const;
     bool jit_callee_returns_non_numeric(const String &name, int argc);
 
@@ -830,6 +878,7 @@ public:
 
     Object *get_owner();
     Ref<Script> get_script();
+    void on_script_reloaded();
     bool is_placeholder();
 
     void call(const StringName &p_method, const Variant *const *p_args, GDExtensionInt p_argcount, Variant *r_return, GDExtensionCallError *r_error);
@@ -949,6 +998,7 @@ namespace VisualGasicDebug {
     void register_instance(VisualGasicInstance* instance);
     void unregister_instance(VisualGasicInstance* instance);
     VisualGasicInstance* get_instance_for_owner(godot::Object *owner);
+    void notify_script_reloaded(VisualGasicScript *p_script);
 }
 
 #endif // VISUAL_GASIC_INSTANCE_H

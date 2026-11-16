@@ -4,6 +4,7 @@
 // IR merging, and native code emission via the Tier 2 pipeline.
 
 #include "visual_gasic_jit_tier3.h"
+#include "visual_gasic_optimizer.h"
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
@@ -150,63 +151,6 @@ Tier3::select_inline_candidates(const std::string& root, int depth) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  Opcode Size Helper (mirrors Tier 2 opcode advance table)
-// ═══════════════════════════════════════════════════════════════════
-
-static int opcode_size(uint8_t op) {
-    switch (op) {
-        // 1-byte opcodes
-        case OP_POP: case OP_ADD: case OP_SUBTRACT: case OP_MULTIPLY:
-        case OP_DIVIDE: case OP_NEGATE: case OP_CONCAT: case OP_MOD:
-        case OP_INT_DIVIDE: case OP_POWER: case OP_NOT: case OP_AND:
-        case OP_OR: case OP_XOR: case OP_EQUAL: case OP_NOT_EQUAL:
-        case OP_GREATER: case OP_LESS: case OP_GREATER_EQUAL:
-        case OP_LESS_EQUAL: case OP_NIL: case OP_TRUE: case OP_FALSE:
-        case OP_PRINT: case OP_DEBUG_PRINT: case OP_RETURN: case OP_RETURN_VALUE:
-        case OP_DUP: case OP_NEW_DICT: case OP_THROW:
-        case OP_ADD_I64: case OP_SUB_I64: case OP_MUL_I64:
-        case OP_ADD_F64: case OP_SUB_F64: case OP_MUL_F64: case OP_DIV_F64:
-        case OP_EQUAL_I64: case OP_NOT_EQUAL_I64: case OP_LESS_EQUAL_I64: case OP_LESS_I64:
-        case OP_STOP: case OP_LIKE: case OP_LEN: case OP_ABS: case OP_SGN:
-            return 1;
-        // 2-byte opcodes
-        case OP_GET_LOCAL: case OP_SET_LOCAL:
-        case OP_INC_LOCAL_I64:
-        case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
-        case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
-            return 2;
-        case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
-            return 3;
-        // 3-byte opcodes
-        case OP_CONSTANT: case OP_CONSTANT_LONG:
-        case OP_GET_GLOBAL: case OP_SET_GLOBAL:
-        case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
-        case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
-        case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE: case OP_LOOP:
-        case OP_DEBUG_LINE:
-            return 3;
-        // 4-byte opcodes
-        case OP_CALL:
-            return 4;
-        case OP_PACKED_HP_STATE_TICK:
-        case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL:
-            return 5;
-        case OP_FOREACH_STEP:
-            return 6;
-        case OP_PACKED_NEAREST_I64:
-            return 7;
-        case OP_PACKED_RIBBON_EXPAND_LOCAL:
-            return 10;
-        case OP_PACKED_RIBBON_EXPAND_GLOBAL:
-            return 16;
-        case OP_CLASS_STATIC_CALL:
-            return 6;
-        default:
-            return 1; // conservative — bail will catch unsupported ops
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
 //  Callee IR Lowering (rebase slots and labels)
 // ═══════════════════════════════════════════════════════════════════
 
@@ -267,7 +211,7 @@ bool Tier3::lower_callee(BytecodeChunk* chunk,
                     }
                     break;
                 default:
-                    scan_ip += opcode_size(op);
+                    scan_ip += VisualGasicOptimizer::instruction_size(chunk->code, scan_ip);
                     break;
             }
         }

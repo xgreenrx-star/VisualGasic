@@ -1954,158 +1954,23 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 scan_ip += 4;
             } else {
-                // Skip operand bytes for multi-byte opcodes so the scan
-                // doesn't misinterpret data bytes as OP_SET_GLOBAL.
-                switch (scan_op) {
-                    // 1-operand opcodes: local slot / non-const (1 byte)
-                    case OP_GET_LOCAL: case OP_SET_LOCAL:
-                    case OP_INC_LOCAL_I64:
-                    case OP_ADD_LOCAL_I64_STACK: case OP_SUB_LOCAL_I64_STACK:
-                    case OP_ADD_LOCAL_F64_STACK: case OP_SUB_LOCAL_F64_STACK:
-                    case OP_GET_ARRAY_I64_LOCAL: case OP_SET_ARRAY_I64_LOCAL:
-                    case OP_BRANCH_SUM:
-                    case OP_GET_ARRAY: case OP_SET_ARRAY:
-                    case OP_GET_ARRAY_UNCHECKED: case OP_SET_ARRAY_UNCHECKED:
-                    case OP_GET_ARRAY_FAST: case OP_SET_ARRAY_FAST:
-                    case OP_GET_ARRAY_FAST_UNCHECKED: case OP_SET_ARRAY_FAST_UNCHECKED:
-                    case OP_GET_DICT_FAST: case OP_SET_DICT_FAST:
-                    case OP_GET_DICT_TRUSTED: case OP_SET_DICT_TRUSTED:
-                    case OP_INTEROP_SET_NAME_LEN:
-                    case OP_SUM_VGDICT_ALL_I64:
-                    case OP_NEW_VGDICT: case OP_GET_VGDICT_LOCAL: case OP_SET_VGDICT_LOCAL:
-                    case OP_ITER_ARRAY:
-                    case OP_NEW_ARRAY: case OP_NEW_ARRAY_I64:
-                    case OP_GOSUB: case OP_PRINT_FILE:
-                    // M5: MemoryBuffer opcodes (opcode + slot)
-                    case OP_BUF_ALLOC: case OP_BUF_FREE:
-                    case OP_BUF_READ8: case OP_BUF_WRITE8:
-                    case OP_BUF_READ16: case OP_BUF_WRITE16:
-                    case OP_BUF_READ32: case OP_BUF_WRITE32:
-                    case OP_BUF_SIZE: case OP_BUF_RESIZE:
-                    // M6: Optimization hints (opcode + slot/idx)
-                    case OP_HINT_ACCUMULATOR: case OP_HINT_LOOP_COUNTER:
-                    case OP_HINT_PURE_CALL:
-                    case OP_PUSH_SCOPE:
-                    case OP_GET_INDEX_LOCAL: case OP_SET_INDEX_LOCAL: case OP_APPEND_LOCAL:
-                        scan_ip += 1; break;
-                    case OP_APPEND_INDEX_LOCAL: case OP_APPEND_SUB_INDEX_LOCAL:
-                        scan_ip += 2; break;
-                    case OP_GET_BLOCK_LOCAL: case OP_SET_BLOCK_LOCAL:
-                        scan_ip += 2; break;
-                    case OP_POP_SCOPE:
-                        break;
-                    // M6: Jump table (variable-length: 8 header + count*2 table bytes)
-                    case OP_JUMP_TABLE: {
-                        if (scan_ip + 8 <= code_size) {
-                            int num_cases = (int)code[scan_ip + 6] | ((int)code[scan_ip + 7] << 8);
-                            scan_ip += 8 + num_cases * 2;
-                        } else {
-                            scan_ip = code_size;  // Malformed bytecode, abort scan
-                        }
-                        break;
-                    }
-                    // 1-operand opcodes: 2-byte const pool index
-                    case OP_CONSTANT: case OP_CONSTANT_LONG:
-                    case OP_GET_GLOBAL:
-                    case OP_GET_MEMBER: case OP_SET_MEMBER:
-                    case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:
-                    case OP_ON_ERROR_GOTO:
-                    case OP_ADD_I64_CONST: case OP_SUB_I64_CONST: case OP_MUL_I64_CONST:
-                    case OP_COERCE_TYPE:
-                    case OP_GET_GLOBAL_BUF8: case OP_SET_GLOBAL_BUF8:
-                    case OP_GET_INDEX_GLOBAL: case OP_SET_INDEX_GLOBAL: case OP_APPEND_GLOBAL:
-                        scan_ip += 2; break;
-                    // OP_BYREF_LOAD: 2-byte const index + 1-byte flag + 2-byte dest = 5 bytes
-                    case OP_BYREF_LOAD:
-                        scan_ip += 5; break;
-                    // 2-operand opcodes: two 1-byte non-const operands
-                    case OP_JUMP: case OP_JUMP_IF_FALSE: case OP_JUMP_IF_TRUE:
-                    case OP_LOOP:
-                    case OP_CALL_BUILTIN:
-                    case OP_SETUP_TRY:
-                    case OP_DEBUG_LINE:
-                    case OP_SET_DICT_LOCAL:
-                    case OP_OPEN_FILE:
-                    case OP_WRITE_FILE:
-                        scan_ip += 2; break;
-                    // 2-byte const index + 1-byte operand = 3 bytes
-                    case OP_CALL:
-                    case OP_METHOD_CALL:
-                    case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:
-                    case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST:
-                    case OP_STRING_REPEAT_OUTER:
-                    case OP_SET_DICT_GLOBAL:
-                    case OP_NEW_OBJECT:
-                    case OP_NEW_PACKED_LITERAL:
-                    case OP_RAISE_EVENT:
-                        scan_ip += 3; break;
-                    // 4-byte opcodes (all-slot operands)
-                    case OP_ALLOC_FILL_I64_OFFSET:
-                    case OP_ARRAY_FILL_I64_OFFSET:
-                        scan_ip += 3; break;
-                    // 4-byte opcodes (slots + 2-byte const)
-                    case OP_ACCUM_I64_MULADD_CONST:  // s_slot(1) + j_slot(1) + k_const(2)
-                    case OP_ARITH_SUM:  // k_const(2) + c_const(2)
-                        scan_ip += 4; break;
-                    // OP_PARALLEL_FOR_BEGIN: [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO] + body bytes
-                    // Must skip the 3 operand bytes PLUS the entire body length.
-                    case OP_PARALLEL_FOR_BEGIN: {
-                        if (scan_ip + 2 < code_size) {
-                            scan_ip++; // var_slot
-                            int body_len = (code[scan_ip] << 8) | code[scan_ip + 1];
-                            scan_ip += 2; // body_len_hi, body_len_lo
-                            scan_ip += body_len; // skip entire body
-                        } else {
-                            scan_ip = code_size;
-                        }
-                        break;
-                    }
-                    // OP_TASK_RUN_BEGIN: [NAME_CONST(2)] [BG_FLAG] [BODY_LEN_HI] [BODY_LEN_LO] + body
-                    case OP_TASK_RUN_BEGIN: {
-                        if (scan_ip + 4 < code_size) {
-                            scan_ip += 3; // name_const (2 bytes), bg_flag
-                            int body_len = (code[scan_ip] << 8) | code[scan_ip + 1];
-                            scan_ip += 2; // body_len_hi, body_len_lo
-                            scan_ip += body_len; // skip entire body
-                        } else {
-                            scan_ip = code_size;
-                        }
-                        break;
-                    }
-                    // OP_ALLOC_FILL_REPEAT_I64: 3 slots + lit_const(2) + 2 slots = 7 bytes
-                    case OP_ALLOC_FILL_REPEAT_I64:
-                        scan_ip += 7; break;
-                    case OP_PACKED_HP_STATE_TICK: // hp, state, sum, tag
-                        scan_ip += 4; break;
-                    case OP_PACKED_NEAREST_I64: // px, py, tx, ty, best, bestidx
-                        scan_ip += 6; break;
-                    case OP_PACKED_RIBBON_EXPAND_LOCAL: // 6 slots + loop + cursor + flags
-                        scan_ip += 9; break;
-                    case OP_CLASS_STATIC_CALL: // class16 + method16 + argc
-                        scan_ip += 5; break;
-                    case OP_PACKED_RIBBON_EXPAND_GLOBAL: { // 6 names + loop + cursor + flags
-                        if (scan_ip + 14 < code_size) {
-                            for (int gi = 2; gi < 6; gi++) {
-                                int idx = (code[scan_ip + gi * 2 + 1] << 8) | code[scan_ip + gi * 2];
-                                if (idx >= 0 && idx < chunk->constants.size()) {
-                                    String gname = chunk->constants[idx];
-                                    if (chunk->globals_written.find(gname) == -1) {
-                                        chunk->globals_written.push_back(gname);
-                                    }
-                                }
+                // Skip operands with the canonical opcode-length table so the
+                // scan never reads data bytes as OP_SET_GLOBAL (a missed
+                // global loses its rollback snapshot). Inline parallel/task
+                // bodies are walked too; a global written there is kept.
+                const int op_start = scan_ip - 1;
+                if (scan_op == OP_PACKED_RIBBON_EXPAND_GLOBAL && scan_ip + 14 < code_size) {
+                    for (int gi = 2; gi < 6; gi++) {
+                        int idx = (code[scan_ip + gi * 2 + 1] << 8) | code[scan_ip + gi * 2];
+                        if (idx >= 0 && idx < chunk->constants.size()) {
+                            String gname = chunk->constants[idx];
+                            if (chunk->globals_written.find(gname) == -1) {
+                                chunk->globals_written.push_back(gname);
                             }
                         }
-                        scan_ip += 15;
-                        break;
                     }
-                    case OP_FOREACH_STEP: // coll, idx, var, exit16
-                        scan_ip += 5; break;
-                    case OP_PACKED_APPEND_LITERAL: // kind, recv16, class16, count, skip16, count slots
-                        scan_ip += (scan_ip + 5 < code_size) ? 8 + code[scan_ip + 5] : 0; break;
-                    default:
-                        // 1-byte opcodes (no operands) — nothing to skip
-                        break;
                 }
+                scan_ip = op_start + VisualGasicOptimizer::instruction_size(chunk->code, op_start);
             }
         }
         chunk->globals_scan_done = true;
@@ -2292,6 +2157,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             Variant member_variant = read_constant(idx);
             entry.primary_string = String(member_variant);
             entry.primary_name = entry.primary_string;
+            entry.lower_string = entry.primary_string.to_lower();
+            {
+                const String &ls = entry.lower_string;
+                if (ls.length() == 1) {
+                    const char32_t c = ls[0];
+                    entry.axis = c == 'x' ? 0 : c == 'y' ? 1 : c == 'z' ? 2 : c == 'w' ? 3 : -1;
+                    entry.color_axis = c == 'r' ? 0 : c == 'g' ? 1 : c == 'b' ? 2 : c == 'a' ? 3 : -1;
+                } else if (ls == "red") entry.color_axis = 0;
+                else if (ls == "green") entry.color_axis = 1;
+                else if (ls == "blue") entry.color_axis = 2;
+                else if (ls == "alpha") entry.color_axis = 3;
+            }
             entry.draw_kind = classify_draw_kind(entry.primary_string);
             entry.is_array_ctor = entry.primary_string.nocasecmp_to("Array") == 0;
             entry.is_vartype = entry.primary_string.nocasecmp_to("VarType") == 0;
@@ -2815,17 +2692,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
 #if VG_USE_COMPUTED_GOTO
     // Dispatch table: maps each opcode byte to the address of its handler label.
-    // THREAD-LOCAL: each thread gets its own copy to avoid a data race
-    // during initialisation.  The old `static` table was filled under a plain
-    // bool flag with no memory barrier — a worker thread entering
-    // execute_bytecode() could observe dispatch_table_init==true before the
-    // table entries were committed, dispatching through stale/zero pointers
-    // and causing random stack-underflow / SIGSEGV.
-    // Thread-local is the simplest correct fix (one init per OS thread; cheap
-    // for the handful of WorkerThreadPool threads).
-    static thread_local const void* dispatch_table[256];
-    static thread_local bool dispatch_table_init = false;
-    if (!dispatch_table_init) {
+    // The old `static` table was filled under a plain bool flag with no
+    // memory barrier; a worker thread could dispatch through zero pointers.
+    // Process-wide table: a thread_local array costs a __tls_get_addr call
+    // per dispatch in this dlopen'd library (GCC rematerializes the address).
+    // Filled once under a mutex, published with release/acquire.
+    static const void* dispatch_table[256];
+    static std::atomic<bool> dispatch_table_ready{false};
+    static std::mutex dispatch_table_mutex;
+    if (!dispatch_table_ready.load(std::memory_order_acquire)) {
+      std::lock_guard<std::mutex> dispatch_table_lock(dispatch_table_mutex);
+      if (!dispatch_table_ready.load(std::memory_order_relaxed)) {
         for (int _i = 0; _i < 256; _i++) dispatch_table[_i] = &&vg_op_default;
         dispatch_table[OP_CONSTANT]       = &&vg_op_constant;
         dispatch_table[OP_CONSTANT_LONG]  = &&vg_op_constant_long;
@@ -3052,12 +2929,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_APPEND_INDEX_GLOBAL] = &&vg_op_append_index_global;
         dispatch_table[OP_APPEND_SUB_INDEX_LOCAL] = &&vg_op_append_sub_index_local;
         dispatch_table[OP_APPEND_SUB_INDEX_GLOBAL] = &&vg_op_append_sub_index_global;
-        dispatch_table_init = true;
+        dispatch_table_ready.store(true, std::memory_order_release);
+      }
     }
-    // Resolve the thread-local table once.  This .so is dlopen'd, so every
-    // `dispatch_table[op]` is a global-dynamic TLS access: a __tls_get_addr
-    // call (and the caller-saved spills around it) on EVERY opcode dispatch.
-    // A plain local pointer keeps the dispatch at one load + indirect jump.
     const void *const *const vg_dispatch = dispatch_table;
 
     // VG_CASE(label, opcode):  on GCC/Clang emits `label: case opcode:`
@@ -7898,6 +7772,24 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
                 Variant base = pop_value();
+                {
+                    const Variant::Type bt = vgfast::vtype(base);
+                    if (bt == Variant::VECTOR2 && (cache.axis == 0 || cache.axis == 1)) {
+                        const Vector2 v = vgfast::vvec2(base);
+                        push_value(Variant((double)v[cache.axis]));
+                        break;
+                    }
+                    if (bt == Variant::VECTOR3 && cache.axis >= 0 && cache.axis <= 2) {
+                        const Vector3 v = vgfast::vvec3(base);
+                        push_value(Variant((double)v[cache.axis]));
+                        break;
+                    }
+                    if (bt == Variant::COLOR && cache.color_axis >= 0) {
+                        const Color c = vgfast::vcolor(base);
+                        push_value(Variant((double)c.components[cache.color_axis]));
+                        break;
+                    }
+                }
                 
                 Variant result;
                 // VG class instance (object ID is an integer)
@@ -7950,44 +7842,44 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::VECTOR2) {
                     // Handle Vector2.x, Vector2.y member access
                     Vector2 vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                 } else if (vgfast::vtype(base) == Variant::VECTOR2I) {
                     Vector2i vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                 } else if (vgfast::vtype(base) == Variant::VECTOR3I) {
                     Vector3i vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
                 } else if (vgfast::vtype(base) == Variant::VECTOR4I) {
                     Vector4i vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
                     else if (member == "w") result = vec.w;
                 } else if (vgfast::vtype(base) == Variant::RECT2I) {
                     Rect2i rect = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "position") result = rect.position;
                     else if (member == "size") result = rect.size;
                     else if (member == "end") result = rect.get_end();
                 } else if (vgfast::vtype(base) == Variant::VECTOR3) {
                     // Handle Vector3.x, Vector3.y, Vector3.z member access
                     Vector3 vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = vec.x;
                     else if (member == "y") result = vec.y;
                     else if (member == "z") result = vec.z;
                 } else if (vgfast::vtype(base) == Variant::COLOR) {
                     // Handle Color.r, Color.g, Color.b, Color.a member access
                     Color col = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "r" || member == "red") result = col.r;
                     else if (member == "g" || member == "green") result = col.g;
                     else if (member == "b" || member == "blue") result = col.b;
@@ -7995,14 +7887,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::RECT2) {
                     // Handle Rect2.position, Rect2.size member access
                     Rect2 rect = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "position") result = rect.position;
                     else if (member == "size") result = rect.size;
                     else if (member == "end") result = rect.get_end();
                 } else if (vgfast::vtype(base) == Variant::QUATERNION) {
                     // Pass 1: Quaternion.x/y/z/w
                     Quaternion q = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = q.x;
                     else if (member == "y") result = q.y;
                     else if (member == "z") result = q.z;
@@ -8010,7 +7902,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::PLANE) {
                     // Pass 1: Plane.normal / .d / .x / .y / .z
                     Plane pl = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "normal") result = pl.normal;
                     else if (member == "d") result = pl.d;
                     else if (member == "x") result = pl.normal.x;
@@ -8019,26 +7911,26 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::AABB) {
                     // Pass 1: AABB.position / .size / .end
                     AABB box = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "position") result = box.position;
                     else if (member == "size") result = box.size;
                     else if (member == "end") result = box.get_end();
                 } else if (vgfast::vtype(base) == Variant::TRANSFORM2D) {
                     // Pass 1: Transform2D.origin / .x / .y (basis columns)
                     Transform2D t = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "origin") result = t.get_origin();
                     else if (member == "x") result = t.columns[0];
                     else if (member == "y") result = t.columns[1];
                 } else if (vgfast::vtype(base) == Variant::TRANSFORM3D) {
                     // Pass 1: Transform3D.origin / .basis
                     Transform3D t = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "origin") result = t.origin;
                     else if (member == "basis") result = t.basis;
                 } else if (vgfast::vtype(base) == Variant::BASIS) {
                     Basis b = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = b.get_column(0);
                     else if (member == "y") result = b.get_column(1);
                     else if (member == "z") result = b.get_column(2);
@@ -8047,13 +7939,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     bool valid = false;
                     result = base.get_named(cache.primary_name, valid);
                     if (!valid) {
-                        result = base.get_named(cache.primary_string.to_lower(), valid);
+                        result = base.get_named(cache.lower_string, valid);
                     }
                     if (!valid) vg_try_variant_type_constant("Projection", cache.primary_string, result);
                 } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     // Pass 1: Vector4.x/y/z/w
                     Vector4 v = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") result = v.x;
                     else if (member == "y") result = v.y;
                     else if (member == "z") result = v.z;
@@ -8819,6 +8711,27 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 MemberNameCacheEntry &cache = ensure_member_cache_entry(member_idx);
                 Variant value = pop_value();
                 Variant base = pop_value();
+                {
+                    const Variant::Type bt = vgfast::vtype(base);
+                    if (bt == Variant::VECTOR2 && (cache.axis == 0 || cache.axis == 1)) {
+                        Vector2 v = vgfast::vvec2(base);
+                        v[cache.axis] = (real_t)(double)value;
+                        push_value(Variant(v));
+                        break;
+                    }
+                    if (bt == Variant::VECTOR3 && cache.axis >= 0 && cache.axis <= 2) {
+                        Vector3 v = vgfast::vvec3(base);
+                        v[cache.axis] = (real_t)(double)value;
+                        push_value(Variant(v));
+                        break;
+                    }
+                    if (bt == Variant::COLOR && cache.color_axis >= 0) {
+                        Color c = vgfast::vcolor(base);
+                        c.components[cache.color_axis] = (float)(double)value;
+                        push_value(Variant(c));
+                        break;
+                    }
+                }
                 // VG class instance (object ID is an integer)
                 if (vgfast::vtype(base) == Variant::INT) {
                     int obj_id = (int)base;
@@ -8835,20 +8748,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 } else if (vgfast::vtype(base) == Variant::VECTOR2) {
                     // Value types need to be reconstructed
                     Vector2 vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") vec.x = (real_t)(double)value;
                     else if (member == "y") vec.y = (real_t)(double)value;
                     push_value(vec);
                 } else if (vgfast::vtype(base) == Variant::VECTOR3) {
                     Vector3 vec = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") vec.x = (real_t)(double)value;
                     else if (member == "y") vec.y = (real_t)(double)value;
                     else if (member == "z") vec.z = (real_t)(double)value;
                     push_value(vec);
                 } else if (vgfast::vtype(base) == Variant::COLOR) {
                     Color col = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "r" || member == "red") col.r = (float)(double)value;
                     else if (member == "g" || member == "green") col.g = (float)(double)value;
                     else if (member == "b" || member == "blue") col.b = (float)(double)value;
@@ -8858,7 +8771,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         vgfast::vtype(base) == Variant::RECT2I ||
                         vgfast::vtype(base) == Variant::PROJECTION) {
                     bool valid = false;
-                    base.set_named(cache.primary_string.to_lower(), value, valid);
+                    base.set_named(cache.lower_string, value, valid);
                     if (!valid) {
                         raise_error("Invalid member assignment: " + cache.primary_string, 438);
                         if (try_recover_error(Variant(), false)) break;
@@ -8868,7 +8781,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(base);
                 } else if (vgfast::vtype(base) == Variant::QUATERNION) {
                     Quaternion q = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") q.x = (real_t)(double)value;
                     else if (member == "y") q.y = (real_t)(double)value;
                     else if (member == "z") q.z = (real_t)(double)value;
@@ -8876,7 +8789,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(q);
                 } else if (vgfast::vtype(base) == Variant::PLANE) {
                     Plane pl = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "normal") pl.normal = (Vector3)value;
                     else if (member == "d") pl.d = (real_t)(double)value;
                     else if (member == "x") pl.normal.x = (real_t)(double)value;
@@ -8885,33 +8798,33 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     push_value(pl);
                 } else if (vgfast::vtype(base) == Variant::AABB) {
                     AABB box = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "position") box.position = (Vector3)value;
                     else if (member == "size") box.size = (Vector3)value;
                     push_value(box);
                 } else if (vgfast::vtype(base) == Variant::TRANSFORM2D) {
                     Transform2D t = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "origin") t.set_origin((Vector2)value);
                     else if (member == "x") t.columns[0] = (Vector2)value;
                     else if (member == "y") t.columns[1] = (Vector2)value;
                     push_value(t);
                 } else if (vgfast::vtype(base) == Variant::TRANSFORM3D) {
                     Transform3D t = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "origin") t.origin = (Vector3)value;
                     else if (member == "basis") t.basis = (Basis)value;
                     push_value(t);
                 } else if (vgfast::vtype(base) == Variant::BASIS) {
                     Basis b = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") b.set_column(0, (Vector3)value);
                     else if (member == "y") b.set_column(1, (Vector3)value);
                     else if (member == "z") b.set_column(2, (Vector3)value);
                     push_value(b);
                 } else if (vgfast::vtype(base) == Variant::VECTOR4) {
                     Vector4 v = base;
-                    String member = cache.primary_string.to_lower();
+                    const String &member = cache.lower_string;
                     if (member == "x") v.x = (real_t)(double)value;
                     else if (member == "y") v.y = (real_t)(double)value;
                     else if (member == "z") v.z = (real_t)(double)value;
@@ -9669,6 +9582,18 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         }
                     }
                     push_value(base);
+                } else if (vgfast::vtype(base) != Variant::NIL && vgfast::vtype(base) != Variant::INT) {
+                    // Remaining builtin value types (Vector2i/3i/4i, Rect2, ...) — previously the
+                    // assignment was silently dropped.
+                    bool valid = false;
+                    base.set_named(cache.lower_string, value, valid);
+                    if (!valid) {
+                        raise_error("Invalid member assignment: " + cache.primary_string, 438);
+                        if (try_recover_error(Variant(), false)) break;
+                        success = false;
+                        goto cleanup;
+                    }
+                    push_value(base);
                 } else {
                     push_value(base);
                 }
@@ -10155,7 +10080,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     if (sns_target != line_number) {
                         VisualGasicLanguage::clear_next_statement();
                         // Scan bytecode for the target OP_DEBUG_LINE
-                        for (int si = 0; si + 2 < code_size; si++) {
+                        for (int si = 0; si + 2 < code_size; si += VisualGasicOptimizer::instruction_size(chunk->code, si)) {
                             if (code[si] == OP_DEBUG_LINE) {
                                 int el = (code[si + 2] << 8) | code[si + 1];
                                 if (el == sns_target) {
@@ -10399,7 +10324,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     
                     // Scan bytecode for OP_DEBUG_LINE with matching line number
                     bool found_target = false;
-                    for (int scan_ip = 0; scan_ip + 2 < code_size; scan_ip++) {
+                    for (int scan_ip = 0; scan_ip + 2 < code_size; scan_ip += VisualGasicOptimizer::instruction_size(chunk->code, scan_ip)) {
                         if (code[scan_ip] == OP_DEBUG_LINE) {
                             uint8_t lo = code[scan_ip + 1];
                             uint8_t hi = code[scan_ip + 2];
