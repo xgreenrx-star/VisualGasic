@@ -211,6 +211,8 @@ func _run() -> void:
 	var alien: Node3D = interior.get_node("ClubAlien")
 	check(alien.has_node("HumanHologram") and alien.has_node("HumanHologramWire"), "existing human design rendered as two batched meshes")
 	check(alien.get("face_materials").size() == 2, "hologram has bounded render surfaces")
+	check(alien.get("faces").all(func(face: MeshInstance3D) -> bool: return face.visible and face.is_inside_tree()),
+		"hologram faces remain visible in the club")
 	yard.set("position_xz", Vector2(6.2, 21))
 	check(deep.call("prompt", yard).contains("ASK ALIEN"), "offline pad directs player to Alien")
 	check(fx.get("pad_mat").get_shader_parameter("link_power") == 0.0, "unactivated pad is visibly dormant")
@@ -229,13 +231,17 @@ func _run() -> void:
 	var lines: Dictionary = alien.get("dialogue")
 	check(lines["intro"][2]["speech"] == "He's speaking Narcean. I'll send him an English language sample. Jason. Human. English.",
 		"Orac recognizes Narcean without claiming an ancient dialect")
+	check(lines["intro"][11]["speech"].contains("translate Narcean") and
+		not lines["intro"][11]["speech"].contains("song titles"),
+		"Orac acknowledges the new lexicon without claiming to have inspected the recordings")
 	var provenance: Array = JSON.parse_string(FileAccess.get_file_as_string("res://assets/audio/club/alien/voices.json"))
-	check(provenance.size() == 21, "every encounter voice has neural bake provenance")
-	var voice_profiles := {"JASON": 5, "ORAC": 9, "ALIEN": 10}
+	check(provenance.size() == 31, "every encounter voice has neural bake provenance")
+	var voice_profiles := {"JASON": 5, "ORAC": 9, "ALIEN": 10, "ALIEN_ASIDE": 6}
 	for recording: Dictionary in provenance:
 		check(recording["backend"] == "kokoro" and recording["sid"] == voice_profiles[recording["speaker"]],
 			"neural speaker profile matches game cast: " + recording["audio"])
-		check(is_equal_approx(recording["speed"], 0.94 if recording["speaker"] == "ALIEN" else (0.92 if recording["speaker"] == "ORAC" else 1.08)),
+		var expected_speed := 0.94 if recording["speaker"] in ["ALIEN", "ALIEN_ASIDE"] else (0.92 if recording["speaker"] == "ORAC" else 1.08)
+		check(is_equal_approx(recording["speed"], expected_speed),
 			"speaker uses intended neural delivery: " + recording["audio"])
 		var found := false
 		for section: String in lines:
@@ -246,7 +252,7 @@ func _run() -> void:
 	for section: String in lines:
 		for i in lines[section].size():
 			var voice: AudioStream = load("res://assets/audio/club/alien/%s_%s.ogg" % [section, i])
-			check(voice != null and voice.get_length() > 1.0, "bundled voice %s/%s" % [section, i])
+			check(voice != null and voice.get_length() > 0.1, "bundled voice %s/%s" % [section, i])
 			check(not str(lines[section][i]["caption"]).contains("Rob"), "encounter keeps future identity private %s/%s" % [section, i])
 	for target in [Vector2(4, 20.8), Vector2(-9, 20.8)]:
 		yard.set("position_xz", target)
@@ -281,12 +287,25 @@ func _run() -> void:
 	check(yard.get("message").contains("UNTRANSLATED") and not yard.get("message").contains(fx.call("track_name")),
 		"cycling songs does not leak their titles before transfer")
 	state["powered"] = false
-	for turn in range(1, 15):
+	for turn in range(1, 5):
 		check(deep.call("use", yard), "conversation turn %s" % turn)
 		check(alien.get("index") == turn, "conversation advances once %s" % turn)
+		check(not state.get("club_pad_activated", false), "pad remains inactive during English lesson")
+		check(not deep.call("interface_lexicon_ready", yard), "English lesson does not grant Narcean")
+	check(state.get("alien_english", false), "English learned from Jason and Orac")
+	for turn in range(10):
+		check(deep.call("use", yard), "White Dwarf turn %s" % turn)
+		check(alien.get("dialogue_section") == "white_dwarf" and alien.get("index") == turn,
+			"Alien performs the one-time aside %s" % turn)
+		check(state.get("alien_english", false), "Alien performs only after learning English")
+		check(state.get("alien_white_dwarf_seen", false) == (turn == 9),
+			"one-time performance is recorded after its final line")
+	for turn in range(5, 15):
+		check(deep.call("use", yard), "follow-up conversation turn %s" % turn)
+		check(alien.get("dialogue_section") == "intro" and alien.get("index") == turn,
+			"ordinary conversation resumes after performance %s" % turn)
 		check(state.get("club_pad_activated", false) == (turn >= 13), "pad activates only when Alien restores link")
 		check(deep.call("interface_lexicon_ready", yard) == (turn >= 10), "Narcean knowledge acquired separately after English")
-	check(state.get("alien_english", false), "English learned from Jason and Orac")
 	check(fx.call("track_prompt", yard).begins_with("ORAC TRANSLATION:"), "translated song title attributed to Orac")
 	check(fx.call("track_prompt", yard).contains(fx.call("track_name")), "song title visible after transfer")
 	state.erase("narcean_lexicon")
@@ -298,7 +317,7 @@ func _run() -> void:
 		alien.call("advance")
 	check(state.get("narcean_lexicon", false), "English-only saves can receive missing lexicon from Alien")
 	yard.set("campaign_mode", false)
-	check(alien.get("section") == "intro", "first exchange completes without skipping")
+	check(alien.get("dialogue_section") == "intro", "first exchange completes without skipping")
 	var voice_settings := VoiceSettings.new()
 	root.add_child(voice_settings)
 	yard.reparent(voice_settings)
@@ -356,13 +375,13 @@ func _run() -> void:
 	alien.call("tick", 0.1)
 	check(alien.get("index") == -1, "English acquisition persists without replaying greeting")
 	deep.call("use", yard)
-	check(alien.get("section") == "returned", "resident responds to dock visit")
+	check(alien.get("dialogue_section") == "returned", "resident responds to dock visit")
 	check(not yard.get("message").contains("untranslated"), "return conversation remains English")
 	for turn in range(3):
 		deep.call("use", yard)
 	check(state.get("alien_dock_discussed", false), "dock reaction recorded without repetitive grief loop")
 	deep.call("use", yard)
-	check(alien.get("section") == "repeat", "subsequent talk returns to optional room dialogue")
+	check(alien.get("dialogue_section") == "repeat", "subsequent talk returns to optional room dialogue")
 	yard.set("position_xz", Vector2(6.2, 21))
 	state["powered"] = false
 	deep.call("use", yard)

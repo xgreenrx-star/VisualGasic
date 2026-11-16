@@ -119,6 +119,7 @@ func run() -> void:
 	game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await frames(3)
+	game.get("boot_term").get("sfx").stop()
 	game.call("ReleaseBootTerminal")
 	game.set("phase", 5)
 	await tap(KEY_ESCAPE)
@@ -137,9 +138,14 @@ func run() -> void:
 	check(str(ring.get("orac_message")).contains("only you"), "orac_advice_remains_suit_overlay")
 	var editor: LineEdit = ring.get("loader_entry")
 	var feedback: Node2D = ring.get("terminal_feedback")
+	check(editor.get_script().resource_path == "res://suit_screen_editor.vg" and feedback.get_script().resource_path == "res://suit_terminal_feedback.vg", "screen_editor_and_feedback_are_visualgasic")
+	check(feedback.get("defender_voice").get_script().resource_path == "res://suit_defender_voice.vg" and feedback.get("defender").get_script().resource_path == "res://suit_detailed_face.vg", "defender_voice_and_full_face_are_visualgasic")
+	check(feedback.get("orac_view").get_script().resource_path == "res://suit_orac_display.vg" and ring.get("orac_dialogue").get_script().resource_path == "res://suit_orac_dialogue.vg", "orac_display_and_dialogue_are_visualgasic")
 	check(editor.call("row_index") == terminal.get("transcript").size() and editor.caret_column == 0, "block_cursor_starts_on_row_directly_below_ready")
 	check(feedback.get("mode") == "ORAC", "right_panel_shows_orac_during_terminal_use")
 	var orac: SubViewport = feedback.get("orac_view")
+	check(orac.size == Vector2i(640, 640) and orac.transparent_bg and orac.own_world_3d and orac.msaa_3d == Viewport.MSAA_4X, "orac_preserves_isolated_transparent_antialiased_viewport")
+	check(orac.get("lamps").size() == 12 and orac.get("lamp_materials").size() == 12, "orac_preserves_all_twelve_luminous_tubes")
 	check(orac.get("indicator_materials").size() == 6 and orac.get("internal_lights").size() == 3, "orac_contains_six_indicator_bulbs_and_three_internal_lights")
 	orac.call("animate", 1.0, 0.0, false)
 	var first_light: float = orac.get("internal_lights")[0].light_energy
@@ -173,6 +179,12 @@ func run() -> void:
 	check(terminal.get("transcript").has("NEW"), "return_executes_edited_screen_line")
 	await tap(KEY_DOWN)
 	check(editor.call("row_index") == terminal.get("transcript").size() and editor.text == "", "down_moves_to_additional_blank_screen_row")
+	editor.text = "0123456789".repeat(6)
+	editor.caret_column = 40
+	await tap(KEY_UP)
+	check(editor.caret_column == 2 and editor.text.length() == 60, "up_moves_one_wrapped_screen_row_without_changing_text")
+	await tap(KEY_DOWN)
+	check(editor.caret_column == 40 and editor.text.length() == 60, "down_moves_one_wrapped_screen_row_without_changing_text")
 	editor.call("reset_screen_cursor")
 	key(KEY_A, true)
 	await frames(2)
@@ -224,8 +236,10 @@ func run() -> void:
 	await frames(2)
 	check(feedback.get("mode") == "DEFENDER", "right_panel_switches_to_alien_defender_during_hack")
 	var existing_face: Node = feedback.get("defender")
-	check(existing_face.get("data").get("format") == "ash_meridian_ai_face" and existing_face.get("nfeat") == 30, "defender_uses_existing_full_detail_narcean_face_asset")
-	check(existing_face.get("data").verts.size() == 335 and existing_face.get("data").tris.size() == 571 and existing_face.get("data").edges.size() == 908, "defender_retains_all_full_detail_vertices_triangles_and_edges")
+	# VG canonicalizes the DATA keyword even when it is used as a variable.
+	var face_data: Dictionary = existing_face.get("Data")
+	check(face_data.get("format") == "ash_meridian_ai_face" and existing_face.get("nfeat") == 30, "defender_uses_existing_full_detail_narcean_face_asset")
+	check(face_data.verts.size() == 335 and face_data.tris.size() == 571 and face_data.edges.size() == 908, "defender_retains_all_full_detail_vertices_triangles_and_edges")
 	check(existing_face.get("triangle_indices").size() == 1713, "full_face_triangles_use_one_indexed_render_batch")
 	existing_face.call("set_reduced_motion", false)
 	existing_face.call("set_time", 0.1)
@@ -244,6 +258,8 @@ func run() -> void:
 		emulator.set("rom_root", rom_dir.trim_suffix("/") + "/")
 		await command("C64")
 		check(emulator.get("active"), "keyboard_c64_starts_optional_emulator")
+		await tap(KEY_UP)
+		check(str(ring.get("loader_message")).contains("C64 BUSY / BOOTING"), "screen_cursor_reports_busy_real_rom_before_boot")
 		# Accelerate ROM boot without bypassing the keyboard integration.
 		if emulator.get("active"):
 			for index in range(500):
@@ -261,7 +277,12 @@ func run() -> void:
 	game.set("phase", 5)
 	await frames(3)
 	check(ring.get("loader_step") == 0 and not ring.get("loader_entry").visible and ring.get("orac_message") == "", "scene_exit_clears_terminal_input_and_orac_guidance")
+	for sound in ring.get("audio_pool"):
+		sound.stop()
+	await create_timer(0.3).timeout
 	game.queue_free()
 	await frames(2)
+	# Allow the audio mixer to retire released playback references before exit.
+	await create_timer(0.3).timeout
 	print("SUIT_TERMINAL_INPUT_COMPLETED: ", failures, " failures")
 	quit(failures)

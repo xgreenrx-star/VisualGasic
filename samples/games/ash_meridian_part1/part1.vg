@@ -32,6 +32,7 @@ Const PH_TRACE_CYCLE As Integer = 20
 Const PH_FACE_INTRO As Integer = 21
 Const PH_HACK_TEST As Integer = 22
 Const PH_OPENING As Integer = 23
+Const PH_LEVEL1_DEPARTURE As Integer = 24
 Const LAND_RINGS As Integer = 28
 Const LAND_SPACING As Single = 20.0
 Const LAND_START As Single = 26.0
@@ -39,6 +40,13 @@ Const LAND_END As Single = 596.0
 Const LAND_RADIUS As Single = 2.15
 
 Dim phase As Integer
+Dim departure_art_layer As Object
+Dim departure_art_rect As Object
+Dim departure_ui_layer As Object
+Dim departure_ui_heading As Object
+Dim departure_ui_caption As Object
+Dim departure_ui_controls As Object
+Dim departure_ui_fps As Object
 Dim clock As Single
 Dim px As Single
 Dim pz As Single
@@ -190,6 +198,7 @@ Sub _Ready()
 	intro_lines = Array()
 	intro_audio = Array()
 	presentation = GetNode("Presentation")
+	Call EnsureDepartureArtwork()
 	campaign = presentation.SpawnVg("res://campaign.vg", "RefCounted")
 	Call LoadOptions()
 	Call ApplyAntialiasing()
@@ -266,6 +275,7 @@ Sub StartRun()
 		ownership_ring.set_feedback_paused(True)
 	End If
 	If presentation <> Nothing Then
+		Call presentation.stop_level1_departure()
 		Call presentation.stop_black_channel()
 		Call presentation.stop_trace_cycle()
 	End If
@@ -465,7 +475,7 @@ End Sub
 
 Function PageCount() As Integer
 	If dev_page = 0 Then
-		PageCount = 13
+		PageCount = 14
 	Else
 		PageCount = 12
 	End If
@@ -486,6 +496,7 @@ Function MainScene(ByVal row As Integer) As Integer
 	If row = 9 Then id = 20
 	If row = 10 Then id = 21
 	If row = 12 Then id = 22
+	If row = 13 Then id = 23
 	MainScene = id
 End Function
 
@@ -541,7 +552,7 @@ Sub TickDev()
 			Call WarpDev()
 		End If
 	End If
-	If IsKeyJustPressed(KEY_ESCAPE) Then
+	If presentation.menu_tap(KEY_ESCAPE) Then
 		If dev_page = 1 Then
 			dev_page = 0
 			dev_row = 0
@@ -599,6 +610,8 @@ Function DevLabel(ByVal i As Integer) As String
 		DevLabel = "FAST HACK'EM - BOOT / COMMANDS"
 	ElseIf i = 22 Then
 		DevLabel = "NIGHT CLUB"
+	ElseIf i = 23 Then
+		DevLabel = "LEVEL 1 DEPARTURE / STATION DEAL"
 	Else
 		DevLabel = "BLACK CHANNEL - FLIGHT TEST"
 	End If
@@ -607,6 +620,21 @@ End Function
 Sub WarpDev()
 	Dim pick As Integer
 	pick = dev_i
+	If pick = 23 Then
+		Call StartRun()
+		dev_on = False
+		code_i = 0
+		menu_on = False
+		If Not presentation.start_level1_departure() Then
+			phase = PH_TITLE
+			dev_on = True
+			dev_row = 13
+			save_msg = presentation.level1_departure_error()
+			Exit Sub
+		End If
+		phase = PH_LEVEL1_DEPARTURE
+		Exit Sub
+	End If
 	Call StartRun()
 	dev_on = False
 	code_i = 0
@@ -916,6 +944,23 @@ Sub _Process(ByVal delta As Single)
 	End If
 	If phase = PH_OPENING Then
 		Call TickOpening(delta)
+		QueueRedraw()
+		Exit Sub
+	End If
+	If phase = PH_LEVEL1_DEPARTURE Then
+		If presentation.menu_tap(KEY_ESCAPE) Then
+			Call presentation.stop_level1_departure()
+			phase = PH_TITLE
+			dev_on = True
+			dev_page = 0
+			dev_row = 13
+			dev_i = 23
+		ElseIf presentation.menu_tap(KEY_R) Then
+			Call presentation.restart_level1_departure()
+		ElseIf presentation.menu_tap(KEY_ENTER) Or presentation.menu_tap(KEY_SPACE) Then
+			Call presentation.advance_level1_departure()
+		End If
+		Call presentation.tick_level1_departure(delta)
 		QueueRedraw()
 		Exit Sub
 	End If
@@ -1274,6 +1319,87 @@ Sub DrawBlackChannel()
 	End If
 	image = presentation.black_channel_overlay()
 	If image <> Nothing Then DrawTexture image, 0, 0
+End Sub
+
+Sub DrawLevel1Departure()
+	Dim image As Object
+	image = presentation.draw_level1_departure()
+	Call SetDepartureArtwork(image)
+	departure_ui_heading.text = presentation.level1_departure_heading()
+	departure_ui_caption.text = presentation.level1_departure_caption()
+	departure_ui_controls.text = presentation.level1_departure_controls()
+	departure_ui_fps.visible = opt_fps
+	If opt_fps Then
+		If last_dt > 0.001 Then departure_ui_fps.text = Str(Int(1.0 / last_dt)) Else departure_ui_fps.text = "0"
+	End If
+End Sub
+
+Sub EnsureDepartureArtwork()
+	If departure_art_layer = Nothing Then
+		departure_art_layer = ClassDB.Instantiate("CanvasLayer")
+		departure_art_layer.layer = 1
+		add_child(departure_art_layer)
+		departure_art_rect = ClassDB.Instantiate("TextureRect")
+		departure_art_rect.position = Vector2(0, 0)
+		departure_art_rect.size = Vector2(SW, SH)
+	departure_art_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	departure_art_rect.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	departure_art_rect.visible = False
+	departure_art_layer.add_child(departure_art_rect)
+		departure_ui_layer = ClassDB.Instantiate("CanvasLayer")
+		departure_ui_layer.layer = 2
+		add_child(departure_ui_layer)
+		Dim top_bar As Object = ClassDB.Instantiate("ColorRect")
+		top_bar.position = Vector2(0, 0)
+		top_bar.size = Vector2(SW, 92)
+		top_bar.color = Color(0.005, 0.015, 0.025, 0.82)
+		top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(top_bar)
+		Dim bottom_bar As Object = ClassDB.Instantiate("ColorRect")
+		bottom_bar.position = Vector2(0, 492)
+		bottom_bar.size = Vector2(SW, 48)
+		bottom_bar.color = Color(0.005, 0.015, 0.025, 0.86)
+		bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(bottom_bar)
+		departure_ui_heading = ClassDB.Instantiate("Label")
+		departure_ui_heading.position = Vector2(28, 0)
+		departure_ui_heading.size = Vector2(820, 32)
+		departure_ui_heading.add_theme_color_override("font_color", Color(0.48, 0.91, 1.0))
+		departure_ui_heading.add_theme_font_size_override("font_size", 19)
+		departure_ui_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(departure_ui_heading)
+		departure_ui_caption = ClassDB.Instantiate("Label")
+		departure_ui_caption.position = Vector2(28, 31)
+		departure_ui_caption.size = Vector2(900, 60)
+		departure_ui_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		departure_ui_caption.add_theme_color_override("font_color", Color(0.89, 0.92, 0.91))
+		departure_ui_caption.add_theme_font_size_override("font_size", 17)
+		departure_ui_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(departure_ui_caption)
+		departure_ui_controls = ClassDB.Instantiate("Label")
+		departure_ui_controls.position = Vector2(28, 492)
+		departure_ui_controls.size = Vector2(820, 36)
+		departure_ui_controls.add_theme_color_override("font_color", Color(0.55, 0.83, 0.87))
+		departure_ui_controls.add_theme_font_size_override("font_size", 13)
+		departure_ui_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(departure_ui_controls)
+		departure_ui_fps = ClassDB.Instantiate("Label")
+		departure_ui_fps.position = Vector2(880, 0)
+		departure_ui_fps.size = Vector2(64, 24)
+		departure_ui_fps.add_theme_color_override("font_color", Color(0.45, 0.8, 0.7))
+		departure_ui_fps.add_theme_font_size_override("font_size", 14)
+		departure_ui_fps.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		departure_ui_fps.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		departure_ui_layer.add_child(departure_ui_fps)
+	End If
+End Sub
+
+Sub SetDepartureArtwork(ByVal image As Object)
+	Call EnsureDepartureArtwork()
+	departure_art_layer.visible = image <> Nothing
+	departure_ui_layer.visible = image <> Nothing
+	departure_art_rect.visible = False
+	If image <> Nothing Then departure_art_rect.texture = image
 End Sub
 
 Sub DrawTraceCycle()
@@ -3874,12 +4000,14 @@ Sub DrawFrame()
 End Sub
 
 Sub _Draw()
+	If departure_art_layer <> Nothing Then departure_art_layer.visible = phase = PH_LEVEL1_DEPARTURE
+	If departure_ui_layer <> Nothing Then departure_ui_layer.visible = phase = PH_LEVEL1_DEPARTURE
 	If ownership_ring <> Nothing Then
 		If phase <> PH_HACK_TEST Then ownership_ring.leave_terminal()
 		ownership_ring.visible = phase = PH_HACK_TEST And Not menu_on And Not dev_on
 		ownership_ring.set_feedback_paused(Not ownership_ring.visible)
 	End If
-	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE)
+	Call presentation.begin_frame(phase = PH_BACKLIGHT Or phase = PH_BACKLIGHT_YARD, phase = PH_BLACK_CHANNEL, campaign_arrival And (phase = PH_INTRO Or phase = PH_LAND), phase = PH_TRACE_CYCLE, phase = PH_LEVEL1_DEPARTURE)
 	If phase <> PH_FACE_INTRO And phase <> PH_OPENING Then
 		DrawRect 0, 0, SW, SH, Color(0.0, 0.0, 0.0)
 	ElseIf phase = PH_FACE_INTRO And face_player Is Nothing Then
@@ -3892,6 +4020,9 @@ Sub _Draw()
 		Call DrawTitle()
 	ElseIf phase = PH_OPENING Then
 		Call DrawOpening()
+	ElseIf phase = PH_LEVEL1_DEPARTURE Then
+		Call DrawLevel1Departure()
+		If departure_art_rect <> Nothing And departure_art_rect.texture <> Nothing Then draw_texture_rect(departure_art_rect.texture, Rect2(0, 0, SW, SH), False)
 	ElseIf phase = PH_TITLE Then
 		Call DrawTitle()
 	ElseIf phase = PH_OPTS Then
@@ -3942,7 +4073,7 @@ Sub _Draw()
 	If Not campaign_active And phase > PH_LAND And phase <= PH_BAY Then DrawString "LEGACY CHAPTER / DEV REFERENCE", 24, 530, Color(0.5, 0.7, 0.8), 11
 	If Not campaign_active And campaign.city <> Nothing Then DrawString "F10 RETURN TO JASON'S CAMPAIGN", 24, 526, Color(0.5, 0.8, 0.9), 11
 	If dev_on Then Call DrawDev()
-	If opt_fps And phase <> PH_BOOT Then Call DrawFrame()
+	If opt_fps And phase <> PH_BOOT And phase <> PH_LEVEL1_DEPARTURE Then Call DrawFrame()
 End Sub
 
 Sub DrawIntro()

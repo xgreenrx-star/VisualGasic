@@ -1,0 +1,343 @@
+Option Explicit
+
+Const DIALOGUE_PATH = "res://assets/ai_face/club_alien_dialogue.json"
+Const VOICES = "res://assets/audio/club/alien/"
+Dim city As Object
+Dim dialogue As Dictionary
+Dim dialogue_section As String
+Dim index As Integer
+Dim clock As Single
+Dim greeted As Boolean
+Dim near As Boolean
+Dim player As Object
+Dim face_materials As Array
+Dim faces As Array
+Dim subtitle As String
+Dim subtitle_left As Single
+Dim head_yaw As Single
+Dim head_pitch As Single
+Dim last_error As String
+
+Sub _Ready()
+	dialogue_section = "intro"
+	index = -1
+	dialogue = New Dictionary
+	face_materials = Array()
+	faces = Array()
+End Sub
+
+Sub ReportError(ByVal message As String)
+	last_error = message
+	Print "CLUB_ALIEN_ERROR: " & message
+End Sub
+
+Function VoicesEnabled() As Boolean
+	Dim ancestor As Object
+	Dim setting As Variant
+	ancestor = city
+	Do While ancestor <> Nothing
+		setting = ancestor.get("opt_orac_voice")
+		If VarType(setting) = vbBoolean Then Return setting
+		ancestor = ancestor.get_parent()
+	Loop
+	Return True
+End Function
+
+Function ReturnSection(ByVal state As Dictionary) As String
+	If state.get("club_dock_visited", False) And Not state.get("alien_dock_discussed", False) Then Return "returned"
+	Return "repeat"
+End Function
+
+Sub setup(ByVal owner_city As Object)
+	Dim json As Object
+	city = owner_city
+	json = ClassDB.Instantiate("JSON")
+	If json.parse(ReadAllText(DIALOGUE_PATH)) <> 0 Then
+		ReportError("Alien dialogue could not be parsed: " & json.get_error_message())
+		Exit Sub
+	End If
+	dialogue = json.get_data()
+	player = ClassDB.Instantiate("AudioStreamPlayer3D")
+	If AudioServer.get_bus_index("SFX") >= 0 Then player.bus = "SFX" Else player.bus = "Master"
+	player.unit_size = 5.0
+	player.max_distance = 15.0
+	player.position = Vector3(-3.2, 2.7, 22.8)
+	add_child(player)
+	Call BuildFace()
+End Sub
+
+Function FeaturePoint(ByVal face_data As Dictionary, ByVal point As Vector2) As Vector3
+	Dim nearest As Integer
+	Dim distance As Single
+	Dim candidate As Single
+	Dim xy As Array
+	Dim verts As Array
+	Dim heights As Array
+	Dim i As Integer
+	distance = 1.0e30
+	verts = face_data("verts")
+	heights = face_data("height")
+	For i = 0 To verts.size() - 1
+		xy = verts(i)
+		candidate = point.distance_squared_to(Vector2(xy(0), xy(1)))
+		If candidate < distance Then
+			nearest = i
+			distance = candidate
+		End If
+	Next
+	Return Vector3((point.x - 500.0) * 0.0032, (490.0 - point.y) * 0.0032, -heights(nearest) * 0.35 - 0.012)
+End Function
+
+Sub AppendHair(ByRef vertices As PackedVector3Array, ByRef uvs As PackedVector2Array)
+	Dim rng As Object
+	Dim strand As Integer
+	Dim side As Single
+	Dim crown As Boolean
+	Dim angle As Single
+	Dim root_point As Vector3
+	Dim spread As Single
+	Dim lift As Single
+	Dim tip As Vector3
+	Dim bend As Vector3
+	Dim previous As Vector3
+	Dim point As Vector3
+	Dim segment As Integer
+	Dim t As Single
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 77124
+	For strand = 0 To 419
+		If strand Mod 2 = 0 Then side = -1.0 Else side = 1.0
+		crown = strand < 160
+		If crown Then angle = rng.randf_range(0.02, 0.65) Else angle = rng.randf_range(0.55, 1.62)
+		root_point = Vector3(side * Sin(angle) * 0.73, Cos(angle) * 1.25, rng.randf_range(-0.02, 0.32))
+		If crown Then spread = rng.randf_range(0.18, 0.48) Else spread = rng.randf_range(0.35, 0.78)
+		lift = rng.randf_range(0.3, 0.62)
+		tip = root_point + Vector3(side * spread, rng.randf_range(-0.08, 0.42), rng.randf_range(-0.14, 0.28))
+		bend = root_point + Vector3(side * spread * 0.8, lift, -0.07)
+		previous = root_point
+		For segment = 1 To 10
+			t = segment / 10.0
+			point = (1.0 - t) * (1.0 - t) * root_point + 2.0 * (1.0 - t) * t * bend + t * t * tip
+			point.y = point.y + Sin(t * 6.283185307179586 * 1.5 + strand) * 0.025 * t
+			vertices.append(previous)
+			vertices.append(point)
+			uvs.append(Vector2(0.5, 0.2))
+			uvs.append(Vector2(0.5, 0.2))
+			previous = point
+		Next
+	Next
+End Sub
+
+Sub BuildFace()
+	Dim json As Object
+	Dim face_data As Dictionary
+	Dim vertices As PackedVector3Array
+	Dim uvs As PackedVector2Array
+	Dim elements As Array
+	Dim verts As Array
+	Dim heights As Array
+	Dim element As Array
+	Dim xy As Array
+	Dim features As Array
+	Dim iris As Array
+	Dim ring As Array
+	Dim feature As Array
+	Dim arrays As Array
+	Dim mesh As Object
+	Dim material As Object
+	Dim face As Object
+	Dim point As Vector2
+	Dim angle As Single
+	Dim step_index As Integer
+	Dim segment As Integer
+	Dim wire As Boolean
+	json = ClassDB.Instantiate("JSON")
+	If json.parse(ReadAllText("res://assets/ai_face/human_face.json")) <> 0 Then
+		ReportError("Alien human hologram asset cannot be parsed.")
+		Exit Sub
+	End If
+	face_data = json.get_data()
+	verts = face_data("verts")
+	heights = face_data("height")
+	For Each wire In Array(False, True)
+		vertices = PackedVector3Array()
+		uvs = PackedVector2Array()
+		If wire Then elements = face_data("edges") Else elements = face_data("tris")
+		For Each element In elements
+			For Each point_index In element
+				xy = verts(point_index)
+				vertices.append(Vector3((xy(0) - 500.0) * 0.0032, (490.0 - xy(1)) * 0.0032, -heights(point_index) * 0.35))
+				uvs.append(Vector2(xy(0), xy(1)) / 1000.0)
+			Next
+		Next
+		If wire Then
+			features = face_data("features").values()
+			For Each iris In face_data("irises")
+				ring = Array()
+				For step_index = 0 To 24
+					angle = 6.283185307179586 * step_index / 24.0
+					ring.append(Array(iris(0) + Cos(angle) * iris(2), iris(1) + Sin(angle) * iris(2)))
+				Next
+				features.append(ring)
+			Next
+			For Each feature In features
+				For segment = 0 To feature.size() - 2
+					For Each endpoint In Array(segment, segment + 1)
+						xy = feature(endpoint)
+						point = Vector2(xy(0), xy(1))
+						vertices.append(FeaturePoint(face_data, point))
+						uvs.append(point / 1000.0)
+					Next
+				Next
+			Next
+			Call AppendHair(vertices, uvs)
+		End If
+		arrays = Array()
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays(Mesh.ARRAY_VERTEX) = vertices
+		arrays(Mesh.ARRAY_TEX_UV) = uvs
+		mesh = ClassDB.Instantiate("ArrayMesh")
+		If wire Then
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+		Else
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		End If
+		material = ClassDB.Instantiate("ShaderMaterial")
+		material.shader = Load("res://shaders/club_alien.gdshader")
+		material.set_shader_parameter("wire", wire)
+		face_materials.append(material)
+		face = ClassDB.Instantiate("MeshInstance3D")
+		If wire Then face.name = "HumanHologramWire" Else face.name = "HumanHologram"
+		face.mesh = mesh
+		face.material_override = material
+		face.position = Vector3(-3.2, 2.7, 22.8)
+		add_child(face)
+		faces.append(face)
+	Next
+End Sub
+
+Sub tick(ByVal delta As Single)
+	Dim pos As Vector2
+	Dim state As Dictionary
+	Dim in_room As Boolean
+	Dim mouth As Single
+	Dim toward As Vector2
+	Dim target_yaw As Single
+	Dim target_pitch As Single
+	Dim eye_y As Single
+	Dim follow As Single
+	Dim yaw_diff As Single
+	Dim material As Object
+	Dim face As Object
+	If player = Nothing Then Exit Sub
+	clock = clock + delta
+	pos = city.position_xz
+	state = city.stratum
+	near = pos.distance_to(Vector2(-3.2, 20.8)) < 4.0
+	in_room = pos.y > 16.3
+	subtitle_left = Max(0.0, subtitle_left - delta)
+	If Not in_room Then
+		player.stop()
+		If city.message = subtitle Then city.message_left = 0.0
+		subtitle_left = 0.0
+	End If
+	If Not VoicesEnabled() Then player.stop()
+	If near And Not greeted Then
+		greeted = True
+		If Not state.get("alien_english", False) Then Call advance()
+	End If
+	mouth = 0.0
+	If player.playing And subtitle.begins_with("ALIEN") Then mouth = 0.22 + 0.22 * Sin(clock * 13.0) + 0.12 * Sin(clock * 23.0)
+	For Each material In face_materials
+		material.set_shader_parameter("clock", clock)
+		material.set_shader_parameter("mouth", Max(0.0, mouth))
+	Next
+	toward = pos - Vector2(-3.2, 22.8)
+	target_yaw = 0.0
+	target_pitch = 0.0
+	If in_room And toward.length_squared() > 0.01 Then
+		target_yaw = Max(-1.35, Min(1.35, Atan2(-toward.x, -toward.y)))
+		eye_y = 1.7 + state.get("foot_y", 0.0)
+		target_pitch = Max(-0.5, Min(0.35, Atan2(eye_y - 2.7, toward.length())))
+	End If
+	follow = 1.0 - Exp(-5.0 * Max(delta, 0.0))
+	yaw_diff = Atan2(Sin(target_yaw - head_yaw), Cos(target_yaw - head_yaw))
+	head_yaw = head_yaw + yaw_diff * follow
+	head_pitch = head_pitch + (target_pitch - head_pitch) * follow
+	For Each face In faces
+		face.rotation = Vector3(head_pitch, head_yaw, 0.0)
+		face.position.y = 2.7 + Sin(clock * 0.6) * 0.015
+	Next
+	If in_room And subtitle_left > 0.0 Then
+		city.message = subtitle
+		city.message_left = subtitle_left
+	End If
+End Sub
+
+Sub advance()
+	Dim state As Dictionary
+	Dim lines As Array
+	Dim line As Dictionary
+	Dim listener As Vector2
+	Dim path As String
+	If dialogue.is_empty() Then
+		city.notify("ORAC: The room's resident intelligence is not responding.")
+		Exit Sub
+	End If
+	state = city.stratum
+	If index < 0 Then
+		If state.get("alien_english", False) Then
+			If Not state.get("alien_white_dwarf_seen", False) Then
+				dialogue_section = "white_dwarf"
+				index = -1
+			ElseIf Not state.get("narcean_lexicon", False) Then
+				dialogue_section = "intro"
+				index = 4
+			Else
+				dialogue_section = ReturnSection(state)
+			End If
+		End If
+	ElseIf dialogue_section = "intro" And index = 4 And state.get("alien_english", False) And Not state.get("alien_white_dwarf_seen", False) Then
+		dialogue_section = "white_dwarf"
+		index = -1
+	ElseIf dialogue_section = "white_dwarf" And index >= dialogue(dialogue_section).size() - 1 Then
+		dialogue_section = "intro"
+		index = 4
+	End If
+	index = index + 1
+	lines = dialogue(dialogue_section)
+	If index >= lines.size() Then
+		dialogue_section = ReturnSection(state)
+		index = 0
+		lines = dialogue(dialogue_section)
+	End If
+	line = lines(index)
+	player.position = Vector3(-3.2, 2.7, 22.8)
+	If Not line("speaker").begins_with("ALIEN") Then
+		listener = city.position_xz
+		player.position = Vector3(listener.x, 1.7 + state.get("foot_y", 0.0), listener.y)
+	End If
+	If line.get("learn_english", False) Then state("alien_english") = True
+	If line.get("grant_lexicon", False) Then state("narcean_lexicon") = True
+	If line.get("activate_pad", False) Then state("club_pad_activated") = True
+	If dialogue_section = "white_dwarf" And index = lines.size() - 1 Then state("alien_white_dwarf_seen") = True
+	If dialogue_section = "returned" And index = 3 Then state("alien_dock_discussed") = True
+	path = VOICES & dialogue_section & "_" & Str(index) & ".ogg"
+	player.stop()
+	If Not ResourceLoader.exists(path) Then
+		ReportError("Missing Alien encounter speech: " & path)
+		subtitle_left = 8.0
+	Else
+		player.stream = Load(path)
+		If VoicesEnabled() Then player.play()
+		subtitle_left = Max(5.0, player.stream.get_length() + 1.0)
+	End If
+	subtitle = line("caption")
+	city.notify(subtitle)
+	city.message_left = subtitle_left
+End Sub
+
+Function prompt() As String
+	If near Then Return "ALIEN HOLOGRAM / F: CONTINUE CONVERSATION"
+	Return ""
+End Function

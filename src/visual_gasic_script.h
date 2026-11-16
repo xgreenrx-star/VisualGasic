@@ -43,6 +43,7 @@ class VisualGasicScript : public ScriptExtension {
     // This is critical because execute_bytecode holds a pointer to a chunk while nested calls
     // may trigger compilation of other functions, which would invalidate pointers in a vector.
     std::list<CompiledEntry> bytecode_cache;
+	HashSet<String> method_names_lower;
 
 public:
     String include_host_path_hint; // format loader: path for Include when get_path() is empty

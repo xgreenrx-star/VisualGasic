@@ -161,6 +161,17 @@ Sub RunWalkthrough()
 	Next
 	Call step_result(3, status_of(archive_ok And address = yard.FEB_CODE), "five real archive interactions record address " & address & " (FEB chamber address " & yard.FEB_CODE & ")")
 
+	yard.place = "floor"
+	yard.floor_code = "36912"
+	yard.deep.arrive(yard, False)
+	yard.deep.ensure_layout(yard)
+	yard.stratum("foot_y") = 6.0
+	yard.position_xz = Vector2(-9, 1.8)
+	yard.deep.use(yard)
+	city_address_ok = yard.deep.knows(yard, "88216") And Not yard.deep.interface_lexicon_ready(yard)
+	Call step_result(3, status_of(city_address_ok), "MJH's painted return mark beside the B12 lift copies address 88216 before Alien can translate it")
+
+	yard.place = "surface"
 	yard.position_xz = yard.buildings(7).door
 	yard.use_object()
 	yard.position_xz = Vector2(0, 21)
@@ -172,8 +183,8 @@ Sub RunWalkthrough()
 		yard.finish_lift()
 		yard.transit_left = 0
 	End If
-	archive_ok = archive_ok And yard.place = "floor" And yard.floor_code = "88216"
-	Call step_result(3, status_of(archive_ok), "transit depot accepts 88216 to B13; this is separate from the five archive glyphs 14242")
+	archive_ok = archive_ok And yard.place = "floor" And yard.floor_code = "88216" And city_address_ok
+	Call step_result(3, status_of(archive_ok), "transit depot accepts the separately copied 88216 address to B13")
 
 	yard.deep.ensure_layout(yard)
 	power_ok = yard.deep.levers.size() = 3
@@ -214,7 +225,7 @@ Sub RunWalkthrough()
 		banter_after_english = True
 		For i = 1 To 40
 			yard.deep.use(yard)
-			If alien <> Nothing And alien.section = "white_dwarf" Then
+			If alien <> Nothing And alien.dialogue_section = "white_dwarf" Then
 				banter_after_english = banter_after_english And yard.stratum.get("alien_english", False)
 				If alien.index = 1 Then
 					dialogue_line = alien.dialogue("white_dwarf")(alien.index)
@@ -224,7 +235,7 @@ Sub RunWalkthrough()
 					arm_source_ok = dialogue_line("speaker") = "ORAC" And dialogue_line("caption").begins_with("ARM COMPUTER / ORAC:") And alien.player.position.distance_to(Vector3(yard.position_xz.x, 1.7 + yard.stratum.get("foot_y", 0.0), yard.position_xz.y)) < 0.01 And FileExists("res://assets/audio/club/alien/white_dwarf_4.ogg")
 				End If
 			End If
-			If alien <> Nothing And alien.section = "intro" And alien.index >= 14 And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False) Then Exit For
+			If alien <> Nothing And alien.dialogue_section = "intro" And alien.index >= 14 And yard.stratum.get("alien_english", False) And yard.stratum.get("narcean_lexicon", False) And yard.stratum.get("club_pad_activated", False) Then Exit For
 		Next
 	End If
 	banter_ok = False
@@ -256,6 +267,16 @@ Sub RunWalkthrough()
 			yard.deep.physics(yard, 0.05)
 			yard._sync_room()
 			return_ok = yard.floor_code = "88216"
+			If return_ok Then
+				yard.position_xz = Vector2(0, -4.8)
+				yard.stratum("foot_y") = 6.0
+				yard.keypad = True
+				yard.connect_lift_index()
+				index_ok = yard.stratum.get("lift_index_loaded", False) And yard.deep.knows(yard, "31707") And yard.deep.knows(yard, "88216") And yard.plus4_menu_open
+				yard.plus4_menu_open = False
+				yard.keypad = False
+				return_ok = return_ok And index_ok
+			End If
 		End If
 		If return_ok Then
 			yard.position_xz = Vector2(0, -4.8)
@@ -271,7 +292,7 @@ Sub RunWalkthrough()
 			End If
 		End If
 	End If
-	Call step_result(6, status_of(return_ok), "club pad reaches ruined launch dock; return pads, B13 club exit and 70315 ascent restore the same powered yard")
+	Call step_result(6, status_of(return_ok), "after Alien teaches Orac Narcean, the Commander reads stable lift addresses; club return and 70315 ascent restore the powered yard")
 	old_alarm_before_trace = yard.awakening
 	governor_ok = False
 	If return_ok Then

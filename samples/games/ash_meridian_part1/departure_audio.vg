@@ -1,0 +1,277 @@
+Option Explicit
+
+Const AUDIO_DIR = "res://assets/audio/departure/"
+Const RADIO_BUS = "DepartureRadio"
+Const MUSIC_BUS = "DepartureMusic"
+
+Dim voice_player As Object
+Dim music_player As Object
+Dim engine_player As Object
+Dim static_player As Object
+Dim cue_player As Object
+Dim ring_player As Object
+Dim cues As Dictionary
+Dim clips As Dictionary
+Dim last_caption As String
+Dim last_shot As Integer
+Dim last_state As String
+Dim remote_voice As Boolean
+Dim clock As Single
+Dim game As Object
+Dim ready_audio As Boolean
+Dim caption_elapsed As Single
+Dim rest_elapsed As Single
+Dim last_error As String
+
+Sub _Ready()
+	cues = New Dictionary
+	clips = New Dictionary
+	last_shot = -1
+End Sub
+
+Sub ReportError(ByVal message As String)
+	last_error = message
+	Print "DEPARTURE_AUDIO_ERROR: " & message
+End Sub
+
+Function MakePlayer(ByVal bus_name As String, ByVal db As Single) As Object
+	Dim p As Object
+	p = ClassDB.Instantiate("AudioStreamPlayer")
+	p.bus = bus_name
+	p.volume_db = db
+	add_child(p)
+	Return p
+End Function
+
+Function LoadClip(ByVal path As String) As Object
+	Dim clip As Object
+	clip = AudioStreamOggVorbis.load_from_file(path)
+	If clip = Nothing Then ReportError("Cannot load " & path)
+	Return clip
+End Function
+
+Function setup(ByVal owner_game As Object) As Boolean
+	Dim parser As Object
+	Dim rows As Variant
+	Dim row As Variant
+	Dim clip As Object
+	Dim stream As Object
+	Dim ring As Object
+	Dim pair As Variant
+	Dim p As Object
+	game = owner_game
+	last_error = ""
+	cues = New Dictionary
+	clips = New Dictionary
+	last_shot = -1
+	If Not FileExists(AUDIO_DIR & "voices.json") Then
+		ReportError("Missing departure voice manifest")
+		Return False
+	End If
+	parser = ClassDB.Instantiate("JSON")
+	If parser.parse(ReadAllText(AUDIO_DIR & "voices.json")) <> 0 Then
+		ReportError("Invalid departure voice manifest")
+		Return False
+	End If
+	rows = parser.get_data()
+	If Not IsArray(rows) Then
+		ReportError("Departure voice manifest must be an array")
+		Return False
+	End If
+	For Each row In rows
+		If TypeName(row) <> "Dictionary" Then
+			ReportError("Invalid departure voice entry")
+			Return False
+		End If
+		If VarType(row.get("caption", Nothing)) <> vbString Or VarType(row.get("audio", Nothing)) <> vbString Then
+			ReportError("Departure voice entry needs caption and audio strings")
+			Return False
+		End If
+		clip = LoadClip(row("audio"))
+		If clip = Nothing Then Return False
+		clips(row("caption")) = clip
+	Next
+	Call EnsureRadioBus()
+	Call EnsureMusicBus()
+	voice_player = MakePlayer("SFX", -3.0)
+	music_player = MakePlayer(MUSIC_BUS, -14.0)
+	engine_player = MakePlayer("SFX", -26.0)
+	static_player = MakePlayer(RADIO_BUS, -45.0)
+	cue_player = MakePlayer("SFX", -22.0)
+	ring_player = MakePlayer("SFX", -9.0)
+	For Each cue_name In Array("jump", "berth", "transition", "call", "close")
+		stream = LoadClip(AUDIO_DIR & cue_name & ".ogg")
+		If stream = Nothing Then Return False
+		cues(cue_name) = stream
+	Next
+	ring = cues("call")
+	ring.loop = True
+	ring_player.stream = ring
+	For Each pair In Array(Array(music_player, "station"), Array(engine_player, "engines"), Array(static_player, "static"))
+		stream = LoadClip(AUDIO_DIR & pair(1) & ".ogg")
+		If stream = Nothing Then
+			Call stop()
+			Return False
+		End If
+		stream.loop = True
+		p = pair(0)
+		p.stream = stream
+	Next
+	ready_audio = True
+	Return True
+End Function
+
+Sub EnsureRadioBus()
+	Dim idx As Integer
+	Dim effect As Object
+	If AudioServer.get_bus_index(RADIO_BUS) >= 0 Then Exit Sub
+	AudioServer.add_bus()
+	idx = AudioServer.bus_count - 1
+	AudioServer.set_bus_name(idx, RADIO_BUS)
+	AudioServer.set_bus_send(idx, "SFX")
+	effect = ClassDB.Instantiate("AudioEffectHighPassFilter")
+	effect.cutoff_hz = 350
+	AudioServer.add_bus_effect(idx, effect)
+	effect = ClassDB.Instantiate("AudioEffectLowPassFilter")
+	effect.cutoff_hz = 3200
+	AudioServer.add_bus_effect(idx, effect)
+	effect = ClassDB.Instantiate("AudioEffectDistortion")
+	effect.mode = AudioEffectDistortion.MODE_ATAN
+	effect.drive = 0.12
+	effect.keep_hf_hz = 3200
+	AudioServer.add_bus_effect(idx, effect)
+End Sub
+
+Sub EnsureMusicBus()
+	Dim idx As Integer
+	Dim effect As Object
+	If AudioServer.get_bus_index(MUSIC_BUS) >= 0 Then Exit Sub
+	AudioServer.add_bus()
+	idx = AudioServer.bus_count - 1
+	AudioServer.set_bus_name(idx, MUSIC_BUS)
+	AudioServer.set_bus_send(idx, "Music")
+	effect = ClassDB.Instantiate("AudioEffectChorus")
+	effect.wet = 0.25
+	AudioServer.add_bus_effect(idx, effect)
+	effect = ClassDB.Instantiate("AudioEffectReverb")
+	effect.room_size = 0.8
+	effect.wet = 0.25
+	effect.dry = 0.85
+	AudioServer.add_bus_effect(idx, effect)
+End Sub
+
+Sub PlayCue(ByVal cue_name As String)
+	cue_player.stream = cues(cue_name)
+	cue_player.play()
+End Sub
+
+Sub present(ByVal caption As String, ByVal shot As Integer, ByVal state As String)
+	If Not ready_audio Then Exit Sub
+	If shot <> last_shot Then
+		rest_elapsed = 0.0
+		voice_player.stop()
+		If shot < 3 Then
+			If Not engine_player.playing Then engine_player.play()
+			If shot = 2 Then engine_player.pitch_scale = 0.8 Else engine_player.pitch_scale = 1.0
+		Else
+			engine_player.stop()
+		End If
+		If shot >= 2 Then
+			If Not music_player.playing Then music_player.play()
+		Else
+			music_player.stop()
+		End If
+		If shot = 1 Then
+			PlayCue("jump")
+		ElseIf shot = 3 Then
+			PlayCue("berth")
+		Else
+			PlayCue("transition")
+		End If
+		last_shot = shot
+	End If
+	If state <> last_state Then
+		If state = "connected" Or state = "closed" Then ring_player.stop()
+		If state = "closed" And last_state = "connected" Then PlayCue("close")
+		last_state = state
+	End If
+	If caption = last_caption Then Exit Sub
+	last_caption = caption
+	caption_elapsed = 0.0
+	voice_player.stop()
+	static_player.stop()
+	remote_voice = caption.begins_with("BUYER / RADIO:") Or caption.begins_with("STATION / RADIO:")
+	If remote_voice Then voice_player.bus = RADIO_BUS Else voice_player.bus = "SFX"
+	If caption.begins_with("BUYER / RADIO:") Then
+		voice_player.volume_db = 5.0
+	ElseIf remote_voice Then
+		voice_player.volume_db = -1.0
+	Else
+		voice_player.volume_db = -3.0
+	End If
+	If Not game.opt_orac_voice Or Not caption.contains(":") Then Exit Sub
+	If Not clips.has(caption) Then
+		ReportError("No recording for " & caption)
+		Exit Sub
+	End If
+	voice_player.stream = clips(caption)
+	voice_player.play()
+	music_player.volume_db = Min(music_player.volume_db, -22.0)
+	If remote_voice Then static_player.play()
+End Sub
+
+Sub tick(ByVal delta As Single)
+	Dim step_time As Single
+	Dim music_target As Single
+	If Not ready_audio Then Exit Sub
+	step_time = Max(delta, 0.0)
+	clock = clock + step_time
+	caption_elapsed = caption_elapsed + step_time
+	If last_shot = 3 And last_state = "idle" Then rest_elapsed = rest_elapsed + step_time
+	If last_shot = 3 And (last_state = "incoming" Or (last_state = "idle" And rest_elapsed >= 2.0)) Then
+		If Not ring_player.playing Then ring_player.play()
+	End If
+	If Not game.opt_orac_voice Then voice_player.stop()
+	If Not voice_player.playing Then static_player.stop()
+	If voice_player.playing Then music_target = -22.0 Else music_target = -14.0
+	If music_player.volume_db < music_target Then
+		music_player.volume_db = Min(music_target, music_player.volume_db + step_time * 12.0)
+	Else
+		music_player.volume_db = Max(music_target, music_player.volume_db - step_time * 12.0)
+	End If
+	' Crackle never drops the spoken signal.
+	If clock - Int(clock / 3.7) * 3.7 < 0.25 Then static_player.volume_db = -18.0 Else static_player.volume_db = -32.0
+End Sub
+
+Function conversation_ready() As Boolean
+	Dim words As Integer
+	Dim clip As Object
+	If last_shot <> 3 Then Return False
+	If last_state = "idle" Then Return rest_elapsed >= 5.0
+	If game.opt_orac_voice And clips.has(last_caption) Then
+		clip = clips(last_caption)
+		Return Not voice_player.playing And caption_elapsed >= clip.get_length() + 0.65
+	End If
+	words = last_caption.split(" ", False).size()
+	Return caption_elapsed >= Max(2.5, words / 2.8 + 0.75)
+End Function
+
+Sub restart()
+	Call stop()
+	last_caption = ""
+	last_shot = -1
+	last_state = ""
+	clock = 0.0
+	caption_elapsed = 0.0
+	rest_elapsed = 0.0
+End Sub
+
+Sub stop()
+	For Each p In Array(voice_player, music_player, engine_player, static_player, cue_player, ring_player)
+		If p <> Nothing Then p.stop()
+	Next
+End Sub
+
+Sub _ExitTree()
+	Call stop()
+End Sub

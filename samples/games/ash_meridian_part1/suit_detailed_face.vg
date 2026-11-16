@@ -1,0 +1,212 @@
+Option Explicit
+Inherits Node2D
+
+Const FACE_PATH As String = "res://assets/ai_face/alien_face.json"
+Const TAU As Single = 6.283185307179586
+Dim data As Dictionary
+Dim feature_weights As Dictionary
+Dim nfeat As Integer
+Dim time As Single
+Dim reduced_motion As Boolean
+Dim voice_level As Single
+Dim mode As String
+Dim blink_enabled As Boolean
+Dim triangle_indices As Variant
+Dim expression As String
+
+Sub set_expression(ByVal value As String)
+	expression = value
+End Sub
+
+Sub _Ready()
+	Dim parser As Object = ClassDB.Instantiate("JSON")
+	Dim triangle As Variant
+	Dim name As Variant
+	Dim point As Variant
+	Dim values As Variant
+	data = New Dictionary
+	feature_weights = New Dictionary
+	triangle_indices = PackedInt32Array()
+	mode = "idle"
+	expression = "idle"
+	blink_enabled = True
+	If parser.parse(ReadAllText(FACE_PATH)) <> 0 Then
+		Print "ERROR: Cannot parse detailed Narcean face: " & FACE_PATH
+		Exit Sub
+	End If
+	If TypeName(parser.get_data()) <> "Dictionary" Then
+		Print "ERROR: Cannot parse detailed Narcean face: " & FACE_PATH
+		Exit Sub
+	End If
+	data = parser.get_data()
+	If data.get("format") <> "ash_meridian_ai_face" Or data.get("verts", Array()).size() <> data.get("jaw_w", Array()).size() Or data.get("verts", Array()).size() <> data.get("upper_w", Array()).size() Then
+		Print "ERROR: Invalid detailed Narcean face geometry: " & FACE_PATH
+		data = New Dictionary
+		Exit Sub
+	End If
+	nfeat = data("features").size()
+	For Each triangle In data("tris")
+		triangle_indices.append_array(PackedInt32Array(triangle))
+	Next
+	For Each name In data("features").keys()
+		values = PackedVector2Array()
+		For Each point In data("features")(name)
+			values.append(weights(Vector2(point(0), point(1))))
+		Next
+		feature_weights(name) = values
+	Next
+End Sub
+
+Function smooth(ByVal low As Single, ByVal high As Single, ByVal value As Single) As Single
+	Dim t As Single = Clamp((value - low) / (high - low), 0, 1)
+	Return t * t * (3 - 2 * t)
+End Function
+
+Function weights(ByVal point As Variant) As Variant
+	Dim distance_from_mouth As Single = point.y - data("mouth_y")
+	Dim latitude As Single = Abs(point.x - 500)
+	Dim half_width As Single = data("mouth_hw")
+	Dim jaw As Single = 0
+	Dim upper As Single = 0
+	Dim lips As Single
+	Dim rigid As Single
+	Dim blend As Single
+	If distance_from_mouth >= -1 Then
+		lips = Sqr(Max(0, 1 - (latitude / half_width) ^ 2))
+		rigid = smooth(0, 1, Clamp((215 - latitude) / 95, 0, 1))
+		blend = smooth(0, 45, distance_from_mouth)
+		jaw = (lips + (rigid - lips) * blend) * Clamp((distance_from_mouth + 3) / 8, 0, 1)
+	Else
+		upper = Sqr(Max(0, 1 - (latitude / (half_width * 1.05)) ^ 2)) * Max(0, 1 + distance_from_mouth / 50)
+	End If
+	Return Vector2(jaw, upper)
+End Function
+
+Sub set_time(ByVal seconds As Single)
+	time = Max(0, seconds)
+	queue_redraw()
+End Sub
+
+Sub set_mode(ByVal value As String)
+	mode = value
+End Sub
+
+Sub set_reduced_motion(ByVal value As Boolean)
+	reduced_motion = value
+End Sub
+
+Sub set_voice_level(ByVal value As Single)
+	voice_level = Clamp(value, 0, 1)
+End Sub
+
+Function blink_amount() As Single
+	Dim phase As Single
+	If Not blink_enabled Or reduced_motion Then Return 0
+	phase = time - Int(time / 4.7) * 4.7
+	If phase < 0.2 Then Return Max(0, 1 - Abs(phase - 0.1) / 0.1)
+	Return 0
+End Function
+
+Function posed(ByVal point As Variant, ByVal weight As Variant) As Variant
+	Dim amount As Single = 0
+	Dim latitude As Single = point.x - 500
+	Dim eye_region As Single
+	Dim corner As Single
+	Dim breath As Single = 1.0
+	Dim local As Variant
+	Dim intensity As Single = 0.25
+	Dim side As Integer = 0
+	If mode = "talk" And Not reduced_motion Then amount = voice_level
+	If Not reduced_motion Then
+		eye_region = Max(0, 1 - Abs(point.y - 445) / 65) * Max(0, 1 - Abs(Abs(latitude) - 100) / 100)
+		If expression = "shock" Then
+			point.y -= eye_region * 18
+		ElseIf expression = "curse" Or expression = "threat" Then
+			point.y += eye_region * 12 * Max(0, 1 - Abs(latitude) / 190)
+		End If
+	End If
+	corner = Max(0, 1 - Abs(Abs(latitude) - 75) / 55) * Max(0, 1 - Abs(point.y - data("mouth_y")) / 30)
+	If latitude > 0 Then side = 1
+	If latitude < 0 Then side = -1
+	point.x += side * data("corner_push") * amount * corner
+	point.y += data("jaw_drop") * amount * weight.x - data("upper_lift") * amount * weight.y
+	If Not reduced_motion Then breath = 1 + Sin(time * 1.4) * 0.006
+	local = (point - Vector2(data("rest_focus")(0), data("rest_focus")(1))) * 0.3 * breath
+	If Not reduced_motion Then
+		If expression <> "idle" Then intensity = 1.0
+		local.x *= 1 + Sin(time * 1.3) * 0.025 * intensity
+		local = local.rotated(Sin(time * 1.7) * 0.035 * intensity)
+		local += Vector2(Sin(time * 0.9) * 2, Sin(time * 2.3) * 2 * intensity)
+	End If
+	Return local + Vector2(150, 165)
+End Function
+
+Sub _Draw()
+	Dim vertices As Variant = PackedVector2Array()
+	Dim colours As Variant = PackedColorArray()
+	Dim lines As Variant = PackedVector2Array()
+	Dim points As Variant
+	Dim eyelid As Variant
+	Dim source As Variant
+	Dim centre As Variant
+	Dim drift As Variant
+	Dim count As Integer
+	Dim index As Integer
+	Dim height As Single
+	Dim shade As Single
+	Dim width As Single
+	Dim edge As Variant
+	Dim name As Variant
+	Dim point As Variant
+	Dim iris As Variant
+	Dim y As Integer
+	If data.is_empty() Then Exit Sub
+	count = data("verts").size()
+	For index = 0 To count - 1
+		source = Vector2(data("verts")(index)(0), data("verts")(index)(1))
+		vertices.append(posed(source, Vector2(data("jaw_w")(index), data("upper_w")(index))))
+		height = data("height")(index)
+		shade = Clamp(0.35 + height * 0.45 + (600 - source.x) / 900, 0.18, 1)
+		colours.append(Color(0.015 * shade, 0.38 * shade, 0.62 * shade, 0.92))
+	Next
+	RenderingServer.canvas_item_add_triangle_array(get_canvas_item(), triangle_indices, vertices, colours)
+	For Each edge In data("edges")
+		lines.append(vertices(edge(0)))
+		lines.append(vertices(edge(1)))
+	Next
+	draw_multiline(lines, Color(0.16, 0.7, 0.95, 0.13), 3, True)
+	draw_multiline(lines, Color(0.3, 0.84, 1, 0.65), 0.65, True)
+	If blink_amount() > 0 Then
+		For Each name In Array("eye_l", "eye_r")
+			eyelid = PackedVector2Array()
+			For Each point In data("features")(name)
+				eyelid.append(posed(Vector2(point(0), point(1)), Vector2(0, 0)))
+			Next
+			draw_colored_polygon(eyelid, Color(0.02, 0.27, 0.43, blink_amount()))
+		Next
+	End If
+	For Each name In data("features").keys()
+		points = PackedVector2Array()
+		For index = 0 To data("features")(name).size() - 1
+			source = Vector2(data("features")(name)(index)(0), data("features")(name)(index)(1))
+			If name = "eye_l" Or name = "eye_r" Or name = "lid_l" Or name = "lid_r" Then source.y = 463 + (source.y - 463) * (1 - blink_amount())
+			points.append(posed(source, feature_weights(name)(index)))
+		Next
+		width = 0.9
+		If data("bold_features").has(name) Then width = 1.6
+		draw_polyline(points, Color(0.12, 0.8, 1, 0.12), 5, True)
+		draw_polyline(points, Color(0.82, 0.98, 1), width, True)
+	Next
+	If blink_amount() < 0.5 Then
+		For Each iris In data("irises")
+			drift = Vector2(0, 0)
+			If Not reduced_motion Then drift = Vector2(Sin(time * 0.55) * 3, Cos(time * 0.41) * 2)
+			centre = posed(Vector2(iris(0), iris(1)) + drift, Vector2(0, 0))
+			draw_arc(centre, iris(2) * 0.3, 0, TAU, 32, Color(0.6, 1, 0.93), 1.2, True)
+			draw_arc(centre, iris(2) * 0.126, 0, TAU, 24, Color(0.6, 1, 0.93), 1, True)
+		Next
+	End If
+	For y = 25 To 309 Step 4
+		draw_line(Vector2(45, y), Vector2(255, y), Color(0, 0.02, 0.03, 0.13), 1)
+	Next
+End Sub

@@ -117,7 +117,7 @@
 		"silence": 0.4,
 		"speaker": "ORAC",
 		"speed": 0.92,
-		"text": "Received. Now I can translate the service writing for you, Jason. Those recording labels are song titles. I couldn't read them before."
+		"text": "Received. I can now translate Narcean for you, Jason. We'll be able to read local records and controls."
 	},
 	{
 		"audio": "res://assets/audio/club/alien/intro_12.ogg",

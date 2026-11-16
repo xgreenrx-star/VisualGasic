@@ -25,6 +25,8 @@ func _initialize() -> void:
 func run() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
+	game.get("boot_term").get("sfx").stop()
+	game.call("ReleaseBootTerminal")
 	game.set_process(false)
 	game.set("dev_i", 21)
 	game.call("WarpDev")
@@ -66,7 +68,12 @@ func run() -> void:
 			check(not emulator.get("active") and emulator.get("machine") == null, "exit_releases_native_machine")
 	else:
 		print("SKIP: optional real-ROM checks; set ASH_C64_ROM_DIR to your own ROM directory")
+	for sound in ring.get("audio_pool"):
+		sound.stop()
+	await create_timer(0.1).timeout
 	game.queue_free()
 	await process_frame
+	# Allow the audio mixer to retire released playback references before exit.
+	await create_timer(0.1).timeout
 	print("SUIT_C64_COMPLETED: ", failures, " failures")
 	quit(failures)

@@ -21,6 +21,8 @@ func rendered_face(feedback: Node) -> Image:
 func run() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
+	game.get("boot_term").get("sfx").stop()
+	game.call("ReleaseBootTerminal")
 	game.set_process(false)
 	game.set("opt_orac_voice", true)
 	game.set("dev_i", 20)
@@ -53,10 +55,10 @@ func run() -> void:
 	voice.call("advance", 0.1, false)
 	check(not player.stream_paused, "voice_resumes_after_pause")
 	ring.hide()
-	feedback.call("_process", 0.1)
+	feedback.call("advance_feedback", 0.1)
 	check(player.stream_paused and voice.get("active_round"), "hidden_pause_preserves_active_defender_round")
 	ring.show()
-	feedback.call("_process", 0.1)
+	feedback.call("advance_feedback", 0.1)
 	check(not player.stream_paused and voice.get("active_round"), "visible_resume_restores_defender_reactions")
 	for intent in voice.PHRASES:
 		voice.call("say", intent, true)
@@ -111,7 +113,12 @@ func run() -> void:
 	check(not player.playing and voice.get("segments").is_empty(), "scene_exit_clears_voice")
 	ring.call("start_loader")
 	check(not player.playing and not voice.get("active_round"), "terminal_mode_never_plays_defender_speech")
+	for sound in ring.get("audio_pool"):
+		sound.stop()
+	await create_timer(0.1).timeout
 	game.queue_free()
 	await process_frame
+	# Allow the audio mixer to retire released playback references before exit.
+	await create_timer(0.1).timeout
 	print("SUIT_DEFENDER_VOICE_COMPLETED: ", failures, " failures")
 	quit(failures)

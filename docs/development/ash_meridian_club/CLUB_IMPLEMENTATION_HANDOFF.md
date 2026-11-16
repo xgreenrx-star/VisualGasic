@@ -65,7 +65,7 @@ The synthetic clock remains the no-track fallback.
   Emergency floor/edge lighting and abandoned meeting furniture remain visible
   without city power. Club music switches to the existing low-pass `ClubDoor`
   bus at reduced volume inside the room.
-- [club_alien.gd](../../../samples/games/ash_meridian_part1/club_alien.gd)
+- [club_alien.vg](../../../samples/games/ash_meridian_part1/club_alien.vg)
   supplies **Alien**, the original male resident intelligence. It reuses the
   full human face mesh in two batched surfaces, not thousands of VG draw calls.
   A cyan hologram shader supplies scanlines and simple mouth motion. Both

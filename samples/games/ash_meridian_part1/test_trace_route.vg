@@ -46,9 +46,15 @@ Function full_journal() As Dictionary
 End Function
 
 Sub play_contract_checks()
+	Dim i As Integer
+	Dim initial_address As String
 	check(campaign.SAVE_VERSION = 1 And campaign.fields().size() = 32, "play_keeps_version_1_and_exact_field_set")
 	campaign.new_run(yard)
 	check(campaign.stage() = "first_salvage" And campaign.stage() <> "yard_archives", "play_new_run_stays_on_first_salvage")
+	initial_address = "14242"
+	For i = 0 To 4
+		yard.discovered(i) = initial_address.substr(i, 1)
+	Next
 	yard.place = "building"
 	yard.building_index = 7
 	yard.keypad = True

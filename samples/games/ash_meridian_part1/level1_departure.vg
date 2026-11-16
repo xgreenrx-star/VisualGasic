@@ -1,0 +1,317 @@
+Option Explicit
+
+Dim ready As Boolean
+Dim scene_root As Object
+Dim environment As Object
+Dim camera As Object
+Dim ship As Object
+Dim station As Object
+Dim planet As Object
+Dim atmosphere As Object
+Dim planetary_ring As Object
+Dim hyperspace As Object
+Dim cabin As Object
+Dim buyer_panel As Object
+Dim resting_jason As Object
+Dim viewport As Object
+Dim previous_environment As Object
+Dim previous_far As Single
+Dim previous_fov As Single
+Dim previous_transform As Transform3D
+Dim previous_size As Vector2i
+Dim previous_msaa As Integer
+Dim previous_transparent As Boolean
+Dim previous_update_mode As Integer
+Dim host As Object
+Dim elapsed As Single
+Dim shot_elapsed As Single
+Dim shot As Integer
+Dim deal_line As Integer
+Dim radio_lines As Array
+Dim call_end_line As Integer
+Dim last_error As String
+Dim audio As Object
+
+Sub EnsureInit()
+	If ready Then Exit Sub
+	ready = True
+	shot = 0
+	deal_line = -1
+	radio_lines = Array()
+	radio_lines.append("ORAC: Jason. Incoming call.")
+	radio_lines.append("JASON: Already? How long was I out?")
+	radio_lines.append("ORAC: Six hours. I did consider telling them you'd died, but they might have asked for the room back.")
+	radio_lines.append("JASON: Give me a second. All right. Put them through.")
+	radio_lines.append("BUYER / RADIO: You're the pilot who brought an artifact back from Narcea?")
+	radio_lines.append("JASON: That depends. Who gave you this channel?")
+	radio_lines.append("BUYER / RADIO: The broker. I've seen your scan. Withdraw the listing. Now.")
+	radio_lines.append("JASON: You haven't even made an offer.")
+	radio_lines.append("BUYER / RADIO: I will. First, where did you find it? Send me the coordinates.")
+	radio_lines.append("JASON: Narcea. That's as precise as I'm getting until we've agreed a price.")
+	radio_lines.append("BUYER / RADIO: I need the site, not a name. Your flight log will do.")
+	radio_lines.append("JASON: Then you'd have my route and I'd still have no offer.")
+	radio_lines.append("BUYER / RADIO: Listen. I've spent years chasing dead ends. You have something real. Don't waste my time.")
+	radio_lines.append("JASON: Then tell me what it is.")
+	radio_lines.append("BUYER / RADIO: Part of a navigation system. The rest is technical. You needn't concern yourself with it.")
+	radio_lines.append("JASON: I'm the one who had to carry it out. I'll decide what concerns me.")
+	radio_lines.append("BUYER / RADIO: That edge isn't broken. It's a coupling face. There should be a matching piece. Did you leave anything behind?")
+	radio_lines.append("JASON: Do you know where the other half is?")
+	radio_lines.append("BUYER / RADIO: No. That's why I need your coordinates.")
+	radio_lines.append("JASON: You need someone to go back and look. Someone who knows the way in.")
+	radio_lines.append("BUYER / RADIO: Fine. Fuel, berth fees and a recovery bonus. But you leave tomorrow.")
+	radio_lines.append("JASON: The Ash barely got me here. She's not making that trip again without a major rebuild.")
+	radio_lines.append("BUYER / RADIO: You're being paid to collect a component, not start a war.")
+	radio_lines.append("JASON: I don't get to choose what I run into out there.")
+	radio_lines.append("BUYER / RADIO: Name a figure.")
+	radio_lines.append("JASON: A ship. One with proper shields and something to fire back with.")
+	radio_lines.append("BUYER / RADIO: For one salvage job? No.")
+	radio_lines.append("JASON: Then you want a cheaper pilot. The broker can keep the listing up.")
+	radio_lines.append("BUYER / RADIO: Don't. Just... give me a moment.")
+	radio_lines.append("BUYER / RADIO: I have a Kestrel-class patrol courier. The Antique. She's been in bonded storage.")
+	radio_lines.append("JASON: How long?")
+	radio_lines.append("BUYER / RADIO: She's thirty-eight years old. Maintained, not abandoned. Don't confuse the two.")
+	radio_lines.append("ORAC: Send the registry and service records, please. Not the sales brochure.")
+	radio_lines.append("BUYER / RADIO: Twin pulse cannons. Two independent shield banks. A military-rated drive. She was built to bring people home.")
+	radio_lines.append("JASON: That's more than the Ash ever had. What's wrong with her?")
+	radio_lines.append("BUYER / RADIO: Nothing an inspection won't settle. Bring me the complete assembly and she's yours.")
+	radio_lines.append("ORAC: The records include a working autodock. That alone would be a welcome change.")
+	radio_lines.append("JASON: I have no problem docking.")
+	radio_lines.append("ORAC: The dents along the Ash's port side disagree.")
+	radio_lines.append("BUYER / RADIO: Can we finish this? I need an answer.")
+	radio_lines.append("JASON: I need the Antique before I leave. A reward ship won't help if I don't come back.")
+	radio_lines.append("BUYER / RADIO: And what stops you taking her and disappearing?")
+	radio_lines.append("JASON: The Ash. And the half I've already found.")
+	radio_lines.append("BUYER / RADIO: You'll hand it over?")
+	radio_lines.append("JASON: To an independent escrow agent. Sealed storage. You don't get to touch it while I'm away.")
+	radio_lines.append("BUYER / RADIO: Your broken ship isn't worth much.")
+	radio_lines.append("JASON: You didn't wake me up for the ship. How much is that artifact worth to you?")
+	radio_lines.append("BUYER / RADIO: Enough. The agent holds both. The Antique stays registered to me until delivery.")
+	radio_lines.append("ORAC: Independent inspection first. Clean title lodged with the agent. No remote shutdown, tracking feed or access to our flight logs.")
+	radio_lines.append("BUYER / RADIO: You want me to lend you a ship with no way to take it back?")
+	radio_lines.append("JASON: You have collateral. I'm not flying something you can switch off because I miss a call.")
+	radio_lines.append("BUYER / RADIO: All right. Fuel and berth fees are covered. We agree a return date before you leave.")
+	radio_lines.append("JASON: And a communications grace period. Narcea doesn't exactly have reliable service.")
+	radio_lines.append("ORAC: A missed call is not default. Any dispute goes through the agent, not an automatic seizure.")
+	radio_lines.append("JASON: If I bring back the match, the agent releases both pieces to you and transfers the Antique to me.")
+	radio_lines.append("BUYER / RADIO: And if you don't?")
+	radio_lines.append("JASON: I return the Antique. The agent returns the Ash and my artifact. You still pay for the search.")
+	radio_lines.append("BUYER / RADIO: You're being paid to look, yes. You don't get to keep my ship for trying.")
+	radio_lines.append("ORAC: And the agent verifies the collateral value covers the loan. Loss and default terms in writing, before anything changes hands.")
+	radio_lines.append("BUYER / RADIO: Agreed. Now send the site.")
+	radio_lines.append("JASON: No coordinates. No flight logs. You're buying what I recover, not the route.")
+	radio_lines.append("BUYER / RADIO: I could send a team. You'd be safer.")
+	radio_lines.append("JASON: You could send a team without me. That's why you're not getting the coordinates.")
+	radio_lines.append("BUYER / RADIO: Keep them, then. But contact me directly if you find anything else. No brokers.")
+	radio_lines.append("JASON: Send the contract to the agent. Once the inspection passes and the advance clears, we can exchange the collateral and the keys.")
+	radio_lines.append("BUYER / RADIO: Send your terms. Tonight. I've waited long enough.")
+	call_end_line = radio_lines.size()
+	radio_lines.append("JASON: Call ended?")
+	radio_lines.append("ORAC: Ended. No coordinates or flight logs sent.")
+	radio_lines.append("JASON: You really want that autodock, don't you?")
+	radio_lines.append("ORAC: I'm an advanced intelligence, not your flight computer. You could ask me to interface with the controls occasionally.")
+	radio_lines.append("JASON: I'm a pilot. I like flying.")
+	radio_lines.append("ORAC: I know. I travel in a box. I like arriving intact.")
+	radio_lines.append("JASON: I need to talk to Stacy before we leave.")
+	radio_lines.append("ORAC: I'll prepare a message. The return course can wait.")
+End Sub
+
+Function start(ByVal view As Object) As Boolean
+	Dim packed As Object
+	Call EnsureInit()
+	last_error = ""
+	If scene_root <> Nothing Then Call dispose(view)
+	If view.viewport = Nothing Or view.camera = Nothing Then
+		last_error = "Level 1 departure preview needs the main 3D presentation viewport."
+		Return False
+	End If
+	packed = Load("res://departure_stage.tscn")
+	If packed = Nothing Then
+		last_error = "Level 1 departure preview cannot load departure_stage.tscn."
+		Return False
+	End If
+	host = view
+	viewport = view.viewport
+	camera = view.camera
+	previous_environment = camera.environment
+	previous_far = camera.far
+	previous_fov = camera.fov
+	previous_transform = camera.transform
+	previous_size = viewport.size
+	previous_msaa = viewport.msaa_3d
+	previous_transparent = viewport.transparent_bg
+	previous_update_mode = viewport.render_target_update_mode
+	scene_root = packed.instantiate()
+	viewport.add_child(scene_root)
+	environment = scene_root.environment
+	ship = scene_root.ship
+	planet = scene_root.planet
+	atmosphere = scene_root.atmosphere
+	planetary_ring = scene_root.planetary_ring
+	station = scene_root.station
+	hyperspace = scene_root.hyperspace
+	cabin = scene_root.cabin
+	buyer_panel = scene_root.buyer_panel
+	resting_jason = scene_root.resting_jason
+	viewport.size = Vector2i(1920, 1080)
+	viewport.msaa_3d = Viewport.MSAA_4X
+	viewport.transparent_bg = False
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	camera.environment = environment
+	audio = ClassDB.Instantiate("Node")
+	audio.set_script(Load("res://departure_audio.vg"))
+	add_child(audio)
+	If Not audio.setup(view.get_parent()) Then
+		last_error = "Level 1 departure audio could not load. See the output for the missing recording or asset."
+		Call dispose(view)
+		Return False
+	End If
+	Call restart()
+	start = True
+End Function
+
+Function shot_duration() As Single
+	If shot = 0 Then Return 14.0
+	If shot = 1 Then Return 18.0
+	Return 19.0
+End Function
+
+Sub PoseShip()
+	Dim amount As Single
+	amount = Max(0.0, Min(1.0, shot_elapsed / shot_duration()))
+	amount = amount * amount * (3.0 - 2.0 * amount)
+	scene_root.pose(camera, shot, amount, elapsed, radio_state())
+End Sub
+
+Function radio_state() As String
+	If shot <> 3 Or deal_line >= call_end_line Then Return "closed"
+	If deal_line < 0 Then Return "idle"
+	If deal_line < 4 Then Return "incoming"
+	Return "connected"
+End Function
+
+Sub tick(ByVal delta As Single)
+	Call EnsureInit()
+	If scene_root = Nothing Then Exit Sub
+	elapsed = elapsed + Max(0.0, delta)
+	shot_elapsed = shot_elapsed + Max(0.0, delta)
+	If shot < 3 And shot_elapsed >= shot_duration() Then Call advance()
+	If audio <> Nothing Then
+		audio.present(caption(), shot, radio_state())
+		audio.tick(Max(0.0, delta))
+		If shot = 3 And audio.conversation_ready() Then
+			Call advance()
+			audio.present(caption(), shot, radio_state())
+		End If
+	End If
+End Sub
+
+Sub advance()
+	Call EnsureInit()
+	If shot < 3 Then
+		shot = shot + 1
+		shot_elapsed = 0.0
+		If shot = 3 Then deal_line = -1
+	ElseIf shot = 3 Then
+		If deal_line + 1 < radio_lines.size() Then
+			deal_line = deal_line + 1
+		Else
+			shot = 4
+			shot_elapsed = 0.0
+		End If
+	Else
+		Call restart()
+	End If
+End Sub
+
+Sub restart()
+	Call EnsureInit()
+	shot = 0
+	shot_elapsed = 0.0
+	deal_line = -1
+	elapsed = 0.0
+	If audio <> Nothing Then audio.restart()
+	If scene_root <> Nothing Then Call PoseShip()
+End Sub
+
+Function render(ByVal view As Object) As Texture2D
+	If scene_root = Nothing Then Return Nothing
+	scene_root.visible = True
+	Call PoseShip()
+	If audio <> Nothing Then audio.present(caption(), shot, radio_state())
+	view.camera.environment = environment
+	view.viewport.transparent_bg = False
+	view.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Return view.viewport.get_texture()
+End Function
+
+Function heading() As String
+	If shot = 0 Then Return "LEVEL 1 / LEAVING NARCEA"
+	If shot = 1 Then Return "BLACK CHANNEL / WEEKS LATER"
+	If shot = 2 Then Return "WAYSTATION / FINAL APPROACH"
+	If shot = 3 And deal_line < 0 Then Return "BERTH 04 / SIX HOURS LATER"
+	If shot = 3 And deal_line >= call_end_line Then Return "BERTH 04 / AFTER THE CALL"
+	If shot = 3 And deal_line >= 4 Then Return "BERTH 04 / PRIVATE VOICE LINK"
+	If shot = 3 Then Return "BERTH 04 / INCOMING VOICE CALL"
+	Return "LEVEL 1 COMPLETE / A REASON TO RETURN"
+End Function
+
+Function caption() As String
+	If shot = 0 Then
+		If shot_elapsed < 5.0 Then Return "JASON: Tell me we're clear."
+		If shot_elapsed < 10.0 Then Return "ORAC: Of the ring. Keep climbing."
+		Return "JASON: I wasn't planning to stop."
+	End If
+	If shot = 1 Then
+		If shot_elapsed < 4.0 Then Return "JASON: Same course?"
+		If shot_elapsed < 13.0 Then Return "ORAC: Same course. There's still a very great deal of nothing between us and the station."
+		Return "JASON: Good. Wake me when that changes."
+	End If
+	If shot = 2 Then
+		If shot_elapsed < 7.0 Then Return "STATION / RADIO: Ash, you're cleared for Berth Four. Follow the amber markers."
+		If shot_elapsed < 15.0 Then Return "JASON: Berth Four. Any chance of a bed that isn't attached to an engine?"
+		Return "STATION / RADIO: If you can pay for it."
+	End If
+	If shot = 3 And deal_line < 0 Then Return "The Ash is berthed. For six hours, nobody needs anything from Jason."
+	If shot = 3 Then Return radio_lines(deal_line)
+	Return "The Antique for the return journey. The Ash and first artifact held in independent escrow. Ownership earned by finding the match."
+End Function
+
+Function controls() As String
+	If shot = 3 And deal_line < 0 Then Return "CALL ANSWERS AUTOMATICALLY    ENTER / SPACE: ANSWER NOW    R: REPLAY    ESC: DEV MENU"
+	If shot = 3 Then Return "AUTO CONVERSATION    ENTER / SPACE: SKIP LINE    R: REPLAY    ESC: DEV MENU"
+	If shot = 4 Then Return "ENTER / SPACE: REPLAY    R: REPLAY    ESC: DEV MENU"
+	Return "ENTER / SPACE: NEXT SHOT    R: REPLAY    ESC: DEV MENU"
+End Function
+
+Sub dispose(ByVal view As Object)
+	Call EnsureInit()
+	If scene_root = Nothing Then Exit Sub
+	If audio <> Nothing Then
+		audio.stop()
+		audio.free()
+		audio = Nothing
+	End If
+	camera.environment = previous_environment
+	camera.far = previous_far
+	camera.fov = previous_fov
+	camera.transform = previous_transform
+	viewport.size = previous_size
+	viewport.msaa_3d = previous_msaa
+	viewport.transparent_bg = previous_transparent
+	viewport.render_target_update_mode = previous_update_mode
+	scene_root.free()
+	scene_root = Nothing
+	host = Nothing
+	ship = Nothing
+	station = Nothing
+	planet = Nothing
+	atmosphere = Nothing
+	planetary_ring = Nothing
+	hyperspace = Nothing
+	cabin = Nothing
+	buyer_panel = Nothing
+	resting_jason = Nothing
+	camera = Nothing
+	viewport = Nothing
+	environment = Nothing
+End Sub

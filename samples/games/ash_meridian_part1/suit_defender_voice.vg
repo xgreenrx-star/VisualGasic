@@ -1,0 +1,161 @@
+Option Explicit
+Inherits Node
+
+Const VOICE_PATH As String = "res://assets/audio/sfx/alien_murmur.ogg"
+Const ENVELOPE As String = "752121124667762123433003566765101578612444321000000000000000001333211224332100234331012234331015889730022434321023443200234343201233332003443001343200246887641000000003330233203577"
+Dim PHRASES As Dictionary
+Dim player As Object
+Dim counts As Dictionary
+Dim segments As Array
+Dim segment_index As Integer
+Dim segment_left As Single
+Dim segment_duration As Single
+Dim cooldown As Single
+Dim emotion_left As Single
+Dim emotion As String
+Dim last_intent As String
+Dim phrase_count As Integer
+Dim active_round As Boolean
+Dim shocked As Boolean
+Dim cursed As Boolean
+
+Sub _Ready()
+	PHRASES = New Dictionary
+	PHRASES("threat") = Array(Array(Array(0.0, 0.65, 0.86), Array(2.4, 0.8, 0.82), Array(6.8, 0.65, 0.91)), Array(Array(4.5, 0.5, 0.9), Array(0.8, 0.8, 0.84), Array(7.6, 0.65, 0.8)))
+	PHRASES("insult") = Array(Array(Array(1.0, 0.5, 1.06), Array(3.4, 0.5, 0.92), Array(0.0, 0.4, 0.82)), Array(Array(6.0, 0.5, 1.12), Array(4.5, 0.6, 0.9)))
+	PHRASES("shock") = Array(Array(Array(3.4, 0.25, 1.4), Array(0.0, 0.4, 1.24), Array(7.5, 0.45, 1.1)), Array(Array(1.2, 0.3, 1.35), Array(6.0, 0.55, 1.18)))
+	PHRASES("curse") = Array(Array(Array(6.8, 0.4, 1.16), Array(3.4, 0.35, 1.24), Array(0.0, 0.6, 0.8)), Array(Array(0.8, 0.3, 1.3), Array(4.5, 0.45, 1.1), Array(7.5, 0.7, 0.86)))
+	PHRASES("boast") = Array(Array(Array(2.4, 0.7, 0.84), Array(6.0, 0.6, 0.9), Array(0.0, 0.7, 0.78)), Array(Array(4.5, 0.65, 0.85), Array(7.5, 0.7, 0.8)))
+	counts = New Dictionary
+	segments = Array()
+	segment_index = -1
+	emotion = "idle"
+	player = ClassDB.Instantiate("AudioStreamPlayer")
+	player.name = "NarceanDefenderVoice"
+	player.stream = Load(VOICE_PATH)
+	player.bus = "SFX"
+	add_child(player)
+	If player.stream = Nothing Then Print "ERROR: Cannot load Narcean defender voice: " & VOICE_PATH
+End Sub
+
+Sub _ExitTree()
+	If player <> Nothing Then Call stop_voice()
+End Sub
+
+Function ring() As Object
+	Return get_parent().get_parent()
+End Function
+
+Sub reset_round()
+	Call stop_voice()
+	active_round = False
+	shocked = False
+	cursed = False
+	cooldown = 0
+	last_intent = ""
+	emotion = "idle"
+	emotion_left = 0
+End Sub
+
+Sub stop_voice()
+	player.stop()
+	segments = Array()
+	segment_index = -1
+	segment_left = 0
+End Sub
+
+Sub begin_round()
+	active_round = True
+	Call say("threat", True)
+End Sub
+
+Sub acquired(ByVal player_score As Integer, ByVal stolen As Boolean)
+	If Not active_round Then Exit Sub
+	If player_score >= 7 And Not cursed Then
+		cursed = True
+		Call say("curse", True)
+	ElseIf (player_score >= 4 Or stolen) And Not shocked Then
+		shocked = True
+		Call say("shock", True)
+	End If
+End Sub
+
+Sub result(ByVal stage As String)
+	Dim intent As String = "boast"
+	active_round = False
+	If stage = "WIN" Then intent = "curse"
+	If stage = "TIE" Then intent = "shock"
+	Call say(intent, True)
+End Sub
+
+Function say(ByVal intent As String, Optional ByVal urgent As Boolean = False) As Boolean
+	Dim index As Integer
+	Dim variants As Array
+	If Not PHRASES.has(intent) Then
+		Print "ERROR: Unknown Narcean defender intent: " & intent
+		Return False
+	End If
+	If Not urgent And (cooldown > 0 Or Not segments.is_empty()) Then Return False
+	Call stop_voice()
+	index = counts.get(intent, 0)
+	counts(intent) = index + 1
+	last_intent = intent
+	emotion = intent
+	emotion_left = 2.8
+	cooldown = 4
+	If Not ring().get_parent().get("opt_orac_voice") Or player.stream = Nothing Then Return True
+	variants = PHRASES(intent)
+	segments = variants(index Mod variants.size())
+	phrase_count += 1
+	Call start_segment(0)
+	Return True
+End Function
+
+Sub start_segment(ByVal index As Integer)
+	Dim segment As Array
+	If index >= segments.size() Then
+		Call stop_voice()
+		Exit Sub
+	End If
+	segment_index = index
+	segment = segments(index)
+	player.pitch_scale = segment(2)
+	segment_duration = CSng(segment(1)) / player.pitch_scale
+	segment_left = segment_duration
+	player.volume_db = voice_volume()
+	player.play(segment(0))
+End Sub
+
+Function voice_volume() As Single
+	Dim speech As Object = ring().get_parent().get("speech")
+	If speech <> Nothing Then
+		If speech.call("busy") Then Return -12.0
+	End If
+	Return -3.0
+End Function
+
+Sub advance(ByVal delta As Single, ByVal paused As Boolean)
+	Dim fade As Single
+	If Not ring().get_parent().get("opt_orac_voice") Then Call stop_voice()
+	player.stream_paused = paused
+	If paused Then Exit Sub
+	cooldown = Max(0, cooldown - delta)
+	emotion_left = Max(0, emotion_left - delta)
+	If segments.is_empty() Then Exit Sub
+	segment_left -= delta
+	If segment_left <= 0 Then
+		Call start_segment(segment_index + 1)
+		Exit Sub
+	End If
+	fade = Clamp(Min(segment_duration - segment_left, segment_left) / 0.035, 0.003, 1)
+	player.volume_db = voice_volume() + 20 * Log(fade) / Log(10)
+End Sub
+
+Function mouth_level() As Single
+	Dim position As Single
+	Dim index As Integer
+	If Not player.playing Or player.stream_paused Or segments.is_empty() Then Return 0
+	position = player.get_playback_position()
+	index = Clamp(Int(position * 20), 0, Len(ENVELOPE) - 1)
+	Return CSng(Asc(Mid(ENVELOPE, index + 1, 1)) - 48) / 9 * 0.85
+End Function

@@ -1052,6 +1052,20 @@ Dictionary &VisualGasicInstance::get_global_scope() {
 
 uint64_t VisualGasicInstance::_next_instance_serial = 0;
 
+bool VisualGasicInstance::refresh_script_caches() {
+	if (!script.is_valid() || _member_cache_generation == script->bytecode_generation) {
+		return false;
+	}
+	_member_cache_by_chunk.clear();
+	_call_resolution_cache.clear();
+	_engine_call_cache.clear();
+	_member_cache_generation = script->bytecode_generation;
+	_member_cache_last_chunk = nullptr;
+	_member_cache_last_ptr = nullptr;
+	cached_ast_root = script->ast_root;
+	return true;
+}
+
 VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object *p_owner) {
     script = p_script;
     owner = p_owner;
@@ -3000,6 +3014,28 @@ int VisualGasicInstance::classify_draw_kind(const String &p_method) const {
     // pushes NIL and would hide the opaque-pixel return value. Handled as a
     // normal builtin (call_builtin_expr_evaluated / try_dispatch_draw_call).
     return 0;
+}
+
+bool VisualGasicInstance::dispatch_native_owner_draw_line(const Variant *p_args, int p_arg_count) {
+	if (p_arg_count < 3 || p_arg_count > 5 ||
+			vgfast::vtype(p_args[0]) != Variant::VECTOR2 ||
+			vgfast::vtype(p_args[1]) != Variant::VECTOR2 ||
+			vgfast::vtype(p_args[2]) != Variant::COLOR) {
+		return false;
+	}
+	if (p_arg_count > 3 && vgfast::vtype(p_args[3]) != Variant::INT &&
+			vgfast::vtype(p_args[3]) != Variant::FLOAT) {
+		return false;
+	}
+	if (p_arg_count > 4 && vgfast::vtype(p_args[4]) != Variant::BOOL) {
+		return false;
+	}
+	CanvasItem *ci = Object::cast_to<CanvasItem>(owner);
+	if (!ci) return false;
+	ci->draw_line(p_args[0], p_args[1], p_args[2],
+			p_arg_count > 3 ? (float)p_args[3] : -1.0f,
+			p_arg_count > 4 ? (bool)p_args[4] : false);
+	return true;
 }
 
 bool VisualGasicInstance::dispatch_draw_rect_f64(double p_x, double p_y, float p_w, float p_h, const Color &p_color, bool p_filled, bool &r_found) {

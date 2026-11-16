@@ -13,8 +13,10 @@ with local-level routing governed by the
 ### Premise and play
 
 In 2086, Jason makes his living scavenging with a battered salvage hauler,
-the Ash, affectionately called the Antique. Orac is its capable, dryly
-arrogant onboard assistant. Stacy, Jason's girlfriend, waits aboard a station.
+the Ash. The Antique is a different ship, an elderly Kestrel-class patrol
+courier negotiated as the recovery-contract reward. Orac is a physical,
+human-made advanced AI in a portable box, not the Ash's flight computer.
+Stacy, Jason's girlfriend, waits aboard a station.
 Jason hopes a valuable discovery can give them a better life together.
 
 Ash Meridian is a single-player science-fiction adventure combining cockpit
@@ -108,7 +110,9 @@ Possible later adventures, not commitments for the first release:
 - Investigation of a sealed ring-to-planet transfer route; the planet's
   abandoned condition is established, but its remaining secrets are not.
 
-Keep the Ash as the crew's home. Later journeys can revisit the ring, investigate
+Keep the Ash as the crew's home through Level 1; the inspected Antique becomes
+their expedition ship before the return, initially on a secured loan.
+Later journeys can revisit the ring, investigate
 the planet, or leave the Narcean system entirely.
 
 #### Visual and flight continuity revision
@@ -192,11 +196,14 @@ facility interlock and awakens it.
 
 MJH dropped the Commander during his capture. A scavenger named **Mark
 Mitnick** later found it in a surface cache, without proof of what happened
-to its owner. Mark reverse-engineered its routines, installed an English
-loader and wrote Fast Hack'em, turning the legitimate Narcean maintenance
-computer into a device that can contest ownership of Narcean equipment without
-the original credentials. He did not build the underlying computer or supply
-Orac's Narcean lexicon.
+to its owner. Mark used it as a bench tool to inspect service ports,
+reverse-engineered its routines, installed an English loader and wrote Fast
+Hack'em, turning the legitimate Narcean maintenance computer into a device
+that can contest ownership of Narcean equipment without the original
+credentials. He could inspect raw replies but could not reliably interpret
+the Narcean elevator index. The Commander was bulky and valuable, so he cached
+it with his pack during his escape and kept a suit-readable software copy.
+He did not meet Alien or supply Orac's Narcean lexicon.
 
 #### Mark Mitnick and the frontier
 
@@ -244,7 +251,10 @@ implemented in campaign yard mode. After Orac learns Narcean, a coupler
 attempt opens the Commander wrist service screen at the FEB's 1541 port;
 Jason can bypass that FEB's governor before removing the coupler. The wider
 Commander/Fast Hack'em ownership contests are still planned; the screwdriver
-is shelved for campaign.
+is shelved for campaign. At a working lift keypad, Jason can also connect the
+Commander to the 1541 service port after Alien's language exchange. Orac
+translates the elevator index, which copies the stable shaft addresses into
+the journal and excludes collapsed or unregistered routes.
 
 Mark: "You won the coordinates. They are real. So is the reason I won't go back."
 
@@ -415,6 +425,30 @@ with a Narcean service lexicon. Orac can now translate labels, key legends,
 records and recording titles. High-script prose and protected
 encodings remain limited. There is no physical translator to find.
 Mark supplies Fast Hack'em and the Commander cache coordinates, not a lexicon.
+
+After Orac first gives Alien an English sample, Alien's first-visit
+conversation briefly detours into an original bit from a fictional archive
+comedy, *White Dwarf*. Alien plays the announcer and a private, conspiratorial
+aside in different voices. Orac's dry comments come from the speaker in
+Jason's arm computer, close enough to Alien to carry the lesson and the
+exchange. Jason interrupts the rehearsal; Alien apologizes for talking to
+himself after three million years alone, then returns to the ordinary
+conversation. The joke is about Alien's solitude and self-awareness, not a
+quotation or imitation of another show's dialogue.
+
+The five surface archive glyphs assemble the first descent address, 14242.
+After that, local records copy each next address into the journal as
+untranslated glyphs. Beside the B12 Verdant Gallery lift entrance, MJH has
+spray-painted the B13 Undercity address, 88216, with a rough arrow pointing
+toward the elevator. He used it as a personal return mark after travelling
+from the Undercity; it is not an official directory or a label that needs
+translation. This is the bootstrap clue that lets Jason reach the Undercity
+before meeting Alien. The lift accepts only journaled addresses in campaign
+mode. Once Orac has the lexicon, pressing P at a lift keypad connects the
+Commander to its 1541 port. The translated index returns the ten stable
+addresses and copies them into the journal. Collapsed or unregistered shafts
+do not answer. This reveals reachable routes without making the untranslated
+path to B13 depend on the Commander or Alien.
 
 Only after the language exchange can Jason identify the Commander's physical
 Narcean keys and service markings. He can retrieve it earlier, but must reunite
@@ -709,14 +743,46 @@ ordinary salvage, pays debts, services the Ash and speaks with Stacy. Installed
 ship parts, the Commander +4, its software and protected engineering reserves
 are not saleable cargo.
 
-A buyer examines one of Jason's recovered Narcean artifacts and recognizes
-its serial pattern as half of a matched assembly. The buyer offers a
-life-changing sum or a replacement ship in exchange for the missing half,
-which is still on Narcea. The offer gives Jason a concrete reason to return:
-the reward could change his and Stacy's future, and the counterpart is a
-specific recovery job rather than an unexplained new quest. Jason accepts the
-deal. The station scene closes Level 1 on the return commitment; the buyer's
-offer and the unseen half are the cliffhanger.
+A desperate buyer recognizes a coupling face on Jason's artifact scan and
+demands the recovery coordinates and then his flight log. Jason discloses
+Narcea, not the site or route. Asked what the artifact is, the buyer calls it
+part of a navigation system and deflects further questions. The buyer knows
+there is a mating component but does not know its location.
+
+The buyer first offers expenses and a recovery bonus, not a ship. Jason uses
+the withheld route and the risks to the poorly defended Ash as leverage to
+demand an armed, better-shielded replacement. The buyer reluctantly offers
+the **Antique**, a maintained but 38-year-old **Kestrel-class patrol courier**:
+twin pulse cannons, two independent shield banks, a military-rated drive and
+a working autodock. These are claimed specifications, subject to independent
+inspection, not newly implemented gameplay statistics or a new ship model.
+Jason explicitly refuses to depart in the damaged Ash: she needs a major
+rebuild, not a hurried patch. He demands use of the Antique before leaving.
+The buyer objects that Jason could disappear with it. Jason offers the Ash
+and the first artifact as collateral in independent escrow, with the artifact
+sealed against buyer access. The agent must verify sufficient collateral
+value, inspect the Antique and hold its clean title before the exchange.
+
+The Antique remains registered to the buyer during the loan. Fuel and berth
+fees are advanced; no remote shutdown, tracking feed or flight-log access is
+permitted. Agree a return date, communications grace period, loss/default terms
+and independent dispute handling in writing. A missed call alone is not
+default. On successful delivery, the agent releases both halves to the buyer
+and transfers the Antique to Jason. On an unsuccessful search with the loan
+ship returned, Jason receives his Ash and artifact back and is paid for the
+search. Theft or loss is a separate contractual risk, not automatic forfeiture
+for failing to find the other half. Stacy is neither collateral nor a hostage.
+Jason keeps the coordinates and route private throughout.
+
+The return expedition flies the Antique, not the broken Ash. Transfer Orac's
+physical box, the buggy, Commander +4, tools, retained energy cores and protected
+mission equipment before departure; these are not collateral. The station scene
+closes on a negotiated reason to search, not proof the other half is on Narcea.
+
+A developer-menu preview now presents the ascent, station approach, docking
+and offer as a separate VisualGasic scene. It is an art/story reference only:
+it does not advance campaign state or write a campaign save. The playable
+campaign transition still needs to be integrated.
 
 Repairs, preparations and travel make the return plausible: the interval is
 weeks, not minutes. During that time the awakened FEB, still constrained by
@@ -727,9 +793,18 @@ stored orders or restore a complete identity.
 
 ### Level 2 opening: the inspection-mirror ambush
 
+Level 2's mission order is: survive the return ambush, disable the FEB's
+interceptor with the inspection mirror, mutually rescue both ships and earn
+Rob's alliance, survey Narcea for the three linked ship repairs, and recover
+the matched artifact half. The later repair-triggered Black Channel escape,
+orbital drive installation and local transit authorization complete the
+expedition; the later escape is distinct from the first channel passage.
+
 Level 2 opens as Jason returns to Narcea to recover the artifact's other half.
-A localized defense EMP disables Orac and the Ash's powered systems. This is
-the first scripted loss of Orac. The Ash loses powered guidance and thrust;
+A localized defense EMP disables Orac and the Antique's powered systems. This is
+the first scripted loss of Orac. Its improved shields are not EMP immunity:
+the pulse couples through exposed sensors and power-control hardware rather
+than simply overpowering the shield banks. The Antique loses powered guidance and thrust;
 its established approach trajectory now carries it toward the habitat's
 structures. Define the collision corridor and rescue window for the ring's
 geometry rather than relying on an unexplained decaying planetary orbit.
@@ -746,12 +821,12 @@ manual tools and retained energy cores. The FEB has usable ion thrusters,
 hull clamps and Narcean engineering knowledge.
 
 Jason performs a guided spacewalk and connects the cores through an emergency
-interface. The interceptor clamps onto the Ash; a maintenance system restores
+interface. The interceptor clamps onto the Antique; a maintenance system restores
 limited controls and restarts Orac. Its thrusters divert both ships out of
 immediate danger. They have restored survival capability, not a fully repaired
 ship. Jason starts calling the FEB Rob.
 
-The opening Level 2 objective is to make the Ash flightworthy, then enter the
+The opening Level 2 objective is to make the Antique flightworthy, then enter the
 Black Channel. Rob knows the concealed industrial route leads to the region
 where the artifact's matching half was taken. The channel is their way to the
 recovery site, not a new unrelated salvage detour. Its later use in the
@@ -791,7 +866,8 @@ name to keep.
 
 ### Exploring Narcea together
 
-The Ash still lacks interstellar propulsion and long-range communications.
+The Antique still lacks interstellar propulsion and long-range communications
+after the ambush damage, not because it was supplied unfit for the journey.
 Stacy and the station are unreachable. Unauthorized departure remains unsafe.
 
 Jason, Orac and Rob survey a small number of substantial districts connected
@@ -812,11 +888,11 @@ The first Level 2 passage through the Black Channel takes the crew toward the
 region where the artifact's matching half was taken. The flight described
 here happens later, after the repair survey: recovering the last ship-repair
 component activates local defenses, and high-altitude batteries prevent an
-immediate climb. Rob guides the Ash back through the industrial canyon below
+immediate climb. Rob guides the Antique back through the industrial canyon below
 their tracking coverage. Make this a distinct return encounter, not a replay
 of the initial passage.
 
-Jason flies the Ash through bridges, conduits, covered machinery corridors,
+Jason flies the Antique through bridges, conduits, covered machinery corridors,
 needle drones and sentinel defenses. Orac navigates and warns; Rob requests
 a service-gate opening. The encounter is an evasive escape, not a race or
 a requirement to destroy enemies. It has its own checkpoints and no chamber
@@ -828,13 +904,80 @@ perform the final exterior drive installation in vacuum while Orac holds
 position. This is a new repair, not a repeat of their earlier rescue.
 
 Separate beacon-control work earns limited Field Enforcement transit authorization
-for the Ash rather than globally reopening every locked route on Narcea.
+for the Antique rather than globally reopening every locked route on Narcea.
 With repairs commissioned, communications restored and authorization obtained,
 the crew departs.
 
 Jason came for scrap. He leaves with a working ship, a new crewmate and
 an understanding of the people behind the machinery he intended to loot.
-The Antique remains their home for later adventures.
+The Antique is their home during the return expedition on a secured loan;
+Jason earns ownership by completing the artifact contract. The Ash remains
+in station escrow. The handover, inventory transfer and loan persistence are
+not yet playable events; the developer preview shows the agreement only.
+
+### Crew rules: human pilot, independent AI
+
+- Advanced AI is uncommon in human society, and humans generally distrust it.
+  Most people do not own or routinely use an AI companion or entrust docking
+  to one. Jason's relationship with Orac is unusual, not standard ship equipment
+  or evidence that this distrust has disappeared.
+- Orac is a human-made advanced AI housed in a physical box. He can interface
+  wirelessly with nearby compatible computers, including a ship. He is not
+  resident in Jason's wrist unit or an inseparable part of the Ash.
+- Jason's arm computer is a remote communications/speaker link when he is
+  away from Orac. Local conversations can use Orac's own output. Wireless
+  proximity is not universal access or an excuse to bypass every system.
+- Jason flies and docks because he is a pilot and enjoys it. Orac could
+  interface with the flight controls if asked; piloting is not his primary
+  function. Established repair/station-keeping assistance remains possible.
+- A dedicated autodock is a narrow automation system, not a replacement
+  personality. A failed autodock can require Jason to fly manually without
+  inventing an AI docking ban, an inability in Orac, or a certification law.
+  Conventional autodock automation is distinct from handing control to an
+  advanced AI such as Orac. Most human pilots avoid AI-controlled docking
+  because of distrust and limited familiarity, not because it is illegal.
+  There is no law against AI docking.
+- Never imply that human-built Orac, lonely Alien, coerced Rob and the rogue
+  Narcean master intelligence all have the same origin, motives or autonomy.
+
+#### AI-theme story opportunities (brainstorm, not approved missions)
+
+- **An unusual crewmate:** a pilot or berth attendant is uneasy when Jason
+  consults Orac. Familiarity and demonstrated judgment can challenge that
+  prejudice without making every human hostile or making AI commonplace.
+- **Permission versus capability:** Orac can help recover cargo through a
+  terminal but asks Jason before accepting a station's invasive access terms.
+  The player chooses what data to disclose rather than solving it by hacking.
+- **Accountable automation:** a berth operator blames a pilot for an obsolete
+  autodock's mistake. Service logs reveal who knew about the fault; Jason and
+  Orac must weigh evidence rather than treating either human or machine as
+  inherently trustworthy.
+- **Consent to maintenance:** an inexpensive repair would reset a service AI's
+  memories. Finding another solution costs time or salvage; the machine's
+  wishes matter even when it is inconvenient.
+- **Identity versus ownership:** a contractor treats Rob as recoverable
+  equipment. Jason can challenge the claim using testimony and records,
+  reinforcing Rob's personhood without undoing his earned friendship.
+- **Confident, incomplete answers:** Orac identifies a pattern but explicitly
+  lacks context; Alien remembers a contradictory fragment. Field evidence
+  decides the issue, avoiding an omniscient companion or a generic "evil AI."
+- **Protecting private knowledge:** the buyer's pressure for route data makes
+  Orac's restraint useful. He checks the contract and transmits only what
+  Jason authorizes; this is loyalty through judgment, not blind obedience.
+
+#### Artifact and dormant gates (writer-only working hypothesis)
+
+The user's proposed longer arc is an ancient, nearly indestructible network
+of gates that ships can fly through to reach other regions of space. The
+paired artifact could authorize or activate dormant routes. The builders,
+purpose, limits, activation cost and buyer's true knowledge remain undecided.
+These transit gates are separate from the inhabited Narcean Ring.
+
+Do not expose that hypothesis as established fact in the Level 1 call, add a
+gate map to the UI, or imply the buyer knows where the second component lies.
+"Part of a navigation system" is the buyer's evasive claim, not a reliable
+technical explanation. Later evidence may confirm, complicate or replace it.
+Current black-channel travel remains possible without an active gate.
 
 ### Scope and implementation boundary
 
@@ -877,8 +1020,10 @@ exist.
 
 ### Agreed direction
 
-- Year: 2086. Player: Jason. Ship: the Ash, affectionately the Antique.
-- Ship AI: Orac. Orac stays available throughout the first landing, salvage
+- Year: 2086. Player: Jason. Current ship: the Ash. Reward ship: the Antique,
+  an old Kestrel-class patrol courier, not a nickname for the Ash.
+- Independent human-made AI companion: Orac, in a physical box with wireless
+  interfaces and a remote wrist link. Orac stays available throughout the first landing, salvage
   expedition, underground exploration and escape. The EMP on the second visit
   is the first scripted loss of Orac.
 - Planet: Narcea, an abandoned technological world inside a controlled hazard zone.
@@ -963,7 +1108,7 @@ preview/route scenes, dialogue and an implementation specification for a
 Narcean industrial-canyon escape. It is not yet a playable encounter.
 
 Place it during the later repair survey, after the Jason/Rob alliance:
-recovering distribution hardware activates local defenses, forcing the Ash
+recovering distribution hardware activates local defenses, forcing the Antique
 through a maintenance channel below their tracking coverage. Orac navigates;
 Rob requests a service-gate opening. This does not replace the first-visit
 escape, trigger its 255-second timer or resurrect the master planetary AI.
@@ -1014,10 +1159,14 @@ the orbital EMP and ship-to-ship FEB attack are reserved for the return.
 2. **Surface scavenging.** Drive and walk between depots, inspect finite finds,
    manage hold space and gather access clues. Orac provides contextual scans,
    cargo assessments and status updates without revealing every solution.
-3. **Descent.** Assemble a five-symbol elevator address. Explore deterministic
-   underground sectors with clear entrances/exits, environmental gate puzzles
-   and safe checkpoints. Collision must agree with gate visibility. Closing a
-   gate must never trap the player at a restored checkpoint.
+3. **Descent.** Assemble the five-symbol first elevator address from surface
+   glyphs. Copy further addresses from local records without requiring
+   translation; MJH's return mark beside the B12 lift supplies 88216 so Jason
+   can reach B13 before Alien. After the language exchange, connect the
+   Commander at a lift keypad to query its translated directory of stable
+   shafts. Explore deterministic underground sectors with clear entrances/exits, environmental
+   gate puzzles and safe checkpoints. Collision must agree with gate visibility.
+   Closing a gate must never trap the player at a restored checkpoint.
 4. **The chamber and escape.** Recover the mandatory coupler, accidentally start
    the restart and escape via lift and buggy. A checkpoint precedes the
    irreversible pickup; a failed escape restores consistent pickup, alarm,
@@ -1025,13 +1174,20 @@ the orbital EMP and ship-to-ship FEB attack are reserved for the return.
 5. **Outbound flight and station.** Fly to an original station, dock, sell cargo,
    pay immediate debts and service the Ash. Sale transactions are atomic and
    cannot be repeated after loading. Include a message/exchange with Stacy.
-6. **The offer and elapsed time.** A buyer identifies the salvage serials as
-   part of a valuable matched assembly still on Narcea. Jason accepts a clearly
-   explained recovery contract. Station work/refit and travel explicitly take
-   several weeks, giving the FEB time to build its interceptor. Do not force a
-   return merely because the station has no other exit.
+6. **The offer and elapsed time.** A buyer recognizes a salvage serial as
+   half of a valuable matched assembly and admits not knowing where its
+   counterpart is. Jason identifies Narcea as the source of the first half;
+   Jason withholds coordinates/logs and negotiates the Antique, rather than
+   accepting an unsolicited ship offer. Expenses are advanced; the replacement
+   is provided before departure on a secured loan after inspection. The Ash
+   and first artifact are collateral in independent escrow; ownership of the
+   Antique transfers on delivery. An unsuccessful paid search permits return
+   of the loan ship in exchange for Jason's collateral.
+   Station work/refit and travel explicitly take several weeks, giving the FEB
+   time to build its interceptor. Do not force a return merely because the
+   station has no other exit.
 7. **Return ambush.** On the second arrival only, the planetary defense EMP
-   knocks Orac and the Ash's powered systems offline. The FEB attacks under
+   knocks Orac and the Antique's powered systems offline. The FEB attacks under
    its remaining security directive. Jason reflects the shot with the
    previously established beryllium-polished inspection mirror.
 8. **Mutual rescue.** Both ships remain in danger. A manual radio conversation

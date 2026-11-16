@@ -1,0 +1,51 @@
+Dim native_spelling As Boolean = True
+Dim line_count As Integer = 1000
+Dim line_style As Integer
+Dim elapsed_us As Integer
+Dim checksum As Integer
+
+Sub _Draw()
+	Dim started As Integer
+	Dim i As Integer
+	Dim a As Vector2
+	Dim b As Vector2
+	Dim ink As Color
+	started = Time.get_ticks_usec()
+	checksum = 0
+	ink = Color(0.3, 0.8, 1)
+	For i = 0 To line_count - 1
+		a = Vector2(i Mod 64, Int(i / 64))
+		b = a + Vector2(1, 1)
+		If native_spelling Then
+			If line_style = 1 Then
+				draw_line(a, b, ink)
+			ElseIf line_style = 2 Then
+				draw_line(a, b, ink, 2, True)
+			Else
+				draw_line(a, b, ink, 1)
+			End If
+		Else
+			DrawLine a, b, ink, 1
+		End If
+		checksum = checksum + i
+	Next
+	elapsed_us = Time.get_ticks_usec() - started
+End Sub
+
+Sub RollShopWeapons()
+End Sub
+
+Sub _UnhandledInput(ByVal event As Variant)
+End Sub
+
+Function NativeIdentity() As Integer
+	Return get_instance_id()
+End Function
+
+Function Revision() As Integer
+	Return 1
+End Function
+
+Function ChildCounts() As Integer
+	Return get_child_count() + get_child_count(True)
+End Function

@@ -75,20 +75,20 @@ void fragment() { ALBEDO = COLOR.rgb * 1.25; }
 	cockpit_view.render_target_update_mode = SubViewport.UPDATE_ONCE
 	add_child(cockpit_view)
 	stars = Node2D.new()
-	stars.set_script(load("res://cockpit_stars.gd"))
+	stars.set_script(load("res://saved/yard_2026-10-14/cockpit_stars.gd"))
 	cockpit_view.add_child(stars)
-	_add_cached_art(cockpit_view, "res://cockpit_art.gd")
+	_add_cached_art(cockpit_view, "res://saved/yard_2026-10-14/cockpit_art.gd")
 	ship_instruments = Node2D.new()
-	ship_instruments.set_script(load("res://cockpit_instruments.gd"))
+	ship_instruments.set_script(load("res://saved/yard_2026-10-14/cockpit_instruments.gd"))
 	cockpit_view.add_child(ship_instruments)
 	buggy_view = SubViewport.new()
 	buggy_view.size = Vector2i(960, 540)
 	buggy_view.transparent_bg = true
 	buggy_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(buggy_view)
-	_add_cached_art(buggy_view, "res://buggy_art.gd")
+	_add_cached_art(buggy_view, "res://saved/yard_2026-10-14/buggy_art.gd")
 	buggy_instruments = Node2D.new()
-	buggy_instruments.set_script(load("res://cockpit_instruments.gd"))
+	buggy_instruments.set_script(load("res://saved/yard_2026-10-14/cockpit_instruments.gd"))
 	buggy_instruments.buggy = true
 	buggy_view.add_child(buggy_instruments)
 	_create_clouds()

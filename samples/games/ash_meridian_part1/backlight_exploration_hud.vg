@@ -425,8 +425,27 @@ Sub draw_plus4_menu()
 	Dim row_y As Single
 	Dim link_status As String
 	Dim governor_status As String
+	Dim code As String
+	Dim index_y As Single
 	Dim i As Integer
 	Call EnsureInit()
+	If city.plus4_menu_mode = "lift" Then
+		draw_rect(Rect2(0, 0, 960, 540), Color(0.005, 0.008, 0.012, 0.78))
+		draw_rect(Rect2(112, 52, 736, 436), Color(0.035, 0.043, 0.048, 0.99))
+		draw_rect(Rect2(112, 52, 736, 436), Color(0.72, 0.43, 0.18), False, 1.5)
+		draw_rect(Rect2(128, 68, 704, 46), Color(0.075, 0.082, 0.082))
+		_text(Vector2(144, 88), "M.J.H. / ELEVATOR SERVICE INDEX", 17, AMBER)
+		_text(Vector2(144, 104), "COMMANDER +4  /  1541 PORT  /  NARCEAN TRANSLATED", 10, Color(0.67, 0.68, 0.63))
+		_text(Vector2(148, 153), "STABLE SHAFT ADDRESSES", 14, CYAN)
+		For i = 0 To city.deep.ORDER.size() - 1
+			code = city.deep.ORDER(i)
+			index_y = 181 + i * 23
+			_text(Vector2(158, index_y), code & "   /   " & city.deep.address_label(city, code), 12, Color(0.78, 0.82, 0.78))
+		Next
+		_text(Vector2(148, 431), "Collapsed or unregistered shafts: no stable response.", 11, AMBER)
+		_text(Vector2(148, 458), "ENTER / close. Addresses copied to Orac's journal.", 11, Color(0.67, 0.69, 0.65))
+		Exit Sub
+	End If
 	modules = Array("MODULE MAP", "POWER REGULATION", "THERMAL CONTROL", "GOVERNOR CONTROL", "EVENT LOG")
 	draw_rect(Rect2(0, 0, 960, 540), Color(0.005, 0.008, 0.012, 0.78))
 	draw_rect(Rect2(112, 52, 736, 436), Color(0.035, 0.043, 0.048, 0.99))

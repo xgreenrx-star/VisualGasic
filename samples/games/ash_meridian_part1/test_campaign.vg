@@ -122,7 +122,7 @@ Sub mission_checks()
 	view.sample_input()
 	check(yard.mission_briefing_visible(), "campaign_briefing_toggle_opens")
 	lines = yard.mission_briefing()
-	check(lines.size() = 4 And lines(0).contains("Jason") And lines(0).contains("card game") And lines(1).contains("assistant"), "campaign_briefing_identifies_player_and_card_game")
+	check(lines.size() = 4 And lines(0).contains("Jason") And lines(0).contains("card game") And lines(1).contains("independent AI") And lines(1).contains("not the Ash's computer"), "campaign_briefing_identifies_player_card_game_and_independent_Orac")
 	check(lines(2).contains("cannot leave loaded") And lines(2).contains("below the yard") And lines(3).contains("broken amber drain marker"), "campaign_briefing_explains_mission_and_stash")
 	For Each entry_text In lines
 		check(font.get_string_size(entry_text, 0, -1, 12).x <= 709, "campaign_briefing_line_fits_card")
@@ -153,7 +153,16 @@ Sub mission_checks()
 		yard.discovered(i) = yard.FEB_CODE.substr(i, 1)
 	Next
 	check(campaign.objective().contains("rear lift panel") And campaign.objective().contains("left to right"), "campaign_full_journal_directs_to_transit")
-	yard.place = "lift"
+	yard.building_index = 7
+	yard.place = "building"
+	yard.keypad = True
+	yard.sequence = "31707"
+	yard.submit_sequence()
+	check(yard.place = "building" And yard.message.contains("not in the journal"), "campaign_lift_rejects_unlogged_address")
+	yard.sequence = yard.FEB_CODE
+	yard.submit_sequence()
+	check(yard.place = "lift" And yard.lift_target = yard.FEB_CODE, "campaign_surface_archive_code_unlocks_first_descent")
+	yard.keypad = False
 	check(campaign.objective().contains("underground records"), "campaign_lift_job_keeps_search_direction")
 	yard.place = "floor"
 	yard.floor_code = "31707"
@@ -171,7 +180,9 @@ Sub mission_checks()
 	check(campaign.objective().begins_with("Grid restored."), "campaign_powered_city_job_advances")
 	check(campaign.objective().contains("eye marks"), "campaign_powered_city_job_directs_to_resident_intelligence")
 	yard.stratum("narcean_lexicon") = True
-	check(campaign.objective().contains("power coupler"), "campaign_translated_city_job_resumes_salvage")
+	check(campaign.objective().contains("Commander") And campaign.objective().contains("stable shafts"), "campaign_translated_city_job_directs_to_lift_index")
+	yard.stratum("lift_index_loaded") = True
+	check(campaign.objective().contains("power coupler"), "campaign_indexed_city_job_resumes_salvage")
 	yard.floor_code = yard.FEB_CODE
 	check(campaign.objective().contains("Plus/4") And campaign.objective().contains("governor"), "campaign_coupler_floor_job_requires_governor_bypass")
 	yard.awakening = True
@@ -422,6 +433,12 @@ Sub translator_checks()
 	yard.position_xz = deep.consoles(0)("p")
 	check(deep.use(yard) And Not yard.message.contains("TRANSLATED:") And yard.message.contains("copied"), "campaign_console_copies_addresses_without_translating_record")
 	check(deep.knows(yard, "80451"), "campaign_untranslated_address_enters_journal")
+	yard.floor_code = "36912"
+	deep.arrive(yard, False)
+	deep.ensure_layout(yard)
+	check(campaign.objective().contains("MJH's painted return mark") And deep.scan(yard).contains("MJH left a return mark"), "campaign_hints_player_to_mjh_lift_mark")
+	yard.position_xz = Vector2(-9, 1.8)
+	check(deep.prompt(yard).contains("MJH'S RETURN MARK") And deep.use(yard) And deep.knows(yard, "88216") And Not deep.interface_lexicon_ready(yard) And yard.message.contains("return mark"), "campaign_copies_mjh_return_mark_before_alien_translation")
 	yard.position_xz = deep.gates(0)("r").get_center() + Vector2(0, -1.2)
 	check(deep.use(yard) And Not deep.hacking And yard.message.contains("language knowledge"), "campaign_programmer_cannot_hack_without_lexicon")
 	yard.floor_code = "88216"
@@ -430,6 +447,15 @@ Sub translator_checks()
 	yard.stratum("powered") = True
 	deep.grid_power = True
 	yard.stratum("foot_y") = 6.0
+	yard.position_xz = Vector2(0, -4.8)
+	yard.keypad = True
+	yard.pack.erase("commander_plus4")
+	yard.connect_lift_index()
+	check(Not yard.stratum.get("lift_index_loaded", False) And yard.message.contains("Commander +4"), "lift_index_requires_mark_computer")
+	yard.pack("commander_plus4") = 1
+	yard.connect_lift_index()
+	check(Not yard.stratum.get("lift_index_loaded", False) And yard.message.contains("Alien"), "lift_index_waits_for_alien_lexicon")
+	yard.keypad = False
 	yard.position_xz = deep._car_pos(yard, deep.cars(0)) + Vector2(2.4, 0)
 	check(deep.use(yard) And Not deep.hacking And yard.message.contains("language knowledge"), "campaign_car_hack_requires_lexicon")
 	yard.floor_code = "52914"
@@ -476,8 +502,15 @@ Sub translator_checks()
 		End If
 	Next
 	check(Not deep.hacking And yard.stratum("hacked").has(car("id")), "campaign_commander_unlocks_car")
+	yard.position_xz = Vector2(0, -4.8)
+	yard.stratum("foot_y") = 0.0
+	yard.keypad = True
+	yard.connect_lift_index()
+	check(yard.stratum.get("lift_index_loaded", False) And yard.plus4_menu_open And yard.plus4_menu_mode = "lift" And deep.knows(yard, "31707") And deep.knows(yard, "88216") And Not deep.knows(yard, "77124") And Not deep.knows(yard, "77125"), "translated_commander_copies_stable_lift_index_only")
+	yard.plus4_menu_open = False
+	yard.keypad = False
 	yard.building_index = 7
-	check(campaign.save_game() And campaign.load_game(yard) And yard.stratum("hacked").has(gate("id")) And yard.stratum("hacked").has(car("id")), "campaign_commander_hacks_survive_save")
+	check(campaign.save_game() And campaign.load_game(yard) And yard.stratum("hacked").has(gate("id")) And yard.stratum("hacked").has(car("id")) And yard.stratum.get("lift_index_loaded", False) And deep.knows(yard, "31707"), "campaign_commander_and_lift_index_survive_save")
 	yard.floor_code = "52914"
 	deep.arrive(yard, False)
 	deep.ensure_layout(yard)

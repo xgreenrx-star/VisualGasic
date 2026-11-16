@@ -867,6 +867,7 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     // after this object).
     parser.clear_tracked_nodes();
     if (ast_root) delete ast_root;
+	method_names_lower.clear();
     
     String path = get_path();
     if (path.is_empty()) {
@@ -889,6 +890,11 @@ Error VisualGasicScript::_reload(bool p_keep_state) {
     }
     
     ast_root = parser.parse(tokens);
+	if (ast_root) {
+		for (int i = 0; i < ast_root->subs.size(); i++) {
+			method_names_lower.insert(ast_root->subs[i]->name.to_lower());
+		}
+	}
     if (OS::get_singleton()->has_environment("VG_VERBOSE_INIT")) {
         UtilityFunctions::print("[VG] Parse completed, errors: ", parser.errors.size());
     }
@@ -971,9 +977,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
     if (!ast_root) return false;
     
     String method_str = String(p_method);
-    for(int i=0; i<ast_root->subs.size(); i++) {
-        if (ast_root->subs[i]->name.nocasecmp_to(method_str) == 0) return true;
-    }
+	if (method_names_lower.has(method_str.to_lower())) return true;
     
     // Godot uses snake_case for virtual methods (e.g. "_unhandled_input")
     // while VG subs use PascalCase ("_UnhandledInput").  nocasecmp_to fails
@@ -983,12 +987,7 @@ bool VisualGasicScript::_has_method(const StringName &p_method) const {
         if (pascal_cand == method_str) {
             return false;
         }
-        for (int i = 0; i < ast_root->subs.size(); i++) {
-            if (ast_root->subs[i]->name.nocasecmp_to(pascal_cand) == 0) {
-                return true;
-            }
-        }
-        return false;
+		return method_names_lower.has(pascal_cand.to_lower());
     };
 
     if (method_str.begins_with("_") && method_str.length() >= 2 && method_str.find("_", 1) >= 0) {

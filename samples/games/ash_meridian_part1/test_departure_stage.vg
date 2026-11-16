@@ -1,0 +1,80 @@
+' MAX_FRAMES: 30
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim finished As Boolean
+Dim frames As Integer
+
+Sub check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub check_beam(ByVal stage As Object, ByVal parent As Object, ByVal direction As Vector3, ByVal label As String)
+	Dim beam As Object
+	Dim axis As Vector3
+	beam = stage._beam(parent, Vector3(0, 0, 0), direction * 4.0, 0.1, Nothing)
+	axis = beam.basis.y
+	Call check(axis.distance_to(direction.normalized()) < 0.0001, label)
+	Call check(Abs(beam.mesh.height - 4.0 * direction.length()) < 0.0001, label & "_length")
+End Sub
+
+Sub _Ready()
+	Dim stage As Object
+	Dim parent As Object
+	Dim camera As Object
+	Dim rounded As Object
+	Dim arrays As Array
+	Dim vertices As PackedVector3Array
+	Dim normals As PackedVector3Array
+	Dim i As Integer
+	Dim radii_ok As Boolean
+	stage = Load("res://departure_stage.tscn").instantiate()
+	add_child(stage)
+	Call check(stage.ship <> Nothing And stage.station <> Nothing And stage.cabin <> Nothing, "stage_builds_all_worlds")
+	Call check(stage.planet.scale = Vector3(1000, 1000, 1000) And stage.planetary_ring.get_child(0).mesh.top_radius = 1500, "approved_world_scale")
+	Call check(stage.exhaust_plumes.size() = 2 And stage.comm_bars.size() = 25, "plumes_and_radio_bar_count")
+	parent = ClassDB.Instantiate("Node3D")
+	add_child(parent)
+	Call check_beam(stage, parent, Vector3(1, 0, 0), "horizontal_beam_orientation")
+	Call check_beam(stage, parent, Vector3(1, 1, 0), "diagonal_beam_orientation")
+	Call check_beam(stage, parent, Vector3(0, -1, 0), "downward_beam_orientation")
+	Call check_beam(stage, parent, Vector3(0, 1, 0), "upward_beam_orientation")
+	rounded = stage._rounded_box(parent, Vector3(0, 0, 0), Vector3(2, 2, 2), 0.2, Nothing)
+	arrays = rounded.mesh.surface_get_arrays(0)
+	vertices = arrays(Mesh.ARRAY_VERTEX)
+	normals = arrays(Mesh.ARRAY_NORMAL)
+	radii_ok = vertices.size() > 0 And vertices.size() = normals.size()
+	For i = 0 To vertices.size() - 1
+		If Abs(normals(i).length() - 1.0) > 0.0001 Then radii_ok = False
+		If Abs(vertices(i).x) > 1.0001 Or Abs(vertices(i).y) > 1.0001 Or Abs(vertices(i).z) > 1.0001 Then radii_ok = False
+	Next
+	Call check(radii_ok, "rounded_box_vertices_and_normals")
+	camera = ClassDB.Instantiate("Camera3D")
+	add_child(camera)
+	camera.scale = Vector3(-1, 1, 1)
+	stage.pose(camera, 0, 0.5, 1.0, "closed")
+	Call check(camera.basis.determinant() > 0.999 And camera.basis.determinant() < 1.001, "pose_replaces_mirrored_camera_basis")
+	stage.pose(camera, 3, 0.5, 2.0, "connected")
+	Call check(stage.buyer_panel.visible And Not stage.resting_jason.visible And stage.radio_status.text = "VOICE LINK", "connected_radio_display")
+	Call check(stage.comm_bars(0).visible And stage.comm_bars(0).scale.y > 0.25, "connected_radio_bar_animated")
+	stage.pose(camera, 3, 0.5, 2.0, "idle")
+	Call check(Not stage.buyer_panel.visible And stage.resting_jason.visible, "idle_shows_resting_jason")
+	stage.queue_free()
+	parent.queue_free()
+	camera.queue_free()
+	Print "DEPARTURE_STAGE_RESULT=" & Str(checks - failures) & "/" & Str(checks)
+	finished = True
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If Not finished Then Exit Sub
+	frames = frames + 1
+	If frames >= 2 Then GetTree().quit(failures)
+End Sub

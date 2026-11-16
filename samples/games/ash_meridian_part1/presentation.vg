@@ -47,6 +47,8 @@ Dim backlight_city As Node3D
 Dim backlight_city_cache As Node3D
 Dim backlight_yard As Node3D
 Dim campaign_yard As Node3D
+Dim level1_departure As Node3D
+Dim level1_departure_error_text As String
 Dim black_channel As Node3D
 Dim black_hud_view As SubViewport
 Dim trace_cycle As Node3D
@@ -235,6 +237,8 @@ Sub EnsureInit()
 	yard_key = ""
 	building_yard = False
 	rebuild_count = 0
+	level1_departure = Nothing
+	level1_departure_error_text = ""
 	star_tick = -1
 	city2_antialiasing = Viewport.MSAA_2X
 	city3_antialiasing = Viewport.MSAA_2X
@@ -637,7 +641,7 @@ Function menu_tap(ByVal code As Integer) As Boolean
 	Return hit
 End Function
 
-Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_active As Variant = False, Optional landing_active As Variant = False, Optional cycle_active As Variant = False)
+Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_active As Variant = False, Optional landing_active As Variant = False, Optional cycle_active As Variant = False, Optional departure_active As Variant = False)
 	Dim ring As Object
 	Call EnsureInit()
 	vertices.clear()
@@ -648,7 +652,8 @@ Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_a
 	frame_mesh.visible = False
 	clouds.visible = False
 	If ship <> Nothing Then ship.visible = False
-	If Not backlight_active And Not channel_active And Not landing_active And Not cycle_active Then
+	If level1_departure <> Nothing Then level1_departure.visible = departure_active
+	If Not backlight_active And Not channel_active And Not landing_active And Not cycle_active And Not departure_active Then
 		If camera.environment <> Nothing Then
 			camera.environment = Nothing
 		End If
@@ -688,7 +693,11 @@ Sub begin_frame(Optional backlight_active As Variant = False, Optional channel_a
 	If campaign_yard <> Nothing And campaign_yard <> backlight_city And Not landing_active Then
 		campaign_yard.visible = False
 	End If
-	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	If departure_active Then
+		viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	Else
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	End If
 	If external_view <> Nothing Then external_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	For Each ring In landing_rings
 		If Not landing_active And ring.visible Then ring.visible = False
@@ -1134,6 +1143,74 @@ End Function
 Function backlight_status() As String
 	Call EnsureInit()
 	Return backlight_city.prompt()
+End Function
+
+Sub stop_level1_departure()
+	Call EnsureInit()
+	If level1_departure <> Nothing Then
+		level1_departure.dispose(Me)
+		level1_departure.free()
+		level1_departure = Nothing
+	End If
+	If viewport <> Nothing Then viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+End Sub
+
+Function start_level1_departure() As Boolean
+	Call EnsureInit()
+	Call stop_level1_departure()
+	Call leave_backlight()
+	Call stop_trace_cycle()
+	Call stop_black_channel()
+	level1_departure_error_text = ""
+	level1_departure = SpawnVg("res://level1_departure.vg", "Node3D")
+	If level1_departure = Nothing Then
+		level1_departure_error_text = "Level 1 departure preview could not create its VisualGasic scene."
+		Return False
+	End If
+	level1_departure.name = "Level1DeparturePreview"
+	viewport.add_child(level1_departure)
+	If Not level1_departure.start(Me) Then
+		level1_departure_error_text = level1_departure.last_error
+		Call stop_level1_departure()
+		Return False
+	End If
+	Return True
+End Function
+
+Sub restart_level1_departure()
+	If level1_departure <> Nothing Then level1_departure.restart()
+End Sub
+
+Sub advance_level1_departure()
+	If level1_departure <> Nothing Then level1_departure.advance()
+End Sub
+
+Sub tick_level1_departure(ByVal delta As Single)
+	If level1_departure <> Nothing Then level1_departure.tick(delta)
+End Sub
+
+Function draw_level1_departure() As Texture2D
+	If level1_departure = Nothing Then Return Nothing
+	Return level1_departure.render(Me)
+End Function
+
+Function level1_departure_heading() As String
+	If level1_departure = Nothing Then Return ""
+	Return level1_departure.heading()
+End Function
+
+Function level1_departure_caption() As String
+	If level1_departure = Nothing Then Return ""
+	Return level1_departure.caption()
+End Function
+
+Function level1_departure_controls() As String
+	If level1_departure = Nothing Then Return ""
+	Return level1_departure.controls()
+End Function
+
+Function level1_departure_error() As String
+	Return level1_departure_error_text
 End Function
 
 Sub stop_black_channel()

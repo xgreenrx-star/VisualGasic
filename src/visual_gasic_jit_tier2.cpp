@@ -146,6 +146,7 @@ Variant VisualGasicInstance::jit_invoke_call(const String &method, const Array &
 // so the lowering must refuse such callees.  Mirrors call_internal's lookup
 // order: host script Subs first, then imported modules.
 bool VisualGasicInstance::jit_callee_returns_non_numeric(const String &name, int argc) {
+	bool numeric_user_callee = false;
     auto non_numeric_return = [](const SubDefinition *sd) -> bool {
         if (!sd || sd->type != SubDefinition::TYPE_FUNCTION) return false;
         String t = sd->return_type.to_lower();
@@ -157,12 +158,20 @@ bool VisualGasicInstance::jit_callee_returns_non_numeric(const String &name, int
         for (int i = 0; i < script->ast_root->subs.size(); i++) {
             const SubDefinition *sd = script->ast_root->subs[i];
             if (sd && sd->name.nocasecmp_to(name) == 0) {
-                if (non_numeric_return(sd)) return true;
+				if (non_numeric_return(sd)) return true;
+				numeric_user_callee = true;
             }
         }
     }
+	if (numeric_user_callee) return false;
     const SubDefinition *imported = find_imported_sub(name, argc, nullptr);
-    return non_numeric_return(imported);
+	if (imported) return non_numeric_return(imported);
+	// host_call has no owner-method fallback or runtime return-type guard.
+	if (owner && classify_draw_kind(name) == 0 &&
+			(owner->has_method(name) || owner->has_method(name.to_snake_case()))) {
+		return true;
+	}
+	return false;
 }
 
 Variant VisualGasicInstance::jit_byref_capture(const String &name, bool &found) const {
@@ -3797,6 +3806,13 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     std::string cache_key = name;
     cache_key.push_back('@');
     cache_key += std::to_string(reinterpret_cast<uintptr_t>(chunk));
+	if (inst) {
+		Ref<Script> source_script = static_cast<VisualGasicInstance *>(inst)->get_script();
+		if (VisualGasicScript *vg_script = Object::cast_to<VisualGasicScript>(source_script.ptr())) {
+			cache_key += ":" + std::to_string(vg_script->get_instance_id()) +
+					":" + std::to_string(vg_script->bytecode_generation);
+		}
+	}
     
     // Check cache
     auto cache_it = cache_.find(cache_key);

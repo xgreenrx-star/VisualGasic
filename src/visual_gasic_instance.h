@@ -180,10 +180,12 @@ private:
         Variant *gptr = nullptr;
         uint32_t gptr_gen = 0;
         // Part H: per-call-site OP_CALL resolution memo.
-        // call_disp: -1 unknown, 0 = known user Sub, 1 = cached engine/owner call.
+        // call_disp: -1 unknown, 0 = user Sub, 1 = deep builtin, 2 = owner method.
         // call_argc validates the memo against this site's arg count (overloads).
         int8_t call_disp = -1;
         int32_t call_argc = -1;
+		StringName owner_call_name;
+		bool owner_draw_line = false;
         // Part I: cached full resolution for a known user Sub (call_disp==0).
         CallResolutionCacheEntry call_res;
         // Draw builtin kind (classify_draw_kind); 0 = not a draw call.
@@ -574,6 +576,7 @@ private:
     // Array heap lifecycle.  The Array overload above is a thin forwarding
     // wrapper (copies into a buffer) kept for the cold event/AST-fallback callers.
     Variant call_internal(const String& p_method, const Variant* p_args, int p_arg_count, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved = nullptr, VMState* p_vm = nullptr);
+	bool refresh_script_caches();
 
     // Small helper declarations used by statement execution implementation.
     // `dispatch_builtin_call` dispatches built-in method calls (returns via found flag).
@@ -582,6 +585,7 @@ private:
     // flat Variant* buffer so bytecode OP_CALL skips Array materialization + cascades.
     bool try_dispatch_draw_call(const String &p_method, const Variant *p_args, int p_arg_count, bool &r_found);
     int classify_draw_kind(const String &p_method) const;
+	bool dispatch_native_owner_draw_line(const Variant *p_args, int p_arg_count);
     bool dispatch_draw_kind(int p_kind, const Variant *p_args, int p_arg_count, bool &r_found);
     bool dispatch_draw_rect_f64(double p_x, double p_y, float p_w, float p_h, const Color &p_color, bool p_filled, bool &r_found);
     bool dispatch_draw_line_f64(double p_x1, double p_y1, double p_x2, double p_y2, float p_width, const Color &p_color, bool &r_found);

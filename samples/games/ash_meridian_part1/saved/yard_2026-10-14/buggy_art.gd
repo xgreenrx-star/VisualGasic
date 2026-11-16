@@ -1,4 +1,4 @@
-extends "res://cockpit_art.gd"
+extends "res://saved/yard_2026-10-14/cockpit_art.gd"
 
 func _draw() -> void:
 	plate([Vector2(0, 0), Vector2(960, 0), Vector2(960, 88), Vector2(0, 88)])

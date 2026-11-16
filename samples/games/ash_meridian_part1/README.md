@@ -1,17 +1,37 @@
 # Ash Meridian — Part 1
 
-Jason scavenges Narcea with Orac, the Ash's onboard assistant. The campaign
+## Implementation language requirement
+
+Ash Meridian is a proof that VisualGasic can build a complete real game.
+Write game code in VisualGasic (`.vg`), targeting 100% VG wherever possible.
+This includes procedural scene/mesh construction, audio playback, UI,
+inventory and other runtime helpers, not just top-level gameplay callers.
+
+Do not create GDScript files for convenience. An exception requires a
+demonstrated capability unavailable through VG, documented justification and
+user approval before implementation. Investigate VG defects as language
+defects rather than silently bypassing them with GDScript. Prefer VG for
+new tests and tools too; distinguish any necessary engine/test glue or offline
+asset tooling from runtime game code. Scene resources, shaders and
+generated art/audio assets are distinct from the gameplay scripting language.
+
+Jason scavenges Narcea with Orac, a human-made advanced AI in a physical box.
+Orac can interface wirelessly with nearby computers; Jason's arm computer
+provides a remote link when they are apart. He is not the Ash's flight computer.
+Jason is the pilot and enjoys flying, though Orac can assist with controls
+when asked. The campaign
 uses Backlight Yard's buildings, materials, distance fog and sky. Orac remains
 online throughout this first expedition and helps Jason locate salvage and
 the power coupler needed for a loaded departure. Removing that coupler from
 the underground chamber breaks its isolation interlock and awakens the FEB
 (Field Enforcement Body).
 
-**October 31 planning:** the
+The
 [underground handoff](../../../docs/development/ASH_MERIDIAN_UNDERGROUND_HANDOFF.md)
-plans three distinct local levels before the cycle, a sole FEB encounter at the
-far-dock facility, and consolidation of the real yard and ride. These changes
-are not yet implemented; current Play still has the old underground chamber.
+records the earlier plan for the campaign's underground transition. Current
+campaign play includes the surface archive address, B12-to-B13 glyph bootstrap,
+the translated Commander lift index, and the B13 power-grid sequence; see the
+walkthrough and address instructions below for the implemented route.
 
 ## Play
 
@@ -69,15 +89,19 @@ Ownership Ring contest and patrol-drone consequences remain planned.
 
 **Mark's stash:** Jason won Narcea's coordinates from Mark Mitnick in a card
 game. Mark survived his visit, warned Jason away, and gave him the stash
-location when Jason decided to go anyway. In campaign play, press F1 for the
-directions: east of the yard road, near the broken amber drain marker. Park,
-walk into the small shelter and press F to recover the Commander +4. It is
-protected in the pack and persists in campaign saves; translation is not needed
-to pick it up. The Field Service menu appears after Orac learns Narcean and
-Jason attempts the protected coupler; its governor bypass is saved as expedition state. The screwdriver
-is shelved in campaign; older saves carrying it
-receive the Commander instead. It remains in the standalone deep-stratum
-prototype for compatibility.
+location when Jason decided to go anyway. Mark used the Commander as a service
+bench tool to reverse-engineer Narcean ports and write Fast Hack'em, then
+cached the bulky hardware with his pack and kept a suit-readable software copy.
+He could inspect raw replies but could not interpret the stable-lift index
+without Alien's lexicon. In campaign play, press F1 for the directions: east
+of the yard road, near the broken amber drain marker. Park, walk into the small
+shelter and press F to recover the Commander +4. It is protected in the pack
+and persists in campaign saves; translation is not needed to pick it up.
+The Field Service menu appears after Orac learns Narcean and Jason attempts
+the protected coupler; its governor bypass is saved as expedition state.
+The screwdriver is shelved in campaign; older saves carrying it receive the
+Commander instead. It remains in the standalone deep-stratum prototype for
+compatibility.
 
 **Language progression:** Orac cannot initially translate Narcean. Archive
 workbenches copy visible glyphs into the journal without explaining their
@@ -86,7 +110,16 @@ is present. Address consoles likewise copy shapes without exposing their
 translated records. Reach Alien in the club backroom: he learns English,
 explains why he chooses to help, and gives Orac a Narcean service lexicon.
 Only then do visor translations, song titles and the programmer's service keys
-become readable. Standalone Deep Stratum previews remain intentionally ungated.
+become readable. The surface archive glyphs assemble the first lift address,
+14242. At the B12 Verdant Gallery lift entrance, MJH has spray-painted 88216
+with a rough arrow toward the elevator. It is his personal return mark, not an
+official index; Orac can copy the address glyphs before understanding any
+Narcean text, allowing Jason to reach the Undercity without the Commander.
+After Orac learns Narcean, open a lift
+keypad and press P to connect the Commander to its 1541 service port. Orac
+translates and copies the ten stable addresses into the journal; collapsed or
+unregistered shafts are excluded. Campaign lift travel accepts only addresses
+in the journal. Standalone Deep Stratum previews remain intentionally ungated.
 
 Language knowledge persists as `stratum.narcean_lexicon`, separately from
 `alien_english`. Older saves with an Interface Translator migrate it to learned
@@ -97,11 +130,11 @@ missing lexicon. TRACE YARD retains its translator flag for legacy/preview
 states, not as a new-run pickup or an early lift requirement.
 
 Security interference affects live visor decoding, not recorded journal
-glyphs, objectives, controls or Orac's English messages. The planned Commander
-model/cache, English loader and local-drone failure response
-are **not implemented by this prerequisite increment**. The Ownership Ring
-now has the separate dev prototype described below. The current kit's
-name, location and campaign cycling-glyph game remain until the next increment.
+glyphs, objectives, controls or Orac's English messages. The Commander cache,
+Plus/4 service screen, FEB governor bypass and translated lift-index query are
+implemented in campaign mode. The full Ownership Ring contest and
+local-drone failure response remain planned. The Ownership Ring has the
+separate dev prototype described below.
 
 ### Fast Hack'em development test
 
@@ -263,7 +296,7 @@ no social cushioning. His technical observation should remain useful even
 when his delivery is condescending. Avoid constant insults, modern meme
 phrasing, unexplained omniscience and claims that he can operate the programmer.
 
-The contextual bank in `suit_orac_dialogue.gd` rotates variants for syntax
+The contextual bank in `suit_orac_dialogue.vg` rotates variants for syntax
 errors, missing files, premature SYS, BASIC failures/limits, directories,
 palette experiments, program execution, stopped paths, joins, repeaters and
 win/loss/tie results. Optional comments have a 14-second cooldown, expire
@@ -417,8 +450,8 @@ Open this folder in Godot 4.6 with Visual Gasic enabled and press F5.
 
 Press **F1** to open or close the four-line Orac briefing. It is hidden by default,
 does not pause gameplay, and remains available after searching archives.
-It identifies Jason as a scavenger, Orac as the Ash's
-onboard assistant, and the replacement power coupler needed for a loaded
+It identifies Jason as a scavenger, Orac as an independent AI companion,
+and the replacement power coupler needed for a loaded
 departure. It also explains the first action: walk to a lit building door,
 press **F** to enter, then **F** at its rear workbench to search.
 
@@ -702,6 +735,155 @@ prototype's additional regulator and ignition parts.
 | Esc | Pause; resume, save, return to title or change options |
 | F10 | Resume the current campaign after visiting a dev destination |
 
+The developer menu includes **LEVEL 1 DEPARTURE / STATION DEAL**. It previews
+leaving Narcea, black-channel travel, the waystation approach, a six-hour rest
+and a buyer's radio call. Enter/Space skips the current flight shot, answers
+the call or advances one conversation turn; **R** replays and **Esc** returns
+to the developer menu. After two seconds of the rest shot the telephone rings;
+after five seconds Orac announces it. The conversation then advances on its
+own after each recording finishes plus a 0.65-second pause. With Speech off,
+subtitle reading time replaces the voice duration. Space remains an optional
+skip, not a requirement. The completion card stays until replay/exit. This remains
+an isolated art/story preview: it does not start, advance or save the campaign,
+and does not replace the live campaign's existing departure overlay.
+
+[departure_stage.vg](departure_stage.vg) builds the runtime art; timeline,
+dialogue and lifecycle stay in [level1_departure.vg](level1_departure.vg).
+The reference is the **gate-7 v07 Blender opening**, not the earlier SVG
+animatic. The courier uses its six hull sections, delta-wing planform, canopy,
+twin amber engines and cyan trim from
+[set_voyage.py](../../../docs/development/ash_meridian_opening/pipeline/set_voyage.py).
+Narcea retains the source's 1000-unit planet radius, 1500-unit band centerline
+radius, 140-unit band height and ochre veined surface. Runtime shaders adapt
+the procedural materials; this is not a new export of the offline Blender
+render, and volumetric light/bloom are not reproduced. The station uses the
+same octagonal industrial design language, not Elite's wireframe art.
+
+The cinematic renders at **1920x1080 with 4x MSAA** and is fitted to the
+logical 960x540 canvas. Leaving restores the gameplay viewport resolution,
+MSAA, background and camera transform/FOV/environment, including a mirrored
+camera inherited from the yard. The preview always replaces that mirrored
+basis while active. Dialogue has baked speech and subtitles, with an animated
+audio-link display rather than a placeholder buyer portrait.
+
+The buyer recognizes an incomplete assembly but **does not know where its
+counterpart is**. The aggressive request for coordinates and then flight logs
+fails: Jason discloses Narcea but keeps the recovery site and route private.
+Asked what the artifact is, the buyer deflects with "part of a navigation
+system." The proposed ancient transit-gate explanation stays writer-only and
+provisional; it is not revealed by this conversation.
+
+The buyer first offers expenses and a bonus. **Jason demands a ship**, winning
+a reluctant offer of the **Antique**, a maintained but 38-year-old
+**Kestrel-class patrol courier**, not a nickname for his current **Ash**.
+Twin pulse cannons, two independent shield banks, a military-rated drive and
+a working autodock make it an upgrade, not a factory-new vessel. These are
+dialogue specifications, not implemented weapon/shield statistics. Independent
+inspection and clean title lodged with an independent agent are conditions.
+Jason refuses another trip in the damaged Ash and demands the Antique before
+departure. The buyer accepts the Ash and first artifact as independently
+valued escrow collateral; the artifact is sealed against buyer access.
+Fuel and berth fees are advanced. The Antique remains the buyer's property
+during the loan, transferring to Jason on delivery of both halves.
+An unsuccessful search is still paid: returning the Antique releases Jason's
+Ash and artifact. Agreed deadlines, communications grace and independent dispute
+handling prevent missed calls from automatically forfeiting collateral.
+Loss/default terms must be settled before handover; no remote shutdown,
+tracking feed or flight-log access is allowed. Stacy is not collateral.
+Jason keeps his coordinates private. Orac's autodock/dents exchange
+leads into their respective roles: Jason likes piloting; Orac could interface
+but is not a dedicated flight computer. No AI-docking ban is established.
+Jason intends to contact Stacy before returning.
+The return expedition therefore uses the Antique; Orac's box and protected
+equipment transfer with Jason. This is a dialogue/story agreement only:
+the ship handover, escrow inventory and saved loan state are not implemented,
+and the current preview still shows the Ash arriving before the negotiation.
+
+Departure audio uses locally baked Kokoro recordings: Jason (`am_adam`),
+Orac (`bm_george`), the buyer (`bm_lewis`) and the station (`am_michael`).
+Playback ships with the recordings and needs no speech service, network
+connection or generation delay. Captions advance automatically and remain skippable;
+advancing interrupts the previous line rather than queuing stale dialogue.
+Flight caption timings allow the full recordings to finish.
+
+The station has a new 48-second warm major-seventh pad/arpeggio loop with
+chorus and restrained reverb, not the exploration's horror tracks. Flight
+engine rumble, jump sweep, berth/transition cues, incoming-call tones and a
+disconnect chirp accompany the sequence. Remote voices alone use a dedicated
+350–3200 Hz transmission bus with light saturation, a buyer-specific 8 dB
+boost and audible background hiss with intermittent crackle bursts. Jason
+and nearby Orac remain clear. A dedicated looping telephone ringer plays
+before and during the incoming announcement, stopping when the call connects.
+Music ducks under speech. Music
+and SFX respect their existing sliders; the Speech option mutes voices and
+radio interference. Replay and exit stop/reset the preview's players.
+
+Audio assets and the caption-keyed manifest live in `assets/audio/departure/`.
+To regenerate after dialogue changes, run `tools/bake_departure_audio.gd`
+with Godot 4.7.2, the existing local Kokoro service and `ffmpeg` installed.
+For headless baking set `ASH_SPEECH_LIVE=1`. This generator uses only local
+synthesis and creates original procedural music/SFX, not third-party music.
+Validate with `test_departure_audio.gd`, `test_level1_departure.vg` and the
+actual-window `test_departure_render.gd` harness.
+
+The cabin is enclosed on all six sides, with the camera inside rather than
+outside a dollhouse set; no starfield should show around its edges. Exhaust
+uses short, tapered, translucent amber glow rather than opaque solid cones,
+with reduced thrust on the station approach. Call-display states come from
+the dialogue lifecycle rather than hard-coded turn numbers.
+
+The [unified proposal](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md#crew-rules-human-pilot-independent-ai)
+records the companion rules, writer-only gate hypothesis and optional AI-theme
+story ideas. Those ideas are not new implemented quests.
+
+**Next gameplay step, deliberately deferred:** the Ash's autodock fails and
+Jason must dock manually. Adapt approach speed, crosshair alignment and
+Q/E roll matching from [Elite Wire Slice](../elite_wire_slice/README.md), but
+retain this game's detailed solid-shaded art. This is the first intended
+integration point for a possible future combination of the two games, not a
+commitment to import Elite's market/combat systems now. The current approach
+cuts to the already-berthed rest scene; there is no playable docking or
+autodock-failure sequence yet.
+
+Departure verification (Godot **4.7.2**):
+
+Current revision: 272/272 scene assertions, 335/335 audio assertions and
+164 actual-window render checks pass. The audio test captures real mixer
+samples and checks for clipping; the render captures include the predeparture
+loan, escrow terms, enclosed room and completion card.
+
+The preview preloads sound cues rather than reopening files at each
+transition, and skips hidden exhaust and radio-bar
+animation updates. Its 1080p/4x MSAA quality is unchanged. The render harness
+also reports flight/cabin presentation CPU time and frame time separately;
+software-rendered Xvfb timings are diagnostic, not a gameplay FPS guarantee.
+The latest llvmpipe run measured about 2.35 ms of presentation CPU work per
+frame, versus approximately 484 ms (flight) and 630 ms (cabin) total frame
+time. This separates script cost from the software-rendering bottleneck;
+it does not establish the cause of a frame-rate dip on a hardware GPU.
+
+```sh
+godot --headless --audio-driver Dummy --path samples/games/ash_meridian_part1 \
+  --script res://test_departure_scene.gd
+godot --headless --audio-driver Dummy --path samples/games/ash_meridian_part1 \
+  --script res://test_departure_audio.gd
+xvfb-run -a godot --windowed --resolution 1365x768 --audio-driver Dummy \
+  --path samples/games/ash_meridian_part1 --script res://test_departure_render.gd
+```
+
+Run those commands from the repository root. The render test requires a real
+OpenGL display, not `--headless`. It launches through the actual dev-menu
+warp, captures the composited game window at the start/middle/end of each
+flight shot, plus rest/radio/completion/replay, and checks image coverage,
+ochre planet pixels, safe ship/station framing, every dialogue turn's caption
+height, replay and Escape cleanup. Captures default to
+`user://departure_render`; pass `-- --capture-dir=/absolute/output/path` to
+select a different directory. Inspect the saved images as well as the test
+results: coverage checks detect missing art, not artistic quality.
+The cabin enclosure check substitutes a magenta background and verifies that
+none is exposed, then hides the room to prove the same check detects a missing
+enclosure. It runs for rest, the call and completion.
+
 ### TRACE CYCLE model test (F6 or dest)
 
 This is an isolated review scene, not the finished chase. Normal Play is unchanged.
@@ -735,7 +917,10 @@ The building-7 transit depot lift reaches ten underground floors
 ([deep_stratum.vg](deep_stratum.vg)). The player rides inside the lift car;
 the doors open onto the floor and a floor display shows the level. No floor
 shows the sky. Five-symbol addresses are recovered from consoles, and F at a
-console reads it through Orac's visor translation.
+console copies it to the journal. In campaign mode, un-translated consoles
+remain usable before Alien; after the language exchange, press P at an open
+lift keypad to query the stable-address index through the Commander +4's
+1541 port.
 
 #### Floor addresses
 
@@ -751,7 +936,7 @@ console reads it through Orac's visor translation.
 | 40404 | B10 Yellow Rooms (Holding Annex) | B09 deep survey index console | Backrooms-style maze of yellow partitions with amber glow trims; sealed closet (core gem) |
 | 58120 | B11 Archive Offices | B10 annex console (misfiled records note) | Office floor with alien terminals, a pulse-tile corridor, a debris-choked hall and a flooded staff room with a live cable; buggy boost, gold, relic, ship scanner |
 | 36912 | B12 Verdant Gallery | B11 records index console | Terraced hydroponic gallery under magenta grow-lights; flooded lower beds, pulse plates and rubble |
-| 88216 | B13 Undercity Transit | B12 gallery index console | Underground city: central transit hall, three train lines, street grid, enterable towers, plaza of ad screens, power transfer station |
+| 88216 | B13 Undercity Transit | MJH's painted return mark beside the B12 lift | Underground city: central transit hall, three train lines, street grid, enterable towers, plaza of ad screens, power transfer station |
 
 Floors are also linked on foot: B04 and B05 by stairs, B05 and B06 by an
 escalator, and B06 and B07 by a service lift behind a sealed door. Any other
@@ -852,10 +1037,10 @@ hacking, gravity, hazards, upgrades, B10 room reachability, B11 terminals,
 B12 flooding and the B13 power grid, trains, cars and reachability. `res://test_campaign.vg` checks the
 stratum save round trip.
 
-This increment ends at the first-departure overlay. It does **not** start
-the old reflection encounter or restart the prototype. Flight,
-station trading of salvage, the matched-component return contract and the return-only
-EMP/FEB encounter remain planned. Stacy remains Jason's partner.
+The live campaign still ends at the first-departure overlay. The developer
+preview above visualizes the planned ascent, station rest and matched-component
+contract, but does not yet run those events in normal Play. The return-only
+EMP/FEB encounter remains planned. Stacy remains Jason's partner.
 See the current [campaign revision](../../../docs/development/ASH_MERIDIAN_PROPOSAL.md).
 
 ### Sound and music
@@ -1041,6 +1226,10 @@ are unchanged.
 Run the focused checks from the repository root:
 
 ```bash
+./Godot_v4.6.1-stable_linux.x86_64 --headless \
+  --path samples/games/ash_meridian_part1 \
+  --script "$(realpath samples/apps/vg_gps/run_headless_vg_test.gd)" \
+  test_level1_departure.vg
 ./Godot_v4.6.1-stable_linux.x86_64 --headless \
   --path samples/games/ash_meridian_part1 --script test_part1.gd
 ```

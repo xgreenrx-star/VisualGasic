@@ -40,6 +40,57 @@ End Sub
 
 Keyword entries: [ByVal](../VisualGasic_Language_Reference.md#byval), [ByRef](../VisualGasic_Language_Reference.md#byref).
 
+## Native drawing dispatch
+
+Numeric benchmark wins do not imply that every Godot API workload runs faster
+than GDScript. Native calls also pay for GDExtension argument conversion and
+script-method resolution. Measure the actual workload with the same renderer,
+build, drawing parameters and output checks.
+
+The November 2026 suit-panel investigation found repeated procedure scans and
+builtin-dispatch walks on bare native calls such as `draw_line(...)`. The runtime
+now indexes script procedure names during reload and remembers resolved owner
+methods at bytecode call sites. Native `draw_line` calls with valid arguments use
+the CanvasItem binding directly after resolution; native default width and
+antialiasing arguments are preserved. Script overrides keep their existing
+precedence, and unsupported argument shapes retain the engine validation path.
+
+Reload invalidates procedure-resolution and owner-call memos **before** using
+cached procedure pointers. Native JIT cache keys also include script identity and
+bytecode generation. Owner-method calls unsupported by the numeric JIT remain on
+the bytecode VM instead of silently returning zero.
+
+The [dispatch regression harness](../../tests/test_engine_draw_dispatch.gd) uses
+a [VG fixture](../../tests/fixtures/engine_draw_dispatch.vg) and a GDScript-only
+test reference, not a GDScript gameplay implementation. From the repository root,
+run it in a project that has the VG extension registered:
+
+```bash
+godot --headless --path samples/games/ash_meridian_part1 \
+  --script "$(pwd)/tests/test_engine_draw_dispatch.gd"
+```
+
+It checks checksums, method aliases, native optional arguments, repeated calls,
+live-instance reload and a relative dispatch-cost limit. A windowed run also
+compares rendered pixel buffers, including default-width and antialiased lines.
+`-- --baseline` reports timings without enforcing the relative performance limit.
+The [suit benchmark](../../samples/games/ash_meridian_part1/test_suit_panel_performance.gd)
+still measures complete game frames; its completion marker is not an FPS target.
+
+Measured on Linux with Godot 4.7.2, headless, on November 15, 2026:
+
+| Workload | Before fixes | After fixes |
+|---|---:|---:|
+| 1,000 native lines, script with 200 extra procedures | ~121 ms | ~4-8 ms |
+| Suit game, face visible (complete frame) | ~251 ms | ~80 ms |
+| Suit game, face hidden (complete frame) | ~185 ms | ~38 ms |
+
+The game geometry and artwork were unchanged. These are local diagnostic
+measurements, not portable FPS guarantees; shared CPU load affects timings.
+The GDScript reference still took approximately 0.3-0.7 ms for 1,000 lines in
+the validation runs. The remaining VG interpreter/API-conversion cost is not
+eliminated by these dispatch fixes.
+
 ## Test Setup
 
 - Engine: Godot 4.6.1 (headless)

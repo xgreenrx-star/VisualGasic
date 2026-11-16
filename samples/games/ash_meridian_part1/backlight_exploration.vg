@@ -118,6 +118,7 @@ Dim wants_trace_cycle As Boolean
 Dim plus4_menu_open As Boolean
 Dim plus4_menu_page As Integer
 Dim plus4_menu_selection As Integer
+Dim plus4_menu_mode As String
 Dim turret_lock_times As Array
 Dim turret_targets As Array
 Dim turret_states As Array
@@ -362,6 +363,7 @@ Sub EnsureInit()
 	plus4_menu_open = False
 	plus4_menu_page = 0
 	plus4_menu_selection = 0
+	plus4_menu_mode = "feb"
 	pending_room = True
 	interior_builder = SpawnVg("res://backlight_interiors.vg", "RefCounted")
 	pack = New Dictionary
@@ -1417,6 +1419,8 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 	If plus4_menu_open Then
 		If view.menu_tap(KEY_ESCAPE) Or view.menu_tap(KEY_TAB) Then
 			plus4_menu_open = False
+		ElseIf plus4_menu_mode = "lift" And (view.menu_tap(KEY_ENTER) Or view.menu_tap(KEY_SPACE) Or view.menu_tap(KEY_BACKSPACE)) Then
+			plus4_menu_open = False
 		ElseIf view.menu_tap(KEY_UP) Or view.menu_tap(KEY_W) Then
 			If plus4_menu_page = 0 Then plus4_menu_selection = (plus4_menu_selection + 4) Mod 5
 		ElseIf view.menu_tap(KEY_DOWN) Or view.menu_tap(KEY_S) Then
@@ -1477,6 +1481,10 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		If deep.modal_input(Me, view, delta) Then Exit Sub
 	End If
 	If keypad Then
+		If view.menu_tap(KEY_P) Then
+			connect_lift_index()
+			If plus4_menu_open Then Exit Sub
+		End If
 		For digit = 0 To (10 - 1)
 			If view.menu_tap(KEY_0 + digit) Or view.menu_tap(KEY_KP_0 + digit) Then
 				enter_symbol(Str(digit))
@@ -1504,7 +1512,7 @@ Sub tick(ByVal delta As Single, ByVal view As Node)
 		ElseIf place = "surface" Then
 			notify("ORAC: Scan the depot workbenches for salvage and address records. The Ash needs a power coupler before departure.")
 		ElseIf place = "building" Then
-			notify("ORAC: Examine the rear console with F. Archive symbols form an ordered five-symbol lift address.")
+			notify("ORAC: Copy the five archive glyphs for the first descent. MJH left a painted return address beside the B12 lift; we can copy its numerals before translating Narcean.")
 		ElseIf place = "floor" Then
 			notify(deep.scan(Me))
 		Else
@@ -1525,8 +1533,40 @@ Function can_edit_feb_governor() As Boolean
 	Return campaign_mode And deep.has_item(Me, "commander_plus4") And deep.interface_lexicon_ready(Me) And place = "floor" And floor_code = FEB_CODE And position_xz.distance_to(Vector2(3.4, 47)) < 8.0
 End Function
 
+Sub connect_lift_index()
+	Dim code As String
+	Dim at_lift As Boolean
+	If Not campaign_mode Or Not keypad Then Exit Sub
+	at_lift = place = "building" And building_index = 7
+	If place = "floor" Then at_lift = deep.in_alcove(position_xz)
+	If Not at_lift Then
+		notify("ORAC: The Commander needs a local connection to a lift service panel.")
+		Exit Sub
+	End If
+	If Not deep.has_item(Me, "commander_plus4") Then
+		notify("ORAC: The lift's 1541 service port needs Mark's Commander +4.")
+		Exit Sub
+	End If
+	If Not deep.interface_lexicon_ready(Me) Then
+		notify("ORAC: I can detect the lift's 1541 port, but I cannot read its Narcean index. We need Alien's language knowledge.")
+		Exit Sub
+	End If
+	stratum("lift_index_loaded") = True
+	For Each code In AsArray(deep.ORDER)
+		If deep.is_level(code) Then deep.learn(Me, code)
+	Next
+	plus4_menu_open = True
+	plus4_menu_mode = "lift"
+	plus4_menu_page = 4
+	notify("ORAC: The Commander has read the lift index. Stable shaft addresses are copied to the journal; collapsed shafts do not answer.")
+End Sub
+
 Sub activate_plus4_menu()
 	If Not plus4_menu_open Then Exit Sub
+	If plus4_menu_mode = "lift" Then
+		plus4_menu_open = False
+		Exit Sub
+	End If
 	If plus4_menu_page = 0 Then
 		plus4_menu_page = 1
 	ElseIf plus4_menu_page = 1 And plus4_menu_selection = 3 Then
@@ -2842,6 +2882,7 @@ Sub use_object()
 			Else
 				notify("ORAC: The coupler interlock is protected by a governor module. That's a 1541 service port - try connecting Mark's Plus/4.")
 				plus4_menu_open = True
+				plus4_menu_mode = "feb"
 				plus4_menu_page = 0
 				plus4_menu_selection = 3
 			End If
@@ -2884,6 +2925,11 @@ Sub submit_sequence()
 			sfx("key_reject", -4.0)
 			notify("LIFT CAR: ALREADY AT " & deep.address_label(Me, code) & ".")
 		ElseIf deep.is_level(code) Then
+			If campaign_mode And Not deep.knows(Me, code) Then
+				sfx("key_reject", -4.0)
+				notify("ORAC: That address is not in the journal. Copy its glyphs from a local record first.")
+				Exit Sub
+			End If
 			keypad = False
 			start_lift(code)
 		Else
@@ -2893,6 +2939,19 @@ Sub submit_sequence()
 		Exit Sub
 	End If
 	If deep.is_level(code) Then
+		If campaign_mode Then
+			If code = FEB_CODE Then
+				If discovered.size() < 5 Then
+					sfx("key_reject", -4.0)
+					notify("ORAC: The first descent address is incomplete. Copy all five archive glyphs before entering it.")
+					Exit Sub
+				End If
+			ElseIf Not deep.knows(Me, code) Then
+				sfx("key_reject", -4.0)
+				notify("ORAC: That address is not in the journal. Copy its glyphs from a local record first.")
+				Exit Sub
+			End If
+		End If
 		keypad = False
 		deep.learn(Me, code)
 		start_lift(code)
@@ -3244,8 +3303,8 @@ Sub toggle_briefing()
 End Sub
 
 Function mission_briefing() As Array
-	If Not campaign_mode Then Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is the Ash's onboard assistant, guiding you over the ship link.", "Find ship parts in the yard and a replacement power coupler below it before departure.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
-	Return Array("You are Jason, a scavenger. Mark lost the Narcea coordinates to you in a card game.", "Orac is the Ash's onboard assistant. Mark warned you not to come, then gave you his stash location.", "The Ash cannot leave loaded without a replacement power coupler from below the yard.", "Mark's stash: east of the road, near the broken amber drain marker. F searches the shelter.")
+	If Not campaign_mode Then Return Array("You are Jason, a scavenger. You landed on Narcea to recover salvage.", "Orac is a human-made AI in a physical box. Away from him, you use your arm computer's remote link.", "Find ship parts in the yard and a replacement power coupler below it before departure.", "On foot: W/S move, A/D turn. Walk to a lit building door and press F; search the rear workbench with F.")
+	Return Array("You are Jason, a scavenger. Mark lost the Narcea coordinates to you in a card game.", "Orac is an independent AI, not the Ash's computer. Mark warned you off, then shared his stash location.", "The Ash cannot leave loaded without a replacement power coupler from below the yard.", "Mark's stash: east of the road, near the broken amber drain marker. F searches the shelter.")
 End Function
 
 Function mission_objective() As String
@@ -3265,8 +3324,10 @@ Function mission_objective() As String
 				Return "Transfer authority accepted. Route all three bus levers to restore the streets."
 			End If
 			If Not deep.interface_lexicon_ready(Me) Then Return "Grid restored. Follow the eye marks along the east train tunnel. Use its refuge bays; investigate the hidden room for a working intelligence."
+			If Not stratum.get("lift_index_loaded", False) Then Return "Grid restored. Return to a lift keypad and press P to connect Mark's Commander; Orac can now read the index of stable shafts."
 			Return "Grid restored. Explore the Undercity, scan records with H, and keep searching for the power coupler."
 		End If
+		If floor_code = "36912" And Not deep.knows(Me, "88216") Then Return "Find MJH's painted return mark beside the lift. Press F to copy its address glyphs into the journal."
 		If floor_code = FEB_CODE Then
 			If campaign_mode And Not stratum.get("feb_governor_bypassed", False) Then Return "The FEB governor holds the coupler interlock. Try the service socket to connect Mark's Plus/4 and isolate the governor."
 			Return "Search this floor for the replacement power coupler. Press F at the amber service socket to recover it."
@@ -3299,6 +3360,7 @@ Function prompt() As String
 		Return "LIFT IN TRANSIT / Doors locked"
 	End If
 	If keypad Then
+		If campaign_mode Then Return "0-9 ADDRESS / ENTER TRAVEL / P CONNECT COMMANDER INDEX / F CANCEL"
 		If place = "floor" Then Return "LIFT CAR / 0-9 ADDRESS / BACKSPACE ERASE / ENTER TRAVEL / F CANCEL"
 		Return "0-9 SELECT GLYPH / BACKSPACE ERASE / ENTER TRAVEL / F CANCEL"
 	End If
@@ -3356,6 +3418,7 @@ Function prompt() As String
 	End If
 	If place = "building" Then
 		If building_index = 7 Then
+			If campaign_mode Then Return "F at rear panel: destination / P: connect Commander index"
 			Return "F at rear panel: five-symbol destination / journal at left"
 		End If
 		Return "F at the rear workbench: search / entry behind you"

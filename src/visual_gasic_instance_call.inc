@@ -28,6 +28,9 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Array& 
 Variant VisualGasicInstance::call_internal(const String& p_method, const Variant* p_args, int p_arg_count, bool &r_found, const CallResolutionCacheEntry* p_pre_resolved, VMState* p_vm) {
     r_found = false;
     if (!script.is_valid() || !script->ast_root) return Variant();
+	if (refresh_script_caches()) {
+		p_pre_resolved = nullptr;
+	}
 
     // `Declare Function` FFI dispatch.  Most scripts declare nothing, so skip
     // the to_lower() temporary (one per call) when the table is empty.

@@ -23,6 +23,7 @@ func run() -> void:
 		return
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
+	game.get("boot_term").get("sfx").stop()
 	game.call("ReleaseBootTerminal")
 	game.set_process(false)
 	game.set("opt_orac_voice", false)
@@ -61,7 +62,12 @@ func run() -> void:
 	if directory != "":
 		var image := await render(ring)
 		check(image.save_png(directory.path_join("terminal-five-three-win.png")) == OK, "save_verified_five_three_victory")
+	for sound in ring.get("audio_pool"):
+		sound.stop()
+	await create_timer(0.1).timeout
 	game.queue_free()
 	await process_frame
+	# Allow the audio mixer to retire released playback references before exit.
+	await create_timer(0.1).timeout
 	print("SUIT_RESULT_DISPLAY_COMPLETED: ", failures, " failures")
 	quit(failures)

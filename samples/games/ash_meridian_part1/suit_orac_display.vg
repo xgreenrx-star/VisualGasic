@@ -1,0 +1,287 @@
+Option Explicit
+Inherits SubViewport
+
+Dim assembly As Object
+Dim lamps As Array
+Dim lamp_materials As Array
+Dim light As Object
+Dim indicator_materials As Array
+Dim internal_lights As Array
+
+Sub cable(ByVal points As Array, ByVal radius As Single, ByVal surface As Object, Optional ByVal ribbed As Boolean = False)
+	Dim curve As Object = ClassDB.Instantiate("Curve3D")
+	Dim index As Integer
+	Dim before As Variant
+	Dim after As Variant
+	Dim tangent As Variant
+	Dim length As Single
+	Dim segments As Integer = 25
+	Dim start As Variant
+	Dim finish As Variant
+	Dim ring As Object
+	Dim mesh As Object
+	For index = 0 To points.size() - 1
+		before = points(Max(0, index - 1))
+		after = points(Min(points.size() - 1, index + 1))
+		tangent = (after - before) * 0.18
+		curve.add_point(points(index), -tangent, tangent)
+	Next
+	length = curve.get_baked_length()
+	If ribbed Then segments = 46
+	For index = 0 To segments - 1
+		start = curve.sample_baked(length * index / segments)
+		finish = curve.sample_baked(length * (index + 1) / segments)
+		Call rod(start, finish, radius, surface)
+		If ribbed Then
+			ring = ClassDB.Instantiate("MeshInstance3D")
+			mesh = ClassDB.Instantiate("TorusMesh")
+			mesh.inner_radius = radius * 0.9
+			mesh.outer_radius = radius * 1.25
+			mesh.rings = 8
+			mesh.ring_segments = 8
+			ring.mesh = mesh
+			ring.material_override = surface
+			ring.position = (start + finish) * 0.5
+			ring.quaternion = Quaternion(Vector3(0, 1, 0), (finish - start).normalized())
+			assembly.add_child(ring)
+		End If
+	Next
+End Sub
+
+Function material(ByVal colour As Variant, Optional ByVal metallic As Single = 0, Optional ByVal glow As Single = 0) As Object
+	Dim result As Object = ClassDB.Instantiate("StandardMaterial3D")
+	result.albedo_color = colour
+	result.metallic = metallic
+	result.roughness = 0.28
+	If colour.a < 1 Then
+		result.transparency = 1
+		result.cull_mode = 2
+	End If
+	If glow > 0 Then
+		result.emission_enabled = True
+		result.emission = colour
+		result.emission_energy_multiplier = glow
+	End If
+	Return result
+End Function
+
+Function box(ByVal position As Variant, ByVal dimensions As Variant, ByVal surface As Object) As Object
+	Dim node As Object = ClassDB.Instantiate("MeshInstance3D")
+	Dim mesh As Object = ClassDB.Instantiate("BoxMesh")
+	mesh.size = dimensions
+	node.mesh = mesh
+	node.material_override = surface
+	node.position = position
+	assembly.add_child(node)
+	Return node
+End Function
+
+Function rod(ByVal start As Variant, ByVal finish As Variant, ByVal radius As Single, ByVal surface As Object) As Object
+	Dim node As Object = ClassDB.Instantiate("MeshInstance3D")
+	Dim mesh As Object = ClassDB.Instantiate("CylinderMesh")
+	Dim direction As Variant = (finish - start).normalized()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = start.distance_to(finish)
+	mesh.radial_segments = 12
+	node.mesh = mesh
+	node.material_override = surface
+	node.position = (start + finish) * 0.5
+	node.quaternion = Quaternion(Vector3(0, 1, 0), direction)
+	assembly.add_child(node)
+	Return node
+End Function
+
+Sub _Ready()
+	Dim camera As Object
+	Dim environment As Object
+	Dim key As Object
+	Dim silver As Object
+	Dim edges As Object
+	Dim dark As Object
+	Dim copper As Object
+	Dim glass As Object
+	Dim circuit As Object
+	Dim ivory As Object
+	Dim tube_glass As Object
+	Dim colours As Array
+	Dim x As Variant
+	Dim y As Variant
+	Dim z As Variant
+	Dim bank As Integer
+	Dim lane As Integer
+	Dim pin As Integer
+	Dim index As Integer
+	Dim start As Variant
+	Dim finish As Variant
+	Dim colour As Variant
+	Dim luminous As Object
+	Dim surface As Object
+	Dim position As Variant
+	Dim bulb As Object
+	Dim sphere As Object
+	Dim glow As Object
+	assembly = ClassDB.Instantiate("Node3D")
+	light = ClassDB.Instantiate("OmniLight3D")
+	lamps = Array()
+	lamp_materials = Array()
+	indicator_materials = Array()
+	internal_lights = Array()
+	Me.size = Vector2i(640, 640)
+	Me.transparent_bg = True
+	Me.own_world_3d = True
+	Me.msaa_3d = 2
+	Me.render_target_update_mode = 0
+	add_child(assembly)
+	camera = ClassDB.Instantiate("Camera3D")
+	camera.projection = 1
+	camera.size = 4.1
+	camera.position = Vector3(3.9, 2.8, 4.8)
+	add_child(camera)
+	camera.look_at(Vector3(0, 0.05, 0))
+	environment = ClassDB.Instantiate("WorldEnvironment")
+	environment.environment = ClassDB.Instantiate("Environment")
+	environment.environment.background_mode = 0
+	environment.environment.ambient_light_source = 2
+	environment.environment.ambient_light_color = Color(0.35, 0.55, 0.65)
+	environment.environment.ambient_light_energy = 0.65
+	add_child(environment)
+	key = ClassDB.Instantiate("DirectionalLight3D")
+	key.rotation_degrees = Vector3(-35, -35, 0)
+	key.light_color = Color(0.75, 0.88, 1)
+	key.light_energy = 1.8
+	add_child(key)
+	light.position = Vector3(0, 0.4, 0)
+	light.light_color = Color(0.2, 0.8, 1)
+	light.light_energy = 1
+	light.omni_range = 4
+	add_child(light)
+	silver = material(Color(0.68, 0.71, 0.68), 0.7)
+	edges = material(Color(0.75, 0.85, 0.82), 0.35, 0.15)
+	dark = material(Color(0.025, 0.065, 0.07), 0.3)
+	copper = material(Color(0.8, 0.48, 0.18), 0.7, 0.25)
+	glass = material(Color(0.3, 0.75, 0.85, 0.045))
+	circuit = material(Color(0.38, 0.42, 0.21), 0.1)
+	ivory = material(Color(0.78, 0.75, 0.6), 0.1)
+	tube_glass = material(Color(0.72, 0.82, 0.75, 0.16))
+	Call box(Vector3(0, -0.83, 0), Vector3(2.55, 0.14, 1.95), dark)
+	Call box(Vector3(0, -0.74, 0), Vector3(2.42, 0.035, 1.82), circuit)
+	For Each x In Array(-1.24, 1.24)
+		For Each z In Array(-0.94, 0.94)
+			Call rod(Vector3(x, -0.8, z), Vector3(x, 0.92, z), 0.025, silver)
+			For Each y In Array(-0.7, 0.82)
+				Call rod(Vector3(x - 0.045, y, z), Vector3(x + 0.045, y, z), 0.047, silver)
+			Next
+		Next
+	Next
+	For Each y In Array(-0.8, 0.92)
+		For Each z In Array(-0.94, 0.94)
+			Call rod(Vector3(-1.24, y, z), Vector3(1.24, y, z), 0.018, edges)
+		Next
+		For Each x In Array(-1.24, 1.24)
+			Call rod(Vector3(x, y, -0.94), Vector3(x, y, 0.94), 0.018, edges)
+		Next
+	Next
+	Call box(Vector3(0, 0.92, 0), Vector3(2.48, 0.008, 1.88), glass)
+	For Each z In Array(-0.94, 0.94)
+		Call box(Vector3(0, 0.06, z), Vector3(2.48, 1.72, 0.008), glass)
+	Next
+	For Each x In Array(-1.24, 1.24)
+		Call box(Vector3(x, 0.06, 0), Vector3(0.008, 1.72, 1.88), glass)
+	Next
+	colours = Array(Color(0.82, 0.18, 0.08), Color(0.85, 0.61, 0.16), Color(0.24, 0.58, 0.24), Color(0.65, 0.7, 0.4))
+	For bank = 0 To 2
+		z = -0.62 + bank * 0.55
+		Call box(Vector3(-0.88, 0.02, z), Vector3(0.045, 1.28, 0.24), ivory)
+		Call box(Vector3(0.88, 0.02, z), Vector3(0.045, 1.28, 0.24), circuit)
+		For lane = 0 To 3
+			y = -0.5 + lane * 0.35
+			start = Vector3(-1.04, y, z)
+			finish = Vector3(1.04, y, z)
+			colour = colours((lane + bank) Mod colours.size())
+			luminous = material(colour, 0.25, 0.4)
+			lamps.append(rod(start + Vector3(0.12, 0, 0), finish - Vector3(0.12, 0, 0), 0.036, luminous))
+			lamp_materials.append(luminous)
+			Call rod(start, start + Vector3(0.12, 0, 0), 0.085, silver)
+			Call rod(finish - Vector3(0.12, 0, 0), finish, 0.085, silver)
+			Call rod(start + Vector3(0.12, 0, 0), finish - Vector3(0.12, 0, 0), 0.09, tube_glass)
+			For pin = 0 To 2
+				x = -0.7 + pin * 0.7
+				Call rod(Vector3(x, y - 0.05, z), Vector3(x, y - 0.12, z), 0.026, copper)
+			Next
+			Call cable(Array(finish, Vector3(1.13, y, z + 0.1), Vector3(0.9, -0.7, z + 0.2)), 0.009, ivory)
+		Next
+	Next
+	For index = 0 To 4
+		x = -0.72 + index * 0.3
+		Call rod(Vector3(x, -0.64, -0.76), Vector3(x, 0.67, -0.76), 0.04, material(colours(index Mod 4), 0.3, 0.2))
+		Call cable(Array(Vector3(x, 0.65, -0.76), Vector3(x + 0.13, 0.78, -0.3), Vector3(x + 0.16, 0.35, 0.48)), 0.012, ivory)
+	Next
+	Call cable(Array(Vector3(-0.68, 0.57, 0.7), Vector3(-0.78, 0.33, 0.81), Vector3(-0.62, -0.45, 0.85), Vector3(0.05, -0.58, 0.84), Vector3(0.55, -0.27, 0.82), Vector3(0.59, 0.5, 0.72)), 0.057, silver, True)
+	Call cable(Array(Vector3(-0.55, -0.5, -0.6), Vector3(-0.28, 0.64, -0.5), Vector3(0.32, 0.73, -0.4), Vector3(0.63, -0.4, -0.1)), 0.045, ivory, True)
+	For index = 0 To 7
+		x = -0.98 + index * 0.28
+		Call rod(Vector3(x, -0.68, -0.83), Vector3(x, -0.68, 0.78), 0.008, copper)
+		Call box(Vector3(x, -0.64, 0.8), Vector3(0.1, 0.08, 0.09), silver)
+	Next
+	Call box(Vector3(-0.2, 1.01, -0.15), Vector3(0.62, 0.12, 0.5), silver)
+	Call box(Vector3(-0.2, 1.08, -0.15), Vector3(0.39, 0.035, 0.28), material(Color(0.6, 0.95, 0.95), 0.2, 0.6))
+	For index = 0 To 5
+		colour = colours(index Mod colours.size())
+		surface = material(colour, 0.1, 2)
+		indicator_materials.append(surface)
+		position = Vector3(-0.9 + (index Mod 3) * 0.86, -0.35 + Int(index / 3) * 0.9, 0.67)
+		Call box(position - Vector3(0, 0, 0.035), Vector3(0.19, 0.19, 0.09), silver)
+		bulb = ClassDB.Instantiate("MeshInstance3D")
+		sphere = ClassDB.Instantiate("SphereMesh")
+		sphere.radius = 0.065
+		sphere.height = 0.13
+		sphere.radial_segments = 12
+		sphere.rings = 6
+		bulb.mesh = sphere
+		bulb.material_override = surface
+		bulb.position = position
+		assembly.add_child(bulb)
+		If index < 3 Then
+			glow = ClassDB.Instantiate("OmniLight3D")
+			glow.position = position + Vector3(0, 0.08, -0.14)
+			glow.light_color = colour
+			glow.omni_range = 1.15
+			glow.light_energy = 0.5
+			assembly.add_child(glow)
+			internal_lights.append(glow)
+		End If
+	Next
+End Sub
+
+Sub animate(ByVal time As Single, ByVal speaking As Single, ByVal reduced As Boolean)
+	Dim index As Integer
+	Dim strength As Single
+	Dim pulse As Single
+	Dim speed As Single = 1.4
+	Dim amount As Single = 0.35
+	Dim indicator_speed As Single = 2.2
+	Dim rotation As Variant = assembly.rotation
+	rotation.y = 0.1
+	If Not reduced Then rotation.y = 0.1 + Sin(time * 0.22) * 0.1
+	assembly.rotation = rotation
+	If speaking > 0 Then
+		speed = 5
+		amount = 0.9
+		indicator_speed = 5
+	End If
+	For index = 0 To lamp_materials.size() - 1
+		strength = 0.5
+		If Not reduced Then strength += (0.5 + 0.5 * Sin(time * speed + index * 1.7)) * amount
+		lamp_materials(index).emission_energy_multiplier = strength
+	Next
+	light.light_energy = 0.8
+	If Not reduced Then light.light_energy = 0.8 + speaking * 0.4
+	For index = 0 To indicator_materials.size() - 1
+		pulse = 0.55
+		If Not reduced Then pulse = 0.12 + (0.5 + 0.5 * Sin(time * indicator_speed + index * 1.9)) ^ 3
+		indicator_materials(index).emission_energy_multiplier = 0.5 + pulse * 4
+		If index < internal_lights.size() Then internal_lights(index).light_energy = 0.12 + pulse * 1.4
+	Next
+	Me.render_target_update_mode = 1
+End Sub

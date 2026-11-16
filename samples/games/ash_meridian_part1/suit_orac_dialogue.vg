@@ -1,0 +1,208 @@
+Option Explicit
+Inherits Node
+
+Dim LINES As Dictionary
+Dim counts As Dictionary
+Dim cooldown As Single
+Dim subtitle_left As Single
+Dim last_line As String
+Dim last_event As String
+Dim awaiting_line As String
+Dim active_subtitle As Boolean
+Dim speech_error_seen As String
+Dim cached_playback As String
+Dim cached_stream As Object
+Dim registered_recordings As Dictionary
+
+Sub _Ready()
+	LINES = New Dictionary
+	LINES("syntax") = Array("The computer requires a valid instruction. Your intentions are not part of its command set.", "That is not a command. It is an arrangement of characters with ambitions.", "Correct the syntax. Repetition will not make it valid.")
+	LINES("missing_file") = Array("The directory lists what exists. Your preferred spelling does not add files to it.", "A filename is an identifier, not an invitation to improvise. LOAD ""$"",8 then LIST.")
+	LINES("not_loaded") = Array("SYS 49152 starts the loaded utility. You have omitted the loading. An economical but ineffective approach.", "Load Fast Hack'em first. The entry address is not a substitute for the program.")
+	LINES("basic_error") = Array("The error identifies the defect. I suggest correcting it before conducting the same experiment again.", "The machine has rejected the instruction. This is diagnostic information, not a difference of opinion.")
+	LINES("execution_limit") = Array("Your program has exhausted its execution allowance. An infinite loop is not evidence of sustained thought.", "Execution stopped at the limit. The loop needs an exit, not further encouragement.")
+	LINES("directory") = Array("A directory. It tells you what is on the disk. We have now established the purpose of directories.", "Fast Hack'em is listed. That reduces the remaining uncertainty to your typing.")
+	LINES("colour") = Array("The display is now a different colour. The security system remains entirely unimpressed.", "A successful alteration of the palette. Do not confuse it with access to the target.")
+	LINES("program") = Array("Your program is executing. I shall endeavour not to compete with it for intellectual distinction.", "BASIC is quite literal. For once, this should simplify our conversation.")
+	LINES("dead_trace") = Array("That trace terminates at the stop bar. You have connected to an absence of connection.", "A stopped line does not become a route because you prefer it to be one.")
+	LINES("join") = Array("Both neighbouring inputs must remain live. Two pulses on the same input are still one input.", "A join requires two distinct live inputs. The distinction is rather the point.")
+	LINES("repeater") = Array("The repeater will continue transmitting. It preserves the signal, not your ownership.", "That path is repeating. Whether it remains useful depends on where it leads.")
+	LINES("win") = Array("Ownership accepted. Your method was less efficient than my analysis. It was, however, sufficient.", "The target has accepted the transfer. I see no technical requirement for a celebration.", "Access obtained. You may stop attacking the system you now control.")
+	LINES("loss") = Array("The defender retained control. More enthusiasm would not have repaired the routing.", "Transfer rejected. Examine the paths before committing the next set of connectors.", "You have demonstrated that a connection and a useful connection are not equivalent.")
+	LINES("tie") = Array("Equal sector counts. A precise balance of effort and no transfer whatsoever.", "A tie. Neither side has acquired control. Calling it nearly successful would be inaccurate.")
+	counts = New Dictionary
+	registered_recordings = New Dictionary
+End Sub
+
+Function cache_path(ByVal line As String, ByVal speech As Object) As String
+	Dim signature As String = "suit-orac-v1|" & Str(speech.get("backend")) & "|" & Str(speech.get("command"))
+	signature &= "|" & Str(speech.call("BackendVoice", "ORAC"))
+	signature &= "|" & Str(speech.call("DeliverySpeed", "ORAC", 0)) & "|" & Str(speech.call("DeliverySilence", "ORAC", 0))
+	signature &= "|" & line
+	Return "user://suit-orac-voice/" & signature.sha256_text() & ".res"
+End Function
+
+Sub register_cached_line(ByVal line As String, ByVal speech As Object)
+	Dim path As String
+	Dim recordings As Dictionary
+	Dim key As String
+	Dim registered As Dictionary
+	Dim recording As Object
+	If speech = Nothing Then Exit Sub
+	If speech.get("capture_only") Then Exit Sub
+	path = cache_path(line, speech)
+	recordings = speech.get("recordings")
+	key = speech.call("RecordingKey", "ORAC", line)
+	If registered_recordings.has(key) Then
+		registered = registered_recordings(key)
+		If registered("path") <> path Then
+			If recordings.get(key) = registered("stream") Then recordings.erase(key)
+			registered_recordings.erase(key)
+		End If
+	End If
+	If ResourceLoader.exists(path) Then
+		recording = Load(path)
+		If recording <> Nothing And recording Is AudioStream Then
+			recordings(key) = recording
+			registered = New Dictionary
+			registered("path") = path
+			registered("stream") = recording
+			registered_recordings(key) = registered
+		Else
+			Print "ERROR: Cannot load cached suit Orac voice: " & path
+		End If
+	End If
+End Sub
+
+Sub queue_line(ByVal line As String)
+	Dim game As Object = get_parent().get_parent()
+	Call register_cached_line(line, game.get("speech"))
+	game.call("OracSpeak", line)
+End Sub
+
+Sub instruction(ByVal line As String)
+	awaiting_line = ""
+	last_line = ""
+	active_subtitle = False
+	get_parent().set("orac_message", line)
+	If line <> "" Then
+		get_parent().get_parent().call("OracStop")
+		Call queue_line(line)
+	End If
+End Sub
+
+Sub reset_dialogue()
+	cooldown = 0
+	subtitle_left = 0
+	last_line = ""
+	last_event = ""
+	awaiting_line = ""
+	active_subtitle = False
+	speech_error_seen = ""
+End Sub
+
+Sub advance(ByVal delta As Single)
+	Dim ring As Object = get_parent()
+	Dim game As Object = ring.get_parent()
+	Dim speech As Object = game.get("speech")
+	Dim speaking As Boolean = False
+	Dim spoken As String
+	Dim path As String
+	Dim cache_error As Integer
+	Dim error_text As String
+	cooldown = Max(0, cooldown - Max(delta, 0))
+	subtitle_left = Max(0, subtitle_left - Max(delta, 0))
+	If speech <> Nothing Then
+		speaking = UCase(Str(speech.get("playing_speaker"))) = "ORAC"
+		If Not speech.get("capture_only") And speech.get("backend") <> "native" Then
+			speaking = speaking And speech.get("player").playing
+		ElseIf speech.get("backend") = "native" Then
+			speaking = speaking And DisplayServer.tts_is_speaking()
+		End If
+		If speaking Then
+			spoken = Str(speech.get("playing_text"))
+			If Not speech.get("capture_only") And speech.get("backend") <> "native" And (cached_playback <> spoken Or cached_stream <> speech.get("player").stream) Then
+				path = cache_path(spoken, speech)
+				If Not ResourceLoader.exists(path) Then
+					cache_error = DirAccess.make_dir_recursive_absolute("user://suit-orac-voice")
+					If cache_error = 0 Then cache_error = ResourceSaver.save(speech.get("player").stream, path)
+					If cache_error <> 0 Then Print "ERROR: Cannot cache suit Orac voice: " & Str(cache_error)
+				End If
+				cached_playback = spoken
+				cached_stream = speech.get("player").stream
+			End If
+			If awaiting_line <> "" And spoken = awaiting_line Then
+				ring.set("orac_message", awaiting_line)
+				awaiting_line = ""
+				active_subtitle = True
+				subtitle_left = 12
+			End If
+		End If
+		If awaiting_line <> "" And (Not game.get("opt_orac_voice") Or Not speech.call("busy")) Then
+			ring.set("orac_message", awaiting_line)
+			awaiting_line = ""
+			active_subtitle = True
+			subtitle_left = 12
+		End If
+		error_text = Str(speech.get("last_error"))
+		If error_text <> "" And error_text <> speech_error_seen Then
+			speech_error_seen = error_text
+			Print "WARNING: Suit Orac speech: " & error_text
+		End If
+	End If
+	If subtitle_left = 0 And active_subtitle And Not speaking And last_line <> "" And ring.get("orac_message") = last_line Then
+		ring.set("orac_message", "")
+		last_line = ""
+		active_subtitle = False
+	End If
+End Sub
+
+Function remark(ByVal event_name As String, Optional ByVal result As Boolean = False) As Boolean
+	Dim ring As Object = get_parent()
+	Dim game As Object = ring.get_parent()
+	Dim speech As Object = game.get("speech")
+	Dim index As Integer
+	Dim options As Array
+	Dim voiced As Boolean
+	If Not LINES.has(event_name) Then
+		Print "ERROR: Unknown suit Orac dialogue event: " & event_name
+		Return False
+	End If
+	If Not result And cooldown > 0 Then Return False
+	If Not result And speech <> Nothing Then
+		If speech.call("busy") Then Return False
+	End If
+	index = counts.get(event_name, 0)
+	options = LINES(event_name)
+	last_line = options(index Mod options.size())
+	counts(event_name) = index + 1
+	last_event = event_name
+	voiced = game.get("opt_orac_voice") And speech <> Nothing
+	If voiced Then voiced = speech.get("enabled") And speech.get("backend") <> ""
+	awaiting_line = ""
+	ring.set("orac_message", last_line)
+	If voiced Then
+		awaiting_line = last_line
+		ring.set("orac_message", "")
+	End If
+	active_subtitle = Not voiced
+	cooldown = 14
+	subtitle_left = 12
+	If result Then game.call("OracStop")
+	Call queue_line(last_line)
+	Return True
+End Function
+
+Sub command_error(ByVal message As String)
+	If message.contains("SYNTAX") Then
+		Call remark("syntax")
+	ElseIf message.contains("FILE NOT FOUND") Then
+		Call remark("missing_file")
+	ElseIf message.contains("PROGRAM NOT LOADED") Then
+		Call remark("not_loaded")
+	ElseIf message.contains("EXECUTION LIMIT") Then
+		Call remark("execution_limit")
+	Else
+		Call remark("basic_error")
+	End If
+End Sub

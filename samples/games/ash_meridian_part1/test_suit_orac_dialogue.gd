@@ -13,6 +13,8 @@ func _initialize() -> void:
 func run() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
+	game.get("boot_term").get("sfx").stop()
+	game.call("ReleaseBootTerminal")
 	game.set_process(false)
 	game.set("opt_orac_voice", true)
 	var speech: Object = game.get("speech")
@@ -87,6 +89,10 @@ func run() -> void:
 	speech.set("backend", "espeak")
 	var cache_text := "Suit cache validation " + str(OS.get_process_id()) + "-" + str(Time.get_ticks_usec())
 	var path: String = dialogue.call("cache_path", cache_text, speech)
+	var original_signature := "suit-orac-v1|" + str(speech.get("backend")) + "|" + str(speech.get("command"))
+	original_signature += "|" + str(speech.call("BackendVoice", "ORAC"))
+	original_signature += "|" + str(speech.call("DeliverySpeed", "ORAC", 0)) + "|" + str(speech.call("DeliverySilence", "ORAC", 0))
+	check(path == "user://suit-orac-voice/" + (original_signature + "|" + cache_text).sha256_text() + ".res", "voice_cache_signature_remains_compatible_with_original_helper")
 	var clip := AudioStreamWAV.new()
 	clip.format = AudioStreamWAV.FORMAT_16_BITS
 	clip.mix_rate = 22050
@@ -127,7 +133,12 @@ func run() -> void:
 	check(dialogue.get("last_event") == "win" and ring.get("stage") == "WIN", "real_hack_result_triggers_matching_character_comment")
 	ring.call("leave_terminal")
 	check(ring.get("orac_message") == "" and speech.get("pending").is_empty(), "leaving_hack_clears_commentary_even_without_terminal")
+	for sound in ring.get("audio_pool"):
+		sound.stop()
+	await create_timer(0.1).timeout
 	game.queue_free()
 	await process_frame
+	# Allow the audio mixer to retire released playback references before exit.
+	await create_timer(0.1).timeout
 	print("SUIT_ORAC_DIALOGUE_COMPLETED: ", line_count, " lines; ", failures, " failures")
 	quit(failures)

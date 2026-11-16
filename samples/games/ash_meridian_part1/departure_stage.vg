@@ -1,0 +1,662 @@
+Extends Node3D
+Option Explicit
+
+Const PLANET_RADIUS = 1000.0
+Const RING_RADIUS = 1500.0
+Const PI_VALUE = 3.141592653589793
+Const TAU_VALUE = 6.283185307179586
+
+Dim CYAN As Color
+Dim AMBER As Color
+Dim ship As Object
+Dim station As Object
+Dim planet As Object
+Dim atmosphere As Object
+Dim planetary_ring As Object
+Dim hyperspace As Object
+Dim cabin As Object
+Dim buyer_panel As Object
+Dim resting_jason As Object
+Dim environment As Object
+Dim sun As Object
+Dim comm_bars As Array
+Dim materials As Dictionary
+Dim radio_status As Object
+Dim exhaust_material As Object
+Dim exhaust_plumes As Array
+
+Sub _Ready()
+	CYAN = Color(0.25, 0.83, 0.88)
+	AMBER = Color(1.0, 0.55, 0.22)
+	comm_bars = Array()
+	exhaust_plumes = Array()
+	environment = ClassDB.Instantiate("Environment")
+	environment.background_mode = Environment.BG_SKY
+	Dim sky As Object
+	Dim sky_material As Object
+	sky = ClassDB.Instantiate("Sky")
+	sky_material = ClassDB.Instantiate("ShaderMaterial")
+	sky_material.shader = Load("res://shaders/departure_sky.gdshader")
+	sky.sky_material = sky_material
+	environment.sky = sky
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.43, 0.52, 0.62)
+	environment.ambient_light_energy = 0.28
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	sun = ClassDB.Instantiate("DirectionalLight3D")
+	sun.rotation_degrees = Vector3(-20, 140, 0)
+	sun.light_color = Color(1.0, 0.88, 0.72)
+	sun.light_energy = 2.2
+	sun.light_cull_mask = 1
+	add_child(sun)
+	Call _build_narcea()
+	ship = _build_ship(Me)
+	ship.name = "AshGate7Courier"
+	Call _build_station()
+	Call _build_hyperspace()
+	Call _build_cabin()
+End Sub
+
+Function _material(ByVal key As String, ByVal color As Color, Optional ByVal emission As Single = 0.0) As Object
+	If materials.has(key) Then Return materials(key)
+	Dim material As Object
+	material = ClassDB.Instantiate("StandardMaterial3D")
+	material.albedo_color = color
+	material.roughness = 0.4
+	material.metallic = 0.6
+	If emission > 0.0 Then
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.emission_enabled = True
+		material.emission = color
+		material.emission_energy_multiplier = emission
+	End If
+	materials(key) = material
+	Return material
+End Function
+
+Sub _build_narcea()
+	Dim band As Object
+	Dim rim As Object
+	Dim air As Object
+	Dim inner As Object
+	Dim height As Variant
+	planet = _sphere(Me, Vector3(0, 0, 0), Vector3(1, 1, 1) * PLANET_RADIUS, _surface(Color(1, 1, 1), 1))
+	planet.name = "NarceaOchreWorld"
+	planetary_ring = ClassDB.Instantiate("Node3D")
+	planetary_ring.name = "NarceanStructuralBand"
+	planetary_ring.rotation_degrees = Vector3(-22, 0, -8)
+	add_child(planetary_ring)
+	band = ClassDB.Instantiate("CylinderMesh")
+	band.top_radius = RING_RADIUS
+	band.bottom_radius = RING_RADIUS
+	band.height = 140.0
+	band.radial_segments = 512
+	band.cap_top = False
+	band.cap_bottom = False
+	Call _mesh(planetary_ring, band, Vector3(0, 0, 0), _surface(Color(1, 1, 1), 2))
+	For Each height In Array(-70.0, 70.0)
+		rim = ClassDB.Instantiate("TorusMesh")
+		rim.inner_radius = 1498.5
+		rim.outer_radius = 1500.0
+		rim.rings = 512
+		rim.ring_segments = 6
+		Call _mesh(planetary_ring, rim, Vector3(0, height, 0), _material("ring_rim", CYAN, 1.3))
+	Next
+	atmosphere = ClassDB.Instantiate("Node3D")
+	atmosphere.name = "RingAir"
+	planetary_ring.add_child(atmosphere)
+	air = ClassDB.Instantiate("StandardMaterial3D")
+	air.albedo_color = Color(0.43, 0.61, 0.66, 0.06)
+	air.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	air.cull_mode = BaseMaterial3D.CULL_DISABLED
+	inner = ClassDB.Instantiate("CylinderMesh")
+	inner.top_radius = 1497.0
+	inner.bottom_radius = 1497.0
+	inner.height = 137.0
+	inner.radial_segments = 512
+	inner.cap_top = False
+	inner.cap_bottom = False
+	Call _mesh(atmosphere, inner, Vector3(0, 0, 0), air)
+End Sub
+
+Sub _octagon(ByVal parent As Object, ByVal z As Single, ByVal radius As Single, ByVal thickness As Single, ByVal material As Object)
+	Dim i As Integer
+	Dim a As Single
+	Dim b As Single
+	For i = 0 To 7
+		a = TAU_VALUE * i / 8.0 + PI_VALUE / 8.0
+		b = a + TAU_VALUE / 8.0
+		Call _beam(parent, Vector3(Cos(a) * radius, Sin(a) * radius, z), Vector3(Cos(b) * radius, Sin(b) * radius, z), thickness, material)
+	Next
+End Sub
+
+Sub _octagon_plate(ByVal parent As Object, ByVal z As Single, ByVal inner As Single, ByVal outer As Single, ByVal material As Object)
+	Dim surface As Object
+	Dim i As Integer
+	Dim a As Single
+	Dim b As Single
+	surface = ClassDB.Instantiate("SurfaceTool")
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	For i = 0 To 7
+		a = TAU_VALUE * i / 8.0 + PI_VALUE / 8.0
+		b = a + TAU_VALUE / 8.0
+		Call _quad(surface, Vector3(Cos(a) * inner, Sin(a) * inner, z), Vector3(Cos(b) * inner, Sin(b) * inner, z), Vector3(Cos(b) * outer, Sin(b) * outer, z), Vector3(Cos(a) * outer, Sin(a) * outer, z))
+	Next
+	surface.generate_normals()
+	Call _mesh(parent, surface.commit(), Vector3(0, 0, 0), material)
+End Sub
+
+Sub _build_station()
+	Dim hull As Object
+	Dim trim As Object
+	Dim cyan_mat As Object
+	Dim amber_mat As Object
+	Dim tunnel As Object
+	Dim rng As Object
+	Dim light As Object
+	Dim face_light As Object
+	Dim point As Vector3
+	Dim first As Vector3
+	Dim second As Vector3
+	Dim x As Variant
+	Dim i As Integer
+	Dim a As Single
+	Dim b As Single
+	Dim z As Single
+	Dim stripe_mat As Object
+	station = ClassDB.Instantiate("Node3D")
+	station.name = "WaystationOctagonalBerth"
+	station.position = Vector3(0, 0, -500)
+	add_child(station)
+	hull = _surface(Color(0.05, 0.065, 0.075), 3)
+	trim = _material("station_trim", Color(0.035, 0.05, 0.065))
+	cyan_mat = _material("station_cyan", CYAN, 1.2)
+	amber_mat = _material("station_amber", AMBER, 1.2)
+	Call _box(station, Vector3(-43, 0, -4), Vector3(62, 80, 8), hull)
+	Call _box(station, Vector3(43, 0, -4), Vector3(62, 80, 8), hull)
+	Call _box(station, Vector3(0, 26.5, -4), Vector3(24, 27, 8), hull)
+	Call _box(station, Vector3(0, -26.5, -4), Vector3(24, 27, 8), hull)
+	Call _octagon_plate(station, 0.2, 12, 19, hull)
+	Call _octagon_plate(station, 1, 12, 13.8, trim)
+	Call _octagon(station, 1.8, 12.6, 0.09, cyan_mat)
+	tunnel = ClassDB.Instantiate("SurfaceTool")
+	tunnel.begin(Mesh.PRIMITIVE_TRIANGLES)
+	For i = 0 To 7
+		a = TAU_VALUE * i / 8.0 + PI_VALUE / 8.0
+		b = a + TAU_VALUE / 8.0
+		first = Vector3(Cos(a) * 12.1, Sin(a) * 12.1, 0)
+		second = Vector3(Cos(b) * 12.1, Sin(b) * 12.1, 0)
+		Call _quad(tunnel, first, second, second + Vector3(0, 0, -54), first + Vector3(0, 0, -54))
+		Call _box(station, Vector3(Cos(a) * 13.5, Sin(a) * 13.5, 2), Vector3(0.7, 0.7, 0.12), amber_mat)
+	Next
+	tunnel.generate_normals()
+	Call _mesh(station, tunnel.commit(), Vector3(0, 0, 0), _surface(Color(0.06, 0.075, 0.085), 3))
+	For i = 0 To 8
+		z = -i * 6.0
+		Call _octagon(station, z, 12, 0.28, trim)
+		stripe_mat = amber_mat
+		If i Mod 2 = 0 Then stripe_mat = cyan_mat
+		Call _octagon(station, z - 0.35, 11.8, 0.035, stripe_mat)
+	Next
+	Call _box(station, Vector3(0, 0, -54), Vector3(24, 24, 0.5), trim)
+	Call _box(station, Vector3(0, -11.2, -26), Vector3(23, 0.4, 54), hull)
+	For Each x In Array(-5.0, 5.0)
+		Call _box(station, Vector3(x, -10.9, -26), Vector3(0.08, 0.06, 49), amber_mat)
+	Next
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 11
+	For i = 0 To 139
+		point = Vector3(rng.randf_range(-70, 70), rng.randf_range(-38, 38), 0.2)
+		If Not (Abs(point.x) < 14 And Abs(point.y) < 16) Then
+			stripe_mat = cyan_mat
+			If i Mod 3 = 0 Then stripe_mat = amber_mat
+			Call _box(station, point, Vector3(rng.randf_range(0.5, 4), 0.12, 0.07), stripe_mat)
+			If i Mod 3 = 0 Then Call _box(station, point + Vector3(0, -1.5, -0.1), Vector3(4, 2, 1.5), trim)
+		End If
+	Next
+	Call _box(station, Vector3(0, 20, 0.5), Vector3(18, 5, 0.5), trim)
+	Call _label(station, "ARRIVALS", Vector3(0, 20.8, 1), 60, CYAN, 0.021)
+	Call _label(station, "04", Vector3(0, 18.5, 1), 60, AMBER, 0.018)
+	Call _box(station, Vector3(0, 26, 1.5), Vector3(74, 0.1, 0.1), cyan_mat)
+	For i = 0 To 3
+		light = ClassDB.Instantiate("OmniLight3D")
+		light.position = Vector3(0, 2, -10 - i * 12)
+		light.light_color = AMBER
+		If i < 3 Then light.light_color = Color(0.45, 0.85, 0.95)
+		light.light_energy = 8
+		light.omni_range = 23
+		station.add_child(light)
+	Next
+	face_light = ClassDB.Instantiate("DirectionalLight3D")
+	face_light.rotation_degrees = Vector3(-25, -30, 0)
+	face_light.light_color = Color(0.4, 0.75, 0.9)
+	face_light.light_energy = 1.8
+	face_light.light_cull_mask = 2
+	station.add_child(face_light)
+	Call _set_render_layer(station, 2)
+	station.visible = False
+End Sub
+
+Sub _set_render_layer(ByVal node As Object, ByVal layer As Integer)
+	Dim child As Variant
+	If node.is_class("GeometryInstance3D") Then node.layers = layer
+	For Each child In node.get_children()
+		Call _set_render_layer(child, layer)
+	Next
+End Sub
+
+Sub _build_hyperspace()
+	Dim rng As Object
+	Dim angle As Single
+	Dim radius As Single
+	Dim i As Integer
+	hyperspace = ClassDB.Instantiate("Node3D")
+	add_child(hyperspace)
+	rng = ClassDB.Instantiate("RandomNumberGenerator")
+	rng.seed = 2094
+	For i = 0 To 99
+		angle = rng.randf_range(0, TAU_VALUE)
+		radius = rng.randf_range(14, 50)
+		Call _box(hyperspace, Vector3(Cos(angle) * radius, Sin(angle) * radius, rng.randf_range(-160, -15)), Vector3(0.025, 0.025, rng.randf_range(2, 14)), _material("warp", Color(0.25, 0.5, 0.65), 1.0))
+	Next
+	hyperspace.visible = False
+End Sub
+
+Sub _build_cabin()
+	Dim wall As Object
+	Dim dark As Object
+	Dim cloth As Object
+	Dim cyan_mat As Object
+	Dim amber_mat As Object
+	Dim light As Object
+	Dim fill As Object
+	Dim x As Variant
+	Dim i As Integer
+	cabin = ClassDB.Instantiate("Node3D")
+	cabin.position = Vector3(500, 0, 0)
+	add_child(cabin)
+	wall = _surface(Color(0.12, 0.16, 0.18), 3)
+	dark = _material("cabin_dark", Color(0.035, 0.055, 0.065))
+	cloth = _surface(Color(0.12, 0.22, 0.25), 4)
+	cyan_mat = _material("cabin_cyan", CYAN, 1.1)
+	amber_mat = _material("cabin_amber", Color(1.0, 0.68, 0.35), 1.3)
+	Call _box(cabin, Vector3(0, 2.1, -2.6), Vector3(8.4, 4.6, 0.18), wall)
+	Call _box(cabin, Vector3(-4.2, 2.1, 3.7), Vector3(0.18, 4.6, 12.6), wall)
+	Call _box(cabin, Vector3(4.2, 2.1, 3.7), Vector3(0.18, 4.6, 12.6), wall)
+	Call _box(cabin, Vector3(0, -0.2, 3.7), Vector3(8.4, 0.18, 12.6), wall)
+	Call _box(cabin, Vector3(0, 4.4, 3.7), Vector3(8.4, 0.15, 12.6), dark)
+	Call _box(cabin, Vector3(0, 2.1, 10), Vector3(8.4, 4.6, 0.18), wall)
+	For Each x In Array(-3.6, -1.2, 1.2, 3.6)
+		Call _box(cabin, Vector3(x, 2.1, -2.45), Vector3(0.045, 4.4, 0.12), dark)
+		Call _box(cabin, Vector3(x, 4.25, 0.1), Vector3(0.05, 0.1, 5.3), dark)
+	Next
+	Call _box(cabin, Vector3(0, 4.22, -1.8), Vector3(6.8, 0.05, 0.05), amber_mat)
+	Call _box(cabin, Vector3(-3.9, 0.15, 0.1), Vector3(0.035, 0.04, 5.1), cyan_mat)
+	Call _box(cabin, Vector3(3.9, 0.15, 0.1), Vector3(0.035, 0.04, 5.1), cyan_mat)
+	Call _rounded_box(cabin, Vector3(-2.2, 0.35, 0.1), Vector3(2.6, 0.65, 3.9), 0.1, dark)
+	Call _rounded_box(cabin, Vector3(-2.2, 0.76, 0.1), Vector3(2.4, 0.22, 3.7), 0.1, cloth)
+	Call _rounded_box(cabin, Vector3(-2.2, 0.96, -1.1), Vector3(1.5, 0.25, 0.65), 0.12, _surface(Color(0.46, 0.47, 0.39), 4))
+	resting_jason = ClassDB.Instantiate("Node3D")
+	cabin.add_child(resting_jason)
+	Call _rounded_box(resting_jason, Vector3(-2.2, 1.06, 0.3), Vector3(1.55, 0.36, 2.6), 0.16, cloth)
+	Call _sphere(resting_jason, Vector3(-2.2, 1.08, -1.03), Vector3(0.25, 0.20, 0.31), _material("jason_hair", Color(0.08, 0.065, 0.045)))
+	For Each x In Array(-2.5, -1.9)
+		Call _rounded_box(resting_jason, Vector3(x, 0.97, 1.6), Vector3(0.32, 0.18, 0.48), 0.07, dark)
+	Next
+	Call _box(cabin, Vector3(1.8, 0.8, -1.7), Vector3(3.0, 0.12, 1.3), wall)
+	Call _box(cabin, Vector3(2.2, 1.75, -2.35), Vector3(2.5, 1.5, 0.14), dark)
+	Call _box(cabin, Vector3(2.2, 1.75, -2.25), Vector3(2.25, 1.25, 0.025), _material("comm_idle", Color(0.008, 0.026, 0.033), 1.0))
+	Call _label(cabin, "LOCAL COMMS  /  04", Vector3(2.2, 2.7, -2.20), 40, CYAN, 0.002)
+	Call _label(cabin, "REST BERTH", Vector3(-2.2, 2.6, -2.2), 36, Color(0.6, 0.65, 0.6), 0.003)
+	Call _label(cabin, "04", Vector3(-2.2, 2.1, -2.2), 72, AMBER, 0.003)
+	buyer_panel = ClassDB.Instantiate("Node3D")
+	cabin.add_child(buyer_panel)
+	radio_status = _label(buyer_panel, "INCOMING CALL", Vector3(2.2, 2.13, -2.17), 40, CYAN, 0.002)
+	Call _label(buyer_panel, "AUDIO ONLY  /  ENCRYPTED", Vector3(2.2, 1.38, -2.17), 26, Color(0.48, 0.65, 0.67), 0.002)
+	For i = 0 To 24
+		comm_bars.append(_box(buyer_panel, Vector3(1.3 + i * 0.075, 1.77, -2.15), Vector3(0.025, 0.12, 0.012), cyan_mat))
+	Next
+	Call _sphere(cabin, Vector3(0.6, 0.95, -1.5), Vector3(0.10, 0.18, 0.10), _material("cup", Color(0.38, 0.35, 0.28)))
+	Call _box(cabin, Vector3(3.7, 3.0, -2.3), Vector3(0.1, 0.8, 0.1), amber_mat)
+	light = ClassDB.Instantiate("OmniLight3D")
+	light.position = Vector3(2.6, 3.3, 0)
+	light.light_color = Color(1.0, 0.73, 0.45)
+	light.light_energy = 3.0
+	light.omni_range = 10
+	cabin.add_child(light)
+	fill = ClassDB.Instantiate("OmniLight3D")
+	fill.position = Vector3(-2.5, 2.2, 2)
+	fill.light_color = Color(0.3, 0.65, 0.8)
+	fill.light_energy = 1.0
+	fill.omni_range = 7
+	cabin.add_child(fill)
+	cabin.visible = False
+End Sub
+
+Sub pose(ByVal camera As Object, ByVal shot As Integer, ByVal amount As Single, ByVal time As Single, ByVal radio_state As String)
+	Dim status As String
+	Dim bar As Variant
+	Dim plume As Variant
+	Dim streak As Variant
+	Dim target As Vector3
+	Dim camera_at As Vector3
+	Dim forward As Vector3
+	Dim right As Vector3
+	Dim up As Vector3
+	Dim scale_value As Vector3
+	Dim position_value As Vector3
+	Dim multiplier As Single
+	Dim i As Integer
+	sun.visible = shot < 3
+	environment.background_mode = Environment.BG_COLOR
+	environment.ambient_light_energy = 0.35
+	If shot < 3 Then
+		environment.background_mode = Environment.BG_SKY
+		environment.ambient_light_energy = 0.28
+	End If
+	environment.background_color = Color(0.005, 0.007, 0.009)
+	planet.visible = shot = 0
+	planetary_ring.visible = shot = 0
+	ship.visible = shot < 3
+	station.visible = shot = 2
+	hyperspace.visible = shot = 1
+	cabin.visible = shot >= 3
+	buyer_panel.visible = shot = 3 And radio_state <> "idle"
+	resting_jason.visible = shot = 3 And radio_state = "idle"
+	status = "LINK CLOSED"
+	If radio_state = "incoming" Then status = "INCOMING CALL"
+	If radio_state = "connected" Then status = "VOICE LINK"
+	If radio_status.text <> status Then radio_status.text = status
+	For Each bar In comm_bars
+		bar.visible = radio_state = "connected"
+	Next
+	If shot < 3 Then
+		exhaust_material.set_shader_parameter("clock", time)
+		multiplier = 1.0
+		If shot = 2 Then multiplier = 0.32
+		For Each plume In exhaust_plumes
+			scale_value = plume.scale
+			scale_value.z = multiplier * (0.97 + 0.03 * Sin(time * 17.0))
+			plume.scale = scale_value
+		Next
+	End If
+	If shot = 0 Then
+		ship.rotation_degrees = Vector3(-6, 165, -8)
+		camera_at = Vector3(180, 650, 4100 + amount * 350)
+		target = Vector3(-80, 0, 100)
+		forward = (target - camera_at).normalized()
+		ship.position = camera_at + forward * (70 + amount * 5) + forward.cross(Vector3(0, 1, 0)).normalized() * 23 - Vector3(0, 1, 0) * 12
+		camera.fov = 43
+	ElseIf shot = 1 Then
+		ship.position = Vector3(0, 0, 0)
+		ship.rotation_degrees = Vector3(0, -8, -5)
+		camera_at = Vector3(10, 4.5, 19)
+		target = Vector3(0, 0, -5)
+		camera.fov = 43
+		For Each streak In hyperspace.get_children()
+			position_value = streak.position
+			position_value.z = -160.0 + (time * 16.0 + streak.get_index() * 1.7) - 145.0 * Int((time * 16.0 + streak.get_index() * 1.7) / 145.0)
+			streak.position = position_value
+		Next
+	ElseIf shot = 2 Then
+		ship.position = Vector3(10 - amount * 8, -2 + amount * 2, -365 - amount * 35)
+		ship.rotation_degrees = Vector3(0, 0, 2 - amount * 2)
+		camera_at = Vector3(40 - amount * 3, 20, -285 - amount * 12)
+		target = station.position
+		camera.fov = 44
+	Else
+		camera_at = Vector3(500.0, 2.8, 9.0)
+		target = Vector3(500, 1.8, -0.4)
+		camera.fov = 48
+		If radio_state <> "idle" And shot = 3 Then
+			camera_at = Vector3(501.1, 2.5, 7.2)
+			target = Vector3(500.7, 1.9, -1.0)
+		End If
+		If radio_state = "connected" Then
+			For i = 0 To comm_bars.size() - 1
+				bar = comm_bars(i)
+				scale_value = bar.scale
+				scale_value.y = 0.25 + Abs(Sin(time * 2.7 + i * 0.67) * Sin(i * 1.9 + time)) * 3.0
+				bar.scale = scale_value
+			Next
+		End If
+	End If
+	forward = (target - camera_at).normalized()
+	right = forward.cross(Vector3(0, 1, 0)).normalized()
+	up = right.cross(forward)
+	camera.transform = Transform3D(Basis(right, up, -forward), camera_at)
+	camera.far = 40000
+End Sub
+
+Function _surface(ByVal color As Color, Optional ByVal kind As Integer = 0) As Object
+	Dim material As Object
+	material = ClassDB.Instantiate("ShaderMaterial")
+	material.shader = Load("res://shaders/departure_surface.gdshader")
+	material.set_shader_parameter("tint", color)
+	material.set_shader_parameter("surface_kind", kind)
+	Return material
+End Function
+
+Function _mesh(ByVal parent As Object, ByVal mesh As Object, ByVal point As Vector3, ByVal material As Object) As Object
+	Dim node As Object
+	node = ClassDB.Instantiate("MeshInstance3D")
+	node.mesh = mesh
+	node.position = point
+	node.material_override = material
+	parent.add_child(node)
+	Return node
+End Function
+
+Function _box(ByVal parent As Object, ByVal point As Vector3, ByVal size As Vector3, ByVal material As Object) As Object
+	Dim mesh As Object
+	mesh = ClassDB.Instantiate("BoxMesh")
+	mesh.size = size
+	Return _mesh(parent, mesh, point, material)
+End Function
+
+Function _rounded_box(ByVal parent As Object, ByVal point As Vector3, ByVal size As Vector3, ByVal radius As Single, ByVal material As Object) As Object
+	Dim source As Object
+	Dim mesh As Object
+	Dim arrays As Array
+	Dim vertices As PackedVector3Array
+	Dim normals As PackedVector3Array
+	Dim inner As Vector3
+	Dim closest As Vector3
+	Dim i As Integer
+	source = ClassDB.Instantiate("BoxMesh")
+	source.size = size
+	source.subdivide_width = 8
+	source.subdivide_height = 8
+	source.subdivide_depth = 8
+	arrays = source.surface_get_arrays(0)
+	vertices = arrays(Mesh.ARRAY_VERTEX)
+	normals = arrays(Mesh.ARRAY_NORMAL)
+	inner = size * 0.5 - Vector3(1, 1, 1) * radius
+	For i = 0 To vertices.size() - 1
+		closest = vertices(i).clamp(-inner, inner)
+		normals(i) = (vertices(i) - closest).normalized()
+		vertices(i) = closest + normals(i) * radius
+	Next
+	arrays(Mesh.ARRAY_VERTEX) = vertices
+	arrays(Mesh.ARRAY_NORMAL) = normals
+	mesh = ClassDB.Instantiate("ArrayMesh")
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	Return _mesh(parent, mesh, point, material)
+End Function
+
+Function _sphere(ByVal parent As Object, ByVal point As Vector3, ByVal size As Vector3, ByVal material As Object) As Object
+	Dim mesh As Object
+	Dim node As Object
+	mesh = ClassDB.Instantiate("SphereMesh")
+	mesh.radius = 1.0
+	mesh.height = 2.0
+	mesh.radial_segments = 96
+	mesh.rings = 48
+	node = _mesh(parent, mesh, point, material)
+	node.scale = size
+	Return node
+End Function
+
+Function _beam(ByVal parent As Object, ByVal a As Vector3, ByVal b As Vector3, ByVal radius As Single, ByVal material As Object) As Object
+	Dim mesh As Object
+	Dim node As Object
+	Dim direction As Vector3
+	Dim axis As Vector3
+	Dim dot_value As Single
+	mesh = ClassDB.Instantiate("CylinderMesh")
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = a.distance_to(b)
+	mesh.radial_segments = 12
+	node = _mesh(parent, mesh, (a + b) * 0.5, material)
+	direction = (b - a).normalized()
+	dot_value = Max(-1.0, Min(1.0, direction.y))
+	axis = Vector3(0, 1, 0).cross(direction)
+	If axis.length_squared() > 0.000000000001 Then
+		node.basis = Basis(axis.normalized(), Atan2(axis.length(), dot_value))
+	ElseIf dot_value < 0 Then
+		node.basis = Basis(Vector3(1, 0, 0), PI_VALUE)
+	End If
+	Return node
+End Function
+
+Function _label(ByVal parent As Object, ByVal text As String, ByVal point As Vector3, ByVal size As Integer, ByVal color As Color, Optional ByVal pixel As Single = 0.01) As Object
+	Dim label As Object
+	label = ClassDB.Instantiate("Label3D")
+	label.text = text
+	label.position = point
+	label.font_size = size
+	label.pixel_size = pixel
+	label.modulate = color
+	label.outline_size = 0
+	parent.add_child(label)
+	Return label
+End Function
+
+Function _ship_point(ByVal x As Single, ByVal y As Single, ByVal z As Single) As Vector3
+	Return Vector3(x, z, -y)
+End Function
+
+Sub _quad(ByVal surface As Object, ByVal a As Vector3, ByVal b As Vector3, ByVal c As Vector3, ByVal d As Vector3)
+	Dim points As Array
+	Dim uvs As Array
+	Dim i As Integer
+	points = Array(a, b, c, a, c, d)
+	uvs = Array(Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 0), Vector2(1, 1), Vector2(0, 1))
+	For i = 0 To 5
+		surface.set_uv(uvs(i))
+		surface.add_vertex(points(i))
+	Next
+End Sub
+
+Sub _ship_hull(ByVal parent As Object, ByVal sections As Array, ByVal material As Object)
+	Dim surface As Object
+	Dim rings As Array
+	Dim hull_row As Variant
+	Dim ring As Array
+	Dim y As Single
+	Dim w As Single
+	Dim h As Single
+	Dim row As Integer
+	Dim i As Integer
+	Dim j As Integer
+	surface = ClassDB.Instantiate("SurfaceTool")
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	rings = Array()
+	For Each hull_row In sections
+		y = hull_row(0)
+		w = hull_row(1)
+		h = hull_row(2)
+		ring = Array(_ship_point(w, y, 0), _ship_point(w * 0.55, y, h), _ship_point(-w * 0.55, y, h), _ship_point(-w, y, 0), _ship_point(-w * 0.75, y, -h * 0.8), _ship_point(w * 0.75, y, -h * 0.8))
+		rings.append(ring)
+	Next
+	For row = 0 To rings.size() - 2
+		For i = 0 To 5
+			j = (i + 1) Mod 6
+			Call _quad(surface, rings(row)(i), rings(row + 1)(i), rings(row + 1)(j), rings(row)(j))
+		Next
+	Next
+	For i = 1 To 4
+		surface.add_vertex(rings(0)(0))
+		surface.add_vertex(rings(0)(i + 1))
+		surface.add_vertex(rings(0)(i))
+		surface.add_vertex(rings(rings.size() - 1)(0))
+		surface.add_vertex(rings(rings.size() - 1)(i))
+		surface.add_vertex(rings(rings.size() - 1)(i + 1))
+	Next
+	surface.generate_normals()
+	Call _mesh(parent, surface.commit(), Vector3(0, 0, 0), material)
+End Sub
+
+Function _build_ship(ByVal parent As Object) As Object
+	Dim root As Object
+	Dim hull As Object
+	Dim dark As Object
+	Dim cyan_mat As Object
+	Dim amber_mat As Object
+	Dim surface As Object
+	Dim top As Array
+	Dim bottom As Array
+	Dim xy As Variant
+	Dim side As Variant
+	Dim radial As Variant
+	Dim plume_root As Object
+	Dim plume As Object
+	Dim engine As Object
+	Dim nav_color As Color
+	Dim fill As Object
+	Dim i As Integer
+	root = ClassDB.Instantiate("Node3D")
+	parent.add_child(root)
+	hull = _surface(Color(0.16, 0.18, 0.20))
+	dark = _material("ship_dark", Color(0.035, 0.045, 0.055))
+	cyan_mat = _material("ship_cyan", CYAN, 1.5)
+	amber_mat = _material("ship_exhaust", Color(1.0, 0.74, 0.37), 3.0)
+	exhaust_material = ClassDB.Instantiate("ShaderMaterial")
+	exhaust_material.shader = Load("res://shaders/departure_exhaust.gdshader")
+	Call _ship_hull(root, Array(Array(-3.0, 0.55, 0.32), Array(-2.2, 0.75, 0.42), Array(-0.6, 0.8, 0.46), Array(1.0, 0.55, 0.36), Array(2.3, 0.24, 0.17), Array(3.0, 0.04, 0.03)), hull)
+	For Each side In Array(-1.0, 1.0)
+		surface = ClassDB.Instantiate("SurfaceTool")
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		top = Array()
+		bottom = Array()
+		For Each xy In Array(Vector2(0.62, -2.5), Vector2(3.1, -2.95), Vector2(3.15, -2.55), Vector2(0.7, 0.9))
+			top.append(_ship_point(side * xy.x, xy.y, 0.035))
+			bottom.append(_ship_point(side * xy.x, xy.y, -0.06))
+		Next
+		Call _quad(surface, top(0), top(1), top(2), top(3))
+		Call _quad(surface, bottom(3), bottom(2), bottom(1), bottom(0))
+		For i = 0 To 3
+			Call _quad(surface, top(i), bottom(i), bottom((i + 1) Mod 4), top((i + 1) Mod 4))
+		Next
+		surface.generate_normals()
+		Call _mesh(root, surface.commit(), Vector3(0, 0, 0), hull)
+		Call _beam(root, _ship_point(side * 0.72, 0.85, 0), _ship_point(side * 3.12, -2.55, 0), 0.018, cyan_mat)
+		Call _beam(root, _ship_point(side * 0.32, 1.9, 0.2), _ship_point(side * 0.6, -2.9, 0.4), 0.014, cyan_mat)
+		Call _box(root, _ship_point(side * 3.13, -2.75, 0.18), Vector3(0.05, 0.36, 0.42), dark)
+		Call _beam(root, _ship_point(side * 0.5, -2.125, -0.12), _ship_point(side * 0.5, -3.375, -0.12), 0.24, dark)
+		Call _beam(root, _ship_point(side * 0.5, -3.38, -0.12), _ship_point(side * 0.5, -3.40, -0.12), 0.18, amber_mat)
+		plume_root = ClassDB.Instantiate("Node3D")
+		plume_root.position = _ship_point(side * 0.5, -3.4, -0.12)
+		root.add_child(plume_root)
+		exhaust_plumes.append(plume_root)
+		For Each radial In Array(Vector3(1, 0, 0), Vector3(0, 1, 0))
+			plume = ClassDB.Instantiate("QuadMesh")
+			plume.size = Vector2(0.42, 1.1)
+			engine = _mesh(plume_root, plume, Vector3(0, 0, 0.55), exhaust_material)
+			engine.basis = Basis(radial, Vector3(0, 0, -1), radial.cross(Vector3(0, 0, -1)))
+		Next
+		nav_color = Color(0.15, 1, 0.3)
+		If side < 0 Then nav_color = Color(1, 0.15, 0.06)
+		Call _sphere(root, _ship_point(side * 3.13, -2.4, 0), Vector3(1, 1, 1) * 0.045, _material("nav_" & Str(side), nav_color, 2.0))
+	Next
+	Call _sphere(root, _ship_point(0, 1.05, 0.33), Vector3(0.3, 0.2, 0.95), _material("canopy", Color(0.045, 0.22, 0.25)))
+	Call _box(root, _ship_point(0, -0.5, -0.36), Vector3(0.5, 0.08, 2.6), dark)
+	fill = ClassDB.Instantiate("OmniLight3D")
+	fill.position = Vector3(3, 5, 1)
+	fill.light_color = Color(0.55, 0.72, 0.83)
+	fill.light_energy = 2.0
+	fill.omni_range = 14
+	root.add_child(fill)
+	Return root
+End Function

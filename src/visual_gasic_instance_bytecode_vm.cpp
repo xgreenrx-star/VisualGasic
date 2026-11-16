@@ -2257,13 +2257,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     Vector<MemberNameCacheEntry> local_member_name_cache;
     Vector<MemberNameCacheEntry> *member_name_cache_ptr = &local_member_name_cache;
     if (!is_parallel_worker && script.is_valid()) {
-        if (_member_cache_generation != script->bytecode_generation) {
-            _member_cache_by_chunk.clear();
-            _call_resolution_cache.clear();
-            _member_cache_generation = script->bytecode_generation;
-            _member_cache_last_chunk = nullptr;
-            _member_cache_last_ptr = nullptr;
-        }
+		refresh_script_caches();
         if (_member_cache_last_chunk == chunk && _member_cache_last_ptr) {
             member_name_cache_ptr = _member_cache_last_ptr;
         } else if (chunk->member_memo.cache && chunk->member_memo.instance_serial == _instance_serial &&
@@ -6550,6 +6544,17 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 };
                 bool _pb_known_user_sub = false;
                 bool _pc_engine_call = false;   // Part C: cached deep-fallback call (statement builtin / owner method)
+				bool _pc_owner_call = false;
+				auto cache_owner_call = [&](const StringName &resolved_name) {
+					if (current_object_id == -1 && name_idx >= 0 && name_idx < chunk->constants.size()) {
+						MemberNameCacheEntry &entry = ensure_member_cache_entry(name_idx);
+						entry.owner_call_name = resolved_name;
+						entry.call_disp = 2;
+						entry.call_argc = arg_count;
+						entry.owner_draw_line = resolved_name == StringName("draw_line") &&
+								!script->_has_method(resolved_name);
+					}
+				};
                 const CallResolutionCacheEntry* _pc_pre_resolved = nullptr;   // Part I: threaded into call_internal on a hit
                 {
                     const bool _cc_ok = (name_idx >= 0 && name_idx < (*member_name_cache_ptr).size());
@@ -6562,6 +6567,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             _pc_pre_resolved = &_cc->call_res;   // Part I: skip call_internal's re-resolution
                         } else if (_cc->call_disp == 1 && current_object_id == -1) {
                             _pc_engine_call = true;
+						} else if (_cc->call_disp == 2 && current_object_id == -1) {
+							_pc_engine_call = true;
+							_pc_owner_call = true;
                         }
                     } else {
                         _compute_call_keys();
@@ -6982,6 +6990,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 }
                             }
                         } // have_var
+						if (!found && _pc_owner_call && owner) {
+							MemberNameCacheEntry &entry = ensure_member_cache_entry(name_idx);
+							if (!entry.owner_draw_line || !dispatch_native_owner_draw_line(args_ptr, arg_count)) {
+								call_ret = owner->callv(entry.owner_call_name, args);
+							}
+							found = true;
+						}
                         if (!found) {
                             bool stmt_found = false;
                             dispatch_builtin_call(method, args, stmt_found, &call_ret);
@@ -6996,11 +7011,13 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 } else if (owner->has_method(method)) {
                                     call_ret = owner->callv(method, args);
                                     _pc_resolved_deep = true;
+									cache_owner_call(method);
                                 } else {
                                     String snake = method.to_snake_case();
                                     if (owner->has_method(snake)) {
                                         call_ret = owner->callv(snake, args);
                                         _pc_resolved_deep = true;
+										cache_owner_call(snake);
                                     } else {
                                         raise_error("[FROM BYTECODE_VM_4090] Sub or Function not defined: " + method, 35);
                                         if (try_recover_error(Variant())) {

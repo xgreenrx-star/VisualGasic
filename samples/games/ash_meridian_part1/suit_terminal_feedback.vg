@@ -1,0 +1,232 @@
+Option Explicit
+Inherits Node2D
+
+Dim clock As Single
+Dim flashes As Dictionary
+Dim key_rects As Dictionary
+Dim font As Object
+Dim speech_count As Integer
+Dim orac_playing As Boolean
+Dim speech_glow As Single
+Dim attack_seen As Integer
+Dim reaction As Single
+Dim last_chirp As Single
+Dim mode As String
+Dim previous_score As Variant
+Dim chatter_count As Integer
+Dim face_view As Object
+Dim defender As Object
+Dim orac_view As Object
+Dim display_elapsed As Single
+Dim previous_display_mode As String
+Dim defender_voice As Object
+
+Sub setup_displays()
+	defender_voice = ClassDB.Instantiate("Node")
+	defender_voice.set_script(Load("res://suit_defender_voice.vg"))
+	defender_voice.name = "DefenderSpeech"
+	add_child(defender_voice)
+	orac_view = ClassDB.Instantiate("SubViewport")
+	orac_view.set_script(Load("res://suit_orac_display.vg"))
+	add_child(orac_view)
+	face_view = ClassDB.Instantiate("SubViewport")
+	face_view.size = Vector2i(300, 330)
+	face_view.transparent_bg = True
+	face_view.render_target_update_mode = 0
+	add_child(face_view)
+	defender = ClassDB.Instantiate("Node2D")
+	defender.set_script(Load("res://suit_detailed_face.vg"))
+	defender.name = "DetailedNarceanFace"
+	face_view.add_child(defender)
+End Sub
+
+Sub _Ready()
+	Dim rows As Array
+	Dim row As Integer
+	Dim column As Integer
+	Dim item As Variant
+	Dim value As String
+	flashes = New Dictionary
+	key_rects = New Dictionary
+	speech_count = -1
+	last_chirp = -10.0
+	previous_score = Vector2i(-1, -1)
+	font = ClassDB.Instantiate("SystemFont")
+	font.font_names = PackedStringArray(Array("DejaVu Sans Mono", "monospace"))
+	Call setup_displays()
+	rows = Array("1234567890-=", "QWERTYUIOP[]", "ASDFGHJKL;'#", "ZXCVBNM,./<>")
+	For row = 0 To rows.size() - 1
+		value = rows(row)
+		For column = 0 To Len(value) - 1
+			key_rects(value.unicode_at(column)) = Rect2(289 + (row Mod 2) * 2 + column * 31, 415 + row * 17, 29, 17)
+		Next
+	Next
+	For Each item In Array(Array(KEY_SPACE, Rect2(376, 484, 173, 16)), Array(KEY_ENTER, Rect2(593, 484, 74, 16)), Array(KEY_BACKSPACE, Rect2(552, 484, 38, 16)), Array(KEY_SHIFT, Rect2(328, 484, 45, 16)), Array(KEY_F1, Rect2(290, 484, 35, 16)), Array(KEY_LEFT, Rect2(367, 390, 23, 17)), Array(KEY_RIGHT, Rect2(392, 390, 23, 17)), Array(KEY_UP, Rect2(417, 390, 23, 17)), Array(KEY_DOWN, Rect2(442, 390, 23, 17)))
+		key_rects(item(0)) = item(1)
+	Next
+End Sub
+
+Sub _Input(ByVal event As Object)
+	Dim code As Integer
+	Dim game As Object
+	If Not get_parent().is_visible_in_tree() Then Exit Sub
+	If Not event Is InputEventKey Then Exit Sub
+	code = event.keycode
+	If event.pressed And Not event.echo And (code = KEY_UP Or code = KEY_DOWN Or code = KEY_LEFT Or code = KEY_RIGHT Or code = KEY_B Or code = KEY_A) Then
+		game = get_parent().get_parent()
+		game.call("NoteCode", code)
+		If game.get("dev_on") Then
+			get_parent().get("loader_entry").release_focus()
+			game.queue_redraw()
+			get_viewport().set_input_as_handled()
+			Exit Sub
+		End If
+	End If
+	If code = KEY_QUOTEDBL Then code = KEY_APOSTROPHE
+	If key_rects.has(code) And event.pressed Then flashes(code) = 0.16
+	If event.shift_pressed Then flashes(KEY_SHIFT) = 0.16
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	Call advance_feedback(delta)
+End Sub
+
+Sub advance_feedback(ByVal delta As Single)
+	Dim ring As Object = get_parent()
+	Dim voice_paused As Boolean
+	Dim code As Variant
+	Dim speech As Object
+	Dim audible As Boolean
+	Dim defending As Integer
+	Dim current_score As Variant
+	If Not ring.is_visible_in_tree() Then
+		defender_voice.call("advance", 0.0, True)
+		Exit Sub
+	End If
+	voice_paused = ring.get("audio_paused") Or ring.get("help_open")
+	If ring.get("loader_step") > 0 Then
+		defender_voice.call("reset_round")
+	Else
+		defender_voice.call("advance", delta, voice_paused)
+	End If
+	clock += delta
+	speech_glow = Max(0, speech_glow - delta)
+	reaction = Max(0, reaction - delta)
+	For Each code In flashes.keys()
+		flashes(code) = Max(0, flashes(code) - delta)
+	Next
+	speech = ring.get_parent().get("speech")
+	If speech <> Nothing Then
+		audible = UCase(Str(speech.get("playing_speaker"))) = "ORAC"
+		If speech.get("backend") = "native" Then
+			audible = audible And DisplayServer.tts_is_speaking()
+		ElseIf Not speech.get("capture_only") Then
+			audible = audible And speech.get("player").playing
+		End If
+		If audible And (Not orac_playing Or speech_count <> speech.get("spoken_count")) Then Call chirp()
+		orac_playing = audible
+		speech_count = speech.get("spoken_count")
+		If audible Then speech_glow = 0.4
+	End If
+	defending = ring.get("defense_step")
+	If defending <> attack_seen Then
+		attack_seen = defending
+		reaction = 0.8
+	End If
+	current_score = Vector2i(ring.call("score", 1), ring.call("score", -1))
+	If current_score <> previous_score Then
+		previous_score = current_score
+		reaction = 0.8
+	End If
+	mode = "DEFENDER"
+	If ring.get("loader_step") > 0 Then mode = "ORAC"
+	display_elapsed += delta
+	If mode <> previous_display_mode Or display_elapsed >= 0.05 Then
+		previous_display_mode = mode
+		display_elapsed = display_elapsed - Int(display_elapsed / 0.05) * 0.05
+		Call update_displays()
+	End If
+	queue_redraw()
+End Sub
+
+Sub update_displays()
+	Dim ring As Object = get_parent()
+	Dim reduced As Boolean = ring.get("reduced_motion")
+	Dim level As Single
+	Dim face_mode As String = "idle"
+	Dim face_expression As String = "idle"
+	If mode = "ORAC" Then
+		orac_view.call("animate", clock, speech_glow, reduced)
+	Else
+		defender.call("set_reduced_motion", reduced)
+		level = defender_voice.call("mouth_level")
+		If level > 0 And Not reduced Then face_mode = "talk"
+		defender.call("set_mode", face_mode)
+		If reduced Then level = 0
+		defender.call("set_voice_level", level)
+		If defender_voice.get("emotion_left") > 0 Then face_expression = defender_voice.get("emotion")
+		defender.call("set_expression", face_expression)
+		defender.call("set_time", clock)
+		defender.queue_redraw()
+		face_view.render_target_update_mode = 1
+	End If
+End Sub
+
+Sub chirp()
+	If clock - last_chirp < 2 Then Exit Sub
+	last_chirp = clock
+	chatter_count += 1
+	get_parent().call("play_feedback", "drone_chirp", 1.35, -29.0)
+End Sub
+
+Sub label_at(ByVal text As String, ByVal position As Variant, ByVal colour As Variant, Optional ByVal size As Integer = 12)
+	draw_string(font, position, text, 0, -1, size, colour)
+End Sub
+
+Sub _Draw()
+	Dim code As Variant
+	Dim rect As Variant
+	Dim legend As String
+	Dim colour As Variant = Color(0.35, 0.8, 0.83)
+	For Each code In flashes.keys()
+		If flashes(code) > 0 Or Input.is_key_pressed(code) Then
+			rect = key_rects(code)
+			draw_rect(rect.grow(-1), Color(0.035, 0.065, 0.045, 0.9))
+			draw_rect(Rect2(rect.position + Vector2(2, 4), rect.size - Vector2(4, 5)), Color(0.3, 0.36, 0.28))
+			draw_line(rect.position + Vector2(3, 4), rect.position + Vector2(rect.size.x - 3, 4), Color(0.65, 0.72, 0.55), 1)
+			legend = OS.get_keycode_string(code)
+			If code = KEY_BACKSPACE Then legend = "DEL"
+			Call label_at(legend, rect.position + Vector2(5, 13), Color(0.9, 0.93, 0.8), 8)
+		End If
+	Next
+	draw_rect(Rect2(721, 75, 218, 350), Color(0.015, 0.035, 0.045, 0.92))
+	Call label_at("SUIT / RECEIVE ONLY", Vector2(733, 97), colour, 12)
+	draw_line(Vector2(733, 108), Vector2(927, 108), colour * 0.4)
+	If mode = "ORAC" Then
+		Call draw_core(colour)
+	Else
+		Call draw_defender()
+	End If
+End Sub
+
+Sub draw_core(ByVal colour As Variant)
+	Dim status As String = "MONITORING REPLIES"
+	draw_texture_rect(orac_view.get_texture(), Rect2(722, 117, 216, 226), False)
+	Call label_at("ORAC / LOGIC CORE", Vector2(744, 360), colour)
+	If speech_glow > 0 Then status = "VOICE ACTIVE"
+	Call label_at(status, Vector2(741, 382), colour * 0.8, 11)
+	Call label_at("NO PROGRAMMER TX PATH", Vector2(735, 405), colour * 0.6, 10)
+End Sub
+
+Sub draw_defender()
+	Dim ring As Object = get_parent()
+	Dim colour As Variant = Color(0.5, 0.87, 0.95)
+	Dim player_score As String = Str(ring.call("score", 1))
+	Dim defender_score As String = Str(ring.call("score", -1))
+	If Len(player_score) < 2 Then player_score = "0" & player_score
+	If Len(defender_score) < 2 Then defender_score = "0" & defender_score
+	draw_texture_rect(face_view.get_texture(), Rect2(730, 117, 200, 230), False)
+	Call label_at("TARGET / SECURITY", Vector2(742, 360), colour)
+	Call label_at(Str(ring.get("stage")), Vector2(777, 382), colour, 12)
+	Call label_at("P " & player_score & "    DEF " & defender_score, Vector2(756, 405), colour, 12)
+End Sub

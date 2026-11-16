@@ -85,7 +85,8 @@ Sub setup_display()
 	If crt_mat.shader = Nothing Then Print "ERROR: Fast Hack'em CRT shader could not be loaded."
 	crt.material = crt_mat
 	add_child(crt)
-	loader_entry = Load("res://suit_screen_editor.gd").new()
+	loader_entry = ClassDB.Instantiate("LineEdit")
+	loader_entry.set_script(Load("res://suit_screen_editor.vg"))
 	loader_entry.name = "LoaderCommandInput"
 	loader_entry.position = Vector2(GLASS_X + 22, GLASS_Y + 260)
 	loader_entry.size = Vector2(340, 25)
@@ -94,10 +95,12 @@ Sub setup_display()
 	loader_entry.modulate = Color(1, 1, 1, 0)
 	loader_entry.visible = False
 	add_child(loader_entry)
-	terminal_feedback = Load("res://suit_terminal_feedback.gd").new()
+	terminal_feedback = ClassDB.Instantiate("Node2D")
+	terminal_feedback.set_script(Load("res://suit_terminal_feedback.vg"))
 	terminal_feedback.name = "TerminalFeedback"
 	add_child(terminal_feedback)
-	orac_dialogue = Load("res://suit_orac_dialogue.gd").new()
+	orac_dialogue = ClassDB.Instantiate("Node")
+	orac_dialogue.set_script(Load("res://suit_orac_dialogue.vg"))
 	orac_dialogue.name = "OracCommentary"
 	add_child(orac_dialogue)
 End Sub

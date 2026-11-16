@@ -384,6 +384,7 @@ Sub ensure_state(ByVal city As Node)
 	If Not st.has("foot_y") Then st("foot_y") = 0.0
 	If Not st.has("powered") Then st("powered") = False
 	If Not st.has("narcean_lexicon") Then st("narcean_lexicon") = False
+	If Not st.has("lift_index_loaded") Then st("lift_index_loaded") = False
 	If Not st.has("levers") Then st("levers") = New Dictionary
 	grid_power = st("powered") = True
 End Sub
@@ -596,7 +597,7 @@ Sub _weak(ByVal r As Rect2, ByVal dest As String, ByVal key As String)
 End Sub
 
 ' Stroke glyph alphabet shared with the HUD; strokes are drawn as lit bars in 3D.
-Sub glyph3(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal digit As Integer, ByVal scale As Single, ByVal color As Color)
+Sub glyph3(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal digit As Integer, ByVal scale As Single, ByVal color As Color, Optional lit As Variant = True)
 	Dim patterns As Array
 	Dim paths As Array
 	Dim pts As Array
@@ -613,15 +614,15 @@ Sub glyph3(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, 
 			For j = 0 To pts.size() - 2
 				a = origin + right * (pts(j).x * scale) + down * (pts(j).y * scale)
 				b = origin + right * (pts(j + 1).x * scale) + down * (pts(j + 1).y * scale)
-				city._bar(a, b, 1.7 * scale, color, True)
+				city._bar(a, b, 1.7 * scale, color, lit)
 			Next
 		End If
 	Next
 End Sub
 
-Sub glyph3_string(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal text As String, ByVal scale As Single, ByVal color As Color)
+Sub glyph3_string(ByVal city As Node, ByVal origin As Vector3, ByVal right As Vector3, ByVal text As String, ByVal scale As Single, ByVal color As Color, Optional lit As Variant = True)
 	For i = 0 To text.length() - 1
-		glyph3(city, origin + right * (i * 23 * scale), right, Int(text.substr(i, 1)), scale, color)
+		glyph3(city, origin + right * (i * 23 * scale), right, Int(text.substr(i, 1)), scale, color, lit)
 	Next
 End Sub
 
@@ -664,6 +665,29 @@ Sub _console_data(ByVal p As Vector2, ByVal text As String, ByVal reveal As Arra
 	entry("text") = text
 	entry("reveal") = reveal
 	consoles.append(entry)
+End Sub
+
+Sub _spray_address(ByVal city As Node, ByVal wall_p As Vector3, ByVal normal As Vector3, ByVal interact_p As Vector2, ByVal digits As String)
+	Dim entry As Dictionary
+	Dim right As Vector3
+	Dim width As Single
+	Dim paint As Color
+	Dim arrow_y As Single
+	Dim arrow_z As Single
+	_sign_data(wall_p, normal, "MJH'S RETURN MARK / RETURN ADDRESS " & digits)
+	_console_data(interact_p, "MJH'S RETURN MARK / RETURN ADDRESS " & digits, Array(digits))
+	entry = consoles(consoles.size() - 1)
+	entry("return_mark") = True
+	If Not drawing Then Exit Sub
+	right = normal.cross(Vector3.UP)
+	width = digits.length() * 23 * 0.022
+	paint = Color(0.85, 0.19, 0.11)
+	glyph3_string(city, wall_p + normal * 0.05 - right * (width * 0.5) + Vector3(0, 0.2, 0), right, digits, 0.022, paint, False)
+	arrow_y = wall_p.y - 0.65
+	arrow_z = wall_p.z + normal.z * 0.05
+	_line3(city, Vector3(wall_p.x + 0.8, arrow_y, arrow_z), Vector3(wall_p.x + 3.6, arrow_y, arrow_z), 0.045, paint, False)
+	_line3(city, Vector3(wall_p.x + 3.6, arrow_y, arrow_z), Vector3(wall_p.x + 3.0, arrow_y + 0.35, arrow_z), 0.045, paint, False)
+	_line3(city, Vector3(wall_p.x + 3.6, arrow_y, arrow_z), Vector3(wall_p.x + 3.0, arrow_y - 0.35, arrow_z), 0.045, paint, False)
 End Sub
 
 Sub _frame(ByVal city As Node, ByVal code As String, ByVal w As Single, ByVal l As Single, ByVal h As Single, ByVal floor_color As Color, ByVal wall_color As Color, ByVal draw_floor As Boolean)
@@ -1600,8 +1624,8 @@ Sub _layout_archive(ByVal city As Node)
 	_sign(city, Vector3(-4.5, 3.0, 0.36), Vector3(0, 0, 1), "11", "ARCHIVE OFFICES - RECORDS DIVISION")
 End Sub
 
-' B12: a hydroponic gallery under grow lights. Terraces climb to the index console;
-' the irrigation grid pulses and the lower beds flooded around a torn feed line.
+' B12: a hydroponic gallery under grow lights. Terraces climb above the lower
+' beds; MJH painted a personal return address beside the lift entrance.
 Sub _layout_garden(ByVal city As Node)
 	Dim moss As Color
 	Dim stone As Color
@@ -1638,7 +1662,7 @@ Sub _layout_garden(ByVal city As Node)
 		_plant(city, p, 6.0, 1.4)
 	Next
 	_terminal(city, "36912", Vector2(0, 58), Vector2(0, -1), "3691", 3.0)
-	_console_at(city, Vector2(-28, 86), 6.0, "TRANSLATED: GALLERY INDEX / UNDERCITY TRANSIT 88216 / GRID DOWN - RESTORE AT THE TRANSFER STATION", Array("88216"))
+	_spray_address(city, Vector3(-9, 3.45, 0.18), Vector3(0, 0, 1), Vector2(-9, 1.8), "88216")
 	_pickup("36912", "gold_bar", Vector3(-15, 6.0, 81))
 	' Irrigation grid between the planters.
 	_solid(city, Rect2(-35, 42, 18, 4), 0.0, 1.0, stone * 0.6)
@@ -2335,7 +2359,7 @@ End Sub
 Sub _build_club_alien(ByVal city As Node)
 	Dim resident As Object
 	resident = ClassDB.Instantiate("Node3D")
-	resident.SetScript(Load("res://club_alien.gd"))
+	resident.SetScript(Load("res://club_alien.vg"))
 	resident.name = "ClubAlien"
 	city.interior.add_child(resident)
 	resident.setup(city)
@@ -5502,6 +5526,14 @@ Function use(ByVal city As Node) As Boolean
 			If Not knows(city, code) Then fresh = fresh & " " & code
 			learn(city, code)
 		Next
+		If c.has("return_mark") And Not interface_lexicon_ready(city) Then
+			If fresh <> "" Then
+				city.notify("ORAC: MJH's painted return mark. I copied the address glyphs into the journal; match them at the lift.")
+			Else
+				city.notify("ORAC: MJH's return mark is saved. The address glyphs remain untranslated.")
+			End If
+			Return True
+		End If
 		If fresh <> "" Then
 			If interface_lexicon_ready(city) Then
 				city.notify(c("text") & "  [ADDRESS LOGGED:" & fresh & "]")
@@ -5753,6 +5785,7 @@ End Sub
 
 Function prompt(ByVal city As Node) As String
 	Dim g As Dictionary
+	Dim c As Dictionary
 	Call EnsureInit()
 	ensure_layout(city)
 	If hacking Then Return "HACK: F/SPACE WHEN THE CYCLING GLYPH MATCHES THE LIT SLOT / BACKSPACE ABORT"
@@ -5781,7 +5814,11 @@ Function prompt(ByVal city As Node) As String
 		If Not city.stratum.has("club_powered") Or city.stratum("club_powered") = False Then Return "DJ BOOTH AHEAD, UNDER THE VIDEO WALL / F AT THE LIT SWITCH TO START"
 	End If
 	If in_alcove(city.position_xz) Then Return "LIFT CAR / F: KEYPAD / I: PACK"
-	If _near_console(city) <> Nothing Then Return "F: READ CONSOLE"
+	c = _near_console(city)
+	If c <> Nothing Then
+		If c.has("return_mark") Then Return "MJH'S RETURN MARK / F: COPY LIFT ADDRESS"
+		Return "F: READ CONSOLE"
+	End If
 	If _near_terminal(city) <> Nothing Then Return "NARCEAN TERMINAL / F: USE"
 	g = _near_lever(city)
 	If g <> Nothing Then
@@ -5845,6 +5882,7 @@ Function scan(ByVal city As Node) As String
 	Next
 	If city.awakening Then Return "ORAC: Back to the lift car and key " & ASCENT & ". Now!"
 	If city.floor_code = "77125" Then Return "ORAC: Empty launch cradle, four damaged records. The lit telepad near the arrival point returns to the club."
+	If city.floor_code = "36912" And Not knows(city, "88216") Then Return "ORAC: MJH left a return mark beside the lift entrance. Copy its address glyphs into the journal."
 	If Not interface_lexicon_ready(city) Then Return "ORAC: " & Str(n) & " salvage signatures, " & Str(seal) & " sealed doors. I can copy address glyphs, but cannot translate their labels yet."
 	Return "ORAC: " & level_label(city.floor_code) & ". " & Str(n) & " salvage signatures, " & Str(seal) & " sealed doors. Lift car ascent code " & ASCENT & "."
 End Function

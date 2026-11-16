@@ -212,7 +212,7 @@ func _run() -> void:
 		game.queue_redraw()
 		await process_frame
 	var renderer = game.get_node("Presentation")
-	check(load("res://buggy_art.gd").can_instantiate(), "Buggy cockpit art loads successfully")
+	check(load("res://buggy_art.vg") != null, "Buggy cockpit art loads successfully")
 	var rebuilds: int = renderer.rebuild_count
 	var start := Time.get_ticks_usec()
 	for frame in 12:

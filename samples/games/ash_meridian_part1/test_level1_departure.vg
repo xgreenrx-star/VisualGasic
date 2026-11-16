@@ -1,0 +1,156 @@
+' MAX_FRAMES: 30
+Option Explicit
+
+Dim checks As Integer
+Dim failures As Integer
+Dim finish_test As Boolean
+Dim finish_frames As Integer
+
+Sub check(ByVal condition As Boolean, ByVal label As String)
+	checks = checks + 1
+	If condition Then
+		Print "PASS: " & label
+	Else
+		failures = failures + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim game As Object
+	Dim view As Object
+	Dim preview As Object
+	Dim directory As Object
+	Dim save_path As String
+	Dim previous_environment As Object
+	Dim previous_transform As Transform3D
+	Dim previous_size As Vector2i
+	Dim previous_far As Single
+	Dim previous_msaa As Integer
+	Dim previous_transparent As Boolean
+	Dim line As String
+	Dim transcript As String
+	Dim i As Integer
+	game = Load("res://main.tscn").instantiate()
+	add_child(game)
+	game.set_process(False)
+	If game.boot_term <> Nothing Then game.boot_term.sfx.stop()
+	game.ReleaseBootTerminal()
+	view = game.presentation
+	view.EnsureInit()
+	view.camera.scale = Vector3(-1, 1, 1)
+	view.camera.fov = 61.0
+	previous_environment = view.camera.environment
+	previous_transform = view.camera.transform
+	previous_far = view.camera.far
+	previous_size = view.viewport.size
+	previous_msaa = view.viewport.msaa_3d
+	previous_transparent = view.viewport.transparent_bg
+	save_path = "user://departure_preview_test_" & Str(OS.get_process_id()) & ".cfg"
+	game.campaign.save_path = save_path
+	WriteAllText save_path, "preview save sentinel"
+	game.phase = 12
+	game.dev_on = True
+	game.dev_i = 23
+	game.campaign_active = False
+	check(game.PageCount() = 14 And game.SceneAt(13) = 23 And game.RowLabel(13) = "LEVEL 1 DEPARTURE / STATION DEAL", "preview_is_selectable_from_main_dev_menu")
+	game.WarpDev()
+	preview = view.level1_departure
+	check(game.phase = 24 And Not game.dev_on And preview <> Nothing, "dev_menu_launches_departure_preview")
+	check(view.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS, "viewport_updates_before_first_draw")
+	check(Not game.campaign_active And ReadAllText(save_path) = "preview save sentinel", "preview_does_not_start_or_save_campaign")
+	check(view.viewport.size = Vector2i(1920, 1080) And view.viewport.msaa_3d = Viewport.MSAA_4X, "cinematic_uses_1080p_and_4x_MSAA")
+	check(preview.heading() = "LEVEL 1 / LEAVING NARCEA", "preview_starts_at_departure")
+	view.begin_frame(False, False, False, False, True)
+	view.draw_level1_departure()
+	game.DrawLevel1Departure()
+	check(preview.visible And preview.scene_root.get_parent() = view.viewport, "real_frame_keeps_cinematic_attached_and_visible")
+	check(view.camera.basis.determinant() > 0.0, "pose_replaces_the_campaign_mirrored_camera_basis")
+	check(game.departure_art_layer.visible And game.departure_art_rect.texture = view.viewport.get_texture(), "direct_3D_texture_is_presented_without_FXAA_viewport")
+	check(game.departure_ui_layer.visible And game.departure_ui_heading.text = preview.heading(), "captions_are_above_art")
+	check(preview.planet.visible And preview.planetary_ring.visible And preview.ship.visible, "departing_ship_and_Narcea_visible")
+	check(preview.planet.scale.x = 1000.0 And preview.planetary_ring.get_child(0).mesh.top_radius = 1500.0, "planet_and_band_preserve_approved_voyage_scale")
+	check(preview.ship.name = "AshGate7Courier", "preview_uses_the_gate7_delta_courier")
+	view.tick_level1_departure(-10.0)
+	check(preview.shot_elapsed = 0.0, "negative_delta_does_not_rewind_scene")
+	view.tick_level1_departure(5.1)
+	check(preview.caption() = "ORAC: Of the ring. Keep climbing.", "departure_banter_advances_with_shot")
+	view.advance_level1_departure()
+	view.draw_level1_departure()
+	check(preview.shot = 1 And preview.hyperspace.visible And Not preview.planet.visible And Not preview.planetary_ring.visible, "hyperspace_clears_Narcea")
+	view.advance_level1_departure()
+	view.draw_level1_departure()
+	check(preview.shot = 2 And preview.station.visible And Not preview.hyperspace.visible, "approach_shows_station")
+	check(preview.caption().contains("amber markers") And preview.heading().contains("APPROACH"), "approach_does_not_claim_playable_docking")
+	view.advance_level1_departure()
+	view.draw_level1_departure()
+	check(preview.shot = 3 And preview.heading() = "BERTH 04 / SIX HOURS LATER", "rest_precedes_call")
+	check(preview.cabin.visible And preview.resting_jason.visible And Not preview.buyer_panel.visible, "rest_shows_sleeper_and_no_radio_link")
+	check(preview.caption().contains("six hours"), "Jason_has_time_to_rest")
+	view.tick_level1_departure(1.0)
+	check(preview.deal_line = -1 And preview.shot = 3, "rest_precedes_automatic_call")
+	check(preview.radio_lines.size() >= 24, "radio_scene_is_a_conversation_not_four_exposition_cards")
+	For i = 0 To preview.radio_lines.size() - 1
+		view.advance_level1_departure()
+		view.draw_level1_departure()
+		line = preview.caption()
+		check(preview.shot = 3 And preview.deal_line = i And line = preview.radio_lines(i), "radio_turn_" & Str(i) & "_is_reachable_once")
+		transcript = transcript & line & vbLf
+		check(Not preview.resting_jason.visible And preview.buyer_panel.visible, "radio_turn_" & Str(i) & "_wakes_Jason_and_shows_audio_link")
+		If i >= preview.call_end_line Then
+			check(preview.radio_state() = "closed" And preview.scene_root.radio_status.text = "LINK CLOSED", "aftermath_turn_" & Str(i) & "_closes_the_display")
+		ElseIf i >= 4 Then
+			check(preview.radio_state() = "connected" And preview.scene_root.radio_status.text = "VOICE LINK", "negotiation_turn_" & Str(i) & "_keeps_the_call_connected")
+		End If
+	Next
+	check(transcript.contains("an artifact back from Narcea") And Not transcript.contains("something back from Narcea"), "buyer_identifies_the_artifact_in_opening_question")
+	check(transcript.contains("Do you know where the other half is?") And transcript.contains("No. That's why I need your coordinates."), "buyer_does_not_know_counterpart_location")
+	check(transcript.contains("Your flight log will do") And transcript.contains("No coordinates. No flight logs.") And transcript.contains("No coordinates or flight logs sent."), "buyer_pressures_for_route_but_Jason_and_Orac_keep_it_private")
+	check(transcript.find("Fuel, berth fees and a recovery bonus") < transcript.find("JASON: A ship.") And transcript.find("JASON: A ship.") < transcript.find("I have a Kestrel-class"), "Jason_negotiates_ship_after_buyers_cash_offer")
+	check(transcript.contains("For one salvage job? No.") And transcript.contains("Don't. Just... give me a moment."), "buyer_resists_then_concedes_under_pressure")
+	check(transcript.contains("The Antique") And transcript.contains("Kestrel-class patrol courier") And transcript.contains("thirty-eight years old"), "reward_is_a_named_old_ship_not_an_Ash_nickname")
+	check(transcript.contains("Twin pulse cannons") And transcript.contains("Two independent shield banks") And transcript.contains("military-rated drive"), "old_courier_has_offence_and_defence_upgrades")
+	check(transcript.contains("working autodock") And transcript.contains("I have no problem docking") And transcript.contains("dents along the Ash's port side"), "autodock_banter_refers_to_the_correct_ships")
+	check(transcript.contains("not making that trip again without a major rebuild") And transcript.contains("I need the Antique before I leave"), "Jason_demands_a_flightworthy_loan_ship_before_departure")
+	check(transcript.contains("what stops you taking her and disappearing?") And transcript.contains("The Ash. And the half I've already found."), "buyer_demands_collateral_and_Jason_supplies_it")
+	check(transcript.contains("independent escrow agent") And transcript.contains("Sealed storage") And transcript.contains("You don't get to touch it while I'm away"), "artifact_is_protected_from_buyer_access")
+	check(transcript.contains("Independent inspection") And transcript.contains("Clean title lodged with the agent") And transcript.contains("stays registered to me until delivery"), "loan_use_and_eventual_ownership_are_distinct")
+	check(transcript.contains("No remote shutdown, tracking feed or access to our flight logs"), "loan_does_not_give_buyer_remote_control_or_route_data")
+	check(transcript.contains("communications grace period") And transcript.contains("A missed call is not default") And transcript.contains("Any dispute goes through the agent"), "communication_loss_does_not_trigger_collateral_seizure")
+	check(transcript.contains("I return the Antique") And transcript.contains("returns the Ash and my artifact") And transcript.contains("You still pay for the search"), "unsuccessful_search_has_a_defined_paid_return_path")
+	check(transcript.contains("collateral value covers the loan") And transcript.contains("Loss and default terms in writing"), "escrow_must_cover_the_buyers_risk_before_handover")
+	check(transcript.contains("releases both pieces to you and transfers the Antique to me"), "successful_delivery_completes_both_sides_of_escrow")
+	check(Not transcript.contains("This half stays with me until delivery") And Not transcript.contains("You get the Antique when I get both pieces. Not before."), "old_deal_terms_do_not_contradict_predeparture_loan")
+	check(transcript.contains("Part of a navigation system") And Not transcript.contains("gate") And Not transcript.contains("FTL"), "buyer_is_evasive_and_does_not_reveal_gate_hypothesis")
+	check(transcript.contains("not your flight computer") And transcript.contains("interface with the controls") And transcript.contains("I'm a pilot. I like flying.") And transcript.contains("travel in a box"), "Orac_is_physical_and_can_interface_but_Jason_chooses_to_pilot")
+	check(transcript.contains("talk to Stacy"), "private_aftermath_retains_Stacy")
+	view.advance_level1_departure()
+	view.draw_level1_departure()
+	check(preview.shot = 4 And Not preview.buyer_panel.visible, "radio_closes_after_last_turn")
+	view.advance_level1_departure()
+	check(preview.shot = 0 And preview.deal_line = -1 And preview.elapsed = 0.0, "completion_replays_cleanly")
+	view.tick_level1_departure(14.1)
+	check(preview.shot = 1, "departure_advances_after_full_banter")
+	view.restart_level1_departure()
+	view.tick_level1_departure(13.9)
+	check(preview.shot = 0, "departure_does_not_advance_before_duration")
+	check(view.draw_level1_departure() <> Nothing, "cinematic_returns_viewport_texture")
+	view.stop_level1_departure()
+	check(view.level1_departure = Nothing And view.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED, "stop_releases_world_and_disables_rendering")
+	check(view.camera.environment = previous_environment And view.camera.far = previous_far And view.camera.fov = 61.0 And view.camera.transform = previous_transform, "stop_restores_complete_camera_state_including_mirror")
+	check(view.viewport.size = previous_size And view.viewport.msaa_3d = previous_msaa And view.viewport.transparent_bg = previous_transparent, "stop_restores_gameplay_resolution_MSAA_and_background")
+	check(ReadAllText(save_path) = "preview save sentinel", "cleanup_preserves_campaign_save")
+	check(view.start_level1_departure(), "preview_can_be_reentered_after_cleanup")
+	view.stop_level1_departure()
+	directory = ClassDB.class_call_static("DirAccess", "open", "user://")
+	directory.remove(save_path)
+	game.queue_free()
+	Print "LEVEL1_DEPARTURE_RESULT=" & Str(checks - failures) & "/" & Str(checks)
+	finish_test = True
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If Not finish_test Then Exit Sub
+	finish_frames = finish_frames + 1
+	If finish_frames >= 2 Then GetTree().quit(failures)
+End Sub

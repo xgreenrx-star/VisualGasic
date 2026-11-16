@@ -1,0 +1,500 @@
+[
+	{
+		"audio": "res://assets/audio/departure/voice_000.ogg",
+		"caption": "ORAC: Jason. Incoming call.",
+		"seconds": 2.238625,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_001.ogg",
+		"caption": "JASON: Already? How long was I out?",
+		"seconds": 1.89416666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_002.ogg",
+		"caption": "ORAC: Six hours. I did consider telling them you'd died, but they might have asked for the room back.",
+		"seconds": 5.72291666666667,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_003.ogg",
+		"caption": "JASON: Give me a second. All right. Put them through.",
+		"seconds": 2.7075,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_004.ogg",
+		"caption": "BUYER / RADIO: You're the pilot who brought an artifact back from Narcea?",
+		"seconds": 3.02204166666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_005.ogg",
+		"caption": "JASON: That depends. Who gave you this channel?",
+		"seconds": 2.26270833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_006.ogg",
+		"caption": "BUYER / RADIO: The broker. I've seen your scan. Withdraw the listing. Now.",
+		"seconds": 3.83470833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_007.ogg",
+		"caption": "JASON: You haven't even made an offer.",
+		"seconds": 1.47516666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_008.ogg",
+		"caption": "BUYER / RADIO: I will. First, where did you find it? Send me the coordinates.",
+		"seconds": 3.472875,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_009.ogg",
+		"caption": "JASON: Narcea. That's as precise as I'm getting until we've agreed a price.",
+		"seconds": 3.823375,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_010.ogg",
+		"caption": "BUYER / RADIO: I need the site, not a name. Your flight log will do.",
+		"seconds": 2.96554166666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_011.ogg",
+		"caption": "JASON: Then you'd have my route and I'd still have no offer.",
+		"seconds": 2.31941666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_012.ogg",
+		"caption": "BUYER / RADIO: Listen. I've spent years chasing dead ends. You have something real. Don't waste my time.",
+		"seconds": 5.24470833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_013.ogg",
+		"caption": "JASON: Then tell me what it is.",
+		"seconds": 1.251375,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_014.ogg",
+		"caption": "BUYER / RADIO: Part of a navigation system. The rest is technical. You needn't concern yourself with it.",
+		"seconds": 4.80354166666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_015.ogg",
+		"caption": "JASON: I'm the one who had to carry it out. I'll decide what concerns me.",
+		"seconds": 3.25404166666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_016.ogg",
+		"caption": "BUYER / RADIO: That edge isn't broken. It's a coupling face. There should be a matching piece. Did you leave anything behind?",
+		"seconds": 5.66995833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_017.ogg",
+		"caption": "JASON: Do you know where the other half is?",
+		"seconds": 1.46691666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_018.ogg",
+		"caption": "BUYER / RADIO: No. That's why I need your coordinates.",
+		"seconds": 2.43175,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_019.ogg",
+		"caption": "JASON: You need someone to go back and look. Someone who knows the way in.",
+		"seconds": 3.14545833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_020.ogg",
+		"caption": "BUYER / RADIO: Fine. Fuel, berth fees and a recovery bonus. But you leave tomorrow.",
+		"seconds": 4.41570833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_021.ogg",
+		"caption": "JASON: The Ash barely got me here. She's not making that trip again without a major rebuild.",
+		"seconds": 4.27675,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_022.ogg",
+		"caption": "BUYER / RADIO: You're being paid to collect a component, not start a war.",
+		"seconds": 2.92458333333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_023.ogg",
+		"caption": "JASON: I don't get to choose what I run into out there.",
+		"seconds": 2.2505,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_024.ogg",
+		"caption": "BUYER / RADIO: Name a figure.",
+		"seconds": 1.02258333333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_025.ogg",
+		"caption": "JASON: A ship. One with proper shields and something to fire back with.",
+		"seconds": 3.46470833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_026.ogg",
+		"caption": "BUYER / RADIO: For one salvage job? No.",
+		"seconds": 1.95016666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_027.ogg",
+		"caption": "JASON: Then you want a cheaper pilot. The broker can keep the listing up.",
+		"seconds": 3.06516666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_028.ogg",
+		"caption": "BUYER / RADIO: Don't. Just... give me a moment.",
+		"seconds": 1.79354166666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_029.ogg",
+		"caption": "BUYER / RADIO: I have a Kestrel-class patrol courier. The Antique. She's been in bonded storage.",
+		"seconds": 4.60641666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_030.ogg",
+		"caption": "JASON: How long?",
+		"seconds": 0.813083333333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_031.ogg",
+		"caption": "BUYER / RADIO: She's thirty-eight years old. Maintained, not abandoned. Don't confuse the two.",
+		"seconds": 4.591125,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_032.ogg",
+		"caption": "ORAC: Send the registry and service records, please. Not the sales brochure.",
+		"seconds": 4.87325,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_033.ogg",
+		"caption": "BUYER / RADIO: Twin pulse cannons. Two independent shield banks. A military-rated drive. She was built to bring people home.",
+		"seconds": 6.48454166666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_034.ogg",
+		"caption": "JASON: That's more than the Ash ever had. What's wrong with her?",
+		"seconds": 2.68704166666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_035.ogg",
+		"caption": "BUYER / RADIO: Nothing an inspection won't settle. Bring me the complete assembly and she's yours.",
+		"seconds": 4.492375,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_036.ogg",
+		"caption": "ORAC: The records include a working autodock. That alone would be a welcome change.",
+		"seconds": 5.28025,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_037.ogg",
+		"caption": "JASON: I have no problem docking.",
+		"seconds": 1.48270833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_038.ogg",
+		"caption": "ORAC: The dents along the Ash's port side disagree.",
+		"seconds": 3.33695833333333,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_039.ogg",
+		"caption": "BUYER / RADIO: Can we finish this? I need an answer.",
+		"seconds": 2.32620833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_040.ogg",
+		"caption": "JASON: I need the Antique before I leave. A reward ship won't help if I don't come back.",
+		"seconds": 4.203,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_041.ogg",
+		"caption": "BUYER / RADIO: And what stops you taking her and disappearing?",
+		"seconds": 2.37325,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_042.ogg",
+		"caption": "JASON: The Ash. And the half I've already found.",
+		"seconds": 2.29995833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_043.ogg",
+		"caption": "BUYER / RADIO: You'll hand it over?",
+		"seconds": 1.133,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_044.ogg",
+		"caption": "JASON: To an independent escrow agent. Sealed storage. You don't get to touch it while I'm away.",
+		"seconds": 4.64854166666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_045.ogg",
+		"caption": "BUYER / RADIO: Your broken ship isn't worth much.",
+		"seconds": 1.955125,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_046.ogg",
+		"caption": "JASON: You didn't wake me up for the ship. How much is that artifact worth to you?",
+		"seconds": 3.56075,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_047.ogg",
+		"caption": "BUYER / RADIO: Enough. The agent holds both. The Antique stays registered to me until delivery.",
+		"seconds": 4.95416666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_048.ogg",
+		"caption": "ORAC: Independent inspection first. Clean title lodged with the agent. No remote shutdown, tracking feed or access to our flight logs.",
+		"seconds": 9.25920833333333,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_049.ogg",
+		"caption": "BUYER / RADIO: You want me to lend you a ship with no way to take it back?",
+		"seconds": 2.86716666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_050.ogg",
+		"caption": "JASON: You have collateral. I'm not flying something you can switch off because I miss a call.",
+		"seconds": 4.33825,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_051.ogg",
+		"caption": "BUYER / RADIO: All right. Fuel and berth fees are covered. We agree a return date before you leave.",
+		"seconds": 4.63391666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_052.ogg",
+		"caption": "JASON: And a communications grace period. Narcea doesn't exactly have reliable service.",
+		"seconds": 4.607375,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_053.ogg",
+		"caption": "ORAC: A missed call is not default. Any dispute goes through the agent, not an automatic seizure.",
+		"seconds": 5.958625,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_054.ogg",
+		"caption": "JASON: If I bring back the match, the agent releases both pieces to you and transfers the Antique to me.",
+		"seconds": 4.95279166666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_055.ogg",
+		"caption": "BUYER / RADIO: And if you don't?",
+		"seconds": 1.01383333333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_056.ogg",
+		"caption": "JASON: I return the Antique. The agent returns the Ash and my artifact. You still pay for the search.",
+		"seconds": 5.09975,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_057.ogg",
+		"caption": "BUYER / RADIO: You're being paid to look, yes. You don't get to keep my ship for trying.",
+		"seconds": 3.70070833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_058.ogg",
+		"caption": "ORAC: And the agent verifies the collateral value covers the loan. Loss and default terms in writing, before anything changes hands.",
+		"seconds": 8.23879166666667,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_059.ogg",
+		"caption": "BUYER / RADIO: Agreed. Now send the site.",
+		"seconds": 1.90891666666667,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_060.ogg",
+		"caption": "JASON: No coordinates. No flight logs. You're buying what I recover, not the route.",
+		"seconds": 4.285875,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_061.ogg",
+		"caption": "BUYER / RADIO: I could send a team. You'd be safer.",
+		"seconds": 2.293375,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_062.ogg",
+		"caption": "JASON: You could send a team without me. That's why you're not getting the coordinates.",
+		"seconds": 3.49620833333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_063.ogg",
+		"caption": "BUYER / RADIO: Keep them, then. But contact me directly if you find anything else. No brokers.",
+		"seconds": 4.65595833333333,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_064.ogg",
+		"caption": "JASON: Send the contract to the agent. Once the inspection passes and the advance clears, we can exchange the collateral and the keys.",
+		"seconds": 6.70316666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_065.ogg",
+		"caption": "BUYER / RADIO: Send your terms. Tonight. I've waited long enough.",
+		"seconds": 3.018125,
+		"speaker": "bm_lewis"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_066.ogg",
+		"caption": "JASON: Call ended?",
+		"seconds": 0.883958333333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_067.ogg",
+		"caption": "ORAC: Ended. No coordinates or flight logs sent.",
+		"seconds": 3.507875,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_068.ogg",
+		"caption": "JASON: You really want that autodock, don't you?",
+		"seconds": 1.936625,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_069.ogg",
+		"caption": "ORAC: I'm an advanced intelligence, not your flight computer. You could ask me to interface with the controls occasionally.",
+		"seconds": 7.05641666666667,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_070.ogg",
+		"caption": "JASON: I'm a pilot. I like flying.",
+		"seconds": 1.930125,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_071.ogg",
+		"caption": "ORAC: I know. I travel in a box. I like arriving intact.",
+		"seconds": 4.37633333333333,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_072.ogg",
+		"caption": "JASON: I need to talk to Stacy before we leave.",
+		"seconds": 2.022125,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_073.ogg",
+		"caption": "ORAC: I'll prepare a message. The return course can wait.",
+		"seconds": 3.23308333333333,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_074.ogg",
+		"caption": "JASON: Tell me we're clear.",
+		"seconds": 1.03933333333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_075.ogg",
+		"caption": "ORAC: Of the ring. Keep climbing.",
+		"seconds": 2.1895,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_076.ogg",
+		"caption": "JASON: I wasn't planning to stop.",
+		"seconds": 1.31866666666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_077.ogg",
+		"caption": "JASON: Same course?",
+		"seconds": 0.926,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_078.ogg",
+		"caption": "ORAC: Same course. There's still a very great deal of nothing between us and the station.",
+		"seconds": 5.10004166666667,
+		"speaker": "Orac"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_079.ogg",
+		"caption": "JASON: Good. Wake me when that changes.",
+		"seconds": 2.06629166666667,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_080.ogg",
+		"caption": "STATION / RADIO: Ash, you're cleared for Berth Four. Follow the amber markers.",
+		"seconds": 3.502625,
+		"speaker": "am_michael"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_081.ogg",
+		"caption": "JASON: Berth Four. Any chance of a bed that isn't attached to an engine?",
+		"seconds": 3.49858333333333,
+		"speaker": "jason"
+	},
+	{
+		"audio": "res://assets/audio/departure/voice_082.ogg",
+		"caption": "STATION / RADIO: If you can pay for it.",
+		"seconds": 1.2585,
+		"speaker": "am_michael"
+	}
+]

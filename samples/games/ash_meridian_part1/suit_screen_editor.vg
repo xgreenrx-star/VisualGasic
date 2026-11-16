@@ -1,0 +1,171 @@
+Option Explicit
+Inherits LineEdit
+
+Const COLUMNS As Integer = 38
+Const ROWS As Integer = 21
+Dim CELL As Variant
+Dim ORIGIN As Variant
+Dim edit_row As Integer
+Dim prompt_text As String
+Dim blink_time As Single
+Dim font As Object
+
+Sub _Ready()
+	CELL = Vector2(14, 22)
+	ORIGIN = Vector2(30, 45)
+	edit_row = -1
+	font = ClassDB.Instantiate("SystemFont")
+	font.font_names = PackedStringArray(Array("DejaVu Sans Mono", "monospace"))
+End Sub
+
+Sub _Process(ByVal delta As Single)
+	If Me.visible And Me.editable And get_parent().is_visible_in_tree() Then blink_time += delta
+End Sub
+
+Sub reset_screen_cursor()
+	edit_row = -1
+	prompt_text = ""
+	Me.text = ""
+	Me.caret_column = 0
+	blink_time = 0.0
+End Sub
+
+Function terminal() As Object
+	Return get_parent().get("terminal")
+End Function
+
+Function row_index() As Integer
+	If edit_row >= 0 Then Return edit_row
+	Return terminal().get("transcript").size()
+End Function
+
+Sub store_row()
+	Dim lines As Array
+	If edit_row >= 0 Then
+		lines = terminal().get("transcript")
+		If edit_row < lines.size() Then lines(edit_row) = Me.text
+	Else
+		prompt_text = Me.text
+	End If
+End Sub
+
+Sub move_vertical(ByVal direction As Integer)
+	Dim lines As Array = terminal().get("transcript")
+	Dim row As Integer = row_index()
+	Dim column As Integer = Me.caret_column
+	Dim destination As Integer
+	If Len(Me.text) > COLUMNS Then
+		destination = column + direction * COLUMNS
+		If destination >= 0 And destination < Max(COLUMNS, Len(Me.text)) Then
+			Me.caret_column = Min(destination, Len(Me.text))
+			Exit Sub
+		End If
+	End If
+	Call store_row()
+	If row = lines.size() And direction > 0 And lines.size() < ROWS - 1 Then
+		lines.append(prompt_text)
+		prompt_text = ""
+	End If
+	row = Clamp(row + direction, 0, lines.size())
+	edit_row = -1
+	Me.text = prompt_text
+	If row < lines.size() Then
+		edit_row = row
+		Me.text = Str(lines(row))
+	End If
+	column = column Mod COLUMNS
+	If column > Len(Me.text) Then Me.text = Me.text & Space(column - Len(Me.text))
+	Me.caret_column = column
+End Sub
+
+Sub _gui_input(ByVal event As Object)
+	Dim emulator As Object
+	Dim control_codes As Dictionary
+	Dim direction As Integer
+	Dim character As String
+	Dim column As Integer
+	If Not Me.editable Then Exit Sub
+	If Not event Is InputEventKey Then Exit Sub
+	If Not event.pressed Then Exit Sub
+	blink_time = 0.0
+	emulator = get_parent().get("emulator")
+	If emulator.get("active") Then
+		control_codes = New Dictionary
+		control_codes(KEY_UP) = 145
+		control_codes(KEY_DOWN) = 17
+		control_codes(KEY_LEFT) = 157
+		control_codes(KEY_RIGHT) = 29
+		control_codes(KEY_BACKSPACE) = 20
+		control_codes(KEY_HOME) = 19
+		If control_codes.has(event.keycode) Then
+			If Not emulator.call("queue_key", control_codes(event.keycode)) Then get_parent().set("loader_message", "C64 BUSY / BOOTING - PLEASE WAIT")
+			If event.keycode = KEY_UP Or event.keycode = KEY_DOWN Or event.keycode = KEY_HOME Then accept_event()
+		ElseIf event.unicode >= 32 And Not event.ctrl_pressed And Not event.meta_pressed Then
+			character = UCase(Chr(event.unicode))
+			If Not emulator.call("queue_key", character.unicode_at(0)) Then get_parent().set("loader_message", "C64 BUSY / BOOTING - PLEASE WAIT")
+		End If
+		Exit Sub
+	End If
+	If event.keycode = KEY_UP Or event.keycode = KEY_DOWN Then
+		direction = 1
+		If event.keycode = KEY_UP Then direction = -1
+		Call move_vertical(direction)
+		accept_event()
+	ElseIf event.keycode = KEY_LEFT And Me.caret_column = 0 And row_index() > 0 Then
+		Call move_vertical(-1)
+		If Len(Me.text) < COLUMNS Then Me.text = Me.text & Space(COLUMNS - Len(Me.text))
+		Me.caret_column = COLUMNS - 1
+		accept_event()
+	ElseIf event.keycode = KEY_RIGHT And Me.caret_column = Len(Me.text) And Len(Me.text) < Me.max_length Then
+		Me.text = Me.text & " "
+		Me.caret_column = Len(Me.text)
+		accept_event()
+	ElseIf event.unicode >= 32 And Not event.ctrl_pressed And Not event.meta_pressed Then
+		character = Chr(event.unicode)
+		column = Me.caret_column
+		If column < Len(Me.text) Then
+			Me.text = Left(Me.text, column) & character & Mid(Me.text, column + 2)
+			Me.caret_column = column + 1
+			accept_event()
+		End If
+	End If
+End Sub
+
+Sub draw_screen(ByVal canvas As Object, ByVal ink As Variant, ByVal reduced As Boolean)
+	Dim lines As Array = terminal().get("transcript")
+	Dim current_row As Integer = row_index()
+	Dim caret_row As Integer = current_row + Int(Me.caret_column / COLUMNS)
+	Dim last_row As Integer = Max(lines.size(), current_row + Int(Max(0, Len(Me.text) - 1) / COLUMNS))
+	Dim first_row As Integer = Max(0, Max(last_row, caret_row) - ROWS + 1)
+	Dim index As Integer
+	Dim offset As Integer
+	Dim y As Integer
+	Dim position As Variant
+	Dim palette As Array = terminal().get("palette")
+	Dim background As Variant = palette(terminal().get("background_index"))
+	For index = 0 To lines.size() - 1
+		If index <> edit_row Then
+			y = index - first_row
+			If y >= 0 And y < ROWS Then Call draw_cells(canvas, Str(lines(index)), y, ink)
+		End If
+	Next
+	For offset = 0 To Max(1, Len(Me.text)) - 1 Step COLUMNS
+		y = current_row + Int(offset / COLUMNS) - first_row
+		If y >= 0 And y < ROWS Then
+			canvas.draw_rect(Rect2(ORIGIN + Vector2(0, y * CELL.y - 17), Vector2(COLUMNS * CELL.x, CELL.y)), background)
+			Call draw_cells(canvas, Mid(Me.text, offset + 1, COLUMNS), y, ink)
+		End If
+	Next
+	If Me.editable And (reduced Or blink_time - Int(blink_time) < 0.5) Then
+		position = ORIGIN + Vector2((Me.caret_column Mod COLUMNS) * CELL.x, (caret_row - first_row) * CELL.y - 17)
+		canvas.draw_rect(Rect2(position, Vector2(CELL.x, 21)), ink)
+		If Me.caret_column < Len(Me.text) Then canvas.draw_string(font, position + Vector2(0, 17), Mid(Me.text, Me.caret_column + 1, 1), 0, -1, 18, background)
+	End If
+End Sub
+
+Sub draw_cells(ByVal canvas As Object, ByVal value As String, ByVal row As Integer, ByVal ink As Variant)
+	Dim column As Integer
+	For column = 0 To Min(Len(value), COLUMNS) - 1
+		canvas.draw_string(font, ORIGIN + Vector2(column * CELL.x, row * CELL.y), Mid(value, column + 1, 1), 0, -1, 18, ink)
+	Next
+End Sub
