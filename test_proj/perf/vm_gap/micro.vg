@@ -1,0 +1,111 @@
+Option Explicit
+Inherits Node
+
+Dim g As Single
+Dim gs As String
+Dim gb As Boolean
+Dim d As Dictionary
+
+Sub _Ready()
+	g = 1.5
+	gs = "talk"
+	d = New Dictionary
+	d("k") = 2.5
+End Sub
+
+Function empty_fn() As Single
+	Return 0
+End Function
+
+Function t_global(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + g
+	Next
+	Return s
+End Function
+
+Function t_local(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	Dim h As Single = 1.5
+	For i = 1 To n
+		s = s + h
+	Next
+	Return s
+End Function
+
+Function t_getx(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	Dim p As Variant = Vector2(3, 4)
+	For i = 1 To n
+		s = s + p.x
+	Next
+	Return s
+End Function
+
+Function t_getx_typed(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	Dim p As Vector2 = Vector2(3, 4)
+	For i = 1 To n
+		s = s + p.x
+	Next
+	Return s
+End Function
+
+Function t_sety(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim p As Variant = Vector2(3, 4)
+	For i = 1 To n
+		p.y = p.y + 1
+	Next
+	Return p.y
+End Function
+
+Function t_dict(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + d("k")
+	Next
+	Return s
+End Function
+
+Function t_streq(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" And Not gb Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function t_call(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + empty_fn()
+	Next
+	Return s
+End Function
+
+Function t_vec(ByVal n As Integer) As Variant
+	Dim i As Integer
+	Dim v As Variant = Vector2(0, 0)
+	For i = 1 To n
+		v = v + Vector2(1, 2) * 0.5
+	Next
+	Return v
+End Function
+
+Function t_sin(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + Sin(i * 0.01) * 0.5
+	Next
+	Return s
+End Function

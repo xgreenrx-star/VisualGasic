@@ -1,0 +1,427 @@
+# Handoff: close the VG vs GDScript speed gap
+
+Audience: Cursor agent. Read all of this before you edit code.
+Recommended model: the strongest model you have, in max mode. This is JIT and VM work.
+Mistakes show up as wrong results, not as crashes.
+
+## 1. Goal and rules
+
+Goal: every case in `test_proj/perf/vm_gap/run_gap.gd` runs at `vg/gd <= 1.00` in default mode (JIT on).
+The secondary goal is `vg/gd <= 1.00` with `VG_JIT=0` (interpreter only).
+
+Rules. Do not break any of them.
+
+1. Correctness before speed. A faster wrong answer is a regression.
+   `run_gap.gd` exits 1 when a VG result differs from the GD result. Keep it at 0.
+2. Do not write GDScript game code. GDScript is allowed only for test harnesses like the ones in `test_proj/perf/vm_gap/`.
+3. Run the full validation in §6 after each workstream, in every mode listed there.
+4. Never rebuild the `.so` while a regression loop runs. The loop loads the library from disk. A rebuild mid-run gives random failures.
+5. Commit one workstream per commit. Use `git add <paths>`. Never `git add -A`.
+   Never commit `.so`, `.gradle`, or `.avi` files.
+   Every commit message ends with:
+   `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`
+6. Follow the code conventions in `.github/copilot-instructions.md`.
+   C++ uses tabs. Errors give actionable messages with exact line numbers.
+   Do not refactor outside the task.
+7. If a workstream does not reach its target after an honest attempt, stop. Commit what is correct and faster. Write down what you measured. Do not leave half-finished opcodes in the tree.
+
+## 2. Benchmark
+
+Files are in `test_proj/perf/vm_gap/`:
+
+| File | Purpose |
+|---|---|
+| `micro.vg` | VG benchmark functions. Each takes `n` and loops `n` times. |
+| `micro.gd` | The same functions in GDScript. Must stay semantically identical to `micro.vg`. |
+| `run_gap.gd` | Best of 5 runs, N=200000, ns per iteration, `vg/gd` ratio, result check. |
+| `dump_bytecode.gd` | Prints the optimized bytecode of the named functions. |
+| `hot_case.gd` | Runs one VG case for a long time, for `perf record`. |
+
+Run them from the repo root:
+
+```bash
+G=/home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64
+cd test_proj
+# default (JIT on)
+taskset -c 2 $G --headless --path . --audio-driver Dummy --script res://perf/vm_gap/run_gap.gd
+# interpreter only
+VG_JIT=0 taskset -c 2 $G --headless --path . --audio-driver Dummy --script res://perf/vm_gap/run_gap.gd
+# bytecode
+$G --headless --path . --audio-driver Dummy --script res://perf/vm_gap/dump_bytecode.gd -- t_dict t_call
+# JIT decisions
+VG_JIT_LOG=1 $G --headless --path . --audio-driver Dummy --script res://perf/vm_gap/run_gap.gd 2>&1 | grep -i jit
+# CPU profile of one case
+P=/usr/src/linux-headers-6.12.7-2-liquorix-amd64/tools/perf/perf
+VG_JIT=0 $P record -o /tmp/vg.data -F 2000 -g --call-graph=fp -- \
+  $G --headless --path . --audio-driver Dummy --script res://perf/vm_gap/hot_case.gd -- t_call 5000000
+$P report -i /tmp/vg.data --no-children --stdio --sort sym | head -40
+```
+
+Timings vary by about ±10% between runs. Always pin to one core (`taskset -c 2`).
+Compare ratios from the same run, not absolute numbers from different runs.
+
+## 3. Baseline (commit `e8f5f8f8`, 16 Nov 2026)
+
+ns per loop iteration. Lower is better.
+
+| Case | What it does | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|---|
+| t_local | `s = s + h`, Single locals | 10.2 | 2.1 | 0.21 | 31.8 | 3.16 |
+| t_global | `s = s + g`, g is a module Single | 9.3 | 2.2 | 0.24 | 34.9 | 3.45 |
+| t_getx | `s = s + p.x`, p is a Variant holding Vector2 | 21.7 | 37.2 | 1.71 | 38.3 | 1.69 |
+| t_getx_typed | same, `Dim p As Vector2` | 12.1 | 37.8 | 3.11 | 38.0 | 3.10 |
+| t_sety | `p.y = p.y + 1` | 24.1 | 56.2 | 2.33 | 58.6 | 2.37 |
+| t_dict | `s = s + d("k")`, module Dictionary | 34.5 | 83.1 | 2.40 | 77.9 | 1.95 |
+| t_streq | `If gs = "talk" And Not gb Then c = c + 1` | 32.1 | 100.4 | 3.13 | 106.7 | 3.45 |
+| t_call | `s = s + empty_fn()` | 69.1 | 151.4 | 2.19 | 109.0 | 1.45 |
+| t_vec | `v = v + Vector2(0.5, 1)` | 12.1 | 40.8 | 3.36 | 38.8 | 3.12 |
+| t_sin | `s = s + Sin(i)` | 38.6 | 24.1 | 0.63 | 76.7 | 1.94 |
+| external_call | GDScript calls `vg.call("empty_fn")` | 67.8 | 163.3 | 2.41 | 270.5 | 3.86 |
+
+Read the table like this:
+
+- When the Tier-2 JIT compiles a function (`t_local`, `t_global`, `t_sin`), VG is 1.6–5x faster than GD. The JIT works for scalars.
+- Every case that touches a Variant (Vector2, Dictionary, String, a function call) is 1.7–3.4x slower than GD in both modes.
+  For those, the JIT either bails or calls back into the slow interpreter path.
+- `t_call` is slower with the JIT (151) than without (109). This is a regression.
+- The interpreter's per-op overhead is about 3x GDScript's. You can see it in `t_local` with `VG_JIT=0`: a 3-op loop takes 31.8 ns against GD's 10.2.
+
+### JIT log at baseline (`VG_JIT_LOG=1`)
+
+| Function | Result | Why |
+|---|---|---|
+| t_local, t_global, t_sin, t_call, empty_fn | Tier 2 compiled | — |
+| t_getx, t_getx_typed | lowering failed, op 0 (`OP_CONSTANT`) | The `Vector2(3,4)` constant is not INT/FLOAT/STRING |
+| t_sety | lowering failed, op 0 | same |
+| t_dict | lowering failed, op 3 (`OP_GET_GLOBAL`) | The global `d` is a Dictionary |
+| t_streq | lowering failed, op 3 | The global `gs` is a String |
+| t_vec | not attempted | Returns a Variant (Vector2); Tier 2 only takes numeric returns |
+
+### Bytecode at baseline (`dump_bytecode.gd`)
+
+- Every loop: `OP_FOR_INC_LE_LOOP` jumps back to an `OP_DEBUG_LINE`, which runs on every iteration.
+- t_getx: `GET_LOCAL p`, `GET_MEMBER "x"`, `ADD_LOCAL_F64_STACK`.
+  `Dim p As Vector2` produces the same bytecode as the Variant version. The type declaration is not used.
+- t_sety: `GET_LOCAL p`, `GET_LOCAL p`, `GET_MEMBER y`, `CONSTANT 1`, `ADD`, `SET_MEMBER y`, `SET_LOCAL p`.
+  This copies the Vector2 out, edits it, and stores it back.
+- t_dict: `GET_GLOBAL d`, `CONSTANT "k"`, `GET_DICT_FAST`, `ADD_LOCAL_F64_STACK`.
+- t_streq: `GET_GLOBAL gs`, `CONSTANT "talk"`, `EQUAL`, `GET_GLOBAL gb`, `NOT`, `AND`, `JUMP_IF_FALSE`.
+  There is no short-circuit, and `EQUAL` is the generic Variant compare.
+- t_call: `CALL "empty_fn" argc 0`, `ADD_LOCAL_F64_STACK`.
+- t_vec: `GET_LOCAL v`, `CONSTANT Vector2(0.5,1)` (pre-folded), `ADD`, `SET_LOCAL v`.
+
+### perf profile at baseline (`VG_JIT=0`)
+
+- t_call: 23% in `execute_bytecode` itself, 21% in the `inline_frame_push` lambda, 10% in `inline_frame_pop`, plus `malloc` and `CowData<Variant>::_copy_on_write`.
+  Pushing and popping a frame costs more than the work in the call.
+- t_streq: 43% in `execute_bytecode`, then several small lambdas: the Variant push lambda #15, the const-index read, the operator dispatch lambda #27, and `CowData<MemberNameCacheEntry>::_copy_on_write`.
+- t_dict: time is spread over the stripped Godot binary (Dictionary hashing and Variant copies). No single VG symbol dominates.
+
+## 4. Where the code is
+
+Line numbers are approximate as of `e8f5f8f8`. Grep for the symbol; do not trust the number.
+
+| Area | File | Anchor |
+|---|---|---|
+| Interpreter entry | `src/visual_gasic_instance_bytecode_vm.cpp` | `bool VisualGasicInstance::execute_bytecode` ~870 |
+| Member-name cache | same | `ensure_member_cache_entry` ~2168–2215 |
+| Inline call frames | same | `inline_frame_push` ~2341, `inline_frame_pop` ~2557 |
+| Dispatch loop | same | `vg_dispatch_next` / computed goto ~2973–3018 |
+| OP_GET_GLOBAL | same | `VG_CASE(vg_op_get_global` ~3523 |
+| OP_ADD | same | `VG_CASE(vg_op_add` ~4228 |
+| OP_EQUAL | same | `VG_CASE(vg_op_equal` ~5313 |
+| OP_NOT / OP_AND | same | ~5577 / ~5586 |
+| OP_CALL | same | `VG_CASE(vg_op_call` ~6369 |
+| OP_GET_DICT_FAST | same | ~7388 |
+| OP_GET_MEMBER | same | ~7893 (already has an in-place Vector2/Vector3/Color axis fast path) |
+| OP_SET_MEMBER | same | ~8854 |
+| OP_DEBUG_LINE | same | ~10183 |
+| Opcode enum | `src/visual_gasic_bytecode.h` | add new ops before `OP_COUNT_` |
+| Opcode names | `src/visual_gasic_script.cpp` | `OP_NAME_CASE` list |
+| Instruction lengths | `src/visual_gasic_optimizer.cpp` | the length table used by every pass and by `VG_OPLEN_CHECK=1` |
+| Debug-line strip | `src/visual_gasic_optimizer.cpp` | `pass_strip_debug_lines` ~1184, called ~1310 (release builds only) |
+| Opcode selection | `src/visual_gasic_compiler.cpp` | expression codegen; coercion helpers ~958–1010; `declared_string_vars` |
+| Tier-2 IR | `src/visual_gasic_jit_tier2.h` | `IRType` `{I64, F64, BOOL, VOID}` ~70, `IROp` list ~72–150 |
+| Tier-2 lowering | `src/visual_gasic_jit_tier2.cpp` | `OP_CONSTANT` ~955, `OP_GET_GLOBAL` ~1092, `OP_CALL` → `RUNTIME_CALL` ~2140–2165, failure log ~3852, `VG_JIT` env ~3730 |
+| Tier-2 host call | same | `host_call` ~2743, emitted at `case IROp::RUNTIME_CALL` ~3558 |
+| JIT global sync | same | `jit_sync_globals` ~2664 |
+| Callee type gate | same | `jit_callee_returns_non_numeric` ~179 |
+| Tier-3 inliner | `src/visual_gasic_jit_tier3.cpp` | its default case bails |
+| Old loop JIT | `src/visual_gasic_jit.cpp` | `VG_JIT` read in `visual_gasic_instance.cpp` ~863 |
+| Fast Variant access | `src/vg_variant_fast.h` | `vtype`, `vint`, `vnum`, `vvec2`, `set_float`, `set_int`, `g_layout_ok` |
+| Record helpers | `src/visual_gasic_instance.h` | `copy_if_record`, `record_member_ci`, `vb_display_string` |
+
+### Checklist for adding an opcode
+
+Skip any step and you get random failures.
+
+1. Add the enum before `OP_COUNT_` in `visual_gasic_bytecode.h`.
+2. Add the name to `OP_NAME_CASE` in `visual_gasic_script.cpp`.
+3. Add its length to the optimizer length table. `VG_OPLEN_CHECK=1` asserts on a mismatch, so run it.
+4. Add a `VG_CASE(vg_op_..., OP_...)` handler and a dispatch-table entry in the VM.
+5. Tier 2: lower it, or bail explicitly. Do not let it fall into the default case without a log.
+   Tier 3: same. Its default case bails.
+6. Check every optimizer pass that pattern-matches neighbouring ops (peephole, fusion, jump-target remap).
+   A new op inside a fused window must not be skipped by a hard-coded length.
+7. The VM stack API is `vm.stack.back()`, `pop_value()`, `push_value()`, `vm.stack.pop_into()`.
+   There is no `.write` on the stack.
+
+## 5. Workstreams, in priority order
+
+Do them in this order. Each one is a separate commit. After each, re-run `run_gap.gd` in both modes and record the new table in the commit message.
+
+### WS1. The JIT makes `t_call` slower (151 vs 109 ns). Fix it.
+
+Cause: Tier 2 lowers every `OP_CALL` to `IROp::RUNTIME_CALL`, which calls `host_call()` (`visual_gasic_jit_tier2.cpp` ~2743). On every call, `host_call()`:
+
+- saves `g_jit_frame`;
+- runs `jit_sync_globals(true)`, which writes every JIT global slot back into the `variables` Dictionary by String name;
+- boxes the arguments into `Variant argv[8]`;
+- does a linear search of a `thread_local std::vector` memo, using `strlen` on the name;
+- calls `jit_invoke_user_call()`, which goes back into the interpreter or the callee's compiled code with a full frame;
+- runs `jit_sync_globals(false)`, which reads every global back from the Dictionary.
+
+That is two Dictionary walks per call, even for `empty_fn`, which touches no globals.
+
+Fix, in steps:
+
+1. **Direct compiled-to-compiled calls.** When a callee is a user Function in the same script, Tier 2 compiles it with a numeric return, and it has no ByRef parameters, emit a native `call` to the callee's machine code with arguments in registers.
+   Resolve the callee at compile time. The `JitCallSiteMemo` already resolves user calls; reuse that resolution.
+   Guard it with a code generation counter. Hot reload must invalidate it; see the Gotchas.
+2. **Skip global sync when it cannot matter.** Compute, per compiled function, whether it reads or writes any module global.
+   Do this transitively over callees you can see; otherwise assume yes.
+   Only sync around a call when the caller holds globals in registers *and* the callee touches globals.
+   For `empty_fn` the answer is no.
+3. **Faster memo lookup.** Key it by call-site id, an integer assigned at lowering time, stored in an array. Drop the `strlen` and the linear scan.
+4. Tier 3 (`visual_gasic_jit_tier3.cpp`) already inlines Tier-2 callees. Check why it did not inline `empty_fn` into `t_call`.
+   A zero-argument function that returns a constant should inline completely. If Tier 3 is gated off by default, find out why, and say so in the commit.
+
+Acceptance:
+- `t_call` JIT ≤ 69 ns (GD).
+- `external_call` is unchanged or better.
+- No regressions.
+- Add a test with a ByRef callee, a callee that writes a module global, and a recursive callee, all called from a hot JIT loop, checking results.
+  Name it `test_proj/test_suite/test_jit_direct_call.vg`.
+
+Risks:
+- ByRef write-back (`BYREF_LOAD` after the call).
+- `On Error` inside the callee.
+- A callee that raises: the JIT must deopt cleanly to the interpreter.
+- A callee redefined by hot reload.
+- Recursion depth.
+
+### WS2. Interpreter dispatch overhead (affects every case with `VG_JIT=0`)
+
+Each op currently does all of this in `vg_dispatch_next`:
+
+- an `ip >= effective_code_end` bounds check;
+- a store to `last_opcode_offset`;
+- a check of `error_state.has_error`;
+- `op = code[vm.ip++]`, where `vm.ip` lives in a struct in memory, so it is not a register;
+- a store to `current_opcode`;
+- a check of `full_profile_enabled`;
+- the computed goto.
+
+Handlers end in `break`, which goes back to the loop top instead of dispatching directly.
+
+Fix, in steps:
+
+1. Keep `ip` in a local variable (`const uint8_t *pc`). Write it back to `vm.ip` only where something else reads it: calls, errors, yields, `Await`, coroutine save, debugger hook, and inline frame push/pop.
+   This is the big win. Do it carefully: grep every `vm.ip` use inside `execute_bytecode`.
+2. Replace the per-op `error_state.has_error` check and `full_profile_enabled` check with one `uint32_t slow_flags` local.
+   Set it whenever an error is raised or profiling toggles; test it once per op.
+   Even better: only test it after ops that can raise. Most can, so measure first.
+3. Drop the `last_opcode_offset` and `current_opcode` stores. Recompute them from `pc` when an error is raised.
+4. Make `VG_CASE` handlers end in `DISPATCH()` (an inline computed goto) instead of `break`, so each op has its own indirect branch. This helps branch prediction.
+5. The bounds check: the compiler always ends a chunk with `OP_RETURN`/`OP_HALT`. Verify that. If it holds, the check is redundant for straight-line ops; keep it only on jumps (validate the target at jump time).
+
+Acceptance:
+- `t_local` with `VG_JIT=0` ≤ 15 ns.
+- Every other interpreter case improves.
+- `VG_OPLEN_CHECK=1` regression passes.
+- Error line numbers in `test_proj/test_suite/*error*` tests are unchanged.
+
+Risks:
+- Coroutines and `Await` save and restore `vm.ip`. If `pc` is not written back first, a resumed coroutine jumps to the wrong place. The tests are under `test_suite/*await*`.
+
+### WS3. `OP_DEBUG_LINE` runs on every loop iteration
+
+The handler reads 2 bytes, checks `is_parallel_worker`, writes `debug_state.merged_line`, compares the script-path owner, and updates `current_line` and the file id.
+
+Fix: generate a line table at compile time, the same idea as CPython's `co_lines`: a sorted array of `(bytecode_offset, line)`.
+
+- Error reporting: map the faulting `pc` offset to a line with a binary search.
+- `Debug.Print` line info, `Erl`, and `On Error` line state: map the same way.
+- Debugger breakpoints and stepping: only when a debugger hook is attached, either keep emitting `OP_DEBUG_LINE`, or re-compile the chunk with them. A recompile when the debugger attaches is fine.
+- Then let `pass_strip_debug_lines` (`visual_gasic_optimizer.cpp` ~1184) run in editor builds too when no debugger is attached. Today it only runs in release.
+
+Acceptance:
+- No `OP_DEBUG_LINE` in `dump_bytecode.gd` output for `t_local` when no debugger is attached.
+- Every runtime-error test reports the same line as before.
+- The editor debugger can still stop on a breakpoint inside a loop. Test it manually in the Godot editor and say so in the commit.
+
+### WS4. Typed `Vector2`/`Vector3` locals should not be Variants (t_getx_typed, t_sety, t_vec)
+
+`Dim p As Vector2` is ignored. The bytecode matches the Variant version.
+
+Step 1, VM (helps both modes):
+- Add `OP_GET_LOCAL_AXIS slot, axis`: push `locals[slot].x/y/z` as a float without copying the Vector2 to the stack.
+- Add `OP_SET_LOCAL_AXIS slot, axis`: pop a float and write it into the local's Vector2 in place.
+  Use `vgfast::vvec2` with a writable variant. Check `vgfast::g_layout_ok` first and fall back to the generic path when it is false.
+- Emit them in the compiler when the base is a local declared `As Vector2`/`As Vector3` and the member is a constant x/y/z.
+  Also emit them for Variant locals when the member is x/y/z, with a runtime type check that falls back to the generic `GET_MEMBER`/`SET_MEMBER` code.
+- `p.y = p.y + 1` becomes `GET_LOCAL_AXIS p,1`, `CONSTANT 1`, `ADD`, `SET_LOCAL_AXIS p,1`. That is 4 ops instead of 7, with no Vector2 copies.
+- `v = v + Vector2(c)` with a typed local: add `OP_ADD_LOCAL_VEC2_CONST slot, const_idx`, which adds in place.
+
+Step 2, Tier 2:
+- Scalar-replace typed Vector2/Vector3 locals. Each axis becomes an F64 vreg; there are no Variants in the loop.
+- Load the axes on function entry, and store them back at return or before any call or deopt point.
+- Lower `OP_CONSTANT` with a Vector2 constant to two `CONST_F64` values when the only use is an axis read or a Vector2 add.
+  This removes the "op 0" bail for `t_getx` and `t_sety`.
+- Let Tier 2 compile a function whose return type is `Vector2` (`t_vec`): box the result once at return.
+
+Acceptance:
+- `t_getx`, `t_getx_typed`, `t_sety` and `t_vec` reach JIT ratio ≤ 1.0 and interpreter ratio ≤ 1.5.
+- Add `test_proj/test_suite/test_vec_axis_ops.vg`. Cover:
+  - typed and Variant locals;
+  - a Variant local that changes type mid-loop (Vector2, then Integer, then Vector2): the fallback must work;
+  - `ByRef` Vector2 parameters;
+  - Vector3 `.z`;
+  - Color `.r`.
+
+Risks:
+- A Variant local can hold any type. The fast op must type-check every time.
+- `With p` blocks and `p.x` inside `ByRef` calls.
+- Godot's `Vector2` uses `real_t`, which is float unless built with doubles. Keep the existing cast to double.
+
+### WS5. Tier 2 bails on any String or Dictionary global (t_dict, t_streq)
+
+`OP_GET_GLOBAL` lowering (~1092) bails when the global is not INT, BOOL, NIL or FLOAT, so any loop that reads a String or Dictionary runs in the interpreter.
+
+Fix: add a Variant-handle path to Tier 2 without boxing everything.
+
+1. Add `IRType::VREF`: a pointer to a `Variant` that lives somewhere stable.
+   That is either the module-global storage or a JIT-frame spill slot.
+   For globals, resolve the pointer once at function entry. Re-resolve it after any call, because a callee may resize the storage.
+2. Add helper-call IR ops. Each one is a plain C function, with caller-saved registers spilled like `RUNTIME_CALL`:
+   - `VSTR_EQ_CONST(vref, const_idx) -> BOOL`: compare a String Variant to an interned constant. Compare lengths first, then memcmp.
+     If the Variant is not a String, fall back to the generic `Variant::evaluate(OP_EQUAL)` rules.
+     Note: VB6 `=` on strings is case-sensitive under `Option Compare Binary`, which is the default. Check how the VM's `OP_EQUAL` handles `Option Compare Text` and copy that behaviour exactly.
+   - `VDICT_GET_F64(vref, const_key_idx) -> F64`, with a cached key hash or the pre-built `Variant` key.
+     It deopts when the value is not numeric or the key is missing. VB6 raises a runtime error on a missing key, and the interpreter must report that error.
+3. Deopt: on any type mismatch, return a "deopt" flag. The caller resumes in the interpreter at the current bytecode offset. Tier 2 must already do this for some op; find that mechanism and reuse it.
+   If there is none, bail at compile time instead of guessing. Do not write wrong results.
+
+Acceptance:
+- `t_dict` and `t_streq` compile at Tier 2, with no "lowering failed" lines in `VG_JIT_LOG=1`.
+- Both reach JIT ratio ≤ 1.0.
+- Add `test_proj/test_suite/test_jit_string_dict_globals.vg`. Cover:
+  - a global String that changes inside the loop;
+  - a Dictionary whose value changes type from Double to String mid-loop (deopt);
+  - a missing key (error message and line);
+  - `Option Compare Text`.
+
+### WS6. Interpreter fast paths for strings, dictionaries and member lookup
+
+Each of these helps the interpreter, and therefore also every function the JIT cannot compile.
+
+1. `OP_EQUAL` with a constant String operand: the compiler emits `OP_EQ_STR_CONST const_idx`.
+   The handler compares the top-of-stack String to the constant's pre-built `String` with no Variant temporaries.
+   It falls back to generic `EQUAL` for non-Strings.
+2. `If a And Not b Then`: VB6 `And` does not short-circuit, but when both sides are side-effect-free (variable reads, constant compares, no calls), the compiler may emit `JUMP_IF_FALSE` chains.
+   The result is the same because evaluating a pure expression has no effects. Make sure `Integer And Integer` is a bitwise op in VB6. Only do this when both sides are known Boolean (comparisons, `Not` of a Boolean, Boolean variables).
+3. `GET_DICT_FAST` with a constant key: pass the constant index and keep a `Variant` key already built in the chunk. That avoids building a String Variant on every iteration.
+4. `ensure_member_cache_entry` (~2208) calls `cache_vec.ptrw()`. In godot-cpp that is an out-of-line `CowData::_copy_on_write` check on every member access; it showed 1.4% in the profile.
+   Store the raw `MemberNameCacheEntry *` next to `member_name_cache_ptr`. Update it everywhere the pointer is repointed: inline frame push/pop and the slow resize path.
+5. Inline frame push/pop (`inline_frame_push` ~2341 and `inline_frame_pop` ~2557) is 31% of `t_call` in the interpreter.
+   - For a callee with no ByRef parameters, skip building `bc_byref_captures`.
+   - Skip the locals-release loop for slots the compiler knows are scalar-typed.
+   - Avoid the `malloc` seen in the profile: find what allocates; it is probably a `Vector` resize or a `String` build.
+   - Save fewer caller fields: many are constant per chunk and can come from the chunk.
+
+Acceptance:
+- Interpreter (`VG_JIT=0`) ratios: `t_streq` ≤ 1.5, `t_dict` ≤ 1.3, `t_call` ≤ 1.0.
+
+### WS7. External calls into VG (`external_call` 2.4x / 3.9x)
+
+When GDScript calls `vg_node.call("empty_fn")`, VG pays script-instance lookup, argument boxing and frame setup.
+Profile it with a GDScript loop in `hot_case.gd`; add a mode for that.
+Look for per-call `String` builds from the `StringName` method, a per-call map lookup by String, and `Array` allocation for arguments.
+Cache a `StringName` → `SubDefinition*`/compiled-chunk map on the script.
+
+Acceptance: `external_call` ratio ≤ 1.2 in both modes.
+
+## 6. Validation (after every workstream)
+
+Build (about 4 minutes; the `.so` loads from `addons/visual_gasic/bin`):
+
+```bash
+scons platform=linux target=editor nostrip=1 -j8
+```
+
+The regression suite runs in three modes. Run them in parallel, but only after the build has finished:
+
+```bash
+export GODOT=/home/Commodore/Downloads/Godot_v4.7.2-stable_linux.x86_64
+(VG_OPLEN_CHECK=1 scripts/run_vg_regression_loop.sh /tmp/reg_jit.log &)
+(VG_OPLEN_CHECK=1 VG_JIT=0 scripts/run_vg_regression_loop.sh /tmp/reg_nojit.log &)
+(VG_OPLEN_CHECK=1 VG_JIT=3 scripts/run_vg_regression_loop.sh /tmp/reg_jit3.log &)
+# when all three finish:
+tail -1 /tmp/reg_*.log
+grep -B3 '^FAIL' /tmp/reg_jit.log | head -40
+```
+
+- Baseline is `PASS=1605` in each mode. The only allowed failure is the Cdecl `strlen` assert (pre-existing).
+- New tests add to PASS. Any other FAIL is a regression; fix it before you commit.
+
+Corpus, in 4 modes. Each must print 80/80:
+
+```bash
+for m in X=1 VG_JIT=0 VG_JIT=3 VG_FORCE_AST=1; do env $m GODOT=$GODOT bash scripts/audit_corpus.sh | tail -3; done
+```
+
+Engine draw dispatch, in 3 modes. Each must print `failures=0`:
+
+```bash
+for m in X=1 VG_JIT=0 VG_JIT=3; do env $m timeout 300 taskset -c 3 $GODOT --headless --path test_proj \
+  --audio-driver Dummy --script res://../tests/test_engine_draw_dispatch.gd 2>&1 | grep failures=; done
+```
+
+Ash Meridian, the real game:
+
+```bash
+cd samples/games/ash_meridian_part1
+for t in test_*.gd; do echo "== $t"; timeout 600 $GODOT --headless --path . --audio-driver Dummy --script res://$t 2>&1 | tail -3; done
+```
+
+Known baseline:
+- `test_part1` passes 88/91.
+- `suit_terminal` has 3 known failures under the dummy renderer.
+- `test_departure_render` has 3 coverage failures on dark starfield shots, but only with a real display; this is a stale threshold.
+
+Anything else that fails is yours.
+Also run `test_suit_panel_performance.gd`. Baseline: face=true 63.66 ms, face=false 38.13 ms. It must not get slower.
+
+Benchmark: run `run_gap.gd` in both modes. `mismatches=0` is required. Paste the table into the commit message.
+
+## 7. Gotchas
+
+These bit earlier sessions:
+
+- **Hot reload.** A script can be recompiled while instances run. Any cached pointer to a chunk, compiled function, constant or member cache must be keyed by a generation counter (`_member_cache_generation` already exists) and checked before use.
+- **Await and coroutines** suspend in the middle of `execute_bytecode` and resume later from saved `vm` state. Anything you hoist into locals (pc, flags, cached pointers) must be saved into `vm` before a yield and reloaded after a resume.
+- **The AST fallback.** When bytecode bails, the AST interpreter re-runs the Sub from the start. Globals written before the bail are rolled back with `saved_globals`. A JIT path that writes globals directly must keep this contract, or it must never bail after its first global write.
+- **ByRef.** Parameter write-back goes through `_last_byref_captures` and `OP_BYREF_LOAD`. Inline frames and JIT calls must fill it the same way.
+- **`On Error Resume Next` / `On Error GoTo`.** An error inside a fast path must raise through `raise_error()` with a correct line. It must never return a default value silently.
+- **Option Explicit and declared types** drive coercion (`declared_string_vars`, `typed_i64_locals`, `typed_f64_locals`). A fast path that stores into a typed local must apply the same coercion (banker's rounding for Integer/Long, VB6 display formatting for String).
+- **`VG_FORCE_AST=1`** must keep working. The AST path is the reference implementation.
+- **`vgfast::g_layout_ok`** is false if the Variant memory layout check fails at startup. Every raw-layout fast path must have a fallback.
+- **Benchmark honesty.** Do not special-case benchmark function names or shapes. Every optimization must be general.
+  Add a second case shaped differently (different variable names, a nested loop, the work inside an `If`) and show that it also speeds up.
+
+## 8. Reporting back
+
+When you finish or stop, update §3 of this file with a new dated table. Keep the old one. Add a short "Status" section listing:
+- which workstreams are done, with their commits;
+- which are partial, and what is missing;
+- anything you found that looks like a correctness bug. File those separately; do not fix them inside a perf commit.

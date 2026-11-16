@@ -1,0 +1,49 @@
+extends Node
+var g: float
+var gs: String
+var gb: bool
+var d: Dictionary
+func _ready():
+	g = 1.5; gs = "talk"; d = {}; d["k"] = 2.5
+func empty_fn() -> float: return 0
+func t_global(n:int)->float:
+	var s := 0.0
+	for i in range(1,n+1): s = s + g
+	return s
+func t_local(n:int)->float:
+	var s := 0.0; var h := 1.5
+	for i in range(1,n+1): s = s + h
+	return s
+func t_getx(n:int)->float:
+	var s := 0.0; var p = Vector2(3,4)
+	for i in range(1,n+1): s = s + p.x
+	return s
+func t_getx_typed(n:int)->float:
+	var s := 0.0; var p := Vector2(3,4)
+	for i in range(1,n+1): s = s + p.x
+	return s
+func t_sety(n:int)->float:
+	var p = Vector2(3,4)
+	for i in range(1,n+1): p.y = p.y + 1
+	return p.y
+func t_dict(n:int)->float:
+	var s := 0.0
+	for i in range(1,n+1): s = s + d["k"]
+	return s
+func t_streq(n:int)->int:
+	var c := 0
+	for i in range(1,n+1):
+		if gs == "talk" and not gb: c = c + 1
+	return c
+func t_call(n:int)->float:
+	var s := 0.0
+	for i in range(1,n+1): s = s + empty_fn()
+	return s
+func t_vec(n:int):
+	var v = Vector2(0,0)
+	for i in range(1,n+1): v = v + Vector2(1,2)*0.5
+	return v
+func t_sin(n:int)->float:
+	var s := 0.0
+	for i in range(1,n+1): s = s + sin(i*0.01)*0.5
+	return s
