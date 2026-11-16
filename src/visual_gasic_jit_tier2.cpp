@@ -934,6 +934,32 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         return true;
     };
 
+    // A Single/Double jump condition (a host-call result, a float local) sits
+    // in an XMM register, and the emitter's `test` reads general registers
+    // only: `If UserFn(i) Then` tested whatever lived in RBX and took the
+    // branch on every iteration. Compare with 0.0 first so the jump sees 0/1.
+    auto f64_cond_to_i64 = [&](int cond, int at_ip) -> int {
+        if (get_vreg_type(cond) != IRType::F64) return cond;
+        IRInst cz;
+        cz.op = IROp::CONST_F64;
+        cz.type = IRType::F64;
+        cz.dest = next_vreg++;
+        set_vreg_type(cz.dest, IRType::F64);
+        cz.imm_f64 = 0.0;
+        cz.bc_offset = at_ip;
+        ir.push_back(cz);
+        IRInst ne;
+        ne.op = IROp::NE_F64;
+        ne.type = IRType::BOOL;
+        ne.dest = next_vreg++;
+        set_vreg_type(ne.dest, IRType::I64);
+        ne.src1 = cond;
+        ne.src2 = cz.dest;
+        ne.bc_offset = at_ip;
+        ir.push_back(ne);
+        return ne.dest;
+    };
+
     // Second pass: generate IR
     int ip = 0;
     while (ip < size) {
@@ -1790,7 +1816,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 auto it = ip_to_label.find(target);
                 if (it == ip_to_label.end()) return false;
                 if (vstack.empty()) return false;
-                int cond = vstack.back(); vstack.pop_back();
+                int cond = f64_cond_to_i64(vstack.back(), ip); vstack.pop_back();
                 IRInst inst;
                 inst.op = IROp::JUMP_IF_FALSE;
                 inst.src1 = cond;
@@ -1807,7 +1833,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 auto it = ip_to_label.find(target);
                 if (it == ip_to_label.end()) return false;
                 if (vstack.empty()) return false;
-                int cond = vstack.back(); vstack.pop_back();
+                int cond = f64_cond_to_i64(vstack.back(), ip); vstack.pop_back();
                 IRInst inst;
                 inst.op = IROp::JUMP_IF_TRUE;
                 inst.src1 = cond;

@@ -1,0 +1,130 @@
+' A Single/Double value used directly as a branch condition inside a
+' JIT-compiled function: a user Function result that comes back through a
+' host call, a builtin result, and a float local.  Tier 2 tested a general
+' register for these and took the branch on every iteration
+' (CountFlagged(20) returned 20 instead of 5).  All tiers must agree.
+Option Explicit
+
+Dim Flags(32) As Integer
+
+' Reads a module array, so the call stays a host call from JIT code.
+Function IsFlagged(ByVal v As Integer) As Boolean
+	IsFlagged = Flags(v) <> 0
+End Function
+
+Function CountFlagged(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 1 To n
+		If IsFlagged(i) Then c = c + 1
+	Next
+	CountFlagged = c
+End Function
+
+Function CountNotFlagged(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 1 To n
+		If Not IsFlagged(i) Then c = c + 1
+	Next
+	CountNotFlagged = c
+End Function
+
+' Max() returns a Double: zero for i <= 6, positive above.
+Function CountAboveSix(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 1 To n
+		If Max(i - 6, 0) Then c = c + 1
+	Next
+	CountAboveSix = c
+End Function
+
+' A Single local as the condition: f reaches 0 on the fourth pass.
+Function CountNonZeroSteps(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	Dim f As Single
+	f = 1.5
+	For i = 1 To n
+		If f Then c = c + 1
+		f = f - 0.5
+		If f < 0 Then f = 0
+	Next
+	CountNonZeroSteps = c
+End Function
+
+' Float condition on a Do loop: runs while the remainder is non-zero.
+Function StepsToZero(ByVal start As Single) As Integer
+	Dim f As Single
+	Dim c As Integer
+	f = start
+	Do While f
+		f = f - 0.25
+		c = c + 1
+		If c > 100 Then Exit Do
+	Loop
+	StepsToZero = c
+End Function
+
+Function StepsUntilZero(ByVal start As Single) As Integer
+	Dim f As Single
+	Dim c As Integer
+	f = start
+	Do
+		f = f - 0.25
+		c = c + 1
+		If c > 100 Then Exit Do
+	Loop Until Not f
+	StepsUntilZero = c
+End Function
+
+Sub Report(ByVal label As String, ByVal got As Integer, ByVal want As Integer)
+	If got = want Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label & " got " & CStr(got) & " want " & CStr(want)
+	End If
+End Sub
+
+Sub _Ready()
+	Dim k As Integer
+	Dim r As Integer
+	Flags(3) = 1
+	Flags(7) = 1
+	Flags(8) = 5
+	Flags(15) = 1
+	Flags(20) = -1
+	' Each function runs several times: the first call is interpreted, the
+	' later ones are Tier 2 native.  Every call must give the same answer.
+	For k = 1 To 5
+		r = CountFlagged(20)
+		If r <> 5 Then Exit For
+	Next
+	Report "jit float cond user function", r, 5
+	For k = 1 To 5
+		r = CountNotFlagged(20)
+		If r <> 15 Then Exit For
+	Next
+	Report "jit float cond Not user function", r, 15
+	For k = 1 To 5
+		r = CountAboveSix(20)
+		If r <> 14 Then Exit For
+	Next
+	Report "jit float cond builtin result", r, 14
+	For k = 1 To 5
+		r = CountNonZeroSteps(10)
+		If r <> 3 Then Exit For
+	Next
+	Report "jit float cond Single local", r, 3
+	For k = 1 To 5
+		r = StepsToZero(2.0)
+		If r <> 8 Then Exit For
+	Next
+	Report "jit float cond Do While", r, 8
+	For k = 1 To 5
+		r = StepsUntilZero(1.0)
+		If r <> 4 Then Exit For
+	Next
+	Report "jit float cond Loop Until", r, 4
+End Sub
