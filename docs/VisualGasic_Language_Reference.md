@@ -5124,11 +5124,14 @@ Converts an expression to a `Double`. String input must be a valid integer or de
 
 **Description**
 
-Converts an expression to an Integer, rounding if necessary.
+Converts an expression to an Integer, rounding if necessary. Halves round to the nearest even number (VB6 banker's rounding): `CInt(2.5)` is 2 and `CInt(3.5)` is 4. Assigning a fractional value to a variable or parameter declared `As Integer`, `Long`, `LongLong` or `Byte` rounds the same way. An untyped (`Variant`) variable keeps the fraction.
 
 **Example**
 
     Dim n As Integer = CInt(3.7)   ' 4
+    Dim h As Integer = CInt(2.5)   ' 2 (ties go to even)
+    Dim x As Integer
+    x = 3.5                        ' 4
     Dim m As Integer = CInt("42")  ' 42
 
 **See Also** — [CLng](#clng), [CDbl](#cdbl), [CSng](#csng), [CStr](#cstr), [CBool](#cbool), [Val](#val), [Str](#str), [Int](#int), [Fix](#fix), [Round](#round)
@@ -5149,7 +5152,7 @@ Converts an expression to an Integer, rounding if necessary.
 
 **Description**
 
-Converts an expression to a Long integer (`Long` / 64-bit). Like `CInt`, fractional values are rounded. String input must parse as a number; invalid strings raise a catchable type mismatch error. `CLngLng` is an alias with the same behavior.
+Converts an expression to a Long integer (`Long` / 64-bit). Like `CInt`, fractional values are rounded, with halves going to the nearest even number. String input must parse as a number; invalid strings raise a catchable type mismatch error. `CLngLng` is an alias with the same behavior.
 
 **Example**
 

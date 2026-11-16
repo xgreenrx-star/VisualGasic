@@ -268,6 +268,9 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
         }
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
+            if (s->array_sizes.is_empty() && !s->is_dynamic_array) {
+                note_ast_decl(current_sub, s->variable_name, s->type_name);
+            }
             
             // Static handling: persist variable across calls using static_variables store
             if (s->is_static) {
@@ -337,7 +340,7 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                      Variant val = evaluate_expression(s->initializer);
                      if (!s->type_name.is_empty()) {
                          String t = s->type_name.to_lower();
-                         if (t == "integer" || t == "long" || t == "longlong") val = (int64_t)val;
+                         if (t == "integer" || t == "long" || t == "longlong") val = vb_to_integer(val);
                          else if (t == "single" || t == "double") val = (double)val;
                          else if (t == "string") val = (String)val;
                          else if (t == "boolean") val = (bool)val;

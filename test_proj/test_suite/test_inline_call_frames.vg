@@ -158,7 +158,7 @@ Sub _Ready()
 
 	' Argument coercion: a Double into an Integer parameter, a number into
 	' a String parameter, and an Optional default.
-	Check "coerce double", CStr(AddInt(2.6, 1)), "3"
+	Check "coerce double", CStr(AddInt(2.6, 1)), "4"
 	Check "coerce string", Describe(7, 5), "n=75"
 	Check "optional default", Describe(3), "n=3!"
 	Check "mixed types", MixedTypes("12", 3, 44, 1), "12|3|44|" & CStr(True)

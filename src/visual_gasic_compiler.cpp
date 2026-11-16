@@ -182,6 +182,11 @@ bool vb_like_match(const String& value, const String& pattern) {
 }
 }
 
+static bool vg_is_integer_type_name(const String &type_name) {
+    String t = type_name.to_lower();
+    return t == "integer" || t == "long" || t == "longlong" || t == "byte";
+}
+
 static bool vg_is_packed_array_type(const String &t) {
     return t == "packedbytearray" || t == "packedint32array" || t == "packedint64array"
         || t == "packedfloat32array" || t == "packedfloat64array" || t == "packedstringarray"
@@ -379,6 +384,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     local_types.clear();
     local_const_map.clear();
     typed_locals.clear();
+    declared_int_vars.clear();
     pending_vector_draw_skip = 0;
     non_local_names.clear();
     used_vars.clear();
@@ -585,6 +591,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         }
         if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
         else if (t == "single" || t == "double") pvt = VT_FLOAT;
+        if (vg_is_integer_type_name(t) && !sub->parameters[i].is_param_array) declared_int_vars.insert(pkey);
         mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
     }
 
@@ -910,6 +917,34 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::get_local_type(const String 
     return VT_UNKNOWN;
 }
 
+bool VisualGasicCompiler::is_declared_integer_var(const String &name) const {
+    String key = name.to_lower();
+    if (declared_int_vars.has(key)) return true;
+    int frame = 0;
+    int offset = 0;
+    if (local_slots.has(key) || param_vars.has(key) || lookup_block_local(name, frame, offset)) return false;
+    if (!current_module) return false;
+    for (int i = 0; i < current_module->variables.size(); i++) {
+        VariableDefinition *v = current_module->variables[i];
+        if (v && v->array_sizes.is_empty() && v->name.to_lower() == key) {
+            return vg_is_integer_type_name(v->type);
+        }
+    }
+    return false;
+}
+
+// Typed Integer/Long targets round a non-integer value like VB6 CLng
+// (ties to even). Returns true when a coercion call was emitted.
+bool VisualGasicCompiler::emit_vb_integer_coercion(const String &name, ExpressionNode *value) {
+    if (!is_declared_integer_var(name)) return false;
+    if (infer_type(value) == VT_INT) return false;
+    int idx = current_chunk->add_constant(String("CLng"));
+    emit_byte(OP_CALL);
+    emit_const_index(idx);
+    emit_byte(1);
+    return true;
+}
+
 uint8_t VisualGasicCompiler::to_local_type(ValueType type) const {
     if (type == VT_INT) return 1;
     if (type == VT_FLOAT) return 2;
@@ -990,6 +1025,11 @@ void VisualGasicCompiler::collect_locals(Statement* stmt) {
                 }
                 if (vt != VT_UNKNOWN) {
                     typed_locals.insert(key);
+                }
+                if (vg_is_integer_type_name(s->type_name)) {
+                    declared_int_vars.insert(key);
+                } else {
+                    declared_int_vars.erase(key);
                 }
             }
             break;
@@ -5248,10 +5288,10 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 return Variant((double)eval_constant_expr(aa->indices[0]));
             }
             if (name == "clng" && aa->indices.size() == 1) {
-                return Variant((int64_t)eval_constant_expr(aa->indices[0]));
+                return VisualGasicInstance::vb_to_integer(eval_constant_expr(aa->indices[0]));
             }
             if (name == "cint" && aa->indices.size() == 1) {
-                return Variant((int)Math::round((double)eval_constant_expr(aa->indices[0])));
+                return Variant((int64_t)VisualGasicInstance::vb_round_half_even((double)eval_constant_expr(aa->indices[0])));
             }
             if (name == "csng" && aa->indices.size() == 1) {
                 return Variant((float)(double)eval_constant_expr(aa->indices[0]));
@@ -5285,10 +5325,10 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
                 return Variant((double)eval_constant_expr(call->arguments[0]));
             }
             if (name == "clng" && call->arguments.size() == 1) {
-                return Variant((int64_t)eval_constant_expr(call->arguments[0]));
+                return VisualGasicInstance::vb_to_integer(eval_constant_expr(call->arguments[0]));
             }
             if (name == "cint" && call->arguments.size() == 1) {
-                return Variant((int)Math::round((double)eval_constant_expr(call->arguments[0])));
+                return Variant((int64_t)VisualGasicInstance::vb_round_half_even((double)eval_constant_expr(call->arguments[0])));
             }
             if (name == "csng" && call->arguments.size() == 1) {
                 return Variant((float)(double)eval_constant_expr(call->arguments[0]));
@@ -7606,6 +7646,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 int offset = allocate_block_local(s->variable_name, vt);
                 if (s->initializer) {
                     compile_expression(s->initializer);
+                    emit_vb_integer_coercion(s->variable_name, s->initializer);
                 } else if (vt == VT_INT) {
                     emit_constant(Variant((int64_t)0));
                 } else {
@@ -7673,6 +7714,11 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                         else if (t == "single" || t == "double") vt = VT_FLOAT;
                     }
                     compile_expression(s->initializer);
+                    if (vg_is_integer_type_name(s->type_name) && infer_type(s->initializer) != VT_INT) {
+                        emit_byte(OP_CALL);
+                        emit_const_index(current_chunk->add_constant(String("CLng")));
+                        emit_byte(1);
+                    }
                     int slot = get_or_add_local(s->variable_name, vt);
                     if (slot >= 0) {
                         emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
@@ -7956,7 +8002,8 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     b->left && b->left->type == ExpressionNode::VARIABLE &&
                     ((VariableNode*)b->left)->name.nocasecmp_to(v->name) == 0) {
                     int slot = get_or_add_local(v->name, infer_type(s->value));
-                    if (slot >= 0 && get_local_type(v->name) == VT_INT) {
+                    if (slot >= 0 && get_local_type(v->name) == VT_INT &&
+                            (!is_declared_integer_var(v->name) || infer_type(b->right) == VT_INT)) {
                         compile_expression(b->right);
                         emit_byte(b->op == "+" ? OP_ADD_LOCAL_I64_STACK : OP_SUB_LOCAL_I64_STACK);
                         emit_byte((uint8_t)slot);
@@ -8050,13 +8097,15 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     int frame = 0;
                     int offset = 0;
                     if (lookup_block_local(tv->name, frame, offset)) {
+                        emit_vb_integer_coercion(tv->name, s->value);
                         emit_byte(OP_SET_BLOCK_LOCAL);
                         emit_byte((uint8_t)frame);
                         emit_byte((uint8_t)offset);
                         break;
                     }
                 }
-                 int slot = get_or_add_local(tv->name, infer_type(s->value));
+                 bool coerced_int = emit_vb_integer_coercion(tv->name, s->value);
+                 int slot = get_or_add_local(tv->name, coerced_int ? VT_INT : infer_type(s->value));
                  if (slot >= 0) {
                      emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
                  } else {
@@ -12517,6 +12566,9 @@ int VisualGasicCompiler::allocate_block_local(const String &name, ValueType vt) 
     scope.slots[key] = offset;
     if (vt != VT_UNKNOWN) {
         typed_locals.insert(key);
+    }
+    if (vt == VT_INT) {
+        declared_int_vars.insert(key);
     }
     return offset;
 }

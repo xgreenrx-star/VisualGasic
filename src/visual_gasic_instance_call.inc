@@ -500,7 +500,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 switch (chunk_for_locals->fast_param_coerce[i]) {
                     case 1:
                         if (st == Variant::INT) _fast_args.construct_copy(i, src);
-                        else _fast_args.construct_copy(i, Variant((int64_t)src));
+                        else _fast_args.construct_copy(i, vb_to_integer(src));
                         break;
                     case 2:
                         if (st == Variant::FLOAT) _fast_args.construct_copy(i, src);
@@ -523,7 +523,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 Variant val = p_args[i];
                 if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
-                    if (t == "integer" || t == "long") val = (int64_t)val;
+                    if (t == "integer" || t == "long") val = vb_to_integer(val);
                     else if (t == "single" || t == "double") val = (double)val;
                     else if (t == "string") val = (String)val;
                     else if (t == "boolean") val = (bool)val;
@@ -580,7 +580,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                  // Enforce Parameter Type
                 if (_have_pc_slow) {
                     switch (chunk_for_locals->fast_param_coerce[i]) {
-                        case 1: val = (int64_t)val; break;
+                        case 1: val = vb_to_integer(val); break;
                         case 2: val = (double)val;  break;
                         case 3: val = (String)val;  break;
                         case 4: val = (bool)val;    break;
@@ -588,7 +588,7 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                     }
                 } else if (!param.type_hint.is_empty()) {
                     String t = param.type_hint.to_lower();
-                    if (t == "integer" || t == "long") val = (int64_t)val;
+                    if (t == "integer" || t == "long") val = vb_to_integer(val);
                     else if (t == "single" || t == "double") val = (double)val;
                     else if (t == "string") val = (String)val;
                     else if (t == "boolean") val = (bool)val;
@@ -2597,10 +2597,13 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          } else if (target_type == Variant::BOOL && (source_type == Variant::BOOL || source_type == Variant::INT)) {
              coerce = true;
          }
+         if (coerce && source_type != target_type && ast_decl_is_untyped(name)) {
+             coerce = false;
+         }
          
          if (coerce) {
              if (target_type == Variant::INT) {
-                 variables[name] = (int64_t)val;
+                 variables[name] = vb_to_integer(val);
              } else if (target_type == Variant::FLOAT) {
                  variables[name] = (double)val;
              } else if (target_type == Variant::STRING) {

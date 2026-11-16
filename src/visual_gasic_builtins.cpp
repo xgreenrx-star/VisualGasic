@@ -400,13 +400,13 @@ Variant builtin_cint(const Variant &v, VisualGasicInstance *instance) {
         if (s.is_valid_int()) {
             return (int)s.to_int();
         }
-        return (int)Math::round(s.to_float());
+        return (int)VisualGasicInstance::vb_round_half_even(s.to_float());
     }
     switch (v.get_type()) {
         case Variant::INT:
         case Variant::FLOAT:
         case Variant::BOOL:
-            return (int)Math::round((double)v);
+            return (int)VisualGasicInstance::vb_round_half_even((double)v);
         default:
             break;
     }
@@ -420,9 +420,9 @@ Variant builtin_clng(const Variant &v, VisualGasicInstance *instance) {
             if (instance) instance->raise_runtime_error("Type mismatch: CLng");
             return Variant();
         }
-        return (int64_t)s.to_int();
+        return VisualGasicInstance::vb_to_integer(v);
     }
-    return (int64_t)v;
+    return VisualGasicInstance::vb_to_integer(v);
 }
 
 Variant builtin_cdbl(const Variant &v, VisualGasicInstance *instance) {
@@ -4409,9 +4409,9 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return min + UtilityFunctions::randf() * (max - min);
     }
 
-    if (METHOD_IS("cint") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
-    if (METHOD_IS("clng") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
-    if (METHOD_IS("clnglng") && args.size() == 1) { r_handled = true; return (int64_t)llround((double)args[0]); }
+    if (METHOD_IS("cint") && args.size() == 1) { r_handled = true; return VisualGasicInstance::vb_to_integer(args[0]); }
+    if (METHOD_IS("clng") && args.size() == 1) { r_handled = true; return VisualGasicInstance::vb_to_integer(args[0]); }
+    if (METHOD_IS("clnglng") && args.size() == 1) { r_handled = true; return VisualGasicInstance::vb_to_integer(args[0]); }
     if (METHOD_IS("csng") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cdbl") && args.size() == 1) { r_handled = true; return (double)args[0]; }
     if (METHOD_IS("cbool") && args.size() == 1) { r_handled = true; return (bool)args[0]; }

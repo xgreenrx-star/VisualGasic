@@ -13,7 +13,7 @@ See also [ROADMAP.md](../ROADMAP.md) for active development priorities.
 | Item | Detail |
 |------|--------|
 | **FunctionCall benchmark gap** | Compiler inlining + nested-loop fusion — 12/12 compute vs GDScript. |
-| **`CInt` truncated floats** | `CInt(3.7)` returned 3; now rounds to 4 (VB6 semantics). |
+| **`CInt` truncated floats** | `CInt(3.7)` returned 3; now rounds to 4. Halves now round to even like VB6 (`CInt(2.5)` = 2); before November 2026 they rounded away from zero. |
 | **CI `.vg` test suite GDExtension load** | `scripts/prepare_ci_gdextension.sh` materializes bin dirs; CI uses Godot 4.6.1. |
 | **`Boolean Or` runtime regression** | Fixed in Beta7 parser; regression test `test_boolean_or_regression.vg`. |
 

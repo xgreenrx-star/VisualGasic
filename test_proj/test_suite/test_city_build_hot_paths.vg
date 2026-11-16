@@ -132,7 +132,7 @@ Sub _Ready()
 	' --- Typed params still coerce on the variables[] binder (ByRef sub) ---
 	Dim coerced As Variant
 	coerced = CoerceInt(3.7)
-	If coerced = 3 And TypeName(coerced) = "Integer" Then
+	If coerced = 4 And TypeName(coerced) = "Integer" Then
 		Print "PASS: byref_binder_param_coercion"
 	Else
 		Print "FAIL: byref_binder_param_coercion: " & coerced & " " & TypeName(coerced)

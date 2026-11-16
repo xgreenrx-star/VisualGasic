@@ -1,0 +1,119 @@
+Attribute VB_Name = "TestVbIntegerRounding"
+' Typed Integer/Long targets and CInt/CLng round like VB6 (ties to even).
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+Dim GCount As Integer
+
+Sub AssertEqual(actual As Variant, expected As Variant, label As String)
+    If CStr(actual) = CStr(expected) Then
+        passed = passed + 1
+        Print "PASS: " & label
+    Else
+        failed = failed + 1
+        Print "FAIL: " & label & " - expected " & CStr(expected) & ", got " & CStr(actual)
+    End If
+End Sub
+
+Function Half(ByVal n As Integer) As Integer
+    Dim h As Integer
+    h = n / 2
+    Half = h
+End Function
+
+Dim GTicks As Integer
+
+Function Pick(ByVal v As Double) As String
+    Select Case v
+        Case 1: Pick = "one"
+        Case 2: Pick = "two"
+        Case 3: Pick = "three"
+        Case 4: Pick = "four"
+        Case 5: Pick = "five"
+        Case Else: Pick = "else"
+    End Select
+End Function
+
+Function AddInts(ByVal a As Integer, ByVal b As Integer) As Integer
+    AddInts = a + b
+End Function
+
+Sub BumpTicks(ByVal delta As Double)
+    GTicks = GTicks + 1
+End Sub
+
+Function Accum(ByVal n As Integer) As Long
+    Dim t As Long
+    Dim i As Integer
+    For i = 1 To n
+        t = t + 0.6
+    Next
+    Accum = t
+End Function
+
+Sub _Ready()
+    passed = 0
+    failed = 0
+    AssertEqual CInt(2.5), 2, "CInt ties to even (2.5)"
+    AssertEqual CInt(3.5), 4, "CInt ties to even (3.5)"
+    AssertEqual CInt(-2.5), -2, "CInt negative tie"
+    AssertEqual CInt(3.7), 4, "CInt rounds up"
+    AssertEqual CLng(2.5), 2, "CLng ties to even"
+    AssertEqual CLng(7.6), 8, "CLng rounds"
+    AssertEqual CLng("12"), 12, "CLng string"
+
+    Dim x As Integer
+    x = 3.7
+    AssertEqual x, 4, "Integer assign rounds"
+    x = 2.5
+    AssertEqual x, 2, "Integer assign ties to even"
+    x = 7
+    AssertEqual x + 1, 8, "Integer assign int unchanged"
+
+    Dim y As Integer = 4.5
+    AssertEqual y, 4, "Integer Dim initializer rounds"
+
+    Dim z As Long
+    z = 10
+    z = z + 0.6
+    AssertEqual z, 11, "Long self-add float rounds"
+
+    AssertEqual Half(7), 4, "Integer division assign 3.5 -> 4"
+    AssertEqual Half(5), 2, "Integer division assign 2.5 -> 2"
+    AssertEqual Accum(5), 5, "Long accumulate 0.6 rounds each step"
+
+    Dim d As Double
+    d = 2.5
+    AssertEqual d, 2.5, "Double keeps fraction"
+
+    Dim k As Integer
+    GTicks = 100
+    For k = 1 To 300
+        BumpTicks 0.016
+    Next
+    AssertEqual GTicks, 400, "hot module Integer increment stays exact"
+    AssertEqual TypeName(GTicks), "Integer", "hot module Integer increment keeps Integer type"
+
+    AssertEqual Pick(2), "two", "Select Case whole Double matches"
+    AssertEqual Pick(2.5), "else", "Select Case 2.5 does not match Case 2"
+    For k = 1 To 300
+        GTicks = AddInts(2.6, 1)
+    Next
+    AssertEqual GTicks, 4, "hot ByVal Integer params round 2.6 -> 3"
+
+    GCount = 1.5
+    AssertEqual GCount, 2, "module Integer assign rounds"
+
+    Dim v
+    v = 3.7
+    AssertEqual v, 3.7, "Variant keeps fraction"
+    Dim w
+    w = 1
+    w = 3.7
+    AssertEqual w, 3.7, "Variant holding Integer accepts fraction"
+
+    AssertEqual Half(2.5 * 3), 4, "ByVal Integer param rounds 7.5 -> 8, half -> 4"
+
+    Print "Results: " & passed & " passed, " & failed & " failed"
+End Sub

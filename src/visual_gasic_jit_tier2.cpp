@@ -2162,7 +2162,26 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     }
                 }
                 ir.push_back(cinst);
-                vstack.push_back(cinst.dest);
+                {
+                    // CLng/CInt return an integral value; keep it I64 so a
+                    // typed Integer slot is not rewritten as a Double.
+                    bool int_result = false;
+                    if (name_idx >= 0 && name_idx < chunk->constants.size()) {
+                        Variant cv = chunk->constants[name_idx];
+                        String cn = ((cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify()).to_lower();
+                        int_result = cn == "clng" || cn == "cint" || cn == "clnglng";
+                    }
+                    if (int_result) {
+                        int conv = next_vreg++;
+                        set_vreg_type(conv, IRType::I64);
+                        IRInst cv; cv.op = IROp::F64_TO_I64; cv.type = IRType::I64;
+                        cv.dest = conv; cv.src1 = cinst.dest; cv.bc_offset = ip;
+                        ir.push_back(cv);
+                        vstack.push_back(conv);
+                    } else {
+                        vstack.push_back(cinst.dest);
+                    }
+                }
                 ip += 4;
                 break;
             }

@@ -2456,7 +2456,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 switch (coerce[i]) {
                     case 1:
                         if (st == Variant::INT) vgfast::assign(dst, src);
-                        else vgfast::set_int(dst, (int64_t)src);
+                        else vgfast::set_int(dst, (int64_t)VisualGasicInstance::vb_to_integer(src));
                         break;
                     case 2:
                         if (st == Variant::FLOAT) vgfast::assign(dst, src);
@@ -11883,7 +11883,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 Variant top = pop_value();
                 int64_t val = 0;
                 if (vgfast::vtype(top) == Variant::INT) val = (int64_t)top;
-                else if (vgfast::vtype(top) == Variant::FLOAT) val = (int64_t)(double)top;
+                else if (vgfast::vtype(top) == Variant::FLOAT) {
+                    double dv = (double)top;
+                    val = (int64_t)dv;
+                    // 2.5 must not match Case 2: only whole Doubles index the table.
+                    if ((double)val != dv) { vm.ip += table_bytes + def_off; VG_BREAK; }
+                }
                 else { vm.ip += table_bytes + def_off; VG_BREAK; }
 
                 int64_t min_val = (int64_t)chunk->constants[min_cix];

@@ -1114,6 +1114,7 @@ void VisualGasicInstance::on_script_reloaded() {
 		added.insert(v->name.to_lower());
 		if (v->array_sizes.size() == 0) {
 			variables[v->name] = vg_module_default_for_declared_type(v->type);
+			note_ast_decl(nullptr, v->name, v->type);
 		}
 		if (v->is_with_events) {
 			with_events_vars[v->name] = true;
@@ -1559,6 +1560,7 @@ VisualGasicInstance::VisualGasicInstance(Ref<VisualGasicScript> p_script, Object
                  }
                  
                  variables[v->name] = vg_module_default_for_declared_type(v->type);
+                 note_ast_decl(nullptr, v->name, v->type);
                  
                  // Track WithEvents variables for signal auto-wiring (v3.5.0)
                  if (v->is_with_events) {
@@ -2213,8 +2215,8 @@ Array VisualGasicInstance::labeled_data_to_array(const String &label_lower) cons
 
 Variant VisualGasicInstance::coerce_to_type(const Variant &val, const String &type_name) {
     String tl = type_name.to_lower();
-    if (tl == "integer" || tl == "int" || tl == "long" || tl == "int32" || tl == "int64") {
-        return Variant((int64_t)val);
+    if (tl == "integer" || tl == "int" || tl == "long" || tl == "int32" || tl == "int64" || tl == "longlong" || tl == "byte") {
+        return vb_to_integer(val);
     } else if (tl == "single" || tl == "float" || tl == "double" || tl == "float32" || tl == "float64") {
         return Variant((double)val);
     } else if (tl == "string") {

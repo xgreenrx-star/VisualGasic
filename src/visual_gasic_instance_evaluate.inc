@@ -1661,7 +1661,7 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
              float max = (float)call_args[1];
              return min + UtilityFunctions::randf() * (max - min);
         }
-        if (call->method_name.nocasecmp_to("CInt") == 0 && call_args.size() == 1) return (int)round((double)call_args[0]);
+        if (call->method_name.nocasecmp_to("CInt") == 0 && call_args.size() == 1) return VisualGasicBuiltins::builtin_cint(call_args[0], this);
         if (call->method_name.nocasecmp_to("CDbl") == 0 && call_args.size() == 1) return (double)call_args[0];
         if (call->method_name.nocasecmp_to("CBool") == 0 && call_args.size() == 1) return (bool)call_args[0];
 

@@ -351,6 +351,32 @@ private:
     int get_current_section_start() const;
     void clear_data_tape();
     static Variant coerce_to_type(const Variant &val, const String &type_name);
+public:
+    // VB6 CInt/CLng rounding: nearest integer, ties to even (2.5 -> 2, 3.5 -> 4, -2.5 -> -2).
+    static inline int64_t vb_round_half_even(double d) {
+        double f = Math::floor(d);
+        double diff = d - f;
+        if (diff > 0.5) return (int64_t)f + 1;
+        if (diff < 0.5) return (int64_t)f;
+        int64_t fi = (int64_t)f;
+        return (fi % 2 == 0) ? fi : fi + 1;
+    }
+    static inline Variant vb_to_integer(const Variant &v) {
+        switch (v.get_type()) {
+            case Variant::INT: return v;
+            case Variant::FLOAT: return Variant(vb_round_half_even((double)v));
+            case Variant::BOOL: return Variant((int64_t)((bool)v ? 1 : 0));
+            case Variant::STRING: {
+                String s = v;
+                if (s.is_valid_int()) return Variant((int64_t)s.to_int());
+                if (s.is_valid_float()) return Variant(vb_round_half_even(s.to_float()));
+                return Variant((int64_t)0);
+            }
+            case Variant::NIL: return Variant((int64_t)0);
+            default: return Variant((int64_t)v);
+        }
+    }
+private:
 
     // Struct/Type system
     Dictionary struct_prototypes;  // Name -> Dictionary(default prototype)
@@ -604,6 +630,21 @@ private:
     } debug_state;
     
     SubDefinition* current_sub;
+    // AST walker: declared-Variant tracking keyed by (sub, lower name) so an
+    // untyped variable that currently holds an Integer still accepts 3.7.
+    HashMap<String, bool> ast_untyped_decls;
+    static String ast_decl_key(const SubDefinition *p_sub, const String &p_name) {
+        return String::num_uint64((uint64_t)(uintptr_t)p_sub) + ":" + p_name.to_lower();
+    }
+    void note_ast_decl(const SubDefinition *p_sub, const String &p_name, const String &p_type) {
+        String t = p_type.to_lower();
+        ast_untyped_decls[ast_decl_key(p_sub, p_name)] = t.is_empty() || t == "variant" || t == "object";
+    }
+    bool ast_decl_is_untyped(const String &p_name) const {
+        const bool *b = ast_untyped_decls.getptr(ast_decl_key(current_sub, p_name));
+        if (!b && current_sub) b = ast_untyped_decls.getptr(ast_decl_key(nullptr, p_name));
+        return b && *b;
+    }
     int jump_target;
     // AST Resume / Resume Next: next loop index is resume_land (before i++).
     int resume_land = -1;
