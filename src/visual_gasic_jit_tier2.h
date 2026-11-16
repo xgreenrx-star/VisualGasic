@@ -129,6 +129,7 @@ enum class IROp : uint8_t {
 
     // Host calls. Caller-saved registers are spilled around these.
     // LIBM1: dest(f64) = libm(imm_i64)(src1). 0 sin, 1 cos, 2 sqrt, 3 tan, 4 fabs, 5 sgn, 6 neg
+    // 7: dest(i64) = src1(f64) rounded half to even (Integer parameter, CLng/CInt)
     LIBM1,
     // RUNTIME_CALL: dest(f64 numeric) = host call. imm_i64 = constant-pool name index.
     // call_n / call_src / call_kind / call_pool describe arguments.
@@ -139,7 +140,30 @@ enum class IROp : uint8_t {
     // BYREF_LOAD: dest = post-call ByRef capture. imm_i64 = param-name const index.
     // call_kind[0] = 1 if the destination is a global (call_pool[0] = its const index).
     // local_slot is the destination local when call_kind[0] == 0.
-    BYREF_LOAD
+    BYREF_LOAD,
+
+    // Direct call of a compiled callee (Tier2::lower_bytecode, OP_CALL). The
+    // callee's slots live in the caller's frame, below the spill area; slot
+    // numbers are the callee's and travel in imm_i64, never in local_slot.
+    // CALLEE_ZERO:     area[imm_i64 .. imm_i64 + call_pool[0]) = 0
+    // CALLEE_STORE:    area[imm_i64] = src1 (raw I64/F64 bits)
+    // CALLEE_COPY_IN:  area[imm_i64] = locals[call_pool[0]] (a module variable, raw bits)
+    // DIRECT_CALL:     dest(f64) = callee(area). imm_i64 = CompiledFunc*.
+    //                  call_pool[0] = slot read when the callee returned 1,
+    //                  call_pool[1] = slot read when it returned 0 (-1 = no value),
+    //                  call_kind[0] = 1 when the callee is a Boolean Function.
+    // CALLEE_COPY_OUT: locals[call_pool[0]] = area[imm_i64] (raw bits)
+    // CALLEE_LOAD:     dest = area[imm_i64] (raw bits; `type` says which kind)
+    // BOOL_SLOT:       locals[imm_i64] = (locals[imm_i64] != 0). imm_i64 < 0 is a
+    //                  placeholder for "every Boolean module variable's slot";
+    //                  lower_bytecode replaces it before it returns.
+    CALLEE_ZERO,
+    CALLEE_STORE,
+    CALLEE_COPY_IN,
+    DIRECT_CALL,
+    CALLEE_COPY_OUT,
+    CALLEE_LOAD,
+    BOOL_SLOT
 };
 
 struct IRInst {
@@ -333,6 +357,39 @@ struct CompiledFunc {
     int8_t returns_boolean = -1;
     std::vector<int> byref_params;
 
+    // Direct-call contract, filled when the body is compiled. direct_ok: the
+    // body makes no host call that reads the active JitFrame and every named
+    // local is a declared slot, so compiled code may `call` fn on a private
+    // slot area without going through call_internal / try_jit_bytecode.
+    bool direct_ok = false;
+    int param_count = 0;         // leading parameter slots
+    int local_count = 0;         // chunk slots: parameters, return slot, Dims, temps
+    // 1 = the body stores to global_slots[i] (the caller copies it back out).
+    std::vector<uint8_t> global_written;
+
+    // One entry per RUNTIME_CALL site. Native code passes its address to
+    // host_call, which keeps the resolved user callee there instead of
+    // searching a table by name on every call. `memo` is owned (memo_free
+    // releases it); the deque keeps every entry's address stable.
+    struct HostCallSite {
+        const char *name = nullptr;   // UTF-8, owned by str_pool
+        void *memo = nullptr;
+        void (*memo_free)(void *) = nullptr;
+        HostCallSite() = default;
+        HostCallSite(const HostCallSite &) = delete;
+        HostCallSite &operator=(const HostCallSite &) = delete;
+        ~HostCallSite() { if (memo && memo_free) memo_free(memo); }
+    };
+    std::deque<HostCallSite> host_sites;
+
+    // jit_sync_globals: value pointers of the module variables behind
+    // global_slots (nullptr = not looked up, or the variable does not exist
+    // yet). Valid for one instance (by serial: an address can be reused) and
+    // one VgVariables generation.
+    uint64_t global_ptr_owner = 0;
+    uint32_t global_ptr_generation = 0;
+    std::vector<godot::Variant *> global_ptrs;
+
     ~CompiledFunc();
 };
 
@@ -356,7 +413,10 @@ public:
     bool enabled() const { return enabled_; }
     
     // Record a call; returns compiled fn if ready, else nullptr.
-    CompiledFunc* get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst);
+    // compile_now skips the hotness threshold: a caller being compiled asks
+    // for its callee's native body so it can call it directly.
+    CompiledFunc* get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst,
+                                 bool compile_now = false);
 
     // True once it is settled that `chunk` will never run natively on this
     // engine: Tier 2 is off, or the compile was attempted and refused.  The
@@ -384,6 +444,13 @@ private:
     };
     std::unordered_map<std::string, HotInfo> hot_;
     std::unordered_map<std::string, CompiledFunc*> cache_;
+
+    // Direct calls. lower_bytecode sets direct_retry_ when a body and one of
+    // its direct callees keep a shared module variable in different kinds of
+    // slot; get_or_compile then lowers that body once more with
+    // direct_calls_off_, so all of its calls stay host calls.
+    bool direct_calls_off_ = false;
+    bool direct_retry_ = false;
     
     HotInfo& get_hotness(const std::string& name);
     

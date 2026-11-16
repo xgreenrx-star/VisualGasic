@@ -834,6 +834,12 @@ public:
     Variant jit_invoke_user_call(const String &method, const Variant *args, int argc, bool &handled, JitCallSiteMemo &memo);
     Variant jit_byref_capture(const String &name, bool &found) const;
     bool jit_callee_returns_non_numeric(const String &name, int argc);
+    // The module-level Sub a compiled caller may call directly for this
+    // (name, argc), resolved exactly as the interpreter's OP_CALL resolves it.
+    // False when the call has to stay a host call.
+    bool jit_resolve_direct_callee(const String &name, int argc, SubDefinition *&r_func, BytecodeChunk *&r_chunk);
+    // Identity for pointer caches the JIT keeps per compiled function.
+    uint64_t jit_instance_serial() const { return _instance_serial; }
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);

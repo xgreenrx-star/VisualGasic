@@ -5,7 +5,9 @@
 #include "visual_gasic_instance.h"
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_optimizer.h"
+#include "vg_variant_fast.h"
 #include <memory>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cmath>
 #include <cctype>
@@ -203,6 +205,58 @@ bool VisualGasicInstance::jit_callee_returns_non_numeric(const String &name, int
 		return true;
 	}
 	return false;
+}
+
+// Tier 2 may `call` a compiled callee directly only when the name resolves the
+// way the interpreter's OP_CALL resolves it.  OP_CALL treats a resolved
+// _call_resolution_cache entry as proof that both builtin cascades miss for
+// this (name, argc) and goes straight to call_internal; the names it claims
+// before looking at that cache (draw calls, Array, VarType, Min/Max/Int/Fix/
+// LerpF) are excluded here in the same order.  A site that has not run yet
+// has no entry and stays a host call.  Imported-module callees, Declare'd
+// externs (FFI dispatch runs first), Static locals (call_internal persists
+// them), the lifecycle names call_internal swallows in the editor and the
+// opcode profiler (it reports per-Sub rows) also stay there.
+bool VisualGasicInstance::jit_resolve_direct_callee(const String &name, int argc, SubDefinition *&r_func, BytecodeChunk *&r_chunk) {
+	r_func = nullptr;
+	r_chunk = nullptr;
+	if (!script.is_valid() || !script->ast_root) return false;
+	// Caches not refreshed for this script generation yet: call_internal does
+	// that on its next call; nothing here may be trusted until then.
+	if (_member_cache_generation != script->bytecode_generation) return false;
+	if (!declared_functions.is_empty()) return false;
+	static const bool s_opcode_profile = []() {
+		const char *env = std::getenv("VG_OPCODE_PROFILE");
+		return env && env[0] != '\0' && env[0] != '0';
+	}();
+	if (s_opcode_profile) return false;
+	if (classify_draw_kind(name) != 0) return false;
+	const String lower = name.to_lower();
+	if (lower == "array" || lower == "vartype" || lower == "min" || lower == "max" ||
+			lower == "int" || lower == "fix" || lower == "lerpf") {
+		return false;
+	}
+	static const bool s_editor_hint = Engine::get_singleton()->is_editor_hint();
+	if (s_editor_hint && (lower == "_ready" || lower == "_process" || lower == "_physics_process" ||
+			lower == "_input" || lower == "_unhandled_input" || lower == "_enter_tree" || lower == "_exit_tree")) {
+		return false;
+	}
+	const String res_key = name.to_lower() + "#" + String::num_int64(argc);
+	const CallResolutionCacheEntry *cr = _call_resolution_cache.getptr(res_key);
+	if (!cr || !cr->resolved || !cr->func || !cr->chunk_for_locals || cr->owning_module_index >= 0) return false;
+	SubDefinition *sd = cr->func;
+	if (sd->has_static_locals_cache < 0) {
+		int hs = 0;
+		for (int si = 0; si < sd->statements.size(); si++) {
+			if (sd->statements[si] && sd->statements[si]->type == VisualGasic::STMT_DIM &&
+					((VisualGasic::DimStatement *)sd->statements[si])->is_static) { hs = 1; break; }
+		}
+		sd->has_static_locals_cache = hs;
+	}
+	if (sd->has_static_locals_cache != 0) return false;
+	r_func = sd;
+	r_chunk = cr->chunk_for_locals;
+	return true;
 }
 
 Variant VisualGasicInstance::jit_byref_capture(const String &name, bool &found) const {
@@ -960,6 +1014,333 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         return ne.dest;
     };
 
+    // Module variables are virtual slots keyed by name. A slot adopted for a
+    // direct callee before this body names the variable itself, or a second
+    // constant index with the same name, must land on the one slot.
+    auto global_slot_for_const = [&](int name_idx) -> int {
+        auto it = global_const_to_slot.find(name_idx);
+        if (it != global_const_to_slot.end()) return it->second;
+        int vslot = -1;
+        if (name_idx < chunk->constants.size()) {
+            String gname = chunk->constants[name_idx].stringify();
+            std::string key(gname.utf8().get_data());
+            for (const auto &gs : global_slots) {
+                if (gs.first == key) { vslot = gs.second; break; }
+            }
+            if (vslot < 0) {
+                vslot = next_global_slot++;
+                // Record the name for the caller
+                global_slots.push_back({ key, vslot });
+            }
+        } else {
+            vslot = next_global_slot++;
+        }
+        global_const_to_slot[name_idx] = vslot;
+        return vslot;
+    };
+
+    auto convert_vreg = [&](int v, IRType want, int at_ip) -> int {
+        IRType have = (get_vreg_type(v) == IRType::F64) ? IRType::F64 : IRType::I64;
+        if (have == want) return v;
+        IRInst cv;
+        cv.op = (want == IRType::F64) ? IROp::I64_TO_F64 : IROp::F64_TO_I64;
+        cv.type = want;
+        cv.dest = next_vreg++;
+        set_vreg_type(cv.dest, want);
+        cv.src1 = v;
+        cv.bc_offset = at_ip;
+        ir.push_back(cv);
+        return cv.dest;
+    };
+
+    // ── Direct calls ─────────────────────────────────────────────────────
+    // OP_CALL to a user Sub whose native body is self-contained
+    // (CompiledFunc::direct_ok) becomes a plain `call` on a slot area in this
+    // frame instead of host_call → call_internal → execute_bytecode →
+    // try_jit_bytecode.  The lowering reproduces what that chain does for
+    // such a callee:
+    //   - arguments are coerced per fast_param_coerce, as call_internal does;
+    //   - the callee's module variables are copied in from this body's
+    //     virtual global slots, and the ones it writes are copied back out
+    //     (the host path syncs both through variables[]);
+    //   - a ByRef write-back reads the callee's parameter slot where
+    //     OP_BYREF_LOAD would read _last_byref_captures;
+    //   - the result is an F64 vreg, converted as a host-call result is.
+    // Whatever it cannot reproduce keeps the RUNTIME_CALL. So does every call
+    // under VG_JIT>=3 (try_jit_bytecode offers each callee to Tier 3 first)
+    // and every call of a body lowered with direct_calls_off_.
+    struct DirectByRef { int callee_slot; bool callee_f64; };
+    std::unordered_map<int, DirectByRef> direct_byref; // OP_BYREF_LOAD ip → callee slot
+    std::vector<std::pair<int, bool>> direct_globals;  // (this body's slot, callee keeps it as F64)
+    auto lower_direct_call = [&](const String &callee_name, int argc, int call_ip) -> bool {
+        if (!inst || direct_calls_off_ || tier_level_ >= 3) return false;
+        if (argc < 0 || argc > 8 || (int)vstack.size() < argc) return false;
+        VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(inst);
+        VisualGasic::SubDefinition *cfunc = nullptr;
+        BytecodeChunk *cchunk = nullptr;
+        if (!vi->jit_resolve_direct_callee(callee_name, argc, cfunc, cchunk)) return false;
+        if (cchunk == chunk || !cchunk->fast_params || cchunk->publishes_locals) return false;
+        if (cchunk->param_count != argc || cfunc->parameters.size() != argc ||
+                cchunk->fast_param_coerce.size() != argc) {
+            return false; // omitted Optional argument, ParamArray, no coercion codes
+        }
+        for (int a = 0; a < argc; a++) {
+            if (cfunc->parameters[a].is_param_array) return false;
+        }
+        const bool is_function = cfunc->type == VisualGasic::SubDefinition::TYPE_FUNCTION;
+        if (is_function) {
+            if (cchunk->return_slot < 0 || cchunk->return_slot >= cchunk->local_count) return false;
+            if (cchunk->fast_return_coerce < 0 && !cfunc->return_type.is_empty()) return false;
+        }
+
+        // The callee's native body. It is compiled here if nothing tried yet;
+        // a body that is being compiled further up (mutual recursion) or was
+        // refused comes back null.
+        const int saved_ip = g_jit_lower_ip, saved_op = g_jit_lower_op;
+        CompiledFunc *callee = get_or_compile(std::string(cfunc->name.utf8().get_data()), cchunk, inst, true);
+        g_jit_lower_ip = saved_ip;
+        g_jit_lower_op = saved_op;
+        if (!callee || !callee->fn || !callee->direct_ok) return false;
+        auto callee_slot_f64 = [&](int slot) -> bool {
+            return slot >= 0 && slot < (int)callee->slot_is_f64.size() && callee->slot_is_f64[slot];
+        };
+
+        // Arguments: the conversions call_internal applies to an INT / FLOAT
+        // argument for each fast_param_coerce code. The coerced value must
+        // have the representation the callee compiled its slot with.
+        enum { ARG_ASIS, ARG_TO_F64, ARG_ROUND, ARG_TRUTH };
+        int arg_v[8];
+        int arg_plan[8];
+        for (int a = 0; a < argc; a++) {
+            arg_v[a] = vstack[vstack.size() - argc + a];
+            const IRType at = get_vreg_type(arg_v[a]);
+            if ((at != IRType::I64 && at != IRType::F64) || vreg_str_pool.count(arg_v[a])) return false;
+            const bool arg_f = at == IRType::F64;
+            bool rep_f = arg_f;
+            switch (cchunk->fast_param_coerce[a]) {
+                case 1: arg_plan[a] = arg_f ? ARG_ROUND : ARG_ASIS; rep_f = false; break; // Integer, Long
+                case 2: arg_plan[a] = arg_f ? ARG_ASIS : ARG_TO_F64; rep_f = true; break; // Single, Double
+                case 4: arg_plan[a] = ARG_TRUTH; rep_f = false; break;                    // Boolean
+                case 0: arg_plan[a] = ARG_ASIS; break;                                    // Byte, Currency, …
+                default: return false;
+            }
+            if (rep_f != callee_slot_f64(a)) return false;
+        }
+
+        // Result: the dedicated Return slot when the callee returned 1, the
+        // Function-name slot when it returned 0. A Boolean Function hands
+        // back 0/1 (try_jit_bytecode's returns_boolean).
+        const bool ret_bool = is_function && (cfunc->return_type.nocasecmp_to("boolean") == 0 ||
+                cfunc->return_type.nocasecmp_to("bool") == 0);
+        const int ret_a = callee->ret_slot;
+        const int ret_b = is_function ? cchunk->return_slot : -1;
+        if (ret_a >= callee->total_slots || ret_b >= callee->total_slots) return false;
+        if (ret_bool && (callee_slot_f64(ret_a) || callee_slot_f64(ret_b))) return false;
+
+        // ByRef write-backs. The compiler emits them straight after the call
+        // ([OP_POP] then OP_BYREF_LOAD + OP_SET_LOCAL/OP_SET_GLOBAL pairs).
+        // Each must name a ByRef parameter of this callee. Any other
+        // OP_BYREF_LOAD before the next call (the indexed arr(i) form) would
+        // read captures a direct call never records.
+        std::vector<std::pair<int, DirectByRef>> byref_sites;
+        {
+            int scan = call_ip + 4;
+            if (scan < size && code[scan] == OP_POP) {
+                if (ip_to_label.count(scan)) return false;
+                scan += 1;
+            }
+            while (scan + 5 < size && code[scan] == OP_BYREF_LOAD) {
+                if (ip_to_label.count(scan)) return false;
+                const int pname_idx = (code[scan + 2] << 8) | code[scan + 1];
+                const int is_global = code[scan + 3];
+                const int dest = (code[scan + 5] << 8) | code[scan + 4];
+                int next = scan + 6;
+                if (ip_to_label.count(next)) return false;
+                if (is_global == 0) {
+                    if (next + 1 >= size || code[next] != OP_SET_LOCAL || code[next + 1] != dest) return false;
+                    next += 2;
+                } else if (is_global == 1) {
+                    if (next + 2 >= size || code[next] != OP_SET_GLOBAL ||
+                            ((code[next + 2] << 8) | code[next + 1]) != dest) return false;
+                    next += 3;
+                } else {
+                    return false;
+                }
+                if (pname_idx >= chunk->constants.size()) return false;
+                const String pname = chunk->constants[pname_idx].stringify();
+                int pslot = -1;
+                for (int p = 0; p < argc; p++) {
+                    if (cfunc->parameters[p].name.nocasecmp_to(pname) == 0) { pslot = p; break; }
+                }
+                if (pslot < 0 || !cfunc->parameters[pslot].is_by_ref) return false;
+                if (pslot >= cchunk->local_names.size() ||
+                        cchunk->local_names[pslot].nocasecmp_to(pname) != 0) return false;
+                byref_sites.push_back({ scan, { pslot, callee_slot_f64(pslot) } });
+                scan = next;
+            }
+            while (scan < size && code[scan] != OP_CALL) {
+                if (code[scan] == OP_BYREF_LOAD) return false;
+                scan += VisualGasicOptimizer::instruction_size(bc_code, scan);
+            }
+        }
+
+        // Module variables the callee uses are, or become, virtual global
+        // slots of this body, and travel as raw slot bits. That is what the
+        // host path's round trip through variables[] amounts to when both
+        // bodies keep the variable in the same kind of slot; the pass after
+        // the main loop checks that they do (direct_globals).
+        struct Adopt { int cslot; int vslot; std::string name; bool written; };
+        std::vector<Adopt> adopts;
+        for (size_t g = 0; g < callee->global_slots.size(); g++) {
+            Adopt ad;
+            ad.name = callee->global_slots[g].first;
+            ad.cslot = callee->global_slots[g].second;
+            ad.vslot = -1;
+            ad.written = g < callee->global_written.size() && callee->global_written[g] != 0;
+            if (ad.cslot < 0 || ad.cslot >= callee->total_slots) return false;
+            for (const auto &gs : global_slots) {
+                if (gs.first == ad.name) { ad.vslot = gs.second; break; }
+            }
+            // An Object, String or Array is not a slot: entered through the
+            // host, the callee's slot for one stays 0 whatever this body's
+            // slot holds.
+            const String gname = String::utf8(ad.name.c_str());
+            if (vi->get_variables().has(gname)) {
+                const Variant::Type gt = vi->get_variables()[gname].get_type();
+                if (gt != Variant::NIL && gt != Variant::INT && gt != Variant::BOOL && gt != Variant::FLOAT) {
+                    return false;
+                }
+            }
+            adopts.push_back(ad);
+        }
+
+        // ── Commit. Nothing above touched the IR or the slot tables. ──
+        int arg_val[8];
+        for (int a = 0; a < argc; a++) {
+            int v = arg_v[a];
+            if (arg_plan[a] == ARG_TO_F64) {
+                v = convert_vreg(v, IRType::F64, call_ip);
+            } else if (arg_plan[a] == ARG_ROUND) {
+                IRInst rnd;
+                rnd.op = IROp::LIBM1;
+                rnd.type = IRType::I64;
+                rnd.dest = next_vreg++;
+                set_vreg_type(rnd.dest, IRType::I64);
+                rnd.src1 = v;
+                rnd.imm_i64 = 7;
+                rnd.bc_offset = call_ip;
+                ir.push_back(rnd);
+                v = rnd.dest;
+            } else if (arg_plan[a] == ARG_TRUTH) {
+                const bool is_f = get_vreg_type(v) == IRType::F64;
+                IRInst cz;
+                cz.op = is_f ? IROp::CONST_F64 : IROp::CONST_I64;
+                cz.type = is_f ? IRType::F64 : IRType::I64;
+                cz.dest = next_vreg++;
+                set_vreg_type(cz.dest, cz.type);
+                cz.bc_offset = call_ip;
+                ir.push_back(cz);
+                IRInst ne;
+                ne.op = is_f ? IROp::NE_F64 : IROp::NE_I64;
+                ne.type = IRType::BOOL;
+                ne.dest = next_vreg++;
+                set_vreg_type(ne.dest, IRType::I64);
+                ne.src1 = v;
+                ne.src2 = cz.dest;
+                ne.bc_offset = call_ip;
+                ir.push_back(ne);
+                v = ne.dest;
+            }
+            arg_val[a] = v;
+        }
+        // The host path hands the callee a zeroed frame: its own locals and
+        // the Function-name slot start at 0. Parameters and module variables
+        // are stored below; the Return slot is written before it is read.
+        {
+            std::vector<uint8_t> filled((size_t)callee->total_slots, 0);
+            for (int a = 0; a < argc && a < callee->total_slots; a++) filled[a] = 1;
+            for (const Adopt &ad : adopts) filled[ad.cslot] = 1;
+            if (ret_a >= 0) filled[ret_a] = 1;
+            int s = 0;
+            while (s < callee->total_slots) {
+                if (filled[s]) { s++; continue; }
+                int e = s;
+                while (e < callee->total_slots && !filled[e]) e++;
+                IRInst z;
+                z.op = IROp::CALLEE_ZERO;
+                z.imm_i64 = s;
+                z.call_pool[0] = e - s;
+                z.bc_offset = call_ip;
+                ir.push_back(z);
+                s = e;
+            }
+        }
+        for (int a = 0; a < argc; a++) {
+            IRInst st;
+            st.op = IROp::CALLEE_STORE;
+            st.src1 = arg_val[a];
+            st.imm_i64 = a;
+            st.bc_offset = call_ip;
+            ir.push_back(st);
+        }
+        // A host call squashes every Boolean module variable's slot to 0/1
+        // on the way out and on the way back (jit_sync_globals keeps the
+        // variable Boolean). The placeholder becomes one BOOL_SLOT per such
+        // slot once all of this body's module variables are known.
+        auto emit_bool_slots = [&]() {
+            IRInst bs;
+            bs.op = IROp::BOOL_SLOT;
+            bs.imm_i64 = -1;
+            bs.bc_offset = call_ip;
+            ir.push_back(bs);
+        };
+        emit_bool_slots();
+        for (Adopt &ad : adopts) {
+            if (ad.vslot < 0) {
+                ad.vslot = next_global_slot++;
+                global_slots.push_back({ ad.name, ad.vslot });
+            }
+            direct_globals.push_back({ ad.vslot, callee_slot_f64(ad.cslot) });
+            IRInst ci;
+            ci.op = IROp::CALLEE_COPY_IN;
+            ci.imm_i64 = ad.cslot;
+            ci.call_pool[0] = ad.vslot;
+            ci.bc_offset = call_ip;
+            ir.push_back(ci);
+        }
+        IRInst dc;
+        dc.op = IROp::DIRECT_CALL;
+        dc.type = IRType::F64;
+        dc.dest = next_vreg++;
+        set_vreg_type(dc.dest, IRType::F64);
+        dc.imm_i64 = (int64_t)reinterpret_cast<intptr_t>(callee);
+        dc.call_pool[0] = ret_a;
+        dc.call_pool[1] = ret_b;
+        dc.call_kind[0] = ret_bool ? 1 : 0;
+        dc.bc_offset = call_ip;
+        ir.push_back(dc);
+        for (const Adopt &ad : adopts) {
+            if (!ad.written) continue;
+            IRInst co;
+            co.op = IROp::CALLEE_COPY_OUT;
+            co.imm_i64 = ad.cslot;
+            co.call_pool[0] = ad.vslot;
+            co.bc_offset = call_ip;
+            ir.push_back(co);
+        }
+        emit_bool_slots();
+        for (const auto &bs : byref_sites) direct_byref[bs.first] = bs.second;
+        for (int a = 0; a < argc; a++) vstack.pop_back();
+        vstack.push_back(dc.dest);
+        const char *jit_log = std::getenv("VG_JIT_LOG");
+        if (jit_log && jit_log[0] == '1') {
+            UtilityFunctions::print("[VG_JIT T2] '", String(fn_name.c_str()), "' ip ", call_ip,
+                    ": direct call '", cfunc->name, "' (", (int)adopts.size(), " module variables, ",
+                    (int)byref_sites.size(), " ByRef write-backs)");
+        }
+        return true;
+    };
+
     // Second pass: generate IR
     int ip = 0;
     while (ip < size) {
@@ -1118,19 +1499,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             case OP_GET_GLOBAL: {
                 int name_idx = (code[ip + 2] << 8) | code[ip + 1];
                 // Resolve or assign virtual slot for this global
-                auto it = global_const_to_slot.find(name_idx);
-                int vslot;
-                if (it != global_const_to_slot.end()) {
-                    vslot = it->second;
-                } else {
-                    vslot = next_global_slot++;
-                    global_const_to_slot[name_idx] = vslot;
-                    // Record the name for the caller
-                    if (name_idx < chunk->constants.size()) {
-                        String gname = chunk->constants[name_idx].stringify();
-                        global_slots.push_back({ std::string(gname.utf8().get_data()), vslot });
-                    }
-                }
+                int vslot = global_slot_for_const(name_idx);
                 IRType slot_type = IRType::I64;
                 auto stt = local_slot_type.find(vslot);
                 if (stt != local_slot_type.end()) {
@@ -1173,18 +1542,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (vstack.empty()) return false;
                 int val = vstack.back(); vstack.pop_back();
                 // Resolve or assign virtual slot
-                auto it = global_const_to_slot.find(name_idx);
-                int vslot;
-                if (it != global_const_to_slot.end()) {
-                    vslot = it->second;
-                } else {
-                    vslot = next_global_slot++;
-                    global_const_to_slot[name_idx] = vslot;
-                    if (name_idx < chunk->constants.size()) {
-                        String gname = chunk->constants[name_idx].stringify();
-                        global_slots.push_back({ std::string(gname.utf8().get_data()), vslot });
-                    }
-                }
+                int vslot = global_slot_for_const(name_idx);
                 local_slot_type[vslot] = get_vreg_type(val);
                 IRInst inst;
                 inst.op = IROp::STORE_LOCAL;
@@ -2163,15 +2521,47 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (argc < 0 || argc > 8) return false;
                 // Direct recursion shares the function-name return slot across
                 // frames. Leave those bodies on the interpreter.
+                String callee_name;
                 if (name_idx >= 0 && name_idx < chunk->constants.size()) {
                     Variant cv = chunk->constants[name_idx];
                     String cn = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
+                    callee_name = cn;
                     CharString cs = cn.utf8();
                     const char *got = cs.get_data();
                     const char *want = fn_name.c_str();
                     if (jit_tier2_non_numeric_callee(got)) {
                         // CStr/Replace/… return String; host_call drops that to 0.
                         return false;
+                    }
+                    // CLng/CInt/CLngLng of a number is vb_to_integer: an Integer
+                    // is unchanged, a Double rounds half to even. The compiler
+                    // emits this call for every store of a possibly fractional
+                    // value into an Integer/Long variable, and host_call looked
+                    // the builtin up by name on each pass.
+                    if (argc == 1 && !vstack.empty() && (jit_tier2_name_eq_ci(got, "clng") ||
+                            jit_tier2_name_eq_ci(got, "cint") || jit_tier2_name_eq_ci(got, "clnglng"))) {
+                        const int v = vstack.back();
+                        const IRType vt = get_vreg_type(v);
+                        const bool is_str = vreg_str_pool.find(v) != vreg_str_pool.end();
+                        if (!is_str && vt == IRType::I64) {
+                            ip += 4;
+                            break;
+                        }
+                        if (!is_str && vt == IRType::F64) {
+                            vstack.pop_back();
+                            IRInst rnd;
+                            rnd.op = IROp::LIBM1;
+                            rnd.type = IRType::I64;
+                            rnd.dest = next_vreg++;
+                            set_vreg_type(rnd.dest, IRType::I64);
+                            rnd.src1 = v;
+                            rnd.imm_i64 = 7;
+                            rnd.bc_offset = ip;
+                            ir.push_back(rnd);
+                            vstack.push_back(rnd.dest);
+                            ip += 4;
+                            break;
+                        }
                     }
                     if (got && want && !fn_name.empty() && jit_tier2_name_eq_ci(got, want)) {
                         return false;
@@ -2183,6 +2573,10 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     }
                 }
                 if ((int)vstack.size() < argc) return false;
+                if (!callee_name.is_empty() && lower_direct_call(callee_name, argc, ip)) {
+                    ip += 4;
+                    break;
+                }
                 IRInst cinst;
                 cinst.op = IROp::RUNTIME_CALL;
                 cinst.imm_i64 = name_idx;
@@ -2384,6 +2778,23 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                     auto stt = local_slot_type.find(dest);
                     if (stt != local_slot_type.end()) ty = stt->second;
                 }
+                auto dbr = direct_byref.find(ip);
+                if (dbr != direct_byref.end()) {
+                    // Write-back after a direct call: the parameter's final
+                    // value is still in the callee's slot area. Converted to
+                    // the destination's type, as host_byref's result is.
+                    IRInst ld;
+                    ld.op = IROp::CALLEE_LOAD;
+                    ld.type = dbr->second.callee_f64 ? IRType::F64 : IRType::I64;
+                    ld.dest = next_vreg++;
+                    set_vreg_type(ld.dest, ld.type);
+                    ld.imm_i64 = dbr->second.callee_slot;
+                    ld.bc_offset = ip;
+                    ir.push_back(ld);
+                    vstack.push_back(convert_vreg(ld.dest, ty == IRType::F64 ? IRType::F64 : IRType::I64, ip));
+                    ip += 6;
+                    break;
+                }
                 IRInst binst;
                 binst.op = IROp::BYREF_LOAD;
                 binst.type = ty;
@@ -2478,6 +2889,86 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             }
             ir.swap(out);
             for (const auto &kv : canon) local_slot_type[kv.first] = kv.second;
+        }
+    }
+
+    // Direct calls moved module variables between this body's slots and the
+    // callees' as raw bits. That is the host path's round trip only where
+    // both sides keep the variable in the same kind of slot. A slot this
+    // body never loads or stores itself takes the callee's kind. A
+    // disagreement (an untyped module variable used as an Integer here and
+    // as a Single there), or one variable under two spellings, sends this
+    // body through the lowering again without direct calls.
+    if (!direct_globals.empty()) {
+        std::unordered_map<int, bool> own; // slot → this body uses it as F64
+        for (const IRInst &q : ir) {
+            if (q.local_slot < 0) continue;
+            bool f64;
+            if (q.op == IROp::STORE_LOCAL) f64 = get_vreg_type(q.src1) == IRType::F64;
+            else if (q.op == IROp::LOAD_LOCAL) f64 = q.type == IRType::F64;
+            else continue;
+            own[q.local_slot] = own[q.local_slot] || f64;
+        }
+        bool conflict = false;
+        for (const auto &dg : direct_globals) {
+            auto oit = own.find(dg.first);
+            if (oit != own.end()) {
+                if (oit->second != dg.second) conflict = true;
+                continue;
+            }
+            auto stt = local_slot_type.find(dg.first);
+            if (stt == local_slot_type.end()) {
+                local_slot_type[dg.first] = dg.second ? IRType::F64 : IRType::I64;
+            } else if ((stt->second == IRType::F64) != dg.second) {
+                conflict = true; // two callees disagree
+            }
+        }
+        for (size_t a = 0; a < global_slots.size() && !conflict; a++) {
+            const String an = String::utf8(global_slots[a].first.c_str());
+            for (size_t b = a + 1; b < global_slots.size(); b++) {
+                if (global_slots[a].first != global_slots[b].first &&
+                        an.nocasecmp_to(String::utf8(global_slots[b].first.c_str())) == 0) {
+                    conflict = true;
+                    break;
+                }
+            }
+        }
+        if (conflict) {
+            direct_retry_ = true;
+            return false;
+        }
+    }
+    // BOOL_SLOT placeholders (one before and one after each direct call):
+    // a BOOL_SLOT for every module variable of this body that is Boolean.
+    {
+        bool placeholders = false;
+        for (const IRInst &q : ir) {
+            if (q.op == IROp::BOOL_SLOT && q.imm_i64 < 0) { placeholders = true; break; }
+        }
+        if (placeholders) {
+            std::vector<int> bool_slots;
+            VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(inst);
+            for (const auto &gs : global_slots) {
+                const String gname = String::utf8(gs.first.c_str());
+                if (vi && vi->get_variables().has(gname) &&
+                        vi->get_variables()[gname].get_type() == Variant::BOOL) {
+                    bool_slots.push_back(gs.second);
+                }
+            }
+            std::vector<IRInst> out;
+            out.reserve(ir.size() + bool_slots.size() * 4);
+            for (const IRInst &q : ir) {
+                if (q.op != IROp::BOOL_SLOT || q.imm_i64 >= 0) {
+                    out.push_back(q);
+                    continue;
+                }
+                for (int slot : bool_slots) {
+                    IRInst b = q;
+                    b.imm_i64 = slot;
+                    out.push_back(b);
+                }
+            }
+            ir.swap(out);
         }
     }
 
@@ -2600,7 +3091,8 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     // Keep spills below the emitter's 960-byte host-call frame.
     for (const auto &inst : ir) {
         if (inst.op == IROp::LIBM1 || inst.op == IROp::RUNTIME_CALL ||
-            inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD) {
+            inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD ||
+            inst.op == IROp::DIRECT_CALL) {
             next_spill = 968;
             break;
         }
@@ -2682,49 +3174,82 @@ bool jit_func_active(const CompiledFunc *fn) {
     return fn && g_jit_frame.func == fn;
 }
 
-static bool jit_numeric_var(const Variant &v) {
-    Variant::Type t = v.get_type();
-    return t == Variant::NIL || t == Variant::INT || t == Variant::FLOAT || t == Variant::BOOL;
-}
-
+// Copy the active frame's virtual global slots out to variables[] before a
+// host call (to_vars) and back in after it. A body with no global slots has
+// nothing to sync. Otherwise each slot's module variable is reached through a
+// cached value pointer (see VgVariables): the per-call String build and
+// Dictionary probes per global were most of a host call's cost.
 static void jit_sync_globals(bool to_vars) {
     VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
-    if (!vi || !g_jit_frame.func || !g_jit_frame.locals) {
+    CompiledFunc *fn = g_jit_frame.func;
+    int64_t *locals = g_jit_frame.locals;
+    if (!vi || !fn || !locals) {
         return;
     }
-    Dictionary &vars = vi->get_variables();
-    const CompiledFunc *fn = g_jit_frame.func;
-    for (const auto &gs : fn->global_slots) {
-        int slot = gs.second;
+    const size_t n = fn->global_slots.size();
+    if (n == 0) {
+        return;
+    }
+    if (fn->global_slot_names.size() != n || fn->global_slot_strings.size() != n) {
+        fn->global_slot_names.clear();
+        fn->global_slot_strings.clear();
+        for (const auto &gs : fn->global_slots) {
+            String gname = String::utf8(gs.first.c_str());
+            fn->global_slot_strings.push_back(gname);
+            fn->global_slot_names.push_back(StringName(gname));
+        }
+    }
+    VgVariables &vars = vi->get_variables();
+    const uint64_t owner = vi->jit_instance_serial();
+    if (fn->global_ptr_owner != owner || fn->global_ptr_generation != vars.generation ||
+            fn->global_ptrs.size() != n) {
+        fn->global_ptrs.assign(n, nullptr);
+        fn->global_ptr_owner = owner;
+        fn->global_ptr_generation = vars.generation;
+    }
+    for (size_t i = 0; i < n; i++) {
+        const int slot = fn->global_slots[i].second;
         if (slot < 0) {
             continue;
         }
-        String name(gs.first.c_str());
-        bool is_f = slot < (int)fn->slot_is_f64.size() && fn->slot_is_f64[slot];
+        Variant *vp = fn->global_ptrs[i];
+        if (!vp && vars.has(fn->global_slot_names[i])) {
+            vp = &vars[fn->global_slot_names[i]];
+            fn->global_ptrs[i] = vp;
+        }
         if (to_vars) {
-            if (vars.has(name) && !jit_numeric_var(vars[name])) {
-                continue;
+            if (vp) {
+                const Variant::Type cur = vgfast::vtype(*vp);
+                // Keep Boolean variables boolean. Writing 0/1 as Integer makes
+                // `flag = True` fail after a JIT write-back.
+                if (cur == Variant::BOOL) {
+                    vgfast::set_bool(*vp, locals[slot] != 0);
+                    continue;
+                }
+                if (cur != Variant::NIL && cur != Variant::INT && cur != Variant::FLOAT) {
+                    continue;
+                }
+            } else {
+                vp = &vars[fn->global_slot_strings[i]];
+                fn->global_ptrs[i] = vp;
             }
-            // Keep Boolean variables boolean. Writing 0/1 as Integer makes
-            // `flag = True` fail after a JIT write-back.
-            if (vars.has(name) && vars[name].get_type() == Variant::BOOL) {
-                vars[name] = g_jit_frame.locals[slot] != 0;
-                continue;
-            }
+            const bool is_f = slot < (int)fn->slot_is_f64.size() && fn->slot_is_f64[slot];
             if (is_f) {
                 double d = 0;
-                memcpy(&d, &g_jit_frame.locals[slot], 8);
-                vars[name] = d;
+                memcpy(&d, &locals[slot], 8);
+                vgfast::set_float(*vp, d);
             } else {
-                vars[name] = (int64_t)g_jit_frame.locals[slot];
+                vgfast::set_int(*vp, locals[slot]);
             }
-        } else if (vars.has(name)) {
-            Variant cur = vars[name];
-            if (cur.get_type() == Variant::FLOAT) {
-                double d = (double)cur;
-                memcpy(&g_jit_frame.locals[slot], &d, 8);
-            } else if (cur.get_type() == Variant::INT || cur.get_type() == Variant::BOOL) {
-                g_jit_frame.locals[slot] = (int64_t)cur;
+        } else if (vp) {
+            const Variant::Type cur = vgfast::vtype(*vp);
+            if (cur == Variant::FLOAT) {
+                double d = vgfast::vfloat(*vp);
+                memcpy(&locals[slot], &d, 8);
+            } else if (cur == Variant::INT) {
+                locals[slot] = vgfast::vint(*vp);
+            } else if (cur == Variant::BOOL) {
+                locals[slot] = vgfast::vbool(*vp) ? 1 : 0;
             }
         }
     }
@@ -2751,6 +3276,11 @@ static int64_t host_libm(int64_t which, int64_t bits, int64_t is_float, int64_t 
         int64_t s = (d > 0.0) - (d < 0.0);
         return s;
     }
+    if (which == 7) {
+        // A Single/Double argument for an Integer parameter, or CLng/CInt of
+        // a Double (vb_to_integer).
+        return is_float ? VisualGasicInstance::vb_round_half_even(d) : bits;
+    }
     double r = d;
     if (which == 0) r = ::sin(d);
     else if (which == 1) r = ::cos(d);
@@ -2766,63 +3296,59 @@ static int64_t host_libm(int64_t which, int64_t bits, int64_t is_float, int64_t 
     return out;
 }
 
-static int64_t host_call(int64_t name_ptr, int64_t argc, int64_t bits_ptr, int64_t kind_ptr, int64_t *flag_out) {
+// What a RUNTIME_CALL site resolved to (CompiledFunc::HostCallSite::memo).
+struct HostCallMemo {
+    String method;
+    VisualGasicInstance::JitCallSiteMemo site;
+};
+
+static void host_call_memo_free(void *p) {
+    delete static_cast<HostCallMemo *>(p);
+}
+
+static int64_t host_call(int64_t site_ptr, int64_t argc, int64_t bits_ptr, int64_t kind_ptr, int64_t *flag_out) {
     int64_t ret = 0;
     if (flag_out) {
         *flag_out = 0;
     }
     VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
-    if (!vi || !name_ptr || argc < 0 || argc > 8) {
+    CompiledFunc::HostCallSite *call_site = reinterpret_cast<CompiledFunc::HostCallSite *>(site_ptr);
+    if (!vi || !call_site || !call_site->name || argc < 0 || argc > 8) {
         return ret;
     }
     JitFrame saved = g_jit_frame;
     jit_sync_globals(true);
     const int64_t *bits = reinterpret_cast<const int64_t *>(bits_ptr);
     const int64_t *kinds = reinterpret_cast<const int64_t *>(kind_ptr);
-    Variant argv[8];
+    // Exactly argc arguments are built, numbers without an engine call.
+    vgfast::VariantBuf<8> argbuf((int)argc);
+    Variant *argv = argbuf.ptr;
     for (int i = 0; i < (int)argc; i++) {
         int kind = kinds ? (int)kinds[i] : 0;
         if (kind == 2) {
             const char *s = reinterpret_cast<const char *>(bits[i]);
-            argv[i] = String(s ? s : "");
+            argbuf.construct_move(i, Variant(String(s ? s : "")));
         } else if (kind == 1) {
             double d = 0;
             memcpy(&d, &bits[i], 8);
-            argv[i] = d;
+            vgfast::raw_init_float(argv + i, d);
         } else {
-            argv[i] = bits[i];
+            vgfast::raw_init_int(argv + i, bits[i]);
         }
     }
     bool handled = false;
     Variant r;
-    // Per-site memo: name_ptr is a C string owned by the compiled function
-    // (stable for its lifetime) and both builtin cascades decide r_handled
-    // purely on (name, argc).  Once a site has fallen through both cascades
-    // to a user Sub, skip the ~450-entry strcmp walks on every later call.
-    // The name's leading bytes are kept alongside the pointer so a freed and
-    // re-used code buffer cannot inherit a stale decision.  Entries are heap
-    // nodes: a nested host_call may append while an outer call still holds
-    // its entry's resolution.
-    struct HostCallMemo {
-        int64_t name_ptr;
-        int64_t argc;
-        uint64_t name_prefix;
-        String method;
-        VisualGasicInstance::JitCallSiteMemo site;
-    };
-    static thread_local std::vector<std::unique_ptr<HostCallMemo>> s_host_call_memo;
-    uint64_t name_prefix = 0;
-    {
-        const char *nm = reinterpret_cast<const char *>(name_ptr);
-        size_t nl = std::strlen(nm);
-        memcpy(&name_prefix, nm, nl < 8 ? nl : 8);
-    }
-    HostCallMemo *memo = nullptr;
-    for (const std::unique_ptr<HostCallMemo> &m : s_host_call_memo) {
-        if (m->name_ptr == name_ptr && m->argc == argc && m->name_prefix == name_prefix) { memo = m.get(); break; }
-    }
+    // Per-site memo. Both builtin cascades decide r_handled purely on
+    // (name, argc), so once this site has fallen through them to a user Sub
+    // every later call skips the ~450-entry strcmp walks. The memo lives in
+    // the compiled function's own site record (native code passes its
+    // address), so finding it costs nothing and it dies with that code. A
+    // nested call through the same site may re-resolve the entry while an
+    // outer call still holds it; call_internal reads the resolution only
+    // before the callee runs.
+    HostCallMemo *memo = static_cast<HostCallMemo *>(call_site->memo);
     if (!memo) {
-        String method(reinterpret_cast<const char *>(name_ptr));
+        String method = String::utf8(call_site->name);
         Array args;
         args.resize((int)argc);
         for (int i = 0; i < (int)argc; i++) {
@@ -2835,9 +3361,9 @@ static int64_t host_call(int64_t name_ptr, int64_t argc, int64_t bits_ptr, int64
         if (!handled) {
             VisualGasicInstance::JitCallSiteMemo site;
             r = vi->jit_invoke_user_call(method, argv, (int)argc, handled, site);
-            if (handled && s_host_call_memo.size() < 4096) {
-                std::unique_ptr<HostCallMemo> m(new HostCallMemo{ name_ptr, argc, name_prefix, method, site });
-                s_host_call_memo.push_back(std::move(m));
+            if (handled && !call_site->memo) {
+                call_site->memo = new HostCallMemo{ method, site };
+                call_site->memo_free = &host_call_memo_free;
             }
         }
     } else {
@@ -3025,18 +3551,28 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     for (int i = 0; i < max_label; i++) cb.new_label();
     
     bool needs_host = false;
+    int callee_slots = 0; // largest slot area a direct callee needs
     for (const auto &probe : ir) {
         if (probe.op == IROp::LIBM1 || probe.op == IROp::RUNTIME_CALL || probe.op == IROp::ARRAY_GET ||
-            probe.op == IROp::BYREF_LOAD) {
+            probe.op == IROp::BYREF_LOAD || probe.op == IROp::DIRECT_CALL) {
             needs_host = true;
-            break;
+        }
+        if (probe.op == IROp::DIRECT_CALL) {
+            const CompiledFunc *callee = reinterpret_cast<const CompiledFunc *>((intptr_t)probe.imm_i64);
+            int n = callee && callee->total_slots > 0 ? callee->total_slots : 1;
+            if (n > callee_slots) callee_slots = n;
         }
     }
     int spill_bytes = alloc.spill_bytes;
     if (needs_host && spill_bytes < 960) {
         spill_bytes = 960;
     }
-    cb.prologue(spill_bytes);
+    // Direct callees run on a slot area under the spills: slot k of the
+    // callee is [rbp - (callee_area_off - 8k)], so a pointer to slot 0 is the
+    // `locals` argument. Offset spill_bytes itself is the allocator's next
+    // free spill and stays unused.
+    const int callee_area_off = spill_bytes + 8 * callee_slots;
+    cb.prologue(callee_area_off);
 #if VG_JIT_WIN64
     // Microsoft x64 passes the locals pointer in rcx. The rest of the
     // emitter addresses locals through rdi, matching the Linux body.
@@ -3589,7 +4125,10 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                     Variant cv = chunk->constants[(int)inst.imm_i64];
                     mname = (cv.get_type() == Variant::STRING) ? String(cv) : cv.stringify();
                 }
-                const char *np = intern(mname);
+                // The site record outlives the code (CompiledFunc::host_sites).
+                out_func->host_sites.emplace_back();
+                CompiledFunc::HostCallSite *site = &out_func->host_sites.back();
+                site->name = intern(mname);
                 for (int a = 0; a < (int)inst.call_n; a++) {
                     // Element 0 is the lowest address so a C pointer indexes +i.
                     // Eight bits at rbp-864 and eight kinds at rbp-800, clear of
@@ -3630,7 +4169,7 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                         cb.store_rbp_i64(koff, Reg::RAX);
                     }
                 }
-                emit_host_imm(cb, 0, (int64_t)np);
+                emit_host_imm(cb, 0, (int64_t)reinterpret_cast<intptr_t>(site));
                 emit_host_imm(cb, 1, (int64_t)inst.call_n);
                 cb.lea_rbp(host_arg_reg(2), -864);
                 cb.lea_rbp(host_arg_reg(3), -800);
@@ -3693,6 +4232,96 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 cb.lea_rbp(host_arg_reg(3), -488);
                 cb.call_abs((uint64_t)&host_byref);
                 cb.load_rbp_i64(Reg::RDX, 488);
+                finish_host_ret(inst, ii);
+                break;
+            }
+            case IROp::CALLEE_ZERO: {
+                cb.mov_ri32(Reg::RAX, 0);
+                for (int s = 0; s < inst.call_pool[0]; s++) {
+                    cb.store_rbp_i64(callee_area_off - 8 * ((int)inst.imm_i64 + s), Reg::RAX);
+                }
+                break;
+            }
+            case IROp::CALLEE_STORE: {
+                const int off = callee_area_off - 8 * (int)inst.imm_i64;
+                Reg src = alloc.reg_for(inst.src1);
+                if (src >= Reg::XMM0 && src <= Reg::XMM7) {
+                    cb.store_rbp_f64(off, src);
+                } else {
+                    Reg r = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                    cb.store_rbp_i64(off, r);
+                }
+                break;
+            }
+            case IROp::CALLEE_COPY_IN: {
+                cb.load_local_i64(Reg::RAX, inst.call_pool[0]);
+                cb.store_rbp_i64(callee_area_off - 8 * (int)inst.imm_i64, Reg::RAX);
+                break;
+            }
+            case IROp::CALLEE_COPY_OUT: {
+                cb.load_rbp_i64(Reg::RAX, callee_area_off - 8 * (int)inst.imm_i64);
+                cb.store_local_i64(inst.call_pool[0], Reg::RAX);
+                break;
+            }
+            case IROp::BOOL_SLOT: {
+                if (inst.imm_i64 < 0) break;
+                cb.load_local_i64(Reg::RAX, (int)inst.imm_i64);
+                cb.test_rr(Reg::RAX, Reg::RAX);
+                cb.setne(Reg::RAX);
+                cb.store_local_i64((int)inst.imm_i64, Reg::RAX);
+                break;
+            }
+            case IROp::CALLEE_LOAD: {
+                const int off = callee_area_off - 8 * (int)inst.imm_i64;
+                Reg dst = alloc.reg_for(inst.dest);
+                if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+                    cb.load_rbp_f64(dst, off);
+                } else if (dst == Reg::SPILL) {
+                    cb.load_rbp_i64(Reg::RAX, off);
+                    cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                } else if (dst != Reg::NONE) {
+                    cb.load_rbp_i64(dst, off);
+                }
+                break;
+            }
+            case IROp::DIRECT_CALL: {
+                // call callee->fn(area, slot count). The callee is this
+                // emitter's own output: it keeps rbx, r12-r15 and rbp, and
+                // clobbers everything save_caller covers.
+                const CompiledFunc *callee = reinterpret_cast<const CompiledFunc *>((intptr_t)inst.imm_i64);
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                cb.lea_rbp(host_arg_reg(0), -callee_area_off);
+                emit_host_imm(cb, 1, (int64_t)callee->total_slots);
+                cb.call_abs((uint64_t)callee->fn);
+                // rax = 1: `Return expr` left the value in the dedicated slot;
+                // rax = 0: a Function's value is in its name slot, a Sub has
+                // none. Leave bits in rax and is-float in rdx, the shape
+                // finish_host_ret takes from a host call.
+                auto load_result = [&](int slot) {
+                    if (slot < 0) {
+                        cb.mov_ri32(Reg::RAX, 0);
+                        cb.mov_ri32(Reg::RDX, 0);
+                        return;
+                    }
+                    cb.load_rbp_i64(Reg::RAX, callee_area_off - 8 * slot);
+                    const bool is_f = slot < (int)callee->slot_is_f64.size() && callee->slot_is_f64[slot];
+                    cb.mov_ri32(Reg::RDX, is_f ? 1 : 0);
+                };
+                int ret_lab = cb.new_label();
+                int got_lab = cb.new_label();
+                cb.test_rr(Reg::RAX, Reg::RAX);
+                cb.jne_label(ret_lab);
+                load_result(inst.call_pool[1]);
+                cb.jmp_label(got_lab);
+                cb.bind_label(ret_lab);
+                load_result(inst.call_pool[0]);
+                cb.bind_label(got_lab);
+                if (inst.call_kind[0]) {
+                    // Boolean Function: any non-zero value is True (1).
+                    cb.test_rr(Reg::RAX, Reg::RAX);
+                    cb.setne(Reg::RAX);
+                }
                 finish_host_ret(inst, ii);
                 break;
             }
@@ -3788,13 +4417,14 @@ Tier2::HotInfo& Tier2::get_hotness(const std::string& name) {
     return hot_[name];
 }
 
-CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst) {
+CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chunk, void* inst,
+                                    bool compile_now) {
     if (!enabled_ || tier_level_ < 2) return nullptr;
     // Per-chunk memo (see BytecodeChunk::jit_t2): a settled decision by
     // THIS engine short-circuits the string-key build + hash probes below.
     if (chunk && chunk->jit_t2.owner.load(std::memory_order_acquire) == this) {
         CompiledFunc *memo = static_cast<CompiledFunc *>(chunk->jit_t2.func);
-        if (memo) memo->exec_count++;
+        if (memo && !compile_now) memo->exec_count++;
         return memo;
     }
     auto publish_memo = [&](CompiledFunc *decision) {
@@ -3823,17 +4453,19 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     // Check cache
     auto cache_it = cache_.find(cache_key);
     if (cache_it != cache_.end()) {
-        cache_it->second->exec_count++;
+        if (!compile_now) cache_it->second->exec_count++;
         publish_memo(cache_it->second);
         return cache_it->second;
     }
     
     // Update hotness
     HotInfo& hot = get_hotness(cache_key);
-    hot.calls++;
+    if (!compile_now) hot.calls++;
     
+    // `tried` without `failed` and without a cache entry is a compile still in
+    // progress further up the stack (a call cycle reached through compile_now).
     if (hot.tried) { if (hot.failed) publish_memo(nullptr); return nullptr; }
-    if (hot.calls < HOT_THRESHOLD) return nullptr;
+    if (!compile_now && hot.calls < HOT_THRESHOLD) return nullptr;
     if (!chunk || chunk->code.size() == 0) return nullptr;
     if (chunk->code.size() > MAX_BC_SIZE) { hot.tried = true; hot.failed = true; publish_memo(nullptr); return nullptr; }
     if (cache_.size() >= MAX_CACHE) return nullptr;
@@ -3861,7 +4493,24 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
         UtilityFunctions::print("[VG_JIT T2] Attempting compile: '", String(name.c_str()), "' (", (int)chunk->code.size(), " bytes BC, ", chunk->local_count, " locals)");
     }
     
-    if (!lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots, slot_is_f64, inst, name)) {
+    direct_retry_ = false;
+    bool lowered = lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots, slot_is_f64, inst, name);
+    if (!lowered && direct_retry_) {
+        // See direct_retry_: the same body again, every call a host call.
+        if (jit_log && jit_log[0] == '1') {
+            UtilityFunctions::print("[VG_JIT T2] '", String(name.c_str()), "': module variable slot kinds differ from a direct callee's; lowering without direct calls");
+        }
+        ir.clear();
+        global_slots.clear();
+        slot_is_f64.clear();
+        vreg_count = 0;
+        total_slots = 0;
+        direct_calls_off_ = true;
+        lowered = lower_bytecode(chunk, ir, vreg_count, global_slots, total_slots, slot_is_f64, inst, name);
+        direct_calls_off_ = false;
+    }
+    direct_retry_ = false;
+    if (!lowered) {
         if (jit_log && jit_log[0] == '1') {
             String extra;
             if (g_jit_lower_op == (int)OP_CALL && chunk && g_jit_lower_ip >= 0 &&
@@ -3909,6 +4558,31 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
     for (const IRInst &inst : ir) {
         if (inst.op == IROp::RET_VALUE) { func->ret_slot = inst.local_slot; break; }
     }
+    // Direct-call contract (see CompiledFunc::direct_ok).
+    func->param_count = chunk->param_count;
+    func->local_count = chunk->local_count;
+    func->global_written.assign(func->global_slots.size(), 0);
+    bool self_contained = chunk->fast_params && !chunk->publishes_locals &&
+            chunk->param_count >= 0 && chunk->param_count <= chunk->local_count &&
+            total_slots <= 64;
+    for (const IRInst &inst : ir) {
+        if (inst.op == IROp::RUNTIME_CALL || inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD) {
+            self_contained = false;
+        } else if (inst.op == IROp::STORE_LOCAL || inst.op == IROp::CALLEE_COPY_OUT || inst.op == IROp::BOOL_SLOT) {
+            // BOOL_SLOT counts: it can change the slot's bits.
+            const int written = inst.op == IROp::STORE_LOCAL ? inst.local_slot
+                    : inst.op == IROp::CALLEE_COPY_OUT ? inst.call_pool[0] : (int)inst.imm_i64;
+            for (size_t g = 0; g < func->global_slots.size(); g++) {
+                if (func->global_slots[g].second == written) func->global_written[g] = 1;
+            }
+        }
+    }
+    // An undeclared local is seeded from and published to variables[].
+    for (int s = 0; self_contained && s < chunk->local_count && s < chunk->local_names.size(); s++) {
+        if (chunk->local_names[s].is_empty()) continue;
+        if (s >= chunk->local_declared.size() || chunk->local_declared[s] == 0) self_contained = false;
+    }
+    func->direct_ok = self_contained;
     cache_[cache_key] = func;
     publish_memo(func);
     

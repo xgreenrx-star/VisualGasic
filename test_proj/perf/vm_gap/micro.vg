@@ -5,6 +5,8 @@ Dim g As Single
 Dim gs As String
 Dim gb As Boolean
 Dim d As Dictionary
+Dim gacc As Single
+Dim gi As Integer
 
 Sub _Ready()
 	g = 1.5
@@ -24,6 +26,17 @@ Function t_global(ByVal n As Integer) As Single
 		s = s + g
 	Next
 	Return s
+End Function
+
+' A store into an Integer module variable: the compiler rounds the value
+' with CLng unless it can prove an Integer.
+Function t_gint(ByVal n As Integer) As Integer
+	Dim i As Integer
+	gi = 0
+	For i = 1 To n
+		gi = gi + 1
+	Next
+	Return gi
 End Function
 
 Function t_local(ByVal n As Integer) As Single
@@ -90,6 +103,48 @@ Function t_call(ByVal n As Integer) As Single
 		s = s + empty_fn()
 	Next
 	Return s
+End Function
+
+' Call shapes beyond t_call: arguments with an Integer to Single conversion,
+' a callee that writes a module variable, and a callee the JIT cannot compile
+' (it reads a String), which stays an interpreted call.
+Function blend3(ByVal a As Single, ByVal b As Single, ByVal t As Single) As Single
+	Return a + (b - a) * t
+End Function
+
+Function t_call_args(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = blend3(s, i, 0.25)
+	Next
+	Return s
+End Function
+
+Sub add_acc(ByVal v As Single)
+	gacc = gacc + v
+End Sub
+
+Function t_call_global(ByVal n As Integer) As Single
+	Dim i As Integer
+	gacc = 0
+	For i = 1 To n
+		add_acc 0.5
+	Next
+	Return gacc
+End Function
+
+Function tag_len(ByVal i As Integer) As Integer
+	Return Len(gs) + i
+End Function
+
+Function t_call_host(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		c = c + tag_len(i)
+	Next
+	Return c
 End Function
 
 Function t_vec(ByVal n As Integer) As Variant

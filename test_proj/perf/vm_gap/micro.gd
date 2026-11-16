@@ -3,6 +3,8 @@ var g: float
 var gs: String
 var gb: bool
 var d: Dictionary
+var gacc: float
+var gi: int
 func _ready():
 	g = 1.5; gs = "talk"; d = {}; d["k"] = 2.5
 func empty_fn() -> float: return 0
@@ -10,6 +12,10 @@ func t_global(n:int)->float:
 	var s := 0.0
 	for i in range(1,n+1): s = s + g
 	return s
+func t_gint(n:int)->int:
+	gi = 0
+	for i in range(1,n+1): gi = gi + 1
+	return gi
 func t_local(n:int)->float:
 	var s := 0.0; var h := 1.5
 	for i in range(1,n+1): s = s + h
@@ -39,6 +45,21 @@ func t_call(n:int)->float:
 	var s := 0.0
 	for i in range(1,n+1): s = s + empty_fn()
 	return s
+func blend3(a: float, b: float, t: float) -> float: return a + (b - a) * t
+func t_call_args(n:int)->float:
+	var s := 0.0
+	for i in range(1,n+1): s = blend3(s, i, 0.25)
+	return s
+func add_acc(v: float) -> void: gacc = gacc + v
+func t_call_global(n:int)->float:
+	gacc = 0.0
+	for i in range(1,n+1): add_acc(0.5)
+	return gacc
+func tag_len(i: int) -> int: return gs.length() + i
+func t_call_host(n:int)->int:
+	var c := 0
+	for i in range(1,n+1): c = c + tag_len(i)
+	return c
 func t_vec(n:int):
 	var v = Vector2(0,0)
 	for i in range(1,n+1): v = v + Vector2(1,2)*0.5

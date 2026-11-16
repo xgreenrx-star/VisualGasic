@@ -1,0 +1,728 @@
+' Calls made from a hot, JIT-compiled loop to other user Subs/Functions.
+' Tier 2 calls a compiled callee directly when the callee is self-contained
+' and falls back to the host call otherwise.  Every "Hot..." function below
+' runs five times: the first run is interpreted, the later ones are native.
+' All five must return the same value, in every tier.
+Option Explicit
+
+Dim gSum As Integer
+Dim gCalls As Integer
+Dim gScale As Single
+Dim gCounter As Integer
+Dim gOnlyCallee As Integer
+Dim gLate As Single
+Dim gFlag As Boolean
+Dim gOther As Boolean
+Dim gRounded As Integer
+Dim gFailures As Integer
+
+' ── ByRef (the default) ────────────────────────────────────────────────
+Sub AddInto(total As Single, ByVal amt As Single)
+	total = total + amt
+End Sub
+
+Function HotByRefSingle(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		AddInto s, i * 0.5
+	Next
+	HotByRefSingle = s
+End Function
+
+Sub SwapInts(a As Integer, b As Integer)
+	Dim t As Integer
+	t = a
+	a = b
+	b = t
+End Sub
+
+Function HotSwap(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim x As Integer
+	Dim y As Integer
+	x = 3
+	y = 40
+	For i = 1 To n
+		SwapInts x, y
+	Next
+	HotSwap = x * 100 + y
+End Function
+
+' A ByRef parameter the callee only reads: the loop counter must survive.
+Function Peek(v As Integer) As Integer
+	Peek = v * 2
+End Function
+
+Function HotByRefCounter(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + Peek(i)
+	Next
+	HotByRefCounter = s
+End Function
+
+' A ByRef parameter the callee writes: the loop counter must move.
+Sub SkipOne(v As Integer)
+	v = v + 1
+End Sub
+
+Function HotByRefSkip(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 1 To n
+		SkipOne i
+		c = c + 1
+	Next
+	HotByRefSkip = c * 1000 + i
+End Function
+
+' A module variable passed ByRef.
+Sub BumpBy(n As Integer, ByVal d As Integer)
+	n = n + d
+End Sub
+
+Function HotByRefGlobal(ByVal n As Integer) As Integer
+	Dim i As Integer
+	gCounter = 0
+	For i = 1 To n
+		BumpBy gCounter, i
+	Next
+	HotByRefGlobal = gCounter
+End Function
+
+' Two ByRef outputs next to a ByVal expression argument.
+Sub DivMod7(ByVal a As Integer, q As Integer, r As Integer)
+	q = a \ 7
+	r = a Mod 7
+End Sub
+
+Function HotTwoOutputs(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim q As Integer
+	Dim r As Integer
+	Dim s As Integer
+	For i = 1 To n
+		DivMod7 i * 5, q, r
+		s = s + q * 10 + r
+	Next
+	HotTwoOutputs = s
+End Function
+
+' ── Module variables ───────────────────────────────────────────────────
+Sub Tally(ByVal v As Integer)
+	gSum = gSum + v
+	gCalls = gCalls + 1
+End Sub
+
+' The callee writes two module variables; the caller reads and writes them
+' between calls.
+Function HotGlobalWrite(ByVal n As Integer) As Integer
+	Dim i As Integer
+	gSum = 0
+	gCalls = 0
+	For i = 1 To n
+		Tally i
+		If gCalls = 3 Then gSum = gSum + 1000
+	Next
+	HotGlobalWrite = gSum * 100 + gCalls
+End Function
+
+Function Scaled(ByVal v As Single) As Single
+	Scaled = v * gScale
+End Function
+
+' The caller changes a module variable the callee reads.
+Function HotGlobalRead(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		gScale = i * 0.5
+		s = s + Scaled(2)
+	Next
+	HotGlobalRead = s
+End Function
+
+Sub CountOnly()
+	gOnlyCallee = gOnlyCallee + 2
+End Sub
+
+' The caller never names the module variable its callee writes.
+Function HotCalleeOnlyGlobal(ByVal n As Integer) As Integer
+	Dim i As Integer
+	For i = 1 To n
+		CountOnly
+	Next
+	HotCalleeOnlyGlobal = n
+End Function
+
+Sub SetLate(ByVal v As Single)
+	gLate = v + 0.25
+End Sub
+
+' The caller first names the module variable after the call site.
+Function HotLateGlobal(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		SetLate i
+		s = s + gLate
+	Next
+	HotLateGlobal = s
+End Function
+
+Sub SetFlag(ByVal v As Integer)
+	gFlag = v > 2
+End Sub
+
+Function HotBoolGlobal(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 1 To n
+		SetFlag i
+		If gFlag Then c = c + 1
+	Next
+	HotBoolGlobal = c
+End Function
+
+' ── Recursion ──────────────────────────────────────────────────────────
+Function Fact(ByVal n As Integer) As Integer
+	If n <= 1 Then
+		Fact = 1
+	Else
+		Fact = n * Fact(n - 1)
+	End If
+End Function
+
+Function HotRecursive(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + Fact(i)
+	Next
+	HotRecursive = s
+End Function
+
+Function IsEvenR(ByVal n As Integer) As Boolean
+	If n = 0 Then
+		IsEvenR = True
+	Else
+		IsEvenR = IsOddR(n - 1)
+	End If
+End Function
+
+Function IsOddR(ByVal n As Integer) As Boolean
+	If n = 0 Then
+		IsOddR = False
+	Else
+		IsOddR = IsEvenR(n - 1)
+	End If
+End Function
+
+Function HotMutual(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer
+	For i = 0 To n
+		If IsEvenR(i) Then c = c + 1
+	Next
+	HotMutual = c
+End Function
+
+' ── Argument and return conversions ────────────────────────────────────
+Function TakeInt(ByVal v As Integer) As Integer
+	TakeInt = v
+End Function
+
+' A Single argument for an Integer parameter rounds half to even.
+Function HotRoundArg(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	Dim f As Single
+	For i = 0 To n
+		f = i + 0.5
+		s = s + TakeInt(f)
+	Next
+	HotRoundArg = s
+End Function
+
+Function HotRoundNegArg(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	Dim f As Single
+	For i = 0 To n
+		f = i + 0.5
+		s = s + TakeInt(0 - f)
+	Next
+	HotRoundNegArg = s
+End Function
+
+Function HalfOf(ByVal v As Single) As Single
+	HalfOf = v / 2
+End Function
+
+' An Integer argument for a Single parameter.
+Function HotIntToSingle(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + HalfOf(i)
+	Next
+	HotIntToSingle = s
+End Function
+
+' A Single result assigned to an Integer local.
+Function HotResultToInt(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim k As Integer
+	Dim s As Integer
+	For i = 1 To n
+		k = HalfOf(i)
+		s = s + k
+	Next
+	HotResultToInt = s
+End Function
+
+Function Pick(ByVal flag As Boolean, ByVal a As Integer, ByVal b As Integer) As Integer
+	If flag Then
+		Pick = a
+	Else
+		Pick = b
+	End If
+End Function
+
+Function IsOver(ByVal v As Integer, ByVal limit As Integer) As Boolean
+	IsOver = v > limit
+End Function
+
+' Boolean result as a Boolean argument, and a number as a Boolean argument.
+Function HotBool(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + Pick(IsOver(i, 4), 100, 1)
+		s = s + Pick(i - 3, 10, 0)
+	Next
+	HotBool = s
+End Function
+
+Function Sign3(ByVal v As Integer) As Integer
+	If v < 0 Then
+		Return -1
+	End If
+	If v = 0 Then
+		Sign3 = 0
+		Exit Function
+	End If
+	Sign3 = 1
+End Function
+
+' Return expr, Exit Function and falling off the end in one callee.
+Function HotReturnPaths(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 0 - n To n
+		s = s * 3 + Sign3(i) + 1
+	Next
+	HotReturnPaths = s
+End Function
+
+Function ClampUnit(ByVal v As Single) As Single
+	If v > 1 Then
+		Return 1
+	End If
+	ClampUnit = v
+End Function
+
+Function HotClamp(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 0 To n
+		s = s + ClampUnit(i * 0.25)
+	Next
+	HotClamp = s
+End Function
+
+' ── Shapes ─────────────────────────────────────────────────────────────
+Function Sq(ByVal v As Single) As Single
+	Sq = v * v
+End Function
+
+Function Hyp(ByVal a As Single, ByVal b As Single) As Single
+	Hyp = Sqr(Sq(a) + Sq(b))
+End Function
+
+' A callee that itself calls compiled callees and a math builtin.
+Function HotNested(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + Hyp(3 * i, 4 * i)
+	Next
+	HotNested = s
+End Function
+
+Function Tri(ByVal n As Integer) As Integer
+	Dim k As Integer
+	Dim t As Integer
+	For k = 1 To n
+		t = t + k
+	Next
+	Tri = t
+End Function
+
+' The callee's own locals start from zero on every call.
+Function HotLocals(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + Tri(i)
+	Next
+	HotLocals = s
+End Function
+
+Function Add2(ByVal a As Integer, ByVal b As Integer) As Integer
+	Add2 = a + b
+End Function
+
+Function Sum8(ByVal a As Integer, ByVal b As Integer, ByVal c As Integer, ByVal d As Integer, ByVal e As Integer, ByVal f As Integer, ByVal g As Integer, ByVal h As Integer) As Integer
+	Sum8 = a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8
+End Function
+
+' Calls as arguments of calls, and eight arguments.
+Function HotArgs(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + Add2(Add2(i, 1), Add2(2, i * 2))
+		s = s + Sum8(i, 1, 1, 1, 1, 1, 1, i)
+	Next
+	HotArgs = s
+End Function
+
+Function StepUp(ByVal v As Integer, Optional ByVal amount As Integer = 1) As Integer
+	StepUp = v + amount
+End Function
+
+' An omitted Optional argument.
+Function HotOptional(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + StepUp(i) + StepUp(i, 10)
+	Next
+	HotOptional = s
+End Function
+
+Function SafeRatio(ByVal a As Single, ByVal b As Single) As Single
+	On Error Resume Next
+	SafeRatio = a / b
+End Function
+
+' A callee with its own error handler: division by zero leaves the result 0.
+Function HotOnError(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 0 To n
+		s = s + SafeRatio(6, i)
+	Next
+	HotOnError = s
+End Function
+
+' ── Integer targets ────────────────────────────────────────────────────
+' A possibly fractional value stored into an Integer rounds half to even
+' (the compiler's CLng). Compiled code rounds without a host call, so a
+' callee that stores into an Integer module variable can be called directly.
+Sub RoundInto(ByVal v As Single)
+	gRounded = v
+End Sub
+
+Function HotRoundStore(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	Dim k As Integer
+	For i = 0 To n
+		RoundInto i + 0.5
+		k = i * 0.5
+		s = s + gRounded * 10 + k
+	Next
+	HotRoundStore = s
+End Function
+
+Function HotExplicitRound(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	Dim f As Single
+	For i = 0 To n
+		f = i + 0.5
+		s = s + CLng(f) - CInt(0 - f) * 100
+	Next
+	HotExplicitRound = s
+End Function
+
+' ── Mixed ──────────────────────────────────────────────────────────────
+' A direct call, a host call (the recursive callee) and a direct call that
+' writes module variables, in one loop body.
+Function HotMixed(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	gSum = 0
+	gCalls = 0
+	For i = 1 To n
+		s = s + Add2(i, 1) * 1000 + Fact(i)
+		Tally i
+	Next
+	HotMixed = s + gSum * 10 + gCalls
+End Function
+
+Sub Touch()
+	gCounter = gCounter + 1
+End Sub
+
+' Two Boolean module variables set from different non-zero numbers are both
+' True after a call.
+Function HotBoolPair(ByVal flags As Integer) As Integer
+	gFlag = flags And 4
+	gOther = flags And 2
+	Touch
+	If gFlag = gOther Then
+		HotBoolPair = 1
+	Else
+		HotBoolPair = 0
+	End If
+End Function
+
+' ── Reporting ──────────────────────────────────────────────────────────
+Sub Report(ByVal label As String, ByVal ok As Boolean, ByVal got As Single, ByVal want As Single)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		gFailures = gFailures + 1
+		Print "FAIL: " & label & " got " & CStr(got) & " want " & CStr(want)
+	End If
+End Sub
+
+Sub _Ready()
+	Dim k As Integer
+	Dim ok As Boolean
+	Dim ri As Integer
+	Dim rf As Single
+	Dim bad As Single
+
+	ok = True
+	For k = 1 To 5
+		rf = HotByRefSingle(10)
+		If rf <> 27.5 Then ok = False : bad = rf
+	Next
+	Report "direct call ByRef Single accumulator", ok, bad, 27.5
+
+	ok = True
+	For k = 1 To 5
+		ri = HotSwap(5)
+		If ri <> 4003 Then ok = False : bad = ri
+		ri = HotSwap(4)
+		If ri <> 340 Then ok = False : bad = ri
+	Next
+	Report "direct call ByRef swap", ok, bad, 4003
+
+	ok = True
+	For k = 1 To 5
+		ri = HotByRefCounter(10)
+		If ri <> 110 Then ok = False : bad = ri
+	Next
+	Report "direct call ByRef loop counter read", ok, bad, 110
+
+	ok = True
+	For k = 1 To 5
+		ri = HotByRefSkip(10)
+		If ri <> 5011 Then ok = False : bad = ri
+	Next
+	Report "direct call ByRef loop counter written", ok, bad, 5011
+
+	ok = True
+	For k = 1 To 5
+		ri = HotByRefGlobal(10)
+		If ri <> 55 Then ok = False : bad = ri
+		If gCounter <> 55 Then ok = False : bad = gCounter
+	Next
+	Report "direct call ByRef module variable", ok, bad, 55
+
+	ok = True
+	For k = 1 To 5
+		ri = HotTwoOutputs(6)
+		If ri <> 141 Then ok = False : bad = ri
+	Next
+	Report "direct call two ByRef outputs", ok, bad, 141
+
+	ok = True
+	For k = 1 To 5
+		ri = HotGlobalWrite(10)
+		If ri <> 105510 Then ok = False : bad = ri
+		If gSum <> 1055 Or gCalls <> 10 Then ok = False : bad = gSum
+	Next
+	Report "direct call callee writes module variables", ok, bad, 105510
+
+	ok = True
+	For k = 1 To 5
+		rf = HotGlobalRead(10)
+		If rf <> 55 Then ok = False : bad = rf
+		If gScale <> 5 Then ok = False : bad = gScale
+	Next
+	Report "direct call callee reads module variable", ok, bad, 55
+
+	ok = True
+	For k = 1 To 5
+		gOnlyCallee = 0
+		ri = HotCalleeOnlyGlobal(7)
+		If ri <> 7 Or gOnlyCallee <> 14 Then ok = False : bad = gOnlyCallee
+	Next
+	Report "direct call module variable only the callee names", ok, bad, 14
+
+	ok = True
+	For k = 1 To 5
+		rf = HotLateGlobal(4)
+		If rf <> 11 Then ok = False : bad = rf
+		If gLate <> 4.25 Then ok = False : bad = gLate
+	Next
+	Report "direct call module variable named after the call", ok, bad, 11
+
+	ok = True
+	For k = 1 To 5
+		ri = HotBoolGlobal(6)
+		If ri <> 4 Then ok = False : bad = ri
+		If Not (gFlag = True) Then ok = False : bad = -1
+		If TypeName(gFlag) <> "Boolean" Then ok = False : bad = -2
+	Next
+	Report "direct call Boolean module variable", ok, bad, 4
+
+	ok = True
+	For k = 1 To 5
+		ri = HotRecursive(6)
+		If ri <> 873 Then ok = False : bad = ri
+	Next
+	Report "direct call recursive callee", ok, bad, 873
+
+	ok = True
+	For k = 1 To 5
+		ri = HotMutual(9)
+		If ri <> 5 Then ok = False : bad = ri
+	Next
+	Report "direct call mutually recursive callees", ok, bad, 5
+
+	ok = True
+	For k = 1 To 5
+		ri = HotRoundArg(5)
+		If ri <> 18 Then ok = False : bad = ri
+		ri = HotRoundNegArg(5)
+		If ri <> -18 Then ok = False : bad = ri
+	Next
+	Report "direct call Single argument to Integer parameter", ok, bad, 18
+
+	ok = True
+	For k = 1 To 5
+		rf = HotIntToSingle(10)
+		If rf <> 27.5 Then ok = False : bad = rf
+	Next
+	Report "direct call Integer argument to Single parameter", ok, bad, 27.5
+
+	ok = True
+	For k = 1 To 5
+		ri = HotResultToInt(6)
+		If ri <> 10 Then ok = False : bad = ri
+	Next
+	Report "direct call Single result to Integer local", ok, bad, 10
+
+	ok = True
+	For k = 1 To 5
+		ri = HotBool(8)
+		If ri <> 474 Then ok = False : bad = ri
+	Next
+	Report "direct call Boolean parameter and result", ok, bad, 474
+
+	ok = True
+	For k = 1 To 5
+		ri = HotReturnPaths(2)
+		If ri <> 17 Then ok = False : bad = ri
+	Next
+	Report "direct call Return, Exit Function and fall-through", ok, bad, 17
+
+	ok = True
+	For k = 1 To 5
+		rf = HotClamp(8)
+		If rf <> 6.5 Then ok = False : bad = rf
+	Next
+	Report "direct call Return literal in a Single function", ok, bad, 6.5
+
+	ok = True
+	For k = 1 To 5
+		rf = HotNested(10)
+		If rf <> 275 Then ok = False : bad = rf
+	Next
+	Report "direct call nested callees and Sqr", ok, bad, 275
+
+	ok = True
+	For k = 1 To 5
+		ri = HotLocals(6)
+		If ri <> 56 Then ok = False : bad = ri
+	Next
+	Report "direct call callee locals start at zero", ok, bad, 56
+
+	ok = True
+	For k = 1 To 5
+		ri = HotArgs(5)
+		If ri <> 330 Then ok = False : bad = ri
+	Next
+	Report "direct call calls as arguments and eight arguments", ok, bad, 330
+
+	ok = True
+	For k = 1 To 5
+		ri = HotOptional(5)
+		If ri <> 85 Then ok = False : bad = ri
+	Next
+	Report "direct call omitted Optional argument", ok, bad, 85
+
+	ok = True
+	For k = 1 To 5
+		rf = HotOnError(3)
+		If rf <> 11 Then ok = False : bad = rf
+	Next
+	Report "direct call callee with On Error Resume Next", ok, bad, 11
+
+	ok = True
+	For k = 1 To 5
+		ri = HotRoundStore(5)
+		If ri <> 187 Then ok = False : bad = ri
+		If gRounded <> 6 Then ok = False : bad = gRounded
+	Next
+	Report "direct call callee rounds into an Integer module variable", ok, bad, 187
+
+	ok = True
+	For k = 1 To 5
+		ri = HotExplicitRound(3)
+		If ri <> 808 Then ok = False : bad = ri
+	Next
+	Report "compiled CLng and CInt round half to even", ok, bad, 808
+
+	ok = True
+	For k = 1 To 5
+		ri = HotMixed(4)
+		If ri <> 14137 Then ok = False : bad = ri
+		If gSum <> 10 Or gCalls <> 4 Then ok = False : bad = gSum
+	Next
+	Report "direct and host calls in one loop body", ok, bad, 14137
+
+	ok = True
+	For k = 1 To 5
+		ri = HotBoolPair(6)
+		If ri <> 1 Then ok = False : bad = ri
+		ri = HotBoolPair(4)
+		If ri <> 0 Then ok = False : bad = ri
+	Next
+	Report "direct call keeps Boolean module variables Boolean", ok, bad, 1
+
+	If gFailures = 0 Then
+		Print "PASS: direct call suite complete"
+	Else
+		Print "FAIL: direct call suite failures " & CStr(gFailures)
+	End If
+End Sub
