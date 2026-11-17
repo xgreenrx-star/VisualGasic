@@ -182,3 +182,34 @@ Function t_sin(ByVal n As Integer) As Single
 	Next
 	Return s
 End Function
+
+' Plain statements of another shape than t_local: Integer control flow
+' (If / ElseIf, compares, And / Or / Not, Mod, \) with an untyped local, and
+' Double arithmetic on untyped locals. No calls, no module state.
+Function t_branch(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	Dim k As Variant
+	For i = 1 To n
+		k = i Mod 7
+		If k = 0 Or k = 3 Then
+			c = c + 2
+		ElseIf k > 4 And Not (i Mod 2 = 0) Then
+			c = c - 1
+		Else
+			c = c + (i \ 4) Mod 3
+		End If
+	Next
+	Return c
+End Function
+
+Function t_poly(ByVal n As Integer) As Variant
+	Dim i As Integer
+	Dim x As Variant
+	Dim acc As Variant = 0.0
+	For i = 1 To n
+		x = i * 0.001
+		acc = acc + ((x * 0.5 - 1.25) * x + 3) * x
+	Next
+	Return acc
+End Function

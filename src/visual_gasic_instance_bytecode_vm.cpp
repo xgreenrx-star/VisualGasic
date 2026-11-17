@@ -16,6 +16,7 @@
 #include "visual_gasic_debugger.h"
 #include "visual_gasic_profiler.h"
 #include "visual_gasic_optimizer.h"   // instruction_size(): inline-frame eligibility scan
+#include "visual_gasic_vm_fastloop.h" // lean loop for the simple opcodes
 #ifndef VG_WEB_BUILD
 #include "visual_gasic_jit_tier2.h"
 #include "visual_gasic_jit_tier3.h"
@@ -2400,6 +2401,58 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             !p_initial_locals && !debug_frames_active && !profiling_enabled &&
             !stack_profile_enabled && !stack_trace_enabled && script.is_valid();
 
+    // ── Lean loop (visual_gasic_vm_fastloop.h) ─────────────────────────────
+    // It runs the simple opcodes of an ordinary run.  A run with a per-opcode
+    // hook (opcode or stack profiling, an attached debugger), a Parallel For
+    // body and a worker thread keep every opcode on its handler; so does
+    // VG_FASTLOOP=0.  The typed shadow arrays must cover the base frame's
+    // slots (they are sized by the locals this run started with).
+    // VG_FASTLOOP_VERIFY=1 is for test runs: see vg_op_fastloop.
+#if VG_FASTLOOP_AVAILABLE
+    static const int _vg_fastloop_env = []() {   // 0 = off, 1 = on, 2 = on and verified
+        const char *e = std::getenv("VG_FASTLOOP");
+        if (e && e[0] == '0' && e[1] == '\0') {
+            return 0;
+        }
+        const char *v = std::getenv("VG_FASTLOOP_VERIFY");
+        return (v && v[0] == '1' && v[1] == '\0') ? 2 : 1;
+    }();
+    const bool fastloop_ok = _vg_fastloop_env != 0 && vgfast::g_layout_ok && !is_parallel_worker && !is_sub_range &&
+            !p_initial_locals && !debug_frames_active && !profiling_enabled &&
+            !stack_profile_enabled && !stack_trace_enabled && locals.size() >= chunk->local_count;
+    const bool fastloop_verify = _vg_fastloop_env == 2;
+    VMFastFrame fast_frame;
+    fast_frame.stack = &vm.stack;
+    fast_frame.locals = &locals;
+#endif
+    // The loop works from a description of the frame being executed.  This
+    // brings it up to date; it is called wherever the frame variables it
+    // copies are set: before the first dispatch, at the end of
+    // inline_frame_push and at the end of inline_frame_pop.
+    auto fast_frame_sync = [&]() {
+#if VG_FASTLOOP_AVAILABLE
+        if (!fastloop_ok) {
+            return;
+        }
+        fast_frame.code = code;
+        // Not for the loop: a frame with no room for an instruction, and a
+        // chunk whose type table is longer than its slot count (the shadow
+        // arrays cover local_count slots).
+        fast_frame.safe_end = (effective_code_end >= 3 && chunk->local_types.size() <= chunk->local_count)
+                ? code + (effective_code_end - 2) : code;
+        fast_frame.constants = chunk->constants.ptr();
+        fast_frame.constant_count = (uint32_t)chunk->constants.size();
+        fast_frame.local_types = chunk->local_types.ptr();
+        fast_frame.local_type_count = (uint32_t)chunk->local_types.size();
+        fast_frame.local_declared = chunk->local_declared.ptr();
+        fast_frame.local_declared_count = (uint32_t)chunk->local_declared.size();
+        fast_frame.typed_i64 = typed_i64_locals;
+        fast_frame.typed_f64 = typed_f64_locals;
+        fast_frame.member_cache = member_name_cache_ptr;
+        fast_frame.stack_base = stack_base;
+#endif
+    };
+
     // Same resolution as the prologue above, for a callee chunk.
     auto inline_member_cache_for = [&](BytecodeChunk *c) -> Vector<MemberNameCacheEntry> * {
         if (_member_cache_last_chunk == c && _member_cache_last_ptr) {
@@ -2629,6 +2682,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         debug_bc_chunk = chunk;
         vm.ip = 0;
         vm.inline_frame_count++;
+        fast_frame_sync();
         return true;
     };
 
@@ -2750,6 +2804,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         debug_bc_chunk = chunk;
         vm.ip = fr.return_ip;
         vm.inline_frame_count--;
+        fast_frame_sync();
     };
 
     // Normal callee exit (end of body, Exit Sub/Function, or Return <expr>
@@ -2795,6 +2850,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 #else
 #define VG_USE_COMPUTED_GOTO 0
 #endif
+#if VG_USE_COMPUTED_GOTO != VG_FASTLOOP_AVAILABLE
+#error "The lean loop (visual_gasic_vm_fastloop.h) is entered through the computed-goto dispatch table: keep the two conditions the same."
+#endif
 
 #if VG_USE_COMPUTED_GOTO
     // Dispatch table: maps each opcode byte to the address of its handler label.
@@ -2804,6 +2862,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // per dispatch in this dlopen'd library (GCC rematerializes the address).
     // Filled once under a mutex, published with release/acquire.
     static const void* dispatch_table[256];
+    // The same table with the lean loop's opcodes (visual_gasic_vm_fastloop.h)
+    // entering through vg_op_fastloop.
+    static const void* dispatch_table_fast[256];
     static std::atomic<bool> dispatch_table_ready{false};
     static std::mutex dispatch_table_mutex;
     if (!dispatch_table_ready.load(std::memory_order_acquire)) {
@@ -3039,10 +3100,15 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_APPEND_INDEX_GLOBAL] = &&vg_op_append_index_global;
         dispatch_table[OP_APPEND_SUB_INDEX_LOCAL] = &&vg_op_append_sub_index_local;
         dispatch_table[OP_APPEND_SUB_INDEX_GLOBAL] = &&vg_op_append_sub_index_global;
+        for (int _i = 0; _i < 256; _i++) {
+            dispatch_table_fast[_i] = vg_fastloop_handles((uint8_t)_i) ? &&vg_op_fastloop : dispatch_table[_i];
+        }
         dispatch_table_ready.store(true, std::memory_order_release);
       }
     }
-    const void *const *const vg_dispatch = dispatch_table;
+    // The lean loop's opcodes enter it through the second table.
+    fast_frame_sync();
+    const void *const *const vg_dispatch = fastloop_ok ? dispatch_table_fast : dispatch_table;
 
     // VG_CASE(label, opcode):  on GCC/Clang emits `label: case opcode:`
     //                          on MSVC emits `case opcode:` only.
@@ -12049,6 +12115,39 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 vm.ip++; // skip slot byte
                 VG_BREAK;
             }
+
+#if VG_USE_COMPUTED_GOTO
+            vg_op_fastloop: {
+                // Reached through dispatch_table_fast only: `op` is one of the
+                // lean loop's opcodes.  The loop runs from this instruction
+                // until one it does not take, and reports where it stopped.
+                // When that is this very instruction (not its plain case, or a
+                // Whenever section is mirroring the locals), the opcode's own
+                // handler runs it as if the loop were not there.
+                if (VG_LIKELY(!needs_var_sync)) {
+                    if (VG_UNLIKELY(fastloop_verify)) {
+                        // VG_FASTLOOP_VERIFY=1: the frame description must be
+                        // what a fresh fast_frame_sync() gives.  A frame
+                        // variable set anywhere but the prologue and the
+                        // inline call push/pop shows up here.
+                        const VMFastFrame seen = fast_frame;
+                        fast_frame_sync();
+                        if (!seen.same_as(fast_frame)) {
+                            fprintf(stderr, "VG_FASTLOOP_VERIFY: stale frame description in %s at offset %d (inline depth %d)\n",
+                                    func ? func->name.utf8().get_data() : "<main>",
+                                    vm.ip - 1, (int)vm.inline_frame_count);
+                            abort();
+                        }
+                    }
+                    const int fast_ip = vm_fast_run(fast_frame, vm.ip - 1);
+                    if (fast_ip != vm.ip - 1) {
+                        vm.ip = fast_ip;
+                        VG_BREAK;
+                    }
+                }
+                goto *dispatch_table[op];
+            }
+#endif
 
             vg_op_default: default:
                 UtilityFunctions::printerr("VisualGasic: unsupported opcode ", (int)op);

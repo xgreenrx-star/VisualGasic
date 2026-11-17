@@ -963,6 +963,11 @@ public:
                           const Vector<Variant>* p_initial_locals = nullptr,
                           const Variant* p_fast_args = nullptr, int p_fast_count = 0,
                           VMState* p_vm = nullptr, const CoroutineState *p_resume = nullptr);
+    // Lean loop for the VM's simple opcodes, entered from execute_bytecode()'s
+    // dispatch; returns the offset of the first instruction it did not
+    // execute (see visual_gasic_vm_fastloop.h).
+    struct VMFastFrame;
+    int vm_fast_run(const VMFastFrame &f, int p_ip);
 
     bool set(const StringName &p_name, const Variant &p_value);
     bool get(const StringName &p_name, Variant &r_ret);

@@ -77,3 +77,23 @@ func t_sin(n:int)->float:
 	var s := 0.0
 	for i in range(1,n+1): s = s + sin(i*0.01)*0.5
 	return s
+func t_branch(n:int)->int:
+	var c := 0
+	var k
+	for i in range(1,n+1):
+		k = i % 7
+		if k == 0 or k == 3:
+			c = c + 2
+		elif k > 4 and not (i % 2 == 0):
+			c = c - 1
+		else:
+			@warning_ignore("integer_division")
+			c = c + (i / 4) % 3
+	return c
+func t_poly(n:int):
+	var x
+	var acc = 0.0
+	for i in range(1,n+1):
+		x = i * 0.001
+		acc = acc + ((x * 0.5 - 1.25) * x + 3) * x
+	return acc

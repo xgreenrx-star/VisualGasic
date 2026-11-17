@@ -344,6 +344,16 @@ public:
     }
     void clear() { resize(0); }
 
+    // Raw view for the VM's lean loop (visual_gasic_vm_fastloop.cpp), which
+    // keeps the top-of-stack pointer in a register.  It pushes and pops
+    // straight on the buffer — inline payloads, or bitwise moves that keep
+    // each String/Array/Object owned exactly once — and publishes the new
+    // element count with raw_set_size() before anything else looks at the
+    // stack.  Elements [0, size) are always valid Variants.
+    godot::Variant *raw_data() { return _data; }
+    size_t capacity() const { return _cap; }
+    void raw_set_size(size_t n) { _size = n; }
+
 private:
     void _grow(size_t min_cap) {
         size_t new_cap = _cap ? _cap * 2 : 64;

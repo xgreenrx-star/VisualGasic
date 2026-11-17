@@ -1,0 +1,399 @@
+' The bytecode VM runs its simple opcodes - local and constant loads, local
+' stores, Integer / Double arithmetic and compares, branches, the fused For
+' step, module-variable reads - in a lean loop of its own
+' (src/visual_gasic_vm_fastloop.cpp) and hands every other case of them to the
+' ordinary handlers: another operand type, a value that has to be released, a
+' division by zero, a full operand stack. Each function below sits on one of
+' those borders. The answers are the same in every tier and with
+' VG_FASTLOOP=0, so this file prints the same PASS lines everywhere.
+'
+' DeepSum runs first: its operands cross the operand stack's first growth
+' steps while the stack is still at its initial size.
+Inherits Node
+
+Dim gA As Integer
+Dim gF As Single
+Dim gS As String
+Dim gV
+Dim gCalls As Integer
+
+' Values are compared as text: a wrong answer can be Nothing.
+Sub Check(ByVal label As String, ByVal want As Variant, ByVal a As Variant, ByVal b As Variant)
+	Dim w As String = "[" & want & "]"
+	Dim sa As String = "[" & a & "]"
+	Dim sb As String = "[" & b & "]"
+	If sa = w And sb = w Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label & " want " & w & " got " & sa & " " & sb
+	End If
+End Sub
+
+Sub CheckOnce(ByVal label As String, ByVal want As Variant, ByVal a As Variant)
+	Check label, want, a, a
+End Sub
+
+' ── Operand stack growth ────────────────────────────────────────────────
+' Three operands wait on the stack at every level of the recursion.
+Function DeepSum(ByVal n As Integer) As Integer
+	If n = 0 Then Return 0
+	Return n * 3 + (7 - (n + DeepSum(n - 1)))
+End Function
+
+' The same with a String waiting at every level.
+Function DeepText(ByVal n As Integer) As String
+	If n = 0 Then Return "."
+	Return "a" & (n Mod 10) & DeepText(n - 1)
+End Function
+
+' ── Integer arithmetic ──────────────────────────────────────────────────
+Function IntTyped(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim a As Integer = 7
+	Dim b As Integer = 0
+	For i = 1 To n
+		b = b + a * i - (i \ 3) + (i Mod 4)
+		a = a - 1
+	Next
+	Return b
+End Function
+
+Function IntUntyped(ByVal n As Integer) As Variant
+	Dim i As Integer
+	Dim a As Variant = 7
+	Dim b As Variant = 0
+	For i = 1 To n
+		b = b + a * i - (i \ 3) + (i Mod 4)
+		a = a - 1
+	Next
+	Return b
+End Function
+
+' Integers wrap at 64 bits.
+Function WrapTyped() As Integer
+	Dim i As Integer
+	Dim x As Integer = 1
+	For i = 1 To 63
+		x = x * 2
+	Next
+	Return x
+End Function
+
+Function WrapUntyped() As Variant
+	Dim i As Integer
+	Dim x As Variant = 3
+	For i = 1 To 64
+		x = x + x
+	Next
+	Return x
+End Function
+
+Function Negatives(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim s As String = ""
+	Dim v As Variant
+	For i = 0 - n To n Step 3
+		v = 0 - i
+		s = s & (i \ 2) & "," & (i Mod 3) & "," & Abs(i) & "," & (0 - v) & ";"
+	Next
+	Return s
+End Function
+
+' ── Integer beside Double ───────────────────────────────────────────────
+Function Mixed(ByVal n As Integer) As Variant
+	Dim i As Integer
+	Dim a As Variant = 3
+	Dim b As Variant = 0.5
+	Dim acc As Variant = 0
+	For i = 1 To n
+		acc = acc + a * b - i / 4 + (a - b) * i
+		a = a + 1
+	Next
+	Return acc
+End Function
+
+Function FloatTyped(ByVal n As Integer) As Double
+	Dim i As Integer
+	Dim s As Double = 0
+	Dim h As Double = 1.5
+	Dim q As Single = 2
+	For i = 1 To n
+		s = s + h * i - q / 4
+		h = h - 0.25
+		q = q + 1
+	Next
+	Return s
+End Function
+
+Function MathCalls(ByVal n As Integer) As Variant
+	Dim i As Integer
+	Dim acc As Double = 0
+	For i = 1 To n
+		acc = acc + Sqr(i * i * 4) + Abs(2.5 - i) + Sin(0) + Cos(0)
+	Next
+	Return acc
+End Function
+
+' A store into a typed local converts.
+Function Conversions() As String
+	Dim n As Integer
+	Dim s As Single
+	Dim d As Double
+	n = 2.5
+	n = n + 1.5
+	s = n
+	s = s / 8
+	d = s * n
+	Return n & "," & s & "," & d
+End Function
+
+' ── Compares and logic ──────────────────────────────────────────────────
+Function Compares(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	Dim x As Variant
+	Dim f As Variant
+	For i = 1 To n
+		x = i Mod 5
+		f = i * 0.5
+		If x < 2 Then c = c + 1
+		If x <= 2 Then c = c + 10
+		If x > f Then c = c + 100
+		If x >= f Then c = c + 1000
+		If x = 2 Then c = c + 10000
+		If x <> f Then c = c + 100000
+		If (x = 1) = (f > 1) Then c = c + 1000000
+	Next
+	Return c
+End Function
+
+Function Logic(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	Dim t As Boolean
+	Dim m As Variant
+	For i = 1 To n
+		t = (i Mod 2 = 0)
+		If t And i > 3 Then c = c + 1
+		If t Or i > 6 Then c = c + 10
+		If Not t Then c = c + 100
+		m = (i And 6) Or 1
+		c = c + m * 1000
+		If i And 4 Then c = c + 100000
+	Next
+	Return c
+End Function
+
+Function Branches(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim s As String = ""
+	Dim k As Variant
+	For i = 1 To n
+		k = i Mod 4
+		If k = 0 Then
+			s = s & "z"
+		ElseIf k = 1 Then
+			s = s & "o"
+		ElseIf k > 2 Then
+			s = s & "t"
+		Else
+			s = s & "-"
+		End If
+		Do While k > 1
+			k = k - 2
+			s = s & k
+		Loop
+	Next
+	Return s
+End Function
+
+' ── For shapes ──────────────────────────────────────────────────────────
+Function ForShapes() As String
+	Dim i As Integer
+	Dim s As String = ""
+	For i = 3 To 1
+		s = s & i
+	Next
+	s = s & "|"
+	For i = 5 To 1 Step -2
+		s = s & i
+	Next
+	s = s & "|"
+	For i = 1 To 3
+		s = s & i
+	Next
+	Return s & "|" & i
+End Function
+
+' ── Values that are released: String, Array, Dictionary ─────────────────
+Function Texts(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim s As String = "a"
+	Dim v As Variant
+	Dim w As Variant = "start"
+	For i = 1 To n
+		v = s
+		s = v & i
+		w = i
+		v = w
+		w = "t" & v
+	Next
+	Return s & ":" & v & ":" & w
+End Function
+
+Function Arrays(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim a As Variant
+	Dim b As Variant
+	Dim total As Integer = 0
+	For i = 1 To n
+		a = Array(i, i + 1, i + 2)
+		b = a
+		total = total + UBound(b) + b(1)
+		a = 0
+	Next
+	Return total
+End Function
+
+Function Dicts(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim d As Variant
+	Dim keep As Variant = 0
+	Dim total As Integer = 0
+	For i = 1 To n
+		d = New Dictionary
+		d("k") = i
+		keep = d
+		d = i
+		total = total + keep("k") + d
+	Next
+	Return total
+End Function
+
+Function MakeText(ByVal i As Integer) As String
+	gCalls = gCalls + 1
+	Return "made" & i
+End Function
+
+' A Function called as a statement: its String result is dropped.
+Function DroppedResults(ByVal n As Integer) As Integer
+	Dim i As Integer
+	gCalls = 0
+	For i = 1 To n
+		MakeText i
+		Call MakeText(i + 1)
+	Next
+	Return gCalls
+End Function
+
+' ── Nothing ─────────────────────────────────────────────────────────────
+Function NothingLocal() As String
+	Dim v As Variant
+	Dim t As String = "<" & v & ">"
+	v = 4
+	Return t & v
+End Function
+
+' ── Module variables ────────────────────────────────────────────────────
+' gV is Nothing, then a String, then a Double.
+Function Globals(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim acc As Variant = 0
+	Dim t As String = ""
+	For i = 1 To n
+		acc = acc + gA * 2 + gF
+		t = t & gS
+		If i = 2 Then gV = "two"
+		If i = 3 Then gV = 0.5
+		t = t & "(" & gV & ")"
+	Next
+	Return t & acc
+End Function
+
+' ── Errors raised between plain opcodes ─────────────────────────────────
+Function DivideByZero(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim d As Variant
+	Dim r As Variant
+	Dim hits As Integer = 0
+	Dim s As String = ""
+	On Error Resume Next
+	For i = 1 To n
+		d = i Mod 3
+		Err.Clear
+		r = 12 \ d
+		If Err.Number = 11 Then
+			hits = hits + 1
+		Else
+			s = s & r & ","
+		End If
+	Next
+	Return s & "z" & hits
+End Function
+
+Function ModByZero(ByVal n As Integer) As String
+	Dim i As Integer
+	Dim d As Variant
+	Dim r As Variant
+	Dim hits As Integer = 0
+	Dim s As String = ""
+	On Error Resume Next
+	For i = 1 To n
+		d = i Mod 3
+		Err.Clear
+		r = 13 Mod d
+		If Err.Number = 11 Then
+			hits = hits + 1
+		Else
+			s = s & r & ","
+		End If
+	Next
+	Return s & "z" & hits
+End Function
+
+' The line of an error raised after a run of plain statements.
+Function ErrorLine() As String
+	Dim a As Variant = 4
+	Dim b As Variant = 0
+	Dim c As Variant
+	On Error Resume Next
+	a = a + 1
+	b = b * 2
+	c = a \ b
+	Return Erl() & ":" & Err.Number & ":" & c
+End Function
+
+Sub _Ready()
+	Check "operands across the stack's growth steps", 100, DeepSum(100), DeepSum(100)
+	Check "Strings across the stack's growth steps", "a0a9a8a7a6a5a4a3a2a1a0a9a8a7a6a5a4a3a2a1a0a9a8a7a6a5a4a3a2a1a0a9a8a7a6a5a4a3a2a1.", DeepText(40), DeepText(40)
+
+	Check "Integer locals", -30, IntTyped(12), IntTyped(12)
+	Check "untyped locals holding Integers", -30, IntUntyped(12), IntUntyped(12)
+	Check "Integer local wraps at 64 bits", "-9223372036854775808", WrapTyped(), WrapTyped()
+	Check "untyped Integer wraps at 64 bits", 0, WrapUntyped(), WrapUntyped()
+	Check "negative operands", "-3,-1,7,-7;-2,-1,4,-4;0,-1,1,-1;1,2,2,2;2,2,5,5;", Negatives(7), Negatives(7)
+
+	Check "Integer beside Double, untyped", 133.75, Mixed(6), Mixed(6)
+	Check "Double and Single locals", 7.25, FloatTyped(6), FloatTyped(6)
+	Check "Sqr, Abs, Sin, Cos", 28, MathCalls(4), MathCalls(4)
+	Check "stores into typed locals", "4,0.5,2", Conversions(), Conversions()
+
+	Check "compares", 4124475, Compares(11), Compares(11)
+	Check "And, Or, Not", 433563, Logic(9), Logic(9)
+	Check "If chains and Do While", "o-0t1zo-0t1zo", Branches(9), Branches(9)
+	Check "For shapes", "|531|123|4", ForShapes(), ForShapes()
+
+	Check "String stores", "a123:3:t3", Texts(3), Texts(3)
+	Check "Array stores", 15, Arrays(3), Arrays(3)
+	Check "Dictionary stores", 12, Dicts(3), Dicts(3)
+	Check "dropped String results", 8, DroppedResults(4), DroppedResults(4)
+	Check "Nothing in a declared local", "<>4", NothingLocal(), NothingLocal()
+	gA = 3
+	gF = 0.25
+	gS = "s"
+	CheckOnce "module variables", "s()s(two)s(0.5)s(0.5)25", Globals(4)
+
+	Check "division by zero inside a loop", "12,6,12,6,z2", DivideByZero(6), DivideByZero(6)
+	Check "Mod by zero inside a loop", "0,1,0,1,z2", ModByZero(6), ModByZero(6)
+	Check "line of an error after plain statements", "362:11:0", ErrorLine(), ErrorLine()
+End Sub

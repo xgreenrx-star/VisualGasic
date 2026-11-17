@@ -6,7 +6,8 @@ extends SceneTree
 const N := 200000
 const REPEATS := 5
 const CASES := ["t_local", "t_global", "t_gint", "t_getx", "t_getx_typed", "t_sety", "t_dict",
-	"t_streq", "t_call", "t_call_args", "t_call_byref", "t_call_global", "t_call_host", "t_vec", "t_sin"]
+	"t_streq", "t_call", "t_call_args", "t_call_byref", "t_call_global", "t_call_host", "t_vec", "t_sin",
+	"t_branch", "t_poly"]
 
 func _initialize() -> void:
 	run.call_deferred()
