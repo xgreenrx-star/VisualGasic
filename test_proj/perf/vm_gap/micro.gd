@@ -5,6 +5,7 @@ var gb: bool
 var d: Dictionary
 var gacc: float
 var gi: int
+var gk: int
 func _ready():
 	g = 1.5; gs = "talk"; d = {}; d["k"] = 2.5
 func empty_fn() -> float: return 0
@@ -16,6 +17,12 @@ func t_gint(n:int)->int:
 	gi = 0
 	for i in range(1,n+1): gi = gi + 1
 	return gi
+func t_gint_if(n:int)->int:
+	gk = 0
+	for i in range(1, n + 1):
+		if i > 0:
+			gk = gk + 2
+	return gk
 func t_local(n:int)->float:
 	var s := 0.0; var h := 1.5
 	for i in range(1,n+1): s = s + h

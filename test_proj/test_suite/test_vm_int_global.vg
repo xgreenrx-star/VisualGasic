@@ -1,0 +1,63 @@
+' Integer stores round with CLng (half to even). No Whenever section, so
+' the plain Integer store is the lean loop's. A float argument still
+' rounds; the store is not dropped.
+Option Explicit
+Inherits Node
+
+Dim gi As Integer
+Dim gk As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	Dim n As Integer
+
+	gi = 2.5
+	Check gi = 2, "2.5 rounds to even 2"
+	gi = 3.5
+	Check gi = 4, "3.5 rounds to even 4"
+	gi = -2.5
+	Check gi = -2, "-2.5 rounds to even -2"
+	gi = 1.5
+	Check gi = 2, "1.5 rounds away from even 1"
+	gi = 2.6
+	Check gi = 3, "2.6 rounds to 3"
+	gi = True
+	Check gi = 1, "True stores as 1"
+	gi = False
+	Check gi = 0, "False stores as 0"
+	gi = CLng("3.5")
+	Check gi = 4, "CLng of a numeric string rounds"
+	gi = CLng(Nothing)
+	Check gi = 0, "CLng of Nothing is 0"
+
+	n = 2.5
+	Check n = 2, "a local Integer rounds 2.5 to 2"
+	n = 1.5
+	Check n = 2, "a local Integer rounds 1.5 to 2"
+
+	gi = 0
+	For i = 1 To 5
+		gi = gi + 1
+	Next
+	Check gi = 5, "five increments land on 5"
+
+	gk = 0
+	For i = 1 To 4
+		If i > 0 Then gk = gk + 2
+	Next
+	Check gk = 8, "a branched store of a different global adds 2"
+
+	gi = 0
+	For i = 1 To 3
+		gi = gi + 0.6
+	Next
+	Check gi = 3, "adding 0.6 three times rounds 0.6, 1.6, 2.6"
+End Sub

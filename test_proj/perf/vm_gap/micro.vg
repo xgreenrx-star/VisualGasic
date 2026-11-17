@@ -7,6 +7,7 @@ Dim gb As Boolean
 Dim d As Dictionary
 Dim gacc As Single
 Dim gi As Integer
+Dim gk As Integer
 
 Sub _Ready()
 	g = 1.5
@@ -37,6 +38,17 @@ Function t_gint(ByVal n As Integer) As Integer
 		gi = gi + 1
 	Next
 	Return gi
+End Function
+
+' Same Integer module store as t_gint, inside a branch, a different name,
+' and a step other than 1. The coercion and the store still happen.
+Function t_gint_if(ByVal n As Integer) As Integer
+	Dim i As Integer
+	gk = 0
+	For i = 1 To n
+		If i > 0 Then gk = gk + 2
+	Next
+	Return gk
 End Function
 
 Function t_local(ByVal n As Integer) As Single

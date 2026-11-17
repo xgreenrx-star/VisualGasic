@@ -86,6 +86,46 @@ Read the table like this:
 - `t_call` is slower with the JIT (151) than without (109). This is a regression.
 - The interpreter's per-op overhead is about 3x GDScript's. You can see it in `t_local` with `VG_JIT=0`: a 3-op loop takes 31.8 ns against GD's 10.2.
 
+### 17 Nov 2026, after the integer-store fast path
+
+`run_gap.gd`, one best-of-5 run, `mismatches=0` both modes. The CPU was at full speed (GD `t_local` ~13 ns, against ~80 ns in the WS2/WS3 tables). Ratios are the comparison.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 12.9 | 2.8 | 0.22 | 8.0 | 0.57 |
+| t_global | 12.9 | 2.8 | 0.22 | 9.0 | 0.65 |
+| t_gint | 12.6 | 0.8 | 0.07 | 14.4 | 1.08 |
+| t_gint_if | 22.6 | 1.2 | 0.05 | 19.9 | 0.82 |
+| t_getx | 29.0 | 22.3 | 0.77 | 23.2 | 0.73 |
+| t_getx_typed | 16.0 | 22.3 | 1.39 | 24.1 | 1.40 |
+| t_sety | 32.4 | 46.2 | 1.43 | 50.1 | 1.42 |
+| t_dict | 51.2 | 85.0 | 1.66 | 95.8 | 1.75 |
+| t_streq | 45.0 | 73.0 | 1.62 | 78.4 | 1.67 |
+| t_call | 100.5 | 3.1 | 0.03 | 142.4 | 1.43 |
+| t_vec | 20.4 | 33.8 | 1.66 | 60.3 | 1.61 |
+| t_sin | 58.2 | 35.1 | 0.60 | 43.4 | 0.58 |
+| external_call | 101.7 | 239.9 | 2.36 | 408.8 | 4.15 |
+
+`t_gint` before this fast path, interpreter, `hot_case.gd` 2e6 iterations: 4018 ns/iter. After: 10.8 ns/iter. `t_gint_if` (the store inside `If`, a different global, step 2): 3956 ns → 17.8 ns. Both results match GDScript. Subtracted user-mode cost of the after loop: 44 cycles and 276 instructions per iteration.
+
+The interpreter `t_gint` ratio is 1.08, just over the secondary goal of 1.00. The store still happens on every iteration.
+
+### Status (17 Nov 2026)
+
+Done:
+
+- WS1, direct compiled calls: `db024904`
+- Tier 2 slot typing: `3cddef24`
+- WS2, lean interpreter loop: `568bf467`
+- WS3, `OP_DEBUG_LINE` stripped unless a debugger is attached: `7e812044`
+- Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: this commit
+
+Not started: WS4 Vector2/Vector3 axis ops, WS5 String/Dictionary globals in Tier 2, WS6 the other interpreter fast paths, WS7 external calls into VG, and the separate implicit-`CLng` note is this commit rather than a later one.
+
+Next: WS4. With the JIT on, `t_getx_typed` is 1.39, `t_sety` is 1.43, and `t_vec` is 1.66.
+
+No new correctness bug in this workstream. The Cdecl `strlen` assert is still the pre-existing suite noise. The editor breakpoint inside a loop was not clicked for WS3.
+
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 
 | Function | Result | Why |

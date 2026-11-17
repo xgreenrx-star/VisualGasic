@@ -237,7 +237,9 @@ private:
         // Pure numeric builtins the VM evaluates inline instead of walking
         // the ~450-entry strcmp cascade (Min/Int were 33k calls per
         // Backlight City build).  Values mirror the cascade entries exactly.
-        enum PureBuiltin : int8_t { PB_NONE = 0, PB_MIN, PB_MAX, PB_INT, PB_FIX, PB_LERPF };
+        // PB_TO_I64 is CInt/CLng/CLngLng of one argument: the bytecode
+        // cascade's vb_to_integer, not the raising builtin_clng.
+        enum PureBuiltin : int8_t { PB_NONE = 0, PB_MIN, PB_MAX, PB_INT, PB_FIX, PB_LERPF, PB_TO_I64 };
         int8_t pure_builtin = PB_NONE;
         // OP_NEW_OBJECT: 0 = not yet classified, 1 = Godot built-in type
         // constructor (Vector3/Color/Basis/...), reached only after the

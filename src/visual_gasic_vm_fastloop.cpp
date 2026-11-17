@@ -8,6 +8,7 @@
 // ============================================================================
 #include "visual_gasic_vm_fastloop.h"
 #include "visual_gasic_language.h"
+#include "visual_gasic_evidence.h"
 #include "vg_variant_fast.h"
 
 #include <godot_cpp/core/math.hpp>
@@ -345,6 +346,89 @@ fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 	}
 	sp++;
 	pc += 3;
+	FL_NEXT();
+}
+
+fl_set_global: { // OP_SET_GLOBAL [name lo] [name hi]
+	// An Integer already in an Integer module variable, written now.
+	// Leaves the store alone when the value still needs CLng's other
+	// cases, the slot is not an Integer, a watchpoint or a Whenever
+	// section or an evidence recorder is listening, or this frame has
+	// not yet snapshotted the pre-write value.  That first store is the
+	// ordinary handler, which records it; later stores of the same
+	// global find the bit set and write here.
+	FL_NEED(1);
+	const uint32_t idx = FL_U16_LE(1);
+	if (FL_UNLIKELY(idx >= nconst)) {
+		goto fl_leave;
+	}
+	const Vector<MemberNameCacheEntry> &memo = *f.member_cache;
+	if (FL_UNLIKELY((uint32_t)memo.size() != nconst)) {
+		goto fl_leave;
+	}
+	const MemberNameCacheEntry &e = memo.ptr()[idx];
+	if (FL_UNLIKELY(!e.initialized || e.gptr == nullptr || e.gptr_gen != variables.generation)) {
+		goto fl_leave;
+	}
+	Variant *dst = e.gptr;
+	const Variant *src = sp - 1;
+	if (FL_UNLIKELY(fl_type(dst) != FL_INT || fl_type(src) != FL_INT)) {
+		goto fl_leave;
+	}
+	if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
+		goto fl_leave;
+	}
+	if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
+		goto fl_leave;
+	}
+	if (f.snapshot_globals_active) {
+		const int gi = e.gw_index;
+		if (FL_UNLIKELY(gi < 0 || f.gw_bits == nullptr)) {
+			goto fl_leave;
+		}
+		const uint64_t mask = (uint64_t)1 << (gi & 63);
+		if (FL_UNLIKELY((f.gw_bits[gi >> 6] & mask) == 0)) {
+			goto fl_leave;
+		}
+	}
+	fl_put_int(dst, fl_int(src));
+	sp--;
+	pc += 3;
+	FL_NEXT();
+}
+
+fl_call: { // OP_CALL [name lo] [name hi] [argc]
+	// CInt / CLng / CLngLng of one number, Nothing or Boolean: the same
+	// vb_to_integer the builtin cascade returns.  A String or any other
+	// value, and every other call, stays on the ordinary handler.
+	FL_LONG(1);
+	const uint32_t idx = FL_U16_LE(1);
+	if (FL_UNLIKELY(pc[3] != 1 || idx >= nconst)) {
+		goto fl_leave;
+	}
+	FL_NEED(1);
+	const Vector<MemberNameCacheEntry> &memo = *f.member_cache;
+	if (FL_UNLIKELY((uint32_t)memo.size() != nconst)) {
+		goto fl_leave;
+	}
+	const MemberNameCacheEntry &e = memo.ptr()[idx];
+	if (FL_UNLIKELY(!e.initialized || e.pure_builtin != MemberNameCacheEntry::PB_TO_I64)) {
+		goto fl_leave;
+	}
+	Variant *top = sp - 1;
+	const uint32_t t = fl_type(top);
+	if (t == FL_INT) {
+		// Already an Integer. vb_to_integer returns it unchanged.
+	} else if (t == FL_FLOAT) {
+		fl_put_int(top, vb_round_half_even(fl_float(top)));
+	} else if (t == FL_BOOL) {
+		fl_put_int(top, fl_bool(top) ? (int64_t)1 : (int64_t)0);
+	} else if (t == FL_NIL) {
+		fl_put_int(top, (int64_t)0);
+	} else {
+		goto fl_leave;
+	}
+	pc += 4;
 	FL_NEXT();
 }
 

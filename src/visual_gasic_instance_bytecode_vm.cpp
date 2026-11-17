@@ -2292,6 +2292,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     else if (ps.nocasecmp_to("Int") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_INT;
                     else if (ps.nocasecmp_to("Fix") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_FIX;
                     else if (ps.nocasecmp_to("LerpF") == 0) entry.pure_builtin = MemberNameCacheEntry::PB_LERPF;
+                } else if (plen == 4 || plen == 7) {
+                    // Same entry as call_builtin_expr_evaluated: vb_to_integer,
+                    // which does not raise on a bad string (that raise is
+                    // builtin_clng, a different call path).
+                    if (ps.nocasecmp_to("CLng") == 0 || ps.nocasecmp_to("CInt") == 0 ||
+                            ps.nocasecmp_to("CLngLng") == 0) {
+                        entry.pure_builtin = MemberNameCacheEntry::PB_TO_I64;
+                    }
                 }
             }
             entry.initialized = true;
@@ -2455,6 +2463,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         fast_frame.typed_f64 = typed_f64_locals;
         fast_frame.member_cache = member_name_cache_ptr;
         fast_frame.stack_base = stack_base;
+        fast_frame.snapshot_globals_active = snapshot_globals_active;
+        fast_frame.gw_bits = gw_bits;
 #endif
     };
 
@@ -6634,6 +6644,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                                 break;
                             case MemberNameCacheEntry::PB_LERPF:
                                 if (arg_count == 3) { double a = args_ptr[0]; double b = args_ptr[1]; double t = args_ptr[2]; push_value(Math::lerp(a, b, t)); }
+                                else _pb_done = false;
+                                break;
+                            case MemberNameCacheEntry::PB_TO_I64:
+                                if (arg_count == 1) push_value(vb_to_integer(args_ptr[0]));
                                 else _pb_done = false;
                                 break;
                             default:

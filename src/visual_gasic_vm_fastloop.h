@@ -56,6 +56,8 @@
 	X(OP_GET_LOCAL, get_local) \
 	X(OP_SET_LOCAL, set_local) \
 	X(OP_GET_GLOBAL, get_global) \
+	X(OP_SET_GLOBAL, set_global) \
+	X(OP_CALL, call) \
 	X(OP_TO_F64, to_f64) \
 	X(OP_ADD, add) \
 	X(OP_SUBTRACT, subtract) \
@@ -141,6 +143,11 @@ struct VisualGasicInstance::VMFastFrame {
 	uint32_t constant_count = 0;
 	uint32_t local_type_count = 0;
 	uint32_t local_declared_count = 0;
+	// OP_SET_GLOBAL's rollback bitset for this frame.  A global whose bit
+	// is still clear has not been snapshotted yet; the loop leaves that
+	// store to the ordinary handler, which records the pre-write value.
+	bool snapshot_globals_active = false;
+	uint64_t *gw_bits = nullptr;
 	// The run: these two objects stay, their contents change.
 	vgfast::VariantStack *stack = nullptr;      // &vm.stack
 	Vector<Variant> *locals = nullptr;          // &locals
@@ -152,6 +159,7 @@ struct VisualGasicInstance::VMFastFrame {
 				typed_i64 == o.typed_i64 && typed_f64 == o.typed_f64 && member_cache == o.member_cache &&
 				stack_base == o.stack_base && constant_count == o.constant_count &&
 				local_type_count == o.local_type_count && local_declared_count == o.local_declared_count &&
+				snapshot_globals_active == o.snapshot_globals_active && gw_bits == o.gw_bits &&
 				stack == o.stack && locals == o.locals;
 	}
 };

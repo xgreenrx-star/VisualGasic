@@ -1,0 +1,32 @@
+' A Whenever section must see every Integer module store. The lean
+' store leaves this case to the ordinary handler.
+Option Explicit
+Inherits Node
+
+Dim gi As Integer
+Dim fires As Integer
+
+Whenever Section WatchGi gi Changes OnGi
+
+Sub OnGi()
+	fires = fires + 1
+End Sub
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	gi = 0
+	fires = 0
+	For i = 1 To 5
+		gi = gi + 1
+	Next
+	Check gi = 5, "five increments land on 5 with Whenever attached"
+	Check fires = 5, "Whenever saw each of the five stores"
+End Sub
