@@ -423,6 +423,11 @@ struct BytecodeChunk {
     Vector<uint8_t> code;
     Vector<Variant> constants;
     Vector<int> lines; // Line number per byte (RLE compressed ideally, but flat for now)
+    // False once the optimizer has removed OP_DEBUG_LINE. raise_error() then
+    // reads `lines` at the faulting offset. Stays true when a debugger or a
+    // step trace was attached at compile time, so the markers are still there
+    // for breakpoints and stepping.
+    bool has_debug_lines = true;
     Vector<String> local_names;
     Vector<uint8_t> local_types;
     // 1 = slot belongs to a declared parameter or Dim. A NIL value in such a

@@ -45,7 +45,8 @@ public:
     /**
      * Optimize a bytecode chunk in-place.
      * @param chunk  The bytecode chunk to optimize.
-     * @param strip_debug  If true, remove OP_DEBUG_LINE instructions (release builds).
+     * @param strip_debug  If true, remove OP_DEBUG_LINE instructions. The
+     *                     per-byte line table stays, and raise_error() reads it.
      * @return Stats describing what was optimized.
      */
     static Stats optimize(BytecodeChunk* chunk, bool strip_debug = false);

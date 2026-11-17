@@ -583,6 +583,21 @@ void VisualGasicOptimizer::compact(BytecodeChunk* chunk) {
         for (int i = 0; i < chunk->stmt_starts.size(); i++) {
             chunk->stmt_starts.write[i] = remap_offset(chunk->stmt_starts[i]);
         }
+        // OP_GOSUB holds an absolute offset ([OP] [HI] [LO]), so is_jump_op()
+        // does not cover it.
+        for (int ip = 0; ip < old_size;) {
+            const uint8_t op = chunk->code[ip];
+            if (op == OP_NOP) {
+                ip++;
+                continue;
+            }
+            if (op == OP_GOSUB && ip + 2 < old_size) {
+                const int target = remap_offset((chunk->code[ip + 1] << 8) | chunk->code[ip + 2]);
+                chunk->code.write[ip + 1] = (uint8_t)((target >> 8) & 0xFF);
+                chunk->code.write[ip + 2] = (uint8_t)(target & 0xFF);
+            }
+            ip += instruction_size(chunk->code, ip);
+        }
     }
 
     // Fix jump offsets
@@ -1305,11 +1320,6 @@ VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk,
     for (int iteration = 0; iteration < 8; iteration++) {
         bool any_changed = false;
 
-        // Strip debug lines first if requested (creates more optimization opportunities)
-        if (strip_debug) {
-            any_changed |= pass_strip_debug_lines(chunk, stats);
-        }
-
         // Peephole passes
         any_changed |= pass_dead_pop(chunk, stats);
         any_changed |= pass_redundant_load_store(chunk, stats);
@@ -1326,6 +1336,16 @@ VisualGasicOptimizer::Stats VisualGasicOptimizer::optimize(BytecodeChunk* chunk,
         compact(chunk);
 
         if (!any_changed) break;
+    }
+
+    // The markers go last. The passes above see the same code whether or not
+    // the chunk is stripped, so a stripped chunk is the marker-bearing one
+    // minus its OP_DEBUG_LINEs; chunk->lines keeps the line of every byte.
+    if (strip_debug) {
+        if (pass_strip_debug_lines(chunk, stats)) {
+            compact(chunk);
+        }
+        chunk->has_debug_lines = false;
     }
 
     static const bool fuse_for = [] {
@@ -1362,6 +1382,12 @@ bool VisualGasicOptimizer::verify_instruction_lengths(const BytecodeChunk *chunk
         ok = false;
     } else {
         boundary.write[size] = 1;
+    }
+    // Error lines are read from chunk->lines by code offset.
+    if (chunk->lines.size() != size) {
+        UtilityFunctions::print("[VG_OPLEN] ", phase, " line table has ", chunk->lines.size(),
+                " entries for ", size, " code bytes");
+        ok = false;
     }
     auto prev_op_name = [&](int pos) -> String {
         String names;

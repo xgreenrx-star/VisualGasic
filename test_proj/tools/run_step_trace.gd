@@ -53,6 +53,20 @@ func _init() -> void:
 		return
 	print("PASS: loop body paused once per iteration")
 
+	# The first script again, after runs without a trace. Leaf is numeric, so
+	# the JIT has compiled it by now; a trace must still pause inside it.
+	for i in 3:
+		node.call("Main")
+	ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_begin_autostep", 40)
+	node.call("Main")
+	var warm_trace: PackedInt32Array = ClassDB.class_call_static(&"VisualGasicLanguage", &"vg_debug_get_trace")
+	print("WARM TRACE (", warm_trace.size(), "): ", warm_trace)
+	if warm_trace != expect:
+		printerr("FAIL: trace after untraced runs ", warm_trace, " != ", expect)
+		quit(1)
+		return
+	print("PASS: a trace started after untraced runs pauses on the same lines")
+
 	var big: Array = []
 	for i in 2000:
 		big.append(i)

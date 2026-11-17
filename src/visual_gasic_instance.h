@@ -86,6 +86,7 @@ class VisualGasicInstance {
     // during execution (never stored across calls).
     Vector<Variant>* debug_bc_locals = nullptr;
     BytecodeChunk*   debug_bc_chunk  = nullptr;
+    int              debug_bc_ip = -1; // opcode offset for the line table (see raise_error)
     String           debug_bc_source_file; // res:// path when executing Import module bytecode
 
 public:
@@ -798,6 +799,8 @@ private:
     // Internal helper implementations moved out into separate translation units
     Variant _evaluate_expression_impl(ExpressionNode* expr);
     void _execute_statement_impl(Statement* stmt);
+    // Chunk compiled without OP_DEBUG_LINE: fill debug_state from its line table.
+    void apply_stripped_bytecode_line();
     void raise_error(String msg, int code = 5, const String &source = "");
     void resolve_debug_location(int merged_line);
     int resolve_merged_line_for_source(const String &source_file, int source_line) const;

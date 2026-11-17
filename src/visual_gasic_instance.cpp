@@ -2494,9 +2494,17 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
     }
 
     String key = entry_point.to_lower();
+    ModuleBytecodeEntry *rebuild = nullptr;
+    static const bool keep_debug_lines = OS::get_singleton()->get_environment("VG_KEEP_DEBUG_LINES") == "1";
     for (ModuleBytecodeEntry &entry : *cache_list) {
         if (entry.name_lower == key) {
             if (entry.compile_failed) return nullptr;
+            // Same as VisualGasicScript::get_bytecode_for: a debugger attached
+            // after a stripped compile needs the line markers put back.
+            if (!entry.chunk.has_debug_lines && VisualGasicLanguage::is_debug_hook_active()) {
+                rebuild = &entry;
+                break;
+            }
             return &entry.chunk;
         }
     }
@@ -2534,7 +2542,13 @@ BytecodeChunk* VisualGasicInstance::get_bytecode_for_import(ImportedModule& mod,
         return nullptr;
     }
 
-    VisualGasicOptimizer::optimize(&compiled_chunk, false);
+    VisualGasicOptimizer::optimize(&compiled_chunk,
+            !keep_debug_lines && !VisualGasicLanguage::is_debug_hook_active());
+
+    if (rebuild) {
+        rebuild->chunk = compiled_chunk;
+        return &rebuild->chunk;
+    }
 
     ModuleBytecodeEntry entry;
     entry.original_name = entry_point;

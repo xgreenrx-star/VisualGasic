@@ -1777,6 +1777,41 @@ bool VisualGasicInstance::scalar_decl_hides_procedure(const String &name) {
     return find_imported_sub(name, -1) != nullptr;
 }
 
+void VisualGasicInstance::apply_stripped_bytecode_line() {
+    if (!debug_bc_chunk || debug_bc_chunk->has_debug_lines) {
+        return;
+    }
+    // The dispatch loop already stored the merged line in current_line.
+    // A Whenever chain limit overwrites that with the assignment's line first;
+    // map whichever value is there. Same rules as OP_DEBUG_LINE with no hook.
+    const int line_number = debug_state.current_line;
+    if (line_number <= 0) {
+        return;
+    }
+    debug_state.merged_line = line_number;
+    if (script.is_valid() && _debug_script_path_owner != script.ptr()) {
+        _debug_script_path = script->get_path();
+        _debug_script_path_owner = script.ptr();
+    }
+    debug_state.current_line = line_number;
+    if (!vgfast::str_empty(debug_bc_source_file)) {
+        if (debug_state.current_file_id != -2) {
+            debug_state.current_file = debug_bc_source_file;
+            debug_state.current_file_script = nullptr;
+            debug_state.current_file_id = -2;
+        }
+    } else if (script.is_valid()) {
+        int src_line = line_number;
+        const int fid = script->source_file_id_for_line(line_number, src_line);
+        if (debug_state.current_file_id != fid || debug_state.current_file_script != script.ptr()) {
+            debug_state.current_file = (fid < 0) ? _debug_script_path : script->source_file_by_id(fid);
+            debug_state.current_file_script = script.ptr();
+            debug_state.current_file_id = fid;
+        }
+        debug_state.current_line = src_line;
+    }
+}
+
 void VisualGasicInstance::raise_error(String msg, int code, const String &source) {
     // Update Err Object — create if it doesn't exist yet (v3.2 fix)
     Dictionary err;
@@ -1791,6 +1826,10 @@ void VisualGasicInstance::raise_error(String msg, int code, const String &source
     err["Source"] = source.is_empty() ? String("VisualGasic Runtime") : source;
 
     if (error_state.has_error) return;
+    // Markers stripped: current_line is the merged line (the dispatch loop, or
+    // a Whenever chain limit that stored the assignment's line). Map it the
+    // way OP_DEBUG_LINE would have. With markers, that already happened.
+    apply_stripped_bytecode_line();
     // OP_DEBUG_LINE already mapped host Include lines into current_file/current_line.
     // Import-module bytecode stores the module path in debug_bc_source_file and the
     // module's own source line in current_line. Re-resolving that number through the

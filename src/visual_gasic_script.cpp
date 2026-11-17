@@ -19,6 +19,12 @@ using namespace godot;
 
 namespace {
 
+// VG_KEEP_DEBUG_LINES=1 leaves OP_DEBUG_LINE in the chunk (the pre-WS3 path).
+bool vg_keep_debug_lines() {
+    static const bool keep = OS::get_singleton()->get_environment("VG_KEEP_DEBUG_LINES") == "1";
+    return keep;
+}
+
 bool vg_bc_log_fallbacks() {
     static int cached = -1;
     if (cached < 0) {
@@ -1173,11 +1179,19 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, co
     }
 
     String key = entry_point.to_lower();
+    CompiledEntry *rebuild = nullptr;
     for (CompiledEntry &entry : bytecode_cache) {
         if (entry.name_lower == key) {
             // Return nullptr for entries that previously failed compilation
             if (entry.compile_failed) {
                 return nullptr;
+            }
+            // Compiled with the line markers removed, and a debugger or a step
+            // trace has since attached. Compile this body again, into the same
+            // cache node, so breakpoints and stepping see OP_DEBUG_LINE.
+            if (!entry.chunk.has_debug_lines && VisualGasicLanguage::is_debug_hook_active()) {
+                rebuild = &entry;
+                break;
             }
             return &entry.chunk;
         }
@@ -1210,9 +1224,16 @@ BytecodeChunk *VisualGasicScript::get_bytecode_for(const String &entry_point, co
         return nullptr;
     }
 
-    // Run the bytecode peephole optimizer (v2.4.1)
-    {
-        VisualGasicOptimizer::optimize(&compiled_chunk, false);
+    // Run the bytecode peephole optimizer (v2.4.1). Line markers stay only
+    // while a debugger hook is attached; the per-byte line table does not move.
+    VisualGasicOptimizer::optimize(&compiled_chunk,
+            !vg_keep_debug_lines() && !VisualGasicLanguage::is_debug_hook_active());
+
+    if (rebuild) {
+        rebuild->chunk = compiled_chunk;
+        bytecode = compiled_chunk;
+        has_bytecode = true;
+        return &rebuild->chunk;
     }
 
     CompiledEntry entry;

@@ -1104,7 +1104,10 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // The native JIT writes module variables without the interpreter hooks.
     // While a run is being recorded, or while a Whenever callback is running,
     // stay on the interpreter so each store is visible to evidence and Whenever.
-    if (!vg_evidence_recording() && !whenever_evaluating && try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
+    // A debugger or a step trace pauses on OP_DEBUG_LINE, which native code
+    // does not have. is_debug_hook_active() covers both.
+    if (!vg_evidence_recording() && !whenever_evaluating && !VisualGasicLanguage::is_debug_hook_active() &&
+            try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
                          p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
         // Mirror finalize_profile(): this early return used to leak
         // vg_opcode_profile_depth, so once any JIT'd helper ran, every later
@@ -1358,12 +1361,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // don't clobber the outer frame's pointer on return.
     Vector<Variant>* prev_debug_bc_locals = debug_bc_locals;
     BytecodeChunk*   prev_debug_bc_chunk  = debug_bc_chunk;
+    const int prev_debug_bc_ip = debug_bc_ip;
     // Saved only when set: a plain String copy + restore + destroy was three
     // engine calls per frame for a value that is empty outside Include'd code.
     vgfast::OptString prev_debug_bc_source_file;
     prev_debug_bc_source_file.save_if_set(debug_bc_source_file);
     debug_bc_locals = &locals;
     debug_bc_chunk  = chunk;
+    debug_bc_ip = p_ip_start;
 
     // When running as a parallel worker (p_initial_locals provided), keep
     // all local variable access thread-local — never touch the shared
@@ -3133,6 +3138,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 			goto cleanup;
 		}
         last_opcode_offset = vm.ip;
+        debug_bc_ip = vm.ip;
+        // Markers stripped: remember this opcode's line. Two stores, no call.
+        // The fast loop does not pass through here. File and Include mapping
+        // wait until raise_error(), which is the only reader that needs them.
+        if (!chunk->has_debug_lines) {
+            const int nlines = chunk->lines.size();
+            if ((unsigned)vm.ip < (unsigned)nlines) {
+                const int line = chunk->lines.ptr()[vm.ip];
+                if (line > 0) {
+                    debug_state.merged_line = line;
+                    debug_state.current_line = line;
+                }
+            }
+        }
         if (error_state.has_error) {
             // A Whenever chain limit (or any raise during a store) must honor
             // On Error Resume Next here. Leaving has_error set makes the VM
@@ -12321,6 +12340,7 @@ cleanup:
     // Restore the outer frame's debug pointers (for nested calls).
     debug_bc_locals = prev_debug_bc_locals;
     debug_bc_chunk  = prev_debug_bc_chunk;
+    debug_bc_ip = prev_debug_bc_ip;
     prev_debug_bc_source_file.move_into(debug_bc_source_file);
     
     // Pop debug stack frame (must match push above; skipped for parallel workers,

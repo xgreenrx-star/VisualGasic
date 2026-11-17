@@ -54,7 +54,7 @@ RingState &state() {
 }
 
 const char *k_limit_module = "Only module-level variables are watched. A local that shadows a watched name is ignored.";
-const char *k_limit_line = "Executing line numbers come from debug_state.current_line. Bytecode sets that field from OP_DEBUG_LINE before the debugger gate. A missing line is unknown (line 0, location_known false).";
+const char *k_limit_line = "Executing line numbers come from debug_state.current_line. With line markers, bytecode sets that from OP_DEBUG_LINE. Without them, the dispatch loop sets it from the chunk's per-byte line table before each opcode it runs itself. A missing line is unknown (line 0, location_known false).";
 const char *k_limit_value = "Value capture does not call user code. Strings longer than 120 characters are truncated. Arrays and dictionaries are recorded as type and size only.";
 const char *k_limit_callback = "Callback resolved flags check procedures declared in the same script.";
 const char *k_limit_worker = "Parallel worker assignments are not recorded.";
