@@ -121,6 +121,24 @@ Function t_call_args(ByVal n As Integer) As Single
 	Return s
 End Function
 
+' ByRef, the default for a parameter: the callee updates two of the caller's
+' Single locals on every iteration (a rotation, so the result stays near 1).
+Sub polar_step(ByRef x As Single, ByRef y As Single, ByVal k As Single)
+	Dim t As Single = x
+	x = x * 0.8 - y * k
+	y = y * 0.8 + t * k
+End Sub
+
+Function t_call_byref(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim px As Single = 1
+	Dim py As Single = 0
+	For i = 1 To n
+		polar_step px, py, 0.6
+	Next
+	Return px + py
+End Function
+
 Sub add_acc(ByVal v As Single)
 	gacc = gacc + v
 End Sub

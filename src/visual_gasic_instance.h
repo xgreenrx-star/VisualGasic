@@ -833,6 +833,9 @@ public:
     };
     Variant jit_invoke_user_call(const String &method, const Variant *args, int argc, bool &handled, JitCallSiteMemo &memo);
     Variant jit_byref_capture(const String &name, bool &found) const;
+    // True when a ByRef write-back from `param` of the user Sub `name` can
+    // only be an Integer (the parameter is declared As Integer / As Long).
+    bool jit_byref_param_is_integer(const String &name, const String &param) const;
     bool jit_callee_returns_non_numeric(const String &name, int argc);
     // The module-level Sub a compiled caller may call directly for this
     // (name, argc), resolved exactly as the interpreter's OP_CALL resolves it.

@@ -1,0 +1,90 @@
+' A Whenever section fires from the interpreter's store to its module
+' variable. Tier 2 keeps a module variable in a slot while a compiled body
+' runs, and a slot store fires nothing: once Touch was hot (its second
+' call) the section went quiet. A body that stores to a module variable
+' stays on the interpreter while the instance has a Whenever section.
+Option Explicit
+
+Dim gWatched As Integer
+Dim gWatchFires As Integer
+Dim gLevel As Integer
+Dim gLevelFires As Integer
+Dim gPlain As Integer
+
+Whenever Section WatchIt gWatched Changes OnWatched
+Whenever Section LevelUp (gLevel > 5) OnLevel
+
+Sub OnWatched()
+	gWatchFires = gWatchFires + 1
+End Sub
+
+Sub OnLevel()
+	gLevelFires = gLevelFires + 1
+End Sub
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Touch(ByVal n As Integer)
+	Dim i As Integer
+	For i = 1 To n
+		gWatched = gWatched + 1
+	Next
+End Sub
+
+' The store is in a callee the hot caller would call directly.
+Sub LevelAdd(ByVal by As Integer)
+	gLevel = gLevel + by
+End Sub
+
+Sub RaiseTwice()
+	Dim i As Integer
+	For i = 1 To 2
+		LevelAdd 1
+	Next
+End Sub
+
+' A hot body that only reads module variables is not affected.
+Function ReadPlain(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + gPlain
+	Next
+	Return s
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim ok As Boolean
+
+	For i = 1 To 6
+		Touch 2
+	Next
+	Check gWatched = 12, "hot Sub stored 12 times"
+	Check gWatchFires = 12, "Changes section fired on every store of a hot Sub"
+
+	' gLevel goes 0 -> 12 in steps of 1: the condition turns True once.
+	For i = 1 To 6
+		RaiseTwice
+	Next
+	Check gLevel = 12, "hot caller and callee stored 12 times"
+	Check gLevelFires = 1, "expression section fired when the hot callee crossed it"
+	gLevel = 0
+	For i = 1 To 6
+		RaiseTwice
+	Next
+	Check gLevelFires = 2, "expression section fired again on the second crossing"
+
+	gPlain = 3
+	ok = True
+	For i = 1 To 6
+		If ReadPlain(4) <> 12 Then ok = False
+	Next
+	Check ok, "hot reader of a module variable"
+End Sub

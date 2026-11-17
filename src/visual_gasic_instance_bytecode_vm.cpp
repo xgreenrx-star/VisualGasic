@@ -644,11 +644,19 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                     }
                 }
             }
+            // Whenever sections and debugger watchpoints fire from the
+            // interpreter's store to a module variable. Native code stores
+            // to a slot and fires neither, so while this instance has a
+            // section, or a watchpoint is set, a body with such a store
+            // stays on the interpreter.
+            const bool jit_stores_watched = native && native->writes_module_vars &&
+                    (!whenever_sections.is_empty() || VisualGasicLanguage::has_watchpoints());
             // A compiled body that calls itself (or is already on this thread's
             // JIT stack) runs the interpreter for the inner frame. Nested
             // native frames share the variables[] return name and were
             // returning 0. The outer call stays native.
-            if (native && native->fn && jit_numeric_args && !vgjit2::jit_func_active(native)) {
+            if (native && native->fn && jit_numeric_args && !jit_stores_watched &&
+                    !vgjit2::jit_func_active(native)) {
                 // One-time per-CompiledFunc memo: interned global names, the
                 // Boolean-return flag and the ByRef parameter list.  These
                 // used to be recomputed on every native call (UTF-8 parse per
@@ -683,22 +691,58 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                     jit_locals_heap.assign((size_t)slot_count, 0);
                     jit_locals = jit_locals_heap.data();
                 }
-                auto pack_jit_slot = [&](int slot, const Variant &v) {
-                    if (slot < 0 || slot >= slot_count) return;
-                    const Variant::Type vt = vgfast::vtype(v);
-                    if (vt == Variant::FLOAT) {
-                        double d = vgfast::vfloat(v);
-                        memcpy(&jit_locals[slot], &d, 8);
-                    } else if (vt == Variant::BOOL) {
-                        jit_locals[slot] = vgfast::vbool(v) ? 1 : 0;
-                    } else if (vt == Variant::INT) {
-                        jit_locals[slot] = vgfast::vint(v);
+                auto slot_is_f64 = [&](int slot) -> bool {
+                    return slot >= 0 && slot < (int)native->slot_is_f64.size() && native->slot_is_f64[slot];
+                };
+                // A local's starting value in its slot. The body was compiled
+                // with one representation per slot (slot_is_f64). An Integer
+                // goes into a Double slot as the same number; anything that
+                // has no exact form in the slot (a Single for an Integer
+                // slot, a String, an Object, Nothing) returns false, and
+                // this call runs on the interpreter, where a local holds any
+                // value. Nothing is not 0 there: Nothing + 1 is Nothing.
+                auto pack_jit_slot = [&](int slot, const Variant &v) -> bool {
+                    if (slot < 0 || slot >= slot_count) return true;
+                    const bool f64 = slot_is_f64(slot);
+                    switch (vgfast::vtype(v)) {
+                        case Variant::NIL:
+                            return false;
+                        case Variant::INT: {
+                            const int64_t i = vgfast::vint(v);
+                            if (!f64) {
+                                jit_locals[slot] = i;
+                                return true;
+                            }
+                            if (i > 9007199254740992LL || i < -9007199254740992LL) return false;
+                            const double d = (double)i;
+                            memcpy(&jit_locals[slot], &d, 8);
+                            return true;
+                        }
+                        case Variant::FLOAT: {
+                            if (!f64) return false;
+                            const double d = vgfast::vfloat(v);
+                            memcpy(&jit_locals[slot], &d, 8);
+                            return true;
+                        }
+                        case Variant::BOOL:
+                            if (f64) return false;
+                            jit_locals[slot] = vgfast::vbool(v) ? 1 : 0;
+                            return true;
+                        default:
+                            return false;
                     }
                 };
-                // Pre-populate implicit (undeclared) locals from variable
-                // values.  Declared locals (Dim'd / params / return) are
-                // written before read and never touch variables[] — same
-                // rule as the interpreter's seed/flush.
+                // Only a slot the body can read before storing to it needs
+                // its starting value (CompiledFunc::local_entry_read).
+                auto jit_entry_read = [&](int slot) -> bool {
+                    return slot >= 0 && slot < (int)native->local_entry_read.size() &&
+                            native->local_entry_read[slot] != 0;
+                };
+                // An implicit (undeclared) local starts from the variable of
+                // that name: variables[], builtin constants, the global
+                // scope — the interpreter's seed — and as Nothing when there
+                // is none. Dim'd locals and temporaries are never read first
+                // (Tier2::get_or_compile refuses a body where one is).
                 auto jit_is_declared = [&](int slot) -> bool {
                     return slot < chunk->local_declared.size() && chunk->local_declared[slot] != 0;
                 };
@@ -707,39 +751,91 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                     if (!variables.has(key)) return nullptr;
                     return &variables[key];
                 };
-                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                    if (jit_is_declared(i)) continue;
+                bool jit_enter = true;
+                for (int i = 0; jit_enter && i < chunk->local_count && i < chunk->local_names.size(); i++) {
+                    if (jit_is_declared(i) || !jit_entry_read(i)) continue;
                     const String &lname = chunk->local_names[i];
-                    if (!lname.is_empty()) {
-                        if (const Variant *vp = var_ptr(lname)) pack_jit_slot(i, *vp);
-                        else if (builtin_constants.has(lname)) pack_jit_slot(i, builtin_constants[lname]);
+                    if (lname.is_empty()) continue;
+                    if (const Variant *vp = var_ptr(lname)) {
+                        jit_enter = pack_jit_slot(i, *vp);
+                    } else if (builtin_constants.has(lname)) {
+                        jit_enter = pack_jit_slot(i, builtin_constants[lname]);
+                    } else {
+                        const Dictionary &gscope = get_global_scope();
+                        jit_enter = gscope.has(lname) && pack_jit_slot(i, gscope[lname]);
                     }
                 }
                 // Fast-call args live in p_fast_args, never in variables[].
-                if (chunk->fast_params && p_fast_args) {
-                    for (int i = 0; i < chunk->param_count && i < p_fast_count; i++) {
-                        pack_jit_slot(i, p_fast_args[i]);
+                // Every parameter is packed: a ByRef one is read back on the
+                // way out even when the body never loads it. The trailing
+                // entry is the Function's typed start value.
+                if (jit_enter && chunk->fast_params && p_fast_args) {
+                    for (int i = 0; jit_enter && i < chunk->param_count && i < p_fast_count; i++) {
+                        jit_enter = pack_jit_slot(i, p_fast_args[i]);
                     }
-                    if (chunk->return_slot >= 0 && p_fast_count > chunk->param_count) {
-                        pack_jit_slot(chunk->return_slot, p_fast_args[chunk->param_count]);
+                    if (jit_enter && chunk->return_slot >= 0 && p_fast_count > chunk->param_count &&
+                            jit_entry_read(chunk->return_slot)) {
+                        jit_enter = pack_jit_slot(chunk->return_slot, p_fast_args[chunk->param_count]);
                     }
                 }
-                // Pre-populate virtual global slots from variables dictionary
+                // Module variables: each slot was compiled for the type its
+                // variable held then (CompiledFunc::global_kinds), because
+                // OP_SET_GLOBAL keeps a variable's type. The body runs
+                // natively only while every variable is still there with
+                // that type; a variable that was erased, re-typed by the AST
+                // tier or set from outside sends the call to the interpreter.
                 const size_t gs_count = native->global_slots.size();
-                for (size_t gi = 0; gi < gs_count; gi++) {
-                    const int slot = native->global_slots[gi].second;
-                    if (slot >= 0 && slot < slot_count) {
-                        const StringName &gkey = native->global_slot_names[gi];
-                        if (const Variant *vp = var_ptr(gkey)) pack_jit_slot(slot, *vp);
-                        else if (builtin_constants.has(gkey)) pack_jit_slot(slot, builtin_constants[gkey]);
+                const bool have_kinds = native->global_kinds.size() == gs_count;
+                // Value pointers, shared with jit_sync_globals (see
+                // CompiledFunc::global_ptrs for when they are valid).
+                auto global_ptr = [&](size_t gi) -> Variant * {
+                    if (native->global_ptr_owner != _instance_serial ||
+                            native->global_ptr_generation != variables.generation ||
+                            native->global_ptrs.size() != gs_count) {
+                        native->global_ptrs.assign(gs_count, nullptr);
+                        native->global_ptr_owner = _instance_serial;
+                        native->global_ptr_generation = variables.generation;
                     }
+                    Variant *vp = native->global_ptrs[gi];
+                    if (!vp) {
+                        vp = var_ptr(native->global_slot_names[gi]);
+                        native->global_ptrs[gi] = vp;
+                    }
+                    return vp;
+                };
+                for (size_t gi = 0; jit_enter && gi < gs_count; gi++) {
+                    const int slot = native->global_slots[gi].second;
+                    if (!have_kinds || slot < 0 || slot >= slot_count) {
+                        jit_enter = false;
+                        break;
+                    }
+                    const uint8_t kind = native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_KIND_MASK;
+                    const Variant *vp = nullptr;
+                    if (native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_CONST) {
+                        const StringName &gkey = native->global_slot_names[gi];
+                        // A module variable of that name now shadows the constant.
+                        if (variables.has(gkey) || !builtin_constants.has(gkey)) {
+                            jit_enter = false;
+                            break;
+                        }
+                        vp = &builtin_constants[gkey];
+                    } else {
+                        vp = global_ptr(gi);
+                    }
+                    const Variant::Type want = kind == vgjit2::CompiledFunc::GLOBAL_F64 ? Variant::FLOAT
+                            : kind == vgjit2::CompiledFunc::GLOBAL_BOOL ? Variant::BOOL : Variant::INT;
+                    if (!vp || vgfast::vtype(*vp) != want) {
+                        jit_enter = false;
+                        break;
+                    }
+                    vgjit2::jit_variable_to_slot(*vp, jit_locals[slot], kind);
+                }
+                if (!jit_enter) {
+                    return false;
                 }
                 vgjit2::JitFrame prev_frame = vgjit2::jit_swap_frame({ this, native, jit_locals });
                 int64_t has_retval = native->fn(jit_locals, (int64_t)slot_count);
                 vgjit2::jit_swap_frame(prev_frame);
-                auto slot_is_f64 = [&](int slot) -> bool {
-                    return slot < (int)native->slot_is_f64.size() && native->slot_is_f64[slot];
-                };
                 auto slot_variant = [&](int slot) -> Variant {
                     if (slot < 0 || slot >= slot_count) return Variant();
                     if (slot_is_f64(slot)) {
@@ -764,42 +860,20 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                         vgfast::set_int(dst, (int64_t)jit_locals[slot]);
                     }
                 };
-                // Write a slot back into variables[name], preserving the
-                // variable's existing scalar type; non-scalar variables are
-                // left untouched (the JIT never produced them).
-                auto jit_write_slot = [&](const StringName &key, const String &slot_name, int slot) {
-                    if (slot_name.is_empty() || builtin_constants.has(key)) return;
-                    if (slot < 0 || slot >= slot_count) return;
-                    if (Variant *vp = var_ptr(key)) {
-                        const Variant::Type ot = vgfast::vtype(*vp);
-                        if (ot == Variant::BOOL) {
-                            vgfast::set_bool(*vp, jit_locals[slot] != 0);
-                            return;
-                        }
-                        if (ot != Variant::NIL && ot != Variant::INT && ot != Variant::FLOAT) {
-                            return;
-                        }
-                        if (slot_is_f64(slot)) {
-                            double d = 0;
-                            memcpy(&d, &jit_locals[slot], 8);
-                            vgfast::set_float(*vp, d);
-                        } else {
-                            vgfast::set_int(*vp, jit_locals[slot]);
-                        }
-                        return;
-                    }
-                    variables[slot_name] = slot_variant(slot);
-                };
-                // Fast-call param and return slots stay out of variables[],
-                // matching the interpreter. Other locals and numeric globals write back.
-                for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
-                    if (chunk->fast_params && (i < chunk->param_count || i == chunk->return_slot)) continue;
-                    if (jit_is_declared(i)) continue;
-                    const String &lname = chunk->local_names[i];
-                    jit_write_slot(StringName(lname), lname, i);
-                }
+                // Module variables the body stored to go back into
+                // variables[], converted to the type the variable holds (what
+                // OP_SET_GLOBAL does on every store). A variable a host
+                // callee erased meanwhile is not created again. Locals stay
+                // local, as in the interpreter: writing the undeclared ones
+                // into variables[] left them there for every later procedure
+                // that uses the same undeclared name.
                 for (size_t gi = 0; gi < gs_count; gi++) {
-                    jit_write_slot(native->global_slot_names[gi], native->global_slot_strings[gi], native->global_slots[gi].second);
+                    if (native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_CONST) continue;
+                    if (gi >= native->global_written.size() || !native->global_written[gi]) continue;
+                    if (Variant *vp = global_ptr(gi)) {
+                        vgjit2::jit_slot_to_variable(*vp, jit_locals[native->global_slots[gi].second],
+                                native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_KIND_MASK);
+                    }
                 }
                 if (has_retval) {
                     slot_into(r_ret, native->ret_slot >= 0 ? native->ret_slot : 0);
@@ -848,6 +922,18 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                         }
                         if (!got && variables.has(pname)) {
                             captured = variables[pname];
+                        }
+                        // A Boolean parameter's slot holds 0/1. The caller's
+                        // variable must get a Boolean back, as a Boolean
+                        // Function's result does above: an Integer 1 fails
+                        // `If flag = True` after the call.
+                        if (pi < chunk->fast_param_coerce.size() && chunk->fast_param_coerce[pi] == 4) {
+                            const Variant::Type ct = vgfast::vtype(captured);
+                            if (ct == Variant::INT) {
+                                captured = Variant(vgfast::vint(captured) != 0);
+                            } else if (ct == Variant::FLOAT) {
+                                captured = Variant(vgfast::vfloat(captured) != 0.0);
+                            }
                         }
                         bc_byref_captures.push_back({pname, captured});
                     }

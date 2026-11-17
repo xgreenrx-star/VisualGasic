@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <sys/mman.h>
@@ -154,16 +155,12 @@ enum class IROp : uint8_t {
     //                  call_kind[0] = 1 when the callee is a Boolean Function.
     // CALLEE_COPY_OUT: locals[call_pool[0]] = area[imm_i64] (raw bits)
     // CALLEE_LOAD:     dest = area[imm_i64] (raw bits; `type` says which kind)
-    // BOOL_SLOT:       locals[imm_i64] = (locals[imm_i64] != 0). imm_i64 < 0 is a
-    //                  placeholder for "every Boolean module variable's slot";
-    //                  lower_bytecode replaces it before it returns.
     CALLEE_ZERO,
     CALLEE_STORE,
     CALLEE_COPY_IN,
     DIRECT_CALL,
     CALLEE_COPY_OUT,
-    CALLEE_LOAD,
-    BOOL_SLOT
+    CALLEE_LOAD
 };
 
 struct IRInst {
@@ -341,6 +338,14 @@ struct CompiledFunc {
     int ret_slot = -1;
     // 1 = slot holds an IEEE float bit pattern. Writeback must not cast it to int.
     std::vector<uint8_t> slot_is_f64;
+    // Kind of global_slots[i]: the type the module variable held when the
+    // body was compiled. OP_SET_GLOBAL keeps a variable's type (an Integer
+    // variable truncates a Single, a Boolean one takes its truth value), so
+    // the loads and stores are compiled for that one type and
+    // try_jit_bytecode runs the body natively only while the variable still
+    // has it. GLOBAL_CONST marks a builtin constant: read, never written.
+    enum : uint8_t { GLOBAL_I64 = 0, GLOBAL_F64 = 1, GLOBAL_BOOL = 2, GLOBAL_KIND_MASK = 3, GLOBAL_CONST = 4 };
+    std::vector<uint8_t> global_kinds;
     // Stable storage for string pointers embedded in native code.
     std::deque<std::string> str_pool;
     std::vector<std::string> local_names;
@@ -366,6 +371,16 @@ struct CompiledFunc {
     int local_count = 0;         // chunk slots: parameters, return slot, Dims, temps
     // 1 = the body stores to global_slots[i] (the caller copies it back out).
     std::vector<uint8_t> global_written;
+    // Some global_written entry is set. OP_SET_GLOBAL runs Whenever sections
+    // and debugger watchpoints on each store; a slot store runs neither, so
+    // try_jit_bytecode keeps such a body interpreted while either is in use.
+    bool writes_module_vars = false;
+    // 1 = the body can read chunk slot i before it stores to it, so the
+    // value the slot has at entry is visible (find_entry_reads). Only these
+    // slots are filled and checked by try_jit_bytecode: Nothing in one of
+    // them sends the call to the interpreter, where Nothing + 1 is Nothing
+    // and not 1. A slot the body always stores first can start as anything.
+    std::vector<uint8_t> local_entry_read;
 
     // One entry per RUNTIME_CALL site. Native code passes its address to
     // host_call, which keeps the resolved user callee there instead of
@@ -441,23 +456,40 @@ private:
         uint64_t calls = 0;
         bool tried = false;
         bool failed = false;
+        // A body refused because a module variable had no value yet is
+        // offered again once `calls` reaches retry_at (see nil_retry_).
+        uint64_t retry_at = 0;
+        uint8_t retries = 0;
     };
+    static constexpr int MAX_NIL_RETRIES = 4;
     std::unordered_map<std::string, HotInfo> hot_;
     std::unordered_map<std::string, CompiledFunc*> cache_;
 
-    // Direct calls. lower_bytecode sets direct_retry_ when a body and one of
-    // its direct callees keep a shared module variable in different kinds of
-    // slot; get_or_compile then lowers that body once more with
-    // direct_calls_off_, so all of its calls stay host calls.
-    bool direct_calls_off_ = false;
-    bool direct_retry_ = false;
+    // Set by lower_bytecode when it refuses a body because a module
+    // variable is still Nothing: its kind is not known yet, and it will be
+    // once the program assigns it. Left set for the caller's lowering when
+    // the refused body was being compiled as a direct callee, so the caller
+    // waits as well instead of settling for a host call. A caller that has
+    // used up its retries is lowered with no_nil_wait_ and takes the host
+    // call.
+    bool nil_retry_ = false;
+    bool no_nil_wait_ = false;
+
+    // Local slots that an earlier lowering pass of the same body found to
+    // hold a Single/Double (see "Slot kinds" in lower_bytecode).
+    struct SlotKindHints {
+        std::unordered_set<int> f64_locals;   // chunk-local slot
+        std::unordered_set<int> f64_block;    // (OP_PUSH_SCOPE ip << 8) | offset
+        bool grew = false;                    // this pass added a slot
+    };
     
     HotInfo& get_hotness(const std::string& name);
     
     // Pipeline
     bool lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& vreg_count,
                         std::vector<std::pair<std::string, int>>& global_slots, int& total_slots,
-                        std::vector<uint8_t>& slot_is_f64, void* inst, const std::string &fn_name);
+                        std::vector<uint8_t>& slot_is_f64, std::vector<uint8_t>& global_kinds,
+                        SlotKindHints& hints, void* inst, const std::string &fn_name);
     bool alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& out);
     CompiledFunc* emit_native(const std::vector<IRInst>& ir, const RegAlloc& alloc,
                               BytecodeChunk* chunk, const std::string& name);
@@ -474,6 +506,14 @@ struct JitFrame {
 };
 JitFrame jit_swap_frame(JitFrame next);
 bool jit_func_active(const CompiledFunc *fn);
+
+// A module variable's value in its native slot, and back. `kind` is the
+// slot's CompiledFunc::GLOBAL_* kind without the GLOBAL_CONST bit. The
+// variable keeps the type it has, as it does under OP_SET_GLOBAL: an
+// Integer variable takes the truncated value of an F64 slot, a Boolean one
+// its truth value. A variable that no longer holds a number is left alone.
+void jit_variable_to_slot(const godot::Variant &v, int64_t &slot, uint8_t kind);
+void jit_slot_to_variable(godot::Variant &v, int64_t bits, uint8_t kind);
 
 } // namespace vgjit2
 

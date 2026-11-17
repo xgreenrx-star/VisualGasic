@@ -50,6 +50,15 @@ func t_call_args(n:int)->float:
 	var s := 0.0
 	for i in range(1,n+1): s = blend3(s, i, 0.25)
 	return s
+# GDScript has no ByRef scalars; a two-element Array is its out-parameter idiom.
+func polar_step(p: Array, k: float) -> void:
+	var t: float = p[0]
+	p[0] = p[0] * 0.8 - p[1] * k
+	p[1] = p[1] * 0.8 + t * k
+func t_call_byref(n:int)->float:
+	var p := [1.0, 0.0]
+	for i in range(1,n+1): polar_step(p, 0.6)
+	return p[0] + p[1]
 func add_acc(v: float) -> void: gacc = gacc + v
 func t_call_global(n:int)->float:
 	gacc = 0.0

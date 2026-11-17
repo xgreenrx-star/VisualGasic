@@ -1,0 +1,672 @@
+' Tier 2 keeps each local and each module variable of a hot procedure in one
+' 64-bit slot and reads it either as an Integer or as a Double. The
+' interpreter keeps a Variant there. Every case below is a place where the
+' two disagreed: the slot was read as the wrong kind, or held a value that
+' has no number form at all (Nothing, a Boolean, an owner property).
+'
+' Each function runs five times. The first run is interpreted, the later
+' ones are native, and all five must give the same answer. Where the bytecode
+' VM and the AST walker agree on the value it is checked as well; where they
+' do not (an undeclared local is an Integer for good in the AST walker) only
+' "same answer on every run" is checked, so the file gives the same PASS
+' lines in every tier.
+Inherits Node
+
+Dim gSingle As Single
+Dim gLate
+Dim gLateSet
+Dim gLateCallee
+Dim gNever
+Dim gNeverCallee
+Dim gFlagA As Boolean
+Dim gFlagB As Boolean
+Dim gCount As Integer
+Dim gSticky
+Dim gSeen As Single
+Dim gX
+Dim gShare
+Dim gCounter As Integer
+Dim gFlag As Boolean
+Dim gScaled As Single
+
+' ── Helpers ─────────────────────────────────────────────────────────────
+' Values are compared as text: a wrong answer can be Nothing, and
+' `Nothing = 3` is not a comparison the VM can finish.
+Sub Calls5(ByVal label As String, ByVal want As Variant, ByVal a As Variant, ByVal b As Variant, ByVal c As Variant, ByVal d As Variant, ByVal e As Variant)
+	Dim w As String = "[" & want & "]"
+	Dim sa As String = "[" & a & "]"
+	Dim sb As String = "[" & b & "]"
+	Dim sc As String = "[" & c & "]"
+	Dim sd As String = "[" & d & "]"
+	Dim se As String = "[" & e & "]"
+	If sa = w And sb = w And sc = w And sd = w And se = w Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label & " want " & w & " got " & sa & " " & sb & " " & sc & " " & sd & " " & se
+	End If
+End Sub
+
+Sub Stable5(ByVal label As String, ByVal a As Variant, ByVal b As Variant, ByVal c As Variant, ByVal d As Variant, ByVal e As Variant)
+	Calls5 label & " (every run as the first)", a, a, b, c, d, e
+End Sub
+
+Sub SameText(ByVal label As String, ByVal got As String, ByVal want As String)
+	If got = want Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label & " want " & want & " got " & got
+	End If
+End Sub
+
+' ── Locals ──────────────────────────────────────────────────────────────
+' A Single local whose initialiser is an Integer literal.
+Function SingleIntInit(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim px As Single = 1
+	For i = 1 To n
+		px = px * 0.5 + 0.25
+	Next
+	Return px
+End Function
+
+' The Function name as the accumulator.
+Function ReturnSlotAcc(ByVal n As Integer) As Single
+	Dim i As Integer
+	ReturnSlotAcc = 1
+	For i = 1 To n
+		ReturnSlotAcc = ReturnSlotAcc * 0.5 + 0.25
+	Next
+End Function
+
+' The Function name assigned on one path only: the other path hands back
+' the typed start value.
+Function ReturnSlotMaybe(ByVal n As Integer) As Single
+	If n > 2 Then ReturnSlotMaybe = n * 0.5
+End Function
+
+' An undeclared local: an Integer first, a Single from the loop on.
+Function UndeclaredFloat(ByVal n As Integer) As Single
+	Dim i As Integer
+	acc = 1
+	For i = 1 To n
+		acc = acc * 1.5
+	Next
+	Return acc
+End Function
+
+' A block-scoped untyped Dim inside the loop.
+Function BlockLocal(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		Dim q = 1
+		Dim k As Integer
+		For k = 1 To 3
+			q = q * 0.5 + i
+		Next
+		s = s + q
+	Next
+	Return s
+End Function
+
+' Integer accumulation (a fused Integer add), then a Single stored.
+Function CountThenScale(ByVal n As Integer) As Single
+	Dim i As Integer
+	cnt = 0
+	For i = 1 To n
+		cnt = cnt + 1
+	Next
+	cnt = cnt * 0.5
+	Return cnt
+End Function
+
+' The counter and the Single store inside one loop.
+Function CountAndScale(ByVal n As Integer) As Single
+	Dim i As Integer
+	c = 0
+	For i = 1 To n
+		c = c + 1
+		c = c * 1.5
+	Next
+	Return c
+End Function
+
+Function HalfOf(ByVal v As Single) As Single
+	Return v / 2
+End Function
+
+Function ThreeAnd(ByVal v As Integer) As Integer
+	Return v + 3
+End Function
+
+' A local fed by a Single Function result, then counted up.
+Function FnResultThenCount(ByVal n As Integer) As Single
+	Dim i As Integer
+	x = HalfOf(5)
+	For i = 1 To n
+		x = x + 1
+	Next
+	Return x
+End Function
+
+' A local fed by an Integer Function result, then Mod.
+Function IntFnThenMod(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		k = ThreeAnd(i)
+		s = s + (k Mod 4)
+	Next
+	Return s
+End Function
+
+' ── Locals that have no value ───────────────────────────────────────────
+' An undeclared local read before anything is stored in it is Nothing, and
+' Nothing + 1 is Nothing. Native code had 0 there and counted.
+Function AccNoValue(ByVal n As Integer) As Integer
+	Dim i As Integer
+	For i = 1 To n
+		total = total + 1
+	Next
+	Return total
+End Function
+
+Function MulNoValue(ByVal n As Integer) As Integer
+	Dim i As Integer
+	For i = 1 To n
+		prod = prod * 2 + 1
+	Next
+	Return prod
+End Function
+
+Function AccFloatNoValue(ByVal n As Integer) As Single
+	Dim i As Integer
+	For i = 1 To n
+		facc = facc + 0.25
+	Next
+	Return facc
+End Function
+
+Function ReturnNoValue() As Integer
+	Return neverSet
+End Function
+
+' A Dim that is skipped at run time.
+Function DimInBranch(ByVal n As Integer) As Integer
+	If n > 100 Then
+		Dim t As Integer
+		t = 5
+	End If
+	Return t + 1
+End Function
+
+' ── Undeclared locals stay local ────────────────────────────────────────
+Sub LeakTmp(ByVal n As Integer)
+	Dim i As Integer
+	tmp = 0
+	For i = 1 To n
+		tmp = tmp + 2.5
+	Next
+	gSeen = tmp
+End Sub
+
+' Its own undeclared `tmp`, read before it is assigned.
+Function ReadTmp(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + 1
+	Next
+	If n > 100 Then tmp = 1
+	gSeen = tmp + 1
+	Return gSeen
+End Function
+
+Sub SeedShared()
+	shared = 2.5
+End Sub
+
+Function SeededUndeclared(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + shared
+	Next
+	If n > 100 Then shared = 1
+	Return s
+End Function
+
+' ── Module variables ────────────────────────────────────────────────────
+Function ModuleSingle(ByVal n As Integer) As Single
+	Dim i As Integer
+	gSingle = 1
+	For i = 1 To n
+		gSingle = gSingle * 0.5 + 0.25
+	Next
+	Return gSingle
+End Function
+
+' An untyped module variable that holds a Single on entry, and whose first
+' mention in the body is an Integer store.
+Function LateStore(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		If i = n Then gLate = 7
+		s = s + gLate
+	Next
+	Return s
+End Function
+
+' A builtin constant read by name.
+Function PiTimes(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + PI
+	Next
+	Return s
+End Function
+
+' An owner property read by bare name is not a module variable.
+Function OwnerProp(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + ProcessPriority
+	Next
+	Return s
+End Function
+
+' A LongLong parameter is not converted at the call: it can hold a Double.
+Function LongLongParam(ByVal v As LongLong) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To 3
+		s = s + v
+	Next
+	Return s
+End Function
+
+' Boolean module variables set from two different non-zero numbers.
+Function BoolStore(ByVal flags As Integer) As Integer
+	gFlagA = flags And 4
+	gFlagB = flags And 2
+	If gFlagA = gFlagB Then
+		Return 1
+	End If
+	Return 0
+End Function
+
+' An untyped module variable keeps the type of the value it holds.
+Function StickyInt(ByVal n As Integer) As Single
+	Dim i As Integer
+	gSticky = 1
+	For i = 1 To n
+		gSticky = gSticky + 0.75
+	Next
+	Return gSticky
+End Function
+
+' A module variable that never gets a value must not become 0.
+Function NeverAssigned(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim s As Integer
+	For i = 1 To n
+		s = s + gNever + 1
+	Next
+	Return s
+End Function
+
+Function IntFromSingle(ByVal n As Integer) As Integer
+	Dim f As Single
+	f = n
+	gCount = Int(f * 2)
+	Return gCount
+End Function
+
+' Hot while its module variable has no value, compiled once it has one.
+Function UseLateSet(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + gLateSet + 0.5
+	Next
+	Return s
+End Function
+
+' Compiled while gX holds an Integer; gX is a Double later.
+Function UseX(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + gX
+	Next
+	gX = gX + 1
+	Return s
+End Function
+
+' A caller and its direct callee work on one untyped module variable.
+Sub AddShare(ByVal k As Single)
+	gShare = gShare + k
+End Sub
+
+Function ShareDriver(ByVal n As Integer) As Single
+	Dim i As Integer
+	For i = 1 To n
+		AddShare 1.5
+	Next
+	Return gShare
+End Function
+
+' The callee's module variable has no value yet.
+Function ReadLateCallee() As Single
+	Return gLateCallee + 1
+End Function
+
+Function LateCalleeDriver(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + ReadLateCallee()
+	Next
+	Return s
+End Function
+
+' The callee's module variable never gets one.
+Function ReadNeverCallee() As Single
+	Return gNeverCallee + 1
+End Function
+
+Function NeverCalleeDriver(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single
+	For i = 1 To n
+		s = s + ReadNeverCallee()
+	Next
+	Return s
+End Function
+
+' ── ByRef write-backs ───────────────────────────────────────────────────
+Sub HalveIt(ByRef x As Single)
+	x = x / 2
+End Sub
+
+Sub BumpAny(x)
+	x = x + 0.5
+End Sub
+
+Function ByRefIntoUndeclared(ByVal n As Integer) As Single
+	Dim i As Integer
+	v = 5
+	For i = 1 To n
+		HalveIt v
+	Next
+	Return v
+End Function
+
+Function ByRefUntypedParam(ByVal n As Integer) As Single
+	Dim i As Integer
+	w = 1
+	For i = 1 To n
+		BumpAny w
+	Next
+	Return w
+End Function
+
+Function ByRefIntoInteger(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim q As Integer
+	q = 5
+	For i = 1 To n
+		HalveIt q
+	Next
+	Return q * 1.0
+End Function
+
+Function ByRefSingleInit(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim r As Single = 5
+	For i = 1 To n
+		HalveIt r
+	Next
+	Return r
+End Function
+
+' Two Single locals updated through ByRef parameters on every iteration.
+Sub PolarStep(ByRef x As Single, ByRef y As Single, ByVal k As Single)
+	Dim t As Single = x
+	x = x * 0.75 - y * k
+	y = y * 0.75 + t * k
+End Sub
+
+Function PolarCalls(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim px As Single = 1
+	Dim py As Single = 0
+	For i = 1 To n
+		PolarStep px, py, 0.5
+	Next
+	Return px + py
+End Function
+
+' A ByRef parameter stored on one path only keeps the caller's value on
+' the other, although the body never reads it.
+Sub MaybeSet(ByRef x As Single, ByVal c As Integer)
+	If c > 0 Then x = 5.5
+End Sub
+
+Function ByRefMaybe(ByVal c As Integer) As Single
+	Dim v As Single = 1.25
+	MaybeSet v, c
+	Return v
+End Function
+
+' An Integer module variable written through a Single ByRef parameter.
+Sub ScaleBy(ByRef x As Single, ByVal k As Single)
+	x = x * k
+End Sub
+
+Function ScaleCounter(ByVal k As Single) As Integer
+	gCounter = 7
+	ScaleBy gCounter, k
+	Return gCounter
+End Function
+
+Function ScaleSingle(ByVal k As Single) As Single
+	gScaled = 7
+	ScaleBy gScaled, k
+	Return gScaled
+End Function
+
+' A Boolean module variable written through an untyped ByRef parameter.
+Sub PutAny(v, ByVal k As Single)
+	v = k
+End Sub
+
+Function PutFlag(ByVal k As Single) As String
+	PutAny gFlag, k
+	Return TypeName(gFlag) & ":" & gFlag
+End Function
+
+' An Integer local passed to an Integer ByRef parameter stays an Integer.
+Sub Bump3(ByRef n As Integer)
+	n = n + 3
+End Sub
+
+Function BumpMod(ByVal start As Integer) As Integer
+	Dim q As Integer
+	Dim i As Integer
+	q = start
+	For i = 1 To 4
+		Bump3 q
+	Next
+	Return q Mod 5
+End Function
+
+' A Boolean ByRef parameter of a compiled Sub hands back a Boolean.
+Sub SetFlag(ByRef b As Boolean, ByVal v As Integer)
+	b = (v > 3)
+End Sub
+
+Function FlagText(ByVal v As Integer) As String
+	Dim f As Boolean
+	SetFlag f, v
+	If f = True Then
+		Return "T:" & TypeName(f)
+	End If
+	Return "F:" & TypeName(f)
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim seq As String
+	Dim first As String
+	Dim got As String
+	Dim bad As Integer
+	Dim q As Single
+
+	' Locals
+	Calls5 "Single local with an Integer initialiser", 0.53125, SingleIntInit(4), SingleIntInit(4), SingleIntInit(4), SingleIntInit(4), SingleIntInit(4)
+	Calls5 "Function name as a Single accumulator", 0.53125, ReturnSlotAcc(4), ReturnSlotAcc(4), ReturnSlotAcc(4), ReturnSlotAcc(4), ReturnSlotAcc(4)
+	Calls5 "Function name assigned", 2, ReturnSlotMaybe(4), ReturnSlotMaybe(4), ReturnSlotMaybe(4), ReturnSlotMaybe(4), ReturnSlotMaybe(4)
+	Calls5 "Function name not assigned", 0, ReturnSlotMaybe(1), ReturnSlotMaybe(1), ReturnSlotMaybe(1), ReturnSlotMaybe(1), ReturnSlotMaybe(1)
+	Stable5 "undeclared local turning Single", UndeclaredFloat(3), UndeclaredFloat(3), UndeclaredFloat(3), UndeclaredFloat(3), UndeclaredFloat(3)
+	Calls5 "block-scoped untyped local", 10.875, BlockLocal(3), BlockLocal(3), BlockLocal(3), BlockLocal(3), BlockLocal(3)
+	Stable5 "Integer count then Single scale", CountThenScale(5), CountThenScale(5), CountThenScale(5), CountThenScale(5), CountThenScale(5)
+	Stable5 "count and scale in one loop", CountAndScale(3), CountAndScale(3), CountAndScale(3), CountAndScale(3), CountAndScale(3)
+	Calls5 "Single Function result then count", 4.5, FnResultThenCount(2), FnResultThenCount(2), FnResultThenCount(2), FnResultThenCount(2), FnResultThenCount(2)
+	Calls5 "Integer Function result then Mod", 7, IntFnThenMod(6), IntFnThenMod(6), IntFnThenMod(6), IntFnThenMod(6), IntFnThenMod(6)
+
+	' Locals that have no value
+	Stable5 "Integer added to a local with no value", AccNoValue(3), AccNoValue(3), AccNoValue(3), AccNoValue(3), AccNoValue(3)
+	Stable5 "local with no value multiplied", MulNoValue(3), MulNoValue(3), MulNoValue(3), MulNoValue(3), MulNoValue(3)
+	Stable5 "Single added to a local with no value", AccFloatNoValue(3), AccFloatNoValue(3), AccFloatNoValue(3), AccFloatNoValue(3), AccFloatNoValue(3)
+	Stable5 "local with no value returned", ReturnNoValue(), ReturnNoValue(), ReturnNoValue(), ReturnNoValue(), ReturnNoValue()
+	Stable5 "Dim skipped at run time", DimInBranch(1), DimInBranch(1), DimInBranch(1), DimInBranch(1), DimInBranch(1)
+
+	' Undeclared locals stay local
+	seq = ""
+	For i = 1 To 5
+		LeakTmp 2
+		If i = 1 Then first = "[" & ReadTmp(1) & "]"
+		seq = seq & "[" & ReadTmp(1) & "]"
+	Next
+	SameText "undeclared local of a hot Sub stays out of other procedures", seq, first & first & first & first & first
+	SeedShared
+	Stable5 "undeclared local read before it is assigned", SeededUndeclared(2), SeededUndeclared(2), SeededUndeclared(2), SeededUndeclared(2), SeededUndeclared(2)
+
+	' Module variables
+	Calls5 "Single module variable", 0.53125, ModuleSingle(4), ModuleSingle(4), ModuleSingle(4), ModuleSingle(4), ModuleSingle(4)
+	seq = ""
+	For i = 1 To 5
+		gLate = 2.5
+		seq = seq & "[" & LateStore(3) & "]"
+	Next
+	SameText "untyped module variable holding a Single, Integer store first", seq, "[12][12][12][12][12]"
+	Calls5 "builtin constant", PI + PI, PiTimes(2), PiTimes(2), PiTimes(2), PiTimes(2), PiTimes(2)
+	ProcessPriority = 3
+	Calls5 "owner property by bare name", 6, OwnerProp(2), OwnerProp(2), OwnerProp(2), OwnerProp(2), OwnerProp(2)
+	SameText "owner property still readable", "[" & ProcessPriority & "]", "[3]"
+	Calls5 "LongLong parameter given a Double", 7.5, LongLongParam(2.5), LongLongParam(2.5), LongLongParam(2.5), LongLongParam(2.5), LongLongParam(2.5)
+	Calls5 "Boolean module variables, both True", 1, BoolStore(6), BoolStore(6), BoolStore(6), BoolStore(6), BoolStore(6)
+	Calls5 "Boolean module variables, one False", 0, BoolStore(4), BoolStore(4), BoolStore(4), BoolStore(4), BoolStore(4)
+	Stable5 "untyped module variable keeps its type", StickyInt(2), StickyInt(2), StickyInt(2), StickyInt(2), StickyInt(2)
+	Stable5 "module variable with no value", NeverAssigned(2), NeverAssigned(2), NeverAssigned(2), NeverAssigned(2), NeverAssigned(2)
+	SameText "module variable with no value stays Nothing", TypeName(gNever), "Nothing"
+	Calls5 "Integer module variable from a Single", 6, IntFromSingle(3), IntFromSingle(3), IntFromSingle(3), IntFromSingle(3), IntFromSingle(3)
+	SameText "Integer module variable stays an Integer", TypeName(gCount), "Integer"
+
+	' A module variable that gets its value after the body is hot
+	first = "[" & UseLateSet(2) & "]"
+	seq = ""
+	For i = 1 To 4
+		seq = seq & "[" & UseLateSet(2) & "]"
+	Next
+	SameText "hot before its module variable has a value", seq, first & first & first & first
+	gLateSet = 2.5
+	bad = 0
+	For i = 1 To 40
+		got = "[" & UseLateSet(2) & "]"
+		If got <> "[6]" Then bad = bad + 1
+	Next
+	SameText "compiled once the module variable has a value", "[" & bad & "]", "[0]"
+
+	' A module variable whose type changes after the body was compiled
+	gX = 2
+	seq = ""
+	For i = 1 To 5
+		seq = seq & "[" & UseX(2) & "]"
+	Next
+	SameText "module variable holding an Integer", seq & TypeName(gX) & "[" & gX & "]", "[4][6][8][10][12]Integer[7]"
+	Me.set("gX", 2.5)
+	seq = ""
+	For i = 1 To 5
+		seq = seq & "[" & UseX(2) & "]"
+	Next
+	SameText "the same variable holding a Double", seq & TypeName(gX) & "[" & gX & "]", "[5][7][9][11][13]Double[7.5]"
+
+	' Caller and direct callee on one untyped module variable
+	seq = ""
+	For i = 1 To 5
+		gShare = 1
+		If i = 1 Then first = "[" & ShareDriver(2) & "]"
+		gShare = 1
+		seq = seq & "[" & ShareDriver(2) & "]"
+	Next
+	SameText "direct callee shares an Integer module variable", seq, first & first & first & first & first
+	seq = ""
+	For i = 1 To 5
+		Me.set("gShare", 0.5)
+		seq = seq & "[" & ShareDriver(2) & "]"
+	Next
+	SameText "direct callee shares it as a Double", seq, "[3.5][3.5][3.5][3.5][3.5]"
+
+	' The callee's module variable has no value yet
+	first = "[" & LateCalleeDriver(2) & "]"
+	seq = ""
+	For i = 1 To 4
+		seq = seq & "[" & LateCalleeDriver(2) & "]"
+	Next
+	SameText "callee's module variable has no value yet", seq, first & first & first & first
+	gLateCallee = 2.5
+	bad = 0
+	For i = 1 To 40
+		got = "[" & LateCalleeDriver(2) & "]"
+		If got <> "[7]" Then bad = bad + 1
+	Next
+	SameText "callee's module variable got a value", "[" & bad & "]", "[0]"
+	first = "[" & NeverCalleeDriver(1) & "]"
+	bad = 0
+	For i = 1 To 9000
+		got = "[" & NeverCalleeDriver(1) & "]"
+		If got <> first Then bad = bad + 1
+	Next
+	SameText "callee's module variable never gets a value", "[" & bad & "]", "[0]"
+
+	' ByRef write-backs
+	Stable5 "ByRef Single into an undeclared local, once", ByRefIntoUndeclared(1), ByRefIntoUndeclared(1), ByRefIntoUndeclared(1), ByRefIntoUndeclared(1), ByRefIntoUndeclared(1)
+	Stable5 "ByRef Single into an undeclared local, twice", ByRefIntoUndeclared(2), ByRefIntoUndeclared(2), ByRefIntoUndeclared(2), ByRefIntoUndeclared(2), ByRefIntoUndeclared(2)
+	Stable5 "ByRef from an untyped parameter", ByRefUntypedParam(3), ByRefUntypedParam(3), ByRefUntypedParam(3), ByRefUntypedParam(3), ByRefUntypedParam(3)
+	Stable5 "ByRef Single into an Integer local", ByRefIntoInteger(2), ByRefIntoInteger(2), ByRefIntoInteger(2), ByRefIntoInteger(2), ByRefIntoInteger(2)
+	Calls5 "ByRef Single local with an Integer initialiser", 1.25, ByRefSingleInit(2), ByRefSingleInit(2), ByRefSingleInit(2), ByRefSingleInit(2), ByRefSingleInit(2)
+	Calls5 "two ByRef Single locals per iteration", 0.578125, PolarCalls(3), PolarCalls(3), PolarCalls(3), PolarCalls(3), PolarCalls(3)
+	Calls5 "ByRef parameter stored", 5.5, ByRefMaybe(1), ByRefMaybe(1), ByRefMaybe(1), ByRefMaybe(1), ByRefMaybe(1)
+	Calls5 "ByRef parameter not stored", 1.25, ByRefMaybe(0), ByRefMaybe(0), ByRefMaybe(0), ByRefMaybe(0), ByRefMaybe(0)
+	seq = ""
+	For i = 1 To 5
+		q = 1.25
+		MaybeSet q, 0
+		seq = seq & "[" & q & "]"
+		MaybeSet q, 1
+		seq = seq & "[" & q & "]"
+	Next
+	SameText "ByRef parameter not stored, interpreted caller", seq, "[1.25][5.5][1.25][5.5][1.25][5.5][1.25][5.5][1.25][5.5]"
+	Stable5 "Integer module variable through a Single ByRef", ScaleCounter(0.5), ScaleCounter(0.5), ScaleCounter(0.5), ScaleCounter(0.5), ScaleCounter(0.5)
+	SameText "Integer module variable is still an Integer", TypeName(gCounter), "Integer"
+	Calls5 "Single module variable through a Single ByRef", 3.5, ScaleSingle(0.5), ScaleSingle(0.5), ScaleSingle(0.5), ScaleSingle(0.5), ScaleSingle(0.5)
+	Stable5 "Boolean module variable through an untyped ByRef", PutFlag(0.5), PutFlag(0.5), PutFlag(0.5), PutFlag(0.5), PutFlag(0.5)
+	Calls5 "Integer ByRef keeps the local an Integer", 3, BumpMod(1), BumpMod(1), BumpMod(1), BumpMod(1), BumpMod(1)
+	Calls5 "Boolean ByRef hands back True", "T:Boolean", FlagText(9), FlagText(9), FlagText(9), FlagText(9), FlagText(9)
+	Calls5 "Boolean ByRef hands back False", "F:Boolean", FlagText(1), FlagText(1), FlagText(1), FlagText(1), FlagText(1)
+End Sub
