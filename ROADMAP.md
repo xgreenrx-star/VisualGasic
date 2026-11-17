@@ -1894,6 +1894,16 @@ These are high-value language additions discovered through real-world projects (
 | **Tuple Deconstruction** | Unpack multi-value returns into individual variables. Pairs with `Await` for async ops. | `Dim (x, y, z) = GetCoordinates()` | 1.5 weeks | v6.2 | Cleaner than indexing for functions returning multiple values. Improves readability of AI-generated code. |
 | **Defer Statement** | Guarantee cleanup code runs at scope exit (alternative to Try/Catch/Finally). | `Defer f.Close()` | 2 weeks | v6.2 | Simpler than Try/Catch for file I/O, locks, emulator state save/restore. Especially valuable for systems programming (GBA/PS1 emulators). |
 
+### Builtin commands accepted 16 Nov 2026
+
+Hold these until `docs/development/CURSOR_VG_PERF_GAP_HANDOFF.md` is finished. Each one is a function that returns a new value. Positions are 1-based, matching `Mid`. Do not add a `Mid` statement.
+
+| Command | Syntax | Behavior | Effort |
+|---------|--------|----------|--------|
+| **Stuff** | `Stuff(text, start, remove, insert)` | Deletes `remove` characters at `start` and inserts `insert`. The result may grow or shrink. `remove = 0` inserts. | One builtin plus a regression test. About a day. |
+| **Between** | `Between(text, opening, closing)` | Returns the text from the first `opening` marker through the matching `closing` marker. A missing marker returns `""`. | One builtin plus a regression test. About a day. |
+| **Approach** | `Approach(current, target, step)` | Moves `current` toward `target` by at most `step` and stops on arrival. This is per-frame motion. `Lerp` stays the blend. | One builtin plus a regression test. About a day. |
+
 ### v7.0 Expansion (Core Language Maturity)
 
 | Feature | Description | Syntax Example | Effort | ETA | Rationale |
