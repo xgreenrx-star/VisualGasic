@@ -828,7 +828,9 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                  }
              }
              
-             if (func_name == "Len" && call_args.size() == 1) return String(call_args[0]).length();
+             if (func_name == "Len" && call_args.size() == 1) {
+                 return vg_len_value(call_args[0]);
+             }
              if (func_name == "Left" && call_args.size() == 2) return String(call_args[0]).left(call_args[1]);
              if (func_name == "Right" && call_args.size() == 2) return String(call_args[0]).right(call_args[1]);
              if (func_name == "Mid" && call_args.size() >= 2) {

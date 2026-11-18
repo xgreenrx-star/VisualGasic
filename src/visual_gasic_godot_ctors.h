@@ -277,6 +277,42 @@ inline Variant construct_godot_type(const String& name, const Array& args) {
 // VG numeric values are often floats. A whole-number float shares the int key
 // so Dictionary.has(0) from GDScript finds a VG write of 0.0. Non-integral
 // floats stay floats. The same helper must run on lookup (get/has/erase).
+// Shared Len() semantics for AST builtins and OP_LEN (containers / strings /
+// packed arrays; other scalars are 0 — not String(value).length()).
+inline int64_t vg_len_value(const Variant &value) {
+    switch (value.get_type()) {
+        case Variant::STRING:
+        case Variant::STRING_NAME:
+            return String(value).length();
+        case Variant::ARRAY:
+            return ((Array)value).size();
+        case Variant::DICTIONARY:
+            return ((Dictionary)value).size();
+        case Variant::PACKED_BYTE_ARRAY:
+            return ((PackedByteArray)value).size();
+        case Variant::PACKED_INT32_ARRAY:
+            return ((PackedInt32Array)value).size();
+        case Variant::PACKED_INT64_ARRAY:
+            return ((PackedInt64Array)value).size();
+        case Variant::PACKED_FLOAT32_ARRAY:
+            return ((PackedFloat32Array)value).size();
+        case Variant::PACKED_FLOAT64_ARRAY:
+            return ((PackedFloat64Array)value).size();
+        case Variant::PACKED_STRING_ARRAY:
+            return ((PackedStringArray)value).size();
+        case Variant::PACKED_VECTOR2_ARRAY:
+            return ((PackedVector2Array)value).size();
+        case Variant::PACKED_VECTOR3_ARRAY:
+            return ((PackedVector3Array)value).size();
+        case Variant::PACKED_COLOR_ARRAY:
+            return ((PackedColorArray)value).size();
+        case Variant::PACKED_VECTOR4_ARRAY:
+            return ((PackedVector4Array)value).size();
+        default:
+            return 0;
+    }
+}
+
 inline Variant vg_dictionary_key(const Variant &key) {
     if (key.get_type() != Variant::FLOAT) {
         return key;
@@ -303,8 +339,8 @@ inline bool vg_dictionary_method_uses_key(const String &method) {
 }
 
 // Godot rejects int/bool arithmetic and compares. VB treats True as -1 and
-// False as 0. NIL add/sub/mul still propagates Nothing. NIL relational
-// compares stay unresolved so a missing value is not treated as zero.
+// False as 0. NIL and numeric Strings match the bytecode to_double() path
+// (Nothing→0, "3"→3) so AST and OP_ADD agree on mixed Variant math.
 inline bool vg_vb_numeric(const Variant &v, double &out) {
     switch (v.get_type()) {
         case Variant::INT:
@@ -316,17 +352,18 @@ inline bool vg_vb_numeric(const Variant &v, double &out) {
         case Variant::BOOL:
             out = (bool)v ? -1.0 : 0.0;
             return true;
+        case Variant::STRING:
+            out = String(v).to_float();
+            return true;
+        case Variant::NIL:
+            out = 0.0;
+            return true;
         default:
             return false;
     }
 }
 
 inline bool vg_evaluate_vb_numeric(Variant::Operator op, const Variant &a, const Variant &b, Variant &result) {
-    if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
-            (a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
-        result = Variant();
-        return true;
-    }
     double da = 0.0;
     double db = 0.0;
     if (!vg_vb_numeric(a, da) || !vg_vb_numeric(b, db)) {

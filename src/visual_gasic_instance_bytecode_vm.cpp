@@ -6209,54 +6209,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             VG_CASE(vg_op_len, OP_LEN): {
                 if (!ensure_stack(1)) { success = false; goto cleanup; }
-                Variant value = pop_value();
-                int64_t length = 0;
-                switch (vgfast::vtype(value)) {
-                    case Variant::STRING:
-                    case Variant::STRING_NAME:
-                        length = String(value).length();
-                        break;
-                    case Variant::ARRAY:
-                        length = ((Array)value).size();
-                        break;
-                    case Variant::DICTIONARY:
-                        length = ((Dictionary)value).size();
-                        break;
-                    case Variant::PACKED_BYTE_ARRAY:
-                        length = ((PackedByteArray)value).size();
-                        break;
-                    case Variant::PACKED_INT32_ARRAY:
-                        length = ((PackedInt32Array)value).size();
-                        break;
-                    case Variant::PACKED_INT64_ARRAY:
-                        length = ((PackedInt64Array)value).size();
-                        break;
-                    case Variant::PACKED_FLOAT32_ARRAY:
-                        length = ((PackedFloat32Array)value).size();
-                        break;
-                    case Variant::PACKED_FLOAT64_ARRAY:
-                        length = ((PackedFloat64Array)value).size();
-                        break;
-                    case Variant::PACKED_STRING_ARRAY:
-                        length = ((PackedStringArray)value).size();
-                        break;
-                    case Variant::PACKED_VECTOR2_ARRAY:
-                        length = ((PackedVector2Array)value).size();
-                        break;
-                    case Variant::PACKED_VECTOR3_ARRAY:
-                        length = ((PackedVector3Array)value).size();
-                        break;
-                    case Variant::PACKED_COLOR_ARRAY:
-                        length = ((PackedColorArray)value).size();
-                        break;
-                    case Variant::PACKED_VECTOR4_ARRAY:
-                        length = ((PackedVector4Array)value).size();
-                        break;
-                    default:
-                        length = 0;
-                        break;
-                }
-                push_value(length);
+                push_value(vg_len_value(pop_value()));
                 break;
             }
             VG_CASE(vg_op_equal, OP_EQUAL): {

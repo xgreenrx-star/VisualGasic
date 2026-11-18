@@ -873,10 +873,10 @@ Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, b
         }
     }
 
-    // String Library
+    // String / container Library — Len matches OP_LEN via vg_len_value.
     if (name == "Len" && args.size() == 1) {
         r_handled = true;
-        return String(args[0]).length();
+        return vg_len_value(args[0]);
     }
     if (name == "Left" && args.size() == 2) {
         r_handled = true;
@@ -4297,8 +4297,8 @@ Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String 
         return (int64_t)read_line.length();
     }
 
-    // String Library
-    if (METHOD_IS("len") && args.size() == 1) { r_handled = true; return String(args[0]).length(); }
+    // String / container Library — Len matches OP_LEN via vg_len_value.
+    if (METHOD_IS("len") && args.size() == 1) { r_handled = true; return vg_len_value(args[0]); }
     if (METHOD_IS("left") && args.size() == 2) { r_handled = true; return String(args[0]).left((int)args[1]); }
     if (METHOD_IS("right") && args.size() == 2) { r_handled = true; return String(args[0]).right((int)args[1]); }
     if (METHOD_IS("mid") && args.size() >= 2) {
