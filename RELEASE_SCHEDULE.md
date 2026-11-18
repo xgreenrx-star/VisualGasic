@@ -1,6 +1,6 @@
 # VisualGasic Release Schedule
 
-**Last Updated:** September 5, 2026  
+**Last Updated:** November 18, 2026<br>
 **Target:** Stable **v6.0.0** on January 1, 2027  
 **Version policy:** [docs/VERSIONING.md](docs/VERSIONING.md)
 
@@ -15,6 +15,7 @@
 | **5.4.0-beta2** | 🟢 SHIPPED | Sep 5, 2026 | M5 (+ M6/M7/M8 prep) | Buffer type, optimizer hints, Narcea Tier A/B, causal-chain teaser, msgpack C2, `Await`/`PyAsyncTask`, `Let`, AST Godot ctors — [notes](RELEASE_NOTES_v5.4.0-beta2.md) |
 | **5.4.0-beta1 showcase** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | `projects/vg_beta_showcase/` — full tour + Movie Maker script ([README](projects/vg_beta_showcase/README.md)) |
 | **5.5.0-beta1** | — | Nov 2026 | M7–M8 | Python bridge close-out (Windows e2e, numpy Phase 2), FFI `Declare`/`DllImport`, language stress corpus |
+| **5.8.0-beta.1** | 🟡 PROPOSED — BLOCKED | Not scheduled | Core VM/JIT performance + correctness | Proposed beta for the recent core speed work. Release blocked on [#25 JIT branch-join correctness](https://github.com/xgreenrx-star/VisualGasic/issues/25), [#24 AST/bytecode parity](https://github.com/xgreenrx-star/VisualGasic/issues/24), and the [#26 missing Dictionary key specification decision](https://github.com/xgreenrx-star/VisualGasic/issues/26). Release notes must summarize measured performance and disclose any remaining limitations; see [`ROADMAP.md`](ROADMAP.md). |
 | **6.0.0-rc1** | — | Dec 1, 2026 | M8–M9 | Try/Catch/Lambda/`?.` hardening, installer smoke, docs/corpus gate |
 | **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Final docs, 57+ corpus, release checklist |
 | **6.0.0** | — | Jan 1, 2027 | M1–M9 | 🎉 Production stable |
