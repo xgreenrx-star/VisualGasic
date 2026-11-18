@@ -1,0 +1,81 @@
+' A straight-line numeric Function. blend3 is the t_call_args shape:
+' three ByVal Singles, and the middle argument is an Integer.
+' add2 is two Integer ByVals. pick_gt branches, and touch writes a
+' module number, so those two still enter the Function.
+Option Explicit
+Inherits Node
+
+Dim g As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function blend3(ByVal a As Single, ByVal b As Single, ByVal t As Single) As Single
+	Return a + (b - a) * t
+End Function
+
+Function add2(ByVal a As Integer, ByVal b As Integer) As Integer
+	Return a + b
+End Function
+
+Function pick_gt(ByVal a As Integer, ByVal b As Integer) As Integer
+	If a > b Then
+		Return a
+	End If
+	Return b
+End Function
+
+Function touch(ByVal a As Integer) As Integer
+	g = a
+	Return a + 1
+End Function
+
+Function id_int(ByVal a As Integer) As Integer
+	Return a + 1
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	Dim s As Single = 0
+	Dim acc As Single = 0
+	For i = 1 To 30
+		s = blend3(s, i, 0.25)
+		acc = acc + (i - acc) * 0.25
+	Next
+	Check s = acc, "blend loop"
+
+	Dim once As Single = blend3(1, 2, 0.25)
+	Dim expect As Single = 1 + (2 - 1) * 0.25
+	Check once = expect, "blend once"
+
+	Dim n As Integer = 0
+	For i = 1 To 10
+		n = add2(n, i)
+	Next
+	Check n = 55, "integer sum"
+
+	Dim hi As Integer = pick_gt(3, 9)
+	Check hi = 9, "branch takes the right"
+	hi = pick_gt(8, 2)
+	Check hi = 8, "branch takes the left"
+
+	g = 0
+	Dim back As Integer = touch(4)
+	Check g = 4, "global write runs"
+	Check back = 5, "global write still returns"
+	back = touch(7)
+	Check g = 7, "second global write runs"
+	Check back = 8, "second global write still returns"
+
+	Dim r As Integer = id_int(2.5)
+	Check r = 3, "half even 2.5"
+	r = id_int(3.5)
+	Check r = 5, "half even 3.5"
+	r = id_int(-2.5)
+	Check r = -1, "half even -2.5"
+End Sub

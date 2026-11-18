@@ -263,6 +263,12 @@ private:
         int8_t bref_kind = 0;
         BytecodeChunk *bref_chunk = nullptr;
         SubDefinition *bref_func = nullptr;
+        // Straight-line numeric Function, every parameter ByVal. 0 = not
+        // classified, 1 = not this shape, 2 = eligible. The lean loop runs
+        // the body and leaves its Return value where the arguments were.
+        int8_t nret_kind = 0;
+        BytecodeChunk *nret_chunk = nullptr;
+        SubDefinition *nret_func = nullptr;
 		StringName owner_call_name;
 		bool owner_draw_line = false;
         // Part I: cached full resolution for a known user Sub (call_disp==0).

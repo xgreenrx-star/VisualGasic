@@ -226,11 +226,12 @@ FL_INLINE int64_t fl_num_i(const FlNum &s) {
 	return 0;
 }
 
-// The body vg_chunk_byref_scalar accepted. Returns false before any caller
-// local is written. Arithmetic matches the VM: F64 uses to_double, I64 uses
-// to_int, and an I64-const opcode discards the pushed literal and adds the
-// pool constant.
-static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody) {
+// The body vg_chunk_byref_scalar or vg_chunk_nret accepted. Returns false
+// before any caller local is written. Arithmetic matches the VM: F64 uses
+// to_double, I64 uses to_int, and an I64-const opcode discards the pushed
+// literal and adds the pool constant. out is null for a Sub. A Function
+// stores the Return value there.
+static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody, FlNum *out) {
 	const uint8_t *code = chunk->code.ptr();
 	const int n = chunk->code.size();
 	const Variant *consts = chunk->constants.ptr();
@@ -423,6 +424,18 @@ static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody) {
 				ip += 1;
 				break;
 			case OP_RETURN:
+				if (out) {
+					return false;
+				}
+				return true;
+			case OP_RETURN_VALUE:
+				if (!out || spn < 1) {
+					return false;
+				}
+				if (stk[spn - 1].k != 1 && stk[spn - 1].k != 2) {
+					return false;
+				}
+				*out = stk[spn - 1];
 				return true;
 			default:
 				return false;
@@ -522,7 +535,7 @@ static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
 			return nullptr;
 		}
 	}
-	if (!fl_byref_exec(chunk, loc, nbody)) {
+	if (!fl_byref_exec(chunk, loc, nbody, nullptr)) {
 		return nullptr;
 	}
 	for (int r = 0; r < nref; r++) {
@@ -561,6 +574,76 @@ static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
 		}
 	}
 	return q;
+}
+
+// vg_chunk_nret. The Return value replaces the arguments. The caller's next
+// instruction (the assignment, or a POP) still runs.
+static bool fl_nret_run(BytecodeChunk *chunk, SubDefinition *func,
+		Variant *args_top, int argc, FlNum &result) __attribute__((noinline));
+
+static bool fl_nret_run(BytecodeChunk *chunk, SubDefinition *func,
+		Variant *args_top, int argc, FlNum &result) {
+	if (!chunk || !func || argc < 1 || argc > 8 || chunk->param_count != argc ||
+			func->parameters.size() != argc || chunk->fast_param_coerce.size() != argc) {
+		return false;
+	}
+	const int nbody = chunk->local_count;
+	if (nbody < argc || nbody > 32) {
+		return false;
+	}
+	for (int i = 0; i < argc; i++) {
+		if (func->parameters[i].is_by_ref) {
+			return false;
+		}
+	}
+	const int8_t *coerce = chunk->fast_param_coerce.ptr();
+	FlNum loc[32];
+	for (int i = 0; i < nbody; i++) {
+		loc[i].k = 0;
+		loc[i].i = 0;
+		loc[i].f = 0.0;
+	}
+	for (int i = 0; i < argc; i++) {
+		const Variant *arg = args_top - argc + i;
+		const uint32_t t = fl_type(arg);
+		FlNum &dst = loc[i];
+		if (coerce[i] == 2) {
+			if (t == FL_FLOAT) {
+				dst.k = 2;
+				dst.f = fl_float(arg);
+			} else if (t == FL_INT) {
+				dst.k = 2;
+				dst.f = (double)fl_int(arg);
+			} else if (t == FL_BOOL) {
+				dst.k = 2;
+				dst.f = fl_bool(arg) ? 1.0 : 0.0;
+			} else if (t == FL_NIL) {
+				dst.k = 2;
+				dst.f = 0.0;
+			} else {
+				return false;
+			}
+		} else if (coerce[i] == 1) {
+			if (t == FL_INT) {
+				dst.k = 1;
+				dst.i = fl_int(arg);
+			} else if (t == FL_FLOAT) {
+				dst.k = 1;
+				dst.i = VisualGasicInstance::vb_round_half_even(fl_float(arg));
+			} else if (t == FL_BOOL) {
+				dst.k = 1;
+				dst.i = fl_bool(arg) ? (int64_t)1 : (int64_t)0;
+			} else if (t == FL_NIL) {
+				dst.k = 1;
+				dst.i = 0;
+			} else {
+				return false;
+			}
+		} else {
+			return false;
+		}
+	}
+	return fl_byref_exec(chunk, loc, nbody, &result);
 }
 
 } // namespace
@@ -967,10 +1050,11 @@ fl_get_dict_const: { // OP_GET_DICT_CONST [const lo] [const hi]
 fl_call: { // OP_CALL [name lo] [name hi] [argc]
 	// A zero-argument function whose body is `Return <constant>` pushes
 	// that constant. A straight-line numeric Sub with ByRef scalars runs
-	// its body here and writes the caller's locals. CInt / CLng / CLngLng
-	// of one number, Nothing or Boolean: the same vb_to_integer the
-	// builtin cascade returns. A String or any other value, and every
-	// other call, stays on the ordinary handler.
+	// its body here and writes the caller's locals. A straight-line
+	// numeric Function leaves its Return value where the arguments were.
+	// CInt / CLng / CLngLng of one number, Nothing or Boolean: the same
+	// vb_to_integer the builtin cascade returns. A String or any other
+	// value, and every other call, stays on the ordinary handler.
 	FL_LONG(1);
 	const uint32_t idx = FL_U16_LE(1);
 	if (FL_UNLIKELY(idx >= nconst)) {
@@ -1026,6 +1110,30 @@ fl_call: { // OP_CALL [name lo] [name hi] [argc]
 		if (next) {
 			sp -= argc;
 			pc = next;
+			FL_NEXT();
+		}
+	}
+	// A straight-line numeric Function. The first call classifies it. The
+	// Return value replaces the arguments, so the assignment after the call
+	// still runs here. A watchpoint, an evidence recorder, or a Whenever
+	// section still enters the Function.
+	if (e.nret_kind >= 2) {
+		if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
+			goto fl_leave;
+		}
+		if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
+			goto fl_leave;
+		}
+		FlNum result;
+		if (fl_nret_run(e.nret_chunk, e.nret_func, sp, argc, result)) {
+			Variant *dst = sp - argc;
+			if (result.k == 2) {
+				fl_put_float(dst, result.f);
+			} else {
+				fl_put_int(dst, result.i);
+			}
+			sp = dst + 1;
+			pc += 4;
 			FL_NEXT();
 		}
 	}
