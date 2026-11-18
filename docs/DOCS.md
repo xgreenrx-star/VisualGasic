@@ -271,14 +271,15 @@ Internal docs for contributors and maintainers.
 | Document | Description |
 |----------|-------------|
 | [README](../README.md) | Project overview, feature list, screenshots, and quick start |
-| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.7.0-beta.4) |
+| [Changelog](../CHANGELOG.md) | Full change log in Keep a Changelog format (latest: v5.8.0-beta.1) |
 | [Roadmap](../ROADMAP.md) | Development roadmap and feature timeline |
 | [Security Policy](../SECURITY.md) | Security policy and vulnerability reporting |
 | [License](../LICENSE) | GPL-3.0
 
 | Version | File | Highlights |
 |---------|------|------------|
-| **v5.7.0-beta.4** | [RELEASE_NOTES_v5.7.0-beta.4.md](../RELEASE_NOTES_v5.7.0-beta.4.md) | **Current public beta** — dictionary keys, lambda calls, packed Vector3 append, JIT numeric storage, Basis/Projection, AABB/Plane constructors, lifecycle calls. Stable v6.0 is still the goal for early 2027. |
+| **v5.8.0-beta.1** | [RELEASE_NOTES_v5.8.0-beta.1.md](../RELEASE_NOTES_v5.8.0-beta.1.md) | **Current public beta** — VM gap ≤ GDScript on quiet-pair microbench, `vg_speed_race` demo, JIT `AndAlso`/`OrElse` safe decline, AST/`Len`/mixed Variant parity, missing Dictionary key → `Nothing`. Stable v6.0 is still the goal for early 2027. |
+| **v5.7.0-beta.4** | [RELEASE_NOTES_v5.7.0-beta.4.md](../RELEASE_NOTES_v5.7.0-beta.4.md) | Dictionary keys, lambda calls, packed Vector3 append, JIT numeric storage, Basis/Projection, AABB/Plane constructors, lifecycle calls. |
 | **v5.7.0-beta.3** | [RELEASE_NOTES_v5.7.0-beta.3.md](../RELEASE_NOTES_v5.7.0-beta.3.md) | Compiler, packed mesh, Ash Meridian Part 1. |
 | **v5.7.0-beta.2** | [RELEASE_NOTES_v5.7.0-beta.2.md](../RELEASE_NOTES_v5.7.0-beta.2.md) | Bug-fix beta: ambiguous procedure names, Color component reads, typed Array returns, Whenever re-entry. |
 | **v5.7.0-beta.1** | [RELEASE_NOTES_v5.7.0-beta.1.md](../RELEASE_NOTES_v5.7.0-beta.1.md) | Crystal Caverns, DATA sprite editing, core correctness. |

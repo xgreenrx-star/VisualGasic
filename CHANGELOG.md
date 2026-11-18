@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.8.0-beta.1] - 2026-11-18
+
+Core performance and correctness beta. [Release notes](RELEASE_NOTES_v5.8.0-beta.1.md).
+New native binaries are required; replace the whole addon when upgrading.
+
+### Added
+
+- VM gap gate `scripts/check_vm_gap.sh` (`VG_GAP_MAX_RATIO`) and published quiet-pair
+  results in [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md).
+- Side-by-side speed demo [`samples/apps/vg_speed_race/`](samples/apps/vg_speed_race/)
+  and `scripts/run_speed_race.sh`.
+
 ### Fixed
 
 - Tier-2 JIT declines `AndAlso`/`OrElse` expression joins that need a stack phi (issue #25), so short-circuit Boolean code no longer risks a wrong native result; bytecode/interpreter results are unchanged.
@@ -19,8 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Missing `Dictionary` keys evaluate to `Nothing` and do not set `Err.Number` (issue #26). Documented in the language reference; AST, bytecode, and JIT share that contract.
 - Compiler bails go through `bail_to_ast`. `scripts/run_ast_bytecode_diff.sh` fails if a raw `compile_ok = false` remains. Record Get/Put and an impure ByRef index name their AST fallback; older bails still say `unnamed`.
-- A copied Brotato import on Godot 4.7.2 aborted in `realloc(): invalid next size` on a worker thread while reimporting Kenney pixel fonts. The Godot binary is stripped, so the frames above `realloc` are addresses only. Leak cleanup stays parked.
-- Linux `VG_JIT=0` and `VG_JIT=3` returned the same checksum from `test_jit_tier3_numeric.vg`. `VG_JIT=3` compiled that function with the tier-2 native compiler.
+- Quiet-pair `run_gap` cases meet `vg/gd ≤ 1.00` with JIT on and with `VG_JIT=0` (see published table). Not a claim that every VG program is faster than GDScript.
 
 ## [5.7.0-beta.4] - 2026-11-06
 
