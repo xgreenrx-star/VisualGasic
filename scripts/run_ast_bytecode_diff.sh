@@ -157,7 +157,7 @@ runtime_errors_match() {
 	local log="$1" name="$2" expected=""
 	case "$name" in
 		test_unhandled_process_error.vg)
-			expected='901|_Process|25|test_unhandled_process_error.vg' ;;
+			expected='901|_Process|26|test_unhandled_process_error.vg' ;;
 		test_error_handling.vg)
 			expected=$'100|_Ready|10|test_error_handling.vg\n200|_Ready|24|test_error_handling.vg\n300|_Ready|55|test_error_handling.vg\n400|_Ready|74|test_error_handling.vg' ;;
 		test_try_cross_module.vg) expected='501|Boom|3|test_try_raise_helper.vg' ;;
