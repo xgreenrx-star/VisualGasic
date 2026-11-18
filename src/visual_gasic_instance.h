@@ -256,6 +256,13 @@ private:
         int32_t gadd_const = -1;
         Variant *gadd_ptr = nullptr;
         uint32_t gadd_gen = 0;
+        // Straight-line numeric Sub with at least one ByRef scalar.
+        // 0 = not classified, 1 = not this shape, 2 = eligible. The lean
+        // loop runs that body without a frame and stores the ByRef results
+        // into the caller's locals. bref_chunk is the callee.
+        int8_t bref_kind = 0;
+        BytecodeChunk *bref_chunk = nullptr;
+        SubDefinition *bref_func = nullptr;
 		StringName owner_call_name;
 		bool owner_draw_line = false;
         // Part I: cached full resolution for a known user Sub (call_disp==0).

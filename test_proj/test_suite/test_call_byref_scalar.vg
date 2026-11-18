@@ -1,0 +1,124 @@
+' Straight-line numeric Subs with ByRef scalars.
+' polar_step is the t_call_byref shape: two ByRef Singles and one ByVal.
+' swap_pair is two Integer ByRefs and no ByVal. scale_one is one ByRef.
+' inc_one and round_add add a literal. add_if branches, and touch_g
+' writes a module number, so those two still enter the Sub.
+Option Explicit
+Inherits Node
+
+Dim g As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub polar_step(ByRef x As Single, ByRef y As Single, ByVal k As Single)
+	Dim t As Single = x
+	x = x * 0.8 - y * k
+	y = y * 0.8 + t * k
+End Sub
+
+Sub swap_pair(ByRef a As Integer, ByRef b As Integer)
+	Dim t As Integer = a
+	a = b
+	b = t
+End Sub
+
+Sub scale_one(ByRef x As Single, ByVal k As Single)
+	x = x * k
+End Sub
+
+Sub inc_one(ByRef x As Integer)
+	x = x + 1
+End Sub
+
+Sub round_add(ByRef n As Integer)
+	n = n + 1
+End Sub
+
+Sub add_if(ByRef x As Integer, ByVal k As Integer)
+	If k > 0 Then
+		x = x + k
+	End If
+End Sub
+
+Sub touch_g(ByRef x As Integer)
+	g = x
+	x = x + 1
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	Dim px As Single = 1
+	Dim py As Single = 0
+	Dim bx As Single = 1
+	Dim by As Single = 0
+	Dim t As Single
+	For i = 1 To 30
+		polar_step px, py, 0.6
+		t = bx
+		bx = bx * 0.8 - by * 0.6
+		by = by * 0.8 + t * 0.6
+	Next
+	Dim same_x As Boolean = (px = bx)
+	Dim same_y As Boolean = (py = by)
+	Dim polar_ok As Boolean = same_x And same_y
+	Check polar_ok, "polar loop"
+
+	Dim a As Integer = 4
+	Dim b As Integer = 9
+	swap_pair a, b
+	Check a = 9, "swap left"
+	Check b = 4, "swap right"
+	swap_pair a, b
+	Check a = 4, "swap back left"
+	Check b = 9, "swap back right"
+
+	Dim sx As Single = 3
+	scale_one sx, 0.5
+	Dim mid As Single = 3 * 0.5
+	Check sx = mid, "scale one"
+	Dim sx2 As Single = sx * 2
+	scale_one sx, 2
+	Check sx = sx2, "scale integer argument"
+
+	Dim n As Integer = 0
+	For i = 1 To 10
+		inc_one n
+	Next
+	Check n = 10, "increment"
+
+	Dim m As Integer = 3
+	add_if m, 2
+	Check m = 5, "branch taken"
+	add_if m, 0
+	Check m = 5, "branch skipped"
+	add_if m, -4
+	Check m = 5, "branch negative"
+
+	g = 0
+	Dim u As Integer = 4
+	touch_g u
+	Check g = 4, "global write runs"
+	Check u = 5, "global write still updates"
+	touch_g u
+	Check g = 5, "second global write runs"
+	Check u = 6, "second global write still updates"
+
+	Dim w As Single = 0
+	round_add w
+	Check w = 1, "increment a single"
+	Dim s As Single = 2.5
+	round_add s
+	Check s = 3, "half even 2.5"
+	Dim s2 As Single = 3.5
+	round_add s2
+	Check s2 = 5, "half even 3.5"
+	Dim s3 As Single = -2.5
+	round_add s3
+	Check s3 = -1, "half even -2.5"
+End Sub

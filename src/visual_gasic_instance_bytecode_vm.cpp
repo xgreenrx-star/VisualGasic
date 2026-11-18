@@ -642,6 +642,157 @@ static VgGlobalAddShape vg_chunk_global_add(BytecodeChunk *chunk, VisualGasic::S
     return shape;
 }
 
+// A straight-line numeric Sub with at least one ByRef scalar. The lean loop
+// runs the body without a frame. A jump, a call, a global, a string, or a
+// divide stays on the ordinary call. The walk stops at OP_RETURN: the VM
+// does too, so bytes after it are not part of the call.
+static bool vg_chunk_byref_scalar(BytecodeChunk *chunk, VisualGasic::SubDefinition *func) {
+    if (!chunk || !func || !chunk->fast_params || chunk->publishes_locals) {
+        return false;
+    }
+    if (func->type != VisualGasic::SubDefinition::TYPE_SUB) {
+        return false;
+    }
+    const int nparam = func->parameters.size();
+    if (nparam < 1 || nparam > 8 || chunk->param_count != nparam ||
+            chunk->fast_param_coerce.size() != nparam) {
+        return false;
+    }
+    if (chunk->local_count < nparam || chunk->local_count > 32) {
+        return false;
+    }
+    if (chunk->code.size() <= 0 || chunk->code.size() > 256) {
+        return false;
+    }
+    bool any_ref = false;
+    for (int i = 0; i < nparam; i++) {
+        if (func->parameters[i].is_param_array || func->parameters[i].is_optional) {
+            return false;
+        }
+        const int8_t c = chunk->fast_param_coerce[i];
+        if (c != 1 && c != 2) {
+            return false;
+        }
+        if (func->parameters[i].is_by_ref) {
+            any_ref = true;
+        }
+    }
+    if (!any_ref) {
+        return false;
+    }
+    if (func->has_static_locals_cache < 0) {
+        int hs = 0;
+        for (int si = 0; si < func->statements.size(); si++) {
+            if (func->statements[si] && func->statements[si]->type == VisualGasic::STMT_DIM &&
+                    ((VisualGasic::DimStatement *)func->statements[si])->is_static) {
+                hs = 1;
+                break;
+            }
+        }
+        func->has_static_locals_cache = hs;
+    }
+    if (func->has_static_locals_cache != 0) {
+        return false;
+    }
+    const uint8_t *code = chunk->code.ptr();
+    const int n = chunk->code.size();
+    const int nconst = chunk->constants.size();
+    int ip = 0;
+    int depth = 0;
+    while (ip < n) {
+        const uint8_t op = code[ip];
+        if (op == 0xFF) {
+            ip += 1;
+            continue;
+        }
+        if (op == OP_DEBUG_LINE) {
+            if (ip + 2 >= n) {
+                return false;
+            }
+            ip += 3;
+            continue;
+        }
+        switch (op) {
+            case OP_GET_LOCAL:
+                if (ip + 1 >= n || code[ip + 1] >= chunk->local_count || depth >= 16) {
+                    return false;
+                }
+                depth++;
+                ip += 2;
+                break;
+            case OP_SET_LOCAL:
+                if (ip + 1 >= n || code[ip + 1] >= chunk->local_count || depth < 1) {
+                    return false;
+                }
+                depth--;
+                ip += 2;
+                break;
+            case OP_CONSTANT:
+            case OP_CONSTANT_LONG: {
+                if (ip + 2 >= n || depth >= 16) {
+                    return false;
+                }
+                const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+                if (idx < 0 || idx >= nconst) {
+                    return false;
+                }
+                const Variant::Type ct = vgfast::vtype(chunk->constants[idx]);
+                if (ct != Variant::INT && ct != Variant::FLOAT) {
+                    return false;
+                }
+                depth++;
+                ip += 3;
+                break;
+            }
+            case OP_ADD_F64:
+            case OP_SUB_F64:
+            case OP_MUL_F64:
+            case OP_ADD_I64:
+            case OP_SUB_I64:
+            case OP_MUL_I64:
+                if (depth < 2) {
+                    return false;
+                }
+                depth--;
+                ip += 1;
+                break;
+            case OP_ADD_I64_CONST:
+            case OP_SUB_I64_CONST:
+            case OP_MUL_I64_CONST: {
+                if (ip + 2 >= n || depth < 2) {
+                    return false;
+                }
+                const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+                if (idx < 0 || idx >= nconst || vgfast::vtype(chunk->constants[idx]) != Variant::INT) {
+                    return false;
+                }
+                depth--;
+                ip += 3;
+                break;
+            }
+            case OP_TO_F64:
+            case OP_NEGATE:
+                if (depth < 1) {
+                    return false;
+                }
+                ip += 1;
+                break;
+            case OP_POP:
+                if (depth < 1) {
+                    return false;
+                }
+                depth--;
+                ip += 1;
+                break;
+            case OP_RETURN:
+                return true;
+            default:
+                return false;
+        }
+    }
+    return false;
+}
+
 bool VisualGasicInstance::ext_chunk_leaf(BytecodeChunk *chunk, SubDefinition *func, int8_t &kind, int64_t &i64, double &f64) {
     Variant out;
     kind = 1;
@@ -7306,6 +7457,29 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                             ent.gadd_gen = variables.generation;
                         } else {
                             ent.gadd_ptr = nullptr;
+                        }
+                    }
+                }
+
+                // Same gate as the add above, for any argument count. The
+                // lean loop applies the body on later calls. This call still
+                // enters the Sub.
+                if (_pb_known_user_sub && arg_count >= 1 && arg_count <= 8 && inline_calls_ok &&
+                        _pc_pre_resolved && _pc_pre_resolved->chunk_for_locals &&
+                        _pc_pre_resolved->func && _pc_pre_resolved->owning_module_index < 0 &&
+                        _pc_pre_resolved->func->parameters.size() == arg_count &&
+                        current_object_id == -1 && name_idx >= 0 && !needs_var_sync &&
+                        !vg_evidence_recording() && !whenever_evaluating) {
+                    MemberNameCacheEntry &ent = ensure_member_cache_entry(name_idx);
+                    if (ent.bref_kind == 0) {
+                        BytecodeChunk *br_chunk = _pc_pre_resolved->chunk_for_locals;
+                        SubDefinition *br_func = _pc_pre_resolved->func;
+                        if (vg_chunk_byref_scalar(br_chunk, br_func)) {
+                            ent.bref_chunk = br_chunk;
+                            ent.bref_func = br_func;
+                            ent.bref_kind = 2;
+                        } else {
+                            ent.bref_kind = 1;
                         }
                     }
                 }

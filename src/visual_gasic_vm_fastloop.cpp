@@ -199,6 +199,370 @@ FL_INLINE bool fl_truth(const Variant *v, bool &out) {
 	}
 }
 
+// One numeric slot of a ByRef body. k is 0 (Nothing), 1 (Integer), or 2 (Double).
+struct FlNum {
+	uint8_t k;
+	int64_t i;
+	double f;
+};
+
+FL_INLINE double fl_num_f(const FlNum &s) {
+	if (s.k == 2) {
+		return s.f;
+	}
+	if (s.k == 1) {
+		return (double)s.i;
+	}
+	return 0.0;
+}
+
+FL_INLINE int64_t fl_num_i(const FlNum &s) {
+	if (s.k == 1) {
+		return s.i;
+	}
+	if (s.k == 2) {
+		return (int64_t)s.f;
+	}
+	return 0;
+}
+
+// The body vg_chunk_byref_scalar accepted. Returns false before any caller
+// local is written. Arithmetic matches the VM: F64 uses to_double, I64 uses
+// to_int, and an I64-const opcode discards the pushed literal and adds the
+// pool constant.
+static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody) {
+	const uint8_t *code = chunk->code.ptr();
+	const int n = chunk->code.size();
+	const Variant *consts = chunk->constants.ptr();
+	const int nconst = chunk->constants.size();
+	if (!code || n <= 0) {
+		return false;
+	}
+	FlNum stk[16];
+	int spn = 0;
+	int ip = 0;
+	while (ip < n) {
+		const uint8_t op = code[ip];
+		if (op == 0xFF) {
+			ip += 1;
+			continue;
+		}
+		if (op == OP_DEBUG_LINE) {
+			if (ip + 2 >= n) {
+				return false;
+			}
+			ip += 3;
+			continue;
+		}
+		switch (op) {
+			case OP_GET_LOCAL: {
+				if (ip + 1 >= n) {
+					return false;
+				}
+				const uint8_t slot = code[ip + 1];
+				if (slot >= nbody || spn >= 16) {
+					return false;
+				}
+				stk[spn++] = loc[slot];
+				ip += 2;
+				break;
+			}
+			case OP_SET_LOCAL: {
+				if (ip + 1 >= n || spn < 1) {
+					return false;
+				}
+				const uint8_t slot = code[ip + 1];
+				if (slot >= nbody) {
+					return false;
+				}
+				loc[slot] = stk[--spn];
+				ip += 2;
+				break;
+			}
+			case OP_CONSTANT:
+			case OP_CONSTANT_LONG: {
+				if (ip + 2 >= n || spn >= 16) {
+					return false;
+				}
+				const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+				if (idx < 0 || idx >= nconst) {
+					return false;
+				}
+				const uint32_t ct = fl_type(consts + idx);
+				FlNum &d = stk[spn];
+				if (ct == FL_FLOAT) {
+					d.k = 2;
+					d.f = fl_float(consts + idx);
+					d.i = 0;
+				} else if (ct == FL_INT) {
+					d.k = 1;
+					d.i = fl_int(consts + idx);
+					d.f = 0.0;
+				} else {
+					return false;
+				}
+				spn++;
+				ip += 3;
+				break;
+			}
+			case OP_ADD_F64:
+			case OP_SUB_F64:
+			case OP_MUL_F64: {
+				if (spn < 2) {
+					return false;
+				}
+				const FlNum b = stk[--spn];
+				const FlNum a = stk[--spn];
+				const double av = fl_num_f(a);
+				const double bv = fl_num_f(b);
+				double r;
+				if (op == OP_ADD_F64) {
+					r = av + bv;
+				} else if (op == OP_SUB_F64) {
+					r = av - bv;
+				} else {
+					r = av * bv;
+				}
+				stk[spn].k = 2;
+				stk[spn].f = r;
+				stk[spn].i = 0;
+				spn++;
+				ip += 1;
+				break;
+			}
+			case OP_ADD_I64:
+			case OP_SUB_I64:
+			case OP_MUL_I64: {
+				if (spn < 2) {
+					return false;
+				}
+				const FlNum b = stk[--spn];
+				const FlNum a = stk[--spn];
+				const int64_t av = fl_num_i(a);
+				const int64_t bv = fl_num_i(b);
+				int64_t r;
+				if (op == OP_ADD_I64) {
+					r = (int64_t)((uint64_t)av + (uint64_t)bv);
+				} else if (op == OP_SUB_I64) {
+					r = (int64_t)((uint64_t)av - (uint64_t)bv);
+				} else {
+					r = (int64_t)((uint64_t)av * (uint64_t)bv);
+				}
+				stk[spn].k = 1;
+				stk[spn].i = r;
+				stk[spn].f = 0.0;
+				spn++;
+				ip += 1;
+				break;
+			}
+			case OP_ADD_I64_CONST:
+			case OP_SUB_I64_CONST:
+			case OP_MUL_I64_CONST: {
+				if (spn < 2 || ip + 2 >= n) {
+					return false;
+				}
+				const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+				if (idx < 0 || idx >= nconst || fl_type(consts + idx) != FL_INT) {
+					return false;
+				}
+				spn--;
+				const FlNum a = stk[--spn];
+				const int64_t av = fl_num_i(a);
+				const int64_t c = fl_int(consts + idx);
+				int64_t r;
+				if (op == OP_ADD_I64_CONST) {
+					r = (int64_t)((uint64_t)av + (uint64_t)c);
+				} else if (op == OP_SUB_I64_CONST) {
+					r = (int64_t)((uint64_t)av - (uint64_t)c);
+				} else {
+					r = (int64_t)((uint64_t)av * (uint64_t)c);
+				}
+				stk[spn].k = 1;
+				stk[spn].i = r;
+				stk[spn].f = 0.0;
+				spn++;
+				ip += 3;
+				break;
+			}
+			case OP_TO_F64: {
+				if (spn < 1) {
+					return false;
+				}
+				FlNum &a = stk[spn - 1];
+				if (a.k == 1) {
+					a.k = 2;
+					a.f = (double)a.i;
+				} else if (a.k != 2) {
+					a.k = 2;
+					a.f = 0.0;
+					a.i = 0;
+				}
+				ip += 1;
+				break;
+			}
+			case OP_NEGATE: {
+				if (spn < 1) {
+					return false;
+				}
+				FlNum &a = stk[spn - 1];
+				if (a.k == 2) {
+					a.f = -a.f;
+				} else if (a.k == 1) {
+					a.i = (int64_t)(0ULL - (uint64_t)a.i);
+				} else {
+					return false;
+				}
+				ip += 1;
+				break;
+			}
+			case OP_POP:
+				if (spn < 1) {
+					return false;
+				}
+				spn--;
+				ip += 1;
+				break;
+			case OP_RETURN:
+				return true;
+			default:
+				return false;
+		}
+	}
+	return false;
+}
+
+// Statement call: OP_CALL, OP_POP, then one OP_BYREF_LOAD + OP_SET_LOCAL per
+// ByRef parameter, in parameter order, each storing a local. Returns the
+// instruction after those write-backs, or null when this site stays on the
+// ordinary handler. Nothing in the caller is written until the body finishes.
+static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
+		const uint8_t *pc, const uint8_t *code_end, Variant *args_top, int argc,
+		Variant *L, uint32_t nloc, const uint8_t *ltypes, uint32_t ntypes,
+		int64_t *ti, double *tf) __attribute__((noinline));
+
+static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
+		const uint8_t *pc, const uint8_t *code_end, Variant *args_top, int argc,
+		Variant *L, uint32_t nloc, const uint8_t *ltypes, uint32_t ntypes,
+		int64_t *ti, double *tf) {
+	if (!chunk || !func || argc < 1 || argc > 8 || chunk->param_count != argc ||
+			func->parameters.size() != argc || chunk->fast_param_coerce.size() != argc) {
+		return nullptr;
+	}
+	const int nbody = chunk->local_count;
+	if (nbody < argc || nbody > 32) {
+		return nullptr;
+	}
+	int pref[8];
+	int nref = 0;
+	for (int i = 0; i < argc; i++) {
+		if (func->parameters[i].is_by_ref) {
+			pref[nref++] = i;
+		}
+	}
+	if (nref == 0 || (ptrdiff_t)(code_end - pc) < 5 || pc[4] != OP_POP) {
+		return nullptr;
+	}
+	const uint8_t *q = pc + 5;
+	int dests[8];
+	for (int r = 0; r < nref; r++) {
+		if ((ptrdiff_t)(code_end - q) < 8 || q[0] != OP_BYREF_LOAD || q[3] != 0) {
+			return nullptr;
+		}
+		const uint32_t dest = (uint32_t)q[4] | ((uint32_t)q[5] << 8);
+		if (q[6] != OP_SET_LOCAL || (uint32_t)q[7] != dest || dest >= nloc) {
+			return nullptr;
+		}
+		dests[r] = (int)dest;
+		q += 8;
+	}
+	const int8_t *coerce = chunk->fast_param_coerce.ptr();
+	FlNum loc[32];
+	for (int i = 0; i < nbody; i++) {
+		loc[i].k = 0;
+		loc[i].i = 0;
+		loc[i].f = 0.0;
+	}
+	for (int i = 0; i < argc; i++) {
+		const Variant *arg = args_top - argc + i;
+		const uint32_t t = fl_type(arg);
+		FlNum &dst = loc[i];
+		if (coerce[i] == 2) {
+			if (t == FL_FLOAT) {
+				dst.k = 2;
+				dst.f = fl_float(arg);
+			} else if (t == FL_INT) {
+				dst.k = 2;
+				dst.f = (double)fl_int(arg);
+			} else if (t == FL_BOOL) {
+				dst.k = 2;
+				dst.f = fl_bool(arg) ? 1.0 : 0.0;
+			} else if (t == FL_NIL) {
+				dst.k = 2;
+				dst.f = 0.0;
+			} else {
+				return nullptr;
+			}
+		} else if (coerce[i] == 1) {
+			if (t == FL_INT) {
+				dst.k = 1;
+				dst.i = fl_int(arg);
+			} else if (t == FL_FLOAT) {
+				dst.k = 1;
+				dst.i = VisualGasicInstance::vb_round_half_even(fl_float(arg));
+			} else if (t == FL_BOOL) {
+				dst.k = 1;
+				dst.i = fl_bool(arg) ? (int64_t)1 : (int64_t)0;
+			} else if (t == FL_NIL) {
+				dst.k = 1;
+				dst.i = 0;
+			} else {
+				return nullptr;
+			}
+		} else {
+			return nullptr;
+		}
+	}
+	if (!fl_byref_exec(chunk, loc, nbody)) {
+		return nullptr;
+	}
+	for (int r = 0; r < nref; r++) {
+		const FlNum &s = loc[pref[r]];
+		if (s.k != 1 && s.k != 2) {
+			return nullptr;
+		}
+		Variant *dst = L + dests[r];
+		if (!fl_pod(fl_type(dst))) {
+			return nullptr;
+		}
+		const uint32_t lt = (uint32_t)dests[r] < ntypes ? ltypes[dests[r]] : 0;
+		if ((lt == 1 && ti == nullptr) || (lt == 2 && tf == nullptr)) {
+			return nullptr;
+		}
+	}
+	for (int r = 0; r < nref; r++) {
+		const FlNum &s = loc[pref[r]];
+		const int dest = dests[r];
+		Variant *dst = L + dest;
+		const uint32_t lt = (uint32_t)dest < ntypes ? ltypes[dest] : 0;
+		if (s.k == 2) {
+			fl_put_float(dst, s.f);
+			if (lt == 2) {
+				tf[dest] = s.f;
+			} else if (lt == 1) {
+				ti[dest] = (int64_t)s.f;
+			}
+		} else {
+			fl_put_int(dst, s.i);
+			if (lt == 1) {
+				ti[dest] = s.i;
+			} else if (lt == 2) {
+				tf[dest] = (double)s.i;
+			}
+		}
+	}
+	return q;
+}
+
 } // namespace
 
 int VisualGasicInstance::vm_fast_run(const VMFastFrame &f, int p_ip) {
@@ -602,10 +966,11 @@ fl_get_dict_const: { // OP_GET_DICT_CONST [const lo] [const hi]
 
 fl_call: { // OP_CALL [name lo] [name hi] [argc]
 	// A zero-argument function whose body is `Return <constant>` pushes
-	// that constant. CInt / CLng / CLngLng of one number, Nothing or
-	// Boolean: the same vb_to_integer the builtin cascade returns. A
-	// String or any other value, and every other call, stays on the
-	// ordinary handler.
+	// that constant. A straight-line numeric Sub with ByRef scalars runs
+	// its body here and writes the caller's locals. CInt / CLng / CLngLng
+	// of one number, Nothing or Boolean: the same vb_to_integer the
+	// builtin cascade returns. A String or any other value, and every
+	// other call, stays on the ordinary handler.
 	FL_LONG(1);
 	const uint32_t idx = FL_U16_LE(1);
 	if (FL_UNLIKELY(idx >= nconst)) {
@@ -636,15 +1001,37 @@ fl_call: { // OP_CALL [name lo] [name hi] [argc]
 		pc += 4;
 		FL_NEXT();
 	}
-	if (FL_UNLIKELY(pc[3] != 1)) {
+	const int argc = (int)pc[3];
+	if (FL_UNLIKELY(argc < 1)) {
 		goto fl_leave;
 	}
-	FL_NEED(1);
+	FL_NEED(argc);
 	const Vector<MemberNameCacheEntry> &memo = *f.member_cache;
 	if (FL_UNLIKELY((uint32_t)memo.size() != nconst)) {
 		goto fl_leave;
 	}
 	const MemberNameCacheEntry &e = memo.ptr()[idx];
+	// A straight-line ByRef Sub. The first call classifies it. A watchpoint,
+	// an evidence recorder, or a Whenever section still enters the Sub.
+	// The POP and the local write-backs that follow a statement call are
+	// skipped: the body already stored those locals.
+	if (e.bref_kind >= 2) {
+		if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
+			goto fl_leave;
+		}
+		if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
+			goto fl_leave;
+		}
+		const uint8_t *next = fl_byref_run(e.bref_chunk, e.bref_func, pc, safe_end + 2, sp, argc, L, nloc, ltypes, ntypes, ti, tf);
+		if (next) {
+			sp -= argc;
+			pc = next;
+			FL_NEXT();
+		}
+	}
+	if (FL_UNLIKELY(argc != 1)) {
+		goto fl_leave;
+	}
 	Variant *top = sp - 1;
 	// A Sub whose body is one module number plus this argument. The
 	// first call classifies it. A watchpoint, an evidence recorder, or
