@@ -848,6 +848,7 @@ public:
     bool jit_resolve_direct_callee(const String &name, int argc, SubDefinition *&r_func, BytecodeChunk *&r_chunk);
     // Identity for pointer caches the JIT keeps per compiled function.
     uint64_t jit_instance_serial() const { return _instance_serial; }
+    bool jit_option_compare_text() const { return option_compare_text; }
 
     // Full expression evaluation including builtins (for fallback from lightweight evaluator)
     Variant evaluate_expression_full(ExpressionNode* expr);

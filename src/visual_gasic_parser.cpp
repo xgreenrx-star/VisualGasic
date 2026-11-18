@@ -334,25 +334,28 @@ ModuleNode* VisualGasicParser::parse(const Vector<VisualGasicTokenizer::Token>& 
 
         if (t.type == VisualGasicTokenizer::TOKEN_KEYWORD && String(t.value).to_lower() == "option") {
              advance(); // Eat Option
-             if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                 String kw = String(peek().value).to_lower();
-                 if (kw == "explicit") {
-                     advance(); // Eat Explicit
-                     module->option_explicit = true;
-                 } else if (kw == "compare") {
-                     advance(); // Eat Compare
-                     if (check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
-                         String mode = String(peek().value).to_lower();
-                         if (mode == "text") {
-                             module->option_compare_text = true;
-                             advance();
-                         } else if (mode == "binary") {
-                             module->option_compare_text = false;
-                             advance();
-                         }
-                         // else option compare database? ignore or error
-                     }
+             // Compare / Text / Binary are identifiers, not keywords.
+             auto option_word = [&]() -> String {
+                 if (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+                     return String(peek().value).to_lower();
                  }
+                 return String();
+             };
+             String kw = option_word();
+             if (kw == "explicit") {
+                 advance(); // Eat Explicit
+                 module->option_explicit = true;
+             } else if (kw == "compare") {
+                 advance(); // Eat Compare
+                 String mode = option_word();
+                 if (mode == "text") {
+                     module->option_compare_text = true;
+                     advance();
+                 } else if (mode == "binary") {
+                     module->option_compare_text = false;
+                     advance();
+                 }
+                 // else option compare database? ignore or error
              }
              // Handle "Option Base 1" etc? Not requested.
              continue;

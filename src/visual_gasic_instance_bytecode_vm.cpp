@@ -550,6 +550,16 @@ static Variant vg_build_packed_literal(const Variant *elems, int count) {
     return Variant(out);
 }
 
+// A native body that hits a non-numeric dictionary value returns 2. The
+// slots it already computed are applied after the interpreter seeds this
+// frame, and vm.ip starts at the dictionary read instead of the prologue.
+struct VgJitDeoptResume {
+    bool active = false;
+    int ip = -1;
+    std::vector<Variant> locals;
+};
+static thread_local VgJitDeoptResume vg_jit_deopt_resume;
+
 bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *func, Variant &r_ret,
                                            int p_ip_start, int p_ip_end,
                                            const Vector<Variant> *p_initial_locals,
@@ -811,6 +821,29 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                         break;
                     }
                     const uint8_t kind = native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_KIND_MASK;
+                    if (kind == vgjit2::CompiledFunc::GLOBAL_VREF) {
+                        // The slot holds a Variant*. The helper reads the
+                        // current value, so a String that became an Integer
+                        // still enters; a Dictionary that is no longer one
+                        // deopts on the read.
+                        Variant *vp = nullptr;
+                        if (native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_CONST) {
+                            const StringName &gkey = native->global_slot_names[gi];
+                            if (variables.has(gkey) || !builtin_constants.has(gkey)) {
+                                jit_enter = false;
+                                break;
+                            }
+                            vp = &builtin_constants[gkey];
+                        } else {
+                            vp = global_ptr(gi);
+                        }
+                        if (!vp) {
+                            jit_enter = false;
+                            break;
+                        }
+                        jit_locals[slot] = (int64_t)vp;
+                        continue;
+                    }
                     const Variant *vp = nullptr;
                     if (native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_CONST) {
                         const StringName &gkey = native->global_slot_names[gi];
@@ -870,11 +903,25 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                 // that uses the same undeclared name.
                 for (size_t gi = 0; gi < gs_count; gi++) {
                     if (native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_CONST) continue;
+                    if ((native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_KIND_MASK) == vgjit2::CompiledFunc::GLOBAL_VREF) continue;
                     if (gi >= native->global_written.size() || !native->global_written[gi]) continue;
                     if (Variant *vp = global_ptr(gi)) {
                         vgjit2::jit_slot_to_variable(*vp, jit_locals[native->global_slots[gi].second],
                                 native->global_kinds[gi] & vgjit2::CompiledFunc::GLOBAL_KIND_MASK);
                     }
+                }
+                if (has_retval == 2) {
+                    const int dip = vgjit2::jit_consume_deopt_ip();
+                    if (dip >= 0) {
+                        vg_jit_deopt_resume.active = true;
+                        vg_jit_deopt_resume.ip = dip;
+                        const int n = chunk->local_count;
+                        vg_jit_deopt_resume.locals.resize(n);
+                        for (int s = 0; s < n && s < slot_count; s++) {
+                            vg_jit_deopt_resume.locals[s] = slot_variant(s);
+                        }
+                    }
+                    return false;
                 }
                 if (has_retval) {
                     slot_into(r_ret, native->ret_slot >= 0 ? native->ret_slot : 0);
@@ -1294,6 +1341,20 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 vgfast::assign(locals.write[fast_return_slot], p_fast_args[fast_param_count]);
             }
         }
+    }
+    if (vg_jit_deopt_resume.active) {
+        vg_jit_deopt_resume.active = false;
+        const int n = (int)vg_jit_deopt_resume.locals.size();
+        if (locals.size() < n) {
+            locals.resize(n);
+        }
+        for (int i = 0; i < n && i < locals.size(); i++) {
+            locals.write[i] = vg_jit_deopt_resume.locals[i];
+        }
+        if (vg_jit_deopt_resume.ip >= 0 && vg_jit_deopt_resume.ip < (int)chunk->code.size()) {
+            vm.ip = vg_jit_deopt_resume.ip;
+        }
+        vg_jit_deopt_resume.locals.clear();
     }
 
     // ── v4.8: Hybrid typed local storage ──────────────────────────────
@@ -1752,6 +1813,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             const Variant &av = vm.stack[vm.stack.size() - 2];
             const Variant::Type ta = vgfast::vtype(av);
             const Variant::Type tb = vgfast::vtype(bv);
+            // Option Compare Text: the tree-walk compares two strings with
+            // nocasecmp. The flag used to be ignored here, so a JIT helper
+            // that followed this path would disagree with the AST once the
+            // directive actually parsed.
+            if (option_compare_text && ta == Variant::STRING && tb == Variant::STRING) {
+                bool rel = true;
+                bool rb = false;
+                const int cmp = String(av).nocasecmp_to(String(bv));
+                switch (op) {
+                    case Variant::OP_EQUAL: rb = cmp == 0; break;
+                    case Variant::OP_NOT_EQUAL: rb = cmp != 0; break;
+                    case Variant::OP_LESS: rb = cmp < 0; break;
+                    case Variant::OP_LESS_EQUAL: rb = cmp <= 0; break;
+                    case Variant::OP_GREATER: rb = cmp > 0; break;
+                    case Variant::OP_GREATER_EQUAL: rb = cmp >= 0; break;
+                    default: rel = false; break;
+                }
+                if (rel) {
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(rb);
+                    return true;
+                }
+            }
             const bool a_num = (ta == Variant::INT || ta == Variant::FLOAT);
             const bool b_num = (tb == Variant::INT || tb == Variant::FLOAT);
             if (a_num && b_num) {

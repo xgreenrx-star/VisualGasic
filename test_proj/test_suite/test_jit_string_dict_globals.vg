@@ -1,0 +1,104 @@
+' Tier 2 reads of a global String and a global Dictionary.
+' The string compare follows Option Compare Text. A dictionary value that
+' stops being numeric deopts into the interpreter at the read. A missing
+' key is Nothing (VarType 1); OP_GET_DICT_FAST does not raise.
+Option Explicit
+Option Compare Text
+Inherits Node
+
+Dim gs As String
+Dim d As Dictionary
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Mute()
+	gs = "other"
+End Sub
+
+Sub Poison()
+	d("k") = "3"
+End Sub
+
+Function CountTalk(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function CountWalk(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "walk" Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function CountThenMute(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" Then c = c + 1
+		If i = 3 Then Mute()
+	Next
+	Return c
+End Function
+
+Function SumSteady(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + d("k")
+	Next
+	Return s
+End Function
+
+Function SumPoison(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + d("k")
+		If i = 2 Then Poison()
+	Next
+	Return s
+End Function
+
+Function SumMiss(ByVal n As Integer) As Single
+	Dim i As Integer
+	Dim s As Single = 0
+	For i = 1 To n
+		s = s + d("nope")
+	Next
+	Return s
+End Function
+
+Sub _Ready()
+	Dim round As Integer
+	gs = "Talk"
+	d = New Dictionary
+	d("k") = 2.5
+	For round = 1 To 4
+		gs = "Talk"
+		d("k") = 2.5
+		Check CountTalk(5) = 5, "compare text " & round
+		Check CountWalk(5) = 0, "compare text rejects " & round
+		Check CountThenMute(6) = 3, "string changes " & round
+		Check SumSteady(4) = 10, "dict steady " & round
+		d("k") = 2.5
+		Check SumPoison(4) = 11, "dict deopt " & round
+		Check SumMiss(4) = 0, "missing key " & round
+	Next
+	Dim x As Variant
+	x = d("nope")
+	Check VarType(x) = 1, "missing key is Nothing"
+	Check Err.Number = 0, "missing key does not raise"
+End Sub

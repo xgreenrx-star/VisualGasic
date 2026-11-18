@@ -68,7 +68,7 @@ namespace vgjit2 {
 //  JIT IR (typed intermediate representation)
 // ═══════════════════════════════════════════════════════════════════
 
-enum class IRType : uint8_t { I64, F64, BOOL, VOID };
+enum class IRType : uint8_t { I64, F64, BOOL, VOID, VREF };
 
 enum class IROp : uint8_t {
     // Constants
@@ -160,7 +160,17 @@ enum class IROp : uint8_t {
     CALLEE_COPY_IN,
     DIRECT_CALL,
     CALLEE_COPY_OUT,
-    CALLEE_LOAD
+    CALLEE_LOAD,
+
+    // A module String or Dictionary is not a number. The virtual slot holds
+    // a Variant* (resolved at entry, refreshed after a host call). These
+    // helpers read that pointer. VDICT_GET_F64 returns 0 and a double, or
+    // deopts: the native function returns 2 and the interpreter resumes at
+    // bc_offset with the numeric slots written back.
+    // VSTR_EQ_CONST: dest(i64 0/1) = (Variant*)src1 == constants[imm_i64]
+    // VDICT_GET_F64: dest(f64) = dictionary[(Variant*)src1][constants[imm_i64]]
+    VSTR_EQ_CONST,
+    VDICT_GET_F64
 };
 
 struct IRInst {
@@ -319,7 +329,8 @@ public:
 struct CompiledFunc {
     // ABI:  int64_t fn(int64_t *locals, int64_t local_count)
     //  Linux: rdi/rsi. Windows x64: rcx/rdx. Return is rax on both.
-    //  returns 0 = normal, 1 = value returned in locals[0]
+    //  returns 0 = normal, 1 = value returned in the ret slot,
+    //  2 = deopt (resume the interpreter at jit_consume_deopt_ip())
     typedef int64_t (*FnPtr)(int64_t* locals, int64_t local_count);
     
     void*  code_mem  = nullptr;
@@ -344,7 +355,10 @@ struct CompiledFunc {
     // the loads and stores are compiled for that one type and
     // try_jit_bytecode runs the body natively only while the variable still
     // has it. GLOBAL_CONST marks a builtin constant: read, never written.
-    enum : uint8_t { GLOBAL_I64 = 0, GLOBAL_F64 = 1, GLOBAL_BOOL = 2, GLOBAL_KIND_MASK = 3, GLOBAL_CONST = 4 };
+    // GLOBAL_VREF shares the kind mask: the slot holds a Variant*, not a
+    // number. It is never OR'd with I64/F64/BOOL. GLOBAL_CONST may still be
+    // set on a builtin constant of that name.
+    enum : uint8_t { GLOBAL_I64 = 0, GLOBAL_F64 = 1, GLOBAL_BOOL = 2, GLOBAL_VREF = 3, GLOBAL_KIND_MASK = 3, GLOBAL_CONST = 4 };
     std::vector<uint8_t> global_kinds;
     // Stable storage for string pointers embedded in native code.
     std::deque<std::string> str_pool;
@@ -514,6 +528,11 @@ bool jit_func_active(const CompiledFunc *fn);
 // its truth value. A variable that no longer holds a number is left alone.
 void jit_variable_to_slot(const godot::Variant &v, int64_t &slot, uint8_t kind);
 void jit_slot_to_variable(godot::Variant &v, int64_t bits, uint8_t kind);
+
+// Set by VDICT_GET_F64 when the value is not numeric or the key is missing.
+// jit_consume_deopt_ip reads it once and clears it. -1 means there is none.
+void jit_note_deopt(int bc_offset);
+int jit_consume_deopt_ip();
 
 } // namespace vgjit2
 

@@ -6,6 +6,7 @@
 #include "visual_gasic_builtins.h"
 #include "visual_gasic_optimizer.h"
 #include "vg_variant_fast.h"
+#include <godot_cpp/variant/variant_internal.hpp>
 #include <memory>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
@@ -947,7 +948,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     enum : uint8_t {
         KIND_I64 = CompiledFunc::GLOBAL_I64,
         KIND_F64 = CompiledFunc::GLOBAL_F64,
-        KIND_BOOL = CompiledFunc::GLOBAL_BOOL
+        KIND_BOOL = CompiledFunc::GLOBAL_BOOL,
+        KIND_VREF = CompiledFunc::GLOBAL_VREF
     };
     std::unordered_map<int, uint8_t> slot_kind;    // absent = KIND_I64
     std::unordered_set<int> module_slots;          // virtual slots of module variables
@@ -963,7 +965,10 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         return it == slot_kind.end() ? (uint8_t)KIND_I64 : it->second;
     };
     auto slot_type = [&](int slot) -> IRType {
-        return kind_of(slot) == KIND_F64 ? IRType::F64 : IRType::I64;
+        const uint8_t k = kind_of(slot);
+        if (k == KIND_F64) return IRType::F64;
+        if (k == KIND_VREF) return IRType::VREF;
+        return IRType::I64;
     };
     
     // Virtual global→local slot mapping: globals get slots beyond local_count
@@ -1114,6 +1119,9 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         if (vt != IRType::I64 && vt != IRType::F64) return false;
         if (const_slots.count(slot)) return false;
         const uint8_t kind = kind_of(slot);
+        // The slot holds a Variant*. A store of a number would replace that
+        // pointer and the next read would follow it.
+        if (kind == KIND_VREF) return false;
         if (kind == KIND_BOOL) {
             // A Boolean module variable takes the truth value of a number.
             IRInst cz;
@@ -1192,7 +1200,8 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         if (gt == Variant::INT) kind = KIND_I64;
         else if (gt == Variant::FLOAT) kind = KIND_F64;
         else if (gt == Variant::BOOL) kind = KIND_BOOL;
-        else return false; // String, Object, Array, Vector2, Color, …: not a number slot
+        else if (gt == Variant::STRING || gt == Variant::DICTIONARY) kind = KIND_VREF;
+        else return false; // Object, Array, Vector2, Color, …: not a slot
         return true;
     };
     // The virtual slot of the module variable named by constant `name_idx`.
@@ -1497,6 +1506,71 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     // OP_BYREF_LOADs after it read.
     String last_call_name;
 
+    // GET_GLOBAL of a String or Dictionary, then a string constant, then
+    // OP_EQUAL / OP_NOT_EQUAL or a one-key OP_GET_DICT_FAST. The pointer is
+    // loaded at the use, so a host call's jit_sync_globals refresh is visible
+    // on the next iteration. The dict helper deopts back to this GET_GLOBAL,
+    // which is only safe when the operand stack was empty here.
+    auto lower_vref_use = [&](int at_ip, int vslot) -> int {
+        if (!vstack.empty()) return -1;
+        if (at_ip + 6 >= size) return -1;
+        if (code[at_ip + 3] != OP_CONSTANT) return -1;
+        const int cidx = (code[at_ip + 5] << 8) | code[at_ip + 4];
+        if (cidx < 0 || cidx >= chunk->constants.size()) return -1;
+        if (chunk->constants[cidx].get_type() != Variant::STRING) return -1;
+        const uint8_t next = code[at_ip + 6];
+        const int ptr = load_slot(vslot, at_ip);
+        if (next == OP_EQUAL || next == OP_NOT_EQUAL) {
+            IRInst cmp;
+            cmp.op = IROp::VSTR_EQ_CONST;
+            cmp.type = IRType::I64;
+            cmp.dest = next_vreg++;
+            set_vreg_type(cmp.dest, IRType::I64);
+            cmp.src1 = ptr;
+            cmp.imm_i64 = cidx;
+            cmp.bc_offset = at_ip;
+            ir.push_back(cmp);
+            int result = cmp.dest;
+            if (next == OP_NOT_EQUAL) {
+                IRInst one;
+                one.op = IROp::CONST_I64;
+                one.type = IRType::I64;
+                one.dest = next_vreg++;
+                set_vreg_type(one.dest, IRType::I64);
+                one.imm_i64 = 1;
+                one.bc_offset = at_ip;
+                ir.push_back(one);
+                IRInst xr;
+                xr.op = IROp::XOR_I64;
+                xr.type = IRType::I64;
+                xr.dest = next_vreg++;
+                set_vreg_type(xr.dest, IRType::I64);
+                xr.src1 = result;
+                xr.src2 = one.dest;
+                xr.bc_offset = at_ip;
+                ir.push_back(xr);
+                result = xr.dest;
+            }
+            vstack.push_back(result);
+            return at_ip + 7;
+        }
+        if ((next == OP_GET_DICT_FAST || next == OP_GET_DICT_TRUSTED) &&
+                at_ip + 7 < size && code[at_ip + 7] == 1) {
+            IRInst get;
+            get.op = IROp::VDICT_GET_F64;
+            get.type = IRType::F64;
+            get.dest = next_vreg++;
+            set_vreg_type(get.dest, IRType::F64);
+            get.src1 = ptr;
+            get.imm_i64 = cidx;
+            get.bc_offset = at_ip;
+            ir.push_back(get);
+            vstack.push_back(get.dest);
+            return at_ip + 8;
+        }
+        return -1;
+    };
+
     // Second pass: generate IR
     int ip = 0;
     while (ip < size) {
@@ -1628,6 +1702,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 int name_idx = (code[ip + 2] << 8) | code[ip + 1];
                 int vslot = -1;
                 if (!module_slot(name_idx, vslot)) return false;
+                if (kind_of(vslot) == KIND_VREF) {
+                    const int next_ip = lower_vref_use(ip, vslot);
+                    if (next_ip < 0) return false;
+                    ip = next_ip;
+                    break;
+                }
                 int loaded = load_slot(vslot, ip);
                 vstack.push_back(loaded);
                 vreg_global_idx[loaded] = name_idx;
@@ -3027,7 +3107,8 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
     for (const auto &inst : ir) {
         if (inst.op == IROp::LIBM1 || inst.op == IROp::RUNTIME_CALL ||
             inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD ||
-            inst.op == IROp::DIRECT_CALL) {
+            inst.op == IROp::DIRECT_CALL || inst.op == IROp::VSTR_EQ_CONST ||
+            inst.op == IROp::VDICT_GET_F64) {
             next_spill = 968;
             break;
         }
@@ -3223,7 +3304,19 @@ static void jit_sync_globals(bool to_vars) {
         if (!vp) {
             // Erased since the body was entered. A write would create it
             // (and hide an owner property of that name); a read has nothing
-            // to read.
+            // to read. A VREF slot must not keep the old pointer.
+            if (!to_vars && (kind & CompiledFunc::GLOBAL_KIND_MASK) == CompiledFunc::GLOBAL_VREF) {
+                locals[slot] = 0;
+            }
+            continue;
+        }
+        if ((kind & CompiledFunc::GLOBAL_KIND_MASK) == CompiledFunc::GLOBAL_VREF) {
+            // The slot is the Variant*, not a number. A host callee may have
+            // erased the variable (generation bump, pointer above is the new
+            // one) or assigned it in place (same pointer, new value).
+            if (!to_vars) {
+                locals[slot] = (int64_t)vp;
+            }
             continue;
         }
         if (to_vars) {
@@ -3283,6 +3376,93 @@ struct HostCallMemo {
 
 static void host_call_memo_free(void *p) {
     delete static_cast<HostCallMemo *>(p);
+}
+
+static thread_local int g_jit_deopt_ip = -1;
+
+void jit_note_deopt(int bc_offset) {
+    g_jit_deopt_ip = bc_offset;
+}
+
+int jit_consume_deopt_ip() {
+    const int ip = g_jit_deopt_ip;
+    g_jit_deopt_ip = -1;
+    return ip;
+}
+
+// String equality against a constant. Two strings compare by length and then
+// memcmp (VB6 binary, the VM's OP_EQUAL). Option Compare Text uses the same
+// case-fold as the interpreter. Anything else is Variant::evaluate(OP_EQUAL).
+static int vg_jit_vstr_eq(const Variant *box, const Variant *lit) {
+    VisualGasicInstance *vi = static_cast<VisualGasicInstance *>(g_jit_frame.inst);
+    const bool text = vi && vi->jit_option_compare_text();
+    if (box && lit && vgfast::vtype(*box) == Variant::STRING && vgfast::vtype(*lit) == Variant::STRING) {
+        const String *a = VariantInternal::get_string(box);
+        const String *b = VariantInternal::get_string(lit);
+        if (!a || !b) {
+            return 0;
+        }
+        if (text) {
+            return a->nocasecmp_to(*b) == 0 ? 1 : 0;
+        }
+        if (a->length() != b->length()) {
+            return 0;
+        }
+        if (a->length() == 0) {
+            return 1;
+        }
+        return memcmp(a->ptr(), b->ptr(), (size_t)a->length() * sizeof(char32_t)) == 0 ? 1 : 0;
+    }
+    bool valid = false;
+    Variant result;
+    const Variant left = box ? *box : Variant();
+    const Variant right = lit ? *lit : Variant();
+    Variant::evaluate(Variant::OP_EQUAL, left, right, result, valid);
+    return result.booleanize() ? 1 : 0;
+}
+
+// Numeric value of dictionary[key], or a deopt. Same keyed lookup as
+// OP_GET_DICT_FAST. A missing key or a non-numeric value resumes the
+// interpreter at the read, which is what reports the result.
+static int vg_jit_vdict_get_f64(const Variant *box, const Variant *key, int resume_ip, double *out) {
+    if (!box || !key || vgfast::vtype(*box) != Variant::DICTIONARY) {
+        jit_note_deopt(resume_ip);
+        return 1;
+    }
+    alignas(Variant) unsigned char raw[sizeof(Variant)];
+    memset(raw, 0, sizeof(raw));
+    GDExtensionBool valid = false;
+    internal::gdextension_interface_variant_get_keyed(
+            const_cast<Variant *>(box)->_native_ptr(),
+            const_cast<Variant *>(key)->_native_ptr(), raw, &valid);
+    Variant *value = reinterpret_cast<Variant *>(raw);
+    if (!valid) {
+        if (!vgfast::is_pod_type(vgfast::vtype(*value))) {
+            value->~Variant();
+        }
+        jit_note_deopt(resume_ip);
+        return 1;
+    }
+    const Variant::Type t = vgfast::vtype(*value);
+    int status = 1;
+    if (t == Variant::FLOAT) {
+        if (out) {
+            *out = vgfast::vfloat(*value);
+        }
+        status = 0;
+    } else if (t == Variant::INT) {
+        if (out) {
+            *out = (double)vgfast::vint(*value);
+        }
+        status = 0;
+    }
+    if (!vgfast::is_pod_type(t)) {
+        value->~Variant();
+    }
+    if (status) {
+        jit_note_deopt(resume_ip);
+    }
+    return status;
 }
 
 static int64_t host_call(int64_t site_ptr, int64_t argc, int64_t bits_ptr, int64_t kind_ptr, int64_t *flag_out) {
@@ -3533,7 +3713,8 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     int callee_slots = 0; // largest slot area a direct callee needs
     for (const auto &probe : ir) {
         if (probe.op == IROp::LIBM1 || probe.op == IROp::RUNTIME_CALL || probe.op == IROp::ARRAY_GET ||
-            probe.op == IROp::BYREF_LOAD || probe.op == IROp::DIRECT_CALL) {
+            probe.op == IROp::BYREF_LOAD || probe.op == IROp::DIRECT_CALL ||
+            probe.op == IROp::VSTR_EQ_CONST || probe.op == IROp::VDICT_GET_F64) {
             needs_host = true;
         }
         if (probe.op == IROp::DIRECT_CALL) {
@@ -4296,6 +4477,62 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 finish_host_ret(inst, ii);
                 break;
             }
+            case IROp::VSTR_EQ_CONST: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                Reg p = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                emit_host_reg(cb, 0, p);
+                const Variant *lit = nullptr;
+                if (chunk && inst.imm_i64 >= 0 && inst.imm_i64 < chunk->constants.size()) {
+                    lit = chunk->constants.ptrw() + (int)inst.imm_i64;
+                }
+                emit_host_imm(cb, 1, (int64_t)lit);
+                cb.call_abs((uint64_t)&vg_jit_vstr_eq);
+                cb.store_rbp_i64(496, Reg::RAX);
+                cb.load_rbp_i64(Reg::RDI, 512);
+                restore_caller(ii, inst.dest);
+                cb.load_rbp_i64(Reg::RAX, 496);
+                store_result(cb, alloc, inst.dest, Reg::RAX);
+                break;
+            }
+            case IROp::VDICT_GET_F64: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                Reg p = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                emit_host_reg(cb, 0, p);
+                const Variant *lit = nullptr;
+                if (chunk && inst.imm_i64 >= 0 && inst.imm_i64 < chunk->constants.size()) {
+                    lit = chunk->constants.ptrw() + (int)inst.imm_i64;
+                }
+                emit_host_imm(cb, 1, (int64_t)lit);
+                emit_host_imm(cb, 2, inst.bc_offset);
+                cb.lea_rbp(host_arg_reg(3), -496);
+                cb.call_abs((uint64_t)&vg_jit_vdict_get_f64);
+                int ok_lab = cb.new_label();
+                cb.test_rr(Reg::RAX, Reg::RAX);
+                cb.je_label(ok_lab);
+                cb.mov_ri32(Reg::RAX, 2);
+                cb.epilogue();
+                cb.bind_label(ok_lab);
+                {
+                    Reg dst = alloc.reg_for(inst.dest);
+                    if (dst >= Reg::XMM0 && dst <= Reg::XMM7) {
+                        cb.load_rbp_f64(dst, 496);
+                    } else {
+                        cb.load_rbp_f64(Reg::XMM0, 496);
+                        cb.emit(0x66); cb.rex(true, false, false, false);
+                        cb.emit(0x0F); cb.emit(0x7E); cb.modrm(3, 0, 0);
+                        if (dst == Reg::SPILL) {
+                            cb.store_spill(alloc.spill_for(inst.dest), Reg::RAX);
+                        } else if (dst != Reg::NONE && dst != Reg::RAX) {
+                            cb.mov_rr(dst, Reg::RAX);
+                        }
+                    }
+                }
+                cb.load_rbp_i64(Reg::RDI, 512);
+                restore_caller(ii, inst.dest);
+                break;
+            }
             case IROp::RET: {
                 cb.mov_ri32(Reg::RAX, 0); // return 0 (no value)
                 cb.epilogue();
@@ -4698,7 +4935,8 @@ CompiledFunc* Tier2::get_or_compile(const std::string& name, BytecodeChunk* chun
             chunk->param_count >= 0 && chunk->param_count <= chunk->local_count &&
             total_slots <= 64;
     for (const IRInst &inst : ir) {
-        if (inst.op == IROp::RUNTIME_CALL || inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD) {
+        if (inst.op == IROp::RUNTIME_CALL || inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD ||
+            inst.op == IROp::VSTR_EQ_CONST || inst.op == IROp::VDICT_GET_F64) {
             self_contained = false;
         } else if (inst.op == IROp::STORE_LOCAL || inst.op == IROp::CALLEE_COPY_OUT) {
             const int written = inst.op == IROp::STORE_LOCAL ? inst.local_slot : inst.call_pool[0];

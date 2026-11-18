@@ -136,6 +136,36 @@ A local `.x` / `.y` / `.z` compiles to `OP_GET_LOCAL_AXIS` or `OP_SET_LOCAL_AXIS
 
 Tier 2 still does not compile these four functions. A Vector2 constant is not INT, FLOAT or STRING, so lowering bails at op 0, and `t_vec` returns Variant so it is not attempted. The ratios above are the interpreter in both modes. Scalar replacement of vector locals remains; this commit does not include it.
 
+### 17 Nov 2026, after Tier 2 String and Dictionary globals
+
+`run_gap.gd`, one best-of-5 run, `mismatches=0` both modes. GD `t_local` was 10.1 ns with the JIT on and 9.1 ns with `VG_JIT=0`. The GD column is the JIT-on run. Each ratio is from its own run.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 10.1 | 2.4 | 0.23 | 5.4 | 0.60 |
+| t_global | 10.1 | 2.2 | 0.22 | 5.6 | 0.63 |
+| t_gint | 9.8 | 0.7 | 0.07 | 9.3 | 1.09 |
+| t_gint_if | 17.9 | 0.9 | 0.05 | 12.9 | 0.82 |
+| t_getx | 22.9 | 7.8 | 0.34 | 6.9 | 0.35 |
+| t_getx_typed | 12.1 | 7.8 | 0.64 | 6.9 | 0.66 |
+| t_sety | 24.6 | 12.2 | 0.50 | 10.9 | 0.51 |
+| t_dict | 37.5 | 31.6 | 0.84 | 55.4 | 1.70 |
+| t_streq | 32.8 | 24.6 | 0.75 | 45.5 | 1.51 |
+| t_call | 60.9 | 2.2 | 0.04 | 80.4 | 1.37 |
+| t_vec | 12.0 | 4.5 | 0.37 | 4.5 | 0.37 |
+| t_sin | 36.3 | 20.9 | 0.58 | 15.5 | 0.44 |
+| external_call | 62.0 | 148.2 | 2.39 | 250.6 | 3.69 |
+
+`t_dict` and `t_streq` compile at Tier 2. `VG_JIT_LOG=1` prints Compiled for both and no "lowering failed" line for those names. With the JIT on they are 0.84 and 0.75. They were 1.64 and 1.60. With `VG_JIT=0` they stay on the interpreter (1.70 and 1.51). That is WS6.
+
+A String or Dictionary module global is a pointer to its `Variant`. The pointer is resolved at function entry and again after a call. The lowered shapes are a global String compared with a string constant, and a global Dictionary read of a constant key into a float add. Any other use of that global still refuses the compile.
+
+String compare checks the length, then `memcmp` of the UTF-32 bytes. `Option Compare Text` uses `String::nocasecmp_to`. `Compare` and `Text` were identifiers, so the directive never set the module flag. The parser accepts them now, and `OP_EQUAL` plus the other five relational ops follow the flag the same way the tree-walk already did. The default stays case-sensitive.
+
+A dictionary value that is not a number, or a missing key, returns from the native function. The interpreter continues at that read with the JIT locals written back. It does not restart the function. `OP_GET_DICT_FAST` returns Nothing for a missing key and does not raise; the new test locks VarType 1 and `Err.Number = 0`. After the value becomes the string `"3"`, the sum is 11 (2.5 + 2.5 + 3 + 3).
+
+Inside a Function, the tree-walk clears a Single when the addend is a String or a missing-key Nothing. The bytecode coerces `"3"` to 3 and a missing key to 0. `VG_FORCE_AST=1` on `test_jit_string_dict_globals.vg` therefore fails "dict deopt" and "missing key". The three regression modes do not set that flag. This was not changed.
+
 ### Status (17 Nov 2026)
 
 Done:
@@ -145,13 +175,16 @@ Done:
 - WS2, lean interpreter loop: `568bf467`
 - WS3, `OP_DEBUG_LINE` stripped unless a debugger is attached: `7e812044`
 - Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: `6f7a2500`
-- WS4 axis ops in the VM and the compiler: this commit. The ratio target is met. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and was not required for the ratio.
+- WS4 axis ops in the VM and the compiler: `68857b12`. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and was not required for the ratio.
+- WS5, Tier 2 String and Dictionary globals: this commit. JIT ratios for `t_dict` and `t_streq` are under 1.00. The interpreter ratios are unchanged.
 
-Not started: WS5 String/Dictionary globals in Tier 2, WS6 the other interpreter fast paths, WS7 external calls into VG.
+Not started: WS6 the other interpreter fast paths, WS7 external calls into VG. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and is not next.
 
-Next: WS5. With the JIT on, `t_dict` is 1.64 and `t_streq` is 1.60.
+Next: WS6. With `VG_JIT=0`, `t_streq` is 1.51 (acceptance ≤ 1.5), `t_dict` is 1.70 (acceptance ≤ 1.3), and `t_call` is 1.37 (acceptance ≤ 1.0).
 
-No new correctness bug in this workstream. The Cdecl `strlen` assert is still the pre-existing suite noise. The editor breakpoint inside a loop was not clicked for WS3. A parallel `VG_JIT=0` suite run failed `test_db_controls.vg` with "database is locked" (7 FAIL); run alone, that file passed. Suite result after that rerun: 1761 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`.
+Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` now takes effect on the parser, the bytecode VM, and Tier 2. It was previously ignored because `Compare` and `Text` were not keywords. No existing `.vg` test used the directive.
+
+The Cdecl `strlen` assert is still the pre-existing suite noise. A parallel `VG_JIT=3` suite run failed `test_folder_ops.vg` (3 FAIL) while the other two suites were writing the same temp directory; run alone, that file passed. Suite result after that rerun: 1780 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` 3 failures, `test_departure_render` still hits its 240s headless timeout (the lambda at line 19, then the ObjectDB leak warning), `test_suit_panel_performance` face=true 12.96 ms and face=false 9.8 ms (baseline 63.66 ms and 38.13 ms).
 
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 
