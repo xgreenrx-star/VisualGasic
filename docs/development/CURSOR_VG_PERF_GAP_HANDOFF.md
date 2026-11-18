@@ -352,6 +352,34 @@ Acceptance is `external_call` ≤ 1.2 in both modes: 0.97 and 0.89. Two other pa
 
 `tag_len` is `Return Len(gs) + i`. The straight-line numeric Function path now accepts `Len` of a module String or Dictionary and the untyped `OP_ADD` that Len emits, so later calls leave the length-plus-argument without a frame. `add_left` puts the argument on the left. `bag_len` uses a Dictionary. A body with a branch still enters. On this run every JIT-on case is at or under 1.00. Interpreter `t_call_host` is 0.42.
 
+### 18 Nov 2026, after Len-style compare of a String global
+
+`run_gap.gd`, one quiet pair, `mismatches=0` both modes. GD `t_local` was 8.9 ns with the JIT on and 9.0 ns with `VG_JIT=0`. The GD column is the JIT-on run. Each ratio is from its own run. Before this change, interpreter `t_streq` was 1.23 (57.0 ns).
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 8.9 | 1.9 | 0.22 | 5.2 | 0.58 |
+| t_global | 8.8 | 1.9 | 0.22 | 6.1 | 0.69 |
+| t_gint | 8.8 | 0.6 | 0.07 | 11.2 | 1.27 |
+| t_gint_if | 15.9 | 0.8 | 0.05 | 14.4 | 0.90 |
+| t_getx | 21.1 | 7.3 | 0.35 | 8.1 | 0.39 |
+| t_getx_typed | 10.9 | 7.1 | 0.65 | 8.1 | 0.70 |
+| t_sety | 22.2 | 10.9 | 0.49 | 10.9 | 0.50 |
+| t_dict | 33.5 | 23.4 | 0.70 | 32.5 | 0.94 |
+| t_streq | 30.0 | 23.0 | 0.77 | 31.8 | 1.02 |
+| t_call | 59.8 | 2.0 | 0.03 | 5.7 | 0.09 |
+| t_call_args | 95.9 | 6.2 | 0.06 | 36.7 | 0.37 |
+| t_call_byref | 163.6 | 7.9 | 0.05 | 65.0 | 0.39 |
+| t_call_global | 65.0 | 3.7 | 0.06 | 8.1 | 0.11 |
+| t_call_host | 74.0 | 6.6 | 0.09 | 36.7 | 0.42 |
+| t_vec | 12.5 | 4.6 | 0.37 | 5.3 | 0.36 |
+| t_sin | 35.1 | 20.9 | 0.60 | 19.2 | 0.45 |
+| t_branch | 73.9 | 31.1 | 0.42 | 37.0 | 0.41 |
+| t_poly | 52.8 | 25.1 | 0.48 | 30.2 | 0.49 |
+| external_call | 67.7 | 62.9 | 0.93 | 72.5 | 0.92 |
+
+`gs = "talk"` after `OP_GET_GLOBAL` compares the module String in place, the same way `Len(global)` and a Dictionary constant-key read already do. The stack path for a local String is unchanged. On this run every JIT-on case is at or under 1.00. Interpreter `t_streq` is 1.02: under the soft bar of 1.5, absolute time 57.0 → 31.8 ns, and still a hair over the hard 1.00 goal.
+
 ### Status (18 Nov 2026)
 
 Done:
@@ -369,15 +397,16 @@ Done:
 - `t_call_global`: `dbe82c73`. JIT ratio 0.05. Interpreter ratio 0.10.
 - `t_call_byref`: `41c15c89`. JIT ratio 0.04. Interpreter ratio 0.36.
 - `t_call_args`: `3dcee439`. JIT ratio 0.07. Interpreter ratio 0.38.
-- Interpreter `t_call_host`: this commit. JIT ratio 0.09. Interpreter ratio 0.42.
+- Interpreter `t_call_host`: `f34cd546`. JIT ratio 0.09. Interpreter ratio 0.42.
+- Interpreter `t_streq` global compare: this commit. JIT ratio 0.77. Interpreter ratio 1.02 (hard 1.00 missed by a hair; soft 1.5 met).
 
-Tier 2 scalar replacement of Vector2/Vector3 locals is still open. Those ratios are already under 1.00 (`t_getx` 0.35, `t_getx_typed` 0.73, `t_sety` 0.51, `t_vec` 0.28). On this run every JIT-on case in `run_gap.gd` is at or under 1.00.
+Tier 2 scalar replacement of Vector2/Vector3 locals is still open. Those ratios are already under 1.00 (`t_getx` 0.35, `t_getx_typed` 0.65, `t_sety` 0.49, `t_vec` 0.37). On this run every JIT-on case in `run_gap.gd` is at or under 1.00.
 
-Next: the interpreter. The cases still over 1.00 with `VG_JIT=0` are `t_streq` 1.23, `t_gint` 1.23, and `t_dict` 1.01. `t_streq` and `t_gint` are the widest of those.
+Next: the interpreter. The cases still over 1.00 with `VG_JIT=0` are `t_gint` 1.27, `t_streq` 1.02, and `t_dict` 0.94 (under). `t_gint` is the widest of those.
 
 Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` takes effect on the parser, the bytecode VM, and Tier 2. Tier 2 does not merge the operand stack at a jump join, so a short-circuit expression that pushes a value on both edges miscompiles. `AndAlso` and `OrElse` already emit that shape. `t_streq` does not use it.
 
-The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: 1867 PASS / 0 FAIL in `VG_JIT=3` in the parallel run (1859 plus the eight checks in `test_call_len_global.vg`). Default parallel hit a `test_folder_ops.vg` trash flake (1866 PASS / 1 FAIL); alone that file is 16 PASS / 0 FAIL. `VG_JIT=0` parallel hit a `test_db_controls.vg` lock (1860 PASS / 7 FAIL); alone that file is 13 PASS / 0 FAIL. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes on the first try. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` the same three failures, `test_departure_render` still times out at the lambda on line 19. `test_suit_panel_performance` alone: face=true 8.46 ms, face=false 12.99 ms, under the written baseline of 63.66 ms and 38.13 ms. Under `VG_FORCE_AST=1`, `test_jit_len_global.vg` fails three checks: `Len` of an Integer variant is 1, `Len` of the two-entry Dictionary is 18, and `Len` of the three-element Array is 9. The bytecode VM and the JIT report 0, 2, and 3. That `Len` difference is the AST interpreter's.
+The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: parallel runs were 1873 PASS / 2 FAIL in all three modes from `test_folder_ops.vg` / `test_db_controls.vg` collisions (1867 plus the eight checks in `test_get_global_eq_str.vg`). Alone, `test_folder_ops.vg` is 16 PASS / 0 FAIL in all three modes and `test_db_controls.vg` is 13 PASS / 0 FAIL. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes on the first try. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` the same three failures, `test_departure_render` still times out at the lambda on line 19. `test_suit_panel_performance` alone: face=true 17.95 ms, face=false 11.25 ms, under the written baseline of 63.66 ms and 38.13 ms. Under `VG_FORCE_AST=1`, `test_jit_len_global.vg` fails three checks: `Len` of an Integer variant is 1, `Len` of the two-entry Dictionary is 18, and `Len` of the three-element Array is 9. The bytecode VM and the JIT report 0, 2, and 3. That `Len` difference is the AST interpreter's.
 
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 

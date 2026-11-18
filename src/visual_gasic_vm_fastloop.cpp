@@ -155,6 +155,21 @@ FL_INLINE bool fl_as_f64(const Variant *v, double &out) {
 	}
 	return false;
 }
+// OP_EQ_STR_CONST / Len(global) string compare. Length then memcmp, or
+// nocasecmp under Option Compare Text.
+FL_INLINE bool fl_str_eq(const String *a, const String *b, bool compare_text) {
+	if (compare_text) {
+		return a->nocasecmp_to(*b) == 0;
+	}
+	if (a->length() != b->length()) {
+		return false;
+	}
+	if (a->length() == 0) {
+		return true;
+	}
+	return memcmp(a->ptr(), b->ptr(), (size_t)a->length() * sizeof(char32_t)) == 0;
+}
+
 // OP_LEN. Same table as the interpreter: character count, collection size,
 // and 0 for every other type.
 FL_INLINE int64_t fl_len(const Variant *v, uint32_t t) {
@@ -991,6 +1006,23 @@ fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 			FL_NEXT();
 		}
 	}
+	// String global compared to a constant. The compare reads the module
+	// value in place so the String is not refcounted onto the stack.
+	if (t == (uint32_t)Variant::STRING && (size_t)(safe_end - pc) > 5 &&
+			pc[3] == OP_EQ_STR_CONST) {
+		const uint32_t kidx = (uint32_t)pc[4] | ((uint32_t)pc[5] << 8);
+		if (kidx < nconst && fl_type(K + kidx) == (uint32_t)Variant::STRING) {
+			const String *a = VariantInternal::get_string(src);
+			const String *b = VariantInternal::get_string(K + kidx);
+			if (FL_LIKELY(a && b)) {
+				FL_ROOM();
+				fl_put_bool(sp, fl_str_eq(a, b, compare_text));
+				sp++;
+				pc += 6;
+				FL_NEXT();
+			}
+		}
+	}
 	FL_ROOM();
 	if (FL_LIKELY(fl_pod(t))) {
 		fl_copy(sp, src);
@@ -1071,16 +1103,7 @@ fl_eq_str_const: { // OP_EQ_STR_CONST [const lo] [const hi]
 	if (FL_UNLIKELY(!a || !b)) {
 		goto fl_leave;
 	}
-	bool eq;
-	if (compare_text) {
-		eq = a->nocasecmp_to(*b) == 0;
-	} else if (a->length() != b->length()) {
-		eq = false;
-	} else if (a->length() == 0) {
-		eq = true;
-	} else {
-		eq = memcmp(a->ptr(), b->ptr(), (size_t)a->length() * sizeof(char32_t)) == 0;
-	}
+	const bool eq = fl_str_eq(a, b, compare_text);
 	{
 		alignas(Variant) uint8_t old[FL_VSZ];
 		memcpy(old, static_cast<const void *>(top), FL_VSZ);

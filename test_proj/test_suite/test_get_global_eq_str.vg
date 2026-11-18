@@ -1,0 +1,81 @@
+' Len(global) already avoids copying a String. The same for gs = "talk":
+' compare the module value to the constant without a stack copy.
+' CountTalk is the t_streq shape without And. CountLocal compares a local
+' String so the stack path still runs. Mute changes the global mid-loop.
+Option Explicit
+Inherits Node
+
+Dim gs As String
+Dim gb As Boolean
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Mute()
+	gs = "other"
+End Sub
+
+Function CountTalk(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function CountLocal(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	Dim s As String = "talk"
+	For i = 1 To n
+		If s = "talk" Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function CountStreq(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" And Not gb Then c = c + 1
+	Next
+	Return c
+End Function
+
+Function CountThenMute(ByVal n As Integer) As Integer
+	Dim i As Integer
+	Dim c As Integer = 0
+	For i = 1 To n
+		If gs = "talk" Then c = c + 1
+		If i = 3 Then Mute()
+	Next
+	Return c
+End Function
+
+Sub _Ready()
+	gs = "talk"
+	gb = False
+	Check CountTalk(5) = 5, "global equal loop"
+	Check CountLocal(5) = 5, "local equal loop"
+	Check CountStreq(5) = 5, "global equal and not"
+
+	gs = "Talk"
+	Check CountTalk(3) = 0, "binary compare"
+	gs = ""
+	Check CountTalk(3) = 0, "empty string"
+	gs = "talk"
+	Check CountTalk(1) = 1, "equal again"
+
+	gs = "talk"
+	Check CountThenMute(5) = 3, "length follows the string"
+
+	gb = True
+	gs = "talk"
+	Check CountStreq(4) = 0, "and not when true"
+End Sub
