@@ -112,6 +112,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
             return 3;
         case OP_APPEND_INDEX_GLOBAL: case OP_APPEND_SUB_INDEX_GLOBAL: // [OP] [DST 2] [SRC 2]
         case OP_FOR_INC_LE_LOOP:                                      // [OP] [VAR] [LIM] [OFF 2]
+        case OP_GET_LOCAL_AXIS: case OP_SET_LOCAL_AXIS:               // [OP] [SLOT] [AXIS] [SKIP_HI] [SKIP_LO]
             return 5;
 
         // 3-byte instructions (opcode + 2 non-const operands: offsets, slots, counts)
@@ -132,6 +133,7 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         case OP_RAISE_EVENT:                                          // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_ADD_LOCAL_I64_CONST: case OP_SUB_LOCAL_I64_CONST:     // [OP] [LOCAL_SLOT] [CONST_LO] [CONST_HI]
         case OP_ADD_LOCAL_F64_CONST: case OP_SUB_LOCAL_F64_CONST:
+        case OP_ADD_LOCAL_VEC2_CONST:                                 // [OP] [SLOT] [CONST_LO] [CONST_HI]
         case OP_STRING_REPEAT_OUTER:                                  // [OP] [SLOT] [LIT_LO] [LIT_HI]
         case OP_SET_DICT_GLOBAL:                                      // [OP] [NAME_LO] [NAME_HI] [ARG_COUNT]
         case OP_PARALLEL_FOR_BEGIN:                                   // [OP] [VAR_SLOT] [BODY_LEN_HI] [BODY_LEN_LO]
@@ -272,12 +274,14 @@ bool VisualGasicOptimizer::is_unconditional_exit(uint8_t op) {
 bool VisualGasicOptimizer::is_jump_op(uint8_t op) {
     return op == OP_JUMP || op == OP_JUMP_IF_FALSE || op == OP_JUMP_IF_TRUE ||
            op == OP_LOOP || op == OP_SETUP_TRY || op == OP_FOREACH_STEP ||
-           op == OP_PACKED_APPEND_LITERAL;
+           op == OP_PACKED_APPEND_LITERAL ||
+           op == OP_GET_LOCAL_AXIS || op == OP_SET_LOCAL_AXIS;
 }
 
 int VisualGasicOptimizer::jump_offset_pos(uint8_t op) {
     if (op == OP_FOREACH_STEP) return 4;
     if (op == OP_PACKED_APPEND_LITERAL) return 7;
+    if (op == OP_GET_LOCAL_AXIS || op == OP_SET_LOCAL_AXIS) return 3;
     return 1;
 }
 

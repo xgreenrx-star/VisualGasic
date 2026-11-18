@@ -877,6 +877,28 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     return compile_ok;
 }
 
+bool VisualGasicCompiler::try_local_axis(const String &name, const String &member, int &slot, int &axis) {
+    String m = member.to_lower();
+    if (m == "x") axis = 0;
+    else if (m == "y") axis = 1;
+    else if (m == "z") axis = 2;
+    else return false;
+    String key = name.to_lower();
+    if (non_local_names.has(key)) return false;
+    // A declared scalar, array or dictionary has no vector axis. A Variant
+    // (and a Vector2/Vector3, which are not in these sets) still qualifies:
+    // the opcode checks the runtime type and falls through when it is not a vector.
+    if (declared_int_vars.has(key) || declared_float_vars.has(key) || declared_string_vars.has(key)) return false;
+    if (array_vars.has(key) || dictionary_vars.has(key) || buffer_vars.has(key)) return false;
+    int block_frame = 0;
+    int block_offset = 0;
+    if (lookup_block_local(name, block_frame, block_offset)) return false;
+    int s = get_or_add_local(name, VT_UNKNOWN);
+    if (s < 0 || s > 255) return false;
+    slot = s;
+    return true;
+}
+
 int VisualGasicCompiler::get_or_add_local(const String &name, ValueType type) {
     String key = name.to_lower();
     if (non_local_names.has(key)) {
@@ -8104,6 +8126,22 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 if ((b->op == "+" || b->op == "-") &&
                     b->left && b->left->type == ExpressionNode::VARIABLE &&
                     ((VariableNode*)b->left)->name.nocasecmp_to(v->name) == 0) {
+                    if (b->op == "+" && b->right && is_constant_expr(b->right)) {
+                        Variant cv = eval_constant_expr(b->right);
+                        int block_frame = 0;
+                        int block_offset = 0;
+                        if (cv.get_type() == Variant::VECTOR2 &&
+                                !lookup_block_local(v->name, block_frame, block_offset)) {
+                            int vslot = get_or_add_local(v->name, VT_UNKNOWN);
+                            if (vslot >= 0 && vslot <= 255) {
+                                int cidx = current_chunk->add_constant(cv);
+                                emit_byte(OP_ADD_LOCAL_VEC2_CONST);
+                                emit_byte((uint8_t)vslot);
+                                emit_const_index(cidx);
+                                break;
+                            }
+                        }
+                    }
                     int slot = get_or_add_local(v->name, infer_type(s->value));
                     if (slot >= 0 && get_local_type(v->name) == VT_INT &&
                             (!is_declared_integer_var(v->name) || infer_type(b->right) == VT_INT)) {
@@ -8388,6 +8426,32 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                      root = inner->base_object;
                  }
                  if (!compile_ok) break;
+                 // p.y = <expr> on a local: one axis store, falling through to
+                 // the generic SET_MEMBER + SET_LOCAL when the value is not a
+                 // Vector2/Vector3. The value is compiled once.
+                 if (member_chain.size() == 1 && root && root->type == ExpressionNode::VARIABLE) {
+                     int axis_slot = 0;
+                     int axis = 0;
+                     VariableNode *axis_var = (VariableNode *)root;
+                     if (try_local_axis(axis_var->name, member_chain[0], axis_slot, axis)) {
+                         compile_assign_value(s->value);
+                         int at = current_chunk->code.size();
+                         emit_byte(OP_SET_LOCAL_AXIS);
+                         emit_byte((uint8_t)axis_slot);
+                         emit_byte((uint8_t)axis);
+                         emit_byte(0);
+                         emit_byte(0);
+                         int tail = current_chunk->code.size();
+                         int mi_idx = current_chunk->add_constant(member_chain[0]);
+                         emit_byte(OP_SET_MEMBER);
+                         emit_const_index(mi_idx);
+                         emit_bytes(OP_SET_LOCAL, (uint8_t)axis_slot);
+                         int skip = current_chunk->code.size() - tail;
+                         current_chunk->code.write[at + 3] = (uint8_t)((skip >> 8) & 0xFF);
+                         current_chunk->code.write[at + 4] = (uint8_t)(skip & 0xFF);
+                         break;
+                     }
+                 }
                  // Diagnostic: assignment to a member of a namespace
                  // getter's return value silently drops the write because
                  // the returned Dictionary / value is a snapshot, not a
@@ -12218,6 +12282,28 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     emit_const_index(fnidx);
                     emit_byte((uint8_t)0);
                     break;
+                }
+                if (ma->base_object->type == ExpressionNode::VARIABLE) {
+                    int axis_slot = 0;
+                    int axis = 0;
+                    VariableNode *axis_var = (VariableNode *)ma->base_object;
+                    if (try_local_axis(axis_var->name, ma->member_name, axis_slot, axis)) {
+                        int at = current_chunk->code.size();
+                        emit_byte(OP_GET_LOCAL_AXIS);
+                        emit_byte((uint8_t)axis_slot);
+                        emit_byte((uint8_t)axis);
+                        emit_byte(0);
+                        emit_byte(0);
+                        int tail = current_chunk->code.size();
+                        emit_bytes(OP_GET_LOCAL, (uint8_t)axis_slot);
+                        int idx = current_chunk->add_constant(ma->member_name);
+                        emit_byte(OP_GET_MEMBER);
+                        emit_const_index(idx);
+                        int skip = current_chunk->code.size() - tail;
+                        current_chunk->code.write[at + 3] = (uint8_t)((skip >> 8) & 0xFF);
+                        current_chunk->code.write[at + 4] = (uint8_t)(skip & 0xFF);
+                        break;
+                    }
                 }
                 compile_expression(ma->base_object);
                 int idx = current_chunk->add_constant(ma->member_name);

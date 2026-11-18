@@ -175,6 +175,7 @@ private:
     bool is_simple_f64_accum_loop(ForStatement* f, String &acc_var, double &delta) const;
     bool try_emit_get_array_i64_local(const String &arr_name, ExpressionNode *index);
     bool try_emit_set_array_i64_local(const String &arr_name, ExpressionNode *index, ExpressionNode *value);
+    bool try_local_axis(const String &name, const String &member, int &slot, int &axis);
     bool try_emit_get_index(const String &arr_name, ExpressionNode *index);
     bool try_emit_set_index(const String &arr_name, ExpressionNode *index, ExpressionNode *value);
     bool try_emit_append(CallStatement *s);

@@ -110,6 +110,32 @@ Read the table like this:
 
 The interpreter `t_gint` ratio is 1.08, just over the secondary goal of 1.00. The store still happens on every iteration.
 
+### 17 Nov 2026, after local vector axis ops
+
+`run_gap.gd`, one best-of-5 run, `mismatches=0` both modes. GD `t_local` was 8.9 ns with the JIT on and 10.1 ns with `VG_JIT=0`, so the clock is faster than the integer-store table. The GD column is the JIT-on run. Each ratio is from its own run.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 8.9 | 1.9 | 0.22 | 5.8 | 0.58 |
+| t_global | 8.8 | 2.1 | 0.24 | 6.3 | 0.66 |
+| t_gint | 9.0 | 0.6 | 0.07 | 9.6 | 0.98 |
+| t_gint_if | 15.3 | 0.8 | 0.05 | 14.1 | 0.81 |
+| t_getx | 20.1 | 7.0 | 0.35 | 7.9 | 0.35 |
+| t_getx_typed | 10.6 | 7.0 | 0.66 | 7.5 | 0.62 |
+| t_sety | 21.3 | 10.7 | 0.50 | 10.9 | 0.45 |
+| t_dict | 33.9 | 55.6 | 1.64 | 55.4 | 1.66 |
+| t_streq | 28.7 | 45.8 | 1.60 | 48.5 | 1.49 |
+| t_call | 62.4 | 2.0 | 0.03 | 77.7 | 1.31 |
+| t_vec | 12.1 | 4.4 | 0.36 | 4.5 | 0.38 |
+| t_sin | 34.5 | 22.2 | 0.64 | 15.3 | 0.44 |
+| external_call | 61.1 | 153.7 | 2.52 | 252.3 | 4.18 |
+
+`t_getx`, `t_getx_typed`, `t_sety` and `t_vec` were 0.77 / 1.39 / 1.43 / 1.66 with the JIT on, and 0.73 / 1.40 / 1.42 / 1.61 interpreted. They are now 0.35 / 0.66 / 0.50 / 0.36 and 0.35 / 0.62 / 0.45 / 0.38. All four are under 1.00 in both modes. The acceptance was a JIT ratio ≤ 1.00 and an interpreter ratio ≤ 1.50.
+
+A local `.x` / `.y` / `.z` compiles to `OP_GET_LOCAL_AXIS` or `OP_SET_LOCAL_AXIS`. The generic member instructions are still emitted immediately after, and they run when the value is not a Vector2 or Vector3, or when a Whenever section is mirroring the local. `v = v + Vector2(c)` on a local is `OP_ADD_LOCAL_VEC2_CONST`. Typed and Variant locals both use these ops. Color `.r` stays on `OP_GET_MEMBER`.
+
+Tier 2 still does not compile these four functions. A Vector2 constant is not INT, FLOAT or STRING, so lowering bails at op 0, and `t_vec` returns Variant so it is not attempted. The ratios above are the interpreter in both modes. Scalar replacement of vector locals remains; this commit does not include it.
+
 ### Status (17 Nov 2026)
 
 Done:
@@ -118,13 +144,14 @@ Done:
 - Tier 2 slot typing: `3cddef24`
 - WS2, lean interpreter loop: `568bf467`
 - WS3, `OP_DEBUG_LINE` stripped unless a debugger is attached: `7e812044`
-- Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: this commit
+- Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: `6f7a2500`
+- WS4 axis ops in the VM and the compiler: this commit. The ratio target is met. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and was not required for the ratio.
 
-Not started: WS4 Vector2/Vector3 axis ops, WS5 String/Dictionary globals in Tier 2, WS6 the other interpreter fast paths, WS7 external calls into VG, and the separate implicit-`CLng` note is this commit rather than a later one.
+Not started: WS5 String/Dictionary globals in Tier 2, WS6 the other interpreter fast paths, WS7 external calls into VG.
 
-Next: WS4. With the JIT on, `t_getx_typed` is 1.39, `t_sety` is 1.43, and `t_vec` is 1.66.
+Next: WS5. With the JIT on, `t_dict` is 1.64 and `t_streq` is 1.60.
 
-No new correctness bug in this workstream. The Cdecl `strlen` assert is still the pre-existing suite noise. The editor breakpoint inside a loop was not clicked for WS3.
+No new correctness bug in this workstream. The Cdecl `strlen` assert is still the pre-existing suite noise. The editor breakpoint inside a loop was not clicked for WS3. A parallel `VG_JIT=0` suite run failed `test_db_controls.vg` with "database is locked" (7 FAIL); run alone, that file passed. Suite result after that rerun: 1761 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`.
 
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 

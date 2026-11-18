@@ -3030,6 +3030,9 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_COPY_RECORD]    = &&vg_op_copy_record;
         dispatch_table[OP_TO_F64]         = &&vg_op_to_f64;
         dispatch_table[OP_TO_STR]         = &&vg_op_to_str;
+        dispatch_table[OP_GET_LOCAL_AXIS] = &&vg_op_get_local_axis;
+        dispatch_table[OP_SET_LOCAL_AXIS] = &&vg_op_set_local_axis;
+        dispatch_table[OP_ADD_LOCAL_VEC2_CONST] = &&vg_op_add_local_vec2_const;
         dispatch_table[OP_ARRAY_RESIZE]   = &&vg_op_array_resize;
         dispatch_table[OP_NEW_OBJECT]     = &&vg_op_new_object;
         // v2.10.0 File I/O + GoSub
@@ -3258,6 +3261,109 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (vgfast::vtype(top) != Variant::STRING) {
                     top = Variant(vb_display_string(top));
                 }
+                break;
+            }
+            VG_CASE(vg_op_get_local_axis, OP_GET_LOCAL_AXIS): {
+                // [SLOT] [AXIS] [SKIP_HI] [SKIP_LO]. A Vector2/Vector3 axis is
+                // pushed as a Double and the generic GET_LOCAL + GET_MEMBER
+                // that follows is skipped. Anything else runs that generic code.
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                uint8_t axis = code[vm.ip++];
+                int skip = (code[vm.ip] << 8) | code[vm.ip + 1];
+                vm.ip += 2;
+                const bool direct = slot < locals.size() &&
+                        (!needs_var_sync || isolated_locals || is_fast_slot(slot));
+                if (direct && vgfast::g_layout_ok) {
+                    const Variant &src = locals[slot];
+                    const Variant::Type bt = vgfast::vtype(src);
+                    if (bt == Variant::VECTOR2 && axis <= 1) {
+                        push_value(Variant((double)vgfast::vvec2(src)[axis]));
+                        vm.ip += skip;
+                        break;
+                    }
+                    if (bt == Variant::VECTOR3 && axis <= 2) {
+                        push_value(Variant((double)vgfast::vvec3(src)[axis]));
+                        vm.ip += skip;
+                        break;
+                    }
+                }
+                break;
+            }
+            VG_CASE(vg_op_set_local_axis, OP_SET_LOCAL_AXIS): {
+                // Value is on the stack. On a numeric write into a Vector2/Vector3
+                // the generic SET_MEMBER + SET_LOCAL is skipped. Otherwise the
+                // value stays, with the local pushed under it, for that code.
+                if (vm.ip + 3 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                uint8_t axis = code[vm.ip++];
+                int skip = (code[vm.ip] << 8) | code[vm.ip + 1];
+                vm.ip += 2;
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                const bool direct = slot < locals.size() &&
+                        (!needs_var_sync || isolated_locals || is_fast_slot(slot));
+                if (direct && vgfast::g_layout_ok) {
+                    Variant &vv = vm.stack.back();
+                    const Variant::Type vt = vgfast::vtype(vv);
+                    Variant &dst = locals.write[slot];
+                    const Variant::Type bt = vgfast::vtype(dst);
+                    if ((vt == Variant::INT || vt == Variant::FLOAT) &&
+                            ((bt == Variant::VECTOR2 && axis <= 1) ||
+                                    (bt == Variant::VECTOR3 && axis <= 2))) {
+                        const double d = vgfast::vnum(vv);
+                        if (bt == Variant::VECTOR2) {
+                            Vector2 v = vgfast::vvec2(dst);
+                            v[axis] = (real_t)d;
+                            vgfast::raw_init_vector2(&dst, v);
+                        } else {
+                            Vector3 v = vgfast::vvec3(dst);
+                            v[axis] = (real_t)d;
+                            vgfast::raw_init_vector3(&dst, v);
+                        }
+                        vm.stack.pop_back();
+                        sync_local_tail(slot);
+                        vm.ip += skip;
+                        break;
+                    }
+                }
+                Variant value = pop_value();
+                push_value(read_local(slot));
+                push_value(value);
+                break;
+            }
+            VG_CASE(vg_op_add_local_vec2_const, OP_ADD_LOCAL_VEC2_CONST): {
+                // [SLOT] [CONST_LO] [CONST_HI]. Vector2 + Vector2 updates the
+                // local in place. Every other pair follows OP_ADD.
+                if (vm.ip + 2 >= code_size) { success = false; goto cleanup; }
+                uint8_t slot = code[vm.ip++];
+                int cidx = read_const_index();
+                if (slot >= locals.size() || cidx < 0 || cidx >= chunk->constants.size()) {
+                    raise_error("Invalid vector add");
+                    if (try_recover_error(Variant())) { VG_BREAK; }
+                    success = false;
+                    goto cleanup;
+                }
+                const Variant &c = chunk->constants[cidx];
+                const bool direct = !needs_var_sync || isolated_locals || is_fast_slot(slot);
+                if (direct && vgfast::g_layout_ok &&
+                        vgfast::vtype(locals[slot]) == Variant::VECTOR2 &&
+                        vgfast::vtype(c) == Variant::VECTOR2) {
+                    Variant &dst = locals.write[slot];
+                    vgfast::raw_init_vector2(&dst, vgfast::vvec2(dst) + vgfast::vvec2(c));
+                    sync_local_tail(slot);
+                    break;
+                }
+                Variant cur = read_local(slot);
+                Variant res;
+                bool valid = false;
+                Variant::evaluate(Variant::OP_ADD, cur, c, res, valid);
+                if (!valid && !vg_evaluate_vb_numeric(Variant::OP_ADD, cur, c, res)) {
+                    raise_error("Invalid vector add");
+                    if (try_recover_error(Variant())) { VG_BREAK; }
+                    success = false;
+                    goto cleanup;
+                }
+                sync_local(slot, res);
                 break;
             }
             VG_CASE(vg_op_copy_record, OP_COPY_RECORD): {

@@ -1,0 +1,96 @@
+' Vector axis reads and stores. A Variant that is not a Vector2/Vector3
+' must take the generic member path: an Integer has no .x (Nothing), and
+' putting a Vector2 back afterwards reads the new components.
+Option Explicit
+Inherits Node
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Nudge(ByRef p As Vector2)
+	p.x = p.x + 2
+	p.y = p.y + 3
+End Sub
+
+Sub NudgeVar(ByRef p As Variant)
+	p.x = p.x + 1
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	Dim s As Single
+	Dim p As Vector2
+	Dim q As Variant
+	Dim t As Vector3
+	Dim c As Color
+	Dim v As Variant
+	Dim blank As Variant
+	Dim ignored As Variant
+
+	p = Vector2(3, 4)
+	s = 0
+	For i = 1 To 4
+		s = s + p.x
+	Next
+	Check s = 12, "typed Vector2 .x reads 3 four times"
+
+	p.y = p.y + 1
+	Check p.y = 5, "typed Vector2 .y stores in place"
+	Check p.x = 3, "typed Vector2 .x is unchanged by a .y store"
+
+	q = Vector2(3, 4)
+	s = 0
+	For i = 1 To 4
+		s = s + q.x
+	Next
+	Check s = 12, "Variant Vector2 .x reads 3 four times"
+	q.y = q.y + 1
+	Check q.y = 5, "Variant Vector2 .y stores in place"
+
+	q = Vector2(8, 9)
+	Check q.x = 8, "Variant .x before the type change"
+	q = 7
+	ignored = q.x
+	Check VarType(ignored) = VarType(blank), "Integer .x is Nothing"
+	q = Vector2(6, 1)
+	Check q.x = 6, "Vector2 .x after the value is a vector again"
+	q.y = q.y + 4
+	Check q.y = 5, "Vector2 .y stores after the value is a vector again"
+
+	t = Vector3(1, 2, 3)
+	Check t.z = 3, "Vector3 .z reads"
+	t.z = t.z + 4
+	Check t.z = 7, "Vector3 .z stores"
+	Check t.x = 1, "Vector3 .x is unchanged by a .z store"
+
+	c = Color(0.25, 0.5, 0.75, 1)
+	Check c.r = 0.25, "Color .r reads"
+
+	v = Vector2(0, 0)
+	For i = 1 To 3
+		v = v + Vector2(1, 2) * 0.5
+	Next
+	Check v.x = 1.5, "adding Vector2(1, 2) * 0.5 three times, x"
+	Check v.y = 3, "adding Vector2(1, 2) * 0.5 three times, y"
+
+	p = Vector2(1, 2)
+	Nudge p
+	Check p.x = 3, "ByRef Vector2 .x"
+	Check p.y = 5, "ByRef Vector2 .y"
+
+	q = Vector2(4, 8)
+	NudgeVar q
+	Check q.x = 5, "ByRef Variant Vector2 .x"
+
+	p = Vector2(9, 1)
+	s = 0
+	With p
+		s = .x
+	End With
+	Check s = 9, "With reads .x"
+End Sub

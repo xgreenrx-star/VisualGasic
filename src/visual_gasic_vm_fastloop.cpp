@@ -315,6 +315,79 @@ fl_get_local: { // OP_GET_LOCAL [slot]
 	FL_NEXT();
 }
 
+fl_get_local_axis: { // OP_GET_LOCAL_AXIS [slot] [axis] [skip hi] [skip lo]
+	// Vector2/Vector3 component as a Double. The generic member code after
+	// this instruction runs for every other type.
+	FL_LONG(2)
+	const uint32_t slot = pc[1];
+	const uint32_t axis = pc[2];
+	if (FL_UNLIKELY(slot >= nloc || !vgfast::g_layout_ok)) {
+		goto fl_leave;
+	}
+	const Variant *src = L + slot;
+	const uint32_t bt = fl_type(src);
+	double component;
+	if (bt == (uint32_t)Variant::VECTOR2 && axis <= 1) {
+		component = (double)vgfast::vvec2(*src)[axis];
+	} else if (bt == (uint32_t)Variant::VECTOR3 && axis <= 2) {
+		component = (double)vgfast::vvec3(*src)[axis];
+	} else {
+		goto fl_leave;
+	}
+	FL_ROOM();
+	fl_put_float(sp, component);
+	sp++;
+	pc += 5 + FL_U16_BE(3);
+	FL_NEXT();
+}
+
+fl_set_local_axis: { // OP_SET_LOCAL_AXIS [slot] [axis] [skip hi] [skip lo]
+	// Numeric write into a Vector2/Vector3, in place. The ordinary handler
+	// does the generic SET_MEMBER path, including a non-numeric value.
+	FL_LONG(2)
+	FL_NEED(1);
+	const uint32_t slot = pc[1];
+	const uint32_t axis = pc[2];
+	double d;
+	if (FL_UNLIKELY(slot >= nloc || !vgfast::g_layout_ok || !fl_as_f64(sp - 1, d))) {
+		goto fl_leave;
+	}
+	Variant *dst = L + slot;
+	const uint32_t bt = fl_type(dst);
+	if (bt == (uint32_t)Variant::VECTOR2 && axis <= 1) {
+		Vector2 v = vgfast::vvec2(*dst);
+		v[axis] = (real_t)d;
+		vgfast::raw_init_vector2(dst, v);
+	} else if (bt == (uint32_t)Variant::VECTOR3 && axis <= 2) {
+		Vector3 v = vgfast::vvec3(*dst);
+		v[axis] = (real_t)d;
+		vgfast::raw_init_vector3(dst, v);
+	} else {
+		goto fl_leave;
+	}
+	sp--;
+	pc += 5 + FL_U16_BE(3);
+	FL_NEXT();
+}
+
+fl_add_local_vec2_const: { // OP_ADD_LOCAL_VEC2_CONST [slot] [const lo] [const hi]
+	FL_LONG(1)
+	const uint32_t slot = pc[1];
+	const uint32_t idx = FL_U16_LE(2);
+	if (FL_UNLIKELY(slot >= nloc || idx >= nconst || !vgfast::g_layout_ok)) {
+		goto fl_leave;
+	}
+	const Variant *c = K + idx;
+	Variant *dst = L + slot;
+	if (FL_UNLIKELY(fl_type(dst) != (uint32_t)Variant::VECTOR2 ||
+			fl_type(c) != (uint32_t)Variant::VECTOR2)) {
+		goto fl_leave;
+	}
+	vgfast::raw_init_vector2(dst, vgfast::vvec2(*dst) + vgfast::vvec2(*c));
+	pc += 4;
+	FL_NEXT();
+}
+
 fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 	// Only the memoized hit of a plain module variable: the value pointer
 	// cached at this site is current and the value is not Nothing.  First

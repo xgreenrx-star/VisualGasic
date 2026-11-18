@@ -416,6 +416,21 @@ enum OpCode {
     OP_TO_F64,         // [OP] - Convert TOS to Double (Single/Double assignment target)
     OP_TO_STR,         // [OP] - Convert TOS to its VB display string (String assignment target)
 
+    // Local Vector2/Vector3 axis, with the generic member code after it.
+    //   [OP] [SLOT] [AXIS] [SKIP_HI] [SKIP_LO]
+    // AXIS is 0=x, 1=y, 2=z. When the local is a Vector2 (x/y) or a Vector3
+    // (x/y/z) — and, for a store, the stacked value is numeric — the op does
+    // the axis access and jumps +SKIP over the generic code. SKIP is relative
+    // to the byte after SKIP_LO, like OP_JUMP. Any other value falls through
+    // and that generic GET_MEMBER / SET_MEMBER code runs instead.
+    OP_GET_LOCAL_AXIS,
+    OP_SET_LOCAL_AXIS,
+    // local = local + Vector2 constant. [OP] [SLOT] [CONST_LO] [CONST_HI]
+    // A Vector2 local is updated in place. Any other value uses OP_ADD's rules
+    // and the result is stored back, so a Variant that no longer holds a
+    // Vector2 changes type the same way the generic add would.
+    OP_ADD_LOCAL_VEC2_CONST,
+
     OP_COUNT_          // Sentinel — must be last (used by computed-goto table)
 };
 

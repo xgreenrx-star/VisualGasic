@@ -128,6 +128,9 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_COPY_RECORD);
         OP_NAME_CASE(OP_TO_F64);
         OP_NAME_CASE(OP_TO_STR);
+        OP_NAME_CASE(OP_GET_LOCAL_AXIS);
+        OP_NAME_CASE(OP_SET_LOCAL_AXIS);
+        OP_NAME_CASE(OP_ADD_LOCAL_VEC2_CONST);
         OP_NAME_CASE(OP_FOREACH_STEP);
         OP_NAME_CASE(OP_ARITH_SUM);
         OP_NAME_CASE(OP_BRANCH_SUM);
@@ -340,6 +343,22 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
         case OP_SET_GLOBAL_BUF8:
             if (operands.size() >= 2) {
                 return describe_constant(chunk, const16(0));
+            }
+            break;
+        case OP_GET_LOCAL_AXIS:
+        case OP_SET_LOCAL_AXIS:
+            if (operands.size() >= 4) {
+                static const char *axis_name[] = { "x", "y", "z" };
+                const int axis = int(operands[1]);
+                const char *an = (axis >= 0 && axis <= 2) ? axis_name[axis] : "?";
+                const int skip = (int(operands[2]) << 8) | int(operands[3]);
+                return vformat("%s.%s +%d", describe_local_slot(chunk, int(operands[0])), an, skip);
+            }
+            break;
+        case OP_ADD_LOCAL_VEC2_CONST:
+            if (operands.size() >= 3) {
+                int cidx = (int(operands[2]) << 8) | int(operands[1]);
+                return vformat("%s += %s", describe_local_slot(chunk, int(operands[0])), describe_constant(chunk, cidx));
             }
             break;
         case OP_GET_LOCAL:

@@ -55,6 +55,9 @@
 	X(OP_FALSE, lit_false) \
 	X(OP_GET_LOCAL, get_local) \
 	X(OP_SET_LOCAL, set_local) \
+	X(OP_GET_LOCAL_AXIS, get_local_axis) \
+	X(OP_SET_LOCAL_AXIS, set_local_axis) \
+	X(OP_ADD_LOCAL_VEC2_CONST, add_local_vec2_const) \
 	X(OP_GET_GLOBAL, get_global) \
 	X(OP_SET_GLOBAL, set_global) \
 	X(OP_CALL, call) \
