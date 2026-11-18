@@ -1,0 +1,252 @@
+Option Explicit
+Inherits Node2D
+
+' Twin of sim_gd.gd — same particle integrate math.
+' SUBSTEPS IntegrateOne calls per particle between Array loads/stores so the
+' call-path win (vm_gap t_call) is visible beside GDScript.
+
+Const SUBSTEPS As Integer = 24
+
+Dim WorkloadMode As Integer
+Dim Count As Integer
+Dim ModeCalls As Boolean
+Dim W As Single
+Dim H As Single
+Dim Px As Array
+Dim Py As Array
+Dim Vx As Array
+Dim Vy As Array
+Dim DataArray As Array
+Dim DataKeys As Array
+Dim DataDict As Dictionary
+Dim LastUsec As Integer
+Dim LastChecksum As Double
+Dim DotColor As Color
+Dim Dirty As Boolean
+
+Sub _Ready()
+	DotColor = Color(0.45, 0.95, 0.55, 0.85)
+	Dirty = True
+	Px = Array()
+	Py = Array()
+	Vx = Array()
+	Vy = Array()
+End Sub
+
+Function IntegrateOne(ByVal X As Single, ByVal V As Single, ByVal Dt As Single) As Single
+	Return X + V * Dt
+End Function
+
+Function IncrementOne(ByVal Value As Long) As Long
+	Return Value + 1
+End Function
+
+Sub SelectWorkload(ByVal Mode As Integer)
+	WorkloadMode = Mode
+End Sub
+
+Sub Reset(ByVal N As Integer, ByVal Width As Single, ByVal Height As Single, ByVal UseCalls As Boolean)
+	Dim I As Integer
+	Dim A As Single
+	Count = N
+	W = Width
+	H = Height
+	ModeCalls = UseCalls
+	Px = Array()
+	Py = Array()
+	Vx = Array()
+	Vy = Array()
+	DataArray = Array()
+	DataKeys = Array()
+	Set DataDict = New Dictionary
+	Px.resize(N)
+	Py.resize(N)
+	Vx.resize(N)
+	Vy.resize(N)
+	DataArray.resize(N)
+	DataKeys.resize(N)
+	For I = 0 To N - 1
+		A = CSng(I) * 0.0174533
+		Px(I) = Width * 0.5 + Cos(A) * (40.0 + CSng(I Mod 97))
+		Py(I) = Height * 0.5 + Sin(A) * (40.0 + CSng(I Mod 73))
+		Vx(I) = Cos(A * 1.3) * (40.0 + CSng(I Mod 29))
+		Vy(I) = Sin(A * 1.7) * (40.0 + CSng(I Mod 31))
+		DataArray(I) = I
+		DataKeys(I) = CStr(I)
+		DataDict(DataKeys(I)) = I
+	Next
+	Dirty = True
+	QueueRedraw()
+End Sub
+
+Function Step(ByVal Dt As Single) As Double
+	Dim I As Integer
+	Dim S As Integer
+	Dim J As Integer
+	Dim RepeatIndex As Integer
+	Dim Flag As Integer
+	Dim X As Single
+	Dim Y As Single
+	Dim XV As Single
+	Dim YV As Single
+	Dim SubDt As Single
+	Dim Sum As Double
+	Dim Text As String
+	Dim T0 As Integer
+	T0 = Time.get_ticks_usec()
+	Sum = 0
+	SubDt = Dt / CSng(SUBSTEPS)
+	If WorkloadMode = 0 Then
+		If ModeCalls Then
+			For I = 0 To Count - 1
+				X = Px(I)
+				Y = Py(I)
+				XV = Vx(I)
+				YV = Vy(I)
+				For S = 1 To SUBSTEPS
+					X = IntegrateOne(X, XV, SubDt)
+					Y = IntegrateOne(Y, YV, SubDt)
+				Next
+				If X < 0 Then
+					X = -X
+					XV = -XV
+				ElseIf X > W Then
+					X = W - (X - W)
+					XV = -XV
+				End If
+				If Y < 0 Then
+					Y = -Y
+					YV = -YV
+				ElseIf Y > H Then
+					Y = H - (Y - H)
+					YV = -YV
+				End If
+				Px(I) = X
+				Py(I) = Y
+				Vx(I) = XV
+				Vy(I) = YV
+				Sum = Sum + X + Y
+			Next
+		Else
+			For I = 0 To Count - 1
+				X = Px(I)
+				Y = Py(I)
+				XV = Vx(I)
+				YV = Vy(I)
+				For S = 1 To SUBSTEPS
+					X = X + XV * SubDt
+					Y = Y + YV * SubDt
+				Next
+				If X < 0 Then
+					X = -X
+					XV = -XV
+				ElseIf X > W Then
+					X = W - (X - W)
+					XV = -XV
+				End If
+				If Y < 0 Then
+					Y = -Y
+					YV = -YV
+				ElseIf Y > H Then
+					Y = H - (Y - H)
+					YV = -YV
+				End If
+				Px(I) = X
+				Py(I) = Y
+				Vx(I) = XV
+				Vy(I) = YV
+				Sum = Sum + X + Y
+			Next
+		End If
+	Else
+		Select Case WorkloadMode
+			Case 1
+				For I = 1 To Count
+					For J = 0 To 31
+						Sum = Sum + (J * 3) - 7
+					Next
+				Next
+			Case 2
+				For RepeatIndex = 1 To 16
+					For I = 0 To Count - 1
+						Sum = Sum + DataArray(I)
+					Next
+				Next
+			Case 3
+				For RepeatIndex = 1 To 4
+					For I = 0 To Count - 1
+						Sum = Sum + DataDict(DataKeys(I))
+					Next
+				Next
+			Case 4
+				For I = 1 To Count
+					Flag = 0
+					For J = 0 To 31
+						If Flag = 0 Then
+							Sum = Sum + J
+							Flag = 1
+						Else
+							Sum = Sum - J
+							Flag = 0
+						End If
+					Next
+				Next
+			Case 5
+				For I = 1 To Count
+					Text = ""
+					For J = 1 To 32
+						Text = Text & "x"
+					Next
+				Next
+				Sum = Len(Text)
+			Case 6
+				For I = 1 To Count
+					For S = 1 To SUBSTEPS
+						If ModeCalls Then
+							Sum = IncrementOne(CLng(Sum))
+						Else
+							Sum = Sum + 1
+						End If
+					Next
+				Next
+		End Select
+	End If
+	LastUsec = Time.get_ticks_usec() - T0
+	LastChecksum = Sum
+	Dirty = True
+	Return Sum
+End Function
+
+' Burn wall-clock budget inside VG (one host call → many ticks).
+' Host must not loop Step() itself — that pays GD→VG external call every tick.
+Function RunBudget(ByVal BudgetUsec As Integer, ByVal Dt As Single) As Integer
+	Dim T0 As Integer
+	Dim TEnd As Integer
+	Dim Ticks As Integer
+	T0 = Time.get_ticks_usec()
+	TEnd = T0 + BudgetUsec
+	Ticks = 0
+	Do
+		Step(Dt)
+		Ticks = Ticks + 1
+	Loop While Time.get_ticks_usec() < TEnd
+	LastUsec = CInt((Time.get_ticks_usec() - T0) / CSng(Ticks))
+	Dirty = True
+	Return Ticks
+End Function
+
+Sub _Draw()
+	Dim I As Integer
+	Dim R As Single
+	DrawRect(Rect2(0, 0, W, H), Color(0.08, 0.09, 0.12), True)
+	If WorkloadMode <> 0 Then
+		DrawRect(Rect2(32, H * 0.5 - 12, Min(W - 64, LastUsec / 1000.0), 24), DotColor, True)
+		Dirty = False
+		Exit Sub
+	End If
+	R = 2
+	For I = 0 To Count - 1
+		DrawCircle(Vector2(Px(I), Py(I)), R, DotColor)
+	Next
+	Dirty = False
+End Sub

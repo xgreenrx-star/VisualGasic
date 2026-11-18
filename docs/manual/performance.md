@@ -99,6 +99,8 @@ eliminated by these dispatch fixes.
 - Build: Visual Gasic GDExtension (`target=editor`)
 - Date: **2026-08-25** (compute + draw refresh)
 - Canonical published table: **[BENCHMARK_PUBLISHED_RESULTS.md](../../BENCHMARK_PUBLISHED_RESULTS.md)**
+- VM gap quiet-pair (18 Nov 2026): same file § **VM gap microbench** · gate `scripts/check_vm_gap.sh`
+- Side-by-side visual demo: `samples/apps/vg_speed_race/`
 
 ## Native JIT (x86-64, on by default)
 

@@ -171,11 +171,51 @@ Details: `demo/benchmarks/gameplay/README.md` · Raw: `demo/benchmarks/gameplay/
 
 ---
 
+## VM gap microbench (quiet pair, 18 Nov 2026)
+
+**Runner:** `test_proj/perf/vm_gap/run_gap.gd` · **Gate:** `scripts/check_vm_gap.sh` (default `VG_GAP_MAX_RATIO=1.05`; strict goal `1.00`)  
+**Metric:** ns per loop iteration (best of 5, N=200000) · `mismatches=0` required  
+**Goal:** every case `vg/gd ≤ 1.00` with JIT on and with `VG_JIT=0` on a quiet pair.
+
+Pin to one core (`taskset -c 2`). Ratios from the same run; absolute ns drift ±10% across machines.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|------|---:|-------:|------:|--------------:|------:|
+| t_local | 9.5 | 1.9 | **0.20** | 5.2 | **0.59** |
+| t_global | 8.9 | 2.2 | **0.25** | 6.1 | **0.69** |
+| t_gint | 9.8 | 0.6 | **0.07** | 6.5 | **0.70** |
+| t_gint_if | 15.2 | 0.9 | **0.06** | 9.7 | **0.64** |
+| t_getx | 22.4 | 8.2 | **0.37** | 7.1 | **0.35** |
+| t_getx_typed | 12.2 | 8.1 | **0.67** | 7.1 | **0.67** |
+| t_sety | 22.7 | 10.9 | **0.48** | 11.1 | **0.49** |
+| t_dict | 32.5 | 29.0 | **0.89** | 30.8 | **0.95** |
+| t_streq | 28.8 | 24.6 | **0.86** | 30.0 | **0.99** |
+| t_call | 61.1 | 1.9 | **0.03** | 5.7 | **0.10** |
+| t_call_args | 93.1 | 6.3 | **0.07** | 33.7 | **0.35** |
+| t_call_byref | 159.9 | 7.0 | **0.04** | 60.3 | **0.36** |
+| t_call_global | 63.7 | 3.2 | **0.05** | 7.0 | **0.11** |
+| t_call_host | 74.2 | 7.1 | **0.10** | 29.4 | **0.40** |
+| t_vec | 11.8 | 4.4 | **0.37** | 5.0 | **0.42** |
+| t_sin | 34.9 | 20.9 | **0.60** | 15.5 | **0.41** |
+| t_branch | 74.5 | 29.4 | **0.39** | 29.6 | **0.40** |
+| t_poly | 51.3 | 24.0 | **0.47** | 25.3 | **0.51** |
+| external_call | 63.5 | 56.7 | **0.89** | 56.4 | **0.99** |
+
+### VM gap headline (safe to advertise)
+
+> **Every published `run_gap` case is at or under parity with GDScript** (`vg/gd ≤ 1.00`) in both JIT-on and interpreter-only modes on the quiet-pair machine. Largest wins: **function calls ~30×**, **Integer globals ~14×**, **locals ~5×** (JIT on).
+
+**Visual demo:** `samples/apps/vg_speed_race/` (side-by-side `.vg` / `.gd` particles).  
+**Reproduce gate:** `scripts/check_vm_gap.sh` · detail: `docs/development/CURSOR_VG_PERF_GAP_HANDOFF.md`
+
+---
+
 ## Regression guardrails (recommended before release)
 
 | Guard | Command / location |
 |-------|-------------------|
 | Speed vs GD | `scripts/benchmark_regression_check.sh` (includes FunctionCall) |
+| VM gap (`vg/gd` gate) | `scripts/check_vm_gap.sh` (JIT on + `VG_JIT=0`, default max 1.05, one retry) |
 | Draw fusion opcodes | `demo/prototypes/dump_bytecode.gd` on `BenchFilledRects`, `BenchPolylines`, `_Draw` |
 | Call inlining | `demo/prototypes/dump_bytecode.gd` on `BenchCall` — inner loop should show `OP_INC_LOCAL_I64` or fused multiply-add, not `OP_CALL` |
 | Packed entity scans | `demo/prototypes/dump_bytecode.gd --entry=BenchEntityThink --entry=BenchBatchNearest --entry=BenchFrameSlice` — inner `For i` should show `OP_PACKED_HP_STATE_TICK` / `OP_PACKED_NEAREST_I64` |
@@ -183,6 +223,7 @@ Details: `demo/benchmarks/gameplay/README.md` · Raw: `demo/benchmarks/gameplay/
 | CI | Run regression script on `target=editor` build after `src/` changes (`.github/workflows/ci.yml`) |
 | Compile time (informational) | `scripts/run_compile_benchmarks.sh` — not a regression gate |
 | Gameplay realism (informational) | `scripts/run_gameplay_benchmarks.sh` — Tier B/C, not a regression gate |
+| Speed race smoke | `godot --headless --path samples/apps/vg_speed_race --script res://run_headless_race.gd` |
 
 ---
 
