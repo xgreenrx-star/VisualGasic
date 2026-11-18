@@ -1,0 +1,94 @@
+' Issue #25: AndAlso / OrElse leave a value on the stack at a jump join.
+' Tier 2 must return the same result as the interpreter (or decline JIT).
+Option Explicit
+Inherits Node
+
+Dim side As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function Bump() As Boolean
+	side = side + 1
+	Return True
+End Function
+
+Function AndAlsoAssign(ByVal a As Boolean, ByVal b As Boolean) As Boolean
+	Dim r As Boolean
+	r = a AndAlso b
+	Return r
+End Function
+
+Function OrElseAssign(ByVal a As Boolean, ByVal b As Boolean) As Boolean
+	Dim r As Boolean
+	r = a OrElse b
+	Return r
+End Function
+
+Function AndAlsoIf(ByVal a As Boolean, ByVal b As Boolean) As Integer
+	If a AndAlso b Then
+		Return 1
+	End If
+	Return 0
+End Function
+
+Function OrElseIf(ByVal a As Boolean, ByVal b As Boolean) As Integer
+	If a OrElse b Then
+		Return 1
+	End If
+	Return 0
+End Function
+
+Function EagerAnd(ByVal a As Boolean) As Boolean
+	side = 0
+	Dim r As Boolean
+	r = a And Bump()
+	Return r
+End Function
+
+Function ShortAndAlso(ByVal a As Boolean) As Boolean
+	side = 0
+	Dim r As Boolean
+	r = a AndAlso Bump()
+	Return r
+End Function
+
+Sub _Ready()
+	Dim i As Integer
+	' Warm any JIT threshold with both outcomes.
+	For i = 1 To 64
+		Call AndAlsoAssign(True, True)
+		Call AndAlsoAssign(False, True)
+		Call OrElseAssign(False, False)
+		Call OrElseAssign(True, False)
+		Call AndAlsoIf(True, False)
+		Call OrElseIf(False, True)
+	Next
+
+	Check AndAlsoAssign(True, True) = True, "andalso TT"
+	Check AndAlsoAssign(True, False) = False, "andalso TF"
+	Check AndAlsoAssign(False, True) = False, "andalso FT"
+	Check AndAlsoAssign(False, False) = False, "andalso FF"
+
+	Check OrElseAssign(False, False) = False, "orelse FF"
+	Check OrElseAssign(False, True) = True, "orelse FT"
+	Check OrElseAssign(True, False) = True, "orelse TF"
+	Check OrElseAssign(True, True) = True, "orelse TT"
+
+	Check AndAlsoIf(True, True) = 1, "andalso if TT"
+	Check AndAlsoIf(False, True) = 0, "andalso if FT"
+	Check OrElseIf(False, False) = 0, "orelse if FF"
+	Check OrElseIf(False, True) = 1, "orelse if FT"
+
+	Check EagerAnd(False) = False, "and eager result"
+	Check side = 1, "and eager bumps"
+	Check ShortAndAlso(False) = False, "andalso skip result"
+	Check side = 0, "andalso skips right"
+	Check ShortAndAlso(True) = True, "andalso eval right"
+	Check side = 1, "andalso runs right when left true"
+End Sub

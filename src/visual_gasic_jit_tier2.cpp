@@ -907,6 +907,12 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     
     // Simulated value stack → maps to virtual registers
     std::vector<int> vstack;
+    // Jump-target IP → operand-stack height on every edge that lands there.
+    // AndAlso/OrElse push False/True on the short-circuit edge after
+    // JUMP_IF_* popped the left operand; a linear walk would still hold the
+    // fall-through value. Record heights at jumps; reseat at labels.
+    std::unordered_map<int, int> label_stack_height;
+    bool prev_unconditional_jump = false;
     
     // vreg → integer constant value (for constant-shift-count detection)
     std::unordered_map<int, int64_t> vreg_const_i64;
@@ -924,6 +930,22 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     auto get_vreg_type = [&](int vreg) -> IRType {
         if (vreg >= 0 && vreg < (int)vreg_type_map.size()) return vreg_type_map[vreg];
         return IRType::I64;
+    };
+    auto note_label_height = [&](int target_ip, int height) -> bool {
+        auto it = label_stack_height.find(target_ip);
+        if (it == label_stack_height.end()) {
+            label_stack_height[target_ip] = height;
+            return true;
+        }
+        return it->second == height;
+    };
+    auto reseat_vstack = [&](int height) {
+        vstack.clear();
+        for (int i = 0; i < height; i++) {
+            int ph = next_vreg++;
+            set_vreg_type(ph, IRType::I64);
+            vstack.push_back(ph);
+        }
     };
     
     // ── Slot kinds ───────────────────────────────────────────────────────
@@ -1639,6 +1661,24 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
             lbl.label_id = label_it->second;
             lbl.bc_offset = ip;
             ir.push_back(lbl);
+            auto hit = label_stack_height.find(ip);
+            if (hit != label_stack_height.end()) {
+                const int want = hit->second;
+                if (prev_unconditional_jump) {
+                    // Dead fall-through after JUMP into the short-circuit arm
+                    // (AndAlso/OrElse pushes False/True here). Reseat to the
+                    // height the conditional edge recorded.
+                    reseat_vstack(want);
+                } else if ((int)vstack.size() != want) {
+                    return false;
+                } else if (want > 0) {
+                    // Expression join with a live stack (AndAlso/OrElse): each
+                    // edge leaves a different value. Tier 2 has no phi merge
+                    // yet — decline and keep the bytecode/interpreter result.
+                    return false;
+                }
+            }
+            prev_unconditional_jump = false;
         }
         
         uint8_t op = code[ip];
@@ -2349,12 +2389,14 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 int target = ip + 3 + offset;
                 auto it = ip_to_label.find(target);
                 if (it == ip_to_label.end()) return false;
+                if (!note_label_height(target, (int)vstack.size())) return false;
                 IRInst inst;
                 inst.op = IROp::JUMP;
                 inst.label_id = it->second;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 ip += 3;
+                prev_unconditional_jump = true;
                 break;
             }
             
@@ -2365,6 +2407,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (it == ip_to_label.end()) return false;
                 if (vstack.empty()) return false;
                 int cond = f64_cond_to_i64(vstack.back(), ip); vstack.pop_back();
+                if (!note_label_height(target, (int)vstack.size())) return false;
                 IRInst inst;
                 inst.op = IROp::JUMP_IF_FALSE;
                 inst.src1 = cond;
@@ -2372,6 +2415,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 ip += 3;
+                prev_unconditional_jump = false;
                 break;
             }
             
@@ -2382,6 +2426,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 if (it == ip_to_label.end()) return false;
                 if (vstack.empty()) return false;
                 int cond = f64_cond_to_i64(vstack.back(), ip); vstack.pop_back();
+                if (!note_label_height(target, (int)vstack.size())) return false;
                 IRInst inst;
                 inst.op = IROp::JUMP_IF_TRUE;
                 inst.src1 = cond;
@@ -2389,6 +2434,7 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 ip += 3;
+                prev_unconditional_jump = false;
                 break;
             }
             
@@ -2397,12 +2443,14 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
                 int target = ip + 3 - offset;
                 auto it = ip_to_label.find(target);
                 if (it == ip_to_label.end()) return false;
+                if (!note_label_height(target, (int)vstack.size())) return false;
                 IRInst inst;
                 inst.op = IROp::JUMP;
                 inst.label_id = it->second;
                 inst.bc_offset = ip;
                 ir.push_back(inst);
                 ip += 3;
+                prev_unconditional_jump = false;
                 break;
             }
             
