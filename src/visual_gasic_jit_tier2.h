@@ -169,8 +169,11 @@ enum class IROp : uint8_t {
     // bc_offset with the numeric slots written back.
     // VSTR_EQ_CONST: dest(i64 0/1) = (Variant*)src1 == constants[imm_i64]
     // VDICT_GET_F64: dest(f64) = dictionary[(Variant*)src1][constants[imm_i64]]
+    // VLEN: dest(i64) = OP_LEN of (Variant*)src1. A non-collection is 0.
+    // It does not deopt, so a direct callee may use it.
     VSTR_EQ_CONST,
-    VDICT_GET_F64
+    VDICT_GET_F64,
+    VLEN
 };
 
 struct IRInst {

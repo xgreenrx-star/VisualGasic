@@ -1,0 +1,67 @@
+' Len of a module value, and a call that returns Len(global) + argument.
+' tag_len is the t_call_host shape. wide is a different name, a different
+' global, and the length sits inside an If.
+Option Explicit
+Inherits Node
+
+Dim gs As String
+Dim title As String
+Dim bag As Dictionary
+Dim box As Variant
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function tag_len(ByVal i As Integer) As Integer
+	Return Len(gs) + i
+End Function
+
+Function wide(ByVal i As Integer) As Integer
+	If i > 0 Then
+		Return Len(title) + 1
+	End If
+	Return Len(title)
+End Function
+
+Sub _Ready()
+	gs = "talk"
+	Check Len(gs) = 4, "string length"
+	gs = ""
+	Check Len(gs) = 0, "empty string"
+	gs = "talk"
+	Check tag_len(3) = 7, "call length plus argument"
+
+	Dim n As Integer
+	Dim total As Integer = 0
+	For n = 1 To 4
+		total = total + tag_len(n)
+	Next
+	Check total = 26, "loop call"
+
+	title = "ab"
+	Check wide(2) = 3, "other name inside if"
+	Check wide(0) = 2, "other name on the other edge"
+
+	box = 5
+	Check Len(box) = 0, "integer length is zero"
+	Dim sbox As Variant
+	sbox = "ab"
+	Check Len(sbox) = 2, "variant string length"
+
+	bag = New Dictionary
+	bag("a") = 1
+	bag("b") = 2
+	Check Len(bag) = 2, "dictionary length"
+
+	Dim nums As Array
+	nums = Array(1, 2, 3)
+	Check Len(nums) = 3, "array length"
+
+	gs = "xy"
+	Check tag_len(1) = 3, "length follows the string"
+End Sub

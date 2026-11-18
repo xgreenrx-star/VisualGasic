@@ -1472,9 +1472,16 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
         }
         IRInst dc;
         dc.op = IROp::DIRECT_CALL;
-        dc.type = IRType::F64;
+        // An Integer/Long result stays an integer. Forcing it through F64
+        // makes the caller's Integer local a Double on the next pass.
+        {
+            const String rt = is_function ? cfunc->return_type.to_lower() : String();
+            const bool ret_int = rt == "integer" || rt == "long" || rt == "longlong" ||
+                    rt == "byte" || rt == "short";
+            dc.type = ret_int ? IRType::I64 : IRType::F64;
+        }
         dc.dest = next_vreg++;
-        set_vreg_type(dc.dest, IRType::F64);
+        set_vreg_type(dc.dest, dc.type);
         dc.imm_i64 = (int64_t)reinterpret_cast<intptr_t>(callee);
         dc.call_pool[0] = ret_a;
         dc.call_pool[1] = ret_b;
@@ -1512,6 +1519,21 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     // on the next iteration. The dict helper deopts back to this GET_GLOBAL,
     // which is only safe when the operand stack was empty here.
     auto lower_vref_use = [&](int at_ip, int vslot) -> int {
+        // Len(global). The pointer is read at the use. OP_LEN of a
+        // non-collection is 0, so this does not deopt.
+        if (at_ip + 3 < size && code[at_ip + 3] == OP_LEN) {
+            const int ptr = load_slot(vslot, at_ip);
+            IRInst len;
+            len.op = IROp::VLEN;
+            len.type = IRType::I64;
+            len.dest = next_vreg++;
+            set_vreg_type(len.dest, IRType::I64);
+            len.src1 = ptr;
+            len.bc_offset = at_ip;
+            ir.push_back(len);
+            vstack.push_back(len.dest);
+            return at_ip + 4;
+        }
         if (!vstack.empty()) return -1;
         if (at_ip + 3 >= size) return -1;
         // The compiler emits the constant index on the compare or the
@@ -3143,7 +3165,7 @@ bool Tier2::alloc_regs(const std::vector<IRInst>& ir, int vreg_count, RegAlloc& 
         if (inst.op == IROp::LIBM1 || inst.op == IROp::RUNTIME_CALL ||
             inst.op == IROp::ARRAY_GET || inst.op == IROp::BYREF_LOAD ||
             inst.op == IROp::DIRECT_CALL || inst.op == IROp::VSTR_EQ_CONST ||
-            inst.op == IROp::VDICT_GET_F64) {
+            inst.op == IROp::VDICT_GET_F64 || inst.op == IROp::VLEN) {
             next_spill = 968;
             break;
         }
@@ -3423,6 +3445,50 @@ int jit_consume_deopt_ip() {
     const int ip = g_jit_deopt_ip;
     g_jit_deopt_ip = -1;
     return ip;
+}
+
+// OP_LEN. A String or StringName reports its character count. An Array,
+// Dictionary, or packed array reports its size. Anything else is 0, which
+// is what the interpreter pushes. A null box is the erased-variable case
+// the entry check already refuses; 0 keeps the read from crashing.
+static int64_t vg_jit_vlen(const Variant *box) {
+    if (!box) {
+        return 0;
+    }
+    switch (vgfast::vtype(*box)) {
+        case Variant::STRING: {
+            const String *s = VariantInternal::get_string(box);
+            return s ? (int64_t)s->length() : 0;
+        }
+        case Variant::STRING_NAME:
+            return (int64_t)String(*box).length();
+        case Variant::ARRAY:
+            return (int64_t)((Array)*box).size();
+        case Variant::DICTIONARY:
+            return (int64_t)((Dictionary)*box).size();
+        case Variant::PACKED_BYTE_ARRAY:
+            return (int64_t)((PackedByteArray)*box).size();
+        case Variant::PACKED_INT32_ARRAY:
+            return (int64_t)((PackedInt32Array)*box).size();
+        case Variant::PACKED_INT64_ARRAY:
+            return (int64_t)((PackedInt64Array)*box).size();
+        case Variant::PACKED_FLOAT32_ARRAY:
+            return (int64_t)((PackedFloat32Array)*box).size();
+        case Variant::PACKED_FLOAT64_ARRAY:
+            return (int64_t)((PackedFloat64Array)*box).size();
+        case Variant::PACKED_STRING_ARRAY:
+            return (int64_t)((PackedStringArray)*box).size();
+        case Variant::PACKED_VECTOR2_ARRAY:
+            return (int64_t)((PackedVector2Array)*box).size();
+        case Variant::PACKED_VECTOR3_ARRAY:
+            return (int64_t)((PackedVector3Array)*box).size();
+        case Variant::PACKED_COLOR_ARRAY:
+            return (int64_t)((PackedColorArray)*box).size();
+        case Variant::PACKED_VECTOR4_ARRAY:
+            return (int64_t)((PackedVector4Array)*box).size();
+        default:
+            return 0;
+    }
 }
 
 // String equality against a constant. Two strings compare by length and then
@@ -3762,7 +3828,8 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
     for (const auto &probe : ir) {
         if (probe.op == IROp::LIBM1 || probe.op == IROp::RUNTIME_CALL || probe.op == IROp::ARRAY_GET ||
             probe.op == IROp::BYREF_LOAD || probe.op == IROp::DIRECT_CALL ||
-            probe.op == IROp::VSTR_EQ_CONST || probe.op == IROp::VDICT_GET_F64) {
+            probe.op == IROp::VSTR_EQ_CONST || probe.op == IROp::VDICT_GET_F64 ||
+            probe.op == IROp::VLEN) {
             needs_host = true;
         }
         if (probe.op == IROp::DIRECT_CALL) {
@@ -4536,6 +4603,19 @@ CompiledFunc* Tier2::emit_native(const std::vector<IRInst>& ir, const RegAlloc& 
                 }
                 emit_host_imm(cb, 1, (int64_t)lit);
                 cb.call_abs((uint64_t)&vg_jit_vstr_eq);
+                cb.store_rbp_i64(496, Reg::RAX);
+                cb.load_rbp_i64(Reg::RDI, 512);
+                restore_caller(ii, inst.dest);
+                cb.load_rbp_i64(Reg::RAX, 496);
+                store_result(cb, alloc, inst.dest, Reg::RAX);
+                break;
+            }
+            case IROp::VLEN: {
+                save_caller(ii, inst.dest);
+                cb.store_rbp_i64(512, Reg::RDI);
+                Reg p = get_or_load(cb, alloc, inst.src1, Reg::RAX);
+                emit_host_reg(cb, 0, p);
+                cb.call_abs((uint64_t)&vg_jit_vlen);
                 cb.store_rbp_i64(496, Reg::RAX);
                 cb.load_rbp_i64(Reg::RDI, 512);
                 restore_caller(ii, inst.dest);

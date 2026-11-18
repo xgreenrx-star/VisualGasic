@@ -155,6 +155,30 @@ FL_INLINE bool fl_as_f64(const Variant *v, double &out) {
 	}
 	return false;
 }
+// OP_LEN. Same table as the interpreter: character count, collection size,
+// and 0 for every other type.
+FL_INLINE int64_t fl_len(const Variant *v, uint32_t t) {
+	if (t == (uint32_t)Variant::STRING) {
+		const String *s = VariantInternal::get_string(v);
+		return s ? (int64_t)s->length() : 0;
+	}
+	if (t == (uint32_t)Variant::STRING_NAME) {
+		return (int64_t)String(*v).length();
+	}
+	if (t == (uint32_t)Variant::ARRAY) return (int64_t)((Array)*v).size();
+	if (t == (uint32_t)Variant::DICTIONARY) return (int64_t)((Dictionary)*v).size();
+	if (t == (uint32_t)Variant::PACKED_BYTE_ARRAY) return (int64_t)((PackedByteArray)*v).size();
+	if (t == (uint32_t)Variant::PACKED_INT32_ARRAY) return (int64_t)((PackedInt32Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_INT64_ARRAY) return (int64_t)((PackedInt64Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_FLOAT32_ARRAY) return (int64_t)((PackedFloat32Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_FLOAT64_ARRAY) return (int64_t)((PackedFloat64Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_STRING_ARRAY) return (int64_t)((PackedStringArray)*v).size();
+	if (t == (uint32_t)Variant::PACKED_VECTOR2_ARRAY) return (int64_t)((PackedVector2Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_VECTOR3_ARRAY) return (int64_t)((PackedVector3Array)*v).size();
+	if (t == (uint32_t)Variant::PACKED_COLOR_ARRAY) return (int64_t)((PackedColorArray)*v).size();
+	if (t == (uint32_t)Variant::PACKED_VECTOR4_ARRAY) return (int64_t)((PackedVector4Array)*v).size();
+	return 0;
+}
 // The VM's to_bool() for the types that need no engine call.
 FL_INLINE bool fl_truth(const Variant *v, bool &out) {
 	switch (fl_type(v)) {
@@ -410,6 +434,16 @@ fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 	}
 	const Variant *src = e.gptr;
 	const uint32_t t = fl_type(src);
+	// Len(global) pushes the length. Copying a String or Dictionary onto
+	// the stack first would refcount it, and OP_LEN is not itself in this
+	// loop, so the rest of the call would leave too.
+	if ((size_t)(safe_end - pc) > 3 && pc[3] == OP_LEN) {
+		FL_ROOM();
+		fl_put_int(sp, fl_len(src, t));
+		sp++;
+		pc += 4;
+		FL_NEXT();
+	}
 	if (FL_UNLIKELY(t == FL_NIL)) {
 		goto fl_leave;
 	}
