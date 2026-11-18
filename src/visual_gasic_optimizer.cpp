@@ -99,6 +99,8 @@ int VisualGasicOptimizer::instruction_size(const Vector<uint8_t>& code, int ip) 
         // 3-byte instructions (opcode + 1 const-pool index [2-byte LE])
         case OP_CONSTANT:                                              // [OP] [CONST_LO] [CONST_HI]
         case OP_CONSTANT_LONG:                                         // [OP] [CONST_LO] [CONST_HI] (now same as OP_CONSTANT)
+        case OP_EQ_STR_CONST:                                          // [OP] [CONST_LO] [CONST_HI]
+        case OP_GET_DICT_CONST:                                        // [OP] [CONST_LO] [CONST_HI]
         case OP_GET_GLOBAL: case OP_SET_GLOBAL:                       // [OP] [NAME_LO] [NAME_HI]
         case OP_GET_MEMBER: case OP_SET_MEMBER:                       // [OP] [NAME_LO] [NAME_HI]
         case OP_REGISTER_WHENEVER: case OP_SUSPEND_WHENEVER: case OP_RESUME_WHENEVER:

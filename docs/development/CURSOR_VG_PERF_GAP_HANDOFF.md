@@ -166,6 +166,36 @@ A dictionary value that is not a number, or a missing key, returns from the nati
 
 Inside a Function, the tree-walk clears a Single when the addend is a String or a missing-key Nothing. The bytecode coerces `"3"` to 3 and a missing key to 0. `VG_FORCE_AST=1` on `test_jit_string_dict_globals.vg` therefore fails "dict deopt" and "missing key". The three regression modes do not set that flag. This was not changed.
 
+### 17 Nov 2026, after interpreter string, dictionary and leaf-call paths
+
+`run_gap.gd`, one best-of-5 run, `mismatches=0` both modes. GD `t_local` was 10.6 ns with the JIT on and 12.9 ns with `VG_JIT=0`. The GD column is the JIT-on run. Each ratio is from its own run.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 10.6 | 2.3 | 0.22 | 7.4 | 0.57 |
+| t_global | 10.6 | 2.4 | 0.22 | 7.4 | 0.57 |
+| t_gint | 10.6 | 0.7 | 0.07 | 13.3 | 1.05 |
+| t_gint_if | 19.0 | 1.0 | 0.05 | 17.6 | 0.78 |
+| t_getx | 24.9 | 8.7 | 0.35 | 9.8 | 0.35 |
+| t_getx_typed | 13.4 | 8.7 | 0.65 | 9.7 | 0.64 |
+| t_sety | 27.1 | 14.0 | 0.51 | 15.2 | 0.50 |
+| t_dict | 42.4 | 30.6 | 0.72 | 50.2 | 1.09 |
+| t_streq | 38.6 | 29.8 | 0.77 | 51.9 | 1.27 |
+| t_call | 89.2 | 2.8 | 0.03 | 6.5 | 0.08 |
+| t_vec | 16.2 | 6.2 | 0.38 | 6.9 | 0.38 |
+| t_sin | 46.2 | 28.1 | 0.61 | 22.2 | 0.44 |
+| external_call | 83.4 | 206.4 | 2.47 | 372.4 | 4.30 |
+
+Interpreter acceptance: `t_streq` 1.27 (≤ 1.5), `t_dict` 1.09 (≤ 1.3), `t_call` 0.08 (≤ 1.0). With the JIT on, `t_dict` is 0.72 and `t_streq` is 0.77. Both still compile. `VG_JIT_LOG=1` prints Compiled for `t_dict`, `t_streq`, and `t_call`.
+
+`gs = "talk"` is `OP_EQ_STR_CONST`. The compare uses the constant pool String: length and `memcmp`, or `nocasecmp_to` when Option Compare Text is on. A non-string falls through to `OP_EQUAL`. `d("k")` and `d["k"]` are `OP_GET_DICT_CONST` when the key literal is a string, int, bool, or float. A whole-number float still goes through `vg_dictionary_key`. A missing key is Nothing (VarType 1) and does not raise. In the lean loop, `OP_GET_GLOBAL` of a Dictionary followed by `OP_GET_DICT_CONST` reads the key from the global and pushes the value, so the Dictionary is not copied onto the stack. Tier 2's `lower_vref_use` recognizes both new opcodes after `OP_GET_GLOBAL`, and still recognizes the old `OP_CONSTANT` shape.
+
+A zero-argument function whose body is `Return` of an Integer, Double, Boolean, or Nothing, with no parameters and no global write, is classified on the first resolved call. Later calls push that constant and do not build a frame. `empty_fn` is that shape (`OP_CONSTANT` 0, `OP_RETURN_VALUE`). A function that stores a global and then returns is not elided.
+
+`And` stays `OP_AND`. The jump form for a pure Boolean `And` compiled, and Tier 2 then returned 0 from `t_streq`: the operand stack is not merged at the join, so the `If` tested the `False` pushed on the other edge. Integer `And` was never changed. The lean loop already uses `&&` for two Booleans and bitwise `&` for two numbers.
+
+The member-name cache keeps the vector's data pointer and rebinds it when the frame changes or the vector grows. A call with no ByRef parameter skips the capture list. Integer and Double locals are not released on the way out; the next call resets those slots.
+
 ### Status (17 Nov 2026)
 
 Done:
@@ -176,15 +206,16 @@ Done:
 - WS3, `OP_DEBUG_LINE` stripped unless a debugger is attached: `7e812044`
 - Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: `6f7a2500`
 - WS4 axis ops in the VM and the compiler: `68857b12`. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and was not required for the ratio.
-- WS5, Tier 2 String and Dictionary globals: this commit. JIT ratios for `t_dict` and `t_streq` are under 1.00. The interpreter ratios are unchanged.
+- WS5, Tier 2 String and Dictionary globals: `c3ed88fb`. JIT ratios for `t_dict` and `t_streq` are under 1.00.
+- WS6, interpreter string compare, constant dictionary key, and leaf call: this commit. Interpreter `t_streq` 1.27, `t_dict` 1.09, `t_call` 0.08. The pure-Boolean `And` jump form is not in this commit.
 
-Not started: WS6 the other interpreter fast paths, WS7 external calls into VG. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and is not next.
+Not started: WS7 external calls into VG. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and is not next.
 
-Next: WS6. With `VG_JIT=0`, `t_streq` is 1.51 (acceptance ≤ 1.5), `t_dict` is 1.70 (acceptance ≤ 1.3), and `t_call` is 1.37 (acceptance ≤ 1.0).
+Next: WS7. `external_call` is 2.47 with the JIT on and 4.30 with `VG_JIT=0`. Acceptance is ≤ 1.2 in both modes.
 
-Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` now takes effect on the parser, the bytecode VM, and Tier 2. It was previously ignored because `Compare` and `Text` were not keywords. No existing `.vg` test used the directive.
+Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` takes effect on the parser, the bytecode VM, and Tier 2. Tier 2 does not merge the operand stack at a jump join, so a short-circuit expression that pushes a value on both edges miscompiles. `AndAlso` and `OrElse` already emit that shape. `t_streq` does not use it.
 
-The Cdecl `strlen` assert is still the pre-existing suite noise. A parallel `VG_JIT=3` suite run failed `test_folder_ops.vg` (3 FAIL) while the other two suites were writing the same temp directory; run alone, that file passed. Suite result after that rerun: 1780 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` 3 failures, `test_departure_render` still hits its 240s headless timeout (the lambda at line 19, then the ObjectDB leak warning), `test_suit_panel_performance` face=true 12.96 ms and face=false 9.8 ms (baseline 63.66 ms and 38.13 ms).
+The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: 1804 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes; a parallel `VG_JIT=3` draw run printed `failures=1` while the suites were running, and the same command alone printed `failures=0`. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` 3 failures, `test_departure_render` still hits its 240s headless timeout (the lambda at line 19, then the ObjectDB leak warning). `test_suit_panel_performance` alone: face=true 7.34 ms, face=false 7.05 ms (written baseline 63.66 ms and 38.13 ms). The same file during the suite run was 11.27 ms and 21.75 ms.
 
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 

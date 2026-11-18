@@ -12,6 +12,7 @@
 #include "vg_variant_fast.h"
 
 #include <godot_cpp/core/math.hpp>
+#include <godot_cpp/variant/variant_internal.hpp>
 #include <atomic>
 #include <cmath>
 #include <cstring>
@@ -204,6 +205,7 @@ int VisualGasicInstance::vm_fast_run(const VMFastFrame &f, int p_ip) {
 	const uint32_t &ntypes = f.local_type_count;
 	int64_t *const &ti = f.typed_i64;
 	double *const &tf = f.typed_f64;
+	const bool compare_text = f.compare_text;
 
 	const uint8_t *pc = code + p_ip;
 
@@ -411,6 +413,27 @@ fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 	if (FL_UNLIKELY(t == FL_NIL)) {
 		goto fl_leave;
 	}
+	// Dictionary global followed by a constant-key read: look the key up in
+	// the global and push the value. Copying the Dictionary onto the stack
+	// first would refcount it on every iteration.
+	if (t == (uint32_t)Variant::DICTIONARY && (size_t)(safe_end - pc) > 3 &&
+			pc[3] == OP_GET_DICT_CONST) {
+		const uint32_t kidx = (uint32_t)pc[4] | ((uint32_t)pc[5] << 8);
+		if (kidx < nconst && fl_type(K + kidx) != FL_FLOAT) {
+			FL_ROOM();
+			alignas(Variant) unsigned char raw[FL_VSZ];
+			memset(raw, 0, sizeof(raw));
+			GDExtensionBool valid = false;
+			godot::internal::gdextension_interface_variant_get_keyed(
+					const_cast<Variant *>(src)->_native_ptr(),
+					const_cast<Variant *>(K + kidx)->_native_ptr(), raw, &valid);
+			(void)valid;
+			memcpy(static_cast<void *>(sp), raw, FL_VSZ);
+			sp++;
+			pc += 6;
+			FL_NEXT();
+		}
+	}
 	FL_ROOM();
 	if (FL_LIKELY(fl_pod(t))) {
 		fl_copy(sp, src);
@@ -470,13 +493,116 @@ fl_set_global: { // OP_SET_GLOBAL [name lo] [name hi]
 	FL_NEXT();
 }
 
+fl_eq_str_const: { // OP_EQ_STR_CONST [const lo] [const hi]
+	// Two strings: length then memcmp, or nocasecmp under Option Compare
+	// Text. The string on the stack is released and replaced with a Boolean.
+	// Anything else (a number equal to a numeric string, a non-string
+	// constant) is the ordinary handler, which has not been started.
+	FL_NEED(1);
+	const uint32_t idx = FL_U16_LE(1);
+	if (FL_UNLIKELY(idx >= nconst)) {
+		goto fl_leave;
+	}
+	Variant *top = sp - 1;
+	const Variant *lit = K + idx;
+	if (FL_UNLIKELY(fl_type(top) != (uint32_t)Variant::STRING ||
+			fl_type(lit) != (uint32_t)Variant::STRING)) {
+		goto fl_leave;
+	}
+	const String *a = VariantInternal::get_string(top);
+	const String *b = VariantInternal::get_string(lit);
+	if (FL_UNLIKELY(!a || !b)) {
+		goto fl_leave;
+	}
+	bool eq;
+	if (compare_text) {
+		eq = a->nocasecmp_to(*b) == 0;
+	} else if (a->length() != b->length()) {
+		eq = false;
+	} else if (a->length() == 0) {
+		eq = true;
+	} else {
+		eq = memcmp(a->ptr(), b->ptr(), (size_t)a->length() * sizeof(char32_t)) == 0;
+	}
+	{
+		alignas(Variant) uint8_t old[FL_VSZ];
+		memcpy(old, static_cast<const void *>(top), FL_VSZ);
+		fl_put_bool(top, eq);
+		pc += 3;
+		reinterpret_cast<Variant *>(old)->~Variant();
+	}
+	FL_NEXT();
+}
+
+fl_get_dict_const: { // OP_GET_DICT_CONST [const lo] [const hi]
+	// Dictionary on the stack, key already built in the constant pool.
+	// A float key is normalized by the ordinary handler. A missing key
+	// pushes Nothing, the same as OP_GET_DICT_FAST.
+	FL_NEED(1);
+	const uint32_t idx = FL_U16_LE(1);
+	if (FL_UNLIKELY(idx >= nconst)) {
+		goto fl_leave;
+	}
+	Variant *base = sp - 1;
+	const Variant *key = K + idx;
+	if (FL_UNLIKELY(fl_type(base) != (uint32_t)Variant::DICTIONARY ||
+			fl_type(key) == FL_FLOAT)) {
+		goto fl_leave;
+	}
+	{
+		alignas(Variant) unsigned char raw[FL_VSZ];
+		memset(raw, 0, sizeof(raw));
+		GDExtensionBool valid = false;
+		godot::internal::gdextension_interface_variant_get_keyed(
+				const_cast<Variant *>(base)->_native_ptr(),
+				const_cast<Variant *>(key)->_native_ptr(), raw, &valid);
+		(void)valid;
+		alignas(Variant) uint8_t old[FL_VSZ];
+		memcpy(old, static_cast<const void *>(base), FL_VSZ);
+		memcpy(static_cast<void *>(base), raw, FL_VSZ);
+		pc += 3;
+		reinterpret_cast<Variant *>(old)->~Variant();
+	}
+	FL_NEXT();
+}
+
 fl_call: { // OP_CALL [name lo] [name hi] [argc]
-	// CInt / CLng / CLngLng of one number, Nothing or Boolean: the same
-	// vb_to_integer the builtin cascade returns.  A String or any other
-	// value, and every other call, stays on the ordinary handler.
+	// A zero-argument function whose body is `Return <constant>` pushes
+	// that constant. CInt / CLng / CLngLng of one number, Nothing or
+	// Boolean: the same vb_to_integer the builtin cascade returns. A
+	// String or any other value, and every other call, stays on the
+	// ordinary handler.
 	FL_LONG(1);
 	const uint32_t idx = FL_U16_LE(1);
-	if (FL_UNLIKELY(pc[3] != 1 || idx >= nconst)) {
+	if (FL_UNLIKELY(idx >= nconst)) {
+		goto fl_leave;
+	}
+	if (pc[3] == 0) {
+		const Vector<MemberNameCacheEntry> &memo = *f.member_cache;
+		if (FL_UNLIKELY((uint32_t)memo.size() != nconst)) {
+			goto fl_leave;
+		}
+		const MemberNameCacheEntry &e = memo.ptr()[idx];
+		if (e.leaf_kind < 2) {
+			goto fl_leave;
+		}
+		FL_ROOM();
+		if (e.leaf_kind == 2) {
+			fl_put_int(sp, e.leaf_i64);
+		} else if (e.leaf_kind == 3) {
+			fl_put_float(sp, e.leaf_f64);
+		} else if (e.leaf_kind == 4) {
+			fl_put_bool(sp, e.leaf_i64 != 0);
+		} else if (e.leaf_kind == 5) {
+			memset(static_cast<void *>(sp), 0, FL_VSZ);
+		} else {
+			goto fl_leave;
+		}
+		sp++;
+		pc += 4;
+		FL_NEXT();
+	}
+	if (FL_UNLIKELY(pc[3] != 1)) {
 		goto fl_leave;
 	}
 	FL_NEED(1);

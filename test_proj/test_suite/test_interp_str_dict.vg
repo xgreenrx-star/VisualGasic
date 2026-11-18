@@ -1,0 +1,84 @@
+' Interpreter string compare, dictionary constant keys, Boolean And,
+' and a zero-argument function that returns a constant.
+Option Explicit
+Inherits Node
+
+Dim bumps As Integer
+Dim d As Dictionary
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function Bump() As Integer
+	bumps = bumps + 1
+	Return 1
+End Function
+
+Function Zero() As Integer
+	Return 0
+End Function
+
+Function Half() As Double
+	Return 1.5
+End Function
+
+Function ZeroAfter() As Integer
+	bumps = bumps + 1
+	Return 0
+End Function
+
+Sub _Ready()
+	Dim s As String = "ab"
+	Dim talk As String = "Talk"
+	Check s = "ab", "string equal"
+	Check s = "abc" = False, "string shorter"
+	Check talk = "talk" = False, "binary compare"
+	Check "ab" = "ab", "literal equal"
+
+	d = New Dictionary
+	d("k") = 2.5
+	Check d("k") = 2.5, "dict string key"
+	Check d["k"] = 2.5, "dict bracket key"
+	Dim miss As Variant
+	miss = d("missing")
+	Check VarType(miss) = 1, "missing key is Nothing"
+	Check Err.Number = 0, "missing key does not raise"
+	d(1) = 4
+	Check d(1.0) = 4, "float key shares int"
+
+	Dim a As Integer = 6
+	Dim b As Integer = 3
+	Dim band As Integer
+	band = a And b
+	Check band = 2, "integer and"
+
+	Dim p As Boolean = True
+	Dim q As Boolean = False
+	Check p And Not q, "bool and not"
+	Dim both As Boolean
+	both = p And q
+	Check both = False, "bool and false"
+
+	bumps = 0
+	If (1 = 0) And Bump() = 1 Then
+		Check False, "and call should not enter"
+	End If
+	Check bumps = 1, "and still runs the call"
+
+	Dim n As Integer
+	Dim total As Integer = 0
+	For n = 1 To 4
+		total = total + Zero()
+	Next
+	Check total = 0, "constant return"
+	Check Half() = 1.5, "constant double return"
+
+	bumps = 0
+	Check ZeroAfter() = 0, "return after a store"
+	Check bumps = 1, "store before return still runs"
+End Sub

@@ -11693,6 +11693,21 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 }
 
                 int cse_slot = get_or_add_local(String("__cse_") + String::num_int64(temp_local_id++), VT_UNKNOWN);
+                if (b->op == "=" && b->right->type == ExpressionNode::LITERAL &&
+                        ((LiteralNode *)b->right)->value.get_type() == Variant::STRING) {
+                    compile_expression(b->left);
+                    int idx = current_chunk->add_constant(((LiteralNode *)b->right)->value);
+                    emit_byte(OP_EQ_STR_CONST);
+                    emit_const_index(idx);
+                    if (cse_slot >= 0) {
+                        cse_pair_pos.push_back(current_chunk->code.size());
+                        cse_pair_slot.push_back(cse_slot);
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)cse_slot);
+                        emit_bytes(OP_GET_LOCAL, (uint8_t)cse_slot);
+                        expr_cache[key] = cse_slot;
+                    }
+                    break;
+                }
                 compile_expression(b->left);
                 compile_expression(b->right);
 
@@ -11796,6 +11811,14 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                 break;
             }
 
+            if (b->op == "=" && b->right && b->right->type == ExpressionNode::LITERAL &&
+                    ((LiteralNode *)b->right)->value.get_type() == Variant::STRING) {
+                compile_expression(b->left);
+                int idx = current_chunk->add_constant(((LiteralNode *)b->right)->value);
+                emit_byte(OP_EQ_STR_CONST);
+                emit_const_index(idx);
+                break;
+            }
             compile_expression(b->left);
             compile_expression(b->right);
             
@@ -12165,6 +12188,24 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     try_emit_get_index(((VariableNode*)aa->base)->name, aa->indices[0])) {
                 break;
             }
+            bool fast_array = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
+                is_fast_array_var(((VariableNode*)aa->base)->name);
+            bool fast_dict = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
+                is_dictionary_var(((VariableNode*)aa->base)->name);
+            bool trusted_dict = fast_dict && aa->base && aa->base->type == ExpressionNode::VARIABLE &&
+                is_trusted_dictionary_var(((VariableNode*)aa->base)->name);
+            if ((fast_dict || trusted_dict) && aa->indices[0] &&
+                    aa->indices[0]->type == ExpressionNode::LITERAL) {
+                const Variant &key_lit = ((LiteralNode *)aa->indices[0])->value;
+                const Variant::Type kt = key_lit.get_type();
+                if (kt == Variant::STRING || kt == Variant::INT || kt == Variant::BOOL || kt == Variant::FLOAT) {
+                    compile_expression(aa->base);
+                    int idx = current_chunk->add_constant(key_lit);
+                    emit_byte(OP_GET_DICT_CONST);
+                    emit_const_index(idx);
+                    break;
+                }
+            }
             compile_expression(aa->base);
             compile_expression(aa->indices[0]);
             bool unchecked = false;
@@ -12177,12 +12218,6 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                     unchecked = true;
                 }
             }
-            bool fast_array = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
-                is_fast_array_var(((VariableNode*)aa->base)->name);
-            bool fast_dict = (aa->base && aa->base->type == ExpressionNode::VARIABLE) &&
-                is_dictionary_var(((VariableNode*)aa->base)->name);
-            bool trusted_dict = fast_dict && aa->base && aa->base->type == ExpressionNode::VARIABLE &&
-                is_trusted_dictionary_var(((VariableNode*)aa->base)->name);
             uint8_t opcode = OP_GET_ARRAY;
             if (trusted_dict) {
                 opcode = OP_GET_DICT_TRUSTED;
@@ -12424,11 +12459,23 @@ void VisualGasicCompiler::compile_expression(ExpressionNode* expr) {
                  }
                  VariableNode tmp;
                  tmp.name = call->method_name;
-                 compile_expression(&tmp);
-                 compile_expression(call->arguments[0]);
                  bool fast_array = is_fast_array_var(call->method_name);
                  bool fast_dict = is_dictionary_var(call->method_name);
                  bool trusted_dict = fast_dict && is_trusted_dictionary_var(call->method_name);
+                 if ((fast_dict || trusted_dict) && call->arguments[0] &&
+                         call->arguments[0]->type == ExpressionNode::LITERAL) {
+                     const Variant &key_lit = ((LiteralNode *)call->arguments[0])->value;
+                     const Variant::Type kt = key_lit.get_type();
+                     if (kt == Variant::STRING || kt == Variant::INT || kt == Variant::BOOL || kt == Variant::FLOAT) {
+                         compile_expression(&tmp);
+                         int idx = current_chunk->add_constant(key_lit);
+                         emit_byte(OP_GET_DICT_CONST);
+                         emit_const_index(idx);
+                         break;
+                     }
+                 }
+                 compile_expression(&tmp);
+                 compile_expression(call->arguments[0]);
                  uint8_t opcode = trusted_dict ? OP_GET_DICT_TRUSTED
                      : (fast_dict ? OP_GET_DICT_FAST
                          : (fast_array ? OP_GET_ARRAY_FAST : OP_GET_ARRAY));

@@ -143,6 +143,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_LEN);
         OP_NAME_CASE(OP_EQUAL);
         OP_NAME_CASE(OP_NOT_EQUAL);
+        OP_NAME_CASE(OP_EQ_STR_CONST);
         OP_NAME_CASE(OP_GREATER);
         OP_NAME_CASE(OP_LESS);
         OP_NAME_CASE(OP_GREATER_EQUAL);
@@ -178,6 +179,7 @@ String opcode_name(uint8_t op) {
         OP_NAME_CASE(OP_GET_ARRAY_FAST_UNCHECKED);
         OP_NAME_CASE(OP_SET_ARRAY_FAST_UNCHECKED);
         OP_NAME_CASE(OP_GET_DICT_FAST);
+        OP_NAME_CASE(OP_GET_DICT_CONST);
         OP_NAME_CASE(OP_SET_DICT_FAST);
         OP_NAME_CASE(OP_GET_DICT_TRUSTED);
         OP_NAME_CASE(OP_SET_DICT_TRUSTED);
@@ -333,6 +335,8 @@ String describe_operands(uint8_t op, const Array &operands, const BytecodeChunk 
     switch (op) {
         case OP_CONSTANT:
         case OP_CONSTANT_LONG:
+        case OP_EQ_STR_CONST:
+        case OP_GET_DICT_CONST:
             if (operands.size() >= 2) {
                 return describe_constant(chunk, const16(0));
             }

@@ -1513,6 +1513,41 @@ bool Tier2::lower_bytecode(BytecodeChunk* chunk, std::vector<IRInst>& ir, int& v
     // which is only safe when the operand stack was empty here.
     auto lower_vref_use = [&](int at_ip, int vslot) -> int {
         if (!vstack.empty()) return -1;
+        if (at_ip + 3 >= size) return -1;
+        // The compiler emits the constant index on the compare or the
+        // dictionary read, so the constant is not a separate stack value.
+        const uint8_t fused = code[at_ip + 3];
+        if (fused == OP_EQ_STR_CONST || fused == OP_GET_DICT_CONST) {
+            if (at_ip + 5 >= size) return -1;
+            const int cidx = (int)code[at_ip + 4] | ((int)code[at_ip + 5] << 8);
+            if (cidx < 0 || cidx >= chunk->constants.size()) return -1;
+            if (fused == OP_EQ_STR_CONST && chunk->constants[cidx].get_type() != Variant::STRING) return -1;
+            const int ptr = load_slot(vslot, at_ip);
+            if (fused == OP_EQ_STR_CONST) {
+                IRInst cmp;
+                cmp.op = IROp::VSTR_EQ_CONST;
+                cmp.type = IRType::I64;
+                cmp.dest = next_vreg++;
+                set_vreg_type(cmp.dest, IRType::I64);
+                cmp.src1 = ptr;
+                cmp.imm_i64 = cidx;
+                cmp.bc_offset = at_ip;
+                ir.push_back(cmp);
+                vstack.push_back(cmp.dest);
+                return at_ip + 6;
+            }
+            IRInst get;
+            get.op = IROp::VDICT_GET_F64;
+            get.type = IRType::F64;
+            get.dest = next_vreg++;
+            set_vreg_type(get.dest, IRType::F64);
+            get.src1 = ptr;
+            get.imm_i64 = cidx;
+            get.bc_offset = at_ip;
+            ir.push_back(get);
+            vstack.push_back(get.dest);
+            return at_ip + 6;
+        }
         if (at_ip + 6 >= size) return -1;
         if (code[at_ip + 3] != OP_CONSTANT) return -1;
         const int cidx = (code[at_ip + 5] << 8) | code[at_ip + 4];
@@ -3432,9 +3467,22 @@ static int vg_jit_vdict_get_f64(const Variant *box, const Variant *key, int resu
     alignas(Variant) unsigned char raw[sizeof(Variant)];
     memset(raw, 0, sizeof(raw));
     GDExtensionBool valid = false;
+    // int 0 and float 0.0 are one key. Same rule as vg_dictionary_key.
+    const Variant *use_key = key;
+    Variant norm_key;
+    if (vgfast::vtype(*key) == Variant::FLOAT) {
+        const double v = (double)*key;
+        if (v >= -9007199254740992.0 && v <= 9007199254740992.0) {
+            const int64_t as_int = (int64_t)v;
+            if ((double)as_int == v) {
+                norm_key = Variant(as_int);
+                use_key = &norm_key;
+            }
+        }
+    }
     internal::gdextension_interface_variant_get_keyed(
             const_cast<Variant *>(box)->_native_ptr(),
-            const_cast<Variant *>(key)->_native_ptr(), raw, &valid);
+            const_cast<Variant *>(use_key)->_native_ptr(), raw, &valid);
     Variant *value = reinterpret_cast<Variant *>(raw);
     if (!valid) {
         if (!vgfast::is_pod_type(vgfast::vtype(*value))) {

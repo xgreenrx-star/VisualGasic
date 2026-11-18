@@ -224,6 +224,12 @@ private:
         // call_argc validates the memo against this site's arg count (overloads).
         int8_t call_disp = -1;
         int32_t call_argc = -1;
+        // OP_CALL of a zero-argument function whose body is a constant
+        // Return. 0 = not yet classified, 1 = not this shape, 2 = Integer,
+        // 3 = Double, 4 = Boolean, 5 = Nothing. The bits are the constant.
+        int8_t leaf_kind = 0;
+        int64_t leaf_i64 = 0;
+        double leaf_f64 = 0.0;
 		StringName owner_call_name;
 		bool owner_draw_line = false;
         // Part I: cached full resolution for a known user Sub (call_disp==0).

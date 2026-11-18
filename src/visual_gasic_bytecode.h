@@ -89,6 +89,11 @@ enum OpCode {
     // Comparison
     OP_EQUAL,
     OP_NOT_EQUAL,
+    // [OP] [CONST_LO] [CONST_HI]. Pop one value, push whether it equals the
+    // string constant. Two strings compare by length then memcmp, or by
+    // nocasecmp when Option Compare Text is set. Any other type uses the
+    // same rules as OP_EQUAL against that constant.
+    OP_EQ_STR_CONST,
     OP_GREATER,
     OP_LESS,
     OP_GREATER_EQUAL,
@@ -130,6 +135,10 @@ enum OpCode {
     OP_GET_ARRAY_FAST_UNCHECKED,
     OP_SET_ARRAY_FAST_UNCHECKED,
     OP_GET_DICT_FAST,            // [OP] [ARG_COUNT] (Dictionary fast path)
+    // [OP] [CONST_LO] [CONST_HI]. Pop the dictionary, push value-at-key.
+    // The key Variant already lives in the constant pool, so the loop does
+    // not build one. A whole-number float key is normalized like OP_GET_DICT_FAST.
+    OP_GET_DICT_CONST,
     OP_SET_DICT_FAST,
     OP_GET_DICT_TRUSTED,         // [OP] [ARG_COUNT] (Dictionary without runtime type checks)
     OP_SET_DICT_TRUSTED,

@@ -470,6 +470,56 @@ static bool vg_chunk_inline_eligible(BytecodeChunk *chunk, VisualGasic::SubDefin
     return ok;
 }
 
+// A zero-argument function whose body is `Return <pod constant>`. The
+// constant is what OP_RETURN_VALUE would push. A function that writes a
+// global, takes a parameter, or does anything else is not this shape.
+static bool vg_chunk_leaf_const(BytecodeChunk *chunk, VisualGasic::SubDefinition *func, Variant &out) {
+    if (!chunk || !func || chunk->publishes_locals) {
+        return false;
+    }
+    if (chunk->param_count != 0 || func->parameters.size() != 0) {
+        return false;
+    }
+    if (!chunk->globals_written.is_empty()) {
+        return false;
+    }
+    const uint8_t *code = chunk->code.ptr();
+    const int n = chunk->code.size();
+    int ip = 0;
+    int cidx = -1;
+    bool saw_const = false;
+    bool saw_ret = false;
+    while (ip < n) {
+        const uint8_t op = code[ip];
+        if (op == OP_DEBUG_LINE) {
+            ip += 3;
+            continue;
+        }
+        if (!saw_const && op == OP_CONSTANT && ip + 2 < n) {
+            cidx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+            saw_const = true;
+            ip += 3;
+            continue;
+        }
+        if (saw_const && !saw_ret && op == OP_RETURN_VALUE) {
+            saw_ret = true;
+            ip += 1;
+            continue;
+        }
+        return false;
+    }
+    if (!saw_const || !saw_ret || cidx < 0 || cidx >= chunk->constants.size()) {
+        return false;
+    }
+    const Variant &c = chunk->constants[cidx];
+    const Variant::Type t = vgfast::vtype(c);
+    if (t != Variant::INT && t != Variant::FLOAT && t != Variant::BOOL && t != Variant::NIL) {
+        return false;
+    }
+    out = c;
+    return true;
+}
+
 // Direct ptrcalls for the hottest packed-array methods.  Variant::callp
 // resolves the method by StringName and validates/converts every argument
 // on each call; the GDExtension ptr-method + internal-pointer interface does
@@ -2338,6 +2388,22 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         }
     }
     // Accessed through member_name_cache_ptr below (inline calls repoint it).
+    // The hot lookup holds the vector's data pointer so it does not call
+    // ptrw() (an out-of-line copy-on-write check) on every member opcode.
+    // Rebind after a resize and whenever the frame switches chunks.
+    MemberNameCacheEntry *member_cache_raw = nullptr;
+    int member_cache_raw_n = 0;
+    auto rebind_member_cache = [&]() {
+        Vector<MemberNameCacheEntry> &cache_vec = *member_name_cache_ptr;
+        const int n = cache_vec.size();
+        if (n > 0 && n == chunk->constants.size()) {
+            member_cache_raw = cache_vec.ptrw();
+            member_cache_raw_n = n;
+        } else {
+            member_cache_raw = nullptr;
+            member_cache_raw_n = 0;
+        }
+    };
 
     // First-touch allocation and per-name classification live in a cold,
     // never-inlined body; the hot lookup below is a size compare, an index
@@ -2389,15 +2455,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
             entry.initialized = true;
         }
-        return entry;
+        rebind_member_cache();
+        if (member_cache_raw && idx >= 0 && idx < member_cache_raw_n) {
+            return member_cache_raw[idx];
+        }
+        return (*member_name_cache_ptr).write[idx];
     };
     auto ensure_member_cache_entry = [&](int idx) -> MemberNameCacheEntry& {
-        Vector<MemberNameCacheEntry> &cache_vec = *member_name_cache_ptr;
-        if (VG_LIKELY(cache_vec.size() == chunk->constants.size())) {
-            MemberNameCacheEntry &entry = cache_vec.ptrw()[idx];
-            if (VG_LIKELY(entry.initialized)) {
-                return entry;
-            }
+        if (VG_LIKELY(member_cache_raw && idx >= 0 && idx < member_cache_raw_n &&
+                member_cache_raw[idx].initialized)) {
+            return member_cache_raw[idx];
         }
         return ensure_member_cache_entry_slow(idx);
     };
@@ -2528,6 +2595,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     // copies are set: before the first dispatch, at the end of
     // inline_frame_push and at the end of inline_frame_pop.
     auto fast_frame_sync = [&]() {
+        rebind_member_cache();
 #if VG_FASTLOOP_AVAILABLE
         if (!fastloop_ok) {
             return;
@@ -2549,6 +2617,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         fast_frame.member_cache = member_name_cache_ptr;
         fast_frame.stack_base = stack_base;
         fast_frame.snapshot_globals_active = snapshot_globals_active;
+        fast_frame.compare_text = option_compare_text;
         fast_frame.gw_bits = gw_bits;
 #endif
     };
@@ -2801,7 +2870,16 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         // _last_byref_captures.  Like execute_bytecode's epilogue (and the
         // AST walker) this includes a callee that stopped on a runtime
         // error: it writes back what it had assigned so far.
-        if (current_sub && (!error_unwind || error_state.has_error)) {
+        bool any_byref = false;
+        if (current_sub) {
+            for (int pi = 0; pi < current_sub->parameters.size(); pi++) {
+                if (current_sub->parameters[pi].is_by_ref) {
+                    any_byref = true;
+                    break;
+                }
+            }
+        }
+        if (any_byref && current_sub && (!error_unwind || error_state.has_error)) {
             Vector<Pair<String, Variant>> bc_byref_captures;
             for (int pi = 0; pi < current_sub->parameters.size(); pi++) {
                 if (!current_sub->parameters[pi].is_by_ref) {
@@ -2818,7 +2896,14 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
         }
         // Release resources held by the callee's slots (LocalsFrameGuard).
+        // Integer and Double slots stay scalars, so they have nothing to free.
         for (int i = 0; i < locals.size(); i++) {
+            if (chunk && i < chunk->local_types.size()) {
+                const uint8_t lt = chunk->local_types[i];
+                if (lt == 1 || lt == 2) {
+                    continue;
+                }
+            }
             const Variant::Type t = vgfast::vtype(locals[i]);
             if (t == Variant::OBJECT || t == Variant::ARRAY || t == Variant::DICTIONARY ||
                     t == Variant::CALLABLE || t == Variant::SIGNAL) {
@@ -3029,6 +3114,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_LOG]            = &&vg_op_log;
         dispatch_table[OP_LEN]            = &&vg_op_len;
         dispatch_table[OP_EQUAL]          = &&vg_op_equal;
+        dispatch_table[OP_EQ_STR_CONST]   = &&vg_op_eq_str_const;
         dispatch_table[OP_NOT_EQUAL]      = &&vg_op_not_equal;
         dispatch_table[OP_GREATER]        = &&vg_op_greater;
         dispatch_table[OP_LESS]           = &&vg_op_less;
@@ -3063,6 +3149,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
         dispatch_table[OP_GET_ARRAY_FAST_UNCHECKED] = &&vg_op_get_array_fast_unchecked;
         dispatch_table[OP_SET_ARRAY_FAST_UNCHECKED] = &&vg_op_set_array_fast_unchecked;
         dispatch_table[OP_GET_DICT_FAST]        = &&vg_op_get_dict_fast;
+        dispatch_table[OP_GET_DICT_CONST]       = &&vg_op_get_dict_const;
         dispatch_table[OP_SET_DICT_FAST]        = &&vg_op_set_dict_fast;
         dispatch_table[OP_GET_DICT_TRUSTED]     = &&vg_op_get_dict_trusted;
         dispatch_table[OP_SET_DICT_TRUSTED]     = &&vg_op_set_dict_trusted;
@@ -5686,6 +5773,34 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 if (!apply_variant_op(Variant::OP_EQUAL)) { success = false; goto cleanup; }
                 break;
             }
+            VG_CASE(vg_op_eq_str_const, OP_EQ_STR_CONST): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                const int cidx = read_const_index();
+                if (cidx < 0 || cidx >= chunk->constants.size()) { success = false; goto cleanup; }
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                {
+                    const Variant &lit = chunk->constants[cidx];
+                    Variant &left = vm.stack.back();
+                    if (vgfast::vtype(left) == Variant::STRING && vgfast::vtype(lit) == Variant::STRING) {
+                        const String *a = VariantInternal::get_string(&left);
+                        const String *b = VariantInternal::get_string(&lit);
+                        bool eq = false;
+                        if (a && b) {
+                            if (option_compare_text) {
+                                eq = a->nocasecmp_to(*b) == 0;
+                            } else if (a->length() == b->length()) {
+                                eq = a->length() == 0 ||
+                                        memcmp(a->ptr(), b->ptr(), (size_t)a->length() * sizeof(char32_t)) == 0;
+                            }
+                        }
+                        left = eq;
+                        break;
+                    }
+                }
+                push_value(chunk->constants[cidx]);
+                if (!apply_variant_op(Variant::OP_EQUAL)) { success = false; goto cleanup; }
+                break;
+            }
             VG_CASE(vg_op_not_equal, OP_NOT_EQUAL):
                 if (!apply_variant_op(Variant::OP_NOT_EQUAL)) { success = false; goto cleanup; }
                 break;
@@ -6967,6 +7082,46 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     }
                 }
 
+                // Return <constant> with no parameters and no global writes is
+                // the constant. The next trip through the lean loop pushes it
+                // without building a frame. A debugger or a profiler still
+                // enters the function (inline_calls_ok is false there).
+                if (_pb_known_user_sub && arg_count == 0 && inline_calls_ok &&
+                        _pc_pre_resolved && _pc_pre_resolved->chunk_for_locals &&
+                        _pc_pre_resolved->func && _pc_pre_resolved->owning_module_index < 0 &&
+                        current_object_id == -1 && name_idx >= 0) {
+                    MemberNameCacheEntry &ent = ensure_member_cache_entry(name_idx);
+                    if (ent.leaf_kind == 0) {
+                        Variant leaf;
+                        if (vg_chunk_leaf_const(_pc_pre_resolved->chunk_for_locals, _pc_pre_resolved->func, leaf)) {
+                            const Variant::Type lt = vgfast::vtype(leaf);
+                            if (lt == Variant::INT) {
+                                ent.leaf_kind = 2;
+                                ent.leaf_i64 = vgfast::vint(leaf);
+                            } else if (lt == Variant::FLOAT) {
+                                ent.leaf_kind = 3;
+                                ent.leaf_f64 = vgfast::vfloat(leaf);
+                            } else if (lt == Variant::BOOL) {
+                                ent.leaf_kind = 4;
+                                ent.leaf_i64 = (bool)leaf ? 1 : 0;
+                            } else if (lt == Variant::NIL) {
+                                ent.leaf_kind = 5;
+                            } else {
+                                ent.leaf_kind = 1;
+                            }
+                        } else {
+                            ent.leaf_kind = 1;
+                        }
+                    }
+                    if (ent.leaf_kind >= 2) {
+                        if (ent.leaf_kind == 2) push_value(ent.leaf_i64);
+                        else if (ent.leaf_kind == 3) push_value(ent.leaf_f64);
+                        else if (ent.leaf_kind == 4) push_value(ent.leaf_i64 != 0);
+                        else push_value(Variant());
+                        break;
+                    }
+                }
+
                 if (!_pb_known_user_sub && !_pc_engine_call) {
                 // Cold path: materialize a real godot Array from the SBO buffer for
                 // the builtin-expr + special-case cascade below (they take Array).
@@ -7760,6 +7915,37 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                 }
                 push_value((*arr_ptr)[idx]);
                 break;
+            }
+            VG_CASE(vg_op_get_dict_const, OP_GET_DICT_CONST): {
+                if (vm.ip + 1 >= code_size) { success = false; goto cleanup; }
+                const int cidx = read_const_index();
+                if (cidx < 0 || cidx >= chunk->constants.size()) { success = false; goto cleanup; }
+                if (!ensure_stack(1)) { success = false; goto cleanup; }
+                {
+                    Variant key = chunk->constants[cidx];
+                    if (vgfast::vtype(key) == Variant::FLOAT) {
+                        key = vg_dictionary_key(key);
+                    }
+                    Variant &base_ref = vm.stack.back();
+                    if (vgfast::vtype(base_ref) == Variant::DICTIONARY) {
+                        alignas(Variant) unsigned char result_raw[sizeof(Variant)];
+                        memset(result_raw, 0, sizeof(result_raw));
+                        GDExtensionBool valid = false;
+                        internal::gdextension_interface_variant_get_keyed(
+                                base_ref._native_ptr(), key._native_ptr(), result_raw, &valid);
+                        (void)valid;
+                        if (!vgfast::is_pod_type(vgfast::vtype(base_ref))) {
+                            base_ref.~Variant();
+                        }
+                        memcpy((void *)&base_ref, result_raw, sizeof(Variant));
+                        break;
+                    }
+                    pop_value();
+                    raise_error("Fast dictionary base is not a dictionary");
+                    if (try_recover_error(Variant())) break;
+                    success = false;
+                    goto cleanup;
+                }
             }
             VG_CASE(vg_op_get_dict_fast, OP_GET_DICT_FAST):
             VG_CASE(vg_op_get_dict_trusted, OP_GET_DICT_TRUSTED): {
@@ -12512,8 +12698,15 @@ cleanup:
     // same way).  A non-error bail is re-run by the AST fallback, which
     // captures on its own.
     if (func && (success || error_state.has_error)) {
-        Vector<Pair<String, Variant>> bc_byref_captures;
+        bool any_byref = false;
         for (int pi = 0; pi < func->parameters.size(); pi++) {
+            if (func->parameters[pi].is_by_ref) {
+                any_byref = true;
+                break;
+            }
+        }
+        Vector<Pair<String, Variant>> bc_byref_captures;
+        for (int pi = 0; any_byref && pi < func->parameters.size(); pi++) {
             if (!func->parameters[pi].is_by_ref) {
                 continue;
             }
