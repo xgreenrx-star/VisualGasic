@@ -339,8 +339,9 @@ inline bool vg_dictionary_method_uses_key(const String &method) {
 }
 
 // Godot rejects int/bool arithmetic and compares. VB treats True as -1 and
-// False as 0. NIL and numeric Strings match the bytecode to_double() path
-// (Nothing→0, "3"→3) so AST and OP_ADD agree on mixed Variant math.
+// False as 0. Numeric Strings coerce ("3"→3). ADD/SUB/MUL with Nothing on
+// either side propagate Nothing in vg_evaluate_vb_numeric (see below);
+// NIL remains 0 for relational/other numeric coercion.
 inline bool vg_vb_numeric(const Variant &v, double &out) {
     switch (v.get_type()) {
         case Variant::INT:
@@ -364,6 +365,14 @@ inline bool vg_vb_numeric(const Variant &v, double &out) {
 }
 
 inline bool vg_evaluate_vb_numeric(Variant::Operator op, const Variant &a, const Variant &b, Variant &result) {
+    // ADD/SUB/MUL with Nothing on either side stay Nothing (undeclared locals,
+    // Vector3±Nothing). Numeric Strings still coerce below. SumMiss uses a
+    // typed Single accumulator; storing Nothing into it becomes 0.
+    if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
+            (a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
+        result = Variant();
+        return true;
+    }
     double da = 0.0;
     double db = 0.0;
     if (!vg_vb_numeric(a, da) || !vg_vb_numeric(b, db)) {

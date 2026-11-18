@@ -27,8 +27,8 @@ folder when upgrading. These changes require the new native binaries.
 - **AST `Len` matches bytecode:** containers and packed arrays use `.size()`,
   strings use character length, other scalars are `0` (issue #24).
 - **AST and bytecode agree on mixed Variant arithmetic:** numeric `String`
-  and `Nothing` coerce like the VM `to_double` path for `+` / `-` / `*` / `/`
-  (issue #24).
+  coerces like the VM path; `+` / `-` / `*` with `Nothing` on either side stay
+  `Nothing` (issue #24).
 - **Missing `Dictionary` keys evaluate to `Nothing`** and do not set
   `Err.Number` (issue #26). Documented language contract shared by AST,
   bytecode, and JIT.

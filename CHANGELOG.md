@@ -23,7 +23,7 @@ New native binaries are required; replace the whole addon when upgrading.
 
 - Tier-2 JIT declines `AndAlso`/`OrElse` expression joins that need a stack phi (issue #25), so short-circuit Boolean code no longer risks a wrong native result; bytecode/interpreter results are unchanged.
 - AST `Len` matches bytecode/`OP_LEN`: containers and packed arrays use `.size()`, strings use character length, other scalars are `0` (issue #24).
-- AST and bytecode agree on mixed Variant arithmetic: numeric `String` and `Nothing` coerce like the VM `to_double` path for `+`/`-`/`*`/`/` (issue #24).
+- AST and bytecode agree on mixed Variant arithmetic: numeric `String` coerces like the VM `to_double` path; `+`/`-`/`*` with `Nothing` on either side stay `Nothing` (undeclared locals / Vector±Nothing), matching bytecode (issue #24).
 - An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`, `Form_Unload`, or `_Draw`/`OnDraw` reports the procedure and line, skips the rest of that callback, and leaves later frames and other scripts running.
 - `Try`/`Finally` with no `Catch` runs `Finally` and then rethrows. The AST walker and the bytecode VM (`OP_RETHROW`) both propagate the error to a caller that has a handler.
 
