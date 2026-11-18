@@ -1,0 +1,81 @@
+' A one-argument Sub that adds to one module number.
+' add_acc is the t_call_global shape (Single, global on the left).
+' add_count is an Integer of the same shape. add_swapped puts the
+' argument on the left. add_and_mark writes a second global, so it
+' still enters the Sub.
+Option Explicit
+Inherits Node
+
+Dim gacc As Single
+Dim gcount As Integer
+Dim gswap As Integer
+Dim gmark As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub add_acc(ByVal v As Single)
+	gacc = gacc + v
+End Sub
+
+Sub add_count(ByVal v As Integer)
+	gcount = gcount + v
+End Sub
+
+Sub add_swapped(ByVal v As Integer)
+	gswap = v + gswap
+End Sub
+
+Sub add_and_mark(ByVal v As Single)
+	gacc = gacc + v
+	gmark = gmark + 1
+End Sub
+
+Sub bump_ref(ByRef x As Integer)
+	x = x + 1
+End Sub
+
+Sub _Ready()
+	Dim i As Integer
+	gacc = 0
+	For i = 1 To 4
+		add_acc 0.5
+	Next
+	Check gacc = 2, "single loop"
+
+	add_acc 2
+	Check gacc = 4, "integer argument"
+
+	gacc = 10
+	add_acc 0.5
+	add_acc 0.5
+	Check gacc = 11, "reads the current global"
+
+	gcount = 0
+	For i = 1 To 4
+		add_count 5
+	Next
+	Check gcount = 20, "integer global"
+
+	gswap = 0
+	For i = 1 To 4
+		add_swapped 3
+	Next
+	Check gswap = 12, "argument on the left"
+
+	gmark = 0
+	For i = 1 To 3
+		add_and_mark 1
+	Next
+	Check gacc = 14, "second write still adds"
+	Check gmark = 3, "second write runs"
+
+	Dim n As Integer = 7
+	bump_ref n
+	Check n = 8, "byref still writes back"
+End Sub

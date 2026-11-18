@@ -520,6 +520,128 @@ static bool vg_chunk_leaf_const(BytecodeChunk *chunk, VisualGasic::SubDefinition
     return true;
 }
 
+// A one-argument ByVal Sub whose body adds that argument to one module
+// number and returns. The constant index is the global's name. kind 2 is
+// OP_ADD_F64, kind 3 is OP_ADD_I64. Anything else, including a Function,
+// a ByRef parameter, or a second write, is not this shape.
+struct VgGlobalAddShape {
+    int8_t kind = 0;
+    int8_t arg_left = 0;
+    int8_t to_f64 = 0;
+    int const_idx = -1;
+};
+
+static int vg_skip_noise(const Vector<uint8_t> &code, int ip) {
+    const int n = code.size();
+    while (ip < n) {
+        const uint8_t op = code[ip];
+        if (op == 0xFF) {
+            ip += 1;
+            continue;
+        }
+        if (op == OP_DEBUG_LINE) {
+            ip += VisualGasicOptimizer::instruction_size(code, ip);
+            continue;
+        }
+        break;
+    }
+    return ip;
+}
+
+static VgGlobalAddShape vg_chunk_global_add(BytecodeChunk *chunk, VisualGasic::SubDefinition *func) {
+    VgGlobalAddShape shape;
+    if (!chunk || !func || !chunk->fast_params || chunk->publishes_locals) {
+        return shape;
+    }
+    if (chunk->param_count != 1 || func->parameters.size() != 1 || chunk->fast_param_coerce.size() != 1) {
+        return shape;
+    }
+    if (func->type != VisualGasic::SubDefinition::TYPE_SUB) {
+        return shape;
+    }
+    if (func->parameters[0].is_by_ref || func->parameters[0].is_param_array) {
+        return shape;
+    }
+    const Vector<uint8_t> &code = chunk->code;
+    const int n = code.size();
+    int ip = vg_skip_noise(code, 0);
+    bool arg_left = false;
+    int gidx = -1;
+    auto read_idx = [&](int at, int &out) -> bool {
+        if (at < 0 || at + 2 >= n) {
+            return false;
+        }
+        out = (int)code[at + 1] | ((int)code[at + 2] << 8);
+        return out >= 0 && out < chunk->constants.size();
+    };
+    if (ip < n && code[ip] == OP_GET_GLOBAL) {
+        if (!read_idx(ip, gidx)) {
+            return shape;
+        }
+        ip = vg_skip_noise(code, ip + 3);
+        if (ip + 1 >= n || code[ip] != OP_GET_LOCAL || code[ip + 1] != 0) {
+            return shape;
+        }
+        ip = vg_skip_noise(code, ip + 2);
+    } else if (ip + 1 < n && code[ip] == OP_GET_LOCAL && code[ip + 1] == 0) {
+        arg_left = true;
+        ip = vg_skip_noise(code, ip + 2);
+        if (ip >= n || code[ip] != OP_GET_GLOBAL || !read_idx(ip, gidx)) {
+            return shape;
+        }
+        ip = vg_skip_noise(code, ip + 3);
+    } else {
+        return shape;
+    }
+    if (ip >= n) {
+        return shape;
+    }
+    int8_t kind = 0;
+    if (code[ip] == OP_ADD_F64) {
+        kind = 2;
+    } else if (code[ip] == OP_ADD_I64) {
+        kind = 3;
+    } else {
+        return shape;
+    }
+    ip = vg_skip_noise(code, ip + 1);
+    // The compiler stores a binary of two variables in a temporary and
+    // loads it back. The value is unchanged.
+    if (ip + 1 < n && code[ip] == OP_SET_LOCAL) {
+        const uint8_t slot = code[ip + 1];
+        ip = vg_skip_noise(code, ip + 2);
+        if (ip + 1 >= n || code[ip] != OP_GET_LOCAL || code[ip + 1] != slot) {
+            return shape;
+        }
+        ip = vg_skip_noise(code, ip + 2);
+    }
+    // A Single target emits OP_TO_F64 when the sum was not inferred as a
+    // float. ADD_F64 already pushed a float, so the conversion leaves it.
+    // ADD_I64's integer becomes a float before the store.
+    int8_t to_f64 = 0;
+    if (ip < n && code[ip] == OP_TO_F64) {
+        to_f64 = 1;
+        ip = vg_skip_noise(code, ip + 1);
+    }
+    int stored = -1;
+    if (ip >= n || code[ip] != OP_SET_GLOBAL || !read_idx(ip, stored) || stored != gidx) {
+        return shape;
+    }
+    ip = vg_skip_noise(code, ip + 3);
+    if (ip >= n || code[ip] != OP_RETURN) {
+        return shape;
+    }
+    ip = vg_skip_noise(code, ip + 1);
+    if (ip != n) {
+        return shape;
+    }
+    shape.kind = kind;
+    shape.arg_left = arg_left ? 1 : 0;
+    shape.to_f64 = to_f64;
+    shape.const_idx = gidx;
+    return shape;
+}
+
 bool VisualGasicInstance::ext_chunk_leaf(BytecodeChunk *chunk, SubDefinition *func, int8_t &kind, int64_t &i64, double &f64) {
     Variant out;
     kind = 1;
@@ -7143,6 +7265,48 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         else if (ent.leaf_kind == 4) push_value(ent.leaf_i64 != 0);
                         else push_value(Variant());
                         break;
+                    }
+                }
+
+                // The same gate as the constant Return above. The lean loop
+                // applies the add on later calls; this call still enters the
+                // Sub, which is what classifies it.
+                if (_pb_known_user_sub && arg_count == 1 && inline_calls_ok &&
+                        _pc_pre_resolved && _pc_pre_resolved->chunk_for_locals &&
+                        _pc_pre_resolved->func && _pc_pre_resolved->owning_module_index < 0 &&
+                        current_object_id == -1 && name_idx >= 0 && !needs_var_sync &&
+                        !vg_evidence_recording() && !whenever_evaluating) {
+                    BytecodeChunk *ga_chunk = _pc_pre_resolved->chunk_for_locals;
+                    SubDefinition *ga_func = _pc_pre_resolved->func;
+                    MemberNameCacheEntry &ent = ensure_member_cache_entry(name_idx);
+                    if (ent.gadd_kind == 0) {
+                        const VgGlobalAddShape ga = vg_chunk_global_add(ga_chunk, ga_func);
+                        if (ga.kind >= 2 && ga.const_idx >= 0 && ga.const_idx < ga_chunk->constants.size()) {
+                            const StringName key = String(ga_chunk->constants[ga.const_idx]);
+                            if (variables.has(key)) {
+                                ent.gadd_ptr = &variables[key];
+                                ent.gadd_gen = variables.generation;
+                                ent.gadd_kind = ga.kind;
+                                ent.gadd_arg_left = ga.arg_left;
+                                ent.gadd_coerce = ga_chunk->fast_param_coerce[0];
+                                ent.gadd_to_f64 = ga.to_f64;
+                                ent.gadd_const = ga.const_idx;
+                            } else {
+                                ent.gadd_kind = 1;
+                            }
+                        } else {
+                            ent.gadd_kind = 1;
+                        }
+                    } else if (ent.gadd_kind >= 2 &&
+                            (ent.gadd_ptr == nullptr || ent.gadd_gen != variables.generation) &&
+                            ent.gadd_const >= 0 && ent.gadd_const < ga_chunk->constants.size()) {
+                        const StringName key = String(ga_chunk->constants[ent.gadd_const]);
+                        if (variables.has(key)) {
+                            ent.gadd_ptr = &variables[key];
+                            ent.gadd_gen = variables.generation;
+                        } else {
+                            ent.gadd_ptr = nullptr;
+                        }
                     }
                 }
 

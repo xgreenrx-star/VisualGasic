@@ -645,10 +645,91 @@ fl_call: { // OP_CALL [name lo] [name hi] [argc]
 		goto fl_leave;
 	}
 	const MemberNameCacheEntry &e = memo.ptr()[idx];
+	Variant *top = sp - 1;
+	// A Sub whose body is one module number plus this argument. The
+	// first call classifies it. A watchpoint, an evidence recorder, or
+	// a Whenever section still enters the Sub. A statement call's POP
+	// is the Nothing the Sub would have pushed.
+	if (e.gadd_kind >= 2) {
+		if (FL_UNLIKELY(e.gadd_ptr == nullptr || e.gadd_gen != variables.generation)) {
+			goto fl_leave;
+		}
+		if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
+			goto fl_leave;
+		}
+		if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
+			goto fl_leave;
+		}
+		Variant *dst = e.gadd_ptr;
+		const uint32_t dt = fl_type(dst);
+		const uint32_t at = fl_type(top);
+		if (e.gadd_kind == 2) {
+			double argd;
+			if (e.gadd_coerce == 1) {
+				if (at != FL_INT) {
+					goto fl_leave;
+				}
+				argd = (double)fl_int(top);
+			} else if (e.gadd_coerce == 0 || e.gadd_coerce == 2) {
+				if (!fl_as_f64(top, argd)) {
+					goto fl_leave;
+				}
+			} else {
+				goto fl_leave;
+			}
+			double base;
+			if (dt == FL_FLOAT) {
+				base = fl_float(dst);
+			} else if (dt == FL_INT) {
+				base = (double)fl_int(dst);
+			} else {
+				goto fl_leave;
+			}
+			const double sum = e.gadd_arg_left ? argd + base : base + argd;
+			if (dt == FL_FLOAT) {
+				fl_put_float(dst, sum);
+			} else {
+				fl_put_int(dst, (int64_t)sum);
+			}
+		} else if (e.gadd_kind == 3) {
+			if ((e.gadd_coerce != 0 && e.gadd_coerce != 1) || at != FL_INT) {
+				goto fl_leave;
+			}
+			if (dt != FL_INT && dt != FL_FLOAT) {
+				goto fl_leave;
+			}
+			const int64_t argi = fl_int(top);
+			const int64_t base = dt == FL_INT ? fl_int(dst) : (int64_t)fl_float(dst);
+			const int64_t left = e.gadd_arg_left ? argi : base;
+			const int64_t right = e.gadd_arg_left ? base : argi;
+			const int64_t sum = (int64_t)((uint64_t)left + (uint64_t)right);
+			if (e.gadd_to_f64) {
+				const double as_f = (double)sum;
+				if (dt == FL_FLOAT) {
+					fl_put_float(dst, as_f);
+				} else {
+					fl_put_int(dst, (int64_t)as_f);
+				}
+			} else if (dt == FL_INT) {
+				fl_put_int(dst, sum);
+			} else {
+				fl_put_float(dst, (double)sum);
+			}
+		} else {
+			goto fl_leave;
+		}
+		if ((size_t)(safe_end - pc) > 2 && pc[4] == OP_POP) {
+			sp--;
+			pc += 5;
+		} else {
+			memset(static_cast<void *>(top), 0, FL_VSZ);
+			pc += 4;
+		}
+		FL_NEXT();
+	}
 	if (FL_UNLIKELY(!e.initialized || e.pure_builtin != MemberNameCacheEntry::PB_TO_I64)) {
 		goto fl_leave;
 	}
-	Variant *top = sp - 1;
 	const uint32_t t = fl_type(top);
 	if (t == FL_INT) {
 		// Already an Integer. vb_to_integer returns it unchanged.

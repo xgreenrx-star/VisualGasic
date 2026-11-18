@@ -244,6 +244,18 @@ private:
         int8_t leaf_kind = 0;
         int64_t leaf_i64 = 0;
         double leaf_f64 = 0.0;
+        // One-argument Sub whose body is `global = global + param` (or the
+        // two operands swapped). 0 = not classified, 1 = not this shape,
+        // 2 = float add, 3 = integer add. gadd_ptr is that module value,
+        // valid while gadd_gen == variables.generation. gadd_const is the
+        // name's index in the callee's constant pool.
+        int8_t gadd_kind = 0;
+        int8_t gadd_arg_left = 0;
+        int8_t gadd_coerce = 0;
+        int8_t gadd_to_f64 = 0;
+        int32_t gadd_const = -1;
+        Variant *gadd_ptr = nullptr;
+        uint32_t gadd_gen = 0;
 		StringName owner_call_name;
 		bool owner_draw_line = false;
         // Part I: cached full resolution for a known user Sub (call_disp==0).
