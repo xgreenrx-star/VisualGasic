@@ -1,5 +1,6 @@
 ' MAX_FRAMES: 12
 ' One unhandled Raise in _Process must report and let later frames run.
+' EXPECT_UNHANDLED_RUNTIME_ERROR
 Attribute VB_Name = "TestUnhandledProcessError"
 
 Dim frames As Integer
