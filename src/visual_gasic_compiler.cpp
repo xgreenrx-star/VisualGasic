@@ -7255,8 +7255,14 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
         return VT_UNKNOWN;
     }
     if (expr->type == ExpressionNode::VARIABLE) {
-        String key = ((VariableNode*)expr)->name.to_lower();
+        const String &name = ((VariableNode *)expr)->name;
+        String key = name.to_lower();
         if (local_types.has(key)) return local_types[key];
+        // A Dim As Integer / Single module value is that type for arithmetic
+        // and for skipping CLng / CDbl on a typed store. Locals and params
+        // already live in local_types.
+        if (is_declared_integer_var(name)) return VT_INT;
+        if (is_declared_float_var(name)) return VT_FLOAT;
         return VT_UNKNOWN;
     }
     if (expr->type == ExpressionNode::UNARY_OP) {

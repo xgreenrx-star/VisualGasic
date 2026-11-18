@@ -1023,6 +1023,39 @@ fl_get_global: { // OP_GET_GLOBAL [name lo] [name hi]
 			}
 		}
 	}
+	// Integer global += integer constant, then store to the same name.
+	// Shape: GET_GLOBAL, CONSTANT, ADD_I64_CONST, SET_GLOBAL. The first
+	// store of a frame still leaves so the ordinary handler can snapshot.
+	if (t == FL_INT && (size_t)(safe_end - pc) > 11 &&
+			(pc[3] == OP_CONSTANT || pc[3] == OP_CONSTANT_LONG) &&
+			pc[6] == OP_ADD_I64_CONST && pc[9] == OP_SET_GLOBAL) {
+		const uint32_t push_idx = (uint32_t)pc[4] | ((uint32_t)pc[5] << 8);
+		const uint32_t add_idx = (uint32_t)pc[7] | ((uint32_t)pc[8] << 8);
+		const uint32_t set_idx = (uint32_t)pc[10] | ((uint32_t)pc[11] << 8);
+		if (set_idx == idx && push_idx < nconst && add_idx < nconst &&
+				fl_type(K + push_idx) == FL_INT && fl_type(K + add_idx) == FL_INT) {
+			if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
+				goto fl_leave;
+			}
+			if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
+				goto fl_leave;
+			}
+			if (f.snapshot_globals_active) {
+				const int gi = e.gw_index;
+				if (FL_UNLIKELY(gi < 0 || f.gw_bits == nullptr)) {
+					goto fl_leave;
+				}
+				const uint64_t mask = (uint64_t)1 << (gi & 63);
+				if (FL_UNLIKELY((f.gw_bits[gi >> 6] & mask) == 0)) {
+					goto fl_leave;
+				}
+			}
+			const int64_t sum = (int64_t)((uint64_t)fl_int(src) + (uint64_t)fl_int(K + add_idx));
+			fl_put_int(e.gptr, sum);
+			pc += 12;
+			FL_NEXT();
+		}
+	}
 	FL_ROOM();
 	if (FL_LIKELY(fl_pod(t))) {
 		fl_copy(sp, src);
