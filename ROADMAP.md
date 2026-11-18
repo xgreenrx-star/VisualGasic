@@ -3,7 +3,7 @@
 **Last Updated**: November 18, 2026<br>
 **Current Version**: 5.7.0-beta.4, plus the unreleased engine fixes in [Engine status](#engine-status-november-7-2026) — see [`CHANGELOG.md`](CHANGELOG.md)  
 **Current Scope**: Godot IDE integration through stable v6.0 (early 2027)  
-**Next Cut**: proposed **5.8.0-beta.1**, not scheduled; gated on the core correctness items below — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
+**Next Cut**: proposed **5.8.0-beta.1** — core correctness P0 gates (#24/#25/#26) closed 18 Nov 2026; cut still needs owner authorization — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
 **Roadmap Scope**:
 - ✅ **M0–M9 milestones** (Jul 2026 – Jan 1 2027): Current active development
@@ -18,28 +18,29 @@ This document outlines the planned improvements and features for Visual Gasic. I
 
 ## 5.8.0-beta.1 — proposed core performance beta
 
-**Status:** Proposed; no release date. The recent core VM/JIT work is a substantial beta feature, but the next beta must not ship until the correctness gates below are resolved and verified. Do not describe the microbenchmark results as proof that all VG programs are faster than GDScript.
+**Status:** Proposed; P0 correctness gates closed 18 Nov 2026 (`1748eff7`, `8ff349b0`, `bc903b3a`). Cut still needs owner authorization and release notes. Do not describe the microbenchmark results as proof that all VG programs are faster than GDScript.
 
 Implementation handoff: [`CURSOR_5_8_CORE_CORRECTNESS_HANDOFF.md`](docs/development/CURSOR_5_8_CORE_CORRECTNESS_HANDOFF.md).
 
-### Release blockers — top priority
+### Release gates — closed
 
-| Priority | Issue | Required exit criteria |
+| Priority | Issue | Resolution |
 |---|---|---|
-| **P0** | [#25 Tier-2 JIT miscompiles Boolean control flow at branch joins](https://github.com/xgreenrx-star/VisualGasic/issues/25) | Add minimal repros for `AndAlso`, `OrElse`, and applicable Boolean `And` control-flow shapes. Fix value/stack merging or make Tier 2 safely fall back. Assert exact results in default JIT, `VG_JIT=0`, and `VG_JIT=3`; run AST/bytecode differential tests. |
-| **P0** | [#24 AST and bytecode disagree on `Len` and mixed Variant arithmetic](https://github.com/xgreenrx-star/VisualGasic/issues/24) | Decide the intended semantics for each case, then make AST, bytecode, and JIT agree. The existing `test_jit_len_global.vg` and `test_jit_string_dict_globals.vg` cases must pass under `VG_FORCE_AST=1` as well as the normal execution modes. |
-| **P0 decision** | [#26 Decide missing Dictionary key behavior](https://github.com/xgreenrx-star/VisualGasic/issues/26) | Settle whether an absent key returns `Nothing` or raises an error. Document the contract, remove stale contradictory expectations, and verify AST/bytecode/JIT agree. This is a specification gate, not a confirmed bug that must be changed to throw. |
+| **P0** | [#25](https://github.com/xgreenrx-star/VisualGasic/issues/25) | Tier 2 declines `AndAlso`/`OrElse` expression joins (safe bytecode fallback). `test_jit_branch_join.vg`. |
+| **P0** | [#24](https://github.com/xgreenrx-star/VisualGasic/issues/24) | Shared `vg_len_value` + `vg_vb_numeric` String/NIL coercion; AST/bytecode/JIT agree. |
+| **P0 decision** | [#26](https://github.com/xgreenrx-star/VisualGasic/issues/26) | Missing key → `Nothing`, `Err.Number = 0`. Documented in language reference. |
 
 ### 5.8.0-beta.1 release-note requirements
 
 When preparing the beta, include:
 
 - The core VM/JIT performance work and the reproducible benchmark conditions/results from [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md).
-- The fixes for #24 and #25, once they are complete, with a concise description of the affected programs.
-- The decided missing-Dictionary-key contract from #26. If any item is deferred, list it under **Known issues** and do not claim the relevant behavior is fixed.
+- The fixes for #24 and #25 (`AndAlso`/`OrElse` safe JIT decline; `Len` + mixed Variant arithmetic parity).
+- The missing-Dictionary-key contract from #26 (`Nothing`, no raise).
+- Known limitation: Tier-2 **phi merge** for short-circuit joins is deferred (functions with `AndAlso`/`OrElse` use bytecode until then).
 - The supported execution modes tested (default JIT, `VG_JIT=0`, `VG_JIT=3`, and AST mode where applicable).
 
-Do not publish 5.8.0-beta.1 until all P0 items are closed or explicitly re-scoped by the project owner after reviewing their user impact.
+Do not publish 5.8.0-beta.1 until the project owner authorizes the cut.
 
 ---
 
