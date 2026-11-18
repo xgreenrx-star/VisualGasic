@@ -261,15 +261,9 @@ Focused validation: AST/bytecode diff OK; `run_gap` `mismatches=0`. Full suite: 
 
 Still open for a later release (not beta blockers here): Tier-2 **phi merge** so `AndAlso`/`OrElse` can compile natively instead of declining.
 
-Before calling the handoff complete:
+Handoff checklist (18 Nov 2026):
 
-- Update issues #24, #25, and #26 with evidence, selected semantics, tests, and
-  commit references.
-- Update the 5.8.0-beta.1 gate in `ROADMAP.md` and `RELEASE_SCHEDULE.md` only
-  after each corresponding exit criterion is met.
-- Update `CHANGELOG.md` under Unreleased with user-visible fixes. Do not create
-  or tag release notes for 5.8.0-beta.1 until the project owner authorizes the
-  cut.
-- Summarize what was fixed, any intentional semantic decisions, exact test
-  totals/modes, and anything still blocked. Do not claim VG is fully bug-free
-  or universally faster than GDScript.
+- [x] Issues #24, #25, #26 closed with evidence and commit refs (`1748eff7`, `8ff349b0`, `bc903b3a`).
+- [x] `ROADMAP.md` / `RELEASE_SCHEDULE.md` set to **GATES CLEAR** (`08e7776f`); cut still needs owner authorization.
+- [x] `CHANGELOG.md` Unreleased updated for user-visible fixes. Do **not** tag 5.8.0-beta.1 until the project owner authorizes the cut.
+- [x] Summary: safe JIT decline for short-circuit joins; Len + mixed Variant coercion parity; missing dict key → `Nothing`. Suite `PASS=1894` ×3 modes; corpus 80/80 ×4; gap `mismatches=0`. Deferred: Tier-2 phi for `AndAlso`/`OrElse`.
