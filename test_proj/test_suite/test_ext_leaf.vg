@@ -1,0 +1,43 @@
+' Constant Return functions, and a function that writes a global.
+' tests/test_ext_leaf_call.gd calls these from GDScript.
+Option Explicit
+Inherits Node
+
+Dim bumps As Integer
+
+Sub Check(ByVal ok As Boolean, ByVal label As String)
+	If ok Then
+		Print "PASS: " & label
+	Else
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Function Zero() As Integer
+	Return 0
+End Function
+
+Function Answer() As Integer
+	Return 7
+End Function
+
+Function Bump() As Integer
+	bumps = bumps + 1
+	Return bumps
+End Function
+
+Function ReadBumps() As Integer
+	Return bumps
+End Function
+
+Function AddOne(ByVal x As Integer) As Integer
+	Return x + 1
+End Function
+
+Sub _Ready()
+	Check Zero() = 0, "zero"
+	Check Answer() = 7, "answer"
+	Check Bump() = 1, "bump runs"
+	Check ReadBumps() = 1, "bump stored"
+	Check AddOne(4) = 5, "argument runs"
+End Sub

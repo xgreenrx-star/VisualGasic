@@ -14,6 +14,11 @@ func run() -> void:
 	root.add_child(n)
 	await process_frame
 	var t0 := Time.get_ticks_usec()
-	var r: Variant = n.call(fn, n_iter)
+	var r: Variant = 0
+	if fn == "external":
+		for i in n_iter:
+			n.call("empty_fn")
+	else:
+		r = n.call(fn, n_iter)
 	print("%s %.1f ns/iter result=%s" % [fn, (Time.get_ticks_usec() - t0) * 1000.0 / n_iter, r])
 	quit()

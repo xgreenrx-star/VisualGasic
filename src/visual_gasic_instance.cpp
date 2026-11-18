@@ -1076,6 +1076,8 @@ bool VisualGasicInstance::refresh_script_caches() {
 	_call_resolution_cache.clear();
 	_engine_call_cache.clear();
 	_external_call_cache.clear();
+	_ext_hot_leaf = 0;
+	_ext_hot_gen = 0;
 	_member_cache_generation = script->bytecode_generation;
 	_member_cache_last_chunk = nullptr;
 	_member_cache_last_ptr = nullptr;

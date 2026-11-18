@@ -520,6 +520,30 @@ static bool vg_chunk_leaf_const(BytecodeChunk *chunk, VisualGasic::SubDefinition
     return true;
 }
 
+bool VisualGasicInstance::ext_chunk_leaf(BytecodeChunk *chunk, SubDefinition *func, int8_t &kind, int64_t &i64, double &f64) {
+    Variant out;
+    kind = 1;
+    if (!vg_chunk_leaf_const(chunk, func, out)) {
+        return false;
+    }
+    const Variant::Type t = vgfast::vtype(out);
+    if (t == Variant::INT) {
+        kind = 2;
+        i64 = vgfast::vint(out);
+    } else if (t == Variant::FLOAT) {
+        kind = 3;
+        f64 = vgfast::vfloat(out);
+    } else if (t == Variant::BOOL) {
+        kind = 4;
+        i64 = (bool)out ? 1 : 0;
+    } else if (t == Variant::NIL) {
+        kind = 5;
+    } else {
+        return false;
+    }
+    return true;
+}
+
 // Direct ptrcalls for the hottest packed-array methods.  Variant::callp
 // resolves the method by StringName and validates/converts every argument
 // on each call; the GDExtension ptr-method + internal-pointer interface does

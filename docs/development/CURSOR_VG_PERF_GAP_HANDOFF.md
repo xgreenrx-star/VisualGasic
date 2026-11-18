@@ -196,6 +196,31 @@ A zero-argument function whose body is `Return` of an Integer, Double, Boolean, 
 
 The member-name cache keeps the vector's data pointer and rebinds it when the frame changes or the vector grows. A call with no ByRef parameter skips the capture list. Integer and Double locals are not released on the way out; the next call resets those slots.
 
+### 17 Nov 2026, after external constant returns
+
+`run_gap.gd`, one quiet pair on the final binary, `mismatches=0` both modes. GD `t_local` was 8.8 ns with the JIT on and 9.6 ns with `VG_JIT=0`. The GD column is the JIT-on run. Each ratio is from its own run. Before this change `external_call` was 2.47 and 4.30.
+
+| Case | GD | VG JIT | ratio | VG `VG_JIT=0` | ratio |
+|---|---|---|---|---|---|
+| t_local | 8.8 | 1.9 | 0.22 | 5.0 | 0.53 |
+| t_global | 8.8 | 1.9 | 0.22 | 5.0 | 0.56 |
+| t_gint | 8.5 | 0.6 | 0.07 | 9.1 | 1.04 |
+| t_gint_if | 15.2 | 0.8 | 0.05 | 12.6 | 0.81 |
+| t_getx | 19.9 | 6.9 | 0.35 | 6.9 | 0.35 |
+| t_getx_typed | 10.5 | 6.8 | 0.64 | 7.8 | 0.74 |
+| t_sety | 21.3 | 10.8 | 0.51 | 12.2 | 0.58 |
+| t_dict | 32.5 | 22.7 | 0.70 | 30.9 | 0.96 |
+| t_streq | 29.5 | 22.3 | 0.76 | 39.0 | 1.34 |
+| t_call | 60.8 | 1.9 | 0.03 | 5.4 | 0.08 |
+| t_vec | 11.8 | 4.9 | 0.41 | 5.2 | 0.40 |
+| t_sin | 34.7 | 21.2 | 0.61 | 15.1 | 0.39 |
+| t_call_host | 73.0 | 282.5 | 3.87 | 156.9 | 2.22 |
+| external_call | 57.6 | 55.9 | 0.97 | 55.8 | 0.89 |
+
+Acceptance is `external_call` ≤ 1.2 in both modes: 0.97 and 0.89. Two other pairs on this binary were 0.96 / 0.92 and 1.02 / 0.93, all with `mismatches=0`. A busy core pushed `t_dict` to 1.04 and interpreter `t_streq` to 1.76 while the absolute times were several times the quiet run. The quiet rerun is the table. JIT `t_dict` is 0.70 and `t_streq` is 0.76. Interpreter `t_streq` is 1.34 (≤ 1.5), `t_dict` is 0.96 (≤ 1.3), and `t_call` is 0.08 (≤ 1.0).
+
+`call()` already remembered the `StringName`. A zero-argument function whose body is `Return` of an Integer, Double, Boolean, or Nothing, with no parameters and no global write, runs on the first call and is classified from that chunk. Later calls of the same `StringName` write the cached bits into the return Variant and return. The gap loop uses one name, so the instance keeps that name in one slot and skips the map. The slot stores `script->bytecode_generation` and `refresh_script_caches` clears it. A debugger, the opcode profiler, evidence recording, and `VG_INLINE_CALLS=0` still enter the function. A method whose name contains `input` still takes the normal path, which queues a redraw. `Answer` returns 7 on that same path. `Bump` writes a module integer, `ReadBumps` reads it, and `AddOne` takes an argument; those three still run. `test_proj/test_suite/test_ext_leaf.vg` and `tests/test_ext_leaf_call.gd` cover them. `hot_case.gd` accepts `external` for a profile. `empty_fn` is `Return 0`, and the bytecode pushes Integer 0. The gap does not compare that return.
+
 ### Status (17 Nov 2026)
 
 Done:
@@ -207,15 +232,16 @@ Done:
 - Interpreter `CLng` + Integer `OP_SET_GLOBAL` fast path: `6f7a2500`
 - WS4 axis ops in the VM and the compiler: `68857b12`. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and was not required for the ratio.
 - WS5, Tier 2 String and Dictionary globals: `c3ed88fb`. JIT ratios for `t_dict` and `t_streq` are under 1.00.
-- WS6, interpreter string compare, constant dictionary key, and leaf call: this commit. Interpreter `t_streq` 1.27, `t_dict` 1.09, `t_call` 0.08. The pure-Boolean `And` jump form is not in this commit.
+- WS6, interpreter string compare, constant dictionary key, and leaf call: `24ca8441`. Interpreter `t_streq` 1.27, `t_dict` 1.09, `t_call` 0.08. The pure-Boolean `And` jump form is not in that commit.
+- WS7, external constant `Return`: this commit. `external_call` is 0.97 with the JIT on and 0.89 with `VG_JIT=0`.
 
-Not started: WS7 external calls into VG. Tier 2 scalar replacement of Vector2/Vector3 locals is still open and is not next.
+Tier 2 scalar replacement of Vector2/Vector3 locals is still open. Those ratios are already under 1.00 (`t_getx` 0.35, `t_getx_typed` 0.64, `t_sety` 0.51, `t_vec` 0.41).
 
-Next: WS7. `external_call` is 2.47 with the JIT on and 4.30 with `VG_JIT=0`. Acceptance is ≤ 1.2 in both modes.
+Next: `t_call_host`. It is the remaining JIT-on case over 1.00 (3.87). The loop calls `tag_len`, which calls `Len` on a String. With `VG_JIT=0` the cases still over 1.00 are `t_gint` 1.04, `t_streq` 1.34, `t_call_args` 1.52, `t_call_byref` 2.71, `t_call_global` 4.79, and `t_call_host` 2.22.
 
 Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` takes effect on the parser, the bytecode VM, and Tier 2. Tier 2 does not merge the operand stack at a jump join, so a short-circuit expression that pushes a value on both edges miscompiles. `AndAlso` and `OrElse` already emit that shape. `t_streq` does not use it.
 
-The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: 1804 PASS / 0 FAIL in default, `VG_JIT=0`, and `VG_JIT=3`. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes; a parallel `VG_JIT=3` draw run printed `failures=1` while the suites were running, and the same command alone printed `failures=0`. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` 3 failures, `test_departure_render` still hits its 240s headless timeout (the lambda at line 19, then the ObjectDB leak warning). `test_suit_panel_performance` alone: face=true 7.34 ms, face=false 7.05 ms (written baseline 63.66 ms and 38.13 ms). The same file during the suite run was 11.27 ms and 21.75 ms.
+The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: 1809 PASS / 0 FAIL in default and `VG_JIT=0` (1804 plus the five checks in `test_ext_leaf.vg`). The parallel `VG_JIT=3` log was 1805 PASS / 4 FAIL, all four in `test_db_controls.vg`. That file alone passed, including RecordCount, MoveLast, AddNew, and the new record. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` the same three failures (`blinking_block_has_visible_pixel_change_inside_crt`, `orac_core_pulses_visibly_without_moving_crt`, `key_press_changes_pixels_on_actual_a_key`), `test_departure_render` still times out at the lambda on line 19 (`Departure visual regression timed out`). `test_suit_panel_performance` alone: face=true 16.6 ms, face=false 19.07 ms, under the written baseline of 63.66 ms and 38.13 ms.
 
 ### JIT log at baseline (`VG_JIT_LOG=1`)
 

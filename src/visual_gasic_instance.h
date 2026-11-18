@@ -164,8 +164,22 @@ private:
         bool has_pre = false;
         String resolved_name;
         CallResolutionCacheEntry pre;
+        // 0 = not classified, 1 = not a constant Return, 2 = Integer,
+        // 3 = Double, 4 = Boolean, 5 = Nothing. The bits are that constant.
+        int8_t leaf_kind = 0;
+        int64_t leaf_i64 = 0;
+        double leaf_f64 = 0.0;
     };
     HashMap<StringName, ExternalCallEntry> _external_call_cache;
+    // The last constant-Return call(). The loop in run_gap.gd hits one name,
+    // so the next call compares the StringName and skips the map.
+    StringName _ext_hot_method;
+    int _ext_hot_argc = -1;
+    int8_t _ext_hot_leaf = 0;
+    int64_t _ext_hot_i64 = 0;
+    double _ext_hot_f64 = 0.0;
+    uint32_t _ext_hot_gen = 0;
+    static bool ext_chunk_leaf(BytecodeChunk *chunk, SubDefinition *func, int8_t &kind, int64_t &i64, double &f64);
     // Per-frame engine hooks (_Process / _PhysicsProcess / _Draw / OnDraw):
     // existence and callee resolution memoized per bytecode generation so a
     // frame does not pay _has_method's StringName builds + to_lower and the

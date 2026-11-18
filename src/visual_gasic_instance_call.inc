@@ -1010,6 +1010,73 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         return;
     }
 
+    // A zero-argument `Return <constant>` has nothing to run. The bits were
+    // stored the first time this name resolved. A debugger or a profiler
+    // still enters the function.
+    static const bool _vg_ext_leaf_off = []() {
+        const char *e = std::getenv("VG_INLINE_CALLS");
+        return e && e[0] == '0' && e[1] == '\0';
+    }();
+    const bool _ext_leaf_ok = !_vg_ext_leaf_off &&
+            !VisualGasicLanguage::is_debug_hook_active() && !vg_opcode_profile_enabled() &&
+            !vg_evidence_recording();
+    if (_ext_leaf_ok && _ext_hot_leaf >= 2 && script.is_valid() &&
+            _ext_hot_gen == script->bytecode_generation &&
+            _ext_hot_argc == (int)p_argcount && _ext_hot_method == p_method) {
+        if (r_return) {
+            if (_ext_hot_leaf == 2) *r_return = _ext_hot_i64;
+            else if (_ext_hot_leaf == 3) *r_return = _ext_hot_f64;
+            else if (_ext_hot_leaf == 4) *r_return = (_ext_hot_i64 != 0);
+            else *r_return = Variant();
+        }
+        error_state.has_error = false;
+        error_state.mode = ErrorState::NONE;
+        r_error->error = GDEXTENSION_CALL_OK;
+        return;
+    }
+    auto classify_ext_leaf = [&](ExternalCallEntry *e) {
+        if (!e || e->leaf_kind != 0) {
+            return;
+        }
+        if (e->argc != 0 || !e->has_pre || !e->pre.resolved || e->pre.owning_module_index >= 0 ||
+                !e->pre.chunk_for_locals || !e->pre.func) {
+            e->leaf_kind = 1;
+            return;
+        }
+        int8_t kind = 1;
+        int64_t i64 = 0;
+        double f64 = 0.0;
+        if (!ext_chunk_leaf(e->pre.chunk_for_locals, e->pre.func, kind, i64, f64) || kind < 2) {
+            e->leaf_kind = 1;
+            return;
+        }
+        e->leaf_kind = kind;
+        e->leaf_i64 = i64;
+        e->leaf_f64 = f64;
+        // A name containing "input" queues a redraw after the call. Keep
+        // that on the normal path. empty_fn does not.
+        if (e->redraw_on_input) {
+            return;
+        }
+        _ext_hot_method = p_method;
+        _ext_hot_argc = 0;
+        _ext_hot_leaf = kind;
+        _ext_hot_i64 = i64;
+        _ext_hot_f64 = f64;
+        _ext_hot_gen = script.is_valid() ? script->bytecode_generation : 0;
+    };
+    auto return_ext_leaf = [&](const ExternalCallEntry &e) {
+        if (r_return) {
+            if (e.leaf_kind == 2) *r_return = e.leaf_i64;
+            else if (e.leaf_kind == 3) *r_return = e.leaf_f64;
+            else if (e.leaf_kind == 4) *r_return = (e.leaf_i64 != 0);
+            else *r_return = Variant();
+        }
+        error_state.has_error = false;
+        error_state.mode = ErrorState::NONE;
+        r_error->error = GDEXTENSION_CALL_OK;
+    };
+
     // Engine → VG fast path (signals, Callable.call, GDScript n.call(...)).
     // The slow path below compares the name against a dozen StringName
     // literals (each built under the global StringName mutex), lowercases it
@@ -1058,6 +1125,19 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
         return;
     }
     if (_ext->kind == ExternalCallEntry::NORMAL && _ext->argc == (int)p_argcount) {
+        if (_ext->leaf_kind == 0) {
+            classify_ext_leaf(_ext);
+        }
+        if (_ext_leaf_ok && _ext->leaf_kind >= 2 && !_ext->redraw_on_input) {
+            _ext_hot_method = p_method;
+            _ext_hot_argc = 0;
+            _ext_hot_leaf = _ext->leaf_kind;
+            _ext_hot_i64 = _ext->leaf_i64;
+            _ext_hot_f64 = _ext->leaf_f64;
+            _ext_hot_gen = script.is_valid() ? script->bytecode_generation : 0;
+            return_ext_leaf(*_ext);
+            return;
+        }
         // Copy what is needed after the callee runs: a nested call can insert
         // into (rehash) or clear the map.  `pre` is only read by call_internal
         // before the callee executes (same contract as OP_CALL's memo).
@@ -1623,6 +1703,7 @@ void VisualGasicInstance::call(const StringName &p_method, const Variant *const 
                     e->has_pre = true;
                 }
             }
+            classify_ext_leaf(e);
         }
     }
 
