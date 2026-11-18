@@ -795,40 +795,49 @@ static bool vg_chunk_byref_scalar(BytecodeChunk *chunk, VisualGasic::SubDefiniti
 
 // A straight-line numeric Function, every parameter ByVal, whose Return
 // leaves one number. The lean loop runs the body and that number replaces
-// the arguments. A ByRef parameter, a jump, a call, a global, or a divide
-// stays on the ordinary call.
-static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func) {
+// the arguments. Len(module value) is allowed and recorded in gconst. A
+// ByRef parameter, a jump, a call, a SET_GLOBAL, a bare GET_GLOBAL, or a
+// divide stays on the ordinary call. OP_ADD / OP_SUBTRACT / OP_MULTIPLY are
+// the same Variant numeric ops the VM uses when the operands are untyped.
+struct VgNretShape {
+    bool ok = false;
+    int ng = 0;
+    int32_t gconst[4] = { -1, -1, -1, -1 };
+};
+
+static VgNretShape vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func) {
+    VgNretShape shape;
     if (!chunk || !func || !chunk->fast_params || chunk->publishes_locals) {
-        return false;
+        return shape;
     }
     if (func->type != VisualGasic::SubDefinition::TYPE_FUNCTION) {
-        return false;
+        return shape;
     }
     const int nparam = func->parameters.size();
     if (nparam < 1 || nparam > 8 || chunk->param_count != nparam ||
             chunk->fast_param_coerce.size() != nparam) {
-        return false;
+        return shape;
     }
     if (chunk->fast_return_coerce != 1 && chunk->fast_return_coerce != 2) {
-        return false;
+        return shape;
     }
     if (chunk->return_slot < 0 || chunk->return_slot >= chunk->local_count) {
-        return false;
+        return shape;
     }
     if (chunk->local_count < nparam || chunk->local_count > 32) {
-        return false;
+        return shape;
     }
     if (chunk->code.size() <= 0 || chunk->code.size() > 256) {
-        return false;
+        return shape;
     }
     for (int i = 0; i < nparam; i++) {
         if (func->parameters[i].is_by_ref || func->parameters[i].is_param_array ||
                 func->parameters[i].is_optional) {
-            return false;
+            return shape;
         }
         const int8_t c = chunk->fast_param_coerce[i];
         if (c != 1 && c != 2) {
-            return false;
+            return shape;
         }
     }
     if (func->has_static_locals_cache < 0) {
@@ -843,7 +852,7 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
         func->has_static_locals_cache = hs;
     }
     if (func->has_static_locals_cache != 0) {
-        return false;
+        return shape;
     }
     const uint8_t *code = chunk->code.ptr();
     const int n = chunk->code.size();
@@ -858,7 +867,7 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
         }
         if (op == OP_DEBUG_LINE) {
             if (ip + 2 >= n) {
-                return false;
+                return shape;
             }
             ip += 3;
             continue;
@@ -866,35 +875,65 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
         switch (op) {
             case OP_GET_LOCAL:
                 if (ip + 1 >= n || code[ip + 1] >= chunk->local_count || depth >= 16) {
-                    return false;
+                    return shape;
                 }
                 depth++;
                 ip += 2;
                 break;
             case OP_SET_LOCAL:
                 if (ip + 1 >= n || code[ip + 1] >= chunk->local_count || depth < 1) {
-                    return false;
+                    return shape;
                 }
                 depth--;
                 ip += 2;
                 break;
-            case OP_CONSTANT:
-            case OP_CONSTANT_LONG: {
-                if (ip + 2 >= n || depth >= 16) {
-                    return false;
+            case OP_GET_GLOBAL: {
+                // Only Len(global): a bare GET_GLOBAL would need a String or
+                // Dictionary on the numeric stack.
+                if (ip + 3 >= n || code[ip + 3] != OP_LEN || depth >= 16) {
+                    return shape;
                 }
                 const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
                 if (idx < 0 || idx >= nconst) {
-                    return false;
+                    return shape;
+                }
+                int found = -1;
+                for (int g = 0; g < shape.ng; g++) {
+                    if (shape.gconst[g] == idx) {
+                        found = g;
+                        break;
+                    }
+                }
+                if (found < 0) {
+                    if (shape.ng >= 4) {
+                        return shape;
+                    }
+                    shape.gconst[shape.ng++] = idx;
+                }
+                depth++;
+                ip += 4;
+                break;
+            }
+            case OP_CONSTANT:
+            case OP_CONSTANT_LONG: {
+                if (ip + 2 >= n || depth >= 16) {
+                    return shape;
+                }
+                const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+                if (idx < 0 || idx >= nconst) {
+                    return shape;
                 }
                 const Variant::Type ct = vgfast::vtype(chunk->constants[idx]);
                 if (ct != Variant::INT && ct != Variant::FLOAT) {
-                    return false;
+                    return shape;
                 }
                 depth++;
                 ip += 3;
                 break;
             }
+            case OP_ADD:
+            case OP_SUBTRACT:
+            case OP_MULTIPLY:
             case OP_ADD_F64:
             case OP_SUB_F64:
             case OP_MUL_F64:
@@ -902,7 +941,7 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
             case OP_SUB_I64:
             case OP_MUL_I64:
                 if (depth < 2) {
-                    return false;
+                    return shape;
                 }
                 depth--;
                 ip += 1;
@@ -911,11 +950,11 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
             case OP_SUB_I64_CONST:
             case OP_MUL_I64_CONST: {
                 if (ip + 2 >= n || depth < 2) {
-                    return false;
+                    return shape;
                 }
                 const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
                 if (idx < 0 || idx >= nconst || vgfast::vtype(chunk->constants[idx]) != Variant::INT) {
-                    return false;
+                    return shape;
                 }
                 depth--;
                 ip += 3;
@@ -924,24 +963,27 @@ static bool vg_chunk_nret(BytecodeChunk *chunk, VisualGasic::SubDefinition *func
             case OP_TO_F64:
             case OP_NEGATE:
                 if (depth < 1) {
-                    return false;
+                    return shape;
                 }
                 ip += 1;
                 break;
             case OP_POP:
                 if (depth < 1) {
-                    return false;
+                    return shape;
                 }
                 depth--;
                 ip += 1;
                 break;
             case OP_RETURN_VALUE:
-                return depth >= 1;
+                if (depth >= 1) {
+                    shape.ok = true;
+                }
+                return shape;
             default:
-                return false;
+                return shape;
         }
     }
-    return false;
+    return shape;
 }
 
 bool VisualGasicInstance::ext_chunk_leaf(BytecodeChunk *chunk, SubDefinition *func, int8_t &kind, int64_t &i64, double &f64) {
@@ -7637,7 +7679,8 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
 
                 // A Function, so the ByRef Sub check above does not claim it.
                 // Later calls leave the Return value on the stack. This call
-                // still enters the Function.
+                // still enters the Function. Len(global) resolves the module
+                // pointers here and again when variables.generation moves.
                 if (_pb_known_user_sub && arg_count >= 1 && arg_count <= 8 && inline_calls_ok &&
                         _pc_pre_resolved && _pc_pre_resolved->chunk_for_locals &&
                         _pc_pre_resolved->func && _pc_pre_resolved->owning_module_index < 0 &&
@@ -7645,15 +7688,61 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                         current_object_id == -1 && name_idx >= 0 && !needs_var_sync &&
                         !vg_evidence_recording() && !whenever_evaluating) {
                     MemberNameCacheEntry &ent = ensure_member_cache_entry(name_idx);
+                    BytecodeChunk *nr_chunk = _pc_pre_resolved->chunk_for_locals;
+                    SubDefinition *nr_func = _pc_pre_resolved->func;
                     if (ent.nret_kind == 0) {
-                        BytecodeChunk *nr_chunk = _pc_pre_resolved->chunk_for_locals;
-                        SubDefinition *nr_func = _pc_pre_resolved->func;
-                        if (vg_chunk_nret(nr_chunk, nr_func)) {
+                        const VgNretShape nr = vg_chunk_nret(nr_chunk, nr_func);
+                        if (nr.ok) {
                             ent.nret_chunk = nr_chunk;
                             ent.nret_func = nr_func;
-                            ent.nret_kind = 2;
+                            ent.nret_ng = (int8_t)nr.ng;
+                            bool all = true;
+                            for (int g = 0; g < nr.ng; g++) {
+                                ent.nret_gconst[g] = nr.gconst[g];
+                                ent.nret_gptr[g] = nullptr;
+                                if (nr.gconst[g] < 0 || nr.gconst[g] >= nr_chunk->constants.size()) {
+                                    all = false;
+                                    continue;
+                                }
+                                const StringName key = String(nr_chunk->constants[nr.gconst[g]]);
+                                if (variables.has(key)) {
+                                    ent.nret_gptr[g] = &variables[key];
+                                } else {
+                                    all = false;
+                                }
+                            }
+                            for (int g = nr.ng; g < 4; g++) {
+                                ent.nret_gconst[g] = -1;
+                                ent.nret_gptr[g] = nullptr;
+                            }
+                            if (all) {
+                                ent.nret_ggen = variables.generation;
+                                ent.nret_kind = 2;
+                            } else {
+                                ent.nret_kind = 1;
+                            }
                         } else {
                             ent.nret_kind = 1;
+                        }
+                    } else if (ent.nret_kind >= 2 && ent.nret_ng > 0 &&
+                            (ent.nret_ggen != variables.generation || ent.nret_gptr[0] == nullptr)) {
+                        bool all = true;
+                        for (int g = 0; g < ent.nret_ng; g++) {
+                            ent.nret_gptr[g] = nullptr;
+                            if (ent.nret_gconst[g] < 0 ||
+                                    ent.nret_gconst[g] >= nr_chunk->constants.size()) {
+                                all = false;
+                                continue;
+                            }
+                            const StringName key = String(nr_chunk->constants[ent.nret_gconst[g]]);
+                            if (variables.has(key)) {
+                                ent.nret_gptr[g] = &variables[key];
+                            } else {
+                                all = false;
+                            }
+                        }
+                        if (all) {
+                            ent.nret_ggen = variables.generation;
                         }
                     }
                 }

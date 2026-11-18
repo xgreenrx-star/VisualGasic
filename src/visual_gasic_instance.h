@@ -266,7 +266,13 @@ private:
         // Straight-line numeric Function, every parameter ByVal. 0 = not
         // classified, 1 = not this shape, 2 = eligible. The lean loop runs
         // the body and leaves its Return value where the arguments were.
+        // Len(global) is allowed: nret_gconst / nret_gptr name those module
+        // values (at most four), valid while nret_ggen == variables.generation.
         int8_t nret_kind = 0;
+        int8_t nret_ng = 0;
+        int32_t nret_gconst[4] = { -1, -1, -1, -1 };
+        Variant *nret_gptr[4] = { nullptr, nullptr, nullptr, nullptr };
+        uint32_t nret_ggen = 0;
         BytecodeChunk *nret_chunk = nullptr;
         SubDefinition *nret_func = nullptr;
 		StringName owner_call_name;

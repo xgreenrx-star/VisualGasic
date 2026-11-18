@@ -229,9 +229,12 @@ FL_INLINE int64_t fl_num_i(const FlNum &s) {
 // The body vg_chunk_byref_scalar or vg_chunk_nret accepted. Returns false
 // before any caller local is written. Arithmetic matches the VM: F64 uses
 // to_double, I64 uses to_int, and an I64-const opcode discards the pushed
-// literal and adds the pool constant. out is null for a Sub. A Function
-// stores the Return value there.
-static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody, FlNum *out) {
+// literal and adds the pool constant. OP_ADD / OP_SUBTRACT / OP_MULTIPLY
+// keep an Integer result when both sides are Integer (Variant::OP_ADD).
+// Len(global) uses gptrs[gidxs]. out is null for a Sub. A Function stores
+// the Return value there.
+static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody, FlNum *out,
+		Variant *const *gptrs, const int32_t *gidxs, int ng) {
 	const uint8_t *code = chunk->code.ptr();
 	const int n = chunk->code.size();
 	const Variant *consts = chunk->constants.ptr();
@@ -280,6 +283,29 @@ static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody, FlNum *ou
 				ip += 2;
 				break;
 			}
+			case OP_GET_GLOBAL: {
+				if (ip + 3 >= n || code[ip + 3] != OP_LEN || spn >= 16 || ng < 1 ||
+						!gptrs || !gidxs) {
+					return false;
+				}
+				const int idx = (int)code[ip + 1] | ((int)code[ip + 2] << 8);
+				int gi = -1;
+				for (int g = 0; g < ng; g++) {
+					if (gidxs[g] == idx) {
+						gi = g;
+						break;
+					}
+				}
+				if (gi < 0 || !gptrs[gi]) {
+					return false;
+				}
+				stk[spn].k = 1;
+				stk[spn].i = fl_len(gptrs[gi], fl_type(gptrs[gi]));
+				stk[spn].f = 0.0;
+				spn++;
+				ip += 4;
+				break;
+			}
 			case OP_CONSTANT:
 			case OP_CONSTANT_LONG: {
 				if (ip + 2 >= n || spn >= 16) {
@@ -304,6 +330,50 @@ static bool fl_byref_exec(BytecodeChunk *chunk, FlNum *loc, int nbody, FlNum *ou
 				}
 				spn++;
 				ip += 3;
+				break;
+			}
+			case OP_ADD:
+			case OP_SUBTRACT:
+			case OP_MULTIPLY: {
+				if (spn < 2) {
+					return false;
+				}
+				const FlNum b = stk[--spn];
+				const FlNum a = stk[--spn];
+				if ((a.k != 1 && a.k != 2) || (b.k != 1 && b.k != 2)) {
+					return false;
+				}
+				if (a.k == 1 && b.k == 1) {
+					const int64_t av = a.i;
+					const int64_t bv = b.i;
+					int64_t r;
+					if (op == OP_ADD) {
+						r = (int64_t)((uint64_t)av + (uint64_t)bv);
+					} else if (op == OP_SUBTRACT) {
+						r = (int64_t)((uint64_t)av - (uint64_t)bv);
+					} else {
+						r = (int64_t)((uint64_t)av * (uint64_t)bv);
+					}
+					stk[spn].k = 1;
+					stk[spn].i = r;
+					stk[spn].f = 0.0;
+				} else {
+					const double av = fl_num_f(a);
+					const double bv = fl_num_f(b);
+					double r;
+					if (op == OP_ADD) {
+						r = av + bv;
+					} else if (op == OP_SUBTRACT) {
+						r = av - bv;
+					} else {
+						r = av * bv;
+					}
+					stk[spn].k = 2;
+					stk[spn].f = r;
+					stk[spn].i = 0;
+				}
+				spn++;
+				ip += 1;
 				break;
 			}
 			case OP_ADD_F64:
@@ -535,7 +605,7 @@ static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
 			return nullptr;
 		}
 	}
-	if (!fl_byref_exec(chunk, loc, nbody, nullptr)) {
+	if (!fl_byref_exec(chunk, loc, nbody, nullptr, nullptr, nullptr, 0)) {
 		return nullptr;
 	}
 	for (int r = 0; r < nref; r++) {
@@ -577,14 +647,20 @@ static const uint8_t *fl_byref_run(BytecodeChunk *chunk, SubDefinition *func,
 }
 
 // vg_chunk_nret. The Return value replaces the arguments. The caller's next
-// instruction (the assignment, or a POP) still runs.
+// instruction (the assignment, or a POP) still runs. gptrs are the module
+// values Len(global) reads; ng is 0 when the body has no Len(global).
 static bool fl_nret_run(BytecodeChunk *chunk, SubDefinition *func,
-		Variant *args_top, int argc, FlNum &result) __attribute__((noinline));
+		Variant *args_top, int argc, FlNum &result,
+		Variant *const *gptrs, const int32_t *gidxs, int ng) __attribute__((noinline));
 
 static bool fl_nret_run(BytecodeChunk *chunk, SubDefinition *func,
-		Variant *args_top, int argc, FlNum &result) {
+		Variant *args_top, int argc, FlNum &result,
+		Variant *const *gptrs, const int32_t *gidxs, int ng) {
 	if (!chunk || !func || argc < 1 || argc > 8 || chunk->param_count != argc ||
 			func->parameters.size() != argc || chunk->fast_param_coerce.size() != argc) {
+		return false;
+	}
+	if (ng < 0 || ng > 4 || (ng > 0 && (!gptrs || !gidxs))) {
 		return false;
 	}
 	const int nbody = chunk->local_count;
@@ -643,7 +719,7 @@ static bool fl_nret_run(BytecodeChunk *chunk, SubDefinition *func,
 			return false;
 		}
 	}
-	return fl_byref_exec(chunk, loc, nbody, &result);
+	return fl_byref_exec(chunk, loc, nbody, &result, gptrs, gidxs, ng);
 }
 
 } // namespace
@@ -1115,8 +1191,9 @@ fl_call: { // OP_CALL [name lo] [name hi] [argc]
 	}
 	// A straight-line numeric Function. The first call classifies it. The
 	// Return value replaces the arguments, so the assignment after the call
-	// still runs here. A watchpoint, an evidence recorder, or a Whenever
-	// section still enters the Function.
+	// still runs here. Len(global) needs the memoized module pointers. A
+	// watchpoint, an evidence recorder, or a Whenever section still enters
+	// the Function.
 	if (e.nret_kind >= 2) {
 		if (FL_UNLIKELY(VisualGasicLanguage::has_watchpoints() || vg_evidence_recording())) {
 			goto fl_leave;
@@ -1124,8 +1201,20 @@ fl_call: { // OP_CALL [name lo] [name hi] [argc]
 		if (FL_UNLIKELY(!whenever_init_suppress && !whenever_sections.is_empty())) {
 			goto fl_leave;
 		}
+		if (FL_UNLIKELY(e.nret_ng > 0)) {
+			if (e.nret_ggen != variables.generation) {
+				goto fl_leave;
+			}
+			for (int g = 0; g < e.nret_ng; g++) {
+				if (FL_UNLIKELY(e.nret_gptr[g] == nullptr)) {
+					goto fl_leave;
+				}
+			}
+		}
 		FlNum result;
-		if (fl_nret_run(e.nret_chunk, e.nret_func, sp, argc, result)) {
+		if (fl_nret_run(e.nret_chunk, e.nret_func, sp, argc, result,
+				e.nret_ng > 0 ? e.nret_gptr : nullptr,
+				e.nret_ng > 0 ? e.nret_gconst : nullptr, e.nret_ng)) {
 			Variant *dst = sp - argc;
 			if (result.k == 2) {
 				fl_put_float(dst, result.f);
