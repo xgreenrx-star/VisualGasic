@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Tier-2 JIT declines `AndAlso`/`OrElse` expression joins that need a stack phi (issue #25), so short-circuit Boolean code no longer risks a wrong native result; bytecode/interpreter results are unchanged.
+- AST `Len` matches bytecode/`OP_LEN`: containers and packed arrays use `.size()`, strings use character length, other scalars are `0` (issue #24).
+- AST and bytecode agree on mixed Variant arithmetic: numeric `String` and `Nothing` coerce like the VM `to_double` path for `+`/`-`/`*`/`/` (issue #24).
 - An unhandled error in `_Process`, `_PhysicsProcess`, `_Ready`, `Form_Load`, `Form_Unload`, or `_Draw`/`OnDraw` reports the procedure and line, skips the rest of that callback, and leaves later frames and other scripts running.
 - `Try`/`Finally` with no `Catch` runs `Finally` and then rethrows. The AST walker and the bytecode VM (`OP_RETHROW`) both propagate the error to a caller that has a handler.
 
 ### Changed
 
+- Missing `Dictionary` keys evaluate to `Nothing` and do not set `Err.Number` (issue #26). Documented in the language reference; AST, bytecode, and JIT share that contract.
 - Compiler bails go through `bail_to_ast`. `scripts/run_ast_bytecode_diff.sh` fails if a raw `compile_ok = false` remains. Record Get/Put and an impure ByRef index name their AST fallback; older bails still say `unnamed`.
 - A copied Brotato import on Godot 4.7.2 aborted in `realloc(): invalid next size` on a worker thread while reimporting Kenney pixel fonts. The Godot binary is stripped, so the frames above `realloc` are addresses only. Leak cleanup stays parked.
 - Linux `VG_JIT=0` and `VG_JIT=3` returned the same checksum from `test_jit_tier3_numeric.vg`. `VG_JIT=3` compiled that function with the tier-2 native compiler.

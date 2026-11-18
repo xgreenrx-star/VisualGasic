@@ -164,7 +164,7 @@ String compare checks the length, then `memcmp` of the UTF-32 bytes. `Option Com
 
 A dictionary value that is not a number, or a missing key, returns from the native function. The interpreter continues at that read with the JIT locals written back. It does not restart the function. `OP_GET_DICT_FAST` returns Nothing for a missing key and does not raise; the new test locks VarType 1 and `Err.Number = 0`. After the value becomes the string `"3"`, the sum is 11 (2.5 + 2.5 + 3 + 3).
 
-Inside a Function, the tree-walk clears a Single when the addend is a String or a missing-key Nothing. The bytecode coerces `"3"` to 3 and a missing key to 0. `VG_FORCE_AST=1` on `test_jit_string_dict_globals.vg` therefore fails "dict deopt" and "missing key". The three regression modes do not set that flag. This was not changed.
+AST and bytecode now agree: `"3"` coerces to 3 and a missing key coerces like 0 in numeric `+` (via `vg_vb_numeric`). See issue #24 / `CURSOR_5_8_CORE_CORRECTNESS_HANDOFF.md`.
 
 ### 17 Nov 2026, after interpreter string, dictionary and leaf-call paths
 
@@ -433,9 +433,15 @@ Done:
 
 Tier 2 scalar replacement of Vector2/Vector3 locals is still open as an optional follow-up. Those ratios are already under 1.00 (`t_getx` 0.37, `t_getx_typed` 0.67, `t_sety` 0.48, `t_vec` 0.37).
 
+#### Post-gap packaging (18 Nov 2026)
+
+- Regression gate: `scripts/check_vm_gap.sh` (default `VG_GAP_MAX_RATIO=1.05` noise band; quiet-pair goal remains `1.00`). Runs JIT on and `VG_JIT=0`. `run_gap.gd` honors `VG_GAP_MAX_RATIO` and prints `over_limit=`.
+- Published quiet-pair table: `BENCHMARK_PUBLISHED_RESULTS.md` § VM gap microbench, and `docs/manual/performance.md`.
+- Visual demo: `samples/apps/vg_speed_race/` — side-by-side `.vg` / `.gd` particle integrate (`RaceHost.gd` + `sim_vg.vg` + `sim_gd.gd`). Headless smoke: `run_headless_race.gd`.
+
 Next: optional Tier 2 scalar replacement, or stop. No interpreter case remains over 1.00 on this quiet pair.
 
-Two pre-existing disagreements, not fixed here. A missing dictionary key does not raise: the WS5 note asked for an error message and line, and `OP_GET_DICT_FAST` returns Nothing. Inside a Function, the tree-walk clears a Single on `Single + String` and on `Single +` a missing key; the bytecode coerces. `Option Compare Text` takes effect on the parser, the bytecode VM, and Tier 2. Tier 2 does not merge the operand stack at a jump join, so a short-circuit expression that pushes a value on both edges miscompiles. `AndAlso` and `OrElse` already emit that shape. `t_streq` does not use it.
+Missing dictionary keys return Nothing without raising (`Err.Number` stays 0) — confirmed language contract for 5.8 (issue #26). AST/`Len`/mixed Variant arithmetic parity is restored (issue #24). Tier 2 declines `AndAlso`/`OrElse` expression joins that need a stack phi rather than emitting a wrong result (issue #25). `Option Compare Text` takes effect on the parser, the bytecode VM, and Tier 2.
 
 The Cdecl `strlen` assert is still the pre-existing suite noise. Suite result: 1875 PASS / 0 FAIL in all three modes in the parallel run. Corpus 80/80 in all four modes. Draw dispatch `failures=0` in all three modes on the first try. Ash Meridian: `test_part1` 88/91, `test_suit_terminal_input` the same three failures, `test_departure_render` still times out at the lambda on line 19. `test_suit_panel_performance` alone: face=true 13.98 ms, face=false 6.94 ms, under the written baseline of 63.66 ms and 38.13 ms. Under `VG_FORCE_AST=1`, `test_jit_len_global.vg` fails three checks: `Len` of an Integer variant is 1, `Len` of the two-entry Dictionary is 18, and `Len` of the three-element Array is 9. The bytecode VM and the JIT report 0, 2, and 3. That `Len` difference is the AST interpreter's.
 
@@ -661,7 +667,7 @@ Fix: add a Variant-handle path to Tier 2 without boxing everything.
      If the Variant is not a String, fall back to the generic `Variant::evaluate(OP_EQUAL)` rules.
      Note: VB6 `=` on strings is case-sensitive under `Option Compare Binary`, which is the default. Check how the VM's `OP_EQUAL` handles `Option Compare Text` and copy that behaviour exactly.
    - `VDICT_GET_F64(vref, const_key_idx) -> F64`, with a cached key hash or the pre-built `Variant` key.
-     It deopts when the value is not numeric or the key is missing. VB6 raises a runtime error on a missing key, and the interpreter must report that error.
+     It deopts when the value is not numeric. A missing key is Nothing (not a raise); see issue #26.
 3. Deopt: on any type mismatch, return a "deopt" flag. The caller resumes in the interpreter at the current bytecode offset. Tier 2 must already do this for some op; find that mechanism and reuse it.
    If there is none, bail at compile time instead of guessing. Do not write wrong results.
 

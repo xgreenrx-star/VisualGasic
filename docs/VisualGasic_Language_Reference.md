@@ -221,7 +221,15 @@ s = UCase("hello")          ' Returns "HELLO"
 s = LCase("HELLO")          ' Returns "hello"
 s = Trim("  hi  ")          ' Returns "hi"
 x = Len("Hello")            ' Returns 5
+' Len: String/StringName → character count; Array/Dictionary/Packed* → .size();
+' other scalars (Integer, Boolean, …) → 0. Not String(value).length().
 x = InStr("Hello", "l")     ' Returns 3
+
+' Dictionary missing keys: d("nope") is Nothing; Err.Number stays 0.
+' Numeric use: Nothing coerces like 0 (s = s + d("nope")).
+' Dim d As Dictionary
+' d("k") = 2.5
+' x = d("missing")          ' Nothing (VarType 1), no runtime error
 
 ' Math functions
 x = Abs(-5)                 ' Returns 5
