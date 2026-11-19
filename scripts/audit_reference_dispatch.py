@@ -244,6 +244,13 @@ def build_dispatch_index(texts: dict[str, str]) -> tuple[set[str], dict[str, lis
                 key = norm(raw)
                 names.add(key)
                 locs[key].append(f"{fname}:owner_builtin:{raw}")
+        # Godot Variant type constructors (Vector3, Projection, AABB, …)
+        if fname.endswith("visual_gasic_godot_ctors.h"):
+            for m in re.finditer(r'"([a-z][a-z0-9_]*)"', body):
+                raw = m.group(1)
+                key = norm(raw)
+                names.add(key)
+                locs[key].append(f"{fname}:godot_ctor:{raw}")
 
     qb_parser = texts.get("src/visual_gasic_parser.cpp", "")
     for public_name, internal_name in {

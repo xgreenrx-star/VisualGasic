@@ -1,15 +1,15 @@
 # Reference dispatch audit report
 
-Generated: 2026-10-08 by `scripts/audit_reference_dispatch.py`
+Generated: 2026-11-18 by `scripts/audit_reference_dispatch.py`
 
 ## Summary
 
 | Metric | Count |
 |--------|------:|
-| Language Reference commands (Part II) | 461 |
+| Language Reference commands (Part II) | 462 |
 | GODOT_FUNCTIONS_REFERENCE entries | 64 |
 | command_help entries | 474 |
-| OK / dispatch found | 812 |
+| OK / dispatch found | 813 |
 | Known gaps (allowlisted) | 22 |
 | **Missing dispatch** | **0** |
 | Doc source mismatch | 0 |
