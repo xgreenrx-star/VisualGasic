@@ -20,7 +20,7 @@ add BBCode or heading markers.
 - New side-by-side demo: samples/apps/vg_speed_race (VG vs GDScript particle integrate) plus scripts/check_vm_gap.sh gate
 - Tier-2 JIT safely declines AndAlso/OrElse expression joins that need a stack phi (issue #25); bytecode results stay correct
 - AST Len matches bytecode for containers, packed arrays, and strings (issue #24)
-- AST and bytecode agree on mixed Variant arithmetic: numeric String coercion; Nothing on either side of +/-/ * stays Nothing (issue #24)
+- AST and bytecode agree on mixed Variant arithmetic: numeric String coercion; left-hand Nothing stays Nothing; numeric left plus Nothing coerces like to_double (issue #24)
 - Missing Dictionary keys evaluate to Nothing without setting Err.Number (issue #26)
 - Unhandled lifecycle errors report procedure/line and continue later frames; Try/Finally rethrows after Finally
 

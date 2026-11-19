@@ -339,9 +339,9 @@ inline bool vg_dictionary_method_uses_key(const String &method) {
 }
 
 // Godot rejects int/bool arithmetic and compares. VB treats True as -1 and
-// False as 0. Numeric Strings coerce ("3"→3). ADD/SUB/MUL with Nothing on
-// either side propagate Nothing in vg_evaluate_vb_numeric (see below);
-// NIL remains 0 for relational/other numeric coercion.
+// False as 0. Numeric Strings coerce ("3"→3). See vg_evaluate_vb_numeric
+// for ADD/SUB/MUL Nothing rules (left Nothing stays Nothing; numeric left
+// plus Nothing coerces like to_double).
 inline bool vg_vb_numeric(const Variant &v, double &out) {
     switch (v.get_type()) {
         case Variant::INT:
@@ -365,13 +365,23 @@ inline bool vg_vb_numeric(const Variant &v, double &out) {
 }
 
 inline bool vg_evaluate_vb_numeric(Variant::Operator op, const Variant &a, const Variant &b, Variant &result) {
-    // ADD/SUB/MUL with Nothing on either side stay Nothing (undeclared locals,
-    // Vector3±Nothing). Numeric Strings still coerce below. SumMiss uses a
-    // typed Single accumulator; storing Nothing into it becomes 0.
-    if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
-            (a.get_type() == Variant::NIL || b.get_type() == Variant::NIL)) {
-        result = Variant();
-        return true;
+    // ADD/SUB/MUL:
+    //   Nothing on the left → Nothing (undeclared AccNoValue, Nothing±Vector).
+    //   Nothing on the right with a numeric left → coerce right to 0 (SumMiss).
+    //   Nothing on the right with a non-numeric left → Nothing (Vector±Nothing).
+    if (op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) {
+        if (a.get_type() == Variant::NIL) {
+            result = Variant();
+            return true;
+        }
+        if (b.get_type() == Variant::NIL) {
+            double ignore = 0.0;
+            if (!vg_vb_numeric(a, ignore)) {
+                result = Variant();
+                return true;
+            }
+            // Numeric left: fall through; vg_vb_numeric maps NIL → 0.
+        }
     }
     double da = 0.0;
     double db = 0.0;
