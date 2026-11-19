@@ -31,7 +31,7 @@ New native binaries are required; replace the whole addon when upgrading.
 
 - Missing `Dictionary` keys evaluate to `Nothing` and do not set `Err.Number` (issue #26). Documented in the language reference; AST, bytecode, and JIT share that contract.
 - Compiler bails go through `bail_to_ast`. `scripts/run_ast_bytecode_diff.sh` fails if a raw `compile_ok = false` remains. Record Get/Put and an impure ByRef index name their AST fallback; older bails still say `unnamed`.
-- Quiet-pair `run_gap` cases meet `vg/gd ≤ 1.00` with JIT on and with `VG_JIT=0` (see published table). Not a claim that every VG program is faster than GDScript.
+- The dated quiet-pair `run_gap` snapshot reached `vg/gd ≤ 1.00` with JIT on and with `VG_JIT=0`; later verification varies. Published live-race results include slower generic-array scanning and short-string building. Not a claim that every VG program is faster than GDScript.
 
 ## [5.7.0-beta.4] - 2026-11-06
 

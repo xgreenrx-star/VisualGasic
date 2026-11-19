@@ -6,15 +6,17 @@ folder when upgrading. These changes require the new native binaries.
 
 ## Highlights
 
-- **VM gap closed on the quiet-pair microbench.** Every published
-  `run_gap` case is at or under GDScript parity (`vg/gd ≤ 1.00`) with JIT on
-  and with `VG_JIT=0`. Largest wins on that machine: function calls ~30×,
+- **Major VM speed improvements.** The dated quiet-pair snapshot had every
+  `run_gap` case at or under GDScript parity (`vg/gd ≤ 1.00`) with JIT on
+  and with `VG_JIT=0`; later runs show variation, not universal parity.
+  Largest wins in that snapshot: function calls ~30×,
   Integer globals ~14×, locals ~5× (JIT on). Numbers and reproduction:
   [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md) § VM gap
   microbench · gate `scripts/check_vm_gap.sh`.
 - **Visual speed demo:** [`samples/apps/vg_speed_race/`](samples/apps/vg_speed_race/)
-  races the same particle integrate workload in `.vg` and `.gd` side by side
-  (budget race so VG can pull ahead). Headless smoke:
+  races matched particle, arithmetic, array, Dictionary, branching, string,
+  and function-call workloads in `.vg` and `.gd` side by side. Both wins and
+  remaining gaps are published below. Headless smoke:
   `scripts/run_speed_race.sh`.
 - **Core correctness gates for this cut:** GitHub issues #24, #25, and #26.
 
@@ -51,6 +53,38 @@ Full table: [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md).
 Absolute nanoseconds drift across machines; ratios are from the same quiet-pair
 run. These microbenchmarks are not a claim that every VG program is faster than
 GDScript.
+
+## Live-race verification (18 Nov 2026)
+
+Godot 4.7.2, Linux x86-64, one pinned CPU core, no script debugger, default
+runtime, work size 500. Median of seven paired steps after 64 warmups;
+execution order alternates and matching step checksums are verified.
+
+| Workload | GD µs/step | VG µs/step | VG/GD time |
+| --- | ---: | ---: | ---: |
+| Particles, Calls | 3,159 | 1,685 | 0.53 |
+| Particles, Inline | 639 | 595 | 0.93 |
+| Arithmetic | 450 | 390 | 0.87 |
+| Array scan | 379 | 505 | **1.33 — GD faster** |
+| Dictionary reads | 367 | 300 | 0.82 |
+| Branching | 1,119 | 747 | 0.67 |
+| String building | 2,260 | 4,839 | **2.14 — GD faster** |
+| Function calls | 1,955 | 748 | 0.38 |
+| Function calls, Inline | 362 | 250 | 0.69 |
+
+Lower time ratio is better for VG. These are CPU workload timings, not FPS
+or a C++ comparison. Different data types and loop shapes explain why the
+older compute suite's larger speedups do not predict these races. Shared
+machine load and runtime settings affect results; this is a dated local
+snapshot, not a hardware-independent guarantee.
+
+The later VM gate passed its `1.05` tolerance with zero checksum mismatches;
+interpreter string comparison was `1.03×` GD time. A passing tolerance gate
+does not establish strict parity for every case.
+See the [complete methodology and reproduction](https://github.com/xgreenrx-star/VisualGasic/blob/main/BENCHMARK_PUBLISHED_RESULTS.md#live-race-workloads--18-nov-2026-verification).
+The tagged archives retain their original benchmark documentation; this
+publication update adds the later verification without changing the tagged
+runtime binaries.
 
 ## Validation
 
@@ -96,6 +130,8 @@ does not imply that the store has already updated.
 - Tier-2 **phi merge** for short-circuit `AndAlso` / `OrElse` joins is deferred;
   those functions use bytecode until native merge lands.
 - Microbenchmark parity is not universal game-frame proof.
+- Generic-array scanning and short-string building remain slower than
+  GDScript in the live-race snapshot above.
 - Experimental UI Forms and the legacy IDE remain opt-in.
 - Mac downloads are not Developer ID signed or notarized.
 - Remaining Godot editor shutdown/cold-import investigations stay in the

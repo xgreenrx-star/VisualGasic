@@ -15,9 +15,10 @@ add BBCode or heading markers.
 ```markdown
 **VisualGasic 5.8.0-beta.1 - core performance and correctness beta**
 
-- Quiet-pair VM gap microbench: every published run_gap case at or under GDScript parity (vg/gd ≤ 1.00) with JIT on and with VG_JIT=0
+- Dated quiet-pair VM snapshot reached GDScript parity with JIT on and VG_JIT=0; later runs vary and do not establish universal parity
 - Largest quiet-pair wins (JIT): function calls ~30×, Integer globals ~14×, locals ~5× — see BENCHMARK_PUBLISHED_RESULTS.md
-- New side-by-side demo: samples/apps/vg_speed_race (VG vs GDScript particle integrate) plus scripts/check_vm_gap.sh gate
+- Side-by-side VG vs GDScript races: particles, arithmetic, arrays, Dictionary reads, branching, strings and calls; includes scripts/check_vm_gap.sh gate
+- Live-race verification publishes wins and losses: generic-array scan takes 1.33× GD time and short-string building 2.14× in the dated local snapshot
 - Tier-2 JIT safely declines AndAlso/OrElse expression joins that need a stack phi (issue #25); bytecode results stay correct
 - AST Len matches bytecode for containers, packed arrays, and strings (issue #24)
 - AST and bytecode agree on mixed Variant arithmetic: numeric String coercion; left-hand Nothing stays Nothing; numeric left plus Nothing coerces like to_double (issue #24)

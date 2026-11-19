@@ -60,3 +60,7 @@ godot --headless --path samples/apps/vg_speed_race --audio-driver Dummy \
 godot --headless --path samples/apps/vg_speed_race --audio-driver Dummy \
   --script res://test_about_window.gd
 ```
+
+`test_workload_races.gd` also prints warmed, paired per-step timings and
+ten 8 ms budget windows per race. Those figures are diagnostics, not pass/fail
+performance thresholds; machine load and engine build affect the ratios.

@@ -157,6 +157,12 @@ Visual Gasic is built to be **fast on published Godot workloads** with explicit 
 
 Canonical tables and methodology: **[BENCHMARK_PUBLISHED_RESULTS.md](BENCHMARK_PUBLISHED_RESULTS.md)** · [Performance guide](docs/manual/performance.md) · [Draw suite](engine_lab/benchmarks/draw/README.md)
 
+**Newer live-race verification (18 Nov 2026, Godot 4.7.2):** VG won several
+matched workloads, but generic Array scanning took **1.33×** GDScript time and
+short-string building took **2.14×**; inline particles were near parity.
+See the [complete live-race table and reproduction method](BENCHMARK_PUBLISHED_RESULTS.md#live-race-workloads--18-nov-2026-verification).
+The older microbenchmark wins below are not universal game-speed claims.
+
 #### Compute microbenchmarks (12 tests — all faster than GDScript)
 
 From [`engine_lab/bench.vg`](engine_lab/bench.vg) via `scripts/run_compute_benchmarks.sh` · [`engine_lab/benchmarks/bench_output.txt`](engine_lab/benchmarks/bench_output.txt)

@@ -201,12 +201,65 @@ Pin to one core (`taskset -c 2`). Ratios from the same run; absolute ns drift ±
 | t_poly | 51.3 | 24.0 | **0.47** | 25.3 | **0.51** |
 | external_call | 63.5 | 56.7 | **0.89** | 56.4 | **0.99** |
 
-### VM gap headline (safe to advertise)
+### VM gap snapshot and later verification
 
-> **Every published `run_gap` case is at or under parity with GDScript** (`vg/gd ≤ 1.00`) in both JIT-on and interpreter-only modes on the quiet-pair machine. Largest wins: **function calls ~30×**, **Integer globals ~14×**, **locals ~5×** (JIT on).
+The table above records a quiet-pair snapshot, not a guarantee of parity on every
+run or workload. A later 18 Nov verification on Godot 4.7.2 passed the documented
+1.05-ratio gate with zero result mismatches, but interpreter-only string
+comparison measured **1.03×** GDScript time. Another diagnostic run measured
+interpreter Dictionary reads at **1.24×**. Near-parity cases vary with system
+load; a passing tolerance gate does not mean every case is strictly faster.
 
 **Visual demo:** `samples/apps/vg_speed_race/` (side-by-side `.vg` / `.gd` particles).  
 **Reproduce gate:** `scripts/check_vm_gap.sh` · detail: `docs/development/CURSOR_VG_PERF_GAP_HANDOFF.md`
+
+---
+
+## Live race workloads — 18 Nov 2026 verification
+
+These are measurements of the actual VG Speed Race scripts, **not reruns of
+the August compute or drawing workloads**. Both wins and losses are included.
+
+**Setup:** Godot 4.7.2, Linux x86-64, CPU affinity pinned to core 2, headless,
+no attached script debugger, default runtime settings, work size 500.
+**Step timing:** median of seven paired samples after 64 warmup steps,
+alternating which language runs first. **Budget:** total completed ticks over
+ten 8 ms windows per language, also alternating order. Each budget window
+finishes its last whole tick, so it can exceed 8 ms; counts are not an exact
+equal-wall-time measurement. Paired step checksums matched.
+
+| Workload | GD µs/step | VG µs/step | VG/GD time ↓ | GD budget ticks | VG budget ticks | VG/GD work ↑ |
+|---|---:|---:|---:|---:|---:|---:|
+| Particles, Calls | 3,159 | 1,685 | 0.53 | 27 | 49 | 1.81 |
+| Particles, Inline | 639 | 595 | 0.93 | 123 | 123 | 1.00 |
+| Arithmetic | 450 | 390 | 0.87 | 179 | 202 | 1.13 |
+| Array scan | 379 | 505 | **1.33** | 203 | 144 | **0.71** |
+| Dictionary reads | 367 | 300 | 0.82 | 214 | 243 | 1.14 |
+| Branching | 1,119 | 747 | 0.67 | 88 | 143 | 1.63 |
+| String building | 2,260 | 4,839 | **2.14** | 35 | 20 | **0.57** |
+| Function calls | 1,955 | 748 | 0.38 | 33 | 81 | 2.45 |
+| Function calls, Inline | 362 | 250 | 0.69 | 204 | 300 | 1.47 |
+
+**Interpretation:** VG wins several tested CPU workloads; generic Array scanning
+and short-string building are slower than GDScript in this snapshot. Inline
+particles are near parity. The older compute suite uses different loop shapes,
+types, sizes, and optimizer opportunities (including packed integer arrays);
+its larger speedups must not be presented as predictions for these live races.
+Checksums establish matching results, not identical executed instruction counts.
+These are local diagnostic results, not whole-game FPS or C++ comparisons.
+
+Reproduce from the repository root (replace `godot` with your engine binary):
+
+```bash
+taskset -c 2 godot --headless --path samples/apps/vg_speed_race \
+  --audio-driver Dummy --script res://test_workload_races.gd
+```
+
+Sources: [VG workload](samples/apps/vg_speed_race/sim_vg.vg),
+[GDScript workload](samples/apps/vg_speed_race/sim_gd.gd),
+[paired timing/checksum runner](samples/apps/vg_speed_race/test_workload_races.gd).
+Use an available CPU core on your machine; run benchmarks sequentially without
+other heavy work. Report the engine/runtime configuration with any new figures.
 
 ---
 

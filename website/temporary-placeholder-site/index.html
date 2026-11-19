@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Visual Gasic | Game systems on Godot</title>
-  <meta name="description" content="Visual Gasic 5.8.0-beta.1 — VB6-style .vg on Godot 4.6+. Core VM/JIT performance (quiet-pair vg/gd ≤ 1.00) and correctness fixes for AndAlso/OrElse, Len, and Dictionary keys.">
+  <meta name="description" content="Visual Gasic 5.8.0-beta.1 — VB6-style .vg on Godot 4.6+. Published VM/JIT benchmarks and live-race results, including GDScript wins, with reproducible methodology.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
           and an in-editor <strong>Vibe Code</strong> panel (Narcea + Ollama or your API keys).
           Older microbenchmarks are not the whole speed story. A full city build in October 2026 still used about 2.7&times; the instructions of the GDScript port.
         </p>
-        <p class="roadmap-strip">v5.8.0-beta.1 is a <strong>core performance and correctness beta</strong>: quiet-pair <code>run_gap</code> cases at or under GDScript parity, the <code>vg_speed_race</code> demo, safe JIT decline for <code>AndAlso</code>/<code>OrElse</code> joins, AST/<code>Len</code>/mixed Variant parity, and missing Dictionary keys → <code>Nothing</code>. Replace the whole addon to upgrade. Stable v6.0 remains the goal for early 2027; this is not stable v6.</p>
+        <p class="roadmap-strip">v5.8.0-beta.1 is a <strong>core performance and correctness beta</strong>: VM/JIT improvements, the <a href="#live-race-results">measured live races (including VG losses)</a>, safe JIT decline for <code>AndAlso</code>/<code>OrElse</code> joins, AST/<code>Len</code>/mixed Variant parity, and missing Dictionary keys → <code>Nothing</code>. Replace the whole addon to upgrade. Stable v6.0 remains the goal for early 2027; this is not stable v6.</p>
         <div class="hero-actions">
           <a class="button primary" href="#downloads">Get Visual Gasic</a>
           <a class="button secondary" href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/games/ash_meridian_part1">Try Ash Meridian</a>
@@ -478,6 +478,33 @@ End Sub</pre>
       <section id="speed" class="section">
         <p class="section-kicker">Speed Tests</p>
         <h2>Readable does not have to mean slow</h2>
+        <div class="card" id="live-race-results">
+          <h3>Live race results: wins and remaining gaps</h3>
+          <p>18 Nov 2026 &middot; Godot 4.7.2 &middot; Linux x86-64 &middot; one pinned CPU core &middot; headless, no script debugger &middot; work size 500.</p>
+          <p>Median of seven paired step samples after 64 warmups, alternating execution order. <strong>VG/GD time below 1.00 means VG is faster.</strong> Matching step checksums were verified. These are CPU workload timings, not whole-game FPS.</p>
+          <div class="race-results-scroll" role="region" aria-label="Live race timing comparison" tabindex="0">
+            <table class="race-results-table">
+              <thead><tr><th scope="col">Workload</th><th scope="col">GD µs/step</th><th scope="col">VG µs/step</th><th scope="col">VG/GD time</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Particles, Calls</th><td>3,159</td><td>1,685</td><td>0.53</td></tr>
+                <tr><th scope="row">Particles, Inline</th><td>639</td><td>595</td><td>0.93 (near parity)</td></tr>
+                <tr><th scope="row">Arithmetic</th><td>450</td><td>390</td><td>0.87</td></tr>
+                <tr><th scope="row">Array scan</th><td>379</td><td>505</td><td><strong>1.33 &mdash; GD faster</strong></td></tr>
+                <tr><th scope="row">Dictionary reads</th><td>367</td><td>300</td><td>0.82</td></tr>
+                <tr><th scope="row">Branching</th><td>1,119</td><td>747</td><td>0.67</td></tr>
+                <tr><th scope="row">String building</th><td>2,260</td><td>4,839</td><td><strong>2.14 &mdash; GD faster</strong></td></tr>
+                <tr><th scope="row">Function calls</th><td>1,955</td><td>748</td><td>0.38</td></tr>
+                <tr><th scope="row">Function calls, Inline</th><td>362</td><td>250</td><td>0.69</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>Local results vary with CPU load, engine build, and runtime settings. The live races use different data types, loop shapes, and sizes from the older compute suite below: its larger speedups do not predict these results. C++ is not a lane in the live race.</p>
+          <div class="meta-links">
+            <a href="https://github.com/xgreenrx-star/VisualGasic/blob/main/BENCHMARK_PUBLISHED_RESULTS.md#live-race-workloads--18-nov-2026-verification">Methodology, budget results, and reproduction</a>
+            <a href="https://github.com/xgreenrx-star/VisualGasic/tree/main/samples/apps/vg_speed_race">Run the live races and inspect both sources</a>
+          </div>
+        </div>
+        <h3>Historical compute and draw snapshot &mdash; August 2026</h3>
         <p>
           Visual Gasic is built to be inspectable, but it is not a toy interpreter. The published suites show it beating GDScript on
           <strong>12 compute microbenchmarks</strong> and <strong>9 canvas draw workloads</strong> (Aug 2026). C++ still wins some
@@ -486,11 +513,11 @@ End Sub</pre>
         <div class="stats-row">
           <div class="card stat-card">
             <strong>12 / 12</strong>
-            <span>Compute benchmarks faster than GDScript</span>
+            <span>Compute benchmarks faster than GDScript (Aug 2026)</span>
           </div>
           <div class="card stat-card">
             <strong>9 / 9</strong>
-            <span>Draw benchmarks faster than GDScript</span>
+            <span>Draw benchmarks faster than GDScript (Aug 2026)</span>
           </div>
           <div class="card stat-card">
             <strong>139×</strong>

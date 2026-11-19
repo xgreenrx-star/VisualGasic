@@ -387,3 +387,23 @@ p {
     align-items: flex-start;
   }
 }
+.race-results-scroll {
+  overflow-x: auto;
+}
+
+.race-results-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.race-results-table th,
+.race-results-table td {
+  padding: 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid currentColor;
+}
+
+.race-results-table td {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
