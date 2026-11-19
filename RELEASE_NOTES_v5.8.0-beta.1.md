@@ -88,11 +88,24 @@ runtime binaries.
 
 ## Validation
 
-Release packaging runs the reusable CI suite (runtime, hardening, corpus,
-mutations, editor lifecycle, reference, Crystal Caverns, packaging smoke) plus
-native Linux/Windows/macOS/Web builds and installers. Local preflight for this
-candidate included focused correctness fixtures, AST/bytecode agreement on the
-parity cases, corpus checks, and `check_vm_gap.sh` with `mismatches=0`.
+The [tagged release workflow](https://github.com/xgreenrx-star/VisualGasic/actions/runs/44439698792)
+passed for source revision `f1ab95f4dcd7aa43bbc1cb6facf09eb72a2602dc`:
+
+- Runtime suite: 284 files, 1,893 assertions passed, zero failures or errors.
+- Release hardening: 10 checks passed, including AST/bytecode differential,
+  default/AST corpus and mutation runs, and editor lifecycle checks.
+- Reference, bytecode-baseline, Crystal Caverns, and Asset Library install gates passed.
+- Linux/Windows editor and export builds, universal macOS builds, and Web
+  builds/export smoke passed; Windows and macOS bridge smoke jobs passed.
+- Final packaged addon load/run smoke passed on Godot 4.6.1.
+- Downloaded assets passed SHA-256 verification; every ZIP passed integrity
+  checks. The downloaded addon also imported and executed a VG arithmetic
+  smoke test on Godot 4.6.1.
+
+Local preflight also included focused correctness fixtures and the VM timing
+gate with zero checksum mismatches. Passing tests do not establish that the
+runtime is bug-free, and installer GUIs were not manually exercised on every
+platform.
 
 ## Downloads
 
