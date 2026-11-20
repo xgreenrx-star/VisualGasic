@@ -1,0 +1,187 @@
+{
+  "case_id": "c2_hand_same_name_module_ns",
+  "fallback_contract": null,
+  "family": "c2_hand_same_name_module_ns",
+  "helper_defining_module": {
+    "LibBump": "c2_lib_bump.vg",
+    "LibPeekX": "c2_lib_bump.vg"
+  },
+  "helpers": [
+    {
+      "body": [
+        {
+          "expr": {
+            "kind": "bin",
+            "left": {
+              "kind": "var",
+              "name": "x"
+            },
+            "op": "+",
+            "right": {
+              "kind": "lit",
+              "type": "Integer",
+              "value": 1
+            }
+          },
+          "kind": "assign",
+          "name": "x"
+        },
+        {
+          "expr": {
+            "kind": "bin",
+            "left": {
+              "kind": "var",
+              "name": "n"
+            },
+            "op": "+",
+            "right": {
+              "kind": "lit",
+              "type": "Integer",
+              "value": 2
+            }
+          },
+          "kind": "assign",
+          "name": "n"
+        },
+        {
+          "expr": {
+            "kind": "bin",
+            "left": {
+              "kind": "var",
+              "name": "n"
+            },
+            "op": "*",
+            "right": {
+              "kind": "lit",
+              "type": "Integer",
+              "value": 2
+            }
+          },
+          "kind": "return"
+        }
+      ],
+      "local_vars": {},
+      "name": "LibBump",
+      "params": [
+        {
+          "default": null,
+          "mode": "byref",
+          "name": "n"
+        }
+      ],
+      "returns": true,
+      "side_effect_global": null
+    },
+    {
+      "body": [
+        {
+          "expr": {
+            "kind": "var",
+            "name": "x"
+          },
+          "kind": "return"
+        }
+      ],
+      "local_vars": {},
+      "name": "LibPeekX",
+      "params": [],
+      "returns": true,
+      "side_effect_global": null
+    }
+  ],
+  "index": 0,
+  "main": [
+    {
+      "expr": {
+        "kind": "lit",
+        "type": "Integer",
+        "value": 3
+      },
+      "kind": "assign",
+      "name": "x"
+    },
+    {
+      "expr": {
+        "args": [
+          {
+            "kind": "var",
+            "name": "x"
+          }
+        ],
+        "kind": "call",
+        "name": "LibBump"
+      },
+      "kind": "assign",
+      "name": "r"
+    },
+    {
+      "expr": {
+        "args": [],
+        "kind": "call",
+        "name": "LibPeekX"
+      },
+      "kind": "assign",
+      "name": "lib_x"
+    },
+    {
+      "expr": {
+        "kind": "var",
+        "name": "r"
+      },
+      "kind": "observe",
+      "name": "r"
+    },
+    {
+      "expr": {
+        "kind": "var",
+        "name": "x"
+      },
+      "kind": "observe",
+      "name": "x"
+    },
+    {
+      "expr": {
+        "kind": "var",
+        "name": "lib_x"
+      },
+      "kind": "observe",
+      "name": "lib_x"
+    }
+  ],
+  "module_stores": {
+    "c2_lib_bump.vg": {
+      "x": 7
+    }
+  },
+  "module_vars": {
+    "lib_x": 0,
+    "r": 0,
+    "x": 0
+  },
+  "notes": "",
+  "path_module": null,
+  "path_module_key": null,
+  "path_target": "LibBump",
+  "path_targets": [
+    "LibBump",
+    "LibPeekX"
+  ],
+  "required_path": {
+    "default": "bytecode_or_native",
+    "forced_ast": "ast",
+    "interpreter": "bytecode",
+    "tier3": "bytecode_or_native"
+  },
+  "seed": 0,
+  "source_modules": [
+    {
+      "content": "' SEMANTIC_FUZZ_MODULE c2_lib_bump.vg\nAttribute VB_Name = \"c2_lib_bump\"\n\nDim x As Integer\nDim _sem_mod_ready As Integer\n\nFunction LibBump(ByRef n As Integer) As Integer\n\tIf _sem_mod_ready = 0 Then\n\t\tx = 7\n\t\t_sem_mod_ready = 1\n\tEnd If\n\tx = (x + 1)\n\tn = (n + 2)\n\tReturn (n * 2)\nEnd Function\n\nFunction LibPeekX() As Integer\n\tIf _sem_mod_ready = 0 Then\n\t\tx = 7\n\t\t_sem_mod_ready = 1\n\tEnd If\n\tReturn x\nEnd Function\n\n",
+      "rel_path": "c2_lib_bump.vg"
+    }
+  ],
+  "tags": [
+    "c2",
+    "import",
+    "reference_only"
+  ]
+}

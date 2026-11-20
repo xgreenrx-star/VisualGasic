@@ -1,0 +1,14 @@
+[
+  {
+    "name": "byval_r",
+    "type": "Integer",
+    "value": "4",
+    "kind": "value"
+  },
+  {
+    "name": "byval_hits",
+    "type": "Integer",
+    "value": "1",
+    "kind": "value"
+  }
+]

@@ -1,0 +1,33 @@
+Attribute VB_Name = "TestSemC2DualImportTwinKnownDefect"
+' KNOWN DEFECT (not a green fixture): dual-import same-name Twin dispatch.
+' Expected correct semantics (NOT asserted as PASS): c2_path_mod_b.Twin → 22
+' with VG_SEM_PATH mod="res://test_suite/c2_path_mod_b.vg".
+' Observed (engine): first-import Twin (mod_a→11) and/or Error 91 on qualified
+' self-call from EntryB. Do not treat wrong first-import result as success.
+Import "c2_path_mod_a.vg"
+Import "c2_path_mod_b.vg"
+Option Explicit
+
+Sub _Ready()
+	Dim via_qual As Integer
+	Dim via_bare As Integer
+
+	Print "C2_KNOWN_DEFECT dual_import_same_name_twin"
+	Print "EXPECTED_CORRECT via_qual=22 mod=res://test_suite/c2_path_mod_b.vg"
+
+	' Qualified B.Twin — currently may return A's 11.
+	via_qual = c2_path_mod_b.Twin()
+	Print "OBSERVED via_qual=" & CStr(via_qual)
+
+	via_bare = Twin()
+	Print "OBSERVED bare_Twin=" & CStr(via_bare)
+
+	' Must remain visible; gate requires this marker (bug still present).
+	If via_qual = 22 Then
+		Print "C2_KNOWN_DEFECT_CLEARED dual_import_same_name_twin via_qual=22"
+	Else
+		Print "C2_KNOWN_DEFECT_STILL dual_import_same_name_twin via_qual=" & CStr(via_qual)
+	End If
+
+	Print "PASS: dual_import_known_defect_probe_ran"
+End Sub

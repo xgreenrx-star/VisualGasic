@@ -1,0 +1,24 @@
+' SEMANTIC_FUZZ_MODULE c2_lib_bump.vg
+Attribute VB_Name = "c2_lib_bump"
+
+Dim x As Integer
+Dim _sem_mod_ready As Integer
+
+Function LibBump(ByRef n As Integer) As Integer
+	If _sem_mod_ready = 0 Then
+		x = 7
+		_sem_mod_ready = 1
+	End If
+	x = (x + 1)
+	n = (n + 2)
+	Return (n * 2)
+End Function
+
+Function LibPeekX() As Integer
+	If _sem_mod_ready = 0 Then
+		x = 7
+		_sem_mod_ready = 1
+	End If
+	Return x
+End Function
+

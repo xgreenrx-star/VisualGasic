@@ -5312,6 +5312,9 @@ bool VisualGasicCompiler::is_constant_expr(ExpressionNode* expr) const {
     if (expr->type == ExpressionNode::LITERAL) return true;
     if (expr->type == ExpressionNode::VARIABLE) {
         VariableNode *vn = (VariableNode *)expr;
+        if (vn->name.nocasecmp_to("Nothing") == 0) {
+            return true;
+        }
         if (local_const_map.has(vn->name.to_lower())) {
             return true;
         }
@@ -5391,6 +5394,9 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
     if (expr->type == ExpressionNode::VARIABLE) {
         VariableNode *vn = (VariableNode *)expr;
         String lower = vn->name.to_lower();
+        if (lower == "nothing") {
+            return Variant();
+        }
         if (local_const_map.has(lower)) {
             return local_const_map[lower];
         }
@@ -5476,8 +5482,22 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
     if (expr->type == ExpressionNode::UNARY_OP) {
         UnaryOpNode* u = (UnaryOpNode*)expr;
         Variant v = eval_constant_expr(u->operand);
-        if (u->op == "-") return -((double)v);
-        if (u->op == "+") return (double)v;
+        // Preserve Integer: `-(1000)` must stay INT64, not become Double.
+        // Emitting a folded Double while infer_type still says VT_INT skips
+        // Integer coercion and leaves Dim x As Integer holding a Double (AST
+        // keeps Integer). See test_neg_integer_literal.vg.
+        if (u->op == "-") {
+            if (v.get_type() == Variant::INT) {
+                return Variant(-(int64_t)v);
+            }
+            return Variant(-((double)v));
+        }
+        if (u->op == "+") {
+            if (v.get_type() == Variant::INT) {
+                return v;
+            }
+            return Variant((double)v);
+        }
         if (u->op.nocasecmp_to("Not") == 0) return !vg_variant_truthy(v);
         return v;
     }
@@ -5487,9 +5507,21 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
         Variant c = eval_constant_expr(b->right);
         bool valid = false;
         Variant res;
-        if (b->op == "+") Variant::evaluate(Variant::OP_ADD, a, c, res, valid);
-        else if (b->op == "-") Variant::evaluate(Variant::OP_SUBTRACT, a, c, res, valid);
-        else if (b->op == "*") Variant::evaluate(Variant::OP_MULTIPLY, a, c, res, valid);
+        if (b->op == "+" || b->op == "-" || b->op == "*") {
+            // Match runtime: Godot often marks INT±Nothing as valid NIL.
+            // Use asymmetric VB rules (left Nothing → Nothing; numeric+Nothing → 0).
+            const Variant::Operator vop = (b->op == "+") ? Variant::OP_ADD
+                    : (b->op == "-") ? Variant::OP_SUBTRACT : Variant::OP_MULTIPLY;
+            if (a.get_type() == Variant::NIL || c.get_type() == Variant::NIL) {
+                if (vg_evaluate_vb_numeric(vop, a, c, res)) {
+                    return res;
+                }
+            }
+            Variant::evaluate(vop, a, c, res, valid);
+            if (!valid && vg_evaluate_vb_numeric(vop, a, c, res)) {
+                return res;
+            }
+        }
         else if (b->op == "/") {
             // VB `/` is Double division (`7 / 2` is 3.5, not Godot's Integer 3);
             // Vector / Color operands use Godot's component-wise operator.

@@ -8,6 +8,7 @@
 #include "vg_indexed_store.h"
 #include "visual_gasic_language.h"
 #include "visual_gasic_evidence.h"
+#include "visual_gasic_sem_path.h"
 #include "visual_gasic_parser.h"
 #include "visual_gasic_builtins.h"
 #include "vg_godot_owner_builtins.h"
@@ -1162,6 +1163,23 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                         }
                     }
                     int64_t has_retval = fused->fn(jit_locals.data(), (int64_t)slot_count);
+                    if (vgsem::path_enabled()) {
+                        String sem_mod = debug_bc_source_file;
+                        if (sem_mod.is_empty() && script.is_valid()) {
+                            if (_debug_script_path_owner != script.ptr()) {
+                                _debug_script_path = script->get_path();
+                                _debug_script_path_owner = script.ptr();
+                            }
+                            sem_mod = _debug_script_path;
+                        }
+                        if (sem_mod.is_empty() && func && !func->source_file.is_empty()) {
+                            sem_mod = func->source_file;
+                        }
+                        if (!sem_mod.is_empty()) {
+                            sem_mod = VisualGasicLanguage::normalize_breakpoint_script_path(sem_mod);
+                        }
+                        vgsem::note("native_t3", func ? func->name : String("<main>"), sem_mod);
+                    }
                     for (int i = 0; i < chunk->local_count && i < chunk->local_names.size(); i++) {
                         // Declared locals never enter variables[] (interpreter rule).
                         if (i < chunk->local_declared.size() && chunk->local_declared[i] != 0) continue;
@@ -1409,6 +1427,23 @@ bool VisualGasicInstance::try_jit_bytecode(BytecodeChunk *chunk, SubDefinition *
                 }
                 vgjit2::JitFrame prev_frame = vgjit2::jit_swap_frame({ this, native, jit_locals });
                 int64_t has_retval = native->fn(jit_locals, (int64_t)slot_count);
+                if (vgsem::path_enabled()) {
+                    String sem_mod = debug_bc_source_file;
+                    if (sem_mod.is_empty() && script.is_valid()) {
+                        if (_debug_script_path_owner != script.ptr()) {
+                            _debug_script_path = script->get_path();
+                            _debug_script_path_owner = script.ptr();
+                        }
+                        sem_mod = _debug_script_path;
+                    }
+                    if (sem_mod.is_empty() && func && !func->source_file.is_empty()) {
+                        sem_mod = func->source_file;
+                    }
+                    if (!sem_mod.is_empty()) {
+                        sem_mod = VisualGasicLanguage::normalize_breakpoint_script_path(sem_mod);
+                    }
+                    vgsem::note("native_t2", func ? func->name : String("<main>"), sem_mod);
+                }
                 vgjit2::jit_swap_frame(prev_frame);
                 auto slot_variant = [&](int slot) -> Variant {
                     if (slot < 0 || slot >= slot_count) return Variant();
@@ -1696,6 +1731,7 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     if (!vg_evidence_recording() && !whenever_evaluating && !VisualGasicLanguage::is_debug_hook_active() &&
             try_jit_bytecode(chunk, func, r_ret, p_ip_start, p_ip_end, p_initial_locals,
                          p_fast_args, p_fast_count, &vm, stack_base, previous_ip)) {
+        // Native entry already recorded inside try_jit_bytecode when VG_SEM_PATH=1.
         // Mirror finalize_profile(): this early return used to leak
         // vg_opcode_profile_depth, so once any JIT'd helper ran, every later
         // frame looked "nested" and the profiler never dumped again.
@@ -1723,6 +1759,25 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
     }
 #endif
     // ── End JIT Tier 2 ────────────────────────────────────────────────
+    // Interpreter (bytecode) entry: reached only when native did not take the call.
+    if (vgsem::path_enabled()) {
+        // Defining module: import debug_bc_source_file, else host script path.
+        String sem_mod = debug_bc_source_file;
+        if (sem_mod.is_empty() && script.is_valid()) {
+            if (_debug_script_path_owner != script.ptr()) {
+                _debug_script_path = script->get_path();
+                _debug_script_path_owner = script.ptr();
+            }
+            sem_mod = _debug_script_path;
+        }
+        if (sem_mod.is_empty() && func && !func->source_file.is_empty()) {
+            sem_mod = func->source_file;
+        }
+        if (!sem_mod.is_empty()) {
+            sem_mod = VisualGasicLanguage::normalize_breakpoint_script_path(sem_mod);
+        }
+        vgsem::note("bytecode", func ? func->name : String("<main>"), sem_mod);
+    }
 
 	std::vector<VGFastStringDict> vgdict_pool;
 	bool vgdict_slot_active[VGDICT_POOL_MAX] = {};
@@ -2530,13 +2585,30 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
             }
         }
         {
+            // Godot's variant_evaluate often reports valid=true with a NIL
+            // result for INT/FLOAT ± Nothing. That disagrees with VB's
+            // asymmetric rule (left Nothing → Nothing; numeric left +
+            // Nothing → coerce right to 0). Prefer vg_evaluate_vb_numeric
+            // whenever either operand is NIL for ADD/SUB/MUL.
+            const size_t top = vm.stack.size() - 1;
+            const Variant::Type ta_nil = vgfast::vtype(vm.stack[top - 1]);
+            const Variant::Type tb_nil = vgfast::vtype(vm.stack[top]);
+            if ((op == Variant::OP_ADD || op == Variant::OP_SUBTRACT || op == Variant::OP_MULTIPLY) &&
+                    (ta_nil == Variant::NIL || tb_nil == Variant::NIL)) {
+                Variant vb_result;
+                if (vg_evaluate_vb_numeric(op, vm.stack[top - 1], vm.stack[top], vb_result)) {
+                    vm.stack.pop_back();
+                    vm.stack.pop_back();
+                    push_value(vb_result);
+                    return true;
+                }
+            }
             // In place: evaluate straight from the two stack slots into a raw
             // result buffer (the engine placement-constructs it), then drop
             // the right operand and overwrite the left.  Skips two moved-out
             // operand Variants, a NIL result and their destructor calls.
             alignas(Variant) unsigned char result_raw[sizeof(Variant)];
             GDExtensionBool valid = false;
-            const size_t top = vm.stack.size() - 1;
             internal::gdextension_interface_variant_evaluate((GDExtensionVariantOperator)op,
                     vm.stack[top - 1]._native_ptr(), vm.stack[top]._native_ptr(), result_raw, &valid);
             if (valid) {
@@ -5322,6 +5394,12 @@ bool VisualGasicInstance::execute_bytecode(BytecodeChunk* chunk, SubDefinition* 
                     goto cleanup;
                 }
                 Variant value = pop_value();
+                // Keep Integer as Integer. Godot Variant::OP_NEGATE can widen
+                // INT to FLOAT; VB Dim As Integer expects Integer results.
+                if (vgfast::vtype(value) == Variant::INT) {
+                    push_value(Variant(-(int64_t)value));
+                    break;
+                }
                 Variant result;
                 bool valid = false;
                 Variant::evaluate(Variant::OP_NEGATE, value, Variant(), result, valid);

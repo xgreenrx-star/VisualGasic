@@ -1,0 +1,17 @@
+[
+  {
+    "name": "r",
+    "type": "Integer",
+    "value": "10"
+  },
+  {
+    "name": "x",
+    "type": "Integer",
+    "value": "5"
+  },
+  {
+    "name": "lib_x",
+    "type": "Integer",
+    "value": "5"
+  }
+]

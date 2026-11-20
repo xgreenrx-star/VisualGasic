@@ -1,0 +1,49 @@
+Attribute VB_Name = "TestSemC2ModIdentity"
+' Dual-import: EntryA/EntryB prove defining-module tags for distinct callees.
+' Same-name Twin() under dual import currently resolves to the first import
+' (observed); Twin identity is proven in test_sem_c2_twin_{a,b}_only.vg instead.
+Import "c2_path_mod_a.vg"
+Import "c2_path_mod_b.vg"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertEqI(ByVal actual As Integer, ByVal expected As Integer, ByVal label As String)
+	If actual = expected Then
+		passed = passed + 1
+		Print "PASS: " & label
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+	End If
+End Sub
+
+Function CallBoth() As Integer
+	CallBoth = c2_path_mod_a.EntryA() + c2_path_mod_b.EntryB()
+End Function
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+
+	Dim a As Integer
+	Dim b As Integer
+	Dim s As Integer
+
+	a = c2_path_mod_a.EntryA()
+	AssertEqI a, 11, "entry_a_from_mod_a"
+
+	b = c2_path_mod_b.EntryB()
+	AssertEqI b, 22, "entry_b_from_mod_b"
+
+	s = CallBoth()
+	AssertEqI s, 33, "caller_callboth_sum"
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c2_mod_identity"
+	Else
+		Print "FAIL: sem_c2_mod_identity"
+	End If
+End Sub

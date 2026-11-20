@@ -1,0 +1,15 @@
+Attribute VB_Name = "TestSemC2AltBasename"
+' Same basename c2_path_mod_a.vg under res://c2_alt_mods/ — mod must be full path.
+Import "res://c2_alt_mods/c2_path_mod_a.vg"
+Option Explicit
+
+Sub _Ready()
+	Dim v As Integer
+	v = Twin()
+	If v = 99 Then
+		Print "PASS: alt_basename_twin"
+	Else
+		Print "FAIL: alt_basename_twin got=" & CStr(v)
+	End If
+	Print "PASS: sem_c2_alt_basename"
+End Sub

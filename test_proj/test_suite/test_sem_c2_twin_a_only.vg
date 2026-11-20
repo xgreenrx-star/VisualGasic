@@ -1,0 +1,15 @@
+Attribute VB_Name = "TestSemC2TwinAOnly"
+' Single-import: Twin@c2_path_mod_a must be the defining module (same name as mod_b).
+Import "c2_path_mod_a.vg"
+Option Explicit
+
+Sub _Ready()
+	Dim v As Integer
+	v = Twin()
+	If v = 11 Then
+		Print "PASS: twin_a_only"
+	Else
+		Print "FAIL: twin_a_only got=" & CStr(v)
+	End If
+	Print "PASS: sem_c2_twin_a_only"
+End Sub

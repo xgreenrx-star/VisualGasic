@@ -1,0 +1,39 @@
+' Test: Select Case with negative Case literals
+' Regression: Case -N used to parse-error ("Unexpected token: -").
+Attribute VB_Name = "TestSelectCaseNegative"
+
+Sub _Ready()
+	Dim x As Integer = -50
+	Dim hit As Integer = 0
+
+	Select Case x
+		Case -1000
+			hit = 1
+		Case -50
+			hit = 2
+		Case 0
+			hit = 3
+		Case Else
+			hit = 4
+	End Select
+
+	If hit = 2 Then
+		Print "PASS: select_case_negative_hit"
+	Else
+		Print "FAIL: select_case_negative_hit: got " & CStr(hit)
+	End If
+
+	x = -1000
+	hit = 0
+	Select Case x
+		Case -1000 To -100
+			hit = 5
+		Case Else
+			hit = 6
+	End Select
+	If hit = 5 Then
+		Print "PASS: select_case_negative_range"
+	Else
+		Print "FAIL: select_case_negative_range: got " & CStr(hit)
+	End If
+End Sub

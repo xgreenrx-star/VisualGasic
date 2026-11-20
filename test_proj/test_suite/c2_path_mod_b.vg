@@ -1,0 +1,10 @@
+' C2 path-identity helper B — Twin same-name as c2_path_mod_a.vg.
+Attribute VB_Name = "c2_path_mod_b"
+
+Function Twin() As Integer
+	Twin = 22
+End Function
+
+Function EntryB() As Integer
+	EntryB = 22
+End Function

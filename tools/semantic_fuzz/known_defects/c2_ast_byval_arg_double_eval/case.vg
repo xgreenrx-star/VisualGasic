@@ -1,0 +1,32 @@
+' SEMANTIC_FUZZ case=c2_byval_once family=c2_hand
+' MAX_FRAMES: 8
+Attribute VB_Name = "SemFuzzCase"
+
+Dim hits As Integer
+Dim r As Integer
+
+Function Side() As Integer
+	hits = (hits + 1)
+	Return 3
+End Function
+
+Function TakeVal(ByVal v As Integer) As Integer
+	Return (v + 1)
+End Function
+
+Sub SemMain()
+	Dim _sem_obs As Variant
+	hits = 0
+	r = 0
+	hits = 0
+	r = TakeVal(Side())
+	_sem_obs = r
+	Print "VG_SEM_OBS kind=value name=byval_r type=" & TypeName(_sem_obs) & " value=" & CStr(_sem_obs)
+	_sem_obs = hits
+	Print "VG_SEM_OBS kind=value name=byval_hits type=" & TypeName(_sem_obs) & " value=" & CStr(_sem_obs)
+End Sub
+
+Sub _Ready()
+	SemMain
+	Print "VG_SEM_DONE case=c2_byval_once"
+End Sub

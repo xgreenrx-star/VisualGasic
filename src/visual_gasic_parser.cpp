@@ -4024,7 +4024,8 @@ SelectStatement* VisualGasicParser::parse_select() {
                     }
                     
                     {
-                        ExpressionNode* _tmp = parse_factor(); // Parse just the value, not full expression with operators
+                        // Unary (e.g. Case -1) but not binary ops — parse_factor rejected '-'.
+                        ExpressionNode* _tmp = parse_unary();
                         if (_tmp) { 
                             block->values.push_back(_tmp); 
                             unregister_node(_tmp);
@@ -4035,7 +4036,7 @@ SelectStatement* VisualGasicParser::parse_select() {
                                 (check(VisualGasicTokenizer::TOKEN_KEYWORD) || check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) && 
                                 String(peek().value).nocasecmp_to("To") == 0) {
                                 advance(); // consume "To"
-                                ExpressionNode* range_end = parse_factor();
+                                ExpressionNode* range_end = parse_unary();
                                 if (range_end) {
                                     block->range_ends.push_back(range_end);
                                     unregister_node(range_end);

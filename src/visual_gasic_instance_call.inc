@@ -731,6 +731,24 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
     }
 
     if (!used_bytecode) {
+        // Opt-in only: do not build/normalize module identity when disabled.
+        if (vgsem::path_enabled()) {
+            String sem_mod = import_src_for_debug;
+            if (sem_mod.is_empty() && script.is_valid()) {
+                if (_debug_script_path_owner != script.ptr()) {
+                    _debug_script_path = script->get_path();
+                    _debug_script_path_owner = script.ptr();
+                }
+                sem_mod = _debug_script_path;
+            }
+            if (sem_mod.is_empty() && func && !func->source_file.is_empty()) {
+                sem_mod = func->source_file;
+            }
+            if (!sem_mod.is_empty()) {
+                sem_mod = VisualGasicLanguage::normalize_breakpoint_script_path(sem_mod);
+            }
+            vgsem::note("ast", func ? func->name : String("<main>"), sem_mod);
+        }
         // The AST walker binds params, the return variable and every Dim'd
         // local through variables[].  Snapshot whatever the caller already
         // had under those names first (the bytecode attempt touched none of
@@ -2713,15 +2731,18 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
          // produces 0.0 and clobbers the value.  VB6 Variants are
          // truly polymorphic and accept any type.
          bool coerce = false;
-         if (target_type == Variant::INT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL)) {
+         // Nothing (NIL) assigned to a typed Integer/Double/Single must coerce
+         // like 0 — same as Dim initializer and bytecode OP_SET. Without this,
+         // AST `Dim x As Integer: x = Nothing` leaves a NIL slot (TypeName Nothing).
+         if (target_type == Variant::INT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL || source_type == Variant::NIL)) {
              coerce = true;
-         } else if (target_type == Variant::FLOAT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL)) {
+         } else if (target_type == Variant::FLOAT && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL || source_type == Variant::NIL)) {
              coerce = true;
          } else if (target_type == Variant::STRING && source_type == Variant::STRING) {
              coerce = true;
          } else if (target_type == Variant::STRING && (source_type == Variant::INT || source_type == Variant::FLOAT || source_type == Variant::BOOL) && ast_decl_is_string(name)) {
              coerce = true;
-         } else if (target_type == Variant::BOOL && (source_type == Variant::BOOL || source_type == Variant::INT)) {
+         } else if (target_type == Variant::BOOL && (source_type == Variant::BOOL || source_type == Variant::INT || source_type == Variant::NIL)) {
              coerce = true;
          }
          if (coerce && source_type != target_type && ast_decl_is_untyped(name)) {
@@ -2732,11 +2753,11 @@ void VisualGasicInstance::assign_variable(const String& name, Variant val) {
              if (target_type == Variant::INT) {
                  variables[name] = vb_to_integer(val);
              } else if (target_type == Variant::FLOAT) {
-                 variables[name] = (double)val;
+                 variables[name] = (source_type == Variant::NIL) ? Variant(0.0) : Variant((double)val);
              } else if (target_type == Variant::STRING) {
                  variables[name] = vb_display_string(val);
              } else if (target_type == Variant::BOOL) {
-                 variables[name] = (bool)val;
+                 variables[name] = (source_type == Variant::NIL) ? Variant(false) : Variant((bool)val);
              }
          } else {
              variables[name] = val;

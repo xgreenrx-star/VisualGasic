@@ -6012,4 +6012,5 @@ void VisualGasicInstance::release_canvas_draw_delegate_for_helper_script() {
 // Method call dispatch (call_internal, call, notification, debug, etc.)
 // Extracted for maintainability — 1730 lines
 // ============================================================================
+#include "visual_gasic_sem_path.h"
 #include "visual_gasic_instance_call.inc"

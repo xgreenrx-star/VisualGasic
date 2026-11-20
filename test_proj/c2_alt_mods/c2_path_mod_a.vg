@@ -1,0 +1,6 @@
+' Same basename as test_suite/c2_path_mod_a.vg but different directory + result.
+Attribute VB_Name = "c2_path_mod_a_alt"
+
+Function Twin() As Integer
+	Twin = 99
+End Function

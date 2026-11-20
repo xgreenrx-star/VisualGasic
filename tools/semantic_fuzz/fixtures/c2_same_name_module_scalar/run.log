@@ -1,0 +1,13 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+[VisualGasic] C++ debug message capture registered (visualgasic + debug)
+VG_SEM_PATH path=bytecode fn=_Ready mod="res://sem_fuzz_runs/1177870_1795133237476_864267d3/c2_hand_same_name_module_ns_60285d2693/interpreter/case.vg"
+VG_SEM_PATH path=bytecode fn=SemMain mod="res://sem_fuzz_runs/1177870_1795133237476_864267d3/c2_hand_same_name_module_ns_60285d2693/interpreter/case.vg"
+VG_SEM_PATH path=bytecode fn=LibBump mod="res://sem_fuzz_runs/1177870_1795133237476_864267d3/c2_hand_same_name_module_ns_60285d2693/interpreter/c2_lib_bump.vg"
+VG_SEM_PATH path=bytecode fn=LibPeekX mod="res://sem_fuzz_runs/1177870_1795133237476_864267d3/c2_hand_same_name_module_ns_60285d2693/interpreter/c2_lib_bump.vg"
+VG_SEM_OBS kind=value name=r type=Integer value=10
+VG_SEM_OBS kind=value name=x type=Integer value=5
+VG_SEM_OBS kind=value name=lib_x type=Integer value=5
+VG_SEM_DONE case=c2_hand_same_name_module_ns
+VG_SUITE_COMPLETED
+

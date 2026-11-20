@@ -553,6 +553,12 @@ Variant VisualGasicExpressionEvaluator::evaluate(ExpressionNode* expr, Context& 
         else if (op == "<>") v_op = Variant::OP_NOT_EQUAL;
         else if (op == "!=") v_op = Variant::OP_NOT_EQUAL;
         Variant::evaluate(v_op, l, r, result, valid);
+        if (!valid) {
+            Variant coerced;
+            if (vg_evaluate_vb_numeric(v_op, l, r, coerced)) {
+                return coerced;
+            }
+        }
         return result;
     }
     return Variant();

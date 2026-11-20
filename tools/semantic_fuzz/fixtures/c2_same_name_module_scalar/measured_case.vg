@@ -1,0 +1,30 @@
+' SEMANTIC_FUZZ case=c2_hand_same_name_module_ns family=c2_hand_same_name_module_ns
+' MAX_FRAMES: 8
+Attribute VB_Name = "SemFuzzCase"
+
+Import "c2_lib_bump.vg"
+
+Dim lib_x As Integer
+Dim r As Integer
+Dim x As Integer
+
+Sub SemMain()
+	Dim _sem_obs As Variant
+	lib_x = 0
+	r = 0
+	x = 0
+	x = 3
+	r = LibBump(x)
+	lib_x = LibPeekX()
+	_sem_obs = r
+	Print "VG_SEM_OBS kind=value name=r type=" & TypeName(_sem_obs) & " value=" & CStr(_sem_obs)
+	_sem_obs = x
+	Print "VG_SEM_OBS kind=value name=x type=" & TypeName(_sem_obs) & " value=" & CStr(_sem_obs)
+	_sem_obs = lib_x
+	Print "VG_SEM_OBS kind=value name=lib_x type=" & TypeName(_sem_obs) & " value=" & CStr(_sem_obs)
+End Sub
+
+Sub _Ready()
+	SemMain
+	Print "VG_SEM_DONE case=c2_hand_same_name_module_ns"
+End Sub

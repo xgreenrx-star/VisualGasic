@@ -1,0 +1,195 @@
+Attribute VB_Name = "TestSemC2CallsByRef"
+' Phase 2 C2 deterministic fixture: scalar ByRef/ByVal calls (same file).
+' Hand tables in docs/development/SEMANTIC_FUZZ_CONTRACTS.md (C2 section).
+' Observations use Variant parameters so TypeName is not coerced away.
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+Dim gIdxEvals As Integer
+Dim gEvents As String
+
+' Compare without coercing actual to Integer on entry.
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	Dim et As String
+	at = TypeName(actual)
+	et = TypeName(expected)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label & " type=" & at
+End Sub
+
+Sub AssertTrue(ByVal cond As Boolean, ByVal label As String)
+	If cond Then
+		passed = passed + 1
+		Print "PASS: " & label
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub Note(ByVal ev As String)
+	If gEvents = "" Then
+		gEvents = ev
+	Else
+		gEvents = gEvents & ";" & ev
+	End If
+End Sub
+
+' --- Callees ---
+
+Sub StandaloneByRef(ByRef n As Integer)
+	n = n + 1
+End Sub
+
+Sub StandaloneByVal(ByVal n As Integer)
+	n = n + 1
+End Sub
+
+' Bare parameter (neither keyword) — language default is ByRef.
+Sub StandaloneDefault(n As Integer)
+	n = n + 1
+End Sub
+
+Function ExprByRef(ByRef x As Integer) As Integer
+	x = x + 2
+	ExprByRef = x * 2
+End Function
+
+Function ExprByVal(ByVal x As Integer) As Integer
+	x = x + 2
+	ExprByVal = x * 2
+End Function
+
+Sub TwoDistinct(ByRef a As Integer, ByRef b As Integer)
+	a = a + 1
+	b = b + 10
+End Sub
+
+' Same variable twice — OBSERVED copy-in/write-back on current runtime (not a locked lang contract).
+Sub AliasTwice(ByRef a As Integer, ByRef b As Integer)
+	a = a + 1
+	b = b + 10
+End Sub
+
+Sub NestedInner(ByRef y As Integer)
+	Note "inner"
+	y = y + 100
+End Sub
+
+Sub NestedOuter(ByRef x As Integer)
+	Note "outer_enter"
+	x = x + 1
+	Call NestedInner(x)
+	x = x + 10
+	Note "outer_exit"
+End Sub
+
+Function RecAdd(ByRef n As Integer, Optional ByVal depth As Integer = 2) As Integer
+	If depth <= 0 Then
+		RecAdd = n
+		Exit Function
+	End If
+	n = n + 1
+	RecAdd = RecAdd(n, depth - 1) + n
+End Function
+
+Function IdxSide() As Integer
+	gIdxEvals = gIdxEvals + 1
+	IdxSide = 1
+End Function
+
+Sub BumpSlot(ByRef v As Integer)
+	v = v + 100
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+
+	Dim x As Integer
+	Dim y As Integer
+	Dim r As Integer
+	Dim arr(3) As Integer
+
+	' 1) Standalone ByRef: x:3 -> call -> x:4
+	x = 3
+	Call StandaloneByRef(x)
+	AssertObs x, 4, "Integer", "standalone ByRef caller after"
+
+	' 2) Expression ByRef: x:3 -> r=10, x:5
+	x = 3
+	r = ExprByRef(x)
+	AssertObs r, 10, "Integer", "expression ByRef return"
+	AssertObs x, 5, "Integer", "expression ByRef caller mutation"
+
+	' 3) ByVal control
+	x = 3
+	Call StandaloneByVal(x)
+	AssertObs x, 3, "Integer", "standalone ByVal caller unchanged"
+	r = ExprByVal(x)
+	AssertObs r, 10, "Integer", "expression ByVal return"
+	AssertObs x, 3, "Integer", "expression ByVal caller unchanged"
+
+	' 4) Default bare param is ByRef (lang ref)
+	x = 10
+	Call StandaloneDefault(x)
+	AssertObs x, 11, "Integer", "default bare param is ByRef"
+
+	' 5) Two distinct locations
+	x = 5
+	y = 3
+	Call TwoDistinct(x, y)
+	AssertObs x, 6, "Integer", "two distinct left"
+	AssertObs y, 13, "Integer", "two distinct right"
+
+	' 6) Alias same var twice — observed runtime result (see contracts: not oracle-locked)
+	x = 3
+	Call AliasTwice(x, x)
+	AssertObs x, 13, "Integer", "alias same var twice OBSERVED copy-in/write-back"
+
+	' 7) Nested — order-sensitive event sequence (not a numeric sum)
+	x = 0
+	gEvents = ""
+	Call NestedOuter(x)
+	AssertObs x, 111, "Integer", "nested ByRef final caller"
+	AssertObs gEvents, "outer_enter;inner;outer_exit", "String", "nested event order"
+
+	' 8) Recursive ByRef + Optional default depth=2
+	x = 0
+	r = RecAdd(x)
+	AssertObs r, 6, "Integer", "recursive ByRef return"
+	AssertObs x, 2, "Integer", "recursive ByRef final caller"
+
+	' 9) Indexed ByRef write-back + explicit known failure (index eval count)
+	arr(1) = 5
+	gIdxEvals = 0
+	Call BumpSlot(arr(IdxSide()))
+	AssertObs arr(1), 105, "Integer", "indexed ByRef write-back slot"
+	' Contract wants once; runtime currently evaluates twice. Must stay visible.
+	Print "C2_KNOWN_FAIL index_evals=" & CStr(gIdxEvals) & " want=1"
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c2_calls_byref"
+	Else
+		Print "FAIL: sem_c2_calls_byref"
+	End If
+End Sub

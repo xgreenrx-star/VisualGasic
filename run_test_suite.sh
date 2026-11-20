@@ -12,6 +12,8 @@
 # Env:
 #   GODOT — path to Godot binary (auto-detected if unset)
 #   VG_TEST_SUITE_VG_ONLY=1 — same as --vg-only
+#   VG_TEST_SUITE_ARGS_PATH=1 — pass each fixture as cmdline arg after --;
+#     do not write test_proj/current_test.txt (safe concurrent use)
 # ============================================================================
 
 set -euo pipefail
@@ -177,8 +179,13 @@ run_with_timeout() {
 }
 
 # Preflight: verify GDExtension loads and VG prints PASS/FAIL.
-echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
-smoke_out=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+ARGS_PATH="${VG_TEST_SUITE_ARGS_PATH:-0}"
+if [[ "$ARGS_PATH" == "1" ]]; then
+    smoke_out=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/test_arr_simple.vg" 2>&1) || true
+else
+    echo "res://test_suite/test_arr_simple.vg" > test_proj/current_test.txt
+    smoke_out=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+fi
 if ! echo "$smoke_out" | grep -q "^PASS:"; then
     echo -e "${RED}FATAL: GDExtension smoke test failed (no PASS: from test_arr_simple.vg)${NC}"
     echo -e "${YELLOW}Hint: run scripts/prepare_ci_gdextension.sh after scons build${NC}"
@@ -214,11 +221,14 @@ for vg_file in "${TEST_FILES[@]}"; do
     fi
     TOTAL_FILES=$((TOTAL_FILES + 1))
     
-    # Write current test path for the runner
-    echo "res://test_suite/$fname" > test_proj/current_test.txt
-    
     # Run headlessly, capture output
-    output=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+    if [[ "$ARGS_PATH" == "1" ]]; then
+        output=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" -- "res://test_suite/$fname" 2>&1) || true
+    else
+        # Write current test path for the runner
+        echo "res://test_suite/$fname" > test_proj/current_test.txt
+        output=$(run_with_timeout "$TIMEOUT_SECS" "$GODOT" "${GODOT_BASE_ARGS[@]}" 2>&1) || true
+    fi
     
     # Count PASS and FAIL lines
     pass_count=$(echo "$output" | grep -c "^PASS:" || true)

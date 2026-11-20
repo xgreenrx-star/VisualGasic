@@ -1,0 +1,163 @@
+{
+  "forced_ast": {
+    "ok": true,
+    "obs": [
+      {
+        "name": "byval_r",
+        "type": "Integer",
+        "value": "4"
+      },
+      {
+        "name": "byval_hits",
+        "type": "Integer",
+        "value": "2"
+      }
+    ],
+    "status": "MISMATCH:index 1 (byval_hits) value expected 1 got 2",
+    "paths": [
+      {
+        "path": "ast",
+        "fn": "_Ready",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_forced_ast/case.vg"
+      },
+      {
+        "path": "ast",
+        "fn": "SemMain",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_forced_ast/case.vg"
+      },
+      {
+        "path": "ast",
+        "fn": "Side",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_forced_ast/case.vg"
+      },
+      {
+        "path": "ast",
+        "fn": "Side",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_forced_ast/case.vg"
+      },
+      {
+        "path": "ast",
+        "fn": "TakeVal",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_forced_ast/case.vg"
+      }
+    ],
+    "log": "/tmp/vg-c2-byval-once-defect-ex005/work/c2_byval_once/forced_ast/run.log"
+  },
+  "interpreter": {
+    "ok": true,
+    "obs": [
+      {
+        "name": "byval_r",
+        "type": "Integer",
+        "value": "4"
+      },
+      {
+        "name": "byval_hits",
+        "type": "Integer",
+        "value": "1"
+      }
+    ],
+    "status": "MATCH",
+    "paths": [
+      {
+        "path": "bytecode",
+        "fn": "_Ready",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_interpreter/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "SemMain",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_interpreter/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "Side",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_interpreter/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "TakeVal",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_interpreter/case.vg"
+      }
+    ],
+    "log": "/tmp/vg-c2-byval-once-defect-ex005/work/c2_byval_once/interpreter/run.log"
+  },
+  "default": {
+    "ok": true,
+    "obs": [
+      {
+        "name": "byval_r",
+        "type": "Integer",
+        "value": "4"
+      },
+      {
+        "name": "byval_hits",
+        "type": "Integer",
+        "value": "1"
+      }
+    ],
+    "status": "MATCH",
+    "paths": [
+      {
+        "path": "bytecode",
+        "fn": "_Ready",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_default/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "SemMain",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_default/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "Side",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_default/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "TakeVal",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_default/case.vg"
+      }
+    ],
+    "log": "/tmp/vg-c2-byval-once-defect-ex005/work/c2_byval_once/default/run.log"
+  },
+  "tier3": {
+    "ok": true,
+    "obs": [
+      {
+        "name": "byval_r",
+        "type": "Integer",
+        "value": "4"
+      },
+      {
+        "name": "byval_hits",
+        "type": "Integer",
+        "value": "1"
+      }
+    ],
+    "status": "MATCH",
+    "paths": [
+      {
+        "path": "bytecode",
+        "fn": "_Ready",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_tier3/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "SemMain",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_tier3/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "Side",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_tier3/case.vg"
+      },
+      {
+        "path": "bytecode",
+        "fn": "TakeVal",
+        "mod": "res://sem_fuzz_1105373_c2_byval_once_tier3/case.vg"
+      }
+    ],
+    "log": "/tmp/vg-c2-byval-once-defect-ex005/work/c2_byval_once/tier3/run.log"
+  }
+}

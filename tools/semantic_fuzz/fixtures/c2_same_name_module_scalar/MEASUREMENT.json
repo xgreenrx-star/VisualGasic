@@ -1,0 +1,45 @@
+{
+  "command": "python3 -c \"from tools.semantic_fuzz.generator_c2 import hand_same_name_module_ns; from tools.semantic_fuzz.runner import run_program; from pathlib import Path; p=hand_same_name_module_ns(); rr=run_program(p, mode=\"interpreter\", work_root=Path(\"/tmp/vg-same-name-measure\"), timeout_secs=45); print(rr.ok, rr.observations)\"",
+  "mode": "interpreter",
+  "ok": true,
+  "failure_code": null,
+  "message": "ok",
+  "expected_reference": [
+    {
+      "type": "Integer",
+      "value": "10",
+      "name": "r",
+      "kind": "value"
+    },
+    {
+      "type": "Integer",
+      "value": "5",
+      "name": "x",
+      "kind": "value"
+    },
+    {
+      "type": "Integer",
+      "value": "8",
+      "name": "lib_x",
+      "kind": "value"
+    }
+  ],
+  "godot_actual": [
+    {
+      "name": "r",
+      "type": "Integer",
+      "value": "10"
+    },
+    {
+      "name": "x",
+      "type": "Integer",
+      "value": "5"
+    },
+    {
+      "name": "lib_x",
+      "type": "Integer",
+      "value": "5"
+    }
+  ],
+  "match": false
+}

@@ -1,0 +1,36 @@
+' Unary-minus Integer literals must stay Integer under bytecode (not Double).
+' Regression: constant-fold used -(double)v, so Dim r As Integer = -1000
+' stored a Double while AST kept Integer.
+Attribute VB_Name = "TestNegIntegerLiteral"
+
+Sub _Ready()
+	Dim r As Integer
+	r = -1000
+	If TypeName(r) = "Integer" And r = -1000 Then
+		Print "PASS: neg_integer_assign"
+	Else
+		Print "FAIL: neg_integer_assign: type=" & TypeName(r) & " value=" & CStr(r)
+	End If
+
+	Dim v As Variant
+	v = -42
+	If TypeName(v) = "Integer" And v = -42 Then
+		Print "PASS: neg_integer_variant"
+	Else
+		Print "FAIL: neg_integer_variant: type=" & TypeName(v) & " value=" & CStr(v)
+	End If
+
+	' Select Case with negative Case literal + Integer assign
+	Dim hit As Integer = 0
+	Select Case -50
+		Case -50
+			hit = -50
+		Case Else
+			hit = 1
+	End Select
+	If TypeName(hit) = "Integer" And hit = -50 Then
+		Print "PASS: select_neg_integer"
+	Else
+		Print "FAIL: select_neg_integer: type=" & TypeName(hit) & " value=" & CStr(hit)
+	End If
+End Sub

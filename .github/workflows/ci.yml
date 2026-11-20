@@ -58,6 +58,139 @@ jobs:
           echo "$out" | tail -20
           echo "$out" | grep -q "^PASS:"
 
+      # Bounded semantic smoke (Phase 1 harness). Release workflow calls this job
+      # via workflow_call — do not duplicate in release.yml. Measured local
+      # duration ~33s for seed=42 count=20 × 4 modes; step budget 5 minutes.
+      - name: Semantic fuzz CI smoke (selftest + 20×4 modes)
+        id: semantic_ci_smoke
+        timeout-minutes: 5
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          SEM_FUZZ_OUT: ${{ runner.temp }}/vg-semantic-ci-smoke
+          SEM_FUZZ_SEED: "42"
+          SEM_FUZZ_COUNT: "20"
+          SEM_FUZZ_MODES: "forced_ast,interpreter,default,tier3"
+          SEM_FUZZ_TIMEOUT: "30"
+          SEM_FUZZ_STEP_TIMEOUT: "180"
+        run: |
+          chmod +x ./scripts/run_semantic_ci_smoke.sh ./scripts/test_semantic_fuzz.sh
+          ./scripts/run_semantic_ci_smoke.sh
+
+      - name: Upload semantic fuzz CI evidence
+        if: always() && steps.semantic_ci_smoke.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-fuzz-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/vg-semantic-ci-smoke/campaign_summary.txt
+            ${{ runner.temp }}/vg-semantic-ci-smoke/campaign_report.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/native_tier_counts.txt
+            ${{ runner.temp }}/vg-semantic-ci-smoke/gate_status.txt
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/failure.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/run.log
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/ir.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/expected.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/actual.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/program.json
+            ${{ runner.temp }}/vg-semantic-ci-smoke/**/case.vg
+          if-no-files-found: error
+
+      # C2 ByRef/call fixtures (measured local ~30s for 7×4 modes). Does not
+      # replace Phase 1 smoke. Tier-3 mode is a request lane only.
+      - name: Semantic C2 ByRef fixtures (4 modes)
+        id: semantic_c2_fixtures
+        timeout-minutes: 3
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          SEM_C2_OUT: ${{ runner.temp }}/vg-semantic-c2-fixtures
+          SEM_C2_MODES: "forced_ast,interpreter,default,tier3"
+        run: |
+          chmod +x ./scripts/run_semantic_c2_fixtures.sh
+          ./scripts/run_semantic_c2_fixtures.sh
+
+      - name: Upload semantic C2 fixture evidence
+        if: always() && steps.semantic_c2_fixtures.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-c2-fixtures-${{ github.run_id }}-${{ github.run_attempt }}
+          # Nested run_<id>/ holds per-case .log/.paths/.judge.err. Root holds
+          # latest_run.txt + mirrored summary/status. Exclude Godot user-data caches.
+          path: |
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/latest_run.txt
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/c2_fixture_summary.txt
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/gate_status.txt
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/c2_fixture_summary.txt
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/gate_status.txt
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/*.log
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/*.paths
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/*.path_counts.json
+            ${{ runner.temp }}/vg-semantic-c2-fixtures/run_*/*.judge.err
+          if-no-files-found: error
+
+      # CP3 IR hand-example lane (8×4; measured local ~16–55s). Distinct from
+      # pure selftest and Phase 1 smoke. gate_status ok|ok_with_known_defects.
+      - name: Semantic C2 IR example lane
+        id: semantic_c2_ir_lane
+        timeout-minutes: 3
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          SEM_C2_IR_OUT: ${{ runner.temp }}/vg-semantic-c2-ir-lane
+        run: |
+          chmod +x ./scripts/run_semantic_c2_ir_lane.sh
+          ./scripts/run_semantic_c2_ir_lane.sh
+
+      - name: Upload semantic C2 IR lane evidence
+        if: always() && steps.semantic_c2_ir_lane.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-c2-ir-lane-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/gate_status.txt
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/ir_lane_report.json
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/**/run.log
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/**/ir.json
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/**/expected.json
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/**/program.json
+            ${{ runner.temp }}/vg-semantic-c2-ir-lane/**/case.vg
+          if-no-files-found: error
+
+      # Bounded generated C2 campaign: count=14 covers all C2_FAMILIES (incl. imports).
+      # Local timing ~30–40s×4 modes; family coverage gate fail-closed. Actions unverified unless run.
+      - name: Semantic C2 generated campaign (bounded)
+        id: semantic_c2_campaign
+        timeout-minutes: 8
+        env:
+          DISPLAY: ""
+          GODOT: ${{ github.workspace }}/Godot_v4.6.1-stable_linux.x86_64
+          SEM_C2_CAMPAIGN_OUT: ${{ runner.temp }}/vg-semantic-c2-campaign
+          SEM_C2_CAMPAIGN_SEED: "3"
+          SEM_C2_CAMPAIGN_COUNT: "14"
+        run: |
+          chmod +x ./scripts/run_semantic_c2_campaign.sh
+          ./scripts/run_semantic_c2_campaign.sh
+
+      - name: Upload semantic C2 campaign evidence
+        if: always() && steps.semantic_c2_campaign.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: semantic-c2-campaign-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/vg-semantic-c2-campaign/gate_status.txt
+            ${{ runner.temp }}/vg-semantic-c2-campaign/campaign_summary.txt
+            ${{ runner.temp }}/vg-semantic-c2-campaign/campaign_report.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/case.vg
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/*.vg
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/ir.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/expected.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/actual.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/program.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/failure.json
+            ${{ runner.temp }}/vg-semantic-c2-campaign/runs/**/run.log
+          if-no-files-found: error
+
       - name: M8 FFI smoke (Linux Declare / libc)
         env:
           DISPLAY: ""

@@ -1,0 +1,114 @@
+Attribute VB_Name = "TestSemC1NumericVariant"
+' Phase 2 C1 contract fixture: Integer/Double retention, VB6 banker rounding,
+' Nothing asymmetry (Variant vs typed coerce), Dictionary missing keys.
+' Independent of the semantic-fuzz random domain (still Phase-1 Integer-only).
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertEqual(actual As Variant, expected As Variant, label As String)
+	If CStr(actual) = CStr(expected) Then
+		passed = passed + 1
+		Print "PASS: " & label
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label & " - expected " & CStr(expected) & ", got " & CStr(actual)
+	End If
+End Sub
+
+Sub AssertTrue(cond As Boolean, label As String)
+	If cond Then
+		passed = passed + 1
+		Print "PASS: " & label
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label
+	End If
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+
+	' --- CInt / Integer assign: banker's rounding (ties to even) ---
+	AssertEqual CInt(2.5), 2, "CInt 2.5 → 2"
+	AssertEqual CInt(3.5), 4, "CInt 3.5 → 4"
+	AssertEqual CInt(-2.5), -2, "CInt -2.5 → -2"
+	AssertEqual CInt(-3.5), -4, "CInt -3.5 → -4"
+	AssertEqual CInt(3.7), 4, "CInt 3.7 → 4"
+	AssertEqual CInt(-3.7), -4, "CInt -3.7 → -4"
+	AssertEqual CInt(2.5000001), 3, "CInt just above +2.5 tie"
+
+	Dim xi As Integer
+	xi = 2.5
+	AssertEqual xi, 2, "Integer assign 2.5 ties to even"
+	xi = -2.5
+	AssertEqual xi, -2, "Integer assign -2.5 ties to even"
+	xi = 3.7
+	AssertEqual xi, 4, "Integer assign 3.7 rounds"
+
+	' --- Double retention / Variant keeps fraction until CInt ---
+	Dim xd As Double
+	xd = 3.7
+	AssertEqual TypeName(xd), "Double", "Double literal retention type"
+	AssertEqual xd, 3.7, "Double literal retention value"
+	Dim xv As Variant
+	xv = 3.7
+	AssertEqual TypeName(xv), "Double", "Variant holds Double fraction"
+	xv = CInt(xv)
+	AssertEqual TypeName(xv), "Integer", "CInt on Variant → Integer"
+	AssertEqual xv, 4, "CInt on Variant 3.7 → 4"
+
+	' --- Numeric strings via conversion builtins ---
+	AssertEqual CInt("42"), 42, "CInt numeric string"
+	AssertEqual CDbl("3.14"), 3.14, "CDbl numeric string"
+
+	' --- Dictionary missing key: Nothing, Err stays 0 ---
+	Dim d As Dictionary
+	Dim miss As Variant
+	d = New Dictionary
+	miss = d("nope")
+	AssertEqual VarType(miss), 1, "missing key VarType = vbNull/Nothing"
+	AssertTrue miss Is Nothing, "missing key Is Nothing"
+	AssertEqual Err.Number, 0, "missing key does not raise"
+
+	' Typed Single + missing key coerces Nothing like 0 (lang ref)
+	Dim s As Single
+	s = 5
+	s = s + d("nope")
+	AssertEqual s, 5, "Single + missing key coerces Nothing as 0"
+	AssertEqual Err.Number, 0, "Single + missing key Err still 0"
+
+	' --- Nothing arithmetic asymmetry (vg_evaluate_vb_numeric / lang contract) ---
+	' Left Nothing → Nothing; numeric left + Nothing → coerce right like 0.
+	Dim v As Variant
+	v = Nothing + 1
+	AssertTrue v Is Nothing, "Variant: Nothing + 1 → Nothing"
+	v = 1 + Nothing
+	AssertTrue Not (v Is Nothing), "Variant: 1 + Nothing is numeric (not Nothing)"
+	AssertEqual CDbl(v), 1, "Variant: 1 + Nothing → 1"
+
+	' Typed Integer ← Nothing coerces to 0 (AST must match bytecode)
+	Dim yi As Integer
+	yi = Nothing
+	AssertEqual yi, 0, "Integer dest: bare Nothing coerces to 0"
+	AssertEqual TypeName(yi), "Integer", "Integer dest: bare Nothing keeps Integer type"
+	yi = Nothing + 1
+	AssertEqual yi, 0, "Integer dest: Nothing + 1 → 0 (Nothing RHS of assign)"
+	yi = 1 + Nothing
+	AssertEqual yi, 1, "Integer dest: 1 + Nothing → 1"
+
+	' Typed Single + Nothing → 0 (coercion), not Nothing
+	s = 0
+	s = s + Nothing
+	AssertEqual s, 0, "Single + Nothing coerces to 0"
+	AssertEqual TypeName(s), "Double", "Single slot TypeName after + Nothing"
+
+	Print "C1_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c1_numeric_variant"
+	Else
+		Print "FAIL: sem_c1_numeric_variant"
+	End If
+End Sub
