@@ -104,6 +104,16 @@ Sub _Ready()
 	v = Not False
 	Call CheckB(v, 1, "not_f")
 
+	' False OrElse True and False AndAlso True are oe_ft and aa_ft above.
+	v = (x = 1) AndAlso True
+	Call CheckB(v, 1, "cp_va")
+	v = True AndAlso (x = 2)
+	Call CheckB(v, 0, "cp_av")
+	v = Not (True AndAlso False)
+	Call CheckB(v, 1, "cp_nt")
+	v = 0 OrElse 5
+	Call CheckB(v, 1, "cp_num")
+
 	If True AndAlso False Then
 		r = 1
 	Else

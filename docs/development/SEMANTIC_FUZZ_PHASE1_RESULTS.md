@@ -121,19 +121,32 @@ default, forced_ast, and interpreter. Defects found and fixed while landing
 C1 (AST Integer←Nothing coerce; bytecode/compiler fold of `1 + Nothing`
 via `vg_evaluate_vb_numeric`).
 
+## Phase 2 defects found by the semantic campaign
+
+Each row is a real cross-mode bug. Status is the source fix on `main`
+(`48283c24`). The editor `.so` in the main tree was not rebuilt for that commit.
+
+| Bug | Reproducer | Root cause | Status |
+|---|---|---|---|
+| Forced-AST ByVal argument evaluated twice | `test_proj/test_suite/test_ast_byval_arg_once.vg` (dispatch shape in `test_ast_byval_dispatch_probe.vg`) | `call_builtin_expr` in `src/visual_gasic_builtins.cpp` evaluated call arguments before the builtin dispatch. The caller now passes the already-evaluated argument array. | Fixed |
+| Indexed ByRef subscript evaluated twice | `test_proj/test_suite/test_ast_byref_index_once.vg`; also `test_sem_c2_calls_byref.vg` (`indexed ByRef index once`) | ByRef write-back re-evaluated the index. `freeze_byref_lvalue` in `src/visual_gasic_instance_call.inc` / `src/visual_gasic_instance_evaluate.inc` snapshots the index once. | Fixed |
+| Named ByRef write-back followed source order, not parameter order | `test_proj/test_suite/test_named_byref_writeback.vg` | Named-argument reorder and ByRef write-back did not share one parameter order (`src/visual_gasic_named_args.h`, call/evaluate). | Fixed |
+| BUG-C4-1: `Exit` / `Return` / `Continue` inside `Try` skipped `Finally` on bytecode | `test_proj/test_suite/test_sem_c4_finally_exit.vg` | `STMT_EXIT`, `STMT_RETURN`, and `STMT_CONTINUE` in `src/visual_gasic_compiler.cpp` jumped out of the protected region. Finally is now an exit-code dispatch, innermost first. | Fixed |
+| BUG-C4-2: constant `AndAlso` / `OrElse` folded to Nothing on bytecode | `test_proj/test_suite/test_sem_c4_const_logic.vg` | `compile_expression` folded a constant `BINARY_OP` before the short-circuit emit, and `eval_constant_expr` had no `AndAlso`/`OrElse` arm, so it returned `Variant()`. | Fixed |
+
 ## Phase completion
 
 | Phase | Status |
 |---|---|
 | 1 Semantic campaign | **Complete** for acceptance gates above |
-| 2 Interaction coverage | **Partial** — C1 done; C2 CP1 done, CP2 four-mode *request* lane (not verified path coverage), CP3 call-frame model partial; CP4 blocked; C3/C4 pending |
+| 2 Interaction coverage | **Partial** — C1 done; C2 CP1 done, CP2 four-mode *request* lane (not verified path coverage), CP3 call-frame model partial; CP4 blocked. C3 gate is 20 runs and C4 gate is 16 runs. BUG-C4-1 and BUG-C4-2 are fixed in source. |
 | 3 Game-shaped scenarios | **Not started** |
 | 4 CI semantic smoke | **Wired** (local proof; GitHub Actions not claimed) |
 
 ## Not done / next
 
 1. Phase 2 C1: model Variant/Double in IR/reference only after fixtures stay green; pairwise matrix.
-2. C2 harness corrections landed (gate, Variant/order asserts, bounded call model, detector negatives, contracts). CP4 ByRef generators blocked until review. Indexed ByRef once-eval is a strict fixture assert (the old `C2_KNOWN_FAIL index_evals=2` line is history). Then C3/C4.
+2. C2 harness corrections landed (gate, Variant/order asserts, bounded call model, detector negatives, contracts). CP4 ByRef generators stay blocked until review. Indexed ByRef once-eval is a strict fixture assert (the old `C2_KNOWN_FAIL index_evals=2` line is history). C3 and C4 deterministic gates are in place; `GoTo` out of `Try` and errors raised inside `Finally` are still exclusions.
 3. Longer scheduled campaigns / game-shaped integration (next handoff priority).
 4. Do not commit until review (per assignment).
 

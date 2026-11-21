@@ -142,6 +142,96 @@ Sub ContinueForBody()
 	Call Mark("E")
 End Sub
 
+' Copilot probe: inner Finally then outer Finally, no mark before the inner Try.
+Sub CpNestedExit()
+	Try
+		Try
+			Call Mark("i")
+			Exit Sub
+		Finally
+			Call Mark("Fi")
+		End Try
+		Call Mark("X")
+	Finally
+		Call Mark("Fo")
+	End Try
+	Call Mark("A")
+End Sub
+
+Sub CpExitCatch()
+	Try
+		Err.Raise 5010
+	Catch
+		Call Mark("K")
+		Exit Sub
+	Finally
+		Call Mark("F")
+	End Try
+	Call Mark("A")
+End Sub
+
+Function CpRetInTry(ByVal k As Integer) As Integer
+	Try
+		Call Mark("T")
+		Return k * 2
+	Finally
+		Call Mark("F")
+	End Try
+	Return -1
+End Function
+
+Sub CpDoLoopExit()
+	Dim i As Integer
+	Do While i < 5
+		i = i + 1
+		Try
+			If i = 2 Then
+				Exit Do
+			End If
+			Call Mark(CStr(i))
+		Finally
+			Call Mark("f")
+		End Try
+	Loop
+	Call Mark("E")
+End Sub
+
+Sub CpContinueLoop()
+	Dim i As Integer
+	For i = 1 To 3
+		Try
+			If i = 2 Then
+				Continue For
+			End If
+			Call Mark(CStr(i))
+		Finally
+			Call Mark("f")
+		End Try
+	Next i
+	Call Mark("E")
+End Sub
+
+Sub CpNoExit()
+	Try
+		Call Mark("T")
+	Finally
+		Call Mark("F")
+	End Try
+	Call Mark("A")
+End Sub
+
+Function CpRecur(ByVal n As Integer) As Integer
+	Try
+		If n = 0 Then
+			CpRecur = 100
+			Exit Function
+		End If
+		CpRecur = CpRecur(n - 1) + 1
+	Finally
+		Call Mark("f" & CStr(n))
+	End Try
+End Function
+
 Sub _Ready()
 	Dim n As Integer
 	passed = 0
@@ -190,6 +280,47 @@ Sub _Ready()
 	Call ContinueForBody()
 	Print "EVENT: continue_for"
 	Call AssertObs(gLog, "TFTFBE", "String", "c4_fx_cont_log")
+
+	gLog = ""
+	Call CpNestedExit()
+	Print "EVENT: cp_nested"
+	Call AssertObs(gLog, "iFiFo", "String", "c4_fx_cp_nest_log")
+
+	gLog = ""
+	Call CpExitCatch()
+	Print "EVENT: cp_catch"
+	Call AssertObs(gLog, "KF", "String", "c4_fx_cp_catch_log")
+	Call AssertObs(Err.Number, 5010, "Integer", "c4_fx_cp_catch_err")
+	Call AssertObs(VarType(Err.Number), 3, "Integer", "c4_fx_cp_catch_err_vt")
+
+	gLog = ""
+	n = CpRetInTry(7)
+	Print "EVENT: cp_return"
+	Call AssertObs(gLog, "TF", "String", "c4_fx_cp_ret_log")
+	Call AssertObs(n, 14, "Integer", "c4_fx_cp_ret_n")
+	Call AssertObs(VarType(n), 3, "Integer", "c4_fx_cp_ret_vt")
+
+	gLog = ""
+	Call CpDoLoopExit()
+	Print "EVENT: cp_do"
+	Call AssertObs(gLog, "1ffE", "String", "c4_fx_cp_do_log")
+
+	gLog = ""
+	Call CpContinueLoop()
+	Print "EVENT: cp_cont"
+	Call AssertObs(gLog, "1ff3fE", "String", "c4_fx_cp_cont_log")
+
+	gLog = ""
+	Call CpNoExit()
+	Print "EVENT: cp_noexit"
+	Call AssertObs(gLog, "TFA", "String", "c4_fx_cp_no_log")
+
+	gLog = ""
+	n = CpRecur(3)
+	Print "EVENT: cp_recur"
+	Call AssertObs(gLog, "f0f1f2f3", "String", "c4_fx_cp_recur_log")
+	Call AssertObs(n, 103, "Integer", "c4_fx_cp_recur_n")
+	Call AssertObs(VarType(n), 3, "Integer", "c4_fx_cp_recur_vt")
 
 	Print "C4_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
 	If failed = 0 Then

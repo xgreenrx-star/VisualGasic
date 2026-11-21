@@ -298,6 +298,53 @@ Still outside the C3 oracle: missing-key ByRef write-back, container identity
 after replacement or `ReDim`, MemoryBuffer indexed ByRef, impure indexed ByRef,
 alias, and named-argument order.
 
+### C3b — nested containers, UDT copy, iteration
+
+Fixtures: `test_sem_c3b_nested.vg`, `test_sem_c3b_udt_copy.vg`,
+`test_sem_c3b_iterate.vg`. The C3 gate runs these with the two C3 fixtures:
+5 fixtures × 4 modes = **20** runs.
+
+```bash
+python3 -m tools.semantic_fuzz c3-fixture-gate \
+  --project /absolute/path/to/test_proj --godot /absolute/path/to/godot \
+  --out /absolute/path/to/new-gate-output
+```
+
+| Topic | Contract |
+|---|---|
+| Nested Dictionary/Array | **OBSERVED** Godot reference semantics: assigning the inner container shares that object, so a write through one name is visible through the other. Neighbors of the written slot stay unchanged. |
+| UDT assignment | VB6 value copy. Mutating the copy, a `ByVal` parameter, or a function return does not change the source. A default/`ByRef` parameter mutates the caller. |
+| `Dictionary.Remove` of a missing key | **OBSERVED**: `Err.Number` stays 0 and `Count` is unchanged. Capture `Err.Number` immediately. |
+| `For Each` | Array elements and `Dictionary.Keys` in insertion order are in the iterate fixture. Mutating the collection during `For Each` is excluded. |
+
+Generated C3b families (`c3b_nested_dict_array`, `c3b_udt_copy`) follow the same
+rules. Nested and UDT shapes may still compile to AST when bytecode cannot
+emit them; the gate records that path rather than treating it as a value bug.
+
+## Phase 2 C4 — Short-circuit and Finally
+
+Fixtures: `test_sem_c4_shortcircuit.vg`, `test_sem_c4_errors.vg`,
+`test_sem_c4_finally_exit.vg`, `test_sem_c4_const_logic.vg`.
+4 fixtures × 4 modes = **16** runs.
+
+```bash
+python3 -m tools.semantic_fuzz c4-fixture-gate \
+  --project /absolute/path/to/test_proj --godot /absolute/path/to/godot \
+  --out /absolute/path/to/new-gate-output
+```
+
+| Topic | Contract |
+|---|---|
+| `AndAlso` / `OrElse` | Short-circuit. Left is evaluated first. A false `AndAlso` left or a true `OrElse` left does not evaluate the right. |
+| `And` / `Or` | **OBSERVED**: both sides run, left first. Excluded from the `c4_shortcircuit` generator (`non_shortcircuit_and_or`). |
+| `Finally` | Runs once, innermost first, when `Exit` `Sub`/`Function`, `Return`, `Exit` `For`/`Do`, or `Continue` leaves `Try` or `Catch`. The function return value is kept. Fall-through `Finally` also runs. |
+| Constant fold | Constant `AndAlso` / `OrElse` / `Not` fold to Boolean (VarType 11) with the short-circuit value, including `0 OrElse 5` and `Not (True AndAlso False)`. |
+| Errors | `Resume Next`, `GoTo` handler, and `Try`/`Catch`/`Finally` order are deterministic fixtures only. Random error boundaries are excluded. |
+
+Exclusions: `GoTo` that jumps out of `Try` (not required to run `Finally`), and
+errors raised inside `Finally` (current AST semantics, not a separate oracle).
+There is no separate `Exit Property` bytecode kind.
+
 ## Replay / reduction provenance (shared)
 
 Module: `tools/semantic_fuzz/provenance.py` (used by both `replay` and `reduce`).
