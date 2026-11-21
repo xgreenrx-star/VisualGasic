@@ -1,7 +1,7 @@
 # Visual Gasic Development Roadmap
 
-**Last Updated**: November 18, 2026<br>
-**Current Version**: **5.8.0-beta.1** — see [`CHANGELOG.md`](CHANGELOG.md) and [`RELEASE_NOTES_v5.8.0-beta.1.md`](RELEASE_NOTES_v5.8.0-beta.1.md)  
+**Last Updated**: November 21, 2026<br>
+**Current Version**: **5.8.1-beta.1** — see [`CHANGELOG.md`](CHANGELOG.md) and [`RELEASE_NOTES_v5.8.1-beta.1.md`](RELEASE_NOTES_v5.8.1-beta.1.md)  
 **Current Scope**: Godot IDE integration through stable v6.0 (early 2027)  
 **Next Cut**: bug-fix betas / path to **6.0.0-rc1** — see [`RELEASE_SCHEDULE.md`](RELEASE_SCHEDULE.md) and [`docs/VERSIONING.md`](docs/VERSIONING.md)
 
@@ -18,7 +18,7 @@ This document outlines the planned improvements and features for Visual Gasic. I
 
 ## 5.8.0-beta.1 — proposed core performance beta
 
-**Status:** Shipping as **5.8.0-beta.1** (18 Nov 2026). P0 gates closed (`1748eff7`, `8ff349b0`, `bc903b3a`). Quiet-pair VM gap ≤1.00; visual demo `samples/apps/vg_speed_race/`. Do not describe the microbenchmark results as proof that all VG programs are faster than GDScript.
+**Status:** Shipped as **5.8.0-beta.1** (18 Nov 2026); bug-fix follow-up **5.8.1-beta.1** (21 Nov 2026). P0 gates closed (`1748eff7`, `8ff349b0`, `bc903b3a`). Quiet-pair VM gap ≤1.00; visual demo `samples/apps/vg_speed_race/`. Do not describe the microbenchmark results as proof that all VG programs are faster than GDScript.
 
 Implementation handoff: [`CURSOR_5_8_CORE_CORRECTNESS_HANDOFF.md`](docs/development/CURSOR_5_8_CORE_CORRECTNESS_HANDOFF.md).
 

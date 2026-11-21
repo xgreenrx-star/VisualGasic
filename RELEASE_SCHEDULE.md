@@ -15,7 +15,8 @@
 | **5.4.0-beta2** | 🟢 SHIPPED | Sep 5, 2026 | M5 (+ M6/M7/M8 prep) | Buffer type, optimizer hints, Narcea Tier A/B, causal-chain teaser, msgpack C2, `Await`/`PyAsyncTask`, `Let`, AST Godot ctors — [notes](RELEASE_NOTES_v5.4.0-beta2.md) |
 | **5.4.0-beta1 showcase** | 🟢 SHIPPED | Aug 30, 2026 | pre-M5 | `projects/vg_beta_showcase/` — full tour + Movie Maker script ([README](projects/vg_beta_showcase/README.md)) |
 | **5.5.0-beta1** | — | Nov 2026 | M7–M8 | Python bridge close-out (Windows e2e, numpy Phase 2), FFI `Declare`/`DllImport`, language stress corpus |
-| **5.8.0-beta.1** | 🟢 SHIPPING | 18 Nov 2026 | Core VM/JIT performance + correctness | P0 gates #24/#25/#26 closed. Quiet-pair VM gap ≤1.00; `vg_speed_race` demo. Tag `v5.8.0-beta.1` runs Release workflow (binaries, installers, Asset Library zip). Disclose deferred Tier-2 short-circuit phi; see [`ROADMAP.md`](ROADMAP.md). |
+| **5.8.0-beta.1** | 🟢 SHIPPED | 18 Nov 2026 | Core VM/JIT performance + correctness | P0 gates #24/#25/#26 closed. Quiet-pair VM gap ≤1.00; `vg_speed_race` demo. Tag `v5.8.0-beta.1` runs Release workflow (binaries, installers, Asset Library zip). Disclose deferred Tier-2 short-circuit phi; see [`ROADMAP.md`](ROADMAP.md). |
+| **5.8.1-beta.1** | 🟢 SHIPPING | 21 Nov 2026 | Correctness bug fixes | Seven runtime fixes found by the semantic fuzzer (Try/Finally exits, constant short-circuit, single argument evaluation) — [notes](RELEASE_NOTES_v5.8.1-beta.1.md) |
 | **6.0.0-rc1** | — | Dec 1, 2026 | M8–M9 | Try/Catch/Lambda/`?.` hardening, installer smoke, docs/corpus gate |
 | **6.0.0-rc2** | — | Dec 15, 2026 | M9 | Final docs, 57+ corpus, release checklist |
 | **6.0.0** | — | Jan 1, 2027 | M1–M9 | 🎉 Production stable |

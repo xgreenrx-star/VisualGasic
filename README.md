@@ -1,7 +1,7 @@
 # VisualGasic — Game systems and tools on Godot, with a power layer GDScript doesn't ship.
 
 [![CI](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml/badge.svg)](https://github.com/xgreenrx-star/VisualGasic/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-5.8.0--beta.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.0-beta.1)
+[![Version](https://img.shields.io/badge/version-5.8.1--beta.1-blue.svg)](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.1-beta.1)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](LICENSE)
 [![Godot](https://img.shields.io/badge/Godot-4.6.1_baseline-purple.svg)](docs/compatibility/GODOT_4_7_2.md)
 
@@ -62,7 +62,7 @@ If the next decade really is auditor-bound, then the language that wins is the o
 
 ## 🗺️ Where we're headed
 
-VG is a public beta. Current release: **v5.8.0-beta.1** ([notes](RELEASE_NOTES_v5.8.0-beta.1.md)) — core VM/JIT performance (quiet-pair `run_gap` ≤ GDScript parity) plus correctness fixes for `AndAlso`/`OrElse` JIT joins, AST/`Len`/mixed Variant arithmetic, and missing Dictionary keys → `Nothing`. Visual demo: [`samples/apps/vg_speed_race/`](samples/apps/vg_speed_race/). Replace the whole addon when upgrading. Releases remain occasional; stable v6.0 is still the goal for early 2027. Bug reports and feature requests are welcome.
+VG is a public beta. Current release: **v5.8.1-beta.1** ([notes](RELEASE_NOTES_v5.8.1-beta.1.md)) — correctness fixes found by the semantic fuzzer (`Exit`/`Return`/`Continue` inside `Try` run `Finally`, constant `AndAlso`/`OrElse` fold to Boolean, arguments and ByRef subscripts evaluated once, `Case -N`, negative Integer literals). It builds on 5.8.0-beta.1 ([notes](RELEASE_NOTES_v5.8.0-beta.1.md)): core VM/JIT performance (quiet-pair `run_gap` ≤ GDScript parity) plus correctness fixes for `AndAlso`/`OrElse` JIT joins, AST/`Len`/mixed Variant arithmetic, and missing Dictionary keys → `Nothing`. Visual demo: [`samples/apps/vg_speed_race/`](samples/apps/vg_speed_race/). Replace the whole addon when upgrading. Releases remain occasional; stable v6.0 is still the goal for early 2027. Bug reports and feature requests are welcome.
 
 The language, JIT compiler, and debugger work. The Form Designer is experimental Alpha, not the default editor. Here is the explicit priority list:
 
@@ -70,6 +70,10 @@ The language, JIT compiler, and debugger work. The Form Designer is experimental
 - Brotato cold import can abort in `realloc` while reimporting Kenney fonts. Classified on Linux Godot 4.7.2 (stripped binary, worker thread, no VG frames). Not an editor-leak cleanup.
 - Editor font, viewport, and ObjectDB teardown diagnostics on Godot 4.7.2.
 - Older compiler AST fallbacks still report `unnamed` until each site is classified. A new silent `compile_ok = false` fails the differential suite.
+
+**Shipped in 5.8.1-beta.1:**
+- Semantic fuzzer (`tools/semantic_fuzz/`) that checks AST, interpreter, default and Tier-3 JIT against a reference model — [`SEMANTIC_FUZZ_CONTRACTS.md`](docs/development/SEMANTIC_FUZZ_CONTRACTS.md)
+- Seven runtime fixes it found — [`RELEASE_NOTES_v5.8.1-beta.1.md`](RELEASE_NOTES_v5.8.1-beta.1.md)
 
 **Shipped in 5.8.0-beta.1:**
 - Quiet-pair VM gap microbench at or under GDScript parity (`vg/gd ≤ 1.00`) JIT-on and `VG_JIT=0` — [`BENCHMARK_PUBLISHED_RESULTS.md`](BENCHMARK_PUBLISHED_RESULTS.md); gate `scripts/check_vm_gap.sh`
@@ -102,7 +106,7 @@ The language, JIT compiler, and debugger work. The Form Designer is experimental
 **Deferred (post-MVP):**
 Form Designer extraction to a standalone plugin, full IDE plugin architecture refactor, VG3D, Working Nodes expansion. The Form Designer stays in place behind an Experimental Plugins toggle until UI Forms reaches parity.
 
-> 🚀 **v5.8.0-beta.1 — Public beta** (on the road to **VG6** stable). [Downloads and installers](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.0-beta.1) · [Release notes](RELEASE_NOTES_v5.8.0-beta.1.md) · [Ash Meridian Part 1](samples/games/ash_meridian_part1/README.md) · [Crystal Caverns](samples/showcases/crystal_caverns/README.md) · [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md). Back up projects before upgrading; known limitations remain documented.
+> 🚀 **v5.8.1-beta.1 — Public beta** (on the road to **VG6** stable). [Downloads and installers](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.1-beta.1) · [Release notes](RELEASE_NOTES_v5.8.1-beta.1.md) · [Ash Meridian Part 1](samples/games/ash_meridian_part1/README.md) · [Crystal Caverns](samples/showcases/crystal_caverns/README.md) · [Changelog](CHANGELOG.md) · 📚 [Documentation Hub](docs/DOCS.md). Back up projects before upgrading; known limitations remain documented.
 >
 > 📚 **Docs from the main page:** every guide, reference, and tutorial is one click away from [`docs/DOCS.md`](docs/DOCS.md). Quick jumps: [Getting Started](docs/guides/GET_STARTED.md) · [Installation](docs/guides/INSTALLATION.md) · [Language Reference](docs/VisualGasic_Language_Reference.md) · [Built-in Functions](docs/reference/BUILTIN_FUNCTIONS_REFERENCE.md) · [Custom Controls](docs/guides/CUSTOM_CONTROLS.md) · [Plugin SDK](addons/visual_gasic/PLUGIN_SDK.md).
 
@@ -117,15 +121,15 @@ If the project matters to you, support helps move v6.0 forward faster. Current f
 
 ## 📥 Download & install
 
-**Latest engine build:** [v5.8.0-beta.1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.0-beta.1) — installers, offline bundles, and the Asset Library zip (Godot 4.6.1+). Core performance and correctness beta. Replace the whole addon when upgrading.
+**Latest engine build:** [v5.8.1-beta.1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.1-beta.1) — installers, offline bundles, and the Asset Library zip (Godot 4.6.1+). Correctness bug-fix beta. Replace the whole addon when upgrading.
 
 | Platform | Installer | Notes |
 | --- | --- | --- |
-| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.8.0-beta.1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-v5.8.0-beta.1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
-| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.8.0-beta.1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-v5.8.0-beta.1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
-| 🍏 **macOS (Intel & Apple Silicon)** | [VisualGasic-Installer-v5.8.0-beta.1-macos-universal.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-v5.8.0-beta.1-macos-universal.zip) | Unsigned launcher, not a notarized `.dmg`. Control-click and choose Open. Python 3 is required. |
-| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.8.0-beta.1**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic_AssetLibrary_v5.8.0-beta.1.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. |
-| 🌐 **Offline bundle** (Godot included) | [linux](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-Offline-v5.8.0-beta.1-linux-x86_64.zip) · [windows](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-Offline-v5.8.0-beta.1-windows-x86_64.zip) · [macOS](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic-Installer-Offline-v5.8.0-beta.1-macos-universal.zip) | No internet needed during install. |
+| 🐧 **Linux (x86_64)** | [VisualGasic-Installer-v5.8.1-beta.1-x86_64.AppImage](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-v5.8.1-beta.1-x86_64.AppImage) | `chmod +x` and run. Or use the [Linux bootstrap script](scripts/bootstrap_install.sh) below. |
+| 🪟 **Windows (x64)** | [VisualGasic-Installer-v5.8.1-beta.1-x86_64.exe](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-v5.8.1-beta.1-x86_64.exe) | Double-click to install. Win11 SmartScreen → *More info* → *Run anyway* (unsigned). |
+| 🍏 **macOS (Intel & Apple Silicon)** | [VisualGasic-Installer-v5.8.1-beta.1-macos-universal.zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-v5.8.1-beta.1-macos-universal.zip) | Unsigned launcher, not a notarized `.dmg`. Control-click and choose Open. Python 3 is required. |
+| 🔧 **Manual (BYO Godot)** | [**Asset Library zip v5.8.1-beta.1**](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic_AssetLibrary_v5.8.1-beta.1.zip) | Install Godot 4.6.1+, unzip into `addons/visual_gasic/`. |
+| 🌐 **Offline bundle** (Godot included) | [linux](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-Offline-v5.8.1-beta.1-linux-x86_64.zip) · [windows](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-Offline-v5.8.1-beta.1-windows-x86_64.zip) · [macOS](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic-Installer-Offline-v5.8.1-beta.1-macos-universal.zip) | No internet needed during install. |
 
 **Linux one-shot bootstrap (alternative to AppImage):**
 
@@ -404,7 +408,7 @@ VisualGasic/
 
 ### **Installation**
 
-> 🚧 **Installer status (v5.8.0-beta.1):** Linux AppImage, Windows `.exe`, and an unsigned macOS setup ZIP are on the [release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.0-beta.1). A notarized macOS `.dmg` is still not shipped.
+> 🚧 **Installer status (v5.8.1-beta.1):** Linux AppImage, Windows `.exe`, and an unsigned macOS setup ZIP are on the [release](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.1-beta.1). A notarized macOS `.dmg` is still not shipped.
 
 **🐧 Linux — one-shot bootstrap (recommended):**
 
@@ -418,7 +422,7 @@ Downloads Godot 4.6.1, installs the addon globally, drops a `~/.local/bin/visual
 
 **📦 From the GitHub release (all platforms):**
 
-Download the installer for your platform from [v5.8.0-beta.1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.0-beta.1), or — if you already have Godot 4.6.1+ — install from the **Asset Library** or download the [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.0-beta.1/VisualGasic_AssetLibrary_v5.8.0-beta.1.zip) and copy `addons/visual_gasic/` into your project. Release notes: [v5.8.0-beta.1](RELEASE_NOTES_v5.8.0-beta.1.md).
+Download the installer for your platform from [v5.8.1-beta.1](https://github.com/xgreenrx-star/VisualGasic/releases/tag/v5.8.1-beta.1), or — if you already have Godot 4.6.1+ — install from the **Asset Library** or download the [Asset Library zip](https://github.com/xgreenrx-star/VisualGasic/releases/download/v5.8.1-beta.1/VisualGasic_AssetLibrary_v5.8.1-beta.1.zip) and copy `addons/visual_gasic/` into your project. Release notes: [v5.8.1-beta.1](RELEASE_NOTES_v5.8.1-beta.1.md).
 
 **From Godot Asset Library:**
 1. Open your Godot project
@@ -626,9 +630,9 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 
 ## 📊 **Project Status**
 
-**Current Version**: `v5.8.0-beta.1` (Current Public Beta)
+**Current Version**: `v5.8.1-beta.1` (Current Public Beta)
 
-> See [CHANGELOG.md](CHANGELOG.md) and the [v5.8.0-beta.1 release notes](RELEASE_NOTES_v5.8.0-beta.1.md) for the latest changes.
+> See [CHANGELOG.md](CHANGELOG.md) and the [v5.8.1-beta.1 release notes](RELEASE_NOTES_v5.8.1-beta.1.md) for the latest changes.
 
 **Completion Status**:
 - ✅ **Core Language** - 95% (VB6 compatibility — see [Known Issues](docs/KNOWN_ISSUES.md) for edge cases)
@@ -661,7 +665,7 @@ VisualGasic welcomes contributions! Please see our [Contributing Guide](CONTRIBU
 ### 🚧 Coming Soon
 
 See [ROADMAP.md](ROADMAP.md) for the full development roadmap:
-- **Stable Release (v6.0)** — still the goal for early 2027. The current public beta is `v5.8.0-beta.1`.
+- **Stable Release (v6.0)** — still the goal for early 2027. The current public beta is `v5.8.1-beta.1`.
 - **macOS `.dmg` graphical installer** — an unsigned universal setup ZIP ships with beta.4; a notarized `.dmg` does not
 - **Asset Library** — the listing exists; each beta still needs its own moderator update
 - **WebAssembly Validation** - Verify HTML5 export compatibility

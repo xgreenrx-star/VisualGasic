@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.8.1-beta.1] - 2026-11-21
+
+Correctness bug-fix beta. [Release notes](RELEASE_NOTES_v5.8.1-beta.1.md).
+New native binaries are required; replace the whole addon when upgrading.
+
+### Added
+
+- Semantic fuzzer and reference oracle (`tools/semantic_fuzz/`) with fail-closed C2/C3/C4 fixture gates across forced-AST, interpreter, default, and Tier-3 JIT. Contracts: [`docs/development/SEMANTIC_FUZZ_CONTRACTS.md`](docs/development/SEMANTIC_FUZZ_CONTRACTS.md).
+
+### Fixed
+
+- `Exit Sub`/`Function`/`For`/`Do`, `Return`, and `Continue` inside `Try` now run `Finally` on bytecode, innermost first.
+- Constant `AndAlso`/`OrElse` expressions fold to Boolean instead of `Nothing` on bytecode.
+- Call arguments are evaluated once on the AST interpreter.
+- Indexed ByRef subscripts are evaluated once; write-back targets the original element.
+- Named ByRef arguments write back in parameter order.
+- `Case -N` and negative `Case` ranges parse.
+- Negative Integer literals stay `Integer` under bytecode/JIT.
+
 ## [5.8.0-beta.1] - 2026-11-18
 
 Core performance and correctness beta. [Release notes](RELEASE_NOTES_v5.8.0-beta.1.md).
