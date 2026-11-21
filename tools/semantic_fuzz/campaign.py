@@ -21,6 +21,8 @@ from .runner import (
     file_sha256,
     find_godot,
     find_repo_root,
+    resolve_extension_binary,
+    resolve_test_proj,
     run_program,
 )
 
@@ -103,12 +105,16 @@ def run_campaign(
     for m in modes:
         if m not in MODES:
             raise ValueError(f"unknown mode {m}")
-    if domain not in ("phase1", "c2"):
+    if domain not in ("phase1", "c2", "c3", "c4"):
         raise ValueError(f"unknown domain {domain}")
 
     root = find_repo_root()
     godot = find_godot(root)
-    binary = root / "addons" / "visual_gasic" / "bin" / "libvisualgasic.linux.editor.x86_64.so"
+    test_proj = resolve_test_proj(root)
+    try:
+        binary = resolve_extension_binary(test_proj)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(str(exc)) from exc
     out_dir = Path(out_dir or os.environ.get("SEM_FUZZ_OUT") or f"/tmp/vg-sem-fuzz-{os.getpid()}")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -118,12 +124,57 @@ def run_campaign(
         programs = generate_c2_batch(seed, count)
         c2_pairs = covered_pairs(programs)
         c2_unsupported = list(UNSUPPORTED_PAIRS)
+        c3_pairs: list = []
+        c3_unsupported: list = []
+        c4_pairs: list = []
+        c4_unsupported: list = []
+    elif domain == "c3":
+        from .generator_c3 import UNSUPPORTED_PAIRS, covered_pairs, generate_c3_batch
+
+        programs = generate_c3_batch(seed, count)
+        c2_pairs = []
+        c2_unsupported = []
+        c3_pairs = covered_pairs(programs)
+        c3_unsupported = list(UNSUPPORTED_PAIRS)
+        c4_pairs: list = []
+        c4_unsupported: list = []
+    elif domain == "c4":
+        from .generator_c4 import UNSUPPORTED_PAIRS, covered_pairs, generate_c4_batch
+
+        programs = generate_c4_batch(seed, count)
+        c2_pairs = []
+        c2_unsupported = []
+        c3_pairs = []
+        c3_unsupported = []
+        c4_pairs = covered_pairs(programs)
+        c4_unsupported = list(UNSUPPORTED_PAIRS)
     else:
         programs = generate_batch(seed, count)
         c2_pairs = []
         c2_unsupported = []
+        c3_pairs = []
+        c3_unsupported = []
+        c4_pairs = []
+        c4_unsupported = []
     fps = {structural_fingerprint(p) for p in programs}
     shapes = {shape_fingerprint(p) for p in programs}
+    if domain == "c3":
+        excl = (
+            "C3 excludes: ReDim identity, missing-key ByRef, MemoryBuffer indexed ByRef, "
+            "impure indexed ByRef, alias, named-order; DictGet only for present keys"
+        )
+    elif domain == "c4":
+        excl = (
+            "C4 excludes: non-short-circuit And/Or (fixture OBSERVED), random error "
+            "boundaries (deterministic fixtures only)"
+        )
+    elif domain == "c2":
+        excl = (
+            "C2 excludes: alias f(x,x), impure index, nested ByVal call-arg side effects, "
+            "multi-file same-name imports"
+        )
+    else:
+        excl = "Phase1 excludes: div0, overflow, float, Variant/Nothing, ByRef, arrays/UDT, random AndAlso"
     report = CampaignReport(
         seed=seed,
         count=count,
@@ -138,22 +189,22 @@ def run_campaign(
             "domain": domain,
             "c2_covered_pairs": c2_pairs,
             "c2_unsupported_pairs": c2_unsupported,
+            "c3_covered_pairs": c3_pairs,
+            "c3_unsupported_pairs": c3_unsupported,
+            "c4_covered_pairs": c4_pairs,
+            "c4_unsupported_pairs": c4_unsupported,
             "git_rev": _git_rev(root),
             "worktree_dirty": _worktree_dirty(root),
             "godot": str(godot),
             "godot_sha256": file_sha256(godot) if Path(godot).is_file() else None,
             "binary": str(binary),
             "binary_sha256": file_sha256(binary) if binary.is_file() else None,
+            "test_proj": str(test_proj),
             "modes_requested": list(modes),
             "out_dir": str(out_dir),
         },
         exclusions=[
-            (
-                "C2 excludes: alias f(x,x), impure index, nested ByVal call-arg side effects, "
-                "multi-file same-name imports"
-                if domain == "c2"
-                else "Phase1 excludes: div0, overflow, float, Variant/Nothing, ByRef, arrays/UDT, random AndAlso"
-            ),
+            excl,
             "Platform: native path required only on VG_JIT_NATIVE x86-64 Linux builds",
         ],
     )

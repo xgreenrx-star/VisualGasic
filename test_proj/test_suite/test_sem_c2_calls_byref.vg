@@ -178,13 +178,12 @@ Sub _Ready()
 	AssertObs r, 6, "Integer", "recursive ByRef return"
 	AssertObs x, 2, "Integer", "recursive ByRef final caller"
 
-	' 9) Indexed ByRef write-back + explicit known failure (index eval count)
+	' 9) Indexed ByRef: the index runs once and that slot is the one written.
 	arr(1) = 5
 	gIdxEvals = 0
 	Call BumpSlot(arr(IdxSide()))
 	AssertObs arr(1), 105, "Integer", "indexed ByRef write-back slot"
-	' Contract wants once; runtime currently evaluates twice. Must stay visible.
-	Print "C2_KNOWN_FAIL index_evals=" & CStr(gIdxEvals) & " want=1"
+	AssertObs gIdxEvals, 1, "Integer", "indexed ByRef index once"
 
 	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
 	If failed = 0 Then

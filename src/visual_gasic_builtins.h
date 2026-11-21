@@ -12,8 +12,9 @@ namespace VisualGasicBuiltins {
     // Returns true if a builtin handled the call (r_found=true), and optionally writes a return value into r_ret.
     bool call_builtin(VisualGasicInstance *instance, const String &p_method, const Array &p_args, Variant &r_ret, bool &r_found);
 
-    // Called for expression-level calls (CallExpression)
-    Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, bool &r_handled);
+    // Called for expression-level calls (CallExpression) with args already
+    // evaluated once by the caller. Must not re-evaluate call->arguments.
+    Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, const Array &p_args, bool &r_handled);
     // Variant of call_builtin_expr that accepts pre-evaluated argument list.
     Variant call_builtin_expr_evaluated(VisualGasicInstance *instance, const String &p_method, const Array &p_args, bool &r_handled);
     // VB6 VarType() code for a value. Shared by the builtin cascade and the

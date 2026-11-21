@@ -5,11 +5,25 @@ from __future__ import annotations
 from typing import Iterable, Optional, Set
 
 from .ir import (
+    ArrGet,
+    ArrSet,
     Assign,
     Bin,
     Call,
     CallStmt,
     Cmp,
+    DictCount,
+    DictExists,
+    DictGet,
+    DictMissCheck,
+    DictSet,
+    NestedSlotGet,
+    NestedSlotSet,
+    LogicBin,
+    LogicNot,
+    UdtCopy,
+    UdtFieldGet,
+    UdtFieldSet,
     Expr,
     ForStmt,
     Helper,
@@ -68,6 +82,53 @@ def _validate_expr(expr: Expr, ctx: str) -> None:
         for i, a in enumerate(expr.args):
             _validate_expr(a, f"{ctx}:call_arg[{i}]")
         return
+    if isinstance(expr, ArrGet):
+        if not expr.name or not isinstance(expr.name, str):
+            raise ValidationError(f"{ctx}: bad array name")
+        require_plain_int(expr.index, f"{ctx}:arr_get.index")
+        return
+    if isinstance(expr, DictGet):
+        if not expr.name or not isinstance(expr.name, str):
+            raise ValidationError(f"{ctx}: bad dict name")
+        if not expr.key or not isinstance(expr.key, str):
+            raise ValidationError(f"{ctx}: bad dict key")
+        if any(ch in expr.key for ch in '"\n\r'):
+            raise ValidationError(f"{ctx}: dict key has forbidden chars")
+        return
+    if isinstance(expr, DictCount):
+        if not expr.name or not isinstance(expr.name, str):
+            raise ValidationError(f"{ctx}: bad dict name")
+        return
+    if isinstance(expr, DictExists):
+        if not expr.name or not isinstance(expr.name, str):
+            raise ValidationError(f"{ctx}: bad dict name")
+        if not expr.key or not isinstance(expr.key, str):
+            raise ValidationError(f"{ctx}: bad dict key")
+        if any(ch in expr.key for ch in '"\n\r'):
+            raise ValidationError(f"{ctx}: dict key has forbidden chars")
+        return
+    if isinstance(expr, NestedSlotGet):
+        if not expr.name or not isinstance(expr.name, str):
+            raise ValidationError(f"{ctx}: bad dict name")
+        if not expr.key or not isinstance(expr.key, str):
+            raise ValidationError(f"{ctx}: bad dict key")
+        require_plain_int(expr.index, f"{ctx}:nested_slot_get.index")
+        return
+    if isinstance(expr, UdtFieldGet):
+        if not expr.var or not isinstance(expr.var, str):
+            raise ValidationError(f"{ctx}: bad udt var")
+        if not expr.field or not isinstance(expr.field, str):
+            raise ValidationError(f"{ctx}: bad udt field")
+        return
+    if isinstance(expr, LogicBin):
+        if expr.op not in ("AndAlso", "OrElse"):
+            raise ValidationError(f"{ctx}: unsupported logic op {expr.op!r}")
+        _validate_expr(expr.left, f"{ctx}:logic.left")
+        _validate_expr(expr.right, f"{ctx}:logic.right")
+        return
+    if isinstance(expr, LogicNot):
+        _validate_expr(expr.expr, f"{ctx}:logic_not")
+        return
     raise ValidationError(f"{ctx}: unsupported expr {type(expr).__name__}")
 
 
@@ -116,6 +177,44 @@ def _validate_stmts(
                     raise ValidationError(
                         f"{c}: Sub ReturnStmt must be Lit(0) (Exit Sub); got {st.expr!r}"
                     )
+        elif isinstance(st, ArrSet):
+            if not st.name or not isinstance(st.name, str):
+                raise ValidationError(f"{c}: bad array name")
+            require_plain_int(st.index, f"{c}:arr_set.index")
+            _validate_expr(st.expr, f"{c}:arr_set.expr")
+        elif isinstance(st, DictSet):
+            if not st.name or not isinstance(st.name, str):
+                raise ValidationError(f"{c}: bad dict name")
+            if not st.key or not isinstance(st.key, str):
+                raise ValidationError(f"{c}: bad dict key")
+            if any(ch in st.key for ch in '"\n\r'):
+                raise ValidationError(f"{c}: dict key has forbidden chars")
+            _validate_expr(st.expr, f"{c}:dict_set.expr")
+        elif isinstance(st, DictMissCheck):
+            if not st.name or not isinstance(st.name, str):
+                raise ValidationError(f"{c}: bad dict name")
+            if not st.key or not isinstance(st.key, str):
+                raise ValidationError(f"{c}: bad dict key")
+            if not st.prefix or any(ch.isspace() for ch in st.prefix):
+                raise ValidationError(f"{c}: DictMissCheck prefix must be non-empty without whitespace")
+            if any(ch in st.key for ch in '"\n\r'):
+                raise ValidationError(f"{c}: dict key has forbidden chars")
+        elif isinstance(st, NestedSlotSet):
+            if not st.name or not isinstance(st.name, str):
+                raise ValidationError(f"{c}: bad dict name")
+            if not st.key or not isinstance(st.key, str):
+                raise ValidationError(f"{c}: bad dict key")
+            require_plain_int(st.index, f"{c}:nested_slot_set.index")
+            _validate_expr(st.expr, f"{c}:nested_slot_set.expr")
+        elif isinstance(st, UdtFieldSet):
+            if not st.var or not isinstance(st.var, str):
+                raise ValidationError(f"{c}: bad udt var")
+            if not st.field or not isinstance(st.field, str):
+                raise ValidationError(f"{c}: bad udt field")
+            _validate_expr(st.expr, f"{c}:udt_field_set.expr")
+        elif isinstance(st, UdtCopy):
+            if not st.dest or not st.src:
+                raise ValidationError(f"{c}: bad udt_copy names")
         else:
             raise ValidationError(f"{c}: unsupported stmt {type(st).__name__}")
 
@@ -171,6 +270,53 @@ def _validate_rel_path(rel: str, ctx: str) -> None:
 def validate_program(prog: Program) -> None:
     for name, val in prog.module_vars.items():
         require_plain_int(val, f"module_vars[{name}]")
+    array_names = set(prog.module_vars)
+    for name, slots in dict(getattr(prog, "module_arrays", None) or {}).items():
+        if not name or not isinstance(name, str):
+            raise ValidationError("module_arrays: bad name")
+        if name in array_names:
+            raise ValidationError(f"module_arrays[{name}] collides with module_vars")
+        if name in (getattr(prog, "module_dicts", None) or {}):
+            raise ValidationError(f"module_arrays[{name}] collides with module_dicts")
+        if not isinstance(slots, list) or not slots:
+            raise ValidationError(f"module_arrays[{name}]: non-empty list required")
+        if len(slots) > 16:
+            raise ValidationError(f"module_arrays[{name}]: too many slots")
+        for i, v in enumerate(slots):
+            require_plain_int(v, f"module_arrays[{name}][{i}]")
+        array_names.add(name)
+    for name, entries in dict(getattr(prog, "module_dicts", None) or {}).items():
+        if not name or not isinstance(name, str):
+            raise ValidationError("module_dicts: bad name")
+        if name in prog.module_vars or name in (getattr(prog, "module_arrays", None) or {}):
+            raise ValidationError(f"module_dicts[{name}] name collision")
+        if not isinstance(entries, dict):
+            raise ValidationError(f"module_dicts[{name}] must be dict")
+        if len(entries) > 16:
+            raise ValidationError(f"module_dicts[{name}]: too many keys")
+        for k, v in entries.items():
+            if not k or not isinstance(k, str) or any(ch in k for ch in '"\n\r'):
+                raise ValidationError(f"module_dicts[{name}]: bad key {k!r}")
+            if isinstance(v, list):
+                if not v or len(v) > 16:
+                    raise ValidationError(f"module_dicts[{name}][{k}]: bad nested list")
+                for i, x in enumerate(v):
+                    require_plain_int(x, f"module_dicts[{name}][{k}][{i}]")
+            else:
+                require_plain_int(v, f"module_dicts[{name}][{k}]")
+    for name, fields in dict(getattr(prog, "module_udts", None) or {}).items():
+        if not name or not isinstance(name, str):
+            raise ValidationError("module_udts: bad name")
+        if name in prog.module_vars or name in (getattr(prog, "module_arrays", None) or {}) or name in (
+            getattr(prog, "module_dicts", None) or {}
+        ):
+            raise ValidationError(f"module_udts[{name}] name collision")
+        if not isinstance(fields, dict) or not fields:
+            raise ValidationError(f"module_udts[{name}]: non-empty field dict required")
+        for f, v in fields.items():
+            if not f or not isinstance(f, str):
+                raise ValidationError(f"module_udts[{name}]: bad field {f!r}")
+            require_plain_int(v, f"module_udts[{name}][{f}]")
     seen_rels: Set[str] = set()
     seen_lower: Set[str] = set()
     for i, mod in enumerate(getattr(prog, "source_modules", None) or []):

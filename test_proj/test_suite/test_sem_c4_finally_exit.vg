@@ -1,0 +1,200 @@
+' C4: Exit/Return/Continue that leaves Try runs Finally once, innermost first.
+' Docs: Finally always executes. Bytecode used to jump past Finally.
+'
+Attribute VB_Name = "TestSemC4FinallyExit"
+Option Explicit
+
+Dim gLog As String
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub Mark(ByVal s As String)
+	gLog = gLog & s
+End Sub
+
+Sub ExitSubBody()
+	Try
+		Call Mark("T")
+		Exit Sub
+		Call Mark("X")
+	Finally
+		Call Mark("F")
+	End Try
+	Call Mark("A")
+End Sub
+
+Function ExitFnBody() As Integer
+	ExitFnBody = 1
+	Try
+		Call Mark("T")
+		Exit Function
+		Call Mark("X")
+	Finally
+		Call Mark("F")
+	End Try
+	ExitFnBody = 9
+End Function
+
+Sub ExitForBody()
+	Dim i As Integer
+	For i = 1 To 3
+		Try
+			Call Mark("T")
+			Exit For
+		Finally
+			Call Mark("F")
+		End Try
+	Next i
+	Call Mark("E")
+End Sub
+
+Sub ExitDoBody()
+	Dim n As Integer
+	n = 0
+	Do
+		n = n + 1
+		Try
+			Call Mark("T")
+			Exit Do
+		Finally
+			Call Mark("F")
+		End Try
+	Loop While n < 3
+	Call Mark("E")
+End Sub
+
+Sub NestedExit()
+	Try
+		Call Mark("O")
+		Try
+			Call Mark("I")
+			Exit Sub
+			Call Mark("X")
+		Finally
+			Call Mark("Fi")
+		End Try
+		Call Mark("M")
+	Finally
+		Call Mark("Fo")
+	End Try
+	Call Mark("A")
+End Sub
+
+Sub ExitCatchBody()
+	Try
+		Err.Raise 5001
+	Catch ex
+		Call Mark("K")
+		Exit Sub
+		Call Mark("X")
+	Finally
+		Call Mark("F")
+	End Try
+	Call Mark("A")
+End Sub
+
+Function RetBody() As Integer
+	Try
+		Call Mark("T")
+		Return 4
+	Finally
+		Call Mark("F")
+	End Try
+	RetBody = 9
+End Function
+
+Sub ContinueForBody()
+	Dim i As Integer
+	For i = 1 To 2
+		Try
+			Call Mark("T")
+			If i = 1 Then
+				Continue For
+			End If
+		Finally
+			Call Mark("F")
+		End Try
+		Call Mark("B")
+	Next i
+	Call Mark("E")
+End Sub
+
+Sub _Ready()
+	Dim n As Integer
+	passed = 0
+	failed = 0
+
+	gLog = ""
+	Call ExitSubBody()
+	Print "EVENT: exit_sub"
+	Call AssertObs(gLog, "TF", "String", "c4_fx_sub_log")
+
+	gLog = ""
+	n = ExitFnBody()
+	Print "EVENT: exit_fn"
+	Call AssertObs(gLog, "TF", "String", "c4_fx_fn_log")
+	Call AssertObs(n, 1, "Integer", "c4_fx_fn_n")
+	Call AssertObs(VarType(n), 3, "Integer", "c4_fx_fn_vt")
+
+	gLog = ""
+	Call ExitForBody()
+	Print "EVENT: exit_for"
+	Call AssertObs(gLog, "TFE", "String", "c4_fx_for_log")
+
+	gLog = ""
+	Call ExitDoBody()
+	Print "EVENT: exit_do"
+	Call AssertObs(gLog, "TFE", "String", "c4_fx_do_log")
+
+	gLog = ""
+	Call NestedExit()
+	Print "EVENT: nested_exit"
+	Call AssertObs(gLog, "OIFiFo", "String", "c4_fx_nest_log")
+
+	gLog = ""
+	Call ExitCatchBody()
+	Print "EVENT: exit_catch"
+	Call AssertObs(gLog, "KF", "String", "c4_fx_catch_log")
+
+	gLog = ""
+	n = RetBody()
+	Print "EVENT: return"
+	Call AssertObs(gLog, "TF", "String", "c4_fx_ret_log")
+	Call AssertObs(n, 4, "Integer", "c4_fx_ret_n")
+	Call AssertObs(VarType(n), 3, "Integer", "c4_fx_ret_vt")
+
+	gLog = ""
+	Call ContinueForBody()
+	Print "EVENT: continue_for"
+	Call AssertObs(gLog, "TFTFBE", "String", "c4_fx_cont_log")
+
+	Print "C4_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c4_finally_exit"
+	Else
+		Print "FAIL: sem_c4_finally_exit"
+	End If
+End Sub

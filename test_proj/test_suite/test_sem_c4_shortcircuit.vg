@@ -1,0 +1,268 @@
+' C4 short-circuit: AndAlso/OrElse skip RHS; And/Or evaluate both (OBSERVED;
+' matches common VB6 And/Or both-sides evaluation — see status contract notes).
+' Side effects use non-inlinable helpers that append to gLog and bump counters.
+'
+Attribute VB_Name = "TestSemC4Shortcircuit"
+Option Explicit
+
+Dim gLog As String
+Dim gHitA As Integer
+Dim gHitB As Integer
+Dim gHitC As Integer
+Dim gHitD As Integer
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub ResetHits()
+	gLog = ""
+	gHitA = 0
+	gHitB = 0
+	gHitC = 0
+	gHitD = 0
+End Sub
+
+' Non-inlinable: module counter + string append keep a real call.
+Function HitA(ByVal v As Integer) As Integer
+	gHitA = gHitA + 1
+	gLog = gLog & "A"
+	HitA = v
+End Function
+
+Function HitB(ByVal v As Integer) As Integer
+	gHitB = gHitB + 1
+	gLog = gLog & "B"
+	HitB = v
+End Function
+
+Function HitC(ByVal v As Integer) As Integer
+	gHitC = gHitC + 1
+	gLog = gLog & "C"
+	HitC = v
+End Function
+
+Function HitD(ByVal v As Integer) As Integer
+	gHitD = gHitD + 1
+	gLog = gLog & "D"
+	HitD = v
+End Function
+
+Sub CheckPair(ByVal tag As String, ByVal wantLog As String, ByVal wantA As Integer, ByVal wantB As Integer)
+	Call AssertObs(gLog, wantLog, "String", tag & "_log")
+	Call AssertObs(gHitA, wantA, "Integer", tag & "_a")
+	Call AssertObs(gHitB, wantB, "Integer", tag & "_b")
+	Call AssertObs(VarType(gHitA), 3, "Integer", tag & "_a_vt")
+End Sub
+
+Function NestCombo(ByVal a As Integer, ByVal b As Integer, ByVal c As Integer, ByVal d As Integer) As Integer
+	' Independent expected-event table is encoded in RunNestTable.
+	If (HitA(a) OrElse HitB(b)) AndAlso (HitC(c) OrElse HitD(d)) Then
+		NestCombo = 1
+	Else
+		NestCombo = 0
+	End If
+End Function
+
+Sub RunBasics()
+	Dim r As Integer
+	Dim b As Integer
+	Dim n As Integer
+
+	' AndAlso
+	Call ResetHits
+	If HitA(0) AndAlso HitB(1) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: AndAlso_FT"
+	Call AssertObs(r, 0, "Integer", "c4_andalso_ft_r")
+	Call CheckPair("c4_andalso_ft", "A", 1, 0)
+
+	Call ResetHits
+	If HitA(1) AndAlso HitB(1) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: AndAlso_TT"
+	Call AssertObs(r, 1, "Integer", "c4_andalso_tt_r")
+	Call CheckPair("c4_andalso_tt", "AB", 1, 1)
+
+	' OrElse
+	Call ResetHits
+	If HitA(1) OrElse HitB(0) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: OrElse_TF"
+	Call AssertObs(r, 1, "Integer", "c4_orelse_tf_r")
+	Call CheckPair("c4_orelse_tf", "A", 1, 0)
+
+	Call ResetHits
+	If HitA(0) OrElse HitB(1) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: OrElse_FT"
+	Call AssertObs(r, 1, "Integer", "c4_orelse_ft_r")
+	Call CheckPair("c4_orelse_ft", "AB", 1, 1)
+
+	' Non-short-circuit And / Or — OBSERVED both sides, left first.
+	Call ResetHits
+	If HitA(0) And HitB(1) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: And_FT"
+	Call AssertObs(r, 0, "Integer", "c4_and_ft_r")
+	Call CheckPair("c4_and_ft", "AB", 1, 1)
+
+	Call ResetHits
+	If HitA(1) Or HitB(0) Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: Or_TF"
+	Call AssertObs(r, 1, "Integer", "c4_or_tf_r")
+	Call CheckPair("c4_or_tf", "AB", 1, 1)
+
+	' Assignment form
+	Call ResetHits
+	b = HitA(1) AndAlso HitB(0)
+	Print "EVENT: assign_AndAlso_TF"
+	Call AssertObs(b, 0, "Integer", "c4_assign_andalso_r")
+	Call CheckPair("c4_assign_andalso", "AB", 1, 1)
+
+	' ElseIf
+	Call ResetHits
+	If HitA(0) Then
+		r = 9
+	ElseIf HitA(0) AndAlso HitB(1) Then
+		r = 8
+	Else
+		r = 7
+	End If
+	Print "EVENT: elseif_AndAlso"
+	Call AssertObs(r, 7, "Integer", "c4_elseif_r")
+	' Outer HitA(0) once in If; ElseIf HitA(0) AndAlso skips B → log AA, a=2 b=0
+	Call AssertObs(gLog, "AA", "String", "c4_elseif_log")
+	Call AssertObs(gHitA, 2, "Integer", "c4_elseif_a")
+	Call AssertObs(gHitB, 0, "Integer", "c4_elseif_b")
+
+	' Bounded Do While
+	Call ResetHits
+	n = 0
+	Do While HitA(1) AndAlso HitB(1) AndAlso (n < 1)
+		n = n + 1
+		gLog = gLog & "L"
+	Loop
+	Print "EVENT: dowhile_AndAlso"
+	Call AssertObs(n, 1, "Integer", "c4_dowhile_n")
+	' Enter: A B (n<1); body L; recheck A B then stop because n<1 false after... 
+	' Actually condition is HitA AndAlso HitB AndAlso (n<1). After body n=1, recheck A B then (n<1)=0 short-circuits before needing more? 
+	' AndAlso chain: A then B then (n<1). Second condition eval: A, B, then n<1 is False → stops. log=ABLAB
+	Call AssertObs(gLog, "ABLAB", "String", "c4_dowhile_log")
+
+	' As function argument
+	Call ResetHits
+	r = HitC(HitA(1) AndAlso HitB(1))
+	Print "EVENT: arg_AndAlso"
+	Call AssertObs(r, 1, "Integer", "c4_arg_r")
+	Call AssertObs(gLog, "ABC", "String", "c4_arg_log")
+	Call AssertObs(gHitA, 1, "Integer", "c4_arg_a")
+	Call AssertObs(gHitB, 1, "Integer", "c4_arg_b")
+	Call AssertObs(gHitC, 1, "Integer", "c4_arg_c")
+End Sub
+
+Sub RunNestTable()
+	' Expected event strings for (a OrElse b) AndAlso (c OrElse d) over a..d in {0,1}.
+	' Table is VG-independent (truth of OrElse/AndAlso).
+	Dim bits As Integer
+	Dim a As Integer
+	Dim b As Integer
+	Dim c As Integer
+	Dim d As Integer
+	Dim got As Integer
+	Dim wantLog As String
+	Dim wantR As Integer
+
+	For bits = 0 To 15
+		a = (bits And 8) \ 8
+		b = (bits And 4) \ 4
+		c = (bits And 2) \ 2
+		d = bits And 1
+		Call ResetHits
+		got = NestCombo(a, b, c, d)
+		' Build expected log/result without calling Hit*.
+		wantLog = ""
+		wantR = 0
+		wantLog = wantLog & "A"
+		If a = 0 Then
+			wantLog = wantLog & "B"
+			If b <> 0 Then
+				wantLog = wantLog & "C"
+				If c = 0 Then
+					wantLog = wantLog & "D"
+					If d <> 0 Then
+						wantR = 1
+					End If
+				Else
+					wantR = 1
+				End If
+			End If
+		Else
+			wantLog = wantLog & "C"
+			If c = 0 Then
+				wantLog = wantLog & "D"
+				If d <> 0 Then
+					wantR = 1
+				End If
+			Else
+				wantR = 1
+			End If
+		End If
+		Print "EVENT: nest_" & CStr(bits)
+		Call AssertObs(got, wantR, "Integer", "c4_nest_" & CStr(bits) & "_r")
+		Call AssertObs(gLog, wantLog, "String", "c4_nest_" & CStr(bits) & "_log")
+	Next bits
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunBasics()
+	Call RunNestTable()
+	Print "C4_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c4_shortcircuit"
+	Else
+		Print "FAIL: sem_c4_shortcircuit"
+	End If
+End Sub

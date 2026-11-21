@@ -1,0 +1,112 @@
+' C3b UDT copies: assignment is a value copy (VB6; test_udt_vm.vg).
+' ByVal param is a copy; default/ByRef param mutates caller; array element copy;
+' Function return then mutate.
+'
+Attribute VB_Name = "TestSemC3bUdtCopy"
+Option Explicit
+
+Type P
+	a As Integer
+	b As String
+End Type
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub MutByVal(ByVal q As P)
+	q.a = 555
+End Sub
+
+Sub MutByRef(ByRef q As P)
+	q.a = 777
+End Sub
+
+Function MakeP(ByVal aa As Integer, ByVal bb As String) As P
+	Dim r As P
+	r.a = aa
+	r.b = bb
+	MakeP = r
+End Function
+
+Sub RunUdtCopy()
+	Dim p As P
+	Dim q As P
+	Dim arr(2) As P
+	Dim r As P
+
+	p.a = 10
+	p.b = "hi"
+	q = p
+	Print "EVENT: udt_assign_copy"
+	q.a = 20
+	Call AssertObs(p.a, 10, "Integer", "c3b_udt_orig_a_unchanged")
+	Call AssertObs(q.a, 20, "Integer", "c3b_udt_copy_a_mutated")
+	Call AssertObs(p.b, "hi", "String", "c3b_udt_orig_b_unchanged")
+	Call AssertObs(q.b, "hi", "String", "c3b_udt_copy_b_same")
+	Call AssertObs(VarType(p.a), 3, "Integer", "c3b_udt_a_vt")
+
+	' ByVal does not write back.
+	q.a = 30
+	Call MutByVal(q)
+	Print "EVENT: udt_byval_mut"
+	Call AssertObs(q.a, 30, "Integer", "c3b_udt_byval_caller_unchanged")
+
+	' ByRef writes back.
+	Call MutByRef(q)
+	Print "EVENT: udt_byref_mut"
+	Call AssertObs(q.a, 777, "Integer", "c3b_udt_byref_caller_updated")
+
+	' UDT in array: set, copy out, mutate copy — original slot unchanged.
+	arr(1).a = 5
+	arr(1).b = "x"
+	Print "EVENT: udt_array_set"
+	Call AssertObs(arr(1).a, 5, "Integer", "c3b_udt_arr_slot_a")
+	Call AssertObs(arr(0).a, 0, "Integer", "c3b_udt_arr_neighbor_default")
+	q = arr(1)
+	q.a = 9
+	Call AssertObs(arr(1).a, 5, "Integer", "c3b_udt_arr_slot_after_copy_mut")
+	Call AssertObs(q.a, 9, "Integer", "c3b_udt_arr_copy_mutated")
+
+	' Function return then mutate return value — independent of later MakeP.
+	r = MakeP(3, "zz")
+	Print "EVENT: udt_fn_return"
+	Call AssertObs(r.a, 3, "Integer", "c3b_udt_fn_return_a")
+	Call AssertObs(r.b, "zz", "String", "c3b_udt_fn_return_b")
+	r.a = 4
+	Call AssertObs(r.a, 4, "Integer", "c3b_udt_fn_return_mutated")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunUdtCopy()
+	Print "C3_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c3b_udt_copy"
+	Else
+		Print "FAIL: sem_c3b_udt_copy"
+	End If
+End Sub

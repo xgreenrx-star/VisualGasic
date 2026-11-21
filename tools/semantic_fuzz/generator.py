@@ -470,10 +470,84 @@ def _strip_literals(obj):
             if k == "module_vars" and isinstance(v, dict):
                 out[k] = {name: "_" for name in v}
                 continue
+            if k == "module_arrays" and isinstance(v, dict):
+                out[k] = {name: ["_"] * len(slots) for name, slots in v.items()}
+                continue
+            if k == "module_dicts" and isinstance(v, dict):
+                out[k] = {
+                    name: {f"$present_{i}": "_" for i, _key in enumerate(sorted(entries))}
+                    for name, entries in v.items()
+                }
+                continue
             out[k] = _strip_literals(v)
         return out
     if isinstance(obj, list):
         return [_strip_literals(x) for x in obj]
+    return obj
+
+
+def _walk_c3_key_mentions(obj, out: list[tuple[str, str, str]]) -> None:
+    """Collect (dict_name, key, kind) in walk order for role assignment."""
+    if isinstance(obj, dict):
+        kind = obj.get("kind")
+        if kind in ("dict_get", "dict_set", "dict_miss_check", "dict_exists"):
+            out.append((str(obj.get("name", "")), str(obj.get("key", "")), str(kind)))
+        for v in obj.values():
+            _walk_c3_key_mentions(v, out)
+    elif isinstance(obj, list):
+        for x in obj:
+            _walk_c3_key_mentions(x, out)
+
+
+def _c3_key_roles(prog_dict: dict) -> dict[str, dict[str, str]]:
+    """Structural key roles: present_i, written_i, missing_i (first-seen).
+
+    Preserves equality under consistent key renaming. Distinct missing keys in
+    one program get distinct missing_i roles; a lone miss is always missing_0
+    so renaming the miss string does not inflate shapes.
+    """
+    roles: dict[str, dict[str, str]] = {}
+    for name, entries in dict(prog_dict.get("module_dicts") or {}).items():
+        present = sorted(str(k) for k in dict(entries).keys())
+        roles[str(name)] = {k: f"$present_{i}" for i, k in enumerate(present)}
+    mentions: list[tuple[str, str, str]] = []
+    _walk_c3_key_mentions(prog_dict.get("main") or [], mentions)
+    written_count: dict[str, int] = {}
+    missing_count: dict[str, int] = {}
+    for dname, key, kind in mentions:
+        role_map = roles.setdefault(dname, {})
+        if key in role_map:
+            continue
+        if kind == "dict_set":
+            i = written_count.get(dname, 0)
+            written_count[dname] = i + 1
+            role_map[key] = f"$written_{i}"
+        elif kind == "dict_miss_check":
+            i = missing_count.get(dname, 0)
+            missing_count[dname] = i + 1
+            role_map[key] = f"$missing_{i}"
+        elif kind in ("dict_get", "dict_exists"):
+            # Get/Exists of a not-yet-seen key: structural unknown access.
+            role_map[key] = f"$get_unknown_{len(role_map)}"
+    return roles
+
+
+def _normalize_c3_shape(obj, roles: dict[str, dict[str, str]]):
+    """Replace dict key literals with structural roles; keep index structure."""
+    if isinstance(obj, dict):
+        kind = obj.get("kind")
+        if kind in ("dict_get", "dict_set", "dict_miss_check", "dict_exists"):
+            name = str(obj.get("name", ""))
+            key = str(obj.get("key", ""))
+            role = roles.get(name, {}).get(key, "$unknown")
+            out = dict(obj)
+            out["key"] = role
+            if "expr" in out:
+                out["expr"] = _normalize_c3_shape(out["expr"], roles)
+            return out
+        return {k: _normalize_c3_shape(v, roles) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_normalize_c3_shape(x, roles) for x in obj]
     return obj
 
 
@@ -482,5 +556,7 @@ def shape_fingerprint(prog: Program) -> str:
     from .ir import program_to_dict
     import json
 
-    d = _strip_literals(program_to_dict(prog))
+    raw = program_to_dict(prog)
+    roles = _c3_key_roles(raw)
+    d = _strip_literals(_normalize_c3_shape(raw, roles))
     return hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()

@@ -94,6 +94,23 @@ private:
     // Stack of forward-jump addresses emitted by Continue when the
     // target is not yet known (body compiled before increment).
     Vector<Vector<int>> loop_continue_forward_jumps;
+    // Try/Finally: Exit/Return/Continue that leaves a protected region runs
+    // Finally (innermost first) before the real exit. exit_code_slot holds
+    // 0 fallthrough, 1 Exit Sub/Function, 2 Return <expr>, 3 bare Return,
+    // 1000+loop Exit loop, 2000+loop Continue.
+    struct TryExitFrame {
+        int loop_depth_at_entry = 0;
+        int exit_code_slot = -1;
+        bool handler_still_pushed = false;
+        Vector<int> jumps_to_finally;
+    };
+    Vector<TryExitFrame> try_exit_frames;
+    bool begin_try_exit_frame();
+    void note_try_handler_popped();
+    TryExitFrame close_try_exit_frame_at_finally();
+    void emit_leave_via_finally(int code);
+    void emit_try_exit_dispatch(const TryExitFrame &fr);
+    bool try_frame_encloses_loop(int loop_index) const;
     // GoTo label support: label_name → bytecode offset (filled in first pass)
     HashMap<String, int> label_positions;
     // Forward GoTo jumps that need patching: label_name → list of jump offsets

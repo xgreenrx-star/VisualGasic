@@ -1101,81 +1101,90 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
 		const bool local_indexing = _expr_has_var &&
 				(_expr_var.get_type() == Variant::ARRAY || _expr_var.get_type() == Variant::DICTIONARY ||
 				(_expr_var.get_type() >= Variant::PACKED_BYTE_ARRAY && _expr_var.get_type() <= Variant::PACKED_COLOR_ARRAY));
-        
-        // Bare expression builtins only (Map/Filter/… and owner GetParent/GetTree).
-        // With an explicit receiver, owner builtins must not steal the call —
-        // `child.GetParent()` must dispatch on `child`, not the script owner.
-        if (!call->base_object && !local_indexing) {
-            bool _bg_handled = false;
-            Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, _bg_handled);
-            if (_bg_handled) {
-                return _bg_res;
-            }
-        }
 
-        // Named args (x:=) — bytecode compile reorders via reorder_named_arguments;
-        // AST must apply the same mapping or Pack(y:=3, x:=2) binds in call order.
+        // Evaluate each argument once, in source order. Builtins see that order
+        // and win when they handle the call — names are not rejected first, and
+        // a same-named user Sub must not reorder values before the builtin probe.
+        // (The old probe evaluated here and then again after a miss.)
         Vector<ExpressionNode *> eval_args = call->arguments;
         Vector<String> eval_names = call->argument_names;
-        if (!call->base_object) {
-            bool any_named = false;
-            for (int ni = 0; ni < eval_names.size(); ni++) {
-                if (!eval_names[ni].is_empty()) {
-                    any_named = true;
-                    break;
-                }
-            }
-            if (any_named) {
-                SubDefinition *named_target = nullptr;
-                if (script.is_valid() && script->ast_root) {
-                    SubDefinition *first = nullptr;
-                    for (int si = 0; si < script->ast_root->subs.size(); si++) {
-                        SubDefinition *cand = script->ast_root->subs[si];
-                        if (!cand || cand->name.nocasecmp_to(call->method_name) != 0) {
-                            continue;
-                        }
-                        if (!first) {
-                            first = cand;
-                        }
-                        if (cand->parameters.size() == eval_args.size()) {
-                            named_target = cand;
-                            break;
-                        }
-                    }
-                    if (!named_target) {
-                        named_target = first;
-                    }
-                }
-                if (!named_target) {
-                    named_target = find_imported_sub(call->method_name, eval_args.size());
-                }
-                String named_err;
-                if (!reorder_named_arguments_onto(named_target, eval_args, eval_names, &named_err)) {
-                    raise_error(named_err.is_empty() ? String("Named argument error in " + call->method_name) : named_err);
-                    return Variant();
-                }
+        bool any_named = false;
+        for (int ni = 0; ni < eval_names.size(); ni++) {
+            if (!eval_names[ni].is_empty()) {
+                any_named = true;
+                break;
             }
         }
 
         Array call_args;
+        // Parallel lvalues. Named bind permutes this with call_args so ByRef
+        // write-back does not use source order after the values were rebound.
+        // Indexed lvalues are frozen here, once, keyed by the original node so
+        // the permutation still finds them.
+        Vector<ExpressionNode *> wb_args = eval_args;
+        VGByRefFrozenArgs byref_frozen;
         for(int i=0; i<eval_args.size(); i++) {
             // Check for null argument from parser errors
             if (!eval_args[i]) {
                 raise_error("Incomplete function call: missing argument");
                 return Variant();
             }
-            call_args.push_back(evaluate_expression(eval_args[i]));
+            ExpressionNode *frozen = freeze_byref_lvalue(eval_args[i]);
+            byref_frozen.keep(eval_args[i], frozen);
+            call_args.push_back(evaluate_expression(frozen ? frozen : eval_args[i]));
         }
 
-        // Dispatch to expression-level builtins with evaluated arguments
-        // (Map, Filter, Reduce, Any, All, Find, string helpers, etc.).
-        // Must NOT run when there is an explicit receiver — owner builtins
-        // like GetParent/GetTree would steal `child.GetParent()` and return
-        // the script owner's parent (scene root) instead of child's.
+        // Bare expression builtins only (Map/Filter/… and owner GetParent/GetTree).
+        // With an explicit receiver, owner builtins must not steal the call —
+        // `child.GetParent()` must dispatch on `child`, not the script owner.
+        // call_builtin_expr must not re-evaluate call->arguments.
         if (!call->base_object && !local_indexing) {
-            bool _ev_handled = false;
-            Variant _ev_res = VisualGasicBuiltins::call_builtin_expr_evaluated(this, call->method_name, call_args, _ev_handled);
-            if (_ev_handled) return _ev_res;
+            bool _bg_handled = false;
+            Variant _bg_res = VisualGasicBuiltins::call_builtin_expr(this, call, call_args, _bg_handled);
+            if (_bg_handled) {
+                return _bg_res;
+            }
+        }
+
+        // Builtin declined. Bind already-evaluated values onto the user/import
+        // Sub. Do not evaluate the expressions again.
+        if (!call->base_object && any_named) {
+            SubDefinition *named_target = nullptr;
+            if (script.is_valid() && script->ast_root) {
+                SubDefinition *first = nullptr;
+                for (int si = 0; si < script->ast_root->subs.size(); si++) {
+                    SubDefinition *cand = script->ast_root->subs[si];
+                    if (!cand || cand->name.nocasecmp_to(call->method_name) != 0) {
+                        continue;
+                    }
+                    if (!first) {
+                        first = cand;
+                    }
+                    if (cand->parameters.size() == call_args.size()) {
+                        named_target = cand;
+                        break;
+                    }
+                }
+                if (!named_target) {
+                    named_target = first;
+                }
+            }
+            if (!named_target) {
+                named_target = find_imported_sub(call->method_name, call_args.size());
+            }
+            String named_err;
+            if (!reorder_named_values_onto(named_target, call_args, eval_names, &named_err, &wb_args)) {
+                raise_error(named_err.is_empty() ? String("Named argument error in " + call->method_name) : named_err);
+                return Variant();
+            }
+            // Old AST retried the builtin cascade after reorder. Values only.
+            if (!local_indexing) {
+                bool _bg2 = false;
+                Variant _bg2_res = VisualGasicBuiltins::call_builtin_expr(this, call, call_args, _bg2);
+                if (_bg2) {
+                    return _bg2_res;
+                }
+            }
         }
 
         if (call->method_name.nocasecmp_to("CreateNode") == 0) {
@@ -1894,17 +1903,20 @@ Variant VisualGasicInstance::evaluate_expression(ExpressionNode* expr) {
                     }
                 }
                 if (!called_func) {
-                    called_func = find_imported_sub(call->method_name, (int)call->arguments.size(), nullptr);
+                    called_func = find_imported_sub(call->method_name, wb_args.size(), nullptr);
                 }
                 if (called_func) {
                     int max_params = called_func->parameters.size();
-                    int arg_count = call->arguments.size();
+                    int arg_count = wb_args.size();
+                    // Copy first. A write-back that still evaluates a call would
+                    // replace _last_byref_captures before the next argument.
+                    const Vector<Pair<String, Variant>> byref_saved = _last_byref_captures;
                     for (int i = 0; i < max_params && i < arg_count; i++) {
                         const Parameter& param = called_func->parameters[i];
-                        if (param.is_by_ref && call->arguments[i] && is_byref_writeback_target(call->arguments[i])) {
-                            for (int j = 0; j < _last_byref_captures.size(); j++) {
-                                if (_last_byref_captures[j].first == param.name) {
-                                    assign_to_target(call->arguments[i], _last_byref_captures[j].second);
+                        if (param.is_by_ref && wb_args[i] && is_byref_writeback_target(wb_args[i])) {
+                            for (int j = 0; j < byref_saved.size(); j++) {
+                                if (byref_saved[j].first == param.name) {
+                                    assign_to_target(byref_frozen.dest(wb_args[i]), byref_saved[j].second);
                                     break;
                                 }
                             }

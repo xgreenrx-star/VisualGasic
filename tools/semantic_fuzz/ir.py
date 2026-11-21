@@ -46,9 +46,6 @@ class Call:
     kind: Literal["call"] = field(default="call", init=False)
 
 
-Expr = Union[Lit, Var, Bin, Cmp, Call]
-
-
 @dataclass
 class Assign:
     name: str
@@ -115,7 +112,177 @@ class Note:
     kind: Literal["note"] = field(default="note", init=False)
 
 
-Stmt = Union[Assign, IfStmt, ForStmt, SelectStmt, CallStmt, Observe, ReturnStmt, Note]
+@dataclass
+class ArrGet:
+    """Fixed-size Integer array read at a literal index (C3)."""
+
+    name: str
+    index: int
+    kind: Literal["arr_get"] = field(default="arr_get", init=False)
+
+
+@dataclass
+class ArrSet:
+    """Fixed-size Integer array write at a literal index (C3)."""
+
+    name: str
+    index: int
+    expr: "Expr"
+    kind: Literal["arr_set"] = field(default="arr_set", init=False)
+
+
+@dataclass
+class DictGet:
+    """Present-key Dictionary Integer read (C3). Missing keys use DictMissCheck."""
+
+    name: str
+    key: str
+    kind: Literal["dict_get"] = field(default="dict_get", init=False)
+
+
+@dataclass
+class DictCount:
+    """Dictionary.Count() as Integer (C3)."""
+
+    name: str
+    kind: Literal["dict_count"] = field(default="dict_count", init=False)
+
+
+@dataclass
+class DictExists:
+    """Dictionary.Exists(key) as Integer 1/0 (C3; Boolean coerced for obs)."""
+
+    name: str
+    key: str
+    kind: Literal["dict_exists"] = field(default="dict_exists", init=False)
+
+
+@dataclass
+class DictSet:
+    """Dictionary present-key write / insert of Integer (C3)."""
+
+    name: str
+    key: str
+    expr: "Expr"
+    kind: Literal["dict_set"] = field(default="dict_set", init=False)
+
+
+@dataclass
+class DictMissCheck:
+    """Missing-key probe: VarType=1, Is Nothing→1, Err.Number=0 (R12; C3)."""
+
+    name: str
+    key: str
+    prefix: str
+    kind: Literal["dict_miss_check"] = field(default="dict_miss_check", init=False)
+
+
+@dataclass
+class NestedSlotGet:
+    """Read Integer slot from an Array stored at a Dictionary key (C3b)."""
+
+    name: str
+    key: str
+    index: int
+    kind: Literal["nested_slot_get"] = field(default="nested_slot_get", init=False)
+
+
+@dataclass
+class NestedSlotSet:
+    """Write Integer slot through Dictionary→Array (C3b; shared inner)."""
+
+    name: str
+    key: str
+    index: int
+    expr: "Expr"
+    kind: Literal["nested_slot_set"] = field(default="nested_slot_set", init=False)
+
+
+@dataclass
+class UdtFieldGet:
+    """Read Integer field from a module UDT variable (C3b)."""
+
+    var: str
+    field: str
+    kind: Literal["udt_field_get"] = field(default="udt_field_get", init=False)
+
+
+@dataclass
+class UdtFieldSet:
+    """Write Integer field on a module UDT variable (C3b)."""
+
+    var: str
+    field: str
+    expr: "Expr"
+    kind: Literal["udt_field_set"] = field(default="udt_field_set", init=False)
+
+
+@dataclass
+class UdtCopy:
+    """Value-copy one module UDT variable into another (C3b / VB6)."""
+
+    dest: str
+    src: str
+    kind: Literal["udt_copy"] = field(default="udt_copy", init=False)
+
+
+LogicOp = Literal["AndAlso", "OrElse"]
+
+
+@dataclass
+class LogicBin:
+    """Short-circuit AndAlso / OrElse over Integer 0/1 operands (C4).
+
+    And/Or (non-short-circuit) are intentionally excluded from the generated
+    family while their both-sides evaluation remains a fixture OBSERVED
+    contract question.
+    """
+
+    op: LogicOp
+    left: "Expr"
+    right: "Expr"
+    kind: Literal["logic_bin"] = field(default="logic_bin", init=False)
+
+
+@dataclass
+class LogicNot:
+    """Logical Not over an Integer 0/1 operand (C4)."""
+
+    expr: "Expr"
+    kind: Literal["logic_not"] = field(default="logic_not", init=False)
+
+
+Expr = Union[
+    Lit,
+    Var,
+    Bin,
+    Cmp,
+    Call,
+    ArrGet,
+    DictGet,
+    DictCount,
+    DictExists,
+    NestedSlotGet,
+    UdtFieldGet,
+    LogicBin,
+    LogicNot,
+]
+Stmt = Union[
+    Assign,
+    IfStmt,
+    ForStmt,
+    SelectStmt,
+    CallStmt,
+    Observe,
+    ReturnStmt,
+    Note,
+    ArrSet,
+    DictSet,
+    DictMissCheck,
+    NestedSlotSet,
+    UdtFieldSet,
+    UdtCopy,
+]
 
 
 @dataclass(frozen=True)
@@ -192,6 +359,13 @@ class Program:
     helper_defining_module: dict[str, str] = field(default_factory=dict)
     # Module-owned Integer namespaces: "" = primary; else imported rel_path.
     module_stores: dict = field(default_factory=dict)
+    # C3 fixed-size Integer arrays: name → slot list (Dim a(UBound) with len = UBound+1).
+    module_arrays: dict = field(default_factory=dict)
+    # C3 Dictionary present Integer keys only (missing → DictMissCheck / R12).
+    # C3b: values may also be list[int] (Array nested under a key).
+    module_dicts: dict = field(default_factory=dict)
+    # C3b Integer-field UDT variables: name → {field: int}.
+    module_udts: dict = field(default_factory=dict)
 
 
 def _expr_from(d: Any) -> Expr:
@@ -209,6 +383,28 @@ def _expr_from(d: Any) -> Expr:
         return Cmp(op=d["op"], left=_expr_from(d["left"]), right=_expr_from(d["right"]))
     if k == "call":
         return Call(name=str(d["name"]), args=[_expr_from(a) for a in d.get("args", [])])
+    if k == "arr_get":
+        return ArrGet(name=str(d["name"]), index=int(d["index"]))
+    if k == "dict_get":
+        return DictGet(name=str(d["name"]), key=str(d["key"]))
+    if k == "dict_count":
+        return DictCount(name=str(d["name"]))
+    if k == "dict_exists":
+        return DictExists(name=str(d["name"]), key=str(d["key"]))
+    if k == "nested_slot_get":
+        return NestedSlotGet(
+            name=str(d["name"]), key=str(d["key"]), index=int(d["index"])
+        )
+    if k == "udt_field_get":
+        return UdtFieldGet(var=str(d["var"]), field=str(d["field"]))
+    if k == "logic_bin":
+        return LogicBin(
+            op=d["op"],
+            left=_expr_from(d["left"]),
+            right=_expr_from(d["right"]),
+        )
+    if k == "logic_not":
+        return LogicNot(expr=_expr_from(d["expr"]))
     raise ValueError(f"unknown expr kind {k}")
 
 
@@ -254,6 +450,27 @@ def _stmt_from_legacy(d: Any) -> Stmt:
         return Observe(name=str(d["name"]), expr=_expr_from(d["expr"]))
     if k == "return":
         return ReturnStmt(expr=_expr_from(d["expr"]))
+    if k == "arr_set":
+        return ArrSet(name=str(d["name"]), index=int(d["index"]), expr=_expr_from(d["expr"]))
+    if k == "dict_set":
+        return DictSet(name=str(d["name"]), key=str(d["key"]), expr=_expr_from(d["expr"]))
+    if k == "dict_miss_check":
+        return DictMissCheck(
+            name=str(d["name"]), key=str(d["key"]), prefix=str(d["prefix"])
+        )
+    if k == "nested_slot_set":
+        return NestedSlotSet(
+            name=str(d["name"]),
+            key=str(d["key"]),
+            index=int(d["index"]),
+            expr=_expr_from(d["expr"]),
+        )
+    if k == "udt_field_set":
+        return UdtFieldSet(
+            var=str(d["var"]), field=str(d["field"]), expr=_expr_from(d["expr"])
+        )
+    if k == "udt_copy":
+        return UdtCopy(dest=str(d["dest"]), src=str(d["src"]))
     raise ValueError(f"unknown stmt kind {k}")
 
 
@@ -305,6 +522,21 @@ def program_from_dict(d: dict[str, Any]) -> Program:
         module_stores={
             str(mk): {str(n): v for n, v in dict(mv).items()}
             for mk, mv in dict(d.get("module_stores") or {}).items()
+        },
+        module_arrays={
+            str(n): [int(x) for x in list(slots)]
+            for n, slots in dict(d.get("module_arrays") or {}).items()
+        },
+        module_dicts={
+            str(n): {
+                str(k): ([int(x) for x in list(v)] if isinstance(v, list) else int(v))
+                for k, v in dict(entries).items()
+            }
+            for n, entries in dict(d.get("module_dicts") or {}).items()
+        },
+        module_udts={
+            str(n): {str(f): int(v) for f, v in dict(fields).items()}
+            for n, fields in dict(d.get("module_udts") or {}).items()
         },
     )
     from .validate import validate_program

@@ -1,0 +1,8 @@
+' Imported named ByRef helper for test_named_byref_writeback.vg
+Attribute VB_Name = "NamedByrefHelper"
+
+Function ImpBoth(ByRef x As Integer, ByRef y As Integer) As Integer
+	x = x + 1
+	y = y + 10
+	ImpBoth = x * 100 + y
+End Function

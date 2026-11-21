@@ -842,16 +842,14 @@ bool call_builtin(VisualGasicInstance *instance, const String &p_method, const A
     return false;
 }
 
-Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, bool &r_handled) {
+Variant call_builtin_expr(VisualGasicInstance *instance, CallExpression *call, const Array &p_args, bool &r_handled) {
     r_handled = false;
     Variant ret;
     if (!call) return Variant();
 
-    // Evaluate call arguments using the instance evaluator
-    Array args;
-    for (int i = 0; i < call->arguments.size(); i++) {
-        args.push_back(instance->evaluate_expression_for_builtins(call->arguments[i]));
-    }
+    // Caller evaluates each argument exactly once (after named-arg reorder).
+    // Re-evaluating here double-ran Side() for TakeVal(Side()) under forced_ast.
+    const Array &args = p_args;
 
     String name = call->method_name;
     String lowercase_name = name.to_lower();

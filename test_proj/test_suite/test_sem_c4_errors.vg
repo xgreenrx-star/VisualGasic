@@ -1,0 +1,147 @@
+' C4 error boundaries: On Error Resume Next / GoTo Handler, nested propagation,
+' Try/Catch/Finally (valid-program: every error handled).
+' Exit/Return that leaves Try is covered by test_sem_c4_finally_exit.vg.
+' Unhandled-error fixture skipped: runner cannot judge expected-error
+' deterministically in this lane.
+'
+Attribute VB_Name = "TestSemC4Errors"
+Option Explicit
+
+Dim gLog As String
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub Mark(ByVal s As String)
+	gLog = gLog & s
+End Sub
+
+Sub InnerNoHandler()
+	Call Mark("I1")
+	Err.Raise 5001
+	Call Mark("I2")
+End Sub
+
+Sub OuterGotoHandler()
+	On Error GoTo H
+	Call Mark("O1")
+	Call InnerNoHandler()
+	Call Mark("O2")
+	Exit Sub
+H:
+	Call Mark("H")
+	Call Mark("E" & CStr(Err.Number))
+	Resume Next
+End Sub
+
+Sub RunResumeNext()
+	Dim n As Integer
+	Dim t As String
+	gLog = ""
+	On Error Resume Next
+	Call Mark("A")
+	Err.Raise 5002
+	n = Err.Number
+	t = TypeName(Err.Number)
+	Call Mark("B")
+	Err.Clear
+	Call Mark("C" & CStr(Err.Number))
+	Print "EVENT: resume_next"
+	Call AssertObs(gLog, "ABC0", "String", "c4_err_resume_log")
+	Call AssertObs(n, 5002, "Integer", "c4_err_resume_num")
+	Call AssertObs(t, "Integer", "String", "c4_err_resume_num_type")
+	Call AssertObs(VarType(n), 3, "Integer", "c4_err_resume_num_vt")
+End Sub
+
+Sub RunGotoHandler()
+	gLog = ""
+	Call OuterGotoHandler()
+	Print "EVENT: goto_handler"
+	' O1, inner I1, raise → outer H E5001, Resume Next → O2; I2 must not run.
+	Call AssertObs(gLog, "O1I1HE5001O2", "String", "c4_err_goto_log")
+End Sub
+
+Sub RunTryCatchFinally()
+	Dim g As String
+	Dim n As Integer
+	g = ""
+	Try
+		g = g & "T"
+		Err.Raise 5003
+		g = g & "X"
+	Catch ex
+		g = g & "K"
+		n = ex.Number
+		g = g & CStr(n)
+	Finally
+		g = g & "F"
+	End Try
+	Print "EVENT: try_catch_finally"
+	Call AssertObs(g, "TK5003F", "String", "c4_err_try_log")
+	Call AssertObs(n, 5003, "Integer", "c4_err_try_num")
+
+	' Finally on success path
+	g = ""
+	Try
+		g = g & "T"
+	Finally
+		g = g & "F"
+	End Try
+	Print "EVENT: try_finally_ok"
+	Call AssertObs(g, "TF", "String", "c4_err_try_ok_log")
+
+	' Nested Try inside Catch
+	g = ""
+	n = 0
+	Try
+		Err.Raise 5004
+	Catch ex1
+		g = g & "K1"
+		Try
+			Err.Raise 5005
+		Catch ex2
+			g = g & "K2"
+			n = ex2.Number
+		End Try
+		g = g & "A"
+	End Try
+	Print "EVENT: nested_try_in_catch"
+	Call AssertObs(g, "K1K2A", "String", "c4_err_nested_log")
+	Call AssertObs(n, 5005, "Integer", "c4_err_nested_num")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunResumeNext()
+	Call RunGotoHandler()
+	Call RunTryCatchFinally()
+	Print "C4_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c4_errors"
+	Else
+		Print "FAIL: sem_c4_errors"
+	End If
+End Sub

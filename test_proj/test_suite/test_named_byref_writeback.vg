@@ -1,0 +1,138 @@
+' Named ByRef write-back must follow parameter order, not source order.
+' Expression form: r = BothFn(y:=b, x:=a) writes x's capture to a and y's to b.
+' Indexed ByRef is a separate defect and is not covered here.
+Import "named_byref_helper.vg"
+Attribute VB_Name = "TestNamedByrefWriteback"
+
+Dim gHits As Integer
+Dim gOrder As String
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(actual As Variant, expected As Variant, typ As String, label As String)
+	If TypeName(actual) <> typ Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type want=" & typ & " got=" & TypeName(actual)
+		Exit Sub
+	End If
+	If CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " want=" & CStr(expected) & " got=" & CStr(actual)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label & " type=" & typ
+End Sub
+
+Function SideY() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "Y"
+	SideY = 4
+End Function
+
+Sub Both(ByRef x As Integer, ByRef y As Integer)
+	x = x + 1
+	y = y + 10
+End Sub
+
+Function BothFn(ByRef x As Integer, ByRef y As Integer) As Integer
+	x = x + 1
+	y = y + 10
+	BothFn = x * 100 + y
+End Function
+
+Function MixFn(ByRef x As Integer, ByVal y As Integer) As Integer
+	x = x + y
+	MixFn = x
+End Function
+
+Function RecAdd(ByRef n As Integer, ByVal depth As Integer) As Integer
+	If depth <= 0 Then
+		RecAdd = n
+	Else
+		n = n + 1
+		RecAdd = RecAdd(depth:=depth - 1, n:=n)
+	End If
+End Function
+
+Function OptBoth(ByRef x As Integer, Optional ByRef y As Integer = 0) As Integer
+	x = x + 1
+	y = y + 10
+	OptBoth = x * 100 + y
+End Function
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Dim a As Integer
+	Dim b As Integer
+	Dim r As Integer
+
+	' Positional expression control.
+	a = 3
+	b = 5
+	r = BothFn(a, b)
+	AssertObs r, 415, "Integer", "positional expr return"
+	AssertObs a, 4, "Integer", "positional expr a"
+	AssertObs b, 15, "Integer", "positional expr b"
+
+	' Reversed named expression. Source order is b then a.
+	a = 3
+	b = 5
+	r = BothFn(y:=b, x:=a)
+	AssertObs r, 415, "Integer", "named expr return"
+	AssertObs a, 4, "Integer", "named expr a (x write-back)"
+	AssertObs b, 15, "Integer", "named expr b (y write-back)"
+
+	' Standalone reversed names.
+	a = 3
+	b = 5
+	Call Both(y:=b, x:=a)
+	AssertObs a, 4, "Integer", "named call a (x write-back)"
+	AssertObs b, 15, "Integer", "named call b (y write-back)"
+
+	' Mixed ByRef/ByVal, side-effecting ByVal, named reversed.
+	a = 10
+	gHits = 0
+	gOrder = ""
+	r = MixFn(y:=SideY(), x:=a)
+	AssertObs r, 14, "Integer", "mixed named return"
+	AssertObs a, 14, "Integer", "mixed named ByRef a"
+	AssertObs gHits, 1, "Integer", "mixed SideY hits"
+	AssertObs gOrder, "Y", "String", "mixed SideY order"
+
+	' Imported helper, reversed names.
+	a = 3
+	b = 5
+	r = ImpBoth(y:=b, x:=a)
+	AssertObs r, 415, "Integer", "import named return"
+	AssertObs a, 4, "Integer", "import named a"
+	AssertObs b, 15, "Integer", "import named b"
+
+	' Named recursion. Outer and inner calls reverse the names.
+	a = 0
+	r = RecAdd(depth:=2, n:=a)
+	AssertObs r, 2, "Integer", "named recursive return"
+	AssertObs a, 2, "Integer", "named recursive caller"
+
+	' Optional ByRef supplied by name, reversed against the required arg.
+	a = 3
+	b = 5
+	r = OptBoth(y:=b, x:=a)
+	AssertObs r, 415, "Integer", "optional named return"
+	AssertObs a, 4, "Integer", "optional named a"
+	AssertObs b, 15, "Integer", "optional named b"
+
+	' Optional ByRef omitted. Only x is written back.
+	a = 3
+	r = OptBoth(x:=a)
+	AssertObs r, 410, "Integer", "optional omitted return"
+	AssertObs a, 4, "Integer", "optional omitted a"
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: test_named_byref_writeback"
+	Else
+		Print "FAIL: test_named_byref_writeback"
+	End If
+End Sub

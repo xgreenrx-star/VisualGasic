@@ -1,0 +1,125 @@
+' C4: constant AndAlso/OrElse/Not stay Boolean with the right value.
+' Bytecode constant-fold used to emit Nothing for AndAlso/OrElse.
+'
+Attribute VB_Name = "TestSemC4ConstLogic"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckB(ByVal v As Variant, ByVal want As Integer, ByVal tag As String)
+	Dim n As Integer
+	Call AssertObs(TypeName(v), "Boolean", "String", "c4_cl_" & tag & "_tn")
+	Call AssertObs(VarType(v), 11, "Integer", "c4_cl_" & tag & "_vt")
+	If v Then
+		n = 1
+	Else
+		n = 0
+	End If
+	Call AssertObs(n, want, "Integer", "c4_cl_" & tag & "_v")
+End Sub
+
+Function Take(ByVal v As Variant) As Integer
+	If v Then
+		Take = 1
+	Else
+		Take = 0
+	End If
+End Function
+
+Sub _Ready()
+	Dim v As Variant
+	Dim x As Integer
+	Dim y As Integer
+	Dim r As Integer
+	passed = 0
+	failed = 0
+	x = 1
+	y = 2
+
+	v = True AndAlso True
+	Call CheckB(v, 1, "aa_tt")
+	v = True AndAlso False
+	Call CheckB(v, 0, "aa_tf")
+	v = False AndAlso True
+	Call CheckB(v, 0, "aa_ft")
+	v = False AndAlso False
+	Call CheckB(v, 0, "aa_ff")
+
+	v = True OrElse True
+	Call CheckB(v, 1, "oe_tt")
+	v = True OrElse False
+	Call CheckB(v, 1, "oe_tf")
+	v = False OrElse True
+	Call CheckB(v, 1, "oe_ft")
+	v = False OrElse False
+	Call CheckB(v, 0, "oe_ff")
+
+	v = (1 < 2) AndAlso (2 < 3)
+	Call CheckB(v, 1, "cmp_aa_tt")
+	v = (1 < 2) AndAlso (3 < 2)
+	Call CheckB(v, 0, "cmp_aa_tf")
+	v = (2 < 1) AndAlso (1 < 2)
+	Call CheckB(v, 0, "cmp_aa_ft")
+	v = (2 < 1) OrElse (2 < 3)
+	Call CheckB(v, 1, "cmp_oe_ft")
+	v = (1 < 2) OrElse (3 < 2)
+	Call CheckB(v, 1, "cmp_oe_tf")
+
+	v = (x < y) AndAlso (y < 3)
+	Call CheckB(v, 1, "mix_vv")
+	v = (1 < 2) AndAlso (y < 3)
+	Call CheckB(v, 1, "mix_lv")
+	v = (x < y) AndAlso (2 < 3)
+	Call CheckB(v, 1, "mix_vl")
+
+	v = (1 < 2) And (2 < 3)
+	Call CheckB(v, 1, "and_tt")
+
+	v = Not True
+	Call CheckB(v, 0, "not_t")
+	v = Not False
+	Call CheckB(v, 1, "not_f")
+
+	If True AndAlso False Then
+		r = 1
+	Else
+		r = 0
+	End If
+	Print "EVENT: if_aa"
+	Call AssertObs(r, 0, "Integer", "c4_cl_if_r")
+
+	r = Take(True AndAlso True)
+	Print "EVENT: arg_aa"
+	Call AssertObs(r, 1, "Integer", "c4_cl_arg_r")
+
+	Print "C4_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c4_const_logic"
+	Else
+		Print "FAIL: sem_c4_const_logic"
+	End If
+End Sub

@@ -28,15 +28,21 @@ def _clean_primary_log() -> str:
     from .c2_fixture_manifest import PRIMARY_MOD, PRIMARY_PASS_LABELS
 
     lines = []
-    for fn in ("StandaloneByRef", "ExprByRef", "NestedOuter", "RecAdd"):
+    for fn in (
+        "StandaloneByRef",
+        "ExprByRef",
+        "NestedOuter",
+        "RecAdd",
+        "IdxSide",
+        "BumpSlot",
+    ):
         lines.append(f'VG_SEM_PATH path=bytecode fn={fn} mod="{PRIMARY_MOD}"')
     for lab in PRIMARY_PASS_LABELS:
         if lab == "nested event order":
             lines.append(f"PASS: {lab} type=String")
         else:
             lines.append(f"PASS: {lab} type=Integer")
-    lines.append("C2_SUMMARY passed=15 failed=0")
-    lines.append("C2_KNOWN_FAIL index_evals=2 want=1")
+    lines.append("C2_SUMMARY passed=16 failed=0")
     lines.append("PASS: sem_c2_calls_byref")
     lines.append("VG_SUITE_COMPLETED")
     return "\n".join(lines) + "\n"
@@ -45,7 +51,7 @@ def _clean_primary_log() -> str:
 def _good_verdict() -> str:
     return (
         "OK test_sem_c2_calls_byref mode=default exit=0 "
-        "pass_lines=16 fail_lines=0 done=1 known=[index_evals=2 want=1]"
+        "pass_lines=17 fail_lines=0 done=1"
     )
 
 
@@ -159,12 +165,12 @@ def run_c2_shell_selftests() -> List[str]:
             ),
             (
                 "trailing",
-                _good_verdict().replace("want=1]", "want=1]TRAILING_GARBAGE"),
+                _good_verdict().replace("done=1", "done=1TRAILING_GARBAGE"),
             ),
             (
                 "wrong_mode_label",
                 "OK test_sem_c2_calls_byref mode=forced_ast exit=0 "
-                "pass_lines=16 fail_lines=0 done=1 known=[index_evals=2 want=1]",
+                "pass_lines=17 fail_lines=0 done=1",
             ),
         ):
             jp = tmp / f"judge_{name}"
@@ -204,8 +210,8 @@ def run_c2_shell_selftests() -> List[str]:
         # Malformed extra summary via real judge + poisoned log
         godot_mal = tmp / "fake_godot_malsum"
         poisoned = log_payload.replace(
-            "C2_SUMMARY passed=15 failed=0\n",
-            "C2_SUMMARY passed=15 failed=0\nC2_SUMMARY garbage\n",
+            "C2_SUMMARY passed=16 failed=0\n",
+            "C2_SUMMARY passed=16 failed=0\nC2_SUMMARY garbage\n",
         )
         _write_exec(
             godot_mal,

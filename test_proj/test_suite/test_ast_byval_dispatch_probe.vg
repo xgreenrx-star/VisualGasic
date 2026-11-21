@@ -1,0 +1,296 @@
+' Builtin vs user named-arg dispatch. Hard checks are invariants: they do
+' not read a mode env var, so the ordinary suite can run this file.
+' The first Left(s:=, n:=) order is unsettled (AST source order vs the
+' compiler rewriting that call node). It is printed as OBSERVED_UNSETTLED
+' and judged by tools/semantic_fuzz/obs_order_gate.py against path events.
+' It is not a language contract. The later copy, after Left(q:=) bails
+' compilation, stays source order on every mode and is asserted here.
+Attribute VB_Name = "TestAstByvalDispatchProbe"
+
+Dim gOrder As String
+Dim ok As Integer
+Dim bad As Integer
+
+Sub Tally(cond As Boolean, label As String, detail As String)
+	If cond Then
+		ok = ok + 1
+		Print "PASS: " & label
+	Else
+		bad = bad + 1
+		Print "FAIL: " & label & " " & detail
+	End If
+End Sub
+
+Function SA() As String
+	gOrder = gOrder & "A"
+	SA = "abc"
+End Function
+
+Function SN() As Integer
+	gOrder = gOrder & "N"
+	SN = 1
+End Function
+
+' Same name as builtin Left(string, count). Params are reversed on purpose.
+Function Left(n As Integer, s As String) As String
+	gOrder = gOrder & "U"
+	Left = "user:" & CStr(n) & ":" & s
+End Function
+
+' Same name as builtin Len, but arity 2 so Len's 1-arg form should not take it.
+Function Len(a As String, b As String) As String
+	gOrder = gOrder & "L"
+	Len = a & "|" & b
+End Function
+
+Function Rec(ByVal n As Integer) As Integer
+	gOrder = gOrder & "R"
+	If n <= 0 Then
+		Rec = 0
+	Else
+		Rec = n + Rec(n - 1)
+	End If
+End Function
+
+Function Mix(ByRef x As Integer, ByVal y As Integer) As Integer
+	gOrder = gOrder & "M"
+	x = x + y
+	Mix = x
+End Function
+
+Sub ShowErr(label As String)
+	If Err.Number <> 0 Then
+		Print "ERR " & label & " num=" & CStr(Err.Number) & " desc=" & Err.Description
+		Err.Clear
+	End If
+End Sub
+
+Sub _Ready()
+	Dim r As String
+	Dim n As Integer
+	Dim arr(2) As Integer
+	Dim dict As New Dictionary
+
+	ok = 0
+	bad = 0
+	Print "PROBE_BEGIN"
+
+	' 1) Builtin-name user function, positional. Builtin Left wants (string, count).
+	gOrder = ""
+	On Error Resume Next
+	r = ""
+	r = Left(SA(), SN())
+	Print "CASE left_pos result=" & r & " order=" & gOrder
+	ShowErr "left_pos"
+	On Error GoTo 0
+
+	' 2) Named, reversed vs user params. Source order is s then n.
+	' Order is not asserted here. The obs-order gate checks it against paths.
+	Print "OBS_WINDOW_BEGIN kind=left_named_first"
+	gOrder = ""
+	On Error Resume Next
+	r = ""
+	r = Left(s:=SA(), n:=SN())
+	Print "OBSERVED_UNSETTLED kind=left_named_first result=""" & r & """ order=" & gOrder
+	Print "CASE left_named result=" & r & " order=" & gOrder
+	ShowErr "left_named"
+	On Error GoTo 0
+
+	' 3) Named name invalid for the user function. Builtin still has 2 args.
+	gOrder = ""
+	On Error Resume Next
+	r = ""
+	r = Left(q:=SA(), n:=SN())
+	Print "CASE left_badname result=" & r & " order=" & gOrder
+	ShowErr "left_badname"
+	On Error GoTo 0
+
+	' 4) Real builtin, no same-named 1-arg user. Positional and named.
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = Len(SA())
+	Print "CASE len_pos result=" & CStr(n) & " order=" & gOrder
+	ShowErr "len_pos"
+	On Error GoTo 0
+
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = Len(s:=SA())
+	Print "CASE len_named result=" & CStr(n) & " order=" & gOrder
+	ShowErr "len_named"
+	On Error GoTo 0
+
+	' 5) Builtin name, wrong arity for the builtin, user function matches.
+	gOrder = ""
+	On Error Resume Next
+	r = ""
+	r = Len(SA(), SA())
+	Print "CASE len2 result=" & r & " order=" & gOrder
+	ShowErr "len2"
+	On Error GoTo 0
+
+	' 6) Unknown named call.
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = NoSuchFn(x:=SN())
+	Print "CASE unknown result=" & CStr(n) & " order=" & gOrder
+	ShowErr "unknown"
+	On Error GoTo 0
+
+	' 7) Local array index must not be a builtin call.
+	arr(0) = 7
+	arr(1) = 8
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = arr(SN())
+	Print "CASE arr_index result=" & CStr(n) & " order=" & gOrder
+	ShowErr "arr_index"
+	On Error GoTo 0
+
+	' 8) Dictionary index.
+	dict.Add "k", 42
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = dict("k")
+	Print "CASE dict_index result=" & CStr(n) & " order=" & gOrder
+	ShowErr "dict_index"
+	On Error GoTo 0
+
+	' 9) Recursion.
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = Rec(3)
+	Print "CASE rec result=" & CStr(n) & " order=" & gOrder
+	ShowErr "rec"
+	On Error GoTo 0
+
+	' 10) Mixed ByRef/ByVal expression call. y is ByVal so caller y stays.
+	Dim x As Integer
+	Dim y As Integer
+	x = 10
+	y = 4
+	gOrder = ""
+	On Error Resume Next
+	n = 0
+	n = Mix(x, y)
+	Print "CASE mix result=" & CStr(n) & " x=" & CStr(x) & " y=" & CStr(y) & " order=" & gOrder
+	ShowErr "mix"
+	On Error GoTo 0
+
+	' 11) Receiver call. GetParent is an owner builtin; an explicit receiver
+	' must dispatch on the child, not the script owner.
+	Dim go As Object
+	Dim child As Object
+	Dim inst As Object
+	Set go = CreateNode("Node2D")
+	go.name = "GameObjects"
+	AddChild go
+	Set child = CreateNode("Node2D")
+	go.add_child(child)
+	Set inst = CreateNode("Node2D")
+	inst.name = "SpawnedFx"
+	On Error Resume Next
+	child.GetParent().add_child(inst)
+	If Err.Number = 0 And Not inst.GetParent() Is Nothing And inst.GetParent().name = "GameObjects" Then
+		Print "CASE receiver result=GameObjects"
+	Else
+		Print "CASE receiver result=FAIL err=" & Err.Description
+	End If
+	Err.Clear
+	On Error GoTo 0
+
+	Print "PROBE_END"
+
+	' Hard checks. Re-run so a printed CASE cannot drift without a failure.
+	' No mode env var. The first Left(s:=, n:=) was printed above and is not
+	' a pass/fail. This later copy is after Left(q:=) bailed compilation, so
+	' the node is not rewritten and every mode sees source order.
+	gOrder = ""
+	On Error Resume Next
+	r = ""
+	r = Left(SA(), SN())
+	Call Tally(Err.Number = 0 And r = "a" And gOrder = "AN", "left_pos builtin", "r=" & r & " order=" & gOrder & " err=" & CStr(Err.Number))
+	Err.Clear
+	Print "OBS_WINDOW_BEGIN kind=left_named_after_bail"
+	gOrder = ""
+	r = ""
+	r = Left(s:=SA(), n:=SN())
+	Print "OBSERVED_UNSETTLED kind=left_named_after_bail result=""" & r & """ order=" & gOrder
+	Call Tally(Err.Number = 0 And r = "a" And gOrder = "AN", "left_named after bail source order", "r=" & r & " order=" & gOrder & " err=" & CStr(Err.Number))
+	Err.Clear
+	gOrder = ""
+	r = ""
+	r = Left(q:=SA(), n:=SN())
+	Call Tally(Err.Number = 0 And r = "a" And gOrder = "AN", "left_badname builtin ignores unknown name", "r=" & r & " order=" & gOrder & " err=" & Err.Description)
+	Err.Clear
+	gOrder = ""
+	n = 0
+	n = Len(SA())
+	Call Tally(Err.Number = 0 And n = 3 And gOrder = "A", "len_pos builtin", "n=" & CStr(n) & " order=" & gOrder & " err=" & CStr(Err.Number))
+	Err.Clear
+	gOrder = ""
+	n = 0
+	n = Len(s:=SA())
+	Call Tally(Err.Number = 0 And n = 3 And gOrder = "A", "len_named builtin source order", "n=" & CStr(n) & " order=" & gOrder & " err=" & CStr(Err.Number))
+	Err.Clear
+	gOrder = ""
+	r = ""
+	r = Len(SA(), SA())
+	Call Tally(Err.Number = 0 And r = "abc|abc" And gOrder = "AAL", "len2 once-only user arity", "r=" & r & " order=" & gOrder)
+	Err.Clear
+	gOrder = ""
+	n = 0
+	n = NoSuchFn(x:=SN())
+	Call Tally(Err.Number <> 0 And InStr(Err.Description, "Named arguments require a known Sub") > 0 And gOrder = "N", "unknown named diagnostic", "order=" & gOrder & " desc=" & Err.Description)
+	Err.Clear
+	arr(0) = 7
+	arr(1) = 8
+	gOrder = ""
+	n = 0
+	n = arr(SN())
+	Call Tally(Err.Number = 0 And n = 8 And gOrder = "N", "arr_index local", "n=" & CStr(n) & " order=" & gOrder)
+	Err.Clear
+	gOrder = ""
+	n = 0
+	n = dict("k")
+	Call Tally(Err.Number = 0 And n = 42, "dict_index local", "n=" & CStr(n) & " err=" & Err.Description)
+	Err.Clear
+	gOrder = ""
+	n = 0
+	n = Rec(3)
+	Call Tally(Err.Number = 0 And n = 6 And gOrder = "RRRR", "rec user return", "n=" & CStr(n) & " order=" & gOrder)
+	Err.Clear
+	x = 10
+	y = 4
+	gOrder = ""
+	n = 0
+	n = Mix(x, y)
+	Call Tally(Err.Number = 0 And n = 14 And x = 14 And y = 4 And gOrder = "M", "mix user return and ByRef", "n=" & CStr(n) & " x=" & CStr(x) & " y=" & CStr(y) & " order=" & gOrder)
+	Err.Clear
+	Set inst = CreateNode("Node2D")
+	child.GetParent().add_child(inst)
+	Dim recvOk As Boolean
+	recvOk = False
+	If Err.Number = 0 Then
+		If Not inst.GetParent() Is Nothing Then
+			If inst.GetParent().name = "GameObjects" Then
+				recvOk = True
+			End If
+		End If
+	End If
+	Call Tally(recvOk, "receiver GetParent", "err=" & Err.Description)
+	On Error GoTo 0
+
+	Print "DISPATCH_SUMMARY ok=" & CStr(ok) & " bad=" & CStr(bad)
+	If bad = 0 Then
+		Print "PASS: test_ast_byval_dispatch_probe"
+	Else
+		Print "FAIL: test_ast_byval_dispatch_probe"
+	End If
+End Sub

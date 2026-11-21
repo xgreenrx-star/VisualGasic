@@ -42,6 +42,7 @@ PRIMARY_PASS_LABELS: Tuple[str, ...] = (
     "recursive ByRef return",
     "recursive ByRef final caller",
     "indexed ByRef write-back slot",
+    "indexed ByRef index once",
 )
 
 # forced_ast → ast; interpreter → bytecode; default/tier3 → bytecode or native
@@ -71,12 +72,13 @@ FIXTURE_EXPECT: Dict[str, FixtureExpect] = {
         pass_labels=PRIMARY_PASS_LABELS,
         summary_pass="sem_c2_calls_byref",
         require_c2_summary=True,
-        require_known_index_evals=2,
         path_requirements=(
             _req("StandaloneByRef", PRIMARY_MOD),
             _req("ExprByRef", PRIMARY_MOD),
             _req("NestedOuter", PRIMARY_MOD),
             _req("RecAdd", PRIMARY_MOD),
+            _req("IdxSide", PRIMARY_MOD),
+            _req("BumpSlot", PRIMARY_MOD),
         ),
     ),
     "test_byref_byval": FixtureExpect(

@@ -7,11 +7,25 @@ from typing import Any, Optional
 
 from . import REFERENCE_VERSION, SAFE_ABS_MAX
 from .ir import (
+    ArrGet,
+    ArrSet,
     Assign,
     Bin,
     Call,
     CallStmt,
     Cmp,
+    DictCount,
+    DictExists,
+    DictGet,
+    DictMissCheck,
+    DictSet,
+    NestedSlotGet,
+    NestedSlotSet,
+    LogicBin,
+    LogicNot,
+    UdtCopy,
+    UdtFieldGet,
+    UdtFieldSet,
     Expr,
     ForStmt,
     Helper,
@@ -126,6 +140,11 @@ class Env:
     steps: int = 0
     # ByRef writebacks for the current frame: (local_name, caller_env, caller_name)
     writebacks: list[tuple[str, "Env", str]] = field(default_factory=list)
+    # C3 collection stores (shared across frames; primary module only in this slice).
+    arrays: dict[str, list[int]] = field(default_factory=dict)
+    # Values: int or list[int] (nested Array under a Dictionary key).
+    dicts: dict[str, dict[str, Any]] = field(default_factory=dict)
+    udts: dict[str, dict[str, int]] = field(default_factory=dict)
 
     @property
     def module(self) -> dict[str, int]:
@@ -175,6 +194,64 @@ def eval_expr(expr: Expr, env: Env) -> TypedValue:
         return TypedValue("Boolean", 1 if icmp(expr.op, int(l.value), int(r.value)) else 0)
     if isinstance(expr, Call):
         return call_helper(expr.name, expr.args, env, as_expr=True)
+    if isinstance(expr, ArrGet):
+        if expr.name not in env.arrays:
+            raise ReferenceError(f"undefined array {expr.name}")
+        slots = env.arrays[expr.name]
+        if expr.index < 0 or expr.index >= len(slots):
+            raise ReferenceError(f"array index out of range {expr.name}({expr.index})")
+        return TypedValue("Integer", slots[expr.index])
+    if isinstance(expr, DictGet):
+        if expr.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {expr.name}")
+        store = env.dicts[expr.name]
+        if expr.key not in store:
+            raise ReferenceError(
+                f"DictGet on missing key {expr.name}({expr.key!r}); use DictMissCheck"
+            )
+        return TypedValue("Integer", store[expr.key])
+    if isinstance(expr, DictCount):
+        if expr.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {expr.name}")
+        return TypedValue("Integer", len(env.dicts[expr.name]))
+    if isinstance(expr, DictExists):
+        if expr.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {expr.name}")
+        return TypedValue("Integer", 1 if expr.key in env.dicts[expr.name] else 0)
+    if isinstance(expr, NestedSlotGet):
+        if expr.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {expr.name}")
+        store = env.dicts[expr.name]
+        if expr.key not in store or not isinstance(store[expr.key], list):
+            raise ReferenceError(f"NestedSlotGet missing nested array {expr.name}({expr.key!r})")
+        slots = store[expr.key]
+        if expr.index < 0 or expr.index >= len(slots):
+            raise ReferenceError(f"nested index out of range {expr.name}({expr.key})({expr.index})")
+        return TypedValue("Integer", slots[expr.index])
+    if isinstance(expr, UdtFieldGet):
+        if expr.var not in env.udts:
+            raise ReferenceError(f"undefined udt {expr.var}")
+        fields = env.udts[expr.var]
+        if expr.field not in fields:
+            raise ReferenceError(f"undefined udt field {expr.var}.{expr.field}")
+        return TypedValue("Integer", fields[expr.field])
+    if isinstance(expr, LogicBin):
+        left = eval_expr(expr.left, env)
+        lv = int(left.value)
+        if expr.op == "AndAlso":
+            if lv == 0:
+                return TypedValue("Integer", 0)
+            right = eval_expr(expr.right, env)
+            return TypedValue("Integer", 0 if int(right.value) == 0 else 1)
+        if expr.op == "OrElse":
+            if lv != 0:
+                return TypedValue("Integer", 1)
+            right = eval_expr(expr.right, env)
+            return TypedValue("Integer", 0 if int(right.value) == 0 else 1)
+        raise ReferenceError(f"unsupported logic op {expr.op}")
+    if isinstance(expr, LogicNot):
+        v = eval_expr(expr.expr, env)
+        return TypedValue("Integer", 1 if int(v.value) == 0 else 0)
     raise ReferenceError(f"bad expr {expr}")
 
 
@@ -236,6 +313,8 @@ def call_helper(
         depth=env.depth + 1,
         steps=env.steps,
         writebacks=writebacks,
+        arrays=env.arrays,
+        dicts=env.dicts,
     )
     ret: Optional[TypedValue] = None
     try:
@@ -323,6 +402,81 @@ def exec_stmt(st: Stmt, env: Env) -> Optional[TypedValue]:
         return None
     if isinstance(st, ReturnStmt):
         return eval_expr(st.expr, env)
+    if isinstance(st, ArrSet):
+        if st.name not in env.arrays:
+            raise ReferenceError(f"undefined array {st.name}")
+        slots = env.arrays[st.name]
+        if st.index < 0 or st.index >= len(slots):
+            raise ReferenceError(f"array index out of range {st.name}({st.index})")
+        v = eval_expr(st.expr, env)
+        if v.type != "Integer":
+            raise ReferenceError("ArrSet requires Integer")
+        slots[st.index] = _check_safe(int(v.value), f"arr_set {st.name}")
+        return None
+    if isinstance(st, DictSet):
+        if st.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {st.name}")
+        v = eval_expr(st.expr, env)
+        if v.type != "Integer":
+            raise ReferenceError("DictSet requires Integer")
+        env.dicts[st.name][st.key] = _check_safe(int(v.value), f"dict_set {st.name}")
+        return None
+    if isinstance(st, DictMissCheck):
+        # R12: missing → Nothing (VarType 1); Err.Number stays 0.
+        # Observation order matches emitter: err_before, vt, is_nothing, err, err_type.
+        if st.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {st.name}")
+        if st.key in env.dicts[st.name]:
+            raise ReferenceError(
+                f"DictMissCheck key {st.key!r} is present in {st.name}"
+            )
+        env.observations.append(
+            Observation(f"{st.prefix}_err_before", TypedValue("Integer", 0))
+        )
+        env.observations.append(
+            Observation(f"{st.prefix}_vt", TypedValue("Integer", 1))
+        )
+        env.observations.append(
+            Observation(f"{st.prefix}_is_nothing", TypedValue("Integer", 1))
+        )
+        env.observations.append(
+            Observation(f"{st.prefix}_err", TypedValue("Integer", 0))
+        )
+        env.observations.append(
+            Observation(f"{st.prefix}_err_type", TypedValue("String", "Integer"))
+        )
+        return None
+    if isinstance(st, NestedSlotSet):
+        if st.name not in env.dicts:
+            raise ReferenceError(f"undefined dict {st.name}")
+        store = env.dicts[st.name]
+        if st.key not in store or not isinstance(store[st.key], list):
+            raise ReferenceError(f"NestedSlotSet missing nested array {st.name}({st.key!r})")
+        slots = store[st.key]
+        if st.index < 0 or st.index >= len(slots):
+            raise ReferenceError(f"nested index out of range {st.name}({st.key})({st.index})")
+        v = eval_expr(st.expr, env)
+        if v.type != "Integer":
+            raise ReferenceError("NestedSlotSet requires Integer")
+        slots[st.index] = _check_safe(int(v.value), f"nested_set {st.name}")
+        return None
+    if isinstance(st, UdtFieldSet):
+        if st.var not in env.udts:
+            raise ReferenceError(f"undefined udt {st.var}")
+        if st.field not in env.udts[st.var]:
+            raise ReferenceError(f"undefined udt field {st.var}.{st.field}")
+        v = eval_expr(st.expr, env)
+        if v.type != "Integer":
+            raise ReferenceError("UdtFieldSet requires Integer")
+        env.udts[st.var][st.field] = _check_safe(int(v.value), f"udt_set {st.var}")
+        return None
+    if isinstance(st, UdtCopy):
+        if st.src not in env.udts:
+            raise ReferenceError(f"undefined udt {st.src}")
+        if st.dest not in env.udts:
+            raise ReferenceError(f"undefined udt {st.dest}")
+        env.udts[st.dest] = dict(env.udts[st.src])
+        return None
     raise ReferenceError(f"bad stmt {st}")
 
 
@@ -352,6 +506,23 @@ def evaluate_program(prog: Program) -> RefResult:
             stores[""].update(dict(mv))
         else:
             stores[str(mk)] = dict(mv)
+    arrays = {
+        str(n): [int(x) for x in list(slots)]
+        for n, slots in dict(getattr(prog, "module_arrays", None) or {}).items()
+    }
+    dicts: dict[str, dict[str, Any]] = {}
+    for n, entries in dict(getattr(prog, "module_dicts", None) or {}).items():
+        dstore: dict[str, Any] = {}
+        for k, v in dict(entries).items():
+            if isinstance(v, list):
+                dstore[str(k)] = [int(x) for x in v]
+            else:
+                dstore[str(k)] = int(v)
+        dicts[str(n)] = dstore
+    udts = {
+        str(n): {str(f): int(v) for f, v in dict(fields).items()}
+        for n, fields in dict(getattr(prog, "module_udts", None) or {}).items()
+    }
     env = Env(
         module_stores=stores,
         current_module="",
@@ -359,6 +530,9 @@ def evaluate_program(prog: Program) -> RefResult:
         helper_defining_module=dict(
             getattr(prog, "helper_defining_module", None) or {}
         ),
+        arrays=arrays,
+        dicts=dicts,
+        udts=udts,
     )
     try:
         for st in prog.main:

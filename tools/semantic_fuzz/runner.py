@@ -84,7 +84,36 @@ def find_repo_root() -> Path:
     raise FileNotFoundError("VisualGasic repo root not found")
 
 
+def resolve_test_proj(root: Path) -> Path:
+    """Project path for staging/runs. Override with VG_SEM_TEST_PROJ (absolute).
+
+    Returns the path without requiring it to exist — pure oracle/selftest must
+    not fail when the override is absent. Godot runs and binary resolve fail
+    closed later if the directory or extension library is missing.
+    """
+    env = os.environ.get("VG_SEM_TEST_PROJ", "").strip()
+    if env:
+        return Path(env).resolve()
+    return (root / "test_proj").resolve()
+
+
+def resolve_extension_binary(test_proj: Path) -> Path:
+    """Library loaded by the selected project — no fallback to another tree.
+
+    Raises FileNotFoundError if the project's editor extension binary is absent.
+    """
+    so = (
+        test_proj / "addons" / "visual_gasic" / "bin" / "libvisualgasic.linux.editor.x86_64.so"
+    ).resolve()
+    if not so.is_file():
+        raise FileNotFoundError(f"missing selected-project binary: {so}")
+    return so
+
+
 def find_godot(root: Path) -> Path:
+    # Owned-temp oracle proofs: force Godot unavailable without renaming tree files.
+    if os.environ.get("VG_SEM_FORCE_NO_GODOT") == "1":
+        raise FileNotFoundError("Godot binary not found; set GODOT")
     env = os.environ.get("GODOT", "")
     candidates = []
     if env:
@@ -196,7 +225,7 @@ def ir_case_res_path(case_id: str, mode: str) -> str:
 
 
 def _stage_case_in_test_proj(
-    root: Path,
+    test_proj: Path,
     source: str,
     case_id: str,
     mode: str,
@@ -205,10 +234,10 @@ def _stage_case_in_test_proj(
 ) -> tuple[Path, str]:
     """Per-run owned staging; never deletes another run's files."""
     slug = case_dir_slug(case_id)
-    staging = root / "test_proj" / "sem_fuzz_runs" / run_token / slug / mode
+    staging = test_proj / "sem_fuzz_runs" / run_token / slug / mode
     staging.mkdir(parents=True, exist_ok=False)
     (staging / "case.vg").write_text(source, encoding="utf-8")
-    rel = staging.relative_to(root / "test_proj").as_posix()
+    rel = staging.relative_to(test_proj).as_posix()
     return staging, f"res://{rel}/case.vg"
 
 
@@ -256,18 +285,8 @@ def run_program(
 ) -> RunResult:
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode}")
-    root = find_repo_root()
-    godot = godot or find_godot(root)
-    so = root / "addons" / "visual_gasic" / "bin" / "libvisualgasic.linux.editor.x86_64.so"
-    alt = root / "addons" / "visual_gasic" / "libvisualgasic.linux.editor.x86_64.so"
-    binary = so if so.is_file() else alt
-    binary_hash = file_sha256(binary) if binary.is_file() else None
-    engine_hash = file_sha256(Path(godot)) if Path(godot).is_file() else None
-
-    run_token = f"{os.getpid()}_{int(time.time() * 1000)}_{hashlib.sha1(os.urandom(8)).hexdigest()[:8]}"
-    # Bind on a copy — never mutate the caller's Program across modes.
-    # Production/unbound runs must not carry a physical path_module. Replay must
-    # explicitly strip it at the reconstruct boundary (not here silently).
+    # Refuse pre-set physical path_module before needing Godot / extension —
+    # keeps oracle/selftest engine-independent for this contract check.
     import copy
 
     unbound = copy.deepcopy(prog)
@@ -276,6 +295,37 @@ def run_program(
             "run_program refused pre-set path_module; "
             "only replay reconstruct may rebind after clearing physical module"
         )
+
+    root = find_repo_root()
+    godot = godot or find_godot(root)
+    test_proj = resolve_test_proj(root)
+    if not test_proj.is_dir():
+        return RunResult(
+            ok=False,
+            failure_code="missing_test_proj",
+            message=f"VG_SEM_TEST_PROJ not a directory: {test_proj}",
+            mode=mode,
+            exit_code=2,
+            engine_path=str(godot),
+        )
+    try:
+        binary = resolve_extension_binary(test_proj)
+    except FileNotFoundError as exc:
+        return RunResult(
+            ok=False,
+            failure_code="missing_extension_binary",
+            message=str(exc),
+            mode=mode,
+            exit_code=2,
+            engine_path=str(godot),
+        )
+    binary_hash = file_sha256(binary)
+    engine_hash = file_sha256(Path(godot)) if Path(godot).is_file() else None
+
+    run_token = f"{os.getpid()}_{int(time.time() * 1000)}_{hashlib.sha1(os.urandom(8)).hexdigest()[:8]}"
+    # Bind on a copy — never mutate the caller's Program across modes.
+    # Production/unbound runs must not carry a physical path_module. Replay must
+    # explicitly strip it at the reconstruct boundary (not here silently).
     if unbound.path_module_key is None:
         unbound.path_module_key = logical_module_key(unbound.case_id, mode)
     bound = bind_run_program(unbound, mode, run_token=run_token)
@@ -294,7 +344,7 @@ def run_program(
     (case_dir / "case.vg").write_text(source, encoding="utf-8")
 
     staging, res_path = _stage_case_in_test_proj(
-        root, source, bound.case_id, mode, run_token=run_token
+        test_proj, source, bound.case_id, mode, run_token=run_token
     )
     # Stage imported modules beside primary; record per-fn physical mods.
     # Also persist copies in the owned case_dir for offline integrity.
@@ -386,7 +436,7 @@ def run_program(
         str(godot),
         "--headless",
         "--path",
-        str(root / "test_proj"),
+        str(test_proj),
         "--user-data-dir",
         str(user_dir),
         "-s",
@@ -402,7 +452,7 @@ def run_program(
         try:
             proc = subprocess.run(
                 cmd,
-                cwd=str(root),
+                cwd=str(test_proj.parent if test_proj.name == "test_proj" else root),
                 env=env,
                 capture_output=True,
                 text=True,

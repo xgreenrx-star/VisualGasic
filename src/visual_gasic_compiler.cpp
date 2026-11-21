@@ -287,6 +287,140 @@ void VisualGasicCompiler::emit_procedure_epilogue(int end_line) {
     emit_return();
 }
 
+bool VisualGasicCompiler::try_frame_encloses_loop(int loop_index) const {
+    if (try_exit_frames.is_empty() || loop_index < 0) {
+        return false;
+    }
+    return loop_index < try_exit_frames[try_exit_frames.size() - 1].loop_depth_at_entry;
+}
+
+bool VisualGasicCompiler::begin_try_exit_frame() {
+    int slot = get_or_add_local(String("__vg_try_exit_") + String::num_int64(temp_local_id++), VT_INT);
+    if (slot < 0 || slot > 255) {
+        bail_to_ast("Try exit slot");
+        return false;
+    }
+    emit_constant(Variant((int64_t)0));
+    emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+    TryExitFrame fr;
+    fr.loop_depth_at_entry = loop_exit_jumps.size();
+    fr.exit_code_slot = slot;
+    fr.handler_still_pushed = true;
+    try_exit_frames.push_back(fr);
+    return true;
+}
+
+void VisualGasicCompiler::note_try_handler_popped() {
+    if (try_exit_frames.is_empty()) {
+        return;
+    }
+    try_exit_frames.write[try_exit_frames.size() - 1].handler_still_pushed = false;
+}
+
+VisualGasicCompiler::TryExitFrame VisualGasicCompiler::close_try_exit_frame_at_finally() {
+    TryExitFrame fr;
+    if (try_exit_frames.is_empty()) {
+        return fr;
+    }
+    fr = try_exit_frames[try_exit_frames.size() - 1];
+    try_exit_frames.remove_at(try_exit_frames.size() - 1);
+    for (int i = 0; i < fr.jumps_to_finally.size(); i++) {
+        patch_jump(fr.jumps_to_finally[i]);
+    }
+    return fr;
+}
+
+void VisualGasicCompiler::emit_leave_via_finally(int code) {
+    if (try_exit_frames.is_empty()) {
+        return;
+    }
+    TryExitFrame &fr = try_exit_frames.write[try_exit_frames.size() - 1];
+    if (fr.handler_still_pushed) {
+        emit_byte(OP_POP_TRY);
+    }
+    emit_constant(Variant((int64_t)code));
+    emit_bytes(OP_SET_LOCAL, (uint8_t)fr.exit_code_slot);
+    fr.jumps_to_finally.push_back(emit_jump(OP_JUMP));
+}
+
+void VisualGasicCompiler::emit_try_exit_dispatch(const TryExitFrame &fr) {
+    if (fr.exit_code_slot < 0) {
+        return;
+    }
+    const int slot = fr.exit_code_slot;
+    emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
+    int skip_all = emit_jump(OP_JUMP_IF_FALSE);
+
+    auto emit_if_code = [&](int64_t code) -> int {
+        emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
+        emit_constant(Variant(code));
+        emit_byte(OP_EQUAL);
+        return emit_jump(OP_JUMP_IF_FALSE);
+    };
+
+    {
+        int miss = emit_if_code(1);
+        if (!try_exit_frames.is_empty()) {
+            emit_leave_via_finally(1);
+        } else {
+            procedure_exit_jumps.push_back(emit_jump(OP_JUMP));
+        }
+        patch_jump(miss);
+    }
+    {
+        int miss = emit_if_code(2);
+        int hold = current_chunk && current_chunk->return_slot >= 0 ? current_chunk->return_slot : -1;
+        if (hold < 0 && local_slots.has("__vg_explicit_ret")) {
+            hold = local_slots["__vg_explicit_ret"];
+        }
+        if (!try_exit_frames.is_empty()) {
+            emit_leave_via_finally(2);
+        } else if (hold >= 0 && hold <= 255) {
+            emit_bytes(OP_GET_LOCAL, (uint8_t)hold);
+            emit_byte(OP_RETURN_VALUE);
+        } else {
+            emit_byte(OP_RETURN);
+        }
+        patch_jump(miss);
+    }
+    {
+        int miss = emit_if_code(3);
+        if (!try_exit_frames.is_empty()) {
+            emit_leave_via_finally(3);
+        } else {
+            emit_byte(OP_RETURN_GOSUB);
+        }
+        patch_jump(miss);
+    }
+    for (int li = 0; li < fr.loop_depth_at_entry && li < loop_exit_jumps.size(); li++) {
+        int miss = emit_if_code(1000 + li);
+        if (!try_exit_frames.is_empty()) {
+            emit_leave_via_finally(1000 + li);
+        } else {
+            loop_exit_jumps.write[li].push_back(emit_jump(OP_JUMP));
+        }
+        patch_jump(miss);
+    }
+    for (int li = 0; li < fr.loop_depth_at_entry && li < loop_continue_targets.size(); li++) {
+        int miss = emit_if_code(2000 + li);
+        if (!try_exit_frames.is_empty()) {
+            emit_leave_via_finally(2000 + li);
+        } else {
+            int target = loop_continue_targets[li];
+            if (target < 0) {
+                int fwd = emit_jump(OP_JUMP);
+                if (li < loop_continue_forward_jumps.size()) {
+                    loop_continue_forward_jumps.write[li].push_back(fwd);
+                }
+            } else {
+                emit_loop(target);
+            }
+        }
+        patch_jump(miss);
+    }
+    patch_jump(skip_all);
+}
+
 int VisualGasicCompiler::emit_jump(uint8_t op) {
     emit_byte(op);
     emit_byte(0);
@@ -399,6 +533,7 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     loop_exit_jumps.clear();
     loop_continue_targets.clear();
     loop_continue_forward_jumps.clear();
+    try_exit_frames.clear();
     block_scope_stack.clear();
     temp_local_id = 0;
     current_sub = nullptr;
@@ -5503,6 +5638,20 @@ Variant VisualGasicCompiler::eval_constant_expr(ExpressionNode* expr) const {
     }
     if (expr->type == ExpressionNode::BINARY_OP) {
         BinaryOpNode* b = (BinaryOpNode*)expr;
+        if (b->op.nocasecmp_to("AndAlso") == 0) {
+            Variant left = eval_constant_expr(b->left);
+            if (!vg_variant_truthy(left)) {
+                return Variant(false);
+            }
+            return Variant(vg_variant_truthy(eval_constant_expr(b->right)));
+        }
+        if (b->op.nocasecmp_to("OrElse") == 0) {
+            Variant left = eval_constant_expr(b->left);
+            if (vg_variant_truthy(left)) {
+                return Variant(true);
+            }
+            return Variant(vg_variant_truthy(eval_constant_expr(b->right)));
+        }
         Variant a = eval_constant_expr(b->left);
         Variant c = eval_constant_expr(b->right);
         bool valid = false;
@@ -9935,16 +10084,24 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             ExitStatement *s = (ExitStatement *)stmt;
             if (s->exit_type == ExitStatement::EXIT_FUNCTION || s->exit_type == ExitStatement::EXIT_SUB) {
                 // Land on End Sub / End Function (emitted as the procedure epilogue).
-                procedure_exit_jumps.push_back(emit_jump(OP_JUMP));
+                // A surrounding Try runs Finally first (innermost outward).
+                if (!try_exit_frames.is_empty()) {
+                    emit_leave_via_finally(1);
+                } else {
+                    procedure_exit_jumps.push_back(emit_jump(OP_JUMP));
+                }
             } else if ((s->exit_type == ExitStatement::EXIT_FOR || s->exit_type == ExitStatement::EXIT_DO ||
                        s->exit_type == ExitStatement::EXIT_WHILE ||
                        s->exit_type == ExitStatement::EXIT_OSCILLATE || s->exit_type == ExitStatement::EXIT_REPEAT ||
                        s->exit_type == ExitStatement::EXIT_CYCLE) &&
                        !loop_exit_jumps.is_empty()) {
-                // Emit an unconditional jump; the address will be patched
-                // when the enclosing loop finishes compiling.
-                int jump_addr = emit_jump(OP_JUMP);
-                loop_exit_jumps.write[loop_exit_jumps.size() - 1].push_back(jump_addr);
+                int li = loop_exit_jumps.size() - 1;
+                if (try_frame_encloses_loop(li)) {
+                    emit_leave_via_finally(1000 + li);
+                } else {
+                    int jump_addr = emit_jump(OP_JUMP);
+                    loop_exit_jumps.write[li].push_back(jump_addr);
+                }
             } else {
                 UtilityFunctions::print("Compiler: Unsupported exit type", s->exit_type);
                 bail_to_ast("unnamed");
@@ -10781,13 +10938,31 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
         case STMT_RETURN: {
             // Return statement (used in functions, or GoSub return if no value)
             ReturnStatement* s = (ReturnStatement*)stmt;
+            if (!try_exit_frames.is_empty()) {
+                if (s->return_value) {
+                    int hold = (current_chunk && current_chunk->return_slot >= 0 && current_chunk->return_slot <= 255)
+                            ? current_chunk->return_slot
+                            : get_or_add_local("__vg_explicit_ret", VT_UNKNOWN);
+                    compile_expression(s->return_value);
+                    if (hold < 0 || hold > 255) {
+                        bail_to_ast("Try return slot");
+                        emit_byte(OP_POP);
+                    } else {
+                        emit_bytes(OP_SET_LOCAL, (uint8_t)hold);
+                        emit_leave_via_finally(2);
+                    }
+                } else {
+                    emit_leave_via_finally(3);
+                }
+                break;
+            }
             if (s->return_value) {
                 compile_expression(s->return_value);
                 emit_byte(OP_RETURN_VALUE);
             } else {
                 // Bare "Return" — could be GoSub return or Sub exit.
-                // Emit OP_RETURN_GOSUB first; runtime checks gosub stack.
-                // If stack is empty, it falls through to OP_RETURN.
+                // OP_RETURN_GOSUB returns from GoSub, or exits the procedure
+                // when the GoSub stack is empty.
                 emit_byte(OP_RETURN_GOSUB);
             }
             break;
@@ -11112,7 +11287,12 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 bail_to_ast("unnamed");
                 break;
             }
-            int target = loop_continue_targets[loop_continue_targets.size() - 1];
+            int li = loop_continue_targets.size() - 1;
+            if (try_frame_encloses_loop(li)) {
+                emit_leave_via_finally(2000 + li);
+                break;
+            }
+            int target = loop_continue_targets[li];
             if (target < 0) {
                 // Target not yet known — emit a forward jump and record it for patching
                 int fwd = emit_jump(OP_JUMP);
@@ -11166,6 +11346,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     bail_to_ast("Try/Finally rethrow slot");
                     break;
                 }
+                if (!begin_try_exit_frame()) {
+                    break;
+                }
                 emit_constant((int64_t)0);
                 emit_bytes(OP_SET_LOCAL, (uint8_t)rethrow_slot);
                 int setup_try = emit_jump(OP_SETUP_TRY);
@@ -11173,15 +11356,18 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     compile_statement(s->try_block[i]);
                 }
                 emit_byte(OP_POP_TRY);
+                note_try_handler_popped();
                 int jump_finally = emit_jump(OP_JUMP);
                 patch_jump(setup_try);
                 emit_byte(OP_POP);
                 emit_constant((int64_t)1);
                 emit_bytes(OP_SET_LOCAL, (uint8_t)rethrow_slot);
                 patch_jump(jump_finally);
+                TryExitFrame exit_fr = close_try_exit_frame_at_finally();
                 for (int i = 0; i < s->finally_block.size(); i++) {
                     compile_statement(s->finally_block[i]);
                 }
+                emit_try_exit_dispatch(exit_fr);
                 emit_bytes(OP_GET_LOCAL, (uint8_t)rethrow_slot);
                 int skip_rethrow = emit_jump(OP_JUMP_IF_FALSE);
                 emit_byte(OP_RETHROW);
@@ -11198,6 +11384,9 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 dictionary_vars.insert(s->catch_var_name.to_lower());
             }
             
+            if (!begin_try_exit_frame()) {
+                break;
+            }
             // OP_SETUP_TRY [offset_16] — offset to the catch handler
             int setup_try = emit_jump(OP_SETUP_TRY);
             
@@ -11208,6 +11397,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             
             // No error: pop the exception handler and jump past catch
             emit_byte(OP_POP_TRY);
+            note_try_handler_popped();
             int jump_to_finally = emit_jump(OP_JUMP);
             
             // --- Catch block (exception handler target) ---
@@ -11229,10 +11419,12 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             
             // --- Finally block ---
             patch_jump(jump_to_finally);
+            TryExitFrame exit_fr = close_try_exit_frame_at_finally();
             
             for (int i = 0; i < s->finally_block.size(); i++) {
                 compile_statement(s->finally_block[i]);
             }
+            emit_try_exit_dispatch(exit_fr);
             break;
         }
         case STMT_RAISE: {

@@ -22,7 +22,7 @@ from .ir import (
     dumps_program,
     loads_program,
 )
-from .phase2_c2_ir_examples import ALL_EXAMPLES, BYVAL_ONCE_AST_KNOWN_ACTUAL
+from .phase2_c2_ir_examples import ALL_EXAMPLES, BYVAL_ONCE_AST_HISTORICAL_WRONG
 from .reference import ReferenceError, evaluate_program
 from .validate import ValidationError, validate_program
 
@@ -210,24 +210,34 @@ def run_phase2_c2_selftests() -> list[str]:
         if exc.code != "wrong_value":
             fails.append(f"MISS:c2_detector_code:{exc.code}")
 
-    # Known-actual signature helpers (pure): wrong return/type/count must not match
+    # Historical wrong signature (hits=2): inject tests must still reject drift
     try:
-        compare_observations(BYVAL_ONCE_AST_KNOWN_ACTUAL, BYVAL_ONCE_AST_KNOWN_ACTUAL)
+        compare_observations(BYVAL_ONCE_AST_HISTORICAL_WRONG, BYVAL_ONCE_AST_HISTORICAL_WRONG)
     except CompareError as exc:
-        fails.append(f"MISS:known_actual_self:{exc}")
+        fails.append(f"MISS:historical_wrong_self:{exc}")
+    # Oracle for c2_byval_once must reject the historical hits=2 observation.
+    byval_oracle = [
+        {"name": "byval_r", "type": "Integer", "value": "4", "kind": "value"},
+        {"name": "byval_hits", "type": "Integer", "value": "1", "kind": "value"},
+    ]
+    try:
+        compare_observations(byval_oracle, BYVAL_ONCE_AST_HISTORICAL_WRONG)
+        fails.append("MISS:oracle_accepts_historical_byval_double_eval")
+    except CompareError:
+        pass
     for label, actual in [
         (
             "wrong_return",
             [
                 {"name": "byval_r", "type": "Integer", "value": "99", "kind": "value"},
-                {"name": "byval_hits", "type": "Integer", "value": "2", "kind": "value"},
+                {"name": "byval_hits", "type": "Integer", "value": "1", "kind": "value"},
             ],
         ),
         (
             "wrong_type",
             [
                 {"name": "byval_r", "type": "String", "value": "4", "kind": "value"},
-                {"name": "byval_hits", "type": "Integer", "value": "2", "kind": "value"},
+                {"name": "byval_hits", "type": "Integer", "value": "1", "kind": "value"},
             ],
         ),
         (
@@ -236,13 +246,17 @@ def run_phase2_c2_selftests() -> list[str]:
         ),
         (
             "extra_obs",
-            BYVAL_ONCE_AST_KNOWN_ACTUAL
+            byval_oracle
             + [{"name": "extra", "type": "Integer", "value": "0", "kind": "value"}],
+        ),
+        (
+            "historical_double_eval",
+            BYVAL_ONCE_AST_HISTORICAL_WRONG,
         ),
     ]:
         try:
-            compare_observations(BYVAL_ONCE_AST_KNOWN_ACTUAL, actual)
-            fails.append(f"MISS:known_actual_accepts_{label}")
+            compare_observations(byval_oracle, actual)
+            fails.append(f"MISS:byval_oracle_accepts_{label}")
         except CompareError:
             pass
 
@@ -691,6 +705,16 @@ def run_phase2_c2_selftests() -> list[str]:
     from . import campaign as camp_mod
     from .runner import RunResult
 
+    def _stub_campaign_engine(td: Path):
+        """Owned fake .so so inject campaigns need neither Godot nor a real extension."""
+        fake_so = Path(td) / "_inject_fake.so"
+        fake_so.write_bytes(b"VG_SEM_INJECT_FAKE_SO")
+        real_fg = camp_mod.find_godot
+        real_re = camp_mod.resolve_extension_binary
+        camp_mod.find_godot = lambda _root: Path(td) / "_missing_godot"  # type: ignore
+        camp_mod.resolve_extension_binary = lambda _tp: fake_so  # type: ignore
+        return real_fg, real_re
+
     def _inject_campaign(label: str, mutate_obs, expect_code: str) -> None:
         real_run = camp_mod.run_program
 
@@ -722,14 +746,19 @@ def run_phase2_c2_selftests() -> list[str]:
         camp_mod.run_program = fake_run  # type: ignore
         try:
             with tempfile.TemporaryDirectory() as td:
-                report = camp_mod.run_campaign(
-                    55,
-                    1,
-                    modes=["interpreter"],
-                    out_dir=Path(td),
-                    domain="c2",
-                    timeout_secs=5,
-                )
+                real_fg, real_re = _stub_campaign_engine(Path(td))
+                try:
+                    report = camp_mod.run_campaign(
+                        55,
+                        1,
+                        modes=["interpreter"],
+                        out_dir=Path(td),
+                        domain="c2",
+                        timeout_secs=5,
+                    )
+                finally:
+                    camp_mod.find_godot = real_fg
+                    camp_mod.resolve_extension_binary = real_re
                 if not report.failures:
                     fails.append(f"MISS:campaign_inject_{label}_no_failure")
                     return
@@ -863,14 +892,19 @@ def run_phase2_c2_selftests() -> list[str]:
         camp_mod.run_program = fake  # type: ignore
         try:
             with tempfile.TemporaryDirectory() as td:
-                report = camp_mod.run_campaign(
-                    56,
-                    1,
-                    modes=["interpreter"],
-                    out_dir=Path(td),
-                    domain="c2",
-                    timeout_secs=5,
-                )
+                real_fg, real_re = _stub_campaign_engine(Path(td))
+                try:
+                    report = camp_mod.run_campaign(
+                        56,
+                        1,
+                        modes=["interpreter"],
+                        out_dir=Path(td),
+                        domain="c2",
+                        timeout_secs=5,
+                    )
+                finally:
+                    camp_mod.find_godot = real_fg
+                    camp_mod.resolve_extension_binary = real_re
                 codes = {f.failure_code for f in report.failures}
                 if code not in codes:
                     fails.append(f"MISS:campaign_inject_{label}_code:{codes}")
@@ -890,7 +924,8 @@ def run_phase2_c2_selftests() -> list[str]:
     # Real offline multi-file replay: generate via Godot, copy, remove ONLY owned staging
     import os
 
-    if os.environ.get("GODOT"):
+    # Skip when Godot is forced unavailable (pure oracle/selftest proofs).
+    if os.environ.get("GODOT") and os.environ.get("VG_SEM_FORCE_NO_GODOT") != "1":
         try:
             from .runner import run_program, find_repo_root, case_dir_slug
 

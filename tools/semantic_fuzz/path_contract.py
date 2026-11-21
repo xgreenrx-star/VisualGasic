@@ -228,15 +228,17 @@ def check_required_path_events(
     if not events:
         return "no VG_SEM_PATH events (rebuild with instrumentation?)"
     if required_mod is not None:
-        matched = [
-            e
-            for e in events
-            if e.get("fn") == target and e.get("mod") == required_mod
-        ]
+        same_fn = [e for e in events if e.get("fn") == target]
+        # Unqualified same-fn events make attribution ambiguous even when a
+        # good module-qualified event is also present — reject them.
+        for e in same_fn:
+            if not e.get("mod"):
+                return (
+                    f"unqualified path event for path_target={target} "
+                    f"(module-qualified contract)"
+                )
+        matched = [e for e in same_fn if e.get("mod") == required_mod]
         if not matched:
-            same_fn = [e for e in events if e.get("fn") == target]
-            if same_fn and all(not e.get("mod") for e in same_fn):
-                return f"missing module field for path_target={target} (module-qualified contract)"
             wrong = [
                 e.get("mod")
                 for e in same_fn

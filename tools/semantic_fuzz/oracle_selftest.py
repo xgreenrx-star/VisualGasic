@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .phase2_c1_selftest import run_phase2_c1_selftests
 from .phase2_c2_selftest import run_phase2_c2_selftests
+from .phase2_c3_selftest import run_phase2_c3_selftests
 from .reference import ibin, icmp, idiv, imod
 
 
@@ -46,5 +47,7 @@ def run_oracle_selftests() -> list[str]:
     failures.extend(run_phase2_c1_selftests())
     # Phase 2 C2 — Integer ByRef/ByVal hand tables
     failures.extend(run_phase2_c2_selftests())
+    # Phase 2 C3 — fixed arrays + dict present/missing (R12)
+    failures.extend(run_phase2_c3_selftests())
 
     return failures

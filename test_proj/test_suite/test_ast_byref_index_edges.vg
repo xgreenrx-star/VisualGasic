@@ -1,0 +1,333 @@
+' Indexed ByRef edges. Index side effects run once, including when an index or
+' a later argument raises. Named order and ReDim container identity stay observed.
+' MemoryBuffer indexed write-back is a known limitation (error 5, bytes unchanged),
+' not a desired language contract. The repeat loop is a lifetime smoke, not a
+' leak detector.
+Attribute VB_Name = "TestAstByrefIndexEdges"
+
+Type EdgePt
+	X As Integer
+End Type
+
+Dim arr(3) As Integer
+Dim grid(2, 2) As Integer
+Dim words(2) As String
+Dim pts(2) As EdgePt
+Dim gIdx As Integer
+Dim gOrder As String
+Dim gBump As Integer
+Dim passed As Integer
+Dim failed As Integer
+
+Function NextSlot() As Integer
+	NextSlot = gIdx
+	gOrder = gOrder & CStr(gIdx)
+	gIdx = gIdx + 1
+End Function
+
+Function Ix() As Integer
+	gOrder = gOrder & "X"
+	Ix = 0
+	gIdx = gIdx + 1
+End Function
+
+Function Iy() As Integer
+	gOrder = gOrder & "Y"
+	Iy = 0
+	gIdx = gIdx + 1
+End Function
+
+Function BadIdx() As Integer
+	gOrder = gOrder & "I"
+	gIdx = gIdx + 1
+	Err.Raise 9, "idx", "bad index"
+	BadIdx = 0
+End Function
+
+Function BadVal() As Integer
+	gOrder = gOrder & "V"
+	Err.Raise 11, "arg", "bad val"
+	BadVal = 1
+End Function
+
+Function Poke1() As Integer
+	arr(1) = 77
+	gOrder = gOrder & "P"
+	Poke1 = 0
+End Function
+
+Function Rebind() As Integer
+	ReDim arr(3)
+	arr(0) = 1
+	arr(1) = 2
+	arr(2) = 3
+	gOrder = gOrder & "D"
+	Rebind = 0
+End Function
+
+Sub Bump(ByRef v As Integer)
+	gBump = gBump + 1
+	v = v + 100
+End Sub
+
+Function BumpFn(ByRef v As Integer) As Integer
+	gBump = gBump + 1
+	v = v + 100
+	BumpFn = v
+End Function
+
+Function Peek(ByVal v As Integer) As Integer
+	gBump = gBump + 1
+	Peek = v + 1
+End Function
+
+Sub Two(ByRef x As Integer, ByVal y As Integer)
+	gBump = gBump + 1
+	x = x + 100
+End Sub
+
+Sub Boom(ByRef v As Integer)
+	gBump = gBump + 1
+	v = v + 100
+	Err.Raise 5, "cal", "boom"
+End Sub
+
+Sub Pair(ByRef x As Integer, ByRef y As Integer)
+	gBump = gBump + 1
+	x = x + 1
+	y = y + 10
+End Sub
+
+Function PairFn(ByRef x As Integer, ByRef y As Integer) As Integer
+	gBump = gBump + 1
+	x = x + 1
+	y = y + 10
+	PairFn = x * 100 + y
+End Function
+
+Sub ResetArr()
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	arr(3) = 40
+	gIdx = 0
+	gOrder = ""
+	gBump = 0
+End Sub
+
+Sub AssertEq(got As Variant, expect As Variant, label As String)
+	If CStr(got) = CStr(expect) Then
+		passed = passed + 1
+		Print "PASS: " & label
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(got) & " expect=" & CStr(expect)
+	End If
+End Sub
+
+' Named argument order is observed, not a contract. Either once-only pair is valid.
+Sub AssertOncePair(a0 As Integer, a1 As Integer, label As String)
+	Dim ok As Boolean
+	ok = False
+	If a0 = 20 And a1 = 21 Then
+		ok = True
+	End If
+	If a0 = 11 And a1 = 30 Then
+		ok = True
+	End If
+	Call AssertEq(gIdx, 2, label & " indexes once")
+	Call AssertEq(arr(2), 30, label & " later slot")
+	Call AssertEq(arr(3), 40, label & " last slot")
+	If ok Then
+		passed = passed + 1
+		Print "PASS: " & label & " once-only pair"
+	Else
+		failed = failed + 1
+		Print "FAIL: " & label & " once-only pair got=" & CStr(a0) & "," & CStr(a1)
+	End If
+	Print "OBSERVED_UNSETTLED kind=" & label & " a0=" & CStr(a0) & " a1=" & CStr(a1) & " idx=" & CStr(gIdx)
+End Sub
+
+Sub _Ready()
+	Dim n As Integer
+	Dim r As Integer
+	Dim i As Integer
+	Dim b0 As Integer
+	Dim b1 As Integer
+	Dim pb As PackedByteArray
+	Dim buf As New MemoryBuffer(8)
+
+	ResetArr
+	words(0) = "ab"
+	words(1) = "cdef"
+	n = Len(words(NextSlot()))
+	Call AssertEq(n, 2, "builtin length")
+	Call AssertEq(gIdx, 1, "builtin index once")
+	Call AssertEq(words(0), "ab", "builtin no write")
+
+	ResetArr
+	r = Peek(arr(NextSlot()))
+	Call AssertEq(r, 11, "byval read")
+	Call AssertEq(arr(0), 10, "byval no write")
+	Call AssertEq(gIdx, 1, "byval index once")
+
+	pts(0).X = 10
+	pts(1).X = 20
+	gIdx = 0
+	gOrder = ""
+	r = Peek(pts(NextSlot()).X)
+	Call AssertEq(r, 11, "byval member read")
+	Call AssertEq(pts(0).X, 10, "byval member no write")
+	Call AssertEq(gIdx, 1, "byval member index once")
+
+	grid(0, 0) = 10
+	grid(0, 1) = 20
+	grid(1, 0) = 30
+	grid(1, 1) = 40
+	gIdx = 0
+	gOrder = ""
+	gBump = 0
+	Call Bump(grid(Ix(), Iy()))
+	Call AssertEq(grid(0, 0), 110, "grid first cell")
+	Call AssertEq(grid(0, 1), 20, "grid row neighbor")
+	Call AssertEq(grid(1, 0), 30, "grid col neighbor")
+	Call AssertEq(grid(1, 1), 40, "grid far cell")
+	Call AssertEq(gIdx, 2, "grid indexes once")
+	Call AssertEq(gOrder, "XY", "grid index order")
+	Call AssertEq(gBump, 1, "grid callee")
+
+	pb = PackedByteArray(Array(10, 20, 30, 40))
+	gIdx = 0
+	gOrder = ""
+	gBump = 0
+	Call Bump(pb(NextSlot()))
+	Call AssertEq(pb(0), 110, "packed first byte")
+	Call AssertEq(pb(1), 20, "packed other byte")
+	Call AssertEq(gIdx, 1, "packed index once")
+	Call AssertEq(gBump, 1, "packed callee")
+
+	buf(0) = 10
+	buf(1) = 20
+	gIdx = 0
+	gOrder = ""
+	gBump = 0
+	' Known limitation, not the contract. assign_to_target rejects this object
+	' with error 5 and leaves the bytes unchanged. When indexed MemoryBuffer
+	' write-back is implemented, change the five asserts below to error 0,
+	' byte 0 = 110, byte 1 = 20, one index, and one callee, and delete this note.
+	On Error Resume Next
+	Call Bump(buf(NextSlot()))
+	b0 = buf(0)
+	b1 = buf(1)
+	Call AssertEq(Err.Number, 5, "buffer write unsupported")
+	Call AssertEq(b0, 10, "buffer byte unchanged")
+	Call AssertEq(b1, 20, "buffer other byte")
+	Call AssertEq(gIdx, 1, "buffer index once")
+	Call AssertEq(gBump, 1, "buffer callee")
+	Print "KNOWN_LIMITATION kind=buffer_byref_writeback err=5 bytes_unchanged index_once"
+	Err.Clear
+	On Error GoTo 0
+
+	On Error Resume Next
+	Err.Raise 5, "pre", "before"
+	ResetArr
+	Call Bump(arr(NextSlot()))
+	Call AssertEq(gBump, 1, "preexisting error still calls")
+	Call AssertEq(arr(0), 110, "preexisting error write")
+	Call AssertEq(arr(1), 20, "preexisting error other")
+	Call AssertEq(gIdx, 1, "preexisting error index once")
+	Call AssertEq(Err.Number, 5, "preexisting error kept")
+	Err.Clear
+
+	ResetArr
+	Call Bump(arr(BadIdx()))
+	Call AssertEq(gBump, 1, "bad index still calls")
+	Call AssertEq(arr(0), 110, "bad index write")
+	Call AssertEq(arr(1), 20, "bad index other")
+	Call AssertEq(gIdx, 1, "bad index once")
+	Call AssertEq(gOrder, "I", "bad index no rewrite")
+	Call AssertEq(Err.Number, 9, "bad index error")
+	Err.Clear
+
+	ResetArr
+	Call Two(arr(NextSlot()), BadVal())
+	Call AssertEq(gBump, 1, "later arg still calls")
+	Call AssertEq(arr(0), 110, "later arg write")
+	Call AssertEq(arr(1), 20, "later arg other")
+	Call AssertEq(gIdx, 1, "later arg index once")
+	Call AssertEq(gOrder, "0V", "later arg order")
+	Call AssertEq(Err.Number, 11, "later arg error")
+	Err.Clear
+
+	ResetArr
+	Call Boom(arr(NextSlot()))
+	Call AssertEq(gBump, 1, "callee raise ran")
+	Call AssertEq(arr(0), 110, "callee raise write")
+	Call AssertEq(gIdx, 1, "callee raise index once")
+	Call AssertEq(Err.Number, 5, "callee raise error")
+	Err.Clear
+
+	ResetArr
+	r = 0
+	r = BumpFn(arr(BadIdx()))
+	Call AssertEq(r, 110, "expr bad index result")
+	Call AssertEq(gBump, 1, "expr bad index callee")
+	Call AssertEq(arr(0), 110, "expr bad index write")
+	Call AssertEq(gIdx, 1, "expr bad index once")
+	Call AssertEq(gOrder, "I", "expr bad index no rewrite")
+	Call AssertEq(Err.Number, 9, "expr bad index error")
+	Err.Clear
+	On Error GoTo 0
+
+	ResetArr
+	Call Two(arr(NextSlot()), Poke1())
+	Call AssertEq(arr(0), 110, "poke write slot")
+	Call AssertEq(arr(1), 77, "poke other kept")
+	Call AssertEq(gIdx, 1, "poke index once")
+	Call AssertEq(gBump, 1, "poke callee")
+
+	' ReDim replaces the array the name refers to. The frozen index is 0.
+	' The original array object is not pinned.
+	ResetArr
+	Call Two(arr(NextSlot()), Rebind())
+	Print "OBSERVED_UNSETTLED kind=rebind slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " slot2=" & CStr(arr(2)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertEq(gIdx, 1, "rebind index once")
+	Call AssertEq(gOrder, "0D", "rebind index before redim")
+	Call AssertEq(arr(0), 110, "rebind write uses frozen index")
+	Call AssertEq(arr(1), 2, "rebind replacement slot")
+	Call AssertEq(gBump, 1, "rebind callee")
+
+	ResetArr
+	Call Pair(y:=arr(NextSlot()), x:=arr(NextSlot()))
+	Call AssertOncePair(arr(0), arr(1), "named_stmt")
+	Call AssertEq(gBump, 1, "named_stmt callee")
+
+	ResetArr
+	r = PairFn(y:=arr(NextSlot()), x:=arr(NextSlot()))
+	Call AssertOncePair(arr(0), arr(1), "named_expr")
+	If (arr(0) = 20 And r = 2120) Or (arr(0) = 11 And r = 1130) Then
+		passed = passed + 1
+		Print "PASS: named_expr result matches pair"
+	Else
+		failed = failed + 1
+		Print "FAIL: named_expr result matches pair r=" & CStr(r)
+	End If
+
+	' Lifetime smoke only. This is not a leak detector.
+	For i = 1 To 40
+		ResetArr
+		Call Bump(arr(NextSlot()))
+		If arr(0) <> 110 Or arr(1) <> 20 Or gIdx <> 1 Or gBump <> 1 Then
+			failed = failed + 1
+			Print "FAIL: repeat invocation i=" & CStr(i)
+		End If
+	Next
+	Call AssertEq(i, 41, "repeat invocation finished")
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: ast_byref_index_edges"
+	Else
+		Print "FAIL: ast_byref_index_edges"
+	End If
+End Sub

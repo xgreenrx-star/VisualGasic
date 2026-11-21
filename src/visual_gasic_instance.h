@@ -67,6 +67,41 @@ struct VgVariables : public Dictionary {
     }
 };
 
+// Owned duplicates of ByRef lvalues whose indices were evaluated once.
+// The call that created them deletes every duplicate on every return.
+struct VGByRefFrozenArgs {
+	struct Item {
+		ExpressionNode *src = nullptr;
+		ExpressionNode *owned = nullptr;
+	};
+	Vector<Item> items;
+	VGByRefFrozenArgs() = default;
+	VGByRefFrozenArgs(const VGByRefFrozenArgs &) = delete;
+	VGByRefFrozenArgs &operator=(const VGByRefFrozenArgs &) = delete;
+	~VGByRefFrozenArgs() {
+		for (int i = 0; i < items.size(); i++) {
+			delete items[i].owned;
+		}
+	}
+	void keep(ExpressionNode *src, ExpressionNode *owned) {
+		if (!owned) {
+			return;
+		}
+		Item it;
+		it.src = src;
+		it.owned = owned;
+		items.push_back(it);
+	}
+	ExpressionNode *dest(ExpressionNode *src) const {
+		for (int i = 0; i < items.size(); i++) {
+			if (items[i].src == src && items[i].owned) {
+				return items[i].owned;
+			}
+		}
+		return src;
+	}
+};
+
 class VisualGasicInstance {
     friend class VisualGasicExpressionEvaluator;
     friend class godot::VGCanvasDrawDelegate;
@@ -836,6 +871,10 @@ private:
     // True when AST ByRef write-back may assign into `target` (mirrors
     // VisualGasicCompiler::emit_byref_writebacks — skip nested calls / temps).
     bool is_byref_writeback_target(ExpressionNode* target);
+    // Duplicate an indexed ByRef lvalue and replace dynamic indices with the
+    // literals just evaluated. Null when `target` has no dynamic index.
+    // Caller owns the returned node. On error the duplicate is already freed.
+    ExpressionNode *freeze_byref_lvalue(ExpressionNode *target);
     void assign_variable(const String& name, Variant val);
     void check_whenever_conditions(const String& variable_name, const Variant& new_value);
     void check_expression_conditions();  // For complex expression monitoring

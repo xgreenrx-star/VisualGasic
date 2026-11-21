@@ -46,6 +46,19 @@ def run_ci_gate_selftests() -> list[str]:
     import tools.semantic_fuzz.campaign as camp_mod
 
     real_run = camp_mod.run_program
+    real_fg = camp_mod.find_godot
+    real_re = camp_mod.resolve_extension_binary
+
+    def _stub_engine(td: Path):
+        fake_so = Path(td) / "_ci_fake.so"
+        fake_so.write_bytes(b"VG_SEM_CI_FAKE_SO")
+        camp_mod.find_godot = lambda _root: Path(td) / "_missing_godot"  # type: ignore
+        camp_mod.resolve_extension_binary = lambda _tp: fake_so  # type: ignore
+
+    def _restore_engine():
+        camp_mod.find_godot = real_fg
+        camp_mod.resolve_extension_binary = real_re
+        camp_mod.run_program = real_run
 
     def _path_for(prog, mode: str) -> tuple[list, dict]:
         want = prog.required_path.get(mode) or "bytecode"
@@ -81,6 +94,7 @@ def run_ci_gate_selftests() -> list[str]:
 
     with tempfile.TemporaryDirectory() as td:
         camp_mod.run_program = corrupt_obs  # type: ignore
+        _stub_engine(Path(td))
         try:
             report = run_campaign(4242, 1, modes=["interpreter"], out_dir=Path(td) / "wrong")
             if report.ok or len(report.failures) < 1:
@@ -95,7 +109,7 @@ def run_ci_gate_selftests() -> list[str]:
                 if meta.get("failure_code") not in ("wrong_value", "wrong_type", "count_mismatch"):
                     fails.append(f"MISS:unexpected_failure_code:{meta.get('failure_code')}")
         finally:
-            camp_mod.run_program = real_run
+            _restore_engine()
 
     def drop_paths(prog, **kwargs):
         mode = kwargs.get("mode") or "default"
@@ -115,6 +129,7 @@ def run_ci_gate_selftests() -> list[str]:
 
     with tempfile.TemporaryDirectory() as td:
         camp_mod.run_program = drop_paths  # type: ignore
+        _stub_engine(Path(td))
         # Force a warmup case that requires native_t2 under default (path events mandatory).
         from .generator import gen_module_local_warmup
         from random import Random as _Rnd
@@ -132,8 +147,8 @@ def run_ci_gate_selftests() -> list[str]:
             if not list((Path(td) / "path").rglob("failure.json")):
                 fails.append("MISS:path_mismatch_bundle_missing")
         finally:
-            camp_mod.run_program = real_run
             camp_mod.generate_batch = real_batch
+            _restore_engine()
 
     # --- missing extension/instrumentation cannot go green ---
     from .runner import check_required_path

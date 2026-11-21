@@ -1,0 +1,117 @@
+' C3 deterministic array slot: ByVal control, ByRef mutation, impure index once.
+' Pure and impure live in separate Subs so an impure AST fallback cannot hide
+' the literal-index path.
+'
+' Hand table (Integer), start [10,20,30]:
+'   Peek(ByVal arr(1)): mutates its own copy (v:=v+50) and returns v+1 → 71;
+'     caller slots stay [10,20,30]; gPeekHits=1 (proves a real call).
+'   Bump(ByRef arr(1)) → [10,120,30]
+'   Bump(arr(NextSlot())) with NextSlot→0 → [110,20,30]; gIdx=1
+'
+' Peek is intentionally not a single-statement return-param+const. The compiler
+' inlines those trivial fast-call helpers (try_emit_inline_trivial_user_call),
+' which produced no VG_SEM_PATH event under bytecode. Module side effects keep
+' a real OP_CALL so path instrumentation can record Peek.
+'
+' Contracts: lang ref ByVal/ByRef; SEMANTIC_FUZZ_CONTRACTS indexed once-eval.
+Attribute VB_Name = "TestSemC3ArraySlot"
+Option Explicit
+
+Dim arr(2) As Integer
+Dim gIdx As Integer
+Dim gOrder As String
+Dim gPeekHits As Integer
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub ResetArr()
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	gIdx = 0
+	gOrder = ""
+End Sub
+
+Function NextSlot() As Integer
+	NextSlot = gIdx
+	gOrder = gOrder & CStr(gIdx)
+	gIdx = gIdx + 1
+End Function
+
+' ByVal: mutate the parameter copy, bump an entry counter, return hand value.
+Function Peek(ByVal v As Integer) As Integer
+	gPeekHits = gPeekHits + 1
+	v = v + 50
+	Peek = v + 1
+End Function
+
+Sub Bump(ByRef v As Integer)
+	v = v + 100
+End Sub
+
+' Literal index only — eligible for bytecode when the caller does not bail.
+Sub RunPureLiteral()
+	Dim r As Integer
+	ResetArr
+	gPeekHits = 0
+	r = Peek(arr(1))
+	Call AssertObs(r, 71, "Integer", "c3_array_byval_return")
+	Call AssertObs(gPeekHits, 1, "Integer", "c3_array_byval_peek_hits")
+	Call AssertObs(arr(0), 10, "Integer", "c3_array_byval_left_neighbor")
+	Call AssertObs(arr(1), 20, "Integer", "c3_array_byval_slot_unchanged")
+	Call AssertObs(arr(2), 30, "Integer", "c3_array_byval_right_neighbor")
+	Call AssertObs(TypeName(arr(1)), "Integer", "String", "c3_array_element_type")
+
+	Call Bump(arr(1))
+	Call AssertObs(arr(0), 10, "Integer", "c3_array_byref_left_neighbor")
+	Call AssertObs(arr(1), 120, "Integer", "c3_array_byref_slot")
+	Call AssertObs(arr(2), 30, "Integer", "c3_array_byref_right_neighbor")
+	Call AssertObs(TypeName(arr(1)), "Integer", "String", "c3_array_byref_element_type")
+End Sub
+
+' Impure index — compiler may bail; this Sub stays on AST under non-forced modes.
+Sub RunImpureIndex()
+	ResetArr
+	Call Bump(arr(NextSlot()))
+	Call AssertObs(arr(0), 110, "Integer", "c3_array_impure_written_slot")
+	Call AssertObs(arr(1), 20, "Integer", "c3_array_impure_neighbor")
+	Call AssertObs(arr(2), 30, "Integer", "c3_array_impure_far_neighbor")
+	Call AssertObs(gIdx, 1, "Integer", "c3_array_impure_index_once")
+	Call AssertObs(gOrder, "0", "String", "c3_array_impure_index_order")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunPureLiteral()
+	Call RunImpureIndex()
+	Print "C3_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c3_array_slot"
+	Else
+		Print "FAIL: sem_c3_array_slot"
+	End If
+End Sub

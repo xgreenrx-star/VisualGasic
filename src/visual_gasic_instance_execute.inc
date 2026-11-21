@@ -1084,8 +1084,13 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
             }
             Array call_args;
             int arg_count = stmt_args.size();
+            // stmt_args is already parameter order. Freeze indexed lvalues
+            // during this single evaluation; write-back uses the same nodes.
+            VGByRefFrozenArgs byref_frozen;
             for(int i=0; i<arg_count; i++) {
-                call_args.push_back(evaluate_expression(stmt_args[i]));
+                ExpressionNode *frozen = freeze_byref_lvalue(stmt_args[i]);
+                byref_frozen.keep(stmt_args[i], frozen);
+                call_args.push_back(evaluate_expression(frozen ? frozen : stmt_args[i]));
             }
 
             // Try centralized statement-level builtins first
@@ -2487,20 +2492,25 @@ void VisualGasicInstance::execute_statement(Statement* stmt) {
                         }
                     }
                     if (!called_func) {
-                        called_func = find_imported_sub(s->method_name, (int)s->arguments.size(), nullptr);
+                        called_func = find_imported_sub(s->method_name, stmt_args.size(), nullptr);
                     }
                     
                     if (called_func) {
                         int max_params = called_func->parameters.size();
-                        int arg_count = s->arguments.size();
+                        // stmt_args is the parameter-order lvalue list (named bind
+                        // permutes the copy). Do not write back through source order.
+                        int arg_count = stmt_args.size();
+                        // Copy first. Re-entering a call from a write-back used to
+                        // clear _last_byref_captures and drop every later argument.
+                        const Vector<Pair<String, Variant>> byref_saved = _last_byref_captures;
                         for (int i = 0; i < max_params && i < arg_count; i++) {
                             const Parameter& param = called_func->parameters[i];
                             // If ByRef (not ByVal), write back to variable or array slot.
                             // Skip nested calls / non-LValues (matches emit_byref_writebacks).
-                            if (param.is_by_ref && s->arguments[i] && is_byref_writeback_target(s->arguments[i])) {
-                                for (int j = 0; j < _last_byref_captures.size(); j++) {
-                                    if (_last_byref_captures[j].first == param.name) {
-                                        assign_to_target(s->arguments[i], _last_byref_captures[j].second);
+                            if (param.is_by_ref && stmt_args[i] && is_byref_writeback_target(stmt_args[i])) {
+                                for (int j = 0; j < byref_saved.size(); j++) {
+                                    if (byref_saved[j].first == param.name) {
+                                        assign_to_target(byref_frozen.dest(stmt_args[i]), byref_saved[j].second);
                                         break;
                                     }
                                 }

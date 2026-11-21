@@ -133,7 +133,7 @@ via `vg_evaluate_vb_numeric`).
 ## Not done / next
 
 1. Phase 2 C1: model Variant/Double in IR/reference only after fixtures stay green; pairwise matrix.
-2. C2 harness corrections landed (gate, Variant/order asserts, bounded call model, detector negatives, contracts). CP4 ByRef generators blocked until review. Index-once remains explicit `C2_KNOWN_FAIL`. Then C3/C4.
+2. C2 harness corrections landed (gate, Variant/order asserts, bounded call model, detector negatives, contracts). CP4 ByRef generators blocked until review. Indexed ByRef once-eval is a strict fixture assert (the old `C2_KNOWN_FAIL index_evals=2` line is history). Then C3/C4.
 3. Longer scheduled campaigns / game-shaped integration (next handoff priority).
 4. Do not commit until review (per assignment).
 

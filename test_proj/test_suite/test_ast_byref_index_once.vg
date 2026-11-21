@@ -1,0 +1,236 @@
+' Indexed ByRef must resolve the index once and write that same slot.
+' NextSlot returns 0, then 1, then 2, ... A second evaluation writes a different slot.
+' Impure indexes decline bytecode and run on the AST walker. This file asserts
+' the slot and the count. It does not claim a requested JIT tier executed.
+Import "byref_index_helper.vg"
+Attribute VB_Name = "TestAstByrefIndexOnce"
+
+Type IdxPt
+	X As Integer
+End Type
+
+Dim arr(3) As Integer
+Dim grid(2, 2) As Integer
+Dim pts(2) As IdxPt
+Dim gIdx As Integer
+Dim gOrder As String
+Dim gHits As Integer
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(actual As Variant, expected As Variant, typ As String, label As String)
+	If TypeName(actual) <> typ Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type want=" & typ & " got=" & TypeName(actual)
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " want=" & CStr(expected) & " got=" & CStr(actual)
+	Else
+		passed = passed + 1
+		Print "PASS: " & label
+	End If
+End Sub
+
+Sub ResetArr()
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	arr(3) = 40
+	gIdx = 0
+	gOrder = ""
+	gHits = 0
+End Sub
+
+Function NextSlot() As Integer
+	NextSlot = gIdx
+	gOrder = gOrder & CStr(gIdx)
+	gIdx = gIdx + 1
+End Function
+
+Function NextKey() As String
+	If gIdx = 0 Then
+		NextKey = "a"
+		gOrder = gOrder & "a"
+	Else
+		NextKey = "b"
+		gOrder = gOrder & "b"
+	End If
+	gIdx = gIdx + 1
+End Function
+
+Function Slot0() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "A"
+	Slot0 = 0
+End Function
+
+Function Slot1() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "B"
+	Slot1 = 1
+End Function
+
+Sub Bump(ByRef v As Integer)
+	v = v + 100
+End Sub
+
+Function BumpFn(ByRef v As Integer) As Integer
+	v = v + 100
+	BumpFn = v
+End Function
+
+Function Peek(ByVal v As Integer) As Integer
+	Peek = v + 1
+End Function
+
+Sub Wrap(ByRef v As Integer)
+	Call Bump(v)
+End Sub
+
+Sub Pair(ByRef x As Integer, ByRef y As Integer)
+	x = x + 1
+	y = y + 10
+End Sub
+
+Function Rec(ByRef v As Integer, ByVal depth As Integer) As Integer
+	If depth <= 0 Then
+		v = v + 100
+		Rec = v
+	Else
+		Rec = Rec(arr(NextSlot()), depth - 1)
+	End If
+End Function
+
+Sub _Ready()
+	Dim r As Integer
+	Dim pairOk As Boolean
+
+	ResetArr
+	Call Bump(arr(NextSlot()))
+	Print "OBSERVED kind=stmt_index slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(arr(0), 110, "Integer", "stmt first slot")
+	Call AssertObs(arr(1), 20, "Integer", "stmt other slot")
+	Call AssertObs(gIdx, 1, "Integer", "stmt index once")
+	Call AssertObs(gOrder, "0", "String", "stmt index order")
+
+	ResetArr
+	r = BumpFn(arr(NextSlot()))
+	Print "OBSERVED kind=expr_index result=" & CStr(r) & " slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(r, 110, "Integer", "expr return")
+	Call AssertObs(arr(0), 110, "Integer", "expr first slot")
+	Call AssertObs(arr(1), 20, "Integer", "expr other slot")
+	Call AssertObs(gIdx, 1, "Integer", "expr index once")
+
+	ResetArr
+	r = Peek(arr(NextSlot()))
+	Print "OBSERVED kind=byval_index result=" & CStr(r) & " slot0=" & CStr(arr(0)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(r, 11, "Integer", "byval return")
+	Call AssertObs(arr(0), 10, "Integer", "byval slot unchanged")
+	Call AssertObs(gIdx, 1, "Integer", "byval index once")
+
+	ResetArr
+	Call Bump(arr(0))
+	Print "OBSERVED kind=pure_index slot0=" & CStr(arr(0)) & " idx=" & CStr(gIdx)
+	Call AssertObs(arr(0), 110, "Integer", "pure index slot")
+	Call AssertObs(gIdx, 0, "Integer", "pure index no helper")
+
+	ResetArr
+	Call Wrap(arr(NextSlot()))
+	Print "OBSERVED kind=nested_index slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(arr(0), 110, "Integer", "nested first slot")
+	Call AssertObs(arr(1), 20, "Integer", "nested other slot")
+	Call AssertObs(gIdx, 1, "Integer", "nested index once")
+
+	ResetArr
+	Call ImpBump(arr(NextSlot()))
+	Print "OBSERVED kind=import_index slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(arr(0), 110, "Integer", "import first slot")
+	Call AssertObs(arr(1), 20, "Integer", "import other slot")
+	Call AssertObs(gIdx, 1, "Integer", "import index once")
+
+	ResetArr
+	Call Pair(y:=arr(Slot1()), x:=arr(Slot0()))
+	Print "OBSERVED kind=named_fixed slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " hits=" & CStr(gHits) & " order=" & gOrder
+	Call AssertObs(arr(0), 11, "Integer", "named fixed x slot")
+	Call AssertObs(arr(1), 30, "Integer", "named fixed y slot")
+	Call AssertObs(gHits, 2, "Integer", "named fixed index once each")
+
+	' Source order and parameter order select different first slots. Both are
+	' once-only. A second evaluation writes arr(2) or arr(3). The order itself
+	' stays an observed discrepancy, not a contract.
+	ResetArr
+	Call Pair(y:=arr(NextSlot()), x:=arr(NextSlot()))
+	pairOk = (arr(0) = 20 And arr(1) = 21) Or (arr(0) = 11 And arr(1) = 30)
+	Print "OBSERVED_UNSETTLED kind=named_index slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " slot2=" & CStr(arr(2)) & " slot3=" & CStr(arr(3)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(gIdx, 2, "Integer", "named index once each")
+	Call AssertObs(arr(2), 30, "Integer", "named later slot 2")
+	Call AssertObs(arr(3), 40, "Integer", "named later slot 3")
+	If pairOk Then
+		passed = passed + 1
+		Print "PASS: named index wrote the first two slots"
+	Else
+		failed = failed + 1
+		Print "FAIL: named index wrote the first two slots got0=" & CStr(arr(0)) & " got1=" & CStr(arr(1))
+	End If
+
+	ResetArr
+	r = Rec(arr(NextSlot()), 1)
+	Print "OBSERVED kind=rec_index result=" & CStr(r) & " slot0=" & CStr(arr(0)) & " slot1=" & CStr(arr(1)) & " slot2=" & CStr(arr(2)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(r, 120, "Integer", "rec return")
+	Call AssertObs(arr(0), 10, "Integer", "rec outer slot")
+	Call AssertObs(arr(1), 120, "Integer", "rec inner slot")
+	Call AssertObs(arr(2), 30, "Integer", "rec untouched slot")
+	Call AssertObs(gIdx, 2, "Integer", "rec index once per call")
+
+	grid(0, 0) = 10
+	grid(1, 0) = 20
+	grid(0, 1) = 30
+	gIdx = 0
+	gOrder = ""
+	Call Bump(grid(NextSlot(), 0))
+	Print "OBSERVED kind=grid_index g00=" & CStr(grid(0, 0)) & " g10=" & CStr(grid(1, 0)) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(grid(0, 0), 110, "Integer", "grid first slot")
+	Call AssertObs(grid(1, 0), 20, "Integer", "grid other slot")
+	Call AssertObs(gIdx, 1, "Integer", "grid index once")
+
+	pts(0).X = 10
+	pts(1).X = 20
+	gIdx = 0
+	gOrder = ""
+	Call Bump(pts(0).X)
+	Print "OBSERVED kind=member_literal x0=" & CStr(pts(0).X) & " x1=" & CStr(pts(1).X)
+	Call AssertObs(pts(0).X, 110, "Integer", "member literal slot")
+	Call AssertObs(pts(1).X, 20, "Integer", "member literal other")
+	pts(0).X = 10
+	pts(1).X = 20
+	gIdx = 0
+	gOrder = ""
+	Call Bump(pts(NextSlot()).X)
+	Print "OBSERVED kind=member_index x0=" & CStr(pts(0).X) & " x1=" & CStr(pts(1).X) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(pts(0).X, 110, "Integer", "member first slot")
+	Call AssertObs(pts(1).X, 20, "Integer", "member other slot")
+	Call AssertObs(gIdx, 1, "Integer", "member index once")
+
+	Dim dict As New Dictionary
+	dict.Add "a", 10
+	dict.Add "b", 20
+	Call Bump(dict("a"))
+	Call AssertObs(dict("a"), 110, "Integer", "dict literal key")
+	Call AssertObs(dict("b"), 20, "Integer", "dict literal other")
+	dict("a") = 10
+	dict("b") = 20
+	gIdx = 0
+	gOrder = ""
+	Call Bump(dict(NextKey()))
+	Print "OBSERVED kind=dict_index a=" & CStr(dict("a")) & " b=" & CStr(dict("b")) & " idx=" & CStr(gIdx) & " order=" & gOrder
+	Call AssertObs(dict("a"), 110, "Integer", "dict first key")
+	Call AssertObs(dict("b"), 20, "Integer", "dict other key")
+	Call AssertObs(gIdx, 1, "Integer", "dict index once")
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: ast_byref_index_once"
+	Else
+		Print "FAIL: ast_byref_index_once"
+	End If
+End Sub

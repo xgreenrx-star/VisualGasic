@@ -177,8 +177,8 @@ hiding a wrong type). Nested order uses an event string
 
 **Fixture gate:** `tools/semantic_fuzz/c2_fixture_gate.judge_c2_log` — a log
 with `SCRIPT ERROR` + completion marker + exit 17 + zero `PASS:` is **FAIL**,
-not PASSED. Primary fixture also requires an explicit
-`C2_KNOWN_FAIL index_evals=N want=1` line (N≠1).
+not PASSED. Primary fixture asserts indexed ByRef once (`gIdxEvals=1` and
+slot `105`). A `C2_KNOWN_FAIL index_evals=` line is rejected.
 
 ### Prior-art map (existing fixtures)
 
@@ -219,17 +219,84 @@ Independent model: `tools/semantic_fuzz/byref_model.run_hand_tables`.
 
 | Topic | Evidence | Action |
 |---|---|---|
-| Side-effecting index evaluated once | `BumpSlot(arr(IdxSide()))`: write-back OK (`105`), but `IdxSide` runs **twice** (bind + write-back) on forced_ast, interpreter, default, and tier3-request | Gate requires **exactly one** `C2_KNOWN_FAIL index_evals=2 want=1` (documented defect). Rejects 0/1/3/999, duplicates, malformed, and missing records. Count `1` → `index_once_unexpectedly_fixed_update_contracts` (must update contracts, not silent waive). **Not** silent green. No random indexed-ByRef oracle until once-eval is fixed in engine. |
+| Side-effecting index evaluated once | `BumpSlot(arr(IdxSide()))` writes slot `105` and `IdxSide` runs once. History: before the AST freeze, the same call wrote the right slot only because `IdxSide` always returned 1, while the index ran twice. That `index_evals=2` line is history, not a pass. | Gate requires the once assertion and the slot assertion. A `C2_KNOWN_FAIL index_evals=` record (including 2) fails `judge_c2_log`. Wrong slot, wrong count, and a wrong IdxSide tier fail the same entry point. Impure indexes still decline bytecode; `_Ready` may stay on the AST walker. No random indexed-ByRef oracle. |
+| Indexed ByRef captures an index, not a container | `test_ast_byref_index_edges.vg` `ReDim` during a later argument. The index is evaluated once. Write-back resolves the variable name again and stores into the replacement array. The array object from before `ReDim` is not pinned. | Unresolved container-identity contract. Do not describe the frozen index as a pinned location. No random oracle. |
+| Named-argument order across tiers | Forced AST evaluates named call arguments in source order. Bytecode modes can differ because the compiler rewrites the live AST in place, and a later bail leaves that rewritten tree. | Observation only. `obs-order-gate` is a diagnostic of the measured shapes (below). It is not a language contract and it is not a CI job. |
+| MemoryBuffer indexed ByRef write-back | `Call Bump(buf(NextSlot()))` raises error 5 `Unsupported array assignment base: buf (type Object)`. The callee runs, the index runs once, and the bytes stay unchanged. Direct `buf(i) = n` still stores. | Known limitation. `test_ast_byref_index_edges.vg` prints `KNOWN_LIMITATION kind=buffer_byref_writeback` and asserts the current error. When write-back is implemented, update those asserts to error 0, byte 0 = 110, byte 1 unchanged, one index, and one callee, and remove the limitation note. A future fix fails this fixture until that edit. |
 | Alias `f(x,x)→13` | Observed copy-in/write-back; AST/bytecode agree | Probe only; **not** oracle-locked language law |
 | Overlapping alias live-sharing | Do not model shared-cell without new evidence | Model remains copy-in/write-back |
-| Dual-import same-name `Module.Twin()` | When both `c2_path_mod_a` and `c2_path_mod_b` are imported, bare/`qualified` Twin binds the first import (observed). | Twin identity proven via single-import fixtures `test_sem_c2_twin_{a,b}_only.vg`. Dual-import fixture covers EntryA/EntryB/CallBoth module tags only. Engine fix out of this harness exchange. |
+| Dual-import same-name `Module.Twin()` | When both `c2_path_mod_a` and `c2_path_mod_b` are imported, bare/`qualified` Twin binds the first import (observed). | Visible known-defect lane `scripts/run_semantic_c2_known_defects.sh` (`ok_known_defects_visible`). Single-import fixtures `test_sem_c2_twin_{a,b}_only.vg` prove each module alone. Dual-import fixture covers EntryA/EntryB/CallBoth module tags only. Engine fix out of this harness exchange. |
+| Same-name module scalar across files | `Import` currently shares one `Dim` namespace. The language reference separates module environments. | Generator exclusion `multi_file_same_name_module_scalar`. Not a green assert and not a settled namespace contract. |
+| Tier-3 request versus executed tier | `VG_JIT=3` asks for native Tier 3. Eligible kernels in the Phase 1 smoke have been observed as `native_t2`. `native_t3=0` means Tier 3 did not execute. | `scripts/run_semantic_ci_smoke.sh` records `native_tier_counts.txt` and requires `native_t2`, not `native_t3`. Do not report a tier-3 request as a tier-3 execution. |
 | Import path attribution | `VG_SEM_PATH … mod="res://…"` on instrumented builds | Path-verified for fixtures with `path_requirements` in the manifest; others remain assertion / request-lane |
+
+### Observational order diagnostic
+
+`python3 -m tools.semantic_fuzz obs-order-gate` reruns three fixtures under
+four requested modes and checks `VG_SEM_PATH` shapes inside marked windows.
+The shapes encode today's split: the AST walker evaluates named arguments in
+source order, and the compiler can mutate the live AST before a bytecode
+bail. That split is not an approved language contract. `.github/workflows/ci.yml`
+does not run this diagnostic. Correctness stays on the VG suite and on
+`judge_c2_log` / the C2 path requirements.
+
+Update the diagnostic when the live-AST mutation is fixed and both tiers share
+one order: change `EXPECT` in `tools/semantic_fuzz/obs_order_gate.py` to that
+order, and keep the docstring stating it is observational until a language
+rule exists. Do not add the current BAN-versus-ABN table to CI as a required
+semantic check. The gate entry `run_gate` is fail-closed for a nonzero child,
+a runtime error, a missing or repeated completion, a bad summary, and a path
+event from the wrong module. Those process checks are harness hygiene. They
+do not promote the recorded order to a contract.
+
+### Remaining fuzz exclusions
+
+Phase 1 smoke is `scripts/run_semantic_ci_smoke.sh` (selftest, then seed 42,
+count 20, modes `forced_ast,interpreter,default,tier3`). The bounded C2
+campaign is `scripts/run_semantic_c2_campaign.sh` (count 14, one case per
+`C2_FAMILIES` entry, same four modes, family-coverage gate). Neither generator
+emits impure indexed ByRef, repeated ByRef alias, nested ByVal call-argument
+side effects, dual-import same-name procedures, or same-name module scalars.
 
 ### C2 exclusions (generator)
 
 Random ByRef IR, indexed ByRef with impure indices, multi-module generated
 imports, ParamArray, object ByRef, and undocumented alias cell-sharing.
 CP4 generators stay blocked until CP1–CP3 review.
+
+## Phase 2 C3 — Collections (deterministic slice)
+
+The focused fixtures `test_sem_c3_array_slot.vg` and
+`test_sem_c3_dict_keys.vg` check array element ByVal isolation and ByRef
+write-back, once-only indexed evaluation, dictionary missing-key reads, and
+present-key updates. They assert values, types, and unchanged neighbors.
+The dictionary fixture captures `Err.Number` immediately after the missing-key
+read as a Variant.
+
+Run the local, path-checked gate against an isolated test project:
+
+```bash
+python3 -m tools.semantic_fuzz c3-fixture-gate \
+  --project /absolute/path/to/test_proj --godot /absolute/path/to/godot \
+  --out /absolute/path/to/new-gate-output
+```
+
+The output directory must be new, empty, or previously owned by this gate.
+The gate checks exact assertion labels and counts, process errors, completion,
+and module-qualified paths. `python3 -m tools.semantic_fuzz selftest` includes
+gate negative and positive checks. The C3 fixture gate itself is not a CI
+step; its selftests run as part of the existing semantic smoke selftest.
+Requested Tier 3 is not proof of Tier 3 execution.
+
+Deterministic fixtures remain the path-checked gate baseline. A **bounded**
+generated C3 IR slice (`domain=c3`) covers fixed-size Integer arrays (literal
+indices only) and Dictionary present-key read/write plus missing-key probes
+(`DictMissCheck` → VarType 1 / Is Nothing / Err.Number 0 per R12). Expected
+observations come from `reference.evaluate_program`, not another VG run.
+
+Still outside the C3 oracle: missing-key ByRef write-back, container identity
+after replacement or `ReDim`, MemoryBuffer indexed ByRef, impure indexed ByRef,
+alias, and named-argument order.
 
 ## Replay / reduction provenance (shared)
 

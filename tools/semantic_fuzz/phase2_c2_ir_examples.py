@@ -390,7 +390,7 @@ def example_byval_once() -> tuple[Program, list[dict]]:
             {"hits": 0, "r": 0},
             path_target="TakeVal",
             path_targets=["TakeVal", "Side"],
-            notes="forced_ast known defect: hits=2; see known_defects/",
+            notes="regression: nested ByVal Side() once (was forced_ast hits=2)",
         ),
         expected,
     )
@@ -407,8 +407,9 @@ ALL_EXAMPLES = [
     example_byval_once,
 ]
 
-# Documented forced_ast known-actual for c2_byval_once (oracle remains hits=1).
-BYVAL_ONCE_AST_KNOWN_ACTUAL = [
+# Historical forced_ast wrong observation (hits=2) — kept for inject/negation
+# tests only. Runtime oracle for c2_byval_once is hits=1 in all modes.
+BYVAL_ONCE_AST_HISTORICAL_WRONG = [
     {"name": "byval_r", "type": "Integer", "value": "4", "kind": "value"},
     {"name": "byval_hits", "type": "Integer", "value": "2", "kind": "value"},
 ]

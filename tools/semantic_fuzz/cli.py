@@ -27,12 +27,21 @@ def cmd_selftest(_args: argparse.Namespace) -> int:
         from .ci_gate_selftest import run_ci_gate_selftests
 
         fails.extend(run_ci_gate_selftests())
+    from .obs_order_gate import run_obs_gate_entry_probes, run_obs_order_selftests
+    from .c3_fixture_gate import run_c3_gate_entry_probes
+
+    fails.extend(run_obs_order_selftests())
+    fails.extend(run_obs_gate_entry_probes())
+    fails.extend(run_c3_gate_entry_probes())
+    from .c4_fixture_gate import run_c4_gate_entry_probes
+
+    fails.extend(run_c4_gate_entry_probes())
     if fails:
         print("SELFTEST FAIL")
         for f in fails:
             print(" ", f)
         return 1
-    print("SELFTEST PASS: oracle + harness + CI gate negative tests")
+    print("SELFTEST PASS: oracle + harness + CI gate + obs order gate + c3/c4 gate")
     return 0
 
 
@@ -65,7 +74,14 @@ def cmd_run(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    min_shapes = min(8, report.generated)
+    domain = getattr(args, "domain", "phase1") or "phase1"
+    # C3 families (9); C4 single family but tree shapes diversify.
+    if domain == "c3":
+        min_shapes = min(5, report.generated)
+    elif domain == "c4":
+        min_shapes = min(5, report.generated)
+    else:
+        min_shapes = min(8, report.generated)
     if report.distinct_shapes < min_shapes:
         print(
             f"FAIL: distinct_shapes={report.distinct_shapes} < {min_shapes} "
@@ -144,10 +160,22 @@ def cmd_reduce(args: argparse.Namespace) -> int:
         return 0
 
     # Label changed-environment before reduction (library + engine hashes).
+    # Resolve selected-project binary first so missing-binary refuses even when
+    # Godot is also unavailable (entry-point order for provenance proofs).
+    from .runner import resolve_extension_binary, resolve_test_proj
+
     root = find_repo_root()
-    godot = find_godot(root)
-    so = root / "addons" / "visual_gasic" / "bin" / "libvisualgasic.linux.editor.x86_64.so"
-    binary_hash = file_sha256(so) if so.is_file() else None
+    try:
+        so = resolve_extension_binary(resolve_test_proj(root))
+    except FileNotFoundError as exc:
+        print(f"reduce refused: {exc}", file=sys.stderr)
+        return 2
+    try:
+        godot = find_godot(root)
+    except FileNotFoundError as exc:
+        print(f"reduce refused: {exc}", file=sys.stderr)
+        return 2
+    binary_hash = file_sha256(so)
     engine_hash = file_sha256(godot) if Path(godot).is_file() else None
     env_verdict = check_bundle_provenance(
         case_dir,
@@ -218,6 +246,17 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("oracle", help="hand-worked oracle boundaries only")
     p.set_defaults(func=cmd_oracle)
 
+    def cmd_c3_integration(_a: argparse.Namespace) -> int:
+        from .phase2_c3_integration_selftest import main as integ_main
+
+        return integ_main([])
+
+    p = sub.add_parser(
+        "c3-integration",
+        help="Explicit C3 Godot/extension integration (not in pure oracle)",
+    )
+    p.set_defaults(func=cmd_c3_integration)
+
     p = sub.add_parser("run", help="generate and run a seeded campaign")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--count", type=int, default=100)
@@ -227,8 +266,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--domain",
         default="phase1",
-        choices=("phase1", "c2"),
-        help="phase1=arith/select smoke domain; c2=scalar call domain",
+        choices=("phase1", "c2", "c3", "c4"),
+        help="phase1=arith/select; c2=scalar call; c3=arrays/dict; c4=AndAlso/OrElse/Not",
     )
     p.set_defaults(func=cmd_run)
 
@@ -260,6 +299,79 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--out", default="")
     p.set_defaults(func=cmd_c2_ir_lane)
+
+    def cmd_obs_order_gate(a: argparse.Namespace) -> int:
+        from .obs_order_gate import main as gate_main
+
+        argv = ["--project", a.project, "--out", a.out]
+        if a.godot:
+            argv.extend(["--godot", a.godot])
+        return gate_main(argv)
+
+    p = sub.add_parser(
+        "obs-order-gate",
+        help="Path-checked observational order gate (not selected by the suite)",
+    )
+    p.add_argument("--project", required=True)
+    p.add_argument("--godot", default="")
+    p.add_argument("--out", required=True)
+    p.set_defaults(func=cmd_obs_order_gate)
+
+    def cmd_c3_fixture_gate(a: argparse.Namespace) -> int:
+        from .c3_fixture_gate import main as gate_main
+
+        argv = ["--project", a.project, "--out", a.out]
+        if a.godot:
+            argv.extend(["--godot", a.godot])
+        if a.selftest_entry:
+            argv.append("--selftest-entry")
+        return gate_main(argv)
+
+    p = sub.add_parser(
+        "c3-fixture-gate",
+        help="Fail-closed C3 array/dict fixture gate (not wired into CI)",
+    )
+    p.add_argument("--project", required=True)
+    p.add_argument("--godot", default="")
+    p.add_argument("--out", required=True)
+    p.add_argument(
+        "--selftest-entry",
+        action="store_true",
+        help="Patched-child entry negatives only",
+    )
+    p.set_defaults(func=cmd_c3_fixture_gate)
+
+    def cmd_c4_fixture_gate(a: argparse.Namespace) -> int:
+        from .c4_fixture_gate import main as gate_main
+
+        argv = ["--project", a.project, "--out", a.out]
+        if a.godot:
+            argv.extend(["--godot", a.godot])
+        if a.selftest_entry:
+            argv.append("--selftest-entry")
+        return gate_main(argv)
+
+    p = sub.add_parser(
+        "c4-fixture-gate",
+        help="Fail-closed C4 short-circuit/error fixture gate (not wired into CI)",
+    )
+    p.add_argument("--project", required=True)
+    p.add_argument("--godot", default="")
+    p.add_argument("--out", required=True)
+    p.add_argument(
+        "--selftest-entry",
+        action="store_true",
+        help="Patched-child entry negatives only",
+    )
+    p.set_defaults(func=cmd_c4_fixture_gate)
+
+    def cmd_c4_selftest(_a: argparse.Namespace) -> int:
+        from .phase2_c4_selftest import main as c4_main
+
+        return c4_main()
+
+    p = sub.add_parser("c4-selftest", help="Pure C4 short-circuit oracle selftest")
+    p.set_defaults(func=cmd_c4_selftest)
 
     args = parser.parse_args(argv)
     return args.func(args)

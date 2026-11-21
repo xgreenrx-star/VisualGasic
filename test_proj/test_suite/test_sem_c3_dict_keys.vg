@@ -1,0 +1,91 @@
+' C3 deterministic dictionary keys: missing-key read, present write/read, neighbor.
+' Missing-key ByRef write-back is excluded (read is specified; write-back is not).
+'
+' Hand table:
+'   d("a")=10, d("b")=20
+'   errBefore = Err.Number (expect 0)
+'   x = d("nope") → Nothing, VarType 1
+'   errAfterRead As Variant = Err.Number immediately (expect value 0;
+'   TypeName(errAfterRead) proves captured type without Integer coercion)
+'   d("a") = 7 → TypeName Integer; d("b") still 20
+'
+' Contracts: VisualGasic_Language_Reference.md Dictionary missing keys;
+' SEMANTIC_FUZZ_CONTRACTS.md R12.
+Attribute VB_Name = "TestSemC3DictKeys"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf expectType = "Boolean" Then
+		If CBool(actual) <> CBool(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub RunMissingAndPresent()
+	Dim d As New Dictionary
+	Dim x As Variant
+	Dim errBefore As Integer
+	Dim errAfterRead As Variant
+	Dim errAfterType As String
+
+	d("a") = 10
+	d("b") = 20
+	errBefore = Err.Number
+	x = d("nope")
+	' Capture Err immediately as Variant — before any AssertObs can touch Err.
+	' TypeName(errAfterRead) reflects the captured value's type (no Integer Dim coercion).
+	errAfterRead = Err.Number
+	errAfterType = TypeName(errAfterRead)
+
+	Call AssertObs(errBefore, 0, "Integer", "c3_dict_err_before_clear")
+	Call AssertObs(VarType(x), 1, "Integer", "c3_dict_missing_vartype")
+	Call AssertObs(x Is Nothing, True, "Boolean", "c3_dict_missing_is_nothing")
+	Call AssertObs(errAfterRead, 0, "Integer", "c3_dict_missing_err_captured")
+	Call AssertObs(errAfterType, "Integer", "String", "c3_dict_missing_err_type")
+
+	Call AssertObs(d("a"), 10, "Integer", "c3_dict_present_read")
+	Call AssertObs(TypeName(d("a")), "Integer", "String", "c3_dict_present_type")
+	Call AssertObs(d("b"), 20, "Integer", "c3_dict_neighbor_before_write")
+
+	d("a") = 7
+	Call AssertObs(d("a"), 7, "Integer", "c3_dict_present_write")
+	Call AssertObs(TypeName(d("a")), "Integer", "String", "c3_dict_present_write_type")
+	Call AssertObs(d("b"), 20, "Integer", "c3_dict_neighbor_after_write")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunMissingAndPresent()
+	Print "C3_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c3_dict_keys"
+	Else
+		Print "FAIL: sem_c3_dict_keys"
+	End If
+End Sub

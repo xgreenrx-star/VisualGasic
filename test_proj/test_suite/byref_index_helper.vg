@@ -1,0 +1,6 @@
+' Imported indexed ByRef helper for test_ast_byref_index_once.vg
+Attribute VB_Name = "ByrefIndexHelper"
+
+Sub ImpBump(ByRef v As Integer)
+	v = v + 100
+End Sub

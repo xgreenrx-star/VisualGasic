@@ -494,16 +494,23 @@ def run_c2_gate_selftests() -> list:
         from .c2_fixture_manifest import PRIMARY_MOD
 
         out = []
-        for fn in ("StandaloneByRef", "ExprByRef", "NestedOuter", "RecAdd"):
+        for fn in (
+            "StandaloneByRef",
+            "ExprByRef",
+            "NestedOuter",
+            "RecAdd",
+            "IdxSide",
+            "BumpSlot",
+        ):
             out.append(f'VG_SEM_PATH path={tier} fn={fn} mod="{PRIMARY_MOD}"')
         return out
 
     def body_from_labels(
         labels,
         *,
-        known="C2_KNOWN_FAIL index_evals=2 want=1",
+        known=None,
         summary="PASS: sem_c2_calls_byref",
-        c2sum="C2_SUMMARY passed=15 failed=0",
+        c2sum="C2_SUMMARY passed=16 failed=0",
         typed=True,
         extra_lines=None,
         path_tier="bytecode",
@@ -582,15 +589,34 @@ def run_c2_gate_selftests() -> list:
         clean.replace("VG_SUITE_COMPLETED\n", "VG_SUITE_COMPLETED\nPASS: late\n"),
     )
     must_reject(
-        "fail_line",
+        "wrong_slot",
         body_from_labels(list(primary.pass_labels)).replace(
-            "PASS: indexed ByRef write-back slot type=Integer\n"
-            "C2_SUMMARY passed=15 failed=0",
-            "FAIL: indexed ByRef write-back slot\n"
-            "C2_SUMMARY passed=14 failed=1",
+            "PASS: indexed ByRef write-back slot type=Integer\n",
+            "FAIL: indexed ByRef write-back slot want=105 got=5\n",
+        ).replace(
+            "C2_SUMMARY passed=16 failed=0",
+            "C2_SUMMARY passed=15 failed=1",
         ),
     )
-    for bad in (0, 1, 3, 999):
+    must_reject(
+        "wrong_index_count",
+        body_from_labels(list(primary.pass_labels)).replace(
+            "PASS: indexed ByRef index once type=Integer\n",
+            "FAIL: indexed ByRef index once want=1 got=2\n",
+        ).replace(
+            "C2_SUMMARY passed=16 failed=0",
+            "C2_SUMMARY passed=15 failed=1",
+        ),
+    )
+    must_reject(
+        "wrong_index_path",
+        body_from_labels(list(primary.pass_labels)).replace(
+            'VG_SEM_PATH path=bytecode fn=IdxSide mod="res://test_suite/test_sem_c2_calls_byref.vg"',
+            'VG_SEM_PATH path=ast fn=IdxSide mod="res://test_suite/test_sem_c2_calls_byref.vg"',
+        ),
+    )
+    # Historical index_evals=2 is not a success record.
+    for bad in (0, 1, 2, 3, 999):
         must_reject(
             f"index_evals_{bad}",
             body_from_labels(
@@ -600,10 +626,12 @@ def run_c2_gate_selftests() -> list:
         )
     must_reject(
         "duplicate_known_index",
-        body_from_labels(list(primary.pass_labels)).replace(
-            "C2_KNOWN_FAIL index_evals=2 want=1\n",
-            "C2_KNOWN_FAIL index_evals=2 want=1\n"
-            "C2_KNOWN_FAIL index_evals=2 want=1\n",
+        body_from_labels(
+            list(primary.pass_labels),
+            known=(
+                "C2_KNOWN_FAIL index_evals=2 want=1\n"
+                "C2_KNOWN_FAIL index_evals=2 want=1"
+            ),
         ),
     )
     must_reject(
@@ -612,10 +640,6 @@ def run_c2_gate_selftests() -> list:
             list(primary.pass_labels),
             known="C2_KNOWN_FAIL index_evals=two want=1",
         ),
-    )
-    must_reject(
-        "missing_known_index",
-        body_from_labels(list(primary.pass_labels), known=None),
     )
     must_reject(
         "malformed_extra_summary",
@@ -629,7 +653,7 @@ def run_c2_gate_selftests() -> list:
     dropped.pop(3)
     must_reject(
         "dropped_assertion",
-        body_from_labels(dropped, c2sum="C2_SUMMARY passed=14 failed=0"),
+        body_from_labels(dropped, c2sum="C2_SUMMARY passed=15 failed=0"),
     )
     must_reject(
         "inconsistent_summary",
@@ -671,6 +695,8 @@ def run_c2_gate_selftests() -> list:
             f'VG_SEM_PATH path=bytecode fn=ExprByRef mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=NestedOuter mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=RecAdd mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=IdxSide mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=BumpSlot mod="{PRIMARY_MOD}"',
         ],
     )
     must_reject("wrong_module_same_fn", wrong_mod)
@@ -683,6 +709,8 @@ def run_c2_gate_selftests() -> list:
             f'VG_SEM_PATH path=bytecode fn=ExprByRef mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=NestedOuter mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=RecAdd mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=IdxSide mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=BumpSlot mod="{PRIMARY_MOD}"',
         ],
     )
     must_reject("missing_module_field", missing_mod)
@@ -697,6 +725,8 @@ def run_c2_gate_selftests() -> list:
             f'VG_SEM_PATH path=bytecode fn=ExprByRef mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=NestedOuter mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=RecAdd mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=IdxSide mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=BumpSlot mod="{PRIMARY_MOD}"',
         ],
     )
     must_reject("native_ast_conflict", conflict)
@@ -710,6 +740,8 @@ def run_c2_gate_selftests() -> list:
             f'VG_SEM_PATH path=bytecode fn=ExprByRef mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=NestedOuter mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=RecAdd mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=IdxSide mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=BumpSlot mod="{PRIMARY_MOD}"',
         ],
     )
     must_reject("interpreter_native", nat_interp, mode="interpreter")
@@ -724,6 +756,8 @@ def run_c2_gate_selftests() -> list:
             f'VG_SEM_PATH path=bytecode fn=ExprByRef mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=NestedOuter mod="{PRIMARY_MOD}"',
             f'VG_SEM_PATH path=bytecode fn=RecAdd mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=IdxSide mod="{PRIMARY_MOD}"',
+            f'VG_SEM_PATH path=bytecode fn=BumpSlot mod="{PRIMARY_MOD}"',
         ],
     )
     must_accept("warmup_bc_then_native", warm, mode="default")
@@ -847,7 +881,7 @@ def run_c2_gate_selftests() -> list:
     )
     good = (
         "OK test_sem_c2_calls_byref mode=default exit=0 "
-        "pass_lines=16 fail_lines=0 done=1 known=[index_evals=2 want=1]"
+        "pass_lines=17 fail_lines=0 done=1"
     )
     ok, detail = validate_positive_verdict(good, contract)
     if not ok:
@@ -866,7 +900,7 @@ def run_c2_gate_selftests() -> list:
         (
             "hide_nonzero_child",
             "OK test_sem_c2_calls_byref mode=default exit=0 "
-            "pass_lines=16 fail_lines=0 done=1 known=[index_evals=2 want=1]",
+            "pass_lines=17 fail_lines=0 done=1",
         ),
         (
             "reasons_on_ok",

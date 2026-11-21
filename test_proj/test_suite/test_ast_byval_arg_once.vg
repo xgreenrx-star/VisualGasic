@@ -1,0 +1,132 @@
+' Permanent regression: nested ByVal args evaluate once on AST and bytecode.
+' Historical defect (forced_ast): call_builtin_expr probed builtins by evaluating
+' args, then evaluate.inc evaluated them again for TakeVal(Side()) → hits=2.
+' Indexed ByRef once-eval is test_ast_byref_index_once.vg and the C2 slot assert.
+Attribute VB_Name = "TestAstByvalArgOnce"
+
+Dim gHits As Integer
+Dim gOrder As String
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(actual As Variant, expected As Variant, typ As String, label As String)
+	If TypeName(actual) <> typ Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type want=" & typ & " got=" & TypeName(actual)
+		Exit Sub
+	End If
+	If CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " want=" & CStr(expected) & " got=" & CStr(actual)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label & " type=" & typ
+End Sub
+
+Function Side() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "S"
+	Side = 3
+End Function
+
+Function SideA() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "A"
+	SideA = 10
+End Function
+
+Function SideB() As Integer
+	gHits = gHits + 1
+	gOrder = gOrder & "B"
+	SideB = 20
+End Function
+
+Function TakeVal(ByVal v As Integer) As Integer
+	gOrder = gOrder & "T"
+	TakeVal = v + 1
+End Function
+
+Function TakeTwo(ByVal x As Integer, ByVal y As Integer) As Integer
+	gOrder = gOrder & "U"
+	TakeTwo = x + y
+End Function
+
+Function TakeNamed(ByVal a As Integer, ByVal b As Integer) As Integer
+	gOrder = gOrder & "N"
+	TakeNamed = a * 100 + b
+End Function
+
+Function NestOuter(ByVal v As Integer) As Integer
+	' Receives already-evaluated TakeVal(Side()) — must not re-call TakeVal.
+	gOrder = gOrder & "O"
+	NestOuter = v
+End Function
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+
+	Dim r As Integer
+
+	' 1) Expression ByVal nested call — once-only (the historical defect)
+	gHits = 0
+	gOrder = ""
+	r = TakeVal(Side())
+	AssertObs r, 4, "Integer", "expr TakeVal(Side()) return"
+	AssertObs gHits, 1, "Integer", "expr TakeVal(Side()) Side hits"
+	AssertObs gOrder, "ST", "String", "expr TakeVal(Side()) order"
+
+	' 2) Standalone Call control — already once on all tiers
+	gHits = 0
+	gOrder = ""
+	Call TakeVal(Side())
+	AssertObs gHits, 1, "Integer", "standalone Call TakeVal(Side()) hits"
+	AssertObs gOrder, "ST", "String", "standalone Call order"
+
+	' 3) Multiple ByVal args left-to-right
+	gHits = 0
+	gOrder = ""
+	r = TakeTwo(SideA(), SideB())
+	AssertObs r, 30, "Integer", "TakeTwo(SideA,SideB) return"
+	AssertObs gHits, 2, "Integer", "TakeTwo two Side hits"
+	AssertObs gOrder, "ABU", "String", "TakeTwo LTR order"
+
+	' 4) Nested calls: Outer(TakeVal(Side())) — Side once, TakeVal once, Outer once
+	gHits = 0
+	gOrder = ""
+	r = NestOuter(TakeVal(Side()))
+	AssertObs r, 4, "Integer", "NestOuter(TakeVal(Side())) return"
+	AssertObs gHits, 1, "Integer", "nested Side hits"
+	AssertObs gOrder, "STO", "String", "nested order Side,TakeVal,Outer"
+
+	' 5) Named user call. Each Side runs once. Binding is by parameter name
+	' (return 1020). Side-effect order is unsettled: the AST walker sees
+	' source order and the compiler rewrites the live AST before bytecode
+	' eval. This fixture does not accept either order. The obs-order gate
+	' checks the printed order against the path events. Not a language contract.
+	Print "OBS_WINDOW_BEGIN kind=named_order"
+	gHits = 0
+	gOrder = ""
+	r = TakeNamed(b:=SideB(), a:=SideA())
+	Print "OBSERVED_UNSETTLED kind=named_order result=""1020"" order=" & gOrder
+	AssertObs r, 1020, "Integer", "named TakeNamed(b:=,a:=) return"
+	AssertObs gHits, 2, "Integer", "named Side hits"
+
+	' 6) Real expression builtin with side-effecting arg — evaluate once
+	gHits = 0
+	gOrder = ""
+	r = Len(CStr(Side()))
+	AssertObs r, 1, "Integer", "Len(CStr(Side())) return"
+	AssertObs gHits, 1, "Integer", "Len side-effect Side hits"
+
+	' Unknown-name / wrong-arity / same-name builtin cases live in
+	' test_ast_byval_dispatch_probe.vg. Section 7 used to repeat TakeVal.
+
+	Print "C2_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: test_ast_byval_arg_once"
+	Else
+		Print "FAIL: test_ast_byval_arg_once"
+	End If
+End Sub

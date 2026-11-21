@@ -1,0 +1,98 @@
+' C3b nested collections: Dictionary↔Array nesting, write-through, neighbor reads.
+' OBSERVED (candidate 3bdcff52, interpreter): assigning an Array/Dictionary into
+' another container shares the inner object (x = d("k"); x(1)=… mutates d("k")).
+' That is Godot container reference semantics — not a VB6 deep copy. See status
+' contract questions.
+'
+Attribute VB_Name = "TestSemC3bNested"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf expectType = "Boolean" Then
+		If CBool(actual) <> CBool(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub RunNested()
+	Dim d As New Dictionary
+	Dim inner As Variant
+	Dim x As Variant
+	Dim arr As Variant
+	Dim d0 As New Dictionary
+
+	' Dictionary whose value is an Array; write-through + neighbors.
+	inner = Array(10, 20, 30)
+	d("k") = inner
+	Print "EVENT: nested_dict_array_seeded"
+	Call AssertObs(d("k")(0), 10, "Integer", "c3b_nested_dict_arr_left")
+	Call AssertObs(d("k")(1), 20, "Integer", "c3b_nested_dict_arr_mid")
+	Call AssertObs(d("k")(2), 30, "Integer", "c3b_nested_dict_arr_right")
+	Call AssertObs(VarType(d("k")(1)), 3, "Integer", "c3b_nested_dict_arr_mid_vt")
+	d("k")(1) = 99
+	Print "EVENT: nested_dict_arr_write_through"
+	Call AssertObs(d("k")(0), 10, "Integer", "c3b_nested_dict_arr_left_after")
+	Call AssertObs(d("k")(1), 99, "Integer", "c3b_nested_dict_arr_mid_after")
+	Call AssertObs(d("k")(2), 30, "Integer", "c3b_nested_dict_arr_right_after")
+
+	' OBSERVED: x = d("k") shares the inner array (not a deep copy).
+	x = d("k")
+	x(1) = 77
+	Print "EVENT: nested_alias_mut_via_x"
+	Call AssertObs(d("k")(1), 77, "Integer", "c3b_nested_shared_via_assign")
+	Call AssertObs(x(1), 77, "Integer", "c3b_nested_shared_x_slot")
+	Call AssertObs(d("k")(0), 10, "Integer", "c3b_nested_shared_left_neighbor")
+
+	' Array of Dictionaries; write arr(0)("k").
+	arr = Array()
+	d0("k") = 5
+	d0("n") = 1
+	arr.append(d0)
+	Print "EVENT: nested_arr_dict_seeded"
+	Call AssertObs(arr(0)("k"), 5, "Integer", "c3b_nested_arr_dict_k")
+	Call AssertObs(arr(0)("n"), 1, "Integer", "c3b_nested_arr_dict_n_neighbor")
+	Call AssertObs(VarType(arr(0)("k")), 3, "Integer", "c3b_nested_arr_dict_k_vt")
+	arr(0)("k") = 8
+	Print "EVENT: nested_arr_dict_write_through"
+	Call AssertObs(arr(0)("k"), 8, "Integer", "c3b_nested_arr_dict_k_after")
+	Call AssertObs(arr(0)("n"), 1, "Integer", "c3b_nested_arr_dict_n_after")
+	' OBSERVED: d0 is the same object that was appended.
+	Call AssertObs(d0("k"), 8, "Integer", "c3b_nested_arr_dict_shared_d0")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunNested()
+	Print "C3_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c3b_nested"
+	Else
+		Print "FAIL: sem_c3b_nested"
+	End If
+End Sub

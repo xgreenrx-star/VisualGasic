@@ -1,0 +1,112 @@
+' C3b iterate/remove: For Each over Array and Dictionary.Keys (insertion order);
+' Remove after iteration; Remove missing captures Err.Number immediately.
+' Excluded: mutating the collection during For Each.
+'
+Attribute VB_Name = "TestSemC3bIterate"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf expectType = "Boolean" Then
+		If CBool(actual) <> CBool(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub RunIterate()
+	Dim arr(2) As Integer
+	Dim item As Variant
+	Dim order As String
+	Dim d As New Dictionary
+	Dim keys As Variant
+	Dim k As Variant
+	Dim errBefore As Integer
+	Dim errAfter As Variant
+	Dim errType As String
+	Dim existsFlag As Integer
+
+	arr(0) = 10
+	arr(1) = 20
+	arr(2) = 30
+	order = ""
+	For Each item In arr
+		order = order & CStr(item) & ","
+		Print "EVENT: foreach_arr_" & CStr(item)
+		Call AssertObs(VarType(item), 3, "Integer", "c3b_iter_arr_vt_" & CStr(item))
+	Next
+	Call AssertObs(order, "10,20,30,", "String", "c3b_iter_arr_order")
+
+	d("a") = 1
+	d("b") = 2
+	d("c") = 3
+	keys = d.Keys()
+	order = ""
+	For Each k In keys
+		order = order & CStr(k) & ":" & CStr(d(k)) & ";"
+		Print "EVENT: foreach_key_" & CStr(k)
+		Call AssertObs(VarType(d(k)), 3, "Integer", "c3b_iter_dict_vt_" & CStr(k))
+	Next
+	Call AssertObs(order, "a:1;b:2;c:3;", "String", "c3b_iter_dict_order")
+	Call AssertObs(d.Count(), 3, "Integer", "c3b_iter_count_before_remove")
+
+	' Remove after iteration (not during For Each — excluded).
+	d.Remove "b"
+	Print "EVENT: remove_b"
+	Call AssertObs(d.Count(), 2, "Integer", "c3b_iter_count_after_remove")
+	existsFlag = 0
+	If d.Exists("b") Then
+		existsFlag = 1
+	End If
+	Call AssertObs(existsFlag, 0, "Integer", "c3b_iter_exists_b_false")
+	existsFlag = 0
+	If d.Exists("a") Then
+		existsFlag = 1
+	End If
+	Call AssertObs(existsFlag, 1, "Integer", "c3b_iter_exists_a_true")
+
+	errBefore = Err.Number
+	d.Remove "missing"
+	errAfter = Err.Number
+	errType = TypeName(errAfter)
+	Print "EVENT: remove_missing"
+	Call AssertObs(errBefore, 0, "Integer", "c3b_iter_remove_miss_err_before")
+	Call AssertObs(errAfter, 0, "Integer", "c3b_iter_remove_miss_err")
+	Call AssertObs(errType, "Integer", "String", "c3b_iter_remove_miss_err_type")
+	Call AssertObs(d.Count(), 2, "Integer", "c3b_iter_count_after_miss_remove")
+End Sub
+
+Sub _Ready()
+	passed = 0
+	failed = 0
+	Call RunIterate()
+	Print "C3_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_c3b_iterate"
+	Else
+		Print "FAIL: sem_c3b_iterate"
+	End If
+End Sub

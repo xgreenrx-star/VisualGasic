@@ -3368,6 +3368,80 @@ bool VisualGasicInstance::is_byref_writeback_target(ExpressionNode* target) {
     return false;
 }
 
+static Vector<ExpressionNode *> *vg_byref_index_list(ExpressionNode *node) {
+    ExpressionNode *root = node;
+    while (root && root->type == ExpressionNode::MEMBER_ACCESS) {
+        root = ((MemberAccessNode *)root)->base_object;
+    }
+    if (root && root->type == ExpressionNode::ARRAY_ACCESS) {
+        return &((ArrayAccessNode *)root)->indices;
+    }
+    if (root && root->type == ExpressionNode::EXPRESSION_CALL) {
+        CallExpression *call = (CallExpression *)root;
+        if (call->base_object) {
+            return nullptr;
+        }
+        return &call->arguments;
+    }
+    return nullptr;
+}
+
+ExpressionNode *VisualGasicInstance::freeze_byref_lvalue(ExpressionNode *target) {
+    if (!target || !is_byref_writeback_target(target)) {
+        return nullptr;
+    }
+    Vector<ExpressionNode *> *indices = vg_byref_index_list(target);
+    if (!indices || indices->is_empty()) {
+        return nullptr;
+    }
+    ExpressionNode *root = target;
+    while (root && root->type == ExpressionNode::MEMBER_ACCESS) {
+        root = ((MemberAccessNode *)root)->base_object;
+    }
+    // pts(i).X is a member whose base must itself be an indexing lvalue.
+    // A nested call under a member is not an array slot.
+    if (root != target && !is_byref_writeback_target(root)) {
+        return nullptr;
+    }
+    bool dynamic = false;
+    for (int i = 0; i < indices->size(); i++) {
+        ExpressionNode *idx = (*indices)[i];
+        if (!idx || idx->type != ExpressionNode::LITERAL) {
+            dynamic = true;
+            break;
+        }
+    }
+    if (!dynamic) {
+        return nullptr;
+    }
+
+    ExpressionNode *frozen = target->duplicate();
+    Vector<ExpressionNode *> *frozen_indices = vg_byref_index_list(frozen);
+    if (!frozen_indices || frozen_indices->size() != indices->size()) {
+        delete frozen;
+        return nullptr;
+    }
+    Vector<ExpressionNode *> &dst = *frozen_indices;
+    for (int i = 0; i < indices->size(); i++) {
+        ExpressionNode *idx = (*indices)[i];
+        if (idx && idx->type == ExpressionNode::LITERAL) {
+            continue;
+        }
+        Variant value;
+        if (idx) {
+            // Keep the value even when the index raises. Dropping the duplicate
+            // here made the caller evaluate the original index again, and a
+            // pre-existing has_error is not a new failure of this index.
+            value = evaluate_expression(idx);
+        }
+        LiteralNode *lit = new LiteralNode();
+        lit->value = value;
+        delete dst[i];
+        dst.write[i] = lit;
+    }
+    return frozen;
+}
+
 void VisualGasicInstance::assign_to_target(ExpressionNode* target, Variant val) {
     if (target->type == ExpressionNode::VARIABLE) {
          String name = ((VariableNode*)target)->name;

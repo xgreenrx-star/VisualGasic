@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from .compare import CompareError, compare_observations
-from .phase2_c2_ir_examples import ALL_EXAMPLES, BYVAL_ONCE_AST_KNOWN_ACTUAL
+from .phase2_c2_ir_examples import ALL_EXAMPLES
 from .reference import evaluate_program
 from .runner import MODES, check_required_path, find_godot, find_repo_root, run_program
 
@@ -80,39 +80,8 @@ def run_c2_ir_lane(
                 report.ok = False
                 report.failures.append(f"path:{prog.case_id}:{mode}:{path_err}")
 
-            if prog.case_id == "c2_byval_once" and mode == "forced_ast":
-                try:
-                    compare_observations(BYVAL_ONCE_AST_KNOWN_ACTUAL, rr.observations)
-                except CompareError as exc:
-                    report.ok = False
-                    report.failures.append(
-                        f"known_actual_mismatch:{prog.case_id}:{mode}:{exc}"
-                    )
-                    continue
-                # Oracle expected must remain hits=1 (not warped).
-                try:
-                    compare_observations(expected, rr.observations)
-                    report.ok = False
-                    report.failures.append(
-                        "MISS:byval_once_forced_ast_unexpectedly_matches_oracle"
-                    )
-                except CompareError:
-                    pass
-                report.known_defects += 1
-                report.known_defect_details.append(
-                    {
-                        "case_id": prog.case_id,
-                        "mode": mode,
-                        "class": "ast_byval_arg_double_eval",
-                        "expected_oracle": expected,
-                        "known_actual": BYVAL_ONCE_AST_KNOWN_ACTUAL,
-                        "observed": rr.observations,
-                        "path_module": prog.path_module,
-                        "log": rr.log_path,
-                    }
-                )
-                continue
-
+            # c2_byval_once: forced_ast ByVal double-eval fixed (checkpoint 002).
+            # Oracle hits=1 is now a strict regression in all modes.
             try:
                 compare_observations(expected, rr.observations)
                 report.matches += 1
@@ -165,8 +134,7 @@ def main(argv: Optional[list] = None) -> int:
         print(" FAIL", f)
     for kd in rep.known_defect_details:
         print(
-            f" KNOWN_DEFECT {kd['case_id']} mode={kd['mode']} class={kd['class']} "
-            f"oracle_hits=1 known_actual_hits=2"
+            f" KNOWN_DEFECT {kd['case_id']} mode={kd['mode']} class={kd.get('class')}"
         )
     return 0 if rep.ok else 1
 
