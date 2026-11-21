@@ -63,5 +63,8 @@ Local, Linux x86-64, Godot 4.6.1, editor build `a515e15b`:
 - C3 fixture gate 20/20 and C4 fixture gate 16/16 across forced-AST,
   interpreter, default, and Tier-3 JIT.
 
-The tagged Release workflow rebuilds and gates every platform before the
-downloads are attached.
+The [tagged release workflow](https://github.com/xgreenrx-star/VisualGasic/actions/runs/44910359646)
+passed for source revision `0a48bb1d79b274ecea8a0908a07d2150567e7761`:
+CI gates, Linux/Windows/macOS/Web builds, packaging, and the packaged
+Asset Library archive smoke test. All downloaded assets passed SHA-256
+verification and every ZIP passed integrity checks.
