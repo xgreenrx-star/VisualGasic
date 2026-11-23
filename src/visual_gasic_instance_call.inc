@@ -486,6 +486,20 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
                 }
                 break;
             }
+            // slots() As Integer: pass the Array through. The element type is
+            // not a scalar coercion (fast_param_coerce is 5; this also covers
+            // a chunk that still has the element-type code).
+            if (params_r[i].is_array) {
+                if (i < p_arg_count) {
+                    _fast_args.construct_copy(i, p_args[i]);
+                } else if (params_r[i].is_optional) {
+                    _fast_args.construct_copy(i, params_r[i].default_value);
+                } else {
+                    UtilityFunctions::print("Runtime Error: Argument '", params_r[i].name, "' missing for ", func->name);
+                    _fast_args.construct_copy(i, Variant());
+                }
+                continue;
+            }
             // Part AG (v6.0 perf): precomputed-coercion fast path — write the
             // coerced arg STRAIGHT into fast_arg_values[i] instead of routing it
             // through an intermediate `val` Variant.  The old shape
@@ -581,8 +595,11 @@ Variant VisualGasicInstance::call_internal(const String& p_method, const Variant
 
             if (i < p_arg_count) {
                 Variant val = p_args[i];
-                 // Enforce Parameter Type
-                if (_have_pc_slow) {
+                 // Enforce Parameter Type. An array parameter keeps the Array;
+                 // `As Integer` on `slots()` is the element type.
+                if (param.is_array) {
+                    // no scalar coercion
+                } else if (_have_pc_slow) {
                     switch (chunk_for_locals->fast_param_coerce[i]) {
                         case 1: val = vb_to_integer(val); break;
                         case 2: val = (double)val;  break;

@@ -714,10 +714,21 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         non_local_names.erase(pkey);
         ValueType pvt = VT_UNKNOWN;
         String t = sub->parameters[i].type_hint.to_lower();
-        if (sub->parameters[i].is_param_array) {
-            // The slot holds the rest-Array; `args(i)` must compile as an
-            // array subscript, not a call.
+        if (sub->parameters[i].is_param_array || sub->parameters[i].is_array) {
+            // The slot holds an Array. `slots(i)` is a subscript, not a call.
+            // ParamArray's slot is the rest-Array. `slots() As Integer` is the
+            // caller's array; the As clause is the element type.
             array_vars.insert(pkey);
+            // Record that element type for loop fusion. Untyped, Variant,
+            // String, and ParamArray stay out of array_types: a missing entry
+            // is not an integer array.
+            if (sub->parameters[i].is_array && !sub->parameters[i].is_param_array) {
+                if (t == "integer" || t == "long" || t == "longlong") {
+                    array_types[pkey] = VT_INT;
+                } else if (t == "single" || t == "double") {
+                    array_types[pkey] = VT_FLOAT;
+                }
+            }
         } else if (t == "array" || vg_is_packed_array_type(t)) {
             array_vars.insert(pkey);
         } else if (t == "dictionary") {
@@ -726,11 +737,15 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             // and the packed loader raises "Unsupported array base type".
             dictionary_vars.insert(pkey);
         }
-        if (t == "integer" || t == "long" || t == "longlong") pvt = VT_INT;
-        else if (t == "single" || t == "double") pvt = VT_FLOAT;
-        if (vg_is_integer_type_name(t) && !sub->parameters[i].is_param_array) declared_int_vars.insert(pkey);
-        if ((t == "single" || t == "double") && !sub->parameters[i].is_param_array) declared_float_vars.insert(pkey);
-        if (t == "string" && !sub->parameters[i].is_param_array) declared_string_vars.insert(pkey);
+        // An array parameter's element type must not make the slot a scalar.
+        // `slots() As Integer` would otherwise be VT_INT and the Array
+        // argument would be coerced away.
+        const bool scalar_param = !sub->parameters[i].is_param_array && !sub->parameters[i].is_array;
+        if (scalar_param && (t == "integer" || t == "long" || t == "longlong")) pvt = VT_INT;
+        else if (scalar_param && (t == "single" || t == "double")) pvt = VT_FLOAT;
+        if (scalar_param && vg_is_integer_type_name(t)) declared_int_vars.insert(pkey);
+        if (scalar_param && (t == "single" || t == "double")) declared_float_vars.insert(pkey);
+        if (scalar_param && t == "string") declared_string_vars.insert(pkey);
         mark_local_declared(get_or_add_local(sub->parameters[i].name, pvt));
     }
 
@@ -764,7 +779,14 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
         };
         current_chunk->fast_param_coerce.resize(sub->parameters.size());
         for (int i = 0; i < sub->parameters.size(); i++) {
-            current_chunk->fast_param_coerce.write[i] = _vg_coerce_code(sub->parameters[i].type_hint);
+            int8_t code = _vg_coerce_code(sub->parameters[i].type_hint);
+            // 5 = Array, no coercion. The element type (Integer, …) must not
+            // become a scalar coerce code or the binder turns the array into
+            // an Integer before the body runs.
+            if (sub->parameters[i].is_array && !sub->parameters[i].is_param_array) {
+                code = 5;
+            }
+            current_chunk->fast_param_coerce.write[i] = code;
         }
         current_chunk->fast_return_coerce = (sub->type == SubDefinition::TYPE_FUNCTION)
                 ? _vg_coerce_code(sub->return_type) : (int8_t)-1;
@@ -2598,7 +2620,9 @@ bool VisualGasicCompiler::is_loop_array_fill(ForStatement* f, String &arr_var) c
     if (rhs_var != f->variable_name.to_lower()) return false;
 
     String arr_key = arr_name.to_lower();
-    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) return false;
+    // The fill opcode writes Integer elements. Only a declared integer
+    // array is that; an untyped or Double array keeps the ordinary loop.
+    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) return false;
 
     arr_var = arr_name;
     return true;
@@ -3250,9 +3274,10 @@ bool VisualGasicCompiler::is_nested_array_sum(ForStatement* outer, String &sum_v
     }
     if (idx_var != inner->variable_name.to_lower()) return fail("index var does not match inner loop var");
 
-    // Require array of ints (or unknown, but not float)
+    // OP_SUM_ARRAY_I64 truncates. A missing array_types entry is an untyped
+    // array, not a proven integer array.
     String arr_key = arr_name.to_lower();
-    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) return fail("array type is float");
+    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) return fail("array type is not integer");
 
     sum_var = s->name;
     arr_var = arr_name;
@@ -3367,7 +3392,10 @@ bool VisualGasicCompiler::is_nested_foreach_array_sum(ForStatement* outer, Strin
     }
     arr_var = ((VariableNode *)inner->collection)->name;
     String arr_key = arr_var.to_lower();
-    if (array_types.has(arr_key) && array_types[arr_key] == VT_FLOAT) {
+    // Same rule as the indexed sum: only a declared integer array. A Double
+    // parameter is VT_FLOAT; an untyped parameter is absent. Neither is summed
+    // with OP_SUM_ARRAY_I64 (1.5+2.5+1.5+2.5 is 8, and the i64 sum is 6).
+    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) {
         return false;
     }
     AssignmentStatement *as = nullptr;
@@ -6077,7 +6105,7 @@ bool VisualGasicCompiler::is_scalar_fast_param_sub(SubDefinition *sub) const {
     }
     for (int i = 0; i < sub->parameters.size(); i++) {
         const Parameter &p = sub->parameters[i];
-        if (p.is_by_ref || p.is_param_array || p.is_optional ||
+        if (p.is_by_ref || p.is_param_array || p.is_array || p.is_optional ||
                 p.type_hint.is_empty() || !_vg_is_scalar_type_hint(p.type_hint)) {
             return false;
         }
@@ -9566,8 +9594,11 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             if (!matched_array_dict) {
                 matched_array_dict = try_match_simple_array_dict(sum_var, arr_var, dict_var, iter_var);
             }
-            if (matched_array_dict) {
+            if (matched_array_dict && array_types.has(arr_var.to_lower()) && array_types[arr_var.to_lower()] == VT_INT) {
                 // sum = sum + (sum_array(arr) + sum_dict(dict)) * iterations
+                // The array half is OP_SUM_ARRAY_I64, so the array must be a
+                // declared integer array. An untyped or Double array falls
+                // through to the ordinary loops.
                 VariableNode arr_node;
                 arr_node.name = arr_var;
                 compile_expression(&arr_node);

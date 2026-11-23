@@ -652,6 +652,31 @@ DeclareStatement* VisualGasicParser::parse_declare(bool dllimport_prefix) {
     return decl;
 }
 
+void VisualGasicParser::consume_array_parameter_parens(bool &is_array) {
+    if (!check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
+        return;
+    }
+    // `slots() As Integer` is an array parameter. Leaving the '(' in the
+    // token stream makes the parameter list look finished, so every later
+    // parameter is discarded and the element type is never read.
+    is_array = true;
+    advance();
+    int depth = 1;
+    while (!is_at_end() && depth > 0) {
+        VisualGasicTokenizer::TokenType ty = peek().type;
+        if (ty == VisualGasicTokenizer::TOKEN_NEWLINE || ty == VisualGasicTokenizer::TOKEN_EOF) {
+            error("Expected ) after array parameter");
+            return;
+        }
+        if (ty == VisualGasicTokenizer::TOKEN_PAREN_OPEN) {
+            depth++;
+        } else if (ty == VisualGasicTokenizer::TOKEN_PAREN_CLOSE) {
+            depth--;
+        }
+        advance();
+    }
+}
+
 SubDefinition* VisualGasicParser::parse_sub() {
 	const int procedure_error_count = error_count;
     VisualGasicTokenizer::Token start_token = peek();
@@ -706,15 +731,10 @@ SubDefinition* VisualGasicParser::parse_sub() {
                  if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                      param.name = peek().value;
                      advance();
-                     
-                     // Handle () after ParamArray parameter name (e.g., ParamArray items())
-                     if (param.is_param_array && check(VisualGasicTokenizer::TOKEN_PAREN_OPEN)) {
-                         advance(); // Eat (
-                         if (check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE)) {
-                             advance(); // Eat )
-                         }
-                     }
-                     
+
+                     // Array parameter: slots() As Integer, or ParamArray items().
+                     consume_array_parameter_parens(param.is_array);
+
                      // Handle "As Type"
                      if (peek().type == VisualGasicTokenizer::TOKEN_KEYWORD && String(peek().value).nocasecmp_to("As") == 0) {
                           advance(); // Eat 'As'
@@ -723,6 +743,8 @@ SubDefinition* VisualGasicParser::parse_sub() {
                               param.type_hint = peek().value;
                               advance();
                           }
+                          // As Integer() — parentheses on the type, same array.
+                          consume_array_parameter_parens(param.is_array);
                      }
 
                      // Handle Default Value (= value) for Optional
@@ -5337,12 +5359,14 @@ InterfaceDefinition* VisualGasicParser::parse_interface() {
                         }
                         param.name = peek().value;
                         advance();
+                        consume_array_parameter_parens(param.is_array);
                         if (_token_is_word(peek(), "as")) {
                             advance();
                             if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                                 param.type_hint = peek().value;
                                 advance();
                             }
+                            consume_array_parameter_parens(param.is_array);
                         }
                         method.parameters.push_back(param);
                         if (match(VisualGasicTokenizer::TOKEN_COMMA)) continue;
@@ -5600,15 +5624,17 @@ PropertyDefinition* VisualGasicParser::parse_property() {
         advance(); // Eat (
         while (!check(VisualGasicTokenizer::TOKEN_PAREN_CLOSE) && !is_at_end()) {
             Parameter param;
-            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                 param.name = peek().value;
                 advance();
+                consume_array_parameter_parens(param.is_array);
                 if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("as") == 0) {
                     advance();
                     if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                         param.type_hint = peek().value;
                         advance();
                     }
+                    consume_array_parameter_parens(param.is_array);
                 }
                 prop->parameters.push_back(param);
             }
@@ -7198,13 +7224,14 @@ ExpressionNode* VisualGasicParser::parse_lambda() {
                 else if (pk.nocasecmp_to("ByRef") == 0) { p.is_by_ref = true; advance(); }
             }
             
-            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER)) {
+            if (check(VisualGasicTokenizer::TOKEN_IDENTIFIER) || check(VisualGasicTokenizer::TOKEN_KEYWORD)) {
                 p.name = peek().value;
                 advance();
             } else {
                 break;
             }
-            
+            consume_array_parameter_parens(p.is_array);
+
             // Optional type hint: As Integer
             if (check(VisualGasicTokenizer::TOKEN_KEYWORD) && String(peek().value).nocasecmp_to("As") == 0) {
                 advance(); // Eat As
@@ -7212,6 +7239,7 @@ ExpressionNode* VisualGasicParser::parse_lambda() {
                     p.type_hint = peek().value;
                     advance();
                 }
+                consume_array_parameter_parens(p.is_array);
             }
             
             lam->parameters.push_back(p);

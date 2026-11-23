@@ -42,6 +42,9 @@ public:
 private:
     void error(const String& message);
     void synchronize(); // Error recovery: skip to next statement boundary
+    // VB6 array parameter: Name() or Name(bounds). The parentheses are not a
+    // call and must not end the parameter list.
+    void consume_array_parameter_parens(bool &is_array);
 
     DeclareStatement* parse_declare(bool dllimport_prefix = false);
     SubDefinition* parse_sub();

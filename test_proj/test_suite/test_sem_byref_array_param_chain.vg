@@ -1,0 +1,296 @@
+' BUG-PREFLIGHT-1: `Name()` on a parameter is an array parameter.
+' The parentheses must not end the parameter list, and `As Integer` is the
+' element type. Caller state is the argument that was passed, including when
+' a later ByRef scalar is updated by a nested call used as an index.
+' A same-named local that was not passed must stay unchanged.
+Attribute VB_Name = "TestSemByrefParamChain"
+Option Explicit
+
+Dim gLog As String
+Dim gNext As Integer
+Dim gTrue As Integer
+Dim gFalse As Integer
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertEq(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+	Else
+		passed = passed + 1
+		Print "PASS: " & label
+	End If
+End Sub
+
+Sub Mark(ByVal s As String)
+	gLog = gLog & s
+End Sub
+
+Function NextSlot(ByRef idx As Integer) As Integer
+	gNext = gNext + 1
+	Call Mark("I")
+	idx = idx + 1
+	NextSlot = idx
+End Function
+
+Function AlwaysTrue() As Boolean
+	gTrue = gTrue + 1
+	Call Mark("A")
+	AlwaysTrue = True
+End Function
+
+Function AlwaysFalse() As Boolean
+	gFalse = gFalse + 1
+	Call Mark("F")
+	AlwaysFalse = False
+End Function
+
+Sub Apply(ByRef slots() As Integer, ByRef cursor As Integer, ByRef gold As Integer)
+	If AlwaysTrue() AndAlso (slots(NextSlot(cursor)) = 0) Then
+		Call Mark("Y")
+		gold = gold - 2
+		slots(cursor) = 7
+	End If
+End Sub
+
+Sub ApplyPlain(ByRef slots() As Integer, ByRef cursor As Integer, ByRef gold As Integer)
+	If slots(NextSlot(cursor)) = 0 Then
+		Call Mark("Y")
+		gold = gold - 2
+		slots(cursor) = 7
+	End If
+End Sub
+
+Sub ApplyMid(ByRef gold As Integer, ByRef slots() As Integer, ByRef cursor As Integer)
+	If slots(NextSlot(cursor)) = 0 Then
+		Call Mark("Y")
+		gold = gold - 2
+		slots(cursor) = 7
+	End If
+End Sub
+
+Sub ApplyLast(ByRef cursor As Integer, ByRef gold As Integer, ByRef slots() As Integer)
+	If slots(NextSlot(cursor)) = 0 Then
+		Call Mark("Y")
+		gold = gold - 2
+		slots(cursor) = 7
+	End If
+End Sub
+
+Sub ApplyTypeParens(ByRef slots As Integer(), ByRef cursor As Integer)
+	slots(NextSlot(cursor)) = 7
+End Sub
+
+Sub ApplyLocalSlots(ByRef cursor As Integer, ByRef gold As Integer)
+	Dim slots(3) As Integer
+	slots(0) = 0
+	If AlwaysTrue() AndAlso (slots(NextSlot(cursor)) = 0) Then
+		Call Mark("Y")
+		gold = gold - 2
+		slots(cursor) = 7
+	End If
+	Call AssertEq(slots(0), 7, "inner_slot0")
+	Call AssertEq(slots(1), 0, "inner_slot1")
+End Sub
+
+Sub Poke0(ByRef slots() As Integer)
+	slots(0) = 7
+End Sub
+
+Sub Spend(ByRef slots() As Integer, ByRef gold As Integer)
+	gold = gold - 2
+End Sub
+
+Sub StepThenStore(ByRef slots() As Integer, ByRef cursor As Integer)
+	Call NextSlot(cursor)
+	slots(cursor) = 7
+End Sub
+
+Sub SkipIndex(ByRef slots() As Integer, ByRef cursor As Integer)
+	If AlwaysFalse() AndAlso (slots(NextSlot(cursor)) = 0) Then
+		Call Mark("Y")
+		slots(cursor) = 7
+	End If
+End Sub
+
+Sub TouchByVal(ByVal n As Integer, ByRef slots() As Integer, ByRef cursor As Integer)
+	n = 99
+	cursor = cursor + 1
+	slots(2) = 4
+End Sub
+
+Sub ResetCounts()
+	gLog = ""
+	gNext = 0
+	gTrue = 0
+	gFalse = 0
+End Sub
+
+Sub _Ready()
+	Dim slots(3) As Integer
+	Dim cursor As Integer
+	Dim gold As Integer
+	Dim decoyCursor As Integer
+	Dim decoyGold As Integer
+	Dim byvalN As Integer
+	passed = 0
+	failed = 0
+	decoyCursor = 4
+	decoyGold = 8
+
+	' Array parameter first. idx/purse are the arguments; decoys share the
+	' parameter names' spelling only and must not move.
+	slots(0) = 0
+	slots(1) = 0
+	slots(2) = 0
+	slots(3) = 0
+	cursor = -1
+	gold = 5
+	Call ResetCounts()
+	Call Apply(slots, cursor, gold)
+	Print "EVENT: byref_params"
+	Call AssertEq(gLog, "AIY", "log_a")
+	Call AssertEq(gTrue, 1, "true_a")
+	Call AssertEq(gNext, 1, "next_a")
+	Call AssertEq(cursor, 0, "cursor_a")
+	Call AssertEq(slots(0), 7, "slot0_a")
+	Call AssertEq(slots(1), 0, "slot1_a")
+	Call AssertEq(slots(2), 0, "slot2_a")
+	Call AssertEq(gold, 3, "gold_a")
+	Call AssertEq(decoyCursor, 4, "decoy_cursor_a")
+	Call AssertEq(decoyGold, 8, "decoy_gold_a")
+
+	' Same update with no AndAlso, so short-circuit is not required.
+	slots(0) = 0
+	cursor = -1
+	gold = 5
+	Call ResetCounts()
+	Call ApplyPlain(slots, cursor, gold)
+	Print "EVENT: plain_if"
+	Call AssertEq(gLog, "IY", "log_plain")
+	Call AssertEq(gNext, 1, "next_plain")
+	Call AssertEq(gTrue, 0, "true_plain")
+	Call AssertEq(cursor, 0, "cursor_plain")
+	Call AssertEq(slots(0), 7, "slot0_plain")
+	Call AssertEq(slots(1), 0, "slot1_plain")
+	Call AssertEq(gold, 3, "gold_plain")
+
+	' Array parameter in the middle.
+	slots(0) = 0
+	cursor = -1
+	gold = 5
+	Call ResetCounts()
+	Call ApplyMid(gold, slots, cursor)
+	Print "EVENT: array_mid"
+	Call AssertEq(gLog, "IY", "log_mid")
+	Call AssertEq(gNext, 1, "next_mid")
+	Call AssertEq(cursor, 0, "cursor_mid")
+	Call AssertEq(slots(0), 7, "slot0_mid")
+	Call AssertEq(gold, 3, "gold_mid")
+	Call AssertEq(decoyCursor, 4, "decoy_cursor_mid")
+
+	' Array parameter last. Scalars before it still write back.
+	slots(0) = 0
+	cursor = -1
+	gold = 5
+	Call ResetCounts()
+	Call ApplyLast(cursor, gold, slots)
+	Print "EVENT: array_last"
+	Call AssertEq(gLog, "IY", "log_last")
+	Call AssertEq(gNext, 1, "next_last")
+	Call AssertEq(cursor, 0, "cursor_last")
+	Call AssertEq(slots(0), 7, "slot0_last")
+	Call AssertEq(gold, 3, "gold_last")
+
+	' Parentheses on the element type: slots As Integer().
+	slots(0) = 0
+	slots(1) = 0
+	cursor = -1
+	Call ResetCounts()
+	Call ApplyTypeParens(slots, cursor)
+	Print "EVENT: type_parens"
+	Call AssertEq(gNext, 1, "next_type")
+	Call AssertEq(cursor, 0, "cursor_type")
+	Call AssertEq(slots(0), 7, "slot0_type")
+	Call AssertEq(slots(1), 0, "slot1_type")
+
+	' Local array. ByRef scalars still write back. Inner neighbors stay 0.
+	cursor = -1
+	gold = 5
+	Call ResetCounts()
+	Call ApplyLocalSlots(cursor, gold)
+	Print "EVENT: byref_cursor_only"
+	Call AssertEq(gLog, "AIY", "log_b")
+	Call AssertEq(gTrue, 1, "true_b")
+	Call AssertEq(gNext, 1, "next_b")
+	Call AssertEq(cursor, 0, "cursor_b")
+	Call AssertEq(gold, 3, "gold_b")
+	Call AssertEq(decoyCursor, 4, "decoy_cursor_b")
+
+	' ByRef array element store, no nested call. Neighbors stay put.
+	slots(0) = 0
+	slots(1) = 1
+	slots(2) = 2
+	Call Poke0(slots)
+	Print "EVENT: poke"
+	Call AssertEq(slots(0), 7, "poke0")
+	Call AssertEq(slots(1), 1, "poke1")
+	Call AssertEq(slots(2), 2, "poke2")
+
+	' Array parameter present, not indexed. Only the scalar writes back.
+	slots(0) = 1
+	slots(1) = 1
+	gold = 5
+	Call Spend(slots, gold)
+	Print "EVENT: spend"
+	Call AssertEq(gold, 3, "spend_gold")
+	Call AssertEq(slots(0), 1, "spend_slot0")
+	Call AssertEq(decoyGold, 8, "spend_decoy")
+
+	' Nested ByRef call as its own statement, then the updated index.
+	slots(0) = 0
+	slots(1) = 0
+	cursor = -1
+	Call ResetCounts()
+	Call StepThenStore(slots, cursor)
+	Print "EVENT: step_then_store"
+	Call AssertEq(gLog, "I", "log_step")
+	Call AssertEq(gNext, 1, "next_step")
+	Call AssertEq(cursor, 0, "cursor_step")
+	Call AssertEq(slots(0), 7, "slot0_step")
+	Call AssertEq(slots(1), 0, "slot1_step")
+
+	' AndAlso false skips the index call and leaves caller state.
+	slots(0) = 0
+	cursor = -1
+	Call ResetCounts()
+	Call SkipIndex(slots, cursor)
+	Print "EVENT: short_skip"
+	Call AssertEq(gLog, "F", "log_skip")
+	Call AssertEq(gFalse, 1, "false_skip")
+	Call AssertEq(gNext, 0, "next_skip")
+	Call AssertEq(cursor, -1, "cursor_skip")
+	Call AssertEq(slots(0), 0, "slot0_skip")
+
+	' ByVal scalar is not written back. ByRef array and cursor are.
+	slots(0) = 0
+	slots(1) = 0
+	slots(2) = 0
+	cursor = -1
+	byvalN = 5
+	Call TouchByVal(byvalN, slots, cursor)
+	Print "EVENT: byval_scalar"
+	Call AssertEq(byvalN, 5, "byval_n")
+	Call AssertEq(cursor, 0, "byval_cursor")
+	Call AssertEq(slots(2), 4, "byval_slot2")
+	Call AssertEq(slots(0), 0, "byval_slot0")
+	Call AssertEq(slots(1), 0, "byval_slot1")
+
+	Print "REPRO_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: byref_param_chain"
+	Else
+		Print "FAIL: byref_param_chain"
+	End If
+End Sub

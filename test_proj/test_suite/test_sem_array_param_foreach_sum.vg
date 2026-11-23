@@ -1,0 +1,177 @@
+' Array-parameter element types. A nested For Each over ByRef vals() As Double
+' holding 1.5, 2.5, 1.5, 2.5 sums to 8. Summing those elements as integers
+' truncates them to 6. An untyped array parameter is not a proven integer
+' array either. An Integer parameter still sums to 10. The control loop has
+' a second statement, so it is not the fused form, and it must also return 8.
+'
+Attribute VB_Name = "TestSemArrayParamForeachSum"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub CheckNum(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CDbl(actual) <> CDbl(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckType(ByVal actual As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Function SumEachDouble(ByRef vals() As Double) As Double
+	Dim total As Double
+	Dim n As Integer
+	Dim item As Variant
+	total = 0
+	For n = 0 To 0 Step 1
+		For Each item In vals
+			total = total + item
+		Next
+	Next
+	SumEachDouble = total
+End Function
+
+Function SumIdxDouble(ByRef vals() As Double) As Double
+	Dim total As Double
+	Dim n As Integer
+	Dim i As Integer
+	total = 0
+	For n = 0 To 0 Step 1
+		For i = 0 To 3 Step 1
+			total = total + vals(i)
+		Next
+	Next
+	SumIdxDouble = total
+End Function
+
+Function SumEachUntyped(ByRef vals()) As Double
+	Dim total As Double
+	Dim n As Integer
+	Dim item As Variant
+	total = 0
+	For n = 0 To 0 Step 1
+		For Each item In vals
+			total = total + item
+		Next
+	Next
+	SumEachUntyped = total
+End Function
+
+Function SumEachInteger(ByRef vals() As Integer) As Integer
+	Dim total As Integer
+	Dim n As Integer
+	Dim item As Variant
+	total = 0
+	For n = 0 To 0 Step 1
+		For Each item In vals
+			total = total + item
+		Next
+	Next
+	SumEachInteger = total
+End Function
+
+Function SumEachPlain(ByRef vals() As Double, ByRef hits As Integer) As Double
+	Dim total As Double
+	Dim n As Integer
+	Dim item As Variant
+	total = 0
+	hits = 0
+	For n = 0 To 0 Step 1
+		For Each item In vals
+			total = total + item
+			hits = hits + 1
+		Next
+	Next
+	SumEachPlain = total
+End Function
+
+Sub BumpDouble(ByRef vals() As Double)
+	vals(1) = vals(1) + 0.25
+End Sub
+
+Sub BumpInteger(ByRef vals() As Integer)
+	vals(1) = vals(1) + 5
+End Sub
+
+Sub _Ready()
+	Dim dbls(3) As Double
+	Dim raw(3)
+	Dim nums(3) As Integer
+	Dim got As Double
+	Dim igot As Integer
+	Dim hits As Integer
+
+	passed = 0
+	failed = 0
+
+	dbls(0) = 1.5
+	dbls(1) = 2.5
+	dbls(2) = 1.5
+	dbls(3) = 2.5
+	got = SumEachDouble(dbls)
+	Call CheckNum(got, 8, "double_foreach_sum")
+	Call CheckType(got, "Double", "double_foreach_type")
+	Call CheckNum(dbls(0), 1.5, "double_foreach_elem0")
+	Call CheckNum(dbls(1), 2.5, "double_foreach_elem1")
+	Call CheckType(dbls(0), "Double", "double_foreach_elem_type")
+
+	got = SumIdxDouble(dbls)
+	Call CheckNum(got, 8, "double_index_sum")
+	Call CheckNum(dbls(3), 2.5, "double_index_elem3")
+
+	raw(0) = 1.5
+	raw(1) = 2.5
+	raw(2) = 1.5
+	raw(3) = 2.5
+	got = SumEachUntyped(raw)
+	Call CheckNum(got, 8, "untyped_foreach_sum")
+	Call CheckNum(raw(0), 1.5, "untyped_foreach_elem0")
+	Call CheckType(raw(2), "Double", "untyped_foreach_elem_type")
+
+	nums(0) = 1
+	nums(1) = 2
+	nums(2) = 3
+	nums(3) = 4
+	igot = SumEachInteger(nums)
+	Call CheckNum(igot, 10, "integer_foreach_sum")
+	Call CheckType(igot, "Integer", "integer_foreach_type")
+	Call CheckNum(nums(0), 1, "integer_foreach_elem0")
+	Call CheckNum(nums(3), 4, "integer_foreach_elem3")
+
+	hits = -1
+	got = SumEachPlain(dbls, hits)
+	Call CheckNum(got, 8, "plain_foreach_sum")
+	Call CheckNum(hits, 4, "plain_foreach_hits")
+	Call CheckNum(dbls(1), 2.5, "plain_foreach_elem1")
+
+	Call BumpDouble(dbls)
+	Call CheckNum(dbls(1), 2.75, "double_bump")
+	Call CheckType(dbls(1), "Double", "double_bump_type")
+	Call CheckNum(dbls(0), 1.5, "double_bump_neighbor")
+
+	Call BumpInteger(nums)
+	Call CheckNum(nums(1), 7, "integer_bump")
+	Call CheckNum(nums(0), 1, "integer_bump_neighbor")
+	Call CheckNum(nums(2), 3, "integer_bump_neighbor2")
+
+	Print "FOREACH_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_array_param_foreach_sum"
+	Else
+		Print "FAIL: sem_array_param_foreach_sum"
+	End If
+End Sub

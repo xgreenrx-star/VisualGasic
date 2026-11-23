@@ -1,0 +1,181 @@
+' Game-shaped integration: inventory + quest flag state updates that mix
+' ByRef helpers, Dictionary/Array, UDT value copy, short-circuit guards,
+' loop Continue/Exit, and Try/Finally. Expectations are independent of
+' runtime path; AssertObs checks values, types, Err, and event order.
+'
+Attribute VB_Name = "TestSemGameShapedState"
+Option Explicit
+
+Type Item
+	id As Integer
+	qty As Integer
+End Type
+
+Dim gLog As String
+Dim passed As Integer
+Dim failed As Integer
+
+Sub AssertObs(ByVal actual As Variant, ByVal expected As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	If expectType = "Integer" Then
+		If CLng(actual) <> CLng(expected) Then
+			failed = failed + 1
+			Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+			Exit Sub
+		End If
+	ElseIf CStr(actual) <> CStr(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " value got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub Mark(ByVal s As String)
+	gLog = gLog & s
+End Sub
+
+Sub BumpQty(ByRef it As Item, ByVal n As Integer)
+	Call Mark("B")
+	it.qty = it.qty + n
+End Sub
+
+Function CanTake(ByVal have As Integer, ByVal need As Integer) As Boolean
+	Call Mark("C")
+	CanTake = have >= need
+End Function
+
+Function NextSlot(ByRef idx As Integer) As Integer
+	Call Mark("I")
+	idx = idx + 1
+	NextSlot = idx
+End Function
+
+Sub ApplyLoot(ByRef bag As Dictionary, ByRef slots() As Integer, ByRef cursor As Integer)
+	Dim need As Integer
+	Dim got As Integer
+	Dim k As Variant
+	need = 2
+	Try
+		Call Mark("T")
+		' Short-circuit: if CanTake is false, NextSlot must not run.
+		If CanTake(CLng(bag("gold")), need) AndAlso (slots(NextSlot(cursor)) = 0) Then
+			Call Mark("Y")
+			bag("gold") = CLng(bag("gold")) - need
+			slots(cursor) = 7
+		Else
+			Call Mark("N")
+		End If
+		For Each k In bag.Keys
+			Call Mark("K")
+		Next
+	Finally
+		Call Mark("F")
+	End Try
+End Sub
+
+Sub QuestTick(ByRef flags As Dictionary, ByRef hp As Integer)
+	Dim i As Integer
+	Dim it As Item
+	Dim copy As Item
+	it.id = 1
+	it.qty = 3
+	copy = it
+	Call BumpQty(it, 2)
+	' UDT value copy: bumping it must not change copy.
+	flags("sword_qty") = it.qty
+	flags("copy_qty") = copy.qty
+	For i = 1 To 3
+		Try
+			If i = 2 Then
+				Continue For
+			End If
+			Call Mark(CStr(i))
+			If i = 3 AndAlso flags.Exists("sword_qty") Then
+				hp = hp - 1
+				Exit For
+			End If
+		Finally
+			Call Mark("f")
+		End Try
+	Next i
+End Sub
+
+Sub _Ready()
+	Dim bag As Dictionary
+	Dim flags As Dictionary
+	Dim slots(3) As Integer
+	Dim cursor As Integer
+	Dim hp As Integer
+	Dim errN As Integer
+	passed = 0
+	failed = 0
+	bag = New Dictionary
+	flags = New Dictionary
+	bag("gold") = 5
+	bag("key") = 1
+	slots(0) = 0
+	slots(1) = 0
+	slots(2) = 0
+	slots(3) = 0
+	cursor = -1
+	hp = 10
+	gLog = ""
+
+	Call ApplyLoot(bag, slots, cursor)
+	Print "EVENT: apply_loot"
+	Call AssertObs(gLog, "TCIYKKF", "String", "gs_loot_log")
+	Call AssertObs(CLng(bag("gold")), 3, "Integer", "gs_loot_gold")
+	Call AssertObs(VarType(bag("gold")), 3, "Integer", "gs_loot_gold_vt")
+	Call AssertObs(slots(0), 7, "Integer", "gs_loot_slot0")
+	Call AssertObs(slots(1), 0, "Integer", "gs_loot_slot1")
+	Call AssertObs(slots(2), 0, "Integer", "gs_loot_slot2")
+	Call AssertObs(slots(3), 0, "Integer", "gs_loot_slot3")
+	Call AssertObs(cursor, 0, "Integer", "gs_loot_cursor")
+	Call AssertObs(CLng(bag("key")), 1, "Integer", "gs_loot_key_neighbor")
+
+	' Short-circuit: gold too low → CanTake false, NextSlot skipped.
+	gLog = ""
+	bag("gold") = 1
+	cursor = -1
+	slots(0) = 0
+	Call ApplyLoot(bag, slots, cursor)
+	Print "EVENT: apply_loot_deny"
+	Call AssertObs(gLog, "TCNKKF", "String", "gs_deny_log")
+	Call AssertObs(CLng(bag("gold")), 1, "Integer", "gs_deny_gold")
+	Call AssertObs(cursor, -1, "Integer", "gs_deny_cursor")
+	Call AssertObs(slots(0), 0, "Integer", "gs_deny_slot0")
+	Call AssertObs(slots(1), 0, "Integer", "gs_deny_slot1")
+
+	gLog = ""
+	Call QuestTick(flags, hp)
+	Print "EVENT: quest_tick"
+	' i=1 body+finally, i=2 continue+finally only, i=3 body then Exit For + finally
+	Call AssertObs(gLog, "B1ff3f", "String", "gs_quest_log")
+	Call AssertObs(CLng(flags("sword_qty")), 5, "Integer", "gs_quest_sword")
+	Call AssertObs(CLng(flags("copy_qty")), 3, "Integer", "gs_quest_copy")
+	Call AssertObs(hp, 9, "Integer", "gs_quest_hp")
+	Call AssertObs(VarType(flags("sword_qty")), 3, "Integer", "gs_quest_sword_vt")
+
+	' Missing Remove must leave Err 0 (OBSERVED C3b).
+	errN = Err.Number
+	flags.Remove "missing_flag"
+	Print "EVENT: remove_missing"
+	Call AssertObs(errN, 0, "Integer", "gs_rm_err_before")
+	Call AssertObs(Err.Number, 0, "Integer", "gs_rm_err_after")
+	Call AssertObs(flags.Count(), 2, "Integer", "gs_rm_count")
+
+	Print "GS_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_game_shaped_state"
+	Else
+		Print "FAIL: sem_game_shaped_state"
+	End If
+End Sub

@@ -699,8 +699,11 @@ struct Parameter {
     Variant default_value;
     bool is_by_ref;
     bool is_param_array;
+    // Name() or Name(bounds): the parameter is an array. The As clause is the
+    // element type (Integer), not a scalar coercion of the array value.
+    bool is_array;
 
-    Parameter() : is_optional(false), is_by_ref(true), is_param_array(false) {}
+    Parameter() : is_optional(false), is_by_ref(true), is_param_array(false), is_array(false) {}
 };
 
 struct SubDefinition : public ASTNode {

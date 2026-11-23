@@ -266,6 +266,12 @@ bool VisualGasicInstance::jit_resolve_direct_callee(const String &name, int argc
 // entry and the compiler puts a CLng on every assignment to the parameter.
 // Any other parameter (Single, untyped, LongLong, Boolean, …) can hold a
 // fraction, and so can a Sub this script only imports.
+// An array parameter (`slots() As Integer`) is not that scalar. Its As
+// clause is the element type, the slot holds an Array, and fast_param_coerce
+// is 5. Direct-call lowering already refuses code 5, so this parameter never
+// becomes a CALLEE_LOAD. The host OP_BYREF_LOAD path still calls this when
+// the write-back destination is an i64 local, which a numeric caller of
+// `Touch(n)` can be, so `is_array` has to fail here too.
 bool VisualGasicInstance::jit_byref_param_is_integer(const String &name, const String &param) const {
 	if (!script.is_valid() || !script->ast_root) return false;
 	bool found = false;
@@ -274,7 +280,7 @@ bool VisualGasicInstance::jit_byref_param_is_integer(const String &name, const S
 		if (!sd || sd->name.nocasecmp_to(name) != 0) continue;
 		for (int p = 0; p < sd->parameters.size(); p++) {
 			if (sd->parameters[p].name.nocasecmp_to(param) != 0) continue;
-			if (sd->parameters[p].is_param_array) return false;
+			if (sd->parameters[p].is_param_array || sd->parameters[p].is_array) return false;
 			const String t = sd->parameters[p].type_hint.to_lower();
 			if (t != "integer" && t != "long") return false;
 			found = true;
