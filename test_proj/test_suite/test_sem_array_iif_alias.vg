@@ -1,0 +1,220 @@
+' IIf, nested conditionals, TypeOf, Swap, Print, and For Each of an
+' expression publish the array object. A later non-integer store must
+' stay visible through every name that shares that object. An explicit
+' PackedInt64Array still truncates. A proven integer element copied
+' through IIf stays an integer. Element checks pass the value, not the
+' container, so a helper call cannot hide a missed alias.
+'
+Attribute VB_Name = "TestSemArrayIifAlias"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub CheckNum(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CDbl(actual) <> CDbl(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckType(ByVal actual As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub _Ready()
+	Dim nums(1) As Integer
+	Dim alias As Variant
+	nums(0) = 1
+	nums(1) = 9
+	alias = IIf(True, nums, nums)
+	alias(0) = 1.5
+	CheckNum(nums(0), 1.5, "iif_true_nums")
+	CheckNum(alias(0), 1.5, "iif_true_alias")
+	CheckNum(nums(1), 9, "iif_true_neighbor")
+	CheckType(nums(0), "Double", "iif_true_elem_type")
+	CheckType(alias(0), "Double", "iif_true_alias_type")
+	CheckType(nums(1), "Integer", "iif_true_neighbor_type")
+
+	Dim left(1) As Integer
+	Dim right(1) As Integer
+	Dim pick As Variant
+	left(0) = 1
+	left(1) = 9
+	right(0) = 2
+	right(1) = 8
+	pick = IIf(False, left, right)
+	pick(0) = 1.5
+	CheckNum(left(0), 1, "iif_false_left")
+	CheckNum(right(0), 1.5, "iif_false_right")
+	CheckNum(pick(0), 1.5, "iif_false_pick")
+	CheckNum(left(1), 9, "iif_false_left_neighbor")
+	CheckNum(right(1), 8, "iif_false_right_neighbor")
+	CheckType(left(0), "Integer", "iif_false_left_type")
+	CheckType(right(0), "Double", "iif_false_right_type")
+	CheckType(pick(0), "Double", "iif_false_pick_type")
+
+	Dim nest(1) As Integer
+	Dim other(1) As Integer
+	Dim nestView As Variant
+	nest(0) = 1
+	nest(1) = 9
+	other(0) = 3
+	other(1) = 7
+	nestView = IIf(True, IIf(False, other, nest), other)
+	nestView(0) = 1.5
+	CheckNum(nest(0), 1.5, "iif_nested_nest")
+	CheckNum(nestView(0), 1.5, "iif_nested_view")
+	CheckNum(other(0), 3, "iif_nested_other")
+	CheckNum(nest(1), 9, "iif_nested_neighbor")
+	CheckType(nest(0), "Double", "iif_nested_type")
+	CheckType(other(0), "Integer", "iif_nested_other_type")
+
+	Dim c1(1) As Integer
+	Dim c2(1) As Integer
+	Dim chosen As Variant
+	c1(0) = 1
+	c1(1) = 9
+	c2(0) = 2
+	c2(1) = 8
+	chosen = Choose(1, c1, c2)
+	chosen(0) = 1.5
+	CheckNum(c1(0), 1.5, "choose_taken")
+	CheckNum(chosen(0), 1.5, "choose_alias")
+	CheckNum(c2(0), 2, "choose_other")
+	CheckNum(c1(1), 9, "choose_neighbor")
+	CheckType(c1(0), "Double", "choose_type")
+	CheckType(c2(0), "Integer", "choose_other_type")
+
+	Dim typed As Variant
+	Dim pal As Variant
+	typed = PackedInt64Array(Array(4, 5))
+	pal = IIf(True, typed, typed)
+	pal(0) = 1.5
+	CheckNum(typed(0), 1, "packed_iif_typed")
+	CheckNum(pal(0), 1, "packed_iif_alias")
+	CheckNum(typed(1), 5, "packed_iif_neighbor")
+	CheckType(typed, "PackedInt64Array", "packed_iif_container")
+	CheckType(pal, "PackedInt64Array", "packed_iif_alias_container")
+	CheckType(typed(0), "Integer", "packed_iif_elem_type")
+
+	Dim proven(1) As Integer
+	Dim copied(0) As Integer
+	proven(0) = 4
+	proven(1) = 9
+	copied(0) = IIf(True, proven(0), proven(1))
+	CheckNum(copied(0), 4, "proven_iif_value")
+	CheckNum(proven(0), 4, "proven_iif_source")
+	CheckNum(proven(1), 9, "proven_iif_neighbor")
+	CheckType(copied(0), "Integer", "proven_iif_type")
+	CheckType(proven(0), "Integer", "proven_iif_source_type")
+
+	Dim src(1) As Integer
+	Dim mid(1) As Integer
+	Dim got As Variant
+	src(0) = 1.5
+	src(1) = 9
+	mid(0) = IIf(True, src(0), 0)
+	got = 0
+	got = IIf(True, src(0), 0)
+	got = got + 1
+	CheckNum(mid(0), 1.5, "iif_elem_mid")
+	CheckNum(src(0), 1.5, "iif_elem_src")
+	CheckNum(src(1), 9, "iif_elem_neighbor")
+	CheckNum(got, 2.5, "iif_elem_arith")
+	CheckType(mid(0), "Double", "iif_elem_mid_type")
+	CheckType(got, "Double", "iif_elem_arith_type")
+
+	CheckTypeOf()
+	CheckPrint()
+	CheckSwap()
+	CheckForEach()
+	CheckLambda()
+	If failed = 0 Then
+		Print "PASS: sem_array_iif_alias (" & CStr(passed) & " checks)"
+	Else
+		Print "FAIL: sem_array_iif_alias passed=" & CStr(passed) & " failed=" & CStr(failed)
+	End If
+End Sub
+
+Sub CheckTypeOf()
+	Dim typedOf(1) As Integer
+	Dim saw As Boolean
+	typedOf(0) = 1
+	typedOf(1) = 9
+	saw = TypeOf typedOf Is Array
+	If saw Then
+	End If
+	typedOf(0) = 1.5
+	CheckNum(typedOf(0), 1.5, "typeof_store")
+	CheckNum(typedOf(1), 9, "typeof_neighbor")
+	CheckType(typedOf(0), "Double", "typeof_elem_type")
+End Sub
+
+Sub CheckPrint()
+	Dim printed(1) As Integer
+	printed(0) = 1
+	printed(1) = 9
+	Print printed
+	printed(0) = 1.5
+	CheckNum(printed(0), 1.5, "print_store")
+	CheckNum(printed(1), 9, "print_neighbor")
+	CheckType(printed(0), "Double", "print_elem_type")
+End Sub
+
+Sub CheckSwap()
+	Dim s1(1) As Integer
+	Dim s2(1) As Integer
+	s1(0) = 1
+	s1(1) = 9
+	s2(0) = 2
+	s2(1) = 8
+	Swap s1, s2
+	s1(0) = 1.5
+	CheckNum(s1(0), 1.5, "swap_taken")
+	CheckNum(s2(0), 1, "swap_other")
+	CheckNum(s1(1), 8, "swap_taken_neighbor")
+	CheckNum(s2(1), 9, "swap_other_neighbor")
+	CheckType(s1(0), "Double", "swap_taken_type")
+	CheckType(s2(0), "Integer", "swap_other_type")
+End Sub
+
+Sub CheckForEach()
+	Dim eachLeft(1) As Integer
+	Dim eachRight(1) As Integer
+	Dim eachItem As Variant
+	eachLeft(0) = 1
+	eachLeft(1) = 9
+	eachRight(0) = 2
+	eachRight(1) = 8
+	For Each eachItem In IIf(False, eachLeft, eachRight)
+	Next
+	eachRight(0) = 1.5
+	CheckNum(eachRight(0), 1.5, "foreach_iif_taken")
+	CheckNum(eachLeft(0), 1, "foreach_iif_other")
+	CheckNum(eachRight(1), 8, "foreach_iif_neighbor")
+	CheckType(eachRight(0), "Double", "foreach_iif_type")
+End Sub
+
+Sub CheckLambda()
+	Dim cap(1) As Integer
+	Dim held As Variant
+	cap(0) = 1
+	cap(1) = 9
+	held = Lambda() => cap
+	cap(0) = 1.5
+	CheckNum(cap(0), 1.5, "lambda_store")
+	CheckNum(cap(1), 9, "lambda_neighbor")
+	CheckType(cap(0), "Double", "lambda_elem_type")
+End Sub

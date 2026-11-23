@@ -1,0 +1,238 @@
+' An unproven Integer-array element is not an integer for later stores,
+' arithmetic, compares, or loop steps. Statement order does not restore
+' the declared element type. A proven integer array still copies integers.
+'
+Attribute VB_Name = "TestSemArrayElemTransfer"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub CheckNum(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CDbl(actual) <> CDbl(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckType(ByVal actual As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub _Ready()
+	Dim source(1) As Integer
+	Dim target(1) As Integer
+	Dim tFirst(1) As Integer
+	Dim sFirst(1) As Integer
+	Dim early(1) As Integer
+	Dim late(1) As Integer
+	Dim src(1) As Integer
+	Dim mid(1) As Integer
+	Dim dst(1) As Integer
+	Dim i As Integer
+	Dim arith(1) As Integer
+	Dim into(1) As Integer
+	Dim got
+	Dim plus
+	Dim diff
+	Dim sq
+	Dim asrc(1) As Integer
+	Dim atgt(1) As Integer
+	Dim alias As Variant
+	Dim eq1
+	Dim eq15
+	Dim stepN
+	Dim stepI
+	Dim toN
+	Dim toI
+	Dim rounded As Integer
+	Dim roundedAdd As Integer
+	Dim chain
+	Dim k As Integer
+	Dim grew
+	Dim a(1) As Integer
+	Dim b(1) As Integer
+	Dim c(0) As Integer
+	Dim pace(0) As Integer
+	Dim paceN
+	Dim paceI
+	Dim lim(0) As Integer
+	Dim limN
+	Dim limI
+
+	passed = 0
+	failed = 0
+
+	source(0) = 1.5
+	source(1) = 9
+	target(0) = source(0)
+	target(1) = 8
+	Call CheckNum(source(0), 1.5, "decl_source")
+	Call CheckNum(target(0), 1.5, "decl_target")
+	Call CheckNum(source(1), 9, "decl_source_neighbor")
+	Call CheckNum(target(1), 8, "decl_target_neighbor")
+	Call CheckType(source(0), "Double", "decl_source_type")
+	Call CheckType(target(0), "Double", "decl_target_type")
+	Call CheckType(source, "Array", "decl_source_container")
+	Call CheckType(target, "Array", "decl_target_container")
+
+	sFirst(0) = 1.5
+	sFirst(1) = 9
+	tFirst(0) = sFirst(0)
+	tFirst(1) = 8
+	Call CheckNum(sFirst(0), 1.5, "decl_swap_source")
+	Call CheckNum(tFirst(0), 1.5, "decl_swap_target")
+	Call CheckNum(sFirst(1), 9, "decl_swap_source_neighbor")
+	Call CheckNum(tFirst(1), 8, "decl_swap_target_neighbor")
+	Call CheckType(tFirst(0), "Double", "decl_swap_type")
+
+	early(0) = late(0)
+	early(1) = 6
+	late(0) = 1.5
+	late(1) = 4
+	Call CheckNum(late(0), 1.5, "order_late")
+	Call CheckNum(early(0), 0, "order_early")
+	Call CheckNum(late(1), 4, "order_late_neighbor")
+	Call CheckNum(early(1), 6, "order_early_neighbor")
+	Call CheckType(late(0), "Double", "order_late_type")
+	Call CheckType(early(0), "Integer", "order_early_type")
+
+	src(0) = 1.5
+	src(1) = 9
+	mid(1) = 8
+	dst(1) = 7
+	For i = 1 To 2
+		dst(0) = mid(0)
+		mid(0) = src(0)
+	Next
+	Call CheckNum(src(0), 1.5, "loop_src")
+	Call CheckNum(mid(0), 1.5, "loop_mid")
+	Call CheckNum(dst(0), 1.5, "loop_dst")
+	Call CheckNum(src(1), 9, "loop_src_neighbor")
+	Call CheckNum(mid(1), 8, "loop_mid_neighbor")
+	Call CheckNum(dst(1), 7, "loop_dst_neighbor")
+	Call CheckType(mid(0), "Double", "loop_mid_type")
+	Call CheckType(dst(0), "Double", "loop_dst_type")
+
+	arith(0) = 1.5
+	arith(1) = 4
+	got = arith(0) + arith(0)
+	plus = arith(0) + 1
+	diff = arith(0) - 0.5
+	sq = arith(0) * arith(0)
+	into(0) = arith(0) * 2
+	into(1) = 7
+	Call CheckNum(got, 3, "arith_sum")
+	Call CheckNum(plus, 2.5, "arith_plus")
+	Call CheckNum(diff, 1, "arith_diff")
+	Call CheckNum(sq, 2.25, "arith_sq")
+	Call CheckNum(into(0), 3, "arith_into")
+	Call CheckNum(into(1), 7, "arith_into_neighbor")
+	Call CheckNum(arith(1), 4, "arith_neighbor")
+	Call CheckType(got, "Double", "arith_sum_type")
+	Call CheckType(plus, "Double", "arith_plus_type")
+	Call CheckType(sq, "Double", "arith_sq_type")
+	Call CheckType(into(0), "Double", "arith_into_type")
+
+	grew = 0
+	grew = grew + arith(0)
+	Call CheckNum(grew, 1.5, "arith_accum")
+	Call CheckType(grew, "Double", "arith_accum_type")
+
+	chain = 0
+	For k = 1 To 2
+		chain = chain + 1
+		chain = chain + arith(0)
+	Next
+	Call CheckNum(chain, 5, "arith_chain")
+	Call CheckType(chain, "Double", "arith_chain_type")
+
+	asrc(0) = 1.5
+	asrc(1) = 9
+	alias = asrc
+	atgt(0) = alias(0)
+	atgt(1) = 7
+	Call CheckNum(asrc(0), 1.5, "alias_source")
+	Call CheckNum(atgt(0), 1.5, "alias_target")
+	Call CheckNum(alias(0), 1.5, "alias_view")
+	Call CheckNum(asrc(1), 9, "alias_source_neighbor")
+	Call CheckNum(atgt(1), 7, "alias_target_neighbor")
+	Call CheckType(atgt(0), "Double", "alias_target_type")
+	Call CheckType(asrc, "Array", "alias_container")
+
+	eq1 = 0
+	eq15 = 0
+	If arith(0) = 1 Then
+		eq1 = 1
+	End If
+	If arith(0) = 1.5 Then
+		eq15 = 1
+	End If
+	Call CheckNum(eq1, 0, "cmp_truncated")
+	Call CheckNum(eq15, 1, "cmp_exact")
+
+	stepN = 0
+	For stepI = 0 To 3 Step arith(0)
+		stepN = stepN + 1
+	Next
+	Call CheckNum(stepN, 3, "step_count")
+
+	toN = 0
+	For toI = 1 To arith(0)
+		toN = toN + 1
+	Next
+	Call CheckNum(toN, 1, "to_count")
+
+	rounded = source(0)
+	roundedAdd = 0
+	roundedAdd = roundedAdd + source(0)
+	Call CheckNum(rounded, 2, "scalar_round")
+	Call CheckNum(roundedAdd, 2, "scalar_round_add")
+	Call CheckType(rounded, "Integer", "scalar_round_type")
+
+	a(0) = 4
+	a(1) = 9
+	b(0) = a(0)
+	b(1) = 8
+	c(0) = a(0) + a(1)
+	Call CheckNum(a(0), 4, "proven_a")
+	Call CheckNum(b(0), 4, "proven_b")
+	Call CheckNum(a(1), 9, "proven_a_neighbor")
+	Call CheckNum(b(1), 8, "proven_b_neighbor")
+	Call CheckNum(c(0), 13, "proven_sum")
+	Call CheckType(a(0), "Integer", "proven_a_type")
+	Call CheckType(b(0), "Integer", "proven_b_type")
+	Call CheckType(c(0), "Integer", "proven_sum_type")
+
+	pace(0) = 1
+	paceN = 0
+	For paceI = 0 To 3 Step pace(0)
+		paceN = paceN + 1
+	Next
+	Call CheckNum(paceN, 4, "proven_step")
+
+	lim(0) = 3
+	limN = 0
+	For limI = 1 To lim(0)
+		limN = limN + 1
+	Next
+	Call CheckNum(limN, 3, "proven_to")
+
+	Print "TRANSFER_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_array_elem_transfer"
+	Else
+		Print "FAIL: sem_array_elem_transfer"
+	End If
+End Sub

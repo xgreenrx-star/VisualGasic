@@ -1,0 +1,169 @@
+' Aliases of a Dim As Integer array share one Variant Array.
+' An explicit PackedInt64Array stays packed and converts on store.
+' The runtime cannot mark the packed optimization, so a copied Integer
+' array is not allocated as PackedInt64Array.
+'
+Attribute VB_Name = "TestSemArrayAliasPacked"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub CheckNum(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CDbl(actual) <> CDbl(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckType(ByVal actual As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub Poke(ByRef vals() As Integer)
+	vals(0) = 1.5
+End Sub
+
+Sub ReplaceArr(ByRef vals() As Integer)
+	Dim fresh(1) As Integer
+	fresh(0) = 4
+	fresh(1) = 6
+	vals = fresh
+End Sub
+
+Sub Mutate(v As Variant)
+	v(0) = 1.5
+End Sub
+
+Function Identity(v As Variant) As Variant
+	Identity = v
+End Function
+
+Sub _Ready()
+	Dim nums(1) As Integer
+	Dim alias As Variant
+	Dim second As Variant
+	Dim held(1) As Integer
+	Dim box(0) As Variant
+	Dim slot As Variant
+	Dim d As Dictionary
+	Dim keyed(1) As Integer
+	Dim dslot As Variant
+	Dim shared(1) As Integer
+	Dim view As Variant
+	Dim called(1) As Integer
+	Dim cview As Variant
+	Dim returned(1) As Integer
+	Dim rview As Variant
+	Dim orig(1) As Integer
+	Dim old As Variant
+	Dim typed(1) As Integer
+	Dim palias As Variant
+
+	passed = 0
+	failed = 0
+
+	nums(0) = 1
+	nums(1) = 9
+	alias = nums
+	second = alias
+	second(0) = 1.5
+	Call CheckNum(nums(0), 1.5, "alias_nums")
+	Call CheckNum(alias(0), 1.5, "alias_alias")
+	Call CheckNum(second(0), 1.5, "alias_second")
+	Call CheckNum(nums(1), 9, "alias_neighbor")
+	Call CheckNum(alias(1), 9, "alias_neighbor_alias")
+	Call CheckType(nums, "Array", "alias_container")
+	Call CheckType(nums(0), "Double", "alias_elem_type")
+
+	held(0) = 3
+	held(1) = 8
+	box(0) = held
+	slot = box(0)
+	slot(0) = 1.5
+	Call CheckNum(held(0), 1.5, "box_held")
+	Call CheckNum(slot(0), 1.5, "box_slot")
+	Call CheckNum(held(1), 8, "box_neighbor")
+	Call CheckNum(slot(1), 8, "box_neighbor_slot")
+	Call CheckType(held, "Array", "box_container")
+
+	keyed(0) = 2
+	keyed(1) = 7
+	d("k") = keyed
+	dslot = d("k")
+	dslot(0) = 1.5
+	Call CheckNum(keyed(0), 1.5, "dict_keyed")
+	Call CheckNum(dslot(0), 1.5, "dict_slot")
+	Call CheckNum(keyed(1), 7, "dict_neighbor")
+	Call CheckType(keyed, "Array", "dict_container")
+
+	shared(0) = 1
+	shared(1) = 9
+	view = shared
+	Call Poke(shared)
+	Call CheckNum(shared(0), 1.5, "byref_shared")
+	Call CheckNum(view(0), 1.5, "byref_view")
+	Call CheckNum(shared(1), 9, "byref_neighbor")
+	Call CheckType(shared(0), "Double", "byref_elem_type")
+
+	called(0) = 1
+	called(1) = 9
+	cview = called
+	Call Mutate(called)
+	Call CheckNum(called(0), 1.5, "call_called")
+	Call CheckNum(cview(0), 1.5, "call_view")
+	Call CheckNum(called(1), 9, "call_neighbor")
+
+	returned(0) = 1
+	returned(1) = 9
+	rview = Identity(returned)
+	rview(0) = 1.5
+	Call CheckNum(returned(0), 1.5, "return_returned")
+	Call CheckNum(rview(0), 1.5, "return_view")
+	Call CheckNum(returned(1), 9, "return_neighbor")
+
+	orig(0) = 1
+	orig(1) = 9
+	old = orig
+	Call ReplaceArr(orig)
+	Call CheckNum(orig(0), 4, "replace_orig")
+	Call CheckNum(orig(1), 6, "replace_orig_neighbor")
+	Call CheckNum(old(0), 1, "replace_old")
+	Call CheckNum(old(1), 9, "replace_old_neighbor")
+	Call CheckType(orig, "Array", "replace_orig_type")
+	Call CheckType(old, "Array", "replace_old_type")
+
+	typed = PackedInt64Array(Array(4, 5))
+	typed(0) = 1.5
+	Call CheckType(typed, "PackedInt64Array", "packed_type")
+	Call CheckNum(typed(0), 1, "packed_elem")
+	Call CheckNum(typed(1), 5, "packed_neighbor")
+
+	typed = PackedInt64Array(Array(4, 5))
+	palias = typed
+	palias(0) = 1.5
+	Call CheckType(typed, "PackedInt64Array", "packed_alias_type")
+	Call CheckType(palias, "PackedInt64Array", "packed_alias_other_type")
+	Call CheckNum(typed(0), 1, "packed_alias_typed")
+	Call CheckNum(palias(0), 1, "packed_alias_alias")
+	Call CheckNum(typed(1), 5, "packed_alias_neighbor")
+	Call CheckNum(palias(1), 5, "packed_alias_neighbor_alias")
+
+	Print "ALIAS_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_array_alias_packed"
+	Else
+		Print "FAIL: sem_array_alias_packed"
+	End If
+End Sub

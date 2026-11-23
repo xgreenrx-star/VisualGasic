@@ -1,0 +1,168 @@
+' Array element types are not a runtime constraint.
+' The AST stores the assigned value and accepts any array at an array
+' parameter. ByRef vals() As Integer therefore keeps 1.5 and 2.5, and a
+' Double array of those values may be passed without an error. A nested
+' For Each over them twice sums to 8. Matching Integer stores still
+' write back as integers.
+'
+Attribute VB_Name = "TestSemArrayParamElementValues"
+Option Explicit
+
+Dim passed As Integer
+Dim failed As Integer
+
+Sub CheckNum(ByVal actual As Variant, ByVal expected As Variant, ByVal label As String)
+	If CDbl(actual) <> CDbl(expected) Then
+		failed = failed + 1
+		Print "FAIL: " & label & " got=" & CStr(actual) & " want=" & CStr(expected)
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub CheckType(ByVal actual As Variant, ByVal expectType As String, ByVal label As String)
+	Dim at As String
+	at = TypeName(actual)
+	If at <> expectType Then
+		failed = failed + 1
+		Print "FAIL: " & label & " type got=" & at & " want=" & expectType
+		Exit Sub
+	End If
+	passed = passed + 1
+	Print "PASS: " & label
+End Sub
+
+Sub StoreFraction(ByRef vals() As Integer)
+	vals(0) = 1.5
+	vals(1) = 2.5
+End Sub
+
+Function ReadStored(ByRef vals() As Integer) As Variant
+	vals(0) = 1.5
+	vals(1) = 2.5
+	ReadStored = vals(0)
+End Function
+
+Function SumTwice(ByRef vals() As Integer) As Double
+	Dim total As Double
+	Dim n As Integer
+	Dim item As Variant
+	total = 0
+	For n = 0 To 1 Step 1
+		For Each item In vals
+			total = total + item
+		Next
+	Next
+	SumTwice = total
+End Function
+
+Function SumPlain(ByRef vals() As Integer, ByRef hits As Integer) As Double
+	Dim total As Double
+	Dim item As Variant
+	total = 0
+	hits = 0
+	For Each item In vals
+		total = total + item
+		hits = hits + 1
+	Next
+	SumPlain = total
+End Function
+
+Sub StoreInts(ByRef vals() As Integer)
+	vals(0) = 4
+	vals(1) = vals(1) + 5
+End Sub
+
+Sub _Ready()
+	Dim iw(2) As Integer
+	Dim pair(1) As Integer
+	Dim fr(1) As Integer
+	Dim wide(2) As Integer
+	Dim dbls(1) As Double
+	Dim loc(1) As Integer
+	Dim got As Variant
+	Dim sum As Double
+	Dim hits As Integer
+	Dim errBefore As Integer
+	Dim ltotal As Double
+	Dim itotal As Double
+	Dim ln As Integer
+	Dim lj As Integer
+	Dim litem As Variant
+
+	passed = 0
+	failed = 0
+
+	iw(0) = 1
+	iw(1) = 2
+	iw(2) = 9
+	Call StoreInts(iw)
+	Call CheckNum(iw(0), 4, "int_writeback_0")
+	Call CheckNum(iw(1), 7, "int_writeback_1")
+	Call CheckNum(iw(2), 9, "int_writeback_neighbor")
+	Call CheckType(iw(0), "Integer", "int_writeback_type")
+
+	pair(0) = 1
+	pair(1) = 2
+	Call StoreInts(pair)
+	Call CheckNum(SumTwice(pair), 22, "int_sum_twice")
+	Call CheckType(pair(1), "Integer", "int_sum_elem_type")
+
+	got = ReadStored(fr)
+	Call CheckNum(got, 1.5, "callee_read_fraction")
+	Call CheckType(got, "Double", "callee_read_type")
+	Call CheckNum(fr(0), 1.5, "caller_read_0")
+	Call CheckNum(fr(1), 2.5, "caller_read_1")
+	Call CheckType(fr(0), "Double", "caller_read_type")
+	Call CheckType(fr(1), "Double", "caller_read_type_1")
+	Call CheckNum(SumTwice(fr), 8, "stored_sum_twice")
+
+	wide(2) = 9
+	Call StoreFraction(wide)
+	Call CheckNum(wide(0), 1.5, "wide_0")
+	Call CheckNum(wide(1), 2.5, "wide_1")
+	Call CheckNum(wide(2), 9, "wide_neighbor")
+
+	hits = -1
+	sum = SumPlain(fr, hits)
+	Call CheckNum(sum, 4, "plain_sum_keeps_fraction")
+	Call CheckNum(hits, 2, "plain_hits")
+
+	loc(0) = 1.5
+	loc(1) = 2.5
+	ltotal = 0
+	For ln = 0 To 1 Step 1
+		For Each litem In loc
+			ltotal = ltotal + litem
+		Next
+	Next
+	itotal = 0
+	For ln = 0 To 1 Step 1
+		For lj = 0 To 1 Step 1
+			itotal = itotal + loc(lj)
+		Next
+	Next
+	Call CheckNum(loc(0), 1.5, "local_store_0")
+	Call CheckNum(loc(1), 2.5, "local_store_1")
+	Call CheckType(loc(0), "Double", "local_store_type")
+	Call CheckNum(ltotal, 8, "local_foreach_sum_twice")
+	Call CheckNum(itotal, 8, "local_indexed_sum_twice")
+
+	dbls(0) = 1.5
+	dbls(1) = 2.5
+	errBefore = Err.Number
+	sum = SumTwice(dbls)
+	Call CheckNum(Err.Number, errBefore, "mismatch_no_error")
+	Call CheckNum(sum, 8, "passed_double_sum_twice")
+	Call CheckNum(dbls(0), 1.5, "passed_double_elem0")
+	Call CheckNum(dbls(1), 2.5, "passed_double_elem1")
+	Call CheckType(dbls(0), "Double", "passed_double_type")
+
+	Print "ELEM_SUMMARY passed=" & CStr(passed) & " failed=" & CStr(failed)
+	If failed = 0 Then
+		Print "PASS: sem_array_param_element_values"
+	Else
+		Print "FAIL: sem_array_param_element_values"
+	End If
+End Sub

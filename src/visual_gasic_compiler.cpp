@@ -513,6 +513,8 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
     sole_owner_dict_vars.clear();
     string_key_arrays.clear();
     array_types.clear();
+    unproven_int_arrays.clear();
+    demoted_inferred_ints.clear();
     array_bound_vars.clear();
     local_slots.clear();
     local_types.clear();
@@ -719,16 +721,11 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
             // ParamArray's slot is the rest-Array. `slots() As Integer` is the
             // caller's array; the As clause is the element type.
             array_vars.insert(pkey);
-            // Record that element type for loop fusion. Untyped, Variant,
-            // String, and ParamArray stay out of array_types: a missing entry
-            // is not an integer array.
-            if (sub->parameters[i].is_array && !sub->parameters[i].is_param_array) {
-                if (t == "integer" || t == "long" || t == "longlong") {
-                    array_types[pkey] = VT_INT;
-                } else if (t == "single" || t == "double") {
-                    array_types[pkey] = VT_FLOAT;
-                }
-            }
+            // The As clause is not a runtime element constraint. The AST stores
+            // the assigned value (1.5 stays 1.5 in an Integer array) and the
+            // binder accepts a Double array at ByRef vals() As Integer. Recording
+            // the hint in array_types made bytecode truncate those values with
+            // i64 loads, stores, and OP_SUM_ARRAY_I64. Leave the hint out.
         } else if (t == "array" || vg_is_packed_array_type(t)) {
             array_vars.insert(pkey);
         } else if (t == "dictionary") {
@@ -960,9 +957,30 @@ bool VisualGasicCompiler::compile(ModuleNode* module, const String& entry_point,
                 escaped_dicts.insert(name);
             }
         }
-        // Scan all statements for escaping uses
-        for (int i = 0; i < sub->statements.size(); i++) {
-            _check_dict_escapes(sub->statements[i], escaped_dicts);
+        // A consumer can appear before the store that makes its source
+        // unproven, and a loop runs that body again. Repeat until every
+        // dependent array and untyped local is marked. The walk only inserts.
+        int guard = 0;
+        int marked_arrays = -1;
+        int marked_locals = -1;
+        int mark_limit = array_types.size() + local_slots.size() + 2;
+        while ((int)unproven_int_arrays.size() != marked_arrays ||
+                (int)demoted_inferred_ints.size() != marked_locals) {
+            if (guard >= mark_limit) {
+                for (const KeyValue<String, ValueType> &kv : array_types) {
+                    if (kv.value == VT_INT) unproven_int_arrays.insert(kv.key);
+                }
+                for (const KeyValue<String, int> &kv : local_slots) {
+                    if (!declared_int_vars.has(kv.key)) demoted_inferred_ints.insert(kv.key);
+                }
+                break;
+            }
+            marked_arrays = (int)unproven_int_arrays.size();
+            marked_locals = (int)demoted_inferred_ints.size();
+            for (int i = 0; i < sub->statements.size(); i++) {
+                _check_dict_escapes(sub->statements[i], escaped_dicts);
+            }
+            guard++;
         }
         for (const String &name : escaped_dicts) {
             sole_owner_dict_vars.erase(name);
@@ -1060,6 +1078,19 @@ int VisualGasicCompiler::get_or_add_local(const String &name, ValueType type) {
     String key = name.to_lower();
     if (non_local_names.has(key)) {
         return -1;
+    }
+    // A previous integer inference must not survive a store of an unproven
+    // element. Declared Integer locals stay integer and round through CLng.
+    if (demoted_inferred_ints.has(key) && !declared_int_vars.has(key)) {
+        type = VT_UNKNOWN;
+        if (local_slots.has(key)) {
+            local_types[key] = VT_UNKNOWN;
+            int slot = local_slots[key];
+            if (slot >= 0 && slot < current_chunk->local_types.size()) {
+                current_chunk->local_types.write[slot] = 0;
+            }
+            return slot;
+        }
     }
     if (local_slots.has(key)) {
         if (type != VT_UNKNOWN) {
@@ -1983,6 +2014,257 @@ bool VisualGasicCompiler::is_fast_array_var(const String &name) const {
     return !dictionary_vars.has(key);
 }
 
+bool VisualGasicCompiler::int_array_ops_ok(const String &name) const {
+    String key = name.to_lower();
+    return array_types.has(key) && array_types[key] == VT_INT && !unproven_int_arrays.has(key);
+}
+
+void VisualGasicCompiler::note_unproven_int_array(const String &name) const {
+    String key = name.to_lower();
+    if (array_types.has(key) && array_types[key] == VT_INT) {
+        unproven_int_arrays.insert(key);
+    }
+}
+
+void VisualGasicCompiler::note_unproven_int_array_store(const String &name, ExpressionNode *value) const {
+    // An integer declaration does not coerce the element. A store whose value
+    // is not itself an integer means later reads must return that value.
+    if (infer_type(value) != VT_INT) {
+        note_unproven_int_array(name);
+    }
+}
+
+bool VisualGasicCompiler::is_declared_int_array(const String &name) const {
+    String key = name.to_lower();
+    return array_types.has(key) && array_types[key] == VT_INT;
+}
+
+bool VisualGasicCompiler::expr_reads_unproven_int(ExpressionNode *expr) const {
+    if (!expr) return false;
+    switch (expr->type) {
+        case ExpressionNode::LITERAL:
+        case ExpressionNode::ME:
+        case ExpressionNode::SUPER:
+        case ExpressionNode::WITH_CONTEXT:
+            return false;
+        case ExpressionNode::VARIABLE: {
+            String key = ((VariableNode *)expr)->name.to_lower();
+            return unproven_int_arrays.has(key) || demoted_inferred_ints.has(key);
+        }
+        case ExpressionNode::ARRAY_ACCESS: {
+            ArrayAccessNode *aa = (ArrayAccessNode *)expr;
+            if (aa->base && expr_reads_unproven_int(aa->base)) return true;
+            for (int i = 0; i < aa->indices.size(); i++) {
+                if (expr_reads_unproven_int(aa->indices[i])) return true;
+            }
+            return false;
+        }
+        case ExpressionNode::EXPRESSION_CALL: {
+            CallExpression *c = (CallExpression *)expr;
+            if (!c->base_object && c->arguments.size() == 1 &&
+                    unproven_int_arrays.has(c->method_name.to_lower())) {
+                return true;
+            }
+            if (c->base_object && expr_reads_unproven_int(c->base_object)) return true;
+            for (int i = 0; i < c->arguments.size(); i++) {
+                if (expr_reads_unproven_int(c->arguments[i])) return true;
+            }
+            return false;
+        }
+        case ExpressionNode::MEMBER_ACCESS:
+            return expr_reads_unproven_int(((MemberAccessNode *)expr)->base_object);
+        case ExpressionNode::BINARY_OP: {
+            BinaryOpNode *b = (BinaryOpNode *)expr;
+            return expr_reads_unproven_int(b->left) || expr_reads_unproven_int(b->right);
+        }
+        case ExpressionNode::UNARY_OP:
+            return expr_reads_unproven_int(((UnaryOpNode *)expr)->operand);
+        case ExpressionNode::NEW: {
+            NewNode *nn = (NewNode *)expr;
+            for (int i = 0; i < nn->args.size(); i++) {
+                if (expr_reads_unproven_int(nn->args[i])) return true;
+            }
+            return false;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            IIfNode *iif = (IIfNode *)expr;
+            return expr_reads_unproven_int(iif->condition) ||
+                    expr_reads_unproven_int(iif->true_part) ||
+                    expr_reads_unproven_int(iif->false_part);
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            OptionalAccessExpression *oa = (OptionalAccessExpression *)expr;
+            if (expr_reads_unproven_int(oa->object_expression)) return true;
+            for (int i = 0; i < oa->arguments.size(); i++) {
+                if (expr_reads_unproven_int(oa->arguments[i])) return true;
+            }
+            return false;
+        }
+        case ExpressionNode::TYPE_CHECK:
+            return expr_reads_unproven_int(((TypeCheckExpression *)expr)->expression);
+        case ExpressionNode::LAMBDA: {
+            LambdaNode *lam = (LambdaNode *)expr;
+            if (expr_reads_unproven_int(lam->body_expression)) return true;
+            // A block lambda can capture any local. The packed proof is gone.
+            return lam->body_statements.size() > 0;
+        }
+        default:
+            // Match and any future node can carry an element we do not see.
+            return true;
+    }
+}
+
+void VisualGasicCompiler::note_demoted_inferred_int(const String &name) const {
+    String key = name.to_lower();
+    if (is_declared_integer_var(name) || array_types.has(key)) return;
+    demoted_inferred_ints.insert(key);
+}
+
+void VisualGasicCompiler::note_every_int_array_unproven() const {
+    for (const KeyValue<String, ValueType> &kv : array_types) {
+        if (kv.value == VT_INT) unproven_int_arrays.insert(kv.key);
+    }
+}
+
+void VisualGasicCompiler::note_int_array_copied(ExpressionNode *expr) const {
+    // Copying the array object publishes one shared container. An index read
+    // copies an element, not the container. PackedInt64Array assignment does
+    // not keep that share for a later non-integer store, and the runtime
+    // cannot tell this optimization from an explicit PackedInt64Array.
+    // Both branches of IIf, either Choose argument, a lambda body, and any
+    // shape this switch does not name can publish that container.
+    if (!expr) return;
+    switch (expr->type) {
+        case ExpressionNode::LITERAL:
+        case ExpressionNode::ME:
+        case ExpressionNode::SUPER:
+        case ExpressionNode::WITH_CONTEXT:
+            break;
+        case ExpressionNode::VARIABLE:
+            note_unproven_int_array(((VariableNode *)expr)->name);
+            break;
+        case ExpressionNode::ARRAY_ACCESS: {
+            ArrayAccessNode *aa = (ArrayAccessNode *)expr;
+            // nums(i) reads an element. IIf(...)(i) publishes whatever IIf returns.
+            if (aa->base && aa->base->type != ExpressionNode::VARIABLE) {
+                note_int_array_copied(aa->base);
+            }
+            for (int i = 0; i < aa->indices.size(); i++) note_int_array_copied(aa->indices[i]);
+            break;
+        }
+        case ExpressionNode::EXPRESSION_CALL: {
+            CallExpression *c = (CallExpression *)expr;
+            if (!c->base_object && c->arguments.size() == 1 && is_declared_int_array(c->method_name)) {
+                note_int_array_copied(c->arguments[0]);
+                break;
+            }
+            if (c->base_object) note_int_array_copied(c->base_object);
+            for (int i = 0; i < c->arguments.size(); i++) note_int_array_copied(c->arguments[i]);
+            break;
+        }
+        case ExpressionNode::MEMBER_ACCESS:
+            note_int_array_copied(((MemberAccessNode *)expr)->base_object);
+            break;
+        case ExpressionNode::BINARY_OP: {
+            BinaryOpNode *b = (BinaryOpNode *)expr;
+            note_int_array_copied(b->left);
+            note_int_array_copied(b->right);
+            break;
+        }
+        case ExpressionNode::UNARY_OP:
+            note_int_array_copied(((UnaryOpNode *)expr)->operand);
+            break;
+        case ExpressionNode::NEW: {
+            NewNode *nn = (NewNode *)expr;
+            for (int i = 0; i < nn->args.size(); i++) note_int_array_copied(nn->args[i]);
+            break;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            IIfNode *iif = (IIfNode *)expr;
+            note_int_array_copied(iif->condition);
+            note_int_array_copied(iif->true_part);
+            note_int_array_copied(iif->false_part);
+            break;
+        }
+        case ExpressionNode::OPTIONAL_ACCESS: {
+            OptionalAccessExpression *oa = (OptionalAccessExpression *)expr;
+            note_int_array_copied(oa->object_expression);
+            for (int i = 0; i < oa->arguments.size(); i++) note_int_array_copied(oa->arguments[i]);
+            break;
+        }
+        case ExpressionNode::TYPE_CHECK:
+            note_int_array_copied(((TypeCheckExpression *)expr)->expression);
+            break;
+        case ExpressionNode::LAMBDA: {
+            LambdaNode *lam = (LambdaNode *)expr;
+            note_int_array_copied(lam->body_expression);
+            HashSet<String> ignored;
+            for (int i = 0; i < lam->body_statements.size(); i++) {
+                _check_dict_escapes(lam->body_statements[i], ignored);
+            }
+            break;
+        }
+        default:
+            note_every_int_array_unproven();
+            break;
+    }
+}
+
+void VisualGasicCompiler::emit_variant_int_array(const String &name) {
+    // Size is on the stack. A declared Integer array is a Variant Array of
+    // Integer zeros on the AST. PackedInt64Array truncates 1.5 to 1, so any
+    // array whose elements are not proven integers uses the AST container.
+    int nslot = get_or_add_local(String("__vg_nia_") + String::num_int64(temp_local_id++), VT_INT);
+    int islot = get_or_add_local(String("__vg_nii_") + String::num_int64(temp_local_id++), VT_INT);
+    if (nslot < 0 || islot < 0 || nslot > 255 || islot > 255) {
+        bail_to_ast("unnamed");
+        emit_byte(OP_POP);
+        return;
+    }
+    emit_byte(OP_DUP);
+    emit_bytes(OP_SET_LOCAL, (uint8_t)nslot);
+    emit_byte(OP_NEW_ARRAY);
+    int slot = get_or_add_local(name, VT_UNKNOWN);
+    auto store_arr = [&]() {
+        if (slot >= 0 && slot <= 255) {
+            emit_bytes(OP_SET_LOCAL, (uint8_t)slot);
+        } else {
+            int idx = current_chunk->add_constant(name);
+            emit_byte(OP_SET_GLOBAL);
+            emit_const_index(idx);
+        }
+    };
+    auto load_arr = [&]() {
+        if (slot >= 0 && slot <= 255) {
+            emit_bytes(OP_GET_LOCAL, (uint8_t)slot);
+        } else {
+            int idx = current_chunk->add_constant(name);
+            emit_byte(OP_GET_GLOBAL);
+            emit_const_index(idx);
+        }
+    };
+    store_arr();
+    emit_constant(Variant((int64_t)0));
+    emit_bytes(OP_SET_LOCAL, (uint8_t)islot);
+    int loop_start = current_chunk->code.size();
+    emit_bytes(OP_GET_LOCAL, (uint8_t)islot);
+    emit_bytes(OP_GET_LOCAL, (uint8_t)nslot);
+    emit_byte(OP_LESS);
+    int exit_jump = emit_jump(OP_JUMP_IF_FALSE);
+    load_arr();
+    emit_bytes(OP_GET_LOCAL, (uint8_t)islot);
+    emit_constant(Variant((int64_t)0));
+    emit_byte(OP_SET_ARRAY);
+    emit_byte(1);
+    store_arr();
+    emit_bytes(OP_GET_LOCAL, (uint8_t)islot);
+    emit_constant(Variant((int64_t)1));
+    emit_byte(OP_ADD_I64);
+    emit_bytes(OP_SET_LOCAL, (uint8_t)islot);
+    emit_loop(loop_start);
+    patch_jump(exit_jump);
+}
+
 bool VisualGasicCompiler::is_dictionary_var(const String &name) const {
     return dictionary_vars.has(name.to_lower());
 }
@@ -2215,6 +2497,9 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
                         if (!_vg_string_dict_key(aa->indices[i], string_key_arrays)) escaped.insert(name);
                     }
                 }
+            } else if (aa->base) {
+                note_int_array_copied(aa->base);
+                _check_expr_escapes(aa->base, escaped);
             }
             for (int i = 0; i < aa->indices.size(); i++)
                 _check_expr_escapes(aa->indices[i], escaped);
@@ -2235,7 +2520,8 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
                     escaped.insert(name);
                 }
             }
-            // If any dict var is passed as an argument to a call, it escapes
+            // If any dict var is passed as an argument to a call, it escapes.
+            // An integer array passed to a call can come back holding any value.
             for (int i = 0; i < c->arguments.size(); i++) {
                 ExpressionNode* arg = c->arguments[i];
                 if (arg && arg->type == ExpressionNode::VARIABLE) {
@@ -2243,7 +2529,9 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
                     if (sole_owner_dict_vars.has(name)) {
                         escaped.insert(name);
                     }
+                    note_unproven_int_array(name);
                 }
+                note_int_array_copied(arg);
                 _check_expr_escapes(arg, escaped);
             }
             break;
@@ -2258,7 +2546,14 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
                     escaped.insert(name);
                 }
             }
-            if (oa->object_expression) _check_expr_escapes(oa->object_expression, escaped);
+            if (oa->object_expression) {
+                note_int_array_copied(oa->object_expression);
+                _check_expr_escapes(oa->object_expression, escaped);
+            }
+            for (int i = 0; i < oa->arguments.size(); i++) {
+                note_int_array_copied(oa->arguments[i]);
+                _check_expr_escapes(oa->arguments[i], escaped);
+            }
             break;
         }
         case ExpressionNode::MEMBER_ACCESS: {
@@ -2273,7 +2568,46 @@ void VisualGasicCompiler::_check_expr_escapes(ExpressionNode* expr, HashSet<Stri
             if (ma->base_object) _check_expr_escapes(ma->base_object, escaped);
             break;
         }
+        case ExpressionNode::LITERAL:
+        case ExpressionNode::ME:
+        case ExpressionNode::SUPER:
+        case ExpressionNode::WITH_CONTEXT:
+            break;
+        case ExpressionNode::NEW: {
+            NewNode *nn = (NewNode *)expr;
+            for (int i = 0; i < nn->args.size(); i++) {
+                note_int_array_copied(nn->args[i]);
+                _check_expr_escapes(nn->args[i], escaped);
+            }
+            break;
+        }
+        case ExpressionNode::EXPRESSION_IIF: {
+            IIfNode *iif = (IIfNode *)expr;
+            _check_expr_escapes(iif->condition, escaped);
+            note_int_array_copied(iif->true_part);
+            _check_expr_escapes(iif->true_part, escaped);
+            note_int_array_copied(iif->false_part);
+            _check_expr_escapes(iif->false_part, escaped);
+            break;
+        }
+        case ExpressionNode::TYPE_CHECK: {
+            TypeCheckExpression *tc = (TypeCheckExpression *)expr;
+            note_int_array_copied(tc->expression);
+            _check_expr_escapes(tc->expression, escaped);
+            break;
+        }
+        case ExpressionNode::LAMBDA: {
+            LambdaNode *lam = (LambdaNode *)expr;
+            note_int_array_copied(lam->body_expression);
+            _check_expr_escapes(lam->body_expression, escaped);
+            for (int i = 0; i < lam->body_statements.size(); i++) {
+                _check_dict_escapes(lam->body_statements[i], escaped);
+            }
+            break;
+        }
         default:
+            // A shape this walk does not name can still carry the array.
+            note_every_int_array_unproven();
             break;
     }
 }
@@ -2325,17 +2659,49 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
                     }
                 }
             }
+            if (s->target && s->target->type == ExpressionNode::VARIABLE) {
+                const String target_name = ((VariableNode *)s->target)->name;
+                note_unproven_int_array(target_name);
+                if (expr_reads_unproven_int(s->value)) note_demoted_inferred_int(target_name);
+            } else if (s->target && s->value) {
+                ExpressionNode *base = nullptr;
+                if (s->target->type == ExpressionNode::ARRAY_ACCESS) {
+                    base = ((ArrayAccessNode *)s->target)->base;
+                } else if (s->target->type == ExpressionNode::EXPRESSION_CALL &&
+                        !((CallExpression *)s->target)->base_object &&
+                        ((CallExpression *)s->target)->arguments.size() == 1) {
+                    base = nullptr;
+                    note_unproven_int_array_store(((CallExpression *)s->target)->method_name, s->value);
+                }
+                if (base && base->type == ExpressionNode::VARIABLE) {
+                    note_unproven_int_array_store(((VariableNode *)base)->name, s->value);
+                }
+            }
+            // `alias = nums`, `box(i) = nums`, and `obj.Field = nums` publish
+            // the array. The copy has to be the shared Variant Array.
+            note_int_array_copied(s->value);
             _check_expr_escapes(s->value, escaped);
             _check_expr_escapes(s->target, escaped);
             break;
         }
         case STMT_PRINT: {
             PrintStatement* s = (PrintStatement*)stmt;
+            note_int_array_copied(s->expression);
             _check_expr_escapes(s->expression, escaped);
+            note_int_array_copied(s->file_number);
+            _check_expr_escapes(s->file_number, escaped);
+            for (int i = 0; i < s->extra_expressions.size(); i++) {
+                note_int_array_copied(s->extra_expressions[i]);
+                _check_expr_escapes(s->extra_expressions[i], escaped);
+            }
             break;
         }
         case STMT_FOR: {
             ForStatement* f = (ForStatement*)stmt;
+            if (expr_reads_unproven_int(f->from_val) || expr_reads_unproven_int(f->to_val) ||
+                    expr_reads_unproven_int(f->step_val)) {
+                note_demoted_inferred_int(f->variable_name);
+            }
             _check_expr_escapes(f->from_val, escaped);
             _check_expr_escapes(f->to_val, escaped);
             _check_expr_escapes(f->step_val, escaped);
@@ -2406,6 +2772,10 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             if (s->collection && s->collection->type == ExpressionNode::VARIABLE) {
                 String coll = ((VariableNode*)s->collection)->name.to_lower();
                 if (sole_owner_dict_vars.has(coll)) escaped.insert(coll);
+            } else if (s->collection) {
+                // For Each nums does not publish a second name. For Each IIf(...)
+                // does: the chosen branch is the collection object.
+                note_int_array_copied(s->collection);
             }
             _check_expr_escapes(s->collection, escaped);
             for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
@@ -2413,11 +2783,17 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
         }
         case STMT_DIM: {
             DimStatement* s = (DimStatement*)stmt;
+            for (int i = 0; i < s->array_sizes.size(); i++) {
+                note_int_array_copied(s->array_sizes[i]);
+                _check_expr_escapes(s->array_sizes[i], escaped);
+            }
             if (s->initializer) {
-				if (s->initializer->type == ExpressionNode::VARIABLE) {
+                if (s->initializer->type == ExpressionNode::VARIABLE) {
 					String source = ((VariableNode *)s->initializer)->name.to_lower();
 					if (sole_owner_dict_vars.has(source)) escaped.insert(source);
 				}
+                note_int_array_copied(s->initializer);
+                if (expr_reads_unproven_int(s->initializer)) note_demoted_inferred_int(s->variable_name);
                 // Non-New initializer means the variable receives an existing object —
                 // not a sole-owner dict, so the VGDict optimisation must not apply.
                 bool is_new_dict = false;
@@ -2446,7 +2822,8 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
                     escaped.insert(name);
                 }
             }
-            // If a dict var is passed as argument, it escapes
+            // If a dict var is passed as argument, it escapes.
+            // Passing an integer array lets the callee store any element value.
             for (int i = 0; i < s->arguments.size(); i++) {
                 ExpressionNode* arg = s->arguments[i];
                 if (arg && arg->type == ExpressionNode::VARIABLE) {
@@ -2454,7 +2831,9 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
                     if (sole_owner_dict_vars.has(name)) {
                         escaped.insert(name);
                     }
+                    note_unproven_int_array(name);
                 }
+                note_int_array_copied(arg);
                 _check_expr_escapes(arg, escaped);
             }
             break;
@@ -2467,17 +2846,25 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
                 String name = ((VariableNode*)s->return_value)->name.to_lower();
                 if (sole_owner_dict_vars.has(name)) escaped.insert(name);
             }
+            note_int_array_copied(s->return_value);
             _check_expr_escapes(s->return_value, escaped);
             break;
         }
         case STMT_SELECT: {
             SelectStatement* s = (SelectStatement*)stmt;
+            note_int_array_copied(s->expression);
             _check_expr_escapes(s->expression, escaped);
             for (int c = 0; c < s->cases.size(); c++) {
                 CaseBlock* cb = s->cases[c];
                 if (!cb) continue;
-                for (int i = 0; i < cb->values.size(); i++) _check_expr_escapes(cb->values[i], escaped);
-                for (int i = 0; i < cb->range_ends.size(); i++) _check_expr_escapes(cb->range_ends[i], escaped);
+                for (int i = 0; i < cb->values.size(); i++) {
+                    note_int_array_copied(cb->values[i]);
+                    _check_expr_escapes(cb->values[i], escaped);
+                }
+                for (int i = 0; i < cb->range_ends.size(); i++) {
+                    note_int_array_copied(cb->range_ends[i]);
+                    _check_expr_escapes(cb->range_ends[i], escaped);
+                }
                 for (int i = 0; i < cb->body.size(); i++) _check_dict_escapes(cb->body[i], escaped);
             }
             break;
@@ -2488,6 +2875,7 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
                 String name = ((VariableNode*)s->expression)->name.to_lower();
                 if (sole_owner_dict_vars.has(name)) escaped.insert(name);
             }
+            note_int_array_copied(s->expression);
             _check_expr_escapes(s->expression, escaped);
             for (int i = 0; i < s->body.size(); i++) _check_dict_escapes(s->body[i], escaped);
             break;
@@ -2499,14 +2887,34 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
             for (int i = 0; i < s->finally_block.size(); i++) _check_dict_escapes(s->finally_block[i], escaped);
             break;
         }
+        case STMT_SWAP: {
+            SwapStatement *sw = (SwapStatement *)stmt;
+            note_int_array_copied(sw->left);
+            note_int_array_copied(sw->right);
+            _check_expr_escapes(sw->left, escaped);
+            _check_expr_escapes(sw->right, escaped);
+            break;
+        }
+        case STMT_REDIM: {
+            ReDimStatement *rd = (ReDimStatement *)stmt;
+            for (int i = 0; i < rd->array_sizes.size(); i++) {
+                note_int_array_copied(rd->array_sizes[i]);
+                _check_expr_escapes(rd->array_sizes[i], escaped);
+            }
+            break;
+        }
+        case STMT_CONST: {
+            ConstStatement *cs = (ConstStatement *)stmt;
+            note_int_array_copied(cs->value);
+            _check_expr_escapes(cs->value, escaped);
+            break;
+        }
         case STMT_LABEL:
         case STMT_GOTO:
         case STMT_ON_ERROR:
         case STMT_EXIT:
         case STMT_CONTINUE:
-        case STMT_CONST:
         case STMT_DO_EVENTS:
-        case STMT_REDIM:
         case STMT_ERASE:
         case STMT_PASS:
         case STMT_STOP:
@@ -2517,8 +2925,10 @@ void VisualGasicCompiler::_check_dict_escapes(Statement* stmt, HashSet<String> &
         case STMT_CLEAR_DATA:
             break;
         default:
-            // Unanalysed statement kinds may alias or hand out a dict;
-            // fall back to real Dictionaries rather than risk a stale slot.
+            // Unanalysed statement kinds may alias or hand out a dict or an
+            // array. Packed element ops are not safe for any integer array
+            // in this procedure.
+            note_every_int_array_unproven();
             for (const String &name : sole_owner_dict_vars) escaped.insert(name);
             break;
     }
@@ -2620,9 +3030,9 @@ bool VisualGasicCompiler::is_loop_array_fill(ForStatement* f, String &arr_var) c
     if (rhs_var != f->variable_name.to_lower()) return false;
 
     String arr_key = arr_name.to_lower();
-    // The fill opcode writes Integer elements. Only a declared integer
-    // array is that; an untyped or Double array keeps the ordinary loop.
-    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) return false;
+    // The fill opcode writes Integer elements. Only an array whose contents
+    // are still known to be integers takes it.
+    if (!int_array_ops_ok(arr_key)) return false;
 
     arr_var = arr_name;
     return true;
@@ -3274,10 +3684,10 @@ bool VisualGasicCompiler::is_nested_array_sum(ForStatement* outer, String &sum_v
     }
     if (idx_var != inner->variable_name.to_lower()) return fail("index var does not match inner loop var");
 
-    // OP_SUM_ARRAY_I64 truncates. A missing array_types entry is an untyped
-    // array, not a proven integer array.
+    // OP_SUM_ARRAY_I64 truncates. The element-type name is not proof that the
+    // values are integers (a Double array can be passed, and 1.5 can be stored).
     String arr_key = arr_name.to_lower();
-    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) return fail("array type is not integer");
+    if (!int_array_ops_ok(arr_key)) return fail("array contents are not proven integers");
 
     sum_var = s->name;
     arr_var = arr_name;
@@ -3392,10 +3802,9 @@ bool VisualGasicCompiler::is_nested_foreach_array_sum(ForStatement* outer, Strin
     }
     arr_var = ((VariableNode *)inner->collection)->name;
     String arr_key = arr_var.to_lower();
-    // Same rule as the indexed sum: only a declared integer array. A Double
-    // parameter is VT_FLOAT; an untyped parameter is absent. Neither is summed
-    // with OP_SUM_ARRAY_I64 (1.5+2.5+1.5+2.5 is 8, and the i64 sum is 6).
-    if (!array_types.has(arr_key) || array_types[arr_key] != VT_INT) {
+    // Same rule as the indexed sum. An Integer parameter does not prove the
+    // elements: 1.5+2.5 summed twice is 8, and the i64 sum is 6.
+    if (!int_array_ops_ok(arr_key)) {
         return false;
     }
     AssignmentStatement *as = nullptr;
@@ -3790,7 +4199,7 @@ bool VisualGasicCompiler::try_emit_get_array_i64_local(const String &arr_name, E
         return false;
     }
     String key = arr_name.to_lower();
-    if (!array_types.has(key) || array_types[key] != VT_INT) {
+    if (!int_array_ops_ok(key)) {
         return false;
     }
     int slot = get_or_add_local(arr_name, VT_UNKNOWN);
@@ -3807,7 +4216,7 @@ bool VisualGasicCompiler::try_emit_set_array_i64_local(const String &arr_name, E
         return false;
     }
     String key = arr_name.to_lower();
-    if (!array_types.has(key) || array_types[key] != VT_INT) {
+    if (!int_array_ops_ok(key) || infer_type(value) != VT_INT) {
         return false;
     }
     int slot = get_or_add_local(arr_name, VT_UNKNOWN);
@@ -4174,10 +4583,7 @@ bool VisualGasicCompiler::try_compile_packed_hp_state_for(ForStatement *f) {
     };
 
     auto emit_tick = [&](const String &hp_n, const String &st_n, const String &sum_n, const String &tag_n) -> bool {
-        if (!array_types.has(hp_n) || array_types[hp_n] != VT_INT) {
-            return false;
-        }
-        if (!array_types.has(st_n) || array_types[st_n] != VT_INT) {
+        if (!int_array_ops_ok(hp_n) || !int_array_ops_ok(st_n)) {
             return false;
         }
         int hp_slot = get_or_add_local(hp_n, VT_UNKNOWN);
@@ -4185,7 +4591,7 @@ bool VisualGasicCompiler::try_compile_packed_hp_state_for(ForStatement *f) {
         int sum_slot = get_or_add_local(sum_n, VT_INT);
         int tg_slot = 255;
         if (!tag_n.is_empty()) {
-            if (!array_types.has(tag_n) || array_types[tag_n] != VT_INT) {
+            if (!int_array_ops_ok(tag_n)) {
                 return false;
             }
             tg_slot = get_or_add_local(tag_n, VT_UNKNOWN);
@@ -4479,7 +4885,7 @@ bool VisualGasicCompiler::try_compile_packed_nearest_for(ForStatement *f) {
     if (!iv || iv->type != ExpressionNode::VARIABLE || ((VariableNode *)iv)->name.to_lower() != loop) {
         return false;
     }
-    if (!array_types.has(px) || array_types[px] != VT_INT || !array_types.has(py) || array_types[py] != VT_INT) {
+    if (!int_array_ops_ok(px) || !int_array_ops_ok(py)) {
         return false;
     }
     int px_s = get_or_add_local(px, VT_UNKNOWN);
@@ -7496,7 +7902,12 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
         ArrayAccessNode* aa = (ArrayAccessNode*)expr;
         if (aa->base && aa->base->type == ExpressionNode::VARIABLE) {
             String key = ((VariableNode*)aa->base)->name.to_lower();
-            if (array_types.has(key)) return array_types[key];
+            if (array_types.has(key)) {
+                // The declaration is not the value. An unproven element may be
+                // 1.5, and i64 add / store / compare would turn that into 1.
+                if (array_types[key] == VT_INT && unproven_int_arrays.has(key)) return VT_UNKNOWN;
+                return array_types[key];
+            }
         }
         return VT_UNKNOWN;
     }
@@ -7504,8 +7915,19 @@ VisualGasicCompiler::ValueType VisualGasicCompiler::infer_type(ExpressionNode* e
         CallExpression* call = (CallExpression*)expr;
         if (!call->base_object && call->arguments.size() == 1) {
             String key = call->method_name.to_lower();
-            if (array_types.has(key)) return array_types[key];
+            if (array_types.has(key)) {
+                if (array_types[key] == VT_INT && unproven_int_arrays.has(key)) return VT_UNKNOWN;
+                return array_types[key];
+            }
         }
+        return VT_UNKNOWN;
+    }
+    if (expr->type == ExpressionNode::EXPRESSION_IIF) {
+        IIfNode *iif = (IIfNode *)expr;
+        ValueType yes = infer_type(iif->true_part);
+        ValueType no = infer_type(iif->false_part);
+        if (yes == VT_INT && no == VT_INT) return VT_INT;
+        if (yes == VT_FLOAT && no == VT_FLOAT) return VT_FLOAT;
         return VT_UNKNOWN;
     }
     return VT_UNKNOWN;
@@ -8107,8 +8529,20 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 emit_byte(OP_ADD);
                 {
                     String key = s->variable_name.to_lower();
-                    bool int_array = array_types.has(key) && array_types[key] == VT_INT;
-                    emit_byte(int_array ? OP_NEW_ARRAY_I64 : OP_NEW_ARRAY);
+                    // PackedInt64Array only when every store is an integer and
+                    // the array object is never aliased. The runtime value is
+                    // indistinguishable from an explicit PackedInt64Array, so
+                    // an alias or a non-integer element uses the AST's Variant
+                    // Array instead of widening a packed copy.
+                    bool packed_int = int_array_ops_ok(key) && !non_local_names.has(key);
+                    if (packed_int) {
+                        emit_byte(OP_NEW_ARRAY_I64);
+                    } else if (array_types.has(key) && array_types[key] == VT_INT) {
+                        emit_variant_int_array(s->variable_name);
+                        break;
+                    } else {
+                        emit_byte(OP_NEW_ARRAY);
+                    }
                 }
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
@@ -8359,7 +8793,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                     }
                     int slot = get_or_add_local(v->name, infer_type(s->value));
                     if (slot >= 0 && get_local_type(v->name) == VT_INT &&
-                            (!is_declared_integer_var(v->name) || infer_type(b->right) == VT_INT)) {
+                            infer_type(b->right) == VT_INT) {
                         compile_expression(b->right);
                         emit_byte(b->op == "+" ? OP_ADD_LOCAL_I64_STACK : OP_SUB_LOCAL_I64_STACK);
                         emit_byte((uint8_t)slot);
@@ -9019,7 +9453,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             String fill_arr;
             if (kEnableLoopFusions && is_loop_array_fill(f, fill_arr)) {
                 ValueType bound_type = infer_type(f->to_val);
-                if (bound_type != VT_FLOAT) {
+                if (bound_type == VT_INT) {
                     VariableNode arr_node;
                     arr_node.name = fill_arr;
                     compile_expression(&arr_node);
@@ -9164,7 +9598,8 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             {
                 String f64_acc;
                 double f64_delta = 0.0;
-                if (kEnableLoopFusions && is_simple_f64_accum_loop(f, f64_acc, f64_delta) && f->to_val) {
+                if (kEnableLoopFusions && is_simple_f64_accum_loop(f, f64_acc, f64_delta) && f->to_val &&
+                        infer_type(f->to_val) == VT_INT) {
                     int acc_slot = get_or_add_local(f64_acc, VT_FLOAT);
                     if (acc_slot >= 0 && get_local_type(f64_acc) == VT_FLOAT) {
                         // f += (to_val + 1) * delta  for For i = 0 To to_val Step 1
@@ -9182,8 +9617,8 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             if (kEnableLoopFusions && is_nested_arith_loop(f, sum_var, arith_k, arith_c)) {
                 ForStatement* inner = (ForStatement*)f->body[0];
                 if (inner && inner->to_val && f->to_val &&
-                    infer_type(inner->to_val) != VT_FLOAT &&
-                    infer_type(f->to_val) != VT_FLOAT &&
+                    infer_type(inner->to_val) == VT_INT &&
+                    infer_type(f->to_val) == VT_INT &&
                     get_local_type(sum_var) == VT_INT) {
                     // Push inner_to, outer_to, current sum then apply closed-form arithmetic sum.
                     compile_expression(inner->to_val);
@@ -9594,7 +10029,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             if (!matched_array_dict) {
                 matched_array_dict = try_match_simple_array_dict(sum_var, arr_var, dict_var, iter_var);
             }
-            if (matched_array_dict && array_types.has(arr_var.to_lower()) && array_types[arr_var.to_lower()] == VT_INT) {
+            if (matched_array_dict && int_array_ops_ok(arr_var)) {
                 // sum = sum + (sum_array(arr) + sum_dict(dict)) * iterations
                 // The array half is OP_SUM_ARRAY_I64, so the array must be a
                 // declared integer array. An untyped or Double array falls
@@ -9771,7 +10206,7 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
             }
             else compile_expression(f->to_val);
             ValueType to_type = infer_type(f->to_val);
-            bool use_int_compare = (loop_type == VT_INT && to_type != VT_FLOAT);
+            bool use_int_compare = (loop_type == VT_INT && to_type == VT_INT);
 
             // Determine comparison direction based on step sign.
             // Positive or default step → counter <= limit (OP_LESS_EQUAL)
@@ -9930,7 +10365,15 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 } else if (has_step_const && !step_const_is_integral) {
                     step_requires_float = true;
                 }
-                if (loop_type == VT_INT && !step_requires_float) {
+                bool step_is_proven_int = false;
+                if (!f->step_val) {
+                    step_is_proven_int = (loop_type == VT_INT);
+                } else if (has_step_const && step_const_is_integral) {
+                    step_is_proven_int = true;
+                } else if (step_expr_type == VT_INT) {
+                    step_is_proven_int = true;
+                }
+                if (loop_type == VT_INT && step_is_proven_int && !step_requires_float) {
                     emit_byte(OP_ADD_I64);
                 } else if (step_requires_float) {
                     emit_byte(OP_ADD_F64);
@@ -10073,8 +10516,15 @@ void VisualGasicCompiler::compile_statement_body(Statement* stmt) {
                 emit_constant(Variant((int64_t)1));
                 emit_byte(OP_ADD);
                 String key = s->variable_name.to_lower();
-                bool int_array = array_types.has(key) && array_types[key] == VT_INT;
-                emit_byte(int_array ? OP_NEW_ARRAY_I64 : OP_NEW_ARRAY);
+                bool packed_int = int_array_ops_ok(key) && !non_local_names.has(key);
+                if (packed_int) {
+                    emit_byte(OP_NEW_ARRAY_I64);
+                } else if (array_types.has(key) && array_types[key] == VT_INT) {
+                    emit_variant_int_array(s->variable_name);
+                    break;
+                } else {
+                    emit_byte(OP_NEW_ARRAY);
+                }
 
                 int slot = get_or_add_local(s->variable_name, VT_UNKNOWN);
                 if (slot >= 0) emit_bytes(OP_SET_LOCAL, (uint8_t)slot);

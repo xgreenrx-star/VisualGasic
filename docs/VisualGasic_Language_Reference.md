@@ -6225,6 +6225,16 @@ The elapsed time since the previous frame (in seconds). Passed to [b]_Process[/b
 
 Declares a local variable with an optional type and initial value. Variables declared with Dim are local to the procedure they appear in.
 
+A scalar `As Integer` stores an integer. Assigning `1.5` to that scalar becomes `2`.
+
+A local `Dim nums(n) As Integer` is a separate observation from the AST interpreter. Bytecode follows that observation. This section does not add a language rule that every integer array is a Variant array, and it does not change an explicit `PackedInt64Array`.
+
+On the AST interpreter, that local array is a Godot Array whose elements start as Integer `0`. An element store keeps the assigned value, so `nums(0) = 1.5` leaves a Double `1.5` and leaves the other elements unchanged. Assigning the array, or receiving it from `IIf` or `Choose`, shares that array object: a later element store is visible through every name that holds the selected object, and the unselected branch stays unchanged. An explicit `PackedInt64Array` stays packed. The same `1.5` store becomes the integer `1` on every name that shares the packed buffer.
+
+The compiler may keep a private local integer array in a packed buffer when it proves that every element store is an integer and that the array object is never published. Nothing at runtime distinguishes that buffer from an explicit `PackedInt64Array`. When the proof fails, including an expression or statement the copy analysis does not understand, the local array uses the Godot Array. An element read, and `For Each` over the array variable, does not by itself publish the object.
+
+Whole-array `ByVal` has been observed to share the Godot Array. The fixtures lock that observation. They do not specify a deep copy, and they do not change the scalar `ByVal` rule. Container identity after `ReDim` is unresolved. The semantic-fuzz contracts record the fixtures, the remaining exclusions, and the absence of native Tier-3 coverage.
+
 **Example**
 
     Dim score As Integer = 0

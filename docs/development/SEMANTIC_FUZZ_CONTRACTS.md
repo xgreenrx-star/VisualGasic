@@ -296,7 +296,50 @@ observations come from `reference.evaluate_program`, not another VG run.
 
 Still outside the C3 oracle: missing-key ByRef write-back, container identity
 after replacement or `ReDim`, MemoryBuffer indexed ByRef, impure indexed ByRef,
-alias, and named-argument order.
+repeated ByRef argument alias, and named-argument order.
+
+### Local Integer arrays (observed AST behavior)
+
+This is the AST interpreter's current behavior. The bytecode compiler matches
+it. It is not a new language rule, and it does not require every integer array
+to be a Variant array.
+
+| Observation | Fixtures lock | Left unspecified |
+|---|---|---|
+| `Dim nums(n) As Integer` when the compiler cannot prove a private integer buffer | Godot Array. Elements start as Integer `0`. `nums(0) = 1.5` stays Double `1.5`. Untouched neighbors stay Integer. `TypeName` of the container is `Array`. | A requirement to use a Variant array after the compiler has proved that every element store is an integer and the array object is never published. |
+| Assignment, `IIf` (both branches, including nested `IIf`), `Choose`, `For Each` of an `IIf`, `Print` of the array, `TypeOf`, and a lambda that returns the array | The selected or published object is shared. A later element store is visible through every name that holds it. The unselected branch is unchanged. | A constant `IIf` condition does not limit the compile-time proof: both branches count as publications. |
+| Explicit `PackedInt64Array` | Stays `PackedInt64Array`. Storing `1.5` stores `1` through every name that shares that buffer. | Widening an explicit packed array into a Variant array. There is no runtime tag that separates it from the compiler's private packed buffer. |
+| Scalar `Dim n As Integer` | `n = 1.5` becomes `2`. | Applying that coercion to an array slot. |
+| Proven integer element through `IIf` | The stored element stays Integer. | |
+| Element copied after a non-integer store | The copied value stays `1.5` through a later store, arithmetic, a comparison, and a loop step. Statement order does not restore the declared element type. | |
+| Whole-array `ByVal` | The AST interpreter shares the Godot Array. Bytecode matches that observation in the fixtures. | A specified deep copy, and a specified change to scalar `ByVal`. |
+| `Swap` of two arrays | The AST walker exchanges the array objects. The following store is visible only through the name that holds the written object. | Bytecode coverage. `Swap` has no bytecode emitter, so that procedure stays on the AST walker. |
+
+Regression fixtures: `test_sem_array_param_element_values.vg`,
+`test_sem_array_alias_packed.vg`, `test_sem_array_elem_transfer.vg`, and
+`test_sem_array_iif_alias.vg`. Related fixtures that stay in force:
+`test_sem_byref_array_param_chain.vg`, `test_sem_array_param_foreach_sum.vg`,
+and `test_sem_game_shaped_state.vg`.
+
+On editor library `e16e2fa126ec46359f439a2fcd526c340e84d352d34baf69f7c2a6177e558c3c`,
+those array fixtures ran on the AST walker under `VG_FORCE_AST=1` and on
+bytecode under `VG_JIT=0`, the default, and `VG_JIT=3`. `CheckSwap` stayed on
+the AST walker in every mode. `native_t3` was 0. C2, C3, and C4 campaigns of
+48 cases in the same four modes recorded `native_total=0`. A `VG_JIT=3`
+request is not Tier-3 execution. C3 `SemMain` still falls back to the AST
+walker for some generated programs under every bytecode mode, including
+`VG_JIT=3`: seed 11 is 6 of 48, seed 20261122 is 4 of 48, and seed 99 is 5 of
+48. `QuestTick` in `test_sem_game_shaped_state.vg` stays on the AST walker
+under bytecode modes.
+
+Still open after this observation, and still excluded from the generators:
+missing-key ByRef write-back, container identity after `ReDim`, MemoryBuffer
+indexed ByRef, impure indexed ByRef, repeated ByRef argument alias,
+named-argument order, `GoTo` out of `Try` (not required to run `Finally`),
+`Raise` inside `Finally` versus `On Error Resume Next`, dual-import same-name
+Twin, and `Declare` / `Event` parameter lists that do not accept `name()`.
+Nested index stores and UDT member stores may keep that procedure on the AST
+walker. CP4 generators stay blocked.
 
 ### C3b — nested containers, UDT copy, iteration
 

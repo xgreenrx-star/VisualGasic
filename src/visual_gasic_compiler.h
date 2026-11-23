@@ -65,6 +65,16 @@ private:
     HashSet<String> sole_owner_dict_vars;  // Dicts proven to have sole ownership → use VGFastStringDict
     HashSet<String> buffer_vars;        // (M5) Variables declared As New MemoryBuffer → use Buffer opcodes
     HashMap<String, ValueType> array_types;
+    // Declared Integer/Long element type is not proof of the values. An array
+    // in this set has been passed to a call, stored a non-integer, or received
+    // an element from an array already in this set. A read is not an integer
+    // for the whole procedure, including statements that appear before the
+    // store that made the contents unproven.
+    mutable HashSet<String> unproven_int_arrays;
+    // Untyped locals that receive an unproven element. Inferred VT_INT must
+    // not stick for a later i64 add: the non-integer store may be textually
+    // later, or in a loop body after an integer update.
+    mutable HashSet<String> demoted_inferred_ints;
     HashMap<String, String> array_bound_vars;
     HashSet<String> typed_locals;
     HashSet<String> declared_string_vars;  // String locals, params and block locals: assignment stores the VB display string
@@ -168,6 +178,24 @@ private:
 
     bool is_pure_expr(ExpressionNode* expr) const;
     bool is_fast_array_var(const String &name) const;
+    // True only when this local was declared with integer elements, every
+    // element store is an integer, and the array object is never aliased.
+    // A PackedInt64Array has no runtime mark that would separate this
+    // optimization from an explicit PackedInt64Array, so the optimization is
+    // not used once either condition fails.
+    bool int_array_ops_ok(const String &name) const;
+    bool is_declared_int_array(const String &name) const;
+    void note_unproven_int_array(const String &name) const;
+    void note_unproven_int_array_store(const String &name, ExpressionNode *value) const;
+    void note_int_array_copied(ExpressionNode *expr) const;
+    // An expression or statement shape the walker does not understand can
+    // still publish the array. Packed element ops are then unsafe.
+    void note_every_int_array_unproven() const;
+    bool expr_reads_unproven_int(ExpressionNode *expr) const;
+    void note_demoted_inferred_int(const String &name) const;
+    // Size is on the stack. Variant Array of Integer zeros, matching the AST
+    // container for Dim As Integer. PackedInt64Array cannot store 1.5.
+    void emit_variant_int_array(const String &name);
     bool is_dictionary_var(const String &name) const;
     // The element expressions of a VB6 `Array(e1, …, en)` literal, or nullptr
     // when `expr` is anything else (including a user variable named Array).
